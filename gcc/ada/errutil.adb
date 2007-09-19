@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1991-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1991-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -582,6 +582,12 @@ package body Errutil is
       --  an initial dummy entry covering all possible source locations.
 
       Warnings.Init;
+
+      if Warning_Mode = Suppress then
+         Warnings.Increment_Last;
+         Warnings.Table (Warnings.Last).Start := Source_Ptr'First;
+         Warnings.Table (Warnings.Last).Stop  := Source_Ptr'Last;
+      end if;
    end Initialize;
 
    ------------------------
@@ -675,7 +681,12 @@ package body Errutil is
          --  Check for insertion character
 
          if C = '%' then
-            Set_Msg_Insertion_Name;
+            if P <= Text'Last and then Text (P) = '%' then
+               P := P + 1;
+               Set_Msg_Insertion_Name_Literal;
+            else
+               Set_Msg_Insertion_Name;
+            end if;
 
          elsif C = '$' then
 

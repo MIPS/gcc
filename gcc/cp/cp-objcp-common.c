@@ -1,12 +1,12 @@
 /* Some code common to C++ and ObjC++ front ends.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2007 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -36,7 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Special routine to get the alias set for C++.  */
 
-HOST_WIDE_INT
+alias_set_type
 cxx_get_alias_set (tree t)
 {
   if (IS_FAKE_BASE_TYPE (t))
@@ -45,7 +44,9 @@ cxx_get_alias_set (tree t)
     return get_alias_set (TYPE_CONTEXT (t));
 
   /* Punt on PMFs until we canonicalize functions properly.  */
-  if (TYPE_PTRMEMFUNC_P (t))
+  if (TYPE_PTRMEMFUNC_P (t)
+      || (POINTER_TYPE_P (t)
+	  && TYPE_PTRMEMFUNC_P (TREE_TYPE (t))))
     return 0;
 
   return c_common_get_alias_set (t);
@@ -54,7 +55,7 @@ cxx_get_alias_set (tree t)
 /* Called from check_global_declarations.  */
 
 bool
-cxx_warn_unused_global_decl (tree decl)
+cxx_warn_unused_global_decl (const_tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
     return false;
@@ -68,18 +69,18 @@ cxx_warn_unused_global_decl (tree decl)
   return true;
 }
 
-/* Langhook for expr_size: Tell the backend that the value of an expression
+/* Langhook for expr_size: Tell the back end that the value of an expression
    of non-POD class type does not include any tail padding; a derived class
    might have allocated something there.  */
 
 tree
-cp_expr_size (tree exp)
+cp_expr_size (const_tree exp)
 {
   tree type = TREE_TYPE (exp);
 
   if (CLASS_TYPE_P (type))
     {
-      /* The backend should not be interested in the size of an expression
+      /* The back end should not be interested in the size of an expression
 	 of a type with both of these set; all copies of such types must go
 	 through a constructor or assignment op.  */
       if (!TYPE_HAS_COMPLEX_INIT_REF (type)
@@ -117,13 +118,26 @@ cp_tree_size (enum tree_code code)
 {
   switch (code)
     {
-    case TINST_LEVEL:		return sizeof (struct tinst_level_s);
     case PTRMEM_CST:		return sizeof (struct ptrmem_cst);
     case BASELINK:		return sizeof (struct tree_baselink);
     case TEMPLATE_PARM_INDEX:	return sizeof (template_parm_index);
     case DEFAULT_ARG:		return sizeof (struct tree_default_arg);
     case OVERLOAD:		return sizeof (struct tree_overload);
     case STATIC_ASSERT:         return sizeof (struct tree_static_assert);
+    case TYPE_ARGUMENT_PACK:
+    case TYPE_PACK_EXPANSION:
+      return sizeof (struct tree_common);
+
+    case NONTYPE_ARGUMENT_PACK:
+    case EXPR_PACK_EXPANSION:
+      return sizeof (struct tree_exp);
+
+    case ARGUMENT_PACK_SELECT:
+      return sizeof (struct tree_argument_pack_select);
+
+    case TRAIT_EXPR:
+      return sizeof (struct tree_trait_expr);
+
     default:
       gcc_unreachable ();
     }
@@ -214,7 +228,7 @@ pop_file_scope (void)
 
 /* c-pragma.c needs to query whether a decl has extern "C" linkage.  */
 bool
-has_c_linkage (tree decl)
+has_c_linkage (const_tree decl)
 {
   return DECL_EXTERN_C_P (decl);
 }
@@ -228,7 +242,7 @@ tree
 decl_shadowed_for_var_lookup (tree from)
 {
   struct tree_map *h, in;
-  in.from = from;
+  in.base.from = from;
 
   h = (struct tree_map *) htab_find_with_hash (shadowed_var_for_decl, &in,
 					       htab_hash_pointer (from));
@@ -247,7 +261,7 @@ decl_shadowed_for_var_insert (tree from, tree to)
 
   h = GGC_NEW (struct tree_map);
   h->hash = htab_hash_pointer (from);
-  h->from = from;
+  h->base.from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (shadowed_var_for_decl, h, h->hash, INSERT);
   *(struct tree_map **) loc = h;

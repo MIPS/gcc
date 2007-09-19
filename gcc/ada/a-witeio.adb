@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -40,8 +40,8 @@ with System.File_IO;
 with System.WCh_Cnv;       use System.WCh_Cnv;
 with System.WCh_Con;       use System.WCh_Con;
 
-with Unchecked_Conversion;
-with Unchecked_Deallocation;
+with Ada.Unchecked_Conversion;
+with Ada.Unchecked_Deallocation;
 
 pragma Elaborate_All (System.File_IO);
 --  Needed because of calls to Chain_File in package body elaboration
@@ -52,8 +52,8 @@ package body Ada.Wide_Text_IO is
 
    subtype AP is FCB.AFCB_Ptr;
 
-   function To_FCB is new Unchecked_Conversion (File_Mode, FCB.File_Mode);
-   function To_TIO is new Unchecked_Conversion (FCB.File_Mode, File_Mode);
+   function To_FCB is new Ada.Unchecked_Conversion (File_Mode, FCB.File_Mode);
+   function To_TIO is new Ada.Unchecked_Conversion (FCB.File_Mode, File_Mode);
    use type FCB.File_Mode;
 
    use type System.CRTL.size_t;
@@ -96,7 +96,7 @@ package body Ada.Wide_Text_IO is
    -- AFCB_Close --
    ----------------
 
-   procedure AFCB_Close (File : access Wide_Text_AFCB) is
+   procedure AFCB_Close (File : not null access Wide_Text_AFCB) is
    begin
       --  If the file being closed is one of the current files, then close
       --  the corresponding current file. It is not clear that this action
@@ -118,11 +118,12 @@ package body Ada.Wide_Text_IO is
    -- AFCB_Free --
    ---------------
 
-   procedure AFCB_Free (File : access Wide_Text_AFCB) is
+   procedure AFCB_Free (File : not null access Wide_Text_AFCB) is
       type FCB_Ptr is access all Wide_Text_AFCB;
       FT : FCB_Ptr := FCB_Ptr (File);
 
-      procedure Free is new Unchecked_Deallocation (Wide_Text_AFCB, FCB_Ptr);
+      procedure Free is
+        new Ada.Unchecked_Deallocation (Wide_Text_AFCB, FCB_Ptr);
 
    begin
       Free (FT);
@@ -1805,6 +1806,9 @@ package body Ada.Wide_Text_IO is
      (File : in out Wide_Text_AFCB;
       Item : Stream_Element_Array)
    is
+      pragma Warnings (Off, File);
+      --  Because in this implementation we don't need IN OUT, we only read
+
       Siz : constant size_t := Item'Length;
 
    begin

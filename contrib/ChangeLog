@@ -1,3 +1,68 @@
+2007-08-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc_update: Handle different URL paths and tags.
+
+2007-08-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* compare-debug: New.
+
+2007-08-16  H.J. Lu  <hongjiu.lu@intel.com>
+	    Andreas Schwab <schwab@suse.de>
+
+	* gcc_update: Use "svn info" for revision number.  Create
+	gcc/REVISION with branch name and revision number.
+
+2007-08-10  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.doxy: Rename from tree-ssa.doxy.
+
+2007-08-10  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa.doxy: Update for doxygen 1.5.
+	Include all the files in the middle and back ends.
+
+2007-06-30  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc_update (files_and_dependencies): Handle
+	gcc/testsuite/gcc.dg/cpp/direct2s.c.
+
+2007-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* gennews (files): Reference GCC 4.2 web pages.
+
+2007-04-04  Zack Weinberg  <zack@mrtock.ucsd.edu>
+
+	* texi2pod.pl: Correct handling of @itemize with no argument.
+
+2007-03-17  Hans-Peter Nilsson  <hp@axis.com>
+
+	* uninclude: New utility, from Alexandre Oliva.
+
+2007-02-26  Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	* test_installed: Adjust to the move from g77 to gfortran.
+
+2007-02-16  Matthias Klose  <doko@debian.org>
+
+	* texi2pod.pl: Handle @subsubsection, ignore @anchor.
+
+2007-02-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	* test_summary (configflags): Adjust for changes in the
+	config.status format due to update to autoconf 2.59.
+
+2007-02-09  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc_update: Update for configure.in -> configure.ac.
+
+2007-02-06  Richard Sandiford  <richard@codesourcery.com>
+
+	* texi2pod.pl: Handle @multitable.
+
+2007-01-15  Tom Tromey  <tromey@redhat.com>
+
+	* download_ecj: New file.
+
 2006-09-27  Matthew Sachs  <msachs@apple.com>
 
 	* compareSumTests3: POD syntax fix.

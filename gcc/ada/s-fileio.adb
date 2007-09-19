@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,7 +36,7 @@ with Ada.IO_Exceptions;           use Ada.IO_Exceptions;
 with Interfaces.C_Streams;        use Interfaces.C_Streams;
 with System.CRTL;
 with System.Soft_Links;
-with Unchecked_Deallocation;
+with Ada.Unchecked_Deallocation;
 
 package body System.File_IO is
 
@@ -86,6 +86,7 @@ package body System.File_IO is
    --  environment task is finalized.
 
    text_translation_required : Boolean;
+   for text_translation_required'Size use Character'Size;
    pragma Import
      (C, text_translation_required, "__gnat_text_translation_required");
    --  If true, add appropriate suffix to control string for Open
@@ -94,7 +95,7 @@ package body System.File_IO is
    -- Local Subprograms --
    -----------------------
 
-   procedure Free_String is new Unchecked_Deallocation (String, Pstring);
+   procedure Free_String is new Ada.Unchecked_Deallocation (String, Pstring);
 
    subtype Fopen_String is String (1 .. 4);
    --  Holds open string (longest is "w+b" & nul)
@@ -199,12 +200,12 @@ package body System.File_IO is
       Dup_Strm     : Boolean := False;
 
    begin
-      Check_File_Open (File);
-      AFCB_Close (File);
-
       --  Take a task lock, to protect the global data value Open_Files
 
       SSL.Lock_Task.all;
+
+      Check_File_Open (File);
+      AFCB_Close (File);
 
       --  Sever the association between the given file and its associated
       --  external file. The given file is left closed. Do not perform system
@@ -435,7 +436,7 @@ package body System.File_IO is
       Amethod : Character;
       Fopstr  : out Fopen_String)
    is
-      Fptr  : Positive;
+      Fptr : Positive;
 
    begin
       case Mode is
@@ -609,7 +610,13 @@ package body System.File_IO is
 
    function Is_Open (File : AFCB_Ptr) return Boolean is
    begin
-      return (File /= null);
+      --  We return True if the file is open, and the underlying file stream is
+      --  usable. In particular on Windows an application linked with -mwindows
+      --  option set does not have a console attached. In this case standard
+      --  files (Current_Output, Current_Error, Current_Input) are not created.
+      --  We want Is_Open (Current_Output) to return False in this case.
+
+      return File /= null and then fileno (File.Stream) /= -1;
    end Is_Open;
 
    -------------------
@@ -733,6 +740,9 @@ package body System.File_IO is
       Full_Name_Len : Integer;
       --  Length of name actually stored in Fullname
 
+      Encoding : System.CRTL.Filename_Encoding;
+      --  Filename encoding specified into the form parameter
+
    begin
       if File_Ptr /= null then
          raise Status_Error;
@@ -767,6 +777,28 @@ package body System.File_IO is
 
          elsif Formstr (V1 .. V2) = "no" then
             Shared := No;
+
+         else
+            raise Use_Error;
+         end if;
+      end;
+
+      --  Acquire setting of shared parameter
+
+      declare
+         V1, V2 : Natural;
+
+      begin
+         Form_Parameter (Formstr, "encoding", V1, V2);
+
+         if V1 = 0 then
+            Encoding := System.CRTL.UTF8;
+
+         elsif Formstr (V1 .. V2) = "utf8" then
+            Encoding := System.CRTL.UTF8;
+
+         elsif Formstr (V1 .. V2) = "8bits" then
+            Encoding := System.CRTL.ASCII_8bits;
 
          else
             raise Use_Error;
@@ -928,7 +960,7 @@ package body System.File_IO is
             --  current working directory may have changed and
             --  we do not want to delete a different file!
 
-            Stream := fopen (Namestr'Address, Fopstr'Address);
+            Stream := fopen (Namestr'Address, Fopstr'Address, Encoding);
 
             if Stream = NULL_Stream then
                if file_exists (Namestr'Address) = 0 then
@@ -946,18 +978,17 @@ package body System.File_IO is
 
       File_Ptr := AFCB_Allocate (Dummy_FCB);
 
-      File_Ptr.Is_Regular_File   := (is_regular_file
-                                      (fileno (Stream)) /= 0);
+      File_Ptr.Is_Regular_File   := (is_regular_file (fileno (Stream)) /= 0);
       File_Ptr.Is_System_File    := False;
       File_Ptr.Is_Text_File      := Text;
       File_Ptr.Shared_Status     := Shared;
       File_Ptr.Access_Method     := Amethod;
       File_Ptr.Stream            := Stream;
       File_Ptr.Form              := new String'(Formstr);
-      File_Ptr.Name              := new String'(Fullname
-                                                 (1 .. Full_Name_Len));
+      File_Ptr.Name              := new String'(Fullname (1 .. Full_Name_Len));
       File_Ptr.Mode              := Mode;
       File_Ptr.Is_Temporary_File := Tempfile;
+      File_Ptr.Encoding          := Encoding;
 
       Chain_File (File_Ptr);
       Append_Set (File_Ptr);
@@ -1050,8 +1081,8 @@ package body System.File_IO is
          Fopen_Mode
            (Mode, File.Is_Text_File, False, File.Access_Method, Fopstr);
 
-         File.Stream :=
-           freopen (File.Name.all'Address, Fopstr'Address, File.Stream);
+         File.Stream := freopen
+           (File.Name.all'Address, Fopstr'Address, File.Stream, File.Encoding);
 
          if File.Stream = NULL_Stream then
             Close (File);

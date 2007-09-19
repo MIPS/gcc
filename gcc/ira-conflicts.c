@@ -44,8 +44,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static void set_allocno_live (allocno_t);
 static void clear_allocno_live (allocno_t);
 static void record_regno_conflict (int);
-static void mark_reg_store (rtx, rtx, void *);
-static void mark_reg_clobber (rtx, rtx, void *);
+static void mark_reg_store (rtx, const_rtx, void *);
+static void mark_reg_clobber (rtx, const_rtx, void *);
 static void mark_reg_conflicts (rtx);
 static void mark_reg_death (rtx);
 static int commutative_constraint_p (const char *);
@@ -190,10 +190,7 @@ clear_allocno_live (allocno_t a)
 
 /* Record all regs that are set in any one insn.  Communication from
    mark_reg_{store,clobber} and build_conflict_bit_table.  */
-static rtx *regs_set;
-
-/* Number elelments in the previous array.  */
-static int n_regs_set;
+static VEC(rtx, heap) *regs_set;
 
 /* Record a conflict between hard register REGNO or allocno
    corresponding to pseudo-register REGNO and everything currently
@@ -249,7 +246,7 @@ record_regno_conflict (int regno)
    SETTER is 0 if this register was modified by an auto-increment
    (i.e., a REG_INC note was found for it).  */
 static void
-mark_reg_store (rtx reg, rtx setter ATTRIBUTE_UNUSED,
+mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 		void *data ATTRIBUTE_UNUSED)
 {
   int regno;
@@ -260,7 +257,7 @@ mark_reg_store (rtx reg, rtx setter ATTRIBUTE_UNUSED,
   if (! REG_P (reg))
     return;
 
-  regs_set [n_regs_set++] = reg;
+  VEC_safe_push (rtx, heap, regs_set, reg);
 
   regno = REGNO (reg);
 
@@ -299,7 +296,7 @@ mark_reg_store (rtx reg, rtx setter ATTRIBUTE_UNUSED,
 
 /* Like mark_reg_store except notice just CLOBBERs; ignore SETs.  */
 static void
-mark_reg_clobber (rtx reg, rtx setter, void *data)
+mark_reg_clobber (rtx reg, const_rtx setter, void *data)
 {
   if (GET_CODE (setter) == CLOBBER)
     mark_reg_store (reg, setter, data);
@@ -751,8 +748,8 @@ add_allocno_copies (rtx insn)
       else
 	{
 	  cp = add_allocno_copy (curr_regno_allocno_map [REGNO (SET_DEST (set))],
-				curr_regno_allocno_map [REGNO (SET_SRC (set))],
-				freq, insn);
+				 curr_regno_allocno_map [REGNO (SET_SRC (set))],
+				 freq, insn);
 	  bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num); 
 	}
     }
@@ -1094,14 +1091,14 @@ process_single_reg_class_operands (int in_p)
 static void
 process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 {
-  int i;
+  int i, index;
   unsigned int j;
   basic_block bb;
   rtx insn;
   edge e;
   edge_iterator ei;
   bitmap_iterator bi;
-  bitmap reg_live_in, reg_live_out;
+  bitmap reg_live_in;
   int px = 0;
 
   bb = loop_tree_node->bb;
@@ -1111,8 +1108,7 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	curr_reg_pressure [reg_class_cover [i]] = 0;
       curr_bb_node = loop_tree_node;
       curr_regno_allocno_map = ira_curr_loop_tree_node->regno_allocno_map;
-      reg_live_in = DF_UPWARD_LIVE_IN (build_df, bb);
-      reg_live_out = DF_UPWARD_LIVE_OUT (build_df, bb);
+      reg_live_in = DF_LR_IN (bb);
       memset (allocnos_live, 0, allocno_row_words * sizeof (INT_TYPE));
       REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_in);
       AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
@@ -1192,8 +1188,8 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	  if (! INSN_P (insn))
 	    continue;
 	  
-	  /* Make regs_set an empty set.  */
-	  n_regs_set = 0;
+	  /* Check regs_set is an empty set.  */
+	  gcc_assert (VEC_empty (rtx, regs_set));
       
 	  /* Mark any allocnos clobbered by INSN as live, so they
 	     conflict with the inputs.  */
@@ -1222,11 +1218,10 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 		  if (freq == 0)
 		    freq = 1;
 		  ALLOCNO_CALL_FREQ (a) += freq;
-		  ALLOCNO_CALLS_CROSSED (a) [ALLOCNO_CALLS_CROSSED_NUM (a)++]
-		    = insn;
-		  ira_assert (ALLOCNO_CALLS_CROSSED_NUM (a)
-			      <= REG_N_CALLS_CROSSED (ALLOCNO_REGNO (a)));
-		  
+		  index = add_regno_call (ALLOCNO_REGNO (a), insn);
+		  if (ALLOCNO_CALLS_CROSSED_START (a) < 0)
+		    ALLOCNO_CALLS_CROSSED_START (a) = index;
+		  ALLOCNO_CALLS_CROSSED_NUM (a)++;
 		  /* Don't allocate allocnos that cross calls, if this
 		     function receives a nonlocal goto.  */
 		  if (current_function_has_nonlocal_label)
@@ -1282,10 +1277,11 @@ process_bb_node_for_conflicts (struct ira_loop_tree_node *loop_tree_node)
 	  process_single_reg_class_operands (FALSE);
 	  
 	  /* Mark any allocnos set in INSN and then never used.  */
-	  while (n_regs_set-- > 0)
+	  while (! VEC_empty (rtx, regs_set))
 	    {
-	      rtx note = find_regno_note (insn, REG_UNUSED,
-					  REGNO (regs_set [n_regs_set]));
+	      rtx reg = VEC_pop (rtx, regs_set);
+	      rtx note = find_regno_note (insn, REG_UNUSED, REGNO (reg));
+
 	      if (note)
 		mark_reg_death (XEXP (note, 0));
 	    }
@@ -1318,10 +1314,10 @@ build_conflict_bit_table (void)
   allocnos_live = ira_allocate (sizeof (INT_TYPE) * allocno_row_words);
   allocnos_live_bitmap = ira_allocate_bitmap ();
   /* Make a vector that mark_reg_{store,clobber} will store in.  */
-  regs_set = ira_allocate (sizeof (rtx) * max_parallel * 2);
+  if (!regs_set)
+    regs_set = VEC_alloc (rtx, heap, 10);
   traverse_loop_tree (ira_loop_tree_root, NULL, process_bb_node_for_conflicts);
   /* Clean up.  */
-  ira_free (regs_set);
   ira_free_bitmap (allocnos_live_bitmap);
   ira_free (allocnos_live);
 }
@@ -1333,7 +1329,7 @@ build_conflict_bit_table (void)
 static void
 propagate_allocno_info (allocno_t a)
 {
-  int regno, j, n, pn, father_pn, another_father_pn;
+  int regno, j, pn, father_pn, another_father_pn;
   allocno_t father_a, another_a, another_father_a;
   struct ira_loop_tree_node *father;
   copy_t cp, next_cp;
@@ -1363,15 +1359,10 @@ propagate_allocno_info (allocno_t a)
 	  SET_ALLOCNO_CONFLICT_ROW
 	    (conflicts + another_father_pn * allocno_row_words, father_pn);
 	});
-      if ((n = ALLOCNO_CALLS_CROSSED_NUM (a)) != 0)
-	{
-	  memcpy (ALLOCNO_CALLS_CROSSED (father_a)
-		  + ALLOCNO_CALLS_CROSSED_NUM (father_a),
-		  ALLOCNO_CALLS_CROSSED (a), sizeof (rtx) * n);
-	  ALLOCNO_CALLS_CROSSED_NUM (father_a) += n;
-	  ira_assert (ALLOCNO_CALLS_CROSSED_NUM (father_a)
-		      <= REG_N_CALLS_CROSSED (regno));
-	}
+      if (ALLOCNO_CALLS_CROSSED_START (father_a) < 0)
+	ALLOCNO_CALLS_CROSSED_START (father_a)
+	  = ALLOCNO_CALLS_CROSSED_START (a);
+      ALLOCNO_CALLS_CROSSED_NUM (father_a) += ALLOCNO_CALLS_CROSSED_NUM (a);
       for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
 	{
 	  if (cp->first == a)
@@ -1403,7 +1394,9 @@ propagate_info (void)
   allocno_t a;
 
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
-    for (a = regno_allocno_map [i]; a != NULL; a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
+    for (a = regno_allocno_map [i];
+	 a != NULL;
+	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
       propagate_allocno_info (a);
 }
 

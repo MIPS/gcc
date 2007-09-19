@@ -1,12 +1,12 @@
 /* Utility routines for finding and reading Java(TM) .class files.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2005,
+   2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -134,10 +133,18 @@ opendir_in_zip (const char *zipfile, int is_system)
     {
       jcf_dependency_add_file (zipfile, is_system);
       if (read (fd, magic, 4) != 4 || GET_u4 (magic) != (JCF_u4)ZIPMAGIC)
-	return NULL;
+	{
+	  free (zipf);
+	  close (fd);
+	  return NULL;
+	}
       lseek (fd, 0L, SEEK_SET);
       if (read_zip_archive (zipf) != 0)
-	return NULL;
+	{
+	  free (zipf);
+	  close (fd);
+	  return NULL;
+	}
     }
 
   SeenZipFiles = zipf;  
@@ -251,7 +258,7 @@ open_class (const char *filename, JCF *jcf, int fd, const char *dep_name)
       jcf->read_ptr = jcf->buffer;
       jcf->read_end = jcf->buffer_end;
       jcf->read_state = NULL;
-      jcf->filename = filename;
+      jcf->filename = xstrdup (filename);
       if (read (fd, jcf->buffer, stat_buf.st_size) != stat_buf.st_size)
 	{
 	  perror ("Failed to read .class file");
@@ -285,7 +292,7 @@ static int
 compare_path (const void *key, const void *entry)
 {
   return strcmp ((const char *) key, 
-		 (*((const struct dirent **) entry))->d_name);
+		 (*((const struct dirent *const*) entry))->d_name);
 }
 
 /* Returns nonzero if ENTRY names a .java or .class file.  */
@@ -437,15 +444,13 @@ static htab_t memoized_class_lookups;
    file. */
 
 const char *
-find_class (const char *classname, int classname_length, JCF *jcf,
-	    int source_ok)
+find_class (const char *classname, int classname_length, JCF *jcf)
 {
   int fd;
-  int i, k, java = -1, class = -1;
-  struct stat java_buf, class_buf;
+  int i, k, class = -1;
+  struct stat class_buf;
   char *dep_file;
   void *entry;
-  char *java_buffer;
   int buflen;
   char *buffer;
   hashval_t hash;
@@ -468,10 +473,6 @@ find_class (const char *classname, int classname_length, JCF *jcf,
   buflen = jcf_path_max_len () + classname_length + 10;
   buffer = ALLOC (buflen);
   memset (buffer, 0, buflen);
-
-  java_buffer = alloca (buflen);
-
-  jcf->java_source = 0;
 
   for (entry = jcf_path_start (); entry != NULL; entry = jcf_path_next (entry))
     {
@@ -521,39 +522,9 @@ find_class (const char *classname, int classname_length, JCF *jcf,
 	    }
 	  class = caching_stat(buffer, &class_buf);
 	}
-
-      if (source_ok)
-	{
-	  /* Compute name of .java file.  */
-	  int l, m;
-	  strcpy (java_buffer, path_name);
-	  l = strlen (java_buffer);
-	  for (m = 0; m < classname_length; ++m)
-	    java_buffer[m + l] = (classname[m] == '.'
-				  ? DIR_SEPARATOR : classname[m]);
-	  strcpy (java_buffer + m + l, ".java");
-	  java = caching_stat (java_buffer, &java_buf);
-	  if (java == 0)
-	    break;
-	}
     }
 
-  /* We preferably pick a class file if we have a chance. If the source
-     file is newer than the class file, we issue a warning and parse the
-     source file instead.
-     There should be a flag to allow people have the class file picked
-     up no matter what. FIXME. */
-  if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
-    {
-      if (flag_newer)
-	warning (0, "source file for class %qs is newer than its matching class file.  Source file %qs used instead", classname, java_buffer);
-      class = -1;
-    }
-
-  if (! java)
-    dep_file = java_buffer;
-  else
-    dep_file = buffer;
+  dep_file = buffer;
   if (!class)
     {
       SOURCE_FRONTEND_DEBUG ((stderr, "[Class selected: %s]\n",
@@ -564,42 +535,22 @@ find_class (const char *classname, int classname_length, JCF *jcf,
       if (fd >= 0)
 	goto found;
     }
-  /* Give .java a try, if necessary */
-  if (!java)
-    {
-      strcpy (buffer, java_buffer);
-      SOURCE_FRONTEND_DEBUG ((stderr, "[Source selected: %s]\n",
-			      classname+classname_length-
-			      (classname_length <= 30 ? 
-			       classname_length : 30)));
-      fd = JCF_OPEN_EXACT_CASE (buffer, O_RDONLY);
-      if (fd >= 0)
-	{
-	  jcf->java_source = 1;
-	  goto found;
-	}
-    }
 
   free (buffer);
 
   /* Remember that this class could not be found so that we do not
      have to look again.  */
-  *htab_find_slot_with_hash (memoized_class_lookups, classname, hash, INSERT) 
-    = (void *) classname;
+  *(const void **)htab_find_slot_with_hash (memoized_class_lookups,
+					    classname, hash, INSERT)
+    = classname;
 
   return NULL;
  found:
-  if (jcf->java_source)
-    {
-      JCF_ZERO (jcf);		/* JCF_FINISH relies on this */
-      jcf->java_source = 1;
-      jcf->filename = xstrdup (buffer);
-      close (fd);		/* We use STDIO for source file */
-    }
-  else
-    buffer = (char *) open_class (buffer, jcf, fd, dep_file);
-  jcf->classname = xstrdup (classname);
-  return buffer;
+  {
+    const char *const tmp = open_class (buffer, jcf, fd, dep_file);
+    jcf->classname = xstrdup (classname);
+    return tmp;
+  }
 }
 
 void

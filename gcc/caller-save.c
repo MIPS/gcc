@@ -1,12 +1,12 @@
 /* Save and restore call-clobbered registers which are live across a call.
-   Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998, 1999, 2000,
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,6 +37,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "addresses.h"
 #include "output.h"
 #include "ira.h"
+#include "df.h"
+#include "ggc.h"
 
 /* Call used hard registers which can not be saved because there is no
    insn for this.  */
@@ -74,9 +75,9 @@ static rtx
    be recognized.  */
 
 static int
-  reg_save_code[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
+  cached_reg_save_code[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
 static int
-  reg_restore_code[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
+  cached_reg_restore_code[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
 
 /* Set of hard regs currently residing in save area (during insn scan).  */
 
@@ -91,7 +92,7 @@ static int n_regs_saved;
 static HARD_REG_SET referenced_regs;
 
 
-static void mark_set_regs (rtx, rtx, void *);
+static void mark_set_regs (rtx, const_rtx, void *);
 static void mark_referenced_regs (rtx);
 static int insert_save (struct insn_chain *, int, int, HARD_REG_SET *,
 			enum machine_mode *);
@@ -99,7 +100,73 @@ static int insert_restore (struct insn_chain *, int, int, int,
 			   enum machine_mode *);
 static struct insn_chain *insert_one_insn (struct insn_chain *, int, int,
 					   rtx);
-static void add_stored_regs (rtx, rtx, void *);
+static void add_stored_regs (rtx, const_rtx, void *);
+
+static GTY(()) rtx savepat;
+static GTY(()) rtx restpat;
+static GTY(()) rtx test_reg;
+static GTY(()) rtx test_mem;
+static GTY(()) rtx saveinsn;
+static GTY(()) rtx restinsn;
+
+/* Return the INSN_CODE used to save register REG in mode MODE.  */
+static int
+reg_save_code (int reg, enum machine_mode mode)
+{
+  bool ok;
+  if (cached_reg_save_code[reg][mode])
+     return cached_reg_save_code[reg][mode];
+  if (!HARD_REGNO_MODE_OK (reg, mode))
+     {
+       cached_reg_save_code[reg][mode] = -1;
+       cached_reg_restore_code[reg][mode] = -1;
+       return -1;
+     }
+
+  /* Update the register number and modes of the register
+     and memory operand.  */
+  SET_REGNO (test_reg, reg);
+  PUT_MODE (test_reg, mode);
+  PUT_MODE (test_mem, mode);
+
+  /* Force re-recognition of the modified insns.  */
+  INSN_CODE (saveinsn) = -1;
+  INSN_CODE (restinsn) = -1;
+
+  cached_reg_save_code[reg][mode] = recog_memoized (saveinsn);
+  cached_reg_restore_code[reg][mode] = recog_memoized (restinsn);
+
+  /* Now extract both insns and see if we can meet their
+     constraints.  */
+  ok = (cached_reg_save_code[reg][mode] != -1
+	&& cached_reg_restore_code[reg][mode] != -1);
+  if (ok)
+    {
+      extract_insn (saveinsn);
+      ok = constrain_operands (1);
+      extract_insn (restinsn);
+      ok &= constrain_operands (1);
+    }
+
+  if (! ok)
+    {
+      cached_reg_save_code[reg][mode] = -1;
+      cached_reg_restore_code[reg][mode] = -1;
+    }
+  gcc_assert (cached_reg_save_code[reg][mode]);
+  return cached_reg_save_code[reg][mode];
+}
+
+/* Return the INSN_CODE used to restore register REG in mode MODE.  */
+static int
+reg_restore_code (int reg, enum machine_mode mode)
+{
+  if (cached_reg_restore_code[reg][mode])
+     return cached_reg_restore_code[reg][mode];
+  /* Populate our cache.  */
+  reg_save_code (reg, mode);
+  return cached_reg_restore_code[reg][mode];
+}
 
 /* Initialize for caller-save.
 
@@ -118,10 +185,6 @@ init_caller_save (void)
   int offset;
   rtx address;
   int i, j;
-  enum machine_mode mode;
-  rtx savepat, restpat;
-  rtx test_reg, test_mem;
-  rtx saveinsn, restinsn;
 
   CLEAR_HARD_REG_SET (no_caller_save_reg_set);
   /* First find all the registers that we need to deal with and all
@@ -196,55 +259,12 @@ init_caller_save (void)
   savepat = gen_rtx_SET (VOIDmode, test_mem, test_reg);
   restpat = gen_rtx_SET (VOIDmode, test_reg, test_mem);
 
-  saveinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, 0, savepat, -1, 0, 0);
-  restinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, 0, restpat, -1, 0, 0);
-
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    for (mode = 0 ; mode < MAX_MACHINE_MODE; mode++)
-      if (HARD_REGNO_MODE_OK (i, mode))
-	{
-	  int ok;
-
-	  /* Update the register number and modes of the register
-	     and memory operand.  */
-	  REGNO (test_reg) = i;
-	  PUT_MODE (test_reg, mode);
-	  PUT_MODE (test_mem, mode);
-
-	  /* Force re-recognition of the modified insns.  */
-	  INSN_CODE (saveinsn) = -1;
-	  INSN_CODE (restinsn) = -1;
-
-	  reg_save_code[i][mode] = recog_memoized (saveinsn);
-	  reg_restore_code[i][mode] = recog_memoized (restinsn);
-
-	  /* Now extract both insns and see if we can meet their
-	     constraints.  */
-	  ok = (reg_save_code[i][mode] != -1
-		&& reg_restore_code[i][mode] != -1);
-	  if (ok)
-	    {
-	      extract_insn (saveinsn);
-	      ok = constrain_operands (1);
-	      extract_insn (restinsn);
-	      ok &= constrain_operands (1);
-	    }
-
-	  if (! ok)
-	    {
-	      reg_save_code[i][mode] = -1;
-	      reg_restore_code[i][mode] = -1;
-	    }
-	}
-      else
-	{
-	  reg_save_code[i][mode] = -1;
-	  reg_restore_code[i][mode] = -1;
-	}
+  saveinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, 0, savepat, -1, 0);
+  restinsn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, 0, restpat, -1, 0);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (j = 1; j <= MOVE_MAX_WORDS; j++)
-      if (reg_save_code [i][regno_save_mode[i][j]] == -1)
+      if (reg_save_code (i,regno_save_mode[i][j]) == -1)
 	{
 	  regno_save_mode[i][j] = VOIDmode;
 	  if (j == 1)
@@ -399,7 +419,7 @@ setup_save_areas (void)
       {
 	unsigned int regno = reg_renumber[i];
 	unsigned int endregno
-	  = regno + hard_regno_nregs[regno][GET_MODE (regno_reg_rtx[i])];
+	  = end_hard_regno (GET_MODE (regno_reg_rtx[i]), regno);
 	if (flag_ira && flag_ira_ipra)
 	  {
 	    HARD_REG_SET clobbered_regs;
@@ -834,10 +854,11 @@ calculate_local_save_info (void)
 	    }
 	  COPY_HARD_REG_SET (bb_info->kill, kill);
 	  SET_HARD_REG_SET (bb_info->save_out);
-	  REG_SET_TO_HARD_REG_SET (bb_info->live_at_start,
-				   bb->il.rtl->global_live_at_start);
+	  REG_SET_TO_HARD_REG_SET
+	    (bb_info->live_at_start,
+	     flag_ira ? DF_LR_TOP (bb) : DF_RA_LIVE_TOP (bb));
 	  EXECUTE_IF_SET_IN_REG_SET
-	    (bb->il.rtl->global_live_at_start,
+	    ((flag_ira ? DF_LR_TOP (bb) : DF_RA_LIVE_TOP (bb)),
 	     FIRST_PSEUDO_REGISTER, regno, rsi)
 	    {
 	      int r = reg_renumber[regno];
@@ -867,7 +888,7 @@ set_up_bb_rts_numbers (void)
   int *rts_order;
   
   rts_order = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
-  post_order_compute (rts_order, false);
+  post_order_compute (rts_order, false, false);
   for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
     BB_INFO_BY_INDEX (rts_order [i])->rts_number = i;
   free (rts_order);
@@ -972,19 +993,20 @@ calculate_save_in_out (void)
 	      }
 	  IOR_HARD_REG_SET (temp_set, bb_info->gen);
 
-	  GO_IF_HARD_REG_EQUAL (temp_set, bb_info->save_out, cont);
-	  COPY_HARD_REG_SET (bb_info->save_out, temp_set);
-	  FOR_EACH_EDGE (e, ei, bb->succs)
+	  if (! hard_reg_set_equal_p (temp_set, bb_info->save_out))
 	    {
-	      succ = e->dest;
-	      if (succ->index != EXIT_BLOCK && ! TEST_BIT (wset, succ->index))
+	      COPY_HARD_REG_SET (bb_info->save_out, temp_set);
+	      FOR_EACH_EDGE (e, ei, bb->succs)
 		{
-		  SET_BIT (wset, succ->index);
-		  VEC_quick_push (basic_block, new_bbs, succ);
+		  succ = e->dest;
+		  if (succ->index != EXIT_BLOCK
+		      && ! TEST_BIT (wset, succ->index))
+		    {
+		      SET_BIT (wset, succ->index);
+		      VEC_quick_push (basic_block, new_bbs, succ);
+		    }
 		}
 	    }
-	cont:
-	  ;
 	}
       temp = bbs;
       bbs = new_bbs;
@@ -1020,11 +1042,11 @@ calculate_save_here (void)
 	  IOR_HARD_REG_SET (save_here, temp_set);
 	}
 
-      GO_IF_HARD_REG_EQUAL (save_here, BB_INFO (bb)->save_here, cont);
-      COPY_HARD_REG_SET (BB_INFO (bb)->save_here, save_here);
-      changed_p = TRUE;
-    cont:
-      ;
+      if (! hard_reg_set_equal_p (save_here, BB_INFO (bb)->save_here))
+	{
+	  COPY_HARD_REG_SET (BB_INFO (bb)->save_here, save_here);
+	  changed_p = TRUE;
+	}
     }
   return changed_p;
 }
@@ -1195,7 +1217,9 @@ save_call_clobbered_regs (void)
 		  }
 	    }
 
-	  if (code == CALL_INSN && ! find_reg_note (insn, REG_NORETURN, NULL))
+	  if (code == CALL_INSN
+	      && ! SIBLING_CALL_P (insn)
+	      && ! find_reg_note (insn, REG_NORETURN, NULL))
 	    {
 	      unsigned regno;
 	      HARD_REG_SET hard_regs_to_save, used_regs;
@@ -1243,11 +1267,6 @@ save_call_clobbered_regs (void)
 		 during the call, but the subreg that is set isn't.  */
 	      CLEAR_HARD_REG_SET (this_insn_sets);
 	      note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
-	      /* Sibcalls are considered to set the return value,
-		 compare flow.c:propagate_one_insn.  */
-	      if (SIBLING_CALL_P (insn) && current_function_return_rtx)
-		mark_set_regs (current_function_return_rtx, NULL_RTX,
-			       &this_insn_sets);
 
 	      /* Compute which hard regs must be saved before this call.  */
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
@@ -1318,10 +1337,9 @@ save_call_clobbered_regs (void)
    been assigned hard regs have had their register number changed already,
    so we can ignore pseudos.  */
 static void
-mark_set_regs (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data)
+mark_set_regs (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
   int regno, endregno, i;
-  enum machine_mode mode = GET_MODE (reg);
   HARD_REG_SET *this_insn_sets = data;
 
   if (GET_CODE (reg) == SUBREG)
@@ -1330,14 +1348,16 @@ mark_set_regs (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data)
       if (!REG_P (inner) || REGNO (inner) >= FIRST_PSEUDO_REGISTER)
 	return;
       regno = subreg_regno (reg);
+      endregno = regno + subreg_nregs (reg);
     }
   else if (REG_P (reg)
 	   && REGNO (reg) < FIRST_PSEUDO_REGISTER)
-    regno = REGNO (reg);
+    {
+      regno = REGNO (reg);
+      endregno = END_HARD_REGNO (reg);
+    }
   else
     return;
-
-  endregno = regno + hard_regno_nregs[regno][mode];
 
   for (i = regno; i < endregno; i++)
     SET_HARD_REG_BIT (*this_insn_sets, i);
@@ -1348,7 +1368,7 @@ mark_set_regs (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data)
    been assigned hard regs have had their register number changed already,
    so we can ignore pseudos.  */
 static void
-add_stored_regs (rtx reg, rtx setter, void *data)
+add_stored_regs (rtx reg, const_rtx setter, void *data)
 {
   int regno, endregno, i;
   enum machine_mode mode = GET_MODE (reg);
@@ -1357,20 +1377,25 @@ add_stored_regs (rtx reg, rtx setter, void *data)
   if (GET_CODE (setter) == CLOBBER)
     return;
 
-  if (GET_CODE (reg) == SUBREG && REG_P (SUBREG_REG (reg)))
+  if (GET_CODE (reg) == SUBREG
+      && REG_P (SUBREG_REG (reg))
+      && REGNO (SUBREG_REG (reg)) < FIRST_PSEUDO_REGISTER)
     {
       offset = subreg_regno_offset (REGNO (SUBREG_REG (reg)),
 				    GET_MODE (SUBREG_REG (reg)),
 				    SUBREG_BYTE (reg),
 				    GET_MODE (reg));
-      reg = SUBREG_REG (reg);
+      regno = REGNO (SUBREG_REG (reg)) + offset;
+      endregno = regno + subreg_nregs (reg);
     }
+  else
+    {
+      if (!REG_P (reg) || REGNO (reg) >= FIRST_PSEUDO_REGISTER)
+	return;
 
-  if (!REG_P (reg) || REGNO (reg) >= FIRST_PSEUDO_REGISTER)
-    return;
-
-  regno = REGNO (reg) + offset;
-  endregno = regno + hard_regno_nregs[regno][mode];
+      regno = REGNO (reg) + offset;
+      endregno = end_hard_regno (mode, regno);
+    }
 
   for (i = regno; i < endregno; i++)
     SET_REGNO_REG_SET ((regset) data, i);
@@ -1416,11 +1441,7 @@ mark_referenced_regs (rtx x)
 		       : reg_renumber[regno]);
 
       if (hardregno >= 0)
-	{
-	  int nregs = hard_regno_nregs[hardregno][GET_MODE (x)];
-	  while (nregs-- > 0)
-	    SET_HARD_REG_BIT (referenced_regs, hardregno + nregs);
-	}
+	add_to_hard_reg_set (&referenced_regs, GET_MODE (x), hardregno);
       /* If this is a pseudo that did not get a hard register, scan its
 	 memory location, since it might involve the use of another
 	 register, which might be saved.  */
@@ -1510,7 +1531,7 @@ insert_restore (struct insn_chain *chain, int before_p, int regno,
   pat = gen_rtx_SET (VOIDmode,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno), mem);
-  code = reg_restore_code[regno][GET_MODE (mem)];
+  code = reg_restore_code (regno, GET_MODE (mem));
   new = insert_one_insn (chain, before_p, code, pat);
 
   /* Clear status for all registers we restored.  */
@@ -1582,7 +1603,7 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
   pat = gen_rtx_SET (VOIDmode, mem,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno));
-  code = reg_save_code[regno][GET_MODE (mem)];
+  code = reg_save_code (regno, GET_MODE (mem));
   new = insert_one_insn (chain, before_p, code, pat);
 
   /* Set hard_regs_saved and dead_or_set for all the registers we saved.  */
@@ -1691,3 +1712,4 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
   INSN_CODE (new->insn) = code;
   return new;
 }
+#include "gt-caller-save.h"

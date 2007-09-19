@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -153,6 +153,8 @@ package Prj.Attr is
    --  Returns True if Attribute is a known attribute and may have an
    --  optional index. Returns False otherwise.
 
+   function Is_Read_Only (Attribute : Attribute_Node_Id) return Boolean;
+
    function Next_Attribute
      (After : Attribute_Node_Id) return Attribute_Node_Id;
    --  Returns the attribute that follow After in the list of project level
@@ -269,6 +271,7 @@ private
       Var_Kind       : Variable_Kind;
       Optional_Index : Boolean;
       Attr_Kind      : Attribute_Kind;
+      Read_Only      : Boolean;
       Next           : Attr_Node_Id;
    end record;
    --  Data for an attribute
@@ -287,9 +290,9 @@ private
    --------------
 
    type Package_Record is record
-      Name            : Name_Id;
-      Known           : Boolean := True;
-      First_Attribute : Attr_Node_Id;
+      Name             : Name_Id;
+      Known            : Boolean := True;
+      First_Attribute  : Attr_Node_Id;
    end record;
    --  Data for a package
 

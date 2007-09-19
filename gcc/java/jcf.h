@@ -1,12 +1,12 @@
 /* Utility macros to read Java(TM) .class files and byte codes.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+   2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -106,7 +105,6 @@ typedef struct JCF GTY(()) {
   unsigned char * GTY ((skip)) buffer_end;
   unsigned char * GTY ((skip)) read_ptr;
   unsigned char * GTY ((skip)) read_end;
-  unsigned int java_source : 1;
   unsigned int right_zip : 1;
   unsigned int finished : 1;
   jcf_filbuf_t filbuf;
@@ -166,8 +164,8 @@ typedef struct JCF GTY(()) {
 #define JCF_FINISH(JCF) { \
   CPOOL_FINISH(&(JCF)->cpool); \
   if ((JCF)->buffer) free ((JCF)->buffer); \
-  if ((JCF)->filename) free ((char *) (JCF)->filename); \
-  if ((JCF)->classname) free ((char *) (JCF)->classname); \
+  if ((JCF)->filename) free (CONST_CAST ((JCF)->filename)); \
+  if ((JCF)->classname) free (CONST_CAST ((JCF)->classname)); \
   (JCF)->finished = 1; }
   
 #define CPOOL_INIT(CPOOL) \
@@ -178,7 +176,7 @@ typedef struct JCF GTY(()) {
 #define JCF_ZERO(JCF)  \
   ((JCF)->buffer = (JCF)->buffer_end = (JCF)->read_ptr = (JCF)->read_end = 0,\
    (JCF)->read_state = 0, (JCF)->filename = (JCF)->classname = 0, \
-   CPOOL_INIT(&(JCF)->cpool), (JCF)->java_source = 0, (JCF)->zipd = 0, \
+   CPOOL_INIT(&(JCF)->cpool), (JCF)->zipd = 0, \
    (JCF)->finished = 0)
 
 /* Given that PTR points to a 2-byte unsigned integer in network
@@ -241,22 +239,26 @@ typedef struct JCF GTY(()) {
 
 #define ACC_VISIBILITY (ACC_PUBLIC | ACC_PRIVATE | ACC_PROTECTED)
 
-#define CONSTANT_Class 7
-#define CONSTANT_Fieldref 9
-#define CONSTANT_Methodref 10
-#define CONSTANT_InterfaceMethodref 11
-#define CONSTANT_String 8
-#define CONSTANT_Integer 3
-#define CONSTANT_Float 4
-#define CONSTANT_Long 5
-#define CONSTANT_Double 6
-#define CONSTANT_NameAndType 12
-#define CONSTANT_Utf8 1
-#define CONSTANT_Unicode 2
+enum cpool_tag
+{
+  CONSTANT_Class = 7,
+  CONSTANT_Fieldref = 9,
+  CONSTANT_Methodref = 10,
+  CONSTANT_InterfaceMethodref = 11,
+  CONSTANT_String = 8,
+  CONSTANT_Integer = 3,
+  CONSTANT_Float = 4,
+  CONSTANT_Long = 5,
+  CONSTANT_Double = 6,
+  CONSTANT_NameAndType = 12,
+  CONSTANT_Utf8 = 1,
+  CONSTANT_Unicode = 2,
+  CONSTANT_None = 0
+};
 
 #define DEFAULT_CLASS_PATH "."
 
-extern const char *find_class (const char *, int, JCF*, int);
+extern const char *find_class (const char *, int, JCF *);
 extern const char *find_classfile (char *, JCF*, const char *);
 extern int jcf_filbuf_from_stdio (JCF *jcf, int count);
 extern int jcf_unexpected_eof (JCF*, int) ATTRIBUTE_NORETURN;
@@ -309,6 +311,7 @@ extern void jcf_path_seal (int);
 extern void *jcf_path_start (void);
 extern void *jcf_path_next (void *);
 extern char *jcf_path_name (void *);
+extern char *jcf_path_compute (const char *);
 extern int jcf_path_is_zipfile (void *);
 extern int jcf_path_is_system (void *);
 extern int jcf_path_max_len (void);

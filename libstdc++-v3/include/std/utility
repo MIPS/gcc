@@ -1,6 +1,7 @@
 // <utility> -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -13,10 +14,10 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// You should have received a copy of the GNU General Public License
+// along with this library; see the file COPYING.  If not, write to
+// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+// Boston, MA 02110-1301, USA.
 
 // As a special exception, you may use this file as part of a free software
 // library without restriction.  Specifically, if other files instantiate
@@ -65,5 +66,47 @@
 #include <bits/c++config.h>
 #include <bits/stl_relops.h>
 #include <bits/stl_pair.h>
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#  if defined(_GLIBCXX_INCLUDE_AS_TR1)
+#    error C++0x header cannot be included from TR1 header
+#  endif
+#  if defined(_GLIBCXX_INCLUDE_AS_CXX0X)
+#    include <tr1_impl/utility>
+#  else
+#    define _GLIBCXX_INCLUDE_AS_CXX0X
+#    define _GLIBCXX_BEGIN_NAMESPACE_TR1
+#    define _GLIBCXX_END_NAMESPACE_TR1
+#    define _GLIBCXX_TR1
+#    include <tr1_impl/utility>
+#    undef _GLIBCXX_TR1
+#    undef _GLIBCXX_END_NAMESPACE_TR1
+#    undef _GLIBCXX_BEGIN_NAMESPACE_TR1
+#    undef _GLIBCXX_INCLUDE_AS_CXX0X
+#  endif
+
+#include <type_traits>
+
+namespace std
+{
+  // 20.2.2, forward/move
+  template<typename _Tp>
+    struct identity
+    {
+      typedef _Tp type;
+    };
+
+  template<typename _Tp>
+    inline _Tp&&
+    forward(typename std::identity<_Tp>::type&& __t)
+    { return __t; }
+
+  template<typename _Tp>
+    inline typename std::remove_reference<_Tp>::type&&
+    move(_Tp&& __t)
+    { return __t; }
+}
+
+#endif
 
 #endif /* _GLIBCXX_UTILITY */

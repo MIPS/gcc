@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* ??? Look at ABI group documents for list of preprocessor macros and
    other features required for ABI compliance.  */
@@ -175,7 +174,7 @@ extern enum processor_type ia64_tune;
 
    You need not define this macro if the `POINTER_SIZE' is equal to the width
    of `Pmode'.  */
-/* Need this for 32 bit pointers, see hpux.h for setting it.  */
+/* Need this for 32-bit pointers, see hpux.h for setting it.  */
 /* #define POINTERS_EXTEND_UNSIGNED */
 
 /* A macro to update MODE and UNSIGNEDP when an object whose type is TYPE and
@@ -206,7 +205,7 @@ while (0)
 #define FUNCTION_BOUNDARY 128
 
 /* Optional x86 80-bit float, quad-precision 128-bit float, and quad-word
-   128 bit integers all require 128 bit alignment.  */
+   128-bit integers all require 128-bit alignment.  */
 #define BIGGEST_ALIGNMENT 128
 
 /* If defined, a C expression to compute the alignment for a static variable.
@@ -285,6 +284,9 @@ while (0)
 
 /* We always want the XFmode operations from libgcc2.c.  */
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
+
+/* On HP-UX, we use the l suffix for TFmode in libgcc2.c.  */
+#define LIBGCC2_TF_CEXT l
 
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -642,6 +644,7 @@ while (0)
    : PR_REGNO_P (REGNO) && (MODE) == BImode ? 2				\
    : PR_REGNO_P (REGNO) && (MODE) == CCImode ? 1			\
    : FR_REGNO_P (REGNO) && (MODE) == XFmode ? 1				\
+   : FR_REGNO_P (REGNO) && (MODE) == RFmode ? 1				\
    : FR_REGNO_P (REGNO) && (MODE) == XCmode ? 2				\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
@@ -657,7 +660,7 @@ while (0)
    : PR_REGNO_P (REGNO) ?					\
      (MODE) == BImode || GET_MODE_CLASS (MODE) == MODE_CC	\
    : GR_REGNO_P (REGNO) ?					\
-     (MODE) != CCImode && (MODE) != XFmode && (MODE) != XCmode	\
+     (MODE) != CCImode && (MODE) != XFmode && (MODE) != XCmode && (MODE) != RFmode \
    : AR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : BR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : 0)
@@ -674,15 +677,15 @@ while (0)
    we can't tie it with any other modes.  */
 #define MODES_TIEABLE_P(MODE1, MODE2)			\
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
-   && ((((MODE1) == XFmode) || ((MODE1) == XCmode))	\
-       == (((MODE2) == XFmode) || ((MODE2) == XCmode)))	\
+   && ((((MODE1) == XFmode) || ((MODE1) == XCmode) || ((MODE1) == RFmode))	\
+       == (((MODE2) == XFmode) || ((MODE2) == XCmode) || ((MODE2) == RFmode)))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
 
 /* Specify the modes required to caller save a given hard regno.
    We need to ensure floating pt regs are not saved as DImode.  */
 
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
-  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? XFmode        \
+  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? RFmode        \
    : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
 /* Handling Leaf Functions */
@@ -838,22 +841,6 @@ enum reg_class
    (as well as added to a displacement).  This is needed for POST_MODIFY.  */
 #define INDEX_REG_CLASS GENERAL_REGS
 
-/* A C expression which defines the machine-dependent operand constraint
-   letters for register classes.  If CHAR is such a letter, the value should be
-   the register class corresponding to it.  Otherwise, the value should be
-   `NO_REGS'.  The register letter `r', corresponding to class `GENERAL_REGS',
-   will not be passed to this macro; you do not need to handle it.  */
-
-#define REG_CLASS_FROM_LETTER(CHAR) \
-((CHAR) == 'f' ? FR_REGS		\
- : (CHAR) == 'a' ? ADDL_REGS		\
- : (CHAR) == 'b' ? BR_REGS		\
- : (CHAR) == 'c' ? PR_REGS		\
- : (CHAR) == 'd' ? AR_M_REGS		\
- : (CHAR) == 'e' ? AR_I_REGS		\
- : (CHAR) == 'x' ? FP_REGS		\
- : NO_REGS)
-
 /* A C expression which is nonzero if register number NUM is suitable for use
    as a base register in operand addresses.  It may be either a suitable hard
    register or a pseudo register that has been allocated such a hard reg.  */
@@ -909,6 +896,7 @@ enum reg_class
 #define CLASS_MAX_NREGS(CLASS, MODE) \
   ((MODE) == BImode && (CLASS) == PR_REGS ? 2			\
    : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XFmode) ? 1 \
+   : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == RFmode) ? 1 \
    : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XCmode) ? 2 \
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
@@ -918,57 +906,6 @@ enum reg_class
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 		\
   (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
    ? reg_classes_intersect_p (CLASS, FR_REGS) : 0)
-
-/* A C expression that defines the machine-dependent operand constraint
-   letters (`I', `J', `K', .. 'P') that specify particular ranges of
-   integer values.  */
-
-/* 14 bit signed immediate for arithmetic instructions.  */
-#define CONST_OK_FOR_I(VALUE) \
-  ((unsigned HOST_WIDE_INT)(VALUE) + 0x2000 < 0x4000)
-/* 22 bit signed immediate for arith instructions with r0/r1/r2/r3 source.  */
-#define CONST_OK_FOR_J(VALUE) \
-  ((unsigned HOST_WIDE_INT)(VALUE) + 0x200000 < 0x400000)
-/* 8 bit signed immediate for logical instructions.  */
-#define CONST_OK_FOR_K(VALUE) ((unsigned HOST_WIDE_INT)(VALUE) + 0x80 < 0x100)
-/* 8 bit adjusted signed immediate for compare pseudo-ops.  */
-#define CONST_OK_FOR_L(VALUE) ((unsigned HOST_WIDE_INT)(VALUE) + 0x7F < 0x100)
-/* 6 bit unsigned immediate for shift counts.  */
-#define CONST_OK_FOR_M(VALUE) ((unsigned HOST_WIDE_INT)(VALUE) < 0x40)
-/* 9 bit signed immediate for load/store post-increments.  */
-#define CONST_OK_FOR_N(VALUE) ((unsigned HOST_WIDE_INT)(VALUE) + 0x100 < 0x200)
-/* 0 for r0.  Used by Linux kernel, do not change.  */
-#define CONST_OK_FOR_O(VALUE) ((VALUE) == 0)
-/* 0 or -1 for dep instruction.  */
-#define CONST_OK_FOR_P(VALUE) ((VALUE) == 0 || (VALUE) == -1)
-
-#define CONST_OK_FOR_LETTER_P(VALUE, C) \
-  ia64_const_ok_for_letter_p (VALUE, C)
-
-/* A C expression that defines the machine-dependent operand constraint letters
-   (`G', `H') that specify particular ranges of `const_double' values.  */
-
-/* 0.0 and 1.0 for fr0 and fr1.  */
-#define CONST_DOUBLE_OK_FOR_G(VALUE) \
-  ((VALUE) == CONST0_RTX (GET_MODE (VALUE))	\
-   || (VALUE) == CONST1_RTX (GET_MODE (VALUE)))
-
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C) \
-  ia64_const_double_ok_for_letter_p (VALUE, C)
-
-/* A C expression that defines the optional machine-dependent constraint
-   letters (`Q', `R', `S', `T', `U') that can be used to segregate specific
-   types of operands, usually memory references, for the target machine.  */
-
-#define EXTRA_CONSTRAINT(VALUE, C) \
-  ia64_extra_constraint (VALUE, C)
-
-/* Document the constraints that can accept reloaded memory operands.  This is
-   needed by the extended asm support, and by reload.  'Q' accepts mem, but
-   only non-volatile mem.  Since we can't reload a volatile mem into a
-   non-volatile mem, it can not be listed here.  */
-
-#define EXTRA_MEMORY_CONSTRAINT(C, STR)  ((C) == 'S')
 
 /* Basic Stack Layout */
 
@@ -1065,6 +1002,7 @@ enum reg_class
    pointer is not 16-byte aligned like the stack pointer.  */
 #define INIT_EXPANDERS					\
   do {							\
+    ia64_init_expanders ();                             \
     if (cfun && cfun->emit->regno_pointer_align)	\
       REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = 64;	\
   } while (0)

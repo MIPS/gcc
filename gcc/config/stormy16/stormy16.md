@@ -1,5 +1,5 @@
 ;; XSTORMY16 Machine description template
-;; Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004, 2005
+;; Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004, 2005, 2007
 ;; Free Software Foundation, Inc.
 ;; Contributed by Red Hat, Inc.
 
@@ -7,7 +7,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -300,7 +299,7 @@
 
 ;; ::::::::::::::::::::
 ;; ::
-;; :: 16 bit Integer arithmetic
+;; :: 16-bit Integer arithmetic
 ;; ::
 ;; ::::::::::::::::::::
 
@@ -449,7 +448,7 @@
   "mul"
   [(set_attr "psw_operand" "nop")])
 
-;; Unsigned multiplication producing 64 bit results from 32 bit inputs
+;; Unsigned multiplication producing 64-bit results from 32-bit inputs
 ; The constraint on operand 0 is 't' because it is actually two regs
 ; long, and both regs must match the constraint.
 (define_insn "umulhisi3"
@@ -522,7 +521,7 @@
 
 ;; ::::::::::::::::::::
 ;; ::
-;; :: 16 bit Integer Shifts and Rotates
+;; :: 16-bit Integer Shifts and Rotates
 ;; ::
 ;; ::::::::::::::::::::
 
@@ -556,11 +555,11 @@
 
 ;; ::::::::::::::::::::
 ;; ::
-;; :: 16 Bit Integer Logical operations
+;; :: 16-Bit Integer Logical operations
 ;; ::
 ;; ::::::::::::::::::::
 
-;; Logical AND, 16 bit integers
+;; Logical AND, 16-bit integers
 (define_insn "andhi3"
   [(set (match_operand:HI 0 "xstormy16_splittable_below100_or_register" "=T,r,r,r,W")
 	(and:HI (match_operand:HI 1 "xstormy16_below100_or_register" "%0,0,0,0,0")
@@ -590,7 +589,7 @@
    }
 ")
 
-;; Inclusive OR, 16 bit integers
+;; Inclusive OR, 16-bit integers
 (define_insn "iorhi3"
   [(set (match_operand:HI 0 "xstormy16_splittable_below100_or_register" "=T,r,r,r,W")
 	(ior:HI (match_operand:HI 1 "xstormy16_below100_or_register" "%0,0,0,0,0")
@@ -620,7 +619,7 @@
    }
 ")
 
-;; Exclusive OR, 16 bit integers
+;; Exclusive OR, 16-bit integers
 (define_insn "xorhi3"
   [(set (match_operand:HI 0 "register_operand" "=T,r,r")
 	(xor:HI (match_operand:HI 1 "register_operand" "%0,0,0")
@@ -632,7 +631,7 @@
    xor %0,%2"
   [(set_attr "length" "2,2,4")])
 
-;; One's complement, 16 bit integers
+;; One's complement, 16-bit integers
 (define_insn "one_cmplhi2"
   [(set (match_operand:HI 0 "register_operand" "=r")
 	(not:HI (match_operand:HI 1 "register_operand" "0")))]
@@ -642,7 +641,7 @@
 
 ;; ::::::::::::::::::::
 ;; ::
-;; :: 32 bit Integer arithmetic
+;; :: 32-bit Integer arithmetic
 ;; ::
 ;; ::::::::::::::::::::
 
@@ -695,7 +694,7 @@
 
 ;; ::::::::::::::::::::
 ;; ::
-;; :: 32 bit Integer Shifts and Rotates
+;; :: 32-bit Integer Shifts and Rotates
 ;; ::
 ;; ::::::::::::::::::::
 

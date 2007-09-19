@@ -1,11 +1,11 @@
 /* Generic routines for manipulating SSA_NAME expressions
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
                                                                                
 This file is part of GCC.
                                                                                
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
                                                                                
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
                                                                                
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -26,6 +25,7 @@ Boston, MA 02110-1301, USA.  */
 #include "varray.h"
 #include "ggc.h"
 #include "tree-flow.h"
+#include "tree-pass.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -265,7 +265,7 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
   if (!ptr_info)
     return;
 
-  new_ptr_info = ggc_alloc (sizeof (struct ptr_info_def));
+  new_ptr_info = GGC_NEW (struct ptr_info_def);
   *new_ptr_info = *ptr_info;
 
   if (ptr_info->pt_vars)
@@ -304,3 +304,58 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
   SSA_NAME_VAR (ssa_name) = sym;
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }
+
+/* Return SSA names that are unused to GGC memory.  This is used to keep
+   footprint of compiler during interprocedural optimization.
+   As a side effect the SSA_NAME_VERSION number reuse is reduced
+   so this function should not be used too often.  */
+static unsigned int
+release_dead_ssa_names (void)
+{
+  tree t, next;
+  int n = 0;
+  referenced_var_iterator rvi;
+
+  /* Current defs point to various dead SSA names that in turn points to dead
+     statements so bunch of dead memory is held from releasing.  */
+  FOR_EACH_REFERENCED_VAR (t, rvi)
+    set_current_def (t, NULL);
+  /* Now release the freelist.  */
+  for (t = FREE_SSANAMES (cfun); t; t = next)
+    {
+      next = TREE_CHAIN (t);
+      /* Dangling pointers might make GGC to still see dead SSA names, so it is
+ 	 important to unlink the list and avoid GGC from seeing all subsequent
+	 SSA names.  In longer run we want to have all dangling pointers here
+	 removed (since they usually go through dead statements that consume
+	 considerable amounts of memory).  */
+      TREE_CHAIN (t) = NULL_TREE;
+      n++;
+    }
+  FREE_SSANAMES (cfun) = NULL;
+
+  /* Cgraph edges has been invalidated and point to dead statement.  We need to
+     remove them now and will rebuild it before next IPA pass.  */
+  cgraph_node_remove_callees (cgraph_node (current_function_decl));
+
+  if (dump_file)
+    fprintf (dump_file, "Released %i names, %.2f%%\n", n, n * 100.0 / num_ssa_names);
+  return 0;
+}
+
+struct tree_opt_pass pass_release_ssa_names =
+{
+  "release_ssa",			/* name */
+  NULL,					/* gate */
+  release_dead_ssa_names,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_ssa,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};

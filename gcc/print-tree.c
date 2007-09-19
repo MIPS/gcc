@@ -1,12 +1,12 @@
 /* Prints out tree in human readable form - GCC
    Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -26,6 +25,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm.h"
 #include "tree.h"
 #include "real.h"
+#include "fixed-value.h"
 #include "ggc.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
@@ -59,7 +59,7 @@ debug_tree (tree node)
 
 /* Print PREFIX and ADDR to FILE.  */
 void
-dump_addr (FILE *file, const char *prefix, void *addr)
+dump_addr (FILE *file, const char *prefix, const void *addr)
 {
   if (flag_dump_noaddr || flag_dump_unnumbered)
     fprintf (file, "%s#", prefix);
@@ -70,7 +70,7 @@ dump_addr (FILE *file, const char *prefix, void *addr)
 /* Print a node in brief fashion, with just the code, address and name.  */
 
 void
-print_node_brief (FILE *file, const char *prefix, tree node, int indent)
+print_node_brief (FILE *file, const char *prefix, const_tree node, int indent)
 {
   enum tree_code_class class;
 
@@ -115,7 +115,7 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
   /* We might as well always print the value of an integer or real.  */
   if (TREE_CODE (node) == INTEGER_CST)
     {
-      if (TREE_CONSTANT_OVERFLOW (node))
+      if (TREE_OVERFLOW (node))
 	fprintf (file, " overflow");
 
       fprintf (file, " ");
@@ -147,6 +147,18 @@ print_node_brief (FILE *file, const char *prefix, tree node, int indent)
 	  real_to_decimal (string, &d, sizeof (string), 0, 1);
 	  fprintf (file, " %s", string);
 	}
+    }
+  if (TREE_CODE (node) == FIXED_CST)
+    {
+      FIXED_VALUE_TYPE f;
+      char string[60];
+
+      if (TREE_OVERFLOW (node))
+	fprintf (file, " overflow");
+
+      f = TREE_FIXED_CST (node);
+      fixed_to_decimal (string, &f, sizeof (string));
+      fprintf (file, " %s", string);
     }
 
   fprintf (file, ">");
@@ -401,7 +413,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  if (DECL_VIRTUAL_P (node))
 	    fputs (" virtual", file);
 	  if (DECL_PRESERVE_P (node))
-	    fputs (" preserve", file);	  
+	    fputs (" preserve", file);
+	  if (DECL_NO_TBAA_P (node))
+	    fputs (" no-tbaa", file);
 	  if (DECL_LANG_FLAG_0 (node))
 	    fputs (" decl_0", file);
 	  if (DECL_LANG_FLAG_1 (node))
@@ -439,17 +453,15 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      || DECL_INLINE (node) || DECL_BUILT_IN (node))
 	    indent_to (file, indent + 3);
 	  
-	  if (TREE_CODE (node) != FUNCTION_DECL)
-	    {
-	      if (DECL_USER_ALIGN (node))
-		fprintf (file, " user");
-	      
-	      fprintf (file, " align %d", DECL_ALIGN (node));
-	      if (TREE_CODE (node) == FIELD_DECL)
-		fprintf (file, " offset_align " HOST_WIDE_INT_PRINT_UNSIGNED,
-			 DECL_OFFSET_ALIGN (node));
-	    }
-	  else if (DECL_BUILT_IN (node))
+	  if (DECL_USER_ALIGN (node))
+	    fprintf (file, " user");
+	  
+	  fprintf (file, " align %d", DECL_ALIGN (node));
+	  if (TREE_CODE (node) == FIELD_DECL)
+	    fprintf (file, " offset_align " HOST_WIDE_INT_PRINT_UNSIGNED,
+		     DECL_OFFSET_ALIGN (node));
+
+	  if (TREE_CODE (node) == FUNCTION_DECL && DECL_BUILT_IN (node))
 	    {
 	      if (DECL_BUILT_IN_CLASS (node) == BUILT_IN_MD)
 		fprintf (file, " built-in BUILT_IN_MD %d", DECL_FUNCTION_CODE (node));
@@ -461,7 +473,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  
 	  if (DECL_POINTER_ALIAS_SET_KNOWN_P (node))
 	    fprintf (file, " alias set " HOST_WIDE_INT_PRINT_DEC,
-		     DECL_POINTER_ALIAS_SET (node));
+		     (HOST_WIDE_INT) DECL_POINTER_ALIAS_SET (node));
 	}
       if (TREE_CODE (node) == FIELD_DECL)
 	{
@@ -602,11 +614,17 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       fprintf (file, " align %d symtab %d alias set " HOST_WIDE_INT_PRINT_DEC,
 	       TYPE_ALIGN (node), TYPE_SYMTAB_ADDRESS (node),
-	       TYPE_ALIAS_SET (node));
+	       (HOST_WIDE_INT) TYPE_ALIAS_SET (node));
 
+      if (TYPE_STRUCTURAL_EQUALITY_P (node))
+	fprintf (file, " structural equality");
+      else
+	dump_addr (file, " canonical type ", TYPE_CANONICAL (node));
+      
       print_node (file, "attributes", TYPE_ATTRIBUTES (node), indent + 4);
 
-      if (INTEGRAL_TYPE_P (node) || TREE_CODE (node) == REAL_TYPE)
+      if (INTEGRAL_TYPE_P (node) || TREE_CODE (node) == REAL_TYPE
+	  || TREE_CODE (node) == FIXED_POINT_TYPE)
 	{
 	  fprintf (file, " precision %d", TYPE_PRECISION (node));
 	  print_node_brief (file, "min", TYPE_MIN_VALUE (node), indent + 4);
@@ -656,6 +674,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     case tcc_binary:
     case tcc_reference:
     case tcc_statement:
+    case tcc_vl_exp:
       if (TREE_CODE (node) == BIT_FIELD_REF && BIT_FIELD_REF_UNSIGNED (node))
 	fputs (" unsigned", file);
       if (TREE_CODE (node) == BIND_EXPR)
@@ -665,17 +684,34 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  print_node (file, "block", TREE_OPERAND (node, 2), indent + 4);
 	  break;
 	}
-
-      len = TREE_CODE_LENGTH (TREE_CODE (node));
-
-      for (i = 0; i < len; i++)
+      if (TREE_CODE (node) == CALL_EXPR)
 	{
-	  char temp[10];
-
-	  sprintf (temp, "arg %d", i);
-	  print_node (file, temp, TREE_OPERAND (node, i), indent + 4);
+	  call_expr_arg_iterator iter;
+	  tree arg;
+	  print_node (file, "fn", CALL_EXPR_FN (node), indent + 4);
+	  print_node (file, "static_chain", CALL_EXPR_STATIC_CHAIN (node),
+		      indent + 4);
+	  i = 0;
+	  FOR_EACH_CALL_EXPR_ARG (arg, iter, node)
+	    {
+	      char temp[10];
+	      sprintf (temp, "arg %d", i);
+	      print_node (file, temp, arg, indent + 4);
+	      i++;
+	    }
 	}
+      else
+	{
+	  len = TREE_OPERAND_LENGTH (node);
 
+	  for (i = 0; i < len; i++)
+	    {
+	      char temp[10];
+	      
+	      sprintf (temp, "arg %d", i);
+	      print_node (file, temp, TREE_OPERAND (node, i), indent + 4);
+	    }
+	}
       print_node (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
@@ -696,7 +732,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       switch (TREE_CODE (node))
 	{
 	case INTEGER_CST:
-	  if (TREE_CONSTANT_OVERFLOW (node))
+	  if (TREE_OVERFLOW (node))
 	    fprintf (file, " overflow");
 
 	  fprintf (file, " ");
@@ -730,6 +766,20 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		real_to_decimal (string, &d, sizeof (string), 0, 1);
 		fprintf (file, " %s", string);
 	      }
+	  }
+	  break;
+
+	case FIXED_CST:
+	  {
+	    FIXED_VALUE_TYPE f;
+	    char string[64];
+
+	    if (TREE_OVERFLOW (node))
+	      fprintf (file, " overflow");
+
+	    f = TREE_FIXED_CST (node);
+	    fixed_to_decimal (string, &f, sizeof (string));
+	    fprintf (file, " %s", string);
 	  }
 	  break;
 

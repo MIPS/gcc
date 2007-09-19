@@ -1,12 +1,13 @@
 /* Declarations for variables relating to reading the source file.
    Used by parsers, lexical analyzers, and error message routines.
-   Copyright (C) 1993, 1997, 1998, 2000, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997, 1998, 2000, 2003, 2004, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_INPUT_H
 #define GCC_INPUT_H
@@ -27,6 +27,9 @@ extern struct line_maps line_table;
 
 /* The location for declarations in "<built-in>" */
 #define BUILTINS_LOCATION ((source_location) 2)
+
+/* Note: if any of the types defined inside this #ifdef are changed,
+   gengtype.c:define_location_structures must be updated to match.  */
 
 #ifdef USE_MAPPED_LOCATION
 

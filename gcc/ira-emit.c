@@ -51,7 +51,7 @@ static struct move *create_move (allocno_t, allocno_t);
 static void free_move (struct move *);
 static void free_move_list (struct move *);
 static int eq_move_lists_p (struct move *, struct move *);
-static void change_regs (rtx *);
+static int change_regs (rtx *);
 static void add_to_edge_list (edge, struct move *, int);
 static rtx create_new_reg (rtx);
 static int subloop_tree_node_p (struct ira_loop_tree_node *,
@@ -146,44 +146,46 @@ eq_move_lists_p (struct move *list1, struct move *list2)
 }
 
 /* This recursive function changes pseudo-registers in *LOC if it is
-   necessary.  */
-static void
+   necessary.  The function returns non-zero if a change was done.  */
+static int
 change_regs (rtx *loc)
 {
-  int i, regno;
+  int i, regno, result = 0;
   const char *fmt;
   enum rtx_code code;
 
   if (*loc == NULL_RTX)
-    return;
+    return 0;
   code = GET_CODE (*loc);
   if (code == REG)
     {
       regno = REGNO (*loc);
       if (regno < FIRST_PSEUDO_REGISTER)
-	return;
+	return 0;
       if (regno >= max_regno_before_changing)
 	/* It is a shared register which was changed already.  */
-	return;
+	return 0;
       /* ??? That is for reg_equal.  */
-      if (ira_curr_loop_tree_node->regno_allocno_map [regno] != NULL)
-	*loc = ALLOCNO_REG (ira_curr_loop_tree_node->regno_allocno_map [regno]);
-      return;
+      if (ira_curr_loop_tree_node->regno_allocno_map [regno] == NULL)
+	return 0;
+      *loc = ALLOCNO_REG (ira_curr_loop_tree_node->regno_allocno_map [regno]);
+      return 1;
     }
 
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	change_regs (&XEXP (*loc, i));
+	result = change_regs (&XEXP (*loc, i)) || result;
       else if (fmt[i] == 'E')
 	{
 	  int j;
 
 	  for (j = XVECLEN (*loc, i) - 1; j >= 0; j--)
-	    change_regs (&XVECEXP (*loc, i, j));
+	    result = change_regs (&XVECEXP (*loc, i, j)) || result;
 	}
     }
+  return result;
 }
 
 /* The function attaches MOVE to the edge E.  The move is attached to
@@ -296,9 +298,9 @@ generate_edge_moves (edge e)
     return;
   src_map = src_loop_node->regno_allocno_map;
   dest_map = dest_loop_node->regno_allocno_map;
-  EXECUTE_IF_SET_IN_REG_SET (DF_UPWARD_LIVE_IN (build_df, e->dest),
+  EXECUTE_IF_SET_IN_REG_SET (DF_LR_IN (e->dest),
 			     FIRST_PSEUDO_REGISTER, regno, bi)
-    if (bitmap_bit_p (DF_UPWARD_LIVE_OUT (build_df, e->src), regno))
+    if (bitmap_bit_p (DF_LR_OUT (e->src), regno))
       {
 	src_allocno = src_map [regno];
 	dest_allocno = dest_map [regno];
@@ -347,8 +349,11 @@ change_loop (struct ira_loop_tree_node *node)
       if (node->bb != NULL)
 	{
 	  FOR_BB_INSNS (node->bb, insn)
-	    if (INSN_P (insn))
-	      change_regs (&insn);
+	    if (INSN_P (insn) && change_regs (&insn))
+	      {
+		df_insn_rescan (insn);
+		df_notes_rescan (insn);
+	      }
 	  return;
 	}
       
@@ -477,10 +482,8 @@ can_move_through_p (rtx *loc, struct move *list, int output_p)
 				    [hard_regno] [ALLOCNO_MODE (list->from)]);
 	      }
 	    AND_HARD_REG_SET (move_regs, regs);
-	    GO_IF_HARD_REG_EQUAL (move_regs, zero_hard_reg_set, cont);
-	    return FALSE;
-	  cont:
-	    ;
+	    if (! hard_reg_set_equal_p (move_regs, zero_hard_reg_set))
+	      return FALSE;
 	  }
       return TRUE;
     }

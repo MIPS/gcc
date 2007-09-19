@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -353,7 +353,7 @@ private
       --  the Self field of the corresponding file.
 
       Before_LM : Boolean := False;
-      --  This flag is used to deal with the anomolies introduced by the
+      --  This flag is used to deal with the anomalies introduced by the
       --  peculiar definition of End_Of_File and End_Of_Page in Ada. These
       --  functions require looking ahead more than one character. Since
       --  there is no convenient way of backing up more than one character,
@@ -370,8 +370,8 @@ private
 
    function AFCB_Allocate (Control_Block : Text_AFCB) return FCB.AFCB_Ptr;
 
-   procedure AFCB_Close (File : access Text_AFCB);
-   procedure AFCB_Free  (File : access Text_AFCB);
+   procedure AFCB_Close (File : not null access Text_AFCB);
+   procedure AFCB_Free  (File : not null access Text_AFCB);
 
    procedure Read
      (File : in out Text_AFCB;
@@ -391,13 +391,13 @@ private
    Null_Str : aliased constant String := "";
    --  Used as name and form of standard files
 
-   Standard_Err_AFCB : aliased Text_AFCB;
    Standard_In_AFCB  : aliased Text_AFCB;
    Standard_Out_AFCB : aliased Text_AFCB;
+   Standard_Err_AFCB : aliased Text_AFCB;
 
-   Standard_Err : aliased File_Type := Standard_Err_AFCB'Access;
    Standard_In  : aliased File_Type := Standard_In_AFCB'Access;
    Standard_Out : aliased File_Type := Standard_Out_AFCB'Access;
+   Standard_Err : aliased File_Type := Standard_Err_AFCB'Access;
    --  Standard files
 
    Current_In   : aliased File_Type := Standard_In;

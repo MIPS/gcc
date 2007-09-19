@@ -1,12 +1,13 @@
 /* Header for code translation functions
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GFC_TRANS_H
 #define GFC_TRANS_H
@@ -70,6 +70,9 @@ typedef struct gfc_se
   /* When this is set the data and offset fields of the returned descriptor
      are NULL.  Used by intrinsic size.  */
   unsigned data_not_needed:1;
+
+  /* If set, gfc_conv_function_call does not put byref calls into se->pre.  */
+  unsigned no_function_call:1;
 
   /* Scalarization parameters.  */
   struct gfc_se *parent;
@@ -292,6 +295,9 @@ void gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr);
 void gfc_conv_expr_reference (gfc_se * se, gfc_expr *);
 void gfc_conv_expr_type (gfc_se * se, gfc_expr *, tree);
 
+/* trans-expr.c */
+void gfc_conv_scalar_char_value (gfc_symbol *sym, gfc_se *se, gfc_expr **expr);
+
 /* Find the decl containing the auxiliary variables for assigned variables.  */
 void gfc_conv_label_variable (gfc_se * se, gfc_expr * expr);
 /* If the value is not constant, Create a temporary and copy the value.  */
@@ -303,9 +309,16 @@ void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
 /* Does an intrinsic map directly to an external library call.  */
 int gfc_is_intrinsic_libcall (gfc_expr *);
 
+/* Used to call the elemental subroutines used in operator assignments.  */
+tree gfc_conv_operator_assign (gfc_se *, gfc_se *, gfc_symbol *);
+
 /* Also used to CALL subroutines.  */
 int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
 			    tree);
+
+void gfc_conv_aliased_arg (gfc_se *, gfc_expr *, int, sym_intent);
+bool is_aliased_array (gfc_expr *);
+
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
 /* Generate code for a scalar assignment.  */
@@ -426,10 +439,28 @@ extern GTY(()) tree gfc_static_ctors;
 void gfc_generate_constructors (void);
 
 /* Get the string length of an array constructor.  */
-bool get_array_ctor_strlen (gfc_constructor *, tree *);
+bool get_array_ctor_strlen (stmtblock_t *, gfc_constructor *, tree *);
 
 /* Generate a runtime error check.  */
-void gfc_trans_runtime_check (tree, const char *, stmtblock_t *, locus *);
+void gfc_trans_runtime_check (tree, stmtblock_t *, locus *, const char *, ...);
+
+/* Generate a call to free() after checking that its arg is non-NULL.  */
+tree gfc_call_free (tree);
+
+/* Allocate memory after performing a few checks.  */
+tree gfc_call_malloc (stmtblock_t *, tree, tree);
+
+/* Allocate memory for arrays, with optional status variable.  */
+tree gfc_allocate_array_with_status (stmtblock_t *, tree, tree, tree);
+
+/* Allocate memory, with optional status variable.  */
+tree gfc_allocate_with_status (stmtblock_t *, tree, tree);
+
+/* Generate code to deallocate an array.  */
+tree gfc_deallocate_with_status (tree, tree, bool);
+
+/* Generate code to call realloc().  */
+tree gfc_call_realloc (stmtblock_t *, tree, tree);
 
 /* Generate code for an assignment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *, bool);
@@ -440,6 +471,7 @@ tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
 /* Initialize function decls for library functions.  */
 void gfc_build_intrinsic_lib_fndecls (void);
 /* Create function decls for IO library functions.  */
+void gfc_trans_io_runtime_check (tree, tree, int, const char *, stmtblock_t *);
 void gfc_build_io_library_fndecls (void);
 /* Build a function decl for a library function.  */
 tree gfc_build_library_function_decl (tree, tree, int, ...);
@@ -454,7 +486,7 @@ tree gfc_truthvalue_conversion (tree);
 tree gfc_builtin_function (tree);
 
 /* In trans-openmp.c */
-bool gfc_omp_privatize_by_reference (tree);
+bool gfc_omp_privatize_by_reference (const_tree);
 enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
 tree gfc_omp_clause_default_ctor (tree, tree);
 bool gfc_omp_disregard_value_expr (tree, bool);
@@ -463,24 +495,17 @@ struct gimplify_omp_ctx;
 void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 
 /* Runtime library function decls.  */
-extern GTY(()) tree gfor_fndecl_internal_malloc;
-extern GTY(()) tree gfor_fndecl_internal_malloc64;
-extern GTY(()) tree gfor_fndecl_internal_realloc;
-extern GTY(()) tree gfor_fndecl_internal_realloc64;
-extern GTY(()) tree gfor_fndecl_internal_free;
-extern GTY(()) tree gfor_fndecl_allocate;
-extern GTY(()) tree gfor_fndecl_allocate64;
-extern GTY(()) tree gfor_fndecl_allocate_array;
-extern GTY(()) tree gfor_fndecl_allocate64_array;
-extern GTY(()) tree gfor_fndecl_deallocate;
 extern GTY(()) tree gfor_fndecl_pause_numeric;
 extern GTY(()) tree gfor_fndecl_pause_string;
 extern GTY(()) tree gfor_fndecl_stop_numeric;
 extern GTY(()) tree gfor_fndecl_stop_string;
 extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
+extern GTY(()) tree gfor_fndecl_runtime_error_at;
+extern GTY(()) tree gfor_fndecl_os_error;
+extern GTY(()) tree gfor_fndecl_generate_error;
 extern GTY(()) tree gfor_fndecl_set_fpe;
-extern GTY(()) tree gfor_fndecl_set_std;
+extern GTY(()) tree gfor_fndecl_set_options;
 extern GTY(()) tree gfor_fndecl_ttynam;
 extern GTY(()) tree gfor_fndecl_ctime;
 extern GTY(()) tree gfor_fndecl_fdate;
@@ -526,7 +551,7 @@ extern GTY(()) tree gfor_fndecl_string_index;
 extern GTY(()) tree gfor_fndecl_string_scan;
 extern GTY(()) tree gfor_fndecl_string_verify;
 extern GTY(()) tree gfor_fndecl_string_trim;
-extern GTY(()) tree gfor_fndecl_string_repeat;
+extern GTY(()) tree gfor_fndecl_string_minmax;
 extern GTY(()) tree gfor_fndecl_adjustl;
 extern GTY(()) tree gfor_fndecl_adjustr;
 
@@ -586,6 +611,8 @@ struct lang_decl		GTY(())
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
 /* An array without a descriptor.  */
 #define GFC_ARRAY_TYPE_P(node) TYPE_LANG_FLAG_2(node)
+/* Fortran POINTER type.  */
+#define GFC_POINTER_TYPE_P(node) TYPE_LANG_FLAG_3(node)
 /* The GFC_TYPE_ARRAY_* members are present in both descriptor and
    descriptorless array types.  */
 #define GFC_TYPE_ARRAY_LBOUND(node, dim) \

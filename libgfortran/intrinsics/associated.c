@@ -30,15 +30,16 @@ Boston, MA 02110-1301, USA.  */
 
 #include "libgfortran.h"
 
-extern GFC_LOGICAL_4 associated (const gfc_array_void *,
-				 const gfc_array_void *);
+extern int associated (const gfc_array_void *, const gfc_array_void *);
 export_proto(associated);
 
-GFC_LOGICAL_4
+int
 associated (const gfc_array_void *pointer, const gfc_array_void *target)
 {
   int n, rank;
 
+  if (GFC_DESCRIPTOR_DATA (pointer) == NULL)
+    return 0;
   if (GFC_DESCRIPTOR_DATA (pointer) != GFC_DESCRIPTOR_DATA (target))
     return 0;
   if (GFC_DESCRIPTOR_DTYPE (pointer) != GFC_DESCRIPTOR_DTYPE (target))

@@ -1,12 +1,12 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,13 +15,11 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
-
 #include "tree.h"
 #include "hashtab.h"
 #include "hard-reg-set.h"
@@ -46,8 +44,6 @@ struct sequence_stack GTY(())
   rtx last;
   struct sequence_stack *next;
 };
-
-extern struct sequence_stack *sequence_stack;
 
 /* Stack of single obstacks.  */
 
@@ -173,12 +169,12 @@ DEF_VEC_ALLOC_P(temp_slot_p,gc);
 
 enum function_frequency {
   /* This function most likely won't be executed at all.
-     (set only when profile feedback is available).  */
+     (set only when profile feedback is available or via function attribute). */
   FUNCTION_FREQUENCY_UNLIKELY_EXECUTED,
   /* The default value.  */
   FUNCTION_FREQUENCY_NORMAL,
   /* Optimize this function hard
-     (set only when profile feedback is available).  */
+     (set only when profile feedback is available or via function attribute). */
   FUNCTION_FREQUENCY_HOT
 };
 
@@ -198,7 +194,7 @@ struct function GTY(())
   struct gimple_df *gimple_df;
 
   /* The loops in this function.  */
-  struct loops * GTY((skip)) x_current_loops;
+  struct loops *x_current_loops;
 
   /* Value histograms attached to particular statements.  */
   htab_t GTY((skip)) value_histograms;
@@ -314,13 +310,6 @@ struct function GTY(())
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
 
-  /* For flow.c.  */
-
-  /* Highest loop depth seen so far in loop analysis.  Used in flow.c
-     for the "failure strategy" when doing liveness analysis starting
-     with non-empty initial sets.  */
-  int max_loop_depth;
-
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
@@ -354,9 +343,6 @@ struct function GTY(())
   /* Line number of the end of the function.  */
   location_t function_end_locus;
 
-  /* Array mapping insn uids to blocks.  */
-  VEC(tree,gc) *ib_boundaries_block;
-
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
 
@@ -378,7 +364,24 @@ struct function GTY(())
      Used for detecting stack clobbers.  */
   tree stack_protect_guard;
 
+  /* Properties used by the pass manager.  */
+  unsigned int curr_properties;
+  unsigned int last_verified;
+
   /* Collected bit flags.  */
+
+  /* Number of units of general registers that need saving in stdarg
+     function.  What unit is depends on the backend, either it is number
+     of bytes, or it can be number of registers.  */
+  unsigned int va_list_gpr_size : 8;
+
+  /* Number of units of floating point registers that need saving in stdarg
+     function.  */
+  unsigned int va_list_fpr_size : 8;
+
+  /* How commonly executed the function is.  Initialized during branch
+     probabilities pass.  */
+  ENUM_BITFIELD (function_frequency) function_frequency : 2;
 
   /* Nonzero if function being compiled needs to be given an address
      where the value should be stored.  */
@@ -409,9 +412,15 @@ struct function GTY(())
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
 
+  /* Nonzero if function calls builtin_unwind_init.  */
+  unsigned int calls_unwind_init : 1;
+  
   /* Nonzero if function being compiled has nonlocal gotos to parent
      function.  */
   unsigned int has_nonlocal_goto : 1;
+  
+  /* Nonzero if function being compiled has an asm statement.  */
+  unsigned int has_asm_statement : 1;
 
   /* Nonzero if the current function is a thunk, i.e., a lightweight
      function implemented by the output_mi_thunk hook) that just
@@ -465,19 +474,6 @@ struct function GTY(())
   /* Set when the tail call has been produced.  */
   unsigned int tail_call_emit : 1;
 
-  /* How commonly executed the function is.  Initialized during branch
-     probabilities pass.  */
-  ENUM_BITFIELD (function_frequency) function_frequency : 2;
-
-  /* Number of units of general registers that need saving in stdarg
-     function.  What unit is depends on the backend, either it is number
-     of bytes, or it can be number of registers.  */
-  unsigned int va_list_gpr_size : 8;
-
-  /* Number of units of floating point registers that need saving in stdarg
-     function.  */
-  unsigned int va_list_fpr_size : 8;
-
   /* FIXME tuples: This bit is temporarily here to mark when a
      function has been gimplified, so we can make sure we're not
      creating non GIMPLE tuples after gimplification.  */
@@ -526,7 +522,9 @@ extern int trampolines_created;
 #define current_function_uses_const_pool (cfun->uses_const_pool)
 #define current_function_epilogue_delay_list (cfun->epilogue_delay_list)
 #define current_function_has_nonlocal_label (cfun->has_nonlocal_label)
+#define current_function_calls_unwind_init (cfun->calls_unwind_init)
 #define current_function_has_nonlocal_goto (cfun->has_nonlocal_goto)
+#define current_function_has_asm_statement (cfun->has_asm_statement)
 
 #define return_label (cfun->x_return_label)
 #define naked_return_label (cfun->x_naked_return_label)
@@ -539,7 +537,10 @@ extern int trampolines_created;
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
+#define rtl_df (cfun->df)
 #define current_loops (cfun->x_current_loops)
+#define dom_computed (cfun->cfg->x_dom_computed)
+#define n_bbs_in_dom_tree (cfun->cfg->x_n_bbs_in_dom_tree)
 #define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
 
 /* Given a function decl for a containing function,
@@ -555,11 +556,6 @@ extern void number_blocks (tree);
 
 extern void clear_block_marks (tree);
 extern tree blocks_nreverse (tree);
-extern void reset_block_changes (void);
-extern void record_block_change (tree);
-extern void finalize_block_changes (void);
-extern void check_block_change (rtx, tree *);
-extern void free_block_changes (void);
 
 /* Return size needed for stack frame based on slots so far allocated.
    This size counts from zero.  It is not rounded to STACK_BOUNDARY;
@@ -590,8 +586,10 @@ extern rtx get_arg_pointer_save_area (struct function *);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);
+/* Returns the assembler name (raw, mangled) of the current function.  */
+extern const char *current_function_assembler_name (void);
 
-extern void get_call_invalidated_used_regs (rtx, HARD_REG_SET *, bool);
+extern void get_call_invalidated_used_regs (const_rtx, HARD_REG_SET *, bool);
 
 extern void do_warn_unused_parameter (tree);
 
@@ -602,4 +600,5 @@ extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 
 extern void used_types_insert (tree);
 
+extern int get_next_funcdef_no (void);
 #endif  /* GCC_FUNCTION_H */

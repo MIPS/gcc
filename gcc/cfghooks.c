@@ -1,12 +1,12 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -259,7 +258,7 @@ dump_bb (basic_block bb, FILE *outf, int indent)
   edge_iterator ei;
   char *s_indent;
 
-  s_indent = alloca ((size_t) indent + 1);
+  s_indent = (char *) alloca ((size_t) indent + 1);
   memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
@@ -310,7 +309,62 @@ redirect_edge_and_branch (edge e, basic_block dest)
 
   ret = cfg_hooks->redirect_edge_and_branch (e, dest);
 
+  /* If RET != E, then either the redirection failed, or the edge E
+     was removed since RET already lead to the same destination.  */
+  if (current_loops != NULL && ret == e)
+    rescan_loop_exit (e, false, false);
+
   return ret;
+}
+
+/* Returns true if it is possible to remove the edge E by redirecting it
+   to the destination of the other edge going from its source.  */
+
+bool
+can_remove_branch_p (const_edge e)
+{
+  if (!cfg_hooks->can_remove_branch_p)
+    internal_error ("%s does not support can_remove_branch_p",
+		    cfg_hooks->name);
+
+  if (EDGE_COUNT (e->src->succs) != 2)
+    return false;
+
+  return cfg_hooks->can_remove_branch_p (e);
+}
+
+/* Removes E, by redirecting it to the destination of the other edge going
+   from its source.  Can_remove_branch_p must be true for E, hence this
+   operation cannot fail.  */
+
+void
+remove_branch (edge e)
+{
+  edge other;
+  basic_block src = e->src;
+  int irr;
+
+  gcc_assert (EDGE_COUNT (e->src->succs) == 2);
+
+  other = EDGE_SUCC (src, EDGE_SUCC (src, 0) == e);
+  irr = other->flags & EDGE_IRREDUCIBLE_LOOP;
+
+  e = redirect_edge_and_branch (e, other->dest);
+  gcc_assert (e != NULL);
+
+  e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  e->flags |= irr;
+}
+
+/* Removes edge E from cfg.  Unlike remove_branch, it does not update IL.  */
+
+void
+remove_edge (edge e)
+{
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
+  remove_edge_raw (e);
 }
 
 /* Redirect the edge E to basic block DEST even if it requires creating
@@ -320,19 +374,31 @@ redirect_edge_and_branch (edge e, basic_block dest)
 basic_block
 redirect_edge_and_branch_force (edge e, basic_block dest)
 {
-  basic_block ret;
+  basic_block ret, src = e->src;
   struct loop *loop;
 
   if (!cfg_hooks->redirect_edge_and_branch_force)
     internal_error ("%s does not support redirect_edge_and_branch_force",
 		    cfg_hooks->name);
 
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
   ret = cfg_hooks->redirect_edge_and_branch_force (e, dest);
-  if (current_loops != NULL && ret != NULL)
+  if (ret != NULL
+      && dom_info_available_p (CDI_DOMINATORS))
+    set_immediate_dominator (CDI_DOMINATORS, ret, src);
+
+  if (current_loops != NULL)
     {
-      loop = find_common_loop (single_pred (ret)->loop_father,
-			       single_succ (ret)->loop_father);
-      add_bb_to_loop (ret, loop);
+      if (ret != NULL)
+	{
+	  loop = find_common_loop (single_pred (ret)->loop_father,
+				   single_succ (ret)->loop_father);
+	  add_bb_to_loop (ret, loop);
+	}
+      else if (find_edge (src, dest) == e)
+	rescan_loop_exit (e, true, false);
     }
 
   return ret;
@@ -365,7 +431,11 @@ split_block (basic_block bb, void *i)
     }
 
   if (current_loops != NULL)
-    add_bb_to_loop (new_bb, bb->loop_father);
+    {
+      add_bb_to_loop (new_bb, bb->loop_father);
+      if (bb->loop_father->latch == bb)
+	bb->loop_father->latch = new_bb;
+    }
 
   return make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
 }
@@ -427,9 +497,9 @@ delete_basic_block (basic_block bb)
   while (EDGE_COUNT (bb->succs) != 0)
     remove_edge (EDGE_SUCC (bb, 0));
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     delete_from_dominance_info (CDI_DOMINATORS, bb);
-  if (dom_computed[CDI_POST_DOMINATORS])
+  if (dom_info_available_p (CDI_POST_DOMINATORS))
     delete_from_dominance_info (CDI_POST_DOMINATORS, bb);
 
   /* Remove the basic block from the array.  */
@@ -452,6 +522,9 @@ split_edge (edge e)
   if (!cfg_hooks->split_edge)
     internal_error ("%s does not support split_edge", cfg_hooks->name);
 
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
   ret = cfg_hooks->split_edge (e);
   ret->count = count;
   ret->frequency = freq;
@@ -465,10 +538,10 @@ split_edge (edge e)
       single_succ_edge (ret)->flags |= EDGE_IRREDUCIBLE_LOOP;
     }
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     set_immediate_dominator (CDI_DOMINATORS, ret, single_pred (ret));
 
-  if (dom_computed[CDI_DOMINATORS] >= DOM_NO_FAST_QUERY)
+  if (dom_info_state (CDI_DOMINATORS) >= DOM_NO_FAST_QUERY)
     {
       /* There are two cases:
 
@@ -524,9 +597,9 @@ create_basic_block (void *head, void *end, basic_block after)
 
   ret = cfg_hooks->create_basic_block (head, end, after);
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     add_to_dominance_info (CDI_DOMINATORS, ret);
-  if (dom_computed[CDI_POST_DOMINATORS])
+  if (dom_info_available_p (CDI_POST_DOMINATORS))
     add_to_dominance_info (CDI_POST_DOMINATORS, ret);
 
   return ret;
@@ -543,7 +616,7 @@ create_empty_bb (basic_block after)
 /* Checks whether we may merge blocks BB1 and BB2.  */
 
 bool
-can_merge_blocks_p (basic_block bb1, basic_block bb2)
+can_merge_blocks_p (const_basic_block bb1, const_basic_block bb2)
 {
   bool ret;
 
@@ -565,7 +638,7 @@ predict_edge (edge e, enum br_predictor predictor, int probability)
 }
 
 bool
-predicted_by_p (basic_block bb, enum br_predictor predictor)
+predicted_by_p (const_basic_block bb, enum br_predictor predictor)
 {
   if (!cfg_hooks->predict_edge)
     internal_error ("%s does not support predicted_by_p", cfg_hooks->name);
@@ -584,10 +657,10 @@ merge_blocks (basic_block a, basic_block b)
   if (!cfg_hooks->merge_blocks)
     internal_error ("%s does not support merge_blocks", cfg_hooks->name);
 
+  cfg_hooks->merge_blocks (a, b);
+
   if (current_loops != NULL)
     remove_bb_from_loops (b);
-
-  cfg_hooks->merge_blocks (a, b);
 
   /* Normally there should only be one successor of A and that is B, but
      partway though the merge of blocks for conditional_execution we'll
@@ -595,23 +668,27 @@ merge_blocks (basic_block a, basic_block b)
      whole lot of them and hope the caller knows what they're doing.  */
 
   while (EDGE_COUNT (a->succs) != 0)
-   remove_edge (EDGE_SUCC (a, 0));
+    remove_edge (EDGE_SUCC (a, 0));
 
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_EDGE (e, ei, b->succs)
-    e->src = a;
+    {
+      e->src = a;
+      if (current_loops != NULL)
+	rescan_loop_exit (e, true, false);
+    }
   a->succs = b->succs;
   a->flags |= b->flags;
 
   /* B hasn't quite yet ceased to exist.  Attempt to prevent mishap.  */
   b->preds = b->succs = NULL;
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     redirect_immediate_dominators (CDI_DOMINATORS, b, a);
 
-  if (dom_computed[CDI_DOMINATORS])
+  if (dom_info_available_p (CDI_DOMINATORS))
     delete_from_dominance_info (CDI_DOMINATORS, b);
-  if (dom_computed[CDI_POST_DOMINATORS])
+  if (dom_info_available_p (CDI_POST_DOMINATORS))
     delete_from_dominance_info (CDI_POST_DOMINATORS, b);
 
   expunge_block (b);
@@ -658,17 +735,18 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 	fallthru->count = 0;
 
       jump = redirect_edge_and_branch_force (e, bb);
-      if (jump)
+      if (jump != NULL
+	  && new_bb_cbk != NULL)
 	new_bb_cbk (jump);
     }
 
   if (dom_info_available_p (CDI_DOMINATORS))
     {
-      basic_block doms_to_fix[2];
-
-      doms_to_fix[0] = dummy;
-      doms_to_fix[1] = bb;
-      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, 2);
+      VEC (basic_block, heap) *doms_to_fix = VEC_alloc (basic_block, heap, 2);
+      VEC_quick_push (basic_block, doms_to_fix, dummy);
+      VEC_quick_push (basic_block, doms_to_fix, bb);
+      iterate_fix_dominators (CDI_DOMINATORS, doms_to_fix, false);
+      VEC_free (basic_block, heap, doms_to_fix);
     }
 
   if (current_loops != NULL)
@@ -676,9 +754,12 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
       /* If we do not split a loop header, then both blocks belong to the
 	 same loop.  In case we split loop header and do not redirect the
 	 latch edge to DUMMY, then DUMMY belongs to the outer loop, and
-	 BB becomes the new header.  */
+	 BB becomes the new header.  If latch is not recorded for the loop,
+	 we leave this updating on the caller (this may only happen during
+	 loop analysis).  */
       loop = dummy->loop_father;
       if (loop->header == dummy
+	  && loop->latch != NULL
 	  && find_edge (loop->latch, dummy) == NULL)
 	{
 	  remove_bb_from_loops (dummy);
@@ -693,7 +774,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
 	}
 
       /* In case we split loop latch, update it.  */
-      for (ploop = loop; ploop; ploop = ploop->outer)
+      for (ploop = loop; ploop; ploop = loop_outer (ploop))
 	if (ploop->latch == dummy)
 	  ploop->latch = bb;
     }
@@ -758,21 +839,13 @@ tidy_fallthru_edges (void)
 /* Returns true if we can duplicate basic block BB.  */
 
 bool
-can_duplicate_block_p (basic_block bb)
+can_duplicate_block_p (const_basic_block bb)
 {
-  edge e;
-
   if (!cfg_hooks->can_duplicate_block_p)
     internal_error ("%s does not support can_duplicate_block_p",
 		    cfg_hooks->name);
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
-    return false;
-
-  /* Duplicating fallthru block to exit would require adding a jump
-     and splitting the real last BB.  */
-  e = find_edge (bb, EXIT_BLOCK_PTR);
-  if (e && (e->flags & EDGE_FALLTHRU))
     return false;
 
   return cfg_hooks->can_duplicate_block_p (bb);
@@ -849,9 +922,14 @@ duplicate_block (basic_block bb, edge e, basic_block after)
   set_bb_original (new_bb, bb);
   set_bb_copy (bb, new_bb);
 
-  /* Add the new block to the prescribed loop.  */
+  /* Add the new block to the copy of the loop of BB, or directly to the loop
+     of BB if the loop is not being copied.  */
   if (current_loops != NULL)
-    add_bb_to_loop (new_bb, bb->loop_father->copy);
+    {
+      struct loop *cloop = bb->loop_father;
+      struct loop *copy = get_loop_copy (cloop);
+      add_bb_to_loop (new_bb, copy ? copy : cloop);
+    }
 
   return new_bb;
 }
@@ -860,7 +938,7 @@ duplicate_block (basic_block bb, edge e, basic_block after)
    instructions that must stay with the call, 0 otherwise.  */
 
 bool
-block_ends_with_call_p (basic_block bb)
+block_ends_with_call_p (const_basic_block bb)
 {
   if (!cfg_hooks->block_ends_with_call_p)
     internal_error ("%s does not support block_ends_with_call_p", cfg_hooks->name);
@@ -871,7 +949,7 @@ block_ends_with_call_p (basic_block bb)
 /* Return 1 if BB ends with a conditional branch, 0 otherwise.  */
 
 bool
-block_ends_with_condjump_p (basic_block bb)
+block_ends_with_condjump_p (const_basic_block bb)
 {
   if (!cfg_hooks->block_ends_with_condjump_p)
     internal_error ("%s does not support block_ends_with_condjump_p",
@@ -939,14 +1017,14 @@ bool
 cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 					unsigned int ndupl,
 					sbitmap wont_exit, edge orig,
-					edge *to_remove,
-					unsigned int *n_to_remove, int flags)
+					VEC (edge, heap) **to_remove,
+					int flags)
 {
   gcc_assert (cfg_hooks->cfg_hook_duplicate_loop_to_header_edge);
   return cfg_hooks->cfg_hook_duplicate_loop_to_header_edge (loop, e,
 							    ndupl, wont_exit,
 							    orig, to_remove,
-							    n_to_remove, flags);
+							    flags);
 }
 
 /* Conditional jumps are represented differently in trees and RTL,
@@ -964,10 +1042,10 @@ extract_cond_bb_edges (basic_block b, edge *e1, edge *e2)
    new condition basic block that guards the versioned loop.  */
 void
 lv_adjust_loop_header_phi (basic_block first, basic_block second,
-			   basic_block new, edge e)
+			   basic_block new_block, edge e)
 {
   if (cfg_hooks->lv_adjust_loop_header_phi)
-    cfg_hooks->lv_adjust_loop_header_phi (first, second, new, e);
+    cfg_hooks->lv_adjust_loop_header_phi (first, second, new_block, e);
 }
 
 /* Conditions in trees and RTL are different so we need
@@ -975,8 +1053,8 @@ lv_adjust_loop_header_phi (basic_block first, basic_block second,
    versioning code.  */
 void
 lv_add_condition_to_bb (basic_block first, basic_block second,
-			basic_block new, void *cond)
+			basic_block new_block, void *cond)
 {
   gcc_assert (cfg_hooks->lv_add_condition_to_bb);
-  cfg_hooks->lv_add_condition_to_bb (first, second, new, cond);
+  cfg_hooks->lv_add_condition_to_bb (first, second, new_block, cond);
 }

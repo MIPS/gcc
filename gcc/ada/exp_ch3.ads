@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -69,17 +69,16 @@ package Exp_Ch3 is
       Enclos_Type       : Entity_Id := Empty;
       Discr_Map         : Elist_Id := New_Elmt_List;
       With_Default_Init : Boolean := False) return List_Id;
-   --  Builds a call to the initialization procedure of the Id entity. Id_Ref
-   --  is either a new reference to Id (for record fields), or an indexed
-   --  component (for array elements). Loc is the source location for the
-   --  constructed tree, and Typ is the type of the entity (the initialization
-   --  procedure of the base type is the procedure that actually gets called).
-   --  In_Init_Proc has to be set to True when the call is itself in an init
-   --  proc in order to enable the use of discriminals. Enclos_type is the type
-   --  of the init proc and it is used for various expansion cases including
-   --  the case where Typ is a task type which is a array component, the
-   --  indices of the enclosing type are used to build the string that
-   --  identifies each task at runtime.
+   --  Builds a call to the initialization procedure for the base type of Typ,
+   --  passing it the object denoted by Id_Ref, plus additional parameters as
+   --  appropriate for the type (the _Master, for task types, for example).
+   --  Loc is the source location for the constructed tree. In_Init_Proc has
+   --  to be set to True when the call is itself in an init proc in order to
+   --  enable the use of discriminals. Enclos_Type is the enclosing type when
+   --  initializing a component in an outer init proc, and it is used for
+   --  various expansion cases including the case where Typ is a task type
+   --  which is an array component, the indices of the enclosing type are
+   --  used to build the string that identifies each task at runtime.
    --
    --  Discr_Map is used to replace discriminants by their discriminals in
    --  expressions used to constrain record components. In the presence of
@@ -112,12 +111,17 @@ package Exp_Ch3 is
    --  since it would confuse any remaining processing of the freeze node.
 
    procedure Init_Secondary_Tags
-     (Typ        : Entity_Id;
-      Target     : Node_Id;
-      Stmts_List : List_Id);
-   --  Ada 2005 (AI-251): Initialize the tags of all the secondary tables
-   --  associated with the abstract interfaces of Typ. The generated code
-   --  referencing tag fields of Target is appended to Stmts_List.
+     (Typ            : Entity_Id;
+      Target         : Node_Id;
+      Stmts_List     : List_Id;
+      Fixed_Comps    : Boolean := True;
+      Variable_Comps : Boolean := True);
+   --  Ada 2005 (AI-251): Initialize the tags of the secondary dispatch tables
+   --  of Typ. The generated code referencing tag fields of Target is appended
+   --  to Stmts_List. If Fixed_Comps is True then the tag components located at
+   --  fixed positions of Target are initialized; if Variable_Comps is True
+   --  then tags components located at variable positions of Target are
+   --  initialized.
 
    function Needs_Simple_Initialization (T : Entity_Id) return Boolean;
    --  Certain types need initialization even though there is no specific

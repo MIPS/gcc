@@ -46,9 +46,28 @@
 #endif
 
 
+/* Define to 1 to specify that we are using the BID decimal floating point
+   format instead of DPD */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_DECIMAL_BID_FORMAT
+#endif
+
+
 /* Define to 1 to enable decimal float extension to C. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_DECIMAL_FLOAT
+#endif
+
+
+/* Define if you want more run-time sanity checks for dataflow. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_DF_CHECKING
+#endif
+
+
+/* Define to 1 to enable fixed-point arithmetic extension to C. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_FIXED_POINT
 #endif
 
 
@@ -108,6 +127,13 @@
 #endif
 
 
+/* Define if you want all gimple types to be verified after gimplifiation.
+   This is cheap. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_TYPES_CHECKING
+#endif
+
+
 /* Define if you want to run subprograms and generated programs through
    valgrind (a memory checker). This is extremely expensive. */
 #ifndef USED_FOR_TARGET
@@ -160,6 +186,30 @@
 #endif
 
 
+/* Define if your assembler supports cmpb. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_CMPB
+#endif
+
+
+/* Define if your assembler supports the --debug-prefix-map option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_DEBUG_PREFIX_MAP
+#endif
+
+
+/* Define if your assembler supports DFP instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_DFP
+#endif
+
+
+/* Define if your assembler supports .dtprelword. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_DTPRELWORD
+#endif
+
+
 /* Define if your assembler supports dwarf2 .file/.loc directives, and
    preserves file table indices exactly as given. */
 #ifndef USED_FOR_TARGET
@@ -182,6 +232,12 @@
 /* Define if your assembler supports the --gdwarf2 option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_GDWARF2_DEBUG_FLAG
+#endif
+
+
+/* Define if your assembler supports .gnu_attribute. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_GNU_ATTRIBUTE
 #endif
 
 
@@ -216,6 +272,12 @@
 #endif
 
 
+/* Define if your assembler supports the sahf mnemonic. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_SAHF
+#endif
+
+
 /* Define if your assembler supports the lituse_jsrdirect relocation. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_JSRDIRECT_RELOCS
@@ -225,6 +287,12 @@
 /* Define if your assembler supports .sleb128 and .uleb128. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_LEB128
+#endif
+
+
+/* Define if the assembler won't complain about a line such as # 0 "" 2. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_LINE_ZERO
 #endif
 
 
@@ -754,6 +822,12 @@
 /* Define if your assembler and linker support .hidden. */
 #undef HAVE_GAS_HIDDEN
 
+/* Define if your assembler supports .literal16. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_LITERAL16
+#endif
+
+
 /* Define if your assembler supports specifying the maximum number of bytes to
    skip when using the GAS .p2align command. */
 #ifndef USED_FOR_TARGET
@@ -830,6 +904,18 @@
 /* Define to 1 if you have the `gettimeofday' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GETTIMEOFDAY
+#endif
+
+
+/* Define if using GNU as. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GNU_AS
+#endif
+
+
+/* Define if using GNU ld. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GNU_LD
 #endif
 
 
@@ -1283,37 +1369,37 @@
 #endif
 
 
-/* The size of a `int', as computed by sizeof. */
+/* The size of `int', as computed by sizeof. */
 #ifndef USED_FOR_TARGET
 #undef SIZEOF_INT
 #endif
 
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #ifndef USED_FOR_TARGET
 #undef SIZEOF_LONG
 #endif
 
 
-/* The size of a `long long', as computed by sizeof. */
+/* The size of `long long', as computed by sizeof. */
 #ifndef USED_FOR_TARGET
 #undef SIZEOF_LONG_LONG
 #endif
 
 
-/* The size of a `short', as computed by sizeof. */
+/* The size of `short', as computed by sizeof. */
 #ifndef USED_FOR_TARGET
 #undef SIZEOF_SHORT
 #endif
 
 
-/* The size of a `void *', as computed by sizeof. */
+/* The size of `void *', as computed by sizeof. */
 #ifndef USED_FOR_TARGET
 #undef SIZEOF_VOID_P
 #endif
 
 
-/* The size of a `__int64', as computed by sizeof. */
+/* The size of `__int64', as computed by sizeof. */
 #ifndef USED_FOR_TARGET
 #undef SIZEOF___INT64
 #endif

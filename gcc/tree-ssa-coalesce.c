@@ -1,12 +1,12 @@
 /* Coalesce SSA_NAMES together for the out-of-ssa pass.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -48,6 +47,7 @@ typedef struct coalesce_pair
   int second_element;
   int cost;
 } * coalesce_pair_p;
+typedef const struct coalesce_pair *const_coalesce_pair_p;
 
 typedef struct cost_one_pair_d
 {
@@ -174,21 +174,21 @@ pop_best_coalesce (coalesce_list_p cl, int *p1, int *p2)
 static unsigned int 
 coalesce_pair_map_hash (const void *pair)
 {
-  hashval_t a = (hashval_t)(((coalesce_pair_p)pair)->first_element);
-  hashval_t b = (hashval_t)(((coalesce_pair_p)pair)->second_element);
+  hashval_t a = (hashval_t)(((const_coalesce_pair_p)pair)->first_element);
+  hashval_t b = (hashval_t)(((const_coalesce_pair_p)pair)->second_element);
 
   return COALESCE_HASH_FN (a,b);
 }
 
 
 /* Equality function for coalesce list hash table.  Compare PAIR1 and PAIR2,
-   returning TRUE if the two pairs are equivilent. */
+   returning TRUE if the two pairs are equivalent.  */
 
 static int 
 coalesce_pair_map_eq (const void *pair1, const void *pair2)
 {
-  coalesce_pair_p p1 = (coalesce_pair_p) pair1;
-  coalesce_pair_p p2 = (coalesce_pair_p) pair2;
+  const_coalesce_pair_p const p1 = (const_coalesce_pair_p) pair1;
+  const_coalesce_pair_p const p2 = (const_coalesce_pair_p) pair2;
 
   return (p1->first_element == p2->first_element
 	  && p1->second_element == p2->second_element);
@@ -260,7 +260,7 @@ find_coalesce_pair (coalesce_list_p cl, int p1, int p2, bool create)
   if (create && !pair)
     {
       gcc_assert (cl->sorted == NULL);
-      pair = xmalloc (sizeof (struct coalesce_pair));
+      pair = XNEW (struct coalesce_pair);
       pair->first_element = p.first_element;
       pair->second_element = p.second_element;
       pair->cost = 0;
@@ -276,7 +276,7 @@ add_cost_one_coalesce (coalesce_list_p cl, int p1, int p2)
 {
   cost_one_pair_p pair;
 
-  pair = xmalloc (sizeof (struct cost_one_pair_d));
+  pair = XNEW (struct cost_one_pair_d);
   pair->first_element = p1;
   pair->second_element = p2;
   pair->next = cl->cost_one_list;
@@ -309,12 +309,13 @@ add_coalesce (coalesce_list_p cl, int p1, int p2,
 }
 
 
-/* Comparison function to allow qsort to sort P1 and P2 in Ascendiong order.  */
+/* Comparison function to allow qsort to sort P1 and P2 in Ascending order.  */
 
 static int 
 compare_pairs (const void *p1, const void *p2)
 {
-  return (*(coalesce_pair_p *)p1)->cost - (*(coalesce_pair_p *)p2)->cost;
+  return (*(const_coalesce_pair_p const*)p1)->cost
+    - (*(const_coalesce_pair_p const*)p2)->cost;
 }
 
 
@@ -355,7 +356,7 @@ end_coalesce_pair_p (coalesce_pair_iterator *iter)
 }
 
 
-/* Return the next parttition pair to be visited by ITER.  */
+/* Return the next partition pair to be visited by ITER.  */
 
 static inline coalesce_pair_p
 next_coalesce_pair (coalesce_pair_iterator *iter)
@@ -466,7 +467,7 @@ dump_coalesce_list (FILE *f, coalesce_list_p cl)
 
 
 /* This represents a conflict graph.  Implemented as an array of bitmaps.  
-   A full matrix isused for conflicts rather than just upper triangular form.
+   A full matrix is used for conflicts rather than just upper triangular form.
    this make sit much simpler and faster to perform conflict merges.  */
 
 typedef struct ssa_conflicts_d
@@ -476,7 +477,7 @@ typedef struct ssa_conflicts_d
 } * ssa_conflicts_p;
 
 
-/* Return a empty new conflict graph for SIZE elements.  */
+/* Return an empty new conflict graph for SIZE elements.  */
 
 static inline ssa_conflicts_p
 ssa_conflicts_new (unsigned size)
@@ -585,6 +586,24 @@ ssa_conflicts_merge (ssa_conflicts_p ptr, unsigned x, unsigned y)
       ptr->conflicts[x] = ptr->conflicts[y];
       ptr->conflicts[y] = NULL;
     }
+}
+
+
+/* Dump a conflicts graph.  */
+
+static void
+ssa_conflicts_dump (FILE *file, ssa_conflicts_p ptr)
+{
+  unsigned x;
+
+  fprintf (file, "\nConflict graph:\n");
+
+  for (x = 0; x < ptr->size; x++)
+    if (ptr->conflicts[x])
+      {
+	fprintf (dump_file, "%d: ", x);
+	dump_bitmap (file, ptr->conflicts[x]);
+      }
 }
 
 
@@ -787,9 +806,9 @@ live_track_clear_base_vars (live_track_p ptr)
 
 
 /* Build a conflict graph based on LIVEINFO.  Any partitions which are in the
-   partition view of the var_map liveinfo is based on get entires in the 
+   partition view of the var_map liveinfo is based on get entries in the 
    conflict graph.  Only conflicts between ssa_name partitions with the same 
-   base variableare added.  */
+   base variable are added.  */
 
 static ssa_conflicts_p
 build_ssa_conflict_graph (tree_live_info_p liveinfo)
@@ -909,7 +928,7 @@ abnormal_corrupt (tree phi, int i)
 static inline void
 fail_abnormal_edge_coalesce (int x, int y)
 {
-  fprintf (stderr, "\nUnable to coalesce ssa_names %d  and %d ",x, y);
+  fprintf (stderr, "\nUnable to coalesce ssa_names %d and %d",x, y);
   fprintf (stderr, " which are marked as MUST COALESCE.\n");
   print_generic_expr (stderr, ssa_name (x), TDF_SLIM);
   fprintf (stderr, " and  ");
@@ -976,7 +995,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		  if ((e->flags & EDGE_ABNORMAL) == 0)
 		    {
 		      int cost = coalesce_cost_edge (e);
-		      if (cost == 1 && single_imm_use_p (arg))
+		      if (cost == 1 && has_single_use (arg))
 		        add_cost_one_coalesce (cl, ver, SSA_NAME_VERSION (arg));
 		      else
 			add_coalesce (cl, ver, SSA_NAME_VERSION (arg), cost);
@@ -1037,7 +1056,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		    char *end;
 		    unsigned long match;
 
-		    if (TREE_CODE (input) != SSA_NAME && !DECL_P (input))
+		    if (TREE_CODE (input) != SSA_NAME)
 		      continue;
 
 		    match = strtoul (constraint, &end, 10);
@@ -1140,7 +1159,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 }
 
 
-/* Attempt to coalesce ssa verisons X and Y together using the partition
+/* Attempt to coalesce ssa versions X and Y together using the partition
    mapping in MAP and checking conflicts in GRAPH.  Output any debug info to
    DEBUG, if it is nun-NULL.  */
 
@@ -1219,8 +1238,8 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
   edge e;
   edge_iterator ei;
 
-  /* First, coalece all the copie across abnormal edges.  These are not placed
-     in the coalesce list becase they do not need to be sorted, and simply 
+  /* First, coalesce all the copies across abnormal edges.  These are not placed
+     in the coalesce list because they do not need to be sorted, and simply 
      consume extra memory/compilation time in large programs.  */
 
   FOR_EACH_BB (bb)
@@ -1301,6 +1320,8 @@ coalesce_ssa_name (void)
   /* Build a conflict graph.  */
   graph = build_ssa_conflict_graph (liveinfo);
   delete_tree_live_info (liveinfo);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    ssa_conflicts_dump (dump_file, graph);
 
   sort_coalesce_list (cl);
 

@@ -178,9 +178,9 @@ struct allocno
   int hard_regno;
   /* Frequency of calls which given allocno intersects.  */
   int call_freq;
-  /* Calls which given allocno intersects.  It can be NULL if there is
-     no one.  */
-  rtx *calls_crossed;
+  /* Start index of calls intersected by the allocno in
+     regno_calls [regno].  */
+  int calls_crossed_start;
   /* Length of the previous array (number of the intersected
      calls).  */
   int calls_crossed_num;
@@ -253,7 +253,7 @@ struct allocno
 #define ALLOCNO_FREQ(P) ((P)->freq)
 #define ALLOCNO_HARD_REGNO(P) ((P)->hard_regno)
 #define ALLOCNO_CALL_FREQ(P) ((P)->call_freq)
-#define ALLOCNO_CALLS_CROSSED(P) ((P)->calls_crossed)
+#define ALLOCNO_CALLS_CROSSED_START(P) ((P)->calls_crossed_start)
 #define ALLOCNO_CALLS_CROSSED_NUM(P) ((P)->calls_crossed_num)
 #ifdef STACK_REGS
 #define ALLOCNO_NO_STACK_REG_P(P) ((P)->no_stack_reg_p)
@@ -336,9 +336,6 @@ extern int spilled_reg_stack_slots_num;
 /* The following array contains description of spilled registers stack
    slots have been used in current function so far.  */
 extern struct spilled_reg_stack_slot *spilled_reg_stack_slots;
-
-/* Data flow data used for IRA data flow analysis.  */
-extern struct df *build_df;
 
 /* Correspondingly overall cost of the allocation, cost of hard
    register usage for the allocnos, cost of memory usage for the
@@ -448,6 +445,9 @@ extern int ira_max_regno_call_before;
 
 /* The current loop tree node.  */
 extern struct ira_loop_tree_node *ira_curr_loop_tree_node;
+extern VEC(rtx, heap) **regno_calls;
+
+extern int add_regno_call (int, rtx);
 
 extern void traverse_loop_tree (struct ira_loop_tree_node *,
 				void (*) (struct ira_loop_tree_node *),

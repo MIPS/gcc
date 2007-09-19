@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,26 +27,12 @@
 --  Package containing utility procedures used throughout the expander
 
 with Exp_Tss; use Exp_Tss;
+with Namet;   use Namet;
 with Rtsfind; use Rtsfind;
 with Sinfo;   use Sinfo;
 with Types;   use Types;
 
 package Exp_Util is
-
-   --  An enumeration type used to capture all the possible interface
-   --  kinds and their hierarchical relation. These values are used in
-   --  Find_Implemented_Interface and Implements_Interface.
-
-   type Interface_Kind is (
-     Any_Interface,               --  Any interface
-     Any_Limited_Interface,       --  Only limited interfaces
-     Any_Synchronized_Interface,  --  Only synchronized interfaces
-
-     Iface,                       --  Individual kinds
-     Limited_Interface,
-     Protected_Interface,
-     Synchronized_Interface,
-     Task_Interface);
 
    -----------------------------------------------
    -- Handling of Actions Associated with Nodes --
@@ -363,16 +349,6 @@ package Exp_Util is
    --  Ada 2005 (AI-251): Given a type T implementing the interface Iface,
    --  return the record component containing the tag of Iface.
 
-   function Find_Implemented_Interface
-     (Typ          : Entity_Id;
-      Kind         : Interface_Kind;
-      Check_Parent : Boolean := False) return Entity_Id;
-   --  Ada 2005 (AI-345): Find a designated kind of interface implemented by
-   --  Typ or any parent subtype. Return the first encountered interface that
-   --  correspond to the selected class. Return Empty if no such interface is
-   --  found. Use Check_Parent to climb a potential derivation chain and
-   --  examine the parent subtypes for any implementation.
-
    function Find_Prim_Op (T : Entity_Id; Name : Name_Id) return Entity_Id;
    --  Find the first primitive operation of type T whose name is 'Name'.
    --  This function allows the use of a primitive operation which is not
@@ -418,7 +394,7 @@ package Exp_Util is
    --  or not known at all. In the first two cases, Get_Current_Condition will
    --  return with Op set to the appropriate conditional operator (inverted if
    --  the condition is known false), and Val set to the constant value. If the
-   --  condition is not known, then Cond and Val are set for the empty case
+   --  condition is not known, then Op and Val are set for the empty case
    --  (N_Empty and Empty).
    --
    --  The check for whether the condition is true/false unknown depends
@@ -436,6 +412,10 @@ package Exp_Util is
    --  N_Op_Eq), or to determine the result of some other test in other cases
    --  (e.g. no access check required if N_Op_Ne Null).
 
+   function Has_Controlled_Coextensions (Typ : Entity_Id) return Boolean;
+   --  Determine whether a record type has anonymous access discriminants with
+   --  a controlled designated type.
+
    function Homonym_Number (Subp : Entity_Id) return Nat;
    --  Here subp is the entity for a subprogram. This routine returns the
    --  homonym number used to disambiguate overloaded subprograms in the same
@@ -443,14 +423,6 @@ package Exp_Util is
    --  they are unique). The number is the ordinal position on the Homonym
    --  chain, counting only entries in the curren scope. If an entity is not
    --  overloaded, the returned number will be one.
-
-   function Implements_Interface
-     (Typ          : Entity_Id;
-      Kind         : Interface_Kind;
-      Check_Parent : Boolean := False) return Boolean;
-   --  Ada 2005 (AI-345): Determine whether Typ implements a designated kind
-   --  of interface. Use Check_Parent to climb a potential derivation chain
-   --  and examine the parent subtypes for any implementation.
 
    function Inside_Init_Proc return Boolean;
    --  Returns True if current scope is within an init proc
@@ -465,6 +437,10 @@ package Exp_Util is
    --  Return True if all the items of the list are N_Null_Statement nodes.
    --  False otherwise. True for an empty list. It is an error to call this
    --  routine with No_List as the argument.
+
+   function Is_Library_Level_Tagged_Type (Typ : Entity_Id) return Boolean;
+   --  Return True if Typ is a library level tagged type. Currently we use
+   --  this information to build statically allocated dispatch tables.
 
    function Is_Predefined_Dispatching_Operation (E : Entity_Id) return Boolean;
    --  Ada 2005 (AI-251): Determines if E is a predefined primitive operation
@@ -553,6 +529,11 @@ package Exp_Util is
    --  caller has to check whether stack checking is actually enabled in order
    --  to guide the expansion (typically of a function call).
 
+   function Non_Limited_Designated_Type (T : Entity_Id) return Entity_Id;
+   --  An anonymous access type may designate a limited view. Check whether
+   --  non-limited view is available during expansion, to examine components
+   --  or other characteristics of the full type.
+
    function OK_To_Do_Constant_Replacement (E : Entity_Id) return Boolean;
    --  This function is used when testing whether or not to replace a reference
    --  to entity E by a known constant value. Such replacement must be done
@@ -564,6 +545,14 @@ package Exp_Util is
    --  also inhibit replacement of Volatile or aliased objects since their
    --  address might be captured in a way we do not detect. A value of True is
    --  returned only if the replacement is safe.
+
+   function Possible_Bit_Aligned_Component (N : Node_Id) return Boolean;
+   --  This function is used in processing the assignment of a record or
+   --  indexed component. The argument N is either the left hand or right
+   --  hand side of an assignment, and this function determines if there
+   --  is a record component reference where the record may be bit aligned
+   --  in a manner that causes trouble for the back end (see description
+   --  of Exp_Util.Component_May_Be_Bit_Aligned for further details).
 
    procedure Remove_Side_Effects
      (Exp          : Node_Id;
@@ -643,7 +632,7 @@ package Exp_Util is
    --  control to escape doing the undefer call.
 
 private
-   pragma Inline (Force_Evaluation);
    pragma Inline (Duplicate_Subexpr);
-
+   pragma Inline (Force_Evaluation);
+   pragma Inline (Is_Library_Level_Tagged_Type);
 end Exp_Util;

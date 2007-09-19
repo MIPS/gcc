@@ -1,12 +1,12 @@
 /* Reassociation for trees.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,6 +37,7 @@ Boston, MA 02110-1301, USA.  */
 #include "alloc-pool.h"
 #include "vec.h"
 #include "langhooks.h"
+#include "pointer-set.h"
 
 /*  This is a simple global reassociation pass.  It is, in part, based
     on the LLVM pass of the same name (They do some things more/less
@@ -179,68 +179,38 @@ static alloc_pool operand_entry_pool;
 /* Starting rank number for a given basic block, so that we can rank
    operations using unmovable instructions in that BB based on the bb
    depth.  */
-static unsigned int *bb_rank;
+static long *bb_rank;
 
 /* Operand->rank hashtable.  */
-static htab_t operand_rank;
+static struct pointer_map_t *operand_rank;
 
 
 /* Look up the operand rank structure for expression E.  */
 
-static operand_entry_t
+static inline long
 find_operand_rank (tree e)
 {
-  void **slot;
-  struct operand_entry vrd;
-
-  vrd.op = e;
-  slot = htab_find_slot (operand_rank, &vrd, NO_INSERT);
-  if (!slot)
-    return NULL;
-  return ((operand_entry_t) *slot);
+  void **slot = pointer_map_contains (operand_rank, e);
+  return slot ? (long) *slot : -1;
 }
 
 /* Insert {E,RANK} into the operand rank hashtable.  */
 
-static void
-insert_operand_rank (tree e, unsigned int rank)
+static inline void
+insert_operand_rank (tree e, long rank)
 {
   void **slot;
-  operand_entry_t new_pair = pool_alloc (operand_entry_pool);
-
-  new_pair->op = e;
-  new_pair->rank = rank;
-  slot = htab_find_slot (operand_rank, new_pair, INSERT);
-  gcc_assert (*slot == NULL);
-  *slot = new_pair;
-}
-
-/* Return the hash value for a operand rank structure  */
-
-static hashval_t
-operand_entry_hash (const void *p)
-{
-  const operand_entry_t vr = (operand_entry_t) p;
-  return iterative_hash_expr (vr->op, 0);
-}
-
-/* Return true if two operand rank structures are equal.  */
-
-static int
-operand_entry_eq (const void *p1, const void *p2)
-{
-  const operand_entry_t vr1 = (operand_entry_t) p1;
-  const operand_entry_t vr2 = (operand_entry_t) p2;
-  return vr1->op == vr2->op;
+  gcc_assert (rank > 0);
+  slot = pointer_map_insert (operand_rank, e);
+  gcc_assert (!*slot);
+  *slot = (void *) rank;
 }
 
 /* Given an expression E, return the rank of the expression.  */
 
-static unsigned int
+static long
 get_rank (tree e)
 {
-  operand_entry_t vr;
-
   /* Constants have rank 0.  */
   if (is_gimple_min_invariant (e))
     return 0;
@@ -260,12 +230,13 @@ get_rank (tree e)
     {
       tree stmt;
       tree rhs;
-      unsigned int rank, maxrank;
+      long rank, maxrank;
       int i;
+      int n;
 
       if (TREE_CODE (SSA_NAME_VAR (e)) == PARM_DECL
 	  && SSA_NAME_IS_DEFAULT_DEF (e))
-	return find_operand_rank (e)->rank;
+	return find_operand_rank (e);
 
       stmt = SSA_NAME_DEF_STMT (e);
       if (bb_for_stmt (stmt) == NULL)
@@ -276,21 +247,22 @@ get_rank (tree e)
 	return bb_rank[bb_for_stmt (stmt)->index];
 
       /* If we already have a rank for this expression, use that.  */
-      vr = find_operand_rank (e);
-      if (vr)
-	return vr->rank;
+      rank = find_operand_rank (e);
+      if (rank != -1)
+	return rank;
 
       /* Otherwise, find the maximum rank for the operands, or the bb
 	 rank, whichever is less.   */
       rank = 0;
       maxrank = bb_rank[bb_for_stmt(stmt)->index];
       rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-      if (TREE_CODE_LENGTH (TREE_CODE (rhs)) == 0)
+      n = TREE_OPERAND_LENGTH (rhs);
+      if (n == 0)
 	rank = MAX (rank, get_rank (rhs));
       else
 	{
 	  for (i = 0;
-	       i < TREE_CODE_LENGTH (TREE_CODE (rhs))
+	       i < n
 		 && TREE_OPERAND (rhs, i)
 		 && rank != maxrank;
 	       i++)
@@ -301,7 +273,7 @@ get_rank (tree e)
 	{
 	  fprintf (dump_file, "Rank for ");
 	  print_generic_expr (dump_file, e, 0);
-	  fprintf (dump_file, " is %d\n", (rank + 1));
+	  fprintf (dump_file, " is %ld\n", (rank + 1));
 	}
 
       /* Note the rank in the hashtable so we don't recompute it.  */
@@ -364,7 +336,7 @@ sort_by_operand_rank (const void *pa, const void *pb)
 static void
 add_to_ops_vec (VEC(operand_entry_t, heap) **ops, tree op)
 {
-  operand_entry_t oe = pool_alloc (operand_entry_pool);
+  operand_entry_t oe = (operand_entry_t) pool_alloc (operand_entry_pool);
 
   oe->op = op;
   oe->rank = get_rank (op);
@@ -754,8 +726,8 @@ optimize_ops_list (enum tree_code opcode,
 
       if (oelm1->rank == 0
 	  && is_gimple_min_invariant (oelm1->op)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (oelm1->op),
-					    TREE_TYPE (oelast->op)))
+	  && useless_type_conversion_p (TREE_TYPE (oelm1->op),
+				       TREE_TYPE (oelast->op)))
 	{
 	  tree folded = fold_binary (opcode, TREE_TYPE (oelm1->op),
 				     oelm1->op, oelast->op);
@@ -1053,7 +1025,7 @@ negate_value (tree tonegate, block_stmt_iterator *bsi)
 
   tonegate = fold_build1 (NEGATE_EXPR, TREE_TYPE (tonegate), tonegate);
   resultofnegate = force_gimple_operand_bsi (bsi, tonegate, true,
-					     NULL_TREE);
+					     NULL_TREE, true, BSI_SAME_STMT);
   VEC_safe_push (tree, heap, broken_up_subtracts, resultofnegate);
   return resultofnegate;
 
@@ -1273,12 +1245,15 @@ break_up_subtract_bb (basic_block bb)
 
 	  TREE_VISITED (stmt) = 0;
 	  /* If unsafe math optimizations we can do reassociation for
-	     non-integral types.  */
+	     non-integral types.  Or, we can do reassociation for
+	     non-saturating fixed-point types.  */
 	  if ((!INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	       || !INTEGRAL_TYPE_P (TREE_TYPE (rhs)))
 	      && (!SCALAR_FLOAT_TYPE_P (TREE_TYPE (rhs))
 		  || !SCALAR_FLOAT_TYPE_P (TREE_TYPE(lhs))
-		  || !flag_unsafe_math_optimizations))
+		  || !flag_unsafe_math_optimizations)
+	      && (!NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE (rhs))
+		  || !NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE(lhs))))
 	    continue;
 
 	  /* Check for a subtract used only in an addition.  If this
@@ -1320,12 +1295,15 @@ reassociate_bb (basic_block bb)
 	    continue;
 
 	  /* If unsafe math optimizations we can do reassociation for
-	     non-integral types.  */
+	     non-integral types.  Or, we can do reassociation for
+	     non-saturating fixed-point types.  */
 	  if ((!INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	       || !INTEGRAL_TYPE_P (TREE_TYPE (rhs)))
 	      && (!SCALAR_FLOAT_TYPE_P (TREE_TYPE (rhs))
 		  || !SCALAR_FLOAT_TYPE_P (TREE_TYPE(lhs))
-		  || !flag_unsafe_math_optimizations))
+		  || !flag_unsafe_math_optimizations)
+	      && (!NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE (rhs))
+		  || !NON_SAT_FIXED_POINT_TYPE_P (TREE_TYPE(lhs))))
 	    continue;
 
 	  if (associative_tree_code (TREE_CODE (rhs)))
@@ -1417,7 +1395,7 @@ static void
 init_reassoc (void)
 {
   int i;
-  unsigned int rank = 2;
+  long rank = 2;
   tree param;
   int *bbs = XNEWVEC (int, last_basic_block + 1);
 
@@ -1429,10 +1407,8 @@ init_reassoc (void)
   /* Reverse RPO (Reverse Post Order) will give us something where
      deeper loops come later.  */
   pre_and_rev_post_order_compute (NULL, bbs, false);
-  bb_rank = XCNEWVEC (unsigned int, last_basic_block + 1);
-  
-  operand_rank = htab_create (511, operand_entry_hash,
-			      operand_entry_eq, 0);
+  bb_rank = XCNEWVEC (long, last_basic_block + 1);
+  operand_rank = pointer_map_create ();
 
   /* Give each argument a distinct rank.   */
   for (param = DECL_ARGUMENTS (current_function_decl);
@@ -1483,8 +1459,8 @@ fini_reassoc (void)
       fprintf (dump_file, "Statements rewritten: %d\n",
 	       reassociate_stats.rewritten);
     }
-  htab_delete (operand_rank);
 
+  pointer_map_destroy (operand_rank);
   free_alloc_pool (operand_entry_pool);
   free (bb_rank);
   VEC_free (tree, heap, broken_up_subtracts);
@@ -1505,15 +1481,21 @@ execute_reassoc (void)
   return 0;
 }
 
+static bool
+gate_tree_ssa_reassoc (void)
+{
+  return flag_tree_reassoc != 0;
+}
+
 struct tree_opt_pass pass_reassoc =
 {
   "reassoc",				/* name */
-  NULL,				/* gate */
-  execute_reassoc,				/* execute */
+  gate_tree_ssa_reassoc,		/* gate */
+  execute_reassoc,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  TV_TREE_REASSOC,				/* tv_id */
+  TV_TREE_REASSOC,			/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

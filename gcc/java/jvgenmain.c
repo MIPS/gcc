@@ -1,12 +1,12 @@
 /* Program to generate "main" a Java(TM) class containing a main method.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+   2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA. 
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>. 
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -57,14 +56,23 @@ main (int argc, char **argv)
   FILE *stream;
   const char *mangled_classname;
   int i, last_arg;
+  int indirect = 0;
+  char *prog_name = argv[0];
 
   /* Unlock the stdio streams.  */
   unlock_std_streams ();
 
   gcc_init_libintl ();
 
+  if (argc > 1 && ! strcmp (argv[1], "-findirect-dispatch"))
+    {
+      indirect = 1;
+      ++argv;
+      --argc;
+    }
+
   if (argc < 2)
-    usage (argv[0]);
+    usage (prog_name);
 
   for (i = 1; i < argc; ++i)
     {
@@ -77,7 +85,7 @@ main (int argc, char **argv)
     }
 
   if (i < argc - 2 || i == argc)
-    usage (argv[0]);
+    usage (prog_name);
   last_arg = i;
 
   classname = argv[i];
@@ -85,7 +93,7 @@ main (int argc, char **argv)
   /* gcj always appends `main' to classname.  We need to strip this here.  */
   p = strrchr (classname, 'm');
   if (p == NULL || p == classname || strcmp (p, "main") != 0)
-    usage (argv[0]);
+    usage (prog_name);
   else
     *p = '\0';
 
@@ -99,7 +107,7 @@ main (int argc, char **argv)
       if (stream == NULL)
 	{
 	  fprintf (stderr, _("%s: Cannot open output file: %s\n"),
-		   argv[0], outfile);
+		   prog_name, outfile);
 	  exit (1);
 	}
     }
@@ -130,13 +138,18 @@ main (int argc, char **argv)
   fprintf (stream, "int main (int argc, const char **argv)\n");
   fprintf (stream, "{\n");
   fprintf (stream, "   _Jv_Compiler_Properties = props;\n");
-  fprintf (stream, "   extern void *%s;\n", mangled_classname);
-  fprintf (stream, "   JvRunMain (%s, argc, argv);\n", mangled_classname);
+  if (indirect)
+    fprintf (stream, "   JvRunMainName (\"%s\", argc, argv);\n", classname);
+  else
+    {
+      fprintf (stream, "   extern char %s;\n", mangled_classname);
+      fprintf (stream, "   JvRunMain (&%s, argc, argv);\n", mangled_classname);
+    }
   fprintf (stream, "}\n");
   if (stream != stdout && fclose (stream) != 0)
     {
       fprintf (stderr, _("%s: Failed to close output file %s\n"),
-	       argv[0], argv[2]);
+	       prog_name, argv[2]);
       exit (1);
     }
   return 0;
@@ -162,7 +175,7 @@ do_mangle_classname (const char *string)
 	count++;
     }
   append_gpp_mangled_name (&ptr [-count], count);
-  obstack_grow (mangle_obstack, "7class$$E", strlen ("7class$$E"));
+  obstack_grow (mangle_obstack, "6class$E", strlen ("6class$E"));
   obstack_1grow (mangle_obstack, '\0');
   return obstack_finish (mangle_obstack);
 }

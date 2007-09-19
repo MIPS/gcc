@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,6 +27,7 @@
 --  This package contains various utility procedures to assist in
 --  building specific types of tree nodes.
 
+with Namet; use Namet;
 with Types; use Types;
 
 package Tbuild is
@@ -73,6 +74,17 @@ package Tbuild is
      (Loc : Source_Ptr; Rec : Node_Id; Typ : Entity_Id) return Node_Id;
    --  Create an access to the Dispatch Table by using the Tag field
    --  of a tagged record : Acc_Dt (Rec.tag).all
+
+   function Make_Implicit_Exception_Handler
+     (Sloc              : Source_Ptr;
+      Choice_Parameter  : Node_Id := Empty;
+      Exception_Choices : List_Id;
+      Statements        : List_Id) return Node_Id;
+   pragma Inline (Make_Implicit_Exception_Handler);
+   --  This is just like Make_Exception_Handler, except that it also sets the
+   --  Local_Raise_Statements field to No_Elist, ensuring that it is properly
+   --  initialized. This should always be used when creating exception handlers
+   --  as part of the expansion.
 
    function Make_Implicit_If_Statement
      (Node            : Node_Id;

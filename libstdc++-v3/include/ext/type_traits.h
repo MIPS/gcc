@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -37,10 +37,7 @@
 
 #pragma GCC system_header
 
-#include <cstddef>
-#include <utility>
-#include <limits>
-#include <iosfwd> // std::streamsize
+#include <bits/c++config.h>
 #include <bits/cpp_type_traits.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
@@ -151,49 +148,62 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     struct __remove_unsigned<wchar_t>;
 
 
-  // Compile time constants for builtin types.
-  // Sadly std::numeric_limits member functions cannot be used for this.
-#define __glibcxx_signed(_Tp) ((_Tp)(-1) < 0)
-#define __glibcxx_digits(_Tp) \
-  (sizeof(_Tp) * __CHAR_BIT__ - __glibcxx_signed(_Tp))
+  // For use in string and vstring.
+  template<typename _Type>
+    inline bool
+    __is_null_pointer(_Type* __ptr)
+    { return __ptr == 0; }
 
-#define __glibcxx_min(_Tp) \
-  (__glibcxx_signed(_Tp) ? (_Tp)1 << __glibcxx_digits(_Tp) : (_Tp)0)
+  template<typename _Type>
+    inline bool
+    __is_null_pointer(_Type)
+    { return false; }
 
-#define __glibcxx_max(_Tp) \
-  (__glibcxx_signed(_Tp) ? ((_Tp)1 << __glibcxx_digits(_Tp)) - 1 : ~(_Tp)0)
 
-  template<typename _Value>
-    struct __numeric_traits_integer
+  // For complex and cmath
+  template<typename _Tp, bool = std::__is_integer<_Tp>::__value>
+    struct __promote
+    { typedef double __type; };
+
+  template<typename _Tp>
+    struct __promote<_Tp, false>
+    { typedef _Tp __type; };
+
+  template<typename _Tp, typename _Up>
+    struct __promote_2
     {
-      // Only integers for initialization of member constant.
-      static const _Value __min = __glibcxx_min(_Value);
-      static const _Value __max = __glibcxx_max(_Value);
+    private:
+      typedef typename __promote<_Tp>::__type __type1;
+      typedef typename __promote<_Up>::__type __type2;
+
+    public:
+      typedef __typeof__(__type1() + __type2()) __type;
     };
 
-  template<typename _Value>
-    const _Value __numeric_traits_integer<_Value>::__min;
-
-  template<typename _Value>
-    const _Value __numeric_traits_integer<_Value>::__max;
-
-  template<typename _Value>
-    struct __numeric_traits_floating
+  template<typename _Tp, typename _Up, typename _Vp>
+    struct __promote_3
     {
-      // Only floating point types. See N1822. 
-      static const std::streamsize __max_digits10 =
-	2 + std::numeric_limits<_Value>::digits * 3010/10000;
+    private:
+      typedef typename __promote<_Tp>::__type __type1;
+      typedef typename __promote<_Up>::__type __type2;
+      typedef typename __promote<_Vp>::__type __type3;
+
+    public:
+      typedef __typeof__(__type1() + __type2() + __type3()) __type;
     };
 
-  template<typename _Value>
-    const std::streamsize __numeric_traits_floating<_Value>::__max_digits10;
+  template<typename _Tp, typename _Up, typename _Vp, typename _Wp>
+    struct __promote_4
+    {
+    private:
+      typedef typename __promote<_Tp>::__type __type1;
+      typedef typename __promote<_Up>::__type __type2;
+      typedef typename __promote<_Vp>::__type __type3;
+      typedef typename __promote<_Wp>::__type __type4;
 
-  template<typename _Value>
-    struct __numeric_traits 
-    : public __conditional_type<std::__is_integer<_Value>::__value,
-				__numeric_traits_integer<_Value>,
-				__numeric_traits_floating<_Value> >::__type
-    { };
+    public:
+      typedef __typeof__(__type1() + __type2() + __type3() + __type4()) __type;
+    };
 
 _GLIBCXX_END_NAMESPACE
 

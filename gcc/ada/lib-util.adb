@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,7 +25,6 @@
 ------------------------------------------------------------------------------
 
 with Hostparm;
-with Namet;    use Namet;
 with Osint.C;  use Osint.C;
 
 package body Lib.Util is
@@ -75,12 +74,18 @@ package body Lib.Util is
    --  Start of processing for Write_Info_Char_Code
 
    begin
-      if Code in 16#00# .. 16#7F# then
+      --  00 .. 7F
+
+      if Code <= 16#7F# then
          Write_Info_Char (Character'Val (Code));
 
-      elsif Code in 16#80# .. 16#FF# then
+      --  80 .. FF
+
+      elsif Code <= 16#FF# then
          Write_Info_Char ('U');
          Write_Info_Hex_Byte (Natural (Code));
+
+      --  0100 .. FFFF
 
       else
          Write_Info_Char ('W');
@@ -140,6 +145,16 @@ package body Lib.Util is
         Name_Buffer (1 .. Name_Len);
       Info_Buffer_Len := Info_Buffer_Len + Name_Len;
       Info_Buffer_Col := Info_Buffer_Col + Name_Len;
+   end Write_Info_Name;
+
+   procedure Write_Info_Name (Name : File_Name_Type) is
+   begin
+      Write_Info_Name (Name_Id (Name));
+   end Write_Info_Name;
+
+   procedure Write_Info_Name (Name : Unit_Name_Type) is
+   begin
+      Write_Info_Name (Name_Id (Name));
    end Write_Info_Name;
 
    --------------------

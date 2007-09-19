@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions.  */
@@ -136,7 +135,29 @@
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
+  { "cc1_cpu",			CC1_CPU_SPEC },				\
   SUBTARGET_EXTRA_SPECS
+
+/* -mcpu=native handling only makes sense with compiler running on
+   an PowerPC chip.  If changing this condition, also change
+   the condition in driver-rs6000.c.  */
+#if defined(__powerpc__) || defined(__POWERPC__) || defined(_AIX)
+/* In driver-rs6000.c.  */
+extern const char *host_detect_local_cpu (int argc, const char **argv);
+#define EXTRA_SPEC_FUNCTIONS \
+  { "local_cpu_detect", host_detect_local_cpu },
+#define HAVE_LOCAL_CPU_DETECT
+#endif
+
+#ifndef CC1_CPU_SPEC
+#ifdef HAVE_LOCAL_CPU_DETECT
+#define CC1_CPU_SPEC \
+"%{mcpu=native:%<mcpu=native %:local_cpu_detect(cpu)} \
+ %{mtune=native:%<mtune=native %:local_cpu_detect(tune)}"
+#else
+#define CC1_CPU_SPEC ""
+#endif
+#endif
 
 /* Architecture type.  */
 
@@ -164,12 +185,27 @@
 #define TARGET_FPRND 0
 #endif
 
+/* Define TARGET_CMPB if the target assembler does not support the
+   cmpb instruction.  */
+
+#ifndef HAVE_AS_CMPB
+#undef  TARGET_CMPB
+#define TARGET_CMPB 0
+#endif
+
 /* Define TARGET_MFPGPR if the target assembler does not support the
    mffpr and mftgpr instructions. */
 
 #ifndef HAVE_AS_MFPGPR
 #undef  TARGET_MFPGPR
 #define TARGET_MFPGPR 0
+#endif
+
+/* Define TARGET_DFP if the target assembler does not support decimal
+   floating point instructions.  */
+#ifndef HAVE_AS_DFP
+#undef  TARGET_DFP
+#define TARGET_DFP 0
 #endif
 
 #ifndef TARGET_SECURE_PLT
@@ -341,6 +377,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
 #define TARGET_E500_DOUBLE 0
+#define CHECK_E500_OPTIONS do { } while (0)
 
 /* E500 processors only support plain "sync", not lwsync.  */
 #define TARGET_NO_LWSYNC TARGET_E500
@@ -574,6 +611,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
+	|| (MODE) == DDmode || (MODE) == TDmode				\
 	|| (MODE) == DImode)						\
        && (ALIGN) < 32))
 
@@ -707,21 +745,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    , 0, 0, 0                                       \
 }
 
-#define MQ_REGNO     64
-#define CR0_REGNO    68
-#define CR1_REGNO    69
-#define CR2_REGNO    70
-#define CR3_REGNO    71
-#define CR4_REGNO    72
-#define MAX_CR_REGNO 75
-#define XER_REGNO    76
-#define FIRST_ALTIVEC_REGNO	77
-#define LAST_ALTIVEC_REGNO	108
 #define TOTAL_ALTIVEC_REGS	(LAST_ALTIVEC_REGNO - FIRST_ALTIVEC_REGNO + 1)
-#define VRSAVE_REGNO		109
-#define VSCR_REGNO		110
-#define SPE_ACC_REGNO		111
-#define SPEFSCR_REGNO		112
 
 #define FIRST_SAVED_ALTIVEC_REGNO (FIRST_ALTIVEC_REGNO+20)
 #define FIRST_SAVED_FP_REGNO    (14+32)
@@ -795,10 +819,10 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define FP_REGNO_P(N) ((N) >= 32 && (N) <= 63)
 
 /* True if register is a condition register.  */
-#define CR_REGNO_P(N) ((N) >= 68 && (N) <= 75)
+#define CR_REGNO_P(N) ((N) >= CR0_REGNO && (N) <= CR7_REGNO)
 
 /* True if register is a condition register, but not cr0.  */
-#define CR_REGNO_NOT_CR0_P(N) ((N) >= 69 && (N) <= 75)
+#define CR_REGNO_NOT_CR0_P(N) ((N) >= CR1_REGNO && (N) <= CR7_REGNO)
 
 /* True if register is an integer register.  */
 #define INT_REGNO_P(N) \
@@ -871,7 +895,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    emitted the vrsave mask.  */
 
 #define HARD_REGNO_RENAME_OK(SRC, DST) \
-  (! ALTIVEC_REGNO_P (DST) || regs_ever_live[DST])
+  (! ALTIVEC_REGNO_P (DST) || df_regs_ever_live_p (DST))
 
 /* A C expression returning the cost of moving data from a register of class
    CLASS1 to one of CLASS2.  */
@@ -896,18 +920,12 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
 #define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
-/* A fixed register used at prologue and epilogue generation to fix
-   addressing modes.  The SPE needs heavy addressing fixes at the last
-   minute, and it's best to save a register for it.
+/* A fixed register used at epilogue generation to address SPE registers
+   with negative offsets.  The 64-bit load/store instructions on the SPE
+   only take positive offsets (and small ones at that), so we need to
+   reserve a register for consing up negative offsets.  */
 
-   AltiVec also needs fixes, but we've gotten around using r11, which
-   is actually wrong because when use_backchain_to_restore_sp is true,
-   we end up clobbering r11.
-
-   The AltiVec case needs to be fixed.  Dunno if we should break ABI
-   compatibility and reserve a register for it as well..  */
-
-#define FIXED_SCRATCH (TARGET_SPE ? 14 : 11)
+#define FIXED_SCRATCH 0
 
 /* Define this macro to change register usage conditional on target
    flags.  */
@@ -941,11 +959,6 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* Place to put static chain when calling a function that requires it.  */
 #define STATIC_CHAIN_REGNUM 11
 
-/* Link register number.  */
-#define LINK_REGISTER_REGNUM 65
-
-/* Count register number.  */
-#define COUNT_REGISTER_REGNUM 66
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -1090,8 +1103,8 @@ enum reg_class
   : (REGNO) == CR0_REGNO ? CR0_REGS		\
   : CR_REGNO_P (REGNO) ? CR_REGS		\
   : (REGNO) == MQ_REGNO ? MQ_REGS		\
-  : (REGNO) == LINK_REGISTER_REGNUM ? LINK_REGS	\
-  : (REGNO) == COUNT_REGISTER_REGNUM ? CTR_REGS	\
+  : (REGNO) == LR_REGNO ? LINK_REGS	\
+  : (REGNO) == CTR_REGNO ? CTR_REGS	\
   : (REGNO) == ARG_POINTER_REGNUM ? BASE_REGS	\
   : (REGNO) == XER_REGNO ? XER_REGS		\
   : (REGNO) == VRSAVE_REGNO ? VRSAVE_REGS	\
@@ -1147,10 +1160,14 @@ enum reg_class
 #define SECONDARY_MEMORY_NEEDED(CLASS1,CLASS2,MODE)			\
  ((CLASS1) != (CLASS2) && (((CLASS1) == FLOAT_REGS			\
                             && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode) && (MODE != DImode)))) \
+				|| ((MODE != DFmode)			\
+				    && (MODE != DDmode)			\
+				    && (MODE != DImode))))		\
 			   || ((CLASS2) == FLOAT_REGS			\
                                && (!TARGET_MFPGPR || !TARGET_POWERPC64	\
-				|| ((MODE != DFmode) && (MODE != DImode)))) \
+				   || ((MODE != DFmode)			\
+				       && (MODE != DDmode)		\
+				       && (MODE != DImode))))		\
 			   || (CLASS1) == ALTIVEC_REGS			\
 			   || (CLASS2) == ALTIVEC_REGS))
 
@@ -1175,6 +1192,7 @@ enum reg_class
       && reg_classes_intersect_p (FLOAT_REGS, CLASS))			\
    : (((TARGET_E500_DOUBLE						\
 	&& ((((TO) == DFmode) + ((FROM) == DFmode)) == 1		\
+	    || (((TO) == TFmode) + ((FROM) == TFmode)) == 1		\
 	    || (((TO) == DImode) + ((FROM) == DImode)) == 1))		\
        || (TARGET_SPE							\
 	   && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1))	\
@@ -1276,7 +1294,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
 /* Define this if the above stack space is to be considered part of the
    space allocated by the caller.  */
-#define OUTGOING_REG_PARM_STACK_SPACE
+#define OUTGOING_REG_PARM_STACK_SPACE 1
 
 /* This is the difference between the logical top of stack and the actual sp.
 
@@ -1503,7 +1521,7 @@ typedef struct rs6000_args
    needed.  */
 
 #define	EPILOGUE_USES(REGNO)					\
-  ((reload_completed && (REGNO) == LINK_REGISTER_REGNUM)	\
+  ((reload_completed && (REGNO) == LR_REGNO)			\
    || (TARGET_ALTIVEC && (REGNO) == VRSAVE_REGNO)		\
    || (current_function_calls_eh_return				\
        && TARGET_AIX						\
@@ -1598,6 +1616,8 @@ typedef struct rs6000_args
 
 #define HAVE_PRE_DECREMENT 1
 #define HAVE_PRE_INCREMENT 1
+#define HAVE_PRE_MODIFY_DISP 1
+#define HAVE_PRE_MODIFY_REG 1
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -1856,10 +1876,10 @@ do {								\
 
 /* The cntlzw and cntlzd instructions return 32 and 64 for input of zero.  */
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = ((MODE) == SImode ? 32 : 64))
+  ((VALUE) = ((MODE) == SImode ? 32 : 64), 1)
 
 /* The CTZ patterns return -1 for input of zero.  */
-#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = -1)
+#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = -1, 1)
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
@@ -2242,8 +2262,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
    dwarf2 unwind information.  This also enables the table driven
    mechanism.  */
 
-#define INCOMING_RETURN_ADDR_RTX   gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
-#define DWARF_FRAME_RETURN_COLUMN  DWARF_FRAME_REGNUM (LINK_REGISTER_REGNUM)
+#define INCOMING_RETURN_ADDR_RTX   gen_rtx_REG (Pmode, LR_REGNO)
+#define DWARF_FRAME_RETURN_COLUMN  DWARF_FRAME_REGNUM (LR_REGNO)
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 3 : INVALID_REGNUM)

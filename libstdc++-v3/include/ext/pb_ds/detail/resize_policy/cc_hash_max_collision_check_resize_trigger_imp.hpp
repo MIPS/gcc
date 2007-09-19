@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -43,9 +43,6 @@
  * @file cc_hash_max_collision_check_resize_trigger_imp.hpp
  * Contains a resize trigger implementation.
  */
-
-#define PB_DS_STATIC_ASSERT(UNIQUE, E) \
-  typedef detail::static_assert_dumclass<sizeof(detail::static_assert<(bool)(E)>)> UNIQUE##static_assert_type
 
 PB_DS_CLASS_T_DEC
 PB_DS_CLASS_C_DEC::
@@ -164,8 +161,8 @@ PB_DS_CLASS_C_DEC::
 calc_max_num_coll()
 {
   // max_col <-- \sqrt{2 load \ln( 2 m \ln( m ) ) }
-  const double ln_arg = 2 * m_size * ::log(double(m_size));
-  m_max_col = size_type(::ceil(::sqrt(2 * m_load * ::log(ln_arg))));
+  const double ln_arg = 2 * m_size * std::log(double(m_size));
+  m_max_col = size_type(std::ceil(std::sqrt(2 * m_load * std::log(ln_arg))));
 
 #ifdef PB_DS_HT_MAP_RESIZE_TRACE_
   std::cerr << "chmccrt::calc_max_num_coll " 
@@ -218,4 +215,3 @@ set_load(float load)
   calc_resize_needed();
 }
 
-#undef PB_DS_STATIC_ASSERT

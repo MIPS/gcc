@@ -1,13 +1,13 @@
 /* Array things
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006 Free Software
-   Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -37,7 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Copy an array reference structure.  */
 
 gfc_array_ref *
-gfc_copy_array_ref (gfc_array_ref * src)
+gfc_copy_array_ref (gfc_array_ref *src)
 {
   gfc_array_ref *dest;
   int i;
@@ -69,7 +68,7 @@ gfc_copy_array_ref (gfc_array_ref * src)
    expression.  */
 
 static match
-match_subscript (gfc_array_ref * ar, int init)
+match_subscript (gfc_array_ref *ar, int init)
 {
   match m;
   int i;
@@ -119,7 +118,7 @@ end_element:
   if (gfc_match_char (':') == MATCH_YES)
     {
       m = init ? gfc_match_init_expr (&ar->stride[i])
-	: gfc_match_expr (&ar->stride[i]);
+	       : gfc_match_expr (&ar->stride[i]);
 
       if (m == MATCH_NO)
 	gfc_error ("Expected array subscript stride at %C");
@@ -136,7 +135,7 @@ end_element:
    to consist of init expressions.  */
 
 match
-gfc_match_array_ref (gfc_array_ref * ar, gfc_array_spec * as, int init)
+gfc_match_array_ref (gfc_array_ref *ar, gfc_array_spec *as, int init)
 {
   match m;
 
@@ -189,7 +188,7 @@ matched:
    specifications.  */
 
 void
-gfc_free_array_spec (gfc_array_spec * as)
+gfc_free_array_spec (gfc_array_spec *as)
 {
   int i;
 
@@ -210,9 +209,8 @@ gfc_free_array_spec (gfc_array_spec * as)
    shape and check associated constraints.  */
 
 static try
-resolve_array_bound (gfc_expr * e, int check_constant)
+resolve_array_bound (gfc_expr *e, int check_constant)
 {
-
   if (e == NULL)
     return SUCCESS;
 
@@ -235,7 +233,7 @@ resolve_array_bound (gfc_expr * e, int check_constant)
    the shape and make sure everything is integral.  */
 
 try
-gfc_resolve_array_spec (gfc_array_spec * as, int check_constant)
+gfc_resolve_array_spec (gfc_array_spec *as, int check_constant)
 {
   gfc_expr *e;
   int i;
@@ -264,14 +262,14 @@ gfc_resolve_array_spec (gfc_array_spec * as, int check_constant)
    individual specifications make sense as a whole.
 
 
-        Parsed       Lower   Upper  Returned
-        ------------------------------------
-          :          NULL    NULL   AS_DEFERRED (*)
-          x           1       x     AS_EXPLICIT
-          x:          x      NULL   AS_ASSUMED_SHAPE
-          x:y         x       y     AS_EXPLICIT
-          x:*         x      NULL   AS_ASSUMED_SIZE
-          *           1      NULL   AS_ASSUMED_SIZE
+	Parsed       Lower   Upper  Returned
+	------------------------------------
+	  :           NULL    NULL   AS_DEFERRED (*)
+	  x            1       x     AS_EXPLICIT
+	  x:           x      NULL   AS_ASSUMED_SHAPE
+	  x:y          x       y     AS_EXPLICIT
+	  x:*          x      NULL   AS_ASSUMED_SIZE
+	  *            1      NULL   AS_ASSUMED_SIZE
 
   (*) For non-pointer dummy arrays this is AS_ASSUMED_SHAPE.  This
   is fixed during the resolution of formal interfaces.
@@ -279,7 +277,7 @@ gfc_resolve_array_spec (gfc_array_spec * as, int check_constant)
    Anything else AS_UNKNOWN.  */
 
 static array_type
-match_array_element_spec (gfc_array_spec * as)
+match_array_element_spec (gfc_array_spec *as)
 {
   gfc_expr **upper, **lower;
   match m;
@@ -320,6 +318,15 @@ match_array_element_spec (gfc_array_spec * as)
   if (m == MATCH_NO)
     return AS_ASSUMED_SHAPE;
 
+  /* If the size is negative in this dimension, set it to zero.  */
+  if ((*lower)->expr_type == EXPR_CONSTANT
+      && (*upper)->expr_type == EXPR_CONSTANT
+      && mpz_cmp ((*upper)->value.integer, (*lower)->value.integer) < 0)
+    {
+      gfc_free_expr (*upper);
+      *upper = gfc_copy_expr (*lower);
+      mpz_sub_ui ((*upper)->value.integer, (*upper)->value.integer, 1);
+    }
   return AS_EXPLICIT;
 }
 
@@ -328,7 +335,7 @@ match_array_element_spec (gfc_array_spec * as)
    it is.  */
 
 match
-gfc_match_array_spec (gfc_array_spec ** asp)
+gfc_match_array_spec (gfc_array_spec **asp)
 {
   array_type current_type;
   gfc_array_spec *as;
@@ -362,7 +369,7 @@ gfc_match_array_spec (gfc_array_spec ** asp)
 	}
       else
 	switch (as->type)
-	  {			/* See how current spec meshes with the existing */
+	  {		/* See how current spec meshes with the existing.  */
 	  case AS_UNKNOWN:
 	    goto cleanup;
 
@@ -376,9 +383,8 @@ gfc_match_array_spec (gfc_array_spec ** asp)
 	    if (current_type == AS_EXPLICIT)
 	      break;
 
-	    gfc_error
-	      ("Bad array specification for an explicitly shaped array"
-	       " at %C");
+	    gfc_error ("Bad array specification for an explicitly shaped "
+		       "array at %C");
 
 	    goto cleanup;
 
@@ -387,8 +393,8 @@ gfc_match_array_spec (gfc_array_spec ** asp)
 		|| (current_type == AS_DEFERRED))
 	      break;
 
-	    gfc_error
-	      ("Bad array specification for assumed shape array at %C");
+	    gfc_error ("Bad array specification for assumed shape "
+		       "array at %C");
 	    goto cleanup;
 
 	  case AS_DEFERRED:
@@ -452,9 +458,8 @@ cleanup:
    something goes wrong.  On failure, the caller must free the spec.  */
 
 try
-gfc_set_array_spec (gfc_symbol * sym, gfc_array_spec * as, locus * error_loc)
+gfc_set_array_spec (gfc_symbol *sym, gfc_array_spec *as, locus *error_loc)
 {
-
   if (as == NULL)
     return SUCCESS;
 
@@ -470,7 +475,7 @@ gfc_set_array_spec (gfc_symbol * sym, gfc_array_spec * as, locus * error_loc)
 /* Copy an array specification.  */
 
 gfc_array_spec *
-gfc_copy_array_spec (gfc_array_spec * src)
+gfc_copy_array_spec (gfc_array_spec *src)
 {
   gfc_array_spec *dest;
   int i;
@@ -491,11 +496,12 @@ gfc_copy_array_spec (gfc_array_spec * src)
   return dest;
 }
 
+
 /* Returns nonzero if the two expressions are equal.  Only handles integer
    constants.  */
 
 static int
-compare_bounds (gfc_expr * bound1, gfc_expr * bound2)
+compare_bounds (gfc_expr *bound1, gfc_expr *bound2)
 {
   if (bound1 == NULL || bound2 == NULL
       || bound1->expr_type != EXPR_CONSTANT
@@ -510,11 +516,12 @@ compare_bounds (gfc_expr * bound1, gfc_expr * bound2)
     return 0;
 }
 
+
 /* Compares two array specifications.  They must be constant or deferred
    shape.  */
 
 int
-gfc_compare_array_spec (gfc_array_spec * as1, gfc_array_spec * as2)
+gfc_compare_array_spec (gfc_array_spec *as1, gfc_array_spec *as2)
 {
   int i;
 
@@ -553,7 +560,7 @@ gfc_compare_array_spec (gfc_array_spec * as1, gfc_array_spec * as2)
    elements and should be appended to by gfc_append_constructor().  */
 
 gfc_expr *
-gfc_start_constructor (bt type, int kind, locus * where)
+gfc_start_constructor (bt type, int kind, locus *where)
 {
   gfc_expr *result;
 
@@ -573,7 +580,7 @@ gfc_start_constructor (bt type, int kind, locus * where)
    node onto the constructor.  */
 
 void
-gfc_append_constructor (gfc_expr * base, gfc_expr * new)
+gfc_append_constructor (gfc_expr *base, gfc_expr *new)
 {
   gfc_constructor *c;
 
@@ -600,7 +607,7 @@ gfc_append_constructor (gfc_expr * base, gfc_expr * new)
    constructor onto the base's one according to the offset.  */
 
 void
-gfc_insert_constructor (gfc_expr * base, gfc_constructor * c1)
+gfc_insert_constructor (gfc_expr *base, gfc_constructor *c1)
 {
   gfc_constructor *c, *pre;
   expr_t type;
@@ -614,40 +621,40 @@ gfc_insert_constructor (gfc_expr * base, gfc_constructor * c1)
     {
       c = pre = base->value.constructor;
       while (c)
-        {
-          if (type == EXPR_ARRAY)
-            {
+	{
+	  if (type == EXPR_ARRAY)
+	    {
 	      t = mpz_cmp (c->n.offset, c1->n.offset);
-              if (t < 0)
-                {
-                  pre = c;
-                  c = c->next;
-                }
-              else if (t == 0)
-                {
-                  gfc_error ("duplicated initializer");
-                  break;
-                }
-              else
-                break;
-            }
-          else
-            {
-              pre = c;
-              c = c->next;
-            }
-        }
+	      if (t < 0)
+		{
+		  pre = c;
+		  c = c->next;
+		}
+	      else if (t == 0)
+		{
+		  gfc_error ("duplicated initializer");
+		  break;
+		}
+	      else
+		break;
+	    }
+	  else
+	    {
+	      pre = c;
+	      c = c->next;
+	    }
+	}
 
       if (pre != c)
-        {
-          pre->next = c1;
-          c1->next = c;
-        }
+	{
+	  pre->next = c1;
+	  c1->next = c;
+	}
       else
-        {
-          c1->next = c;
-          base->value.constructor = c1;
-        }
+	{
+	  c1->next = c;
+	  base->value.constructor = c1;
+	}
     }
 }
 
@@ -672,7 +679,7 @@ gfc_get_constructor (void)
 /* Free chains of gfc_constructor structures.  */
 
 void
-gfc_free_constructor (gfc_constructor * p)
+gfc_free_constructor (gfc_constructor *p)
 {
   gfc_constructor *next;
 
@@ -684,7 +691,7 @@ gfc_free_constructor (gfc_constructor * p)
       next = p->next;
 
       if (p->expr)
-        gfc_free_expr (p->expr);
+	gfc_free_expr (p->expr);
       if (p->iterator != NULL)
 	gfc_free_iterator (p->iterator, 1);
       mpz_clear (p->n.offset);
@@ -700,7 +707,7 @@ gfc_free_constructor (gfc_constructor * p)
    duplicate was found.  */
 
 static int
-check_duplicate_iterator (gfc_constructor * c, gfc_symbol * master)
+check_duplicate_iterator (gfc_constructor *c, gfc_symbol *master)
 {
   gfc_expr *e;
 
@@ -717,9 +724,8 @@ check_duplicate_iterator (gfc_constructor * c, gfc_symbol * master)
 
       if (c->iterator->var->symtree->n.sym == master)
 	{
-	  gfc_error
-	    ("DO-iterator '%s' at %L is inside iterator of the same name",
-	     master->name, &c->where);
+	  gfc_error ("DO-iterator '%s' at %L is inside iterator of the "
+		     "same name", master->name, &c->where);
 
 	  return 1;
 	}
@@ -735,7 +741,7 @@ static match match_array_cons_element (gfc_constructor **);
 /* Match a list of array elements.  */
 
 static match
-match_array_list (gfc_constructor ** result)
+match_array_list (gfc_constructor **result)
 {
   gfc_constructor *p, *head, *tail, *new;
   gfc_iterator iter;
@@ -835,7 +841,7 @@ cleanup:
    single expression or a list of elements.  */
 
 static match
-match_array_cons_element (gfc_constructor ** result)
+match_array_cons_element (gfc_constructor **result)
 {
   gfc_constructor *p;
   gfc_expr *expr;
@@ -861,7 +867,7 @@ match_array_cons_element (gfc_constructor ** result)
 /* Match an array constructor.  */
 
 match
-gfc_match_array_constructor (gfc_expr ** result)
+gfc_match_array_constructor (gfc_expr **result)
 {
   gfc_constructor *head, *tail, *new;
   gfc_expr *expr;
@@ -872,14 +878,14 @@ gfc_match_array_constructor (gfc_expr ** result)
   if (gfc_match (" (/") == MATCH_NO)
     {
       if (gfc_match (" [") == MATCH_NO)
-        return MATCH_NO;
+	return MATCH_NO;
       else
-        {
-          if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: [...] "
-                              "style array constructors at %C") == FAILURE)
-            return MATCH_ERROR;
-          end_delim = " ]";
-        }
+	{
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: [...] "
+			      "style array constructors at %C") == FAILURE)
+	    return MATCH_ERROR;
+	  end_delim = " ]";
+	}
     }
   else
     end_delim = " /)";
@@ -952,9 +958,8 @@ static enum
 cons_state;
 
 static int
-check_element_type (gfc_expr * expr)
+check_element_type (gfc_expr *expr)
 {
-
   if (cons_state == CONS_BAD)
     return 0;			/* Suppress further errors */
 
@@ -986,7 +991,7 @@ check_element_type (gfc_expr * expr)
 /* Recursive work function for gfc_check_constructor_type().  */
 
 static try
-check_constructor_type (gfc_constructor * c)
+check_constructor_type (gfc_constructor *c)
 {
   gfc_expr *e;
 
@@ -1014,7 +1019,7 @@ check_constructor_type (gfc_constructor * c)
    On FAILURE, an error has been generated.  */
 
 try
-gfc_check_constructor_type (gfc_expr * e)
+gfc_check_constructor_type (gfc_expr *e)
 {
   try t;
 
@@ -1039,15 +1044,14 @@ cons_stack;
 
 static cons_stack *base;
 
-static try check_constructor (gfc_constructor *, try (*)(gfc_expr *));
+static try check_constructor (gfc_constructor *, try (*) (gfc_expr *));
 
 /* Check an EXPR_VARIABLE expression in a constructor to make sure
    that that variable is an iteration variables.  */
 
 try
-gfc_check_iter_variable (gfc_expr * expr)
+gfc_check_iter_variable (gfc_expr *expr)
 {
-
   gfc_symbol *sym;
   cons_stack *c;
 
@@ -1066,7 +1070,7 @@ gfc_check_iter_variable (gfc_expr * expr)
    constructor, giving variables with the names of iterators a pass.  */
 
 static try
-check_constructor (gfc_constructor * c, try (*check_function) (gfc_expr *))
+check_constructor (gfc_constructor *c, try (*check_function) (gfc_expr *))
 {
   cons_stack element;
   gfc_expr *e;
@@ -1104,7 +1108,7 @@ check_constructor (gfc_constructor * c, try (*check_function) (gfc_expr *))
    determined by the check_function.  */
 
 try
-gfc_check_constructor (gfc_expr * expr, try (*check_function) (gfc_expr *))
+gfc_check_constructor (gfc_expr *expr, try (*check_function) (gfc_expr *))
 {
   cons_stack *base_save;
   try t;
@@ -1148,7 +1152,7 @@ static try expand_constructor (gfc_constructor *);
    constructor.  */
 
 static try
-count_elements (gfc_expr * e)
+count_elements (gfc_expr *e)
 {
   mpz_t result;
 
@@ -1175,7 +1179,7 @@ count_elements (gfc_expr * e)
    constructor, freeing the rest.  */
 
 static try
-extract_element (gfc_expr * e)
+extract_element (gfc_expr *e)
 {
 
   if (e->rank != 0)
@@ -1198,9 +1202,8 @@ extract_element (gfc_expr * e)
    stringing new elements together.  */
 
 static try
-expand (gfc_expr * e)
+expand (gfc_expr *e)
 {
-
   if (current_expand.new_head == NULL)
     current_expand.new_head = current_expand.new_tail =
       gfc_get_constructor ();
@@ -1224,7 +1227,7 @@ expand (gfc_expr * e)
    substitute the current value of the iteration variable.  */
 
 void
-gfc_simplify_iterator_var (gfc_expr * e)
+gfc_simplify_iterator_var (gfc_expr *e)
 {
   iterator_stack *p;
 
@@ -1247,9 +1250,8 @@ gfc_simplify_iterator_var (gfc_expr * e)
    recursing into other constructors if present.  */
 
 static try
-expand_expr (gfc_expr * e)
+expand_expr (gfc_expr *e)
 {
-
   if (e->expr_type == EXPR_ARRAY)
     return expand_constructor (e->value.constructor);
 
@@ -1266,7 +1268,7 @@ expand_expr (gfc_expr * e)
 
 
 static try
-expand_iterator (gfc_constructor * c)
+expand_iterator (gfc_constructor *c)
 {
   gfc_expr *start, *end, *step;
   iterator_stack frame;
@@ -1349,7 +1351,7 @@ cleanup:
    passed expression.  */
 
 static try
-expand_constructor (gfc_constructor * c)
+expand_constructor (gfc_constructor *c)
 {
   gfc_expr *e;
 
@@ -1392,7 +1394,7 @@ expand_constructor (gfc_constructor * c)
    constructor if they are small enough.  */
 
 try
-gfc_expand_constructor (gfc_expr * e)
+gfc_expand_constructor (gfc_expr *e)
 {
   expand_info expand_save;
   gfc_expr *f;
@@ -1436,7 +1438,7 @@ done:
    FAILURE if not so.  */
 
 static try
-constant_element (gfc_expr * e)
+constant_element (gfc_expr *e)
 {
   int rv;
 
@@ -1454,7 +1456,7 @@ constant_element (gfc_expr * e)
    function that traverses the expression tree. FIXME.  */
 
 int
-gfc_constant_ac (gfc_expr * e)
+gfc_constant_ac (gfc_expr *e)
 {
   expand_info expand_save;
   try rc;
@@ -1477,7 +1479,7 @@ gfc_constant_ac (gfc_expr * e)
    expanded (no iterators) and zero if iterators are present.  */
 
 int
-gfc_expanded_ac (gfc_expr * e)
+gfc_expanded_ac (gfc_expr *e)
 {
   gfc_constructor *p;
 
@@ -1496,7 +1498,7 @@ gfc_expanded_ac (gfc_expr * e)
    be of the same type.  */
 
 static try
-resolve_array_list (gfc_constructor * p)
+resolve_array_list (gfc_constructor *p)
 {
   try t;
 
@@ -1520,9 +1522,9 @@ resolve_array_list (gfc_constructor * p)
    its element constructors' length.  */
 
 void
-gfc_resolve_character_array_constructor (gfc_expr * expr)
+gfc_resolve_character_array_constructor (gfc_expr *expr)
 {
-  gfc_constructor * p;
+  gfc_constructor *p;
   int max_length;
 
   gcc_assert (expr->expr_type == EXPR_ARRAY);
@@ -1550,32 +1552,35 @@ got_charlen:
 
   if (expr->ts.cl->length == NULL)
     {
-      /* Find the maximum length of the elements. Do nothing for variable array
-	 constructor, unless the character length is constant or there is a
-	constant substring reference.  */
+      /* Find the maximum length of the elements. Do nothing for variable
+	 array constructor, unless the character length is constant or
+	 there is a constant substring reference.  */
 
       for (p = expr->value.constructor; p; p = p->next)
 	{
 	  gfc_ref *ref;
 	  for (ref = p->expr->ref; ref; ref = ref->next)
 	    if (ref->type == REF_SUBSTRING
-		  && ref->u.ss.start->expr_type == EXPR_CONSTANT
-		  && ref->u.ss.end->expr_type == EXPR_CONSTANT)
+		&& ref->u.ss.start->expr_type == EXPR_CONSTANT
+		&& ref->u.ss.end->expr_type == EXPR_CONSTANT)
 	      break;
 
 	  if (p->expr->expr_type == EXPR_CONSTANT)
 	    max_length = MAX (p->expr->value.character.length, max_length);
-
 	  else if (ref)
-	    max_length = MAX ((int)(mpz_get_ui (ref->u.ss.end->value.integer)
-			      - mpz_get_ui (ref->u.ss.start->value.integer))
-			      + 1, max_length);
-
+	    {
+	      long j;
+	      j = mpz_get_ui (ref->u.ss.end->value.integer)
+		- mpz_get_ui (ref->u.ss.start->value.integer) + 1;
+	      max_length = MAX ((int) j, max_length);
+	    }
 	  else if (p->expr->ts.cl && p->expr->ts.cl->length
-		     && p->expr->ts.cl->length->expr_type == EXPR_CONSTANT)
-	    max_length = MAX ((int)mpz_get_si (p->expr->ts.cl->length->value.integer),
-			      max_length);
-
+		   && p->expr->ts.cl->length->expr_type == EXPR_CONSTANT)
+	    {
+	      long j;
+	      j = mpz_get_si (p->expr->ts.cl->length->value.integer);
+	      max_length = MAX ((int) j, max_length);
+	    }
 	  else
 	    return;
 	}
@@ -1587,15 +1592,16 @@ got_charlen:
 	  /* Update the element constructors.  */
 	  for (p = expr->value.constructor; p; p = p->next)
 	    if (p->expr->expr_type == EXPR_CONSTANT)
-	      gfc_set_constant_character_len (max_length, p->expr);
+	      gfc_set_constant_character_len (max_length, p->expr, true);
 	}
     }
 }
 
+
 /* Resolve all of the expressions in an array list.  */
 
 try
-gfc_resolve_array_constructor (gfc_expr * expr)
+gfc_resolve_array_constructor (gfc_expr *expr)
 {
   try t;
 
@@ -1612,7 +1618,7 @@ gfc_resolve_array_constructor (gfc_expr * expr)
 /* Copy an iterator structure.  */
 
 static gfc_iterator *
-copy_iterator (gfc_iterator * src)
+copy_iterator (gfc_iterator *src)
 {
   gfc_iterator *dest;
 
@@ -1633,7 +1639,7 @@ copy_iterator (gfc_iterator * src)
 /* Copy a constructor structure.  */
 
 gfc_constructor *
-gfc_copy_constructor (gfc_constructor * src)
+gfc_copy_constructor (gfc_constructor *src)
 {
   gfc_constructor *dest;
   gfc_constructor *tail;
@@ -1672,7 +1678,7 @@ gfc_copy_constructor (gfc_constructor * src)
    have to be particularly fast.  */
 
 gfc_expr *
-gfc_get_array_element (gfc_expr * array, int element)
+gfc_get_array_element (gfc_expr *array, int element)
 {
   expand_info expand_save;
   gfc_expr *e;
@@ -1707,10 +1713,9 @@ gfc_get_array_element (gfc_expr * array, int element)
 /* Get the size of single dimension of an array specification.  The
    array is guaranteed to be one dimensional.  */
 
-static try
-spec_dimen_size (gfc_array_spec * as, int dimen, mpz_t * result)
+try
+spec_dimen_size (gfc_array_spec *as, int dimen, mpz_t *result)
 {
-
   if (as == NULL)
     return FAILURE;
 
@@ -1719,7 +1724,9 @@ spec_dimen_size (gfc_array_spec * as, int dimen, mpz_t * result)
 
   if (as->type != AS_EXPLICIT
       || as->lower[dimen]->expr_type != EXPR_CONSTANT
-      || as->upper[dimen]->expr_type != EXPR_CONSTANT)
+      || as->upper[dimen]->expr_type != EXPR_CONSTANT
+      || as->lower[dimen]->ts.type != BT_INTEGER
+      || as->upper[dimen]->ts.type != BT_INTEGER)
     return FAILURE;
 
   mpz_init (*result);
@@ -1734,7 +1741,7 @@ spec_dimen_size (gfc_array_spec * as, int dimen, mpz_t * result)
 
 
 try
-spec_size (gfc_array_spec * as, mpz_t * result)
+spec_size (gfc_array_spec *as, mpz_t *result)
 {
   mpz_t size;
   int d;
@@ -1760,7 +1767,7 @@ spec_size (gfc_array_spec * as, mpz_t * result)
 /* Get the number of elements in an array section.  */
 
 static try
-ref_dimen_size (gfc_array_ref * ar, int dimen, mpz_t * result)
+ref_dimen_size (gfc_array_ref *ar, int dimen, mpz_t *result)
 {
   mpz_t upper, lower, stride;
   try t;
@@ -1848,7 +1855,7 @@ ref_dimen_size (gfc_array_ref * ar, int dimen, mpz_t * result)
 
 
 static try
-ref_size (gfc_array_ref * ar, mpz_t * result)
+ref_size (gfc_array_ref *ar, mpz_t *result)
 {
   mpz_t size;
   int d;
@@ -1877,7 +1884,7 @@ ref_size (gfc_array_ref * ar, mpz_t * result)
    otherwise.  */
 
 try
-gfc_array_dimen_size (gfc_expr * array, int dimen, mpz_t * result)
+gfc_array_dimen_size (gfc_expr *array, int dimen, mpz_t *result)
 {
   gfc_ref *ref;
   int i;
@@ -1945,7 +1952,7 @@ gfc_array_dimen_size (gfc_expr * array, int dimen, mpz_t * result)
    variable.  Otherwise returns FAILURE.  */
 
 try
-gfc_array_size (gfc_expr * array, mpz_t * result)
+gfc_array_size (gfc_expr *array, mpz_t *result)
 {
   expand_info expand_save;
   gfc_ref *ref;
@@ -2010,7 +2017,7 @@ gfc_array_size (gfc_expr * array, mpz_t * result)
    array of mpz_t integers.  */
 
 try
-gfc_array_ref_shape (gfc_array_ref * ar, mpz_t * shape)
+gfc_array_ref_shape (gfc_array_ref *ar, mpz_t *shape)
 {
   int d;
   int i;
@@ -2055,14 +2062,13 @@ cleanup:
    characterizes the reference.  */
 
 gfc_array_ref *
-gfc_find_array_ref (gfc_expr * e)
+gfc_find_array_ref (gfc_expr *e)
 {
   gfc_ref *ref;
 
   for (ref = e->ref; ref; ref = ref->next)
     if (ref->type == REF_ARRAY
-	&& (ref->u.ar.type == AR_FULL
-	    || ref->u.ar.type == AR_SECTION))
+	&& (ref->u.ar.type == AR_FULL || ref->u.ar.type == AR_SECTION))
       break;
 
   if (ref == NULL)

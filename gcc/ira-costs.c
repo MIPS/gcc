@@ -119,6 +119,9 @@ copy_cost (rtx x, enum machine_mode mode, enum reg_class class, int to_p,
   sri.extra_cost = 0;
   secondary_class = targetm.secondary_reload (to_p, x, class, mode, &sri);
 
+  if (move_cost [mode] == NULL)
+    init_move_cost (mode);
+
   if (secondary_class != NO_REGS)
     return (move_cost [mode] [secondary_class] [class]
 	    + sri.extra_cost
@@ -262,6 +265,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     Moreover, if we cannot tie them, this alternative
 		     needs to do a copy, which is one instruction.  */
 		  struct costs *pp = &this_op_costs [i];
+
+		  if (move_cost [mode] == NULL)
+		    init_move_cost (mode);
 
 		  for (k = 0; k < important_classes_num; k++)
 		    {
@@ -495,6 +501,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		{
 		  struct costs *pp = &this_op_costs [i];
 
+		  if (move_cost [mode] == NULL)
+		    init_move_cost (mode);
+
 		  for (k = 0; k < important_classes_num; k++)
 		    {
 		      class = important_classes [k];
@@ -617,7 +626,8 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 
 	      /* We could use cover class here but it is less accurate
 		 approximation. */
-	      pref = allocno_pref [ALLOCNO_NUM (curr_regno_allocno_map [regno])];
+	      pref
+		= allocno_pref [ALLOCNO_NUM (curr_regno_allocno_map [regno])];
 
 	      if ((reg_class_size [pref]
 		   == (unsigned) CLASS_MAX_NREGS (pref, mode))
@@ -842,6 +852,8 @@ record_address_regs (enum machine_mode mode, rtx x, int context,
 
 	pp = &costs [ALLOCNO_NUM (curr_regno_allocno_map [REGNO (x)])];
 	pp->mem_cost += (memory_move_cost [Pmode] [class] [1] * scale) / 2;
+	if (move_cost [Pmode] == NULL)
+	  init_move_cost (Pmode);
 	for (k = 0; k < important_classes_num; k++)
 	  {
 	    i = important_classes [k];
@@ -1319,7 +1331,8 @@ process_bb_node_for_hard_reg_moves (struct ira_loop_tree_node *loop_tree_node)
 static void
 setup_allocno_cover_class_and_costs (void)
 {
-  int i, j, n, regno, cost, *reg_costs, *reg_conflict_costs;
+  int i, j, n, regno, cost, min_cost;
+  int *reg_costs, *reg_conflict_costs;
   enum reg_class cover_class, class;
   enum machine_mode mode;
   allocno_t p;
@@ -1336,7 +1349,8 @@ setup_allocno_cover_class_and_costs (void)
       if (cover_class == NO_REGS)
 	continue;
       ALLOCNO_AVAILABLE_REGS_NUM (p) = available_class_regs [cover_class];
-      ALLOCNO_COVER_CLASS_COST (p) = costs [i].cost [allocno_pref [i]];
+      min_cost = costs [i].cost [allocno_pref [i]];
+      ALLOCNO_COVER_CLASS_COST (p) = min_cost;
       n = class_hard_regs_num [cover_class];
       ALLOCNO_HARD_REG_COSTS (p) = reg_costs = ira_allocate (n * sizeof (int));
       ALLOCNO_CONFLICT_HARD_REG_COSTS (p)
@@ -1428,7 +1442,9 @@ tune_allocno_costs_and_cover_classes (void)
 	      }
 	    else
 	      {
-		allocno_calls = ALLOCNO_CALLS_CROSSED (p);
+		allocno_calls
+		  = (VEC_address (rtx, regno_calls [ALLOCNO_REGNO (p)])
+		     + ALLOCNO_CALLS_CROSSED_START (p));
 		ira_assert (allocno_calls != NULL); 
 		for (k = ALLOCNO_CALLS_CROSSED_NUM (p) - 1; k >= 0; k--)
 		  {

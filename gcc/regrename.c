@@ -1,12 +1,12 @@
 /* Register renaming for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -39,6 +38,7 @@
 #include "obstack.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "df.h"
 
 struct du_chain
 {
@@ -88,33 +88,26 @@ static void scan_rtx (rtx, rtx *, enum reg_class, enum scan_actions,
 		      enum op_type, int);
 static struct du_chain *build_def_use (basic_block);
 static void dump_def_use_chain (struct du_chain *);
-static void note_sets (rtx, rtx, void *);
+static void note_sets (rtx, const_rtx, void *);
 static void clear_dead_regs (HARD_REG_SET *, enum machine_mode, rtx);
 static void merge_overlapping_regs (basic_block, HARD_REG_SET *,
 				    struct du_chain *);
 
-/* Called through note_stores from update_life.  Find sets of registers, and
+/* Called through note_stores.  Find sets of registers, and
    record them in *DATA (which is actually a HARD_REG_SET *).  */
 
 static void
-note_sets (rtx x, rtx set ATTRIBUTE_UNUSED, void *data)
+note_sets (rtx x, const_rtx set ATTRIBUTE_UNUSED, void *data)
 {
   HARD_REG_SET *pset = (HARD_REG_SET *) data;
-  unsigned int regno;
-  int nregs;
 
   if (GET_CODE (x) == SUBREG)
     x = SUBREG_REG (x);
   if (!REG_P (x))
     return;
-  regno = REGNO (x);
-  nregs = hard_regno_nregs[regno][GET_MODE (x)];
-
   /* There must not be pseudos at this point.  */
-  gcc_assert (regno + nregs <= FIRST_PSEUDO_REGISTER);
-
-  while (nregs-- > 0)
-    SET_HARD_REG_BIT (*pset, regno + nregs);
+  gcc_assert (HARD_REGISTER_P (x));
+  add_to_hard_reg_set (pset, GET_MODE (x), REGNO (x));
 }
 
 /* Clear all registers from *PSET for which a note of kind KIND can be found
@@ -128,14 +121,9 @@ clear_dead_regs (HARD_REG_SET *pset, enum machine_mode kind, rtx notes)
     if (REG_NOTE_KIND (note) == kind && REG_P (XEXP (note, 0)))
       {
 	rtx reg = XEXP (note, 0);
-	unsigned int regno = REGNO (reg);
-	int nregs = hard_regno_nregs[regno][GET_MODE (reg)];
-
 	/* There must not be pseudos at this point.  */
-	gcc_assert (regno + nregs <= FIRST_PSEUDO_REGISTER);
-
-	while (nregs-- > 0)
-	  CLEAR_HARD_REG_BIT (*pset, regno + nregs);
+	gcc_assert (HARD_REGISTER_P (reg));
+	remove_from_hard_reg_set (pset, GET_MODE (reg), REGNO (reg));
       }
 }
 
@@ -150,7 +138,7 @@ merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
   rtx insn;
   HARD_REG_SET live;
 
-  REG_SET_TO_HARD_REG_SET (live, b->il.rtl->global_live_at_start);
+  REG_SET_TO_HARD_REG_SET (live, df_get_live_in (b));
   insn = BB_HEAD (b);
   while (t)
     {
@@ -193,6 +181,11 @@ regrename_optimize (void)
   basic_block bb;
   char *first_obj;
 
+  df_set_flags (DF_LR_RUN_DCE);
+  df_note_add_problem ();
+  df_analyze ();
+  df_set_flags (DF_NO_INSN_RESCAN);
+  
   memset (tick, 0, sizeof tick);
 
   gcc_obstack_init (&rename_obstack);
@@ -218,14 +211,9 @@ regrename_optimize (void)
       /* Don't clobber traceback for noreturn functions.  */
       if (frame_pointer_needed)
 	{
-	  int i;
-
-	  for (i = hard_regno_nregs[FRAME_POINTER_REGNUM][Pmode]; i--;)
-	    SET_HARD_REG_BIT (unavailable, FRAME_POINTER_REGNUM + i);
-
+	  add_to_hard_reg_set (&unavailable, Pmode, FRAME_POINTER_REGNUM);
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-	  for (i = hard_regno_nregs[HARD_FRAME_POINTER_REGNUM][Pmode]; i--;)
-	    SET_HARD_REG_BIT (unavailable, HARD_FRAME_POINTER_REGNUM + i);
+	  add_to_hard_reg_set (&unavailable, Pmode, HARD_FRAME_POINTER_REGNUM);
 #endif
 	}
 
@@ -296,7 +284,7 @@ regrename_optimize (void)
 		    || fixed_regs[new_reg + i]
 		    || global_regs[new_reg + i]
 		    /* Can't use regs which aren't saved by the prologue.  */
-		    || (! regs_ever_live[new_reg + i]
+		    || (! df_regs_ever_live_p (new_reg + i)
 			&& ! call_used_regs[new_reg + i])
 #ifdef LEAF_REGISTERS
 		    /* We can't use a non-leaf register if we're in a
@@ -347,7 +335,7 @@ regrename_optimize (void)
 
 	  do_replace (this, best_new_reg);
 	  tick[best_new_reg] = ++this_tick;
-	  regs_ever_live[best_new_reg] = 1;
+	  df_set_regs_ever_live (best_new_reg, true);
 
 	  if (dump_file)
 	    fprintf (dump_file, ", renamed as %s\n", reg_names[best_new_reg]);
@@ -357,13 +345,11 @@ regrename_optimize (void)
     }
 
   obstack_free (&rename_obstack, NULL);
+  df_clear_flags (DF_NO_INSN_RESCAN);
+  df_insn_rescan_all ();
 
   if (dump_file)
     fputc ('\n', dump_file);
-
-  count_or_remove_death_notes (NULL, 1);
-  update_life_info (NULL, UPDATE_LIFE_LOCAL,
-		    PROP_DEATH_NOTES);
 }
 
 static void
@@ -668,6 +654,7 @@ scan_rtx (rtx insn, rtx *loc, enum reg_class cl,
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -1043,8 +1030,8 @@ static void kill_value_regno (unsigned, unsigned, struct value_data *);
 static void kill_value (rtx, struct value_data *);
 static void set_value_regno (unsigned, enum machine_mode, struct value_data *);
 static void init_value_data (struct value_data *);
-static void kill_clobbered_value (rtx, rtx, void *);
-static void kill_set_value (rtx, rtx, void *);
+static void kill_clobbered_value (rtx, const_rtx, void *);
+static void kill_set_value (rtx, const_rtx, void *);
 static int kill_autoinc_value (rtx *, void *);
 static void copy_value (rtx, rtx, struct value_data *);
 static bool mode_change_ok (enum machine_mode, enum machine_mode,
@@ -1184,7 +1171,7 @@ init_value_data (struct value_data *vd)
 /* Called through note_stores.  If X is clobbered, kill its value.  */
 
 static void
-kill_clobbered_value (rtx x, rtx set, void *data)
+kill_clobbered_value (rtx x, const_rtx set, void *data)
 {
   struct value_data *vd = data;
   if (GET_CODE (set) == CLOBBER)
@@ -1195,7 +1182,7 @@ kill_clobbered_value (rtx x, rtx set, void *data)
    current value and install it as the root of its own value list.  */
 
 static void
-kill_set_value (rtx x, rtx set, void *data)
+kill_set_value (rtx x, const_rtx set, void *data)
 {
   struct value_data *vd = data;
   if (GET_CODE (set) != CLOBBER)
@@ -1388,11 +1375,9 @@ find_oldest_value_reg (enum reg_class cl, rtx reg, struct value_data *vd)
     {
       enum machine_mode oldmode = vd->e[i].mode;
       rtx new;
-      unsigned int last;
 
-      for (last = i; last < i + hard_regno_nregs[i][mode]; last++)
-	if (!TEST_HARD_REG_BIT (reg_class_contents[cl], last))
-	  return NULL_RTX;
+      if (!in_hard_reg_set_p (reg_class_contents[cl], mode, i))
+	return NULL_RTX;
 
       new = maybe_mode_change (oldmode, vd->e[regno].mode, mode, i, regno);
       if (new)
@@ -1818,11 +1803,8 @@ static void
 copyprop_hardreg_forward (void)
 {
   struct value_data *all_vd;
-  bool need_refresh;
   basic_block bb;
   sbitmap visited;
-
-  need_refresh = false;
 
   all_vd = XNEWVEC (struct value_data, last_basic_block);
 
@@ -1844,27 +1826,10 @@ copyprop_hardreg_forward (void)
       else
 	init_value_data (all_vd + bb->index);
 
-      if (copyprop_hardreg_forward_1 (bb, all_vd + bb->index))
-	need_refresh = true;
+      copyprop_hardreg_forward_1 (bb, all_vd + bb->index);
     }
 
   sbitmap_free (visited);  
-
-  if (need_refresh)
-    {
-      if (dump_file)
-	fputs ("\n\n", dump_file);
-
-      /* ??? Irritatingly, delete_noop_moves does not take a set of blocks
-	 to scan, so we have to do a life update with no initial set of
-	 blocks Just In Case.  */
-      delete_noop_moves ();
-      update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			PROP_DEATH_NOTES
-			| PROP_SCAN_DEAD_CODE
-			| PROP_KILL_DEAD_CODE);
-    }
-
   free (all_vd);
 }
 
@@ -1975,7 +1940,7 @@ validate_value_data (struct value_data *vd)
 static bool
 gate_handle_regrename (void)
 {
-  return (optimize > 0 && (flag_rename_registers || flag_cprop_registers));
+  return (optimize > 0 && (flag_rename_registers));
 }
 
 
@@ -1983,10 +1948,7 @@ gate_handle_regrename (void)
 static unsigned int
 rest_of_handle_regrename (void)
 {
-  if (flag_rename_registers)
-    regrename_optimize ();
-  if (flag_cprop_registers)
-    copyprop_hardreg_forward ();
+  regrename_optimize ();
   return 0;
 }
 
@@ -1995,6 +1957,39 @@ struct tree_opt_pass pass_regrename =
   "rnreg",                              /* name */
   gate_handle_regrename,                /* gate */
   rest_of_handle_regrename,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_RENAME_REGISTERS,                  /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_df_finish |
+  TODO_dump_func,                       /* todo_flags_finish */
+  'n'                                   /* letter */
+};
+
+static bool
+gate_handle_cprop (void)
+{
+  return (optimize > 0 && (flag_cprop_registers));
+}
+
+
+/* Run the regrename and cprop passes.  */
+static unsigned int
+rest_of_handle_cprop (void)
+{
+  copyprop_hardreg_forward ();
+  return 0;
+}
+
+struct tree_opt_pass pass_cprop_hardreg =
+{
+  "cprop_hardreg",                      /* name */
+  gate_handle_cprop,                    /* gate */
+  rest_of_handle_cprop,                 /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

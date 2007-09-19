@@ -1,14 +1,15 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +18,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Handle method declarations.  */
@@ -61,9 +61,6 @@ static tree thunk_adjust (tree, bool, HOST_WIDE_INT, tree);
 static void do_build_assign_ref (tree);
 static void do_build_copy_constructor (tree);
 static tree synthesize_exception_spec (tree, tree (*) (tree, void *), void *);
-static tree locate_dtor (tree, void *);
-static tree locate_ctor (tree, void *);
-static tree locate_copy (tree, void *);
 static tree make_alias_for_thunk (tree);
 
 /* Called once to initialize method.c.  */
@@ -223,8 +220,8 @@ thunk_adjust (tree ptr, bool this_adjusting,
 {
   if (this_adjusting)
     /* Adjust the pointer by the constant.  */
-    ptr = fold_build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr,
-		       ssize_int (fixed_offset));
+    ptr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (ptr), ptr,
+		       size_int (fixed_offset));
 
   /* If there's a virtual offset, look up that value in the vtable and
      adjust the pointer again.  */
@@ -241,17 +238,19 @@ thunk_adjust (tree ptr, bool this_adjusting,
       /* Form the vtable address.  */
       vtable = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (vtable)), vtable);
       /* Find the entry with the vcall offset.  */
-      vtable = build2 (PLUS_EXPR, TREE_TYPE (vtable), vtable, virtual_offset);
+      vtable = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtable), vtable,
+		       fold_convert (sizetype, virtual_offset));
       /* Get the offset itself.  */
       vtable = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (vtable)), vtable);
       /* Adjust the `this' pointer.  */
-      ptr = fold_build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr, vtable);
+      ptr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (ptr), ptr,
+			 fold_convert (sizetype, vtable));
     }
 
   if (!this_adjusting)
     /* Adjust the pointer by the constant.  */
-    ptr = fold_build2 (PLUS_EXPR, TREE_TYPE (ptr), ptr,
-		       ssize_int (fixed_offset));
+    ptr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (ptr), ptr,
+		       size_int (fixed_offset));
 
   return ptr;
 }
@@ -431,8 +430,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       current_function_decl = thunk_fndecl;
       DECL_RESULT (thunk_fndecl)
 	= build_decl (RESULT_DECL, 0, integer_type_node);
-      fnname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
-      /* The back-end expects DECL_INITIAL to contain a BLOCK, so we
+      fnname = IDENTIFIER_POINTER (DECL_NAME (thunk_fndecl));
+      /* The back end expects DECL_INITIAL to contain a BLOCK, so we
 	 create one.  */
       fn_block = make_node (BLOCK);
       BLOCK_VARS (fn_block) = a;
@@ -452,6 +451,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
     }
   else
     {
+      int i;
+      tree *argarray = (tree *) alloca (list_length (a) * sizeof (tree));
       /* If this is a covariant thunk, or we don't have the necessary
 	 code for efficient thunks, generate a thunk function that
 	 just makes a call to the real function.  Unfortunately, this
@@ -475,11 +476,10 @@ use_thunk (tree thunk_fndecl, bool emit_p)
 			  fixed_offset, virtual_offset);
 
       /* Build up the call to the real function.  */
-      t = tree_cons (NULL_TREE, t, NULL_TREE);
-      for (a = TREE_CHAIN (a); a; a = TREE_CHAIN (a))
-	t = tree_cons (NULL_TREE, a, t);
-      t = nreverse (t);
-      t = build_call (alias, t);
+      argarray[0] = t;
+      for (i = 1, a = TREE_CHAIN (a); a; a = TREE_CHAIN (a), i++)
+	argarray[i] = a;
+      t = build_call_a (alias, i, argarray);
       CALL_FROM_THUNK_P (t) = 1;
 
       if (VOID_TYPE_P (TREE_TYPE (t)))
@@ -867,7 +867,7 @@ synthesize_exception_spec (tree type, tree (*extractor) (tree, void*),
 
 /* Locate the dtor of TYPE.  */
 
-static tree
+tree
 locate_dtor (tree type, void *client ATTRIBUTE_UNUSED)
 {
   return CLASSTYPE_DESTRUCTORS (type);
@@ -875,7 +875,7 @@ locate_dtor (tree type, void *client ATTRIBUTE_UNUSED)
 
 /* Locate the default ctor of TYPE.  */
 
-static tree
+tree
 locate_ctor (tree type, void *client ATTRIBUTE_UNUSED)
 {
   tree fns;
@@ -911,7 +911,7 @@ struct copy_data
    points to a COPY_DATA holding the name (NULL for the ctor)
    and desired qualifiers of the source operand.  */
 
-static tree
+tree
 locate_copy (tree type, void *client_)
 {
   struct copy_data *client = (struct copy_data *)client_;
@@ -1078,6 +1078,14 @@ implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
       DECL_ASSIGNMENT_OPERATOR_P (fn) = 1;
       SET_OVERLOADED_OPERATOR_CODE (fn, NOP_EXPR);
     }
+  
+  /* If pointers to member functions use the least significant bit to
+     indicate whether a function is virtual, ensure a pointer
+     to this function will have that bit clear.  */
+  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
+      && DECL_ALIGN (fn) < 2 * BITS_PER_UNIT)
+    DECL_ALIGN (fn) = 2 * BITS_PER_UNIT;
+
   /* Create the explicit arguments.  */
   if (rhs_parm_type)
     {
@@ -1177,7 +1185,7 @@ lazily_declare_fn (special_function_kind sfk, tree type)
    as there are artificial parms in FN.  */
 
 tree
-skip_artificial_parms_for (tree fn, tree list)
+skip_artificial_parms_for (const_tree fn, tree list)
 {
   if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
     list = TREE_CHAIN (list);
@@ -1190,5 +1198,26 @@ skip_artificial_parms_for (tree fn, tree list)
     list = TREE_CHAIN (list);
   return list;
 }
+
+/* Given a FUNCTION_DECL FN and a chain LIST, return the number of
+   artificial parms in FN.  */
+
+int
+num_artificial_parms_for (const_tree fn)
+{
+  int count = 0;
+
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
+    count++;
+  else
+    return 0;
+
+  if (DECL_HAS_IN_CHARGE_PARM_P (fn))
+    count++;
+  if (DECL_HAS_VTT_PARM_P (fn))
+    count++;
+  return count;
+}
+
 
 #include "gt-cp-method.h"

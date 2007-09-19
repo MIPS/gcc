@@ -1,12 +1,13 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 /* stdio.h must precede rtl.h for FFS.  */
@@ -44,6 +44,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "rtlhooks-def.h"
 #include "tree-pass.h"
+#include "df.h"
+#include "dbgcnt.h"
 
 /* The basic idea of common subexpression elimination is to go
    through the code, keeping a record of expressions that would
@@ -269,17 +271,13 @@ struct change_cc_mode_args
    table since its use is guaranteed to be the insn immediately following
    its definition and any other insn is presumed to invalidate it.
 
-   Instead, we store below the value last assigned to CC0.  If it should
-   happen to be a constant, it is stored in preference to the actual
-   assigned value.  In case it is a constant, we store the mode in which
-   the constant should be interpreted.  */
+   Instead, we store below the current and last value assigned to CC0.
+   If it should happen to be a constant, it is stored in preference
+   to the actual assigned value.  In case it is a constant, we store
+   the mode in which the constant should be interpreted.  */
 
-static rtx prev_insn_cc0;
-static enum machine_mode prev_insn_cc0_mode;
-
-/* Previous actual insn.  0 if at first insn of basic block.  */
-
-static rtx prev_insn;
+static rtx this_insn_cc0, prev_insn_cc0;
+static enum machine_mode this_insn_cc0_mode, prev_insn_cc0_mode;
 #endif
 
 /* Insn being scanned.  */
@@ -349,27 +347,6 @@ static unsigned int cse_reg_info_timestamp;
    expression in the table.  */
 
 static HARD_REG_SET hard_regs_in_table;
-
-/* CUID of insn that starts the basic block currently being cse-processed.  */
-
-static int cse_basic_block_start;
-
-/* CUID of insn that ends the basic block currently being cse-processed.  */
-
-static int cse_basic_block_end;
-
-/* Vector mapping INSN_UIDs to cuids.
-   The cuids are like uids but increase monotonically always.
-   We use them to see whether a reg is used outside a given basic block.  */
-
-static int *uid_cuid;
-
-/* Highest UID in UID_CUID.  */
-static int max_uid;
-
-/* Get the cuid of an insn.  */
-
-#define INSN_CUID(INSN) (uid_cuid[INSN_UID (INSN)])
 
 /* Nonzero if cse has altered conditional jump insns
    in such a way that jump optimization should be redone.  */
@@ -541,10 +518,6 @@ static int constant_pool_entries_regcost;
 
 struct cse_basic_block_data
 {
-  /* Lowest CUID value of insns in block.  */
-  int low_cuid;
-  /* Highest CUID value of insns in block.  */
-  int high_cuid;
   /* Total number of SETs in block.  */
   int nsets;
   /* Size of current branch path, if any.  */
@@ -556,6 +529,11 @@ struct cse_basic_block_data
       basic_block bb;
     } *path;
 };
+
+
+/* Pointers to the live in/live out bitmaps for the boundaries of the
+   current EBB.  */
+static bitmap cse_ebb_live_in, cse_ebb_live_out;
 
 /* A simple bitmap to track which basic blocks have been visited
    already as part of an already processed extended basic block.  */
@@ -580,7 +558,7 @@ static struct table_elt *insert (rtx, struct table_elt *, unsigned,
 				 enum machine_mode);
 static void merge_equiv_classes (struct table_elt *, struct table_elt *);
 static void invalidate (rtx, enum machine_mode);
-static int cse_rtx_varies_p (rtx, int);
+static bool cse_rtx_varies_p (const_rtx, bool);
 static void remove_invalid_refs (unsigned int);
 static void remove_invalid_subreg_refs (unsigned int, unsigned int,
 					enum machine_mode);
@@ -605,7 +583,7 @@ static void record_jump_cond (enum rtx_code, enum machine_mode, rtx, rtx,
 static void cse_insn (rtx, rtx);
 static void cse_prescan_path (struct cse_basic_block_data *);
 static void invalidate_from_clobbers (rtx);
-static rtx cse_process_notes (rtx, rtx);
+static rtx cse_process_notes (rtx, rtx, bool *);
 static void cse_extended_basic_block (struct cse_basic_block_data *);
 static void count_reg_usage (rtx, int *, rtx, int);
 static int check_for_label_ref (rtx *, void *);
@@ -900,7 +878,6 @@ new_basic_block (void)
     }
 
 #ifdef HAVE_cc0
-  prev_insn = 0;
   prev_insn_cc0 = 0;
 #endif
 }
@@ -961,11 +938,10 @@ make_regs_eqv (unsigned int new, unsigned int old)
       && ((new < FIRST_PSEUDO_REGISTER && FIXED_REGNO_P (new))
 	  || (new >= FIRST_PSEUDO_REGISTER
 	      && (firstr < FIRST_PSEUDO_REGISTER
-		  || ((uid_cuid[REGNO_LAST_UID (new)] > cse_basic_block_end
-		       || (uid_cuid[REGNO_FIRST_UID (new)]
-			   < cse_basic_block_start))
-		      && (uid_cuid[REGNO_LAST_UID (new)]
-			  > uid_cuid[REGNO_LAST_UID (firstr)]))))))
+		  || (bitmap_bit_p (cse_ebb_live_out, new)
+		      && !bitmap_bit_p (cse_ebb_live_out, firstr))
+		  || (bitmap_bit_p (cse_ebb_live_in, new)
+		      && !bitmap_bit_p (cse_ebb_live_in, firstr))))))
     {
       reg_eqv_table[firstr].prev = new;
       reg_eqv_table[new].next = firstr;
@@ -1049,9 +1025,7 @@ mention_regs (rtx x)
   if (code == REG)
     {
       unsigned int regno = REGNO (x);
-      unsigned int endregno
-	= regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-		   : hard_regno_nregs[regno][GET_MODE (x)]);
+      unsigned int endregno = END_REGNO (x);
       unsigned int i;
 
       for (i = regno; i < endregno; i++)
@@ -1433,14 +1407,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
 
   /* If X is a hard register, show it is being put in the table.  */
   if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER)
-    {
-      unsigned int regno = REGNO (x);
-      unsigned int endregno = regno + hard_regno_nregs[regno][GET_MODE (x)];
-      unsigned int i;
-
-      for (i = regno; i < endregno; i++)
-	SET_HARD_REG_BIT (hard_regs_in_table, i);
-    }
+    add_to_hard_reg_set (&hard_regs_in_table, GET_MODE (x), REGNO (x));
 
   /* Put an element for X into the right hash bucket.  */
 
@@ -1743,8 +1710,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 	  {
 	    HOST_WIDE_INT in_table
 	      = TEST_HARD_REG_BIT (hard_regs_in_table, regno);
-	    unsigned int endregno
-	      = regno + hard_regno_nregs[regno][GET_MODE (x)];
+	    unsigned int endregno = END_HARD_REGNO (x);
 	    unsigned int tregno, tendregno, rn;
 	    struct table_elt *p, *next;
 
@@ -1770,8 +1736,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 		      continue;
 
 		    tregno = REGNO (p->exp);
-		    tendregno
-		      = tregno + hard_regno_nregs[tregno][GET_MODE (p->exp)];
+		    tendregno = END_HARD_REGNO (p->exp);
 		    if (tendregno > regno && tregno < endregno)
 		      remove_from_table (p, hash);
 		  }
@@ -1984,7 +1949,7 @@ invalidate_for_call (rtx call_insn)
 	    continue;
 
 	  regno = REGNO (p->exp);
-	  endregno = regno + hard_regno_nregs[regno][GET_MODE (p->exp)];
+	  endregno = END_HARD_REGNO (p->exp);
 
 	  for (i = regno; i < endregno; i++)
 	    if (TEST_HARD_REG_BIT (clobbered_regs, i))
@@ -2096,7 +2061,7 @@ hash_rtx_string (const char *ps)
    is just (int) MEM plus the hash code of the address.  */
 
 unsigned
-hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
+hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 	  int *hash_arg_in_memory_p, bool have_reg_qty)
 {
   int i, j;
@@ -2195,6 +2160,11 @@ hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
       else
 	hash += ((unsigned int) CONST_DOUBLE_LOW (x)
 		 + (unsigned int) CONST_DOUBLE_HIGH (x));
+      return hash;
+
+    case CONST_FIXED:
+      hash += (unsigned int) code + (unsigned int) GET_MODE (x);
+      hash += fixed_hash (CONST_FIXED_VALUE (x));
       return hash;
 
     case CONST_VECTOR:
@@ -2410,7 +2380,7 @@ safe_hash (rtx x, enum machine_mode mode)
    If FOR_GCSE is true, we compare X and Y for equivalence for GCSE.  */
 
 int
-exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
+exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
 {
   int i, j;
   enum rtx_code code;
@@ -2438,6 +2408,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
       return x == y;
 
     case LABEL_REF:
@@ -2453,9 +2424,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
 	{
 	  unsigned int regno = REGNO (y);
 	  unsigned int i;
-	  unsigned int endregno
-	    = regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-		       : hard_regno_nregs[regno][GET_MODE (y)]);
+	  unsigned int endregno = END_REGNO (y);
 
 	  /* If the quantities are not the same, the expressions are not
 	     equivalent.  If there are and we are not to validate, they
@@ -2604,8 +2573,8 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
    executions of the program.  0 means X can be compared reliably
    against certain constants or near-constants.  */
 
-static int
-cse_rtx_varies_p (rtx x, int from_alias)
+static bool
+cse_rtx_varies_p (const_rtx x, bool from_alias)
 {
   /* We need not check for X and the equivalence class being of the same
      mode because if X is equivalent to a constant in some mode, it
@@ -2667,14 +2636,15 @@ cse_rtx_varies_p (rtx x, int from_alias)
 static void
 validate_canon_reg (rtx *xloc, rtx insn)
 {
-  rtx new = canon_reg (*xloc, insn);
+  if (*xloc)
+    {
+      rtx new = canon_reg (*xloc, insn);
 
-  /* If replacing pseudo with hard reg or vice versa, ensure the
-     insn remains valid.  Likewise if the insn has MATCH_DUPs.  */
-  if (insn != 0 && new != 0)
-    validate_change (insn, xloc, new, 1);
-  else
-    *xloc = new;
+      /* If replacing pseudo with hard reg or vice versa, ensure the
+         insn remains valid.  Likewise if the insn has MATCH_DUPs.  */
+      gcc_assert (insn && new);
+      validate_change (insn, xloc, new, 1);
+    }
 }
 
 /* Canonicalize an expression:
@@ -2705,6 +2675,7 @@ canon_reg (rtx x, rtx insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -3000,6 +2971,7 @@ fold_rtx (rtx x, rtx insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -3052,11 +3024,38 @@ fold_rtx (rtx x, rtx insn)
       {
 	rtx folded_arg = XEXP (x, i), const_arg;
 	enum machine_mode mode_arg = GET_MODE (folded_arg);
+
+	switch (GET_CODE (folded_arg))
+	  {
+	  case MEM:
+	  case REG:
+	  case SUBREG:
+	    const_arg = equiv_constant (folded_arg);
+	    break;
+
+	  case CONST:
+	  case CONST_INT:
+	  case SYMBOL_REF:
+	  case LABEL_REF:
+	  case CONST_DOUBLE:
+	  case CONST_FIXED:
+	  case CONST_VECTOR:
+	    const_arg = folded_arg;
+	    break;
+
 #ifdef HAVE_cc0
-	if (CC0_P (folded_arg))
-	  folded_arg = prev_insn_cc0, mode_arg = prev_insn_cc0_mode;
+	  case CC0:
+	    folded_arg = prev_insn_cc0;
+	    mode_arg = prev_insn_cc0_mode;
+	    const_arg = equiv_constant (folded_arg);
+	    break;
 #endif
-	const_arg = equiv_constant (folded_arg);
+
+	  default:
+	    folded_arg = fold_rtx (folded_arg, insn);
+	    const_arg = equiv_constant (folded_arg);
+	    break;
+	  }
 
 	/* For the first three operands, see if the operand
 	   is constant or equivalent to a constant.  */
@@ -3657,7 +3656,8 @@ equiv_constant (rtx x)
 
       /* See if we previously assigned a constant value to this SUBREG.  */
       if ((new = lookup_as_function (x, CONST_INT)) != 0
-          || (new = lookup_as_function (x, CONST_DOUBLE)) != 0)
+          || (new = lookup_as_function (x, CONST_DOUBLE)) != 0
+          || (new = lookup_as_function (x, CONST_FIXED)) != 0)
         return new;
 
       if (REG_P (SUBREG_REG (x))
@@ -4022,12 +4022,6 @@ cse_insn (rtx insn, rtx libcall_insn)
   rtx tem;
   int n_sets = 0;
 
-#ifdef HAVE_cc0
-  /* Records what this insn does to set CC0.  */
-  rtx this_insn_cc0 = 0;
-  enum machine_mode this_insn_cc0_mode = VOIDmode;
-#endif
-
   rtx src_eqv = 0;
   struct table_elt *src_eqv_elt = 0;
   int src_eqv_volatile = 0;
@@ -4037,6 +4031,11 @@ cse_insn (rtx insn, rtx libcall_insn)
   struct set *sets = (struct set *) 0;
 
   this_insn = insn;
+#ifdef HAVE_cc0
+  /* Records what this insn does to set CC0.  */
+  this_insn_cc0 = 0;
+  this_insn_cc0_mode = VOIDmode;
+#endif
 
   /* Find all the SETs and CLOBBERs in this instruction.
      Record all the SETs in the array `set' and count them.
@@ -4145,12 +4144,12 @@ cse_insn (rtx insn, rtx libcall_insn)
 		 This does nothing when a register is clobbered
 		 because we have already invalidated the reg.  */
 	      if (MEM_P (XEXP (y, 0)))
-		canon_reg (XEXP (y, 0), NULL_RTX);
+		canon_reg (XEXP (y, 0), insn);
 	    }
 	  else if (GET_CODE (y) == USE
 		   && ! (REG_P (XEXP (y, 0))
 			 && REGNO (XEXP (y, 0)) < FIRST_PSEUDO_REGISTER))
-	    canon_reg (y, NULL_RTX);
+	    canon_reg (y, insn);
 	  else if (GET_CODE (y) == CALL)
 	    {
 	      /* The result of apply_change_group can be ignored; see
@@ -4164,14 +4163,14 @@ cse_insn (rtx insn, rtx libcall_insn)
   else if (GET_CODE (x) == CLOBBER)
     {
       if (MEM_P (XEXP (x, 0)))
-	canon_reg (XEXP (x, 0), NULL_RTX);
+	canon_reg (XEXP (x, 0), insn);
     }
 
   /* Canonicalize a USE of a pseudo register or memory location.  */
   else if (GET_CODE (x) == USE
 	   && ! (REG_P (XEXP (x, 0))
 		 && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER))
-    canon_reg (XEXP (x, 0), NULL_RTX);
+    canon_reg (XEXP (x, 0), insn);
   else if (GET_CODE (x) == CALL)
     {
       /* The result of apply_change_group can be ignored; see canon_reg.  */
@@ -4189,8 +4188,12 @@ cse_insn (rtx insn, rtx libcall_insn)
       && (! rtx_equal_p (XEXP (tem, 0), SET_SRC (sets[0].rtl))
 	  || GET_CODE (SET_DEST (sets[0].rtl)) == STRICT_LOW_PART))
     {
-      src_eqv = fold_rtx (canon_reg (XEXP (tem, 0), NULL_RTX), insn);
-      XEXP (tem, 0) = src_eqv;
+      /* The result of apply_change_group can be ignored; see canon_reg.  */
+      canon_reg (XEXP (tem, 0), insn);
+      apply_change_group ();
+      src_eqv = fold_rtx (XEXP (tem, 0), insn);
+      XEXP (tem, 0) = copy_rtx (src_eqv);
+      df_notes_rescan (insn);
     }
 
   /* Canonicalize sources and addresses of destinations.
@@ -4506,8 +4509,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		   const_elt; const_elt = const_elt->next_same_value)
 		if (REG_P (const_elt->exp))
 		  {
-		    src_related = gen_lowpart (mode,
-							   const_elt->exp);
+		    src_related = gen_lowpart (mode, const_elt->exp);
 		    break;
 		  }
 	    }
@@ -4594,8 +4596,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		   larger_elt; larger_elt = larger_elt->next_same_value)
 		if (REG_P (larger_elt->exp))
 		  {
-		    src_related = gen_lowpart (mode,
-							   larger_elt->exp);
+		    src_related = gen_lowpart (mode, larger_elt->exp);
 		    break;
 		  }
 
@@ -4840,7 +4841,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 	    ;
 
 	  /* Look for a substitution that makes a valid insn.  */
-	  else if (validate_change (insn, &SET_SRC (sets[i].rtl), trial, 0))
+	  else if (validate_unshare_change
+		     (insn, &SET_SRC (sets[i].rtl), trial, 0))
 	    {
 	      rtx new = canon_reg (SET_SRC (sets[i].rtl), insn);
 
@@ -4857,6 +4859,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		    XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0),
 							   sets[i].orig_src,
 							   copy_rtx (new));
+		  df_notes_rescan (libcall_insn);
 		}
 
 	      /* The result of apply_change_group can be ignored; see
@@ -4864,13 +4867,6 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 	      validate_change (insn, &SET_SRC (sets[i].rtl), new, 1);
 	      apply_change_group ();
-
-	      /* With non-call exceptions, if this was an insn that could
-		 trap, we may have made it non-throwing now.  For example
-		 we may have replaced a load with a register.  */
-	      if (flag_non_call_exceptions
-		  && insn == BB_END (BLOCK_FOR_INSN (insn)))
-		purge_dead_edges (BLOCK_FOR_INSN (insn));
 
 	      break;
 	    }
@@ -4982,6 +4978,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	      /* Record the actual constant value in a REG_EQUAL note,
 		 making a new one if one does not already exist.  */
 	      set_unique_reg_note (insn, REG_EQUAL, src_const);
+	      df_notes_rescan (insn);
 	    }
 	}
 
@@ -5059,11 +5056,6 @@ cse_insn (rtx insn, rtx libcall_insn)
       else if (dest == pc_rtx && GET_CODE (src) == LABEL_REF
 	       && !LABEL_REF_NONLOCAL_P (src))
 	{
-	  /* Now emit a BARRIER after the unconditional jump.  */
-	  if (NEXT_INSN (insn) == 0
-	      || !BARRIER_P (NEXT_INSN (insn)))
-	    emit_barrier_after (insn);
-
 	  /* We reemit the jump in as many cases as possible just in
 	     case the form of an unconditional jump is significantly
 	     different than a computed jump or conditional jump.
@@ -5089,11 +5081,6 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 	      delete_insn_and_edges (insn);
 	      insn = new;
-
-	      /* Now emit a BARRIER after the unconditional jump.  */
-	      if (NEXT_INSN (insn) == 0
-		  || !BARRIER_P (NEXT_INSN (insn)))
-		emit_barrier_after (insn);
 	    }
 	  else
 	    INSN_CODE (insn) = -1;
@@ -5271,8 +5258,11 @@ cse_insn (rtx insn, rtx libcall_insn)
 		{
 		  if (insert_regs (x, NULL, 0))
 		    {
+		      rtx dest = SET_DEST (sets[i].rtl);
+
 		      rehash_using_reg (x);
 		      hash = HASH (x, mode);
+		      sets[i].dest_hash = HASH (dest, GET_MODE (dest));
 		    }
 		  elt = insert (x, NULL, hash, mode);
 		}
@@ -5367,9 +5357,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 		 but it knows that reg_tick has been incremented, and
 		 it leaves reg_in_table as -1 .  */
 	      unsigned int regno = REGNO (x);
-	      unsigned int endregno
-		= regno + (regno >= FIRST_PSEUDO_REGISTER ? 1
-			   : hard_regno_nregs[regno][GET_MODE (x)]);
+	      unsigned int endregno = END_REGNO (x);
 	      unsigned int i;
 
 	      for (i = regno; i < endregno; i++)
@@ -5646,20 +5634,6 @@ cse_insn (rtx insn, rtx libcall_insn)
     }
 
 done:;
-#ifdef HAVE_cc0
-  /* If the previous insn set CC0 and this insn no longer references CC0,
-     delete the previous insn.  Here we use the fact that nothing expects CC0
-     to be valid over an insn, which is true until the final pass.  */
-  if (prev_insn && NONJUMP_INSN_P (prev_insn)
-      && (tem = single_set (prev_insn)) != 0
-      && SET_DEST (tem) == cc0_rtx
-      && ! reg_mentioned_p (cc0_rtx, x))
-    delete_insn_and_edges (prev_insn);
-
-  prev_insn_cc0 = this_insn_cc0;
-  prev_insn_cc0_mode = this_insn_cc0_mode;
-  prev_insn = insn;
-#endif
 }
 
 /* Remove from the hash table all expressions that reference memory.  */
@@ -5732,7 +5706,7 @@ invalidate_from_clobbers (rtx x)
    Return the replacement for X.  */
 
 static rtx
-cse_process_notes (rtx x, rtx object)
+cse_process_notes_1 (rtx x, rtx object, bool *changed)
 {
   enum rtx_code code = GET_CODE (x);
   const char *fmt = GET_RTX_FORMAT (code);
@@ -5745,6 +5719,7 @@ cse_process_notes (rtx x, rtx object)
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:
@@ -5753,22 +5728,22 @@ cse_process_notes (rtx x, rtx object)
 
     case MEM:
       validate_change (x, &XEXP (x, 0),
-		       cse_process_notes (XEXP (x, 0), x), 0);
+		       cse_process_notes (XEXP (x, 0), x, changed), 0);
       return x;
 
     case EXPR_LIST:
     case INSN_LIST:
       if (REG_NOTE_KIND (x) == REG_EQUAL)
-	XEXP (x, 0) = cse_process_notes (XEXP (x, 0), NULL_RTX);
+	XEXP (x, 0) = cse_process_notes (XEXP (x, 0), NULL_RTX, changed);
       if (XEXP (x, 1))
-	XEXP (x, 1) = cse_process_notes (XEXP (x, 1), NULL_RTX);
+	XEXP (x, 1) = cse_process_notes (XEXP (x, 1), NULL_RTX, changed);
       return x;
 
     case SIGN_EXTEND:
     case ZERO_EXTEND:
     case SUBREG:
       {
-	rtx new = cse_process_notes (XEXP (x, 0), object);
+	rtx new = cse_process_notes (XEXP (x, 0), object, changed);
 	/* We don't substitute VOIDmode constants into these rtx,
 	   since they would impede folding.  */
 	if (GET_MODE (new) != VOIDmode)
@@ -5804,10 +5779,20 @@ cse_process_notes (rtx x, rtx object)
   for (i = 0; i < GET_RTX_LENGTH (code); i++)
     if (fmt[i] == 'e')
       validate_change (object, &XEXP (x, i),
-		       cse_process_notes (XEXP (x, i), object), 0);
+		       cse_process_notes (XEXP (x, i), object, changed), 0);
 
   return x;
 }
+
+static rtx
+cse_process_notes (rtx x, rtx object, bool *changed)
+{
+  rtx new = cse_process_notes_1 (x, object, changed);
+  if (new != x)
+    *changed = true;
+  return new;
+}
+
 
 /* Find a path in the CFG, starting with FIRST_BB to perform CSE on.
 
@@ -5821,7 +5806,7 @@ cse_process_notes (rtx x, rtx object)
    Otherwise, DATA->path is filled and the function returns TRUE indicating
    that a path to follow was found.
 
-   If FOLLOW_JUMPS is false, the maximum path lenghth is 1 and the only
+   If FOLLOW_JUMPS is false, the maximum path length is 1 and the only
    block in the path will be FIRST_BB.  */
 
 static bool
@@ -5877,13 +5862,20 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 	    {
 	      bb = FALLTHRU_EDGE (previous_bb_in_path)->dest;
 	      if (bb != EXIT_BLOCK_PTR
-		  && single_pred_p (bb))
+		  && single_pred_p (bb)
+		  /* We used to assert here that we would only see blocks
+		     that we have not visited yet.  But we may end up
+		     visiting basic blocks twice if the CFG has changed
+		     in this run of cse_main, because when the CFG changes
+		     the topological sort of the CFG also changes.  A basic
+		     blocks that previously had more than two predecessors
+		     may now have a single predecessor, and become part of
+		     a path that starts at another basic block.
+
+		     We still want to visit each basic block only once, so
+		     halt the path here if we have already visited BB.  */
+		  && !TEST_BIT (cse_visited_basic_blocks, bb->index))
 		{
-#if ENABLE_CHECKING
-		  /* We should only see blocks here that we have not
-		     visited yet.  */
-		  gcc_assert (!TEST_BIT (cse_visited_basic_blocks, bb->index));
-#endif
 		  SET_BIT (cse_visited_basic_blocks, bb->index);
 		  data->path[path_size++].bb = bb;
 		  break;
@@ -5922,15 +5914,12 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 	    e = NULL;
 
 	  if (e && e->dest != EXIT_BLOCK_PTR
-	      && single_pred_p (e->dest))
+	      && single_pred_p (e->dest)
+	      /* Avoid visiting basic blocks twice.  The large comment
+		 above explains why this can happen.  */
+	      && !TEST_BIT (cse_visited_basic_blocks, e->dest->index))
 	    {
 	      basic_block bb2 = e->dest;
-
-#if ENABLE_CHECKING
-	      /* We should only see blocks here that we have not
-		 visited yet.  */
-	      gcc_assert (!TEST_BIT (cse_visited_basic_blocks, bb2->index));
-#endif
 	      SET_BIT (cse_visited_basic_blocks, bb2->index);
 	      data->path[path_size++].bb = bb2;
 	      bb = bb2;
@@ -5961,15 +5950,29 @@ cse_dump_path (struct cse_basic_block_data *data, int nsets, FILE *f)
 }
 
 
+/* Return true if BB has exception handling successor edges.  */
+
+static bool
+have_eh_succ_edges (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & EDGE_EH)
+      return true;
+
+  return false;
+}
+
+
 /* Scan to the end of the path described by DATA.  Return an estimate of
-   the total number of SETs, and the lowest and highest insn CUID, of all
-   insns in the path.  */
+   the total number of SETs of all insns in the path.  */
 
 static void
 cse_prescan_path (struct cse_basic_block_data *data)
 {
   int nsets = 0;
-  int low_cuid = -1, high_cuid = -1; /* FIXME low_cuid not computed correctly */
   int path_size = data->path_size;
   int path_entry;
 
@@ -5992,21 +5995,9 @@ cse_prescan_path (struct cse_basic_block_data *data)
 	    nsets += XVECLEN (PATTERN (insn), 0);
 	  else
 	    nsets += 1;
-
-	  /* Ignore insns made by CSE in a previous traversal of this
-	     basic block.  They cannot affect the boundaries of the
-	     basic block.
-	     FIXME: When we only visit each basic block at most once,
-		    this can go away.  */
-	  if (INSN_UID (insn) <= max_uid && INSN_CUID (insn) > high_cuid)
-	    high_cuid = INSN_CUID (insn);
-	  if (INSN_UID (insn) <= max_uid && INSN_CUID (insn) < low_cuid)
-	    low_cuid = INSN_CUID (insn);
 	}
     }
 
-  data->low_cuid = low_cuid;
-  data->high_cuid = high_cuid;
   data->nsets = nsets;
 }
 
@@ -6023,6 +6014,8 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
   qty_table = XNEWVEC (struct qty_table_elem, max_qty);
 
   new_basic_block ();
+  cse_ebb_live_in = df_get_live_in (ebb_data->path[0].bb);
+  cse_ebb_live_out = df_get_live_out (ebb_data->path[path_size - 1].bb);
   for (path_entry = 0; path_entry < path_size; path_entry++)
     {
       basic_block bb;
@@ -6054,8 +6047,13 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	      /* Process notes first so we have all notes in canonical forms
 		 when looking for duplicate operations.  */
 	      if (REG_NOTES (insn))
-		REG_NOTES (insn) = cse_process_notes (REG_NOTES (insn),
-						      NULL_RTX);
+		{
+		  bool changed = false;
+		  REG_NOTES (insn) = cse_process_notes (REG_NOTES (insn),
+						        NULL_RTX, &changed);
+		  if (changed)
+		    df_notes_rescan (insn);
+		}
 
 	      /* Track when we are inside in LIBCALL block.  Inside such
 		 a block we do not want to record destinations.  The last
@@ -6098,18 +6096,44 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 		  && for_each_rtx (&PATTERN (insn), check_for_label_ref,
 				   (void *) insn))
 		recorded_label_ref = 1;
+
+#ifdef HAVE_cc0
+	      /* If the previous insn set CC0 and this insn no longer
+		 references CC0, delete the previous insn.  Here we use
+		 fact that nothing expects CC0 to be valid over an insn,
+		 which is true until the final pass.  */
+	      {
+		rtx prev_insn, tem;
+
+		prev_insn = PREV_INSN (insn);
+		if (prev_insn && NONJUMP_INSN_P (prev_insn)
+		    && (tem = single_set (prev_insn)) != 0
+		    && SET_DEST (tem) == cc0_rtx
+		    && ! reg_mentioned_p (cc0_rtx, PATTERN (insn)))
+		  delete_insn (prev_insn);
+	      }
+
+	      /* If this insn is not the last insn in the basic block,
+		 it will be PREV_INSN(insn) in the next iteration.  If
+		 we recorded any CC0-related information for this insn,
+		 remember it.  */
+	      if (insn != BB_END (bb))
+		{
+		  prev_insn_cc0 = this_insn_cc0;
+		  prev_insn_cc0_mode = this_insn_cc0_mode;
+		}
+#endif
 	    }
 	}
 
       /* Make sure that libcalls don't span multiple basic blocks.  */
       gcc_assert (libcall_insn == NULL_RTX);
 
-#ifdef HAVE_cc0
-      /* Clear the CC0-tracking related insns, they can't provide
-	 useful information across basic block boundaries.  */
-      prev_insn_cc0 = 0;
-      prev_insn = 0;
-#endif
+      /* With non-call exceptions, we are not always able to update
+	 the CFG properly inside cse_insn.  So clean up possibly
+	 redundant EH edges here.  */
+      if (flag_non_call_exceptions && have_eh_succ_edges (bb))
+	purge_dead_edges (bb);
 
       /* If we changed a conditional jump, we may have terminated
 	 the path we are following.  Check that by verifying that
@@ -6120,7 +6144,21 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	{
 	  basic_block next_bb = ebb_data->path[path_entry + 1].bb;
 	  if (!find_edge (bb, next_bb))
-	    ebb_data->path_size = path_entry + 1;
+	    {
+	      do
+		{
+		  path_size--;
+
+		  /* If we truncate the path, we must also reset the
+		     visited bit on the remaining blocks in the path,
+		     or we will never visit them at all.  */
+		  RESET_BIT (cse_visited_basic_blocks,
+			     ebb_data->path[path_size].bb->index);
+		  ebb_data->path[path_size].bb = NULL;
+		}
+	      while (path_size - 1 != path_entry);
+	      ebb_data->path_size = path_size;
+	    }
 	}
 
       /* If this is a conditional jump insn, record any known
@@ -6135,12 +6173,19 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	  bool taken = (next_bb == BRANCH_EDGE (bb)->dest);
 	  record_jump_equiv (insn, taken);
 	}
+
+#ifdef HAVE_cc0
+      /* Clear the CC0-tracking related insns, they can't provide
+	 useful information across basic block boundaries.  */
+      prev_insn_cc0 = 0;
+#endif
     }
 
   gcc_assert (next_qty <= max_qty);
 
   free (qty_table);
 }
+
 
 /* Perform cse on the instructions of a function.
    F is the first instruction.
@@ -6154,9 +6199,14 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 {
   struct cse_basic_block_data ebb_data;
   basic_block bb;
-  int *dfs_order = XNEWVEC (int, last_basic_block);
+  int *rc_order = XNEWVEC (int, last_basic_block);
   int i, n_blocks;
 
+  df_set_flags (DF_LR_RUN_DCE);
+  df_analyze ();
+  df_set_flags (DF_DEFER_INSN_RESCAN);
+
+  reg_scan (get_insns (), max_reg_num ());
   init_cse_reg_info (nregs);
 
   ebb_data.path = XNEWVEC (struct branch_path,
@@ -6179,30 +6229,17 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   cse_visited_basic_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (cse_visited_basic_blocks);
 
-  /* Compute the mapping from uids to cuids.
-     CUIDs are numbers assigned to insns, like uids, except that
-     that cuids increase monotonically through the code.  */
-  max_uid = get_max_uid ();
-  uid_cuid = XCNEWVEC (int, max_uid + 1);
-  i = 0;
-  FOR_EACH_BB (bb)
-    {
-      rtx insn;
-      FOR_BB_INSNS (bb, insn)
-	INSN_CUID (insn) = ++i;
-    }
-
-  /* Loop over basic blocks in DFS order,
+  /* Loop over basic blocks in reverse completion order (RPO),
      excluding the ENTRY and EXIT blocks.  */
-  n_blocks = pre_and_rev_post_order_compute (dfs_order, NULL, false);
+  n_blocks = pre_and_rev_post_order_compute (NULL, rc_order, false);
   i = 0;
   while (i < n_blocks)
     {
-      /* Find the first block in the DFS queue that we have not yet
+      /* Find the first block in the RPO queue that we have not yet
 	 processed before.  */
       do
 	{
-	  bb = BASIC_BLOCK (dfs_order[i++]);
+	  bb = BASIC_BLOCK (rc_order[i++]);
 	}
       while (TEST_BIT (cse_visited_basic_blocks, bb->index)
 	     && i < n_blocks);
@@ -6217,12 +6254,10 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 	  if (ebb_data.nsets == 0)
 	    continue;
 
-	  /* Get a reasonable extimate for the maximum number of qty's
+	  /* Get a reasonable estimate for the maximum number of qty's
 	     needed for this path.  For this, we take the number of sets
 	     and multiply that by MAX_RECOG_OPERANDS.  */
 	  max_qty = ebb_data.nsets * MAX_RECOG_OPERANDS;
-	  cse_basic_block_start = ebb_data.low_cuid;
-	  cse_basic_block_end = ebb_data.high_cuid;
 
 	  /* Dump the path we're about to process.  */
 	  if (dump_file)
@@ -6234,11 +6269,10 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 
   /* Clean up.  */
   end_alias_analysis ();
-  free (uid_cuid);
   free (reg_eqv_table);
   free (ebb_data.path);
   sbitmap_free (cse_visited_basic_blocks);
-  free (dfs_order);
+  free (rc_order);
   rtl_hooks = general_rtl_hooks;
 
   return cse_jumps_altered || recorded_label_ref;
@@ -6296,6 +6330,7 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -6555,7 +6590,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
       /* If this is a dead insn, delete it and show registers in it aren't
 	 being used.  */
 
-      if (! live_insn)
+      if (! live_insn && dbg_cnt (delete_trivial_dead))
 	{
 	  count_reg_usage (insn, counts, NULL_RTX, -1);
 	  delete_insn_and_edges (insn);
@@ -6958,13 +6993,10 @@ gate_handle_cse (void)
 static unsigned int
 rest_of_handle_cse (void)
 {
-static int counter = 0;
   int tem;
-counter++;
+
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-
-  reg_scan (get_insns (), max_reg_num ());
 
   tem = cse_main (get_insns (), max_reg_num ());
 
@@ -6972,15 +7004,11 @@ counter++;
      expecting CSE to be run.  But always rerun it in a cheap mode.  */
   cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
 
-  /* If there are dead edges to purge, we haven't properly updated
-     the CFG incrementally.  */
-  gcc_assert (!purge_all_dead_edges ());
-
   if (tem)
     rebuild_jump_labels (get_insns ());
 
   if (tem || optimize > 1)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
+    cleanup_cfg (0);
 
   return 0;
 }
@@ -6998,6 +7026,7 @@ struct tree_opt_pass pass_cse =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
@@ -7028,21 +7057,15 @@ rest_of_handle_cse2 (void)
      bypassed safely.  */
   cse_condition_code_reg ();
 
-  /* If there are dead edges to purge, we haven't properly updated
-     the CFG incrementally.  */
-  gcc_assert (!purge_all_dead_edges ());
-
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
   if (tem)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
-      delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE);
+      cleanup_cfg (0);
       timevar_pop (TV_JUMP);
     }
-  reg_scan (get_insns (), max_reg_num ());
   cse_not_expected = 1;
   return 0;
 }
@@ -7061,6 +7084,7 @@ struct tree_opt_pass pass_cse2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */

@@ -1,12 +1,13 @@
 /* Header for array handling functions
-   Copyright (C) 2002, 2003, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Generate code to free an array.  */
 tree gfc_array_deallocate (tree, tree);
@@ -32,7 +32,7 @@ void gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping *,
 
 /* Generate code to create a temporary array.  */
 tree gfc_trans_create_temp_array (stmtblock_t *, stmtblock_t *, gfc_loopinfo *,
-                                  gfc_ss_info *, tree, bool, bool, bool, bool);
+                                  gfc_ss_info *, tree, bool, bool, bool);
 
 /* Generate function entry code for allocation of compiler allocated array
    variables.  */
@@ -133,3 +133,7 @@ tree gfc_conv_descriptor_ubound (tree, tree);
 /* Add pre-loop scalarization code for intrinsic functions which require
    special handling.  */
 void gfc_add_intrinsic_ss_code (gfc_loopinfo *, gfc_ss *);
+
+/* Functions for constant array constructor processing.  */
+unsigned HOST_WIDE_INT gfc_constant_array_constructor_p (gfc_constructor *);
+tree gfc_build_constant_array_constructor (gfc_expr *, tree);

@@ -92,7 +92,7 @@ next_char (format_data *fmt, int literal)
       fmt->format_string_len--;
       c = toupper (*fmt->format_string++);
     }
-  while (c == ' ' && !literal);
+  while ((c == ' ' || c == '\t') && !literal);
 
   return c;
 }
@@ -858,12 +858,9 @@ parse_format_list (st_parameter_dt *dtp)
       goto finished;
 
     case FMT_SLASH:
-      get_fnode (fmt, &head, &tail, FMT_SLASH);
-      tail->repeat = 1;
-
-      /* Fall Through */
-
     case FMT_COLON:
+      get_fnode (fmt, &head, &tail, t);
+      tail->repeat = 1;
       goto optional_comma;
 
     case FMT_END:
@@ -918,7 +915,7 @@ format_error (st_parameter_dt *dtp, const fnode *f, const char *message)
   if (f != NULL)
     fmt->format_string = f->source;
 
-  st_sprintf (buffer, "%s\n", message);
+  sprintf (buffer, "%s\n", message);
 
   j = fmt->format_string - dtp->format;
 

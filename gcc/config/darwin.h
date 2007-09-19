@@ -1,6 +1,6 @@
 /* Target definitions for Darwin (Mac OS X) systems.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006
+   2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -130,6 +130,7 @@ extern GTY(()) int darwin_ms_struct;
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
   { "-seg_addr_table", "-Zseg_addr_table" }, \
   { "-seg_addr_table_filename", "-Zfn_seg_addr_table_filename" }, \
+  { "-umbrella", "-Zumbrella" }, \
   { "-fapple-kext", "-fapple-kext -static -Wa,-static" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-findirect-virtual-calls", "-fapple-kext" }, \
@@ -146,6 +147,7 @@ extern GTY(()) int darwin_ms_struct;
   { "-multiply_defined", "-Zmultiply_defined" },  \
   { "-multi_module", "-Zmulti_module" },  \
   { "-static", "-static -Wa,-static" },  \
+  { "-shared", "-Zdynamiclib" }, \
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }, \
   SUBTARGET_OPTION_TRANSLATE_TABLE
@@ -187,7 +189,7 @@ extern GTY(()) int darwin_ms_struct;
    !strcmp (STR, "segprot") ? 3 :               \
    !strcmp (STR, "sub_library") ? 1 :           \
    !strcmp (STR, "sub_umbrella") ? 1 :          \
-   !strcmp (STR, "umbrella") ? 1 :              \
+   !strcmp (STR, "Zumbrella") ? 1 :             \
    !strcmp (STR, "undefined") ? 1 :             \
    !strcmp (STR, "Zunexported_symbols_list") ? 1 : \
    !strcmp (STR, "Zweak_reference_mismatches") ? 1 : \
@@ -230,7 +232,7 @@ extern GTY(()) int darwin_ms_struct;
    linkers, and for positional arguments like libraries.  */
 #define LINK_COMMAND_SPEC "\
 %{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
-    %(linker) %l %X %{d} %{s} %{t} %{Z} \
+    %(linker) %l %X %{d} %{s} %{t} %{Z} %{u*} \
     %{A} %{e*} %{m} %{r} %{x} \
     %{o*}%{!o:-o a.out} \
     %{!A:%{!nostdlib:%{!nostartfiles:%S}}} \
@@ -239,8 +241,8 @@ extern GTY(()) int darwin_ms_struct;
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}\n\
 %{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
-    %{.c|.cc|.C|.cpp|.c++|.CPP|.m|.mm: \
-    %{gdwarf-2:%{!gstabs*:%{!gnone: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
+    %{.c|.cc|.C|.cpp|.cp|.c++|.cxx|.CPP|.m|.mm: \
+    %{gdwarf-2:%{!gstabs*:%{!g0: dsymutil %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
 
 #ifdef TARGET_SYSTEM_ROOT
 #define LINK_SYSROOT_SPEC \
@@ -296,8 +298,8 @@ extern GTY(()) int darwin_ms_struct;
    %{headerpad_max_install_names*} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
+   %{!mmacosx-version-min=*:-macosx_version_min %(darwin_minversion)} \
    %{mmacosx-version-min=*:-macosx_version_min %*} \
-   %{!mmacosx-version-min=*:%{shared-libgcc:-macosx_version_min 10.3}} \
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
@@ -305,6 +307,7 @@ extern GTY(()) int darwin_ms_struct;
      %:version-compare(< 10.5 mmacosx-version-min= -multiply_defined) \
      %:version-compare(< 10.5 mmacosx-version-min= suppress)}} \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
+   %{fpie:-pie} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
    %{sectcreate*} %{sectorder*} %{seg1addr*} %{segprot*} \
@@ -316,7 +319,7 @@ extern GTY(()) int darwin_ms_struct;
    %{sub_library*} %{sub_umbrella*} \
    " LINK_SYSROOT_SPEC " \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
-   %{umbrella*} \
+   %{Zumbrella*: -umbrella %*} \
    %{undefined*} \
    %{Zunexported_symbols_list*:-unexported_symbols_list %*} \
    %{Zweak_reference_mismatches*:-weak_reference_mismatches %*} \
@@ -350,7 +353,7 @@ extern GTY(()) int darwin_ms_struct;
 #undef REAL_LIBGCC_SPEC
 #define REAL_LIBGCC_SPEC						   \
    "%{static-libgcc|static: -lgcc_eh -lgcc;				   \
-      shared-libgcc|fexceptions:					   \
+      shared-libgcc|fexceptions|fgnu-runtime:				   \
        %:version-compare(!> 10.5 mmacosx-version-min= -lgcc_s.10.4)	   \
        %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
        -lgcc;								   \
@@ -376,7 +379,8 @@ extern GTY(()) int darwin_ms_struct;
                 %{!pg:%{static:-lcrt0.o}				    \
                       %{!static:%{object:-lcrt0.o}			    \
                                 %{!object:%{preload:-lcrt0.o}		    \
-                                  %{!preload: %(darwin_crt1)  %(darwin_crt2)}}}}}}  \
+                                  %{!preload: %(darwin_crt1)		    \
+					      %(darwin_crt2)}}}}}}	    \
   %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= crt3.o%s)}"
 
 /* The native Darwin linker doesn't necessarily place files in the order
@@ -384,16 +388,17 @@ extern GTY(()) int darwin_ms_struct;
    to put anything in ENDFILE_SPEC.  */
 /* #define ENDFILE_SPEC "" */
 
-#define DARWIN_EXTRA_SPECS     \
-  { "darwin_crt1", DARWIN_CRT1_SPEC },                                 \
-  { "darwin_dylib1", DARWIN_DYLIB1_SPEC },
+#define DARWIN_EXTRA_SPECS						\
+  { "darwin_crt1", DARWIN_CRT1_SPEC },					\
+  { "darwin_dylib1", DARWIN_DYLIB1_SPEC },				\
+  { "darwin_minversion", DARWIN_MINVERSION_SPEC },
 
-#define DARWIN_DYLIB1_SPEC                                             \
-  "%:version-compare(!> 10.5 mmacosx-version-min= -ldylib1.o)          \
+#define DARWIN_DYLIB1_SPEC						\
+  "%:version-compare(!> 10.5 mmacosx-version-min= -ldylib1.o)		\
    %:version-compare(>= 10.5 mmacosx-version-min= -ldylib1.10.5.o)"
 
-#define DARWIN_CRT1_SPEC                                               \
-  "%:version-compare(!> 10.5 mmacosx-version-min= -lcrt1.o)            \
+#define DARWIN_CRT1_SPEC						\
+  "%:version-compare(!> 10.5 mmacosx-version-min= -lcrt1.o)		\
    %:version-compare(>= 10.5 mmacosx-version-min= -lcrt1.10.5.o)"
 
 /* Default Darwin ASM_SPEC, very simple.  */
@@ -481,6 +486,10 @@ extern GTY(()) int darwin_ms_struct;
 /* On Darwin, we don't (at the time of writing) have linkonce sections
    with names, so it's safe to make the class data not comdat.  */
 #define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT hook_bool_void_false
+
+/* For efficiency, on Darwin the RTTI information that is always
+   emitted in the standard C++ library should not be COMDAT.  */
+#define TARGET_CXX_LIBRARY_RTTI_COMDAT hook_bool_void_false
 
 /* We make exception information linkonce. */
 #undef TARGET_USES_WEAK_UNWIND_INFO
@@ -667,11 +676,11 @@ extern GTY(()) int darwin_ms_struct;
       }									\
   } while (0)
 
-/* The maximum alignment which the object file format can support.
-   For Mach-O, this is 2^15.  */
+/* The maximum alignment which the object file format can support in
+   bits.  For Mach-O, this is 2^15 bytes.  */
 
 #undef	MAX_OFILE_ALIGNMENT
-#define MAX_OFILE_ALIGNMENT 0x8000
+#define MAX_OFILE_ALIGNMENT (0x8000 * 8)
 
 /* Declare the section variables.  */
 #ifndef USED_FOR_TARGET
@@ -694,6 +703,8 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 #define TARGET_ASM_UNIQUE_SECTION darwin_unique_section
 #undef  TARGET_ASM_FUNCTION_RODATA_SECTION
 #define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
+#undef  TARGET_ASM_RELOC_RW_MASK
+#define TARGET_ASM_RELOC_RW_MASK machopic_reloc_rw_mask
 
 
 #define ASM_DECLARE_UNRESOLVED_REFERENCE(FILE,NAME)			\
@@ -972,5 +983,13 @@ __enable_execute_stack (void *addr)                                     \
 extern int flag_mkernel;
 extern int flag_apple_kext;
 #define TARGET_KEXTABI flag_apple_kext
+
+#define TARGET_HAS_TARGETCM 1
+
+#ifndef CROSS_DIRECTORY_STRUCTURE
+extern void darwin_default_min_version (int * argc, char *** argv);
+#define GCC_DRIVER_HOST_INITIALIZATION \
+  darwin_default_min_version (&argc, &argv)
+#endif /* CROSS_DIRECTORY_STRUCTURE */
 
 #endif /* CONFIG_DARWIN_H */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,8 +35,9 @@
 --  information. It contains the routine to load subsidiary units.
 
 with Alloc;
+with Namet; use Namet;
 with Table;
-with Types;  use Types;
+with Types; use Types;
 
 package Lib is
 
@@ -530,28 +531,27 @@ package Lib is
    --  incremented value.
 
    procedure Synchronize_Serial_Number;
-   --  This function increments the Serial_Number field for the current
-   --  unit but does not return the incremented value. This is used when
-   --  there is a situation where one path of control increments a serial
-   --  number (using Increment_Serial_Number), and the other path does not
-   --  and it is important to keep the serial numbers synchronized in the
-   --  two cases (e.g. when the references in a package and a client must
-   --  be kept consistent).
+   --  This function increments the Serial_Number field for the current unit
+   --  but does not return the incremented value. This is used when there
+   --  is a situation where one path of control increments a serial number
+   --  (using Increment_Serial_Number), and the other path does not and it is
+   --  important to keep the serial numbers synchronized in the two cases (e.g.
+   --  when the references in a package and a client must be kept consistent).
 
    procedure Replace_Linker_Option_String
      (S            : String_Id;
       Match_String : String);
-   --  Replace an existing Linker_Option if the prefix Match_String
-   --  matches, otherwise call Store_Linker_Option_String.
+   --  Replace an existing Linker_Option if the prefix Match_String matches,
+   --  otherwise call Store_Linker_Option_String.
 
    procedure Store_Compilation_Switch (Switch : String);
-   --  Called to register a compilation switch, either front-end or
-   --  back-end, which may influence the generated output file(s).
+   --  Called to register a compilation switch, either front-end or back-end,
+   --  which may influence the generated output file(s). Switch is the text of
+   --  the switch to store (except that -fRTS gets changed back to --RTS).
 
    procedure Disable_Switch_Storing;
-   --  Disable the registration of compilation switches with
-   --  Store_Compilation_Switch. This is used to not register switches added
-   --  automatically by the gcc driver.
+   --  Disable registration of switches by Store_Compilation_Switch. Used to
+   --  avoid registering switches added automatically by the gcc driver.
 
    procedure Store_Linker_Option_String (S : String_Id);
    --  This procedure is called to register the string from a pragma
@@ -562,6 +562,9 @@ package Lib is
 
    procedure Lock;
    --  Lock internal tables before calling back end
+
+   procedure Unlock;
+   --  Unlock internal tables, in cases where the back end needs to modify them
 
    procedure Tree_Read;
    --  Initializes internal tables from current tree file using the relevant
@@ -584,48 +587,29 @@ package Lib is
 
    procedure List (File_Names_Only : Boolean := False);
    --  Lists units in active library (i.e. generates output consisting of a
-   --  sorted listing of the units represented in File table, with the
-   --  exception of the main unit). If File_Names_Only is set to True, then
-   --  the list includes only file names, and no other information. Otherwise
-   --  the unit name and time stamp are also output. File_Names_Only also
-   --  restricts the list to exclude any predefined files.
+   --  sorted listing of the units represented in File table, except for the
+   --  main unit). If File_Names_Only is set to True, then the list includes
+   --  only file names, and no other information. Otherwise the unit name and
+   --  time stamp are also output. File_Names_Only also restricts the list to
+   --  exclude any predefined files.
 
-   function Generic_Separately_Compiled (E : Entity_Id) return Boolean;
-   --  This is the old version of tbe documentation of this function:
-   --
-   --  Most generic units must be separately compiled. Since we always use
+   function Generic_May_Lack_ALI (Sfile : File_Name_Type) return Boolean;
+   --  Generic units must be separately compiled. Since we always use
    --  macro substitution for generics, the resulting object file is a dummy
-   --  one with no code, but the ali file has the normal form, and we need
-   --  this ali file so that the binder can work out a correct order of
-   --  elaboration. However, we do not need to separate compile generics
-   --  if the generic files are language defined, since in this case there
-   --  are no order of elaborration problems, and we can simply incorporate
-   --  the context clause of the generic unit into the client. There are two
-   --  reasons for making this exception for predefined units. First, clearly
-   --  it is more efficient not to introduce extra unnecessary files. Second,
-   --  the old version of GNAT did not compile any generic units. That was
-   --  clearly incorrect in some cases of complex order of elaboration and
-   --  was fixed in version 3.10 of GNAT. However, the transition would have
-   --  caused bootstrap path problems in the case of generics used in the
-   --  compiler itself. The only such generics are predefined ones. This
-   --  function returns True if the given generic unit entity E is for a
-   --  generic unit that should be separately compiled, and false otherwise.
-   --
-   --  Now GNAT can compile any generic unit including predefined ones, but
-   --  because of the backward compatibility (to keep the ability to use old
-   --  compiler versions to build GNAT) compiling library generics is an
-   --  option. That is, now GNAT compiles a library generic as an ordinary
-   --  unit, but it also can build an exeutable in case if its library
-   --  contains some (or all) predefined generics non compiled. See 9628-002
-   --  for the description of changes to be done to get rid of a special
-   --  processing of library generic.
-   --
-   --  So now this function returns TRUE if a generic MUST be separately
-   --  compiled with the current approach.
+   --  one with no code, but the ALI file has the normal form, and we need
+   --  this ALI file so that the binder can work out a correct order of
+   --  elaboration.
 
-   function Generic_Separately_Compiled
-     (Sfile : File_Name_Type) return  Boolean;
-   --  Same as the previous function, but works directly on a unit file name
+   --  However, ancient versions of GNAT used to not generate code or ALI
+   --  files for generic units, and this would yield complex order of
+   --  elaboration issues. These were fixed in GNAT 3.10. The support for not
+   --  compiling language-defined library generics was retained nonetheless
+   --  to facilitate bootstrap. Specifically, it is convenient to have
+   --  the same list of files to be compiled for all stages. So, if the
+   --  bootstrap compiler does not generate code for a given file, then
+   --  the stage1 compiler (and binder) also must deal with the case of
+   --  that file not being compiled. The predicate Generic_May_Lack_ALI is
+   --  True for those generic units for which missing ALI files are allowed.
 
 private
    pragma Inline (Cunit);
@@ -659,17 +643,45 @@ private
       Cunit            : Node_Id;
       Cunit_Entity     : Entity_Id;
       Dependency_Num   : Int;
-      Fatal_Error      : Boolean;
-      Generate_Code    : Boolean;
-      Has_RACW         : Boolean;
       Ident_String     : Node_Id;
-      Loading          : Boolean;
       Main_Priority    : Int;
       Serial_Number    : Nat;
       Version          : Word;
-      Dynamic_Elab     : Boolean;
       Error_Location   : Source_Ptr;
+      Fatal_Error      : Boolean;
+      Generate_Code    : Boolean;
+      Has_RACW         : Boolean;
+      Dynamic_Elab     : Boolean;
+      Loading          : Boolean;
    end record;
+
+   --  The following representation clause ensures that the above record
+   --  has no holes. We do this so that when instances of this record are
+   --  written by Tree_Gen, we do not write uninitialized values to the file.
+
+   for Unit_Record use record
+      Unit_File_Name   at  0 range 0 .. 31;
+      Unit_Name        at  4 range 0 .. 31;
+      Munit_Index      at  8 range 0 .. 31;
+      Expected_Unit    at 12 range 0 .. 31;
+      Source_Index     at 16 range 0 .. 31;
+      Cunit            at 20 range 0 .. 31;
+      Cunit_Entity     at 24 range 0 .. 31;
+      Dependency_Num   at 28 range 0 .. 31;
+      Ident_String     at 32 range 0 .. 31;
+      Main_Priority    at 36 range 0 .. 31;
+      Serial_Number    at 40 range 0 .. 31;
+      Version          at 44 range 0 .. 31;
+      Error_Location   at 48 range 0 .. 31;
+      Fatal_Error      at 52 range 0 ..  7;
+      Generate_Code    at 53 range 0 ..  7;
+      Has_RACW         at 54 range 0 ..  7;
+      Dynamic_Elab     at 55 range 0 ..  7;
+      Loading          at 56 range 0 .. 31;
+   end record;
+
+   for Unit_Record'Size use 60 * 8;
+   --  This ensures that we did not leave out any fields
 
    package Units is new Table.Table (
      Table_Component_Type => Unit_Record,
@@ -725,8 +737,8 @@ private
    --  Type to hold list of indirect references to unit number table
 
    type Load_Stack_Entry is record
-      Unit_Number       : Unit_Number_Type;
-      From_Limited_With : Boolean;
+      Unit_Number : Unit_Number_Type;
+      With_Node   : Node_Id;
    end record;
 
    --  The Load_Stack table contains a list of unit numbers (indices into the
@@ -741,7 +753,7 @@ private
 
    package Load_Stack is new Table.Table (
      Table_Component_Type => Load_Stack_Entry,
-     Table_Index_Type     => Nat,
+     Table_Index_Type     => Int,
      Table_Low_Bound      => 0,
      Table_Initial        => Alloc.Load_Stack_Initial,
      Table_Increment      => Alloc.Load_Stack_Increment,

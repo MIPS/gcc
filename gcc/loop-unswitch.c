@@ -1,11 +1,11 @@
 /* Loop unswitching for GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -143,7 +142,7 @@ unswitch_loops (void)
 
   /* Go through inner loops (only original ones).  */
 
-  FOR_EACH_LOOP (li, loop, LI_ONLY_OLD | LI_ONLY_INNERMOST)
+  FOR_EACH_LOOP (li, loop, LI_ONLY_INNERMOST)
     {
       unswitch_single_loop (loop, NULL_RTX, 0);
 #ifdef ENABLE_CHECKING
@@ -410,14 +409,9 @@ unswitch_loop (struct loop *loop, basic_block unswitch_on, rtx cond, rtx cinsn)
   irred_flag = entry->flags & EDGE_IRREDUCIBLE_LOOP;
   entry->flags &= ~EDGE_IRREDUCIBLE_LOOP;
   zero_bitmap = sbitmap_alloc (2);
-  sbitmap_zero (zero_bitmap);
   if (!duplicate_loop_to_header_edge (loop, entry, 1,
-	zero_bitmap, NULL, NULL, NULL, 0))
-    {
-      sbitmap_free (zero_bitmap);
-      return NULL;
-    }
-  sbitmap_free (zero_bitmap);
+			      	      NULL, NULL, NULL, 0))
+    return NULL;
   entry->flags |= irred_flag;
 
   /* Record the block with condition we unswitch on.  */
@@ -456,16 +450,12 @@ unswitch_loop (struct loop *loop, basic_block unswitch_on, rtx cond, rtx cinsn)
   /* Loopify from the copy of LOOP body, constructing the new loop.  */
   nloop = loopify (latch_edge,
 		   single_pred_edge (get_bb_copy (loop->header)), switch_bb,
-		   BRANCH_EDGE (switch_bb), FALLTHRU_EDGE (switch_bb), true);
+		   BRANCH_EDGE (switch_bb), FALLTHRU_EDGE (switch_bb), true,
+		   prob, REG_BR_PROB_BASE - prob);
 
   /* Remove branches that are now unreachable in new loops.  */
   remove_path (true_edge);
   remove_path (false_edge);
-
-  /* One of created loops do not have to be subloop of the outer loop now,
-     so fix its placement in loop data structure.  */
-  fix_loop_placement (loop);
-  fix_loop_placement (nloop);
 
   /* Preserve the simple loop preheaders.  */
   split_edge (loop_preheader_edge (loop));

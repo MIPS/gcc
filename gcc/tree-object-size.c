@@ -1,12 +1,12 @@
 /* __builtin_object_size (ptr, object_size_type) computation
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,15 +15,15 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "toplev.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
@@ -50,6 +50,7 @@ static void expr_object_size (struct object_size_info *, tree, tree);
 static bool merge_object_sizes (struct object_size_info *, tree, tree,
 				unsigned HOST_WIDE_INT);
 static bool plus_expr_object_size (struct object_size_info *, tree, tree);
+static bool cond_expr_object_size (struct object_size_info *, tree, tree);
 static unsigned int compute_object_sizes (void);
 static void init_offset_limit (void);
 static void check_for_plus_in_loops (struct object_size_info *, tree);
@@ -227,49 +228,54 @@ addr_object_size (tree ptr, int object_size_type)
 static unsigned HOST_WIDE_INT
 alloc_object_size (tree call, int object_size_type)
 {
-  tree callee, arglist, a, bytes = NULL_TREE;
-  unsigned int arg_mask = 0;
+  tree callee, bytes = NULL_TREE;
+  tree alloc_size;
+  int arg1 = -1, arg2 = -1;
 
   gcc_assert (TREE_CODE (call) == CALL_EXPR);
 
   callee = get_callee_fndecl (call);
-  arglist = TREE_OPERAND (call, 1);
-  if (callee
-      && DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL)
+  if (!callee)
+    return unknown[object_size_type];
+
+  alloc_size = lookup_attribute ("alloc_size", TYPE_ATTRIBUTES (TREE_TYPE(callee)));
+  if (alloc_size && TREE_VALUE (alloc_size))
+    {
+      tree p = TREE_VALUE (alloc_size);
+
+      arg1 = TREE_INT_CST_LOW (TREE_VALUE (p))-1;
+      if (TREE_CHAIN (p))
+	  arg2 = TREE_INT_CST_LOW (TREE_VALUE (TREE_CHAIN (p)))-1;
+    }
+ 
+  if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (callee))
       {
+      case BUILT_IN_CALLOC:
+	arg2 = 1;
+	/* fall through */
       case BUILT_IN_MALLOC:
       case BUILT_IN_ALLOCA:
-	arg_mask = 1;
-	break;
-      /*
-      case BUILT_IN_REALLOC:
-	arg_mask = 2;
-	break;
-	*/
-      case BUILT_IN_CALLOC:
-	arg_mask = 3;
-	break;
+	arg1 = 0;
       default:
 	break;
       }
 
-  for (a = arglist; arg_mask && a; arg_mask >>= 1, a = TREE_CHAIN (a))
-    if (arg_mask & 1)
-      {
-	tree arg = TREE_VALUE (a);
+  if (arg1 < 0 || arg1 >= call_expr_nargs (call)
+      || TREE_CODE (CALL_EXPR_ARG (call, arg1)) != INTEGER_CST
+      || (arg2 >= 0 
+	  && (arg2 >= call_expr_nargs (call)
+	      || TREE_CODE (CALL_EXPR_ARG (call, arg2)) != INTEGER_CST)))
+    return unknown[object_size_type];	  
 
-	if (TREE_CODE (arg) != INTEGER_CST)
-	  break;
+  if (arg2 >= 0)
+    bytes = size_binop (MULT_EXPR,
+	fold_convert (sizetype, CALL_EXPR_ARG (call, arg1)),
+	fold_convert (sizetype, CALL_EXPR_ARG (call, arg2)));
+  else if (arg1 >= 0)
+    bytes = fold_convert (sizetype, CALL_EXPR_ARG (call, arg1));
 
-	if (! bytes)
-	  bytes = fold_convert (sizetype, arg);
-	else
-	  bytes = size_binop (MULT_EXPR, bytes,
-			      fold_convert (sizetype, arg));
-      }
-
-  if (! arg_mask && bytes && host_integerp (bytes, 1))
+  if (bytes && host_integerp (bytes, 1))
     return tree_low_cst (bytes, 1);
 
   return unknown[object_size_type];
@@ -284,7 +290,6 @@ static tree
 pass_through_call (tree call)
 {
   tree callee = get_callee_fndecl (call);
-  tree arglist = TREE_OPERAND (call, 1);
 
   if (callee
       && DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL)
@@ -304,8 +309,8 @@ pass_through_call (tree call)
       case BUILT_IN_STRNCPY_CHK:
       case BUILT_IN_STRCAT_CHK:
       case BUILT_IN_STRNCAT_CHK:
-	if (arglist)
-	  return TREE_VALUE (arglist);
+	if (call_expr_nargs (call) >= 1)
+	  return CALL_EXPR_ARG (call, 0);
 	break;
       default:
 	break;
@@ -549,7 +554,7 @@ merge_object_sizes (struct object_size_info *osi, tree dest, tree orig,
 
 
 /* Compute object_sizes for PTR, defined to VALUE, which is
-   a PLUS_EXPR.  Return true if the object size might need reexamination
+   a POINTER_PLUS_EXPR.  Return true if the object size might need reexamination
    later.  */
 
 static bool
@@ -557,33 +562,17 @@ plus_expr_object_size (struct object_size_info *osi, tree var, tree value)
 {
   tree op0 = TREE_OPERAND (value, 0);
   tree op1 = TREE_OPERAND (value, 1);
-  bool ptr1_p = POINTER_TYPE_P (TREE_TYPE (op0))
-		&& TREE_CODE (op0) != INTEGER_CST;
-  bool ptr2_p = POINTER_TYPE_P (TREE_TYPE (op1))
-		&& TREE_CODE (op1) != INTEGER_CST;
   int object_size_type = osi->object_size_type;
   unsigned int varno = SSA_NAME_VERSION (var);
   unsigned HOST_WIDE_INT bytes;
 
-  gcc_assert (TREE_CODE (value) == PLUS_EXPR);
+  gcc_assert (TREE_CODE (value) == POINTER_PLUS_EXPR);
 
   if (object_sizes[object_size_type][varno] == unknown[object_size_type])
     return false;
 
-  /* Swap operands if needed.  */
-  if (ptr2_p && !ptr1_p)
-    {
-      tree tem = op0;
-      op0 = op1;
-      op1 = tem;
-      ptr1_p = true;
-      ptr2_p = false;
-    }
-
   /* Handle PTR + OFFSET here.  */
-  if (ptr1_p
-      && !ptr2_p
-      && TREE_CODE (op1) == INTEGER_CST
+  if (TREE_CODE (op1) == INTEGER_CST
       && (TREE_CODE (op0) == SSA_NAME
 	  || TREE_CODE (op0) == ADDR_EXPR))
     {
@@ -596,7 +585,9 @@ plus_expr_object_size (struct object_size_info *osi, tree var, tree value)
 	  unsigned HOST_WIDE_INT off = tree_low_cst (op1, 1);
 
 	  bytes = compute_builtin_object_size (op0, object_size_type);
-	  if (off > offset_limit)
+	  if (bytes == unknown[object_size_type])
+	    ;
+	  else if (off > offset_limit)
 	    bytes = unknown[object_size_type];
 	  else if (off > bytes)
 	    bytes = 0;
@@ -621,13 +612,47 @@ plus_expr_object_size (struct object_size_info *osi, tree var, tree value)
 }
 
 
+/* Compute object_sizes for PTR, defined to VALUE, which is
+   a COND_EXPR.  Return true if the object size might need reexamination
+   later.  */
+
+static bool
+cond_expr_object_size (struct object_size_info *osi, tree var, tree value)
+{
+  tree then_, else_;
+  int object_size_type = osi->object_size_type;
+  unsigned int varno = SSA_NAME_VERSION (var);
+  bool reexamine = false;
+
+  gcc_assert (TREE_CODE (value) == COND_EXPR);
+
+  if (object_sizes[object_size_type][varno] == unknown[object_size_type])
+    return false;
+
+  then_ = COND_EXPR_THEN (value);
+  else_ = COND_EXPR_ELSE (value);
+
+  if (TREE_CODE (then_) == SSA_NAME)
+    reexamine |= merge_object_sizes (osi, var, then_, 0);
+  else
+    expr_object_size (osi, var, then_);
+
+  if (TREE_CODE (else_) == SSA_NAME)
+    reexamine |= merge_object_sizes (osi, var, else_, 0);
+  else
+    expr_object_size (osi, var, else_);
+
+  return reexamine;
+}
+
+
 /* Compute object sizes for VAR.
    For ADDR_EXPR an object size is the number of remaining bytes
    to the end of the object (where what is considered an object depends on
    OSI->object_size_type).
    For allocation CALL_EXPR like malloc or calloc object size is the size
    of the allocation.
-   For pointer PLUS_EXPR where second operand is a constant integer,
+   For POINTER_PLUS_EXPR where second operand is a constant integer,
    object size is object size of the first operand minus the constant.
    If the constant is bigger than the number of remaining bytes until the
    end of the object, object size is 0, but if it is instead a pointer
@@ -708,8 +733,11 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
 	    && POINTER_TYPE_P (TREE_TYPE (rhs)))
 	  reexamine = merge_object_sizes (osi, var, rhs, 0);
 
-	else if (TREE_CODE (rhs) == PLUS_EXPR)
+	else if (TREE_CODE (rhs) == POINTER_PLUS_EXPR)
 	  reexamine = plus_expr_object_size (osi, var, rhs);
+
+        else if (TREE_CODE (rhs) == COND_EXPR)
+	  reexamine = cond_expr_object_size (osi, var, rhs);
 
 	else
 	  expr_object_size (osi, var, rhs);
@@ -832,23 +860,14 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 
 	if (TREE_CODE (rhs) == SSA_NAME)
 	  check_for_plus_in_loops_1 (osi, rhs, depth);
-	else if (TREE_CODE (rhs) == PLUS_EXPR)
+	else if (TREE_CODE (rhs) == POINTER_PLUS_EXPR)
 	  {
 	    tree op0 = TREE_OPERAND (rhs, 0);
 	    tree op1 = TREE_OPERAND (rhs, 1);
 	    tree cst, basevar;
 
-	    if (TREE_CODE (op0) == SSA_NAME)
-	      {
-		basevar = op0;
-		cst = op1;
-	      }
-	    else
-	      {
-		basevar = op1;
-		cst = op0;
-		gcc_assert (TREE_CODE (basevar) == SSA_NAME);
-	      }
+	    basevar = op0;
+	    cst = op1;
 	    gcc_assert (TREE_CODE (cst) == INTEGER_CST);
 
 	    check_for_plus_in_loops_1 (osi, basevar,
@@ -908,23 +927,14 @@ check_for_plus_in_loops (struct object_size_info *osi, tree var)
 	      rhs = arg;
 	  }
 
-	if (TREE_CODE (rhs) == PLUS_EXPR)
+	if (TREE_CODE (rhs) == POINTER_PLUS_EXPR)
 	  {
 	    tree op0 = TREE_OPERAND (rhs, 0);
 	    tree op1 = TREE_OPERAND (rhs, 1);
 	    tree cst, basevar;
 
-	    if (TREE_CODE (op0) == SSA_NAME)
-	      {
-		basevar = op0;
-		cst = op1;
-	      }
-	    else
-	      {
-		basevar = op1;
-		cst = op0;
-		gcc_assert (TREE_CODE (basevar) == SSA_NAME);
-	      }
+	    basevar = op0;
+	    cst = op1;
 	    gcc_assert (TREE_CODE (cst) == INTEGER_CST);
 
 	    if (integer_zerop (cst))
@@ -1005,17 +1015,13 @@ compute_object_sizes (void)
 	    continue;
 
 	  init_object_sizes ();
-	  result = fold_builtin (callee, TREE_OPERAND (call, 1), false);
+	  result = fold_call_expr (call, false);
 	  if (!result)
 	    {
-	      tree arglist = TREE_OPERAND (call, 1);
-
-	      if (arglist != NULL
-		  && POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
-		  && TREE_CHAIN (arglist) != NULL
-		  && TREE_CHAIN (TREE_CHAIN (arglist)) == NULL)
+	      if (call_expr_nargs (call) == 2
+		  && POINTER_TYPE_P (TREE_TYPE (CALL_EXPR_ARG (call, 0))))
 		{
-		  tree ost = TREE_VALUE (TREE_CHAIN (arglist));
+		  tree ost = CALL_EXPR_ARG (call, 1);
 
 		  if (host_integerp (ost, 1))
 		    {

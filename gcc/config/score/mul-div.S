@@ -1,11 +1,11 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by Sunnorth
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+	along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #define ra r3
 #define a0 r4
@@ -242,7 +241,7 @@ _flush_cache:
         #nop!
         addi    r8, 16
         bcnz    2b
-        .cprestore      12              # pic used
+        .cprestore r0, 12               # pic used
         addi    r0, 8                   # pic used
         br      r3
 #endif
@@ -278,7 +277,7 @@ __mulsi3_loop2:
         cmpi.c  a1, 0
         bne     __mulsi3_loop
         mv      r4, t1
-        .cprestore 12                   # pic used
+        .cprestore r0, 12               # pic used
         addi    r0, 8                   # pic used
         br      ra
         .end    __mulsi3
@@ -334,7 +333,7 @@ __uds_loop3:
 __uds_exit:
         mv      a1, a0
         mv      r4, t4
-        .cprestore 12                   # pic used
+        .cprestore r0, 12               # pic used
         addi    r0, 8                   # pic used
         br      ra
         .end    __udivsi3
@@ -350,7 +349,7 @@ __umodsi3:
         la      r29, __udivsi3
         brl     r29
         mv      r4, a1
-        .cprestore 12                   # pic used
+        .cprestore r0, 12               # pic used
         addi    r0, 8                   # pic used
         br      t3
         .end    __umodsi3
@@ -383,7 +382,7 @@ __divsi3_adjust:
         bge     __divsi3_exit
         neg     r4, r4
 __divsi3_exit:
-        .cprestore 12                   # pic used
+        .cprestore r0, 12               # pic used
         addi    r0, 8                   # pic used
         br      t3
         .end    __divsi3

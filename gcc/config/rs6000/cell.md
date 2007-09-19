@@ -1,12 +1,12 @@
 ;; Scheduling description for cell processor.
-;; Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+;; Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
 ;; Free Software Foundation, Inc.
 ;; Contributed by Sony Computer Entertainment, Inc.,
 
 
 ;; This file is free software; you can redistribute it and/or modify it under
 ;; the terms of the GNU General Public License as published by the Free
-;; Software Foundation; either version 2 of the License, or (at your option) 
+;; Software Foundation; either version 3 of the License, or (at your option) 
 ;; any later version.
 
 ;; This file is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
 ;; for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this file; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Sources: BE BOOK4 (/sfs/enc/doc/PPU_BookIV_DD3.0_latest.pdf)
 
@@ -25,7 +24,7 @@
 ;; This file simulate PPU processor unit backend of pipeline, maualP24. 
 ;; manual P27, stall and flush points
 ;; IU, XU, VSU, dispatcher decodes and dispatch 2 insns per cycle in program
-;;  order, the grouped adress are aligned by 8
+;;  order, the grouped address are aligned by 8
 ;; This file only simulate one thread situation
 ;; XU executes all fixed point insns(3 units, a simple alu, a complex unit,
 ;;   and load/store unit)

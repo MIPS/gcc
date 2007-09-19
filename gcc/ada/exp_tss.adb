@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +29,6 @@ with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Exp_Util; use Exp_Util;
 with Lib;      use Lib;
-with Namet;    use Namet;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 
@@ -44,7 +43,7 @@ package body Exp_Tss is
       Proc      : Entity_Id;
 
    begin
-      pragma Assert (Ekind (Typ) in Type_Kind);
+      pragma Assert (Is_Type (Typ));
 
       if Is_Private_Type (Typ) then
          Full_Type := Underlying_Type (Base_Type (Typ));

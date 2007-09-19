@@ -1,6 +1,6 @@
 // boehm.cc - interface between libjava and Boehm GC.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation
 
    This file is part of libgcj.
@@ -166,6 +166,9 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
       p = (GC_PTR) c->hack_signers;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       p = (GC_PTR) c->aux_info;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+
+      p = (GC_PTR) c->reflection_data;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
       // The class chain must be marked for runtime-allocated Classes
@@ -376,6 +379,31 @@ _Jv_AllocRawObj (jsize size)
 {
   return (void *) GC_MALLOC (size ? size : 1);
 }
+
+#ifdef INTERPRETER
+typedef _Jv_ClosureList *closure_list_pointer;
+
+/* Release closures in a _Jv_ClosureList.  */
+static void
+finalize_closure_list (GC_PTR obj, GC_PTR)
+{
+  _Jv_ClosureList **clpp = (_Jv_ClosureList **)obj;
+  _Jv_ClosureList::releaseClosures (clpp);
+}
+
+/* Allocate a double-indirect pointer to a _Jv_ClosureList that will
+   get garbage-collected after this double-indirect pointer becomes
+   unreachable by any other objects, including finalizable ones.  */
+_Jv_ClosureList **
+_Jv_ClosureListFinalizer ()
+{
+  _Jv_ClosureList **clpp;
+  clpp = (_Jv_ClosureList **)_Jv_AllocBytes (sizeof (*clpp));
+  GC_REGISTER_FINALIZER_UNREACHABLE (clpp, finalize_closure_list,
+				     NULL, NULL, NULL);
+  return clpp;
+}
+#endif // INTERPRETER
 
 static void
 call_finalizer (GC_PTR obj, GC_PTR client_data)
@@ -693,6 +721,17 @@ _Jv_ResumeThread (_Jv_Thread_t *thread)
 #if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS) \
      && !defined(GC_WIN32_THREADS) && !defined(GC_DARWIN_THREADS)
   GC_resume_thread (_Jv_GetPlatformThreadID (thread));
+#endif
+}
+
+int
+_Jv_IsThreadSuspended (_Jv_Thread_t *thread)
+{
+#if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS) \
+     && !defined(GC_WIN32_THREADS) && !defined(GC_DARWIN_THREADS)
+  return GC_is_thread_suspended (_Jv_GetPlatformThreadID (thread));
+#else
+  return 0;
 #endif
 }
 

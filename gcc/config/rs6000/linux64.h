@@ -1,13 +1,13 @@
 /* Definitions of target machine for GNU compiler,
    for 64 bit PowerPC linux.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef RS6000_BI_ARCH
 
@@ -98,9 +97,9 @@ extern int dot_symbols;
 	      target_flags &= ~MASK_EABI;			\
 	      error (INVALID_64BIT, "eabi");			\
 	    }							\
-	  if (target_flags & MASK_PROTOTYPE)			\
+	  if (TARGET_PROTOTYPE)					\
 	    {							\
-	      target_flags &= ~MASK_PROTOTYPE;			\
+	      TARGET_PROTOTYPE = 0;				\
 	      error (INVALID_64BIT, "prototype");		\
 	    }							\
 	  if ((target_flags & MASK_POWERPC64) == 0)		\
@@ -165,7 +164,7 @@ extern int dot_symbols;
 #define ASM_SPEC64 "-a64"
 
 #define ASM_SPEC_COMMON "%(asm_cpu) \
-%{.s: %{mregnames} %{mno-regnames}} %{.S: %{mregnames} %{mno-regnames}} \
+%{,assembler|,assembler-with-cpp: %{mregnames} %{mno-regnames}} \
 %{v:-V} %{Qy:} %{!Qn:-Qy} %{Wa,*:%*} \
 %{mlittle} %{mlittle-endian} %{mbig} %{mbig-endian}"
 
@@ -284,6 +283,10 @@ extern int dot_symbols;
 /* glibc has float and long double forms of math functions.  */
 #undef  TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS (OPTION_GLIBC)
+
+/* Whether we have sincos that follows the GNU extension.  */
+#undef  TARGET_HAS_SINCOS
+#define TARGET_HAS_SINCOS (OPTION_GLIBC)
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()			\

@@ -1,11 +1,11 @@
 /* Lower complex number operations to scalar operations.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -97,6 +96,8 @@ some_nonzerop (tree t)
 
   if (TREE_CODE (t) == REAL_CST)
     zerop = REAL_VALUES_IDENTICAL (TREE_REAL_CST (t), dconst0);
+  else if (TREE_CODE (t) == FIXED_CST)
+    zerop = fixed_zerop (t);
   else if (TREE_CODE (t) == INTEGER_CST)
     zerop = integer_zerop (t);
 
@@ -532,7 +533,7 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
   
   /* Do all the work to assign VALUE to COMP.  */
   value = force_gimple_operand (value, &list, false, NULL);
-  last = build2_gimple (GIMPLE_MODIFY_STMT, comp, value);
+  last = build_gimple_modify_stmt (comp, value);
   append_to_statement_list (last, &list);
 
   gcc_assert (SSA_NAME_DEF_STMT (comp) == NULL);
@@ -773,7 +774,7 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
       i = extract_component (bsi, rhs, 1, false);
 
       x = build1 (REALPART_EXPR, inner_type, unshare_expr (lhs));
-      x = build2_gimple (GIMPLE_MODIFY_STMT, x, r);
+      x = build_gimple_modify_stmt (x, r);
       bsi_insert_before (bsi, x, BSI_SAME_STMT);
 
       if (stmt == bsi_stmt (*bsi))
@@ -785,7 +786,7 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
       else
 	{
 	  x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
-	  x = build2_gimple (GIMPLE_MODIFY_STMT, x, i);
+	  x = build_gimple_modify_stmt (x, i);
 	  bsi_insert_before (bsi, x, BSI_SAME_STMT);
 
 	  stmt = bsi_stmt (*bsi);
@@ -885,12 +886,7 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
 {
   enum machine_mode mode;
   enum built_in_function bcode;
-  tree args, fn, stmt, type;
-
-  args = tree_cons (NULL, bi, NULL);
-  args = tree_cons (NULL, br, args);
-  args = tree_cons (NULL, ai, args);
-  args = tree_cons (NULL, ar, args);
+  tree fn, stmt, type;
 
   stmt = bsi_stmt (*bsi);
   type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 1));
@@ -905,8 +901,7 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
     gcc_unreachable ();
   fn = built_in_decls[bcode];
 
-  GIMPLE_STMT_OPERAND (stmt, 1)
-    = build3 (CALL_EXPR, type, build_fold_addr_expr (fn), args, NULL);
+  GIMPLE_STMT_OPERAND (stmt, 1) = build_call_expr (fn, 4, ar, ai, br, bi);
   update_stmt (stmt);
 
   if (gimple_in_ssa_p (cfun))
@@ -1066,11 +1061,6 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
       bb_true = create_empty_bb (bb_cond);
       bb_false = create_empty_bb (bb_true);
 
-      t1 = build1 (GOTO_EXPR, void_type_node, tree_block_label (bb_true));
-      t2 = build1 (GOTO_EXPR, void_type_node, tree_block_label (bb_false));
-      COND_EXPR_THEN (cond) = t1;
-      COND_EXPR_ELSE (cond) = t2;
-
       /* Wire the blocks together.  */
       e->flags = EDGE_TRUE_VALUE;
       redirect_edge_succ (e, bb_true);
@@ -1121,9 +1111,9 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 
      if (bb_true)
        {
-	 t1 = build2_gimple (GIMPLE_MODIFY_STMT, rr, tr);
+	 t1 = build_gimple_modify_stmt (rr, tr);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 t1 = build2_gimple (GIMPLE_MODIFY_STMT, ri, ti);
+	 t1 = build_gimple_modify_stmt (ri, ti);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
 	 bsi_remove (bsi, true);
        }
@@ -1160,9 +1150,9 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 
      if (bb_false)
        {
-	 t1 = build2_gimple (GIMPLE_MODIFY_STMT, rr, tr);
+	 t1 = build_gimple_modify_stmt (rr, tr);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 t1 = build2_gimple (GIMPLE_MODIFY_STMT, ri, ti);
+	 t1 = build_gimple_modify_stmt (ri, ti);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
 	 bsi_remove (bsi, true);
        }
@@ -1383,8 +1373,15 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
     default:
       {
-	tree lhs = GENERIC_TREE_OPERAND (stmt, 0);
-	tree rhs = GENERIC_TREE_OPERAND (stmt, 1);
+	tree lhs, rhs;
+
+	/* COND_EXPR may also fallthru here, but we do not need to do anything
+	   with it.  */
+	if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+	  return;
+
+	lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
 	if (TREE_CODE (type) == COMPLEX_TYPE)
 	  expand_complex_move (bsi, stmt, type, lhs, rhs);
@@ -1492,10 +1489,8 @@ tree_lower_complex (void)
     return 0;
 
   complex_lattice_values = VEC_alloc (complex_lattice_t, heap, num_ssa_names);
-  VEC_safe_grow (complex_lattice_t, heap,
-		 complex_lattice_values, num_ssa_names);
-  memset (VEC_address (complex_lattice_t, complex_lattice_values), 0,
-	  num_ssa_names * sizeof(complex_lattice_t));
+  VEC_safe_grow_cleared (complex_lattice_t, heap,
+			 complex_lattice_values, num_ssa_names);
 
   init_parameter_lattice_values ();
   ssa_propagate (complex_visit_stmt, complex_visit_phi);
@@ -1504,9 +1499,8 @@ tree_lower_complex (void)
 					     int_tree_map_eq, free);
 
   complex_ssa_name_components = VEC_alloc (tree, heap, 2*num_ssa_names);
-  VEC_safe_grow (tree, heap, complex_ssa_name_components, 2*num_ssa_names);
-  memset (VEC_address (tree, complex_ssa_name_components), 0,
-	  2 * num_ssa_names * sizeof(tree));
+  VEC_safe_grow_cleared (tree, heap, complex_ssa_name_components,
+			 2 * num_ssa_names);
 
   update_parameter_components ();
 
@@ -1542,10 +1536,10 @@ struct tree_opt_pass pass_lower_complex =
   0,					/* properties_provided */
   0,                       		/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect
-  | TODO_update_smt_usage
-  | TODO_update_ssa
-  | TODO_verify_stmts,		        /* todo_flags_finish */
+  TODO_dump_func
+    | TODO_ggc_collect
+    | TODO_update_ssa
+    | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
 };
 

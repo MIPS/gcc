@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -43,9 +43,6 @@
  * @file hash_load_check_resize_trigger_imp.hpp
  * Contains a resize trigger implementation.
  */
-
-#define PB_DS_STATIC_ASSERT(UNIQUE, E)  \
-  typedef detail::static_assert_dumclass<sizeof(detail::static_assert<bool(E)>)> UNIQUE##static_assert_type
 
 PB_DS_CLASS_T_DEC
 PB_DS_CLASS_C_DEC::
@@ -268,7 +265,7 @@ set_loads(std::pair<float, float> load_pair)
       m_load_max = load_pair.second;
       do_resize(static_cast<size_type>(size_base::get_size() / ((m_load_min + m_load_max) / 2)));
     }
-  catch (...)
+  catch(...)
     {
       m_load_min = old_load_min;
       m_load_max = old_load_max;
@@ -283,7 +280,7 @@ PB_DS_CLASS_T_DEC
 void
 PB_DS_CLASS_C_DEC::
 do_resize(size_type)
-{ abort(); }
+{ std::abort(); }
 
 #ifdef _GLIBCXX_DEBUG
 PB_DS_CLASS_T_DEC
@@ -295,6 +292,4 @@ assert_valid() const
   _GLIBCXX_DEBUG_ASSERT(m_next_grow_size >= m_next_shrink_size);
 }
 #endif 
-
-#undef PB_DS_STATIC_ASSERT
 

@@ -1,13 +1,13 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This is the final pass of the compiler.
    It looks at the rtl code for a function and outputs assembler code.
@@ -76,6 +75,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "cgraph.h"
 #include "coverage.h"
+#include "df.h"
+#include "vecprim.h"
+#include "ggc.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -170,23 +172,6 @@ CC_STATUS cc_status;
 CC_STATUS cc_prev_status;
 #endif
 
-/* Indexed by hardware reg number, is 1 if that register is ever
-   used in the current function.
-
-   In life_analysis, or in stupid_life_analysis, this is set
-   up to record the hard regs used explicitly.  Reload adds
-   in the hard regs used for holding pseudo regs.  Final uses
-   it to generate the code in the function prologue and epilogue
-   to save and restore registers as needed.  */
-
-char regs_ever_live[FIRST_PSEUDO_REGISTER];
-
-/* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
-   Unlike regs_ever_live, elements of this array corresponding to
-   eliminable regs like the frame pointer are set if an asm sets them.  */
-
-char regs_asm_clobbered[FIRST_PSEUDO_REGISTER];
-
 /* Nonzero means current function must be given a frame pointer.
    Initialized in function.c to 0.  Set only in reload1.c as per
    the needs of the function.  */
@@ -223,7 +208,7 @@ static int asm_insn_count (rtx);
 static void profile_function (FILE *);
 static void profile_after_prologue (FILE *);
 static bool notice_source_line (rtx);
-static rtx walk_alter_subreg (rtx *);
+static rtx walk_alter_subreg (rtx *, bool *);
 static void output_asm_name (void);
 static void output_alternate_entry_point (FILE *, rtx);
 static tree get_mem_expr_from_op (rtx, int *);
@@ -320,7 +305,7 @@ dbr_sequence_length (void)
 
 static int *insn_lengths;
 
-varray_type insn_addresses_;
+VEC(int,heap) *insn_addresses_;
 
 /* Max uid for which the above arrays are valid.  */
 static int insn_lengths_max_uid;
@@ -1356,7 +1341,7 @@ asm_insn_count (rtx body)
   if (GET_CODE (body) == ASM_INPUT)
     template = XSTR (body, 0);
   else
-    template = decode_asm_operands (body, NULL, NULL, NULL, NULL);
+    template = decode_asm_operands (body, NULL, NULL, NULL, NULL, NULL);
 
   for (; *template; template++)
     if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template) || *template == '\n')
@@ -1365,6 +1350,72 @@ asm_insn_count (rtx body)
   return count;
 }
 #endif
+
+/* ??? This is probably the wrong place for these.  */
+/* Structure recording the mapping from source file and directory
+   names at compile time to those to be embedded in debug
+   information.  */
+typedef struct debug_prefix_map
+{
+  const char *old_prefix;
+  const char *new_prefix;
+  size_t old_len;
+  size_t new_len;
+  struct debug_prefix_map *next;
+} debug_prefix_map;
+
+/* Linked list of such structures.  */
+debug_prefix_map *debug_prefix_maps;
+
+
+/* Record a debug file prefix mapping.  ARG is the argument to
+   -fdebug-prefix-map and must be of the form OLD=NEW.  */
+
+void
+add_debug_prefix_map (const char *arg)
+{
+  debug_prefix_map *map;
+  const char *p;
+
+  p = strchr (arg, '=');
+  if (!p)
+    {
+      error ("invalid argument %qs to -fdebug-prefix-map", arg);
+      return;
+    }
+  map = XNEW (debug_prefix_map);
+  map->old_prefix = ggc_alloc_string (arg, p - arg);
+  map->old_len = p - arg;
+  p++;
+  map->new_prefix = ggc_strdup (p);
+  map->new_len = strlen (p);
+  map->next = debug_prefix_maps;
+  debug_prefix_maps = map;
+}
+
+/* Perform user-specified mapping of debug filename prefixes.  Return
+   the new name corresponding to FILENAME.  */
+
+const char *
+remap_debug_filename (const char *filename)
+{
+  debug_prefix_map *map;
+  char *s;
+  const char *name;
+  size_t name_len;
+
+  for (map = debug_prefix_maps; map; map = map->next)
+    if (strncmp (filename, map->old_prefix, map->old_len) == 0)
+      break;
+  if (!map)
+    return filename;
+  name = filename + map->old_len;
+  name_len = strlen (name) + 1;
+  s = (char *) alloca (name_len + map->new_len);
+  memcpy (s, map->new_prefix, map->new_len);
+  memcpy (s + map->new_len, name, name_len);
+  return ggc_strdup (s);
+}
 
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
@@ -1472,7 +1523,9 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 
 #if defined(ASM_OUTPUT_REG_PUSH)
   if (sval && svrtx != NULL_RTX && REG_P (svrtx))
-    ASM_OUTPUT_REG_PUSH (file, REGNO (svrtx));
+    {
+      ASM_OUTPUT_REG_PUSH (file, REGNO (svrtx));
+    }
 #endif
 
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
@@ -1503,7 +1556,9 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 
 #if defined(ASM_OUTPUT_REG_PUSH)
   if (sval && svrtx != NULL_RTX && REG_P (svrtx))
-    ASM_OUTPUT_REG_POP (file, REGNO (svrtx));
+    {
+      ASM_OUTPUT_REG_POP (file, REGNO (svrtx));
+    }
 #endif
 }
 
@@ -1543,33 +1598,6 @@ final (rtx first, FILE *file, int optimize)
   int seen = 0;
 
   last_ignored_compare = 0;
-
-#ifdef SDB_DEBUGGING_INFO
-  /* When producing SDB debugging info, delete troublesome line number
-     notes from inlined functions in other files as well as duplicate
-     line number notes.  */
-  if (write_symbols == SDB_DEBUG)
-    {
-      rtx last = 0;
-      for (insn = first; insn; insn = NEXT_INSN (insn))
-	if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
-	  {
-	    if (last != 0
-#ifdef USE_MAPPED_LOCATION
-		&& NOTE_SOURCE_LOCATION (insn) == NOTE_SOURCE_LOCATION (last)
-#else
-		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last)
-		&& NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last)
-#endif
-	      )
-	      {
-		delete_insn (insn);	/* Use delete_note.  */
-		continue;
-	      }
-	    last = insn;
-	  }
-    }
-#endif
 
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
@@ -1694,7 +1722,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
   switch (GET_CODE (insn))
     {
     case NOTE:
-      switch (NOTE_LINE_NUMBER (insn))
+      switch (NOTE_KIND (insn))
 	{
 	case NOTE_INSN_DELETED:
 	  break;
@@ -1817,11 +1845,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  (*debug_hooks->var_location) (insn);
 	  break;
 
-	case 0:
-	  break;
-
 	default:
-	  gcc_assert (NOTE_LINE_NUMBER (insn) > 0);
+	  gcc_unreachable ();
 	  break;
 	}
       break;
@@ -2067,12 +2092,27 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    if (string[0])
 	      {
+		location_t loc;
+
 		if (! app_on)
 		  {
 		    fputs (ASM_APP_ON, file);
 		    app_on = 1;
 		  }
+#ifdef USE_MAPPED_LOCATION
+		loc = ASM_INPUT_SOURCE_LOCATION (body);
+#else
+		loc.file = ASM_INPUT_SOURCE_FILE (body);
+		loc.line = ASM_INPUT_SOURCE_LINE (body);
+#endif
+		if (*loc.file && loc.line)
+		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
+			   ASM_COMMENT_START, loc.line, loc.file);
 		fprintf (asm_out_file, "\t%s\n", string);
+#if HAVE_AS_LINE_ZERO
+		if (*loc.file && loc.line)
+		  fprintf (asm_out_file, "%s 0 \"\" 2\n", ASM_COMMENT_START);
+#endif
 	      }
 	    break;
 	  }
@@ -2083,12 +2123,13 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    unsigned int noperands = asm_noperands (body);
 	    rtx *ops = alloca (noperands * sizeof (rtx));
 	    const char *string;
+	    location_t loc;
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
 
 	    /* Get out the operand values.  */
-	    string = decode_asm_operands (body, ops, NULL, NULL, NULL);
+	    string = decode_asm_operands (body, ops, NULL, NULL, NULL, &loc);
 	    /* Inhibit dieing on what would otherwise be compiler bugs.  */
 	    insn_noperands = noperands;
 	    this_is_asm_operands = insn;
@@ -2105,7 +2146,14 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    fputs (ASM_APP_ON, file);
 		    app_on = 1;
 		  }
+		if (loc.file && loc.line)
+		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
+			   ASM_COMMENT_START, loc.line, loc.file);
 	        output_asm_insn (string, ops);
+#if HAVE_AS_LINE_ZERO
+		if (loc.file && loc.line)
+		  fprintf (asm_out_file, "%s 0 \"\" 2\n", ASM_COMMENT_START);
+#endif
 	      }
 
 	    this_is_asm_operands = 0;
@@ -2261,6 +2309,76 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    else if (GET_CODE (SET_SRC (body)) == RETURN)
 	      /* Replace (set (pc) (return)) with (return).  */
 	      PATTERN (insn) = body = SET_SRC (body);
+
+	    /* Rerecognize the instruction if it has changed.  */
+	    if (result != 0)
+	      INSN_CODE (insn) = -1;
+	  }
+
+	/* If this is a conditional trap, maybe modify it if the cc's
+	   are in a nonstandard state so that it accomplishes the same
+	   thing that it would do straightforwardly if the cc's were
+	   set up normally.  */
+	if (cc_status.flags != 0
+	    && NONJUMP_INSN_P (insn)
+	    && GET_CODE (body) == TRAP_IF
+	    && COMPARISON_P (TRAP_CONDITION (body))
+	    && XEXP (TRAP_CONDITION (body), 0) == cc0_rtx)
+	  {
+	    /* This function may alter the contents of its argument
+	       and clear some of the cc_status.flags bits.
+	       It may also return 1 meaning condition now always true
+	       or -1 meaning condition now always false
+	       or 2 meaning condition nontrivial but altered.  */
+	    int result = alter_cond (TRAP_CONDITION (body));
+
+	    /* If TRAP_CONDITION has become always false, delete the
+	       instruction.  */
+	    if (result == -1)
+	      {
+		delete_insn (insn);
+		break;
+	      }
+
+	    /* If TRAP_CONDITION has become always true, replace
+	       TRAP_CONDITION with const_true_rtx.  */
+	    if (result == 1)
+	      TRAP_CONDITION (body) = const_true_rtx;
+
+	    /* Rerecognize the instruction if it has changed.  */
+	    if (result != 0)
+	      INSN_CODE (insn) = -1;
+	  }
+
+	/* If this is a conditional trap, maybe modify it if the cc's
+	   are in a nonstandard state so that it accomplishes the same
+	   thing that it would do straightforwardly if the cc's were
+	   set up normally.  */
+	if (cc_status.flags != 0
+	    && NONJUMP_INSN_P (insn)
+	    && GET_CODE (body) == TRAP_IF
+	    && COMPARISON_P (TRAP_CONDITION (body))
+	    && XEXP (TRAP_CONDITION (body), 0) == cc0_rtx)
+	  {
+	    /* This function may alter the contents of its argument
+	       and clear some of the cc_status.flags bits.
+	       It may also return 1 meaning condition now always true
+	       or -1 meaning condition now always false
+	       or 2 meaning condition nontrivial but altered.  */
+	    int result = alter_cond (TRAP_CONDITION (body));
+
+	    /* If TRAP_CONDITION has become always false, delete the
+	       instruction.  */
+	    if (result == -1)
+	      {
+		delete_insn (insn);
+		break;
+	      }
+
+	    /* If TRAP_CONDITION has become always true, replace
+	       TRAP_CONDITION with const_true_rtx.  */
+	    if (result == 1)
+	      TRAP_CONDITION (body) = const_true_rtx;
 
 	    /* Rerecognize the instruction if it has changed.  */
 	    if (result != 0)
@@ -2513,6 +2631,7 @@ void
 cleanup_subreg_operands (rtx insn)
 {
   int i;
+  bool changed = false;
   extract_insn_cached (insn);
   for (i = 0; i < recog_data.n_operands; i++)
     {
@@ -2522,22 +2641,30 @@ cleanup_subreg_operands (rtx insn)
 	 matches the else clause.  Instead we test the underlying
 	 expression directly.  */
       if (GET_CODE (*recog_data.operand_loc[i]) == SUBREG)
-	recog_data.operand[i] = alter_subreg (recog_data.operand_loc[i]);
+	{
+	  recog_data.operand[i] = alter_subreg (recog_data.operand_loc[i]);
+	  changed = true;
+	}
       else if (GET_CODE (recog_data.operand[i]) == PLUS
 	       || GET_CODE (recog_data.operand[i]) == MULT
 	       || MEM_P (recog_data.operand[i]))
-	recog_data.operand[i] = walk_alter_subreg (recog_data.operand_loc[i]);
+	recog_data.operand[i] = walk_alter_subreg (recog_data.operand_loc[i], &changed);
     }
 
   for (i = 0; i < recog_data.n_dups; i++)
     {
       if (GET_CODE (*recog_data.dup_loc[i]) == SUBREG)
-	*recog_data.dup_loc[i] = alter_subreg (recog_data.dup_loc[i]);
+	{
+	  *recog_data.dup_loc[i] = alter_subreg (recog_data.dup_loc[i]);
+	  changed = true;
+	}
       else if (GET_CODE (*recog_data.dup_loc[i]) == PLUS
 	       || GET_CODE (*recog_data.dup_loc[i]) == MULT
 	       || MEM_P (*recog_data.dup_loc[i]))
-	*recog_data.dup_loc[i] = walk_alter_subreg (recog_data.dup_loc[i]);
+	*recog_data.dup_loc[i] = walk_alter_subreg (recog_data.dup_loc[i], &changed);
     }
+  if (changed)
+    df_insn_rescan (insn);
 }
 
 /* If X is a SUBREG, replace it with a REG or a MEM,
@@ -2591,7 +2718,7 @@ alter_subreg (rtx *xp)
 /* Do alter_subreg on all the SUBREGs contained in X.  */
 
 static rtx
-walk_alter_subreg (rtx *xp)
+walk_alter_subreg (rtx *xp, bool *changed)
 {
   rtx x = *xp;
   switch (GET_CODE (x))
@@ -2599,16 +2726,17 @@ walk_alter_subreg (rtx *xp)
     case PLUS:
     case MULT:
     case AND:
-      XEXP (x, 0) = walk_alter_subreg (&XEXP (x, 0));
-      XEXP (x, 1) = walk_alter_subreg (&XEXP (x, 1));
+      XEXP (x, 0) = walk_alter_subreg (&XEXP (x, 0), changed);
+      XEXP (x, 1) = walk_alter_subreg (&XEXP (x, 1), changed);
       break;
 
     case MEM:
     case ZERO_EXTEND:
-      XEXP (x, 0) = walk_alter_subreg (&XEXP (x, 0));
+      XEXP (x, 0) = walk_alter_subreg (&XEXP (x, 0), changed);
       break;
 
     case SUBREG:
+      *changed = true;
       return alter_subreg (xp);
 
     default:
@@ -3141,7 +3269,7 @@ output_asm_label (rtx x)
     x = XEXP (x, 0);
   if (LABEL_P (x)
       || (NOTE_P (x)
-	  && NOTE_LINE_NUMBER (x) == NOTE_INSN_DELETED_LABEL))
+	  && NOTE_KIND (x) == NOTE_INSN_DELETED_LABEL))
     ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
   else
     output_operand_lossage ("'%%l' operand isn't a label");
@@ -3178,7 +3306,8 @@ output_operand (rtx x, int code ATTRIBUTE_UNUSED)
 void
 output_address (rtx x)
 {
-  walk_alter_subreg (&x);
+  bool changed = false;
+  walk_alter_subreg (&x, &changed);
   PRINT_OPERAND_ADDRESS (asm_out_file, x);
 }
 
@@ -3696,7 +3825,7 @@ only_leaf_regs_used (void)
   const char *const permitted_reg_in_leaf_functions = LEAF_REGISTERS;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if ((regs_ever_live[i] || global_regs[i])
+    if ((df_regs_ever_live_p (i) || global_regs[i])
 	&& ! permitted_reg_in_leaf_functions[i])
       return 0;
 
@@ -3764,9 +3893,9 @@ leaf_renumber_regs_insn (rtx in_rtx)
 	}
       newreg = LEAF_REG_REMAP (newreg);
       gcc_assert (newreg >= 0);
-      regs_ever_live[REGNO (in_rtx)] = 0;
-      regs_ever_live[newreg] = 1;
-      REGNO (in_rtx) = newreg;
+      df_set_regs_ever_live (REGNO (in_rtx), false);
+      df_set_regs_ever_live (newreg, true);
+      SET_REGNO (in_rtx, newreg);
       in_rtx->used = 1;
     }
 
@@ -3906,7 +4035,7 @@ update_regs_ever_live (rtx x)
   if (code == REG)
     {
       if (HARD_REGISTER_P (x))
-	regs_ever_live [REGNO (x)] = 1;
+	df_set_regs_ever_live (REGNO (x), true);
       return;
     }
   fmt = GET_RTX_FORMAT (code);
@@ -3948,25 +4077,23 @@ rest_of_handle_final (void)
 	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
 #endif
 	else if (call_used_regs [i] &&
-		 (regs_ever_live [i]
+		 (df_regs_ever_live_p (i)
 #ifdef STACK_REGS
 		  || (i >= FIRST_STACK_REG && i <= LAST_STACK_REG)
 #endif
 		  ))
 	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
       COPY_HARD_REG_SET (node->function_used_regs, cfun->emit->call_used_regs);
-      if (dump_file != NULL)
+      if (dump_file != NULL
+	  && ! hard_reg_set_equal_p (cfun->emit->call_used_regs,
+				     call_used_reg_set))
 	{
-	  GO_IF_HARD_REG_EQUAL (cfun->emit->call_used_regs,
-				call_used_reg_set, ok);
 	  fprintf (dump_file, "unused unsaved registers: ");
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (TEST_HARD_REG_BIT (call_used_reg_set, i)
 		&& ! TEST_HARD_REG_BIT (cfun->emit->call_used_regs, i))
 	      fprintf (dump_file, "%s ", reg_names [i]);
 	  fprintf (dump_file, "\n");
-	ok:
-	  ;
 	}
     }
 
@@ -3999,11 +4126,11 @@ rest_of_handle_final (void)
 
   user_defined_section_attribute = false;
 
+  /* Free up reg info memory.  */
+  free_reg_info ();
+
   if (! quiet_flag)
     fflush (asm_out_file);
-
-  /* Release all memory allocated by flow.  */
-  free_basic_block_vars ();
 
   /* Write DBX symbols if requested.  */
 
@@ -4019,6 +4146,16 @@ rest_of_handle_final (void)
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
   timevar_pop (TV_SYMOUT);
+  if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.constructor (XEXP (DECL_RTL (current_function_decl), 0),
+				 decl_init_priority_lookup
+				   (current_function_decl));
+  if (DECL_STATIC_DESTRUCTOR (current_function_decl)
+      && targetm.have_ctors_dtors)
+    targetm.asm_out.destructor (XEXP (DECL_RTL (current_function_decl), 0),
+				decl_fini_priority_lookup
+				  (current_function_decl));
   return 0;
 }
 
@@ -4092,8 +4229,6 @@ rest_of_clean_state (void)
 
   reload_completed = 0;
   epilogue_completed = 0;
-  flow2_completed = 0;
-  no_new_pseudos = 0;
 #ifdef STACK_REGS
   regstack_completed = 0;
 #endif
@@ -4105,9 +4240,7 @@ rest_of_clean_state (void)
   /* Show no temporary slots allocated.  */
   init_temp_slots ();
 
-  free_basic_block_vars ();
   free_bb_for_insn ();
-
 
   if (targetm.binds_local_p (current_function_decl))
     {

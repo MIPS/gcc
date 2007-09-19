@@ -31,7 +31,6 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
-#include <float.h>
 #include <limits.h>
 #include "libgfortran.h"
 
@@ -71,16 +70,24 @@ minloc1_8_i4 (gfc_array_i8 * const restrict retarray,
     {
       sstride[n] = array->dim[n].stride;
       extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+
+      if (extent[n] < 0)
+	extent[n] = 0;
     }
   for (n = dim; n < rank; n++)
     {
       sstride[n] = array->dim[n + 1].stride;
       extent[n] =
         array->dim[n + 1].ubound + 1 - array->dim[n + 1].lbound;
+
+      if (extent[n] < 0)
+	extent[n] = 0;
     }
 
   if (retarray->data == NULL)
     {
+      size_t alloc_size;
+
       for (n = 0; n < rank; n++)
         {
           retarray->dim[n].lbound = 0;
@@ -91,12 +98,21 @@ minloc1_8_i4 (gfc_array_i8 * const restrict retarray,
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data
-	 = internal_malloc_size (sizeof (GFC_INTEGER_8)
-		 		 * retarray->dim[rank-1].stride
-				 * extent[rank-1]);
       retarray->offset = 0;
       retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
+
+      alloc_size = sizeof (GFC_INTEGER_8) * retarray->dim[rank-1].stride
+    		   * extent[rank-1];
+
+      if (alloc_size == 0)
+	{
+	  /* Make sure we have a zero-sized array.  */
+	  retarray->dim[0].lbound = 0;
+	  retarray->dim[0].ubound = -1;
+	  return;
+	}
+      else
+	retarray->data = internal_malloc_size (alloc_size);
     }
   else
     {
@@ -175,14 +191,14 @@ minloc1_8_i4 (gfc_array_i8 * const restrict retarray,
 
 extern void mminloc1_8_i4 (gfc_array_i8 * const restrict, 
 	gfc_array_i4 * const restrict, const index_type * const restrict,
-	gfc_array_l4 * const restrict);
+	gfc_array_l1 * const restrict);
 export_proto(mminloc1_8_i4);
 
 void
 mminloc1_8_i4 (gfc_array_i8 * const restrict retarray, 
 	gfc_array_i4 * const restrict array, 
 	const index_type * const restrict pdim, 
-	gfc_array_l4 * const restrict mask)
+	gfc_array_l1 * const restrict mask)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
@@ -191,13 +207,14 @@ mminloc1_8_i4 (gfc_array_i8 * const restrict retarray,
   index_type mstride[GFC_MAX_DIMENSIONS];
   GFC_INTEGER_8 * restrict dest;
   const GFC_INTEGER_4 * restrict base;
-  const GFC_LOGICAL_4 * restrict mbase;
+  const GFC_LOGICAL_1 * restrict mbase;
   int rank;
   int dim;
   index_type n;
   index_type len;
   index_type delta;
   index_type mdelta;
+  int mask_kind;
 
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
@@ -205,25 +222,48 @@ mminloc1_8_i4 (gfc_array_i8 * const restrict retarray,
   len = array->dim[dim].ubound + 1 - array->dim[dim].lbound;
   if (len <= 0)
     return;
+
+  mbase = mask->data;
+
+  mask_kind = GFC_DESCRIPTOR_SIZE (mask);
+
+  if (mask_kind == 1 || mask_kind == 2 || mask_kind == 4 || mask_kind == 8
+#ifdef HAVE_GFC_LOGICAL_16
+      || mask_kind == 16
+#endif
+      )
+    mbase = GFOR_POINTER_TO_L1 (mbase, mask_kind);
+  else
+    runtime_error ("Funny sized logical array");
+
   delta = array->dim[dim].stride;
-  mdelta = mask->dim[dim].stride;
+  mdelta = mask->dim[dim].stride * mask_kind;
 
   for (n = 0; n < dim; n++)
     {
       sstride[n] = array->dim[n].stride;
-      mstride[n] = mask->dim[n].stride;
+      mstride[n] = mask->dim[n].stride * mask_kind;
       extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+
+      if (extent[n] < 0)
+	extent[n] = 0;
+
     }
   for (n = dim; n < rank; n++)
     {
       sstride[n] = array->dim[n + 1].stride;
-      mstride[n] = mask->dim[n + 1].stride;
+      mstride[n] = mask->dim[n + 1].stride * mask_kind;
       extent[n] =
         array->dim[n + 1].ubound + 1 - array->dim[n + 1].lbound;
+
+      if (extent[n] < 0)
+	extent[n] = 0;
     }
 
   if (retarray->data == NULL)
     {
+      size_t alloc_size;
+
       for (n = 0; n < rank; n++)
         {
           retarray->dim[n].lbound = 0;
@@ -234,12 +274,22 @@ mminloc1_8_i4 (gfc_array_i8 * const restrict retarray,
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data
-	 = internal_malloc_size (sizeof (GFC_INTEGER_8)
-		 		 * retarray->dim[rank-1].stride
-				 * extent[rank-1]);
+      alloc_size = sizeof (GFC_INTEGER_8) * retarray->dim[rank-1].stride
+    		   * extent[rank-1];
+
       retarray->offset = 0;
       retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
+
+      if (alloc_size == 0)
+	{
+	  /* Make sure we have a zero-sized array.  */
+	  retarray->dim[0].lbound = 0;
+	  retarray->dim[0].ubound = -1;
+	  return;
+	}
+      else
+	retarray->data = internal_malloc_size (alloc_size);
+
     }
   else
     {
@@ -257,22 +307,11 @@ mminloc1_8_i4 (gfc_array_i8 * const restrict retarray,
 
   dest = retarray->data;
   base = array->data;
-  mbase = mask->data;
-
-  if (GFC_DESCRIPTOR_SIZE (mask) != 4)
-    {
-      /* This allows the same loop to be used for all logical types.  */
-      assert (GFC_DESCRIPTOR_SIZE (mask) == 8);
-      for (n = 0; n < rank; n++)
-        mstride[n] <<= 1;
-      mdelta <<= 1;
-      mbase = (GFOR_POINTER_L8_TO_L4 (mbase));
-    }
 
   while (base)
     {
       const GFC_INTEGER_4 * restrict src;
-      const GFC_LOGICAL_4 * restrict msrc;
+      const GFC_LOGICAL_1 * restrict msrc;
       GFC_INTEGER_8 result;
       src = base;
       msrc = mbase;

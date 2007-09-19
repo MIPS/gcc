@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
-ACLOCAL_AMFLAGS = -I ../config
+ACLOCAL_AMFLAGS = -I .. -I ../config
 SUBDIRS = testsuite
 
 ## May be used by toolexeclibdir.
@@ -33,7 +33,7 @@ libgomp_la_LDFLAGS = $(libgomp_version_info) $(libgomp_version_script)
 
 libgomp_la_SOURCES = alloc.c barrier.c critical.c env.c error.c iter.c \
 	loop.c ordered.c parallel.c sections.c single.c team.c work.c \
-	lock.c mutex.c proc.c sem.c bar.c time.c fortran.c
+	lock.c mutex.c proc.c sem.c bar.c time.c fortran.c affinity.c
 
 nodist_noinst_HEADERS = libgomp_f.h
 nodist_libsubinclude_HEADERS = omp.h
@@ -50,7 +50,59 @@ fortran.o: libgomp_f.h
 env.lo: libgomp_f.h
 env.o: libgomp_f.h
 
-# No install-html target
-.PHONY: install-html
+
+# No install-html or install-pdf support in automake yet
+.PHONY: install-html install-pdf
 install-html:
 
+install-pdf: $(PDFS)
+	@$(NORMAL_INSTALL)
+	test -z "$(pdfdir)" || $(mkinstalldirs) "$(DESTDIR)$(pdfdir)"
+	@list='$(PDFS)'; for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  f=$(am__strip_dir) \
+	  echo " $(INSTALL_DATA) '$$d$$p' '$(DESTDIR)$(pdfdir)/$$f'"; \
+	  $(INSTALL_DATA) "$$d$$p" "$(DESTDIR)$(pdfdir)/$$f"; \
+	done
+
+# Automake Documentation:
+# If your package has Texinfo files in many directories, you can use the
+# variable TEXINFO_TEX to tell Automake where to find the canonical
+# `texinfo.tex' for your package. The value of this variable should be
+# the relative path from the current `Makefile.am' to `texinfo.tex'.
+TEXINFO_TEX   = ../gcc/doc/include/texinfo.tex
+
+# Defines info, dvi, pdf and html targets
+MAKEINFOFLAGS = -I $(srcdir)/../gcc/doc/include
+info_TEXINFOS = libgomp.texi
+
+# AM_CONDITIONAL on configure option --generated-files-in-srcdir
+if GENINSRC
+STAMP_GENINSRC = stamp-geninsrc
+else
+STAMP_GENINSRC =
+endif
+
+# AM_CONDITIONAL on configure check ACX_CHECK_PROG_VER([MAKEINFO])
+if BUILD_INFO
+STAMP_BUILD_INFO = stamp-build-info
+else
+STAMP_BUILD_INFO =
+endif
+
+
+all-local: $(STAMP_GENINSRC)
+
+stamp-geninsrc: libgomp.info
+	cp -p $(top_builddir)/libgomp.info $(srcdir)/libgomp.info
+	@touch $@
+
+libgomp.info: $(STAMP_BUILD_INFO)
+
+stamp-build-info: libgomp.texi
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -I $(srcdir) -o libgomp.info $(srcdir)/libgomp.texi
+	@touch $@
+
+
+CLEANFILES = $(STAMP_GENINSRC) $(STAMP_BUILD_INFO) libgomp.info
+MAINTAINERCLEANFILES = $(srcdir)/libgomp.info

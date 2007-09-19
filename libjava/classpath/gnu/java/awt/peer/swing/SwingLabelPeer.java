@@ -1,5 +1,5 @@
 /* SwingLabelPeer.java -- A Swing based peer for AWT labels
-   Copyright (C)  2006  Free Software Foundation, Inc.
+   Copyright (C)  2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,9 +37,12 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.swing;
 
+import java.awt.Container;
+import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.Label;
 import java.awt.Point;
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.peer.LabelPeer;
@@ -67,7 +70,14 @@ public class SwingLabelPeer
     extends JLabel
     implements SwingComponent
   {
-
+    Label label;
+      
+      
+    SwingLabel(Label label)
+    {
+        this.label = label;
+    }
+    
     /**
      * Returns this label.
      *
@@ -111,6 +121,17 @@ public class SwingLabelPeer
     }
 
     /**
+     * Handles focus events by forwarding it to
+     * <code>processFocusEvent()</code>.
+     *
+     * @param ev the Focus event
+     */
+    public void handleFocusEvent(FocusEvent ev)
+    {
+      processFocusEvent(ev);
+    }
+
+    /**
      * Overridden so that this method returns the correct value even without a
      * peer.
      *
@@ -131,8 +152,8 @@ public class SwingLabelPeer
     public boolean isShowing()
     {
       boolean retVal = false;
-      if (SwingLabelPeer.this.awtComponent != null)
-        retVal = SwingLabelPeer.this.awtComponent.isShowing();
+      if (label != null)
+        retVal = label.isShowing();
       return retVal;
     }
 
@@ -149,7 +170,19 @@ public class SwingLabelPeer
     {
       return SwingLabelPeer.this.createImage(w, h);
     }
-    
+
+    public Graphics getGraphics()
+    {
+      return SwingLabelPeer.this.getGraphics();
+    }
+
+    public Container getParent()
+    {
+      Container par = null;
+      if (label != null)
+        par = label.getParent();
+      return par;
+    }
   }
 
   /**
@@ -160,11 +193,11 @@ public class SwingLabelPeer
   public SwingLabelPeer(Label label)
   {
     super();
-    SwingLabel swingLabel = new SwingLabel();
+    SwingLabel swingLabel = new SwingLabel(label);
     swingLabel.setText(label.getText());
-    swingLabel.setHorizontalAlignment(label.getAlignment());
     swingLabel.setOpaque(true);
     init(label, swingLabel);
+    setAlignment(label.getAlignment());
   }
 
   /**
@@ -190,7 +223,20 @@ public class SwingLabelPeer
    */
   public void setAlignment(int alignment)
   {
-    ((JLabel) swingComponent.getJComponent()).setHorizontalAlignment(alignment);
+    JLabel swingLabel = (JLabel) swingComponent.getJComponent();
+    switch (alignment)
+      {
+      case Label.RIGHT:
+        swingLabel.setHorizontalAlignment(JLabel.RIGHT);
+        break;
+      case Label.CENTER:
+        swingLabel.setHorizontalAlignment(JLabel.CENTER);
+        break;
+      case Label.LEFT:
+      default:
+        swingLabel.setHorizontalAlignment(JLabel.LEFT);
+        break;
+      }
   }
 
 }

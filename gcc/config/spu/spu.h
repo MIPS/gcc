@@ -1,8 +1,8 @@
-/* Copyright (C) 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option) 
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -11,9 +11,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this file; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 
 /* Run-time Target */
@@ -24,8 +23,30 @@
 #define OVERRIDE_OPTIONS spu_override_options()
 #define C_COMMON_OVERRIDE_OPTIONS spu_c_common_override_options()
 
+#define OPTIMIZATION_OPTIONS(level,size) \
+	  spu_optimization_options(level,size)
+
+#define INIT_EXPANDERS spu_init_expanders()
+
 extern int target_flags;
 extern const char *spu_fixed_range_string;
+
+/* Which processor to generate code or schedule for.  */
+enum processor_type
+{
+  PROCESSOR_CELL,
+  PROCESSOR_CELLEDP
+};
+
+extern GTY(()) int spu_arch;
+extern GTY(()) int spu_tune;
+
+/* Support for a compile-time default architecture and tuning.  The rules are:
+   --with-arch is ignored if -march is specified.
+   --with-tune is ignored if -mtune is specified.  */
+#define OPTION_DEFAULT_SPECS \
+  {"arch", "%{!march=*:-march=%(VALUE)}" }, \
+  {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }
 
 /* Default target_flags if no switches specified.  */
 #ifndef TARGET_DEFAULT
@@ -96,7 +117,10 @@ extern const char *spu_fixed_range_string;
 
 #define MAX_FIXED_MODE_SIZE 128
 
-#define STACK_SAVEAREA_MODE(save_level) SImode
+#define STACK_SAVEAREA_MODE(save_level) \
+  (save_level == SAVE_FUNCTION ? VOIDmode \
+    : save_level == SAVE_NONLOCAL ? SImode \
+      : Pmode)
 
 #define STACK_SIZE_MODE SImode
 
@@ -149,7 +173,7 @@ extern const char *spu_fixed_range_string;
 /* Register Basics */
 
 /* 128-130 are special registers that never appear in assembly code. */
-#define FIRST_PSEUDO_REGISTER 132
+#define FIRST_PSEUDO_REGISTER 131
 
 #define FIXED_REGISTERS {			    \
     1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -160,7 +184,7 @@ extern const char *spu_fixed_range_string;
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-    1, 1, 1, 1 \
+    1, 1, 1 \
 }
 
 #define CALL_USED_REGISTERS {			    \
@@ -172,7 +196,7 @@ extern const char *spu_fixed_range_string;
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-    1, 1, 1, 1 \
+    1, 1, 1 \
 }
 
 #define CONDITIONAL_REGISTER_USAGE \
@@ -265,6 +289,8 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG(Pmode, LINK_REGISTER_REGNUM)
 
+#define ARG_POINTER_CFA_OFFSET(FNDECL) (-STACK_POINTER_OFFSET)
+
 
 /* Stack Checking */
 
@@ -293,9 +319,6 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 /* Used to keep track of instructions that have clobbered the hint
  * buffer.  Users can also specify it in inline asm. */
 #define HBR_REGNUM 130
-
-/* Used to keep track of enabling and disabling interrupts. */
-#define INTR_REGNUM 131
 
 #define MAX_REGISTER_ARGS    72
 #define FIRST_ARG_REGNUM     3
@@ -330,7 +353,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define REG_PARM_STACK_SPACE(FNDECL) 0
 
-#define OUTGOING_REG_PARM_STACK_SPACE 
+#define OUTGOING_REG_PARM_STACK_SPACE 1
 
 #define RETURN_POPS_ARGS(FUNDECL,FUNTYPE,SIZE) (0)
 
@@ -507,7 +530,7 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
  "$80", "$81", "$82", "$83", "$84", "$85", "$86", "$87", "$88", "$89", "$90", "$91", "$92", "$93", "$94", "$95", \
  "$96", "$97", "$98", "$99", "$100", "$101", "$102", "$103", "$104", "$105", "$106", "$107", "$108", "$109", "$110", "$111", \
  "$112", "$113", "$114", "$115", "$116", "$117", "$118", "$119", "$120", "$121", "$122", "$123", "$124", "$125", "$126", "$127", \
- "$vfp", "$vap", "hbr", "intr" \
+ "$vfp", "$vap", "hbr" \
 }
 
 #define PRINT_OPERAND(FILE, X, CODE)  print_operand(FILE, X, CODE)
@@ -535,6 +558,52 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
   do { if (LOG!=0) fprintf (FILE, "\t.align\t%d\n", (LOG)); } while (0)
 
 
+/* Model costs for the vectorizer.  */
+
+/* Cost of conditional branch.  */
+#ifndef TARG_COND_BRANCH_COST
+#define TARG_COND_BRANCH_COST        6
+#endif
+
+/* Cost of any scalar operation, excluding load and store.  */
+#ifndef TARG_SCALAR_STMT_COST
+#define TARG_SCALAR_STMT_COST        1
+#endif
+
+/* Cost of scalar load. */
+#undef TARG_SCALAR_LOAD_COST
+#define TARG_SCALAR_LOAD_COST        2 /* load + rotate */
+
+/* Cost of scalar store.  */
+#undef TARG_SCALAR_STORE_COST
+#define TARG_SCALAR_STORE_COST       10
+
+/* Cost of any vector operation, excluding load, store,
+   or vector to scalar operation.  */
+#undef TARG_VEC_STMT_COST
+#define TARG_VEC_STMT_COST           1
+
+/* Cost of vector to scalar operation.  */
+#undef TARG_VEC_TO_SCALAR_COST
+#define TARG_VEC_TO_SCALAR_COST      1
+
+/* Cost of scalar to vector operation.  */
+#undef TARG_SCALAR_TO_VEC_COST
+#define TARG_SCALAR_TO_VEC_COST      1
+
+/* Cost of aligned vector load.  */
+#undef TARG_VEC_LOAD_COST
+#define TARG_VEC_LOAD_COST           1
+
+/* Cost of misaligned vector load.  */
+#undef TARG_VEC_UNALIGNED_LOAD_COST
+#define TARG_VEC_UNALIGNED_LOAD_COST 2
+
+/* Cost of vector store.  */
+#undef TARG_VEC_STORE_COST
+#define TARG_VEC_STORE_COST          1
+
+
 /* Misc */
 
 #define CASE_VECTOR_MODE SImode
@@ -551,7 +620,19 @@ targetm.resolve_overloaded_builtin = spu_resolve_overloaded_builtin;	\
 
 #define NO_IMPLICIT_EXTERN_C 1
 
-
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
+
+/* Canonicalize a comparison from one we don't have to one we do have.  */
+#define CANONICALIZE_COMPARISON(CODE,OP0,OP1) \
+  do {                                                                    \
+    if (((CODE) == LE || (CODE) == LT || (CODE) == LEU || (CODE) == LTU)) \
+      {                                                                   \
+        rtx tem = (OP0);                                                  \
+        (OP0) = (OP1);                                                    \
+        (OP1) = tem;                                                      \
+        (CODE) = swap_condition (CODE);                                   \
+      }                                                                   \
+  } while (0)
 
 /* These are set by the cmp patterns and used while expanding
    conditional branches. */

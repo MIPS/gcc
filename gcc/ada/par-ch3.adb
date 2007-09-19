@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,15 +61,14 @@ package body Ch3 is
       Done    : out Boolean;
       In_Spec : Boolean);
    --  Scans out a single declarative item, or, in the case of a declaration
-   --  with a list of identifiers, a list of declarations, one for each of
-   --  the identifiers in the list. The declaration or declarations scanned
-   --  are appended to the given list. Done indicates whether or not there
-   --  may be additional declarative items to scan. If Done is True, then
-   --  a decision has been made that there are no more items to scan. If
-   --  Done is False, then there may be additional declarations to scan.
-   --  In_Spec is true if we are scanning a package declaration, and is used
-   --  to generate an appropriate message if a statement is encountered in
-   --  such a context.
+   --  with a list of identifiers, a list of declarations, one for each of the
+   --  identifiers in the list. The declaration or declarations scanned are
+   --  appended to the given list. Done indicates whether or not there may be
+   --  additional declarative items to scan. If Done is True, then a decision
+   --  has been made that there are no more items to scan. If Done is False,
+   --  then there may be additional declarations to scan. In_Spec is true if
+   --  we are scanning a package declaration, and is used to generate an
+   --  appropriate message if a statement is encountered in such a context.
 
    procedure P_Identifier_Declarations
      (Decls   : List_Id;
@@ -286,6 +285,7 @@ package body Ch3 is
       --  If we have TYPE, then proceed ahead and scan identifier
 
       if Token = Tok_Type then
+         Type_Token_Location := Type_Loc;
          Scan; -- past TYPE
          Ident_Node := P_Defining_Identifier (C_Is);
 
@@ -634,9 +634,8 @@ package body Ch3 is
                  or else (Token = Tok_Identifier
                            and then Chars (Token_Node) = Name_Interface)
                then
-                  Typedef_Node := P_Interface_Type_Definition
-                                    (Abstract_Present,
-                                     Is_Synchronized => False);
+                  Typedef_Node :=
+                    P_Interface_Type_Definition (Abstract_Present);
                   Abstract_Present := True;
                   Set_Limited_Present (Typedef_Node);
 
@@ -721,8 +720,7 @@ package body Ch3 is
             --  Ada 2005 (AI-251): INTERFACE
 
             when Tok_Interface =>
-               Typedef_Node := P_Interface_Type_Definition
-                                (Abstract_Present, Is_Synchronized => False);
+               Typedef_Node := P_Interface_Type_Definition (Abstract_Present);
                Abstract_Present := True;
                TF_Semicolon;
                exit;
@@ -761,8 +759,7 @@ package body Ch3 is
 
                   else
                      Typedef_Node :=
-                       P_Interface_Type_Definition
-                         (Abstract_Present, Is_Synchronized => True);
+                       P_Interface_Type_Definition (Abstract_Present);
                      Abstract_Present := True;
 
                      case Saved_Token is
@@ -925,27 +922,51 @@ package body Ch3 is
 
    --  Error recovery: can raise Error_Resync
 
-   function P_Null_Exclusion return Boolean is
+   function P_Null_Exclusion
+     (Allow_Anonymous_In_95 : Boolean := False) return Boolean
+   is
+      Not_Loc : constant Source_Ptr := Token_Ptr;
+      --  Source position of "not", if present
+
    begin
       if Token /= Tok_Not then
          return False;
 
       else
-         --  Ada 2005 (AI-441): The qualifier has no semantic meaning in Ada 95
-         --  (all access Parameters Are "not null" in Ada 95).
-
-         if Ada_Version < Ada_05 then
-            Error_Msg_SP
-              ("null-excluding access is an Ada 2005 extension?");
-            Error_Msg_SP ("\unit should be compiled with -gnat05 switch?");
-         end if;
-
          Scan; --  past NOT
 
          if Token = Tok_Null then
             Scan; --  past NULL
+
+            --  Ada 2005 (AI-441, AI-447): null_exclusion is illegal in Ada 95,
+            --  except in the case of anonymous access types.
+
+            --  Allow_Anonymous_In_95 will be True if we're parsing a formal
+            --  parameter or discriminant, which are the only places where
+            --  anonymous access types occur in Ada 95. "Formal : not null
+            --  access ..." is legal in Ada 95, whereas "Formal : not null
+            --  Named_Access_Type" is not.
+
+            if Ada_Version >= Ada_05
+              or else (Ada_Version >= Ada_95
+                        and then Allow_Anonymous_In_95
+                        and then Token = Tok_Access)
+            then
+               null; -- OK
+
+            else
+               Error_Msg
+                 ("`NOT NULL` access type is an Ada 2005 extension", Not_Loc);
+               Error_Msg
+                 ("\unit should be compiled with -gnat05 switch", Not_Loc);
+            end if;
+
          else
             Error_Msg_SP ("NULL expected");
+         end if;
+
+         if Token = Tok_New then
+            Error_Msg ("`NOT NULL` comes after NEW, not before", Not_Loc);
          end if;
 
          return True;
@@ -953,8 +974,9 @@ package body Ch3 is
    end P_Null_Exclusion;
 
    function P_Subtype_Indication
-     (Not_Null_Present : Boolean := False) return Node_Id is
-      Type_Node        : Node_Id;
+     (Not_Null_Present : Boolean := False) return Node_Id
+   is
+      Type_Node : Node_Id;
 
    begin
       if Token = Tok_Identifier or else Token = Tok_Operator_Symbol then
@@ -984,9 +1006,10 @@ package body Ch3 is
 
    function P_Subtype_Indication
      (Subtype_Mark     : Node_Id;
-      Not_Null_Present : Boolean := False) return Node_Id is
-      Indic_Node       : Node_Id;
-      Constr_Node      : Node_Id;
+      Not_Null_Present : Boolean := False) return Node_Id
+   is
+      Indic_Node  : Node_Id;
+      Constr_Node : Node_Id;
 
    begin
       Constr_Node := P_Constraint_Opt;
@@ -995,7 +1018,7 @@ package body Ch3 is
          return Subtype_Mark;
       else
          if Not_Null_Present then
-            Error_Msg_SP ("constrained null-exclusion not allowed");
+            Error_Msg_SP ("`NOT NULL` not allowed if constraint given");
          end if;
 
          Indic_Node := New_Node (N_Subtype_Indication, Sloc (Subtype_Mark));
@@ -1019,7 +1042,6 @@ package body Ch3 is
    function P_Subtype_Mark return Node_Id is
    begin
       return P_Subtype_Mark_Resync;
-
    exception
       when Error_Resync =>
          return Error;
@@ -1453,8 +1475,8 @@ package body Ch3 is
 
             if Present (Init_Expr) then
                if Not_Null_Present then
-                  Error_Msg_SP ("null-exclusion not allowed in "
-                                & "numeric expression");
+                  Error_Msg_SP
+                    ("`NOT NULL` not allowed in numeric expression");
                end if;
 
                Decl_Node := New_Node (N_Number_Declaration, Ident_Sloc);
@@ -1602,7 +1624,6 @@ package body Ch3 is
                if Token /= Tok_Renames then
                   Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
                   Set_Object_Definition (Decl_Node, Acc_Node);
-                  goto init;
 
                else
                   Scan; --  past renames
@@ -1621,7 +1642,7 @@ package body Ch3 is
                if Token_Is_Renames then
                   if Ada_Version < Ada_05 then
                      Error_Msg_SP
-                       ("null-exclusion not allowed in object renaming");
+                       ("`NOT NULL` not allowed in object renaming");
                      raise Error_Resync;
 
                   --  Ada 2005 (AI-423): Object renaming declaration with
@@ -1675,7 +1696,6 @@ package body Ch3 is
             if Token /= Tok_Renames then
                Decl_Node := New_Node (N_Object_Declaration, Ident_Sloc);
                Set_Object_Definition (Decl_Node, Acc_Node);
-               goto init; -- ??? is this really needed goes here anyway
 
             else
                Scan; --  past renames
@@ -1723,13 +1743,13 @@ package body Ch3 is
 
          --  Scan out initialization, allowed only for object declaration
 
-         <<init>> -- is this really needed ???
          Init_Loc := Token_Ptr;
          Init_Expr := Init_Expr_Opt;
 
          if Present (Init_Expr) then
             if Nkind (Decl_Node) = N_Object_Declaration then
                Set_Expression (Decl_Node, Init_Expr);
+               Set_Has_Init_Expression (Decl_Node);
             else
                Error_Msg ("initialization not allowed here", Init_Loc);
             end if;
@@ -2389,7 +2409,7 @@ package body Ch3 is
    begin
       Constraint_Node := New_Node (N_Digits_Constraint, Token_Ptr);
       Scan; -- past DIGITS
-      Expr_Node := P_Expression_No_Right_Paren;
+      Expr_Node := P_Expression;
       Check_Simple_Expression_In_Ada_83 (Expr_Node);
       Set_Digits_Expression (Constraint_Node, Expr_Node);
 
@@ -2421,7 +2441,7 @@ package body Ch3 is
    begin
       Constraint_Node := New_Node (N_Delta_Constraint, Token_Ptr);
       Scan; -- past DELTA
-      Expr_Node := P_Expression_No_Right_Paren;
+      Expr_Node := P_Expression;
       Check_Simple_Expression_In_Ada_83 (Expr_Node);
       Set_Delta_Expression (Constraint_Node, Expr_Node);
 
@@ -2767,8 +2787,6 @@ package body Ch3 is
                Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
             end loop;
 
-            T_Colon;
-
             --  If there are multiple identifiers, we repeatedly scan the
             --  type and initialization expression information by resetting
             --  the scan pointer (so that we get completely separate trees
@@ -2778,6 +2796,8 @@ package body Ch3 is
                Save_Scan_State (Scan_State);
             end if;
 
+            T_Colon;
+
             --  Loop through defining identifiers in list
 
             Ident := 1;
@@ -2785,7 +2805,8 @@ package body Ch3 is
                Specification_Node :=
                  New_Node (N_Discriminant_Specification, Ident_Sloc);
                Set_Defining_Identifier (Specification_Node, Idents (Ident));
-               Not_Null_Present := P_Null_Exclusion; -- Ada 2005 (AI-231)
+               Not_Null_Present :=  --  Ada 2005 (AI-231, AI-447)
+                 P_Null_Exclusion (Allow_Anonymous_In_95 => True);
 
                if Token = Tok_Access then
                   if Ada_Version = Ada_83 then
@@ -2820,6 +2841,7 @@ package body Ch3 is
                exit Ident_Loop when Ident = Num_Idents;
                Ident := Ident + 1;
                Restore_Scan_State (Scan_State);
+               T_Colon;
             end loop Ident_Loop;
 
             exit Specification_Loop when Token /= Tok_Semicolon;
@@ -3245,8 +3267,6 @@ package body Ch3 is
          Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
       end loop;
 
-      T_Colon;
-
       --  If there are multiple identifiers, we repeatedly scan the
       --  type and initialization expression information by resetting
       --  the scan pointer (so that we get completely separate trees
@@ -3255,6 +3275,8 @@ package body Ch3 is
       if Num_Idents > 1 then
          Save_Scan_State (Scan_State);
       end if;
+
+      T_Colon;
 
       --  Loop through defining identifiers in list
 
@@ -3343,6 +3365,7 @@ package body Ch3 is
          exit Ident_Loop when Ident = Num_Idents;
          Ident := Ident + 1;
          Restore_Scan_State (Scan_State);
+         T_Colon;
 
       end loop Ident_Loop;
 
@@ -3481,7 +3504,8 @@ package body Ch3 is
 
          else
             begin
-               Expr_Node := No_Right_Paren (P_Expression_Or_Range_Attribute);
+               Expr_Node := P_Expression_Or_Range_Attribute;
+               Check_No_Right_Paren;
 
                if Token = Tok_Colon
                  and then Nkind (Expr_Node) = N_Identifier
@@ -3566,8 +3590,7 @@ package body Ch3 is
    --  Error recovery: cannot raise Error_Resync
 
    function P_Interface_Type_Definition
-     (Abstract_Present : Boolean;
-      Is_Synchronized  : Boolean) return Node_Id
+     (Abstract_Present : Boolean) return Node_Id
    is
       Typedef_Node : Node_Id;
 
@@ -3579,38 +3602,21 @@ package body Ch3 is
 
       if Abstract_Present then
          Error_Msg_SP ("ABSTRACT not allowed in interface type definition " &
-                       "('R'M' 3.9.4(2/2))");
+                       "(RM 3.9.4(2/2))");
       end if;
 
       Scan; -- past INTERFACE
 
-      --  Ada 2005 (AI-345): In case of synchronized interfaces and
-      --  interfaces with a null list of interfaces we build a
-      --  record_definition node.
+      --  Ada 2005 (AI-345): In case of interfaces with a null list of
+      --  interfaces we build a record_definition node.
 
-      if Is_Synchronized
-        or else Token = Tok_Semicolon
-      then
+      if Token = Tok_Semicolon then
          Typedef_Node := New_Node (N_Record_Definition, Token_Ptr);
 
          Set_Abstract_Present  (Typedef_Node);
          Set_Tagged_Present    (Typedef_Node);
          Set_Null_Present      (Typedef_Node);
          Set_Interface_Present (Typedef_Node);
-
-         if Is_Synchronized
-           and then Token = Tok_And
-         then
-            Scan; -- past AND
-            Set_Interface_List (Typedef_Node, New_List);
-
-            loop
-               Append (P_Qualified_Simple_Name,
-                       Interface_List (Typedef_Node));
-               exit when Token /= Tok_And;
-               Scan; -- past AND
-            end loop;
-         end if;
 
       --  Ada 2005 (AI-251): In case of not-synchronized interfaces that have
       --  a list of interfaces we build a derived_type_definition node. This
@@ -3678,17 +3684,22 @@ package body Ch3 is
    --  Error recovery: can raise Error_Resync
 
    function P_Access_Type_Definition
-     (Header_Already_Parsed : Boolean := False) return Node_Id is
-      Access_Loc            : constant Source_Ptr := Token_Ptr;
-      Prot_Flag             : Boolean;
-      Not_Null_Present      : Boolean := False;
-      Type_Def_Node         : Node_Id;
-      Result_Not_Null       : Boolean;
-      Result_Node           : Node_Id;
+     (Header_Already_Parsed : Boolean := False) return Node_Id
+   is
+      Access_Loc       : constant Source_Ptr := Token_Ptr;
+      Prot_Flag        : Boolean;
+      Not_Null_Present : Boolean := False;
+      Type_Def_Node    : Node_Id;
+      Result_Not_Null  : Boolean;
+      Result_Node      : Node_Id;
 
       procedure Check_Junk_Subprogram_Name;
       --  Used in access to subprogram definition cases to check for an
       --  identifier or operator symbol that does not belong.
+
+      --------------------------------
+      -- Check_Junk_Subprogram_Name --
+      --------------------------------
 
       procedure Check_Junk_Subprogram_Name is
          Saved_State : Saved_Scan_State;
@@ -3846,7 +3857,8 @@ package body Ch3 is
    --  Error recovery: cannot raise Error_Resync
 
    function P_Access_Definition
-     (Null_Exclusion_Present : Boolean) return Node_Id is
+     (Null_Exclusion_Present : Boolean) return Node_Id
+   is
       Def_Node  : Node_Id;
       Subp_Node : Node_Id;
 
@@ -3971,7 +3983,9 @@ package body Ch3 is
       Scan_State : Saved_Scan_State;
 
    begin
-      if Style_Check then Style.Check_Indentation; end if;
+      if Style_Check then
+         Style.Check_Indentation;
+      end if;
 
       case Token is
 

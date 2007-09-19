@@ -1,12 +1,12 @@
 /* Definitions of floating-point access for GNU compiler.
    Copyright (C) 1989, 1991, 1994, 1996, 1997, 1998, 1999,
-   2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
+   Software Foundation; either version 3, or (at your option) any later
    version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_REAL_H
 #define GCC_REAL_H
@@ -126,9 +125,6 @@ struct real_format
   /* The radix of the exponent and digits of the significand.  */
   int b;
 
-  /* log2(b).  */
-  int log2_b;
-
   /* Size of the significand in digits of radix B.  */
   int p;
 
@@ -155,6 +151,7 @@ struct real_format
   bool has_denorm;
   bool has_signed_zero;
   bool qnan_msb_set;
+  bool canonical_nan_lsbs_set;
 };
 
 
@@ -194,6 +191,9 @@ extern bool real_isinf (const REAL_VALUE_TYPE *);
 /* Determine whether a floating-point value X is a NaN.  */
 extern bool real_isnan (const REAL_VALUE_TYPE *);
 
+/* Determine whether a floating-point value X is finite.  */
+extern bool real_isfinite (const REAL_VALUE_TYPE *);
+
 /* Determine whether a floating-point value X is negative.  */
 extern bool real_isneg (const REAL_VALUE_TYPE *);
 
@@ -223,8 +223,9 @@ extern HOST_WIDE_INT real_to_integer (const REAL_VALUE_TYPE *);
 extern void real_to_integer2 (HOST_WIDE_INT *, HOST_WIDE_INT *,
 			      const REAL_VALUE_TYPE *);
 
-/* Initialize R from a decimal or hexadecimal string.  */
-extern void real_from_string (REAL_VALUE_TYPE *, const char *);
+/* Initialize R from a decimal or hexadecimal string.  Return -1 if
+   the value underflows, +1 if overflows, and 0 otherwise.  */
+extern int real_from_string (REAL_VALUE_TYPE *, const char *);
 /* Wrapper to allow different internal representation for decimal floats. */
 extern void real_from_string3 (REAL_VALUE_TYPE *, const char *, enum machine_mode);
 
@@ -255,8 +256,10 @@ extern unsigned int real_hash (const REAL_VALUE_TYPE *);
 /* Target formats defined in real.c.  */
 extern const struct real_format ieee_single_format;
 extern const struct real_format mips_single_format;
+extern const struct real_format motorola_single_format;
 extern const struct real_format ieee_double_format;
 extern const struct real_format mips_double_format;
+extern const struct real_format motorola_double_format;
 extern const struct real_format ieee_extended_motorola_format;
 extern const struct real_format ieee_extended_intel_96_format;
 extern const struct real_format ieee_extended_intel_96_round_53_format;
@@ -268,8 +271,6 @@ extern const struct real_format mips_quad_format;
 extern const struct real_format vax_f_format;
 extern const struct real_format vax_d_format;
 extern const struct real_format vax_g_format;
-extern const struct real_format i370_single_format;
-extern const struct real_format i370_double_format;
 extern const struct real_format c4x_single_format;
 extern const struct real_format c4x_extended_format;
 extern const struct real_format real_internal_format;
@@ -384,12 +385,12 @@ extern REAL_VALUE_TYPE dconstm1;
 extern REAL_VALUE_TYPE dconstm2;
 extern REAL_VALUE_TYPE dconsthalf;
 extern REAL_VALUE_TYPE dconstthird;
-extern REAL_VALUE_TYPE dconstpi;
+extern REAL_VALUE_TYPE dconstsqrt2;
 extern REAL_VALUE_TYPE dconste;
 
 /* Function to return a real value (not a tree node)
    from a given integer constant.  */
-REAL_VALUE_TYPE real_value_from_int_cst (tree, tree);
+REAL_VALUE_TYPE real_value_from_int_cst (const_tree, const_tree);
 
 /* Given a CONST_DOUBLE in FROM, store into TO the value it represents.  */
 #define REAL_VALUE_FROM_CONST_DOUBLE(to, from) \
@@ -430,10 +431,14 @@ extern void real_copysign (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 /* Convert between MPFR and REAL_VALUE_TYPE.  The caller is
    responsible for initializing and clearing the MPFR parameter.  */
 
-extern void real_from_mpfr (REAL_VALUE_TYPE *, mpfr_srcptr);
-extern void mpfr_from_real (mpfr_ptr, const REAL_VALUE_TYPE *);
+extern void real_from_mpfr (REAL_VALUE_TYPE *, mpfr_srcptr, tree, mp_rnd_t);
+extern void mpfr_from_real (mpfr_ptr, const REAL_VALUE_TYPE *, mp_rnd_t);
 
 /* Check whether the real constant value given is an integer.  */
 extern bool real_isinteger (const REAL_VALUE_TYPE *c, enum machine_mode mode);
 
+/* Write into BUF the maximum representable finite floating-point
+   number, (1 - b**-p) * b**emax for a given FP format FMT as a hex
+   float string.  BUF must be large enough to contain the result.  */
+extern void get_max_float (const struct real_format *, char *, size_t);
 #endif /* ! GCC_REAL_H */

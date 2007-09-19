@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2005, Free Software Foundation, Inc          --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,10 +39,20 @@ package Prj.Env is
    procedure Create_Mapping_File
      (Project : Project_Id;
       In_Tree : Project_Tree_Ref;
-      Name    : out Name_Id);
+      Name    : out Path_Name_Type);
    --  Create a temporary mapping file for project Project. For each unit
    --  in the closure of immediate sources of Project, put the mapping of
    --  its spec and or body to its file name and path name in this file.
+
+   procedure Create_Mapping_File
+     (Project  : Project_Id;
+      Language : Name_Id;
+      Runtime  : Project_Id;
+      In_Tree  : Project_Tree_Ref;
+      Name     : out Path_Name_Type);
+   --  Create a temporary mapping file for project Project. For each source or
+   --  template of Language in the of Project, put the mapping of its file
+   --  name and path name in this file.
 
    procedure Set_Mapping_File_Initial_State_To_Empty;
    --  When creating a mapping file, create an empty map. This case occurs
@@ -60,6 +70,14 @@ package Prj.Env is
    --  specified in package Compiler of the main project, build (if needed)
    --  a temporary file that contains all configuration pragmas, and specify
    --  the configuration pragmas file in the project data.
+
+   procedure Create_New_Path_File
+     (In_Tree   : Project_Tree_Ref;
+      Path_FD   : out File_Descriptor;
+      Path_Name : out Path_Name_Type);
+   --  Create a new temporary path file. Get the file name in Path_Name.
+   --  The name is normally obtained by increasing the number in
+   --  Temp_Path_File_Name by 1.
 
    function Ada_Include_Path
      (Project : Project_Id;
@@ -135,7 +153,7 @@ package Prj.Env is
      (Source_File_Name : String;
       In_Tree          : Project_Tree_Ref;
       Project          : out Project_Id;
-      Path             : out Name_Id);
+      Path             : out Path_Name_Type);
    --  Returns the project of a source and its path in displayable form
 
    generic

@@ -27,13 +27,17 @@ along with libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <stddef.h>
+#include <limits.h>
 
 #include "libgfortran.h"
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 /* Stupid function to be sure the constructor is always linked in, even
    in the case of static linking.  See PR libfortran/22298 for details.  */
@@ -92,6 +96,48 @@ get_args (int *argc, char ***argv)
 }
 
 
+static const char *exe_path;
+static int please_free_exe_path_when_done;
+
+/* Save the path under which the program was called, for use in the
+   backtrace routines.  */
+void
+store_exe_path (const char * argv0)
+{
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
+
+#ifndef DIR_SEPARATOR   
+#define DIR_SEPARATOR '/'
+#endif
+
+  char buf[PATH_MAX], *cwd, *path;
+
+  if (argv0[0] == '/')
+    {
+      exe_path = argv0;
+      please_free_exe_path_when_done = 0;
+      return;
+    }
+
+  memset (buf, 0, sizeof (buf));
+  cwd = getcwd (buf, sizeof (buf));
+
+  /* exe_path will be cwd + "/" + argv[0] + "\0" */
+  path = malloc (strlen (cwd) + 1 + strlen (argv0) + 1);
+  sprintf (path, "%s%c%s", cwd, DIR_SEPARATOR, argv0);
+  exe_path = path;
+  please_free_exe_path_when_done = 1;
+}
+
+/* Return the full path of the executable.  */
+char *
+full_exe_path (void)
+{
+  return (char *) exe_path;
+}
+
 /* Initialize the runtime library.  */
 
 static void __attribute__((constructor))
@@ -116,7 +162,7 @@ init (void)
   /* if (argc > 1 && strcmp(argv[1], "--resume") == 0) resume();  */
 #endif
 
-  random_seed(NULL,NULL,NULL);
+  random_seed_i4 (NULL, NULL, NULL);
 }
 
 
@@ -126,4 +172,7 @@ static void __attribute__((destructor))
 cleanup (void)
 {
   close_units ();
+  
+  if (please_free_exe_path_when_done)
+    free (exe_path);
 }

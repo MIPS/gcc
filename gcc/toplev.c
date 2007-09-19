@@ -1,13 +1,13 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This is the top level of cc1/c++.
    It parses command args, opens files, invokes the various passes
@@ -83,6 +82,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "value-prof.h"
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
+#include "tree-pass.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -148,9 +148,6 @@ location_t unknown_location = { NULL, 0 };
 location_t input_location;
 
 struct line_maps line_table;
-
-/* Nonzero if it is unsafe to create any new pseudo registers.  */
-int no_new_pseudos;
 
 /* Stack of currently pending input files.  */
 
@@ -240,7 +237,7 @@ int in_system_header = 0;
 int flag_detailed_statistics = 0;
 
 /* A random sequence of characters, unless overridden by user.  */
-const char *flag_random_seed;
+static const char *flag_random_seed;
 
 /* A local time stamp derived from the time of compilation. It will be
    zero if the system cannot provide a time.  It will be -1u, if the
@@ -338,11 +335,6 @@ int flag_dump_rtl_in_asm = 0;
    the support provided depends on the backend.  */
 rtx stack_limit_rtx;
 
-/* If one, renumber instruction UIDs to reduce the number of
-   unused UIDs if there are a lot of instructions.  If greater than
-   one, unconditionally renumber instruction UIDs.  */
-int flag_renumber_insns = 1;
-
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_VALUE it will be set according
    to optimize, debug_info_level and debug_hooks in process_options ().  */
@@ -365,10 +357,6 @@ int align_jumps_max_skip;
 int align_labels_log;
 int align_labels_max_skip;
 int align_functions_log;
-
-/* Like align_functions_log above, but used by front-ends to force the
-   minimum function alignment.  Zero means no alignment is forced.  */
-int force_align_functions_log;
 
 typedef struct
 {
@@ -461,23 +449,20 @@ announce_function (tree decl)
     }
 }
 
-/* Set up a default flag_random_seed and local_tick, unless the user
-   already specified one.  */
+/* Initialize local_tick with the time of day, or -1 if
+   flag_random_seed is set.  */
 
 static void
-randomize (void)
+init_local_tick (void)
 {
   if (!flag_random_seed)
     {
-      unsigned HOST_WIDE_INT value;
-      static char random_seed[HOST_BITS_PER_WIDE_INT / 4 + 3];
-
       /* Get some more or less random data.  */
 #ifdef HAVE_GETTIMEOFDAY
       {
- 	struct timeval tv;
+	struct timeval tv;
 
- 	gettimeofday (&tv, NULL);
+	gettimeofday (&tv, NULL);
 	local_tick = tv.tv_sec * 1000 + tv.tv_usec / 1000;
       }
 #else
@@ -488,15 +473,47 @@ randomize (void)
 	  local_tick = (unsigned) now;
       }
 #endif
-      value = local_tick ^ getpid ();
-
-      sprintf (random_seed, HOST_WIDE_INT_PRINT_HEX, value);
-      flag_random_seed = random_seed;
     }
-  else if (!local_tick)
+  else
     local_tick = -1;
 }
 
+/* Set up a default flag_random_seed and local_tick, unless the user
+   already specified one.  Must be called after init_local_tick.  */
+
+static void
+init_random_seed (void)
+{
+  unsigned HOST_WIDE_INT value;
+  static char random_seed[HOST_BITS_PER_WIDE_INT / 4 + 3];
+
+  value = local_tick ^ getpid ();
+
+  sprintf (random_seed, HOST_WIDE_INT_PRINT_HEX, value);
+  flag_random_seed = random_seed;
+}
+
+/* Obtain the random_seed string.  Unless NOINIT, initialize it if
+   it's not provided in the command line.  */
+
+const char *
+get_random_seed (bool noinit)
+{
+  if (!flag_random_seed && !noinit)
+    init_random_seed ();
+  return flag_random_seed;
+}
+
+/* Modify the random_seed string to VAL.  Return its previous
+   value.  */
+
+const char *
+set_random_seed (const char *val)
+{
+  const char *old = flag_random_seed;
+  flag_random_seed = val;
+  return old;
+}
 
 /* Decode the string P as an integral parameter.
    If the string is indeed an integer return its numeric value else
@@ -682,6 +699,8 @@ output_file_directive (FILE *asm_file, const char *input_name)
 
   if (input_name == NULL)
     input_name = "<stdin>";
+  else
+    input_name = remap_debug_filename (input_name);
 
   len = strlen (input_name);
   na = input_name + len;
@@ -906,9 +925,8 @@ warn_deprecated_use (tree node)
     {
       expanded_location xloc = expand_location (DECL_SOURCE_LOCATION (node));
       warning (OPT_Wdeprecated_declarations,
-	       "%qs is deprecated (declared at %s:%d)",
-	       IDENTIFIER_POINTER (DECL_NAME (node)),
-	       xloc.file, xloc.line);
+	       "%qD is deprecated (declared at %s:%d)",
+	       node, xloc.file, xloc.line);
     }
   else if (TYPE_P (node))
     {
@@ -1059,11 +1077,14 @@ compile_file (void)
   if (flag_mudflap)
     mudflap_finish_file ();
 
+  /* Likewise for emulated thread-local storage.  */
+  if (!targetm.have_tls)
+    emutls_finish ();
+
   output_shared_constant_pool ();
   output_object_blocks ();
 
   /* Write out any pending weak symbol declarations.  */
-
   weak_finish ();
 
   /* Do dbx symbols.  */
@@ -1089,8 +1110,14 @@ compile_file (void)
      string is patterned after the ones produced by native SVR4 compilers.  */
 #ifdef IDENT_ASM_OP
   if (!flag_no_ident)
-    fprintf (asm_out_file, "%s\"GCC: (GNU) %s\"\n",
-	     IDENT_ASM_OP, version_string);
+    {
+      const char *pkg_version = "(GNU) ";
+
+      if (strcmp ("(GCC) ", pkgversion_string))
+	pkg_version = pkgversion_string;
+      fprintf (asm_out_file, "%s\"GCC: %s%s\"\n",
+	       IDENT_ASM_OP, pkg_version, version_string);
+    }
 #endif
 
   /* This must be at the end.  Some target ports emit end of file directives
@@ -1158,12 +1185,16 @@ print_version (FILE *file, const char *indent)
 {
   static const char fmt1[] =
 #ifdef __GNUC__
-    N_("%s%s%s version %s (%s)\n%s\tcompiled by GNU C version %s.\n")
+    N_("%s%s%s %sversion %s (%s)\n%s\tcompiled by GNU C version %s, ")
 #else
-    N_("%s%s%s version %s (%s) compiled by CC.\n")
+    N_("%s%s%s %sversion %s (%s) compiled by CC, ")
 #endif
     ;
   static const char fmt2[] =
+    N_("GMP version %s, MPFR version %s.\n");
+  static const char fmt3[] =
+    N_("warning: %s header version %s differs from library version %s.\n");
+  static const char fmt4[] =
     N_("%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n");
 #ifndef __VERSION__
 #define __VERSION__ "[?]"
@@ -1171,10 +1202,34 @@ print_version (FILE *file, const char *indent)
   fprintf (file,
 	   file == stderr ? _(fmt1) : fmt1,
 	   indent, *indent != 0 ? " " : "",
-	   lang_hooks.name, version_string, TARGET_NAME,
+	   lang_hooks.name, pkgversion_string, version_string, TARGET_NAME,
 	   indent, __VERSION__);
+
+  /* We need to stringify the GMP macro values.  Ugh, gmp_version has
+     two string formats, "i.j.k" and "i.j" when k is zero.  */
+#define GCC_GMP_STRINGIFY_VERSION3(X) #X
+#define GCC_GMP_STRINGIFY_VERSION2(X) GCC_GMP_STRINGIFY_VERSION3(X)
+#if __GNU_MP_VERSION_PATCHLEVEL == 0
+#define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
+  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR)
+#else
+#define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
+  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR) "." \
+  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_PATCHLEVEL)
+#endif
   fprintf (file,
 	   file == stderr ? _(fmt2) : fmt2,
+	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING);
+  if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
+    fprintf (file,
+	     file == stderr ? _(fmt3) : fmt3,
+	     "GMP", GCC_GMP_STRINGIFY_VERSION, gmp_version);
+  if (strcmp (MPFR_VERSION_STRING, mpfr_get_version ()))
+    fprintf (file,
+	     file == stderr ? _(fmt3) : fmt3,
+	     "MPFR", MPFR_VERSION_STRING, mpfr_get_version ());
+  fprintf (file,
+	   file == stderr ? _(fmt4) : fmt4,
 	   indent, *indent != 0 ? " " : "",
 	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
@@ -1254,7 +1309,7 @@ print_single_switch (print_switch_fn_type print_fn,
 {
   /* The ultrix fprintf returns 0 on success, so compute the result
      we want here since we need it for the following test.  The +1
-     is for the seperator character that will probably be emitted.  */
+     is for the separator character that will probably be emitted.  */
   int len = strlen (text) + 1;
 
   if (pos != 0
@@ -1285,7 +1340,8 @@ print_switch_values (print_switch_fn_type print_fn)
 
   /* Fill in the -frandom-seed option, if the user didn't pass it, so
      that it can be printed below.  This helps reproducibility.  */
-  randomize ();
+  if (!flag_random_seed)
+    init_random_seed ();
 
   /* Print the options as passed.  */
   pos = print_single_switch (print_fn, pos,
@@ -1545,7 +1601,7 @@ default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
       pp_string (pp, n);
     }
   else
-    dump_generic_node (pp, t, 0, 0, 0);
+    dump_generic_node (pp, t, 0, TDF_DIAGNOSTIC, 0);
 
   return true;
 }
@@ -1634,6 +1690,31 @@ target_supports_section_anchors_p (void)
   return true;
 }
 
+/* Default the align_* variables to 1 if they're still unset, and
+   set up the align_*_log variables.  */
+static void
+init_alignments (void)
+{
+  if (align_loops <= 0)
+    align_loops = 1;
+  if (align_loops_max_skip > align_loops)
+    align_loops_max_skip = align_loops - 1;
+  align_loops_log = floor_log2 (align_loops * 2 - 1);
+  if (align_jumps <= 0)
+    align_jumps = 1;
+  if (align_jumps_max_skip > align_jumps)
+    align_jumps_max_skip = align_jumps - 1;
+  align_jumps_log = floor_log2 (align_jumps * 2 - 1);
+  if (align_labels <= 0)
+    align_labels = 1;
+  align_labels_log = floor_log2 (align_labels * 2 - 1);
+  if (align_labels_max_skip > align_labels)
+    align_labels_max_skip = align_labels - 1;
+  if (align_functions <= 0)
+    align_functions = 1;
+  align_functions_log = floor_log2 (align_functions * 2 - 1);
+}
+
 /* Process the options that have been parsed.  */
 static void
 process_options (void)
@@ -1678,23 +1759,6 @@ process_options (void)
     }
   else
     aux_base_name = "gccaux";
-
-  /* Set up the align_*_log variables, defaulting them to 1 if they
-     were still unset.  */
-  if (align_loops <= 0) align_loops = 1;
-  if (align_loops_max_skip > align_loops || !align_loops)
-    align_loops_max_skip = align_loops - 1;
-  align_loops_log = floor_log2 (align_loops * 2 - 1);
-  if (align_jumps <= 0) align_jumps = 1;
-  if (align_jumps_max_skip > align_jumps || !align_jumps)
-    align_jumps_max_skip = align_jumps - 1;
-  align_jumps_log = floor_log2 (align_jumps * 2 - 1);
-  if (align_labels <= 0) align_labels = 1;
-  align_labels_log = floor_log2 (align_labels * 2 - 1);
-  if (align_labels_max_skip > align_labels || !align_labels)
-    align_labels_max_skip = align_labels - 1;
-  if (align_functions <= 0) align_functions = 1;
-  align_functions_log = floor_log2 (align_functions * 2 - 1);
 
   /* Unrolling all loops implies that standard loop unrolling must also
      be done.  */
@@ -1830,7 +1894,8 @@ process_options (void)
   if (debug_info_level < DINFO_LEVEL_NORMAL
       || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
     {
-      if (flag_var_tracking == 1)
+      if (flag_var_tracking == 1
+	  || flag_var_tracking_uninit == 1)
         {
 	  if (debug_info_level < DINFO_LEVEL_NORMAL)
 	    warning (0, "variable tracking requested, but useless unless "
@@ -1840,6 +1905,7 @@ process_options (void)
 		     "by this debug format");
 	}
       flag_var_tracking = 0;
+      flag_var_tracking_uninit = 0;
     }
 
   if (flag_rename_registers == AUTODETECT_VALUE)
@@ -1848,6 +1914,12 @@ process_options (void)
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  /* If the user specifically requested variable tracking with tagging
+     uninitialized variables, we need to turn on variable tracking.
+     (We already determined above that variable tracking is feasible.)  */
+  if (flag_var_tracking_uninit)
+    flag_var_tracking = 1;
 
   /* If auxiliary info generation is desired, open the output file.
      This goes in the same directory as the source file--unlike
@@ -1939,7 +2011,50 @@ process_options (void)
     }
 }
 
-/* Initialize the compiler back end.  */
+/* This function can be called multiple times to reinitialize the compiler
+   back end when register classes or instruction sets have changed,
+   before each function.  */
+static void
+backend_init_target (void)
+{
+  /* Initialize alignment variables.  */
+  init_alignments ();
+
+  /* This reinitializes hard_frame_pointer, and calls init_reg_modes_target()
+     to initialize reg_raw_mode[].  */
+  init_emit_regs ();
+
+  /* This invokes target hooks to set fixed_reg[] etc, which is
+     mode-dependent.  */
+  init_regs ();
+
+  /* This depends on stack_pointer_rtx.  */
+  init_fake_stack_mems ();
+
+  /* Sets static_base_value[HARD_FRAME_POINTER_REGNUM], which is
+     mode-dependent.  */
+  init_alias_target ();
+
+  /* Depends on HARD_FRAME_POINTER_REGNUM.  */
+  init_reload ();
+
+  /* The following initialization functions need to generate rtl, so
+     provide a dummy function context for them.  */
+  init_dummy_function_start ();
+
+  /* rtx_cost is mode-dependent, so cached values need to be recomputed
+     on a mode change.  */
+  init_expmed ();
+
+  /* We may need to recompute regno_save_code[] and regno_restore_code[]
+     after a mode change as well.  */
+  if (flag_caller_saves)
+    init_caller_save ();
+  expand_dummy_function_end ();
+}
+
+/* Initialize the compiler back end.  This function is called only once,
+   when starting the compiler.  */
 static void
 backend_init (void)
 {
@@ -1952,19 +2067,35 @@ backend_init (void)
 		    || flag_test_coverage);
 
   init_rtlanal ();
-  init_regs ();
-  init_fake_stack_mems ();
-  init_alias_once ();
-  init_reload ();
+  init_inline_once ();
   init_varasm_once ();
+
+  /* Initialize the target-specific back end pieces.  */
+  backend_init_target ();
   init_ira_once ();
+}
+
+/* Initialize things that are both lang-dependent and target-dependent.
+   This function can be called more than once if target parameters change.  */
+static void
+lang_dependent_init_target (void)
+{
+  /* This creates various _DECL nodes, so needs to be called after the
+     front end is initialized.  It also depends on the HAVE_xxx macros
+     generated from the target machine description.  */
+  init_optabs ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
   init_dummy_function_start ();
-  init_expmed ();
-  if (flag_caller_saves)
-    init_caller_save ();
+
+  /* Do the target-specific parts of expr initialization.  */
+  init_expr_target ();
+
+  /* Although the actions of init_set_costs are language-independent,
+     it uses optabs, so we cannot call it from backend_init.  */
+  init_set_costs ();
+
   expand_dummy_function_end ();
 }
 
@@ -1989,16 +2120,12 @@ lang_dependent_init (const char *name)
 
   init_asm_output (name);
 
-  /* These create various _DECL nodes, so need to be called after the
+  /* This creates various _DECL nodes, so needs to be called after the
      front end is initialized.  */
   init_eh ();
-  init_optabs ();
 
-  /* The following initialization functions need to generate rtl, so
-     provide a dummy function context for them.  */
-  init_dummy_function_start ();
-  init_expr_once ();
-  expand_dummy_function_end ();
+  /* Do the target-specific parts of the initialization.  */
+  lang_dependent_init_target ();
 
   /* If dbx symbol table desired, initialize writing it and output the
      predefined types.  */
@@ -2016,6 +2143,32 @@ lang_dependent_init (const char *name)
   timevar_pop (TV_SYMOUT);
 
   return 1;
+}
+
+
+/* Reinitialize everything when target parameters, such as register usage,
+   have changed.  */
+void
+target_reinit (void)
+{
+  /* Reinitialise RTL backend.  */
+  backend_init_target ();
+
+  /* Reinitialize lang-dependent parts.  */
+  lang_dependent_init_target ();
+}
+
+void
+dump_memory_report (bool final)
+{
+  ggc_print_statistics ();
+  stringpool_statistics ();
+  dump_tree_statistics ();
+  dump_rtx_statistics ();
+  dump_varray_statistics ();
+  dump_alloc_pool_statistics ();
+  dump_bitmap_statistics ();
+  dump_ggc_loc_statistics (final);
 }
 
 /* Clean up: close opened files, etc.  */
@@ -2046,19 +2199,7 @@ finalize (void)
   finish_optimization_passes ();
 
   if (mem_report)
-    {
-      ggc_print_statistics ();
-      stringpool_statistics ();
-      dump_tree_statistics ();
-      dump_rtx_statistics ();
-      dump_varray_statistics ();
-      dump_alloc_pool_statistics ();
-      dump_bitmap_statistics ();
-      dump_ggc_loc_statistics ();
-    }
-
-  /* Free up memory for the benefit of leak detectors.  */
-  free_reg_info ();
+    dump_memory_report (true);
 
   /* Language-specific end of compilation actions.  */
   lang_hooks.finish ();
@@ -2118,7 +2259,7 @@ toplev_main (unsigned int argc, const char **argv)
      enough to default flags appropriately.  */
   decode_options (argc, argv);
 
-  randomize ();
+  init_local_tick ();
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)

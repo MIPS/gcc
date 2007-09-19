@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
-   Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+   2007 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef _S390_H
 #define _S390_H
@@ -51,7 +50,8 @@ enum processor_flags
   PF_IEEE_FLOAT = 1,
   PF_ZARCH = 2,
   PF_LONG_DISPLACEMENT = 4,
-  PF_EXTIMM = 8
+  PF_EXTIMM = 8,
+  PF_DFP = 16
 };
 
 extern enum processor_type s390_tune;
@@ -68,11 +68,15 @@ extern enum processor_flags s390_arch_flags;
 	(s390_arch_flags & PF_LONG_DISPLACEMENT)
 #define TARGET_CPU_EXTIMM \
  	(s390_arch_flags & PF_EXTIMM)
+#define TARGET_CPU_DFP \
+ 	(s390_arch_flags & PF_DFP)
 
 #define TARGET_LONG_DISPLACEMENT \
        (TARGET_ZARCH && TARGET_CPU_LONG_DISPLACEMENT)
 #define TARGET_EXTIMM \
        (TARGET_ZARCH && TARGET_CPU_EXTIMM)
+#define TARGET_DFP \
+       (TARGET_ZARCH && TARGET_CPU_DFP)
 
 /* Run-time target specification.  */
 
@@ -98,14 +102,10 @@ extern enum processor_flags s390_arch_flags;
     }							\
   while (0)
 
-/* ??? Once this actually works, it could be made a runtime option.  */
-#define TARGET_IBM_FLOAT           0
-#define TARGET_IEEE_FLOAT          1
-
 #ifdef DEFAULT_TARGET_64BIT
-#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH | MASK_HARD_FLOAT)
+#define TARGET_DEFAULT             (MASK_64BIT | MASK_ZARCH)
 #else
-#define TARGET_DEFAULT             MASK_HARD_FLOAT
+#define TARGET_DEFAULT             0
 #endif
 
 /* Support for configure-time defaults.  */
@@ -141,6 +141,29 @@ extern enum processor_flags s390_arch_flags;
 /* Frame pointer is not used for debugging.  */
 #define CAN_DEBUG_WITHOUT_FP
 
+/* Constants needed to control the TEST DATA CLASS (TDC) instruction.  */
+#define S390_TDC_POSITIVE_ZERO                (1 << 11)
+#define S390_TDC_NEGATIVE_ZERO                (1 << 10)
+#define S390_TDC_POSITIVE_NORMALIZED_NUMBER   (1 << 9)
+#define S390_TDC_NEGATIVE_NORMALIZED_NUMBER   (1 << 8)
+#define S390_TDC_POSITIVE_DENORMALIZED_NUMBER (1 << 7)
+#define S390_TDC_NEGATIVE_DENORMALIZED_NUMBER (1 << 6)
+#define S390_TDC_POSITIVE_INFINITY            (1 << 5)
+#define S390_TDC_NEGATIVE_INFINITY            (1 << 4)
+#define S390_TDC_POSITIVE_QUIET_NAN           (1 << 3)
+#define S390_TDC_NEGATIVE_QUIET_NAN           (1 << 2)
+#define S390_TDC_POSITIVE_SIGNALING_NAN       (1 << 1)
+#define S390_TDC_NEGATIVE_SIGNALING_NAN       (1 << 0)
+
+#define S390_TDC_SIGNBIT_SET (S390_TDC_NEGATIVE_ZERO \
+                          | S390_TDC_NEGATIVE_NORMALIZED_NUMBER \
+                          | S390_TDC_NEGATIVE_DENORMALIZED_NUMBER\
+                          | S390_TDC_NEGATIVE_INFINITY \
+                          | S390_TDC_NEGATIVE_QUIET_NAN \
+			  | S390_TDC_NEGATIVE_SIGNALING_NAN )
+
+#define S390_TDC_INFINITY (S390_TDC_POSITIVE_INFINITY \
+			  | S390_TDC_NEGATIVE_INFINITY )
 
 /* In libgcc2, determine target settings as compile-time constants.  */
 #ifdef IN_LIBGCC2
@@ -204,10 +227,6 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
   (LEVEL == SAVE_FUNCTION ? VOIDmode    \
   : LEVEL == SAVE_NONLOCAL ? (TARGET_64BIT ? OImode : TImode) : Pmode)
 
-/* Define target floating point format.  */
-#define TARGET_FLOAT_FORMAT \
-  (TARGET_IEEE_FLOAT? IEEE_FLOAT_FORMAT : IBM_FLOAT_FORMAT)
-
 
 /* Type layout.  */
 
@@ -264,7 +283,7 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 /* Standard register usage.  */
 #define GENERAL_REGNO_P(N)	((int)(N) >= 0 && (N) < 16)
 #define ADDR_REGNO_P(N)		((N) >= 1 && (N) < 16)
-#define FP_REGNO_P(N)		((N) >= 16 && (N) < (TARGET_IEEE_FLOAT? 32 : 20))
+#define FP_REGNO_P(N)		((N) >= 16 && (N) < 32)
 #define CC_REGNO_P(N)		((N) == 33)
 #define FRAME_REGNO_P(N)	((N) == 32 || (N) == 34 || (N) == 35)
 #define ACCESS_REGNO_P(N)	((N) == 36 || (N) == 37)
@@ -483,19 +502,11 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define PREFERRED_RELOAD_CLASS(X, CLASS)	\
   s390_preferred_reload_class ((X), (CLASS))
 
-/* We need a secondary reload when loading a PLUS which is
-   not a valid operand for LOAD ADDRESS.  */
-#define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, IN)	\
-  s390_secondary_input_reload_class ((CLASS), (MODE), (IN))
-
-/* We need a secondary reload when storing a double-word
-   to a non-offsettable memory address.  */
-#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, OUT)	\
-  s390_secondary_output_reload_class ((CLASS), (MODE), (OUT))
-
 /* We need secondary memory to move data between GPRs and FPRs.  */
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE) \
- ((CLASS1) != (CLASS2) && ((CLASS1) == FP_REGS || (CLASS2) == FP_REGS))
+ ((CLASS1) != (CLASS2)                                \
+  && ((CLASS1) == FP_REGS || (CLASS2) == FP_REGS)     \
+  && (!TARGET_DFP || GET_MODE_SIZE (MODE) != 8))
 
 /* Get_secondary_mem widens its argument to BITS_PER_WORD which loses on 64bit
    because the movsi and movsf patterns don't handle r/f moves.  */
@@ -816,9 +827,12 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1, *s390_compare_emitte
     || (TARGET_64BIT && (SIZE) == 8) )
 
 /* This macro is used to determine whether store_by_pieces should be
-   called to "memset" storage with byte values other than zero, or
-   to "memcpy" storage when the source is a constant string.  */
+   called to "memcpy" storage when the source is a constant string.  */
 #define STORE_BY_PIECES_P(SIZE, ALIGN) MOVE_BY_PIECES_P (SIZE, ALIGN)
+
+/* Likewise to decide whether to "memset" storage with byte values
+   other than zero.  */
+#define SET_BY_PIECES_P(SIZE, ALIGN) STORE_BY_PIECES_P (SIZE, ALIGN)
 
 /* Don't perform CSE on function addresses.  */
 #define NO_FUNCTION_CSE

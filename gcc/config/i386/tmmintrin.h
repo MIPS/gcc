@@ -1,4 +1,4 @@
-/* Copyright (C) 2006 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -30,7 +30,11 @@
 #ifndef _TMMINTRIN_H_INCLUDED
 #define _TMMINTRIN_H_INCLUDED
 
-#ifdef __SSSE3__
+#ifndef __SSSE3__
+# error "SSSE3 instruction set not enabled"
+#else
+
+/* We need definitions from the SSE3, SSE2 and SSE header files*/
 #include <pmmintrin.h>
 
 static __inline __m128i __attribute__((__always_inline__))
@@ -177,11 +181,23 @@ _mm_sign_pi32 (__m64 __X, __m64 __Y)
   return (__m64) __builtin_ia32_psignd ((__v2si)__X, (__v2si)__Y);
 }
 
+#ifdef __OPTIMIZE__
+static __inline __m128i __attribute__((__always_inline__))
+_mm_alignr_epi8(__m128i __X, __m128i __Y, const int __N)
+{
+  return (__m128i)__builtin_ia32_palignr128 ((__v2di)__X, (__v2di)__Y, __N * 8);}
+
+static __inline __m64 __attribute__((__always_inline__))
+_mm_alignr_pi8(__m64 __X, __m64 __Y, const int __N)
+{
+  return (__m64)__builtin_ia32_palignr ((long long)__X, (long long)__Y, __N * 8);
+}
+#else
 #define _mm_alignr_epi8(__X, __Y, __N) \
   ((__m128i)__builtin_ia32_palignr128 ((__v2di) __X, (__v2di) __Y, (__N) * 8))
-
 #define _mm_alignr_pi8(__X, __Y, __N) \
   ((__m64)__builtin_ia32_palignr ((long long) (__X), (long long) (__Y), (__N) * 8))
+#endif
 
 static __inline __m128i __attribute__((__always_inline__))
 _mm_abs_epi8 (__m128i __X)

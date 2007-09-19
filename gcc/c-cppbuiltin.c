@@ -1,11 +1,12 @@
 /* Define builtin-in macros for the C family front ends.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -58,6 +58,7 @@ static void builtin_define_with_hex_fp_value (const char *, tree,
 static void builtin_define_stdint_macros (void);
 static void builtin_define_type_max (const char *, tree, int);
 static void builtin_define_type_precision (const char *, tree);
+static void builtin_define_type_sizeof (const char *, tree);
 static void builtin_define_float_constants (const char *, 
 					    const char *,
 					    const char *,
@@ -69,6 +70,14 @@ static void
 builtin_define_type_precision (const char *name, tree type)
 {
   builtin_define_with_int_value (name, TYPE_PRECISION (type));
+}
+
+/* Define NAME with value TYPE size_unit.  */
+static void
+builtin_define_type_sizeof (const char *name, tree type)
+{
+  builtin_define_with_int_value (name,
+				 tree_low_cst (TYPE_SIZE_UNIT (type), 1));
 }
 
 /* Define the float.h constants for TYPE using NAME_PREFIX, FP_SUFFIX,
@@ -101,7 +110,7 @@ builtin_define_float_constants (const char *name_prefix,
   /* The radix of the exponent representation.  */
   if (type == float_type_node)
     builtin_define_with_int_value ("__FLT_RADIX__", fmt->b);
-  log10_b = log10_2 * fmt->log2_b;
+  log10_b = log10_2;
 
   /* The number of radix digits, p, in the floating-point significand.  */
   sprintf (name, "__%s_MANT_DIG__", name_prefix);
@@ -190,38 +199,15 @@ builtin_define_float_constants (const char *name_prefix,
   /* Since, for the supported formats, B is always a power of 2, we
      construct the following numbers directly as a hexadecimal
      constants.  */
-
-  /* The maximum representable finite floating-point number,
-     (1 - b**-p) * b**emax  */
-  {
-    int i, n;
-    char *p;
-
-    strcpy (buf, "0x0.");
-    n = fmt->p * fmt->log2_b;
-    for (i = 0, p = buf + 4; i + 3 < n; i += 4)
-      *p++ = 'f';
-    if (i < n)
-      *p++ = "08ce"[n - i];
-    sprintf (p, "p%d", fmt->emax * fmt->log2_b);
-    if (fmt->pnan < fmt->p)
-      {
-	/* This is an IBM extended double format made up of two IEEE
-	   doubles.  The value of the long double is the sum of the
-	   values of the two parts.  The most significant part is
-	   required to be the value of the long double rounded to the
-	   nearest double.  Rounding means we need a slightly smaller
-	   value for LDBL_MAX.  */
-	buf[4 + fmt->pnan / 4] = "7bde"[fmt->pnan % 4];
-      }
-  }
+  get_max_float (fmt, buf, sizeof (buf));
+  
   sprintf (name, "__%s_MAX__", name_prefix);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
   /* The minimum normalized positive floating-point number,
      b**(emin-1).  */
   sprintf (name, "__%s_MIN__", name_prefix);
-  sprintf (buf, "0x1p%d", (fmt->emin - 1) * fmt->log2_b);
+  sprintf (buf, "0x1p%d", fmt->emin - 1);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
   /* The difference between 1 and the least value greater than 1 that is
@@ -230,9 +216,9 @@ builtin_define_float_constants (const char *name_prefix,
   if (fmt->pnan < fmt->p)
     /* This is an IBM extended double format, so 1.0 + any double is
        representable precisely.  */
-      sprintf (buf, "0x1p%d", (fmt->emin - fmt->p) * fmt->log2_b);
+      sprintf (buf, "0x1p%d", fmt->emin - fmt->p);
     else
-      sprintf (buf, "0x1p%d", (1 - fmt->p) * fmt->log2_b);
+      sprintf (buf, "0x1p%d", 1 - fmt->p);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
   /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
@@ -241,7 +227,7 @@ builtin_define_float_constants (const char *name_prefix,
   sprintf (name, "__%s_DENORM_MIN__", name_prefix);
   if (fmt->has_denorm)
     {
-      sprintf (buf, "0x1p%d", (fmt->emin - fmt->p) * fmt->log2_b);
+      sprintf (buf, "0x1p%d", fmt->emin - fmt->p);
       builtin_define_with_hex_fp_value (name, type, decimal_dig,
 					buf, fp_suffix, fp_cast);
     }
@@ -409,8 +395,8 @@ c_cpp_builtins (cpp_reader *pfile)
 	cpp_define (pfile, "__GXX_WEAK__=0");
       if (warn_deprecated)
 	cpp_define (pfile, "__DEPRECATED");
-      if (flag_cpp0x)
-        cpp_define (pfile, "__GXX_EXPERIMENTAL_CPP0X__");
+      if (cxx_dialect == cxx0x)
+        cpp_define (pfile, "__GXX_EXPERIMENTAL_CXX0X__");
     }
   /* Note that we define this for C as well, so that we know if
      __attribute__((cleanup)) will interface with EH.  */
@@ -486,6 +472,11 @@ c_cpp_builtins (cpp_reader *pfile)
   /* Misc.  */
   builtin_define_with_value ("__VERSION__", version_string, 1);
 
+  if (flag_gnu89_inline)
+    cpp_define (pfile, "__GNUC_GNU_INLINE__");
+  else
+    cpp_define (pfile, "__GNUC_STDC_INLINE__");
+
   /* Definitions for LP64 model.  */
   if (TYPE_PRECISION (long_integer_type_node) == 64
       && POINTER_SIZE == 64
@@ -517,6 +508,11 @@ c_cpp_builtins (cpp_reader *pfile)
       builtin_define_with_int_value ("__pic__", flag_pic);
       builtin_define_with_int_value ("__PIC__", flag_pic);
     }
+  if (flag_pie)
+    {
+      builtin_define_with_int_value ("__pie__", flag_pie);
+      builtin_define_with_int_value ("__PIE__", flag_pie);
+    }
 
   if (flag_iso)
     cpp_define (pfile, "__STRICT_ANSI__");
@@ -526,6 +522,33 @@ c_cpp_builtins (cpp_reader *pfile)
 
   if (c_dialect_cxx () && TYPE_UNSIGNED (wchar_type_node))
     cpp_define (pfile, "__WCHAR_UNSIGNED__");
+
+  /* Tell source code if the compiler makes sync_compare_and_swap
+     builtins available.  */
+#ifdef HAVE_sync_compare_and_swapqi
+  if (HAVE_sync_compare_and_swapqi)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1");
+#endif
+
+#ifdef HAVE_sync_compare_and_swaphi
+  if (HAVE_sync_compare_and_swaphi)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2");
+#endif
+
+#ifdef HAVE_sync_compare_and_swapsi
+  if (HAVE_sync_compare_and_swapsi)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4");
+#endif
+
+#ifdef HAVE_sync_compare_and_swapdi
+  if (HAVE_sync_compare_and_swapdi)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8");
+#endif
+
+#ifdef HAVE_sync_compare_and_swapti
+  if (HAVE_sync_compare_and_swapti)
+    cpp_define (pfile, "__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16");
+#endif
 
   /* Make the choice of ObjC runtime visible to source code.  */
   if (c_dialect_objc () && flag_next_runtime)
@@ -549,6 +572,27 @@ c_cpp_builtins (cpp_reader *pfile)
   if (flag_openmp)
     cpp_define (pfile, "_OPENMP=200505");
 
+  if (lang_fortran)
+    cpp_define (pfile, "__GFORTRAN__=1");
+
+  builtin_define_type_sizeof ("__SIZEOF_INT__", integer_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_LONG__", long_integer_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_LONG_LONG__",
+			      long_long_integer_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_SHORT__", short_integer_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_FLOAT__", float_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_DOUBLE__", double_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_LONG_DOUBLE__", long_double_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_SIZE_T__", size_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_WCHAR_T__", wchar_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_WINT_T__", wint_type_node);
+  builtin_define_type_sizeof ("__SIZEOF_PTRDIFF_T__",
+			      unsigned_ptrdiff_type_node);
+  /* ptr_type_node can't be used here since ptr_mode is only set when
+     toplev calls backend_init which is not done with -E switch.  */
+  builtin_define_with_int_value ("__SIZEOF_POINTER__",
+				 POINTER_SIZE / BITS_PER_UNIT);
+
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */
 # define preprocessing_asm_p() (cpp_get_options (pfile)->lang == CLK_ASM)
@@ -567,6 +611,12 @@ c_cpp_builtins (cpp_reader *pfile)
      new appearance would clobber any existing args.  */
   if (TARGET_DECLSPEC)
     builtin_define ("__declspec(x)=__attribute__((x))");
+
+  /* If decimal floating point is supported, tell the user if the
+     alternate format (BID) is used instead of the standard (DPD)
+     format.  */
+  if (ENABLE_DECIMAL_FLOAT && ENABLE_DECIMAL_BID_FORMAT)
+    cpp_define (pfile, "__DECIMAL_BID_FORMAT__");
 }
 
 /* Pass an object-like macro.  If it doesn't lie in the user's

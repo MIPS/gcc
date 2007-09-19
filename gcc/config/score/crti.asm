@@ -102,15 +102,10 @@ _start:
         sw      r9, [r8]+, 4
         bcnz    1b
         la      r0, _stack
-#       jl      _init
-#       la      r4, _end
-#       jl      _init_argv
         ldiu!   r4, 0
         ldiu!   r5, 0
-#       jl      main
         la      r29, main
         brl     r29
-#       jl      exit
         la      r29, exit
         brl     r29
         .end    _start

@@ -189,6 +189,9 @@
 #define si_clgthi(ra,imm)    __builtin_si_clgthi(ra,imm)
 #define si_clgt(ra,rb)       __builtin_si_clgt(ra,rb)
 #define si_clgti(ra,imm)     __builtin_si_clgti(ra,imm)
+#define si_bisled(ra)        __builtin_si_bisled(ra,0)
+#define si_bisledd(ra)       __builtin_si_bisledd(ra,0)
+#define si_bislede(ra)       __builtin_si_bislede(ra,0)
 #define si_fa(ra,rb)         __builtin_si_fa(ra,rb)
 #define si_dfa(ra,rb)        __builtin_si_dfa(ra,rb)
 #define si_fs(ra,rb)         __builtin_si_fs(ra,rb)
@@ -229,6 +232,15 @@
 #define si_rdch(imm)         __builtin_si_rdch(imm)
 #define si_rchcnt(imm)       __builtin_si_rchcnt(imm)
 #define si_wrch(imm,ra)      __builtin_si_wrch(imm,ra)
+
+/* celledp only instructions  */
+#ifdef __SPU_EDP__
+#define si_dfceq(ra,rb)      __builtin_si_dfceq(ra,rb)
+#define si_dfcmeq(ra,rb)     __builtin_si_dfcmeq(ra,rb)
+#define si_dfcgt(ra,rb)      __builtin_si_dfcgt(ra,rb)
+#define si_dfcmgt(ra,rb)     __builtin_si_dfcmgt(ra,rb)
+#define si_dftsv(ra,imm)     __builtin_si_dftsv(ra,imm)
+#endif /* __SPU_EDP__  */
 
 #define si_from_char(scalar)    __builtin_si_from_char(scalar)
 #define si_from_uchar(scalar)   __builtin_si_from_uchar(scalar)
@@ -292,6 +304,7 @@
 #define spu_cmpabsgt(ra,rb)       __builtin_spu_cmpabsgt(ra,rb) 
 #define spu_cmpeq(ra,rb)          __builtin_spu_cmpeq(ra,rb) 
 #define spu_cmpgt(ra,rb)          __builtin_spu_cmpgt(ra,rb) 
+#define spu_testsv(ra,imm)        __builtin_spu_testsv(ra,imm) 
 #define spu_hcmpeq(ra,rb)         __builtin_spu_hcmpeq(ra,rb) 
 #define spu_hcmpgt(ra,rb)         __builtin_spu_hcmpgt(ra,rb) 
 #define spu_cntb(ra)              __builtin_spu_cntb(ra) 

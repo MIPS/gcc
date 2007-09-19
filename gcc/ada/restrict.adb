@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -30,7 +30,6 @@ with Errout;   use Errout;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
 with Lib;      use Lib;
-with Namet;    use Namet;
 with Opt;      use Opt;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
@@ -129,22 +128,32 @@ package body Restrict is
                      Get_File_Name (U, Subunit => False);
 
          begin
-            if not Is_Predefined_File_Name (Fnam) then
+            --  Get file name
+
+            Get_Name_String (Fnam);
+
+            --  Nothing to do if name not at least 5 characters long ending
+            --  in .ads or .adb extension, which we strip.
+
+            if Name_Len < 5
+              or else (Name_Buffer (Name_Len - 3 .. Name_Len) /= ".ads"
+                         and then
+                       Name_Buffer (Name_Len - 4 .. Name_Len) /= ".adb")
+            then
                return;
+            end if;
 
-            --  Predefined spec, needs checking against list
+            --  Strip extension and pad to eight characters
 
-            else
-               --  Pad name to 8 characters with blanks
+            Name_Len := Name_Len - 4;
+            while Name_Len < 8 loop
+               Name_Len := Name_Len + 1;
+               Name_Buffer (Name_Len) := ' ';
+            end loop;
 
-               Get_Name_String (Fnam);
-               Name_Len := Name_Len - 4;
+            --  If predefined unit, check the list of restricted units
 
-               while Name_Len < 8 loop
-                  Name_Len := Name_Len + 1;
-                  Name_Buffer (Name_Len) := ' ';
-               end loop;
-
+            if Is_Predefined_File_Name (Fnam) then
                for J in Unit_Array'Range loop
                   if Name_Len = 8
                     and then Name_Buffer (1 .. 8) = Unit_Array (J).Filenm
@@ -152,6 +161,15 @@ package body Restrict is
                      Check_Restriction (Unit_Array (J).Res_Id, N);
                   end if;
                end loop;
+
+               --  If not predefied unit, then one special check still remains.
+               --  GNAT.Current_Exception is not allowed if we have restriction
+               --  No_Exception_Propagation active.
+
+            else
+               if Name_Buffer (1 .. 8) = "g-curexc" then
+                  Check_Restriction (No_Exception_Propagation, N);
+               end if;
             end if;
          end;
       end if;
@@ -397,7 +415,10 @@ package body Restrict is
 
    function No_Exception_Handlers_Set return Boolean is
    begin
-      return Restrictions.Set (No_Exception_Handlers);
+      return (No_Run_Time_Mode or else Configurable_Run_Time_Mode)
+        and then (Restrictions.Set (No_Exception_Handlers)
+                    or else
+                  Restrictions.Set (No_Exception_Propagation));
    end No_Exception_Handlers_Set;
 
    ----------------------------------
@@ -606,6 +627,23 @@ package body Restrict is
       N : Node_Id)
    is
    begin
+      --  Restriction No_Elaboration_Code must be enforced on a unit by unit
+      --  basis. Hence, we avoid setting the restriction when processing an
+      --  unit which is not the main one being compiled (or its corresponding
+      --  spec). It can happen, for example, when processing an inlined body
+      --  (the package containing the inlined subprogram is analyzed,
+      --  including its pragma Restrictions).
+
+      --  This seems like a very nasty kludge??? This is not the only per unit
+      --  restriction why is this treated specially ???
+
+      if R = No_Elaboration_Code
+        and then Current_Sem_Unit /= Main_Unit
+        and then Cunit (Current_Sem_Unit) /= Library_Unit (Cunit (Main_Unit))
+      then
+         return;
+      end if;
+
       Restrictions.Set (R) := True;
 
       if Restricted_Profile_Cached and Restricted_Profile_Result then

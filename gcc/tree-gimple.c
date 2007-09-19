@@ -1,5 +1,6 @@
 /* Functions to analyze and validate GIMPLE trees.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
    Rewritten by Jason Merrill <jason@redhat.com>
 
@@ -7,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -67,6 +67,7 @@ is_gimple_formal_tmp_rhs (tree t)
     case COMPLEX_EXPR:
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
@@ -165,11 +166,11 @@ is_gimple_addressable (tree t)
 	  || INDIRECT_REF_P (t));
 }
 
-/* Return true if T is function invariant.  Or rather a restricted
+/* Return true if T is a GIMPLE minimal invariant.  It's a restricted
    form of function invariant.  */
 
 bool
-is_gimple_min_invariant (tree t)
+is_gimple_min_invariant (const_tree t)
 {
   switch (TREE_CODE (t))
     {
@@ -178,10 +179,18 @@ is_gimple_min_invariant (tree t)
 
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
       return true;
+
+    /* Vector constant constructors are gimple invariant.  */
+    case CONSTRUCTOR:
+      if (TREE_TYPE (t) && TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
+	return TREE_CONSTANT (t);
+      else
+	return false;
 
     default:
       return false;
@@ -193,7 +202,7 @@ is_gimple_min_invariant (tree t)
 bool
 is_gimple_stmt (tree t)
 {
-  enum tree_code code = TREE_CODE (t);
+  const enum tree_code code = TREE_CODE (t);
 
   switch (code)
     {
@@ -215,6 +224,7 @@ is_gimple_stmt (tree t)
     case TRY_FINALLY_EXPR:
     case EH_FILTER_EXPR:
     case CATCH_EXPR:
+    case CHANGE_DYNAMIC_TYPE_EXPR:
     case ASM_EXPR:
     case RESX_EXPR:
     case PHI_NODE:
@@ -222,6 +232,7 @@ is_gimple_stmt (tree t)
     case OMP_PARALLEL:
     case OMP_FOR:
     case OMP_SECTIONS:
+    case OMP_SECTIONS_SWITCH:
     case OMP_SECTION:
     case OMP_SINGLE:
     case OMP_MASTER:
@@ -413,7 +424,7 @@ is_gimple_cast (tree t)
           || TREE_CODE (t) == FIX_TRUNC_EXPR);
 }
 
-/* Return true if T is a valid op0 of a CALL_EXPR.  */
+/* Return true if T is a valid function operand of a CALL_EXPR.  */
 
 bool
 is_gimple_call_addr (tree t)
@@ -425,18 +436,28 @@ is_gimple_call_addr (tree t)
 /* If T makes a function call, return the corresponding CALL_EXPR operand.
    Otherwise, return NULL_TREE.  */
 
+#define GET_CALL_EXPR_IN_BODY do { \
+  /* FIXME tuples: delete the assertion below when conversion complete.  */ \
+  gcc_assert (TREE_CODE (t) != MODIFY_EXPR); \
+  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT) \
+    t = GIMPLE_STMT_OPERAND (t, 1); \
+  if (TREE_CODE (t) == WITH_SIZE_EXPR) \
+    t = TREE_OPERAND (t, 0); \
+  if (TREE_CODE (t) == CALL_EXPR) \
+    return t; \
+  return NULL_TREE; \
+} while (0)
+
 tree
 get_call_expr_in (tree t)
 {
-  /* FIXME tuples: delete the assertion below when conversion complete.  */
-  gcc_assert (TREE_CODE (t) != MODIFY_EXPR);
-  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
-    t = GIMPLE_STMT_OPERAND (t, 1);
-  if (TREE_CODE (t) == WITH_SIZE_EXPR)
-    t = TREE_OPERAND (t, 0);
-  if (TREE_CODE (t) == CALL_EXPR)
-    return t;
-  return NULL_TREE;
+  GET_CALL_EXPR_IN_BODY;
+}
+
+const_tree
+const_get_call_expr_in (const_tree t)
+{
+  GET_CALL_EXPR_IN_BODY;
 }
 
 /* Given a memory reference expression T, return its base address.
@@ -467,7 +488,7 @@ void
 recalculate_side_effects (tree t)
 {
   enum tree_code code = TREE_CODE (t);
-  int len = TREE_CODE_LENGTH (code);
+  int len = TREE_OPERAND_LENGTH (t);
   int i;
 
   switch (TREE_CODE_CLASS (code))
@@ -495,6 +516,7 @@ recalculate_side_effects (tree t)
     case tcc_unary:       /* a unary arithmetic expression */
     case tcc_binary:      /* a binary arithmetic expression */
     case tcc_reference:   /* a reference */
+    case tcc_vl_exp:        /* a function call */
       TREE_SIDE_EFFECTS (t) = TREE_THIS_VOLATILE (t);
       for (i = 0; i < len; ++i)
 	{

@@ -1,5 +1,5 @@
 /* Support functions for the unwinder.
-   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007  Free Software Foundation, Inc.
    Contributed by Paul Brook
 
    This file is free software; you can redistribute it and/or modify it
@@ -41,6 +41,18 @@
 	EQUIV SYM (\name), SYM (__\name)
 .endm
 
+#if (__ARM_ARCH__ == 4)
+/* Some coprocessors require armv5.  We know this code will never be run on
+   other cpus.  Tell gas to allow armv5, but only mark the objects as armv4.
+ */
+.arch armv5t
+#ifdef __ARM_ARCH_4T__
+.object_arch armv4t
+#else
+.object_arch armv4
+#endif
+#endif
+
 /* r0 points to a 16-word block.  Upload these values to the actual core
    state.  */
 ARM_FUNC_START restore_core_regs
@@ -49,7 +61,14 @@ ARM_FUNC_START restore_core_regs
 	   this.  */
 	add r1, r0, #52
 	ldmia r1, {r3, r4, r5}  /* {sp, lr, pc}.  */
-#ifdef __INTERWORKING__
+#if defined(__thumb2__)
+	/* Thumb-2 doesn't allow sp in a load-multiple instruction, so push
+	   the target address onto the target stack.  This is safe as
+	   we're always returning to somewhere further up the call stack.  */
+	mov ip, r3
+	mov lr, r4
+	str r5, [ip, #-4]!
+#elif defined(__INTERWORKING__)
 	/* Restore pc into ip.  */
 	mov r2, r5
 	stmfd sp!, {r2, r3, r4}
@@ -58,8 +77,12 @@ ARM_FUNC_START restore_core_regs
 #endif
 	/* Don't bother restoring ip.  */
 	ldmia r0, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp}
+#if defined(__thumb2__)
+	/* Pop the return address off the target stack.  */
+	mov sp, ip
+	pop {pc}
+#elif defined(__INTERWORKING__)
 	/* Pop the three registers we pushed earlier.  */
-#ifdef __INTERWORKING__
 	ldmfd sp, {ip, sp, lr}
 	bx ip
 #else
@@ -108,13 +131,79 @@ ARM_FUNC_START gnu_Unwind_Save_VFP_D_16_to_31
 	stcl  p11,cr0,[r0],{0x20} /* vstm r0, {d16-d31} */
 	RET
 
+ARM_FUNC_START gnu_Unwind_Restore_WMMXD
+	/* Use the generic coprocessor form so that gas doesn't complain
+	   on non-iWMMXt targets.  */
+	ldcl  p1, cr0, [r0], #8 /* wldrd wr0, [r0], #8 */
+	ldcl  p1, cr1, [r0], #8 /* wldrd wr1, [r0], #8 */
+	ldcl  p1, cr2, [r0], #8 /* wldrd wr2, [r0], #8 */
+	ldcl  p1, cr3, [r0], #8 /* wldrd wr3, [r0], #8 */
+	ldcl  p1, cr4, [r0], #8 /* wldrd wr4, [r0], #8 */
+	ldcl  p1, cr5, [r0], #8 /* wldrd wr5, [r0], #8 */
+	ldcl  p1, cr6, [r0], #8 /* wldrd wr6, [r0], #8 */
+	ldcl  p1, cr7, [r0], #8 /* wldrd wr7, [r0], #8 */
+	ldcl  p1, cr8, [r0], #8 /* wldrd wr8, [r0], #8 */
+	ldcl  p1, cr9, [r0], #8 /* wldrd wr9, [r0], #8 */
+	ldcl  p1, cr10, [r0], #8 /* wldrd wr10, [r0], #8 */
+	ldcl  p1, cr11, [r0], #8 /* wldrd wr11, [r0], #8 */
+	ldcl  p1, cr12, [r0], #8 /* wldrd wr12, [r0], #8 */
+	ldcl  p1, cr13, [r0], #8 /* wldrd wr13, [r0], #8 */
+	ldcl  p1, cr14, [r0], #8 /* wldrd wr14, [r0], #8 */
+	ldcl  p1, cr15, [r0], #8 /* wldrd wr15, [r0], #8 */
+	RET
+
+ARM_FUNC_START gnu_Unwind_Save_WMMXD
+	/* Use the generic coprocessor form so that gas doesn't complain
+	   on non-iWMMXt targets.  */
+	stcl  p1, cr0, [r0], #8 /* wstrd wr0, [r0], #8 */
+	stcl  p1, cr1, [r0], #8 /* wstrd wr1, [r0], #8 */
+	stcl  p1, cr2, [r0], #8 /* wstrd wr2, [r0], #8 */
+	stcl  p1, cr3, [r0], #8 /* wstrd wr3, [r0], #8 */
+	stcl  p1, cr4, [r0], #8 /* wstrd wr4, [r0], #8 */
+	stcl  p1, cr5, [r0], #8 /* wstrd wr5, [r0], #8 */
+	stcl  p1, cr6, [r0], #8 /* wstrd wr6, [r0], #8 */
+	stcl  p1, cr7, [r0], #8 /* wstrd wr7, [r0], #8 */
+	stcl  p1, cr8, [r0], #8 /* wstrd wr8, [r0], #8 */
+	stcl  p1, cr9, [r0], #8 /* wstrd wr9, [r0], #8 */
+	stcl  p1, cr10, [r0], #8 /* wstrd wr10, [r0], #8 */
+	stcl  p1, cr11, [r0], #8 /* wstrd wr11, [r0], #8 */
+	stcl  p1, cr12, [r0], #8 /* wstrd wr12, [r0], #8 */
+	stcl  p1, cr13, [r0], #8 /* wstrd wr13, [r0], #8 */
+	stcl  p1, cr14, [r0], #8 /* wstrd wr14, [r0], #8 */
+	stcl  p1, cr15, [r0], #8 /* wstrd wr15, [r0], #8 */
+	RET
+
+ARM_FUNC_START gnu_Unwind_Restore_WMMXC
+	/* Use the generic coprocessor form so that gas doesn't complain
+	   on non-iWMMXt targets.  */
+	ldc2  p1, cr8, [r0], #4 /* wldrw wcgr0, [r0], #4 */
+	ldc2  p1, cr9, [r0], #4 /* wldrw wcgr1, [r0], #4 */
+	ldc2  p1, cr10, [r0], #4 /* wldrw wcgr2, [r0], #4 */
+	ldc2  p1, cr11, [r0], #4 /* wldrw wcgr3, [r0], #4 */
+	RET
+
+ARM_FUNC_START gnu_Unwind_Save_WMMXC
+	/* Use the generic coprocessor form so that gas doesn't complain
+	   on non-iWMMXt targets.  */
+	stc2  p1, cr8, [r0], #4 /* wstrw wcgr0, [r0], #4 */
+	stc2  p1, cr9, [r0], #4 /* wstrw wcgr1, [r0], #4 */
+	stc2  p1, cr10, [r0], #4 /* wstrw wcgr2, [r0], #4 */
+	stc2  p1, cr11, [r0], #4 /* wstrw wcgr3, [r0], #4 */
+	RET
+
 /* Wrappers to save core registers, then call the real routine.   */
 
 .macro  UNWIND_WRAPPER name nargs
 	ARM_FUNC_START \name
 	/* Create a phase2_vrs structure.  */
 	/* Split reg push in two to ensure the correct value for sp.  */
+#if defined(__thumb2__)
+	mov ip, sp
+	push {lr} /* PC is ignored.  */
+	push {ip, lr} /* Push original SP and LR.  */
+#else
 	stmfd sp!, {sp, lr, pc}
+#endif
 	stmfd sp!, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, sl, fp, ip}
 	
 	/* Demand-save flags, plus an extra word for alignment.  */
@@ -123,7 +212,7 @@ ARM_FUNC_START gnu_Unwind_Save_VFP_D_16_to_31
 
 	/* Point r1 at the block.  Pass r[0..nargs) unchanged.  */
 	add r\nargs, sp, #4
-#if defined(__thumb__)
+#if defined(__thumb__) && !defined(__thumb2__)
 	/* Switch back to thumb mode to avoid interworking hassle.  */
 	adr ip, .L1_\name
 	orr ip, ip, #1

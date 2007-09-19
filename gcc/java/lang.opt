@@ -1,11 +1,11 @@
 ; Options for the Java front end.
-; Copyright (C) 2003, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2005, 2007 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
 ; GCC is free software; you can redistribute it and/or modify it under
 ; the terms of the GNU General Public License as published by the Free
-; Software Foundation; either version 2, or (at your option) any later
+; Software Foundation; either version 3, or (at your option) any later
 ; version.
 ; 
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@
 ; for more details.
 ; 
 ; You should have received a copy of the GNU General Public License
-; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-; 02110-1301, USA.
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
 
 ; See the GCC internals manual for a description of this file's format.
 
@@ -26,7 +25,7 @@ Language
 Java
 
 I
-Java Joined
+Java Joined Separate
 ; Documented for C
 
 M
@@ -81,6 +80,9 @@ fCLASSPATH=
 Java JoinedOrMissing RejectNegative
 --CLASSPATH	Deprecated; use --classpath instead
 
+faux-classpath
+Java Separate RejectNegative Undocumented
+
 fassert
 Java Var(flag_assert) Init(1)
 Permit the use of the assert keyword
@@ -134,9 +136,15 @@ fextdirs=
 Java Joined RejectNegative
 --extdirs=<path>	Set the extension directory path
 
+fsource-filename=
+Java Joined Undocumented 
+
 ffilelist-file
 Java Var(flag_filelist_file)
 Input file is a file with a list of filenames to compile
+
+fsaw-java-file
+Java Undocumented RejectNegative
 
 fforce-classes-archive-check
 Java Var(flag_force_classes_archive_check)
@@ -188,5 +196,175 @@ fbootstrap-classes
 Java Var(flag_bootstrap_classes)
 Generated should be loaded by bootstrap loader
 
+fsource=
+Java Joined
+Set the source language version
+
+ftarget=
+Java Joined
+Set the target VM version
+
 version
 Java
+
+;
+; Warnings handled by ecj.
+; FIXME: document them
+;
+
+Wconstructor-name
+Java
+
+Wpkg-default-method
+Java
+
+Wmasked-catch-block
+Java
+
+Wall-deprecation
+Java
+
+Wunused-local
+Java
+
+Wunused-argument
+Java
+
+Wunused-import
+Java
+
+Wunused-private
+Java
+
+Wunused-label
+Java
+
+Wlocal-hiding
+Java
+
+Wfield-hiding
+Java
+
+Wspecial-param-hiding
+Java
+
+Wcondition-assign
+Java
+
+Wsynthetic-access
+Java
+
+Wnls
+Java
+
+Wstatic-receiver
+Java
+
+Windirect-static
+Java
+
+Wno-effect-assign
+Java
+
+Wintf-non-inherited
+Java
+
+Wchar-concat
+Java
+
+Wserial
+Java
+
+Wempty-block
+Java
+
+Wuseless-type-check
+Java
+
+Wuncheck
+Java
+
+Wraw
+Java
+
+Wfinal-bound
+Java
+
+Wsuppress
+Java
+
+Wwarning-token
+Java
+
+Wunnecessary-else
+Java
+
+Wjavadoc
+Java
+
+Wall-javadoc
+Java
+
+Wtasks
+Java
+
+Wassert-identifier
+Java
+
+Wenum-identifier
+Java
+
+Wfinally
+Java
+
+Wunused-thrown
+Java
+
+Wunqualified-field
+Java
+
+Wtype-hiding
+Java
+
+Wvarargs-cast
+Java
+
+Wnull
+Java
+
+Wboxing
+Java
+
+Wover-ann
+Java
+
+Wdep-ann
+Java
+
+Wintf-annotation
+Java
+
+Wenum-switch
+Java
+
+Whiding
+Java
+
+Wstatic-access
+Java
+
+Wunused
+Java
+
+Wparam-assign
+Java
+
+Wdiscouraged
+Java
+
+Wforbidden
+Java
+
+Wfallthrough
+Java
+

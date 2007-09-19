@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -51,8 +51,7 @@ with Tbuild;   use Tbuild;
 ---------
 
 function Par
-  (Configuration_Pragmas : Boolean;
-   From_Limited_With     : Boolean := False) return List_Id
+  (Configuration_Pragmas : Boolean) return List_Id
 is
    Num_Library_Units : Natural := 0;
    --  Count number of units parsed (relevant only in syntax check only mode,
@@ -142,7 +141,7 @@ is
    --  whose body is required and has not yet been found. The prefix SIS
    --  stands for "Subprogram IS" handling.
 
-   SIS_Entry_Active : Boolean;
+   SIS_Entry_Active : Boolean := False;
    --  Set True to indicate that an entry is active (i.e. that a subprogram
    --  declaration has been encountered, and no body for this subprogram has
    --  been encountered). The remaining fields are valid only if this is True.
@@ -184,7 +183,7 @@ is
    --   of such a nested region. Again, like case 2, this causes us to miss
    --   some nested cases, but it doesn't seen worth the effort to stack and
    --   unstack the SIS information. Maybe we will reconsider this if we ever
-   --   get a complaint about a missed case :-)
+   --   get a complaint about a missed case.
 
    --   4. We encounter a valid pragma INTERFACE or IMPORT that effectively
    --   supplies the missing body. In this case we reset the entry.
@@ -605,22 +604,22 @@ is
       --  declaration of this type for details.
 
       function P_Interface_Type_Definition
-        (Abstract_Present : Boolean;
-         Is_Synchronized  : Boolean) return Node_Id;
+        (Abstract_Present : Boolean) return Node_Id;
       --  Ada 2005 (AI-251): Parse the interface type definition part. Abstract
       --  Present indicates if the reserved word "abstract" has been previously
       --  found. It is used to report an error message because interface types
-      --  are by definition abstract tagged. Is_Synchronized is True in case of
-      --  task interfaces, protected interfaces, and synchronized interfaces;
-      --  it is used to generate a record_definition node. In the rest of cases
-      --  (limited interfaces and interfaces) we generate a record_definition
+      --  are by definition abstract tagged. We generate a record_definition
       --  node if the list of interfaces is empty; otherwise we generate a
       --  derived_type_definition node (the first interface in this list is the
       --  ancestor interface).
 
-      function P_Null_Exclusion return Boolean;
-      --  Ada 2005 (AI-231): Parse the null-excluding part. True indicates
-      --  that the null-excluding part was present.
+      function P_Null_Exclusion
+        (Allow_Anonymous_In_95 : Boolean := False) return Boolean;
+      --  Ada 2005 (AI-231): Parse the null-excluding part. A True result
+      --  indicates that the null-excluding part was present.
+      --  Allow_Anonymous_In_95 is True if we are in a context that allows
+      --  anonymous access types in Ada 95, in which case "not null" is legal
+      --  if it precedes "access".
 
       function P_Subtype_Indication
         (Not_Null_Present : Boolean := False) return Node_Id;
@@ -1042,6 +1041,10 @@ is
       --  it is returned unchanged. Otherwise an error message is issued
       --  and Error is returned.
 
+      procedure Check_No_Right_Paren;
+      --  Called to check that the current token is not a right paren. If it
+      --  is, then an error is given, and the right parenthesis is scanned out.
+
       function Comma_Present return Boolean;
       --  Used in comma delimited lists to determine if a comma is present, or
       --  can reasonably be assumed to have been present (an error message is
@@ -1088,10 +1091,6 @@ is
       --  appear due to a common error (e.g. after the type mark in a procedure
       --  parameter. If a constraint is present, an error message is posted,
       --  and the constraint is scanned and discarded.
-
-      function No_Right_Paren (Expr : Node_Id) return Node_Id;
-      --  Function to check for no right paren at end of expression, returns
-      --  its argument if no right paren, else flags paren and returns Error.
 
       procedure Push_Scope_Stack;
       pragma Inline (Push_Scope_Stack);
@@ -1362,13 +1361,9 @@ begin
 
                      Name := Uname (Uname'First .. Uname'Last - 2);
 
-                     if Name = "ada"                    or else
-                        Name = "calendar"               or else
-                        Name = "interfaces"             or else
-                        Name = "system"                 or else
-                        Name = "machine_code"           or else
-                        Name = "unchecked_conversion"   or else
-                        Name = "unchecked_deallocation"
+                     if Name = "ada"         or else
+                        Name = "interfaces"  or else
+                        Name = "system"
                      then
                         Error_Msg
                           ("language defined units may not be recompiled",

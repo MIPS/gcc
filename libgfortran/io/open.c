@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005
+/* Copyright (C) 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -109,12 +109,13 @@ static const st_option convert_opt[] =
   { NULL, 0}
 };
 
+
 /* Given a unit, test to see if the file is positioned at the terminal
    point, and if so, change state from NO_ENDFILE flag to AT_ENDFILE.
    This prevents us from changing the state from AFTER_ENDFILE to
    AT_ENDFILE.  */
 
-void
+static void
 test_endfile (gfc_unit * u)
 {
   if (u->endfile == NO_ENDFILE && file_length (u->s) == file_position (u->s))
@@ -209,7 +210,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       u->current_record = 0;
       u->last_record = 0;
 
-      test_endfile (u);		/* We might be at the end.  */
+      test_endfile (u);
       break;
 
     case POSITION_APPEND:
@@ -344,7 +345,12 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 	break;
 
       opp->file = tmpname;
+#ifdef HAVE_SNPRINTF
+      opp->file_len = snprintf(opp->file, sizeof (tmpname), "fort.%d", 
+			       (int) opp->common.unit);
+#else
       opp->file_len = sprintf(opp->file, "fort.%d", (int) opp->common.unit);
+#endif
       break;
 
     default:
@@ -383,19 +389,19 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
       switch (errno)
 	{
 	case ENOENT: 
-	  st_sprintf (msg, "File '%s' does not exist", path);
+	  sprintf (msg, "File '%s' does not exist", path);
 	  break;
 
 	case EEXIST:
-	  st_sprintf (msg, "File '%s' already exists", path);
+	  sprintf (msg, "File '%s' already exists", path);
 	  break;
 
 	case EACCES:
-	  st_sprintf (msg, "Permission denied trying to open file '%s'", path);
+	  sprintf (msg, "Permission denied trying to open file '%s'", path);
 	  break;
 
 	case EISDIR:
-	  st_sprintf (msg, "'%s' is a directory", path);
+	  sprintf (msg, "'%s' is a directory", path);
 	  break;
 
 	default:
@@ -423,6 +429,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   u->mode = READING;
   u->maxrec = 0;
   u->bytes_left = 0;
+  u->saved_pos = 0;
 
   if (flags->position == POSITION_APPEND)
     {
@@ -437,6 +444,8 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
     {
       u->flags.has_recl = 1;
       u->recl = opp->recl_in;
+      u->recl_subrecord = u->recl;
+      u->bytes_left = u->recl;
     }
   else
     {
@@ -486,7 +495,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   /* Curiously, the standard requires that the
      position specifier be ignored for new files so a newly connected
-     file starts out that the initial point.  We still need to figure
+     file starts out at the initial point.  We still need to figure
      out if the file is at the end or not.  */
 
   test_endfile (u);

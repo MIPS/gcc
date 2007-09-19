@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,9 +39,8 @@ with Urealp;   use Urealp;
 with Widechar; use Widechar;
 
 with System.CRC32;
+with System.UTF_32;  use System.UTF_32;
 with System.WCh_Con; use System.WCh_Con;
-
-with GNAT.UTF_32; use GNAT.UTF_32;
 
 package body Scng is
 
@@ -265,6 +264,46 @@ package body Scng is
 
          elsif Len > Max_Line_Length then
             Error_Long_Line;
+         end if;
+
+         --  Now one more checking circuit. Normally we are only enforcing a
+         --  limit of physical characters, with tabs counting as one character.
+         --  But if after tab expansion we would have a total line length that
+         --  exceeded 32766, that would really cause trouble, because column
+         --  positions would exceed the maximum we allow for a column count.
+         --  Note: the limit is 32766 rather than 32767, since we use a value
+         --  of 32767 for special purposes (see Sinput). Now we really do not
+         --  want to go messing with tabs in the normal case, so what we do is
+         --  to check for a line that has more than 4096 physical characters.
+         --  Any shorter line could not be a problem, even if it was all tabs.
+
+         if Len >= 4096 then
+            declare
+               Col : Natural;
+               Ptr : Source_Ptr;
+
+            begin
+               Col := 1;
+               Ptr := Current_Line_Start;
+               loop
+                  exit when Ptr = Scan_Ptr;
+
+                  if Source (Ptr) = ASCII.HT then
+                     Col := (Col - 1 + 8) / 8 * 8 + 1;
+                  else
+                     Col := Col + 1;
+                  end if;
+
+                  if Col > 32766 then
+                     Error_Msg
+                       ("this line is longer than 32766 characters",
+                        Current_Line_Start);
+                     raise Unrecoverable_Error;
+                  end if;
+
+                  Ptr := Ptr + 1;
+               end loop;
+            end;
          end if;
 
          --  Reset wide character byte count for next line
@@ -532,7 +571,7 @@ package body Scng is
 
                if Warn_On_Obsolescent_Feature then
                   Error_Msg_S
-                    ("use of "":"" is an obsolescent feature ('R'M 'J.2(3))?");
+                    ("use of "":"" is an obsolescent feature (RM J.2(3))?");
                   Error_Msg_S
                     ("\use ""'#"" instead?");
                end if;
@@ -1139,7 +1178,10 @@ package body Scng is
          --  Horizontal tab, just skip past it
 
          when HT =>
-            if Style_Check then Style.Check_HT; end if;
+            if Style_Check then
+               Style.Check_HT;
+            end if;
+
             Scan_Ptr := Scan_Ptr + 1;
 
          --  End of file character, treated as an end of file only if it is
@@ -1148,7 +1190,11 @@ package body Scng is
          when EOF =>
             if Scan_Ptr = Source_Last (Current_Source_File) then
                Check_End_Of_Line;
-               if Style_Check then Style.Check_EOF; end if;
+
+               if Style_Check then
+                  Style.Check_EOF;
+               end if;
+
                Token := Tok_EOF;
                return;
             else
@@ -1198,7 +1244,11 @@ package body Scng is
 
             if Double_Char_Token ('=') then
                Token := Tok_Colon_Equal;
-               if Style_Check then Style.Check_Colon_Equal; end if;
+
+               if Style_Check then
+                  Style.Check_Colon_Equal;
+               end if;
+
                return;
 
             elsif Source (Scan_Ptr + 1) = '-'
@@ -1212,7 +1262,11 @@ package body Scng is
             else
                Scan_Ptr := Scan_Ptr + 1;
                Token := Tok_Colon;
-               if Style_Check then Style.Check_Colon; end if;
+
+               if Style_Check then
+                  Style.Check_Colon;
+               end if;
+
                return;
             end if;
 
@@ -1222,7 +1276,11 @@ package body Scng is
             Accumulate_Checksum ('(');
             Scan_Ptr := Scan_Ptr + 1;
             Token := Tok_Left_Paren;
-            if Style_Check then Style.Check_Left_Paren; end if;
+
+            if Style_Check then
+               Style.Check_Left_Paren;
+            end if;
+
             return;
 
          --  Left bracket
@@ -1252,7 +1310,11 @@ package body Scng is
             Accumulate_Checksum (',');
             Scan_Ptr := Scan_Ptr + 1;
             Token := Tok_Comma;
-            if Style_Check then Style.Check_Comma; end if;
+
+            if Style_Check then
+               Style.Check_Comma;
+            end if;
+
             return;
 
          --  Dot, which is either an isolated period, or part of a double dot
@@ -1264,7 +1326,11 @@ package body Scng is
 
             if Double_Char_Token ('.') then
                Token := Tok_Dot_Dot;
-               if Style_Check then Style.Check_Dot_Dot; end if;
+
+               if Style_Check then
+                  Style.Check_Dot_Dot;
+               end if;
+
                return;
 
             elsif Source (Scan_Ptr + 1) in '0' .. '9' then
@@ -1285,7 +1351,11 @@ package body Scng is
 
             if Double_Char_Token ('>') then
                Token := Tok_Arrow;
-               if Style_Check then Style.Check_Arrow; end if;
+
+               if Style_Check then
+                  Style.Check_Arrow;
+               end if;
+
                return;
 
             elsif Source (Scan_Ptr + 1) = '=' then
@@ -1330,7 +1400,11 @@ package body Scng is
 
             elsif Double_Char_Token ('>') then
                Token := Tok_Box;
-               if Style_Check then Style.Check_Box; end if;
+
+               if Style_Check then
+                  Style.Check_Box;
+               end if;
+
                return;
 
             elsif Double_Char_Token ('<') then
@@ -1362,7 +1436,10 @@ package body Scng is
             --  Comment
 
             else -- Source (Scan_Ptr + 1) = '-' then
-               if Style_Check then Style.Check_Comment; end if;
+               if Style_Check then
+                  Style.Check_Comment;
+               end if;
+
                Scan_Ptr := Scan_Ptr + 2;
 
                --  If we are in preprocessor mode with Replace_In_Comments set,
@@ -1408,7 +1485,10 @@ package body Scng is
                   --  Keep going if horizontal tab
 
                   if Source (Scan_Ptr) = HT then
-                     if Style_Check then Style.Check_HT; end if;
+                     if Style_Check then
+                        Style.Check_HT;
+                     end if;
+
                      Scan_Ptr := Scan_Ptr + 1;
 
                   --  Terminate scan of comment if line terminator
@@ -1499,7 +1579,7 @@ package body Scng is
 
             if Warn_On_Obsolescent_Feature then
                Error_Msg_S
-                 ("use of ""'%"" is an obsolescent feature ('R'M 'J.2(4))?");
+                 ("use of ""'%"" is an obsolescent feature (RM J.2(4))?");
                Error_Msg_S
                  ("\use """""" instead?");
             end if;
@@ -1542,7 +1622,11 @@ package body Scng is
                or else Prev_Token in Token_Class_Literal
             then
                Token := Tok_Apostrophe;
-               if Style_Check then Style.Check_Apostrophe; end if;
+
+               if Style_Check then
+                  Style.Check_Apostrophe;
+               end if;
+
                return;
 
             --  Otherwise the apostrophe starts a character literal
@@ -1647,7 +1731,11 @@ package body Scng is
             Accumulate_Checksum (')');
             Scan_Ptr := Scan_Ptr + 1;
             Token := Tok_Right_Paren;
-            if Style_Check then Style.Check_Right_Paren; end if;
+
+            if Style_Check then
+               Style.Check_Right_Paren;
+            end if;
+
             return;
 
          --  Right bracket or right brace, treated as right paren
@@ -1678,7 +1766,11 @@ package body Scng is
             Accumulate_Checksum (';');
             Scan_Ptr := Scan_Ptr + 1;
             Token := Tok_Semicolon;
-            if Style_Check then Style.Check_Semicolon; end if;
+
+            if Style_Check then
+               Style.Check_Semicolon;
+            end if;
+
             return;
 
          --  Vertical bar
@@ -1697,7 +1789,11 @@ package body Scng is
             else
                Scan_Ptr := Scan_Ptr + 1;
                Token := Tok_Vertical_Bar;
-               if Style_Check then Style.Check_Vertical_Bar; end if;
+
+               if Style_Check then
+                  Style.Check_Vertical_Bar;
+               end if;
+
                return;
             end if;
          end Vertical_Bar_Case;
@@ -1710,7 +1806,7 @@ package body Scng is
 
             if Warn_On_Obsolescent_Feature then
                Error_Msg_S
-                 ("use of ""'!"" is an obsolescent feature ('R'M 'J.2(2))?");
+                 ("use of ""'!"" is an obsolescent feature (RM J.2(2))?");
                Error_Msg_S
                  ("\use ""'|"" instead?");
             end if;
@@ -2282,32 +2378,43 @@ package body Scng is
          if Is_Keyword_Name (Token_Name) then
             Token := Token_Type'Val (Get_Name_Table_Byte (Token_Name));
 
-            --  Deal with possible style check for non-lower case keyword, but
-            --  we don't treat ACCESS, DELTA, DIGITS, RANGE as keywords for
-            --  this purpose if they appear as attribute designators. Actually
-            --  we only check the first character for speed.
+            --  Keyword style checks
 
-            --  Ada 2005 (AI-284): Do not apply the style check in case of
-            --  "pragma Interface"
+            if Style_Check then
 
-            --  Ada 2005 (AI-340): Do not apply the style check in case of
-            --  MOD attribute.
+               --  Deal with possible style check for non-lower case keyword,
+               --  but we don't treat ACCESS, DELTA, DIGITS, RANGE as keywords
+               --  for this purpose if they appear as attribute designators.
+               --  Actually we only check the first character for speed.
 
-            if Style_Check
-              and then Source (Token_Ptr) <= 'Z'
-              and then (Prev_Token /= Tok_Apostrophe
-                          or else
-                            (Token /= Tok_Access and then
-                             Token /= Tok_Delta  and then
-                             Token /= Tok_Digits and then
-                             Token /= Tok_Mod    and then
-                             Token /= Tok_Range))
-              and then (Token /= Tok_Interface
-                          or else
-                            (Token = Tok_Interface
-                               and then Prev_Token /= Tok_Pragma))
-            then
-               Style.Non_Lower_Case_Keyword;
+               --  Ada 2005 (AI-284): Do not apply the style check in case of
+               --  "pragma Interface"
+
+               --  Ada 2005 (AI-340): Do not apply the style check in case of
+               --  MOD attribute.
+
+               if Source (Token_Ptr) <= 'Z'
+                 and then (Prev_Token /= Tok_Apostrophe
+                           or else
+                             (Token /= Tok_Access and then
+                              Token /= Tok_Delta  and then
+                              Token /= Tok_Digits and then
+                              Token /= Tok_Mod    and then
+                              Token /= Tok_Range))
+                       and then (Token /= Tok_Interface
+                                  or else
+                                    (Token = Tok_Interface
+                                      and then Prev_Token /= Tok_Pragma))
+               then
+                  Style.Non_Lower_Case_Keyword;
+               end if;
+
+               if (Token = Tok_Then and then Prev_Token /= Tok_And)
+                    or else
+                  (Token = Tok_Else and then Prev_Token /= Tok_Or)
+               then
+                  Style.Check_Separate_Stmt_Lines;
+               end if;
             end if;
 
             --  We must reset Token_Name since this is not an identifier and
@@ -2431,7 +2538,10 @@ package body Scng is
          --  Outer loop keeps going only if a horizontal tab follows
 
          if Source (Scan_Ptr) = HT then
-            if Style_Check then Style.Check_HT; end if;
+            if Style_Check then
+               Style.Check_HT;
+            end if;
+
             Scan_Ptr := Scan_Ptr + 1;
             Start_Column := (Start_Column / 8) * 8 + 8;
          else
@@ -2441,6 +2551,14 @@ package body Scng is
       end loop Tabs_Loop;
 
       return Start_Column;
+
+   --  A constraint error can happen only if we have a compiler with checks on
+   --  and a line with a ludicrous number of tabs or spaces at the start. In
+   --  such a case, we really don't care if Start_Column is right or not.
+
+   exception
+      when Constraint_Error =>
+         return Start_Column;
    end Set_Start_Column;
 
 end Scng;

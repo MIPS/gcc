@@ -1,12 +1,12 @@
 ; Options for the S/390 / zSeries port of the compiler.
 
-; Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+; Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
 ; GCC is free software; you can redistribute it and/or modify it under
 ; the terms of the GNU General Public License as published by the Free
-; Software Foundation; either version 2, or (at your option) any later
+; Software Foundation; either version 3, or (at your option) any later
 ; version.
 ;
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@
 ; for more details.
 ;
 ; You should have received a copy of the GNU General Public License
-; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-; 02110-1301, USA.
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
 
 m31
 Target Report RejectNegative InverseMask(64BIT)
@@ -47,9 +46,13 @@ mfused-madd
 Target Report Mask(FUSED_MADD)
 Enable fused multiply/add instructions
 
+mhard-dfp
+Target Report RejectNegative InverseMask(SOFT_DFP, HARD_DFP)
+Enable hardware decimal floating point
+
 mhard-float
-Target Report RejectNegative Mask(HARD_FLOAT)
-Use hardware fp
+Target Report RejectNegative InverseMask(SOFT_FLOAT, HARD_FLOAT)
+Enable hardware floating point
 
 mlong-double-128
 Target Report RejectNegative Mask(LONG_DOUBLE_128)
@@ -67,9 +70,13 @@ msmall-exec
 Target Report Mask(SMALL_EXEC)
 Use bras for executable < 64k
 
+msoft-dfp
+Target Report RejectNegative Mask(SOFT_DFP)
+Disable hardware decimal floating point
+
 msoft-float
-Target Report RejectNegative InverseMask(HARD_FLOAT, SOFT_FLOAT)
-Don't use hardware fp
+Target Report RejectNegative Mask(SOFT_FLOAT)
+Disable hardware floating point
 
 mstack-guard=
 Target RejectNegative Joined

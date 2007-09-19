@@ -45,6 +45,9 @@ static void finish_loop_tree_nodes (void);
 static void add_loop_to_tree (struct loop *);
 static void form_loop_tree (void);
 
+static void initiate_calls (void);
+static void finish_calls (void);
+
 static void initiate_allocnos (void);
 static void check_allocno_conflict_vec (allocno_t, int);
 static void add_allocno_conflict (allocno_t, allocno_t);
@@ -87,9 +90,6 @@ int allocnos_num;
    the copy corresponds to the index in the array.  */
 copy_t *copies;
 int copies_num;
-
-/* Data flow data used for IRA data flow analysis.  */
-struct df *build_df;
 
 
 
@@ -214,8 +214,8 @@ add_loop_to_tree (struct loop *loop)
 
   /* Can not use loop node access macros because of potential checking
      and because the nodes are not initialized yet.  */
-  if (loop->outer != NULL)
-    add_loop_to_tree (loop->outer);
+  if (loop_outer (loop) != NULL)
+    add_loop_to_tree (loop_outer (loop));
   if (ira_loop_nodes [loop->num].regno_allocno_map != NULL
       && ira_loop_nodes [loop->num].inner == NULL)
     {
@@ -223,7 +223,9 @@ add_loop_to_tree (struct loop *loop)
       loop_node = &ira_loop_nodes [loop->num];
       loop_node->loop = loop;
       loop_node->bb = NULL;
-      for (father = loop->outer; father != NULL; father = father->outer)
+      for (father = loop_outer (loop);
+	   father != NULL;
+	   father = loop_outer (father))
 	if (ira_loop_nodes [father->num].regno_allocno_map != NULL)
 	  break;
       if (father == NULL)
@@ -265,7 +267,9 @@ form_loop_tree (void)
       bb_node->loop = NULL;
       bb_node->inner = NULL;
       bb_node->next = NULL;
-      for (father = bb->loop_father; father != NULL; father = father->outer)
+      for (father = bb->loop_father;
+	   father != NULL;
+	   father = loop_outer (father))
 	if (ira_loop_nodes [father->num].regno_allocno_map != NULL)
 	  break;
       add_loop_to_tree (father);
@@ -280,6 +284,50 @@ form_loop_tree (void)
 
 
 
+/* Array of vectors containing calls intersected by pseudo-registers.  */
+VEC(rtx, heap) **regno_calls;
+
+/* The length of the previous array.  */
+static int regno_calls_num;
+
+/* The function initializes array of vectors containing calls
+   intersected by pseudo-registers.  */
+static void
+initiate_calls (void)
+{
+  regno_calls_num = max_reg_num ();
+  regno_calls = ira_allocate (regno_calls_num * sizeof (VEC(rtx, heap) *));
+  memset (regno_calls, 0, regno_calls_num * sizeof (VEC(rtx, heap) *));
+}
+
+/* The function adds CALL to REGNO's vector of intersected calls.  */
+int
+add_regno_call (int regno, rtx call)
+{
+  int result;
+
+  gcc_assert (regno < regno_calls_num);
+  if (regno_calls [regno] == NULL)
+    regno_calls [regno] = VEC_alloc (rtx, heap, 10);
+  result = VEC_length (rtx, regno_calls [regno]);
+  VEC_safe_push (rtx, heap, regno_calls [regno], call);
+  return result;
+}
+
+/* The function frees array of vectors containing calls
+   intersected by pseudo-registers.  */
+static void
+finish_calls (void)
+{
+  int i;
+
+  for (i = 0; i < regno_calls_num; i++)
+    VEC_free (rtx, heap, regno_calls [i]);
+  ira_free (regno_calls);
+}
+
+
+
 /* Varray containing references to all created allocnos.  It is a
    container of array allocnos.  */
 static varray_type allocno_varray;
@@ -288,7 +336,8 @@ static varray_type allocno_varray;
 static void
 initiate_allocnos (void)
 {
-  VARRAY_GENERIC_PTR_NOGC_INIT (allocno_varray, max_reg_num () * 2, "allocnos");
+  VARRAY_GENERIC_PTR_NOGC_INIT
+    (allocno_varray, max_reg_num () * 2, "allocnos");
   allocnos = NULL;
   allocnos_num = 0;
   regno_allocno_map = ira_allocate (max_reg_num () * sizeof (allocno_t));
@@ -325,11 +374,7 @@ create_allocno (int regno, int cap_p, struct ira_loop_tree_node *loop_tree_node)
   ALLOCNO_HARD_REGNO (a) = -1;
   ALLOCNO_CALL_FREQ (a) = 0;
   ALLOCNO_CALLS_CROSSED_NUM (a) = 0;
-  ALLOCNO_CALLS_CROSSED (a) = NULL;
-  /* ??? Too conservative.  */
-  if (regno >= 0 && REG_N_CALLS_CROSSED (regno) != 0)
-    ALLOCNO_CALLS_CROSSED (a)
-      = ira_allocate (sizeof (rtx) * REG_N_CALLS_CROSSED (regno));
+  ALLOCNO_CALLS_CROSSED_START (a) = -1;
 #ifdef STACK_REGS
   ALLOCNO_NO_STACK_REG_P (a) = FALSE;
 #endif
@@ -471,18 +516,19 @@ create_cap_allocno (allocno_t a)
   IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (cap),
 		    ALLOCNO_CONFLICT_HARD_REGS (a));
   ALLOCNO_CALLS_CROSSED_NUM (cap) = ALLOCNO_CALLS_CROSSED_NUM (a);
-  ALLOCNO_CALLS_CROSSED (cap)
-    = ira_allocate (sizeof (rtx) * ALLOCNO_CALLS_CROSSED_NUM (a));
-  memcpy (ALLOCNO_CALLS_CROSSED (cap), ALLOCNO_CALLS_CROSSED (a),
-	  sizeof (rtx) * ALLOCNO_CALLS_CROSSED_NUM (a));
+  ALLOCNO_CALLS_CROSSED_START (cap) = ALLOCNO_CALLS_CROSSED_START (a);
 #ifdef STACK_REGS
   ALLOCNO_NO_STACK_REG_P (cap) = ALLOCNO_NO_STACK_REG_P (a);
 #endif
   allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-  for (conflicts_num = i = 0; (conflict_allocno = allocno_vec [i]) != NULL; i++)
+  for (conflicts_num = i = 0;
+       (conflict_allocno = allocno_vec [i]) != NULL;
+       i++)
     conflicts_num++;
   allocate_allocno_conflicts (cap, conflicts_num);
-  for (conflicts_num = i = 0; (conflict_allocno = allocno_vec [i]) != NULL; i++)
+  for (conflicts_num = i = 0;
+       (conflict_allocno = allocno_vec [i]) != NULL;
+       i++)
     {
       regno = ALLOCNO_REGNO (conflict_allocno);
       conflict_father_allocno = father->regno_allocno_map [regno];
@@ -532,8 +578,6 @@ finish_allocnos (void)
 	ira_free (ALLOCNO_CURR_HARD_REG_COSTS (a));
       if (ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS (a) != NULL)
 	ira_free (ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS (a));
-      if (ALLOCNO_CALLS_CROSSED (a) != NULL)
-	ira_free (ALLOCNO_CALLS_CROSSED (a));
       ira_free (a);
     }
   ira_free (regno_allocno_map);
@@ -707,8 +751,7 @@ create_bb_allocnos (struct ira_loop_tree_node *bb_node)
   /* It might be a allocno living through from one subloop to
      another.  */
   map = ira_curr_loop_tree_node->regno_allocno_map;
-  EXECUTE_IF_SET_IN_REG_SET (DF_UPWARD_LIVE_IN (build_df, bb),
-			     FIRST_PSEUDO_REGISTER, i, bi)
+  EXECUTE_IF_SET_IN_REG_SET (DF_LR_IN (bb), FIRST_PSEUDO_REGISTER, i, bi)
     if (map [i] == NULL)
       create_allocno (i, FALSE, ira_curr_loop_tree_node);
 }
@@ -724,10 +767,10 @@ create_loop_allocnos (edge e)
   bitmap_iterator bi;
   allocno_t *map;
 
-  live_in_regs = DF_UPWARD_LIVE_IN (build_df, e->dest);
+  live_in_regs = DF_LR_IN (e->dest);
   map = ira_curr_loop_tree_node->regno_allocno_map;
   border_allocnos = ira_curr_loop_tree_node->border_allocnos;
-  EXECUTE_IF_SET_IN_REG_SET (DF_UPWARD_LIVE_OUT (build_df, e->src),
+  EXECUTE_IF_SET_IN_REG_SET (DF_LR_OUT (e->src),
 			     FIRST_PSEUDO_REGISTER, i, bi)
     if (bitmap_bit_p (live_in_regs, i))
       {
@@ -779,7 +822,9 @@ create_allocnos (void)
     return;
   /* Propagate frequencies for regional register allocator.  */
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
-    for (a = regno_allocno_map [i]; a != NULL; a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
+    for (a = regno_allocno_map [i];
+	 a != NULL;
+	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
       if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) != NULL
 	  && (father_a = father->regno_allocno_map [i]) != NULL)
 	ALLOCNO_FREQ (father_a) += ALLOCNO_FREQ (a);
@@ -855,13 +900,10 @@ ira_build (int loops_p)
   unsigned int i;
   loop_p loop;
 
-  build_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (build_df, 0);
-  df_ri_add_problem (build_df, DF_RI_LIFE);
-  df_analyze (build_df);
+  df_analyze ();
 
   CLEAR_HARD_REG_SET (cfun->emit->call_used_regs);
-
+  initiate_calls ();
   initiate_allocnos ();
   initiate_copies ();
   ira_assert (current_loops == NULL);
@@ -869,7 +911,6 @@ ira_build (int loops_p)
   current_loops = &ira_loops;
   create_loop_tree_nodes (loops_p);
   form_loop_tree ();
-  free_dominance_info (CDI_DOMINATORS);
   create_allocnos ();
   ira_costs ();
   ira_build_conflicts ();
@@ -898,10 +939,11 @@ ira_destroy (void)
   finish_loop_tree_nodes ();
   ira_assert  (current_loops == &ira_loops);
   flow_loops_free (&ira_loops);
+  free_dominance_info (CDI_DOMINATORS);
   FOR_ALL_BB (bb)
     bb->loop_father = NULL;
   current_loops = NULL;
   finish_copies ();
   finish_allocnos ();
-  df_finish (build_df);
+  finish_calls ();
 }

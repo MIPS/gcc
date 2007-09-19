@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* After the first "Node:" comment comes all preprocessor directives and
    attached declarations described in the info files, the "Using and
@@ -577,7 +576,7 @@ enum reg_class
 #define SECONDARY_RELOAD_CLASS(CLASS, MODE, X)		\
   (((CLASS) != SPECIAL_REGS && (CLASS) != MOF_REGS)	\
    || GET_MODE_SIZE (MODE) == 4				\
-   || GET_CODE (X) != MEM				\
+   || !MEM_P (X)					\
    ? NO_REGS : GENERAL_REGS)
 
 /* For CRIS, this is always the size of MODE in words,
@@ -643,7 +642,7 @@ enum reg_class
   /* Just an indirect register (happens to also be	\
      "all" slottable memory addressing modes not	\
      covered by other constraints, i.e. '>').  */	\
-  GET_CODE (X) == MEM && BASE_P (XEXP (X, 0))		\
+  MEM_P (X) && BASE_P (XEXP (X, 0))			\
  )
 
 #define EXTRA_CONSTRAINT_R(X)					\
@@ -659,8 +658,8 @@ enum reg_class
 #define EXTRA_CONSTRAINT_T(X)						\
  (									\
   /* Memory three-address operand.  All are indirect-memory:  */	\
-  GET_CODE (X) == MEM							\
-  && ((GET_CODE (XEXP (X, 0)) == MEM					\
+  MEM_P (X)								\
+  && ((MEM_P (XEXP (X, 0))						\
        /* Double indirect: [[reg]] or [[reg+]]?  */			\
        && (BASE_OR_AUTOINCR_P (XEXP (XEXP (X, 0), 0))))			\
       /* Just an explicit indirect reference: [const]?  */		\
@@ -959,10 +958,10 @@ struct cum_args {int regs;};
 
 /* True if X is a valid (register) index for BDAP, i.e. [Rs].S or [Rs+].S.  */
 #define BDAP_INDEX_P(X)					\
- ((GET_CODE (X) == MEM && GET_MODE (X) == SImode	\
+ ((MEM_P (X) && GET_MODE (X) == SImode			\
    && BASE_OR_AUTOINCR_P (XEXP (X, 0)))			\
   || (GET_CODE (X) == SIGN_EXTEND			\
-      && GET_CODE (XEXP (X, 0)) == MEM			\
+      && MEM_P (XEXP (X, 0))				\
       && (GET_MODE (XEXP (X, 0)) == HImode		\
 	  || GET_MODE (XEXP (X, 0)) == QImode)		\
       && BASE_OR_AUTOINCR_P (XEXP (XEXP (X, 0), 0))))
@@ -973,14 +972,14 @@ struct cum_args {int regs;};
   || (GET_CODE (X) == MULT			\
       && BASE_P (XEXP (X, 0))			\
       && REG_OK_FOR_INDEX_P (XEXP (X, 0))	\
-      && GET_CODE (XEXP (X, 1)) == CONST_INT	\
+      && CONST_INT_P (XEXP (X, 1))		\
       && (INTVAL (XEXP (X, 1)) == 2		\
 	  || INTVAL (XEXP (X, 1)) == 4)))
 
 /* True if X is an address that doesn't need a prefix i.e. [Rs] or [Rs+].  */
-#define SIMPLE_ADDRESS_P(X) \
- (BASE_P (X)						\
-  || (GET_CODE (X) == POST_INC				\
+#define SIMPLE_ADDRESS_P(X)	\
+ (BASE_P (X)			\
+  || (GET_CODE (X) == POST_INC	\
       && BASE_P (XEXP (X, 0))))
 
 /* A PIC operand looks like a normal symbol here.  At output we dress it
@@ -1013,7 +1012,7 @@ struct cum_args {int regs;};
 		   || (BASE_P (x2) && BIAP_INDEX_P (x1)))))	\
 	 goto ADDR;						\
      }								\
-   else if (GET_CODE (X) == MEM)				\
+   else if (MEM_P (X))						\
      {								\
        /* DIP (Rs).  Reject [[reg+]] and [[reg]] for		\
 	  DImode (long long).  */				\
@@ -1413,6 +1412,9 @@ enum cris_pic_symbol_type
 #define FUNCTION_MODE QImode
 
 #define NO_IMPLICIT_EXTERN_C
+
+/* No specific purpose other than warningless compatibility.  */
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1
 
 /*
  * Local variables:

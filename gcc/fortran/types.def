@@ -1,11 +1,11 @@
-/* Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This header contains a subset of ../builtin-types.def needed for
    Fortran frontend builtins.
@@ -55,6 +54,7 @@ DEF_PRIMITIVE_TYPE (BT_BOOL, boolean_type_node)
 DEF_PRIMITIVE_TYPE (BT_INT, integer_type_node)
 DEF_PRIMITIVE_TYPE (BT_UINT, unsigned_type_node)
 DEF_PRIMITIVE_TYPE (BT_LONG, long_integer_type_node)
+DEF_PRIMITIVE_TYPE (BT_WORD, (*lang_hooks.types.type_for_mode) (word_mode, 1))
 
 DEF_PRIMITIVE_TYPE (BT_I1, builtin_type_for_size (BITS_PER_UNIT*1, 1))
 DEF_PRIMITIVE_TYPE (BT_I2, builtin_type_for_size (BITS_PER_UNIT*2, 1))
@@ -81,6 +81,7 @@ DEF_FUNCTION_TYPE_1 (BT_FN_VOID_PTR, BT_VOID, BT_PTR)
 DEF_FUNCTION_TYPE_1 (BT_FN_VOID_PTRPTR, BT_VOID, BT_PTR_PTR)
 DEF_FUNCTION_TYPE_1 (BT_FN_VOID_VPTR, BT_VOID, BT_VOLATILE_PTR)
 DEF_FUNCTION_TYPE_1 (BT_FN_UINT_UINT, BT_UINT, BT_UINT)
+DEF_FUNCTION_TYPE_1 (BT_FN_PTR_PTR, BT_PTR, BT_PTR)
 
 DEF_POINTER_TYPE (BT_PTR_FN_VOID_PTR, BT_FN_VOID_PTR)
 
@@ -113,6 +114,8 @@ DEF_FUNCTION_TYPE_3 (BT_FN_VOID_OMPFN_PTR_UINT, BT_VOID, BT_PTR_FN_VOID_PTR,
 
 DEF_FUNCTION_TYPE_4 (BT_FN_VOID_OMPFN_PTR_UINT_UINT,
                      BT_VOID, BT_PTR_FN_VOID_PTR, BT_PTR, BT_UINT, BT_UINT)
+DEF_FUNCTION_TYPE_4 (BT_FN_VOID_PTR_WORD_WORD_PTR,
+		     BT_VOID, BT_PTR, BT_WORD, BT_WORD, BT_PTR)
 
 DEF_FUNCTION_TYPE_5 (BT_FN_BOOL_LONG_LONG_LONG_LONGPTR_LONGPTR,
                      BT_BOOL, BT_LONG, BT_LONG, BT_LONG,

@@ -1,13 +1,13 @@
 /* Code to maintain a C++ template repository.
-   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005,
+   2006, 2007  Free Software Foundation, Inc.
    Contributed by Jason Merrill (jason@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* My strategy here is as follows:
 
@@ -203,6 +202,10 @@ init_repo (void)
       obstack_free (&temporary_obstack, buf);
     }
   fclose (repo_file);
+
+  if (old_args && !get_random_seed (true)
+      && (buf = strstr (old_args, "'-frandom-seed=")))
+    set_random_seed (extract_string (&buf) + strlen ("-frandom-seed="));
 }
 
 static FILE *
@@ -250,7 +253,7 @@ finish_repo (void)
 	 anonymous namespaces will get the same mangling when this
 	 file is recompiled.  */
       if (!strstr (args, "'-frandom-seed="))
-	fprintf (repo_file, " '-frandom-seed=%s'", flag_random_seed);
+	fprintf (repo_file, " '-frandom-seed=%s'", get_random_seed (false));
       fprintf (repo_file, "\n");
     }
 
@@ -344,7 +347,7 @@ repo_emit_p (tree decl)
    export from this translation unit.  */
 
 bool
-repo_export_class_p (tree class_type)
+repo_export_class_p (const_tree class_type)
 {
   if (!flag_use_repository)
     return false;

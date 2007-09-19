@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,8 +39,8 @@
 with Hostparm; use Hostparm;
 with Types;    use Types;
 
+with System.Strings; use System.Strings;
 with System.WCh_Con; use System.WCh_Con;
-with GNAT.Strings;   use GNAT.Strings;
 
 package Opt is
 
@@ -430,7 +430,8 @@ package Opt is
    Extensions_Allowed : Boolean := False;
    --  GNAT
    --  Set to True by switch -gnatX if GNAT specific language extensions
-   --  are allowed. For example, "limited with" is a GNAT extension.
+   --  are allowed. For example, the use of 'Constrained with objects of
+   --  generic types is a GNAT extension.
 
    type External_Casing_Type is (
      As_Is,       -- External names cased as they appear in the Ada source
@@ -509,16 +510,15 @@ package Opt is
    --  the name is of the form .xxx, then to name.xxx where name is the source
    --  file name with extension stripped.
 
-   function get_gcc_version return Int;
-   pragma Import (C, get_gcc_version, "get_gcc_version");
-
-   GCC_Version : constant Nat := get_gcc_version;
-   --  GNATMAKE
-   --  Indicates which version of gcc is in use (2 = 2.8.1, 3 = 3.x)
+   Generating_Code : Boolean := False;
+   --  GNAT
+   --  True if the frontend finished its work and has called the backend to
+   --  processs the tree and generate the object file.
 
    Global_Discard_Names : Boolean := False;
    --  GNAT, GNATBIND
-   --  Set true if a pragma Discard_Names applies to the current unit
+   --  True if a pragma Discard_Names appeared as a configuration pragma for
+   --  the current compilation unit.
 
    GNAT_Mode : Boolean := False;
    --  GNAT
@@ -527,11 +527,6 @@ package Opt is
    HLO_Active : Boolean := False;
    --  GNAT
    --  True if High Level Optimizer is activated (-gnatH switch)
-
-   Implementation_Unit_Warnings : Boolean := True;
-   --  GNAT
-   --  Set True to active warnings for use of implementation internal units.
-   --  Can be controlled by use of -gnatwi/-gnatwI.
 
    Identifier_Character_Set : Character;
    --  GNAT
@@ -555,6 +550,23 @@ package Opt is
    --  coding in the source program. This variable is initialized to the
    --  default value appropriate to the system (in Osint.Initialize), and then
    --  reset if a command line switch is used to change the setting.
+
+   Ignore_Rep_Clauses : Boolean := False;
+   --  GNAT
+   --  Set True to ignore all representation clauses. Useful when compiling
+   --  code from foreign compilers for checking or ASIS purposes. Can be
+   --  set True by use of -gnatI.
+
+   Implementation_Unit_Warnings : Boolean := True;
+   --  GNAT
+   --  Set True to active warnings for use of implementation internal units.
+   --  Can be controlled by use of -gnatwi/-gnatwI.
+
+   Implicit_Packing : Boolean := False;
+   --  GNAT
+   --  If set True, then a Size attribute clause on an array is allowed to
+   --  cause implicit packing instead of generating an error message. Set by
+   --  use of pragma Implicit_Packing.
 
    Ineffective_Inline_Warnings : Boolean := False;
    --  GNAT
@@ -632,6 +644,10 @@ package Opt is
    --  GNAT
    --  List units in the active library for a compilation (-gnatu switch)
 
+   List_Closure : Boolean := False;
+   --  GNATBIND
+   --  List all sources in the closure of a main (-R gnatbind switch)
+
    List_Dependencies : Boolean := False;
    --  GNATMAKE
    --  When True gnatmake verifies that the objects are up to date and
@@ -667,7 +683,7 @@ package Opt is
    --  before preprocessing occurs. Set to True by switch -s of gnatprep
    --  or -s in preprocessing data file for the compiler.
 
-   type Create_Repinfo_File_Proc is access procedure (Src : File_Name_Type);
+   type Create_Repinfo_File_Proc is access procedure (Src  : String);
    type Write_Repinfo_Line_Proc  is access procedure (Info : String);
    type Close_Repinfo_File_Proc  is access procedure;
    --  Types used for procedure addresses below
@@ -752,6 +768,12 @@ package Opt is
    --  GNATMAKE
    --  Set to True if minimal recompilation mode requested
 
+   Special_Exception_Package_Used : Boolean := False;
+   --  GNAT
+   --  Set to True if either of the unit GNAT.Most_Recent_Exception or
+   --  GNAT.Exception_Traces is with'ed. Used to inhibit transformation of
+   --  local raise statements into gotos in the presence of either package.
+
    Multiple_Unit_Index : Int;
    --  GNAT
    --  This is set non-zero if the current unit is being compiled in multiple
@@ -826,6 +848,11 @@ package Opt is
    Output_Object_List : Boolean := False;
    --  GNATBIND
    --  True if output of list of objects is requested (-O switch set)
+
+   Overflow_Checks_Unsuppressed : Boolean := False;
+   --  GNAT
+   --  Set to True if at least one pragma Unsuppress
+   --  (All_Checks|Overflow_Checks) has been processed.
 
    Persistent_BSS_Mode : Boolean := False;
    --  GNAT
@@ -1163,12 +1190,19 @@ package Opt is
    --  variable that is at least partially uninitialized. Set to false to
    --  suppress such warnings. The default is that such warnings are enabled.
 
+   Warn_On_Non_Local_Exception : Boolean := False;
+   --  GNAT
+   --  Set to True to generate warnings for non-local exception raises and also
+   --  handlers that can never handle a local raise. This warning is only ever
+   --  generated if pragma Restrictions (No_Exception_Propagation) is set. The
+   --  default is not to generate the warnings even if the restriction is set.
+
    Warn_On_Obsolescent_Feature : Boolean := False;
    --  GNAT
    --  Set to True to generate warnings on use of any feature in Annex or if a
    --  subprogram is called for which a pragma Obsolescent applies.
 
-   Warn_On_Questionable_Missing_Parens : Boolean := False;
+   Warn_On_Questionable_Missing_Parens : Boolean := True;
    --  GNAT
    --  Set to True to generate warnings for cases where parenthese are missing
    --  and the usage is questionable, because the intent is unclear.
@@ -1177,6 +1211,17 @@ package Opt is
    --  GNAT
    --  Set to True to generate warnings for redundant constructs (e.g. useless
    --  assignments/conversions). The default is that this warning is disabled.
+
+   Warn_On_Object_Renames_Function : Boolean := False;
+   --  GNAT
+   --  Set to True to generate warnings when a function result is renamed as
+   --  an object. The default is that this warning is disabled.
+
+   Warn_On_Reverse_Bit_Order : Boolean := True;
+   --  GNAT
+   --  Set to True to generate warning (informational) messages for component
+   --  clauses that are affected by non-standard bit-order. The default is
+   --  that this warning is enabled.
 
    Warn_On_Unchecked_Conversion : Boolean := True;
    --  GNAT
@@ -1188,6 +1233,12 @@ package Opt is
    --  GNAT
    --  Set to True to generate warnings for unrecognized pragmas. The default
    --  is that this warning is enabled.
+
+   Warn_On_Unrepped_Components : Boolean := False;
+   --  GNAT
+   --  Set to True to generate warnings for the case of components of record
+   --  which have a record representation clause but this component does not
+   --  have a component clause. The default is that this warning is disabled.
 
    type Warning_Mode_Type is (Suppress, Normal, Treat_As_Error);
    Warning_Mode : Warning_Mode_Type := Normal;
@@ -1211,6 +1262,11 @@ package Opt is
    Xref_Active : Boolean := True;
    --  GNAT
    --  Set if cross-referencing is enabled (i.e. xref info in ALI files)
+
+   Zero_Formatting : Boolean := False;
+   --  GNATBIND
+   --  Do no formatting (no title, no leading spaces, no empty lines) in
+   --  auxiliary outputs (-e, -K, -l, -R).
 
    ----------------------------
    -- Configuration Settings --
@@ -1331,9 +1387,9 @@ package Opt is
    --  parameter Internal_Unit is True for an internal or predefined unit, and
    --  affects the way the switches are set (see above). Main_Unit is true if
    --  switches are being set for the main unit (this affects setting of the
-   --  assert/debug pragm switches, which are normally set false by default for
-   --  an internal unit, except when the internal unit is the main unit, in
-   --  which case we use the command line settings).
+   --  assert/debug pragma switches, which are normally set false by default
+   --  for an internal unit, except when the internal unit is the main unit,
+   --  in which case we use the command line settings).
 
    procedure Restore_Opt_Config_Switches (Save : Config_Switches_Type);
    --  This procedure restores a set of switch values previously saved by a
@@ -1357,6 +1413,18 @@ package Opt is
    --  this flag, see package Expander. Indeed this flag might more logically
    --  be in the spec of Expander, but it is referenced by Errout, and it
    --  really seems wrong for Errout to depend on Expander.
+
+   Static_Dispatch_Tables : Boolean := True;
+   --  This flag indicates if the backend supports generation of statically
+   --  allocated dispatch tables. If it is True, then the front end will
+   --  generate static aggregates for dispatch tables that contain forward
+   --  references to addresses of subprograms not seen yet, and the back end
+   --  must be prepared to handle this case. If it is False, then the front
+   --  end generates assignments to initialize the dispatch table, and there
+   --  are no such forward references. By default we build statically allocated
+   --  dispatch tables for all library level tagged types in all platforms.This
+   --  behavior can be disabled using switch -gnatd.t which will set this flag
+   --  to False and revert to the previous dynamic behavior.
 
    -----------------------
    -- Tree I/O Routines --
@@ -1416,5 +1484,21 @@ private
       Polling_Required               : Boolean;
       Use_VADS_Size                  : Boolean;
    end record;
+
+   --  The following declarations are for GCC version dependent flags. We do
+   --  not let client code in the compiler test GCC_Version directly, but
+   --  instead use deferred constants for relevant feature tags.
+
+   --  Note: there currently are no such constants defined in this section,
+   --  since the compiler front end is currently entirely independent of the
+   --  GCC version, which is a desirable state of affairs.
+
+   function get_gcc_version return Int;
+   pragma Import (C, get_gcc_version, "get_gcc_version");
+
+   GCC_Version : constant Nat := get_gcc_version;
+   --  GNATMAKE
+   --  Indicates which version of gcc is in use (3 = 3.x, 4 = 4.x). Note that
+   --  gcc 2.8.1 (which used to be a value of 2) is no longer supported.
 
 end Opt;

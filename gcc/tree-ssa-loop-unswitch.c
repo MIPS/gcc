@@ -1,11 +1,11 @@
 /* Loop unswitching.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -36,6 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "domwalk.h"
 #include "params.h"
 #include "tree-pass.h"
+#include "tree-inline.h"
 
 /* This file implements the loop unswitching, i.e. transformation of loops like
 
@@ -87,7 +87,7 @@ tree_ssa_unswitch_loops (void)
   bool changed = false;
 
   /* Go through inner loops (only original ones).  */
-  FOR_EACH_LOOP (li, loop, LI_ONLY_OLD | LI_ONLY_INNERMOST)
+  FOR_EACH_LOOP (li, loop, LI_ONLY_INNERMOST)
     {
       changed |= tree_unswitch_single_loop (loop, 0);
     }
@@ -191,7 +191,7 @@ tree_unswitch_single_loop (struct loop *loop, int num)
     }
 
   /* The loop should not be too large, to limit code growth.  */
-  if (tree_num_loop_insns (loop)
+  if (tree_num_loop_insns (loop, &eni_size_weights)
       > (unsigned) PARAM_VALUE (PARAM_MAX_UNSWITCH_INSNS))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -269,13 +269,17 @@ static struct loop *
 tree_unswitch_loop (struct loop *loop,
 		    basic_block unswitch_on, tree cond)
 {
-  basic_block condition_bb;
+  unsigned prob_true;
+  edge edge_true, edge_false;
 
   /* Some sanity checking.  */
   gcc_assert (flow_bb_inside_loop_p (loop, unswitch_on));
   gcc_assert (EDGE_COUNT (unswitch_on->succs) == 2);
   gcc_assert (loop->inner == NULL);
 
+  extract_true_false_edges_from_block (unswitch_on, &edge_true, &edge_false);
+  prob_true = edge_true->probability;
   return loop_version (loop, unshare_expr (cond), 
-		       &condition_bb, false);
+		       NULL, prob_true, prob_true,
+		       REG_BR_PROB_BASE - prob_true, false);
 }

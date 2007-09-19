@@ -108,6 +108,9 @@ static void print_class_cover (FILE *);
 static void find_reg_class_closure (void);
 static void setup_reg_class_nregs (void);
 static void setup_prohibited_class_mode_regs (void);
+static int insn_contains_asm_1 (rtx *, void *);
+static int insn_contains_asm (rtx);
+static void compute_regs_asm_clobbered (char *);
 static void setup_eliminable_regset (void);
 static void find_reg_equiv_invariant_const (void);
 static void setup_reg_renumber (int, int);
@@ -121,6 +124,7 @@ static void fix_reg_equiv_init (void);
 static void print_redundant_copies (void);
 #endif
 static void setup_preferred_alternate_classes (void);
+static void expand_reg_info (int);
 
 static bool gate_ira (void);
 static unsigned int rest_of_handle_ira (void);
@@ -230,14 +234,9 @@ setup_class_subset_and_move_costs (void)
 	    for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 	      register_move_cost [mode] [cl] [cl2]
 		= REGISTER_MOVE_COST (mode, cl, cl2);
-	  GO_IF_HARD_REG_SUBSET (reg_class_contents[cl],
-				 reg_class_contents[cl2],
-				 subset);
-	  class_subset_p [cl] [cl2] = FALSE;
-	  continue;
-	  
-	subset:
-	  class_subset_p [cl] [cl2] = TRUE;
+	  class_subset_p [cl] [cl2]
+	    = hard_reg_set_subset_p (reg_class_contents[cl],
+				     reg_class_contents[cl2]);
 	}
     }
 }
@@ -485,20 +484,16 @@ setup_reg_subclasses (void)
 
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [i]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
-      GO_IF_HARD_REG_EQUAL (temp_hard_regset, zero_hard_reg_set, cont);
-      goto ok;
-    cont:
-      continue;
-    ok:
+      if (hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
+	continue;
       for (j = 0; j < N_REG_CLASSES; j++)
 	if (i != j)
 	  {
 	    enum reg_class *p;
 
-	    GO_IF_HARD_REG_SUBSET (reg_class_contents [i],
-				   reg_class_contents [j], subclass);
-	    continue;
-	  subclass:
+	    if (! hard_reg_set_subset_p (reg_class_contents [i],
+					 reg_class_contents [j]))
+	      continue;
 	    p = &alloc_reg_class_subclasses [j] [0];
 	    while (*p != LIM_REG_CLASSES) p++;
 	    *p = (enum reg_class) i;
@@ -542,27 +537,19 @@ setup_cover_classes (void)
 	  gcc_unreachable ();
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
-      GO_IF_HARD_REG_EQUAL (temp_hard_regset, zero_hard_reg_set, cont);
-      reg_class_cover [reg_class_cover_size++] = cl;
-    cont:
-      ;
+      if (! hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
+	reg_class_cover [reg_class_cover_size++] = cl;
     }
   important_classes_num = 0;
   for (cl = 0; cl < N_REG_CLASSES; cl++)
     {
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
       AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
-      GO_IF_HARD_REG_EQUAL (temp_hard_regset, zero_hard_reg_set, ignore);
-      for (j = 0; j < reg_class_cover_size; j++)
-	{
-	  GO_IF_HARD_REG_SUBSET (reg_class_contents [cl],
-				 reg_class_contents [reg_class_cover [j]], ok);
-	  continue;
-	ok:
-	  important_classes [important_classes_num++] = cl;
-	}
-      ignore:
-      ;
+      if (! hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
+	for (j = 0; j < reg_class_cover_size; j++)
+	  if (hard_reg_set_subset_p (reg_class_contents [cl],
+				     reg_class_contents [reg_class_cover [j]]))
+	    important_classes [important_classes_num++] = cl;
     }
 }
 #endif
@@ -598,10 +585,9 @@ setup_class_translate (void)
 	    {
 	      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
 	      AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
-	      GO_IF_HARD_REG_SUBSET (temp_hard_regset, zero_hard_reg_set, ok);
-	      gcc_unreachable ();
-	    ok:
-	      ;
+	      if (! hard_reg_set_subset_p (temp_hard_regset,
+					   zero_hard_reg_set))
+		gcc_unreachable ();
 	    }
 #endif
 	}
@@ -622,23 +608,22 @@ setup_class_translate (void)
 	  COPY_HARD_REG_SET (temp_hard_regset,
 			     reg_class_contents [cover_class]);
 	  AND_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
-	  GO_IF_HARD_REG_EQUAL (temp_hard_regset, zero_hard_reg_set,
-				no_intersection);
-	  min_cost = INT_MAX;
-	  for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
+	  if (! hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
 	    {
-	      cost = (memory_move_cost [mode] [cl] [0]
-		      + memory_move_cost [mode] [cl] [1]);
-	      if (min_cost > cost)
-		min_cost = cost;
+	      min_cost = INT_MAX;
+	      for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
+		{
+		  cost = (memory_move_cost [mode] [cl] [0]
+			  + memory_move_cost [mode] [cl] [1]);
+		  if (min_cost > cost)
+		    min_cost = cost;
+		}
+	      if (best_class == NO_REGS || best_cost > min_cost)
+		{
+		  best_class = cover_class;
+		  best_cost = min_cost;
+		}
 	    }
-	  if (best_class == NO_REGS || best_cost > min_cost)
-	    {
-	      best_class = cover_class;
-	      best_cost = min_cost;
-	    }
-	no_intersection:
-	  ;
 	}
       class_translate [cl] = best_class;
     }
@@ -767,12 +752,74 @@ init_ira_once (void)
 /* Function specific hard registers excluded from the allocation.  */
 HARD_REG_SET no_alloc_regs;
 
+/* Return true if *LOC contains an asm.  */
+
+static int
+insn_contains_asm_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
+{
+  if ( !*loc)
+    return 0;
+  if (GET_CODE (*loc) == ASM_OPERANDS)
+    return 1;
+  return 0;
+}
+
+
+/* Return true if INSN contains an ASM.  */
+
+static int
+insn_contains_asm (rtx insn)
+{
+  return for_each_rtx (&insn, insn_contains_asm_1, NULL);
+}
+
+/* Set up regs_asm_clobbered.  */
+static void
+compute_regs_asm_clobbered (char *regs_asm_clobbered)
+{
+  basic_block bb;
+
+  memset (regs_asm_clobbered, 0, sizeof (char) * FIRST_PSEUDO_REGISTER);
+  
+  FOR_EACH_BB (bb)
+    {
+      rtx insn;
+      FOR_BB_INSNS_REVERSE (bb, insn)
+	{
+	  struct df_ref **def_rec;
+
+	  if (insn_contains_asm (insn))
+	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	      {
+		struct df_ref *def = *def_rec;
+		unsigned int dregno = DF_REF_REGNO (def);
+		if (dregno < FIRST_PSEUDO_REGISTER)
+		  {
+		    unsigned int i;
+		    enum machine_mode mode = GET_MODE (DF_REF_REAL_REG (def));
+		    unsigned int end = dregno 
+		      + hard_regno_nregs [dregno] [mode] - 1;
+
+		    for (i = dregno; i <= end; ++i)
+		      regs_asm_clobbered [i] = 1;
+		  }
+	      }
+	}
+    }
+}
+
+
 /* The function sets up ELIMINABLE_REGSET, NO_ALLOC_REGS, and
    REGS_EVER_LIVE.  */
 static void
 setup_eliminable_regset (void)
 {
   int i;
+  /* Like regs_ever_live, but 1 if a reg is set or clobbered from an
+     asm.  Unlike regs_ever_live, elements of this array corresponding
+     to eliminable regs like the frame pointer are set if an asm sets
+     them.  */
+  char *regs_asm_clobbered = alloca (FIRST_PSEUDO_REGISTER * sizeof (char));
 #ifdef ELIMINABLE_REGS
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
 #endif
@@ -783,6 +830,8 @@ setup_eliminable_regset (void)
 
   COPY_HARD_REG_SET (no_alloc_regs, no_unit_alloc_regs);
   CLEAR_HARD_REG_SET (eliminable_regset);
+
+  compute_regs_asm_clobbered (regs_asm_clobbered);
   /* Build the regset of all eliminable registers and show we can't
      use those that we already know won't be eliminated.  */
 #ifdef ELIMINABLE_REGS
@@ -803,7 +852,7 @@ setup_eliminable_regset (void)
 	error ("%s cannot be used in asm here",
 	       reg_names [eliminables [i].from]);
       else
-	regs_ever_live [eliminables [i].from] = 1;
+	df_set_regs_ever_live (eliminables[i].from, true);
     }
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
   if (! regs_asm_clobbered [HARD_FRAME_POINTER_REGNUM])
@@ -816,7 +865,7 @@ setup_eliminable_regset (void)
     error ("%s cannot be used in asm here",
 	   reg_names [HARD_FRAME_POINTER_REGNUM]);
   else
-    regs_ever_live [HARD_FRAME_POINTER_REGNUM] = 1;
+    df_set_regs_ever_live (HARD_FRAME_POINTER_REGNUM, true);
 #endif
 
 #else
@@ -829,7 +878,7 @@ setup_eliminable_regset (void)
   else if (need_fp)
     error ("%s cannot be used in asm here", reg_names [FRAME_POINTER_REGNUM]);
   else
-    regs_ever_live [FRAME_POINTER_REGNUM] = 1;
+    df_set_regs_ever_live (FRAME_POINTER_REGNUM, true);
 #endif
 }
 
@@ -902,7 +951,7 @@ find_reg_equiv_invariant_const (void)
 static void
 setup_reg_renumber (int after_emit_p, int after_call_p)
 {
-  int i, hard_regno;
+  int i, regno, hard_regno;
   allocno_t a;
 
   caller_save_needed = 0;
@@ -916,16 +965,16 @@ setup_reg_renumber (int after_emit_p, int after_call_p)
 	ALLOCNO_ASSIGNED_P (a) = TRUE;
       ira_assert (ALLOCNO_ASSIGNED_P (a));
       hard_regno = ALLOCNO_HARD_REGNO (a);
-      reg_renumber [after_emit_p 
-		    ? (int) REGNO (ALLOCNO_REG (a)) : ALLOCNO_REGNO (a)]
-	= (hard_regno < 0 ? -1 : hard_regno);
+      regno = after_emit_p ? (int) REGNO (ALLOCNO_REG (a)) : ALLOCNO_REGNO (a);
+      reg_renumber [regno] = (hard_regno < 0 ? -1 : hard_regno);
       if (hard_regno >= 0 && ALLOCNO_CALLS_CROSSED_NUM (a) != 0
 	  && ! hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
 				      call_used_reg_set))
 	{
 	  ira_assert
 	    ((! after_call_p && flag_caller_saves)
-	     || (flag_caller_saves && ! flag_ira_split_around_calls));
+	     || (flag_caller_saves && ! flag_ira_split_around_calls)
+	     || reg_equiv_const [regno] || reg_equiv_invariant_p [regno]);
 	  caller_save_needed = 1;
 	}
     }
@@ -1070,7 +1119,7 @@ fix_reg_equiv_init (void)
 			 || (int) ORIGINAL_REGNO (SET_SRC (set)) == i))
 	      new_regno = REGNO (SET_SRC (set));
 	    else
-	      gcc_unreachable ();
+ 	      gcc_unreachable ();
 	    if (new_regno == i)
 	      prev = x;
 	    else
@@ -1140,6 +1189,22 @@ setup_preferred_alternate_classes (void)
 
 
 
+static void
+expand_reg_info (int old_size)
+{
+  int i;
+  int size = max_reg_num ();
+
+  resize_reg_info ();
+  for (i = old_size; i < size; i++)
+    {
+      reg_renumber [i] = -1;
+      setup_reg_classes (i, GENERAL_REGS, ALL_REGS);
+    }
+}
+
+
+
 /* The value of max_regn_num () correspondingly before the allocator
    and before splitting allocnos around calls.  */
 int ira_max_regno_before;
@@ -1153,15 +1218,29 @@ char *original_regno_call_crossed_p;
 void
 ira (FILE *f)
 {
-  int i, overall_cost_before, loops_p;
+  int i, overall_cost_before, loops_p, allocated_size;
   int rebuild_p;
   allocno_t a;
 
   ira_dump_file = f;
 
-  no_new_pseudos = 0;
+  df_note_add_problem ();
 
+  if (optimize > 1)
+    df_remove_problem (df_live);
+  /* Create a new version of df that has the special version of UR if
+     we are doing optimization.  */
+  if (optimize)
+    df_urec_add_problem ();
+  df_analyze ();
+
+  df_clear_flags (DF_NO_INSN_RESCAN);
+
+  regstat_init_n_sets_and_refs ();
+  regstat_compute_ri ();
   rebuild_p = update_equiv_regs ();
+  regstat_free_n_sets_and_refs ();
+  regstat_free_ri ();
     
 #ifndef IRA_NO_OBSTACK
   gcc_obstack_init (&ira_obstack);
@@ -1176,11 +1255,17 @@ ira (FILE *f)
   find_reg_equiv_invariant_const ();
   if (rebuild_p)
     {
+      timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
       purge_all_dead_edges ();
-      delete_unreachable_blocks ();
+      timevar_pop (TV_JUMP);
     }
+  allocated_size = max_reg_num ();
+  allocate_reg_info ();
   setup_eliminable_regset ();
+
+  if (optimize)
+    df_remove_problem (df_urec);
 
   overall_cost = reg_cost = mem_cost = 0;
   load_cost = store_cost = shuffle_cost = 0;
@@ -1193,11 +1278,10 @@ ira (FILE *f)
 
   max_regno = max_reg_num ();
   
-  /* Allocate the reg_renumber array.  */
-  allocate_reg_info (max_regno, FALSE, TRUE);
-  
+  expand_reg_info (allocated_size);
+  allocated_size = max_regno;
+ 
   setup_reg_renumber (TRUE, FALSE);
-  no_new_pseudos = 1;
 
   if (loops_p)
     {
@@ -1224,13 +1308,14 @@ ira (FILE *f)
   ira_max_regno_call_before = max_reg_num ();
   if (flag_caller_saves && flag_ira_split_around_calls)
     {
-      no_new_pseudos = 0;
       if (split_around_calls ())
 	{
 	  ira_destroy ();
 	  max_regno = max_reg_num ();
-	  /* Allocate the reg_renumber array.  */
-	  allocate_reg_info (max_regno, FALSE, TRUE);
+	  expand_reg_info (allocated_size);
+	  allocated_size = max_regno;
+	  for (i = ira_max_regno_call_before; i < max_regno; i++)
+	    reg_renumber [i] = -1;
 	  ira_build (FALSE);
 	  setup_allocno_assignment_from_reg_renumber ();
 	  reassign_conflict_allocnos ((flag_ira_assign_after_call_split
@@ -1238,7 +1323,6 @@ ira (FILE *f)
 				      : max_reg_num ()), TRUE);
   	  setup_reg_renumber (FALSE, TRUE);
 	}
-      no_new_pseudos = 1;
     }
 
   calculate_allocation_cost ();
@@ -1247,19 +1331,16 @@ ira (FILE *f)
   check_allocation ();
 #endif
 
+  setup_preferred_alternate_classes ();
+
   max_regno = max_reg_num ();
   delete_trivially_dead_insns (get_insns (), max_regno);
-  /* The allocator makes live register information inaccurate.  */
-  life_analysis (PROP_DEATH_NOTES | PROP_LOG_LINKS | PROP_REG_INFO);
   max_regno = max_reg_num ();
   
   /* Determine if the current function is a leaf before running IRA
      since this can impact optimizations done by the prologue and
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
-  
-  /* Allocate the reg_renumber array.  */
-  allocate_reg_info (max_regno, FALSE, TRUE);
   
   /* And the reg_equiv_memory_loc array.  */
   VEC_safe_grow (rtx, gc, reg_equiv_memory_loc_vec, max_regno);
@@ -1269,9 +1350,10 @@ ira (FILE *f)
   
   allocate_initial_values (reg_equiv_memory_loc);
   
-  fix_reg_equiv_init ();
+  regstat_init_n_sets_and_refs ();
+  regstat_compute_ri ();
 
-  setup_preferred_alternate_classes ();
+  fix_reg_equiv_init ();
 
 #ifdef ENABLE_IRA_CHECKING
   print_redundant_copies ();
@@ -1283,6 +1365,7 @@ ira (FILE *f)
   spilled_reg_stack_slots
     = ira_allocate (max_regno * sizeof (struct spilled_reg_stack_slot));
 
+  df_set_flags (DF_NO_INSN_RESCAN);
   build_insn_chain (get_insns ());
   reload_completed = ! reload (get_insns (), 1);
 
@@ -1295,6 +1378,9 @@ ira (FILE *f)
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
 
+  regstat_free_ri ();
+  regstat_free_n_sets_and_refs ();
+
   ira_free (original_regno_call_crossed_p);
   ira_free (reg_equiv_invariant_p);
   ira_free (reg_equiv_const);
@@ -1305,6 +1391,19 @@ ira (FILE *f)
 #endif
   
   reload_completed = 1;
+
+  /* The code after the reload has changed so much that at this point
+     we might as well just rescan everything.  Not that
+     df_rescan_all_insns is not going to help here because it does not
+     touch the artificial uses and defs.  */
+  df_finish_pass (true);
+  if (optimize > 1)
+    df_live_add_problem ();
+  df_scan_alloc (NULL);
+  df_scan_blocks ();
+
+  if (optimize)
+    df_analyze ();
 }
 
 

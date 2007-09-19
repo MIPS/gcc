@@ -1,6 +1,6 @@
 ;; Machine description for SPARC chip for GCC
 ;;  Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004, 2005,2006 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005,2006, 2007 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -9,7 +9,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -18,9 +18,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -1237,7 +1236,7 @@
   "TARGET_V9
    && REGNO (operands[1]) == SPARC_ICC_REG
    && (GET_MODE (operands[1]) == CCXmode
-       /* 32 bit LTU/GEU are better implemented using addx/subx.  */
+       /* 32-bit LTU/GEU are better implemented using addx/subx.  */
        || (GET_CODE (operands[2]) != LTU && GET_CODE (operands[2]) != GEU))"
   [(set (match_dup 0) (const_int 0))
    (set (match_dup 0)
@@ -1702,7 +1701,7 @@
    (set_attr "branch_type" "reg")])
 
 
-(define_mode_macro P [(SI "Pmode == SImode") (DI "Pmode == DImode")])
+(define_mode_iterator P [(SI "Pmode == SImode") (DI "Pmode == DImode")])
 
 ;; Load in operand 0 the (absolute) address of operand 1, which is a symbolic
 ;; value subject to a PC-relative relocation.  Operand 2 is a helper function
@@ -1845,7 +1844,7 @@
 {
   current_function_uses_pic_offset_table = 1;
   operands[2] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     {
       operands[3] = operands[0];
       operands[4] = operands[0];
@@ -1873,6 +1872,22 @@
 		    (match_operand:SI 3 "" "")] UNSPEC_MOVE_PIC_LABEL)))]
   "flag_pic"
   "or\t%1, %%lo(%a3-(%a2-.)), %0")
+
+;; Set up the PIC register for VxWorks.
+
+(define_expand "vxworks_load_got"
+  [(set (match_dup 0)
+	(high:SI (match_dup 1)))
+   (set (match_dup 0)
+	(mem:SI (lo_sum:SI (match_dup 0) (match_dup 1))))
+   (set (match_dup 0)
+	(mem:SI (lo_sum:SI (match_dup 0) (match_dup 2))))]
+  "TARGET_VXWORKS_RTP"
+{
+  operands[0] = pic_offset_table_rtx;
+  operands[1] = gen_rtx_SYMBOL_REF (SImode, VXWORKS_GOTT_BASE);
+  operands[2] = gen_rtx_SYMBOL_REF (SImode, VXWORKS_GOTT_INDEX);
+})
 
 (define_expand "movdi"
   [(set (match_operand:DI 0 "nonimmediate_operand" "")
@@ -1978,7 +1993,7 @@
 {
   current_function_uses_pic_offset_table = 1;
   operands[2] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     {
       operands[3] = operands[0];
       operands[4] = operands[0];
@@ -2325,7 +2340,7 @@
 ;; Floating point and vector move instructions
 
 ;; We don't define V1SI because SI should work just fine.
-(define_mode_macro V32 [SF V2HI V4QI])
+(define_mode_iterator V32 [SF V2HI V4QI])
 
 ;; Yes, you guessed it right, the former movsf expander.
 (define_expand "mov<V32:mode>"
@@ -2461,7 +2476,7 @@
   [(set (match_dup 0) (high:SF (match_dup 1)))
    (set (match_dup 0) (lo_sum:SF (match_dup 0) (match_dup 1)))])
 
-(define_mode_macro V64 [DF V2SI V4HI V8QI])
+(define_mode_iterator V64 [DF V2SI V4HI V8QI])
 
 ;; Yes, you again guessed it right, the former movdf expander.
 (define_expand "mov<V64:mode>"
@@ -4592,7 +4607,7 @@
 
 ;; Integer multiply/divide instructions.
 
-;; The 32 bit multiply/divide instructions are deprecated on v9, but at
+;; The 32-bit multiply/divide instructions are deprecated on v9, but at
 ;; least in UltraSPARC I, II and IIi it is a win tick-wise.
 
 (define_insn "mulsi3"
@@ -4699,8 +4714,8 @@
     }
 })
 
-;; V9 puts the 64 bit product in a 64 bit register.  Only out or global
-;; registers can hold 64 bit values in the V8plus environment.
+;; V9 puts the 64-bit product in a 64-bit register.  Only out or global
+;; registers can hold 64-bit values in the V8plus environment.
 ;; XXX
 (define_insn "mulsidi3_v8plus"
   [(set (match_operand:DI 0 "register_operand" "=h,r")
@@ -5261,8 +5276,8 @@
 ;; We define DImode `and' so with DImode `not' we can get
 ;; DImode `andn'.  Other combinations are possible.
 
-(define_mode_macro V64I [DI V2SI V4HI V8QI])
-(define_mode_macro V32I [SI V2HI V4QI])
+(define_mode_iterator V64I [DI V2SI V4HI V8QI])
+(define_mode_iterator V32I [SI V2HI V4QI])
 
 (define_expand "and<V64I:mode>3"
   [(set (match_operand:V64I 0 "register_operand" "")
@@ -6676,7 +6691,7 @@
 {
   rtx fn_rtx;
 
-  gcc_assert (GET_MODE (operands[0]) == FUNCTION_MODE);
+  gcc_assert (MEM_P (operands[0]) && GET_MODE (operands[0]) == FUNCTION_MODE);
 
   gcc_assert (GET_CODE (operands[3]) == CONST_INT);
 
@@ -6712,18 +6727,20 @@
 
   /* We accept negative sizes for untyped calls.  */
   if (! TARGET_ARCH64 && INTVAL (operands[3]) != 0)
-    emit_call_insn
+    sparc_emit_call_insn
       (gen_rtx_PARALLEL
        (VOIDmode,
 	gen_rtvec (3, gen_rtx_CALL (VOIDmode, fn_rtx, const0_rtx),
 		   operands[3],
-		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))));
+		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))),
+       XEXP (fn_rtx, 0));
   else
-    emit_call_insn
+    sparc_emit_call_insn
       (gen_rtx_PARALLEL
        (VOIDmode,
 	gen_rtvec (2, gen_rtx_CALL (VOIDmode, fn_rtx, const0_rtx),
-		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))));
+		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))),
+       XEXP (fn_rtx, 0));
 
  finish_call:
 
@@ -6840,7 +6857,7 @@
   rtx fn_rtx;
   rtvec vec;
 
-  gcc_assert (GET_MODE (operands[1]) == FUNCTION_MODE);
+  gcc_assert (MEM_P (operands[1]) && GET_MODE (operands[1]) == FUNCTION_MODE);
 
   fn_rtx = operands[1];
 
@@ -6849,7 +6866,7 @@
 				gen_rtx_CALL (VOIDmode, fn_rtx, const0_rtx)),
 		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)));
 
-  emit_call_insn (gen_rtx_PARALLEL (VOIDmode, vec));
+  sparc_emit_call_insn (gen_rtx_PARALLEL (VOIDmode, vec), XEXP (fn_rtx, 0));
 
   DONE;
 })

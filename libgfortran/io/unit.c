@@ -84,6 +84,12 @@ __gthread_mutex_t unit_lock = __GTHREAD_MUTEX_INIT;
 __gthread_mutex_t unit_lock;
 #endif
 
+/* We use these filenames for error reporting.  */
+
+static char stdin_name[] = "stdin";
+static char stdout_name[] = "stdout";
+static char stderr_name[] = "stderr";
+
 /* This implementation is based on Stefan Nilsson's article in the
  * July 1997 Doctor Dobb's Journal, "Treaps in Java". */
 
@@ -476,33 +482,6 @@ get_unit (st_parameter_dt *dtp, int do_create)
 }
 
 
-/* is_internal_unit()-- Determine if the current unit is internal or not */
-
-int
-is_internal_unit (st_parameter_dt *dtp)
-{
-  return dtp->u.p.unit_is_internal;
-}
-
-
-/* is_array_io ()-- Determine if the I/O is to/from an array */
-
-int
-is_array_io (st_parameter_dt *dtp)
-{
-  return dtp->internal_unit_desc != NULL;
-}
-
-
-/* is_stream_io () -- Determine if I/O is access="stream" mode */
-
-int
-is_stream_io (st_parameter_dt *dtp)
-{
-  return dtp->u.p.current_unit->flags.access == ACCESS_STREAM;
-}
-
-
 /*************************/
 /* Initialize everything */
 
@@ -533,6 +512,10 @@ init_units (void)
       u->recl = options.default_recl;
       u->endfile = NO_ENDFILE;
 
+      u->file_len = strlen (stdin_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stdin_name, u->file_len);
+    
       __gthread_mutex_unlock (&u->lock);
     }
 
@@ -551,6 +534,10 @@ init_units (void)
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
+    
+      u->file_len = strlen (stdout_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stdout_name, u->file_len);
 
       __gthread_mutex_unlock (&u->lock);
     }
@@ -571,6 +558,10 @@ init_units (void)
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
 
+      u->file_len = strlen (stderr_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stderr_name, u->file_len);
+
       __gthread_mutex_unlock (&u->lock);
     }
 
@@ -589,6 +580,30 @@ static int
 close_unit_1 (gfc_unit *u, int locked)
 {
   int i, rc;
+
+  /* If there are previously written bytes from a write with ADVANCE="no"
+     Reposition the buffer before closing.  */
+  if (u->saved_pos > 0)
+    {
+      char *p;
+
+      p = salloc_w (u->s, &u->saved_pos);
+
+      if (!(u->unit_number == options.stdout_unit
+	    || u->unit_number == options.stderr_unit))
+	{
+	  size_t len;
+
+	  const char crlf[] = "\r\n";
+#ifdef HAVE_CRLF
+	  len = 2;
+#else
+	  len = 1;
+#endif
+	  if (swrite (u->s, &crlf[2-len], &len) != 0)
+	    os_error ("Close after ADVANCE_NO failed");
+	}
+    }
 
   rc = (u->s == NULL) ? 0 : sclose (u->s) == FAILURE;
 
@@ -654,3 +669,54 @@ close_units (void)
     close_unit_1 (unit_root, 1);
   __gthread_mutex_unlock (&unit_lock);
 }
+
+
+/* update_position()-- Update the flags position for later use by inquire.  */
+
+void
+update_position (gfc_unit *u)
+{
+  if (file_position (u->s) == 0)
+    u->flags.position = POSITION_REWIND;
+  else if (file_length (u->s) == file_position (u->s))
+    u->flags.position = POSITION_APPEND;
+  else
+    u->flags.position = POSITION_ASIS;
+}
+
+
+/* filename_from_unit()-- If the unit_number exists, return a pointer to the
+   name of the associated file, otherwise return the empty string.  The caller
+   must free memory allocated for the filename string.  */
+
+char *
+filename_from_unit (int n)
+{
+  char *filename;
+  gfc_unit *u;
+  int c;
+
+  /* Find the unit.  */
+  u = unit_root;
+  while (u != NULL)
+    {
+      c = compare (n, u->unit_number);
+      if (c < 0)
+	u = u->left;
+      if (c > 0)
+	u = u->right;
+      if (c == 0)
+	break;
+    }
+
+  /* Get the filename.  */
+  if (u != NULL)
+    {
+      filename = (char *) get_mem (u->file_len + 1);
+      unpack_filename (filename, u->file, u->file_len);
+      return filename;
+    }
+  else
+    return (char *) NULL;
+}
+

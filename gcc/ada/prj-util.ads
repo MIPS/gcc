@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,14 +31,25 @@ package Prj.Util is
    function Executable_Of
      (Project  : Project_Id;
       In_Tree  : Project_Tree_Ref;
-      Main     : Name_Id;
+      Main     : File_Name_Type;
       Index    : Int;
-      Ada_Main : Boolean := True) return Name_Id;
+      Ada_Main : Boolean := True) return File_Name_Type;
    --  Return the value of the attribute Builder'Executable for file Main in
    --  the project Project, if it exists. If there is no attribute Executable
    --  for Main, remove the suffix from Main; then, if the attribute
    --  Executable_Suffix is specified, add this suffix, otherwise add the
    --  standard executable suffix for the platform.
+
+   procedure Put
+     (Into_List : in out Name_List_Index;
+      From_List : String_List_Id;
+      In_Tree   : Project_Tree_Ref);
+   --  Append a name list to a string list
+
+   procedure Duplicate
+     (This    : in out Name_List_Index;
+      In_Tree : Project_Tree_Ref);
+   --  Duplicate a name list
 
    function Value_Of
      (Variable : Variable_Value;
@@ -58,13 +69,13 @@ package Prj.Util is
    --  associative array.
 
    function Value_Of
-     (Index     : Name_Id;
-      Src_Index : Int := 0;
-      In_Array  : Array_Element_Id;
-      In_Tree   : Project_Tree_Ref) return Variable_Value;
-   --  Get a string array component (single String or String list).
-   --  Returns Nil_Variable_Value if there is no component Index
-   --  or if In_Array is null.
+     (Index                  : Name_Id;
+      Src_Index              : Int := 0;
+      In_Array               : Array_Element_Id;
+      In_Tree                : Project_Tree_Ref;
+      Force_Lower_Case_Index : Boolean := False) return Variable_Value;
+   --  Get a string array component (single String or String list). Returns
+   --  Nil_Variable_Value if no component Index or if In_Array is null.
    --
    --  Depending on the attribute (only attributes may be associative arrays)
    --  the index may or may not be case sensitive. If the index is not case
@@ -76,7 +87,8 @@ package Prj.Util is
       Index                   : Int := 0;
       Attribute_Or_Array_Name : Name_Id;
       In_Package              : Package_Id;
-      In_Tree                 : Project_Tree_Ref) return Variable_Value;
+      In_Tree                 : Project_Tree_Ref;
+      Force_Lower_Case_Index  : Boolean := False) return Variable_Value;
    --  In a specific package,
    --   - if there exists an array Attribute_Or_Array_Name with an index Name,
    --     returns the corresponding component (depending on the attribute, the

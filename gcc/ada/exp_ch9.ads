@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,6 +26,7 @@
 
 --  Expand routines for chapter 9 constructs
 
+with Namet; use Namet;
 with Types; use Types;
 
 package Exp_Ch9 is
@@ -77,11 +78,7 @@ package Exp_Ch9 is
    --  (other than allocators to tasks) this routine ensures that an activation
    --  chain has been declared in the appropriate scope, building the required
    --  declaration for the chain variable if not. The name of this variable
-   --  is always _Chain and it is accessed by name. This procedure also adds
-   --  an appropriate call to Activate_Tasks to activate the tasks for this
-   --  activation chain. It does not however deal with the call needed in the
-   --  case of allocators to Expunge_Unactivated_Tasks, this is separately
-   --  handled in the Expand_Task_Allocator routine.
+   --  is always _Chain and it is accessed by name.
 
    function Build_Call_With_Task (N : Node_Id; E : Entity_Id) return Node_Id;
    --  N is a node representing the name of a task or an access to a task.
@@ -89,6 +86,14 @@ package Exp_Ch9 is
    --  E (typically a runtime routine entity obtained using RTE) with the
    --  Task_Id of the associated task as the parameter. The caller is
    --  responsible for analyzing and resolving the resulting tree.
+
+   function Build_Corresponding_Record
+     (N    : Node_Id;
+      Ctyp : Node_Id;
+      Loc  : Source_Ptr) return Node_Id;
+   --  Common to tasks and protected types. Copy discriminant specifications,
+   --  build record declaration. N is the type declaration, Ctyp is the
+   --  concurrent entity (task type or protected type).
 
    procedure Build_Master_Entity (E : Entity_Id);
    --  Given an entity E for the declaration of an object containing tasks
@@ -254,16 +259,14 @@ package Exp_Ch9 is
    procedure Expand_N_Protected_Body             (N : Node_Id);
 
    procedure Expand_N_Protected_Type_Declaration (N : Node_Id);
-   --  Expands protected type declarations. This results, among
-   --  other things, in the declaration of a record type for the
-   --  representation of protected objects and (if there are entries)
-   --  in an entry service procedure. The Protection value used by
-   --  the GNARL to control the object will always be the first
-   --  field of the record, and the entry service procedure spec
-   --  (if it exists) will always immediately follow the record
-   --  declaration. This allows these two nodes to be found from
-   --  the type using Corresponding_Record, without benefit of
-   --  of further attributes.
+   --  Expands protected type declarations. This results, among other things,
+   --  in the declaration of a record type for the representation of protected
+   --  objects and (if there are entries) in an entry service procedure. The
+   --  Protection value used by the GNARL to control the object will always be
+   --  the first field of the record, and the entry service procedure spec (if
+   --  it exists) will always immediately follow the record declaration. This
+   --  allows these two nodes to be found from the type, without benefit of
+   --  further attributes, using Corresponding_Record.
 
    procedure Expand_N_Requeue_Statement          (N : Node_Id);
    procedure Expand_N_Selective_Accept           (N : Node_Id);

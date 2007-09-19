@@ -1,12 +1,12 @@
 /* score-mdaux.h for Sunplus S+CORE processor
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by Sunnorth
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef SCORE_MDAUX_0621
 #define SCORE_MDAUX_0621
@@ -69,8 +68,6 @@ void mda_gen_cmp (enum machine_mode mode);
 
 int mda_symbolic_constant_p (rtx x, enum score_symbol_type *symbol_type);
 
-bool mda_pindex_mem (rtx addr);
-
 int mda_bp (void);
 
 /* Machine Expand.  */
@@ -87,8 +84,6 @@ void mdx_call_value (rtx *ops, bool sibcall);
 /* Machine Split.  */
 void mds_movdi (rtx *ops);
 
-void mds_addsi (rtx *ops);
-
 void mds_zero_extract_andi (rtx *ops);
 
 /* Machine Print.  */
@@ -100,14 +95,21 @@ const char * mdp_linsn (rtx *ops, enum mda_mem_unit unit, bool sign);
 
 const char * mdp_sinsn (rtx *ops, enum mda_mem_unit unit);
 
-const char * mdp_add_imm_ucc (rtx *ops);
+const char * mdp_select_add_imm (rtx *ops, bool set_cc);
 
 const char * mdp_select (rtx *ops, const char *inst_pre,
-                        bool comu, const char *let);
+                        bool commu, const char *letter, bool set_cc);
 
 const char * mdp_limm (rtx *ops);
 
 const char * mdp_move (rtx *ops);
+
+/* Machine unaligned memory load/store. */
+bool mdx_unaligned_load (rtx* ops);
+
+bool mdx_unaligned_store (rtx* ops);
+
+bool mdx_block_move (rtx* ops);
 
 #endif
 

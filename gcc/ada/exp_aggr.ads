@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,20 +32,35 @@ package Exp_Aggr is
    procedure Expand_N_Extension_Aggregate (N : Node_Id);
 
    function Is_Delayed_Aggregate (N : Node_Id) return Boolean;
-   --  returns True if N is a delayed aggregate of some kind
+   --  Returns True if N is an aggregate of some kind whose Expansion_Delayed
+   --  flag is set (see sinfo for meaning of flag).
 
    procedure Convert_Aggr_In_Object_Decl  (N : Node_Id);
    --  N is a N_Object_Declaration with an expression which must be
    --  an N_Aggregate or N_Extension_Aggregate with Expansion_Delayed
    --  This procedure performs in-place aggregate assignment.
 
-   procedure Convert_Aggr_In_Allocator (Decl, Aggr : Node_Id);
-   --  Decl is an access N_Object_Declaration (produced during
-   --  allocator expansion), Aggr is the initial expression aggregate
-   --  of an allocator. This procedure perform in-place aggregate
-   --  assignment in the newly allocated object.
+   procedure Convert_Aggr_In_Allocator
+     (Alloc :  Node_Id;
+      Decl  :  Node_Id;
+      Aggr  :  Node_Id);
+   --  Alloc is the allocator whose expression is the aggregate Aggr.
+   --  Decl is an N_Object_Declaration created during allocator expansion.
+   --  This procedure perform in-place aggregate assignment into the
+   --  temporary declared in Decl, and the allocator becomes an access to
+   --  that temporary.
 
    procedure Convert_Aggr_In_Assignment (N : Node_Id);
-   --  ??? documentation needed
+   --  If the right-hand side of an assignment is an aggregate, expand the
+   --  statement into a series of individual component assignments. This is
+   --  done if there are non-static values involved in either the bounds or
+   --  the components, and the aggregate cannot be handled as a whole by the
+   --  backend.
 
+   function Static_Array_Aggregate (N : Node_Id) return Boolean;
+   --  N is an array aggregate that may have a component association with
+   --  an others clause and a range. If bounds are static and the expressions
+   --  are compile-time known constants, rewrite N as a purely positional
+   --  aggregate, to be use to initialize variables and components of the type
+   --  without generating elaboration code.
 end Exp_Aggr;

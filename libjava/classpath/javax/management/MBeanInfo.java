@@ -140,7 +140,8 @@ public class MBeanInfo
    * can be loaded by the MBean server or class loader; it merely
    * has to be a syntactically correct class name.  Any of the
    * arrays may be <code>null</code>; this will be treated as if
-   * an empty array was supplied.
+   * an empty array was supplied.  A copy of the arrays is
+   * taken, so later changes have no effect.
    *
    * @param name the name of the class this instance describes.
    * @param desc a description of the bean.
@@ -159,22 +160,26 @@ public class MBeanInfo
   {
     className = name;
     description = desc;
+
     if (attribs == null)
       attributes = new MBeanAttributeInfo[0];
     else
-      attributes = attribs;
+      attributes = (MBeanAttributeInfo[]) attribs.clone();
+
     if (cons == null)
       constructors = new MBeanConstructorInfo[0];
     else
-      constructors = cons;
+      constructors = (MBeanConstructorInfo[]) cons.clone();
+
     if (ops == null)
       operations = new MBeanOperationInfo[0];
     else
-      operations = ops;
+      operations = (MBeanOperationInfo[]) ops.clone();
+
     if (notifs == null)
       notifications = new MBeanNotificationInfo[0];
     else
-      notifications = notifs;
+      notifications = (MBeanNotificationInfo[]) notifs.clone();
   }
 
   /**

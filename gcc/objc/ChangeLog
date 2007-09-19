@@ -1,3 +1,61 @@
+2007-07-30  Nick Clifton  <nickc@redhat.com>
+
+	* Make-lang.in: Change copyright header to refer to version 3 of
+	the GNU General Public License and to point readers at the
+	COPYING3 file and the FSF's license web page.
+	* lang-specs.h, objc-act.c, objc-tree.def, objc-act.h,
+	config-lang.in, objc-lang.c: Likewise.
+
+2007-07-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* objc-act.c (objc_get_callee_fndecl): Constify.
+	* objc-act.h (objc_get_callee_fndecl): Likewise.
+
+2007-07-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* objc-act.c (volatilized_hash, volatilized_eq, string_hash,
+	string_eq): Constify.
+
+2007-04-04  Stuart Hastings  <stuart@apple.com>
+
+	PR 31281
+	* objc/objc-act.c (next_sjlj_build_catch_list): Delete volatile from rethrow decl.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Make-lang.in: Add dummy lang.install-pdf target.
+
+2007-02-18  Kazu Hirata  <kazu@codesourcery.com>
+
+	* objc/objc-act.c: Fix comment typos.
+
+2007-02-15  Sandra Loosemore  <sandra@codesourcery.com>
+	    Brooks Moses  <brooks.moses@codesourcery.com>
+	    Lee Millward  <lee.millward@codesourcery.com>
+
+	* objc-act.c (receiver_is_class_object): Use new CALL_EXPR accessors.
+	(objc_get_callee_fndecl): Likewise.
+
+2007-01-23  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/27438
+	* objc-act.c (objc_add_static_instance): Mark the decl as
+	TREE_USED.
+
+2007-01-20  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/30479
+	* objc-act.c (hash_interface): Use IDENTIFIER_HASH_VALUE instead
+	of htab_hash_pointer.
+	(lookup_interface): Likewise.
+	(add_class): Likewise.
+
+2007-01-02  Douglas Gregor  <doug.gregor@gmail.com>
+	
+	* objc-act.c (objc_build_volatilized_type): Keep track of
+	canonical types.
+	(objc_get_protocol_qualified_type): Ditto.
+	
 2006-11-02  Andreas Tobler  <a.tobler@schweiz.org>
 
 	* objc-act.c (objc_finish_file): Remove ifdef clause for OBJCPLUS and

@@ -1,5 +1,5 @@
 /* Target macros for the FRV port of GCC.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Red Hat Inc.
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef __FRV_H__
 #define __FRV_H__
@@ -1272,21 +1271,21 @@ extern enum reg_class reg_class_from_letter[];
 
 #define ZERO_P(x) (x == CONST0_RTX (GET_MODE (x)))
 
-/* 6 bit signed immediate.  */
+/* 6-bit signed immediate.  */
 #define CONST_OK_FOR_I(VALUE) IN_RANGE_P(VALUE, -32, 31)
-/* 10 bit signed immediate.  */
+/* 10-bit signed immediate.  */
 #define CONST_OK_FOR_J(VALUE) IN_RANGE_P(VALUE, -512, 511)
 /* Unused */
 #define CONST_OK_FOR_K(VALUE)  0
-/* 16 bit signed immediate.  */
+/* 16-bit signed immediate.  */
 #define CONST_OK_FOR_L(VALUE) IN_RANGE_P(VALUE, -32768, 32767)
-/* 16 bit unsigned immediate.  */
+/* 16-bit unsigned immediate.  */
 #define CONST_OK_FOR_M(VALUE)  IN_RANGE_P (VALUE, 0, 65535)
-/* 12 bit signed immediate that is negative.  */
+/* 12-bit signed immediate that is negative.  */
 #define CONST_OK_FOR_N(VALUE) IN_RANGE_P(VALUE, -2048, -1)
 /* Zero */
 #define CONST_OK_FOR_O(VALUE) ((VALUE) == 0)
-/* 12 bit signed immediate that is negative.  */
+/* 12-bit signed immediate that is negative.  */
 #define CONST_OK_FOR_P(VALUE) IN_RANGE_P(VALUE, 1, 2047)
 
 /* A C expression that defines the machine-dependent operand constraint letters
@@ -2595,33 +2594,7 @@ fprintf (STREAM, "\t.word .L%d-.L%d\n", VALUE, REL)
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) \
 fprintf (STREAM, "\t.word .L%d\n", VALUE)
 
-/* Define this if the label before a jump-table needs to be output specially.
-   The first three arguments are the same as for `(*targetm.asm_out.internal_label)';
-   the fourth argument is the jump-table which follows (a `jump_insn'
-   containing an `addr_vec' or `addr_diff_vec').
-
-   This feature is used on system V to output a `swbeg' statement for the
-   table.
-
-   If this macro is not defined, these labels are output with
-   `(*targetm.asm_out.internal_label)'.
-
-   Defined in svr4.h.  */
-/* When generating embedded PIC or mips16 code we want to put the jump
-   table in the .text section.  In all other cases, we want to put the
-   jump table in the .rdata section.  Unfortunately, we can't use
-   JUMP_TABLES_IN_TEXT_SECTION, because it is not conditional.
-   Instead, we use ASM_OUTPUT_CASE_LABEL to switch back to the .text
-   section if appropriate.  */
-
-#undef  ASM_OUTPUT_CASE_LABEL
-#define ASM_OUTPUT_CASE_LABEL(STREAM, PREFIX, NUM, TABLE)               \
-do {                                                                    \
-  if (flag_pic)                                                         \
-    switch_to_section (function_section (current_function_decl));       \
-  (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM);              \
-} while (0)
-
+#define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 /* Assembler Commands for Exception Regions.  */
 

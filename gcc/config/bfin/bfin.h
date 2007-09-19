@@ -1,12 +1,12 @@
 /* Definitions for the Blackfin port.
-   Copyright (C) 2005  Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef _BFIN_CONFIG
 #define _BFIN_CONFIG
@@ -34,6 +33,10 @@
 
 extern int target_flags;
 
+#ifndef DEFAULT_CPU_TYPE
+#define DEFAULT_CPU_TYPE BFIN_CPU_BF532
+#endif
+
 /* Predefinition in the preprocessor for this target machine */
 #ifndef TARGET_CPU_CPP_BUILTINS
 #define TARGET_CPU_CPP_BUILTINS()               \
@@ -42,10 +45,39 @@ extern int target_flags;
       builtin_define_std ("bfin");              \
       builtin_define_std ("BFIN");              \
       builtin_define ("__ADSPBLACKFIN__");	\
+      builtin_define ("__ADSPLPBLACKFIN__");	\
+						\
+      switch (bfin_cpu_type)			\
+	{					\
+	case BFIN_CPU_BF531:			\
+	  builtin_define ("__ADSPBF531__");	\
+	  break;				\
+	case BFIN_CPU_BF532:			\
+	  builtin_define ("__ADSPBF532__");	\
+	  break;				\
+	case BFIN_CPU_BF533:			\
+	  builtin_define ("__ADSPBF533__");	\
+	  break;				\
+	case BFIN_CPU_BF534:			\
+	  builtin_define ("__ADSPBF534__");	\
+	  break;				\
+	case BFIN_CPU_BF536:			\
+	  builtin_define ("__ADSPBF536__");	\
+	  break;				\
+	case BFIN_CPU_BF537:			\
+	  builtin_define ("__ADSPBF537__");	\
+	  break;				\
+	case BFIN_CPU_BF561:			\
+	  builtin_define ("__ADSPBF561__");	\
+	  break;				\
+	}					\
+						\
       if (TARGET_FDPIC)				\
 	builtin_define ("__BFIN_FDPIC__");	\
       if (TARGET_ID_SHARED_LIBRARY)		\
 	builtin_define ("__ID_SHARED_LIB__");	\
+      if (flag_no_builtin)			\
+	builtin_define ("__NO_BUILTIN");	\
     }                                           \
   while (0)
 #endif
@@ -59,9 +91,9 @@ extern int target_flags;
 # define SUBTARGET_DRIVER_SELF_SPECS
 #endif
 
-#define LINK_GCC_C_SEQUENCE_SPEC \
-  "%{mfdpic:%{!static: %L} %{static: %G %L %G}} \
-  %{!mfdpic:%G %L %G}"
+#define LINK_GCC_C_SEQUENCE_SPEC "\
+  %{mfast-fp:-lbffastfp} %G %L %{mfast-fp:-lbffastfp} %G \
+"
 
 /* A C string constant that tells the GCC driver program options to pass to
    the assembler.  It can also specify how to translate options you give to GNU
@@ -180,7 +212,7 @@ extern const char *bfin_library_id_string;
 
 /* Define this if the above stack space is to be considered part of the
  * space allocated by the caller.  */
-#define OUTGOING_REG_PARM_STACK_SPACE
+#define OUTGOING_REG_PARM_STACK_SPACE 1
 	  
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
@@ -195,6 +227,18 @@ extern const char *bfin_library_id_string;
 #define FRAME_POINTER_REQUIRED (bfin_frame_pointer_required ())
 
 /*#define DATA_ALIGNMENT(TYPE, BASIC-ALIGN) for arrays.. */
+
+/* If defined, a C expression to compute the alignment for a local
+   variable.  TYPE is the data type, and ALIGN is the alignment that
+   the object would ordinarily have.  The value of this macro is used
+   instead of that alignment to align the object.
+
+   If this macro is not defined, then ALIGN is used.
+
+   One use of this macro is to increase alignment of medium-size
+   data to make it all fit in fewer cache lines.  */
+
+#define LOCAL_ALIGNMENT(TYPE, ALIGN) bfin_local_alignment ((TYPE), (ALIGN))
 
 /* Make strings word-aligned so strcpy from constants will be faster.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
@@ -411,6 +455,14 @@ enum reg_class
   CCREGS,
   EVEN_DREGS,
   ODD_DREGS,
+  D0REGS,
+  D1REGS,
+  D2REGS,
+  D3REGS,
+  D4REGS,
+  D5REGS,
+  D6REGS,
+  D7REGS,
   DREGS,
   FDPIC_REGS,
   FDPIC_FPTR_REGS,
@@ -447,6 +499,14 @@ enum reg_class
    "CCREGS",		\
    "EVEN_DREGS",	\
    "ODD_DREGS",		\
+   "D0REGS",		\
+   "D1REGS",		\
+   "D2REGS",		\
+   "D3REGS",		\
+   "D4REGS",		\
+   "D5REGS",		\
+   "D6REGS",		\
+   "D7REGS",		\
    "DREGS",		\
    "FDPIC_REGS",	\
    "FDPIC_FPTR_REGS",	\
@@ -491,6 +551,14 @@ enum reg_class
     { 0x00000000,    0x4 },		/* CCREGS */  \
     { 0x00000055,    0 },		/* EVEN_DREGS */   \
     { 0x000000aa,    0 },		/* ODD_DREGS */   \
+    { 0x00000001,    0 },		/* D0REGS */   \
+    { 0x00000002,    0 },		/* D1REGS */   \
+    { 0x00000004,    0 },		/* D2REGS */   \
+    { 0x00000008,    0 },		/* D3REGS */   \
+    { 0x00000010,    0 },		/* D4REGS */   \
+    { 0x00000020,    0 },		/* D5REGS */   \
+    { 0x00000040,    0 },		/* D6REGS */   \
+    { 0x00000080,    0 },		/* D7REGS */   \
     { 0x000000ff,    0 },		/* DREGS */   \
     { 0x00000800,    0x000 },		/* FDPIC_REGS */   \
     { 0x00000200,    0x000 },		/* FDPIC_FPTR_REGS */   \
@@ -537,7 +605,7 @@ enum reg_class
 
 /* Get reg_class from a letter such as appears in the machine description.  */
 
-#define REG_CLASS_FROM_LETTER(LETTER)	\
+#define REG_CLASS_FROM_CONSTRAINT(LETTER, STR)	\
   ((LETTER) == 'a' ? PREGS :            \
    (LETTER) == 'Z' ? FDPIC_REGS :	\
    (LETTER) == 'Y' ? FDPIC_FPTR_REGS :	\
@@ -559,6 +627,16 @@ enum reg_class
    (LETTER) == 'x' ? MOST_REGS :	\
    (LETTER) == 'y' ? PROLOGUE_REGS :	\
    (LETTER) == 'w' ? NON_A_CC_REGS :	\
+   (LETTER) == 'q' \
+    ? ((STR)[1] == '0' ? D0REGS \
+       : (STR)[1] == '1' ? D1REGS \
+       : (STR)[1] == '2' ? D2REGS \
+       : (STR)[1] == '3' ? D3REGS \
+       : (STR)[1] == '4' ? D4REGS \
+       : (STR)[1] == '5' ? D5REGS \
+       : (STR)[1] == '6' ? D6REGS \
+       : (STR)[1] == '7' ? D7REGS \
+       : NO_REGS) : \
    NO_REGS)
 
 /* The same information, inverted:
@@ -567,7 +645,14 @@ enum reg_class
    or could index an array.  */
 
 #define REGNO_REG_CLASS(REGNO) \
- ((REGNO) < REG_P0 ? DREGS				\
+((REGNO) == REG_R0 ? D0REGS				\
+ : (REGNO) == REG_R1 ? D1REGS				\
+ : (REGNO) == REG_R2 ? D2REGS				\
+ : (REGNO) == REG_R3 ? D3REGS				\
+ : (REGNO) == REG_R4 ? D4REGS				\
+ : (REGNO) == REG_R5 ? D5REGS				\
+ : (REGNO) == REG_R6 ? D6REGS				\
+ : (REGNO) == REG_R7 ? D7REGS				\
  : (REGNO) < REG_I0 ? PREGS				\
  : (REGNO) == REG_ARGP ? PREGS				\
  : (REGNO) >= REG_I0 && (REGNO) <= REG_I3 ? IREGS	\
@@ -590,6 +675,9 @@ enum reg_class
 #define CLASS_LIKELY_SPILLED_P(CLASS) \
     ((CLASS) == PREGS_CLOBBERED \
      || (CLASS) == PROLOGUE_REGS \
+     || (CLASS) == D0REGS \
+     || (CLASS) == D1REGS \
+     || (CLASS) == D2REGS \
      || (CLASS) == CCREGS)
 
 /* Do not allow to store a value in REG_CC for any mode */
@@ -618,7 +706,15 @@ enum reg_class
    If `HARD_REGNO_MODE_OK (R, MODE1)' and `HARD_REGNO_MODE_OK (R,
    MODE2)' are ever different for any R, then `MODES_TIEABLE_P (MODE1,
    MODE2)' must be zero. */
-#define MODES_TIEABLE_P(MODE1, MODE2) ((MODE1) == (MODE2))
+#define MODES_TIEABLE_P(MODE1, MODE2)			\
+ ((MODE1) == (MODE2)					\
+  || ((GET_MODE_CLASS (MODE1) == MODE_INT		\
+       || GET_MODE_CLASS (MODE1) == MODE_FLOAT)		\
+      && (GET_MODE_CLASS (MODE2) == MODE_INT		\
+	  || GET_MODE_CLASS (MODE2) == MODE_FLOAT)	\
+      && (MODE1) != BImode && (MODE2) != BImode		\
+      && GET_MODE_SIZE (MODE1) <= UNITS_PER_WORD	\
+      && GET_MODE_SIZE (MODE2) <= UNITS_PER_WORD))
 
 /* `PREFERRED_RELOAD_CLASS (X, CLASS)'
    A C expression that places additional restrictions on the register
@@ -718,7 +814,7 @@ typedef struct {
 #define EH_RETURN_DATA_REGNO(N)	((N) < 2 ? (N) : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, REG_P2)
 #define EH_RETURN_HANDLER_RTX \
-    gen_rtx_MEM (Pmode, plus_constant (frame_pointer_rtx, UNITS_PER_WORD))
+    gen_frame_mem (Pmode, plus_constant (frame_pointer_rtx, UNITS_PER_WORD))
 
 /* Addressing Modes */
 
@@ -839,6 +935,10 @@ do {					       \
    in one reasonably fast instruction.  */
 #define MOVE_MAX UNITS_PER_WORD
 
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction pairs, we will do a movmem or libcall instead.  */
+
+#define MOVE_RATIO 5
 
 /* STORAGE LAYOUT: target machine storage layout
    Define this macro as a C expression which is nonzero if accessing
@@ -1030,7 +1130,7 @@ do {					       \
 #define CONST_3UBIT_IMM_P(VALUE) ((VALUE) >= 0 && (VALUE) <= 7)
 
 #define CONSTRAINT_LEN(C, STR)			\
-    ((C) == 'P' || (C) == 'M' || (C) == 'N' ? 2	\
+    ((C) == 'P' || (C) == 'M' || (C) == 'N' || (C) == 'q' ? 2	\
      : (C) == 'K' ? 3				\
      : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
 
@@ -1040,6 +1140,8 @@ do {					       \
      : (STR)[1] == '2' ? (VALUE) == 2 \
      : (STR)[1] == '3' ? (VALUE) == 3 \
      : (STR)[1] == '4' ? (VALUE) == 4 \
+     : (STR)[1] == 'A' ? (VALUE) != MACFLAG_M && (VALUE) != MACFLAG_IS_M \
+     : (STR)[1] == 'B' ? (VALUE) == MACFLAG_M || (VALUE) == MACFLAG_IS_M \
      : 0)
 
 #define CONST_OK_FOR_K(VALUE, STR)			\
@@ -1098,6 +1200,17 @@ do {					       \
 
 #define EXTRA_CONSTRAINT(VALUE, D) \
     ((D) == 'Q' ? GET_CODE (VALUE) == SYMBOL_REF : 0)
+
+/* Evaluates to true if A and B are mac flags that can be used
+   together in a single multiply insn.  That is the case if they are
+   both the same flag not involving M, or if one is a combination of
+   the other with M.  */
+#define MACFLAGS_MATCH_P(A, B) \
+ ((A) == (B) \
+  || ((A) == MACFLAG_NONE && (B) == MACFLAG_M) \
+  || ((A) == MACFLAG_M && (B) == MACFLAG_NONE) \
+  || ((A) == MACFLAG_IS && (B) == MACFLAG_IS_M) \
+  || ((A) == MACFLAG_IS_M && (B) == MACFLAG_IS))
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section

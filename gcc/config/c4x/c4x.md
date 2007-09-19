@@ -1,6 +1,6 @@
 ;; Machine description for the TMS320C[34]x for GCC
 ;; Copyright (C) 1994, 1995, 1996, 1997, 1998,
-;; 1999, 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
+;; 1999, 2000, 2002, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 ;; Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
 ;;            and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl)
@@ -9,7 +9,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -18,9 +18,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;
 ; TODO :
@@ -29,7 +28,7 @@
 ;        for QImode and Pmode, whether Pmode was QImode or PQImode.
 ;        For addresses we wouldn't have to have a clobber of the CC
 ;        associated with each insn and we could use MPYI in address
-;        calculations without having to synthesize a proper 32 bit multiply.
+;        calculations without having to synthesize a proper 32-bit multiply.
 
 ; Additional C30/C40 instructions not coded:
 ; CALLcond, IACK, IDLE, LDE, LDFI, LDII, LDM, NORM, RETIcond
@@ -123,7 +122,7 @@
 ; L   unsigned 16-bit
 ; M   unsigned 8-bit  (C4x only)
 ; N   ones complement of unsigned 16-bit
-; O   16 bit high constant
+; O   16-bit high constant
 ; Q   ARx + 9-bit signed disp
 ; R   ARx + 5-bit unsigned disp  (C4x only)
 ; S   ARx + 0, 1, IRx disp

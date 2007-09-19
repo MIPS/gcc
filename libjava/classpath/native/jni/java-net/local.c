@@ -36,9 +36,7 @@ obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version.  */
 
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif /* HAVE_CONFIG_H */
 
 #ifdef ENABLE_LOCAL_SOCKETS
 
@@ -47,12 +45,19 @@ exception statement from your version.  */
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
 #include <stdio.h>
+
+#if defined(HAVE_SYS_IOCTL_H)
+#define BSD_COMP /* Get FIONREAD on Solaris2 */
+#include <sys/ioctl.h>
+#endif
+#if defined(HAVE_SYS_FILIO_H) /* Get FIONREAD on Solaris 2.5 */
+#include <sys/filio.h>
+#endif
 
 #include "local.h"
 

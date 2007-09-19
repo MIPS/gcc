@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,11 +29,10 @@ with Debug;    use Debug;
 with Elists;   use Elists;
 with Einfo;    use Einfo;
 with Exp_Disp; use Exp_Disp;
-with Exp_Ch6;  use Exp_Ch6;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Tss;  use Exp_Tss;
 with Errout;   use Errout;
-with Hostparm; use Hostparm;
+with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -48,6 +47,7 @@ with Sem_Util; use Sem_Util;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
+with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 
@@ -102,6 +102,17 @@ package body Sem_Disp is
          Ctrl_Type := Check_Controlling_Type (Etype (Formal), Subp);
 
          if Present (Ctrl_Type) then
+
+            --  When the controlling type is concurrent and declared within a
+            --  generic or inside an instance, use its corresponding record
+            --  type.
+
+            if Is_Concurrent_Type (Ctrl_Type)
+              and then Present (Corresponding_Record_Type (Ctrl_Type))
+            then
+               Ctrl_Type := Corresponding_Record_Type (Ctrl_Type);
+            end if;
+
             if Ctrl_Type = Typ then
                Set_Is_Controlling_Formal (Formal);
 
@@ -162,8 +173,17 @@ package body Sem_Disp is
                Set_Has_Controlling_Result (Subp);
 
                --  Check that result subtype statically matches first subtype
+               --  (Ada 2005) : Subp may have a controlling access result.
 
-               if not Subtypes_Statically_Match (Typ, Etype (Subp)) then
+               if Subtypes_Statically_Match (Typ, Etype (Subp))
+                 or else (Ekind (Etype (Subp)) = E_Anonymous_Access_Type
+                            and then
+                              Subtypes_Statically_Match
+                                (Typ, Designated_Type (Etype (Subp))))
+               then
+                  null;
+
+               else
                   Error_Msg_N
                     ("result subtype does not match controlling type", Subp);
                end if;
@@ -204,6 +224,12 @@ package body Sem_Disp is
                Tagged_Type := Base_Type (Designated_Type (T));
             end if;
 
+         --  Ada 2005 : an incomplete type can be tagged. An operation with
+         --  an access parameter of the type is dispatching.
+
+         elsif Scope (Designated_Type (T)) = Current_Scope then
+            Tagged_Type := Designated_Type (T);
+
          --  Ada 2005 (AI-50217)
 
          elsif From_With_Type (Designated_Type (T))
@@ -231,13 +257,13 @@ package body Sem_Disp is
                and then (not Is_Generic_Type (Tagged_Type)
                           or else not Comes_From_Source (Subp)))
         or else
-          (Is_Formal_Subprogram (Subp) and then Is_Abstract (Subp))
+          (Is_Formal_Subprogram (Subp) and then Is_Abstract_Subprogram (Subp))
         or else
           (Nkind (Parent (Parent (Subp))) = N_Subprogram_Renaming_Declaration
             and then
               Present (Corresponding_Formal_Spec (Parent (Parent (Subp))))
             and then
-              Is_Abstract (Subp))
+              Is_Abstract_Subprogram (Subp))
       then
          return Tagged_Type;
 
@@ -251,12 +277,12 @@ package body Sem_Disp is
    ----------------------------
 
    procedure Check_Dispatching_Call (N : Node_Id) is
+      Loc                    : constant Source_Ptr := Sloc (N);
       Actual                 : Node_Id;
       Formal                 : Entity_Id;
       Control                : Node_Id := Empty;
       Func                   : Entity_Id;
       Subp_Entity            : Entity_Id;
-      Loc                    : constant Source_Ptr := Sloc (N);
       Indeterm_Ancestor_Call : Boolean := False;
       Indeterm_Ctrl_Type     : Entity_Id;
 
@@ -274,11 +300,11 @@ package body Sem_Disp is
          Par  : Node_Id;
 
       begin
-         if Is_Abstract (Subp)
+         if Is_Abstract_Subprogram (Subp)
            and then No (Controlling_Argument (N))
          then
             if Present (Alias (Subp))
-              and then not Is_Abstract (Alias (Subp))
+              and then not Is_Abstract_Subprogram (Alias (Subp))
               and then No (DTC_Entity (Subp))
             then
                --  Private overriding of inherited abstract operation,
@@ -428,25 +454,7 @@ package body Sem_Disp is
             --  Mark call as a dispatching call
 
             Set_Controlling_Argument (N, Control);
-
-            --  Ada 2005 (AI-318-02): Check current implementation restriction
-            --  that a dispatching call cannot be made to a primitive function
-            --  with a limited result type. This restriction can be removed
-            --  once calls to limited functions with class-wide results are
-            --  supported. ???
-
-            if Ada_Version = Ada_05
-              and then Nkind (N) = N_Function_Call
-            then
-               Func := Entity (Name (N));
-
-               if Has_Controlling_Result (Func)
-                 and then Is_Limited_Type (Etype (Func))
-               then
-                  Error_Msg_N ("(Ada 2005) limited function call in this" &
-                    " context is not yet implemented", N);
-               end if;
-            end if;
+            Check_Restriction (No_Dispatching_Calls, N);
 
          else
             --  The call is not dispatching, so check that there aren't any
@@ -472,7 +480,7 @@ package body Sem_Disp is
                      Func := Empty;
 
                   --  Only other possibility is a qualified expression whose
-                  --  consituent expression is itself a call.
+                  --  constituent expression is itself a call.
 
                   else
                      Func :=
@@ -481,7 +489,7 @@ package body Sem_Disp is
                            (Expression (Original_Node (Actual)))));
                   end if;
 
-                  if Present (Func) and then Is_Abstract (Func) then
+                  if Present (Func) and then Is_Abstract_Subprogram (Func) then
                      Error_Msg_N (
                        "call to abstract function must be dispatching", N);
                   end if;
@@ -585,10 +593,12 @@ package body Sem_Disp is
                   Typ := Etype (E);
                end if;
 
-               if not Is_Class_Wide_Type (Typ)
+               if Comes_From_Source (Subp)
                  and then Is_Interface (Typ)
+                 and then not Is_Class_Wide_Type (Typ)
                  and then not Is_Derived_Type (Typ)
                  and then not Is_Generic_Type (Typ)
+                 and then not In_Instance
                then
                   Error_Msg_N ("?declaration of& is too late!", Subp);
                   Error_Msg_NE
@@ -731,8 +741,9 @@ package body Sem_Disp is
                         Set_DT_Position (Subp, DT_Position (Old_Subp));
 
                         if not Restriction_Active (No_Dispatching_Calls) then
-                           Insert_After (Subp_Body,
-                             Fill_DT_Entry (Sloc (Subp_Body), Subp));
+                           Register_Primitive (Sloc (Subp_Body),
+                             Prim    => Subp,
+                             Ins_Nod => Subp_Body);
                         end if;
                      end if;
                   end if;
@@ -745,7 +756,7 @@ package body Sem_Disp is
                   Subp);
             end if;
 
-         --  If the type is not frozen yet and we are not in the overridding
+         --  If the type is not frozen yet and we are not in the overriding
          --  case it looks suspiciously like an attempt to define a primitive
          --  operation.
 
@@ -762,7 +773,7 @@ package body Sem_Disp is
          end if;
 
       --  Now, we are sure that the scope is a package spec. If the subprogram
-      --  is declared after the freezing point ot the type that's an error
+      --  is declared after the freezing point of the type that's an error
 
       elsif Is_Frozen (Tagged_Type) and then not Has_Dispatching_Parent then
          Error_Msg_N ("this primitive operation is declared too late", Subp);
@@ -812,13 +823,15 @@ package body Sem_Disp is
                        and then Present (Abstract_Interface_Alias (Prim))
                        and then Alias (Prim) = Subp
                      then
-                        Register_Interface_DT_Entry (Subp_Body, Prim);
+                        Register_Primitive (Sloc (Prim),
+                          Prim    => Prim,
+                          Ins_Nod => Subp_Body);
                      end if;
 
                      Next_Elmt (Elmt);
                   end loop;
 
-                  --  Redisplay the contents of the updated dispatch table.
+                  --  Redisplay the contents of the updated dispatch table
 
                   if Debug_Flag_ZZ then
                      Write_Str ("Late overriding: ");
@@ -1080,7 +1093,8 @@ package body Sem_Disp is
                --  a descendant type and inherits a nonabstract version.
 
                if Etype (Subp) /= Tagged_Type then
-                  Set_Is_Abstract (Old_Subp, Is_Abstract (Alias (Subp)));
+                  Set_Is_Abstract_Subprogram
+                    (Old_Subp, Is_Abstract_Subprogram (Alias (Subp)));
                end if;
             end if;
          end if;
@@ -1198,7 +1212,11 @@ package body Sem_Disp is
 
    function Is_Dynamically_Tagged (N : Node_Id) return Boolean is
    begin
-      return Find_Controlling_Arg (N) /= Empty;
+      if Nkind (N) = N_Error then
+         return False;
+      else
+         return Find_Controlling_Arg (N) /= Empty;
+      end if;
    end Is_Dynamically_Tagged;
 
    --------------------------
@@ -1314,8 +1332,11 @@ package body Sem_Disp is
         and then Has_Abstract_Interfaces (Tagged_Type)
       then
          --  Ada 2005 (AI-251): Update the attribute alias of all the aliased
-         --  entities of the overriden primitive to reference New_Op, and also
-         --  propagate them the new value of the attribute Is_Abstract.
+         --  entities of the overridden primitive to reference New_Op, and also
+         --  propagate the proper value of Is_Abstract_Subprogram. Verify
+         --  that the new operation is subtype conformant with the interface
+         --  operations that it implements (for operations inherited from the
+         --  parent itself, this check is made when building the derived type).
 
          Elmt := First_Elmt (Primitive_Operations (Tagged_Type));
          while Present (Elmt) loop
@@ -1324,16 +1345,22 @@ package body Sem_Disp is
             if Prim = New_Op then
                null;
 
-            elsif Present (Abstract_Interface_Alias (Prim))
+            --  Note: The check on Is_Subprogram protects the frontend against
+            --  reading attributes in entities that are not yet fully decorated
+
+            elsif Is_Subprogram (Prim)
+              and then Present (Abstract_Interface_Alias (Prim))
               and then Alias (Prim) = Prev_Op
             then
                Set_Alias (Prim, New_Op);
-               Set_Is_Abstract (Prim, Is_Abstract (New_Op));
+               Check_Subtype_Conformant (New_Op, Prim);
+               Set_Is_Abstract_Subprogram
+                 (Prim, Is_Abstract_Subprogram (New_Op));
 
                --  Ensure that this entity will be expanded to fill the
                --  corresponding entry in its dispatch table.
 
-               if not Is_Abstract (Prim) then
+               if not Is_Abstract_Subprogram (Prim) then
                   Set_Has_Delayed_Freeze (Prim);
                end if;
             end if;
@@ -1419,11 +1446,11 @@ package body Sem_Disp is
          Next_Actual (Arg);
       end loop;
 
-      --  Expansion of dispatching calls is suppressed when Java_VM, because
-      --  the JVM back end directly handles the generation of dispatching
+      --  Expansion of dispatching calls is suppressed when VM_Target, because
+      --  the VM back-ends directly handle the generation of dispatching
       --  calls and would have to undo any expansion to an indirect call.
 
-      if not Java_VM then
+      if VM_Target = No_VM then
          Expand_Dispatching_Call (Call_Node);
       end if;
    end Propagate_Tag;

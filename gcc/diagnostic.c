@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file implements the language independent aspect of diagnostic
@@ -202,27 +201,9 @@ diagnostic_count_diagnostic (diagnostic_context *context,
       break;
 
     case DK_WARNING:
-      if (!diagnostic_report_warnings_p ())
-        return false;
+      ++diagnostic_kind_count (context, DK_WARNING);
+      break;
 
-      /* -Werror can reclassify warnings as errors, but
-	 classify_diagnostic can reclassify it back to a warning.  The
-	 second part of this test detects that case.  */
-      if (!context->warning_as_error_requested
-	  || (context->classify_diagnostic[diagnostic->option_index]
-	      == DK_WARNING))
-        {
-          ++diagnostic_kind_count (context, DK_WARNING);
-          break;
-        }
-      else if (context->issue_warnings_are_errors_message)
-        {
-	  pp_verbatim (context->printer,
-                       "%s: warnings being treated as errors\n", progname);
-          context->issue_warnings_are_errors_message = false;
-        }
-
-      /* And fall through.  */
     case DK_ERROR:
       ++diagnostic_kind_count (context, DK_ERROR);
       break;
@@ -362,6 +343,14 @@ void
 diagnostic_report_diagnostic (diagnostic_context *context,
 			      diagnostic_info *diagnostic)
 {
+  bool maybe_print_warnings_as_errors_message = false;
+
+  /* Give preference to being able to inhibit warnings, before they
+     get reclassified to something else.  */
+  if (diagnostic->kind == DK_WARNING 
+      && !diagnostic_report_warnings_p ())
+    return;
+  
   if (context->lock > 0)
     {
       /* If we're reporting an ICE in the middle of some other error,
@@ -373,6 +362,17 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 	error_recursion (context);
     }
 
+  /* If the user requested that warnings be treated as errors, so be
+     it.  Note that we do this before the next block so that
+     individual warnings can be overridden back to warnings with
+     -Wno-error=*.  */
+  if (context->warning_as_error_requested
+      && diagnostic->kind == DK_WARNING)
+    {
+      diagnostic->kind = DK_ERROR;
+      maybe_print_warnings_as_errors_message = true;
+    }
+  
   if (diagnostic->option_index)
     {
       /* This tests if the user provided the appropriate -Wfoo or
@@ -382,11 +382,24 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       /* This tests if the user provided the appropriate -Werror=foo
 	 option.  */
       if (context->classify_diagnostic[diagnostic->option_index] != DK_UNSPECIFIED)
-	diagnostic->kind = context->classify_diagnostic[diagnostic->option_index];
+	{
+	  diagnostic->kind = context->classify_diagnostic[diagnostic->option_index];
+	  maybe_print_warnings_as_errors_message = false;
+	}
       /* This allows for future extensions, like temporarily disabling
 	 warnings for ranges of source code.  */
       if (diagnostic->kind == DK_IGNORED)
 	return;
+    }
+
+  /* If we changed the kind due to -Werror, and didn't override it, we
+     need to print this message.  */
+  if (context->issue_warnings_are_errors_message
+      && maybe_print_warnings_as_errors_message)
+    {
+      pp_verbatim (context->printer,
+		   "%s: warnings being treated as errors\n", progname);
+      context->issue_warnings_are_errors_message = false;
     }
 
   context->lock++;

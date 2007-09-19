@@ -1,12 +1,12 @@
 /* Language-dependent hooks for C++.
-   Copyright 2001, 2002, 2004 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2004, 2007 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -36,6 +35,7 @@ Boston, MA 02110-1301, USA.  */
 
 enum c_language_kind c_language = clk_cxx;
 static void cp_init_ts (void);
+static const char * cxx_dwarf_name (tree t, int verbosity);
 
 /* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h;
    consequently, there should be very few hooks below.  */
@@ -44,8 +44,12 @@ static void cp_init_ts (void);
 #define LANG_HOOKS_NAME "GNU C++"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT cxx_init
+#undef LANG_HOOKS_GENERIC_TYPE_P
+#define LANG_HOOKS_GENERIC_TYPE_P class_tmpl_impl_spec_p
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
+#undef LANG_HOOKS_DWARF_NAME
+#define LANG_HOOKS_DWARF_NAME cxx_dwarf_name
 #undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
 #define LANG_HOOKS_FOLD_OBJ_TYPE_REF cp_fold_obj_type_ref
 #undef LANG_HOOKS_INIT_TS
@@ -136,6 +140,17 @@ cp_init_ts (void)
 
   init_shadowed_var_for_decl ();
 
+}
+
+static const char *
+cxx_dwarf_name (tree t, int verbosity)
+{
+  gcc_assert (DECL_P (t));
+
+  if (verbosity >= 2)
+    return decl_as_string (t, TFF_DECL_SPECIFIERS | TFF_UNQUALIFIED_NAME);
+
+  return cxx_printable_name (t, verbosity);
 }
 
 void

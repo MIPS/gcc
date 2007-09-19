@@ -1,12 +1,12 @@
 /* Generic SSA value propagation engine.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
-   Free Software Foundation; either version 2, or (at your option) any
+   Free Software Foundation; either version 3, or (at your option) any
    later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -176,6 +175,8 @@ cfg_blocks_empty_p (void)
 static void 
 cfg_blocks_add (basic_block bb)
 {
+  bool head = false;
+
   gcc_assert (bb != ENTRY_BLOCK_PTR && bb != EXIT_BLOCK_PTR);
   gcc_assert (!TEST_BIT (bb_in_list, bb->index));
 
@@ -198,12 +199,26 @@ cfg_blocks_add (basic_block bb)
 	  cfg_blocks_head = 0;
 	  VEC_safe_grow (basic_block, heap, cfg_blocks, 2 * cfg_blocks_tail);
 	}
-      else
+      /* Minor optimization: we prefer to see blocks with more
+	 predecessors later, because there is more of a chance that
+	 the incoming edges will be executable.  */
+      else if (EDGE_COUNT (bb->preds)
+	       >= EDGE_COUNT (VEC_index (basic_block, cfg_blocks,
+					 cfg_blocks_head)->preds))
 	cfg_blocks_tail = ((cfg_blocks_tail + 1)
 			   % VEC_length (basic_block, cfg_blocks));
+      else
+	{
+	  if (cfg_blocks_head == 0)
+	    cfg_blocks_head = VEC_length (basic_block, cfg_blocks);
+	  --cfg_blocks_head;
+	  head = true;
+	}
     }
 
-  VEC_replace (basic_block, cfg_blocks, cfg_blocks_tail, bb);
+  VEC_replace (basic_block, cfg_blocks,
+	       head ? cfg_blocks_head : cfg_blocks_tail,
+	       bb);
   SET_BIT (bb_in_list, bb->index);
 }
 
@@ -557,24 +572,17 @@ get_rhs (tree stmt)
 }
 
 
-/* Set the main expression of *STMT_P to EXPR.  If EXPR is not a valid
-   GIMPLE expression no changes are done and the function returns
-   false.  */
+/* Return true if EXPR is a valid GIMPLE expression.  */
 
 bool
-set_rhs (tree *stmt_p, tree expr)
+valid_gimple_expression_p (tree expr)
 {
-  tree stmt = *stmt_p, op;
   enum tree_code code = TREE_CODE (expr);
-  stmt_ann_t ann;
-  tree var;
-  ssa_op_iter iter;
 
-  /* Verify the constant folded result is valid gimple.  */
   switch (TREE_CODE_CLASS (code))
     {
     case tcc_declaration:
-      if (!is_gimple_variable(expr))
+      if (!is_gimple_variable (expr))
 	return false;
       break;
 
@@ -597,10 +605,21 @@ set_rhs (tree *stmt_p, tree expr)
       switch (code)
 	{
 	case ADDR_EXPR:
-          if (TREE_CODE (TREE_OPERAND (expr, 0)) == ARRAY_REF
-	      && !is_gimple_val (TREE_OPERAND (TREE_OPERAND (expr, 0), 1)))
-	    return false;
-	  break;
+         {
+           tree t = TREE_OPERAND (expr, 0);
+           while (handled_component_p (t))
+             {
+               /* ??? More checks needed, see the GIMPLE verifier.  */
+               if ((TREE_CODE (t) == ARRAY_REF
+                    || TREE_CODE (t) == ARRAY_RANGE_REF)
+                   && !is_gimple_val (TREE_OPERAND (t, 1)))
+                 return false;
+               t = TREE_OPERAND (t, 0);
+             }
+           if (!is_gimple_id (t))
+             return false;
+           break;
+         }
 
 	case TRUTH_NOT_EXPR:
 	  if (!is_gimple_val (TREE_OPERAND (expr, 0)))
@@ -615,11 +634,20 @@ set_rhs (tree *stmt_p, tree expr)
 	    return false;
 	  break;
 
-	case CALL_EXPR:
 	case EXC_PTR_EXPR:
 	case FILTER_EXPR:
 	  break;
 
+	default:
+	  return false;
+	}
+      break;
+
+    case tcc_vl_exp:
+      switch (code)
+	{
+	case CALL_EXPR:
+	  break;
 	default:
 	  return false;
 	}
@@ -639,6 +667,25 @@ set_rhs (tree *stmt_p, tree expr)
     default:
       return false;
     }
+
+  return true;
+}
+
+
+/* Set the main expression of *STMT_P to EXPR.  If EXPR is not a valid
+   GIMPLE expression no changes are done and the function returns
+   false.  */
+
+bool
+set_rhs (tree *stmt_p, tree expr)
+{
+  tree stmt = *stmt_p, op;
+  stmt_ann_t ann;
+  tree var;
+  ssa_op_iter iter;
+
+  if (!valid_gimple_expression_p (expr))
+    return false;
 
   if (EXPR_HAS_LOCATION (stmt)
       && (EXPR_P (expr)
@@ -1103,7 +1150,7 @@ fold_predicate_in (tree stmt)
   else
     return false;
 
-  val = vrp_evaluate_conditional (*pred_p, true);
+  val = vrp_evaluate_conditional (*pred_p, stmt);
   if (val)
     {
       if (modify_stmt_p)
@@ -1137,15 +1184,18 @@ fold_predicate_in (tree stmt)
    expressions are evaluated with a call to vrp_evaluate_conditional.
    This will only give meaningful results when called from tree-vrp.c
    (the information used by vrp_evaluate_conditional is built by the
-   VRP pass).  */
+   VRP pass).  
 
-void
+   Return TRUE when something changed.  */
+
+bool
 substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 {
   basic_block bb;
+  bool something_changed = false;
 
   if (prop_value == NULL && !use_ranges_p)
-    return;
+    return false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nSubstituing values and folding statements\n\n");
@@ -1234,6 +1284,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 
 	      /* Determine what needs to be done to update the SSA form.  */
 	      pop_stmt_changes (bsi_stmt_ptr (i));
+	      something_changed = true;
 	    }
 	  else
 	    {
@@ -1261,6 +1312,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
       fprintf (dump_file, "Predicates folded:    %6ld\n",
 	       prop_stats.num_pred_folded);
     }
+  return something_changed;
 }
 
 #include "gt-tree-ssa-propagate.h"

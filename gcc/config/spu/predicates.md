@@ -1,9 +1,9 @@
 ;; Predicate definitions for CELL SPU
-;; Copyright (C) 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 ;;
 ;; This file is free software; you can redistribute it and/or modify it under
 ;; the terms of the GNU General Public License as published by the Free
-;; Software Foundation; either version 2 of the License, or (at your option) 
+;; Software Foundation; either version 3 of the License, or (at your option) 
 ;; any later version.
 
 ;; This file is distributed in the hope that it will be useful, but WITHOUT
@@ -12,9 +12,17 @@
 ;; for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this file; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
+
+;; Return 1 if operand is constant zero of its mode
+(define_predicate "const_zero_operand"
+  (and (match_code "const_int,const,const_double,const_vector")
+       (match_test "op == CONST0_RTX (mode)")))
+
+(define_predicate "const_one_operand"
+  (and (match_code "const_int,const,const_double,const_vector")
+       (match_test "op == CONST1_RTX (mode)")))
 
 (define_predicate "spu_reg_operand"
   (and (match_operand 0 "register_operand")
@@ -85,15 +93,9 @@
     return 0;
   })
 
-(define_predicate "spu_shift_operand"
-  (match_code "reg,subreg,const_int,const_vector")
-  {
-    if (spu_reg_operand (op, mode))
-      return 1;
-    if (GET_CODE (op) == CONST_INT || GET_CODE (op) == CONST_VECTOR)
-      return arith_immediate_p (op, mode, -0x40, 0x3f);
-    return 0;
-  })
+(define_predicate "imm_K_operand"
+  (and (match_code "const_int")
+       (match_test "arith_immediate_p (op, mode, -0x200, 0x1ff)")))
 
 ;; Return 1 if OP is a comparison operation that is valid for a branch insn.
 ;; We only check the opcode against the mode of the register value here. 

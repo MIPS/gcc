@@ -1,11 +1,11 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
 ; GCC is free software; you can redistribute it and/or modify it under
 ; the terms of the GNU General Public License as published by the Free
-; Software Foundation; either version 2, or (at your option) any later
+; Software Foundation; either version 3, or (at your option) any later
 ; version.
 ; 
 ; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@
 ; for more details.
 ; 
 ; You should have received a copy of the GNU General Public License
-; along with GCC; see the file COPYING.  If not, write to the Free
-; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-; 02110-1301, USA.
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
 
 ; See the GCC internals manual for a description of this file's format.
 
@@ -34,48 +33,56 @@ Fortran Joined
 -J<directory>	Put MODULE files in 'directory'
 
 Wall
-Fortran RejectNegative
+Fortran
 ; Documented in C
 
 Waliasing
-Fortran
+Fortran Warning
 Warn about possible aliasing of dummy arguments
 
 Wampersand
-Fortran
+Fortran Warning
 Warn about missing ampersand in continued character constants
 
+Wcharacter-truncation
+Fortran Warning
+Warn about truncated character expressions
+
 Wconversion
-Fortran
+Fortran Warning
 Warn about implicit conversion
 
 Wimplicit-interface
-Fortran
+Fortran Warning
 Warn about calls with implicit interface
 
 Wline-truncation
-Fortran
+Fortran Warning
 Warn about truncated source lines
 
 Wnonstd-intrinsics
-Fortran
+Fortran Warning
 Warn about usage of non-standard intrinsics
 
 Wsurprising
-Fortran
+Fortran Warning
 Warn about \"suspicious\" constructs
 
 Wtabs
-Fortran
+Fortran Warning
 Permit nonconforming uses of the tab character
 
 Wunderflow
-Fortran
+Fortran Warning
 Warn about underflow of numerical constant expressions
 
 fall-intrinsics
 Fortran RejectNegative
 All intrinsics procedures are available regardless of selected standard
+
+fallow-leading-underscore
+Fortran Undocumented
+; For internal use only: allow the first character of symbol names to be an underscore
 
 fautomatic
 Fortran
@@ -84,6 +91,10 @@ Do not treat local variables and COMMON blocks as if they were named in SAVE sta
 fbackslash
 Fortran
 Specify that backslash in string introduces an escape character
+
+fbacktrace
+Fortran
+Produce a backtrace when a runtime error is encountered
 
 fblas-matmul-limit=
 Fortran RejectNegative Joined UInteger
@@ -132,6 +143,10 @@ Set the default real kind to an 8 byte wide type
 fdollar-ok
 Fortran
 Allow dollar signs in entity names
+
+fdump-core
+Fortran
+Dump a core file when a runtime error occurs
 
 fdump-parse-tree
 Fortran
@@ -197,13 +212,17 @@ fmax-stack-var-size=
 Fortran RejectNegative Joined UInteger
 -fmax-stack-var-size=<n>	Size in bytes of the largest array that will be put on the stack
 
+fmodule-private
+Fortran
+Set default accessibility of module entities to PRIVATE.
+
 fopenmp
 Fortran
-Enable OpenMP
+Enable OpenMP (also sets frecursive)
 
 fpack-derived
 Fortran
-Try to layout derived types as compact as possible
+Try to lay out derived types as compactly as possible
 
 fpreprocessed
 Fortran
@@ -221,6 +240,10 @@ frecord-marker=8
 Fortran RejectNegative
 Use an 8-byte record marker for unformatted files
 
+frecursive
+Fortran
+Allocate local variables on the stack to allow indirect recursion
+
 frepack-arrays
 Fortran
 Copy array sections into a contiguous block on procedure entry
@@ -233,9 +256,17 @@ fshort-enums
 Fortran
 Use the narrowest integer type possible for enumeration types
 
+fsign-zero
+Fortran
+Apply negative sign to zero values
+
 funderscoring
 Fortran
 Append underscores to externally visible names
+
+static-libgfortran
+Fortran
+Statically link the GNU Fortran helper library (libgfortran)
 
 std=f2003
 Fortran
@@ -247,7 +278,7 @@ Conform to the ISO Fortran 95 standard
 
 std=gnu
 Fortran
-Conform nothing in particular
+Conform to nothing in particular
 
 std=legacy
 Fortran

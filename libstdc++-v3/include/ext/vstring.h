@@ -1,6 +1,6 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -1675,7 +1675,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
 	int __r = traits_type::compare(this->_M_data(), __str.data(), __len);
 	if (!__r)
-	  __r =  __size - __osize;
+	  __r = _S_compare(__size, __osize);
 	return __r;
       }
 
@@ -1867,6 +1867,17 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	       const __versa_string<_CharT, _Traits, _Alloc, _Base>& __rhs)
     { return __lhs.compare(__rhs) == 0; }
 
+  template<typename _CharT,
+	   template <typename, typename, typename> class _Base>
+    inline typename __enable_if<std::__is_char<_CharT>::__value, bool>::__type
+    operator==(const __versa_string<_CharT, std::char_traits<_CharT>,
+	       std::allocator<_CharT>, _Base>& __lhs,
+	       const __versa_string<_CharT, std::char_traits<_CharT>,
+	       std::allocator<_CharT>, _Base>& __rhs)
+    { return (__lhs.size() == __rhs.size()
+	      && !std::char_traits<_CharT>::compare(__lhs.data(), __rhs.data(),
+						    __lhs.size())); }
+
   /**
    *  @brief  Test equivalence of C string and string.
    *  @param lhs  C string.
@@ -1905,7 +1916,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     inline bool
     operator!=(const __versa_string<_CharT, _Traits, _Alloc, _Base>& __lhs,
 	       const __versa_string<_CharT, _Traits, _Alloc, _Base>& __rhs)
-    { return __rhs.compare(__lhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   /**
    *  @brief  Test difference of C string and string.
@@ -1918,7 +1929,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     inline bool
     operator!=(const _CharT* __lhs,
 	       const __versa_string<_CharT, _Traits, _Alloc, _Base>& __rhs)
-    { return __rhs.compare(__lhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   /**
    *  @brief  Test difference of string and C string.
@@ -1931,7 +1942,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     inline bool
     operator!=(const __versa_string<_CharT, _Traits, _Alloc, _Base>& __lhs,
 	       const _CharT* __rhs)
-    { return __lhs.compare(__rhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   // operator <
   /**
@@ -2139,11 +2150,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  writing a C string.
    */
   template<typename _CharT, typename _Traits, typename _Alloc,
-           template <typename, typename, typename> class _Base>
-    basic_ostream<_CharT, _Traits>&
+	   template <typename, typename, typename> class _Base>
+    inline basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __os,
-	       const __gnu_cxx::__versa_string<_CharT, _Traits,
-	                                       _Alloc, _Base>& __str);
+	       const __gnu_cxx::__versa_string<_CharT, _Traits, _Alloc,
+	       _Base>& __str)
+    {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 586. string inserter not a formatted function
+      return __ostream_insert(__os, __str.data(), __str.size());
+    }
 
   /**
    *  @brief  Read a line from stream into a string.

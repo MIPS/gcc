@@ -1,6 +1,7 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -9,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -18,9 +19,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Generate basic block profile instrumentation and auxiliary files.
    Profile generation is optimized, so that not all arcs in the basic
@@ -192,6 +192,18 @@ instrument_values (histogram_values values)
 	  t = GCOV_COUNTER_V_DELTA;
 	  break;
 
+ 	case HIST_TYPE_INDIR_CALL:
+ 	  t = GCOV_COUNTER_V_INDIR;
+ 	  break;
+
+ 	case HIST_TYPE_AVERAGE:
+ 	  t = GCOV_COUNTER_AVERAGE;
+ 	  break;
+
+ 	case HIST_TYPE_IOR:
+ 	  t = GCOV_COUNTER_IOR;
+ 	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -214,6 +226,18 @@ instrument_values (histogram_values values)
 
 	case HIST_TYPE_CONST_DELTA:
 	  (profile_hooks->gen_const_delta_profiler) (hist, t, 0);
+	  break;
+
+ 	case HIST_TYPE_INDIR_CALL:
+ 	  (profile_hooks->gen_ic_profiler) (hist, t, 0);
+  	  break;
+
+	case HIST_TYPE_AVERAGE:
+	  (profile_hooks->gen_average_profiler) (hist, t, 0);
+	  break;
+
+	case HIST_TYPE_IOR:
+	  (profile_hooks->gen_ior_profiler) (hist, t, 0);
 	  break;
 
 	default:
@@ -980,6 +1004,15 @@ branch_prob (void)
 	      tree stmt = bsi_stmt (bsi);
 	      if (EXPR_HAS_LOCATION (stmt))
 		output_location (EXPR_FILENAME (stmt), EXPR_LINENO (stmt),
+				 &offset, bb);
+	      /* Take into account modify statements nested in return
+		 produced by C++ NRV transformation.  */
+	      if (TREE_CODE (stmt) == RETURN_EXPR
+		  && TREE_OPERAND (stmt, 0)
+		  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
+		  && EXPR_HAS_LOCATION (TREE_OPERAND (stmt, 0)))
+		output_location (EXPR_FILENAME (TREE_OPERAND (stmt, 0)),
+				 EXPR_LINENO (TREE_OPERAND (stmt, 0)),
 				 &offset, bb);
 	    }
 

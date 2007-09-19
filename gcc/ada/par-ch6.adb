@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -989,6 +989,7 @@ package body Ch6 is
       Ident              : Nat;
       Ident_Sloc         : Source_Ptr;
       Not_Null_Present   : Boolean := False;
+      Not_Null_Sloc      : Source_Ptr;
 
       Idents : array (Int range 1 .. 4096) of Entity_Id;
       --  This array holds the list of defining identifiers. The upper bound
@@ -1084,7 +1085,14 @@ package body Ch6 is
                Specification_Node :=
                  New_Node (N_Parameter_Specification, Ident_Sloc);
                Set_Defining_Identifier (Specification_Node, Idents (Ident));
-               Not_Null_Present := P_Null_Exclusion;     --  Ada 2005 (AI-231)
+
+               --  Scan possible NOT NULL for Ada 2005 (AI-231, AI-447)
+
+               Not_Null_Sloc := Token_Ptr;
+               Not_Null_Present :=
+                 P_Null_Exclusion (Allow_Anonymous_In_95 => True);
+
+               --  Case of ACCESS keyword present
 
                if Token = Tok_Access then
                   Set_Null_Exclusion_Present
@@ -1094,14 +1102,28 @@ package body Ch6 is
                      Error_Msg_SC ("(Ada 83) access parameters not allowed");
                   end if;
 
-                  Set_Parameter_Type (Specification_Node,
-                    P_Access_Definition (Not_Null_Present));
+                  Set_Parameter_Type
+                    (Specification_Node,
+                     P_Access_Definition (Not_Null_Present));
+
+               --  Case of IN or OUT present
 
                else
                   if Token = Tok_In or else Token = Tok_Out then
                      if Not_Null_Present then
-                        Error_Msg_SC
-                          ("ACCESS must be placed after the parameter mode");
+                        Error_Msg
+                          ("`NOT NULL` can only be used with `ACCESS`",
+                           Not_Null_Sloc);
+
+                        if Token = Tok_In then
+                           Error_Msg
+                             ("\`IN` not allowed together with `ACCESS`",
+                              Not_Null_Sloc);
+                        else
+                           Error_Msg
+                             ("\`OUT` not allowed together with `ACCESS`",
+                              Not_Null_Sloc);
+                        end if;
                      end if;
 
                      P_Mode (Specification_Node);
@@ -1236,6 +1258,11 @@ package body Ch6 is
 
          if Style.Mode_In_Check and then Token /= Tok_Out then
             Error_Msg_SP ("(style) IN should be omitted");
+         end if;
+
+         if Token = Tok_Access then
+            Error_Msg_SP ("IN not allowed together with ACCESS");
+            Scan; -- past ACCESS
          end if;
       end if;
 
@@ -1440,14 +1467,14 @@ package body Ch6 is
    begin
       Scan; -- past RETURN
 
-      --  Simple_return_statement, no expression, return an N_Return_Statement
-      --  node with the expression field left Empty.
+      --  Simple_return_statement, no expression, return an
+      --  N_Simple_Return_Statement node with the expression field left Empty.
 
       if Token = Tok_Semicolon then
          Scan; -- past ;
-         Return_Node := New_Node (N_Return_Statement, Return_Sloc);
+         Return_Node := New_Node (N_Simple_Return_Statement, Return_Sloc);
 
-      --  Non-simple case
+      --  Non-trivial case
 
       else
          --  Simple_return_statement with expression
@@ -1457,7 +1484,7 @@ package body Ch6 is
          --  message is probably that we have a missing semicolon.
 
          if Is_Simple then
-            Return_Node := New_Node (N_Return_Statement, Return_Sloc);
+            Return_Node := New_Node (N_Simple_Return_Statement, Return_Sloc);
 
             if Token not in Token_Class_Eterm then
                Set_Expression (Return_Node, P_Expression_No_Right_Paren);

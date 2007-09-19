@@ -1,11 +1,11 @@
 /* Memory address lowering and addressing mode selection.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Utility functions for manipulation with TARGET_MEM_REFs -- tree expressions
    that directly map to addressing modes of the target.  */
@@ -125,7 +124,7 @@ gen_addr_rtx (rtx symbol, rtx base, rtx index, rtx step, rtx offset,
   if (base)
     {
       if (*addr)
-	*addr = gen_rtx_PLUS (Pmode, *addr, base);
+	*addr = simplify_gen_binary (PLUS, Pmode, base, *addr);
       else
 	*addr = base;
     }
@@ -135,10 +134,15 @@ gen_addr_rtx (rtx symbol, rtx base, rtx index, rtx step, rtx offset,
       act_elem = symbol;
       if (offset)
 	{
-	  act_elem = gen_rtx_CONST (Pmode,
-				    gen_rtx_PLUS (Pmode, act_elem, offset));
+	  act_elem = gen_rtx_PLUS (Pmode, act_elem, offset);
+
 	  if (offset_p)
-	    *offset_p = &XEXP (XEXP (act_elem, 0), 1);
+	    *offset_p = &XEXP (act_elem, 1);
+
+	  if (GET_CODE (symbol) == SYMBOL_REF
+	      || GET_CODE (symbol) == LABEL_REF
+	      || GET_CODE (symbol) == CONST)
+	    act_elem = gen_rtx_CONST (Pmode, act_elem);
 	}
 
       if (*addr)
@@ -244,54 +248,55 @@ addr_for_mem_ref (struct mem_address *addr, bool really_expand)
 tree
 tree_mem_ref_addr (tree type, tree mem_ref)
 {
-  tree addr = NULL_TREE;
+  tree addr;
   tree act_elem;
   tree step = TMR_STEP (mem_ref), offset = TMR_OFFSET (mem_ref);
+  tree sym = TMR_SYMBOL (mem_ref), base = TMR_BASE (mem_ref);
+  tree addr_base = NULL_TREE, addr_off = NULL_TREE;
+
+  if (sym)
+    addr_base = fold_convert (type, build_addr (sym, current_function_decl));
+  else if (base && POINTER_TYPE_P (TREE_TYPE (base)))
+    {
+      addr_base = fold_convert (type, base);
+      base = NULL_TREE;
+    }
 
   act_elem = TMR_INDEX (mem_ref);
   if (act_elem)
     {
-      act_elem = fold_convert (type, act_elem);
-
       if (step)
-	act_elem = fold_build2 (MULT_EXPR, type, act_elem,
-				fold_convert (type, step));
-      addr = act_elem;
+	act_elem = fold_build2 (MULT_EXPR, sizetype, act_elem, step);
+      addr_off = act_elem;
     }
 
-  act_elem = TMR_BASE (mem_ref);
+  act_elem = base;
   if (act_elem)
     {
-      act_elem = fold_convert (type, act_elem);
-
-      if (addr)
-	addr = fold_build2 (PLUS_EXPR, type, addr, act_elem);
+      if (addr_off)
+	addr_off = fold_build2 (PLUS_EXPR, sizetype, addr_off, act_elem);
       else
-	addr = act_elem;
+	addr_off = act_elem;
     }
 
-  act_elem = TMR_SYMBOL (mem_ref);
-  if (act_elem)
+  if (offset && !integer_zerop (offset))
     {
-      act_elem = fold_convert (type, build_addr (act_elem,
-						 current_function_decl));
-      if (addr)
-	addr = fold_build2 (PLUS_EXPR, type, addr, act_elem);
+      if (addr_off)
+	addr_off = fold_build2 (PLUS_EXPR, sizetype, addr_off, offset);
       else
-	addr = act_elem;
+	addr_off = offset;
     }
 
-  if (!zero_p (offset))
+  if (addr_off)
     {
-      act_elem = fold_convert (type, offset);
-
-      if (addr)
-	addr = fold_build2 (PLUS_EXPR, type, addr, act_elem);
+      if (addr_base)
+	addr = fold_build2 (POINTER_PLUS_EXPR, type, addr_base, addr_off);
       else
-	addr = act_elem;
+	addr = fold_convert (type, addr_off);
     }
-
-  if (!addr)
+  else if (addr_base)
+    addr = addr_base;
+  else
     addr = build_int_cst (type, 0);
 
   return addr;
@@ -325,7 +330,7 @@ create_mem_ref_raw (tree type, struct mem_address *addr)
   if (addr->step && integer_onep (addr->step))
     addr->step = NULL_TREE;
 
-  if (addr->offset && zero_p (addr->offset))
+  if (addr->offset && integer_zerop (addr->offset))
     addr->offset = NULL_TREE;
 
   return build7 (TARGET_MEM_REF, type,
@@ -343,21 +348,69 @@ fixed_address_object_p (tree obj)
 	      || DECL_EXTERNAL (obj)));
 }
 
-/* Adds COEF * ELT to PARTS.  TYPE is the type of the address we
-   construct.  */
+/* If ADDR contains an address of object that is a link time constant,
+   move it to PARTS->symbol.  */
 
 static void
-add_to_parts (struct mem_address *parts, tree type, tree elt)
+move_fixed_address_to_symbol (struct mem_address *parts, aff_tree *addr)
 {
-  tree elt_core = elt;
-  STRIP_NOPS (elt_core);
+  unsigned i;
+  tree val = NULL_TREE;
 
-  /* Check if this is a symbol.  */
-  if (!parts->symbol
-      && TREE_CODE (elt_core) == ADDR_EXPR
-      && fixed_address_object_p (TREE_OPERAND (elt_core, 0)))
+  for (i = 0; i < addr->n; i++)
     {
-      parts->symbol = TREE_OPERAND (elt_core, 0);
+      if (!double_int_one_p (addr->elts[i].coef))
+	continue;
+
+      val = addr->elts[i].val;
+      if (TREE_CODE (val) == ADDR_EXPR
+	  && fixed_address_object_p (TREE_OPERAND (val, 0)))
+	break;
+    }
+
+  if (i == addr->n)
+    return;
+
+  parts->symbol = TREE_OPERAND (val, 0);
+  aff_combination_remove_elt (addr, i);
+}
+
+/* If ADDR contains an address of a dereferenced pointer, move it to
+   PARTS->base.  */
+
+static void
+move_pointer_to_base (struct mem_address *parts, aff_tree *addr)
+{
+  unsigned i;
+  tree val = NULL_TREE;
+
+  for (i = 0; i < addr->n; i++)
+    {
+      if (!double_int_one_p (addr->elts[i].coef))
+	continue;
+
+      val = addr->elts[i].val;
+      if (POINTER_TYPE_P (TREE_TYPE (val)))
+	break;
+    }
+
+  if (i == addr->n)
+    return;
+
+  parts->base = val;
+  aff_combination_remove_elt (addr, i);
+}
+
+/* Adds ELT to PARTS.  */
+
+static void
+add_to_parts (struct mem_address *parts, tree elt)
+{
+  tree type;
+
+  if (!parts->index)
+    {
+      parts->index = fold_convert (sizetype, elt);
       return;
     }
 
@@ -367,24 +420,19 @@ add_to_parts (struct mem_address *parts, tree type, tree elt)
       return;
     }
 
-  if (!parts->index)
-    {
-      parts->index = elt;
-      return;
-    }
-
   /* Add ELT to base.  */
-  parts->base = fold_build2 (PLUS_EXPR, type, parts->base, elt);
+  type = TREE_TYPE (parts->base);
+  parts->base = fold_build2 (POINTER_PLUS_EXPR, type,
+			     parts->base,
+			     fold_convert (sizetype, elt));
 }
 
 /* Finds the most expensive multiplication in ADDR that can be
    expressed in an addressing mode and move the corresponding
-   element(s) to PARTS.  TYPE is the type of the address we
-   construct.  */
+   element(s) to PARTS.  */
 
 static void
-most_expensive_mult_to_index (struct mem_address *parts, tree type,
-			      aff_tree *addr)
+most_expensive_mult_to_index (struct mem_address *parts, aff_tree *addr)
 {
   HOST_WIDE_INT coef;
   double_int best_mult, amult, amult_neg;
@@ -434,19 +482,19 @@ most_expensive_mult_to_index (struct mem_address *parts, tree type,
 	  j++;
 	  continue;
 	}
-  
-      elt = fold_convert (type, addr->elts[i].val);
+
+      elt = fold_convert (sizetype, addr->elts[i].val);
       if (mult_elt)
-	mult_elt = fold_build2 (op_code, type, mult_elt, elt);
+	mult_elt = fold_build2 (op_code, sizetype, mult_elt, elt);
       else if (op_code == PLUS_EXPR)
 	mult_elt = elt;
       else
-	mult_elt = fold_build1 (NEGATE_EXPR, type, elt);
+	mult_elt = fold_build1 (NEGATE_EXPR, sizetype, elt);
     }
   addr->n = j;
   
   parts->index = mult_elt;
-  parts->step = double_int_to_tree (type, best_mult);
+  parts->step = double_int_to_tree (sizetype, best_mult);
 }
 
 /* Splits address ADDR into PARTS.
@@ -459,7 +507,7 @@ most_expensive_mult_to_index (struct mem_address *parts, tree type,
    addressing modes is useless.  */
 
 static void
-addr_to_parts (aff_tree *addr, tree type, struct mem_address *parts)
+addr_to_parts (aff_tree *addr, struct mem_address *parts)
 {
   tree part;
   unsigned i;
@@ -470,25 +518,34 @@ addr_to_parts (aff_tree *addr, tree type, struct mem_address *parts)
   parts->step = NULL_TREE;
 
   if (!double_int_zero_p (addr->offset))
-    parts->offset = double_int_to_tree (type, addr->offset);
+    parts->offset = double_int_to_tree (sizetype, addr->offset);
   else
     parts->offset = NULL_TREE;
 
+  /* Try to find a symbol.  */
+  move_fixed_address_to_symbol (parts, addr);
+
   /* First move the most expensive feasible multiplication
      to index.  */
-  most_expensive_mult_to_index (parts, type, addr);
+  most_expensive_mult_to_index (parts, addr);
+
+  /* Try to find a base of the reference.  Since at the moment
+     there is no reliable way how to distinguish between pointer and its
+     offset, this is just a guess.  */
+  if (!parts->symbol)
+    move_pointer_to_base (parts, addr);
 
   /* Then try to process the remaining elements.  */
   for (i = 0; i < addr->n; i++)
     {
-      part = fold_convert (type, addr->elts[i].val);
+      part = fold_convert (sizetype, addr->elts[i].val);
       if (!double_int_one_p (addr->elts[i].coef))
-	part = fold_build2 (MULT_EXPR, type, part,
-			    double_int_to_tree (type, addr->elts[i].coef));
-      add_to_parts (parts, type, part);
+	part = fold_build2 (MULT_EXPR, sizetype, part,
+			    double_int_to_tree (sizetype, addr->elts[i].coef));
+      add_to_parts (parts, part);
     }
   if (addr->rest)
-    add_to_parts (parts, type, addr->rest);
+    add_to_parts (parts, fold_convert (sizetype, addr->rest));
 }
 
 /* Force the PARTS to register.  */
@@ -498,10 +555,12 @@ gimplify_mem_ref_parts (block_stmt_iterator *bsi, struct mem_address *parts)
 {
   if (parts->base)
     parts->base = force_gimple_operand_bsi (bsi, parts->base,
-					    true, NULL_TREE);
+					    true, NULL_TREE,
+					    true, BSI_SAME_STMT);
   if (parts->index)
     parts->index = force_gimple_operand_bsi (bsi, parts->index,
-					     true, NULL_TREE);
+					     true, NULL_TREE,
+					     true, BSI_SAME_STMT);
 }
 
 /* Creates and returns a TARGET_MEM_REF for address ADDR.  If necessary
@@ -512,10 +571,10 @@ tree
 create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 {
   tree mem_ref, tmp;
-  tree addr_type = build_pointer_type (type);
+  tree atype;
   struct mem_address parts;
 
-  addr_to_parts (addr, addr_type, &parts);
+  addr_to_parts (addr, &parts);
   gimplify_mem_ref_parts (bsi, &parts);
   mem_ref = create_mem_ref_raw (type, &parts);
   if (mem_ref)
@@ -528,9 +587,9 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
       /* Move the multiplication to index.  */
       gcc_assert (parts.index);
       parts.index = force_gimple_operand_bsi (bsi,
-					      build2 (MULT_EXPR, addr_type,
-						      parts.index, parts.step),
-					      true, NULL_TREE);
+				fold_build2 (MULT_EXPR, sizetype,
+					     parts.index, parts.step),
+				true, NULL_TREE, true, BSI_SAME_STMT);
       parts.step = NULL_TREE;
   
       mem_ref = create_mem_ref_raw (type, &parts);
@@ -541,15 +600,23 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
   if (parts.symbol)
     {
       tmp = build_addr (parts.symbol, current_function_decl);
+      gcc_assert (is_gimple_val (tmp));
     
       /* Add the symbol to base, eventually forcing it to register.  */
       if (parts.base)
 	{
+	  gcc_assert (useless_type_conversion_p
+				(sizetype, TREE_TYPE (parts.base)));
+
 	  if (parts.index)
-	    parts.base = force_gimple_operand_bsi (bsi,
-						   build2 (PLUS_EXPR, addr_type,
-							   parts.base, tmp),
-						   true, NULL_TREE);
+	    {
+	      atype = TREE_TYPE (tmp);
+	      parts.base = force_gimple_operand_bsi (bsi,
+			fold_build2 (PLUS_EXPR, atype,
+				     fold_convert (atype, parts.base),
+				     tmp),
+			true, NULL_TREE, true, BSI_SAME_STMT);
+	    }
 	  else
 	    {
 	      parts.index = parts.base;
@@ -565,18 +632,21 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 	return mem_ref;
     }
 
-  if (parts.base)
+  if (parts.index)
     {
-      /* Add base to index.  */
-      if (parts.index)
-	parts.index = force_gimple_operand_bsi (bsi,
-						build2 (PLUS_EXPR, addr_type,
-							parts.base,
-							parts.index),
-						true, NULL_TREE);
+      /* Add index to base.  */
+      if (parts.base)
+	{
+	  atype = TREE_TYPE (parts.base);
+	  parts.base = force_gimple_operand_bsi (bsi,
+			fold_build2 (PLUS_EXPR, atype,
+				     parts.base,
+			    	     fold_convert (atype, parts.index)),
+			true, NULL_TREE, true, BSI_SAME_STMT);
+	}
       else
-	parts.index = parts.base;
-      parts.base = NULL_TREE;
+	parts.base = parts.index;
+      parts.index = NULL_TREE;
 
       mem_ref = create_mem_ref_raw (type, &parts);
       if (mem_ref)
@@ -585,15 +655,18 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 
   if (parts.offset && !integer_zerop (parts.offset))
     {
-      /* Try adding offset to index.  */
-      if (parts.index)
-	parts.index = force_gimple_operand_bsi (bsi, 
-						build2 (PLUS_EXPR, addr_type,
-							parts.index,
-							parts.offset),
-						true, NULL_TREE);
+      /* Try adding offset to base.  */
+      if (parts.base)
+	{
+	  atype = TREE_TYPE (parts.base);
+	  parts.base = force_gimple_operand_bsi (bsi, 
+			fold_build2 (POINTER_PLUS_EXPR, atype,
+				     parts.base,
+				     fold_convert (sizetype, parts.offset)),
+			true, NULL_TREE, true, BSI_SAME_STMT);
+	}
       else
-	parts.index = parts.offset, bsi;
+	parts.base = parts.offset;
 
       parts.offset = NULL_TREE;
 
@@ -606,7 +679,7 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
      (only a register).  If we cannot create such a memory reference,
      something is really wrong.  */
   gcc_assert (parts.symbol == NULL_TREE);
-  gcc_assert (parts.base == NULL_TREE);
+  gcc_assert (parts.index == NULL_TREE);
   gcc_assert (!parts.step || integer_onep (parts.step));
   gcc_assert (!parts.offset || integer_zerop (parts.offset));
   gcc_unreachable ();
@@ -651,8 +724,9 @@ maybe_fold_tmr (tree ref)
   if (addr.base && TREE_CODE (addr.base) == INTEGER_CST)
     {
       if (addr.offset)
-	addr.offset = fold_binary_to_constant (PLUS_EXPR, ptr_type_node,
-					       addr.offset, addr.base);
+	addr.offset = fold_binary_to_constant (PLUS_EXPR, sizetype,
+			addr.offset,
+			fold_convert (sizetype, addr.base));
       else
 	addr.offset = addr.base;
 
@@ -665,14 +739,14 @@ maybe_fold_tmr (tree ref)
       off = addr.index;
       if (addr.step)
 	{
-	  off = fold_binary_to_constant (MULT_EXPR, ptr_type_node,
+	  off = fold_binary_to_constant (MULT_EXPR, sizetype,
 					 off, addr.step);
 	  addr.step = NULL_TREE;
 	}
 
       if (addr.offset)
 	{
-	  addr.offset = fold_binary_to_constant (PLUS_EXPR, ptr_type_node,
+	  addr.offset = fold_binary_to_constant (PLUS_EXPR, sizetype,
 						 addr.offset, off);
 	}
       else

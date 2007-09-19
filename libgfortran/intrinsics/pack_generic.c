@@ -76,7 +76,7 @@ array valued, and the other one where MASK is scalar.  */
 
 static void
 pack_internal (gfc_array_char *ret, const gfc_array_char *array,
-	       const gfc_array_l4 *mask, const gfc_array_char *vector,
+	       const gfc_array_l1 *mask, const gfc_array_char *vector,
 	       index_type size)
 {
   /* r.* indicates the return array.  */
@@ -89,44 +89,59 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
   /* m.* indicates the mask array.  */
   index_type mstride[GFC_MAX_DIMENSIONS];
   index_type mstride0;
-  const GFC_LOGICAL_4 *mptr;
+  const GFC_LOGICAL_1 *mptr;
 
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
+  int zero_sized;
   index_type n;
   index_type dim;
   index_type nelem;
+  index_type total;
+  int mask_kind;
 
   dim = GFC_DESCRIPTOR_RANK (array);
-  for (n = 0; n < dim; n++)
-    {
-      count[n] = 0;
-      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
-      sstride[n] = array->dim[n].stride * size;
-      mstride[n] = mask->dim[n].stride;
-    }
-  if (sstride[0] == 0)
-    sstride[0] = size;
-  if (mstride[0] == 0)
-    mstride[0] = 1;
 
   sptr = array->data;
   mptr = mask->data;
 
-  /* Use the same loop for both logical types. */
-  if (GFC_DESCRIPTOR_SIZE (mask) != 4)
-    {
-      if (GFC_DESCRIPTOR_SIZE (mask) != 8)
-        runtime_error ("Funny sized logical array");
-      for (n = 0; n < dim; n++)
-        mstride[n] <<= 1;
-      mptr = GFOR_POINTER_L8_TO_L4 (mptr);
-    }
+  /* Use the same loop for all logical types, by using GFC_LOGICAL_1
+     and using shifting to address size and endian issues.  */
 
-  if (ret->data == NULL)
+  mask_kind = GFC_DESCRIPTOR_SIZE (mask);
+
+  if (mask_kind == 1 || mask_kind == 2 || mask_kind == 4 || mask_kind == 8
+#ifdef HAVE_GFC_LOGICAL_16
+      || mask_kind == 16
+#endif
+      )
     {
-      /* Allocate the memory for the result.  */
-      int total;
+      /*  Don't convert a NULL pointer as we use test for NULL below.  */
+      if (mptr)
+	mptr = GFOR_POINTER_TO_L1 (mptr, mask_kind);
+    }
+  else
+    runtime_error ("Funny sized logical array");
+
+  zero_sized = 0;
+  for (n = 0; n < dim; n++)
+    {
+      count[n] = 0;
+      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+      if (extent[n] <= 0)
+       zero_sized = 1;
+      sstride[n] = array->dim[n].stride * size;
+      mstride[n] = mask->dim[n].stride * mask_kind;
+    }
+  if (sstride[0] == 0)
+    sstride[0] = size;
+  if (mstride[0] == 0)
+    mstride[0] = mask_kind;
+
+  if (ret->data == NULL || compile_options.bounds_check)
+    {
+      /* Count the elements, either for allocating memory or
+	 for bounds checking.  */
 
       if (vector != NULL)
 	{
@@ -151,9 +166,11 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
 	     cache behavior in the case where our cache is not big
 	     enough to hold all elements that have to be copied.  */
 
-	  const GFC_LOGICAL_4 *m = mptr;
+	  const GFC_LOGICAL_1 *m = mptr;
 
 	  total = 0;
+	  if (zero_sized)
+	    m = NULL;
 
 	  while (m)
 	    {
@@ -190,20 +207,34 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
 	    }
 	}
 
-      /* Setup the array descriptor.  */
-      ret->dim[0].lbound = 0;
-      ret->dim[0].ubound = total - 1;
-      ret->dim[0].stride = 1;
-
-      ret->offset = 0;
-      if (total == 0)
+      if (ret->data == NULL)
 	{
-	  /* In this case, nothing remains to be done.  */
-	  ret->data = internal_malloc_size (1);
-	  return;
+	  /* Setup the array descriptor.  */
+	  ret->dim[0].lbound = 0;
+	  ret->dim[0].ubound = total - 1;
+	  ret->dim[0].stride = 1;
+
+	  ret->offset = 0;
+	  if (total == 0)
+	    {
+	      /* In this case, nothing remains to be done.  */
+	      ret->data = internal_malloc_size (1);
+	      return;
+	    }
+	  else
+	    ret->data = internal_malloc_size (size * total);
 	}
-      else
-	ret->data = internal_malloc_size (size * total);
+      else 
+	{
+	  /* We come here because of range checking.  */
+	  index_type ret_extent;
+
+	  ret_extent = ret->dim[0].ubound + 1 - ret->dim[0].lbound;
+	  if (total != ret_extent)
+	    runtime_error ("Incorrect extent in return value of PACK intrinsic;"
+			   " is %ld, should be %ld", (long int) total,
+			   (long int) ret_extent);
+	}
     }
 
   rstride0 = ret->dim[0].stride * size;

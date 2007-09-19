@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -137,6 +137,13 @@ package Sem_Ch3  is
    --  Note: one might expect this to be private to the package body, but
    --  there is one rather unusual usage in package Exp_Dist.
 
+   function Find_Hidden_Interface
+     (Src  : Elist_Id;
+      Dest : Elist_Id) return Entity_Id;
+   --  Ada 2005: Determine whether the interfaces in list Src are all present
+   --  in the list Dest. Return the first differing interface, or Empty
+   --  otherwise.
+
    function Find_Type_Of_Subtype_Indic (S : Node_Id) return Entity_Id;
    --  Given a subtype indication S (which is really an N_Subtype_Indication
    --  node or a plain N_Identifier), find the type of the subtype mark.
@@ -246,14 +253,12 @@ package Sem_Ch3  is
    --  Prev is entity on the partial view, on which references are posted.
 
    function Replace_Anonymous_Access_To_Protected_Subprogram
-     (N      : Node_Id;
-      Prev_E : Entity_Id) return Entity_Id;
+     (N : Node_Id) return Entity_Id;
    --  Ada 2005 (AI-254): Create and decorate an internal full type declaration
-   --  in the enclosing scope corresponding to an anonymous access to protected
-   --  subprogram. In addition, replace the anonymous access by an occurrence
-   --  of this internal type. Prev_Etype is used to link the new internal
-   --  entity with the anonymous entity. Return the entity of this type
-   --  declaration.
+   --  for an anonymous access to protected subprogram. For a record component
+   --  declaration, the type is created in the enclosing scope, for an array
+   --  type declaration or an object declaration it is simply placed ahead of
+   --  this declaration.
 
    procedure Set_Completion_Referenced (E : Entity_Id);
    --  If E is the completion of a private or incomplete  type declaration,

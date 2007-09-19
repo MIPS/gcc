@@ -1,6 +1,6 @@
 /* Prototypes for exported functions defined in avr.c
    
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 
 extern int function_arg_regno_p (int r);
@@ -44,7 +43,7 @@ extern void asm_output_external (FILE *file, tree decl, char *name);
 extern int avr_progmem_p (tree decl, tree attributes);
 
 #ifdef RTX_CODE /* inside TREE_CODE */
-extern rtx avr_function_value (tree type, tree func);
+extern rtx avr_function_value (const_tree type, const_tree func);
 extern void init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 				  rtx libname, tree fndecl);
 extern rtx function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
@@ -87,6 +86,10 @@ extern const char *lshrqi3_out (rtx insn, rtx operands[], int *len);
 extern const char *lshrhi3_out (rtx insn, rtx operands[], int *len);
 extern const char *lshrsi3_out (rtx insn, rtx operands[], int *len);
 
+extern void expand_prologue (void);
+extern void expand_epilogue (void);
+extern int avr_epilogue_uses (int regno);
+
 extern void avr_output_bld (rtx operands[], int bit_nr);
 extern void avr_output_addr_vec_elt (FILE *stream, int value);
 extern const char *avr_out_sbxx_branch (rtx insn, rtx operands[]);
@@ -112,7 +115,6 @@ extern int test_hard_reg_class (enum reg_class class, rtx x);
 extern int jump_over_one_insn_p (rtx insn, rtx dest);
 
 extern int avr_hard_regno_mode_ok (int regno, enum machine_mode mode);
-extern int call_insn_operand (rtx op, enum machine_mode mode);
 extern void final_prescan_insn (rtx insn, rtx *operand, int num_operands);
 extern int avr_simplify_comparison_p (enum machine_mode mode,
 				      RTX_CODE operator, rtx x);

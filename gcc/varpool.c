@@ -1,12 +1,12 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -33,6 +32,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "debug.h" 
 #include "target.h"
 #include "output.h"
+#include "tree-gimple.h"
+#include "tree-flow.h"
 
 /*  This file contains basic routines manipulating variable pool.
 
@@ -40,10 +41,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
     and drives the decision process on what variables and when are
     going to be compiled.
 
-    The varpool nodes are alocated lazilly for declarations
+    The varpool nodes are allocated lazily for declarations
     either by frontend or at callgraph construction time.
     All variables supposed to be output into final file needs to be
-    explicitely marked by frontend via VARPOOL_FINALIZE_DECL function.  */
+    explicitly marked by frontend via VARPOOL_FINALIZE_DECL function.  */
 
 /* Hash table used to convert declarations into nodes.  */
 static GTY((param_is (struct varpool_node))) htab_t varpool_hash;
@@ -56,8 +57,9 @@ struct varpool_node *varpool_nodes;
    The queue is maintained via mark_needed_node, linked via node->next_needed
    pointer. 
 
-   LAST_NNEDED_NODE points to the end of queue, so it can be maintained in forward
-   order.  QTY is needed to make it friendly to PCH.
+   LAST_NEEDED_NODE points to the end of queue, so it can be
+   maintained in forward order.  QTY is needed to make it friendly to
+   PCH.
  
    During unit-at-a-time compilation we construct the queue of needed variables
    twice: first time it is during cgraph construction, second time it is at the
@@ -218,7 +220,7 @@ bool
 decide_is_variable_needed (struct varpool_node *node, tree decl)
 {
   /* If the user told us it is used, then it must be so.  */
-  if (node->externally_visible)
+  if (node->externally_visible || node->force_output)
     return true;
   if (!flag_unit_at_a_time
       && lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
@@ -241,6 +243,17 @@ decide_is_variable_needed (struct varpool_node *node, tree decl)
   if (TREE_PUBLIC (decl) && !flag_whole_program && !DECL_COMDAT (decl)
       && !DECL_EXTERNAL (decl))
     return true;
+
+  /* When emulating tls, we actually see references to the control
+     variable, rather than the user-level variable.  */
+  if (!targetm.have_tls
+      && TREE_CODE (decl) == VAR_DECL
+      && DECL_THREAD_LOCAL_P (decl))
+    {
+      tree control = emutls_decl (decl);
+      if (decide_is_variable_needed (varpool_node (control), control))
+	return true;
+    }
 
   /* When not reordering top level variables, we have to assume that
      we are going to keep everything.  */
@@ -374,10 +387,7 @@ varpool_remove_unreferenced_decls (void)
       node->needed = 0;
 
       if (node->finalized
-	  && ((DECL_ASSEMBLER_NAME_SET_P (decl)
-	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	      || node->force_output
-	      || decide_is_variable_needed (node, decl)
+	  && (decide_is_variable_needed (node, decl)
 	      /* ??? Cgraph does not yet rule the world with an iron hand,
 		 and does not control the emission of debug information.
 		 After a variable has its DECL_RTL set, we must assume that
@@ -422,6 +432,9 @@ varpool_assemble_pending_decls (void)
       else
         node->next_needed = NULL;
     }
+  /* varpool_nodes_queue is now empty, clear the pointer to the last element
+     in the queue.  */
+  varpool_last_needed_node = NULL;
   return changed;
 }
 
@@ -446,6 +459,30 @@ varpool_output_debug_info (void)
 	node->next_needed = 0;
       }
   timevar_pop (TV_SYMOUT);
+}
+
+/* Create a new global variable of type TYPE.  */
+tree
+add_new_static_var (tree type)
+{
+  tree new_decl;
+  struct varpool_node *new_node;
+
+  new_decl = create_tmp_var (type, NULL);
+  DECL_NAME (new_decl) = create_tmp_var_name (NULL);
+  TREE_READONLY (new_decl) = 0;
+  TREE_STATIC (new_decl) = 1;
+  TREE_USED (new_decl) = 1;
+  DECL_CONTEXT (new_decl) = NULL_TREE;
+  DECL_ABSTRACT (new_decl) = 0;
+  lang_hooks.dup_lang_specific_decl (new_decl);
+  create_var_ann (new_decl);
+  new_node = varpool_node (new_decl);
+  varpool_mark_needed_node (new_node);
+  add_referenced_var (new_decl);
+  varpool_finalize_decl (new_decl);
+
+  return new_node->decl;
 }
 
 #include "gt-varpool.h"

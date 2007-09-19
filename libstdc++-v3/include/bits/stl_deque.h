@@ -1,6 +1,6 @@
 // Deque implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -59,8 +59,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _DEQUE_H
-#define _DEQUE_H 1
+#ifndef _STL_DEQUE_H
+#define _STL_DEQUE_H 1
 
 #include <bits/concept_check.h>
 #include <bits/stl_iterator_base_types.h>
@@ -1221,11 +1221,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       // Internal constructor functions follow.
 
       // called by the range constructor to implement [23.1.1]/9
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 438. Ambiguity in the "do the right thing" clause
       template<typename _Integer>
         void
         _M_initialize_dispatch(_Integer __n, _Integer __x, __true_type)
         {
-	  _M_initialize_map(__n);
+	  _M_initialize_map(static_cast<size_type>(__n));
 	  _M_fill_initialize(__x);
 	}
 
@@ -1285,13 +1288,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       // assignment work for the range versions.
 
       // called by the range assign to implement [23.1.1]/9
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 438. Ambiguity in the "do the right thing" clause
       template<typename _Integer>
         void
         _M_assign_dispatch(_Integer __n, _Integer __val, __true_type)
-        {
-	  _M_fill_assign(static_cast<size_type>(__n),
-			 static_cast<value_type>(__val));
-	}
+        { _M_fill_assign(__n, __val); }
 
       // called by the range assign to implement [23.1.1]/9
       template<typename _InputIterator>
@@ -1364,14 +1367,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       // insertion work when all shortcuts fail.
 
       // called by the range insert to implement [23.1.1]/9
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 438. Ambiguity in the "do the right thing" clause
       template<typename _Integer>
         void
         _M_insert_dispatch(iterator __pos,
 			   _Integer __n, _Integer __x, __true_type)
-        {
-	  _M_fill_insert(__pos, static_cast<size_type>(__n),
-			 static_cast<value_type>(__x));
-	}
+        { _M_fill_insert(__pos, __n, __x); }
 
       // called by the range insert to implement [23.1.1]/9
       template<typename _InputIterator>
@@ -1424,13 +1427,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       void
       _M_destroy_data_aux(iterator __first, iterator __last);
 
-      void
-      _M_destroy_data_dispatch(iterator, iterator, __true_type) { }
-      
-      void
-      _M_destroy_data_dispatch(iterator __first, iterator __last, __false_type)
-      { _M_destroy_data_aux(__first, __last); }
-
       // Called by ~deque().
       // NB: Doesn't deallocate the nodes.
       template<typename _Alloc1>
@@ -1442,9 +1438,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       _M_destroy_data(iterator __first, iterator __last,
 		      const std::allocator<_Tp>&)
       {
-	typedef typename std::__is_scalar<value_type>::__type
-	  _Has_trivial_destructor;
-	_M_destroy_data_dispatch(__first, __last, _Has_trivial_destructor());
+	if (!__has_trivial_destructor(value_type))
+	  _M_destroy_data_aux(__first, __last);
       }
 
       // Called by erase(q1, q2).
@@ -1566,8 +1561,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     inline bool
     operator<(const deque<_Tp, _Alloc>& __x,
 	      const deque<_Tp, _Alloc>& __y)
-    { return lexicographical_compare(__x.begin(), __x.end(),
-				     __y.begin(), __y.end()); }
+    { return std::lexicographical_compare(__x.begin(), __x.end(),
+					  __y.begin(), __y.end()); }
 
   /// Based on operator==
   template<typename _Tp, typename _Alloc>
@@ -1605,4 +1600,4 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
 _GLIBCXX_END_NESTED_NAMESPACE
 
-#endif /* _DEQUE_H */
+#endif /* _STL_DEQUE_H */

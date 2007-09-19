@@ -199,7 +199,7 @@ init_ira_call_data (void)
   postorder = ira_allocate (sizeof (int) * last_basic_block);
   current_all_blocks = ira_allocate_bitmap ();
 
-  n_blocks = post_order_compute (postorder, true);
+  n_blocks = post_order_compute (postorder, true, false);
 
   if (n_blocks != n_basic_blocks)
     delete_unreachable_blocks ();
@@ -326,10 +326,7 @@ static int change_p;
 
 /* Record all regs that are set in any one insn.  Communication from
    mark_reg_{store,clobber}.  */
-static rtx *regs_set;
-
-/* Number elelments in the previous array.  */
-static int n_regs_set;
+static VEC(rtx, heap) *regs_set;
 
 /* Handle the case where REG is set by the insn being scanned.  Store
    a 1 in hard_regs_live or regs_live for this register.
@@ -340,7 +337,7 @@ static int n_regs_set;
    SETTER is 0 if this register was modified by an auto-increment
    (i.e., a REG_INC note was found for it).  */
 static void
-mark_reg_store (rtx reg, rtx setter ATTRIBUTE_UNUSED,
+mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 		void *data ATTRIBUTE_UNUSED)
 {
   int regno;
@@ -351,7 +348,7 @@ mark_reg_store (rtx reg, rtx setter ATTRIBUTE_UNUSED,
   if (! REG_P (reg))
     return;
 
-  regs_set [n_regs_set++] = reg;
+  VEC_safe_push (rtx, heap, regs_set, reg);
 
   regno = REGNO (reg);
 
@@ -372,7 +369,7 @@ mark_reg_store (rtx reg, rtx setter ATTRIBUTE_UNUSED,
 
 /* Like mark_reg_store except notice just CLOBBERs; ignore SETs.  */
 static void
-mark_reg_clobber (rtx reg, rtx setter, void *data)
+mark_reg_clobber (rtx reg, const_rtx setter, void *data)
 {
   if (GET_CODE (setter) == CLOBBER)
     mark_reg_store (reg, setter, data);
@@ -404,10 +401,13 @@ mark_reg_death (rtx reg)
 static void
 mark_referenced_regs (rtx x)
 {
-  enum rtx_code code = GET_CODE (x);
+  enum rtx_code code;
   const char *fmt;
   int i, j;
 
+  if (x == NULL_RTX)
+    return;
+  code = GET_CODE (x);
   if (code == SET)
     mark_referenced_regs (SET_SRC (x));
   if (code == SET || code == CLOBBER)
@@ -544,6 +544,19 @@ get_new_reg (unsigned int regno)
   return newreg;
 }
 
+/* Return move insn dest<-src.  */
+static rtx
+get_move_insn (rtx src, rtx dest) 
+{
+  rtx result;
+
+  start_sequence ();
+  emit_move_insn (src, dest);
+  result = get_insns ();
+  end_sequence ();
+  return result;
+}
+
 /* The function inserts save/restore code which can be placed in any
    case inside the BB and caclulate local bb info (kill, saveloc,
    restoreloc).  */
@@ -558,7 +571,8 @@ put_save_restore_and_calculate_local_info (void)
   bitmap reg_live_in, reg_live_out, saveloc, restoreloc, kill;
 
   /* Make a vector that mark_reg_{store,clobber} will store in.  */
-  regs_set = ira_allocate (sizeof (rtx) * max_parallel * 2);
+  if (! regs_set)
+    regs_set = VEC_alloc (rtx, heap, 10);
   FOR_EACH_BB (bb)
     {
       rtx first_insn, last_insn;
@@ -568,8 +582,8 @@ put_save_restore_and_calculate_local_info (void)
       saveloc = bb_info->saveloc;
       restoreloc = bb_info->restoreloc;
       kill = bb_info->kill;
-      reg_live_in = DF_UPWARD_LIVE_IN (build_df, bb);
-      reg_live_out = DF_UPWARD_LIVE_OUT (build_df, bb);
+      reg_live_in = DF_LR_IN (bb);
+      reg_live_out = DF_LR_OUT (bb);
       REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_in);
       AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
       bitmap_copy (regs_live, reg_live_in);
@@ -588,19 +602,19 @@ put_save_restore_and_calculate_local_info (void)
 	  last_insn = insn;
 
 	  bitmap_clear (referenced_regs);
-	  mark_all_referenced_regs (PATTERN (insn));
+	  mark_all_referenced_regs (insn);
 	  
 	  EXECUTE_IF_SET_IN_BITMAP (restoreloc, FIRST_PSEUDO_REGISTER, j, bi)
 	    if (bitmap_bit_p (referenced_regs, j))
 	      insert_one_insn (insn, TRUE,
-			       gen_rtx_SET (VOIDmode, regno_reg_rtx [j],
-					    get_new_reg (j)));
+			       get_move_insn (regno_reg_rtx [j],
+					      get_new_reg (j)));
 	  
 	  bitmap_ior_into (kill, referenced_regs);
 	  bitmap_and_compl_into (restoreloc, referenced_regs);
 
-	  /* Make regs_set an empty set.  */
-	  n_regs_set = 0;
+	  /* Check that regs_set is an empty set.  */
+	  gcc_assert (VEC_empty (rtx, regs_set));
       
 	  /* Mark any regs clobbered by INSN as live, so they
 	     conflict with the inputs.  */
@@ -627,15 +641,15 @@ put_save_restore_and_calculate_local_info (void)
 		    if (! bitmap_bit_p (restoreloc, j)
 			&& bitmap_bit_p (kill, j))
 		      {
-			for (i = 0; i < n_regs_set; i++)
-			  if (REGNO (regs_set [n_regs_set]) == j)
+			for (i = 0; i < (int) VEC_length (rtx, regs_set); i++)
+			  if (REGNO (VEC_index (rtx, regs_set, i)) == j)
 			    break;
-			if (i < n_regs_set)
+			if (i < (int) VEC_length (rtx, regs_set))
 			  continue;
 			/* Insert save insn */
 			reg = regno_reg_rtx [j];
 			newreg = get_new_reg (j);
-			pat = gen_rtx_SET (VOIDmode, newreg, reg);
+			pat = get_move_insn (newreg, reg);
 			insert_one_insn (insn, TRUE, pat);
 		      }
 		    if (! bitmap_bit_p (kill, j))
@@ -654,10 +668,11 @@ put_save_restore_and_calculate_local_info (void)
 #endif
 	  
 	  /* Mark any regs set in INSN and then never used.  */
-	  while (n_regs_set-- > 0)
+	  while (! VEC_empty (rtx, regs_set))
 	    {
-	      rtx note = find_regno_note (insn, REG_UNUSED,
-					  REGNO (regs_set [n_regs_set]));
+	      rtx reg = VEC_pop (rtx, regs_set);
+	      rtx note = find_regno_note (insn, REG_UNUSED, REGNO (reg));
+
 	      if (note)
 		mark_reg_death (XEXP (note, 0));
 	    }
@@ -666,25 +681,16 @@ put_save_restore_and_calculate_local_info (void)
 	{
 	  EXECUTE_IF_SET_IN_BITMAP (saveloc, FIRST_PSEUDO_REGISTER, j, bi)
 	    insert_one_insn (first_insn, TRUE,
-			     gen_rtx_SET (VOIDmode, get_new_reg (j),
-					  regno_reg_rtx [j]));
+			     get_move_insn (get_new_reg (j),
+					    regno_reg_rtx [j]));
 	  EXECUTE_IF_SET_IN_BITMAP (restoreloc, FIRST_PSEUDO_REGISTER, j, bi)
 	    insert_one_insn (last_insn, JUMP_P (last_insn),
-			     gen_rtx_SET (VOIDmode, regno_reg_rtx [j],
-					  get_new_reg (j)));
+			     get_move_insn (regno_reg_rtx [j],
+					    get_new_reg (j)));
 	}
-      for (loop = bb->loop_father; loop != NULL; loop = loop->outer)
+      for (loop = bb->loop_father; loop != NULL; loop = loop_outer (loop))
 	bitmap_ior_into (loop_referenced_regs_array [loop->num], kill);
     }
-  ira_free (regs_set);
-}
-
-/* The function used as initialization function by the DF equation
-   solver.  */
-static void
-do_init_nothing (struct dataflow *dummy ATTRIBUTE_UNUSED,
-		 bitmap to_init ATTRIBUTE_UNUSED)
-{
 }
 
 
@@ -692,7 +698,7 @@ do_init_nothing (struct dataflow *dummy ATTRIBUTE_UNUSED,
 /* The function used by the DF equation solver to propagate restore
    info through block with BB_INDEX.  */
 static bool
-save_trans_fun (struct dataflow *dummy ATTRIBUTE_UNUSED, int bb_index)
+save_trans_fun (int bb_index)
 {
   struct bb_info *bb_info = BB_INFO_BY_INDEX (bb_index);
   bitmap in = bb_info->savein;
@@ -706,7 +712,7 @@ save_trans_fun (struct dataflow *dummy ATTRIBUTE_UNUSED, int bb_index)
 /* The function used by the DF equation solver to set up save info
    for a block BB without successors.  */
 static void
-save_con_fun_0 (struct dataflow *dummy ATTRIBUTE_UNUSED, basic_block bb)
+save_con_fun_0 (basic_block bb)
 {
   bitmap_clear (BB_INFO (bb)->saveout);
 }
@@ -714,7 +720,7 @@ save_con_fun_0 (struct dataflow *dummy ATTRIBUTE_UNUSED, basic_block bb)
 /* The function used by the DF equation solver to propagate save info
    from successor to predecessor on edge E.  */
 static void
-save_con_fun_n (struct dataflow *dummy ATTRIBUTE_UNUSED, edge e)
+save_con_fun_n (edge e)
 {
   bitmap op1 = BB_INFO (e->src)->saveout;
   bitmap op2 = BB_INFO (e->dest)->savein;
@@ -735,21 +741,16 @@ calculate_save (void)
 {
   basic_block bb;
 
-  problem.dir = DF_BACKWARD;
-  problem.init_fun = do_init_nothing;
-  problem.dataflow_fun = df_iterative_dataflow;
-  problem.trans_fun = save_trans_fun;
-  problem.con_fun_0 = save_con_fun_0;
-  problem.con_fun_n = save_con_fun_n;
-
   /* Initialize relations to find maximal solution.  */
   FOR_ALL_BB (bb)
     {
       bitmap_copy (BB_INFO (bb)->savein, regs_to_save_restore);
       bitmap_copy (BB_INFO (bb)->saveout, regs_to_save_restore);
     }
-  df_analyze_problem (&dflow, current_all_blocks, NULL, NULL, 
-		      postorder, n_blocks, false);
+  df_simple_dataflow (DF_BACKWARD, NULL, save_con_fun_0, save_con_fun_n,
+		      save_trans_fun, current_all_blocks,
+		      df_get_postorder (DF_BACKWARD),
+		      df_get_n_blocks (DF_BACKWARD));
 }
 
 
@@ -757,7 +758,7 @@ calculate_save (void)
 /* The function used by the DF equation solver to propagate restore
    info through block with BB_INDEX.  */
 static bool
-restore_trans_fun (struct dataflow *dummy ATTRIBUTE_UNUSED, int bb_index)
+restore_trans_fun (int bb_index)
 {
   struct bb_info *bb_info = BB_INFO_BY_INDEX (bb_index);
   bitmap in = bb_info->restorein;
@@ -771,7 +772,7 @@ restore_trans_fun (struct dataflow *dummy ATTRIBUTE_UNUSED, int bb_index)
 /* The function used by the DF equation solver to set up restore info
    for a block BB without predecessors.  */
 static void
-restore_con_fun_0 (struct dataflow *dummy ATTRIBUTE_UNUSED, basic_block bb)
+restore_con_fun_0 (basic_block bb)
 {
   bitmap_clear (BB_INFO (bb)->restorein);
 }
@@ -779,7 +780,7 @@ restore_con_fun_0 (struct dataflow *dummy ATTRIBUTE_UNUSED, basic_block bb)
 /* The function used by the DF equation solver to propagate restore
    info from predecessor to successor on edge E.  */
 static void
-restore_con_fun_n (struct dataflow *dummy ATTRIBUTE_UNUSED, edge e)
+restore_con_fun_n (edge e)
 {
   bitmap op1 = BB_INFO (e->dest)->restorein;
   bitmap op2 = BB_INFO (e->src)->restoreout;
@@ -800,21 +801,16 @@ calculate_restore (void)
 {
   basic_block bb;
 
-  problem.dir = DF_FORWARD;
-  problem.init_fun = do_init_nothing;
-  problem.dataflow_fun = df_iterative_dataflow;
-  problem.trans_fun = restore_trans_fun;
-  problem.con_fun_0 = restore_con_fun_0;
-  problem.con_fun_n = restore_con_fun_n;
-
   /* Initialize relations to find maximal solution.  */
   FOR_ALL_BB (bb)
     {
       bitmap_copy (BB_INFO (bb)->restoreout, regs_to_save_restore);
       bitmap_copy (BB_INFO (bb)->restorein, regs_to_save_restore);
     }
-  df_analyze_problem (&dflow, current_all_blocks, NULL, NULL, 
-		      postorder, n_blocks, false);
+  df_simple_dataflow (DF_FORWARD, NULL, restore_con_fun_0, restore_con_fun_n,
+		      restore_trans_fun, current_all_blocks,
+		      df_get_postorder (DF_FORWARD),
+		      df_get_n_blocks (DF_FORWARD));
 }
 
 
@@ -832,10 +828,11 @@ put_save_restore (void)
   bitmap_iterator bi;
   rtx pat;
   int first_p;
-  bitmap save_at_end, restore_at_start;
+  bitmap save_at_end, restore_at_start, progress;
 
   save_at_end = ira_allocate_bitmap ();
   restore_at_start = ira_allocate_bitmap ();
+  progress = ira_allocate_bitmap ();
   FOR_EACH_BB (bb)
     {
       struct bb_info *bb_info = BB_INFO (bb);
@@ -844,7 +841,7 @@ put_save_restore (void)
       bitmap saveout = bb_info->saveout;
       bitmap savein = bb_info->savein;
       bitmap restorein = bb_info->restorein;
-      bitmap live_at_start = DF_UPWARD_LIVE_IN (build_df, bb);
+      bitmap live_at_start;
       rtx bb_head, bb_end;
       rtx insn, next_insn;
 
@@ -863,10 +860,14 @@ put_save_restore (void)
 	{
 	  bitmap savein = BB_INFO (e->dest)->savein;
 
+	  live_at_start = DF_LR_IN (e->dest);
 	  /* (savein - restoreout) ^ (kill U ! saveout) ==
-	     (savein - restoreout) ^ kill U (savein - restoreout) - saveout
+              ^ live_at_start ==
+	     (savein - restoreout) ^ live_at_start ^ kill
+             U (savein - restoreout) ^ live_at_start - saveout
 	  */
 	  bitmap_and_compl (temp_bitmap2, savein, restoreout);
+	  bitmap_and_into (temp_bitmap2, live_at_start);
 	  bitmap_and (temp_bitmap, temp_bitmap2, kill);
 	  bitmap_ior_and_compl_into (temp_bitmap, temp_bitmap2, saveout);
 	  if (first_p)
@@ -878,6 +879,7 @@ put_save_restore (void)
 	    bitmap_and_into (save_at_end, temp_bitmap);
 	}
 
+      bitmap_copy (progress, save_at_end);
       for (insn = BB_END (bb);
 	   insn != PREV_INSN (BB_HEAD (bb));
 	   insn = next_insn)
@@ -886,27 +888,27 @@ put_save_restore (void)
 	  if (! INSN_P (insn))
 	    continue;
 	  bitmap_clear (referenced_regs);
-	  mark_all_referenced_regs (PATTERN (insn));
+	  mark_all_referenced_regs (insn);
 	  EXECUTE_IF_SET_IN_BITMAP (referenced_regs, FIRST_PSEUDO_REGISTER,
 				    j, bi)
-	    if (bitmap_bit_p (save_at_end, j))
+	    if (bitmap_bit_p (progress, j))
 	      {
-		pat = gen_rtx_SET (VOIDmode, get_new_reg (j),
-				   regno_reg_rtx [j]);
+		pat = get_move_insn (get_new_reg (j), regno_reg_rtx [j]);
 		insert_one_insn (insn, JUMP_P (insn), pat);
-		bitmap_clear_bit (save_at_end, j);
+		bitmap_clear_bit (progress, j);
 	      }
 	}
-      /* When we don't move info inside the loop, save_at_end can
+      /* When we don't move info inside the loop, progress can
 	 be not empty here.  */
-      EXECUTE_IF_SET_IN_BITMAP (save_at_end, FIRST_PSEUDO_REGISTER, j, bi)
+      EXECUTE_IF_SET_IN_BITMAP (progress, FIRST_PSEUDO_REGISTER, j, bi)
 	{
-	  pat = gen_rtx_SET (VOIDmode, get_new_reg (j), regno_reg_rtx [j]);
+	  pat = get_move_insn (get_new_reg (j), regno_reg_rtx [j]);
 	  insert_one_insn (bb_head, TRUE, pat);
 	}
 
       bitmap_clear (restore_at_start);
       first_p = TRUE;
+      live_at_start = DF_LR_IN (bb);
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  bitmap restoreout = BB_INFO (e->src)->restoreout;
@@ -929,6 +931,7 @@ put_save_restore (void)
 	    bitmap_and_into (restore_at_start, temp_bitmap);
 	}
 	    
+      bitmap_copy (progress, restore_at_start);
       for (insn = BB_HEAD (bb);
 	   insn != NEXT_INSN (BB_END (bb));
 	   insn = next_insn)
@@ -937,22 +940,21 @@ put_save_restore (void)
 	  if (! INSN_P (insn))
 	    continue;
 	  bitmap_clear (referenced_regs);
-	  mark_all_referenced_regs (PATTERN (insn));
+	  mark_all_referenced_regs (insn);
 	  EXECUTE_IF_SET_IN_BITMAP (referenced_regs, FIRST_PSEUDO_REGISTER,
 				    j, bi)
-	    if (bitmap_bit_p (restore_at_start, j))
+	    if (bitmap_bit_p (progress, j))
 	      {
-		pat = gen_rtx_SET (VOIDmode, regno_reg_rtx [j],
-				   get_new_reg (j));
+		pat = get_move_insn (regno_reg_rtx [j], get_new_reg (j));
 		insert_one_insn (insn, TRUE, pat);
-		bitmap_clear_bit (restore_at_start, j);
+		bitmap_clear_bit (progress, j);
 	      }
 	}
-      /* When we don't move info inside the loop, restore_at_start can
+      /* When we don't move info inside the loop, progress can
 	 be not empty here.  */
-      EXECUTE_IF_SET_IN_BITMAP (restore_at_start, FIRST_PSEUDO_REGISTER, j, bi)
+      EXECUTE_IF_SET_IN_BITMAP (progress, FIRST_PSEUDO_REGISTER, j, bi)
 	{
-	  pat = gen_rtx_SET (VOIDmode, regno_reg_rtx [j], get_new_reg (j));
+	  pat = get_move_insn (regno_reg_rtx [j], get_new_reg (j));
 	  insert_one_insn (bb_end, JUMP_P (bb_end), pat);
 	}
 	
@@ -960,13 +962,15 @@ put_save_restore (void)
 	{
 	  bitmap savein = BB_INFO (e->dest)->savein;
 
+	  live_at_start = DF_LR_IN (e->dest);
 	  EXECUTE_IF_SET_IN_BITMAP (savein, FIRST_PSEUDO_REGISTER, j, bi)
 	    if (! bitmap_bit_p (restoreout, j)
 		&& (bitmap_bit_p (kill, j)
 		    || ! bitmap_bit_p (saveout, j))
-		&& ! bitmap_bit_p (save_at_end, j))
+		&& ! bitmap_bit_p (save_at_end, j)
+		&& bitmap_bit_p (live_at_start, j))
 	      {
-		pat = gen_rtx_SET (VOIDmode, get_new_reg (j),
+		pat = get_move_insn (get_new_reg (j),
 				   regno_reg_rtx [j]);
 		insert_insn_on_edge (pat, e);
 		change_p = TRUE;
@@ -979,6 +983,7 @@ put_save_restore (void)
 	      }
 	}
 
+      live_at_start = DF_LR_IN (bb);
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  bitmap restoreout = BB_INFO (e->src)->restoreout;
@@ -990,7 +995,7 @@ put_save_restore (void)
 		&& ! bitmap_bit_p (restore_at_start, j)
 		&& bitmap_bit_p (live_at_start, j))
 	      {
-		pat = gen_rtx_SET (VOIDmode, regno_reg_rtx [j],
+		pat = get_move_insn (regno_reg_rtx [j],
 				   get_new_reg (j));
 		insert_insn_on_edge (pat, e);
 		change_p = TRUE;
@@ -1003,6 +1008,7 @@ put_save_restore (void)
 	      }
 	}
     }
+  ira_free_bitmap (progress);
   ira_free_bitmap (save_at_end);
   ira_free_bitmap (restore_at_start);
 }

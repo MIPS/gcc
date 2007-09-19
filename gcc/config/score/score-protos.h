@@ -1,11 +1,11 @@
 /* score-protos.h for Sunplus S+CORE processor
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef __SCORE_PROTOS_H__
 #define __SCORE_PROTOS_H__
@@ -36,7 +35,7 @@ enum reg_class score_preferred_reload_class (rtx x, enum reg_class class);
 enum reg_class score_secondary_reload_class (enum reg_class class,
                                              enum machine_mode mode, rtx x);
 
-int score_const_ok_for_letter_p (int value, char c);
+int score_const_ok_for_letter_p (HOST_WIDE_INT value, char c);
 
 int score_extra_constraint (rtx op, char c);
 
@@ -56,7 +55,7 @@ void score_init_cumulative_args (CUMULATIVE_ARGS *cum,
 void score_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
                                  tree type, int named);
 
-rtx score_function_value (tree valtype, tree func, enum machine_mode mode);
+rtx score_function_value (const_tree valtype, const_tree func, enum machine_mode mode);
 
 rtx score_va_arg (tree va_list, tree type);
 
@@ -72,7 +71,8 @@ int score_register_move_cost (enum machine_mode mode, enum reg_class to,
                               enum reg_class from);
 
 void score_declare_object (FILE *stream, const char *name,
-                           const char *directive, const char *fmt, ...);
+                           const char *directive, const char *fmt, ...)
+     ATTRIBUTE_PRINTF_4;
 
 void score_declare_object_name (FILE *stream, const char *name, tree decl);
 

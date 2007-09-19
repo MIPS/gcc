@@ -1,6 +1,6 @@
 // Debugging mode support code -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005, 2006
+// Copyright (C) 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -35,6 +35,8 @@
 #include <cassert>
 #include <cstring>
 #include <cctype>
+#include <cstdio>
+#include <cstdlib>
 
 using namespace std;
 
@@ -495,7 +497,8 @@ namespace __gnu_debug
 	_M_column += strlen(__buf);
       }
     
-    _M_wordwrap = true;
+    if (_M_max_length)
+      _M_wordwrap = true;
     _M_print_word("error: ");
     
     // Print the error message
@@ -667,6 +670,19 @@ namespace __gnu_debug
 	__field[__field_idx] = 0;
 	
 	_M_parameters[__param]._M_print_field(this, __field);		  
+      }
+  }
+
+  void
+  _Error_formatter::_M_get_max_length() const
+  {
+    const char* __nptr = std::getenv("GLIBCXX_DEBUG_MESSAGE_LENGTH");
+    if (__nptr)
+      {
+	char* __endptr;
+	const unsigned long __ret = std::strtoul(__nptr, &__endptr, 0);
+	if (*__nptr != '\0' && *__endptr == '\0')
+	  _M_max_length = __ret;
       }
   }
 

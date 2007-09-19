@@ -34,8 +34,6 @@ Boston, MA 02110-1301, USA.  */
 #include <ctype.h>
 
 #include "libgfortran.h"
-#include "../io/io.h"
-
 
 /* Environment scanner.  Examine the environment for controlling minor
  * aspects of the program's execution.  Our philosophy here that the
@@ -539,6 +537,15 @@ static variable variable_table[] = {
   {"GFORTRAN_CONVERT_UNIT", 0, 0, init_unformatted, show_string,
    "Set format for unformatted files", 0},
 
+  /* Behaviour when encoutering a runtime error.  */
+  {"GFORTRAN_ERROR_DUMPCORE", -1, &options.dump_core,
+    init_boolean, show_boolean,
+    "Dump a core file (if possible) on runtime error", -1},
+
+  {"GFORTRAN_ERROR_BACKTRACE", -1, &options.backtrace,
+    init_boolean, show_boolean,
+    "Print out a backtrace (if possible) on runtime error", -1},
+
   {NULL, 0, NULL, NULL, NULL, NULL, 0}
 };
 
@@ -861,14 +868,13 @@ mark_range (int unit1, int unit2)
 static int
 do_parse (void)
 {
-  int tok, def;
+  int tok;
   int unit1;
   int continue_ulist;
   char *start;
 
   unit_count = 0;
 
-  def = 0;
   start = p;
 
   /* Parse the string.  First, let's look for a default.  */
@@ -923,6 +929,7 @@ do_parse (void)
       break;
 
     case END:
+      def = endian;
       goto end;
       break;
 
@@ -939,6 +946,18 @@ do_parse (void)
       tok = next_token ();
       switch (tok)
 	{
+	case NATIVE:
+	  if (next_token () != ':')
+	    goto error;
+	  endian = CONVERT_NATIVE;
+	  break;
+
+	case SWAP:
+	  if (next_token () != ':')
+	    goto error;
+	  endian = CONVERT_SWAP;
+	  break;
+
 	case LITTLE:
 	  if (next_token () != ':')
 	    goto error;

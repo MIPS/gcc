@@ -1,16 +1,16 @@
 /* Prototypes of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
-   64 bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
+   64-bit r4000 support by Ian Lance Taylor (ian@cygnus.com) and
    Brendan Eich (brendan@microunity.com).
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -19,41 +19,62 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_MIPS_PROTOS_H
 #define GCC_MIPS_PROTOS_H
 
+/* Describes how a symbol is used.
+
+   SYMBOL_CONTEXT_CALL
+       The symbol is used as the target of a call instruction.
+
+   SYMBOL_CONTEXT_LEA
+       The symbol is used in a load-address operation.
+
+   SYMBOL_CONTEXT_MEM
+       The symbol is used as the address in a MEM.  */
+enum mips_symbol_context {
+  SYMBOL_CONTEXT_CALL,
+  SYMBOL_CONTEXT_LEA,
+  SYMBOL_CONTEXT_MEM
+};
+
 /* Classifies a SYMBOL_REF, LABEL_REF or UNSPEC address.
 
-   SYMBOL_GENERAL
-       Used when none of the below apply.
+   SYMBOL_ABSOLUTE
+       The symbol's value will be calculated using absolute relocations,
+       such as %hi and %lo.
 
-   SYMBOL_SMALL_DATA
-       The symbol refers to something in a small data section.
+   SYMBOL_GP_RELATIVE
+       The symbol's value will be calculated by adding a 16-bit offset
+       from $gp.
 
-   SYMBOL_CONSTANT_POOL
-       The symbol refers to something in the mips16 constant pool.
+   SYMBOL_PC_RELATIVE
+       The symbol's value will be calculated using a MIPS16 PC-relative
+       calculation.
 
-   SYMBOL_GOT_LOCAL
-       The symbol refers to local data that will be found using
-       the global offset table.
+   SYMBOL_FORCE_TO_MEM
+       The symbol's value must be forced to memory and loaded from there.
 
-   SYMBOL_GOT_GLOBAL
-       Likewise non-local data.
+   SYMBOL_GOT_PAGE_OFST
+       The symbol's value will be calculated by loading an address
+       from the GOT and then applying a 16-bit offset.
+
+   SYMBOL_GOT_DISP
+       The symbol's value will be loaded directly from the GOT.
 
    SYMBOL_GOTOFF_PAGE
-       An UNSPEC wrapper around a SYMBOL_GOT_LOCAL.  It represents the
-       offset from _gp of a GOT page entry.
+       An UNSPEC wrapper around a SYMBOL_GOT_PAGE_OFST.  It represents the
+       offset from _gp of the GOT entry.
 
-   SYMBOL_GOTOFF_GLOBAL
-       An UNSPEC wrapper around a SYMBOL_GOT_GLOBAL.  It represents the
+   SYMBOL_GOTOFF_DISP
+       An UNSPEC wrapper around a SYMBOL_GOT_DISP.  It represents the
        the offset from _gp of the symbol's GOT entry.
 
    SYMBOL_GOTOFF_CALL
-       Like SYMBOL_GOTOFF_GLOBAL, but used when calling a global function.
+       Like SYMBOL_GOTOFF_DISP, but used when calling a global function.
        The GOT entry is allowed to point to a stub rather than to the
        function itself.
 
@@ -72,6 +93,9 @@ Boston, MA 02110-1301, USA.  */
        UNSPEC wrappers around SYMBOL_TLS, corresponding to the
        thread-local storage relocation operators.
 
+   SYMBOL_32_HIGH
+       For a 32-bit symbolic address X, this is the value of %hi(X).
+
    SYMBOL_64_HIGH
        For a 64-bit symbolic address X, this is the value of
        (%highest(X) << 16) + %higher(X).
@@ -82,15 +106,20 @@ Boston, MA 02110-1301, USA.  */
 
    SYMBOL_64_LOW
        For a 64-bit symbolic address X, this is the value of
-       (%hi(X) << 16) + %lo(X).  */
+       (%hi(X) << 16) + %lo(X).
+
+   SYMBOL_HALF
+       An UNSPEC wrapper around any kind of address.  It represents the
+       low 16 bits of that address.  */
 enum mips_symbol_type {
-  SYMBOL_GENERAL,
-  SYMBOL_SMALL_DATA,
-  SYMBOL_CONSTANT_POOL,
-  SYMBOL_GOT_LOCAL,
-  SYMBOL_GOT_GLOBAL,
+  SYMBOL_ABSOLUTE,
+  SYMBOL_GP_RELATIVE,
+  SYMBOL_PC_RELATIVE,
+  SYMBOL_FORCE_TO_MEM,
+  SYMBOL_GOT_PAGE_OFST,
+  SYMBOL_GOT_DISP,
   SYMBOL_GOTOFF_PAGE,
-  SYMBOL_GOTOFF_GLOBAL,
+  SYMBOL_GOTOFF_DISP,
   SYMBOL_GOTOFF_CALL,
   SYMBOL_GOTOFF_LOADGP,
   SYMBOL_TLS,
@@ -99,11 +128,13 @@ enum mips_symbol_type {
   SYMBOL_DTPREL,
   SYMBOL_GOTTPREL,
   SYMBOL_TPREL,
+  SYMBOL_32_HIGH,
   SYMBOL_64_HIGH,
   SYMBOL_64_MID,
-  SYMBOL_64_LOW
+  SYMBOL_64_LOW,
+  SYMBOL_HALF
 };
-#define NUM_SYMBOL_TYPES (SYMBOL_64_LOW + 1)
+#define NUM_SYMBOL_TYPES (SYMBOL_HALF + 1)
 
 /* Identifiers a style of $gp initialization sequence.
 
@@ -119,25 +150,33 @@ enum mips_symbol_type {
 	by .cpsetup).
 
    LOADGP_ABSOLUTE
-	The GNU absolute sequence, as generated by loadgp_noshared.  */
+	The GNU absolute sequence, as generated by loadgp_absolute.
+
+   LOADGP_RTP
+	The VxWorks RTP PIC sequence, as generated by loadgp_rtp.  */
 enum mips_loadgp_style {
   LOADGP_NONE,
   LOADGP_OLDABI,
   LOADGP_NEWABI,
-  LOADGP_ABSOLUTE
+  LOADGP_ABSOLUTE,
+  LOADGP_RTP
 };
 
-extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_type *);
+struct mips16e_save_restore_info;
+
+extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
+				      enum mips_symbol_type *);
 extern int mips_regno_mode_ok_for_base_p (int, enum machine_mode, int);
 extern bool mips_stack_address_p (rtx, enum machine_mode);
-extern int mips_address_insns (rtx, enum machine_mode);
+extern int mips_address_insns (rtx, enum machine_mode, bool);
 extern int mips_const_insns (rtx);
-extern int mips_fetch_insns (rtx);
+extern int mips_load_store_insns (rtx, rtx);
 extern int mips_idiv_insns (void);
 extern int fp_register_operand (rtx, enum machine_mode);
 extern int lo_operand (rtx, enum machine_mode);
 extern bool mips_legitimate_address_p (enum machine_mode, rtx, int);
-extern rtx mips_split_symbol (rtx, rtx);
+extern rtx mips_emit_move (rtx, rtx);
+extern bool mips_split_symbol (rtx, rtx, enum machine_mode, rtx *);
 extern rtx mips_unspec_address (rtx, enum mips_symbol_type);
 extern bool mips_legitimize_address (rtx *, enum machine_mode);
 extern void mips_move_integer (rtx, rtx, unsigned HOST_WIDE_INT);
@@ -176,6 +215,7 @@ extern void mips_expand_call (rtx, rtx, rtx, rtx, int);
 extern void mips_emit_fcc_reload (rtx, rtx, rtx);
 extern void mips_set_return_address (rtx, rtx);
 extern bool mips_expand_block_move (rtx, rtx, rtx);
+extern void mips_expand_synci_loop (rtx, rtx);
 
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
@@ -183,7 +223,7 @@ extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 extern struct rtx_def *function_arg (const CUMULATIVE_ARGS *,
 				     enum machine_mode, tree, int);
 extern int function_arg_boundary (enum machine_mode, tree);
-extern bool mips_pad_arg_upward (enum machine_mode, tree);
+extern bool mips_pad_arg_upward (enum machine_mode, const_tree);
 extern bool mips_pad_reg_upward (enum machine_mode, tree);
 extern void mips_va_start (tree, rtx);
 
@@ -197,7 +237,7 @@ extern HOST_WIDE_INT mips_debugger_offset (rtx, HOST_WIDE_INT);
 
 extern void print_operand (FILE *, rtx, int);
 extern void print_operand_address (FILE *, rtx);
-extern int mips_output_external (FILE *, tree, const char *);
+extern void mips_output_external (FILE *, tree, const char *);
 extern void mips_output_filename (FILE *, const char *);
 extern void mips_output_ascii (FILE *, const char *, size_t, const char *);
 extern void mips_output_aligned_bss (FILE *, tree, const char *,
@@ -222,7 +262,7 @@ extern enum mips_loadgp_style mips_current_loadgp_style (void);
 extern void mips_expand_prologue (void);
 extern void mips_expand_epilogue (int);
 extern int mips_can_use_return_insn (void);
-extern struct rtx_def *mips_function_value (tree, tree, enum machine_mode);
+extern struct rtx_def *mips_function_value (const_tree, const_tree, enum machine_mode);
 
 extern bool mips_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
@@ -251,5 +291,9 @@ extern void irix_asm_output_align (FILE *, unsigned);
 extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
 extern bool mips_use_ins_ext_p (rtx, rtx, rtx);
+
+extern const char *mips16e_output_save_restore (rtx, HOST_WIDE_INT);
+extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
+					    struct mips16e_save_restore_info *);
 
 #endif /* ! GCC_MIPS_PROTOS_H */

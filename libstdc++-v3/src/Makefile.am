@@ -32,6 +32,7 @@ if ENABLE_SYMVERS
 libstdc++-symbols.ver:  ${glibcxx_srcdir}/$(SYMVER_FILE) \
 		$(port_specific_symbol_files)
 	cp ${glibcxx_srcdir}/$(SYMVER_FILE) ./libstdc++-symbols.ver
+	chmod +w ./libstdc++-symbols.ver
 	if test "x$(port_specific_symbol_files)" != x; then \
 	  if grep '^# Appended to version file.' \
 	       $(port_specific_symbol_files) /dev/null > /dev/null 2>&1; then \
@@ -151,6 +152,7 @@ sources = \
 	localename.cc \
 	stdexcept.cc \
 	strstream.cc \
+	system_error.cc \
 	tree.cc \
 	allocator-inst.cc \
 	concept-inst.cc \
@@ -202,6 +204,12 @@ concept-inst.lo: concept-inst.cc
 	$(LTCXXCOMPILE) -D_GLIBCXX_CONCEPT_CHECKS -fimplicit-templates -c $<
 concept-inst.o: concept-inst.cc
 	$(CXXCOMPILE) -D_GLIBCXX_CONCEPT_CHECKS -fimplicit-templates -c $<
+
+# Use special rules for the C++0x sources so that the proper flags are passed.
+system_error.lo: system_error.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+system_error.o: system_error.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 if GLIBCXX_LDBL_COMPAT
 # Use special rules for compatibility-ldbl.cc compilation, as we need to

@@ -1,6 +1,6 @@
 /* RunTime Type Identification
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006
+   2005, 2006, 2007
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -32,6 +31,7 @@ Boston, MA 02110-1301, USA.  */
 #include "assert.h"
 #include "toplev.h"
 #include "convert.h"
+#include "target.h"
 
 /* C++ returns type information to the user in struct type_info
    objects. We also use type information to implement dynamic_cast and
@@ -179,8 +179,8 @@ build_headof (tree exp)
 
   type = build_qualified_type (ptr_type_node,
 			       cp_type_quals (TREE_TYPE (exp)));
-  return build2 (PLUS_EXPR, type, exp,
-		 convert_to_integer (ptrdiff_type_node, offset));
+  return build2 (POINTER_PLUS_EXPR, type, exp,
+		 convert_to_integer (sizetype, offset));
 }
 
 /* Get a bad_cast node for the program to throw...
@@ -195,7 +195,7 @@ throw_bad_cast (void)
     fn = push_throw_library_fn (fn, build_function_type (ptr_type_node,
 							 void_list_node));
 
-  return build_cxx_call (fn, NULL_TREE);
+  return build_cxx_call (fn, 0, NULL);
 }
 
 /* Return an expression for "__cxa_bad_typeid()".  The expression
@@ -214,7 +214,7 @@ throw_bad_typeid (void)
       fn = push_throw_library_fn (fn, t);
     }
 
-  return build_cxx_call (fn, NULL_TREE);
+  return build_cxx_call (fn, 0, NULL);
 }
 
 /* Return an lvalue expression whose type is "const std::type_info"
@@ -237,7 +237,7 @@ get_tinfo_decl_dynamic (tree exp)
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (!VOID_TYPE_P (type))
+  if (CLASS_TYPE_P (type))
     type = complete_type_or_else (type, exp);
 
   if (!type)
@@ -430,7 +430,7 @@ get_typeid (tree type)
      that is the operand of typeid are always ignored.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (!VOID_TYPE_P (type))
+  if (CLASS_TYPE_P (type))
     type = complete_type_or_else (type, NULL_TREE);
 
   if (!type)
@@ -587,7 +587,8 @@ build_dynamic_cast_1 (tree type, tree expr)
       else
 	{
 	  tree retval;
-	  tree result, td2, td3, elems;
+	  tree result, td2, td3;
+	  tree elems[4];
 	  tree static_type, target_type, boff;
 
 	  /* If we got here, we can't convert statically.  Therefore,
@@ -645,11 +646,10 @@ build_dynamic_cast_1 (tree type, tree expr)
 	  if (tc == REFERENCE_TYPE)
 	    expr1 = build_unary_op (ADDR_EXPR, expr1, 0);
 
-	  elems = tree_cons
-	    (NULL_TREE, expr1, tree_cons
-	     (NULL_TREE, td3, tree_cons
-	      (NULL_TREE, td2, tree_cons
-	       (NULL_TREE, boff, NULL_TREE))));
+	  elems[0] = expr1;
+	  elems[1] = td3;
+	  elems[2] = td2;
+	  elems[3] = boff;
 
 	  dcast_fn = dynamic_cast_node;
 	  if (!dcast_fn)
@@ -679,7 +679,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      pop_nested_namespace (ns);
 	      dynamic_cast_node = dcast_fn;
 	    }
-	  result = build_cxx_call (dcast_fn, elems);
+	  result = build_cxx_call (dcast_fn, 4, elems);
 
 	  if (tc == REFERENCE_TYPE)
 	    {
@@ -855,7 +855,7 @@ tinfo_base_init (tinfo_s *ti, tree target)
 
       /* We need to point into the middle of the vtable.  */
       vtable_ptr = build2
-	(PLUS_EXPR, TREE_TYPE (vtable_ptr), vtable_ptr,
+	(POINTER_PLUS_EXPR, TREE_TYPE (vtable_ptr), vtable_ptr,
 	 size_binop (MULT_EXPR,
 		     size_int (2 * TARGET_VTABLE_DATA_ENTRY_DISTANCE),
 		     TYPE_SIZE_UNIT (vtable_entry_type)));
@@ -1429,8 +1429,11 @@ emit_support_tinfos (void)
 	     comdat_linkage for details.)  Since we want these objects
 	     to have external linkage so that copies do not have to be
 	     emitted in code outside the runtime library, we make them
-	     non-COMDAT here.  */
-	  if (!flag_weak)
+	     non-COMDAT here.  
+
+	     It might also not be necessary to follow this detail of the
+	     ABI.  */
+	  if (!flag_weak || ! targetm.cxx.library_rtti_comdat ())
 	    {
 	      gcc_assert (TREE_PUBLIC (tinfo) && !DECL_COMDAT (tinfo));
 	      DECL_INTERFACE_KNOWN (tinfo) = 1;

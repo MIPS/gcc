@@ -1,6 +1,6 @@
 /* Read and write coverage files, and associated functionality.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -19,9 +19,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #define GCOV_LINKAGE
@@ -347,25 +346,46 @@ get_coverage_counts (unsigned counter, unsigned expected,
     {
       warning (0, "no coverage for function %qs found", IDENTIFIER_POINTER
 	       (DECL_ASSEMBLER_NAME (current_function_decl)));
-      return 0;
+      return NULL;
     }
 
   checksum = compute_checksum ();
-  if (entry->checksum != checksum)
+  if (entry->checksum != checksum
+      || entry->summary.num != expected)
     {
-      error ("coverage mismatch for function %qs while reading counter %qs",
-	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
-	     ctr_names[counter]);
-      error ("checksum is %x instead of %x", entry->checksum, checksum);
-      return 0;
-    }
-  else if (entry->summary.num != expected)
-    {
-      error ("coverage mismatch for function %qs while reading counter %qs",
-	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
-	     ctr_names[counter]);
-      error ("number of counters is %d instead of %d", entry->summary.num, expected);
-      return 0;
+      static int warned = 0;
+      const char *id = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME
+			 (current_function_decl));
+
+      if (warn_coverage_mismatch)
+	warning (OPT_Wcoverage_mismatch, "coverage mismatch for function "
+		 "%qs while reading counter %qs", id, ctr_names[counter]);
+      else
+	error ("coverage mismatch for function %qs while reading counter %qs",
+	       id, ctr_names[counter]);
+
+      if (!inhibit_warnings)
+	{
+	  if (entry->checksum != checksum)
+	    inform ("checksum is %x instead of %x", entry->checksum, checksum);
+	  else
+	    inform ("number of counters is %d instead of %d",
+		    entry->summary.num, expected);
+	}
+
+      if (warn_coverage_mismatch
+	  && !inhibit_warnings
+	  && !warned++)
+	{
+	  inform ("coverage mismatch ignored due to -Wcoverage-mismatch");
+	  inform (flag_guess_branch_prob
+		  ? "execution counts estimated"
+		  : "execution counts assumed to be zero");
+	  if (!flag_guess_branch_prob)
+	    inform ("this can result in poorly optimized code");
+	}
+
+      return NULL;
     }
 
   if (summary)
@@ -928,8 +948,7 @@ create_coverage (void)
   /* Generate a call to __gcov_init(&gcov_info).  */
   body = NULL;
   t = build_fold_addr_expr (gcov_info);
-  t = tree_cons (NULL, t, NULL);
-  t = build_function_call_expr (gcov_init, t);
+  t = build_call_expr (gcov_init, 1, t);
   append_to_statement_list (t, &body);
 
   /* Generate a constructor to run it.  */

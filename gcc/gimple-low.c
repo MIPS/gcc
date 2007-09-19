@@ -1,12 +1,12 @@
 /* Tree lowering pass.  Lowers GIMPLE into unstructured form.
 
-   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -134,11 +133,10 @@ lower_function_body (void)
       /* Build 'DISP_VAR = __builtin_setjmp_dispatcher (DISP_LABEL);'
 	 and insert.  */
       disp_var = create_tmp_var (ptr_type_node, "setjmpvar");
-      t = build_addr (disp_label, current_function_decl);
-      arg = tree_cons (NULL, t, NULL);
+      arg = build_addr (disp_label, current_function_decl);
       t = implicit_built_in_decls[BUILT_IN_SETJMP_DISPATCHER];
-      t = build_function_call_expr (t,arg);
-      x = build2 (GIMPLE_MODIFY_STMT, void_type_node, disp_var, t);
+      t = build_call_expr (t, 1, arg);
+      x = build_gimple_modify_stmt (disp_var, t);
 
       /* Build 'goto DISP_VAR;' and insert.  */
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
@@ -243,8 +241,10 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case GOTO_EXPR:
     case LABEL_EXPR:
     case SWITCH_EXPR:
+    case CHANGE_DYNAMIC_TYPE_EXPR:
     case OMP_FOR:
     case OMP_SECTIONS:
+    case OMP_SECTIONS_SWITCH:
     case OMP_SECTION:
     case OMP_SINGLE:
     case OMP_MASTER:
@@ -344,7 +344,7 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
    This is a subroutine of block_may_fallthru.  */
 
 static bool
-try_catch_may_fallthru (tree stmt)
+try_catch_may_fallthru (const_tree stmt)
 {
   tree_stmt_iterator i;
 
@@ -394,9 +394,9 @@ try_catch_may_fallthru (tree stmt)
    If we're wrong, we'll just delete the extra code later.  */
 
 bool
-block_may_fallthru (tree block)
+block_may_fallthru (const_tree block)
 {
-  tree stmt = expr_last (block);
+  const_tree stmt = const_expr_last (block);
 
   switch (stmt ? TREE_CODE (stmt) : ERROR_MARK)
     {
@@ -663,19 +663,17 @@ lower_builtin_setjmp (tree_stmt_iterator *tsi)
     dest = NULL_TREE;
 
   /* Build '__builtin_setjmp_setup (BUF, NEXT_LABEL)' and insert.  */
-  t = build_addr (next_label, current_function_decl);
-  arg = tree_cons (NULL, t, NULL);
-  t = TREE_VALUE (GENERIC_TREE_OPERAND (stmt, 1));
-  arg = tree_cons (NULL, t, arg);
+  arg = build_addr (next_label, current_function_decl);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_SETUP];
-  t = build_function_call_expr (t, arg);
+  t = build_call_expr (t, 2, CALL_EXPR_ARG (stmt, 0), arg);
   SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
   tsi_link_before (tsi, t, TSI_SAME_STMT);
 
   /* Build 'DEST = 0' and insert.  */
   if (dest)
     {
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, dest, integer_zero_node);
+      t = build_gimple_modify_stmt (dest, fold_convert (TREE_TYPE (dest),
+							integer_zero_node));
       SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
       tsi_link_before (tsi, t, TSI_SAME_STMT);
     }
@@ -689,17 +687,17 @@ lower_builtin_setjmp (tree_stmt_iterator *tsi)
   tsi_link_before (tsi, t, TSI_SAME_STMT);
 
   /* Build '__builtin_setjmp_receiver (NEXT_LABEL)' and insert.  */
-  t = build_addr (next_label, current_function_decl);
-  arg = tree_cons (NULL, t, NULL);
+  arg = build_addr (next_label, current_function_decl);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_RECEIVER];
-  t = build_function_call_expr (t, arg);
+  t = build_call_expr (t, 1, arg);
   SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
   tsi_link_before (tsi, t, TSI_SAME_STMT);
 
   /* Build 'DEST = 1' and insert.  */
   if (dest)
     {
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, dest, integer_one_node);
+      t = build_gimple_modify_stmt (dest, fold_convert (TREE_TYPE (dest),
+							integer_one_node));
       SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
       tsi_link_before (tsi, t, TSI_SAME_STMT);
     }

@@ -1,5 +1,5 @@
 /* SwingComponentPeer.java -- An abstract base class for Swing based peers
-   Copyright (C)  2006  Free Software Foundation, Inc.
+   Copyright (C)  2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,8 +42,10 @@ import java.awt.AWTException;
 import java.awt.BufferCapabilities;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
@@ -53,6 +55,7 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.BufferCapabilities.FlipContents;
+import java.awt.event.FocusEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.PaintEvent;
@@ -62,6 +65,10 @@ import java.awt.image.ImageProducer;
 import java.awt.image.VolatileImage;
 import java.awt.peer.ComponentPeer;
 import java.awt.peer.ContainerPeer;
+import java.awt.peer.LightweightPeer;
+
+import javax.swing.JComponent;
+import javax.swing.RepaintManager;
 
 /**
  * The base class for Swing based component peers. This provides the basic
@@ -97,9 +104,18 @@ public class SwingComponentPeer
   protected SwingComponent swingComponent;
 
   /**
+   * The font that is set for this peer.
+   */
+  protected Font peerFont;
+
+  /**
+   * The current repaint area.
+   */
+  protected Rectangle paintArea;
+
+ /**
    * Creates a SwingComponentPeer instance. Subclasses are expected to call
-   * this constructor and thereafter call
-   * {@link #init(Component,SwingComponent)}
+   * this constructor and thereafter call {@link #init(Component, JComponent)}
    * in order to setup the AWT and Swing components properly.
    */
   protected SwingComponentPeer()
@@ -118,6 +134,38 @@ public class SwingComponentPeer
   {
     awtComponent = awtComp;
     swingComponent = swingComp;
+    if (swingComponent != null)
+      {
+        JComponent c = swingComponent.getJComponent();
+        if (c != null)
+          {
+            c.addNotify();
+            RepaintManager.currentManager(c).setDoubleBufferingEnabled(false);
+            System.setProperty("gnu.awt.swing.doublebuffering", "true");
+          }
+      }
+
+    // Register this heavyweight component with the nearest heavyweight
+    // container, so we get peerPaint() triggered by that container.
+    if (! (this instanceof LightweightPeer))
+      {
+        Component comp = awtComponent;
+        Container parent = comp.getParent();
+        while (parent != null &&
+               ! (parent.getPeer() instanceof SwingContainerPeer))
+          {
+            comp = parent;
+            parent = comp.getParent();
+          }
+
+        // At this point we have the ancestor with a SwingContainerPeer
+        // (or null peer).
+        if (parent != null && parent.getPeer() instanceof SwingContainerPeer)
+          {
+            SwingContainerPeer p = (SwingContainerPeer) parent.getPeer();
+            p.addHeavyweightDescendent(awtComponent);
+          }
+      }
   }
 
   /**
@@ -185,6 +233,28 @@ public class SwingComponentPeer
    */
   public void dispose()
   {
+    // Unregister this heavyweight component from the nearest heavyweight
+    // container.
+    if (! (this instanceof LightweightPeer))
+      {
+        Component comp = awtComponent;
+        Container parent = comp.getParent();
+        while (parent != null &&
+               ! (parent.getPeer() instanceof SwingContainerPeer))
+          {
+            comp = parent;
+            parent = comp.getParent();
+          }
+
+        // At this point we have the ancestor with a SwingContainerPeer
+        // (or null peer).
+        if (parent != null && parent.getPeer() instanceof SwingContainerPeer)
+          {
+            SwingContainerPeer p = (SwingContainerPeer) parent.getPeer();
+            p.removeHeavyweightDescendent(awtComponent);
+          }
+      }
+
     awtComponent = null;
     swingComponent = null;
   }
@@ -244,8 +314,7 @@ public class SwingComponentPeer
   public Graphics getGraphics()
   {
     Component parent = awtComponent.getParent();
-    ComponentPeer parentPeer = parent.getPeer();
-    Graphics g = parentPeer.getGraphics();
+    Graphics g = parent.getGraphics();
     g.translate(awtComponent.getX(), awtComponent.getY());
     g.setClip(0, 0, awtComponent.getWidth(), awtComponent.getHeight());
     return g;
@@ -282,12 +351,7 @@ public class SwingComponentPeer
    */
   public Dimension getMinimumSize()
   {
-    Dimension retVal;
-    if (swingComponent != null)
-      retVal = swingComponent.getJComponent().getMinimumSize();
-    else
-      retVal = new Dimension(0, 0);
-    return retVal;
+    return minimumSize();
   }
 
   /**
@@ -300,12 +364,7 @@ public class SwingComponentPeer
    */
   public Dimension getPreferredSize()
   {
-    Dimension retVal;
-    if (swingComponent != null)
-      retVal = swingComponent.getJComponent().getPreferredSize();
-    else
-      retVal = new Dimension(0, 0);
-    return retVal;
+    return preferredSize();
   }
 
   /**
@@ -328,26 +387,29 @@ public class SwingComponentPeer
   public void handleEvent(AWTEvent e)
   {
     switch (e.getID())
-    {
+      {
       case PaintEvent.UPDATE:
       case PaintEvent.PAINT:
-        // This only will work when the component is showing.
         if (awtComponent.isShowing())
           {
-            Graphics g = getGraphics();
-            Rectangle clip = ((PaintEvent)e).getUpdateRect();
-            g.clipRect(clip.x, clip.y, clip.width, clip.height);
-            //if (this instanceof LightweightPeer)
-            //  {
-            if (e.getID() == PaintEvent.UPDATE)
-              awtComponent.update(g);
-            else
-              awtComponent.paint(g);
-            //  }
-            // We paint the 'heavyweights' at last, so that they appear on top of
-            // everything else.
-            peerPaint(g);
-            g.dispose();
+            Rectangle clip ;
+            synchronized (this)
+              {
+                coalescePaintEvent((PaintEvent) e);
+                assert paintArea != null;
+                clip = paintArea;
+                paintArea = null;
+              }
+            Graphics g = awtComponent.getGraphics();
+            try
+              {
+                g.clipRect(clip.x, clip.y, clip.width, clip.height);
+                peerPaint(g, e.getID() == PaintEvent.UPDATE);
+              }
+            finally
+              {
+                g.dispose();
+              }
           }
         break;
       case MouseEvent.MOUSE_PRESSED:
@@ -366,10 +428,14 @@ public class SwingComponentPeer
       case KeyEvent.KEY_TYPED:
         handleKeyEvent((KeyEvent) e);
         break;
+      case FocusEvent.FOCUS_GAINED:
+      case FocusEvent.FOCUS_LOST:
+        handleFocusEvent((FocusEvent)e);
+        break;
       default:
         // Other event types are not handled here.
         break;
-    }
+      }
   }
 
   /**
@@ -451,9 +517,15 @@ public class SwingComponentPeer
     return retVal;
   }
 
+  /**
+   * Paints the component. This is triggered by
+   * {@link Component#paintAll(Graphics)}.
+   *
+   * @param graphics the graphics to paint with
+   */
   public void paint(Graphics graphics)
   {
-    // FIXME: I don't know what this method is supposed to do.
+    peerPaint(graphics, false);
   }
 
   /**
@@ -496,13 +568,16 @@ public class SwingComponentPeer
    * This is implemented to call repaint() on the Swing component.
    *
    * @param tm number of milliseconds to wait with repainting
-   * @param x the X coordinate of the upper left corner of the damaged rectangle
-   * @param y the Y coordinate of the upper left corner of the damaged rectangle
+   * @param x the X coordinate of the upper left corner of the damaged
+   *        rectangle
+   * @param y the Y coordinate of the upper left corner of the damaged
+   *        rectangle
    * @param width the width of the damaged rectangle
    * @param height the height of the damaged rectangle
    */
   public void repaint(long tm, int x, int y, int width, int height)
   {
+    // NOTE: This is never called by AWT but is mandated by the peer interface.
     if (swingComponent != null)
       swingComponent.getJComponent().repaint(tm, x, y, width, height);
     else
@@ -524,8 +599,10 @@ public class SwingComponentPeer
    */
   public void requestFocus()
   {
-    if (swingComponent != null)
-      swingComponent.getJComponent().requestFocus();
+    // NOTE: This is never called by AWT but is mandated by the peer interface.
+    Toolkit tk = Toolkit.getDefaultToolkit();
+    EventQueue q = tk.getSystemEventQueue();
+    q.postEvent(new FocusEvent(awtComponent, FocusEvent.FOCUS_GAINED, false));
   }
 
   /**
@@ -534,18 +611,22 @@ public class SwingComponentPeer
    *
    * This calls requestFocus() on the Swing component.
    *
-   * @param source TODO
-   * @param bool1 TODO
-   * @param bool2 TODO
-   * @param x TODO
+   * @param source the actual component that requests focus (may be a
+   *        lightweight descendant of the heavyweight container)
+   * @param tmp true when the change is temporary
+   * @param allowWindowFocus
+   * @param tm the timestamp of the focus change
    *
-   * @return TODO
+   * @return true when the focus change is guaranteed to be granted, false
+   *         otherwise
    */
-  public boolean requestFocus(Component source, boolean bool1, boolean bool2, long x)
+  public boolean requestFocus(Component source, boolean tmp,
+                              boolean allowWindowFocus, long tm)
   {
-    if (swingComponent != null)
-      swingComponent.getJComponent().requestFocus();
-    return swingComponent != null;
+    Toolkit tk = Toolkit.getDefaultToolkit();
+    EventQueue q = tk.getSystemEventQueue();
+    q.postEvent(new FocusEvent(source, FocusEvent.FOCUS_GAINED, tmp));
+    return true;
   }
 
   /**
@@ -634,6 +715,7 @@ public class SwingComponentPeer
    */
   public void setFont(Font font)
   {
+    peerFont = font;
     if (swingComponent != null)
       swingComponent.getJComponent().setFont(font);
   }
@@ -741,7 +823,14 @@ public class SwingComponentPeer
    */
   public void coalescePaintEvent(PaintEvent e)
   {
-    // Nothing to do here yet.
+    synchronized (this)
+      {
+        Rectangle newRect = e.getUpdateRect();
+        if (paintArea == null)
+          paintArea = newRect;
+        else
+          Rectangle.union(paintArea, newRect, paintArea);
+      }
   }
 
   /**
@@ -947,9 +1036,33 @@ public class SwingComponentPeer
    * paint() on the Swing component.
    *
    * @param g the graphics context to use for painting
+   * @param update wether we need to call update or paint on the AWT component
    */
-  protected void peerPaint(Graphics g)
+  protected void peerPaint(Graphics g, boolean update)
   {
+    peerPaintComponent(g);
+
+    Graphics userGraphics = g.create();
+    try{
+    if (update)
+      awtComponent.update(userGraphics);
+    else
+      awtComponent.paint(userGraphics);
+    } finally {
+        userGraphics.dispose();
+    }
+    
+  }
+
+  /**
+   * Paints the actual 'heavyweight' swing component, if there is one
+   * associated to this peer.
+   * 
+   * @param g the graphics to paint the component with
+   */
+  protected void peerPaintComponent(Graphics g)
+  {
+    // Paint the actual Swing component if this peer has one.
     if (swingComponent != null)
       swingComponent.getJComponent().paint(g);
   }
@@ -991,6 +1104,19 @@ public class SwingComponentPeer
   }
 
   /**
+   * Handles focus events on the component. This is usually forwarded to the
+   * SwingComponent's processFocusEvent() method.
+   *
+   * @param e the key event
+   */
+  protected void handleFocusEvent(FocusEvent e)
+  {
+    if (swingComponent != null)
+      swingComponent.handleFocusEvent(e);
+  }
+
+  
+  /**
    * Returns the AWT component for this peer.
    *
    * @return the AWT component for this peer
@@ -999,4 +1125,12 @@ public class SwingComponentPeer
   {
     return awtComponent;
   }
+
+  public boolean requestFocus(Component lightweightChild, boolean temporary,
+                              boolean focusedWindowChangeAllowed,
+                              long time, sun.awt.CausedFocusEvent.Cause cause)
+  {
+    return true;
+  }
+
 }

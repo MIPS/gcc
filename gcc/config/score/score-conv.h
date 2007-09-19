@@ -1,11 +1,11 @@
 /* score-conv.h for Sunplus S+CORE processor
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef SCORE_CONV_0601
 #define SCORE_CONV_0601
@@ -45,7 +44,7 @@ extern int target_flags;
 
 #define CE_REG_P(REGNO)        REG_CONTAIN (REGNO, CE_REG_FIRST, CE_REG_NUM)
 
-#define UIMM_IN_RANGE(V, W)  ((V) >= 0 && (V) < ((HOST_WIDE_INT)1 << (W)))
+#define UIMM_IN_RANGE(V, W)  ((V) >= 0 && (V) < ((HOST_WIDE_INT) 1 << (W)))
 
 #define SIMM_IN_RANGE(V, W)                            \
   ((V) >= (-1 * ((HOST_WIDE_INT) 1 << ((W) - 1)))      \
@@ -53,6 +52,11 @@ extern int target_flags;
 
 #define IMM_IN_RANGE(V, W, S) \
   ((S) ? SIMM_IN_RANGE (V, W) : UIMM_IN_RANGE (V, W))
+
+#define IMM_IS_POW_OF_2(V, E1, E2)                \
+  ((V) >= ((unsigned HOST_WIDE_INT) 1 << (E1))     \
+   && (V) <= ((unsigned HOST_WIDE_INT) 1 << (E2))  \
+   && ((V) & ((V) - 1)) == 0)
 
 #define SCORE_STACK_ALIGN(LOC)          (((LOC) + 3) & ~3)
 

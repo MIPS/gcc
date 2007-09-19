@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
@@ -8,7 +8,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Conditional constant propagation (CCP) is based on the SSA
    propagation engine (tree-ssa-propagate.c).  Constant assignments of
@@ -207,6 +206,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
 #include "target.h"
+#include "toplev.h"
 
 
 /* Possible lattice values.  */
@@ -665,15 +665,18 @@ ccp_initialize (void)
 
 
 /* Do final substitution of propagated values, cleanup the flowgraph and
-   free allocated storage.  */
+   free allocated storage.  
 
-static void
+   Return TRUE when something was optimized.  */
+
+static bool
 ccp_finalize (void)
 {
   /* Perform substitutions based on the known constant values.  */
-  substitute_and_fold (const_val, false);
+  bool something_changed = substitute_and_fold (const_val, false);
 
   free (const_val);
+  return something_changed;;
 }
 
 
@@ -895,8 +898,7 @@ ccp_fold (tree stmt)
 	}
 
       if ((code == NOP_EXPR || code == CONVERT_EXPR)
-	  && tree_ssa_useless_type_conversion_1 (TREE_TYPE (rhs),
-		  				 TREE_TYPE (op0)))
+	  && useless_type_conversion_p (TREE_TYPE (rhs), TREE_TYPE (op0)))
 	return op0;
       return fold_unary (code, TREE_TYPE (rhs), op0);
     }
@@ -935,15 +937,13 @@ ccp_fold (tree stmt)
   /* We may be able to fold away calls to builtin functions if their
      arguments are constants.  */
   else if (code == CALL_EXPR
-	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
-	   && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
-	       == FUNCTION_DECL)
-	   && DECL_BUILT_IN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
+	   && TREE_CODE (CALL_EXPR_FN (rhs)) == ADDR_EXPR
+ 	   && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)) == FUNCTION_DECL
+ 	   && DECL_BUILT_IN (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)))
     {
       if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_USE))
 	{
 	  tree *orig, var;
-	  tree fndecl, arglist;
 	  size_t i = 0;
 	  ssa_op_iter iter;
 	  use_operand_p var_p;
@@ -955,9 +955,7 @@ ccp_fold (tree stmt)
 
 	  /* Substitute operands with their values and try to fold.  */
 	  replace_uses_in (stmt, NULL, const_val);
-	  fndecl = get_callee_fndecl (rhs);
-	  arglist = TREE_OPERAND (rhs, 1);
-	  retval = fold_builtin (fndecl, arglist, false);
+	  retval = fold_call_expr (rhs, false);
 
 	  /* Restore operands to their original form.  */
 	  i = 0;
@@ -1054,8 +1052,9 @@ fold_const_aggregate_ref (tree t)
 	          == MODE_INT)
 	      && GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (ctor)))) == 1
 	      && compare_tree_int (idx, TREE_STRING_LENGTH (ctor)) < 0)
-	    return build_int_cst (TREE_TYPE (t), (TREE_STRING_POINTER (ctor)
-					          [TREE_INT_CST_LOW (idx)]));
+	    return build_int_cst_type (TREE_TYPE (t),
+				       (TREE_STRING_POINTER (ctor)
+					[TREE_INT_CST_LOW (idx)]));
 	  return NULL_TREE;
 	}
 
@@ -1129,8 +1128,11 @@ evaluate_stmt (tree stmt)
   prop_value_t val;
   tree simplified = NULL_TREE;
   ccp_lattice_t likelyvalue = likely_value (stmt);
+  bool is_constant;
 
   val.mem_ref = NULL_TREE;
+
+  fold_defer_overflow_warnings ();
 
   /* If the statement is likely to have a CONSTANT result, then try
      to fold the statement to determine the constant value.  */
@@ -1148,7 +1150,11 @@ evaluate_stmt (tree stmt)
   else if (!simplified)
     simplified = fold_const_aggregate_ref (get_rhs (stmt));
 
-  if (simplified && is_gimple_min_invariant (simplified))
+  is_constant = simplified && is_gimple_min_invariant (simplified);
+
+  fold_undefer_overflow_warnings (is_constant, stmt, 0);
+
+  if (is_constant)
     {
       /* The statement produced a constant value.  */
       val.lattice_val = CONSTANT;
@@ -1397,21 +1403,23 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
 /* Main entry point for SSA Conditional Constant Propagation.  */
 
-static void
+static unsigned int
 execute_ssa_ccp (bool store_ccp)
 {
   do_store_ccp = store_ccp;
   ccp_initialize ();
   ssa_propagate (ccp_visit_stmt, ccp_visit_phi_node);
-  ccp_finalize ();
+  if (ccp_finalize ())
+    return (TODO_cleanup_cfg | TODO_update_ssa | TODO_remove_unused_locals);
+  else
+    return 0;
 }
 
 
 static unsigned int
 do_ssa_ccp (void)
 {
-  execute_ssa_ccp (false);
-  return 0;
+  return execute_ssa_ccp (false);
 }
 
 
@@ -1431,17 +1439,12 @@ struct tree_opt_pass pass_ccp =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CCP,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg
-    | TODO_dump_func
-    | TODO_update_ssa
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_verify_stmts
-    | TODO_update_smt_usage,		/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa
+  | TODO_verify_stmts | TODO_ggc_collect,/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1450,8 +1453,7 @@ static unsigned int
 do_ssa_store_ccp (void)
 {
   /* If STORE-CCP is not enabled, we just run regular CCP.  */
-  execute_ssa_ccp (flag_tree_store_ccp != 0);
-  return 0;
+  return execute_ssa_ccp (flag_tree_store_ccp != 0);
 }
 
 static bool
@@ -1477,13 +1479,8 @@ struct tree_opt_pass pass_store_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
-    | TODO_update_ssa
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_cleanup_cfg
-    | TODO_verify_stmts
-    | TODO_update_smt_usage,		/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_ssa
+  | TODO_verify_stmts | TODO_ggc_collect,/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1552,7 +1549,7 @@ widen_bitfield (tree val, tree field, tree var)
 static tree
 maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 {
-  tree min_idx, idx, elt_offset = integer_zero_node;
+  tree min_idx, idx, idx_type, elt_offset = integer_zero_node;
   tree array_type, elt_type, elt_size;
 
   /* If BASE is an ARRAY_REF, we can pick up another offset (this time
@@ -1578,55 +1575,65 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   if (TREE_CODE (array_type) != ARRAY_TYPE)
     return NULL_TREE;
   elt_type = TREE_TYPE (array_type);
-  if (!lang_hooks.types_compatible_p (orig_type, elt_type))
+  if (!useless_type_conversion_p (orig_type, elt_type))
     return NULL_TREE;
-	
+
+  /* Use signed size type for intermediate computation on the index.  */
+  idx_type = signed_type_for (size_type_node);
+
   /* If OFFSET and ELT_OFFSET are zero, we don't care about the size of the
      element type (so we can use the alignment if it's not constant).
      Otherwise, compute the offset as an index by using a division.  If the
      division isn't exact, then don't do anything.  */
   elt_size = TYPE_SIZE_UNIT (elt_type);
+  if (!elt_size)
+    return NULL;
   if (integer_zerop (offset))
     {
       if (TREE_CODE (elt_size) != INTEGER_CST)
 	elt_size = size_int (TYPE_ALIGN (elt_type));
 
-      idx = integer_zero_node;
+      idx = build_int_cst (idx_type, 0);
     }
   else
     {
       unsigned HOST_WIDE_INT lquo, lrem;
       HOST_WIDE_INT hquo, hrem;
+      double_int soffset;
 
+      /* The final array offset should be signed, so we need
+	 to sign-extend the (possibly pointer) offset here
+	 and use signed division.  */
+      soffset = double_int_sext (tree_to_double_int (offset),
+				 TYPE_PRECISION (TREE_TYPE (offset)));
       if (TREE_CODE (elt_size) != INTEGER_CST
-	  || div_and_round_double (TRUNC_DIV_EXPR, 1,
-				   TREE_INT_CST_LOW (offset),
-				   TREE_INT_CST_HIGH (offset),
+	  || div_and_round_double (TRUNC_DIV_EXPR, 0,
+				   soffset.low, soffset.high,
 				   TREE_INT_CST_LOW (elt_size),
 				   TREE_INT_CST_HIGH (elt_size),
 				   &lquo, &hquo, &lrem, &hrem)
 	  || lrem || hrem)
 	return NULL_TREE;
 
-      idx = build_int_cst_wide (NULL_TREE, lquo, hquo);
+      idx = build_int_cst_wide (idx_type, lquo, hquo);
     }
 
   /* Assume the low bound is zero.  If there is a domain type, get the
      low bound, if any, convert the index into that type, and add the
      low bound.  */
-  min_idx = integer_zero_node;
+  min_idx = build_int_cst (idx_type, 0);
   if (TYPE_DOMAIN (array_type))
     {
-      if (TYPE_MIN_VALUE (TYPE_DOMAIN (array_type)))
-	min_idx = TYPE_MIN_VALUE (TYPE_DOMAIN (array_type));
+      idx_type = TYPE_DOMAIN (array_type);
+      if (TYPE_MIN_VALUE (idx_type))
+	min_idx = TYPE_MIN_VALUE (idx_type);
       else
-	min_idx = fold_convert (TYPE_DOMAIN (array_type), min_idx);
+	min_idx = fold_convert (idx_type, min_idx);
 
       if (TREE_CODE (min_idx) != INTEGER_CST)
 	return NULL_TREE;
 
-      idx = fold_convert (TYPE_DOMAIN (array_type), idx);
-      elt_offset = fold_convert (TYPE_DOMAIN (array_type), elt_offset);
+      elt_offset = fold_convert (idx_type, elt_offset);
     }
 
   if (!integer_zerop (min_idx))
@@ -1634,22 +1641,24 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   if (!integer_zerop (elt_offset))
     idx = int_const_binop (PLUS_EXPR, idx, elt_offset, 0);
 
-  return build4 (ARRAY_REF, orig_type, base, idx, min_idx,
-		 size_int (tree_low_cst (elt_size, 1)
-			   / (TYPE_ALIGN_UNIT (elt_type))));
+  /* Make sure to possibly truncate late after offsetting.  */
+  idx = fold_convert (idx_type, idx);
+
+  return build4 (ARRAY_REF, orig_type, base, idx, NULL_TREE, NULL_TREE);
 }
 
 
-/* A subroutine of fold_stmt_r.  Attempts to fold *(S+O) to S.X.
+/* Attempt to fold *(S+O) to S.X.
    BASE is a record type.  OFFSET is a byte displacement.  ORIG_TYPE
    is the desired result type.  */
-/* ??? This doesn't handle class inheritance.  */
 
 static tree
 maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 				    tree orig_type, bool base_is_ptr)
 {
   tree f, t, field_type, tail_array_field, field_offset;
+  tree ret;
+  tree new_base;
 
   if (TREE_CODE (record_type) != RECORD_TYPE
       && TREE_CODE (record_type) != UNION_TYPE
@@ -1657,7 +1666,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
     return NULL_TREE;
 
   /* Short-circuit silly cases.  */
-  if (lang_hooks.types_compatible_p (record_type, orig_type))
+  if (useless_type_conversion_p (record_type, orig_type))
     return NULL_TREE;
 
   tail_array_field = NULL_TREE;
@@ -1670,6 +1679,8 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
       if (DECL_BIT_FIELD (f))
 	continue;
 
+      if (!DECL_FIELD_OFFSET (f))
+	continue;
       field_offset = byte_position (f);
       if (TREE_CODE (field_offset) != INTEGER_CST)
 	continue;
@@ -1693,7 +1704,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
       /* Here we exactly match the offset being checked.  If the types match,
 	 then we can return that field.  */
       if (cmp == 0
-	  && lang_hooks.types_compatible_p (orig_type, field_type))
+	  && useless_type_conversion_p (orig_type, field_type))
 	{
 	  if (base_is_ptr)
 	    base = build1 (INDIRECT_REF, record_type, base);
@@ -1721,8 +1732,20 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 
       /* If we matched, then set offset to the displacement into
 	 this field.  */
-      offset = t;
-      goto found;
+      if (base_is_ptr)
+	new_base = build1 (INDIRECT_REF, record_type, base);
+      else
+	new_base = base;
+      new_base = build3 (COMPONENT_REF, field_type, new_base, f, NULL_TREE);
+
+      /* Recurse to possibly find the match.  */
+      ret = maybe_fold_offset_to_array_ref (new_base, t, orig_type);
+      if (ret)
+	return ret;
+      ret = maybe_fold_offset_to_component_ref (field_type, new_base, t,
+						orig_type, false);
+      if (ret)
+	return ret;
     }
 
   if (!tail_array_field)
@@ -1732,7 +1755,6 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
   field_type = TREE_TYPE (f);
   offset = int_const_binop (MINUS_EXPR, offset, byte_position (f), 1);
 
- found:
   /* If we get here, we've got an aggregate field, and a possibly 
      nonzero offset into them.  Recurse and hope for a valid match.  */
   if (base_is_ptr)
@@ -1746,6 +1768,69 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 					     orig_type, false);
 }
 
+/* Attempt to express (ORIG_TYPE)BASE+OFFSET as BASE->field_of_orig_type
+   or BASE[index] or by combination of those. 
+
+   Before attempting the conversion strip off existing ADDR_EXPRs and
+   handled component refs.  */
+
+tree
+maybe_fold_offset_to_reference (tree base, tree offset, tree orig_type)
+{
+  tree ret;
+  tree type;
+  bool base_is_ptr = true;
+
+  STRIP_NOPS (base);
+  if (TREE_CODE (base) == ADDR_EXPR)
+    {
+      base_is_ptr = false;
+
+      base = TREE_OPERAND (base, 0);
+
+      /* Handle case where existing COMPONENT_REF pick e.g. wrong field of union,
+	 so it needs to be removed and new COMPONENT_REF constructed.
+	 The wrong COMPONENT_REF are often constructed by folding the
+	 (type *)&object within the expression (type *)&object+offset  */
+      if (handled_component_p (base) && 0)
+	{
+          HOST_WIDE_INT sub_offset, size, maxsize;
+	  tree newbase;
+	  newbase = get_ref_base_and_extent (base, &sub_offset,
+					     &size, &maxsize);
+	  gcc_assert (newbase);
+	  gcc_assert (!(sub_offset & (BITS_PER_UNIT - 1)));
+	  if (size == maxsize)
+	    {
+	      base = newbase;
+	      if (sub_offset)
+		offset = int_const_binop (PLUS_EXPR, offset,
+					  build_int_cst (TREE_TYPE (offset),
+					  sub_offset / BITS_PER_UNIT), 1);
+	    }
+	}
+      if (useless_type_conversion_p (orig_type, TREE_TYPE (base))
+	  && integer_zerop (offset))
+	return base;
+      type = TREE_TYPE (base);
+    }
+  else
+    {
+      base_is_ptr = true;
+      if (!POINTER_TYPE_P (TREE_TYPE (base)))
+	return NULL_TREE;
+      type = TREE_TYPE (TREE_TYPE (base));
+    }
+  ret = maybe_fold_offset_to_component_ref (type, base, offset,
+					    orig_type, base_is_ptr);
+  if (!ret)
+    {
+      if (base_is_ptr)
+	base = build1 (INDIRECT_REF, type, base);
+      ret = maybe_fold_offset_to_array_ref (base, offset, orig_type);
+    }
+  return ret;
+}
 
 /* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
    Return the simplified expression, or NULL if nothing could be done.  */
@@ -1754,6 +1839,7 @@ static tree
 maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 {
   tree t;
+  bool volatile_p = TREE_THIS_VOLATILE (expr);
 
   /* We may well have constructed a double-nested PLUS_EXPR via multiple
      substitutions.  Fold that down to one.  Remove NON_LVALUE_EXPRs that
@@ -1767,8 +1853,8 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
   if (t)
     return t;
 
-  /* Add in any offset from a PLUS_EXPR.  */
-  if (TREE_CODE (base) == PLUS_EXPR)
+  /* Add in any offset from a POINTER_PLUS_EXPR.  */
+  if (TREE_CODE (base) == POINTER_PLUS_EXPR)
     {
       tree offset2;
 
@@ -1777,11 +1863,14 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	return NULL_TREE;
       base = TREE_OPERAND (base, 0);
 
-      offset = int_const_binop (PLUS_EXPR, offset, offset2, 1);
+      offset = fold_convert (sizetype,
+			     int_const_binop (PLUS_EXPR, offset, offset2, 1));
     }
 
   if (TREE_CODE (base) == ADDR_EXPR)
     {
+      tree base_addr = base;
+
       /* Strip the ADDR_EXPR.  */
       base = TREE_OPERAND (base, 0);
 
@@ -1790,24 +1879,14 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	  && ccp_decl_initial_min_invariant (DECL_INITIAL (base)))
 	return DECL_INITIAL (base);
 
-      /* Try folding *(&B+O) to B[X].  */
-      t = maybe_fold_offset_to_array_ref (base, offset, TREE_TYPE (expr));
-      if (t)
-	return t;
-
       /* Try folding *(&B+O) to B.X.  */
-      t = maybe_fold_offset_to_component_ref (TREE_TYPE (base), base, offset,
-					      TREE_TYPE (expr), false);
+      t = maybe_fold_offset_to_reference (base_addr, offset,
+					  TREE_TYPE (expr));
       if (t)
-	return t;
-
-      /* Fold *&B to B.  We can only do this if EXPR is the same type
-	 as BASE.  We can't do this if EXPR is the element type of an array
-	 and BASE is the array.  */
-      if (integer_zerop (offset)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (base),
-					    TREE_TYPE (expr)))
-	return base;
+	{
+	  TREE_THIS_VOLATILE (t) = volatile_p;
+	  return t;
+	}
     }
   else
     {
@@ -1836,9 +1915,8 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
       /* Try folding *(B+O) to B->X.  Still an improvement.  */
       if (POINTER_TYPE_P (TREE_TYPE (base)))
 	{
-          t = maybe_fold_offset_to_component_ref (TREE_TYPE (TREE_TYPE (base)),
-						  base, offset,
-						  TREE_TYPE (expr), true);
+          t = maybe_fold_offset_to_reference (base, offset,
+				              TREE_TYPE (expr));
 	  if (t)
 	    return t;
 	}
@@ -1849,7 +1927,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 }
 
 
-/* A subroutine of fold_stmt_r.  EXPR is a PLUS_EXPR.
+/* A subroutine of fold_stmt_r.  EXPR is a POINTER_PLUS_EXPR.
 
    A quaint feature extant in our address arithmetic is that there
    can be hidden type changes here.  The type of the result need
@@ -1858,7 +1936,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
    What we're after here is an expression of the form
 	(T *)(&array + const)
    where the cast doesn't actually exist, but is implicit in the
-   type of the PLUS_EXPR.  We'd like to turn this into
+   type of the POINTER_PLUS_EXPR.  We'd like to turn this into
 	&array[x]
    which may be able to propagate further.  */
 
@@ -1870,18 +1948,9 @@ maybe_fold_stmt_addition (tree expr)
   tree ptr_type = TREE_TYPE (expr);
   tree ptd_type;
   tree t;
-  bool subtract = (TREE_CODE (expr) == MINUS_EXPR);
 
-  /* We're only interested in pointer arithmetic.  */
-  if (!POINTER_TYPE_P (ptr_type))
-    return NULL_TREE;
-  /* Canonicalize the integral operand to op1.  */
-  if (INTEGRAL_TYPE_P (TREE_TYPE (op0)))
-    {
-      if (subtract)
-	return NULL_TREE;
-      t = op0, op0 = op1, op1 = t;
-    }
+  gcc_assert (TREE_CODE (expr) == POINTER_PLUS_EXPR);
+
   /* It had better be a constant.  */
   if (TREE_CODE (op1) != INTEGER_CST)
     return NULL_TREE;
@@ -1927,30 +1996,9 @@ maybe_fold_stmt_addition (tree expr)
       array_idx = int_const_binop (MULT_EXPR, array_idx, elt_size, 0);
 
       /* Update the operands for the next round, or for folding.  */
-      /* If we're manipulating unsigned types, then folding into negative
-	 values can produce incorrect results.  Particularly if the type
-	 is smaller than the width of the pointer.  */
-      if (subtract
-	  && TYPE_UNSIGNED (TREE_TYPE (op1))
-	  && tree_int_cst_lt (array_idx, op1))
-	return NULL;
-      op1 = int_const_binop (subtract ? MINUS_EXPR : PLUS_EXPR,
+      op1 = int_const_binop (PLUS_EXPR,
 			     array_idx, op1, 0);
-      subtract = false;
       op0 = array_obj;
-    }
-
-  /* If we weren't able to fold the subtraction into another array reference,
-     canonicalize the integer for passing to the array and component ref
-     simplification functions.  */
-  if (subtract)
-    {
-      if (TYPE_UNSIGNED (TREE_TYPE (op1)))
-	return NULL;
-      op1 = fold_unary (NEGATE_EXPR, TREE_TYPE (op1), op1);
-      /* ??? In theory fold should always produce another integer.  */
-      if (op1 == NULL || TREE_CODE (op1) != INTEGER_CST)
-	return NULL;
     }
 
   ptd_type = TREE_TYPE (ptr_type);
@@ -1971,8 +2019,9 @@ maybe_fold_stmt_addition (tree expr)
 
 struct fold_stmt_r_data
 {
-    bool *changed_p;
-    bool *inside_addr_expr_p;
+  tree stmt;
+  bool *changed_p;
+  bool *inside_addr_expr_p;
 };
 
 /* Subroutine of fold_stmt called via walk_tree.  We perform several
@@ -1997,6 +2046,26 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 
       t = maybe_fold_stmt_indirect (expr, TREE_OPERAND (expr, 0),
 				    integer_zero_node);
+      break;
+
+    case NOP_EXPR:
+      t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
+      if (t)
+	return t;
+      *walk_subtrees = 0;
+
+      if (POINTER_TYPE_P (TREE_TYPE (expr))
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)))
+	  && (t = maybe_fold_offset_to_reference
+		      (TREE_OPERAND (expr, 0),
+		       integer_zero_node,
+		       TREE_TYPE (TREE_TYPE (expr)))))
+	{
+	  tree ptr_type = build_pointer_type (TREE_TYPE (t));
+	  if (!useless_type_conversion_p (TREE_TYPE (expr), ptr_type))
+	    return NULL_TREE;
+          t = build_fold_addr_expr_with_type (t, ptr_type);
+	}
       break;
 
       /* ??? Could handle more ARRAY_REFs here, as a variant of INDIRECT_REF.
@@ -2026,8 +2095,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
         recompute_tree_invariant_for_addr_expr (expr);
       return NULL_TREE;
 
-    case PLUS_EXPR:
-    case MINUS_EXPR:
+    case POINTER_PLUS_EXPR:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
       if (t)
 	return t;
@@ -2068,10 +2136,16 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       if (COMPARISON_CLASS_P (TREE_OPERAND (expr, 0)))
         {
 	  tree op0 = TREE_OPERAND (expr, 0);
-          tree tem = fold_binary (TREE_CODE (op0), TREE_TYPE (op0),
-				  TREE_OPERAND (op0, 0),
-				  TREE_OPERAND (op0, 1));
-	  if (tem && set_rhs (expr_p, tem))
+          tree tem;
+	  bool set;
+
+	  fold_defer_overflow_warnings ();
+	  tem = fold_binary (TREE_CODE (op0), TREE_TYPE (op0),
+			     TREE_OPERAND (op0, 0),
+			     TREE_OPERAND (op0, 1));
+	  set = tem && set_rhs (expr_p, tem);
+	  fold_undefer_overflow_warnings (set, fold_stmt_r_data->stmt, 0);
+	  if (set)
 	    {
 	      t = *expr_p;
 	      break;
@@ -2109,6 +2183,10 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
   
   if (TREE_CODE (arg) != SSA_NAME)
     {
+      if (TREE_CODE (arg) == COND_EXPR)
+        return get_maxval_strlen (COND_EXPR_THEN (arg), length, visited, type)
+               && get_maxval_strlen (COND_EXPR_ELSE (arg), length, visited, type);
+
       if (type == 2)
 	{
 	  val = arg;
@@ -2205,18 +2283,18 @@ static tree
 ccp_fold_builtin (tree stmt, tree fn)
 {
   tree result, val[3];
-  tree callee, arglist, a;
+  tree callee, a;
   int arg_mask, i, type;
   bitmap visited;
   bool ignore;
+  call_expr_arg_iterator iter;
+  int nargs;
 
   ignore = TREE_CODE (stmt) != GIMPLE_MODIFY_STMT;
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
-  callee = get_callee_fndecl (fn);
-  arglist = TREE_OPERAND (fn, 1);
-  result = fold_builtin (callee, arglist, ignore);
+  result = fold_call_expr (fn, ignore);
   if (result)
     {
       if (ignore)
@@ -2225,12 +2303,14 @@ ccp_fold_builtin (tree stmt, tree fn)
     }
 
   /* Ignore MD builtins.  */
+  callee = get_callee_fndecl (fn);
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
     return NULL_TREE;
 
   /* If the builtin could not be folded, and it has no argument list,
      we're done.  */
-  if (!arglist)
+  nargs = call_expr_nargs (fn);
+  if (nargs == 0)
     return NULL_TREE;
 
   /* Limit the work only for builtins we know how to simplify.  */
@@ -2273,15 +2353,17 @@ ccp_fold_builtin (tree stmt, tree fn)
   visited = BITMAP_ALLOC (NULL);
 
   memset (val, 0, sizeof (val));
-  for (i = 0, a = arglist;
-       arg_mask;
-       i++, arg_mask >>= 1, a = TREE_CHAIN (a))
-    if (arg_mask & 1)
-      {
-	bitmap_clear (visited);
-	if (!get_maxval_strlen (TREE_VALUE (a), &val[i], visited, type))
-	  val[i] = NULL_TREE;
-      }
+  init_call_expr_arg_iterator (fn, &iter);
+  for (i = 0; arg_mask; i++, arg_mask >>= 1)
+    {
+      a = next_call_expr_arg (&iter);
+      if (arg_mask & 1)
+	{
+	  bitmap_clear (visited);
+	  if (!get_maxval_strlen (a, &val[i], visited, type))
+	    val[i] = NULL_TREE;
+	}
+    }
 
   BITMAP_FREE (visited);
 
@@ -2291,35 +2373,44 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_STRLEN:
       if (val[0])
 	{
-	  tree new = fold_convert (TREE_TYPE (fn), val[0]);
+	  tree new_val = fold_convert (TREE_TYPE (fn), val[0]);
 
 	  /* If the result is not a valid gimple value, or not a cast
 	     of a valid gimple value, then we can not use the result.  */
-	  if (is_gimple_val (new)
-	      || (is_gimple_cast (new)
-		  && is_gimple_val (TREE_OPERAND (new, 0))))
-	    return new;
+	  if (is_gimple_val (new_val)
+	      || (is_gimple_cast (new_val)
+		  && is_gimple_val (TREE_OPERAND (new_val, 0))))
+	    return new_val;
 	}
       break;
 
     case BUILT_IN_STRCPY:
-      if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_strcpy (callee, arglist, val[1]);
+      if (val[1] && is_gimple_val (val[1]) && nargs == 2)
+	result = fold_builtin_strcpy (callee,
+				      CALL_EXPR_ARG (fn, 0),
+				      CALL_EXPR_ARG (fn, 1),
+				      val[1]);
       break;
 
     case BUILT_IN_STRNCPY:
-      if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_strncpy (callee, arglist, val[1]);
+      if (val[1] && is_gimple_val (val[1]) && nargs == 3)
+	result = fold_builtin_strncpy (callee,
+				       CALL_EXPR_ARG (fn, 0),
+				       CALL_EXPR_ARG (fn, 1),
+				       CALL_EXPR_ARG (fn, 2),
+				       val[1]);
       break;
 
     case BUILT_IN_FPUTS:
-      result = fold_builtin_fputs (arglist,
+      result = fold_builtin_fputs (CALL_EXPR_ARG (fn, 0),
+				   CALL_EXPR_ARG (fn, 1),
 				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 0,
 				   val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
-      result = fold_builtin_fputs (arglist,
+      result = fold_builtin_fputs (CALL_EXPR_ARG (fn, 0),
+				   CALL_EXPR_ARG (fn, 1),
 				   TREE_CODE (stmt) != GIMPLE_MODIFY_STMT, 1,
 				   val[0]);
       break;
@@ -2329,26 +2420,39 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
       if (val[2] && is_gimple_val (val[2]))
-	result = fold_builtin_memory_chk (callee, arglist, val[2], ignore,
+	result = fold_builtin_memory_chk (callee,
+					  CALL_EXPR_ARG (fn, 0),
+					  CALL_EXPR_ARG (fn, 1),
+					  CALL_EXPR_ARG (fn, 2),
+					  CALL_EXPR_ARG (fn, 3),
+					  val[2], ignore,
 					  DECL_FUNCTION_CODE (callee));
       break;
 
     case BUILT_IN_STRCPY_CHK:
     case BUILT_IN_STPCPY_CHK:
       if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_stxcpy_chk (callee, arglist, val[1], ignore,
+	result = fold_builtin_stxcpy_chk (callee,
+					  CALL_EXPR_ARG (fn, 0),
+					  CALL_EXPR_ARG (fn, 1),
+					  CALL_EXPR_ARG (fn, 2),
+					  val[1], ignore,
 					  DECL_FUNCTION_CODE (callee));
       break;
 
     case BUILT_IN_STRNCPY_CHK:
       if (val[2] && is_gimple_val (val[2]))
-	result = fold_builtin_strncpy_chk (arglist, val[2]);
+	result = fold_builtin_strncpy_chk (CALL_EXPR_ARG (fn, 0),
+					   CALL_EXPR_ARG (fn, 1),
+					   CALL_EXPR_ARG (fn, 2),
+					   CALL_EXPR_ARG (fn, 3),
+					   val[2]);
       break;
 
     case BUILT_IN_SNPRINTF_CHK:
     case BUILT_IN_VSNPRINTF_CHK:
       if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_snprintf_chk (arglist, val[1],
+	result = fold_builtin_snprintf_chk (fn, val[1],
 					    DECL_FUNCTION_CODE (callee));
       break;
 
@@ -2374,18 +2478,17 @@ fold_stmt (tree *stmt_p)
   bool changed = false;
   bool inside_addr_expr = false;
 
+  stmt = *stmt_p;
+
+  fold_stmt_r_data.stmt = stmt;
   fold_stmt_r_data.changed_p = &changed;
   fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
-
-  stmt = *stmt_p;
 
   /* If we replaced constants and the statement makes pointer dereferences,
      then we may need to fold instances of *&VAR into VAR, etc.  */
   if (walk_tree (stmt_p, fold_stmt_r, &fold_stmt_r_data, NULL))
     {
-      *stmt_p
-	= build_function_call_expr (implicit_built_in_decls[BUILT_IN_TRAP],
-				    NULL);
+      *stmt_p = build_call_expr (implicit_built_in_decls[BUILT_IN_TRAP], 0);
       return true;
     }
 
@@ -2413,8 +2516,8 @@ fold_stmt (tree *stmt_p)
 	     copying EH region info to the new node.  Easier to just do it
 	     here where we can just smash the call operand. Also
 	     CALL_EXPR_RETURN_SLOT_OPT needs to be handled correctly and
-	     copied, fold_ternary does not have not information. */
-	  callee = TREE_OPERAND (rhs, 0);
+	     copied, fold_call_expr does not have not information. */
+	  callee = CALL_EXPR_FN (rhs);
 	  if (TREE_CODE (callee) == OBJ_TYPE_REF
 	      && lang_hooks.fold_obj_type_ref
 	      && TREE_CODE (OBJ_TYPE_REF_OBJECT (callee)) == ADDR_EXPR
@@ -2432,11 +2535,18 @@ fold_stmt (tree *stmt_p)
 	      t = lang_hooks.fold_obj_type_ref (callee, t);
 	      if (t)
 		{
-		  TREE_OPERAND (rhs, 0) = t;
+		  CALL_EXPR_FN (rhs) = t;
 		  changed = true;
 		}
 	    }
 	}
+    }
+  else if (TREE_CODE (rhs) == COND_EXPR)
+    {
+      tree temp = fold (COND_EXPR_COND (rhs));
+      if (temp != COND_EXPR_COND (rhs))
+        result = fold_build3 (COND_EXPR, TREE_TYPE (rhs), temp,
+                              COND_EXPR_THEN (rhs), COND_EXPR_ELSE (rhs));
     }
 
   /* If we couldn't fold the RHS, hand over to the generic fold routines.  */
@@ -2466,6 +2576,7 @@ fold_stmt_inplace (tree stmt)
   bool changed = false;
   bool inside_addr_expr = false;
 
+  fold_stmt_r_data.stmt = stmt;
   fold_stmt_r_data.changed_p = &changed;
   fold_stmt_r_data.inside_addr_expr_p = &inside_addr_expr;
 
@@ -2534,6 +2645,8 @@ execute_fold_all_builtins (void)
 {
   bool cfg_changed = false;
   basic_block bb;
+  unsigned int todoflags = 0;
+  
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
@@ -2591,6 +2704,7 @@ execute_fold_all_builtins (void)
 		{
 		  bool ok = set_rhs (stmtp, result);
 		  gcc_assert (ok);
+		  todoflags |= TODO_rebuild_alias;
 		}
 	    }
 
@@ -2622,11 +2736,12 @@ execute_fold_all_builtins (void)
 	    bsi_next (&i);
 	}
     }
-
+  
   /* Delete unreachable blocks.  */
   if (cfg_changed)
-    cleanup_tree_cfg ();
-  return 0;
+    todoflags |= TODO_cleanup_cfg;
+  
+  return todoflags;
 }
 
 
@@ -2639,7 +2754,7 @@ struct tree_opt_pass pass_fold_builtins =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

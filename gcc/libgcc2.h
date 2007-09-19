@@ -39,10 +39,6 @@ extern void __clear_cache (char *, char *);
 extern void __eprintf (const char *, const char *, unsigned int, const char *)
   __attribute__ ((__noreturn__));
 
-struct exception_descriptor;
-extern short int __get_eh_table_language (struct exception_descriptor *);
-extern short int __get_eh_table_version (struct exception_descriptor *);
-
 /* Permit the tm.h file to select the endianness to use just for this
    file.  This is used when the endianness is determined when the
    compiler is run.  */
@@ -119,10 +115,16 @@ extern short int __get_eh_table_version (struct exception_descriptor *);
 
 /* FIXME: This #ifdef probably should be removed, ie. enable the test
    for mips too.  */
+/* Don't use IBM Extended Double TFmode for TI->SF calculations.
+   The conversion from long double to float suffers from double
+   rounding, because we convert via double.  In other cases, going
+   through the software fp routines is much slower than the fallback.  */
 #ifdef __powerpc__
-#define IS_IBM_EXTENDED(SIZE) (SIZE == 106)
+#define AVOID_FP_TYPE_CONVERSION(SIZE) (SIZE == 106)
+#elif defined(WIDEST_HARDWARE_FP_SIZE)
+#define AVOID_FP_TYPE_CONVERSION(SIZE) (SIZE > WIDEST_HARDWARE_FP_SIZE)
 #else
-#define IS_IBM_EXTENDED(SIZE) 0
+#define AVOID_FP_TYPE_CONVERSION(SIZE) 0
 #endif
 
 /* In the first part of this file, we are interfacing to calls generated
@@ -171,7 +173,8 @@ typedef		float TFtype	__attribute__ ((mode (TF)));
 typedef _Complex float TCtype	__attribute__ ((mode (TC)));
 #endif
 
-typedef int word_type __attribute__ ((mode (__word__)));
+typedef int cmp_return_type __attribute__((mode (__libgcc_cmp_return__)));
+typedef int shift_count_type __attribute__((mode (__libgcc_shift_count__)));
 
 /* Make sure that we don't accidentally use any normal C language built-in
    type names in the first part of this file.  Instead we want to use *only*
@@ -327,9 +330,9 @@ extern UDWtype __udivmoddi4 (UDWtype, UDWtype, UDWtype *);
 extern DWtype __negdi2 (DWtype);
 #endif
 
-extern DWtype __lshrdi3 (DWtype, word_type);
-extern DWtype __ashldi3 (DWtype, word_type);
-extern DWtype __ashrdi3 (DWtype, word_type);
+extern DWtype __lshrdi3 (DWtype, shift_count_type);
+extern DWtype __ashldi3 (DWtype, shift_count_type);
+extern DWtype __ashrdi3 (DWtype, shift_count_type);
 
 /* __udiv_w_sdiv is static inline when building other libgcc2 portions.  */
 #if (!defined(L_udivdi3) && !defined(L_divdi3) && \
@@ -337,21 +340,26 @@ extern DWtype __ashrdi3 (DWtype, word_type);
 extern UWtype __udiv_w_sdiv (UWtype *, UWtype, UWtype, UWtype);
 #endif
 
-extern word_type __cmpdi2 (DWtype, DWtype);
-extern word_type __ucmpdi2 (DWtype, DWtype);
+extern cmp_return_type __cmpdi2 (DWtype, DWtype);
+extern cmp_return_type __ucmpdi2 (DWtype, DWtype);
+
+#if MIN_UNITS_PER_WORD > 1
+extern SItype __bswapsi2 (SItype);
+#endif
+#if LONG_LONG_TYPE_SIZE > 32
+extern DItype __bswapdi2 (DItype);
+#endif
 
 extern Wtype __absvSI2 (Wtype);
 extern Wtype __addvSI3 (Wtype, Wtype);
 extern Wtype __subvSI3 (Wtype, Wtype);
 extern Wtype __mulvSI3 (Wtype, Wtype);
 extern Wtype __negvSI2 (Wtype);
-extern UWtype __bswapsi2 (UWtype);
 extern DWtype __absvDI2 (DWtype);
 extern DWtype __addvDI3 (DWtype, DWtype);
 extern DWtype __subvDI3 (DWtype, DWtype);
 extern DWtype __mulvDI3 (DWtype, DWtype);
 extern DWtype __negvDI2 (DWtype);
-extern UDWtype __bswapdi2 (UDWtype);
 
 #ifdef COMPAT_SIMODE_TRAPPING_ARITHMETIC
 extern SItype __absvsi2 (SItype);

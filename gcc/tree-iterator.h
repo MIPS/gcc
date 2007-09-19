@@ -1,12 +1,12 @@
 /* Iterator routines for manipulating GENERIC and GIMPLE tree statements.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2007 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file is dependent upon the implementation of tree's. It provides an
@@ -35,10 +34,26 @@ typedef struct {
   tree container;
 } tree_stmt_iterator;
 
+typedef struct {
+  struct tree_statement_list_node *ptr;
+  const_tree container;
+} const_tree_stmt_iterator;
+
 static inline tree_stmt_iterator
 tsi_start (tree t)
 {
   tree_stmt_iterator i;
+
+  i.ptr = STATEMENT_LIST_HEAD (t);
+  i.container = t;
+
+  return i;
+}
+
+static inline const_tree_stmt_iterator
+ctsi_start (const_tree t)
+{
+  const_tree_stmt_iterator i;
 
   i.ptr = STATEMENT_LIST_HEAD (t);
   i.container = t;
@@ -57,6 +72,17 @@ tsi_last (tree t)
   return i;
 }
 
+static inline const_tree_stmt_iterator
+ctsi_last (tree t)
+{
+  const_tree_stmt_iterator i;
+
+  i.ptr = STATEMENT_LIST_TAIL (t);
+  i.container = t;
+
+  return i;
+}
+
 static inline bool
 tsi_end_p (tree_stmt_iterator i)
 {
@@ -64,7 +90,19 @@ tsi_end_p (tree_stmt_iterator i)
 }
 
 static inline bool
+ctsi_end_p (const_tree_stmt_iterator i)
+{
+  return i.ptr == NULL;
+}
+
+static inline bool
 tsi_one_before_end_p (tree_stmt_iterator i)
+{
+  return i.ptr != NULL && i.ptr->next == NULL;
+}
+
+static inline bool
+ctsi_one_before_end_p (const_tree_stmt_iterator i)
 {
   return i.ptr != NULL && i.ptr->next == NULL;
 }
@@ -76,7 +114,19 @@ tsi_next (tree_stmt_iterator *i)
 }
 
 static inline void
+ctsi_next (const_tree_stmt_iterator *i)
+{
+  i->ptr = i->ptr->next;
+}
+
+static inline void
 tsi_prev (tree_stmt_iterator *i)
+{
+  i->ptr = i->ptr->prev;
+}
+
+static inline void
+ctsi_prev (const_tree_stmt_iterator *i)
 {
   i->ptr = i->ptr->prev;
 }
@@ -89,6 +139,12 @@ tsi_stmt_ptr (tree_stmt_iterator i)
 
 static inline tree
 tsi_stmt (tree_stmt_iterator i)
+{
+  return i.ptr->stmt;
+}
+
+static inline const_tree
+ctsi_stmt (const_tree_stmt_iterator i)
 {
   return i.ptr->stmt;
 }

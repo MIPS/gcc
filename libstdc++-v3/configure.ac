@@ -92,11 +92,11 @@ AC_SUBST(enable_static)
 ## than just ignoring the results.  Faster /and/ more correct, win win.
 GLIBCXX_ENABLE_HOSTED
 
-# Check for compiler support that doesn't require linking.
+# Enable compiler support that doesn't require linking.
 GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
 
-# Enable all the variable C++ runtime options.  
+# Enable all the variable C++ runtime options that doesn't require linking.
 GLIBCXX_ENABLE_CSTDIO
 GLIBCXX_ENABLE_CLOCALE
 GLIBCXX_ENABLE_ALLOCATOR
@@ -110,10 +110,13 @@ GLIBCXX_ENABLE_DEBUG([no])
 GLIBCXX_ENABLE_CXX_FLAGS
 GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING([no])
 
+# Checks for operating systems support that don't require linking.
+GLIBCXX_CHECK_SYSTEM_ERROR
+
 # No surprises, no surprises...
 GLIBCXX_ENABLE_THREADS
 GLIBCXX_ENABLE_ATOMIC_BUILTINS
-if test $atomicity_dir = cpu/generic/atomic_mutex ; then
+if test $atomicity_dir = cpu/generic/atomicity_mutex ; then
   AC_MSG_WARN([No native atomic operations are provided for this platform.])
   if test $target_thread_file = single; then
     AC_MSG_WARN([They cannot be faked when thread support is disabled.])
@@ -140,7 +143,6 @@ if $GLIBCXX_IS_NATIVE; then
   GLIBCXX_CHECK_MATH_SUPPORT
   GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
   GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-  GLIBCXX_CHECK_ICONV_SUPPORT
   GLIBCXX_CHECK_STDLIB_SUPPORT
 
   # For showmanyc_helper().
@@ -181,6 +183,9 @@ if $GLIBCXX_IS_NATIVE; then
     [AC_DEFINE(HAVE_SIGSETJMP, 1, [Define if sigsetjmp is available.])])
 
   AC_FUNC_MMAP
+
+  # For iconv support.
+  AM_ICONV
 
 else
 
@@ -251,6 +256,8 @@ else
 
     AC_DEFINE(HAVE_S_ISREG)
     AC_DEFINE(HAVE_S_IFREG)
+
+    AC_DEFINE(HAVE_ICONV)
   else
     GLIBCXX_CROSSCONFIG
   fi
@@ -296,7 +303,8 @@ GLIBCXX_ENABLE_VISIBILITY([yes])
 
 ac_ldbl_compat=no
 case "$target" in
-  powerpc*-*-*gnu* | \
+  powerpc*-*-linux* | \
+  powerpc*-*-gnu* | \
   sparc*-*-linux* | \
   s390*-*-linux* | \
   alpha*-*-linux*)
@@ -351,10 +359,8 @@ GLIBCXX_EXPORT_INSTALL_INFO
 GLIBCXX_EXPORT_INCLUDES
 GLIBCXX_EXPORT_FLAGS
 
-if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CXX --features |
-   grep "enable shared" > /dev/null;
-then
-  LIBSUPCXX_PICFLAGS=-prefer-pic
+if test "$enable_shared" = yes; then
+  LIBSUPCXX_PICFLAGS="-prefer-pic"
 else
   LIBSUPCXX_PICFLAGS=
 fi

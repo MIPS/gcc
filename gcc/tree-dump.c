@@ -1,5 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -33,8 +32,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "real.h"
+#include "fixed-value.h"
 
-static unsigned int queue (dump_info_p, tree, int);
+static unsigned int queue (dump_info_p, const_tree, int);
 static void dump_index (dump_info_p, unsigned int);
 static void dequeue_and_dump (dump_info_p);
 static void dump_new_line (dump_info_p);
@@ -45,7 +45,7 @@ static int dump_enable_all (int, int);
    assigned to T.  */
 
 static unsigned int
-queue (dump_info_p di, tree t, int flags)
+queue (dump_info_p di, const_tree t, int flags)
 {
   dump_queue_p dq;
   dump_node_info_p dni;
@@ -94,7 +94,7 @@ dump_index (dump_info_p di, unsigned int index)
    index of T is printed.  */
 
 void
-queue_and_dump_index (dump_info_p di, const char *field, tree t, int flags)
+queue_and_dump_index (dump_info_p di, const char *field, const_tree t, int flags)
 {
   unsigned int index;
   splay_tree_node n;
@@ -122,7 +122,7 @@ queue_and_dump_index (dump_info_p di, const char *field, tree t, int flags)
 /* Dump the type of T.  */
 
 void
-queue_and_dump_type (dump_info_p di, tree t)
+queue_and_dump_type (dump_info_p di, const_tree t)
 {
   queue_and_dump_index (di, "type", TREE_TYPE (t), DUMP_NONE);
 }
@@ -166,7 +166,7 @@ void
 dump_pointer (dump_info_p di, const char *field, void *ptr)
 {
   dump_maybe_newline (di);
-  fprintf (di->stream, "%-4s: %-8lx ", field, (long) ptr);
+  fprintf (di->stream, "%-4s: %-8lx ", field, (unsigned long) ptr);
   di->column += 15;
 }
 
@@ -187,6 +187,18 @@ dump_real (dump_info_p di, const char *field, const REAL_VALUE_TYPE *r)
 {
   char buf[32];
   real_to_decimal (buf, r, sizeof (buf), 0, true);
+  dump_maybe_newline (di);
+  fprintf (di->stream, "%-4s: %s ", field, buf);
+  di->column += strlen (buf) + 7;
+}
+
+/* Dump the fixed-point value F, using FIELD to identify it.  */
+
+static void
+dump_fixed (dump_info_p di, const char *field, const FIXED_VALUE_TYPE *f)
+{
+  char buf[32];
+  fixed_to_decimal (buf, f, sizeof (buf));
   dump_maybe_newline (di);
   fprintf (di->stream, "%-4s: %s ", field, buf);
   di->column += strlen (buf) + 7;
@@ -319,6 +331,7 @@ dequeue_and_dump (dump_info_p di)
 	case tcc_expression:
 	case tcc_reference:
 	case tcc_statement:
+	case tcc_vl_exp:
 	  /* These nodes are handled explicitly below.  */
 	  break;
 
@@ -453,6 +466,13 @@ dequeue_and_dump (dump_info_p di)
       dump_int (di, "prec", TYPE_PRECISION (t));
       break;
 
+    case FIXED_POINT_TYPE:
+      dump_int (di, "prec", TYPE_PRECISION (t));
+      dump_string_field (di, "sign", TYPE_UNSIGNED (t) ? "unsigned": "signed");
+      dump_string_field (di, "saturating",
+			 TYPE_SATURATING (t) ? "saturating": "non-saturating");
+      break;
+
     case POINTER_TYPE:
       dump_child ("ptd", TREE_TYPE (t));
       break;
@@ -549,6 +569,10 @@ dequeue_and_dump (dump_info_p di)
       dump_real (di, "valu", TREE_REAL_CST_PTR (t));
       break;
 
+    case FIXED_CST:
+      dump_fixed (di, "valu", TREE_FIXED_CST_PTR (t));
+      break;
+
     case TRUTH_NOT_EXPR:
     case ADDR_EXPR:
     case INDIRECT_REF:
@@ -607,8 +631,19 @@ dequeue_and_dump (dump_info_p di)
       break;
 
     case CALL_EXPR:
-      dump_child ("fn", TREE_OPERAND (t, 0));
-      dump_child ("args", TREE_OPERAND (t, 1));
+      {
+	int i = 0;
+	tree arg;
+	call_expr_arg_iterator iter;
+	dump_child ("fn", CALL_EXPR_FN (t));
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, t)
+	  {
+	    char buffer[32];
+	    sprintf (buffer, "%u", i);
+	    dump_child (buffer, arg);
+	    i++;
+	  }
+      }
       break;
 
     case CONSTRUCTOR:
@@ -700,7 +735,7 @@ dequeue_and_dump (dump_info_p di)
 /* Return nonzero if FLAG has been specified for the dump, and NODE
    is not the root node of the dump.  */
 
-int dump_flag (dump_info_p di, int flag, tree node)
+int dump_flag (dump_info_p di, int flag, const_tree node)
 {
   return (di->flags & flag) && (node != di->node);
 }
@@ -708,7 +743,7 @@ int dump_flag (dump_info_p di, int flag, tree node)
 /* Dump T, and all its children, on STREAM.  */
 
 void
-dump_node (tree t, int flags, FILE *stream)
+dump_node (const_tree t, int flags, FILE *stream)
 {
   struct dump_info di;
   dump_queue_p dq;
@@ -744,7 +779,7 @@ dump_node (tree t, int flags, FILE *stream)
 
 
 /* Table of tree dump switches. This must be consistent with the
-   TREE_DUMP_INDEX enumeration in tree.h.  */
+   tree_dump_index enumeration in tree-pass.h.  */
 static struct dump_file_info dump_files[TDI_end] =
 {
   {NULL, NULL, NULL, 0, 0, 0, 0},
@@ -791,7 +826,7 @@ static const struct dump_option_value_info dump_options[] =
   {"stmtaddr", TDF_STMTADDR},
   {"memsyms", TDF_MEMSYMS},
   {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA 
-	    | TDF_STMTADDR | TDF_GRAPH)},
+	    | TDF_STMTADDR | TDF_GRAPH | TDF_DIAGNOSTIC)},
   {NULL, 0}
 };
 
@@ -1002,6 +1037,9 @@ dump_switch_p_1 (const char *arg, struct dump_file_info *dfi, bool doglob)
 
   option_value = skip_leading_substring (arg, doglob ? dfi->glob : dfi->swtch);
   if (!option_value)
+    return 0;
+
+  if (*option_value && *option_value != '-')
     return 0;
 
   ptr = option_value;

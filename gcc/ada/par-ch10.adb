@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -244,7 +244,9 @@ package body Ch10 is
       if Token = Tok_Private then
          Private_Sloc := Token_Ptr;
          Set_Keyword_Casing (Current_Source_File, Determine_Token_Casing);
-         if Style_Check then Style.Check_Indentation; end if;
+         if Style_Check then
+            Style.Check_Indentation;
+         end if;
 
          Save_Scan_State (Scan_State); -- at PRIVATE
          Scan; -- past PRIVATE
@@ -320,7 +322,9 @@ package body Ch10 is
       --  it hasn't already been done on seeing a WITH or PRIVATE.
 
       Set_Keyword_Casing (Current_Source_File, Determine_Token_Casing);
-      if Style_Check then Style.Check_Indentation; end if;
+      if Style_Check then
+         Style.Check_Indentation;
+      end if;
 
       --  Remaining processing depends on particular type of compilation unit
 
@@ -807,7 +811,9 @@ package body Ch10 is
       --  Loop through context items
 
       loop
-         if Style_Check then Style.Check_Indentation; end if;
+         if Style_Check then
+            Style.Check_Indentation;
+         end if;
 
          --  Gather any pragmas appearing in the context clause
 
@@ -869,22 +875,17 @@ package body Ch10 is
 
             if Token = Tok_Type then
 
-               --  WITH TYPE is an GNAT specific extension
+               --  WITH TYPE is an obsolete GNAT specific extension
 
-               if not Extensions_Allowed then
-                  Error_Msg_SP ("`WITH TYPE` is a 'G'N'A'T extension");
-                  Error_Msg_SP ("\unit must be compiled with -gnatX switch");
-               end if;
+               Error_Msg_SP
+                 ("`WITH TYPE` is an obsolete 'G'N'A'T extension");
+               Error_Msg_SP ("\use Ada 2005 `LIMITED WITH` clause instead");
 
                Scan;  -- past TYPE
-               With_Node := New_Node (N_With_Type_Clause, Token_Ptr);
-               Append (With_Node, Item_List);
-               Set_Name (With_Node, P_Qualified_Simple_Name);
 
                T_Is;
 
                if Token = Tok_Tagged then
-                  Set_Tagged_Present (With_Node);
                   Scan;
 
                elsif Token = Tok_Access then

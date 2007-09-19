@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    For ARM with ELF obj format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004, 2005
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org> and
    Catherine Moore <clm@cygnus.com>
@@ -9,7 +9,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -18,9 +18,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef OBJECT_FORMAT_ELF
  #error elf.h included before elfos.h
@@ -87,7 +86,6 @@
   do								\
     {								\
       ARM_OUTPUT_FN_UNWIND (FILE, FALSE);			\
-      ARM_DECLARE_FUNCTION_SIZE (FILE, FNAME, DECL);		\
       if (!flag_inhibit_size_directive)				\
 	ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
     }								\
@@ -96,9 +94,10 @@
 /* Define this macro if jump tables (for `tablejump' insns) should be
    output in the text section, along with the assembler instructions.
    Otherwise, the readonly data section is used.  */
-/* We put ARM jump tables in the text section, because it makes the code
-   more efficient, but for Thumb it's better to put them out of band.  */
-#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_ARM)
+/* We put ARM and Thumb-2 jump tables in the text section, because it makes
+   the code more efficient, but for Thumb-1 it's better to put them out of
+   band.  */
+#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_32BIT)
 
 #ifndef LINK_SPEC
 #define LINK_SPEC "%{mbig-endian:-EB} %{mlittle-endian:-EL} -X"
@@ -125,6 +124,9 @@
 /* Output an element in the static constructor array.  */
 #undef TARGET_ASM_CONSTRUCTOR
 #define TARGET_ASM_CONSTRUCTOR arm_elf_asm_constructor
+
+#undef TARGET_ASM_DESTRUCTOR
+#define TARGET_ASM_DESTRUCTOR arm_elf_asm_destructor
 
 /* For PIC code we need to explicitly specify (PLT) and (GOT) relocs.  */
 #define NEED_PLT_RELOC	flag_pic

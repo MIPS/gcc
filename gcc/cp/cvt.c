@@ -1,13 +1,14 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file contains the functions for converting C++ expressions
@@ -251,9 +251,7 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
 	{
 	  /* A NULL pointer-to-member is represented by -1, not by
 	     zero.  */
-	  expr = build_int_cst (type, -1);
-	  /* Fix up the representation of -1 if appropriate.  */
-	  expr = force_fit_type (expr, 0, false, false);
+	  expr = build_int_cst_type (type, -1);
 	}
       else
 	expr = build_int_cst (type, 0);
@@ -595,6 +593,29 @@ cp_convert (tree type, tree expr)
   return ocp_convert (type, expr, CONV_OLD_CONVERT, LOOKUP_NORMAL);
 }
 
+/* C++ equivalent of convert_and_check but using cp_convert as the
+   conversion function.
+
+   Convert EXPR to TYPE, warning about conversion problems with constants.
+   Invoke this function on every expression that is converted implicitly,
+   i.e. because of language rules and not because of an explicit cast.  */
+
+tree
+cp_convert_and_check (tree type, tree expr)
+{
+  tree result;
+
+  if (TREE_TYPE (expr) == type)
+    return expr;
+  
+  result = cp_convert (type, expr);
+
+  if (!skip_evaluation && !TREE_OVERFLOW_P (expr) && result != error_mark_node)
+    warnings_for_convert_and_check (type, expr, result);
+
+  return result;
+}
+
 /* Conversion...
 
    FLAGS indicates how we should behave.  */
@@ -904,9 +925,11 @@ convert_to_void (tree expr, const char *implicit)
 	  if (TREE_CODE (init) == AGGR_INIT_EXPR
 	      && !AGGR_INIT_VIA_CTOR_P (init))
 	    {
-	      tree fn = TREE_OPERAND (init, 0);
-	      expr = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
-			     fn, TREE_OPERAND (init, 1), NULL_TREE);
+	      tree fn = AGGR_INIT_EXPR_FN (init);
+	      expr = build_call_array (TREE_TYPE (TREE_TYPE (TREE_TYPE (fn))),
+				       fn,
+				       aggr_init_expr_nargs (init),
+				       AGGR_INIT_EXPR_ARGP (init));
 	    }
 	}
       break;
@@ -929,7 +952,7 @@ convert_to_void (tree expr, const char *implicit)
     else if (implicit && probe == expr && is_overloaded_fn (probe))
       {
 	/* Only warn when there is no &.  */
-	warning (0, "%s is a reference, not call, to function %qE",
+	warning (OPT_Waddress, "%s is a reference, not call, to function %qE",
 		 implicit, expr);
 	if (TREE_CODE (expr) == COMPONENT_REF)
 	  expr = TREE_OPERAND (expr, 0);
@@ -996,7 +1019,7 @@ convert_to_void (tree expr, const char *implicit)
 
    Most of this routine is from build_reinterpret_cast.
 
-   The backend cannot call cp_convert (what was convert) because
+   The back end cannot call cp_convert (what was convert) because
    conversions to/from basetypes may involve memory references
    (vbases) and adding or subtracting small values (multiple
    inheritance), but it calls convert from the constant folding code

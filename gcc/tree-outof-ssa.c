@@ -1,12 +1,12 @@
 /* Convert a program in SSA form into Normal form.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Andrew Macleod <amacleod@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -141,7 +140,7 @@ insert_copy_on_edge (edge e, tree dest, tree src)
 {
   tree copy;
 
-  copy = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (dest), dest, src);
+  copy = build_gimple_modify_stmt (dest, src);
   set_is_used (dest);
 
   if (TREE_CODE (src) == ADDR_EXPR)
@@ -796,7 +795,7 @@ same_stmt_list_p (edge e)
 /* Return TRUE if S1 and S2 are equivalent copies.  */
 
 static inline bool
-identical_copies_p (tree s1, tree s2)
+identical_copies_p (const_tree s1, const_tree s2)
 {
 #ifdef ENABLE_CHECKING
   gcc_assert (TREE_CODE (s1) == GIMPLE_MODIFY_STMT);
@@ -822,7 +821,7 @@ identical_copies_p (tree s1, tree s2)
    contain the same sequence of copies.  */
 
 static inline bool 
-identical_stmt_lists_p (edge e1, edge e2)
+identical_stmt_lists_p (const_edge e1, const_edge e2)
 {
   tree t1 = PENDING_STMT (e1);
   tree t2 = PENDING_STMT (e2);
@@ -1180,9 +1179,6 @@ remove_ssa_form (bool perform_ter)
 	}
     }
 
-  /* we no longer maintain the SSA operand cache at this point.  */
-  fini_ssa_operands ();
-
   /* If any copies were inserted on edges, analyze and insert them now.  */
   perform_edge_inserts ();
 
@@ -1257,8 +1253,8 @@ insert_backedge_copies (void)
 
 		  /* Create a new instance of the underlying variable of the 
 		     PHI result.  */
-		  stmt = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (result_var),
-				 NULL_TREE, PHI_ARG_DEF (phi, i));
+		  stmt = build_gimple_modify_stmt (NULL_TREE,
+						   PHI_ARG_DEF (phi, i));
 		  name = make_ssa_name (result_var, stmt);
 		  GIMPLE_STMT_OPERAND (stmt, 0) = name;
 

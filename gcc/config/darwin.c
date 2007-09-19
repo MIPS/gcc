@@ -1,6 +1,6 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005
+   2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,6 +44,8 @@ Boston, MA 02110-1301, USA.  */
 #include "tm_p.h"
 #include "toplev.h"
 #include "hashtab.h"
+#include "df.h"
+#include "debug.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -266,7 +267,7 @@ machopic_define_symbol (rtx mem)
   SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
 }
 
-static GTY(()) char * function_base;
+static GTY(()) const char * function_base;
 
 const char *
 machopic_function_base_name (void)
@@ -275,8 +276,7 @@ machopic_function_base_name (void)
   gcc_assert (!MACHO_DYNAMIC_NO_PIC_P);
 
   if (function_base == NULL)
-    function_base =
-      (char *) ggc_alloc_string ("<pic base>", sizeof ("<pic base>"));
+    function_base = ggc_alloc_string ("<pic base>", sizeof ("<pic base>"));
 
   current_function_uses_pic_offset_table = 1;
 
@@ -515,7 +515,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	{
 #if defined (TARGET_TOC)
 	  /* Create a new register for CSE opportunities.  */
-	  rtx hi_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
+	  rtx hi_reg = (!can_create_pseudo_p () ? reg : gen_reg_rtx (Pmode));
  	  emit_insn (gen_macho_high (hi_reg, orig));
  	  emit_insn (gen_macho_low (reg, hi_reg, orig));
 #else
@@ -532,7 +532,9 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 #endif
 
 #if defined (TARGET_TOC) /* i.e., PowerPC */
-	  rtx hi_sum_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
+	  rtx hi_sum_reg = (!can_create_pseudo_p ()
+			    ? reg
+			    : gen_reg_rtx (Pmode));
 
 	  gcc_assert (reg);
 
@@ -704,7 +706,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  || GET_CODE (XEXP (orig, 0)) == LABEL_REF))
 	    {
 #if defined (TARGET_TOC)	/* ppc  */
-	      rtx temp_reg = (no_new_pseudos) ? reg : gen_reg_rtx (Pmode);
+	      rtx temp_reg = (!can_create_pseudo_p ()
+			      ? reg :
+			      gen_reg_rtx (Pmode));
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
@@ -727,7 +731,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	      /* Generating a new reg may expose opportunities for
 		 common subexpression elimination.  */
-              rtx hi_sum_reg = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
+              rtx hi_sum_reg = (!can_create_pseudo_p ()
+				? reg
+				: gen_reg_rtx (Pmode));
 	      rtx mem;
 	      rtx insn;
 	      rtx sum;
@@ -742,8 +748,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 				  gen_rtx_LO_SUM (Pmode,
 						  hi_sum_reg, offset));
 	      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
-	      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, pic_ref,
-						    REG_NOTES (insn));
+	      set_unique_reg_note (insn, REG_EQUAL, pic_ref);
 
 	      pic_ref = reg;
 #else
@@ -778,7 +783,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #endif
 
 	      if (reload_in_progress)
-		regs_ever_live[REGNO (pic)] = 1;
+		df_set_regs_ever_live (REGNO (pic), true);
 	      pic_ref = gen_rtx_PLUS (Pmode, pic,
 				      gen_pic_offset (XEXP (orig, 0),
 						      pic_base));
@@ -849,7 +854,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 					  pic_offset_table_rtx));
 #endif
 		  if (reload_in_progress)
-		    regs_ever_live[REGNO (pic)] = 1;
+		    df_set_regs_ever_live (REGNO (pic), true);
 		  pic_ref = gen_rtx_PLUS (Pmode,
 					  pic,
 					  gen_pic_offset (orig, pic_base));
@@ -1095,138 +1100,225 @@ darwin_mark_decl_preserved (const char *name)
   fputc ('\n', asm_out_file);
 }
 
-section *
-machopic_select_section (tree exp, int reloc,
-			 unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
+static section *
+darwin_text_section (int reloc, int weak)
 {
-  section *base_section;
-  bool weak_p = (DECL_P (exp) && DECL_WEAK (exp)
-		 && (lookup_attribute ("weak", DECL_ATTRIBUTES (exp))
-		     || ! lookup_attribute ("weak_import",
-					    DECL_ATTRIBUTES (exp))));
-
-  if (TREE_CODE (exp) == FUNCTION_DECL)
-    {
-      if (reloc == 1)
-	base_section = (weak_p
-			? darwin_sections[text_unlikely_coal_section]
-			: unlikely_text_section ());
-      else
-	base_section = weak_p ? darwin_sections[text_coal_section]
-	  : text_section;
-    }
-  else if (decl_readonly_section_1 (exp, reloc, MACHOPIC_INDIRECT))
-    base_section = weak_p ? darwin_sections[const_coal_section]
-      : darwin_sections[const_section];
-  else if (TREE_READONLY (exp) || TREE_CONSTANT (exp))
-    base_section = weak_p ? darwin_sections[const_data_coal_section]
-      : darwin_sections[const_data_section];
+  if (reloc)
+    return (weak
+	    ? darwin_sections[text_unlikely_coal_section]
+	    : unlikely_text_section ());
   else
-    base_section = weak_p ? darwin_sections[data_coal_section] : data_section;
+    return (weak
+	    ? darwin_sections[text_coal_section]
+	    : text_section);
+}
 
-  if (TREE_CODE (exp) == STRING_CST
+static section *
+darwin_rodata_section (int weak)
+{
+  return (weak
+	  ? darwin_sections[const_coal_section]
+	  : darwin_sections[const_section]);
+}
+
+static section *
+darwin_mergeable_string_section (tree exp,
+				 unsigned HOST_WIDE_INT align)
+{
+  if (flag_merge_constants
+      && TREE_CODE (exp) == STRING_CST
+      && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
+      && align <= 256
       && ((size_t) TREE_STRING_LENGTH (exp)
 	  == strlen (TREE_STRING_POINTER (exp)) + 1))
     return darwin_sections[cstring_section];
-  else if ((TREE_CODE (exp) == INTEGER_CST || TREE_CODE (exp) == REAL_CST)
-	   && flag_merge_constants)
+
+  return readonly_data_section;
+}
+
+#ifndef HAVE_GAS_LITERAL16
+#define HAVE_GAS_LITERAL16 0
+#endif
+
+static section *
+darwin_mergeable_constant_section (tree exp,
+				   unsigned HOST_WIDE_INT align)
+{
+  enum machine_mode mode = DECL_MODE (exp);
+  unsigned int modesize = GET_MODE_BITSIZE (mode);
+
+  if (flag_merge_constants
+      && mode != VOIDmode
+      && mode != BLKmode
+      && modesize <= align
+      && align >= 8
+      && align <= 256
+      && (align & (align -1)) == 0)
     {
       tree size = TYPE_SIZE_UNIT (TREE_TYPE (exp));
 
-      if (TREE_CODE (size) == INTEGER_CST &&
-	  TREE_INT_CST_LOW (size) == 4 &&
-	  TREE_INT_CST_HIGH (size) == 0)
-	return darwin_sections[literal4_section];
-      else if (TREE_CODE (size) == INTEGER_CST &&
-	       TREE_INT_CST_LOW (size) == 8 &&
-	       TREE_INT_CST_HIGH (size) == 0)
-	return darwin_sections[literal8_section];
-      else if (TARGET_64BIT
-	       && TREE_CODE (size) == INTEGER_CST
-	       && TREE_INT_CST_LOW (size) == 16
+      if (TREE_CODE (size) == INTEGER_CST
+	  && TREE_INT_CST_LOW (size) == 4
+	  && TREE_INT_CST_HIGH (size) == 0)
+        return darwin_sections[literal4_section];
+      else if (TREE_CODE (size) == INTEGER_CST
+	       && TREE_INT_CST_LOW (size) == 8
 	       && TREE_INT_CST_HIGH (size) == 0)
-	return darwin_sections[literal16_section];
+        return darwin_sections[literal8_section];
+      else if (HAVE_GAS_LITERAL16
+	       && TARGET_64BIT
+               && TREE_CODE (size) == INTEGER_CST
+               && TREE_INT_CST_LOW (size) == 16
+               && TREE_INT_CST_HIGH (size) == 0)
+        return darwin_sections[literal16_section];
       else
-	return base_section;
+        return readonly_data_section;
     }
-  else if (TREE_CODE (exp) == CONSTRUCTOR
-	   && TREE_TYPE (exp)
-	   && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
-	   && TYPE_NAME (TREE_TYPE (exp)))
+
+  return readonly_data_section;
+}
+
+int
+machopic_reloc_rw_mask (void)
+{
+  return MACHOPIC_INDIRECT ? 3 : 0;
+}
+
+section *
+machopic_select_section (tree decl,
+			 int reloc,
+			 unsigned HOST_WIDE_INT align)
+{
+  bool weak = (DECL_P (decl)
+	       && DECL_WEAK (decl)
+	       && (lookup_attribute ("weak", DECL_ATTRIBUTES (decl))
+		   || ! lookup_attribute ("weak_import",
+					  DECL_ATTRIBUTES (decl))));
+  section *base_section;
+
+  switch (categorize_decl_for_section (decl, reloc))
     {
-      tree name = TYPE_NAME (TREE_TYPE (exp));
+    case SECCAT_TEXT:
+      base_section = darwin_text_section (reloc, weak);
+      break;
+
+    case SECCAT_RODATA:
+    case SECCAT_SRODATA:
+      base_section = darwin_rodata_section (weak);
+      break;
+
+    case SECCAT_RODATA_MERGE_STR:
+      base_section = darwin_mergeable_string_section (decl, align);
+      break;
+
+    case SECCAT_RODATA_MERGE_STR_INIT:
+      base_section = darwin_mergeable_string_section (DECL_INITIAL (decl), align);
+      break;
+
+    case SECCAT_RODATA_MERGE_CONST:
+      base_section =  darwin_mergeable_constant_section (decl, align);
+      break;
+
+    case SECCAT_DATA:
+    case SECCAT_DATA_REL:
+    case SECCAT_DATA_REL_LOCAL:
+    case SECCAT_DATA_REL_RO:
+    case SECCAT_DATA_REL_RO_LOCAL:
+    case SECCAT_SDATA:
+    case SECCAT_TDATA:
+    case SECCAT_BSS:
+    case SECCAT_SBSS:
+    case SECCAT_TBSS:
+      if (TREE_READONLY (decl) || TREE_CONSTANT (decl))
+	base_section = weak ? darwin_sections[const_data_coal_section]
+			    : darwin_sections[const_data_section];
+      else
+	base_section = weak ? darwin_sections[data_coal_section] : data_section;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Darwin weird special cases.  */
+  if (TREE_CODE (decl) == CONSTRUCTOR
+      && TREE_TYPE (decl)
+      && TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE
+      && TYPE_NAME (TREE_TYPE (decl)))
+    {
+      tree name = TYPE_NAME (TREE_TYPE (decl));
       if (TREE_CODE (name) == TYPE_DECL)
-	name = DECL_NAME (name);
+        name = DECL_NAME (name);
 
       if (!strcmp (IDENTIFIER_POINTER (name), "__builtin_ObjCString"))
-	{
-	  if (flag_next_runtime)
-	    return darwin_sections[objc_constant_string_object_section];
-	  else
-	    return darwin_sections[objc_string_object_section];
-	}
+        {
+          if (flag_next_runtime)
+            return darwin_sections[objc_constant_string_object_section];
+          else
+            return darwin_sections[objc_string_object_section];
+        }
       else
-	return base_section;
+        return base_section;
     }
-  else if (TREE_CODE (exp) == VAR_DECL &&
-	   DECL_NAME (exp) &&
-	   TREE_CODE (DECL_NAME (exp)) == IDENTIFIER_NODE &&
-	   IDENTIFIER_POINTER (DECL_NAME (exp)) &&
-	   !strncmp (IDENTIFIER_POINTER (DECL_NAME (exp)), "_OBJC_", 6))
+  else if (TREE_CODE (decl) == VAR_DECL
+	   && DECL_NAME (decl)
+	   && TREE_CODE (DECL_NAME (decl)) == IDENTIFIER_NODE
+	   && IDENTIFIER_POINTER (DECL_NAME (decl))
+	   && !strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)), "_OBJC_", 6))
     {
-      const char *name = IDENTIFIER_POINTER (DECL_NAME (exp));
+      const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
 
       if (!strncmp (name, "_OBJC_CLASS_METHODS_", 20))
-	return darwin_sections[objc_cls_meth_section];
+        return darwin_sections[objc_cls_meth_section];
       else if (!strncmp (name, "_OBJC_INSTANCE_METHODS_", 23))
-	return darwin_sections[objc_inst_meth_section];
+        return darwin_sections[objc_inst_meth_section];
       else if (!strncmp (name, "_OBJC_CATEGORY_CLASS_METHODS_", 20))
-	return darwin_sections[objc_cat_cls_meth_section];
+        return darwin_sections[objc_cat_cls_meth_section];
       else if (!strncmp (name, "_OBJC_CATEGORY_INSTANCE_METHODS_", 23))
-	return darwin_sections[objc_cat_inst_meth_section];
+        return darwin_sections[objc_cat_inst_meth_section];
       else if (!strncmp (name, "_OBJC_CLASS_VARIABLES_", 22))
-	return darwin_sections[objc_class_vars_section];
+        return darwin_sections[objc_class_vars_section];
       else if (!strncmp (name, "_OBJC_INSTANCE_VARIABLES_", 25))
-	return darwin_sections[objc_instance_vars_section];
+        return darwin_sections[objc_instance_vars_section];
       else if (!strncmp (name, "_OBJC_CLASS_PROTOCOLS_", 22))
-	return darwin_sections[objc_cat_cls_meth_section];
+        return darwin_sections[objc_cat_cls_meth_section];
       else if (!strncmp (name, "_OBJC_CLASS_NAME_", 17))
-	return darwin_sections[objc_class_names_section];
+        return darwin_sections[objc_class_names_section];
       else if (!strncmp (name, "_OBJC_METH_VAR_NAME_", 20))
-	return darwin_sections[objc_meth_var_names_section];
+        return darwin_sections[objc_meth_var_names_section];
       else if (!strncmp (name, "_OBJC_METH_VAR_TYPE_", 20))
-	return darwin_sections[objc_meth_var_types_section];
+        return darwin_sections[objc_meth_var_types_section];
       else if (!strncmp (name, "_OBJC_CLASS_REFERENCES", 22))
-	return darwin_sections[objc_cls_refs_section];
+        return darwin_sections[objc_cls_refs_section];
       else if (!strncmp (name, "_OBJC_CLASS_", 12))
-	return darwin_sections[objc_class_section];
+        return darwin_sections[objc_class_section];
       else if (!strncmp (name, "_OBJC_METACLASS_", 16))
-	return darwin_sections[objc_meta_class_section];
+        return darwin_sections[objc_meta_class_section];
       else if (!strncmp (name, "_OBJC_CATEGORY_", 15))
-	return darwin_sections[objc_category_section];
+        return darwin_sections[objc_category_section];
       else if (!strncmp (name, "_OBJC_SELECTOR_REFERENCES", 25))
-	return darwin_sections[objc_selector_refs_section];
+        return darwin_sections[objc_selector_refs_section];
       else if (!strncmp (name, "_OBJC_SELECTOR_FIXUP", 20))
-	return darwin_sections[objc_selector_fixup_section];
+        return darwin_sections[objc_selector_fixup_section];
       else if (!strncmp (name, "_OBJC_SYMBOLS", 13))
-	return darwin_sections[objc_symbols_section];
+        return darwin_sections[objc_symbols_section];
       else if (!strncmp (name, "_OBJC_MODULES", 13))
-	return darwin_sections[objc_module_info_section];
+        return darwin_sections[objc_module_info_section];
       else if (!strncmp (name, "_OBJC_IMAGE_INFO", 16))
-	return darwin_sections[objc_image_info_section];
+        return darwin_sections[objc_image_info_section];
       else if (!strncmp (name, "_OBJC_PROTOCOL_INSTANCE_METHODS_", 32))
-	return darwin_sections[objc_cat_inst_meth_section];
+        return darwin_sections[objc_cat_inst_meth_section];
       else if (!strncmp (name, "_OBJC_PROTOCOL_CLASS_METHODS_", 29))
-	return darwin_sections[objc_cat_cls_meth_section];
+        return darwin_sections[objc_cat_cls_meth_section];
       else if (!strncmp (name, "_OBJC_PROTOCOL_REFS_", 20))
-	return darwin_sections[objc_cat_cls_meth_section];
+        return darwin_sections[objc_cat_cls_meth_section];
       else if (!strncmp (name, "_OBJC_PROTOCOL_", 15))
-	return darwin_sections[objc_protocol_section];
+        return darwin_sections[objc_protocol_section];
       else
-	return base_section;
+        return base_section;
     }
-  else
-    return base_section;
+
+  return base_section;
 }
 
 /* This can be called with address expressions as "rtx".
@@ -1244,7 +1336,8 @@ machopic_select_rtx_section (enum machine_mode mode, rtx x,
 	   && (GET_CODE (x) == CONST_INT
 	       || GET_CODE (x) == CONST_DOUBLE))
     return darwin_sections[literal4_section];
-  else if (TARGET_64BIT
+  else if (HAVE_GAS_LITERAL16
+	   && TARGET_64BIT
 	   && GET_MODE_SIZE (mode) == 16
 	   && (GET_CODE (x) == CONST_INT
 	       || GET_CODE (x) == CONST_DOUBLE
@@ -1328,14 +1421,14 @@ darwin_handle_kext_attribute (tree *node, tree name,
   /* APPLE KEXT stuff -- only applies with pure static C++ code.  */
   if (! TARGET_KEXTABI)
     {
-      warning (0, "%<%s%> 2.95 vtable-compatability attribute applies "
+      warning (0, "%<%s%> 2.95 vtable-compatibility attribute applies "
 	       "only when compiling a kext", IDENTIFIER_POINTER (name));
 
       *no_add_attrs = true;
     }
   else if (TREE_CODE (*node) != RECORD_TYPE)
     {
-      warning (0, "%<%s%> 2.95 vtable-compatability attribute applies "
+      warning (0, "%<%s%> 2.95 vtable-compatibility attribute applies "
 	       "only to C++ classes", IDENTIFIER_POINTER (name));
 
       *no_add_attrs = true;
@@ -1578,7 +1671,7 @@ darwin_file_end (void)
    functions at dynamic-link time, except for vtables in kexts.  */
 
 bool
-darwin_binds_local_p (tree decl)
+darwin_binds_local_p (const_tree decl)
 {
   return default_binds_local_p_1 (decl,
 				  TARGET_KEXTABI && DARWIN_VTABLE_P (decl));
@@ -1621,11 +1714,6 @@ darwin_kextabi_p (void) {
 void
 darwin_override_options (void)
 {
-  if (flag_apple_kext && strcmp (lang_hooks.name, "GNU C++") != 0)
-    {
-      warning (0, "command line option %<-fapple-kext%> is only valid for C++");
-      flag_apple_kext = 0;
-    }
   if (flag_mkernel || flag_apple_kext)
     {
       /* -mkernel implies -fapple-kext for C++ */
@@ -1639,6 +1727,11 @@ darwin_override_options (void)
       /* No -fnon-call-exceptions data in kexts.  */
       flag_non_call_exceptions = 0;
     }
+  if (flag_var_tracking
+      && strverscmp (darwin_macosx_version_min, "10.5") >= 0
+      && debug_info_level >= DINFO_LEVEL_NORMAL
+      && debug_hooks->var_location != do_nothing_debug_hooks.var_location)
+    flag_var_tracking_uninit = 1;
 }
 
 #include "gt-darwin.h"

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -849,38 +849,77 @@ package body Sem_Elab is
            and then Elab_Warnings
            and then Generate_Warnings
          then
-            if Inst_Case then
-               Error_Msg_NE
-                 ("instantiation of& may raise Program_Error?", N, Ent);
+            Generate_Elab_Warnings : declare
+               procedure Elab_Warning
+                 (Msg_D : String;
+                  Msg_S : String;
+                  Ent   : Node_Or_Entity_Id);
+               --  Generate a call to Error_Msg_NE with parameters Msg_D or
+               --  Msg_S (for dynamic or static elaboration model), N and Ent.
 
-            else
-               if Is_Init_Proc (Entity (Name (N)))
-                 and then Comes_From_Source (Ent)
-               then
-                  Error_Msg_NE
-                    ("implicit call to & may raise Program_Error?", N, Ent);
+               ------------------
+               -- Elab_Warning --
+               ------------------
+
+               procedure Elab_Warning
+                 (Msg_D : String;
+                  Msg_S : String;
+                  Ent   : Node_Or_Entity_Id)
+               is
+               begin
+                  if Dynamic_Elaboration_Checks then
+                     Error_Msg_NE (Msg_D, N, Ent);
+                  else
+                     Error_Msg_NE (Msg_S, N, Ent);
+                  end if;
+               end Elab_Warning;
+
+            --  Start of processing for Generate_Elab_Warnings
+
+            begin
+               if Inst_Case then
+                  Elab_Warning
+                    ("instantiation of& may raise Program_Error?",
+                     "instantiation of& during elaboration?", Ent);
 
                else
-                  Error_Msg_NE
-                    ("call to & may raise Program_Error?", N, Ent);
+                  if Nkind (Name (N)) in N_Has_Entity
+                    and then Is_Init_Proc (Entity (Name (N)))
+                    and then Comes_From_Source (Ent)
+                  then
+                     Elab_Warning
+                       ("implicit call to & may raise Program_Error?",
+                        "implicit call to & during elaboration?",
+                        Ent);
+
+                  else
+                     Elab_Warning
+                       ("call to & may raise Program_Error?",
+                        "call to & during elaboration?",
+                        Ent);
+                  end if;
                end if;
-            end if;
 
-            Error_Msg_Qual_Level := Nat'Last;
+               Error_Msg_Qual_Level := Nat'Last;
 
-            if Nkind (N) in N_Subprogram_Instantiation then
-               Error_Msg_NE
-                 ("\missing pragma Elaborate for&?", N, W_Scope);
-            else
-               Error_Msg_NE
-                 ("\missing pragma Elaborate_All for&?", N, W_Scope);
-            end if;
+               if Nkind (N) in N_Subprogram_Instantiation then
+                  Elab_Warning
+                    ("\missing pragma Elaborate for&?",
+                     "\implicit pragma Elaborate for& generated?",
+                     W_Scope);
+               else
+                  Elab_Warning
+                    ("\missing pragma Elaborate_All for&?",
+                     "\implicit pragma Elaborate_All for & generated?",
+                     W_Scope);
+               end if;
+            end Generate_Elab_Warnings;
 
             Error_Msg_Qual_Level := 0;
             Output_Calls (N);
 
-            --  Set flag to prevent further warnings for same unit
-            --  unless in All_Errors_Mode.
+            --  Set flag to prevent further warnings for same unit unless in
+            --  All_Errors_Mode.
 
             if not All_Errors_Mode and not Dynamic_Elaboration_Checks then
                Set_Suppress_Elaboration_Warnings (W_Scope, True);
@@ -1695,7 +1734,7 @@ package body Sem_Elab is
          Expander_Mode_Save_And_Set (True);
 
          for J in Delay_Check.First .. Delay_Check.Last loop
-            New_Scope (Delay_Check.Table (J).Curscop);
+            Push_Scope (Delay_Check.Table (J).Curscop);
             From_Elab_Code := Delay_Check.Table (J).From_Elab_Code;
 
             Check_Internal_Call_Continue (
@@ -1867,14 +1906,13 @@ package body Sem_Elab is
       --  Delay this call if we are still delaying calls
 
       if Delaying_Elab_Checks then
-         Delay_Check.Increment_Last;
-         Delay_Check.Table (Delay_Check.Last) :=
+         Delay_Check.Append (
            (N              => N,
             E              => E,
             Orig_Ent       => Orig_Ent,
             Curscop        => Current_Scope,
             Outer_Scope    => Outer_Scope,
-            From_Elab_Code => From_Elab_Code);
+            From_Elab_Code => From_Elab_Code));
          return;
 
       --  Otherwise, call phase 2 continuation right now
@@ -1992,8 +2030,7 @@ package body Sem_Elab is
          Outer_Level_Sloc := Loc;
       end if;
 
-      Elab_Visited.Increment_Last;
-      Elab_Visited.Table (Elab_Visited.Last) := E;
+      Elab_Visited.Append (E);
 
       --  If the call is to a function that renames a literal, no check
       --  is needed.
@@ -2037,9 +2074,7 @@ package body Sem_Elab is
       else
          pragma Assert (Nkind (Sbody) = N_Subprogram_Body);
 
-         Elab_Call.Increment_Last;
-         Elab_Call.Table (Elab_Call.Last).Cloc := Loc;
-         Elab_Call.Table (Elab_Call.Last).Ent  := E;
+         Elab_Call.Append ((Cloc => Loc, Ent => E));
 
          if Debug_Flag_LL then
             Write_Str ("Elab_Call.Last = ");
@@ -2114,7 +2149,7 @@ package body Sem_Elab is
 
                begin
                   Set_Elaboration_Entity (E, Ent);
-                  New_Scope (Scope (E));
+                  Push_Scope (Scope (E));
 
                   Insert_Action (Declaration_Node (E),
                     Make_Object_Declaration (Loce,
@@ -2443,15 +2478,13 @@ package body Sem_Elab is
                      Chars (Subp) = Name_Initialize
                        and then Comes_From_Source (Subp)
                        and then Present (Parameter_Associations (Call))
-                       and then Is_Controlled
-                         (Etype (First (Parameter_Associations (Call))));
+                       and then Is_Controlled (Etype (First_Actual (Call)));
    begin
       --  If the unit is mentioned in a with_clause of the current
       --  unit, it is visible, and we can set the elaboration flag.
 
       if Is_Immediately_Visible (Scop)
-        or else
-          (Is_Child_Unit (Scop) and then Is_Visible_Child_Unit (Scop))
+        or else (Is_Child_Unit (Scop) and then Is_Visible_Child_Unit (Scop))
       then
          Activate_Elaborate_All_Desirable (Call, Scop);
          Set_Suppress_Elaboration_Warnings (Scop, True);
@@ -2482,10 +2515,10 @@ package body Sem_Elab is
       if Is_Init_Proc (Subp)
         or else Init_Call
       then
-         --  The initialization call is on an object whose type is not
-         --  declared in the same scope as the subprogram. The type of
-         --  the object must be a subtype of the type of operation. This
-         --  object is the first actual in the call.
+         --  The initialization call is on an object whose type is not declared
+         --  in the same scope as the subprogram. The type of the object must
+         --  be a subtype of the type of operation. This object is the first
+         --  actual in the call.
 
          declare
             Typ : constant Entity_Id :=
@@ -3019,7 +3052,7 @@ package body Sem_Elab is
          declare
             Spec : constant Node_Id := Specification (N);
          begin
-            New_Scope (Defining_Unit_Name (Spec));
+            Push_Scope (Defining_Unit_Name (Spec));
             Supply_Bodies (Visible_Declarations (Spec));
             Supply_Bodies (Private_Declarations (Spec));
             Pop_Scope;

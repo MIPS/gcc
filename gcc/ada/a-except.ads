@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -35,7 +35,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This version of Ada.Exceptions is a full Ada 95 version.
+--  This version of Ada.Exceptions is a full Ada 95 version. It omits Ada 2005
+--  features such as the additional definitions of Exception_Name returning
+--  Wide_[Wide_]String.
+
 --  It is used for building the compiler and the basic tools, since these
 --  builds may be done with bootstrap compilers that cannot handle these
 --  additions. The full version of Ada.Exceptions can be found in the files
@@ -198,6 +201,12 @@ private
    --  systems where the right way to get out of signal handler is to alter the
    --  PC value in the machine state or in some other way ask the operating
    --  system to return here rather than to the original location.
+
+   procedure Raise_From_Controlled_Operation
+     (X : Ada.Exceptions.Exception_Occurrence);
+   pragma No_Return (Raise_From_Controlled_Operation);
+   --  Raise Program_Error, proviving information about X (an exception
+   --  raised during a controlled operation) in the exception message.
 
    procedure Reraise_Occurrence_Always (X : Exception_Occurrence);
    pragma No_Return (Reraise_Occurrence_Always);

@@ -1,13 +1,14 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -146,9 +146,7 @@ genericize_eh_spec_block (tree *stmt_p)
 {
   tree body = EH_SPEC_STMTS (*stmt_p);
   tree allowed = EH_SPEC_RAISES (*stmt_p);
-  tree failure = build_call (call_unexpected_node,
-			     tree_cons (NULL_TREE, build_exc_ptr (),
-					NULL_TREE));
+  tree failure = build_call_n (call_unexpected_node, 1, build_exc_ptr ());
   gimplify_stmt (&body);
 
   *stmt_p = gimple_build_eh_filter (body, allowed, failure);
@@ -363,16 +361,16 @@ gimplify_expr_stmt (tree *stmt_p)
      In this case we will not want to emit the gimplified statement.
      However, we may still want to emit a warning, so we do that before
      gimplification.  */
-  if (stmt && (extra_warnings || warn_unused_value))
+  if (stmt && warn_unused_value)
     {
       if (!TREE_SIDE_EFFECTS (stmt))
 	{
 	  if (!IS_EMPTY_STMT (stmt)
 	      && !VOID_TYPE_P (TREE_TYPE (stmt))
 	      && !TREE_NO_WARNING (stmt))
-	    warning (OPT_Wextra, "statement with no effect");
+	    warning (OPT_Wunused_value, "statement with no effect");
 	}
-      else if (warn_unused_value)
+      else
 	warn_if_unused_value (stmt, input_location);
     }
 
@@ -410,7 +408,7 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
   if (TREE_CODE (sub) == AGGR_INIT_EXPR)
     {
       gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
-      TREE_OPERAND (sub, 2) = to;
+      AGGR_INIT_EXPR_SLOT (sub) = to;
       *expr_p = from;
 
       /* The initialization is now a side-effect, so the container can
@@ -432,7 +430,7 @@ gimplify_must_not_throw_expr (tree *expr_p, tree *pre_p)
   gimplify_stmt (&body);
 
   stmt = gimple_build_eh_filter (body, NULL_TREE,
-				 build_call (terminate_node, NULL_TREE));
+				 build_call_n (terminate_node, 0));
 
   if (temp)
     {
@@ -472,7 +470,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       break;
 
     case THROW_EXPR:
-      /* FIXME communicate throw type to backend, probably by moving
+      /* FIXME communicate throw type to back end, probably by moving
 	 THROW_EXPR into ../tree.def.  */
       *expr_p = TREE_OPERAND (*expr_p, 0);
       ret = GS_OK;
@@ -592,7 +590,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 }
 
 static inline bool
-is_invisiref_parm (tree t)
+is_invisiref_parm (const_tree t)
 {
   return ((TREE_CODE (t) == PARM_DECL || TREE_CODE (t) == RESULT_DECL)
 	  && DECL_BY_REFERENCE (t));
@@ -672,6 +670,25 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	   && is_invisiref_parm (TREE_OPERAND (stmt, 0)))
     /* Don't dereference an invisiref RESULT_DECL inside a RETURN_EXPR.  */
     *walk_subtrees = 0;
+  else if (TREE_CODE (stmt) == OMP_CLAUSE)
+    switch (OMP_CLAUSE_CODE (stmt))
+      {
+      case OMP_CLAUSE_PRIVATE:
+      case OMP_CLAUSE_SHARED:
+      case OMP_CLAUSE_FIRSTPRIVATE:
+      case OMP_CLAUSE_LASTPRIVATE:
+      case OMP_CLAUSE_COPYIN:
+      case OMP_CLAUSE_COPYPRIVATE:
+	/* Don't dereference an invisiref in OpenMP clauses.  */
+	if (is_invisiref_parm (OMP_CLAUSE_DECL (stmt)))
+	  *walk_subtrees = 0;
+	break;
+      case OMP_CLAUSE_REDUCTION:
+	gcc_assert (!is_invisiref_parm (OMP_CLAUSE_DECL (stmt)));
+	break;
+      default:
+	break;
+      }
   else if (IS_TYPE_OR_DECL_P (stmt))
     *walk_subtrees = 0;
 
@@ -729,7 +746,7 @@ cp_genericize (tree fndecl)
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */
   p_set = pointer_set_create ();
-  walk_tree (&DECL_SAVED_TREE (fndecl), cp_genericize_r, p_set, NULL);
+  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_genericize_r, p_set, NULL);
   pointer_set_destroy (p_set);
 
   /* Do everything else.  */
@@ -747,10 +764,15 @@ static tree
 cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 {
   tree defparm, parm;
-  int i;
+  int i = 0;
+  int nargs;
+  tree *argarray;
 
   if (fn == NULL)
     return NULL;
+
+  nargs = list_length (DECL_ARGUMENTS (fn));
+  argarray = (tree *) alloca (nargs * sizeof (tree));
 
   defparm = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (fn)));
   if (arg2)
@@ -780,8 +802,7 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 	start2 = build_fold_addr_expr (start2);
 
       end1 = TYPE_SIZE_UNIT (TREE_TYPE (arg1));
-      end1 = fold_convert (TREE_TYPE (start1), end1);
-      end1 = build2 (PLUS_EXPR, TREE_TYPE (start1), start1, end1);
+      end1 = build2 (POINTER_PLUS_EXPR, TREE_TYPE (start1), start1, end1);
 
       p1 = create_tmp_var (TREE_TYPE (start1), NULL);
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, start1);
@@ -798,27 +819,25 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
       t = build1 (LABEL_EXPR, void_type_node, lab);
       append_to_statement_list (t, &ret);
 
-      t = tree_cons (NULL, p1, NULL);
+      argarray[i++] = p1;
       if (arg2)
-	t = tree_cons (NULL, p2, t);
+	argarray[i++] = p2;
       /* Handle default arguments.  */
-      i = 1 + (arg2 != NULL);
-      for (parm = defparm; parm != void_list_node; parm = TREE_CHAIN (parm))
-	t = tree_cons (NULL, convert_default_arg (TREE_VALUE (parm),
-						  TREE_PURPOSE (parm),
-						  fn, i++), t);
-      t = build_call (fn, nreverse (t));
+      for (parm = defparm; parm != void_list_node; parm = TREE_CHAIN (parm), i++)
+	argarray[i] = convert_default_arg (TREE_VALUE (parm),
+					   TREE_PURPOSE (parm), fn, i);
+      t = build_call_a (fn, i, argarray);
       append_to_statement_list (t, &ret);
 
-      t = fold_convert (TREE_TYPE (p1), TYPE_SIZE_UNIT (inner_type));
-      t = build2 (PLUS_EXPR, TREE_TYPE (p1), p1, t);
+      t = TYPE_SIZE_UNIT (inner_type);
+      t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (p1), p1, t);
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, t);
       append_to_statement_list (t, &ret);
 
       if (arg2)
 	{
-	  t = fold_convert (TREE_TYPE (p2), TYPE_SIZE_UNIT (inner_type));
-	  t = build2 (PLUS_EXPR, TREE_TYPE (p2), p2, t);
+	  t = TYPE_SIZE_UNIT (inner_type);
+	  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (p2), p2, t);
 	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p2, t);
 	  append_to_statement_list (t, &ret);
 	}
@@ -831,16 +850,16 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
     }
   else
     {
-      tree t = tree_cons (NULL, build_fold_addr_expr (arg1), NULL);
+      argarray[i++] = build_fold_addr_expr (arg1);
       if (arg2)
-	t = tree_cons (NULL, build_fold_addr_expr (arg2), t);
+	argarray[i++] = build_fold_addr_expr (arg2);
       /* Handle default arguments.  */
-      i = 1 + (arg2 != NULL);
-      for (parm = defparm; parm != void_list_node; parm = TREE_CHAIN (parm))
-	t = tree_cons (NULL, convert_default_arg (TREE_VALUE (parm),
-						  TREE_PURPOSE (parm),
-						  fn, i++), t);
-      return build_call (fn, nreverse (t));
+      for (parm = defparm; parm != void_list_node;
+	   parm = TREE_CHAIN (parm), i++)
+	argarray[i] = convert_default_arg (TREE_VALUE (parm),
+					   TREE_PURPOSE (parm),
+					   fn, i);
+      return build_call_a (fn, i, argarray);
     }
 }
 
@@ -909,7 +928,7 @@ cxx_omp_clause_dtor (tree clause, tree decl)
    than the DECL itself.  */
 
 bool
-cxx_omp_privatize_by_reference (tree decl)
+cxx_omp_privatize_by_reference (const_tree decl)
 {
-  return TREE_CODE (decl) == RESULT_DECL && DECL_BY_REFERENCE (decl);
+  return is_invisiref_parm (decl);
 }

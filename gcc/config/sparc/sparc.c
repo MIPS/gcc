@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -19,9 +19,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -52,6 +51,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "langhooks.h"
 #include "params.h"
+#include "df.h"
 
 /* Processor costs */
 static const
@@ -251,10 +251,10 @@ static HOST_WIDE_INT actual_fsize;
 static int num_gfregs;
 
 /* The alias set for prologue/epilogue register save/restore.  */
-static GTY(()) int sparc_sr_alias_set;
+static GTY(()) alias_set_type sparc_sr_alias_set;
 
 /* The alias set for the structure return value.  */
-static GTY(()) int struct_value_alias_set;
+static GTY(()) alias_set_type struct_value_alias_set;
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -372,8 +372,8 @@ static int sparc_vis_mul8x16 (int, int);
 static tree sparc_handle_vis_mul8x16 (int, tree, tree, tree);
 static void sparc_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				   HOST_WIDE_INT, tree);
-static bool sparc_can_output_mi_thunk (tree, HOST_WIDE_INT,
-				       HOST_WIDE_INT, tree);
+static bool sparc_can_output_mi_thunk (const_tree, HOST_WIDE_INT,
+				       HOST_WIDE_INT, const_tree);
 static struct machine_function * sparc_init_machine_status (void);
 static bool sparc_cannot_force_const_mem (rtx);
 static rtx sparc_tls_get_addr (void);
@@ -381,21 +381,21 @@ static rtx sparc_tls_got (void);
 static const char *get_some_local_dynamic_name (void);
 static int get_some_local_dynamic_name_1 (rtx *, void *);
 static bool sparc_rtx_costs (rtx, int, int, int *);
-static bool sparc_promote_prototypes (tree);
+static bool sparc_promote_prototypes (const_tree);
 static rtx sparc_struct_value_rtx (tree, int);
-static bool sparc_return_in_memory (tree, tree);
+static bool sparc_return_in_memory (const_tree, const_tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
 static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool sparc_vector_mode_supported_p (enum machine_mode);
 static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
-				     enum machine_mode, tree, bool);
+				     enum machine_mode, const_tree, bool);
 static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree, bool);
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-static const char *sparc_mangle_fundamental_type (tree);
+static const char *sparc_mangle_type (const_tree);
 #endif
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
@@ -494,13 +494,13 @@ static bool fpu_option_set = false;
    no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
    test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 
 /* This is only needed for TARGET_ARCH64, but since PROMOTE_FUNCTION_MODE is a
    no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
    test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES sparc_promote_prototypes
@@ -557,8 +557,8 @@ static bool fpu_option_set = false;
 #define TARGET_ASM_FILE_END sparc_file_end
 
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
-#define TARGET_MANGLE_FUNDAMENTAL_TYPE sparc_mangle_fundamental_type
+#undef TARGET_MANGLE_TYPE
+#define TARGET_MANGLE_TYPE sparc_mangle_type
 #endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
@@ -704,7 +704,7 @@ sparc_override_options (void)
 	error ("-mcmodel= is not supported on 32 bit systems");
     }
 
-  fpu = TARGET_FPU; /* save current -mfpu status */
+  fpu = target_flags & MASK_FPU; /* save current -mfpu status */
 
   /* Set the default CPU.  */
   for (def = &cpu_default[0]; def->name; ++def)
@@ -980,17 +980,27 @@ sparc_expand_move (enum machine_mode mode, rtx *operands)
       if (pic_address_needs_scratch (operands[1]))
 	operands[1] = legitimize_pic_address (operands[1], mode, 0);
 
-      if (GET_CODE (operands[1]) == LABEL_REF && mode == SImode)
+      /* VxWorks does not impose a fixed gap between segments; the run-time
+	 gap can be different from the object-file gap.  We therefore can't
+	 assume X - _GLOBAL_OFFSET_TABLE_ is a link-time constant unless we
+	 are absolutely sure that X is in the same segment as the GOT.
+	 Unfortunately, the flexibility of linker scripts means that we
+	 can't be sure of that in general, so assume that _G_O_T_-relative
+	 accesses are never valid on VxWorks.  */
+      if (GET_CODE (operands[1]) == LABEL_REF && !TARGET_VXWORKS_RTP)
 	{
-	  emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
-	  return true;
-	}
+	  if (mode == SImode)
+	    {
+	      emit_insn (gen_movsi_pic_label_ref (operands[0], operands[1]));
+	      return true;
+	    }
 
-      if (GET_CODE (operands[1]) == LABEL_REF && mode == DImode)
-	{
-	  gcc_assert (TARGET_ARCH64);
-	  emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
-	  return true;
+	  if (mode == DImode)
+	    {
+	      gcc_assert (TARGET_ARCH64);
+	      emit_insn (gen_movdi_pic_label_ref (operands[0], operands[1]));
+	      return true;
+	    }
 	}
 
       if (symbolic_operand (operands[1], mode))
@@ -3077,7 +3087,7 @@ legitimize_tls_address (rtx addr)
 {
   rtx temp1, temp2, temp3, ret, o0, got, insn;
 
-  gcc_assert (! no_new_pseudos);
+  gcc_assert (can_create_pseudo_p ());
 
   if (GET_CODE (addr) == SYMBOL_REF)
     switch (SYMBOL_REF_TLS_MODEL (addr))
@@ -3212,7 +3222,9 @@ rtx
 legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
 			rtx reg)
 {
-  if (GET_CODE (orig) == SYMBOL_REF)
+  if (GET_CODE (orig) == SYMBOL_REF
+      /* See the comment in sparc_expand_move.  */
+      || (TARGET_VXWORKS_RTP && GET_CODE (orig) == LABEL_REF))
     {
       rtx pic_ref, address;
       rtx insn;
@@ -3257,8 +3269,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
       insn = emit_move_insn (reg, pic_ref);
       /* Put a REG_EQUAL note on this insn, so that it can be optimized
 	 by loop.  */
-      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig,
-				  REG_NOTES (insn));
+      set_unique_reg_note (insn, REG_EQUAL, orig);
       return reg;
     }
   else if (GET_CODE (orig) == CONST)
@@ -3378,6 +3389,13 @@ load_pic_register (bool delay_pic_helper)
 {
   int orig_flag_pic = flag_pic;
 
+  if (TARGET_VXWORKS_RTP)
+    {
+      emit_insn (gen_vxworks_load_got ());
+      emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+      return;
+    }
+
   /* If we haven't initialized the special PIC symbols, do so now.  */
   if (!pic_helper_symbol_name[0])
     {
@@ -3405,6 +3423,29 @@ load_pic_register (bool delay_pic_helper)
      ??? In the case where we don't obey regdecls, this is not sufficient
      since we may not fall out the bottom.  */
   emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+}
+
+/* Emit a call instruction with the pattern given by PAT.  ADDR is the
+   address of the call target.  */
+
+void
+sparc_emit_call_insn (rtx pat, rtx addr)
+{
+  rtx insn;
+
+  insn = emit_call_insn (pat);
+
+  /* The PIC register is live on entry to VxWorks PIC PLT entries.  */
+  if (TARGET_VXWORKS_RTP
+      && flag_pic
+      && GET_CODE (addr) == SYMBOL_REF
+      && (SYMBOL_REF_DECL (addr)
+	  ? !targetm.binds_local_p (SYMBOL_REF_DECL (addr))
+	  : !SYMBOL_REF_LOCAL_P (addr)))
+    {
+      use_reg (&CALL_INSN_FUNCTION_USAGE (insn), pic_offset_table_rtx);
+      current_function_uses_pic_offset_table = 1;
+    }
 }
 
 /* Return 1 if RTX is a MEM which is known to be aligned to at
@@ -3494,7 +3535,7 @@ mem_min_alignment (rtx mem, int desired)
    hard register number, and one indexed by mode.  */
 
 /* The purpose of sparc_mode_class is to shrink the range of modes so that
-   they all fit (as bit numbers) in a 32 bit word (again).  Each real mode is
+   they all fit (as bit numbers) in a 32-bit word (again).  Each real mode is
    mapped into one sparc_mode_class mode.  */
 
 enum sparc_mode_class {
@@ -3701,20 +3742,20 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function_p)
   if (TARGET_ARCH64)
     {
       for (i = 0; i < 8; i++)
-	if (regs_ever_live[i] && ! call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	  n_regs += 2;
     }
   else
     {
       for (i = 0; i < 8; i += 2)
-	if ((regs_ever_live[i] && ! call_used_regs[i])
-	    || (regs_ever_live[i+1] && ! call_used_regs[i+1]))
+	if ((df_regs_ever_live_p (i) && ! call_used_regs[i])
+	    || (df_regs_ever_live_p (i+1) && ! call_used_regs[i+1]))
 	  n_regs += 2;
     }
 
   for (i = 32; i < (TARGET_V9 ? 96 : 64); i += 2)
-    if ((regs_ever_live[i] && ! call_used_regs[i])
-	|| (regs_ever_live[i+1] && ! call_used_regs[i+1]))
+    if ((df_regs_ever_live_p (i) && ! call_used_regs[i])
+	|| (df_regs_ever_live_p (i+1) && ! call_used_regs[i+1]))
       n_regs += 2;
 
   /* Set up values for use in prologue and epilogue.  */
@@ -3757,7 +3798,7 @@ sparc_output_scratch_registers (FILE *file ATTRIBUTE_UNUSED)
      .register being printed for them already.  */
   for (i = 2; i < 8; i++)
     {
-      if (regs_ever_live [i]
+      if (df_regs_ever_live_p (i)
 	  && ! sparc_hard_reg_printed [i])
 	{
 	  sparc_hard_reg_printed [i] = 1;
@@ -3788,7 +3829,7 @@ save_or_restore_regs (int low, int high, rtx base, int offset, int action)
     {
       for (i = low; i < high; i++)
 	{
-	  if (regs_ever_live[i] && ! call_used_regs[i])
+	  if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	    {
 	      mem = gen_rtx_MEM (DImode, plus_constant (base, offset));
 	      set_mem_alias_set (mem, sparc_sr_alias_set);
@@ -3807,8 +3848,8 @@ save_or_restore_regs (int low, int high, rtx base, int offset, int action)
     {
       for (i = low; i < high; i += 2)
 	{
-	  bool reg0 = regs_ever_live[i] && ! call_used_regs[i];
-	  bool reg1 = regs_ever_live[i+1] && ! call_used_regs[i+1];
+	  bool reg0 = df_regs_ever_live_p (i) && ! call_used_regs[i];
+	  bool reg1 = df_regs_ever_live_p (i+1) && ! call_used_regs[i+1];
 	  enum machine_mode mode;
 	  int regno;
 
@@ -4428,7 +4469,7 @@ init_cumulative_args (struct sparc_args *cum, tree fntype,
    When a prototype says `char' or `short', really pass an `int'.  */
 
 static bool
-sparc_promote_prototypes (tree fntype ATTRIBUTE_UNUSED)
+sparc_promote_prototypes (const_tree fntype ATTRIBUTE_UNUSED)
 {
   return TARGET_ARCH32 ? true : false;
 }
@@ -4640,17 +4681,17 @@ struct function_arg_record_value_parms
 static void function_arg_record_value_3
  (HOST_WIDE_INT, struct function_arg_record_value_parms *);
 static void function_arg_record_value_2
- (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
+ (const_tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static void function_arg_record_value_1
- (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
-static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
+ (const_tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
+static rtx function_arg_record_value (const_tree, enum machine_mode, int, int, int);
 static rtx function_arg_union_value (int, enum machine_mode, int, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
 
 static void
-function_arg_record_value_1 (tree type, HOST_WIDE_INT startbitpos,
+function_arg_record_value_1 (const_tree type, HOST_WIDE_INT startbitpos,
 			     struct function_arg_record_value_parms *parms,
 			     bool packed_p)
 {
@@ -4806,7 +4847,7 @@ function_arg_record_value_3 (HOST_WIDE_INT bitpos,
    to make that happen.  */
 
 static void
-function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
+function_arg_record_value_2 (const_tree type, HOST_WIDE_INT startbitpos,
 			     struct function_arg_record_value_parms *parms,
 			     bool packed_p)
 {
@@ -4913,7 +4954,7 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
    REGBASE is the regno of the base register for the parameter array.  */
    
 static rtx
-function_arg_record_value (tree type, enum machine_mode mode,
+function_arg_record_value (const_tree type, enum machine_mode mode,
 			   int slotno, int named, int regbase)
 {
   HOST_WIDE_INT typesize = int_size_in_bytes (type);
@@ -5286,7 +5327,7 @@ sparc_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 static bool
 sparc_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-			 enum machine_mode mode, tree type,
+			 enum machine_mode mode, const_tree type,
 			 bool named ATTRIBUTE_UNUSED)
 {
   if (TARGET_ARCH32)
@@ -5383,7 +5424,7 @@ function_arg_advance (struct sparc_args *cum, enum machine_mode mode,
    argument slot.  */
 
 enum direction
-function_arg_padding (enum machine_mode mode, tree type)
+function_arg_padding (enum machine_mode mode, const_tree type)
 {
   if (TARGET_ARCH64 && type != 0 && AGGREGATE_TYPE_P (type))
     return upward;
@@ -5396,7 +5437,7 @@ function_arg_padding (enum machine_mode mode, tree type)
    Specify whether to return the return value in memory.  */
 
 static bool
-sparc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+sparc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   if (TARGET_ARCH32)
     /* Original SPARC 32-bit ABI says that structures and unions,
@@ -5504,7 +5545,7 @@ sparc_struct_value_rtx (tree fndecl, int incoming)
    except that up to 32 bytes may be returned in registers.  */
 
 rtx
-function_value (tree type, enum machine_mode mode, int incoming_p)
+function_value (const_tree type, enum machine_mode mode, int incoming_p)
 {
   /* Beware that the two values are swapped here wrt function_arg.  */
   int regbase = (incoming_p
@@ -5674,18 +5715,20 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   incr = valist;
   if (align)
     {
-      incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
-			   ssize_int (align - 1)));
-      incr = fold (build2 (BIT_AND_EXPR, ptr_type_node, incr,
-			   ssize_int (-align)));
+      incr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr,
+			  size_int (align - 1));
+      incr = fold_convert (sizetype, incr);
+      incr = fold_build2 (BIT_AND_EXPR, sizetype, incr,
+			  size_int (-align));
+      incr = fold_convert (ptr_type_node, incr);
     }
 
   gimplify_expr (&incr, pre_p, post_p, is_gimple_val, fb_rvalue);
   addr = incr;
 
   if (BYTES_BIG_ENDIAN && size < rsize)
-    addr = fold (build2 (PLUS_EXPR, ptr_type_node, incr,
-			 ssize_int (rsize - size)));
+    addr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr,
+			size_int (rsize - size));
 
   if (indirect)
     {
@@ -5702,12 +5745,10 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       tree tmp = create_tmp_var (type, "va_arg_tmp");
       tree dest_addr = build_fold_addr_expr (tmp);
 
-      tree copy = build_function_call_expr
-	(implicit_built_in_decls[BUILT_IN_MEMCPY],
-	 tree_cons (NULL_TREE, dest_addr,
-		    tree_cons (NULL_TREE, addr,
-			       tree_cons (NULL_TREE, size_int (rsize),
-					  NULL_TREE))));
+      tree copy = build_call_expr (implicit_built_in_decls[BUILT_IN_MEMCPY], 3,
+				   dest_addr,
+				   addr,
+				   size_int (rsize));
 
       gimplify_and_add (copy, pre_p);
       addr = dest_addr;
@@ -5715,7 +5756,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   else
     addr = fold_convert (ptrtype, addr);
 
-  incr = fold (build2 (PLUS_EXPR, ptr_type_node, incr, ssize_int (rsize)));
+  incr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr, size_int (rsize));
   incr = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, valist, incr);
   gimplify_and_add (incr, post_p);
 
@@ -6470,7 +6511,7 @@ order_regs_for_local_alloc (void)
 {
   static int last_order_nonleaf = 1;
 
-  if (regs_ever_live[15] != last_order_nonleaf)
+  if (df_regs_ever_live_p (15) != last_order_nonleaf)
     {
       last_order_nonleaf = !last_order_nonleaf;
       memcpy ((char *) reg_alloc_order,
@@ -7634,7 +7675,7 @@ sparc_check_64 (rtx x, rtx insn)
     y = gen_rtx_REG (SImode, REGNO (x) + WORDS_BIG_ENDIAN);
 
   if (flag_expensive_optimizations
-      && REG_N_SETS (REGNO (y)) == 1)
+      && df && DF_REG_DEF_COUNT (REGNO (y)) == 1)
     set_once = 1;
 
   if (insn == 0)
@@ -7774,13 +7815,19 @@ sparc_elf_asm_named_section (const char *name, unsigned int flags,
    the sibling call right?  Well, in the C++ case we can end up passing
    the pointer to the struct return area to a constructor (which returns
    void) and then nothing else happens.  Such a sibling call would look
-   valid without the added check here.  */
+   valid without the added check here.
+
+   VxWorks PIC PLT entries require the global pointer to be initialized
+   on entry.  We therefore can't emit sibling calls to them.  */
 static bool
 sparc_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   return (decl
 	  && flag_delayed_branch
-	  && (TARGET_ARCH64 || ! current_function_returns_struct));
+	  && (TARGET_ARCH64 || ! current_function_returns_struct)
+	  && !(TARGET_VXWORKS_RTP
+	       && flag_pic
+	       && !targetm.binds_local_p (decl)));
 }
 
 /* libfunc renaming.  */
@@ -7983,30 +8030,29 @@ sparc_vis_init_builtins (void)
    Expand builtin functions for sparc intrinsics.  */
 
 static rtx
-sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
-		      enum machine_mode tmode, int ignore ATTRIBUTE_UNUSED)
+sparc_expand_builtin (tree exp, rtx target,
+		      rtx subtarget ATTRIBUTE_UNUSED,
+		      enum machine_mode tmode ATTRIBUTE_UNUSED,
+		      int ignore ATTRIBUTE_UNUSED)
 {
-  tree arglist;
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree arg;
+  call_expr_arg_iterator iter;
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int icode = DECL_FUNCTION_CODE (fndecl);
   rtx pat, op[4];
   enum machine_mode mode[4];
   int arg_count = 0;
 
-  mode[arg_count] = tmode;
-
-  if (target == 0
-      || GET_MODE (target) != tmode
-      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-    op[arg_count] = gen_reg_rtx (tmode);
+  mode[0] = insn_data[icode].operand[0].mode;
+  if (!target
+      || GET_MODE (target) != mode[0]
+      || ! (*insn_data[icode].operand[0].predicate) (target, mode[0]))
+    op[0] = gen_reg_rtx (mode[0]);
   else
-    op[arg_count] = target;
+    op[0] = target;
 
-  for (arglist = TREE_OPERAND (exp, 1); arglist;
-       arglist = TREE_CHAIN (arglist))
+  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
-      tree arg = TREE_VALUE (arglist);
-
       arg_count++;
       mode[arg_count] = insn_data[icode].operand[arg_count].mode;
       op[arg_count] = expand_normal (arg);
@@ -8116,11 +8162,11 @@ sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
 {
   tree arg0, arg1, arg2;
   tree rtype = TREE_TYPE (TREE_TYPE (fndecl));
-  
 
-  if (ignore && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrsi_vis
+  if (ignore
+      && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrsi_vis
       && DECL_FUNCTION_CODE (fndecl) != CODE_FOR_alignaddrdi_vis)
-    return build_int_cst (rtype, 0);
+    return fold_convert (rtype, integer_zero_node);
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
@@ -8234,6 +8280,7 @@ sparc_fold_builtin (tree fndecl, tree arglist, bool ignore)
     default:
       break;
     }
+
   return NULL_TREE;
 }
 
@@ -8550,8 +8597,6 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 1;
   epilogue_completed = 1;
-  no_new_pseudos = 1;
-  reset_block_changes ();
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -8729,7 +8774,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
-  insn_locators_initialize ();
+  insn_locators_alloc ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1);
@@ -8737,17 +8782,16 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 0;
   epilogue_completed = 0;
-  no_new_pseudos = 0;
 }
 
 /* Return true if sparc_output_mi_thunk would be able to output the
    assembler code for the thunk function specified by the arguments
    it is passed, and false otherwise.  */
 static bool
-sparc_can_output_mi_thunk (tree thunk_fndecl ATTRIBUTE_UNUSED,
+sparc_can_output_mi_thunk (const_tree thunk_fndecl ATTRIBUTE_UNUSED,
 			   HOST_WIDE_INT delta ATTRIBUTE_UNUSED,
 			   HOST_WIDE_INT vcall_offset,
-			   tree function ATTRIBUTE_UNUSED)
+			   const_tree function ATTRIBUTE_UNUSED)
 {
   /* Bound the loop used in the default method above.  */
   return (vcall_offset >= -32768 || ! fixed_regs[5]);
@@ -8843,10 +8887,10 @@ sparc_file_end (void)
 }
 
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+/* Implement TARGET_MANGLE_TYPE.  */
 
 static const char *
-sparc_mangle_fundamental_type (tree type)
+sparc_mangle_type (const_tree type)
 {
   if (!TARGET_64BIT
       && TYPE_MAIN_VARIANT (type) == long_double_type_node

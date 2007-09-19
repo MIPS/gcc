@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -332,13 +332,13 @@ package body Ch12 is
    begin
       Generic_Assoc_Node := New_Node (N_Generic_Association, Token_Ptr);
 
-      --  Ada2005: an association can be given by: others => <>.
+      --  Ada2005: an association can be given by: others => <>
 
       if Token = Tok_Others then
          if Ada_Version < Ada_05 then
             Error_Msg_SP
               ("partial parametrization of formal packages" &
-                "  is an Ada 2005 extension");
+                " is an Ada 2005 extension");
             Error_Msg_SP
               ("\unit must be compiled with -gnat05 switch");
          end if;
@@ -357,7 +357,9 @@ package body Ch12 is
             Scan;  --  past box
          end if;
 
-         return New_Node (N_Others_Choice, Token_Ptr);
+         --  Source position of the others choice is beginning of construct
+
+         return New_Node (N_Others_Choice, Sloc (Generic_Assoc_Node));
       end if;
 
       if Token in Token_Class_Desig then
@@ -373,7 +375,7 @@ package body Ch12 is
          end if;
       end if;
 
-      --  In Ada 2005 the actual can be a box.
+      --  In Ada 2005 the actual can be a box
 
       if Token = Tok_Box then
          Scan;
@@ -635,8 +637,7 @@ package body Ch12 is
             return P_Formal_Floating_Point_Definition;
 
          when Tok_Interface => --  Ada 2005 (AI-251)
-            return P_Interface_Type_Definition (Abstract_Present => False,
-                                                Is_Synchronized => False);
+            return P_Interface_Type_Definition (Abstract_Present => False);
 
          when Tok_Left_Paren =>
             return P_Formal_Discrete_Type_Definition;
@@ -646,9 +647,8 @@ package body Ch12 is
             Scan; --  past LIMITED
 
             if Token = Tok_Interface then
-               Typedef_Node := P_Interface_Type_Definition
-                                (Abstract_Present => False,
-                                 Is_Synchronized  => False);
+               Typedef_Node :=
+                 P_Interface_Type_Definition (Abstract_Present => False);
                Set_Limited_Present (Typedef_Node);
                return Typedef_Node;
 
@@ -680,6 +680,18 @@ package body Ch12 is
 
          when Tok_New =>
             return P_Formal_Derived_Type_Definition;
+
+         when Tok_Not =>
+            if P_Null_Exclusion then
+               Typedef_Node :=  P_Access_Type_Definition;
+               Set_Null_Exclusion_Present (Typedef_Node);
+               return Typedef_Node;
+
+            else
+               Error_Msg_SC ("expect valid formal access definition!");
+               Resync_Past_Semicolon;
+               return Error;
+            end if;
 
          when Tok_Private |
               Tok_Tagged  =>
@@ -720,9 +732,8 @@ package body Ch12 is
                --  Interface
 
                else
-                  Typedef_Node := P_Interface_Type_Definition
-                                    (Abstract_Present => False,
-                                     Is_Synchronized  => True);
+                  Typedef_Node :=
+                    P_Interface_Type_Definition (Abstract_Present => False);
 
                   case Saved_Token is
                      when Tok_Task =>
