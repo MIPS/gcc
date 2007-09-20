@@ -1346,6 +1346,7 @@ setup_allocno_cover_class_and_costs (void)
       ALLOCNO_ORIGINAL_MEMORY_COST (p)
 	= ALLOCNO_MEMORY_COST (p) = costs [i].mem_cost;
       ALLOCNO_COVER_CLASS (p) = cover_class;
+      ALLOCNO_BEST_CLASS (p) = allocno_pref [i];
       if (cover_class == NO_REGS)
 	continue;
       ALLOCNO_AVAILABLE_REGS_NUM (p) = available_class_regs [cover_class];

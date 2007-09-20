@@ -339,17 +339,28 @@ static void
 add_allocno_to_ordered_bucket (allocno_t allocno, allocno_t *bucket_ptr)
 {
   allocno_t before, after;
-  enum reg_class cover_class;
-  int freq, nregs;
+  enum reg_class cover_class, best_class, best_class_before;
+  int freq, freq_before, nregs;
 
-  freq = ALLOCNO_FREQ (allocno);
   cover_class = ALLOCNO_COVER_CLASS (allocno);
   nregs = reg_class_nregs [cover_class] [ALLOCNO_MODE (allocno)];
+  freq = ALLOCNO_FREQ (allocno);
+  best_class = ALLOCNO_BEST_CLASS (allocno);
   for (before = *bucket_ptr, after = NULL;
        before != NULL;
        after = before, before = ALLOCNO_NEXT_BUCKET_ALLOCNO (before))
-    if (ALLOCNO_FREQ (before) > freq)
-      break;
+    {
+      best_class_before = ALLOCNO_BEST_CLASS (before);
+      freq_before = ALLOCNO_FREQ (before);
+      if (best_class != best_class_before
+	  && class_subset_p [best_class_before] [best_class])
+	break;
+      else if (best_class != best_class_before
+	       && class_subset_p [best_class] [best_class_before])
+	;
+      else if (freq_before > freq)
+	break;
+    }
   ALLOCNO_NEXT_BUCKET_ALLOCNO (allocno) = before;
   ALLOCNO_PREV_BUCKET_ALLOCNO (allocno) = after;
   if (after == NULL)

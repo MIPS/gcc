@@ -1,3 +1,16 @@
+2007-09-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-build.c (create_allocno): Initialize ALLOCNO_BEST_CLASS.
+
+	* ira-color.c (add_allocno_to_ordered_bucket): Use
+	ALLOCNO_BEST_CLASS.
+
+	* ira-costs.c (setup_allocno_cover_class_and_costs): Initialize
+	ALLOCNO_BEST_CLASS.
+
+	* ira-int.h (allocno): New member best_class.
+	(ALLOCNO_BEST_CLASS): New macro.
+	
 2007-09-19  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (allocno): Remove calls_crosed.  Add

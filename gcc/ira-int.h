@@ -222,6 +222,9 @@ struct allocno
   /* Register class which should be used for allocation for given
      allocno.  NO_REGS means that we should use memory.  */
   enum reg_class cover_class;
+  /* The biggest register class with minimal cost usage for given
+     allocno.  */
+  enum reg_class best_class;
   /* Minimal cost of usage register of the cover class and memory for
      the allocno.  */
   int cover_class_cost, memory_cost, original_memory_cost;
@@ -269,6 +272,7 @@ struct allocno
 #define ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS(P) \
   ((P)->curr_conflict_hard_reg_costs)
 #define ALLOCNO_LEFT_CONFLICTS_NUM(P) ((P)->left_conflicts_num)
+#define ALLOCNO_BEST_CLASS(P) ((P)->best_class)
 #define ALLOCNO_COVER_CLASS(P) ((P)->cover_class)
 #define ALLOCNO_COVER_CLASS_COST(P) ((P)->cover_class_cost)
 #define ALLOCNO_MEMORY_COST(P) ((P)->memory_cost)
