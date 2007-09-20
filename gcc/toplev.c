@@ -1060,6 +1060,10 @@ compile_file (void)
   if (flag_syntax_only)
     return false;
 
+  /* Make sure output file is flushed before forking.  */
+  if (asm_out_file)
+    fflush (asm_out_file);
+
   if (server_mode && server_start_back_end ())
     return false;
 
