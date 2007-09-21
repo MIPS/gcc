@@ -2952,16 +2952,8 @@ commutative_operand_precedence (rtx op)
 bool
 swap_commutative_operands_p (rtx x, rtx y)
 {
-  int result = (commutative_operand_precedence (x)
-		- commutative_operand_precedence (y));
-  if (result)
-    return result < 0;
-
-  /* Group together equal REGs to do more simplification.  */
-  if (REG_P (x) && REG_P (y))
-    return REGNO (x) > REGNO (y);
-
-  return false;
+  return (commutative_operand_precedence (x)
+          < commutative_operand_precedence (y));
 }
 
 /* Return 1 if X is an autoincrement side effect and the register is
