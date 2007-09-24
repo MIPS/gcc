@@ -64,6 +64,7 @@ extern int size_of_encoded_value (int);
 extern const char *eh_data_format_name (int);
 
 extern void dw2_output_indirect_constants (void);
+extern void dw2_initialize (void);
 
 /* These are currently unused.  */
 

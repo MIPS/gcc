@@ -2088,6 +2088,7 @@ lang_dependent_init (const char *name)
   /* Now we have the correct original filename, we can initialize
      debug output.  */
   (*debug_hooks->init) (name);
+  dw2_initialize ();
 
   timevar_pop (TV_SYMOUT);
 

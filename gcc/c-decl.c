@@ -160,6 +160,10 @@ static bool undef_nested_function;
    says we are in file scope.  */
 bool c_override_global_bindings_to_false;
 
+/* This holds all the built-ins defined at startup.  When
+   re-initializing the front end (in server mode), these are
+   re-bound.  */
+static GTY ((param_is (union tree_node))) htab_t all_c_built_ins;
 
 /* Each c_binding structure describes one binding of an identifier to
    a decl.  All the decls in a scope - irrespective of namespace - are
@@ -523,15 +527,45 @@ c_decl_re_bind (tree name, tree decl)
 {
   /* FIXME: perhaps should be using pushdecl, etc, here -- do we want
      to re-smash in this thread?  */
-  bind (name, decl, file_scope, /*invisible=*/false, /*nested=*/false,
-	/*notify_ok=*/false);
+  if (!DECL_P (decl) || !DECL_IS_BUILTIN (decl))
+    bind (name, decl, file_scope, /*invisible=*/false, /*nested=*/false,
+	  /*notify_ok=*/false);
   /* FIXME: more problems related to the above.  We need to re-declare
      in the external scope sometimes.  But what about smashing?  And
      other semantics of pushdecl?  Does this work for builtins which
      are put into the external scope?  */
-  if (TREE_PUBLIC (decl))
-    bind (name, decl, external_scope, /*invisible=*/false, /*nested=*/true,
+  if (TREE_PUBLIC (decl) || (DECL_P (decl) && DECL_IS_BUILTIN (decl)))
+    bind (name, decl, external_scope, /*invisible=*/false,
+	  /*nested=*/ !(DECL_P (decl) && DECL_IS_BUILTIN (decl)),
 	  /*notify_ok=*/false);
+
+  TREE_ASM_WRITTEN (decl) = 0;
+  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      /* FIXME: moral equivalent of decl smashing here.  */
+      if (DECL_INITIAL (decl) == NULL_TREE
+	  || DECL_INITIAL (decl) == error_mark_node)
+	/* Don't output anything
+	   when a tentative file-scope definition is seen.
+	   But at end of compilation, do output code for them.  */
+	DECL_DEFER_OUTPUT (decl) = 1;
+      rest_of_decl_compilation (decl, true, 0);
+    }
+  else if (TREE_CODE (decl) == TYPE_DECL)
+    rest_of_decl_compilation (decl, true, 0);
+  else if (TREE_CODE (decl) == RECORD_TYPE
+	   || TREE_CODE (decl) == UNION_TYPE
+	   || TREE_CODE (decl) == ENUMERAL_TYPE)
+    rest_of_type_compilation (decl, true);
+}
+
+static int
+re_bind_built_in (void **slot, void *ignore ATTRIBUTE_UNUSED)
+{
+  tree decl = (tree) *slot;
+  gcc_assert (DECL_P (decl) && DECL_IS_BUILTIN (decl));
+  c_decl_re_bind (DECL_NAME (decl), decl);
+  return 1;
 }
 
 /* Clear the binding structure B, stick it on the binding_freelist,
@@ -2416,6 +2450,13 @@ pushdecl (tree x)
   if (TREE_CODE (x) == TYPE_DECL)
     clone_underlying_type (x);
 
+  if (B_IN_EXTERNAL_SCOPE (scope) && DECL_IS_BUILTIN (x))
+    {
+      void **slot = htab_find_slot (all_c_built_ins, x, INSERT);
+      gcc_assert (!*slot);
+      *slot = x;
+    }
+
   bind (name, x, scope, /*invisible=*/false, nested, /*notify_ok=*/true);
 
   /* If x's type is incomplete because it's based on a
@@ -2925,6 +2966,9 @@ c_init_decl_processing (void)
 
   if (!did_it)
     {
+      all_c_built_ins = htab_create_ggc (50, htab_hash_pointer,
+					 htab_eq_pointer, NULL);
+
       build_common_tree_nodes (flag_signed_char, false);
 
       c_common_nodes_and_builtins ();
@@ -2938,6 +2982,12 @@ c_init_decl_processing (void)
       pushdecl (build_decl (TYPE_DECL, get_identifier ("_Bool"),
 			    boolean_type_node));
     }
+  else
+    {
+      /* Re-bind all the builtins.  */
+      htab_traverse_noresize (all_c_built_ins, re_bind_built_in, NULL);
+    }
+
   did_it = true;
 
   input_location = save_loc;

@@ -1,3 +1,37 @@
+2007-09-24  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (all_c_built_ins): New global.
+	(c_decl_re_bind): Pass re-bound decls to rest_of_decl_compilation
+	or rest_of_type_compilation.
+	(re_bind_built_in): New function.
+	(pushdecl): Note built-ins in all_c_built_ins.
+	(c_init_decl_processing): Initialize all_c_built_ins.  Call
+	re_bind_built_in when re-run.
+	* dwarf2out.c (mark_decl): New function.
+	(seen_decl_p): Likewise.
+	(struct type_die_entry): New struct.
+	(type_die_table): New global.
+	(seen_decls): Likewise.
+	(hash_type_die_entry): New function.
+	(eq_type_die_entry): Likewise.
+	(lookup_type_die): Use type_die_table.
+	(equate_type_number_to_die): Likewise.
+	(reference_to_unused): Use seen_decl_p.
+	(add_name_and_src_coords_attributes): Likewise.
+	(scope_die_for): Likewise.
+	(gen_variable_die): Likewise.
+	(gen_typedef_die): Likewise.
+	(gen_type_die_with_usage): Likewise.
+	(gen_block_die): Likewise.
+	(dwarf2out_init): Initialize seen_decls, type_die_table.
+	(gen_enumeration_type_die): Use mark_decl.
+	(gen_struct_or_union_type_die): Likewise.
+	(gen_typedef_die): Likewise.
+	(gen_type_die_with_usage): Likewise.
+	* dwarf2asm.h (dw2_initialize): Declare.
+	* dwarf2asm.c (dw2_initialize): New function.
+	* toplev.c (lang_dependent_init): Call dw2_initialize.
+
 2007-09-20  Tom Tromey  <tromey@redhat.com>
 
 	* toplev.c (compile_file): Flush output file.
