@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -35,6 +34,7 @@ with Exp_Ch3;  use Exp_Ch3;
 with Exp_Dist; use Exp_Dist;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
+with Fname;    use Fname;
 with Freeze;   use Freeze;
 with Itypes;   use Itypes;
 with Layout;   use Layout;
@@ -3380,8 +3380,9 @@ package body Sem_Ch3 is
 
       T := Etype (Id);
 
-      Set_Is_Immediately_Visible (Id, True);
-      Set_Depends_On_Private     (Id, Has_Private_Component (T));
+      Set_Is_Immediately_Visible   (Id, True);
+      Set_Depends_On_Private       (Id, Has_Private_Component (T));
+      Set_Is_Descendent_Of_Address (Id, Is_Descendent_Of_Address (T));
 
       if Is_Interface (T) then
          Set_Is_Interface (Id);
@@ -3781,6 +3782,15 @@ package body Sem_Ch3 is
 
       else
          Generate_Definition (Def_Id);
+      end if;
+
+      if Chars (Scope (Def_Id)) =  Name_System
+        and then Chars (Def_Id) = Name_Address
+        and then Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (N)))
+      then
+         Set_Is_Descendent_Of_Address (Def_Id);
+         Set_Is_Descendent_Of_Address (Base_Type (Def_Id));
+         Set_Is_Descendent_Of_Address (Prev);
       end if;
 
       Check_Eliminated (Def_Id);
@@ -4978,6 +4988,11 @@ package body Sem_Ch3 is
             Set_Includes_Infinities (Scalar_Range (Derived_Type));
          end if;
       end if;
+
+      Set_Is_Descendent_Of_Address (Derived_Type,
+        Is_Descendent_Of_Address (Parent_Type));
+      Set_Is_Descendent_Of_Address (Implicit_Base,
+        Is_Descendent_Of_Address (Parent_Type));
 
       --  Set remaining type-specific fields, depending on numeric type
 

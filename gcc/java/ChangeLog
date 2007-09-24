@@ -1,3 +1,64 @@
+2007-09-15  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (struct lang_decl_func) <function_decl_body>:
+	Remove.
+	<init_final>: Likewise.
+	* lang.c (java_dump_tree): Update.
+	* java-tree.h (DECL_FUNCTION_BODY): Remove.
+
+2007-09-11  Jan Hubicka <jh@suse.cz>
+
+	* decl.c (java_expand_body): Kill.
+	(LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION): Kill.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-parse.c (parse_class_file): Re-enter the current file.
+
+2007-09-07  Roman Zippel  <zippel@linux-m68k.org>
+
+	boehm.c (mark_reference_fields): Move misaligned pointer check
+	after JREFERENCE_TYPE_P test
+
+2007-09-06  Roman Zippel  <zippel@linux-m68k.org>
+
+	* boehm.c (mark_reference_fields): Don't use bitmap as gc_descr
+	if pointer is misaligned.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* lang.c (java_post_options): Update.
+	* jcf-parse.c (set_source_filename): Update.
+	(give_name_to_class): Update.
+	(jcf_parse): Update.
+	(duplicate_class_warning): Update.
+	(parse_class_file): Update.
+	(java_parse_file): Update.
+	* expr.c (expand_byte_code): Update.
+
+2007-09-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* decl.c (finish_method): Use set_cfun.
+
+2007-09-04  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (java_init_decl_processing): Call "__cxa_end_cleanup"
+	when using the ARM EABI.
+
+2007-09-03  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Make-lang.in (jvspec.o): Remove SHLIB_MULTILIB.
+
+2007-09-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-parse.c (read_class, java_parse_file): Supply a TYPE for
+	CONST_CAST.
+	* jcf.h (JCF_FINISH): Likewise.
+
+2007-08-28  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java.tags): Don't tag '*.y' files.
+
 2007-08-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* lang.c (java_decl_ok_for_sibcall): Likewise.

@@ -28,6 +28,7 @@
 #include "rtl.h"
 #include "basic-block.h"
 #include "diagnostic.h"
+#include "obstack.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "timevar.h"
@@ -141,8 +142,9 @@ typedef struct lambda_lattice_s
 
 static bool lle_equal (lambda_linear_expression, lambda_linear_expression,
 		       int, int);
-static lambda_lattice lambda_lattice_new (int, int);
-static lambda_lattice lambda_lattice_compute_base (lambda_loopnest);
+static lambda_lattice lambda_lattice_new (int, int, struct obstack *);
+static lambda_lattice lambda_lattice_compute_base (lambda_loopnest,
+                                                   struct obstack *);
 
 /* FIXME tuples.  */
 #if 0
@@ -153,11 +155,11 @@ static bool can_convert_to_perfect_nest (struct loop *);
 /* Create a new lambda body vector.  */
 
 lambda_body_vector
-lambda_body_vector_new (int size)
+lambda_body_vector_new (int size, struct obstack * lambda_obstack)
 {
   lambda_body_vector ret;
 
-  ret = GGC_NEW (struct lambda_body_vector_s);
+  ret = (lambda_body_vector)obstack_alloc (lambda_obstack, sizeof (*ret));
   LBV_COEFFICIENTS (ret) = lambda_vector_new (size);
   LBV_SIZE (ret) = size;
   LBV_DENOMINATOR (ret) = 1;
@@ -169,7 +171,8 @@ lambda_body_vector_new (int size)
 
 lambda_body_vector
 lambda_body_vector_compute_new (lambda_trans_matrix transform,
-				lambda_body_vector vect)
+                                lambda_body_vector vect,
+                                struct obstack * lambda_obstack)
 {
   lambda_body_vector temp;
   int depth;
@@ -179,7 +182,7 @@ lambda_body_vector_compute_new (lambda_trans_matrix transform,
 
   depth = LTM_ROWSIZE (transform);
 
-  temp = lambda_body_vector_new (depth);
+  temp = lambda_body_vector_new (depth, lambda_obstack);
   LBV_DENOMINATOR (temp) =
     LBV_DENOMINATOR (vect) * LTM_DENOMINATOR (transform);
   lambda_vector_matrix_mult (LBV_COEFFICIENTS (vect), depth,
@@ -225,12 +228,13 @@ lle_equal (lambda_linear_expression lle1, lambda_linear_expression lle2,
    of invariants INVARIANTS.  */
 
 lambda_linear_expression
-lambda_linear_expression_new (int dim, int invariants)
+lambda_linear_expression_new (int dim, int invariants,
+                              struct obstack * lambda_obstack)
 {
   lambda_linear_expression ret;
 
-  ret = GGC_CNEW (struct lambda_linear_expression_s);
-
+  ret = (lambda_linear_expression)obstack_alloc (lambda_obstack,
+                                                 sizeof (*ret));
   LLE_COEFFICIENTS (ret) = lambda_vector_new (dim);
   LLE_CONSTANT (ret) = 0;
   LLE_INVARIANT_COEFFICIENTS (ret) = lambda_vector_new (invariants);
@@ -327,12 +331,14 @@ print_lambda_loop (FILE * outfile, lambda_loop loop, int depth,
    number of invariants.  */
 
 lambda_loopnest
-lambda_loopnest_new (int depth, int invariants)
+lambda_loopnest_new (int depth, int invariants,
+                     struct obstack * lambda_obstack)
 {
   lambda_loopnest ret;
-  ret = GGC_NEW (struct lambda_loopnest_s);
+  ret = (lambda_loopnest)obstack_alloc (lambda_obstack, sizeof (*ret));
 
-  LN_LOOPS (ret) = GGC_CNEWVEC (lambda_loop, depth);
+  LN_LOOPS (ret) = (lambda_loop *)
+      obstack_alloc (lambda_obstack, depth * sizeof(LN_LOOPS(ret)));
   LN_DEPTH (ret) = depth;
   LN_INVARIANTS (ret) = invariants;
 
@@ -359,10 +365,10 @@ print_lambda_loopnest (FILE * outfile, lambda_loopnest nest, char start)
    of invariants.  */
 
 static lambda_lattice
-lambda_lattice_new (int depth, int invariants)
+lambda_lattice_new (int depth, int invariants, struct obstack * lambda_obstack)
 {
-  lambda_lattice ret;
-  ret = GGC_NEW (struct lambda_lattice_s);
+  lambda_lattice ret
+      = (lambda_lattice)obstack_alloc (lambda_obstack, sizeof (*ret));
   LATTICE_BASE (ret) = lambda_matrix_new (depth, depth);
   LATTICE_ORIGIN (ret) = lambda_vector_new (depth);
   LATTICE_ORIGIN_INVARIANTS (ret) = lambda_matrix_new (depth, invariants);
@@ -379,7 +385,8 @@ lambda_lattice_new (int depth, int invariants)
    identity matrix) if NEST is a sparse space.  */
 
 static lambda_lattice
-lambda_lattice_compute_base (lambda_loopnest nest)
+lambda_lattice_compute_base (lambda_loopnest nest,
+                             struct obstack * lambda_obstack)
 {
   lambda_lattice ret;
   int depth, invariants;
@@ -392,7 +399,7 @@ lambda_lattice_compute_base (lambda_loopnest nest)
   depth = LN_DEPTH (nest);
   invariants = LN_INVARIANTS (nest);
 
-  ret = lambda_lattice_new (depth, invariants);
+  ret = lambda_lattice_new (depth, invariants, lambda_obstack);
   base = LATTICE_BASE (ret);
   for (i = 0; i < depth; i++)
     {
@@ -482,7 +489,8 @@ compute_nest_using_fourier_motzkin (int size,
 				    int invariants,
 				    lambda_matrix A,
 				    lambda_matrix B,
-				    lambda_vector a)
+                                    lambda_vector a,
+                                    struct obstack * lambda_obstack)
 {
 
   int multiple, f1, f2;
@@ -498,7 +506,7 @@ compute_nest_using_fourier_motzkin (int size,
   B1 = lambda_matrix_new (128, invariants);
   a1 = lambda_vector_new (128);
 
-  auxillary_nest = lambda_loopnest_new (depth, invariants);
+  auxillary_nest = lambda_loopnest_new (depth, invariants, lambda_obstack);
 
   for (i = depth - 1; i >= 0; i--)
     {
@@ -512,7 +520,8 @@ compute_nest_using_fourier_motzkin (int size,
 	    {
 	      /* Any linear expression in the matrix with a coefficient less
 		 than 0 becomes part of the new lower bound.  */ 
-	      expression = lambda_linear_expression_new (depth, invariants);
+              expression = lambda_linear_expression_new (depth, invariants,
+                                                         lambda_obstack);
 
 	      for (k = 0; k < i; k++)
 		LLE_COEFFICIENTS (expression)[k] = A[j][k];
@@ -536,7 +545,8 @@ compute_nest_using_fourier_motzkin (int size,
 	    {
 	      /* Any linear expression with a coefficient greater than 0
 		 becomes part of the new upper bound.  */ 
-	      expression = lambda_linear_expression_new (depth, invariants);
+              expression = lambda_linear_expression_new (depth, invariants,
+                                                         lambda_obstack);
 	      for (k = 0; k < i; k++)
 		LLE_COEFFICIENTS (expression)[k] = -1 * A[j][k];
 
@@ -628,7 +638,8 @@ compute_nest_using_fourier_motzkin (int size,
 
 static lambda_loopnest
 lambda_compute_auxillary_space (lambda_loopnest nest,
-				lambda_trans_matrix trans)
+                                lambda_trans_matrix trans,
+                                struct obstack * lambda_obstack)
 {
   lambda_matrix A, B, A1, B1;
   lambda_vector a, a1;
@@ -726,7 +737,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 
   /* Compute the lattice base x = base * y + origin, where y is the
      base space.  */
-  lattice = lambda_lattice_compute_base (nest);
+  lattice = lambda_lattice_compute_base (nest, lambda_obstack);
 
   /* Ax <= a + B then becomes ALy <= a+B - A*origin.  L is the lattice base  */
 
@@ -755,7 +766,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
   lambda_matrix_mult (A1, invertedtrans, A, size, depth, depth);
 
   return compute_nest_using_fourier_motzkin (size, depth, invariants,
-					     A, B1, a1);
+                                             A, B1, a1, lambda_obstack);
 }
 
 /* Compute the loop bounds for the target space, using the bounds of
@@ -768,7 +779,8 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 
 static lambda_loopnest
 lambda_compute_target_space (lambda_loopnest auxillary_nest,
-			     lambda_trans_matrix H, lambda_vector stepsigns)
+                             lambda_trans_matrix H, lambda_vector stepsigns,
+                             struct obstack * lambda_obstack)
 {
   lambda_matrix inverse, H1;
   int determinant, i, j;
@@ -799,7 +811,7 @@ lambda_compute_target_space (lambda_loopnest auxillary_nest,
   target = lambda_matrix_new (depth, depth);
   lambda_matrix_mult (H1, inverse, target, depth, depth, depth);
 
-  target_nest = lambda_loopnest_new (depth, invariants);
+  target_nest = lambda_loopnest_new (depth, invariants, lambda_obstack);
 
   for (i = 0; i < depth; i++)
     {
@@ -818,7 +830,8 @@ lambda_compute_target_space (lambda_loopnest auxillary_nest,
       for (j = 0; j < i; j++)
 	target[i][j] = target[i][j] / gcd1;
 
-      expression = lambda_linear_expression_new (depth, invariants);
+      expression = lambda_linear_expression_new (depth, invariants,
+                                                 lambda_obstack);
       lambda_vector_copy (target[i], LLE_COEFFICIENTS (expression), depth);
       LLE_DENOMINATOR (expression) = determinant / gcd1;
       LLE_CONSTANT (expression) = 0;
@@ -841,7 +854,8 @@ lambda_compute_target_space (lambda_loopnest auxillary_nest,
       for (; auxillary_expr != NULL;
 	   auxillary_expr = LLE_NEXT (auxillary_expr))
 	{
-	  target_expr = lambda_linear_expression_new (depth, invariants);
+          target_expr = lambda_linear_expression_new (depth, invariants,
+                                                      lambda_obstack);
 	  lambda_vector_matrix_mult (LLE_COEFFICIENTS (auxillary_expr),
 				     depth, inverse, depth,
 				     LLE_COEFFICIENTS (target_expr));
@@ -898,7 +912,8 @@ lambda_compute_target_space (lambda_loopnest auxillary_nest,
       for (; auxillary_expr != NULL;
 	   auxillary_expr = LLE_NEXT (auxillary_expr))
 	{
-	  target_expr = lambda_linear_expression_new (depth, invariants);
+          target_expr = lambda_linear_expression_new (depth, invariants,
+                                                      lambda_obstack);
 	  lambda_vector_matrix_mult (LLE_COEFFICIENTS (auxillary_expr),
 				     depth, inverse, depth,
 				     LLE_COEFFICIENTS (target_expr));
@@ -1023,7 +1038,8 @@ lambda_compute_step_signs (lambda_trans_matrix trans, lambda_vector stepsigns)
    triangular portion.  */ 
 
 lambda_loopnest
-lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
+lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans,
+                           struct obstack * lambda_obstack)
 {
   lambda_loopnest auxillary_nest, target_nest;
 
@@ -1052,7 +1068,7 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
     }
 
   /* Compute the lattice base.  */
-  lattice = lambda_lattice_compute_base (nest);
+  lattice = lambda_lattice_compute_base (nest, lambda_obstack);
   trans1 = lambda_trans_matrix_new (depth, depth);
 
   /* Multiply the transformation matrix by the lattice base.  */
@@ -1068,7 +1084,7 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
 
   /* Compute the auxiliary loop nest's space from the unimodular
      portion.  */
-  auxillary_nest = lambda_compute_auxillary_space (nest, U);
+  auxillary_nest = lambda_compute_auxillary_space (nest, U, lambda_obstack);
 
   /* Compute the loop step signs from the old step signs and the
      transformation matrix.  */
@@ -1076,7 +1092,8 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
 
   /* Compute the target loop nest space from the auxiliary nest and
      the lower triangular matrix H.  */
-  target_nest = lambda_compute_target_space (auxillary_nest, H, stepsigns);
+  target_nest = lambda_compute_target_space (auxillary_nest, H, stepsigns,
+                                             lambda_obstack);
   origin = lambda_vector_new (depth);
   origin_invariants = lambda_matrix_new (depth, invariants);
   lambda_matrix_vector_mult (LTM_MATRIX (trans), depth, depth,
@@ -1116,14 +1133,15 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
 static lambda_linear_expression
 gcc_tree_to_linear_expression (int depth, tree expr,
 			       VEC(tree,heap) *outerinductionvars,
-			       VEC(tree,heap) *invariants, int extra)
+                               VEC(tree,heap) *invariants, int extra,
+                               struct obstack * lambda_obstack)
 {
   lambda_linear_expression lle = NULL;
   switch (TREE_CODE (expr))
     {
     case INTEGER_CST:
       {
-	lle = lambda_linear_expression_new (depth, 2 * depth);
+        lle = lambda_linear_expression_new (depth, 2 * depth, lambda_obstack);
 	LLE_CONSTANT (lle) = TREE_INT_CST_LOW (expr);
 	if (extra != 0)
 	  LLE_CONSTANT (lle) += extra;
@@ -1140,7 +1158,8 @@ gcc_tree_to_linear_expression (int depth, tree expr,
 	    {
 	      if (SSA_NAME_VAR (iv) == SSA_NAME_VAR (expr))
 		{
-		  lle = lambda_linear_expression_new (depth, 2 * depth);
+                  lle = lambda_linear_expression_new (depth, 2 * depth,
+                                                      lambda_obstack);
 		  LLE_COEFFICIENTS (lle)[i] = 1;
 		  if (extra != 0)
 		    LLE_CONSTANT (lle) = extra;
@@ -1153,7 +1172,8 @@ gcc_tree_to_linear_expression (int depth, tree expr,
 	    {
 	      if (SSA_NAME_VAR (invar) == SSA_NAME_VAR (expr))
 		{
-		  lle = lambda_linear_expression_new (depth, 2 * depth);
+                  lle = lambda_linear_expression_new (depth, 2 * depth,
+                                                      lambda_obstack);
 		  LLE_INVARIANT_COEFFICIENTS (lle)[i] = 1;
 		  if (extra != 0)
 		    LLE_CONSTANT (lle) = extra;
@@ -1216,7 +1236,8 @@ gcc_loop_to_lambda_loop (struct loop *loop ATTRIBUTE_UNUSED, int depth ATTRIBUTE
 			 VEC(tree,heap) * outerinductionvars ATTRIBUTE_UNUSED,
 			 VEC(tree,heap) ** lboundvars ATTRIBUTE_UNUSED,
 			 VEC(tree,heap) ** uboundvars ATTRIBUTE_UNUSED,
-			 VEC(int,heap) ** steps ATTRIBUTE_UNUSED)
+			 VEC(int,heap) ** steps ATTRIBUTE_UNUSED,
+                         struct obstack * lambda_obstack ATTRIBUTE_UNUSED)
 {
 /* FIXME tuples.  */
 #if 0
@@ -1342,14 +1363,14 @@ gcc_loop_to_lambda_loop (struct loop *loop ATTRIBUTE_UNUSED, int depth ATTRIBUTE
       lboundvar = PHI_ARG_DEF (phi, 1);
       lbound = gcc_tree_to_linear_expression (depth, lboundvar,
 					      outerinductionvars, *invariants,
-					      0);
+                                              0, lambda_obstack);
     }
   else
     {
       lboundvar = PHI_ARG_DEF (phi, 0);
       lbound = gcc_tree_to_linear_expression (depth, lboundvar,
 					      outerinductionvars, *invariants,
-					      0);
+                                              0, lambda_obstack);
     }
   
   if (!lbound)
@@ -1397,7 +1418,7 @@ gcc_loop_to_lambda_loop (struct loop *loop ATTRIBUTE_UNUSED, int depth ATTRIBUTE
   
   ubound = gcc_tree_to_linear_expression (depth, uboundvar,
 					  outerinductionvars,
-					  *invariants, extra);
+                                          *invariants, extra, lambda_obstack);
   uboundresult = build2 (PLUS_EXPR, TREE_TYPE (uboundvar), uboundvar,
 			 build_int_cst (TREE_TYPE (uboundvar), extra));
   VEC_safe_push (tree, heap, *uboundvars, uboundresult);
@@ -1469,7 +1490,8 @@ DEF_VEC_ALLOC_P(lambda_loop,heap);
 lambda_loopnest
 gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
 				 VEC(tree,heap) **inductionvars,
-				 VEC(tree,heap) **invariants)
+                                 VEC(tree,heap) **invariants,
+                                 struct obstack * lambda_obstack)
 {
   lambda_loopnest ret = NULL;
   struct loop *temp = loop_nest;
@@ -1491,7 +1513,7 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
       newloop = gcc_loop_to_lambda_loop (temp, depth, invariants,
 					 &inductionvar, *inductionvars,
 					 &lboundvars, &uboundvars,
-					 &steps);
+                                         &steps, lambda_obstack);
       if (!newloop)
 	goto fail;
 
@@ -1515,7 +1537,7 @@ gcc_loopnest_to_lambda_loopnest (struct loop *loop_nest,
 		 "Successfully converted loop nest to perfect loop nest.\n");
     }
 
-  ret = lambda_loopnest_new (depth, 2 * depth);
+  ret = lambda_loopnest_new (depth, 2 * depth, lambda_obstack);
 
   for (i = 0; VEC_iterate (lambda_loop, loops, i, newloop); i++)
     LN_LOOPS (ret)[i] = newloop;
@@ -1693,7 +1715,8 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
 				 VEC(tree,heap) *old_ivs ATTRIBUTE_UNUSED,
 				 VEC(tree,heap) *invariants ATTRIBUTE_UNUSED,
 				 lambda_loopnest new_loopnest ATTRIBUTE_UNUSED,
-				 lambda_trans_matrix transform ATTRIBUTE_UNUSED)
+				 lambda_trans_matrix transform ATTRIBUTE_UNUSED,
+				 struct obstack * lambda_obstack ATTRIBUTE_UNUSED)
 {
   /* FIXME tuples.  */
 #if 0
@@ -1843,10 +1866,11 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
 	  /* Compute the new expression for the induction
 	     variable.  */
 	  depth = VEC_length (tree, new_ivs);
-	  lbv = lambda_body_vector_new (depth);
+          lbv = lambda_body_vector_new (depth, lambda_obstack);
 	  LBV_COEFFICIENTS (lbv)[i] = 1;
 	  
-	  newlbv = lambda_body_vector_compute_new (transform, lbv);
+          newlbv = lambda_body_vector_compute_new (transform, lbv,
+                                                   lambda_obstack);
 
 	  newiv = lbv_to_gcc_expression (newlbv, TREE_TYPE (oldiv),
 					 new_ivs, &stmts);

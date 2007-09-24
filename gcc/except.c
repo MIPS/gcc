@@ -2107,7 +2107,9 @@ finish_eh_generation (void)
   /* We've totally changed the CFG.  Start over.  */
   find_exception_handler_labels ();
   break_superblocks ();
-  if (USING_SJLJ_EXCEPTIONS)
+  if (USING_SJLJ_EXCEPTIONS
+      /* Kludge for Alpha/Tru64 (see alpha_gp_save_rtx).  */
+      || single_succ_edge (ENTRY_BLOCK_PTR)->insns.r)
     commit_edge_insertions ();
   FOR_EACH_BB (bb)
     {
@@ -2868,7 +2870,7 @@ expand_builtin_unwind_init (void)
 {
   /* Set this so all the registers get saved in our frame; we need to be
      able to copy the saved values for any registers from frames we unwind.  */
-  current_function_calls_unwind_init = 1;
+  current_function_saves_all_registers = 1;
 
 #ifdef SETUP_FRAME_ADDRESSES
   SETUP_FRAME_ADDRESSES ();

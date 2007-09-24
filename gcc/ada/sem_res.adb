@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -7582,10 +7581,15 @@ package body Sem_Res is
          end if;
 
          if Is_Entity_Name (Orig_N)
-           and then Etype (Entity (Orig_N)) = Orig_T
+           and then
+             (Etype (Entity (Orig_N)) = Orig_T
+                or else
+                  (Ekind (Entity (Orig_N)) = E_Loop_Parameter
+                     and then Covers (Orig_T, Etype (Entity (Orig_N)))))
          then
+            Error_Msg_Node_2 := Orig_T;
             Error_Msg_NE
-              ("?useless conversion, & has this type!", N, Entity (Orig_N));
+              ("?redundant conversion, & is of type &!", N, Entity (Orig_N));
          end if;
       end if;
 
@@ -8803,9 +8807,14 @@ package body Sem_Res is
                     ("\?Program_Error will be raised at run time", Operand);
 
                else
-                  Error_Msg_N
-                    ("cannot convert local pointer to non-local access type",
-                     Operand);
+                  --  Avoid generation of spurious error message
+
+                  if not Error_Posted (N) then
+                     Error_Msg_N
+                      ("cannot convert local pointer to non-local access type",
+                       Operand);
+                  end if;
+
                   return False;
                end if;
 

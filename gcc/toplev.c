@@ -146,7 +146,7 @@ location_t unknown_location = { NULL, 0 };
 
 location_t input_location;
 
-struct line_maps line_table;
+struct line_maps *line_table;
 
 /* Stack of currently pending input files.  */
 
@@ -172,12 +172,6 @@ const char *dump_base_name;
 /* Name to use as a base for auxiliary output files.  */
 
 const char *aux_base_name;
-
-/* Bit flags that specify the machine subtype we are compiling for.
-   Bits are tested using macros TARGET_... defined in the tm.h file
-   and set by `-m...' switches.  Must be defined in rtlanal.c.  */
-
-extern int target_flags;
 
 /* A mask of target_flags that includes bit X if X was set or cleared
    on the command line.  */
@@ -1601,6 +1595,14 @@ default_tree_printer (pretty_printer * pp, text_info *text, const char *spec,
   return true;
 }
 
+/* A helper function; used as the reallocator function for cpp's line
+   table.  */
+static void *
+realloc_for_line_map (void *ptr, size_t len)
+{
+  return ggc_realloc (ptr, len);
+}
+
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
@@ -1657,7 +1659,9 @@ general_init (const char *argv0)
      table.  */
   init_ggc ();
   init_stringpool ();
-  linemap_init (&line_table);
+  line_table = GGC_NEW (struct line_maps);
+  linemap_init (line_table);
+  line_table->reallocator = realloc_for_line_map;
   init_ttree ();
 
   /* Initialize register usage now so switches may override.  */
@@ -1774,11 +1778,6 @@ process_options (void)
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
-
-  /* Disable unit-at-a-time mode for frontends not supporting callgraph
-     interface.  */
-  if (flag_unit_at_a_time && ! lang_hooks.callgraph.expand_function)
-    flag_unit_at_a_time = 0;
 
   if (!flag_unit_at_a_time)
     flag_section_anchors = 0;
@@ -1909,6 +1908,13 @@ process_options (void)
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  if (flag_tree_cselim == AUTODETECT_VALUE)
+#ifdef HAVE_conditional_move
+    flag_tree_cselim = 1;
+#else
+    flag_tree_cselim = 0;
+#endif
 
   /* If the user specifically requested variable tracking with tagging
      uninitialized variables, we need to turn on variable tracking.
@@ -2064,6 +2070,7 @@ backend_init (void)
   init_rtlanal ();
   init_inline_once ();
   init_varasm_once ();
+  save_register_info ();
 
   /* Initialize the target-specific back end pieces.  */
   backend_init_target ();

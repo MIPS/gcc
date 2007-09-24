@@ -113,8 +113,6 @@ extern const char *aux_info_file_name;
 extern const char *asm_file_name;
 extern bool exit_after_options;
 
-extern int target_flags_explicit;
-
 /* True if the user has tagged the function with the 'section'
    attribute.  */
 
@@ -147,6 +145,8 @@ extern struct ht *ident_hash;
     implied by -ffast-math and -fno-fast-math.  */
 
 extern void set_fast_math_flags         (int);
+
+extern void set_unsafe_math_optimizations_flags (int);
 
 /* Handle -d switch.  */
 extern void decode_d_option		(const char *);

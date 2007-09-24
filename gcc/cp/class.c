@@ -2458,6 +2458,7 @@ finish_struct_anon (tree t)
       if (DECL_NAME (field) == NULL_TREE
 	  && ANON_AGGR_TYPE_P (TREE_TYPE (field)))
 	{
+	  bool is_union = TREE_CODE (TREE_TYPE (field)) == UNION_TYPE;
 	  tree elt = TYPE_FIELDS (TREE_TYPE (field));
 	  for (; elt; elt = TREE_CHAIN (elt))
 	    {
@@ -2475,15 +2476,29 @@ finish_struct_anon (tree t)
 
 	      if (TREE_CODE (elt) != FIELD_DECL)
 		{
-		  pedwarn ("%q+#D invalid; an anonymous union can "
-			   "only have non-static data members", elt);
+		  if (is_union)
+		    pedwarn ("%q+#D invalid; an anonymous union can "
+			     "only have non-static data members", elt);
+		  else
+		    pedwarn ("%q+#D invalid; an anonymous struct can "
+			     "only have non-static data members", elt);
 		  continue;
 		}
 
 	      if (TREE_PRIVATE (elt))
-		pedwarn ("private member %q+#D in anonymous union", elt);
+		{
+		  if (is_union)
+		    pedwarn ("private member %q+#D in anonymous union", elt);
+		  else
+		    pedwarn ("private member %q+#D in anonymous struct", elt);
+		}
 	      else if (TREE_PROTECTED (elt))
-		pedwarn ("protected member %q+#D in anonymous union", elt);
+		{
+		  if (is_union)
+		    pedwarn ("protected member %q+#D in anonymous union", elt);
+		  else
+		    pedwarn ("protected member %q+#D in anonymous struct", elt);
+		}
 
 	      TREE_PRIVATE (elt) = TREE_PRIVATE (field);
 	      TREE_PROTECTED (elt) = TREE_PROTECTED (field);
@@ -5630,21 +5645,13 @@ currently_open_derived_class (tree t)
 void
 push_nested_class (tree type)
 {
-  tree context;
-
   /* A namespace might be passed in error cases, like A::B:C.  */
   if (type == NULL_TREE
-      || type == error_mark_node
-      || TREE_CODE (type) == NAMESPACE_DECL
-      || ! IS_AGGR_TYPE (type)
-      || TREE_CODE (type) == TEMPLATE_TYPE_PARM
-      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+      || !CLASS_TYPE_P (type))
     return;
 
-  context = DECL_CONTEXT (TYPE_MAIN_DECL (type));
+  push_nested_class (DECL_CONTEXT (TYPE_MAIN_DECL (type)));
 
-  if (context && CLASS_TYPE_P (context))
-    push_nested_class (context);
   pushclass (type);
 }
 

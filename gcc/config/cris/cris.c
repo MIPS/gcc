@@ -3147,10 +3147,11 @@ cris_emit_movem_store (rtx dest, rtx nregs_rtx, int increment,
       if (increment != 0)
 	{
 	  rtx seq = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (nregs + 1));
-	  XVECEXP (seq, 0, 0) = XVECEXP (PATTERN (insn), 0, 0);
+	  XVECEXP (seq, 0, 0) = copy_rtx (XVECEXP (PATTERN (insn), 0, 0));
 	  for (i = 1; i < nregs; i++)
-	    XVECEXP (seq, 0, i) = XVECEXP (PATTERN (insn), 0, i + 1);
-	  XVECEXP (seq, 0, nregs) = XVECEXP (PATTERN (insn), 0, 1);
+	    XVECEXP (seq, 0, i)
+	      = copy_rtx (XVECEXP (PATTERN (insn), 0, i + 1));
+	  XVECEXP (seq, 0, nregs) = copy_rtx (XVECEXP (PATTERN (insn), 0, 1));
 	  REG_NOTES (insn)
 	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, seq,
 				 REG_NOTES (insn));
@@ -3175,7 +3176,7 @@ cris_expand_pic_call_address (rtx *opp)
   /* It might be that code can be generated that jumps to 0 (or to a
      specific address).  Don't die on that.  (There is a
      testcase.)  */
-  if (CONSTANT_ADDRESS_P (op) && CONST_INT_P (op))
+  if (CONSTANT_ADDRESS_P (op) && !CONST_INT_P (op))
     {
       enum cris_pic_symbol_type t = cris_pic_symbol_type_of (op);
 

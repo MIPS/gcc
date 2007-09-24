@@ -4088,7 +4088,7 @@ struct tree_opt_pass pass_rtl_ifcvt =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,                       /* todo_flags_finish */
   'C'                                   /* letter */
   ,0					/* works_with_tuples_p */
@@ -4123,7 +4123,7 @@ struct tree_opt_pass pass_if_after_combine =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'C'                                   /* letter */
@@ -4158,7 +4158,7 @@ struct tree_opt_pass pass_if_after_reload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'E'                                   /* letter */

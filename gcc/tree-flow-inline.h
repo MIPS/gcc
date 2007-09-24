@@ -300,7 +300,7 @@ may_aliases (const_tree var)
 /* Return the line number for EXPR, or return -1 if we have no line
    number information for it.  */
 static inline int
-get_lineno (gimple stmt)
+get_lineno (const_gimple stmt)
 {
   location_t loc;
 
@@ -764,7 +764,6 @@ bsi_last (basic_block bb)
   bsi.bb = bb;
   return bsi;
 }
-
 
 /* Return true if block statement iterator I has reached the end of
    the basic block.  */

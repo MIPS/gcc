@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -264,6 +263,17 @@ package body Sem_Ch11 is
                      Error_Msg_N ("exception name expected", Id);
 
                   else
+                     --  Emit a warning at the declaration level when a local
+                     --  exception is never raised explicitly.
+
+                     if Warn_On_Redundant_Constructs
+                       and then not Is_Raised (Entity (Id))
+                       and then Scope (Entity (Id)) = Current_Scope
+                     then
+                        Error_Msg_NE
+                          ("?exception & is never raised", Entity (Id), Id);
+                     end if;
+
                      if Present (Renamed_Entity (Entity (Id))) then
                         if Entity (Id) = Standard_Numeric_Error then
                            Check_Restriction (No_Obsolescent_Features, Id);
@@ -513,9 +523,14 @@ package body Sem_Ch11 is
          then
             Error_Msg_N
               ("exception name expected in raise statement", Exception_Id);
+         else
+            Set_Is_Raised (Exception_Name);
          end if;
 
+         --  Deal with RAISE WITH case
+
          if Present (Expression (N)) then
+            Check_Compiler_Unit (Expression (N));
             Analyze_And_Resolve (Expression (N), Standard_String);
          end if;
       end if;

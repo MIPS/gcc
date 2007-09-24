@@ -54,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 
 static tree maybe_convert_cond (tree);
 static tree simplify_aggr_init_exprs_r (tree *, int *, void *);
-static void emit_associated_thunks (tree);
 static tree finalize_nrv_r (tree *, int *, void *);
 
 
@@ -1754,6 +1753,25 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
   return result;
 }
 
+/* Returns the expression which provides the value of STMT_EXPR.  */
+
+tree
+stmt_expr_value_expr (tree stmt_expr)
+{
+  tree t = STMT_EXPR_STMT (stmt_expr);
+
+  if (TREE_CODE (t) == BIND_EXPR)
+    t = BIND_EXPR_BODY (t);
+
+  if (TREE_CODE (t) == STATEMENT_LIST)
+    t = STATEMENT_LIST_TAIL (t)->stmt;
+
+  if (TREE_CODE (t) == EXPR_STMT)
+    t = EXPR_STMT_EXPR (t);
+
+  return t;
+}
+
 /* Perform Koenig lookup.  FN is the postfix-expression representing
    the function (or functions) to call; ARGS are the arguments to the
    call.  Returns the functions to be considered by overload
@@ -2908,13 +2926,15 @@ finish_id_expression (tree id_expression,
       else
 	{
 	  if (DECL_P (decl) && DECL_NONLOCAL (decl)
-	      && DECL_CLASS_SCOPE_P (decl)
-	      && DECL_CONTEXT (decl) != current_class_type)
+	      && DECL_CLASS_SCOPE_P (decl))
 	    {
-	      tree path;
-
-	      path = currently_open_derived_class (DECL_CONTEXT (decl));
-	      perform_or_defer_access_check (TYPE_BINFO (path), decl, decl);
+	      tree context = context_for_name_lookup (decl); 
+	      if (context != current_class_type)
+		{
+		  tree path = currently_open_derived_class (context);
+		  perform_or_defer_access_check (TYPE_BINFO (path),
+						 decl, decl);
+		}
 	    }
 
 	  decl = convert_from_reference (decl);
@@ -3075,7 +3095,7 @@ simplify_aggr_init_expr (tree *tp)
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
 
-static void
+void
 emit_associated_thunks (tree fn)
 {
   /* When we use vcall offsets, we emit thunks with the virtual
@@ -3103,62 +3123,6 @@ emit_associated_thunks (tree fn)
 	    }
 	  else
 	    gcc_assert (!DECL_THUNKS (thunk));
-	}
-    }
-}
-
-/* Generate RTL for FN.  */
-
-void
-expand_body (tree fn)
-{
-  tree saved_function;
-
-  /* Compute the appropriate object-file linkage for inline
-     functions.  */
-  if (DECL_DECLARED_INLINE_P (fn))
-    import_export_decl (fn);
-
-  /* If FN is external, then there's no point in generating RTL for
-     it.  This situation can arise with an inline function under
-     `-fexternal-templates'; we instantiate the function, even though
-     we're not planning on emitting it, in case we get a chance to
-     inline it.  */
-  if (DECL_EXTERNAL (fn))
-    return;
-
-  /* ??? When is this needed?  */
-  saved_function = current_function_decl;
-
-  /* Emit any thunks that should be emitted at the same time as FN.  */
-  emit_associated_thunks (fn);
-
-  /* This function is only called from cgraph, or recursively from
-     emit_associated_thunks.  In neither case should we be currently
-     generating trees for a function.  */
-  gcc_assert (function_depth == 0);
-
-  c_expand_body (fn);
-
-  current_function_decl = saved_function;
-
-  if (DECL_CLONED_FUNCTION_P (fn))
-    {
-      /* If this is a clone, go through the other clones now and mark
-	 their parameters used.  We have to do that here, as we don't
-	 know whether any particular clone will be expanded, and
-	 therefore cannot pick one arbitrarily.  */
-      tree probe;
-
-      for (probe = TREE_CHAIN (DECL_CLONED_FUNCTION (fn));
-	   probe && DECL_CLONED_FUNCTION_P (probe);
-	   probe = TREE_CHAIN (probe))
-	{
-	  tree parms;
-
-	  for (parms = DECL_ARGUMENTS (probe);
-	       parms; parms = TREE_CHAIN (parms))
-	    TREE_USED (parms) = 1;
 	}
     }
 }

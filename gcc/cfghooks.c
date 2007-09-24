@@ -938,7 +938,7 @@ duplicate_block (basic_block bb, edge e, basic_block after)
    instructions that must stay with the call, 0 otherwise.  */
 
 bool
-block_ends_with_call_p (const_basic_block bb)
+block_ends_with_call_p (basic_block bb)
 {
   if (!cfg_hooks->block_ends_with_call_p)
     internal_error ("%s does not support block_ends_with_call_p", cfg_hooks->name);

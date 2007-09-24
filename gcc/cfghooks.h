@@ -89,7 +89,7 @@ struct cfg_hooks
 
   /* Say whether a block ends with a call, possibly followed by some
      other code that must stay with the call.  */
-  bool (*block_ends_with_call_p) (const_basic_block);
+  bool (*block_ends_with_call_p) (basic_block);
 
   /* Say whether a block ends with a conditional branch.  Switches
      and unconditional branches do not qualify.  */
@@ -161,7 +161,7 @@ extern void predict_edge (edge e, enum br_predictor predictor, int probability);
 extern bool predicted_by_p (const_basic_block bb, enum br_predictor predictor);
 extern bool can_duplicate_block_p (const_basic_block);
 extern basic_block duplicate_block (basic_block, edge, basic_block);
-extern bool block_ends_with_call_p (const_basic_block bb);
+extern bool block_ends_with_call_p (basic_block bb);
 extern bool block_ends_with_condjump_p (const_basic_block bb);
 extern int flow_call_edges_add (sbitmap);
 extern void execute_on_growing_pred (edge);

@@ -46,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "value-prof.h"
 #include "pointer-set.h"
-#include "gimple.h"
+#include "tree-inline.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -2097,7 +2097,7 @@ remove_bb (basic_block bb)
      loop above, so the last statement we process is the first statement
      in the block.  */
 #ifdef USE_MAPPED_LOCATION
-  if (loc > BUILTINS_LOCATION)
+  if (loc > BUILTINS_LOCATION && LOCATION_LINE (loc) > 0)
     warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
 #else
   if (IS_LOCATION_EMPTY (loc))
@@ -4853,6 +4853,57 @@ tree_duplicate_bb (basic_block bb)
 }
 #endif
 
+/* Adds phi node arguments for edge E_COPY after basic block duplication.  */
+
+static void
+add_phi_args_after_copy_edge (edge e_copy ATTRIBUTE_UNUSED)
+{
+/* FIXME tuples.  */
+#if 0
+  basic_block bb, bb_copy = e_copy->src, dest;
+  edge e;
+  edge_iterator ei;
+  tree phi, phi_copy, phi_next, def;
+
+  if (!phi_nodes (e_copy->dest))
+    return;
+
+  bb = bb_copy->flags & BB_DUPLICATED ? get_bb_original (bb_copy) : bb_copy;
+
+  if (e_copy->dest->flags & BB_DUPLICATED)
+    dest = get_bb_original (e_copy->dest);
+  else
+    dest = e_copy->dest;
+
+  e = find_edge (bb, dest);
+  if (!e)
+    {
+      /* During loop unrolling the target of the latch edge is copied.
+	 In this case we are not looking for edge to dest, but to
+	 duplicated block whose original was dest.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  if ((e->dest->flags & BB_DUPLICATED)
+	      && get_bb_original (e->dest) == dest)
+	    break;
+	}
+
+      gcc_assert (e != NULL);
+    }
+
+  for (phi = phi_nodes (e->dest), phi_copy = phi_nodes (e_copy->dest);
+       phi;
+       phi = phi_next, phi_copy = PHI_CHAIN (phi_copy))
+    {
+      phi_next = PHI_CHAIN (phi);
+      def = PHI_ARG_DEF_FROM_EDGE (phi, e);
+      add_phi_arg (phi_copy, def, e_copy);
+    }
+#else
+  gcc_unreachable ();
+#endif
+}
+
 
 /* Basic block BB_COPY was created by code duplication.  Add phi node
    arguments for edges going out of BB_COPY.  The blocks that were
@@ -4866,52 +4917,23 @@ add_phi_args_after_copy_bb (basic_block bb_copy ATTRIBUTE_UNUSED)
   basic_block bb, dest;
   edge e, e_copy;
   edge_iterator ei;
-  tree phi, phi_copy, phi_next, def;
-
-  bb = get_bb_original (bb_copy);
+  edge e_copy;
 
   FOR_EACH_EDGE (e_copy, ei, bb_copy->succs)
     {
-      if (!phi_nodes (e_copy->dest))
-	continue;
-
-      if (e_copy->dest->flags & BB_DUPLICATED)
-	dest = get_bb_original (e_copy->dest);
-      else
-	dest = e_copy->dest;
-
-      e = find_edge (bb, dest);
-      if (!e)
-	{
-	  /* During loop unrolling the target of the latch edge is copied.
-	     In this case we are not looking for edge to dest, but to
-	     duplicated block whose original was dest.  */
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if ((e->dest->flags & BB_DUPLICATED)
-		&& get_bb_original (e->dest) == dest)
-	      break;
-
-	  gcc_assert (e != NULL);
-	}
-
-      for (phi = phi_nodes (e->dest), phi_copy = phi_nodes (e_copy->dest);
-	   phi;
-	   phi = phi_next, phi_copy = PHI_CHAIN (phi_copy))
-	{
-	  phi_next = PHI_CHAIN (phi);
-	  def = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	  add_phi_arg (phi_copy, def, e_copy);
-	}
+      add_phi_args_after_copy_edge (e_copy);
     }
 #endif
 }
 
 /* Blocks in REGION_COPY array of length N_REGION were created by
    duplication of basic blocks.  Add phi node arguments for edges
-   going from these blocks.  */
+   going from these blocks.  If E_COPY is not NULL, also add
+   phi node arguments for its destination.*/
 
 void
-add_phi_args_after_copy (basic_block *region_copy, unsigned n_region)
+add_phi_args_after_copy (basic_block *region_copy, unsigned n_region,
+			 edge e_copy)
 {
   unsigned i;
 
@@ -4920,6 +4942,8 @@ add_phi_args_after_copy (basic_block *region_copy, unsigned n_region)
 
   for (i = 0; i < n_region; i++)
     add_phi_args_after_copy_bb (region_copy[i]);
+  if (e_copy)
+    add_phi_args_after_copy_edge (e_copy);
 
   for (i = 0; i < n_region; i++)
     region_copy[i]->flags &= ~BB_DUPLICATED;
@@ -5062,10 +5086,10 @@ tree_duplicate_sese_region (edge entry, edge exit,
   set_immediate_dominator (CDI_DOMINATORS, entry->dest, entry->src);
   VEC_safe_push (basic_block, heap, doms, get_bb_original (entry->dest));
   iterate_fix_dominators (CDI_DOMINATORS, doms, false);
-  free (doms);
+  VEC_free (basic_block, heap, doms);
 
   /* Add the other PHI node arguments.  */
-  add_phi_args_after_copy (region_copy, n_region);
+  add_phi_args_after_copy (region_copy, n_region, NULL);
 
   /* FIXME tuples.  */
 #if 0
@@ -5080,6 +5104,181 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   free_original_copy_tables ();
   return true;
+}
+
+/* Duplicates REGION consisting of N_REGION blocks.  The new blocks
+   are stored to REGION_COPY in the same order in that they appear
+   in REGION, if REGION_COPY is not NULL.  ENTRY is the entry to
+   the region, EXIT an exit from it.  The condition guarding EXIT
+   is moved to ENTRY.  Returns true if duplication succeeds, false
+   otherwise.
+
+   For example, 
+ 
+   some_code;
+   if (cond)
+     A;
+   else
+     B;
+
+   is transformed to
+
+   if (cond)
+     {
+       some_code;
+       A;
+     }
+   else
+     {
+       some_code;
+       B;
+     }
+*/
+
+bool
+tree_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNUSED,
+			  basic_block *region ATTRIBUTE_UNUSED, unsigned n_region ATTRIBUTE_UNUSED,
+			  basic_block *region_copy ATTRIBUTE_UNUSED)
+{
+  /* FIXME tuples.  */
+#if 0
+  unsigned i;
+  bool free_region_copy = false;
+  struct loop *loop = exit->dest->loop_father;
+  struct loop *orig_loop = entry->dest->loop_father;
+  basic_block switch_bb, entry_bb, nentry_bb;
+  VEC (basic_block, heap) *doms;
+  int total_freq = 0, exit_freq = 0;
+  gcov_type total_count = 0, exit_count = 0;
+  edge exits[2], nexits[2], e;
+  block_stmt_iterator bsi;
+  tree cond;
+  edge sorig, snew;
+
+  gcc_assert (EDGE_COUNT (exit->src->succs) == 2);
+  exits[0] = exit;
+  exits[1] = EDGE_SUCC (exit->src, EDGE_SUCC (exit->src, 0) == exit);
+
+  if (!can_copy_bbs_p (region, n_region))
+    return false;
+
+  /* Some sanity checking.  Note that we do not check for all possible
+     missuses of the functions.  I.e. if you ask to copy something weird
+     (e.g., in the example, if there is a jump from inside to the middle
+     of some_code, or come_code defines some of the values used in cond)
+     it will work, but the resulting code will not be correct.  */
+  for (i = 0; i < n_region; i++)
+    {
+      /* We do not handle subloops, i.e. all the blocks must belong to the
+	 same loop.  */
+      if (region[i]->loop_father != orig_loop)
+	return false;
+
+      if (region[i] == orig_loop->latch)
+	return false;
+    }
+
+  initialize_original_copy_tables ();
+  set_loop_copy (orig_loop, loop);
+
+  if (!region_copy)
+    {
+      region_copy = XNEWVEC (basic_block, n_region);
+      free_region_copy = true;
+    }
+
+  gcc_assert (!need_ssa_update_p ());
+
+  /* Record blocks outside the region that are dominated by something
+     inside.  */
+  doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region);
+
+  if (exit->src->count)
+    {
+      total_count = exit->src->count;
+      exit_count = exit->count;
+      /* Fix up corner cases, to avoid division by zero or creation of negative
+	 frequencies.  */
+      if (exit_count > total_count)
+	exit_count = total_count;
+    }
+  else
+    {
+      total_freq = exit->src->frequency;
+      exit_freq = EDGE_FREQUENCY (exit);
+      /* Fix up corner cases, to avoid division by zero or creation of negative
+	 frequencies.  */
+      if (total_freq == 0)
+	total_freq = 1;
+      if (exit_freq > total_freq)
+	exit_freq = total_freq;
+    }
+
+  copy_bbs (region, n_region, region_copy, exits, 2, nexits, orig_loop,
+	    split_edge_bb_loc (exit));
+  if (total_count)
+    {
+      scale_bbs_frequencies_gcov_type (region, n_region,
+				       total_count - exit_count,
+				       total_count);
+      scale_bbs_frequencies_gcov_type (region_copy, n_region, exit_count,
+				       total_count);
+    }
+  else
+    {
+      scale_bbs_frequencies_int (region, n_region, total_freq - exit_freq,
+				 total_freq);
+      scale_bbs_frequencies_int (region_copy, n_region, exit_freq, total_freq);
+    }
+
+  /* Create the switch block, and put the exit condition to it.  */
+  entry_bb = entry->dest;
+  nentry_bb = get_bb_copy (entry_bb);
+  if (!last_stmt (entry->src)
+      || !stmt_ends_bb_p (last_stmt (entry->src)))
+    switch_bb = entry->src;
+  else
+    switch_bb = split_edge (entry);
+  set_immediate_dominator (CDI_DOMINATORS, nentry_bb, switch_bb);
+
+  bsi = bsi_last (switch_bb);
+  cond = last_stmt (exit->src);
+  gcc_assert (TREE_CODE (cond) == COND_EXPR);
+  bsi_insert_after (&bsi, unshare_expr (cond), BSI_NEW_STMT);
+
+  sorig = single_succ_edge (switch_bb);
+  sorig->flags = exits[1]->flags;
+  snew = make_edge (switch_bb, nentry_bb, exits[0]->flags);
+
+  /* Register the new edge from SWITCH_BB in loop exit lists.  */
+  rescan_loop_exit (snew, true, false);
+
+  /* Add the PHI node arguments.  */
+  add_phi_args_after_copy (region_copy, n_region, snew);
+
+  /* Get rid of now superfluous conditions and associated edges (and phi node
+     arguments).  */
+  e = redirect_edge_and_branch (exits[0], exits[1]->dest);
+  PENDING_STMT (e) = NULL_TREE;
+  e = redirect_edge_and_branch (nexits[1], nexits[0]->dest);
+  PENDING_STMT (e) = NULL_TREE;
+
+  /* Anything that is outside of the region, but was dominated by something
+     inside needs to update dominance info.  */
+  iterate_fix_dominators (CDI_DOMINATORS, doms, false);
+  VEC_free (basic_block, heap, doms);
+
+  /* Update the SSA web.  */
+  update_ssa (TODO_update_ssa);
+
+  if (free_region_copy)
+    free (region_copy);
+
+  free_original_copy_tables ();
+  return true;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /*
@@ -5107,13 +5306,94 @@ gather_blocks_in_sese_region (basic_block entry, basic_block exit,
     }
 }
 
+/* Replaces *TP with a duplicate (belonging to function TO_CONTEXT).
+   The duplicates are recorded in VARS_MAP.  */
+
+static void
+replace_by_duplicate_decl (tree *tp ATTRIBUTE_UNUSED, struct pointer_map_t *vars_map ATTRIBUTE_UNUSED,
+			   tree to_context ATTRIBUTE_UNUSED)
+{
+  /* FIXME tuples.  */
+#if 0
+  tree t = *tp, new_t;
+  struct function *f = DECL_STRUCT_FUNCTION (to_context);
+  void **loc;
+
+  if (DECL_CONTEXT (t) == to_context)
+    return;
+
+  loc = pointer_map_contains (vars_map, t);
+
+  if (!loc)
+    {
+      loc = pointer_map_insert (vars_map, t);
+
+      if (SSA_VAR_P (t))
+	{
+	  new_t = copy_var_decl (t, DECL_NAME (t), TREE_TYPE (t));
+	  f->unexpanded_var_list
+		  = tree_cons (NULL_TREE, new_t, f->unexpanded_var_list);
+	}
+      else
+	{
+	  gcc_assert (TREE_CODE (t) == CONST_DECL);
+	  new_t = copy_node (t);
+	}
+      DECL_CONTEXT (new_t) = to_context;
+
+      *loc = new_t;
+    }
+  else
+    new_t = *loc;
+
+  *tp = new_t;
+#else
+  gcc_unreachable ();
+#endif
+}
+
+/* Creates an ssa name in TO_CONTEXT equivalent to NAME.
+   VARS_MAP maps old ssa names and var_decls to the new ones.  */
+
+static tree
+replace_ssa_name (tree name, struct pointer_map_t *vars_map,
+		  tree to_context)
+{
+  void **loc;
+  tree new_name, decl = SSA_NAME_VAR (name);
+
+  gcc_assert (is_gimple_reg (name));
+
+  loc = pointer_map_contains (vars_map, name);
+
+  if (!loc)
+    {
+      replace_by_duplicate_decl (&decl, vars_map, to_context);
+
+      push_cfun (DECL_STRUCT_FUNCTION (to_context));
+      if (gimple_in_ssa_p (cfun))
+	add_referenced_var (decl);
+
+      new_name = make_ssa_name (decl, SSA_NAME_DEF_STMT (name));
+      if (SSA_NAME_IS_DEFAULT_DEF (name))
+	set_default_def (decl, new_name);
+      pop_cfun ();
+
+      loc = pointer_map_insert (vars_map, name);
+      *loc = new_name;
+    }
+  else
+    new_name = *loc;
+
+  return new_name;
+}
 
 struct move_stmt_d
 {
   tree block;
   tree from_context;
   tree to_context;
-  bitmap vars_to_remove;
+  struct pointer_map_t *vars_map;
   htab_t new_label_map;
   bool remap_decls_p;
 };
@@ -5148,9 +5428,11 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 
       p->remap_decls_p = save_remap_decls_p;
     }
-  else if (DECL_P (t) && DECL_CONTEXT (t) == p->from_context)
+  else if (DECL_P (t) || TREE_CODE (t) == SSA_NAME)
     {
-      if (TREE_CODE (t) == LABEL_DECL)
+      if (TREE_CODE (t) == SSA_NAME)
+	*tp = replace_ssa_name (t, p->vars_map, p->to_context);
+      else if (TREE_CODE (t) == LABEL_DECL)
 	{
 	  if (p->new_label_map)
 	    {
@@ -5165,20 +5447,26 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 	}
       else if (p->remap_decls_p)
 	{
-	  DECL_CONTEXT (t) = p->to_context;
-
-	  if (TREE_CODE (t) == VAR_DECL)
+	  /* Replace T with its duplicate.  T should no longer appear in the
+	     parent function, so this looks wasteful; however, it may appear
+	     in referenced_vars, and more importantly, as virtual operands of
+	     statements, and in alias lists of other variables.  It would be
+	     quite difficult to expunge it from all those places.  ??? It might
+	     suffice to do this for addressable variables.  */
+	  if ((TREE_CODE (t) == VAR_DECL
+	       && !is_global_var (t))
+	      || TREE_CODE (t) == CONST_DECL)
+	    replace_by_duplicate_decl (tp, p->vars_map, p->to_context);
+	  
+	  if (SSA_VAR_P (t)
+	      && gimple_in_ssa_p (cfun))
 	    {
-	      struct function *f = DECL_STRUCT_FUNCTION (p->to_context);
-	      f->unexpanded_var_list
-		= tree_cons (0, t, f->unexpanded_var_list);
-
-	      /* Mark T to be removed from the original function,
-	         otherwise it will be given a DECL_RTL when the
-		 original function is expanded.  */
-	      bitmap_set_bit (p->vars_to_remove, DECL_UID (t));
+	      push_cfun (DECL_STRUCT_FUNCTION (p->to_context));
+	      add_referenced_var (*tp);
+	      pop_cfun ();
 	    }
 	}
+      *walk_subtrees = 0;
     }
   else if (TYPE_P (t))
     *walk_subtrees = 0;
@@ -5186,6 +5474,29 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* FIXME tuples.  */
+#if 0
+/* Marks virtual operands of all statements in basic blocks BBS for
+   renaming.  */
+
+static void
+mark_virtual_ops_in_region (VEC (basic_block,heap) *bbs ATTRIBUTE_UNUSED)
+{
+  tree phi;
+  block_stmt_iterator bsi;
+  basic_block bb;
+  unsigned i;
+
+  for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
+    {
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	mark_virtual_ops_for_renaming (phi);
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	mark_virtual_ops_for_renaming (bsi_stmt (bsi));
+    }
+}
+#endif
 
 /* Move basic block BB from function CFUN to function DEST_FN.  The
    block is moved out of the original linked list and placed after
@@ -5194,15 +5505,16 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
    If UPDATE_EDGE_COUNT_P is true, the edge counts on both CFGs is
    updated to reflect the moved edges.
 
-   On exit, local variables that need to be removed from
-   CFUN->UNEXPANDED_VAR_LIST will have been added to VARS_TO_REMOVE.  */
+   The local variables are remapped to new instances, VARS_MAP is used
+   to record the mapping.  */
 
 /* FIXME tuples.  */
 #if 0
 static void
 move_block_to_fn (struct function *dest_cfun, basic_block bb,
 		  basic_block after, bool update_edge_count_p,
-		  bitmap vars_to_remove, htab_t new_label_map, int eh_offset)
+		  struct pointer_map_t *vars_map, htab_t new_label_map,
+		  int eh_offset)
 {
   struct control_flow_graph *cfg;
   edge_iterator ei;
@@ -5210,9 +5522,12 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   gimple_stmt_iterator si;
   struct move_stmt_d d;
   unsigned old_len, new_len;
+  tree phi, next_phi;
 
   /* Remove BB from dominance structures.  */
   delete_from_dominance_info (CDI_DOMINATORS, bb);
+  if (current_loops)
+    remove_bb_from_loops (bb);
 
   /* Link BB to the new linked list.  */
   move_block_after (bb, after);
@@ -5246,20 +5561,45 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   VEC_replace (basic_block, cfg->x_basic_block_info,
                bb->index, bb);
 
+  /* Remap the variables in phi nodes.  */
+  for (phi = phi_nodes (bb); phi; phi = next_phi)
+    {
+      use_operand_p use;
+      tree op = PHI_RESULT (phi);
+      ssa_op_iter oi;
+
+      next_phi = PHI_CHAIN (phi);
+      if (!is_gimple_reg (op))
+	{
+	  /* Remove the phi nodes for virtual operands (alias analysis will be
+	     run for the new function, anyway).  */
+          remove_phi_node (phi, NULL, true);
+	  continue;
+	}
+
+      SET_PHI_RESULT (phi, replace_ssa_name (op, vars_map, dest_cfun->decl));
+      FOR_EACH_PHI_ARG (use, phi, oi, SSA_OP_USE)
+	{
+	  op = USE_FROM_PTR (use);
+	  if (TREE_CODE (op) == SSA_NAME)
+	    SET_USE (use, replace_ssa_name (op, vars_map, dest_cfun->decl));
+	}
+    }
+
   /* The statements in BB need to be associated with a new TREE_BLOCK.
      Labels need to be associated with a new label-to-block map.  */
   memset (&d, 0, sizeof (d));
-  d.vars_to_remove = vars_to_remove;
+  d.vars_map = vars_map;
+  d.from_context = cfun->decl;
+  d.to_context = dest_cfun->decl;
+  d.new_label_map = new_label_map;
 
   for (si = gsi_start (bb); !gsi_end_p (si); gsi_next (&si))
     {
       tree stmt = gsi_stmt (si);
       int region;
 
-      d.from_context = cfun->decl;
-      d.to_context = dest_cfun->decl;
       d.remap_decls_p = true;
-      d.new_label_map = new_label_map;
       if (TREE_BLOCK (stmt))
 	d.block = DECL_INITIAL (dest_cfun->decl);
 
@@ -5302,6 +5642,13 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  gimple_duplicate_stmt_histograms (dest_cfun, stmt, cfun, stmt);
           gimple_remove_stmt_histograms (cfun, stmt);
 	}
+
+      /* We cannot leave any operands allocated from the operand caches of
+	 the current function.  */
+      free_stmt_operands (stmt);
+      push_cfun (dest_cfun);
+      update_stmt (stmt);
+      pop_cfun ();
     }
 }
 #endif
@@ -5389,17 +5736,13 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
   basic_block after, bb, *entry_pred, *exit_succ;
   struct function *saved_cfun;
   int *entry_flag, *exit_flag, eh_offset;
+  unsigned *entry_prob, *exit_prob;
   unsigned i, num_entry_edges, num_exit_edges;
   edge e;
   edge_iterator ei;
-  bitmap vars_to_remove;
   htab_t new_label_map;
-
-  saved_cfun = cfun;
-
-  /* Collect all the blocks in the region.  Manually add ENTRY_BB
-     because it won't be added by dfs_enumerate_from.  */
-  calculate_dominance_info (CDI_DOMINATORS);
+  struct pointer_map_t *vars_map;
+  struct loop *loop = entry_bb->loop_father;
 
   /* If ENTRY does not strictly dominate EXIT, this cannot be an SESE
      region.  */
@@ -5407,9 +5750,17 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
               && (!exit_bb
 		  || dominated_by_p (CDI_DOMINATORS, exit_bb, entry_bb)));
 
+  /* Collect all the blocks in the region.  Manually add ENTRY_BB
+     because it won't be added by dfs_enumerate_from.  */
   bbs = NULL;
   VEC_safe_push (basic_block, heap, bbs, entry_bb);
   gather_blocks_in_sese_region (entry_bb, exit_bb, &bbs);
+
+  /* The blocks that used to be dominated by something in BBS will now be
+     dominated by the new block.  */
+  dom_bbs = get_dominated_by_region (CDI_DOMINATORS,
+				     VEC_address (basic_block, bbs),
+				     VEC_length (basic_block, bbs));
 
   /* Detach ENTRY_BB and EXIT_BB from CFUN->CFG.  We need to remember
      the predecessor edges to ENTRY_BB and the successor edges to
@@ -5418,9 +5769,11 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
   num_entry_edges = EDGE_COUNT (entry_bb->preds);
   entry_pred = (basic_block *) xcalloc (num_entry_edges, sizeof (basic_block));
   entry_flag = (int *) xcalloc (num_entry_edges, sizeof (int));
+  entry_prob = XNEWVEC (unsigned, num_entry_edges);
   i = 0;
   for (ei = ei_start (entry_bb->preds); (e = ei_safe_edge (ei)) != NULL;)
     {
+      entry_prob[i] = e->probability;
       entry_flag[i] = e->flags;
       entry_pred[i++] = e->src;
       remove_edge (e);
@@ -5432,9 +5785,11 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
       exit_succ = (basic_block *) xcalloc (num_exit_edges,
 					   sizeof (basic_block));
       exit_flag = (int *) xcalloc (num_exit_edges, sizeof (int));
+      exit_prob = XNEWVEC (unsigned, num_exit_edges);
       i = 0;
       for (ei = ei_start (exit_bb->succs); (e = ei_safe_edge (ei)) != NULL;)
 	{
+	  exit_prob[i] = e->probability;
 	  exit_flag[i] = e->flags;
 	  exit_succ[i++] = e->dest;
 	  remove_edge (e);
@@ -5445,11 +5800,12 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
       num_exit_edges = 0;
       exit_succ = NULL;
       exit_flag = NULL;
+      exit_prob = NULL;
     }
 
   /* Switch context to the child function to initialize DEST_FN's CFG.  */
   gcc_assert (dest_cfun->cfg == NULL);
-  cfun = dest_cfun;
+  push_cfun (dest_cfun);
 
   init_empty_tree_cfg ();
 
@@ -5472,46 +5828,30 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
 	}
     }
 
-  cfun = saved_cfun;
+  pop_cfun ();
+
+  /* The ssa form for virtual operands in the source function will have to
+     be repaired.  We do not care for the real operands -- the sese region
+     must be closed with respect to those.  */
+  mark_virtual_ops_in_region (bbs);
 
   /* Move blocks from BBS into DEST_CFUN.  */
   gcc_assert (VEC_length (basic_block, bbs) >= 2);
   after = dest_cfun->cfg->x_entry_block_ptr;
-  vars_to_remove = BITMAP_ALLOC (NULL);
+  vars_map = pointer_map_create ();
   for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
     {
       /* No need to update edge counts on the last block.  It has
 	 already been updated earlier when we detached the region from
 	 the original CFG.  */
-      move_block_to_fn (dest_cfun, bb, after, bb != exit_bb, vars_to_remove,
+      move_block_to_fn (dest_cfun, bb, after, bb != exit_bb, vars_map,
 	                new_label_map, eh_offset);
       after = bb;
     }
 
   if (new_label_map)
     htab_delete (new_label_map);
-
-  /* Remove the variables marked in VARS_TO_REMOVE from
-     CFUN->UNEXPANDED_VAR_LIST.  Otherwise, they will be given a
-     DECL_RTL in the context of CFUN.  */
-  if (!bitmap_empty_p (vars_to_remove))
-    {
-      tree *p;
-
-      for (p = &cfun->unexpanded_var_list; *p; )
-	{
-	  tree var = TREE_VALUE (*p);
-	  if (bitmap_bit_p (vars_to_remove, DECL_UID (var)))
-	    {
-	      *p = TREE_CHAIN (*p);
-	      continue;
-	    }
-
-	  p = &TREE_CHAIN (*p);
-	}
-    }
-
-  BITMAP_FREE (vars_to_remove);
+  pointer_map_destroy (vars_map);
 
   /* Rewire the entry and exit blocks.  The successor to the entry
      block turns into the successor of DEST_FN's ENTRY_BLOCK_PTR in
@@ -5522,30 +5862,43 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
 
      FIXME, this is silly.  The CFG ought to become a parameter to
      these helpers.  */
-  cfun = dest_cfun;
+  push_cfun (dest_cfun);
   make_edge (ENTRY_BLOCK_PTR, entry_bb, EDGE_FALLTHRU);
   if (exit_bb)
     make_edge (exit_bb,  EXIT_BLOCK_PTR, 0);
-  cfun = saved_cfun;
+  pop_cfun ();
 
   /* Back in the original function, the SESE region has disappeared,
      create a new basic block in its place.  */
   bb = create_empty_bb (entry_pred[0]);
+  if (current_loops)
+    add_bb_to_loop (bb, loop);
   for (i = 0; i < num_entry_edges; i++)
-    make_edge (entry_pred[i], bb, entry_flag[i]);
+    {
+      e = make_edge (entry_pred[i], bb, entry_flag[i]);
+      e->probability = entry_prob[i];
+    }
 
   for (i = 0; i < num_exit_edges; i++)
-    make_edge (bb, exit_succ[i], exit_flag[i]);
+    {
+      e = make_edge (bb, exit_succ[i], exit_flag[i]);
+      e->probability = exit_prob[i];
+    }
+
+  set_immediate_dominator (CDI_DOMINATORS, bb, dom_entry);
+  for (i = 0; VEC_iterate (basic_block, dom_bbs, i, abb); i++)
+    set_immediate_dominator (CDI_DOMINATORS, abb, bb);
+  VEC_free (basic_block, heap, dom_bbs);
 
   if (exit_bb)
     {
+      free (exit_prob);
       free (exit_flag);
       free (exit_succ);
     }
+  free (entry_prob);
   free (entry_flag);
   free (entry_pred);
-  free_dominance_info (CDI_DOMINATORS);
-  free_dominance_info (CDI_POST_DOMINATORS);
   VEC_free (basic_block, heap, bbs);
 
   return bb;
@@ -5565,7 +5918,6 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   bool ignore_topmost_bind = false, any_var = false;
   basic_block bb;
   tree chain;
-  struct function *saved_cfun;
 
   fprintf (file, "%s (", lang_hooks.decl_printable_name (fn, 2));
 
@@ -5590,8 +5942,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
     }
 
   /* Switch CFUN to point to FN.  */
-  saved_cfun = cfun;
-  cfun = DECL_STRUCT_FUNCTION (fn);
+  push_cfun (DECL_STRUCT_FUNCTION (fn));
 
   /* When GIMPLE is lowered, the variables are no longer available in
      BIND_EXPRs, so display them separately.  */
@@ -5669,7 +6020,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   fprintf (file, "\n\n");
 
   /* Restore CFUN.  */
-  cfun = saved_cfun;
+  pop_cfun ();
 }
 
 
@@ -5786,7 +6137,7 @@ debug_loop_ir (void)
 /* FIXME tuples.  */
 #if 0
 static bool
-tree_block_ends_with_call_p (const_basic_block bb)
+tree_block_ends_with_call_p (basic_block bb)
 {
   gimple_stmt_iterator gsi = gsi_last (bb);
   return get_call_expr_in (gsi_stmt (gsi)) != NULL;

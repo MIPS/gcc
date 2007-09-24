@@ -10,14 +10,13 @@
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
- * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * for  more details.  You should have received a copy of the GNU General   *
+ * Public License along with GCC; see the file COPYING3.  If not see        *
+ * <http://www.gnu.org/licenses/>.                                          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -1626,21 +1625,14 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
     }
 
   /* In addition to what our caller says, claim the field is addressable if we
-     know we might ever attempt to take its address, then mark the decl as
-     nonaddressable accordingly.
+     know that its type is not suitable.
 
      The field may also be "technically" nonaddressable, meaning that even if
      we attempt to take the field's address we will actually get the address
      of a copy.  This is the case for true bitfields, but the DECL_BIT_FIELD
      value we have at this point is not accurate enough, so we don't account
      for this here and let finish_record_type decide.  */
-
-  /* We will take the address in any argument passing sequence if the field
-     type is passed by reference, and we might need the address for any array
-     type, even if normally passed by-copy, to construct a fat pointer if the
-     field is used as an actual for an unconstrained formal.  */
-  if (TREE_CODE (field_type) == ARRAY_TYPE
-      || must_pass_by_ref (field_type) || default_pass_by_ref (field_type))
+  if (!type_for_nonaliased_component_p (field_type))
     addressable = 1;
 
   DECL_NONADDRESSABLE_P (field_decl) = !addressable;
@@ -2120,7 +2112,7 @@ end_subprog_body (tree body)
   DECL_SAVED_TREE (fndecl) = body;
 
   current_function_decl = DECL_CONTEXT (fndecl);
-  cfun = NULL;
+  set_cfun (NULL);
 
   /* We cannot track the location of errors past this point.  */
   error_gnat_node = Empty;
@@ -3816,7 +3808,7 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 	  TYPE_MAIN_VARIANT (rtype) = rtype;
 	}
 
-      /* We have another special case.  If we are unchecked converting subtype
+      /* We have another special case: if we are unchecked converting subtype
 	 into a base type, we need to ensure that VRP doesn't propagate range
 	 information since this conversion may be done precisely to validate
 	 that the object is within the range it is supposed to have.  */
@@ -3826,21 +3818,18 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 		   || TREE_CODE (etype) == ENUMERAL_TYPE
 		   || TREE_CODE (etype) == BOOLEAN_TYPE))
 	{
-	  /* ??? The pattern to be "preserved" by the middle-end and the
-	     optimizers is a VIEW_CONVERT_EXPR between a pair of different
-	     "base" types (integer types without TREE_TYPE).  But this may
-	     raise addressability/aliasing issues because VIEW_CONVERT_EXPR
-	     gets gimplified as an lvalue, thus causing the address of its
-	     operand to be taken if it is deemed addressable and not already
-	     in GIMPLE form.  */
+	  /* The optimization barrier is a VIEW_CONVERT_EXPR node; moreover,
+	     in order not to be deemed an useless type conversion, it must
+	     be from subtype to base type.
+
+	     ??? This may raise addressability and/or aliasing issues because
+	     VIEW_CONVERT_EXPR gets gimplified as an lvalue, thus causing the
+	     address of its operand to be taken if it is deemed addressable
+	     and not already in GIMPLE form.  */
 	  rtype = gnat_type_for_mode (TYPE_MODE (type), TYPE_UNSIGNED (type));
-
-	  if (rtype == type)
-	    {
-	      rtype = copy_type (rtype);
-	      TYPE_MAIN_VARIANT (rtype) = rtype;
-	    }
-
+	  rtype = copy_type (rtype);
+	  TYPE_MAIN_VARIANT (rtype) = rtype;
+	  TREE_TYPE (rtype) = type;
 	  final_unchecked = true;
 	}
 
@@ -4003,6 +3992,38 @@ tree_code_for_record_type (Entity_Id gnat_type)
       return RECORD_TYPE;
 
   return UNION_TYPE;
+}
+
+/* Return true if GNU_TYPE is suitable as the type of a non-aliased
+   component of an aggregate type.  */
+
+bool
+type_for_nonaliased_component_p (tree gnu_type)
+{
+  /* If the type is passed by reference, we may have pointers to the
+     component so it cannot be made non-aliased. */
+  if (must_pass_by_ref (gnu_type) || default_pass_by_ref (gnu_type))
+    return false;
+
+  /* We used to say that any component of aggregate type is aliased
+     because the front-end may take 'Reference of it.  The front-end
+     has been enhanced in the meantime so as to use a renaming instead
+     in most cases, but the back-end can probably take the address of
+     such a component too so we go for the conservative stance.
+
+     For instance, we might need the address of any array type, even
+     if normally passed by copy, to construct a fat pointer if the
+     component is used as an actual for an unconstrained formal.
+
+     Likewise for record types: even if a specific record subtype is
+     passed by copy, the parent type might be passed by ref (e.g. if
+     it's of variable size) and we might take the address of a child
+     component to pass to a parent formal.  We have no way to check
+     for such conditions here.  */
+  if (AGGREGATE_TYPE_P (gnu_type))
+    return false;
+
+  return true;
 }
 
 /* Perform final processing on global variables.  */

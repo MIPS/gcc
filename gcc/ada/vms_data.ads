@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -4563,6 +4562,8 @@ package VMS_Data is
                                                  "-lcomm "                  &
                                                 "MIXED_CODE_COMMENTS "      &
                                                  "-leol "                   &
+                                                "COMMENT_PERCENTAGE "       &
+                                                 "-lratio "                 &
                                                 "BLANK_LINES "              &
                                                  "-lb ";
    --      /LINE_METRICS=(option, option ...)
@@ -4579,6 +4580,8 @@ package VMS_Data is
    --     COMENT_LINES         All comment lines are computed
    --     MIXED_CODE_COMMENTS  All lines containing both code and comment are
    --                          computed
+   --     COMMENT_PERCENTAGE   Ratio between comment lines and all the lines
+   --                          containing comments and program code
    --     BLANK_LINES          Blank lines are computed
    --
    --   All combinations of line metrics options are allowed.
@@ -5089,6 +5092,21 @@ package VMS_Data is
    --   Place the THEN keyword in IF statement and the LOOP keyword in for-
    --   and while-loops on a separate line.
 
+   S_Pretty_Use_On_New_Line : aliased constant S := "/USE_ON_NEW_LINE "   &
+                                                      "--use-on-new-line";
+   --        /USE_ON_NEW_LINE
+   --
+   --   Start any USE clause that is a part of a context clause from a
+   --   separate line.
+
+   S_Pretty_Stnm_On_Nw_Line : aliased constant S := "/STMT_NAME_ON_NEW_LINE " &
+                                                      "--separate-stmt-name";
+   --        /STMT_NAME_ON_NEW_LINE
+   --
+   --   For named block and loop statements use a separate line for the
+   --   statement name, but do not use an extra indentation level for the
+   --   statement itself.
+
    S_Pretty_Eol       : aliased constant S := "/END_OF_LINE="              &
                                                 "DOS "                     &
                                                    "--eol=dos "            &
@@ -5396,44 +5414,46 @@ package VMS_Data is
    --   By default such warnings are not activated.
 
    Pretty_Switches : aliased constant Switches :=
-                       (S_Pretty_Add           'Access,
-                        S_Pretty_Align         'Access,
-                        S_Pretty_All_Prjs      'Access,
-                        S_Pretty_Attrib        'Access,
-                        S_Pretty_Comments      'Access,
-                        S_Pretty_Compact_Is    'Access,
-                        S_Pretty_Config        'Access,
-                        S_Pretty_Constr        'Access,
-                        S_Pretty_Comind        'Access,
-                        S_Pretty_Current       'Access,
-                        S_Pretty_Dico          'Access,
-                        S_Pretty_Eol           'Access,
-                        S_Pretty_Ext           'Access,
-                        S_Pretty_Encoding      'Access,
-                        S_Pretty_Files         'Access,
-                        S_Pretty_Forced        'Access,
-                        S_Pretty_Formfeed      'Access,
-                        S_Pretty_Indent        'Access,
-                        S_Pretty_Keyword       'Access,
-                        S_Pretty_Maxlen        'Access,
-                        S_Pretty_Maxind        'Access,
-                        S_Pretty_Mess          'Access,
-                        S_Pretty_Names         'Access,
-                        S_Pretty_No_Backup     'Access,
-                        S_Pretty_No_Labels     'Access,
-                        S_Pretty_Notabs        'Access,
-                        S_Pretty_Output        'Access,
-                        S_Pretty_Override      'Access,
-                        S_Pretty_Pragma        'Access,
-                        S_Pretty_Replace       'Access,
-                        S_Pretty_Project       'Access,
-                        S_Pretty_RTS           'Access,
-                        S_Pretty_Search        'Access,
-                        S_Pretty_Sep_Loop_Then 'Access,
-                        S_Pretty_Specific      'Access,
-                        S_Pretty_Standard      'Access,
-                        S_Pretty_Verbose       'Access,
-                        S_Pretty_Warnings      'Access);
+                       (S_Pretty_Add            'Access,
+                        S_Pretty_Align          'Access,
+                        S_Pretty_All_Prjs       'Access,
+                        S_Pretty_Attrib         'Access,
+                        S_Pretty_Comments       'Access,
+                        S_Pretty_Compact_Is     'Access,
+                        S_Pretty_Config         'Access,
+                        S_Pretty_Constr         'Access,
+                        S_Pretty_Comind         'Access,
+                        S_Pretty_Current        'Access,
+                        S_Pretty_Dico           'Access,
+                        S_Pretty_Eol            'Access,
+                        S_Pretty_Ext            'Access,
+                        S_Pretty_Encoding       'Access,
+                        S_Pretty_Files          'Access,
+                        S_Pretty_Forced         'Access,
+                        S_Pretty_Formfeed       'Access,
+                        S_Pretty_Indent         'Access,
+                        S_Pretty_Keyword        'Access,
+                        S_Pretty_Maxlen         'Access,
+                        S_Pretty_Maxind         'Access,
+                        S_Pretty_Mess           'Access,
+                        S_Pretty_Names          'Access,
+                        S_Pretty_No_Backup      'Access,
+                        S_Pretty_No_Labels      'Access,
+                        S_Pretty_Notabs         'Access,
+                        S_Pretty_Output         'Access,
+                        S_Pretty_Override       'Access,
+                        S_Pretty_Pragma         'Access,
+                        S_Pretty_Replace        'Access,
+                        S_Pretty_Project        'Access,
+                        S_Pretty_RTS            'Access,
+                        S_Pretty_Search         'Access,
+                        S_Pretty_Sep_Loop_Then  'Access,
+                        S_Pretty_Use_On_New_Line'Access,
+                        S_Pretty_Stnm_On_Nw_Line'Access,
+                        S_Pretty_Specific       'Access,
+                        S_Pretty_Standard       'Access,
+                        S_Pretty_Verbose        'Access,
+                        S_Pretty_Warnings       'Access);
 
    ------------------------------
    -- Switches for GNAT SHARED --

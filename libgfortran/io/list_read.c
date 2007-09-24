@@ -29,11 +29,9 @@ the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
 
-#include "config.h"
+#include "io.h"
 #include <string.h>
 #include <ctype.h>
-#include "libgfortran.h"
-#include "io.h"
 
 
 /* List directed input.  Several parsing subroutines are practically
@@ -209,7 +207,7 @@ next_char (st_parameter_dt *dtp)
 	     check for NULL here is cautionary.  */
 	  if (p == NULL)
 	    {
-	      generate_error (&dtp->common, ERROR_INTERNAL_UNIT, NULL);
+	      generate_error (&dtp->common, LIBERROR_INTERNAL_UNIT, NULL);
 	      return '\0';
 	    }
 
@@ -230,7 +228,7 @@ next_char (st_parameter_dt *dtp)
     {
       if (p == NULL)
 	{
-	  generate_error (&dtp->common, ERROR_OS, NULL);
+	  generate_error (&dtp->common, LIBERROR_OS, NULL);
 	  return '\0';
 	}
       if (length == 0)
@@ -467,7 +465,7 @@ convert_integer (st_parameter_dt *dtp, int length, int negative)
 	  sprintf (message, "Zero repeat count in item %d of list input",
 		   dtp->u.p.item_count);
 
-	  generate_error (&dtp->common, ERROR_READ_VALUE, message);
+	  generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 	  m = 1;
 	}
     }
@@ -484,7 +482,7 @@ convert_integer (st_parameter_dt *dtp, int length, int negative)
 	     dtp->u.p.item_count);
 
   free_saved (dtp);
-  generate_error (&dtp->common, ERROR_READ_VALUE, message);
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 
   return 1;
 }
@@ -531,7 +529,7 @@ parse_repeat (st_parameter_dt *dtp)
 		       "Repeat count overflow in item %d of list input",
 		       dtp->u.p.item_count);
 
-	      generate_error (&dtp->common, ERROR_READ_VALUE, message);
+	      generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 	      return 1;
 	    }
 
@@ -544,7 +542,7 @@ parse_repeat (st_parameter_dt *dtp)
 		       "Zero repeat count in item %d of list input",
 		       dtp->u.p.item_count);
 
-	      generate_error (&dtp->common, ERROR_READ_VALUE, message);
+	      generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 	      return 1;
 	    }
 
@@ -565,7 +563,7 @@ parse_repeat (st_parameter_dt *dtp)
   free_saved (dtp);
   sprintf (message, "Bad repeat count in item %d of list input",
 	   dtp->u.p.item_count);
-  generate_error (&dtp->common, ERROR_READ_VALUE, message);
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
   return 1;
 }
 
@@ -710,7 +708,7 @@ read_logical (st_parameter_dt *dtp, int length)
   free_saved (dtp);
   sprintf (message, "Bad logical value while reading item %d",
 	      dtp->u.p.item_count);
-  generate_error (&dtp->common, ERROR_READ_VALUE, message);
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
   return;
 
  logical_done:
@@ -842,7 +840,7 @@ read_integer (st_parameter_dt *dtp, int length)
   free_saved (dtp);
   sprintf (message, "Bad integer for item %d in list input",
 	      dtp->u.p.item_count);
-  generate_error (&dtp->common, ERROR_READ_VALUE, message);
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 
   return;
 
@@ -889,7 +887,9 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
       goto get_string;
 
     default:
-      if (dtp->u.p.namelist_mode)
+      if (dtp->u.p.namelist_mode
+	  && (dtp->u.p.current_unit->flags.delim == DELIM_APOSTROPHE
+	      || dtp->u.p.current_unit->flags.delim == DELIM_QUOTE))
 	{
 	  unget_char (dtp,c);
 	  return;
@@ -1006,7 +1006,7 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
       free_saved (dtp);
       sprintf (message, "Invalid string input in item %d",
 		  dtp->u.p.item_count);
-      generate_error (&dtp->common, ERROR_READ_VALUE, message);
+      generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
     }
 }
 
@@ -1125,7 +1125,7 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
   free_saved (dtp);
   sprintf (message, "Bad floating point number for item %d",
 	      dtp->u.p.item_count);
-  generate_error (&dtp->common, ERROR_READ_VALUE, message);
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 
   return 1;
 }
@@ -1208,7 +1208,7 @@ eol_2:
   free_saved (dtp);
   sprintf (message, "Bad complex value in item %d of list input",
 	      dtp->u.p.item_count);
-  generate_error (&dtp->common, ERROR_READ_VALUE, message);
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 }
 
 
@@ -1423,7 +1423,7 @@ read_real (st_parameter_dt *dtp, int length)
   free_saved (dtp);
   sprintf (message, "Bad real number in item %d of list input",
 	      dtp->u.p.item_count);
-  generate_error (&dtp->common, ERROR_READ_VALUE, message);
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
 }
 
 
@@ -1441,7 +1441,7 @@ check_type (st_parameter_dt *dtp, bt type, int len)
 		  type_name (dtp->u.p.saved_type), type_name (type),
 		  dtp->u.p.item_count);
 
-      generate_error (&dtp->common, ERROR_READ_VALUE, message);
+      generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
       return 1;
     }
 
@@ -1454,7 +1454,7 @@ check_type (st_parameter_dt *dtp, bt type, int len)
 		  "Read kind %d %s where kind %d is required for item %d",
 		  dtp->u.p.saved_length, type_name (dtp->u.p.saved_type), len,
 		  dtp->u.p.item_count);
-      generate_error (&dtp->common, ERROR_READ_VALUE, message);
+      generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
       return 1;
     }
 
@@ -1480,7 +1480,7 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
   dtp->u.p.eof_jump = &eof_jump;
   if (setjmp (eof_jump))
     {
-      generate_error (&dtp->common, ERROR_END, NULL);
+      generate_error (&dtp->common, LIBERROR_END, NULL);
       goto cleanup;
     }
 
@@ -2552,7 +2552,7 @@ namelist_read (st_parameter_dt *dtp)
   if (setjmp (eof_jump))
     {
       dtp->u.p.eof_jump = NULL;
-      generate_error (&dtp->common, ERROR_END, NULL);
+      generate_error (&dtp->common, LIBERROR_END, NULL);
       return;
     }
 
@@ -2636,6 +2636,6 @@ nml_err_ret:
   dtp->u.p.eof_jump = NULL;
   free_saved (dtp);
   free_line (dtp);
-  generate_error (&dtp->common, ERROR_READ_VALUE, nml_err_msg);
+  generate_error (&dtp->common, LIBERROR_READ_VALUE, nml_err_msg);
   return;
 }

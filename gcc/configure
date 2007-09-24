@@ -1490,7 +1490,7 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
   --with-pkgversion=PKG   Use PKG in the version string in place of
-                          "gimple-tuples-branch rev. 127831"
+                          "gimple-tuples-branch rev. 128708"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
@@ -7894,7 +7894,7 @@ echo "$as_me: error: package version not specified" >&2;}
       *)   PKGVERSION="($withval) " ;;
      esac
 else
-  PKGVERSION="(gimple-tuples-branch rev. 127831) "
+  PKGVERSION="(gimple-tuples-branch rev. 128708) "
 
 fi
 
@@ -8413,7 +8413,7 @@ else
 
                     case $ac_prog_version in
                       '')  gcc_cv_prog_makeinfo_modern=no;;
-                      4.[4-9]*)  gcc_cv_prog_makeinfo_modern=yes;;
+                      4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*)  gcc_cv_prog_makeinfo_modern=yes;;
                       *)   gcc_cv_prog_makeinfo_modern=no;;
                     esac
 
@@ -13011,7 +13011,7 @@ case ${enable_threads} in
     target_thread_file='single'
     ;;
   aix | dce | gnat | irix | posix | posix95 | rtems | \
-  single | solaris | vxworks | win32 )
+  single | solaris | vxworks | win32 | mipssde)
     target_thread_file=${enable_threads}
     ;;
   *)
@@ -14522,9 +14522,7 @@ else
   ld_ver=`$gcc_cv_ld --version 2>/dev/null | sed 1q`
   if echo "$ld_ver" | grep GNU > /dev/null; then
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \

@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
+#include "debug.h"
 
 /* Current statement label.  Zero means no statement label.  Because new_st
    can get wiped during statement matching, we have to keep it separate.  */
@@ -258,6 +259,7 @@ decode_statement (void)
       match ("pointer", gfc_match_pointer, ST_ATTR_DECL);
       if (gfc_match_private (&st) == MATCH_YES)
 	return st;
+      match ("procedure", gfc_match_procedure, ST_PROCEDURE);
       match ("program", gfc_match_program, ST_PROGRAM);
       if (gfc_match_public (&st) == MATCH_YES)
 	return st;
@@ -672,6 +674,9 @@ next_statement (void)
 	  break;
 	}
 
+      if (gfc_define_undef_line ())
+	continue;
+
       st = (gfc_current_form == FORM_FIXED) ? next_fixed () : next_free ();
 
       if (st != ST_NONE)
@@ -719,7 +724,8 @@ next_statement (void)
 
 #define case_decl case ST_ATTR_DECL: case ST_COMMON: case ST_DATA_DECL: \
   case ST_EQUIVALENCE: case ST_NAMELIST: case ST_STATEMENT_FUNCTION: \
-  case ST_TYPE: case ST_INTERFACE: case ST_OMP_THREADPRIVATE
+  case ST_TYPE: case ST_INTERFACE: case ST_OMP_THREADPRIVATE: \
+  case ST_PROCEDURE
 
 /* Block end statements.  Errors associated with interchanging these
    are detected in gfc_match_end().  */
@@ -1077,6 +1083,9 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_PROGRAM:
       p = "PROGRAM";
+      break;
+    case ST_PROCEDURE:
+      p = "PROCEDURE";
       break;
     case ST_READ:
       p = "READ";
@@ -1537,6 +1546,7 @@ parse_derived (void)
 	  unexpected_eof ();
 
 	case ST_DATA_DECL:
+	case ST_PROCEDURE:
 	  accept_statement (st);
 	  seen_component = 1;
 	  break;
@@ -1645,6 +1655,9 @@ parse_derived (void)
 	}
     }
 
+  if (!seen_component)
+    sym->attr.zero_comp = 1;
+
   pop_state ();
 }
 
@@ -1749,6 +1762,7 @@ loop:
 				  gfc_new_block->formal, NULL);
       break;
 
+    case ST_PROCEDURE:
     case ST_MODULE_PROC:	/* The module procedure matcher makes
 				   sure the context is correct.  */
       accept_statement (st);
@@ -2636,7 +2650,7 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
 	      && strcmp (cp->ext.omp_name, new_st.ext.omp_name) != 0))
 	gfc_error ("Name after !$omp critical and !$omp end critical does "
 		   "not match at %C");
-      gfc_free (CONST_CAST (new_st.ext.omp_name));
+      gfc_free (CONST_CAST (char *, new_st.ext.omp_name));
       break;
     case EXEC_OMP_END_SINGLE:
       cp->ext.omp_clauses->lists[OMP_LIST_COPYPRIVATE]
@@ -3209,6 +3223,11 @@ gfc_parse_file (void)
   gfc_statement st;
   locus prog_locus;
 
+  /* If the debugger wants the name of the main source file,
+     we give it.  */
+  if (debug_hooks->start_end_main_source_file)
+    (*debug_hooks->start_source_file) (0, gfc_source_file);
+
   top.state = COMP_NONE;
   top.sym = NULL;
   top.previous = NULL;
@@ -3319,6 +3338,9 @@ loop:
   goto loop;
 
 done:
+  if (debug_hooks->start_end_main_source_file)
+    (*debug_hooks->end_source_file) (0);
+
   return SUCCESS;
 
 duplicate_main:

@@ -56,6 +56,10 @@ typedef struct copy_body_data
   /* Current BLOCK.  */
   tree block;
 
+  /* CALL_EXPR if va arg parameter packs should be expanded or NULL
+     is not.  */
+  tree call_expr;
+
   /* Exception region the inlined call lie in.  */
   int eh_region;
   /* Take region number in the function being copied, add this value and
@@ -130,14 +134,11 @@ extern void insert_decl_map (copy_body_data *, tree, tree);
 
 unsigned int optimize_inline_calls (tree);
 bool tree_inlinable_function_p (tree);
-bool disregard_inline_limits_p (tree);
 tree copy_tree_r (tree *, int *, void *);
 void clone_body (tree, tree, void *);
 void save_body (tree, tree *, tree *);
 int estimate_move_cost (tree type);
-void push_cfun (struct function *new_cfun);
-void pop_cfun (void);
-int estimate_num_insns (tree expr, eni_weights *);
+int estimate_num_insns (gimple, eni_weights *);
 bool tree_versionable_function_p (tree);
 void tree_function_versioning (tree, tree, varray_type, bool);
 

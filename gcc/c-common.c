@@ -516,9 +516,10 @@ static tree handle_cold_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
-static tree handle_gnu_inline_attribute (tree *, tree, tree, int,
-					 bool *);
+static tree handle_gnu_inline_attribute (tree *, tree, tree, int, bool *);
+static tree handle_artificial_attribute (tree *, tree, tree, int, bool *);
 static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
+static tree handle_error_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
@@ -590,6 +591,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_always_inline_attribute },
   { "gnu_inline",             0, 0, true,  false, false,
 			      handle_gnu_inline_attribute },
+  { "artificial",             0, 0, true,  false, false,
+			      handle_artificial_attribute },
   { "flatten",                0, 0, true,  false, false,
 			      handle_flatten_attribute },
   { "used",                   0, 0, true,  false, false,
@@ -662,6 +665,10 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_cold_attribute },
   { "hot",                    0, 0, true,  false, false,
 			      handle_hot_attribute },
+  { "warning",		      1, 1, true,  false, false,
+			      handle_error_attribute },
+  { "error",		      1, 1, true,  false, false,
+			      handle_error_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -757,7 +764,8 @@ fname_as_string (int pretty_p)
 {
   const char *name = "top level";
   char *namep;
-  int vrb = 2;
+  int vrb = 2, len;
+  cpp_string cstr = { 0, 0 }, strname;
 
   if (!pretty_p)
     {
@@ -768,24 +776,18 @@ fname_as_string (int pretty_p)
   if (current_function_decl)
     name = lang_hooks.decl_printable_name (current_function_decl, vrb);
 
-  if (c_lex_string_translate)
+  len = strlen (name) + 3; /* Two for '"'s.  One for NULL.  */
+
+  namep = XNEWVEC (char, len);
+  snprintf (namep, len, "\"%s\"", name);
+  strname.text = (unsigned char *) namep;
+  strname.len = len - 1;
+
+  if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
     {
-      int len = strlen (name) + 3; /* Two for '"'s.  One for NULL.  */
-      cpp_string cstr = { 0, 0 }, strname;
-
-      namep = XNEWVEC (char, len);
-      snprintf (namep, len, "\"%s\"", name);
-      strname.text = (unsigned char *) namep;
-      strname.len = len - 1;
-
-      if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
-	{
-	  XDELETEVEC (namep);
-	  return (const char *) cstr.text;
-	}
+      XDELETEVEC (namep);
+      return (const char *) cstr.text;
     }
-  else
-    namep = xstrdup (name);
 
   return namep;
 }
@@ -4165,15 +4167,6 @@ strip_array_types (tree type)
   return type;
 }
 
-const_tree
-const_strip_array_types (const_tree type)
-{
-  while (TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
-  return type;
-}
-
 /* Recursively remove any '*' or '&' operator from TYPE.  */
 tree
 strip_pointer_operator (tree t)
@@ -4587,15 +4580,6 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
     }
 }
 
-
-/* Generate the RTL for the body of FNDECL.  */
-
-void
-c_expand_body (tree fndecl)
-{
-  tree_rest_of_compilation (fndecl);
-}
-
 /* Hook used by staticp to handle language-specific tree codes.  */
 
 tree
@@ -4865,8 +4849,9 @@ handle_always_inline_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
     {
-      /* Do nothing else, just set the attribute.  We'll get at
-	 it later with lookup_attribute.  */
+      /* Set the attribute and mark it for disregarding inline
+	 limits.  */
+      DECL_DISREGARD_INLINE_LIMITS (*node) = 1;
     }
   else
     {
@@ -4882,6 +4867,29 @@ handle_always_inline_attribute (tree *node, tree name,
 
 static tree
 handle_gnu_inline_attribute (tree *node, tree name,
+			     tree ARG_UNUSED (args),
+			     int ARG_UNUSED (flags),
+			     bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (*node))
+    {
+      /* Do nothing else, just set the attribute.  We'll get at
+	 it later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle an "artificial" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_artificial_attribute (tree *node, tree name,
 			     tree ARG_UNUSED (args),
 			     int ARG_UNUSED (flags),
 			     bool *no_add_attrs)
@@ -4921,6 +4929,26 @@ handle_flatten_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "warning" or "error" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_error_attribute (tree *node, tree name, tree args,
+			int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      || TREE_CODE (TREE_VALUE (args)) == STRING_CST)
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
 
 /* Handle a "used" attribute; arguments as in
    struct attribute_spec.handler.  */

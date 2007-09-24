@@ -98,7 +98,6 @@ int global_bindings_p (void);
 void insert_block (tree);
 static void gfc_clear_binding_stack (void);
 static void gfc_be_parse_file (int);
-static void gfc_expand_function (tree);
 static alias_set_type gfc_get_alias_set (tree);
 
 #undef LANG_HOOKS_NAME
@@ -112,7 +111,6 @@ static alias_set_type gfc_get_alias_set (tree);
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #undef LANG_HOOKS_TYPE_FOR_SIZE
-#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #undef LANG_HOOKS_GET_ALIAS_SET
 #undef LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE
@@ -135,7 +133,6 @@ static alias_set_type gfc_get_alias_set (tree);
 #define LANG_HOOKS_MARK_ADDRESSABLE        gfc_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE           gfc_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE           gfc_type_for_size
-#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 #define LANG_HOOKS_CLEAR_BINDING_STACK     gfc_clear_binding_stack
 #define LANG_HOOKS_GET_ALIAS_SET	   gfc_get_alias_set
 #define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE	gfc_omp_privatize_by_reference
@@ -193,45 +190,6 @@ static GTY(()) struct binding_level *free_binding_level;
    for the reserved type names and storage classes.
    It is indexed by a RID_... value.  */
 tree *ridpointers = NULL;
-
-/* language-specific flags.  */
-
-static void
-gfc_expand_function (tree fndecl)
-{
-  tree t;
-
-  if (DECL_INITIAL (fndecl)
-      && BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl)))
-    {
-      /* Local static equivalenced variables are never seen by
-	 check_global_declarations, so we need to output debug
-	 info by hand.  */
-
-      t = BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl));
-      for (t = BLOCK_VARS (t); t; t = TREE_CHAIN (t))
-	if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t)
-	    && TREE_STATIC (t))
-	  {
-	    tree expr = DECL_VALUE_EXPR (t);
-
-	    if (TREE_CODE (expr) == COMPONENT_REF
-		&& TREE_CODE (TREE_OPERAND (expr, 0)) == VAR_DECL
-		&& TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0)))
-		   == UNION_TYPE
-		&& varpool_node (TREE_OPERAND (expr, 0))->needed
-		&& errorcount == 0 && sorrycount == 0)
-	      {
-		timevar_push (TV_SYMOUT);
-		(*debug_hooks->global_decl) (t);
-		timevar_pop (TV_SYMOUT);
-	      }
-	  }
-    }
-
-  tree_rest_of_compilation (fndecl);
-}
-
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
    or validate its data type for an `if' or `while' statement or ?..: exp.
@@ -316,8 +274,8 @@ static bool
 gfc_init (void)
 {
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, gfc_source_file, 1);
-  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
+  linemap_add (line_table, LC_ENTER, false, gfc_source_file, 1);
+  linemap_add (line_table, LC_RENAME, false, "<built-in>", 0);
 #endif
 
   /* First initialize the backend.  */
@@ -1035,6 +993,12 @@ gfc_init_builtin_functions (void)
   gfc_define_builtin ("__builtin_malloc", ftype, BUILT_IN_MALLOC,
 		      "malloc", false);
   DECL_IS_MALLOC (built_in_decls[BUILT_IN_MALLOC]) = 1;
+
+  tmp = tree_cons (NULL_TREE, pvoid_type_node, void_list_node);
+  tmp = tree_cons (NULL_TREE, size_type_node, tmp);
+  ftype = build_function_type (pvoid_type_node, tmp);
+  gfc_define_builtin ("__builtin_realloc", ftype, BUILT_IN_REALLOC,
+		      "realloc", false);
 
   tmp = tree_cons (NULL_TREE, void_type_node, void_list_node);
   ftype = build_function_type (integer_type_node, tmp);

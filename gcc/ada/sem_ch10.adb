@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1892,15 +1891,20 @@ package body Sem_Ch10 is
                --  Protect frontend against previous errors in context clauses
 
                if Nkind (Name (Item)) /= N_Selected_Component then
-                  Unit_Name := Entity (Name (Item));
-                  while Is_Child_Unit (Unit_Name) loop
-                     Set_Is_Visible_Child_Unit (Unit_Name);
-                     Unit_Name := Scope (Unit_Name);
-                  end loop;
+                  if Error_Posted (Item) then
+                     null;
 
-                  if not Is_Immediately_Visible (Unit_Name) then
-                     Set_Is_Immediately_Visible (Unit_Name);
-                     Set_Context_Installed (Item);
+                  else
+                     Unit_Name := Entity (Name (Item));
+                     while Is_Child_Unit (Unit_Name) loop
+                        Set_Is_Visible_Child_Unit (Unit_Name);
+                        Unit_Name := Scope (Unit_Name);
+                     end loop;
+
+                     if not Is_Immediately_Visible (Unit_Name) then
+                        Set_Is_Immediately_Visible (Unit_Name);
+                        Set_Context_Installed (Item);
+                     end if;
                   end if;
                end if;
 
@@ -1932,6 +1936,7 @@ package body Sem_Ch10 is
                --  Protect frontend against previous errors in context clauses
 
               and then Nkind (Name (Item)) /= N_Selected_Component
+              and then not Error_Posted (Item)
             then
                Unit_Name := Entity (Name (Item));
                while Is_Child_Unit (Unit_Name) loop

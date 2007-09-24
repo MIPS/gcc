@@ -512,7 +512,7 @@ dump_stack_var_partition (void)
 	  fputc ('\t', dump_file);
 	  print_generic_expr (dump_file, stack_vars[j].decl, dump_flags);
 	  fprintf (dump_file, ", offset " HOST_WIDE_INT_PRINT_DEC "\n",
-		   stack_vars[i].offset);
+		   stack_vars[j].offset);
 	}
     }
 }
@@ -1322,8 +1322,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       maybe_dump_rtl_for_tree_stmt (stmt, last);
       /* FIXME tuples.  */
 #if 0
-      if (!IS_LOCATION_EMPTY (true_edge->goto_locus))
-  	set_curr_insn_source_location (true_edge->goto_locus);
+      if (true_edge->goto_locus)
+  	set_curr_insn_source_location (location_from_locus (true_edge->goto_locus));
 #else
       gcc_unreachable ();
 #endif
@@ -1337,8 +1337,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       maybe_dump_rtl_for_tree_stmt (stmt, last);
       /* FIXME tuples.  */
 #if 0
-      if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
-  	set_curr_insn_source_location (false_edge->goto_locus);
+      if (false_edge->goto_locus)
+  	set_curr_insn_source_location (location_from_locus (false_edge->goto_locus));
 #else
       gcc_unreachable ();
 #endif
@@ -1373,8 +1373,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 
   /* FIXME tuples.  */
 #if 0
-  if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
-    set_curr_insn_source_location (false_edge->goto_locus);
+  if (false_edge->goto_locus)
+    set_curr_insn_source_location (location_from_locus (false_edge->goto_locus));
 #else
   gcc_unreachable ();
 #endif
@@ -1649,8 +1649,8 @@ expand_gimple_basic_block (basic_block bb)
   if (e && e->dest != bb->next_bb)
     {
       emit_jump (label_rtx_for_bb (e->dest));
-      if (!IS_LOCATION_EMPTY (e->goto_locus))
-        set_curr_insn_source_location (e->goto_locus);
+      if (e->goto_locus)
+        set_curr_insn_source_location (location_from_locus (e->goto_locus));
       e->flags &= ~EDGE_FALLTHRU;
     }
 

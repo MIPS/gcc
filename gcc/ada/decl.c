@@ -10,14 +10,13 @@
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
- * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * for  more details.  You should have received a copy of the GNU General   *
+ * Public License along with GCC; see the file COPYING3.  If not see        *
+ * <http://www.gnu.org/licenses/>.                                          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -104,6 +103,7 @@ static tree gnat_to_gnu_field (Entity_Id, tree, int, bool);
 static tree gnat_to_gnu_param (Entity_Id, Mechanism_Type, Entity_Id, bool,
 			       bool *);
 static bool same_discriminant_p (Entity_Id, Entity_Id);
+static bool array_type_has_nonaliased_component (Entity_Id, tree);
 static void components_to_record (tree, Node_Id, tree, int, bool, tree *,
 				  bool, bool, bool, bool);
 static Uint annotate_value (tree);
@@ -524,6 +524,21 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* Get the type after elaborating the renamed object.  */
 	gnu_type = gnat_to_gnu_type (Etype (gnat_entity));
 
+	/* For a debug renaming declaration, build a pure debug entity.  */
+	if (Present (Debug_Renaming_Link (gnat_entity)))
+	  {
+	    rtx addr;
+	    gnu_decl = build_decl (VAR_DECL, gnu_entity_id, gnu_type);
+	    /* The (MEM (CONST (0))) pattern is prescribed by STABS.  */
+	    if (global_bindings_p ())
+	      addr = gen_rtx_CONST (VOIDmode, const0_rtx);
+	    else
+	      addr = stack_pointer_rtx;
+	    SET_DECL_RTL (gnu_decl, gen_rtx_MEM (Pmode, addr));
+	    gnat_pushdecl (gnu_decl, gnat_entity);
+	    break;
+	  }
+
 	/* If this is a loop variable, its type should be the base type.
 	   This is because the code for processing a loop determines whether
 	   a normal loop end test can be done by comparing the bounds of the
@@ -713,12 +728,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	gnu_type = maybe_pad_type (gnu_type, gnu_size, align, gnat_entity,
 				   "PAD", false, definition, true);
 
-	/* Make a volatile version of this object's type if we are to
-	   make the object volatile.  Note that 13.3(19) says that we
-	   should treat other types of objects as volatile as well.  */
+	/* Make a volatile version of this object's type if we are to make
+	   the object volatile.  We also interpret 13.3(19) conservatively
+	   and disallow any optimizations for an object covered by it.  */
 	if ((Treat_As_Volatile (gnat_entity)
 	     || Is_Exported (gnat_entity)
-	     || Is_Imported (gnat_entity))
+	     || Is_Imported (gnat_entity)
+	     || Present (Address_Clause (gnat_entity)))
 	    && !TYPE_VOLATILE (gnu_type))
 	  gnu_type = build_qualified_type (gnu_type,
 					   (TYPE_QUALS (gnu_type)
@@ -816,10 +832,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		/* Case 3: If this is a constant renaming and creating a
 		   new object is allowed and cheap, treat it as a normal
 		   object whose initial value is what is being renamed.  */
-		if (const_flag
-		    && Ekind (Etype (gnat_entity)) != E_Class_Wide_Type
-		    && TREE_CODE (gnu_type) != UNCONSTRAINED_ARRAY_TYPE
-		    && TYPE_MODE (gnu_type) != BLKmode)
+		if (const_flag && Is_Elementary_Type (Etype (gnat_entity)))
 		  ;
 
 		/* Case 4: Make this into a constant pointer to the object we
@@ -1777,16 +1790,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  {
 	    tem = build_array_type (tem, gnu_index_types[index]);
 	    TYPE_MULTI_ARRAY_P (tem) = (index > 0);
-
-	    /* If the type below this is a multi-array type, then this
-	       does not have aliased components.  But we have to make
-	       them addressable if it must be passed by reference or
-	       if that is the default.  */
-	    if ((TREE_CODE (TREE_TYPE (tem)) == ARRAY_TYPE
-		 && TYPE_MULTI_ARRAY_P (TREE_TYPE (tem)))
-		|| (!Has_Aliased_Components (gnat_entity)
-		    && !must_pass_by_ref (TREE_TYPE (tem))
-		    && !default_pass_by_ref (TREE_TYPE (tem))))
+	    if (array_type_has_nonaliased_component (gnat_entity, tem))
 	      TYPE_NONALIASED_COMPONENT (tem) = 1;
 	  }
 
@@ -2112,16 +2116,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    {
 	      gnu_type = build_array_type (gnu_type, gnu_index_type[index]);
 	      TYPE_MULTI_ARRAY_P (gnu_type) = (index > 0);
-
-	      /* If the type below this is a multi-array type, then this
-		 does not have aliased components.  But we have to make
-		 them addressable if it must be passed by reference or
-		 if that is the default.  */
-	      if ((TREE_CODE (TREE_TYPE (gnu_type)) == ARRAY_TYPE
-		   && TYPE_MULTI_ARRAY_P (TREE_TYPE (gnu_type)))
-		  || (!Has_Aliased_Components (gnat_entity)
-		      && !must_pass_by_ref (TREE_TYPE (gnu_type))
-		      && !default_pass_by_ref (TREE_TYPE (gnu_type))))
+	      if (array_type_has_nonaliased_component (gnat_entity, gnu_type))
 		TYPE_NONALIASED_COMPONENT (gnu_type) = 1;
 	    }
 
@@ -2768,9 +2763,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			gnu_field_type = TREE_TYPE (gnu_old_field);
 		      }
 
-		    /* If this was a bitfield, get the size from the old field.
-		       Also ensure the type can be placed into a bitfield.  */
-		    else if (DECL_BIT_FIELD (gnu_old_field))
+		    /* If the old field was packed and of constant size, we
+		       have to get the old size here, as it might differ from
+		       what the Etype conveys and the latter might overlap
+		       onto the following field.  Try to arrange the type for
+		       possible better packing along the way.  */
+		    else if (DECL_PACKED (gnu_old_field)
+			     && TREE_CODE (DECL_SIZE (gnu_old_field))
+			        == INTEGER_CST)
 		      {
 			gnu_size = DECL_SIZE (gnu_old_field);
 			if (TYPE_MODE (gnu_field_type) == BLKmode
@@ -2795,7 +2795,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		    gnu_field
 		      = create_field_decl
 			(DECL_NAME (gnu_old_field), gnu_field_type, gnu_type,
-			 0, gnu_size, gnu_new_pos,
+			 DECL_PACKED (gnu_old_field), gnu_size, gnu_new_pos,
 			 !DECL_NONADDRESSABLE_P (gnu_old_field));
 
 		    if (!TREE_CONSTANT (gnu_pos))
@@ -4614,6 +4614,24 @@ same_discriminant_p (Entity_Id discr1, Entity_Id discr2)
   return
     Original_Record_Component (discr1) == Original_Record_Component (discr2);
 }
+
+/* Return true if the array type specified by GNAT_TYPE and GNU_TYPE has
+   a non-aliased component in the back-end sense.  */
+
+static bool
+array_type_has_nonaliased_component (Entity_Id gnat_type, tree gnu_type)
+{
+  /* If the type below this is a multi-array type, then
+     this does not have aliased components.  */
+  if (TREE_CODE (TREE_TYPE (gnu_type)) == ARRAY_TYPE
+      && TYPE_MULTI_ARRAY_P (TREE_TYPE (gnu_type)))
+    return true;
+
+  if (Has_Aliased_Components (gnat_type))
+    return false;
+
+  return type_for_nonaliased_component_p (TREE_TYPE (gnu_type));
+}
 
 /* Given GNAT_ENTITY, elaborate all expressions that are required to
    be elaborated at the point of its definition, but do nothing else.  */
@@ -5219,6 +5237,13 @@ make_packable_type (tree type)
 
   finish_record_type (new_type, nreverse (field_list), 1, true);
   copy_alias_set (new_type, type);
+
+  /* Try harder to get a packable type if necessary, for example
+     in case the record itself contains a BLKmode field.  */
+  if (TYPE_MODE (new_type) == BLKmode)
+    TYPE_MODE (new_type)
+      = mode_for_size_tree (TYPE_SIZE (new_type), MODE_INT, 1);
+
   return TYPE_MODE (new_type) == BLKmode ? type : new_type;
 }
 

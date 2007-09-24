@@ -58,6 +58,7 @@ struct diagnostic_context;
       TARGET_EXPR_IMPLICIT_P (in TARGET_EXPR)
       TEMPLATE_PARM_PARAMETER_PACK (in TEMPLATE_PARM_INDEX)
       TYPE_REF_IS_RVALUE (in REFERENCE_TYPE)
+      ATTR_IS_DEPENDENT (in the TREE_LIST for an attribute)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -2129,6 +2130,10 @@ struct lang_decl GTY(())
 /* In a TREE_LIST concatenating using directives, indicate indirect
    directives  */
 #define TREE_INDIRECT_USING(NODE) (TREE_LIST_CHECK (NODE)->base.lang_flag_0)
+
+/* In a TREE_LIST in an attribute list, indicates that the attribute
+   must be applied at instantiation time.  */
+#define ATTR_IS_DEPENDENT(NODE) (TREE_LIST_CHECK (NODE)->base.lang_flag_0)
 
 extern tree decl_shadowed_for_var_lookup (tree);
 extern void decl_shadowed_for_var_insert (tree, tree);
@@ -4345,6 +4350,7 @@ extern tree build_zero_init			(tree, tree, bool);
 extern tree build_offset_ref			(tree, tree, bool);
 extern tree build_new				(tree, tree, tree, tree, int);
 extern tree build_vec_init			(tree, tree, tree, bool, int);
+extern tree build_default_init                  (tree, tree);
 extern tree build_delete			(tree, tree,
 						 special_function_kind,
 						 int, int);
@@ -4480,6 +4486,7 @@ extern void init_rtti_processing		(void);
 extern tree build_typeid			(tree);
 extern tree get_tinfo_decl			(tree);
 extern tree get_typeid				(tree);
+extern tree build_headof			(tree);
 extern tree build_dynamic_cast			(tree, tree);
 extern void emit_support_tinfos			(void);
 extern bool emit_tinfo_decl			(tree);
@@ -4609,6 +4616,7 @@ extern tree finish_non_static_data_member       (tree, tree, tree);
 extern tree begin_stmt_expr			(void);
 extern tree finish_stmt_expr_expr		(tree, tree);
 extern tree finish_stmt_expr			(tree, bool);
+extern tree stmt_expr_value_expr		(tree);
 extern tree perform_koenig_lookup		(tree, tree);
 extern tree finish_call_expr			(tree, tree, bool, bool);
 extern tree finish_increment_expr		(tree, enum tree_code);
@@ -4636,7 +4644,7 @@ extern tree finish_typeof			(tree);
 extern tree finish_offsetof			(tree);
 extern void finish_decl_cleanup			(tree, tree);
 extern void finish_eh_cleanup			(tree);
-extern void expand_body				(tree);
+extern void emit_associated_thunks		(tree);
 extern void finish_mem_initializers		(tree);
 extern tree check_template_template_default_arg (tree);
 extern void expand_or_defer_fn			(tree);

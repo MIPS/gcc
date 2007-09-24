@@ -73,10 +73,6 @@ tree gfc_static_ctors;
 
 /* Function declarations for builtin library functions.  */
 
-tree gfor_fndecl_internal_realloc;
-tree gfor_fndecl_allocate;
-tree gfor_fndecl_allocate_array;
-tree gfor_fndecl_deallocate;
 tree gfor_fndecl_pause_numeric;
 tree gfor_fndecl_pause_string;
 tree gfor_fndecl_stop_numeric;
@@ -1020,6 +1016,25 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  gcc_assert (!sym->value);
 	}
     }
+  else if (sym->attr.subref_array_pointer)
+    {
+      /* We need the span for these beasts.  */
+      gfc_allocate_lang_decl (decl);
+    }
+
+  if (sym->attr.subref_array_pointer)
+    {
+      tree span;
+      GFC_DECL_SUBREF_ARRAY_P (decl) = 1;
+      span = build_decl (VAR_DECL, create_tmp_var_name ("span"),
+			 gfc_array_index_type);
+      gfc_finish_var_decl (span, sym);
+      TREE_STATIC (span) = 1;
+      DECL_INITIAL (span) = build_int_cst (NULL_TREE, 0);
+
+      GFC_DECL_SPAN (decl) = span;
+    }
+
   sym->backend_decl = decl;
 
   if (sym->attr.assign)
@@ -1731,7 +1746,7 @@ build_entry_thunks (gfc_namespace * ns)
       /* We're leaving the context of this function, so zap cfun.
 	 It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
 	 tree_rest_of_compilation.  */
-      cfun = NULL;
+      set_cfun (NULL);
 
       current_function_decl = NULL_TREE;
 
@@ -2273,35 +2288,10 @@ void
 gfc_build_builtin_function_decls (void)
 {
   tree gfc_int4_type_node = gfc_get_int_type (4);
-  tree gfc_pint4_type_node = build_pointer_type (gfc_int4_type_node);
-
-  gfor_fndecl_internal_realloc =
-    gfc_build_library_function_decl (get_identifier
-				     (PREFIX("internal_realloc")),
-				     pvoid_type_node, 2, pvoid_type_node,
-				     gfc_array_index_type);
-
-  gfor_fndecl_allocate =
-    gfc_build_library_function_decl (get_identifier (PREFIX("allocate")),
-				     pvoid_type_node, 2,
-				     gfc_array_index_type, gfc_pint4_type_node);
-  DECL_IS_MALLOC (gfor_fndecl_allocate) = 1;
-
-  gfor_fndecl_allocate_array =
-    gfc_build_library_function_decl (get_identifier (PREFIX("allocate_array")),
-				     pvoid_type_node, 3, pvoid_type_node,
-				     gfc_array_index_type, gfc_pint4_type_node);
-  DECL_IS_MALLOC (gfor_fndecl_allocate_array) = 1;
-
-  gfor_fndecl_deallocate =
-    gfc_build_library_function_decl (get_identifier (PREFIX("deallocate")),
-				     void_type_node, 2, pvoid_type_node,
-				     gfc_pint4_type_node);
 
   gfor_fndecl_stop_numeric =
     gfc_build_library_function_decl (get_identifier (PREFIX("stop_numeric")),
 				     void_type_node, 1, gfc_int4_type_node);
-
   /* Stop doesn't return.  */
   TREE_THIS_VOLATILE (gfor_fndecl_stop_numeric) = 1;
 
@@ -2403,7 +2393,7 @@ gfc_trans_dummy_character (gfc_symbol *sym, gfc_charlen *cl, tree fnbody)
   gfc_start_block (&body);
 
   /* Evaluate the string length expression.  */
-  gfc_trans_init_string_length (cl, &body);
+  gfc_conv_string_length (cl, &body);
 
   gfc_trans_vla_type_sizes (sym, &body);
 
@@ -2427,7 +2417,7 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
   gfc_start_block (&body);
 
   /* Evaluate the string length expression.  */
-  gfc_trans_init_string_length (sym->ts.cl, &body);
+  gfc_conv_string_length (sym->ts.cl, &body);
 
   gfc_trans_vla_type_sizes (sym, &body);
 
@@ -2774,9 +2764,11 @@ gfc_create_module_variable (gfc_symbol * sym)
       && sym->ts.type == BT_DERIVED)
     sym->backend_decl = gfc_typenode_for_spec (&(sym->ts));
 
-  /* Only output variables and array valued parameters.  */
+  /* Only output variables and array valued, or derived type,
+     parameters.  */
   if (sym->attr.flavor != FL_VARIABLE
-      && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
+	&& !(sym->attr.flavor == FL_PARAMETER
+	       && (sym->attr.dimension || sym->ts.type == BT_DERIVED)))
     return;
 
   /* Don't generate variables from other modules. Variables from
@@ -3241,7 +3233,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* If this is the main program and an -fconvert option was provided,
      add a call to set_convert.  */
 
-  if (sym->attr.is_main_program && gfc_option.convert != CONVERT_NATIVE)
+  if (sym->attr.is_main_program && gfc_option.convert != GFC_CONVERT_NATIVE)
     {
       tmp = build_call_expr (gfor_fndecl_set_convert, 1,
 			     build_int_cst (integer_type_node,
@@ -3370,7 +3362,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* We're leaving the context of this function, so zap cfun.
      It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
      tree_rest_of_compilation.  */
-  cfun = NULL;
+  set_cfun (NULL);
 
   if (old_context)
     {

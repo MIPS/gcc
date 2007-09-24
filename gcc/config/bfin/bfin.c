@@ -95,6 +95,108 @@ static int bfin_flag_var_tracking;
 /* -mcpu support */
 bfin_cpu_t bfin_cpu_type = DEFAULT_CPU_TYPE;
 
+/* -msi-revision support. There are three special values:
+   -1      -msi-revision=none.
+   0xffff  -msi-revision=any.  */
+int bfin_si_revision;
+
+/* The workarounds enabled */
+unsigned int bfin_workarounds = 0;
+
+struct bfin_cpu
+{
+  const char *name;
+  bfin_cpu_t type;
+  int si_revision;
+  unsigned int workarounds;
+};
+
+struct bfin_cpu bfin_cpus[] =
+{
+  {"bf522", BFIN_CPU_BF522, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf525", BFIN_CPU_BF525, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf527", BFIN_CPU_BF527, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf531", BFIN_CPU_BF531, 0x0005,
+   WA_SPECULATIVE_LOADS},
+  {"bf531", BFIN_CPU_BF531, 0x0004,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+  {"bf531", BFIN_CPU_BF531, 0x0003,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+
+  {"bf532", BFIN_CPU_BF532, 0x0005,
+   WA_SPECULATIVE_LOADS},
+  {"bf532", BFIN_CPU_BF532, 0x0004,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+  {"bf532", BFIN_CPU_BF532, 0x0003,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+
+  {"bf533", BFIN_CPU_BF533, 0x0005,
+   WA_SPECULATIVE_LOADS},
+  {"bf533", BFIN_CPU_BF533, 0x0004,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+  {"bf533", BFIN_CPU_BF533, 0x0003,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+
+  {"bf534", BFIN_CPU_BF534, 0x0003,
+   WA_SPECULATIVE_LOADS},
+  {"bf534", BFIN_CPU_BF534, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+  {"bf534", BFIN_CPU_BF534, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+
+  {"bf536", BFIN_CPU_BF536, 0x0003,
+   WA_SPECULATIVE_LOADS},
+  {"bf536", BFIN_CPU_BF536, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+  {"bf536", BFIN_CPU_BF536, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+
+  {"bf537", BFIN_CPU_BF537, 0x0003,
+   WA_SPECULATIVE_LOADS},
+  {"bf537", BFIN_CPU_BF537, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+  {"bf537", BFIN_CPU_BF537, 0x0001,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+
+  {"bf538", BFIN_CPU_BF538, 0x0004,
+   WA_SPECULATIVE_LOADS},
+  {"bf538", BFIN_CPU_BF538, 0x0003,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf539", BFIN_CPU_BF539, 0x0004,
+   WA_SPECULATIVE_LOADS},
+  {"bf539", BFIN_CPU_BF539, 0x0003,
+   WA_SPECULATIVE_LOADS},
+  {"bf539", BFIN_CPU_BF539, 0x0002,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf542", BFIN_CPU_BF542, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf544", BFIN_CPU_BF544, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf548", BFIN_CPU_BF548, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf549", BFIN_CPU_BF549, 0x0000,
+   WA_SPECULATIVE_LOADS},
+
+  {"bf561", BFIN_CPU_BF561, 0x0005, 0},
+  {"bf561", BFIN_CPU_BF561, 0x0003,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+  {"bf561", BFIN_CPU_BF561, 0x0002,
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+
+  {NULL, 0, 0, 0}
+};
+
 int splitting_for_sched;
 
 static void
@@ -1879,8 +1981,30 @@ bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
 
   if (TARGET_FDPIC)
     {
+      int caller_has_l1_text, callee_has_l1_text;
+
+      caller_has_l1_text = callee_has_l1_text = 0;
+
+      if (lookup_attribute ("l1_text",
+			    DECL_ATTRIBUTES (cfun->decl)) != NULL_TREE)
+	caller_has_l1_text = 1;
+
+      if (GET_CODE (callee) == SYMBOL_REF
+	  && SYMBOL_REF_DECL (callee) && DECL_P (SYMBOL_REF_DECL (callee))
+	  && lookup_attribute
+	       ("l1_text",
+		DECL_ATTRIBUTES (SYMBOL_REF_DECL (callee))) != NULL_TREE)
+	callee_has_l1_text = 1;
+
       if (GET_CODE (callee) != SYMBOL_REF
-	  || bfin_longcall_p (callee, INTVAL (cookie)))
+	  || bfin_longcall_p (callee, INTVAL (cookie))
+	  || (GET_CODE (callee) == SYMBOL_REF
+	      && !SYMBOL_REF_LOCAL_P (callee)
+	      && TARGET_INLINE_PLT)
+	  || caller_has_l1_text != callee_has_l1_text
+	  || (caller_has_l1_text && callee_has_l1_text
+	      && (GET_CODE (callee) != SYMBOL_REF
+		  || !SYMBOL_REF_LOCAL_P (callee))))
 	{
 	  rtx addr = callee;
 	  if (! address_operand (addr, Pmode))
@@ -2023,8 +2147,8 @@ bfin_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
    scratch register.  */
 
 static enum reg_class
-bfin_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x, enum reg_class class,
-		     enum machine_mode mode, secondary_reload_info *sri)
+bfin_secondary_reload (bool in_p, rtx x, enum reg_class class,
+		       enum machine_mode mode, secondary_reload_info *sri)
 {
   /* If we have HImode or QImode, we can only use DREGS as secondary registers;
      in most other cases we can also use PREGS.  */
@@ -2077,8 +2201,16 @@ bfin_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x, enum reg_class class,
 
   if (class == AREGS || class == EVEN_AREGS || class == ODD_AREGS)
     {
+      if (code == MEM)
+	{
+	  sri->icode = in_p ? CODE_FOR_reload_inpdi : CODE_FOR_reload_outpdi;
+	  return NO_REGS;
+	}
+
       if (x != const0_rtx && x_class != DREGS)
-	return DREGS;
+	{
+	  return DREGS;
+	}
       else
 	return NO_REGS;
     }
@@ -2094,6 +2226,7 @@ bfin_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x, enum reg_class class,
   if (code == MEM)
     if (! reg_class_subset_p (class, default_class))
       return default_class;
+
   return NO_REGS;
 }
 
@@ -2112,26 +2245,77 @@ bfin_handle_option (size_t code, const char *arg, int value)
       return true;
 
     case OPT_mcpu_:
-      if (strcmp (arg, "bf531") == 0)
-	bfin_cpu_type = BFIN_CPU_BF531;
-      else if (strcmp (arg, "bf532") == 0)
-	bfin_cpu_type = BFIN_CPU_BF532;
-      else if (strcmp (arg, "bf533") == 0)
-	bfin_cpu_type = BFIN_CPU_BF533;
-      else if (strcmp (arg, "bf534") == 0)
-	bfin_cpu_type = BFIN_CPU_BF534;
-      else if (strcmp (arg, "bf536") == 0)
-	bfin_cpu_type = BFIN_CPU_BF536;
-      else if (strcmp (arg, "bf537") == 0)
-	bfin_cpu_type = BFIN_CPU_BF537;
-      else if (strcmp (arg, "bf561") == 0)
-	{
+      {
+	const char *p, *q;
+	int i;
+
+	i = 0;
+	while ((p = bfin_cpus[i].name) != NULL)
+	  {
+	    if (strncmp (arg, p, strlen (p)) == 0)
+	      break;
+	    i++;
+	  }
+
+	if (p == NULL)
+	  {
+	    error ("-mcpu=%s is not valid", arg);
+	    return false;
+	  }
+
+	bfin_cpu_type = bfin_cpus[i].type;
+
+	q = arg + strlen (p);
+
+	if (*q == '\0')
+	  {
+	    bfin_si_revision = bfin_cpus[i].si_revision;
+	    bfin_workarounds |= bfin_cpus[i].workarounds;
+	  }
+	else if (strcmp (q, "-none") == 0)
+	  bfin_si_revision = -1;
+      	else if (strcmp (q, "-any") == 0)
+	  {
+	    bfin_si_revision = 0xffff;
+	    while (bfin_cpus[i].type == bfin_cpu_type)
+	      {
+		bfin_workarounds |= bfin_cpus[i].workarounds;
+		i++;
+	      }
+	  }
+	else
+	  {
+	    unsigned int si_major, si_minor;
+	    int rev_len, n;
+
+	    rev_len = strlen (q);
+
+	    if (sscanf (q, "-%u.%u%n", &si_major, &si_minor, &n) != 2
+		|| n != rev_len
+		|| si_major > 0xff || si_minor > 0xff)
+	      {
+	      invalid_silicon_revision:
+		error ("-mcpu=%s has invalid silicon revision", arg);
+		return false;
+	      }
+
+	    bfin_si_revision = (si_major << 8) | si_minor;
+
+	    while (bfin_cpus[i].type == bfin_cpu_type
+		   && bfin_cpus[i].si_revision != bfin_si_revision)
+	      i++;
+
+	    if (bfin_cpus[i].type != bfin_cpu_type)
+	      goto invalid_silicon_revision;
+
+	    bfin_workarounds |= bfin_cpus[i].workarounds;
+	  }
+
+	if (bfin_cpu_type == BFIN_CPU_BF561)
 	  warning (0, "bf561 support is incomplete yet.");
-	  bfin_cpu_type = BFIN_CPU_BF561;
-	}
-      else
-	return false;
-      return true;
+
+	return true;
+      }
 
     default:
       return true;
@@ -2153,6 +2337,16 @@ bfin_init_machine_status (void)
 void
 override_options (void)
 {
+  if (bfin_csync_anomaly == 1)
+    bfin_workarounds |= WA_SPECULATIVE_SYNCS;
+  else if (bfin_csync_anomaly == 0)
+    bfin_workarounds &= ~WA_SPECULATIVE_SYNCS;
+
+  if (bfin_specld_anomaly == 1)
+    bfin_workarounds |= WA_SPECULATIVE_LOADS;
+  else if (bfin_specld_anomaly == 0)
+    bfin_workarounds &= ~WA_SPECULATIVE_LOADS;
+
   if (TARGET_OMIT_LEAF_FRAME_POINTER)
     flag_omit_frame_pointer = 1;
 
@@ -3281,14 +3475,14 @@ length_for_loop (rtx insn)
   int length = 0;
   if (JUMP_P (insn) && any_condjump_p (insn) && !optimize_size)
     {
-      if (TARGET_CSYNC_ANOMALY)
+      if (ENABLE_WA_SPECULATIVE_SYNCS)
 	length = 8;
-      else if (TARGET_SPECLD_ANOMALY)
+      else if (ENABLE_WA_SPECULATIVE_LOADS)
 	length = 6;
     }
   else if (LABEL_P (insn))
     {
-      if (TARGET_CSYNC_ANOMALY)
+      if (ENABLE_WA_SPECULATIVE_SYNCS)
 	length = 4;
     }
 
@@ -4397,7 +4591,7 @@ bfin_reorg (void)
   if (cfun->machine->has_hardware_loops)
     bfin_reorg_loops (dump_file);
 
-  if (! TARGET_SPECLD_ANOMALY && ! TARGET_CSYNC_ANOMALY)
+  if (! ENABLE_WA_SPECULATIVE_LOADS && ! ENABLE_WA_SPECULATIVE_SYNCS)
     return;
 
   /* First pass: find predicted-false branches; if something after them
@@ -4436,12 +4630,12 @@ bfin_reorg (void)
 	  if (cycles_since_jump < INT_MAX)
 	    cycles_since_jump++;
 
-	  if (load_insn && TARGET_SPECLD_ANOMALY)
+	  if (load_insn && ENABLE_WA_SPECULATIVE_LOADS)
 	    {
 	      if (trapping_loads_p (load_insn))
 		delay_needed = 3;
 	    }
-	  else if (type == TYPE_SYNC && TARGET_CSYNC_ANOMALY)
+	  else if (type == TYPE_SYNC && ENABLE_WA_SPECULATIVE_SYNCS)
 	    delay_needed = 4;
 
 	  if (delay_needed > cycles_since_jump)
@@ -4472,7 +4666,7 @@ bfin_reorg (void)
     }
   /* Second pass: for predicted-true branches, see if anything at the
      branch destination needs extra nops.  */
-  if (! TARGET_CSYNC_ANOMALY)
+  if (! ENABLE_WA_SPECULATIVE_SYNCS)
     return;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -4505,7 +4699,7 @@ bfin_reorg (void)
 		  if (cycles_since_jump < INT_MAX)
 		    cycles_since_jump++;
 
-		  if (type == TYPE_SYNC && TARGET_CSYNC_ANOMALY)
+		  if (type == TYPE_SYNC && ENABLE_WA_SPECULATIVE_SYNCS)
 		    delay_needed = 2;
 
 		  if (delay_needed > cycles_since_jump)
@@ -4643,6 +4837,91 @@ bfin_handle_longcall_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "l1_text" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+bfin_handle_l1_text_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+
+  if (TREE_CODE (decl) != FUNCTION_DECL)
+    {
+      error ("`%s' attribute only applies to functions",
+	     IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  /* The decl may have already been given a section attribute
+     from a previous declaration. Ensure they match.  */
+  else if (DECL_SECTION_NAME (decl) != NULL_TREE
+	   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+		      ".l1.text") != 0)
+    {
+      error ("section of %q+D conflicts with previous declaration",
+	     decl);
+      *no_add_attrs = true;
+    }
+  else
+    DECL_SECTION_NAME (decl) = build_string (9, ".l1.text");
+
+  return NULL_TREE;
+}
+
+/* Handle a "l1_data", "l1_data_A" or "l1_data_B" attribute;
+   arguments as in struct attribute_spec.handler.  */
+
+static tree
+bfin_handle_l1_data_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+
+  if (TREE_CODE (decl) != VAR_DECL)
+    {
+      error ("`%s' attribute only applies to variables",
+	     IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (current_function_decl != NULL_TREE
+	   && !TREE_STATIC (decl))
+    {
+      error ("`%s' attribute cannot be specified for local variables",
+	     IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else
+    {
+      const char *section_name;
+
+      if (strcmp (IDENTIFIER_POINTER (name), "l1_data") == 0)
+	section_name = ".l1.data";
+      else if (strcmp (IDENTIFIER_POINTER (name), "l1_data_A") == 0)
+	section_name = ".l1.data.A";
+      else if (strcmp (IDENTIFIER_POINTER (name), "l1_data_B") == 0)
+	section_name = ".l1.data.B";
+      else
+	gcc_unreachable ();
+
+      /* The decl may have already been given a section attribute
+	 from a previous declaration. Ensure they match.  */
+      if (DECL_SECTION_NAME (decl) != NULL_TREE
+	  && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+		     section_name) != 0)
+	{
+	  error ("section of %q+D conflicts with previous declaration",
+		 decl);
+	  *no_add_attrs = true;
+	}
+      else
+	DECL_SECTION_NAME (decl)
+	  = build_string (strlen (section_name) + 1, section_name);
+    }
+
+ return NULL_TREE;
+}
+
 /* Table of valid machine attributes.  */
 const struct attribute_spec bfin_attribute_table[] =
 {
@@ -4655,6 +4934,10 @@ const struct attribute_spec bfin_attribute_table[] =
   { "saveall", 0, 0, false, true,  true, NULL },
   { "longcall",  0, 0, false, true,  true,  bfin_handle_longcall_attribute },
   { "shortcall", 0, 0, false, true,  true,  bfin_handle_longcall_attribute },
+  { "l1_text", 0, 0, true, false, false,  bfin_handle_l1_text_attribute },
+  { "l1_data", 0, 0, true, false, false,  bfin_handle_l1_data_attribute },
+  { "l1_data_A", 0, 0, true, false, false, bfin_handle_l1_data_attribute },
+  { "l1_data_B", 0, 0, true, false, false,  bfin_handle_l1_data_attribute },
   { NULL, 0, 0, false, false, false, NULL }
 };
 
@@ -4761,6 +5044,7 @@ enum bfin_builtins
 {
   BFIN_BUILTIN_CSYNC,
   BFIN_BUILTIN_SSYNC,
+  BFIN_BUILTIN_ONES,
   BFIN_BUILTIN_COMPOSE_2X16,
   BFIN_BUILTIN_EXTRACTLO,
   BFIN_BUILTIN_EXTRACTHI,
@@ -4816,6 +5100,12 @@ enum bfin_builtins
   BFIN_BUILTIN_CPLX_MUL_16,
   BFIN_BUILTIN_CPLX_MAC_16,
   BFIN_BUILTIN_CPLX_MSU_16,
+
+  BFIN_BUILTIN_CPLX_MUL_16_S40,
+  BFIN_BUILTIN_CPLX_MAC_16_S40,
+  BFIN_BUILTIN_CPLX_MSU_16_S40,
+
+  BFIN_BUILTIN_CPLX_SQU,
 
   BFIN_BUILTIN_MAX
 };
@@ -4876,6 +5166,8 @@ bfin_init_builtins (void)
   def_builtin ("__builtin_bfin_csync", void_ftype_void, BFIN_BUILTIN_CSYNC);
   def_builtin ("__builtin_bfin_ssync", void_ftype_void, BFIN_BUILTIN_SSYNC);
 
+  def_builtin ("__builtin_bfin_ones", short_ftype_int, BFIN_BUILTIN_ONES);
+
   def_builtin ("__builtin_bfin_compose_2x16", v2hi_ftype_int_int,
 	       BFIN_BUILTIN_COMPOSE_2X16);
   def_builtin ("__builtin_bfin_extract_hi", short_ftype_v2hi,
@@ -4904,6 +5196,11 @@ bfin_init_builtins (void)
 	       BFIN_BUILTIN_NEG_2X16);
   def_builtin ("__builtin_bfin_abs_fr2x16", v2hi_ftype_v2hi,
 	       BFIN_BUILTIN_ABS_2X16);
+
+  def_builtin ("__builtin_bfin_min_fr1x16", short_ftype_int_int,
+	       BFIN_BUILTIN_MIN_1X16);
+  def_builtin ("__builtin_bfin_max_fr1x16", short_ftype_int_int,
+	       BFIN_BUILTIN_MAX_1X16);
 
   def_builtin ("__builtin_bfin_add_fr1x16", short_ftype_int_int,
 	       BFIN_BUILTIN_SSADD_1X16);
@@ -4935,6 +5232,11 @@ bfin_init_builtins (void)
 	       BFIN_BUILTIN_MULHISILH);
   def_builtin ("__builtin_bfin_mulhisihh", int_ftype_v2hi_v2hi,
 	       BFIN_BUILTIN_MULHISIHH);
+
+  def_builtin ("__builtin_bfin_min_fr1x32", int_ftype_int_int,
+	       BFIN_BUILTIN_MIN_1X32);
+  def_builtin ("__builtin_bfin_max_fr1x32", int_ftype_int_int,
+	       BFIN_BUILTIN_MAX_1X32);
 
   def_builtin ("__builtin_bfin_add_fr1x32", int_ftype_int_int,
 	       BFIN_BUILTIN_SSADD_1X32);
@@ -4968,12 +5270,24 @@ bfin_init_builtins (void)
 	       BFIN_BUILTIN_SSASHIFT_1X32);
 
   /* Complex numbers.  */
+  def_builtin ("__builtin_bfin_cmplx_add", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_SSADD_2X16);
+  def_builtin ("__builtin_bfin_cmplx_sub", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_SSSUB_2X16);
   def_builtin ("__builtin_bfin_cmplx_mul", v2hi_ftype_v2hi_v2hi,
 	       BFIN_BUILTIN_CPLX_MUL_16);
   def_builtin ("__builtin_bfin_cmplx_mac", v2hi_ftype_v2hi_v2hi_v2hi,
 	       BFIN_BUILTIN_CPLX_MAC_16);
   def_builtin ("__builtin_bfin_cmplx_msu", v2hi_ftype_v2hi_v2hi_v2hi,
 	       BFIN_BUILTIN_CPLX_MSU_16);
+  def_builtin ("__builtin_bfin_cmplx_mul_s40", v2hi_ftype_v2hi_v2hi,
+	       BFIN_BUILTIN_CPLX_MUL_16_S40);
+  def_builtin ("__builtin_bfin_cmplx_mac_s40", v2hi_ftype_v2hi_v2hi_v2hi,
+	       BFIN_BUILTIN_CPLX_MAC_16_S40);
+  def_builtin ("__builtin_bfin_cmplx_msu_s40", v2hi_ftype_v2hi_v2hi_v2hi,
+	       BFIN_BUILTIN_CPLX_MSU_16_S40);
+  def_builtin ("__builtin_bfin_csqu_fr16", v2hi_ftype_v2hi,
+	       BFIN_BUILTIN_CPLX_SQU);
 }
 
 
@@ -5021,6 +5335,8 @@ static const struct builtin_description bdesc_2arg[] =
 
 static const struct builtin_description bdesc_1arg[] =
 {
+  { CODE_FOR_ones, "__builtin_bfin_ones", BFIN_BUILTIN_ONES, 0 },
+
   { CODE_FOR_signbitshi2, "__builtin_bfin_norm_fr1x16", BFIN_BUILTIN_NORM_1X16, 0 },
   { CODE_FOR_ssneghi2, "__builtin_bfin_negate_fr1x16", BFIN_BUILTIN_NEG_1X16, 0 },
   { CODE_FOR_abshi2, "__builtin_bfin_abs_fr1x16", BFIN_BUILTIN_ABS_1X16, 0 },
@@ -5261,6 +5577,7 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
       return target;
 
     case BFIN_BUILTIN_CPLX_MUL_16:
+    case BFIN_BUILTIN_CPLX_MUL_16_S40:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
       op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
@@ -5276,9 +5593,14 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
       if (! register_operand (op1, GET_MODE (op1)))
 	op1 = copy_to_mode_reg (GET_MODE (op1), op1);
 
-      emit_insn (gen_flag_macinit1v2hi_parts (accvec, op0, op1, const0_rtx,
-					      const0_rtx, const0_rtx,
-					      const1_rtx, GEN_INT (MACFLAG_NONE)));
+      if (fcode == BFIN_BUILTIN_CPLX_MUL_16)
+	emit_insn (gen_flag_macinit1v2hi_parts (accvec, op0, op1, const0_rtx,
+						const0_rtx, const0_rtx,
+						const1_rtx, GEN_INT (MACFLAG_W32)));
+      else
+	emit_insn (gen_flag_macinit1v2hi_parts (accvec, op0, op1, const0_rtx,
+						const0_rtx, const0_rtx,
+						const1_rtx, GEN_INT (MACFLAG_NONE)));
       emit_insn (gen_flag_macv2hi_parts (target, op0, op1, const1_rtx,
 					 const1_rtx, const1_rtx,
 					 const0_rtx, accvec, const1_rtx, const0_rtx,
@@ -5288,6 +5610,8 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
     case BFIN_BUILTIN_CPLX_MAC_16:
     case BFIN_BUILTIN_CPLX_MSU_16:
+    case BFIN_BUILTIN_CPLX_MAC_16_S40:
+    case BFIN_BUILTIN_CPLX_MSU_16_S40:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
       arg2 = CALL_EXPR_ARG (exp, 2);
@@ -5300,28 +5624,74 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 	  || GET_MODE (target) != V2HImode
 	  || ! (*insn_data[icode].operand[0].predicate) (target, V2HImode))
 	target = gen_reg_rtx (tmode);
-      if (! register_operand (op0, GET_MODE (op0)))
-	op0 = copy_to_mode_reg (GET_MODE (op0), op0);
       if (! register_operand (op1, GET_MODE (op1)))
 	op1 = copy_to_mode_reg (GET_MODE (op1), op1);
+      if (! register_operand (op2, GET_MODE (op2)))
+	op2 = copy_to_mode_reg (GET_MODE (op2), op2);
 
       tmp1 = gen_reg_rtx (SImode);
       tmp2 = gen_reg_rtx (SImode);
-      emit_insn (gen_ashlsi3 (tmp1, gen_lowpart (SImode, op2), GEN_INT (16)));
-      emit_move_insn (tmp2, gen_lowpart (SImode, op2));
+      emit_insn (gen_ashlsi3 (tmp1, gen_lowpart (SImode, op0), GEN_INT (16)));
+      emit_move_insn (tmp2, gen_lowpart (SImode, op0));
       emit_insn (gen_movstricthi_1 (gen_lowpart (HImode, tmp2), const0_rtx));
       emit_insn (gen_load_accumulator_pair (accvec, tmp1, tmp2));
-      emit_insn (gen_flag_macv2hi_parts_acconly (accvec, op0, op1, const0_rtx,
-						 const0_rtx, const0_rtx,
-						 const1_rtx, accvec, const0_rtx,
-						 const0_rtx,
-						 GEN_INT (MACFLAG_W32)));
-      tmp1 = (fcode == BFIN_BUILTIN_CPLX_MAC_16 ? const1_rtx : const0_rtx);
-      tmp2 = (fcode == BFIN_BUILTIN_CPLX_MAC_16 ? const0_rtx : const1_rtx);
-      emit_insn (gen_flag_macv2hi_parts (target, op0, op1, const1_rtx,
+      if (fcode == BFIN_BUILTIN_CPLX_MAC_16
+	  || fcode == BFIN_BUILTIN_CPLX_MSU_16)
+	emit_insn (gen_flag_macv2hi_parts_acconly (accvec, op1, op2, const0_rtx,
+						   const0_rtx, const0_rtx,
+						   const1_rtx, accvec, const0_rtx,
+						   const0_rtx,
+						   GEN_INT (MACFLAG_W32)));
+      else
+	emit_insn (gen_flag_macv2hi_parts_acconly (accvec, op1, op2, const0_rtx,
+						   const0_rtx, const0_rtx,
+						   const1_rtx, accvec, const0_rtx,
+						   const0_rtx,
+						   GEN_INT (MACFLAG_NONE)));
+      if (fcode == BFIN_BUILTIN_CPLX_MAC_16
+	  || fcode == BFIN_BUILTIN_CPLX_MAC_16_S40)
+	{
+	  tmp1 = const1_rtx;
+	  tmp2 = const0_rtx;
+	}
+      else
+	{
+	  tmp1 = const0_rtx;
+	  tmp2 = const1_rtx;
+	}
+      emit_insn (gen_flag_macv2hi_parts (target, op1, op2, const1_rtx,
 					 const1_rtx, const1_rtx,
 					 const0_rtx, accvec, tmp1, tmp2,
 					 GEN_INT (MACFLAG_NONE), accvec));
+
+      return target;
+
+    case BFIN_BUILTIN_CPLX_SQU:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      accvec = gen_reg_rtx (V2PDImode);
+      icode = CODE_FOR_flag_mulv2hi;
+      tmp1 = gen_reg_rtx (V2HImode);
+      tmp2 = gen_reg_rtx (V2HImode);
+
+      if (! target
+	  || GET_MODE (target) != V2HImode
+	  || ! (*insn_data[icode].operand[0].predicate) (target, V2HImode))
+	target = gen_reg_rtx (V2HImode);
+      if (! register_operand (op0, GET_MODE (op0)))
+	op0 = copy_to_mode_reg (GET_MODE (op0), op0);
+
+      emit_insn (gen_flag_mulv2hi (tmp1, op0, op0, GEN_INT (MACFLAG_NONE)));
+
+      emit_insn (gen_flag_mulhi_parts (tmp2, op0, op0, const0_rtx,
+				       const0_rtx, const1_rtx,
+				       GEN_INT (MACFLAG_NONE)));
+
+      emit_insn (gen_ssaddhi3_parts (target, tmp2, tmp2, const1_rtx,
+					  const0_rtx, const0_rtx));
+
+      emit_insn (gen_sssubhi3_parts (target, tmp1, tmp1, const0_rtx,
+					  const0_rtx, const1_rtx));
 
       return target;
 

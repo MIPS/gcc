@@ -792,6 +792,35 @@ gfc_is_constant_expr (gfc_expr *e)
 }
 
 
+/* Is true if an array reference is followed by a component or substring
+   reference.  */
+bool
+is_subref_array (gfc_expr * e)
+{
+  gfc_ref * ref;
+  bool seen_array;
+
+  if (e->expr_type != EXPR_VARIABLE)
+    return false;
+
+  if (e->symtree->n.sym->attr.subref_array_pointer)
+    return true;
+
+  seen_array = false;
+  for (ref = e->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_ARRAY
+	    && ref->u.ar.type != AR_ELEMENT)
+	seen_array = true;
+
+      if (seen_array
+	    && ref->type != REF_ARRAY)
+	return seen_array;
+    }
+  return false;
+}
+
+
 /* Try to collapse intrinsic expressions.  */
 
 static try
@@ -1329,6 +1358,7 @@ find_substring_ref (gfc_expr *p, gfc_expr **newp)
 {
   int end;
   int start;
+  int length;
   char *chr;
 
   if (p->ref->u.ss.start->expr_type != EXPR_CONSTANT
@@ -1336,13 +1366,16 @@ find_substring_ref (gfc_expr *p, gfc_expr **newp)
     return FAILURE;
 
   *newp = gfc_copy_expr (p);
-  chr = p->value.character.string;
+  gfc_free ((*newp)->value.character.string);
+
   end = (int) mpz_get_ui (p->ref->u.ss.end->value.integer);
   start = (int) mpz_get_ui (p->ref->u.ss.start->value.integer);
+  length = end - start + 1;
 
-  (*newp)->value.character.length = end - start + 1;
-  strncpy ((*newp)->value.character.string, &chr[start - 1],
-	   (*newp)->value.character.length);
+  chr = (*newp)->value.character.string = gfc_getmem (length + 1);
+  (*newp)->value.character.length = length;
+  memcpy (chr, &p->value.character.string[start - 1], length);
+  chr[length] = '\0';
   return SUCCESS;
 }
 
@@ -2509,8 +2542,8 @@ gfc_check_conformance (const char *optype_msgid, gfc_expr *op1, gfc_expr *op2)
 
   if (op1->rank != op2->rank)
     {
-      gfc_error ("Incompatible ranks in %s at %L", _(optype_msgid),
-		 &op1->where);
+      gfc_error ("Incompatible ranks in %s (%d and %d) at %L", _(optype_msgid),
+		 op1->rank, op2->rank, &op1->where);
       return FAILURE;
     }
 
@@ -2523,7 +2556,7 @@ gfc_check_conformance (const char *optype_msgid, gfc_expr *op1, gfc_expr *op2)
 
       if (op1_flag && op2_flag && mpz_cmp (op1_size, op2_size) != 0)
 	{
-	  gfc_error ("different shape for %s at %L on dimension %d (%d/%d)",
+	  gfc_error ("different shape for %s at %L on dimension %d (%d and %d)",
 		     _(optype_msgid), &op1->where, d + 1,
 		     (int) mpz_get_si (op1_size),
 		     (int) mpz_get_si (op2_size));
@@ -2797,6 +2830,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 		 "assignment at %L", &lvalue->where);
       return FAILURE;
     }
+
+  if (rvalue->expr_type == EXPR_VARIABLE && is_subref_array (rvalue))
+    lvalue->symtree->n.sym->attr.subref_array_pointer = 1;
 
   attr = gfc_expr_attr (rvalue);
   if (!attr.target && !attr.pointer)

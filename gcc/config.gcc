@@ -278,15 +278,15 @@ xscale-*-*)
 	;;
 i[34567]86-*-*)
 	cpu_type=i386
-	extra_headers="mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
+	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
 		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
-		       nmmintrin.h"
+		       nmmintrin.h bmmintrin.h mmintrin-common.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
-	extra_headers="mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
+	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
 		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
-		       nmmintrin.h"
+		       nmmintrin.h bmmintrin.h mmintrin-common.h"
 	need_64bit_hwint=yes
 	;;
 ia64-*-*)
@@ -312,7 +312,7 @@ mips*-*-*)
 	;;
 powerpc*-*-*)
 	cpu_type=rs6000
-	extra_headers="ppc-asm.h altivec.h spe.h"
+	extra_headers="ppc-asm.h altivec.h spe.h ppu_intrinsics.h paired.h spu2vmx.h vec_types.h si2vmx.h"
 	need_64bit_hwint=yes
 	case x$with_cpu in
 	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[3456]|xpower6x|xrs64a)
@@ -700,10 +700,6 @@ arm-*-coff* | armel-*-coff*)
 	tm_file="arm/semi.h arm/aout.h arm/arm.h arm/coff.h dbxcoff.h"
 	tmake_file="arm/t-arm arm/t-arm-coff"
 	;;
-arm-semi-aof | armel-semi-aof)
-	tm_file="arm/semiaof.h arm/aof.h arm/arm.h"
-	tmake_file="arm/t-arm arm/t-semi"
-	;;
 arm-wrs-vxworks)
 	tm_file="elfos.h arm/elf.h arm/aout.h ${tm_file} vx-common.h vxworks.h arm/vxworks.h"
 	tmake_file="${tmake_file} arm/t-arm arm/t-vxworks"
@@ -821,12 +817,14 @@ bfin*-elf*)
         use_collect2=no
         ;;
 bfin*-uclinux*)
-	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h bfin/uclinux.h"
+	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h linux.h bfin/uclinux.h"
         tmake_file=bfin/t-bfin-uclinux
+ 	tm_defines="${tm_defines} UCLIBC_DEFAULT=1"
+	extra_options="${extra_options} linux.opt"
         use_collect2=no
         ;;
 bfin*-linux-uclibc*)
-	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h linux.h bfin/linux.h"
+	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h linux.h bfin/linux.h ./linux-sysroot-suffix.h"
         tmake_file="t-slibgcc-elf-ver bfin/t-bfin-linux"
         use_collect2=no
         ;;
@@ -1665,15 +1663,18 @@ mips64*-*-linux*)
 	tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
 	gnu_ld=yes
 	gas=yes
+	test x$with_llsc != x || with_llsc=yes
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
         tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} mips/linux.h"
 	case ${target} in
-        mipsisa32*-*)
-                target_cpu_default="MASK_SOFT_FLOAT"
-		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
+        mipsisa32r2*)
+		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33"
                 ;;
+        mipsisa32*)
+		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
         esac
+	test x$with_llsc != x || with_llsc=yes
 	;;
 mips*-*-openbsd*)
 	tm_defines="${tm_defines} OBSD_HAS_DECLARE_FUNCTION_NAME OBSD_HAS_DECLARE_OBJECT OBSD_HAS_CORRECT_SPECS"
@@ -1688,6 +1689,22 @@ mips*-*-openbsd*)
 mips*-sde-elf*)
 	tm_file="elfos.h ${tm_file} mips/elf.h mips/sde.h"
 	tmake_file="mips/t-sde mips/t-libgcc-mips16"
+	case "${with_newlib}" in
+	  yes)
+	    # newlib / libgloss.
+	    ;;
+	  *)
+	    # MIPS toolkit libraries.
+	    tm_file="$tm_file mips/sdemtk.h"
+	    tmake_file="$tmake_file mips/t-sdemtk"
+	    extra_options="$extra_options mips/sdemtk.opt"
+	    case ${enable_threads} in
+	      "" | yes | mipssde)
+		thread_file='mipssde'
+		;;
+	    esac
+	    ;;
+	esac
 	case ${target} in
 	  mipsisa32r2*)
 	    tm_defines="MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
@@ -1936,6 +1953,11 @@ powerpc-*-linux*spe*)
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	tmake_file="rs6000/t-fprules rs6000/t-fprules-softfp soft-fp/t-softfp rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
 	;;
+powerpc-*-linux*paired*)
+        tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux.h rs6000/750cl.h"
+        extra_options="${extra_options} rs6000/sysv4.opt"
+        tmake_file="rs6000/t-fprules rs6000/t-fprules-softfp soft-fp/t-softfp rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
+        ;;
 powerpc-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
@@ -3005,7 +3027,7 @@ case "${target}" in
 		;;
 
 	mips*-*-*)
-		supported_defaults="abi arch float tune divide"
+		supported_defaults="abi arch float tune divide llsc"
 
 		case ${with_float} in
 		"" | soft | hard)
@@ -3034,6 +3056,23 @@ case "${target}" in
 		*)
 			echo "Unknown division check type use in --with-divide=$with_divide" 1>&2
 			exit 1
+			;;
+		esac
+
+		case ${with_llsc} in
+		yes)
+			with_llsc=llsc
+			;;
+		no)
+			with_llsc="no-llsc"
+			;;
+		"")
+			# OK
+			;;
+		*)
+			echo "Unknown llsc type used in --with-llsc" 1>&2
+			exit 1
+			;;
 		esac
 		;;
 
@@ -3298,7 +3337,7 @@ case ${target} in
 esac
 
 t=
-all_defaults="abi cpu arch tune schedule float mode fpu divide"
+all_defaults="abi cpu arch tune schedule float mode fpu divide llsc"
 for option in $all_defaults
 do
 	eval "val=\$with_$option"

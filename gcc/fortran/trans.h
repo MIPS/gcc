@@ -316,8 +316,7 @@ tree gfc_conv_operator_assign (gfc_se *, gfc_se *, gfc_symbol *);
 int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
 			    tree);
 
-void gfc_conv_aliased_arg (gfc_se *, gfc_expr *, int, sym_intent);
-bool is_aliased_array (gfc_expr *);
+void gfc_conv_subref_array_arg (gfc_se *, gfc_expr *, int, sym_intent);
 
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
@@ -340,7 +339,7 @@ tree gfc_conv_string_tmp (gfc_se *, tree, tree);
 /* Get the string length variable belonging to an expression.  */
 tree gfc_get_expr_charlen (gfc_expr *);
 /* Initialize a string length variable.  */
-void gfc_trans_init_string_length (gfc_charlen *, stmtblock_t *);
+void gfc_conv_string_length (gfc_charlen *, stmtblock_t *);
 /* Ensure type sizes can be gimplified.  */
 void gfc_trans_vla_type_sizes (gfc_symbol *, stmtblock_t *);
 
@@ -379,7 +378,7 @@ tree gfc_get_function_decl (gfc_symbol *);
 tree gfc_build_addr_expr (tree, tree);
 
 /* Build an ARRAY_REF.  */
-tree gfc_build_array_ref (tree, tree);
+tree gfc_build_array_ref (tree, tree, tree);
 
 /* Creates a label.  Decl is artificial if label_id == NULL_TREE.  */
 tree gfc_build_label_decl (tree);
@@ -450,6 +449,18 @@ tree gfc_call_free (tree);
 /* Allocate memory after performing a few checks.  */
 tree gfc_call_malloc (stmtblock_t *, tree, tree);
 
+/* Allocate memory for arrays, with optional status variable.  */
+tree gfc_allocate_array_with_status (stmtblock_t *, tree, tree, tree);
+
+/* Allocate memory, with optional status variable.  */
+tree gfc_allocate_with_status (stmtblock_t *, tree, tree);
+
+/* Generate code to deallocate an array.  */
+tree gfc_deallocate_with_status (tree, tree, bool);
+
+/* Generate code to call realloc().  */
+tree gfc_call_realloc (stmtblock_t *, tree, tree);
+
 /* Generate code for an assignment, includes scalarization.  */
 tree gfc_trans_assignment (gfc_expr *, gfc_expr *, bool);
 
@@ -483,10 +494,6 @@ struct gimplify_omp_ctx;
 void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 
 /* Runtime library function decls.  */
-extern GTY(()) tree gfor_fndecl_internal_realloc;
-extern GTY(()) tree gfor_fndecl_allocate;
-extern GTY(()) tree gfor_fndecl_allocate_array;
-extern GTY(()) tree gfor_fndecl_deallocate;
 extern GTY(()) tree gfor_fndecl_pause_numeric;
 extern GTY(()) tree gfor_fndecl_pause_string;
 extern GTY(()) tree gfor_fndecl_stop_numeric;
@@ -585,11 +592,13 @@ struct lang_decl		GTY(())
      address of target label.  */
   tree stringlen;
   tree addr;
+  tree span;
 };
 
 
 #define GFC_DECL_ASSIGN_ADDR(node) DECL_LANG_SPECIFIC(node)->addr
 #define GFC_DECL_STRING_LEN(node) DECL_LANG_SPECIFIC(node)->stringlen
+#define GFC_DECL_SPAN(node) DECL_LANG_SPECIFIC(node)->span
 #define GFC_DECL_SAVED_DESCRIPTOR(node) \
   (DECL_LANG_SPECIFIC(node)->saved_descriptor)
 #define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_0(node)
@@ -598,6 +607,7 @@ struct lang_decl		GTY(())
 #define GFC_DECL_COMMON_OR_EQUIV(node) DECL_LANG_FLAG_3(node)
 #define GFC_DECL_CRAY_POINTEE(node) DECL_LANG_FLAG_4(node)
 #define GFC_DECL_RESULT(node) DECL_LANG_FLAG_5(node)
+#define GFC_DECL_SUBREF_ARRAY_P(node) DECL_LANG_FLAG_6(node)
 
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)

@@ -1200,7 +1200,12 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
 
       return conv;
     }
-  else if (CLASS_TYPE_P (from) && !(flags & LOOKUP_NO_CONVERSION))
+  /* [class.conv.fct] A conversion function is never used to convert a
+     (possibly cv-qualified) object to the (possibly cv-qualified) same
+     object type (or a reference to it), to a (possibly cv-qualified) base
+     class of that type (or a reference to it).... */
+  else if (CLASS_TYPE_P (from) && !related_p
+	   && !(flags & LOOKUP_NO_CONVERSION))
     {
       /* [dcl.init.ref]
 
@@ -5123,6 +5128,11 @@ build_over_call (struct z_candidate *cand, int flags)
 				ba_any, NULL);
       gcc_assert (binfo && binfo != error_mark_node);
 
+      /* Warn about deprecated virtual functions now, since we're about
+	 to throw away the decl.  */
+      if (TREE_DEPRECATED (fn))
+	warn_deprecated_use (fn);
+
       argarray[0] = build_base_path (PLUS_EXPR, argarray[0], binfo, 1);
       if (TREE_SIDE_EFFECTS (argarray[0]))
 	argarray[0] = save_expr (argarray[0]);
@@ -5388,7 +5398,7 @@ name_as_c_string (tree name, tree type, bool *free_p)
   if (IDENTIFIER_CTOR_OR_DTOR_P (name))
     {
       pretty_name
-	= (char *) CONST_CAST (IDENTIFIER_POINTER (constructor_name (type)));
+	= CONST_CAST (char *, IDENTIFIER_POINTER (constructor_name (type)));
       /* For a destructor, add the '~'.  */
       if (name == complete_dtor_identifier
 	  || name == base_dtor_identifier
@@ -5409,7 +5419,7 @@ name_as_c_string (tree name, tree type, bool *free_p)
       *free_p = true;
     }
   else
-    pretty_name = (char *) CONST_CAST (IDENTIFIER_POINTER (name));
+    pretty_name = CONST_CAST (char *, IDENTIFIER_POINTER (name));
 
   return pretty_name;
 }
@@ -5762,7 +5772,8 @@ maybe_handle_implicit_object (conversion **ics)
 	t = t->u.next;
       t = build_identity_conv (TREE_TYPE (t->type), NULL_TREE);
       t = direct_reference_binding (reference_type, t);
-      t->rvaluedness_matches_p = 1;
+      t->this_p = 1;
+      t->rvaluedness_matches_p = 0;
       *ics = t;
     }
 }
@@ -6121,18 +6132,21 @@ compare_ics (conversion *ics1, conversion *ics2)
      initialized by S2 refers is more cv-qualified than the type to
      which the reference initialized by S1 refers */
 
-  if (ref_conv1 && ref_conv2
-      && same_type_ignoring_top_level_qualifiers_p (to_type1, to_type2))
+  if (ref_conv1 && ref_conv2)
     {
-      if (ref_conv1->rvaluedness_matches_p
-	  && !ref_conv2->rvaluedness_matches_p)
-	return 1;
-      else if (!ref_conv1->rvaluedness_matches_p
-	  && ref_conv2->rvaluedness_matches_p)
-	return -1;
+      if (!ref_conv1->this_p && !ref_conv2->this_p
+	  && (TYPE_REF_IS_RVALUE (ref_conv1->type)
+	      != TYPE_REF_IS_RVALUE (ref_conv2->type)))
+	{
+	  if (ref_conv1->rvaluedness_matches_p)
+	    return 1;
+	  if (ref_conv2->rvaluedness_matches_p)
+	    return -1;
+	}
 
-      return comp_cv_qualification (TREE_TYPE (ref_conv2->type),
-				    TREE_TYPE (ref_conv1->type));
+      if (same_type_ignoring_top_level_qualifiers_p (to_type1, to_type2))
+	return comp_cv_qualification (TREE_TYPE (ref_conv2->type),
+				      TREE_TYPE (ref_conv1->type));
     }
 
   /* Neither conversion sequence is better than the other.  */

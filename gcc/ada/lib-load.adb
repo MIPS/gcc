@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -207,24 +206,25 @@ package body Lib.Load is
       Unum := Units.Last;
 
       Units.Table (Unum) := (
-        Cunit           => Cunit,
-        Cunit_Entity    => Cunit_Entity,
-        Dependency_Num  => 0,
-        Dynamic_Elab    => False,
-        Error_Location  => Sloc (With_Node),
-        Expected_Unit   => Spec_Name,
-        Fatal_Error     => True,
-        Generate_Code   => False,
-        Has_RACW        => False,
-        Ident_String    => Empty,
-        Loading         => False,
-        Main_Priority   => Default_Main_Priority,
-        Munit_Index     => 0,
-        Serial_Number   => 0,
-        Source_Index    => No_Source_File,
-        Unit_File_Name  => Get_File_Name (Spec_Name, Subunit => False),
-        Unit_Name       => Spec_Name,
-        Version         => 0);
+        Cunit            => Cunit,
+        Cunit_Entity     => Cunit_Entity,
+        Dependency_Num   => 0,
+        Dynamic_Elab     => False,
+        Error_Location   => Sloc (With_Node),
+        Expected_Unit    => Spec_Name,
+        Fatal_Error      => True,
+        Generate_Code    => False,
+        Has_RACW         => False,
+        Is_Compiler_Unit => False,
+        Ident_String     => Empty,
+        Loading          => False,
+        Main_Priority    => Default_Main_Priority,
+        Munit_Index      => 0,
+        Serial_Number    => 0,
+        Source_Index     => No_Source_File,
+        Unit_File_Name   => Get_File_Name (Spec_Name, Subunit => False),
+        Unit_Name        => Spec_Name,
+        Version          => 0);
 
       Set_Comes_From_Source_Default (Save_CS);
       Set_Error_Posted (Cunit_Entity);
@@ -309,24 +309,25 @@ package body Lib.Load is
          end if;
 
          Units.Table (Main_Unit) := (
-           Cunit           => Empty,
-           Cunit_Entity    => Empty,
-           Dependency_Num  => 0,
-           Dynamic_Elab    => False,
-           Error_Location  => No_Location,
-           Expected_Unit   => No_Unit_Name,
-           Fatal_Error     => False,
-           Generate_Code   => False,
-           Has_RACW        => False,
-           Ident_String    => Empty,
-           Loading         => True,
-           Main_Priority   => Default_Main_Priority,
-           Munit_Index     => 0,
-           Serial_Number   => 0,
-           Source_Index    => Main_Source_File,
-           Unit_File_Name  => Fname,
-           Unit_Name       => No_Unit_Name,
-           Version         => Version);
+           Cunit            => Empty,
+           Cunit_Entity     => Empty,
+           Dependency_Num   => 0,
+           Dynamic_Elab     => False,
+           Error_Location   => No_Location,
+           Expected_Unit    => No_Unit_Name,
+           Fatal_Error      => False,
+           Generate_Code    => False,
+           Has_RACW         => False,
+           Is_Compiler_Unit => False,
+           Ident_String     => Empty,
+           Loading          => True,
+           Main_Priority    => Default_Main_Priority,
+           Munit_Index      => 0,
+           Serial_Number    => 0,
+           Source_Index     => Main_Source_File,
+           Unit_File_Name   => Fname,
+           Unit_Name        => No_Unit_Name,
+           Version          => Version);
       end if;
    end Load_Main_Source;
 
@@ -628,24 +629,25 @@ package body Lib.Load is
 
          if Src_Ind /= No_Source_File then
             Units.Table (Unum) := (
-              Cunit           => Empty,
-              Cunit_Entity    => Empty,
-              Dependency_Num  => 0,
-              Dynamic_Elab    => False,
-              Error_Location  => Sloc (Error_Node),
-              Expected_Unit   => Uname_Actual,
-              Fatal_Error     => False,
-              Generate_Code   => False,
-              Has_RACW        => False,
-              Ident_String    => Empty,
-              Loading         => True,
-              Main_Priority   => Default_Main_Priority,
-              Munit_Index     => 0,
-              Serial_Number   => 0,
-              Source_Index    => Src_Ind,
-              Unit_File_Name  => Fname,
-              Unit_Name       => Uname_Actual,
-              Version         => Source_Checksum (Src_Ind));
+              Cunit            => Empty,
+              Cunit_Entity     => Empty,
+              Dependency_Num   => 0,
+              Dynamic_Elab     => False,
+              Error_Location   => Sloc (Error_Node),
+              Expected_Unit    => Uname_Actual,
+              Fatal_Error      => False,
+              Generate_Code    => False,
+              Has_RACW         => False,
+              Is_Compiler_Unit => False,
+              Ident_String     => Empty,
+              Loading          => True,
+              Main_Priority    => Default_Main_Priority,
+              Munit_Index      => 0,
+              Serial_Number    => 0,
+              Source_Index     => Src_Ind,
+              Unit_File_Name   => Fname,
+              Unit_Name        => Uname_Actual,
+              Version          => Source_Checksum (Src_Ind));
 
             --  Parse the new unit
 

@@ -37,7 +37,11 @@ namespace gnu
   using std::argument_out_of_domain;
   using std:: bad_address;
   using std::bad_file_descriptor;
+
+#ifdef _GLIBCXX_HAVE_EBADMSG
   using std::bad_message;
+#endif
+
   using std::broken_pipe;
   using std::connection_aborted;
   using std::connection_already_in_progress; 
@@ -73,23 +77,39 @@ namespace gnu
 #endif
 
   using std::no_lock_available; 
+
+#ifdef _GLIBCXX_HAVE_ENODATA
   using std::no_message_available; 
+#endif
+
   using std::no_message; 
   using std::no_posix_equivalent; 
   using std::no_protocol_option; 
   using std::no_space_on_device;
+
+#ifdef _GLIBCXX_HAVE_ENOSR
   using std::no_stream_resources; 
+#endif
+
   using std::no_such_device_or_address; 
   using std::no_such_device; 	
   using std::no_such_file_or_directory; 
   using std::no_such_process; 	
   using std::not_a_directory; 
   using std::not_a_socket; 
+
+#ifdef _GLIBCXX_HAVE_ENOSTR
   using std::not_a_stream; 
+#endif
+
   using std::not_connected; 
   using std::not_enough_memory;
   using std::not_supported;
+
+#ifdef _GLIBCXX_HAVE_ECANCELED
   using std::operation_canceled;
+#endif
+
   using std::operation_in_progress;
   using std::operation_not_permitted;
   using std::operation_not_supported;
@@ -115,7 +135,10 @@ namespace gnu
   using std::state_not_recoverable; 
 #endif
 
+#ifdef _GLIBCXX_HAVE_ETIME
   using std::stream_timeout; 
+#endif
+
   using std::text_file_busy; 
   using std::timed_out; 
   using std::too_many_files_open_in_system; 

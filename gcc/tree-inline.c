@@ -336,7 +336,7 @@ remap_type_1 (tree type, copy_body_data *id)
     {
       t = remap_type (t, id);
       TYPE_MAIN_VARIANT (new) = t;
-      TYPE_NEXT_VARIANT (new) = TYPE_MAIN_VARIANT (t);
+      TYPE_NEXT_VARIANT (new) = TYPE_NEXT_VARIANT (t);
       TYPE_NEXT_VARIANT (t) = new;
     }
   else
@@ -844,8 +844,85 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 	     into multiple statements, we need to process all of them.  */
 	  while (!bsi_end_p (copy_bsi))
 	    {
-	      stmt = bsi_stmt (copy_bsi);
+	      tree *stmtp = bsi_stmt_ptr (copy_bsi);
+	      tree stmt = *stmtp;
 	      call = get_call_expr_in (stmt);
+
+	      if (call && CALL_EXPR_VA_ARG_PACK (call) && id->call_expr)
+		{
+		  /* __builtin_va_arg_pack () should be replaced by
+		     all arguments corresponding to ... in the caller.  */
+		  tree p, *argarray, new_call, *call_ptr;
+		  int nargs = call_expr_nargs (id->call_expr);
+
+		  for (p = DECL_ARGUMENTS (id->src_fn); p; p = TREE_CHAIN (p))
+		    nargs--;
+
+		  argarray = (tree *) alloca ((nargs + call_expr_nargs (call))
+					      * sizeof (tree));
+
+		  memcpy (argarray, CALL_EXPR_ARGP (call),
+			  call_expr_nargs (call) * sizeof (*argarray));
+		  memcpy (argarray + call_expr_nargs (call),
+			  CALL_EXPR_ARGP (id->call_expr)
+			  + (call_expr_nargs (id->call_expr) - nargs),
+			  nargs * sizeof (*argarray));
+
+		  new_call = build_call_array (TREE_TYPE (call),
+					       CALL_EXPR_FN (call),
+					       nargs + call_expr_nargs (call),
+					       argarray);
+		  /* Copy all CALL_EXPR flags, locus and block, except
+		     CALL_EXPR_VA_ARG_PACK flag.  */
+		  CALL_EXPR_STATIC_CHAIN (new_call)
+		    = CALL_EXPR_STATIC_CHAIN (call);
+		  CALL_EXPR_TAILCALL (new_call) = CALL_EXPR_TAILCALL (call);
+		  CALL_EXPR_RETURN_SLOT_OPT (new_call)
+		    = CALL_EXPR_RETURN_SLOT_OPT (call);
+		  CALL_FROM_THUNK_P (new_call) = CALL_FROM_THUNK_P (call);
+		  CALL_CANNOT_INLINE_P (new_call)
+		    = CALL_CANNOT_INLINE_P (call);
+		  TREE_NOTHROW (new_call) = TREE_NOTHROW (call);
+		  SET_EXPR_LOCUS (new_call, EXPR_LOCUS (call));
+		  TREE_BLOCK (new_call) = TREE_BLOCK (call);
+
+		  call_ptr = stmtp;
+		  if (TREE_CODE (*call_ptr) == GIMPLE_MODIFY_STMT)
+		    call_ptr = &GIMPLE_STMT_OPERAND (*call_ptr, 1);
+		  if (TREE_CODE (*call_ptr) == WITH_SIZE_EXPR)
+		    call_ptr = &TREE_OPERAND (*call_ptr, 0);
+		  gcc_assert (*call_ptr == call);
+		  *call_ptr = new_call;
+		  stmt = *stmtp;
+		  update_stmt (stmt);
+		}
+	      else if (call
+		       && id->call_expr
+		       && (decl = get_callee_fndecl (call))
+		       && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+		       && DECL_FUNCTION_CODE (decl)
+			  == BUILT_IN_VA_ARG_PACK_LEN)
+		{
+		  /* __builtin_va_arg_pack_len () should be replaced by
+		     the number of anonymous arguments.  */
+		  int nargs = call_expr_nargs (id->call_expr);
+		  tree count, *call_ptr, p;
+
+		  for (p = DECL_ARGUMENTS (id->src_fn); p; p = TREE_CHAIN (p))
+		    nargs--;
+
+		  count = build_int_cst (integer_type_node, nargs);
+		  call_ptr = stmtp;
+		  if (TREE_CODE (*call_ptr) == GIMPLE_MODIFY_STMT)
+		    call_ptr = &GIMPLE_STMT_OPERAND (*call_ptr, 1);
+		  if (TREE_CODE (*call_ptr) == WITH_SIZE_EXPR)
+		    call_ptr = &TREE_OPERAND (*call_ptr, 0);
+		  gcc_assert (*call_ptr == call && call_ptr != stmtp);
+		  *call_ptr = count;
+		  stmt = *stmtp;
+		  update_stmt (stmt);
+		  call = NULL_TREE;
+		}
 
 	      /* Statements produced by inlining can be unfolded, especially
 		 when we constant propagated some operands.  We can't fold
@@ -1966,20 +2043,6 @@ inlinable_function_p (tree fn)
 }
 #endif
 
-/* Return true if we shall disregard inlining limits for the function
-   FN during inlining.  */
-
-bool
-disregard_inline_limits_p (tree fn)
-{
-  /* GNU extern inline functions are supposed to be cheap.  */
-  if (DECL_DECLARED_INLINE_P (fn)
-      && DECL_EXTERNAL (fn))
-    return true;
-
-  return lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL_TREE;
-}
-
 /* FIXME tuples.  */
 #if 0
 /* Estimate the cost of a memory move.  Use machine dependent
@@ -2380,27 +2443,6 @@ init_inline_once (void)
   eni_time_weights.omp_cost = 40;
 }
 
-typedef struct function *function_p;
-
-DEF_VEC_P(function_p);
-DEF_VEC_ALLOC_P(function_p,heap);
-
-/* Initialized with NOGC, making this poisonous to the garbage collector.  */
-static VEC(function_p,heap) *cfun_stack;
-
-void
-push_cfun (struct function *new_cfun)
-{
-  VEC_safe_push (function_p, heap, cfun_stack, cfun);
-  cfun = new_cfun;
-}
-
-void
-pop_cfun (void)
-{
-  cfun = VEC_pop (function_p, cfun_stack);
-}
-
 /* FIXME tuples.  */
 #if 0
 /* Install new lexical TREE_BLOCK underneath 'current_block'.  */
@@ -2588,6 +2630,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   id->src_fn = fn;
   id->src_node = cg_edge->callee;
   id->src_cfun = DECL_STRUCT_FUNCTION (fn);
+  id->call_expr = t;
 
   initialize_inlined_parameters (id, t, fn, bb);
 

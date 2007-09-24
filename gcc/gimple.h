@@ -369,7 +369,7 @@ set_gimple_next (gimple g, gimple next)
 /* Common accessors for all GIMPLE statements.  */
 
 static inline enum gimple_code
-gimple_code (gimple g)
+gimple_code (const_gimple g)
 {
   return g->gsbase.code;
 }
@@ -378,7 +378,7 @@ gimple_code (gimple g)
 #define GIMPLE_NO_WARNING	(1 << 0)
 
 static inline unsigned
-gimple_flags (gimple g)
+gimple_flags (const_gimple g)
 {
   return g->gsbase.flags;
 }
@@ -411,31 +411,31 @@ set_gimple_subcode (gimple g, enum tree_code subcode)
 }
 
 static inline unsigned
-gimple_subcode (gimple g)
+gimple_subcode (const_gimple g)
 {
   return g->gsbase.subcode;
 }
 
 static inline gimple
-gimple_next (gimple g)
+gimple_next (const_gimple g)
 {
   return g->gsbase.next;
 }
 
 static inline gimple
-gimple_prev (gimple g)
+gimple_prev (const_gimple g)
 {
   return g->gsbase.prev;
 }
 
 static inline struct basic_block_def *
-gimple_bb (gimple g)
+gimple_bb (const_gimple g)
 {
   return g->gsbase.bb;
 }
 
 static inline tree
-gimple_block (gimple g)
+gimple_block (const_gimple g)
 {
   return g->gsbase.block;
 }
@@ -447,7 +447,7 @@ set_gimple_block (gimple g, tree block)
 }
 
 static inline location_t
-gimple_locus (gimple g)
+gimple_locus (const_gimple g)
 {
   return g->gsbase.locus;
 }

@@ -776,7 +776,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([gimple-tuples-branch rev. 127831])
+ACX_PKGVERSION([gimple-tuples-branch rev. 128708])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -848,7 +848,7 @@ AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 # that we can use it.
 ACX_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[4-9]*])
+  [4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
@@ -1349,7 +1349,7 @@ case ${enable_threads} in
     target_thread_file='single'
     ;;
   aix | dce | gnat | irix | posix | posix95 | rtems | \
-  single | solaris | vxworks | win32 )
+  single | solaris | vxworks | win32 | mipssde)
     target_thread_file=${enable_threads}
     ;;
   *)
@@ -2073,9 +2073,7 @@ else
   if echo "$ld_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \

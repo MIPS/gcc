@@ -498,7 +498,7 @@ struct tree_opt_pass pass_ud_rtl_dce =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
   ,0					/* works_with_tuples_p */
@@ -528,6 +528,7 @@ static bool
 dce_process_block (basic_block bb, bool redo_out)
 {
   bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
+  bitmap au;
   rtx insn;
   bool block_changed;
   struct df_ref **def_rec, **use_rec;
@@ -570,6 +571,15 @@ dce_process_block (basic_block bb, bool redo_out)
 	bitmap_set_bit (local_live, DF_REF_REGNO (use));
     }
 
+  /* These regs are considered always live so if they end up dying
+     because of some def, we need to bring the back again.
+     Calling df_simulate_fixup_sets has the disadvantage of calling
+     df_has_eh_preds once per insn, so we cache the information here.  */
+  if (df_has_eh_preds (bb))
+    au = df->eh_block_artificial_uses;
+  else
+    au = df->regular_block_artificial_uses;
+
   FOR_BB_INSNS_REVERSE (bb, insn)
     if (INSN_P (insn))
       {
@@ -581,7 +591,8 @@ dce_process_block (basic_block bb, bool redo_out)
 
 	    /* The insn is needed if there is someone who uses the output.  */
 	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec)))
+	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec))
+		  || bitmap_bit_p (au, DF_REF_REGNO (*def_rec)))
 		{
 		  needed = true;
 		  break;
@@ -806,7 +817,7 @@ struct tree_opt_pass pass_fast_rtl_dce =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
   ,0					/* works_with_tuples_p */

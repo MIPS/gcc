@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,7 +25,6 @@
 
 with ALI;      use ALI;
 with Csets;
-with Gnatvsn;  use Gnatvsn;
 with Makeutl;
 with MLib.Tgt; use MLib.Tgt;
 with Namet;    use Namet;
@@ -39,6 +37,7 @@ with Prj.Ext;
 with Prj.Pars;
 with Prj.Util; use Prj.Util;
 with Snames;
+with Switch;   use Switch;
 with Table;
 with Targparm; use Targparm;
 with Types;    use Types;
@@ -1342,11 +1341,7 @@ package body Clean is
    begin
       if not Copyright_Displayed then
          Copyright_Displayed := True;
-         Put_Line
-           ("GNATCLEAN " & Gnatvsn.Gnat_Version_String
-            & " Copyright 2003-"
-            & Current_Year
-            & " Free Software Foundation, Inc.");
+         Display_Version ("GNATCLEAN", "2003");
       end if;
    end Display_Copyright;
 
@@ -1640,9 +1635,14 @@ package body Clean is
    procedure Parse_Cmd_Line is
       Last         : constant Natural := Argument_Count;
       Source_Index : Int := 0;
-      Index        : Positive := 1;
+      Index        : Positive;
 
    begin
+      --  First, check for --version and --help
+
+      Check_Version_And_Help ("GNATCLEAN", "2003", Usage'Access);
+
+      Index := 1;
       while Index <= Last loop
          declare
             Arg : constant String := Argument (Index);

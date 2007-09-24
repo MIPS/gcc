@@ -10143,8 +10143,9 @@ never used by this executable.
 This feature will allow you to eliminate such unused code from your
 executable, making it smaller (in disk and in memory).
 
-This functionality is available on all platforms using elf binary format and
-having GNU binutils version 2.16.1.
+This functionality is available on all Linux platforms except for the IA-64
+architecture and on all cross platforms using the ELF binary file format.
+In both cases GNU binutils version 2.16 or later are required to enable it.
 
 @node Compilation options
 @subsection Compilation options
@@ -15433,6 +15434,15 @@ case if the specification occupies more then one line.
 Place the keyword @code{loop} in FOR and WHILE loop statements and the
 keywird @code{then} in IF statements on a separate line.
 
+@cindex @option{^--use-on-new-line^/USE_ON_NEW_LINE^} (@command{gnatpp})
+@item ^--use-on-new-line^/USE_ON_NEW_LINE^
+Start each USE clause in a context clause from a separate line.
+
+@cindex @option{^--separate-stmt-name^/STMT_NAME_ON_NEW_LINE^} (@command{gnatpp})
+@item ^--separate-stmt-name^/STMT_NAME_ON_NEW_LINE^
+Use a separate line for a loop or block statement name, but do not use an extra
+indentation level for the statement itself.
+
 @end table
 
 @ifclear vms
@@ -16016,6 +16026,13 @@ A further difference between GNAT style layout and compact layout is that
 GNAT style layout inserts empty lines as separation for
 compound statements, return statements and bodies.
 
+Note that the layout specified by
+@option{^--separate-stmt-name^/STMT_NAME_ON_NEW_LINE^}
+for named block and loop statements overrides the layout defined by these
+constructs by @option{^-l1^/CONSTRUCT_LAYOUT=GNAT^},
+@option{^-l2^/CONSTRUCT_LAYOUT=COMPACT^} or
+@option{^-l3^/CONSTRUCT_LAYOUT=UNCOMPACT^} option.
+
 @node Name Casing
 @subsection Name Casing
 
@@ -16419,6 +16436,10 @@ the number of comment lines
 the number of code lines containing end-of-line comments;
 
 @item
+the ratio between the number of lines that contain comments and the number of all
+the non-blank lines expressed in percentages (the comment percentage);
+
+@item
 the number of empty lines and lines containing only space characters and/or
 format effectors (blank lines)
 
@@ -16450,6 +16471,10 @@ The number of comment lines
 @item ^-leol^/MIXED_CODE_COMMENTS^
 The number of code lines containing
 end-of-line comments
+
+@cindex @option{^-ratio^/COMMENT_PERCENTAGE^} (@command{gnatmetric})
+@item ^-ratio^/COMMENT_PERCENTAGE^
+The comment percentage in the program text
 
 @cindex @option{^-lb^/BLANK_LINES^} (@command{gnatmetric})
 @item ^-lb^/BLANK_LINES^

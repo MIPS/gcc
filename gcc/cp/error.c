@@ -1477,6 +1477,7 @@ dump_expr (tree t, int flags)
     case INTEGER_CST:
     case REAL_CST:
     case STRING_CST:
+    case COMPLEX_CST:
       pp_constant (cxx_pp, t);
       break;
 
@@ -2046,6 +2047,23 @@ dump_expr (tree t, int flags)
       /* We get here when we want to print a dependent type as an
          id-expression, without any disambiguator decoration.  */
       pp_id_expression (cxx_pp, t);
+      break;
+
+    case TEMPLATE_TYPE_PARM:
+    case BOUND_TEMPLATE_TEMPLATE_PARM:
+      dump_type (t, flags);
+      break;
+
+    case TRAIT_EXPR:
+      pp_cxx_trait_expression (cxx_pp, t);
+      break;
+
+    case TYPEID_EXPR:
+      pp_cxx_typeid_expression (cxx_pp, t);
+      break;
+
+    case VA_ARG_EXPR:
+      pp_cxx_va_arg_expression (cxx_pp, t);
       break;
 
       /*  This list is incomplete, but should suffice for now.

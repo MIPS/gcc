@@ -1004,14 +1004,15 @@ a value the default is @code{BITS_PER_WORD}.
 @end defmac
 
 @defmac POINTERS_EXTEND_UNSIGNED
-A C expression whose value is greater than zero if pointers that need to be
-extended from being @code{POINTER_SIZE} bits wide to @code{Pmode} are to
-be zero-extended and zero if they are to be sign-extended.  If the value
-is less then zero then there must be an "ptr_extend" instruction that
-extends a pointer from @code{POINTER_SIZE} to @code{Pmode}.
+A C expression that determines how pointers should be extended from
+@code{ptr_mode} to either @code{Pmode} or @code{word_mode}.  It is
+greater than zero if pointers should be zero-extended, zero if they
+should be sign-extended, and negative if some other sort of conversion
+is needed.  In the last case, the extension is done by the target's
+@code{ptr_extend} instruction.
 
-You need not define this macro if the @code{POINTER_SIZE} is equal
-to the width of @code{Pmode}.
+You need not define this macro if the @code{ptr_mode}, @code{Pmode}
+and @code{word_mode} are all the same width.
 @end defmac
 
 @defmac PROMOTE_MODE (@var{m}, @var{unsignedp}, @var{type})
@@ -6342,6 +6343,15 @@ an additional structure @var{spec_info} should be filled by the target.
 The structure describes speculation types that can be used in the scheduler.
 @end deftypefn
 
+@deftypefn {Target Hook} int TARGET_SCHED_SMS_RES_MII (struct ddg *@var{g})
+This hook is called by the swing modulo scheduler to calculate a
+resource-based lower bound which is based on the resources available in
+the machine and the resources required by each instruction.  The target
+backend can use @var{g} to calculate such bound.  A very simple lower
+bound will be used in case this hook is not implemented: the total number
+of instructions divided by the issue rate.
+@end deftypefn
+
 @node Sections
 @section Dividing the Output into Sections (Texts, Data, @dots{})
 @c the above section title is WAY too long.  maybe cut the part between
@@ -7038,9 +7048,11 @@ If no constant-pool epilogue is required, the usual case, you need not
 define this macro.
 @end defmac
 
-@defmac IS_ASM_LOGICAL_LINE_SEPARATOR (@var{C})
+@defmac IS_ASM_LOGICAL_LINE_SEPARATOR (@var{C}, @var{STR})
 Define this macro as a C expression which is nonzero if @var{C} is
-used as a logical line separator by the assembler.
+used as a logical line separator by the assembler.  @var{STR} points
+to the position in the string where @var{C} was found; this can be used if
+a line separator uses multiple characters.
 
 If you do not define this macro, the default is that only
 the character @samp{;} is treated as a logical line separator.
@@ -10139,6 +10151,23 @@ The default value of this hook is @code{NULL}, which disables any special
 allocation.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_SET_CURRENT_FUNCTION (tree @var{decl})
+The compiler invokes this hook whenever it changes its current function 
+context (@code{cfun}).  You can define this function if
+the back end needs to perform any initialization or reset actions on a
+per-function basis.  For example, it may be used to implement function
+attributes that affect register usage or code generation patterns.
+The argument @var{decl} is the declaration for the new function context,
+and may be null to indicate that the compiler has left a function context
+and is returning to processing at the top level.
+The default hook function does nothing.
+
+GCC sets @code{cfun} to a dummy function context during initialization of
+some parts of the back end.  The hook function is not invoked in this
+situation; you need not worry about the hook being invoked recursively,
+or when the back end is in a partially-initialized state.
+@end deftypefn
+
 @defmac TARGET_OBJECT_SUFFIX
 Define this macro to be a C string representing the suffix for object
 files on your target machine.  If you do not define this macro, GCC will
@@ -10309,4 +10338,11 @@ SUPPORTS_WEAK and TARGET_HAVE_NAMED_SECTIONS are true, else 0.
 @defmac OBJC_JBLEN
 This macro determines the size of the objective C jump buffer for the
 NeXT runtime. By default, OBJC_JBLEN is defined to an innocuous value.
+@end defmac
+
+@defmac LIBGCC2_UNWIND_ATTRIBUTE
+Define this macro if any target-specific attributes need to be attached
+to the functions in @file{libgcc} that provide low-level support for 
+call stack unwinding.  It is used in declarations in @file{unwind-generic.h}
+and the associated definitions of those functions.
 @end defmac

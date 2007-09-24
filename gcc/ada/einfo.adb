@@ -217,6 +217,7 @@ package body Einfo is
    --    DT_Offset_To_Top_Func           Node25
    --    Task_Body_Procedure             Node25
 
+   --    Dispatch_Table_Wrapper          Node16
    --    Overridden_Operation            Node26
    --    Package_Instantiation           Node26
    --    Related_Interface               Node26
@@ -480,8 +481,8 @@ package body Einfo is
 
    --    Has_Pragma_Preelab_Init         Flag221
    --    Used_As_Generic_Actual          Flag222
-   --    (unused)                        Flag223
-   --    (unused)                        Flag224
+   --    Is_Descendent_Of_Address        Flag223
+   --    Is_Raised                       Flag224
    --    (unused)                        Flag225
    --    (unused)                        Flag226
    --    (unused)                        Flag227
@@ -841,6 +842,12 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Discriminant);
       return Uint15 (Id);
    end Discriminant_Number;
+
+   function Dispatch_Table_Wrapper (Id : E) return E is
+   begin
+      pragma Assert (Is_Tagged_Type (Id));
+      return Node26 (Implementation_Base_Type (Id));
+   end Dispatch_Table_Wrapper;
 
    function DT_Entry_Count (Id : E) return U is
    begin
@@ -1634,6 +1641,12 @@ package body Einfo is
       return Flag176 (Id);
    end Is_Discrim_SO_Function;
 
+   function Is_Descendent_Of_Address (Id : E) return B is
+   begin
+      pragma Assert (Is_Type (Id));
+      return Flag223 (Id);
+   end Is_Descendent_Of_Address;
+
    function Is_Dispatching_Operation (Id : E) return B is
    begin
       pragma Assert (Nkind (Id) in N_Entity);
@@ -1893,6 +1906,12 @@ package body Einfo is
       pragma Assert (Is_Access_Type (Id));
       return Flag189 (Id);
    end Is_Pure_Unit_Access_Type;
+
+   function Is_Raised (Id : E) return B is
+   begin
+      pragma Assert (Ekind (Id) = E_Exception);
+      return Flag224 (Id);
+   end Is_Raised;
 
    function Is_Remote_Call_Interface (Id : E) return B is
    begin
@@ -3104,6 +3123,12 @@ package body Einfo is
       Set_Uint15 (Id, V);
    end Set_Discriminant_Number;
 
+   procedure Set_Dispatch_Table_Wrapper (Id : E; V : E) is
+   begin
+      pragma Assert (Is_Tagged_Type (Id) and then Id = Base_Type (Id));
+      Set_Node26 (Id, V);
+   end Set_Dispatch_Table_Wrapper;
+
    procedure Set_DT_Entry_Count (Id : E; V : U) is
    begin
       pragma Assert (Ekind (Id) = E_Component);
@@ -3913,6 +3938,12 @@ package body Einfo is
       Set_Flag74 (Id, V);
    end Set_Is_CPP_Class;
 
+   procedure Set_Is_Descendent_Of_Address (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Type (Id));
+      Set_Flag223 (Id, V);
+   end Set_Is_Descendent_Of_Address;
+
    procedure Set_Is_Discrim_SO_Function (Id : E; V : B := True) is
    begin
       Set_Flag176 (Id, V);
@@ -4194,6 +4225,12 @@ package body Einfo is
       pragma Assert (Is_Access_Type (Id));
       Set_Flag189 (Id, V);
    end Set_Is_Pure_Unit_Access_Type;
+
+   procedure Set_Is_Raised (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Exception);
+      Set_Flag224 (Id, V);
+   end Set_Is_Raised;
 
    procedure Set_Is_Remote_Call_Interface (Id : E; V : B := True) is
    begin
@@ -7168,6 +7205,7 @@ package body Einfo is
       W ("Is_Constructor",                  Flag76  (Id));
       W ("Is_Controlled",                   Flag42  (Id));
       W ("Is_Controlling_Formal",           Flag97  (Id));
+      W ("Is_Descendent_Of_Address",        Flag223 (Id));
       W ("Is_Discrim_SO_Function",          Flag176 (Id));
       W ("Is_Dispatching_Operation",        Flag6   (Id));
       W ("Is_Eliminated",                   Flag124 (Id));
@@ -7215,6 +7253,7 @@ package body Einfo is
       W ("Is_Public",                       Flag10  (Id));
       W ("Is_Pure",                         Flag44  (Id));
       W ("Is_Pure_Unit_Access_Type",        Flag189 (Id));
+      W ("Is_Raised",                       Flag224 (Id));
       W ("Is_Remote_Call_Interface",        Flag62  (Id));
       W ("Is_Remote_Types",                 Flag61  (Id));
       W ("Is_Renaming_Of_Object",           Flag112 (Id));
@@ -8226,6 +8265,10 @@ package body Einfo is
             else
                Write_Str ("Static_Initialization");
             end if;
+
+         when E_Record_Type                                |
+              E_Record_Type_With_Private                   =>
+            Write_Str ("Dispatch_Table_Wrapper");
 
          when others                                       =>
             Write_Str ("Field26??");

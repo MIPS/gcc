@@ -277,9 +277,6 @@ cp_lexer_new_main (void)
      allocating any memory.  */
   cp_parser_initial_pragma (&first_token);
 
-  /* Tell c_lex_with_flags not to merge string constants.  */
-  c_lex_return_raw_strings = true;
-
   c_common_no_more_pch ();
 
   /* Allocate the memory.  */
@@ -402,17 +399,19 @@ cp_lexer_saving_tokens (const cp_lexer* lexer)
 }
 
 /* Store the next token from the preprocessor in *TOKEN.  Return true
-   if we reach EOF.  */
+   if we reach EOF.  If LEXER is NULL, assume we are handling an
+   initial #pragma pch_preprocess, and thus want the lexer to return
+   processed strings.  */
 
 static void
-cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
-				 cp_token *token)
+cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
 {
   static int is_extern_c = 0;
 
    /* Get a new token from the preprocessor.  */
   token->type
-    = c_lex_with_flags (&token->u.value, &token->location, &token->flags);
+    = c_lex_with_flags (&token->u.value, &token->location, &token->flags,
+			lexer == NULL ? 0 : C_LEX_RAW_STRINGS);
   token->input_file_stack_index = input_file_stack_tick;
   token->keyword = RID_MAX;
   token->pragma_kind = PRAGMA_NONE;
@@ -2923,7 +2922,7 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
       (parse_in, strs, count, &istr, wide))
     {
       value = build_string (istr.len, (const char *)istr.text);
-      free (CONST_CAST (istr.text));
+      free (CONST_CAST (unsigned char *, istr.text));
 
       TREE_TYPE (value) = wide ? wchar_array_type_node : char_array_type_node;
       value = fix_string_type (value);
@@ -3166,9 +3165,11 @@ cp_parser_primary_expression (cp_parser *parser,
 		 int i = ({ int j = 3; j + 1; });
 
 	       at class or namespace scope.  */
-	    if (!parser->in_function_body)
+	    if (!parser->in_function_body
+		|| parser->in_template_argument_list_p)
 	      {
-		error ("statement-expressions are allowed only inside functions");
+		error ("statement-expressions are not allowed outside "
+		       "functions nor in template-argument lists");
 		cp_parser_skip_to_end_of_block_or_statement (parser);
 		expr = error_mark_node;
 	      }
@@ -6502,6 +6503,9 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
 
   type1 = cp_parser_type_id (parser);
 
+  if (type1 == error_mark_node)
+    return error_mark_node;
+
   /* Build a trivial decl-specifier-seq.  */
   clear_decl_specs (&decl_specs);
   decl_specs.type = type1;
@@ -6516,6 +6520,9 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
  
       type2 = cp_parser_type_id (parser);
 
+      if (type2 == error_mark_node)
+	return error_mark_node;
+
       /* Build a trivial decl-specifier-seq.  */
       clear_decl_specs (&decl_specs);
       decl_specs.type = type2;
@@ -6527,8 +6534,8 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
 
   cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
-  /* Complete the trait expr, which may mean either processing the
-     static assert now or saving it for template instantiation.  */
+  /* Complete the trait expression, which may mean either processing
+     the trait expr now or saving it for template instantiation.  */
   return finish_trait_expr (kind, type1, type2);
 }
 

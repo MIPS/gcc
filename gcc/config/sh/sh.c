@@ -4716,8 +4716,8 @@ sh_reorg (void)
   mdep_reorg_phase = SH_INSERT_USES_LABELS;
   if (TARGET_RELAX)
     {
-      /* Remove all REG_LABEL notes.  We want to use them for our own
-	 purposes.  This works because none of the remaining passes
+      /* Remove all REG_LABEL_OPERAND notes.  We want to use them for our
+	 own purposes.  This works because none of the remaining passes
 	 need to look at them.
 
 	 ??? But it may break in the future.  We should use a machine
@@ -4728,7 +4728,8 @@ sh_reorg (void)
 	    {
 	      rtx note;
 
-	      while ((note = find_reg_note (insn, REG_LABEL, NULL_RTX)) != 0)
+	      while ((note = find_reg_note (insn, REG_LABEL_OPERAND,
+					    NULL_RTX)) != 0)
 		remove_note (insn, note);
 	    }
 	}
@@ -4879,16 +4880,16 @@ sh_reorg (void)
 	      continue;
 	    }
 
-	  /* Create a code label, and put it in a REG_LABEL note on
-             the insn which sets the register, and on each call insn
-             which uses the register.  In final_prescan_insn we look
-             for the REG_LABEL notes, and output the appropriate label
+	  /* Create a code label, and put it in a REG_LABEL_OPERAND note
+             on the insn which sets the register, and on each call insn
+             which uses the register.  In final_prescan_insn we look for
+             the REG_LABEL_OPERAND notes, and output the appropriate label
              or pseudo-op.  */
 
 	  label = gen_label_rtx ();
-	  REG_NOTES (link) = gen_rtx_INSN_LIST (REG_LABEL, label,
+	  REG_NOTES (link) = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, label,
 						REG_NOTES (link));
-	  REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL, label,
+	  REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, label,
 						REG_NOTES (insn));
 	  if (rescan)
 	    {
@@ -4904,7 +4905,8 @@ sh_reorg (void)
 			  || ((reg2 = sfunc_uses_reg (scan))
 			      && REGNO (reg2) == REGNO (reg))))
 		    REG_NOTES (scan)
-		      = gen_rtx_INSN_LIST (REG_LABEL, label, REG_NOTES (scan));
+		      = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, label,
+					   REG_NOTES (scan));
 		}
 	      while (scan != dies);
 	    }
@@ -5405,7 +5407,7 @@ final_prescan_insn (rtx insn, rtx *opvec ATTRIBUTE_UNUSED,
     {
       rtx note;
 
-      note = find_reg_note (insn, REG_LABEL, NULL_RTX);
+      note = find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX);
       if (note)
 	{
 	  rtx pattern;
@@ -5871,7 +5873,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
   if (TARGET_SHCOMPACT
       && ((current_function_args_info.call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
-	  || current_function_has_nonlocal_label))
+	  || current_function_saves_all_registers))
     pr_live = 1;
   has_call = TARGET_SHMEDIA ? ! leaf_function_p () : pr_live;
   for (count = 0, reg = FIRST_PSEUDO_REGISTER; reg-- != 0; )
@@ -7201,7 +7203,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	    }
 	}
 
-      if (TARGET_SH4)
+      if (TARGET_SH4 || TARGET_SH2A_DOUBLE)
 	{
 	  pass_as_float = ((TREE_CODE (eff_type) == REAL_TYPE && size <= 8)
 			   || (TREE_CODE (eff_type) == COMPLEX_TYPE
@@ -7313,7 +7315,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  tmp = build1 (LABEL_EXPR, void_type_node, lab_false);
 	  gimplify_and_add (tmp, pre_p);
 
-	  if (size > 4 && ! TARGET_SH4)
+	  if (size > 4 && ! (TARGET_SH4 || TARGET_SH2A))
 	    {
 	      tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node,
 		  	    next_o, next_o_limit);
@@ -8419,7 +8421,7 @@ fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 
 /* Is the given character a logical line separator for the assembler?  */
 #ifndef IS_ASM_LOGICAL_LINE_SEPARATOR
-#define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == ';')
+#define IS_ASM_LOGICAL_LINE_SEPARATOR(C, STR) ((C) == ';')
 #endif
 
 int
@@ -8482,7 +8484,8 @@ sh_insn_length_adjustment (rtx insn)
 	  else if ((c == 'r' || c == 'R')
 		   && ! strncasecmp ("epeat", template, 5))
 	    ppi_adjust = 4;
-	  while (c && c != '\n' && ! IS_ASM_LOGICAL_LINE_SEPARATOR (c))
+	  while (c && c != '\n'
+		 && ! IS_ASM_LOGICAL_LINE_SEPARATOR (c, template))
 	    {
 	      /* If this is a label, it is obviously not a ppi insn.  */
 	      if (c == ':' && maybe_label)
@@ -8942,7 +8945,7 @@ sh_allocate_initial_value (rtx hard_reg)
 	  && ! (TARGET_SHCOMPACT
 		&& ((current_function_args_info.call_cookie
 		     & ~ CALL_COOKIE_RET_TRAMP (1))
-		    || current_function_has_nonlocal_label)))
+		    || current_function_saves_all_registers)))
 	x = hard_reg;
       else
 	x = gen_frame_mem (Pmode, return_address_pointer_rtx);
@@ -10330,7 +10333,7 @@ sh_get_pr_initial_val (void)
   if (TARGET_SHCOMPACT
       && ((current_function_args_info.call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
-	  || current_function_has_nonlocal_label))
+	  || current_function_saves_all_registers))
     return gen_frame_mem (SImode, return_address_pointer_rtx);
 
   /* If we haven't finished rtl generation, there might be a nonlocal label

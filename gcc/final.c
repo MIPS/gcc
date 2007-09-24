@@ -109,7 +109,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Is the given character a logical line separator for the assembler?  */
 #ifndef IS_ASM_LOGICAL_LINE_SEPARATOR
-#define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == ';')
+#define IS_ASM_LOGICAL_LINE_SEPARATOR(C, STR) ((C) == ';')
 #endif
 
 #ifndef JUMP_TABLES_IN_TEXT_SECTION
@@ -136,6 +136,10 @@ static int high_function_linenum;
 
 /* Filename of last NOTE.  */
 static const char *last_filename;
+
+/* Override filename and line number.  */
+static const char *override_filename;
+static int override_linenum;
 
 /* Whether to force emission of a line note before the next insn.  */
 static bool force_source_line = false;
@@ -1345,7 +1349,8 @@ asm_insn_count (rtx body)
     template = decode_asm_operands (body, NULL, NULL, NULL, NULL, NULL);
 
   for (; *template; template++)
-    if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template) || *template == '\n')
+    if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template, template)
+	|| *template == '\n')
       count++;
 
   return count;
@@ -1814,6 +1819,18 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	      /* Mark this block as output.  */
 	      TREE_ASM_WRITTEN (NOTE_BLOCK (insn)) = 1;
 	    }
+	  if (write_symbols == DBX_DEBUG
+	      || write_symbols == SDB_DEBUG)
+	    {
+	      location_t *locus_ptr
+		= block_nonartificial_location (NOTE_BLOCK (insn));
+
+	      if (locus_ptr != NULL)
+		{
+		  override_filename = LOCATION_FILE (*locus_ptr);
+		  override_linenum = LOCATION_LINE (*locus_ptr);
+		}
+	    }
 	  break;
 
 	case NOTE_INSN_BLOCK_END:
@@ -1832,6 +1849,24 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	      gcc_assert (block_depth >= 0);
 
 	      (*debug_hooks->end_block) (high_block_linenum, n);
+	    }
+	  if (write_symbols == DBX_DEBUG
+	      || write_symbols == SDB_DEBUG)
+	    {
+	      tree outer_block = BLOCK_SUPERCONTEXT (NOTE_BLOCK (insn));
+	      location_t *locus_ptr
+		= block_nonartificial_location (outer_block);
+
+	      if (locus_ptr != NULL)
+		{
+		  override_filename = LOCATION_FILE (*locus_ptr);
+		  override_linenum = LOCATION_LINE (*locus_ptr);
+		}
+	      else
+		{
+		  override_filename = NULL;
+		  override_linenum = 0;
+		}
 	    }
 	  break;
 
@@ -2093,7 +2128,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	    if (string[0])
 	      {
-		location_t loc;
+		expanded_location loc;
 
 		if (! app_on)
 		  {
@@ -2101,7 +2136,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    app_on = 1;
 		  }
 #ifdef USE_MAPPED_LOCATION
-		loc = ASM_INPUT_SOURCE_LOCATION (body);
+		loc = expand_location (ASM_INPUT_SOURCE_LOCATION (body));
 #else
 		loc.file = ASM_INPUT_SOURCE_FILE (body);
 		loc.line = ASM_INPUT_SOURCE_LINE (body);
@@ -2125,6 +2160,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    rtx *ops = alloca (noperands * sizeof (rtx));
 	    const char *string;
 	    location_t loc;
+	    expanded_location expanded;
 
 	    /* There's no telling what that did to the condition codes.  */
 	    CC_STATUS_INIT;
@@ -2134,6 +2170,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    /* Inhibit dieing on what would otherwise be compiler bugs.  */
 	    insn_noperands = noperands;
 	    this_is_asm_operands = insn;
+	    expanded = expand_location (loc);
 
 #ifdef FINAL_PRESCAN_INSN
 	    FINAL_PRESCAN_INSN (insn, ops, insn_noperands);
@@ -2147,12 +2184,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    fputs (ASM_APP_ON, file);
 		    app_on = 1;
 		  }
-		if (loc.file && loc.line)
+		if (expanded.file && expanded.line)
 		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
-			   ASM_COMMENT_START, loc.line, loc.file);
+			   ASM_COMMENT_START, expanded.line, expanded.file);
 	        output_asm_insn (string, ops);
 #if HAVE_AS_LINE_ZERO
-		if (loc.file && loc.line)
+		if (expanded.file && expanded.line)
 		  fprintf (asm_out_file, "%s 0 \"\" 2\n", ASM_COMMENT_START);
 #endif
 	      }
@@ -2607,8 +2644,19 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 static bool
 notice_source_line (rtx insn)
 {
-  const char *filename = insn_file (insn);
-  int linenum = insn_line (insn);
+  const char *filename;
+  int linenum;
+
+  if (override_filename)
+    {
+      filename = override_filename;
+      linenum = override_linenum;
+    }
+  else
+    {
+      filename = insn_file (insn);
+      linenum = insn_line (insn);
+    }
 
   if (filename
       && (force_source_line
@@ -3376,6 +3424,10 @@ output_addr_const (FILE *file, rtx x)
 	/* We can't handle floating point constants;
 	   PRINT_OPERAND must handle them.  */
 	output_operand_lossage ("floating constant misused");
+      break;
+
+    case CONST_FIXED:
+      fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_FIXED_VALUE_LOW (x));
       break;
 
     case PLUS:

@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "output.h"
 #include "diagnostic.h"
 #include "real.h"
 #include "hashtab.h"
@@ -37,13 +38,13 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Local functions, macros and variables.  */
 static int op_prio (const_tree);
-static const char *op_symbol (tree);
+static const char *op_symbol (const_tree);
 static void pretty_print_string (pretty_printer *, const char*);
-static void print_call_name (pretty_printer *, tree);
+static void print_call_name (pretty_printer *, const_tree);
 static void newline_and_indent (pretty_printer *, int);
 static void maybe_init_pretty_print (FILE *);
-static void print_struct_decl (pretty_printer *, tree, int, int);
-static void do_niy (pretty_printer *, tree);
+static void print_struct_decl (pretty_printer *, const_tree, int, int);
+static void do_niy (pretty_printer *, const_tree);
 static void dump_vops (pretty_printer *, tree, int, int);
 
 #define INDENT(SPACE) do { \
@@ -62,7 +63,7 @@ static int initialized = 0;
 /* Try to print something for an unknown tree code.  */
 
 static void
-do_niy (pretty_printer *buffer, tree node)
+do_niy (pretty_printer *buffer, const_tree node)
 {
   int i, len;
 
@@ -176,8 +177,7 @@ dump_decl_name (pretty_printer *buffer, tree node, int flags)
     {
       if (TREE_CODE (t) == LABEL_DECL
           && LABEL_DECL_UID (t) != -1)
-        pp_printf (buffer, "L." HOST_WIDE_INT_PRINT_DEC,
-		   LABEL_DECL_UID (t));
+        pp_printf (buffer, "L.%d", (int) LABEL_DECL_UID (t));
       else
 	{
 	  char c = TREE_CODE (t) == CONST_DECL ? 'C' : 'D';
@@ -592,9 +592,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	  if (quals & TYPE_QUAL_CONST)
 	    pp_string (buffer, " const");
-	  else if (quals & TYPE_QUAL_VOLATILE)
-	    pp_string (buffer,  "volatile");
-	  else if (quals & TYPE_QUAL_RESTRICT)
+	  if (quals & TYPE_QUAL_VOLATILE)
+	    pp_string (buffer, " volatile");
+	  if (quals & TYPE_QUAL_RESTRICT)
 	    pp_string (buffer, " restrict");
 
 	  if (TYPE_REF_CAN_ALIAS_ALL (node))
@@ -688,17 +688,26 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      /* Print the name of the structure.  */
-      if (TREE_CODE (node) == RECORD_TYPE)
-	pp_string (buffer, "struct ");
-      else if (TREE_CODE (node) == UNION_TYPE)
-	pp_string (buffer, "union ");
+      {
+	unsigned int quals = TYPE_QUALS (node);
 
-      if (TYPE_NAME (node))
-	dump_generic_node (buffer, TYPE_NAME (node), spc, flags, false);
-      else
-	print_struct_decl (buffer, node, spc, flags);
-      break;
+	if (quals & TYPE_QUAL_CONST)
+	  pp_string (buffer, "const ");
+	if (quals & TYPE_QUAL_VOLATILE)
+	  pp_string (buffer, "volatile ");
+
+        /* Print the name of the structure.  */
+        if (TREE_CODE (node) == RECORD_TYPE)
+	  pp_string (buffer, "struct ");
+        else if (TREE_CODE (node) == UNION_TYPE)
+	  pp_string (buffer, "union ");
+
+        if (TYPE_NAME (node))
+	  dump_generic_node (buffer, TYPE_NAME (node), spc, flags, false);
+        else
+	  print_struct_decl (buffer, node, spc, flags);
+        break;
+      }
 
     case LANG_TYPE:
       NIY;
@@ -831,10 +840,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       if (DECL_NAME (node))
 	dump_decl_name (buffer, node, flags);
       else if (LABEL_DECL_UID (node) != -1)
-        pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
-		   LABEL_DECL_UID (node));
+        pp_printf (buffer, "<L%d>", (int) LABEL_DECL_UID (node));
       else
-        pp_printf (buffer, "<D%u>", DECL_UID (node));
+        pp_printf (buffer, "<D.%u>", DECL_UID (node));
       break;
 
     case TYPE_DECL:
@@ -1189,6 +1197,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	      }
 	  }
       }
+      if (CALL_EXPR_VA_ARG_PACK (node))
+	{
+	  if (call_expr_nargs (node) > 0)
+	    {
+	      pp_character (buffer, ',');
+	      pp_space (buffer);
+	    }
+	  pp_string (buffer, "__builtin_va_arg_pack ()");
+	}
       pp_character (buffer, ')');
 
       op1 = CALL_EXPR_STATIC_CHAIN (node);
@@ -2209,7 +2226,7 @@ print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
    FIXME: Still incomplete.  */
 
 static void
-print_struct_decl (pretty_printer *buffer, tree node, int spc, int flags)
+print_struct_decl (pretty_printer *buffer, const_tree node, int spc, int flags)
 {
   /* Print the name of the structure.  */
   if (TYPE_NAME (node))
@@ -2593,7 +2610,7 @@ op_symbol_code (enum tree_code code)
 /* Return the symbol associated with operator OP.  */
 
 static const char *
-op_symbol (tree op)
+op_symbol (const_tree op)
 {
   return op_symbol_code (TREE_CODE (op));
 }
@@ -2601,7 +2618,7 @@ op_symbol (tree op)
 /* Prints the name of a CALL_EXPR.  */
 
 static void
-print_call_name (pretty_printer *buffer, tree node)
+print_call_name (pretty_printer *buffer, const_tree node)
 {
   tree op0;
 

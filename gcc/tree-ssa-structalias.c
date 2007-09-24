@@ -3657,6 +3657,27 @@ handle_rhs_call  (tree rhs)
     }
 }
 
+/* For non-IPA mode, generate constraints necessary for a call
+   that returns a pointer and assigns it to LHS.  This simply makes
+   the LHS point to anything.  */
+
+static void
+handle_lhs_call (tree lhs)
+{
+  VEC(ce_s, heap) *lhsc = NULL;
+  struct constraint_expr rhsc;
+  unsigned int j;
+  struct constraint_expr *lhsp;
+
+  rhsc.var = anything_id;
+  rhsc.offset = 0;
+  rhsc.type = ADDRESSOF;
+  get_constraint_for (lhs, &lhsc);
+  for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
+    process_constraint_1 (new_constraint (*lhsp, rhsc), true);
+  VEC_free (ce_s, heap, lhsc);
+}
+
 /* Walk statement T setting up aliasing constraints according to the
    references found in T.  This function is the main part of the
    constraint builder.  AI points to auxiliary alias information used
@@ -3728,7 +3749,11 @@ find_func_aliases (tree origt)
       if (!in_ipa_mode)
 	{
 	  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
-	    handle_rhs_call (GIMPLE_STMT_OPERAND (t, 1));
+	    {
+	      handle_rhs_call (GIMPLE_STMT_OPERAND (t, 1));
+	      if (POINTER_TYPE_P (TREE_TYPE (GIMPLE_STMT_OPERAND (t, 1))))
+		handle_lhs_call (GIMPLE_STMT_OPERAND (t, 0));
+	    }
 	  else
 	    handle_rhs_call (t);
 	}
@@ -4091,7 +4116,9 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 	  else if (!(pushed = push_fields_onto_fieldstack
 		     (TREE_TYPE (type), fieldstack,
 		      offset + i * TREE_INT_CST_LOW (elsz), has_union,
-		      TREE_TYPE (type))))
+		      (TYPE_NONALIASED_COMPONENT (type)
+		       ? addressable_type
+		       : TREE_TYPE (type)))))
 	    /* Empty structures may have actual size, like in C++. So
 	       see if we didn't push any subfields and the size is
 	       nonzero, push the field onto the stack */
@@ -4106,7 +4133,10 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 	      pair->size = elsz;
 	      pair->decl = NULL_TREE;
 	      pair->offset = offset + i * TREE_INT_CST_LOW (elsz);
-	      pair->alias_set = -1;
+	      if (TYPE_NONALIASED_COMPONENT (type))
+		pair->alias_set = get_alias_set (addressable_type);
+	      else
+		pair->alias_set = -1;
 	      count++;
 	    }
 	  else
@@ -4472,8 +4502,10 @@ create_variable_info_for (tree decl, const char *name)
 
 	  stats.total_vars++;
 	}
-      VEC_free (fieldoff_s, heap, fieldstack);
     }
+
+  VEC_free (fieldoff_s, heap, fieldstack);
+
   return index;
 }
 

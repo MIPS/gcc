@@ -1,4 +1,5 @@
 /* { dg-require-effective-target vect_float } */
+/* { dg-require-effective-target vect_intfloat_cvt } */
 #include <stdarg.h>
 #include "tree-vect.h"
 
@@ -8,7 +9,7 @@ float out[N];
 
 /* Outer-loop vectorization.  */
 
-void
+__attribute__ ((noinline)) void
 foo (){
   int i,j;
 

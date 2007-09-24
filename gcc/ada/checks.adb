@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -4988,8 +4987,83 @@ package body Checks is
       Loc : constant Source_Ptr := Sloc (N);
       Typ : constant Entity_Id  := Etype (N);
 
+      function In_Declarative_Region_Of_Subprogram_Body return Boolean;
+      --  Determine whether node N, a reference to an *in* parameter, is
+      --  inside the declarative region of the current subprogram body.
+
       procedure Mark_Non_Null;
-      --  After installation of check, marks node as non-null if entity
+      --  After installation of check, if the node in question is an entity
+      --  name, then mark this entity as non-null if possible.
+
+      ----------------------------------------------
+      -- In_Declarative_Region_Of_Subprogram_Body --
+      ----------------------------------------------
+
+      function In_Declarative_Region_Of_Subprogram_Body return Boolean is
+         E     : constant Entity_Id := Entity (N);
+         S     : constant Entity_Id := Current_Scope;
+         S_Par : Node_Id;
+
+      begin
+         pragma Assert (Ekind (E) = E_In_Parameter);
+
+         --  Two initial context checks. We must be inside a subprogram body
+         --  with declarations and reference must not appear in nested scopes.
+
+         if (Ekind (S) /= E_Function
+             and then Ekind (S) /= E_Procedure)
+           or else Scope (E) /= S
+         then
+            return False;
+         end if;
+
+         S_Par := Parent (Parent (S));
+
+         if Nkind (S_Par) /= N_Subprogram_Body
+           or else No (Declarations (S_Par))
+         then
+            return False;
+         end if;
+
+         declare
+            N_Decl : Node_Id;
+            P      : Node_Id;
+
+         begin
+            --  Retrieve the declaration node of N (if any). Note that N
+            --  may be a part of a complex initialization expression.
+
+            P := Parent (N);
+            N_Decl := Empty;
+            while Present (P) loop
+
+               --  While traversing the parent chain, we find that N
+               --  belongs to a statement, thus it may never appear in
+               --  a declarative region.
+
+               if Nkind (P) in N_Statement_Other_Than_Procedure_Call
+                 or else Nkind (P) = N_Procedure_Call_Statement
+               then
+                  return False;
+               end if;
+
+               if Nkind (P) in N_Declaration
+                 and then Nkind (P) not in N_Subprogram_Specification
+               then
+                  N_Decl := P;
+                  exit;
+               end if;
+
+               P := Parent (P);
+            end loop;
+
+            if No (N_Decl) then
+               return False;
+            end if;
+
+            return List_Containing (N_Decl) = Declarations (S_Par);
+         end;
+      end In_Declarative_Region_Of_Subprogram_Body;
 
       -------------------
       -- Mark_Non_Null --
@@ -4997,11 +5071,28 @@ package body Checks is
 
       procedure Mark_Non_Null is
       begin
+         --  Only case of interest is if node N is an entity name
+
          if Is_Entity_Name (N) then
+
+            --  For sure, we want to clear an indication that this is known to
+            --  be null, since if we get past this check, it definitely is not!
+
             Set_Is_Known_Null (Entity (N), False);
 
-            if Safe_To_Capture_Value (N, Entity (N)) then
-               Set_Is_Known_Non_Null (Entity (N), True);
+            --  We can mark the entity as known to be non-null if either it is
+            --  safe to capture the value, or in the case of an IN parameter,
+            --  which is a constant, if the check we just installed is in the
+            --  declarative region of the subprogram body. In this latter case,
+            --  a check is decisive for the rest of the body, since we know we
+            --  must complete all declarations before executing the body.
+
+            if Safe_To_Capture_Value (N, Entity (N))
+              or else
+                (Ekind (Entity (N)) = E_In_Parameter
+                   and then In_Declarative_Region_Of_Subprogram_Body)
+            then
+               Set_Is_Known_Non_Null (Entity (N));
             end if;
          end if;
       end Mark_Non_Null;

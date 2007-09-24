@@ -1,3 +1,1842 @@
+2007-09-23  Ollie Wild  <aaw@google.com>
+
+	gcc.dg/fold-bitand-1.c: New test.
+	gcc.dg/fold-bitand-2.c: New test.
+	gcc.dg/fold-bitand-3.c: New test.
+	gcc.dg/fold-bitand-4.c: New test.
+
+2007-09-23  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/gcc-have-sync-compare-and-swap-1.c: Don't expect
+	any of the macros to be defined for __mips16.
+	* gcc.target/mips/gcc-have-sync-compare-and-swap-2.c: Likewise.
+
+2007-09-23  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.dg/vect/pr21591.c: Require vect_int.
+	* gcc.dg/vect/vect-outer-2.c: Require vect_intfloat_cvt.
+	* gcc.dg/vect/vect-outer-2a.c: Likewise.
+	* gcc.dg/vect/vect-outer-2c.c: Likewise.
+
+2007-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/va-arg-pack-len-1.c: Use error and warning
+	attributes.
+	* gcc.dg/va-arg-pack-len-2.c: New test.
+	* g++.dg/ext/va-arg-pack-len-1.C: Use error and warning
+	attributes.
+	* g++.dg/ext/va-arg-pack-len-2.C: New test.
+
+	PR tree-optimization/32772
+	* gcc.c-torture/compile/20070905-1.c: New test.
+
+	PR tree-optimization/32975
+	* gcc.dg/pr32975.c: New test.
+
+	PR middle-end/28755
+	* gcc.dg/pr28755.c: New test.
+
+2007-09-23  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (check_effective_target_nomips16): New
+	procedure.
+	* lib/fortran-torture.exp: Check nomips16 as well as mpaired_single
+	for mipsisa64*-*-*.
+	* gcc.dg/vect/vect.exp: Likewise.
+	* g++.dg/vect/vect.exp: Likewise.
+	* gcc.target/mips/mips.exp (setup_mips_tests): Don't set mips_mips16.
+	(dg-mips-options): Don't skip -march* and -mips* tests for -mips16.
+	* gcc.target/mips/branch-cost-1.c (foo): Add NOMIPS16.
+	* gcc.target/mips/branch-cost-2.c (foo): Likewise.
+	* gcc.target/mips/clear-cache-1.c (f): Likewise.
+	* gcc.target/mips/dpaq_sa_l_w.c (f1, f2, f3): Likewise.
+	* gcc.target/mips/dpsq_sa_l_w.c (f1, f2, f3): Likewise.
+	* gcc.target/mips/fix-vr4130-1.c (foo): Likewise.
+	* gcc.target/mips/fix-vr4130-2.c (foo): Likewise.
+	* gcc.target/mips/fix-vr4130-3.c (foo): Likewise.
+	* gcc.target/mips/fix-vr4130-4.c (foo): Likewise.
+	* gcc.target/mips/fixed-scalar-type.c (test1, test2, test3, test4)
+	(test5, test6, test7, test8, test9, test10, test11, test12, test13)
+	(test14, test15, test16, test17, test18): Likewise.
+	* gcc.target/mips/fixed-vector-type.c (test1, test2, test3, test4)
+	(test5, test6, test7, test8, test9, test10, test11, test12, test13)
+	(test14, test15, test16, test17, test18, test19, test20, test21)
+	(test22): Likewise.
+	* gcc.target/mips/madd-1.c (f1, f2, f3): Likewise.
+	* gcc.target/mips/madd-2.c (f1, f2, f3): Likewise.
+	* gcc.target/mips/madd-4.c (f1, f2, f3): Likewise.
+	* gcc.target/mips/maddu-1.c (f1, f2, f3): Likewise.
+	* gcc.target/mips/maddu-2.c (f1, f2, f3): Likewise.
+	* gcc.target/mips/maddu-4.c (f1, f2, f3): Likewise.
+	* gcc.target/mips/mips-3d-1.c (main): Likewise.
+	* gcc.target/mips/mips-3d-2.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15, test16, test17, test18, test19, test20)
+	(test21, test22, test23, test24, test25, test26, test27, test28)
+	(test29, test30, test31): Likewise.
+	* gcc.target/mips/mips-3d-3.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15, test16, test17, test18, test19, test20)
+	(test21, test22, test23, test24, test25, test26, test27, test28)
+	(test29, test30, test31, test32, test33, test34, test35, test36)
+	(test37, test38, test39, test40, test41, test42, test43, test44)
+	(test45, test46, test47, test48, test49, test50, test51, test52)
+	(test53, test54, test55, test56, test57, test58, test59, test60)
+	(test61, test62, test63): Likewise.
+	* gcc.target/mips/mips-3d-4.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15, test16, test17, test18, test19, test20)
+	(test21, test22, test23, test24, test25, test26, test27, test28)
+	(test29, test30, test31): Likewise.
+	* gcc.target/mips/mips-3d-5.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15, test16, test17, test18, test19, test20)
+	(test21, test22, test23, test24, test25, test26, test27, test28)
+	(test29, test30, test31): Likewise.
+	* gcc.target/mips/mips-3d-6.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15): Likewise.
+	* gcc.target/mips/mips-3d-7.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15): Likewise.
+	* gcc.target/mips/mips-3d-8.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15, test16, test17, test18, test19, test20)
+	(test21, test22, test23, test24, test25, test26, test27, test28)
+	(test29, test30, test31): Likewise.
+	* gcc.target/mips/mips-3d-9.c (matrix_multiply2, matrix_multiply3)
+	(matrix_multiply4: Likewise.
+	* gcc.target/mips/mips-ps-1.c (main): Likewise.
+	* gcc.target/mips/mips-ps-2.c (main): Likewise.
+	* gcc.target/mips/mips-ps-3.c (main): Likewise.
+	* gcc.target/mips/mips-ps-4.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15, test16, test17, test18, test19, test20)
+	(test21, test22, test23, test24, test25, test26, test27, test28)
+	(test29, test30, test31): Likewise.
+	* gcc.target/mips/mips-ps-5.c (main, test0, test1, test2, test3)
+	(test4, test5, test6, test7, test8, test9, test10, test11, test12)
+	(test13, test14, test15, test16, test17, test18, test19, test20)
+	(test21, test22, test23, test24, test25, test26, test27, test28)
+	(test29, test30, test31): Likewise.
+	* gcc.target/mips/mips-ps-5.c (main): Likewise.
+	* gcc.target/mips/mips-ps-6.c (main): Likewise.
+	* gcc.target/mips/mips-ps-type.c (init, move, load, store, add, sub)
+	(neg, mul, madd, msub, nmadd, nmsub, cond_move1, cond_move2): Likewise.
+	* gcc.target/mips/mips32-dsp-type.c (add_v2hi,add_v4qi, sub_v2hi)
+	(sub_v4qi): Likewise.
+	* gcc.target/mips/mips32-dsp.c (test_MIPS_DSP, add_v2q15, add_v4i8)
+	(sub_v2q15, sub_v4i8, test_MIPS_DSP): Likewise.
+	* gcc.target/mips/movcc-1.c (sub1, sub2): Likewise.
+	* gcc.target/mips/movcc-2.c (sub4, sub5): Likewise.
+	* gcc.target/mips/movcc-3.c (sub3, sub6, sub7, sub8, sub9, suba)
+	(subb, subc): Likewise.
+	* gcc.target/mips/msub-1.c (f1, f2): Likewise.
+	* gcc.target/mips/msub-2.c (f1, f2): Likewise.
+	* gcc.target/mips/msub-4.c (f1, f2): Likewise.
+	* gcc.target/mips/msubu-1.c (f1, f2): Likewise.
+	* gcc.target/mips/msubu-2.c (f1, f2): Likewise.
+	* gcc.target/mips/msubu-4.c (f1, f2): Likewise.
+	* gcc.target/mips/nmadd-1.c (sub1, sub2, sub3, sub4): Likewise.
+	* gcc.target/mips/nmadd-2.c (sub1, sub2, sub3, sub4): Likewise.
+	* gcc.target/mips/rsqrt-1.c (foo, bar): Likewise.
+	* gcc.target/mips/rsqrt-2.c (foo, bar): Likewise.
+	* gcc.target/mips/sb1-1.c (divide, recip, squareroot, rsqrt): Likewise.
+	* gcc.target/mips/vr-mult-1.c (f1, f2): Likewise.
+	* gcc.target/mips/vr-mult-2.c (f1, f2): Likewise.
+
+2007-09-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (add_options_for_mips16_attribute)
+	(check_effective_target_mips16_attribute): New functions.
+	* gcc.target/mips/mips.exp: Define MIPS16 and NOMIPS16 on the
+	command line.
+	(dg-mips-options) Remove -mno-mips16 handling.  Add options to
+	extra_test_flags.
+	* gcc.target/mips/asm-1.c (NOMIPS16): Delete.
+	* gcc.target/mips/atomic-memory-1.c (NOMIPS16): Likewise.
+	* gcc.target/mips/atomic-memory-2.c (NOMIPS16): Likewise.
+	* gcc.target/mips/branch-1.c (NOMIPS16): Likewise.
+	* gcc.target/mips/dspr2-MULT.c (NOMIPS16): Likewise.
+	* gcc.target/mips/dspr2-MULTU.c (NOMIPS16): Likewise.
+	* gcc.target/mips/fpcmp-1.c (NOMIPS16): Likewise.
+	* gcc.target/mips/fpcmp-2.c (NOMIPS16): Likewise.
+	* gcc.target/mips/ins-1.c (NOMIPS16): Likewise.
+	* gcc.target/mips/madd-3.c (NOMIPS16): Likewise.
+	* gcc.target/mips/maddu-3.c (NOMIPS16): Likewise.
+	* gcc.target/mips/mips32-dsp-run.c (NOMIPS16): Likewise.
+	* gcc.target/mips/mips32-dspr2-type.c (NOMIPS16): Likewise.
+	* gcc.target/mips/msub-3.c (NOMIPS16): Likewise.
+	* gcc.target/mips/msubu-3.c (NOMIPS16): Likewise.
+	* gcc.target/mips/near-far-3.c (NOMIPS16): Likewise.
+	* gcc.target/mips/near-far-4.c (NOMIPS16): Likewise.
+	* gcc.target/mips/neg-abs-1.c (NOMIPS16): Likewise.
+	* gcc.target/mips/smartmips-lwxs.c (NOMIPS16): Likewise.
+	* gcc.target/mips/smartmips-ror-1.c (NOMIPS16): Likewise.
+	* gcc.target/mips/smartmips-ror-2.c (NOMIPS16): Likewise.
+	* gcc.target/mips/smartmips-ror-3.c (NOMIPS16): Likewise.
+	* gcc.target/mips/smartmips-ror-4.c (NOMIPS16): Likewise.
+	* gcc.target/mips/pr26765.c: Use dg-mips-options instead of dg-options.
+	(NOMIPS16): Delete.
+	* gcc.target/mips/20020620-1.c: Use dg-mips-options instead
+	of dg-options.
+	* gcc.target/mips/call-saved-1.c: Remove -mips16 and -mno-abicalls
+	options.  Require { target mips16_attribute } and use dg-add-options
+	to add the associated options.
+	(foo): Use MIPS16.
+	* gcc.target/mips/call-saved-2.c: As for call-saved-1.c.
+	* gcc.target/mips/call-saved-3.c: Likewise.
+	* gcc.target/mips/code-readable-1.c: Require { target
+	mips16_attribute } and use dg-add-options to add the associated
+	options.  Remove trailing whitespace.
+	(NOMIPS16): Delete.
+	* gcc.target/mips/code-readable-2.c: Likewise.
+	* gcc.target/mips/code-readable-3.c: Likewise.
+	* gcc.target/mips/mips16-attributes-2.c: Likewise.
+	* gcc.target/mips/mips16e-extends.c: Remove -mips16 option.
+	Require { target mips16_attribute } and use dg-add-options to
+	add the associated options.
+	(cksum16, cksum8): Use MIPS16.
+	* gcc.target/mips/save-restore-1.c: Remove -mips16 option.
+	Require { target mips16_attribute } and use dg-add-options to
+	add the associated options.
+	(foo): Use MIPS16.
+	* gcc.target/mips/save-restore-2.c: Likewise.
+	* gcc.target/mips/save-restore-3.c: Likewise.
+	* gcc.target/mips/save-restore-4.c: Likewise.
+	* gcc.target/mips/save-restore-5.c: Likewise.  Also remove
+	-mno-abicalls.
+	* gcc.target/mips/mips-sched-madd.c: Remove -mno-mips16.
+	(foo): Use NOMIPS16.
+
+2007-09-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33337
+	* gfortran.dg/derived_comp_array_ref_3.f90: New test.
+
+	PR fortran/33376
+	* gfortran.dg/derived_comp_array_ref_4.f90: New test.
+
+2007-09-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33445
+	* gfortran.dg/gomp/free-2.f90: New.
+	* gfortran.dg/gomp/appendix-a/a.31.1.f90: Add missing &.
+	* gfortran.dg/gomp/omp_parse1.f90: Add dg-warning.
+
+2007-09-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse5-hadduX.c: Remove target selector.
+	* gcc.target/i386/sse5-haddX.c: Ditto.
+	* gcc.target/i386/sse5-hsubX.c: Ditto.
+	* gcc.target/i386/sse5-maccXX.c: Ditto.
+	* gcc.target/i386/sse5-msubXX.c: Ditto.
+	* gcc.target/i386/sse5-nmaccXX.c: Ditto.
+	* gcc.target/i386/sse5-nmsubXX.c: Ditto.
+	* gcc.target/i386/sse5-permpX.c: Ditto.
+	* gcc.target/i386/sse5-fma.c: Remove target selector. Require lp64
+	effective target.
+	* gcc.target/i386/sse5-fma-vector.c: Ditto.
+	* gcc.target/i386/sse5-ima-vector.c: Ditto.
+	* gcc.target/i386/sse5-pcmov.c: Ditto.
+	* gcc.target/i386/sse5-pcmov2.c: Ditto.
+
+2007-09-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33146
+	* gcc.c-torture/compile/pr33146.c: New testcase.
+
+2007-09-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (check_cached_effective_target): New
+	procedure.
+	(check_no_compiler_messages, check_no_messages_and_pattern): Use it.
+	(check_effective_target_c99_runtime): New procedure.
+	* gcc.dg/builtins-20.c (test3f): Wrap cargf check in HAVE_C99_RUNTIME.
+	(test3l): Likewise cargl.
+	* gcc.dg/builtins-59.c: Require c99_runtime.
+	* gcc.dg/builtins-61.c: Likewise.
+	* gcc.dg/builtins-62.c: Likewise.
+
+2007-09-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (add_options_for_c99_runtime): New procedure.
+	* lib/target-supports-dg.exp (dg-add-options): Likewise.
+	* gcc.dg/builtins-18.c: Use { dg-add-options c99_runtime } instead of
+	target-specific dg-options.
+	* gcc.dg/builtins-20.c: Likewise.
+	* gcc.dg/builtins-53.c: Likewise.
+	* gcc.dg/builtins-55.c: Likewise.
+	* gcc.dg/single-precision-constant.c: Likewise.
+	* gcc.dg/torture/builtin-convert-1.c: Likewise.
+	* gcc.dg/torture/builtin-convert-2.c: Likewise.
+	* gcc.dg/torture/builtin-convert-3.c: Likewise.
+	* gcc.dg/torture/builtin-convert-4.c: Likewise.
+	* gcc.dg/torture/builtin-power-1.c: Likewise.
+
+2007-09-21  Chao-ying Fu  <fu@mips.com>
+
+	* lib/target-supports.exp (check_effective_target_fixed_point): New to
+	check if targets have fixed-point supports.
+	* gcc.dg/fixed-point/fixed-point.exp: New file.
+	* gcc.dg/fixed-point/addsub.c, gcc.dg/fixed-point/allconv.c,
+	* gcc.dg/fixed-point/allop.c, gcc.dg/fixed-point/call-by-value.c,
+	* gcc.dg/fixed-point/cast-bad.c, gcc.dg/fixed-point/composite-type.c,
+	* gcc.dg/fixed-point/const-1.c, gcc.dg/fixed-point/constant.c,
+	* gcc.dg/fixed-point/constants-pedantic.c,
+	* gcc.dg/fixed-point/convert.c, gcc.dg/fixed-point/define.c,
+	* gcc.dg/fixed-point/keywords-c89.c, gcc.dg/fixed-point/keywords-c99.c,
+	* gcc.dg/fixed-point/keywords-ignored-c99.c,
+	* gcc.dg/fixed-point/keywords-pedantic.c,
+	* gcc.dg/fixed-point/keywords-reserved.c, gcc.dg/fixed-point/binary.c,
+	* gcc.dg/fixed-point/modes.c, gcc.dg/fixed-point/noassoc.c,
+	* gcc.dg/fixed-point/types.c, gcc.dg/fixed-point/typespec.c,
+	* gcc.dg/fixed-point/unary.c, gcc.dg/fixed-point/func-array.c,
+	* gcc.dg/fixed-point/func-scalar.c, gcc.dg/fixed-point/func-struct.c,
+	* gcc.dg/fixed-point/func-vararg-mixed.c,
+	* gcc.dg/fixed-point/operator-logical.c,
+	* gcc.dg/fixed-point/struct-union.c,
+	* gcc.dg/fixed-point/bit-complement.c,
+	* gcc.dg/fixed-point/operator-bitwise.c,
+	* gcc.dg/fixed-point/operator-comma.c,
+	* gcc.dg/fixed-point/struct-layout-1.c,
+	* gcc.dg/fixed-point/union-init.c,
+	* gcc.dg/fixed-point/Wbad-function-cast-1.c,
+	* gcc.dg/fixed-point/func-mixed.c,
+	* gcc.dg/fixed-point/func-vararg-size0.c,
+	* gcc.dg/fixed-point/func-vararg.c, gcc.dg/fixed-point/int-warning.c,
+	* gcc.dg/fixed-point/loop-index.c, gcc.dg/fixed-point/operator-cond.c,
+	* gcc.dg/fixed-point/operator-unary.c,
+	* gcc.dg/fixed-point/allop-const.c,
+	* gcc.dg/fixed-point/muldiv-warning.c,
+	* gcc.dg/nofixed-point-1.c,
+	* gcc.target/mips/dpaq_sa_l_w.c, gcc.target/mips/dpsq_sa_l_w.c,
+	* gcc.target/mips/fixed-vector-type.c,
+	* gcc.target/mips/fixed-scalar-type.c: New tests.
+
+2007-09-21  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/nested_subtype_byref.ad[bs]: Part of new test.
+	* gnat.dg/test_nested_subtype_byref.adb: New test.
+
+2007-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/33439
+	* gfortran.dg/gomp/pr33439.f90: New test.
+
+2007-09-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33455
+	* gfortran.dg/merge_char_3.f90: New.
+
+2007-09-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33037
+	* gfortran.dg/transfer_check_1.f90: New.
+
+2007-09-20  Asher Langton  <langton2@llnl.gov>
+
+	PR fortran/20441
+	* gfortran.dg/init_flag_1.f90: New.
+	* gfortran.dg/init_flag_2.f90: New.
+	* gfortran.dg/init_flag_3.f90: New.
+	* gfortran.dg/init_flag_4.f90: New.
+	* gfortran.dg/init_flag_5.f90: New.
+	* gfortran.dg/init_flag_6.f90: New.
+	* gfortran.dg/init_flag_7.f90: New.
+
+2007-09-20  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33460
+	* g++.dg/ext/anon-struct6.C: New.
+
+2007-09-21  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/23272
+	* gfortran.dg/inquire_10.f90: New test.
+
+2007-09-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c99-bool-2.c, gcc.dg/c99-bool-3.c: New tests.
+
+2007-09-20  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33221
+	* gfortran.dg/used_types_18.f90: Declare variable of empty
+	derived type.
+
+2007-09-20  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33288
+	* gfortran.dg/array_constructor_19.f90: New test.
+
+2007-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/33316
+	* gcc.dg/debug/pr33316.c: New test.
+
+	PR c++/33496
+	* g++.dg/cpp0x/variadic76.C: New test.
+	* g++.dg/cpp0x/variadic77.C: New test.
+	* g++.dg/cpp0x/variadic78.C: New test.
+
+	PR c/33238
+	PR c/27301
+	* gcc.c-torture/execute/20070919-1.c: New test.
+	* gcc.dg/pr33238.c: New test.
+	* gcc.dg/pr27301.c: New test.
+
+2007-09-20  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (check_effective_target_mips64): New
+	procedure.
+	* gcc.dg/lower-subreg-1.c: Require !mips64.
+	* gcc.dg/sibcall-3.c (ATTR): New macro.
+	(recurser_void1, recurser_void2): Use it.
+	* gcc.dg/sibcall-4.c: As for gcc.dg/sibcall-3.c.
+	* gcc.dg/tree-ssa/ssa-fre-3.c: Require !mips64.
+
+2007-09-20  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* gfortran.dg/g77/19981216-0.f: Remove dg-warning annotation.
+	* gfortran.dg/io_constraints_1.f90: Make a -std=f95 test.  Add
+	warning annotation.
+	* gfortran.dg/iostat_3.f90: Make a -std=f95 test.
+
+2007-09-20  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/33497
+	* gfortran.dg/c_loc_tests_11.f03: New test case.
+
+2007-09-20  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33459
+	* g++.dg/init/ref14.C: New.
+
+2007-09-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/slice2.ad[sb]: New testcase.
+
+2007-09-19  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.dg/cpp/assert4.c: Fix expected h8300 preprocessor define.
+
+2007-09-19  Jie Zhang  <jie.zhang@analog.com>
+
+	* gcc.target/bfin/bfin.exp: New.
+	* gcc.target/bfin/{workarounds-any.c, workarounds-none.c,
+	workarounds-1.c, workarounds-2.c, workarounds-3.c, workarounds-4.c,
+	mcpu-bf522.c, mcpu-bf525.c, mcpu-bf527.c,
+	mcpu-bf531.c, mcpu-bf532.c, mcpu-bf533.c,
+	mcpu-bf534.c, mcpu-bf536.c, mcpu-bf537.c,
+	mcpu-bf538.c, mcpu-bf539.c, mcpu-bf542.c,
+	mcpu-bf544.c, mcpu-bf548.c, mcpu-bf549.c,
+	mcpu-bf561.c, mcpu-default.c}: New tests.
+
+2007-09-18  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Restore detection of unsupported TLS.
+
+	Revert this patch:
+	2007-02-10  Richard Henderson  <rth@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_tls): Redefine
+	to mean non-emulated tls.
+	* gcc.dg/tls/alias-1.c: Remove tls requirement.
+	* gcc.dg/tls/asm-1.c, gcc.dg/tls/debug-1.c, gcc.dg/tls/diag-1.c,
+	gcc.dg/tls/diag-2.c, gcc.dg/tls/diag-3.c, gcc.dg/tls/diag-4.c,
+	gcc.dg/tls/diag-5.c, gcc.dg/tls/init-1.c, gcc.dg/tls/nonpic-1.c,
+	gcc.dg/tls/opt-10.c, gcc.dg/tls/opt-5.c, gcc.dg/tls/opt-6.c,
+	gcc.dg/tls/opt-8.c, gcc.dg/tls/opt-9.c, gcc.dg/tls/pic-1.c,
+	gcc.dg/tls/struct-1.c, gcc.dg/tls/trivial.c: Likewise.
+
+	And then:
+	* lib/target-supports.exp (check_effective_target_tls): Use
+	stronger test for compiler support for TLS.
+	(check_effective_target_tls_native): New, to test for non-emulated
+	TLS support.
+	* g++.dg/gomp/clause-3.C: Use dg-require-effective-target tls_native
+	instead of dg-require-effective-target tls.
+	* g++.dg/gomp/copyin-1.C: Likewise.
+	* g++.dg/gomp/sharing-1.C: Likewise.
+	* g++.dg/gomp/tls-1.C: Likewise.
+	* g++.dg/gomp/tls-2.C: Likewise.
+	* g++.dg/gomp/tls-3.C: Likewise.
+	* g++.dg/tls/diag-1.C: Likewise.
+	* g++.dg/tls/diag-2.C: Likewise.
+	* g++.dg/tls/diag-3.C: Likewise.
+	* g++.dg/tls/diag-4.C: Likewise.
+	* g++.dg/tls/diag-5.C: Likewise.
+	* g++.dg/tls/init-1.C: Likewise.
+	* g++.dg/tls/init-2.C: Likewise.
+	* g++.dg/tls/trivial.C: Likewise.
+	* gcc.dg/gomp/appendix-a/a.22.1.c: Likewise.
+	* gcc.dg/gomp/appendix-a/a.22.2.c: Likewise.
+	* gcc.dg/gomp/appendix-a/a.24.1.c: Likewise.
+	* gcc.dg/gomp/appendix-a/a.32.1.c: Likewise.
+	* gcc.dg/gomp/appendix-a/a.33.1.c: Likewise.
+	* gcc.dg/gomp/clause-1.c: Likewise.
+	* gcc.dg/gomp/copyin-1.c: Likewise.
+	* gcc.dg/gomp/sharing-1.c: Likewise.
+	* gcc.dg/gomp/tls-1.c: Likewise.
+	* gcc.dg/gomp/tls-2.c: Likewise.
+	* gcc.dg/tls/alpha-1.c: Likewise.
+	* gcc.dg/tls/opt-1.c: Likewise.
+	* gcc.dg/tls/opt-13.c: Likewise.
+	* gcc.dg/tls/opt-14.c: Likewise.
+	* gcc.dg/tls/opt-2.c: Likewise.
+	* gcc.dg/tls/opt-3.c: Likewise.
+	* gcc.dg/tls/opt-4.c: Likewise.
+	* gcc.dg/tls/opt-7.c: Likewise.
+	* gcc.dg/tls/section-1.c: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.22.1.f90: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.22.4.f90: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.22.5.f90: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.22.6.f90: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.24.1.f90: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.32.1.f90: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.33.1.f90: Likewise.
+	* gfortran.dg/gomp/crayptr2.f90: Likewise.
+	* gfortran.dg/gomp/fixed-1.f: Likewise.
+	* gfortran.dg/gomp/free-1.f90: Likewise.
+	* gfortran.dg/gomp/omp_threadprivate1.f90: Likewise.
+	* gfortran.dg/gomp/omp_threadprivate2.f90: Likewise.
+	* gfortran.dg/gomp/reduction1.f90: Likewise.
+	* gfortran.dg/gomp/sharing-1.f90: Likewise.
+
+2007-09-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31119
+	* gfortran.dg/bounds_check_9.f90: New test.
+	* gfortran.dg/bounds_check_fail_2.f90: New test.
+
+2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33462 (again)
+	* g++.dg/ext/va-arg1.C: Adjust.
+
+2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33462
+	* g++.dg/ext/va-arg1.C: New.
+
+2007-09-18  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/elemental_optional_args_1.f90: Fix test.
+
+2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33463
+	* g++.dg/rtti/typeid6.C: New.
+
+2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33464
+	* g++.dg/ext/is_class_error.C: Rename to is_class_error1.C.
+	* g++.dg/ext/is_class_error2.C: New.
+
+2007-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33340
+	* g++.dg/torture/pr33340.C: New testcase.
+
+2007-09-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33231
+	* gfortran.dg/elemental_optional_args_1.f90: Make valid Fortran.
+	* gfortran.dg/elemental_subroutine_1.f90: Ditto.
+	* gfortran.dg/elemental_subroutine_5.f90: New.
+
+2007-09-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (check_profiling_available): Extend
+	mips*-*-elf check to mips*-*-elf*.
+
+2007-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/format/c90-scanf-5.c: New test.
+	* gcc.dg/format/c99-scanf-4.c: New test.
+	* gcc.dg/format/ext-7.c: New test.
+	* gcc.dg/format/ext-8.c: New test.
+
+	PR middle-end/33423
+	* gcc.c-torture/compile/20070915-1.c: New test.
+
+2007-09-17  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33106
+	* gfortran.dg/private_type_9.f90: New.
+
+2007-09-17  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR middle-end/33449
+	* gfortran.dg/pr33449.f90: New test.
+
+2007-09-17  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/interface_15.f90: Compile with -std=f95.
+	* gfortran.dg/private_type_1.f90: Ditto
+	* gfortran.dg/interface_18.f90: New.
+	* gfortran.dg/private_type_8.f90: New.
+
+2007-09-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33124
+	* g++.dg/warn/new1.C: Adjust.
+	* g++.dg/torture/str_empty.C: Likewise.
+
+2007-09-16  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/dse-1.c: New test.
+
+2007-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/32756
+	* g++.dg/overload/operator3.C: New.
+
+2007-09-16  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/truncate-1.c: New test.
+
+2007-09-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29396
+	PR fortran/29606
+	PR fortran/30625
+	PR fortran/30871
+	* gfortran.dg/subref_array_pointer_1.f90: New test.
+	* gfortran.dg/subref_array_pointer_2.f90: New test.
+
+2007-09-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gfortran.dg/nint_2.f90: Correct last change.
+
+2007-09-15  Zdenek Dvorak  <ook@ucw.cz>
+
+	* gcc.dg/tree-ssa/parallelization-1.c: New test.
+
+2007-09-15  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/pr33373b.c: New test.
+
+2007-09-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33438
+	* gcc.target/i386/pr33438.c: New test.
+
+2007-09-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/nint_2.f90: Revert previous commit.
+
+2007-09-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/nint_2.f90: Do not xfail on powerpc64-linux.
+
+2007-09-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR debug/33429
+	* g++.dg/other/unused1.C: XFAIL class2 scan.
+
+2007-09-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33343
+	* gfortran.dg/elemental_args_check_1.f90: New.
+	* gfortran.dg/assumed_size_refs_1.f90: Update error message.
+	* gfortran.dg/elemental_subroutine_4.f90: Ditto.
+
+2007-09-13  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/recursive_check_3.f90: New.
+
+2007-09-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33412
+	* gfortran.dg/elemental_bind_c.f90: New.
+
+2007-09-13  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/gcc-have-sync-compare-and-swap.c: Skip for -mflip-mips16.
+	* gcc.target/mips/mips16-attributes-2.c: New test.
+	* gcc.target/mips/mips16-attributes-3.c: Likewise.
+	* gcc.target/mips/args-3.c: Skip for -mflip-mips16.  Do not use the
+	hard-float asm when __mips16 is defined.
+	* gcc.target/mips/atomic-memory-1.c (main): Add a nomips16 attribute.
+	* gcc.target/mips/atomic-memory-2.c (main): Likewise.
+	* gcc.target/mips/fpcmp-1.c (f1, f2): Likewise.
+	* gcc.target/mips/fpcmp-2.c (f1, f2): Likewise.
+	* gcc.target/mips/neg-abs-1.c (f1, f2, d1, f2): Likewise.
+	* gcc.target/mips/pr26765.c (foo): Likewise.
+	* gcc.target/mips/gcc-have-sync-compare-and-swap-1.c: Run for all
+	targets, use dg-mips-options instead of dg-options, and use -mgp32
+	to force 32-bit mode.
+	* gcc.target/mips/gcc-have-sync-compare-and-swap-2.c: Likewise -mgp64
+	and 64-bit mode.
+	* gcc.target/mips/mips.exp (is_gp32_flag): Return true for -mips32*.
+
+2007-09-12  Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
+	    Michael Meissner  <michael.meissner@amd.com>
+
+	* gcc.target/i386/sse5-hadduX.c: Add support for SSE5 tests.
+	* gcc.target/i386/sse5-hsubX.c: Ditto.
+	* gcc.target/i386/sse5-permpX.c: Ditto.
+	* gcc.target/i386/sse5-haddX.c: Ditto.
+	* gcc.target/i386/sse5-maccXX.c: Ditto.
+	* gcc.target/i386/sse5-msubXX.c: Ditto.
+	* gcc.target/i386/sse5-nmaccXX.c: Ditto.
+	* gcc.target/i386/sse5-nmsubXX.c: Ditto.
+
+	* gcc.target/i386/sse5-pcmov.c: New file to make sure the compiler
+	optimizes floating point conditional moves into the pcmov
+	instruction on SSE5.
+	* gcc.target/i386/sse5-pcmov2.c: Ditto.
+
+	* gcc.target/i386/sse5-ima-vector.c: New file to make sure the
+	compiler optimizes vector 32-bit int (a*b)+c into pmacsdd on
+	SSE5.
+
+	* gcc.target/i386/sse5-fma-vector.c: New file to make sure the
+	compiler optimizes vector (a*b)+c into fmadd on SSE5.
+
+	* gcc.target/i386/sse5-fma.c: New file to make sure the compiler
+	optimizes (a*b)+c into fmadd on SSE5.
+
+	* gcc.target/i386/i386.exp (check_effective_target_sse5): Check
+	whether the SSE5 instructions can be generated.
+
+	* gcc.target/i386/sse5-check.h: New. Add support for 
+	SSE5 tests.
+
+	* gcc.target/i386/sse-12.c: Include bmmintrin.h instead of
+	ammintrin.h, and turn on -msse5 option instead of -msse4a.
+	* gcc.target/i386/sse-13.c: Ditto.
+	* gcc.target/i386/sse-14.c: Ditto.
+
+2007-09-12  John David Anglin  <dave.anglin@nrc-crnc.gc.ca>
+
+	PR testsuite/33153
+	* gcc.dg/pr32912-1.c: Add -fno-common to options on hppa*-*-hpux*.
+	* gcc.dg/pr32912-2.c: Delete declaration of a, b, c, d, e and f.
+
+2007-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/32338
+	* gcc.dg/pr32338-1.c: New test.
+	* gcc.dg/pr32338-2.c: New test.
+
+2007-09-12  Bob Wilson  <bob.wilson@acm.org>
+	
+	* lib/target-supports.exp (check_effective_target_sync_int_long):
+	Revert change to add xtensa.
+	(check_effective_target_sync_char_short): Likewise.
+	
+2007-09-12  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/packed_subtype.adb: New test.
+
+2007-09-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33297
+	* gfortran.dg/intrinsic_size.f90: New.
+
+2007-09-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33284
+	PR fortran/33310
+	* gfortran.dg/conflicts_2.f90: New.
+
+2007-09-12  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/32377
+	* gcc.dg/vect/no-vfa-vect-102a.c: Change the test to check positive
+	dependence distance.
+	* gcc.dg/vect/vect-outer-5.c, gcc.dg/vect/no-vfa-vect-102.c,
+	gcc.dg/vect/vect-104.c, no-vfa-vect-dv-2.c: Likewise.
+	* gcc.dg/vect/no-vfa-vect-depend-1.c,
+	gfortran.dg/vect/no-vfa-pr32377.f90: New.
+
+2007-09-12  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33382
+	* gcc.c-torture/compile/pr33382.c: New testcase.
+	* gcc.c-torture/execute/pr33382.c: Likewise.
+
+2007-09-12  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/33395
+	* gfortran.dg/c_ptr_tests_12.f03: New test case.
+
+2007-09-12  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/33373
+	* gcc.dg/vect/pr33373.c: New test.
+
+2007-09-12  Ben Elliston  <bje@au.ibm.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_no_double):
+	Remove unused proc.
+
+2007-09-12  Ben Elliston  <bje@au.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.target/spu/dfcgt-nan.c: New test.
+
+2007-09-11  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/cpp/trad/include.c: Don't run for newlib targets.
+
+2007-09-11  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/33040
+	* gfortran.dg/c_ptr_tests_11.f03: New test case. 
+
+2007-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/va-arg-pack-len-1.c: New test.
+	* g++.dg/va-arg-pack-len-1.C: New test.
+
+2007-09-11  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/tree-ssa/loadpre11.c: Add -fno-tree-cselim to flags.
+
+2007-09-10  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/dfp/convert-bfp.c: Replace SKIP_LONG_DOUBLE with runtime
+	checks for size of long double.
+	* gcc.dg/dfp/convert.h: New file.
+	* gcc.dg/dfp/convert-bfp-2.c: New test.
+	* gcc.dg/dfp/convert-bfp-3.c: Ditto.
+	* gcc.dg/dfp/convert-bfp-4.c: Ditto.
+	* gcc.dg/dfp/convert-bfp-5.c: Ditto.
+	* gcc.dg/dfp/convert-bfp-6.c: Ditto.
+	* gcc.dg/dfp/convert-bfp-7.c: Ditto.
+	* gcc.dg/dfp/convert-bfp-8.c: Ditto.
+	* gcc.dg/dfp/convert-bfp-9.c: Ditto.
+	* gcc.dg/dfp/convert-bfp-10.c: Ditto.
+	* gcc.dg/dfp/convert-bfp-11.c: Ditto.
+
+2007-09-10  Harsha Jagasia <harsha.jagasia@amd.com>
+
+	* gcc.dg/vect/costmodel/i386/costmodel-vect-31.c: 
+	Change dg-final to expect 1 non-profitable loop and
+	3 profitable loops.
+	* gcc.dg/vect/costmodel/x86-64/costmodel-vect-31.c:
+	Change dg-final to expect 1 non-profitable loop and
+	3 profitable loops.
+	* gcc.dg/vect/costmodel/x86-64/costmodel-fast-math-vect-pr29925.c:
+	Change dg-final to expect 1 profitable loop.
+	* gcc.dg/vect/costmodel/i386/costmodel-fast-math-vect-pr29925.c:
+	Change dg-final to expect 1 profitable loop.	
+	
+2007-09-10  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.target/mips/call-saved-1.c: New test.
+	* gcc.target/mips/call-saved-2.c: Likewise.
+	* gcc.target/mips/call-saved-3.c: Likewise.
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set mips_gp64
+	instead of mips_mips64.  Set mips_fp64 too.
+	(is_gp32_flag): Return true for -mips1 and -mips2.
+	(dg-mips-options): Use mips_gp64 instead of mips_mips64.
+
+2007-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ext/va-arg-pack-1.C: New test.
+	* g++.dg/ext/va-arg-pack-2.C: New test.
+
+2007-09-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33369
+	* gcc.dg/vect/pr33369.c: New test.
+
+2007-09-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33370
+	* gfortran.dg/array_memcpy_5.f90:  New test.
+
+2007-09-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/tree-ssa/ssa-fre-4.c: Skip for cris-*-* and mmix-*-*.
+
+2007-09-09  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/compile/20070906-1.c: New testcase.
+
+2007-09-09  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/costmodel/ppc/costmodel-vect-outer-fir.c: Add
+	noinline attribute.
+	* gcc.dg/vect/costmodel/ppc/costmodel-fast-math-vect-pr29925.c,
+	gcc.dg/vect/costmodel/spu/costmodel-fast-math-vect-pr29925.c,
+	gcc.dg/vect/costmodel/x86_64/costmodel-fast-math-vect-pr29925.c:
+	Likewise.
+
+2007-09-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/uc1.ads: Compile with -gnatws.
+
+2007-09-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/addr2_p.ads: Bump size of array to 9.
+
+2007-09-09  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect.exp: Compile tests starting with slp-.
+	Remove "vect" part from test names for -ffast-math, -ffast-math-errno,
+	-fwrapv, -ftrapv tests. Add -fno-tree-scev-cprop for slp- tests.
+	Compile tests with -fno-tree-pre.
+	* gcc.dg/vect/costmodel/ppc/ppc-costmodel-vect.exp: Run SLP tests.
+	* lib/target-supports.exp (check_effective_target_vect_strided): New.
+	* gcc.dg/vect/slp-1.c, gcc.dg/vect/slp-2.c, gcc.dg/vect/slp-3.c,
+	gcc.dg/vect/slp-4.c, gcc.dg/vect/slp-5.c, gcc.dg/vect/slp-6.c,
+	gcc.dg/vect/slp-7.c, gcc.dg/vect/slp-8.c, gcc.dg/vect/slp-9.c,
+	gcc.dg/vect/slp-10.c, gcc.dg/vect/slp-11.c, gcc.dg/vect/slp-12.c,
+	gcc.dg/vect/slp-13.c, gcc.dg/vect/slp-14.c, gcc.dg/vect/slp-15.c,
+	gcc.dg/vect/slp-16.c, gcc.dg/vect/slp-17.c, gcc.dg/vect/slp-18.c,
+	gcc.dg/vect/slp-19.c, gcc.dg/vect/slp-20.c, gcc.dg/vect/slp-21.c,
+	gcc.dg/vect/slp-22.c, gcc.dg/vect/slp-23.c, gcc.dg/vect/slp-24.c,
+	gcc.dg/vect/slp-25.c, gcc.dg/vect/slp-26.c, gcc.dg/vect/slp-28.c,
+	gcc.dg/vect/fast-math-slp-27.c, gcc.dg/vect/no-tree-pre-slp-29.c,
+	gcc.dg/vect/no-scevccp-slp-30.c, gcc.dg/vect/no-scevccp-slp-31.c,
+	gcc.dg/vect/no-math-errno-slp-32.c, gcc.dg/vect/slp-33.c,
+	gcc.dg/vect/slp-34.c, gcc.dg/vect/slp-35.c, gcc.dg/vect/slp-36.c,
+	gcc.dg/vect/slp-37.c, gcc.dg/vect/vect-vfa-slp.c, 
+	gcc.dg/vect/costmodel/ppc/costmodel-slp-12.c,
+	gcc.dg/vect/costmodel/ppc/costmodel-slp-33.c: New testcases.
+	* gcc.dg/vect/vect-vfa-03.c: Change the test to prevent SLP.
+
+2007-09-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/file-format.exp (gcc_target_object_format): Use remote_exec
+	to call objdump.
+	* lib/scanasm.exp (scan-assembler-dem, scan-assembler-dem-not):
+	Use remote_exec to call c++filt.
+	* lib/target-supports-dg.exp (dg-require-host-local): New.
+	* gcc.misc-tests/options.exp: Allow .exe in command paths.
+	* g++.dg/parse/repo1.C: Use dg-require-host-local.
+	* g++.dg/rtti/repo1.C: Likewise.
+	* g++.dg/template/repo1.C: Likewise.
+	* g++.dg/template/repo2.C: Likewise.
+	* g++.dg/template/repo3.C: Likewise.
+	* g++.dg/template/repo4.C: Likewise.
+	* g++.dg/template/repo5.C: Likewise.
+	* g++.old-deja/g++.pt/instantiate4.C: Likewise.
+	* g++.old-deja/g++.pt/instantiate6.C: Likewise.
+	* g++.old-deja/g++.pt/repo1.C: Likewise.
+	* g++.old-deja/g++.pt/repo2.C: Likewise.
+	* g++.old-deja/g++.pt/repo3.C: Likewise.
+	* g++.old-deja/g++.pt/repo4.C: Likewise.
+	* gcc.dg/cpp/trad/builtins.c: Likewise.
+
+2007-09-08  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/32283
+	* gcc.dg/tree-ssa/loop-31.c: New test.
+
+2007-09-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/26449
+	* gcc.target/i386/pr26449-1.c: New file.
+
+2007-09-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33329
+	PR rtl-optimization/26449
+	* gcc.target/i386/pr33329.c: New file.
+
+2007-09-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming3.adb, renaming4.ads: New test.
+
+2007-09-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/unaligned_rep_clause.adb: New testcase.
+
+2007-09-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/33301
+	* gfortran.dg/vect/pr33301.f: New test.
+
+2007-09-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33307
+	* gfortran.dg/backspace_10.f90: New test.
+
+2007-09-07  Richard Guenther  <rguenther@suse.de>
+
+	Reapply
+	2007-09-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32586
+	* g++.dg/tree-ssa/pr27090.C: Remove XFAILs.
+	* gcc.dg/tree-ssa/ssa-fre-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-5.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-4.c: Likewise, remove scan for
+	now obsolete simplification.
+
+2007-09-07  Dorit Nuzman  <dorit@il.ibm.com>
+	
+	PR tree-optimization/33299
+	* gfortran.dg/vect/vect.exp: Compile some tests with -ffast-math.
+	* gfortran.dg/vect/fast-math-pr33299.f90: New test.
+
+2007-09-07  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2007-09-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32586
+	* g++.dg/tree-ssa/pr27090.C: Remove XFAILs.
+	* gcc.dg/tree-ssa/ssa-fre-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-5.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-4.c: Likewise, remove scan for
+	now obsolete simplification.
+
+2007-09-07 Uros Bizjak <ubizjak@gmail.com>
+
+	PR tree-optimization/32821
+	* gcc.dg/tree-ssa/pr32821.c: New file.
+
+2007-09-07  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc.dg/attr-alias-3.c: Use real asm for MIPS.
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set mips_forced_gp
+	and mips_forced_no_er.
+	(dg-mips-options): Add -mno-abicalls when a small-data option is
+	specified.  Skip tests with small-data options if mips_forced_gp.
+	Skip tests with -mexplicit-relocs if mips_forced_no_er.
+	* gcc.target/mips/sdata-1.c: New test.
+	* gcc.target/mips/sdata-2.c: Likewise.
+	* gcc.target/mips/sdata-3.c: Likewise.
+	* gcc.target/mips/sdata-4.c: Likewise.
+
+2007-09-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/33298
+	* spread_zerosize_1.f90:  New test case.
+	* spread_bounds_1.f90:  New test case.
+
+2007-09-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32674
+	* g++.dg/template/static31.C: New.
+
+2007-09-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33271
+	* gfortran.dg/nint_2.f90: xfail on powerpc-ibm-aix* and
+	powerpc*-linux-gnu.
+
+2007-09-06  David Daney  <ddaney@avtrex.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/33256
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set mips_forced_le.
+	(dg-mips-options): Skip -EB and -meb tests when $mips_forced_le.
+	* gcc.target/mips/pr33256.c: New test.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* lib/g++.exp (g++_target_compile): Use -fno-show-column.
+
+2007-09-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32586
+	* g++.dg/tree-ssa/pr27090.C: Remove XFAILs.
+	* gcc.dg/tree-ssa/ssa-fre-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-5.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-4.c: Likewise, remove scan for
+	now obsolete simplification.
+
+2007-09-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse3-addsubpd.c: Add -mfpmath=sse to dg-options.
+	* gcc.target/i386/sse3-addsubps.c: Ditto.
+	* gcc.target/i386/sse3-haddpd.c: Ditto.
+	* gcc.target/i386/sse3-haddps.c: Ditto.
+	* gcc.target/i386/sse3-hsubpd.c: Ditto.
+	* gcc.target/i386/sse3-hsubps.c: Ditto.
+	* gcc.target/i386/sse3-lddqu.c: Ditto.
+	* gcc.target/i386/sse3-movddup.c: Ditto.
+	* gcc.target/i386/sse3-movshdup.c: Ditto.
+	* gcc.target/i386/sse3-movsldup.c: Ditto.
+
+2007-09-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33302
+	* gcc.dg/tree-ssa/ssa-dse-11.c: New testcase.
+
+2007-09-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33225
+	* gfortran.dg./fmt_float.f90: New test.
+
+2007-09-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33253
+	* gfortran.dg/namelist_38.f90: Update test for DELIM= .
+
+2007-09-06  Jesper Nilsson  <jesper.nilsson@axis.com>
+
+	* gcc.target/cris/builtin_ctz_v3.c: New testcase.
+	* gcc.target/cris/builtin_ctz_v8.c: New testcase.
+
+2007-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/eh/builtin1.C: New test.
+	* g++.dg/eh/builtin2.C: New test.
+	* g++.dg/eh/builtin3.C: New test.
+
+	PR c++/33289
+	* g++.dg/eh/builtin4.C: New test.
+
+2007-09-05  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.target/powerpc/dfp-dd.c: New test.
+	* gcc.target/powerpc/dfp-td.c: New test.
+
+2007-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/va-arg-pack-1.c: New test.
+	* gcc.dg/va-arg-pack-1.c: New test.
+
+2007-09-05  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.dg/tree-ssa/builtin-expect-1.c: New test.
+	* gcc.dg/tree-ssa/builtin-expect-2.c: New test.
+	* gcc.dg/tree-ssa/builtin-expect-3.c: New test.
+	* gcc.dg/tree-ssa/builtin-expect-4.c: New test.
+	* gcc.dg/tree-ssa/builtin-expect-5.c: New test.
+
+2007-09-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/30302
+	* g++.dg/ext/anon-struct5.C: New.
+
+2007-09-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/i386-cpuid.h: Remove.
+	* gcc.target/i386/mmx-check.h: Include cpuid.h.
+	(main): Use __get_cpuid to get target features.
+	* gcc.target/i386/sse-check.h: Ditto.
+	* gcc.target/i386/sse2-check.h: Ditto.
+	* gcc.target/i386/sse3-check.h: Ditto.
+	* gcc.target/i386/ssse3-check.h: Ditto.
+	* gcc.target/i386/sse4_1-check.h: Ditto.
+	* gcc.target/i386/sse4_2-check.h: Ditto.
+	* gcc.target/i386/sse4a-check.h: Ditto.
+	* gcc.dg/torture/pr16104-1.c: Ditto.
+	(do_test): Change to void.
+	* gcc.target/i386/mmx-4.c: Do not use NOINLINE.
+	* gcc.target/i386/sse-6.c: Ditto.
+	* gcc.target/i386/sse-7.c: Ditto.
+	* g++.dg/other/i386-1.C: Include cpuid.h.
+	(main): New function.  Use __get_cpuid to get target fetaures.
+
+2007-09-05  Sandra Loosemore  <sandra@codesourcery.com>
+	    David Ung  <davidu@mips.com>
+	    Nigel Stephens <nigel@mips.com>
+
+	* gcc.c-torture/compile/mipscop-1.c: Add nomips16 attributes.
+	* gcc.c-torture/compile/mipscop-2.c: Likewise.
+	* gcc.c-torture/compile/mipscop-3.c: Likewise.
+	* gcc.c-torture/compile/mipscop-4.c: Likewise.
+	* gcc.dg/torture/mips-hilo-1.c: Likewise.
+	* gcc.dg/torture/mips-hilo-2.c: Likewise.
+	* gcc.dg/torture/pr19683-1.c: Likewise.
+	* gcc.target/mips/madd-3.c: Likewise.
+	* gcc.target/mips/maddu-3.c: Likewise.
+	* gcc.target/mips/msub-3.c: Likewise.
+	* gcc.target/mips/msubu-3.c: Likewise.
+	* gcc.target/mips/asm-1.c: Likewise.
+	* gcc.target/mips/branch-1.c: Likewise.
+	* gcc.target/mips/ins-1.c: Likewise.
+	* gcc.target/mips/near-far-3.c: Likewise.
+	* gcc.target/mips/near-far-4.c: Likewise.
+	* gcc.target/mips/smartmips-lwxs.c: Likewise.
+	* gcc.target/mips/smartmips-ror-1.c: Likewise.
+	* gcc.target/mips/smartmips-ror-2.c: Likewise.
+	* gcc.target/mips/smartmips-ror-3.c: Likewise.
+	* gcc.target/mips/smartmips-ror-4.c: Likewise.
+	* gcc.target/mips/dspr2-MULT.c: Likewise.
+	* gcc.target/mips/dspr2-MULTU.c: Likewise.
+	* gcc.target/mips/mips32-dsp-run.c: Likewise.
+	* gcc.target/mips/mips32-dspr2-type.c: Likewise.
+	* gcc.target/mips/code-readable-1.c: Add mips16 attributes.
+	* gcc.target/mips/code-readable-2.c: Likewise.
+	* gcc.target/mips/code-readable-3.c: Likewise.
+
+2007-09-05  Sandra Loosemore  <sandra@codesourcery.com>
+	    David Ung  <davidu@mips.com>
+	    Nigel Stephens <nigel@mips.com>
+
+	* gcc.target/mips/mips16-attributes.c: New.
+
+2007-09-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31564
+	* gfortran.dg/derived_comp_array_ref_2.f90: New test.
+
+	PR fortran/33241
+	* gfortran.dg/char_length_10.f90: New test.
+
+2007-09-05  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/29731
+	* g++.dg/parse/template24.C: New.
+
+2007-09-04  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* g++.dg/other/spu2vmx-1.C: New test.
+
+2007-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33017
+	* gcc.dg/pr33017.c: New test.
+
+2007-09-05  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.target/powerpc/ppu-intrinsics.c: Add test cases for the
+	__protected_stream family of macros.
+
+2007-09-04  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/loadpre8.c: Disable inlining.
+	* gcc.dg/tree-ssa/pr27236.c: Likewise.
+	* gcc.dg/tree-ssa/predcom-1.c: Likewise.
+	* gcc.dg/tree-ssa/predcom-2.c: Likewise.
+	* gcc.dg/tree-ssa/flatten-2.c: Avoid overactive tail call ellim.
+	* gcc.dg/tree-ssa/loadpre5.c: Likewise.
+	* gcc.dg/vect/costmodel/i386/costmodel-fast-math-vect-pr29925.c:
+	Likewise.
+
+2007-09-04  Janus Weil  <jaydub66@gmail.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/proc_decl_1.f90: New.
+	* gfortran.dg/proc_decl_2.f90: New.
+	* gfortran.dg/proc_decl_3.f90: New.
+	* gfortran.dg/proc_decl_4.f90: New.
+
+2007-09-04  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/vect/vect-reduc-dot-s16b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-105.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-6.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-53.c: Mark functions noinline.
+	* gcc.dg/vect/wrapv-vect-reduc-2short.c: Mark functions noinline.
+	* gcc.dg/vect/fast-math-vect-pr29925.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-dot-u8a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-7.c: Mark functions noinline.
+	* gcc.dg/vect/vect-50.c: Mark functions noinline.
+	* gcc.dg/vect/vect-33.c: Mark functions noinline.
+	* gcc.dg/vect/vect-16.c: Mark functions noinline.
+	* gcc.dg/vect/vect-widen-mult-sum.c: Mark functions noinline.
+	* gcc.dg/vect/vect-float-extend-1.c: Mark functions noinline.
+	* gcc.dg/vect/vect-92.c: Mark functions noinline.
+	* gcc.dg/vect/vect-75.c: Mark functions noinline.
+	* gcc.dg/vect/vect-58.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-2b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-4.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-7.c: Mark functions noinline.
+	* gcc.dg/vect/no-section-anchors-vect-69.c: Mark functions noinline.
+	* gcc.dg/vect/vect-114.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-4g.c: Mark functions noinline.
+	* gcc.dg/vect/vect-8.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-vect-iv-1.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-10.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-45.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-10a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-5.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-18.c: Mark functions noinline.
+	* gcc.dg/vect/vect-42.c: Mark functions noinline.
+	* gcc.dg/vect/vect-25.c: Mark functions noinline.
+	* gcc.dg/vect/vect-vfa-01.c: Mark functions noinline.
+	* gcc.dg/vect/vect-67.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-3a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-a-u16-mult.c: Mark functions noinline.
+	* gcc.dg/vect/vect-106.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-7.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-37.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-2short.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-dot-u8b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-8.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-79.c: Mark functions noinline.
+	* gcc.dg/vect/vect-34.c: Mark functions noinline.
+	* gcc.dg/vect/vect-17.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-102a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-align-1.c: Mark functions noinline.
+	* gcc.dg/vect/vect-93.c: Mark functions noinline.
+	* gcc.dg/vect/vect-widen-mult-s16.c: Mark functions noinline.
+	* gcc.dg/vect/vect-76.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-a-u16-i2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-2c.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-5.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-8.c: Mark functions noinline.
+	* gcc.dg/vect/vect-115.c: Mark functions noinline.
+	* gcc.dg/vect/vect-9.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-vect-iv-2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-pattern-1a.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-11.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-10b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u32-i4.c: Mark functions noinline.
+	* gcc.dg/vect/vect-widen-mult-u8.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-6.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-19.c: Mark functions noinline.
+	* gcc.dg/vect/vect-60.c: Mark functions noinline.
+	* gcc.dg/vect/vect-26.c: Mark functions noinline.
+	* gcc.dg/vect/vect-vfa-02.c: Mark functions noinline.
+	* gcc.dg/vect/vect-85.c: Mark functions noinline.
+	* gcc.dg/vect/vect-68.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-3b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-floatint-conversion-1.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u8-i8-gap7.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-8.c: Mark functions noinline.
+	* gcc.dg/vect/vect-107.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-1.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-20.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-9.c: Mark functions noinline.
+	* gcc.dg/vect/vect-52.c: Mark functions noinline.
+	* gcc.dg/vect/vect-35.c: Mark functions noinline.
+	* gcc.dg/vect/vect-18.c: Mark functions noinline.
+	* gcc.dg/vect/vect-align-2.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-1.c: Mark functions noinline.
+	* gcc.dg/vect/vect-77.c: Mark functions noinline.
+	* gcc.dg/vect/vect-2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-2d.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-6.c: Mark functions noinline.
+	* gcc.dg/vect/vect-82_64.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-9.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u8-i2-gap.c: Mark functions noinline.
+	* gcc.dg/vect/vect-116.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-store-u16-i4.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-vect-iv-3.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-pattern-1b.c: Mark functions noinline.
+	* gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-12.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-7.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-101.c: Mark functions noinline.
+	* gcc.dg/vect/vect-44.c: Mark functions noinline.
+	* gcc.dg/vect/vect-27.c: Mark functions noinline.
+	* gcc.dg/vect/vect-vfa-03.c: Mark functions noinline.
+	* gcc.dg/vect/vect-86.c: Mark functions noinline.
+	* gcc.dg/vect/vect-100.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-1.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-3c.c: Mark functions noinline.
+	* gcc.dg/vect/vect-floatint-conversion-2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-a-u32-mult.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u8-i8.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-fir-lb.c: Mark functions noinline.
+	* gcc.dg/vect/vect-108.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-9.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-21.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-pattern-2a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-11.c: Mark functions noinline.
+	* gcc.dg/vect/vect-70.c: Mark functions noinline.
+	* gcc.dg/vect/vect-36.c: Mark functions noinline.
+	* gcc.dg/vect/vect-19.c: Mark functions noinline.
+	* gcc.dg/vect/vect-95.c: Mark functions noinline.
+	* gcc.dg/vect/vect-78.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-a-u16-i4.c: Mark functions noinline.
+	* gcc.dg/vect/vect-3.c: Mark functions noinline.
+	* gcc.dg/vect/vect-all.c: Mark functions noinline.
+	* gcc.dg/vect/vect-117.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-13.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-pattern-1c.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u16-i2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap7.c: Mark functions noinline.
+	* gcc.dg/vect/vect-20.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-8.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-noreassoc-outer-1.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-102.c: Mark functions noinline.
+	* gcc.dg/vect/vect-62.c: Mark functions noinline.
+	* gcc.dg/vect/vect-28.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-10.c: Mark functions noinline.
+	* gcc.dg/vect/vect-vfa-04.c: Mark functions noinline.
+	* gcc.dg/vect/vect-87.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-dot-u16a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-intfloat-conversion-4a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-109.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-22.c: Mark functions noinline.
+	* gcc.dg/vect/no-section-anchors-vect-outer-4h.c: Mark functions
+	noinline.
+	* gcc.dg/vect/vect-iv-3.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-pattern-2b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-dot-s8a.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-57.c: Mark functions noinline.
+	* gcc.dg/vect/vect-12.c: Mark functions noinline.
+	* gcc.dg/vect/vect-71.c: Mark functions noinline.
+	* gcc.dg/vect/vect-54.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-a-mult.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-3.c: Mark functions noinline.
+	* gcc.dg/vect/vect-96.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-1char.c: Mark functions noinline.
+	* gcc.dg/vect/vect-110.c: Mark functions noinline.
+	* gcc.dg/vect/vect-intfloat-conversion-1.c: Mark functions noinline.
+	* gcc.dg/vect/vect-4.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-store-u32-i2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-4k.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-1.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-mult.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-14.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-49.c: Mark functions noinline.
+	* gcc.dg/vect/vect-21.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-9.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-noreassoc-outer-2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-80.c: Mark functions noinline.
+	* gcc.dg/vect/vect-63.c: Mark functions noinline.
+	* gcc.dg/vect/vect-46.c: Mark functions noinline.
+	* gcc.dg/vect/vect-29.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u8-i8-gap2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-11.c: Mark functions noinline.
+	* gcc.dg/vect/vect-88.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u8-i2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-dot-u16b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-3.c: Mark functions noinline.
+	* gcc.dg/vect/vect-83_64.c: Mark functions noinline.
+	* gcc.dg/vect/vect-intfloat-conversion-4b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-4.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-pattern-2c.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-dot-s8b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-30.c: Mark functions noinline.
+	* gcc.dg/vect/vect-13.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-a-u8-i2-gap.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-8a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-same-dr.c: Mark functions noinline.
+	* gcc.dg/vect/vect-72.c: Mark functions noinline.
+	* gcc.dg/vect/vect-38.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-4.c: Mark functions noinline.
+	* gcc.dg/vect/vect-widen-mult-u16.c: Mark functions noinline.
+	* gcc.dg/vect/vect-97.c: Mark functions noinline.
+	* gcc.dg/vect/vect-111.c: Mark functions noinline.
+	* gcc.dg/vect/vect-intfloat-conversion-2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-4d.c: Mark functions noinline.
+	* gcc.dg/vect/vect-5.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-mult-char-ls.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-store-a-u8-i2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-4l.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-2.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-15.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-1short.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u16-i4.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u32-i8.c: Mark functions noinline.
+	* gcc.dg/vect/vect-22.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-noreassoc-outer-3.c: Mark functions noinline.
+	* gcc.dg/vect/vect-64.c: Mark functions noinline.
+	* gcc.dg/vect/vect-89.c: Mark functions noinline.
+	* gcc.dg/vect/no-tree-dom-vect-bug.c: Mark functions noinline.
+	* gcc.dg/vect/vect-103.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-51.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-pr29145.c: Mark functions noinline.
+	* gcc.dg/vect/wrapv-vect-reduc-pattern-2c.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-5.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-dot-s8c.c: Mark functions noinline.
+	* gcc.dg/vect/vect-11a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-31.c: Mark functions noinline.
+	* gcc.dg/vect/vect-14.c: Mark functions noinline.
+	* gcc.dg/vect/vect-73.c: Mark functions noinline.
+	* gcc.dg/vect/vect-56.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-2.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-5.c: Mark functions noinline.
+	* gcc.dg/vect/vect-98.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-float.c: Mark functions noinline.
+	* gcc.dg/vect/vect-intfloat-conversion-3.c: Mark functions noinline.
+	* gcc.dg/vect/vect-112.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-9a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-6.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-43.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-4m.c: Mark functions noinline.
+	* gcc.dg/vect/vect-widen-mult-s8.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-3.c: Mark functions noinline.
+	* gcc.dg/vect/pr25413.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-16.c: Mark functions noinline.
+	* gcc.dg/vect/vect-40.c: Mark functions noinline.
+	* gcc.dg/vect/vect-23.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-noreassoc-outer-4.c: Mark functions noinline.
+	* gcc.dg/vect/vect-82.c: Mark functions noinline.
+	* gcc.dg/vect/vect-65.c: Mark functions noinline.
+	* gcc.dg/vect/vect-48.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-dot-s16a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u8-i8-gap4.c: Mark functions noinline.
+	* gcc.dg/vect/vect-104.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-fir.c: Mark functions noinline.
+	* gcc.dg/vect/vect-iv-6.c: Mark functions noinline.
+	* gcc.dg/vect/vect-strided-u32-mult.c: Mark functions noinline.
+	* gcc.dg/vect/vect-32.c: Mark functions noinline.
+	* gcc.dg/vect/vect-15.c: Mark functions noinline.
+	* gcc.dg/vect/no-trapping-math-2.c: Mark functions noinline.
+	* gcc.dg/vect/vect-float-truncate-1.c: Mark functions noinline.
+	* gcc.dg/vect/vect-91.c: Mark functions noinline.
+	* gcc.dg/vect/vect-74.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-2a.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-3.c: Mark functions noinline.
+	* gcc.dg/vect/vect-reduc-2char.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-6.c: Mark functions noinline.
+	* gcc.dg/vect/vect-99.c: Mark functions noinline.
+	* gcc.dg/vect/vect-113.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-9b.c: Mark functions noinline.
+	* gcc.dg/vect/vect-outer-4f.c: Mark functions noinline.
+	* gcc.dg/vect/vect-7.c: Mark functions noinline.
+	* gcc.dg/vect/no-vfa-vect-61.c: Mark functions noinline.
+	* gcc.dg/vect/vect-multitypes-4.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-outer-17.c: Mark functions noinline.
+	* gcc.dg/vect/vect-24.c: Mark functions noinline.
+	* gcc.dg/vect/no-scevccp-noreassoc-outer-5.c: Mark functions noinline.
+	* gcc.dg/vect/vect-83.c: Mark functions noinline.
+	* gcc.dg/vect/vect-66.c: Mark functions noinline.
+	* gcc.dg/vect/wrapv-vect-reduc-2char.c: Mark functions noinline.
+
+2007-09-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/33187
+	* gcc.target/i386/cmov7.c: New file.
+
+2007-09-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse4a-check.h: New file.
+	* gcc.target/i386/sse4a-extract.c: Include sse4a-check.h.  Remove main.
+	* gcc.target/i386/sse4a-insert.c: Ditto.
+	* gcc.target/i386/sse4a-montsd.c: Ditto.
+	* gcc.target/i386/sse4a-montss.c: Ditto.
+	* gcc.target/i386/mmx-check.h: New file.
+	* gcc.target/i386/mmx-4.c: Include mmx-check.h.  Remove main.
+	* gcc.target/i386/builtin-apply-mmx.c: Ditto.
+	* gcc.target/i386/sse-check.h: New file.
+	* gcc.target/i386/pr13685: Include sse-check.h.  Remove main.
+	* gcc.target/i386/sse-3.c: Ditto.
+	* gcc.target/i386/sse-7.c: Ditto.
+	* gcc.target/i386/sse-9.c: Ditto.
+	* gcc.target/i386/ssefn-3.c: Ditto.
+	* gcc.target/i386/sse-recip.c: Ditto.
+	* gcc.target/i386/sse-recip-vec.c: Ditto.
+	* gcc.target/i386/20020523.c: Ditto. Rename from 20020523-2.c.
+	* gcc.target/i386/20020523-1.c: Remove.
+	* gcc.target/i386/sse2-lrint-vec.c: Include sse2-check.h.  Remove main.
+	* gcc.target/i386/sse2-lrintf-vec.c: Ditto.
+	* gcc.target/i386/ssefn-4.c: Ditto.
+	* gcc.target/i386/sse-6.c: Ditto.
+	* gcc.target/i386/sse-10.c: Ditto.
+	* gcc.target/i386/sse-11.c: Ditto.
+	* gcc.target/i386/sse-18.c: Ditto.
+	* gcc.target/i386/fpprec-1.c: Ditto.
+	* g++.dg/other/i386-1.C: Ditto.
+
+2007-09-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33291
+	* gcc.dg/volatile2.c: New testcase.
+	* gcc.dg/pr32721.c: Adjust volatile reference pattern.
+	* gcc.dg/tree-ssa/forwprop-1.c: Remove xfail.
+	* gcc.dg/tree-ssa/forwprop-2.c: Likewise.
+	* gcc.dg/tree-ssa/pr17141-1.c: Likewise.
+
+2007-09-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33253
+	* gfortran.dg/namelist_15.f90: Update test.
+	* gfortran.dg/namelist_24.f90: Update test.
+	* gfortran.dg/namelist_38.f90: New test.
+
+2007-09-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/vect/no-tree-scev-cprop-vect-iv-1.c: Restored.  Moved to ...
+	* gcc.dg/vect/no-scevccp-vect-iv-1.c: New test.
+	* gcc.dg/vect/no-tree-scev-cprop-vect-iv-2.c: Restored.  Moved to ...
+	* gcc.dg/vect/no-scevccp-vect-iv-2.c: New test.
+	* gcc.dg/vect/no-tree-scev-cprop-vect-iv-3.c: Restored.  Moved to ...
+	* gcc.dg/vect/no-scevccp-vect-iv-3.c: New test.
+
+2007-09-03  Jesper Nilsson  <jesper.nilsson@axis.com>
+
+	* gcc.target/cris/builtin_bswap_v3.c: New testcase.
+	* gcc.target/cris/builtin_bswap_v8.c: New testcase.
+
+	* gcc.dg/torture/cris-asm-mof-1.c: Skip if -march defined.
+
+2007-09-02  David Daney  <ddaney@avtrex.com>
+
+	* gcc.target/mips/gcc-have-sync-compare-and-swap-1.c: New test.
+	* gcc.target/mips/gcc-have-sync-compare-and-swap-2.c: Ditto.
+	* gcc.target/mips/atomic-memory-1.c: Ditto.
+	* testsuite/gcc.target/mips/atomic-memory-2.c: Ditto.
+
+2007-09-03  Jesper Nilsson  <jesper.nilsson@axis.com>
+
+	* gcc.target/cris/builtin_clz_v0.c: New testcase.
+	* gcc.target/cris/builtin_clz_v3.c: New testcase.
+
+2007-09-02  Tobias Schlüuter  <tobi@gcc.gnu.org>
+
+	* gfortran.dg/substr_6.f90: New test.
+
+2007-09-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33208
+	* g++.dg/other/error18.C: New.
+	* g++.dg/expr/bitfield3.C: Adjust.
+
+2007-09-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/33276
+	* gfortran.fortran-torture/compile/pr33276.f90: New.
+
+2007-09-02  Joseph Myers  <joseph@codesourcery.com>
+
+	PR middle-end/33272
+	* gcc.dg/c99-arraydecl-3.c: New test.
+
+2007-08-31 Douglas Gregor <doug.gregor@gmail.com>
+
+	PR c++/32597
+	* gcc/testsuite/g++.dg/cpp0x/variadic-new2.C: New.
+	* gcc/testsuite/g++.dg/cpp0x/variadic-new.C: New.
+
+2007-08-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33232
+	* gfortran.dg/eor_handling_2.f90: Add dg-warnings.
+	* gfortran.dg/read_1.f90: New.
+
+2007-08-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33210
+	* g++.dg/template/error30.C: New.
+
+2007-08-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32113
+	* g++.dg/template/crash70.C: New.
+
+2007-08-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33212
+	* g++.dg/ext/is_class_error.C: New.
+
+2007-08-31  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/test_oalign.adb, oalign[12].ads: New test.
+	
+2007-08-31  David Edelsohn  <edelsohn@gnu.org>
+            Revital Eres  <eres@il.ibm.com>
+
+	* gcc.target/powerpc/paired-1.c: New test.
+	* gcc.target/powerpc/paired-2.c: New test.
+	* gcc.target/powerpc/paired-3.c: New test.
+	* gcc.target/powerpc/paired-4.c: New test.
+	* gcc.target/powerpc/paired-5.c: New test.
+	* gcc.target/powerpc/paired-6.c: New test.
+	* gcc.target/powerpc/paired-7.c: New test.
+	* gcc.target/powerpc/ppc-paired.c: New test.
+
+2007-08-31  Ollie Wild  <aaw@google.com>
+
+	* g++.dg/conversion/ptrmem2.C: New test.
+	* g++.dg/conversion/ptrmem3.C: New test.
+	* g++.dg/conversion/ptrmem4.C: New test.
+	* g++.dg/conversion/ptrmem5.C: New test.
+	* g++.dg/conversion/ptrmem6.C: New test.
+	* g++.dg/conversion/ptrmem7.C: New test.
+	* g++.dg/conversion/ptrmem8.C: New test.
+
+2007-08-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31879
+	* gfortran.dg/char_length_7.f90: New test.
+	* gfortran.dg/char_length_9.f90: New test.
+	* gfortran.dg/char_assign_1.f90: Add extra warning.
+
+	PR fortran/31197
+	PR fortran/31258
+	* gfortran.dg/char_length_8.f90: New test.
+
+2007-08-30  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.target/powerpc/ppu-intrinsics.c: New testcase.
+
+2007-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/inline-24.c: New test.
+	* g++.dg/opt/inline11.C: New test.
+
+2007-08-30  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.target/i386/vectorize5.c: New testcase.
+
+2007-08-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33228
+	* interface.c (check_interface0): Improve error for external procs.
+	(check_sym_interfaces): Fix checking of module procedures.
+
+2007-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/sync-2.c (AI_ALIGN): Define if not defined.
+	(AI): Add AI_ALIGN.
+	* gcc.dg/sync-3.c: New test.
+
+	PR middle-end/32758
+	* gcc.dg/cleanup-12.c: New test.
+
+2007-08-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/gcc-dg.exp (cleanup-profile-file): New procedure.
+	* gcc.dg/20021014-1.c: Use cleanup-profile-file.
+	* gcc.dg/gcc.dg/20021014-1.c: Ditto.
+	* gcc.dg/pr32450.c: Ditto.
+	* gcc.dg/nest.c: Ditto.
+	* gcc.dg/nested-func-4.c: Ditto.
+	* g++.old-deja/g++.law/profile1.C: Ditto.
+
+2007-08-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/32989
+	* gfortran.fortran-torture/execute/getarg_1.f90: Add check for
+	non-default integer kind arguments.
+
+2007-08-29  Tobias Burnus  <burnus@gcc.gnu.org>
+
+	PR fortran/33105
+	* gfortran.dg/is_iostat_end_eor_1.f90: New test.
+
+2007-08-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/h8300-ice2.c: Remove target selector.
+
+2007-08-29  Christopher D. Rickett  <crickett@lanl.gov>
+
+	PR fortran/33215
+	* gfortran.dg/binding_label_tests_15.f03: New test case.
+	* gfortran.dg/binding_label_tests_16.f03: Ditto.
+
+2007-08-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/alloc_comp_basics_1.f90: Update check.
+	* gfortran.dg/alloc_comp_constructor_1.f90: Update check.
+
+2007-08-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/33194
+	* g++.dg/other/canon-33194.C: New.
+
+2007-08-29  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* gcc.c-torture/execute/simd-1.c: Use SImode vector elements.
+	* gcc.c-torture/execute/pr23135.c: Likewise.
+
+2007-08-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/pr31344.c: Move to ...
+	* gcc.dg/dfp/pr31344.c: ... here.
+	* gcc.dg/sibcall-6.c: Simplify dg-skip-if directive.
+	* gcc.dg/20050503-1.c: Ditto.
+	* gcc.dg/20050111-1.c: Simplify i?86 and x86_64 dg-options directive.
+	* gcc.dg/20061127-1.c: Compile only for fpic targets.
+	* gcc.dg/20060801-1.c: Ditto.
+
+2007-08-29  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gfortran.dg/isnan_1.f90: Add -mieee for sh.
+	* gfortran.dg/nan_1.f90: Likewise.
+
+2007-08-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33055
+	Revert previous patch.
+
+2007-08-28  Nathan Sidwell  <nathan@codesourcery.com>
+	    Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc.target/m68k/interrupt-1.c: New.
+
+2007-08-28  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* gcc.c-torture/compile/limits-blockid.c: Reduce testcase size to
+	10000 for targets where "int" can't hold at least 100000.
+	* gcc.c-torture/compile/limits-enumconst.c: Likewise.
+	* gcc.dg/fold-eqandshift-1.c (INT_BITS): New.
+	(test5)(test6): Use it.
+	* gcc.dg/pr30744-1.c (r): Use pointer sized integer.
+	* gcc.dg/tree-ssa/foldaddr-1.c (foo): Likewise.
+	* gcc.dg/tree-ssa/loadpre6.c (main): Likewise.
+	* gcc.dg/tls/opt-5.c (__gen_tempname): Avoid overflowing 16-bit	int.
+	* gcc.dg/attr-alloc_size.c (test): Likewise.
+
+2007-08-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33209
+	* g++.dg/template/error29.C: New.
+
+2007-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/32596
+	* g++.dg/ext/visibility/anon5.C: New test.
+
+2007-08-28  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/gamma_4.f90: Fix large-real kind selection.
+
+2007-08-28  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/gamma_1.f90: Remove large-real tests.
+	* gfortran.dg/gamma_2.f90: Remove large-real tests.
+	* gfortran.dg/gamma_4.f90: New: large-real tests.
+
+2007-08-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/29000
+	* g++.dg/ext/stmtexpr12.C: New test.
+
+	PR c++/28558
+	* g++.dg/ext/attrib28.C: New test.
+
+2007-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32661
+	* gcc.target/i386/pr32661.c: New test.
+
+2007-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/32370
+	* gcc.dg/pr32370.c: New test.
+
+	PR rtl-optimization/33148
+	* gcc.c-torture/compile/20070827-1.c: New test.
+
+	PR debug/32914
+	* d++.dg/debug/const3.C: New test.
+	* d++.dg/debug/const4.C: New test.
+	* d++.dg/debug/dwarf2/const1.C: New test.
+	* d++.dg/debug/dwarf2/const2.C: New test.
+	* d++.dg/debug/dwarf2/const2b.C: New test.
+
+2007-08-28  Mircea Namolaru  <namolaru@il.ibm.com>
+            Vladimir Yanovsky  <yanov@il.ibm.com>
+            Revital Eres  <eres@il.ibm.com>
+            Andrey Belevantsev  <abel@ispras.ru>
+
+	* gcc.dg/sms-1.c: New test.
+
+2007-08-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/ext/gnu-inline-common.h: New.
+	* g++.dg/ext/gnu-inline-global-reject.C: New.
+	* g++.dg/ext/gnu-inline-global.C: New.
+	* g++.dg/ext/gnu-inline-namespace.C: New.
+	* g++.dg/ext/gnu-inline-anon-namespace.C: New.
+	* g++.dg/ext/gnu-inline-class.C: New.
+	* g++.dg/ext/gnu-inline-class-static.C: New.
+	* g++.dg/ext/gnu-inline-template-class.C: New.
+	* g++.dg/ext/gnu-inline-template-func.C: New.
+
+2007-08-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/31337
+	* g++.dg/ext/stmtexpr11.C: New.
+
 2007-08-27  Kazu Hirata  <kazu@codesourcery.com>
 
 	* lib/target-supports.exp (check_profiling_available):

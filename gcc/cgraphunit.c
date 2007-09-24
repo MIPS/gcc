@@ -76,15 +76,6 @@ along with GCC; see the file COPYING3.  If not see
       ??? On the tree-ssa genericizing should take place here and we will avoid
       need for these hooks (replacing them by genericizing hook)
 
-    - expand_function callback
-
-      This function is used to expand function and pass it into RTL back-end.
-      Front-end should not make any assumptions about when this function can be
-      called.  In particular cgraph_assemble_pending_functions,
-      varpool_assemble_pending_variables, cgraph_finalize_function,
-      varpool_finalize_function, cgraph_optimize can cause arbitrarily
-      previously finalized functions to be expanded.
-
     We implement two compilation modes.
 
       - unit-at-a-time:  In this mode analyzing of all functions is deferred
@@ -378,10 +369,15 @@ cgraph_process_new_functions (void)
 	  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
 	  current_function_decl = fndecl;
 	  node->local.inlinable = tree_inlinable_function_p (fndecl);
+	  /* FIXME tuples.  */
+#if 0
 	  node->local.self_insns = estimate_num_insns (fndecl,
 						       &eni_inlining_weights);
+#else
+	  gcc_unreachable ();
+#endif
 	  node->local.disregard_inline_limits
-	    |= disregard_inline_limits_p (fndecl);
+	    |= DECL_DISREGARD_INLINE_LIMITS (fndecl);
 	  /* Inlining characteristics are maintained by the
 	     cgraph_mark_inline.  */
 	  node->global.insns = node->local.self_insns;
@@ -1069,7 +1065,9 @@ cgraph_expand_function (struct cgraph_node *node)
     }
 
   /* Generate RTL for the body of DECL.  */
-  lang_hooks.callgraph.expand_function (decl);
+  if (lang_hooks.callgraph.emit_associated_thunks)
+    lang_hooks.callgraph.emit_associated_thunks (decl);
+  tree_rest_of_compilation (decl);
 
   /* FIXME tuples */
 #if 0
@@ -1250,7 +1248,7 @@ cgraph_preserve_function_body_p (tree decl)
   struct cgraph_node *node;
   if (!cgraph_global_info_ready)
     return (flag_really_no_inline
-	    ? disregard_inline_limits_p (decl)
+	    ? DECL_DISREGARD_INLINE_LIMITS (decl)
 	    : DECL_INLINE (decl));
   /* Look if there is any clone around.  */
   for (node = cgraph_node (decl); node; node = node->next_clone)
@@ -1262,7 +1260,7 @@ cgraph_preserve_function_body_p (tree decl)
 static void
 ipa_passes (void)
 {
-  cfun = NULL;
+  set_cfun (NULL);
   current_function_decl = NULL;
   gimple_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);

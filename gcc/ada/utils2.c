@@ -10,14 +10,13 @@
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
- * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * for  more details.  You should have received a copy of the GNU General   *
+ * Public License along with GCC; see the file COPYING3.  If not see        *
+ * <http://www.gnu.org/licenses/>.                                          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -1079,6 +1078,25 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	     GCC wants pointer types for function addresses.  */
 	  if (!result_type)
 	    result_type = build_pointer_type (type);
+
+	  /* If the underlying object can alias everything, propagate the
+	     property since we are effectively retrieving the object.  */
+	  if (POINTER_TYPE_P (TREE_TYPE (result))
+	      && TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (result)))
+	    {
+	      if (TREE_CODE (result_type) == POINTER_TYPE
+		  && !TYPE_REF_CAN_ALIAS_ALL (result_type))
+		result_type
+		  = build_pointer_type_for_mode (TREE_TYPE (result_type),
+						 TYPE_MODE (result_type),
+						 true);
+	      else if (TREE_CODE (result_type) == REFERENCE_TYPE
+		       && !TYPE_REF_CAN_ALIAS_ALL (result_type))
+	        result_type
+		  = build_reference_type_for_mode (TREE_TYPE (result_type),
+						   TYPE_MODE (result_type),
+						   true);
+	    }
 	  break;
 
 	case NULL_EXPR:

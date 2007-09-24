@@ -384,9 +384,13 @@ lvalue_required_p (Node_Id gnat_node, tree operand_type, int aliased)
 	     gnat_temp = Next (gnat_temp))
 	  if (Nkind (gnat_temp) != N_Integer_Literal)
 	    return 1;
-	aliased |= Has_Aliased_Components (Etype (Prefix (gnat_node)));
-	return lvalue_required_p (Parent (gnat_node), operand_type, aliased);
       }
+
+      /* ... fall through ... */
+
+    case N_Slice:
+      aliased |= Has_Aliased_Components (Etype (Prefix (gnat_node)));
+      return lvalue_required_p (Parent (gnat_node), operand_type, aliased);
 
     case N_Selected_Component:
       aliased |= Is_Aliased (Entity (Selector_Name (gnat_node)));
@@ -394,10 +398,14 @@ lvalue_required_p (Node_Id gnat_node, tree operand_type, int aliased)
 
     case N_Object_Renaming_Declaration:
       /* We need to make a real renaming only if the constant object is
-	 aliased; otherwise we can optimize and return the rvalue.  We
-	 make an exception if the object is an identifier since in this
-	 case the rvalue can be propagated attached to the CONST_DECL.  */
-      return aliased || Nkind (Name (gnat_node)) == N_Identifier;
+	 aliased or if we may use a renaming pointer; otherwise we can
+	 optimize and return the rvalue.  We make an exception if the object
+	 is an identifier since in this case the rvalue can be propagated
+	 attached to the CONST_DECL.  */
+      return (aliased != 0
+	      /* This should match the constant case of the renaming code.  */
+	      || Is_Composite_Type (Etype (Name (gnat_node)))
+	      || Nkind (Name (gnat_node)) == N_Identifier);
 
     default:
       return 0;
@@ -2874,7 +2882,7 @@ Compilation_Unit_to_gnu (Node_Id gnat_node)
   DECL_ELABORATION_PROC_P (gnu_elab_proc_decl) = 1;
   allocate_struct_function (gnu_elab_proc_decl);
   Sloc_to_locus (Sloc (gnat_unit_entity), &cfun->function_end_locus);
-  cfun = 0;
+  set_cfun (NULL);
 
   /* For a body, first process the spec if there is one. */
   if (Nkind (Unit (gnat_node)) == N_Package_Body
@@ -5893,7 +5901,7 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
 
       /* Compute the exact value calc_type'Pred (0.5) at compile time. */
       fmt = REAL_MODE_FORMAT (TYPE_MODE (calc_type));
-      real_2expN (&half_minus_pred_half, -(fmt->p) - 1);
+      real_2expN (&half_minus_pred_half, -(fmt->p) - 1, TYPE_MODE (calc_type));
       REAL_ARITHMETIC (pred_half, MINUS_EXPR, dconsthalf,
                        half_minus_pred_half);
       gnu_pred_half = build_real (calc_type, pred_half);

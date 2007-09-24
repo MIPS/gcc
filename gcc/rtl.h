@@ -265,7 +265,8 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
      1 in a REG expression if corresponds to a variable declared by the user,
      0 for an internally generated temporary.
      1 in a SUBREG with a negative value.
-     1 in a LABEL_REF or in a REG_LABEL note for a non-local label.
+     1 in a LABEL_REF, REG_LABEL_TARGET or REG_LABEL_OPERAND note for a
+     non-local label.
      In a SYMBOL_REF, this flag is used for machine-specific purposes.  */
   unsigned int volatil : 1;
   /* 1 in a MEM referring to a field of an aggregate.
@@ -1224,10 +1225,11 @@ do {						\
    MEM_ATTRS (LHS) = MEM_ATTRS (RHS))
 
 /* 1 if RTX is a label_ref for a nonlocal label.  */
-/* Likewise in an expr_list for a reg_label note.  */
+/* Likewise in an expr_list for a REG_LABEL_OPERAND or
+   REG_LABEL_TARGET note.  */
 #define LABEL_REF_NONLOCAL_P(RTX)					\
-  (RTL_FLAG_CHECK2("LABEL_REF_NONLOCAL_P", (RTX), LABEL_REF,		\
-		   REG_LABEL)->volatil)
+  (RTL_FLAG_CHECK3("LABEL_REF_NONLOCAL_P", (RTX), LABEL_REF,		\
+		   REG_LABEL_OPERAND, REG_LABEL_TARGET)->volatil)
 
 /* 1 if RTX is a code_label that should always be considered to be needed.  */
 #define LABEL_PRESERVE_P(RTX)						\
@@ -1593,26 +1595,16 @@ extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx last_call_insn (void);
 extern rtx previous_insn (rtx);
-extern const_rtx const_previous_insn (const_rtx);
 extern rtx next_insn (rtx);
-extern const_rtx const_next_insn (const_rtx);
 extern rtx prev_nonnote_insn (rtx);
-extern const_rtx const_prev_nonnote_insn (const_rtx);
 extern rtx next_nonnote_insn (rtx);
-extern const_rtx const_next_nonnote_insn (const_rtx);
 extern rtx prev_real_insn (rtx);
-extern const_rtx const_prev_real_insn (const_rtx);
 extern rtx next_real_insn (rtx);
-extern const_rtx const_next_real_insn (const_rtx);
 extern rtx prev_active_insn (rtx);
-extern const_rtx const_prev_active_insn (const_rtx);
 extern rtx next_active_insn (rtx);
-extern const_rtx const_next_active_insn (const_rtx);
 extern int active_insn_p (const_rtx);
 extern rtx prev_label (rtx);
-extern const_rtx const_prev_label (const_rtx);
 extern rtx next_label (rtx);
-extern const_rtx const_next_label (const_rtx);
 extern rtx skip_consecutive_labels (rtx);
 extern rtx next_cc0_user (rtx);
 extern rtx prev_cc0_setter (rtx);
@@ -1731,7 +1723,6 @@ extern int refers_to_regno_p (unsigned int, unsigned int, const_rtx, rtx *);
 extern int reg_overlap_mentioned_p (const_rtx, const_rtx);
 extern const_rtx set_of (const_rtx, const_rtx);
 extern void note_stores (const_rtx, void (*) (rtx, const_rtx, void *), void *);
-extern void const_note_stores (const_rtx, void (*) (const_rtx, const_rtx, const void *), const void *);
 extern void note_uses (rtx *, void (*) (rtx *, void *), void *);
 extern int dead_or_set_p (const_rtx, const_rtx);
 extern int dead_or_set_regno_p (const_rtx, unsigned int);
@@ -2190,6 +2181,7 @@ extern void globalize_reg (int);
 extern void init_reg_modes_target (void);
 extern void init_regs (void);
 extern void init_fake_stack_mems (void);
+extern void save_register_info (void);
 extern void init_reg_sets (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
@@ -2276,8 +2268,6 @@ extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
 /* In cfgexpand.c */
 extern void add_reg_br_prob_note (rtx last, int probability);
-/* In tracer.c */
-extern void tracer (void);
 
 /* In var-tracking.c */
 extern unsigned int variable_tracking_main (void);

@@ -209,7 +209,7 @@ static void emit_return_into_block (basic_block);
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
 static rtx keep_stack_depressed (rtx);
 #endif
-static void prepare_function_start (tree);
+static void prepare_function_start (void);
 static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
 static void set_insn_locators (rtx, int) ATTRIBUTE_UNUSED;
@@ -244,7 +244,7 @@ push_function_context_to (tree context ATTRIBUTE_UNUSED)
   struct function *p;
 
   if (cfun == 0)
-    init_dummy_function_start ();
+    allocate_struct_function (NULL);
   p = cfun;
 
   p->outer = outer_function_chain;
@@ -252,7 +252,7 @@ push_function_context_to (tree context ATTRIBUTE_UNUSED)
 
   lang_hooks.function.enter_nested (p);
 
-  cfun = 0;
+  set_cfun (NULL);
 }
 
 void
@@ -269,7 +269,7 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
 {
   struct function *p = outer_function_chain;
 
-  cfun = p;
+  set_cfun (p);
   outer_function_chain = p->outer;
 
   current_function_decl = p->decl;
@@ -2592,7 +2592,21 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 #endif
 	      )
 	    {
-	      rtx reg = gen_rtx_REG (mode, REGNO (entry_parm));
+	      rtx reg;
+
+	      /* We are really truncating a word_mode value containing
+		 SIZE bytes into a value of mode MODE.  If such an
+		 operation requires no actual instructions, we can refer
+		 to the value directly in mode MODE, otherwise we must
+		 start with the register in word_mode and explicitly
+		 convert it.  */
+	      if (TRULY_NOOP_TRUNCATION (size * BITS_PER_UNIT, BITS_PER_WORD))
+		reg = gen_rtx_REG (mode, REGNO (entry_parm));
+	      else
+		{
+		  reg = gen_rtx_REG (word_mode, REGNO (entry_parm));
+		  reg = convert_to_mode (mode, copy_to_reg (reg), 1);
+		}
 	      emit_move_insn (change_address (mem, mode, 0), reg);
 	    }
 
@@ -3784,6 +3798,61 @@ debug_find_var_in_block_tree (tree var, tree block)
   return NULL_TREE;
 }
 
+/* Keep track of whether we're in a dummy function context.  If we are,
+   we don't want to invoke the set_current_function hook, because we'll
+   get into trouble if the hook calls target_reinit () recursively or
+   when the initial initialization is not yet complete.  */
+
+static bool in_dummy_function;
+
+/* Invoke the target hook when setting cfun.  */
+
+static void
+invoke_set_current_function_hook (tree fndecl)
+{
+  if (!in_dummy_function)
+    targetm.set_current_function (fndecl);
+}
+
+/* cfun should never be set directly; use this function.  */
+
+void
+set_cfun (struct function *new_cfun)
+{
+  if (cfun != new_cfun)
+    {
+      cfun = new_cfun;
+      invoke_set_current_function_hook (new_cfun ? new_cfun->decl : NULL_TREE);
+    }
+}
+
+/* Keep track of the cfun stack.  */
+
+typedef struct function *function_p;
+
+DEF_VEC_P(function_p);
+DEF_VEC_ALLOC_P(function_p,heap);
+
+/* Initialized with NOGC, making this poisonous to the garbage collector.  */
+
+static VEC(function_p,heap) *cfun_stack;
+
+/* Push the current cfun onto the stack, and set cfun to new_cfun.  */
+
+void
+push_cfun (struct function *new_cfun)
+{
+  VEC_safe_push (function_p, heap, cfun_stack, cfun);
+  set_cfun (new_cfun);
+}
+
+/* Pop cfun from the stack.  */
+
+void
+pop_cfun (void)
+{
+  set_cfun (VEC_pop (function_p, cfun_stack));
+}
 
 /* Return value of funcdef and increase it.  */
 int
@@ -3793,7 +3862,13 @@ get_next_funcdef_no (void)
 }
 
 /* Allocate a function structure for FNDECL and set its contents
-   to the defaults.  */
+   to the defaults.  Set cfun to the newly-allocated object.
+   Some of the helper functions invoked during initialization assume
+   that cfun has already been set.  Therefore, assign the new object
+   directly into cfun and invoke the back end hook explicitly at the
+   very end, rather than initializing a temporary and calling set_cfun
+   on it.
+*/
 
 void
 allocate_struct_function (tree fndecl)
@@ -3816,44 +3891,50 @@ allocate_struct_function (tree fndecl)
   if (init_machine_status)
     cfun->machine = (*init_machine_status) ();
 
-  if (fndecl == NULL)
-    return;
-
-  DECL_STRUCT_FUNCTION (fndecl) = cfun;
-  cfun->decl = fndecl;
-
-  result = DECL_RESULT (fndecl);
-  if (aggregate_value_p (result, fndecl))
+  if (fndecl != NULL)
     {
+      DECL_STRUCT_FUNCTION (fndecl) = cfun;
+      cfun->decl = fndecl;
+
+      result = DECL_RESULT (fndecl);
+      if (aggregate_value_p (result, fndecl))
+	{
 #ifdef PCC_STATIC_STRUCT_RETURN
-      current_function_returns_pcc_struct = 1;
+	  current_function_returns_pcc_struct = 1;
 #endif
-      current_function_returns_struct = 1;
+	  current_function_returns_struct = 1;
+	}
+
+      current_function_stdarg
+	= (fntype
+	   && TYPE_ARG_TYPES (fntype) != 0
+	   && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+	       != void_type_node));
+      
+      /* Assume all registers in stdarg functions need to be saved.  */
+      cfun->va_list_gpr_size = VA_LIST_MAX_GPR_SIZE;
+      cfun->va_list_fpr_size = VA_LIST_MAX_FPR_SIZE;
     }
 
-  current_function_returns_pointer = POINTER_TYPE_P (TREE_TYPE (result));
+  invoke_set_current_function_hook (fndecl);
+}
 
-  current_function_stdarg
-    = (fntype
-       && TYPE_ARG_TYPES (fntype) != 0
-       && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-	   != void_type_node));
+/* This is like allocate_struct_function, but pushes a new cfun for FNDECL
+   instead of just setting it.  */
 
-  /* Assume all registers in stdarg functions need to be saved.  */
-  cfun->va_list_gpr_size = VA_LIST_MAX_GPR_SIZE;
-  cfun->va_list_fpr_size = VA_LIST_MAX_FPR_SIZE;
+void
+push_struct_function (tree fndecl)
+{
+  VEC_safe_push (function_p, heap, cfun_stack, cfun);
+  allocate_struct_function (fndecl);
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as
    appropriate for emitting rtl at the start of a function.  */
 
 static void
-prepare_function_start (tree fndecl)
+prepare_function_start (void)
 {
-  if (fndecl && DECL_STRUCT_FUNCTION (fndecl))
-    cfun = DECL_STRUCT_FUNCTION (fndecl);
-  else
-    allocate_struct_function (fndecl);
   init_emit ();
   init_varasm_status (cfun);
   init_expr ();
@@ -3878,11 +3959,16 @@ prepare_function_start (tree fndecl)
 
 /* Initialize the rtl expansion mechanism so that we can do simple things
    like generate sequences.  This is used to provide a context during global
-   initialization of some passes.  */
+   initialization of some passes.  You must call expand_dummy_function_end
+   to exit this context.  */
+
 void
 init_dummy_function_start (void)
 {
-  prepare_function_start (NULL);
+  gcc_assert (!in_dummy_function);
+  in_dummy_function = true;
+  push_struct_function (NULL_TREE);
+  prepare_function_start ();
 }
 
 /* Generate RTL for the start of the function SUBR (a FUNCTION_DECL tree node)
@@ -3892,7 +3978,11 @@ init_dummy_function_start (void)
 void
 init_function_start (tree subr)
 {
-  prepare_function_start (subr);
+  if (subr && DECL_STRUCT_FUNCTION (subr))
+    set_cfun (DECL_STRUCT_FUNCTION (subr));
+  else
+    allocate_struct_function (subr);
+  prepare_function_start ();
 
   /* Warn if this value is an aggregate type,
      regardless of which calling convention we are using for it.  */
@@ -4207,6 +4297,8 @@ expand_function_start (tree subr)
 void
 expand_dummy_function_end (void)
 {
+  gcc_assert (in_dummy_function);
+
   /* End any sequences that failed to be closed due to syntax errors.  */
   while (in_sequence_p ())
     end_sequence ();
@@ -4216,7 +4308,8 @@ expand_dummy_function_end (void)
 
   free_after_parsing (cfun);
   free_after_compilation (cfun);
-  cfun = 0;
+  pop_cfun ();
+  in_dummy_function = false;
 }
 
 /* Call DOIT for each hard register used as a return value from
@@ -4328,13 +4421,6 @@ expand_function_end (void)
 	    break;
 	  }
     }
-
-  /* Possibly warn about unused parameters.
-     When frontend does unit-at-a-time, the warning is already
-     issued at finalization time.  */
-  if (warn_unused_parameter
-      && !lang_hooks.callgraph.expand_function)
-    do_warn_unused_parameter (current_function_decl);
 
   /* End any sequences that failed to be closed due to syntax errors.  */
   while (in_sequence_p ())
@@ -5520,7 +5606,7 @@ struct tree_opt_pass pass_thread_prologue_and_epilogue =
   TODO_verify_flow,                     /* todo_flags_start */
   TODO_dump_func |
   TODO_df_verify |
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
   ,0					/* works_with_tuples_p */

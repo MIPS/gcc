@@ -980,9 +980,10 @@ build_sym (const char *name, gfc_charlen *cl,
     {
       if (sym->binding_label[0] == '\0')
         {
-          /* Here, we're not checking the numIdents (the last param).
-             This could be an error we're letting slip through!  */
-          if (set_binding_label (sym->binding_label, sym->name, 1) == FAILURE)
+	  /* Set the binding label and verify that if a NAME= was specified
+	     then only one identifier was in the entity-decl-list.  */
+	  if (set_binding_label (sym->binding_label, sym->name,
+				 num_idents_on_line) == FAILURE)
             return FAILURE;
         }
     }
@@ -1172,15 +1173,30 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
 	  /* Update symbol character length according initializer.  */
 	  if (sym->ts.cl->length == NULL)
 	    {
+	      int clen;
 	      /* If there are multiple CHARACTER variables declared on the
 		 same line, we don't want them to share the same length.  */
 	      sym->ts.cl = gfc_get_charlen ();
 	      sym->ts.cl->next = gfc_current_ns->cl_list;
 	      gfc_current_ns->cl_list = sym->ts.cl;
 
-	      if (sym->attr.flavor == FL_PARAMETER
-		  && init->expr_type == EXPR_ARRAY)
-		sym->ts.cl->length = gfc_copy_expr (init->ts.cl->length);
+	      if (sym->attr.flavor == FL_PARAMETER)
+		{
+		  if (init->expr_type == EXPR_CONSTANT)
+		    {
+		      clen = init->value.character.length;
+		      sym->ts.cl->length = gfc_int_expr (clen);
+		    }
+		  else if (init->expr_type == EXPR_ARRAY)
+		    {
+		      gfc_expr *p = init->value.constructor->expr;
+		      clen = p->value.character.length;
+		      sym->ts.cl->length = gfc_int_expr (clen);
+		    }
+		  else if (init->ts.cl && init->ts.cl->length)
+		    sym->ts.cl->length =
+				gfc_copy_expr (sym->value->ts.cl->length);
+		}
 	    }
 	  /* Update initializer character length according symbol.  */
 	  else if (sym->ts.cl->length->expr_type == EXPR_CONSTANT)
@@ -2467,6 +2483,21 @@ syntax:
 }
 
 
+/* A minimal implementation of gfc_match without whitespace, escape
+   characters or variable arguments.  Returns true if the next
+   characters match the TARGET template exactly.  */
+
+static bool
+match_string_p (const char *target)
+{
+  const char *p;
+
+  for (p = target; *p; p++)
+    if (gfc_next_char () != *p)
+      return false;
+  return true;
+}
+
 /* Matches an attribute specification including array specs.  If
    successful, leaves the variables current_attr and current_as
    holding the specification.  Also sets the colon_seen variable for
@@ -2487,7 +2518,7 @@ match_attr_spec (void)
     DECL_IN, DECL_OUT, DECL_INOUT, DECL_INTRINSIC, DECL_OPTIONAL,
     DECL_PARAMETER, DECL_POINTER, DECL_PROTECTED, DECL_PRIVATE,
     DECL_PUBLIC, DECL_SAVE, DECL_TARGET, DECL_VALUE, DECL_VOLATILE,
-    DECL_IS_BIND_C, DECL_COLON, DECL_NONE,
+    DECL_IS_BIND_C, DECL_NONE,
     GFC_DECL_END /* Sentinel */
   }
   decl_types;
@@ -2495,35 +2526,12 @@ match_attr_spec (void)
 /* GFC_DECL_END is the sentinel, index starts at 0.  */
 #define NUM_DECL GFC_DECL_END
 
-  static mstring decls[] = {
-    minit (", allocatable", DECL_ALLOCATABLE),
-    minit (", dimension", DECL_DIMENSION),
-    minit (", external", DECL_EXTERNAL),
-    minit (", intent ( in )", DECL_IN),
-    minit (", intent ( out )", DECL_OUT),
-    minit (", intent ( in out )", DECL_INOUT),
-    minit (", intrinsic", DECL_INTRINSIC),
-    minit (", optional", DECL_OPTIONAL),
-    minit (", parameter", DECL_PARAMETER),
-    minit (", pointer", DECL_POINTER),
-    minit (", protected", DECL_PROTECTED),
-    minit (", private", DECL_PRIVATE),
-    minit (", public", DECL_PUBLIC),
-    minit (", save", DECL_SAVE),
-    minit (", target", DECL_TARGET),
-    minit (", value", DECL_VALUE),
-    minit (", volatile", DECL_VOLATILE),
-    minit ("::", DECL_COLON),
-    minit (NULL, DECL_NONE)
-  };
-
   locus start, seen_at[NUM_DECL];
   int seen[NUM_DECL];
   decl_types d;
   const char *attr;
   match m;
   try t;
-  char peek_char;
 
   gfc_clear_attr (&current_attr);
   start = gfc_current_locus;
@@ -2537,29 +2545,171 @@ match_attr_spec (void)
 
   for (;;)
     {
-      d = (decl_types) gfc_match_strings (decls);
+      int ch;
 
-      if (d == DECL_NONE)
+      d = DECL_NONE;
+      gfc_gobble_whitespace ();
+
+      ch = gfc_next_char ();
+      if (ch == ':')
 	{
-	  /* See if we can find the bind(c) since all else failed. 
-	     We need to skip over any whitespace and stop on the ','.  */
+	  /* This is the successful exit condition for the loop.  */
+	  if (gfc_next_char () == ':')
+	    break;
+	}
+      else if (ch == ',')
+	{
 	  gfc_gobble_whitespace ();
-	  peek_char = gfc_peek_char ();
-	  if (peek_char == ',')
+	  switch (gfc_peek_char ())
 	    {
-	      /* Chomp the comma.  */
-	      peek_char = gfc_next_char ();
+	    case 'a':
+	      if (match_string_p ("allocatable"))
+		d = DECL_ALLOCATABLE;
+	      break;
+
+	    case 'b':
 	      /* Try and match the bind(c).  */
 	      m = gfc_match_bind_c (NULL);
 	      if (m == MATCH_YES)
 		d = DECL_IS_BIND_C;
 	      else if (m == MATCH_ERROR)
 		goto cleanup;
+	      break;
+
+	    case 'd':
+	      if (match_string_p ("dimension"))
+		d = DECL_DIMENSION;
+	      break;
+
+	    case 'e':
+	      if (match_string_p ("external"))
+		d = DECL_EXTERNAL;
+	      break;
+
+	    case 'i':
+	      if (match_string_p ("int"))
+		{
+		  ch = gfc_next_char ();
+		  if (ch == 'e')
+		    {
+		      if (match_string_p ("nt"))
+			{
+			  /* Matched "intent".  */
+			  /* TODO: Call match_intent_spec from here.  */
+			  if (gfc_match (" ( in out )") == MATCH_YES)
+			    d = DECL_INOUT;
+			  else if (gfc_match (" ( in )") == MATCH_YES)
+			    d = DECL_IN;
+			  else if (gfc_match (" ( out )") == MATCH_YES)
+			    d = DECL_OUT;
+			}
+		    }
+		  else if (ch == 'r')
+		    {
+		      if (match_string_p ("insic"))
+			{
+			  /* Matched "intrinsic".  */
+			  d = DECL_INTRINSIC;
+			}
+		    }
+		}
+	      break;
+
+	    case 'o':
+	      if (match_string_p ("optional"))
+		d = DECL_OPTIONAL;
+	      break;
+
+	    case 'p':
+	      gfc_next_char ();
+	      switch (gfc_next_char ())
+		{
+		case 'a':
+		  if (match_string_p ("rameter"))
+		    {
+		      /* Matched "parameter".  */
+		      d = DECL_PARAMETER;
+		    }
+		  break;
+
+		case 'o':
+		  if (match_string_p ("inter"))
+		    {
+		      /* Matched "pointer".  */
+		      d = DECL_POINTER;
+		    }
+		  break;
+
+		case 'r':
+		  ch = gfc_next_char ();
+		  if (ch == 'i')
+		    {
+		      if (match_string_p ("vate"))
+			{
+			  /* Matched "private".  */
+			  d = DECL_PRIVATE;
+			}
+		    }
+		  else if (ch == 'o')
+		    {
+		      if (match_string_p ("tected"))
+			{
+			  /* Matched "protected".  */
+			  d = DECL_PROTECTED;
+			}
+		    }
+		  break;
+
+		case 'u':
+		  if (match_string_p ("blic"))
+		    {
+		      /* Matched "public".  */
+		      d = DECL_PUBLIC;
+		    }
+		  break;
+		}
+	      break;
+
+	    case 's':
+	      if (match_string_p ("save"))
+		d = DECL_SAVE;
+	      break;
+
+	    case 't':
+	      if (match_string_p ("target"))
+		d = DECL_TARGET;
+	      break;
+
+	    case 'v':
+	      gfc_next_char ();
+	      ch = gfc_next_char ();
+	      if (ch == 'a')
+		{
+		  if (match_string_p ("lue"))
+		    {
+		      /* Matched "value".  */
+		      d = DECL_VALUE;
+		    }
+		}
+	      else if (ch == 'o')
+		{
+		  if (match_string_p ("latile"))
+		    {
+		      /* Matched "volatile".  */
+		      d = DECL_VOLATILE;
+		    }
+		}
+	      break;
 	    }
 	}
 
-      if (d == DECL_NONE || d == DECL_COLON)
-	break;
+      /* No double colon and no recognizable decl_type, so assume that
+	 we've been looking at something else the whole time.  */
+      if (d == DECL_NONE)
+	{
+	  m = MATCH_NO;
+	  goto cleanup;
+	}
 
       seen[d]++;
       seen_at[d] = gfc_current_locus;
@@ -2577,14 +2727,6 @@ match_attr_spec (void)
 	  if (m == MATCH_ERROR)
 	    goto cleanup;
 	}
-    }
-
-  /* No double colon, so assume that we've been looking at something
-     else the whole time.  */
-  if (d == DECL_NONE)
-    {
-      m = MATCH_NO;
-      goto cleanup;
     }
 
   /* Since we've seen a double colon, we have to be looking at an
@@ -2666,8 +2808,8 @@ match_attr_spec (void)
 
       if (gfc_current_state () == COMP_DERIVED
 	  && d != DECL_DIMENSION && d != DECL_POINTER
-	  && d != DECL_COLON     && d != DECL_PRIVATE
-	  && d != DECL_PUBLIC    && d != DECL_NONE)
+	  && d != DECL_PRIVATE   && d != DECL_PUBLIC
+	  && d != DECL_NONE)
 	{
 	  if (d == DECL_ALLOCATABLE)
 	    {
@@ -2847,15 +2989,15 @@ cleanup:
 try
 set_binding_label (char *dest_label, const char *sym_name, int num_idents)
 {
+  if (num_idents > 1 && has_name_equals)
+    {
+      gfc_error ("Multiple identifiers provided with "
+		 "single NAME= specifier at %C");
+      return FAILURE;
+    }
+
   if (curr_binding_label[0] != '\0')
     {
-      if (num_idents > 1 || num_idents_on_line > 1)
-        {
-          gfc_error ("Multiple identifiers provided with "
-                     "single NAME= specifier at %C");
-          return FAILURE;
-        }
-
       /* Binding label given; store in temp holder til have sym.  */
       strncpy (dest_label, curr_binding_label,
                strlen (curr_binding_label) + 1);
@@ -3272,7 +3414,8 @@ gfc_match_data_decl (void)
       goto cleanup;
     }
 
-  if (current_ts.type == BT_DERIVED && current_ts.derived->components == NULL)
+  if (current_ts.type == BT_DERIVED && current_ts.derived->components == NULL
+      && !current_ts.derived->attr.zero_comp)
     {
 
       if (current_attr.pointer && gfc_current_state () == COMP_DERIVED)
@@ -3284,7 +3427,8 @@ gfc_match_data_decl (void)
       /* Any symbol that we find had better be a type definition
 	 which has its components defined.  */
       if (sym != NULL && sym->attr.flavor == FL_DERIVED
-	  && current_ts.derived->components != NULL)
+	  && (current_ts.derived->components != NULL
+	      || current_ts.derived->attr.zero_comp))
 	goto ok;
 
       /* Now we have an error, which we signal, and then fix up
@@ -3629,6 +3773,248 @@ gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result)
       return MATCH_ERROR;
   
   return found_match;
+}
+
+
+/* Match a PROCEDURE declaration (R1211).  */
+
+static match
+match_procedure_decl (void)
+{
+  match m;
+  locus old_loc, entry_loc;
+  gfc_symbol *sym, *proc_if = NULL;
+  int num;
+
+  old_loc = entry_loc = gfc_current_locus;
+
+  gfc_clear_ts (&current_ts);
+
+  if (gfc_match (" (") != MATCH_YES)
+    {
+      gfc_current_locus = entry_loc;
+      return MATCH_NO;
+    }
+
+  /* Get the type spec. for the procedure interface.  */
+  old_loc = gfc_current_locus;
+  m = match_type_spec (&current_ts, 0);
+  if (m == MATCH_YES || (m == MATCH_NO && gfc_peek_char () == ')'))
+    goto got_ts;
+
+  if (m == MATCH_ERROR)
+    return m;
+
+  gfc_current_locus = old_loc;
+
+  /* Get the name of the procedure or abstract interface
+  to inherit the interface from.  */
+  m = gfc_match_symbol (&proc_if, 1);
+
+  if (m == MATCH_NO)
+    goto syntax;
+  else if (m == MATCH_ERROR)
+    return m;
+
+  /* Various interface checks.  */
+  if (proc_if)
+    {
+      if (proc_if->generic)
+	{
+	  gfc_error ("Interface '%s' at %C may not be generic", proc_if->name);
+	  return MATCH_ERROR;
+	}
+      if (proc_if->attr.proc == PROC_ST_FUNCTION)
+	{
+	  gfc_error ("Interface '%s' at %C may not be a statement function",
+		    proc_if->name);
+	  return MATCH_ERROR;
+	}
+      /* Handle intrinsic procedures.  */
+      if (gfc_intrinsic_name (proc_if->name, 0)
+	  || gfc_intrinsic_name (proc_if->name, 1))
+	proc_if->attr.intrinsic = 1;
+      if (proc_if->attr.intrinsic
+	  && !gfc_intrinsic_actual_ok (proc_if->name, 0))
+	{
+	  gfc_error ("Intrinsic procedure '%s' not allowed "
+		    "in PROCEDURE statement at %C", proc_if->name);
+	  return MATCH_ERROR;
+	}
+      /* TODO: Allow intrinsics with gfc_intrinsic_actual_ok
+	 (proc_if->name, 0) after PR33162 is fixed.  */
+      if (proc_if->attr.intrinsic)
+	{
+	  gfc_error ("Fortran 2003: Support for intrinsic procedure '%s' "
+		     "in PROCEDURE statement at %C not yet implemented "
+		     "in gfortran", proc_if->name);
+	  return MATCH_ERROR;
+	}
+    }
+
+got_ts:
+
+  if (gfc_match (" )") != MATCH_YES)
+    {
+      gfc_current_locus = entry_loc;
+      return MATCH_NO;
+    }
+
+  /* Parse attributes.  */
+  m = match_attr_spec();
+  if (m == MATCH_ERROR)
+    return MATCH_ERROR;
+
+  /* Get procedure symbols.  */
+  for(num=1;;num++)
+    {
+
+      m = gfc_match_symbol (&sym, 0);
+      if (m == MATCH_NO)
+	goto syntax;
+      else if (m == MATCH_ERROR)
+	return m;
+
+      /* Add current_attr to the symbol attributes.  */
+      if (gfc_copy_attr (&sym->attr, &current_attr, NULL) == FAILURE)
+	return MATCH_ERROR;
+
+      if (sym->attr.is_bind_c)
+	{
+	  /* Check for C1218.  */
+	  if (!proc_if || !proc_if->attr.is_bind_c)
+	    {
+	      gfc_error ("BIND(C) attribute at %C requires "
+			"an interface with BIND(C)");
+	      return MATCH_ERROR;
+	    }
+	  /* Check for C1217.  */
+	  if (has_name_equals && sym->attr.pointer)
+	    {
+	      gfc_error ("BIND(C) procedure with NAME may not have "
+			"POINTER attribute at %C");
+	      return MATCH_ERROR;
+	    }
+	  if (has_name_equals && sym->attr.dummy)
+	    {
+	      gfc_error ("Dummy procedure at %C may not have "
+			"BIND(C) attribute with NAME");
+	      return MATCH_ERROR;
+	    }
+	  /* Set binding label for BIND(C).  */
+	  if (set_binding_label (sym->binding_label, sym->name, num) != SUCCESS)
+	    return MATCH_ERROR;
+	}
+
+      if (!sym->attr.pointer && gfc_add_external (&sym->attr, NULL) == FAILURE)
+	return MATCH_ERROR;
+      if (gfc_add_proc (&sym->attr, sym->name, NULL) == FAILURE)
+	return MATCH_ERROR;
+
+      /* Set interface.  */
+      if (proc_if != NULL)
+	sym->interface = proc_if;
+      else if (current_ts.type != BT_UNKNOWN)
+	{
+	  sym->interface = gfc_new_symbol ("", gfc_current_ns);
+	  sym->interface->ts = current_ts;
+	  sym->interface->attr.function = 1;
+	  sym->ts = sym->interface->ts;
+	  sym->attr.function = sym->interface->attr.function;
+	}
+
+      if (gfc_match_eos () == MATCH_YES)
+	return MATCH_YES;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+syntax:
+  gfc_error ("Syntax error in PROCEDURE statement at %C");
+  return MATCH_ERROR;
+}
+
+
+/* Match a PROCEDURE declaration inside an interface (R1206).  */
+
+static match
+match_procedure_in_interface (void)
+{
+  match m;
+  gfc_symbol *sym;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+
+  if (current_interface.type == INTERFACE_NAMELESS
+      || current_interface.type == INTERFACE_ABSTRACT)
+    {
+      gfc_error ("PROCEDURE at %C must be in a generic interface");
+      return MATCH_ERROR;
+    }
+
+  for(;;)
+    {
+      m = gfc_match_name (name);
+      if (m == MATCH_NO)
+	goto syntax;
+      else if (m == MATCH_ERROR)
+	return m;
+      if (gfc_get_symbol (name, gfc_current_ns->parent, &sym))
+	return MATCH_ERROR;
+
+      if (gfc_add_interface (sym) == FAILURE)
+	return MATCH_ERROR;
+
+      sym->attr.procedure = 1;
+
+      if (gfc_match_eos () == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in PROCEDURE statement at %C");
+  return MATCH_ERROR;
+}
+
+
+/* General matcher for PROCEDURE declarations.  */
+
+match
+gfc_match_procedure (void)
+{
+  match m;
+
+  switch (gfc_current_state ())
+    {
+    case COMP_NONE:
+    case COMP_PROGRAM:
+    case COMP_MODULE:
+    case COMP_SUBROUTINE:
+    case COMP_FUNCTION:
+      m = match_procedure_decl ();
+      break;
+    case COMP_INTERFACE:
+      m = match_procedure_in_interface ();
+      break;
+    case COMP_DERIVED:
+      gfc_error ("Fortran 2003: Procedure components at %C are "
+		"not yet implemented in gfortran");
+      return MATCH_ERROR;
+    default:
+      return MATCH_NO;
+    }
+
+  if (m != MATCH_YES)
+    return m;
+
+  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: PROCEDURE statement at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  return m;
 }
 
 
@@ -4084,7 +4470,6 @@ gfc_match_bind_c (gfc_symbol *sym)
   char binding_label[GFC_MAX_SYMBOL_LEN + 1];
   match double_quote;
   match single_quote;
-  int has_name_equals = 0;
 
   /* Initialize the flag that specifies whether we encountered a NAME= 
      specifier or not.  */
@@ -5501,7 +5886,7 @@ gfc_match_derived_decl (void)
       && gfc_add_flavor (&sym->attr, FL_DERIVED, sym->name, NULL) == FAILURE)
     return MATCH_ERROR;
 
-  if (sym->components != NULL)
+  if (sym->components != NULL || sym->attr.zero_comp)
     {
       gfc_error ("Derived type definition of '%s' at %C has already been "
 		 "defined", sym->name);

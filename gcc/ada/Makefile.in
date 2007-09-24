@@ -5,7 +5,7 @@
 
 #GCC is free software; you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
-#the Free Software Foundation; either version 2, or (at your option)
+#the Free Software Foundation; either version 3, or (at your option)
 #any later version.
 
 #GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 #GNU General Public License for more details.
 
 #You should have received a copy of the GNU General Public License
-#along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-#Boston, MA 02110-1301, USA.
+#along with GCC; see the file COPYING3.  If not see
+#<http://www.gnu.org/licenses/>.
 
 # The makefile built from this file lives in the language subdirectory.
 # Its purpose is to provide support for:
@@ -991,6 +990,7 @@ ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
   MISCLIB = -lexc
   PREFIX_OBJS = $(PREFIX_REAL_OBJS)
   LIBRARY_VERSION := $(LIB_VERSION)
+  GMEM_LIB = gmemlib
 endif
 
 ifeq ($(strip $(filter-out hppa% hp hpux10%,$(targ))),)
@@ -1172,7 +1172,6 @@ ifeq ($(strip $(filter-out ia64 hp vms% openvms%,$(targ))),)
   g-enblsp.adb<g-enblsp-vms-ia64.adb \
   g-trasym.adb<g-trasym-vms-ia64.adb \
   s-auxdec.ads<s-auxdec-vms_64.ads \
-  s-crtl.ads<s-crtl-vms64.ads \
   s-osinte.adb<s-osinte-vms-ia64.adb \
   s-osinte.ads<s-osinte-vms-ia64.ads \
   s-vaflop.adb<s-vaflop-vms-ia64.adb \
@@ -1187,7 +1186,6 @@ ifeq ($(strip $(filter-out alpha64 dec vms% openvms% alphavms%,$(targ))),)
   g-trasym.adb<g-trasym-vms-alpha.adb \
   s-asthan.adb<s-asthan-vms-alpha.adb \
   s-auxdec.ads<s-auxdec-vms_64.ads \
-  s-crtl.ads<s-crtl-vms64.ads \
   s-osinte.adb<s-osinte-vms.adb \
   s-osinte.ads<s-osinte-vms.ads \
   s-vaflop.adb<s-vaflop-vms-alpha.adb \
@@ -1326,8 +1324,13 @@ ifeq ($(strip $(filter-out powerpc% linux%,$(arch) $(osys))),)
   s-osprim.adb<s-osprim-posix.adb \
   s-taprop.adb<s-taprop-linux.adb \
   s-taspri.ads<s-taspri-posix.ads \
-  s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
-  system.ads<system-linux-ppc.ads
+  s-tpopsp.adb<s-tpopsp-posix-foreign.adb
+
+  ifeq ($(strip $(filter-out powerpc64,$(arch))),)
+    LIBGNAT_TARGET_PAIRS += system.ads<system-linux-ppc64.ads
+  else
+    LIBGNAT_TARGET_PAIRS += system.ads<system-linux-ppc.ads
+  endif
 
   TOOLS_TARGET_PAIRS =  \
     mlib-tgt-specific.adb<mlib-tgt-linux.adb \

@@ -8724,7 +8724,8 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
      don't output a DW_TAG_typedef, since there isn't one in the
      user's program; just attach a DW_AT_name to the type.  */
   if (name
-      && (TREE_CODE (name) != TYPE_DECL || TREE_TYPE (name) == qualified_type))
+      && (TREE_CODE (name) != TYPE_DECL
+	  || (TREE_TYPE (name) == qualified_type && DECL_NAME (name))))
     {
       if (TREE_CODE (name) == TYPE_DECL)
 	/* Could just call add_name_and_src_coords_attributes here,
@@ -10403,6 +10404,43 @@ rtl_for_decl_init (tree init, tree type)
   else if (initializer_constant_valid_p (init, type)
 	   && ! walk_tree (&init, reference_to_unused, NULL, NULL))
     {
+      /* Convert vector CONSTRUCTOR initializers to VECTOR_CST if
+	 possible.  */
+      if (TREE_CODE (type) == VECTOR_TYPE)
+	switch (TREE_CODE (init))
+	  {
+	  case VECTOR_CST:
+	    break;
+	  case CONSTRUCTOR:
+	    if (TREE_CONSTANT (init))
+	      {
+		VEC(constructor_elt,gc) *elts = CONSTRUCTOR_ELTS (init);
+		bool constant_p = true;
+		tree value;
+		unsigned HOST_WIDE_INT ix;
+
+		/* Even when ctor is constant, it might contain non-*_CST
+		   elements (e.g. { 1.0/0.0 - 1.0/0.0, 0.0 }) and those don't
+		   belong into VECTOR_CST nodes.  */
+		FOR_EACH_CONSTRUCTOR_VALUE (elts, ix, value)
+		  if (!CONSTANT_CLASS_P (value))
+		    {
+		      constant_p = false;
+		      break;
+		    }
+
+		if (constant_p)
+		  {
+		    init = build_vector_from_ctor (type, elts);
+		    break;
+		  }
+	      }
+	    /* FALLTHRU */
+
+	  default:
+	    return NULL;
+	  }
+
       rtl = expand_expr (init, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
 
       /* If expand_expr returns a MEM, it wasn't immediate.  */
@@ -11934,7 +11972,6 @@ dwarf2out_abstract_function (tree decl)
 {
   dw_die_ref old_die;
   tree save_fn;
-  struct function *save_cfun;
   tree context;
   int was_abstract = DECL_ABSTRACT (decl);
 
@@ -11958,9 +11995,8 @@ dwarf2out_abstract_function (tree decl)
 
   /* Pretend we've just finished compiling this function.  */
   save_fn = current_function_decl;
-  save_cfun = cfun;
   current_function_decl = decl;
-  cfun = DECL_STRUCT_FUNCTION (decl);
+  push_cfun (DECL_STRUCT_FUNCTION (decl));
 
   set_decl_abstract_flags (decl, 1);
   dwarf2out_decl (decl);
@@ -11968,7 +12004,7 @@ dwarf2out_abstract_function (tree decl)
     set_decl_abstract_flags (decl, 0);
 
   current_function_decl = save_fn;
-  cfun = save_cfun;
+  pop_cfun ();
 }
 
 /* Helper function of premark_used_types() which gets called through
@@ -12153,6 +12189,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  else
 	    add_AT_unsigned (subr_die, DW_AT_inline, DW_INL_not_inlined);
 	}
+
+      if (DECL_DECLARED_INLINE_P (decl)
+	  && lookup_attribute ("artificial", DECL_ATTRIBUTES (decl)))
+	add_AT_flag (subr_die, DW_AT_artificial, 1);
 
       equate_decl_number_to_die (decl, subr_die);
     }

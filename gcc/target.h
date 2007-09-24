@@ -88,6 +88,9 @@ typedef struct secondary_reload_info
 /* This is defined in sched-int.h .  */
 struct _dep;
 
+/* This is defined in ddg.h .  */
+struct ddg;
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -306,7 +309,7 @@ struct gcc_target
     /* The values of the following two members are pointers to
        functions used to simplify the automaton descriptions.
        dfa_pre_advance_cycle and dfa_post_advance_cycle are getting called
-       immediatelly before and after cycle is advanced.  */
+       immediately before and after cycle is advanced.  */
     void (* dfa_pre_advance_cycle) (void);
     void (* dfa_post_advance_cycle) (void);
 
@@ -397,6 +400,12 @@ struct gcc_target
        information about the speculation capabilities of the target.
        The parameter is a pointer to spec_info variable.  */
     void (* set_sched_flags) (struct spec_info_def *);
+
+    /* The following member value is a pointer to a function that provides
+       information about the target resource-based lower bound which is
+       used by the swing modulo scheduler.  The parameter is a pointer
+       to ddg variable.  */
+    int (* sms_res_mii) (struct ddg *);
   } sched;
 
   /* Functions relating to vectorization.  */
@@ -569,6 +578,11 @@ struct gcc_target
      call expression EXP.  DECL will be the called function, or NULL if
      this is an indirect call.  */
   bool (*function_ok_for_sibcall) (tree decl, tree exp);
+
+  /* Establish appropriate back-end context for processing the function
+     FNDECL.  The argument might be NULL to indicate processing at top
+     level, outside of any function scope.  */
+  void (*set_current_function) (tree fndecl);
 
   /* True if EXP should be placed in a "small data" section.  */
   bool (* in_small_data_p) (const_tree);

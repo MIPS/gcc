@@ -1194,8 +1194,8 @@ build_string (int len, const char *str)
   TREE_CONSTANT (s) = 1;
   TREE_INVARIANT (s) = 1;
   TREE_STRING_LENGTH (s) = len;
-  memcpy (CONST_CAST (TREE_STRING_POINTER (s)), str, len);
-  ((char *) CONST_CAST (TREE_STRING_POINTER (s)))[len] = '\0';
+  memcpy (s->string.str, str, len);
+  s->string.str[len] = '\0';
 
   return s;
 }
@@ -3405,7 +3405,7 @@ expand_location (source_location loc)
     }
   else
     {
-      const struct line_map *map = linemap_lookup (&line_table, loc);
+      const struct line_map *map = linemap_lookup (line_table, loc);
       xloc.file = map->to_file;
       xloc.line = SOURCE_LINE (map, loc);
       xloc.column = SOURCE_COLUMN (map, loc);
@@ -3421,6 +3421,8 @@ expand_location (source_location loc)
 void
 annotate_with_file_line (tree node, const char *file, int line)
 {
+  location_t *new_loc;
+
   /* Roughly one percent of the calls to this function are to annotate
      a node with the same information already attached to that node!
      Just return instead of wasting memory.  */
@@ -3445,10 +3447,11 @@ annotate_with_file_line (tree node, const char *file, int line)
       return;
     }
 
-  SET_EXPR_LOCUS (node, ggc_alloc (sizeof (location_t)));
-  EXPR_LINENO (node) = line;
-  EXPR_FILENAME (node) = file;
-  last_annotated_node = EXPR_LOCUS (node);
+  new_loc = GGC_NEW (location_t);
+  new_loc->file = file;
+  new_loc->line = line;
+  SET_EXPR_LOCUS (node, new_loc);
+  last_annotated_node = new_loc;
 }
 
 void
@@ -3511,13 +3514,13 @@ expr_locus (const_tree node)
 {
 #ifdef USE_MAPPED_LOCATION
   if (GIMPLE_STMT_P (node))
-    return &GIMPLE_STMT_LOCUS (node);
-  return EXPR_P (node) ? &node->exp.locus : (location_t *) NULL;
+    return CONST_CAST (source_location *, &GIMPLE_STMT_LOCUS (node));
+  return (EXPR_P (node)
+	  ? CONST_CAST (source_location *, &node->exp.locus)
+	  : (source_location *) NULL);
 #else
   if (GIMPLE_STMT_P (node))
     return GIMPLE_STMT_LOCUS (node);
-  /* ?? The cast below was originally "(location_t *)" in the macro,
-     but that makes no sense.  ?? */
   return EXPR_P (node) ? node->exp.locus : (source_locus) NULL;
 #endif
 }
@@ -3554,33 +3557,24 @@ set_expr_locus (tree node,
 #endif
 }
 
-const char **
+/* Return the file name of the location of NODE.  */
+const char *
 expr_filename (const_tree node)
 {
-#ifdef USE_MAPPED_LOCATION
   if (GIMPLE_STMT_P (node))
-    return &LOCATION_FILE (GIMPLE_STMT_LOCUS (node));
-  return &LOCATION_FILE (EXPR_CHECK (node)->exp.locus);
-#else
-  if (GIMPLE_STMT_P (node))
-    return &GIMPLE_STMT_LOCUS (node)->file;
-  return &(EXPR_CHECK (node)->exp.locus->file);
-#endif
+    return LOCATION_FILE (location_from_locus (GIMPLE_STMT_LOCUS (node)));
+  return LOCATION_FILE (location_from_locus (EXPR_CHECK (node)->exp.locus));
 }
 
-int *
+/* Return the line number of the location of NODE.  */
+int
 expr_lineno (const_tree node)
 {
-#ifdef USE_MAPPED_LOCATION
   if (GIMPLE_STMT_P (node))
-    return &LOCATION_LINE (GIMPLE_STMT_LOCUS (node));
-  return &LOCATION_LINE (EXPR_CHECK (node)->exp.locus);
-#else
-  if (GIMPLE_STMT_P (node))
-    return &GIMPLE_STMT_LOCUS (node)->line;
-  return &EXPR_CHECK (node)->exp.locus->line;
-#endif
+    return LOCATION_LINE (location_from_locus (GIMPLE_STMT_LOCUS (node)));
+  return LOCATION_LINE (location_from_locus (EXPR_CHECK (node)->exp.locus));
 }
+
 
 /* Return a declaration like DDECL except that its DECL_ATTRIBUTES
    is ATTRIBUTE.  */
@@ -3680,12 +3674,6 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
       TYPE_REFERENCE_TO (ntype) = 0;
       TYPE_ATTRIBUTES (ntype) = attribute;
 
-      if (TYPE_STRUCTURAL_EQUALITY_P (ttype))
-	SET_TYPE_STRUCTURAL_EQUALITY (ntype);
-      else
-	TYPE_CANONICAL (ntype)
-	  = build_qualified_type (TYPE_CANONICAL (ttype), quals);
-
       /* Create a new main variant of TYPE.  */
       TYPE_MAIN_VARIANT (ntype) = ntype;
       TYPE_NEXT_VARIANT (ntype) = 0;
@@ -3728,8 +3716,12 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
       /* If the target-dependent attributes make NTYPE different from
 	 its canonical type, we will need to use structural equality
 	 checks for this qualified type. */
-      if (!targetm.comp_type_attributes (ntype, ttype))
+      ttype = build_qualified_type (ttype, TYPE_UNQUALIFIED);
+      if (TYPE_STRUCTURAL_EQUALITY_P (ttype)
+          || !targetm.comp_type_attributes (ntype, ttype))
 	SET_TYPE_STRUCTURAL_EQUALITY (ntype);
+      else
+	TYPE_CANONICAL (ntype) = TYPE_CANONICAL (ttype);
 
       ttype = build_qualified_type (ntype, quals);
     }
@@ -3813,28 +3805,19 @@ is_attribute_p (const char *attr, const_tree ident)
    returns the first occurrence; the TREE_CHAIN of the return value should
    be passed back in if further occurrences are wanted.  */
 
-#define LOOKUP_ATTRIBUTE_BODY(TYPE) do { \
-  TYPE l; \
-  size_t attr_len = strlen (attr_name); \
-  for (l = list; l; l = TREE_CHAIN (l)) \
-    { \
-      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE); \
-      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l))) \
-	return l; \
-    } \
-  return NULL_TREE; \
-} while (0)
-
 tree
 lookup_attribute (const char *attr_name, tree list)
 {
-  LOOKUP_ATTRIBUTE_BODY(tree);
-}
+  tree l;
+  size_t attr_len = strlen (attr_name);
 
-const_tree
-const_lookup_attribute (const char *attr_name, const_tree list)
-{
-  LOOKUP_ATTRIBUTE_BODY(const_tree);
+  for (l = list; l; l = TREE_CHAIN (l))
+    {
+      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE);
+      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l)))
+	return l;
+    }
+  return NULL_TREE;
 }
 
 /* Remove any instances of attribute ATTR_NAME in LIST and return the
@@ -4804,10 +4787,14 @@ attribute_list_contained (const_tree l1, const_tree l2)
   for (; t2 != 0; t2 = TREE_CHAIN (t2))
     {
       const_tree attr;
-      for (attr = const_lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)), l1);
+      /* This CONST_CAST is okay because lookup_attribute does not
+	 modify its argument and the return value is assigned to a
+	 const_tree.  */
+      for (attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
+				    CONST_CAST_TREE(l1));
 	   attr != NULL_TREE;
-	   attr = const_lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
-					  TREE_CHAIN (attr)))
+	   attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
+				    TREE_CHAIN (attr)))
 	{
 	  if (TREE_VALUE (t2) != NULL
 	      && TREE_CODE (TREE_VALUE (t2)) == TREE_LIST
@@ -5996,10 +5983,8 @@ build_complex_type (tree component_type)
 	  = build_complex_type (TYPE_CANONICAL (component_type));
     }
 
-  /* If we are writing Dwarf2 output we need to create a name,
-     since complex is a fundamental type.  */
-  if ((write_symbols == DWARF2_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
-      && ! TYPE_NAME (t))
+  /* We need to create a name, since complex is a fundamental type.  */
+  if (! TYPE_NAME (t))
     {
       const char *name;
       if (component_type == char_type_node)
@@ -8652,10 +8637,10 @@ walk_tree_without_duplicates_1 (tree *tp, walk_tree_fn func, void *data,
    empty statements.  */
 
 bool
-empty_body_p (const_tree stmt)
+empty_body_p (tree stmt)
 {
-  const_tree_stmt_iterator i;
-  const_tree body;
+  tree_stmt_iterator i;
+  tree body;
 
   if (IS_EMPTY_STMT (stmt))
     return true;
@@ -8666,8 +8651,8 @@ empty_body_p (const_tree stmt)
   else
     return false;
 
-  for (i = ctsi_start (body); !ctsi_end_p (i); ctsi_next (&i))
-    if (!empty_body_p (ctsi_stmt (i)))
+  for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
+    if (!empty_body_p (tsi_stmt (i)))
       return false;
 
   return true;
@@ -8755,6 +8740,94 @@ get_name (tree t)
 	  return NULL;
 	}
     }
+}
+
+/* Return true if TYPE has a variable argument list.  */
+
+bool
+stdarg_p (tree fntype)
+{
+  function_args_iterator args_iter;
+  tree n = NULL_TREE, t;
+
+  if (!fntype)
+    return false;
+
+  FOREACH_FUNCTION_ARGS(fntype, t, args_iter)
+    {
+      n = t;
+    }
+
+  return n != NULL_TREE && n != void_type_node;
+}
+
+/* Return true if TYPE has a prototype.  */
+
+bool
+prototype_p (tree fntype)
+{
+  tree t;
+
+  gcc_assert (fntype != NULL_TREE);
+
+  t = TYPE_ARG_TYPES (fntype);
+  return (t != NULL_TREE);
+}
+
+/* Return the number of arguments that a function has.  */
+
+int
+function_args_count (tree fntype)
+{
+  function_args_iterator args_iter;
+  tree t;
+  int num = 0;
+
+  if (fntype)
+    {
+      FOREACH_FUNCTION_ARGS(fntype, t, args_iter)
+	{
+	  num++;
+	}
+    }
+
+  return num;
+}
+
+/* If BLOCK is inlined from an __attribute__((__artificial__))
+   routine, return pointer to location from where it has been
+   called.  */
+location_t *
+block_nonartificial_location (tree block)
+{
+  location_t *ret = NULL;
+
+  while (block && TREE_CODE (block) == BLOCK
+	 && BLOCK_ABSTRACT_ORIGIN (block))
+    {
+      tree ao = BLOCK_ABSTRACT_ORIGIN (block);
+
+      while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+	ao = BLOCK_ABSTRACT_ORIGIN (ao);
+
+      if (TREE_CODE (ao) == FUNCTION_DECL)
+	{
+	  /* If AO is an artificial inline, point RET to the
+	     call site locus at which it has been inlined and continue
+	     the loop, in case AO's caller is also an artificial
+	     inline.  */
+	  if (DECL_DECLARED_INLINE_P (ao)
+	      && lookup_attribute ("artificial", DECL_ATTRIBUTES (ao)))
+	    ret = &BLOCK_SOURCE_LOCATION (block);
+	  else
+	    break;
+	}
+      else if (TREE_CODE (ao) != BLOCK)
+	break;
+
+      block = BLOCK_SUPERCONTEXT (block);
+    }
+  return ret;
 }
 
 #include "gt-tree.h"

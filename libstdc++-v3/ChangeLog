@@ -1,3 +1,404 @@
+2007-09-17  Benjamin Kosnik  <bkoz@redhat.com>
+	    Chalathip Thumkanon  <chalathip@gmail.com>
+
+	PR libstdc++/32819
+	PR libstdc++/32822
+	* docs/html/ext/pb_ds/hash_based_containers.html: Correct.
+	
+2007-09-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.host: Set atomic_flags on i486.
+
+	* include/Makefile.am: Remove parallel-mode pch.	
+	* include/Makefile.in: Regenerate.
+
+	* testsuite/lib/libstdc++.exp: Set ld_library_flags for libgomp if
+	present.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_PARALLEL): Comment.
+	* configure: Regenerate.
+
+2007-09-17  Johannes Singler  <singler@ira.uka.de>
+
+        * include/parallel/for_each.h: Fixed comment/doxygen markup typos.
+        * include/parallel/base.h: Same.
+        * include/parallel/numeric: Same.
+        * include/parallel/quicksort.h: Same.
+        * include/parallel/compiletime_settings.h: Same.
+        * include/parallel/random_shuffle.h: Same.
+        * include/parallel/balanced_quicksort.h: Same.
+        * include/parallel/tree.h: Same.
+        * include/parallel/settings.h: Same.
+        * include/parallel/search.h: Same.
+        * include/parallel/partition.h: Same.
+        * include/parallel/partial_sum.h: Same.
+
+2007-09-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1_impl/type_traitsfwd.h (aligned_storage): Remove
+	declaration.
+	* include/tr1_impl/type_traits (aligned_storage): Remove.
+	* include/std/type_traits (aligned_storage, __aligned_storage_msa):
+	Add.
+	* include/tr1/type_traits (aligned_storage): Add.
+	* testsuite/20_util/aligned_storage/value.cc: New.
+	* testsuite/20_util/aligned_storage/requirements/
+	explicit_instantiation.cc: Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Adjust
+	dg-error lines.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+
+2007-09-16  Paolo Carlini  <pcarlini@suse.de>
+	    Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/tr1_impl/type_traits (aligned_storage): Implement
+	in the neat and general way.
+
+2007-09-14  Benjamin Kosnik  <bkoz@redhat.com>
+        
+	* include/parallel/base.h (__gnu_parallel::less<Tp>): Add partial
+        specialization for one argument. 
+	(__gnu_parallel::less): Add operator.
+
+	* include/parallel/multiway_merge.h: Use __builtin_alloca. 
+	* include/parallel/partial_sum.h: Same.
+	* include/parallel/find.h: Same.	
+	
+2007-09-14  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/tr1_impl/boost_shared_ptr.h: (__weak_ptr::lock()): Add
+	missing template argument.
+	* testsuite/tr1/2_general_utilities/shared_ptr/requirements/
+	explicit_instantiation/2.cc: New.
+	* testsuite/tr1/2_general_utilities/weak_ptr/requirements/
+	explicit_instantiation/2.cc: New.
+
+2007-09-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/17_intro/headers/all_pedantic_errors.cc: New.
+	* include/tr1_impl/cinttypes: Add pragma GCC system_header.
+	* include/tr1_impl/cfenv: Same.
+	* include/tr1_impl/cstdint: Same.
+	* include/tr1/cstdbool: Same.
+	* include/ext/pb_ds/detail/resize_policy/
+	hash_prime_size_policy_imp.hpp: Same.
+	* include/parallel/partial_sum.h: Avoid VLA error with
+	__builtin_alloca.
+
+2007-09-14  Thiemo Seufer  <ths@mips.com>
+
+	* crossconfig.m4 (mips*-sde-elf*): New stanza.
+	* configure: Regenerate.
+
+2007-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/pb_ds/*: Change namespace pb_ds to __gnu_pbds.
+	* docs/html/ext/pb_ds/*: Same.
+	* testsuite/ext/pb_ds/*: Same.
+	* testsuite/performance/ext/pb_ds/*: Same.
+	* testsuite/util/*: Same.
+	
+2007-09-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/parallel/find.h: Doxygen fixups.
+	* include/bits/hashtable.h: Same.
+
+2007-09-11  Johannes Singler  <singler@ira.uka.de>
+	    Leonor Frias Moya  <lfrias@lsi.upc.edu>
+            Felix Putze  <kontakt@felix-putze.de>
+            Marius Elvert  <marius.elvert@ira.uka.de>
+	    Felix Bondarenko  <f.bondarenko@web.de>
+	    Robert Geisberger  <robert.geisberger@stud.uni-karlsruhe.de>
+	    Robin Dapp  <r.dapp@freenet.de>
+  	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	Add parallel mode.
+	* include/parallel: New.
+	* include/parallel/iterator.h: New.
+	* include/parallel/multiway_merge.h: New.
+	* include/parallel/parallel.h: New.
+	* include/parallel/algorithm
+	* include/parallel/find_selectors.h: New.
+	* include/parallel/losertree.h: New.
+	* include/parallel/list_partition.h: New.
+	* include/parallel/types.h: New.
+	* include/parallel/for_each.h: New.
+	* include/parallel/multiseq_selection.h: New.
+	* include/parallel/workstealing.h: New.
+	* include/parallel/base.h: New.
+	* include/parallel/par_loop.h: New.
+	* include/parallel/numeric
+	* include/parallel/features.h: New.
+	* include/parallel/quicksort.h: New.
+	* include/parallel/algorithmfwd.h: New.
+	* include/parallel/equally_split.h: New.
+	* include/parallel/compiletime_settings.h: New.
+	* include/parallel/for_each_selectors.h: New.
+	* include/parallel/basic_iterator.h: New.
+	* include/parallel/omp_loop_static.h: New.
+	* include/parallel/random_shuffle.h: New.
+	* include/parallel/balanced_quicksort.h: New.
+	* include/parallel/set_operations.h: New.
+	* include/parallel/tags.h: New.
+	* include/parallel/merge.h: New.
+	* include/parallel/tree.h: New.
+	* include/parallel/settings.h: New.
+	* include/parallel/unique_copy.h: New.
+	* include/parallel/multiway_mergesort.h: New.
+	* include/parallel/numericfwd.h: New.
+	* include/parallel/search.h: New.
+	* include/parallel/partition.h: New.
+	* include/parallel/compatibility.h: New.
+	* include/parallel/algobase.h: New.
+	* include/parallel/find.h: New.
+	* include/parallel/partial_sum.h: New.
+	* include/parallel/algo.h: New.
+	* include/parallel/omp_loop.h: New.
+	* include/parallel/queue.h: New.
+	* include/parallel/timing.h: New.
+	* include/parallel/sort.h: New.
+	* include/parallel/checkers.h: New.
+	* include/parallel/random_number.h: New.
+	* include/bits/algorithmfwd.h: New.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_PARALLEL): New.
+	* configure.host: Add atomic_flags.
+	* configure.ac: Export ATOMIC_FLAGS, call GLIBCXX_ENABLE_PARALLEL.
+	* src/Makefile.am: Add parallel_list rules.
+	* include/Makefile.am: Add parallel files.
+	* testsuite/Makefile.am (check-parallel): Add.
+	(check-performance-parallel): Add.
+	* config.h.in: Regenerate.
+	* configure: Same.
+	* libsupc++/Makefile.in: Same.
+	* testsuite/Makefile.in: Same.
+	* Makefile.in: Same.
+	* libmath/Makefile.in: Same.
+	* include/Makefile.in: Same.
+	* src/Makefile.in: Same.
+	* po/Makefile.in: Same.
+	
+	* config/abi/pre/gnu.ver: Export parallel list bits.
+
+	* docs/html/parallel_mode.html: New.
+	* docs/html/documentation.html: Add link.
+	* docs/doxygen/user.cfg.in: Adjust for new files and directory.
+	* docs/doxygen/doxygroups.cc: Adjust namespace markup.
+
+	* include/debug/set.h: Adjust for _GLIBCXX_STD_D or _P change.
+	* include/debug/bitset: Same.
+	* include/debug/multiset.h: Same.
+	* include/debug/vector: Same.
+	* include/debug/map.h: Same.
+	* include/debug/deque: Same.
+	* include/debug/list: Same.
+	* include/debug/debug.h: Same.
+	* include/debug/multimap.h: Same.
+	* include/std/algorithm: Same.
+	* include/std/numeric: Same.
+	* include/std/bitset: Same.
+	* include/std/string: Same.
+	* include/ext/hash_map: Same.
+	* include/ext/hash_set: Same.
+	* include/bits/stl_list.h: Same.
+	* include/bits/stl_map.h: Same.
+	* include/bits/stl_algobase.h: Same.
+	* include/bits/stl_set.h: Same.
+	* include/bits/stl_multimap.h: Same.
+	* include/bits/stl_vector.h: Same.
+	* include/bits/stl_numeric.h: Same.
+	* include/bits/stl_deque.h: Same.
+	* include/bits/stl_multiset.h: Same.
+	* include/bits/char_traits.h: Same.
+	* include/bits/stl_algo.h: Same.
+	* include/bits/c++config: Same.
+	* include/bits/vector.tcc: Same.
+	* include/bits/deque.tcc: Same.
+	* include/bits/stl_bvector.h: Same.
+	* include/bits/list.tcc: Same.
+	* src/list.cc: Same.
+	* src/parallel_list.cc: New.
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_parallel_mode): New.
+	* testsuite/lib/dg-options.exp (dg-require-parallel-mode): New.
+	* scripts/testsuite_flags.in (--cxxparallelflags): New.
+	* scripts/check_performance: Adjust.
+	* testsuite/25_algorithms/headers/parallel_algorithm.cc: New.
+	* testsuite/25_algorithms/headers/algorithm_parallel_mode.cc: New.
+	* testsuite/25_algorithms/headers/parallel_algorithm_mixed1.cc: New.
+	* testsuite/25_algorithms/headers/parallel_algorithm_mixed2.cc: New.
+	* testsuite/26_numerics/headers/numeric/parallel_numeric.cc: New.
+	* testsuite/26_numerics/headers/numeric/numeric_parallel_mode.cc: New.
+	* testsuite/26_numerics/headers/numeric/
+	parallel_numeric_mixed1.cc: New.
+	* testsuite/26_numerics/headers/numeric/
+	parallel_numeric_mixed2.cc: New.
+	
+2007-09-11  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Revert part of
+	2007-09-06 change.
+
+2007-09-09  Roger Sayle  <roger@eyesopen.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_SYSTEM_ERROR): Add ECANCELED for cygwin.
+	* configure: Regenerate.
+	* config/os/generic/error_constants.h: Guard.
+	* testsuite/19_diagnostics/headers/system_error/
+	types_std_c++0x.cc: Same.
+
+2007-09-09  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/25_algorithms/binary_search.cc: Move...
+	* testsuite/25_algorithms/binary_search/2.cc: ...here.
+
+	* testsuite/25_algorithms/sort.cc: Move...	
+	* testsuite/25_algorithms/sort/1.cc: ...here.
+	* testsuite/25_algorithms/partial_sort_copy/2.cc: ...here.
+	* testsuite/25_algorithms/nth_element/3.cc: ...here.
+	* testsuite/25_algorithms/partial_sort/2.cc: ...here.
+	* testsuite/25_algorithms/stable_sort/2.cc: ...here.
+
+	* testsuite/25_algorithms/min_max.cc: Move...
+	* testsuite/25_algorithms/min/1.cc: ...here.
+	* testsuite/25_algorithms/min/2.cc: ...here.
+	* testsuite/25_algorithms/max/1.cc: ...here.
+	* testsuite/25_algorithms/max/2.cc: ...here.
+
+2007-09-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build-support): Specify output
+	file for preprocessing.  Use remote_exec to call ar and ranlib.
+
+2007-09-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/functional_hash.h: Add ext/numeric_traits.h.
+	* include/tr1/functional_hash.h Same.
+	* include/tr1/functional: Remove string, ext/type_traits.h includes.
+	* include/tr1_impl/functional_hash.h: Move string, wstring
+	definitions for std::<hash>::operator into separate file.
+	* include/std/functional
+	* src/hash.cc: New, move definitions here.
+	* src/hash_c++0x.cc: Same.
+	* src/Makefile.am: Add new source files.
+	* configure: Regenerate.
+	* Makefile.in: Same.
+	* src/Makefile.in: Same.
+	* po/Makefile.in: Same.
+	* libmath/Makefile.in: Same.
+	* libsupc++/Makefile.in: Same.
+	* testsuite/Makefile.in: Same.
+	* config/abi/pre/gnu.ver: Add symbols.
+	* config/abi/pre/gnu-versioned-namespace.ver: Same, fix.
+	
+2007-09-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/19_diagnostics/error_category/cons/copy_neg.cc:
+	Correct line number.
+
+2007-09-07  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR libstdc++/33203
+	* configure.host (error_constants_dir):  New variable,
+	defaulting to os/generic.
+	( mingw32*): Overide default.
+	* configure.ac (ERROR_CONSTANTS_SRCDIR): New.
+	* configure: Regenerate.
+	* include/Makefile.am (host_headers): Add
+	$(ERROR_CONSTANTS_SRCDIR)/error_constants.h .
+	* include/Makefile.in: Regenerate.
+	* include/std/system_error (enum posix_errno): Remove.
+	Include <bits/error_constants.h> instead.
+	* config/os/mingw32/error_constants.h: New.
+	* config/os/generic/error_constants.h: New.
+
+2007-09-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp: Check CXXFLAGS.
+	* scripts/testsuite_flags.in: CXXFLAGS_default, matching dejagnu.
+
+	* include/std/ostream: Spacing tweak.
+	* include/ext/hashtable.h: Use <algorithm>.
+	* include/ext/slist: Same.
+	* include/ext/rope: Same.
+	* include/bits/stl_function.h: Format.
+	* include/tr1_impl/array: Remove section number in doxygen markup.
+	* src/list.cc: Comment tweak.	
+	
+	* docs/doxygen/user.cfg.in: Update for include/tr1_impl.
+	
+	* testsuite/25_algorithms/search_n/iterator.cc: Add using declaration.
+	* testsuite/25_algorithms/nth_element/1.cc:  Same.
+	* testsuite/21_strings/char_traits/requirements/short/1.cc: Use
+	char_type typedef to the underlying character type.	
+	* testsuite/21_strings/char_traits/requirements/wchar_t/typedefs.cc:
+	Remove -ansi -pedantic-errors.
+	* testsuite/21_strings/char_traits/requirements/char/typedefs.cc: Same.
+	* testsuite/tr1/6_containers/headers/functional/synopsis.cc:
+	Remove specializations.
+	
+2007-09-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (_Vector_base<>::_M_allocate):
+	Do not call _M_impl.allocate when __n == 0.
+	* testsuite/23_containers/vector/zero_sized_allocations.cc: New.
+
+2007-09-06  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	PR libstdc++/29367
+	* include/ext/pb_ds/detail/map_debug_base.hpp: From this..
+	* include/ext/pb_ds/detail/debug_map_base.hpp: ...to this.
+	Rename map_debug_base to debug_map_base, add std::pair output
+	extractors, change duplicate map_debug_base typedef in containers
+	to debug_base. Use m_store_extra_indicator for m_store_hash_indicator.
+	* include/ext/pb_ds/*: Likewise.
+	* include/Makefile.am: Same.
+	* include/Makefile.in: Regenerate.
+	
+2007-09-06  Matthias Klose  <doko@debian.org>
+
+	* testsuite/27_io/headers/cstdlib: Remove empty directory.
+
+2007-09-05  Roger Sayle  <roger@eyesopen.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_SYSTEM_ERROR): Add EBADMSG for darwin.
+	* configure: Regenerate.
+	* include/std/system_error: Guard.
+	* testsuite/19_diagnostics/headers/system_error/
+	types_std_c++0x.cc: Same.
+	* testsuite/19_diagnostics/error_category/cons/copy_neg.cc: Adjust
+	line numbers.
+
+2007-09-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/33293
+	* include/bits/stl_numeric.h (accumulate, inner_product):
+	Add inline function-specifier.
+
+2007-08-31  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* testsuite/abi/demangle/cxx0x/rref.cc: New.
+
+2007-08-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_SYSTEM_ERROR): Add ENODATA, ENOSR,
+	ENOSTR, ETIME for freebsd.	
+	* configure: Regenerate.
+	* include/std/system_error: Guard.	
+	* testsuite/19_diagnostics/headers/system_error/
+	types_std_c++0x.cc: Same.
+	* testsuite/19_diagnostics/error_category/cons/copy_neg.cc: Adjust
+	line numbers.
+
+2007-08-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/33128
+	* include/tr1_impl/random (uniform_int<>::_M_call): Deal with
+	__urng() returning negative values.
+	* testsuite/tr1/5_numerical_facilities/random/uniform_int/33128.cc:
+	New.
+
 2007-08-24  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* acinclude.m4: Fix duplicate variable names.

@@ -21,6 +21,18 @@ AC_ARG_ENABLE(version-specific-runtime-libs,
 [version_specific_libs=no])
 AC_MSG_RESULT($version_specific_libs)
 
+# Build with intermodule optimisations
+AC_MSG_CHECKING([for --enable-intermodule])
+AC_ARG_ENABLE(intermodule,
+[  --enable-intermodule    build the library in one step],
+[case "$enable_intermodule" in
+  yes) onestep="-onestep";;
+    *) onestep="";;
+esac],
+[onestep=""])
+AC_MSG_RESULT($enable_intermodule)
+AM_CONDITIONAL(onestep,[test x$onestep = x-onestep])
+AC_SUBST(onestep)
 
 # Gets build, host, target, *_vendor, *_cpu, *_os, etc.
 #
@@ -192,7 +204,7 @@ AC_CHECK_FUNCS(getrusage times mkstemp strtof strtold snprintf ftruncate chsize)
 AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
 AC_CHECK_FUNCS(sleep time ttyname signal alarm ctime clock access fork execl)
 AC_CHECK_FUNCS(wait setmode execvp pipe dup2 close fdopen strcasestr getrlimit)
-AC_CHECK_FUNCS(gettimeofday stat fstat lstat getpwuid vsnprintf)
+AC_CHECK_FUNCS(gettimeofday stat fstat lstat getpwuid vsnprintf dup getcwd)
 
 # Check for glibc backtrace functions
 AC_CHECK_FUNCS(backtrace backtrace_symbols)
@@ -403,10 +415,6 @@ AC_CHECK_FUNC([fp_enable],[have_fp_enable=yes AC_DEFINE([HAVE_FP_ENABLE],[1],[fp
 AC_MSG_NOTICE([FPU dependent file will be ${fpu_host}.h])
 FPU_HOST_HEADER=config/${fpu_host}.h
 AC_SUBST(FPU_HOST_HEADER)
-
-# Attempt to assert that the target is of common type in case we don't
-# have C99 integer types at all.
-LIBGFOR_TARGET_ILP32
 
 # Check out attribute support.
 LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY

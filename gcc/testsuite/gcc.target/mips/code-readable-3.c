@@ -1,6 +1,8 @@
-/* { dg-mips-options "-mips16 -mcode-readable=no -mgp32" } */
+/* { dg-do compile { target mips16_attribute } } */
+/* { dg-mips-options "-mcode-readable=no -mgp32" } */
+/* { dg-add-options mips16_attribute } */
 
-int
+MIPS16 int
 foo (int i)
 {
   switch (i)
@@ -18,7 +20,7 @@ foo (int i)
 
 extern int k[];
 
-int *
+MIPS16 int *
 bar (void)
 {
   return k;

@@ -1633,6 +1633,18 @@ add_functions (void)
 
   make_generic ("isatty", GFC_ISYM_ISATTY, GFC_STD_GNU);
 
+  add_sym_1 ("is_iostat_end", GFC_ISYM_IS_IOSTAT_END,
+	     CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F2003,
+	     gfc_check_i, NULL, NULL, i, BT_INTEGER, 0, REQUIRED);
+
+  make_generic ("is_iostat_end", GFC_ISYM_IS_IOSTAT_END, GFC_STD_F2003);
+
+  add_sym_1 ("is_iostat_eor", GFC_ISYM_IS_IOSTAT_EOR,
+	     CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F2003,
+	     gfc_check_i, NULL, NULL, i, BT_INTEGER, 0, REQUIRED);
+
+  make_generic ("is_iostat_eor", GFC_ISYM_IS_IOSTAT_EOR, GFC_STD_F2003);
+
   add_sym_1 ("isnan", GFC_ISYM_ISNAN, CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL,
 	     dl, GFC_STD_GNU, gfc_check_isnan, NULL, NULL,
 	     x, BT_REAL, 0, REQUIRED);
@@ -2365,7 +2377,7 @@ add_subroutines (void)
     *val = "value", *num = "number", *name = "name",
     *trim_name = "trim_name", *ut = "unit", *han = "handler",
     *sec = "seconds", *res = "result", *of = "offset", *md = "mode",
-    *whence = "whence";
+    *whence = "whence", *pos = "pos";
 
   int di, dr, dc, dl, ii;
 
@@ -2449,8 +2461,8 @@ add_subroutines (void)
 	      REQUIRED);
 
   add_sym_2s ("getarg", GFC_ISYM_GETARG, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
-	      NULL, NULL, gfc_resolve_getarg,
-	      c, BT_INTEGER, di, REQUIRED, vl, BT_CHARACTER, dc, REQUIRED);
+	      gfc_check_getarg, NULL, gfc_resolve_getarg,
+	      pos, BT_INTEGER, di, REQUIRED, val, BT_CHARACTER, dc, REQUIRED);
 
   add_sym_1s ("getlog", GFC_ISYM_GETLOG, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
 	      gfc_check_getlog, NULL, gfc_resolve_getlog, c, BT_CHARACTER,

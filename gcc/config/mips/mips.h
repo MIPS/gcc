@@ -573,6 +573,17 @@ extern enum mips_code_readable_setting mips_code_readable;
 #endif
 #endif /* IN_LIBGCC2 */
 
+/* Force the call stack unwinders in unwind.inc not to be MIPS16 code
+   when compiled with hardware floating point.  This is because MIPS16
+   code cannot save and restore the floating-point registers, which is
+   important if in a mixed MIPS16/non-MIPS16 environment.  */
+
+#ifdef IN_LIBGCC2
+#if __mips_hard_float
+#define LIBGCC2_UNWIND_ATTRIBUTE __attribute__((__nomips16__))
+#endif
+#endif /* IN_LIBGCC2 */
+
 #define TARGET_LIBGCC_SDATA_SECTION ".sdata"
 
 #ifndef MULTILIB_ENDIAN_DEFAULT
@@ -658,6 +669,16 @@ extern enum mips_code_readable_setting mips_code_readable;
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000: -mips64} \
      %{!march=*: -" MULTILIB_ISA_DEFAULT "}}"
 
+/* A spec that infers a -mhard-float or -msoft-float setting from an
+   -march argument.  Note that soft-float and hard-float code are not
+   link-compatible.  */
+
+#define MIPS_ARCH_FLOAT_SPEC \
+  "%{mhard-float|msoft-float|march=mips*:; \
+     march=vr41*|march=m4k|march=4k*|march=24kc|march=24kec \
+     |march=34kc|march=74kc|march=5kc: -msoft-float; \
+     march=*: -mhard-float}"
+
 /* A spec condition that matches 32-bit options.  It only works if
    MIPS_ISA_LEVEL_SPEC has been applied.  */
 
@@ -678,7 +699,8 @@ extern enum mips_code_readable_setting mips_code_readable;
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" }, \
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
-  {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }
+  {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }, \
+  {"llsc", "%{!mllsc:%{!mno-llsc:-m%(VALUE)}}" }
 
 
 #define GENERATE_DIVIDE_TRAPS (TARGET_DIVIDE_TRAPS \
@@ -848,6 +870,12 @@ extern enum mips_code_readable_setting mips_code_readable;
 /* ISA has lwxs instruction (load w/scaled index address.  */
 #define ISA_HAS_LWXS		(TARGET_SMARTMIPS && !TARGET_MIPS16)
 
+/* The DSP ASE is available.  */
+#define ISA_HAS_DSP		(TARGET_DSP && !TARGET_MIPS16)
+
+/* Revision 2 of the DSP ASE is available.  */
+#define ISA_HAS_DSPR2		(TARGET_DSPR2 && !TARGET_MIPS16)
+
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
    and "addiu $4,$4,1".  */
@@ -881,6 +909,21 @@ extern enum mips_code_readable_setting mips_code_readable;
 /* ISA includes synci, jr.hb and jalr.hb.  */
 #define ISA_HAS_SYNCI (ISA_MIPS32R2 && !TARGET_MIPS16)
 
+/* ISA includes sync.  */
+#define ISA_HAS_SYNC ((mips_isa >= 2 || TARGET_MIPS3900) && !TARGET_MIPS16)
+#define GENERATE_SYNC			\
+  (target_flags_explicit & MASK_LLSC	\
+   ? TARGET_LLSC && !TARGET_MIPS16	\
+   : ISA_HAS_SYNC)
+
+/* ISA includes ll and sc.  Note that this implies ISA_HAS_SYNC
+   because the expanders use both ISA_HAS_SYNC and ISA_HAS_LL_SC
+   instructions.  */
+#define ISA_HAS_LL_SC (mips_isa >= 2 && !TARGET_MIPS16)
+#define GENERATE_LL_SC			\
+  (target_flags_explicit & MASK_LLSC	\
+   ? TARGET_LLSC && !TARGET_MIPS16	\
+   : ISA_HAS_LL_SC)
 
 /* Add -G xx support.  */
 
@@ -1172,6 +1215,19 @@ extern enum mips_code_readable_setting mips_code_readable;
 #define DOUBLE_TYPE_SIZE 64
 #define LONG_DOUBLE_TYPE_SIZE (TARGET_NEWABI ? 128 : 64)
 
+/* Define the sizes of fixed-point types.  */
+#define SHORT_FRACT_TYPE_SIZE 8
+#define FRACT_TYPE_SIZE 16
+#define LONG_FRACT_TYPE_SIZE 32
+#define LONG_LONG_FRACT_TYPE_SIZE 64
+
+#define SHORT_ACCUM_TYPE_SIZE 16
+#define ACCUM_TYPE_SIZE 32
+#define LONG_ACCUM_TYPE_SIZE 64
+/* FIXME.  LONG_LONG_ACCUM_TYPE_SIZE should be 128 bits, but GCC
+   doesn't support 128-bit integers for MIPS32 currently.  */
+#define LONG_LONG_ACCUM_TYPE_SIZE (TARGET_64BIT ? 128 : 64)
+
 /* long double is not a fixed mode, but the idea is that, if we
    support long double, we also want a 128-bit integer type.  */
 #define MAX_FIXED_MODE_SIZE LONG_DOUBLE_TYPE_SIZE
@@ -1294,6 +1350,10 @@ extern enum mips_code_readable_setting mips_code_readable;
         (UNSIGNEDP) = 0;                        \
       (MODE) = Pmode;                           \
     }
+
+/* Pmode is always the same as ptr_mode, but not always the same as word_mode.
+   Extensions of pointers to word_mode must be signed.  */
+#define POINTERS_EXTEND_UNSIGNED false
 
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
@@ -2108,6 +2168,9 @@ typedef struct mips_args {
   fprintf (FILE, "\t.set\tat\n");					\
 }
 
+/* The profiler preserves all interesting registers, including $31.  */
+#define MIPS_SAVE_REG_FOR_PROFILING_P(REGNO) false
+
 /* No mips port has ever used the profiler counter word, so don't emit it
    or the label for it.  */
 
@@ -2182,6 +2245,13 @@ typedef struct mips_args {
 #ifndef CACHE_FLUSH_FUNC
 #define CACHE_FLUSH_FUNC "_flush_cache"
 #endif
+
+#define MIPS_ICACHE_SYNC(ADDR, SIZE)					\
+  /* Flush both caches.  We need to flush the data cache in case	\
+     the system has a write-back cache.  */				\
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mips_cache_flush_func),	\
+		     0, VOIDmode, 3, ADDR, Pmode, SIZE, Pmode,		\
+		     GEN_INT (3), TYPE_MODE (integer_type_node))
 
 /* A C statement to initialize the variable parts of a trampoline.
    ADDR is an RTX for the address of the trampoline; FNADDR is an
@@ -2354,11 +2424,6 @@ typedef struct mips_args {
 #define FUNCTION_MODE SImode
 
 
-/* The cost of loading values from the constant pool.  It should be
-   larger than the cost of any constant we want to synthesize in-line.  */
-
-#define CONSTANT_POOL_COST COSTS_N_INSNS (8)
-
 /* A C expression for the cost of moving data from a register in
    class FROM to one in class TO.  The classes are expressed using
    the enumeration values such as `GENERAL_REGS'.  A value of 2 is
@@ -2742,8 +2807,8 @@ do {									\
 #define ASM_OUTPUT_REG_PUSH(STREAM,REGNO)				\
 do									\
   {									\
-    fprintf (STREAM, "\t%s\t%s,%s,8\n\t%s\t%s,0(%s)\n",			\
-	     TARGET_64BIT ? "dsubu" : "subu",				\
+    fprintf (STREAM, "\t%s\t%s,%s,-8\n\t%s\t%s,0(%s)\n",		\
+	     TARGET_64BIT ? "daddiu" : "addiu",				\
 	     reg_names[STACK_POINTER_REGNUM],				\
 	     reg_names[STACK_POINTER_REGNUM],				\
 	     TARGET_64BIT ? "sd" : "sw",				\
@@ -2871,3 +2936,147 @@ while (0)
 #ifndef HAVE_AS_TLS
 #define HAVE_AS_TLS 0
 #endif
+
+/* Return an asm string that atomically:
+
+     - Compares memory reference %1 to register %2 and, if they are
+       equal, changes %1 to %3.
+
+     - Sets register %0 to the old value of memory reference %1.
+
+   SUFFIX is the suffix that should be added to "ll" and "sc" instructions
+   and OP is the instruction that should be used to load %3 into a
+   register.  */
+#define MIPS_COMPARE_AND_SWAP(SUFFIX, OP)	\
+  "%(%<%[%|sync\n"				\
+  "1:\tll" SUFFIX "\t%0,%1\n"			\
+  "\tbne\t%0,%2,2f\n"				\
+  "\t" OP "\t%@,%3\n"				\
+  "\tsc" SUFFIX "\t%@,%1"			\
+  "%-\n"					\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "2:%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Sets memory reference %0 to %0 INSN %1.
+
+   SUFFIX is the suffix that should be added to "ll" and "sc"
+   instructions.  */
+#define MIPS_SYNC_OP(SUFFIX, INSN)		\
+  "%(%<%[%|sync\n"				\
+  "1:\tll" SUFFIX "\t%@,%0\n"			\
+  "\t" INSN "\t%@,%@,%1\n"			\
+  "\tsc" SUFFIX "\t%@,%0"			\
+  "%-\n"					\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Sets memory reference %1 to %1 INSN %2.
+
+     - Sets register %0 to the old value of memory reference %1.
+
+   SUFFIX is the suffix that should be added to "ll" and "sc"
+   instructions.  */
+#define MIPS_SYNC_OLD_OP(SUFFIX, INSN)		\
+  "%(%<%[%|sync\n"				\
+  "1:\tll" SUFFIX "\t%0,%1\n"			\
+  "\t" INSN "\t%@,%0,%2\n"			\
+  "\tsc" SUFFIX "\t%@,%1"			\
+  "%-\n"					\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Sets memory reference %1 to %1 INSN %2.
+
+     - Sets register %0 to the new value of memory reference %1.
+
+   SUFFIX is the suffix that should be added to "ll" and "sc"
+   instructions.  */
+#define MIPS_SYNC_NEW_OP(SUFFIX, INSN)		\
+  "%(%<%[%|sync\n"				\
+  "1:\tll" SUFFIX "\t%0,%1\n"			\
+  "\t" INSN "\t%@,%0,%2\n"			\
+  "\tsc" SUFFIX "\t%@,%1"			\
+  "%-\n"					\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\t" INSN "\t%0,%0,%2%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Sets memory reference %0 to ~%0 AND %1.
+
+   SUFFIX is the suffix that should be added to "ll" and "sc"
+   instructions.  INSN is the and instruction needed to and a register
+   with %2.  */
+#define MIPS_SYNC_NAND(SUFFIX, INSN)		\
+  "%(%<%[%|sync\n"				\
+  "1:\tll" SUFFIX "\t%@,%0\n"			\
+  "\tnor\t%@,%@,%.\n"				\
+  "\t" INSN "\t%@,%@,%1\n"			\
+  "\tsc" SUFFIX "\t%@,%0"			\
+  "%-\n"					\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Sets memory reference %1 to ~%1 AND %2.
+
+     - Sets register %0 to the old value of memory reference %1.
+
+   SUFFIX is the suffix that should be added to "ll" and "sc"
+   instructions.  INSN is the and instruction needed to and a register
+   with %2.  */
+#define MIPS_SYNC_OLD_NAND(SUFFIX, INSN)	\
+  "%(%<%[%|sync\n"				\
+  "1:\tll" SUFFIX "\t%0,%1\n"			\
+  "\tnor\t%@,%0,%.\n"				\
+  "\t" INSN "\t%@,%@,%2\n"			\
+  "\tsc" SUFFIX "\t%@,%1"			\
+  "%-\n"					\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Sets memory reference %1 to ~%1 AND %2.
+
+     - Sets register %0 to the new value of memory reference %1.
+
+   SUFFIX is the suffix that should be added to "ll" and "sc"
+   instructions.  INSN is the and instruction needed to and a register
+   with %2.  */
+#define MIPS_SYNC_NEW_NAND(SUFFIX, INSN)	\
+  "%(%<%[%|sync\n"				\
+  "1:\tll" SUFFIX "\t%0,%1\n"			\
+  "\tnor\t%0,%0,%.\n"				\
+  "\t" INSN "\t%@,%0,%2\n"			\
+  "\tsc" SUFFIX "\t%@,%1"			\
+  "%-\n"					\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\t" INSN "\t%0,%0,%2%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Sets memory reference %1 to %2.
+
+     - Sets register %0 to the old value of memory reference %1.
+
+   SUFFIX is the suffix that should be added to "ll" and "sc"
+   instructions.  OP is the and instruction that should be used to
+   load %2 into a register.  */
+#define MIPS_SYNC_EXCHANGE(SUFFIX, OP)		\
+  "%(%<%[%|\n"					\
+  "1:\tll" SUFFIX "\t%0,%1\n"			\
+  "\t" OP "\t%@,%2\n"				\
+  "\tsc" SUFFIX "\t%@,%1\n"			\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "\tsync%-%]%>%)"
+

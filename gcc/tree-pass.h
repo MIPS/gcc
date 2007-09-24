@@ -172,6 +172,7 @@ struct dump_file_info
 #define TODO_dump_cgraph		(1 << 7)
 #define TODO_remove_functions		(1 << 8)
 #define TODO_rebuild_frequencies	(1 << 9)
+#define TODO_verify_rtl_sharing         (1 << 10)
 
 /* To-do flags for calls to update_ssa.  */
 
@@ -183,13 +184,13 @@ struct dump_file_info
    in blocks that have one or more edges with no incoming definition
    for O_j.  This would lead to uninitialized warnings for O_j's
    symbol.  */
-#define TODO_update_ssa			(1 << 10)
+#define TODO_update_ssa			(1 << 11)
 
 /* Update the SSA form without inserting any new PHI nodes at all.
    This is used by passes that have either inserted all the PHI nodes
    themselves or passes that need only to patch use-def and def-def
    chains for virtuals (e.g., DCE).  */
-#define TODO_update_ssa_no_phi		(1 << 11)
+#define TODO_update_ssa_no_phi		(1 << 12)
 
 /* Insert PHI nodes everywhere they are needed.  No pruning of the
    IDF is done.  This is used by passes that need the PHI nodes for
@@ -200,7 +201,7 @@ struct dump_file_info
    may be doing something wrong.  Inserting PHI nodes for an old name
    where not all edges carry a new replacement may lead to silent
    codegen errors or spurious uninitialized warnings.  */
-#define TODO_update_ssa_full_phi	(1 << 12)
+#define TODO_update_ssa_full_phi	(1 << 13)
 
 /* Passes that update the SSA form on their own may want to delegate
    the updating of virtual names to the generic updater.  Since FUD
@@ -208,30 +209,30 @@ struct dump_file_info
    to do.  NOTE: If this flag is used, any OLD->NEW mappings for real
    names are explicitly destroyed and only the symbols marked for
    renaming are processed.  */
-#define TODO_update_ssa_only_virtuals	(1 << 13)
+#define TODO_update_ssa_only_virtuals	(1 << 14)
 
 /* Some passes leave unused local variables that can be removed from
    cfun->unexpanded_var_list.  This reduces the size of dump files and
    the memory footprint for VAR_DECLs.  */
-#define TODO_remove_unused_locals	(1 << 14)
+#define TODO_remove_unused_locals	(1 << 15)
 
 /* Internally used for the first in a sequence of passes.  It is set
    for the passes that are handed to register_dump_files.  */
-#define TODO_set_props			(1 << 15)
+#define TODO_set_props			(1 << 16)
 
 /* Call df_finish at the end of the pass.  This is done after all of
    the dumpers have been allowed to run so that they have access to
    the instance before it is destroyed.  */
-#define TODO_df_finish                  (1 << 16)
+#define TODO_df_finish                  (1 << 17)
 
 /* Call df_verify at the end of the pass if checking is enabled.  */
-#define TODO_df_verify                  (1 << 17)
+#define TODO_df_verify                  (1 << 18)
 
 /* Internally used for the first instance of a pass.  */
-#define TODO_mark_first_instance	(1 << 18)
+#define TODO_mark_first_instance	(1 << 19)
 
 /* Rebuild aliasing info.  */
-#define TODO_rebuild_alias                (1 << 19)
+#define TODO_rebuild_alias                (1 << 20)
 
 #define TODO_update_ssa_any		\
     (TODO_update_ssa			\
@@ -270,6 +271,7 @@ extern struct tree_opt_pass pass_record_bounds;
 extern struct tree_opt_pass pass_if_conversion;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;
+extern struct tree_opt_pass pass_parallelize_loops;
 extern struct tree_opt_pass pass_loop_prefetch;
 extern struct tree_opt_pass pass_iv_optimize;
 extern struct tree_opt_pass pass_tree_loop_done;
@@ -292,6 +294,7 @@ extern struct tree_opt_pass pass_lower_vector;
 extern struct tree_opt_pass pass_lower_vector_ssa;
 extern struct tree_opt_pass pass_lower_omp;
 extern struct tree_opt_pass pass_expand_omp;
+extern struct tree_opt_pass pass_expand_omp_ssa;
 extern struct tree_opt_pass pass_object_sizes;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_stdarg;
@@ -302,11 +305,13 @@ extern struct tree_opt_pass pass_cse_sincos;
 extern struct tree_opt_pass pass_convert_to_rsqrt;
 extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_warn_function_noreturn;
+extern struct tree_opt_pass pass_cselim;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
 extern struct tree_opt_pass pass_phiprop;
 extern struct tree_opt_pass pass_tree_ifcombine;
 extern struct tree_opt_pass pass_dse;
+extern struct tree_opt_pass pass_simple_dse;
 extern struct tree_opt_pass pass_nrv;
 extern struct tree_opt_pass pass_mark_used_blocks;
 extern struct tree_opt_pass pass_rename_ssa_copies;
@@ -446,6 +451,7 @@ extern struct tree_opt_pass pass_early_inline;
 extern struct tree_opt_pass pass_inline_parameters;
 extern struct tree_opt_pass pass_apply_inline;
 extern struct tree_opt_pass pass_all_early_optimizations;
+extern struct tree_opt_pass pass_update_address_taken;
 
 /* The root of the compilation pass tree, once constructed.  */
 extern struct tree_opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;

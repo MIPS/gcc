@@ -99,6 +99,7 @@ extern GTY(()) section *progmem_section;
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 8
 
+#define TARGET_VTABLE_ENTRY_ALIGN 8
 
 #define STRICT_ALIGNMENT 0
 
@@ -481,8 +482,7 @@ do {									    \
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)	 gas_output_ascii (FILE,P,SIZE)
 
-#define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == '\n'			 \
-					  || ((C) == '$'))
+#define IS_ASM_LOGICAL_LINE_SEPARATOR(C, STR) ((C) == '\n' || ((C) == '$'))
 
 #define ASM_OUTPUT_COMMON(STREAM, NAME, SIZE, ROUNDED)			   \
 do {									   \

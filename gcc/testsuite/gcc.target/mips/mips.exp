@@ -30,23 +30,29 @@ load_lib gcc-dg.exp
 #
 #    $mips_isa:		 the ISA level specified by __mips
 #    $mips_arch:	 the architecture specified by _MIPS_ARCH
-#    $mips_mips16:	 true if MIPS16 mode is selected
-#    $mips_mips64:	 true if 64-bit output is selected
+#    $mips_gp64:	 true if 64-bit output is selected
+#    $mips_fp64:	 true if 64-bit FPRs are selected
 #    $mips_float:	 "hard" or "soft"
 #
 #    $mips_forced_isa:	 true if the command line uses -march=* or -mips*
 #    $mips_forced_abi:	 true if the command line uses -mabi=* or -mgp*
 #    $mips_forced_float: true if the command line uses -mhard/soft-float
+#    $mips_forced_le	 true if the command line uses -EL or -mel
+#    $mips_forced_gp	 true if the command line forces a particular GP mode
+#    $mips_forced_no_er  true if the command line contains -mno-explicit-relocs
 proc setup_mips_tests {} {
     global mips_isa
     global mips_arch
-    global mips_mips16
-    global mips_mips64
+    global mips_gp64
+    global mips_fp64
     global mips_float
 
     global mips_forced_isa
     global mips_forced_abi
     global mips_forced_float
+    global mips_forced_le
+    global mips_forced_gp
+    global mips_forced_no_er
 
     global compiler_flags
     global tool
@@ -56,11 +62,11 @@ proc setup_mips_tests {} {
     puts $f {
 	int isa = __mips;
 	const char *arch = _MIPS_ARCH;
-	#ifdef __mips16
-	int mips16 = 1;
-	#endif
 	#ifdef __mips64
-	int mips64 = 1;
+	int gp64 = 1;
+	#endif
+	#if __mips_fpr==64
+	int fp64 = 1;
 	#endif
 	#ifdef __mips_hard_float
 	const char *float = "hard";
@@ -74,19 +80,24 @@ proc setup_mips_tests {} {
 
     regexp {isa = ([^;]*)} $output dummy mips_isa
     regexp {arch = "([^"]*)} $output dummy mips_arch
-    set mips_mips16 [regexp {mips16 = 1} $output]
-    set mips_mips64 [regexp {mips64 = 1} $output]
+    set mips_gp64 [regexp {gp64 = 1} $output]
+    set mips_fp64 [regexp {fp64 = 1} $output]
     regexp {float = "([^"]*)} $output dummy mips_float
 
-    set mips_forced_isa [regexp -- {(-mips|-march)} $compiler_flags]
+    set mips_forced_isa [regexp -- {(-mips[1-5][[:>:]]|-mips32*|-mips64*|-march)} $compiler_flags]
     set mips_forced_abi [regexp -- {(-mgp|-mfp|-mabi)} $compiler_flags]
     set mips_forced_float [regexp -- {-m(hard|soft)-float} $compiler_flags]
+    set mips_forced_le [regexp -- {-(EL|mel)[[:>:]]} $compiler_flags]
+    set mips_forced_gp [regexp -- {-(G|m(|no-)((extern|local)-sdata|gpopt)|mabicalls|mrtp)} $compiler_flags]
+    set mips_forced_no_er [regexp -- {-mno-explicit-relocs} $compiler_flags]
 }
 
 # Return true if command-line option FLAG forces 32-bit code.
 proc is_gp32_flag {flag} {
     switch -glob -- $flag {
 	-msmartmips -
+	-mips[12] -
+	-mips32* -
 	-march=mips32* -
 	-mgp32 { return 1 }
 	default { return 0 }
@@ -105,44 +116,62 @@ proc is_gp32_flag {flag} {
 #	if the other flags don't do so.  Skip the test if the multilib
 #	flags force a 32-bit ABI or a 32-bit architecture.
 #
-#    -mno-mips16
-#	Skip the test for MIPS16 targets.
-#
 #    -march=*
 #    -mips*
-#	Select the target architecture.  Skip the test for MIPS16 targets
-#	or if the multilib flags force a different architecture.
+#	Select the target architecture.  Skip the test if the multilib
+#	flags force a different architecture.
 #
 #    -msoft-float
 #    -mhard-float
 #	Select the given floating-point mode.  Skip the test if the
 #	multilib flags force a different selection.
+#
+#    -EB
+#	Select big-endian code.  Skip the test if the multilib flags
+#	force a little-endian target.
+#
+#    -G*
+#    -m(no-)extern-sdata
+#    -m(no-)local-sdata
+#    -m(no-)gpopt
+#	Select the small-data mode, and -mno-abcialls.  Skip the test if
+#	the multilib flags already contain such an option, or specify
+#	something that might be incompatible with them.
+#
+#    -mexplicit-relocs
+#	Select explicit relocations.  Skip the test if the multilib flags
+#	force -mno-explicit-relocs.
 proc dg-mips-options {args} {
     upvar dg-extra-tool-flags extra_tool_flags
     upvar dg-do-what do_what
 
     global mips_isa
     global mips_arch
-    global mips_mips16
-    global mips_mips64
+    global mips_gp64
+    global mips_fp64
     global mips_float
 
     global mips_forced_isa
     global mips_forced_abi
     global mips_forced_float
+    global mips_forced_le
+    global mips_forced_gp
+    global mips_forced_no_er
 
     set flags [lindex $args 1]
     set matches 1
 
     # First handle the -mgp* options.  Add an architecture option if necessary.
     foreach flag $flags {
-	if {[is_gp32_flag $flag] && $mips_mips64} {
+	if {[is_gp32_flag $flag]
+	    && ($mips_gp64
+		|| ($mips_fp64 && [lsearch $flags -mfp64] < 0)) } {
 	    if {$mips_forced_abi} {
 		set matches 0
 	    } else {
 		append flags " -mabi=32"
 	    }
-	} elseif {$flag == "-mgp64" && !$mips_mips64} {
+	} elseif {$flag == "-mgp64" && !$mips_gp64} {
 	    if {$mips_forced_abi} {
 		set matches 0
 	    } else {
@@ -155,30 +184,39 @@ proc dg-mips-options {args} {
     }
     # Handle the other options.
     foreach flag $flags {
-	if {$flag == "-mno-mips16"} {
-	    if {$mips_mips16} {
-		set matches 0
-	    }
-	} elseif {$flag == "-mfp64"} {
+	if {$flag == "-mfp64"} {
 	    if {$mips_isa < 33 || $mips_float != "hard"} {
 		set matches 0
 	    }
 	} elseif {[regexp -- {^-march=(.*)} $flag dummy arch]} {
-	    if {$mips_mips16 || ($arch != $mips_arch && $mips_forced_isa)} {
+	    if {$arch != $mips_arch && $mips_forced_isa} {
 		set matches 0
 	    }
 	} elseif {[regexp -- {^-mips(.*)} $flag dummy isa] && $isa != 16} {
-	    if {$mips_mips16 || ($isa != $mips_isa && $mips_forced_isa)} {
+	    if {$isa != $mips_isa && $mips_forced_isa} {
 		set matches 0
 	    }
 	} elseif {[regexp -- {^-m(hard|soft)-float} $flag dummy float]} {
 	    if {$mips_float != $float && $mips_forced_float} {
 		set matches 0
 	    }
+	} elseif {[regexp -- {^-(EB|meb)$} $flag]} {
+	    if {$mips_forced_le} {
+		set matches 0
+	    }
+	} elseif {[regexp -- {^-(G|m(|no-)((extern|local)-sdata|gpopt))} $flag]} {
+	    append flags " -mno-abicalls"
+	    if {$mips_forced_gp} {
+		set matches 0
+	    }
+	} elseif {[regexp -- {^-mexplicit-relocs$} $flag]} {
+	    if {$mips_forced_no_er} {
+		set matches 0
+	    }
 	}
     }
     if {$matches} {
-	set extra_tool_flags $flags
+	append extra_tool_flags " " $flags
     } else {
 	set do_what [list [lindex $do_what 0] "N" "P"]
     }
@@ -187,5 +225,6 @@ proc dg-mips-options {args} {
 setup_mips_tests
 
 dg-init
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] "" ""
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] "" \
+    "-DMIPS16=__attribute__((mips16)) -DNOMIPS16=__attribute__((nomips16))"
 dg-finish

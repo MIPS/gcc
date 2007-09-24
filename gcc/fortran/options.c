@@ -62,7 +62,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.max_continue_free = 39;
   gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
   gfc_option.max_subrecord_length = 0;
-  gfc_option.convert = CONVERT_NATIVE;
+  gfc_option.convert = GFC_CONVERT_NATIVE;
   gfc_option.record_marker = 0;
   gfc_option.verbose = 0;
 
@@ -107,7 +107,13 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_openmp = 0;
   gfc_option.flag_sign_zero = 1;
   gfc_option.flag_recursive = 0;
-
+  gfc_option.flag_init_integer = GFC_INIT_INTEGER_OFF;
+  gfc_option.flag_init_integer_value = 0;
+  gfc_option.flag_init_real = GFC_INIT_REAL_OFF;
+  gfc_option.flag_init_logical = GFC_INIT_LOGICAL_OFF;
+  gfc_option.flag_init_character = GFC_INIT_CHARACTER_OFF;
+  gfc_option.flag_init_character_value = (char)0;
+  
   gfc_option.fpe = 0;
 
   /* Argument pointers cannot point to anything but their argument.  */
@@ -244,7 +250,7 @@ gfc_post_options (const char **pfilename)
     gfc_add_include_path (".", true);
 
   if (canon_source_file != gfc_source_file)
-    gfc_free (CONST_CAST (canon_source_file));
+    gfc_free (CONST_CAST (char *, canon_source_file));
 
   /* Decide which form the file will be read in as.  */
 
@@ -650,6 +656,55 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_default_double = value;
       break;
 
+    case OPT_finit_local_zero:
+      gfc_option.flag_init_integer = GFC_INIT_INTEGER_ON;
+      gfc_option.flag_init_integer_value = 0;
+      gfc_option.flag_init_real = GFC_INIT_REAL_ZERO;
+      gfc_option.flag_init_logical = GFC_INIT_LOGICAL_FALSE;
+      gfc_option.flag_init_character = GFC_INIT_CHARACTER_ON;
+      gfc_option.flag_init_character_value = (char)0;
+      break;
+
+    case OPT_finit_logical_:
+      if (!strcasecmp (arg, "false"))
+	gfc_option.flag_init_logical = GFC_INIT_LOGICAL_FALSE;
+      else if (!strcasecmp (arg, "true"))
+	gfc_option.flag_init_logical = GFC_INIT_LOGICAL_TRUE;
+      else
+	gfc_fatal_error ("Unrecognized option to -finit-logical: %s",
+			 arg);
+      break;
+
+    case OPT_finit_real_:
+      if (!strcasecmp (arg, "zero"))
+	gfc_option.flag_init_real = GFC_INIT_REAL_ZERO;
+      else if (!strcasecmp (arg, "nan"))
+	gfc_option.flag_init_real = GFC_INIT_REAL_NAN;
+      else if (!strcasecmp (arg, "inf"))
+	gfc_option.flag_init_real = GFC_INIT_REAL_INF;
+      else if (!strcasecmp (arg, "-inf"))
+	gfc_option.flag_init_real = GFC_INIT_REAL_NEG_INF;
+      else
+	gfc_fatal_error ("Unrecognized option to -finit-real: %s",
+			 arg);
+      break;      
+
+    case OPT_finit_integer_:
+      gfc_option.flag_init_integer = GFC_INIT_INTEGER_ON;
+      gfc_option.flag_init_integer_value = atoi (arg);
+      break;
+
+    case OPT_finit_character_:
+      if (value >= 0 && value <= 127)
+	{
+	  gfc_option.flag_init_character = GFC_INIT_CHARACTER_ON;
+	  gfc_option.flag_init_character_value = (char)value;
+	}
+      else
+	gfc_fatal_error ("The value of n in -finit-character=n must be "
+			 "between 0 and 127");
+      break;
+
     case OPT_I:
       gfc_add_include_path (arg, true);
       break;
@@ -704,19 +759,19 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_fconvert_little_endian:
-      gfc_option.convert = CONVERT_LITTLE;
+      gfc_option.convert = GFC_CONVERT_LITTLE;
       break;
 
     case OPT_fconvert_big_endian:
-      gfc_option.convert = CONVERT_BIG;
+      gfc_option.convert = GFC_CONVERT_BIG;
       break;
 
     case OPT_fconvert_native:
-      gfc_option.convert = CONVERT_NATIVE;
+      gfc_option.convert = GFC_CONVERT_NATIVE;
       break;
 
     case OPT_fconvert_swap:
-      gfc_option.convert = CONVERT_SWAP;
+      gfc_option.convert = GFC_CONVERT_SWAP;
       break;
 
     case OPT_frecord_marker_4:

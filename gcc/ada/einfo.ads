@@ -819,6 +819,12 @@ package Einfo is
 --       the list of discriminants of the type, i.e. a sequential integer
 --       index starting at 1 and ranging up to Number_Discriminants.
 
+--    Dispatch_Table_Wrapper (Node26) [implementation base type only]
+--       Present in library level record type entities if we are generating
+--       statically allocated dispatch tables. For a tagged type, points to
+--       the dispatch table wrapper associated with the tagged type. For a
+--       non-tagged record, contains Empty.
+
 --    DTC_Entity (Node16)
 --       Present in function and procedure entities. Set to Empty unless
 --       the subprogram is dispatching in which case it references the
@@ -1997,6 +2003,12 @@ package Einfo is
 --       Applies to all entities. Determine if given entity is a derived type.
 --       Always false if argument is not a type.
 
+--    Is_Descendent_Of_Address (Flag223)
+--       Applies to all types. Indicates that a type is an address type that
+--       is visibly a numeric type. Used for semantic checks on VMS to remove
+--       ambiguities in universal integer expressions that may have an address
+--       interpretation
+
 --    Is_Discrete_Type (synthesized)
 --       Applies to all entities, true for all discrete types and subtypes
 
@@ -2480,6 +2492,10 @@ package Einfo is
 --       Present in access type and subtype entities. Set if the type or
 --       subtype appears in a pure unit. Used to give an error message at
 --       freeze time if the access type has a storage pool.
+
+--    Is_Raised (Flag224)
+--       Present in entities which denote exceptions. Set if the exception is
+--       thrown by a raise statement.
 
 --    Is_Real_Type (synthesized)
 --       Applies to all entities, true for real types and subtypes
@@ -4745,6 +4761,7 @@ package Einfo is
    --    Exception_Code                      (Uint22)
    --    Discard_Names                       (Flag88)
    --    Is_VMS_Exception                    (Flag133)
+   --    Is_Raised                           (Flag224)
 
    --  E_Exception_Type
    --    Equivalent_Type                     (Node18)
@@ -5109,6 +5126,7 @@ package Einfo is
    --  E_Record_Subtype
    --    Primitive_Operations                (Elist15)
    --    Access_Disp_Table                   (Elist16)  (base type only)
+   --    Dispatch_Table_Wrapper              (Node26)   (base type only)
    --    Cloned_Subtype                      (Node16)   (subtype case only)
    --    First_Entity                        (Node17)
    --    Corresponding_Concurrent_Type       (Node18)
@@ -5142,6 +5160,7 @@ package Einfo is
    --  E_Record_Subtype_With_Private
    --    Primitive_Operations                (Elist15)
    --    Access_Disp_Table                   (Elist16)  (base type only)
+   --    Dispatch_Table_Wrapper              (Node26)   (base type only)
    --    First_Entity                        (Node17)
    --    Private_Dependents                  (Elist18)
    --    Underlying_Full_View                (Node19)
@@ -5536,6 +5555,7 @@ package Einfo is
    function Current_Value                       (Id : E) return N;
    function Debug_Info_Off                      (Id : E) return B;
    function Debug_Renaming_Link                 (Id : E) return E;
+   function Dispatch_Table_Wrapper              (Id : E) return E;
    function DTC_Entity                          (Id : E) return E;
    function DT_Entry_Count                      (Id : E) return U;
    function DT_Offset_To_Top_Func               (Id : E) return E;
@@ -5734,6 +5754,7 @@ package Einfo is
    function Is_Public                           (Id : E) return B;
    function Is_Pure                             (Id : E) return B;
    function Is_Pure_Unit_Access_Type            (Id : E) return B;
+   function Is_Raised                           (Id : E) return B;
    function Is_Remote_Call_Interface            (Id : E) return B;
    function Is_Remote_Types                     (Id : E) return B;
    function Is_Renaming_Of_Object               (Id : E) return B;
@@ -5871,6 +5892,7 @@ package Einfo is
    function Is_Concurrent_Type                  (Id : E) return B;
    function Is_Decimal_Fixed_Point_Type         (Id : E) return B;
    function Is_Digits_Type                      (Id : E) return B;
+   function Is_Descendent_Of_Address            (Id : E) return B;
    function Is_Discrete_Or_Fixed_Point_Type     (Id : E) return B;
    function Is_Discrete_Type                    (Id : E) return B;
    function Is_Elementary_Type                  (Id : E) return B;
@@ -6035,6 +6057,7 @@ package Einfo is
    procedure Set_Abstract_Interfaces             (Id : E; V : L);
    procedure Set_Accept_Address                  (Id : E; V : L);
    procedure Set_Access_Disp_Table               (Id : E; V : L);
+   procedure Set_Dispatch_Table_Wrapper          (Id : E; V : E);
    procedure Set_Actual_Subtype                  (Id : E; V : E);
    procedure Set_Address_Taken                   (Id : E; V : B := True);
    procedure Set_Alias                           (Id : E; V : E);
@@ -6223,6 +6246,7 @@ package Einfo is
    procedure Set_Is_Constructor                  (Id : E; V : B := True);
    procedure Set_Is_Controlled                   (Id : E; V : B := True);
    procedure Set_Is_Controlling_Formal           (Id : E; V : B := True);
+   procedure Set_Is_Descendent_Of_Address        (Id : E; V : B := True);
    procedure Set_Is_Discrim_SO_Function          (Id : E; V : B := True);
    procedure Set_Is_Dispatching_Operation        (Id : E; V : B := True);
    procedure Set_Is_Eliminated                   (Id : E; V : B := True);
@@ -6271,6 +6295,7 @@ package Einfo is
    procedure Set_Is_Public                       (Id : E; V : B := True);
    procedure Set_Is_Pure                         (Id : E; V : B := True);
    procedure Set_Is_Pure_Unit_Access_Type        (Id : E; V : B := True);
+   procedure Set_Is_Raised                       (Id : E; V : B := True);
    procedure Set_Is_Remote_Call_Interface        (Id : E; V : B := True);
    procedure Set_Is_Remote_Types                 (Id : E; V : B := True);
    procedure Set_Is_Renaming_Of_Object           (Id : E; V : B := True);
@@ -6661,6 +6686,7 @@ package Einfo is
    pragma Inline (Current_Value);
    pragma Inline (Debug_Info_Off);
    pragma Inline (Debug_Renaming_Link);
+   pragma Inline (Dispatch_Table_Wrapper);
    pragma Inline (DTC_Entity);
    pragma Inline (DT_Entry_Count);
    pragma Inline (DT_Offset_To_Top_Func);
@@ -6826,6 +6852,7 @@ package Einfo is
    pragma Inline (Is_Decimal_Fixed_Point_Type);
    pragma Inline (Is_Discrim_SO_Function);
    pragma Inline (Is_Digits_Type);
+   pragma Inline (Is_Descendent_Of_Address);
    pragma Inline (Is_Discrete_Or_Fixed_Point_Type);
    pragma Inline (Is_Discrete_Type);
    pragma Inline (Is_Dispatching_Operation);
@@ -6895,6 +6922,7 @@ package Einfo is
    pragma Inline (Is_Public);
    pragma Inline (Is_Pure);
    pragma Inline (Is_Pure_Unit_Access_Type);
+   pragma Inline (Is_Raised);
    pragma Inline (Is_Real_Type);
    pragma Inline (Is_Record_Type);
    pragma Inline (Is_Remote_Call_Interface);
@@ -7063,6 +7091,7 @@ package Einfo is
    pragma Inline (Set_Current_Value);
    pragma Inline (Set_Debug_Info_Off);
    pragma Inline (Set_Debug_Renaming_Link);
+   pragma Inline (Set_Dispatch_Table_Wrapper);
    pragma Inline (Set_DTC_Entity);
    pragma Inline (Set_DT_Entry_Count);
    pragma Inline (Set_DT_Offset_To_Top_Func);
@@ -7216,6 +7245,7 @@ package Einfo is
    pragma Inline (Set_Is_Constructor);
    pragma Inline (Set_Is_Controlled);
    pragma Inline (Set_Is_Controlling_Formal);
+   pragma Inline (Set_Is_Descendent_Of_Address);
    pragma Inline (Set_Is_Discrim_SO_Function);
    pragma Inline (Set_Is_Dispatching_Operation);
    pragma Inline (Set_Is_Eliminated);
@@ -7264,6 +7294,7 @@ package Einfo is
    pragma Inline (Set_Is_Public);
    pragma Inline (Set_Is_Pure);
    pragma Inline (Set_Is_Pure_Unit_Access_Type);
+   pragma Inline (Set_Is_Raised);
    pragma Inline (Set_Is_Remote_Call_Interface);
    pragma Inline (Set_Is_Remote_Types);
    pragma Inline (Set_Is_Renaming_Of_Object);

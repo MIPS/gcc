@@ -315,24 +315,20 @@ is_cfg_nonregular (void)
   if (current_function_has_exception_handlers ())
     return 1;
 
-  /* If we have non-jumping insns which refer to labels, then we consider
-     the cfg not well structured.  */
+  /* If we have insns which refer to labels as non-jumped-to operands,
+     then we consider the cfg not well structured.  */
   FOR_EACH_BB (b)
     FOR_BB_INSNS (b, insn)
       {
-	/* Check for labels referred by non-jump insns.  */
-	if (NONJUMP_INSN_P (insn) || CALL_P (insn))
-	  {
-	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
-	    if (note
-		&& ! (JUMP_P (NEXT_INSN (insn))
-		      && find_reg_note (NEXT_INSN (insn), REG_LABEL,
-					XEXP (note, 0))))
-	      return 1;
-	  }
+	/* Check for labels referred to but (at least not directly) as
+	   jump targets.  */
+	if (INSN_P (insn)
+	    && find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX))
+	  return 1;
+
 	/* If this function has a computed jump, then we consider the cfg
 	   not well structured.  */
-	else if (JUMP_P (insn) && computed_jump_p (insn))
+	if (JUMP_P (insn) && computed_jump_p (insn))
 	  return 1;
       }
 
@@ -3185,7 +3181,7 @@ struct tree_opt_pass pass_sched =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
@@ -3206,7 +3202,7 @@ struct tree_opt_pass pass_sched2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */

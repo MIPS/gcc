@@ -138,20 +138,28 @@ delete_insn (rtx insn)
 
   /* If deleting a jump, decrement the use count of the label.  Deleting
      the label itself should happen in the normal course of block merging.  */
-  if (JUMP_P (insn)
-      && JUMP_LABEL (insn)
-      && LABEL_P (JUMP_LABEL (insn)))
-    LABEL_NUSES (JUMP_LABEL (insn))--;
-
-  /* Also if deleting an insn that references a label.  */
-  else
+  if (JUMP_P (insn))
     {
-      while ((note = find_reg_note (insn, REG_LABEL, NULL_RTX)) != NULL_RTX
+      if (JUMP_LABEL (insn)
+	  && LABEL_P (JUMP_LABEL (insn)))
+	LABEL_NUSES (JUMP_LABEL (insn))--;
+
+      /* If there are more targets, remove them too.  */
+      while ((note
+	      = find_reg_note (insn, REG_LABEL_TARGET, NULL_RTX)) != NULL_RTX
 	     && LABEL_P (XEXP (note, 0)))
 	{
 	  LABEL_NUSES (XEXP (note, 0))--;
 	  remove_note (insn, note);
 	}
+    }
+
+  /* Also if deleting any insn that references a label as an operand.  */
+  while ((note = find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX)) != NULL_RTX
+	 && LABEL_P (XEXP (note, 0)))
+    {
+      LABEL_NUSES (XEXP (note, 0))--;
+      remove_note (insn, note);
     }
 
   if (JUMP_P (insn)
@@ -625,8 +633,8 @@ rtl_merge_blocks (basic_block a, basic_block b)
 
 
 /* Return true when block A and B can be merged.  */
-static bool
 
+static bool
 rtl_can_merge_blocks (basic_block a, basic_block b)
 {
   /* If we are partitioning hot/cold basic blocks, we don't want to
@@ -2531,6 +2539,7 @@ cfg_layout_delete_block (basic_block bb)
 }
 
 /* Return true when blocks A and B can be safely merged.  */
+
 static bool
 cfg_layout_can_merge_blocks_p (basic_block a, basic_block b)
 {
@@ -2688,7 +2697,7 @@ rtl_make_forwarder_block (edge fallthru ATTRIBUTE_UNUSED)
    instructions that must stay with the call, 0 otherwise.  */
 
 static bool
-rtl_block_ends_with_call_p (const_basic_block bb)
+rtl_block_ends_with_call_p (basic_block bb)
 {
   rtx insn = BB_END (bb);
 

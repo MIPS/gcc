@@ -192,9 +192,6 @@ struct language_function GTY(())
 #undef LANG_HOOKS_GET_CALLEE_FNDECL
 #define LANG_HOOKS_GET_CALLEE_FNDECL java_get_callee_fndecl
 
-#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
-#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION java_expand_body
-
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #define LANG_HOOKS_CLEAR_BINDING_STACK java_clear_binding_stack
 
@@ -653,8 +650,8 @@ java_post_options (const char **pfilename)
 	}
     }
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, filename, 0);
-  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
+  linemap_add (line_table, LC_ENTER, false, filename, 0);
+  linemap_add (line_table, LC_RENAME, false, "<built-in>", 0);
 #endif
 
   /* Initialize the compiler back end.  */
@@ -839,8 +836,6 @@ java_dump_tree (void *dump_info, tree t)
 	dump_string (di, "extern");
       else
 	dump_string (di, "static");
-      if (DECL_LANG_SPECIFIC (t))
-	dump_child ("body", DECL_FUNCTION_BODY (t));
       if (DECL_LANG_SPECIFIC (t) && !dump_flag (di, TDF_SLIM, t))
 	dump_child ("inline body", DECL_SAVED_TREE (t));
       return true;

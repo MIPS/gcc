@@ -464,6 +464,8 @@ struct gimple_stmt GTY(())
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        ASM_VOLATILE_P in
            ASM_EXPR
+       CALL_EXPR_VA_ARG_PACK in
+	  CALL_EXPR
        TYPE_CACHED_VALUES_P in
           ..._TYPE
        SAVE_EXPR_RESOLVED_P in
@@ -1017,7 +1019,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 	 && (TYPE_MODE (TREE_TYPE (EXP))			\
 	     == TYPE_MODE (TREE_TYPE (TREE_OPERAND (EXP, 0))))	\
 	 && (TYPE_UNSIGNED (TREE_TYPE (EXP))			\
-	     == TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
+	     == TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (EXP, 0)))) \
+	 && (POINTER_TYPE_P (TREE_TYPE (EXP))			\
+	     == POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
     (EXP) = TREE_OPERAND (EXP, 0)
 
 /* Like STRIP_NOPS, but don't alter the TREE_TYPE either.  */
@@ -1221,6 +1225,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    been substituted with a VAR_DECL that contains the value.  */
 #define SAVE_EXPR_RESOLVED_P(NODE) \
   (TREE_CHECK (NODE, SAVE_EXPR)->base.public_flag)
+
+/* Set on a CALL_EXPR if this stdarg call should be passed the argument
+   pack.  */
+#define CALL_EXPR_VA_ARG_PACK(NODE) \
+  (CALL_EXPR_CHECK(NODE)->base.public_flag)
 
 /* In any expression, decl, or constant, nonzero means it has side effects or
    reevaluation of the whole expression could produce a different value.
@@ -1591,8 +1600,8 @@ struct tree_constructor GTY(())
 #define EXPR_HAS_LOCATION(NODE) expr_has_location ((NODE))
 #define EXPR_LOCUS(NODE) expr_locus ((NODE))
 #define SET_EXPR_LOCUS(NODE, FROM) set_expr_locus ((NODE), (FROM))
-#define EXPR_FILENAME(NODE) *(expr_filename ((NODE)))
-#define EXPR_LINENO(NODE) *(expr_lineno ((NODE)))
+#define EXPR_FILENAME(NODE) (expr_filename ((NODE)))
+#define EXPR_LINENO(NODE) (expr_lineno ((NODE)))
 
 /* True if a tree is an expression or statement that can have a
    location.  */
@@ -3274,6 +3283,13 @@ struct tree_decl_non_common GTY(())
 #define DECL_DECLARED_INLINE_P(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.declared_inline_flag)
 
+/* Nonzero in a FUNCTION_DECL that should be always inlined by the inliner
+   disregarding size and cost heuristics.  This is equivalent to using
+   the always_inline attribute without the required diagnostics if the
+   function cannot be inlined.  */
+#define DECL_DISREGARD_INLINE_LIMITS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.disregard_inline_limits)
+
 /* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
    that describes the status of this function.  */
 #define DECL_STRUCT_FUNCTION(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.f)
@@ -3300,27 +3316,33 @@ struct tree_function_decl GTY(())
 {
   struct tree_decl_non_common common;
 
+  struct function *f;
+
   /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
-     DECL_FUNCTION_CODE.  Otherwise unused.  */
-  enum built_in_function function_code;
+     DECL_FUNCTION_CODE.  Otherwise unused.
+     ???  The bitfield needs to be able to hold all target function
+	  codes as well.  */
+  ENUM_BITFIELD(built_in_function) function_code : 11;
+  ENUM_BITFIELD(built_in_class) built_in_class : 2;
 
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
   unsigned uninlinable : 1;
+
   unsigned possibly_inlined : 1;
   unsigned novops_flag : 1;
   unsigned returns_twice_flag : 1;
   unsigned malloc_flag : 1;
   unsigned pure_flag : 1;
-
   unsigned declared_inline_flag : 1;
   unsigned regdecl_flag : 1;
   unsigned inline_flag : 1;
+
   unsigned no_instrument_function_entry_exit : 1;
   unsigned no_limit_stack : 1;
-  ENUM_BITFIELD(built_in_class) built_in_class : 2;
+  unsigned disregard_inline_limits : 1;
 
-  struct function *f;
+  /* 5 bits left */
 };
 
 /* For a TYPE_DECL, holds the "original" type.  (TREE_TYPE has the copy.) */
@@ -4144,7 +4166,6 @@ extern int is_attribute_p (const char *, const_tree);
    of the attribute or NULL_TREE if not found.  */
 
 extern tree lookup_attribute (const char *, tree);
-extern const_tree const_lookup_attribute (const char *, const_tree);
 
 /* Remove any instances of attribute ATTR_NAME in LIST and return the
    modified list.  */
@@ -4291,11 +4312,8 @@ extern tree non_lvalue (tree);
 extern tree convert (tree, tree);
 extern unsigned int expr_align (const_tree);
 extern tree expr_first (tree);
-extern const_tree const_expr_first (const_tree);
 extern tree expr_last (tree);
-extern const_tree const_expr_last (const_tree);
 extern tree expr_only (tree);
-extern const_tree const_expr_only (const_tree);
 extern tree size_in_bytes (const_tree);
 extern HOST_WIDE_INT int_size_in_bytes (const_tree);
 extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
@@ -4596,6 +4614,65 @@ extern GTY(()) tree current_function_decl;
 /* Nonzero means a FUNC_BEGIN label was emitted.  */
 extern GTY(()) const char * current_function_func_begin_label;
 
+/* Iterator for going through the function arguments.  */
+typedef struct {
+  tree fntype;			/* function type declaration */
+  tree next;			/* TREE_LIST pointing to the next argument */
+} function_args_iterator;
+
+/* Initialize the iterator I with arguments from function FNDECL  */
+
+static inline void
+function_args_iter_init (function_args_iterator *i, tree fntype)
+{
+  i->fntype = fntype;
+  i->next = TYPE_ARG_TYPES (fntype);
+}
+
+/* Return a pointer that holds the next argument if there are more arguments to
+   handle, otherwise return NULL.  */
+
+static inline tree *
+function_args_iter_cond_ptr (function_args_iterator *i)
+{
+  return (i->next) ? &TREE_VALUE (i->next) : NULL;
+}
+
+/* Return the next argument if there are more arguments to handle, otherwise
+   return NULL.  */
+
+static inline tree
+function_args_iter_cond (function_args_iterator *i)
+{
+  return (i->next) ? TREE_VALUE (i->next) : NULL_TREE;
+}
+
+/* Advance to the next argument.  */
+static inline void
+function_args_iter_next (function_args_iterator *i)
+{
+  gcc_assert (i->next != NULL_TREE);
+  i->next = TREE_CHAIN (i->next);
+}
+
+/* Loop over all function arguments of FNTYPE.  In each iteration, PTR is set
+   to point to the next tree element.  ITER is an instance of
+   function_args_iterator used to iterate the arguments.  */
+#define FOREACH_FUNCTION_ARGS_PTR(FNTYPE, PTR, ITER)			\
+  for (function_args_iter_init (&(ITER), (FNTYPE));			\
+       (PTR = function_args_iter_cond_ptr (&(ITER))) != NULL;		\
+       function_args_iter_next (&(ITER)))
+
+/* Loop over all function arguments of FNTYPE.  In each iteration, TREE is set
+   to the next tree element.  ITER is an instance of function_args_iterator
+   used to iterate the arguments.  */
+#define FOREACH_FUNCTION_ARGS(FNTYPE, TREE, ITER)			\
+  for (function_args_iter_init (&(ITER), (FNTYPE));			\
+       (TREE = function_args_iter_cond (&(ITER))) != NULL_TREE;		\
+       function_args_iter_next (&(ITER)))
+
+
+
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
 extern void clean_symbol_name (char *);
@@ -4608,12 +4685,15 @@ extern bool commutative_tree_code (enum tree_code);
 extern tree upper_bound_in_type (tree, tree);
 extern tree lower_bound_in_type (tree, tree);
 extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
-extern bool empty_body_p (const_tree);
+extern bool empty_body_p (tree);
 extern tree call_expr_arg (tree, int);
 extern tree *call_expr_argp (tree, int);
 extern tree call_expr_arglist (tree);
 extern tree create_artificial_label (void);
 extern const char *get_name (tree);
+extern bool stdarg_p (tree);
+extern bool prototype_p (tree);
+extern int function_args_count (tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 
 /* In gimplify.c */
@@ -4672,7 +4752,7 @@ extern tree fold_ignored_result (tree);
 extern tree fold_abs_const (tree, tree);
 extern tree fold_indirect_ref_1 (tree, tree);
 extern void fold_defer_overflow_warnings (void);
-extern void fold_undefer_overflow_warnings (bool, gimple, int);
+extern void fold_undefer_overflow_warnings (bool, const_gimple, int);
 extern void fold_undefer_and_ignore_overflow_warnings (void);
 extern bool fold_deferring_overflow_warnings_p (void);
 extern tree maybe_fold_offset_to_reference (tree, tree, tree);
@@ -4722,7 +4802,7 @@ enum operand_equal_flag
 };
 
 extern int operand_equal_p (const_tree, const_tree, unsigned int);
-extern int multiple_of_p (tree, tree, tree);
+extern int multiple_of_p (tree, const_tree, const_tree);
 extern tree omit_one_operand (tree, tree, tree);
 extern tree omit_two_operands (tree, tree, tree, tree);
 extern tree invert_truthvalue (tree);
@@ -4749,7 +4829,6 @@ extern enum tree_code invert_tree_comparison (enum tree_code, bool);
 
 extern bool tree_expr_nonzero_p (tree);
 extern bool tree_expr_nonzero_warnv_p (tree, bool *);
-extern int multiple_of_p (tree, tree, tree);
 
 /* In builtins.c */
 extern tree fold_call_expr (tree, bool);
@@ -4767,7 +4846,7 @@ extern enum built_in_function builtin_mathfn_code (const_tree);
 extern tree build_function_call_expr (tree, tree);
 extern tree fold_build_call_expr (tree, tree, tree, tree);
 extern tree fold_builtin_call_array (tree, tree, int, tree *);
-extern void debug_fold_checksum (tree);
+extern void debug_fold_checksum (const_tree);
 extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree strip_float_extensions (tree);
@@ -4831,25 +4910,21 @@ extern tree find_compatible_field (tree, tree);
 extern location_t expr_location (const_tree);
 extern void set_expr_location (tree, location_t);
 extern bool expr_has_location (const_tree);
-extern
+
 #ifdef USE_MAPPED_LOCATION
-source_location *
+extern source_locus *expr_locus (const_tree);
+extern void set_expr_locus (tree, source_location *);
 #else
-source_locus
+extern source_locus expr_locus (const_tree);
+extern void set_expr_locus (tree, source_locus loc);
 #endif
-expr_locus (const_tree);
-extern void set_expr_locus (tree,
-#ifdef USE_MAPPED_LOCATION
-                            source_location *loc
-#else
-		            source_locus loc
-#endif
-			   );
-extern const char **expr_filename (const_tree);
-extern int *expr_lineno (const_tree);
+extern const char *expr_filename (const_tree);
+extern int expr_lineno (const_tree);
+
 extern tree *tree_block (tree);
 extern tree *generic_tree_operand (tree, int);
 extern tree *generic_tree_type (tree);
+extern location_t *block_nonartificial_location (tree);
 
 /* In function.c */
 extern void expand_main_function (void);
@@ -4857,6 +4932,7 @@ extern void init_dummy_function_start (void);
 extern void expand_dummy_function_end (void);
 extern unsigned int init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
+extern void push_struct_function (tree fndecl);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (const_tree);
 extern void generate_setjmp_warnings (void);
@@ -4932,6 +5008,8 @@ extern bool must_pass_in_stack_var_size (enum machine_mode, const_tree);
 extern bool must_pass_in_stack_var_size_or_pad (enum machine_mode, const_tree);
 
 /* In attribs.c.  */
+
+extern const struct attribute_spec *lookup_attribute_spec (tree);
 
 /* Process the attributes listed in ATTRIBUTES and install them in *NODE,
    which is either a DECL (including a TYPE_DECL) or a TYPE.  If a DECL,

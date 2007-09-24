@@ -463,7 +463,7 @@ redirect_edges (void **slot, void *data)
    is one, this is equivalent to a "forwarder" block.  */
 
 static bool
-redirection_block_p (const_basic_block bb)
+redirection_block_p (basic_block bb)
 {
   block_stmt_iterator bsi;
 

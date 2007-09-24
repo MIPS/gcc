@@ -2281,7 +2281,6 @@ struct tree_opt_pass pass_jump =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_ggc_collect,                     /* todo_flags_start */
-  TODO_dump_func |
   TODO_verify_flow,                     /* todo_flags_finish */
   'i'                                   /* letter */
   ,0					/* works_with_tuples_p */
@@ -2313,7 +2312,7 @@ struct tree_opt_pass pass_jump2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_ggc_collect,                     /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
   'j'                                   /* letter */
   ,0					/* works_with_tuples_p */
 };
