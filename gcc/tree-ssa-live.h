@@ -274,11 +274,17 @@ typedef struct tree_live_info_d
 
   /* Bitmap of what variables are live on exit for a basic blocks.  */
   bitmap *liveout;
+
+  /* Bitmap of what variables are dead on exit.  This is defined as the 
+     variables which are used in PHI arguments on at least one exit edge
+     from a block, but are not used beyond that.  These are variables which
+     will have a use inserted on the exit edge during out of ssa.  */
+  bitmap *dead_on_exit;
 } *tree_live_info_p;
 
 
 extern tree_live_info_p calculate_live_ranges (var_map);
-extern void calculate_live_on_exit (tree_live_info_p);
+extern void calculate_dead_on_exit (tree_live_info_p);
 extern void delete_tree_live_info (tree_live_info_p);
 
 #define LIVEDUMP_ENTRY	0x01
@@ -323,6 +329,21 @@ live_on_exit (tree_live_info_p live, basic_block bb)
 
   return live->liveout[bb->index];
 }
+
+
+/* Return the bitmap from LIVE representing the dead on exit partitions from
+   block BB.  */
+
+static inline bitmap
+dead_on_exit (tree_live_info_p live, basic_block bb)
+{
+  gcc_assert (live->dead_on_exit);
+  gcc_assert (bb != ENTRY_BLOCK_PTR);
+  gcc_assert (bb != EXIT_BLOCK_PTR);
+
+  return live->dead_on_exit[bb->index];
+}
+
 
 
 /* Return the partition map which the information in LIVE utilizes.  */

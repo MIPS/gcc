@@ -542,6 +542,8 @@ new_tree_live_info (var_map map)
   live->work_stack = XNEWVEC (int, last_basic_block);
   live->stack_top = live->work_stack;
 
+  live->dead_on_exit = NULL;
+
   live->global = BITMAP_ALLOC (NULL);
   return live;
 }
@@ -564,6 +566,11 @@ delete_tree_live_info (tree_live_info_p live)
   for (x = live->num_blocks - 1; x >= 0; x--)
     BITMAP_FREE (live->livein[x]);
   free (live->livein);
+
+  if (live->dead_on_exit)
+    for (x = live->num_blocks - 1; x >= 0; x--)
+      BITMAP_FREE (live->dead_on_exit[x]);
+  free (live->dead_on_exit);
 
   free (live);
 }
@@ -716,7 +723,7 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
 
 /* Calculate the live on exit vectors based on the entry info in LIVEINFO.  */
 
-void
+static void
 calculate_live_on_exit (tree_live_info_p liveinfo)
 {
   unsigned i;
@@ -754,6 +761,47 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
 	  bitmap_ior_into (liveinfo->liveout[bb->index],
 			   live_on_entry (liveinfo, e->dest));
     }
+}
+
+
+/* Calculate the dead on exit vectors based on the entry and exit info in 
+   LIVEINFO.  Dead on exit are partitions which are used as PHI arguments in
+   successor blocks, but have no further uses.  */
+
+void
+calculate_dead_on_exit (tree_live_info_p live)
+{
+  bitmap *doe, b;
+  basic_block bb;
+  edge e;
+  edge_iterator ei;
+  bitmap l = BITMAP_ALLOC (NULL);
+
+  gcc_assert (live->liveout);
+  gcc_assert (n_basic_blocks == live->num_blocks);
+
+  doe = XCNEWVEC (bitmap, n_basic_blocks);
+
+  FOR_EACH_BB (bb)
+    {
+      b = BITMAP_ALLOC (NULL);
+      bitmap_clear (l);
+      /* Calculate all partitions which are live on entry to a successor.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        {
+	  if (e->dest == EXIT_BLOCK_PTR)
+	    continue;
+	  bitmap_ior_into (l, live_on_entry (live, e->dest));
+	}
+      /* Now calculate dead on exit by finding those that are live at exit
+	 and NOT live on entry to a successor.  Thse are the ssa_names which 
+	 go dead in PHI's, and thus go dead in a copy on an exit edge to BB.  */
+      bitmap_and_compl (b, live_on_exit (live, bb), l);
+      doe[bb->index] = b;
+    }
+  
+  BITMAP_FREE (l);
+  live->dead_on_exit = doe;
 }
 
 

@@ -34,6 +34,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
 #include "toplev.h"
+#include "tree-ssa-pressure.h"
 
 
 /* Used to hold all the components required to do SSA PHI elimination.
@@ -1138,6 +1139,14 @@ remove_ssa_form (bool perform_ter)
   var_map map;
 
   map = coalesce_ssa_name ();
+
+  if (dump_file)
+    {
+      pressure_table_p p;
+      p = calculate_name_pressure (PRESS_INTEGER|PRESS_FLOAT, NULL);
+      dump_ssa_pressure (dump_file, p);
+      delete_pressure_table (p);
+    }
 
   /* Return to viewing the variable list as just all reference variables after
      coalescing has been performed.  */
