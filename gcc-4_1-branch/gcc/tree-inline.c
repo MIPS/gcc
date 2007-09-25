@@ -741,6 +741,37 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 	      *a = copy_list (arglist);
 	      CALL_EXPR_VA_ARG_PACK (call) = 0;
 	    }
+	  else if (call
+		   && id->call_expr
+		   && (decl = get_callee_fndecl (call))
+		   && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+		   && DECL_FUNCTION_CODE (decl)
+		      == BUILT_IN_VA_ARG_PACK_LEN)
+	    {
+	      /* __builtin_va_arg_pack_len () should be replaced by
+		 the number of anonymous arguments.  */
+	      int nargs;
+	      tree count, *call_ptr, p, a;
+
+	      a = TREE_OPERAND (id->call_expr, 1);
+	      for (p = DECL_ARGUMENTS (id->src_fn); p; p = TREE_CHAIN (p))
+		a = TREE_CHAIN (a);
+
+              for (nargs = 0; a; a = TREE_CHAIN (a))
+		nargs++;
+
+	      count = build_int_cst (integer_type_node, nargs);
+	      call_ptr = &stmt;
+	      if (TREE_CODE (*call_ptr) == MODIFY_EXPR)
+		call_ptr = &TREE_OPERAND (*call_ptr, 1);
+	      if (TREE_CODE (*call_ptr) == WITH_SIZE_EXPR)
+		call_ptr = &TREE_OPERAND (*call_ptr, 0);
+	      gcc_assert (*call_ptr == call && call_ptr != &stmt);
+	      *call_ptr = count;
+	      update_stmt (stmt);
+	      call = NULL_TREE;
+	    }
+
 	  /* We're duplicating a CALL_EXPR.  Find any corresponding
 	     callgraph edges and update or duplicate them.  */
 	  if (call && (decl = get_callee_fndecl (call)))
