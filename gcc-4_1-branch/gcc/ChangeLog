@@ -1,3 +1,10 @@
+2007-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_sync): For QI or HI mode
+	used_m, even if it is 32-bit aligned, adjust used_m MEM to have
+	SImode and update m.  Don't run gen_lowpart_common on arbitrary
+	memory address, force it to register first.
+
 2007-08-27  Alexandre Oliva  <aoliva@redhat.com>
 
 	* doc/extend.texi (gnu_inline funtion attribute): Document C++
