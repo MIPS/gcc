@@ -1,3 +1,10 @@
+2007-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/format/c90-scanf-5.c: New test.
+	* gcc.dg/format/c99-scanf-4.c: New test.
+	* gcc.dg/format/ext-7.c: New test.
+	* gcc.dg/format/ext-8.c: New test.
+
 2007-09-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/33423
