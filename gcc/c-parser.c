@@ -892,10 +892,48 @@ c_parser_note_smash (tree from, tree to)
   C_SMASHED_P (from) = 1;
 }
 
+/* Update a checksum for a numeric constant of some kind.  */
+static void
+update_numeric_checksum (struct md5_ctx *current_hash, tree number)
+{
+  /* Include the tree code of the constant for disambiguation.  */
+  int type = TREE_CODE (number);
+  md5_process_bytes (&type, sizeof (type), current_hash);
+
+  if (TREE_CODE (number) == COMPLEX_CST)
+    {
+      update_numeric_checksum (current_hash, TREE_REALPART (number));
+      update_numeric_checksum (current_hash, TREE_IMAGPART (number));
+    }
+  else if (TREE_CODE (number) == INTEGER_CST)
+    {
+      md5_process_bytes (&TREE_INT_CST_LOW (number), sizeof (HOST_WIDE_INT),
+			 current_hash);
+      md5_process_bytes (&TREE_INT_CST_HIGH (number), sizeof (HOST_WIDE_INT),
+			 current_hash);
+    }
+  else
+    {
+      /* Abort so that we know we missed something.  Fixed types?
+	 DFP?  */
+      gcc_assert (TREE_CODE (number) == REAL_CST);
+      md5_process_bytes (TREE_REAL_CST_PTR (number), sizeof (REAL_VALUE_TYPE),
+			 current_hash);
+    }
+}
+
 /* Update a checksum with a single token.  */
 static void
 c_parser_update_checksum (struct md5_ctx *current_hash, c_token *token)
 {
+  int type;
+
+  gcc_assert (token->type != CPP_PADDING && token->type != CPP_COMMENT);
+
+  /* Always include the token type in the checksum.  */
+  type = token->type;
+  md5_process_bytes (&type, sizeof (type), current_hash);
+
   switch (token->type)
     {
     case CPP_NAME:
@@ -913,15 +951,13 @@ c_parser_update_checksum (struct md5_ctx *current_hash, c_token *token)
       break;
 
     case CPP_NUMBER:
-    case CPP_AT_NAME:
     case CPP_CHAR:
     case CPP_WCHAR:
-    case CPP_PRAGMA:
-      /* FIXME: cheap hack: do nothing*/
+      update_numeric_checksum (current_hash, token->value);
       break;
 
     default:
-      /*lalala*/
+      /* No need to do anything more.  */
       break;
     }
 }

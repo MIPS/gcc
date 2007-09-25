@@ -1,3 +1,8 @@
+2007-09-25  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (update_numeric_checksum): New function.
+	(c_parser_update_checksum): Handle all tokens properly.
+
 2007-09-24  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (all_c_built_ins): New global.
