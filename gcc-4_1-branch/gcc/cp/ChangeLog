@@ -1,3 +1,9 @@
+2007-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33289
+	* decl.c (builtin_function_1): Set DECL_ANTICIPATED also
+	on __*_chk non-__builtin_* decls.
+
 2007-08-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-tree.h (cp_disregard_inline_limits): New prototype.
