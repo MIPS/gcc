@@ -1,3 +1,8 @@
+2007-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/tramp.asm: Include config.h.
+	Check __PIC__ or __pic__ macro instead of SHARED.
+
 2006-03-02  David S. Miller  <davem@sunset.davemloft.net>
 
 	Sun Niagara specific optimizations.
