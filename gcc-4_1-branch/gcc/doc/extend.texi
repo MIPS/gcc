@@ -1587,8 +1587,8 @@ refer to the single copy in the library.  Note that the two
 definitions of the functions need not be precisely the same, although
 if they do not have the same effect your program may behave oddly.
 
-If the function is neither @code{extern} nor @code{static}, then the
-function is compiled as a standalone function, as well as being
+In C, if the function is neither @code{extern} nor @code{static}, then
+the function is compiled as a standalone function, as well as being
 inlined where possible.
 
 This is how GCC traditionally handled functions declared
@@ -1605,6 +1605,10 @@ is 4.3, earlier versions of GCC which accept this attribute effectively
 assume that it is always present, whether or not it is given explicitly.
 In versions prior to 4.3, the only effect of explicitly including it is
 to disable warnings about using inline functions in C99 mode.
+
+In C++, this attribute does not depend on @code{extern} in any way,
+but it still requires the @code{inline} keyword to enable its special
+behavior.
 
 @cindex @code{flatten} function attribute
 @item flatten

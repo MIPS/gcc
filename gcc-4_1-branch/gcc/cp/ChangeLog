@@ -1,3 +1,18 @@
+2007-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (cp_disregard_inline_limits): New prototype.
+	* decl.c (cp_disregard_inline_limits): New function.
+	* cp-objcp-common.h
+	(LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS): Define.
+
+2007-08-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* decl.c (GNU_INLINE_P): New.
+	(duplicate_decls): Handle gnu_inline.  Merge attributes and
+	some flags in overriding definitions.
+	(redeclaration_error_message): Handle gnu_inline.
+	(start_preparsed_function): Likewise.
+
 2007-08-31  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/32113

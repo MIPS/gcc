@@ -107,6 +107,9 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   cp_cannot_inline_tree_fn
+#undef LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS
+#define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
+  cp_disregard_inline_limits
 #undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
 #define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
   cp_add_pending_fn_decls
