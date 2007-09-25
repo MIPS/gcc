@@ -10383,6 +10383,13 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 	return 0;
 
       fn = build_function_call_expr (fn, arglist);
+      STRIP_TYPE_NOPS (fn);
+      while (TREE_CODE (fn) == COMPOUND_EXPR)
+	{
+	  expand_expr (TREE_OPERAND (fn, 0), const0_rtx, VOIDmode,
+		       EXPAND_NORMAL);
+	  fn = TREE_OPERAND (fn, 1);
+	}
       if (TREE_CODE (fn) == CALL_EXPR)
 	CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
       return expand_expr (fn, target, mode, EXPAND_NORMAL);
@@ -10432,6 +10439,13 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 	      if (!fn)
 		return 0;
 	      fn = build_function_call_expr (fn, arglist);
+	      STRIP_TYPE_NOPS (fn);
+	      while (TREE_CODE (fn) == COMPOUND_EXPR)
+		{
+		  expand_expr (TREE_OPERAND (fn, 0), const0_rtx, VOIDmode,
+			       EXPAND_NORMAL);
+		  fn = TREE_OPERAND (fn, 1);
+		}
 	      if (TREE_CODE (fn) == CALL_EXPR)
 		CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
 	      return expand_expr (fn, target, mode, EXPAND_NORMAL);

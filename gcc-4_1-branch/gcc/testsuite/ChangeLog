@@ -1,3 +1,8 @@
+2007-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/33423
+	* gcc.c-torture/compile/20070915-1.c: New test.
+
 2006-10-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/27954
