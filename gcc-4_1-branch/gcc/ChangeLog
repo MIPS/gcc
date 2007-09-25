@@ -1,3 +1,38 @@
+2007-09-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac (ld_vers): Support GNU linker version xx.xx.*
+	* configure: Regenerated.
+
+2007-09-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (MAKEINFO): Handle makeinfo version 4.10 and above.
+	* configure: Regenerated.
+
+2007-09-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/33418
+	* configure.ac (ld_vers): Support Linux linker.
+	* configure: Regenerated.
+
+2007-09-06  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/33256
+	* config/mips/mips.c (mips_classify_symbolic_expression): New function.
+	(mips_classify_address): Use it instead of mips_symbolic_constant_p.
+	(print_operand_reloc): Likewise.
+
+2007-08-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/32912
+	* fold-const.c (fold_binary): Only optimize X | ~X and X ^ ~X for
+	integral types.
+
+2007-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33142
+	* tree-vrp.c (extract_range_from_unary_expr): Compare with
+	TYPE_MIN/MAX_VALUE using tree_int_cst_equal.
+
 2007-08-21  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* config/mips/predicates.md (const_call_insn_operand): Invoke
