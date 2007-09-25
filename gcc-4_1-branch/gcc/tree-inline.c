@@ -725,6 +725,22 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 
           bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
 	  call = get_call_expr_in (stmt);
+	  if (call && CALL_EXPR_VA_ARG_PACK (call) && id->call_expr)
+	    {
+	      tree arglist, *a, p;
+	      TREE_OPERAND (call, 1) = copy_list (TREE_OPERAND (call, 1));
+
+	      for (a = &TREE_OPERAND (call, 1); *a; a = &TREE_CHAIN (*a))
+		;
+
+	      p = DECL_ARGUMENTS (id->src_fn);
+	      for (arglist = TREE_OPERAND (id->call_expr, 1);
+		   p; p = TREE_CHAIN (p), arglist = TREE_CHAIN (arglist))
+		;
+
+	      *a = copy_list (arglist);
+	      CALL_EXPR_VA_ARG_PACK (call) = 0;
+	    }
 	  /* We're duplicating a CALL_EXPR.  Find any corresponding
 	     callgraph edges and update or duplicate them.  */
 	  if (call && (decl = get_callee_fndecl (call)))
@@ -2085,6 +2101,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   /* Record the function we are about to inline.  */
   id->src_fn = fn;
   id->src_node = cg_edge->callee;
+  id->call_expr = t;
 
   initialize_inlined_parameters (id, args, TREE_OPERAND (t, 2), fn, bb);
 

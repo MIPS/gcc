@@ -1,3 +1,26 @@
+2007-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.def (BUILT_IN_VA_ARG_PACK): New built-in.
+	* tree.h (CALL_EXPR_VA_ARG_PACK): Define.
+	* tree-inline.h (copy_body_data): Add call_expr field.
+	* tree-inline.c (expand_call_inline): Initialize call_expr.
+	(copy_bb): Append anonymous inline fn arguments to arguments
+	when inlining a CALL_EXPR_VA_ARG_PACK call.
+	* builtins.c (expand_builtin): Issue an error if
+	BUILT_IN_VA_ARG_PACK is seen during expand.
+	(fold_builtin_1): Don't fold calls with
+	__builtin_va_arg_pack () call as last argument.
+	* gimplify.c (gimplify_call_expr): If last argument to a vararg
+	function is __builtin_va_arg_pack (), decrease number of call
+	arguments and instead set CALL_EXPR_VA_ARG_PACK on the CALL_EXPR.
+	* fold-const.c (fold): Don't fold CALL_EXPRs with
+	CALL_EXPR_VA_ARG_PACK bit set.
+	* expr.c (expand_expr_real_1): Issue an error if
+	CALL_EXPR_VA_ARG_PACK CALL_EXPR is seen during expand.
+	* tree-pretty-print.c (dump_generic_node): Handle printing
+	CALL_EXPR_VA_ARG_PACK bit on CALL_EXPRs.
+	* doc/extend.texi (__builtin_va_arg_pack): Document.
+
 2007-09-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* builtin-attrs.def (ATTR_NONNULL_3): New.

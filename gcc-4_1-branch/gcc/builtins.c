@@ -5979,6 +5979,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ARGS_INFO:
       return expand_builtin_args_info (arglist);
 
+    case BUILT_IN_VA_ARG_PACK:
+      /* All valid uses of __builtin_va_arg_pack () are removed during
+	 inlining.  */
+      error ("invalid use of %<__builtin_va_arg_pack ()%>");
+      return const0_rtx;
+
       /* Return the address of the first anonymous stack arg.  */
     case BUILT_IN_NEXT_ARG:
       if (fold_builtin_next_arg (arglist))
@@ -9017,6 +9023,26 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
 {
   tree type = TREE_TYPE (TREE_TYPE (fndecl));
   enum built_in_function fcode;
+  tree a;
+
+  if (arglist)
+    {
+      for (a = arglist; TREE_CHAIN (a); a = TREE_CHAIN (a))
+	;
+
+      /* Before gimplification CALL_EXPR_VA_ARG_PACK is not set, but
+	 instead last argument is __builtin_va_arg_pack ().  Defer folding
+	 even in that case, until arguments are finalized.  */
+      if (TREE_CODE (TREE_VALUE (a)) == CALL_EXPR)
+	{
+	  tree fndecl2 = get_callee_fndecl (TREE_VALUE (a));
+	  if (fndecl2
+	      && TREE_CODE (fndecl2) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (fndecl2) == BUILT_IN_NORMAL
+	      && DECL_FUNCTION_CODE (fndecl2) == BUILT_IN_VA_ARG_PACK)
+	    return NULL_TREE;
+	}
+    }
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.fold_builtin (fndecl, arglist, ignore);

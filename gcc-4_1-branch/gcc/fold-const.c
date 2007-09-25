@@ -10413,6 +10413,8 @@ fold (tree expr)
 	  op0 = TREE_OPERAND (t, 0);
 	  op1 = TREE_OPERAND (t, 1);
 	  op2 = TREE_OPERAND (t, 2);
+	  if (code == CALL_EXPR && CALL_EXPR_VA_ARG_PACK (t))
+	    return expr;
 	  tem = fold_ternary (code, type, op0, op1, op2);
 	  return tem ? tem : expr;
 	default:

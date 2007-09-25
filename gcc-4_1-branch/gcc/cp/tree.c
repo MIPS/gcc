@@ -2078,12 +2078,6 @@ cp_cannot_inline_tree_fn (tree* fnp)
       return 1;
     }
 
-  if (varargs_function_p (fn))
-    {
-      DECL_UNINLINABLE (fn) = 1;
-      return 1;
-    }
-
   if (! function_attribute_inlinable_p (fn))
     {
       DECL_UNINLINABLE (fn) = 1;

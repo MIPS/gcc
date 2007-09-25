@@ -1,3 +1,8 @@
+2007-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (cp_cannot_inline_tree_fn): Don't mark varargs_function_p
+	as uninlinable.
+
 2007-09-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/33289
