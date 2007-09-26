@@ -4,8 +4,9 @@
 
 void abort (void);
 
-int fib[1000];
+long int fib[1000];
 
+__attribute__ ((noinline))
 void count_fib(void)
 {
   int i;
@@ -18,6 +19,7 @@ void count_fib(void)
 
 int avg[1000];
 
+__attribute__ ((noinline))
 void count_averages(void)
 {
   int i;

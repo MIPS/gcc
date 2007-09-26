@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -58,10 +57,10 @@ static int reload_cse_simplify_operands (rtx, rtx);
 
 static void reload_combine (void);
 static void reload_combine_note_use (rtx *, rtx);
-static void reload_combine_note_store (rtx, rtx, void *);
+static void reload_combine_note_store (rtx, const_rtx, void *);
 
 static void reload_cse_move2add (rtx);
-static void move2add_note_store (rtx, rtx, void *);
+static void move2add_note_store (rtx, const_rtx, void *);
 
 /* Call cse / combine like post-reload optimization phases.
    FIRST is the first instruction.  */
@@ -981,7 +980,7 @@ reload_combine (void)
    accordingly.  Called via note_stores from reload_combine.  */
 
 static void
-reload_combine_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
+reload_combine_note_store (rtx dst, const_rtx set, void *data ATTRIBUTE_UNUSED)
 {
   int regno = 0;
   int i;
@@ -1420,7 +1419,7 @@ reload_cse_move2add (rtx first)
    Called from reload_cse_move2add via note_stores.  */
 
 static void
-move2add_note_store (rtx dst, rtx set, void *data ATTRIBUTE_UNUSED)
+move2add_note_store (rtx dst, const_rtx set, void *data ATTRIBUTE_UNUSED)
 {
   unsigned int regno = 0;
   unsigned int nregs = 0;
@@ -1599,7 +1598,7 @@ struct tree_opt_pass pass_postreload_cse =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,                       /* todo_flags_finish */
   'o'                                   /* letter */
 };

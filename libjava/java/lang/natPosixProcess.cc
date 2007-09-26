@@ -18,6 +18,9 @@ details.  */
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
@@ -28,10 +31,9 @@ details.  */
 #include <unistd.h>
 #include <pthread.h>
 
-#include <gcj/cni.h>
-#include <jvm.h>
 #include <posix.h>
 #include <posix-threads.h>
+#include <jvm.h>
 
 #include <java/lang/PosixProcess$ProcessManager.h>
 #include <java/lang/PosixProcess.h>
@@ -108,7 +110,11 @@ namespace
 // sigwait() on SIGCHLD.  The information passed is ignored as it
 // will be recovered by the waitpid() call.
 static void
+#ifdef SA_SIGINFO
 sigchld_handler (int sig, siginfo_t *si, void *third)
+#else
+sigchld_handler (int sig)
+#endif
 {
   if (PosixProcess$ProcessManager::nativeData != NULL)
     {
@@ -119,9 +125,11 @@ sigchld_handler (int sig, siginfo_t *si, void *third)
       if (pmi->old_sigaction.sa_handler != SIG_DFL
           && pmi->old_sigaction.sa_handler != SIG_IGN)
         {
+#ifdef SA_SIGINFO
           if ((pmi->old_sigaction.sa_flags & SA_SIGINFO) != 0)
             pmi->old_sigaction.sa_sigaction(sig, si, third);
           else
+#endif
             (*pmi->old_sigaction.sa_handler)(sig);
         }
     }
@@ -154,9 +162,15 @@ java::lang::PosixProcess$ProcessManager::init ()
       struct sigaction sa;
       memset (&sa, 0, sizeof (sa));
 
+#ifdef SA_SIGINFO
       sa.sa_sigaction = sigchld_handler;
       // We only want signals when the things exit.
       sa.sa_flags = SA_NOCLDSTOP | SA_SIGINFO;
+#else
+      sa.sa_handler = sigchld_handler;
+      // We only want signals when the things exit.
+      sa.sa_flags = SA_NOCLDSTOP;
+#endif
 
       if (-1 == sigaction (SIGCHLD, &sa, &pmi->old_sigaction))
         goto error;

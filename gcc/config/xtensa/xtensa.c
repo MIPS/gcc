@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -95,6 +94,7 @@ struct machine_function GTY(())
   int accesses_prev_frame;
   bool need_a7_copy;
   bool vararg_a7;
+  rtx vararg_a7_copy;
   rtx set_frame_ptr_insn;
 };
 
@@ -131,7 +131,7 @@ static rtx gen_float_relational (enum rtx_code, rtx, rtx);
 static rtx gen_conditional_move (rtx);
 static rtx fixup_subreg_mem (rtx);
 static struct machine_function * xtensa_init_machine_status (void);
-static bool xtensa_return_in_msb (tree);
+static bool xtensa_return_in_msb (const_tree);
 static void printx (FILE *, signed int);
 static void xtensa_function_epilogue (FILE *, HOST_WIDE_INT);
 static rtx xtensa_builtin_saveregs (void);
@@ -141,7 +141,7 @@ static section *xtensa_select_rtx_section (enum machine_mode, rtx,
 					   unsigned HOST_WIDE_INT);
 static bool xtensa_rtx_costs (rtx, int, int, int *);
 static tree xtensa_build_builtin_va_list (void);
-static bool xtensa_return_in_memory (tree, tree);
+static bool xtensa_return_in_memory (const_tree, const_tree);
 static tree xtensa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static void xtensa_init_builtins (void);
 static tree xtensa_fold_builtin (tree, tree, bool);
@@ -180,16 +180,16 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 #define TARGET_BUILD_BUILTIN_VA_LIST xtensa_build_builtin_va_list
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY xtensa_return_in_memory
 #undef TARGET_SPLIT_COMPLEX_ARG
-#define TARGET_SPLIT_COMPLEX_ARG hook_bool_tree_true
+#define TARGET_SPLIT_COMPLEX_ARG hook_bool_const_tree_true
 #undef TARGET_MUST_PASS_IN_STACK
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 
@@ -1005,7 +1005,7 @@ xtensa_copy_incoming_a7 (rtx opnd)
   /* Copy a7 to a new pseudo at the function entry.  Use gen_raw_REG to
      create the REG for a7 so that hard_frame_pointer_rtx is not used.  */
 
-  push_to_sequence (entry_insns);
+  start_sequence ();
   tmp = gen_reg_rtx (mode);
 
   switch (mode)
@@ -1039,10 +1039,11 @@ xtensa_copy_incoming_a7 (rtx opnd)
 
   if (cfun->machine->vararg_a7)
     {
-      /* This is called from within builtin_savereg, so we're already
-	 inside a start_sequence that will be placed at the start of
-	 the function.  */
-      emit_insn (entry_insns);
+      /* This is called from within builtin_saveregs, which will insert the
+	 saveregs code at the function entry, ahead of anything placed at
+	 the function entry now.  Instead, save the sequence to be inserted
+	 at the beginning of the saveregs code.  */
+      cfun->machine->vararg_a7_copy = entry_insns;
     }
   else
     {
@@ -1051,6 +1052,8 @@ xtensa_copy_incoming_a7 (rtx opnd)
 	 chain current, so the code is placed at the start of the
 	 function.  */
       push_topmost_sequence ();
+      /* Do not use entry_of_function() here.  This is called from within
+	 expand_function_start, when the CFG still holds GIMPLE.  */
       emit_insn_after (entry_insns, get_insns ());
       pop_topmost_sequence ();
     }
@@ -1195,6 +1198,263 @@ static struct machine_function *
 xtensa_init_machine_status (void)
 {
   return ggc_alloc_cleared (sizeof (struct machine_function));
+}
+
+
+/* Shift VAL of mode MODE left by COUNT bits.  */
+
+static inline rtx
+xtensa_expand_mask_and_shift (rtx val, enum machine_mode mode, rtx count)
+{
+  val = expand_simple_binop (SImode, AND, val, GEN_INT (GET_MODE_MASK (mode)),
+			     NULL_RTX, 1, OPTAB_DIRECT);
+  return expand_simple_binop (SImode, ASHIFT, val, count,
+			      NULL_RTX, 1, OPTAB_DIRECT);
+}
+
+
+/* Structure to hold the initial parameters for a compare_and_swap operation
+   in HImode and QImode.  */
+
+struct alignment_context
+{
+  rtx memsi;	  /* SI aligned memory location.  */
+  rtx shift;	  /* Bit offset with regard to lsb.  */
+  rtx modemask;	  /* Mask of the HQImode shifted by SHIFT bits.  */
+  rtx modemaski;  /* ~modemask */
+};
+
+
+/* Initialize structure AC for word access to HI and QI mode memory.  */
+
+static void
+init_alignment_context (struct alignment_context *ac, rtx mem)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx byteoffset = NULL_RTX;
+  bool aligned = (MEM_ALIGN (mem) >= GET_MODE_BITSIZE (SImode));
+
+  if (aligned)
+    ac->memsi = adjust_address (mem, SImode, 0); /* Memory is aligned.  */
+  else
+    {
+      /* Alignment is unknown.  */
+      rtx addr, align;
+
+      /* Force the address into a register.  */
+      addr = force_reg (Pmode, XEXP (mem, 0));
+
+      /* Align it to SImode.  */
+      align = expand_simple_binop (Pmode, AND, addr,
+				   GEN_INT (-GET_MODE_SIZE (SImode)),
+				   NULL_RTX, 1, OPTAB_DIRECT);
+      /* Generate MEM.  */
+      ac->memsi = gen_rtx_MEM (SImode, align);
+      MEM_VOLATILE_P (ac->memsi) = MEM_VOLATILE_P (mem);
+      set_mem_alias_set (ac->memsi, ALIAS_SET_MEMORY_BARRIER);
+      set_mem_align (ac->memsi, GET_MODE_BITSIZE (SImode));
+
+      byteoffset = expand_simple_binop (Pmode, AND, addr,
+					GEN_INT (GET_MODE_SIZE (SImode) - 1),
+					NULL_RTX, 1, OPTAB_DIRECT);
+    }
+
+  /* Calculate shiftcount.  */
+  if (TARGET_BIG_ENDIAN)
+    {
+      ac->shift = GEN_INT (GET_MODE_SIZE (SImode) - GET_MODE_SIZE (mode));
+      if (!aligned)
+	ac->shift = expand_simple_binop (SImode, MINUS, ac->shift, byteoffset,
+					 NULL_RTX, 1, OPTAB_DIRECT);
+    }
+  else
+    {
+      if (aligned)
+	ac->shift = NULL_RTX;
+      else
+	ac->shift = byteoffset;
+    }
+
+  if (ac->shift != NULL_RTX)
+    {
+      /* Shift is the byte count, but we need the bitcount.  */
+      ac->shift = expand_simple_binop (SImode, MULT, ac->shift,
+				       GEN_INT (BITS_PER_UNIT),
+				       NULL_RTX, 1, OPTAB_DIRECT);
+      ac->modemask = expand_simple_binop (SImode, ASHIFT,
+					  GEN_INT (GET_MODE_MASK (mode)),
+					  ac->shift,
+					  NULL_RTX, 1, OPTAB_DIRECT);
+    }
+  else
+    ac->modemask = GEN_INT (GET_MODE_MASK (mode));
+
+  ac->modemaski = expand_simple_unop (SImode, NOT, ac->modemask, NULL_RTX, 1);
+}
+
+
+/* Expand an atomic compare and swap operation for HImode and QImode.
+   MEM is the memory location, CMP the old value to compare MEM with
+   and NEW the value to set if CMP == MEM.  */
+
+void
+xtensa_expand_compare_and_swap (rtx target, rtx mem, rtx cmp, rtx new)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  struct alignment_context ac;
+  rtx tmp, cmpv, newv, val;
+  rtx oldval = gen_reg_rtx (SImode);
+  rtx res = gen_reg_rtx (SImode);
+  rtx csloop = gen_label_rtx ();
+  rtx csend = gen_label_rtx ();
+
+  init_alignment_context (&ac, mem);
+
+  if (ac.shift != NULL_RTX)
+    {
+      cmp = xtensa_expand_mask_and_shift (cmp, mode, ac.shift);
+      new = xtensa_expand_mask_and_shift (new, mode, ac.shift);
+    }
+
+  /* Load the surrounding word into VAL with the MEM value masked out.  */
+  val = force_reg (SImode, expand_simple_binop (SImode, AND, ac.memsi,
+						ac.modemaski, NULL_RTX, 1,
+						OPTAB_DIRECT));
+  emit_label (csloop);
+
+  /* Patch CMP and NEW into VAL at correct position.  */
+  cmpv = force_reg (SImode, expand_simple_binop (SImode, IOR, cmp, val,
+						 NULL_RTX, 1, OPTAB_DIRECT));
+  newv = force_reg (SImode, expand_simple_binop (SImode, IOR, new, val,
+						 NULL_RTX, 1, OPTAB_DIRECT));
+
+  /* Jump to end if we're done.  */
+  emit_insn (gen_sync_compare_and_swapsi (res, ac.memsi, cmpv, newv));
+  emit_cmp_and_jump_insns (res, cmpv, EQ, const0_rtx, SImode, true, csend);
+
+  /* Check for changes outside mode.  */
+  emit_move_insn (oldval, val);
+  tmp = expand_simple_binop (SImode, AND, res, ac.modemaski,
+			     val, 1, OPTAB_DIRECT);
+  if (tmp != val)
+    emit_move_insn (val, tmp);
+
+  /* Loop internal if so.  */
+  emit_cmp_and_jump_insns (oldval, val, NE, const0_rtx, SImode, true, csloop);
+
+  emit_label (csend);
+
+  /* Return the correct part of the bitfield.  */
+  convert_move (target,
+		(ac.shift == NULL_RTX ? res
+		 : expand_simple_binop (SImode, LSHIFTRT, res, ac.shift,
+					NULL_RTX, 1, OPTAB_DIRECT)),
+		1);
+}
+
+
+/* Expand an atomic operation CODE of mode MODE (either HImode or QImode --
+   the default expansion works fine for SImode).  MEM is the memory location
+   and VAL the value to play with.  If AFTER is true then store the value
+   MEM holds after the operation, if AFTER is false then store the value MEM
+   holds before the operation.  If TARGET is zero then discard that value, else
+   store it to TARGET.  */
+
+void
+xtensa_expand_atomic (enum rtx_code code, rtx target, rtx mem, rtx val,
+		      bool after)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  struct alignment_context ac;
+  rtx csloop = gen_label_rtx ();
+  rtx cmp, tmp;
+  rtx old = gen_reg_rtx (SImode);
+  rtx new = gen_reg_rtx (SImode);
+  rtx orig = NULL_RTX;
+
+  init_alignment_context (&ac, mem);
+
+  /* Prepare values before the compare-and-swap loop.  */
+  if (ac.shift != NULL_RTX)
+    val = xtensa_expand_mask_and_shift (val, mode, ac.shift);
+  switch (code)
+    {
+    case PLUS:
+    case MINUS:
+      orig = gen_reg_rtx (SImode);
+      convert_move (orig, val, 1);
+      break;
+
+    case SET:
+    case IOR:
+    case XOR:
+      break;
+
+    case MULT: /* NAND */
+    case AND:
+      /* val = "11..1<val>11..1" */
+      val = expand_simple_binop (SImode, XOR, val, ac.modemaski,
+				 NULL_RTX, 1, OPTAB_DIRECT);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Load full word.  Subsequent loads are performed by S32C1I.  */
+  cmp = force_reg (SImode, ac.memsi);
+
+  emit_label (csloop);
+  emit_move_insn (old, cmp);
+
+  switch (code)
+    {
+    case PLUS:
+    case MINUS:
+      val = expand_simple_binop (SImode, code, old, orig,
+				 NULL_RTX, 1, OPTAB_DIRECT);
+      val = expand_simple_binop (SImode, AND, val, ac.modemask,
+				 NULL_RTX, 1, OPTAB_DIRECT);
+      /* FALLTHRU */
+    case SET:
+      tmp = expand_simple_binop (SImode, AND, old, ac.modemaski,
+				 NULL_RTX, 1, OPTAB_DIRECT);
+      tmp = expand_simple_binop (SImode, IOR, tmp, val,
+				 new, 1, OPTAB_DIRECT);
+      break;
+
+    case AND:
+    case IOR:
+    case XOR:
+      tmp = expand_simple_binop (SImode, code, old, val,
+				 new, 1, OPTAB_DIRECT);
+      break;
+
+    case MULT: /* NAND */
+      tmp = expand_simple_binop (SImode, XOR, old, ac.modemask,
+				 NULL_RTX, 1, OPTAB_DIRECT);
+      tmp = expand_simple_binop (SImode, AND, tmp, val,
+				 new, 1, OPTAB_DIRECT);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  if (tmp != new)
+    emit_move_insn (new, tmp);
+  emit_insn (gen_sync_compare_and_swapsi (cmp, ac.memsi, old, new));
+  emit_cmp_and_jump_insns (cmp, old, NE, const0_rtx, SImode, true, csloop);
+
+  if (target)
+    {
+      tmp = (after ? new : cmp);
+      convert_move (target,
+		    (ac.shift == NULL_RTX ? tmp
+		     : expand_simple_binop (SImode, LSHIFTRT, tmp, ac.shift,
+					    NULL_RTX, 1, OPTAB_DIRECT)),
+		    1);
+    }
 }
 
 
@@ -1586,7 +1846,7 @@ function_arg_boundary (enum machine_mode mode, tree type)
 
 
 static bool
-xtensa_return_in_msb (tree valtype)
+xtensa_return_in_msb (const_tree valtype)
 {
   return (TARGET_BIG_ENDIAN
 	  && AGGREGATE_TYPE_P (valtype)
@@ -2198,6 +2458,8 @@ xtensa_builtin_saveregs (void)
 		       adjust_address (gp_regs, BLKmode,
 				       arg_words * UNITS_PER_WORD),
 		       gp_left);
+  gcc_assert (cfun->machine->vararg_a7_copy != 0);
+  emit_insn_before (cfun->machine->vararg_a7_copy, get_insns ());
 
   return XEXP (gp_regs, 0);
 }
@@ -2844,7 +3106,7 @@ xtensa_rtx_costs (rtx x, int code, int outer_code, int *total)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-xtensa_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+xtensa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   return ((unsigned HOST_WIDE_INT) int_size_in_bytes (type)
 	  > 4 * UNITS_PER_WORD);

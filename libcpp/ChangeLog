@@ -1,3 +1,59 @@
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* internal.h (struct cpp_reader) <invocation_location>: New
+	field.
+	(struct cpp_reader) <set_invocation_location>: Likewise.
+	* init.c (cpp_set_line_map): New function.
+	* line-map.c (linemap_add): Use linemap's allocator.
+	* include/line-map.h (GTY): Define.
+	(line_map_realloc): New typedef.
+	(struct line_map): Mark with GTY.
+	(struct line_maps): Likewise.
+	(struct line_maps) <maps>: Likewise.
+	(struct line_maps) <reallocator>: New field.
+	* include/symtab.h (GTY): Conditionally define.
+	* include/cpplib.h (cpp_set_line_map): Declare.
+	(cpp_get_token_with_location): Declare.
+	* macro.c (cpp_get_token): Set invocation_location on the reader.
+	(cpp_get_token_with_location): New function.
+
+2007-08-30  Chao-ying Fu  <fu@mips.com>
+
+	* expr.c (interpret_float_suffix): Support hr, r, lr, llr, uhr, ur,
+	ulr, ullr, hk, k, lk, llk, uhk, uk, ulk, ullk.
+	(cpp_classify_number): Support decimal fixed-point constants without
+	exponents.
+	Warn about fixed-point constants when -pedantic.
+	* include/cpplib.h (CPP_N_SMALL, CPP_N_MEDIUM, CPP_N_LARGE): Change
+	comments to support fixed-point values.
+	(CPP_N_FRACT, CPP_N_ACCUM): Define.
+
+2007-08-18  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/32974:
+	* directives.c (parse_include): Don't check for EOL when
+	processing #pragma dependency.
+
+2007-07-30  Ollie Wild  <aaw@google.com>
+
+	* directives-only.c: New file.
+	* internal.h (struct _cpp_dir_only_callbacks): New.
+	(_cpp_preprocess_dir_only): New function.
+	* directives.c (_cpp_handle_directive): Check directives_only before
+	disabling execution of indented directives.
+	* files.c (_cpp_stack_file): Add directives_only check.
+	* include/cpplib.h (struct cpp_options): Add directives_only.
+	(cpp_init_special_builtins): New function.
+	* init.c (cpp_init_special_builtins): New function.
+	(cpp_init_builtins): Move builtin_array initialization to
+	cpp_init_special_builtins.
+	(post_options): Check directives_only before setting
+	pfile->state.prevent_expansion = 1.
+	* macro.c (_cpp_builtin_macro_text): Print an error if __COUNTER__
+	is expanded inside a directive while -fdirectives-only is enabled.
+	* Makefile.in (libcpp_a_OBJS): Add directives-only.o.
+	(libcpp_a_SOURCES): Add directives-only.c.
+
 2007-07-04  Uros Bizjak  <ubizjak@gmail.com>
 
 	* traditional.c (_cpp_scan_out_logical_line): Initialize

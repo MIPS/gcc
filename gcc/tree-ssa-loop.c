@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -467,6 +466,42 @@ struct tree_opt_pass pass_complete_unroll =
   TODO_dump_func | TODO_verify_loops
     | TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */
+};
+
+/* Parallelization.  */
+
+static bool
+gate_tree_parallelize_loops (void)
+{
+  return flag_tree_parallelize_loops != 1;
+}
+
+static unsigned
+tree_parallelize_loops (void)
+{
+  if (number_of_loops () <= 1)
+    return 0;
+
+  if (parallelize_loops ())
+    return TODO_cleanup_cfg | TODO_rebuild_alias;
+  return 0;
+}
+
+struct tree_opt_pass pass_parallelize_loops =
+{
+  "parloops",				/* name */
+  gate_tree_parallelize_loops,		/* gate */
+  tree_parallelize_loops,      		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_PARALLELIZE_LOOPS,  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  0				        /* letter */	
 };
 
 /* Prefetching.  */

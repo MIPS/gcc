@@ -43,8 +43,6 @@ details.  */
 #include <gnu/gcj/jvmti/Breakpoint.h>
 #include <gnu/gcj/jvmti/BreakpointManager.h>
 
-#ifdef INTERPRETER
-
 // Execution engine for interpreted code.
 _Jv_InterpreterEngine _Jv_soleInterpreterEngine;
 
@@ -1534,7 +1532,11 @@ _Jv_InterpMethod::get_local_var_table (char **name, char **sig,
                                        char **generic_sig, jlong *startloc,
                                        jint *length, jint *slot, 
                                        int table_slot)
-{  	
+{
+#ifdef DIRECT_THREADED
+  _Jv_CompileMethod (this);
+#endif
+
   if (local_var_table == NULL)
     return -2;
   if (table_slot >= local_var_table_len)
@@ -1928,5 +1930,3 @@ _Jv_CompileMethod (_Jv_InterpMethod* method)
     }
 }
 #endif // DIRECT_THREADED
-
-#endif // INTERPRETER

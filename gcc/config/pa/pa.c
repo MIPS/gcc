@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -127,7 +126,7 @@ static void pa_init_builtins (void);
 static rtx hppa_builtin_saveregs (void);
 static tree hppa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool pa_scalar_mode_supported_p (enum machine_mode);
-static bool pa_commutative_p (rtx x, int outer_code);
+static bool pa_commutative_p (const_rtx x, int outer_code);
 static void copy_fp_args (rtx) ATTRIBUTE_UNUSED;
 static int length_fp_args (rtx) ATTRIBUTE_UNUSED;
 static inline void pa_file_start_level (void) ATTRIBUTE_UNUSED;
@@ -149,14 +148,14 @@ static void pa_hpux_init_libfuncs (void);
 #endif
 static rtx pa_struct_value_rtx (tree, int);
 static bool pa_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				  tree, bool);
+				  const_tree, bool);
 static int pa_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				 tree, bool);
 static struct machine_function * pa_init_machine_status (void);
 static enum reg_class pa_secondary_reload (bool, rtx, enum reg_class,
 					   enum machine_mode,
 					   secondary_reload_info *);
-
+static void pa_extra_live_on_entry (bitmap);
 
 /* The following extra sections are only used for SOM.  */
 static GTY(()) section *som_readonly_data_section;
@@ -177,6 +176,10 @@ int flag_pa_unix = TARGET_HPUX_11_11 ? 1998 : TARGET_HPUX_10_10 ? 1995 : 1993;
 /* Counts for the number of callee-saved general and floating point
    registers which were saved by the current function's prologue.  */
 static int gr_saved, fr_saved;
+
+/* Boolean indicating whether the return pointer was saved by the
+   current function's prologue.  */
+static bool rp_saved;
 
 static rtx find_addr_reg (rtx);
 
@@ -282,9 +285,9 @@ static size_t n_deferred_plabels = 0;
 #endif
 
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX pa_struct_value_rtx
@@ -312,6 +315,9 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD pa_secondary_reload
+
+#undef TARGET_EXTRA_LIVE_ON_ENTRY
+#define TARGET_EXTRA_LIVE_ON_ENTRY pa_extra_live_on_entry
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1377,8 +1383,7 @@ emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
      addresses from the destination operand.  */
   if (GET_CODE (operand0) == MEM && IS_INDEX_ADDR_P (XEXP (operand0, 0)))
     {
-      /* This is only safe up to the beginning of life analysis.  */
-      gcc_assert (!no_new_pseudos);
+      gcc_assert (can_create_pseudo_p ());
 
       tem = copy_to_mode_reg (Pmode, XEXP (operand0, 0));
       operand0 = replace_equiv_address (operand0, tem);
@@ -3564,10 +3569,12 @@ pa_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
      to output the assembler directives which denote the start
      of a function.  */
   fprintf (file, "\t.CALLINFO FRAME=" HOST_WIDE_INT_PRINT_DEC, actual_fsize);
-  if (df_regs_ever_live_p (2))
-    fputs (",CALLS,SAVE_RP", file);
-  else
+  if (current_function_is_leaf)
     fputs (",NO_CALLS", file);
+  else
+    fputs (",CALLS", file);
+  if (rp_saved)
+    fputs (",SAVE_RP", file);
 
   /* The SAVE_SP flag is used to indicate that register %r3 is stored
      at the beginning of the frame and that it is used as the frame
@@ -3629,7 +3636,12 @@ hppa_expand_prologue (void)
      always be stored into the caller's frame at sp - 20 or sp - 16
      depending on which ABI is in use.  */
   if (df_regs_ever_live_p (2) || current_function_calls_eh_return)
-    store_reg (2, TARGET_64BIT ? -16 : -20, STACK_POINTER_REGNUM);
+    {
+      store_reg (2, TARGET_64BIT ? -16 : -20, STACK_POINTER_REGNUM);
+      rp_saved = true;
+    }
+  else
+    rp_saved = false;
 
   /* Allocate the local frame and set up the frame pointer if needed.  */
   if (actual_fsize != 0)
@@ -4031,7 +4043,7 @@ hppa_expand_epilogue (void)
   /* Try to restore RP early to avoid load/use interlocks when
      RP gets used in the return (bv) instruction.  This appears to still
      be necessary even when we schedule the prologue and epilogue.  */
-  if (df_regs_ever_live_p (2) || current_function_calls_eh_return)
+  if (rp_saved)
     {
       ret_off = TARGET_64BIT ? -16 : -20;
       if (frame_pointer_needed)
@@ -5735,6 +5747,33 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
   return NO_REGS;
 }
 
+/* Implement TARGET_EXTRA_LIVE_ON_ENTRY.  The argument pointer
+   is only marked as live on entry by df-scan when it is a fixed
+   register.  It isn't a fixed register in the 64-bit runtime,
+   so we need to mark it here.  */
+
+static void
+pa_extra_live_on_entry (bitmap regs)
+{
+  if (TARGET_64BIT)
+    bitmap_set_bit (regs, ARG_POINTER_REGNUM);
+}
+
+/* Implement EH_RETURN_HANDLER_RTX.  The MEM needs to be volatile
+   to prevent it from being deleted.  */
+
+rtx
+pa_eh_return_handler_rtx (void)
+{
+  rtx tmp;
+
+  tmp = gen_rtx_PLUS (word_mode, frame_pointer_rtx,
+		      TARGET_64BIT ? GEN_INT (-16) : GEN_INT (-20));
+  tmp = gen_rtx_MEM (word_mode, tmp);
+  tmp->volatil = 1;
+  return tmp;
+}
+
 /* In the 32-bit runtime, arguments larger than eight bytes are passed
    by invisible reference.  As a GCC extension, we also pass anything
    with a zero or variable size by reference.
@@ -5750,7 +5789,7 @@ pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
 
 static bool
 pa_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
-		      enum machine_mode mode, tree type,
+		      enum machine_mode mode, const_tree type,
 		      bool named ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT size;
@@ -5767,7 +5806,7 @@ pa_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 }
 
 enum direction
-function_arg_padding (enum machine_mode mode, tree type)
+function_arg_padding (enum machine_mode mode, const_tree type)
 {
   if (mode == BLKmode
       || (TARGET_64BIT && type && AGGREGATE_TYPE_P (type)))
@@ -8096,7 +8135,7 @@ pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
    space register selection rules for memory addresses.  Therefore, we
    don't consider a + b == b + a, as this might be inside a MEM.  */
 static bool
-pa_commutative_p (rtx x, int outer_code)
+pa_commutative_p (const_rtx x, int outer_code)
 {
   return (COMMUTATIVE_P (x)
 	  && (TARGET_NO_SPACE_REGS
@@ -8993,7 +9032,7 @@ insn_refs_are_delayed (rtx insn)
    to match the HP Compiler ABI.  */
 
 rtx
-function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode valmode;
 
@@ -9036,7 +9075,7 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     }
 
   if ((INTEGRAL_TYPE_P (valtype)
-       && TYPE_PRECISION (valtype) < BITS_PER_WORD)
+       && GET_MODE_BITSIZE (TYPE_MODE (valtype)) < BITS_PER_WORD)
       || POINTER_TYPE_P (valtype))
     valmode = word_mode;
   else
@@ -9453,7 +9492,7 @@ pa_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 bool
-pa_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+pa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   /* SOM ABI says that objects larger than 64 bits are returned in memory.
      PA64 ABI says that objects larger than 128 bits are returned in memory.

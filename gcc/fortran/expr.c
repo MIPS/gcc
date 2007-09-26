@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -689,6 +688,31 @@ done:
 }
 
 
+static match
+check_specification_function (gfc_expr *e)
+{
+  gfc_symbol *sym;
+
+  if (!e->symtree)
+    return MATCH_NO;
+
+  sym = e->symtree->n.sym;
+
+  /* F95, 7.1.6.2; F2003, 7.1.7  */
+  if (sym
+      && sym->attr.function
+      && sym->attr.pure
+      && !sym->attr.intrinsic
+      && !sym->attr.recursive
+      && sym->attr.proc != PROC_INTERNAL
+      && sym->attr.proc != PROC_ST_FUNCTION
+      && sym->attr.proc != PROC_UNKNOWN
+      && sym->formal == NULL)
+    return MATCH_YES;
+
+  return MATCH_NO;
+}
+
 /* Function to determine if an expression is constant or not.  This
    function expects that the expression has already been simplified.  */
 
@@ -715,6 +739,13 @@ gfc_is_constant_expr (gfc_expr *e)
       break;
 
     case EXPR_FUNCTION:
+      /* Specification functions are constant.  */
+      if (check_specification_function (e) == MATCH_YES)
+	{
+	  rv = 1;
+	  break;
+	}
+
       /* Call to intrinsic with at least one argument.  */
       rv = 0;
       if (e->value.function.isym && e->value.function.actual)
@@ -735,8 +766,8 @@ gfc_is_constant_expr (gfc_expr *e)
       break;
 
     case EXPR_SUBSTRING:
-      rv = (gfc_is_constant_expr (e->ref->u.ss.start)
-	    && gfc_is_constant_expr (e->ref->u.ss.end));
+      rv = e->ref == NULL || (gfc_is_constant_expr (e->ref->u.ss.start)
+			      && gfc_is_constant_expr (e->ref->u.ss.end));
       break;
 
     case EXPR_STRUCTURE:
@@ -761,11 +792,41 @@ gfc_is_constant_expr (gfc_expr *e)
 }
 
 
+/* Is true if an array reference is followed by a component or substring
+   reference.  */
+bool
+is_subref_array (gfc_expr * e)
+{
+  gfc_ref * ref;
+  bool seen_array;
+
+  if (e->expr_type != EXPR_VARIABLE)
+    return false;
+
+  if (e->symtree->n.sym->attr.subref_array_pointer)
+    return true;
+
+  seen_array = false;
+  for (ref = e->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_ARRAY
+	    && ref->u.ar.type != AR_ELEMENT)
+	seen_array = true;
+
+      if (seen_array
+	    && ref->type != REF_ARRAY)
+	return seen_array;
+    }
+  return false;
+}
+
+
 /* Try to collapse intrinsic expressions.  */
 
 static try
 simplify_intrinsic_op (gfc_expr *p, int type)
 {
+  gfc_intrinsic_op op;
   gfc_expr *op1, *op2, *result;
 
   if (p->value.op.operator == INTRINSIC_USER)
@@ -773,6 +834,7 @@ simplify_intrinsic_op (gfc_expr *p, int type)
 
   op1 = p->value.op.op1;
   op2 = p->value.op.op2;
+  op  = p->value.op.operator;
 
   if (gfc_simplify_expr (op1, type) == FAILURE)
     return FAILURE;
@@ -787,7 +849,7 @@ simplify_intrinsic_op (gfc_expr *p, int type)
   p->value.op.op1 = NULL;
   p->value.op.op2 = NULL;
 
-  switch (p->value.op.operator)
+  switch (op)
     {
     case INTRINSIC_PARENTHESES:
       result = gfc_parentheses (op1);
@@ -826,27 +888,33 @@ simplify_intrinsic_op (gfc_expr *p, int type)
       break;
 
     case INTRINSIC_EQ:
-      result = gfc_eq (op1, op2);
+    case INTRINSIC_EQ_OS:
+      result = gfc_eq (op1, op2, op);
       break;
 
     case INTRINSIC_NE:
-      result = gfc_ne (op1, op2);
+    case INTRINSIC_NE_OS:
+      result = gfc_ne (op1, op2, op);
       break;
 
     case INTRINSIC_GT:
-      result = gfc_gt (op1, op2);
+    case INTRINSIC_GT_OS:
+      result = gfc_gt (op1, op2, op);
       break;
 
     case INTRINSIC_GE:
-      result = gfc_ge (op1, op2);
+    case INTRINSIC_GE_OS:
+      result = gfc_ge (op1, op2, op);
       break;
 
     case INTRINSIC_LT:
-      result = gfc_lt (op1, op2);
+    case INTRINSIC_LT_OS:
+      result = gfc_lt (op1, op2, op);
       break;
 
     case INTRINSIC_LE:
-      result = gfc_le (op1, op2);
+    case INTRINSIC_LE_OS:
+      result = gfc_le (op1, op2, op);
       break;
 
     case INTRINSIC_NOT:
@@ -1290,6 +1358,7 @@ find_substring_ref (gfc_expr *p, gfc_expr **newp)
 {
   int end;
   int start;
+  int length;
   char *chr;
 
   if (p->ref->u.ss.start->expr_type != EXPR_CONSTANT
@@ -1297,13 +1366,16 @@ find_substring_ref (gfc_expr *p, gfc_expr **newp)
     return FAILURE;
 
   *newp = gfc_copy_expr (p);
-  chr = p->value.character.string;
+  gfc_free ((*newp)->value.character.string);
+
   end = (int) mpz_get_ui (p->ref->u.ss.end->value.integer);
   start = (int) mpz_get_ui (p->ref->u.ss.start->value.integer);
+  length = end - start + 1;
 
-  (*newp)->value.character.length = end - start + 1;
-  strncpy ((*newp)->value.character.string, &chr[start - 1],
-	   (*newp)->value.character.length);
+  chr = (*newp)->value.character.string = gfc_getmem (length + 1);
+  (*newp)->value.character.length = length;
+  memcpy (chr, &p->value.character.string[start - 1], length);
+  chr[length] = '\0';
   return SUCCESS;
 }
 
@@ -1503,9 +1575,19 @@ gfc_simplify_expr (gfc_expr *p, int type)
 	  char *s;
 	  int start, end;
 
-	  gfc_extract_int (p->ref->u.ss.start, &start);
-	  start--;  /* Convert from one-based to zero-based.  */
-	  gfc_extract_int (p->ref->u.ss.end, &end);
+	  if (p->ref && p->ref->u.ss.start)
+	    {
+	      gfc_extract_int (p->ref->u.ss.start, &start);
+	      start--;  /* Convert from one-based to zero-based.  */
+	    }
+	  else
+	    start = 0;
+
+	  if (p->ref && p->ref->u.ss.end)
+	    gfc_extract_int (p->ref->u.ss.end, &end);
+	  else
+	    end = p->value.character.length;
+
 	  s = gfc_getmem (end - start + 2);
 	  memcpy (s, p->value.character.string + start, end - start);
 	  s[end - start + 1] = '\0';  /* TODO: C-style string.  */
@@ -1731,11 +1813,17 @@ check_intrinsic_op (gfc_expr *e, try (*check_function) (gfc_expr *))
       break;
 
     case INTRINSIC_EQ:
+    case INTRINSIC_EQ_OS:
     case INTRINSIC_NE:
+    case INTRINSIC_NE_OS:
     case INTRINSIC_GT:
+    case INTRINSIC_GT_OS:
     case INTRINSIC_GE:
+    case INTRINSIC_GE_OS:
     case INTRINSIC_LT:
+    case INTRINSIC_LT_OS:
     case INTRINSIC_LE:
+    case INTRINSIC_LE_OS:
       if ((*check_function) (op2) == FAILURE)
 	return FAILURE;
       
@@ -1835,69 +1923,195 @@ not_numeric:
 }
 
 
+static match
+check_init_expr_arguments (gfc_expr *e)
+{
+  gfc_actual_arglist *ap;
 
-/* Certain inquiry functions are specifically allowed to have variable
-   arguments, which is an exception to the normal requirement that an
-   initialization function have initialization arguments.  We head off
-   this problem here.  */
+  for (ap = e->value.function.actual; ap; ap = ap->next)
+    if (check_init_expr (ap->expr) == FAILURE)
+      return MATCH_ERROR;
 
-static try
+  return MATCH_YES;
+}
+
+/* F95, 7.1.6.1, Initialization expressions, (7)
+   F2003, 7.1.7 Initialization expression, (8)  */
+
+static match
 check_inquiry (gfc_expr *e, int not_restricted)
 {
   const char *name;
+  const char *const *functions;
 
-  /* FIXME: This should be moved into the intrinsic definitions,
-     to eliminate this ugly hack.  */
-  static const char * const inquiry_function[] = {
-    "digits", "epsilon", "huge", "kind", "len", "maxexponent", "minexponent",
-    "precision", "radix", "range", "tiny", "bit_size", "size", "shape",
-    "lbound", "ubound", NULL
+  static const char *const inquiry_func_f95[] = {
+    "lbound", "shape", "size", "ubound",
+    "bit_size", "len", "kind",
+    "digits", "epsilon", "huge", "maxexponent", "minexponent",
+    "precision", "radix", "range", "tiny",
+    NULL
+  };
+
+  static const char *const inquiry_func_f2003[] = {
+    "lbound", "shape", "size", "ubound",
+    "bit_size", "len", "kind",
+    "digits", "epsilon", "huge", "maxexponent", "minexponent",
+    "precision", "radix", "range", "tiny",
+    "new_line", NULL
   };
 
   int i;
+  gfc_actual_arglist *ap;
+
+  if (!e->value.function.isym
+      || !e->value.function.isym->inquiry)
+    return MATCH_NO;
 
   /* An undeclared parameter will get us here (PR25018).  */
   if (e->symtree == NULL)
-    return FAILURE;
+    return MATCH_NO;
 
   name = e->symtree->n.sym->name;
 
-  for (i = 0; inquiry_function[i]; i++)
-    if (strcmp (inquiry_function[i], name) == 0)
+  functions = (gfc_option.warn_std & GFC_STD_F2003) 
+		? inquiry_func_f2003 : inquiry_func_f95;
+
+  for (i = 0; functions[i]; i++)
+    if (strcmp (functions[i], name) == 0)
       break;
 
-  if (inquiry_function[i] == NULL)
-    return FAILURE;
-
-  e = e->value.function.actual->expr;
-
-  if (e == NULL || e->expr_type != EXPR_VARIABLE)
-    return FAILURE;
+  if (functions[i] == NULL)
+    {
+      gfc_error ("Inquiry function '%s' at %L is not permitted "
+		 "in an initialization expression", name, &e->where);
+      return MATCH_ERROR;
+    }
 
   /* At this point we have an inquiry function with a variable argument.  The
      type of the variable might be undefined, but we need it now, because the
-     arguments of these functions are allowed to be undefined.  */
+     arguments of these functions are not allowed to be undefined.  */
 
-  if (e->ts.type == BT_UNKNOWN)
+  for (ap = e->value.function.actual; ap; ap = ap->next)
     {
-      if (e->symtree->n.sym->ts.type == BT_UNKNOWN
-	  && gfc_set_default_type (e->symtree->n.sym, 0, gfc_current_ns)
-	     == FAILURE)
-	return FAILURE;
+      if (!ap->expr)
+	continue;
 
-      e->ts = e->symtree->n.sym->ts;
+      if (ap->expr->ts.type == BT_UNKNOWN)
+	{
+	  if (ap->expr->symtree->n.sym->ts.type == BT_UNKNOWN
+	      && gfc_set_default_type (ap->expr->symtree->n.sym, 0, gfc_current_ns)
+	      == FAILURE)
+	    return MATCH_NO;
+
+	  ap->expr->ts = ap->expr->symtree->n.sym->ts;
+	}
+
+	/* Assumed character length will not reduce to a constant expression
+	   with LEN, as required by the standard.  */
+	if (i == 5 && not_restricted
+	    && ap->expr->symtree->n.sym->ts.type == BT_CHARACTER
+	    && ap->expr->symtree->n.sym->ts.cl->length == NULL)
+	  {
+	    gfc_error ("assumed character length variable '%s' in constant "
+		       "expression at %L", e->symtree->n.sym->name, &e->where);
+	      return MATCH_ERROR;
+	  }
+	else if (not_restricted && check_init_expr (ap->expr) == FAILURE)
+	  return MATCH_ERROR;
     }
 
-  /* Assumed character length will not reduce to a constant expression
-     with LEN, as required by the standard.  */
-  if (i == 4 && not_restricted
-      && e->symtree->n.sym->ts.type == BT_CHARACTER
-      && e->symtree->n.sym->ts.cl->length == NULL)
-    gfc_notify_std (GFC_STD_GNU, "assumed character length "
-		    "variable '%s' in constant expression at %L",
-		    e->symtree->n.sym->name, &e->where);
+  return MATCH_YES;
+}
 
-  return SUCCESS;
+
+/* F95, 7.1.6.1, Initialization expressions, (5)
+   F2003, 7.1.7 Initialization expression, (5)  */
+
+static match
+check_transformational (gfc_expr *e)
+{
+  static const char * const trans_func_f95[] = {
+    "repeat", "reshape", "selected_int_kind",
+    "selected_real_kind", "transfer", "trim", NULL
+  };
+
+  int i;
+  const char *name;
+
+  if (!e->value.function.isym
+      || !e->value.function.isym->transformational)
+    return MATCH_NO;
+
+  name = e->symtree->n.sym->name;
+
+  /* NULL() is dealt with below.  */
+  if (strcmp ("null", name) == 0)
+    return MATCH_NO;
+
+  for (i = 0; trans_func_f95[i]; i++)
+    if (strcmp (trans_func_f95[i], name) == 0)
+      break;
+
+  /* FIXME, F2003: implement translation of initialization
+     expressions before enabling this check. For F95, error
+     out if the transformational function is not in the list.  */
+#if 0
+  if (trans_func_f95[i] == NULL
+      && gfc_notify_std (GFC_STD_F2003, 
+			 "transformational intrinsic '%s' at %L is not permitted "
+			 "in an initialization expression", name, &e->where) == FAILURE)
+    return MATCH_ERROR;
+#else
+  if (trans_func_f95[i] == NULL)
+    {
+      gfc_error("transformational intrinsic '%s' at %L is not permitted "
+		"in an initialization expression", name, &e->where);
+      return MATCH_ERROR;
+    }
+#endif
+
+  return check_init_expr_arguments (e);
+}
+
+
+/* F95, 7.1.6.1, Initialization expressions, (6)
+   F2003, 7.1.7 Initialization expression, (6)  */
+
+static match
+check_null (gfc_expr *e)
+{
+  if (strcmp ("null", e->symtree->n.sym->name) != 0)
+    return MATCH_NO;
+
+  return check_init_expr_arguments (e);
+}
+
+
+static match
+check_elemental (gfc_expr *e)
+{
+  if (!e->value.function.isym
+      || !e->value.function.isym->elemental)
+    return MATCH_NO;
+
+  if ((e->ts.type != BT_INTEGER || e->ts.type != BT_CHARACTER)
+      && gfc_notify_std (GFC_STD_F2003, "Extension: Evaluation of "
+			"nonstandard initialization expression at %L",
+			&e->where) == FAILURE)
+    return MATCH_ERROR;
+
+  return check_init_expr_arguments (e);
+}
+
+
+static match
+check_conversion (gfc_expr *e)
+{
+  if (!e->value.function.isym
+      || !e->value.function.isym->conversion)
+    return MATCH_NO;
+
+  return check_init_expr_arguments (e);
 }
 
 
@@ -1911,7 +2125,6 @@ check_inquiry (gfc_expr *e, int not_restricted)
 static try
 check_init_expr (gfc_expr *e)
 {
-  gfc_actual_arglist *ap;
   match m;
   try t;
   gfc_intrinsic_sym *isym;
@@ -1929,41 +2142,43 @@ check_init_expr (gfc_expr *e)
       break;
 
     case EXPR_FUNCTION:
-      t = SUCCESS;
+      t = FAILURE;
 
-      if (check_inquiry (e, 1) != SUCCESS)
+      if ((m = check_specification_function (e)) != MATCH_YES)
 	{
-	  t = SUCCESS;
-	  for (ap = e->value.function.actual; ap; ap = ap->next)
-	    if (check_init_expr (ap->expr) == FAILURE)
-	      {
-		t = FAILURE;
+	  if ((m = gfc_intrinsic_func_interface (e, 0)) != MATCH_YES)
+	    {
+	      gfc_error ("Function '%s' in initialization expression at %L "
+			 "must be an intrinsic or a specification function",
+			 e->symtree->n.sym->name, &e->where);
+	      break;
+	    }
+
+	  if ((m = check_conversion (e)) == MATCH_NO
+	      && (m = check_inquiry (e, 1)) == MATCH_NO
+	      && (m = check_null (e)) == MATCH_NO
+	      && (m = check_transformational (e)) == MATCH_NO
+	      && (m = check_elemental (e)) == MATCH_NO)
+	    {
+	      gfc_error ("Intrinsic function '%s' at %L is not permitted "
+			 "in an initialization expression",
+			 e->symtree->n.sym->name, &e->where);
+	      m = MATCH_ERROR;
+	    }
+
+	  /* Try to scalarize an elemental intrinsic function that has an
+	     array argument.  */
+	  isym = gfc_find_function (e->symtree->n.sym->name);
+	  if (isym && isym->elemental
+	      && e->value.function.actual->expr->expr_type == EXPR_ARRAY)
+	    {
+		if ((t = scalarize_intrinsic_call (e)) == SUCCESS)
 		break;
-	      }
+	    }
 	}
 
-      /* Try to scalarize an elemental intrinsic function that has an
-	 array argument.  */
-      isym = gfc_find_function (e->symtree->n.sym->name);
-      if (isym && isym->elemental
-	    && e->value.function.actual->expr->expr_type == EXPR_ARRAY)
-	{
-	  if (scalarize_intrinsic_call (e) == SUCCESS)
-	    break;
-	}
-
-      if (t == SUCCESS)
-	{
-	  m = gfc_intrinsic_func_interface (e, 0);
-
-	  if (m == MATCH_NO)
-	    gfc_error ("Function '%s' in initialization expression at %L "
-		       "must be an intrinsic function",
-		       e->symtree->n.sym->name, &e->where);
-
-	  if (m != MATCH_YES)
-	    t = FAILURE;
-	}
+      if (m == MATCH_YES)
+	t = gfc_simplify_expr (e, 0);
 
       break;
 
@@ -1982,10 +2197,39 @@ check_init_expr (gfc_expr *e)
       if (gfc_in_match_data ())
 	break;
 
-      gfc_error ("Parameter '%s' at %L has not been declared or is "
-		 "a variable, which does not reduce to a constant "
-		 "expression", e->symtree->n.sym->name, &e->where);
       t = FAILURE;
+
+      if (e->symtree->n.sym->as)
+	{
+	  switch (e->symtree->n.sym->as->type)
+	    {
+	      case AS_ASSUMED_SIZE:
+		gfc_error ("assumed size array '%s' at %L is not permitted "
+			   "in an initialization expression",
+			   e->symtree->n.sym->name, &e->where);
+		break;
+
+	      case AS_ASSUMED_SHAPE:
+		gfc_error ("assumed shape array '%s' at %L is not permitted "
+			   "in an initialization expression",
+			   e->symtree->n.sym->name, &e->where);
+		break;
+
+	      case AS_DEFERRED:
+		gfc_error ("deferred array '%s' at %L is not permitted "
+			   "in an initialization expression",
+			   e->symtree->n.sym->name, &e->where);
+		break;
+
+	      default:
+		gcc_unreachable();
+	  }
+	}
+      else
+	gfc_error ("Parameter '%s' at %L has not been declared or is "
+		   "a variable, which does not reduce to a constant "
+		   "expression", e->symtree->n.sym->name, &e->where);
+
       break;
 
     case EXPR_CONSTANT:
@@ -2064,7 +2308,7 @@ gfc_match_init_expr (gfc_expr **result)
 
   /* Not all inquiry functions are simplified to constant expressions
      so it is necessary to call check_inquiry again.  */ 
-  if (!gfc_is_constant_expr (expr) && check_inquiry (expr, 1) == FAILURE
+  if (!gfc_is_constant_expr (expr) && check_inquiry (expr, 1) != MATCH_YES
       && !gfc_in_match_data ())
     {
       gfc_error ("Initialization expression didn't reduce %C");
@@ -2147,7 +2391,7 @@ static try
 restricted_intrinsic (gfc_expr *e)
 {
   /* TODO: Check constraints on inquiry functions.  7.1.6.2 (7).  */
-  if (check_inquiry (e, 0) == SUCCESS)
+  if (check_inquiry (e, 0) == MATCH_YES)
     return SUCCESS;
 
   return restricted_args (e->value.function.actual);
@@ -2298,8 +2542,8 @@ gfc_check_conformance (const char *optype_msgid, gfc_expr *op1, gfc_expr *op2)
 
   if (op1->rank != op2->rank)
     {
-      gfc_error ("Incompatible ranks in %s at %L", _(optype_msgid),
-		 &op1->where);
+      gfc_error ("Incompatible ranks in %s (%d and %d) at %L", _(optype_msgid),
+		 op1->rank, op2->rank, &op1->where);
       return FAILURE;
     }
 
@@ -2312,7 +2556,7 @@ gfc_check_conformance (const char *optype_msgid, gfc_expr *op1, gfc_expr *op2)
 
       if (op1_flag && op2_flag && mpz_cmp (op1_size, op2_size) != 0)
 	{
-	  gfc_error ("different shape for %s at %L on dimension %d (%d/%d)",
+	  gfc_error ("different shape for %s at %L on dimension %d (%d and %d)",
 		     _(optype_msgid), &op1->where, d + 1,
 		     (int) mpz_get_si (op1_size),
 		     (int) mpz_get_si (op2_size));
@@ -2538,7 +2782,8 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 
   is_pure = gfc_pure (NULL);
 
-  if (is_pure && gfc_impure_variable (lvalue->symtree->n.sym))
+  if (is_pure && gfc_impure_variable (lvalue->symtree->n.sym)
+	&& lvalue->symtree->n.sym->value != rvalue)
     {
       gfc_error ("Bad pointer object in PURE procedure at %L", &lvalue->where);
       return FAILURE;
@@ -2585,6 +2830,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 		 "assignment at %L", &lvalue->where);
       return FAILURE;
     }
+
+  if (rvalue->expr_type == EXPR_VARIABLE && is_subref_array (rvalue))
+    lvalue->symtree->n.sym->attr.subref_array_pointer = 1;
 
   attr = gfc_expr_attr (rvalue);
   if (!attr.target && !attr.pointer)

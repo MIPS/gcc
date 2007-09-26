@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* High-level class interface.  */
@@ -1775,7 +1774,7 @@ layout_vtable_decl (tree binfo, int n)
    have the same signature.  */
 
 int
-same_signature_p (tree fndecl, tree base_fndecl)
+same_signature_p (const_tree fndecl, const_tree base_fndecl)
 {
   /* One destructor overrides another if they are the same kind of
      destructor.  */
@@ -2459,6 +2458,7 @@ finish_struct_anon (tree t)
       if (DECL_NAME (field) == NULL_TREE
 	  && ANON_AGGR_TYPE_P (TREE_TYPE (field)))
 	{
+	  bool is_union = TREE_CODE (TREE_TYPE (field)) == UNION_TYPE;
 	  tree elt = TYPE_FIELDS (TREE_TYPE (field));
 	  for (; elt; elt = TREE_CHAIN (elt))
 	    {
@@ -2476,15 +2476,29 @@ finish_struct_anon (tree t)
 
 	      if (TREE_CODE (elt) != FIELD_DECL)
 		{
-		  pedwarn ("%q+#D invalid; an anonymous union can "
-			   "only have non-static data members", elt);
+		  if (is_union)
+		    pedwarn ("%q+#D invalid; an anonymous union can "
+			     "only have non-static data members", elt);
+		  else
+		    pedwarn ("%q+#D invalid; an anonymous struct can "
+			     "only have non-static data members", elt);
 		  continue;
 		}
 
 	      if (TREE_PRIVATE (elt))
-		pedwarn ("private member %q+#D in anonymous union", elt);
+		{
+		  if (is_union)
+		    pedwarn ("private member %q+#D in anonymous union", elt);
+		  else
+		    pedwarn ("private member %q+#D in anonymous struct", elt);
+		}
 	      else if (TREE_PROTECTED (elt))
-		pedwarn ("protected member %q+#D in anonymous union", elt);
+		{
+		  if (is_union)
+		    pedwarn ("protected member %q+#D in anonymous union", elt);
+		  else
+		    pedwarn ("protected member %q+#D in anonymous struct", elt);
+		}
 
 	      TREE_PRIVATE (elt) = TREE_PRIVATE (field);
 	      TREE_PROTECTED (elt) = TREE_PROTECTED (field);
@@ -5121,17 +5135,19 @@ finish_struct_1 (tree t)
       tree dtor;
 
       dtor = CLASSTYPE_DESTRUCTORS (t);
-      /* Warn only if the dtor is non-private or the class has
-	 friends.  */
       if (/* An implicitly declared destructor is always public.  And,
 	     if it were virtual, we would have created it by now.  */
 	  !dtor
 	  || (!DECL_VINDEX (dtor)
-	      && (!TREE_PRIVATE (dtor)
-		  || CLASSTYPE_FRIEND_CLASSES (t)
-		  || DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))))
-	warning (0, "%q#T has virtual functions but non-virtual destructor",
-		 t);
+	      && (/* public non-virtual */
+		  (!TREE_PRIVATE (dtor) && !TREE_PROTECTED (dtor))
+		   || (/* non-public non-virtual with friends */
+		       (TREE_PRIVATE (dtor) || TREE_PROTECTED (dtor))
+			&& (CLASSTYPE_FRIEND_CLASSES (t)
+			|| DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))))))
+	warning (OPT_Wnon_virtual_dtor,
+		 "%q#T has virtual functions and accessible"
+		 " non-virtual destructor", t);
     }
 
   complete_vars (t);
@@ -5629,21 +5645,13 @@ currently_open_derived_class (tree t)
 void
 push_nested_class (tree type)
 {
-  tree context;
-
   /* A namespace might be passed in error cases, like A::B:C.  */
   if (type == NULL_TREE
-      || type == error_mark_node
-      || TREE_CODE (type) == NAMESPACE_DECL
-      || ! IS_AGGR_TYPE (type)
-      || TREE_CODE (type) == TEMPLATE_TYPE_PARM
-      || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+      || !CLASS_TYPE_P (type))
     return;
 
-  context = DECL_CONTEXT (TYPE_MAIN_DECL (type));
+  push_nested_class (DECL_CONTEXT (TYPE_MAIN_DECL (type)));
 
-  if (context && CLASS_TYPE_P (context))
-    push_nested_class (context);
   pushclass (type);
 }
 

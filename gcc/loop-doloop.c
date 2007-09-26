@@ -1,12 +1,12 @@
 /* Perform doloop optimizations
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Based on code by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -70,35 +69,59 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    if it is not a decrement and branch jump insn.  */
 
 rtx
-doloop_condition_get (rtx pattern)
+doloop_condition_get (rtx doloop_pat)
 {
   rtx cmp;
   rtx inc;
   rtx reg;
   rtx inc_src;
   rtx condition;
+  rtx pattern;
 
-  /* The canonical doloop pattern we expect is:
+  /* The canonical doloop pattern we expect has one of the following
+     forms:
 
-     (parallel [(set (pc) (if_then_else (condition)
-                                        (label_ref (label))
-                                        (pc)))
-                (set (reg) (plus (reg) (const_int -1)))
-                (additional clobbers and uses)])
+     1)  (parallel [(set (pc) (if_then_else (condition)
+	  			            (label_ref (label))
+				            (pc)))
+	             (set (reg) (plus (reg) (const_int -1)))
+	             (additional clobbers and uses)])
 
-     Some targets (IA-64) wrap the set of the loop counter in
-     an if_then_else too.
+     The branch must be the first entry of the parallel (also required
+     by jump.c), and the second entry of the parallel must be a set of
+     the loop counter register.  Some targets (IA-64) wrap the set of
+     the loop counter in an if_then_else too.
 
-     In summary, the branch must be the first entry of the
-     parallel (also required by jump.c), and the second
-     entry of the parallel must be a set of the loop counter
-     register.  */
+     2)  (set (reg) (plus (reg) (const_int -1))
+         (set (pc) (if_then_else (reg != 0)
+	                         (label_ref (label))
+			         (pc))).  */
+
+  pattern = PATTERN (doloop_pat);
 
   if (GET_CODE (pattern) != PARALLEL)
-    return 0;
+    {
+      rtx cond;
 
-  cmp = XVECEXP (pattern, 0, 0);
-  inc = XVECEXP (pattern, 0, 1);
+      /* We expect the decrement to immediately precede the branch.  */
+
+      if ((PREV_INSN (doloop_pat) == NULL_RTX)
+          || !INSN_P (PREV_INSN (doloop_pat)))
+        return 0;
+
+      cmp = pattern;
+      inc = PATTERN (PREV_INSN (doloop_pat));
+      /* We expect the condition to be of the form (reg != 0)  */
+      cond = XEXP (SET_SRC (cmp), 0);
+      if (GET_CODE (cond) != NE || XEXP (cond, 1) != const0_rtx)
+        return 0;
+
+    }
+  else
+    {
+      cmp = XVECEXP (pattern, 0, 0);
+      inc = XVECEXP (pattern, 0, 1);
+    }
 
   /* Check for (set (reg) (something)).  */
   if (GET_CODE (inc) != SET)
@@ -140,7 +163,29 @@ doloop_condition_get (rtx pattern)
   if ((XEXP (condition, 0) == reg)
       || (GET_CODE (XEXP (condition, 0)) == PLUS
 		   && XEXP (XEXP (condition, 0), 0) == reg))
+   {
+     if (GET_CODE (pattern) != PARALLEL)
+     /*  The second form we expect:
+
+         (set (reg) (plus (reg) (const_int -1))
+         (set (pc) (if_then_else (reg != 0)
+                                 (label_ref (label))
+                                 (pc))).
+
+         is equivalent to the following:
+
+         (parallel [(set (pc) (if_then_else (reg != 1)
+                                            (label_ref (label))
+                                            (pc)))
+                     (set (reg) (plus (reg) (const_int -1)))
+                     (additional clobbers and uses)])
+
+         So we return that form instead.
+     */
+        condition = gen_rtx_fmt_ee (NE, VOIDmode, inc_src, const1_rtx);
+
     return condition;
+   }
 
   /* ??? If a machine uses a funny comparison, we could return a
      canonicalized form here.  */
@@ -598,9 +643,7 @@ doloop_optimize (struct loop *loop)
     {
       while (NEXT_INSN (doloop_pat) != NULL_RTX)
 	doloop_pat = NEXT_INSN (doloop_pat);
-      if (JUMP_P (doloop_pat))
-	doloop_pat = PATTERN (doloop_pat);
-      else
+      if (!JUMP_P (doloop_pat))
 	doloop_pat = NULL_RTX;
     }
 

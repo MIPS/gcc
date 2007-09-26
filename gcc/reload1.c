@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -396,7 +395,7 @@ static void check_eliminable_occurrences (rtx);
 static void elimination_effects (rtx, enum machine_mode);
 static int eliminate_regs_in_insn (rtx, int);
 static void update_eliminable_offsets (void);
-static void mark_not_eliminable (rtx, rtx, void *);
+static void mark_not_eliminable (rtx, const_rtx, void *);
 static void set_initial_elim_offsets (void);
 static bool verify_initial_elim_offsets (void);
 static void set_initial_label_offsets (void);
@@ -409,7 +408,7 @@ static void scan_paradoxical_subregs (rtx);
 static void count_pseudo (int);
 static void order_regs_for_reload (struct insn_chain *);
 static void reload_as_needed (int);
-static void forget_old_reloads_1 (rtx, rtx, void *);
+static void forget_old_reloads_1 (rtx, const_rtx, void *);
 static void forget_marked_reloads (regset);
 static int reload_reg_class_lower (const void *, const void *);
 static void mark_reload_reg_in_use (unsigned int, int, enum reload_type,
@@ -449,7 +448,8 @@ static int reloads_conflict (int, int);
 static rtx gen_reload (rtx, rtx, int, enum reload_type);
 static rtx emit_insn_if_valid_for_reload (rtx);
 
-/* Initialize the reload pass once per compilation.  */
+/* Initialize the reload pass.  This is called at the beginning of compilation
+   and may be called again if the target is reinitialized.  */
 
 void
 init_reload (void)
@@ -743,9 +743,11 @@ reload (rtx first, int global)
   /* A function that has a nonlocal label that can reach the exit
      block via non-exceptional paths must save all call-saved
      registers.  */
-  if (current_function_calls_unwind_init
-      || (current_function_has_nonlocal_label
-	  && has_nonexceptional_receiver ()))
+  if (current_function_has_nonlocal_label
+      && has_nonexceptional_receiver ())
+    current_function_saves_all_registers = 1;
+
+  if (current_function_saves_all_registers)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	df_set_regs_ever_live (i, true);
@@ -1537,8 +1539,8 @@ calculate_needs_all_insns (int global)
       chain->need_operand_change = 0;
 
       /* If this is a label, a JUMP_INSN, or has REG_NOTES (which might
-	 include REG_LABEL), we need to see what effects this has on the
-	 known offsets at labels.  */
+	 include REG_LABEL_OPERAND and REG_LABEL_TARGET), we need to see
+	 what effects this has on the known offsets at labels.  */
 
       if (LABEL_P (insn) || JUMP_P (insn)
 	  || (INSN_P (insn) && REG_NOTES (insn) != 0))
@@ -2077,7 +2079,7 @@ alter_reg (int i, int from_reg)
 	 inherent space, and no less total space, then the previous slot.  */
       if (from_reg == -1)
 	{
-	  HOST_WIDE_INT alias_set = new_alias_set ();
+	  alias_set_type alias_set = new_alias_set ();
 
 	  /* No known place to spill from => no slot to reuse.  */
 	  x = assign_stack_local (mode, total_size,
@@ -2129,14 +2131,14 @@ alter_reg (int i, int from_reg)
 	  /* All pseudos mapped to this slot can alias each other.  */
 	  if (spill_stack_slot[from_reg])
 	    {
-	      HOST_WIDE_INT alias_set 
+	      alias_set_type alias_set 
 		= MEM_ALIAS_SET (spill_stack_slot[from_reg]);
 	      set_mem_alias_set (x, alias_set);
 	      dse_invalidate_singleton_alias_set (alias_set);
 	    }
 	  else
 	    {
-	      HOST_WIDE_INT alias_set = new_alias_set ();
+	      alias_set_type alias_set = new_alias_set ();
 	      set_mem_alias_set (x, alias_set);
 	      dse_record_singleton_alias_set (alias_set, mode);
 	    }
@@ -2293,10 +2295,11 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 
     case INSN:
     case CALL_INSN:
-      /* Any labels mentioned in REG_LABEL notes can be branched to indirectly
-	 and hence must have all eliminations at their initial offsets.  */
+      /* Any labels mentioned in REG_LABEL_OPERAND notes can be branched
+	 to indirectly and hence must have all eliminations at their
+	 initial offsets.  */
       for (tem = REG_NOTES (x); tem; tem = XEXP (tem, 1))
-	if (REG_NOTE_KIND (tem) == REG_LABEL)
+	if (REG_NOTE_KIND (tem) == REG_LABEL_OPERAND)
 	  set_label_offsets (XEXP (tem, 0), insn, 1);
       return;
 
@@ -2412,6 +2415,7 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
@@ -2805,6 +2809,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
@@ -3478,7 +3483,7 @@ update_eliminable_offsets (void)
    the insns of the function.  */
 
 static void
-mark_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
+mark_not_eliminable (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
 {
   unsigned int i;
 
@@ -3953,6 +3958,7 @@ scan_paradoxical_subregs (rtx x)
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR: /* shouldn't happen, but just in case.  */
     case CC0:
     case PC:
@@ -4328,7 +4334,7 @@ reload_as_needed (int live_known)
    to be forgotten later.  */
 
 static void
-forget_old_reloads_1 (rtx x, rtx ignored ATTRIBUTE_UNUSED,
+forget_old_reloads_1 (rtx x, const_rtx ignored ATTRIBUTE_UNUSED,
 		      void *data)
 {
   unsigned int regno;
@@ -5324,7 +5330,7 @@ free_for_value_p (int regno, enum machine_mode mode, int opnum,
    memory.  */
 
 int
-function_invariant_p (rtx x)
+function_invariant_p (const_rtx x)
 {
   if (CONSTANT_P (x))
     return 1;
@@ -5633,7 +5639,14 @@ choose_reload_regs (struct insn_chain *chain)
   for (j = 0; j < n_reloads; j++)
     {
       reload_order[j] = j;
-      reload_spill_index[j] = -1;
+      if (rld[j].reg_rtx != NULL_RTX)
+	{
+	  gcc_assert (REG_P (rld[j].reg_rtx)
+		      && HARD_REGISTER_P (rld[j].reg_rtx));
+	  reload_spill_index[j] = REGNO (rld[j].reg_rtx);
+	}
+      else
+	reload_spill_index[j] = -1;
 
       if (rld[j].nregs > 1)
 	{
@@ -7934,7 +7947,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 	 DEFINE_PEEPHOLE should be specified that recognizes the sequence
 	 we emit below.  */
 
-      code = (int) add_optab->handlers[(int) GET_MODE (out)].insn_code;
+      code = (int) optab_handler (add_optab, GET_MODE (out))->insn_code;
 
       if (CONSTANT_P (op1) || MEM_P (op1) || GET_CODE (op1) == SUBREG
 	  || (REG_P (op1)
@@ -8037,7 +8050,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
   else if (OBJECT_P (in) || GET_CODE (in) == SUBREG)
     {
       tem = emit_insn (gen_move_insn (out, in));
-      /* IN may contain a LABEL_REF, if so add a REG_LABEL note.  */
+      /* IN may contain a LABEL_REF, if so add a REG_LABEL_OPERAND note.  */
       mark_jump_label (in, tem, 0);
     }
 
@@ -8632,6 +8645,7 @@ fixup_abnormal_edges (void)
       blocks = sbitmap_alloc (last_basic_block);
       sbitmap_ones (blocks);
       find_many_sub_basic_blocks (blocks);
+      sbitmap_free (blocks);
     }
 
   if (inserted)

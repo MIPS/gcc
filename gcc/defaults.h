@@ -1,6 +1,6 @@
 /* Definitions of various defaults for tm.h macros.
    Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005
+   2005, 2007
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_DEFAULTS_H
 #define GCC_DEFAULTS_H
@@ -322,7 +321,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* If we have a definition of INCOMING_RETURN_ADDR_RTX, assume that
    the rest of the DWARF 2 frame unwind support is also provided.  */
-#if !defined (DWARF2_UNWIND_INFO) && defined (INCOMING_RETURN_ADDR_RTX)
+#if !defined (DWARF2_UNWIND_INFO) && defined (INCOMING_RETURN_ADDR_RTX) \
+    && !defined (TARGET_UNWIND_INFO)
 #define DWARF2_UNWIND_INFO 1
 #endif
 
@@ -453,6 +453,38 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifndef DECIMAL128_TYPE_SIZE
 #define DECIMAL128_TYPE_SIZE 128
+#endif
+
+#ifndef SHORT_FRACT_TYPE_SIZE
+#define SHORT_FRACT_TYPE_SIZE BITS_PER_UNIT
+#endif
+
+#ifndef FRACT_TYPE_SIZE
+#define FRACT_TYPE_SIZE (BITS_PER_UNIT * 2)
+#endif
+
+#ifndef LONG_FRACT_TYPE_SIZE
+#define LONG_FRACT_TYPE_SIZE (BITS_PER_UNIT * 4)
+#endif
+
+#ifndef LONG_LONG_FRACT_TYPE_SIZE
+#define LONG_LONG_FRACT_TYPE_SIZE (BITS_PER_UNIT * 8)
+#endif
+
+#ifndef SHORT_ACCUM_TYPE_SIZE
+#define SHORT_ACCUM_TYPE_SIZE (SHORT_FRACT_TYPE_SIZE * 2)
+#endif
+
+#ifndef ACCUM_TYPE_SIZE
+#define ACCUM_TYPE_SIZE (FRACT_TYPE_SIZE * 2)
+#endif
+
+#ifndef LONG_ACCUM_TYPE_SIZE
+#define LONG_ACCUM_TYPE_SIZE (LONG_FRACT_TYPE_SIZE * 2)
+#endif
+
+#ifndef LONG_LONG_ACCUM_TYPE_SIZE
+#define LONG_LONG_ACCUM_TYPE_SIZE (LONG_LONG_FRACT_TYPE_SIZE * 2)
 #endif
 
 /* Width in bits of a pointer.  Mind the value of the macro `Pmode'.  */

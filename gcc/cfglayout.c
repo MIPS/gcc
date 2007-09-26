@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -54,7 +53,7 @@ static void change_scope (rtx, tree, tree);
 
 void verify_insn_chain (void);
 static void fixup_fallthru_exit_predecessor (void);
-static tree insn_scope (rtx);
+static tree insn_scope (const_rtx);
 
 rtx
 unlink_insn_chain (rtx first, rtx last)
@@ -451,7 +450,7 @@ change_scope (rtx orig_insn, tree s1, tree s2)
 
 /* Return lexical scope block insn belong to.  */
 static tree
-insn_scope (rtx insn)
+insn_scope (const_rtx insn)
 {
   int max = VEC_length (int, block_locators_locs);
   int min = 0;
@@ -528,7 +527,7 @@ locator_line (int loc)
 
 /* Return line number of the statement that produced this insn.  */
 int
-insn_line (rtx insn)
+insn_line (const_rtx insn)
 {
   return locator_line (INSN_LOCATOR (insn));
 }
@@ -547,7 +546,7 @@ locator_file (int loc)
 
 /* Return source file of the statement that produced this insn.  */
 const char *
-insn_file (rtx insn)
+insn_file (const_rtx insn)
 {
   return locator_file (INSN_LOCATOR (insn));
 }
@@ -963,6 +962,56 @@ fixup_fallthru_exit_predecessor (void)
       bb->aux = NULL;
     }
 }
+
+/* In case there are more than one fallthru predecessors of exit, force that
+   there is only one.  */
+
+static void
+force_one_exit_fallthru (void)
+{
+  edge e, predecessor = NULL;
+  bool more = false;
+  edge_iterator ei;
+  basic_block forwarder, bb;
+
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+    if (e->flags & EDGE_FALLTHRU)
+      {
+	if (predecessor == NULL)
+	  predecessor = e;
+	else
+	  {
+	    more = true;
+	    break;
+	  }
+      }
+
+  if (!more)
+    return;
+
+  /* Exit has several fallthru predecessors.  Create a forwarder block for
+     them.  */
+  forwarder = split_edge (predecessor);
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
+    {
+      if (e->src == forwarder
+	  || !(e->flags & EDGE_FALLTHRU))
+	ei_next (&ei);
+      else
+	redirect_edge_and_branch_force (e, forwarder);
+    }
+
+  /* Fix up the chain of blocks -- make FORWARDER immediately precede the
+     exit block.  */
+  FOR_EACH_BB (bb)
+    {
+      if (bb->aux == NULL && bb != forwarder)
+	{
+	  bb->aux = forwarder;
+	  break;
+	}
+    }
+}
 
 /* Return true in case it is possible to duplicate the basic block BB.  */
 
@@ -970,10 +1019,10 @@ fixup_fallthru_exit_predecessor (void)
    only be used through the cfghooks interface, and we do not want to move
    it to cfgrtl.c since it would require also moving quite a lot of related
    code.  */
-extern bool cfg_layout_can_duplicate_bb_p (basic_block);
+extern bool cfg_layout_can_duplicate_bb_p (const_basic_block);
 
 bool
-cfg_layout_can_duplicate_bb_p (basic_block bb)
+cfg_layout_can_duplicate_bb_p (const_basic_block bb)
 {
   /* Do not attempt to duplicate tablejumps, as we need to unshare
      the dispatch table.  This is difficult to do, as the instructions
@@ -1178,6 +1227,7 @@ cfg_layout_finalize (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+  force_one_exit_fallthru ();
   rtl_register_cfg_hooks ();
   if (reload_completed
 #ifdef HAVE_epilogue

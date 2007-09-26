@@ -8,7 +8,7 @@
 
 #GCC is free software; you can redistribute it and/or modify it under
 #the terms of the GNU General Public License as published by the Free
-#Software Foundation; either version 2, or (at your option) any later
+#Software Foundation; either version 3, or (at your option) any later
 #version.
 
 #GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,8 @@
 #for more details.
 
 #You should have received a copy of the GNU General Public License
-#along with GCC; see the file COPYING.  If not, write to the Free
-#Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-#02110-1301, USA.
+#along with GCC; see the file COPYING3.  If not see
+#<http://www.gnu.org/licenses/>.
 
 # --------------------------------
 # Initialization and sanity checks
@@ -247,6 +246,9 @@ if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
 	[Define to enable the use of a default assembler.])
 fi
 
+gnu_as=`if test x"$gas_flag" = x"yes"; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(HAVE_GNU_AS, $gnu_as, [Define if using GNU as.])
+
 AC_MSG_CHECKING([whether a default assembler was specified])
 if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
   if test x"$gas_flag" = x"no"; then
@@ -347,7 +349,7 @@ AC_ARG_ENABLE(checking,
 			  enable only specific categories of checks.
 			  Categories are: yes,no,all,none,release.
 			  Flags are: assert,df,fold,gc,gcac,misc,
-			  rtlflag,rtl,runtime,tree,valgrind.],
+			  rtlflag,rtl,runtime,tree,valgrind,types.],
 [ac_checking_flags="${enableval}"],[
 # Determine the default checks.
 if test x$is_release = x ; then
@@ -360,26 +362,30 @@ for check in release $ac_checking_flags
 do
 	case $check in
 	# these set all the flags to specific states
-	yes)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking=1 ;
+	yes)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking=1 ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
-			ac_tree_checking=1 ; ac_valgrind_checking= ;;
+			ac_tree_checking=1 ; ac_valgrind_checking= ;
+			ac_types_checking= ;;
 	no|none)	ac_assert_checking= ; ac_checking= ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking= ; ac_runtime_checking= ;
-			ac_tree_checking= ; ac_valgrind_checking= ;;
+			ac_tree_checking= ; ac_valgrind_checking= ;
+			ac_types_checking= ;;
 	all)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking=1 ;
 			ac_fold_checking=1 ; ac_gc_checking=1 ;
 			ac_gc_always_collect=1 ; ac_rtl_checking=1 ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
-			ac_tree_checking=1 ; ac_valgrind_checking= ;;
+			ac_tree_checking=1 ; ac_valgrind_checking= ;
+			ac_types_checking=1 ;;
 	release)	ac_assert_checking=1 ; ac_checking= ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking= ; ac_runtime_checking=1 ;
-			ac_tree_checking= ; ac_valgrind_checking= ;;
+			ac_tree_checking= ; ac_valgrind_checking= ;
+			ac_types_checking= ;;
 	# these enable particular checks
 	assert) 	ac_assert_checking=1 ;;
 	df)	 	ac_df_checking=1 ;;
@@ -391,6 +397,7 @@ do
 	rtlflag)	ac_rtlflag_checking=1 ;;
 	runtime)	ac_runtime_checking=1 ;;
 	tree)		ac_tree_checking=1 ;;
+	types)		ac_types_checking=1 ;;
 	valgrind)	ac_valgrind_checking=1 ;;
 	*)	AC_MSG_ERROR(unknown check category $check) ;;
 	esac
@@ -426,6 +433,12 @@ if test x$ac_tree_checking != x ; then
    routines will also be enabled by this option.
    ])
   TREEBROWSER=tree-browser.o
+fi
+if test x$ac_types_checking != x ; then
+  AC_DEFINE(ENABLE_TYPES_CHECKING, 1,
+[Define if you want all gimple types to be verified after gimplifiation.
+   This is cheap.
+   ])
 fi
 AC_SUBST(TREEBROWSER)
 if test x$ac_rtl_checking != x ; then
@@ -628,6 +641,28 @@ AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_BID_FORMAT, $bid,
 [Define to 1 to specify that we are using the BID decimal floating
 point format instead of DPD])
 
+# Enable C extension for fixed-point arithmetic.
+AC_ARG_ENABLE(fixed-point,
+[  --enable-fixed-point    enable fixed-point arithmetic extension to C],
+[
+],
+[
+  case $target in
+    mips*-*-*)
+      enable_fixed_point=yes
+      ;;
+    *)
+      AC_MSG_WARN(fixed-point is not supported for this target, ignored)
+      enable_fixed_point=no
+      ;;
+  esac
+])
+AC_SUBST(enable_fixed_point)
+
+fixedpoint=`if test $enable_fixed_point = yes; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(ENABLE_FIXED_POINT, $fixedpoint,
+[Define to 1 to enable fixed-point arithmetic extension to C.])
+
 # Enable threads
 # Pass with no value to take the default
 # Pass with a value to specify a thread package
@@ -734,6 +769,9 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
+ACX_PKGVERSION([GCC])
+ACX_BUGURL([http://gcc.gnu.org/bugs.html])
+
 # Sanity check enable_languages in case someone does not run the toplevel
 # configure # script.
 AC_ARG_ENABLE(languages,
@@ -803,7 +841,7 @@ AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 # that we can use it.
 ACX_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[4-9]*])
+  [4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
@@ -1304,7 +1342,7 @@ case ${enable_threads} in
     target_thread_file='single'
     ;;
   aix | dce | gnat | irix | posix | posix95 | rtems | \
-  single | solaris | vxworks | win32 )
+  single | solaris | vxworks | win32 | mipssde)
     target_thread_file=${enable_threads}
     ;;
   *)
@@ -1739,6 +1777,11 @@ for file in ${extra_headers} ; do
   extra_headers_list="${extra_headers_list} \$(srcdir)/config/${cpu_type}/${file}"
 done
 
+# If use_gcc_tgmath is set, append ginclude/tgmath.h.
+if test x"$use_gcc_tgmath" = xyes
+then extra_headers_list="${extra_headers_list} \$(srcdir)/ginclude/tgmath.h"
+fi
+
 # Define collect2 in Makefile.
 case $host_can_use_collect2 in
   no) collect2= ;;
@@ -2023,9 +2066,7 @@ else
   if echo "$ld_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
@@ -2090,9 +2131,16 @@ L2:],
   as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
   if echo "$as_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
-    as_ver=`echo $as_ver | sed -e 's/GNU assembler \([0-9.][0-9.]*\).*/\1/'`
-    as_major=`echo $as_ver | sed 's/\..*//'`
-    as_minor=`echo $as_ver | sed 's/[^.]*\.\([0-9]*\).*/\1/'`
+    as_vers=`echo $as_ver | sed -n \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+    as_major=`expr "$as_vers" : '\([0-9]*\)'`
+    as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
 changequote([,])dnl
     if test $as_major -eq 2 && test $as_minor -lt 11
     then :
@@ -3050,6 +3098,12 @@ if test x"$insn" != x; then
    fi],
   [AC_DEFINE(HAVE_AS_GSTABS_DEBUG_FLAG, 1,
 [Define if your assembler supports the --gstabs option.])])
+
+ gcc_GAS_CHECK_FEATURE([--debug-prefix-map option],
+  gcc_cv_as_debug_prefix_map_flag,
+  [2,18,0], [--debug-prefix-map /a=/b], [$insn],,
+  [AC_DEFINE(HAVE_AS_DEBUG_PREFIX_MAP, 1,
+[Define if your assembler supports the --debug-prefix-map option.])])
 fi
 
 AC_CACHE_CHECK([assembler for tolerance to line number 0],

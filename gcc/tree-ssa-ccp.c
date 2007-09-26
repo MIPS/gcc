@@ -8,7 +8,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Conditional constant propagation (CCP) is based on the SSA
    propagation engine (tree-ssa-propagate.c).  Constant assignments of
@@ -1053,8 +1052,9 @@ fold_const_aggregate_ref (tree t)
 	          == MODE_INT)
 	      && GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (ctor)))) == 1
 	      && compare_tree_int (idx, TREE_STRING_LENGTH (ctor)) < 0)
-	    return build_int_cst (TREE_TYPE (t), (TREE_STRING_POINTER (ctor)
-					          [TREE_INT_CST_LOW (idx)]));
+	    return build_int_cst_type (TREE_TYPE (t),
+				       (TREE_STRING_POINTER (ctor)
+					[TREE_INT_CST_LOW (idx)]));
 	  return NULL_TREE;
 	}
 
@@ -1644,7 +1644,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
   /* Make sure to possibly truncate late after offsetting.  */
   idx = fold_convert (idx_type, idx);
 
-  return build4 (ARRAY_REF, orig_type, base, idx, NULL_TREE, NULL_TREE);
+  return build4 (ARRAY_REF, elt_type, base, idx, NULL_TREE, NULL_TREE);
 }
 
 
@@ -1839,6 +1839,7 @@ static tree
 maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 {
   tree t;
+  bool volatile_p = TREE_THIS_VOLATILE (expr);
 
   /* We may well have constructed a double-nested PLUS_EXPR via multiple
      substitutions.  Fold that down to one.  Remove NON_LVALUE_EXPRs that
@@ -1882,7 +1883,10 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
       t = maybe_fold_offset_to_reference (base_addr, offset,
 					  TREE_TYPE (expr));
       if (t)
-	return t;
+	{
+	  TREE_THIS_VOLATILE (t) = volatile_p;
+	  return t;
+	}
     }
   else
     {
@@ -2056,7 +2060,12 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 		      (TREE_OPERAND (expr, 0),
 		       integer_zero_node,
 		       TREE_TYPE (TREE_TYPE (expr)))))
-        t = build_fold_addr_expr_with_type (t, TREE_TYPE (expr));
+	{
+	  tree ptr_type = build_pointer_type (TREE_TYPE (t));
+	  if (!useless_type_conversion_p (TREE_TYPE (expr), ptr_type))
+	    return NULL_TREE;
+          t = build_fold_addr_expr_with_type (t, ptr_type);
+	}
       break;
 
       /* ??? Could handle more ARRAY_REFs here, as a variant of INDIRECT_REF.
@@ -2636,6 +2645,8 @@ execute_fold_all_builtins (void)
 {
   bool cfg_changed = false;
   basic_block bb;
+  unsigned int todoflags = 0;
+  
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
@@ -2693,6 +2704,7 @@ execute_fold_all_builtins (void)
 		{
 		  bool ok = set_rhs (stmtp, result);
 		  gcc_assert (ok);
+		  todoflags |= TODO_rebuild_alias;
 		}
 	    }
 
@@ -2724,9 +2736,12 @@ execute_fold_all_builtins (void)
 	    bsi_next (&i);
 	}
     }
-
+  
   /* Delete unreachable blocks.  */
-  return cfg_changed ? TODO_cleanup_cfg : 0;
+  if (cfg_changed)
+    todoflags |= TODO_cleanup_cfg;
+  
+  return todoflags;
 }
 
 

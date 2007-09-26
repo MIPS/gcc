@@ -7,7 +7,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 (define_constants [
@@ -30,13 +29,17 @@
   (UNSPEC_NOP		2)
   (UNSPEC_PLT		3)
   (UNSPEC_RET_ADDR	4)
+
   (UNSPECV_SET_FP	1)
   (UNSPECV_ENTRY	2)
+  (UNSPECV_MEMW		3)
+  (UNSPECV_S32RI	4)
+  (UNSPECV_S32C1I	5)
 ])
 
-;; This code macro allows signed and unsigned widening multiplications
+;; This code iterator allows signed and unsigned widening multiplications
 ;; to use the same template.
-(define_code_macro any_extend [sign_extend zero_extend])
+(define_code_iterator any_extend [sign_extend zero_extend])
 
 ;; <u> expands to an empty string when doing a signed operation and
 ;; "u" when doing an unsigned operation.
@@ -45,23 +48,32 @@
 ;; <su> is like <u>, but the signed form expands to "s" rather than "".
 (define_code_attr su [(sign_extend "s") (zero_extend "u")])
 
-;; This code macro allows four integer min/max operations to be
+;; This code iterator allows four integer min/max operations to be
 ;; generated from one template.
-(define_code_macro any_minmax [smin umin smax umax])
+(define_code_iterator any_minmax [smin umin smax umax])
 
 ;; <minmax> expands to the opcode name for any_minmax operations.
 (define_code_attr minmax [(smin "min") (umin "minu")
 			  (smax "max") (umax "maxu")])
 
-;; This code macro allows all branch instructions to be generated from
+;; This code iterator allows all branch instructions to be generated from
 ;; a single define_expand template.
-(define_code_macro any_cond [eq ne gt ge lt le gtu geu ltu leu])
+(define_code_iterator any_cond [eq ne gt ge lt le gtu geu ltu leu])
 
-;; This code macro is for setting a register from a comparison.
-(define_code_macro any_scc [eq ne gt ge lt le])
+;; This code iterator is for setting a register from a comparison.
+(define_code_iterator any_scc [eq ne gt ge lt le])
 
-;; This code macro is for floating-point comparisons.
-(define_code_macro any_scc_sf [eq lt le])
+;; This code iterator is for floating-point comparisons.
+(define_code_iterator any_scc_sf [eq lt le])
+
+;; This iterator and attribute allow to combine most atomic operations.
+(define_code_iterator ATOMIC [and ior xor plus minus mult])
+(define_code_attr atomic [(and "and") (ior "ior") (xor "xor") 
+			  (plus "add") (minus "sub") (mult "nand")])
+
+;; This mode iterator allows the HI and QI patterns to be defined from
+;; the same template.
+(define_mode_iterator HQI [HI QI])
 
 
 ;; Attributes.
@@ -1687,3 +1699,113 @@ srli\t%3, %3, 30\;slli\t%0, %1, 2\;ssai\t2\;src\t%0, %3, %0"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
    (set_attr "length"	"3")])
+
+
+;; Atomic operations
+
+(define_expand "memory_barrier"
+  [(set (mem:BLK (match_dup 0))
+	(unspec_volatile:BLK [(mem:BLK (match_dup 0))] UNSPECV_MEMW))]
+  ""
+{
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (SImode));
+  MEM_VOLATILE_P (operands[0]) = 1;
+})
+
+(define_insn "*memory_barrier"
+  [(set (match_operand:BLK 0 "" "")
+	(unspec_volatile:BLK [(match_operand:BLK 1 "" "")] UNSPECV_MEMW))]
+  ""
+  "memw"
+  [(set_attr "type"	"unknown")
+   (set_attr "mode"	"none")
+   (set_attr "length"	"3")])
+
+;; sync_lock_release is only implemented for SImode.
+;; For other modes, just use the default of a store with a memory_barrier.
+(define_insn "sync_lock_releasesi"
+  [(set (match_operand:SI 0 "mem_operand" "=U")
+	(unspec_volatile:SI
+	  [(match_operand:SI 1 "register_operand" "r")]
+	  UNSPECV_S32RI))]
+  "TARGET_RELEASE_SYNC"
+  "s32ri\t%1, %0"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"3")])
+
+(define_insn "sync_compare_and_swapsi"
+  [(parallel
+    [(set (match_operand:SI 0 "register_operand" "=a")
+	  (match_operand:SI 1 "mem_operand" "+U"))
+     (set (match_dup 1)
+	  (unspec_volatile:SI
+	    [(match_dup 1)
+	     (match_operand:SI 2 "register_operand" "r")
+	     (match_operand:SI 3 "register_operand" "0")]
+	    UNSPECV_S32C1I))])]
+  "TARGET_S32C1I"
+  "wsr\t%2, SCOMPARE1\;s32c1i\t%3, %1"
+  [(set_attr "type"	"multi")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"6")])
+
+(define_expand "sync_compare_and_swap<mode>"
+  [(parallel
+    [(set (match_operand:HQI 0 "register_operand" "")
+	  (match_operand:HQI 1 "mem_operand" ""))
+     (set (match_dup 1)
+	  (unspec_volatile:HQI
+	    [(match_dup 1)
+	     (match_operand:HQI 2 "register_operand" "")
+	     (match_operand:HQI 3 "register_operand" "")]
+	    UNSPECV_S32C1I))])]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_compare_and_swap (operands[0], operands[1],
+				  operands[2], operands[3]);
+  DONE;
+})
+
+(define_expand "sync_lock_test_and_set<mode>"
+  [(match_operand:HQI 0 "register_operand")
+   (match_operand:HQI 1 "memory_operand")
+   (match_operand:HQI 2 "register_operand")]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_atomic (SET, operands[0], operands[1], operands[2], false);
+  DONE;
+})
+
+(define_expand "sync_<atomic><mode>"
+  [(set (match_operand:HQI 0 "memory_operand")
+	(ATOMIC:HQI (match_dup 0)
+		    (match_operand:HQI 1 "register_operand")))]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_atomic (<CODE>, NULL_RTX, operands[0], operands[1], false);
+  DONE;
+})
+
+(define_expand "sync_old_<atomic><mode>"
+  [(set (match_operand:HQI 0 "register_operand")
+	(match_operand:HQI 1 "memory_operand"))
+   (set (match_dup 1)
+	(ATOMIC:HQI (match_dup 1)
+		    (match_operand:HQI 2 "register_operand")))]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_atomic (<CODE>, operands[0], operands[1], operands[2], false);
+  DONE;
+})
+
+(define_expand "sync_new_<atomic><mode>"
+  [(set (match_operand:HQI 0 "register_operand")
+	(ATOMIC:HQI (match_operand:HQI 1 "memory_operand")
+		    (match_operand:HQI 2 "register_operand"))) 
+   (set (match_dup 1) (ATOMIC:HQI (match_dup 1) (match_dup 2)))]
+  "TARGET_S32C1I"
+{
+  xtensa_expand_atomic (<CODE>, operands[0], operands[1], operands[2], true);
+  DONE;
+})

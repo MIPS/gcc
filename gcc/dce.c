@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -169,7 +168,7 @@ mark_insn (rtx insn, bool fast)
    instruction containing DEST.  */
 
 static void
-mark_nonreg_stores_1 (rtx dest, rtx pattern, void *data)
+mark_nonreg_stores_1 (rtx dest, const_rtx pattern, void *data)
 {
   if (GET_CODE (pattern) != CLOBBER && !REG_P (dest))
     mark_insn ((rtx) data, true);
@@ -180,7 +179,7 @@ mark_nonreg_stores_1 (rtx dest, rtx pattern, void *data)
    instruction containing DEST.  */
 
 static void
-mark_nonreg_stores_2 (rtx dest, rtx pattern, void *data)
+mark_nonreg_stores_2 (rtx dest, const_rtx pattern, void *data)
 {
   if (GET_CODE (pattern) != CLOBBER && !REG_P (dest))
     mark_insn ((rtx) data, false);
@@ -398,7 +397,7 @@ prescan_insns_for_dce (bool fast)
 
 /* UD-based DSE routines. */
 
-/* Mark instructions that define artifically-used registers, such as
+/* Mark instructions that define artificially-used registers, such as
    the frame pointer and the stack pointer.  */
 
 static void
@@ -499,7 +498,7 @@ struct tree_opt_pass pass_ud_rtl_dce =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };
@@ -528,6 +527,7 @@ static bool
 dce_process_block (basic_block bb, bool redo_out)
 {
   bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
+  bitmap au;
   rtx insn;
   bool block_changed;
   struct df_ref **def_rec, **use_rec;
@@ -570,6 +570,15 @@ dce_process_block (basic_block bb, bool redo_out)
 	bitmap_set_bit (local_live, DF_REF_REGNO (use));
     }
 
+  /* These regs are considered always live so if they end up dying
+     because of some def, we need to bring the back again.
+     Calling df_simulate_fixup_sets has the disadvantage of calling
+     df_has_eh_preds once per insn, so we cache the information here.  */
+  if (df_has_eh_preds (bb))
+    au = df->eh_block_artificial_uses;
+  else
+    au = df->regular_block_artificial_uses;
+
   FOR_BB_INSNS_REVERSE (bb, insn)
     if (INSN_P (insn))
       {
@@ -581,7 +590,8 @@ dce_process_block (basic_block bb, bool redo_out)
 
 	    /* The insn is needed if there is someone who uses the output.  */
 	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec)))
+	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec))
+		  || bitmap_bit_p (au, DF_REF_REGNO (*def_rec)))
 		{
 		  needed = true;
 		  break;
@@ -806,7 +816,7 @@ struct tree_opt_pass pass_fast_rtl_dce =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };

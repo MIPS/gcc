@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass tries to find the optimal set of induction variables for the loop.
    It optimizes just the basic linear induction variables (although adding
@@ -2486,7 +2485,7 @@ var_at_stmt (struct loop *loop, struct iv_cand *cand, tree stmt)
    but the bit is determined from TYPE_PRECISION, not MODE_BITSIZE.  */
 
 int
-tree_int_cst_sign_bit (tree t)
+tree_int_cst_sign_bit (const_tree t)
 {
   unsigned bitno = TYPE_PRECISION (TREE_TYPE (t)) - 1;
   unsigned HOST_WIDE_INT w;
@@ -3624,11 +3623,11 @@ may_eliminate_iv (struct ivopts_data *data,
 {
   basic_block ex_bb;
   edge exit;
-  tree nit, nit_type;
-  tree wider_type, period, per_type;
+  tree nit, period;
   struct loop *loop = data->current_loop;
   aff_tree bnd;
-  
+  double_int period_value, max_niter;
+
   if (TREE_CODE (cand->iv->step) != INTEGER_CST)
     return false;
 
@@ -3651,25 +3650,19 @@ may_eliminate_iv (struct ivopts_data *data,
   if (!nit)
     return false;
 
-  nit_type = TREE_TYPE (nit);
-
   /* Determine whether we may use the variable to test whether niter iterations
      elapsed.  This is the case iff the period of the induction variable is
      greater than the number of iterations.  */
   period = iv_period (cand->iv);
   if (!period)
     return false;
-  per_type = TREE_TYPE (period);
 
-  wider_type = TREE_TYPE (period);
-  if (TYPE_PRECISION (nit_type) < TYPE_PRECISION (per_type))
-    wider_type = per_type;
-  else
-    wider_type = nit_type;
-
-  if (!integer_nonzerop (fold_build2 (GE_EXPR, boolean_type_node,
-				      fold_convert (wider_type, period),
-				      fold_convert (wider_type, nit))))
+  /* Compare the period with the estimate on the number of iterations of the
+     loop.  */
+  if (!estimated_loop_iterations (loop, true, &max_niter))
+    return false;
+  period_value = tree_to_double_int (period);
+  if (double_int_ucmp (period_value, max_niter) <= 0)
     return false;
 
   cand_value_at (loop, cand, use->stmt, nit, &bnd);
@@ -3698,7 +3691,12 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 
   /* Try iv elimination.  */
   if (may_eliminate_iv (data, use, cand, &bound))
-    elim_cost = force_var_cost (data, bound, &depends_on_elim);
+    {
+      elim_cost = force_var_cost (data, bound, &depends_on_elim);
+      /* The bound is a loop invariant, so it will be only computed
+	 once.  */
+      elim_cost /= AVG_LOOP_NITER (data->current_loop);
+    }
   else
     elim_cost = INFTY;
 
@@ -4862,7 +4860,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 			    struct iv_use *use, struct iv_cand *cand)
 {
   tree comp;
-  tree op, stmts, tgt, ass;
+  tree op, tgt, ass;
   block_stmt_iterator bsi;
 
   /* An important special case -- if we are asked to express value of
@@ -4947,9 +4945,8 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       gcc_unreachable ();
     }
 
-  op = force_gimple_operand (comp, &stmts, false, SSA_NAME_VAR (tgt));
-  if (stmts)
-    bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
+  op = force_gimple_operand_bsi (&bsi, comp, false, SSA_NAME_VAR (tgt),
+				 true, BSI_SAME_STMT);
 
   if (TREE_CODE (use->stmt) == PHI_NODE)
     {
@@ -5022,7 +5019,7 @@ get_ref_tag (tree ref, tree orig)
     }
 
   if (aref && SSA_VAR_P (aref) && get_subvars_for_var (aref))
-    return unshare_expr (sv);
+    return aref;
 
   if (!var)
     return NULL_TREE;
@@ -5115,7 +5112,8 @@ rewrite_use_compare (struct ivopts_data *data,
 
       compare = iv_elimination_compare (data, use);
       bound = unshare_expr (fold_convert (var_type, bound));
-      op = force_gimple_operand_bsi (&bsi, bound, true, NULL_TREE);
+      op = force_gimple_operand_bsi (&bsi, bound, true, NULL_TREE,
+				     true, BSI_SAME_STMT);
 
       *use->op_p = build2 (compare, boolean_type_node, var, op);
       return;
@@ -5129,7 +5127,8 @@ rewrite_use_compare (struct ivopts_data *data,
   ok = extract_cond_operands (data, use->op_p, &var_p, NULL, NULL, NULL);
   gcc_assert (ok);
 
-  *var_p = force_gimple_operand_bsi (&bsi, comp, true, SSA_NAME_VAR (*var_p));
+  *var_p = force_gimple_operand_bsi (&bsi, comp, true, SSA_NAME_VAR (*var_p),
+				     true, BSI_SAME_STMT);
 }
 
 /* Rewrites USE using candidate CAND.  */

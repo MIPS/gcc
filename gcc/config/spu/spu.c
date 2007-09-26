@@ -2,7 +2,7 @@
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2 of the License, or (at your option) 
+   Software Foundation; either version 3 of the License, or (at your option) 
    any later version.
 
    This file is distributed in the hope that it will be useful, but WITHOUT
@@ -11,9 +11,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this file; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -54,6 +53,7 @@
 #include "tree-gimple.h"
 #include "tm-constrs.h"
 #include "spu-builtins.h"
+#include "ddg.h"
 
 /* Builtin types, data and prototypes. */
 struct spu_builtin_range
@@ -95,6 +95,8 @@ static void emit_nop_for_insn (rtx insn);
 static bool insn_clobbers_hbr (rtx insn);
 static void spu_emit_branch_hint (rtx before, rtx branch, rtx target,
 				  int distance);
+static rtx spu_emit_vector_compare (enum rtx_code rcode, rtx op0, rtx op1,
+	                            enum machine_mode dmode);
 static rtx get_branch_target (rtx branch);
 static void insert_branch_hints (void);
 static void insert_nops (void);
@@ -112,8 +114,8 @@ static tree spu_handle_vector_attribute (tree * node, tree name, tree args,
 					 int flags,
 					 unsigned char *no_add_attrs);
 static int spu_naked_function_p (tree func);
-static unsigned char spu_pass_by_reference (int *cum, enum machine_mode mode,
-					    tree type, unsigned char named);
+static unsigned char spu_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+					    const_tree type, unsigned char named);
 static tree spu_build_builtin_va_list (void);
 static tree spu_gimplify_va_arg_expr (tree valist, tree type, tree * pre_p,
 				      tree * post_p);
@@ -127,15 +129,23 @@ static unsigned char spu_rtx_costs (rtx x, int code, int outer_code,
 				    int *total);
 static unsigned char spu_function_ok_for_sibcall (tree decl, tree exp);
 static void spu_init_libfuncs (void);
-static bool spu_return_in_memory (tree type, tree fntype);
+static bool spu_return_in_memory (const_tree type, const_tree fntype);
 static void fix_range (const char *);
 static void spu_encode_section_info (tree, rtx, int);
 static tree spu_builtin_mul_widen_even (tree);
 static tree spu_builtin_mul_widen_odd (tree);
 static tree spu_builtin_mask_for_load (void);
+static int spu_builtin_vectorization_cost (bool);
+static bool spu_vector_alignment_reachable (const_tree, bool);
+static int spu_sms_res_mii (struct ddg *g);
 
 extern const char *reg_names[];
 rtx spu_compare_op0, spu_compare_op1;
+
+/* Which instruction set architecture to use.  */
+int spu_arch;
+/* Which cpu are we tuning for.  */
+int spu_tune;
 
 enum spu_immediate {
   SPU_NONE,
@@ -165,6 +175,12 @@ static enum spu_immediate which_logical_immediate (HOST_WIDE_INT val);
 static int cpat_info(unsigned char *arr, int size, int *prun, int *pstart);
 static enum immediate_class classify_immediate (rtx op,
 						enum machine_mode mode);
+
+static enum machine_mode
+spu_libgcc_cmp_return_mode (void);
+
+static enum machine_mode
+spu_libgcc_shift_count_mode (void);
 
 /* Built in types.  */
 tree spu_builtin_types[SPU_BTI_MAX];
@@ -261,16 +277,26 @@ const struct attribute_spec spu_attribute_table[];
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD spu_builtin_mask_for_load
 
+#undef TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST spu_builtin_vectorization_cost
+
+#undef TARGET_VECTOR_ALIGNMENT_REACHABLE
+#define TARGET_VECTOR_ALIGNMENT_REACHABLE spu_vector_alignment_reachable
+
+#undef TARGET_LIBGCC_CMP_RETURN_MODE
+#define TARGET_LIBGCC_CMP_RETURN_MODE spu_libgcc_cmp_return_mode
+
+#undef TARGET_LIBGCC_SHIFT_COUNT_MODE
+#define TARGET_LIBGCC_SHIFT_COUNT_MODE spu_libgcc_shift_count_mode
+
+#undef TARGET_SCHED_SMS_RES_MII
+#define TARGET_SCHED_SMS_RES_MII spu_sms_res_mii
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 void
 spu_optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 {
-  /* Small loops will be unpeeled at -O3.  For SPU it is more important
-     to keep code small by default. */
-  if (!flag_unroll_loops && !flag_peel_loops)
-    PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES) = 1;
-
   /* Override some of the default param values.  With so many registers
      larger values are better for these params.  */
   MAX_PENDING_LIST_LENGTH = 128;
@@ -286,6 +312,12 @@ spu_optimization_options (int level ATTRIBUTE_UNUSED, int size ATTRIBUTE_UNUSED)
 void
 spu_override_options (void)
 {
+  /* Small loops will be unpeeled at -O3.  For SPU it is more important
+     to keep code small by default.  */
+  if (!flag_unroll_loops && !flag_peel_loops
+      && !PARAM_SET_P (PARAM_MAX_COMPLETELY_PEEL_TIMES))
+    PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES) = 1;
+
   flag_omit_frame_pointer = 1;
 
   if (align_functions < 8)
@@ -293,6 +325,28 @@ spu_override_options (void)
 
   if (spu_fixed_range_string)
     fix_range (spu_fixed_range_string);
+
+  /* Determine processor architectural level.  */
+  if (spu_arch_string)
+    {
+      if (strcmp (&spu_arch_string[0], "cell") == 0)
+        spu_arch = PROCESSOR_CELL;
+      else if (strcmp (&spu_arch_string[0], "celledp") == 0)
+        spu_arch = PROCESSOR_CELLEDP;
+      else
+        error ("Unknown architecture '%s'", &spu_arch_string[0]);
+    }
+
+  /* Determine processor to tune for.  */
+  if (spu_tune_string)
+    {
+      if (strcmp (&spu_tune_string[0], "cell") == 0)
+        spu_tune = PROCESSOR_CELL;
+      else if (strcmp (&spu_tune_string[0], "celledp") == 0)
+        spu_tune = PROCESSOR_CELLEDP;
+      else
+        error ("Unknown architecture '%s'", &spu_tune_string[0]);
+    }
 }
 
 /* Handle an attribute requiring a FUNCTION_DECL; arguments as in
@@ -641,16 +695,19 @@ spu_expand_block_move (rtx ops[])
 enum spu_comp_code
 { SPU_EQ, SPU_GT, SPU_GTU };
 
-
-int spu_comp_icode[8][3] = {
-  {CODE_FOR_ceq_qi, CODE_FOR_cgt_qi, CODE_FOR_clgt_qi},
-  {CODE_FOR_ceq_hi, CODE_FOR_cgt_hi, CODE_FOR_clgt_hi},
-  {CODE_FOR_ceq_si, CODE_FOR_cgt_si, CODE_FOR_clgt_si},
-  {CODE_FOR_ceq_di, CODE_FOR_cgt_di, CODE_FOR_clgt_di},
-  {CODE_FOR_ceq_ti, CODE_FOR_cgt_ti, CODE_FOR_clgt_ti},
-  {CODE_FOR_ceq_sf, CODE_FOR_cgt_sf, 0},
-  {0, 0, 0},
-  {CODE_FOR_ceq_vec, 0, 0},
+int spu_comp_icode[12][3] = {
+ {CODE_FOR_ceq_qi, CODE_FOR_cgt_qi, CODE_FOR_clgt_qi},
+ {CODE_FOR_ceq_hi, CODE_FOR_cgt_hi, CODE_FOR_clgt_hi},
+ {CODE_FOR_ceq_si, CODE_FOR_cgt_si, CODE_FOR_clgt_si},
+ {CODE_FOR_ceq_di, CODE_FOR_cgt_di, CODE_FOR_clgt_di},
+ {CODE_FOR_ceq_ti, CODE_FOR_cgt_ti, CODE_FOR_clgt_ti},
+ {CODE_FOR_ceq_sf, CODE_FOR_cgt_sf, 0},
+ {CODE_FOR_ceq_df, CODE_FOR_cgt_df, 0},
+ {CODE_FOR_ceq_v16qi, CODE_FOR_cgt_v16qi, CODE_FOR_clgt_v16qi},
+ {CODE_FOR_ceq_v8hi,  CODE_FOR_cgt_v8hi,  CODE_FOR_clgt_v8hi},
+ {CODE_FOR_ceq_v4si,  CODE_FOR_cgt_v4si,  CODE_FOR_clgt_v4si},
+ {CODE_FOR_ceq_v4sf,  CODE_FOR_cgt_v4sf, 0},
+ {CODE_FOR_ceq_v2df,  CODE_FOR_cgt_v2df, 0},
 };
 
 /* Generate a compare for CODE.  Return a brand-new rtx that represents
@@ -663,13 +720,14 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 {
   int reverse_compare = 0;
   int reverse_test = 0;
-  rtx compare_result;
-  rtx comp_rtx;
+  rtx compare_result, eq_result;
+  rtx comp_rtx, eq_rtx;
   rtx target = operands[0];
   enum machine_mode comp_mode;
   enum machine_mode op_mode;
-  enum spu_comp_code scode;
+  enum spu_comp_code scode, eq_code, ior_code;
   int index;
+  int eq_test = 0;
 
   /* When spu_compare_op1 is a CONST_INT change (X >= C) to (X > C-1),
      and so on, to keep the constant in operand 1. */
@@ -700,17 +758,40 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 	  }
     }
 
+  comp_mode = SImode;
+  op_mode = GET_MODE (spu_compare_op0);
+
   switch (code)
     {
     case GE:
-      reverse_compare = 1;
-      reverse_test = 1;
       scode = SPU_GT;
+      if (HONOR_NANS (op_mode) && spu_arch == PROCESSOR_CELLEDP)
+	{
+	  reverse_compare = 0;
+	  reverse_test = 0;
+	  eq_test = 1;
+	  eq_code = SPU_EQ;
+	}
+      else
+	{
+	  reverse_compare = 1;
+	  reverse_test = 1;
+	}
       break;
     case LE:
-      reverse_compare = 0;
-      reverse_test = 1;
       scode = SPU_GT;
+      if (HONOR_NANS (op_mode) && spu_arch == PROCESSOR_CELLEDP)
+	{
+	  reverse_compare = 1;
+	  reverse_test = 0;
+	  eq_test = 1;
+	  eq_code = SPU_EQ;
+	}
+      else
+	{
+	  reverse_compare = 0;
+	  reverse_test = 1;
+	}
       break;
     case LT:
       reverse_compare = 1;
@@ -752,9 +833,6 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
       break;
     }
 
-  comp_mode = SImode;
-  op_mode = GET_MODE (spu_compare_op0);
-
   switch (op_mode)
     {
     case QImode:
@@ -781,13 +859,26 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
       index = 6;
       break;
     case V16QImode:
-    case V8HImode:
-    case V4SImode:
-    case V2DImode:
-    case V4SFmode:
-    case V2DFmode:
       index = 7;
+      comp_mode = op_mode;
       break;
+    case V8HImode:
+      index = 8;
+      comp_mode = op_mode;
+      break;
+    case V4SImode:
+      index = 9;
+      comp_mode = op_mode;
+      break;
+    case V4SFmode:
+      index = 10;
+      comp_mode = V4SImode;
+      break;
+    case V2DFmode:
+      index = 11;
+      comp_mode = V2DImode;
+      break;
+    case V2DImode:
     default:
       abort ();
     }
@@ -795,16 +886,19 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
   if (GET_MODE (spu_compare_op1) == DFmode)
     {
       rtx reg = gen_reg_rtx (DFmode);
-      if (!flag_unsafe_math_optimizations
+      if ((!flag_unsafe_math_optimizations && spu_arch == PROCESSOR_CELL)
 	  || (scode != SPU_GT && scode != SPU_EQ))
 	abort ();
-      if (reverse_compare)
-	emit_insn (gen_subdf3 (reg, spu_compare_op1, spu_compare_op0));
-      else
-	emit_insn (gen_subdf3 (reg, spu_compare_op0, spu_compare_op1));
-      reverse_compare = 0;
-      spu_compare_op0 = reg;
-      spu_compare_op1 = CONST0_RTX (DFmode);
+      if (spu_arch == PROCESSOR_CELL)
+      {
+        if (reverse_compare)
+	  emit_insn (gen_subdf3 (reg, spu_compare_op1, spu_compare_op0));
+        else
+	  emit_insn (gen_subdf3 (reg, spu_compare_op0, spu_compare_op1));
+        reverse_compare = 0;
+        spu_compare_op0 = reg;
+        spu_compare_op1 = CONST0_RTX (DFmode);
+      }
     }
 
   if (is_set == 0 && spu_compare_op1 == const0_rtx
@@ -843,6 +937,20 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 	abort ();
       emit_insn (comp_rtx);
 
+      if (eq_test)
+        {
+          eq_result = gen_reg_rtx (comp_mode);
+          eq_rtx = GEN_FCN (spu_comp_icode[index][eq_code]) (eq_result,
+							     spu_compare_op0,
+							     spu_compare_op1);
+          if (eq_rtx == 0)
+	    abort ();
+          emit_insn (eq_rtx);
+          ior_code = ior_optab->handlers[(int)comp_mode].insn_code;
+          gcc_assert (ior_code != CODE_FOR_nothing);
+          emit_insn (GEN_FCN (ior_code)
+		     (compare_result, compare_result, eq_result));
+        }
     }
 
   if (is_set == 0)
@@ -1420,7 +1528,7 @@ spu_split_immediate (rtx * ops)
 	rtx to, hi, lo;
 	int i;
 	constant_to_array (mode, ops[1], arrhi);
-	to = no_new_pseudos ? ops[0] : gen_reg_rtx (mode);
+	to = !can_create_pseudo_p () ? ops[0] : gen_reg_rtx (mode);
 	for (i = 0; i < 16; i += 4)
 	  {
 	    arrlo[i + 2] = arrhi[i + 2];
@@ -1878,6 +1986,30 @@ spu_const (enum machine_mode mode, HOST_WIDE_INT val)
    profitable for performance, but we do need to be careful of code
    size.) */
 int spu_hint_dist = (8 * 4);
+
+/* Create a MODE vector constant from 4 ints. */
+rtx
+spu_const_from_ints(enum machine_mode mode, int a, int b, int c, int d)
+{
+  unsigned char arr[16];
+  arr[0] = (a >> 24) & 0xff;
+  arr[1] = (a >> 16) & 0xff;
+  arr[2] = (a >> 8) & 0xff;
+  arr[3] = (a >> 0) & 0xff;
+  arr[4] = (b >> 24) & 0xff;
+  arr[5] = (b >> 16) & 0xff;
+  arr[6] = (b >> 8) & 0xff;
+  arr[7] = (b >> 0) & 0xff;
+  arr[8] = (c >> 24) & 0xff;
+  arr[9] = (c >> 16) & 0xff;
+  arr[10] = (c >> 8) & 0xff;
+  arr[11] = (c >> 0) & 0xff;
+  arr[12] = (d >> 24) & 0xff;
+  arr[13] = (d >> 16) & 0xff;
+  arr[14] = (d >> 8) & 0xff;
+  arr[15] = (d >> 0) & 0xff;
+  return array_to_constant(mode, arr);
+}
 
 /* An array of these is used to propagate hints to predecessor blocks. */
 struct spu_bb_info
@@ -2940,7 +3072,7 @@ spu_initial_elimination_offset (int from, int to)
 }
 
 rtx
-spu_function_value (tree type, tree func ATTRIBUTE_UNUSED)
+spu_function_value (const_tree type, const_tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode = TYPE_MODE (type);
   int byte_size = ((mode == BLKmode)
@@ -3022,7 +3154,7 @@ spu_function_arg (CUMULATIVE_ARGS cum,
 static bool
 spu_pass_by_reference (CUMULATIVE_ARGS * cum ATTRIBUTE_UNUSED,
 		       enum machine_mode mode ATTRIBUTE_UNUSED,
-		       tree type, bool named ATTRIBUTE_UNUSED)
+		       const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
@@ -3380,7 +3512,7 @@ spu_expand_mov (rtx * ops, enum machine_mode mode)
 
       if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (imode))
 	{
-	  enum insn_code icode = trunc_optab->handlers[mode][imode].insn_code;
+	  enum insn_code icode = convert_optab_handler (trunc_optab, mode, imode)->insn_code;
 	  emit_insn (GEN_FCN (icode) (ops[0], from));
 	}
       else
@@ -4316,7 +4448,7 @@ spu_gen_subreg (enum machine_mode mode, rtx x)
 }
 
 static bool
-spu_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+spu_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   return (TYPE_MODE (type) == BLKmode
 	  && ((type) == 0
@@ -4852,6 +4984,201 @@ spu_expand_vector_init (rtx target, rtx vals)
     }
 }
 
+/* Return insn index for the vector compare instruction for given CODE,
+   and DEST_MODE, OP_MODE. Return -1 if valid insn is not available.  */
+
+static int
+get_vec_cmp_insn (enum rtx_code code,
+                  enum machine_mode dest_mode,
+                  enum machine_mode op_mode)
+
+{
+  switch (code)
+    {
+    case EQ:
+      if (dest_mode == V16QImode && op_mode == V16QImode)
+        return CODE_FOR_ceq_v16qi;
+      if (dest_mode == V8HImode && op_mode == V8HImode)
+        return CODE_FOR_ceq_v8hi;
+      if (dest_mode == V4SImode && op_mode == V4SImode)
+        return CODE_FOR_ceq_v4si;
+      if (dest_mode == V4SImode && op_mode == V4SFmode)
+        return CODE_FOR_ceq_v4sf;
+      if (dest_mode == V2DImode && op_mode == V2DFmode)
+        return CODE_FOR_ceq_v2df;
+      break;
+    case GT:
+      if (dest_mode == V16QImode && op_mode == V16QImode)
+        return CODE_FOR_cgt_v16qi;
+      if (dest_mode == V8HImode && op_mode == V8HImode)
+        return CODE_FOR_cgt_v8hi;
+      if (dest_mode == V4SImode && op_mode == V4SImode)
+        return CODE_FOR_cgt_v4si;
+      if (dest_mode == V4SImode && op_mode == V4SFmode)
+        return CODE_FOR_cgt_v4sf;
+      if (dest_mode == V2DImode && op_mode == V2DFmode)
+        return CODE_FOR_cgt_v2df;
+      break;
+    case GTU:
+      if (dest_mode == V16QImode && op_mode == V16QImode)
+        return CODE_FOR_clgt_v16qi;
+      if (dest_mode == V8HImode && op_mode == V8HImode)
+        return CODE_FOR_clgt_v8hi;
+      if (dest_mode == V4SImode && op_mode == V4SImode)
+        return CODE_FOR_clgt_v4si;
+      break;
+    default:
+      break;
+    }
+  return -1;
+}
+
+/* Emit vector compare for operands OP0 and OP1 using code RCODE.
+   DMODE is expected destination mode. This is a recursive function.  */
+
+static rtx
+spu_emit_vector_compare (enum rtx_code rcode,
+                         rtx op0, rtx op1,
+                         enum machine_mode dmode)
+{
+  int vec_cmp_insn;
+  rtx mask;
+  enum machine_mode dest_mode;
+  enum machine_mode op_mode = GET_MODE (op1);
+
+  gcc_assert (GET_MODE (op0) == GET_MODE (op1));
+
+  /* Floating point vector compare instructions uses destination V4SImode.
+     Double floating point vector compare instructions uses destination V2DImode.
+     Move destination to appropriate mode later.  */
+  if (dmode == V4SFmode)
+    dest_mode = V4SImode;
+  else if (dmode == V2DFmode)
+    dest_mode = V2DImode;
+  else
+    dest_mode = dmode;
+
+  mask = gen_reg_rtx (dest_mode);
+  vec_cmp_insn = get_vec_cmp_insn (rcode, dest_mode, op_mode);
+
+  if (vec_cmp_insn == -1)
+    {
+      bool swap_operands = false;
+      bool try_again = false;
+      switch (rcode)
+        {
+        case LT:
+          rcode = GT;
+          swap_operands = true;
+          try_again = true;
+          break;
+        case LTU:
+          rcode = GTU;
+          swap_operands = true;
+          try_again = true;
+          break;
+        case NE:
+          /* Treat A != B as ~(A==B).  */
+          {
+            enum insn_code nor_code;
+            rtx eq_rtx = spu_emit_vector_compare (EQ, op0, op1, dest_mode);
+            nor_code = optab_handler (one_cmpl_optab, (int)dest_mode)->insn_code;
+            gcc_assert (nor_code != CODE_FOR_nothing);
+            emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
+            if (dmode != dest_mode)
+              {
+                rtx temp = gen_reg_rtx (dest_mode);
+                convert_move (temp, mask, 0);
+                return temp;
+              }
+            return mask;
+          }
+          break;
+        case GE:
+        case GEU:
+        case LE:
+        case LEU:
+          /* Try GT/GTU/LT/LTU OR EQ */
+          {
+            rtx c_rtx, eq_rtx;
+            enum insn_code ior_code;
+            enum rtx_code new_code;
+
+            switch (rcode)
+              {
+              case GE:  new_code = GT;  break;
+              case GEU: new_code = GTU; break;
+              case LE:  new_code = LT;  break;
+              case LEU: new_code = LTU; break;
+              default:
+                gcc_unreachable ();
+              }
+
+            c_rtx = spu_emit_vector_compare (new_code, op0, op1, dest_mode);
+            eq_rtx = spu_emit_vector_compare (EQ, op0, op1, dest_mode);
+
+            ior_code = optab_handler (ior_optab, (int)dest_mode)->insn_code;
+            gcc_assert (ior_code != CODE_FOR_nothing);
+            emit_insn (GEN_FCN (ior_code) (mask, c_rtx, eq_rtx));
+            if (dmode != dest_mode)
+              {
+                rtx temp = gen_reg_rtx (dest_mode);
+                convert_move (temp, mask, 0);
+                return temp;
+              }
+            return mask;
+          }
+          break;
+        default:
+          gcc_unreachable ();
+        }
+
+      /* You only get two chances.  */
+      if (try_again)
+          vec_cmp_insn = get_vec_cmp_insn (rcode, dest_mode, op_mode);
+
+      gcc_assert (vec_cmp_insn != -1);
+
+      if (swap_operands)
+        {
+          rtx tmp;
+          tmp = op0;
+          op0 = op1;
+          op1 = tmp;
+        }
+    }
+
+  emit_insn (GEN_FCN (vec_cmp_insn) (mask, op0, op1));
+  if (dmode != dest_mode)
+    {
+      rtx temp = gen_reg_rtx (dest_mode);
+      convert_move (temp, mask, 0);
+      return temp;
+    }
+  return mask;
+}
+
+
+/* Emit vector conditional expression.
+   DEST is destination. OP1 and OP2 are two VEC_COND_EXPR operands.
+   CC_OP0 and CC_OP1 are the two operands for the relation operation COND.  */
+
+int
+spu_emit_vector_cond_expr (rtx dest, rtx op1, rtx op2,
+                           rtx cond, rtx cc_op0, rtx cc_op1)
+{   
+  enum machine_mode dest_mode = GET_MODE (dest);
+  enum rtx_code rcode = GET_CODE (cond);
+  rtx mask;
+    
+  /* Get the vector mask for the given relational operations.  */
+  mask = spu_emit_vector_compare (rcode, cc_op0, cc_op1, dest_mode);
+
+  emit_insn(gen_selb (dest, op2, op1, mask));
+
+  return 1;
+}
+
 static rtx
 spu_force_reg (enum machine_mode mode, rtx op)
 {
@@ -5190,6 +5517,67 @@ spu_builtin_mask_for_load (void)
   return d->fndecl;
 }
 
+/* Implement targetm.vectorize.builtin_vectorization_cost.  */
+static int 
+spu_builtin_vectorization_cost (bool runtime_test)
+{
+  /* If the branch of the runtime test is taken - i.e. - the vectorized
+     version is skipped - this incurs a misprediction cost (because the
+     vectorized version is expected to be the fall-through).  So we subtract
+     the latency of a mispredicted branch from the costs that are incurred
+     when the vectorized version is executed.  */
+  if (runtime_test)
+    return -19;
+  else
+    return 0;
+}
+
+/* Return true iff, data reference of TYPE can reach vector alignment (16)
+   after applying N number of iterations.  This routine does not determine
+   how may iterations are required to reach desired alignment.  */
+
+static bool
+spu_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_packed)
+{
+  if (is_packed)
+    return false;
+
+  /* All other types are naturally aligned.  */
+  return true;
+}
+
+/* Count the total number of instructions in each pipe and return the
+   maximum, which is used as the Minimum Iteration Interval (MII)
+   in the modulo scheduler.  get_pipe() will return -2, -1, 0, or 1.
+   -2 are instructions that can go in pipe0 or pipe1.  */
+static int
+spu_sms_res_mii (struct ddg *g)
+{
+  int i;
+  unsigned t[4] = {0, 0, 0, 0};
+
+  for (i = 0; i < g->num_nodes; i++)
+    {
+      rtx insn = g->nodes[i].insn;
+      int p = get_pipe (insn) + 2;
+
+      assert (p >= 0);
+      assert (p < 4);
+
+      t[p]++;
+      if (dump_file && INSN_P (insn))
+            fprintf (dump_file, "i%d %s %d %d\n",
+                     INSN_UID (insn),
+                     insn_data[INSN_CODE(insn)].name,
+                     p, t[p]);
+    }
+  if (dump_file)
+    fprintf (dump_file, "%d %d %d %d\n", t[0], t[1], t[2], t[3]);
+
+  return MAX ((t[0] + t[2] + t[3] + 1) / 2, MAX (t[2], t[3]));
+}
+
+
 void
 spu_init_expanders (void)
 {   
@@ -5198,4 +5586,21 @@ spu_init_expanders (void)
    * expanding the prologue. */
   if (cfun)
     REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = 8;
-}       
+}
+
+static enum machine_mode
+spu_libgcc_cmp_return_mode (void)
+{
+
+/* For SPU word mode is TI mode so it is better to use SImode
+   for compare returns.  */
+  return SImode;
+}
+
+static enum machine_mode
+spu_libgcc_shift_count_mode (void)
+{
+/* For SPU word mode is TI mode so it is better to use SImode
+   for shift counts.  */
+  return SImode;
+}

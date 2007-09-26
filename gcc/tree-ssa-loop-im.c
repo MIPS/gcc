@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -205,6 +204,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case COMPLEX_CST:
 	case INTEGER_CST:
 	case REAL_CST:
+	case FIXED_CST:
 	  return true;
 
 	case TARGET_MEM_REF:
@@ -1294,9 +1294,9 @@ memref_hash (const void *obj)
 static int
 memref_eq (const void *obj1, const void *obj2)
 {
-  const struct mem_ref *mem1 = (const struct mem_ref *) obj1;
+  const struct mem_ref *const mem1 = (const struct mem_ref *) obj1;
 
-  return operand_equal_p (mem1->mem, (tree) obj2, 0);
+  return operand_equal_p (mem1->mem, (const_tree) obj2, 0);
 }
 
 /* Gathers memory references in statement STMT in LOOP, storing the

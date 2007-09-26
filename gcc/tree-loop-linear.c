@@ -1,12 +1,12 @@
 /* Linear Loop transforms
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -31,6 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "rtl.h"
 #include "basic-block.h"
 #include "diagnostic.h"
+#include "obstack.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "timevar.h"
@@ -254,7 +254,7 @@ linear_transform_loops (void)
   VEC(tree,heap) *oldivs = NULL;
   VEC(tree,heap) *invariants = NULL;
   struct loop *loop_nest;
-  
+
   FOR_EACH_LOOP (li, loop_nest, 0)
     {
       unsigned int depth = 0;
@@ -264,6 +264,9 @@ linear_transform_loops (void)
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
       bool problem = false;
+      struct obstack lambda_obstack;
+      gcc_obstack_init (&lambda_obstack);
+
       /* If it's not a loop nest, we don't want it.
          We also don't handle sibling loops properly, 
          which are loops of the following form:
@@ -328,7 +331,7 @@ linear_transform_loops (void)
 	}
 
       before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs,
-						&invariants);
+                                                &invariants, &lambda_obstack);
 
       if (!before)
 	goto free_and_continue;
@@ -339,7 +342,7 @@ linear_transform_loops (void)
 	  print_lambda_loopnest (dump_file, before, 'i');
 	}
   
-      after = lambda_loopnest_transform (before, trans);
+      after = lambda_loopnest_transform (before, trans, &lambda_obstack);
 
       if (dump_file)
 	{
@@ -348,13 +351,14 @@ linear_transform_loops (void)
 	}
 
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
-				       after, trans);
+                                       after, trans, &lambda_obstack);
       modified = true;
 
       if (dump_file)
 	fprintf (dump_file, "Successfully transformed loop.\n");
 
     free_and_continue:
+      obstack_free (&lambda_obstack, NULL);
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }

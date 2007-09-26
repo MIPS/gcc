@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -40,6 +39,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "options.h"
 #include "mkdeps.h"
 #include "target.h"
+#include "tm_p.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -218,7 +218,7 @@ c_common_init_options (unsigned int argc, const char **argv)
     }
 
   parse_in = cpp_create_reader (c_dialect_cxx () ? CLK_GNUCXX: CLK_GNUC89,
-				ident_hash, &line_table);
+				ident_hash, line_table);
 
   cpp_opts = cpp_get_options (parse_in);
   cpp_opts->dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
@@ -231,6 +231,9 @@ c_common_init_options (unsigned int argc, const char **argv)
   flag_exceptions = c_dialect_cxx ();
   warn_pointer_arith = c_dialect_cxx ();
   warn_write_strings = c_dialect_cxx();
+
+  /* By default, C99-like requirements for complex multiply and divide.  */
+  flag_complex_method = 2;
 
   deferred_opts = XNEWVEC (struct deferred_opt, argc);
 
@@ -614,6 +617,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	result = 0;
       else
 	disable_builtin_function (arg);
+      break;
+
+    case OPT_fdirectives_only:
+      cpp_opts->directives_only = value;
       break;
 
     case OPT_fdollars_in_identifiers:
@@ -1138,11 +1145,6 @@ c_common_post_options (const char **pfilename)
   if (warn_implicit_function_declaration == -1) 
     warn_implicit_function_declaration = flag_isoc99;
 
-  /* C99 requires special handling of complex multiplication and division;
-     -ffast-math and -fcx-limited-range are handled in process_options.  */
-  if (flag_isoc99)
-    flag_complex_method = 2;
-
   /* If we're allowing C++0x constructs, don't warn about C++0x
      compatibility problems.  */
   if (cxx_dialect == cxx0x)
@@ -1409,6 +1411,11 @@ sanitize_cpp_opts (void)
   if (flag_dump_macros == 'M')
     flag_no_output = 1;
 
+  /* By default, -fdirectives-only implies -dD.  This allows subsequent phases
+     to perform proper macro expansion.  */
+  if (cpp_opts->directives_only && !cpp_opts->preprocessed && !flag_dump_macros)
+    flag_dump_macros = 'D';
+
   /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
      -dM since at least glibc relies on -M -dM to work.  */
   /* Also, flag_no_output implies flag_no_line_commands, always.  */
@@ -1439,6 +1446,14 @@ sanitize_cpp_opts (void)
      actually output the current directory?  */
   if (flag_working_directory == -1)
     flag_working_directory = (debug_info_level != DINFO_LEVEL_NONE);
+
+  if (cpp_opts->directives_only)
+    {
+      if (warn_unused_macros)
+	error ("-fdirectives-only is incompatible with -Wunused_macros");
+      if (cpp_opts->traditional)
+	error ("-fdirectives-only is incompatible with -traditional");
+    }
 }
 
 /* Add include path with a prefix at the front of its name.  */
@@ -1470,7 +1485,7 @@ finish_options (void)
       size_t i;
 
       cb_file_change (parse_in,
-		      linemap_add (&line_table, LC_RENAME, 0,
+		      linemap_add (line_table, LC_RENAME, 0,
 				   _("<built-in>"), 0));
 
       cpp_init_builtins (parse_in, flag_hosted);
@@ -1488,7 +1503,7 @@ finish_options (void)
       cpp_opts->warn_dollars = (cpp_opts->pedantic && !cpp_opts->c99);
 
       cb_file_change (parse_in,
-		      linemap_add (&line_table, LC_RENAME, 0,
+		      linemap_add (line_table, LC_RENAME, 0,
 				   _("<command-line>"), 0));
 
       for (i = 0; i < deferred_count; i++)
@@ -1522,6 +1537,8 @@ finish_options (void)
 	    }
 	}
     }
+  else if (cpp_opts->directives_only)
+    cpp_init_special_builtins (parse_in);
 
   include_cursor = 0;
   push_command_line_include ();
@@ -1551,7 +1568,7 @@ push_command_line_include (void)
 
       /* Set this here so the client can change the option if it wishes,
 	 and after stacking the main file so we don't trace the main file.  */
-      line_table.trace_includes = cpp_opts->print_include_names;
+      line_table->trace_includes = cpp_opts->print_include_names;
     }
 }
 

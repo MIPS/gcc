@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Allocation of hard register numbers to pseudo registers is done in
    two passes.  In this pass we consider only regs that are born and
@@ -288,7 +287,7 @@ static struct equivalence *reg_equiv;
 static int recorded_label_ref;
 
 static void alloc_qty (int, enum machine_mode, int, int);
-static void validate_equiv_mem_from_store (rtx, rtx, void *);
+static void validate_equiv_mem_from_store (rtx, const_rtx, void *);
 static int validate_equiv_mem (rtx, rtx, rtx);
 static int equiv_init_varies_p (rtx);
 static int equiv_init_movable_p (rtx, int);
@@ -296,7 +295,7 @@ static int contains_replace_regs (rtx);
 static int memref_referenced_p (rtx, rtx);
 static int memref_used_between_p (rtx, rtx, rtx);
 static void update_equiv_regs (void);
-static void no_equiv (rtx, rtx, void *);
+static void no_equiv (rtx, const_rtx, void *);
 static void block_alloc (int);
 static int qty_sugg_compare (int, int);
 static int qty_sugg_compare_1 (const void *, const void *);
@@ -305,7 +304,7 @@ static int qty_compare_1 (const void *, const void *);
 static int combine_regs (rtx, rtx, int, int, rtx, int);
 static int reg_meets_class_p (int, enum reg_class);
 static void update_qty_class (int, int);
-static void reg_is_set (rtx, rtx, void *);
+static void reg_is_set (rtx, const_rtx, void *);
 static void reg_is_born (rtx, int);
 static void wipe_dead_reg (rtx, int);
 static int find_free_reg (enum reg_class, enum machine_mode, int, int, int,
@@ -461,7 +460,7 @@ static int equiv_mem_modified;
    Called via note_stores.  */
 
 static void
-validate_equiv_mem_from_store (rtx dest, rtx set ATTRIBUTE_UNUSED,
+validate_equiv_mem_from_store (rtx dest, const_rtx set ATTRIBUTE_UNUSED,
 			       void *data ATTRIBUTE_UNUSED)
 {
   if ((REG_P (dest)
@@ -539,6 +538,7 @@ equiv_init_varies_p (rtx x)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -656,6 +656,7 @@ contains_replace_regs (rtx x)
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:
@@ -704,6 +705,7 @@ memref_referenced_p (rtx memref, rtx x)
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:
@@ -1236,7 +1238,7 @@ update_equiv_regs (void)
    assignment - a SET, CLOBBER or REG_INC note.  It is currently not used,
    but needs to be there because this function is called from note_stores.  */
 static void
-no_equiv (rtx reg, rtx store ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
+no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
 {
   int regno;
   rtx list;
@@ -2072,7 +2074,7 @@ update_qty_class (int qtyno, int reg)
    carry info from `block_alloc'.  */
 
 static void
-reg_is_set (rtx reg, rtx setter, void *data ATTRIBUTE_UNUSED)
+reg_is_set (rtx reg, const_rtx setter, void *data ATTRIBUTE_UNUSED)
 {
   /* Note that note_stores will only pass us a SUBREG if it is a SUBREG of
      a hard register.  These may actually not exist any more.  */
@@ -2516,6 +2518,9 @@ rest_of_handle_local_alloc (void)
      we are doing optimization.  */
   if (optimize)
     df_urec_add_problem ();
+#ifdef ENABLE_CHECKING
+  df->changeable_flags |= DF_VERIFY_SCHEDULED;
+#endif
   df_analyze ();
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();

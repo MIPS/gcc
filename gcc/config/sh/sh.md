@@ -8,7 +8,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 ;; ??? Should prepend a * to all pattern names which are not used.
@@ -985,7 +984,7 @@
     {
       rtx tmp;
 
-      if (no_new_pseudos)
+      if (!can_create_pseudo_p ())
 	FAIL;
 
       tmp = gen_reg_rtx (DImode);
@@ -1205,7 +1204,7 @@
 		   (match_operand:SI 3 "register_operand" "0"))
 		 (match_operand:SI 4 "arith_reg_or_0_operand" "r")))
    (clobber (match_scratch:SI 5 "=&r"))]
-  "TARGET_SHMEDIA && no_new_pseudos"
+  "TARGET_SHMEDIA && !can_create_pseudo_p ()"
   "#"
   "TARGET_SHMEDIA && reload_completed"
   [(pc)]
@@ -1289,7 +1288,7 @@
     {
       rtx tmp;
 
-      if (no_new_pseudos)
+      if (!can_create_pseudo_p ())
 	FAIL;
 
       tmp = gen_reg_rtx (SImode);
@@ -1398,7 +1397,7 @@
 {
   if (TARGET_SH1)
     {
-      if (no_new_pseudos && ! arith_reg_operand (operands[2], DImode))
+      if (!can_create_pseudo_p () && ! arith_reg_operand (operands[2], DImode))
         FAIL;
       operands[2] = force_reg (DImode, operands[2]);
       emit_insn (gen_adddi3_compact (operands[0], operands[1], operands[2]));
@@ -1693,7 +1692,8 @@
     }
   if (TARGET_SHMEDIA)
     {
-      if (no_new_pseudos && ! arith_reg_or_0_operand (operands[1], SImode))
+      if (!can_create_pseudo_p ()
+	  && ! arith_reg_or_0_operand (operands[1], SImode))
 	FAIL;
       if (operands[1] != const0_rtx && GET_CODE (operands[1]) != SUBREG)
 	operands[1] = force_reg (SImode, operands[1]);
@@ -2357,7 +2357,7 @@ norm32: r25
    (clobber (match_operand:DI 8 "register_operand" "=r"))]
   "TARGET_SHMEDIA"
   "#"
-  "&& no_new_pseudos"
+  "&& !can_create_pseudo_p ()"
   [(pc)]
   "
 {
@@ -2401,7 +2401,7 @@ norm32: r25
    (clobber (match_operand:DI 4 "register_operand" "=r"))]
   "TARGET_SHMEDIA"
   "#"
-  "&& no_new_pseudos"
+  "&& !can_create_pseudo_p ()"
   [(pc)]
   "
 {
@@ -2445,7 +2445,7 @@ norm32: r25
    (clobber (match_operand:DI 13 "register_operand" "=r"))]
   "TARGET_SHMEDIA"
   "#"
-  "&& no_new_pseudos"
+  "&& !can_create_pseudo_p ()"
   [(pc)]
   "
 {
@@ -2512,7 +2512,7 @@ norm32: r25
    && (TARGET_DIVIDE_INV_MINLAT
        || TARGET_DIVIDE_INV20U || TARGET_DIVIDE_INV20L)"
   "#"
-  "&& no_new_pseudos"
+  "&& !can_create_pseudo_p ()"
   [(pc)]
   "
 {
@@ -2679,7 +2679,7 @@ label:
    (clobber (match_operand:DF 9 "fp_arith_reg_operand" ""))
    (clobber (match_operand:DF 10 "fp_arith_reg_operand" ""))
    (clobber (match_operand:DF 11 "fp_arith_reg_operand" ""))]
-  "TARGET_SHMEDIA_FPU && TARGET_DIVIDE_INV_FP && no_new_pseudos"
+  "TARGET_SHMEDIA_FPU && TARGET_DIVIDE_INV_FP && !can_create_pseudo_p ()"
   "#"
   "&& 1"
   [(set (match_dup 9) (float:DF (match_dup 1)))
@@ -5023,7 +5023,7 @@ label:
   [(set (match_dup 0) (match_dup 1))]
   "
 {
-  if (TARGET_SHCOMPACT && current_function_has_nonlocal_label)
+  if (TARGET_SHCOMPACT && current_function_saves_all_registers)
     operands[1] = gen_frame_mem (SImode, return_address_pointer_rtx);
 }")
 
@@ -8689,8 +8689,8 @@ label:
 {
   rtx insn, mem;
 
-  operands[2] = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
-  operands[3] = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
+  operands[2] = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
+  operands[3] = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
 
   if (TARGET_SHMEDIA)
     {
@@ -8789,7 +8789,9 @@ label:
   "
 {
   rtx gotoffsym, insn;
-  rtx t = no_new_pseudos ? operands[0] : gen_reg_rtx (GET_MODE (operands[0]));
+  rtx t = (!can_create_pseudo_p ()
+	   ? operands[0]
+	   : gen_reg_rtx (GET_MODE (operands[0])));
 
   gotoffsym = gen_sym2GOTOFF (operands[1]);
   PUT_MODE (gotoffsym, Pmode);
@@ -8909,7 +8911,9 @@ mov.l\\t1f,r4\\n\\
   "
 {
   rtx dtpoffsym, insn;
-  rtx t = no_new_pseudos ? operands[0] : gen_reg_rtx (GET_MODE (operands[0]));
+  rtx t = (!can_create_pseudo_p ()
+	   ? operands[0]
+	   : gen_reg_rtx (GET_MODE (operands[0])));
 
   dtpoffsym = gen_sym2DTPOFF (operands[1]);
   PUT_MODE (dtpoffsym, Pmode);
@@ -9495,8 +9499,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
 
       switch (GET_MODE (sh_compare_op0))
 	{
@@ -9559,8 +9564,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
 
       switch (GET_MODE (sh_compare_op0))
 	{
@@ -9622,14 +9628,15 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
 
       switch (GET_MODE (sh_compare_op0))
 	{
 	case SImode:
 	  {
-	    tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	    tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtsi_media (tmp,
 					  sh_compare_op0, sh_compare_op1));
@@ -9639,7 +9646,7 @@ mov.l\\t1f,r0\\n\\
 
 	case DImode:
 	  {
-	    tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	    tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtdi_media (tmp,
 					  sh_compare_op0, sh_compare_op1));
@@ -9689,8 +9696,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p () ?
+	       gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9753,8 +9761,9 @@ mov.l\\t1f,r0\\n\\
 	mode = GET_MODE (sh_compare_op1);
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (mode, sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (mode, sh_compare_op1);
@@ -9763,7 +9772,7 @@ mov.l\\t1f,r0\\n\\
 	{
 	case SImode:
 	  {
-	    rtx tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	    rtx tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtsi_media (tmp,
 					  sh_compare_op1, sh_compare_op0));
@@ -9773,7 +9782,7 @@ mov.l\\t1f,r0\\n\\
 
 	case DImode:
 	  {
-	    rtx tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+	    rtx tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
 	    emit_insn (gen_cmpgtdi_media (tmp,
 					  sh_compare_op1, sh_compare_op0));
@@ -9837,8 +9846,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) == DImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9870,8 +9880,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) == DImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9903,8 +9914,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9912,7 +9924,7 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+      tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
       emit_insn (gen_cmpgtudi_media (tmp, sh_compare_op0, sh_compare_op1));
       emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
@@ -9938,8 +9950,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       sh_compare_op0 = force_reg (GET_MODE (sh_compare_op0), sh_compare_op0);
       if (sh_compare_op1 != const0_rtx)
 	sh_compare_op1 = force_reg (GET_MODE (sh_compare_op1) == VOIDmode
@@ -9947,7 +9960,7 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? operands[0] : gen_reg_rtx (SImode);
+      tmp = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (SImode);
 
       emit_insn (gen_cmpgtudi_media (tmp, sh_compare_op1, sh_compare_op0));
       emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
@@ -9987,8 +10000,9 @@ mov.l\\t1f,r0\\n\\
 
       reg = operands[0];
       if (GET_MODE (operands[0]) != SImode)
-	reg = no_new_pseudos ? gen_rtx_SUBREG (SImode, operands[0], 0)
-			     : gen_reg_rtx (SImode);
+	reg = (!can_create_pseudo_p ()
+	       ? gen_rtx_SUBREG (SImode, operands[0], 0)
+	       : gen_reg_rtx (SImode));
       if (! TARGET_SHMEDIA_FPU
 	  && GET_MODE (sh_compare_op0) != DImode
 	  && GET_MODE (sh_compare_op0) != SImode)
@@ -10001,7 +10015,7 @@ mov.l\\t1f,r0\\n\\
 				    : GET_MODE (sh_compare_op1),
 				    sh_compare_op1);
 
-      tmp = no_new_pseudos ? reg : gen_reg_rtx (SImode);
+      tmp = !can_create_pseudo_p () ? reg : gen_reg_rtx (SImode);
 
       emit_insn (gen_seq (tmp));
       emit_insn (gen_cmpeqdi_media (reg, tmp, const0_rtx));
@@ -13565,18 +13579,21 @@ mov.l\\t1f,r0\\n\\
   [(prefetch (match_operand:SI 0 "register_operand" "r")
              (match_operand:SI 1 "const_int_operand" "n")
              (match_operand:SI 2 "const_int_operand" "n"))]
-  "TARGET_HARD_SH4 || TARGET_SHCOMPACT"
+  "(TARGET_HARD_SH4 || TARGET_SHCOMPACT) && !TARGET_VXWORKS_RTP"
   "*
 {
   return \"pref @%0\";
 }"
   [(set_attr "type" "other")])
 
+;; In user mode, the "pref" instruction will raise a RADDERR exception
+;; for accesses to [0x80000000,0xffffffff].  This makes it an unsuitable
+;; implementation of __builtin_prefetch for VxWorks RTPs.
 (define_expand "prefetch"
   [(prefetch (match_operand 0 "address_operand" "p")
              (match_operand:SI 1 "const_int_operand" "n")
              (match_operand:SI 2 "const_int_operand" "n"))]
-  "TARGET_HARD_SH4 || TARGET_SH5"
+  "(TARGET_HARD_SH4 || TARGET_SH5) && (TARGET_SHMEDIA || !TARGET_VXWORKS_RTP)"
   "
 {
   if (GET_MODE (operands[0]) != Pmode

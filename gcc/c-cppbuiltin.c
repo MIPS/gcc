@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -200,31 +199,8 @@ builtin_define_float_constants (const char *name_prefix,
   /* Since, for the supported formats, B is always a power of 2, we
      construct the following numbers directly as a hexadecimal
      constants.  */
-
-  /* The maximum representable finite floating-point number,
-     (1 - b**-p) * b**emax  */
-  {
-    int i, n;
-    char *p;
-
-    strcpy (buf, "0x0.");
-    n = fmt->p;
-    for (i = 0, p = buf + 4; i + 3 < n; i += 4)
-      *p++ = 'f';
-    if (i < n)
-      *p++ = "08ce"[n - i];
-    sprintf (p, "p%d", fmt->emax);
-    if (fmt->pnan < fmt->p)
-      {
-	/* This is an IBM extended double format made up of two IEEE
-	   doubles.  The value of the long double is the sum of the
-	   values of the two parts.  The most significant part is
-	   required to be the value of the long double rounded to the
-	   nearest double.  Rounding means we need a slightly smaller
-	   value for LDBL_MAX.  */
-	buf[4 + fmt->pnan / 4] = "7bde"[fmt->pnan % 4];
-      }
-  }
+  get_max_float (fmt, buf, sizeof (buf));
+  
   sprintf (name, "__%s_MAX__", name_prefix);
   builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix, fp_cast);
 
@@ -338,6 +314,60 @@ builtin_define_decimal_float_constants (const char *name_prefix,
     }
   *p = 0;
   sprintf (&buf[fmt->p], "1E%d%s", fmt->emin, suffix); 
+  builtin_define_with_value (name, buf, 0);
+}
+
+/* Define fixed-point constants for TYPE using NAME_PREFIX and SUFFIX.  */
+
+static void
+builtin_define_fixed_point_constants (const char *name_prefix,
+				      const char *suffix,
+				      tree type)
+{
+  char name[64], buf[256], *new_buf;
+  int i, mod;
+
+  sprintf (name, "__%s_FBIT__", name_prefix);
+  builtin_define_with_int_value (name, TYPE_FBIT (type));
+
+  sprintf (name, "__%s_IBIT__", name_prefix);
+  builtin_define_with_int_value (name, TYPE_IBIT (type));
+
+  /* If there is no suffix, defines are for fixed-point modes.
+     We just return.  */
+  if (strcmp (suffix, "") == 0)
+    return;
+
+  if (TYPE_UNSIGNED (type))
+    {
+      sprintf (name, "__%s_MIN__", name_prefix);
+      sprintf (buf, "0.0%s", suffix);
+      builtin_define_with_value (name, buf, 0);
+    }
+  else
+    {
+      sprintf (name, "__%s_MIN__", name_prefix);
+      if (ALL_ACCUM_MODE_P (TYPE_MODE (type)))
+	sprintf (buf, "(-0X1P%d%s-0X1P%d%s)", TYPE_IBIT (type) - 1, suffix,
+		 TYPE_IBIT (type) - 1, suffix);
+      else
+	sprintf (buf, "(-0.5%s-0.5%s)", suffix, suffix);
+      builtin_define_with_value (name, buf, 0);
+    }
+
+  sprintf (name, "__%s_MAX__", name_prefix);
+  sprintf (buf, "0X");
+  new_buf = buf + 2;
+  mod = (TYPE_FBIT (type) + TYPE_IBIT (type)) % 4;
+  if (mod)
+    sprintf (new_buf++, "%x", (1 << mod) - 1);
+  for (i = 0; i < (TYPE_FBIT (type) + TYPE_IBIT (type)) / 4; i++)
+    sprintf (new_buf++, "F");
+  sprintf (new_buf, "P-%d%s", TYPE_FBIT (type), suffix);
+  builtin_define_with_value (name, buf, 0);
+
+  sprintf (name, "__%s_EPSILON__", name_prefix);
+  sprintf (buf, "0x1P-%d%s", TYPE_FBIT (type), suffix);
   builtin_define_with_value (name, buf, 0);
 }
 
@@ -488,6 +518,62 @@ c_cpp_builtins (cpp_reader *pfile)
   builtin_define_decimal_float_constants ("DEC32", "DF", dfloat32_type_node);
   builtin_define_decimal_float_constants ("DEC64", "DD", dfloat64_type_node);
   builtin_define_decimal_float_constants ("DEC128", "DL", dfloat128_type_node);
+
+  /* For fixed-point fibt, ibit, max, min, and epsilon.  */
+  if (targetm.fixed_point_supported_p ())
+    {
+      builtin_define_fixed_point_constants ("SFRACT", "HR",
+					    short_fract_type_node);
+      builtin_define_fixed_point_constants ("USFRACT", "UHR",
+					    unsigned_short_fract_type_node);
+      builtin_define_fixed_point_constants ("FRACT", "R",
+					    fract_type_node);
+      builtin_define_fixed_point_constants ("UFRACT", "UR",
+					    unsigned_fract_type_node);
+      builtin_define_fixed_point_constants ("LFRACT", "LR",
+					    long_fract_type_node);
+      builtin_define_fixed_point_constants ("ULFRACT", "ULR",
+					    unsigned_long_fract_type_node);
+      builtin_define_fixed_point_constants ("LLFRACT", "LLR",
+					    long_long_fract_type_node);
+      builtin_define_fixed_point_constants ("ULLFRACT", "ULLR",
+					    unsigned_long_long_fract_type_node);
+      builtin_define_fixed_point_constants ("SACCUM", "HK",
+					    short_accum_type_node);
+      builtin_define_fixed_point_constants ("USACCUM", "UHK",
+					    unsigned_short_accum_type_node);
+      builtin_define_fixed_point_constants ("ACCUM", "K",
+					    accum_type_node);
+      builtin_define_fixed_point_constants ("UACCUM", "UK",
+					    unsigned_accum_type_node);
+      builtin_define_fixed_point_constants ("LACCUM", "LK",
+					    long_accum_type_node);
+      builtin_define_fixed_point_constants ("ULACCUM", "ULK",
+					    unsigned_long_accum_type_node);
+      builtin_define_fixed_point_constants ("LLACCUM", "LLK",
+					    long_long_accum_type_node);
+      builtin_define_fixed_point_constants ("ULLACCUM", "ULLK",
+					    unsigned_long_long_accum_type_node);
+
+      builtin_define_fixed_point_constants ("QQ", "", qq_type_node);
+      builtin_define_fixed_point_constants ("HQ", "", hq_type_node);
+      builtin_define_fixed_point_constants ("SQ", "", sq_type_node);
+      builtin_define_fixed_point_constants ("DQ", "", dq_type_node);
+      builtin_define_fixed_point_constants ("TQ", "", tq_type_node);
+      builtin_define_fixed_point_constants ("UQQ", "", uqq_type_node);
+      builtin_define_fixed_point_constants ("UHQ", "", uhq_type_node);
+      builtin_define_fixed_point_constants ("USQ", "", usq_type_node);
+      builtin_define_fixed_point_constants ("UDQ", "", udq_type_node);
+      builtin_define_fixed_point_constants ("UTQ", "", utq_type_node);
+      builtin_define_fixed_point_constants ("HA", "", ha_type_node);
+      builtin_define_fixed_point_constants ("SA", "", sa_type_node);
+      builtin_define_fixed_point_constants ("DA", "", da_type_node);
+      builtin_define_fixed_point_constants ("TA", "", ta_type_node);
+      builtin_define_fixed_point_constants ("UHA", "", uha_type_node);
+      builtin_define_fixed_point_constants ("USA", "", usa_type_node);
+      builtin_define_fixed_point_constants ("UDA", "", uda_type_node);
+      builtin_define_fixed_point_constants ("UTA", "", uta_type_node);
+    }
 
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);

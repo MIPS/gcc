@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* After the first "Node:" comment comes all preprocessor directives and
    attached declarations described in the info files, the "Using and
@@ -279,6 +278,8 @@ extern int target_flags;
 #define CRIS_DEFAULT_CPU_VERSION CRIS_CPU_BASE
 
 #define TARGET_HAS_MUL_INSNS (cris_cpu_version >= CRIS_CPU_NG)
+#define TARGET_HAS_LZ (cris_cpu_version >= CRIS_CPU_ETRAX4)
+#define TARGET_HAS_SWAP (cris_cpu_version >= CRIS_CPU_SVINTO)
 
 #define CRIS_SUBTARGET_HANDLE_OPTION(x, y, z)
 
@@ -1178,7 +1179,7 @@ enum cris_pic_symbol_type
 #define OUTPUT_ADDR_CONST_EXTRA(STREAM, X, FAIL) \
   do { if (!cris_output_addr_const_extra (STREAM, X)) goto FAIL; } while (0)
 
-#define IS_ASM_LOGICAL_LINE_SEPARATOR(C) (C) == '@'
+#define IS_ASM_LOGICAL_LINE_SEPARATOR(C, STR) (C) == '@'
 
 /* Node: Uninitialized Data */
 
@@ -1407,6 +1408,9 @@ enum cris_pic_symbol_type
 /* Maybe SHIFT_COUNT_TRUNCATED is safe to define?  FIXME: Check later.  */
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
+
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 32, 1)
+#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 32, 1)
 
 #define Pmode SImode
 

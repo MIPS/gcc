@@ -6,7 +6,7 @@
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -836,8 +835,8 @@ strict_aliasing_warn (tree alias_site,
 static bool
 nonstandard_alias_types_p (tree type1, tree type2)
 {
-  HOST_WIDE_INT set1;
-  HOST_WIDE_INT set2;
+  alias_set_type set1;
+  alias_set_type set2;
 
   if (VOID_TYPE_P (type1) || VOID_TYPE_P (type2))
     return false;

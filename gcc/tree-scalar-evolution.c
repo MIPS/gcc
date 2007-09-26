@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* 
    Description: 
@@ -307,7 +306,7 @@ new_scev_info_str (tree var)
 static hashval_t
 hash_scev_info (const void *elt)
 {
-  return SSA_NAME_VERSION (((struct scev_info_str *) elt)->var);
+  return SSA_NAME_VERSION (((const struct scev_info_str *) elt)->var);
 }
 
 /* Compares database elements E1 and E2.  */
@@ -354,7 +353,7 @@ find_var_scev_info (tree var)
    LOOP_NB.  */
 
 bool 
-chrec_contains_symbols_defined_in_loop (tree chrec, unsigned loop_nb)
+chrec_contains_symbols_defined_in_loop (const_tree chrec, unsigned loop_nb)
 {
   int i, n;
 
@@ -601,6 +600,7 @@ get_scalar_evolution (tree scalar)
       break;
 
     case REAL_CST:
+    case FIXED_CST:
     case INTEGER_CST:
       res = scalar;
       break;
@@ -898,7 +898,7 @@ set_nb_iterations_in_loop (struct loop *loop,
    EXPR.  */
 
 static bool
-analyzable_condition (tree expr)
+analyzable_condition (const_tree expr)
 {
   tree condition;
   
@@ -932,7 +932,7 @@ analyzable_condition (tree expr)
    analyze, then give up.  */
 
 tree 
-get_loop_exit_condition (struct loop *loop)
+get_loop_exit_condition (const struct loop *loop)
 {
   tree res = NULL_TREE;
   edge exit_edge = single_exit (loop);
@@ -1201,9 +1201,9 @@ follow_ssa_edge_in_rhs (struct loop *loop, tree at_stmt, tree rhs,
 /* Checks whether the I-th argument of a PHI comes from a backedge.  */
 
 static bool
-backedge_phi_arg_p (tree phi, int i)
+backedge_phi_arg_p (const_tree phi, int i)
 {
-  edge e = PHI_ARG_EDGE (phi, i);
+  const_edge e = PHI_ARG_EDGE (phi, i);
 
   /* We would in fact like to test EDGE_DFS_BACK here, but we do not care
      about updating it anywhere, and this should work as well most of the
@@ -2851,7 +2851,8 @@ scev_const_prop (void)
 	  {
 	    block_stmt_iterator dest = bsi;
 	    bsi_insert_before (&dest, ass, BSI_NEW_STMT);
-	    def = force_gimple_operand_bsi (&dest, def, false, NULL_TREE);
+	    def = force_gimple_operand_bsi (&dest, def, false, NULL_TREE,
+					    true, BSI_SAME_STMT);
 	  }
 	  GIMPLE_STMT_OPERAND (ass, 1) = def;
 	  update_stmt (ass);

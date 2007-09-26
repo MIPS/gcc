@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -250,7 +249,8 @@ package body Sem_Ch5 is
    --  Start of processing for Analyze_Assignment
 
    begin
-      Mark_Static_Coextensions (Rhs);
+      Mark_Coextensions (N, Rhs);
+
       Analyze (Rhs);
       Analyze (Lhs);
 
@@ -573,22 +573,31 @@ package body Sem_Ch5 is
          Analyze_And_Resolve (Rhs, T1);
       end if;
 
-      --  Ada 2005 (AI-231)
+      --  Ada 2005 (AI-231): Assignment to not null variable
 
       if Ada_Version >= Ada_05
         and then Can_Never_Be_Null (T1)
         and then not Assignment_OK (Lhs)
       then
-         if Nkind (Rhs) = N_Null then
+         --  Case where we know the right hand side is null
+
+         if Known_Null (Rhs) then
             Apply_Compile_Time_Constraint_Error
               (N   => Rhs,
-               Msg => "(Ada 2005) NULL not allowed in null-excluding objects?",
+               Msg => "(Ada 2005) null not allowed in null-excluding objects?",
                Reason => CE_Null_Not_Allowed);
+
+            --  We still mark this as a possible modification, that's necessary
+            --  to reset Is_True_Constant, and desirable for xref purposes.
+
+            Note_Possible_Modification (Lhs);
             return;
 
+         --  If we know the right hand side is non-null, then we convert to the
+         --  target type, since we don't need a run time check in that case.
+
          elsif not Can_Never_Be_Null (T2) then
-            Rewrite (Rhs,
-              Convert_To (T1, Relocate_Node (Rhs)));
+            Rewrite (Rhs, Convert_To (T1, Relocate_Node (Rhs)));
             Analyze_And_Resolve (Rhs, T1);
          end if;
       end if;
@@ -640,11 +649,9 @@ package body Sem_Ch5 is
 
          and then Comes_From_Source (N)
 
-         --  Where the entity is the same on both sides
+         --  Where the object is the same on both sides
 
-         and then Is_Entity_Name (Lhs)
-         and then Is_Entity_Name (Original_Node (Rhs))
-         and then Entity (Lhs) = Entity (Original_Node (Rhs))
+         and then Same_Object (Lhs, Original_Node (Rhs))
 
          --  But exclude the case where the right side was an operation
          --  that got rewritten (e.g. JUNK + K, where K was known to be
@@ -654,8 +661,13 @@ package body Sem_Ch5 is
 
         and then Nkind (Original_Node (Rhs)) not in N_Op
       then
-         Error_Msg_NE
-           ("?useless assignment of & to itself", N, Entity (Lhs));
+         if Nkind (Lhs) in N_Has_Entity then
+            Error_Msg_NE
+              ("?useless assignment of & to itself!", N, Entity (Lhs));
+         else
+            Error_Msg_N
+              ("?useless assignment of object to itself!", N);
+         end if;
       end if;
 
       --  Check for non-allowed composite assignment
@@ -1071,7 +1083,6 @@ package body Sem_Ch5 is
 
          begin
             Alt := First (Alternatives (N));
-
             while Present (Alt) loop
                if Alt /= Chosen then
                   Remove_Warning_Messages (Statements (Alt));
@@ -1341,7 +1352,6 @@ package body Sem_Ch5 is
 
             if Present (Elsif_Parts (N)) then
                E := First (Elsif_Parts (N));
-
                while Present (E) loop
                   Remove_Warning_Messages (Then_Statements (E));
                   Next (E);
@@ -2035,7 +2045,7 @@ package body Sem_Ch5 is
                --  the Ada RM annoyingly requires a useless return here!
 
                if Nkind (Original_Node (N)) /= N_Raise_Statement
-                 or else Nkind (Nxt) /= N_Return_Statement
+                 or else Nkind (Nxt) /= N_Simple_Return_Statement
                then
                   --  The rather strange shenanigans with the warning message
                   --  here reflects the fact that Kill_Dead_Code is very good
@@ -2077,7 +2087,7 @@ package body Sem_Ch5 is
 
                   --  Now issue the warning
 
-                  Error_Msg ("?unreachable code", Error_Loc);
+                  Error_Msg ("?unreachable code!", Error_Loc);
                end if;
 
             --  If the unconditional transfer of control instruction is

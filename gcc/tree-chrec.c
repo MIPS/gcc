@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file implements operations on chains of recurrences.  Chains
    of recurrences are used for modeling evolution functions of scalar
@@ -46,7 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Determines whether CST is not a constant evolution.  */
 
 static inline bool
-is_not_constant_evolution (tree cst)
+is_not_constant_evolution (const_tree cst)
 {
   return (TREE_CODE (cst) == POLYNOMIAL_CHREC);
 }
@@ -836,7 +835,7 @@ chrec_merge (tree chrec1,
 /* Helper function for is_multivariate_chrec.  */
 
 static bool 
-is_multivariate_chrec_rec (tree chrec, unsigned int rec_var)
+is_multivariate_chrec_rec (const_tree chrec, unsigned int rec_var)
 {
   if (chrec == NULL_TREE)
     return false;
@@ -856,7 +855,7 @@ is_multivariate_chrec_rec (tree chrec, unsigned int rec_var)
 /* Determine whether the given chrec is multivariate or not.  */
 
 bool 
-is_multivariate_chrec (tree chrec)
+is_multivariate_chrec (const_tree chrec)
 {
   if (chrec == NULL_TREE)
     return false;
@@ -873,7 +872,7 @@ is_multivariate_chrec (tree chrec)
 /* Determines whether the chrec contains symbolic names or not.  */
 
 bool 
-chrec_contains_symbols (tree chrec)
+chrec_contains_symbols (const_tree chrec)
 {
   int i, n;
 
@@ -899,7 +898,7 @@ chrec_contains_symbols (tree chrec)
 /* Determines whether the chrec contains undetermined coefficients.  */
 
 bool 
-chrec_contains_undetermined (tree chrec)
+chrec_contains_undetermined (const_tree chrec)
 {
   int i, n;
 
@@ -921,7 +920,7 @@ chrec_contains_undetermined (tree chrec)
    the tree.  */
 
 bool
-tree_contains_chrecs (tree expr, int *size)
+tree_contains_chrecs (const_tree expr, int *size)
 {
   int i, n;
 
@@ -996,7 +995,7 @@ evolution_function_is_invariant_p (tree chrec, int loopnum)
    evolution.  */
 
 bool 
-evolution_function_is_affine_multivariate_p (tree chrec, int loopnum)
+evolution_function_is_affine_multivariate_p (const_tree chrec, int loopnum)
 {
   if (chrec == NULL_TREE)
     return false;
@@ -1041,7 +1040,7 @@ evolution_function_is_affine_multivariate_p (tree chrec, int loopnum)
    variables.  */
 
 bool
-evolution_function_is_univariate_p (tree chrec)
+evolution_function_is_univariate_p (const_tree chrec)
 {
   if (chrec == NULL_TREE)
     return true;
@@ -1104,7 +1103,7 @@ nb_vars_in_chrec (tree chrec)
    arithmetics, even though it is a scalar type.  */
 
 static bool
-avoid_arithmetics_in_type_p (tree type)
+avoid_arithmetics_in_type_p (const_tree type)
 {
   /* Ada frontend uses subtypes -- an arithmetic cannot be directly performed
      in the subtype, but a base type must be used, and the result then can
@@ -1363,8 +1362,7 @@ chrec_convert_aggressive (tree type, tree chrec)
 /* Returns true when CHREC0 == CHREC1.  */
 
 bool 
-eq_evolutions_p (tree chrec0, 
-		 tree chrec1)
+eq_evolutions_p (const_tree chrec0, const_tree chrec1)
 {
   if (chrec0 == NULL_TREE
       || chrec1 == NULL_TREE
@@ -1393,9 +1391,9 @@ eq_evolutions_p (tree chrec0,
    which of these cases happens.  */
 
 enum ev_direction
-scev_direction (tree chrec)
+scev_direction (const_tree chrec)
 {
-  tree step;
+  const_tree step;
 
   if (!evolution_function_is_affine_p (chrec))
     return EV_DIR_UNKNOWN;

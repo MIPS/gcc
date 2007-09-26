@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -49,6 +48,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 #include "cgraph.h"
 #include "target-def.h"
+#include "fixed-value.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -515,9 +515,10 @@ static tree handle_cold_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
-static tree handle_gnu_inline_attribute (tree *, tree, tree, int,
-					 bool *);
+static tree handle_gnu_inline_attribute (tree *, tree, tree, int, bool *);
+static tree handle_artificial_attribute (tree *, tree, tree, int, bool *);
 static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
+static tree handle_error_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
@@ -555,6 +556,7 @@ static tree handle_cleanup_attribute (tree *, tree, tree, int, bool *);
 static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
+static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
@@ -588,6 +590,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_always_inline_attribute },
   { "gnu_inline",             0, 0, true,  false, false,
 			      handle_gnu_inline_attribute },
+  { "artificial",             0, 0, true,  false, false,
+			      handle_artificial_attribute },
   { "flatten",                0, 0, true,  false, false,
 			      handle_flatten_attribute },
   { "used",                   0, 0, true,  false, false,
@@ -650,12 +654,20 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_warn_unused_result_attribute },
   { "sentinel",               0, 1, false, true, true,
 			      handle_sentinel_attribute },
+  /* For internal use (marking of builtins) only.  The name contains space
+     to prevent its usage in source code.  */
+  { "type generic",           0, 0, false, true, true,
+			      handle_type_generic_attribute },
   { "alloc_size",	      1, 2, false, true, true,
 			      handle_alloc_size_attribute },
   { "cold",                   0, 0, true,  false, false,
 			      handle_cold_attribute },
   { "hot",                    0, 0, true,  false, false,
 			      handle_hot_attribute },
+  { "warning",		      1, 1, true,  false, false,
+			      handle_error_attribute },
+  { "error",		      1, 1, true,  false, false,
+			      handle_error_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -751,7 +763,8 @@ fname_as_string (int pretty_p)
 {
   const char *name = "top level";
   char *namep;
-  int vrb = 2;
+  int vrb = 2, len;
+  cpp_string cstr = { 0, 0 }, strname;
 
   if (!pretty_p)
     {
@@ -762,24 +775,18 @@ fname_as_string (int pretty_p)
   if (current_function_decl)
     name = lang_hooks.decl_printable_name (current_function_decl, vrb);
 
-  if (c_lex_string_translate)
+  len = strlen (name) + 3; /* Two for '"'s.  One for NULL.  */
+
+  namep = XNEWVEC (char, len);
+  snprintf (namep, len, "\"%s\"", name);
+  strname.text = (unsigned char *) namep;
+  strname.len = len - 1;
+
+  if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
     {
-      int len = strlen (name) + 3; /* Two for '"'s.  One for NULL.  */
-      cpp_string cstr = { 0, 0 }, strname;
-
-      namep = XNEWVEC (char, len);
-      snprintf (namep, len, "\"%s\"", name);
-      strname.text = (unsigned char *) namep;
-      strname.len = len - 1;
-
-      if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
-	{
-	  XDELETEVEC (namep);
-	  return (char *) cstr.text;
-	}
+      XDELETEVEC (namep);
+      return (const char *) cstr.text;
     }
-  else
-    namep = xstrdup (name);
 
   return namep;
 }
@@ -925,6 +932,7 @@ void
 constant_expression_warning (tree value)
 {
   if ((TREE_CODE (value) == INTEGER_CST || TREE_CODE (value) == REAL_CST
+       || TREE_CODE (value) == FIXED_CST
        || TREE_CODE (value) == VECTOR_CST
        || TREE_CODE (value) == COMPLEX_CST)
       && TREE_OVERFLOW (value)
@@ -959,6 +967,10 @@ overflow_warning (tree value)
       warning (OPT_Woverflow, "floating point overflow in expression");
       break;
       
+    case FIXED_CST:
+      warning (OPT_Woverflow, "fixed-point overflow in expression");
+      break;
+
     case VECTOR_CST:
       warning (OPT_Woverflow, "vector overflow in expression");
       break;
@@ -1039,9 +1051,9 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
         {
           /* warn_strict_aliasing >= 3.   This includes the default (3).  
              Only warn if the cast is dereferenced immediately.  */
-          HOST_WIDE_INT set1 =
+          alias_set_type set1 =
 	    get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0)));
-          HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
+          alias_set_type set2 = get_alias_set (TREE_TYPE (type));
 
           if (!alias_sets_conflict_p (set1, set2))
 	    {
@@ -1065,9 +1077,9 @@ strict_aliasing_warning (tree otype, tree type, tree expr)
            not taken in the same statement.  This will likely produce many
            false positives, but could be useful to pinpoint problems that
            are not revealed at higher levels.  */
-        HOST_WIDE_INT set1 = get_alias_set (TREE_TYPE (otype));
-        HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
-        if (!COMPLETE_TYPE_P(type)
+        alias_set_type set1 = get_alias_set (TREE_TYPE (otype));
+        alias_set_type set2 = get_alias_set (TREE_TYPE (type));
+        if (!COMPLETE_TYPE_P (type)
             || !alias_sets_must_conflict_p (set1, set2))
 	  {
             warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
@@ -1162,7 +1174,7 @@ check_main_parameter_types (tree decl)
    in effect, emit a note telling the user about that option if such
    a note has not previously been emitted.  */
 bool
-vector_types_convertible_p (tree t1, tree t2, bool emit_lax_note)
+vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
 {
   static bool emitted_lax_note = false;
   bool convertible_lax;
@@ -1356,7 +1368,8 @@ warnings_for_convert_and_check (tree type, tree expr, tree result)
       else
 	conversion_warning (type, expr);
     }
-  else if (TREE_CODE (result) == INTEGER_CST && TREE_OVERFLOW (result)) 
+  else if ((TREE_CODE (result) == INTEGER_CST
+	    || TREE_CODE (result) == FIXED_CST) && TREE_OVERFLOW (result))
     warning (OPT_Woverflow,
              "overflow in implicit constant conversion");
   else
@@ -1924,13 +1937,44 @@ c_common_type_for_size (unsigned int bits, int unsignedp)
   return 0;
 }
 
+/* Return a fixed-point type that has at least IBIT ibits and FBIT fbits
+   that is unsigned if UNSIGNEDP is nonzero, otherwise signed;
+   and saturating if SATP is nonzero, otherwise not saturating.  */
+
+tree
+c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
+				    int unsignedp, int satp)
+{
+  enum machine_mode mode;
+  if (ibit == 0)
+    mode = unsignedp ? UQQmode : QQmode;
+  else
+    mode = unsignedp ? UHAmode : HAmode;
+
+  for (; mode != VOIDmode; mode = GET_MODE_WIDER_MODE (mode))
+    if (GET_MODE_IBIT (mode) >= ibit && GET_MODE_FBIT (mode) >= fbit)
+      break;
+
+  if (mode == VOIDmode || !targetm.scalar_mode_supported_p (mode))
+    {
+      sorry ("GCC cannot support operators with integer types and "
+	     "fixed-point types that have too many integral and "
+	     "fractional bits together");
+      return 0;
+    }
+
+  return c_common_type_for_mode (mode, satp);
+}
+
 /* Used for communication between c_common_type_for_mode and
    c_register_builtin_type.  */
 static GTY(()) tree registered_builtin_types;
 
 /* Return a data type that has machine mode MODE.
    If the mode is an integer,
-   then UNSIGNEDP selects between signed and unsigned types.  */
+   then UNSIGNEDP selects between signed and unsigned types.
+   If the mode is a fixed-point mode,
+   then UNSIGNEDP selects between saturating and nonsaturating types.  */
 
 tree
 c_common_type_for_mode (enum machine_mode mode, int unsignedp)
@@ -2030,6 +2074,95 @@ c_common_type_for_mode (enum machine_mode mode, int unsignedp)
   if (mode == TYPE_MODE (dfloat128_type_node))
     return dfloat128_type_node;
 
+  if (ALL_SCALAR_FIXED_POINT_MODE_P (mode))
+    {
+      if (mode == TYPE_MODE (short_fract_type_node))
+	return unsignedp ? sat_short_fract_type_node : short_fract_type_node;
+      if (mode == TYPE_MODE (fract_type_node))
+	return unsignedp ? sat_fract_type_node : fract_type_node;
+      if (mode == TYPE_MODE (long_fract_type_node))
+	return unsignedp ? sat_long_fract_type_node : long_fract_type_node;
+      if (mode == TYPE_MODE (long_long_fract_type_node))
+	return unsignedp ? sat_long_long_fract_type_node
+			 : long_long_fract_type_node;
+
+      if (mode == TYPE_MODE (unsigned_short_fract_type_node))
+	return unsignedp ? sat_unsigned_short_fract_type_node
+			 : unsigned_short_fract_type_node;
+      if (mode == TYPE_MODE (unsigned_fract_type_node))
+	return unsignedp ? sat_unsigned_fract_type_node
+			 : unsigned_fract_type_node;
+      if (mode == TYPE_MODE (unsigned_long_fract_type_node))
+	return unsignedp ? sat_unsigned_long_fract_type_node
+			 : unsigned_long_fract_type_node;
+      if (mode == TYPE_MODE (unsigned_long_long_fract_type_node))
+	return unsignedp ? sat_unsigned_long_long_fract_type_node
+			 : unsigned_long_long_fract_type_node;
+
+      if (mode == TYPE_MODE (short_accum_type_node))
+	return unsignedp ? sat_short_accum_type_node : short_accum_type_node;
+      if (mode == TYPE_MODE (accum_type_node))
+	return unsignedp ? sat_accum_type_node : accum_type_node;
+      if (mode == TYPE_MODE (long_accum_type_node))
+	return unsignedp ? sat_long_accum_type_node : long_accum_type_node;
+      if (mode == TYPE_MODE (long_long_accum_type_node))
+	return unsignedp ? sat_long_long_accum_type_node
+			 : long_long_accum_type_node;
+
+      if (mode == TYPE_MODE (unsigned_short_accum_type_node))
+	return unsignedp ? sat_unsigned_short_accum_type_node
+			 : unsigned_short_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_accum_type_node))
+	return unsignedp ? sat_unsigned_accum_type_node
+			 : unsigned_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_long_accum_type_node))
+	return unsignedp ? sat_unsigned_long_accum_type_node
+			 : unsigned_long_accum_type_node;
+      if (mode == TYPE_MODE (unsigned_long_long_accum_type_node))
+	return unsignedp ? sat_unsigned_long_long_accum_type_node
+			 : unsigned_long_long_accum_type_node;
+
+      if (mode == QQmode)
+	return unsignedp ? sat_qq_type_node : qq_type_node;
+      if (mode == HQmode)
+	return unsignedp ? sat_hq_type_node : hq_type_node;
+      if (mode == SQmode)
+	return unsignedp ? sat_sq_type_node : sq_type_node;
+      if (mode == DQmode)
+	return unsignedp ? sat_dq_type_node : dq_type_node;
+      if (mode == TQmode)
+	return unsignedp ? sat_tq_type_node : tq_type_node;
+
+      if (mode == UQQmode)
+	return unsignedp ? sat_uqq_type_node : uqq_type_node;
+      if (mode == UHQmode)
+	return unsignedp ? sat_uhq_type_node : uhq_type_node;
+      if (mode == USQmode)
+	return unsignedp ? sat_usq_type_node : usq_type_node;
+      if (mode == UDQmode)
+	return unsignedp ? sat_udq_type_node : udq_type_node;
+      if (mode == UTQmode)
+	return unsignedp ? sat_utq_type_node : utq_type_node;
+
+      if (mode == HAmode)
+	return unsignedp ? sat_ha_type_node : ha_type_node;
+      if (mode == SAmode)
+	return unsignedp ? sat_sa_type_node : sa_type_node;
+      if (mode == DAmode)
+	return unsignedp ? sat_da_type_node : da_type_node;
+      if (mode == TAmode)
+	return unsignedp ? sat_ta_type_node : ta_type_node;
+
+      if (mode == UHAmode)
+	return unsignedp ? sat_uha_type_node : uha_type_node;
+      if (mode == USAmode)
+	return unsignedp ? sat_usa_type_node : usa_type_node;
+      if (mode == UDAmode)
+	return unsignedp ? sat_uda_type_node : uda_type_node;
+      if (mode == UTAmode)
+	return unsignedp ? sat_uta_type_node : uta_type_node;
+    }
+
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
     if (TYPE_MODE (TREE_VALUE (t)) == mode)
       return TREE_VALUE (t);
@@ -2090,6 +2223,54 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
     return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
   if (type1 == intQI_type_node || type1 == unsigned_intQI_type_node)
     return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
+
+#define C_COMMON_FIXED_TYPES(SAT,NAME) \
+  if (type1 == SAT ## short_ ## NAME ## _type_node \
+      || type1 == SAT ## unsigned_short_ ## NAME ## _type_node) \
+    return unsignedp ? SAT ## unsigned_short_ ## NAME ## _type_node \
+		     : SAT ## short_ ## NAME ## _type_node; \
+  if (type1 == SAT ## NAME ## _type_node \
+      || type1 == SAT ## unsigned_ ## NAME ## _type_node) \
+    return unsignedp ? SAT ## unsigned_ ## NAME ## _type_node \
+		     : SAT ## NAME ## _type_node; \
+  if (type1 == SAT ## long_ ## NAME ## _type_node \
+      || type1 == SAT ## unsigned_long_ ## NAME ## _type_node) \
+    return unsignedp ? SAT ## unsigned_long_ ## NAME ## _type_node \
+		     : SAT ## long_ ## NAME ## _type_node; \
+  if (type1 == SAT ## long_long_ ## NAME ## _type_node \
+      || type1 == SAT ## unsigned_long_long_ ## NAME ## _type_node) \
+    return unsignedp ? SAT ## unsigned_long_long_ ## NAME ## _type_node \
+		     : SAT ## long_long_ ## NAME ## _type_node;
+
+#define C_COMMON_FIXED_MODE_TYPES(SAT,NAME) \
+  if (type1 == SAT ## NAME ## _type_node \
+      || type1 == SAT ## u ## NAME ## _type_node) \
+    return unsignedp ? SAT ## u ## NAME ## _type_node \
+		     : SAT ## NAME ## _type_node;
+
+  C_COMMON_FIXED_TYPES (, fract);
+  C_COMMON_FIXED_TYPES (sat_, fract);
+  C_COMMON_FIXED_TYPES (, accum);
+  C_COMMON_FIXED_TYPES (sat_, accum);
+
+  C_COMMON_FIXED_MODE_TYPES (, qq);
+  C_COMMON_FIXED_MODE_TYPES (, hq);
+  C_COMMON_FIXED_MODE_TYPES (, sq);
+  C_COMMON_FIXED_MODE_TYPES (, dq);
+  C_COMMON_FIXED_MODE_TYPES (, tq);
+  C_COMMON_FIXED_MODE_TYPES (sat_, qq);
+  C_COMMON_FIXED_MODE_TYPES (sat_, hq);
+  C_COMMON_FIXED_MODE_TYPES (sat_, sq);
+  C_COMMON_FIXED_MODE_TYPES (sat_, dq);
+  C_COMMON_FIXED_MODE_TYPES (sat_, tq);
+  C_COMMON_FIXED_MODE_TYPES (, ha);
+  C_COMMON_FIXED_MODE_TYPES (, sa);
+  C_COMMON_FIXED_MODE_TYPES (, da);
+  C_COMMON_FIXED_MODE_TYPES (, ta);
+  C_COMMON_FIXED_MODE_TYPES (sat_, ha);
+  C_COMMON_FIXED_MODE_TYPES (sat_, sa);
+  C_COMMON_FIXED_MODE_TYPES (sat_, da);
+  C_COMMON_FIXED_MODE_TYPES (sat_, ta);
 
   /* For ENUMERAL_TYPEs in C++, must check the mode of the types, not
      the precision; they have precision set to match their range, but
@@ -2319,7 +2500,8 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
      the second arg is 0.  */
 
   if (TREE_CONSTANT (primop0)
-      && !integer_zerop (primop1) && !real_zerop (primop1))
+      && !integer_zerop (primop1) && !real_zerop (primop1)
+      && !fixed_zerop (primop1))
     {
       tree tem = primop0;
       int temi = unsignedp0;
@@ -2374,6 +2556,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
      and see if that preserves the constant's value.  */
 
   if (!real1 && !real2
+      && TREE_CODE (TREE_TYPE (primop0)) != FIXED_POINT_TYPE
       && TREE_CODE (primop1) == INTEGER_CST
       && TYPE_PRECISION (TREE_TYPE (primop0)) < TYPE_PRECISION (*restype_ptr))
     {
@@ -2715,7 +2898,7 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
    NULL.  */
 
 bool
-decl_with_nonnull_addr_p (tree expr)
+decl_with_nonnull_addr_p (const_tree expr)
 {
   return (DECL_P (expr)
 	  && (TREE_CODE (expr) == PARM_DECL
@@ -2776,6 +2959,12 @@ c_common_truthvalue_conversion (tree expr)
 
     case REAL_CST:
       return real_compare (NE_EXPR, &TREE_REAL_CST (expr), &dconst0)
+	     ? truthvalue_true_node
+	     : truthvalue_false_node;
+
+    case FIXED_CST:
+      return fixed_compare (NE_EXPR, &TREE_FIXED_CST (expr),
+			    &FCONST0 (TYPE_MODE (TREE_TYPE (expr))))
 	     ? truthvalue_true_node
 	     : truthvalue_false_node;
 
@@ -2877,6 +3066,14 @@ c_common_truthvalue_conversion (tree expr)
 	c_common_truthvalue_conversion (build_unary_op (REALPART_EXPR, t, 0)),
 	c_common_truthvalue_conversion (build_unary_op (IMAGPART_EXPR, t, 0)),
 	       0));
+    }
+
+  if (TREE_CODE (TREE_TYPE (expr)) == FIXED_POINT_TYPE)
+    {
+      tree fixed_zero_node = build_fixed (TREE_TYPE (expr),
+					  FCONST0 (TYPE_MODE
+						   (TREE_TYPE (expr))));
+      return build_binary_op (NE_EXPR, expr, fixed_zero_node, 1);
     }
 
   return build_binary_op (NE_EXPR, expr, integer_zero_node, 1);
@@ -3006,7 +3203,7 @@ c_type_hash (const void *p)
 {
   int i = 0;
   int shift, size;
-  tree t = (tree) p;
+  const_tree const t = (const_tree) p;
   tree t2;
   switch (TREE_CODE (t))
     {
@@ -3044,7 +3241,7 @@ static GTY((param_is (union tree_node))) htab_t type_hash_table;
 /* Return the typed-based alias set for T, which may be an expression
    or a type.  Return -1 if we don't do anything special.  */
 
-HOST_WIDE_INT
+alias_set_type
 c_common_get_alias_set (tree t)
 {
   tree u;
@@ -3245,16 +3442,16 @@ c_sizeof_or_alignof_type (tree type, bool is_sizeof, int complain)
 }
 
 /* Implement the __alignof keyword: Return the minimum required
-   alignment of EXPR, measured in bytes.  For VAR_DECL's and
-   FIELD_DECL's return DECL_ALIGN (which can be set from an
-   "aligned" __attribute__ specification).  */
+   alignment of EXPR, measured in bytes.  For VAR_DECLs,
+   FUNCTION_DECLs and FIELD_DECLs return DECL_ALIGN (which can be set
+   from an "aligned" __attribute__ specification).  */
 
 tree
 c_alignof_expr (tree expr)
 {
   tree t;
 
-  if (TREE_CODE (expr) == VAR_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (expr))
     t = size_int (DECL_ALIGN_UNIT (expr));
 
   else if (TREE_CODE (expr) == COMPONENT_REF
@@ -3590,6 +3787,67 @@ c_common_nodes_and_builtins (void)
       record_builtin_type (RID_DFLOAT128, NULL, dfloat128_type_node);
     }
 
+  if (targetm.fixed_point_supported_p ())
+    {
+      record_builtin_type (RID_MAX, "short _Fract", short_fract_type_node);
+      record_builtin_type (RID_FRACT, NULL, fract_type_node);
+      record_builtin_type (RID_MAX, "long _Fract", long_fract_type_node);
+      record_builtin_type (RID_MAX, "long long _Fract",
+			   long_long_fract_type_node);
+      record_builtin_type (RID_MAX, "unsigned short _Fract",
+			   unsigned_short_fract_type_node);
+      record_builtin_type (RID_MAX, "unsigned _Fract",
+			   unsigned_fract_type_node);
+      record_builtin_type (RID_MAX, "unsigned long _Fract",
+			   unsigned_long_fract_type_node);
+      record_builtin_type (RID_MAX, "unsigned long long _Fract",
+			   unsigned_long_long_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat short _Fract",
+			   sat_short_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat _Fract", sat_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat long _Fract",
+			   sat_long_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat long long _Fract",
+			   sat_long_long_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned short _Fract",
+			   sat_unsigned_short_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned _Fract",
+			   sat_unsigned_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned long _Fract",
+			   sat_unsigned_long_fract_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned long long _Fract",
+			   sat_unsigned_long_long_fract_type_node);
+      record_builtin_type (RID_MAX, "short _Accum", short_accum_type_node);
+      record_builtin_type (RID_ACCUM, NULL, accum_type_node);
+      record_builtin_type (RID_MAX, "long _Accum", long_accum_type_node);
+      record_builtin_type (RID_MAX, "long long _Accum",
+			   long_long_accum_type_node);
+      record_builtin_type (RID_MAX, "unsigned short _Accum",
+			   unsigned_short_accum_type_node);
+      record_builtin_type (RID_MAX, "unsigned _Accum",
+			   unsigned_accum_type_node);
+      record_builtin_type (RID_MAX, "unsigned long _Accum",
+			   unsigned_long_accum_type_node);
+      record_builtin_type (RID_MAX, "unsigned long long _Accum",
+			   unsigned_long_long_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat short _Accum",
+			   sat_short_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat _Accum", sat_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat long _Accum",
+			   sat_long_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat long long _Accum",
+			  sat_long_long_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned short _Accum",
+			   sat_unsigned_short_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned _Accum",
+			   sat_unsigned_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned long _Accum",
+			   sat_unsigned_long_accum_type_node);
+      record_builtin_type (RID_MAX, "_Sat unsigned long long _Accum",
+			   sat_unsigned_long_long_accum_type_node);
+
+    }
+
   lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
 					 get_identifier ("complex int"),
 					 complex_integer_type_node));
@@ -3841,7 +4099,7 @@ def_builtin_1 (enum built_in_function fncode,
    integral promotions defined in ISO C99 6.3.1.1/2.  */
 
 bool
-c_promoting_integer_type_p (tree t)
+c_promoting_integer_type_p (const_tree t)
 {
   switch (TREE_CODE (t))
     {
@@ -3871,9 +4129,9 @@ c_promoting_integer_type_p (tree t)
    and none of their types is affected by default promotions.  */
 
 int
-self_promoting_args_p (tree parms)
+self_promoting_args_p (const_tree parms)
 {
-  tree t;
+  const_tree t;
   for (t = parms; t; t = TREE_CHAIN (t))
     {
       tree type = TREE_VALUE (t);
@@ -4321,15 +4579,6 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
     }
 }
 
-
-/* Generate the RTL for the body of FNDECL.  */
-
-void
-c_expand_body (tree fndecl)
-{
-  tree_rest_of_compilation (fndecl);
-}
-
 /* Hook used by staticp to handle language-specific tree codes.  */
 
 tree
@@ -4348,7 +4597,7 @@ tree
 boolean_increment (enum tree_code code, tree arg)
 {
   tree val;
-  tree true_res = boolean_true_node;
+  tree true_res = build_int_cst (TREE_TYPE (arg), 1);
 
   arg = stabilize_reference (arg);
   switch (code)
@@ -4599,8 +4848,9 @@ handle_always_inline_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
     {
-      /* Do nothing else, just set the attribute.  We'll get at
-	 it later with lookup_attribute.  */
+      /* Set the attribute and mark it for disregarding inline
+	 limits.  */
+      DECL_DISREGARD_INLINE_LIMITS (*node) = 1;
     }
   else
     {
@@ -4616,6 +4866,29 @@ handle_always_inline_attribute (tree *node, tree name,
 
 static tree
 handle_gnu_inline_attribute (tree *node, tree name,
+			     tree ARG_UNUSED (args),
+			     int ARG_UNUSED (flags),
+			     bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (*node))
+    {
+      /* Do nothing else, just set the attribute.  We'll get at
+	 it later with lookup_attribute.  */
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle an "artificial" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_artificial_attribute (tree *node, tree name,
 			     tree ARG_UNUSED (args),
 			     int ARG_UNUSED (flags),
 			     bool *no_add_attrs)
@@ -4655,6 +4928,26 @@ handle_flatten_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "warning" or "error" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_error_attribute (tree *node, tree name, tree args,
+			int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL
+      || TREE_CODE (TREE_VALUE (args)) == STRING_CST)
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
 
 /* Handle a "used" attribute; arguments as in
    struct attribute_spec.handler.  */
@@ -4975,6 +5268,10 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	mode = word_mode;
       else if (!strcmp (p, "pointer"))
 	mode = ptr_mode;
+      else if (!strcmp (p, "libgcc_cmp_return"))
+	mode = targetm.libgcc_cmp_return_mode ();
+      else if (!strcmp (p, "libgcc_shift_count"))
+	mode = targetm.libgcc_shift_count_mode ();
       else
 	for (j = 0; j < NUM_MACHINE_MODES; j++)
 	  if (!strcmp (p, GET_MODE_NAME (j)))
@@ -4996,6 +5293,10 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	case MODE_PARTIAL_INT:
 	case MODE_FLOAT:
 	case MODE_DECIMAL_FLOAT:
+	case MODE_FRACT:
+	case MODE_UFRACT:
+	case MODE_ACCUM:
+	case MODE_UACCUM:
 	  valid_mode = targetm.scalar_mode_supported_p (mode);
 	  break;
 
@@ -5006,6 +5307,10 @@ handle_mode_attribute (tree *node, tree name, tree args,
 
 	case MODE_VECTOR_INT:
 	case MODE_VECTOR_FLOAT:
+	case MODE_VECTOR_FRACT:
+	case MODE_VECTOR_UFRACT:
+	case MODE_VECTOR_ACCUM:
+	case MODE_VECTOR_UACCUM:
 	  warning (OPT_Wattributes, "specifying vector types with "
 		   "__attribute__ ((mode)) is deprecated");
 	  warning (OPT_Wattributes,
@@ -5039,7 +5344,20 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	  typefm = fn (TREE_TYPE (type), mode, false);
 	}
       else
-	typefm = lang_hooks.types.type_for_mode (mode, TYPE_UNSIGNED (type));
+	{
+	  /* For fixed-point modes, we need to test if the signness of type
+	     and the machine mode are consistent.  */
+	  if (ALL_FIXED_POINT_MODE_P (mode)
+	      && TYPE_UNSIGNED (type) != UNSIGNED_FIXED_POINT_MODE_P (mode))
+	    {
+	      error ("signness of type and machine mode %qs don't match", p);
+	      return NULL_TREE;
+	    }
+	  /* For fixed-point modes, we need to pass saturating info.  */
+	  typefm = lang_hooks.types.type_for_mode (mode,
+			ALL_FIXED_POINT_MODE_P (mode) ? TYPE_SATURATING (type)
+						      : TYPE_UNSIGNED (type));
+	}
 
       if (typefm == NULL_TREE)
 	{
@@ -5202,10 +5520,22 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       TYPE_ALIGN (*type) = (1 << i) * BITS_PER_UNIT;
       TYPE_USER_ALIGN (*type) = 1;
     }
-  else if (TREE_CODE (decl) != VAR_DECL
+  else if (! VAR_OR_FUNCTION_DECL_P (decl)
 	   && TREE_CODE (decl) != FIELD_DECL)
     {
       error ("alignment may not be specified for %q+D", decl);
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && DECL_ALIGN (decl) > (1 << i) * BITS_PER_UNIT)
+    {
+      if (DECL_USER_ALIGN (decl))
+	error ("alignment for %q+D was previously specified as %d "
+	       "and may not be decreased", decl,
+	       DECL_ALIGN (decl) / BITS_PER_UNIT);
+      else
+	error ("alignment for %q+D must be at least %d", decl,
+	       DECL_ALIGN (decl) / BITS_PER_UNIT);
       *no_add_attrs = true;
     }
   else
@@ -5776,7 +6106,8 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
       || TREE_CODE (type) == UNION_TYPE
       || TREE_CODE (type) == VECTOR_TYPE
       || (!SCALAR_FLOAT_MODE_P (orig_mode)
-	  && GET_MODE_CLASS (orig_mode) != MODE_INT)
+	  && GET_MODE_CLASS (orig_mode) != MODE_INT
+	  && !ALL_SCALAR_FIXED_POINT_MODE_P (orig_mode))
       || !host_integerp (TYPE_SIZE_UNIT (type), 1))
     {
       error ("invalid vector type for attribute %qE", name);
@@ -6147,6 +6478,19 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 	    }
 	}
     }
+
+  return NULL_TREE;
+}
+
+/* Handle a "type_generic" attribute.  */
+
+static tree
+handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
+			       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
+			       bool * ARG_UNUSED (no_add_attrs))
+{
+  /* Ensure we have a function type, with no arguments.  */
+  gcc_assert (TREE_CODE (*node) == FUNCTION_TYPE && ! TYPE_ARG_TYPES (*node));
 
   return NULL_TREE;
 }
@@ -6896,8 +7240,9 @@ same_scalar_type_ignoring_signedness (tree t1, tree t2)
 {
   enum tree_code c1 = TREE_CODE (t1), c2 = TREE_CODE (t2);
 
-  gcc_assert ((c1 == INTEGER_TYPE || c1 == REAL_TYPE)
-	      && (c2 == INTEGER_TYPE || c2 == REAL_TYPE));
+  gcc_assert ((c1 == INTEGER_TYPE || c1 == REAL_TYPE || c1 == FIXED_POINT_TYPE)
+	      && (c2 == INTEGER_TYPE || c2 == REAL_TYPE
+		  || c2 == FIXED_POINT_TYPE));
 
   /* Equality works here because c_common_signed_type uses
      TYPE_MAIN_VARIANT.  */
@@ -7062,11 +7407,12 @@ struct gcc_targetcm targetcm = TARGETCM_INITIALIZER;
 void
 warn_for_div_by_zero (tree divisor)
 {
-  /* If DIVISOR is zero, and has integral type, issue a warning about
-     division by zero.  Do not issue a warning if DIVISOR has a
+  /* If DIVISOR is zero, and has integral or fixed-point type, issue a warning
+     about division by zero.  Do not issue a warning if DIVISOR has a
      floating-point type, since we consider 0.0/0.0 a valid way of
      generating a NaN.  */
-  if (skip_evaluation == 0 && integer_zerop (divisor))
+  if (skip_evaluation == 0
+      && (integer_zerop (divisor) || fixed_zerop (divisor)))
     warning (OPT_Wdiv_by_zero, "division by zero");
 }
 

@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /*{{{  Includes */ 
 
@@ -123,7 +122,7 @@ static struct fr30_frame_info 	zero_frame_info;
 
 static void fr30_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
-static bool fr30_must_pass_in_stack (enum machine_mode, tree);
+static bool fr30_must_pass_in_stack (enum machine_mode, const_tree);
 static int fr30_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				   tree, bool);
 
@@ -154,7 +153,7 @@ static int fr30_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 
 #undef  TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 #undef  TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE hook_pass_by_reference_must_pass_in_stack
 #undef  TARGET_ARG_PARTIAL_BYTES
@@ -309,7 +308,7 @@ fr30_expand_prologue (void)
 		     G++ testsuite.  */
 		  if (! frame_pointer_needed
 		      && GET_CODE (part) == SET
-		      && REGNO (SET_DEST (part)) == HARD_FRAME_POINTER_REGNUM)
+		      && SET_DEST (part) == hard_frame_pointer_rtx)
 		    RTX_FRAME_RELATED_P (part) = 0;
 		  else
 		    RTX_FRAME_RELATED_P (part) = 1;
@@ -337,7 +336,8 @@ fr30_expand_prologue (void)
     ; /* Nothing to do.  */
   else if (current_frame_info.frame_size <= 512)
     {
-      insn = emit_insn (gen_add_to_stack (GEN_INT (- current_frame_info.frame_size)));
+      insn = emit_insn (gen_add_to_stack
+			 (GEN_INT (- (signed) current_frame_info.frame_size)));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
   else
@@ -670,7 +670,7 @@ fr30_print_operand (FILE *file, rtx x, int code)
    in registers.  */
 
 static bool
-fr30_must_pass_in_stack (enum machine_mode mode, tree type)
+fr30_must_pass_in_stack (enum machine_mode mode, const_tree type)
 {
   if (mode == BLKmode)
     return true;

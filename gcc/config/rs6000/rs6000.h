@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions.  */
@@ -55,6 +54,10 @@
 #define PPC405_ERRATUM77 (rs6000_cpu == PROCESSOR_PPC405)
 #else
 #define PPC405_ERRATUM77 0
+#endif
+
+#ifndef TARGET_PAIRED_FLOAT
+#define TARGET_PAIRED_FLOAT 0
 #endif
 
 /* Common ASM definitions used by ASM_SPEC among the various targets
@@ -136,7 +139,29 @@
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
+  { "cc1_cpu",			CC1_CPU_SPEC },				\
   SUBTARGET_EXTRA_SPECS
+
+/* -mcpu=native handling only makes sense with compiler running on
+   an PowerPC chip.  If changing this condition, also change
+   the condition in driver-rs6000.c.  */
+#if defined(__powerpc__) || defined(__POWERPC__) || defined(_AIX)
+/* In driver-rs6000.c.  */
+extern const char *host_detect_local_cpu (int argc, const char **argv);
+#define EXTRA_SPEC_FUNCTIONS \
+  { "local_cpu_detect", host_detect_local_cpu },
+#define HAVE_LOCAL_CPU_DETECT
+#endif
+
+#ifndef CC1_CPU_SPEC
+#ifdef HAVE_LOCAL_CPU_DETECT
+#define CC1_CPU_SPEC \
+"%{mcpu=native:%<mcpu=native %:local_cpu_detect(cpu)} \
+ %{mtune=native:%<mtune=native %:local_cpu_detect(tune)}"
+#else
+#define CC1_CPU_SPEC ""
+#endif
+#endif
 
 /* Architecture type.  */
 
@@ -451,6 +476,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define UNITS_PER_FP_WORD 8
 #define UNITS_PER_ALTIVEC_WORD 16
 #define UNITS_PER_SPE_WORD 8
+#define UNITS_PER_PAIRED_WORD 8
 
 /* Type used for ptrdiff_t, as a string used in a declaration.  */
 #define PTRDIFF_TYPE "int"
@@ -534,8 +560,10 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
   ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :	\
     (TARGET_E500_DOUBLE && TYPE_MODE (TYPE) == DFmode) ? 64 : \
-    (TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE \
-     && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) ? 64 : ALIGN)
+    ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE \
+     && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) || (TARGET_PAIRED_FLOAT \
+        && TREE_CODE (TYPE) == VECTOR_TYPE \
+        && PAIRED_VECTOR_MODE (TYPE_MODE (TYPE)))) ? 64 : ALIGN)
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32
@@ -574,7 +602,8 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    Align vectors to 128 bits.  Align SPE vectors and E500 v2 doubles to
    64 bits.  */
 #define DATA_ALIGNMENT(TYPE, ALIGN)		\
-  (TREE_CODE (TYPE) == VECTOR_TYPE ? (TARGET_SPE_ABI ? 64 : 128)	\
+  (TREE_CODE (TYPE) == VECTOR_TYPE ? ((TARGET_SPE_ABI \
+   || TARGET_PAIRED_FLOAT) ? 64 : 128)	\
    : (TARGET_E500_DOUBLE && TYPE_MODE (TYPE) == DFmode) ? 64 \
    : TREE_CODE (TYPE) == ARRAY_TYPE		\
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
@@ -724,21 +753,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    , 0, 0, 0                                       \
 }
 
-#define MQ_REGNO     64
-#define CR0_REGNO    68
-#define CR1_REGNO    69
-#define CR2_REGNO    70
-#define CR3_REGNO    71
-#define CR4_REGNO    72
-#define MAX_CR_REGNO 75
-#define XER_REGNO    76
-#define FIRST_ALTIVEC_REGNO	77
-#define LAST_ALTIVEC_REGNO	108
 #define TOTAL_ALTIVEC_REGS	(LAST_ALTIVEC_REGNO - FIRST_ALTIVEC_REGNO + 1)
-#define VRSAVE_REGNO		109
-#define VSCR_REGNO		110
-#define SPE_ACC_REGNO		111
-#define SPEFSCR_REGNO		112
 
 #define FIRST_SAVED_ALTIVEC_REGNO (FIRST_ALTIVEC_REGNO+20)
 #define FIRST_SAVED_FP_REGNO    (14+32)
@@ -812,10 +827,10 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define FP_REGNO_P(N) ((N) >= 32 && (N) <= 63)
 
 /* True if register is a condition register.  */
-#define CR_REGNO_P(N) ((N) >= 68 && (N) <= 75)
+#define CR_REGNO_P(N) ((N) >= CR0_REGNO && (N) <= CR7_REGNO)
 
 /* True if register is a condition register, but not cr0.  */
-#define CR_REGNO_NOT_CR0_P(N) ((N) >= 69 && (N) <= 75)
+#define CR_REGNO_NOT_CR0_P(N) ((N) >= CR1_REGNO && (N) <= CR7_REGNO)
 
 /* True if register is an integer register.  */
 #define INT_REGNO_P(N) \
@@ -823,6 +838,9 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
 /* SPE SIMD registers are just the GPRs.  */
 #define SPE_SIMD_REGNO_P(N) ((N) <= 31)
+
+/* PAIRED SIMD registers are just the FPRs.  */
+#define PAIRED_SIMD_REGNO_P(N) ((N) >= 32 && (N) <= 63)
 
 /* True if register is the XER register.  */
 #define XER_REGNO_P(N) ((N) == XER_REGNO)
@@ -852,9 +870,13 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
          || (MODE) == V1DImode          \
          || (MODE) == V2SImode)
 
-#define UNITS_PER_SIMD_WORD					\
-        (TARGET_ALTIVEC ? UNITS_PER_ALTIVEC_WORD		\
-	 : (TARGET_SPE ? UNITS_PER_SPE_WORD : UNITS_PER_WORD))
+#define PAIRED_VECTOR_MODE(MODE)        \
+         ((MODE) == V2SFmode)            
+
+#define UNITS_PER_SIMD_WORD					     \
+	(TARGET_ALTIVEC ? UNITS_PER_ALTIVEC_WORD		     \
+	 : (TARGET_SPE ? UNITS_PER_SPE_WORD : (TARGET_PAIRED_FLOAT ? \
+	 UNITS_PER_PAIRED_WORD : UNITS_PER_WORD)))
 
 /* Value is TRUE if hard register REGNO can hold a value of
    machine-mode MODE.  */
@@ -952,11 +974,6 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 /* Place to put static chain when calling a function that requires it.  */
 #define STATIC_CHAIN_REGNUM 11
 
-/* Link register number.  */
-#define LINK_REGISTER_REGNUM 65
-
-/* Count register number.  */
-#define COUNT_REGISTER_REGNUM 66
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.
@@ -1085,8 +1102,8 @@ enum reg_class
   : (REGNO) == CR0_REGNO ? CR0_REGS		\
   : CR_REGNO_P (REGNO) ? CR_REGS		\
   : (REGNO) == MQ_REGNO ? MQ_REGS		\
-  : (REGNO) == LINK_REGISTER_REGNUM ? LINK_REGS	\
-  : (REGNO) == COUNT_REGISTER_REGNUM ? CTR_REGS	\
+  : (REGNO) == LR_REGNO ? LINK_REGS	\
+  : (REGNO) == CTR_REGNO ? CTR_REGS	\
   : (REGNO) == ARG_POINTER_REGNUM ? BASE_REGS	\
   : (REGNO) == XER_REGNO ? XER_REGS		\
   : (REGNO) == VRSAVE_REGNO ? VRSAVE_REGS	\
@@ -1503,7 +1520,7 @@ typedef struct rs6000_args
    needed.  */
 
 #define	EPILOGUE_USES(REGNO)					\
-  ((reload_completed && (REGNO) == LINK_REGISTER_REGNUM)	\
+  ((reload_completed && (REGNO) == LR_REGNO)			\
    || (TARGET_ALTIVEC && (REGNO) == VRSAVE_REGNO)		\
    || (current_function_calls_eh_return				\
        && TARGET_AIX						\
@@ -1858,10 +1875,10 @@ do {								\
 
 /* The cntlzw and cntlzd instructions return 32 and 64 for input of zero.  */
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = ((MODE) == SImode ? 32 : 64))
+  ((VALUE) = ((MODE) == SImode ? 32 : 64), 1)
 
 /* The CTZ patterns return -1 for input of zero.  */
-#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = -1)
+#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = -1, 1)
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
@@ -2244,8 +2261,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
    dwarf2 unwind information.  This also enables the table driven
    mechanism.  */
 
-#define INCOMING_RETURN_ADDR_RTX   gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
-#define DWARF_FRAME_RETURN_COLUMN  DWARF_FRAME_REGNUM (LINK_REGISTER_REGNUM)
+#define INCOMING_RETURN_ADDR_RTX   gen_rtx_REG (Pmode, LR_REGNO)
+#define DWARF_FRAME_RETURN_COLUMN  DWARF_FRAME_REGNUM (LR_REGNO)
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 3 : INVALID_REGNUM)
@@ -2946,6 +2963,40 @@ enum rs6000_builtins
   SPE_BUILTIN_MTSPEFSCR,
   SPE_BUILTIN_MFSPEFSCR,
   SPE_BUILTIN_BRINC,
+
+  /* PAIRED builtins.  */
+  PAIRED_BUILTIN_DIVV2SF3,
+  PAIRED_BUILTIN_ABSV2SF2,
+  PAIRED_BUILTIN_NEGV2SF2,
+  PAIRED_BUILTIN_SQRTV2SF2,
+  PAIRED_BUILTIN_ADDV2SF3,
+  PAIRED_BUILTIN_SUBV2SF3,
+  PAIRED_BUILTIN_RESV2SF2,
+  PAIRED_BUILTIN_MULV2SF3,
+  PAIRED_BUILTIN_MSUB,
+  PAIRED_BUILTIN_MADD,
+  PAIRED_BUILTIN_NMSUB,
+  PAIRED_BUILTIN_NMADD,
+  PAIRED_BUILTIN_NABSV2SF2,
+  PAIRED_BUILTIN_SUM0,
+  PAIRED_BUILTIN_SUM1,
+  PAIRED_BUILTIN_MULS0,
+  PAIRED_BUILTIN_MULS1,
+  PAIRED_BUILTIN_MERGE00,
+  PAIRED_BUILTIN_MERGE01,
+  PAIRED_BUILTIN_MERGE10,
+  PAIRED_BUILTIN_MERGE11,
+  PAIRED_BUILTIN_MADDS0,
+  PAIRED_BUILTIN_MADDS1,
+  PAIRED_BUILTIN_STX,
+  PAIRED_BUILTIN_LX,
+  PAIRED_BUILTIN_SELV2SF4,
+  PAIRED_BUILTIN_CMPU0,
+  PAIRED_BUILTIN_CMPU1,
+
+  RS6000_BUILTIN_RECIP,
+  RS6000_BUILTIN_RECIPF,
+  RS6000_BUILTIN_RSQRTF,
 
   RS6000_BUILTIN_COUNT
 };

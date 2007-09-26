@@ -10,7 +10,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -19,9 +19,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_ARM_H
 #define GCC_ARM_H
@@ -64,6 +63,9 @@ extern char arm_arch_name[];
 							\
 	if (TARGET_VFP)					\
 	  builtin_define ("__VFP_FP__");		\
+							\
+	if (TARGET_NEON)				\
+	  builtin_define ("__ARM_NEON__");		\
 							\
 	/* Add a define for interworking.		\
 	   Needed when building libgcc.a.  */		\
@@ -130,8 +132,6 @@ extern rtx pool_vector_label;
 /* Set to 1 when a return insn is output, this means that the epilogue
    is not needed.  */
 extern int return_used_this_function;
-/* Used to produce AOF syntax assembler.  */
-extern GTY(()) rtx aof_pic_label;
 
 /* Just in case configure has failed to define anything.  */
 #ifndef TARGET_CPU_DEFAULT
@@ -206,10 +206,23 @@ extern GTY(()) rtx aof_pic_label;
 /* 32-bit Thumb-2 code.  */
 #define TARGET_THUMB2			(TARGET_THUMB && arm_arch_thumb2)
 
+/* The following two macros concern the ability to execute coprocessor
+   instructions for VFPv3 or NEON.  TARGET_VFP3 is currently only ever
+   tested when we know we are generating for VFP hardware; we need to
+   be more careful with TARGET_NEON as noted below.  */
+
 /* FPU is VFPv3 (with twice the number of D registers).  Setting the FPU to
    Neon automatically enables VFPv3 too.  */
 #define TARGET_VFP3 (arm_fp_model == ARM_FP_MODEL_VFP \
-		     && (arm_fpu_arch == FPUTYPE_VFP3))
+		     && (arm_fpu_arch == FPUTYPE_VFP3 \
+			 || arm_fpu_arch == FPUTYPE_NEON))
+/* FPU supports Neon instructions.  The setting of this macro gets
+   revealed via __ARM_NEON__ so we add extra guards upon TARGET_32BIT
+   and TARGET_HARD_FLOAT to ensure that NEON instructions are
+   available.  */
+#define TARGET_NEON (TARGET_32BIT && TARGET_HARD_FLOAT \
+		     && arm_fp_model == ARM_FP_MODEL_VFP \
+		     && arm_fpu_arch == FPUTYPE_NEON)
 
 /* "DSP" multiply instructions, eg. SMULxy.  */
 #define TARGET_DSP_MULTIPLY \
@@ -282,7 +295,9 @@ enum fputype
   /* VFP.  */
   FPUTYPE_VFP,
   /* VFPv3.  */
-  FPUTYPE_VFP3
+  FPUTYPE_VFP3,
+  /* Neon.  */
+  FPUTYPE_NEON
 };
 
 /* Recast the floating point class to be the floating point attribute.  */
@@ -482,6 +497,12 @@ extern int arm_arch_hwdiv;
 #define FLOAT_WORDS_BIG_ENDIAN (arm_float_words_big_endian ())
 
 #define UNITS_PER_WORD	4
+
+/* Use the option -mvectorize-with-neon-quad to override the use of doubleword
+   registers when autovectorizing for Neon, at least until multiple vector
+   widths are supported properly by the middle-end.  */
+#define UNITS_PER_SIMD_WORD \
+  (TARGET_NEON ? (TARGET_NEON_VECTORIZE_QUAD ? 16 : 8) : UNITS_PER_WORD)
 
 /* True if natural alignment is used for doubleword types.  */
 #define ARM_DOUBLEWORD_ALIGN	TARGET_AAPCS_BASED
@@ -941,6 +962,18 @@ extern int arm_structure_size_boundary;
 #define VFP_REGNO_OK_FOR_DOUBLE(REGNUM) \
   ((((REGNUM) - FIRST_VFP_REGNUM) & 1) == 0)
 
+/* Neon Quad values must start at a multiple of four registers.  */
+#define NEON_REGNO_OK_FOR_QUAD(REGNUM) \
+  ((((REGNUM) - FIRST_VFP_REGNUM) & 3) == 0)
+
+/* Neon structures of vectors must be in even register pairs and there
+   must be enough registers available.  Because of various patterns
+   requiring quad registers, we require them to start at a multiple of
+   four.  */
+#define NEON_REGNO_OK_FOR_NREGS(REGNUM, N) \
+  ((((REGNUM) - FIRST_VFP_REGNUM) & 3) == 0 \
+   && (LAST_VFP_REGNUM - (REGNUM) >= 2 * (N) - 1))
+
 /* The number of hard registers is 16 ARM + 8 FPA + 1 CC + 1 SFP + 1 AFP.  */
 /* + 16 Cirrus registers take us up to 43.  */
 /* Intel Wireless MMX Technology registers add 16 + 4 more.  */
@@ -993,6 +1026,21 @@ extern int arm_structure_size_boundary;
 
 #define VALID_IWMMXT_REG_MODE(MODE) \
  (arm_vector_mode_supported_p (MODE) || (MODE) == DImode)
+
+/* Modes valid for Neon D registers.  */
+#define VALID_NEON_DREG_MODE(MODE) \
+  ((MODE) == V2SImode || (MODE) == V4HImode || (MODE) == V8QImode \
+   || (MODE) == V2SFmode || (MODE) == DImode)
+
+/* Modes valid for Neon Q registers.  */
+#define VALID_NEON_QREG_MODE(MODE) \
+  ((MODE) == V4SImode || (MODE) == V8HImode || (MODE) == V16QImode \
+   || (MODE) == V4SFmode || (MODE) == V2DImode)
+
+/* Structure modes valid for Neon registers.  */
+#define VALID_NEON_STRUCT_MODE(MODE) \
+  ((MODE) == TImode || (MODE) == EImode || (MODE) == OImode \
+   || (MODE) == CImode || (MODE) == XImode)
 
 /* The order in which register should be allocated.  It is good to use ip
    since no saving is required (though calls clobber it) and it never contains
@@ -1600,8 +1648,7 @@ typedef struct
 
 
 /* If your target environment doesn't prefix user functions with an
-   underscore, you may wish to re-define this to prevent any conflicts.
-   e.g. AOF may prefix mcount with an underscore.  */
+   underscore, you may wish to re-define this to prevent any conflicts.  */
 #ifndef ARM_MCOUNT_NAME
 #define ARM_MCOUNT_NAME "*mcount"
 #endif
@@ -1872,21 +1919,15 @@ typedef struct
 
 /* Recognize any constant value that is a valid address.  */
 /* XXX We can address any constant, eventually...  */
-
-#ifdef AOF_ASSEMBLER
-
-#define CONSTANT_ADDRESS_P(X)		\
-  (GET_CODE (X) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (X))
-
-#else
-
 /* ??? Should the TARGET_ARM here also apply to thumb2?  */
 #define CONSTANT_ADDRESS_P(X)  			\
   (GET_CODE (X) == SYMBOL_REF 			\
    && (CONSTANT_POOL_ADDRESS_P (X)		\
        || (TARGET_ARM && optimize > 0 && SYMBOL_REF_FLAG (X))))
 
-#endif /* AOF_ASSEMBLER */
+/* True if SYMBOL + OFFSET constants must refer to something within
+   SYMBOL's section.  */
+#define ARM_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.
@@ -1905,7 +1946,7 @@ typedef struct
   || flag_pic)
 
 #define LEGITIMATE_CONSTANT_P(X)			\
-  (!arm_tls_referenced_p (X)				\
+  (!arm_cannot_force_const_mem (X)			\
    && (TARGET_32BIT ? ARM_LEGITIMATE_CONSTANT_P (X)	\
 		    : THUMB_LEGITIMATE_CONSTANT_P (X)))
 
@@ -2347,7 +2388,7 @@ extern int making_const_table;
            fprintf (STREAM, "\t.thumb\n\t.thumb_func\n") ;	\
         }						\
       if (TARGET_POKE_FUNCTION_NAME)			\
-        arm_poke_function_name (STREAM, (char *) NAME);	\
+        arm_poke_function_name (STREAM, (const char *) NAME);	\
     }							\
   while (0)
 
@@ -2405,7 +2446,7 @@ extern int making_const_table;
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)	\
   (CODE == '@' || CODE == '|' || CODE == '.'	\
-   || CODE == '(' || CODE == ')'		\
+   || CODE == '(' || CODE == ')' || CODE == '#'	\
    || (TARGET_32BIT && (CODE == '?'))		\
    || (TARGET_THUMB2 && (CODE == '!'))		\
    || (TARGET_THUMB && (CODE == '_')))
@@ -2577,6 +2618,9 @@ extern int making_const_table;
    : arm_gen_return_addr_mask ())
 
 
+/* Neon defines builtins from ARM_BUILTIN_MAX upwards, though they don't have
+   symbolic names defined here (which would require too much duplication).
+   FIXME?  */
 enum arm_builtins
 {
   ARM_BUILTIN_GETWCX,
@@ -2741,7 +2785,9 @@ enum arm_builtins
 
   ARM_BUILTIN_THREAD_POINTER,
 
-  ARM_BUILTIN_MAX
+  ARM_BUILTIN_NEON_BASE,
+
+  ARM_BUILTIN_MAX = ARM_BUILTIN_NEON_BASE  /* FIXME: Wrong!  */
 };
 
 /* Do not emit .note.GNU-stack by default.  */

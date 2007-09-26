@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* ??? This is an old port, and is undoubtedly suffering from bit rot.  */
 
@@ -95,9 +94,9 @@ static void arc_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 static bool arc_rtx_costs (rtx, int, int, int *);
 static int arc_address_cost (rtx);
 static void arc_external_libcall (rtx);
-static bool arc_return_in_memory (tree, tree);
+static bool arc_return_in_memory (const_tree, const_tree);
 static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				   tree, bool);
+				   const_tree, bool);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -129,11 +128,11 @@ static bool arc_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_ADDRESS_COST arc_address_cost
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY arc_return_in_memory
@@ -2317,7 +2316,7 @@ arc_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-arc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+arc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   if (AGGREGATE_TYPE_P (type))
     return true;
@@ -2333,7 +2332,7 @@ arc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 
 static bool
 arc_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
-		       enum machine_mode mode, tree type,
+		       enum machine_mode mode, const_tree type,
 		       bool named ATTRIBUTE_UNUSED)
 {
   unsigned HOST_WIDE_INT size;

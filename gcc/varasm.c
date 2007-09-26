@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file handles generation of all the assembler code
@@ -108,7 +107,7 @@ bool first_function_block_is_cold;
 /* We give all constants their own alias set.  Perhaps redundant with
    MEM_READONLY_P, but pre-dates it.  */
 
-static HOST_WIDE_INT const_alias_set;
+static alias_set_type const_alias_set;
 
 static const char *strip_reg_name (const char *);
 static int contains_pointers_p (tree);
@@ -1057,7 +1056,7 @@ decode_reg_name (const char *asmspec)
 /* Return true if DECL's initializer is suitable for a BSS section.  */
 
 static bool
-bss_initializer_p (tree decl)
+bss_initializer_p (const_tree decl)
 {
   return (DECL_INITIAL (decl) == NULL
 	  || DECL_INITIAL (decl) == error_mark_node
@@ -1638,7 +1637,7 @@ assemble_start_function (tree decl, const char *fnname)
   if (flag_reorder_blocks_and_partition)
     {
       switch_to_section (unlikely_text_section ());
-      assemble_align (FUNCTION_BOUNDARY);
+      assemble_align (DECL_ALIGN (decl));
       ASM_OUTPUT_LABEL (asm_out_file, cfun->cold_section_label);
 
       /* When the function starts with a cold section, we need to explicitly
@@ -1648,7 +1647,7 @@ assemble_start_function (tree decl, const char *fnname)
 	  && BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
 	{
 	  switch_to_section (text_section);
-	  assemble_align (FUNCTION_BOUNDARY);
+	  assemble_align (DECL_ALIGN (decl));
 	  ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_label);
 	  hot_label_written = true;
 	  first_function_block_is_cold = true;
@@ -1679,18 +1678,17 @@ assemble_start_function (tree decl, const char *fnname)
     ASM_OUTPUT_LABEL (asm_out_file, cfun->hot_section_label);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
-  align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
-  if (align < force_align_functions_log)
-    align = force_align_functions_log;
+  align = floor_log2 (DECL_ALIGN (decl) / BITS_PER_UNIT);
   if (align > 0)
     {
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
 
   /* Handle a user-specified function alignment.
-     Note that we still need to align to FUNCTION_BOUNDARY, as above,
+     Note that we still need to align to DECL_ALIGN, as above,
      because ASM_OUTPUT_MAX_SKIP_ALIGN might not do any alignment at all.  */
-  if (align_functions_log > align
+  if (! DECL_USER_ALIGN (decl)
+      && align_functions_log > align
       && cfun->function_frequency != FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
     {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
@@ -2572,11 +2570,17 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
       enum machine_mode omode, imode;
       unsigned int subalign;
       unsigned int subsize, i;
+      unsigned char mclass;
 
       subsize = size > UNITS_PER_WORD? UNITS_PER_WORD : 1;
       subalign = MIN (align, subsize * BITS_PER_UNIT);
-      omode = mode_for_size (subsize * BITS_PER_UNIT, MODE_INT, 0);
-      imode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0);
+      if (GET_CODE (x) == CONST_FIXED)
+	mclass = GET_MODE_CLASS (GET_MODE (x));
+      else
+	mclass = MODE_INT;
+
+      omode = mode_for_size (subsize * BITS_PER_UNIT, mclass, 0);
+      imode = mode_for_size (size * BITS_PER_UNIT, mclass, 0);
 
       for (i = 0; i < size; i += subsize)
 	{
@@ -2688,6 +2692,7 @@ decode_addr_const (tree exp, struct addr_const *value)
       break;
 
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case CONSTRUCTOR:
@@ -2735,7 +2740,7 @@ static void maybe_output_constant_def_contents (struct constant_descriptor_tree 
 static hashval_t
 const_desc_hash (const void *ptr)
 {
-  return ((struct constant_descriptor_tree *)ptr)->hash;
+  return ((const struct constant_descriptor_tree *)ptr)->hash;
 }
 
 static hashval_t
@@ -2758,6 +2763,9 @@ const_hash_1 (const tree exp)
 
     case REAL_CST:
       return real_hash (TREE_REAL_CST_PTR (exp));
+
+    case FIXED_CST:
+      return fixed_hash (TREE_FIXED_CST_PTR (exp));
 
     case STRING_CST:
       p = TREE_STRING_POINTER (exp);
@@ -2876,6 +2884,13 @@ compare_constant (const tree t1, const tree t2)
 	return 0;
 
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
+
+    case FIXED_CST:
+      /* Fixed constants are the same only if the same width of type.  */
+      if (TYPE_PRECISION (TREE_TYPE (t1)) != TYPE_PRECISION (TREE_TYPE (t2)))
+	return 0;
+
+      return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1), TREE_FIXED_CST (t2));
 
     case STRING_CST:
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
@@ -3003,6 +3018,7 @@ copy_constant (tree exp)
 
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
       return copy_node (exp);
 
@@ -3397,6 +3413,10 @@ const_rtx_hash_1 (rtx *xp, void *data)
 	h ^= real_hash (CONST_DOUBLE_REAL_VALUE (x));
       break;
 
+    case CONST_FIXED:
+      h ^= fixed_hash (CONST_FIXED_VALUE (x));
+      break;
+
     case CONST_VECTOR:
       {
 	int i;
@@ -3604,7 +3624,7 @@ get_pool_constant_mark (rtx addr, bool *pmarked)
 /* Similar, return the mode.  */
 
 enum machine_mode
-get_pool_mode (rtx addr)
+get_pool_mode (const_rtx addr)
 {
   return SYMBOL_REF_CONSTANT (addr)->mode;
 }
@@ -3638,11 +3658,19 @@ output_constant_pool_2 (enum machine_mode mode, rtx x, unsigned int align)
 
     case MODE_INT:
     case MODE_PARTIAL_INT:
+    case MODE_FRACT:
+    case MODE_UFRACT:
+    case MODE_ACCUM:
+    case MODE_UACCUM:
       assemble_integer (x, GET_MODE_SIZE (mode), align, 1);
       break;
 
     case MODE_VECTOR_FLOAT:
     case MODE_VECTOR_INT:
+    case MODE_VECTOR_FRACT:
+    case MODE_VECTOR_UFRACT:
+    case MODE_VECTOR_ACCUM:
+    case MODE_VECTOR_UACCUM:
       {
 	int i, units;
         enum machine_mode submode = GET_MODE_INNER (mode);
@@ -4006,7 +4034,7 @@ output_addressed_constants (tree exp)
    evaluate the property while walking a constructor for other purposes.  */
 
 bool
-constructor_static_from_elts_p (tree ctor)
+constructor_static_from_elts_p (const_tree ctor)
 {
   return (TREE_CONSTANT (ctor)
 	  && (TREE_CODE (TREE_TYPE (ctor)) == UNION_TYPE
@@ -4060,6 +4088,7 @@ initializer_constant_valid_p (tree value, tree endtype)
     case INTEGER_CST:
     case VECTOR_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
       return null_pointer_node;
@@ -4161,7 +4190,7 @@ initializer_constant_valid_p (tree value, tree endtype)
 						      endtype);
 	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
 						      endtype);
-	  /* If either term is absolute, use the other terms relocation.  */
+	  /* If either term is absolute, use the other term's relocation.  */
 	  if (valid0 == null_pointer_node)
 	    return valid1;
 	  if (valid1 == null_pointer_node)
@@ -4383,10 +4412,11 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
     case OFFSET_TYPE:
+    case FIXED_POINT_TYPE:
       if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
 					   EXPAND_INITIALIZER),
 			      MIN (size, thissize), align, 0))
-	error ("initializer for integer value is too complicated");
+	error ("initializer for integer/fixed-point value is too complicated");
       break;
 
     case REAL_TYPE:
@@ -5514,7 +5544,7 @@ init_varasm_once (void)
 }
 
 enum tls_model
-decl_default_tls_model (tree decl)
+decl_default_tls_model (const_tree decl)
 {
   enum tls_model kind;
   bool is_local;
@@ -5754,7 +5784,7 @@ default_select_section (tree decl, int reloc,
 }
 
 enum section_category
-categorize_decl_for_section (tree decl, int reloc)
+categorize_decl_for_section (const_tree decl, int reloc)
 {
   enum section_category ret;
 
@@ -5836,7 +5866,7 @@ categorize_decl_for_section (tree decl, int reloc)
 }
 
 bool
-decl_readonly_section (tree decl, int reloc)
+decl_readonly_section (const_tree decl, int reloc)
 {
   switch (categorize_decl_for_section (decl, reloc))
     {
@@ -6124,7 +6154,7 @@ default_asm_output_anchor (rtx symbol)
 /* The default implementation of TARGET_USE_ANCHORS_FOR_SYMBOL_P.  */
 
 bool
-default_use_anchors_for_symbol_p (rtx symbol)
+default_use_anchors_for_symbol_p (const_rtx symbol)
 {
   section *sect;
   tree decl;
@@ -6163,13 +6193,13 @@ default_use_anchors_for_symbol_p (rtx symbol)
    wrt cross-module name binding.  */
 
 bool
-default_binds_local_p (tree exp)
+default_binds_local_p (const_tree exp)
 {
   return default_binds_local_p_1 (exp, flag_shlib);
 }
 
 bool
-default_binds_local_p_1 (tree exp, int shlib)
+default_binds_local_p_1 (const_tree exp, int shlib)
 {
   bool local_p;
 
@@ -6200,9 +6230,10 @@ default_binds_local_p_1 (tree exp, int shlib)
   else if (DECL_WEAK (exp))
     local_p = false;
   /* If PIC, then assume that any global name can be overridden by
-     symbols resolved from other modules.  */
+     symbols resolved from other modules, unless we are compiling with
+     -fwhole-program, which assumes that names are local.  */
   else if (shlib)
-    local_p = false;
+    local_p = flag_whole_program;
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */
   else if (DECL_COMMON (exp)

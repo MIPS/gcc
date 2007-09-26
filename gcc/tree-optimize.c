@@ -1,12 +1,12 @@
 /* Top-level control of tree optimizations.
-   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -388,7 +387,6 @@ tree_rest_of_compilation (tree fndecl)
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
-  cfun = DECL_STRUCT_FUNCTION (fndecl);
   saved_loc = input_location;
   input_location = DECL_SOURCE_LOCATION (fndecl);
   init_function_start (fndecl);
@@ -411,7 +409,7 @@ tree_rest_of_compilation (tree fndecl)
   bitmap_obstack_release (NULL);
   
   DECL_SAVED_TREE (fndecl) = NULL;
-  cfun = 0;
+  set_cfun (NULL);
 
   /* If requested, warn about function definitions where the function will
      return a value (usually of some struct or union type) which itself will

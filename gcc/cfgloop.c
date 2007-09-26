@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -343,6 +342,29 @@ alloc_loop (void)
   return loop;
 }
 
+/* Initializes loops structure LOOPS, reserving place for NUM_LOOPS loops
+   (including the root of the loop tree).  */
+
+static void
+init_loops_structure (struct loops *loops, unsigned num_loops)
+{
+  struct loop *root;
+
+  memset (loops, 0, sizeof *loops);
+  loops->larray = VEC_alloc (loop_p, gc, num_loops);
+
+  /* Dummy loop containing whole function.  */
+  root = alloc_loop ();
+  root->num_nodes = n_basic_blocks;
+  root->latch = EXIT_BLOCK_PTR;
+  root->header = ENTRY_BLOCK_PTR;
+  ENTRY_BLOCK_PTR->loop_father = root;
+  EXIT_BLOCK_PTR->loop_father = root;
+
+  VEC_quick_push (loop_p, loops->larray, root);
+  loops->tree_root = root;
+}
+
 /* Find all the natural loops in the function and save in LOOPS structure and
    recalculate loop_depth information in basic block structures.
    Return the number of natural loops found.  */
@@ -358,20 +380,20 @@ flow_loops_find (struct loops *loops)
   int *rc_order;
   basic_block header;
   basic_block bb;
-  struct loop *root;
 
-  memset (loops, 0, sizeof *loops);
+  /* Ensure that the dominators are computed.  */
+  calculate_dominance_info (CDI_DOMINATORS);
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
-    return 0;
+    {
+      init_loops_structure (loops, 1);
+      return 1;
+    }
 
   dfs_order = NULL;
   rc_order = NULL;
-
-  /* Ensure that the dominators are computed.  */
-  calculate_dominance_info (CDI_DOMINATORS);
 
   /* Count the number of loop headers.  This should be the
      same as the number of natural loops.  */
@@ -415,18 +437,7 @@ flow_loops_find (struct loops *loops)
     }
 
   /* Allocate loop structures.  */
-  loops->larray = VEC_alloc (loop_p, gc, num_loops + 1);
-
-  /* Dummy loop containing whole function.  */
-  root = alloc_loop ();
-  root->num_nodes = n_basic_blocks;
-  root->latch = EXIT_BLOCK_PTR;
-  root->header = ENTRY_BLOCK_PTR;
-  ENTRY_BLOCK_PTR->loop_father = root;
-  EXIT_BLOCK_PTR->loop_father = root;
-
-  VEC_quick_push (loop_p, loops->larray, root);
-  loops->tree_root = root;
+  init_loops_structure (loops, num_loops + 1);
 
   /* Find and record information about all the natural loops
      in the CFG.  */
@@ -491,7 +502,6 @@ flow_loops_find (struct loops *loops)
   sbitmap_free (headers);
 
   loops->exits = NULL;
-  loops->state = 0;
   return VEC_length (loop_p, loops->larray);
 }
 
@@ -755,7 +765,7 @@ disambiguate_loops_with_multiple_latches (void)
 
 /* Return nonzero if basic block BB belongs to LOOP.  */
 bool
-flow_bb_inside_loop_p (const struct loop *loop, const basic_block bb)
+flow_bb_inside_loop_p (const struct loop *loop, const_basic_block bb)
 {
   struct loop *source_loop;
 
@@ -768,9 +778,9 @@ flow_bb_inside_loop_p (const struct loop *loop, const basic_block bb)
 
 /* Enumeration predicate for get_loop_body_with_size.  */
 static bool
-glb_enum_p (basic_block bb, void *glb_loop)
+glb_enum_p (const_basic_block bb, const void *glb_loop)
 {
-  struct loop *loop = (struct loop *) glb_loop;
+  const struct loop *const loop = (const struct loop *) glb_loop;
   return (bb != loop->header
 	  && dominated_by_p (CDI_DOMINATORS, bb, loop->header));
 }
@@ -787,7 +797,7 @@ get_loop_body_with_size (const struct loop *loop, basic_block *body,
 			 unsigned max_size)
 {
   return dfs_enumerate_from (loop->header, 1, glb_enum_p,
-			     body, max_size, (void *) loop);
+			     body, max_size, loop);
 }
 
 /* Gets basic blocks of a LOOP.  Header is the 0-th block, rest is in dfs
@@ -930,7 +940,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
 static hashval_t
 loop_exit_hash (const void *ex)
 {
-  struct loop_exit *exit = (struct loop_exit *) ex;
+  const struct loop_exit *const exit = (const struct loop_exit *) ex;
 
   return htab_hash_pointer (exit->e);
 }
@@ -940,7 +950,7 @@ loop_exit_hash (const void *ex)
 static int
 loop_exit_eq (const void *ex, const void *e)
 {
-  struct loop_exit *exit = (struct loop_exit *) ex;
+  const struct loop_exit *const exit = (const struct loop_exit *) ex;
 
   return exit->e == e;
 }
@@ -985,7 +995,7 @@ rescan_loop_exit (edge e, bool new_edge, bool removed)
   struct loop_exit *exits = NULL, *exit;
   struct loop *aloop, *cloop;
 
-  if ((current_loops->state & LOOPS_HAVE_RECORDED_EXITS) == 0)
+  if (!loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
     return;
 
   if (!removed
@@ -1043,9 +1053,9 @@ record_loop_exits (void)
   if (!current_loops)
     return;
 
-  if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
+  if (loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
     return;
-  current_loops->state |= LOOPS_HAVE_RECORDED_EXITS;
+  loops_state_set (LOOPS_HAVE_RECORDED_EXITS);
 
   gcc_assert (current_loops->exits == NULL);
   current_loops->exits = htab_create_alloc (2 * number_of_loops (),
@@ -1098,10 +1108,10 @@ dump_recorded_exits (FILE *file)
 void
 release_recorded_exits (void)
 {
-  gcc_assert (current_loops->state & LOOPS_HAVE_RECORDED_EXITS);
+  gcc_assert (loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS));
   htab_delete (current_loops->exits);
   current_loops->exits = NULL;
-  current_loops->state &= ~LOOPS_HAVE_RECORDED_EXITS;
+  loops_state_clear (LOOPS_HAVE_RECORDED_EXITS);
 }
 
 /* Returns the list of the exit edges of a LOOP.  */
@@ -1120,7 +1130,7 @@ get_loop_exit_edges (const struct loop *loop)
 
   /* If we maintain the lists of exits, use them.  Otherwise we must
      scan the body of the loop.  */
-  if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
+  if (loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
     {
       for (exit = loop->exits->next; exit->e; exit = exit->next)
 	VEC_safe_push (edge, heap, edges, exit->e);
@@ -1341,13 +1351,13 @@ verify_loop_structure (void)
     {
       i = loop->num;
 
-      if ((current_loops->state & LOOPS_HAVE_PREHEADERS)
+      if (loops_state_satisfies_p (LOOPS_HAVE_PREHEADERS)
 	  && EDGE_COUNT (loop->header->preds) != 2)
 	{
 	  error ("loop %d's header does not have exactly 2 entries", i);
 	  err = 1;
 	}
-      if (current_loops->state & LOOPS_HAVE_SIMPLE_LATCHES)
+      if (loops_state_satisfies_p (LOOPS_HAVE_SIMPLE_LATCHES))
 	{
 	  if (!single_succ_p (loop->latch))
 	    {
@@ -1370,7 +1380,7 @@ verify_loop_structure (void)
 	  error ("loop %d's header does not belong directly to it", i);
 	  err = 1;
 	}
-      if ((current_loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
+      if (loops_state_satisfies_p (LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
 	  && (loop_latch_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP))
 	{
 	  error ("loop %d's latch is marked as part of irreducible region", i);
@@ -1379,7 +1389,7 @@ verify_loop_structure (void)
     }
 
   /* Check irreducible loops.  */
-  if (current_loops->state & LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
+  if (loops_state_satisfies_p (LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS))
     {
       /* Record old info.  */
       irreds = sbitmap_alloc (last_basic_block);
@@ -1465,7 +1475,7 @@ verify_loop_structure (void)
 	    }
 	}
 
-      if ((current_loops->state & LOOPS_HAVE_RECORDED_EXITS) == 0)
+      if (!loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
 	{
 	  if (loop->exits->next != loop->exits)
 	    {
@@ -1476,7 +1486,7 @@ verify_loop_structure (void)
 	}
     }
 
-  if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
+  if (loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
     {
       unsigned n_exits = 0, eloops;
 
@@ -1559,7 +1569,7 @@ loop_preheader_edge (const struct loop *loop)
   edge e;
   edge_iterator ei;
 
-  gcc_assert ((current_loops->state & LOOPS_HAVE_PREHEADERS) != 0);
+  gcc_assert (loops_state_satisfies_p (LOOPS_HAVE_PREHEADERS));
 
   FOR_EACH_EDGE (e, ei, loop->header->preds)
     if (e->src != loop->latch)
@@ -1571,7 +1581,7 @@ loop_preheader_edge (const struct loop *loop)
 /* Returns true if E is an exit of LOOP.  */
 
 bool
-loop_exit_edge_p (const struct loop *loop, edge e)
+loop_exit_edge_p (const struct loop *loop, const_edge e)
 {
   return (flow_bb_inside_loop_p (loop, e->src)
 	  && !flow_bb_inside_loop_p (loop, e->dest));
@@ -1586,7 +1596,7 @@ single_exit (const struct loop *loop)
 {
   struct loop_exit *exit = loop->exits->next;
 
-  if ((current_loops->state & LOOPS_HAVE_RECORDED_EXITS) == 0)
+  if (!loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
     return NULL;
 
   if (exit->e && exit->next == loop->exits)

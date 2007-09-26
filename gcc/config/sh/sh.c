@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -182,7 +181,6 @@ static rtx push (int);
 static void pop (int);
 static void push_regs (HARD_REG_SET *, int);
 static int calc_live_regs (HARD_REG_SET *);
-static void mark_use (rtx, rtx *);
 static HOST_WIDE_INT rounded_frame_size (int);
 static rtx mark_constant_pool_use (rtx);
 const struct attribute_spec sh_attribute_table[];
@@ -216,7 +214,7 @@ static bool sh_function_ok_for_sibcall (tree, tree);
 static bool sh_cannot_modify_jumps_p (void);
 static int sh_target_reg_class (void);
 static bool sh_optimize_target_register_callee_saved (bool);
-static bool sh_ms_bitfield_layout_p (tree);
+static bool sh_ms_bitfield_layout_p (const_tree);
 
 static void sh_init_builtins (void);
 static void sh_media_init_builtins (void);
@@ -224,7 +222,7 @@ static rtx sh_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void sh_output_mi_thunk (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree);
 static void sh_file_start (void);
 static int flow_dependent_p (rtx, rtx);
-static void flow_dependent_p_1 (rtx, rtx, void *);
+static void flow_dependent_p_1 (rtx, const_rtx, void *);
 static int shiftcosts (rtx);
 static int andcosts (rtx);
 static int addsubcosts (rtx);
@@ -244,7 +242,7 @@ static struct save_entry_s *sh5_schedule_saves (HARD_REG_SET *,
 						struct save_schedule_s *, int);
 
 static rtx sh_struct_value_rtx (tree, int);
-static bool sh_return_in_memory (tree, tree);
+static bool sh_return_in_memory (const_tree, const_tree);
 static rtx sh_builtin_saveregs (void);
 static void sh_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode, tree, int *, int);
 static bool sh_strict_argument_naming (CUMULATIVE_ARGS *);
@@ -252,12 +250,12 @@ static bool sh_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
 static tree sh_build_builtin_va_list (void);
 static tree sh_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				  tree, bool);
+				  const_tree, bool);
 static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
-			      tree, bool);
+			      const_tree, bool);
 static int sh_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 			         tree, bool);
-static int sh_dwarf_calling_convention (tree);
+static int sh_dwarf_calling_convention (const_tree);
 
 
 /* Initialize the GCC target structure.  */
@@ -283,7 +281,7 @@ static int sh_dwarf_calling_convention (tree);
 #define TARGET_ASM_OUTPUT_MI_THUNK sh_output_mi_thunk
 
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START sh_file_start
@@ -1192,7 +1190,9 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	    /* It's ok.  */;
 	  else
 	    {
-	      temp = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
+	      temp = (!can_create_pseudo_p ()
+		      ? operands[0]
+		      : gen_reg_rtx (Pmode));
 	      operands[1] = legitimize_pic_address (operands[1], mode, temp);
 	    }
 	}
@@ -1200,13 +1200,14 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 	       && GET_CODE (XEXP (operands[1], 0)) == PLUS
 	       && SYMBOLIC_CONST_P (XEXP (XEXP (operands[1], 0), 0)))
 	{
-	  temp = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
+	  temp = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
 	  temp = legitimize_pic_address (XEXP (XEXP (operands[1], 0), 0),
 					 mode, temp);
 	  operands[1] = expand_binop (mode, add_optab, temp,
 				      XEXP (XEXP (operands[1], 0), 1),
-				      no_new_pseudos ? temp
-				      : gen_reg_rtx (Pmode),
+				      (!can_create_pseudo_p ()
+				       ? temp
+				       : gen_reg_rtx (Pmode)),
 				      0, OPTAB_LIB_WIDEN);
 	}
     }
@@ -1298,7 +1299,7 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 		  if (flag_schedule_insns)
 		    emit_insn (gen_blockage ());
 		}
-	      tga_op1 = no_new_pseudos ? op0 : gen_reg_rtx (Pmode);
+	      tga_op1 = !can_create_pseudo_p () ? op0 : gen_reg_rtx (Pmode);
 	      tmp = gen_sym2GOTTPOFF (op1);
 	      emit_insn (gen_tls_initial_exec (tga_op1, tmp));
 	      op1 = tga_op1;
@@ -1389,7 +1390,7 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
 	}
     }
   op1 = operands[1];
-  if (!no_new_pseudos)
+  if (can_create_pseudo_p ())
     operands[1] = force_reg (mode, op1);
   /* When we are handling DImode comparisons, we want to keep constants so
      that we can optimize the component comparisons; however, memory loads
@@ -1412,7 +1413,7 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
 	  emit_move_insn (scratch, operands[2]);
 	  operands[2] = scratch;
 	}
-      else if (!no_new_pseudos)
+      else if (can_create_pseudo_p ())
 	operands[2] = force_reg (mode, operands[2]);
     }
   return comparison;
@@ -4715,8 +4716,8 @@ sh_reorg (void)
   mdep_reorg_phase = SH_INSERT_USES_LABELS;
   if (TARGET_RELAX)
     {
-      /* Remove all REG_LABEL notes.  We want to use them for our own
-	 purposes.  This works because none of the remaining passes
+      /* Remove all REG_LABEL_OPERAND notes.  We want to use them for our
+	 own purposes.  This works because none of the remaining passes
 	 need to look at them.
 
 	 ??? But it may break in the future.  We should use a machine
@@ -4727,7 +4728,8 @@ sh_reorg (void)
 	    {
 	      rtx note;
 
-	      while ((note = find_reg_note (insn, REG_LABEL, NULL_RTX)) != 0)
+	      while ((note = find_reg_note (insn, REG_LABEL_OPERAND,
+					    NULL_RTX)) != 0)
 		remove_note (insn, note);
 	    }
 	}
@@ -4878,16 +4880,16 @@ sh_reorg (void)
 	      continue;
 	    }
 
-	  /* Create a code label, and put it in a REG_LABEL note on
-             the insn which sets the register, and on each call insn
-             which uses the register.  In final_prescan_insn we look
-             for the REG_LABEL notes, and output the appropriate label
+	  /* Create a code label, and put it in a REG_LABEL_OPERAND note
+             on the insn which sets the register, and on each call insn
+             which uses the register.  In final_prescan_insn we look for
+             the REG_LABEL_OPERAND notes, and output the appropriate label
              or pseudo-op.  */
 
 	  label = gen_label_rtx ();
-	  REG_NOTES (link) = gen_rtx_INSN_LIST (REG_LABEL, label,
+	  REG_NOTES (link) = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, label,
 						REG_NOTES (link));
-	  REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL, label,
+	  REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, label,
 						REG_NOTES (insn));
 	  if (rescan)
 	    {
@@ -4903,7 +4905,8 @@ sh_reorg (void)
 			  || ((reg2 = sfunc_uses_reg (scan))
 			      && REGNO (reg2) == REGNO (reg))))
 		    REG_NOTES (scan)
-		      = gen_rtx_INSN_LIST (REG_LABEL, label, REG_NOTES (scan));
+		      = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, label,
+					   REG_NOTES (scan));
 		}
 	      while (scan != dies);
 	    }
@@ -5404,7 +5407,7 @@ final_prescan_insn (rtx insn, rtx *opvec ATTRIBUTE_UNUSED,
     {
       rtx note;
 
-      note = find_reg_note (insn, REG_LABEL, NULL_RTX);
+      note = find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX);
       if (note)
 	{
 	  rtx pattern;
@@ -5870,7 +5873,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
   if (TARGET_SHCOMPACT
       && ((current_function_args_info.call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
-	  || current_function_has_nonlocal_label))
+	  || current_function_saves_all_registers))
     pr_live = 1;
   has_call = TARGET_SHMEDIA ? ! leaf_function_p () : pr_live;
   for (count = 0, reg = FIRST_PSEUDO_REGISTER; reg-- != 0; )
@@ -6852,7 +6855,7 @@ sh_builtin_saveregs (void)
   int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
   rtx regbuf, fpregs;
   int bufsize, regno;
-  HOST_WIDE_INT alias_set;
+  alias_set_type alias_set;
 
   if (TARGET_SH5)
     {
@@ -7200,7 +7203,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	    }
 	}
 
-      if (TARGET_SH4)
+      if (TARGET_SH4 || TARGET_SH2A_DOUBLE)
 	{
 	  pass_as_float = ((TREE_CODE (eff_type) == REAL_TYPE && size <= 8)
 			   || (TREE_CODE (eff_type) == COMPLEX_TYPE
@@ -7312,7 +7315,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  tmp = build1 (LABEL_EXPR, void_type_node, lab_false);
 	  gimplify_and_add (tmp, pre_p);
 
-	  if (size > 4 && ! TARGET_SH4)
+	  if (size > 4 && ! (TARGET_SH4 || TARGET_SH2A))
 	    {
 	      tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node,
 		  	    next_o, next_o_limit);
@@ -7353,7 +7356,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 }
 
 bool
-sh_promote_prototypes (tree type)
+sh_promote_prototypes (const_tree type)
 {
   if (TARGET_HITACHI)
     return 0;
@@ -7368,8 +7371,8 @@ sh_promote_prototypes (tree type)
    loads them into the full 64-bits registers.  */
 
 static int
-shcompact_byref (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-		 tree type, bool named)
+shcompact_byref (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
+		 const_tree type, bool named)
 {
   unsigned HOST_WIDE_INT size;
 
@@ -7393,7 +7396,7 @@ shcompact_byref (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 static bool
 sh_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-		      tree type, bool named)
+		      const_tree type, bool named)
 {
   if (targetm.calls.must_pass_in_stack (mode, type))
     return true;
@@ -7415,7 +7418,7 @@ sh_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 static bool
 sh_callee_copies (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-		  tree type, bool named ATTRIBUTE_UNUSED)
+		  const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   /* ??? How can it possibly be correct to return true only on the
      caller side of the equation?  Is there someplace else in the
@@ -7714,7 +7717,7 @@ sh_struct_value_rtx (tree fndecl, int incoming ATTRIBUTE_UNUSED)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-sh_return_in_memory (tree type, tree fndecl)
+sh_return_in_memory (const_tree type, const_tree fndecl)
 {
   if (TARGET_SH5)
     {
@@ -8051,7 +8054,7 @@ sh_handle_renesas_attribute (tree *node ATTRIBUTE_UNUSED,
 
 /* True if __attribute__((renesas)) or -mrenesas.  */
 int
-sh_attr_renesas_p (tree td)
+sh_attr_renesas_p (const_tree td)
 {
   if (TARGET_HITACHI)
     return 1;
@@ -8323,7 +8326,7 @@ emit_fpu_switch (rtx scratch, int index)
     }
 
   src = DECL_RTL (fpscr_values);
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     {
       emit_move_insn (scratch, XEXP (src, 0));
       if (index != 0)
@@ -8375,86 +8378,6 @@ expand_df_binop (rtx (*fun) (rtx, rtx, rtx, rtx), rtx *operands)
 			get_fpscr_rtx ()));
 }
 
-/* ??? gcc does flow analysis strictly after common subexpression
-   elimination.  As a result, common subexpression elimination fails
-   when there are some intervening statements setting the same register.
-   If we did nothing about this, this would hurt the precision switching
-   for SH4 badly.  There is some cse after reload, but it is unable to
-   undo the extra register pressure from the unused instructions, and
-   it cannot remove auto-increment loads.
-
-   A C code example that shows this flow/cse weakness for (at least) SH
-   and sparc (as of gcc ss-970706) is this:
-
-double
-f(double a)
-{
-  double d;
-  d = 0.1;
-  a += d;
-  d = 1.1;
-  d = 0.1;
-  a *= d;
-  return a;
-}
-
-   So we add another pass before common subexpression elimination, to
-   remove assignments that are dead due to a following assignment in the
-   same basic block.  */
-
-static void
-mark_use (rtx x, rtx *reg_set_block)
-{
-  enum rtx_code code;
-
-  if (! x)
-    return;
-  code = GET_CODE (x);
-  switch (code)
-    {
-    case REG:
-      {
-	int regno = REGNO (x);
-	int nregs = (regno < FIRST_PSEUDO_REGISTER
-		     ? HARD_REGNO_NREGS (regno, GET_MODE (x))
-		     : 1);
-	do
-	  {
-	    reg_set_block[regno + nregs - 1] = 0;
-	  }
-	while (--nregs);
-	break;
-      }
-    case SET:
-      {
-	rtx dest = SET_DEST (x);
-
-	if (GET_CODE (dest) == SUBREG)
-	  dest = SUBREG_REG (dest);
-	if (GET_CODE (dest) != REG)
-	  mark_use (dest, reg_set_block);
-	mark_use (SET_SRC (x), reg_set_block);
-	break;
-      }
-    case CLOBBER:
-      break;
-    default:
-      {
-	const char *fmt = GET_RTX_FORMAT (code);
-	int i, j;
-	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-	  {
-	    if (fmt[i] == 'e')
-	      mark_use (XEXP (x, i), reg_set_block);
-	    else if (fmt[i] == 'E')
-	      for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-		mark_use (XVECEXP (x, i, j), reg_set_block);
-	  }
-	break;
-      }
-    }
-}
-
 static rtx get_free_reg (HARD_REG_SET);
 
 /* This function returns a register to use to load the address to load
@@ -8492,13 +8415,13 @@ fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
   enum attr_fp_mode norm_mode = ACTUAL_NORMAL_MODE (FP_MODE);
   rtx addr_reg;
 
-  addr_reg = no_new_pseudos ? get_free_reg (regs_live) : NULL_RTX;
+  addr_reg = !can_create_pseudo_p () ? get_free_reg (regs_live) : NULL_RTX;
   emit_fpu_switch (addr_reg, fp_mode == norm_mode);
 }
 
 /* Is the given character a logical line separator for the assembler?  */
 #ifndef IS_ASM_LOGICAL_LINE_SEPARATOR
-#define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == ';')
+#define IS_ASM_LOGICAL_LINE_SEPARATOR(C, STR) ((C) == ';')
 #endif
 
 int
@@ -8561,7 +8484,8 @@ sh_insn_length_adjustment (rtx insn)
 	  else if ((c == 'r' || c == 'R')
 		   && ! strncasecmp ("epeat", template, 5))
 	    ppi_adjust = 4;
-	  while (c && c != '\n' && ! IS_ASM_LOGICAL_LINE_SEPARATOR (c))
+	  while (c && c != '\n'
+		 && ! IS_ASM_LOGICAL_LINE_SEPARATOR (c, template))
 	    {
 	      /* If this is a label, it is obviously not a ppi insn.  */
 	      if (c == ':' && maybe_label)
@@ -8989,7 +8913,7 @@ flow_dependent_p (rtx insn, rtx dep_insn)
 
 /* A helper function for flow_dependent_p called through note_stores.  */
 static void
-flow_dependent_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+flow_dependent_p_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
   rtx * pinsn = (rtx *) data;
 
@@ -9021,7 +8945,7 @@ sh_allocate_initial_value (rtx hard_reg)
 	  && ! (TARGET_SHCOMPACT
 		&& ((current_function_args_info.call_cookie
 		     & ~ CALL_COOKIE_RET_TRAMP (1))
-		    || current_function_has_nonlocal_label)))
+		    || current_function_saves_all_registers)))
 	x = hard_reg;
       else
 	x = gen_frame_mem (Pmode, return_address_pointer_rtx);
@@ -9425,7 +9349,7 @@ sh_optimize_target_register_callee_saved (bool after_prologue_epilogue_gen)
 }
 
 static bool
-sh_ms_bitfield_layout_p (tree record_type ATTRIBUTE_UNUSED)
+sh_ms_bitfield_layout_p (const_tree record_type ATTRIBUTE_UNUSED)
 {
   return (TARGET_SH5 || TARGET_HITACHI || sh_attr_renesas_p (record_type));
 }
@@ -9853,7 +9777,7 @@ sh_vector_mode_supported_p (enum machine_mode mode)
 /* Implements target hook dwarf_calling_convention.  Return an enum
    of dwarf_calling_convention.  */
 int
-sh_dwarf_calling_convention (tree func)
+sh_dwarf_calling_convention (const_tree func)
 {
   if (sh_attr_renesas_p (func))
     return DW_CC_GNU_renesas_sh;
@@ -10130,7 +10054,6 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 1;
   epilogue_completed = 1;
-  no_new_pseudos = 1;
   current_function_uses_only_leaf_regs = 1;
 
   emit_note (NOTE_INSN_PROLOGUE_END);
@@ -10337,25 +10260,8 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   final (insns, file, 1);
   final_end_function ();
 
-#if 0
-  if (optimize > 0)
-    {
-      /* Release all memory allocated by df.  */
-      if (rtl_df)
-	{
-	  df_finish (rtl_df);
-	  rtl_df = NULL;
-	}
-
-      /* Release the bitmap obstacks.  */
-      bitmap_obstack_release (&reg_obstack);
-      bitmap_obstack_release (NULL);
-    }
-#endif
-
   reload_completed = 0;
   epilogue_completed = 0;
-  no_new_pseudos = 0;
 }
 
 rtx
@@ -10427,16 +10333,17 @@ sh_get_pr_initial_val (void)
   if (TARGET_SHCOMPACT
       && ((current_function_args_info.call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
-	  || current_function_has_nonlocal_label))
+	  || current_function_saves_all_registers))
     return gen_frame_mem (SImode, return_address_pointer_rtx);
 
   /* If we haven't finished rtl generation, there might be a nonlocal label
      that we haven't seen yet.
-     ??? get_hard_reg_initial_val fails if it is called while no_new_pseudos
-     is set, unless it has been called before for the same register.  And even
-     then, we end in trouble if we didn't use the register in the same
-     basic block before.  So call get_hard_reg_initial_val now and wrap it
-     in an unspec if we might need to replace it.  */
+     ??? get_hard_reg_initial_val fails if it is called after register
+     allocation has started, unless it has been called before for the
+     same register.  And even then, we end in trouble if we didn't use
+     the register in the same basic block before.  So call
+     get_hard_reg_initial_val now and wrap it in an unspec if we might
+     need to replace it.  */
   /* ??? We also must do this for TARGET_SH1 in general, because otherwise
      combine can put the pseudo returned by get_hard_reg_initial_val into
      instructions that need a general purpose registers, which will fail to

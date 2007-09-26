@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -46,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "hashtab.h"
 #include "df.h"
+#include "debug.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -267,7 +267,7 @@ machopic_define_symbol (rtx mem)
   SYMBOL_REF_FLAGS (sym_ref) |= MACHO_SYMBOL_FLAG_DEFINED;
 }
 
-static GTY(()) char * function_base;
+static GTY(()) const char * function_base;
 
 const char *
 machopic_function_base_name (void)
@@ -276,8 +276,7 @@ machopic_function_base_name (void)
   gcc_assert (!MACHO_DYNAMIC_NO_PIC_P);
 
   if (function_base == NULL)
-    function_base =
-      (char *) ggc_alloc_string ("<pic base>", sizeof ("<pic base>"));
+    function_base = ggc_alloc_string ("<pic base>", sizeof ("<pic base>"));
 
   current_function_uses_pic_offset_table = 1;
 
@@ -516,7 +515,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	{
 #if defined (TARGET_TOC)
 	  /* Create a new register for CSE opportunities.  */
-	  rtx hi_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
+	  rtx hi_reg = (!can_create_pseudo_p () ? reg : gen_reg_rtx (Pmode));
  	  emit_insn (gen_macho_high (hi_reg, orig));
  	  emit_insn (gen_macho_low (reg, hi_reg, orig));
 #else
@@ -533,7 +532,9 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 #endif
 
 #if defined (TARGET_TOC) /* i.e., PowerPC */
-	  rtx hi_sum_reg = (no_new_pseudos ? reg : gen_reg_rtx (Pmode));
+	  rtx hi_sum_reg = (!can_create_pseudo_p ()
+			    ? reg
+			    : gen_reg_rtx (Pmode));
 
 	  gcc_assert (reg);
 
@@ -541,7 +542,8 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 			      gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
 				       gen_rtx_HIGH (Pmode, offset))));
 	  emit_insn (gen_rtx_SET (Pmode, reg,
-				  gen_rtx_LO_SUM (Pmode, hi_sum_reg, offset)));
+				  gen_rtx_LO_SUM (Pmode, hi_sum_reg,
+						  copy_rtx (offset))));
 
 	  orig = reg;
 #else
@@ -551,7 +553,8 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	  emit_insn (gen_rtx_SET (VOIDmode, reg,
 				  gen_rtx_HIGH (Pmode, offset)));
 	  emit_insn (gen_rtx_SET (VOIDmode, reg,
-				  gen_rtx_LO_SUM (Pmode, reg, offset)));
+				  gen_rtx_LO_SUM (Pmode, reg,
+						  copy_rtx (offset))));
 	  emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
 
 	  orig = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, reg);
@@ -705,13 +708,16 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  || GET_CODE (XEXP (orig, 0)) == LABEL_REF))
 	    {
 #if defined (TARGET_TOC)	/* ppc  */
-	      rtx temp_reg = (no_new_pseudos) ? reg : gen_reg_rtx (Pmode);
+	      rtx temp_reg = (!can_create_pseudo_p ()
+			      ? reg :
+			      gen_reg_rtx (Pmode));
 	      rtx asym = XEXP (orig, 0);
 	      rtx mem;
 
 	      emit_insn (gen_macho_high (temp_reg, asym));
 	      mem = gen_const_mem (GET_MODE (orig),
-				   gen_rtx_LO_SUM (Pmode, temp_reg, asym));
+				   gen_rtx_LO_SUM (Pmode, temp_reg,
+						   copy_rtx (asym)));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 #else
 	      /* Some other CPU -- WriteMe! but right now there are no other
@@ -728,7 +734,9 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	      /* Generating a new reg may expose opportunities for
 		 common subexpression elimination.  */
-              rtx hi_sum_reg = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
+              rtx hi_sum_reg = (!can_create_pseudo_p ()
+				? reg
+				: gen_reg_rtx (Pmode));
 	      rtx mem;
 	      rtx insn;
 	      rtx sum;
@@ -741,7 +749,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      mem = gen_const_mem (GET_MODE (orig),
 				  gen_rtx_LO_SUM (Pmode,
-						  hi_sum_reg, offset));
+						  hi_sum_reg,
+						  copy_rtx (offset)));
 	      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 	      set_unique_reg_note (insn, REG_EQUAL, pic_ref);
 
@@ -757,7 +766,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 								   offset))));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				  gen_rtx_LO_SUM (Pmode, reg,
-					   gen_rtx_CONST (Pmode, offset))));
+					   gen_rtx_CONST (Pmode,
+						   	  copy_rtx (offset)))));
 	      pic_ref = gen_rtx_PLUS (Pmode,
 				      pic_offset_table_rtx, reg);
 #endif
@@ -817,13 +827,15 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 								    offset))));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				      gen_rtx_LO_SUM (Pmode,
-						      hi_sum_reg, offset)));
+						      hi_sum_reg,
+						      copy_rtx (offset))));
 	      pic_ref = reg;
 #else
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				      gen_rtx_HIGH (Pmode, offset)));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
-				      gen_rtx_LO_SUM (Pmode, reg, offset)));
+				      gen_rtx_LO_SUM (Pmode, reg,
+						      copy_rtx (offset))));
 	      pic_ref = gen_rtx_PLUS (Pmode,
 				      pic_offset_table_rtx, reg);
 #endif
@@ -1666,7 +1678,7 @@ darwin_file_end (void)
    functions at dynamic-link time, except for vtables in kexts.  */
 
 bool
-darwin_binds_local_p (tree decl)
+darwin_binds_local_p (const_tree decl)
 {
   return default_binds_local_p_1 (decl,
 				  TARGET_KEXTABI && DARWIN_VTABLE_P (decl));
@@ -1722,6 +1734,11 @@ darwin_override_options (void)
       /* No -fnon-call-exceptions data in kexts.  */
       flag_non_call_exceptions = 0;
     }
+  if (flag_var_tracking
+      && strverscmp (darwin_macosx_version_min, "10.5") >= 0
+      && debug_info_level >= DINFO_LEVEL_NORMAL
+      && debug_hooks->var_location != do_nothing_debug_hooks.var_location)
+    flag_var_tracking_uninit = 1;
 }
 
 #include "gt-darwin.h"

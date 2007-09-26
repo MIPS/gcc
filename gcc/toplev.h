@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_TOPLEV_H
 #define GCC_TOPLEV_H
@@ -31,9 +30,9 @@ extern int toplev_main (unsigned int, const char **);
 extern int read_integral_parameter (const char *, const char *, const int);
 extern void strip_off_ending (char *, int);
 extern const char *trim_filename (const char *);
-extern void _fatal_insn_not_found (rtx, const char *, int, const char *)
+extern void _fatal_insn_not_found (const_rtx, const char *, int, const char *)
      ATTRIBUTE_NORETURN;
-extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
+extern void _fatal_insn (const char *, const_rtx, const char *, int, const char *)
      ATTRIBUTE_NORETURN;
 
 #define fatal_insn(msgid, insn) \
@@ -76,8 +75,8 @@ extern bool enable_rtl_dump_file (int);
 
 extern void announce_function (tree);
 
-extern void error_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
-extern void warning_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern void error_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern void warning_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warn_deprecated_use (tree);
 
 #ifdef BUFSIZ
@@ -102,6 +101,8 @@ extern void write_global_declarations (void);
 
 extern void dump_memory_report (bool);
 
+extern void target_reinit (void);
+
 /* A unique local time stamp, might be zero if none is available.  */
 extern unsigned local_tick;
 
@@ -111,8 +112,6 @@ extern const char *aux_base_name;
 extern const char *aux_info_file_name;
 extern const char *asm_file_name;
 extern bool exit_after_options;
-
-extern int target_flags_explicit;
 
 /* True if the user has tagged the function with the 'section'
    attribute.  */
@@ -146,6 +145,8 @@ extern struct ht *ident_hash;
     implied by -ffast-math and -fno-fast-math.  */
 
 extern void set_fast_math_flags         (int);
+
+extern void set_unsafe_math_optimizations_flags (int);
 
 /* Handle -d switch.  */
 extern void decode_d_option		(const char *);

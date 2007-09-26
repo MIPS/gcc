@@ -9,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -18,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -221,6 +220,7 @@ is_sra_scalar_type (tree type)
 {
   enum tree_code code = TREE_CODE (type);
   return (code == INTEGER_TYPE || code == REAL_TYPE || code == VECTOR_TYPE
+	  || code == FIXED_POINT_TYPE
 	  || code == ENUMERAL_TYPE || code == BOOLEAN_TYPE
 	  || code == POINTER_TYPE || code == OFFSET_TYPE
 	  || code == REFERENCE_TYPE);
@@ -636,10 +636,17 @@ maybe_lookup_element_for_expr (tree expr)
       break;
 
     case COMPONENT_REF:
-      /* Don't look through unions.  */
-      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) != RECORD_TYPE)
-	return NULL;
-      child = TREE_OPERAND (expr, 1);
+      {
+	tree type = TREE_TYPE (TREE_OPERAND (expr, 0));
+	/* Don't look through unions.  */
+	if (TREE_CODE (type) != RECORD_TYPE)
+	  return NULL;
+	/* Neither through variable-sized records.  */
+	if (TYPE_SIZE (type) == NULL_TREE
+	    || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	  return NULL;
+	child = TREE_OPERAND (expr, 1);
+      }
       break;
 
     case REALPART_EXPR:
@@ -789,14 +796,17 @@ sra_walk_expr (tree *expr_p, block_stmt_iterator *bsi, bool is_output,
 	break;
 
       case COMPONENT_REF:
-	/* A reference to a union member constitutes a reference to the
-	   entire union.  */
-	if (TREE_CODE (TREE_TYPE (TREE_OPERAND (inner, 0))) != RECORD_TYPE)
-	  goto use_all;
-	/* ??? See above re non-constant stride.  */
-	if (TREE_OPERAND (inner, 2))
-	  goto use_all;
-	inner = TREE_OPERAND (inner, 0);
+	{
+	  tree type = TREE_TYPE (TREE_OPERAND (inner, 0));
+	  /* Don't look through unions.  */
+	  if (TREE_CODE (type) != RECORD_TYPE)
+	    goto use_all;
+	  /* Neither through variable-sized records.  */
+	  if (TYPE_SIZE (type) == NULL_TREE
+	      || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	    goto use_all;
+	  inner = TREE_OPERAND (inner, 0);
+	}
 	break;
 
       case REALPART_EXPR:
@@ -1481,8 +1491,8 @@ decide_block_copy (struct sra_elt *elt)
       return false;
     }
 
-  /* Don't decide if we've no uses.  */
-  if (elt->n_uses == 0 && elt->n_copies == 0)
+  /* Don't decide if we've no uses and no groups.  */
+  if (elt->n_uses == 0 && elt->n_copies == 0 && elt->groups == NULL)
     ;
 
   else if (!elt->is_scalar)
@@ -2400,6 +2410,8 @@ tree_sra (void)
       scan_function ();
       decide_instantiations ();
       scalarize_function ();
+      if (!bitmap_empty_p (sra_candidates))
+	todoflags |= TODO_rebuild_alias;
     }
 
   /* Free allocated memory.  */
@@ -2422,7 +2434,7 @@ tree_sra_early (void)
   ret = tree_sra ();
   early_sra = false;
 
-  return ret;
+  return ret & ~TODO_rebuild_alias;
 }
 
 static bool

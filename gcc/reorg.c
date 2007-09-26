@@ -9,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -18,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Instruction reorganization pass.
 
@@ -542,7 +541,8 @@ emit_delay_sequence (rtx insn, rtx list, int length)
 	      remove_note (tem, note);
 	      break;
 
-	    case REG_LABEL:
+	    case REG_LABEL_OPERAND:
+	    case REG_LABEL_TARGET:
 	      /* Keep the label reference count up to date.  */
 	      if (LABEL_P (XEXP (note, 0)))
 		LABEL_NUSES (XEXP (note, 0)) ++;
@@ -2737,14 +2737,40 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
 		      /* We are moving this insn, not deleting it.  We must
 			 temporarily increment the use count on any referenced
 			 label lest it be deleted by delete_related_insns.  */
-		      note = find_reg_note (trial, REG_LABEL, 0);
-		      /* REG_LABEL could be NOTE_INSN_DELETED_LABEL too.  */
-		      if (note && LABEL_P (XEXP (note, 0)))
+		      for (note = REG_NOTES (trial);
+			   note != NULL;
+			   note = XEXP (note, 1))
+			if (REG_NOTE_KIND (note) == REG_LABEL_OPERAND
+			    || REG_NOTE_KIND (note) == REG_LABEL_TARGET)
+			  {
+			    /* REG_LABEL_OPERAND could be
+			       NOTE_INSN_DELETED_LABEL too.  */
+			    if (LABEL_P (XEXP (note, 0)))
+			      LABEL_NUSES (XEXP (note, 0))++;
+			    else
+			      gcc_assert (REG_NOTE_KIND (note)
+					  == REG_LABEL_OPERAND);
+			  }
+		      if (JUMP_P (trial) && JUMP_LABEL (trial))
 			LABEL_NUSES (XEXP (note, 0))++;
 
 		      delete_related_insns (trial);
 
-		      if (note && LABEL_P (XEXP (note, 0)))
+		      for (note = REG_NOTES (trial);
+			   note != NULL;
+			   note = XEXP (note, 1))
+			if (REG_NOTE_KIND (note) == REG_LABEL_OPERAND
+			    || REG_NOTE_KIND (note) == REG_LABEL_TARGET)
+			  {
+			    /* REG_LABEL_OPERAND could be
+			       NOTE_INSN_DELETED_LABEL too.  */
+			    if (LABEL_P (XEXP (note, 0)))
+			      LABEL_NUSES (XEXP (note, 0))--;
+			    else
+			      gcc_assert (REG_NOTE_KIND (note)
+					  == REG_LABEL_OPERAND);
+			  }
+		      if (JUMP_P (trial) && JUMP_LABEL (trial))
 			LABEL_NUSES (XEXP (note, 0))--;
 		    }
 		  else
@@ -3864,17 +3890,6 @@ dbr_schedule (rtx first)
       relax_delay_slots (first);
     }
 
-  /* Delete any USE insns made by update_block; subsequent passes don't need
-     them or know how to deal with them.  */
-  for (insn = first; insn; insn = next)
-    {
-      next = NEXT_INSN (insn);
-
-      if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == USE
-	  && INSN_P (XEXP (PATTERN (insn), 0)))
-	next = delete_related_insns (insn);
-    }
-
   /* If we made an end of function label, indicate that it is now
      safe to delete it by undoing our prior adjustment to LABEL_NUSES.
      If it is now unused, delete it.  */
@@ -3885,6 +3900,17 @@ dbr_schedule (rtx first)
   if (HAVE_return && end_of_function_label != 0)
     make_return_insns (first);
 #endif
+
+  /* Delete any USE insns made by update_block; subsequent passes don't need
+     them or know how to deal with them.  */
+  for (insn = first; insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+
+      if (NONJUMP_INSN_P (insn) && GET_CODE (PATTERN (insn)) == USE
+	  && INSN_P (XEXP (PATTERN (insn), 0)))
+	next = delete_related_insns (insn);
+    }
 
   obstack_free (&unfilled_slots_obstack, unfilled_firstobj);
 

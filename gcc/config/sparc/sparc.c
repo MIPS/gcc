@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -19,9 +19,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -252,10 +251,10 @@ static HOST_WIDE_INT actual_fsize;
 static int num_gfregs;
 
 /* The alias set for prologue/epilogue register save/restore.  */
-static GTY(()) int sparc_sr_alias_set;
+static GTY(()) alias_set_type sparc_sr_alias_set;
 
 /* The alias set for the structure return value.  */
-static GTY(()) int struct_value_alias_set;
+static GTY(()) alias_set_type struct_value_alias_set;
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -373,8 +372,8 @@ static int sparc_vis_mul8x16 (int, int);
 static tree sparc_handle_vis_mul8x16 (int, tree, tree, tree);
 static void sparc_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				   HOST_WIDE_INT, tree);
-static bool sparc_can_output_mi_thunk (tree, HOST_WIDE_INT,
-				       HOST_WIDE_INT, tree);
+static bool sparc_can_output_mi_thunk (const_tree, HOST_WIDE_INT,
+				       HOST_WIDE_INT, const_tree);
 static struct machine_function * sparc_init_machine_status (void);
 static bool sparc_cannot_force_const_mem (rtx);
 static rtx sparc_tls_get_addr (void);
@@ -382,21 +381,21 @@ static rtx sparc_tls_got (void);
 static const char *get_some_local_dynamic_name (void);
 static int get_some_local_dynamic_name_1 (rtx *, void *);
 static bool sparc_rtx_costs (rtx, int, int, int *);
-static bool sparc_promote_prototypes (tree);
+static bool sparc_promote_prototypes (const_tree);
 static rtx sparc_struct_value_rtx (tree, int);
-static bool sparc_return_in_memory (tree, tree);
+static bool sparc_return_in_memory (const_tree, const_tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
 static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool sparc_vector_mode_supported_p (enum machine_mode);
 static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
-				     enum machine_mode, tree, bool);
+				     enum machine_mode, const_tree, bool);
 static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 				    enum machine_mode, tree, bool);
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-static const char *sparc_mangle_fundamental_type (tree);
+static const char *sparc_mangle_type (const_tree);
 #endif
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
@@ -495,13 +494,13 @@ static bool fpu_option_set = false;
    no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
    test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 
 /* This is only needed for TARGET_ARCH64, but since PROMOTE_FUNCTION_MODE is a
    no-op for TARGET_ARCH32 this is ok.  Otherwise we'd need to add a runtime
    test for this value.  */
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES sparc_promote_prototypes
@@ -558,8 +557,8 @@ static bool fpu_option_set = false;
 #define TARGET_ASM_FILE_END sparc_file_end
 
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
-#define TARGET_MANGLE_FUNDAMENTAL_TYPE sparc_mangle_fundamental_type
+#undef TARGET_MANGLE_TYPE
+#define TARGET_MANGLE_TYPE sparc_mangle_type
 #endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
@@ -3088,7 +3087,7 @@ legitimize_tls_address (rtx addr)
 {
   rtx temp1, temp2, temp3, ret, o0, got, insn;
 
-  gcc_assert (! no_new_pseudos);
+  gcc_assert (can_create_pseudo_p ());
 
   if (GET_CODE (addr) == SYMBOL_REF)
     switch (SYMBOL_REF_TLS_MODEL (addr))
@@ -4470,7 +4469,7 @@ init_cumulative_args (struct sparc_args *cum, tree fntype,
    When a prototype says `char' or `short', really pass an `int'.  */
 
 static bool
-sparc_promote_prototypes (tree fntype ATTRIBUTE_UNUSED)
+sparc_promote_prototypes (const_tree fntype ATTRIBUTE_UNUSED)
 {
   return TARGET_ARCH32 ? true : false;
 }
@@ -4682,17 +4681,17 @@ struct function_arg_record_value_parms
 static void function_arg_record_value_3
  (HOST_WIDE_INT, struct function_arg_record_value_parms *);
 static void function_arg_record_value_2
- (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
+ (const_tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
 static void function_arg_record_value_1
- (tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
-static rtx function_arg_record_value (tree, enum machine_mode, int, int, int);
+ (const_tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
+static rtx function_arg_record_value (const_tree, enum machine_mode, int, int, int);
 static rtx function_arg_union_value (int, enum machine_mode, int, int);
 
 /* A subroutine of function_arg_record_value.  Traverse the structure
    recursively and determine how many registers will be required.  */
 
 static void
-function_arg_record_value_1 (tree type, HOST_WIDE_INT startbitpos,
+function_arg_record_value_1 (const_tree type, HOST_WIDE_INT startbitpos,
 			     struct function_arg_record_value_parms *parms,
 			     bool packed_p)
 {
@@ -4848,7 +4847,7 @@ function_arg_record_value_3 (HOST_WIDE_INT bitpos,
    to make that happen.  */
 
 static void
-function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
+function_arg_record_value_2 (const_tree type, HOST_WIDE_INT startbitpos,
 			     struct function_arg_record_value_parms *parms,
 			     bool packed_p)
 {
@@ -4955,7 +4954,7 @@ function_arg_record_value_2 (tree type, HOST_WIDE_INT startbitpos,
    REGBASE is the regno of the base register for the parameter array.  */
    
 static rtx
-function_arg_record_value (tree type, enum machine_mode mode,
+function_arg_record_value (const_tree type, enum machine_mode mode,
 			   int slotno, int named, int regbase)
 {
   HOST_WIDE_INT typesize = int_size_in_bytes (type);
@@ -5328,7 +5327,7 @@ sparc_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 static bool
 sparc_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-			 enum machine_mode mode, tree type,
+			 enum machine_mode mode, const_tree type,
 			 bool named ATTRIBUTE_UNUSED)
 {
   if (TARGET_ARCH32)
@@ -5425,7 +5424,7 @@ function_arg_advance (struct sparc_args *cum, enum machine_mode mode,
    argument slot.  */
 
 enum direction
-function_arg_padding (enum machine_mode mode, tree type)
+function_arg_padding (enum machine_mode mode, const_tree type)
 {
   if (TARGET_ARCH64 && type != 0 && AGGREGATE_TYPE_P (type))
     return upward;
@@ -5438,7 +5437,7 @@ function_arg_padding (enum machine_mode mode, tree type)
    Specify whether to return the return value in memory.  */
 
 static bool
-sparc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+sparc_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   if (TARGET_ARCH32)
     /* Original SPARC 32-bit ABI says that structures and unions,
@@ -5546,7 +5545,7 @@ sparc_struct_value_rtx (tree fndecl, int incoming)
    except that up to 32 bytes may be returned in registers.  */
 
 rtx
-function_value (tree type, enum machine_mode mode, int incoming_p)
+function_value (const_tree type, enum machine_mode mode, int incoming_p)
 {
   /* Beware that the two values are swapped here wrt function_arg.  */
   int regbase = (incoming_p
@@ -8598,7 +8597,6 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 1;
   epilogue_completed = 1;
-  no_new_pseudos = 1;
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -8784,17 +8782,16 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 0;
   epilogue_completed = 0;
-  no_new_pseudos = 0;
 }
 
 /* Return true if sparc_output_mi_thunk would be able to output the
    assembler code for the thunk function specified by the arguments
    it is passed, and false otherwise.  */
 static bool
-sparc_can_output_mi_thunk (tree thunk_fndecl ATTRIBUTE_UNUSED,
+sparc_can_output_mi_thunk (const_tree thunk_fndecl ATTRIBUTE_UNUSED,
 			   HOST_WIDE_INT delta ATTRIBUTE_UNUSED,
 			   HOST_WIDE_INT vcall_offset,
-			   tree function ATTRIBUTE_UNUSED)
+			   const_tree function ATTRIBUTE_UNUSED)
 {
   /* Bound the loop used in the default method above.  */
   return (vcall_offset >= -32768 || ! fixed_regs[5]);
@@ -8890,10 +8887,10 @@ sparc_file_end (void)
 }
 
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+/* Implement TARGET_MANGLE_TYPE.  */
 
 static const char *
-sparc_mangle_fundamental_type (tree type)
+sparc_mangle_type (const_tree type)
 {
   if (!TARGET_64BIT
       && TYPE_MAIN_VARIANT (type) == long_double_type_node

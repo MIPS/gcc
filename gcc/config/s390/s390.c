@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -322,6 +321,18 @@ struct machine_function GTY(())
 
 #define REGNO_PAIR_OK(REGNO, MODE)                               \
   (HARD_REGNO_NREGS ((REGNO), (MODE)) == 1 || !((REGNO) & 1))
+
+static enum machine_mode
+s390_libgcc_cmp_return_mode (void)
+{
+  return TARGET_64BIT ? DImode : SImode;
+}
+
+static enum machine_mode
+s390_libgcc_shift_count_mode (void)
+{
+  return TARGET_64BIT ? DImode : SImode;
+}
 
 /* Return true if the back end supports mode MODE.  */
 static bool
@@ -3371,7 +3382,7 @@ legitimize_tls_address (rtx addr, rtx reg)
 void
 emit_symbolic_move (rtx *operands)
 {
-  rtx temp = no_new_pseudos ? operands[0] : gen_reg_rtx (Pmode);
+  rtx temp = !can_create_pseudo_p () ? operands[0] : gen_reg_rtx (Pmode);
 
   if (GET_CODE (operands[0]) == MEM)
     operands[1] = force_reg (Pmode, operands[1]);
@@ -3916,8 +3927,8 @@ s390_expand_addcc (enum rtx_code cmp_code, rtx cmp_op0, rtx cmp_op1,
 	  if (!register_operand (src, GET_MODE (dst)))
 	    src = force_reg (GET_MODE (dst), src);
 
-	  src = gen_rtx_PLUS (GET_MODE (dst), src, const0_rtx);
-	  op_res = gen_rtx_PLUS (GET_MODE (dst), src, op_res);
+	  op_res = gen_rtx_PLUS (GET_MODE (dst), op_res, src);
+	  op_res = gen_rtx_PLUS (GET_MODE (dst), op_res, const0_rtx);
 	}
 
       p = rtvec_alloc (2);
@@ -4356,10 +4367,10 @@ s390_output_dwarf_dtprel (FILE *file, int size, rtx x)
 }
 
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+/* Implement TARGET_MANGLE_TYPE.  */
 
 static const char *
-s390_mangle_fundamental_type (tree type)
+s390_mangle_type (const_tree type)
 {
   if (TYPE_MAIN_VARIANT (type) == long_double_type_node
       && TARGET_LONG_DOUBLE_128)
@@ -5589,7 +5600,7 @@ s390_dump_pool (struct constant_pool *pool, bool remote_label)
     for (c = pool->constants[i]; c; c = c->next)
       {
 	/* Convert UNSPEC_LTREL_OFFSET unspecs to pool-relative references.  */
-	rtx value = c->value;
+	rtx value = copy_rtx (c->value);
 	if (GET_CODE (value) == CONST
 	    && GET_CODE (XEXP (value, 0)) == UNSPEC
 	    && XINT (XEXP (value, 0), 1) == UNSPEC_LTREL_OFFSET
@@ -6336,7 +6347,7 @@ find_unused_clobbered_reg (void)
    clobbered hard regs in SETREG.  */
 
 static void
-s390_reg_clobbered_rtx (rtx setreg, rtx set_insn ATTRIBUTE_UNUSED, void *data)
+s390_reg_clobbered_rtx (rtx setreg, const_rtx set_insn ATTRIBUTE_UNUSED, void *data)
 {
   int *regs_ever_clobbered = (int *)data;
   unsigned int i, regno;
@@ -7633,7 +7644,7 @@ s390_emit_epilogue (bool sibcall)
    MODE must be specified.  */
 
 static int
-s390_function_arg_size (enum machine_mode mode, tree type)
+s390_function_arg_size (enum machine_mode mode, const_tree type)
 {
   if (type)
     return int_size_in_bytes (type);
@@ -7731,7 +7742,7 @@ s390_function_arg_integer (enum machine_mode mode, tree type)
 
 static bool
 s390_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
-			enum machine_mode mode, tree type,
+			enum machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
   int size = s390_function_arg_size (mode, type);
@@ -7831,7 +7842,7 @@ s390_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
    hidden first argument.  */
 
 static bool
-s390_return_in_memory (tree type, tree fundecl ATTRIBUTE_UNUSED)
+s390_return_in_memory (const_tree type, const_tree fundecl ATTRIBUTE_UNUSED)
 {
   /* We accept small integral (and similar) types.  */
   if (INTEGRAL_TYPE_P (type)
@@ -7858,7 +7869,7 @@ s390_return_in_memory (tree type, tree fundecl ATTRIBUTE_UNUSED)
    value of mode MODE from a libcall.  */
 
 rtx
-s390_function_value (tree type, enum machine_mode mode)
+s390_function_value (const_tree type, enum machine_mode mode)
 {
   if (type)
     {
@@ -9279,7 +9290,7 @@ s390_reorg (void)
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK s390_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
 
 #undef  TARGET_SCHED_ADJUST_PRIORITY
 #define TARGET_SCHED_ADJUST_PRIORITY s390_adjust_priority
@@ -9307,9 +9318,9 @@ s390_reorg (void)
 #define TARGET_GIMPLIFY_VA_ARG_EXPR s390_gimplify_va_arg
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE s390_pass_by_reference
 
@@ -9323,7 +9334,7 @@ s390_reorg (void)
 #define TARGET_CC_MODES_COMPATIBLE s390_cc_modes_compatible
 
 #undef TARGET_INVALID_WITHIN_DOLOOP
-#define TARGET_INVALID_WITHIN_DOLOOP hook_constcharptr_rtx_null
+#define TARGET_INVALID_WITHIN_DOLOOP hook_constcharptr_const_rtx_null
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
@@ -9331,8 +9342,8 @@ s390_reorg (void)
 #endif
 
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
-#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
-#define TARGET_MANGLE_FUNDAMENTAL_TYPE s390_mangle_fundamental_type
+#undef TARGET_MANGLE_TYPE
+#define TARGET_MANGLE_TYPE s390_mangle_type
 #endif
 
 #undef TARGET_SCALAR_MODE_SUPPORTED_P
@@ -9340,6 +9351,12 @@ s390_reorg (void)
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD s390_secondary_reload
+
+#undef TARGET_LIBGCC_CMP_RETURN_MODE
+#define TARGET_LIBGCC_CMP_RETURN_MODE s390_libgcc_cmp_return_mode
+
+#undef TARGET_LIBGCC_SHIFT_COUNT_MODE
+#define TARGET_LIBGCC_SHIFT_COUNT_MODE s390_libgcc_shift_count_mode
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

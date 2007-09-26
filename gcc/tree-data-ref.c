@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass walks a given loop structure searching for array
    references.  The information about the array accesses is recorded
@@ -129,7 +128,7 @@ static bool subscript_dependence_tester_1 (struct data_dependence_relation *,
 /* Returns true iff A divides B.  */
 
 static inline bool 
-tree_fold_divides_p (tree a, tree b)
+tree_fold_divides_p (const_tree a, const_tree b)
 {
   gcc_assert (TREE_CODE (a) == INTEGER_CST);
   gcc_assert (TREE_CODE (b) == INTEGER_CST);
@@ -490,7 +489,7 @@ dump_ddrs (FILE *file, VEC (ddr_p, heap) *ddrs)
 /* Expresses EXP as VAR + OFF, where off is a constant.  The type of OFF
    will be ssizetype.  */
 
-static void
+void
 split_constant_offset (tree exp, tree *var, tree *off)
 {
   tree type = TREE_TYPE (exp), otype;
@@ -564,6 +563,28 @@ split_constant_offset (tree exp, tree *var, tree *off)
 	*var = fold_convert (type, base);
 	*off = off0;
 	return;
+      }
+
+    case SSA_NAME:
+      {
+	tree def_stmt = SSA_NAME_DEF_STMT (exp);
+	if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT)
+	  {
+	    tree def_stmt_rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
+
+	    if (!TREE_SIDE_EFFECTS (def_stmt_rhs) 
+		&& EXPR_P (def_stmt_rhs)
+		&& !REFERENCE_CLASS_P (def_stmt_rhs)
+		&& !get_call_expr_in (def_stmt_rhs))
+	      {
+		split_constant_offset (def_stmt_rhs, &var0, &off0);
+		var0 = fold_convert (type, var0);
+		*var = var0;
+		*off = off0;
+		return;
+	      }
+	  }
+	break;
       }
 
     default:
@@ -1020,7 +1041,7 @@ conflict_fn_no_dependence (void)
 /* Returns true if the address of OBJ is invariant in LOOP.  */
 
 static bool
-object_address_invariant_in_loop_p (struct loop *loop, tree obj)
+object_address_invariant_in_loop_p (const struct loop *loop, const_tree obj)
 {
   while (handled_component_p (obj))
     {
@@ -1139,12 +1160,12 @@ disjoint_objects_p (tree a, tree b)
    true otherwise.  */
 
 static bool
-dr_may_alias_p (struct data_reference *a, struct data_reference *b)
+dr_may_alias_p (const struct data_reference *a, const struct data_reference *b)
 {
-  tree addr_a = DR_BASE_ADDRESS (a);
-  tree addr_b = DR_BASE_ADDRESS (b);
-  tree type_a, type_b;
-  tree decl_a = NULL_TREE, decl_b = NULL_TREE;
+  const_tree addr_a = DR_BASE_ADDRESS (a);
+  const_tree addr_b = DR_BASE_ADDRESS (b);
+  const_tree type_a, type_b;
+  const_tree decl_a = NULL_TREE, decl_b = NULL_TREE;
 
   /* If the sets of virtual operands are disjoint, the memory references do not
      alias.  */
@@ -1209,6 +1230,9 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_B (res) = b;
   DDR_LOOP_NEST (res) = NULL;
   DDR_REVERSED_P (res) = false;
+  DDR_SUBSCRIPTS (res) = NULL;
+  DDR_DIR_VECTS (res) = NULL;
+  DDR_DIST_VECTS (res) = NULL;
 
   if (a == NULL || b == NULL)
     {
@@ -1248,8 +1272,6 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_SUBSCRIPTS (res) = VEC_alloc (subscript_p, heap, DR_NUM_DIMENSIONS (a));
   DDR_LOOP_NEST (res) = loop_nest;
   DDR_INNER_LOOP (res) = 0;
-  DDR_DIR_VECTS (res) = NULL;
-  DDR_DIST_VECTS (res) = NULL;
 
   for (i = 0; i < DR_NUM_DIMENSIONS (a); i++)
     {
@@ -1313,6 +1335,7 @@ finalize_ddr_dependent (struct data_dependence_relation *ddr,
 
   DDR_ARE_DEPENDENT (ddr) = chrec;  
   free_subscripts (DDR_SUBSCRIPTS (ddr));
+  DDR_SUBSCRIPTS (ddr) = NULL;
 }
 
 /* The dependence relation DDR cannot be represented by a distance
@@ -1335,8 +1358,7 @@ non_affine_dependence_relation (struct data_dependence_relation *ddr)
    variables, i.e., if the ZIV (Zero Index Variable) test is true.  */
 
 static inline bool
-ziv_subscript_p (tree chrec_a, 
-		 tree chrec_b)
+ziv_subscript_p (const_tree chrec_a, const_tree chrec_b)
 {
   return (evolution_function_is_constant_p (chrec_a)
 	  && evolution_function_is_constant_p (chrec_b));
@@ -1346,8 +1368,7 @@ ziv_subscript_p (tree chrec_a,
    variable, i.e., if the SIV (Single Index Variable) test is true.  */
 
 static bool
-siv_subscript_p (tree chrec_a,
-		 tree chrec_b)
+siv_subscript_p (const_tree chrec_a, const_tree chrec_b)
 {
   if ((evolution_function_is_constant_p (chrec_a)
        && evolution_function_is_univariate_p (chrec_b))
@@ -2396,7 +2417,7 @@ analyze_siv_subscript (tree chrec_a,
    of CHREC does not divide CST, false otherwise.  */
 
 static bool
-gcd_of_steps_may_divide_p (tree chrec, tree cst)
+gcd_of_steps_may_divide_p (const_tree chrec, const_tree cst)
 {
   HOST_WIDE_INT cd = 0, val;
   tree step;
@@ -2770,7 +2791,7 @@ build_classic_dist_vector_1 (struct data_dependence_relation *ddr,
    same access functions.  */
 
 static bool
-same_access_functions (struct data_dependence_relation *ddr)
+same_access_functions (const struct data_dependence_relation *ddr)
 {
   unsigned i;
 
@@ -2785,7 +2806,7 @@ same_access_functions (struct data_dependence_relation *ddr)
 /* Return true when the DDR contains only constant access functions.  */
 
 static bool
-constant_access_functions (struct data_dependence_relation *ddr)
+constant_access_functions (const struct data_dependence_relation *ddr)
 {
   unsigned i;
 
@@ -2810,10 +2831,14 @@ add_multivariate_self_dist (struct data_dependence_relation *ddr, tree c_2)
   lambda_vector dist_v;
   int v1, v2, cd;
 
-  /* Polynomials with more than 2 variables are not handled yet.  */
-  if (TREE_CODE (c_0) != INTEGER_CST)
+  /* Polynomials with more than 2 variables are not handled yet.  When
+     the evolution steps are parameters, it is not possible to
+     represent the dependence using classical distance vectors.  */
+  if (TREE_CODE (c_0) != INTEGER_CST
+      || TREE_CODE (CHREC_RIGHT (c_1)) != INTEGER_CST
+      || TREE_CODE (CHREC_RIGHT (c_2)) != INTEGER_CST)
     {
-      DDR_ARE_DEPENDENT (ddr) = chrec_dont_know;
+      DDR_AFFINE_P (ddr) = false;
       return;
     }
 
@@ -2939,7 +2964,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
   lambda_vector dist_v;
 
   if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE)
-    return true;
+    return false;
 
   if (same_access_functions (ddr))
     {
@@ -2991,11 +3016,13 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
       if (!lambda_vector_lexico_pos (dist_v, DDR_NB_LOOPS (ddr)))
 	{
 	  lambda_vector save_v = lambda_vector_new (DDR_NB_LOOPS (ddr));
-	  subscript_dependence_tester_1 (ddr, DDR_B (ddr), DDR_A (ddr),
-					 loop_nest);
+	  if (!subscript_dependence_tester_1 (ddr, DDR_B (ddr), DDR_A (ddr),
+					      loop_nest))
+	    return false;
 	  compute_subscript_distance (ddr);
-	  build_classic_dist_vector_1 (ddr, DDR_B (ddr), DDR_A (ddr),
-				       save_v, &init_b, &index_carry);
+	  if (!build_classic_dist_vector_1 (ddr, DDR_B (ddr), DDR_A (ddr),
+					    save_v, &init_b, &index_carry))
+	    return false;
 	  save_dist_v (ddr, save_v);
 	  DDR_REVERSED_P (ddr) = true;
 
@@ -3025,21 +3052,26 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	{
 	  lambda_vector save_v = lambda_vector_new (DDR_NB_LOOPS (ddr));
 	  lambda_vector_copy (dist_v, save_v, DDR_NB_LOOPS (ddr));
-	  save_dist_v (ddr, save_v);
 
 	  if (DDR_NB_LOOPS (ddr) > 1)
 	    {
 	      lambda_vector opposite_v = lambda_vector_new (DDR_NB_LOOPS (ddr));
 
-	      subscript_dependence_tester_1 (ddr, DDR_B (ddr), DDR_A (ddr),
-					     loop_nest);
+	      if (!subscript_dependence_tester_1 (ddr, DDR_B (ddr),
+						  DDR_A (ddr), loop_nest))
+		return false;
 	      compute_subscript_distance (ddr);
-	      build_classic_dist_vector_1 (ddr, DDR_B (ddr), DDR_A (ddr),
-					   opposite_v, &init_b, &index_carry);
+	      if (!build_classic_dist_vector_1 (ddr, DDR_B (ddr), DDR_A (ddr),
+						opposite_v, &init_b,
+						&index_carry))
+		return false;
 
+	      save_dist_v (ddr, save_v);
 	      add_outer_distances (ddr, dist_v, index_carry);
 	      add_outer_distances (ddr, opposite_v, index_carry);
 	    }
+	  else
+	    save_dist_v (ddr, save_v);
 	}
     }
   else
@@ -3188,8 +3220,8 @@ subscript_dependence_tester (struct data_dependence_relation *ddr,
    constant with respect to LOOP_NEST.  */
 
 static bool 
-access_functions_are_affine_or_constant_p (struct data_reference *a,
-					   struct loop *loop_nest)
+access_functions_are_affine_or_constant_p (const struct data_reference *a,
+					   const struct loop *loop_nest)
 {
   unsigned int i;
   VEC(tree,heap) *fns = DR_ACCESS_FNS (a);
@@ -4266,8 +4298,12 @@ free_dependence_relation (struct data_dependence_relation *ddr)
   if (ddr == NULL)
     return;
 
-  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE && DDR_SUBSCRIPTS (ddr))
+  if (DDR_SUBSCRIPTS (ddr))
     free_subscripts (DDR_SUBSCRIPTS (ddr));
+  if (DDR_DIST_VECTS (ddr))
+    VEC_free (lambda_vector, heap, DDR_DIST_VECTS (ddr));
+  if (DDR_DIR_VECTS (ddr))
+    VEC_free (lambda_vector, heap, DDR_DIR_VECTS (ddr));
 
   free (ddr);
 }
@@ -4312,3 +4348,187 @@ free_data_refs (VEC (data_reference_p, heap) *datarefs)
   VEC_free (data_reference_p, heap, datarefs);
 }
 
+
+
+/* Returns the index of STMT in RDG.  */
+
+static int
+find_vertex_for_stmt (const struct graph *rdg, const_tree stmt)
+{
+  int i;
+
+  for (i = 0; i < rdg->n_vertices; i++)
+    if (RDGV_STMT (&(rdg->vertices[i])) == stmt)
+      return i;
+
+  gcc_unreachable ();
+  return 0;
+}
+
+/* Creates an edge in RDG for each distance vector from DDR.  */
+
+static void
+create_rdg_edge_for_ddr (struct graph *rdg, ddr_p ddr)
+{
+  int va, vb;
+  data_reference_p dra;
+  data_reference_p drb;
+  struct graph_edge *e;
+
+  if (DDR_REVERSED_P (ddr))
+    {
+      dra = DDR_B (ddr);
+      drb = DDR_A (ddr);
+    }
+  else
+    {
+      dra = DDR_A (ddr);
+      drb = DDR_B (ddr);
+    }
+
+  va = find_vertex_for_stmt (rdg, DR_STMT (dra));
+  vb = find_vertex_for_stmt (rdg, DR_STMT (drb));
+
+  e = add_edge (rdg, va, vb);
+  e->data = XNEW (struct rdg_edge);
+
+  /* Determines the type of the data dependence.  */
+  if (DR_IS_READ (dra) && DR_IS_READ (drb))
+    RDGE_TYPE (e) = input_dd;
+  else if (!DR_IS_READ (dra) && !DR_IS_READ (drb))
+    RDGE_TYPE (e) = output_dd;
+  else if (!DR_IS_READ (dra) && DR_IS_READ (drb))
+    RDGE_TYPE (e) = flow_dd;
+  else if (DR_IS_READ (dra) && !DR_IS_READ (drb))
+    RDGE_TYPE (e) = anti_dd;
+}
+
+/* Creates dependence edges in RDG for all the uses of DEF.  IDEF is
+   the index of DEF in RDG.  */
+
+static void
+create_rdg_edges_for_scalar (struct graph *rdg, tree def, int idef)
+{
+  use_operand_p imm_use_p;
+  imm_use_iterator iterator;
+           
+  FOR_EACH_IMM_USE_FAST (imm_use_p, iterator, def)
+    {
+      int use = find_vertex_for_stmt (rdg, USE_STMT (imm_use_p));
+      struct graph_edge *e = add_edge (rdg, idef, use);
+
+      e->data = XNEW (struct rdg_edge);
+      RDGE_TYPE (e) = flow_dd;
+    }
+}
+
+/* Creates the edges of the reduced dependence graph RDG.  */
+
+static void
+create_rdg_edges (struct graph *rdg, VEC (ddr_p, heap) *ddrs)
+{
+  int i;
+  struct data_dependence_relation *ddr;
+  def_operand_p def_p;
+  ssa_op_iter iter;
+
+  for (i = 0; VEC_iterate (ddr_p, ddrs, i, ddr); i++)
+    if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
+      create_rdg_edge_for_ddr (rdg, ddr);
+
+  for (i = 0; i < rdg->n_vertices; i++)
+    FOR_EACH_PHI_OR_STMT_DEF (def_p, RDGV_STMT (&(rdg->vertices[i])),
+			      iter, SSA_OP_ALL_DEFS)
+      create_rdg_edges_for_scalar (rdg, DEF_FROM_PTR (def_p), i);
+}
+
+/* Build the vertices of the reduced dependence graph RDG.  */
+
+static void
+create_rdg_vertices (struct graph *rdg, VEC (tree, heap) *stmts)
+{
+  int i;
+  tree s;
+
+  for (i = 0; VEC_iterate (tree, stmts, i, s); i++)
+    {
+      struct vertex *v = &(rdg->vertices[i]);
+
+      v->data = XNEW (struct rdg_vertex);
+      RDGV_STMT (v) = s;
+    }
+}
+
+/* Initialize STMTS with all the statements and PHI nodes of LOOP.  */
+
+static void
+stmts_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
+{
+  unsigned int i;
+  basic_block *bbs = get_loop_body_in_dom_order (loop);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      tree phi;
+      basic_block bb = bbs[i];
+      block_stmt_iterator bsi;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	VEC_safe_push (tree, heap, *stmts, phi);
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	VEC_safe_push (tree, heap, *stmts, bsi_stmt (bsi));
+    }
+
+  free (bbs);
+}
+
+/* Returns true when all the dependences are computable.  */
+
+static bool
+known_dependences_p (VEC (ddr_p, heap) *dependence_relations)
+{
+  ddr_p ddr;
+  unsigned int i;
+
+  for (i = 0; VEC_iterate (ddr_p, dependence_relations, i, ddr); i++)
+    if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+      return false;
+ 
+  return true;
+}
+
+/* Build a Reduced Dependence Graph with one vertex per statement of the
+   loop nest and one edge per data dependence or scalar dependence.  */
+
+struct graph *
+build_rdg (struct loop *loop)
+{
+  int nb_data_refs = 10;
+  struct graph *rdg = NULL;
+  VEC (ddr_p, heap) *dependence_relations;
+  VEC (data_reference_p, heap) *datarefs;
+  VEC (tree, heap) *stmts = VEC_alloc (tree, heap, 10);
+  
+  dependence_relations = VEC_alloc (ddr_p, heap, nb_data_refs * nb_data_refs) ;
+  datarefs = VEC_alloc (data_reference_p, heap, nb_data_refs);
+  compute_data_dependences_for_loop (loop, 
+                                     false,
+                                     &datarefs,
+                                     &dependence_relations);
+  
+  if (!known_dependences_p (dependence_relations))
+    goto end_rdg;
+
+  stmts_from_loop (loop, &stmts);
+  rdg = new_graph (VEC_length (tree, stmts));
+  create_rdg_vertices (rdg, stmts);
+  create_rdg_edges (rdg, dependence_relations);
+
+ end_rdg:
+  free_dependence_relations (dependence_relations);
+  free_data_refs (datarefs);
+  VEC_free (tree, heap, stmts);
+
+  return rdg;
+}

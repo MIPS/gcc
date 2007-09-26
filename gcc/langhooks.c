@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -101,6 +100,14 @@ lhd_return_null_tree (tree ARG_UNUSED (t))
   return NULL_TREE;
 }
 
+/* Do nothing (return NULL_TREE).  */
+
+tree
+lhd_return_null_const_tree (const_tree ARG_UNUSED (t))
+{
+  return NULL_TREE;
+}
+
 /* The default post options hook.  */
 
 bool
@@ -129,7 +136,7 @@ lhd_staticp (tree ARG_UNUSED (exp))
 /* Called from check_global_declarations.  */
 
 bool
-lhd_warn_unused_global_decl (tree decl)
+lhd_warn_unused_global_decl (const_tree decl)
 {
   /* This is what used to exist in check_global_declarations.  Probably
      not many of these actually apply to non-C languages.  */
@@ -202,7 +209,7 @@ lhd_register_builtin_type (tree ARG_UNUSED (type),
 
 /* Invalid use of an incomplete type.  */
 void
-lhd_incomplete_type_error (tree ARG_UNUSED (value), tree type)
+lhd_incomplete_type_error (const_tree ARG_UNUSED (value), const_tree type)
 {
   gcc_assert (TREE_CODE (type) == ERROR_MARK);
   return;
@@ -211,7 +218,7 @@ lhd_incomplete_type_error (tree ARG_UNUSED (value), tree type)
 /* Provide a default routine for alias sets that always returns -1.  This
    is used by languages that don't need to do anything special.  */
 
-HOST_WIDE_INT
+alias_set_type
 lhd_get_alias_set (tree ARG_UNUSED (t))
 {
   return -1;
@@ -269,67 +276,6 @@ lhd_types_compatible_p (tree x, tree y)
   return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
 }
 
-/* lang_hooks.tree_inlining.walk_subtrees is called by walk_tree()
-   after handling common cases, but before walking code-specific
-   sub-trees.  If this hook is overridden for a language, it should
-   handle language-specific tree codes, as well as language-specific
-   information associated to common tree codes.  If a tree node is
-   completely handled within this function, it should set *SUBTREES to
-   0, so that generic handling isn't attempted.  The generic handling
-   cannot deal with language-specific tree codes, so make sure it is
-   set properly.  Both SUBTREES and *SUBTREES is guaranteed to be
-   nonzero when the function is called.  */
-
-tree
-lhd_tree_inlining_walk_subtrees (tree *tp ATTRIBUTE_UNUSED,
-				 int *subtrees ATTRIBUTE_UNUSED,
-				 walk_tree_fn func ATTRIBUTE_UNUSED,
-				 void *data ATTRIBUTE_UNUSED,
-				 struct pointer_set_t *pset ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-/* lang_hooks.tree_inlining.cannot_inline_tree_fn is called to
-   determine whether there are language-specific reasons for not
-   inlining a given function.  */
-
-int
-lhd_tree_inlining_cannot_inline_tree_fn (tree *fnp)
-{
-  if (flag_really_no_inline
-      && lookup_attribute ("always_inline", DECL_ATTRIBUTES (*fnp)) == NULL)
-    return 1;
-
-  return 0;
-}
-
-/* lang_hooks.tree_inlining.disregard_inline_limits is called to
-   determine whether a function should be considered for inlining even
-   if it would exceed inlining limits.  */
-
-int
-lhd_tree_inlining_disregard_inline_limits (tree fn)
-{
-  if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) != NULL)
-    return 1;
-
-  return 0;
-}
-
-/* lang_hooks.tree_inlining.auto_var_in_fn_p is called to determine
-   whether VT is an automatic variable defined in function FT.  */
-
-int
-lhd_tree_inlining_auto_var_in_fn_p (tree var, tree fn)
-{
-  return (DECL_P (var) && DECL_CONTEXT (var) == fn
-	  && (((TREE_CODE (var) == VAR_DECL || TREE_CODE (var) == PARM_DECL)
-	       && ! TREE_STATIC (var))
-	      || TREE_CODE (var) == LABEL_DECL
-	      || TREE_CODE (var) == RESULT_DECL));
-}
-
 /* lang_hooks.tree_dump.dump_tree:  Dump language-specific parts of tree
    nodes.  Returns nonzero if it does not want the usual dumping of the
    second argument.  */
@@ -344,7 +290,7 @@ lhd_tree_dump_dump_tree (void *di ATTRIBUTE_UNUSED, tree t ATTRIBUTE_UNUSED)
    language-specific way.  */
 
 int
-lhd_tree_dump_type_quals (tree t)
+lhd_tree_dump_type_quals (const_tree t)
 {
   return TYPE_QUALS (t);
 }
@@ -353,7 +299,7 @@ lhd_tree_dump_type_quals (tree t)
    in a language-specific way.  Returns a tree for the size in bytes.  */
 
 tree
-lhd_expr_size (tree exp)
+lhd_expr_size (const_tree exp)
 {
   if (DECL_P (exp)
       && DECL_SIZE_UNIT (exp) != 0)
@@ -384,7 +330,7 @@ lhd_tree_size (enum tree_code c ATTRIBUTE_UNUSED)
    sibcall.  */
 
 bool
-lhd_decl_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED)
+lhd_decl_ok_for_sibcall (const_tree decl ATTRIBUTE_UNUSED)
 {
   return true;
 }
@@ -534,6 +480,9 @@ add_builtin_function (const char *name,
   TREE_PUBLIC (decl)         = 1;
   DECL_EXTERNAL (decl)       = 1;
   DECL_BUILT_IN_CLASS (decl) = cl;
+
+  DECL_FUNCTION_CODE (decl)  = -1;
+  gcc_assert (DECL_FUNCTION_CODE (decl) >= function_code);
   DECL_FUNCTION_CODE (decl)  = function_code;
 
   if (library_name)

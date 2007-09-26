@@ -30,13 +30,11 @@ Boston, MA 02110-1301, USA.  */
 
 /* Unix stream I/O module */
 
-#include "config.h"
+#include "io.h"
 #include <stdlib.h>
 #include <limits.h>
 
 #include <unistd.h>
-#include <stdio.h>
-#include <stdarg.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <assert.h>
@@ -44,8 +42,58 @@ Boston, MA 02110-1301, USA.  */
 #include <string.h>
 #include <errno.h>
 
-#include "libgfortran.h"
-#include "io.h"
+
+/* For mingw, we don't identify files by their inode number, but by a
+   64-bit identifier created from a BY_HANDLE_FILE_INFORMATION. */
+#if defined(__MINGW32__) && !HAVE_WORKING_STAT
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+static uint64_t
+id_from_handle (HANDLE hFile)
+{
+  BY_HANDLE_FILE_INFORMATION FileInformation;
+
+  if (hFile == INVALID_HANDLE_VALUE)
+      return 0;
+
+  memset (&FileInformation, 0, sizeof(FileInformation));
+  if (!GetFileInformationByHandle (hFile, &FileInformation))
+    return 0;
+
+  return ((uint64_t) FileInformation.nFileIndexLow)
+	 | (((uint64_t) FileInformation.nFileIndexHigh) << 32);
+}
+
+
+static uint64_t
+id_from_path (const char *path)
+{
+  HANDLE hFile;
+  uint64_t res;
+
+  if (!path || !*path || access (path, F_OK))
+    return (uint64_t) -1;
+
+  hFile = CreateFile (path, 0, 0, NULL, OPEN_EXISTING,
+		      FILE_FLAG_BACKUP_SEMANTICS | FILE_ATTRIBUTE_READONLY,
+		      NULL);
+  res = id_from_handle (hFile);
+  CloseHandle (hFile);
+  return res;
+}
+
+
+static uint64_t
+id_from_fd (const int fd)
+{
+  return id_from_handle ((HANDLE) _get_osfhandle (fd));
+}
+
+#endif
+
+
 
 #ifndef SSIZE_MAX
 #define SSIZE_MAX SHRT_MAX
@@ -107,7 +155,8 @@ typedef struct
 
   int unbuffered;               /* =1 if the stream is not buffered */
 
-  char buffer[BUFFER_SIZE];
+  char *buffer;
+  char small_buffer[BUFFER_SIZE];
 }
 unix_stream;
 
@@ -140,10 +189,6 @@ typedef struct
   char *buffer;
 }
 int_stream;
-
-extern stream *init_error_stream (unix_stream *);
-internal_proto(init_error_stream);
-
 
 /* This implementation of stream I/O is based on the paper:
  *
@@ -219,13 +264,13 @@ move_pos_offset (stream* st, int pos_off)
 static int
 fix_fd (int fd)
 {
+#ifdef HAVE_DUP
   int input, output, error;
 
   input = output = error = 0;
 
   /* Unix allocates the lowest descriptors first, so a loop is not
      required, but this order is. */
-
   if (fd == STDIN_FILENO)
     {
       fd = dup (fd);
@@ -248,6 +293,7 @@ fix_fd (int fd)
     close (STDOUT_FILENO);
   if (error)
     close (STDERR_FILENO);
+#endif
 
   return fd;
 }
@@ -437,17 +483,29 @@ static void
 fd_alloc (unix_stream * s, gfc_offset where,
 	  int *len __attribute__ ((unused)))
 {
-  int n;
+  char *new_buffer;
+  int n, read_len;
+
+  if (*len <= BUFFER_SIZE)
+    {
+      new_buffer = s->small_buffer;
+      read_len = BUFFER_SIZE;
+    }
+  else
+    {
+      new_buffer = get_mem (*len);
+      read_len = *len;
+    }
 
   /* Salvage bytes currently within the buffer.  This is important for
    * devices that cannot seek. */
 
-  if (s->buffer_offset <= where &&
+  if (s->buffer != NULL && s->buffer_offset <= where &&
       where <= s->buffer_offset + s->active)
     {
 
       n = s->active - (where - s->buffer_offset);
-      memmove (s->buffer, s->buffer + (where - s->buffer_offset), n);
+      memmove (new_buffer, s->buffer + (where - s->buffer_offset), n);
 
       s->active = n;
     }
@@ -458,7 +516,13 @@ fd_alloc (unix_stream * s, gfc_offset where,
 
   s->buffer_offset = where;
 
-  s->len = BUFFER_SIZE;
+  /* free the old buffer if necessary */
+
+  if (s->buffer != NULL && s->buffer != s->small_buffer)
+    free_mem (s->buffer);
+
+  s->buffer = new_buffer;
+  s->len = read_len;
 }
 
 
@@ -568,7 +632,7 @@ fd_alloc_w_at (unix_stream * s, int *len, gfc_offset where)
         s->ndirty = where + *len - start;  
       else    
         s->ndirty = s->dirty_offset + s->ndirty - start;  
-        s->dirty_offset = start;
+      s->dirty_offset = start;
     }
 
   s->logical_offset = where + *len;
@@ -590,7 +654,8 @@ static try
 fd_sfree (unix_stream * s)
 {
   if (s->ndirty != 0 &&
-      (options.all_unbuffered || s->unbuffered))
+      (s->buffer != s->small_buffer || options.all_unbuffered ||
+       s->unbuffered))
     return fd_flush (s);
 
   return SUCCESS;
@@ -791,6 +856,9 @@ fd_close (unix_stream * s)
   if (fd_flush (s) == FAILURE)
     return FAILURE;
 
+  if (s->buffer != NULL && s->buffer != s->small_buffer)
+    free_mem (s->buffer);
+
   if (s->fd != STDOUT_FILENO && s->fd != STDERR_FILENO)
     {
       if (close (s->fd) < 0)
@@ -814,11 +882,12 @@ fd_open (unix_stream * s)
   s->st.sfree = (void *) fd_sfree;
   s->st.close = (void *) fd_close;
   s->st.seek = (void *) fd_seek;
-  s->st.truncate = (void *) fd_truncate;
+  s->st.trunc = (void *) fd_truncate;
   s->st.read = (void *) fd_read;
   s->st.write = (void *) fd_write;
   s->st.set = (void *) fd_sset;
 
+  s->buffer = NULL;
 }
 
 
@@ -1027,7 +1096,7 @@ open_internal (char *base, int length)
   s->st.sfree = (void *) mem_sfree;
   s->st.close = (void *) mem_close;
   s->st.seek = (void *) mem_seek;
-  s->st.truncate = (void *) mem_truncate;
+  s->st.trunc = (void *) mem_truncate;
   s->st.read = (void *) mem_read;
   s->st.write = (void *) mem_write;
   s->st.set = (void *) mem_set;
@@ -1131,7 +1200,7 @@ tempfile (st_parameter_open *opp)
 
   template = get_mem (strlen (tempdir) + 20);
 
-  st_sprintf (template, "%s/gfortrantmpXXXXXX", tempdir);
+  sprintf (template, "%s/gfortrantmpXXXXXX", tempdir);
 
 #ifdef HAVE_MKSTEMP
 
@@ -1361,121 +1430,59 @@ error_stream (void)
   return fd_to_stream (STDERR_FILENO, PROT_WRITE);
 }
 
-/* init_error_stream()-- Return a pointer to the error stream.  This
- * subroutine is called when the stream is needed, rather than at
- * initialization.  We want to work even if memory has been seriously
- * corrupted. */
 
-stream *
-init_error_stream (unix_stream *error)
+/* st_vprintf()-- vprintf function for error output.  To avoid buffer
+   overruns, we limit the length of the buffer to ST_VPRINTF_SIZE.  2k
+   is big enough to completely fill a 80x25 terminal, so it shuld be
+   OK.  We use a direct write() because it is simpler and least likely
+   to be clobbered by memory corruption.  Writing an error message
+   longer than that is an error.  */
+
+#define ST_VPRINTF_SIZE 2048
+
+int
+st_vprintf (const char *format, va_list ap)
 {
-  memset (error, '\0', sizeof (*error));
+  static char buffer[ST_VPRINTF_SIZE];
+  int written;
+  int fd;
 
-  error->fd = options.use_stderr ? STDERR_FILENO : STDOUT_FILENO;
+  fd = options.use_stderr ? STDERR_FILENO : STDOUT_FILENO;
+#ifdef HAVE_VSNPRINTF
+  written = vsnprintf(buffer, ST_VPRINTF_SIZE, format, ap);
+#else
+  written = vsprintf(buffer, format, ap);
 
-  error->st.alloc_w_at = (void *) fd_alloc_w_at;
-  error->st.sfree = (void *) fd_sfree;
+  if (written >= ST_VPRINTF_SIZE-1)
+    {
+      /* The error message was longer than our buffer.  Ouch.  Because
+	 we may have messed up things badly, report the error and
+	 quit.  */
+#define ERROR_MESSAGE "Internal error: buffer overrun in st_vprintf()\n"
+      write (fd, buffer, ST_VPRINTF_SIZE-1);
+      write (fd, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+      sys_exit(2);
+#undef ERROR_MESSAGE
 
-  error->unbuffered = 1;
+    }
+#endif
 
-  return (stream *) error;
+  written = write (fd, buffer, written);
+  return written;
 }
 
-/* st_printf()-- simple printf() function for streams that handles the
- * formats %d, %s and %c.  This function handles printing of error
- * messages that originate within the library itself, not from a user
- * program. */
+/* st_printf()-- printf() function for error output.  This just calls
+   st_vprintf() to do the actual work.  */
 
 int
 st_printf (const char *format, ...)
 {
-  int count, total;
-  va_list arg;
-  char *p;
-  const char *q;
-  stream *s;
-  char itoa_buf[GFC_ITOA_BUF_SIZE];
-  unix_stream err_stream;
-
-  total = 0;
-  s = init_error_stream (&err_stream);
-  va_start (arg, format);
-
-  for (;;)
-    {
-      count = 0;
-
-      while (format[count] != '%' && format[count] != '\0')
-	count++;
-
-      if (count != 0)
-	{
-	  p = salloc_w (s, &count);
-	  memmove (p, format, count);
-	  sfree (s);
-	}
-
-      total += count;
-      format += count;
-      if (*format++ == '\0')
-	break;
-
-      switch (*format)
-	{
-	case 'c':
-	  count = 1;
-
-	  p = salloc_w (s, &count);
-	  *p = (char) va_arg (arg, int);
-
-	  sfree (s);
-	  break;
-
-	case 'd':
-	  q = gfc_itoa (va_arg (arg, int), itoa_buf, sizeof (itoa_buf));
-	  count = strlen (q);
-
-	  p = salloc_w (s, &count);
-	  memmove (p, q, count);
-	  sfree (s);
-	  break;
-
-	case 'x':
-	  q = xtoa (va_arg (arg, unsigned), itoa_buf, sizeof (itoa_buf));
-	  count = strlen (q);
-
-	  p = salloc_w (s, &count);
-	  memmove (p, q, count);
-	  sfree (s);
-	  break;
-
-	case 's':
-	  q = va_arg (arg, char *);
-	  count = strlen (q);
-
-	  p = salloc_w (s, &count);
-	  memmove (p, q, count);
-	  sfree (s);
-	  break;
-
-	case '\0':
-	  return total;
-
-	default:
-	  count = 2;
-	  p = salloc_w (s, &count);
-	  p[0] = format[-1];
-	  p[1] = format[0];
-	  sfree (s);
-	  break;
-	}
-
-      total += count;
-      format++;
-    }
-
-  va_end (arg);
-  return total;
+  int written;
+  va_list ap;
+  va_start (ap, format);
+  written = st_vprintf(format, ap);
+  va_end (ap);
+  return written;
 }
 
 
@@ -1490,6 +1497,10 @@ compare_file_filename (gfc_unit *u, const char *name, int len)
   struct stat st1;
 #ifdef HAVE_WORKING_STAT
   struct stat st2;
+#else
+# ifdef __MINGW32__
+  uint64_t id1, id2;
+# endif
 #endif
 
   if (unpack_filename (path, name, len))
@@ -1505,6 +1516,17 @@ compare_file_filename (gfc_unit *u, const char *name, int len)
   fstat (((unix_stream *) (u->s))->fd, &st2);
   return (st1.st_dev == st2.st_dev) && (st1.st_ino == st2.st_ino);
 #else
+
+# ifdef __MINGW32__
+  /* We try to match files by a unique ID.  On some filesystems (network
+     fs and FAT), we can't generate this unique ID, and will simply compare
+     filenames.  */
+  id1 = id_from_path (path);
+  id2 = id_from_fd (((unix_stream *) (u->s))->fd);
+  if (id1 || id2)
+    return (id1 == id2);
+# endif
+
   if (len != u->file_len)
     return 0;
   return (memcmp(path, u->file, len) == 0);
@@ -1516,8 +1538,8 @@ compare_file_filename (gfc_unit *u, const char *name, int len)
 # define FIND_FILE0_DECL struct stat *st
 # define FIND_FILE0_ARGS st
 #else
-# define FIND_FILE0_DECL const char *file, gfc_charlen_type file_len
-# define FIND_FILE0_ARGS file, file_len
+# define FIND_FILE0_DECL uint64_t id, const char *file, gfc_charlen_type file_len
+# define FIND_FILE0_ARGS id, file, file_len
 #endif
 
 /* find_file0()-- Recursive work function for find_file() */
@@ -1526,6 +1548,9 @@ static gfc_unit *
 find_file0 (gfc_unit *u, FIND_FILE0_DECL)
 {
   gfc_unit *v;
+#if defined(__MINGW32__) && !HAVE_WORKING_STAT
+  uint64_t id1;
+#endif
 
   if (u == NULL)
     return NULL;
@@ -1536,8 +1561,16 @@ find_file0 (gfc_unit *u, FIND_FILE0_DECL)
       st[0].st_dev == st[1].st_dev && st[0].st_ino == st[1].st_ino)
     return u;
 #else
-  if (compare_string (u->file_len, u->file, file_len, file) == 0)
-    return u;
+# ifdef __MINGW32__ 
+  if (u->s && ((id1 = id_from_fd (((unix_stream *) u->s)->fd)) || id1))
+    {
+      if (id == id1)
+	return u;
+    }
+  else
+# endif
+    if (compare_string (u->file_len, u->file, file_len, file) == 0)
+      return u;
 #endif
 
   v = find_file0 (u->left, FIND_FILE0_ARGS);
@@ -1561,12 +1594,19 @@ find_file (const char *file, gfc_charlen_type file_len)
   char path[PATH_MAX + 1];
   struct stat st[2];
   gfc_unit *u;
+  uint64_t id;
 
   if (unpack_filename (path, file, file_len))
     return NULL;
 
   if (stat (path, &st[0]) < 0)
     return NULL;
+
+#if defined(__MINGW32__) && !HAVE_WORKING_STAT
+  id = id_from_path (path);
+#else
+  id = 0;
+#endif
 
   __gthread_mutex_lock (&unit_lock);
 retry:
@@ -1822,6 +1862,36 @@ inquire_unformatted (const char *string, int len)
 }
 
 
+#ifndef HAVE_ACCESS
+
+#ifndef W_OK
+#define W_OK 2
+#endif
+
+#ifndef R_OK
+#define R_OK 4
+#endif
+
+/* Fallback implementation of access() on systems that don't have it.
+   Only modes R_OK and W_OK are used in this file.  */
+
+static int
+fallback_access (const char *path, int mode)
+{
+  if ((mode & R_OK) && open (path, O_RDONLY) < 0)
+    return -1;
+
+  if ((mode & W_OK) && open (path, O_WRONLY) < 0)
+    return -1;
+
+  return 0;
+}
+
+#undef access
+#define access fallback_access
+#endif
+
+
 /* inquire_access()-- Given a fortran string, determine if the file is
  * suitable for access. */
 
@@ -1920,7 +1990,7 @@ stream_isatty (stream *s)
 }
 
 char *
-stream_ttyname (stream *s)
+stream_ttyname (stream *s __attribute__ ((unused)))
 {
 #ifdef HAVE_TTYNAME
   return ttyname (((unix_stream *) s)->fd);

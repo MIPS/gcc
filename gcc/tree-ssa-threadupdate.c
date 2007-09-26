@@ -1,11 +1,11 @@
 /* Thread edges through blocks and update the control flow and SSA graphs.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -223,15 +222,15 @@ create_block_for_threading (basic_block bb, struct redirection_data *rd)
 static hashval_t
 redirection_data_hash (const void *p)
 {
-  edge e = ((struct redirection_data *)p)->outgoing_edge;
+  edge e = ((const struct redirection_data *)p)->outgoing_edge;
   return e->dest->index;
 }
 
 static int
 redirection_data_eq (const void *p1, const void *p2)
 {
-  edge e1 = ((struct redirection_data *)p1)->outgoing_edge;
-  edge e2 = ((struct redirection_data *)p2)->outgoing_edge;
+  edge e1 = ((const struct redirection_data *)p1)->outgoing_edge;
+  edge e2 = ((const struct redirection_data *)p2)->outgoing_edge;
 
   return e1 == e2;
 }
@@ -313,6 +312,7 @@ create_edge_and_update_destination_phis (struct redirection_data *rd)
   edge e = make_edge (rd->dup_block, rd->outgoing_edge->dest, EDGE_FALLTHRU);
   tree phi;
 
+  rescan_loop_exit (e, true, false);
   e->probability = REG_BR_PROB_BASE;
   e->count = rd->dup_block->count;
   e->aux = rd->outgoing_edge->aux;
@@ -671,9 +671,9 @@ thread_single_edge (edge e)
 
 static basic_block dbds_ce_stop;
 static bool
-dbds_continue_enumeration_p (basic_block bb, void *stop)
+dbds_continue_enumeration_p (const_basic_block bb, const void *stop)
 {
-  return (bb != (basic_block) stop
+  return (bb != (const_basic_block) stop
 	  && bb != dbds_ce_stop);
 }
 
@@ -1075,6 +1075,9 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   threaded_blocks = NULL;
   VEC_free (edge, heap, threaded_edges);
   threaded_edges = NULL;
+
+  if (retval)
+    loops_state_set (LOOPS_NEED_FIXUP);
 
   return retval;
 }

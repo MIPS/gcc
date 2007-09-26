@@ -1,12 +1,12 @@
 /* Callgraph based interprocedural optimizations.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This module implements main driver of compilation process as well as
    few basic interprocedural optimizers.
@@ -76,15 +75,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
       ??? On the tree-ssa genericizing should take place here and we will avoid
       need for these hooks (replacing them by genericizing hook)
-
-    - expand_function callback
-
-      This function is used to expand function and pass it into RTL back-end.
-      Front-end should not make any assumptions about when this function can be
-      called.  In particular cgraph_assemble_pending_functions,
-      varpool_assemble_pending_variables, cgraph_finalize_function,
-      varpool_finalize_function, cgraph_optimize can cause arbitrarily
-      previously finalized functions to be expanded.
 
     We implement two compilation modes.
 
@@ -181,21 +171,26 @@ static GTY (()) tree static_dtors;
 static void
 record_cdtor_fn (tree fndecl)
 {
-  if (targetm.have_ctors_dtors)
+  struct cgraph_node *node;
+  if (targetm.have_ctors_dtors
+      || (!DECL_STATIC_CONSTRUCTOR (fndecl)
+	  && !DECL_STATIC_DESTRUCTOR (fndecl)))
     return;
 
   if (DECL_STATIC_CONSTRUCTOR (fndecl))
     {
       static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
       DECL_STATIC_CONSTRUCTOR (fndecl) = 0;
-      cgraph_mark_reachable_node (cgraph_node (fndecl));
     }
   if (DECL_STATIC_DESTRUCTOR (fndecl))
     {
       static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
       DECL_STATIC_DESTRUCTOR (fndecl) = 0;
-      cgraph_mark_reachable_node (cgraph_node (fndecl));
     }
+  DECL_INLINE (fndecl) = 1;
+  node = cgraph_node (fndecl);
+  node->local.disregard_inline_limits = 1;
+  cgraph_mark_reachable_node (node);
 }
 
 /* Synthesize a function which calls all the global ctors or global
@@ -377,7 +372,7 @@ cgraph_process_new_functions (void)
 	  node->local.self_insns = estimate_num_insns (fndecl,
 						       &eni_inlining_weights);
 	  node->local.disregard_inline_limits
-	    = lang_hooks.tree_inlining.disregard_inline_limits (fndecl);
+	    |= DECL_DISREGARD_INLINE_LIMITS (fndecl);
 	  /* Inlining characteristics are maintained by the
 	     cgraph_mark_inline.  */
 	  node->global.insns = node->local.self_insns;
@@ -1070,7 +1065,9 @@ cgraph_expand_function (struct cgraph_node *node)
     }
 
   /* Generate RTL for the body of DECL.  */
-  lang_hooks.callgraph.expand_function (decl);
+  if (lang_hooks.callgraph.emit_associated_thunks)
+    lang_hooks.callgraph.emit_associated_thunks (decl);
+  tree_rest_of_compilation (decl);
 
   /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
@@ -1248,7 +1245,7 @@ cgraph_preserve_function_body_p (tree decl)
   struct cgraph_node *node;
   if (!cgraph_global_info_ready)
     return (flag_really_no_inline
-	    ? lang_hooks.tree_inlining.disregard_inline_limits (decl)
+	    ? DECL_DISREGARD_INLINE_LIMITS (decl)
 	    : DECL_INLINE (decl));
   /* Look if there is any clone around.  */
   for (node = cgraph_node (decl); node; node = node->next_clone)
@@ -1260,7 +1257,7 @@ cgraph_preserve_function_body_p (tree decl)
 static void
 ipa_passes (void)
 {
-  cfun = NULL;
+  set_cfun (NULL);
   current_function_decl = NULL;
   tree_register_cfg_hooks ();
   bitmap_obstack_initialize (NULL);

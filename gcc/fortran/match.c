@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -27,39 +26,80 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "match.h"
 #include "parse.h"
 
-/* For matching and debugging purposes.  Order matters here!  The
-   unary operators /must/ precede the binary plus and minus, or
-   the expression parser breaks.  */
 
-mstring intrinsic_operators[] = {
-    minit ("+", INTRINSIC_UPLUS),
-    minit ("-", INTRINSIC_UMINUS),
-    minit ("+", INTRINSIC_PLUS),
-    minit ("-", INTRINSIC_MINUS),
-    minit ("**", INTRINSIC_POWER),
-    minit ("//", INTRINSIC_CONCAT),
-    minit ("*", INTRINSIC_TIMES),
-    minit ("/", INTRINSIC_DIVIDE),
-    minit (".and.", INTRINSIC_AND),
-    minit (".or.", INTRINSIC_OR),
-    minit (".eqv.", INTRINSIC_EQV),
-    minit (".neqv.", INTRINSIC_NEQV),
-    minit (".eq.", INTRINSIC_EQ),
-    minit ("==", INTRINSIC_EQ),
-    minit (".ne.", INTRINSIC_NE),
-    minit ("/=", INTRINSIC_NE),
-    minit (".ge.", INTRINSIC_GE),
-    minit (">=", INTRINSIC_GE),
-    minit (".le.", INTRINSIC_LE),
-    minit ("<=", INTRINSIC_LE),
-    minit (".lt.", INTRINSIC_LT),
-    minit ("<", INTRINSIC_LT),
-    minit (".gt.", INTRINSIC_GT),
-    minit (">", INTRINSIC_GT),
-    minit (".not.", INTRINSIC_NOT),
-    minit ("parens", INTRINSIC_PARENTHESES),
-    minit (NULL, INTRINSIC_NONE)
-};
+/* For debugging and diagnostic purposes.  Return the textual representation
+   of the intrinsic operator OP.  */
+const char *
+gfc_op2string (gfc_intrinsic_op op)
+{
+  switch (op)
+    {
+    case INTRINSIC_UPLUS:
+    case INTRINSIC_PLUS:
+      return "+";
+
+    case INTRINSIC_UMINUS:
+    case INTRINSIC_MINUS:
+      return "-";
+
+    case INTRINSIC_POWER:
+      return "**";
+    case INTRINSIC_CONCAT:
+      return "//";
+    case INTRINSIC_TIMES:
+      return "*";
+    case INTRINSIC_DIVIDE:
+      return "/";
+
+    case INTRINSIC_AND:
+      return ".and.";
+    case INTRINSIC_OR:
+      return ".or.";
+    case INTRINSIC_EQV:
+      return ".eqv.";
+    case INTRINSIC_NEQV:
+      return ".neqv.";
+
+    case INTRINSIC_EQ_OS:
+      return ".eq.";
+    case INTRINSIC_EQ:
+      return "==";
+    case INTRINSIC_NE_OS:
+      return ".ne.";
+    case INTRINSIC_NE:
+      return "/=";
+    case INTRINSIC_GE_OS:
+      return ".ge.";
+    case INTRINSIC_GE:
+      return ">=";
+    case INTRINSIC_LE_OS:
+      return ".le.";
+    case INTRINSIC_LE:
+      return "<=";
+    case INTRINSIC_LT_OS:
+      return ".lt.";
+    case INTRINSIC_LT:
+      return "<";
+    case INTRINSIC_GT_OS:
+      return ".gt.";
+    case INTRINSIC_GT:
+      return ">";
+    case INTRINSIC_NOT:
+      return ".not.";
+
+    case INTRINSIC_ASSIGN:
+      return "=";
+
+    case INTRINSIC_PARENTHESES:
+      return "parens";
+
+    default:
+      break;
+    }
+
+  gfc_internal_error ("gfc_op2string(): Bad code");
+  /* Not reached.  */
+}
 
 
 /******************** Generic matching subroutines ************************/
@@ -377,90 +417,6 @@ gfc_match_label (void)
 }
 
 
-/* Try and match the input against an array of possibilities.  If one
-   potential matching string is a substring of another, the longest
-   match takes precedence.  Spaces in the target strings are optional
-   spaces that do not necessarily have to be found in the input
-   stream.  In fixed mode, spaces never appear.  If whitespace is
-   matched, it matches unlimited whitespace in the input.  For this
-   reason, the 'mp' member of the mstring structure is used to track
-   the progress of each potential match.
-
-   If there is no match we return the tag associated with the
-   terminating NULL mstring structure and leave the locus pointer
-   where it started.  If there is a match we return the tag member of
-   the matched mstring and leave the locus pointer after the matched
-   character.
-
-   A '%' character is a mandatory space.  */
-
-int
-gfc_match_strings (mstring *a)
-{
-  mstring *p, *best_match;
-  int no_match, c, possibles;
-  locus match_loc;
-
-  possibles = 0;
-
-  for (p = a; p->string != NULL; p++)
-    {
-      p->mp = p->string;
-      possibles++;
-    }
-
-  no_match = p->tag;
-
-  best_match = NULL;
-  match_loc = gfc_current_locus;
-
-  gfc_gobble_whitespace ();
-
-  while (possibles > 0)
-    {
-      c = gfc_next_char ();
-
-      /* Apply the next character to the current possibilities.  */
-      for (p = a; p->string != NULL; p++)
-	{
-	  if (p->mp == NULL)
-	    continue;
-
-	  if (*p->mp == ' ')
-	    {
-	      /* Space matches 1+ whitespace(s).  */
-	      if ((gfc_current_form == FORM_FREE) && gfc_is_whitespace (c))
-		continue;
-
-	      p->mp++;
-	    }
-
-	  if (*p->mp != c)
-	    {
-	      /* Match failed.  */
-	      p->mp = NULL;
-	      possibles--;
-	      continue;
-	    }
-
-	  p->mp++;
-	  if (*p->mp == '\0')
-	    {
-	      /* Found a match.  */
-	      match_loc = gfc_current_locus;
-	      best_match = p;
-	      possibles--;
-	      p->mp = NULL;
-	    }
-	}
-    }
-
-  gfc_current_locus = match_loc;
-
-  return (best_match == NULL) ? no_match : best_match->tag;
-}
-
-
 /* See if the current input looks like a name of some sort.  Modifies
    the passed buffer which must be GFC_MAX_SYMBOL_LEN+1 bytes long.
    Note that options.c restricts max_identifier_length to not more
@@ -653,15 +609,224 @@ gfc_match_symbol (gfc_symbol **matched_symbol, int host_assoc)
 match
 gfc_match_intrinsic_op (gfc_intrinsic_op *result)
 {
-  gfc_intrinsic_op op;
+  locus orig_loc = gfc_current_locus;
+  int ch;
 
-  op = (gfc_intrinsic_op) gfc_match_strings (intrinsic_operators);
+  gfc_gobble_whitespace ();
+  ch = gfc_next_char ();
+  switch (ch)
+    {
+    case '+':
+      /* Matched "+".  */
+      *result = INTRINSIC_PLUS;
+      return MATCH_YES;
 
-  if (op == INTRINSIC_NONE)
-    return MATCH_NO;
+    case '-':
+      /* Matched "-".  */
+      *result = INTRINSIC_MINUS;
+      return MATCH_YES;
 
-  *result = op;
-  return MATCH_YES;
+    case '=':
+      if (gfc_next_char () == '=')
+	{
+	  /* Matched "==".  */
+	  *result = INTRINSIC_EQ;
+	  return MATCH_YES;
+	}
+      break;
+
+    case '<':
+      if (gfc_peek_char () == '=')
+	{
+	  /* Matched "<=".  */
+	  gfc_next_char ();
+	  *result = INTRINSIC_LE;
+	  return MATCH_YES;
+	}
+      /* Matched "<".  */
+      *result = INTRINSIC_LT;
+      return MATCH_YES;
+
+    case '>':
+      if (gfc_peek_char () == '=')
+	{
+	  /* Matched ">=".  */
+	  gfc_next_char ();
+	  *result = INTRINSIC_GE;
+	  return MATCH_YES;
+	}
+      /* Matched ">".  */
+      *result = INTRINSIC_GT;
+      return MATCH_YES;
+
+    case '*':
+      if (gfc_peek_char () == '*')
+	{
+	  /* Matched "**".  */
+	  gfc_next_char ();
+	  *result = INTRINSIC_POWER;
+	  return MATCH_YES;
+	}
+      /* Matched "*".  */
+      *result = INTRINSIC_TIMES;
+      return MATCH_YES;
+
+    case '/':
+      ch = gfc_peek_char ();
+      if (ch == '=')
+	{
+	  /* Matched "/=".  */
+	  gfc_next_char ();
+	  *result = INTRINSIC_NE;
+	  return MATCH_YES;
+	}
+      else if (ch == '/')
+	{
+	  /* Matched "//".  */
+	  gfc_next_char ();
+	  *result = INTRINSIC_CONCAT;
+	  return MATCH_YES;
+	}
+      /* Matched "/".  */
+      *result = INTRINSIC_DIVIDE;
+      return MATCH_YES;
+
+    case '.':
+      ch = gfc_next_char ();
+      switch (ch)
+	{
+	case 'a':
+	  if (gfc_next_char () == 'n'
+	      && gfc_next_char () == 'd'
+	      && gfc_next_char () == '.')
+	    {
+	      /* Matched ".and.".  */
+	      *result = INTRINSIC_AND;
+	      return MATCH_YES;
+	    }
+	  break;
+
+	case 'e':
+	  if (gfc_next_char () == 'q')
+	    {
+	      ch = gfc_next_char ();
+	      if (ch == '.')
+		{
+		  /* Matched ".eq.".  */
+		  *result = INTRINSIC_EQ_OS;
+		  return MATCH_YES;
+		}
+	      else if (ch == 'v')
+		{
+		  if (gfc_next_char () == '.')
+		    {
+		      /* Matched ".eqv.".  */
+		      *result = INTRINSIC_EQV;
+		      return MATCH_YES;
+		    }
+		}
+	    }
+	  break;
+
+	case 'g':
+	  ch = gfc_next_char ();
+	  if (ch == 'e')
+	    {
+	      if (gfc_next_char () == '.')
+		{
+		  /* Matched ".ge.".  */
+		  *result = INTRINSIC_GE_OS;
+		  return MATCH_YES;
+		}
+	    }
+	  else if (ch == 't')
+	    {
+	      if (gfc_next_char () == '.')
+		{
+		  /* Matched ".gt.".  */
+		  *result = INTRINSIC_GT_OS;
+		  return MATCH_YES;
+		}
+	    }
+	  break;
+
+	case 'l':
+	  ch = gfc_next_char ();
+	  if (ch == 'e')
+	    {
+	      if (gfc_next_char () == '.')
+		{
+		  /* Matched ".le.".  */
+		  *result = INTRINSIC_LE_OS;
+		  return MATCH_YES;
+		}
+	    }
+	  else if (ch == 't')
+	    {
+	      if (gfc_next_char () == '.')
+		{
+		  /* Matched ".lt.".  */
+		  *result = INTRINSIC_LT_OS;
+		  return MATCH_YES;
+		}
+	    }
+	  break;
+
+	case 'n':
+	  ch = gfc_next_char ();
+	  if (ch == 'e')
+	    {
+	      ch = gfc_next_char ();
+	      if (ch == '.')
+		{
+		  /* Matched ".ne.".  */
+		  *result = INTRINSIC_NE_OS;
+		  return MATCH_YES;
+		}
+	      else if (ch == 'q')
+		{
+		  if (gfc_next_char () == 'v'
+		      && gfc_next_char () == '.')
+		    {
+		      /* Matched ".neqv.".  */
+		      *result = INTRINSIC_NEQV;
+		      return MATCH_YES;
+		    }
+		}
+	    }
+	  else if (ch == 'o')
+	    {
+	      if (gfc_next_char () == 't'
+		  && gfc_next_char () == '.')
+		{
+		  /* Matched ".not.".  */
+		  *result = INTRINSIC_NOT;
+		  return MATCH_YES;
+		}
+	    }
+	  break;
+
+	case 'o':
+	  if (gfc_next_char () == 'r'
+	      && gfc_next_char () == '.')
+	    {
+	      /* Matched ".or.".  */
+	      *result = INTRINSIC_OR;
+	      return MATCH_YES;
+	    }
+	  break;
+
+	default:
+	  break;
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  gfc_current_locus = orig_loc;
+  return MATCH_NO;
 }
 
 
@@ -1500,6 +1665,7 @@ gfc_match_do (void)
   if (m == MATCH_ERROR)
     goto cleanup;
 
+  iter.var->symtree->n.sym->attr.implied_index = 0;
   gfc_check_do_variable (iter.var->symtree);
 
   if (gfc_match_eos () != MATCH_YES)
@@ -2000,6 +2166,8 @@ gfc_match_allocate (void)
 
   if (stat != NULL)
     {
+      bool is_variable;
+
       if (stat->symtree->n.sym->attr.intent == INTENT_IN)
 	{
 	  gfc_error ("STAT variable '%s' of ALLOCATE statement at %C cannot "
@@ -2014,7 +2182,38 @@ gfc_match_allocate (void)
 	  goto cleanup;
 	}
 
-      if (stat->symtree->n.sym->attr.flavor != FL_VARIABLE)
+      is_variable = false;
+      if (stat->symtree->n.sym->attr.flavor == FL_VARIABLE)
+	is_variable = true;
+      else if (stat->symtree->n.sym->attr.function
+	  && stat->symtree->n.sym->result == stat->symtree->n.sym
+	  && (gfc_current_ns->proc_name == stat->symtree->n.sym
+	      || (gfc_current_ns->parent
+		  && gfc_current_ns->parent->proc_name
+		     == stat->symtree->n.sym)))
+	is_variable = true;
+      else if (gfc_current_ns->entries
+	       && stat->symtree->n.sym->result == stat->symtree->n.sym)
+	{
+	  gfc_entry_list *el;
+	  for (el = gfc_current_ns->entries; el; el = el->next)
+	    if (el->sym == stat->symtree->n.sym)
+	      {
+		is_variable = true;
+	      }
+	}
+      else if (gfc_current_ns->parent && gfc_current_ns->parent->entries
+	       && stat->symtree->n.sym->result == stat->symtree->n.sym)
+	{
+	  gfc_entry_list *el;
+	  for (el = gfc_current_ns->parent->entries; el; el = el->next)
+	    if (el->sym == stat->symtree->n.sym)
+	      {
+		is_variable = true;
+	      }
+	}
+
+      if (!is_variable)
 	{
 	  gfc_error ("STAT expression at %C must be a variable");
 	  goto cleanup;
@@ -2296,16 +2495,25 @@ gfc_match_call (void)
 
   sym = st->n.sym;
 
-  if (sym->ns != gfc_current_ns
-	&& !sym->attr.generic
-	&& !sym->attr.subroutine
-        && gfc_get_sym_tree (name, NULL, &st) == 1)
-    return MATCH_ERROR;
+  /* If it does not seem to be callable...  */
+  if (!sym->attr.generic
+	&& !sym->attr.subroutine)
+    {
+      if (!(sym->attr.external && !sym->attr.referenced))
+	{
+	  /* ...create a symbol in this scope...  */
+	  if (sym->ns != gfc_current_ns
+	        && gfc_get_sym_tree (name, NULL, &st) == 1)
+            return MATCH_ERROR;
 
-  sym = st->n.sym;
+	  if (sym != st->n.sym)
+	    sym = st->n.sym;
+	}
 
-  if (gfc_add_subroutine (&sym->attr, sym->name, NULL) == FAILURE)
-    return MATCH_ERROR;
+      /* ...and then to try to make the symbol into a subroutine.  */
+      if (gfc_add_subroutine (&sym->attr, sym->name, NULL) == FAILURE)
+	return MATCH_ERROR;
+    }
 
   gfc_set_sym_referenced (sym);
 
@@ -2593,14 +2801,6 @@ gfc_match_common (void)
 	  if (gfc_add_in_common (&sym->attr, sym->name, NULL) == FAILURE)
 	    goto cleanup;
 
-	  /* Derived type names must have the SEQUENCE attribute.  */
-	  if (sym->ts.type == BT_DERIVED && !sym->ts.derived->attr.sequence)
-	    {
-	      gfc_error ("Derived type variable in COMMON at %C does not "
-			 "have the SEQUENCE attribute");
-	      goto cleanup;
-	    }
-
 	  if (tail != NULL)
 	    tail->common_next = sym;
 	  else
@@ -2814,12 +3014,6 @@ gfc_match_namelist (void)
 			 "%C is not allowed", sym->name, group_name->name);
 	      gfc_error_check ();
 	    }
-
-	  if (sym->as && sym->as->type == AS_ASSUMED_SHAPE
-	      && gfc_notify_std (GFC_STD_GNU, "Assumed shape array '%s' in "
-				 "namelist '%s' at %C is an extension.",
-				 sym->name, group_name->name) == FAILURE)
-	    gfc_error_check ();
 
 	  nl = gfc_get_namelist ();
 	  nl->sym = sym;

@@ -386,11 +386,6 @@ package Opt is
    --  Set to True if -gnato (enable overflow checks) switch is set,
    --  but not -gnatp.
 
-   Overflow_Checks_Unsuppressed : Boolean := False;
-   --  GNAT
-   --  Set to True if at least one pragma Unsuppress
-   --  (All_Checks|Overflow_Checks) has been processed.
-
    Error_Msg_Line_Length : Nat := 0;
    --  GNAT
    --  Records the error message line length limit. If this is set to zero,
@@ -533,11 +528,6 @@ package Opt is
    --  GNAT
    --  True if High Level Optimizer is activated (-gnatH switch)
 
-   Implementation_Unit_Warnings : Boolean := True;
-   --  GNAT
-   --  Set True to active warnings for use of implementation internal units.
-   --  Can be controlled by use of -gnatwi/-gnatwI.
-
    Identifier_Character_Set : Character;
    --  GNAT
    --  This variable indicates the character set to be used for identifiers.
@@ -560,6 +550,23 @@ package Opt is
    --  coding in the source program. This variable is initialized to the
    --  default value appropriate to the system (in Osint.Initialize), and then
    --  reset if a command line switch is used to change the setting.
+
+   Ignore_Rep_Clauses : Boolean := False;
+   --  GNAT
+   --  Set True to ignore all representation clauses. Useful when compiling
+   --  code from foreign compilers for checking or ASIS purposes. Can be
+   --  set True by use of -gnatI.
+
+   Implementation_Unit_Warnings : Boolean := True;
+   --  GNAT
+   --  Set True to active warnings for use of implementation internal units.
+   --  Can be controlled by use of -gnatwi/-gnatwI.
+
+   Implicit_Packing : Boolean := False;
+   --  GNAT
+   --  If set True, then a Size attribute clause on an array is allowed to
+   --  cause implicit packing instead of generating an error message. Set by
+   --  use of pragma Implicit_Packing.
 
    Ineffective_Inline_Warnings : Boolean := False;
    --  GNAT
@@ -623,6 +630,11 @@ package Opt is
    --  GNATCMD
    --  When True the temporary files created by the GNAT driver are not
    --  deleted. Set by switch -dn or qualifier /KEEP_TEMPORARY_FILES.
+
+   Leap_Seconds_Support : Boolean := False;
+   --  GNATBIND
+   --  Set to True to enable leap seconds support in Ada.Calendar and its
+   --  children.
 
    Link_Only : Boolean := False;
    --  GNATMAKE, GPRMAKE
@@ -841,6 +853,11 @@ package Opt is
    Output_Object_List : Boolean := False;
    --  GNATBIND
    --  True if output of list of objects is requested (-O switch set)
+
+   Overflow_Checks_Unsuppressed : Boolean := False;
+   --  GNAT
+   --  Set to True if at least one pragma Unsuppress
+   --  (All_Checks|Overflow_Checks) has been processed.
 
    Persistent_BSS_Mode : Boolean := False;
    --  GNAT
@@ -1178,12 +1195,12 @@ package Opt is
    --  variable that is at least partially uninitialized. Set to false to
    --  suppress such warnings. The default is that such warnings are enabled.
 
-   Warn_On_Non_Local_Exception : Boolean := True;
+   Warn_On_Non_Local_Exception : Boolean := False;
    --  GNAT
    --  Set to True to generate warnings for non-local exception raises and also
    --  handlers that can never handle a local raise. This warning is only ever
    --  generated if pragma Restrictions (No_Exception_Propagation) is set. The
-   --  default is to generate the warnings if the restriction is set.
+   --  default is not to generate the warnings even if the restriction is set.
 
    Warn_On_Obsolescent_Feature : Boolean := False;
    --  GNAT
@@ -1375,9 +1392,9 @@ package Opt is
    --  parameter Internal_Unit is True for an internal or predefined unit, and
    --  affects the way the switches are set (see above). Main_Unit is true if
    --  switches are being set for the main unit (this affects setting of the
-   --  assert/debug pragm switches, which are normally set false by default for
-   --  an internal unit, except when the internal unit is the main unit, in
-   --  which case we use the command line settings).
+   --  assert/debug pragma switches, which are normally set false by default
+   --  for an internal unit, except when the internal unit is the main unit,
+   --  in which case we use the command line settings).
 
    procedure Restore_Opt_Config_Switches (Save : Config_Switches_Type);
    --  This procedure restores a set of switch values previously saved by a
@@ -1392,15 +1409,6 @@ package Opt is
    -- Other Global Flags --
    ------------------------
 
-   Static_Dispatch_Tables : constant Boolean;
-   --  This flag indicates if the backend supports generation of statically
-   --  allocated dispatch tables. If it is True, then the front end will
-   --  generate static aggregates for dispatch tables that contain forward
-   --  references to addresses of subprograms not seen yet, and the back end
-   --  must be prepared to handle this case. If it is False, then the front
-   --  end generates assignments to initialize the dispatch table, and there
-   --  are no such forward references.
-
    Expander_Active : Boolean := False;
    --  A flag that indicates if expansion is active (True) or deactivated
    --  (False). When expansion is deactivated all calls to expander routines
@@ -1410,6 +1418,18 @@ package Opt is
    --  this flag, see package Expander. Indeed this flag might more logically
    --  be in the spec of Expander, but it is referenced by Errout, and it
    --  really seems wrong for Errout to depend on Expander.
+
+   Static_Dispatch_Tables : Boolean := True;
+   --  This flag indicates if the backend supports generation of statically
+   --  allocated dispatch tables. If it is True, then the front end will
+   --  generate static aggregates for dispatch tables that contain forward
+   --  references to addresses of subprograms not seen yet, and the back end
+   --  must be prepared to handle this case. If it is False, then the front
+   --  end generates assignments to initialize the dispatch table, and there
+   --  are no such forward references. By default we build statically allocated
+   --  dispatch tables for all library level tagged types in all platforms.This
+   --  behavior can be disabled using switch -gnatd.t which will set this flag
+   --  to False and revert to the previous dynamic behavior.
 
    -----------------------
    -- Tree I/O Routines --
@@ -1431,7 +1451,8 @@ package Opt is
    --  They are set by Tree_Read procedure, so they represent the version
    --  number (and the version string) of the compiler which has created the
    --  tree, and they are supposed to be compared with the corresponding values
-   --  from the Gnatvsn package which is a part of ASIS implementation.
+   --  from the Tree_IO and Gnatvsn packages which also are a part of ASIS
+   --  implementation.
 
    Tree_Version_String : String_Access;
    --  Used to store the compiler version string read from a tree file to check
@@ -1444,7 +1465,7 @@ package Opt is
 
    Tree_ASIS_Version_Number : Int;
    --  Used to store the ASIS version number read from a tree file to check if
-   --  it is the same as stored in the ASIS version number in Gnatvsn.
+   --  it is the same as stored in the ASIS version number in Tree_IO.
 
 private
 
@@ -1474,6 +1495,10 @@ private
    --  not let client code in the compiler test GCC_Version directly, but
    --  instead use deferred constants for relevant feature tags.
 
+   --  Note: there currently are no such constants defined in this section,
+   --  since the compiler front end is currently entirely independent of the
+   --  GCC version, which is a desirable state of affairs.
+
    function get_gcc_version return Int;
    pragma Import (C, get_gcc_version, "get_gcc_version");
 
@@ -1481,9 +1506,5 @@ private
    --  GNATMAKE
    --  Indicates which version of gcc is in use (3 = 3.x, 4 = 4.x). Note that
    --  gcc 2.8.1 (which used to be a value of 2) is no longer supported.
-
-   Static_Dispatch_Tables : constant Boolean := GCC_Version >= 4;
-   --  GCC version 4 can handle the static dispatch tables, but not version 3.
-   --  Also we need -funit-at-a-time, which should also be tested here ???
 
 end Opt;

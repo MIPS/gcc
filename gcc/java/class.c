@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -691,10 +690,12 @@ build_java_method_type (tree fntype, tree this_class, int access_flags)
 }
 
 static void
-hide (tree decl)
+hide (tree decl ATTRIBUTE_UNUSED)
 {
+#ifdef HAVE_GAS_HIDDEN
   DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
   DECL_VISIBILITY_SPECIFIED (decl) = 1;
+#endif
 }
 
 tree
@@ -724,6 +725,14 @@ add_method_1 (tree this_class, int access_flags, tree name, tree function_type)
 
   TREE_CHAIN (fndecl) = TYPE_METHODS (this_class);
   TYPE_METHODS (this_class) = fndecl;
+
+  /* If pointers to member functions use the least significant bit to
+     indicate whether a function is virtual, ensure a pointer
+     to this function will have that bit clear.  */
+  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
+      && !(access_flags & ACC_STATIC)
+      && DECL_ALIGN (fndecl) < 2 * BITS_PER_UNIT)
+    DECL_ALIGN (fndecl) = 2 * BITS_PER_UNIT;
 
   /* Notice that this is a finalizer and update the class type
      accordingly. This is used to optimize instance allocation. */
@@ -842,8 +851,6 @@ set_constant_value (tree field, tree constant)
 		&& TREE_TYPE (field) == string_ptr_type_node))
 	error ("ConstantValue attribute of field '%s' has wrong type",
 	       IDENTIFIER_POINTER (DECL_NAME (field)));
-      if (FIELD_FINAL (field))
-	DECL_FIELD_FINAL_IUD (field) = 1;
     }
 }
 
@@ -1154,13 +1161,12 @@ build_static_field_ref (tree fdecl)
 {
   tree fclass = DECL_CONTEXT (fdecl);
   int is_compiled = is_compiled_class (fclass);
-  int from_class = ! CLASS_FROM_SOURCE_P (current_class);
 
   /* Allow static final fields to fold to a constant.  When using
      -findirect-dispatch, we simply never do this folding if compiling
      from .class; in the .class file constants will be referred to via
      the constant pool.  */
-  if ((!flag_indirect_dispatch || !from_class)
+  if (!flag_indirect_dispatch
       && (is_compiled
 	  || (FIELD_FINAL (fdecl) && DECL_INITIAL (fdecl) != NULL_TREE
 	      && (JSTRING_TYPE_P (TREE_TYPE (fdecl))
@@ -1844,8 +1850,7 @@ make_class_data (tree type)
           || DECL_CLINIT_P (method)
           || DECL_NAME (type_decl) == id_class
           || DECL_NAME (method) == id_main
-          || (METHOD_PUBLIC (method) && !METHOD_STATIC (method))
-          || TYPE_DOT_CLASS (type) == method)
+          || (METHOD_PUBLIC (method) && !METHOD_STATIC (method)))
         {
           init = make_method_value (method);
           method_count++;
@@ -2164,17 +2169,6 @@ make_class_data (tree type)
 void
 finish_class (void)
 {
-  if (TYPE_VERIFY_METHOD (output_class))
-    {
-      tree verify_method = TYPE_VERIFY_METHOD (output_class);
-      DECL_SAVED_TREE (verify_method) 
-	= add_stmt_to_compound (DECL_SAVED_TREE (verify_method), void_type_node,
-				build1 (RETURN_EXPR, void_type_node, NULL));
-      java_genericize (verify_method);
-      cgraph_finalize_function (verify_method, false);
-      TYPE_ASSERTIONS (current_class) = NULL;
-    }
-
   java_expand_catch_classes (current_class);
 
   current_function_decl = NULL_TREE;
@@ -2219,9 +2213,7 @@ is_compiled_class (tree class)
     {
       if (!CLASS_LOADED_P (class))
 	{
-	  if (CLASS_FROM_SOURCE_P (class))
-	    safe_layout_class (class);
-	  else if (class != current_class)
+	  if (class != current_class)
 	    load_class (class, 1);
 	}
       return 1;
@@ -2318,8 +2310,6 @@ maybe_layout_super_class (tree super_class, tree this_class ATTRIBUTE_UNUSED)
     return NULL_TREE;
   else if (TREE_CODE (super_class) == RECORD_TYPE)
     {
-      if (!CLASS_LOADED_P (super_class) && CLASS_FROM_SOURCE_P (super_class))
-	safe_layout_class (super_class);
       if (!CLASS_LOADED_P (super_class))
 	load_class (super_class, 1);
     }
@@ -2357,6 +2347,7 @@ safe_layout_class (tree class)
 void
 layout_class (tree this_class)
 {
+  int i;
   tree super_class = CLASSTYPE_SUPER (this_class);
 
   class_list = tree_cons (this_class, NULL_TREE, class_list);
@@ -2407,28 +2398,22 @@ layout_class (tree this_class)
 
   layout_type (this_class);
 
-  /* Also recursively load/layout any superinterfaces, but only if
-     class was loaded from bytecode.  The source parser will take care
-     of this itself.  */
-  if (!CLASS_FROM_SOURCE_P (this_class))
+  /* Also recursively load/layout any superinterfaces.  */
+  if (TYPE_BINFO (this_class))
     {
-      int i;
-            if (TYPE_BINFO (this_class))
+      for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (this_class)) - 1; i > 0; i--)
 	{
-	  for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (this_class)) - 1; i > 0; i--)
+	  tree binfo = BINFO_BASE_BINFO (TYPE_BINFO (this_class), i);
+	  tree super_interface = BINFO_TYPE (binfo);
+	  tree maybe_super_interface 
+	    = maybe_layout_super_class (super_interface, NULL_TREE);
+	  if (maybe_super_interface == NULL
+	      || TREE_CODE (TYPE_SIZE (maybe_super_interface)) == ERROR_MARK)
 	    {
-	      tree binfo = BINFO_BASE_BINFO (TYPE_BINFO (this_class), i);
-	      tree super_interface = BINFO_TYPE (binfo);
-	      tree maybe_super_interface 
-		= maybe_layout_super_class (super_interface, NULL_TREE);
-	      if (maybe_super_interface == NULL
-		  || TREE_CODE (TYPE_SIZE (maybe_super_interface)) == ERROR_MARK)
-		{
-		  TYPE_SIZE (this_class) = error_mark_node;
-		  CLASS_BEING_LAIDOUT (this_class) = 0;
-		  class_list = TREE_CHAIN (class_list);
-		  return;
-		}
+	      TYPE_SIZE (this_class) = error_mark_node;
+	      CLASS_BEING_LAIDOUT (this_class) = 0;
+	      class_list = TREE_CHAIN (class_list);
+	      return;
 	    }
 	}
     }
@@ -2623,7 +2608,6 @@ layout_class_method (tree this_class, tree super_class,
 	  set_method_index (method_decl, method_index);
 	  if (method_index == NULL_TREE 
 	      && ! flag_indirect_dispatch
-	      && !CLASS_FROM_SOURCE_P (this_class)
 	      && ! DECL_ARTIFICIAL (super_method))
 	    error ("non-static method %q+D overrides static method",
                    method_decl);
@@ -3038,15 +3022,17 @@ static int java_treetreehash_compare (const void *, const void *);
 static hashval_t
 java_treetreehash_hash (const void *k_p)
 {
-  struct treetreehash_entry *k = (struct treetreehash_entry *) k_p;
+  const struct treetreehash_entry *const k
+    = (const struct treetreehash_entry *) k_p;
   return JAVA_TREEHASHHASH_H (k->key);
 }
 
 static int
 java_treetreehash_compare (const void * k1_p, const void * k2_p)
 {
-  struct treetreehash_entry * k1 = (struct treetreehash_entry *) k1_p;
-  tree k2 = (tree) k2_p;
+  const struct treetreehash_entry *const k1
+    = (const struct treetreehash_entry *) k1_p;
+  const_tree const k2 = (const_tree) k2_p;
   return (k1->key == k2);
 }
 

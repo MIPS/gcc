@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_BASIC_BLOCK_H
 #define GCC_BASIC_BLOCK_H
@@ -81,7 +80,7 @@ typedef bitmap regset;
 #define REGNO_REG_SET_P(TO, REG) bitmap_bit_p (TO, REG)
 
 /* Copy the hard registers in a register set to the hard register set.  */
-extern void reg_set_to_hard_reg_set (HARD_REG_SET *, bitmap);
+extern void reg_set_to_hard_reg_set (HARD_REG_SET *, const_bitmap);
 #define REG_SET_TO_HARD_REG_SET(TO, FROM)				\
 do {									\
   CLEAR_HARD_REG_SET (TO);						\
@@ -144,6 +143,7 @@ struct edge_def GTY(())
 };
 
 typedef struct edge_def *edge;
+typedef const struct edge_def *const_edge;
 DEF_VEC_P(edge);
 DEF_VEC_ALLOC_P(edge,gc);
 DEF_VEC_ALLOC_P(edge,heap);
@@ -276,6 +276,7 @@ struct tree_bb_info GTY(())
 };
 
 typedef struct basic_block_def *basic_block;
+typedef const struct basic_block_def *const_basic_block;
 
 DEF_VEC_P(basic_block);
 DEF_VEC_ALLOC_P(basic_block,gc);
@@ -349,6 +350,15 @@ enum bb_flags
 #define BB_COPY_PARTITION(dstbb, srcbb) \
   BB_SET_PARTITION (dstbb, BB_PARTITION (srcbb))
 
+/* State of dominance information.  */
+
+enum dom_state
+{
+  DOM_NONE,		/* Not computed at all.  */
+  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
+  DOM_OK		/* Everything is ok.  */
+};
+
 /* A structure to group all the per-function control flow graph data.
    The x_* prefixing is necessary because otherwise references to the
    fields of this struct are interpreted as the defines for backward
@@ -381,6 +391,12 @@ struct control_flow_graph GTY(())
     PROFILE_GUESSED,
     PROFILE_READ
   } x_profile_status;
+
+  /* Whether the dominators and the postdominators are available.  */
+  enum dom_state x_dom_computed[2];
+
+  /* Number of basic blocks in the dominance tree.  */
+  unsigned x_n_bbs_in_dom_tree[2];
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */
@@ -490,7 +506,7 @@ extern edge unchecked_make_edge (basic_block, basic_block, int);
 extern edge cached_make_edge (sbitmap, basic_block, basic_block, int);
 extern edge make_edge (basic_block, basic_block, int);
 extern edge make_single_succ_edge (basic_block, basic_block, int);
-extern void remove_edge (edge);
+extern void remove_edge_raw (edge);
 extern void redirect_edge_succ (edge, basic_block);
 extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
@@ -500,8 +516,8 @@ extern int post_order_compute (int *, bool, bool);
 extern int inverted_post_order_compute (int *);
 extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
-			       bool (*)(basic_block, void *),
-			       basic_block *, int, void *);
+			       bool (*)(const_basic_block, const void *),
+			       basic_block *, int, const void *);
 extern void compute_dominance_frontiers (bitmap *);
 extern void dump_bb_info (basic_block, bool, bool, int, const char *, FILE *);
 extern void dump_edge_info (FILE *, edge, int);
@@ -593,7 +609,7 @@ struct edge_list
 /* Returns true if BB has precisely one successor.  */
 
 static inline bool
-single_succ_p (basic_block bb)
+single_succ_p (const_basic_block bb)
 {
   return EDGE_COUNT (bb->succs) == 1;
 }
@@ -601,7 +617,7 @@ single_succ_p (basic_block bb)
 /* Returns true if BB has precisely one predecessor.  */
 
 static inline bool
-single_pred_p (basic_block bb)
+single_pred_p (const_basic_block bb)
 {
   return EDGE_COUNT (bb->preds) == 1;
 }
@@ -610,7 +626,7 @@ single_pred_p (basic_block bb)
    BB does not have exactly one successor.  */
 
 static inline edge
-single_succ_edge (basic_block bb)
+single_succ_edge (const_basic_block bb)
 {
   gcc_assert (single_succ_p (bb));
   return EDGE_SUCC (bb, 0);
@@ -620,7 +636,7 @@ single_succ_edge (basic_block bb)
    if BB does not have exactly one predecessor.  */
 
 static inline edge
-single_pred_edge (basic_block bb)
+single_pred_edge (const_basic_block bb)
 {
   gcc_assert (single_pred_p (bb));
   return EDGE_PRED (bb, 0);
@@ -630,7 +646,7 @@ single_pred_edge (basic_block bb)
    if BB does not have exactly one successor.  */
 
 static inline basic_block
-single_succ (basic_block bb)
+single_succ (const_basic_block bb)
 {
   return single_succ_edge (bb)->dest;
 }
@@ -639,7 +655,7 @@ single_succ (basic_block bb)
    if BB does not have exactly one predecessor.*/
 
 static inline basic_block
-single_pred (basic_block bb)
+single_pred (const_basic_block bb)
 {
   return single_pred_edge (bb)->src;
 }
@@ -811,18 +827,18 @@ extern struct edge_list *pre_edge_rev_lcm (int, sbitmap *,
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 
 /* In predict.c */
-extern bool maybe_hot_bb_p (basic_block);
-extern bool probably_cold_bb_p (basic_block);
-extern bool probably_never_executed_bb_p (basic_block);
-extern bool tree_predicted_by_p (basic_block, enum br_predictor);
-extern bool rtl_predicted_by_p (basic_block, enum br_predictor);
+extern bool maybe_hot_bb_p (const_basic_block);
+extern bool probably_cold_bb_p (const_basic_block);
+extern bool probably_never_executed_bb_p (const_basic_block);
+extern bool tree_predicted_by_p (const_basic_block, enum br_predictor);
+extern bool rtl_predicted_by_p (const_basic_block, enum br_predictor);
 extern void tree_predict_edge (edge, enum br_predictor, int);
 extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 extern void guess_outgoing_edge_probabilities (basic_block);
 extern void remove_predictions_associated_with_edge (edge);
-extern bool edge_probability_reliable_p (edge);
-extern bool br_prob_note_reliable_p (rtx);
+extern bool edge_probability_reliable_p (const_edge);
+extern bool br_prob_note_reliable_p (const_rtx);
 
 /* In cfg.c  */
 extern void dump_regset (regset, FILE *);
@@ -848,10 +864,10 @@ extern void free_aux_for_edges (void);
 
 /* In cfganal.c  */
 extern void find_unreachable_blocks (void);
-extern bool forwarder_block_p (basic_block);
+extern bool forwarder_block_p (const_basic_block);
 extern bool can_fallthru (basic_block, basic_block);
 extern bool could_fall_through (basic_block, basic_block);
-extern void flow_nodes_print (const char *, const sbitmap, FILE *);
+extern void flow_nodes_print (const char *, const_sbitmap, FILE *);
 extern void flow_edge_list_print (const char *, const edge *, int, FILE *);
 
 /* In cfgrtl.c  */
@@ -873,8 +889,8 @@ extern bool mark_dfs_back_edges (void);
 extern void set_edge_can_fallthru_flag (void);
 extern void update_br_prob_note (basic_block);
 extern void fixup_abnormal_edges (void);
-extern bool inside_basic_block_p (rtx);
-extern bool control_flow_insn_p (rtx);
+extern bool inside_basic_block_p (const_rtx);
+extern bool control_flow_insn_p (const_rtx);
 extern rtx get_last_bb_insn (basic_block);
 
 /* In bb-reorder.c */
@@ -886,13 +902,6 @@ enum cdi_direction
 {
   CDI_DOMINATORS = 1,
   CDI_POST_DOMINATORS = 2
-};
-
-enum dom_state
-{
-  DOM_NONE,		/* Not computed at all.  */
-  DOM_NO_FAST_QUERY,	/* The data is OK, but the fast query data are not usable.  */
-  DOM_OK		/* Everything is ok.  */
 };
 
 extern enum dom_state dom_info_state (enum cdi_direction);
@@ -907,7 +916,7 @@ extern basic_block nearest_common_dominator_for_set (enum cdi_direction,
 extern void set_immediate_dominator (enum cdi_direction, basic_block,
 				     basic_block);
 extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);
-extern bool dominated_by_p (enum cdi_direction, basic_block, basic_block);
+extern bool dominated_by_p (enum cdi_direction, const_basic_block, const_basic_block);
 extern VEC (basic_block, heap) *get_dominated_by (enum cdi_direction, basic_block);
 extern VEC (basic_block, heap) *get_dominated_by_region (enum cdi_direction,
 							 basic_block *,

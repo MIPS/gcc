@@ -6,7 +6,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* This (greedy) algorithm constructs traces in several rounds.
    The construction starts from "seeds".  The seed for the first round
@@ -175,12 +174,12 @@ static void find_traces_1_round (int, int, gcov_type, struct trace *, int *,
 				 int, fibheap_t *, int);
 static basic_block copy_bb (basic_block, edge, basic_block, int);
 static fibheapkey_t bb_to_key (basic_block);
-static bool better_edge_p (basic_block, edge, int, int, int, int, edge);
+static bool better_edge_p (const_basic_block, const_edge, int, int, int, int, const_edge);
 static void connect_traces (int, struct trace *);
-static bool copy_bb_p (basic_block, int);
+static bool copy_bb_p (const_basic_block, int);
 static int get_uncond_jump_length (void);
-static bool push_to_next_round_p (basic_block, int, int, int, gcov_type);
-static void find_rarely_executed_basic_blocks_and_crossing_edges (edge *,
+static bool push_to_next_round_p (const_basic_block, int, int, int, gcov_type);
+static void find_rarely_executed_basic_blocks_and_crossing_edges (edge **,
 								  int *,
 								  int *);
 static void add_labels_and_missing_jumps (edge *, int);
@@ -199,7 +198,7 @@ static void fix_crossing_unconditional_branches (void);
    current round of trace collection.  */
 
 static bool
-push_to_next_round_p (basic_block bb, int round, int number_of_rounds,
+push_to_next_round_p (const_basic_block bb, int round, int number_of_rounds,
 		      int exec_th, gcov_type count_th)
 {
   bool there_exists_another_round;
@@ -848,8 +847,8 @@ bb_to_key (basic_block bb)
    BEST_PROB; similarly for frequency.  */
 
 static bool
-better_edge_p (basic_block bb, edge e, int prob, int freq, int best_prob,
-	       int best_freq, edge cur_best_edge)
+better_edge_p (const_basic_block bb, const_edge e, int prob, int freq, int best_prob,
+	       int best_freq, const_edge cur_best_edge)
 {
   bool is_better_edge;
 
@@ -1157,7 +1156,7 @@ connect_traces (int n_traces, struct trace *traces)
    when code size is allowed to grow by duplication.  */
 
 static bool
-copy_bb_p (basic_block bb, int code_may_grow)
+copy_bb_p (const_basic_block bb, int code_may_grow)
 {
   int size = 0;
   int max_size = uncond_jump_length;
@@ -1219,7 +1218,7 @@ get_uncond_jump_length (void)
    cache locality).  */
 
 static void
-find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
+find_rarely_executed_basic_blocks_and_crossing_edges (edge **crossing_edges,
 						      int *n_crossing_edges,
 						      int *max_idx)
 {
@@ -1256,10 +1255,10 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge *crossing_edges,
 	  if (i == *max_idx)
 	    {
 	      *max_idx *= 2;
-	      crossing_edges = xrealloc (crossing_edges,
+	      *crossing_edges = xrealloc (*crossing_edges,
 					 (*max_idx) * sizeof (edge));
 	    }
-	  crossing_edges[i++] = e;
+	  (*crossing_edges)[i++] = e;
 	}
       else
 	e->flags &= ~EDGE_CROSSING;
@@ -2085,7 +2084,7 @@ struct tree_opt_pass pass_duplicate_computed_gotos =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -2168,7 +2167,7 @@ partition_hot_cold_basic_blocks (void)
 	&& cur_bb->next_bb->index >= NUM_FIXED_BLOCKS)
       cur_bb->aux = cur_bb->next_bb;
 
-  find_rarely_executed_basic_blocks_and_crossing_edges (crossing_edges,
+  find_rarely_executed_basic_blocks_and_crossing_edges (&crossing_edges,
 							&n_crossing_edges,
 							&max_edges);
 
@@ -2199,18 +2198,11 @@ rest_of_handle_reorder_blocks (void)
      splitting possibly introduced more crossjumping opportunities.  */
   cfg_layout_initialize (CLEANUP_EXPENSIVE);
 
-  if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
-    {
-      timevar_push (TV_TRACER);
-      tracer ();
-      timevar_pop (TV_TRACER);
-    }
-
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
-    reorder_basic_blocks ();
-  if (flag_reorder_blocks || flag_reorder_blocks_and_partition
-      || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    cleanup_cfg (CLEANUP_EXPENSIVE);
+    {
+      reorder_basic_blocks ();
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+    }
 
   FOR_EACH_BB (bb)
     if (bb->next_bb != EXIT_BLOCK_PTR)
@@ -2235,7 +2227,7 @@ struct tree_opt_pass pass_reorder_blocks =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
   'B'                                   /* letter */
 };
 
@@ -2256,9 +2248,7 @@ gate_handle_partition_blocks (void)
 static unsigned int
 rest_of_handle_partition_blocks (void)
 {
-  no_new_pseudos = 0;
   partition_hot_cold_basic_blocks ();
-  no_new_pseudos = 1;
   return 0;
 }
 
@@ -2275,7 +2265,7 @@ struct tree_opt_pass pass_partition_blocks =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
   0                                     /* letter */
 };
 

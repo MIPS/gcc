@@ -5,7 +5,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; Return 1 for anything except PARALLEL.
 (define_predicate "any_operand"
@@ -29,7 +28,7 @@
 ;; Return 1 if op is COUNT register.
 (define_predicate "count_register_operand"
   (and (match_code "reg")
-       (match_test "REGNO (op) == COUNT_REGISTER_REGNUM
+       (match_test "REGNO (op) == CTR_REGNO
 		    || REGNO (op) > LAST_VIRTUAL_REGISTER")))
   
 ;; Return 1 if op is an Altivec register.
@@ -350,10 +349,10 @@
 
 ;; Return 1 if the operand is an offsettable memory operand.
 (define_predicate "offsettable_mem_operand"
-  (and (match_code "mem")
-       (match_test "offsettable_address_p (reload_completed
-					   || reload_in_progress,
-					   mode, XEXP (op, 0))")))
+  (and (match_operand 0 "memory_operand")
+       (match_test "GET_CODE (XEXP (op, 0)) != PRE_INC
+		    && GET_CODE (XEXP (op, 0)) != PRE_DEC
+		    && GET_CODE (XEXP (op, 0)) != PRE_MODIFY")))
 
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"
@@ -686,8 +685,8 @@
 ;; to CALL.  This is a SYMBOL_REF, a pseudo-register, LR or CTR.
 (define_predicate "call_operand"
   (if_then_else (match_code "reg")
-     (match_test "REGNO (op) == LINK_REGISTER_REGNUM
-		  || REGNO (op) == COUNT_REGISTER_REGNUM
+     (match_test "REGNO (op) == LR_REGNO
+		  || REGNO (op) == CTR_REGNO
 		  || REGNO (op) >= FIRST_PSEUDO_REGISTER")
      (match_code "symbol_ref")))
 

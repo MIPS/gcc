@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This is a simple analysis of induction variables of the loop.  The major use
    is for determining the number of iterations of a loop for loop unrolling,
@@ -244,7 +243,7 @@ biv_hash (const void *b)
 static int
 biv_eq (const void *b, const void *r)
 {
-  return ((const struct biv_entry *) b)->regno == REGNO ((rtx) r);
+  return ((const struct biv_entry *) b)->regno == REGNO ((const_rtx) r);
 }
 
 /* Prepare the data for an induction variable analysis of a LOOP.  */
@@ -281,7 +280,7 @@ iv_analysis_loop_init (struct loop *loop)
   df_set_blocks (blocks);
   df_analyze ();
   if (dump_file)
-    df_dump (dump_file);
+    df_dump_region (dump_file);
 
   check_iv_ref_table_size ();
   BITMAP_FREE (blocks);
@@ -302,7 +301,8 @@ latch_dominating_def (rtx reg, struct df_ref **def)
 
   for (adef = DF_REG_DEF_CHAIN (regno); adef; adef = adef->next_reg)
     {
-      if (!bitmap_bit_p (bb_info->out, DF_REF_ID (adef)))
+      if (!bitmap_bit_p (df->blocks_to_analyze, DF_REF_BB (adef)->index)
+	  || !bitmap_bit_p (bb_info->out, DF_REF_ID (adef)))
 	continue;
 
       /* More than one reaching definition.  */
@@ -1267,7 +1267,7 @@ iv_analysis_done (void)
     {
       clear_iv_info ();
       clean_slate = true;
-      df_finish_pass ();
+      df_finish_pass (true);
       htab_delete (bivs);
       free (iv_ref_table);
       iv_ref_table = NULL;
@@ -1309,7 +1309,7 @@ altered_reg_used (rtx *reg, void *alt)
 /* Marks registers altered by EXPR in set ALT.  */
 
 static void
-mark_altered (rtx expr, rtx by ATTRIBUTE_UNUSED, void *alt)
+mark_altered (rtx expr, const_rtx by ATTRIBUTE_UNUSED, void *alt)
 {
   if (GET_CODE (expr) == SUBREG)
     expr = SUBREG_REG (expr);

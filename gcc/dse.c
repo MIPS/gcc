@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #undef BASELINE
 
@@ -43,6 +42,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "recog.h"
 #include "dse.h"
+#include "optabs.h"
 #include "dbgcnt.h"
 
 /* This file contains three techniques for performing Dead Store
@@ -144,7 +144,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    ... <- A
 
    flow would replace the right hand side of the second insn with a
-   reference to r100.  Most of the infomation is available to add this
+   reference to r100.  Most of the information is available to add this
    to this pass.  It has not done it because it is a lot of work in
    the case that either r100 is assigned to between the first and
    second insn and/or the second insn is a load of part of the value
@@ -219,7 +219,7 @@ struct store_info
   rtx mem_addr;
 
   /* If this is non-zero, it is the alias set of a spill location.  */
-  HOST_WIDE_INT alias_set;
+  alias_set_type alias_set;
 
   /* The offset of the first and byte before the last byte associated
      with the operation.  */
@@ -251,7 +251,7 @@ struct read_info
   int group_id;
 
   /* If this is non-zero, it is the alias set of a spill location.  */
-  HOST_WIDE_INT alias_set;
+  alias_set_type alias_set;
 
   /* The offset of the first and byte after the last byte associated
      with the operation.  If begin == end == 0, the read did not have
@@ -303,7 +303,7 @@ struct insn_info
      insn.  If the insn is deletable, it contains only one mem set.
      But it could also contain clobbers.  Insns that contain more than
      one mem set are not deletable, but each of those mems are here in
-     order to provied info to delete other insns.  */
+     order to provide info to delete other insns.  */
   store_info_t store_rec;
 
   /* The linked list of mem uses in this insn.  Only the reads from
@@ -403,9 +403,9 @@ struct group_info
   rtx canon_base_mem;
 
   /* These two sets of two bitmaps are used to keep track of how many
-     stores are actually referencing that postion from this base.  We
+     stores are actually referencing that position from this base.  We
      only do this for rtx bases as this will be used to assign
-     postions in the bitmaps for the global problem.  Bit N is set in
+     positions in the bitmaps for the global problem.  Bit N is set in
      store1 on the first store for offset N.  Bit N is set in store2
      for the second store to offset N.  This is all we need since we
      only care about offsets that have two or more stores for them.
@@ -420,9 +420,9 @@ struct group_info
      deleted.  */
   bitmap store1_n, store1_p, store2_n, store2_p;
 
-  /* The postions in this bitmap have the same assignments as the in,
+  /* The positions in this bitmap have the same assignments as the in,
      out, gen and kill bitmaps.  This bitmap is all zeros except for
-     the postions that are occupied by stores for this group.  */
+     the positions that are occupied by stores for this group.  */
   bitmap group_kill;
 
   /* True if there are any positions that are to be processed
@@ -434,13 +434,14 @@ struct group_info
   bool frame_related;
 
   /* The offset_map is used to map the offsets from this base into
-     postions in the global bitmaps.  It is only created after all of
+     positions in the global bitmaps.  It is only created after all of
      the all of stores have been scanned and we know which ones we
      care about.  */
   int *offset_map_n, *offset_map_p; 
   int offset_map_size_n, offset_map_size_p; 
 };
 typedef struct group_info *group_info_t;
+typedef const struct group_info *const_group_info_t;
 static alloc_pool rtx_group_info_pool;
 
 /* Tables of group_info structures, hashed by base value.  */
@@ -497,7 +498,7 @@ static htab_t clear_alias_mode_table;
 /* Hash table element to look up the mode for an alias set.  */
 struct clear_alias_mode_holder
 {
-  HOST_WIDE_INT alias_set;
+  alias_set_type alias_set;
   enum machine_mode mode;
 };
 
@@ -556,7 +557,7 @@ clear_alias_mode_hash (const void *p)
 /* Find the entry associated with ALIAS_SET.  */
 
 static struct clear_alias_mode_holder *
-clear_alias_set_lookup (HOST_WIDE_INT alias_set)
+clear_alias_set_lookup (alias_set_type alias_set)
 {
   struct clear_alias_mode_holder tmp_holder;
   void **slot;
@@ -575,8 +576,8 @@ clear_alias_set_lookup (HOST_WIDE_INT alias_set)
 static int
 invariant_group_base_eq (const void *p1, const void *p2)
 {
-  const group_info_t gi1 = (const group_info_t) p1;
-  const group_info_t gi2 = (const group_info_t) p2;
+  const_group_info_t gi1 = (const_group_info_t) p1;
+  const_group_info_t gi2 = (const_group_info_t) p2;
   return rtx_equal_p (gi1->rtx_base, gi2->rtx_base);
 }
 
@@ -584,7 +585,7 @@ invariant_group_base_eq (const void *p1, const void *p2)
 static hashval_t
 invariant_group_base_hash (const void *p)
 {
-  const group_info_t gi = (const group_info_t) p;
+  const_group_info_t gi = (const_group_info_t) p;
   int do_not_record;
   return hash_rtx (gi->rtx_base, Pmode, &do_not_record, NULL, false);
 }
@@ -845,7 +846,7 @@ delete_dead_store_insn (insn_info_t insn_info)
 	       INSN_UID (insn_info->insn));
       if (insn_info->store_rec->alias_set)
 	fprintf (dump_file, "alias set %d\n", 
-		 (int)insn_info->store_rec->alias_set);
+		 (int) insn_info->store_rec->alias_set);
       else
 	fprintf (dump_file, "\n");
     }
@@ -927,7 +928,7 @@ add_wild_read (bb_info_t bb_info)
   while (*ptr)
     {
       read_info_t next = (*ptr)->next;
-      if ( (*ptr)->alias_set == 0 )
+      if ((*ptr)->alias_set == 0)
         {
           pool_free (read_info_pool, *ptr);
           *ptr = next;
@@ -996,7 +997,7 @@ const_or_frame_p (rtx x)
 
 static bool
 canon_address (rtx mem,
-	       HOST_WIDE_INT *alias_set_out,
+	       alias_set_type *alias_set_out,
 	       int *group_id,
 	       HOST_WIDE_INT *offset, 
 	       cselib_val **base)
@@ -1009,9 +1010,9 @@ canon_address (rtx mem,
   if (clear_alias_sets)
     {
       /* If this is a spill, do not do any further processing.  */
-      HOST_WIDE_INT alias_set = MEM_ALIAS_SET (mem);
+      alias_set_type alias_set = MEM_ALIAS_SET (mem);
       if (dump_file)
-	fprintf (dump_file, "found alias set %d\n", (int)alias_set);
+	fprintf (dump_file, "found alias set %d\n", (int) alias_set);
       if (bitmap_bit_p (clear_alias_sets, alias_set))
 	{
 	  struct clear_alias_mode_holder *entry 
@@ -1023,7 +1024,7 @@ canon_address (rtx mem,
 	      if (dump_file)
 		fprintf (dump_file, 
 			 "disqualifying alias set %d, (%s) != (%s)\n", 
-			 (int)alias_set, GET_MODE_NAME (entry->mode), 
+			 (int) alias_set, GET_MODE_NAME (entry->mode), 
 			 GET_MODE_NAME (GET_MODE (mem)));
 	      
 	      bitmap_set_bit (disqualified_clear_alias_sets, alias_set);
@@ -1148,7 +1149,7 @@ record_store (rtx body, bb_info_t bb_info)
   rtx mem;
   HOST_WIDE_INT offset = 0;
   HOST_WIDE_INT width = 0;
-  HOST_WIDE_INT spill_alias_set;
+  alias_set_type spill_alias_set;
   insn_info_t insn_info = bb_info->last_insn;
   store_info_t store_info = NULL;
   int group_id;
@@ -1225,7 +1226,7 @@ record_store (rtx body, bb_info_t bb_info)
 
       if (dump_file)
 	fprintf (dump_file, " processing spill store %d(%s)\n",
-		 (int)spill_alias_set, GET_MODE_NAME (GET_MODE (mem)));
+		 (int) spill_alias_set, GET_MODE_NAME (GET_MODE (mem)));
     }
   else if (group_id >= 0)
     {
@@ -1265,7 +1266,7 @@ record_store (rtx body, bb_info_t bb_info)
       bool delete = true;
 
       /* Skip the clobbers. We delete the active insn if this insn
-	 shaddows the set.  To have been put on the active list, it
+	 shadows the set.  To have been put on the active list, it
 	 has exactly on set. */
       while (!s_info->is_set)
 	s_info = s_info->next;
@@ -1289,7 +1290,7 @@ record_store (rtx body, bb_info_t bb_info)
 	    }
 	  if (dump_file)
 	    fprintf (dump_file, "    trying spill store in insn=%d alias_set=%d\n",
-		     INSN_UID (ptr->insn), (int)s_info->alias_set);
+		     INSN_UID (ptr->insn), (int) s_info->alias_set);
 	}
       else if ((s_info->group_id == group_id) 
 	       && (s_info->cse_base == base))
@@ -1381,6 +1382,111 @@ dump_insn_info (const char * start, insn_info_t insn_info)
 }
 
 
+/* If the modes are different and the value's source and target do not
+   line up, we need to extract the value from lower part of the rhs of
+   the store, shift it, and then put it into a form that can be shoved
+   into the read_insn.  This function generates a right SHIFT of a
+   value that is at least ACCESS_SIZE bytes wide of READ_MODE.  The
+   shift sequence is returned or NULL if we failed to find a
+   shift.  */
+
+static rtx
+find_shift_sequence (rtx read_reg,
+		     int access_size,
+		     store_info_t store_info,
+		     read_info_t read_info,
+		     int shift)
+{
+  enum machine_mode store_mode = GET_MODE (store_info->mem);
+  enum machine_mode read_mode = GET_MODE (read_info->mem);
+  rtx chosen_seq = NULL;
+
+  /* Some machines like the x86 have shift insns for each size of
+     operand.  Other machines like the ppc or the ia-64 may only have
+     shift insns that shift values within 32 or 64 bit registers.
+     This loop tries to find the smallest shift insn that will right
+     justify the value we want to read but is available in one insn on
+     the machine.  */
+
+  for (; access_size < UNITS_PER_WORD; access_size *= 2)
+    {
+      rtx target, new_reg, shift_seq, insn;
+      enum machine_mode new_mode;
+      int cost;
+
+      /* Try a wider mode if truncating the store mode to ACCESS_SIZE
+	 bytes requires a real instruction.  */
+      if (access_size < GET_MODE_SIZE (store_mode)
+	  && !TRULY_NOOP_TRUNCATION (access_size * BITS_PER_UNIT,
+				     GET_MODE_BITSIZE (store_mode)))
+	continue;
+
+      new_mode = smallest_mode_for_size (access_size * BITS_PER_UNIT,
+					 GET_MODE_CLASS (read_mode));
+      new_reg = gen_reg_rtx (new_mode);
+
+      start_sequence ();
+
+      /* In theory we could also check for an ashr.  Ian Taylor knows
+	 of one dsp where the cost of these two was not the same.  But
+	 this really is a rare case anyway.  */
+      target = expand_binop (new_mode, lshr_optab, new_reg,
+			     GEN_INT (shift), new_reg, 1, OPTAB_DIRECT);
+
+      shift_seq = get_insns ();
+      end_sequence ();
+
+      if (target != new_reg || shift_seq == NULL)
+	continue;
+
+      cost = 0;
+      for (insn = shift_seq; insn != NULL_RTX; insn = NEXT_INSN (insn))
+	if (INSN_P (insn))
+	  cost += insn_rtx_cost (PATTERN (insn));
+
+      /* The computation up to here is essentially independent
+	 of the arguments and could be precomputed.  It may
+	 not be worth doing so.  We could precompute if
+	 worthwhile or at least cache the results.  The result
+	 technically depends on SHIFT, ACCESS_SIZE, and
+	 GET_MODE_CLASS (READ_MODE).  But in practice the
+	 answer will depend only on ACCESS_SIZE.  */
+
+      if (cost > COSTS_N_INSNS (1))
+	continue;
+
+      /* We found an acceptable shift.  Generate a move to
+	 take the value from the store and put it into the
+	 shift pseudo, then shift it, then generate another
+	 move to put in into the target of the read.  */
+      start_sequence ();
+      emit_move_insn (new_reg, gen_lowpart (new_mode, store_info->rhs));
+      emit_insn (shift_seq);
+      convert_move (read_reg, new_reg, 1);
+		  
+      if (dump_file)
+	{
+	  fprintf (dump_file, " -- adding extract insn r%d:%s = r%d:%s\n",
+		   REGNO (new_reg), GET_MODE_NAME (new_mode),
+		   REGNO (store_info->rhs), GET_MODE_NAME (store_mode));
+		      
+	  fprintf (dump_file, " -- with shift of r%d by %d\n",
+		   REGNO(new_reg), shift);
+	  fprintf (dump_file, " -- and second extract insn r%d:%s = r%d:%s\n",
+		   REGNO (read_reg), GET_MODE_NAME (read_mode),
+		   REGNO (new_reg), GET_MODE_NAME (new_mode));
+	}
+		  
+      /* Get the three insn sequence and return it.  */
+      chosen_seq = get_insns ();
+      end_sequence ();
+      break;
+    }
+
+  return chosen_seq;
+}
+
+
 /* Take a sequence of:
      A <- r1
      ...
@@ -1392,7 +1498,23 @@ dump_insn_info (const char * start, insn_info_t insn_info)
    ...
    ... <- r2
 
-   The STORE_INFO and STORE_INFO are for the store and the READ_INFO
+   or
+
+   r3 <- extract (r1)
+   r3 <- r3 >> shift
+   r2 <- extract (r3)
+   ... <- r2
+
+   or
+
+   r2 <- extract (r1)
+   ... <- r2
+
+   Depending on the alignment and the mode of the store and
+   subsequent load.
+
+
+   The STORE_INFO and STORE_INSN are for the store and READ_INFO
    and READ_INSN are for the read.  Return true if the replacement
    went ok.  */
 
@@ -1400,81 +1522,134 @@ static bool
 replace_read (store_info_t store_info, insn_info_t store_insn, 
 	      read_info_t read_info, insn_info_t read_insn, rtx *loc)
 {
+  enum machine_mode store_mode = GET_MODE (store_info->mem);
+  enum machine_mode read_mode = GET_MODE (read_info->mem);
+  int shift;
+  int access_size; /* In bytes.  */
+  rtx read_reg = gen_reg_rtx (read_mode);
+  rtx shift_seq = NULL;
+
   if (!dbg_cnt (dse))
     return false;
 
-  if (dump_file)
-    fprintf (dump_file, "generating move to replace load at %d from store at %d\n", 
-	     INSN_UID (read_insn->insn), INSN_UID (store_insn->insn)); 
-  if (GET_MODE (store_info->mem) == GET_MODE (read_info->mem))
-    {
-      rtx new_reg = gen_reg_rtx (GET_MODE (store_info->mem));
-      if (validate_change (read_insn->insn, loc, new_reg, 0))
-	{
-	  rtx insns;
-	  deferred_change_t deferred_change = pool_alloc (deferred_change_pool);
+  if (GET_MODE_CLASS (read_mode) != GET_MODE_CLASS (store_mode))
+    return false;
 
+  /* To get here the read is within the boundaries of the write so
+     shift will never be negative.  Start out with the shift being in
+     bytes.  */
+  if (BYTES_BIG_ENDIAN)
+    shift = store_info->end - read_info->end;
+  else
+    shift = read_info->begin - store_info->begin;
+
+  access_size = shift + GET_MODE_SIZE (read_mode);
+
+  /* From now on it is bits.  */
+  shift *= BITS_PER_UNIT;
+
+  /* We need to keep this in perspective.  We are replacing a read
+     with a sequence of insns, but the read will almost certainly be
+     in cache, so it is not going to be an expensive one.  Thus, we
+     are not willing to do a multi insn shift or worse a subroutine
+     call to get rid of the read.  */
+  if (shift)
+    {
+      if (access_size > UNITS_PER_WORD || FLOAT_MODE_P (store_mode))
+	return false;
+
+      shift_seq = find_shift_sequence (read_reg, access_size, store_info,
+				       read_info, shift);
+      if (!shift_seq)
+	return false;
+    }
+
+  if (dump_file)
+    fprintf (dump_file, "replacing load at %d from store at %d\n",
+	     INSN_UID (read_insn->insn), INSN_UID (store_insn->insn)); 
+
+  if (validate_change (read_insn->insn, loc, read_reg, 0))
+    {
+      rtx insns;
+      deferred_change_t deferred_change = pool_alloc (deferred_change_pool);
+      
+      if (read_mode == store_mode)
+	{
 	  start_sequence ();
-	  emit_move_insn (new_reg, store_info->rhs);
+	  
+	  /* The modes are the same and everything lines up.  Just
+	     generate a simple move.  */
+	  emit_move_insn (read_reg, store_info->rhs);
+	  if (dump_file)
+	    fprintf (dump_file, " -- adding move insn r%d = r%d\n",
+		     REGNO (read_reg), REGNO (store_info->rhs));
 	  insns = get_insns ();
 	  end_sequence ();
-	  emit_insn_before (insns, store_insn->insn);
-
-	  if (dump_file)
-	    fprintf (dump_file, " -- adding move insn %d: r%d = r%d\n", 
-		     INSN_UID (insns), REGNO (new_reg), REGNO (store_info->rhs)); 
-
-	  /* And now for the cludge part: cselib croaks if you just
-	     return at this point.  There are two reasons for this:
-
-	     1) Cselib has an idea of how many pseudos there are and
-	     that does not include the new one we just added.  
-
-	     2) Cselib does not know about the move insn we added
-	     above the store_info, and there is no way to tell it
-	     about it, because it has "moved on".
-
-	     So we are just going to have to lie.  The move insn is
-	     not really an issue, cselib did not see it.  But the use
-	     of the new pseudo read_insn is a real problem.  The way
-	     that we solve this problem is that we are just going to
-	     put the mem back keep a table of mems to get rid of.  At
-	     the end of the basic block we can put it back.  */
-
-	  *loc = read_info->mem;
-	  deferred_change->next = deferred_change_list;
-	  deferred_change_list = deferred_change;
-	  deferred_change->loc = loc;
-	  deferred_change->reg = new_reg;
-
-	  /* Get rid of the read_info, from the point of view of the
-	     rest of dse, play like this read never happened.  */
-	  read_insn->read_rec = read_info->next;
-	  pool_free (read_info_pool, read_info);
-	  return true;
 	}
-      else 
+      else if (shift)
+	insns = shift_seq;
+      else
 	{
+	  /* The modes are different but the lsb are in the same
+	     place, we need to extract the value in the right from the
+	     rhs of the store.  */
+	  start_sequence ();
+	  convert_move (read_reg, store_info->rhs, 1);
+	  
 	  if (dump_file)
-	    fprintf (dump_file, " -- validation failure\n"); 
-	  return false;
+	    fprintf (dump_file, " -- adding extract insn r%d:%s = r%d:%s\n",
+		     REGNO (read_reg), GET_MODE_NAME (read_mode),
+		     REGNO (store_info->rhs), GET_MODE_NAME (store_mode));
+	  insns = get_insns ();
+	  end_sequence ();
 	}
+
+      /* Insert this right before the store insn where it will be safe
+	 from later insns that might change it before the read.  */
+      emit_insn_before (insns, store_insn->insn);
+      
+      /* And now for the kludge part: cselib croaks if you just
+	 return at this point.  There are two reasons for this:
+	 
+	 1) Cselib has an idea of how many pseudos there are and
+	 that does not include the new ones we just added.
+	 
+	 2) Cselib does not know about the move insn we added
+	 above the store_info, and there is no way to tell it
+	 about it, because it has "moved on".
+	 
+	 Problem (1) is fixable with a certain amount of engineering.
+	 Problem (2) is requires starting the bb from scratch.  This
+	 could be expensive.
+	 
+	 So we are just going to have to lie.  The move/extraction
+	 insns are not really an issue, cselib did not see them.  But
+	 the use of the new pseudo read_insn is a real problem because
+	 cselib has not scanned this insn.  The way that we solve this
+	 problem is that we are just going to put the mem back for now
+	 and when we are finished with the block, we undo this.  We
+	 keep a table of mems to get rid of.  At the end of the basic
+	 block we can put them back.  */
+      
+      *loc = read_info->mem;
+      deferred_change->next = deferred_change_list;
+      deferred_change_list = deferred_change;
+      deferred_change->loc = loc;
+      deferred_change->reg = read_reg;
+      
+      /* Get rid of the read_info, from the point of view of the
+	 rest of dse, play like this read never happened.  */
+      read_insn->read_rec = read_info->next;
+      pool_free (read_info_pool, read_info);
+      return true;
     }
-  else
+  else 
     {
-      /* Someone with excellent rtl skills needs to fill this in.  You
-	 are guaranteed that the read is of the same size or smaller
-	 than the store, and that the read does not hang off one of
-	 the ends of the store.  But the offsets of each must be
-	 checked because the read does not have to line up on either
-	 end of the store so the begin fields need to be examined in
-	 both the store_info and read_info.  */
       if (dump_file)
-	fprintf (dump_file, " -- complex load, currently unsupported.\n"); 
+	fprintf (dump_file, " -- validation failure\n"); 
       return false;
     }
 }
-
 
 /* A for_each_rtx callback in which DATA is the bb_info.  Check to see
    if LOC is a mem and if it is look at the address and kill any
@@ -1488,7 +1663,7 @@ check_mem_read_rtx (rtx *loc, void *data)
   insn_info_t insn_info;
   HOST_WIDE_INT offset = 0;
   HOST_WIDE_INT width = 0;
-  HOST_WIDE_INT spill_alias_set = 0;
+  alias_set_type spill_alias_set = 0;
   cselib_val *base = NULL;  
   int group_id;
   read_info_t read_info;
@@ -1546,7 +1721,7 @@ check_mem_read_rtx (rtx *loc, void *data)
 
       if (dump_file)
 	fprintf (dump_file, " processing spill load %d\n",
-		 (int)spill_alias_set);
+		 (int) spill_alias_set);
 
       while (i_ptr)
 	{
@@ -2017,7 +2192,7 @@ dse_step1 (void)
 
    Assign each byte position in the stores that we are going to
    analyze globally to a position in the bitmaps.  Returns true if
-   there are any bit postions assigned.
+   there are any bit positions assigned.
 ----------------------------------------------------------------------------*/
 
 static void
@@ -2187,7 +2362,7 @@ dse_step2_spill (void)
 
 
 void 
-dse_record_singleton_alias_set (HOST_WIDE_INT alias_set, 
+dse_record_singleton_alias_set (alias_set_type alias_set, 
 				enum machine_mode mode)
 {
   struct clear_alias_mode_holder tmp_holder;
@@ -2225,7 +2400,7 @@ dse_record_singleton_alias_set (HOST_WIDE_INT alias_set,
 /* Remove ALIAS_SET from the sets of stack slots being considered.  */
 
 void 
-dse_invalidate_singleton_alias_set (HOST_WIDE_INT alias_set)
+dse_invalidate_singleton_alias_set (alias_set_type alias_set)
 {
   if ((!gate_dse()) || !alias_set)
     return;
@@ -2837,7 +3012,7 @@ dse_step5_nospill (void)
 		}
 	    }
 	  /* We do want to process the local info if the insn was
-	     deleted.  For insntance, if the insn did a wild read, we
+	     deleted.  For instance, if the insn did a wild read, we
 	     no longer need to trash the info.  */
 	  if (insn_info->insn 
 	      && INSN_P (insn_info->insn)
@@ -3082,7 +3257,7 @@ struct tree_opt_pass pass_rtl_dse1 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };
@@ -3101,8 +3276,7 @@ struct tree_opt_pass pass_rtl_dse2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
 };
-

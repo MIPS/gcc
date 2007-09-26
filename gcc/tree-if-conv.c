@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass implements tree level if-conversion transformation of loops.
    Initial goal is to help vectorizer vectorize loops with conditions.
@@ -637,17 +636,12 @@ add_to_dst_predicate_list (struct loop * loop, edge e,
     {
       tree tmp;
       tree tmp_stmt = NULL_TREE;
-      tree tmp_stmts1 = NULL_TREE;
-      tree tmp_stmts2 = NULL_TREE;
-      prev_cond = force_gimple_operand (unshare_expr (prev_cond),
-					&tmp_stmts1, true, NULL);
-      if (tmp_stmts1)
-        bsi_insert_before (bsi, tmp_stmts1, BSI_SAME_STMT);
 
-      cond = force_gimple_operand (unshare_expr (cond),
-				   &tmp_stmts2, true, NULL);
-      if (tmp_stmts2)
-        bsi_insert_before (bsi, tmp_stmts2, BSI_SAME_STMT);
+      prev_cond = force_gimple_operand_bsi (bsi, unshare_expr (prev_cond),
+					    true, NULL, true, BSI_SAME_STMT);
+
+      cond = force_gimple_operand_bsi (bsi, unshare_expr (cond),
+				       true, NULL, true, BSI_SAME_STMT);
 
       /* Add the condition to aux field of the edge.  In case edge
 	 destination is a PHI node, this condition will be ANDed with
@@ -667,7 +661,7 @@ add_to_dst_predicate_list (struct loop * loop, edge e,
 
 /* During if-conversion aux field from basic block structure is used to hold
    predicate list. Clean each basic block's predicate list for the given LOOP.
-   Also clean aux field of succesor edges, used to hold true and false
+   Also clean aux field of successor edges, used to hold true and false
    condition from conditional expression.  */
 
 static void
@@ -698,7 +692,7 @@ find_phi_replacement_condition (struct loop *loop,
                                 block_stmt_iterator *bsi)
 {
   edge first_edge, second_edge;
-  tree tmp_cond, new_stmts;
+  tree tmp_cond;
 
   gcc_assert (EDGE_COUNT (bb->preds) == 2);
   first_edge = EDGE_PRED (bb, 0);
@@ -751,12 +745,12 @@ find_phi_replacement_condition (struct loop *loop,
 	 AND it with the incoming bb predicate.  */
       if (second_edge->aux)
 	*cond = build2 (TRUTH_AND_EXPR, boolean_type_node,
-			*cond, first_edge->aux);
+			*cond, second_edge->aux);
 
       if (TREE_CODE (*cond) == TRUTH_NOT_EXPR)
 	/* We can be smart here and choose inverted
 	   condition without switching bbs.  */
-	  *cond = invert_truthvalue (*cond);
+	*cond = invert_truthvalue (*cond);
       else
 	/* Select non loop header bb.  */
 	first_edge = second_edge;
@@ -775,11 +769,12 @@ find_phi_replacement_condition (struct loop *loop,
 
   /* Create temp. for the condition. Vectorizer prefers to have gimple
      value as condition. Various targets use different means to communicate
-     condition in vector compare operation. Using gimple value allows compiler
-     to emit vector compare and select RTL without exposing compare's result.  */
-  *cond = force_gimple_operand (*cond, &new_stmts, false, NULL_TREE);
-  if (new_stmts)
-    bsi_insert_before (bsi, new_stmts, BSI_SAME_STMT);
+     condition in vector compare operation. Using gimple value allows
+     compiler to emit vector compare and select RTL without exposing
+     compare's result.  */
+  *cond = force_gimple_operand_bsi (bsi, unshare_expr (*cond),
+				    false, NULL_TREE,
+				    true, BSI_SAME_STMT);
   if (!is_gimple_reg (*cond) && !is_gimple_condexpr (*cond))
     {
       tree new_stmt;
@@ -990,7 +985,7 @@ combine_blocks (struct loop *loop)
       /* Update stmt list.  */
       last = tsi_last (bb_stmt_list (merge_target_bb));
       tsi_link_after (&last, bb_stmt_list (bb), TSI_NEW_STMT);
-      set_bb_stmt_list (bb, NULL);
+      set_bb_stmt_list (bb, alloc_stmt_list());
 
       delete_basic_block (bb);
     }

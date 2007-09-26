@@ -1,3 +1,35 @@
+2007-09-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/mingw32/proc.c: New file.
+
+2007-09-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/libgomp.c/atomic-1.c: Include cpuid.h for i386 targets.
+	(main): Use __get_cpuid to get i386 target fetaures.
+	* testsuite/libgomp.c/atomic-2.c: Include cpuid.h for x86_64 targets.
+	(main): Use __get_cpuid to get x86_64 target fetaures.
+
+2007-08-15  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR target/32765
+	* testsuite/libgomp.fortran/pr32550.f90: Use -static-libgcc on Darwin.
+	* testsuite/libgomp.fortran/crayptr2.f90: Likwise.
+
+2007-07-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/32550
+	* testsuite/libgomp.fortran/pr32550.f90: New test.
+	* testsuite/libgomp.fortran/crayptr2.f90: New test.
+
+2007-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* aclocal.m4: Regenerated.
+
+2007-07-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32359
+	* testsuite/libgomp.fortran/pr32359.f90: New.
+
 2007-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libgomp/32468

@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
--Software Foundation; either version 2, or (at your option) any later
+-Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Problem description:
 --------------------
@@ -933,12 +932,12 @@ hash_del_properties (void *p)
 static int
 eq_descriptor_extension (const void *p1, const void *p2)
 {
-  const rtx insn = (rtx) p1;
-  const rtx element = (rtx) p2;
+  const_rtx const insn = (const_rtx) p1;
+  const_rtx const element = (const_rtx) p2;
   rtx set1 = single_set (insn);
   rtx dest_reg1;
   rtx set2 = NULL;
-  rtx dest_reg2 = NULL;
+  const_rtx dest_reg2 = NULL;
 
   gcc_assert (set1 && element && (REG_P (element) || INSN_P (element)));
 
@@ -962,7 +961,7 @@ eq_descriptor_extension (const void *p1, const void *p2)
 static hashval_t
 hash_descriptor_extension (const void *p)
 {
-  const rtx r = (rtx) p;
+  const_rtx const r = (const_rtx) p;
   rtx set, lhs;
 
   if (r && REG_P (r))
@@ -2413,6 +2412,38 @@ see_replace_src (rtx *x, void *data)
 }
 
 
+static rtx
+see_copy_insn (rtx insn)
+{
+  rtx pat = copy_insn (PATTERN (insn)), ret;
+
+  if (NONJUMP_INSN_P (insn))
+    ret = make_insn_raw (pat);
+  else if (JUMP_P (insn))
+    ret = make_jump_insn_raw (pat);
+  else if (CALL_P (insn))
+    {
+      start_sequence ();
+      ret = emit_call_insn (pat);
+      end_sequence ();
+      if (CALL_INSN_FUNCTION_USAGE (insn))
+	CALL_INSN_FUNCTION_USAGE (ret)
+	  = copy_rtx (CALL_INSN_FUNCTION_USAGE (insn));
+      SIBLING_CALL_P (ret) = SIBLING_CALL_P (insn);
+      CONST_OR_PURE_CALL_P (ret) = CONST_OR_PURE_CALL_P (insn);
+    }
+  else
+    gcc_unreachable ();
+  if (REG_NOTES (insn))
+    REG_NOTES (ret) = copy_rtx (REG_NOTES (insn));
+  INSN_LOCATOR (ret) = INSN_LOCATOR (insn);
+  RTX_FRAME_RELATED_P (ret) = RTX_FRAME_RELATED_P (insn);
+  PREV_INSN (ret) = NULL_RTX;
+  NEXT_INSN (ret) = NULL_RTX;
+  return ret;
+}
+
+
 /* At this point the pattern is expected to be:
 
    ref:	    set (dest_reg) (rhs)
@@ -2444,14 +2475,13 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
   struct see_replace_data d;
   /* If the original insn was already merged with an extension before,
      take the merged one.  */
-  rtx ref = (curr_ref_s->merged_insn) ? curr_ref_s->merged_insn :
-					curr_ref_s->insn;
-  rtx merged_ref_next = (curr_ref_s->merged_insn) ?
-  			NEXT_INSN (curr_ref_s->merged_insn): NULL_RTX;
-  rtx ref_copy = copy_rtx (ref);
+  rtx ref = curr_ref_s->merged_insn
+	    ? curr_ref_s->merged_insn : curr_ref_s->insn;
+  rtx merged_ref_next = curr_ref_s->merged_insn
+			? NEXT_INSN (curr_ref_s->merged_insn) : NULL_RTX;
+  rtx ref_copy = see_copy_insn (ref);
   rtx source_extension_reg = see_get_extension_reg (def_se, 0);
   rtx dest_extension_reg = see_get_extension_reg (def_se, 1);
-  rtx move_insn = NULL;
   rtx set, rhs;
   rtx dest_reg, dest_real_reg;
   rtx new_pseudo_reg, subreg;
@@ -2490,25 +2520,22 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
       || insn_invalid_p (ref_copy))
     {
       /* The manipulation failed.  */
+      df_insn_delete (NULL, INSN_UID (ref_copy));
 
       /* Create a new copy.  */
-      ref_copy = copy_rtx (ref);
+      ref_copy = see_copy_insn (ref);
+
+      if (curr_ref_s->merged_insn)
+        df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
 
       /* Create a simple move instruction that will replace the def_se.  */
       start_sequence ();
+      emit_insn (ref_copy);
       emit_move_insn (subreg, dest_reg);
-      move_insn = get_insns ();
-      end_sequence ();
-
-      /* Link the manipulated instruction to the newly created move instruction
-	 and to the former created move instructions.  */
-      PREV_INSN (ref_copy) = NULL_RTX;
-      NEXT_INSN (ref_copy) = move_insn;
-      PREV_INSN (move_insn) = ref_copy;
-      NEXT_INSN (move_insn) = merged_ref_next;
       if (merged_ref_next != NULL_RTX)
-	PREV_INSN (merged_ref_next) = move_insn;
-      curr_ref_s->merged_insn = ref_copy;
+	emit_insn (merged_ref_next);
+      curr_ref_s->merged_insn = get_insns ();
+      end_sequence ();
 
       if (dump_file)
 	{
@@ -2517,7 +2544,7 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
 	  fprintf (dump_file, "Original ref:\n");
 	  print_rtl_single (dump_file, ref);
 	  fprintf (dump_file, "Move insn that was added:\n");
-	  print_rtl_single (dump_file, move_insn);
+	  print_rtl_single (dump_file, NEXT_INSN (curr_ref_s->merged_insn));
 	}
       return;
     }
@@ -2527,21 +2554,17 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
   /* Try to simplify the new manipulated insn.  */
   validate_simplify_insn (ref_copy);
 
+  if (curr_ref_s->merged_insn)
+    df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
+
   /* Create a simple move instruction to assure the correctness of the code.  */
   start_sequence ();
+  emit_insn (ref_copy);
   emit_move_insn (dest_reg, subreg);
-  move_insn = get_insns ();
-  end_sequence ();
-
-  /* Link the manipulated instruction to the newly created move instruction and
-     to the former created move instructions.  */
-  PREV_INSN (ref_copy) = NULL_RTX;
-  NEXT_INSN (ref_copy) = move_insn;
-  PREV_INSN (move_insn) = ref_copy;
-  NEXT_INSN (move_insn) = merged_ref_next;
   if (merged_ref_next != NULL_RTX)
-    PREV_INSN (merged_ref_next) = move_insn;
-  curr_ref_s->merged_insn = ref_copy;
+    emit_insn (merged_ref_next);
+  curr_ref_s->merged_insn = get_insns ();
+  end_sequence ();
 
   if (dump_file)
     {
@@ -2549,9 +2572,9 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
       fprintf (dump_file, "Original ref:\n");
       print_rtl_single (dump_file, ref);
       fprintf (dump_file, "Transformed ref:\n");
-      print_rtl_single (dump_file, ref_copy);
+      print_rtl_single (dump_file, curr_ref_s->merged_insn);
       fprintf (dump_file, "Move insn that was added:\n");
-      print_rtl_single (dump_file, move_insn);
+      print_rtl_single (dump_file, NEXT_INSN (curr_ref_s->merged_insn));
     }
 }
 
@@ -2583,11 +2606,11 @@ see_merge_one_use_extension (void **slot, void *b)
 {
   struct see_ref_s *curr_ref_s = (struct see_ref_s *) b;
   rtx use_se = *slot;
-  rtx ref = (curr_ref_s->merged_insn) ? curr_ref_s->merged_insn :
-					curr_ref_s->insn;
-  rtx merged_ref_next = (curr_ref_s->merged_insn) ?
-  			NEXT_INSN (curr_ref_s->merged_insn): NULL_RTX;
-  rtx ref_copy = copy_rtx (ref);
+  rtx ref = curr_ref_s->merged_insn
+	    ? curr_ref_s->merged_insn : curr_ref_s->insn;
+  rtx merged_ref_next = curr_ref_s->merged_insn
+			? NEXT_INSN (curr_ref_s->merged_insn) : NULL_RTX;
+  rtx ref_copy = see_copy_insn (ref);
   rtx extension_set = single_set (use_se);
   rtx extension_rhs = NULL;
   rtx dest_extension_reg = see_get_extension_reg (use_se, 1);
@@ -2627,6 +2650,7 @@ see_merge_one_use_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, use_se);
 	  print_rtl_single (dump_file, ref);
 	}
+      df_insn_delete (NULL, INSN_UID (ref_copy));
       /* Don't remove the current use_se from the use_se_hash and continue to
 	 the next extension.  */
       return 1;
@@ -2645,11 +2669,20 @@ see_merge_one_use_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, ref);
 	}
       htab_clear_slot (curr_ref_s->use_se_hash, (PTR *)slot);
-      PREV_INSN (ref_copy) = NULL_RTX;
-      NEXT_INSN (ref_copy) = merged_ref_next;
+
+      if (curr_ref_s->merged_insn)
+	df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
+
       if (merged_ref_next != NULL_RTX)
-	PREV_INSN (merged_ref_next) = ref_copy;
-      curr_ref_s->merged_insn = ref_copy;
+	{
+	  start_sequence ();
+	  emit_insn (ref_copy);
+	  emit_insn (merged_ref_next);
+	  curr_ref_s->merged_insn = get_insns ();
+	  end_sequence ();
+	}
+      else
+	curr_ref_s->merged_insn = ref_copy;
       return 1;
     }
 
@@ -2663,6 +2696,7 @@ see_merge_one_use_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, use_se);
 	  print_rtl_single (dump_file, ref);
 	}
+      df_insn_delete (NULL, INSN_UID (ref_copy));
       /* Don't remove the current use_se from the use_se_hash and continue to
 	 the next extension.  */
       return 1;
@@ -2673,11 +2707,19 @@ see_merge_one_use_extension (void **slot, void *b)
   /* Try to simplify the new merged insn.  */
   validate_simplify_insn (ref_copy);
 
-  PREV_INSN (ref_copy) = NULL_RTX;
-  NEXT_INSN (ref_copy) = merged_ref_next;
+  if (curr_ref_s->merged_insn)
+    df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
+
   if (merged_ref_next != NULL_RTX)
-    PREV_INSN (merged_ref_next) = ref_copy;
-  curr_ref_s->merged_insn = ref_copy;
+    {
+      start_sequence ();
+      emit_insn (ref_copy);
+      emit_insn (merged_ref_next);
+      curr_ref_s->merged_insn = get_insns ();
+      end_sequence ();
+    }
+  else
+    curr_ref_s->merged_insn = ref_copy;
 
   if (dump_file)
     {
@@ -2686,7 +2728,7 @@ see_merge_one_use_extension (void **slot, void *b)
       print_rtl_single (dump_file, use_se);
       print_rtl_single (dump_file, ref);
       fprintf (dump_file, "Merged instruction:\n");
-      print_rtl_single (dump_file, ref_copy);
+      print_rtl_single (dump_file, curr_ref_s->merged_insn);
     }
 
   /* Remove the current use_se from the use_se_hash.  This will prevent it from
@@ -2727,15 +2769,15 @@ see_merge_one_def_extension (void **slot, void *b)
   rtx def_se = *slot;
   /* If the original insn was already merged with an extension before,
      take the merged one.  */
-  rtx ref = (curr_ref_s->merged_insn) ? curr_ref_s->merged_insn :
-					curr_ref_s->insn;
-  rtx merged_ref_next = (curr_ref_s->merged_insn) ?
-  			NEXT_INSN (curr_ref_s->merged_insn): NULL_RTX;
-  rtx ref_copy = copy_rtx (ref);
+  rtx ref = curr_ref_s->merged_insn
+	    ? curr_ref_s->merged_insn : curr_ref_s->insn;
+  rtx merged_ref_next = curr_ref_s->merged_insn
+			? NEXT_INSN (curr_ref_s->merged_insn) : NULL_RTX;
+  rtx ref_copy = see_copy_insn (ref);
   rtx new_set = NULL;
   rtx source_extension_reg = see_get_extension_reg (def_se, 0);
   rtx dest_extension_reg = see_get_extension_reg (def_se, 1);
-  rtx move_insn, *rtx_slot, subreg;
+  rtx *rtx_slot, subreg;
   rtx temp_extension = NULL;
   rtx simplified_temp_extension = NULL;
   rtx *pat;
@@ -2764,6 +2806,7 @@ see_merge_one_def_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, def_se);
 	}
 
+      df_insn_delete (NULL, INSN_UID (ref_copy));
       see_def_extension_not_merged (curr_ref_s, def_se);
       /* Continue to the next extension.  */
       return 1;
@@ -2852,29 +2895,25 @@ see_merge_one_def_extension (void **slot, void *b)
 	  print_rtl_single (dump_file, def_se);
 	}
 
+      df_insn_delete (NULL, INSN_UID (ref_copy));
       see_def_extension_not_merged (curr_ref_s, def_se);
       /* Continue to the next extension.  */
       return 1;
     }
 
   /* The merge succeeded!  */
+  if (curr_ref_s->merged_insn)
+    df_insn_delete (NULL, INSN_UID (curr_ref_s->merged_insn));
 
   /* Create a simple move instruction to assure the correctness of the code.  */
   subreg = gen_lowpart_SUBREG (source_extension_mode, dest_extension_reg);
   start_sequence ();
+  emit_insn (ref_copy);
   emit_move_insn (source_extension_reg, subreg);
-  move_insn = get_insns ();
-  end_sequence ();
-
-  /* Link the merged instruction to the newly created move instruction and
-     to the former created move instructions.  */
-  PREV_INSN (ref_copy) = NULL_RTX;
-  NEXT_INSN (ref_copy) = move_insn;
-  PREV_INSN (move_insn) = ref_copy;
-  NEXT_INSN (move_insn) = merged_ref_next;
   if (merged_ref_next != NULL_RTX)
-    PREV_INSN (merged_ref_next) = move_insn;
-  curr_ref_s->merged_insn = ref_copy;
+    emit_insn (merged_ref_next);
+  curr_ref_s->merged_insn = get_insns ();
+  end_sequence ();
 
   if (dump_file)
     {
@@ -2883,9 +2922,9 @@ see_merge_one_def_extension (void **slot, void *b)
       print_rtl_single (dump_file, ref);
       print_rtl_single (dump_file, def_se);
       fprintf (dump_file, "Merged instruction:\n");
-      print_rtl_single (dump_file, ref_copy);
+      print_rtl_single (dump_file, curr_ref_s->merged_insn);
       fprintf (dump_file, "Move instruction that was added:\n");
-      print_rtl_single (dump_file, move_insn);
+      print_rtl_single (dump_file, NEXT_INSN (curr_ref_s->merged_insn));
     }
 
   /* Remove the current def_se from the unmerged_def_se_hash and insert it to
@@ -3814,12 +3853,9 @@ gate_handle_see (void)
 static unsigned int
 rest_of_handle_see (void)
 {
-  int no_new_pseudos_bcp = no_new_pseudos;
-
-  no_new_pseudos = 0;
   see_main ();
-  no_new_pseudos = no_new_pseudos_bcp;
-  
+  df_clear_flags (DF_DEFER_INSN_RESCAN);
+  df_process_deferred_rescans ();
   run_fast_dce ();
   return 0;
 }
@@ -3837,7 +3873,8 @@ struct tree_opt_pass pass_see =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_verify |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,			/* todo_flags_finish */
   'u'					/* letter */
 };

@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -513,7 +512,7 @@ dump_stack_var_partition (void)
 	  fputc ('\t', dump_file);
 	  print_generic_expr (dump_file, stack_vars[j].decl, dump_flags);
 	  fprintf (dump_file, ", offset " HOST_WIDE_INT_PRINT_DEC "\n",
-		   stack_vars[i].offset);
+		   stack_vars[j].offset);
 	}
     }
 }
@@ -674,18 +673,10 @@ expand_one_register_var (tree var)
 
   /* Note if the object is a user variable.  */
   if (!DECL_ARTIFICIAL (var))
-    {
       mark_user_reg (x);
 
-      /* Trust user variables which have a pointer type to really
-	 be pointers.  Do not trust compiler generated temporaries
-	 as our type system is totally busted as it relates to
-	 pointer arithmetic which translates into lots of compiler
-	 generated objects with pointer types, but which are not really
-	 pointers.  */
-      if (POINTER_TYPE_P (type))
-	mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (var))));
-    }
+  if (POINTER_TYPE_P (type))
+    mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (var))));
 }
 
 /* A subroutine of expand_one_var.  Called to assign rtl to a VAR_DECL that
@@ -1321,7 +1312,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
       if (true_edge->goto_locus)
-  	set_curr_insn_source_location (*true_edge->goto_locus);
+  	set_curr_insn_source_location (location_from_locus (true_edge->goto_locus));
       false_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1331,7 +1322,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
       if (false_edge->goto_locus)
-  	set_curr_insn_source_location (*false_edge->goto_locus);
+  	set_curr_insn_source_location (location_from_locus (false_edge->goto_locus));
       true_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1362,7 +1353,7 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   maybe_dump_rtl_for_tree_stmt (stmt, last2);
 
   if (false_edge->goto_locus)
-    set_curr_insn_source_location (*false_edge->goto_locus);
+    set_curr_insn_source_location (location_from_locus (false_edge->goto_locus));
 
   return new_bb;
 }
@@ -1629,7 +1620,7 @@ expand_gimple_basic_block (basic_block bb)
     {
       emit_jump (label_rtx_for_bb (e->dest));
       if (e->goto_locus)
-        set_curr_insn_source_location (*e->goto_locus);
+        set_curr_insn_source_location (location_from_locus (e->goto_locus));
       e->flags &= ~EDGE_FALLTHRU;
     }
 

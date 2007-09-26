@@ -1,12 +1,12 @@
 /* Lambda matrix and vector interface.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef LAMBDA_H
 #define LAMBDA_H
@@ -98,7 +97,10 @@ typedef struct lambda_linear_expression_s
 #define LLE_DENOMINATOR(T) ((T)->denominator)
 #define LLE_NEXT(T) ((T)->next)
 
-lambda_linear_expression lambda_linear_expression_new (int, int);
+struct obstack;
+
+lambda_linear_expression lambda_linear_expression_new (int, int,
+                                                       struct obstack *);
 void print_lambda_linear_expression (FILE *, lambda_linear_expression, int,
 				     int, char);
 
@@ -138,8 +140,10 @@ typedef struct lambda_loopnest_s
 #define LN_DEPTH(T) ((T)->depth)
 #define LN_INVARIANTS(T) ((T)->invariants)
 
-lambda_loopnest lambda_loopnest_new (int, int);
-lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix);
+lambda_loopnest lambda_loopnest_new (int, int, struct obstack *);
+lambda_loopnest lambda_loopnest_transform (lambda_loopnest,
+                                           lambda_trans_matrix,
+                                           struct obstack *);
 struct loop;
 bool perfect_nest_p (struct loop *);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
@@ -191,17 +195,19 @@ void lambda_matrix_vector_mult (lambda_matrix, int, int, lambda_vector,
 				lambda_vector);
 bool lambda_trans_matrix_id_p (lambda_trans_matrix);
 
-lambda_body_vector lambda_body_vector_new (int);
-lambda_body_vector lambda_body_vector_compute_new (lambda_trans_matrix, 
-						   lambda_body_vector);
+lambda_body_vector lambda_body_vector_new (int, struct obstack *);
+lambda_body_vector lambda_body_vector_compute_new (lambda_trans_matrix,
+                                                   lambda_body_vector,
+                                                   struct obstack *);
 void print_lambda_body_vector (FILE *, lambda_body_vector);
 lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loop *,
 						 VEC(tree,heap) **,
-						 VEC(tree,heap) **);
+                                                 VEC(tree,heap) **,
+                                                 struct obstack *);
 void lambda_loopnest_to_gcc_loopnest (struct loop *,
 				      VEC(tree,heap) *, VEC(tree,heap) *,
-				      lambda_loopnest, lambda_trans_matrix);
-
+                                      lambda_loopnest, lambda_trans_matrix,
+                                      struct obstack *);
 
 static inline void lambda_vector_negate (lambda_vector, lambda_vector, int);
 static inline void lambda_vector_mult_const (lambda_vector, lambda_vector, int, int);

@@ -1,13 +1,13 @@
 /* Exception Handling interface routines.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2007  Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 struct function;
@@ -47,9 +46,9 @@ extern void for_each_eh_region (void (*) (struct eh_region *));
 
 /* Determine if the given INSN can throw an exception.  */
 extern bool can_throw_internal_1 (int, bool);
-extern bool can_throw_internal (rtx);
+extern bool can_throw_internal (const_rtx);
 extern bool can_throw_external_1 (int, bool);
-extern bool can_throw_external (rtx);
+extern bool can_throw_external (const_rtx);
 
 /* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
 extern unsigned int set_nothrow_function_flags (void);
@@ -113,8 +112,8 @@ extern int eh_region_outermost (struct function *, int, int);
 /* tree-eh.c */
 extern void add_stmt_to_eh_region_fn (struct function *, tree, int);
 extern bool remove_stmt_from_eh_region_fn (struct function *, tree);
-extern int lookup_stmt_eh_region_fn (struct function *, tree);
-extern int lookup_stmt_eh_region (tree);
+extern int lookup_stmt_eh_region_fn (struct function *, const_tree);
+extern int lookup_stmt_eh_region (const_tree);
 extern bool verify_eh_edges (tree);
 
 /* If non-NULL, this is a function that returns an expression to be

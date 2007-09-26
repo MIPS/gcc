@@ -1,4 +1,21 @@
-2007-07-01  Marius Cornea  <marius.cornea@intel.com>
+2007-07-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Updated from Intel BID library:
+	* bid_conf.h (BID_THREAD): Defined only if both HAVE_CC_TLS
+	and USE_TLS are defined.
+
+2007-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Updated from Intel BID library:
+	* bid_conf.h (BID_THREAD): Defined.
+	(__bid_IDEC_glbround): Add BID_THREAD in declaration.
+	(__bid_IDEC_glbflags): Likewise.
+
+	* decimal_globals.c (__bid_IDEC_glbround): Add BID_THREAD in
+	declaration.
+	(__bid_IDEC_glbflags): Likewise.
+
+2007-07-04  Marius Cornea  <marius.cornea@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 
 	* _addsub_dd.c: New file from Intel BID library.
@@ -89,7 +106,7 @@
 	* _xf_to_sd.c: Likewise.
 	* _xf_to_td.c: Likewise.
 
-2007-07-01  Marius Cornea  <marius.cornea@intel.com>
+2007-07-04  Marius Cornea  <marius.cornea@intel.com>
 
 	* b2d.h: New file from Intel BID library.
 	* bid128_2_str.h: Likewise.

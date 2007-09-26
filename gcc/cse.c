@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 /* stdio.h must precede rtl.h for FFS.  */
@@ -354,8 +353,9 @@ static HARD_REG_SET hard_regs_in_table;
 
 static int cse_jumps_altered;
 
-/* Nonzero if we put a LABEL_REF into the hash table for an INSN without a
-   REG_LABEL, we have to rerun jump after CSE to put in the note.  */
+/* Nonzero if we put a LABEL_REF into the hash table for an INSN
+   without a REG_LABEL_OPERAND, we have to rerun jump after CSE to put
+   in the note.  */
 static int recorded_label_ref;
 
 /* canon_hash stores 1 in do_not_record
@@ -559,7 +559,7 @@ static struct table_elt *insert (rtx, struct table_elt *, unsigned,
 				 enum machine_mode);
 static void merge_equiv_classes (struct table_elt *, struct table_elt *);
 static void invalidate (rtx, enum machine_mode);
-static int cse_rtx_varies_p (rtx, int);
+static bool cse_rtx_varies_p (const_rtx, bool);
 static void remove_invalid_refs (unsigned int);
 static void remove_invalid_subreg_refs (unsigned int, unsigned int,
 					enum machine_mode);
@@ -2060,7 +2060,7 @@ hash_rtx_string (const char *ps)
    is just (int) MEM plus the hash code of the address.  */
 
 unsigned
-hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
+hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 	  int *hash_arg_in_memory_p, bool have_reg_qty)
 {
   int i, j;
@@ -2159,6 +2159,11 @@ hash_rtx (rtx x, enum machine_mode mode, int *do_not_record_p,
       else
 	hash += ((unsigned int) CONST_DOUBLE_LOW (x)
 		 + (unsigned int) CONST_DOUBLE_HIGH (x));
+      return hash;
+
+    case CONST_FIXED:
+      hash += (unsigned int) code + (unsigned int) GET_MODE (x);
+      hash += fixed_hash (CONST_FIXED_VALUE (x));
       return hash;
 
     case CONST_VECTOR:
@@ -2374,7 +2379,7 @@ safe_hash (rtx x, enum machine_mode mode)
    If FOR_GCSE is true, we compare X and Y for equivalence for GCSE.  */
 
 int
-exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
+exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
 {
   int i, j;
   enum rtx_code code;
@@ -2402,6 +2407,7 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
       return x == y;
 
     case LABEL_REF:
@@ -2566,8 +2572,8 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
    executions of the program.  0 means X can be compared reliably
    against certain constants or near-constants.  */
 
-static int
-cse_rtx_varies_p (rtx x, int from_alias)
+static bool
+cse_rtx_varies_p (const_rtx x, bool from_alias)
 {
   /* We need not check for X and the equivalence class being of the same
      mode because if X is equivalent to a constant in some mode, it
@@ -2668,6 +2674,7 @@ canon_reg (rtx x, rtx insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -2963,6 +2970,7 @@ fold_rtx (rtx x, rtx insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -3029,6 +3037,7 @@ fold_rtx (rtx x, rtx insn)
 	  case SYMBOL_REF:
 	  case LABEL_REF:
 	  case CONST_DOUBLE:
+	  case CONST_FIXED:
 	  case CONST_VECTOR:
 	    const_arg = folded_arg;
 	    break;
@@ -3094,7 +3103,7 @@ fold_rtx (rtx x, rtx insn)
 	if (insn == NULL_RTX && !changed)
 	  x = copy_rtx (x);
 	changed = 1;
-	validate_change (insn, &XEXP (x, i), folded_arg, 1);
+	validate_unshare_change (insn, &XEXP (x, i), folded_arg, 1);
       }
 
   if (changed)
@@ -3238,7 +3247,8 @@ fold_rtx (rtx x, rtx insn)
 		      /* If we have a cheaper expression now, use that
 			 and try folding it further, from the top.  */
 		      if (cheapest_simplification != x)
-			return fold_rtx (cheapest_simplification, insn);
+			return fold_rtx (copy_rtx (cheapest_simplification),
+					 insn);
 		    }
 		}
 
@@ -3646,7 +3656,8 @@ equiv_constant (rtx x)
 
       /* See if we previously assigned a constant value to this SUBREG.  */
       if ((new = lookup_as_function (x, CONST_INT)) != 0
-          || (new = lookup_as_function (x, CONST_DOUBLE)) != 0)
+          || (new = lookup_as_function (x, CONST_DOUBLE)) != 0
+          || (new = lookup_as_function (x, CONST_FIXED)) != 0)
         return new;
 
       if (REG_P (SUBREG_REG (x))
@@ -4777,14 +4788,14 @@ cse_insn (rtx insn, rtx libcall_insn)
 				  src_related_cost, src_related_regcost) <= 0
 		   && preferable (src_eqv_cost, src_eqv_regcost,
 				  src_elt_cost, src_elt_regcost) <= 0)
-	    trial = copy_rtx (src_eqv_here), src_eqv_cost = MAX_COST;
+	    trial = src_eqv_here, src_eqv_cost = MAX_COST;
 	  else if (src_related
 		   && preferable (src_related_cost, src_related_regcost,
 				  src_elt_cost, src_elt_regcost) <= 0)
-	    trial = copy_rtx (src_related), src_related_cost = MAX_COST;
+	    trial = src_related, src_related_cost = MAX_COST;
 	  else
 	    {
-	      trial = copy_rtx (elt->exp);
+	      trial = elt->exp;
 	      elt = elt->next_same_value;
 	      src_elt_cost = MAX_COST;
 	    }
@@ -4830,7 +4841,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 	    ;
 
 	  /* Look for a substitution that makes a valid insn.  */
-	  else if (validate_change (insn, &SET_SRC (sets[i].rtl), trial, 0))
+	  else if (validate_unshare_change
+		     (insn, &SET_SRC (sets[i].rtl), trial, 0))
 	    {
 	      rtx new = canon_reg (SET_SRC (sets[i].rtl), insn);
 
@@ -5707,6 +5719,7 @@ cse_process_notes_1 (rtx x, rtx object, bool *changed)
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:
@@ -6079,7 +6092,7 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	    
 	      /* If we haven't already found an insn where we added a LABEL_REF,
 		 check this one.  */
-	      if (NONJUMP_INSN_P (insn) && ! recorded_label_ref
+	      if (INSN_P (insn) && ! recorded_label_ref
 		  && for_each_rtx (&PATTERN (insn), check_for_label_ref,
 				   (void *) insn))
 		recorded_label_ref = 1;
@@ -6265,23 +6278,26 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   return cse_jumps_altered || recorded_label_ref;
 }
 
-/* Called via for_each_rtx to see if an insn is using a LABEL_REF for which
-   there isn't a REG_LABEL note.  Return one if so.  DATA is the insn.  */
+/* Called via for_each_rtx to see if an insn is using a LABEL_REF for
+   which there isn't a REG_LABEL_OPERAND note.
+   Return one if so.  DATA is the insn.  */
 
 static int
 check_for_label_ref (rtx *rtl, void *data)
 {
   rtx insn = (rtx) data;
 
-  /* If this insn uses a LABEL_REF and there isn't a REG_LABEL note for it,
-     we must rerun jump since it needs to place the note.  If this is a
-     LABEL_REF for a CODE_LABEL that isn't in the insn chain, don't do this
-     since no REG_LABEL will be added.  */
+  /* If this insn uses a LABEL_REF and there isn't a REG_LABEL_OPERAND
+     note for it, we must rerun jump since it needs to place the note.  If
+     this is a LABEL_REF for a CODE_LABEL that isn't in the insn chain,
+     don't do this since no REG_LABEL_OPERAND will be added.  */
   return (GET_CODE (*rtl) == LABEL_REF
 	  && ! LABEL_REF_NONLOCAL_P (*rtl)
+	  && (!JUMP_P (insn)
+	      || !label_is_jump_target_p (XEXP (*rtl, 0), insn))
 	  && LABEL_P (XEXP (*rtl, 0))
 	  && INSN_UID (XEXP (*rtl, 0)) != 0
-	  && ! find_reg_note (insn, REG_LABEL, XEXP (*rtl, 0)));
+	  && ! find_reg_note (insn, REG_LABEL_OPERAND, XEXP (*rtl, 0)));
 }
 
 /* Count the number of times registers are used (not set) in X.
@@ -6317,6 +6333,7 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -7012,7 +7029,7 @@ struct tree_opt_pass pass_cse =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
@@ -7070,7 +7087,7 @@ struct tree_opt_pass pass_cse2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */

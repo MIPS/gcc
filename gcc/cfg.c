@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file contains low level functions to manipulate the CFG and
    analyze it.  All other modules should not transform the data structure
@@ -352,7 +351,7 @@ make_single_succ_edge (basic_block src, basic_block dest, int flags)
 /* This function will remove an edge from the flow graph.  */
 
 void
-remove_edge (edge e)
+remove_edge_raw (edge e)
 {
   remove_predictions_associated_with_edge (e);
   execute_on_shrinking_pred (e);
@@ -535,9 +534,11 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
       fprintf (file, ", loop_depth %d, count ", bb->loop_depth);
       fprintf (file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
       fprintf (file, ", freq %i", bb->frequency);
-      if (maybe_hot_bb_p (bb))
+      /* Both maybe_hot_bb_p & probably_never_executed_bb_p functions
+	 crash without cfun. */ 
+      if (cfun && maybe_hot_bb_p (bb))
 	fprintf (file, ", maybe hot");
-      if (probably_never_executed_bb_p (bb))
+      if (cfun && probably_never_executed_bb_p (bb))
 	fprintf (file, ", probably never executed");
       fprintf (file, ".\n");
 
@@ -647,7 +648,7 @@ dump_flow_info (FILE *file, int flags)
     dump_reg_info (file);
 
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
-  FOR_EACH_BB (bb)
+  FOR_ALL_BB (bb)
     {
       dump_bb_info (bb, true, true, flags, "", file);
       check_bb_profile (bb, file);
@@ -666,10 +667,10 @@ void
 dump_edge_info (FILE *file, edge e, int do_succ)
 {
   basic_block side = (do_succ ? e->dest : e->src);
-
-  if (side == ENTRY_BLOCK_PTR)
+  /* both ENTRY_BLOCK_PTR & EXIT_BLOCK_PTR depend upon cfun. */
+  if (cfun && side == ENTRY_BLOCK_PTR)
     fputs (" ENTRY", file);
-  else if (side == EXIT_BLOCK_PTR)
+  else if (cfun && side == EXIT_BLOCK_PTR)
     fputs (" EXIT", file);
   else
     fprintf (file, " %d", side->index);
@@ -1107,18 +1108,18 @@ struct htab_bb_copy_original_entry
 static hashval_t
 bb_copy_original_hash (const void *p)
 {
-  struct htab_bb_copy_original_entry *data
-    = ((struct htab_bb_copy_original_entry *)p);
+  const struct htab_bb_copy_original_entry *data
+    = ((const struct htab_bb_copy_original_entry *)p);
 
   return data->index1;
 }
 static int
 bb_copy_original_eq (const void *p, const void *q)
 {
-  struct htab_bb_copy_original_entry *data
-    = ((struct htab_bb_copy_original_entry *)p);
-  struct htab_bb_copy_original_entry *data2
-    = ((struct htab_bb_copy_original_entry *)q);
+  const struct htab_bb_copy_original_entry *data
+    = ((const struct htab_bb_copy_original_entry *)p);
+  const struct htab_bb_copy_original_entry *data2
+    = ((const struct htab_bb_copy_original_entry *)q);
 
   return data->index1 == data2->index1;
 }

@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_TREE_SSA_OPERANDS_H
 #define GCC_TREE_SSA_OPERANDS_H
@@ -203,13 +202,11 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define PHI_ARG_INDEX_FROM_USE(USE)   phi_arg_index_from_use (USE)
 
 
-extern struct voptype_d *realloc_vdef (struct voptype_d *, unsigned int);
-extern struct voptype_d *realloc_vuse (struct voptype_d *, unsigned int);
-
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
 extern void free_ssa_operands (stmt_operands_p);
 extern void update_stmt_operands (tree);
+extern void free_stmt_operands (tree);
 extern bool verify_imm_links (FILE *f, tree var);
 
 extern void copy_virtual_operands (tree, tree);

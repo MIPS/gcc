@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* This pass converts stack-like registers from the "flat register
    file" model that gcc uses, to a stack convention that the 387 uses.
@@ -250,7 +249,7 @@ static rtx not_a_num;
 
 /* Forward declarations */
 
-static int stack_regs_mentioned_p (rtx pat);
+static int stack_regs_mentioned_p (const_rtx pat);
 static void pop_stack (stack, int);
 static rtx *get_true_reg (rtx *);
 
@@ -277,7 +276,7 @@ static rtx next_flags_user (rtx);
 /* Return nonzero if any stack register is mentioned somewhere within PAT.  */
 
 static int
-stack_regs_mentioned_p (rtx pat)
+stack_regs_mentioned_p (const_rtx pat)
 {
   const char *fmt;
   int i;
@@ -306,7 +305,7 @@ stack_regs_mentioned_p (rtx pat)
 /* Return nonzero if INSN mentions stacked registers, else return zero.  */
 
 int
-stack_regs_mentioned (rtx insn)
+stack_regs_mentioned (const_rtx insn)
 {
   unsigned int uid, max;
   int test;
@@ -1356,9 +1355,9 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	}
       /* Uninitialized USE might happen for functions returning uninitialized
          value.  We will properly initialize the USE on the edge to EXIT_BLOCK,
-	 so it is safe to ignore the use here. This is consistent with behaviour
+	 so it is safe to ignore the use here. This is consistent with behavior
 	 of dataflow analyzer that ignores USE too.  (This also imply that 
-	 forcingly initializing the register to NaN here would lead to ICE later,
+	 forcibly initializing the register to NaN here would lead to ICE later,
 	 since the REG_DEAD notes are not issued.)  */
       break;
 
@@ -3203,7 +3202,7 @@ gate_handle_stack_regs (void)
 
 struct tree_opt_pass pass_stack_regs =
 {
-  "stack",                              /* name */
+  NULL,                                 /* name */
   gate_handle_stack_regs,               /* gate */
   NULL,					/* execute */
   NULL,                                 /* sub */
@@ -3215,7 +3214,7 @@ struct tree_opt_pass pass_stack_regs =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
-  'k'                                   /* letter */
+  0                                     /* letter */
 };
 
 /* Convert register usage from flat register file usage to a stack
@@ -3243,7 +3242,7 @@ struct tree_opt_pass pass_stack_regs_run =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'k'                                   /* letter */

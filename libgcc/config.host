@@ -310,6 +310,8 @@ x86_64-*-darwin*)
 	;;
 i[34567]86-*-elf*)
 	;;
+x86_64-*-elf*)
+	;;
 i[34567]86-sequent-ptx4* | i[34567]86-sequent-sysv4*)
 	;;
 i[34567]86-*-aout*)
@@ -652,5 +654,11 @@ m32c-*-elf*)
 *)
 	echo "*** Configuration ${host} not supported" 1>&2
 	exit 1
+	;;
+esac
+
+case ${host} in
+i[34567]86-*-linux* | x86_64-*-linux*)
+	tmake_file="${tmake_file} t-tls"
 	;;
 esac

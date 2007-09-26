@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* ??? Look at ABI group documents for list of preprocessor macros and
    other features required for ABI compliance.  */
@@ -645,6 +644,7 @@ while (0)
    : PR_REGNO_P (REGNO) && (MODE) == BImode ? 2				\
    : PR_REGNO_P (REGNO) && (MODE) == CCImode ? 1			\
    : FR_REGNO_P (REGNO) && (MODE) == XFmode ? 1				\
+   : FR_REGNO_P (REGNO) && (MODE) == RFmode ? 1				\
    : FR_REGNO_P (REGNO) && (MODE) == XCmode ? 2				\
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
@@ -660,7 +660,7 @@ while (0)
    : PR_REGNO_P (REGNO) ?					\
      (MODE) == BImode || GET_MODE_CLASS (MODE) == MODE_CC	\
    : GR_REGNO_P (REGNO) ?					\
-     (MODE) != CCImode && (MODE) != XFmode && (MODE) != XCmode	\
+     (MODE) != CCImode && (MODE) != XFmode && (MODE) != XCmode && (MODE) != RFmode \
    : AR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : BR_REGNO_P (REGNO) ? (MODE) == DImode			\
    : 0)
@@ -677,15 +677,15 @@ while (0)
    we can't tie it with any other modes.  */
 #define MODES_TIEABLE_P(MODE1, MODE2)			\
   (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2)	\
-   && ((((MODE1) == XFmode) || ((MODE1) == XCmode))	\
-       == (((MODE2) == XFmode) || ((MODE2) == XCmode)))	\
+   && ((((MODE1) == XFmode) || ((MODE1) == XCmode) || ((MODE1) == RFmode))	\
+       == (((MODE2) == XFmode) || ((MODE2) == XCmode) || ((MODE2) == RFmode)))	\
    && (((MODE1) == BImode) == ((MODE2) == BImode)))
 
 /* Specify the modes required to caller save a given hard regno.
    We need to ensure floating pt regs are not saved as DImode.  */
 
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
-  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? XFmode        \
+  ((FR_REGNO_P (REGNO) && (NREGS) == 1) ? RFmode        \
    : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
 /* Handling Leaf Functions */
@@ -883,6 +883,7 @@ enum reg_class
 #define CLASS_MAX_NREGS(CLASS, MODE) \
   ((MODE) == BImode && (CLASS) == PR_REGS ? 2			\
    : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XFmode) ? 1 \
+   : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == RFmode) ? 1 \
    : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XCmode) ? 2 \
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
@@ -934,18 +935,6 @@ enum reg_class
    or a `MEM' representing a location in the stack.  This enables DWARF2
    unwind info for C++ EH.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (VOIDmode, BR_REG (0))
-
-/* ??? This is not defined because of three problems.
-   1) dwarf2out.c assumes that DWARF_FRAME_RETURN_COLUMN fits in one byte.
-   The default value is FIRST_PSEUDO_REGISTER which doesn't.  This can be
-   worked around by setting PC_REGNUM to FR_REG (0) which is an otherwise
-   unused register number.
-   2) dwarf2out_frame_debug core dumps while processing prologue insns.  We
-   need to refine which insns have RTX_FRAME_RELATED_P set and which don't.
-   3) It isn't possible to turn off EH frame info by defining DWARF2_UNIND_INFO
-   to zero, despite what the documentation implies, because it is tested in
-   a few places with #ifdef instead of #if.  */
-#undef INCOMING_RETURN_ADDR_RTX
 
 /* A C expression whose value is an integer giving the offset, in bytes, from
    the value of the stack pointer register to the top of the stack frame at the

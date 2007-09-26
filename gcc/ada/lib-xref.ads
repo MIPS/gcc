@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1998-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -118,6 +117,10 @@ package Lib.Xref is
    --          entry of the form  LR=<> for each of the interfaces appearing
    --          in the type declaration.
 
+   --          For an array type, there is an entry of the form LR=<> for
+   --          each of the index types appearing in the type declaration.
+   --          The index types follow the entry for the component type.
+
    --          In the above list LR shows the brackets used in the output,
    --          which has one of the two following forms:
 
@@ -170,6 +173,7 @@ package Lib.Xref is
    --              p = primitive operation
    --              P = overriding primitive operation
    --              r = reference
+   --              R = subprogram reference in dispatching call
    --              t = end of body
    --              w = WITH line
    --              x = type extension
@@ -249,6 +253,10 @@ package Lib.Xref is
    --           If the primitive operation overrides an inherited primitive
    --           operation of the parent type, the letter 'P' is used in the
    --           corresponding entry.
+
+   --           R is used to mark a dispatching call. The reference is to
+   --           the specification of the primitive operation of the root
+   --           type when the call has a controlling argument in its class.
 
    --           t is similar to e. It identifies the end of a corresponding
    --           body (such a reference always links up with a b reference)

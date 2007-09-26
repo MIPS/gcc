@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -313,13 +312,15 @@ ifcombine_ifandif (basic_block inner_cond_bb, basic_block outer_cond_bb)
       /* Do it.  */
       bsi = bsi_for_stmt (inner_cond);
       t = fold_build2 (LSHIFT_EXPR, TREE_TYPE (name1),
-		       integer_one_node, bit1);
+		       build_int_cst (TREE_TYPE (name1), 1), bit1);
       t2 = fold_build2 (LSHIFT_EXPR, TREE_TYPE (name1),
-		        integer_one_node, bit2);
+		        build_int_cst (TREE_TYPE (name1), 1), bit2);
       t = fold_build2 (BIT_IOR_EXPR, TREE_TYPE (name1), t, t2);
-      t = force_gimple_operand_bsi (&bsi, t, true, NULL_TREE);
+      t = force_gimple_operand_bsi (&bsi, t, true, NULL_TREE,
+				    true, BSI_SAME_STMT);
       t2 = fold_build2 (BIT_AND_EXPR, TREE_TYPE (name1), name1, t);
-      t2 = force_gimple_operand_bsi (&bsi, t2, true, NULL_TREE);
+      t2 = force_gimple_operand_bsi (&bsi, t2, true, NULL_TREE,
+				     true, BSI_SAME_STMT);
       COND_EXPR_COND (inner_cond) = fold_build2 (EQ_EXPR, boolean_type_node,
 						 t2, t);
       update_stmt (inner_cond);
@@ -405,9 +406,11 @@ ifcombine_iforif (basic_block inner_cond_bb, basic_block outer_cond_bb)
       /* Do it.  */
       bsi = bsi_for_stmt (inner_cond);
       t = fold_build2 (BIT_IOR_EXPR, TREE_TYPE (name1), bits1, bits2);
-      t = force_gimple_operand_bsi (&bsi, t, true, NULL_TREE);
+      t = force_gimple_operand_bsi (&bsi, t, true, NULL_TREE,
+				    true, BSI_SAME_STMT);
       t = fold_build2 (BIT_AND_EXPR, TREE_TYPE (name1), name1, t);
-      t = force_gimple_operand_bsi (&bsi, t, true, NULL_TREE);
+      t = force_gimple_operand_bsi (&bsi, t, true, NULL_TREE,
+				    true, BSI_SAME_STMT);
       COND_EXPR_COND (inner_cond) = fold_build2 (NE_EXPR, boolean_type_node, t,
 						 build_int_cst (TREE_TYPE (t), 0));
       update_stmt (inner_cond);

@@ -1,5 +1,5 @@
 /* Value Numbering routines for tree expressions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>, Steven Bosscher
    <stevenb@suse.de> and Diego Novillo <dnovillo@redhat.com>
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -60,7 +59,7 @@ bool
 expressions_equal_p (tree e1, tree e2)
 {
   tree te1, te2;
-  
+
   if (e1 == e2)
     return true;
 
@@ -83,7 +82,7 @@ expressions_equal_p (tree e1, tree e2)
       return true;
 
     }
-  else if (TREE_CODE (e1) == TREE_CODE (e2) 
+  else if (TREE_CODE (e1) == TREE_CODE (e2)
 	   && (te1 == te2
 	       || types_compatible_p (te1, te2))
 	   && operand_equal_p (e1, e2, OEP_PURE_SAME))
@@ -93,7 +92,7 @@ expressions_equal_p (tree e1, tree e2)
 }
 
 /* Set the value handle for expression E to value V.  */
-   
+
 void
 set_value_handle (tree e, tree v)
 {
@@ -107,9 +106,6 @@ set_value_handle (tree e, tree v)
     /* Do nothing.  Constants are their own value handles.  */
     gcc_assert (is_gimple_min_invariant (e));
 }
-
-
-
 
 /* A comparison function for use in qsort to compare vuses.  Simply
    subtracts version numbers.  */
@@ -136,12 +132,12 @@ print_creation_to_file (tree v, tree expr, VEC (tree, gc) *vuses)
   print_generic_expr (dump_file, v, dump_flags);
   fprintf (dump_file, " for ");
   print_generic_expr (dump_file, expr, dump_flags);
-  
+
   if (vuses && VEC_length (tree, vuses) != 0)
     {
       size_t i;
       tree vuse;
-      
+
       fprintf (dump_file, " vuses: (");
       for (i = 0; VEC_iterate (tree, vuses, i, vuse); i++)
 	{
@@ -150,7 +146,7 @@ print_creation_to_file (tree v, tree expr, VEC (tree, gc) *vuses)
 	    fprintf (dump_file, ",");
 	}
       fprintf (dump_file, ")");
-    }		   
+    }
   fprintf (dump_file, "\n");
 }
 
@@ -158,7 +154,7 @@ print_creation_to_file (tree v, tree expr, VEC (tree, gc) *vuses)
 /* Sort the VUSE array so that we can do equality comparisons
    quicker on two vuse vecs.  */
 
-void 
+void
 sort_vuses (VEC (tree,gc) *vuses)
 {
   if (VEC_length (tree, vuses) > 1)
@@ -171,7 +167,7 @@ sort_vuses (VEC (tree,gc) *vuses)
 /* Sort the VUSE array so that we can do equality comparisons
    quicker on two vuse vecs.  */
 
-void 
+void
 sort_vuses_heap (VEC (tree,heap) *vuses)
 {
   if (VEC_length (tree, vuses) > 1)
@@ -283,7 +279,7 @@ vn_lookup (tree expr)
       if (TREE_CODE (expr) == CALL_EXPR || DECL_P (expr))
 	return vn_reference_lookup (expr, NULL);
       else if (TREE_CODE (expr) == SSA_NAME)
-	return SSA_NAME_VALUE (expr);      
+	return SSA_NAME_VALUE (expr);
       else if (TREE_CODE (expr) == ADDR_EXPR)
 	return vn_unary_op_lookup (expr);
       /* FALLTHROUGH */
@@ -295,7 +291,7 @@ vn_lookup (tree expr)
 
 /* Search in the value numbering tables for an existing instance of
    expression EXPR,  and return its value, or NULL if none has been set.  STMT
-   represents the stmt associated with EXPR.  It is used when computing the 
+   represents the stmt associated with EXPR.  It is used when computing the
    hash value for EXPR for reference operations.  */
 
 tree
@@ -329,16 +325,14 @@ vn_lookup_with_vuses (tree expr, VEC (tree, gc) *vuses)
 }
 
 static tree
-create_value_handle_for_expr (tree expr, VEC (tree, gc) *vuses)
+create_value_handle_for_expr (tree expr, VEC(tree, gc) *vuses)
 {
   tree v;
-  
+
   v = make_value_handle (TREE_TYPE (expr));
-  
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     print_creation_to_file (v, expr, vuses);
-  if (vuses)
-    VALUE_HANDLE_VUSES (v) = vuses;
   return v;
 }
 
@@ -349,7 +343,7 @@ tree
 vn_lookup_or_add (tree expr)
 {
   tree v = vn_lookup (expr);
-  
+
   if (v == NULL_TREE)
     {
       v = create_value_handle_for_expr (expr, NULL);
@@ -393,10 +387,10 @@ tree
 vn_lookup_or_add_with_vuses (tree expr, VEC (tree, gc) *vuses)
 {
   tree v;
-  
+
   if (!vuses || VEC_length (tree, vuses) == 0)
     return vn_lookup_or_add (expr);
-  
+
   v = vn_lookup_with_vuses (expr, vuses);
   if (v == NULL_TREE)
     {
