@@ -3064,12 +3064,19 @@ c_builtin_function (tree decl)
   gcc_assert (!I_SYMBOL_BINDING (id));
 
   bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false,
-	/*notify_ok=*/true);
+	/*notify_ok=*/false);
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */
   if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
     {
+      void **slot;
+
+      /* FIXME: should do this for all decls here but there is still
+	 some decl-smashing going on... */
+      slot = htab_find_slot (all_c_built_ins, decl, INSERT);
+      *slot = decl;
+
       TREE_CHAIN (decl) = visible_builtins;
       visible_builtins = decl;
     }

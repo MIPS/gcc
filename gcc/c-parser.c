@@ -890,6 +890,9 @@ c_parser_note_smash (tree from, tree to)
   /*   gcc_assert (slot && !*slot); */
   *slot = entry;
   C_SMASHED_P (from) = 1;
+
+  if (TREE_CODE (from) == FUNCTION_DECL && TREE_CODE (to) == FUNCTION_DECL)
+    cgraph_note_duplicate (from, to);
 }
 
 /* Update a checksum for a numeric constant of some kind.  */

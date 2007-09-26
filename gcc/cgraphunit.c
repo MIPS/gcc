@@ -689,7 +689,7 @@ verify_cgraph_node (struct cgraph_node *node)
 		tree stmt = bsi_stmt (bsi);
 		tree call = get_call_expr_in (stmt);
 		tree decl;
-		if (call && (decl = get_callee_fndecl (call)))
+		if (call && (decl = cgraph_get_callee_fndecl (call)))
 		  {
 		    struct cgraph_edge *e = cgraph_edge (node, stmt);
 		    if (e)

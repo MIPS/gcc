@@ -131,6 +131,11 @@ static GTY(()) struct cgraph_asm_node *cgraph_asm_last_node;
    them, to support -fno-toplevel-reorder.  */
 int cgraph_order;
 
+/* A front end may decide not to smash duplicate declarations.  This
+   map records such duplicates so cgraph can always operate on the
+   canonical declaration from a group of duplicates.  */
+static struct pointer_map_t *duplicate_map;
+
 
 /* Reset this module in preparation for the next compilation unit.  */
 
@@ -150,6 +155,11 @@ cgraph_reset (void)
   cgraph_asm_nodes = NULL;
   cgraph_asm_last_node = NULL;
   cgraph_order = 0;
+  if (duplicate_map)
+    {
+      pointer_map_destroy (duplicate_map);
+      duplicate_map = NULL;
+    }
 }
 
 static hashval_t hash_node (const void *);
@@ -195,6 +205,19 @@ cgraph_create_node (void)
   return node;
 }
 
+/* Return the canonical decl.  */
+tree
+cgraph_canonical_decl (tree decl)
+{
+  if (duplicate_map)
+    {
+      void **slot;
+      while ((slot = pointer_map_contains (duplicate_map, decl)) != NULL)
+	decl = (tree) *slot;
+    }
+  return decl;
+}
+
 /* Return cgraph node assigned to DECL.  Create new one when needed.  */
 
 struct cgraph_node *
@@ -230,6 +253,48 @@ cgraph_node (tree decl)
       node->master_clone = node;
     }
   return node;
+}
+
+/* Tell cgraph that DUPLICATE is the same object as DECL.  */
+void
+cgraph_note_duplicate (tree decl, tree duplicate)
+{
+  void **slot;
+
+  decl = cgraph_canonical_decl (decl);
+
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
+	      && TREE_CODE (duplicate) == FUNCTION_DECL);
+  gcc_assert (decl != duplicate);
+
+  if (!duplicate_map)
+    duplicate_map = pointer_map_create ();
+
+  /* FIXME: this seems bogus & lame.  */
+
+  if (DECL_INITIAL (duplicate))
+    {
+      /* FIXME: shouldn't be able to see a DECL_INITIAL here.
+	 Something is decl-smashing again.  */
+      gcc_assert (!DECL_INITIAL (decl)
+		  || DECL_INITIAL (decl) == DECL_INITIAL (duplicate));
+      slot = pointer_map_insert (duplicate_map, decl);
+      *slot = duplicate;
+    }
+  else
+    {
+      pointer_map_insert (duplicate_map, duplicate);
+      *slot = decl;
+    }
+}
+
+/* Like get_callee_fndecl, but returns the canonical target of the
+   call.  */
+tree
+cgraph_get_callee_fndecl (tree expr)
+{
+  tree result = get_callee_fndecl (expr);
+  return cgraph_canonical_decl (result);
 }
 
 /* Insert already constructed node into hashtable.  */

@@ -1,3 +1,20 @@
+2007-09-26  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (c_parser_note_smash): Call cgraph_note_duplicate.
+	* c-decl.c (c_builtin_function): Put builtins in all_c_built_ins.
+	* cgraphunit.c (verify_cgraph_node): Use
+	cgraph_get_callee_fndecl.
+	* cgraph.c (duplicate_map): New global.
+	(cgraph_reset): Destroy duplicate_map.
+	(cgraph_canonical_decl): New function.
+	(cgraph_note_duplicate): Likewise.
+	(cgraph_get_callee_fndecl): Likewise.
+	* cgraphbuild.c (record_reference): Use cgraph_canonical_decl.
+	(build_cgraph_edges): Use cgraph_get_callee_fndecl.
+	(rebuild_cgraph_edges): Likewise.
+	* cgraph.h (cgraph_canonical_decl, cgraph_note_duplicate,
+	cgraph_get_callee_fndecl): Declare.
+
 2007-09-25  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (update_numeric_checksum): New function.

@@ -59,7 +59,7 @@ record_reference (tree *tp, int *walk_subtrees, void *data)
 	     functions reachable unconditionally.  */
 	  tree decl = TREE_OPERAND (*tp, 0);
 	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    cgraph_mark_needed_node (cgraph_node (decl));
+	    cgraph_mark_needed_node (cgraph_node (cgraph_canonical_decl (decl)));
 	}
       break;
 
@@ -130,7 +130,7 @@ build_cgraph_edges (void)
 	tree call = get_call_expr_in (stmt);
 	tree decl;
 
-	if (call && (decl = get_callee_fndecl (call)))
+	if (call && (decl = cgraph_get_callee_fndecl (call)))
 	  {
 	    int i;
 	    int n = call_expr_nargs (call);
@@ -224,7 +224,7 @@ rebuild_cgraph_edges (void)
 	tree call = get_call_expr_in (stmt);
 	tree decl;
 
-	if (call && (decl = get_callee_fndecl (call)))
+	if (call && (decl = cgraph_get_callee_fndecl (call)))
 	  {
 	    int freq = (!bb->frequency && !entry_freq ? CGRAPH_FREQ_BASE
 			: bb->frequency * CGRAPH_FREQ_BASE / entry_freq);
