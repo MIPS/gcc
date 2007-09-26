@@ -1,12 +1,12 @@
 /* Check calls to formatted I/O functions (-Wformat).
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -343,6 +342,15 @@ static const format_length_info strfmon_length_specs[] =
   { NULL, 0, 0, NULL, 0, 0 }
 };
 
+
+/* For now, the Fortran front-end routines only use l as length modifier.  */
+static const format_length_info gcc_gfc_length_specs[] =
+{
+  { "l", FMT_LEN_l, STD_C89, NULL, 0, 0 },
+  { NULL, 0, 0, NULL, 0, 0 }
+};
+
+
 static const format_flag_spec printf_flag_specs[] =
 {
   { ' ',  0, 0, N_("' ' flag"),        N_("the ' ' printf flag"),              STD_C89 },
@@ -632,7 +640,8 @@ static const format_char_info gcc_cxxdiag_char_table[] =
 static const format_char_info gcc_gfc_char_table[] =
 {
   /* C89 conversion specifiers.  */
-  { "di",  0, STD_C89, { T89_I,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "", "", NULL },
+  { "di",  0, STD_C89, { T89_I,   BADLEN,  BADLEN,  T89_L,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "", "", NULL },
+  { "u",   0, STD_C89, { T89_UI,  BADLEN,  BADLEN,  T89_UL,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "", "", NULL },
   { "c",   0, STD_C89, { T89_I,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "", "", NULL },
   { "s",   1, STD_C89, { T89_C,   BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN,  BADLEN  }, "", "cR", NULL },
 
@@ -739,7 +748,7 @@ static const format_kind_info format_types_orig[] =
     0, 0, 'p', 0, 'L',
     NULL, &integer_type_node
   },
-  { "gcc_gfc", NULL, gcc_gfc_char_table, "", NULL,
+  { "gcc_gfc", gcc_gfc_length_specs, gcc_gfc_char_table, "", NULL,
     NULL, gcc_gfc_flag_pairs,
     FMT_FLAG_ARG_CONVERT,
     0, 0, 0, 0, 0,
@@ -1313,7 +1322,7 @@ check_format_arg (void *ctx, tree format_tree,
     }
 
   offset = 0;
-  if (TREE_CODE (format_tree) == PLUS_EXPR)
+  if (TREE_CODE (format_tree) == POINTER_PLUS_EXPR)
     {
       tree arg0, arg1;
 
@@ -1323,11 +1332,6 @@ check_format_arg (void *ctx, tree format_tree,
       STRIP_NOPS (arg1);
       if (TREE_CODE (arg1) == INTEGER_CST)
 	format_tree = arg0;
-      else if (TREE_CODE (arg0) == INTEGER_CST)
-	{
-	  format_tree = arg1;
-	  arg1 = arg0;
-	}
       else
 	{
 	  res->number_non_literal++;
@@ -1397,19 +1401,14 @@ check_format_arg (void *ctx, tree format_tree,
       format_chars += offset;
       format_length -= offset;
     }
-  if (format_length < 1)
+  if (format_length < 1 || format_chars[--format_length] != 0)
     {
       res->number_unterminated++;
       return;
     }
-  if (format_length == 1)
+  if (format_length == 0)
     {
       res->number_empty++;
-      return;
-    }
-  if (format_chars[--format_length] != 0)
-    {
-      res->number_unterminated++;
       return;
     }
 
@@ -2249,7 +2248,7 @@ check_format_types (format_wanted_type *types, const char *format_start,
 	  && TREE_CODE (cur_type) == INTEGER_TYPE
 	  && (!pedantic || i == 0 || (i == 1 && char_type_flag))
 	  && (TYPE_UNSIGNED (wanted_type)
-	      ? wanted_type == unsigned_type_for (cur_type)
+	      ? wanted_type == c_common_unsigned_type (cur_type)
 	      : wanted_type == c_common_signed_type (cur_type)))
 	continue;
       /* Likewise, "signed char", "unsigned char" and "char" are

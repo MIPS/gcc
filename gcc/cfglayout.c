@@ -1,11 +1,12 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "alloc-pool.h"
 #include "flags.h"
 #include "tree-pass.h"
+#include "df.h"
 #include "vecprim.h"
 
 /* Holds the interesting trailing notes for the function.  */
@@ -52,7 +53,7 @@ static void change_scope (rtx, tree, tree);
 
 void verify_insn_chain (void);
 static void fixup_fallthru_exit_predecessor (void);
-static tree insn_scope (rtx);
+static tree insn_scope (const_rtx);
 
 rtx
 unlink_insn_chain (rtx first, rtx last)
@@ -449,7 +450,7 @@ change_scope (rtx orig_insn, tree s1, tree s2)
 
 /* Return lexical scope block insn belong to.  */
 static tree
-insn_scope (rtx insn)
+insn_scope (const_rtx insn)
 {
   int max = VEC_length (int, block_locators_locs);
   int min = 0;
@@ -526,7 +527,7 @@ locator_line (int loc)
 
 /* Return line number of the statement that produced this insn.  */
 int
-insn_line (rtx insn)
+insn_line (const_rtx insn)
 {
   return locator_line (INSN_LOCATOR (insn));
 }
@@ -545,7 +546,7 @@ locator_file (int loc)
 
 /* Return source file of the statement that produced this insn.  */
 const char *
-insn_file (rtx insn)
+insn_file (const_rtx insn)
 {
   return locator_file (INSN_LOCATOR (insn));
 }
@@ -883,7 +884,7 @@ fixup_reorder_chain (void)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
-
+      
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
     }
@@ -959,6 +960,56 @@ fixup_fallthru_exit_predecessor (void)
 
       c->aux = bb;
       bb->aux = NULL;
+    }
+}
+
+/* In case there are more than one fallthru predecessors of exit, force that
+   there is only one.  */
+
+static void
+force_one_exit_fallthru (void)
+{
+  edge e, predecessor = NULL;
+  bool more = false;
+  edge_iterator ei;
+  basic_block forwarder, bb;
+
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+    if (e->flags & EDGE_FALLTHRU)
+      {
+	if (predecessor == NULL)
+	  predecessor = e;
+	else
+	  {
+	    more = true;
+	    break;
+	  }
+      }
+
+  if (!more)
+    return;
+
+  /* Exit has several fallthru predecessors.  Create a forwarder block for
+     them.  */
+  forwarder = split_edge (predecessor);
+  for (ei = ei_start (EXIT_BLOCK_PTR->preds); (e = ei_safe_edge (ei)); )
+    {
+      if (e->src == forwarder
+	  || !(e->flags & EDGE_FALLTHRU))
+	ei_next (&ei);
+      else
+	redirect_edge_and_branch_force (e, forwarder);
+    }
+
+  /* Fix up the chain of blocks -- make FORWARDER immediately precede the
+     exit block.  */
+  FOR_EACH_BB (bb)
+    {
+      if (bb->aux == NULL && bb != forwarder)
+	{
+	  bb->aux = forwarder;
+	  break;
+	}
     }
 }
 
@@ -1108,34 +1159,33 @@ cfg_layout_duplicate_bb (basic_block bb)
 	new_bb->il.rtl->footer = unlink_insn_chain (insn, get_last_insn ());
     }
 
-  if (bb->il.rtl->global_live_at_start)
-    {
-      new_bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      new_bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-      COPY_REG_SET (new_bb->il.rtl->global_live_at_start,
-		    bb->il.rtl->global_live_at_start);
-      COPY_REG_SET (new_bb->il.rtl->global_live_at_end,
-		    bb->il.rtl->global_live_at_end);
-    }
-
   return new_bb;
 }
+
 
 /* Main entry point to this module - initialize the datastructures for
    CFG layout changes.  It keeps LOOPS up-to-date if not null.
 
-   FLAGS is a set of additional flags to pass to cleanup_cfg().  It should
-   include CLEANUP_UPDATE_LIFE if liveness information must be kept up
-   to date.  */
+   FLAGS is a set of additional flags to pass to cleanup_cfg().  */
 
 void
 cfg_layout_initialize (unsigned int flags)
 {
+  rtx x;
+  basic_block bb;
+
   initialize_original_copy_tables ();
 
   cfg_layout_rtl_register_cfg_hooks ();
 
   record_effective_endpoints ();
+
+  /* Make sure that the targets of non local gotos are marked.  */
+  for (x = nonlocal_goto_handler_labels; x; x = XEXP (x, 1))
+    {
+      bb = BLOCK_FOR_INSN (XEXP (x, 0));
+      bb->flags |= BB_NON_LOCAL_GOTO_TARGET;
+    }
 
   cleanup_cfg (CLEANUP_CFGLAYOUT | flags);
 }
@@ -1177,6 +1227,7 @@ cfg_layout_finalize (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+  force_one_exit_fallthru ();
   rtl_register_cfg_hooks ();
   if (reload_completed
 #ifdef HAVE_epilogue

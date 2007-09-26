@@ -1,11 +1,11 @@
 /* Copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -82,7 +81,7 @@ may_propagate_copy (tree dest, tree orig)
 	                         DECL_UID (SSA_NAME_VAR (dest)))));
   
   /* Do not copy between types for which we *do* need a conversion.  */
-  if (!tree_ssa_useless_type_conversion_1 (type_d, type_o))
+  if (!useless_type_conversion_p (type_d, type_o))
     return false;
 
   /* FIXME.  GIMPLE is allowing pointer assignments and comparisons of
@@ -130,7 +129,7 @@ may_propagate_copy (tree dest, tree orig)
       tree mt_orig = symbol_mem_tag (SSA_NAME_VAR (orig));
       if (mt_dest && mt_orig && mt_dest != mt_orig)
 	return false;
-      else if (!lang_hooks.types_compatible_p (type_d, type_o))
+      else if (!useless_type_conversion_p (type_d, type_o))
 	return false;
       else if (get_alias_set (TREE_TYPE (type_d)) != 
 	       get_alias_set (TREE_TYPE (type_o)))
@@ -222,8 +221,8 @@ merge_alias_info (tree orig_name, tree new_name)
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (new_name)));
 
 #if defined ENABLE_CHECKING
-  gcc_assert (lang_hooks.types_compatible_p (TREE_TYPE (orig_name),
-					     TREE_TYPE (new_name)));
+  gcc_assert (useless_type_conversion_p (TREE_TYPE (orig_name),
+					TREE_TYPE (new_name)));
 
   /* If the pointed-to alias sets are different, these two pointers
      would never have the same memory tag.  In this case, NEW should

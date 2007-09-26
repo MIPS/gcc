@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -200,7 +199,7 @@ static VEC(scb_t,heap) *scb_stack;
 /* Return the DECL_UID of the base variable of T.  */
 
 static inline unsigned
-get_name_decl (tree t)
+get_name_decl (const_tree t)
 {
   if (TREE_CODE (t) != SSA_NAME)
     return DECL_UID (t);
@@ -214,12 +213,10 @@ get_name_decl (tree t)
 static int
 operand_build_cmp (const void *p, const void *q)
 {
-  tree e1 = *((const tree *)p);
-  tree e2 = *((const tree *)q);
-  unsigned int u1,u2;
-
-  u1 = get_name_decl (e1);
-  u2 = get_name_decl (e2);
+  const_tree const e1 = *((const_tree const *)p);
+  const_tree const e2 = *((const_tree const *)q);
+  const unsigned int u1 = get_name_decl (e1);
+  const unsigned int u2 = get_name_decl (e2);
 
   /* We want to sort in ascending order.  They can never be equal.  */
 #ifdef ENABLE_CHECKING
@@ -668,99 +665,6 @@ add_vdef_op (tree stmt, tree op, int num, voptype_p last)
   return new_vop;
 }
   
-
-/* Reallocate the virtual operand PTR so that it has NUM_ELEM use slots.  ROOT
-   is the head of the operand list it belongs to.  */
-
-static inline struct voptype_d *
-realloc_vop (struct voptype_d *ptr, unsigned int num_elem,
-	     struct voptype_d **root)
-{
-  unsigned int x, lim;
-  tree stmt, val;
-  struct voptype_d *ret, *tmp;
-
-  if (VUSE_VECT_NUM_ELEM (ptr->usev) == num_elem)
-    return ptr; 
-
-  val = VUSE_OP (ptr, 0);
-  if (TREE_CODE (val) == SSA_NAME)
-    val = SSA_NAME_VAR (val);
-
-  stmt = USE_STMT (VUSE_OP_PTR (ptr, 0));
-
-  /* Delink all the existing uses.  */
-  for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
-    {
-      use_operand_p use_p = VUSE_OP_PTR (ptr, x);
-      delink_imm_use (use_p);
-    }
-
-  /* If we want less space, simply use this one, and shrink the size.  */
-  if (VUSE_VECT_NUM_ELEM (ptr->usev) > num_elem)
-    {
-      VUSE_VECT_NUM_ELEM (ptr->usev) = num_elem;
-      return ptr;
-    }
-
-  /* It is growing.  Allocate a new one and replace the old one.  */
-  ret = add_vuse_op (stmt, val, num_elem, ptr);
-
-  /* Clear PTR and add its memory to the free list.  */
-  lim = VUSE_VECT_NUM_ELEM (ptr->usev);
-  memset (ptr, 0,
-          sizeof (struct voptype_d) + sizeof (vuse_element_t) * (lim- 1));
-  add_vop_to_freelist (ptr);
-
-  /* Now simply remove the old one.  */
-  if (*root == ptr)
-    {
-      *root = ret;
-      return ret;
-    }
-  else
-    for (tmp = *root; 
-	 tmp != NULL && tmp->next != ptr; 
-	 tmp = tmp->next)
-      {
-	tmp->next = ret;
-	return ret;
-      }
-
-  /* The pointer passed in isn't in STMT's VDEF lists.  */
-  gcc_unreachable ();
-}
- 
-
-/* Reallocate the PTR vdef so that it has NUM_ELEM use slots.  */
-
-struct voptype_d *
-realloc_vdef (struct voptype_d *ptr, unsigned int num_elem)
-{
-  tree val, stmt;
-  struct voptype_d *ret;
-
-  val = VDEF_RESULT (ptr);
-  stmt = USE_STMT (VDEF_OP_PTR (ptr, 0));
-  ret = realloc_vop (ptr, num_elem, &(VDEF_OPS (stmt)));
-  VDEF_RESULT (ret) = val;
-  return ret;
-}
-  
-
-/* Reallocate the PTR vuse so that it has NUM_ELEM use slots.  */
-
-struct voptype_d *
-realloc_vuse (struct voptype_d *ptr, unsigned int num_elem)
-{
-  tree stmt;
-  struct voptype_d *ret;
-
-  stmt = USE_STMT (VUSE_OP_PTR (ptr, 0));
-  ret = realloc_vop (ptr, num_elem, &(VUSE_OPS (stmt)));
-  return ret;
-}
-
 
 /* Takes elements from build_defs and turns them into def operands of STMT.
    TODO -- Make build_defs VEC of tree *.  */
@@ -2171,6 +2075,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
 	    if (!none)
 	      flags |= opf_no_vops;
+
+	    if (TREE_THIS_VOLATILE (expr))
+	      get_stmt_ann (stmt)->has_volatile_ops = true;
 	  }
 	else if (TREE_CODE (ref) == INDIRECT_REF)
 	  {
@@ -2265,6 +2172,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
         get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
         return;
       }
+
+    case CHANGE_DYNAMIC_TYPE_EXPR:
+      get_expr_operands (stmt, &CHANGE_DYNAMIC_TYPE_LOCATION (expr), opf_use);
+      return;
 
     case BLOCK:
     case FUNCTION_DECL:

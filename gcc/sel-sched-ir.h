@@ -987,7 +987,7 @@ extern void setup_nop_and_exit_insns (void);
 extern void free_nop_and_exit_insns (void);
 extern void setup_nop_vinsn (void);
 extern void free_nop_vinsn (void);
-extern void sel_setup_common_sched_info (void);
+extern void sel_set_sched_flags (void);
 extern void sel_setup_sched_infos (void);
 
 

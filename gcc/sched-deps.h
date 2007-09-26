@@ -41,9 +41,13 @@ struct _haifa_deps_insn_data
      BACK_DEPS and RESOLVED_BACK_DEPS are allocated on the heap and FORW_DEPS
      list is allocated on the obstack.  */
 
-  /* A list of backward dependencies.  The insn is a consumer of all the
+  /* A list of hard backward dependencies.  The insn is a consumer of all the
      deps mentioned here.  */
-  deps_list_t back_deps;
+  deps_list_t hard_back_deps;
+
+  /* A list of speculative (weak) dependencies.  The insn is a consumer of all
+     the deps mentioned here.  */
+  deps_list_t spec_back_deps;
 
   /* A list of insns which depend on the instruction.  Unlike 'back_deps',
      it represents forward dependencies.  */
@@ -52,6 +56,11 @@ struct _haifa_deps_insn_data
   /* A list of scheduled producers of the instruction.  Links are being moved
      from 'back_deps' to 'resolved_back_deps' while scheduling.  */
   deps_list_t resolved_back_deps;
+
+  /* A list of scheduled consumers of the instruction.  Links are being moved
+     from 'forw_deps' to 'resolved_forw_deps' while scheduling to fasten the
+     search in 'forw_deps'.  */
+  deps_list_t resolved_forw_deps;
 };
 
 typedef struct _haifa_deps_insn_data haifa_deps_insn_data_def;
@@ -66,9 +75,11 @@ extern VEC(haifa_deps_insn_data_def, heap) *h_d_i_d;
 			       INSN_LUID (INSN)))
 #define INSN_DEP_COUNT(INSN)	(HDID (INSN)->dep_count)
 #define HAS_INTERNAL_DEP(INSN)  (HDID (INSN)->has_internal_dep)
-#define INSN_BACK_DEPS(INSN) (HDID (INSN)->back_deps)
 #define INSN_FORW_DEPS(INSN) (HDID (INSN)->forw_deps)
 #define INSN_RESOLVED_BACK_DEPS(INSN) (HDID (INSN)->resolved_back_deps)
+#define INSN_RESOLVED_FORW_DEPS(INSN) (HDID (INSN)->resolved_forw_deps)
+#define INSN_HARD_BACK_DEPS(INSN) (HDID (INSN)->hard_back_deps)
+#define INSN_SPEC_BACK_DEPS(INSN) (HDID (INSN)->spec_back_deps)
 
 struct _deps_insn_data
 {
@@ -152,7 +163,7 @@ struct sched_deps_info_def
 extern struct sched_deps_info_def *sched_deps_info;
 
 extern bool sched_insns_conditions_mutex_p (rtx, rtx);
-extern void maybe_add_or_update_back_dep (rtx, rtx, enum reg_note);
+extern void add_dependence (rtx, rtx, enum reg_note);
 extern void deps_analyze_insn (struct deps *, rtx);
 extern void sched_analyze (struct deps *, rtx, rtx);
 extern void init_deps (struct deps *);
@@ -189,5 +200,10 @@ extern void haifa_note_reg_use (int);
 
 extern void deps_start_bb (struct deps *, rtx);
 extern enum reg_note ds_to_dt (ds_t);
+
+extern bool deps_pools_are_empty_p (void);
+extern void sched_free_deps (rtx, rtx, bool);
+extern void extend_dependency_caches (int, bool);
+
 
 #endif /* GCC_SCHED_DEPS_H */

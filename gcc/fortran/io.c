@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -98,7 +97,7 @@ typedef enum
   FMT_NONE, FMT_UNKNOWN, FMT_SIGNED_INT, FMT_ZERO, FMT_POSINT, FMT_PERIOD,
   FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_POS, FMT_LPAREN,
   FMT_RPAREN, FMT_X, FMT_SIGN, FMT_BLANK, FMT_CHAR, FMT_P, FMT_IBOZ, FMT_F,
-  FMT_E, FMT_EXT, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END
+  FMT_E, FMT_EXT, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END, FMT_ERROR
 }
 format_token;
 
@@ -176,12 +175,23 @@ unget_char (void)
 /* Eat up the spaces and return a character.  */
 
 static char
-next_char_not_space (void)
+next_char_not_space (bool *error)
 {
   char c;
   do
     {
       c = next_char (0);
+      if (c == '\t')
+	{
+	  if (gfc_option.allow_std & GFC_STD_GNU)
+	    gfc_warning ("Extension: Tab character in format at %C");
+	  else
+	    {
+	      gfc_error ("Extension: Tab character in format at %C");
+	      *error = true;
+	      return c;
+	    }
+	}
     }
   while (gfc_is_whitespace (c));
   return c;
@@ -199,6 +209,7 @@ format_lex (void)
   char c, delim;
   int zflag;
   int negative_flag;
+  bool error = false;
 
   if (saved_token != FMT_NONE)
     {
@@ -207,7 +218,7 @@ format_lex (void)
       return token;
     }
 
-  c = next_char_not_space ();
+  c = next_char_not_space (&error);
   
   negative_flag = 0;
   switch (c)
@@ -215,7 +226,7 @@ format_lex (void)
     case '-':
       negative_flag = 1;
     case '+':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (!ISDIGIT (c))
 	{
 	  token = FMT_UNKNOWN;
@@ -226,7 +237,7 @@ format_lex (void)
 
       do
 	{
-	  c = next_char_not_space ();
+	  c = next_char_not_space (&error);
 	  if (ISDIGIT (c))
 	    value = 10 * value + c - '0';
 	}
@@ -256,11 +267,13 @@ format_lex (void)
 
       do
 	{
-	  c = next_char_not_space ();
-	  if (c != '0')
-	    zflag = 0;
+	  c = next_char_not_space (&error);
 	  if (ISDIGIT (c))
-	    value = 10 * value + c - '0';
+	    {
+	      value = 10 * value + c - '0';
+	      if (c != '0')
+		zflag = 0;
+	    }
 	}
       while (ISDIGIT (c));
 
@@ -289,7 +302,7 @@ format_lex (void)
       break;
 
     case 'T':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (c != 'L' && c != 'R')
 	unget_char ();
 
@@ -309,7 +322,7 @@ format_lex (void)
       break;
 
     case 'S':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (c != 'P' && c != 'S')
 	unget_char ();
 
@@ -317,7 +330,7 @@ format_lex (void)
       break;
 
     case 'B':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (c == 'N' || c == 'Z')
 	token = FMT_BLANK;
       else
@@ -379,7 +392,7 @@ format_lex (void)
       break;
 
     case 'E':
-      c = next_char_not_space ();
+      c = next_char_not_space (&error);
       if (c == 'N' || c == 'S')
 	token = FMT_EXT;
       else
@@ -419,6 +432,9 @@ format_lex (void)
       break;
     }
 
+  if (error)
+    return FMT_ERROR;
+
   return token;
 }
 
@@ -429,7 +445,7 @@ format_lex (void)
    means that the warning message is a little less than great.  */
 
 static try
-check_format (void)
+check_format (bool is_input)
 {
   const char *posint_required	  = _("Positive width required");
   const char *nonneg_required	  = _("Nonnegative width required");
@@ -449,6 +465,8 @@ check_format (void)
   rv = SUCCESS;
 
   t = format_lex ();
+  if (t == FMT_ERROR)
+    goto fail;
   if (t != FMT_LPAREN)
     {
       error = _("Missing leading left parenthesis");
@@ -456,6 +474,8 @@ check_format (void)
     }
 
   t = format_lex ();
+  if (t == FMT_ERROR)
+    goto fail;
   if (t == FMT_RPAREN)
     goto finished;		/* Empty format is legal */
   saved_token = t;
@@ -463,12 +483,16 @@ check_format (void)
 format_item:
   /* In this state, the next thing has to be a format item.  */
   t = format_lex ();
+  if (t == FMT_ERROR)
+    goto fail;
 format_item_1:
   switch (t)
     {
     case FMT_POSINT:
       repeat = value;
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t == FMT_LPAREN)
 	{
 	  level++;
@@ -485,8 +509,11 @@ format_item_1:
       goto format_item;
 
     case FMT_SIGNED_INT:
+    case FMT_ZERO:
       /* Signed integer can only precede a P format.  */
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t != FMT_P)
 	{
 	  error = _("Expected P edit descriptor");
@@ -521,6 +548,8 @@ format_item_1:
 
     case FMT_DOLLAR:
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
 
       if (gfc_notify_std (GFC_STD_GNU, "Extension: $ descriptor at %C")
 	  == FAILURE)
@@ -568,6 +597,8 @@ data_desc:
       if (pedantic)
 	{
 	  t = format_lex ();
+	  if (t == FMT_ERROR)
+	    goto fail;
 	  if (t == FMT_POSINT)
 	    {
 	      error = _("Repeat count cannot follow P descriptor");
@@ -582,6 +613,8 @@ data_desc:
     case FMT_POS:
     case FMT_L:
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t == FMT_POSINT)
 	break;
 
@@ -608,6 +641,8 @@ data_desc:
 
     case FMT_A:
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t != FMT_POSINT)
 	saved_token = t;
       break;
@@ -617,6 +652,8 @@ data_desc:
     case FMT_G:
     case FMT_EXT:
       u = format_lex ();
+      if (u == FMT_ERROR)
+	goto fail;
       if (u != FMT_POSINT)
 	{
 	  error = posint_required;
@@ -624,6 +661,8 @@ data_desc:
 	}
 
       u = format_lex ();
+      if (u == FMT_ERROR)
+	goto fail;
       if (u != FMT_PERIOD)
 	{
 	  /* Warn if -std=legacy, otherwise error.  */
@@ -636,6 +675,8 @@ data_desc:
 	}
 
       u = format_lex ();
+      if (u == FMT_ERROR)
+	goto fail;
       if (u != FMT_ZERO && u != FMT_POSINT)
 	{
 	  error = nonneg_required;
@@ -647,6 +688,8 @@ data_desc:
 
       /* Look for optional exponent.  */
       u = format_lex ();
+      if (u == FMT_ERROR)
+	goto fail;
       if (u != FMT_E)
 	{
 	  saved_token = u;
@@ -654,6 +697,8 @@ data_desc:
       else
 	{
 	  u = format_lex ();
+	  if (u == FMT_ERROR)
+	    goto fail;
 	  if (u != FMT_POSINT)
 	    {
 	      error = _("Positive exponent width required");
@@ -665,13 +710,22 @@ data_desc:
 
     case FMT_F:
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t != FMT_ZERO && t != FMT_POSINT)
 	{
 	  error = nonneg_required;
 	  goto syntax;
 	}
+      else if (is_input && t == FMT_ZERO)
+	{
+	  error = posint_required;
+	  goto syntax;
+	}
 
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t != FMT_PERIOD)
 	{
 	  /* Warn if -std=legacy, otherwise error.  */
@@ -684,6 +738,8 @@ data_desc:
 	}
 
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t != FMT_ZERO && t != FMT_POSINT)
 	{
 	  error = nonneg_required;
@@ -714,13 +770,22 @@ data_desc:
 
     case FMT_IBOZ:
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t != FMT_ZERO && t != FMT_POSINT)
 	{
 	  error = nonneg_required;
 	  goto syntax;
 	}
+      else if (is_input && t == FMT_ZERO)
+	{
+	  error = posint_required;
+	  goto syntax;
+	}
 
       t = format_lex ();
+      if (t == FMT_ERROR)
+	goto fail;
       if (t != FMT_PERIOD)
 	{
 	  saved_token = t;
@@ -728,6 +793,8 @@ data_desc:
       else
 	{
 	  t = format_lex ();
+	  if (t == FMT_ERROR)
+	    goto fail;
 	  if (t != FMT_ZERO && t != FMT_POSINT)
 	    {
 	      error = nonneg_required;
@@ -745,6 +812,8 @@ data_desc:
 between_desc:
   /* Between a descriptor and what comes next.  */
   t = format_lex ();
+  if (t == FMT_ERROR)
+    goto fail;
   switch (t)
     {
 
@@ -776,6 +845,8 @@ optional_comma:
   /* Optional comma is a weird between state where we've just finished
      reading a colon, slash, dollar or P descriptor.  */
   t = format_lex ();
+  if (t == FMT_ERROR)
+    goto fail;
 optional_comma_1:
   switch (t)
     {
@@ -799,6 +870,8 @@ optional_comma_1:
 extension_optional_comma:
   /* As a GNU extension, permit a missing comma after a string literal.  */
   t = format_lex ();
+  if (t == FMT_ERROR)
+    goto fail;
   switch (t)
     {
     case FMT_COMMA:
@@ -829,20 +902,10 @@ extension_optional_comma:
   goto format_item;
 
 syntax:
-  /* Something went wrong.  If the format we're checking is a string,
-     generate a warning, since the program is correct.  If the format
-     is in a FORMAT statement, this messes up parsing, which is an
-     error.  */
-  if (mode != MODE_STRING)
-    gfc_error ("%s in format string at %C", error);
-  else
-    {
-      gfc_warning ("%s in format string at %C", error);
-
-      /* TODO: More elaborate measures are needed to show where a problem
-	 is within a format string that has been calculated.  */
-    }
-
+  gfc_error ("%s in format string at %C", error);
+fail:
+  /* TODO: More elaborate measures are needed to show where a problem
+     is within a format string that has been calculated.  */
   rv = FAILURE;
 
 finished:
@@ -853,12 +916,12 @@ finished:
 /* Given an expression node that is a constant string, see if it looks
    like a format string.  */
 
-static void
-check_format_string (gfc_expr *e)
+static try
+check_format_string (gfc_expr *e, bool is_input)
 {
   mode = MODE_STRING;
   format_string = e->value.character.string;
-  check_format ();
+  return check_format (is_input);
 }
 
 
@@ -893,7 +956,7 @@ gfc_match_format (void)
 
   start = gfc_current_locus;
 
-  if (check_format () == FAILURE)
+  if (check_format (false) == FAILURE)
     return MATCH_ERROR;
 
   if (gfc_match_eos () != MATCH_YES)
@@ -920,7 +983,7 @@ gfc_match_format (void)
   gfc_statement_label->format = e;
 
   mode = MODE_COPY;
-  check_format ();		/* Guaranteed to succeed */
+  check_format (false);		/* Guaranteed to succeed */
   gfc_match_eos ();		/* Guaranteed to succeed */
 
   return MATCH_YES;
@@ -1072,7 +1135,7 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
 	    }
 	  else if (e->ts.type == BT_INTEGER && e->expr_type == EXPR_VARIABLE)
 	    {
-	      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: ASSIGNED "
+	      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGNED "
 				  "variable in FORMAT tag at %L", &e->where)
 		  == FAILURE)
 		return FAILURE;
@@ -2739,8 +2802,9 @@ if (condition) \
     }
 
   expr = dt->format_expr;
-  if (expr != NULL && expr->expr_type == EXPR_CONSTANT)
-    check_format_string (expr);
+  if (expr != NULL && expr->expr_type == EXPR_CONSTANT
+      && check_format_string (expr, k == M_READ) == FAILURE)
+    return MATCH_ERROR;
 
   return m;
 }

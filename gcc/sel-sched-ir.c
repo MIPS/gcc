@@ -65,43 +65,8 @@ VEC(sel_global_bb_info_def, heap) *sel_global_bb_info = NULL;
 /* A vector holding bb info.  */
 VEC(sel_region_bb_info_def, heap) *sel_region_bb_info = NULL;
 
-/* Extend pass-scope data structures for basic blocks.  */
-void
-sel_extend_global_bb_info (void)
-{
-  VEC_safe_grow_cleared (sel_global_bb_info_def, heap, sel_global_bb_info,
-			 last_basic_block);
-}
-
-/* Extend region-scope data structures for basic blocks.  */
-static void
-extend_region_bb_info (void)
-{
-  VEC_safe_grow_cleared (sel_region_bb_info_def, heap, sel_region_bb_info,
-			 last_basic_block);
-}
-
-/* Extend all data structures to fit for all basic blocks.  */
-static void
-extend_bb_info (void)
-{
-  sel_extend_global_bb_info ();
-  extend_region_bb_info ();
-}
-
-/* Finalize pass-scope data structures for basic blocks.  */
-void
-sel_finish_global_bb_info (void)
-{
-  VEC_free (sel_global_bb_info_def, heap, sel_global_bb_info);
-}
-
-/* Finalize region-scope data structures for basic blocks.  */
-static void
-finish_region_bb_info (void)
-{
-  VEC_free (sel_region_bb_info_def, heap, sel_region_bb_info);
-}
+/* Data structure to describe interaction with the generic scheduler utils.  */
+static struct common_sched_info_def sel_common_sched_info;
 
 /* The loop nest being pipelined.  */
 struct loop *current_loop_nest;
@@ -159,9 +124,12 @@ static void fence_init (fence_t, insn_t, state_t, deps_t, void *,
 static void fence_clear (fence_t);
 
 static void deps_init_id (idata_t, insn_t, bool);
-
 static void cfg_preds (basic_block, insn_t **, int *);
 
+static void sel_add_or_remove_bb (basic_block, int);
+static void free_data_sets (basic_block);
+static void move_bb_info (basic_block, basic_block);
+static void remove_empty_bb (basic_block, bool);
 
 
 /* Various list functions.  */
@@ -1435,7 +1403,11 @@ sel_gen_insn_from_expr_after (rhs_t expr, int seqno, insn_t after)
   gcc_assert (!INSN_IN_STREAM_P (insn));
 
   insn_init.what = INSN_INIT_WHAT_INSN;
-  add_insn_after (RHS_INSN (expr), after);
+  add_insn_after (insn, after, BLOCK_FOR_INSN (insn));
+
+  /* Do not simplify insn if it is not a final schedule.  */
+  if (!pipelining_p)
+    validate_simplify_insn (insn);
 
   insn_init.todo = INSN_INIT_TODO_SSID;
   set_insn_init (expr, EXPR_VINSN (expr), seqno);
@@ -2425,6 +2397,24 @@ has_dependence_note_dep (insn_t pro ATTRIBUTE_UNUSED,
     }
 }
 
+/* Mark the insn as having a hard dependence that prevents speculation.  */
+void
+sel_mark_hard_insn (rtx insn)
+{
+  int i;
+
+  /* Only work when we're in has_dependence_p mode.
+     ??? This is a hack, this should actually be a hook.  */
+  if (!has_dependence_data.dc || !has_dependence_data.pro)
+    return;
+
+  gcc_assert (insn == VINSN_INSN (has_dependence_data.con));
+  gcc_assert (has_dependence_data.where == DEPS_IN_INSN);
+
+  for (i = 0; i < DEPS_IN_NOWHERE; i++)
+    has_dependence_data.has_dep_p[i] &= ~SPECULATIVE;
+}
+
 static const struct sched_deps_info_def const_has_dependence_sched_deps_info =
   {
     NULL,
@@ -2486,6 +2476,8 @@ has_dependence_p (rhs_t rhs, insn_t pred, ds_t **has_dep_pp)
     return false;
 
   has_dependence_data.dc = &_dc;
+  has_dependence_data.pro = NULL;
+
   init_deps (has_dependence_data.dc);
 
   /* Initialize empty dep context with information about PRED.  */
@@ -2505,6 +2497,7 @@ has_dependence_p (rhs_t rhs, insn_t pred, ds_t **has_dep_pp)
   deps_analyze_insn (has_dependence_data.dc, RHS_INSN (rhs));
 
   free_deps (has_dependence_data.dc);
+  has_dependence_data.dc = NULL;
 
   *has_dep_pp = has_dependence_data.has_dep_p;
 
@@ -2649,7 +2642,6 @@ tick_check_p (rhs_t rhs, deps_t dc_orig, fence_t fence)
 }
 
 
-
 /* Functions to work with insns.  */
 
 /* Returns true if LHS of INSN is the same as DEST of an insn
@@ -2772,11 +2764,6 @@ insn_is_the_only_one_in_bb_p (insn_t insn)
 {
   return sel_bb_head_p (insn) && sel_bb_end_p (insn);
 }
-
-static void sel_add_or_remove_bb (basic_block, int);
-static void free_data_sets (basic_block);
-static void move_bb_info (basic_block, basic_block);
-static void remove_empty_bb (basic_block, bool);
 
 /* Rip-off INSN from the insn stream.  */
 void
@@ -2921,9 +2908,60 @@ get_seqno_of_a_pred (insn_t insn)
 
   return seqno;
 }
+
+
+/* Extend pass-scope data structures for basic blocks.  */
+void
+sel_extend_global_bb_info (void)
+{
+  VEC_safe_grow_cleared (sel_global_bb_info_def, heap, sel_global_bb_info,
+			 last_basic_block);
+}
+
+/* Extend region-scope data structures for basic blocks.  */
+static void
+extend_region_bb_info (void)
+{
+  VEC_safe_grow_cleared (sel_region_bb_info_def, heap, sel_region_bb_info,
+			 last_basic_block);
+}
+
+/* Extend all data structures to fit for all basic blocks.  */
+static void
+extend_bb_info (void)
+{
+  sel_extend_global_bb_info ();
+  extend_region_bb_info ();
+}
+
+/* Finalize pass-scope data structures for basic blocks.  */
+void
+sel_finish_global_bb_info (void)
+{
+  VEC_free (sel_global_bb_info_def, heap, sel_global_bb_info);
+}
+
+/* Finalize region-scope data structures for basic blocks.  */
+static void
+finish_region_bb_info (void)
+{
+  VEC_free (sel_region_bb_info_def, heap, sel_region_bb_info);
+}
+
 
 /* Data for each insn in current region.  */
 VEC (sel_insn_data_def, heap) *s_i_d = NULL;
+
+static insn_vec_t new_insns = NULL;
+
+/* This variable is used to ensure that no insns will be emitted by
+   outer-world functions like redirect_edge_and_branch ().  */
+static bool can_add_insns_p = true;
+
+/* The same as the previous flag except that notes are allowed 
+   to be emitted.  
+   FIXME: avoid this dependency between files.  */
+bool can_add_real_insns_p = true;
 
 /* Extend data structures for insns from current region.  */
 static void
@@ -2944,17 +2982,6 @@ finish_insns (void)
   VEC_free (sel_insn_data_def, heap, s_i_d);
   deps_finish_d_i_d ();
 }
-
-static insn_vec_t new_insns = NULL;
-
-/* This variable is used to ensure that no insns will be emitted by
-   outer-world functions like redirect_edge_and_branch ().  */
-static bool can_add_insns_p = true;
-
-/* The same as the previous flag except that notes are allowed 
-   to be emitted.  
-   FIXME: avoid this dependency between files.  */
-bool can_add_real_insns_p = true;
 
 /* An implementation of RTL_HOOKS_INSN_ADDED hook.  The hook is used for 
    initializing data structures when new insn is emitted.
@@ -3192,7 +3219,7 @@ init_lv_set (basic_block bb)
     return;
 
   BB_LV_SET (bb) = get_regset_from_pool ();
-  COPY_REG_SET (BB_LV_SET (bb), glat_start[bb->index]);
+  COPY_REG_SET (BB_LV_SET (bb), df_get_live_in (bb));
   BB_LV_SET_VALID_P (bb) = true;
 }
 
@@ -3785,7 +3812,7 @@ recompute_rev_top_order (void)
 
   postorder = XNEWVEC (int, n_basic_blocks);
 
-  n_blocks = post_order_compute (postorder, true);
+  n_blocks = post_order_compute (postorder, true, false);
   gcc_assert (n_basic_blocks == n_blocks);
 
   /* Build reverse function: for each basic block with BB->INDEX == K
@@ -4020,11 +4047,6 @@ sel_add_or_remove_bb (basic_block bb, int add)
   else
     {
       gcc_assert (bb != NULL && BB_NOTE_LIST (bb) == NULL_RTX);
-
-      if (glat_start[bb->index] != NULL)
-	FREE_REG_SET (glat_start[bb->index]);
-      if (glat_end[bb->index] != NULL)
-	FREE_REG_SET (glat_end[bb->index]);
     }
 
   if (bb != NULL)
@@ -4331,9 +4353,12 @@ sel_split_block (basic_block bb, rtx after)
   new_bb = sched_split_block_1 (bb, after);
   can_add_real_insns_p = true;
 
-  change_loops_latches (bb, new_bb);
-
   sel_add_or_remove_bb (new_bb, 1);
+
+  /* This should be called after sel_add_or_remove_bb, because this uses
+     CONTAINING_RGN for the new block, which is not yet initialized.  
+     FIXME: this function may be a no-op now.  */
+  change_loops_latches (bb, new_bb);
 
   /* Update ORIG_BB_INDEX for insns moved into the new block.  */
   FOR_BB_INSNS (new_bb, insn)
@@ -4656,6 +4681,7 @@ static struct haifa_sched_info sched_sel_haifa_sched_info =
   NULL, /* add_remove_insn */
   NULL, /* begin_schedule_ready */
   NULL, /* advance_target_bb */
+  SEL_SCHED | NEW_BBS
 };
 
 /* Setup special insns used in the scheduler.  */
@@ -4702,12 +4728,21 @@ free_nop_vinsn (void)
   nop_vinsn = NULL;
 }
 
-/* Data structure to describe interaction with the generic scheduler utils.  */
-static struct common_sched_info_def sel_common_sched_info;
-
-/* Setup common_sched_info.  */
+/* Call a set_sched_flags hook.  */
 void
-sel_setup_common_sched_info (void)
+sel_set_sched_flags (void)
+{
+  /* ??? This means that set_sched_flags were called, and we decided to 
+     support speculation.  However, set_sched_flags also modifies flags
+     on current_sched_info, doing this only at global init.  And we 
+     sometimes change c_s_i later.  So put the correct flags again.  */
+  if (spec_info && targetm.sched.set_sched_flags)
+    targetm.sched.set_sched_flags (spec_info);
+}
+
+/* Setup pointers to global sched info structures.  */
+void
+sel_setup_sched_infos (void)
 {
   rgn_setup_common_sched_info ();
 
@@ -4719,17 +4754,12 @@ sel_setup_common_sched_info (void)
   sel_common_sched_info.estimate_number_of_insns
     = sel_estimate_number_of_insns;
   sel_common_sched_info.luid_for_non_insn = sel_luid_for_non_insn;
-  sel_common_sched_info.detach_life_info = 1;
   sel_common_sched_info.sched_pass_id = SCHED_SEL_PASS;
 
   common_sched_info = &sel_common_sched_info;
-}
-
-/* Setup pointers to global sched info structures.  */
-void
-sel_setup_sched_infos (void)
-{
   current_sched_info = &sched_sel_haifa_sched_info;
+  
+  sel_set_sched_flags ();
 }
 
 /* Adds basic block BB to region RGN at the position *BB_ORD_INDEX,
@@ -5130,30 +5160,21 @@ sel_add_loop_preheader (void)
 bool
 sel_is_loop_preheader_p (basic_block bb)
 {
-  /* A preheader may even have the loop depth equal to the depth of 
-     the current loop, when it came from it.  Use topological sorting
-     to get the right information.  */
-  if (flag_sel_sched_pipelining_outer_loops 
-      && current_loop_nest)
+  if (!pipelining_p)
+    return false;
+
+  /* Preheader is the first block in the region.  */
+  if (BLOCK_TO_BB (bb->index) == 0)
+    return true;
+
+  if (current_loop_nest)
     {
       struct loop *outer;
 
-#if 0
-      /* BB is placed before the header, so, it is a preheader block.
-	 ??? CURRENT_LOOP_NEST->HEADER not necessarily belongs to the region,
-	 and hence BLOCK_TO_BB for it may be undefined.  */
-      if (BLOCK_TO_BB (bb->index) 
-	  < BLOCK_TO_BB (current_loop_nest->header->index))
-	return true;
-#endif
-
-      /* Preheader is the first block in the region.  */
-      if (BLOCK_TO_BB (bb->index) == 0)
-	return true;
+      /* We used to find a preheader with the topological information.
+         Check that the above code is equivalent to what we did before.  */
 
       if (in_current_region_p (current_loop_nest->header))
-	/* Check that we don't miss any of the legitimate cases handled by
-	   the above '#if 0'-ed code.  */
 	gcc_assert (!(BLOCK_TO_BB (bb->index) 
 		      < BLOCK_TO_BB (current_loop_nest->header->index)));
 
@@ -5165,6 +5186,7 @@ sel_is_loop_preheader_p (basic_block bb)
         if (considered_for_pipelining_p (outer) && outer->latch == bb)
           gcc_unreachable ();
     }
+
   return false;
 }
 

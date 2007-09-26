@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Loop Vectorization Pass.
 
@@ -112,7 +111,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 	Since we only vectorize operations which vector form can be
    expressed using existing tree codes, to verify that an operation is
    supported, the vectorizer checks the relevant optab at the relevant
-   machine_mode (e.g, add_optab->handlers[(int) V8HImode].insn_code). If
+   machine_mode (e.g, optab_handler (add_optab, V8HImode)->insn_code). If
    the value found is CODE_FOR_nothing, then there's no target support, and
    we can't vectorize the stmt.
 
@@ -1408,6 +1407,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_BBS (res) = bbs;
   LOOP_VINFO_EXIT_COND (res) = NULL;
   LOOP_VINFO_NITERS (res) = NULL;
+  LOOP_VINFO_COST_MODEL_MIN_ITERS (res) = 0;
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
   LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
@@ -1596,12 +1596,12 @@ vect_supportable_dr_alignment (struct data_reference *dr)
   
   if (DR_IS_READ (dr))
     {
-      if (vec_realign_load_optab->handlers[mode].insn_code != CODE_FOR_nothing
+      if (optab_handler (vec_realign_load_optab, mode)->insn_code != CODE_FOR_nothing
 	  && (!targetm.vectorize.builtin_mask_for_load
 	      || targetm.vectorize.builtin_mask_for_load ()))
 	return dr_unaligned_software_pipeline;
 
-      if (movmisalign_optab->handlers[mode].insn_code != CODE_FOR_nothing)
+      if (optab_handler (movmisalign_optab, mode)->insn_code != CODE_FOR_nothing)
 	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
@@ -1869,9 +1869,9 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
     return false;
 
   vec_mode = TYPE_MODE (vectype);
-  if ((icode1 = optab1->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+  if ((icode1 = optab_handler (optab1, vec_mode)->insn_code) == CODE_FOR_nothing
       || insn_data[icode1].operand[0].mode != TYPE_MODE (wide_vectype)
-      || (icode2 = optab2->handlers[(int) vec_mode].insn_code)
+      || (icode2 = optab_handler (optab2, vec_mode)->insn_code)
                                                         == CODE_FOR_nothing
       || insn_data[icode2].operand[0].mode != TYPE_MODE (wide_vectype))
     return false;
@@ -1939,7 +1939,7 @@ supportable_narrowing_operation (enum tree_code code,
     return false;
 
   vec_mode = TYPE_MODE (vectype);
-  if ((icode1 = optab1->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+  if ((icode1 = optab_handler (optab1, vec_mode)->insn_code) == CODE_FOR_nothing
       || insn_data[icode1].operand[0].mode != TYPE_MODE (narrow_vectype))
     return false;
 
@@ -2146,6 +2146,16 @@ vect_is_simple_reduction (struct loop *loop, tree phi)
       if (vect_print_dump_info (REPORT_DETAILS))
         {
           fprintf (vect_dump, "reduction: unsafe int math optimization: ");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+  else if (SAT_FIXED_POINT_TYPE_P (type))
+    {
+      /* Changing the order of operations changes the semantics.  */
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: unsafe fixed-point math optimization: ");
           print_generic_expr (vect_dump, operation, TDF_SLIM);
         }
       return NULL_TREE;

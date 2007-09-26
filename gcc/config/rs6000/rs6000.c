@@ -8,7 +8,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -17,9 +17,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -291,6 +290,11 @@ struct processor_costs {
   const int dmul;	  /* cost of DFmode multiplication (and fmadd).  */
   const int sdiv;	  /* cost of SFmode division (fdivs).  */
   const int ddiv;	  /* cost of DFmode division (fdiv).  */
+  const int cache_line_size;    /* cache line size in bytes. */
+  const int l1_cache_size;	/* size of l1 cache, in kilobytes.  */
+  const int l2_cache_size;	/* size of l2 cache, in kilobytes.  */
+  const int simultaneous_prefetches; /* number of parallel prefetch
+					operations.  */
 };
 
 const struct processor_costs *rs6000_cost;
@@ -310,6 +314,10 @@ struct processor_costs size32_cost = {
   COSTS_N_INSNS (1),    /* dmul */
   COSTS_N_INSNS (1),    /* sdiv */
   COSTS_N_INSNS (1),    /* ddiv */
+  32,
+  0,
+  0,
+  0,
 };
 
 /* Instruction size costs on 64bit processors.  */
@@ -325,6 +333,10 @@ struct processor_costs size64_cost = {
   COSTS_N_INSNS (1),    /* dmul */
   COSTS_N_INSNS (1),    /* sdiv */
   COSTS_N_INSNS (1),    /* ddiv */
+  128,
+  0,
+  0,
+  0,
 };
 
 /* Instruction costs on RIOS1 processors.  */
@@ -340,6 +352,10 @@ struct processor_costs rios1_cost = {
   COSTS_N_INSNS (2),    /* dmul */
   COSTS_N_INSNS (19),   /* sdiv */
   COSTS_N_INSNS (19),   /* ddiv */
+  128,
+  64,			/* l1 cache */
+  512,			/* l2 cache */
+  0,			/* streams */
 };
 
 /* Instruction costs on RIOS2 processors.  */
@@ -355,6 +371,10 @@ struct processor_costs rios2_cost = {
   COSTS_N_INSNS (2),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (17),   /* ddiv */
+  256,
+  256,			/* l1 cache */
+  1024,			/* l2 cache */
+  0,			/* streams */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -370,6 +390,10 @@ struct processor_costs rs64a_cost = {
   COSTS_N_INSNS (4),    /* dmul */
   COSTS_N_INSNS (31),   /* sdiv */
   COSTS_N_INSNS (31),   /* ddiv */
+  128,
+  128,			/* l1 cache */
+  2048,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on MPCCORE processors.  */
@@ -385,6 +409,10 @@ struct processor_costs mpccore_cost = {
   COSTS_N_INSNS (5),    /* dmul */
   COSTS_N_INSNS (10),   /* sdiv */
   COSTS_N_INSNS (17),   /* ddiv */
+  32,
+  4,			/* l1 cache */
+  16,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -400,6 +428,10 @@ struct processor_costs ppc403_cost = {
   COSTS_N_INSNS (11),   /* dmul */
   COSTS_N_INSNS (11),   /* sdiv */
   COSTS_N_INSNS (11),   /* ddiv */
+  32,
+  4,			/* l1 cache */
+  16,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -415,6 +447,10 @@ struct processor_costs ppc405_cost = {
   COSTS_N_INSNS (11),   /* dmul */
   COSTS_N_INSNS (11),   /* sdiv */
   COSTS_N_INSNS (11),   /* ddiv */
+  32,
+  16,			/* l1 cache */
+  128,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -430,6 +466,10 @@ struct processor_costs ppc440_cost = {
   COSTS_N_INSNS (5),    /* dmul */
   COSTS_N_INSNS (19),   /* sdiv */
   COSTS_N_INSNS (33),   /* ddiv */
+  32,
+  32,			/* l1 cache */
+  256,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -445,6 +485,10 @@ struct processor_costs ppc601_cost = {
   COSTS_N_INSNS (5),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (31),   /* ddiv */
+  32,
+  32,			/* l1 cache */
+  256,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC603 processors.  */
@@ -460,6 +504,10 @@ struct processor_costs ppc603_cost = {
   COSTS_N_INSNS (4),    /* dmul */
   COSTS_N_INSNS (18),   /* sdiv */
   COSTS_N_INSNS (33),   /* ddiv */
+  32,
+  8,			/* l1 cache */
+  64,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -475,6 +523,10 @@ struct processor_costs ppc604_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (18),   /* sdiv */
   COSTS_N_INSNS (32),   /* ddiv */
+  32,
+  16,			/* l1 cache */
+  512,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -490,6 +542,10 @@ struct processor_costs ppc604e_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (18),   /* sdiv */
   COSTS_N_INSNS (32),   /* ddiv */
+  32,
+  32,			/* l1 cache */
+  1024,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -505,6 +561,10 @@ struct processor_costs ppc620_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (18),   /* sdiv */
   COSTS_N_INSNS (32),   /* ddiv */
+  128,
+  32,			/* l1 cache */
+  1024,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -520,6 +580,10 @@ struct processor_costs ppc630_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (21),   /* ddiv */
+  128,
+  64,			/* l1 cache */
+  1024,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -536,6 +600,10 @@ struct processor_costs ppccell_cost = {
   COSTS_N_INSNS (10/2),   /* dmul */
   COSTS_N_INSNS (74/2),   /* sdiv */
   COSTS_N_INSNS (74/2),   /* ddiv */
+  128,
+  32,			/* l1 cache */
+  512,			/* l2 cache */
+  6,			/* streams */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -551,6 +619,10 @@ struct processor_costs ppc750_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (31),   /* ddiv */
+  32,
+  32,			/* l1 cache */
+  512,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -566,6 +638,10 @@ struct processor_costs ppc7450_cost = {
   COSTS_N_INSNS (5),    /* dmul */
   COSTS_N_INSNS (21),   /* sdiv */
   COSTS_N_INSNS (35),   /* ddiv */
+  32,
+  32,			/* l1 cache */
+  1024,			/* l2 cache */
+  1,			/* streams */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -581,6 +657,10 @@ struct processor_costs ppc8540_cost = {
   COSTS_N_INSNS (4),    /* dmul */
   COSTS_N_INSNS (29),   /* sdiv */
   COSTS_N_INSNS (29),   /* ddiv */
+  32,
+  32,			/* l1 cache */
+  256,			/* l2 cache */
+  1,			/* prefetch streams /*/
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -596,6 +676,10 @@ struct processor_costs power4_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (17),   /* ddiv */
+  128,
+  32,			/* l1 cache */
+  1024,			/* l2 cache */
+  8,			/* prefetch streams /*/
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -611,13 +695,16 @@ struct processor_costs power6_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (13),   /* sdiv */
   COSTS_N_INSNS (16),   /* ddiv */
+  128,
+  64,			/* l1 cache */
+  2048,			/* l2 cache */
+  16,			/* prefetch streams */
 };
 
 
 static bool rs6000_function_ok_for_sibcall (tree, tree);
 static const char *rs6000_invalid_within_doloop (rtx);
 static rtx rs6000_generate_compare (enum rtx_code);
-static void rs6000_maybe_dead (rtx);
 static void rs6000_emit_stack_tie (void);
 static void rs6000_frame_related (rtx, rtx, HOST_WIDE_INT, rtx, rtx);
 static rtx spe_synthesize_frame_save (rtx);
@@ -632,7 +719,6 @@ static int toc_hash_eq (const void *, const void *);
 static int constant_pool_expr_1 (rtx, int *, int *);
 static bool constant_pool_expr_p (rtx);
 static bool legitimate_small_data_p (enum machine_mode, rtx);
-static bool legitimate_indexed_address_p (rtx, int);
 static bool legitimate_lo_sum_address_p (enum machine_mode, rtx, int);
 static struct machine_function * rs6000_init_machine_status (void);
 static bool rs6000_assemble_integer (rtx, unsigned int, int);
@@ -646,7 +732,7 @@ static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
 static bool rs6000_ms_bitfield_layout_p (tree);
 static tree rs6000_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static void rs6000_eliminate_indexed_memrefs (rtx operands[2]);
-static const char *rs6000_mangle_fundamental_type (tree);
+static const char *rs6000_mangle_type (tree);
 extern const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes (tree);
 static bool rs6000_reg_live_or_pic_offset_p (int);
@@ -726,6 +812,7 @@ static tree rs6000_builtin_mul_widen_odd (tree);
 static tree rs6000_builtin_conversion (enum tree_code, tree);
 
 static void def_builtin (int, const char *, tree, int);
+static bool rs6000_vector_alignment_reachable (tree, bool);
 static void rs6000_init_builtins (void);
 static rtx rs6000_expand_unop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_binop_builtin (enum insn_code, tree, rtx);
@@ -1002,14 +1089,17 @@ static const char alt_reg_names[][8] =
 #undef TARGET_VECTORIZE_BUILTIN_CONVERSION
 #define TARGET_VECTORIZE_BUILTIN_CONVERSION rs6000_builtin_conversion
 
+#undef TARGET_VECTOR_ALIGNMENT_REACHABLE
+#define TARGET_VECTOR_ALIGNMENT_REACHABLE rs6000_vector_alignment_reachable
+
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
 
-#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
-#define TARGET_MANGLE_FUNDAMENTAL_TYPE rs6000_mangle_fundamental_type
+#undef TARGET_MANGLE_TYPE
+#define TARGET_MANGLE_TYPE rs6000_mangle_type
 
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS rs6000_init_libfuncs
@@ -1742,6 +1832,16 @@ rs6000_override_options (const char *default_cpu)
       default:
 	gcc_unreachable ();
       }
+
+  if (!PARAM_SET_P (PARAM_SIMULTANEOUS_PREFETCHES))
+    set_param_value ("simultaneous-prefetches",
+		     rs6000_cost->simultaneous_prefetches);
+  if (!PARAM_SET_P (PARAM_L1_CACHE_SIZE))
+    set_param_value ("l1-cache-size", rs6000_cost->l1_cache_size);
+  if (!PARAM_SET_P (PARAM_L1_CACHE_LINE_SIZE))
+    set_param_value ("l1-cache-line-size", rs6000_cost->cache_line_size);
+  if (!PARAM_SET_P (PARAM_L2_CACHE_SIZE))
+    set_param_value ("l2-cache-size", rs6000_cost->l2_cache_size);
 }
 
 /* Implement targetm.vectorize.builtin_mask_for_load.  */
@@ -1821,6 +1921,37 @@ rs6000_builtin_mul_widen_odd (tree type)
             rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSB];
     default:
       return NULL_TREE;
+    }
+}
+
+
+/* Return true iff, data reference of TYPE can reach vector alignment (16)
+   after applying N number of iterations.  This routine does not determine
+   how may iterations are required to reach desired alignment.  */
+
+static bool
+rs6000_vector_alignment_reachable (tree type ATTRIBUTE_UNUSED, bool is_packed)
+{
+  if (is_packed)
+    return false;
+
+  if (TARGET_32BIT)
+    {
+      if (rs6000_alignment_flags == MASK_ALIGN_NATURAL)
+        return true;
+
+      if (rs6000_alignment_flags ==  MASK_ALIGN_POWER)
+        return true;
+
+      return false;
+    }
+  else
+    {
+      if (TARGET_MACHO)
+        return false;
+
+      /* Assuming that all other types are naturally aligned. CHECKME!  */
+      return true;
     }
 }
 
@@ -2222,6 +2353,12 @@ rs6000_file_start (void)
       if (*start == '\0')
 	putc ('\n', file);
     }
+
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+  if (TARGET_32BIT && DEFAULT_ABI == ABI_V4)
+    fprintf (file, "\t.gnu_attribute 4, %d\n",
+	     (TARGET_HARD_FLOAT && TARGET_FPRS) ? 1 : 2);
+#endif
 
   if (DEFAULT_ABI == ABI_AIX || (TARGET_ELF && flag_pic == 2))
     {
@@ -3114,7 +3251,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
   return (offset < 0x10000) && (offset + extra < 0x10000);
 }
 
-static bool
+bool
 legitimate_indexed_address_p (rtx x, int strict)
 {
   rtx op0, op1;
@@ -3470,15 +3607,12 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 
 		  first = emit_insn (gen_load_toc_v4_PIC_1b (gsym));
 		  emit_move_insn (tmp1,
-				  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
+				  gen_rtx_REG (Pmode, LR_REGNO));
 		  emit_move_insn (tmp2, mem);
 		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
 		  last = emit_move_insn (got, tmp3);
 		  set_unique_reg_note (last, REG_EQUAL, gsym);
-		  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
-							 REG_NOTES (first));
-		  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
-							REG_NOTES (last));
+		  maybe_encapsulate_block (first, last, gsym);
 		}
 	    }
 	}
@@ -3848,6 +3982,24 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && (TARGET_POWERPC64 || mode != DImode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
+  if (GET_CODE (x) == PRE_MODIFY
+      && mode != TImode
+      && mode != TFmode
+      && mode != TDmode
+      && ((TARGET_HARD_FLOAT && TARGET_FPRS)
+	  || TARGET_POWERPC64
+	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))
+      && (TARGET_POWERPC64 || mode != DImode)
+      && !ALTIVEC_VECTOR_MODE (mode)
+      && !SPE_VECTOR_MODE (mode)
+      /* Restrict addressing for DI because of our SUBREG hackery.  */
+      && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == DImode))
+      && TARGET_UPDATE
+      && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict)
+      && (rs6000_legitimate_offset_address_p (mode, XEXP (x, 1), reg_ok_strict)
+	  || legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict))
+      && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
+    return 1;
   if (legitimate_lo_sum_address_p (mode, x, reg_ok_strict))
     return 1;
   return 0;
@@ -3880,7 +4032,10 @@ rs6000_mode_dependent_address (rtx addr)
     case LO_SUM:
       return true;
 
-    /* Auto-increment cases are now treated generically in recog.c.  */
+    case PRE_INC:
+    case PRE_DEC:
+    case PRE_MODIFY:
+      return TARGET_UPDATE;
 
     default:
       break;
@@ -4054,7 +4209,7 @@ rs6000_emit_set_const (rtx dest, enum machine_mode mode,
       return dest;
 
     case SImode:
-      result = no_new_pseudos ? dest : gen_reg_rtx (SImode);
+      result = !can_create_pseudo_p () ? dest : gen_reg_rtx (SImode);
 
       emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (result),
 			      GEN_INT (INTVAL (source)
@@ -4273,7 +4428,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       return;
     }
 
-  if (!no_new_pseudos && GET_CODE (operands[0]) == MEM
+  if (can_create_pseudo_p () && GET_CODE (operands[0]) == MEM
       && !gpc_reg_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
 
@@ -4296,7 +4451,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       if (FP_REGNO_P (regnum) || regnum >= FIRST_PSEUDO_REGISTER)
 	{
 	  rtx newreg;
-	  newreg = (no_new_pseudos ? copy_rtx (operands[1])
+	  newreg = (!can_create_pseudo_p () ? copy_rtx (operands[1])
 		    : gen_reg_rtx (mode));
 	  emit_insn (gen_aux_truncdfsf2 (newreg, operands[1]));
 	  operands[1] = newreg;
@@ -4423,7 +4578,9 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	  && GET_CODE (operands[1]) != HIGH
 	  && GET_CODE (operands[1]) != CONST_INT)
 	{
-	  rtx target = (no_new_pseudos ? operands[0] : gen_reg_rtx (mode));
+	  rtx target = (!can_create_pseudo_p ()
+			? operands[0]
+			: gen_reg_rtx (mode));
 
 	  /* If this is a function address on -mcall-aixdesc,
 	     convert it to the address of the descriptor.  */
@@ -5951,7 +6108,8 @@ setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   CUMULATIVE_ARGS next_cum;
   int reg_size = TARGET_32BIT ? 4 : 8;
   rtx save_area = NULL_RTX, mem;
-  int first_reg_offset, set;
+  int first_reg_offset;
+  alias_set_type set;
 
   /* Skip the last named argument.  */
   next_cum = *cum;
@@ -6210,8 +6368,8 @@ rs6000_va_start (tree valist, rtx nextarg)
   /* Find the overflow area.  */
   t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
   if (words != 0)
-    t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
-	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
+    t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovf), t,
+	        size_int (words * UNITS_PER_WORD));
   t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6227,8 +6385,8 @@ rs6000_va_start (tree valist, rtx nextarg)
   /* Find the register save area.  */
   t = make_tree (TREE_TYPE (sav), virtual_stack_vars_rtx);
   if (cfun->machine->varargs_save_offset)
-    t = build2 (PLUS_EXPR, TREE_TYPE (sav), t,
-	        build_int_cst (NULL_TREE, cfun->machine->varargs_save_offset));
+    t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (sav), t,
+	        size_int (cfun->machine->varargs_save_offset));
   t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (sav), sav, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6347,7 +6505,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	{
 	  regalign = 1;
 	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), reg,
-		     size_int (n_reg - 1));
+		     build_int_cst (TREE_TYPE (reg), n_reg - 1));
 	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
 	}
       /* _Decimal128 is passed in even/odd fpr pairs; the stored
@@ -6367,12 +6525,13 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
       t = sav;
       if (sav_ofs)
-	t = build2 (PLUS_EXPR, ptr_type_node, sav, size_int (sav_ofs));
+	t = build2 (POINTER_PLUS_EXPR, ptr_type_node, sav, size_int (sav_ofs));
 
-      u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, size_int (n_reg));
-      u = build1 (CONVERT_EXPR, integer_type_node, u);
-      u = build2 (MULT_EXPR, integer_type_node, u, size_int (sav_scale));
-      t = build2 (PLUS_EXPR, ptr_type_node, t, u);
+      u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg,
+		  build_int_cst (TREE_TYPE (reg), n_reg));
+      u = fold_convert (sizetype, u);
+      u = build2 (MULT_EXPR, sizetype, u, size_int (sav_scale));
+      t = build2 (POINTER_PLUS_EXPR, ptr_type_node, t, u);
 
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
       gimplify_and_add (t, pre_p);
@@ -6398,16 +6557,18 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   t = ovf;
   if (align != 1)
     {
-      t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (align - 1));
+      t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (align - 1));
+      t = fold_convert (sizetype, t);
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
-		  build_int_cst (NULL_TREE, -align));
+		  size_int (-align));
+      t = fold_convert (TREE_TYPE (ovf), t);
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
   u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (u, pre_p);
 
-  t = build2 (PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
+  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
   t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
   gimplify_and_add (t, pre_p);
 
@@ -10481,8 +10642,9 @@ rs6000_got_register (rtx value ATTRIBUTE_UNUSED)
   /* The second flow pass currently (June 1999) can't update
      regs_ever_live without disturbing other parts of the compiler, so
      update it here to make the prolog/epilogue code happy.  */
-  if (no_new_pseudos && ! regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM])
-    regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;
+  if (!can_create_pseudo_p ()
+      && !df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM))
+    df_set_regs_ever_live (RS6000_PIC_OFFSET_TABLE_REGNUM, true);
 
   current_function_uses_pic_offset_table = 1;
 
@@ -10849,6 +11011,9 @@ print_operand (FILE *file, rtx x, int code)
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0),
 					   UNITS_PER_WORD));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 0),
+					   UNITS_PER_WORD));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode,
 						     UNITS_PER_WORD),
@@ -11018,10 +11183,10 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'T':
       /* Print the symbolic name of a branch target register.  */
-      if (GET_CODE (x) != REG || (REGNO (x) != LINK_REGISTER_REGNUM
-				  && REGNO (x) != COUNT_REGISTER_REGNUM))
+      if (GET_CODE (x) != REG || (REGNO (x) != LR_REGNO
+				  && REGNO (x) != CTR_REGNO))
 	output_operand_lossage ("invalid %%T value");
-      else if (REGNO (x) == LINK_REGISTER_REGNUM)
+      else if (REGNO (x) == LR_REGNO)
 	fputs (TARGET_NEW_MNEMONICS ? "lr" : "r", file);
       else
 	fputs ("ctr", file);
@@ -11049,7 +11214,8 @@ print_operand (FILE *file, rtx x, int code)
       /* Print `u' if this has an auto-increment or auto-decrement.  */
       if (GET_CODE (x) == MEM
 	  && (GET_CODE (XEXP (x, 0)) == PRE_INC
-	      || GET_CODE (XEXP (x, 0)) == PRE_DEC))
+	      || GET_CODE (XEXP (x, 0)) == PRE_DEC
+	      || GET_CODE (XEXP (x, 0)) == PRE_MODIFY))
 	putc ('u', file);
       return;
 
@@ -11136,7 +11302,9 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'X':
       if (GET_CODE (x) == MEM
-	  && legitimate_indexed_address_p (XEXP (x, 0), 0))
+	  && (legitimate_indexed_address_p (XEXP (x, 0), 0)
+	      || (GET_CODE (XEXP (x, 0)) == PRE_MODIFY
+		  && legitimate_indexed_address_p (XEXP (XEXP (x, 0), 1), 0))))
 	putc ('x', file);
       return;
 
@@ -11148,6 +11316,8 @@ print_operand (FILE *file, rtx x, int code)
 	{
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 8));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 8));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode, 8), 0));
@@ -11195,6 +11365,8 @@ print_operand (FILE *file, rtx x, int code)
 	{
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 12));
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 12));
 	  else
 	    output_address (XEXP (adjust_address_nv (x, SImode, 12), 0));
@@ -11276,6 +11448,8 @@ print_operand (FILE *file, rtx x, int code)
 	  else if (GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    fprintf (file, "%d(%s)", - GET_MODE_SIZE (GET_MODE (x)),
 		     reg_names[REGNO (XEXP (XEXP (x, 0), 0))]);
+	  else if (GET_CODE (XEXP (x, 0)) == PRE_MODIFY)
+	    output_address (XEXP (XEXP (x, 0), 1));
 	  else
 	    output_address (XEXP (x, 0));
 	}
@@ -12120,7 +12294,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	    eq_rtx = rs6000_emit_vector_compare (rev_code, op0, op1,
 						 dest_mode);
 
-	    nor_code = one_cmpl_optab->handlers[(int)dest_mode].insn_code;
+	    nor_code = optab_handler (one_cmpl_optab, (int)dest_mode)->insn_code;
 	    gcc_assert (nor_code != CODE_FOR_nothing);
 	    emit_insn (GEN_FCN (nor_code) (mask, eq_rtx));
 
@@ -12170,7 +12344,7 @@ rs6000_emit_vector_compare (enum rtx_code rcode,
 	    eq_rtx = rs6000_emit_vector_compare (EQ, op0, op1,
 						 dest_mode);
 
-	    ior_code = ior_optab->handlers[(int)dest_mode].insn_code;
+	    ior_code = optab_handler (ior_optab, (int)dest_mode)->insn_code;
 	    gcc_assert (ior_code != CODE_FOR_nothing);
 	    emit_insn (GEN_FCN (ior_code) (mask, c_rtx, eq_rtx));
 	    if (dmode != dest_mode)
@@ -13136,7 +13310,7 @@ first_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (first_reg = 13; first_reg <= 31; first_reg++)
-    if (regs_ever_live[first_reg]
+    if (df_regs_ever_live_p (first_reg)
 	&& (! call_used_regs[first_reg]
 	    || (first_reg == RS6000_PIC_OFFSET_TABLE_REGNUM
 		&& ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
@@ -13163,7 +13337,7 @@ first_fp_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (first_reg = 14 + 32; first_reg <= 63; first_reg++)
-    if (regs_ever_live[first_reg])
+    if (df_regs_ever_live_p (first_reg))
       break;
 
   return first_reg;
@@ -13189,7 +13363,7 @@ first_altivec_reg_to_save (void)
 
   /* Find lowest numbered live register.  */
   for (i = FIRST_ALTIVEC_REGNO + 20; i <= LAST_ALTIVEC_REGNO; ++i)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       break;
 
   return i;
@@ -13213,7 +13387,7 @@ compute_vrsave_mask (void)
 
   /* First, find out if we use _any_ altivec registers.  */
   for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
-    if (regs_ever_live[i])
+    if (df_regs_ever_live_p (i))
       mask |= ALTIVEC_REG_BIT (i);
 
   if (mask == 0)
@@ -13474,13 +13648,13 @@ rs6000_stack_info (void)
       || rs6000_ra_ever_killed ())
     {
       info_ptr->lr_save_p = 1;
-      regs_ever_live[LINK_REGISTER_REGNUM] = 1;
+      df_set_regs_ever_live (LR_REGNO, true);
     }
 
   /* Determine if we need to save the condition code registers.  */
-  if (regs_ever_live[CR2_REGNO]
-      || regs_ever_live[CR3_REGNO]
-      || regs_ever_live[CR4_REGNO])
+  if (df_regs_ever_live_p (CR2_REGNO)
+      || df_regs_ever_live_p (CR3_REGNO)
+      || df_regs_ever_live_p (CR4_REGNO))
     {
       info_ptr->cr_save_p = 1;
       if (DEFAULT_ABI == ABI_V4)
@@ -13898,7 +14072,7 @@ rs6000_return_addr (int count, rtx frame)
     }
 
   cfun->machine->ra_need_lr = 1;
-  return get_hard_reg_initial_val (Pmode, LINK_REGISTER_REGNUM);
+  return get_hard_reg_initial_val (Pmode, LR_REGNO);
 }
 
 /* Say whether a function is a candidate for sibcall handling or not.
@@ -13924,7 +14098,8 @@ rs6000_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 	    }
 	}
       if (DEFAULT_ABI == ABI_DARWIN
-	  || (*targetm.binds_local_p) (decl))
+	  || ((*targetm.binds_local_p) (decl)
+	      && (DEFAULT_ABI != ABI_AIX || !DECL_EXTERNAL (decl))))
 	{
 	  tree attr_list = TYPE_ATTRIBUTES (TREE_TYPE (decl));
 
@@ -13983,7 +14158,7 @@ rs6000_ra_ever_killed (void)
   push_topmost_sequence ();
   top = get_insns ();
   pop_topmost_sequence ();
-  reg = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
+  reg = gen_rtx_REG (Pmode, LR_REGNO);
 
   for (insn = NEXT_INSN (top); insn != NULL_RTX; insn = NEXT_INSN (insn))
     {
@@ -13994,7 +14169,7 @@ rs6000_ra_ever_killed (void)
 	      if (!SIBLING_CALL_P (insn))
 		return 1;
 	    }
-	  else if (find_regno_note (insn, REG_INC, LINK_REGISTER_REGNUM))
+	  else if (find_regno_note (insn, REG_INC, LR_REGNO))
 	    return 1;
 	  else if (set_of (reg, insn) != NULL_RTX
 		   && !prologue_epilogue_contains (insn))
@@ -14004,15 +14179,6 @@ rs6000_ra_ever_killed (void)
   return 0;
 }
 
-/* Add a REG_MAYBE_DEAD note to the insn.  */
-static void
-rs6000_maybe_dead (rtx insn)
-{
-  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
-					const0_rtx,
-					REG_NOTES (insn));
-}
-
 /* Emit instructions needed to load the TOC register.
    This is only needed when TARGET_TOC, TARGET_MINIMAL_TOC, and there is
    a constant pool; or for SVR4 -fpic.  */
@@ -14020,7 +14186,7 @@ rs6000_maybe_dead (rtx insn)
 void
 rs6000_emit_load_toc_table (int fromprolog)
 {
-  rtx dest, insn;
+  rtx dest;
   dest = gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 
   if (TARGET_ELF && TARGET_SECURE_PLT && DEFAULT_ABI != ABI_AIX && flag_pic)
@@ -14040,29 +14206,16 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  tmp1 = gen_reg_rtx (Pmode);
 	  tmp2 = gen_reg_rtx (Pmode);
 	}
-      insn = emit_insn (gen_load_toc_v4_PIC_1 (lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (tmp1,
-			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_load_toc_v4_PIC_3b (tmp2, tmp1, got, lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_load_toc_v4_PIC_3c (dest, tmp2, got, lab));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_load_toc_v4_PIC_1 (lab));
+      emit_move_insn (tmp1,
+			     gen_rtx_REG (Pmode, LR_REGNO));
+      emit_insn (gen_load_toc_v4_PIC_3b (tmp2, tmp1, got, lab));
+      emit_insn (gen_load_toc_v4_PIC_3c (dest, tmp2, got, lab));
     }
   else if (TARGET_ELF && DEFAULT_ABI == ABI_V4 && flag_pic == 1)
     {
-      insn = emit_insn (gen_load_toc_v4_pic_si ());
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_move_insn (dest,
-			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_load_toc_v4_pic_si ());
+      emit_move_insn (dest, gen_rtx_REG (Pmode, LR_REGNO));
     }
   else if (TARGET_ELF && DEFAULT_ABI != ABI_AIX && flag_pic == 2)
     {
@@ -14081,13 +14234,10 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCL", rs6000_pic_labelno);
 	  symL = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_1 (symF)));
-	  rs6000_maybe_dead (emit_move_insn (dest,
-					     gen_rtx_REG (Pmode,
-							  LINK_REGISTER_REGNUM)));
-	  rs6000_maybe_dead (emit_insn (gen_load_toc_v4_PIC_2 (temp0, dest,
-							       symL,
-							       symF)));
+	  emit_insn (gen_load_toc_v4_PIC_1 (symF));
+	  emit_move_insn (dest,
+			  gen_rtx_REG (Pmode, LR_REGNO));
+	  emit_insn (gen_load_toc_v4_PIC_2 (temp0, dest, symL, symF));
 	}
       else
 	{
@@ -14096,12 +14246,10 @@ rs6000_emit_load_toc_table (int fromprolog)
 	  tocsym = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
 	  emit_insn (gen_load_toc_v4_PIC_1b (tocsym));
 	  emit_move_insn (dest,
-			  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
+			  gen_rtx_REG (Pmode, LR_REGNO));
 	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
-      insn = emit_insn (gen_addsi3 (dest, temp0, dest));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_addsi3 (dest, temp0, dest));
     }
   else if (TARGET_ELF && !TARGET_AIX && flag_pic == 0 && TARGET_MINIMAL_TOC)
     {
@@ -14111,23 +14259,17 @@ rs6000_emit_load_toc_table (int fromprolog)
       ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
       realsym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 
-      insn = emit_insn (gen_elf_high (dest, realsym));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
-      insn = emit_insn (gen_elf_low (dest, dest, realsym));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+      emit_insn (gen_elf_high (dest, realsym));
+      emit_insn (gen_elf_low (dest, dest, realsym));
     }
   else
     {
       gcc_assert (DEFAULT_ABI == ABI_AIX);
 
       if (TARGET_32BIT)
-	insn = emit_insn (gen_load_toc_aix_si (dest));
+	emit_insn (gen_load_toc_aix_si (dest));
       else
-	insn = emit_insn (gen_load_toc_aix_di (dest));
-      if (fromprolog)
-	rs6000_maybe_dead (insn);
+	emit_insn (gen_load_toc_aix_di (dest));
     }
 }
 
@@ -14165,12 +14307,12 @@ rs6000_emit_eh_reg_restore (rtx source, rtx scratch)
       emit_move_insn (tmp, operands[0]);
     }
   else
-    emit_move_insn (gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM), operands[0]);
+    emit_move_insn (gen_rtx_REG (Pmode, LR_REGNO), operands[0]);
 }
 
-static GTY(()) int set = -1;
+static GTY(()) alias_set_type set = -1;
 
-int
+alias_set_type
 get_TOC_alias_set (void)
 {
   if (set == -1)
@@ -14213,8 +14355,8 @@ uses_TOC (void)
 rtx
 create_TOC_reference (rtx symbol)
 {
-  if (no_new_pseudos)
-    regs_ever_live[TOC_REGISTER] = 1;
+  if (!can_create_pseudo_p ())
+    df_set_regs_ever_live (TOC_REGISTER, true);
   return gen_rtx_PLUS (Pmode,
 	   gen_rtx_REG (Pmode, TOC_REGISTER),
 	     gen_rtx_CONST (Pmode,
@@ -14657,7 +14799,7 @@ no_global_regs_above (int first_greg)
 static bool
 rs6000_reg_live_or_pic_offset_p (int reg)
 {
-  return ((regs_ever_live[reg]
+  return ((df_regs_ever_live_p (reg)
            && (!call_used_regs[reg]
                || (reg == RS6000_PIC_OFFSET_TABLE_REGNUM
                    && TARGET_TOC && TARGET_MINIMAL_TOC)))
@@ -14747,7 +14889,7 @@ rs6000_emit_prologue (void)
       if (info->lr_save_p)
 	{
 	  insn = emit_move_insn (reg0,
-				 gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
+				 gen_rtx_REG (Pmode, LR_REGNO));
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
 
@@ -14780,7 +14922,7 @@ rs6000_emit_prologue (void)
       j = 0;
       RTVEC_ELT (p, j++) = gen_rtx_CLOBBER (VOIDmode,
 					    gen_rtx_REG (SImode,
-							 LINK_REGISTER_REGNUM));
+							 LR_REGNO));
       RTVEC_ELT (p, j++) = gen_rtx_USE (VOIDmode,
 					gen_rtx_SYMBOL_REF (Pmode,
 							    "*save_world"));
@@ -14855,7 +14997,7 @@ rs6000_emit_prologue (void)
       rtx addr, reg, mem;
 
       insn = emit_move_insn (gen_rtx_REG (Pmode, 0),
-			     gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
+			     gen_rtx_REG (Pmode, LR_REGNO));
       RTX_FRAME_RELATED_P (insn) = 1;
 
       addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
@@ -14897,7 +15039,7 @@ rs6000_emit_prologue (void)
     {
       int i;
       for (i = 0; i < 64 - info->first_fp_reg_save; i++)
-	if ((regs_ever_live[info->first_fp_reg_save+i]
+	if ((df_regs_ever_live_p (info->first_fp_reg_save+i)
 	     && ! call_used_regs[info->first_fp_reg_save+i]))
 	  emit_frame_save (frame_reg_rtx, frame_ptr_rtx, DFmode,
 			   info->first_fp_reg_save + i,
@@ -14914,7 +15056,7 @@ rs6000_emit_prologue (void)
 
       RTVEC_ELT (p, 0) = gen_rtx_CLOBBER (VOIDmode,
 					  gen_rtx_REG (Pmode,
-						       LINK_REGISTER_REGNUM));
+						       LR_REGNO));
       sprintf (rname, "%s%d%s", SAVE_FP_PREFIX,
 	       info->first_fp_reg_save - 32, SAVE_FP_SUFFIX);
       alloc_rname = ggc_strdup (rname);
@@ -14968,7 +15110,7 @@ rs6000_emit_prologue (void)
        int i;
        rtx spe_save_area_ptr;
        int using_static_chain_p = (cfun->static_chain_decl != NULL_TREE
-                                   && regs_ever_live[STATIC_CHAIN_REGNUM]
+                                   && df_regs_ever_live_p (STATIC_CHAIN_REGNUM)
                                    && !call_used_regs[STATIC_CHAIN_REGNUM]);
  
        /* Determine whether we can address all of the registers that need
@@ -15222,7 +15364,7 @@ rs6000_emit_prologue (void)
   if ((TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
       || (DEFAULT_ABI == ABI_V4
 	  && (flag_pic == 1 || (flag_pic && TARGET_SECURE_PLT))
-	  && regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM]))
+	  && df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM)))
     {
       /* If emit_load_toc_table will use the link register, we need to save
 	 it.  We use R12 for this purpose because emit_load_toc_table
@@ -15235,16 +15377,14 @@ rs6000_emit_prologue (void)
 				      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0);
       if (save_LR_around_toc_setup)
 	{
-	  rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
+	  rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
 
 	  insn = emit_move_insn (frame_ptr_rtx, lr);
-	  rs6000_maybe_dead (insn);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 
 	  rs6000_emit_load_toc_table (TRUE);
 
 	  insn = emit_move_insn (lr, frame_ptr_rtx);
-	  rs6000_maybe_dead (insn);
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
       else
@@ -15255,22 +15395,21 @@ rs6000_emit_prologue (void)
   if (DEFAULT_ABI == ABI_DARWIN
       && flag_pic && current_function_uses_pic_offset_table)
     {
-      rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
+      rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
       rtx src = machopic_function_base_sym ();
 
       /* Save and restore LR locally around this call (in R0).  */
       if (!info->lr_save_p)
-	rs6000_maybe_dead (emit_move_insn (gen_rtx_REG (Pmode, 0), lr));
+	emit_move_insn (gen_rtx_REG (Pmode, 0), lr);
 
-      rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (src)));
+      emit_insn (gen_load_macho_picbase (src));
 
-      insn = emit_move_insn (gen_rtx_REG (Pmode,
-					  RS6000_PIC_OFFSET_TABLE_REGNUM),
-			     lr);
-      rs6000_maybe_dead (insn);
+      emit_move_insn (gen_rtx_REG (Pmode,
+				   RS6000_PIC_OFFSET_TABLE_REGNUM),
+		      lr);
 
       if (!info->lr_save_p)
-	rs6000_maybe_dead (emit_move_insn (lr, gen_rtx_REG (Pmode, 0)));
+	emit_move_insn (lr, gen_rtx_REG (Pmode, 0));
     }
 #endif
 }
@@ -15412,7 +15551,7 @@ rs6000_emit_epilogue (int sibcall)
       RTVEC_ELT (p, j++) = gen_rtx_RETURN (VOIDmode);
       RTVEC_ELT (p, j++) = gen_rtx_USE (VOIDmode,
 					gen_rtx_REG (Pmode,
-						     LINK_REGISTER_REGNUM));
+						     LR_REGNO));
       RTVEC_ELT (p, j++)
 	= gen_rtx_USE (VOIDmode, gen_rtx_SYMBOL_REF (Pmode, alloc_rname));
       /* The instruction pattern requires a clobber here;
@@ -15569,7 +15708,7 @@ rs6000_emit_epilogue (int sibcall)
 
   /* Set LR here to try to overlap restores below.  */
   if (info->lr_save_p)
-    emit_move_insn (gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM),
+    emit_move_insn (gen_rtx_REG (Pmode, LR_REGNO),
 		    gen_rtx_REG (Pmode, 0));
 
   /* Load exception handler data registers, if needed.  */
@@ -15644,7 +15783,7 @@ rs6000_emit_epilogue (int sibcall)
       else
         {
           /* Make r11 point to the start of the SPE save area.  We worried about
-             not clobbering it when we were saving registers in the prolgoue.
+             not clobbering it when we were saving registers in the prologue.
              There's no need to worry here because the static chain is passed
              anew to every function.  */
           spe_save_area_ptr = gen_rtx_REG (Pmode, 11);
@@ -15689,7 +15828,7 @@ rs6000_emit_epilogue (int sibcall)
   /* Restore fpr's if we need to do it without calling a function.  */
   if (restoring_FPRs_inline)
     for (i = 0; i < 64 - info->first_fp_reg_save; i++)
-      if ((regs_ever_live[info->first_fp_reg_save+i]
+      if ((df_regs_ever_live_p (info->first_fp_reg_save+i)
 	   && ! call_used_regs[info->first_fp_reg_save+i]))
 	{
 	  rtx addr, mem;
@@ -15713,7 +15852,7 @@ rs6000_emit_epilogue (int sibcall)
       if (using_mtcr_multiple)
 	{
 	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	    if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	      count++;
 	  gcc_assert (count);
 	}
@@ -15727,7 +15866,7 @@ rs6000_emit_epilogue (int sibcall)
 
 	  ndx = 0;
 	  for (i = 0; i < 8; i++)
-	    if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	    if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	      {
 		rtvec r = rtvec_alloc (2);
 		RTVEC_ELT (r, 0) = r12_rtx;
@@ -15742,7 +15881,7 @@ rs6000_emit_epilogue (int sibcall)
 	}
       else
 	for (i = 0; i < 8; i++)
-	  if (regs_ever_live[CR0_REGNO+i] && ! call_used_regs[CR0_REGNO+i])
+	  if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
 	    {
 	      emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode,
 							   CR0_REGNO+i),
@@ -15791,7 +15930,7 @@ rs6000_emit_epilogue (int sibcall)
       RTVEC_ELT (p, 0) = gen_rtx_RETURN (VOIDmode);
       RTVEC_ELT (p, 1) = gen_rtx_USE (VOIDmode,
 				      gen_rtx_REG (Pmode,
-						   LINK_REGISTER_REGNUM));
+						   LR_REGNO));
 
       /* If we have to restore more than two FP registers, branch to the
 	 restore function.  It will return to our caller.  */
@@ -16163,7 +16302,6 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 1;
   epilogue_completed = 1;
-  no_new_pseudos = 1;
 
   /* Mark the end of the (empty) prologue.  */
   emit_note (NOTE_INSN_PROLOGUE_END);
@@ -16233,7 +16371,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 			gen_rtx_USE (VOIDmode, const0_rtx),
 			gen_rtx_USE (VOIDmode,
 				     gen_rtx_REG (SImode,
-						  LINK_REGISTER_REGNUM)),
+						  LR_REGNO)),
 			gen_rtx_RETURN (VOIDmode))));
   SIBLING_CALL_P (insn) = 1;
   emit_barrier ();
@@ -16251,7 +16389,6 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 0;
   epilogue_completed = 0;
-  no_new_pseudos = 0;
 }
 
 /* A quick summary of the various types of 'constant-pool tables'
@@ -16883,7 +17020,7 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
   else if (DEFAULT_ABI == ABI_DARWIN)
     {
       const char *mcount_name = RS6000_MCOUNT;
-      int caller_addr_regno = LINK_REGISTER_REGNUM;
+      int caller_addr_regno = LR_REGNO;
 
       /* Be conservative and always set this, at least for now.  */
       current_function_uses_pic_offset_table = 1;
@@ -17830,7 +17967,7 @@ rs6000_is_costly_dependence (dep_t dep, int cost, int distance)
   if (rs6000_sched_costly_dep == true_store_to_load_dep_costly
       && is_load_insn (next)
       && is_store_insn (insn)
-      && DEP_KIND (dep) == REG_DEP_TRUE)
+      && DEP_TYPE (dep) == REG_DEP_TRUE)
      /* Prevent load after store in the same group if it is a true
 	dependence.  */
      return true;
@@ -18311,15 +18448,15 @@ is_costly_group (rtx *group_insns, rtx next_insn)
 
   for (i = 0; i < issue_rate; i++)
     {
-      dep_link_t link;
+      sd_iterator_def sd_it;
+      dep_t dep;
       rtx insn = group_insns[i];
 
       if (!insn)
 	continue;
 
-      FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
+      FOR_EACH_DEP (insn, SD_LIST_FORW, sd_it, dep)
 	{
-	  dep_t dep = DEP_LINK_DEP (link);
 	  rtx next = DEP_CON (dep);
 
 	  if (next == next_insn
@@ -18930,8 +19067,14 @@ rs6000_handle_altivec_attribute (tree *node,
    elements; we must teach the compiler how to mangle them.  */
 
 static const char *
-rs6000_mangle_fundamental_type (tree type)
+rs6000_mangle_type (tree type)
 {
+  type = TYPE_MAIN_VARIANT (type);
+
+  if (TREE_CODE (type) != VOID_TYPE && TREE_CODE (type) != BOOLEAN_TYPE
+      && TREE_CODE (type) != INTEGER_TYPE && TREE_CODE (type) != REAL_TYPE)
+    return NULL;
+
   if (type == bool_char_type_node) return "U6__boolc";
   if (type == bool_short_type_node) return "U6__bools";
   if (type == pixel_type_node) return "u7__pixel";
@@ -19519,7 +19662,7 @@ rs6000_machopic_legitimize_pic_address (rtx orig, enum machine_mode mode,
 
       /* Use a different reg for the intermediate value, as
 	 it will be marked UNCHANGING.  */
-      reg_temp = no_new_pseudos ? reg : gen_reg_rtx (Pmode);
+      reg_temp = !can_create_pseudo_p () ? reg : gen_reg_rtx (Pmode);
       base = rs6000_machopic_legitimize_pic_address (XEXP (XEXP (orig, 0), 0),
 						     Pmode, reg_temp);
       offset =
@@ -20949,9 +21092,9 @@ rs6000_dbx_register_number (unsigned int regno)
     return regno;
   if (regno == MQ_REGNO)
     return 100;
-  if (regno == LINK_REGISTER_REGNUM)
+  if (regno == LR_REGNO)
     return 108;
-  if (regno == COUNT_REGISTER_REGNUM)
+  if (regno == CTR_REGNO)
     return 109;
   if (CR_REGNO_P (regno))
     return regno - CR0_REGNO + 86;

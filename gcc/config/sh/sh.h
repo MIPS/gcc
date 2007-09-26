@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_SH_H
 #define GCC_SH_H
@@ -1032,6 +1031,16 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define LAST_XD_REG  (FIRST_XD_REG + ((TARGET_SH4 && TARGET_FMOVD) ? 7 : -1))
 #define FIRST_TARGET_REG TR0_REG
 #define LAST_TARGET_REG  (FIRST_TARGET_REG + (TARGET_SHMEDIA ? 7 : -1))
+
+/* Registers that can be accessed through bank0 or bank1 depending on sr.md.  */
+
+#define FIRST_BANKED_REG R0_REG
+#define LAST_BANKED_REG R7_REG
+
+#define BANKED_REGISTER_P(REGNO)                       \
+  IN_RANGE ((REGNO),                                   \
+	    (unsigned HOST_WIDE_INT) FIRST_BANKED_REG, \
+	    (unsigned HOST_WIDE_INT) LAST_BANKED_REG)
 
 #define GENERAL_REGISTER_P(REGNO) \
   IN_RANGE ((REGNO), \
@@ -2882,7 +2891,7 @@ struct sh_args {
 #undef DO_GLOBAL_CTORS_BODY
 #define DO_GLOBAL_CTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
+  typedef void (*pfunc) (void);			\
   extern pfunc __ctors[];			\
   extern pfunc __ctors_end[];			\
   pfunc *p;					\
@@ -2895,7 +2904,7 @@ struct sh_args {
 #undef DO_GLOBAL_DTORS_BODY
 #define DO_GLOBAL_DTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
+  typedef void (*pfunc) (void);			\
   extern pfunc __dtors[];			\
   extern pfunc __dtors_end[];			\
   pfunc *p;					\

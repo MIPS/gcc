@@ -1,12 +1,12 @@
 /* Callgraph based interprocedural optimizations.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This module implements main driver of compilation process as well as
    few basic interprocedural optimizers.
@@ -181,21 +180,26 @@ static GTY (()) tree static_dtors;
 static void
 record_cdtor_fn (tree fndecl)
 {
-  if (targetm.have_ctors_dtors)
+  struct cgraph_node *node;
+  if (targetm.have_ctors_dtors
+      || (!DECL_STATIC_CONSTRUCTOR (fndecl)
+	  && !DECL_STATIC_DESTRUCTOR (fndecl)))
     return;
 
   if (DECL_STATIC_CONSTRUCTOR (fndecl))
     {
       static_ctors = tree_cons (NULL_TREE, fndecl, static_ctors);
       DECL_STATIC_CONSTRUCTOR (fndecl) = 0;
-      cgraph_mark_reachable_node (cgraph_node (fndecl));
     }
   if (DECL_STATIC_DESTRUCTOR (fndecl))
     {
       static_dtors = tree_cons (NULL_TREE, fndecl, static_dtors);
       DECL_STATIC_DESTRUCTOR (fndecl) = 0;
-      cgraph_mark_reachable_node (cgraph_node (fndecl));
     }
+  DECL_INLINE (fndecl) = 1;
+  node = cgraph_node (fndecl);
+  node->local.disregard_inline_limits = 1;
+  cgraph_mark_reachable_node (node);
 }
 
 /* Synthesize a function which calls all the global ctors or global
@@ -377,7 +381,7 @@ cgraph_process_new_functions (void)
 	  node->local.self_insns = estimate_num_insns (fndecl,
 						       &eni_inlining_weights);
 	  node->local.disregard_inline_limits
-	    = lang_hooks.tree_inlining.disregard_inline_limits (fndecl);
+	    |= lang_hooks.tree_inlining.disregard_inline_limits (fndecl);
 	  /* Inlining characteristics are maintained by the
 	     cgraph_mark_inline.  */
 	  node->global.insns = node->local.self_insns;
@@ -760,6 +764,7 @@ cgraph_analyze_function (struct cgraph_node *node)
   current_function_decl = decl;
   push_cfun (DECL_STRUCT_FUNCTION (decl));
   cgraph_lower_function (node);
+  node->analyzed = true;
 
   if (!flag_unit_at_a_time)
     {
@@ -771,7 +776,6 @@ cgraph_analyze_function (struct cgraph_node *node)
       bitmap_obstack_release (NULL);
     }
 
-  node->analyzed = true;
   pop_cfun ();
   current_function_decl = NULL;
 }

@@ -1,175 +1,50 @@
-2007-08-15  Alexander Monakov  <amonakov@ispras.ru>
-	    Dmitry Zhurikhin  <zhur@ispras.ru>
-	
-	* gcc/common.opt (fsel-sched-reset-tc-on-join): New option.
-	* gcc/config/ia64/ia64.c (group_barrier_needed): Add heuristic.
-	(struct bundle_state): New field.
-	(issue_nops_and_insn): Initialize it.
-	(insert_bundle_state): Minimize mid-bundle stop bits.
-	(bundling): Print number of mid-bundle stop bits.  Minimize mid-bundle
-	stop bits.  Check correct calculation of mid-bundle stop bits.
-	* gcc/haifa-sched.c (schedule_block): Call sched_init_luids to reset
-	scheduler datastructure before target generates new insns.
-	* gcc/sched-deps.c (sched_has_condition_p): New function.  Adjust
-	users of sched_get_condition to use it instead.
-	(conditions_mutex_p): Add arguments indicating which conditions are
-	reversed.  Use them.
-	(sched_get_condition_with_rev): Rename from sched_get_condition.  Add
-	argument to indicate whether returned condition is reversed.  Do not
-	generate new rtx when condition should be reversed; indicate it by
-	setting new argument instead.
-	(sched_insns_mutex_p): Use sched_get_condition_with_rev.
-	(deps_analyze_insn): Do not flush pending write lists on speculation
-	checks.  Do not make speculation check a scheduling barrier for memory
-	references.
-	* gcc/sched-int.h (sel_insn_is_speculation_check): Declare.
-	* gcc/sched-rgn.c (sched_rgn_init): Do not calculate and free
-	dominance info for selective scheduler here.
-	* gcc/sel-sched-dump.c (dump_expr_1): Print new field.
-	* gcc/sel-sched-dump.h (enum dump_expr): New member.
-	* gcc/sel-sched-ir.c (init_expr): New arguments.  Initialize new
-	fields of expr_t.
-	(copy_expr): Update to pass new arguments to init_expr.
-	(copy_expr_onside): Ditto.
-	(init_global_and_expr_for_insn): Ditto.
-	(init_simplejump): Ditto.
-	(merge_expr_data): Calculate new fields of expr_t.
-	(sel_insn_is_speculation_check): New function.
-	(get_seqno_of_a_pred): Remove wrong assertion.
-	(init_insn): Calculate new field of expr_t.
-	(sel_split_block): Ditto.
-	(pipeline_outer_loops_finish): Do not free dominance info here.
-	* gcc/sel-sched-ir.h (struct _expr): New fields.
-	(EXPR_ORIG_BB_INDEX): New accessor macro.
-	(EXPR_WAS_SUBSTITUTED): Ditto.
-	* gcc/sel-sched.c (stat_bookkeeping_copies,
-	stat_insns_needed_bookkeeping, stat_renamed_scheduled,
-	stat_substitutions_total): New global variables.
-	(in_fallthru_bb_p): New function.
-	(extract_new_fences_from): Use it. 
-	(moveup_rhs_inside_insn_group): Record whether expr was substituted.
-	(moveup_rhs): Ditto.  Do not disable motion of exprs that might need
-	bookkeeping.
-	(CANT_MOVE_TRAPPING): Allow moving trapping insns through speculation
-	checks.
-	(sel_rank_for_schedule): New heuristic.
-	(generate_bookkeeping_insn): Avoid creating new basic block.
-	(max_uid_before_move_op): New global variable.
-	(remove_insns_that_need_bookkeeping): New function.
-	(fill_insns): Use it.  Adjust statistical counters.
-	(move_op): Adjust statistical counter.
-	(sel_region_finish): Cleanup.
-	(sel_sched_region_2): Initialize statistical counters, print them.
-	(sel_global_init): Always calculate dominance info.
-	(sel_global_finish): Always free calculate dominance info.
+2007-09-26  Andrey Belevantsev  <abel@ispras.ru>
 
-2007-08-14  Andrey Belevantsev  <abel@ispras.ru>
-	    Dmitry Melnik  <dm@ispras.ru>
- 
-	* sched-ebb.c (sched_ebbs): Set ebb_region_jead_or_leaf_p
-	when ENABLE_CHECKING is defined.
+        Merge with trunk rev. 127475.
 
-	* haifa-sched.c (haifa_sched_init, haifa_init_insn): Use 
-	sched_deps_init instead of sched_deps_local_init.
-	(haifa_sched_finish): Use sched_deps_finish.
+        * recog.c (validate_replace_rtx_1): New parameter simplify.
+        Default it to true.  Update all uses.  Factor out simplifying
+        code to ...
+        (simplify_while_replacing): ... this new function.
+        (validate_replace_rtx_part_nosimplify): New.
 
-	* sel-sched.c (find_best_reg_for_rhs): Bail out early when insn 
-	doesn't set any registers.  
-	(moveup_rhs, moveup_rhs_inside_insn_group): Print correct rtx
-	when substituting.
-	(fill_ready_list): Factor out the code into ... 
-	(process_pipelined_exprs, process_spec_exprs, process_use_exprs,
-	fill_vec_av_set, convert_vec_av_set_to_ready): ... these 
-	new functions.
-	(find_best_rhs_and_reg_that_fits): Rename to find_best_expr. 
-	Adjust the caller.  Factor out the code into ...
-	(invoke_reorder_hooks, find_expr_for_ready, 
-	invoke_dfa_lookahead_guard, calculate_privileged_insns, 
-	invoke_aftermath_hooks, choose_best_insn): ... these new functions.
-	(get_dest_reg_from_orig_ops): Support also memory destinations.
-	Remove to get_dest_from_orig_ops.
-	(move_op): Adjust for the destination being memory.
-	(sel_region_init): Use sched_deps_init instead of 
-	sched_deps_local_init. Use free_rgn_deps.
-	(sel_region_finish): Free succs array.
-	(sel_global_init): Use sched_deps_init and sched_extend_target
-	instead of sel_extend_insn_rtx_data.
-	(sel_global_finish): Use sched_deps_finish instead of
-	sel_finish_insn_rtx_data.
-	
-	* sel-sched-ir.h (struct _sel_insn_rtx_data): Kill.
-	(sel_insn_rtx_data_def, sel_insn_rtx_data_t,
-	SIRD, GET_VINSN_BY_INSN): Ditto.
-	(s_i_r_d, sel_extend_insn_rtx_data, 
-	sel_finish_insn_rtx_data): Kill declaration.
-	(lhs_of_insn_equals_to_reg_p): Adjust declaration.
+        * sel-sched-dump.c (sel_dump_cfg_2): Use df_get_live_*
+        instead of global_live_at_*.
 
-	* sel-sched-ir.c (s_i_r_d): Remove variable.
-	(fence_clear): Use delete_deps_context instead of free_deps.
-	(lhs_of_insn_equals_to_reg_p): Rename to 
-	lhs_of_insn_equals_to_dest_p.  Adjust for destination being 
-	memory.
-	(sel_extend_insn_rtx_data, sel_finish_insn_rtx_data): Remove.
-	(extend_insn, create_insn_rtx_from_pattern_1): Use sched_deps_init 
-	instead of the above functions.
+        * sel-sched-ir.c (sel_extend_global_bb_info,
+        extend_region_bb_info, extend_bb_info, sel_finish_global_bb_info,
+        finish_region_bb_info): Move to appropriate place.
+        Regroup forward static declarations.
+        (sel_gen_insn_from_expr_after): Simplify insn here.
+        (sel_mark_hard_insn): New.
+        (has_dependence_p): Initialize pro and dc fields.
+        (init_lv_set): Use df sets.
+        (recompute_rev_top_order): Update to new interface of
+        post_order_compute.
+        (sel_add_or_remove_bb): Do not use glat.
+        (sel_split_block): Call change_loops_latches after
+        sel_add_or_remove_bb.
+        (sched_sel_haifa_sched_info): Initialize flags.
+        (sel_set_sched_flags): New.
+        (sel_setup_common_sched_info): Use it.  Kill outdated code.
+        (sel_is_loop_preheader_p): Tidy.  Kill #if 0'd code.
 
-	(lhs_and_rhs_separable_p): Use CONSTANT_P instead of the wrong
-	set of tests on constness.
+        * sel-sched-ir.h (sel_set_sched_flags): Export.
 
-	* sched-deps.c (deps_extend_d_i_d): Make static. Do not init
-	obstack on each extension. Instead, do it ... 
-	(sched_deps_local_init): ... here.  Rename to sched_deps_init.
-	Rename create_caches_p to global_p, adjust code.  
-	(sched_deps_finish): New.  Move some code from ... 
-	(sched_deps_local_finish): ... here.  Adjust for the new function.
-
-	* sched_deps.h (sched_deps_init, sched_deps_finish): Declare.
-	* sched-int.h (free_rgn_deps): Declare.
-	* sched-rgn.c (free_rgn_deps): New.
-	* vecprim.h: Add definitions for a vector of unsigned int. 
-
-	* config/ia64/ia64.c (ia64_first_cycle_multipass_dfa_lookahead_guard): 
-	Fix whitespace.
-	* params.def (PARAM_SELSCHED_MAX_SCHED_TIMES): Fix typo.		
-
-2007-06-21  Andrey Belevantsev  <abel@ispras.ru>
-	Implement hashing of vinsns.  Precompute some of hard
-	regs info.
-
-	* cse.c (hash_rtx_string): Export.
-	* sel-sched.c (struct hard_regs_data): New struct.
-	(sel_all_regs): Rename to regs_ever_used, change to HARD_REG_SET 
-	and move to the above struct.  Update all uses.
-	(sel_hrd): New global variable.
-	(init_hard_regno_rename, sel_hard_regno_rename_ok,
-	init_regs_for_mode, init_hard_regs_data): New functions.
-	(mark_unavailable_hard_regs): Move some code to the above
-	functions and use them.  Return early when a destination
-	is not a register.  Move code dealing with frame pointers
-	from ...
-	(choose_best_reg_1): ... here.
-	(find_best_reg_for_rhs): Tidy comment.
-	(undo_transformations): Fix comment.  Use hashes instead of bitmaps
-	to determine whether an expr was changed on this insns.
-	(moveup_set_rhs): Likewise.
-	(sel_global_init): Call init_hard_regs_data.
-	* sel-sched-ir.c (sel_hash_rtx): New static function.  Adopt from 
-	hash_rtx, tidy.  Leave only necessary comments.
-	(vinsn_init): Use it.
-	(find_in_hash_vect_1, find_in_hash_vect, insert_in_hash_vect): New
-	functions.
-	(vinsns_correlate_as_rhses_p): Use vinsn hashes.
-	(init_expr, copy_expr, merge_expr_data, clear_expr): Update to use
-	hash vectors instead of bitmaps.
-	(sel_bb_head): Check for head being NULL before using it.
-	(sel_add_or_remove_bb): Disable too expensive check.
-	* sel-sched-ir.h: Include vecprim.h.
-	(struct _expr): Change the type of change_on_insns field to a vector.
-	(struct vinsn_def): New field hash.
-	(VINSN_HASH): New accessor macro.
-	(find_in_hash_vect, insert_in_hash_vect): Declare.
-	* rtl.h (hash_rtx_string): Declare.
-	* vecprim.h: Define a vector type for unsigned values. 
+        * sel-sched.c (substitute_reg_in_rhs): Do not simplify replaced
+        rtx immediately using validate_replace_rtx_part_nosimplify.
+        (init_hard_regs_data, choose_best_pseudo_reg,
+        gen_insn_from_expr_after): Use df sets.
+        (generate_bookkeeping_insn): Tidy.  Fix SCHED_TIMES field for
+        preheader insns.
+        (fill_insns): Rewind fence boundaries in case new bookkeeping code
+        is created.
+        (add_region_head): Kill glat handling code.
+        (sel_region_init): Setup sched infos according to new flags.
+        (sel_global_init): Kill no_new_pseudos code.
+        Update setup of sched infos.
+        (sel_global_finish): Likewise.
+        (handle_sel_sched): Update a call to split_all_insns.
 
 2007-06-16  Maxim Kuvyrkov  <mkuvyrkov@ispras.ru>
 

@@ -301,6 +301,9 @@ such as POSIX specify additional values to be defined in
 @file{gsyslimits.h} if it does not need fixing to work with GCC; if it
 needs fixing, @file{syslimits.h} is the fixed copy.
 
+GCC can also install @code{<tgmath.h>}.  It will do this when
+@file{config.gcc} sets @code{use_gcc_tgmath} to @code{yes}.
+
 @node Documentation
 @subsection Building Documentation
 
@@ -941,9 +944,9 @@ it is executed.  It is one of:
 @table @code
 @item preprocess
 Compile with @option{-E} to run only the preprocessor.
-@item assemble
-Compile with @option{-S} to produce an assembly code file.
 @item compile
+Compile with @option{-S} to produce an assembly code file.
+@item assemble
 Compile with @option{-c} to produce a relocatable object file.
 @item link
 Compile, assemble, and link to produce an executable file.

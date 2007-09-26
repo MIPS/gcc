@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -44,17 +43,17 @@ mstring intrinsic_operators[] = {
     minit (".or.", INTRINSIC_OR),
     minit (".eqv.", INTRINSIC_EQV),
     minit (".neqv.", INTRINSIC_NEQV),
-    minit (".eq.", INTRINSIC_EQ),
+    minit (".eq.", INTRINSIC_EQ_OS),
     minit ("==", INTRINSIC_EQ),
-    minit (".ne.", INTRINSIC_NE),
+    minit (".ne.", INTRINSIC_NE_OS),
     minit ("/=", INTRINSIC_NE),
-    minit (".ge.", INTRINSIC_GE),
+    minit (".ge.", INTRINSIC_GE_OS),
     minit (">=", INTRINSIC_GE),
-    minit (".le.", INTRINSIC_LE),
+    minit (".le.", INTRINSIC_LE_OS),
     minit ("<=", INTRINSIC_LE),
-    minit (".lt.", INTRINSIC_LT),
+    minit (".lt.", INTRINSIC_LT_OS),
     minit ("<", INTRINSIC_LT),
-    minit (".gt.", INTRINSIC_GT),
+    minit (".gt.", INTRINSIC_GT_OS),
     minit (">", INTRINSIC_GT),
     minit (".not.", INTRINSIC_NOT),
     minit ("parens", INTRINSIC_PARENTHESES),
@@ -270,6 +269,38 @@ gfc_match_small_int (int *value)
 }
 
 
+/* This function is the same as the gfc_match_small_int, except that
+   we're keeping the pointer to the expr.  This function could just be
+   removed and the previously mentioned one modified, though all calls
+   to it would have to be modified then (and there were a number of
+   them).  Return MATCH_ERROR if fail to extract the int; otherwise,
+   return the result of gfc_match_expr().  The expr (if any) that was
+   matched is returned in the parameter expr.  */
+
+match
+gfc_match_small_int_expr (int *value, gfc_expr **expr)
+{
+  const char *p;
+  match m;
+  int i;
+
+  m = gfc_match_expr (expr);
+  if (m != MATCH_YES)
+    return m;
+
+  p = gfc_extract_int (*expr, &i);
+
+  if (p != NULL)
+    {
+      gfc_error (p);
+      m = MATCH_ERROR;
+    }
+
+  *value = i;
+  return m;
+}
+
+
 /* Matches a statement label.  Uses gfc_match_small_literal_int() to
    do most of the work.  */
 
@@ -471,6 +502,99 @@ gfc_match_name (char *buffer)
 
   buffer[i] = '\0';
   gfc_current_locus = old_loc;
+
+  return MATCH_YES;
+}
+
+
+/* Match a valid name for C, which is almost the same as for Fortran,
+   except that you can start with an underscore, etc..  It could have
+   been done by modifying the gfc_match_name, but this way other
+   things C allows can be added, such as no limits on the length.
+   Right now, the length is limited to the same thing as Fortran..
+   Also, by rewriting it, we use the gfc_next_char_C() to prevent the
+   input characters from being automatically lower cased, since C is
+   case sensitive.  The parameter, buffer, is used to return the name
+   that is matched.  Return MATCH_ERROR if the name is too long
+   (though this is a self-imposed limit), MATCH_NO if what we're
+   seeing isn't a name, and MATCH_YES if we successfully match a C
+   name.  */
+
+match
+gfc_match_name_C (char *buffer)
+{
+  locus old_loc;
+  int i = 0;
+  int c;
+
+  old_loc = gfc_current_locus;
+  gfc_gobble_whitespace ();
+
+  /* Get the next char (first possible char of name) and see if
+     it's valid for C (either a letter or an underscore).  */
+  c = gfc_next_char_literal (1);
+
+  /* If the user put nothing expect spaces between the quotes, it is valid
+     and simply means there is no name= specifier and the name is the fortran
+     symbol name, all lowercase.  */
+  if (c == '"' || c == '\'')
+    {
+      buffer[0] = '\0';
+      gfc_current_locus = old_loc;
+      return MATCH_YES;
+    }
+  
+  if (!ISALPHA (c) && c != '_')
+    {
+      gfc_error ("Invalid C name in NAME= specifier at %C");
+      return MATCH_ERROR;
+    }
+
+  /* Continue to read valid variable name characters.  */
+  do
+    {
+      buffer[i++] = c;
+      
+    /* C does not define a maximum length of variable names, to my
+       knowledge, but the compiler typically places a limit on them.
+       For now, i'll use the same as the fortran limit for simplicity,
+       but this may need to be changed to a dynamic buffer that can
+       be realloc'ed here if necessary, or more likely, a larger
+       upper-bound set.  */
+      if (i > gfc_option.max_identifier_length)
+        {
+          gfc_error ("Name at %C is too long");
+          return MATCH_ERROR;
+        }
+      
+      old_loc = gfc_current_locus;
+      
+      /* Get next char; param means we're in a string.  */
+      c = gfc_next_char_literal (1);
+    } while (ISALNUM (c) || c == '_');
+
+  buffer[i] = '\0';
+  gfc_current_locus = old_loc;
+
+  /* See if we stopped because of whitespace.  */
+  if (c == ' ')
+    {
+      gfc_gobble_whitespace ();
+      c = gfc_peek_char ();
+      if (c != '"' && c != '\'')
+        {
+          gfc_error ("Embedded space in NAME= specifier at %C");
+          return MATCH_ERROR;
+        }
+    }
+  
+  /* If we stopped because we had an invalid character for a C name, report
+     that to the user by returning MATCH_NO.  */
+  if (c != '"' && c != '\'')
+    {
+      gfc_error ("Invalid C name in NAME= specifier at %C");
+      return MATCH_ERROR;
+    }
 
   return MATCH_YES;
 }
@@ -1375,6 +1499,7 @@ gfc_match_do (void)
   if (m == MATCH_ERROR)
     goto cleanup;
 
+  iter.var->symtree->n.sym->attr.implied_index = 0;
   gfc_check_do_variable (iter.var->symtree);
 
   if (gfc_match_eos () != MATCH_YES)
@@ -1578,7 +1703,8 @@ gfc_match_pause (void)
   m = gfc_match_stopcode (ST_PAUSE);
   if (m == MATCH_YES)
     {
-      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: PAUSE statement at %C")
+      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: PAUSE statement"
+	  " at %C")
 	  == FAILURE)
 	m = MATCH_ERROR;
     }
@@ -1625,7 +1751,7 @@ gfc_match_assign (void)
 	return MATCH_ERROR;
       if (gfc_match (" to %v%t", &expr) == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: ASSIGN "
+	  if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGN "
 			      "statement at %C")
 	      == FAILURE)
 	    return MATCH_ERROR;
@@ -1671,7 +1797,7 @@ gfc_match_goto (void)
 
   if (gfc_match_variable (&expr, 0) == MATCH_YES)
     {
-      if (gfc_notify_std (GFC_STD_F95_DEL, "Obsolete: Assigned GOTO "
+      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: Assigned GOTO "
 			  "statement at %C")
 	  == FAILURE)
 	return MATCH_ERROR;
@@ -1874,6 +2000,8 @@ gfc_match_allocate (void)
 
   if (stat != NULL)
     {
+      bool is_variable;
+
       if (stat->symtree->n.sym->attr.intent == INTENT_IN)
 	{
 	  gfc_error ("STAT variable '%s' of ALLOCATE statement at %C cannot "
@@ -1888,7 +2016,38 @@ gfc_match_allocate (void)
 	  goto cleanup;
 	}
 
-      if (stat->symtree->n.sym->attr.flavor != FL_VARIABLE)
+      is_variable = false;
+      if (stat->symtree->n.sym->attr.flavor == FL_VARIABLE)
+	is_variable = true;
+      else if (stat->symtree->n.sym->attr.function
+	  && stat->symtree->n.sym->result == stat->symtree->n.sym
+	  && (gfc_current_ns->proc_name == stat->symtree->n.sym
+	      || (gfc_current_ns->parent
+		  && gfc_current_ns->parent->proc_name
+		     == stat->symtree->n.sym)))
+	is_variable = true;
+      else if (gfc_current_ns->entries
+	       && stat->symtree->n.sym->result == stat->symtree->n.sym)
+	{
+	  gfc_entry_list *el;
+	  for (el = gfc_current_ns->entries; el; el = el->next)
+	    if (el->sym == stat->symtree->n.sym)
+	      {
+		is_variable = true;
+	      }
+	}
+      else if (gfc_current_ns->parent && gfc_current_ns->parent->entries
+	       && stat->symtree->n.sym->result == stat->symtree->n.sym)
+	{
+	  gfc_entry_list *el;
+	  for (el = gfc_current_ns->parent->entries; el; el = el->next)
+	    if (el->sym == stat->symtree->n.sym)
+	      {
+		is_variable = true;
+	      }
+	}
+
+      if (!is_variable)
 	{
 	  gfc_error ("STAT expression at %C must be a variable");
 	  goto cleanup;
@@ -2169,12 +2328,28 @@ gfc_match_call (void)
     return MATCH_ERROR;
 
   sym = st->n.sym;
-  gfc_set_sym_referenced (sym);
 
+  /* If it does not seem to be callable...  */
   if (!sym->attr.generic
-      && !sym->attr.subroutine
-      && gfc_add_subroutine (&sym->attr, sym->name, NULL) == FAILURE)
-    return MATCH_ERROR;
+	&& !sym->attr.subroutine)
+    {
+      if (!(sym->attr.external && !sym->attr.referenced))
+	{
+	  /* ...create a symbol in this scope...  */
+	  if (sym->ns != gfc_current_ns
+	        && gfc_get_sym_tree (name, NULL, &st) == 1)
+            return MATCH_ERROR;
+
+	  if (sym != st->n.sym)
+	    sym = st->n.sym;
+	}
+
+      /* ...and then to try to make the symbol into a subroutine.  */
+      if (gfc_add_subroutine (&sym->attr, sym->name, NULL) == FAILURE)
+	return MATCH_ERROR;
+    }
+
+  gfc_set_sym_referenced (sym);
 
   if (gfc_match_eos () != MATCH_YES)
     {
@@ -2298,8 +2473,7 @@ gfc_get_common (const char *name, int from_module)
 
 /* Match a common block name.  */
 
-static match
-match_common_name (char *name)
+match match_common_name (char *name)
 {
   match m;
 
@@ -2407,6 +2581,35 @@ gfc_match_common (void)
 	  if (m == MATCH_NO)
 	    goto syntax;
 
+          /* Store a ref to the common block for error checking.  */
+          sym->common_block = t;
+          
+          /* See if we know the current common block is bind(c), and if
+             so, then see if we can check if the symbol is (which it'll
+             need to be).  This can happen if the bind(c) attr stmt was
+             applied to the common block, and the variable(s) already
+             defined, before declaring the common block.  */
+          if (t->is_bind_c == 1)
+            {
+              if (sym->ts.type != BT_UNKNOWN && sym->ts.is_c_interop != 1)
+                {
+                  /* If we find an error, just print it and continue,
+                     cause it's just semantic, and we can see if there
+                     are more errors.  */
+                  gfc_error_now ("Variable '%s' at %L in common block '%s' "
+                                 "at %C must be declared with a C "
+                                 "interoperable kind since common block "
+                                 "'%s' is bind(c)",
+                                 sym->name, &(sym->declared_at), t->name,
+                                 t->name);
+                }
+              
+              if (sym->attr.is_bind_c == 1)
+                gfc_error_now ("Variable '%s' in common block "
+                               "'%s' at %C can not be bind(c) since "
+                               "it is not global", sym->name, t->name);
+            }
+          
 	  if (sym->attr.in_common)
 	    {
 	      gfc_error ("Symbol '%s' at %C is already in a COMMON block",
@@ -2417,7 +2620,7 @@ gfc_match_common (void)
 	  if (gfc_add_in_common (&sym->attr, sym->name, NULL) == FAILURE) 
 	    goto cleanup;
 
-	  if (sym->value != NULL
+	  if (sym->value != NULL && sym->value->expr_type != EXPR_NULL
 	      && (name[0] == '\0' || !sym->attr.data))
 	    {
 	      if (name[0] == '\0')
@@ -2653,12 +2856,6 @@ gfc_match_namelist (void)
 			 "%C is not allowed", sym->name, group_name->name);
 	      gfc_error_check ();
 	    }
-
-	  if (sym->as && sym->as->type == AS_ASSUMED_SHAPE
-	      && gfc_notify_std (GFC_STD_GNU, "Assumed shape array '%s' in "
-				 "namelist '%s' at %C is an extension.",
-				 sym->name, group_name->name) == FAILURE)
-	    gfc_error_check ();
 
 	  nl = gfc_get_namelist ();
 	  nl->sym = sym;

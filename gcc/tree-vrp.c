@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -766,6 +765,10 @@ compare_values_warnv (tree val1, tree val2, bool *strict_overflow_p)
      both integers.  */
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (val1))
 	      == POINTER_TYPE_P (TREE_TYPE (val2)));
+  /* Convert the two values into the same type.  This is needed because
+     sizetype causes sign extension even for unsigned types.  */
+  val2 = fold_convert (TREE_TYPE (val1), val2);
+  STRIP_USELESS_TYPE_CONVERSION (val2);
 
   if ((TREE_CODE (val1) == SSA_NAME
        || TREE_CODE (val1) == PLUS_EXPR
@@ -1469,10 +1472,13 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 		    }
 		  min = positive_overflow_infinity (TREE_TYPE (var_vr->min));
 		}
-	      else
+	      else if (!POINTER_TYPE_P (TREE_TYPE (var_vr->min)))
 		min = fold_build2 (PLUS_EXPR, TREE_TYPE (var_vr->min),
 				   anti_max,
 				   build_int_cst (TREE_TYPE (var_vr->min), 1));
+	      else
+		min = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (var_vr->min),
+				   anti_max, size_int (1));
 	      max = real_max;
 	      set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
 	    }
@@ -1494,10 +1500,14 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 		    }
 		  max = negative_overflow_infinity (TREE_TYPE (var_vr->min));
 		}
-	      else
+	      else if (!POINTER_TYPE_P (TREE_TYPE (var_vr->min)))
 		max = fold_build2 (MINUS_EXPR, TREE_TYPE (var_vr->min),
 				   anti_min,
 				   build_int_cst (TREE_TYPE (var_vr->min), 1));
+	      else
+		max = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (var_vr->min),
+				   anti_min,
+				   size_int (-1));
 	      min = real_min;
 	      set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
 	    }
@@ -1693,6 +1703,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
      meaningful way.  Handle only arithmetic operations.  */
   if (code != PLUS_EXPR
       && code != MINUS_EXPR
+      && code != POINTER_PLUS_EXPR
       && code != MULT_EXPR
       && code != TRUNC_DIV_EXPR
       && code != FLOOR_DIV_EXPR
@@ -1763,26 +1774,30 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       || POINTER_TYPE_P (TREE_TYPE (op0))
       || POINTER_TYPE_P (TREE_TYPE (op1)))
     {
-      /* For pointer types, we are really only interested in asserting
-	 whether the expression evaluates to non-NULL.  FIXME, we used
-	 to gcc_assert (code == PLUS_EXPR || code == MINUS_EXPR), but
-	 ivopts is generating expressions with pointer multiplication
-	 in them.  */
-      if (code == PLUS_EXPR)
+      if (code == MIN_EXPR || code == MAX_EXPR)
 	{
-	  if (range_is_nonnull (&vr0) || range_is_nonnull (&vr1))
+	  /* For MIN/MAX expressions with pointers, we only care about
+	     nullness, if both are non null, then the result is nonnull.
+	     If both are null, then the result is null. Otherwise they
+	     are varying.  */
+	  if (range_is_nonnull (&vr0) && range_is_nonnull (&vr1))
 	    set_value_range_to_nonnull (vr, TREE_TYPE (expr));
 	  else if (range_is_null (&vr0) && range_is_null (&vr1))
 	    set_value_range_to_null (vr, TREE_TYPE (expr));
 	  else
 	    set_value_range_to_varying (vr);
+
+	  return;
 	}
+      gcc_assert (code == POINTER_PLUS_EXPR);
+      /* For pointer types, we are really only interested in asserting
+	 whether the expression evaluates to non-NULL.  */
+      if (range_is_nonnull (&vr0) || range_is_nonnull (&vr1))
+	set_value_range_to_nonnull (vr, TREE_TYPE (expr));
+      else if (range_is_null (&vr0) && range_is_null (&vr1))
+	set_value_range_to_null (vr, TREE_TYPE (expr));
       else
-	{
-	  /* Subtracting from a pointer, may yield 0, so just drop the
-	     resulting range to varying.  */
-	  set_value_range_to_varying (vr);
-	}
+	set_value_range_to_varying (vr);
 
       return;
     }
@@ -2208,6 +2223,8 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
 	      && is_gimple_val (new_max)
 	      && tree_int_cst_equal (new_min, orig_min)
 	      && tree_int_cst_equal (new_max, orig_max)
+	      && (!is_overflow_infinity (new_min)
+		  || !is_overflow_infinity (new_max))
 	      && (cmp = compare_values (new_min, new_max)) <= 0
 	      && cmp >= -1)
 	    {
@@ -2620,6 +2637,14 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
     return;
 
   chrec = instantiate_parameters (loop, analyze_scalar_evolution (loop, var));
+
+  /* Like in PR19590, scev can return a constant function.  */
+  if (is_gimple_min_invariant (chrec))
+    {
+      set_value_range (vr, VR_RANGE, chrec, chrec, vr->equiv);
+      return;
+    }
+
   if (TREE_CODE (chrec) != POLYNOMIAL_CHREC)
     return;
 
@@ -3817,8 +3842,8 @@ find_conditional_asserts (basic_block bb, tree last)
 static int
 compare_case_labels (const void *p1, const void *p2)
 {
-  tree case1 = *(tree *)p1;
-  tree case2 = *(tree *)p2;
+  const_tree const case1 = *(const_tree const*)p1;
+  const_tree const case2 = *(const_tree const*)p2;
   unsigned int uid1 = DECL_UID (CASE_LABEL (case1));
   unsigned int uid2 = DECL_UID (CASE_LABEL (case2));
 
@@ -5516,7 +5541,7 @@ simplify_div_or_mod_using_ranges (tree stmt, tree rhs, enum tree_code rhs_code)
     {
       bool sop = false;
 
-      val = compare_range_with_value (GT_EXPR, vr, integer_zero_node, &sop);
+      val = compare_range_with_value (GE_EXPR, vr, integer_zero_node, &sop);
 
       if (val
 	  && sop

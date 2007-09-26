@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Process declarations and symbol lookup for C++ front end.
@@ -2187,8 +2186,24 @@ redeclaration_error_message (tree newdecl, tree olddecl)
     }
   else if (toplevel_bindings_p () || DECL_NAMESPACE_SCOPE_P (newdecl))
     {
-      /* Objects declared at top level:  */
-      /* If at least one is a reference, it's ok.  */
+      /* The objects have been declared at namespace scope.  If either
+	 is a member of an anonymous union, then this is an invalid
+	 redeclaration.  For example:
+
+	   int i;
+	   union { int i; };
+
+	   is invalid.  */
+      if ((TREE_CODE (newdecl) == VAR_DECL && DECL_ANON_UNION_VAR_P (newdecl))
+	  || (TREE_CODE (olddecl) == VAR_DECL && DECL_ANON_UNION_VAR_P (olddecl)))
+	return "redeclaration of %q#D";
+      /* If at least one declaration is a reference, there is no
+	 conflict.  For example:
+
+	   int i = 3;
+	   extern int i;
+
+	 is valid.  */
       if (DECL_EXTERNAL (newdecl) || DECL_EXTERNAL (olddecl))
 	return NULL;
       /* Reject two definitions.  */
@@ -2700,7 +2715,7 @@ static hashval_t
 typename_hash (const void* k)
 {
   hashval_t hash;
-  tree t = (tree) k;
+  const_tree const t = (const_tree) k;
 
   hash = (htab_hash_pointer (TYPE_CONTEXT (t))
 	  ^ htab_hash_pointer (DECL_NAME (TYPE_NAME (t))));
@@ -2722,11 +2737,8 @@ typedef struct typename_info {
 static int
 typename_compare (const void * k1, const void * k2)
 {
-  tree t1;
-  const typename_info *t2;
-
-  t1 = (tree) k1;
-  t2 = (const typename_info *) k2;
+  const_tree const t1 = (const_tree) k1;
+  const typename_info *const t2 = (const typename_info *) k2;
 
   return (DECL_NAME (TYPE_NAME (t1)) == t2->name
 	  && TYPE_CONTEXT (t1) == t2->scope
@@ -3163,11 +3175,8 @@ cxx_init_decl_processing (void)
 
   current_lang_name = NULL_TREE;
 
-  /* Force minimum function alignment if using the least significant
-     bit of function pointers to store the virtual bit.  */
-  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
-      && force_align_functions_log < 1)
-    force_align_functions_log = 1;
+  if (flag_visibility_ms_compat)
+    default_visibility = VISIBILITY_HIDDEN;
 
   /* Initially, C.  */
   current_lang_name = lang_name_c;
@@ -3359,7 +3368,7 @@ cp_make_fname_decl (tree id, int type_dep)
   tree decl = build_decl (VAR_DECL, id, type);
 
   if (name)
-    free ((char *) name);
+    free (CONST_CAST (name));
 
   /* As we're using pushdecl_with_scope, we must set the context.  */
   DECL_CONTEXT (decl) = current_function_decl;
@@ -5080,6 +5089,36 @@ initialize_artificial_var (tree decl, tree init)
   make_rtl_for_nonlocal_decl (decl, init, /*asmspec=*/NULL);
 }
 
+/* INIT is the initializer for a variable, as represented by the
+   parser.  Returns true iff INIT is value-dependent.  */
+
+static bool
+value_dependent_init_p (tree init)
+{
+  if (TREE_CODE (init) == TREE_LIST)
+    /* A parenthesized initializer, e.g.: int i (3, 2); ? */
+    return any_value_dependent_elements_p (init);
+  else if (TREE_CODE (init) == CONSTRUCTOR)
+  /* A brace-enclosed initializer, e.g.: int i = { 3 }; ? */
+    {
+      VEC(constructor_elt, gc) *elts;
+      size_t nelts;
+      size_t i;
+
+      elts = CONSTRUCTOR_ELTS (init);
+      nelts = VEC_length (constructor_elt, elts);
+      for (i = 0; i < nelts; ++i)
+	if (value_dependent_init_p (VEC_index (constructor_elt,
+					       elts, i)->value))
+	  return true;
+    }
+  else
+    /* It must be a simple expression, e.g., int i = 3;  */
+    return value_dependent_expression_p (init);
+  
+  return false;
+}
+
 /* Finish processing of a declaration;
    install its line number and initial value.
    If the length of an array type is not known before,
@@ -5152,18 +5191,16 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    TREE_CONSTANT (decl) = 1;
 	}
 
-      if (!init
-	  || !DECL_CLASS_SCOPE_P (decl)
-	  || !DECL_INTEGRAL_CONSTANT_VAR_P (decl)
-	  || type_dependent_p
-	  || value_dependent_expression_p (init)
-	     /* Check also if initializer is a value dependent
-		{ integral_constant_expression }.  */
-	  || (TREE_CODE (init) == CONSTRUCTOR
-	      && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)) == 1
-	      && value_dependent_expression_p
-		   (VEC_index (constructor_elt,
-			       CONSTRUCTOR_ELTS (init), 0)->value)))
+      /* Generally, initializers in templates are expanded when the
+	 template is instantiated.  But, if DECL is an integral
+	 constant static data member, then it can be used in future
+	 integral constant expressions, and its value must be
+	 available. */
+      if (!(init
+	    && DECL_CLASS_SCOPE_P (decl)
+	    && DECL_INTEGRAL_CONSTANT_VAR_P (decl)
+	    && !type_dependent_p
+	    && !value_dependent_init_p (init)))
 	{
 	  if (init)
 	    DECL_INITIAL (decl) = init;
@@ -6099,6 +6136,14 @@ grokfndecl (tree ctype,
       break;
     }
 
+  /* If pointers to member functions use the least significant bit to
+     indicate whether a function is virtual, ensure a pointer
+     to this function will have that bit clear.  */
+  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
+      && TREE_CODE (type) == METHOD_TYPE
+      && DECL_ALIGN (decl) < 2 * BITS_PER_UNIT)
+    DECL_ALIGN (decl) = 2 * BITS_PER_UNIT;
+
   if (friendp
       && TREE_CODE (orig_declarator) == TEMPLATE_ID_EXPR)
     {
@@ -6583,10 +6628,10 @@ build_ptrmemfunc_type (tree type)
      later.  */
   TYPE_SET_PTRMEMFUNC_TYPE (type, t);
 
-  if (TYPE_STRUCTURAL_EQUALITY_P (type))
-    SET_TYPE_STRUCTURAL_EQUALITY (t);
-  else if (TYPE_CANONICAL (type) != type)
-    TYPE_CANONICAL (t) = build_ptrmemfunc_type (TYPE_CANONICAL (type));
+  /* Managing canonical types for the RECORD_TYPE behind a
+     pointer-to-member function is a nightmare, so use structural
+     equality for now.  */
+  SET_TYPE_STRUCTURAL_EQUALITY (t);
 
   return t;
 }
@@ -6948,10 +6993,8 @@ check_special_function_return_type (special_function_kind sfk,
       break;
 
     case sfk_conversion:
-      if (type && !same_type_p (type, optype))
-	error ("operator %qT declared to return %qT", optype, type);
-      else if (type)
-	pedwarn ("return type specified for %<operator %T%>",  optype);
+      if (type)
+	error ("return type specified for %<operator %T%>",  optype);
       type = optype;
       break;
 
@@ -8041,7 +8084,10 @@ grokdeclarator (const cp_declarator *declarator,
       if (ctype == current_class_type)
 	{
 	  if (friendp)
-	    pedwarn ("member functions are implicitly friends of their class");
+	    {
+	      pedwarn ("member functions are implicitly friends of their class");
+	      friendp = 0;
+	    }
 	  else
 	    pedwarn ("extra qualification %<%T::%> on member %qs",
 		     ctype, name);
@@ -9911,6 +9957,12 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
 					   | DECL_SELF_REFERENCE_P (decl));
       return t;
     }
+  else if (decl && TREE_CODE (decl) == TREE_LIST)
+    {
+      error ("reference to %qD is ambiguous", name);
+      print_candidates (decl);
+      return error_mark_node;
+    }
   else
     return NULL_TREE;
 }
@@ -10816,9 +10868,6 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   /* Build the return declaration for the function.  */
   restype = TREE_TYPE (fntype);
-  /* Promote the value to int before returning it.  */
-  if (c_promoting_integer_type_p (restype))
-    restype = type_promotes_to (restype);
   if (DECL_RESULT (decl1) == NULL_TREE)
     {
       tree resdecl;

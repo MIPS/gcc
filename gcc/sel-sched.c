@@ -357,9 +357,10 @@ substitute_reg_in_rhs (rhs_t rhs, insn_t insn)
 		       ? &SET_SRC (PATTERN (new_insn))
 		       : &PATTERN (new_insn));
 
-      new_insn_valid = validate_replace_rtx_part (INSN_LHS (insn),
-						  copy_rtx (INSN_RHS (insn)),
-						  where_replace, new_insn);
+      new_insn_valid 
+        = validate_replace_rtx_part_nosimplify (INSN_LHS (insn),
+                                                copy_rtx (INSN_RHS (insn)),
+                                                where_replace, new_insn);
 
       /* ??? Actually, constrain_operands result depends upon choice of
          destination register.  E.g. if we allow single register to be an rhs,
@@ -561,7 +562,7 @@ un_substitute (rhs_t rhs, rtx insn, av_set_t *new_set_ptr)
       
       if (!insn_rtx_valid (new_insn))
         continue;
-      
+
       new_vi = create_vinsn_from_insn_rtx (new_insn);
 
       gcc_assert (VINSN_SEPARABLE_P (new_vi) == EXPR_SEPARABLE_P (rhs));
@@ -900,7 +901,7 @@ init_hard_regs_data (void)
 
   CLEAR_HARD_REG_SET (sel_hrd.regs_ever_used);
   for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
-    if (regs_ever_live[cur_reg] || call_used_regs[cur_reg])
+    if (df_regs_ever_live_p (cur_reg) || call_used_regs[cur_reg])
       SET_HARD_REG_BIT (sel_hrd.regs_ever_used, cur_reg);
   
   /* Initialize registers that are valid based on mode when this is 
@@ -1210,7 +1211,7 @@ choose_best_pseudo_reg (regset used_regs,
         {
           if (orig_regno < FIRST_PSEUDO_REGISTER)
             {
-              gcc_assert (regs_ever_live [orig_regno]);
+              gcc_assert (df_regs_ever_live_p (orig_regno));
               
               /* For hard registers, we have to check hardware imposed 
                  limitations (frame/stack registers, calls crossed).  */
@@ -3536,7 +3537,8 @@ gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
 	    unsigned regno = REGNO (reg);
 
 	    reg_rename_tick[regno] = ++reg_rename_this_tick;
-	    regs_ever_live[regno] = 1;
+
+            df_set_regs_ever_live (regno, true);
 	  }
       }
   }
@@ -3567,7 +3569,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
   basic_block src, bb = e2->dest;
   basic_block new_bb = NULL;
   insn_t src_end = NULL_RTX;
-  insn_t place_to_insert;
+  insn_t place_to_insert = NULL_RTX;
   /* Save the original destination of E1.  */
   basic_block empty_bb = e1->dest;
   int new_seqno = INSN_SEQNO (join_point);
@@ -3641,7 +3643,9 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 
       if (INSN_P (src_end))
 	{
-	  if (control_flow_insn_p (src_end))
+	  if (control_flow_insn_p (src_end)
+              /* It might be scheduled, thus making this illegal.  */
+              || INSN_SCHED_TIMES (src_end) > 0)
 	    src = NULL;
 	}
       else
@@ -3652,9 +3656,6 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     
   if (!src)
     {
-      /* We need to create a new basic block for bookkeeping insn.  */
-      can_add_real_insns_p = false;
-
       /* Check that we don't spoil the loop structure.  */
       if (flag_sel_sched_pipelining_outer_loops && current_loop_nest)
         {
@@ -3680,10 +3681,8 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 
           gcc_assert (control_flow_insn_p (src_end));
 
-          if (/* Don't schedule speculative insns in recovery blocks.  */
-              /*EXPR_SPEC_DONE_DS (c_rhs)*/
-              /* Jump was scheduled.  */
-              /*|| */INSN_SCHED_TIMES (src_end) > 0
+          if (/* Jump was scheduled.  */
+              INSN_SCHED_TIMES (src_end) > 0
               /* This is a floating bb header.  */
               || (src_end == src_begin
                   && EDGE_COUNT (other_block->preds) == 1
@@ -3696,7 +3695,6 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
               new_bb = other_block;
               place_to_insert = PREV_INSN (src_end);
               new_seqno = INSN_SEQNO (src_end);
-              can_add_real_insns_p = true;
               insn_init.what = INSN_INIT_WHAT_INSN;
             }
         }
@@ -3705,6 +3703,9 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 
       if (!new_bb)
         {
+          /* We need to create a new basic block for bookkeeping insn.  */
+          can_add_real_insns_p = false;
+
           /* Split the head of the BB to insert BOOK_INSN there.  */
           new_bb = sched_split_block (bb, NULL);
 
@@ -3753,7 +3754,12 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     copy_expr_onside (new_expr, c_rhs);
     change_vinsn_in_expr (new_expr, new_vinsn);
 
-    if (EXPR_SCHED_TIMES (new_expr)
+    /* In preheader, make sure that the new insn is marked as not 
+       scheduled.  */
+    if (sel_is_loop_preheader_p (BLOCK_FOR_INSN (place_to_insert)))
+      EXPR_SCHED_TIMES (new_expr) = 0;
+    else
+      if (EXPR_SCHED_TIMES (new_expr)
 	>= PARAM_VALUE (PARAM_SELSCHED_MAX_SCHED_TIMES))
       /* To make scheduling of this bookkeeping copy possible we decrease
 	 its scheduling counter.  */
@@ -3855,6 +3861,21 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
         {
 	  bnd_t bnd = BLIST_BND (bnds1);
 	  av_set_t av1_copy;
+	  insn_t new_bnd_to = BND_TO (bnd);
+
+	  /* Rewind BND->TO to the basic block header in case some bookkeeping
+	     instructions were inserted before BND->TO and it needs to be
+	     adjusted.  */
+	  while (!NOTE_INSN_BASIC_BLOCK_P (PREV_INSN (new_bnd_to)))
+            {
+              new_bnd_to = PREV_INSN (new_bnd_to);
+
+              /* Assert that this can only happen with unscheduled code.  */
+              gcc_assert (INSN_SCHED_TIMES (new_bnd_to) == 0);
+            }
+
+	  BND_TO (bnd) = new_bnd_to;
+	  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (PREV_INSN (new_bnd_to)));
 
 	  av_set_clear (&BND_AV (bnd));
 	  BND_AV (bnd) = compute_av_set (BND_TO (bnd), NULL, 0, true);
@@ -4717,9 +4738,6 @@ add_region_head (void)
 
       RGN_WAS_PIPELINED_P (CONTAINING_RGN (BB_TO_BLOCK (0))) = 1;
 
-      glat_start[new_region_head->index] = glat_start[region_head->index];
-      glat_start[region_head->index] = NULL;
-
       return true;
     }
 }
@@ -4820,6 +4838,7 @@ sel_region_init (int rgn)
   /* Initialize haifa data.  */
   {
     rgn_setup_sched_infos ();
+    sel_set_sched_flags ();
     haifa_init_h_i_d (bbs, NULL, NULL, NULL);
   }
 
@@ -4855,9 +4874,8 @@ sel_region_init (int rgn)
 			    && !flag_sel_sched_reschedule_pipelined);
   }
 
-  sel_setup_sched_infos ();
-
   /* Main initialization.  */
+  sel_setup_sched_infos ();
   sel_init_global_and_expr (bbs);
 
   /* Finalize haifa-specific data.  */
@@ -5619,12 +5637,8 @@ sel_global_init (void)
 
   setup_sched_dump_to_stderr ();
 
-  /* Setup the only info sched_init () needs.  */
-  sel_setup_common_sched_info ();
-
-  /* We want to create new pseudos occasionally.  */
-  if (!reload_completed)
-    no_new_pseudos = 0;
+  /* Setup the infos for sched_init.  */
+  sel_setup_sched_infos ();
 
   sched_init ();
 
@@ -5673,13 +5687,6 @@ sel_global_finish (void)
   sched_deps_finish ();
   sched_finish_bbs ();
   sched_finish ();
-
-  if (!reload_completed)
-    {
-      /* We need to update the life information, because we can add pseudos.
-         However, the actual update was already done in sched_rgn_finish.  */
-      no_new_pseudos = 1;
-    }
 
   free_sel_dump_data ();
 
@@ -5771,7 +5778,7 @@ static unsigned int
 handle_sel_sched (void)
 {
   if (reload_completed)
-    split_all_insns (1);
+    split_all_insns ();
 #ifdef INSN_SCHEDULING
   {
     int now;

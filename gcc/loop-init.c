@@ -1,11 +1,11 @@
 /* Loop optimizer initialization routines and RTL loop optimization passes.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -31,6 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+#include "df.h"
 #include "ggc.h"
 
 
@@ -59,7 +59,7 @@ loop_optimizer_init (unsigned flags)
 	 passes may want.  */
       gcc_assert ((flags & ~(LOOPS_MAY_HAVE_MULTIPLE_LATCHES
 			     | LOOPS_HAVE_RECORDED_EXITS)) == 0);
-      current_loops->state = LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
+      loops_state_set (LOOPS_MAY_HAVE_MULTIPLE_LATCHES);
     }
   else
     disambiguate_loops_with_multiple_latches ();
@@ -125,7 +125,7 @@ loop_optimizer_finalize (void)
     }
 
   /* Clean up.  */
-  if (current_loops->state & LOOPS_HAVE_RECORDED_EXITS)
+  if (loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
     release_recorded_exits ();
   flow_loops_free (current_loops);
   ggc_free (current_loops);
@@ -221,9 +221,7 @@ rtl_loop_done (void)
   loop_optimizer_finalize ();
   free_dominance_info (CDI_DOMINATORS);
 
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  reg_scan (get_insns (), max_reg_num ());
+  cleanup_cfg (0);
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
 
@@ -265,7 +263,7 @@ rtl_move_loop_invariants (void)
 
 struct tree_opt_pass pass_rtl_move_loop_invariants =
 {
-  "loop2_invariant",                     /* name */
+  "loop2_invariant",                    /* name */
   gate_rtl_move_loop_invariants,        /* gate */
   rtl_move_loop_invariants,             /* execute */
   NULL,                                 /* sub */
@@ -275,7 +273,9 @@ struct tree_opt_pass pass_rtl_move_loop_invariants =
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_start */ 
+  TODO_df_verify |
+  TODO_df_finish |
   TODO_dump_func,                       /* todo_flags_finish */
   'L'                                   /* letter */
 };
@@ -327,6 +327,8 @@ rtl_unroll_and_peel_loops (void)
   if (number_of_loops () > 1)
     {
       int flags = 0;
+      if (dump_file)
+	df_dump (dump_file);
 
       if (flag_peel_loops)
 	flags |= UAP_PEEL;

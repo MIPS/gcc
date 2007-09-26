@@ -1,5 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -33,6 +32,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "real.h"
+#include "fixed-value.h"
 
 static unsigned int queue (dump_info_p, tree, int);
 static void dump_index (dump_info_p, unsigned int);
@@ -187,6 +187,18 @@ dump_real (dump_info_p di, const char *field, const REAL_VALUE_TYPE *r)
 {
   char buf[32];
   real_to_decimal (buf, r, sizeof (buf), 0, true);
+  dump_maybe_newline (di);
+  fprintf (di->stream, "%-4s: %s ", field, buf);
+  di->column += strlen (buf) + 7;
+}
+
+/* Dump the fixed-point value F, using FIELD to identify it.  */
+
+static void
+dump_fixed (dump_info_p di, const char *field, const FIXED_VALUE_TYPE *f)
+{
+  char buf[32];
+  fixed_to_decimal (buf, f, sizeof (buf));
   dump_maybe_newline (di);
   fprintf (di->stream, "%-4s: %s ", field, buf);
   di->column += strlen (buf) + 7;
@@ -454,6 +466,13 @@ dequeue_and_dump (dump_info_p di)
       dump_int (di, "prec", TYPE_PRECISION (t));
       break;
 
+    case FIXED_POINT_TYPE:
+      dump_int (di, "prec", TYPE_PRECISION (t));
+      dump_string_field (di, "sign", TYPE_UNSIGNED (t) ? "unsigned": "signed");
+      dump_string_field (di, "saturating",
+			 TYPE_SATURATING (t) ? "saturating": "non-saturating");
+      break;
+
     case POINTER_TYPE:
       dump_child ("ptd", TREE_TYPE (t));
       break;
@@ -548,6 +567,10 @@ dequeue_and_dump (dump_info_p di)
 
     case REAL_CST:
       dump_real (di, "valu", TREE_REAL_CST_PTR (t));
+      break;
+
+    case FIXED_CST:
+      dump_fixed (di, "valu", TREE_FIXED_CST_PTR (t));
       break;
 
     case TRUTH_NOT_EXPR:

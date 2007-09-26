@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #ifndef GFC_MATCH_H
@@ -46,8 +45,10 @@ match gfc_match_small_literal_int (int *, int *);
 match gfc_match_st_label (gfc_st_label **);
 match gfc_match_label (void);
 match gfc_match_small_int (int *);
+match gfc_match_small_int_expr (int *, gfc_expr **);
 int gfc_match_strings (mstring *);
 match gfc_match_name (char *);
+match gfc_match_name_C (char *buffer);
 match gfc_match_symbol (gfc_symbol **, int);
 match gfc_match_sym_tree (gfc_symtree **, int);
 match gfc_match_intrinsic_op (gfc_intrinsic_op *);
@@ -76,6 +77,15 @@ match gfc_match_nullify (void);
 match gfc_match_deallocate (void);
 match gfc_match_return (void);
 match gfc_match_call (void);
+
+/* We want to use this function to check for a common-block-name
+   that can exist in a bind statement, so removed the "static"
+   declaration of the function in match.c.
+ 
+   TODO: should probably rename this now that it'll be globally seen to
+   gfc_match_common_name.  */
+match match_common_name (char *name);
+
 match gfc_match_common (void);
 match gfc_match_block_data (void);
 match gfc_match_namelist (void);
@@ -153,7 +163,21 @@ match gfc_match_target (void);
 match gfc_match_value (void);
 match gfc_match_volatile (void);
 
-/* primary.c */
+/* decl.c.  */
+
+/* Fortran 2003 c interop.
+   TODO: some of these should be moved to another file rather than decl.c */
+void set_com_block_bind_c (gfc_common_head *, int);
+try set_binding_label (char *, const char *, int);
+try set_verify_bind_c_sym (gfc_symbol *, int);
+try set_verify_bind_c_com_block (gfc_common_head *, int);
+try get_bind_c_idents (void);
+match gfc_match_bind_c_stmt (void);
+match gfc_match_suffix (gfc_symbol *, gfc_symbol **);
+match gfc_match_bind_c (gfc_symbol *);
+match gfc_get_type_attr_spec (symbol_attribute *);
+
+/* primary.c.  */
 match gfc_match_structure_constructor (gfc_symbol *, gfc_expr **);
 match gfc_match_variable (gfc_expr **, int);
 match gfc_match_equiv_variable (gfc_expr **);

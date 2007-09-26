@@ -6,7 +6,7 @@
     
     GCC is free software; you can redistribute it and/or modify it under
     the terms of the GNU General Public License as published by the Free
-    Software Foundation; either version 2, or (at your option) any later
+    Software Foundation; either version 3, or (at your option) any later
     version.
     
     GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@
     for more details.
     
     You should have received a copy of the GNU General Public License
-    along with GCC; see the file COPYING.  If not, write to the Free
-    Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-    02110-1301, USA.  */
+    along with GCC; see the file COPYING3.  If not see
+    <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -1616,6 +1615,45 @@ lle_to_gcc_expression (lambda_linear_expression lle,
   return force_gimple_operand (fold (expr), stmts_to_insert, true, resvar);
 }
 
+/* Remove the induction variable defined at IV_STMT.  */
+
+static void
+remove_iv (tree iv_stmt)
+{
+  if (TREE_CODE (iv_stmt) == PHI_NODE)
+    {
+      int i;
+
+      for (i = 0; i < PHI_NUM_ARGS (iv_stmt); i++)
+	{
+	  tree stmt;
+	  imm_use_iterator imm_iter;
+	  tree arg = PHI_ARG_DEF (iv_stmt, i);
+	  bool used = false;
+
+	  if (TREE_CODE (arg) != SSA_NAME)
+	    continue;
+
+	  FOR_EACH_IMM_USE_STMT (stmt, imm_iter, arg)
+	    if (stmt != iv_stmt)
+	      used = true;
+
+	  if (!used)
+	    remove_iv (SSA_NAME_DEF_STMT (arg));
+	}
+
+      remove_phi_node (iv_stmt, NULL_TREE, true);
+    }
+  else
+    {
+      block_stmt_iterator bsi = bsi_for_stmt (iv_stmt);
+
+      bsi_remove (&bsi, true);
+      release_defs (iv_stmt); 
+    }
+}
+
+
 /* Transform a lambda loopnest NEW_LOOPNEST, which had TRANSFORM applied to
    it, back into gcc code.  This changes the
    loops, their induction variables, and their bodies, so that they
@@ -1797,6 +1835,9 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 	    propagate_value (use_p, newiv);
 	  update_stmt (stmt);
 	}
+
+      /* Remove the now unused induction variable.  */
+      remove_iv (oldiv_stmt);
     }
   VEC_free (tree, heap, new_ivs);
 }
@@ -2016,7 +2057,8 @@ replace_uses_equiv_to_x_with_y (struct loop *loop, tree stmt, tree x,
 	 which sets Y.  */
       var = create_tmp_var (TREE_TYPE (use), "perfecttmp");
       add_referenced_var (var);
-      val = force_gimple_operand_bsi (firstbsi, val, false, NULL);
+      val = force_gimple_operand_bsi (firstbsi, val, false, NULL,
+				      true, BSI_SAME_STMT);
       setstmt = build_gimple_modify_stmt (var, val);
       var = make_ssa_name (var, setstmt);
       GIMPLE_STMT_OPERAND (setstmt, 0) = var;

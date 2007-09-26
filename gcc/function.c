@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file handles the generation of rtl code from tree structure
    at the level of the function as a whole.
@@ -63,6 +62,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-gimple.h"
 #include "tree-pass.h"
 #include "predict.h"
+#include "df.h"
+#include "timevar.h"
 #include "vecprim.h"
 
 #ifndef LOCAL_ALIGNMENT
@@ -100,7 +101,7 @@ int current_function_is_leaf;
 
 /* Nonzero if function being compiled doesn't modify the stack pointer
    (ignoring the prologue and epilogue).  This is only valid after
-   life_analysis has run.  */
+   pass_stack_ptr_mod has run.  */
 int current_function_sp_is_unchanging;
 
 /* Nonzero if the function being compiled is a leaf function which only
@@ -201,7 +202,7 @@ extern tree debug_find_var_in_block_tree (tree, tree);
 /* We always define `record_insns' even if it's not used so that we
    can always export `prologue_epilogue_contains'.  */
 static void record_insns (rtx, VEC(int,heap) **) ATTRIBUTE_UNUSED;
-static int contains (rtx, VEC(int,heap) **);
+static int contains (const_rtx, VEC(int,heap) **);
 #ifdef HAVE_return
 static void emit_return_into_block (basic_block);
 #endif
@@ -1823,7 +1824,7 @@ aggregate_value_p (tree exp, tree fntype)
    should live on the local stack.  */
 
 bool
-use_register_for_decl (tree decl)
+use_register_for_decl (const_tree decl)
 {
   /* Honor volatile.  */
   if (TREE_SIDE_EFFECTS (decl))
@@ -2723,7 +2724,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
       /* TREE_USED gets set erroneously during expand_assignment.  */
       save_tree_used = TREE_USED (parm);
-      expand_assignment (parm, make_tree (data->nominal_type, tempreg));
+      expand_assignment (parm, make_tree (data->nominal_type, tempreg), false);
       TREE_USED (parm) = save_tree_used;
       all->first_conversion_insn = get_insns ();
       all->last_conversion_insn = get_last_insn ();
@@ -3485,13 +3486,32 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
     }
 }
 
-/* Walk the tree of blocks describing the binding levels within a function
-   and warn about variables the might be killed by setjmp or vfork.
-   This is done after calling flow_analysis and before global_alloc
-   clobbers the pseudo-regs to hard regs.  */
 
-void
-setjmp_vars_warning (tree block)
+/* True if register REGNO was alive at a place where `setjmp' was
+   called and was set more than once or is an argument.  Such regs may
+   be clobbered by `longjmp'.  */
+
+static bool
+regno_clobbered_at_setjmp (bitmap setjmp_crosses, int regno)
+{
+  /* There appear to be cases where some local vars never reach the
+     backend but have bogus regnos.  */
+  if (regno >= max_reg_num ())
+    return false;
+
+  return ((REG_N_SETS (regno) > 1
+	   || REGNO_REG_SET_P (df_get_live_out (ENTRY_BLOCK_PTR), regno))
+	  && REGNO_REG_SET_P (setjmp_crosses, regno));
+}
+
+/* Walk the tree of blocks describing the binding levels within a
+   function and warn about variables the might be killed by setjmp or
+   vfork.  This is done after calling flow_analysis before register
+   allocation since that will clobber the pseudo-regs to hard
+   regs.  */
+
+static void
+setjmp_vars_warning (bitmap setjmp_crosses, tree block)
 {
   tree decl, sub;
 
@@ -3500,30 +3520,45 @@ setjmp_vars_warning (tree block)
       if (TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
-	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
+	  && regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
 	warning (OPT_Wclobbered, "variable %q+D might be clobbered by" 
                  " %<longjmp%> or %<vfork%>", decl);
     }
 
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    setjmp_vars_warning (sub);
+    setjmp_vars_warning (setjmp_crosses, sub);
 }
 
 /* Do the appropriate part of setjmp_vars_warning
    but for arguments instead of local variables.  */
 
-void
-setjmp_args_warning (void)
+static void
+setjmp_args_warning (bitmap setjmp_crosses)
 {
   tree decl;
   for (decl = DECL_ARGUMENTS (current_function_decl);
        decl; decl = TREE_CHAIN (decl))
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
-	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
+	&& regno_clobbered_at_setjmp (setjmp_crosses, REGNO (DECL_RTL (decl))))
       warning (OPT_Wclobbered, 
                "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl);
+}
+
+/* Generate warning messages for variables live across setjmp.  */
+
+void 
+generate_setjmp_warnings (void)
+{
+  bitmap setjmp_crosses = regstat_get_setjmp_crosses ();
+
+  if (n_basic_blocks == NUM_FIXED_BLOCKS
+      || bitmap_empty_p (setjmp_crosses))
+    return;
+
+  setjmp_vars_warning (setjmp_crosses, DECL_INITIAL (current_function_decl));
+  setjmp_args_warning (setjmp_crosses);
 }
 
 
@@ -4251,7 +4286,8 @@ do_warn_unused_parameter (tree fn)
   for (decl = DECL_ARGUMENTS (fn);
        decl; decl = TREE_CHAIN (decl))
     if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
-	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl))
+	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl)
+	&& !TREE_NO_WARNING (decl))
       warning (OPT_Wunused_parameter, "unused parameter %q+D", decl);
 }
 
@@ -4327,6 +4363,14 @@ expand_function_end (void)
 	 the function context for sjlj exceptions.  */
       if (flag_exceptions)
 	sjlj_emit_function_exit_after (get_last_insn ());
+    }
+  else
+    {
+      /* We want to ensure that instructions that may trap are not
+	 moved into the epilogue by scheduling, because we don't
+	 always emit unwind information for the epilogue.  */
+      if (flag_non_call_exceptions)
+	emit_insn (gen_blockage ());
     }
 
   /* If this is an implementation of throw, do what's necessary to
@@ -4471,11 +4515,9 @@ expand_function_end (void)
 
   /* @@@ This is a kludge.  We want to ensure that instructions that
      may trap are not moved into the epilogue by scheduling, because
-     we don't always emit unwind information for the epilogue.
-     However, not all machine descriptions define a blockage insn, so
-     emit an ASM_INPUT to act as one.  */
+     we don't always emit unwind information for the epilogue.  */
   if (! USING_SJLJ_EXCEPTIONS && flag_non_call_exceptions)
-    emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+    emit_insn (gen_blockage ());
 
   /* If stack protection is enabled for this function, check the guard.  */
   if (cfun->stack_protect_guard)
@@ -4559,7 +4601,7 @@ set_insn_locators (rtx insn, int loc)
    be running after reorg, SEQUENCE rtl is possible.  */
 
 static int
-contains (rtx insn, VEC(int,heap) **vec)
+contains (const_rtx insn, VEC(int,heap) **vec)
 {
   int i, j;
 
@@ -4584,7 +4626,7 @@ contains (rtx insn, VEC(int,heap) **vec)
 }
 
 int
-prologue_epilogue_contains (rtx insn)
+prologue_epilogue_contains (const_rtx insn)
 {
   if (contains (insn, &prologue))
     return 1;
@@ -4594,7 +4636,7 @@ prologue_epilogue_contains (rtx insn)
 }
 
 int
-sibcall_epilogue_contains (rtx insn)
+sibcall_epilogue_contains (const_rtx insn)
 {
   if (sibcall_epilogue)
     return contains (insn, &sibcall_epilogue);
@@ -4658,7 +4700,7 @@ struct epi_info
 };
 
 static void handle_epilogue_set (rtx, struct epi_info *);
-static void update_epilogue_consts (rtx, rtx, void *);
+static void update_epilogue_consts (rtx, const_rtx, void *);
 static void emit_equiv_load (struct epi_info *);
 
 /* Modify INSN, a list of one or more insns that is part of the epilogue, to
@@ -4782,7 +4824,7 @@ keep_stack_depressed (rtx insns)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
 		    && !REGNO_REG_SET_P
-		         (EXIT_BLOCK_PTR->il.rtl->global_live_at_start, regno)
+		    (DF_LR_IN (EXIT_BLOCK_PTR), regno)
 		    && !refers_to_regno_p (regno,
 					   end_hard_regno (Pmode, regno),
 					   info.equiv_reg_src, NULL)
@@ -4934,7 +4976,7 @@ handle_epilogue_set (rtx set, struct epi_info *p)
 /* Update the tracking information for registers set to constants.  */
 
 static void
-update_epilogue_consts (rtx dest, rtx x, void *data)
+update_epilogue_consts (rtx dest, const_rtx x, void *data)
 {
   struct epi_info *p = (struct epi_info *) data;
   rtx new;
@@ -4993,16 +5035,13 @@ emit_equiv_load (struct epi_info *p)
    this into place with notes indicating where the prologue ends and where
    the epilogue begins.  Update the basic block information when possible.  */
 
-void
-thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
+static void
+thread_prologue_and_epilogue_insns (void)
 {
   int inserted = 0;
   edge e;
 #if defined (HAVE_sibcall_epilogue) || defined (HAVE_epilogue) || defined (HAVE_return) || defined (HAVE_prologue)
   rtx seq;
-#endif
-#ifdef HAVE_prologue
-  rtx prologue_end = NULL_RTX;
 #endif
 #if defined (HAVE_epilogue) || defined(HAVE_return)
   rtx epilogue_end = NULL_RTX;
@@ -5016,9 +5055,22 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       seq = gen_prologue ();
       emit_insn (seq);
 
+      /* Insert an explicit USE for the frame pointer 
+         if the profiling is on and the frame pointer is required.  */
+      if (current_function_profile && frame_pointer_needed)
+        emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+
       /* Retain a map of the prologue insns.  */
       record_insns (seq, &prologue);
-      prologue_end = emit_note (NOTE_INSN_PROLOGUE_END);
+      emit_note (NOTE_INSN_PROLOGUE_END);
+ 
+#ifndef PROFILE_BEFORE_PROLOGUE
+      /* Ensure that instructions are not moved into the prologue when
+	 profiling is on.  The call to the profiling routine can be
+	 emitted within the live range of a call-clobbered register.  */
+      if (current_function_profile)
+        emit_insn (gen_blockage ());
+#endif
 
       seq = get_insns ();
       end_sequence ();
@@ -5203,7 +5255,18 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 epilogue_done:
 
   if (inserted)
-    commit_edge_insertions ();
+    {
+      commit_edge_insertions ();
+
+      /* The epilogue insns we inserted may cause the exit edge to no longer
+	 be fallthru.  */
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+	{
+	  if (((e->flags & EDGE_FALLTHRU) != 0)
+	      && returnjump_p (BB_END (e->src)))
+	    e->flags &= ~EDGE_FALLTHRU;
+	}
+    }
 
 #ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
@@ -5254,13 +5317,18 @@ epilogue_done:
 	}
     }
 #endif
+
+  /* Threading the prologue and epilogue changes the artificial refs
+     in the entry and exit blocks.  */
+  epilogue_completed = 1;
+  df_update_entry_exit_and_calls ();
 }
 
 /* Reposition the prologue-end and epilogue-begin notes after instruction
    scheduling and delayed branch scheduling.  */
 
 void
-reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
+reposition_prologue_and_epilogue_notes (void)
 {
 #if defined (HAVE_prologue) || defined (HAVE_epilogue)
   rtx insn, last, note;
@@ -5273,7 +5341,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
       /* Scan from the beginning until we reach the last prologue insn.
 	 We apparently can't depend on basic_block_{head,end} after
 	 reorg has run.  */
-      for (insn = f; insn; insn = NEXT_INSN (insn))
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
 	  if (NOTE_P (insn))
 	    {
@@ -5354,6 +5422,13 @@ current_function_name (void)
 {
   return lang_hooks.decl_printable_name (cfun->decl, 2);
 }
+
+/* Returns the raw (mangled) name of the current function.  */
+const char *
+current_function_assembler_name (void)
+{
+  return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (cfun->decl));
+}
 
 
 static unsigned int
@@ -5408,6 +5483,177 @@ struct tree_opt_pass pass_leaf_regs =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+static unsigned int
+rest_of_handle_thread_prologue_and_epilogue (void)
+{
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+  /* On some machines, the prologue and epilogue code, or parts thereof,
+     can be represented as RTL.  Doing so lets us schedule insns between
+     it and the rest of the code and also allows delayed branch
+     scheduling to operate in the epilogue.  */
+
+  thread_prologue_and_epilogue_insns ();
+  return 0;
+}
+
+struct tree_opt_pass pass_thread_prologue_and_epilogue =
+{
+  "pro_and_epilogue",                   /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_thread_prologue_and_epilogue, /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_THREAD_PROLOGUE_AND_EPILOGUE,      /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_verify_flow,                     /* todo_flags_start */
+  TODO_dump_func |
+  TODO_df_verify |
+  TODO_df_finish |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
+};
+
+
+/* This mini-pass fixes fall-out from SSA in asm statements that have
+   in-out constraints.  Say you start with 
+
+     orig = inout;
+     asm ("": "+mr" (inout));
+     use (orig);
+
+   which is transformed very early to use explicit output and match operands:
+
+     orig = inout;
+     asm ("": "=mr" (inout) : "0" (inout));
+     use (orig);
+
+   Or, after SSA and copyprop,
+
+     asm ("": "=mr" (inout_2) : "0" (inout_1));
+     use (inout_1);
+
+   Clearly inout_2 and inout_1 can't be coalesced easily anymore, as
+   they represent two separate values, so they will get different pseudo
+   registers during expansion.  Then, since the two operands need to match
+   per the constraints, but use different pseudo registers, reload can
+   only register a reload for these operands.  But reloads can only be
+   satisfied by hardregs, not by memory, so we need a register for this
+   reload, just because we are presented with non-matching operands.
+   So, even though we allow memory for this operand, no memory can be
+   used for it, just because the two operands don't match.  This can
+   cause reload failures on register-starved targets.
+
+   So it's a symptom of reload not being able to use memory for reloads
+   or, alternatively it's also a symptom of both operands not coming into
+   reload as matching (in which case the pseudo could go to memory just
+   fine, as the alternative allows it, and no reload would be necessary).
+   We fix the latter problem here, by transforming
+
+     asm ("": "=mr" (inout_2) : "0" (inout_1));
+
+   back to
+
+     inout_2 = inout_1;
+     asm ("": "=mr" (inout_2) : "0" (inout_2));  */
+
+static void
+match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
+{
+  int i;
+  bool changed = false;
+  rtx op = SET_SRC (p_sets[0]);
+  int ninputs = ASM_OPERANDS_INPUT_LENGTH (op);
+  rtvec inputs = ASM_OPERANDS_INPUT_VEC (op);
+
+  for (i = 0; i < ninputs; i++)
+    {
+      rtx input, output, insns;
+      const char *constraint = ASM_OPERANDS_INPUT_CONSTRAINT (op, i);
+      char *end;
+      int match;
+
+      match = strtoul (constraint, &end, 10);
+      if (end == constraint)
+	continue;
+
+      gcc_assert (match < noutputs);
+      output = SET_DEST (p_sets[match]);
+      input = RTVEC_ELT (inputs, i);
+      if (rtx_equal_p (output, input)
+	  || (GET_MODE (input) != VOIDmode
+	      && GET_MODE (input) != GET_MODE (output)))
+	continue;
+
+      start_sequence ();
+      emit_move_insn (copy_rtx (output), input);
+      RTVEC_ELT (inputs, i) = copy_rtx (output);
+      insns = get_insns ();
+      end_sequence ();
+
+      emit_insn_before (insns, insn);
+      changed = true;
+    }
+
+  if (changed)
+    df_insn_rescan (insn);
+}
+
+static unsigned
+rest_of_match_asm_constraints (void)
+{
+  basic_block bb;
+  rtx insn, pat, *p_sets;
+  int noutputs;
+
+  if (!cfun->has_asm_statement)
+    return 0;
+
+  df_set_flags (DF_DEFER_INSN_RESCAN);
+  FOR_EACH_BB (bb)
+    {
+      FOR_BB_INSNS (bb, insn)
+	{
+	  if (!INSN_P (insn))
+	    continue;
+
+	  pat = PATTERN (insn);
+	  if (GET_CODE (pat) == PARALLEL)
+	    p_sets = &XVECEXP (pat, 0, 0), noutputs = XVECLEN (pat, 0);
+	  else if (GET_CODE (pat) == SET)
+	    p_sets = &PATTERN (insn), noutputs = 1;
+	  else
+	    continue;
+
+	  if (GET_CODE (*p_sets) == SET
+	      && GET_CODE (SET_SRC (*p_sets)) == ASM_OPERANDS)
+	    match_asm_constraints_1 (insn, p_sets, noutputs);
+	 }
+    }
+
+  return TODO_df_finish;
+}
+
+struct tree_opt_pass pass_match_asm_constraints =
+{
+  "asmcons",				/* name */
+  NULL,					/* gate */
+  rest_of_match_asm_constraints,	/* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,					/* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
 

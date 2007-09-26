@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -296,7 +295,11 @@ expand_vector_operation (block_stmt_iterator *bsi, tree type, tree compute_type,
      a BLKmode vector to smaller, hardware-supported vectors), we may want
      to expand the operations in parallel.  */
   if (GET_MODE_CLASS (compute_mode) != MODE_VECTOR_INT
-      && GET_MODE_CLASS (compute_mode) != MODE_VECTOR_FLOAT)
+      && GET_MODE_CLASS (compute_mode) != MODE_VECTOR_FLOAT
+      && GET_MODE_CLASS (compute_mode) != MODE_VECTOR_FRACT
+      && GET_MODE_CLASS (compute_mode) != MODE_VECTOR_UFRACT
+      && GET_MODE_CLASS (compute_mode) != MODE_VECTOR_ACCUM
+      && GET_MODE_CLASS (compute_mode) != MODE_VECTOR_UACCUM)
     switch (code)
       {
       case PLUS_EXPR:
@@ -341,28 +344,44 @@ expand_vector_operation (block_stmt_iterator *bsi, tree type, tree compute_type,
 }
 
 /* Return a type for the widest vector mode whose components are of mode
-   INNER_MODE, or NULL_TREE if none is found.  */
+   INNER_MODE, or NULL_TREE if none is found.
+   SATP is true for saturating fixed-point types.  */
+
 static tree
-type_for_widest_vector_mode (enum machine_mode inner_mode, optab op)
+type_for_widest_vector_mode (enum machine_mode inner_mode, optab op, int satp)
 {
   enum machine_mode best_mode = VOIDmode, mode;
   int best_nunits = 0;
 
   if (SCALAR_FLOAT_MODE_P (inner_mode))
     mode = MIN_MODE_VECTOR_FLOAT;
+  else if (SCALAR_FRACT_MODE_P (inner_mode))
+    mode = MIN_MODE_VECTOR_FRACT;
+  else if (SCALAR_UFRACT_MODE_P (inner_mode))
+    mode = MIN_MODE_VECTOR_UFRACT;
+  else if (SCALAR_ACCUM_MODE_P (inner_mode))
+    mode = MIN_MODE_VECTOR_ACCUM;
+  else if (SCALAR_UACCUM_MODE_P (inner_mode))
+    mode = MIN_MODE_VECTOR_UACCUM;
   else
     mode = MIN_MODE_VECTOR_INT;
 
   for (; mode != VOIDmode; mode = GET_MODE_WIDER_MODE (mode))
     if (GET_MODE_INNER (mode) == inner_mode
         && GET_MODE_NUNITS (mode) > best_nunits
-	&& op->handlers[mode].insn_code != CODE_FOR_nothing)
+	&& optab_handler (op, mode)->insn_code != CODE_FOR_nothing)
       best_mode = mode, best_nunits = GET_MODE_NUNITS (mode);
 
   if (best_mode == VOIDmode)
     return NULL_TREE;
   else
-    return lang_hooks.types.type_for_mode (best_mode, 1);
+    {
+      /* For fixed-point modes, we need to pass satp as the 2nd parameter.  */
+      if (ALL_FIXED_POINT_MODE_P (best_mode))
+	return lang_hooks.types.type_for_mode (best_mode, satp);
+
+      return lang_hooks.types.type_for_mode (best_mode, 1);
+    }
 }
 
 /* Process one statement.  If we identify a vector operation, expand it.  */
@@ -446,7 +465,8 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
   if (TYPE_MODE (type) == BLKmode && op)
     {
       tree vector_compute_type
-        = type_for_widest_vector_mode (TYPE_MODE (TREE_TYPE (type)), op);
+        = type_for_widest_vector_mode (TYPE_MODE (TREE_TYPE (type)), op,
+				       TYPE_SATURATING (TREE_TYPE (type)));
       if (vector_compute_type != NULL_TREE)
         compute_type = vector_compute_type;
     }
@@ -458,9 +478,13 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
     {
       compute_mode = TYPE_MODE (compute_type);
       if ((GET_MODE_CLASS (compute_mode) == MODE_VECTOR_INT
-	   || GET_MODE_CLASS (compute_mode) == MODE_VECTOR_FLOAT)
+	   || GET_MODE_CLASS (compute_mode) == MODE_VECTOR_FLOAT
+	   || GET_MODE_CLASS (compute_mode) == MODE_VECTOR_FRACT
+	   || GET_MODE_CLASS (compute_mode) == MODE_VECTOR_UFRACT
+	   || GET_MODE_CLASS (compute_mode) == MODE_VECTOR_ACCUM
+	   || GET_MODE_CLASS (compute_mode) == MODE_VECTOR_UACCUM)
           && op != NULL
-	  && op->handlers[compute_mode].insn_code != CODE_FOR_nothing)
+	  && optab_handler (op, compute_mode)->insn_code != CODE_FOR_nothing)
 	return;
       else
 	/* There is no operation in hardware, so fall back to scalars.  */
@@ -469,7 +493,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
 
   gcc_assert (code != VEC_LSHIFT_EXPR && code != VEC_RSHIFT_EXPR);
   rhs = expand_vector_operation (bsi, type, compute_type, rhs, code);
-  if (lang_hooks.types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
+  if (useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
     *p_rhs = rhs;
   else
     *p_rhs = gimplify_build1 (bsi, VIEW_CONVERT_EXPR, TREE_TYPE (lhs), rhs);

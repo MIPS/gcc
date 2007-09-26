@@ -971,7 +971,7 @@ sel_dump_cfg_2 (FILE *f, int flags)
 
 	  fprintf (f, "|");
 
-	  rs = bb->il.rtl->global_live_at_start;
+	  rs = df_get_live_in (bb);
 
 	  if (rs != NULL)
 	    dump_lv_set (rs);
@@ -998,7 +998,7 @@ sel_dump_cfg_2 (FILE *f, int flags)
 
 	  fprintf (f, "|");
 
-	  rs = bb->il.rtl->global_live_at_end;
+	  rs = df_get_live_out (bb);
 
 	  if (rs != NULL)
 	    dump_lv_set (rs);

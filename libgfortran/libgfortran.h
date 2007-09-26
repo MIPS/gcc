@@ -31,9 +31,11 @@ Boston, MA 02110-1301, USA.  */
 #ifndef LIBGFOR_H
 #define LIBGFOR_H
 
+#include <stdio.h>
 #include <math.h>
 #include <stddef.h>
 #include <float.h>
+#include <stdarg.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327
@@ -321,6 +323,9 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 #define GFC_DTYPE_TYPE_MASK 0x38
 #define GFC_DTYPE_SIZE_SHIFT 6
 
+/* added for f03.  --Rickett, 02.28.06 */
+#define GFC_NUM_RANK_BITS 3
+
 enum
 {
   GFC_DTYPE_UNKNOWN = 0,
@@ -368,6 +373,9 @@ options_t;
 extern options_t options;
 internal_proto(options);
 
+extern void handler (int);
+internal_proto(handler);
+
 
 /* Compile-time options that will influence the library.  */
 
@@ -379,8 +387,10 @@ typedef struct
   int convert;
   int dump_core;
   int backtrace;
+  int sign_zero;
   size_t record_marker;
   int max_subrecord_length;
+  int bounds_check;
 }
 compile_options_t;
 
@@ -588,11 +598,12 @@ iexport_proto(os_error);
 extern void show_locus (st_parameter_common *);
 internal_proto(show_locus);
 
-extern void runtime_error (const char *) __attribute__ ((noreturn));
+extern void runtime_error (const char *, ...)
+     __attribute__ ((noreturn, format (printf, 1, 2)));
 iexport_proto(runtime_error);
 
-extern void runtime_error_at (const char *, const char *)
-__attribute__ ((noreturn));
+extern void runtime_error_at (const char *, const char *, ...)
+     __attribute__ ((noreturn, format (printf, 2, 3)));
 iexport_proto(runtime_error_at);
 
 extern void internal_error (st_parameter_common *, const char *)
@@ -601,10 +612,6 @@ internal_proto(internal_error);
 
 extern const char *get_oserror (void);
 internal_proto(get_oserror);
-
-extern void st_sprintf (char *, const char *, ...)
-  __attribute__ ((format (printf, 2, 3)));
-internal_proto(st_sprintf);
 
 extern const char *translate_error (int);
 internal_proto(translate_error);
@@ -631,7 +638,7 @@ internal_proto(get_mem);
 extern void free_mem (void *);
 internal_proto(free_mem);
 
-extern void *internal_malloc_size (size_t);
+extern void *internal_malloc_size (size_t) __attribute__ ((malloc));
 internal_proto(internal_malloc_size);
 
 /* environ.c */
@@ -682,6 +689,12 @@ internal_proto(unit_to_fd);
 extern int st_printf (const char *, ...)
   __attribute__ ((format (printf, 1, 2)));
 internal_proto(st_printf);
+
+extern int st_vprintf (const char *, va_list);
+internal_proto(st_vprintf);
+
+extern char * filename_from_unit (int);
+internal_proto(filename_from_unit);
 
 /* stop.c */
 
@@ -749,15 +762,18 @@ internal_proto(internal_unpack_c16);
 
 /* string_intrinsics.c */
 
-extern GFC_INTEGER_4 compare_string (GFC_INTEGER_4, const char *,
-				     GFC_INTEGER_4, const char *);
+extern int compare_string (GFC_INTEGER_4, const char *,
+			   GFC_INTEGER_4, const char *);
 iexport_proto(compare_string);
 
 /* random.c */
 
-extern void random_seed (GFC_INTEGER_4 * size, gfc_array_i4 * put,
-			 gfc_array_i4 * get);
-iexport_proto(random_seed);
+extern void random_seed_i4 (GFC_INTEGER_4 * size, gfc_array_i4 * put,
+			    gfc_array_i4 * get);
+iexport_proto(random_seed_i4);
+extern void random_seed_i8 (GFC_INTEGER_8 * size, gfc_array_i8 * put,
+			    gfc_array_i8 * get);
+iexport_proto(random_seed_i8);
 
 /* size.c */
 

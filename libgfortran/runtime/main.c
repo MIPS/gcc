@@ -126,7 +126,7 @@ store_exe_path (const char * argv0)
 
   /* exe_path will be cwd + "/" + argv[0] + "\0" */
   path = malloc (strlen (cwd) + 1 + strlen (argv0) + 1);
-  st_sprintf (path, "%s%c%s", cwd, DIR_SEPARATOR, argv0);
+  sprintf (path, "%s%c%s", cwd, DIR_SEPARATOR, argv0);
   exe_path = path;
   please_free_exe_path_when_done = 1;
 }
@@ -162,7 +162,7 @@ init (void)
   /* if (argc > 1 && strcmp(argv[1], "--resume") == 0) resume();  */
 #endif
 
-  random_seed(NULL,NULL,NULL);
+  random_seed_i4 (NULL, NULL, NULL);
 }
 
 

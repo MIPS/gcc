@@ -697,7 +697,7 @@ Here are run-time target specifications.
 
 @defmac TARGET_CPU_CPP_BUILTINS ()
 This function-like macro expands to a block of code that defines
-built-in preprocessor macros and assertions for the target cpu, using
+built-in preprocessor macros and assertions for the target CPU, using
 the functions @code{builtin_define}, @code{builtin_define_std} and
 @code{builtin_assert}.  When the front end
 calls this macro it provides a trailing semicolon, and since it has
@@ -841,6 +841,13 @@ machine-specific optimizations.
 this macro!} The debugging options are not supposed to alter the
 generated code.
 @end defmac
+
+@deftypefn {Target Hook} bool TARGET_HELP (void)
+This hook is called in response to the user invoking
+@option{--target-help} on the command line.  It gives the target a
+chance to display extra information on the target specific command
+line options found in its @file{.opt} file.
+@end deftypefn
 
 @defmac CAN_DEBUG_WITHOUT_FP
 Define this macro if debugging can be performed even without a frame
@@ -1327,6 +1334,20 @@ You would most commonly define this macro if the @code{allocate_stack}
 pattern needs to support both a 32- and a 64-bit mode.
 @end defmac
 
+@deftypefn {Target Hook} {enum machine_mode} TARGET_LIBGCC_CMP_RETURN_MODE ()
+This target hook should return the mode to be used for the return value
+of compare instructions expanded to libgcc calls.  If not defined
+@code{word_mode} is returned which is the right choice for a majority of
+targets.
+@end deftypefn
+
+@deftypefn {Target Hook} {enum machine_mode} TARGET_LIBGCC_SHIFT_COUNT_MODE ()
+This target hook should return the mode to be used for the shift count operand
+of shift instructions expanded to libgcc calls.  If not defined
+@code{word_mode} is returned which is the right choice for a majority of
+targets.
+@end deftypefn
+
 @defmac TARGET_FLOAT_FORMAT
 A code distinguishing the floating point format of the target machine.
 There are four defined values:
@@ -1481,15 +1502,16 @@ may affect its placement.
 Returns true if the target supports decimal floating point.
 @end deftypefn
 
-@deftypefn {Target Hook} {const char *} TARGET_MANGLE_FUNDAMENTAL_TYPE (tree @var{type})
-If your target defines any fundamental types, define this hook to
-return the appropriate encoding for these types as part of a C++
-mangled name.  The @var{type} argument is the tree structure
-representing the type to be mangled.  The hook may be applied to trees
-which are not target-specific fundamental types; it should return
-@code{NULL} for all such types, as well as arguments it does not
-recognize.  If the return value is not @code{NULL}, it must point to
-a statically-allocated string constant.
+@deftypefn {Target Hook} {const char *} TARGET_MANGLE_TYPE (tree @var{type})
+If your target defines any fundamental types, or any types your target
+uses should be mangled differently from the default, define this hook
+to return the appropriate encoding for these types as part of a C++
+mangled name.  The @var{type} argument is the tree structure representing
+the type to be mangled.  The hook may be applied to trees which are
+not target-specific fundamental types; it should return @code{NULL}
+for all such types, as well as arguments it does not recognize.  If the
+return value is not @code{NULL}, it must point to a statically-allocated
+string constant.
 
 Target-specific fundamental types might be new fundamental types or
 qualified versions of ordinary fundamental types.  Encode new
@@ -1503,6 +1525,11 @@ code used to represent the unqualified version of this type.  (See
 @code{write_builtin_type} in @file{cp/mangle.c} for the list of
 codes.)  In both cases the spaces are for clarity; do not include any
 spaces in your string.
+
+This hook is applied to types prior to typedef resolution.  If the mangled
+name for a particular type depends only on that type's main variant, you
+can perform typedef resolution yourself using @code{TYPE_MAIN_VARIANT}
+before mangling.
 
 The default version of this hook always returns @code{NULL}, which is
 appropriate for a target that does not define any new fundamental
@@ -1576,6 +1603,54 @@ words.
 A C expression for the size in bits of the type @code{long double} on
 the target machine.  If you don't define this, the default is two
 words.
+@end defmac
+
+@defmac SHORT_FRACT_TYPE_SIZE
+A C expression for the size in bits of the type @code{short _Fract} on
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT}.
+@end defmac
+
+@defmac FRACT_TYPE_SIZE
+A C expression for the size in bits of the type @code{_Fract} on
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 2}.
+@end defmac
+
+@defmac LONG_FRACT_TYPE_SIZE
+A C expression for the size in bits of the type @code{long _Fract} on
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 4}.
+@end defmac
+
+@defmac LONG_LONG_FRACT_TYPE_SIZE
+A C expression for the size in bits of the type @code{long long _Fract} on
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 8}.
+@end defmac
+
+@defmac SHORT_ACCUM_TYPE_SIZE
+A C expression for the size in bits of the type @code{short _Accum} on
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 2}.
+@end defmac
+
+@defmac ACCUM_TYPE_SIZE
+A C expression for the size in bits of the type @code{_Accum} on
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 4}.
+@end defmac
+
+@defmac LONG_ACCUM_TYPE_SIZE
+A C expression for the size in bits of the type @code{long _Accum} on
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 8}.
+@end defmac
+
+@defmac LONG_LONG_ACCUM_TYPE_SIZE
+A C expression for the size in bits of the type @code{long long _Accum} on
+the target machine.  If you don't define this, the default is
+@code{BITS_PER_UNIT * 16}.
 @end defmac
 
 @defmac LIBGCC2_LONG_DOUBLE_TYPE_SIZE
@@ -3286,7 +3361,7 @@ so included typically defines @code{MD_FALLBACK_FRAME_STATE_FOR}.
 @end defmac
 
 @defmac MD_FALLBACK_FRAME_STATE_FOR (@var{context}, @var{fs})
-This macro allows the target to add cpu and operating system specific
+This macro allows the target to add CPU and operating system specific
 code to the call-frame unwinder for use when there is no unwind data
 available.  The most common reason to implement this macro is to unwind
 through signal frames.
@@ -5343,6 +5418,16 @@ be placed in an @code{object_block} structure.  @var{mode} is the mode
 of @var{x}.
 
 The default version returns false for all constants.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_BUILTIN_RECIPROCAL (enum tree_code @var{fn}, bool @var{tm_fn}, bool @var{sqrt})
+This hook should return the DECL of a function that implements reciprocal of
+the builtin function with builtin function code @var{fn}, or
+@code{NULL_TREE} if such a function is not available.  @var{tm_fn} is true
+when @var{fn} is a code of a machine-dependent builtin function.  When
+@var{sqrt} is true, additional optimizations that apply only to the reciprocal
+of a square root function are performed, and only reciprocals of @code{sqrt}
+function are valid.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD (void)
@@ -9576,14 +9661,23 @@ given mode.
 
 @defmac CLZ_DEFINED_VALUE_AT_ZERO (@var{mode}, @var{value})
 @defmacx CTZ_DEFINED_VALUE_AT_ZERO (@var{mode}, @var{value})
-A C expression that evaluates to true if the architecture defines a value
-for @code{clz} or @code{ctz} with a zero operand.  If so, @var{value}
-should be set to this value.  If this macro is not defined, the value of
-@code{clz} or @code{ctz} is assumed to be undefined.
+A C expression that indicates whether the architecture defines a value
+for @code{clz} or @code{ctz} with a zero operand.  
+A result of @code{0} indicates the value is undefined.
+If the value is defined for only the RTL expression, the macro should
+evaluate to @code{1}; if the value applies also to the corresponding optab
+entry (which is normally the case if it expands directly into
+the corresponding RTL), then the macro should evaluate to @code{2}.  
+In the cases where the value is defined, @var{value} should be set to
+this value.  
+
+If this macro is not defined, the value of @code{clz} or
+@code{ctz} at zero is assumed to be undefined.
 
 This macro must be defined if the target's expansion for @code{ffs}
 relies on a particular value to get correct results.  Otherwise it
-is not necessary, though it may be used to optimize some corner cases.
+is not necessary, though it may be used to optimize some corner cases, and
+to provide a default expansion for the @code{ffs} optab.
 
 Note that regardless of this macro the ``definedness'' of @code{clz}
 and @code{ctz} at zero do @emph{not} extend to the builtin functions
