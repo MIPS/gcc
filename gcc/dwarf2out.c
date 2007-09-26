@@ -110,6 +110,16 @@ static void dwarf2out_source_line (unsigned int, const char *);
 #define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH) (REGNO)
 #endif
 
+/* LTO needs to call into the dwarf machinery to generate dwarf as early
+   as possible, but said machinery was not implemented with this
+   possibility in mind.  The bits that cause us real problems are those
+   that deal with frame/unwind information.  We provide this flag to
+   suppress the normal generation of frame/unwind information when
+   necessary.  It should only ever be used by LTO and it may not catch
+   every case in existence--just those of interest to LTO call
+   paths.  */
+bool dwarf2_generate_frame_info_p = true;
+
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
 
@@ -12180,39 +12190,42 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	   */
 	}
 
+      if (dwarf2_generate_frame_info_p)
+        {
 #ifdef MIPS_DEBUGGING_INFO
-      /* Add a reference to the FDE for this routine.  */
-      add_AT_fde_ref (subr_die, DW_AT_MIPS_fde, current_funcdef_fde);
+          /* Add a reference to the FDE for this routine.  */
+          add_AT_fde_ref (subr_die, DW_AT_MIPS_fde, current_funcdef_fde);
 #endif
 
-      cfa_fb_offset = CFA_FRAME_BASE_OFFSET (decl);
+          cfa_fb_offset = CFA_FRAME_BASE_OFFSET (decl);
 
-      /* We define the "frame base" as the function's CFA.  This is more
-	 convenient for several reasons: (1) It's stable across the prologue
-	 and epilogue, which makes it better than just a frame pointer,
-	 (2) With dwarf3, there exists a one-byte encoding that allows us
-	 to reference the .debug_frame data by proxy, but failing that,
-	 (3) We can at least reuse the code inspection and interpretation
-	 code that determines the CFA position at various points in the
-	 function.  */
-      /* ??? Use some command-line or configury switch to enable the use
-	 of dwarf3 DW_OP_call_frame_cfa.  At present there are no dwarf
-	 consumers that understand it; fall back to "pure" dwarf2 and
-	 convert the CFA data into a location list.  */
-      {
-	dw_loc_list_ref list = convert_cfa_to_fb_loc_list (cfa_fb_offset);
-	if (list->dw_loc_next)
-	  add_AT_loc_list (subr_die, DW_AT_frame_base, list);
-	else
-	  add_AT_loc (subr_die, DW_AT_frame_base, list->expr);
-      }
+          /* We define the "frame base" as the function's CFA.  This is more
+             convenient for several reasons: (1) It's stable across the prologue
+             and epilogue, which makes it better than just a frame pointer,
+             (2) With dwarf3, there exists a one-byte encoding that allows us
+             to reference the .debug_frame data by proxy, but failing that,
+             (3) We can at least reuse the code inspection and interpretation
+             code that determines the CFA position at various points in the
+             function.  */
+          /* ??? Use some command-line or configury switch to enable the use
+             of dwarf3 DW_OP_call_frame_cfa.  At present there are no dwarf
+             consumers that understand it; fall back to "pure" dwarf2 and
+             convert the CFA data into a location list.  */
+          {
+            dw_loc_list_ref list = convert_cfa_to_fb_loc_list (cfa_fb_offset);
+            if (list->dw_loc_next)
+              add_AT_loc_list (subr_die, DW_AT_frame_base, list);
+            else
+              add_AT_loc (subr_die, DW_AT_frame_base, list->expr);
+          }
 
-      /* Compute a displacement from the "steady-state frame pointer" to
-	 the CFA.  The former is what all stack slots and argument slots
-	 will reference in the rtl; the later is what we've told the
-	 debugger about.  We'll need to adjust all frame_base references
-	 by this displacement.  */
-      compute_frame_pointer_to_fb_displacement (cfa_fb_offset);
+          /* Compute a displacement from the "steady-state frame pointer" to
+             the CFA.  The former is what all stack slots and argument slots
+             will reference in the rtl; the later is what we've told the
+             debugger about.  We'll need to adjust all frame_base references
+             by this displacement.  */
+          compute_frame_pointer_to_fb_displacement (cfa_fb_offset);
+        }
 
       if (cfun->static_chain_decl)
 	add_AT_location_description (subr_die, DW_AT_static_link,
@@ -14953,8 +14966,8 @@ lto_type_ref (tree type, lto_out_ref *ref)
   scope = TYPE_CONTEXT (type);
   if (!FILE_SCOPE_P (scope))
     {
-      /* We do not yet support lexically scoped types.  */
-      sorry ("nested types are not supported by LTO");
+      /* We generate DWARF information very early in LTO, so assume that
+         modified_type_die will find already-generated type DIEs.  */
       scope_die = NULL;
     }
   else

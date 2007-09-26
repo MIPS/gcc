@@ -1,3 +1,14 @@
+2007-09-26  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.h (dwarf2_generate_frame_info_p): Declare.
+	* dwarf2out.c (dwarf2_generate_frame_info_p): Define it.
+	(gen_subprogram_die): Consult it to determine whether to generate
+	frame information.
+	(lto_type_ref): Remove sorry call.
+	* lto-function-out.c (generate_early_dwarf_information): New function.
+	(output_function): Call it.  Set current_function_decl and cfun to
+	facilitate DWARF generation.
+
 2007-09-11  Bill Maddox  <maddox@google.com>
 
 	Add `gcc' driver support for link-time code generation (LTO).

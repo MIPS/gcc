@@ -2059,6 +2059,21 @@ lto_static_init_local (void)
 static int function_num;
 #endif
 
+/* Generate complete DWARF information for the function now so that we
+   don't run into missing or incomplete information later.  */
+
+static void
+generate_early_dwarf_information (tree function)
+{
+  /* Don't bother with frame information, since we have no RTL.  */
+  dwarf2_generate_frame_info_p = false;
+
+  dwarf2out_decl (function);
+
+  /* Later passes, however, will need frame information.  */
+  dwarf2_generate_frame_info_p = true;
+}
+
 /* Output FN.  */
 
 static void
@@ -2069,6 +2084,15 @@ output_function (tree function)
   struct output_block *ob = create_output_block (true);
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
+
+  gcc_assert (!current_function_decl && !cfun);
+
+  /* Set current_function_decl to what the dwarf2 machinery expects.  */
+  current_function_decl = function;
+  cfun = fn;
+
+  /* Generate debugging info as early as we can.  */
+  generate_early_dwarf_information (function);
 
   /* Make string 0 be a NULL string.  */
   output_1_stream (ob->string_stream, 0);
@@ -2115,6 +2139,9 @@ output_function (tree function)
   produce_asm (ob, function, true);
 
   destroy_output_block (ob, true);
+
+  current_function_decl = NULL;
+  cfun = NULL;
 }
 
 
