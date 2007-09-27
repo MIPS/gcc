@@ -1,3 +1,38 @@
+2007-09-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* b2d.h: Renamed to ...
+	* bid_b2d.h: This.
+
+	* bid128_to_string.c: Renamed to ...
+	* bid128_string.c: This.
+
+	* bid_intrinsics.h: Renamed to ...
+	* bid_gcc_intrinsics.h: This.
+
+	* bid_string.c: Renamed to ...
+	* bid64_string.c: This.
+
+	* binarydecimal.c: Renamed to ...
+	* bid_decimal_globals.c: This.
+
+	* convert_data.c: Renamed to ...
+	* bid_convert_data.c: This.
+
+	* decimal_data.c: Renamed to ...
+	* bid_decimal_data.c: This.
+
+	* decimal_globals.c: Renamed to ...
+	* bid_decimal_globals.c: This.
+
+	* div_macros.h: Renamed to ...
+	* bid_div_macros.h: This.
+
+	* inline_bid_add.h: Renamed to ...
+	* bid_inline_add.h: This.
+
+	* sqrt_macros.h: Renamed to ...
+	* bid_sqrt_macros.h: This.
+
 2007-07-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Updated from Intel BID library:
