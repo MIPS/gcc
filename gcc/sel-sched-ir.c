@@ -2746,11 +2746,6 @@ bookkeeping_can_be_created_if_moved_through_p (insn_t jump)
   insn_t succ;
   succ_iterator si;
 
-  if (BB_END (BLOCK_FOR_INSN (jump)) != jump
-      || !control_flow_insn_p (jump))
-    /* Exit early.  */
-    return false;
-
   FOR_EACH_SUCC (succ, si, jump)
     if (sel_num_cfg_preds_gt_1 (succ))
       return true;
@@ -4386,10 +4381,6 @@ basic_block
 sel_split_edge (edge e)
 {
   basic_block new_bb;
-  
-  /* We don't need to split edges inside a region.  */
-  gcc_assert (!in_current_region_p (e->src)
-              && in_current_region_p (e->dest));
 
   insn_init.what = INSN_INIT_WHAT_INSN;
 

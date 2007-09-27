@@ -1,3 +1,24 @@
+2007-09-27  Dmitry Zhurikhin  <zhur@ispras.ru>
+	
+	Patch to allow moving conditional jumps through some instructions.
+
+	* sel-sched.c (moveup_rhs): Allow jumps to go through instructions
+	if dependencies allow.
+	(sel_rank_for_schedule): Prioritize jumps over other instructions.
+	(fill_vec_av_set): Added more debug.
+	(generate_bookkeeping_insn): Reset sched times on
+	bookkeeping instructions.
+	(move_cond_jump): New function.
+	(fill_insns): Now handles scheduling of jumps.
+	(sel_region_init): Added check to stop scheduling empty regions early.
+	(sel_region_finish): Added some dump.
+	(sel_sched_region_1): Cleanup.
+	(sel_sched_region): Same.
+
+	* sel-sched-ir.c (sel_split_edge): Remove now wrong assert.
+	(bookkeeping_can_be_created_if_moved_through_p): Remove wrong 
+	early check.
+
 2007-09-26  Andrey Belevantsev  <abel@ispras.ru>
         Fix a merge glitch with ChangeLog.sel-sched.        
 

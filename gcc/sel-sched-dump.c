@@ -278,7 +278,7 @@ debug_insn_rtx (rtx insn)
 
 void
 dump_vinsn_1 (vinsn_t vi, int flags)
-{  
+{
   int all;
 
   if (!print_block)

@@ -1775,9 +1775,18 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 
   if (VINSN_UNIQUE_P (vi))
     {
-      if (/* Don't move branches for now.  */
-	  control_flow_insn_p (insn))
-	return MOVEUP_RHS_NULL;
+      /* We can move jumps without side-effects or jumps that are
+	 mutually exculsive with instruction THROUGH_INSN (all in cases
+	 dependencies allow to do so and jump is not speculative).  */
+      if (control_flow_insn_p (insn)
+          && !(onlyjump_p (insn)
+	           && any_condjump_p (insn)
+               && !control_flow_insn_p (through_insn)
+               && !sel_insn_is_speculation_check (insn))
+          && !(sched_insns_conditions_mutex_p (insn, through_insn)
+               && !control_flow_insn_p (through_insn)
+               && !sel_insn_is_speculation_check (insn)))
+        return MOVEUP_RHS_NULL;
 
       if (CANT_MOVE (insn)
 	  && BLOCK_FOR_INSN (through_insn) != BLOCK_FOR_INSN (insn))
@@ -2837,6 +2846,12 @@ sel_rank_for_schedule (const void *x, const void *y)
   if (val)
     return val;
 
+  /* Prefer jump over non-jump instruction.  */
+  if (control_flow_insn_p (tmp_insn) && !control_flow_insn_p (tmp2_insn))
+    return -1;
+  else if (control_flow_insn_p (tmp2_insn) && !control_flow_insn_p (tmp_insn))
+    return 1;
+
   /* Prefer an expr with greater priority.  */
   val = EXPR_PRIORITY (tmp2) - EXPR_PRIORITY (tmp);
   if (val)
@@ -3063,11 +3078,14 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
       if (FENCE_SCHED_NEXT (fence))
         sched_next_worked++;
 
+      dump_insn_1 (insn, DUMP_INSN_UID);
+
       /* Check all liveness requirements and try renaming.  
          FIXME: try to minimize calls to this.  */
       if (! find_best_reg_for_rhs (rhs, bnds))
         {
           VEC_unordered_remove (rhs_t, vec_av_set, n);
+          print ("- no reg; ");
           continue;
         }
 
@@ -3076,10 +3094,12 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
 	{
           /* We need to know whether we do need to stall for any insns.  */
           stalled++;
+          print ("- not ready yet; ");
           VEC_unordered_remove (rhs_t, vec_av_set, n);
 	  continue;
 	}
 
+      print ("; ");
       n++;
     }
 
@@ -3766,6 +3786,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
       --EXPR_SCHED_TIMES (new_expr);
 
     new_insn = gen_insn_from_expr_after (new_expr, new_seqno, place_to_insert);
+    INSN_SCHED_TIMES (new_insn) = 0;
 
     clear_expr (new_expr);
 
@@ -3813,6 +3834,116 @@ remove_insns_that_need_bookkeeping (fence_t fence, av_set_t *av_ptr)
 	  av_set_iter_remove (&i);
 	}
     }
+}
+
+/* Moving conditional jump through some instructions.
+
+   Consider example:
+
+       ...                     <- current scheduling point
+       NOTE BASIC BLOCK:       <- bb header
+       (p8)  add r14=r14+0x9;;
+       (p8)  mov [r14]=r23
+       (!p8) jump L1;;
+       NOTE BASIC BLOCK:
+       ...
+
+   We can schedule jump one cycle earlier, than mov, because they cannot be 
+   executed together as their predicates are mutually exclusive.
+
+   This is done in this way: first, new fallthrough basic block is created 
+   after jump (it is always can be done, because there already should be a 
+   fallthrough block, where control flow goes in case of predicate being true -
+   in our example; otherwise there should be a dependence between those 
+   instructions and jump and we cannot schedule jump right now); 
+   next, all instructions between jump and current scheduling point are moved 
+   to this new block.  And the result is this:
+
+      NOTE BASIC BLOCK:
+      (!p8) jump L1           <- current scheduling point
+      NOTE BASIC BLOCK:       <- bb header
+      (p8)  add r14=r14+0x9;;
+      (p8)  mov [r14]=r23
+      NOTE BASIC BLOCK:
+      ...
+*/
+static void
+move_cond_jump (rtx insn, bnd_t bnd)
+{
+  edge ft_edge;
+  basic_block block_from, block_next, block_new;
+  rtx next, prev, link;
+
+  /* BLOCK_FROM holds basic block of the jump.  */
+  block_from = BLOCK_FOR_INSN (insn);
+
+  /* Moving of jump should not cross any other jumps or
+  beginnings of new basic blocks.  */
+  gcc_assert (block_from == BLOCK_FOR_INSN (BND_TO (bnd)));
+
+  /* Jump is moved to the boundary.  */
+  BND_TO (bnd) = insn;
+
+  ft_edge = find_fallthru_edge (block_from);
+  block_next = ft_edge->dest;
+  /* There must be a fallthrough block (or where should go
+  control flow in case of false jump predicate otherwise?).  */
+  gcc_assert (block_next);
+
+  /* Create new empty basic block after source block.  */
+  block_new = sel_split_edge (ft_edge);
+  gcc_assert (block_new->next_bb == block_next
+              && block_from->next_bb == block_new);
+
+  gcc_assert (BB_END (block_from) == insn);
+
+  prev = sel_bb_head (block_from);
+  next = PREV_INSN (insn);
+
+  /* Move all instructions except INSN from BLOCK_FROM to
+     BLOCK_NEW.  */
+  for (link = sel_bb_head (block_from);
+       link != insn;
+       link = NEXT_INSN (link))
+    {
+      set_block_for_insn (link, block_new);
+      df_insn_change_bb (link);
+    }
+
+  /* Set correct basic block and instructions properties.  */
+  BB_END (block_new) = PREV_INSN (insn);
+
+  NEXT_INSN (bb_note (block_from)) = insn;
+  PREV_INSN (insn) = bb_note (block_from);
+
+  /* Assert there is no jump to BLOCK_NEW, only fallthrough edge.  */
+  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (BB_HEAD (block_new)));
+  PREV_INSN (prev) = BB_HEAD (block_new);
+  NEXT_INSN (next) = NEXT_INSN (BB_HEAD (block_new));
+  NEXT_INSN (BB_HEAD (block_new)) = prev;
+  PREV_INSN (NEXT_INSN (next)) = next;
+
+  gcc_assert (!sel_bb_empty_p (block_from)
+              && !sel_bb_empty_p (block_new));
+
+  /* Update data sets for BLOCK_NEW to represent that INSN and
+     instructions from the other branch of INSN is no longer
+     available at BLOCK_NEW.  */
+  BB_AV_LEVEL (block_new) = global_level;
+  gcc_assert (BB_LV_SET (block_new) == NULL);
+  BB_LV_SET (block_new) = get_clear_regset_from_pool ();
+  update_data_sets (sel_bb_head (block_new));
+
+  /* INSN is a new basic block header - so prepare its data
+     structures and update availability and liveness sets.  */
+  BB_AV_LEVEL (block_from) = global_level;
+  gcc_assert (BB_LV_SET (block_from) != NULL);
+  update_data_sets (insn);
+
+  line_start ();
+  print ("moving jump: ");
+  dump_insn (insn);
+  line_finish ();
 }
 
 /* Records the number of fill_insns runs for debugging purposes.  */
@@ -3976,6 +4107,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  av_set_iterator i;
 	  insn_t *succs;
 	  int succs_n;
+	  insn_t place_to_insert;
+	  int n_bookkeeping_copies_before_moveop;
 	  bool asm_p;
 	  bool first_p = true;
 
@@ -4011,32 +4144,41 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		}
             }
 
-          line_start ();
-          print ("rhs_seq: ");
-          dump_av_set (rhs_seq);
-          line_finish ();
+	  line_start ();
+	  print ("rhs_seq: ");
+	  dump_av_set (rhs_seq);
+	  line_finish ();
 
-	  /* Move chosen insn.  */
+	  /* Init place_to_insert before calling move_op, as the later
+	     can possibly remove BND_TO (bnd).  */
+	  if (/* If this is not the first insn scheduled.  */
+	      BND_PTR (bnd))
+	    {
+	      gcc_unreachable ();
+
+	      /* Add it after last scheduled.  */
+	      place_to_insert = ILIST_INSN (BND_PTR (bnd));
+	    }
+	  else
+	    /* Add it before BND_TO.  The difference is in the
+	       basic block, where INSN will be added.  */
+	    place_to_insert = PREV_INSN (BND_TO (bnd));
+
+	  /* In case of scheduling a jump skipping some other instructions -
+	     prepare CFG.  After this, jump is at the boundary and can be scheduled
+         as usual insn by MOVE_OP.  */
+	  if (vinsn_cond_branch_p (RHS_VINSN (av_set_element (rhs_seq, 0))))
+	    {
+	      insn = RHS_INSN (av_set_element (rhs_seq, 0));
+
+	      /* Speculative jumps are not handled.  */
+	      if (insn != BND_TO (bnd) && !sel_insn_is_speculation_check (insn))
+            move_cond_jump (insn, bnd);
+	    }
+	  /* Actually move chosen insn.  */
 	  {
-	    insn_t place_to_insert;
 	    expr_def _c_rhs, *c_rhs = &_c_rhs;
 	    bool b;
-	    int n_bookkeeping_copies_before_moveop;
-
-	    /* Init place_to_insert before calling move_op, as the later
-	       can possibly remove BND_TO (bnd).  */
-	    if (/* If this is not the first insn scheduled.  */
-		BND_PTR (bnd))
-	      {
-		gcc_unreachable ();
-
-		/* Add it after last scheduled.  */
-		place_to_insert = ILIST_INSN (BND_PTR (bnd));
-	      }
-	    else
-	      /* Add it before BND_TO.  The difference is in the
-		 basic block, where INSN will be added.  */
-	      place_to_insert = PREV_INSN (BND_TO (bnd));
 
 	    /* Find a place for C_RHS to schedule.
 	       We want to have an invariant that only insns that are
@@ -4127,7 +4269,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
 	      /* Marker is useful to bind .dot dumps and the log.  */
 	      print_marker_to_log ();
-
 	      /* Make a move.  This call will remove the original operation,
 		 insert all necessary bookkeeping instructions and update the
 		 data sets.  After that all we have to do is add the operation
@@ -4199,7 +4340,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
           memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
           INSN_AFTER_STALL_P (insn) = FENCE_AFTER_STALL_P (fence);
-	  INSN_SCHED_CYCLE (insn) = FENCE_CYCLE (fence);
+          INSN_SCHED_CYCLE (insn) = FENCE_CYCLE (fence);
 
 	  if (asm_p)
 	    advance_one_cycle (fence);
@@ -4807,6 +4948,13 @@ sel_region_init (int rgn)
 
   rgn_setup_region (rgn);
 
+  /* Do not schedule an empty region.  */
+  for (i = 0; i < current_nr_blocks; i++)
+    if (! sel_bb_empty_p (BASIC_BLOCK (BB_TO_BLOCK (i))))
+      break;
+  if (i == current_nr_blocks)
+    return true;
+
   /* If this loop has any saved loop preheaders from nested loops,
      add these basic blocks to the current region.  */
   if (flag_sel_sched_pipelining_outer_loops)
@@ -5064,7 +5212,6 @@ sel_region_finish (void)
 		      memcpy (tmp_state, curr_state, dfa_state_size);
 		      haifa_cost = state_transition (tmp_state, insn);
 
-		      print ("haifa_cost: %d", haifa_cost);
 		      /* ??? We can't assert anything about cost here yet,
 			 because sometimes our scheduler gets out of sync with
 			 Haifa.
@@ -5086,13 +5233,19 @@ sel_region_finish (void)
 		      while (i--)
 			{
 			  advance_state (curr_state);
-			  print ("advance_state ()");
+			  print ("advance_state (state_transition)");
 			}
 
 		      haifa_clock += haifa_cost;
 		    }
 		  else
 		    gcc_assert (haifa_cost == 0);
+
+                  line_start ();
+                  print ("haifa_cost: %d", haifa_cost);
+                  dump_insn_1 (insn, (DUMP_INSN_UID | DUMP_INSN_BBN 
+                                      | DUMP_INSN_PATTERN));
+                  line_finish ();
 
 		  if (targetm.sched.dfa_new_cycle)
 		    while (targetm.sched.dfa_new_cycle (sched_dump,
@@ -5104,7 +5257,7 @@ sel_region_finish (void)
 		      {
 			advance_state (curr_state);
 			haifa_clock++;
-			print ("advance_state ()");
+			print ("advance_state (dfa_new_cycle)");
 		      }
 
 		  if (recog_memoized (insn) >= 0)
@@ -5398,6 +5551,7 @@ sel_sched_region_1 (void)
 
   if (data->orig_max_seqno < 1)
     {
+      gcc_unreachable ();
       print ("empty region.");
       return;
     }
@@ -5511,19 +5665,9 @@ sel_sched_region_1 (void)
 
           /* Reschedule pipelined code without pipelining.  */
           loop_entry = EBB_FIRST_BB (1);
-
 	  /* Please note that loop_header (not preheader) might not be in
 	     the current region.  Hence it is possible for loop_entry to have
 	     arbitrary number of predecessors.  */
-#if 0
-	  /* ??? Why don't we assert that EBB_FIRST_BB (1) is an
-	     actual loop entry?  There must be something wrong if we
-	     somehow created an extra block before the loop.  */
-          while (loop_entry && EDGE_COUNT (loop_entry->preds) == 1)
-            loop_entry = loop_entry->next_bb;
-
-          gcc_assert (loop_entry && EDGE_COUNT (loop_entry->preds) == 2);
-#endif
 
           for (i = BLOCK_TO_BB (loop_entry->index); i < current_nr_blocks; i++)
             {
@@ -5611,7 +5755,7 @@ sel_sched_region (int rgn)
   }
 
   sel_region_finish ();
-
+  
   sel_dump_cfg_1 ("after-region-finish",
 		  SEL_DUMP_CFG_CURRENT_REGION | SEL_DUMP_CFG_LV_SET
 		  | SEL_DUMP_CFG_BB_INSNS);
