@@ -45,7 +45,7 @@ __div_128_by_128 (UINT128 * pCQ, UINT128 * pCR, UINT128 CX, UINT128 CY) {
   int_double d64, dm64, ds;
   int_float t64;
   double dx, dq, dqh;
-  long double lq, lx, ly;
+  BINARY80 lq, lx, ly;
   UINT64 Rh, R, B2, B4, Ph, Ql, Ql2, carry, Qh;
 
   if (!CY.w[1]) {
@@ -66,8 +66,8 @@ __div_128_by_128 (UINT128 * pCQ, UINT128 * pCR, UINT128 CX, UINT128 CY) {
       dm64.i = 0x3bf0000000000000;
       // 1.5*2^(-52)
       ds.i = 0x3cb8000000000000;
-      dx = (long double) CX.w[1] * d64.d + (long double) CX.w[0];
-      dq = dx / (long double) CY.w[0];
+      dx = (BINARY80) CX.w[1] * d64.d + (BINARY80) CX.w[0];
+      dq = dx / (BINARY80) CY.w[0];
       dq -= dq * (ds.d);
       dqh = dq * dm64.d;
       Qh = (UINT64) dqh;
@@ -86,10 +86,8 @@ __div_128_by_128 (UINT128 * pCQ, UINT128 * pCR, UINT128 CX, UINT128 CY) {
 
   // 2^64
   t64.i = 0x5f800000;
-  lx =
-    (long double) CX.w[1] * (long double) t64.d + (long double) CX.w[0];
-  ly =
-    (long double) CY.w[1] * (long double) t64.d + (long double) CY.w[0];
+  lx = (BINARY80) CX.w[1] * (BINARY80) t64.d + (BINARY80) CX.w[0];
+  ly = (BINARY80) CY.w[1] * (BINARY80) t64.d + (BINARY80) CY.w[0];
   lq = lx / ly;
   pCQ->w[0] = (UINT64) lq;
 
@@ -169,19 +167,19 @@ __div_256_by_128 (UINT128 * pCQ, UINT256 * pCA4, UINT128 CY) {
   UINT128 CQ2, CQ3Y;
   UINT64 Q3, carry64;
   int_double d64;
-  long double lx, ly, lq, l64, l128;
+  BINARY80 lx, ly, lq, l64, l128;
 
   // 2^64
   d64.i = 0x43f0000000000000ull;
-  l64 = (long double) d64.d;
+  l64 = (BINARY80) d64.d;
   // 2^128
   l128 = l64 * l64;
 
   lx =
-    ((long double) (*pCA4).w[3] * l64 +
-     (long double) (*pCA4).w[2]) * l128 +
-    (long double) (*pCA4).w[1] * l64 + (long double) (*pCA4).w[0];
-  ly = (long double) CY.w[1] * l128 + (long double) CY.w[0] * l64;
+    ((BINARY80) (*pCA4).w[3] * l64 +
+     (BINARY80) (*pCA4).w[2]) * l128 +
+    (BINARY80) (*pCA4).w[1] * l64 + (BINARY80) (*pCA4).w[0];
+  ly = (BINARY80) CY.w[1] * l128 + (BINARY80) CY.w[0] * l64;
 
   lq = lx / ly;
   CQ2.w[1] = (UINT64) lq;
@@ -206,9 +204,9 @@ __div_256_by_128 (UINT128 * pCQ, UINT256 * pCA4, UINT128 CY) {
 			 carry64);
     (*pCA4).w[2] = (*pCA4).w[2] - CQ2Y.w[2] - carry64;
 
-    lx = ((long double) (*pCA4).w[2] * l128 +
-	  ((long double) (*pCA4).w[1] * l64 +
-	   (long double) (*pCA4).w[0])) * l64;
+    lx = ((BINARY80) (*pCA4).w[2] * l128 +
+	  ((BINARY80) (*pCA4).w[1] * l64 +
+	   (BINARY80) (*pCA4).w[0])) * l64;
     lq = lx / ly;
     Q3 = (UINT64) lq;
 
@@ -243,9 +241,8 @@ __div_256_by_128 (UINT128 * pCQ, UINT256 * pCA4, UINT128 CY) {
     (*pCA4).w[2] = CQ2Y.w[2] - (*pCA4).w[2] - carry64;
 
     lx =
-      ((long double) (*pCA4).w[2] * l128 +
-       (long double) (*pCA4).w[1] * l64 +
-       (long double) (*pCA4).w[0]) * l64;
+      ((BINARY80) (*pCA4).w[2] * l128 +
+       (BINARY80) (*pCA4).w[1] * l64 + (BINARY80) (*pCA4).w[0]) * l64;
     lq = lx / ly;
     Q3 = 1 + (UINT64) lq;
 
@@ -312,7 +309,7 @@ __div_128_by_128 (UINT128 * pCQ, UINT128 * pCR, UINT128 CX0, UINT128 CY) {
     // 2^(-60)*CX/CY
     d60.i = 0x3c30000000000000ull;
     lq *= d60.d;
-    Q = -4 + (UINT64) lq;
+    Q = (UINT64) lq - 4ull;
 
     // Q*CY
     __mul_64x64_to_128 (A2, Q, CY.w[0]);
@@ -342,7 +339,7 @@ __div_128_by_128 (UINT128 * pCQ, UINT128 * pCR, UINT128 CX0, UINT128 CY) {
     d49.i = 0x3ce0000000000000ull;
     lq *= d49.d;
 
-    Q = -1 + (UINT64) lq;
+    Q = (UINT64) lq - 1ull;
 
     // Q*CY
     __mul_64x64_to_128 (A2, Q, CY.w[0]);
@@ -441,7 +438,7 @@ __div_256_by_128 (UINT128 * pCQ, UINT256 * pCA4, UINT128 CY) {
     // 2^(-60)*CA4/CY
     d60.i = 0x3c30000000000000ull;
     lq *= d60.d;
-    Q = -4 + (UINT64) lq;
+    Q = (UINT64) lq - 4ull;
 
     // Q*CY
     __mul_64x128_to_192 (CA2, Q, CY);
@@ -471,16 +468,17 @@ __div_256_by_128 (UINT128 * pCQ, UINT256 * pCA4, UINT128 CY) {
   CY51.w[1] = (CY.w[1] << 51) | (CY.w[0] >> (64 - 51));
   CY51.w[0] = CY.w[0] << 51;
 
-  if (CA4.w[2] > CY51.w[2] ||
-      ((CA4.w[2] == CY51.w[2])
-       && (__unsigned_compare_gt_128 (CA4, CY51)))) {
+  if (CA4.w[2] > CY51.w[2] || ((CA4.w[2] == CY51.w[2])
+			       &&
+			       (__unsigned_compare_gt_128 (CA4, CY51))))
+  {
     // Q > 2^51 
 
     // 2^(-49)*CA4/CY
     d49.i = 0x3ce0000000000000ull;
     lq *= d49.d;
 
-    Q = -1 + (UINT64) lq;
+    Q = (UINT64) lq - 1ull;
 
     // Q*CY
     __mul_64x64_to_128 (A2, Q, CY.w[0]);
@@ -509,7 +507,6 @@ __div_256_by_128 (UINT128 * pCQ, UINT256 * pCA4, UINT128 CY) {
   }
 
   Q = (UINT64) lq;
-
   __mul_64x64_to_128 (A2, Q, CY.w[0]);
   A2.w[1] += Q * CY.w[1];
 

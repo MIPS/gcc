@@ -124,13 +124,13 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
   if (diff_dec_expon > MAX_FORMAT_DIGITS) {
     // normalize a to a 16-digit coefficient
 
-    scale_ca = __bid_estimate_decimal_digits[bin_expon_ca];
-    if (coefficient_a >= __bid_power10_table_128[scale_ca].w[0])
+    scale_ca = estimate_decimal_digits[bin_expon_ca];
+    if (coefficient_a >= power10_table_128[scale_ca].w[0])
       scale_ca++;
 
     scale_k = 16 - scale_ca;
 
-    coefficient_a *= __bid_power10_table_128[scale_k].w[0];
+    coefficient_a *= power10_table_128[scale_k].w[0];
 
     diff_dec_expon -= scale_k;
     exponent_a -= scale_k;
@@ -150,7 +150,7 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 
 #ifndef IEEE_ROUND_NEAREST_TIES_AWAY
 #ifndef IEEE_ROUND_NEAREST
-      if (((rounding_mode) & 3) && coefficient_b) // not ROUNDING_TO_NEAREST
+      if (((rounding_mode) & 3) && coefficient_b)	// not ROUNDING_TO_NEAREST
       {
 	switch (rounding_mode) {
 	case ROUNDING_DOWN:
@@ -193,7 +193,8 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 	// check special case here
 	if ((coefficient_a == 1000000000000000ull)
 	    && (diff_dec_expon == MAX_FORMAT_DIGITS + 1)
-	    && (sign_a ^ sign_b) && (coefficient_b > 5000000000000000ull)) {
+	    && (sign_a ^ sign_b)
+	    && (coefficient_b > 5000000000000000ull)) {
 	coefficient_a = 9999999999999999ull;
 	exponent_a--;
       }
@@ -203,11 +204,11 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     }
   }
   // test whether coefficient_a*10^(exponent_a-exponent_b)  may exceed 2^62
-  if (bin_expon_ca + __bid_estimate_bin_expon[diff_dec_expon] < 60) {
+  if (bin_expon_ca + estimate_bin_expon[diff_dec_expon] < 60) {
     // coefficient_a*10^(exponent_a-exponent_b)<2^63
 
     // multiply by 10^(exponent_a-exponent_b)
-    coefficient_a *= __bid_power10_table_128[diff_dec_expon].w[0];
+    coefficient_a *= power10_table_128[diff_dec_expon].w[0];
 
     // sign mask
     sign_b = ((SINT64) sign_b) >> 63;
@@ -225,7 +226,7 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     sign_s &= 0x8000000000000000ull;
 
     // coefficient_a < 10^16 ?
-    if (coefficient_a < __bid_power10_table_128[MAX_FORMAT_DIGITS].w[0]) {
+    if (coefficient_a < power10_table_128[MAX_FORMAT_DIGITS].w[0]) {
 #ifndef IEEE_ROUND_NEAREST_TIES_AWAY
 #ifndef IEEE_ROUND_NEAREST
       if (rounding_mode == ROUNDING_DOWN && (!coefficient_a)
@@ -240,9 +241,9 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 
     // already know coefficient_a<10^19
     // coefficient_a < 10^17 ?
-    if (coefficient_a < __bid_power10_table_128[17].w[0])
+    if (coefficient_a < power10_table_128[17].w[0])
       extra_digits = 1;
-    else if (coefficient_a < __bid_power10_table_128[18].w[0])
+    else if (coefficient_a < power10_table_128[18].w[0])
       extra_digits = 2;
     else
       extra_digits = 3;
@@ -258,14 +259,14 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 #else
     rmode = 0;
 #endif
-    coefficient_a += __bid_round_const_table[rmode][extra_digits];
+    coefficient_a += round_const_table[rmode][extra_digits];
 
     // get P*(2^M[extra_digits])/10^extra_digits
     __mul_64x64_to_128 (CT, coefficient_a,
-			__bid_reciprocals10_64[extra_digits]);
+			reciprocals10_64[extra_digits]);
 
     // now get P/10^extra_digits: shift C64 right by M[extra_digits]-128
-    amount = __bid_short_recip_scale[extra_digits];
+    amount = short_recip_scale[extra_digits];
     C64 = CT.w[1] >> amount;
 
   } else {
@@ -285,21 +286,21 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 #endif
 
     // check whether we can take faster path
-    scale_ca = __bid_estimate_decimal_digits[bin_expon_ca];
+    scale_ca = estimate_decimal_digits[bin_expon_ca];
 
     sign_ab = sign_a ^ sign_b;
     sign_ab = ((SINT64) sign_ab) >> 63;
 
     // T1 = 10^(16-diff_dec_expon)
-    T1 = __bid_power10_table_128[16 - diff_dec_expon].w[0];
+    T1 = power10_table_128[16 - diff_dec_expon].w[0];
 
     // get number of digits in coefficient_a
-    //P_ca = __bid_power10_table_128[scale_ca].w[0];
-    //P_ca_m1 = __bid_power10_table_128[scale_ca-1].w[0];
-    if (coefficient_a >= __bid_power10_table_128[scale_ca].w[0]) {
+    //P_ca = power10_table_128[scale_ca].w[0];
+    //P_ca_m1 = power10_table_128[scale_ca-1].w[0];
+    if (coefficient_a >= power10_table_128[scale_ca].w[0]) {
       scale_ca++;
       //P_ca_m1 = P_ca;
-      //P_ca = __bid_power10_table_128[scale_ca].w[0];
+      //P_ca = power10_table_128[scale_ca].w[0];
     }
 
     scale_k = 16 - scale_ca;
@@ -313,7 +314,7 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     // addition
     saved_ca = coefficient_a - T1;
     coefficient_a =
-      (SINT64) saved_ca *(SINT64) __bid_power10_table_128[scale_k].w[0];
+      (SINT64) saved_ca *(SINT64) power10_table_128[scale_k].w[0];
     extra_digits = diff_dec_expon - scale_k;
 
     // apply sign
@@ -321,14 +322,14 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     // add 10^16 and rounding constant
     coefficient_b =
       saved_cb + 10000000000000000ull +
-      __bid_round_const_table[rmode][extra_digits];
+      round_const_table[rmode][extra_digits];
 
     // get P*(2^M[extra_digits])/10^extra_digits
     __mul_64x64_to_128 (CT, coefficient_b,
-			__bid_reciprocals10_64[extra_digits]);
+			reciprocals10_64[extra_digits]);
 
     // now get P/10^extra_digits: shift C64 right by M[extra_digits]-128
-    amount = __bid_short_recip_scale[extra_digits];
+    amount = short_recip_scale[extra_digits];
     C0_64 = CT.w[1] >> amount;
 
     // result coefficient 
@@ -339,14 +340,15 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     //     (initial_coefficient_a + Ts) > P_ca_m1 ), 
     // which ensures the number of digits in coefficient_a does not change 
     // after adding (the appropriately scaled and rounded) coefficient_b
-    if ((UINT64) (C64 - 1000000000000000ull - 1) > 9000000000000000ull - 2) {
+    if ((UINT64) (C64 - 1000000000000000ull - 1) >
+	9000000000000000ull - 2) {
       if (C64 >= 10000000000000000ull) {
 	// result has more than 16 digits
 	if (!scale_k) {
 	  // must divide coeff_a by 10
 	  saved_ca = saved_ca + T1;
-	  __mul_64x64_to_128 (CA, saved_ca, 0x3333333333333334ull); 
-              //__bid_reciprocals10_64[1]);
+	  __mul_64x64_to_128 (CA, saved_ca, 0x3333333333333334ull);
+	  //reciprocals10_64[1]);
 	  coefficient_a = CA.w[1] >> 1;
 	  rem_a =
 	    saved_ca - (coefficient_a << 3) - (coefficient_a << 1);
@@ -354,24 +356,24 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 
 	  saved_cb +=
 	    /*90000000000000000 */ +rem_a *
-	    __bid_power10_table_128[diff_dec_expon].w[0];
+	    power10_table_128[diff_dec_expon].w[0];
 	} else
 	  coefficient_a =
 	    (SINT64) (saved_ca - T1 -
-		      (T1 << 3)) * (SINT64) __bid_power10_table_128[scale_k -
+		      (T1 << 3)) * (SINT64) power10_table_128[scale_k -
 							      1].w[0];
 
 	extra_digits++;
 	coefficient_b =
 	  saved_cb + 100000000000000000ull +
-	  __bid_round_const_table[rmode][extra_digits];
+	  round_const_table[rmode][extra_digits];
 
 	// get P*(2^M[extra_digits])/10^extra_digits
 	__mul_64x64_to_128 (CT, coefficient_b,
-			    __bid_reciprocals10_64[extra_digits]);
+			    reciprocals10_64[extra_digits]);
 
 	// now get P/10^extra_digits: shift C64 right by M[extra_digits]-128
-	amount = __bid_short_recip_scale[extra_digits];
+	amount = short_recip_scale[extra_digits];
 	C0_64 = CT.w[1] >> amount;
 
 	// result coefficient 
@@ -379,20 +381,20 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
       } else if (C64 <= 1000000000000000ull) {
 	// less than 16 digits in result
 	coefficient_a =
-	  (SINT64) saved_ca *(SINT64) __bid_power10_table_128[scale_k +
+	  (SINT64) saved_ca *(SINT64) power10_table_128[scale_k +
 							1].w[0];
 	//extra_digits --;
 	exponent_b--;
 	coefficient_b =
 	  (saved_cb << 3) + (saved_cb << 1) + 100000000000000000ull +
-	  __bid_round_const_table[rmode][extra_digits];
+	  round_const_table[rmode][extra_digits];
 
 	// get P*(2^M[extra_digits])/10^extra_digits
 	__mul_64x64_to_128 (CT_new, coefficient_b,
-			    __bid_reciprocals10_64[extra_digits]);
+			    reciprocals10_64[extra_digits]);
 
 	// now get P/10^extra_digits: shift C64 right by M[extra_digits]-128
-	amount = __bid_short_recip_scale[extra_digits];
+	amount = short_recip_scale[extra_digits];
 	C0_64 = CT_new.w[1] >> amount;
 
 	// result coefficient 
@@ -412,7 +414,7 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 
 #ifndef IEEE_ROUND_NEAREST_TIES_AWAY
 #ifndef IEEE_ROUND_NEAREST
-  if (rmode == 0) //ROUNDING_TO_NEAREST
+  if (rmode == 0)	//ROUNDING_TO_NEAREST
 #endif
     if (C64 & 1) {
       // check whether fractional part of initial_P/10^extra_digits 
@@ -424,7 +426,7 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
       remainder_h = CT.w[1] << (64 - amount);
 
       // test whether fractional part is 0
-      if (!remainder_h && (CT.w[0] < __bid_reciprocals10_64[extra_digits])) {
+      if (!remainder_h && (CT.w[0] < reciprocals10_64[extra_digits])) {
 	C64--;
       }
     }
@@ -441,18 +443,18 @@ get_add64 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
   case ROUNDING_TIES_AWAY:
     // test whether fractional part is 0
     if ((remainder_h == 0x8000000000000000ull)
-	&& (CT.w[0] < __bid_reciprocals10_64[extra_digits]))
+	&& (CT.w[0] < reciprocals10_64[extra_digits]))
       status = EXACT_STATUS;
     break;
   case ROUNDING_DOWN:
   case ROUNDING_TO_ZERO:
-    if (!remainder_h && (CT.w[0] < __bid_reciprocals10_64[extra_digits]))
+    if (!remainder_h && (CT.w[0] < reciprocals10_64[extra_digits]))
       status = EXACT_STATUS;
     break;
   default:
     // round up
     __add_carry_out (tmp, carry, CT.w[0],
-		     __bid_reciprocals10_64[extra_digits]);
+		     reciprocals10_64[extra_digits]);
     if ((remainder_h >> (64 - amount)) + carry >=
 	(((UINT64) 1) << amount))
       status = EXACT_STATUS;
@@ -486,14 +488,14 @@ __bid_simple_round64_sticky (UINT64 sign, int exponent, UINT128 P,
     rmode = 3 - rmode;
 #endif
 #endif
-  __add_128_64 (P, P, __bid_round_const_table[rmode][extra_digits]);
+  __add_128_64 (P, P, round_const_table[rmode][extra_digits]);
 
   // get P*(2^M[extra_digits])/10^extra_digits
   __mul_128x128_full (Q_high, Q_low, P,
-		      __bid_reciprocals10_128[extra_digits]);
+		      reciprocals10_128[extra_digits]);
 
   // now get P/10^extra_digits: shift Q_high right by M[extra_digits]-128
-  amount = __bid_recip_scale[extra_digits];
+  amount = recip_scale[extra_digits];
   __shr_128 (C128, Q_high, amount);
 
   C64 = __low_64 (C128);
@@ -527,9 +529,9 @@ __bid_full_round64 (UINT64 sign, int exponent, UINT128 P,
 	if (sign && (unsigned) (rmode - 1) < 2)
 	  rmode = 3 - rmode;
 	__add_128_128 (PU, P,
-		       __bid_round_const_table_128[rmode][extra_digits]);
+		       round_const_table_128[rmode][extra_digits]);
 	if (__unsigned_compare_gt_128
-	    (__bid_power10_table_128[extra_digits + 15], PU))
+	    (power10_table_128[extra_digits + 15], PU))
 	  status = UNDERFLOW_EXCEPTION;
       }
 #endif
@@ -541,25 +543,25 @@ __bid_full_round64 (UINT64 sign, int exponent, UINT128 P,
     rmode = rounding_mode;
     if (sign && (unsigned) (rmode - 1) < 2)
       rmode = 3 - rmode;
-    __add_128_128 (P, P, __bid_round_const_table_128[rmode][extra_digits]);
+    __add_128_128 (P, P, round_const_table_128[rmode][extra_digits]);
 
     // get P*(2^M[extra_digits])/10^extra_digits
     __mul_128x128_full (Q_high, Q_low, P,
-			__bid_reciprocals10_128[extra_digits]);
+			reciprocals10_128[extra_digits]);
 
     // now get P/10^extra_digits: shift Q_high right by M[extra_digits]-128
-    amount = __bid_recip_scale[extra_digits];
+    amount = recip_scale[extra_digits];
     __shr_128_long (C128, Q_high, amount);
 
     C64 = __low_64 (C128);
 
 #ifndef IEEE_ROUND_NEAREST_TIES_AWAY
 #ifndef IEEE_ROUND_NEAREST
-    if (rmode == 0) //ROUNDING_TO_NEAREST
+    if (rmode == 0)	//ROUNDING_TO_NEAREST
 #endif
       if (C64 & 1) {
 	// check whether fractional part of initial_P/10^extra_digits 
-        // is exactly .5
+	// is exactly .5
 
 	// get remainder
 	amount2 = 64 - amount;
@@ -569,10 +571,10 @@ __bid_full_round64 (UINT64 sign, int exponent, UINT128 P,
 	remainder_h = remainder_h & Q_high.w[0];
 
 	if (!remainder_h
-	    && (Q_low.w[1] < __bid_reciprocals10_128[extra_digits].w[1]
-		|| (Q_low.w[1] == __bid_reciprocals10_128[extra_digits].w[1]
+	    && (Q_low.w[1] < reciprocals10_128[extra_digits].w[1]
+		|| (Q_low.w[1] == reciprocals10_128[extra_digits].w[1]
 		    && Q_low.w[0] <
-		    __bid_reciprocals10_128[extra_digits].w[0]))) {
+		    reciprocals10_128[extra_digits].w[0]))) {
 	  C64--;
 	}
       }
@@ -589,27 +591,27 @@ __bid_full_round64 (UINT64 sign, int exponent, UINT128 P,
     case ROUNDING_TIES_AWAY:
       // test whether fractional part is 0
       if (remainder_h == 0x8000000000000000ull
-	  && (Q_low.w[1] < __bid_reciprocals10_128[extra_digits].w[1]
-	      || (Q_low.w[1] == __bid_reciprocals10_128[extra_digits].w[1]
+	  && (Q_low.w[1] < reciprocals10_128[extra_digits].w[1]
+	      || (Q_low.w[1] == reciprocals10_128[extra_digits].w[1]
 		  && Q_low.w[0] <
-		  __bid_reciprocals10_128[extra_digits].w[0])))
+		  reciprocals10_128[extra_digits].w[0])))
 	status = EXACT_STATUS;
       break;
     case ROUNDING_DOWN:
     case ROUNDING_TO_ZERO:
       if (!remainder_h
-	  && (Q_low.w[1] < __bid_reciprocals10_128[extra_digits].w[1]
-	      || (Q_low.w[1] == __bid_reciprocals10_128[extra_digits].w[1]
+	  && (Q_low.w[1] < reciprocals10_128[extra_digits].w[1]
+	      || (Q_low.w[1] == reciprocals10_128[extra_digits].w[1]
 		  && Q_low.w[0] <
-		  __bid_reciprocals10_128[extra_digits].w[0])))
+		  reciprocals10_128[extra_digits].w[0])))
 	status = EXACT_STATUS;
       break;
     default:
       // round up
       __add_carry_out (Stemp.w[0], CY, Q_low.w[0],
-		       __bid_reciprocals10_128[extra_digits].w[0]);
+		       reciprocals10_128[extra_digits].w[0]);
       __add_carry_in_out (Stemp.w[1], carry, Q_low.w[1],
-			  __bid_reciprocals10_128[extra_digits].w[1], CY);
+			  reciprocals10_128[extra_digits].w[1], CY);
       if ((remainder_h >> (64 - amount)) + carry >=
 	  (((UINT64) 1) << amount))
 	status = EXACT_STATUS;
@@ -633,7 +635,7 @@ __bid_full_round64 (UINT64 sign, int exponent, UINT128 P,
 // round 192-bit coefficient (P, remainder_P) and return result in BID64 format
 // the lowest 64 bits (remainder_P) are used for midpoint checking only
 ////////////////////////////////////////////////////////////////////////////////
-UINT64
+static UINT64
 __bid_full_round64_remainder (UINT64 sign, int exponent, UINT128 P,
 			      int extra_digits, UINT64 remainder_P,
 			      int rounding_mode, unsigned *fpsc,
@@ -652,25 +654,25 @@ __bid_full_round64_remainder (UINT64 sign, int exponent, UINT128 P,
   }
 
   if (extra_digits) {
-    __add_128_64 (P, P, __bid_round_const_table[rmode][extra_digits]);
+    __add_128_64 (P, P, round_const_table[rmode][extra_digits]);
 
     // get P*(2^M[extra_digits])/10^extra_digits
     __mul_128x128_full (Q_high, Q_low, P,
-			__bid_reciprocals10_128[extra_digits]);
+			reciprocals10_128[extra_digits]);
 
     // now get P/10^extra_digits: shift Q_high right by M[extra_digits]-128
-    amount = __bid_recip_scale[extra_digits];
+    amount = recip_scale[extra_digits];
     __shr_128 (C128, Q_high, amount);
 
     C64 = __low_64 (C128);
 
 #ifndef IEEE_ROUND_NEAREST_TIES_AWAY
 #ifndef IEEE_ROUND_NEAREST
-    if (rmode == 0) //ROUNDING_TO_NEAREST
+    if (rmode == 0)	//ROUNDING_TO_NEAREST
 #endif
       if (!remainder_P && (C64 & 1)) {
 	// check whether fractional part of initial_P/10^extra_digits 
-        // is exactly .5
+	// is exactly .5
 
 	// get remainder
 	amount2 = 64 - amount;
@@ -680,10 +682,10 @@ __bid_full_round64_remainder (UINT64 sign, int exponent, UINT128 P,
 	remainder_h = remainder_h & Q_high.w[0];
 
 	if (!remainder_h
-	    && (Q_low.w[1] < __bid_reciprocals10_128[extra_digits].w[1]
-		|| (Q_low.w[1] == __bid_reciprocals10_128[extra_digits].w[1]
+	    && (Q_low.w[1] < reciprocals10_128[extra_digits].w[1]
+		|| (Q_low.w[1] == reciprocals10_128[extra_digits].w[1]
 		    && Q_low.w[0] <
-		    __bid_reciprocals10_128[extra_digits].w[0]))) {
+		    reciprocals10_128[extra_digits].w[0]))) {
 	  C64--;
 	}
       }
@@ -701,27 +703,27 @@ __bid_full_round64_remainder (UINT64 sign, int exponent, UINT128 P,
       case ROUNDING_TIES_AWAY:
 	// test whether fractional part is 0
 	if (remainder_h == 0x8000000000000000ull
-	    && (Q_low.w[1] < __bid_reciprocals10_128[extra_digits].w[1]
-		|| (Q_low.w[1] == __bid_reciprocals10_128[extra_digits].w[1]
+	    && (Q_low.w[1] < reciprocals10_128[extra_digits].w[1]
+		|| (Q_low.w[1] == reciprocals10_128[extra_digits].w[1]
 		    && Q_low.w[0] <
-		    __bid_reciprocals10_128[extra_digits].w[0])))
+		    reciprocals10_128[extra_digits].w[0])))
 	  status = EXACT_STATUS;
 	break;
       case ROUNDING_DOWN:
       case ROUNDING_TO_ZERO:
 	if (!remainder_h
-	    && (Q_low.w[1] < __bid_reciprocals10_128[extra_digits].w[1]
-		|| (Q_low.w[1] == __bid_reciprocals10_128[extra_digits].w[1]
+	    && (Q_low.w[1] < reciprocals10_128[extra_digits].w[1]
+		|| (Q_low.w[1] == reciprocals10_128[extra_digits].w[1]
 		    && Q_low.w[0] <
-		    __bid_reciprocals10_128[extra_digits].w[0])))
+		    reciprocals10_128[extra_digits].w[0])))
 	  status = EXACT_STATUS;
 	break;
       default:
 	// round up
 	__add_carry_out (Stemp.w[0], CY, Q_low.w[0],
-			 __bid_reciprocals10_128[extra_digits].w[0]);
+			 reciprocals10_128[extra_digits].w[0]);
 	__add_carry_in_out (Stemp.w[1], carry, Q_low.w[1],
-			    __bid_reciprocals10_128[extra_digits].w[1], CY);
+			    reciprocals10_128[extra_digits].w[1], CY);
 	if ((remainder_h >> (64 - amount)) + carry >=
 	    (((UINT64) 1) << amount))
 	  status = EXACT_STATUS;
@@ -758,10 +760,10 @@ __truncate (UINT128 P, int extra_digits)
 
   // get P*(2^M[extra_digits])/10^extra_digits
   __mul_128x128_full (Q_high, Q_low, P,
-		      __bid_reciprocals10_128[extra_digits]);
+		      reciprocals10_128[extra_digits]);
 
   // now get P/10^extra_digits: shift Q_high right by M[extra_digits]-128
-  amount = __bid_recip_scale[extra_digits];
+  amount = recip_scale[extra_digits];
   __shr_128 (C128, Q_high, amount);
 
   C64 = __low_64 (C128);
@@ -783,16 +785,16 @@ __get_dec_digits64 (UINT128 X) {
     tempx.d = (double) X.w[0];
     bin_expon_cx = ((tempx.i & MASK_BINARY_EXPONENT) >> 52) - 0x3ff;
     // get number of decimal digits in the coeff_x
-    digits_x = __bid_estimate_decimal_digits[bin_expon_cx];
-    if (X.w[0] >= __bid_power10_table_128[digits_x].w[0])
+    digits_x = estimate_decimal_digits[bin_expon_cx];
+    if (X.w[0] >= power10_table_128[digits_x].w[0])
       digits_x++;
     return digits_x;
   }
   tempx.d = (double) X.w[1];
   bin_expon_cx = ((tempx.i & MASK_BINARY_EXPONENT) >> 52) - 0x3ff;
   // get number of decimal digits in the coeff_x
-  digits_x = __bid_estimate_decimal_digits[bin_expon_cx + 64];
-  if (__unsigned_compare_ge_128 (X, __bid_power10_table_128[digits_x]))
+  digits_x = estimate_decimal_digits[bin_expon_cx + 64];
+  if (__unsigned_compare_ge_128 (X, power10_table_128[digits_x]))
     digits_x++;
 
   return digits_x;
@@ -832,12 +834,12 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     tempx.d = (double) coefficient_x;
     bin_expon_cx = ((tempx.i & MASK_BINARY_EXPONENT) >> 52) - 0x3ff;
     // get number of decimal digits in the coeff_x
-    digits_x = __bid_estimate_decimal_digits[bin_expon_cx];
-    if (coefficient_x >= __bid_power10_table_128[digits_x].w[0])
+    digits_x = estimate_decimal_digits[bin_expon_cx];
+    if (coefficient_x >= power10_table_128[digits_x].w[0])
       digits_x++;
 
     extra_dx = 16 - digits_x;
-    coefficient_x *= __bid_power10_table_128[extra_dx].w[0];
+    coefficient_x *= power10_table_128[extra_dx].w[0];
     if ((sign_x ^ sign_y) && (coefficient_x == 1000000000000000ull)) {
       extra_dx++;
       coefficient_x = 10000000000000000ull;
@@ -851,7 +853,7 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 
       if (exponent_x <= final_exponent_y + 1) {
 	__mul_64x64_to_128 (CX, coefficient_x,
-			    __bid_power10_table_128[diff_dec_expon].w[0]);
+			    power10_table_128[diff_dec_expon].w[0]);
 
 	if (sign_x == sign_y) {
 	  __add_128_128 (CT, CY, CX);
@@ -859,7 +861,7 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 	       final_exponent_y) /*&& (final_exponent_y>0) */ )
 	    extra_digits++;
 	  if (__unsigned_compare_ge_128
-	      (CT, __bid_power10_table_128[16 + extra_digits]))
+	      (CT, power10_table_128[16 + extra_digits]))
 	    extra_digits++;
 	} else {
 	  __sub_128_128 (CT, CY, CX);
@@ -885,7 +887,7 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 	    }
 	  } else
 	    if (__unsigned_compare_gt_128
-		(__bid_power10_table_128[15 + extra_digits], CT))
+		(power10_table_128[15 + extra_digits], CT))
 	    extra_digits--;
 	}
 
@@ -944,26 +946,26 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
       CYh = __truncate (CY, extra_digits);
 
       // get remainder
-      T = __bid_power10_table_128[extra_digits].w[0];
+      T = power10_table_128[extra_digits].w[0];
       __mul_64x64_to_64 (CY0L, CYh, T);
 
       remainder_y = CY.w[0] - CY0L;
 
       // align coeff_x, CYh
       __mul_64x64_to_128 (CX, coefficient_x,
-			  __bid_power10_table_128[diff_dec2].w[0]);
+			  power10_table_128[diff_dec2].w[0]);
 
       if (sign_x == sign_y) {
 	__add_128_64 (CT, CX, CYh);
 	if (__unsigned_compare_ge_128
-	    (CT, __bid_power10_table_128[16 + diff_dec2]))
+	    (CT, power10_table_128[16 + diff_dec2]))
 	  diff_dec2++;
       } else {
 	if (remainder_y)
 	  CYh++;
 	__sub_128_64 (CT, CX, CYh);
 	if (__unsigned_compare_gt_128
-	    (__bid_power10_table_128[15 + diff_dec2], CT))
+	    (power10_table_128[15 + diff_dec2], CT))
 	  diff_dec2--;
       }
 
@@ -984,7 +986,7 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 	  CY.w[1]--;
 	CY.w[0]--;
 	if (__unsigned_compare_gt_128
-	    (__bid_power10_table_128[15 + extra_digits], CY)) {
+	    (power10_table_128[15 + extra_digits], CY)) {
 	  if (rmode & 3) {
 	    extra_digits--;
 	    final_exponent_y--;
@@ -1014,7 +1016,7 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 
     if (diff_dec2 <= 17) {
       // align CY to 10^ex
-      S = __bid_power10_table_128[diff_dec_expon].w[0];
+      S = power10_table_128[diff_dec_expon].w[0];
       __mul_64x128_short (CY_L, S, CY);
 
       __add_128_128 (ST, CY_L, CX);
@@ -1026,7 +1028,7 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     CYh = __truncate (CY, extra_digits);
 
     // get remainder
-    T = __bid_power10_table_128[extra_digits].w[0];
+    T = power10_table_128[extra_digits].w[0];
     __mul_64x64_to_64 (CY0L, CYh, T);
 
     coefficient_y = CY.w[0] - CY0L;
@@ -1036,14 +1038,14 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
       rmode = 3 - rmode;
 #ifndef IEEE_ROUND_NEAREST_TIES_AWAY
 #ifndef IEEE_ROUND_NEAREST
-    if (!(rmode & 3)) //ROUNDING_TO_NEAREST
+    if (!(rmode & 3))	//ROUNDING_TO_NEAREST
 #endif
 #endif
     {
-      coefficient_y += __bid_round_const_table[rmode][extra_digits];
+      coefficient_y += round_const_table[rmode][extra_digits];
     }
     // align coefficient_y,  coefficient_x
-    S = __bid_power10_table_128[diff_dec_expon].w[0];
+    S = power10_table_128[diff_dec_expon].w[0];
     __mul_64x64_to_128 (F, coefficient_y, S);
 
     // fraction
@@ -1051,12 +1053,12 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 
 #ifndef IEEE_ROUND_NEAREST_TIES_AWAY
 #ifndef IEEE_ROUND_NEAREST
-    if (rmode == 0) //ROUNDING_TO_NEAREST
+    if (rmode == 0)	//ROUNDING_TO_NEAREST
 #endif
     {
       // rounding code, here RN_EVEN
       // 10^(extra_digits+diff_dec_expon)
-      T2 = __bid_power10_table_128[diff_dec_expon + extra_digits];
+      T2 = power10_table_128[diff_dec_expon + extra_digits];
       if (__unsigned_compare_gt_128 (FS, T2)
 	  || ((CYh & 1) && __test_equal_128 (FS, T2))) {
 	CYh++;
@@ -1066,12 +1068,12 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 #endif
 #ifndef IEEE_ROUND_NEAREST
 #ifndef IEEE_ROUND_NEAREST_TIES_AWAY
-    if (rmode == 4) //ROUNDING_TO_NEAREST
+    if (rmode == 4)	//ROUNDING_TO_NEAREST
 #endif
     {
       // rounding code, here RN_AWAY
       // 10^(extra_digits+diff_dec_expon)
-      T2 = __bid_power10_table_128[diff_dec_expon + extra_digits];
+      T2 = power10_table_128[diff_dec_expon + extra_digits];
       if (__unsigned_compare_ge_128 (FS, T2)) {
 	CYh++;
 	__sub_128_128 (FS, FS, T2);
@@ -1090,7 +1092,7 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 	  final_exponent_y--;
 	}
       } else {
-	T2 = __bid_power10_table_128[diff_dec_expon + extra_digits];
+	T2 = power10_table_128[diff_dec_expon + extra_digits];
 	if (__unsigned_compare_ge_128 (FS, T2)) {
 	  CYh++;
 	  __sub_128_128 (FS, FS, T2);
@@ -1100,7 +1102,7 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     case ROUNDING_UP:
       if ((SINT64) FS.w[1] < 0)
 	break;
-      T2 = __bid_power10_table_128[diff_dec_expon + extra_digits];
+      T2 = power10_table_128[diff_dec_expon + extra_digits];
       if (__unsigned_compare_gt_128 (FS, T2)) {
 	CYh += 2;
 	__sub_128_128 (FS, FS, T2);
@@ -1124,9 +1126,9 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
     {
       // RN modes
       if ((FS.w[1] ==
-	   __bid_round_const_table_128[0][diff_dec_expon + extra_digits].w[1])
+	   round_const_table_128[0][diff_dec_expon + extra_digits].w[1])
 	  && (FS.w[0] ==
-	      __bid_round_const_table_128[0][diff_dec_expon +
+	      round_const_table_128[0][diff_dec_expon +
 				       extra_digits].w[0]))
 	status = EXACT_STATUS;
     }
@@ -1144,6 +1146,82 @@ get_add128 (UINT64 sign_x, int exponent_x, UINT64 coefficient_x,
 		      fpsc);
   }
 
+}
+
+//////////////////////////////////////////////////////////////////////////
+//
+//  If coefficient_z is less than 16 digits long, normalize to 16 digits
+//
+/////////////////////////////////////////////////////////////////////////
+static UINT64
+BID_normalize (UINT64 sign_z, int exponent_z,
+	       UINT64 coefficient_z, UINT64 round_dir, int round_flag,
+	       int rounding_mode, unsigned *fpsc) {
+  SINT64 D;
+  int_double tempx;
+  int digits_z, bin_expon, scale, rmode;
+
+#ifndef IEEE_ROUND_NEAREST_TIES_AWAY
+#ifndef IEEE_ROUND_NEAREST
+  rmode = rounding_mode;
+  if (sign_z && (unsigned) (rmode - 1) < 2)
+    rmode = 3 - rmode;
+#else
+  if (coefficient_z >= power10_table_128[15].w[0])
+    return z;
+#endif
+#endif
+
+  //--- get number of bits in the coefficients of x and y ---
+  tempx.d = (double) coefficient_z;
+  bin_expon = ((tempx.i & MASK_BINARY_EXPONENT) >> 52) - 0x3ff;
+  // get number of decimal digits in the coeff_x
+  digits_z = estimate_decimal_digits[bin_expon];
+  if (coefficient_z >= power10_table_128[digits_z].w[0])
+    digits_z++;
+
+  scale = 16 - digits_z;
+  exponent_z -= scale;
+  if (exponent_z < 0) {
+    scale += exponent_z;
+    exponent_z = 0;
+  }
+  coefficient_z *= power10_table_128[scale].w[0];
+
+#ifdef SET_STATUS_FLAGS
+  if (round_flag) {
+    __set_status_flags (fpsc, INEXACT_EXCEPTION);
+    if (coefficient_z < 1000000000000000ull)
+      __set_status_flags (fpsc, UNDERFLOW_EXCEPTION);
+    else if ((coefficient_z == 1000000000000000ull) && !exponent_z
+	     && ((SINT64) (round_dir ^ sign_z) < 0) && round_flag
+	     && (rmode == ROUNDING_DOWN || rmode == ROUNDING_TO_ZERO))
+      __set_status_flags (fpsc, UNDERFLOW_EXCEPTION);
+  }
+#endif
+
+#ifndef IEEE_ROUND_NEAREST_TIES_AWAY
+#ifndef IEEE_ROUND_NEAREST
+  if (round_flag && (rmode & 3)) {
+    D = round_dir ^ sign_z;
+
+    if (rmode == ROUNDING_UP) {
+      if (D >= 0)
+	coefficient_z++;
+    } else {
+      if (D < 0)
+	coefficient_z--;
+      if (coefficient_z < 1000000000000000ull && exponent_z) {
+	coefficient_z = 9999999999999999ull;
+	exponent_z--;
+      }
+    }
+  }
+#endif
+#endif
+
+  return get_BID64 (sign_z, exponent_z, coefficient_z, rounding_mode,
+		    fpsc);
 }
 
 
@@ -1165,14 +1243,14 @@ add_zero64 (int exponent_y, UINT64 sign_z, int exponent_z,
 
   tempx.d = (double) coefficient_z;
   bin_expon = ((tempx.i & MASK_BINARY_EXPONENT) >> 52) - 0x3ff;
-  scale_cz = __bid_estimate_decimal_digits[bin_expon];
-  if (coefficient_z >= __bid_power10_table_128[scale_cz].w[0])
+  scale_cz = estimate_decimal_digits[bin_expon];
+  if (coefficient_z >= power10_table_128[scale_cz].w[0])
     scale_cz++;
 
   scale_k = 16 - scale_cz;
   if (diff_expon < scale_k)
     scale_k = diff_expon;
-  coefficient_z *= __bid_power10_table_128[scale_k].w[0];
+  coefficient_z *= power10_table_128[scale_k].w[0];
 
   return get_BID64 (sign_z, exponent_z - scale_k, coefficient_z,
 		    *prounding_mode, fpsc);

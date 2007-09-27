@@ -29,25 +29,23 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef _SQRT_MACROS_H_
 #define _SQRT_MACROS_H_
 
-#include "bid_internal.h"
-
 #define FENCE __fence
 
 #if DOUBLE_EXTENDED_ON
 
-extern long double sqrtl (long double);
+extern BINARY80 SQRT80 (BINARY80);
 
 
 __BID_INLINE__ UINT64
 short_sqrt128 (UINT128 A10) {
-  long double lx, ly, l64;
+  BINARY80 lx, ly, l64;
   int_float f64;
 
   // 2^64
   f64.i = 0x5f800000;
-  l64 = (long double) f64.d;
-  lx = (long double) A10.w[1] * l64 + (long double) A10.w[0];
-  ly = sqrtl (lx);
+  l64 = (BINARY80) f64.d;
+  lx = (BINARY80) A10.w[1] * l64 + (BINARY80) A10.w[0];
+  ly = SQRT80 (lx);
   return (UINT64) ly;
 }
 
@@ -58,32 +56,32 @@ long_sqrt128 (UINT128 * pCS, UINT256 C256) {
   UINT128 CS;
   UINT64 X;
   SINT64 SE;
-  long double l64, lm64, l128, lxL, lx, ly, lS, lSH, lSL, lE, l3, l2,
+  BINARY80 l64, lm64, l128, lxL, lx, ly, lS, lSH, lSL, lE, l3, l2,
     l1, l0, lp, lCl;
   int_float fx, f64, fm64;
   int *ple = (int *) &lx;
 
   // 2^64
   f64.i = 0x5f800000;
-  l64 = (long double) f64.d;
+  l64 = (BINARY80) f64.d;
 
   l128 = l64 * l64;
-  lx = l3 = (long double) C256.w[3] * l64 * l128;
-  l2 = (long double) C256.w[2] * l128;
+  lx = l3 = (BINARY80) C256.w[3] * l64 * l128;
+  l2 = (BINARY80) C256.w[2] * l128;
   lx = FENCE (lx + l2);
-  l1 = (long double) C256.w[1] * l64;
+  l1 = (BINARY80) C256.w[1] * l64;
   lx = FENCE (lx + l1);
-  l0 = (long double) C256.w[0];
+  l0 = (BINARY80) C256.w[0];
   lx = FENCE (lx + l0);
   // sqrt(C256)
-  lS = sqrtl (lx);
+  lS = SQRT80 (lx);
 
   // get coefficient
   // 2^(-64)
   fm64.i = 0x1f800000;
-  lm64 = (long double) fm64.d;
+  lm64 = (BINARY80) fm64.d;
   CS.w[1] = (UINT64) (lS * lm64);
-  CS.w[0] = (UINT64) (lS - (long double) CS.w[1] * l64);
+  CS.w[0] = (UINT64) (lS - (BINARY80) CS.w[1] * l64);
 
   ///////////////////////////////////////
   //  CAUTION!
@@ -163,9 +161,12 @@ short_sqrt128 (UINT128 A10) {
 
   // shr by 2*ey+40, to get a 64-bit value
   k = (ey << 1) + 104 - 64;
-  if (k >= 128)
-    ES = (ARS.w[2] >> (k - 128)) | (ARS.w[3] << (192 - k));
-  else {
+  if (k >= 128) {
+    if (k > 128)
+      ES = (ARS.w[2] >> (k - 128)) | (ARS.w[3] << (192 - k));
+    else
+      ES = ARS.w[2];
+  } else {
     if (k >= 64) {
       ARS.w[0] = ARS.w[1];
       ARS.w[1] = ARS.w[2];

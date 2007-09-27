@@ -38,16 +38,14 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #if DECIMAL_CALL_BY_REFERENCE
 
 void
-__bid64_to_string (char *ps, UINT64 * px
-		 _RND_MODE_PARAM _EXC_FLAGS_PARAM _EXC_MASKS_PARAM
-		 _EXC_INFO_PARAM) {
+bid64_to_string (char *ps, UINT64 * px
+		 _EXC_FLAGS_PARAM _EXC_MASKS_PARAM _EXC_INFO_PARAM) {
   UINT64 x;
 #else
 
 void
-__bid64_to_string (char *ps, UINT64 x
-		 _RND_MODE_PARAM _EXC_FLAGS_PARAM _EXC_MASKS_PARAM
-		 _EXC_INFO_PARAM) {
+bid64_to_string (char *ps, UINT64 x
+		 _EXC_FLAGS_PARAM _EXC_MASKS_PARAM _EXC_INFO_PARAM) {
 #endif
 // the destination string (pointed to by ps) must be pre-allocated
   UINT64 sign_x, coefficient_x, D, ER10;
@@ -57,14 +55,13 @@ __bid64_to_string (char *ps, UINT64 x
   UINT64 HI_18Dig, LO_18Dig, Tmp;
   char *c_ptr_start, *c_ptr;
   int midi_ind, k_lcv, len;
+  unsigned int save_fpsf;
 
 #if DECIMAL_CALL_BY_REFERENCE
-#if !DECIMAL_GLOBAL_ROUNDING
-  _IDEC_round rnd_mode = *prnd_mode;
-#endif
   x = *px;
 #endif
 
+  save_fpsf = *pfpsf; // place holder only
   // unpack arguments, check for NaN or Infinity
   if (!unpack_BID64 (&sign_x, &exponent_x, &coefficient_x, x)) {
     // x is Inf. or NaN or 0
@@ -72,10 +69,12 @@ __bid64_to_string (char *ps, UINT64 x
     // Inf or NaN?
     if ((x & 0x7800000000000000ull) == 0x7800000000000000ull) {
       if ((x & 0x7c00000000000000ull) == 0x7c00000000000000ull) {
-	ps[0] = 'N';
-	ps[1] = 'a';
+    ps[0] = (sign_x) ? '-' : '+';
+    ps[1] = ((x & MASK_SNAN) == MASK_SNAN)? 'S':'Q';
 	ps[2] = 'N';
-	ps[3] = 0;
+	ps[3] = 'a';
+	ps[4] = 'N';
+	ps[5] = 0;
 	return;
       }
       // x is Inf
@@ -106,8 +105,8 @@ __bid64_to_string (char *ps, UINT64 x
       // get decimal digits in coefficient_x
       tempx.d = (float) exponent_x;
       bin_expon_cx = ((tempx.i >> 23) & 0xff) - 0x7f;
-      digits_x = __bid_estimate_decimal_digits[bin_expon_cx];
-      if ((UINT64)exponent_x >= __bid_power10_table_128[digits_x].w[0])
+      digits_x = estimate_decimal_digits[bin_expon_cx];
+      if ((UINT64)exponent_x >= power10_table_128[digits_x].w[0])
 	digits_x++;
 
       j = istart + digits_x - 1;
@@ -183,8 +182,8 @@ __bid64_to_string (char *ps, UINT64 x
       midi_ind = (int) (Tmp & 0x000000000000003FLL);
       midi_ind <<= 1;
       Tmp >>= 6;
-      HI_18Dig += __bid_mod10_18_tbl[k_lcv][midi_ind++];
-      LO_18Dig += __bid_mod10_18_tbl[k_lcv++][midi_ind];
+      HI_18Dig += mod10_18_tbl[k_lcv][midi_ind++];
+      LO_18Dig += mod10_18_tbl[k_lcv++][midi_ind];
       __L0_Normalize_10to18 (HI_18Dig, LO_18Dig);
     }
 
@@ -214,8 +213,8 @@ __bid64_to_string (char *ps, UINT64 x
     // get decimal digits in coefficient_x
     tempx.d = (float) exponent_x;
     bin_expon_cx = ((tempx.i >> 23) & 0xff) - 0x7f;
-    digits_x = __bid_estimate_decimal_digits[bin_expon_cx];
-    if ((UINT64)exponent_x >= __bid_power10_table_128[digits_x].w[0])
+    digits_x = estimate_decimal_digits[bin_expon_cx];
+    if ((UINT64)exponent_x >= power10_table_128[digits_x].w[0])
       digits_x++;
 
     j = istart + digits_x - 1;
@@ -244,19 +243,16 @@ __bid64_to_string (char *ps, UINT64 x
 }
 
 
-
 #if DECIMAL_CALL_BY_REFERENCE
-
 void
-__bid64_from_string (UINT64 * pres, char *ps
-		   _RND_MODE_PARAM _EXC_FLAGS_PARAM _EXC_MASKS_PARAM
-		   _EXC_INFO_PARAM) {
+bid64_from_string (UINT64 * pres, char *ps
+		   _RND_MODE_PARAM _EXC_FLAGS_PARAM 
+                   _EXC_MASKS_PARAM _EXC_INFO_PARAM) {
 #else
-
 UINT64
-__bid64_from_string (char *ps
-		   _RND_MODE_PARAM _EXC_FLAGS_PARAM _EXC_MASKS_PARAM
-		   _EXC_INFO_PARAM) {
+bid64_from_string (char *ps
+		   _RND_MODE_PARAM _EXC_FLAGS_PARAM 
+                   _EXC_MASKS_PARAM _EXC_INFO_PARAM) {
 #endif
   UINT64 sign_x, coefficient_x = 0, rounded = 0, res;
   int expon_x = 0, sgn_expon, ndigits, add_expon = 0, midpoint =
@@ -265,6 +261,7 @@ __bid64_from_string (char *ps
     0;
   unsigned fpsc;
   char c;
+  unsigned int save_fpsf;
 
 #if DECIMAL_CALL_BY_REFERENCE
 #if !DECIMAL_GLOBAL_ROUNDING
@@ -272,6 +269,7 @@ __bid64_from_string (char *ps
 #endif
 #endif
 
+  save_fpsf = *pfpsf; // place holder only
   // eliminate leading whitespace
   while (((*ps == ' ') || (*ps == '\t')) && (*ps))
     ps++;
@@ -413,6 +411,8 @@ __bid64_from_string (char *ps
       coefficient_x += (UINT64) (c - '0');
     } else if (ndigits == 17) {
       // coefficient rounding
+		switch(rnd_mode){
+	case ROUNDING_TO_NEAREST:
       midpoint = (c == '5' && !(coefficient_x & 1)) ? 1 : 0; 
           // if coefficient is even and c is 5, prepare to round up if 
           // subsequent digit is nonzero
@@ -421,6 +421,18 @@ __bid64_from_string (char *ps
       if (c > '5' || (c == '5' && (coefficient_x & 1))) {
 	coefficient_x++;
 	rounded_up = 1;
+	break;
+
+	case ROUNDING_DOWN:
+		if(sign_x) { coefficient_x++; rounded_up=1; }
+		break;
+	case ROUNDING_UP:
+		if(!sign_x) { coefficient_x++; rounded_up=1; }
+		break;
+	case ROUNDING_TIES_AWAY:
+		if(c>='5') { coefficient_x++; rounded_up=1; }
+		break;
+	  }
 	if (coefficient_x == 10000000000000000ull) {
 	  coefficient_x = 1000000000000000ull;
 	  add_expon = 1;

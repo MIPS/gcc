@@ -1,5 +1,4 @@
-/* BID intrinsic prototypes for DFP
-   Copyright (C) 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2007  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,10 +26,11 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-#ifndef _BID_INTRINSICS_H
-#define _BID_INTRINSICS_H
+#ifndef _BID_GCC_INTRINSICS_H
+#define _BID_GCC_INTRINSICS_H
 
 #ifdef IN_LIBGCC2
+
 #include "tconfig.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -92,7 +92,14 @@ typedef USItype UINT32;
 typedef SItype SINT32;
 typedef UDItype UINT64;
 typedef DItype SINT64;
-#else	/* IN_LIBGCC2 */
+
+/* It has to be identical to the one defined in bid_functions.h.  */
+typedef __attribute__ ((aligned(16))) struct
+{
+  UINT64 w[2];
+} UINT128;
+#else	/* if not IN_LIBGCC2 */
+
 #ifndef BID_HAS_XF_MODE
 #define BID_HAS_XF_MODE 1
 #endif
@@ -104,18 +111,6 @@ typedef DItype SINT64;
 #define BID_HAS_TF_MODE 1
 #endif
 #endif
-
-typedef char SINT8;
-typedef unsigned char UINT8;
-typedef unsigned UINT32;
-typedef signed SINT32;
-
-#ifdef __GNUC__
-#define __int64 long long
-#endif
-
-typedef unsigned __int64 UINT64;
-typedef signed __int64 SINT64;
 
 #ifndef SFtype
 #define SFtype float
@@ -129,7 +124,8 @@ typedef signed __int64 SINT64;
 #ifndef XFtype
 #define XFtype long double
 #endif
-#endif
+
+#endif   /* IN_LIBGCC2 */
 
 #if BID_HAS_TF_MODE
 #ifndef TFtype
@@ -158,7 +154,8 @@ typedef signed __int64 SINT64;
 #endif
 #endif	/* IN_LIBGCC2 */
 
-/* Prototypes for instrinsics  */
+#if BID_HAS_GCC_DECIMAL_INTRINSICS
+/* Prototypes for gcc instrinsics  */
 
 extern _Decimal64 __bid_adddd3 (_Decimal64, _Decimal64);
 extern _Decimal64 __bid_subdd3 (_Decimal64, _Decimal64);
@@ -266,6 +263,7 @@ extern _Decimal128 __bid_extendxftd (XFtype);
 extern int isinfd32 (_Decimal32);
 extern int isinfd64 (_Decimal64);
 extern int isinfd128 (_Decimal128);
+#endif  /* BID_HAS_GCC_DECIMAL_INTRINSICS */
 
 extern void __dfp_set_round (int);
 extern int __dfp_get_round (void);
@@ -273,4 +271,30 @@ extern void __dfp_clear_except (void);
 extern int __dfp_test_except (int);
 extern void __dfp_raise_except (int);
 
-#endif /* _BID_INTRINSICS_H */
+#if BID_HAS_GCC_DECIMAL_INTRINSICS
+/* Used by gcc intrinsics.  We have to define them after UINT128
+   is defined.  */
+union decimal32 {
+  _Decimal32 d;
+  UINT32 i;
+};
+ 
+union decimal64 {
+  _Decimal64 d;
+  UINT64 i;
+};
+ 
+union decimal128 {
+  _Decimal128 d;
+  UINT128 i;
+};
+ 
+#if BID_HAS_TF_MODE
+union float128 {
+  TFtype f;
+  UINT128 i;
+};
+#endif
+#endif  /* BID_HAS_GCC_DECIMAL_INTRINSICS */
+
+#endif /* _BID_GCC_INTRINSICS_H */

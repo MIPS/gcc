@@ -28,7 +28,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "bid_internal.h"
 
-UINT64 __bid_round_const_table[][19] = {
+UINT64 round_const_table[][19] = {
   {	// RN
    0ull,	// 0 extra digits
    5ull,	// 1 extra digits
@@ -141,461 +141,677 @@ UINT64 __bid_round_const_table[][19] = {
   ,
 };
 
-UINT128 __bid_round_const_table_128[][36] = {
+UINT128 round_const_table_128[][36] = {
   {	//RN
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 0 extra digits
-   {{5ull, 0ull}}
+   {{5ull, 0ull}
+    }
    ,	// 1 extra digits
-   {{50ull, 0ull}}
+   {{50ull, 0ull}
+    }
    ,	// 2 extra digits
-   {{500ull, 0ull}}
+   {{500ull, 0ull}
+    }
    ,	// 3 extra digits
-   {{5000ull, 0ull}}
+   {{5000ull, 0ull}
+    }
    ,	// 4 extra digits
-   {{50000ull, 0ull}}
+   {{50000ull, 0ull}
+    }
    ,	// 5 extra digits
-   {{500000ull, 0ull}}
+   {{500000ull, 0ull}
+    }
    ,	// 6 extra digits
-   {{5000000ull, 0ull}}
+   {{5000000ull, 0ull}
+    }
    ,	// 7 extra digits
-   {{50000000ull, 0ull}}
+   {{50000000ull, 0ull}
+    }
    ,	// 8 extra digits
-   {{500000000ull, 0ull}}
+   {{500000000ull, 0ull}
+    }
    ,	// 9 extra digits
-   {{5000000000ull, 0ull}}
+   {{5000000000ull, 0ull}
+    }
    ,	// 10 extra digits
-   {{50000000000ull, 0ull}}
+   {{50000000000ull, 0ull}
+    }
    ,	// 11 extra digits
-   {{500000000000ull, 0ull}}
+   {{500000000000ull, 0ull}
+    }
    ,	// 12 extra digits
-   {{5000000000000ull, 0ull}}
+   {{5000000000000ull, 0ull}
+    }
    ,	// 13 extra digits
-   {{50000000000000ull, 0ull}}
+   {{50000000000000ull, 0ull}
+    }
    ,	// 14 extra digits
-   {{500000000000000ull, 0ull}}
+   {{500000000000000ull, 0ull}
+    }
    ,	// 15 extra digits
-   {{5000000000000000ull, 0ull}}
+   {{5000000000000000ull, 0ull}
+    }
    ,	// 16 extra digits
-   {{50000000000000000ull, 0ull}}
+   {{50000000000000000ull, 0ull}
+    }
    ,	// 17 extra digits
-   {{500000000000000000ull, 0ull}}
+   {{500000000000000000ull, 0ull}
+    }
    ,	// 18 extra digits
-   {{5000000000000000000ull, 0ull}}
+   {{5000000000000000000ull, 0ull}
+    }
    ,	// 19 extra digits
-   {{0xb5e3af16b1880000ull, 2ull}}
+   {{0xb5e3af16b1880000ull, 2ull}
+    }
    ,	//20
-   {{0x1ae4d6e2ef500000ull, 27ull}}
+   {{0x1ae4d6e2ef500000ull, 27ull}
+    }
    ,	//21
-   {{0xcf064dd59200000ull, 271ull}}
+   {{0xcf064dd59200000ull, 271ull}
+    }
    ,	//22
-   {{0x8163f0a57b400000ull, 2710ull}}
+   {{0x8163f0a57b400000ull, 2710ull}
+    }
    ,	//23
-   {{0xde76676d0800000ull, 27105ull}}
+   {{0xde76676d0800000ull, 27105ull}
+    }
    ,	//24
-   {{0x8b0a00a425000000ull, 0x422caull}}
+   {{0x8b0a00a425000000ull, 0x422caull}
+    }
    ,	//25
-   {{0x6e64066972000000ull, 0x295be9ull}}
+   {{0x6e64066972000000ull, 0x295be9ull}
+    }
    ,	//26
-   {{0x4fe8401e74000000ull, 0x19d971eull}}
+   {{0x4fe8401e74000000ull, 0x19d971eull}
+    }
    ,	//27
-   {{0x1f12813088000000ull, 0x1027e72full}}
+   {{0x1f12813088000000ull, 0x1027e72full}
+    }
    ,	//28
-   {{0x36b90be550000000ull, 0xa18f07d7ull}}
+   {{0x36b90be550000000ull, 0xa18f07d7ull}
+    }
    ,	//29
-   {{0x233a76f520000000ull, 0x64f964e68ull}}
+   {{0x233a76f520000000ull, 0x64f964e68ull}
+    }
    ,	//30
-   {{0x6048a59340000000ull, 0x3f1bdf1011ull}}
+   {{0x6048a59340000000ull, 0x3f1bdf1011ull}
+    }
    ,	//31
-   {{0xc2d677c080000000ull, 0x27716b6a0adull}}
+   {{0xc2d677c080000000ull, 0x27716b6a0adull}
+    }
    ,	//32
-   {{0x9c60ad8500000000ull, 0x18a6e32246c9ull}}
+   {{0x9c60ad8500000000ull, 0x18a6e32246c9ull}
+    }
    ,	//33
-   {{0x1bc6c73200000000ull, 0xf684df56c3e0ull}}
+   {{0x1bc6c73200000000ull, 0xf684df56c3e0ull}
+    }
    ,	//34
-   {{0x15c3c7f400000000ull, 0x9a130b963a6c1ull}}
+   {{0x15c3c7f400000000ull, 0x9a130b963a6c1ull}
+    }
    ,	//35
    }
   ,
   {	//RD
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 0 extra digits
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 1 extra digits
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 2 extra digits
-   {{00ull, 0ull}}
+   {{00ull, 0ull}
+    }
    ,	// 3 extra digits
-   {{000ull, 0ull}}
+   {{000ull, 0ull}
+    }
    ,	// 4 extra digits
-   {{0000ull, 0ull}}
+   {{0000ull, 0ull}
+    }
    ,	// 5 extra digits
-   {{00000ull, 0ull}}
+   {{00000ull, 0ull}
+    }
    ,	// 6 extra digits
-   {{000000ull, 0ull}}
+   {{000000ull, 0ull}
+    }
    ,	// 7 extra digits
-   {{0000000ull, 0ull}}
+   {{0000000ull, 0ull}
+    }
    ,	// 8 extra digits
-   {{00000000ull, 0ull}}
+   {{00000000ull, 0ull}
+    }
    ,	// 9 extra digits
-   {{000000000ull, 0ull}}
+   {{000000000ull, 0ull}
+    }
    ,	// 10 extra digits
-   {{0000000000ull, 0ull}}
+   {{0000000000ull, 0ull}
+    }
    ,	// 11 extra digits
-   {{00000000000ull, 0ull}}
+   {{00000000000ull, 0ull}
+    }
    ,	// 12 extra digits
-   {{000000000000ull, 0ull}}
+   {{000000000000ull, 0ull}
+    }
    ,	// 13 extra digits
-   {{0000000000000ull, 0ull}}
+   {{0000000000000ull, 0ull}
+    }
    ,	// 14 extra digits
-   {{00000000000000ull, 0ull}}
+   {{00000000000000ull, 0ull}
+    }
    ,	// 15 extra digits
-   {{000000000000000ull, 0ull}}
+   {{000000000000000ull, 0ull}
+    }
    ,	// 16 extra digits
-   {{0000000000000000ull, 0ull}}
+   {{0000000000000000ull, 0ull}
+    }
    ,	// 17 extra digits
-   {{00000000000000000ull, 0ull}}
+   {{00000000000000000ull, 0ull}
+    }
    ,	// 18 extra digits
-   {{000000000000000000ull, 0ull}}
+   {{000000000000000000ull, 0ull}
+    }
    ,	// 19 extra digits
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//20
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//21
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//22
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//23
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//24
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//25
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//26
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//27
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//28
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//29
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//30
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//31
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//32
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//33
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//34
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//35
    }
   ,
   {	//RU
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 0 extra digits
-   {{9ull, 0ull}}
+   {{9ull, 0ull}
+    }
    ,	// 1 extra digits
-   {{99ull, 0ull}}
+   {{99ull, 0ull}
+    }
    ,	// 2 extra digits
-   {{999ull, 0ull}}
+   {{999ull, 0ull}
+    }
    ,	// 3 extra digits
-   {{9999ull, 0ull}}
+   {{9999ull, 0ull}
+    }
    ,	// 4 extra digits
-   {{99999ull, 0ull}}
+   {{99999ull, 0ull}
+    }
    ,	// 5 extra digits
-   {{999999ull, 0ull}}
+   {{999999ull, 0ull}
+    }
    ,	// 6 extra digits
-   {{9999999ull, 0ull}}
+   {{9999999ull, 0ull}
+    }
    ,	// 7 extra digits
-   {{99999999ull, 0ull}}
+   {{99999999ull, 0ull}
+    }
    ,	// 8 extra digits
-   {{999999999ull, 0ull}}
+   {{999999999ull, 0ull}
+    }
    ,	// 9 extra digits
-   {{9999999999ull, 0ull}}
+   {{9999999999ull, 0ull}
+    }
    ,	// 10 extra digits
-   {{99999999999ull, 0ull}}
+   {{99999999999ull, 0ull}
+    }
    ,	// 11 extra digits
-   {{999999999999ull, 0ull}}
+   {{999999999999ull, 0ull}
+    }
    ,	// 12 extra digits
-   {{9999999999999ull, 0ull}}
+   {{9999999999999ull, 0ull}
+    }
    ,	// 13 extra digits
-   {{99999999999999ull, 0ull}}
+   {{99999999999999ull, 0ull}
+    }
    ,	// 14 extra digits
-   {{999999999999999ull, 0ull}}
+   {{999999999999999ull, 0ull}
+    }
    ,	// 15 extra digits
-   {{9999999999999999ull, 0ull}}
+   {{9999999999999999ull, 0ull}
+    }
    ,	// 16 extra digits
-   {{99999999999999999ull, 0ull}}
+   {{99999999999999999ull, 0ull}
+    }
    ,	// 17 extra digits
-   {{999999999999999999ull, 0ull}}
+   {{999999999999999999ull, 0ull}
+    }
    ,	// 18 extra digits
-   {{9999999999999999999ull, 0ull}}
+   {{9999999999999999999ull, 0ull}
+    }
    ,	// 19 extra digits
-   {{0x6BC75E2D630FFFFFull, 0x5ull}}
+   {{0x6BC75E2D630FFFFFull, 0x5ull}
+    }
    ,	//20
-   {{0x35C9ADC5DE9FFFFFull, 0x36ull}}
+   {{0x35C9ADC5DE9FFFFFull, 0x36ull}
+    }
    ,	//21
-   {{0x19E0C9BAB23FFFFFull, 0x21eull}}
+   {{0x19E0C9BAB23FFFFFull, 0x21eull}
+    }
    ,	//22
-   {{0x2C7E14AF67FFFFFull, 0x152dull}}
+   {{0x2C7E14AF67FFFFFull, 0x152dull}
+    }
    ,	//23
-   {{0x1BCECCEDA0FFFFFFull, 0xd3c2ull}}
+   {{0x1BCECCEDA0FFFFFFull, 0xd3c2ull}
+    }
    ,	//24
-   {{0x1614014849FFFFFFull, 0x84595ull}}
+   {{0x1614014849FFFFFFull, 0x84595ull}
+    }
    ,	//25
-   {{0xDCC80CD2E3FFFFFFull, 0x52b7d2ull}}
+   {{0xDCC80CD2E3FFFFFFull, 0x52b7d2ull}
+    }
    ,	//26
-   {{0x9FD0803CE7FFFFFFull, 0x33B2E3Cull}}
+   {{0x9FD0803CE7FFFFFFull, 0x33B2E3Cull}
+    }
    ,	//27
-   {{0x3E2502610FFFFFFFull, 0x204FCE5Eull}}
+   {{0x3E2502610FFFFFFFull, 0x204FCE5Eull}
+    }
    ,	//28
-   {{0x6D7217CA9FFFFFFFull, 0x1431E0FAEull}}
+   {{0x6D7217CA9FFFFFFFull, 0x1431E0FAEull}
+    }
    ,	//29
-   {{0x4674EDEA3FFFFFFFull, 0xC9F2C9CD0ull}}
+   {{0x4674EDEA3FFFFFFFull, 0xC9F2C9CD0ull}
+    }
    ,	//30
-   {{0xC0914B267FFFFFFFull, 0x7E37BE2022ull}}
+   {{0xC0914B267FFFFFFFull, 0x7E37BE2022ull}
+    }
    ,	//31
-   {{0x85ACEF80FFFFFFFFull, 0x4EE2D6D415Bull}}
+   {{0x85ACEF80FFFFFFFFull, 0x4EE2D6D415Bull}
+    }
    ,	//32
-   {{0x38c15b09ffffffffull, 0x314dc6448d93ull}}
+   {{0x38c15b09ffffffffull, 0x314dc6448d93ull}
+    }
    ,	//33
-   {{0x378d8e63ffffffffull, 0x1ed09bead87c0ull}}
+   {{0x378d8e63ffffffffull, 0x1ed09bead87c0ull}
+    }
    ,	//34
-   {{0x2b878fe7ffffffffull, 0x13426172c74d82ull}}
+   {{0x2b878fe7ffffffffull, 0x13426172c74d82ull}
+    }
    ,	//35
    }
   ,
   {	//RZ
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 0 extra digits
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 1 extra digits
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 2 extra digits
-   {{00ull, 0ull}}
+   {{00ull, 0ull}
+    }
    ,	// 3 extra digits
-   {{000ull, 0ull}}
+   {{000ull, 0ull}
+    }
    ,	// 4 extra digits
-   {{0000ull, 0ull}}
+   {{0000ull, 0ull}
+    }
    ,	// 5 extra digits
-   {{00000ull, 0ull}}
+   {{00000ull, 0ull}
+    }
    ,	// 6 extra digits
-   {{000000ull, 0ull}}
+   {{000000ull, 0ull}
+    }
    ,	// 7 extra digits
-   {{0000000ull, 0ull}}
+   {{0000000ull, 0ull}
+    }
    ,	// 8 extra digits
-   {{00000000ull, 0ull}}
+   {{00000000ull, 0ull}
+    }
    ,	// 9 extra digits
-   {{000000000ull, 0ull}}
+   {{000000000ull, 0ull}
+    }
    ,	// 10 extra digits
-   {{0000000000ull, 0ull}}
+   {{0000000000ull, 0ull}
+    }
    ,	// 11 extra digits
-   {{00000000000ull, 0ull}}
+   {{00000000000ull, 0ull}
+    }
    ,	// 12 extra digits
-   {{000000000000ull, 0ull}}
+   {{000000000000ull, 0ull}
+    }
    ,	// 13 extra digits
-   {{0000000000000ull, 0ull}}
+   {{0000000000000ull, 0ull}
+    }
    ,	// 14 extra digits
-   {{00000000000000ull, 0ull}}
+   {{00000000000000ull, 0ull}
+    }
    ,	// 15 extra digits
-   {{000000000000000ull, 0ull}}
+   {{000000000000000ull, 0ull}
+    }
    ,	// 16 extra digits
-   {{0000000000000000ull, 0ull}}
+   {{0000000000000000ull, 0ull}
+    }
    ,	// 17 extra digits
-   {{00000000000000000ull, 0ull}}
+   {{00000000000000000ull, 0ull}
+    }
    ,	// 18 extra digits
-   {{000000000000000000ull, 0ull}}
+   {{000000000000000000ull, 0ull}
+    }
    ,	// 19 extra digits
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//20
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//21
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//22
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//23
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//24
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//25
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//26
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//27
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//28
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//29
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//30
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//31
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//32
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//33
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//34
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	//35
    }
   ,
   {	//RN, ties away
-   {{0ull, 0ull}}
+   {{0ull, 0ull}
+    }
    ,	// 0 extra digits
-   {{5ull, 0ull}}
+   {{5ull, 0ull}
+    }
    ,	// 1 extra digits
-   {{50ull, 0ull}}
+   {{50ull, 0ull}
+    }
    ,	// 2 extra digits
-   {{500ull, 0ull}}
+   {{500ull, 0ull}
+    }
    ,	// 3 extra digits
-   {{5000ull, 0ull}}
+   {{5000ull, 0ull}
+    }
    ,	// 4 extra digits
-   {{50000ull, 0ull}}
+   {{50000ull, 0ull}
+    }
    ,	// 5 extra digits
-   {{500000ull, 0ull}}
+   {{500000ull, 0ull}
+    }
    ,	// 6 extra digits
-   {{5000000ull, 0ull}}
+   {{5000000ull, 0ull}
+    }
    ,	// 7 extra digits
-   {{50000000ull, 0ull}}
+   {{50000000ull, 0ull}
+    }
    ,	// 8 extra digits
-   {{500000000ull, 0ull}}
+   {{500000000ull, 0ull}
+    }
    ,	// 9 extra digits
-   {{5000000000ull, 0ull}}
+   {{5000000000ull, 0ull}
+    }
    ,	// 10 extra digits
-   {{50000000000ull, 0ull}}
+   {{50000000000ull, 0ull}
+    }
    ,	// 11 extra digits
-   {{500000000000ull, 0ull}}
+   {{500000000000ull, 0ull}
+    }
    ,	// 12 extra digits
-   {{5000000000000ull, 0ull}}
+   {{5000000000000ull, 0ull}
+    }
    ,	// 13 extra digits
-   {{50000000000000ull, 0ull}}
+   {{50000000000000ull, 0ull}
+    }
    ,	// 14 extra digits
-   {{500000000000000ull, 0ull}}
+   {{500000000000000ull, 0ull}
+    }
    ,	// 15 extra digits
-   {{5000000000000000ull, 0ull}}
+   {{5000000000000000ull, 0ull}
+    }
    ,	// 16 extra digits
-   {{50000000000000000ull, 0ull}}
+   {{50000000000000000ull, 0ull}
+    }
    ,	// 17 extra digits
-   {{500000000000000000ull, 0ull}}
+   {{500000000000000000ull, 0ull}
+    }
    ,	// 18 extra digits
-   {{5000000000000000000ull, 0ull}}
+   {{5000000000000000000ull, 0ull}
+    }
    ,	// 19 extra digits
-   {{0xb5e3af16b1880000ull, 2ull}}
+   {{0xb5e3af16b1880000ull, 2ull}
+    }
    ,	//20
-   {{0x1ae4d6e2ef500000ull, 27ull}}
+   {{0x1ae4d6e2ef500000ull, 27ull}
+    }
    ,	//21
-   {{0xcf064dd59200000ull, 271ull}}
+   {{0xcf064dd59200000ull, 271ull}
+    }
    ,	//22
-   {{0x8163f0a57b400000ull, 2710ull}}
+   {{0x8163f0a57b400000ull, 2710ull}
+    }
    ,	//23
-   {{0xde76676d0800000ull, 27105ull}}
+   {{0xde76676d0800000ull, 27105ull}
+    }
    ,	//24
-   {{0x8b0a00a425000000ull, 0x422caull}}
+   {{0x8b0a00a425000000ull, 0x422caull}
+    }
    ,	//25
-   {{0x6e64066972000000ull, 0x295be9ull}}
+   {{0x6e64066972000000ull, 0x295be9ull}
+    }
    ,	//26
-   {{0x4fe8401e74000000ull, 0x19d971eull}}
+   {{0x4fe8401e74000000ull, 0x19d971eull}
+    }
    ,	//27
-   {{0x1f12813088000000ull, 0x1027e72full}}
+   {{0x1f12813088000000ull, 0x1027e72full}
+    }
    ,	//28
-   {{0x36b90be550000000ull, 0xa18f07d7ull}}
+   {{0x36b90be550000000ull, 0xa18f07d7ull}
+    }
    ,	//29
-   {{0x233a76f520000000ull, 0x64f964e68ull}}
+   {{0x233a76f520000000ull, 0x64f964e68ull}
+    }
    ,	//30
-   {{0x6048a59340000000ull, 0x3f1bdf1011ull}}
+   {{0x6048a59340000000ull, 0x3f1bdf1011ull}
+    }
    ,	//31
-   {{0xc2d677c080000000ull, 0x27716b6a0adull}}
+   {{0xc2d677c080000000ull, 0x27716b6a0adull}
+    }
    ,	//32
-   {{0x9c60ad8500000000ull, 0x18a6e32246c9ull}}
+   {{0x9c60ad8500000000ull, 0x18a6e32246c9ull}
+    }
    ,	//33
-   {{0x1bc6c73200000000ull, 0xf684df56c3e0ull}}
+   {{0x1bc6c73200000000ull, 0xf684df56c3e0ull}
+    }
    ,	//34
-   {{0x15c3c7f400000000ull, 0x9a130b963a6c1ull}}
+   {{0x15c3c7f400000000ull, 0x9a130b963a6c1ull}
+    }
    ,	//35
    }
 };
 
 
-UINT128 __bid_reciprocals10_128[] = {
-  {{0ull, 0ull}}
+UINT128 reciprocals10_128[] = {
+  {{0ull, 0ull}
+   }
   ,	// 0 extra digits
-  {{0x3333333333333334ull, 0x3333333333333333ull}}
+  {{0x3333333333333334ull, 0x3333333333333333ull}
+   }
   ,	// 1 extra digit
-  {{0x51eb851eb851eb86ull, 0x051eb851eb851eb8ull}}
+  {{0x51eb851eb851eb86ull, 0x051eb851eb851eb8ull}
+   }
   ,	// 2 extra digits
-  {{0x3b645a1cac083127ull, 0x0083126e978d4fdfull}}
+  {{0x3b645a1cac083127ull, 0x0083126e978d4fdfull}
+   }
   ,	// 3 extra digits
-  {{0x4af4f0d844d013aaULL, 0x00346dc5d6388659ULL}}
+  {{0x4af4f0d844d013aaULL, 0x00346dc5d6388659ULL}
+   }
   ,	//  10^(-4) * 2^131
-  {{0x08c3f3e0370cdc88ULL, 0x0029f16b11c6d1e1ULL}}
+  {{0x08c3f3e0370cdc88ULL, 0x0029f16b11c6d1e1ULL}
+   }
   ,	//  10^(-5) * 2^134
-  {{0x6d698fe69270b06dULL, 0x00218def416bdb1aULL}}
+  {{0x6d698fe69270b06dULL, 0x00218def416bdb1aULL}
+   }
   ,	//  10^(-6) * 2^137
-  {{0xaf0f4ca41d811a47ULL, 0x0035afe535795e90ULL}}
+  {{0xaf0f4ca41d811a47ULL, 0x0035afe535795e90ULL}
+   }
   ,	//  10^(-7) * 2^141
-  {{0xbf3f70834acdaea0ULL, 0x002af31dc4611873ULL}}
+  {{0xbf3f70834acdaea0ULL, 0x002af31dc4611873ULL}
+   }
   ,	//  10^(-8) * 2^144
-  {{0x65cc5a02a23e254dULL, 0x00225c17d04dad29ULL}}
+  {{0x65cc5a02a23e254dULL, 0x00225c17d04dad29ULL}
+   }
   ,	//  10^(-9) * 2^147
-  {{0x6fad5cd10396a214ULL, 0x0036f9bfb3af7b75ULL}}
+  {{0x6fad5cd10396a214ULL, 0x0036f9bfb3af7b75ULL}
+   }
   ,	// 10^(-10) * 2^151
-  {{0xbfbde3da69454e76ULL, 0x002bfaffc2f2c92aULL}}
+  {{0xbfbde3da69454e76ULL, 0x002bfaffc2f2c92aULL}
+   }
   ,	// 10^(-11) * 2^154
-  {{0x32fe4fe1edd10b92ULL, 0x00232f33025bd422ULL}}
+  {{0x32fe4fe1edd10b92ULL, 0x00232f33025bd422ULL}
+   }
   ,	// 10^(-12) * 2^157
-  {{0x84ca19697c81ac1cULL, 0x00384b84d092ed03ULL}}
+  {{0x84ca19697c81ac1cULL, 0x00384b84d092ed03ULL}
+   }
   ,	// 10^(-13) * 2^161
-  {{0x03d4e1213067bce4ULL, 0x002d09370d425736ULL}}
+  {{0x03d4e1213067bce4ULL, 0x002d09370d425736ULL}
+   }
   ,	// 10^(-14) * 2^164
-  {{0x3643e74dc052fd83ULL, 0x0024075f3dceac2bULL}}
+  {{0x3643e74dc052fd83ULL, 0x0024075f3dceac2bULL}
+   }
   ,	// 10^(-15) * 2^167
-  {{0x56d30baf9a1e626bULL, 0x0039a5652fb11378ULL}}
+  {{0x56d30baf9a1e626bULL, 0x0039a5652fb11378ULL}
+   }
   ,	// 10^(-16) * 2^171
-  {{0x12426fbfae7eb522ULL, 0x002e1dea8c8da92dULL}}
+  {{0x12426fbfae7eb522ULL, 0x002e1dea8c8da92dULL}
+   }
   ,	// 10^(-17) * 2^174
-  {{0x41cebfcc8b9890e8ULL, 0x0024e4bba3a48757ULL}}
+  {{0x41cebfcc8b9890e8ULL, 0x0024e4bba3a48757ULL}
+   }
   ,	// 10^(-18) * 2^177
-  {{0x694acc7a78f41b0dULL, 0x003b07929f6da558ULL}}
+  {{0x694acc7a78f41b0dULL, 0x003b07929f6da558ULL}
+   }
   ,	// 10^(-19) * 2^181
-  {{0xbaa23d2ec729af3eULL, 0x002f394219248446ULL}}
+  {{0xbaa23d2ec729af3eULL, 0x002f394219248446ULL}
+   }
   ,	// 10^(-20) * 2^184
-  {{0xfbb4fdbf05baf298ULL, 0x0025c768141d369eULL}}
+  {{0xfbb4fdbf05baf298ULL, 0x0025c768141d369eULL}
+   }
   ,	// 10^(-21) * 2^187
-  {{0x2c54c931a2c4b759ULL, 0x003c7240202ebdcbULL}}
+  {{0x2c54c931a2c4b759ULL, 0x003c7240202ebdcbULL}
+   }
   ,	// 10^(-22) * 2^191
-  {{0x89dd6dc14f03c5e1ULL, 0x00305b66802564a2ULL}}
+  {{0x89dd6dc14f03c5e1ULL, 0x00305b66802564a2ULL}
+   }
   ,	// 10^(-23) * 2^194
-  {{0xd4b1249aa59c9e4eULL, 0x0026af8533511d4eULL}}
+  {{0xd4b1249aa59c9e4eULL, 0x0026af8533511d4eULL}
+   }
   ,	// 10^(-24) * 2^197
-  {{0x544ea0f76f60fd49ULL, 0x003de5a1ebb4fbb1ULL}}
+  {{0x544ea0f76f60fd49ULL, 0x003de5a1ebb4fbb1ULL}
+   }
   ,	// 10^(-25) * 2^201
-  {{0x76a54d92bf80caa1ULL, 0x00318481895d9627ULL}}
+  {{0x76a54d92bf80caa1ULL, 0x00318481895d9627ULL}
+   }
   ,	// 10^(-26) * 2^204
-  {{0x921dd7a89933d54eULL, 0x00279d346de4781fULL}}
+  {{0x921dd7a89933d54eULL, 0x00279d346de4781fULL}
+   }
   ,	// 10^(-27) * 2^207
-  {{0x8362f2a75b862215ULL, 0x003f61ed7ca0c032ULL}}
+  {{0x8362f2a75b862215ULL, 0x003f61ed7ca0c032ULL}
+   }
   ,	// 10^(-28) * 2^211
-  {{0xcf825bb91604e811ULL, 0x0032b4bdfd4d668eULL}}
+  {{0xcf825bb91604e811ULL, 0x0032b4bdfd4d668eULL}
+   }
   ,	// 10^(-29) * 2^214
-  {{0x0c684960de6a5341ULL, 0x00289097fdd7853fULL}}
+  {{0x0c684960de6a5341ULL, 0x00289097fdd7853fULL}
+   }
   ,	// 10^(-30) * 2^217
-  {{0x3d203ab3e521dc34ULL, 0x002073accb12d0ffULL}}
+  {{0x3d203ab3e521dc34ULL, 0x002073accb12d0ffULL}
+   }
   ,	// 10^(-31) * 2^220
-  {{0x2e99f7863b696053ULL, 0x0033ec47ab514e65ULL}}
+  {{0x2e99f7863b696053ULL, 0x0033ec47ab514e65ULL}
+   }
   ,	// 10^(-32) * 2^224
-  {{0x587b2c6b62bab376ULL, 0x002989d2ef743eb7ULL}}
+  {{0x587b2c6b62bab376ULL, 0x002989d2ef743eb7ULL}
+   }
   ,	// 10^(-33) * 2^227
-  {{0xad2f56bc4efbc2c5ULL, 0x00213b0f25f69892ULL}}
+  {{0xad2f56bc4efbc2c5ULL, 0x00213b0f25f69892ULL}
+   }
   ,	// 10^(-34) * 2^230
-  {{0x0f2abc9d8c9689d1ull, 0x01a95a5b7f87a0efull}}
+  {{0x0f2abc9d8c9689d1ull, 0x01a95a5b7f87a0efull}
+   }
   ,	// 35 extra digits
 };
 
 
-int __bid_recip_scale[] = {
+int recip_scale[] = {
   129 - 128,	// 1
   129 - 128,	// 1/10
   129 - 128,	// 1/10^2
@@ -637,7 +853,7 @@ int __bid_recip_scale[] = {
 
 
 // tables used in computation
-int __bid_estimate_decimal_digits[129] = {
+int estimate_decimal_digits[129] = {
   1,	//2^0 =1     < 10^0
   1,	//2^1 =2     < 10^1
   1,	//2^2 =4     < 10^1
@@ -776,7 +992,7 @@ int __bid_estimate_decimal_digits[129] = {
 };
 
 
-UINT128 __bid_power10_table_128[] = {
+UINT128 power10_table_128[] = {
   {{0x0000000000000001ull, 0x0000000000000000ull}},	// 10^0
   {{0x000000000000000aull, 0x0000000000000000ull}},	// 10^1
   {{0x0000000000000064ull, 0x0000000000000000ull}},	// 10^2
@@ -819,7 +1035,7 @@ UINT128 __bid_power10_table_128[] = {
 };
 
 
-int __bid_estimate_bin_expon[] = {
+int estimate_bin_expon[] = {
   0,	// 10^0
   3,	// 10^1
   6,	// 10^2
@@ -840,7 +1056,7 @@ int __bid_estimate_bin_expon[] = {
 };
 
 
-UINT64 __bid_power10_index_binexp[] = {
+UINT64 power10_index_binexp[] = {
   0x000000000000000aull,
   0x000000000000000aull,
   0x000000000000000aull,
@@ -908,7 +1124,7 @@ UINT64 __bid_power10_index_binexp[] = {
 };
 
 
-int __bid_short_recip_scale[] = {
+int short_recip_scale[] = {
   1,
   65 - 64,
   69 - 64,
@@ -930,7 +1146,7 @@ int __bid_short_recip_scale[] = {
 };
 
 
-UINT64 __bid_reciprocals10_64[] = {
+UINT64 reciprocals10_64[] = {
   1ull,	// dummy value for 0 extra digits
   0x3333333333333334ull,	// 1 extra digit
   0x51eb851eb851eb86ull,
@@ -953,7 +1169,7 @@ UINT64 __bid_reciprocals10_64[] = {
 
 
 
-UINT128 __bid_power10_index_binexp_128[] = {
+UINT128 power10_index_binexp_128[] = {
   {{0x000000000000000aull, 0x0000000000000000ull}},
   {{0x000000000000000aull, 0x0000000000000000ull}},
   {{0x000000000000000aull, 0x0000000000000000ull}},
@@ -1079,5 +1295,4 @@ UINT128 __bid_power10_index_binexp_128[] = {
   {{0x098a224000000000ull, 0x4b3b4ca85a86c47aull}},	// 10^38
   {{0x098a224000000000ull, 0x4b3b4ca85a86c47aull}},	// 10^38
   {{0x098a224000000000ull, 0x4b3b4ca85a86c47aull}},	// 10^38
-
 };
