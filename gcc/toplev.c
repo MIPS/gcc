@@ -1067,6 +1067,8 @@ compile_file (void)
   if (server_mode && server_start_back_end ())
     return false;
 
+  cgraph_finalize_compilation_unit ();
+
   lang_hooks.decls.final_write_globals ();
 
   if (errorcount || sorrycount)

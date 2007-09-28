@@ -983,7 +983,6 @@ pop_file_scope (void)
   file_scope = 0;
 
   maybe_apply_pending_pragma_weaks ();
-  cgraph_finalize_compilation_unit ();
 }
 
 /* Insert BLOCK at the end of the list of subblocks of the current
@@ -7024,7 +7023,8 @@ finish_function (void)
       if (!decl_function_context (fndecl))
 	{
 	  c_genericize (fndecl);
-	  c_gimple_diagnostics_recursively (fndecl);
+	  /* FIXME: this should be a generic pass.  */
+/* 	  c_gimple_diagnostics_recursively (fndecl); */
 
 	  /* ??? Objc emits functions after finalizing the compilation unit.
 	     This should be cleaned up later and this conditional removed.  */

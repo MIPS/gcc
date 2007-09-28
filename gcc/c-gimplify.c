@@ -101,9 +101,6 @@ c_genericize (tree fndecl)
       dump_end (TDI_original, dump_orig);
     }
 
-  /* Go ahead and gimplify for now.  */
-  gimplify_function_tree (fndecl);
-
   /* Dump the genericized tree IR.  */
   dump_function (TDI_generic, fndecl);
 
@@ -228,6 +225,23 @@ c_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	      == DECL_EXPR_DECL (*expr_p))
 	  && !warn_init_self)
 	TREE_NO_WARNING (DECL_EXPR_DECL (*expr_p)) = 1;
+      return GS_UNHANDLED;
+
+    case CALL_EXPR:
+      {
+ 	tree callee = TREE_OPERAND (*expr_p, 1);
+	if (TREE_CODE (callee) == FUNCTION_DECL)
+	  TREE_OPERAND (*expr_p, 1) = cgraph_canonical_decl (callee);
+      }
+      return GS_UNHANDLED;
+
+    case FDESC_EXPR:
+    case ADDR_EXPR:
+      {
+ 	tree decl = TREE_OPERAND (*expr_p, 0);
+	if (TREE_CODE (decl) == FUNCTION_DECL)
+	  TREE_OPERAND (*expr_p, 0) = cgraph_canonical_decl (decl);
+      }
       return GS_UNHANDLED;
 
     case COMPOUND_LITERAL_EXPR:

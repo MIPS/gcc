@@ -130,7 +130,7 @@ build_cgraph_edges (void)
 	tree call = get_call_expr_in (stmt);
 	tree decl;
 
-	if (call && (decl = cgraph_get_callee_fndecl (call)))
+	if (call && (decl = get_callee_fndecl (call)))
 	  {
 	    int i;
 	    int n = call_expr_nargs (call);
@@ -224,7 +224,7 @@ rebuild_cgraph_edges (void)
 	tree call = get_call_expr_in (stmt);
 	tree decl;
 
-	if (call && (decl = cgraph_get_callee_fndecl (call)))
+	if (call && (decl = get_callee_fndecl (call)))
 	  {
 	    int freq = (!bb->frequency && !entry_freq ? CGRAPH_FREQ_BASE
 			: bb->frequency * CGRAPH_FREQ_BASE / entry_freq);

@@ -1,3 +1,21 @@
+2007-09-28  Tom Tromey  <tromey@redhat.com>
+	    Michael Matz  <matz@suse.de>
+
+	* c-gimplify.c (c_genericize): Don't call gimplify_function_tree.
+	(c_gimplify_expr): Handle CALL_EXPR, FDESC_EXPR, and ADDR_EXPR.
+	* tree-optimize.c (tree_lowering_passes): Call
+	gimplify_function_tree.
+	* c-decl.c (pop_file_scope): Don't call
+	cgraph_finalize_compilation_unit.
+	(finish_function): Don't call c_gimple_diagnostics_recursively.
+	* toplev.c (compile_file): Call cgraph_finalize_compilation_unit.
+	* cgraphunit.c (verify_cgraph_node): Reverted.
+	* cgraph.h (cgraph_get_callee_fndecl): Removed.
+	* cgraphbuild.c (build_cgraph_edges): Reverted.
+	(rebuild_cgraph_edges): Likewise.
+	* cgraph.c (cgraph_note_duplicate): Clean up.
+	(cgraph_get_callee_fndecl): Removed.
+
 2007-09-26  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_note_smash): Call cgraph_note_duplicate.

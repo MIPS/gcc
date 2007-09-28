@@ -270,31 +270,10 @@ cgraph_note_duplicate (tree decl, tree duplicate)
   if (!duplicate_map)
     duplicate_map = pointer_map_create ();
 
-  /* FIXME: this seems bogus & lame.  */
-
-  if (DECL_INITIAL (duplicate))
-    {
-      /* FIXME: shouldn't be able to see a DECL_INITIAL here.
-	 Something is decl-smashing again.  */
-      gcc_assert (!DECL_INITIAL (decl)
-		  || DECL_INITIAL (decl) == DECL_INITIAL (duplicate));
-      slot = pointer_map_insert (duplicate_map, decl);
-      *slot = duplicate;
-    }
-  else
-    {
-      pointer_map_insert (duplicate_map, duplicate);
-      *slot = decl;
-    }
-}
-
-/* Like get_callee_fndecl, but returns the canonical target of the
-   call.  */
-tree
-cgraph_get_callee_fndecl (tree expr)
-{
-  tree result = get_callee_fndecl (expr);
-  return cgraph_canonical_decl (result);
+  /* Due to the way decl smashing works, the most recent decl is
+     always canonical.  */
+  slot = pointer_map_insert (duplicate_map, decl);
+  *slot = duplicate;
 }
 
 /* Insert already constructed node into hashtable.  */

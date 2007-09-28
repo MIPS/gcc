@@ -290,7 +290,6 @@ extern GTY(()) int cgraph_order;
 void cgraph_reset (void);
 void cgraph_note_duplicate (tree, tree);
 tree cgraph_canonical_decl (tree);
-tree cgraph_get_callee_fndecl (tree);
 void dump_cgraph (FILE *);
 void dump_cgraph_node (FILE *, struct cgraph_node *);
 void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
