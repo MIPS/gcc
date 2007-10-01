@@ -4067,6 +4067,9 @@ find_assert_locations (basic_block bb)
 
       stmt = bsi_stmt (si);
 
+      if (IS_DEBUG_STMT (stmt))
+	continue;
+
       /* See if we can derive an assertion for any of STMT's operands.  */
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_USE)
 	{

@@ -932,7 +932,7 @@ create_log_links (void)
     {
       FOR_BB_INSNS_REVERSE (bb, insn)
         {
-          if (!INSN_P (insn))
+          if (!INSN_P (insn) || DEBUG_INSN_P (insn))
             continue;
 
 	  /* Log links are created only once.  */
@@ -1123,7 +1123,7 @@ combine_instructions (rtx f, unsigned int nregs)
 	   insn = next ? next : NEXT_INSN (insn))
 	{
 	  next = 0;
-	  if (INSN_P (insn))
+	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	    {
 	      /* See if we know about function return values before this
 		 insn based upon SUBREG flags.  */
@@ -2163,6 +2163,51 @@ reg_subword_p (rtx x, rtx reg)
 	 && GET_MODE_CLASS (GET_MODE (x)) == MODE_INT;
 }
 
+/* Auxiliary data structure for propagate_for_debug_stmt.  */
+
+struct rtx_subst_pair
+{
+  rtx from, to;
+};
+
+/* If *LOC is the same as FROM in the struct rtx_subst_pair passed as
+   DATA, replace it with a copy of TO.  */
+
+static int
+propagate_for_debug_subst (rtx *loc, void *data)
+{
+  struct rtx_subst_pair *pair = data;
+  rtx from = pair->from, to = pair->to;
+  rtx x = *loc;
+
+  if (rtx_equal_p (x, from))
+    {
+      *loc = copy_rtx (to);
+      return -1;
+    }
+
+  return 0;
+}
+
+/* Replace occurrences of DEST with SRC in DEBUG_INSNs between INSN
+   and LAST.  */
+
+static void
+propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src)
+{
+  struct rtx_subst_pair p;
+
+  p.from = dest;
+  p.to = src;
+
+  while ((insn = NEXT_INSN (insn)) != last)
+    if (DEBUG_INSN_P (insn))
+      {
+	for_each_rtx (&INSN_VAR_LOCATION_LOC (insn),
+		      propagate_for_debug_subst, &p);
+	df_insn_rescan (insn);
+      }
+}
 
 /* Try to combine the insns I1 and I2 into I3.
    Here I1 and I2 appear earlier than I3.
@@ -3569,12 +3614,18 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	PATTERN (i2) = newi2pat;
       }
     else
-      SET_INSN_DELETED (i2);
+      {
+	if (MAY_HAVE_DEBUG_INSNS)
+	  propagate_for_debug (i2, i3, i2dest, i2src);
+	SET_INSN_DELETED (i2);
+      }
 
     if (i1)
       {
 	LOG_LINKS (i1) = 0;
 	REG_NOTES (i1) = 0;
+	if (MAY_HAVE_DEBUG_INSNS)
+	  propagate_for_debug (i1, i3, i1dest, i1src);
 	SET_INSN_DELETED (i1);
       }
 
@@ -12902,7 +12953,9 @@ distribute_links (rtx links)
 	   (insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR
 		     || BB_HEAD (this_basic_block->next_bb) != insn));
 	   insn = NEXT_INSN (insn))
-	if (INSN_P (insn) && reg_overlap_mentioned_p (reg, PATTERN (insn)))
+	if (DEBUG_INSN_P (insn))
+	  continue;
+	else if (INSN_P (insn) && reg_overlap_mentioned_p (reg, PATTERN (insn)))
 	  {
 	    if (reg_referenced_p (reg, PATTERN (insn)))
 	      place = insn;

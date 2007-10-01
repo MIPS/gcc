@@ -1283,7 +1283,7 @@ block_alloc (int b)
   insn = BB_END (BASIC_BLOCK (b));
   while (1)
     {
-      if (!NOTE_P (insn))
+      if (!NOTE_P (insn) && !DEBUG_INSN_P (insn))
 	{
 	  ++insn_count;
 	  gcc_assert (insn_count <= max_uid);
@@ -1308,10 +1308,10 @@ block_alloc (int b)
   insn = BB_HEAD (BASIC_BLOCK (b));
   while (1)
     {
-      if (!NOTE_P (insn))
+      if (!NOTE_P (insn) && !DEBUG_INSN_P (insn))
 	insn_number++;
 
-      if (INSN_P (insn))
+      if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	{
 	  rtx link, set;
 	  int win = 0;

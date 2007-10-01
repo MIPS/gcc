@@ -3160,6 +3160,21 @@ build_gimple_modify_stmt_stat (tree arg0, tree arg1 MEM_STAT_DECL)
   return t;
 }
 
+/* Build a VAR_DEBUG_VALUE node.  This tree code doesn't have a
+   type, so we can't use build2 (a.k.a. build2_stat).  */
+
+tree
+build_var_debug_value_stat (tree arg0, tree arg1 MEM_STAT_DECL)
+{
+  tree t;
+
+  t = make_node_stat (VAR_DEBUG_VALUE PASS_MEM_STAT);
+  /* ?? We don't care about setting flags for tuples...  */
+  VAR_DEBUG_VALUE_SET_VAR (t, arg0);
+  VAR_DEBUG_VALUE_VALUE (t) = arg1;
+  return t;
+}
+
 tree
 build3_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 	     tree arg2 MEM_STAT_DECL)
@@ -8647,7 +8662,7 @@ empty_body_p (tree stmt)
   tree_stmt_iterator i;
   tree body;
 
-  if (IS_EMPTY_STMT (stmt))
+  if (IS_EMPTY_STMT (stmt) || IS_DEBUG_STMT (stmt))
     return true;
   else if (TREE_CODE (stmt) == BIND_EXPR)
     body = BIND_EXPR_BODY (stmt);

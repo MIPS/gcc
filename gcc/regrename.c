@@ -1397,7 +1397,10 @@ replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx insn,
 	fprintf (dump_file, "insn %u: replaced reg %u with %u\n",
 		 INSN_UID (insn), REGNO (*loc), REGNO (new));
 
-      validate_change (insn, loc, new, 1);
+      if (DEBUG_INSN_P (insn))
+	*loc = new;
+      else
+	validate_change (insn, loc, new, 1);
       return true;
     }
   return false;
@@ -1421,6 +1424,9 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
   switch (code)
     {
     case PLUS:
+      if (DEBUG_INSN_P (insn))
+	break;
+
       {
 	rtx orig_op0 = XEXP (x, 0);
 	rtx orig_op1 = XEXP (x, 1);
@@ -1555,9 +1561,14 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 static bool
 replace_oldest_value_mem (rtx x, rtx insn, struct value_data *vd)
 {
-  return replace_oldest_value_addr (&XEXP (x, 0),
-				    base_reg_class (GET_MODE (x), MEM,
-						    SCRATCH),
+  enum reg_class cl;
+
+  if (DEBUG_INSN_P (insn))
+    cl = ALL_REGS;
+  else
+    cl = base_reg_class (GET_MODE (x), MEM, SCRATCH);
+
+  return replace_oldest_value_addr (&XEXP (x, 0), cl,
 				    GET_MODE (x), insn, vd);
 }
 
@@ -1566,7 +1577,7 @@ replace_oldest_value_mem (rtx x, rtx insn, struct value_data *vd)
 static bool
 copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 {
-  bool changed = false;
+  bool anything_changed = false;
   rtx insn;
 
   for (insn = BB_HEAD (bb); ; insn = NEXT_INSN (insn))
@@ -1575,8 +1586,22 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
       bool is_asm, any_replacements;
       rtx set;
       bool replaced[MAX_RECOG_OPERANDS];
+      bool changed = false;
 
-      if (! INSN_P (insn))
+      if (DEBUG_INSN_P (insn))
+	{
+	  rtx loc = INSN_VAR_LOCATION_LOC (insn);
+	  if (!VAR_LOC_UNKNOWN_P (loc)
+	      && replace_oldest_value_addr (&INSN_VAR_LOCATION_LOC (insn),
+					    ALL_REGS, GET_MODE (loc),
+					    insn, vd))
+	    {
+	      df_insn_rescan (insn);
+	      anything_changed = true;
+	    }
+	}
+
+      if (DEBUG_INSN_P (insn) || ! INSN_P (insn))
 	{
 	  if (insn == BB_END (bb))
 	    break;
@@ -1763,6 +1788,12 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	}
 
     did_replacement:
+      if (changed)
+	{
+	  df_insn_rescan (insn);
+	  anything_changed = true;
+	}
+
       /* Clobber call-clobbered registers.  */
       if (CALL_P (insn))
 	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1780,7 +1811,7 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	break;
     }
 
-  return changed;
+  return anything_changed;
 }
 
 /* Main entry point for the forward copy propagation optimization.  */

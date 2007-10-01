@@ -742,6 +742,9 @@ mark_def_sites (struct dom_walk_data *walk_data, basic_block bb,
   REGISTER_DEFS_IN_THIS_STMT (stmt) = 0;
   REWRITE_THIS_STMT (stmt) = 0;
 
+  if (IS_DEBUG_STMT (stmt))
+    return;
+
   /* If a variable is used before being set, then the variable is live
      across a block boundary, so mark it live-on-entry to BB.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
@@ -1104,6 +1107,183 @@ mark_phi_for_rewrite (basic_block bb, tree phi)
   VEC_replace (tree_vec, phis_to_rewrite, idx, phis);
 }
 
+/* Decide whether to emit a VAR_DEBUG_VALUE annotation for VAR.  */
+
+bool
+var_debug_value_for_decl (tree var)
+{
+  if (TREE_CODE (var) != VAR_DECL
+      && TREE_CODE (var) != PARM_DECL)
+    return false;
+
+  if (DECL_IGNORED_P (var))
+    return false;
+
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return false;
+
+  if (!is_gimple_reg (var))
+    return false;
+
+  return true;
+}
+
+/* Given a VAR whose definition STMT is to be moved to the iterator
+   position TOBSIP in the TOBB basic block, verify whether we're
+   moving it across any of the debug statements that use it, and
+   adjust them as needed.  If TOBB is NULL, then the definition is
+   understood as being removed, and TOBSIP is unused.  */
+void
+adjust_debug_stmts_for_var_def_move (tree var,
+				     basic_block tobb,
+				     const block_stmt_iterator *tobsip)
+{
+  imm_use_iterator imm_iter;
+  tree stmt;
+  use_operand_p use_p;
+
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return;
+
+  FOR_EACH_IMM_USE_STMT (stmt, imm_iter, var)
+    {
+      basic_block bb;
+      block_stmt_iterator si;
+
+      if (!IS_DEBUG_STMT (stmt))
+	continue;
+
+      if (tobb)
+	{
+	  bb = bb_for_stmt (stmt);
+
+	  if (bb != tobb)
+	    {
+	      if (dominated_by_p (CDI_DOMINATORS, bb, tobb))
+		continue;
+	    }
+	  else
+	    {
+	      si = *tobsip;
+
+	      if (bsi_end_p (si))
+		continue;
+
+	      do
+		{
+		  bsi_prev (&si);
+		  if (bsi_end_p (si))
+		    break;
+		}
+	      while (bsi_stmt (si) != stmt);
+
+	      if (bsi_end_p (si))
+		continue;
+	    }
+	}
+
+      FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+	SET_USE (use_p, unshare_expr (SSA_NAME_VALUE (var)));
+
+      update_stmt (stmt);
+    }
+}
+
+
+/* Given a STMT to be moved to the iterator position TOBSIP in the
+   TOBB basic block, verify whether we're moving it across any of the
+   debug statements that use it.  If TOBB is NULL, then the definition
+   is understood as being removed, and TOBSIP is unused.  */
+
+void
+adjust_debug_stmts_for_move (tree def, basic_block tobb,
+			     const block_stmt_iterator *tobsip)
+{
+  ssa_op_iter op_iter;
+  def_operand_p def_p;
+
+  if (!MAY_HAVE_DEBUG_STMTS)
+    return;
+
+  FOR_EACH_SSA_DEF_OPERAND (def_p, def, op_iter, SSA_OP_ALL_DEFS)
+    {
+      tree var = DEF_FROM_PTR (def_p);
+
+      if (TREE_CODE (var) != SSA_NAME)
+	continue;
+
+      adjust_debug_stmts_for_var_def_move (var, tobb, tobsip);
+    }
+}
+
+/* Wrapper struct for the function predicate passed to
+   check_and_update_debug_stmt_1 ().  */
+
+struct check_debug_predicate
+{
+  bool (*available_p)(tree);
+};
+
+/* Look for an SSA_NAME in the expression *TP whose definition was
+   removed, or is about to be removed, per the available_p predicate
+   given by the check_debug_predicate *DATA.  */
+
+static tree
+check_and_update_debug_stmt_1 (tree *tp, int *walk_subtrees,
+			       void *data)
+{
+  tree t = *tp;
+
+  if (EXPR_P (t))
+    return NULL_TREE;
+
+  *walk_subtrees = 0;
+
+  if (TREE_CODE (t) == SSA_NAME)
+    {
+      struct check_debug_predicate *p = (struct check_debug_predicate *)data;
+
+      if (SSA_NAME_IN_FREE_LIST (t))
+	return t;
+
+      if (!SSA_NAME_DEF_STMT (t))
+	return t;
+
+      if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (t))
+	  && TREE_CODE (SSA_NAME_VAR (t)) != PARM_DECL)
+	return t;
+
+      if (p->available_p && !p->available_p (t))
+	return t;
+    }
+
+  return NULL_TREE;
+}
+
+/* Look for any SSA_NAMEs in the VALUE of a VAR_DEBUG_VALUE statement
+   T that have become or are about to become unavailable.
+   AVAILABLE_P, if non-NULL, is used to determine whether the variable
+   is about to become unavailable.  */
+
+void
+check_and_update_debug_stmt (tree t, bool (*available_p)(tree))
+{
+  struct check_debug_predicate p;
+
+  gcc_assert (IS_DEBUG_STMT (t));
+
+  if (VAR_DEBUG_VALUE_VALUE (t) == VAR_DEBUG_VALUE_NOVALUE)
+    return;
+
+  p.available_p = available_p;
+  if (walk_tree (&VAR_DEBUG_VALUE_VALUE (t), check_and_update_debug_stmt_1,
+		 &p, NULL))
+    {
+      /* ??? Can we do better?  */
+      VAR_DEBUG_VALUE_VALUE (t) = VAR_DEBUG_VALUE_NOVALUE;
+      update_stmt (t);
+    }
+}
 
 /* Insert PHI nodes for variable VAR using the iterated dominance
    frontier given in PHI_INSERTION_POINTS.  If UPDATE_P is true, this
@@ -1173,6 +1353,12 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	{
 	  tree sym = DECL_P (var) ? var : SSA_NAME_VAR (var);
 	  phi = create_phi_node (sym, bb);
+	  if (!update_p && var_debug_value_for_decl (sym))
+	    {
+	      tree note = build_var_debug_value (sym, PHI_RESULT (phi));
+	      block_stmt_iterator si = bsi_after_labels (bb);
+	      bsi_insert_before (&si, note, BSI_SAME_STMT);
+	    }
 	}
 
       /* Mark this PHI node as interesting for update_ssa.  */
@@ -1378,9 +1564,14 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   if (REGISTER_DEFS_IN_THIS_STMT (stmt))
     FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
       {
-	tree var = DEF_FROM_PTR (def_p);
+	tree var = DEF_FROM_PTR (def_p), name;
 	gcc_assert (DECL_P (var));
-	SET_DEF (def_p, make_ssa_name (var, stmt));
+	SET_DEF (def_p, name = make_ssa_name (var, stmt));
+	if (var_debug_value_for_decl (var))
+	  {
+	    tree note = build_var_debug_value (var, name);
+	    bsi_insert_after (&si, note, BSI_SAME_STMT);
+	  }
 	register_new_def (DEF_FROM_PTR (def_p), var);
       }
 }
@@ -2363,7 +2554,12 @@ mark_use_interesting (tree var, tree stmt, basic_block bb, bool insert_phi_p)
   if (TREE_CODE (stmt) == PHI_NODE)
     mark_phi_for_rewrite (def_bb, stmt);
   else
-    REWRITE_THIS_STMT (stmt) = 1;
+    {
+      REWRITE_THIS_STMT (stmt) = 1;
+
+      if (IS_DEBUG_STMT (stmt))
+	return;
+    }
 
   /* If VAR has not been defined in BB, then it is live-on-entry
      to BB.  Note that we cannot just use the block holding VAR's
@@ -2439,6 +2635,9 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
       def_operand_p def_p;
       
       stmt = bsi_stmt (si);
+
+      if (IS_DEBUG_STMT (stmt))
+	continue;
 
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_ALL_USES)
 	{

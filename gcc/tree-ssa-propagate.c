@@ -557,6 +557,9 @@ get_rhs (tree stmt)
       else
 	return stmt;
 
+    case VAR_DEBUG_VALUE:
+      return VAR_DEBUG_VALUE_VALUE (stmt);
+
     case COND_EXPR:
       return COND_EXPR_COND (stmt);
     case SWITCH_EXPR:

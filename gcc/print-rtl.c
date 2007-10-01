@@ -207,6 +207,21 @@ print_rtx (const_rtx in_rtx)
 	  /* For other rtl, print the mode if it's not VOID.  */
 	  else if (GET_MODE (in_rtx) != VOIDmode)
 	    fprintf (outfile, ":%s", GET_MODE_NAME (GET_MODE (in_rtx)));
+
+#ifndef GENERATOR_FILE
+	  if (GET_CODE (in_rtx) == VAR_LOCATION)
+	    {
+	      print_mem_expr (outfile, PAT_VAR_LOCATION_DECL (in_rtx));
+	      fputc (' ', outfile);
+	      print_rtx (PAT_VAR_LOCATION_LOC (in_rtx));
+	      if (PAT_VAR_LOCATION_STATUS (in_rtx)
+		  == VAR_INIT_STATUS_UNINITIALIZED)
+		fprintf (outfile, " [uninit]");
+	      fputc (')', outfile);
+	      sawclose = 1;
+	      i = GET_RTX_LENGTH (VAR_LOCATION);
+	    }
+#endif
 	}
     }
 
@@ -320,14 +335,8 @@ print_rtx (const_rtx in_rtx)
 		
 	      case NOTE_INSN_VAR_LOCATION:
 #ifndef GENERATOR_FILE
-		fprintf (outfile, " (");
-		print_mem_expr (outfile, NOTE_VAR_LOCATION_DECL (in_rtx));
-		fprintf (outfile, " ");
-		print_rtx (NOTE_VAR_LOCATION_LOC (in_rtx));
-		if (NOTE_VAR_LOCATION_STATUS (in_rtx) == 
-		                                 VAR_INIT_STATUS_UNINITIALIZED)
-		  fprintf (outfile, " [uninit]");
-		fprintf (outfile, ")");
+		fputc (' ', outfile);
+		print_rtx (NOTE_VAR_LOCATION (in_rtx));
 #endif
 		break;
 

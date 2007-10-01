@@ -201,6 +201,8 @@ remap_ssa_name (tree name, copy_body_data *id)
   return new;
 }
 
+bool processing_debug_stmt_p = false;
+
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
 
 tree
@@ -262,7 +264,8 @@ remap_decl (tree decl, copy_body_data *id)
 	      if (TREE_CODE (map) == SSA_NAME)
 	        set_default_def (t, map);
 	    }
-	  add_referenced_var (t);
+	  if (!processing_debug_stmt_p)
+	    add_referenced_var (t);
 	}
       return t;
     }
@@ -699,6 +702,13 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      return NULL;
 	    }
 	}
+      else if (IS_DEBUG_STMT (*tp))
+	{
+	  *tp = copy_node (*tp);
+	  VARRAY_PUSH_TREE (id->debug_stmts, *tp);
+	  *walk_subtrees = 0;
+	  goto shallow_stmt_copy;
+	}
 
       /* Here is the "usual case".  Copy this tree node, and then
 	 tweak some special cases.  */
@@ -714,6 +724,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 of function call.  */
       if (EXPR_P (*tp) || GIMPLE_STMT_P (*tp))
 	{
+	shallow_stmt_copy:
 	  new_block = id->block;
 	  if (TREE_BLOCK (*tp))
 	    {
@@ -817,6 +828,13 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 	    {
 	      tree *stmtp = bsi_stmt_ptr (copy_bsi);
 	      tree stmt = *stmtp;
+
+	      if (IS_DEBUG_STMT (stmt))
+		{
+		  bsi_next (&copy_bsi);
+		  continue;
+		}
+
 	      call = get_call_expr_in (stmt);
 
 	      if (call && CALL_EXPR_VA_ARG_PACK (call) && id->call_expr)
@@ -1018,7 +1036,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
    we might want to change way build CFG pre-inlining to include
    all the possible edges then.  */
 static void
-update_ssa_across_eh_edges (basic_block bb)
+update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
+				  bool can_throw, bool nonlocal_goto)
 {
   edge e;
   edge_iterator ei;
@@ -1029,13 +1048,35 @@ update_ssa_across_eh_edges (basic_block bb)
       {
 	tree phi;
 
-	gcc_assert (e->flags & EDGE_EH);
+	gcc_assert (e->flags & EDGE_ABNORMAL);
+	if (!nonlocal_goto)
+	  gcc_assert (e->flags & EDGE_EH);
+	if (!can_throw)
+	  gcc_assert (!(e->flags & EDGE_EH));
 	for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	  {
+	    edge re;
+
+	    /* There shouldn't be any PHI nodes in the ENTRY_BLOCK.  */
+	    gcc_assert (!e->dest->aux);
+
 	    gcc_assert (SSA_NAME_OCCURS_IN_ABNORMAL_PHI
 			(PHI_RESULT (phi)));
-	    mark_sym_for_renaming
-	      (SSA_NAME_VAR (PHI_RESULT (phi)));
+
+	    if (!is_gimple_reg (PHI_RESULT (phi)))
+	      {
+		mark_sym_for_renaming
+		  (SSA_NAME_VAR (PHI_RESULT (phi)));
+		continue;
+	      }
+
+	    re = find_edge (ret_bb, e->dest);
+	    gcc_assert (re);
+	    gcc_assert ((re->flags & (EDGE_EH | EDGE_ABNORMAL))
+			== (e->flags & (EDGE_EH | EDGE_ABNORMAL)));
+
+	    SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e),
+		     USE_FROM_PTR (PHI_ARG_DEF_PTR_FROM_EDGE (phi, re)));
 	  }
       }
 }
@@ -1044,7 +1085,7 @@ update_ssa_across_eh_edges (basic_block bb)
    accordingly.  Edges will be taken care of later.  Assume aux
    pointers to point to the copies of each BB.  */
 static void
-copy_edges_for_bb (basic_block bb, int count_scale)
+copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
 {
   basic_block new_bb = (basic_block) bb->aux;
   edge_iterator ei;
@@ -1076,11 +1117,15 @@ copy_edges_for_bb (basic_block bb, int count_scale)
   for (bsi = bsi_start (new_bb); !bsi_end_p (bsi);)
     {
       tree copy_stmt;
+      bool can_throw, nonlocal_goto;
 
       copy_stmt = bsi_stmt (bsi);
-      update_stmt (copy_stmt);
-      if (gimple_in_ssa_p (cfun))
-        mark_symbols_for_renaming (copy_stmt);
+      if (!IS_DEBUG_STMT (copy_stmt))
+	{
+	  update_stmt (copy_stmt);
+	  if (gimple_in_ssa_p (cfun))
+	    mark_symbols_for_renaming (copy_stmt);
+	}
       /* Do this before the possible split_block.  */
       bsi_next (&bsi);
 
@@ -1096,7 +1141,10 @@ copy_edges_for_bb (basic_block bb, int count_scale)
          into a COMPONENT_REF which doesn't.  If the copy
          can throw, the original could also throw.  */
 
-      if (tree_can_throw_internal (copy_stmt))
+      can_throw = tree_can_throw_internal (copy_stmt);
+      nonlocal_goto = tree_can_make_abnormal_goto (copy_stmt);
+
+      if (can_throw || nonlocal_goto)
 	{
 	  if (!bsi_end_p (bsi))
 	    /* Note that bb's predecessor edges aren't necessarily
@@ -1108,12 +1156,18 @@ copy_edges_for_bb (basic_block bb, int count_scale)
 	      new_bb->aux = e->src->aux;
 	      bsi = bsi_start (new_bb);
 	    }
-
-           make_eh_edges (copy_stmt);
-
-	   if (gimple_in_ssa_p (cfun))
-	     update_ssa_across_eh_edges (bb_for_stmt (copy_stmt));
 	}
+
+      if (can_throw)
+	make_eh_edges (copy_stmt);
+
+      if (nonlocal_goto)
+	make_abnormal_goto_edges (bb_for_stmt (copy_stmt), true);
+
+      if ((can_throw || nonlocal_goto)
+	  && gimple_in_ssa_p (cfun))
+	update_ssa_across_abnormal_edges (bb_for_stmt (copy_stmt), ret_bb,
+					  can_throw, nonlocal_goto);
     }
 }
 
@@ -1285,7 +1339,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   last = last_basic_block;
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   FOR_ALL_BB_FN (bb, cfun_to_copy)
-    copy_edges_for_bb (bb, count_scale);
+    copy_edges_for_bb (bb, count_scale, exit_block_map);
   if (gimple_in_ssa_p (cfun))
     FOR_ALL_BB_FN (bb, cfun_to_copy)
       copy_phis_for_bb (bb, id);
@@ -1304,6 +1358,40 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   return new_fndecl;
 }
 
+static void
+copy_debug_stmt (tree stmt, copy_body_data *id)
+{
+  tree t;
+
+  processing_debug_stmt_p = true;
+
+  t = VAR_DEBUG_VALUE_VAR (stmt);
+  walk_tree (&t, copy_body_r, id, NULL);
+  VAR_DEBUG_VALUE_SET_VAR (stmt, t);
+
+  walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), copy_body_r, id, NULL);
+
+  processing_debug_stmt_p = false;
+
+  update_stmt (stmt);
+  if (gimple_in_ssa_p (cfun))
+    mark_symbols_for_renaming (stmt);
+}
+
+static void
+copy_debug_stmts (copy_body_data *id)
+{
+  size_t i, e;
+
+  if (!id->debug_stmts)
+    return;
+
+  for (i = 0, e = VARRAY_ACTIVE_SIZE (id->debug_stmts); i < e; i++)
+    copy_debug_stmt (VARRAY_TREE (id->debug_stmts, i), id);
+
+  VARRAY_POP_ALL (id->debug_stmts);
+}
+
 /* Make a copy of the body of FN so that it can be inserted inline in
    another function.  */
 
@@ -1315,6 +1403,7 @@ copy_generic_body (copy_body_data *id)
 
   body = DECL_SAVED_TREE (fndecl);
   walk_tree (&body, copy_body_r, id, NULL);
+  copy_debug_stmts (id);
 
   return body;
 }
@@ -1329,29 +1418,14 @@ copy_body (copy_body_data *id, gcov_type count, int frequency,
   /* If this body has a CFG, walk CFG and copy.  */
   gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (fndecl)));
   body = copy_cfg_body (id, count, frequency, entry_block_map, exit_block_map);
+  copy_debug_stmts (id);
 
   return body;
 }
 
-/* Return true if VALUE is an ADDR_EXPR of an automatic variable
-   defined in function FN, or of a data member thereof.  */
-
-static bool
-self_inlining_addr_expr (tree value, tree fn)
-{
-  tree var;
-
-  if (TREE_CODE (value) != ADDR_EXPR)
-    return false;
-
-  var = get_base_address (TREE_OPERAND (value, 0));
-
-  return var && auto_var_in_fn_p (var, fn);
-}
-
 static void
-setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
-		     basic_block bb, tree *vars)
+setup_one_parameter (copy_body_data *id, tree p, tree value,
+		     tree fn ATTRIBUTE_UNUSED, basic_block bb, tree *vars)
 {
   tree init_stmt;
   tree var;
@@ -1364,33 +1438,6 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       && value != error_mark_node
       && !useless_type_conversion_p (TREE_TYPE (p), TREE_TYPE (value)))
     rhs = fold_build1 (NOP_EXPR, TREE_TYPE (p), value);
-
-  /* If the parameter is never assigned to, has no SSA_NAMEs created,
-     we may not need to create a new variable here at all.  Instead, we may
-     be able to just use the argument value.  */
-  if (TREE_READONLY (p)
-      && !TREE_ADDRESSABLE (p)
-      && value && !TREE_SIDE_EFFECTS (value)
-      && !def)
-    {
-      /* We may produce non-gimple trees by adding NOPs or introduce
-	 invalid sharing when operand is not really constant.
-	 It is not big deal to prohibit constant propagation here as
-	 we will constant propagate in DOM1 pass anyway.  */
-      if (is_gimple_min_invariant (value)
-	  && useless_type_conversion_p (TREE_TYPE (p),
-						 TREE_TYPE (value))
-	  /* We have to be very careful about ADDR_EXPR.  Make sure
-	     the base variable isn't a local variable of the inlined
-	     function, e.g., when doing recursive inlining, direct or
-	     mutually-recursive or whatever, which is why we don't
-	     just test whether fn == current_function_decl.  */
-	  && ! self_inlining_addr_expr (value, fn))
-	{
-	  insert_decl_map (id, p, value);
-	  return;
-	}
-    }
 
   /* Make an equivalent VAR_DECL.  Note that we must NOT remap the type
      here since the type of this decl must be visible to the calling
@@ -1438,29 +1485,6 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      assigned to only once.  */
   if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (p)))
     TREE_READONLY (var) = 0;
-
-  /* If there is no setup required and we are in SSA, take the easy route
-     replacing all SSA names representing the function parameter by the
-     SSA name passed to function.
-
-     We need to construct map for the variable anyway as it might be used
-     in different SSA names when parameter is set in function.
-
-     FIXME: This usually kills the last connection in between inlined
-     function parameter and the actual value in debug info.  Can we do
-     better here?  If we just inserted the statement, copy propagation
-     would kill it anyway as it always did in older versions of GCC.
-
-     We might want to introduce a notion that single SSA_NAME might
-     represent multiple variables for purposes of debugging. */
-  if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
-      && (TREE_CODE (rhs) == SSA_NAME
-	  || is_gimple_min_invariant (rhs))
-      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
-    {
-      insert_decl_map (id, def, rhs);
-      return;
-    }
 
   /* Initialize this VAR_DECL from the equivalent argument.  Convert
      the argument to the proper type in case it was promoted.  */
@@ -1519,8 +1543,18 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       if (init_stmt)
         bsi_insert_after (&bsi, init_stmt, BSI_NEW_STMT);
       if (gimple_in_ssa_p (cfun))
-	for (;!bsi_end_p (bsi); bsi_next (&bsi))
-	  mark_symbols_for_renaming (bsi_stmt (bsi));
+	{
+	  if (MAY_HAVE_DEBUG_STMTS && var_debug_value_for_decl (var))
+	    {
+	      tree note = build_var_debug_value (var,
+						 is_gimple_reg (p)
+						 ? def : var);
+	      bsi_insert_after (&bsi, note, BSI_SAME_STMT);
+	    }
+
+	  for (;!bsi_end_p (bsi); bsi_next (&bsi))
+	    mark_symbols_for_renaming (bsi_stmt (bsi));
+	}
     }
 }
 
@@ -2126,8 +2160,9 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
       return NULL;
 
-      /* CHANGE_DYNAMIC_TYPE_EXPR explicitly expands to nothing.  */
+      /* These explicitly expand to nothing.  */
     case CHANGE_DYNAMIC_TYPE_EXPR:
+    case VAR_DEBUG_VALUE:
       *walk_subtrees = 0;
       return NULL;
 
@@ -2803,60 +2838,6 @@ has_abnormal_outgoing_edge_p (basic_block bb)
   return false;
 }
 
-/* When a block from the inlined function contains a call with side-effects
-   in the middle gets inlined in a function with non-locals labels, the call
-   becomes a potential non-local goto so we need to add appropriate edge.  */
-
-static void
-make_nonlocal_label_edges (void)
-{
-  block_stmt_iterator bsi;
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  tree stmt = bsi_stmt (bsi);
-	  if (tree_can_make_abnormal_goto (stmt))
-	    {
-	      if (stmt == bsi_stmt (bsi_last (bb)))
-		{
-		  if (!has_abnormal_outgoing_edge_p (bb))
-		    make_abnormal_goto_edges (bb, true);
-		}
-	      else
-		{
-		  edge e = split_block (bb, stmt);
-		  bb = e->src;
-		  make_abnormal_goto_edges (bb, true);
-		}
-	      break;
-	    }
-
-	  /* Update PHIs on nonlocal goto receivers we (possibly)
-	     just created new edges into.  */
-	  if (TREE_CODE (stmt) == LABEL_EXPR
-	      && gimple_in_ssa_p (cfun))
-	    {
-	      tree target = LABEL_EXPR_LABEL (stmt);
-	      if (DECL_NONLOCAL (target))
-		{
-		  tree phi;
-
-		  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-		    {
-		      gcc_assert (SSA_NAME_OCCURS_IN_ABNORMAL_PHI
-				  (PHI_RESULT (phi)));
-		      mark_sym_for_renaming
-			(SSA_NAME_VAR (PHI_RESULT (phi)));
-		    }
-		}
-	    }
-	}
-    }
-}
-
 /* Expand calls to inline functions in the body of FN.  */
 
 unsigned int
@@ -2891,6 +2872,8 @@ optimize_inline_calls (tree fn)
   id.transform_return_to_modify = true;
   id.transform_lang_insert_block = false;
   id.statements_to_fold = pointer_set_create ();
+  if (MAY_HAVE_DEBUG_STMTS)
+    VARRAY_TREE_INIT (id.debug_stmts, 8, "debug_stmt");
 
   push_gimplify_context ();
 
@@ -2935,8 +2918,6 @@ optimize_inline_calls (tree fn)
   cgraph_node_remove_callees (id.dst_node);
 
   fold_cond_expr_cond ();
-  if (current_function_has_nonlocal_label)
-    make_nonlocal_label_edges ();
   /* It would be nice to check SSA/CFG/statement consistency here, but it is
      not possible yet - the IPA passes might make various functions to not
      throw and they don't care to proactively update local EH info.  This is
@@ -3465,6 +3446,9 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
       SET_DECL_RTL (new_decl, NULL_RTX);
       id.statements_to_fold = pointer_set_create ();
     }
+
+  if (MAY_HAVE_DEBUG_STMTS)
+    VARRAY_TREE_INIT (id.debug_stmts, 8, "debug_stmt");
   
   id.decl_map = pointer_map_create ();
   id.src_fn = old_decl;

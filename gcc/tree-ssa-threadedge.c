@@ -230,7 +230,8 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
       stmt = bsi_stmt (bsi);
 
       /* Ignore empty statements and labels.  */
-      if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == LABEL_EXPR)
+      if (IS_EMPTY_STMT (stmt) || IS_DEBUG_STMT (stmt)
+	  || TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
 
       /* If the statement has volatile operands, then we assume we

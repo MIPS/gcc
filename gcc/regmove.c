@@ -545,9 +545,12 @@ optimize_reg_copy_1 (rtx insn, rtx dest, rtx src)
 	      /* For SREGNO, count the total number of insns scanned.
 		 For DREGNO, count the total number of insns scanned after
 		 passing the death note for DREGNO.  */
-	      s_length++;
-	      if (dest_death)
-		d_length++;
+	      if (!DEBUG_INSN_P (p))
+		{
+		  s_length++;
+		  if (dest_death)
+		    d_length++;
+		}
 
 	      /* If the insn in which SRC dies is a CALL_INSN, don't count it
 		 as a call that has been crossed.  Otherwise, count it.  */
@@ -976,7 +979,7 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset)
 
       if (find_regno_note (p, REG_DEAD, REGNO (dst)))
 	dst_death = p;
-      if (! dst_death)
+      if (! dst_death && !DEBUG_INSN_P (p))
 	length++;
 
       pset = single_set (p);
@@ -1421,7 +1424,8 @@ regmove_optimize (rtx f, int nregs)
 		  else if (! INSN_P (p))
 		    continue;
 
-		  length++;
+		  if (!DEBUG_INSN_P (p))
+		    length++;
 
 		  /* ??? See if all of SRC is set in P.  This test is much
 		     more conservative than it needs to be.  */
@@ -1431,22 +1435,9 @@ regmove_optimize (rtx f, int nregs)
 		      /* We use validate_replace_rtx, in case there
 			 are multiple identical source operands.  All of
 			 them have to be changed at the same time.  */
+		      validate_change (p, &SET_DEST (pset), dst, 1);
 		      if (validate_replace_rtx (src, dst, insn))
-			{
-			  if (validate_change (p, &SET_DEST (pset),
-					       dst, 0))
-			    success = 1;
-			  else
-			    {
-			      /* Change all source operands back.
-				 This modifies the dst as a side-effect.  */
-			      validate_replace_rtx (dst, src, insn);
-			      /* Now make sure the dst is right.  */
-			      validate_change (insn,
-					       recog_data.operand_loc[match_no],
-					       dst, 0);
-			    }
-			}
+			success = 1;
 		      break;
 		    }
 
@@ -1455,9 +1446,21 @@ regmove_optimize (rtx f, int nregs)
 		     eliminate SRC. We can't make this change 
 		     if DST is mentioned at all in P,
 		     since we are going to change its value.  */
-		  if (reg_overlap_mentioned_p (src, PATTERN (p))
-		      || reg_mentioned_p (dst, PATTERN (p)))
-		    break;
+		  if (reg_overlap_mentioned_p (src, PATTERN (p)))
+		    {
+		      if (DEBUG_INSN_P (p))
+			validate_replace_rtx_group (dst, src, insn);
+		      else
+			break;
+		    }
+		  if (reg_mentioned_p (dst, PATTERN (p)))
+		    {
+		      if (DEBUG_INSN_P (p))
+			validate_change (p, &INSN_VAR_LOCATION_LOC (p),
+					 gen_rtx_UNKNOWN_VAR_LOC (VOIDmode), 1);
+		      else
+			break;
+		    }
 
 		  /* If we have passed a call instruction, and the
 		     pseudo-reg DST is not already live across a call,
@@ -1516,6 +1519,8 @@ regmove_optimize (rtx f, int nregs)
 
 		  break;
 		}
+	      else if (num_changes_pending () > 0)
+		cancel_changes (0);
 	    }
 
 	  /* If we weren't able to replace any of the alternatives, try an
@@ -1737,9 +1742,12 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
       else if (! INSN_P (p))
 	continue;
 
-      length++;
-      if (src_note)
-	s_length++;
+      if (!DEBUG_INSN_P (p))
+	{
+	  length++;
+	  if (src_note)
+	    s_length++;
+	}
 
       if (reg_set_p (src, p) || reg_set_p (dst, p)
 	  || (GET_CODE (PATTERN (p)) == USE
@@ -1849,16 +1857,30 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 	}
 
       if (reg_overlap_mentioned_p (dst, PATTERN (p)))
-	break;
+	{
+	  if (DEBUG_INSN_P (p))
+	    validate_replace_rtx_group (dst, src_subreg, p);
+	  else
+	    break;
+	}
       if (! src_note && reg_overlap_mentioned_p (src, PATTERN (p)))
 	{
-	  /* INSN was already checked to be movable wrt. the registers that it
-	     sets / uses when we found no REG_DEAD note for src on it, but it
-	     still might clobber the flags register.  We'll have to check that
-	     we won't insert it into the shadow of a live flags register when
-	     we finally know where we are to move it.  */
-	  overlap = p;
-	  src_note = find_reg_note (p, REG_DEAD, src);
+	  if (DEBUG_INSN_P (p))
+	    /* ??? Can we do better?  */
+	    validate_change (p, &INSN_VAR_LOCATION_LOC (p),
+			     gen_rtx_UNKNOWN_VAR_LOC (VOIDmode), 1);
+	  else
+	    {
+	      /* INSN was already checked to be movable wrt. the
+		 registers that it sets / uses when we found no
+		 REG_DEAD note for src on it, but it still might
+		 clobber the flags register.  We'll have to check that
+		 we won't insert it into the shadow of a live flags
+		 register when we finally know where we are to move
+		 it.  */
+	      overlap = p;
+	      src_note = find_reg_note (p, REG_DEAD, src);
+	    }
 	}
 
       /* If we have passed a call instruction, and the pseudo-reg SRC is not
@@ -1877,7 +1899,11 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
     }
 
   if (! success)
-    return 0;
+    {
+      if (num_changes_pending () > 0)
+	cancel_changes (0);
+      return 0;
+    }
 
   /* Remove the death note for DST from P.  */
   remove_note (p, dst_note);

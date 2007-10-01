@@ -4620,7 +4620,11 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
 	 stop if it isn't a single set or if it has a REG_INC note because
 	 we don't want to bother dealing with it.  */
 
-      if ((prev = prev_nonnote_insn (prev)) == 0
+      do
+	prev = prev_nonnote_insn (prev);
+      while (prev && DEBUG_INSN_P (prev));
+
+      if (prev == 0
 	  || !NONJUMP_INSN_P (prev)
 	  || FIND_REG_INC_NOTE (prev, NULL_RTX)
 	  /* In cfglayout mode, there do not have to be labels at the

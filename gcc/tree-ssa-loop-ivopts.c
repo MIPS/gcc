@@ -1648,6 +1648,9 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       if (TREE_CODE (op) != SSA_NAME)
 	continue;
 
+      if (IS_DEBUG_STMT (USE_STMT (use_p)))
+	continue;
+
       iv = get_iv (data, op);
       if (!iv)
 	continue;
@@ -5196,7 +5199,24 @@ remove_unused_ivs (struct ivopts_data *data)
 	  && !info->inv_id
 	  && !info->iv->have_use_for
 	  && !info->preserve_biv)
-	remove_statement (SSA_NAME_DEF_STMT (info->iv->ssa_name), true);
+	{
+	  if (MAY_HAVE_DEBUG_STMTS)
+	    {
+	      tree stmt;
+	      imm_use_iterator iter;
+
+	      FOR_EACH_IMM_USE_STMT (stmt, iter, info->iv->ssa_name)
+		{
+		  if (!IS_DEBUG_STMT (stmt))
+		    continue;
+
+		  /* ??? We can probably do better than this.  */
+		  VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
+		  update_stmt (stmt);
+		}
+	    }
+	  remove_statement (SSA_NAME_DEF_STMT (info->iv->ssa_name), true);
+	}
     }
 }
 
