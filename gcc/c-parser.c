@@ -1798,12 +1798,15 @@ c_parser_translation_unit (c_parser *parser)
       do
 	{
 	  struct parsed_hunk *last_used = NULL;
+	  /* It is a bit friendlier for debugging to copy this into a
+	     local.  */
+	  size_t next_token = parser->next_token;
 
 	  ggc_collect ();
 
 	  /* Skip all the hunks that we've handled.  */
 	  while (parser->first_hunk
-		 && parser->next_token >= parser->first_hunk->next_token)
+		 && next_token >= parser->first_hunk->next_token)
 	    {
 	      last_used = parser->first_hunk;
 	      parser->first_hunk = parser->first_hunk->next;
@@ -1813,7 +1816,7 @@ c_parser_translation_unit (c_parser *parser)
 	     hunk, and there was a hunk open, close it and save its
 	     contents.  */
 	  if (parser->first_hunk
-	      && parser->next_token == parser->first_hunk->start_token)
+	      && next_token == parser->first_hunk->start_token)
 	    {
 	      if (parser->prev_hunk && parsed_any)
 		{
@@ -1829,14 +1832,14 @@ c_parser_translation_unit (c_parser *parser)
 	     user-owned header, then we choose to hunk by the
 	     declaration, and not by file change events.  FIXME: this
 	     means compilations by root can be somewhat weird.  */
-	  if (!parser->buffer[parser->next_token].in_system_header
-	      && parser->buffer[parser->next_token].user_owned)
+	  if (!parser->buffer[next_token].in_system_header
+	      && parser->buffer[next_token].user_owned)
 	    {
 	      struct parsed_hunk isolani;
 	      /* We don't really need to set all the fields here, but
 		 it does let us modify the functions that might refer
 		 to this structure without being overly careful.  */
-	      isolani.start_token = parser->next_token;
+	      isolani.start_token = next_token;
 	      isolani.next_token = c_parser_find_decl_boundary (parser);
 	      isolani.next = NULL;
 
@@ -1877,7 +1880,7 @@ c_parser_translation_unit (c_parser *parser)
 	      continue;
 	    }
 	  else if (parser->first_hunk
-		   && parser->next_token == parser->first_hunk->start_token)
+		   && next_token == parser->first_hunk->start_token)
 	    {
 	      /* This will map in the saved bindings and update the
 		 token pointer as side effects.  */

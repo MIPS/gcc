@@ -268,7 +268,7 @@ fe_file_change (struct c_lex_state *lstate, const struct line_map *new_map)
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
-  lstate->user_owned = new_map->user_owned;
+  lstate->user_owned = new_map->user_owned || MAIN_FILE_P (new_map);
 #ifdef USE_MAPPED_LOCATION
   input_location = new_map->start_location;
 #else

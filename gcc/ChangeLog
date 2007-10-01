@@ -1,5 +1,11 @@
 2007-10-01  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_translation_unit): Make next_token a
+	local.
+	* c-lex.c (fe_file_change): Mark main file as user-owned.
+
+2007-10-01  Tom Tromey  <tromey@redhat.com>
+
 	* toplev.c (server_callback): Reset errorcount and sorrycount.
 
 2007-09-28  Tom Tromey  <tromey@redhat.com>
