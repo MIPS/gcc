@@ -2591,13 +2591,7 @@ tree
 first_stmt (basic_block bb)
 {
   block_stmt_iterator i = bsi_start (bb);
-  tree stmt = NULL;
-  while (!bsi_end_p (i) && IS_DEBUG_STMT ((stmt = bsi_stmt (i))))
-    {
-      bsi_next (&i);
-      stmt = NULL;
-    }
-  return stmt;
+  return !bsi_end_p (i) ? bsi_stmt (i) : NULL_TREE;
 }
 
 /* Return the last statement in basic block BB.  */
@@ -2606,14 +2600,7 @@ tree
 last_stmt (basic_block bb)
 {
   block_stmt_iterator b = bsi_last (bb);
-  tree stmt = NULL;
-
-  while (!bsi_end_p (b) && IS_DEBUG_STMT ((stmt = bsi_stmt (b))))
-    {
-      bsi_prev (&b);
-      stmt = NULL;
-    }
-  return stmt;
+  return !bsi_end_p (b) ? bsi_stmt (b) : NULL_TREE;
 }
 
 /* Return the last statement of an otherwise empty block.  Return NULL
@@ -2623,15 +2610,14 @@ last_stmt (basic_block bb)
 tree
 last_and_only_stmt (basic_block bb)
 {
-  block_stmt_iterator i = bsi_last_nondebug (bb);
+  block_stmt_iterator i = bsi_last (bb);
   tree last, prev;
 
   if (bsi_end_p (i))
     return NULL_TREE;
 
   last = bsi_stmt (i);
-  bsi_prev_nondebug (&i);
-
+  bsi_prev (&i);
   if (bsi_end_p (i))
     return last;
 
@@ -3163,15 +3149,6 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  error ("GIMPLE register modified with BIT_FIELD_REF");
 	  return t;
 	}
-      break;
-
-    case VAR_DEBUG_VALUE:
-      check_and_update_debug_stmt (t, NULL);
-      /* Walking sub-trees could fail to verify ADDR_EXPRs referencing
-	 variables that became non-addressable due to optimization,
-	 and perhaps other reasons as well.  We could perform some
-	 more limited form of checking.  */
-      *walk_subtrees = 0;
       break;
 
     case ADDR_EXPR:
@@ -4281,18 +4258,11 @@ verify_stmts (void)
 	      tree t = PHI_ARG_DEF (phi, i);
 	      tree addr;
 
-	      if (!t)
-		{
-		  error ("missing PHI def");
-		  debug_generic_stmt (phi);
-		  err |= true;
-		  continue;
-		}
 	      /* Addressable variables do have SSA_NAMEs but they
 		 are not considered gimple values.  */
-	      else if (TREE_CODE (t) != SSA_NAME
-		       && TREE_CODE (t) != FUNCTION_DECL
-		       && !is_gimple_val (t))
+	      if (TREE_CODE (t) != SSA_NAME
+		  && TREE_CODE (t) != FUNCTION_DECL
+		  && !is_gimple_val (t))
 		{
 		  error ("PHI def is not a GIMPLE value");
 		  debug_generic_stmt (phi);
@@ -6272,7 +6242,7 @@ debug_loop_ir (void)
 static bool
 tree_block_ends_with_call_p (basic_block bb)
 {
-  block_stmt_iterator bsi = bsi_last_nondebug (bb);
+  block_stmt_iterator bsi = bsi_last (bb);
   return get_call_expr_in (bsi_stmt (bsi)) != NULL;
 }
 

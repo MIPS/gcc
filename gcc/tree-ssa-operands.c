@@ -126,9 +126,6 @@ static struct
    clobbering sites like function calls or ASM_EXPRs.  */
 #define opf_implicit	(1 << 2)
 
-/* Operand is a use only for purposes of debug information.  */
-#define opf_debug_use   (1 << 3)
-
 /* Array for building all the def operands.  */
 static VEC(tree,heap) *build_defs;
 
@@ -2060,7 +2057,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
   enum tree_code_class codeclass;
   tree expr = *expr_p;
   stmt_ann_t s_ann = stmt_ann (stmt);
-  int uflags = opf_use | (flags & opf_debug_use);
 
   if (expr == NULL)
     return;
@@ -2075,9 +2071,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	 reference to it, but the fact that the statement takes its
 	 address will be of interest to some passes (e.g. alias
 	 resolution).  */
-      if (!(flags & opf_debug_use))
-	add_to_addressable_set (TREE_OPERAND (expr, 0),
-				&s_ann->addresses_taken);
+      add_to_addressable_set (TREE_OPERAND (expr, 0), &s_ann->addresses_taken);
 
       /* If the address is invariant, there may be no interesting
 	 variable references inside.  */
@@ -2196,13 +2190,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	  {
 	    if (TREE_THIS_VOLATILE (TREE_OPERAND (expr, 1)))
 	      s_ann->has_volatile_ops = true; 
-	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
+	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
 	  }
 	else if (code == ARRAY_REF || code == ARRAY_RANGE_REF)
 	  {
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
-            get_expr_operands (stmt, &TREE_OPERAND (expr, 3), uflags);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_use);
 	  }
 
 	return;
@@ -2211,7 +2205,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case WITH_SIZE_EXPR:
       /* WITH_SIZE_EXPR is a pass-through reference to its first argument,
 	 and an rvalue reference to its second argument.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
@@ -2221,19 +2215,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
     case COND_EXPR:
     case VEC_COND_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), uflags);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), uflags);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), uflags);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
       return;
 
     case GIMPLE_MODIFY_STMT:
       get_modify_stmt_operands (stmt, expr);
-      return;
-
-    case VAR_DEBUG_VALUE:
-      if (VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
-	get_expr_operands (stmt, &VAR_DEBUG_VALUE_VALUE (stmt),
-			   opf_use | opf_debug_use);
       return;
 
     case CONSTRUCTOR:
@@ -2246,7 +2234,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	for (idx = 0;
 	     VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (expr), idx, ce);
 	     idx++)
-	  get_expr_operands (stmt, &ce->value, uflags);
+	  get_expr_operands (stmt, &ce->value, opf_use);
 
 	return;
       }
@@ -2281,7 +2269,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       }
 
     case CHANGE_DYNAMIC_TYPE_EXPR:
-      get_expr_operands (stmt, &CHANGE_DYNAMIC_TYPE_LOCATION (expr), uflags);
+      get_expr_operands (stmt, &CHANGE_DYNAMIC_TYPE_LOCATION (expr), opf_use);
       return;
 
     case OMP_FOR:
@@ -2386,12 +2374,6 @@ parse_ssa_operands (tree stmt)
     case GIMPLE_MODIFY_STMT:
       get_modify_stmt_operands (stmt, stmt);
       break;
-
-    case VAR_DEBUG_VALUE:
-      if (VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
-	get_expr_operands (stmt, &VAR_DEBUG_VALUE_VALUE (stmt),
-			   opf_use | opf_debug_use);
-      return;
 
     case COND_EXPR:
       get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_use);

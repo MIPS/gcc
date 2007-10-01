@@ -695,7 +695,6 @@ forward_propagate_addr_expr (tree name, tree rhs)
   tree use_stmt;
   bool all = true;
   bool single_use_p = has_single_use (name);
-  bool debug = false;
 
   FOR_EACH_IMM_USE_STMT (use_stmt, iter, name)
     {
@@ -705,10 +704,7 @@ forward_propagate_addr_expr (tree name, tree rhs)
 	 there is nothing we can do.  */
       if (TREE_CODE (use_stmt) != GIMPLE_MODIFY_STMT)
 	{
-	  if (IS_DEBUG_STMT (use_stmt))
-	    debug = true;
-	  else
-	    all = false;
+	  all = false;
 	  continue;
 	}
 
@@ -741,9 +737,6 @@ forward_propagate_addr_expr (tree name, tree rhs)
 	  bsi_remove (&bsi, true);
 	}
     }
-
-  if (all && debug)
-    adjust_debug_stmts_for_var_def_move (name, NULL, NULL);
 
   return all;
 }

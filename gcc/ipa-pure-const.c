@@ -467,10 +467,6 @@ scan_function (tree *tp,
       }
       break;
 
-    case VAR_DEBUG_VALUE:
-      *walk_subtrees = 0;
-      break;
-
     case ADDR_EXPR:
       /* This case is here to find addresses on rhs of constructors in
 	 decl_initial of static variables. */

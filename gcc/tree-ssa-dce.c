@@ -317,10 +317,6 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	}
       break;
 
-    case VAR_DEBUG_VALUE:
-      mark_stmt_necessary (stmt, false);
-      return;
-
     case GOTO_EXPR:
       gcc_assert (!simple_goto_p (stmt));
       mark_stmt_necessary (stmt, true);
@@ -657,15 +653,6 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
   release_defs (t); 
 }
 
-/* Predicate used by check_and_update_debug_stmt.  Return TRUE if the
-   T's definition is not about to be removed.  T is assumed to be an
-   SSA_NAME.  */
-
-static bool
-necessary_p (tree t)
-{
-  return NECESSARY (SSA_NAME_DEF_STMT (t));
-}
 
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
    contributes nothing to the program, and can be deleted.  */
@@ -704,15 +691,8 @@ eliminate_unnecessary_stmts (void)
 	    }
 	  else
 	    {
-	      tree call;
-
-	      if (TREE_CODE (t) == VAR_DEBUG_VALUE)
-		{
-		  if (something_changed
-		      && VAR_DEBUG_VALUE_VALUE (t) != VAR_DEBUG_VALUE_NOVALUE)
-		    check_and_update_debug_stmt (t, necessary_p);
-		}
-	      else if ((call = get_call_expr_in (t)))
+	      tree call = get_call_expr_in (t);
+	      if (call)
 		{
 		  tree name;
 

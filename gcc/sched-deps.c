@@ -1729,12 +1729,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	rtx pending, pending_mem;
 	rtx t = x;
 
-	if (DEBUG_INSN_P (insn))
-	  {
-	    sched_analyze_2 (deps, XEXP (x, 0), insn);
-	    return;
-	  }
-
 	if (current_sched_info->use_cselib)
 	  {
 	    t = shallow_copy_rtx (t);
@@ -1936,8 +1930,6 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
     {
       rtx next;
       next = next_nonnote_insn (insn);
-      while (next && DEBUG_INSN_P (next))
-	next = next_nonnote_insn (next);
       if (next && BARRIER_P (next))
 	reg_pending_barrier = TRUE_BARRIER;
       else
@@ -1990,21 +1982,6 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 
 	  add_dependence_list (insn, deps->last_pending_memory_flush, 1,
 			       REG_DEP_ANTI);
-	}
-    }
-
-  if (DEBUG_INSN_P (insn))
-    {
-      rtx head = BB_HEAD (BLOCK_FOR_INSN (insn)), prev;
-
-      if (insn != head)
-	{
-	  for (prev = PREV_INSN (insn); prev != head; prev = PREV_INSN (prev))
-	    if (INSN_P (prev))
-	      {
-		add_dependence (insn, prev, REG_DEP_TRUE);
-		break;
-	      }
 	}
     }
 
@@ -2068,19 +2045,9 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
     }
   else
     {
-      if (DEBUG_INSN_P (insn))
-	{
-	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
-	    {
-	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_TRUE);
-	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_TRUE);
-	    }
-	  CLEAR_REG_SET (reg_pending_uses);
-	}
       /* If the current insn is conditional, we can't free any
 	 of the lists.  */
-      else if (sched_get_condition (insn))
+      if (sched_get_condition (insn))
 	{
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	    {
@@ -2281,7 +2248,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	  sd_init_insn (insn);
 	}
 
-      if (NONJUMP_INSN_P (insn) || DEBUG_INSN_P (insn) || JUMP_P (insn))
+      if (NONJUMP_INSN_P (insn) || JUMP_P (insn))
 	{
 	  /* Make each JUMP_INSN a scheduling barrier for memory
              references.  */

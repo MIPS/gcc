@@ -1056,10 +1056,10 @@ flow_find_cross_jump (int mode ATTRIBUTE_UNUSED, basic_block bb1,
   while (true)
     {
       /* Ignore notes.  */
-      while ((!INSN_P (i1) || DEBUG_INSN_P (i1)) && i1 != BB_HEAD (bb1))
+      while (!INSN_P (i1) && i1 != BB_HEAD (bb1))
 	i1 = PREV_INSN (i1);
 
-      while ((!INSN_P (i2) || DEBUG_INSN_P (i2)) && i2 != BB_HEAD (bb2))
+      while (!INSN_P (i2) && i2 != BB_HEAD (bb2))
 	i2 = PREV_INSN (i2);
 
       if (i1 == BB_HEAD (bb1) || i2 == BB_HEAD (bb2))
@@ -1110,15 +1110,13 @@ flow_find_cross_jump (int mode ATTRIBUTE_UNUSED, basic_block bb1,
      Two, it keeps line number notes as matched as may be.  */
   if (ninsns)
     {
-      while (last1 != BB_HEAD (bb1) && (!INSN_P (PREV_INSN (last1))
-					|| DEBUG_INSN_P (PREV_INSN (last1))))
+      while (last1 != BB_HEAD (bb1) && !INSN_P (PREV_INSN (last1)))
 	last1 = PREV_INSN (last1);
 
       if (last1 != BB_HEAD (bb1) && LABEL_P (PREV_INSN (last1)))
 	last1 = PREV_INSN (last1);
 
-      while (last2 != BB_HEAD (bb2) && (!INSN_P (PREV_INSN (last2))
-					|| DEBUG_INSN_P (PREV_INSN (last2))))
+      while (last2 != BB_HEAD (bb2) && !INSN_P (PREV_INSN (last2)))
 	last2 = PREV_INSN (last2);
 
       if (last2 != BB_HEAD (bb2) && LABEL_P (PREV_INSN (last2)))

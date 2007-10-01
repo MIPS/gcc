@@ -850,8 +850,6 @@ execute_optimize_stdarg (void)
 		    continue;
 		}
 	    }
-	  else if (IS_DEBUG_STMT (stmt))
-	    continue;
 
 	  /* All other uses of va_list are either va_copy (that is not handled
 	     in this optimization), taking address of va_list variable or

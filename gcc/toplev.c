@@ -2010,10 +2010,6 @@ process_options (void)
 	       "for correctness");
       flag_omit_frame_pointer = 0;
     }
-
-  if (!optimize || debug_info_level < DINFO_LEVEL_NORMAL
-      || !flag_var_tracking)
-    flag_var_tracking_assignments = 0;
 }
 
 /* This function can be called multiple times to reinitialize the compiler

@@ -94,9 +94,6 @@ typedef struct copy_body_data
 
   /* Statements that might be possibly folded.  */
   struct pointer_set_t *statements_to_fold;
-
-  /* Debug statements that need processing.  */
-  varray_type debug_stmts;
 } copy_body_data;
 
 /* Weights of constructions for estimate_num_insns.  */

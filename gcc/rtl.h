@@ -380,15 +380,9 @@ struct rtvec_def GTY(()) {
 /* Predicate yielding nonzero iff X is an insn that cannot jump.  */
 #define NONJUMP_INSN_P(X) (GET_CODE (X) == INSN)
 
-/* Predicate yielding nonzero iff X is a debug note/insn.  */
-#define DEBUG_INSN_P(X) (GET_CODE (X) == DEBUG_INSN)
-
-/* Nonzero if DEBUG_INSN_P may possibly hold.  */
-#define MAY_HAVE_DEBUG_INSNS (flag_var_tracking_assignments)
-
 /* Predicate yielding nonzero iff X is a real insn.  */
 #define INSN_P(X) \
-  (NONJUMP_INSN_P (X) || DEBUG_INSN_P (X) || JUMP_P (X) || CALL_P (X))
+  (NONJUMP_INSN_P (X) || JUMP_P (X) || CALL_P (X))
 
 /* Predicate yielding nonzero iff X is a note insn.  */
 #define NOTE_P(X) (GET_CODE (X) == NOTE)
@@ -859,40 +853,16 @@ extern const char * const reg_note_name[];
    && NOTE_KIND (INSN) == NOTE_INSN_BASIC_BLOCK)
 
 /* Variable declaration and the location of a variable.  */
-#define PAT_VAR_LOCATION_DECL(PAT) (XCTREE ((PAT), 0, VAR_LOCATION))
-#define PAT_VAR_LOCATION_LOC(PAT) (XCEXP ((PAT), 1, VAR_LOCATION))
+#define NOTE_VAR_LOCATION_DECL(INSN)	(XCTREE (XCEXP (INSN, 4, NOTE), \
+						 0, VAR_LOCATION))
+#define NOTE_VAR_LOCATION_LOC(INSN)	(XCEXP (XCEXP (INSN, 4, NOTE),  \
+						1, VAR_LOCATION))
 
 /* Initialization status of the variable in the location.  Status
    can be unknown, uninitialized or initialized.  See enumeration
    type below.  */
-#define PAT_VAR_LOCATION_STATUS(PAT) (XCINT ((PAT), 2, VAR_LOCATION))
-
-/* Accessors for a NOTE_INSN_VAR_LOCATION.  */
-#define NOTE_VAR_LOCATION_DECL(NOTE) \
-  PAT_VAR_LOCATION_DECL (NOTE_VAR_LOCATION (NOTE))
-#define NOTE_VAR_LOCATION_LOC(NOTE) \
-  PAT_VAR_LOCATION_LOC (NOTE_VAR_LOCATION (NOTE))
-#define NOTE_VAR_LOCATION_STATUS(NOTE) \
-  PAT_VAR_LOCATION_STATUS (NOTE_VAR_LOCATION (NOTE))
-
-/* The VAR_LOCATION rtx in a DEBUG_INSN.  */
-#define INSN_VAR_LOCATION(INSN) PATTERN (INSN)
-
-/* Accessors for a tree-expanded var location debug insn.  */
-#define INSN_VAR_LOCATION_DECL(INSN) \
-  PAT_VAR_LOCATION_DECL (INSN_VAR_LOCATION (INSN))
-#define INSN_VAR_LOCATION_LOC(INSN) \
-  PAT_VAR_LOCATION_LOC (INSN_VAR_LOCATION (INSN))
-#define INSN_VAR_LOCATION_STATUS(INSN) \
-  PAT_VAR_LOCATION_STATUS (INSN_VAR_LOCATION (INSN))
-
-/* Expand to the RTL that denotes an unknown variable location in a
-   DEBUG_INSN.  */
-#define gen_rtx_UNKNOWN_VAR_LOC(M) (gen_rtx_CLOBBER (M, const0_rtx))
-
-/* Determine whether X is such an unknown location.  */
-#define VAR_LOC_UNKNOWN_P(X) \
-  (GET_CODE (X) == CLOBBER && XEXP ((X), 0) == const0_rtx)
+#define NOTE_VAR_LOCATION_STATUS(INSN)  (XCINT (XCEXP (INSN, 4, NOTE), \
+						2, VAR_LOCATION))
 
 /* Possible initialization status of a variable.   When requested
    by the user, this information is tracked and recorded in the DWARF
@@ -1614,7 +1584,6 @@ extern rtx emit_barrier_after (rtx);
 extern rtx emit_label_after (rtx, rtx);
 extern rtx emit_note_after (enum insn_note, rtx);
 extern rtx emit_insn (rtx);
-extern rtx emit_debug_insn (rtx);
 extern rtx emit_jump_insn (rtx);
 extern rtx emit_call_insn (rtx);
 extern rtx emit_label (rtx);
@@ -1622,7 +1591,6 @@ extern rtx emit_barrier (void);
 extern rtx emit_note (enum insn_note);
 extern rtx emit_note_copy (rtx);
 extern rtx make_insn_raw (rtx);
-extern rtx make_debug_insn_raw (rtx);
 extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx last_call_insn (void);

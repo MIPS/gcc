@@ -245,7 +245,6 @@ is_gimple_stmt (tree t)
 
     case CALL_EXPR:
     case GIMPLE_MODIFY_STMT:
-    case VAR_DEBUG_VALUE:
       /* These are valid regardless of their type.  */
       return true;
 

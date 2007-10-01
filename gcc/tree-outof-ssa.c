@@ -563,7 +563,7 @@ replace_use_variable (var_map map, use_operand_p p, tree *expr)
 	  SET_USE (p, new_expr);
 
 	  /* Clear the stmt's RHS, or GC might bite us.  */
-	  /* GIMPLE_STMT_OPERAND (expr[version], 1) = NULL_TREE; */
+	  GIMPLE_STMT_OPERAND (expr[version], 1) = NULL_TREE;
 	  return true;
 	}
     }
@@ -918,12 +918,11 @@ analyze_edges_for_bb (basic_block bb)
 	      if (!bsi_end_p (bsi))
 	        {
 		  stmt = bsi_stmt (bsi);
-		  bsi_next_nondebug (&bsi);
+		  bsi_next (&bsi);
 		  gcc_assert (stmt != NULL_TREE);
 		  is_label = (TREE_CODE (stmt) == LABEL_EXPR);
 		  /* Punt if it has non-label stmts, or isn't local.  */
-		  if (((!is_label || DECL_NONLOCAL (TREE_OPERAND (stmt, 0)))
-		       && !IS_DEBUG_STMT (stmt))
+		  if (!is_label || DECL_NONLOCAL (TREE_OPERAND (stmt, 0)) 
 		      || !bsi_end_p (bsi))
 		    {
 		      bsi_commit_one_edge_insert (e, NULL);

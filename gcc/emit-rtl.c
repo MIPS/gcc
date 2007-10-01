@@ -2987,7 +2987,6 @@ active_insn_p (const_rtx insn)
 {
   return (CALL_P (insn) || JUMP_P (insn)
 	  || (NONJUMP_INSN_P (insn)
-	      && !DEBUG_INSN_P (insn)
 	      && (! reload_completed
 		  || (GET_CODE (PATTERN (insn)) != USE
 		      && GET_CODE (PATTERN (insn)) != CLOBBER))));
@@ -3423,25 +3422,6 @@ make_insn_raw (rtx pattern)
   return insn;
 }
 
-/* Like `make_insn_raw' but make a DEBUG_INSN instead of an insn.  */
-
-rtx
-make_debug_insn_raw (rtx pattern)
-{
-  rtx insn;
-
-  insn = rtx_alloc (DEBUG_INSN);
-  INSN_UID (insn) = cur_insn_uid++;
-
-  PATTERN (insn) = pattern;
-  INSN_CODE (insn) = -1;
-  REG_NOTES (insn) = NULL;
-  INSN_LOCATOR (insn) = curr_insn_locator ();
-  BLOCK_FOR_INSN (insn) = NULL;
-
-  return insn;
-}
-
 /* Like `make_insn_raw' but make a JUMP_INSN instead of an insn.  */
 
 rtx
@@ -3628,8 +3608,7 @@ add_insn_before (rtx insn, rtx before, basic_block bb)
 
 /* Replace insn with an deleted instruction note.  */
 
-void
-set_insn_deleted (rtx insn)
+void set_insn_deleted (rtx insn)
 {
   df_insn_delete (BLOCK_FOR_INSN (insn), INSN_UID (insn));
   PUT_CODE (insn, NOTE);
@@ -4431,7 +4410,6 @@ emit_insn (rtx x)
 
   switch (GET_CODE (x))
     {
-    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -4463,52 +4441,6 @@ emit_insn (rtx x)
   return last;
 }
 
-/* Make an insn of code DEBUG_INSN with pattern X
-   and add it to the end of the doubly-linked list.  */
-
-rtx
-emit_debug_insn (rtx x)
-{
-  rtx last = last_insn;
-  rtx insn;
-
-  if (x == NULL_RTX)
-    return last;
-
-  switch (GET_CODE (x))
-    {
-    case DEBUG_INSN:
-    case INSN:
-    case JUMP_INSN:
-    case CALL_INSN:
-    case CODE_LABEL:
-    case BARRIER:
-    case NOTE:
-      insn = x;
-      while (insn)
-	{
-	  rtx next = NEXT_INSN (insn);
-	  add_insn (insn);
-	  last = insn;
-	  insn = next;
-	}
-      break;
-
-#ifdef ENABLE_RTL_CHECKING
-    case SEQUENCE:
-      gcc_unreachable ();
-      break;
-#endif
-
-    default:
-      last = make_debug_insn_raw (x);
-      add_insn (last);
-      break;
-    }
-
-  return last;
-}
-
 /* Make an insn of code JUMP_INSN with pattern X
    and add it to the end of the doubly-linked list.  */
 
@@ -4519,7 +4451,6 @@ emit_jump_insn (rtx x)
 
   switch (GET_CODE (x))
     {
-    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -4561,7 +4492,6 @@ emit_call_insn (rtx x)
 
   switch (GET_CODE (x))
     {
-    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:

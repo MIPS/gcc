@@ -936,7 +936,7 @@ alloc_gcse_mem (void)
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
       {
-	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	if (INSN_P (insn))
 	  uid_cuid[INSN_UID (insn)] = i++;
 	else
 	  uid_cuid[INSN_UID (insn)] = i;
@@ -949,7 +949,7 @@ alloc_gcse_mem (void)
   i = 0;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
-      if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+      if (INSN_P (insn))
 	CUID_INSN (i++) = insn;
 
   /* Allocate vars to track sets of regs.  */
@@ -1760,8 +1760,8 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
 		  modified.  Here we want to search from INSN+1 on, but
 		  oprs_available_p searches from INSN on.  */
 	       && (insn == BB_END (BLOCK_FOR_INSN (insn))
-		   || (tmp = next_nonnote_insn (insn)) == NULL_RTX
-		   || oprs_available_p (pat, tmp)))
+		   || ((tmp = next_nonnote_insn (insn)) != NULL_RTX
+		       && oprs_available_p (pat, tmp))))
 	insert_set_in_table (pat, insn, table);
     }
   /* In case of store we want to consider the memory value as available in
@@ -3710,9 +3710,7 @@ bypass_conditional_jumps (void)
 	{
 	  setcc = NULL_RTX;
 	  FOR_BB_INSNS (bb, insn)
-	    if (DEBUG_INSN_P (insn))
-	      continue;
-	    else if (NONJUMP_INSN_P (insn))
+	    if (NONJUMP_INSN_P (insn))
 	      {
 		if (setcc)
 		  break;
@@ -5309,7 +5307,7 @@ compute_ld_motion_mems (void)
     {
       FOR_BB_INSNS (bb, insn)
 	{
-	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	  if (INSN_P (insn))
 	    {
 	      if (GET_CODE (PATTERN (insn)) == SET)
 		{

@@ -633,10 +633,6 @@ static inline void bsi_next (block_stmt_iterator *);
 static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
-static inline void bsi_next_nondebug (block_stmt_iterator *);
-static inline void bsi_prev_nondebug (block_stmt_iterator *);
-static inline block_stmt_iterator bsi_start_nondebug (basic_block);
-static inline block_stmt_iterator bsi_last_nondebug (basic_block);
 
 extern void bsi_remove (block_stmt_iterator *, bool);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
@@ -894,11 +890,6 @@ void mark_sym_for_renaming (tree);
 void mark_set_for_renaming (bitmap);
 tree get_current_def (tree);
 void set_current_def (tree, tree);
-void adjust_debug_stmts_for_move (tree, basic_block,
-				  const block_stmt_iterator *);
-void adjust_debug_stmts_for_var_def_move (tree, basic_block,
-					  const block_stmt_iterator *);
-void check_and_update_debug_stmt (tree, bool (*)(tree));
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);

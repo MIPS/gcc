@@ -562,10 +562,6 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       stmt = bsi_stmt (bsi);
-
-      if (IS_DEBUG_STMT (stmt))
-	continue;
-
       ann = stmt_ann (stmt);
 
       stmt_replaceable = is_replaceable_p (stmt);

@@ -1070,12 +1070,11 @@ df_free_collection_rec (struct df_collection_rec *collection_rec)
       pool_free (problem_data->mw_reg_pool, *mw);
 }
 
-/* Rescan INSN.  Return TRUE if the rescanning produced any changes.
-   If KEEPCLEAN is false, don't mark the basic block as dirty even if
-   there have been changes.  */
 
-static bool
-df_insn_rescan_1 (rtx insn, bool keepclean)
+/* Rescan INSN.  Return TRUE if the rescanning produced any changes.  */
+
+bool 
+df_insn_rescan (rtx insn)
 {
   unsigned int uid = INSN_UID (insn);
   struct df_insn_info *insn_info = NULL;
@@ -1155,27 +1154,8 @@ df_insn_rescan_1 (rtx insn, bool keepclean)
     }
 
   df_refs_add_to_chains (&collection_rec, bb, insn);
-  if (!keepclean)
-    df_set_bb_dirty (bb);
+  df_set_bb_dirty (bb);
   return true;
-}
-
-/* Rescan INSN.  Return TRUE if the rescanning produced any changes.  */
-
-bool
-df_insn_rescan (rtx insn)
-{
-  return df_insn_rescan_1 (insn, false);
-}
-
-/* Same as df_insn_rescan, but don't mark the basic block as
-   dirty.  */
-
-bool
-df_insn_rescan_debug_internal (rtx insn)
-{
-  gcc_assert (DEBUG_INSN_P (insn));
-  return df_insn_rescan_1 (insn, true);
 }
 
 
@@ -2986,13 +2966,6 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	  }
 	break;
       }
-
-    case VAR_LOCATION:
-      df_uses_record (collection_rec,
-		      &PAT_VAR_LOCATION_LOC (x),
-		      DF_REF_REG_USE, bb, insn,
-		      flags);
-      return;
 
     case PRE_DEC:
     case POST_DEC:

@@ -791,7 +791,7 @@ reload (rtx first, int global)
 	  && GET_MODE (insn) != VOIDmode)
 	PUT_MODE (insn, VOIDmode);
 
-      if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+      if (INSN_P (insn))
 	scan_paradoxical_subregs (PATTERN (insn));
 
       if (set != 0 && REG_P (SET_DEST (set)))
@@ -3071,8 +3071,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
 		  || GET_CODE (PATTERN (insn)) == ADDR_VEC
 		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-		  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-		  || DEBUG_INSN_P (insn));
+		  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
       return 0;
     }
 

@@ -373,8 +373,6 @@ verify_changes (int num)
 	  if (! memory_address_p (GET_MODE (object), XEXP (object, 0)))
 	    break;
 	}
-      else if (DEBUG_INSN_P (object))
-	continue;
       else if (insn_invalid_p (object))
 	{
 	  rtx pat = PATTERN (object);
@@ -415,8 +413,7 @@ verify_changes (int num)
 	      validate_change (object, &PATTERN (object), newpat, 1);
 	      continue;
 	    }
-	  else if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER
-		   || GET_CODE (pat) == VAR_LOCATION)
+	  else if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
 	    /* If this insn is a CLOBBER or USE, it is always valid, but is
 	       never recognized.  */
 	    continue;
@@ -1943,7 +1940,6 @@ extract_insn (rtx insn)
     case ASM_INPUT:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
-    case VAR_LOCATION:
       return;
 
     case SET:
@@ -2950,7 +2946,7 @@ peephole2_optimize (void)
       for (insn = BB_END (bb); ; insn = prev)
 	{
 	  prev = PREV_INSN (insn);
-	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
+	  if (INSN_P (insn))
 	    {
 	      rtx try, before_try, x;
 	      int match_len;

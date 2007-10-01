@@ -524,48 +524,18 @@ next_readonly_imm_use (imm_use_iterator *imm)
 static inline bool
 has_zero_uses (const_tree var)
 {
-  const ssa_use_operand_t *ptr, *start;
-  bool ret;
-
-  ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
   /* A single use means there is no items in the list.  */
-  ret = (ptr == ptr->next);
-
-  if (ret || !MAY_HAVE_DEBUG_STMTS)
-    return ret;
-
-  start = ptr;
-  for (ptr = start->next; ptr != start; ptr = ptr->next)
-    if (!IS_DEBUG_STMT (ptr->stmt))
-      return false;
-  return true;
+  return (ptr == ptr->next);
 }
 
 /* Return true if VAR has a single use.  */
 static inline bool
 has_single_use (const_tree var)
 {
-  const ssa_use_operand_t *ptr, *start;
-  bool ret;
-
-  ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
   /* A single use means there is one item in the list.  */
-  ret = (ptr != ptr->next && ptr == ptr->next->next);
-
-  if (ret)
-    return !IS_DEBUG_STMT (ptr->next->stmt);
-  else if (!MAY_HAVE_DEBUG_STMTS)
-    return ret;
-
-  start = ptr;
-  for (ptr = start->next; ptr != start; ptr = ptr->next)
-    if (!IS_DEBUG_STMT (ptr->stmt))
-      {
-	if (ret)
-	  return false;
-	ret = true;
-      }
-  return ret;
+  return (ptr != ptr->next && ptr == ptr->next->next);
 }
 
 
@@ -574,35 +544,8 @@ has_single_use (const_tree var)
 static inline bool
 single_imm_use (const_tree var, use_operand_p *use_p, tree *stmt)
 {
-  const ssa_use_operand_t *ptr;
-  bool ret;
-
-  ptr = &(SSA_NAME_IMM_USE_NODE (var));
-
-  ret = ptr != ptr->next && ptr == ptr->next->next;
-
-  if (ret)
-    ret = !IS_DEBUG_STMT (ptr->next->stmt);
-  else if (MAY_HAVE_DEBUG_STMTS)
-    {
-      const ssa_use_operand_t *start = ptr, *prev = ptr, *single_use_prev = 0;
-
-      for (ptr = start->next; ptr != start; prev = ptr, ptr = ptr->next)
-	if (!IS_DEBUG_STMT (ptr->stmt))
-	  {
-	    if (ret)
-	      {
-		ret = false;
-		break;
-	      }
-	    ret = true;
-	    single_use_prev = prev;
-	  }
-
-      ptr = single_use_prev;
-    }
-
-  if (ret)
+  const ssa_use_operand_t *const ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  if (ptr != ptr->next && ptr == ptr->next->next)
     {
       *use_p = ptr->next;
       *stmt = ptr->next->stmt;
@@ -621,13 +564,8 @@ num_imm_uses (const_tree var)
   const ssa_use_operand_t *ptr;
   unsigned int num = 0;
 
-  if (!MAY_HAVE_DEBUG_STMTS)
-    for (ptr = start->next; ptr != start; ptr = ptr->next)
-      num++;
-  else
-    for (ptr = start->next; ptr != start; ptr = ptr->next)
-      if (!IS_DEBUG_STMT (ptr->stmt))
-	num++;
+  for (ptr = start->next; ptr != start; ptr = ptr->next)
+     num++;
 
   return num;
 }
@@ -877,48 +815,6 @@ static inline tree *
 bsi_stmt_ptr (block_stmt_iterator i)
 {
   return tsi_stmt_ptr (i.tsi);
-}
-
-/* Modify block statement iterator I so that it is at the next
-   statement in the basic block.  */
-static inline void
-bsi_next_nondebug (block_stmt_iterator *i)
-{
-  do
-    bsi_next (i);
-  while (!bsi_end_p (*i) && IS_DEBUG_STMT (bsi_stmt (*i)));
-}
-
-/* Modify block statement iterator I so that it is at the previous
-   non-debug statement in the basic block.  */
-static inline void
-bsi_prev_nondebug (block_stmt_iterator *i)
-{
-  do
-    bsi_prev (i);
-  while (!bsi_end_p (*i) && IS_DEBUG_STMT (bsi_stmt (*i)));
-}
-
-static inline block_stmt_iterator
-bsi_start_nondebug (basic_block bb)
-{
-  block_stmt_iterator bsi = bsi_start (bb);
-
-  while (!bsi_end_p (bsi) && IS_DEBUG_STMT (bsi_stmt (bsi)))
-    bsi_next (&bsi);
-
-  return bsi;
-}
-
-static inline block_stmt_iterator
-bsi_last_nondebug (basic_block bb)
-{
-  block_stmt_iterator bsi = bsi_last (bb);
-
-  while (!bsi_end_p (bsi) && IS_DEBUG_STMT (bsi_stmt (bsi)))
-    bsi_prev (&bsi);
-
-  return bsi;
 }
 
 /* Returns the loop of the statement STMT.  */

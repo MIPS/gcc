@@ -1612,10 +1612,6 @@ scan_for_refs (tree *tp, int *walk_subtrees, void *data)
       }
       break;
 
-    case VAR_DEBUG_VALUE:
-      *walk_subtrees = 0;
-      break;
-
     case ADDR_EXPR:
       /* This case is here to find addresses on rhs of constructors in
 	 decl_initial of static variables. */

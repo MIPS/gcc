@@ -5373,8 +5373,7 @@ compute_points_to_sets (struct alias_info *ai)
 	     addresses, pointer dereferences for loads and stores.
 	     This is used when creating name tags and alias
 	     sets.  */
-	  if (!IS_DEBUG_STMT (stmt))
-	    update_alias_info (stmt, ai);
+	  update_alias_info (stmt, ai);
 
 	  /* The information in CHANGE_DYNAMIC_TYPE_EXPR nodes has now
 	     been captured, and we can remove them.  */

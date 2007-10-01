@@ -1110,10 +1110,6 @@ DEFTREECODE (VEC_RSHIFT_EXPR, "vec_rshift_expr", tcc_binary, 2)
 /* Assignment expression.  Operand 0 is the what to set; 1, the new value.  */
 DEFTREECODE (GIMPLE_MODIFY_STMT, "gimple_modify_stmt", tcc_gimple_stmt, 2)
 
-/* Debug annotation.  Operand 0 is a user variable; 1 is an expression
-   with its value, for purposes of debug information.  */
-DEFTREECODE (VAR_DEBUG_VALUE, "var_debug_value", tcc_gimple_stmt, 2)
-
 /* Widening vector multiplication.
    The two operands are vectors with N elements of size S. Multiplying the
    elements of the two vectors will result in N products of size 2*S.

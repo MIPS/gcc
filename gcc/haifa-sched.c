@@ -708,10 +708,6 @@ dep_cost (dep_t link)
 static bool
 contributes_to_priority_p (dep_t dep)
 {
-  if (DEBUG_INSN_P (DEP_CON (dep))
-      || DEBUG_INSN_P (DEP_PRO (dep)))
-    return false;
-
   /* Critical path is meaningful in block boundaries only.  */
   if (!current_sched_info->contributes_to_priority (DEP_CON (dep),
 						    DEP_PRO (dep)))
@@ -731,31 +727,6 @@ contributes_to_priority_p (dep_t dep)
   return true;
 }
 
-/* Compute the number of nondebug forward deps of an insn.  */
-
-static int
-nondebug_dep_list_size (rtx insn)
-{
-  sd_iterator_def sd_it;
-  dep_t dep;
-  int dbgcount = 0, nodbgcount = 0;
-
-  if (!MAY_HAVE_DEBUG_INSNS)
-    return sd_lists_size (insn, SD_LIST_FORW);
-
-  FOR_EACH_DEP (insn, SD_LIST_FORW, sd_it, dep)
-    {
-      if (DEBUG_INSN_P (DEP_CON (dep)))
-	dbgcount++;
-      else
-	nodbgcount++;
-    }
-
-  gcc_assert (dbgcount + nodbgcount == sd_lists_size (insn, SD_LIST_FORW));
-
-  return nodbgcount;
-}
-
 /* Compute the priority number for INSN.  */
 static int
 priority (rtx insn)
@@ -770,7 +741,7 @@ priority (rtx insn)
     {
       int this_priority = 0;
 
-      if (nondebug_dep_list_size (insn) == 0)
+      if (sd_lists_empty_p (insn, SD_LIST_FORW))
 	/* ??? We should set INSN_PRIORITY to insn_cost when and insn has
 	   some forward deps but all of them are ignored by
 	   contributes_to_priority hook.  At the moment we set priority of
@@ -866,19 +837,8 @@ rank_for_schedule (const void *x, const void *y)
 {
   rtx tmp = *(const rtx *) y;
   rtx tmp2 = *(const rtx *) x;
-  rtx last;
   int tmp_class, tmp2_class;
   int val, priority_val, weight_val, info_val;
-  bool has_debug = MAY_HAVE_DEBUG_INSNS;
-
-  if (has_debug)
-    {
-      /* Schedule debug insns as early as possible.  */
-      if (DEBUG_INSN_P (tmp) && !DEBUG_INSN_P (tmp2))
-	return -1;
-      else if (DEBUG_INSN_P (tmp2))
-	return 1;
-    }
 
   /* The insn in a schedule group should be issued the first.  */
   if (SCHED_GROUP_P (tmp) != SCHED_GROUP_P (tmp2))
@@ -926,15 +886,8 @@ rank_for_schedule (const void *x, const void *y)
   if (info_val)
     return info_val;
 
-  last = last_scheduled_insn;
-
-  if (has_debug)
-    while (DEBUG_INSN_P (last))
-      last = PREV_INSN (last);
-
-  /* Compare insns based on their relation to the last scheduled
-     non-debug insn.  */
-  if (INSN_P (last))
+  /* Compare insns based on their relation to the last-scheduled-insn.  */
+  if (INSN_P (last_scheduled_insn))
     {
       dep_t dep1;
       dep_t dep2;
@@ -944,7 +897,7 @@ rank_for_schedule (const void *x, const void *y)
          2) Anti/Output dependent on last scheduled insn.
          3) Independent of last scheduled insn, or has latency of one.
          Choose the insn from the highest numbered class if different.  */
-      dep1 = sd_find_dep_between (last, tmp, true);
+      dep1 = sd_find_dep_between (last_scheduled_insn, tmp, true);
 
       if (dep1 == NULL || dep_cost (dep1) == 1)
 	tmp_class = 3;
@@ -954,7 +907,7 @@ rank_for_schedule (const void *x, const void *y)
       else
 	tmp_class = 2;
 
-      dep2 = sd_find_dep_between (last, tmp2, true);
+      dep2 = sd_find_dep_between (last_scheduled_insn, tmp2, true);
 
       if (dep2 == NULL || dep_cost (dep2)  == 1)
 	tmp2_class = 3;
@@ -972,13 +925,8 @@ rank_for_schedule (const void *x, const void *y)
      This gives the scheduler more freedom when scheduling later
      instructions at the expense of added register pressure.  */
 
-  if (has_debug)
-    val = (nondebug_dep_list_size (tmp2)
-	   - nondebug_dep_list_size (tmp));
-  else
-    val = (sd_lists_size (tmp2, SD_LIST_FORW)
-	   - sd_lists_size (tmp, SD_LIST_FORW));
-
+  val = (sd_lists_size (tmp2, SD_LIST_FORW)
+	 - sd_lists_size (tmp, SD_LIST_FORW));
 
   if (val != 0)
     return val;
@@ -2519,8 +2467,7 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 	  /* A naked CLOBBER or USE generates no instruction, so do
 	     not count them against the issue rate.  */
 	  else if (GET_CODE (PATTERN (insn)) != USE
-		   && GET_CODE (PATTERN (insn)) != CLOBBER
-		   && !DEBUG_INSN_P (insn))
+		   && GET_CODE (PATTERN (insn)) != CLOBBER)
 	    can_issue_more--;
 
 	  advance = schedule_insn (insn);
@@ -4421,7 +4368,7 @@ add_jump_dependencies (rtx insn, rtx jump)
       if (insn == jump)
 	break;
       
-      if (nondebug_dep_list_size (insn) == 0)
+      if (sd_lists_empty_p (insn, SD_LIST_FORW))
 	{
 	  dep_def _new_dep, *new_dep = &_new_dep;
 
