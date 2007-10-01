@@ -2231,8 +2231,10 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
      GCC itself seems to write to stderr a lot ... */
   dup2 (fd, 2);
 
-  /* FIXME: reset errorcount and sorrycount.  Maybe make a new
-     global_dc?  Arrange to unlink assembler output file on error.  */
+  /* FIXME: make a new global_dc.  Arrange to unlink assembler output
+     file on error.  */
+  errorcount = 0;
+  sorrycount = 0;
 
   px = start_as (as_argv);
 

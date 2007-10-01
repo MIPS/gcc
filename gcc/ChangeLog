@@ -1,3 +1,7 @@
+2007-10-01  Tom Tromey  <tromey@redhat.com>
+
+	* toplev.c (server_callback): Reset errorcount and sorrycount.
+
 2007-09-28  Tom Tromey  <tromey@redhat.com>
 	    Michael Matz  <matz@suse.de>
 
