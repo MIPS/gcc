@@ -1366,24 +1366,8 @@ copy_body (copy_body_data *id, gcov_type count, int frequency,
   return body;
 }
 
-/* Return true if VALUE is an ADDR_EXPR of an automatic variable
-   defined in function FN, or of a data member thereof.  */
-
-static bool
-self_inlining_addr_expr (tree value, tree fn)
-{
-  tree var;
-
-  if (TREE_CODE (value) != ADDR_EXPR)
-    return false;
-
-  var = get_base_address (TREE_OPERAND (value, 0));
-
-  return var && auto_var_in_fn_p (var, fn);
-}
-
 static void
-setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
+setup_one_parameter (copy_body_data *id, tree p, tree value,
 		     basic_block bb, tree *vars)
 {
   tree init_stmt;
@@ -1397,33 +1381,6 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       && value != error_mark_node
       && !useless_type_conversion_p (TREE_TYPE (p), TREE_TYPE (value)))
     rhs = fold_build1 (NOP_EXPR, TREE_TYPE (p), value);
-
-  /* If the parameter is never assigned to, has no SSA_NAMEs created,
-     we may not need to create a new variable here at all.  Instead, we may
-     be able to just use the argument value.  */
-  if (TREE_READONLY (p)
-      && !TREE_ADDRESSABLE (p)
-      && value && !TREE_SIDE_EFFECTS (value)
-      && !def)
-    {
-      /* We may produce non-gimple trees by adding NOPs or introduce
-	 invalid sharing when operand is not really constant.
-	 It is not big deal to prohibit constant propagation here as
-	 we will constant propagate in DOM1 pass anyway.  */
-      if (is_gimple_min_invariant (value)
-	  && useless_type_conversion_p (TREE_TYPE (p),
-						 TREE_TYPE (value))
-	  /* We have to be very careful about ADDR_EXPR.  Make sure
-	     the base variable isn't a local variable of the inlined
-	     function, e.g., when doing recursive inlining, direct or
-	     mutually-recursive or whatever, which is why we don't
-	     just test whether fn == current_function_decl.  */
-	  && ! self_inlining_addr_expr (value, fn))
-	{
-	  insert_decl_map (id, p, value);
-	  return;
-	}
-    }
 
   /* Make an equivalent VAR_DECL.  Note that we must NOT remap the type
      here since the type of this decl must be visible to the calling
@@ -1471,29 +1428,6 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      assigned to only once.  */
   if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (p)))
     TREE_READONLY (var) = 0;
-
-  /* If there is no setup required and we are in SSA, take the easy route
-     replacing all SSA names representing the function parameter by the
-     SSA name passed to function.
-
-     We need to construct map for the variable anyway as it might be used
-     in different SSA names when parameter is set in function.
-
-     FIXME: This usually kills the last connection in between inlined
-     function parameter and the actual value in debug info.  Can we do
-     better here?  If we just inserted the statement, copy propagation
-     would kill it anyway as it always did in older versions of GCC.
-
-     We might want to introduce a notion that single SSA_NAME might
-     represent multiple variables for purposes of debugging. */
-  if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
-      && (TREE_CODE (rhs) == SSA_NAME
-	  || is_gimple_min_invariant (rhs))
-      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
-    {
-      insert_decl_map (id, def, rhs);
-      return;
-    }
 
   /* Initialize this VAR_DECL from the equivalent argument.  Convert
      the argument to the proper type in case it was promoted.  */
@@ -1578,7 +1512,7 @@ initialize_inlined_parameters (copy_body_data *id, tree exp,
      equivalent VAR_DECL, appropriately initialized.  */
   for (p = parms, a = first_call_expr_arg (exp, &iter); p;
        a = next_call_expr_arg (&iter), p = TREE_CHAIN (p))
-    setup_one_parameter (id, p, a, fn, bb, &vars);
+    setup_one_parameter (id, p, a, bb, &vars);
 
   /* Initialize the static chain.  */
   p = DECL_STRUCT_FUNCTION (fn)->static_chain_decl;
@@ -1588,7 +1522,7 @@ initialize_inlined_parameters (copy_body_data *id, tree exp,
       /* No static chain?  Seems like a bug in tree-nested.c.  */
       gcc_assert (static_chain);
 
-      setup_one_parameter (id, p, static_chain, fn, bb, &vars);
+      setup_one_parameter (id, p, static_chain, bb, &vars);
     }
 
   declare_inline_vars (id->block, vars);

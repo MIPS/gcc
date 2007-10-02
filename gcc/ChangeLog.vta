@@ -1,5 +1,11 @@
 2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-inline.c (self_inlining_addr_expr): Delete.
+	(setup_one_parameter): Drop fn argument.  Adjust callers.
+	Don't short-circuit optimization of declarations.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* ifcvt.c (noce_process_if_block): Try to handle only the then
 	block if the else block exists but isn't suitable.
 
