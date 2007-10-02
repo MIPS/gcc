@@ -302,7 +302,7 @@ Objective-C and Objective-C++ Dialects}.
 -fmem-report -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -ftest-coverage  -ftime-report -fvar-tracking @gol
--g  -g@var{level}  -gcoff -gdwarf-2 @gol
+-fvar-tracking-assigments -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -fdebug-prefix-map=@var{old}=@var{new} @gol
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
@@ -4926,6 +4926,14 @@ position in code.  Better debugging information is then generated
 It is enabled by default when compiling with optimization (@option{-Os},
 @option{-O}, @option{-O2}, ...), debugging information (@option{-g}) and
 the debug info format supports it.
+
+@item -fvar-tracking-assignments
+@opindex -fvar-tracking-assignments
+Annotate assignments to user variables early in the compilation and
+attempt to carry the annotations over throughout the compilation all the
+way to the end, in an attempt to improve debug information while
+optimizing.  It is silently disabled if debug information generation,
+optimization or var-tracking are disabled.
 
 @item -print-file-name=@var{library}
 @opindex print-file-name

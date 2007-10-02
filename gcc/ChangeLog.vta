@@ -1,5 +1,12 @@
 2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	* common.opt (fvar-tracking-assignments): New.
+	* doc/invoke.texi: Document it.
+	* toplev.c (flag_var_tracking_assignments): New.
+	(process_options): Choose its default.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgrtl.c (rtl_block_ends_with_call_p): Skip notes at the end.
 
 2007-10-01  Alexandre Oliva  <aoliva@redhat.com>

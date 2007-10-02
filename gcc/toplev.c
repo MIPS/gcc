@@ -329,6 +329,12 @@ rtx stack_limit_rtx;
    to optimize, debug_info_level and debug_hooks in process_options ().  */
 int flag_var_tracking = AUTODETECT_VALUE;
 
+/* Nonzero if we should track variable assignments.  When
+   flag_var_tracking_assignments == AUTODETECT_VALUE it will be set
+   according to flag_var_tracking, optimize, debug_info_level and
+   debug_hooks in process_options ().  */
+int flag_var_tracking_assignments = AUTODETECT_VALUE;
+
 /* True if the user has tagged the function with the 'section'
    attribute.  */
 
@@ -1889,7 +1895,8 @@ process_options (void)
       || debug_hooks->var_location == do_nothing_debug_hooks.var_location)
     {
       if (flag_var_tracking == 1
-	  || flag_var_tracking_uninit == 1)
+	  || flag_var_tracking_uninit == 1
+	  || flag_var_tracking_assignments == 1)
         {
 	  if (debug_info_level < DINFO_LEVEL_NORMAL)
 	    warning (0, "variable tracking requested, but useless unless "
@@ -1900,6 +1907,7 @@ process_options (void)
 	}
       flag_var_tracking = 0;
       flag_var_tracking_uninit = 0;
+      flag_var_tracking_assignments = 0;
     }
 
   if (flag_rename_registers == AUTODETECT_VALUE)
@@ -1908,6 +1916,18 @@ process_options (void)
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  if (flag_var_tracking_assignments == AUTODETECT_VALUE)
+    flag_var_tracking_assignments = flag_var_tracking && optimize;
+  else if (flag_var_tracking_assignments)
+    {
+      if (!optimize)
+	{
+	  warning (0, "variable tracking in assignments requested, "
+		   "but useless without optimization");
+	  flag_var_tracking_assignments = 0;
+	}
+    }
 
   if (flag_tree_cselim == AUTODETECT_VALUE)
 #ifdef HAVE_conditional_move
