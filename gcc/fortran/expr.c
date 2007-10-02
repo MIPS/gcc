@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -693,6 +692,10 @@ static match
 check_specification_function (gfc_expr *e)
 {
   gfc_symbol *sym;
+
+  if (!e->symtree)
+    return MATCH_NO;
+
   sym = e->symtree->n.sym;
 
   /* F95, 7.1.6.2; F2003, 7.1.7  */
@@ -763,8 +766,8 @@ gfc_is_constant_expr (gfc_expr *e)
       break;
 
     case EXPR_SUBSTRING:
-      rv = (gfc_is_constant_expr (e->ref->u.ss.start)
-	    && gfc_is_constant_expr (e->ref->u.ss.end));
+      rv = e->ref == NULL || (gfc_is_constant_expr (e->ref->u.ss.start)
+			      && gfc_is_constant_expr (e->ref->u.ss.end));
       break;
 
     case EXPR_STRUCTURE:
@@ -786,6 +789,35 @@ gfc_is_constant_expr (gfc_expr *e)
     }
 
   return rv;
+}
+
+
+/* Is true if an array reference is followed by a component or substring
+   reference.  */
+bool
+is_subref_array (gfc_expr * e)
+{
+  gfc_ref * ref;
+  bool seen_array;
+
+  if (e->expr_type != EXPR_VARIABLE)
+    return false;
+
+  if (e->symtree->n.sym->attr.subref_array_pointer)
+    return true;
+
+  seen_array = false;
+  for (ref = e->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_ARRAY
+	    && ref->u.ar.type != AR_ELEMENT)
+	seen_array = true;
+
+      if (seen_array
+	    && ref->type != REF_ARRAY)
+	return seen_array;
+    }
+  return false;
 }
 
 
@@ -1326,6 +1358,7 @@ find_substring_ref (gfc_expr *p, gfc_expr **newp)
 {
   int end;
   int start;
+  int length;
   char *chr;
 
   if (p->ref->u.ss.start->expr_type != EXPR_CONSTANT
@@ -1333,13 +1366,16 @@ find_substring_ref (gfc_expr *p, gfc_expr **newp)
     return FAILURE;
 
   *newp = gfc_copy_expr (p);
-  chr = p->value.character.string;
+  gfc_free ((*newp)->value.character.string);
+
   end = (int) mpz_get_ui (p->ref->u.ss.end->value.integer);
   start = (int) mpz_get_ui (p->ref->u.ss.start->value.integer);
+  length = end - start + 1;
 
-  (*newp)->value.character.length = end - start + 1;
-  strncpy ((*newp)->value.character.string, &chr[start - 1],
-	   (*newp)->value.character.length);
+  chr = (*newp)->value.character.string = gfc_getmem (length + 1);
+  (*newp)->value.character.length = length;
+  memcpy (chr, &p->value.character.string[start - 1], length);
+  chr[length] = '\0';
   return SUCCESS;
 }
 
@@ -1539,9 +1575,19 @@ gfc_simplify_expr (gfc_expr *p, int type)
 	  char *s;
 	  int start, end;
 
-	  gfc_extract_int (p->ref->u.ss.start, &start);
-	  start--;  /* Convert from one-based to zero-based.  */
-	  gfc_extract_int (p->ref->u.ss.end, &end);
+	  if (p->ref && p->ref->u.ss.start)
+	    {
+	      gfc_extract_int (p->ref->u.ss.start, &start);
+	      start--;  /* Convert from one-based to zero-based.  */
+	    }
+	  else
+	    start = 0;
+
+	  if (p->ref && p->ref->u.ss.end)
+	    gfc_extract_int (p->ref->u.ss.end, &end);
+	  else
+	    end = p->value.character.length;
+
 	  s = gfc_getmem (end - start + 2);
 	  memcpy (s, p->value.character.string + start, end - start);
 	  s[end - start + 1] = '\0';  /* TODO: C-style string.  */
@@ -2496,8 +2542,8 @@ gfc_check_conformance (const char *optype_msgid, gfc_expr *op1, gfc_expr *op2)
 
   if (op1->rank != op2->rank)
     {
-      gfc_error ("Incompatible ranks in %s at %L", _(optype_msgid),
-		 &op1->where);
+      gfc_error ("Incompatible ranks in %s (%d and %d) at %L", _(optype_msgid),
+		 op1->rank, op2->rank, &op1->where);
       return FAILURE;
     }
 
@@ -2510,8 +2556,8 @@ gfc_check_conformance (const char *optype_msgid, gfc_expr *op1, gfc_expr *op2)
 
       if (op1_flag && op2_flag && mpz_cmp (op1_size, op2_size) != 0)
 	{
-	  gfc_error ("different shape for %s at %L on dimension %d (%d/%d)",
-		     _(optype_msgid), &op1->where, d + 1,
+	  gfc_error ("Different shape for %s at %L on dimension %d "
+		     "(%d and %d)", _(optype_msgid), &op1->where, d + 1,
 		     (int) mpz_get_si (op1_size),
 		     (int) mpz_get_si (op2_size));
 
@@ -2650,7 +2696,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 
   /* Check size of array assignments.  */
   if (lvalue->rank != 0 && rvalue->rank != 0
-      && gfc_check_conformance ("Array assignment", lvalue, rvalue) != SUCCESS)
+      && gfc_check_conformance ("array assignment", lvalue, rvalue) != SUCCESS)
     return FAILURE;
 
   if (gfc_compare_types (&lvalue->ts, &rvalue->ts))
@@ -2736,7 +2782,8 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 
   is_pure = gfc_pure (NULL);
 
-  if (is_pure && gfc_impure_variable (lvalue->symtree->n.sym))
+  if (is_pure && gfc_impure_variable (lvalue->symtree->n.sym)
+	&& lvalue->symtree->n.sym->value != rvalue)
     {
       gfc_error ("Bad pointer object in PURE procedure at %L", &lvalue->where);
       return FAILURE;
@@ -2783,6 +2830,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 		 "assignment at %L", &lvalue->where);
       return FAILURE;
     }
+
+  if (rvalue->expr_type == EXPR_VARIABLE && is_subref_array (rvalue))
+    lvalue->symtree->n.sym->attr.subref_array_pointer = 1;
 
   attr = gfc_expr_attr (rvalue);
   if (!attr.target && !attr.pointer)
@@ -2855,22 +2905,20 @@ gfc_default_initializer (gfc_typespec *ts)
   gfc_expr *init;
   gfc_component *c;
 
-  init = NULL;
-
   /* See if we have a default initializer.  */
   for (c = ts->derived->components; c; c = c->next)
-    {
-      if ((c->initializer || c->allocatable) && init == NULL)
-	init = gfc_get_expr ();
-    }
+    if (c->initializer || c->allocatable)
+      break;
 
-  if (init == NULL)
+  if (!c)
     return NULL;
 
   /* Build the constructor.  */
+  init = gfc_get_expr ();
   init->expr_type = EXPR_STRUCTURE;
   init->ts = *ts;
   init->where = ts->derived->declared_at;
+
   tail = NULL;
   for (c = ts->derived->components; c; c = c->next)
     {

@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -9,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -18,9 +18,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file is part of the C++ front end.
@@ -105,7 +104,7 @@ readonly_error (tree arg, const char* string)
   else if (TREE_CODE (arg) == FUNCTION_DECL)
     error ("%s of function %qD", string, arg);
   else
-    error ("%s of read-only location", string);
+    error ("%s of read-only location %qE", string, arg);
 }
 
 
@@ -337,7 +336,7 @@ abstract_virtuals_error (tree decl, tree type)
    pedwarn.  */
 
 void
-cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
+cxx_incomplete_type_diagnostic (const_tree value, const_tree type, int diag_type)
 {
   int decl = 0;
   void (*p_msg) (const char *, ...) ATTRIBUTE_GCC_CXXDIAG(1,2);
@@ -428,7 +427,7 @@ cxx_incomplete_type_diagnostic (tree value, tree type, int diag_type)
    required by ../tree.c.  */
 #undef cxx_incomplete_type_error
 void
-cxx_incomplete_type_error (tree value, tree type)
+cxx_incomplete_type_error (const_tree value, const_tree type)
 {
   cxx_incomplete_type_diagnostic (value, type, 0);
 }
@@ -764,8 +763,8 @@ picflag_from_initializer (tree init)
 }
 
 /* Subroutine of process_init_constructor, which will process an initializer
-   INIT for a array or vector of type TYPE. Returns the flags (PICFLAG_*) which
-   describe the initializers.  */
+   INIT for an array or vector of type TYPE. Returns the flags (PICFLAG_*)
+   which describe the initializers.  */
 
 static int
 process_init_constructor_array (tree type, tree init)

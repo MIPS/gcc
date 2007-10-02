@@ -226,6 +226,13 @@ UDItype __umulsidi3 (USItype, USItype);
 #define UDIV_TIME 100
 #endif /* __arm__ */
 
+#if defined (__CRIS__) && __CRIS_arch_version >= 3
+#define count_leading_zeros(COUNT, X) ((COUNT) = __builtin_clz (X))
+#if __CRIS_arch_version >= 8
+#define count_trailing_zeros(COUNT, X) ((COUNT) = __builtin_ctz (X))
+#endif
+#endif /* __CRIS__ */
+
 #if defined (__hppa) && W_TYPE_SIZE == 32
 #define add_ssaaaa(sh, sl, ah, al, bh, bl) \
   __asm__ ("add %4,%5,%1\n\taddc %2,%3,%0"				\
@@ -624,6 +631,11 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "d" ((USItype) (v)))
 #define UMUL_TIME 10
 #define UDIV_TIME 100
+
+#if (__mips == 32 || __mips == 64) && ! __mips16
+#define count_leading_zeros(COUNT,X)	((COUNT) = __builtin_clz (X))
+#define COUNT_LEADING_ZEROS_0 32
+#endif
 #endif /* __mips__ */
 
 #if defined (__ns32000__) && W_TYPE_SIZE == 32

@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1002,7 +1001,7 @@ package body Exp_Ch9 is
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
               Statements => New_List (
-                Make_Return_Statement (Loc,
+                Make_Simple_Return_Statement (Loc,
                   Expression => Condition (Ent_Formals)))));
       Set_Is_Entry_Barrier_Function (EBF);
       return EBF;
@@ -1370,7 +1369,7 @@ package body Exp_Ch9 is
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements =>
                    New_List (
-                     Make_Return_Statement (Loc,
+                     Make_Simple_Return_Statement (Loc,
                         Make_Function_Call (Loc,
                           Name =>
                             Make_Selected_Component (Loc,
@@ -1787,7 +1786,7 @@ package body Exp_Ch9 is
          Cond  : Node_Id;
          Stats : constant List_Id :=
                    New_List (
-                     Make_Return_Statement (Loc,
+                     Make_Simple_Return_Statement (Loc,
                        Expression => Make_Integer_Literal (Loc, Index + 1)));
 
       begin
@@ -1879,7 +1878,7 @@ package body Exp_Ch9 is
          --  correspondence between entry queue and entry body.
 
          Ret :=
-           Make_Return_Statement (Loc,
+           Make_Simple_Return_Statement (Loc,
              Expression => Make_Identifier (Loc, Name_uE));
 
       else
@@ -1915,7 +1914,7 @@ package body Exp_Ch9 is
          if Index = 1 then
             Decls := New_List;
             Ret :=
-              Make_Return_Statement (Loc,
+              Make_Simple_Return_Statement (Loc,
                 Expression => Make_Integer_Literal (Loc, 1));
 
          elsif Nkind (Ret) = N_If_Statement then
@@ -2083,6 +2082,9 @@ package body Exp_Ch9 is
 
       if Debug_Generated_Code then
          Han_Loc := End_Loc;
+
+      --  Otherwise the inserted code should not be visible to the debugger
+
       else
          Han_Loc := No_Location;
       end if;
@@ -2521,11 +2523,11 @@ package body Exp_Ch9 is
                     Name => Make_Identifier (Loc,
                       Chars (Defining_Unit_Name (N_Op_Spec))),
                     Parameter_Associations => Uactuals));
-            Return_Stmt := Make_Return_Statement (Loc,
+            Return_Stmt := Make_Simple_Return_Statement (Loc,
               Expression => New_Reference_To (R, Loc));
 
          else
-            Unprot_Call := Make_Return_Statement (Loc,
+            Unprot_Call := Make_Simple_Return_Statement (Loc,
               Expression => Make_Function_Call (Loc,
                 Name =>
                   Make_Identifier (Loc,
@@ -4352,6 +4354,18 @@ package body Exp_Ch9 is
       --  scope.
 
       if Is_Entity_Name (Cond) then
+
+         --  A small optimization of useless renamings. If the scope of the
+         --  entity of the condition is not the barrier function, then the
+         --  condition does not reference any of the generated renamings
+         --  within the function.
+
+         if Expander_Active
+           and then Scope (Entity (Cond)) /= Func
+         then
+            Set_Declarations (B_F, Empty_List);
+         end if;
+
          if Entity (Cond) = Standard_False
               or else
             Entity (Cond) = Standard_True
@@ -4402,9 +4416,20 @@ package body Exp_Ch9 is
            Entry_Index_Specification (Entry_Body_Formal_Part (N));
 
          if Present (Index_Spec) then
-            Set_Entry_Index_Constant (
-              Defining_Identifier (Index_Spec),
-              Make_Defining_Identifier (Loc, New_Internal_Name ('J')));
+            declare
+               Index_Con : constant Entity_Id :=
+                             Make_Defining_Identifier (Loc,
+                               Chars => New_Internal_Name ('J'));
+            begin
+               --  Mark the index constant as having a valid value since it
+               --  will act as a renaming of the original entry index which
+               --  is known to be valid.
+
+               Set_Is_Known_Valid (Index_Con);
+
+               Set_Entry_Index_Constant
+                 (Defining_Identifier (Index_Spec), Index_Con);
+            end;
          end if;
       end if;
    end Expand_Entry_Body_Declarations;
@@ -6724,7 +6749,7 @@ package body Exp_Ch9 is
 
             Stmts :=
               New_List (
-                Make_Return_Statement (Loc,
+                Make_Simple_Return_Statement (Loc,
                   Expression =>
                     Make_Function_Call (Loc,
                       Name =>
@@ -7911,7 +7936,7 @@ package body Exp_Ch9 is
 
          --  Build the return statement to skip the rest of the entry body
 
-         Skip_Stat := Make_Return_Statement (Loc);
+         Skip_Stat := Make_Simple_Return_Statement (Loc);
 
       else
          --  If the requeue is within a task, find the end label of the
@@ -8474,7 +8499,7 @@ package body Exp_Ch9 is
             Add_Accept (Alt);
 
          elsif Nkind (Alt) = N_Delay_Alternative then
-            Delay_Count   := Delay_Count + 1;
+            Delay_Count := Delay_Count + 1;
 
             --  If the delays are relative delays, the delay expressions have
             --  type Standard_Duration. Otherwise they must have some time type
@@ -8491,7 +8516,7 @@ package body Exp_Ch9 is
                   null;
                else
                   Error_Msg_NE (
-                    "& is not a time type ('R'M 9.6(6))",
+                    "& is not a time type (RM 9.6(6))",
                        Expression (Delay_Statement (Alt)), Time_Type);
                   Time_Type := Standard_Duration;
                   Set_Etype (Expression (Delay_Statement (Alt)), Any_Type);
@@ -11203,7 +11228,7 @@ package body Exp_Ch9 is
       --  required value is obtained by taking the address of the task body
       --  procedure and converting it (with an unchecked conversion) to the
       --  type required by the task kernel. For further details, see the
-      --  description of Expand_Task_Body
+      --  description of Expand_N_Task_Body
 
       Append_To (Args,
         Unchecked_Convert_To (RTE (RE_Task_Procedure_Access),

@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,29 +17,12 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #ifndef GFC_BACKEND_H
 #define GFC_BACKEND_H
-
-#define GFC_DTYPE_RANK_MASK 0x07
-#define GFC_DTYPE_TYPE_SHIFT 3
-#define GFC_DTYPE_TYPE_MASK 0x38
-#define GFC_DTYPE_SIZE_SHIFT 6
-
-enum
-{
-  GFC_DTYPE_UNKNOWN = 0,
-  GFC_DTYPE_INTEGER,
-  GFC_DTYPE_LOGICAL,
-  GFC_DTYPE_REAL,
-  GFC_DTYPE_COMPLEX,
-  GFC_DTYPE_DERIVED,
-  GFC_DTYPE_CHARACTER
-};
 
 extern GTY(()) tree gfc_array_index_type;
 extern GTY(()) tree gfc_array_range_type;

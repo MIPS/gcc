@@ -1,12 +1,13 @@
 ;; AltiVec patterns.
-;; Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+;; Free Software Foundation, Inc.
 ;; Contributed by Aldy Hernandez (aldy@quesejoda.com)
 
 ;; This file is part of GCC.
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +16,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-;; MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_constants
   [(UNSPEC_VCMPBFP       50)
@@ -162,13 +162,13 @@
   ])
 
 ;; Vec int modes
-(define_mode_macro VI [V4SI V8HI V16QI])
+(define_mode_iterator VI [V4SI V8HI V16QI])
 ;; Short vec in modes
-(define_mode_macro VIshort [V8HI V16QI])
+(define_mode_iterator VIshort [V8HI V16QI])
 ;; Vec float modes
-(define_mode_macro VF [V4SF])
-;; Vec modes, pity mode macros are not composable
-(define_mode_macro V [V4SI V8HI V16QI V4SF])
+(define_mode_iterator VF [V4SF])
+;; Vec modes, pity mode iterators are not composable
+(define_mode_iterator V [V4SI V8HI V16QI V4SF])
 
 (define_mode_attr VI_char [(V4SI "w") (V8HI "h") (V16QI "b")])
 

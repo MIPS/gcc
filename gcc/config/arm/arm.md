@@ -1,6 +1,6 @@
 ;;- Machine description for ARM for GNU compiler
 ;;  Copyright 1991, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999, 2000,
-;;  2001, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
+;;  2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 ;;  Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
 ;;  and Martin Simmons (@harleqn.co.uk).
 ;;  More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -9,7 +9,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -18,9 +18,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -310,12 +309,12 @@
 (define_attr "ce_count" "" (const_int 1))
 
 ;;---------------------------------------------------------------------------
-;; Mode macros
+;; Mode iterators
 
 ; A list of modes that are exactly 64 bits in size.  We use this to expand
 ; some splits that are the same for all modes when operating on ARM 
 ; registers.
-(define_mode_macro ANY64 [DI DF V8QI V4HI V2SI V2SF])
+(define_mode_iterator ANY64 [DI DF V8QI V4HI V2SI V2SF])
 
 ;;---------------------------------------------------------------------------
 ;; Predicates
@@ -1341,7 +1340,22 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "mulsidi3"
+;; 32x32->64 widening multiply.
+;; As with mulsi3, the only difference between the v3-5 and v6+
+;; versions of these patterns is the requirement that the output not
+;; overlap the inputs, but that still means we have to have a named
+;; expander and two different starred insns.
+
+(define_expand "mulsidi3"
+  [(set (match_operand:DI 0 "s_register_operand" "")
+	(mult:DI
+	 (sign_extend:DI (match_operand:SI 1 "s_register_operand" ""))
+	 (sign_extend:DI (match_operand:SI 2 "s_register_operand" ""))))]
+  "TARGET_32BIT && arm_arch3m"
+  ""
+)
+
+(define_insn "*mulsidi3_nov6"
   [(set (match_operand:DI 0 "s_register_operand" "=&r")
 	(mult:DI
 	 (sign_extend:DI (match_operand:SI 1 "s_register_operand" "%r"))
@@ -1352,7 +1366,7 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "mulsidi3_v6"
+(define_insn "*mulsidi3_v6"
   [(set (match_operand:DI 0 "s_register_operand" "=r")
 	(mult:DI
 	 (sign_extend:DI (match_operand:SI 1 "s_register_operand" "r"))
@@ -1363,7 +1377,16 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "umulsidi3"
+(define_expand "umulsidi3"
+  [(set (match_operand:DI 0 "s_register_operand" "")
+	(mult:DI
+	 (zero_extend:DI (match_operand:SI 1 "s_register_operand" ""))
+	 (zero_extend:DI (match_operand:SI 2 "s_register_operand" ""))))]
+  "TARGET_32BIT && arm_arch3m"
+  ""
+)
+
+(define_insn "*umulsidi3_nov6"
   [(set (match_operand:DI 0 "s_register_operand" "=&r")
 	(mult:DI
 	 (zero_extend:DI (match_operand:SI 1 "s_register_operand" "%r"))
@@ -1374,7 +1397,7 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "umulsidi3_v6"
+(define_insn "*umulsidi3_v6"
   [(set (match_operand:DI 0 "s_register_operand" "=r")
 	(mult:DI
 	 (zero_extend:DI (match_operand:SI 1 "s_register_operand" "r"))
@@ -1413,7 +1436,21 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "smulsi3_highpart"
+(define_expand "smulsi3_highpart"
+  [(parallel
+    [(set (match_operand:SI 0 "s_register_operand" "")
+	  (truncate:SI
+	   (lshiftrt:DI
+	    (mult:DI
+	     (sign_extend:DI (match_operand:SI 1 "s_register_operand" ""))
+	     (sign_extend:DI (match_operand:SI 2 "s_register_operand" "")))
+	    (const_int 32))))
+     (clobber (match_scratch:SI 3 ""))])]
+  "TARGET_32BIT && arm_arch3m"
+  ""
+)
+
+(define_insn "*smulsi3_highpart_nov6"
   [(set (match_operand:SI 0 "s_register_operand" "=&r,&r")
 	(truncate:SI
 	 (lshiftrt:DI
@@ -1428,7 +1465,7 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "smulsi3_highpart_v6"
+(define_insn "*smulsi3_highpart_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(truncate:SI
 	 (lshiftrt:DI
@@ -1443,7 +1480,21 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "umulsi3_highpart"
+(define_expand "umulsi3_highpart"
+  [(parallel
+    [(set (match_operand:SI 0 "s_register_operand" "")
+	  (truncate:SI
+	   (lshiftrt:DI
+	    (mult:DI
+	     (zero_extend:DI (match_operand:SI 1 "s_register_operand" ""))
+	      (zero_extend:DI (match_operand:SI 2 "s_register_operand" "")))
+	    (const_int 32))))
+     (clobber (match_scratch:SI 3 ""))])]
+  "TARGET_32BIT && arm_arch3m"
+  ""
+)
+
+(define_insn "*umulsi3_highpart_nov6"
   [(set (match_operand:SI 0 "s_register_operand" "=&r,&r")
 	(truncate:SI
 	 (lshiftrt:DI
@@ -1458,7 +1509,7 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "umulsi3_highpart_v6"
+(define_insn "*umulsi3_highpart_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(truncate:SI
 	 (lshiftrt:DI
@@ -4656,6 +4707,7 @@
         (match_operand:SI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
+  {
   rtx base, offset, tmp;
 
   if (TARGET_32BIT)
@@ -4729,6 +4781,7 @@
 					    (!can_create_pseudo_p ()
 					     ? operands[0]
 					     : 0));
+  }
   "
 )
 
@@ -4846,39 +4899,6 @@
   "ldr\\t%0, %1"
   [(set_attr "type" "load1")
    (set (attr "pool_range") (const_int 1024))]
-)
-
-;; This variant is used for AOF assembly, since it needs to mention the
-;; pic register in the rtl.
-(define_expand "pic_load_addr_based"
-  [(set (match_operand:SI 0 "s_register_operand" "")
-	(unspec:SI [(match_operand 1 "" "") (match_dup 2)] UNSPEC_PIC_SYM))]
-  "TARGET_ARM && flag_pic"
-  "operands[2] = cfun->machine->pic_reg;"
-)
-
-(define_insn "*pic_load_addr_based_insn"
-  [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(unspec:SI [(match_operand 1 "" "")
-		    (match_operand 2 "s_register_operand" "r")]
-		   UNSPEC_PIC_SYM))]
-  "TARGET_EITHER && flag_pic && operands[2] == cfun->machine->pic_reg"
-  "*
-#ifdef AOF_ASSEMBLER
-  operands[1] = aof_pic_entry (operands[1]);
-#endif
-  output_asm_insn (\"ldr%?\\t%0, %a1\", operands);
-  return \"\";
-  "
-  [(set_attr "type" "load1")
-   (set (attr "pool_range")
-	(if_then_else (eq_attr "is_thumb" "yes")
-		      (const_int 1024)
-		      (const_int 4096)))
-   (set (attr "neg_pool_range")
-	(if_then_else (eq_attr "is_thumb" "yes")
-		      (const_int 0)
-		      (const_int 4084)))]
 )
 
 (define_insn "pic_add_dot_plus_four"
@@ -10778,46 +10798,6 @@
   "clz%?\\t%0, %1"
   [(set_attr "predicable" "yes")
    (set_attr "insn" "clz")])
-
-(define_expand "ffssi2"
-  [(set (match_operand:SI 0 "s_register_operand" "")
-	(ffs:SI (match_operand:SI 1 "s_register_operand" "")))]
-  "TARGET_32BIT && arm_arch5"
-  "
-  {
-    rtx t1, t2, t3;
-
-    t1 = gen_reg_rtx (SImode);
-    t2 = gen_reg_rtx (SImode);
-    t3 = gen_reg_rtx (SImode);
-
-    emit_insn (gen_negsi2 (t1, operands[1]));
-    emit_insn (gen_andsi3 (t2, operands[1], t1));
-    emit_insn (gen_clzsi2 (t3, t2));
-    emit_insn (gen_subsi3 (operands[0], GEN_INT (32), t3));
-    DONE;
-  }"
-)
-
-(define_expand "ctzsi2"
-  [(set (match_operand:SI 0 "s_register_operand" "")
-	(ctz:SI (match_operand:SI 1 "s_register_operand" "")))]
-  "TARGET_32BIT && arm_arch5"
-  "
-  {
-    rtx t1, t2, t3;
-
-    t1 = gen_reg_rtx (SImode);
-    t2 = gen_reg_rtx (SImode);
-    t3 = gen_reg_rtx (SImode);
-
-    emit_insn (gen_negsi2 (t1, operands[1]));
-    emit_insn (gen_andsi3 (t2, operands[1], t1));
-    emit_insn (gen_clzsi2 (t3, t2));
-    emit_insn (gen_subsi3 (operands[0], GEN_INT (31), t3));
-    DONE;
-  }"
-)
 
 ;; V5E instructions.
 

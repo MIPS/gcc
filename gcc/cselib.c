@@ -237,7 +237,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
   rtx x = (rtx) x_arg;
   enum machine_mode mode = GET_MODE (x);
 
-  gcc_assert (GET_CODE (x) != CONST_INT
+  gcc_assert (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
 	      && (mode != VOIDmode || GET_CODE (x) != CONST_DOUBLE));
   
   if (mode != GET_MODE (v->val_rtx))
@@ -246,6 +246,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
   /* Unwrap X if necessary.  */
   if (GET_CODE (x) == CONST
       && (GET_CODE (XEXP (x, 0)) == CONST_INT
+	  || GET_CODE (XEXP (x, 0)) == CONST_FIXED
 	  || GET_CODE (XEXP (x, 0)) == CONST_DOUBLE))
     x = XEXP (x, 0);
 
@@ -265,7 +266,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
 static hashval_t
 get_value_hash (const void *entry)
 {
-  const cselib_val *v = (const cselib_val *) entry;
+  const cselib_val *const v = (const cselib_val *) entry;
   return v->value;
 }
 
@@ -275,9 +276,9 @@ get_value_hash (const void *entry)
    removed.  */
 
 int
-references_value_p (rtx x, int only_useless)
+references_value_p (const_rtx x, int only_useless)
 {
-  enum rtx_code code = GET_CODE (x);
+  const enum rtx_code code = GET_CODE (x);
   const char *fmt = GET_RTX_FORMAT (code);
   int i, j;
 
@@ -384,7 +385,7 @@ remove_useless_values (void)
    VOIDmode.  */
 
 enum machine_mode
-cselib_reg_set_mode (rtx x)
+cselib_reg_set_mode (const_rtx x)
 {
   if (!REG_P (x))
     return GET_MODE (x);
@@ -472,6 +473,7 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
   switch (GET_CODE (x))
     {
     case CONST_DOUBLE:
+    case CONST_FIXED:
       return 0;
 
     case LABEL_REF:
@@ -554,7 +556,7 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
 static rtx
 wrap_constant (enum machine_mode mode, rtx x)
 {
-  if (GET_CODE (x) != CONST_INT
+  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
       && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
     return x;
   gcc_assert (mode != VOIDmode);
@@ -617,6 +619,11 @@ cselib_hash_rtx (rtx x, int create)
 	hash += ((unsigned) CONST_DOUBLE_LOW (x)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
       return hash ? hash : (unsigned int) CONST_DOUBLE;
+
+    case CONST_FIXED:
+      hash += (unsigned int) code + (unsigned int) GET_MODE (x);
+      hash += fixed_hash (CONST_FIXED_VALUE (x));
+      return hash ? hash : (unsigned int) CONST_FIXED;
 
     case CONST_VECTOR:
       {
@@ -953,7 +960,7 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 		 STACK_POINTER_REGNUM, FRAME_POINTER or the
 		 HARD_FRAME_POINTER.
 
-		 Thses expansions confuses the code that notices that
+		 These expansions confuses the code that notices that
 		 stores into the frame go dead at the end of the
 		 function and that the frame is not effected by calls
 		 to subroutines.  If you allow the
@@ -1124,6 +1131,7 @@ cselib_subst_to_values (rtx x)
     case CONST_DOUBLE:
     case CONST_VECTOR:
     case CONST_INT:
+    case CONST_FIXED:
       return x;
 
     case POST_INC:
@@ -1354,8 +1362,8 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
    executions of the program.  0 means X can be compared reliably
    against certain constants or near-constants.  */
 
-static int
-cselib_rtx_varies_p (rtx x ATTRIBUTE_UNUSED, int from_alias ATTRIBUTE_UNUSED)
+static bool
+cselib_rtx_varies_p (const_rtx x ATTRIBUTE_UNUSED, bool from_alias ATTRIBUTE_UNUSED)
 {
   /* We actually don't need to verify very hard.  This is because
      if X has actually changed, we invalidate the memory anyway,
@@ -1468,7 +1476,7 @@ cselib_invalidate_rtx (rtx dest)
 /* A wrapper for cselib_invalidate_rtx to be called via note_stores.  */
 
 static void
-cselib_invalidate_rtx_note_stores (rtx dest, rtx ignore ATTRIBUTE_UNUSED,
+cselib_invalidate_rtx_note_stores (rtx dest, const_rtx ignore ATTRIBUTE_UNUSED,
 				   void *data ATTRIBUTE_UNUSED)
 {
   cselib_invalidate_rtx (dest);

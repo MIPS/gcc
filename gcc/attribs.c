@@ -87,8 +87,8 @@ substring_hash (const char *str, int l)
 static hashval_t
 hash_attr (const void *p)
 {
-  struct attribute_spec *spec = (struct attribute_spec *) p;
-  int l = strlen (spec->name);
+  const struct attribute_spec *const spec = (const struct attribute_spec *) p;
+  const int l = strlen (spec->name);
 
   return substring_hash (spec->name, l);
 }
@@ -98,8 +98,8 @@ hash_attr (const void *p)
 static int
 eq_attr (const void *p, const void *q)
 {
-  const struct attribute_spec *spec = (struct attribute_spec *) p;
-  const struct substring *str = (struct substring *) q;
+  const struct attribute_spec *const spec = (const struct attribute_spec *) p;
+  const struct substring *const str = (const struct substring *) q;
 
   return (!strncmp (spec->name, str->str, str->length) && !spec->name[str->length]);
 }
@@ -183,17 +183,31 @@ init_attributes (void)
     for (k = 0; attribute_tables[i][k].name != NULL; k++)
       {
 	struct substring str;
-	void **slot;
+	const void **slot;
 
 	str.str = attribute_tables[i][k].name;
 	str.length = strlen (attribute_tables[i][k].name);
-	slot = htab_find_slot_with_hash (attribute_hash, &str,
+	slot = (const void **)htab_find_slot_with_hash (attribute_hash, &str,
 					 substring_hash (str.str, str.length),
 					 INSERT);
 	gcc_assert (!*slot);
-	*slot = (void *)&attribute_tables[i][k];
+	*slot = &attribute_tables[i][k];
       }
   attributes_initialized = true;
+}
+
+/* Return the spec for the attribute named NAME.  */
+
+const struct attribute_spec *
+lookup_attribute_spec (tree name)
+{
+  struct substring attr;
+
+  attr.str = IDENTIFIER_POINTER (name);
+  attr.length = IDENTIFIER_LENGTH (name);
+  extract_attribute_substring (&attr);
+  return htab_find_with_hash (attribute_hash, &attr,
+			      substring_hash (attr.str, attr.length));
 }
 
 /* Process the attributes listed in ATTRIBUTES and install them in *NODE,
@@ -221,16 +235,9 @@ decl_attributes (tree *node, tree attributes, int flags)
       tree name = TREE_PURPOSE (a);
       tree args = TREE_VALUE (a);
       tree *anode = node;
-      const struct attribute_spec *spec = NULL;
+      const struct attribute_spec *spec = lookup_attribute_spec (name);
       bool no_add_attrs = 0;
       tree fn_ptr_tmp = NULL_TREE;
-      struct substring attr;
-
-      attr.str = IDENTIFIER_POINTER (name);
-      attr.length = IDENTIFIER_LENGTH (name);
-      extract_attribute_substring (&attr);
-      spec = htab_find_with_hash (attribute_hash, &attr,
-				  substring_hash (attr.str, attr.length));
 
       if (spec == NULL)
 	{

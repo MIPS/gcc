@@ -93,7 +93,7 @@ static sbitmap *comp;
 static struct seginfo * new_seginfo (int, rtx, int, HARD_REG_SET);
 static void add_seginfo (struct bb_info *, struct seginfo *);
 static void reg_dies (rtx, HARD_REG_SET *);
-static void reg_becomes_live (rtx, rtx, void *);
+static void reg_becomes_live (rtx, const_rtx, void *);
 static void make_preds_opaque (basic_block, int);
 
 
@@ -176,7 +176,7 @@ reg_dies (rtx reg, HARD_REG_SET *live)
    This is called via note_stores.  */
 
 static void
-reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *live)
+reg_becomes_live (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *live)
 {
   int regno;
 
@@ -245,6 +245,17 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 
 		if (INSN_P (return_copy))
 		  {
+		    /* When using SJLJ exceptions, the call to the
+		       unregister function is inserted between the
+		       clobber of the return value and the copy.
+		       We do not want to split the block before this
+		       or any other call; if we have not found the
+		       copy yet, the copy must have been deleted.  */
+		    if (CALL_P (return_copy))
+		      {
+			short_block = 1;
+			break;
+		      }
 		    return_copy_pat = PATTERN (return_copy);
 		    switch (GET_CODE (return_copy_pat))
 		      {
@@ -758,7 +769,7 @@ struct tree_opt_pass pass_mode_switching =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

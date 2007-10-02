@@ -1,14 +1,14 @@
 (* Common code for ARM NEON header file, documentation and test case
    generators.
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
    Contributed by CodeSourcery.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
+   Software Foundation; either version 3, or (at your option) any later
    version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@
    for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  *)
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  *)
 
 (* Shorthand types for vector elements.  *)
 type elts = S8 | S16 | S32 | S64 | F32 | U8 | U16 | U32 | U64 | P8 | P16
@@ -177,7 +176,7 @@ type opcode =
   (* Set/extract lanes from a vector.  *)
   | Vget_lane
   | Vset_lane
-  (* Initialise vector from bit pattern.  *)
+  (* Initialize vector from bit pattern.  *)
   | Vcreate
   (* Set all lanes to same value.  *)
   | Vdup_n
@@ -227,7 +226,7 @@ type features =
        names.  *)
   | Instruction_name of string list
     (* Mark that the intrinsic yields no instructions, or expands to yield
-       behaviour that the test generator cannot test.  *)
+       behavior that the test generator cannot test.  *)
   | No_op
     (* Mark that the intrinsic has constant arguments that cannot be set
        to the defaults (zero for pointers and one otherwise) in the test
@@ -611,7 +610,7 @@ let shift_insert shape elt =
 let get_lane shape elt =
   let vtype = type_for_elt shape elt in
   Arity2 (vtype 0, vtype 1, vtype 2),
-    (match elt with P8 -> U8 | P16 -> U16 | x -> x)
+    (match elt with P8 -> U8 | P16 -> U16 | S32 | U32 | F32 -> B32 | x -> x)
 
 let set_lane shape elt =
   let vtype = type_for_elt shape elt in

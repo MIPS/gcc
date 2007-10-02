@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* trans-types.c -- gfortran backend types */
 
@@ -37,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "trans-types.h"
 #include "trans-const.h"
 #include "real.h"
+#include "flags.h"
 
 
 #if (GFC_MAX_DIMENSIONS < 10)
@@ -1088,22 +1088,26 @@ gfc_get_desc_dim_type (void)
   decl = build_decl (FIELD_DECL,
 		     get_identifier ("stride"), gfc_array_index_type);
   DECL_CONTEXT (decl) = type;
+  TREE_NO_WARNING (decl) = 1;
   fieldlist = decl;
 
   decl = build_decl (FIELD_DECL,
 		     get_identifier ("lbound"), gfc_array_index_type);
   DECL_CONTEXT (decl) = type;
+  TREE_NO_WARNING (decl) = 1;
   fieldlist = chainon (fieldlist, decl);
 
   decl = build_decl (FIELD_DECL,
 		     get_identifier ("ubound"), gfc_array_index_type);
   DECL_CONTEXT (decl) = type;
+  TREE_NO_WARNING (decl) = 1;
   fieldlist = chainon (fieldlist, decl);
 
   /* Finish off the type.  */
   TYPE_FIELDS (type) = fieldlist;
 
   gfc_finish_type (type);
+  TYPE_DECL_SUPPRESS_DEBUG (TYPE_STUB_DECL (type)) = 1;
 
   gfc_desc_dim_type = type;
   return type;
@@ -1233,7 +1237,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, gfc_packed packed)
     {
       /* Fill in the stride and bound components of the type.  */
       if (known_stride)
-	tmp =  gfc_conv_mpz_to_tree (stride, gfc_index_integer_kind);
+	tmp = gfc_conv_mpz_to_tree (stride, gfc_index_integer_kind);
       else
         tmp = NULL_TREE;
       GFC_TYPE_ARRAY_STRIDE (type, n) = tmp;
@@ -1331,6 +1335,24 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, gfc_packed packed)
   mpz_clear (stride);
   mpz_clear (delta);
 
+  /* In debug info represent packed arrays as multi-dimensional
+     if they have rank > 1 and with proper bounds, instead of flat
+     arrays.  */
+  if (known_stride && write_symbols != NO_DEBUG)
+    {
+      tree gtype = etype, rtype, type_decl;
+
+      for (n = as->rank - 1; n >= 0; n--)
+	{
+	  rtype = build_range_type (gfc_array_index_type,
+				    GFC_TYPE_ARRAY_LBOUND (type, n),
+				    GFC_TYPE_ARRAY_UBOUND (type, n));
+	  gtype = build_array_type (gtype, rtype);
+	}
+      TYPE_NAME (type) = type_decl = build_decl (TYPE_DECL, NULL, gtype);
+      DECL_ORIGINAL_TYPE (type_decl) = gtype;
+    }
+
   if (packed != PACKED_STATIC || !known_stride)
     {
       /* For dummy arrays and automatic (heap allocated) arrays we
@@ -1370,12 +1392,14 @@ gfc_get_array_descriptor_base (int dimen)
   decl = build_decl (FIELD_DECL, get_identifier ("offset"),
 		     gfc_array_index_type);
   DECL_CONTEXT (decl) = fat_type;
+  TREE_NO_WARNING (decl) = 1;
   fieldlist = chainon (fieldlist, decl);
 
   /* Add the dtype component.  */
   decl = build_decl (FIELD_DECL, get_identifier ("dtype"),
 		     gfc_array_index_type);
   DECL_CONTEXT (decl) = fat_type;
+  TREE_NO_WARNING (decl) = 1;
   fieldlist = chainon (fieldlist, decl);
 
   /* Build the array type for the stride and bound components.  */
@@ -1387,12 +1411,14 @@ gfc_get_array_descriptor_base (int dimen)
 
   decl = build_decl (FIELD_DECL, get_identifier ("dim"), arraytype);
   DECL_CONTEXT (decl) = fat_type;
+  TREE_NO_WARNING (decl) = 1;
   fieldlist = chainon (fieldlist, decl);
 
   /* Finish off the type.  */
   TYPE_FIELDS (fat_type) = fieldlist;
 
   gfc_finish_type (fat_type);
+  TYPE_DECL_SUPPRESS_DEBUG (TYPE_STUB_DECL (fat_type)) = 1;
 
   gfc_array_descriptor_base[dimen - 1] = fat_type;
   return fat_type;
@@ -1670,16 +1696,29 @@ gfc_get_derived_type (gfc_symbol * derived)
   /* See if it's one of the iso_c_binding derived types.  */
   if (derived->attr.is_iso_c == 1)
     {
+      if (derived->backend_decl)
+	return derived->backend_decl;
+
       if (derived->intmod_sym_id == ISOCBINDING_PTR)
 	derived->backend_decl = ptr_type_node;
       else
 	derived->backend_decl = pfunc_type_node;
+
+      /* Create a backend_decl for the __c_ptr_c_address field.  */
+      derived->components->backend_decl =
+	gfc_add_field_to_struct (&(derived->backend_decl->type.values),
+				 derived->backend_decl,
+				 get_identifier (derived->components->name),
+				 gfc_typenode_for_spec (
+				   &(derived->components->ts)));
+
       derived->ts.kind = gfc_index_integer_kind;
       derived->ts.type = BT_INTEGER;
       /* Set the f90_type to BT_VOID as a way to recognize something of type
          BT_INTEGER that needs to fit a void * for the purpose of the
          iso_c_binding derived types.  */
       derived->ts.f90_type = BT_VOID;
+      
       return derived->backend_decl;
     }
   
@@ -1724,6 +1763,13 @@ gfc_get_derived_type (gfc_symbol * derived)
           c->ts.type = c->ts.derived->ts.type;
           c->ts.kind = c->ts.derived->ts.kind;
           c->ts.f90_type = c->ts.derived->ts.f90_type;
+	  if (c->initializer)
+	    {
+	      c->initializer->ts.type = c->ts.type;
+	      c->initializer->ts.kind = c->ts.kind;
+	      c->initializer->ts.f90_type = c->ts.f90_type;
+	      c->initializer->expr_type = EXPR_NULL;
+	    }
         }
     }
 
@@ -1769,6 +1815,10 @@ gfc_get_derived_type (gfc_symbol * derived)
       field = gfc_add_field_to_struct (&fieldlist, typenode,
 				       get_identifier (c->name),
 				       field_type);
+      if (c->loc.lb)
+	gfc_set_decl_location (field, &c->loc);
+      else if (derived->declared_at.lb)
+	gfc_set_decl_location (field, &derived->declared_at);
 
       DECL_PACKED (field) |= TYPE_PACKED (typenode);
 
@@ -1782,6 +1832,7 @@ gfc_get_derived_type (gfc_symbol * derived)
   TYPE_FIELDS (typenode) = fieldlist;
 
   gfc_finish_type (typenode);
+  gfc_set_decl_location (TYPE_STUB_DECL (typenode), &derived->declared_at);
 
   derived->backend_decl = typenode;
 
@@ -1859,6 +1910,7 @@ gfc_get_mixed_entry_union (gfc_namespace *ns)
   TYPE_FIELDS (type) = fieldlist;
 
   gfc_finish_type (type);
+  TYPE_DECL_SUPPRESS_DEBUG (TYPE_STUB_DECL (type)) = 1;
   return type;
 }
 

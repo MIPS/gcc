@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
    
    GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@
    GNU General Public License for more details.
    
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -79,7 +78,7 @@ static void avr_asm_out_dtor (rtx, int);
 static int avr_operand_rtx_cost (rtx, enum machine_mode, enum rtx_code);
 static bool avr_rtx_costs (rtx, int, int, int *);
 static int avr_address_cost (rtx);
-static bool avr_return_in_memory (tree, tree);
+static bool avr_return_in_memory (const_tree, const_tree);
 static struct machine_function * avr_init_machine_status (void);
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
 #define FIRST_CUM_REG 26
@@ -4476,7 +4475,7 @@ avr_assemble_integer (rtx x, unsigned int size, int aligned_p)
 void
 gas_output_limited_string(FILE *file, const char *str)
 {
-  const unsigned char *_limited_str = (unsigned char *) str;
+  const unsigned char *_limited_str = (const unsigned char *) str;
   unsigned ch;
   fprintf (file, "%s\"", STRING_ASM_OP);
   for (; (ch = *_limited_str); _limited_str++)
@@ -4529,7 +4528,7 @@ gas_output_ascii(FILE *file, const char *str, size_t length)
 	      fprintf (file, "\"\n");
 	      bytes_in_chunk = 0;
 	    }
-	  gas_output_limited_string (file, (char*)_ascii_bytes);
+	  gas_output_limited_string (file, (const char*)_ascii_bytes);
 	  _ascii_bytes = p;
 	}
       else
@@ -5616,7 +5615,7 @@ avr_libcall_value (enum machine_mode mode)
    function returns a value of data type VALTYPE.  */
 
 rtx
-avr_function_value (tree type, tree func ATTRIBUTE_UNUSED)
+avr_function_value (const_tree type, const_tree func ATTRIBUTE_UNUSED)
 {
   unsigned int offs;
   
@@ -5936,7 +5935,7 @@ avr_asm_out_dtor (rtx symbol, int priority)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-avr_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+avr_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   if (TYPE_MODE (type) == BLKmode)
     {

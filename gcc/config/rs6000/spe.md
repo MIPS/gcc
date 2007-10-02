@@ -7,7 +7,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the
-;; Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-;; MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_constants
   [(CMPDFEQ_GPR		1006)
@@ -37,13 +36,13 @@
    ])
 
 ;; Modes using a 64-bit register.
-(define_mode_macro SPE64 [DF V4HI V2SF V1DI V2SI])
+(define_mode_iterator SPE64 [DF V4HI V2SF V1DI V2SI])
 
 ;; Likewise, but allow TFmode (two registers) as well.
-(define_mode_macro SPE64TF [DF V4HI V2SF V1DI V2SI TF])
+(define_mode_iterator SPE64TF [DF V4HI V2SF V1DI V2SI TF])
 
 ;; DImode and TImode.
-(define_mode_macro DITI [DI TI])
+(define_mode_iterator DITI [DI TI])
 
 (define_insn "*negsf2_gpr"
   [(set (match_operand:SF 0 "gpc_reg_operand" "=r")
@@ -2679,7 +2678,7 @@
 (define_expand "movv2sf"
   [(set (match_operand:V2SF 0 "nonimmediate_operand" "")
 	(match_operand:V2SF 1 "any_operand" ""))]
-  "TARGET_SPE"
+  "TARGET_SPE || TARGET_PAIRED_FLOAT"
   "{ rs6000_emit_move (operands[0], operands[1], V2SFmode); DONE; }")
 
 (define_insn "*movv2sf_internal"

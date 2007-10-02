@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Process declarations and symbol lookup for C++ front end.
@@ -1099,6 +1098,10 @@ check_redeclaration_exception_specification (tree new_decl,
     }
 }
 
+#define GNU_INLINE_P(fn) (DECL_DECLARED_INLINE_P (fn)			\
+			  && lookup_attribute ("gnu_inline",		\
+					       DECL_ATTRIBUTES (fn)))
+
 /* If NEWDECL is a redeclaration of OLDDECL, merge the declarations.
    If the redeclaration is invalid, a diagnostic is issued, and the
    error_mark_node is returned.  Otherwise, OLDDECL is returned.
@@ -1276,6 +1279,17 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  type = cp_build_type_attribute_variant (type, attribs);
 	  TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = type;
 	}
+
+      /* If a function is explicitly declared "throw ()", propagate that to
+	 the corresponding builtin.  */
+      if (DECL_BUILT_IN_CLASS (olddecl) == BUILT_IN_NORMAL
+	  && DECL_ANTICIPATED (olddecl)
+	  && TREE_NOTHROW (newdecl)
+	  && !TREE_NOTHROW (olddecl)
+	  && built_in_decls [DECL_FUNCTION_CODE (olddecl)] != NULL_TREE
+	  && built_in_decls [DECL_FUNCTION_CODE (olddecl)] != olddecl
+	  && types_match)
+	TREE_NOTHROW (built_in_decls [DECL_FUNCTION_CODE (olddecl)]) = 1;
 
       /* Whether or not the builtin can throw exceptions has no
 	 bearing on this declarator.  */
@@ -1635,20 +1649,46 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	= chainon (DECL_TEMPLATE_SPECIALIZATIONS (olddecl),
 		   DECL_TEMPLATE_SPECIALIZATIONS (newdecl));
 
+      DECL_ATTRIBUTES (old_result)
+	= (*targetm.merge_decl_attributes) (old_result, new_result);
+
       if (DECL_FUNCTION_TEMPLATE_P (newdecl))
 	{
-	  DECL_INLINE (old_result)
-	    |= DECL_INLINE (new_result);
-	  DECL_DECLARED_INLINE_P (old_result)
-	    |= DECL_DECLARED_INLINE_P (new_result);
-	  check_redeclaration_exception_specification (newdecl, olddecl);
+	  if (GNU_INLINE_P (old_result) != GNU_INLINE_P (new_result)
+	      && DECL_INITIAL (new_result))
+	    {
+	      if (DECL_INITIAL (old_result))
+		{
+		  DECL_INLINE (old_result) = 0;
+		  DECL_UNINLINABLE (old_result) = 1;
+		}
+	      else
+		{
+		  DECL_INLINE (old_result) = DECL_INLINE (new_result);
+		  DECL_UNINLINABLE (old_result) = DECL_UNINLINABLE (new_result);
+		}
+	      DECL_EXTERNAL (old_result) = DECL_EXTERNAL (new_result);
+	      DECL_NOT_REALLY_EXTERN (old_result)
+		= DECL_NOT_REALLY_EXTERN (new_result);
+	      DECL_INTERFACE_KNOWN (old_result)
+		= DECL_INTERFACE_KNOWN (new_result);
+	      DECL_DECLARED_INLINE_P (old_result)
+		= DECL_DECLARED_INLINE_P (new_result);
+	    }
+	  else
+	    {
+	      DECL_INLINE (old_result)
+		|= DECL_INLINE (new_result);
+	      DECL_DECLARED_INLINE_P (old_result)
+		|= DECL_DECLARED_INLINE_P (new_result);
+	      check_redeclaration_exception_specification (newdecl, olddecl);
+	    }
 	}
 
       /* If the new declaration is a definition, update the file and
 	 line information on the declaration, and also make
 	 the old declaration the same definition.  */
-      if (DECL_INITIAL (old_result) == NULL_TREE
-	  && DECL_INITIAL (new_result) != NULL_TREE)
+      if (DECL_INITIAL (new_result) != NULL_TREE)
 	{
 	  DECL_SOURCE_LOCATION (olddecl)
 	    = DECL_SOURCE_LOCATION (old_result)
@@ -1806,9 +1846,29 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   new_template = NULL_TREE;
   if (DECL_LANG_SPECIFIC (newdecl) && DECL_LANG_SPECIFIC (olddecl))
     {
-      DECL_INTERFACE_KNOWN (newdecl) |= DECL_INTERFACE_KNOWN (olddecl);
-      DECL_NOT_REALLY_EXTERN (newdecl) |= DECL_NOT_REALLY_EXTERN (olddecl);
-      DECL_COMDAT (newdecl) |= DECL_COMDAT (olddecl);
+      bool old_decl_gnu_inline;
+
+      if ((DECL_INTERFACE_KNOWN (olddecl)
+	   && TREE_CODE (olddecl) == FUNCTION_DECL)
+	  || (TREE_CODE (olddecl) == TEMPLATE_DECL
+	      && TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)) == FUNCTION_DECL))
+	{
+	  tree fn = olddecl;
+
+	  if (TREE_CODE (fn) == TEMPLATE_DECL)
+	    fn = DECL_TEMPLATE_RESULT (olddecl);
+
+	  old_decl_gnu_inline = GNU_INLINE_P (fn) && DECL_INITIAL (fn);
+	}
+      else
+	old_decl_gnu_inline = false;
+
+      if (!old_decl_gnu_inline)
+	{
+	  DECL_INTERFACE_KNOWN (newdecl) |= DECL_INTERFACE_KNOWN (olddecl);
+	  DECL_NOT_REALLY_EXTERN (newdecl) |= DECL_NOT_REALLY_EXTERN (olddecl);
+	  DECL_COMDAT (newdecl) |= DECL_COMDAT (olddecl);
+	}
       DECL_TEMPLATE_INSTANTIATED (newdecl)
 	|= DECL_TEMPLATE_INSTANTIATED (olddecl);
 
@@ -1882,6 +1942,13 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  /* [temp.expl.spec/14] We don't inline explicit specialization
 	     just because the primary template says so.  */
 	}
+      else if (new_defines_function && DECL_INITIAL (olddecl))
+	{
+	  /* C++ is always in in unit-at-a-time mode, so we never
+	     inline re-defined extern inline functions.  */
+	  DECL_INLINE (newdecl) = 0;
+	  DECL_UNINLINABLE (newdecl) = 1;
+	}
       else
 	{
 	  if (DECL_PENDING_INLINE_INFO (newdecl) == 0)
@@ -1897,6 +1964,11 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
 	  DECL_UNINLINABLE (newdecl) = DECL_UNINLINABLE (olddecl)
 	    = (DECL_UNINLINABLE (newdecl) || DECL_UNINLINABLE (olddecl));
+
+	  DECL_DISREGARD_INLINE_LIMITS (newdecl)
+	    = DECL_DISREGARD_INLINE_LIMITS (olddecl)
+	    = (DECL_DISREGARD_INLINE_LIMITS (newdecl)
+	       || DECL_DISREGARD_INLINE_LIMITS (olddecl));
 	}
 
       /* Preserve abstractness on cloned [cd]tors.  */
@@ -2124,9 +2196,25 @@ redeclaration_error_message (tree newdecl, tree olddecl)
 	{
 	  if (DECL_NAME (olddecl) == NULL_TREE)
 	    return "%q#D not declared in class";
-	  else
+	  else if (!GNU_INLINE_P (olddecl)
+		   || GNU_INLINE_P (newdecl))
 	    return "redefinition of %q#D";
 	}
+
+      if (DECL_DECLARED_INLINE_P (olddecl) && DECL_DECLARED_INLINE_P (newdecl))
+	{
+	  bool olda = GNU_INLINE_P (olddecl);
+	  bool newa = GNU_INLINE_P (newdecl);
+
+	  if (olda != newa)
+	    {
+	      if (newa)
+		return "%q+D redeclared inline with %<gnu_inline%> attribute";
+	      else
+		return "%q+D redeclared inline without %<gnu_inline%> attribute";
+	    }
+	}
+
       return NULL;
     }
   else if (TREE_CODE (newdecl) == TEMPLATE_DECL)
@@ -2152,8 +2240,23 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       ot = DECL_TEMPLATE_RESULT (olddecl);
       if (DECL_TEMPLATE_INFO (ot))
 	ot = DECL_TEMPLATE_RESULT (template_for_substitution (ot));
-      if (DECL_INITIAL (nt) && DECL_INITIAL (ot))
+      if (DECL_INITIAL (nt) && DECL_INITIAL (ot)
+	  && (!GNU_INLINE_P (ot) || GNU_INLINE_P (nt)))
 	return "redefinition of %q#D";
+
+      if (DECL_DECLARED_INLINE_P (ot) && DECL_DECLARED_INLINE_P (nt))
+	{
+	  bool olda = GNU_INLINE_P (ot);
+	  bool newa = GNU_INLINE_P (nt);
+
+	  if (olda != newa)
+	    {
+	      if (newa)
+		return "%q+D redeclared inline with %<gnu_inline%> attribute";
+	      else
+		return "%q+D redeclared inline without %<gnu_inline%> attribute";
+	    }
+	}
 
       /* Core issue #226 (C++0x): 
            
@@ -3369,7 +3472,7 @@ cp_make_fname_decl (tree id, int type_dep)
   tree decl = build_decl (VAR_DECL, id, type);
 
   if (name)
-    free ((char *) name);
+    free (CONST_CAST (char *, name));
 
   /* As we're using pushdecl_with_scope, we must set the context.  */
   DECL_CONTEXT (decl) = current_function_decl;
@@ -3425,6 +3528,17 @@ builtin_function_1 (tree decl, tree context)
      anticipated but not actually declared.  */
   if (name[0] != '_' || name[1] != '_')
     DECL_ANTICIPATED (decl) = 1;
+  else if (strncmp (name + 2, "builtin_", strlen ("builtin_")) != 0)
+    {
+      size_t len = strlen (name);
+
+      /* Treat __*_chk fortification functions as anticipated as well,
+	 unless they are __builtin_*.  */
+      if (len > strlen ("___chk")
+	  && memcmp (name + len - strlen ("_chk"),
+		     "_chk", strlen ("_chk") + 1) == 0)
+	DECL_ANTICIPATED (decl) = 1;
+    }
 
   return decl;
 }
@@ -3590,8 +3704,14 @@ fixup_anonymous_aggr (tree t)
 
   /* ISO C++ 9.5.3.  Anonymous unions may not have function members.  */
   if (TYPE_METHODS (t))
-    error ("%Jan anonymous union cannot have function members",
-	   TYPE_MAIN_DECL (t));
+    {
+      tree decl = TYPE_MAIN_DECL (t);
+
+      if (TREE_CODE (t) != UNION_TYPE)
+	error ("%Jan anonymous struct cannot have function members", decl);
+      else
+	error ("%Jan anonymous union cannot have function members", decl);
+    }
 
   /* Anonymous aggregates cannot have fields with ctors, dtors or complex
      assignment operators (because they cannot have these methods themselves).
@@ -3784,7 +3904,13 @@ groktypename (cp_decl_specifier_seq *type_specifiers,
   type_specifiers->attributes = NULL_TREE;
   type = grokdeclarator (declarator, type_specifiers, TYPENAME, 0, &attrs);
   if (attrs)
-    cplus_decl_attributes (&type, attrs, 0);
+    {
+      if (CLASS_TYPE_P (type))
+	warning (OPT_Wattributes, "ignoring attributes applied to class type "
+		 "outside of definition");
+      else
+	cplus_decl_attributes (&type, attrs, 0);
+    }
   return type;
 }
 
@@ -3939,8 +4065,9 @@ start_decl (const cp_declarator *declarator,
 				       > template_class_depth (context))
 				      ? current_template_parms
 				      : NULL_TREE);
-	  if (field && duplicate_decls (decl, field,
-					/*newdecl_is_friend=*/false))
+	  if (field && field != error_mark_node
+	      && duplicate_decls (decl, field,
+				 /*newdecl_is_friend=*/false))
 	    decl = field;
 	}
 
@@ -4965,7 +5092,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
       /* An in-class declaration of a static data member should be
 	 external; it is only a declaration, and not a definition.  */
       if (init == NULL_TREE)
-	gcc_assert (DECL_EXTERNAL (decl));
+	gcc_assert (DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl));
     }
 
   /* We don't create any RTL for local variables.  */
@@ -5212,7 +5339,21 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  goto finish_end;
 	}
 
-      init = fold_non_dependent_expr (init);
+      if (TREE_CODE (init) == TREE_LIST)
+	{
+	  /* If the parenthesized-initializer form was used (e.g.,
+	     "int A<N>::i(X)"), then INIT will be a TREE_LIST of initializer
+	     arguments.  (There is generally only one.)  We convert them
+	     individually.  */
+	  tree list = init;
+	  for (; list; list = TREE_CHAIN (list))
+	    {
+	      tree elt = TREE_VALUE (list);
+	      TREE_VALUE (list) = fold_non_dependent_expr (elt);
+	    }
+	}
+      else
+	init = fold_non_dependent_expr (init);
       processing_template_decl = 0;
     }
 
@@ -5364,6 +5505,9 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  maybe_commonize_var (decl);
 	}
 
+      /* This needs to happen after the linkage is set. */
+      determine_visibility (decl);
+
       make_rtl_for_nonlocal_decl (decl, init, asmspec);
 
       /* Check for abstractness of the type. Notice that there is no
@@ -5374,9 +5518,6 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	abstract_virtuals_error (decl, TREE_TYPE (type));
       else
 	abstract_virtuals_error (decl, type);
-
-      /* This needs to happen after the linkage is set. */
-      determine_visibility (decl);
 
       if (TREE_CODE (decl) == FUNCTION_DECL
 	  || TREE_TYPE (decl) == error_mark_node)
@@ -6366,13 +6507,15 @@ grokfndecl (tree ctype,
       && (! TYPE_FOR_JAVA (ctype) || check_java_method (decl))
       && check)
     {
-      tree old_decl;
+      tree old_decl = check_classfn (ctype, decl,
+				     (processing_template_decl
+				      > template_class_depth (ctype))
+				     ? current_template_parms
+				     : NULL_TREE);
 
-      old_decl = check_classfn (ctype, decl,
-				(processing_template_decl
-				 > template_class_depth (ctype))
-				? current_template_parms
-				: NULL_TREE);
+      if (old_decl == error_mark_node)
+	return NULL_TREE;
+
       if (old_decl)
 	{
 	  tree ok;
@@ -6994,10 +7137,8 @@ check_special_function_return_type (special_function_kind sfk,
       break;
 
     case sfk_conversion:
-      if (type && !same_type_p (type, optype))
-	error ("operator %qT declared to return %qT", optype, type);
-      else if (type)
-	pedwarn ("return type specified for %<operator %T%>",  optype);
+      if (type)
+	error ("return type specified for %<operator %T%>",  optype);
       type = optype;
       break;
 
@@ -7371,6 +7512,10 @@ grokdeclarator (const cp_declarator *declarator,
     {
       typedef_decl = type;
       type = TREE_TYPE (typedef_decl);
+      if (TREE_DEPRECATED (type)
+	  && DECL_ARTIFICIAL (typedef_decl)
+	  && deprecated_state != DEPRECATED_SUPPRESS)
+	warn_deprecated_use (type);
     }
   /* No type at all: default to `int', and set DEFAULTED_INT
      because it was not a user-defined typedef.  */
@@ -8962,7 +9107,7 @@ require_complete_types_for_parms (tree parms)
 /* Returns nonzero if T is a local variable.  */
 
 int
-local_variable_p (tree t)
+local_variable_p (const_tree t)
 {
   if ((TREE_CODE (t) == VAR_DECL
        /* A VAR_DECL with a context that is a _TYPE is a static data
@@ -8974,18 +9119,6 @@ local_variable_p (tree t)
     return 1;
 
   return 0;
-}
-
-/* Returns nonzero if T is an automatic local variable or a label.
-   (These are the declarations that need to be remapped when the code
-   containing them is duplicated.)  */
-
-int
-nonstatic_local_decl_p (tree t)
-{
-  return ((local_variable_p (t) && !TREE_STATIC (t))
-	  || TREE_CODE (t) == LABEL_DECL
-	  || TREE_CODE (t) == RESULT_DECL);
 }
 
 /* Like local_variable_p, but suitable for use as a tree-walking
@@ -9061,8 +9194,7 @@ check_default_argument (tree decl, tree arg)
 
      The keyword `this' shall not be used in a default argument of a
      member function.  */
-  var = walk_tree_without_duplicates (&arg, local_variable_p_walkfn,
-				      NULL);
+  var = cp_walk_tree_without_duplicates (&arg, local_variable_p_walkfn, NULL);
   if (var)
     {
       error ("default argument %qE uses local variable %qD", arg, var);
@@ -9217,7 +9349,7 @@ grokparms (cp_parameter_declarator *first_parm, tree *parms)
    operator.  */
 
 int
-copy_fn_p (tree d)
+copy_fn_p (const_tree d)
 {
   tree args;
   tree arg_type;
@@ -9273,7 +9405,7 @@ copy_fn_p (tree d)
    operator, false otherwise.  */
 
 bool
-move_fn_p (tree d)
+move_fn_p (const_tree d)
 {
   tree args;
   tree arg_type;
@@ -9372,7 +9504,7 @@ void grok_special_member_properties (tree decl)
    if the class has a constructor of the form X(X).  */
 
 int
-grok_ctor_properties (tree ctype, tree decl)
+grok_ctor_properties (const_tree ctype, const_tree decl)
 {
   int ctor_parm = copy_fn_p (decl);
 
@@ -10799,6 +10931,15 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       && lookup_attribute ("noinline", attrs))
     warning (0, "inline function %q+D given attribute noinline", decl1);
 
+  /* Handle gnu_inline attribute.  */
+  if (GNU_INLINE_P (decl1))
+    {
+      DECL_EXTERNAL (decl1) = 1;
+      DECL_NOT_REALLY_EXTERN (decl1) = 0;
+      DECL_INTERFACE_KNOWN (decl1) = 1;
+      DECL_DISREGARD_INLINE_LIMITS (decl1) = 1;
+    }
+
   if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl1))
     /* This is a constructor, we must ensure that any default args
        introduced by this definition are propagated to the clones
@@ -11084,8 +11225,9 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   else
     {
       /* This is a definition, not a reference.
-	 So clear DECL_EXTERNAL.  */
-      DECL_EXTERNAL (decl1) = 0;
+	 So clear DECL_EXTERNAL, unless this is a GNU extern inline.  */
+      if (!GNU_INLINE_P (decl1))
+	DECL_EXTERNAL (decl1) = 0;
 
       if ((DECL_DECLARED_INLINE_P (decl1)
 	   || DECL_TEMPLATE_INSTANTIATION (decl1))
@@ -11514,7 +11656,10 @@ finish_function (int flags)
 	     return is unreachable, so put the statement on the
 	     special line 0.  */
 #ifdef USE_MAPPED_LOCATION
-	  SET_EXPR_LOCATION (stmt, UNKNOWN_LOCATION);
+	  {
+	    location_t linezero = linemap_line_start (line_table, 0, 1);
+	    SET_EXPR_LOCATION (stmt, linezero);
+	  }
 #else
 	  annotate_with_file_line (stmt, input_filename, 0);
 #endif
@@ -11569,7 +11714,7 @@ finish_function (int flags)
   gcc_assert (stmts_are_full_exprs_p ());
 
   /* Set up the named return value optimization, if we can.  Candidate
-     variables are selected in check_return_value.  */
+     variables are selected in check_return_expr.  */
   if (current_function_return_value)
     {
       tree r = current_function_return_value;
@@ -11648,7 +11793,7 @@ finish_function (int flags)
 
   /* We're leaving the context of this function, so zap cfun.  It's still in
      DECL_STRUCT_FUNCTION, and we'll restore it in tree_rest_of_compilation.  */
-  cfun = NULL;
+  set_cfun (NULL);
   current_function_decl = NULL;
 
   /* If this is an in-class inline definition, we may have to pop the
@@ -12038,7 +12183,6 @@ cp_tree_node_structure (union lang_tree_node * t)
     case IDENTIFIER_NODE:	return TS_CP_IDENTIFIER;
     case OVERLOAD:		return TS_CP_OVERLOAD;
     case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
-    case TINST_LEVEL:		return TS_CP_TINST_LEVEL;
     case PTRMEM_CST:		return TS_CP_PTRMEM;
     case BASELINK:		return TS_CP_BASELINK;
     case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;

@@ -67,6 +67,7 @@ is_gimple_formal_tmp_rhs (tree t)
     case COMPLEX_EXPR:
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
@@ -178,6 +179,7 @@ is_gimple_min_invariant (const_tree t)
 
     case INTEGER_CST:
     case REAL_CST:
+    case FIXED_CST:
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
@@ -200,7 +202,7 @@ is_gimple_min_invariant (const_tree t)
 bool
 is_gimple_stmt (tree t)
 {
-  enum tree_code code = TREE_CODE (t);
+  const enum tree_code code = TREE_CODE (t);
 
   switch (code)
     {
@@ -230,6 +232,7 @@ is_gimple_stmt (tree t)
     case OMP_PARALLEL:
     case OMP_FOR:
     case OMP_SECTIONS:
+    case OMP_SECTIONS_SWITCH:
     case OMP_SECTION:
     case OMP_SINGLE:
     case OMP_MASTER:

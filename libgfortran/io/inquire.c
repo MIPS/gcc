@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -30,8 +30,6 @@ Boston, MA 02110-1301, USA.  */
 
 /* Implement the non-IOLENGTH variant of the INQUIRY statement */
 
-#include "config.h"
-#include "libgfortran.h"
 #include "io.h"
 
 
@@ -304,11 +302,11 @@ inquire_via_unit (st_parameter_inquire *iqp, gfc_unit * u)
 	switch (u->flags.convert)
 	  {
 	    /*  l8_to_l4_offset is 0 for little-endian, 1 for big-endian.  */
-	  case CONVERT_NATIVE:
+	  case GFC_CONVERT_NATIVE:
 	    p = l8_to_l4_offset ? "BIG_ENDIAN" : "LITTLE_ENDIAN";
 	    break;
 
-	  case CONVERT_SWAP:
+	  case GFC_CONVERT_SWAP:
 	    p = l8_to_l4_offset ? "LITTLE_ENDIAN" : "BIG_ENDIAN";
 	    break;
 

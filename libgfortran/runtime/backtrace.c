@@ -27,9 +27,8 @@ along with libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#include "libgfortran.h"
 
-#include "config.h"
-#include <stdio.h>
 #include <string.h>
 
 #ifdef HAVE_STDLIB_H
@@ -58,13 +57,7 @@ Boston, MA 02110-1301, USA.  */
 #include <sys/wait.h>
 #endif
 
-#ifdef HAVE_STRING_H
-#include <string.h>
-#endif
-
 #include <ctype.h>
-
-#include "libgfortran.h"
 
 
 
@@ -223,7 +216,8 @@ show_backtrace (void)
 	    /* Try to recognize the internal libgfortran functions.  */
 	    if (strncasecmp (func, "*_gfortran", 10) == 0
 		|| strncasecmp (func, "_gfortran", 9) == 0
-		|| strcmp (func, "main") == 0 || strcmp (func, "_start") == 0)
+		|| strcmp (func, "main") == 0 || strcmp (func, "_start") == 0
+		|| strcmp (func, "_gfortrani_handler") == 0)
 	      continue;
 
 	    if (local_strcasestr (str[i], "libgfortran.so") != NULL

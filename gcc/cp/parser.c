@@ -1,13 +1,13 @@
 /* C++ Parser.
    Copyright (C) 2000, 2001, 2002, 2003, 2004,
-   2005  Free Software Foundation, Inc.
+   2005, 2007  Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but
@@ -15,10 +15,9 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
    General Public License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -98,7 +97,7 @@ typedef struct cp_token *cp_token_position;
 DEF_VEC_P (cp_token_position);
 DEF_VEC_ALLOC_P (cp_token_position,heap);
 
-static const cp_token eof_token =
+static cp_token eof_token =
 {
   CPP_EOF, RID_MAX, 0, PRAGMA_NONE, 0, 0, false, 0, { NULL },
 #if USE_MAPPED_LOCATION
@@ -278,9 +277,6 @@ cp_lexer_new_main (void)
      allocating any memory.  */
   cp_parser_initial_pragma (&first_token);
 
-  /* Tell c_lex_with_flags not to merge string constants.  */
-  c_lex_return_raw_strings = true;
-
   c_common_no_more_pch ();
 
   /* Allocate the memory.  */
@@ -318,7 +314,7 @@ cp_lexer_new_main (void)
   lexer->buffer = buffer;
   lexer->buffer_length = alloc - space;
   lexer->last_token = pos;
-  lexer->next_token = lexer->buffer_length ? buffer : (cp_token *)&eof_token;
+  lexer->next_token = lexer->buffer_length ? buffer : &eof_token;
 
   /* Subsequent preprocessor diagnostics should use compiler
      diagnostic functions to get the compiler source location.  */
@@ -342,7 +338,7 @@ cp_lexer_new_from_tokens (cp_token_cache *cache)
   /* We do not own the buffer.  */
   lexer->buffer = NULL;
   lexer->buffer_length = 0;
-  lexer->next_token = first == last ? (cp_token *)&eof_token : first;
+  lexer->next_token = first == last ? &eof_token : first;
   lexer->last_token = last;
 
   lexer->saved_tokens = VEC_alloc (cp_token_position, heap,
@@ -403,17 +399,19 @@ cp_lexer_saving_tokens (const cp_lexer* lexer)
 }
 
 /* Store the next token from the preprocessor in *TOKEN.  Return true
-   if we reach EOF.  */
+   if we reach EOF.  If LEXER is NULL, assume we are handling an
+   initial #pragma pch_preprocess, and thus want the lexer to return
+   processed strings.  */
 
 static void
-cp_lexer_get_preprocessor_token (cp_lexer *lexer ATTRIBUTE_UNUSED ,
-				 cp_token *token)
+cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
 {
   static int is_extern_c = 0;
 
    /* Get a new token from the preprocessor.  */
   token->type
-    = c_lex_with_flags (&token->u.value, &token->location, &token->flags);
+    = c_lex_with_flags (&token->u.value, &token->location, &token->flags,
+			lexer == NULL ? 0 : C_LEX_RAW_STRINGS);
   token->input_file_stack_index = input_file_stack_tick;
   token->keyword = RID_MAX;
   token->pragma_kind = PRAGMA_NONE;
@@ -612,7 +610,7 @@ cp_lexer_peek_nth_token (cp_lexer* lexer, size_t n)
       ++token;
       if (token == lexer->last_token)
 	{
-	  token = (cp_token *)&eof_token;
+	  token = &eof_token;
 	  break;
 	}
 
@@ -645,7 +643,7 @@ cp_lexer_consume_token (cp_lexer* lexer)
       lexer->next_token++;
       if (lexer->next_token == lexer->last_token)
 	{
-	  lexer->next_token = (cp_token *)&eof_token;
+	  lexer->next_token = &eof_token;
 	  break;
 	}
 
@@ -685,7 +683,7 @@ cp_lexer_purge_token (cp_lexer *lexer)
       tok++;
       if (tok == lexer->last_token)
 	{
-	  tok = (cp_token *)&eof_token;
+	  tok = &eof_token;
 	  break;
 	}
     }
@@ -2923,8 +2921,8 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
   if ((translate ? cpp_interpret_string : cpp_interpret_string_notranslate)
       (parse_in, strs, count, &istr, wide))
     {
-      value = build_string (istr.len, (char *)istr.text);
-      free ((void *)istr.text);
+      value = build_string (istr.len, (const char *)istr.text);
+      free (CONST_CAST (unsigned char *, istr.text));
 
       TREE_TYPE (value) = wide ? wchar_array_type_node : char_array_type_node;
       value = fix_string_type (value);
@@ -3167,9 +3165,11 @@ cp_parser_primary_expression (cp_parser *parser,
 		 int i = ({ int j = 3; j + 1; });
 
 	       at class or namespace scope.  */
-	    if (!parser->in_function_body)
+	    if (!parser->in_function_body
+		|| parser->in_template_argument_list_p)
 	      {
-		error ("statement-expressions are allowed only inside functions");
+		error ("statement-expressions are not allowed outside "
+		       "functions nor in template-argument lists");
 		cp_parser_skip_to_end_of_block_or_statement (parser);
 		expr = error_mark_node;
 	      }
@@ -6503,6 +6503,9 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
 
   type1 = cp_parser_type_id (parser);
 
+  if (type1 == error_mark_node)
+    return error_mark_node;
+
   /* Build a trivial decl-specifier-seq.  */
   clear_decl_specs (&decl_specs);
   decl_specs.type = type1;
@@ -6517,6 +6520,9 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
  
       type2 = cp_parser_type_id (parser);
 
+      if (type2 == error_mark_node)
+	return error_mark_node;
+
       /* Build a trivial decl-specifier-seq.  */
       clear_decl_specs (&decl_specs);
       decl_specs.type = type2;
@@ -6528,8 +6534,8 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
 
   cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
-  /* Complete the trait expr, which may mean either processing the
-     static assert now or saving it for template instantiation.  */
+  /* Complete the trait expression, which may mean either processing
+     the trait expr now or saving it for template instantiation.  */
   return finish_trait_expr (kind, type1, type2);
 }
 
@@ -11756,6 +11762,8 @@ cp_parser_asm_definition (cp_parser* parser)
   tree asm_stmt;
   bool volatile_p = false;
   bool extended_p = false;
+  bool invalid_inputs_p = false;
+  bool invalid_outputs_p = false;
 
   /* Look for the `asm' keyword.  */
   cp_parser_require_keyword (parser, RID_ASM, "`asm'");
@@ -11809,6 +11817,9 @@ cp_parser_asm_definition (cp_parser* parser)
 	      && cp_lexer_next_token_is_not (parser->lexer,
 					     CPP_CLOSE_PAREN))
 	    outputs = cp_parser_asm_operand_list (parser);
+
+	    if (outputs == error_mark_node)
+	      invalid_outputs_p = true;
 	}
       /* If the next token is `::', there are no outputs, and the
 	 next token is the beginning of the inputs.  */
@@ -11828,6 +11839,9 @@ cp_parser_asm_definition (cp_parser* parser)
 	      && cp_lexer_next_token_is_not (parser->lexer,
 					     CPP_CLOSE_PAREN))
 	    inputs = cp_parser_asm_operand_list (parser);
+
+	    if (inputs == error_mark_node)
+	      invalid_inputs_p = true;
 	}
       else if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
 	/* The clobbers are coming next.  */
@@ -11851,23 +11865,26 @@ cp_parser_asm_definition (cp_parser* parser)
 					   /*consume_paren=*/true);
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
 
-  /* Create the ASM_EXPR.  */
-  if (parser->in_function_body)
+  if (!invalid_inputs_p && !invalid_outputs_p)
     {
-      asm_stmt = finish_asm_stmt (volatile_p, string, outputs,
-				  inputs, clobbers);
-      /* If the extended syntax was not used, mark the ASM_EXPR.  */
-      if (!extended_p)
+      /* Create the ASM_EXPR.  */
+      if (parser->in_function_body)
 	{
-	  tree temp = asm_stmt;
-	  if (TREE_CODE (temp) == CLEANUP_POINT_EXPR)
-	    temp = TREE_OPERAND (temp, 0);
+	  asm_stmt = finish_asm_stmt (volatile_p, string, outputs,
+				      inputs, clobbers);
+	  /* If the extended syntax was not used, mark the ASM_EXPR.  */
+	  if (!extended_p)
+	    {
+	      tree temp = asm_stmt;
+	      if (TREE_CODE (temp) == CLEANUP_POINT_EXPR)
+		temp = TREE_OPERAND (temp, 0);
 
-	  ASM_INPUT_P (temp) = 1;
+	      ASM_INPUT_P (temp) = 1;
+	    }
 	}
+      else
+	cgraph_add_asm_node (string);
     }
-  else
-    cgraph_add_asm_node (string);
 }
 
 /* Declarators [gram.dcl.decl] */
@@ -14407,8 +14424,12 @@ cp_parser_class_head (cp_parser* parser,
 	 class was originally declared, the program is invalid.  */
       if (scope && !is_ancestor (scope, nested_name_specifier))
 	{
-	  error ("declaration of %qD in %qD which does not enclose %qD",
-		 type, scope, nested_name_specifier);
+	  if (at_namespace_scope_p ())
+	    error ("declaration of %qD in namespace %qD which does not "
+		   "enclose %qD", type, scope, nested_name_specifier);
+	  else
+	    error ("declaration of %qD in %qD which does not enclose %qD",
+		   type, scope, nested_name_specifier);
 	  type = NULL_TREE;
 	  goto done;
 	}
@@ -14991,11 +15012,7 @@ cp_parser_member_declaration (cp_parser* parser)
 		  token = cp_lexer_peek_token (parser->lexer);
 		  /* If the next token is a semicolon, consume it.  */
 		  if (token->type == CPP_SEMICOLON)
-		    {
-		      if (pedantic && !in_system_header)
-			pedwarn ("extra %<;%>");
-		      cp_lexer_consume_token (parser->lexer);
-		    }
+		    cp_lexer_consume_token (parser->lexer);
 		  return;
 		}
 	      else
@@ -15646,12 +15663,14 @@ cp_parser_asm_specification_opt (cp_parser* parser)
    each node is the expression.  The TREE_PURPOSE is itself a
    TREE_LIST whose TREE_PURPOSE is a STRING_CST for the bracketed
    string-literal (or NULL_TREE if not present) and whose TREE_VALUE
-   is a STRING_CST for the string literal before the parenthesis.  */
+   is a STRING_CST for the string literal before the parenthesis. Returns
+   ERROR_MARK_NODE if any of the operands are invalid.  */
 
 static tree
 cp_parser_asm_operand_list (cp_parser* parser)
 {
   tree asm_operands = NULL_TREE;
+  bool invalid_operands = false;
 
   while (true)
     {
@@ -15683,6 +15702,11 @@ cp_parser_asm_operand_list (cp_parser* parser)
       /* Look for the `)'.  */
       cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
+      if (name == error_mark_node 
+	  || string_literal == error_mark_node 
+	  || expression == error_mark_node)
+        invalid_operands = true;
+
       /* Add this operand to the list.  */
       asm_operands = tree_cons (build_tree_list (name, string_literal),
 				expression,
@@ -15695,7 +15719,7 @@ cp_parser_asm_operand_list (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
     }
 
-  return nreverse (asm_operands);
+  return invalid_operands ? error_mark_node : nreverse (asm_operands);
 }
 
 /* Parse an asm-clobber-list.

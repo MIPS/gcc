@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -173,6 +172,8 @@ decode_statement (void)
   switch (c)
     {
     case 'a':
+      match ("abstract% interface", gfc_match_abstract_interface,
+	     ST_INTERFACE);
       match ("allocate", gfc_match_allocate, ST_ALLOCATE);
       match ("allocatable", gfc_match_allocatable, ST_ATTR_DECL);
       match ("assign", gfc_match_assign, ST_LABEL_ASSIGNMENT);
@@ -257,6 +258,7 @@ decode_statement (void)
       match ("pointer", gfc_match_pointer, ST_ATTR_DECL);
       if (gfc_match_private (&st) == MATCH_YES)
 	return st;
+      match ("procedure", gfc_match_procedure, ST_PROCEDURE);
       match ("program", gfc_match_program, ST_PROGRAM);
       if (gfc_match_public (&st) == MATCH_YES)
 	return st;
@@ -718,7 +720,8 @@ next_statement (void)
 
 #define case_decl case ST_ATTR_DECL: case ST_COMMON: case ST_DATA_DECL: \
   case ST_EQUIVALENCE: case ST_NAMELIST: case ST_STATEMENT_FUNCTION: \
-  case ST_TYPE: case ST_INTERFACE: case ST_OMP_THREADPRIVATE
+  case ST_TYPE: case ST_INTERFACE: case ST_OMP_THREADPRIVATE: \
+  case ST_PROCEDURE
 
 /* Block end statements.  Errors associated with interchanging these
    are detected in gfc_match_end().  */
@@ -1076,6 +1079,9 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_PROGRAM:
       p = "PROGRAM";
+      break;
+    case ST_PROCEDURE:
+      p = "PROCEDURE";
       break;
     case ST_READ:
       p = "READ";
@@ -1536,6 +1542,7 @@ parse_derived (void)
 	  unexpected_eof ();
 
 	case ST_DATA_DECL:
+	case ST_PROCEDURE:
 	  accept_statement (st);
 	  seen_component = 1;
 	  break;
@@ -1543,11 +1550,11 @@ parse_derived (void)
 	case ST_END_TYPE:
 	  compiling_type = 0;
 
-	  if (!seen_component)
-	    {
-	      gfc_error ("Derived type definition at %C has no components");
-	      error_flag = 1;
-	    }
+	  if (!seen_component
+	      && (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Derived type "
+			         "definition at %C without components")
+		  == FAILURE))
+	    error_flag = 1;
 
 	  accept_statement (ST_END_TYPE);
 	  break;
@@ -1615,17 +1622,37 @@ parse_derived (void)
    */
   derived_sym = gfc_current_block();
 
-  /* Look for allocatable components.  */
   sym = gfc_current_block ();
   for (c = sym->components; c; c = c->next)
     {
+      /* Look for allocatable components.  */
       if (c->allocatable
 	  || (c->ts.type == BT_DERIVED && c->ts.derived->attr.alloc_comp))
 	{
 	  sym->attr.alloc_comp = 1;
 	  break;
 	}
-     }
+
+      /* Look for pointer components.  */
+      if (c->pointer
+	  || (c->ts.type == BT_DERIVED && c->ts.derived->attr.pointer_comp))
+	{
+	  sym->attr.pointer_comp = 1;
+	  break;
+	}
+
+      /* Look for private components.  */
+      if (sym->component_access == ACCESS_PRIVATE
+	  || c->access == ACCESS_PRIVATE
+	  || (c->ts.type == BT_DERIVED && c->ts.derived->attr.private_comp))
+	{
+	  sym->attr.private_comp = 1;
+	  break;
+	}
+    }
+
+  if (!seen_component)
+    sym->attr.zero_comp = 1;
 
   pop_state ();
 }
@@ -1731,6 +1758,7 @@ loop:
 				  gfc_new_block->formal, NULL);
       break;
 
+    case ST_PROCEDURE:
     case ST_MODULE_PROC:	/* The module procedure matcher makes
 				   sure the context is correct.  */
       accept_statement (st);
@@ -1777,6 +1805,15 @@ loop:
 			   "generic subroutine interface");
 	    }
 	}
+    }
+
+  if (current_interface.type == INTERFACE_ABSTRACT)
+    {
+      gfc_new_block->attr.abstract = 1;
+      if (gfc_is_intrinsic_typename (gfc_new_block->name))
+	gfc_error ("Name '%s' of ABSTRACT INTERFACE at %C "
+		   "cannot be the same as an intrinsic type",
+		   gfc_new_block->name);
     }
 
   push_state (&s2, new_state, gfc_new_block);
@@ -1826,6 +1863,35 @@ decl:
 
 done:
   pop_state ();
+}
+
+
+/* Recover use associated or imported function characteristics.  */
+
+static try
+match_deferred_characteristics (gfc_typespec * ts)
+{
+  locus loc;
+  match m;
+
+  loc = gfc_current_locus;
+
+  if (gfc_current_block ()->ts.type != BT_UNKNOWN)
+    {
+      /* Kind expression for an intrinsic type.  */
+      gfc_current_locus = gfc_function_kind_locus;
+      m = gfc_match_kind_spec (ts, true);
+    }
+  else
+    {
+      /* A derived type.  */
+      gfc_current_locus = gfc_function_type_locus;
+      m = gfc_match_type_spec (ts, 0);
+    }
+
+  gfc_current_ns->proc_name->result->ts = *ts;
+  gfc_current_locus =loc;
+  return m;
 }
 
 
@@ -1914,6 +1980,15 @@ loop:
 	}
 
       accept_statement (st);
+
+      /* Look out for function kind/type information that used
+	 use associated or imported parameter.  This is signalled
+	 by kind = -1.  */
+      if (gfc_current_state () == COMP_FUNCTION
+	    && (st == ST_USE || st == ST_IMPORT || st == ST_DERIVED_DECL)
+	    && gfc_current_block ()->ts.kind == -1)
+	match_deferred_characteristics (&gfc_current_block ()->ts);
+
       st = next_statement ();
       goto loop;
 
@@ -1925,6 +2000,19 @@ loop:
 
     default:
       break;
+    }
+
+  /* If we still have kind = -1 at the end of the specification block,
+     then there is an error. */
+  if (gfc_current_state () == COMP_FUNCTION
+	&& gfc_current_block ()->ts.kind == -1)
+    {
+      if (gfc_current_block ()->ts.type != BT_UNKNOWN)
+	gfc_error ("Bad kind expression for function '%s' at %L",
+		   gfc_current_block ()->name, &gfc_function_kind_locus);
+      else
+	gfc_error ("The type for function '%s' at %L is not accessible",
+		   gfc_current_block ()->name, &gfc_function_type_locus);
     }
 
   return st;
@@ -2609,7 +2697,7 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
 	      && strcmp (cp->ext.omp_name, new_st.ext.omp_name) != 0))
 	gfc_error ("Name after !$omp critical and !$omp end critical does "
 		   "not match at %C");
-      gfc_free ((char *) new_st.ext.omp_name);
+      gfc_free (CONST_CAST (char *, new_st.ext.omp_name));
       break;
     case EXEC_OMP_END_SINGLE:
       cp->ext.omp_clauses->lists[OMP_LIST_COPYPRIVATE]

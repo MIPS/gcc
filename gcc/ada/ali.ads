@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -261,16 +260,16 @@ package ALI is
       --  have an elaboration routine (since it has no elaboration code).
 
       Pure : Boolean;
-      --  Indicates presence of PU parameter for a pure package
+      --  Indicates presence of PU parameter for a package having pragma Pure
 
       Dynamic_Elab : Boolean;
-      --  Set to True if the unit was compiled with dynamic elaboration
-      --  checks (i.e. either -gnatE or pragma Elaboration_Checks (RM)
-      --  was used to compile the unit).
+      --  Set to True if the unit was compiled with dynamic elaboration checks
+      --  (i.e. either -gnatE or pragma Elaboration_Checks (RM) was used to
+      --  compile the unit).
 
       Elaborate_Body : Boolean;
-      --  Indicates presence of EB parameter for a package which has a
-      --  pragma Preelaborate_Body.
+      --  Indicates presence of EB parameter for a package which has a pragma
+      --  Elaborate_Body, and also for generic package instantiations.
 
       Set_Elab_Entity : Boolean;
       --  Indicates presence of EE parameter for a unit which has an
@@ -278,20 +277,20 @@ package ALI is
       --  elaboration of the entity.
 
       Has_RACW : Boolean;
-      --  Indicates presence of RA parameter for a package that declares
-      --  at least one Remote Access to Class_Wide (RACW) object.
+      --  Indicates presence of RA parameter for a package that declares at
+      --  least one Remote Access to Class_Wide (RACW) object.
 
       Remote_Types : Boolean;
       --  Indicates presence of RT parameter for a package which has a
       --  pragma Remote_Types.
 
       Shared_Passive : Boolean;
-      --  Indicates presence of SP parameter for a package which has a
-      --  pragma Shared_Passive.
+      --  Indicates presence of SP parameter for a package which has a pragma
+      --  Shared_Passive.
 
       RCI : Boolean;
-      --  Indicates presence of RC parameter for a package which has a
-      --  pragma Remote_Call_Interface.
+      --  Indicates presence of RC parameter for a package which has a pragma
+      --  Remote_Call_Interface.
 
       Predefined : Boolean;
       --  Indicates if unit is language predefined (or a child of such a unit)
@@ -327,13 +326,13 @@ package ALI is
 
       Icasing : Casing_Type;
       --  Indicates casing of identifiers in source file for this unit. This
-      --  is used for informational output, and also for constructing the
-      --  main unit if it is being built in Ada.
+      --  is used for informational output, and also for constructing the main
+      --  unit if it is being built in Ada.
 
       Kcasing : Casing_Type;
-      --  Indicates casing of keyowords in source file for this unit. This
-      --  is used for informational output, and also for constructing the
-      --  main unit if it is being built in Ada.
+      --  Indicates casing of keywords in source file for this unit. This is
+      --  used for informational output, and also for constructing the main
+      --  unit if it is being built in Ada.
 
       Elab_Position : aliased Natural;
       --  Initialized to zero. Set non-zero when a unit is chosen and

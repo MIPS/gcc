@@ -1001,7 +1001,7 @@ force_one_exit_fallthru (void)
 	redirect_edge_and_branch_force (e, forwarder);
     }
 
-  /* Fix up the chain of blocks -- make FORWARDER immediately preceed the
+  /* Fix up the chain of blocks -- make FORWARDER immediately precede the
      exit block.  */
   FOR_EACH_BB (bb)
     {
@@ -1019,10 +1019,10 @@ force_one_exit_fallthru (void)
    only be used through the cfghooks interface, and we do not want to move
    it to cfgrtl.c since it would require also moving quite a lot of related
    code.  */
-extern bool cfg_layout_can_duplicate_bb_p (basic_block);
+extern bool cfg_layout_can_duplicate_bb_p (const_basic_block);
 
 bool
-cfg_layout_can_duplicate_bb_p (basic_block bb)
+cfg_layout_can_duplicate_bb_p (const_basic_block bb)
 {
   /* Do not attempt to duplicate tablejumps, as we need to unshare
      the dispatch table.  This is difficult to do, as the instructions

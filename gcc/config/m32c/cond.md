@@ -1,5 +1,5 @@
 ;; Machine Descriptions for R8C/M16C/M32C
-;; Copyright (C) 2005
+;; Copyright (C) 2005, 2007
 ;; Free Software Foundation, Inc.
 ;; Contributed by Red Hat.
 ;;
@@ -7,7 +7,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
 ;; License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to the Free
-;; Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-;; 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ; conditionals - cmp, jcc, setcc, etc.
 
@@ -91,7 +90,7 @@
   [(set_attr "flags" "n,n,n")])
 
 (define_insn_and_split "stzx_reversed_<mode>"
-  [(set (match_operand:QHI 0 "m32c_r0_operand" "")
+  [(set (match_operand:QHI 0 "m32c_r0_operand" "=R0w")
 	(if_then_else:QHI (ne (reg:CC FLG_REGNO) (const_int 0))
 			 (match_operand:QHI 1 "const_int_operand" "")
 			 (match_operand:QHI 2 "const_int_operand" "")))]
@@ -202,7 +201,7 @@
 )
 
 (define_insn_and_split "movqicc_<code>_<mode>"
-  [(set (match_operand:QI 0 "register_operand" "")
+  [(set (match_operand:QI 0 "register_operand" "=R0w")
         (if_then_else:QI (eqne_cond:QI (match_operand:QHPSI 1 "mra_operand" "RraSd")
 				       (match_operand:QHPSI 2 "mrai_operand" "RraSdi"))
 			  (match_operand:QI 3 "const_int_operand" "")
@@ -222,7 +221,7 @@
   )
 
 (define_insn_and_split "movhicc_<code>_<mode>"
-  [(set (match_operand:HI 0 "register_operand" "")
+  [(set (match_operand:HI 0 "register_operand" "=R0w")
         (if_then_else:HI (eqne_cond:HI (match_operand:QHPSI 1 "mra_operand" "RraSd")
 				       (match_operand:QHPSI 2 "mrai_operand" "RraSdi"))
 			  (match_operand:QI 3 "const_int_operand" "")

@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -120,7 +119,7 @@ package body Osint is
    --  End of line character
 
    Number_File_Names : Int := 0;
-   --  Number of file names founde on command line and placed in File_Names
+   --  Number of file names found on command line and placed in File_Names
 
    Look_In_Primary_Directory_For_Current_Main : Boolean := False;
    --  When this variable is True, Find_File only looks in Primary_Directory
@@ -857,8 +856,7 @@ package body Osint is
       --  If we come here, the user has typed the executable name with no
       --  directory prefix.
 
-      return Get_Install_Dir
-        (System.OS_Lib.Locate_Exec_On_Path (Exec_Name.all).all);
+      return Get_Install_Dir (Locate_Exec_On_Path (Exec_Name.all).all);
    end Executable_Prefix;
 
    ------------------
@@ -1054,6 +1052,11 @@ package body Osint is
 
    begin
       Fill_Arg (Command_Name'Address, 0);
+
+      if Command_Name = "" then
+         Name_Len := 0;
+         return;
+      end if;
 
       --  The program name might be specified by a full path name. However,
       --  we don't want to print that all out in an error message, so the
@@ -1823,6 +1826,16 @@ package body Osint is
 
       return Name_Enter;
    end Object_File_Name;
+
+   -------------------------------
+   -- OS_Exit_Through_Exception --
+   -------------------------------
+
+   procedure OS_Exit_Through_Exception (Status : Integer) is
+   begin
+      Current_Exit_Status := Status;
+      raise Types.Terminate_Program;
+   end OS_Exit_Through_Exception;
 
    --------------------------
    -- OS_Time_To_GNAT_Time --

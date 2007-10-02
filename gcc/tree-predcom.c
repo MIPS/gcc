@@ -1393,7 +1393,16 @@ mark_virtual_ops_for_renaming (tree stmt)
   tree var;
 
   if (TREE_CODE (stmt) == PHI_NODE)
-    return;
+    {
+      var = PHI_RESULT (stmt);
+      if (is_gimple_reg (var))
+	return;
+
+      if (TREE_CODE (var) == SSA_NAME)
+	var = SSA_NAME_VAR (var);
+      mark_sym_for_renaming (var);
+      return;
+    }
 
   update_stmt (stmt);
 
@@ -2582,12 +2591,13 @@ end: ;
 
 /* Runs predictive commoning.  */
 
-void
+unsigned
 tree_predictive_commoning (void)
 {
   bool unrolled = false;
   struct loop *loop;
   loop_iterator li;
+  unsigned ret = 0;
 
   initialize_original_copy_tables ();
   FOR_EACH_LOOP (li, loop, LI_ONLY_INNERMOST)
@@ -2598,7 +2608,9 @@ tree_predictive_commoning (void)
   if (unrolled)
     {
       scev_reset ();
-      cleanup_tree_cfg_loop ();
+      ret = TODO_cleanup_cfg;
     }
   free_original_copy_tables ();
+
+  return ret;
 }

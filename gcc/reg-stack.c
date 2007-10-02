@@ -249,7 +249,7 @@ static rtx not_a_num;
 
 /* Forward declarations */
 
-static int stack_regs_mentioned_p (rtx pat);
+static int stack_regs_mentioned_p (const_rtx pat);
 static void pop_stack (stack, int);
 static rtx *get_true_reg (rtx *);
 
@@ -276,7 +276,7 @@ static rtx next_flags_user (rtx);
 /* Return nonzero if any stack register is mentioned somewhere within PAT.  */
 
 static int
-stack_regs_mentioned_p (rtx pat)
+stack_regs_mentioned_p (const_rtx pat)
 {
   const char *fmt;
   int i;
@@ -305,7 +305,7 @@ stack_regs_mentioned_p (rtx pat)
 /* Return nonzero if INSN mentions stacked registers, else return zero.  */
 
 int
-stack_regs_mentioned (rtx insn)
+stack_regs_mentioned (const_rtx insn)
 {
   unsigned int uid, max;
   int test;
@@ -1355,9 +1355,9 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	}
       /* Uninitialized USE might happen for functions returning uninitialized
          value.  We will properly initialize the USE on the edge to EXIT_BLOCK,
-	 so it is safe to ignore the use here. This is consistent with behaviour
+	 so it is safe to ignore the use here. This is consistent with behavior
 	 of dataflow analyzer that ignores USE too.  (This also imply that 
-	 forcingly initializing the register to NaN here would lead to ICE later,
+	 forcibly initializing the register to NaN here would lead to ICE later,
 	 since the REG_DEAD notes are not issued.)  */
       break;
 
@@ -3242,7 +3242,7 @@ struct tree_opt_pass pass_stack_regs_run =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'k'                                   /* letter */

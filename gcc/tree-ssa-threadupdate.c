@@ -671,9 +671,9 @@ thread_single_edge (edge e)
 
 static basic_block dbds_ce_stop;
 static bool
-dbds_continue_enumeration_p (basic_block bb, void *stop)
+dbds_continue_enumeration_p (const_basic_block bb, const void *stop)
 {
-  return (bb != (basic_block) stop
+  return (bb != (const_basic_block) stop
 	  && bb != dbds_ce_stop);
 }
 
@@ -1075,6 +1075,9 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   threaded_blocks = NULL;
   VEC_free (edge, heap, threaded_edges);
   threaded_edges = NULL;
+
+  if (retval)
+    loops_state_set (LOOPS_NEED_FIXUP);
 
   return retval;
 }

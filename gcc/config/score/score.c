@@ -1,12 +1,12 @@
 /* Output routines for Sunplus S+CORE processor
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by Sunnorth.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -60,8 +59,8 @@
 #define CE_REG_CLASS_P(C) \
   ((C) == HI_REG || (C) == LO_REG || (C) == CE_REGS)
 
-static int score_arg_partial_bytes (const CUMULATIVE_ARGS *,
-                                    enum machine_mode, tree, int);
+static int score_arg_partial_bytes (CUMULATIVE_ARGS *,
+                                    enum machine_mode, tree, bool);
 
 static int score_symbol_insns (enum score_symbol_type);
 
@@ -102,16 +101,16 @@ static int score_address_cost (rtx);
 #define TARGET_ASM_OUTPUT_MI_THUNK      th_output_mi_thunk
 
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK  hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK  hook_bool_const_tree_hwi_hwi_const_tree_true
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS    hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS    hook_bool_const_tree_true
 
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN  hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN  hook_bool_const_tree_true
 
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES       hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES       hook_bool_const_tree_true
 
 #undef TARGET_MUST_PASS_IN_STACK
 #define TARGET_MUST_PASS_IN_STACK       must_pass_in_stack_var_size
@@ -138,7 +137,7 @@ static int score_address_cost (rtx);
    small structures are returned in a register.
    Objects with varying size must still be returned in memory.  */
 static bool
-score_return_in_memory (tree type, tree fndecl ATTRIBUTE_UNUSED)
+score_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 {
   return ((TYPE_MODE (type) == BLKmode)
           || (int_size_in_bytes (type) > 2 * UNITS_PER_WORD)
@@ -148,7 +147,7 @@ score_return_in_memory (tree type, tree fndecl ATTRIBUTE_UNUSED)
 /* Return nonzero when an argument must be passed by reference.  */
 static bool
 score_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
-                         enum machine_mode mode, tree type,
+                         enum machine_mode mode, const_tree type,
                          bool named ATTRIBUTE_UNUSED)
 {
   /* If we have a variable-sized parameter, we have no choice.  */
@@ -157,7 +156,7 @@ score_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 
 /* Return a legitimate address for REG + OFFSET.  */
 static rtx
-score_add_offset (rtx temp, rtx reg, HOST_WIDE_INT offset)
+score_add_offset (rtx temp ATTRIBUTE_UNUSED, rtx reg, HOST_WIDE_INT offset)
 {
   if (!IMM_IN_RANGE (offset, 15, 1))
     {
@@ -183,6 +182,9 @@ th_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Pretend to be a post-reload pass while generating rtl.  */
   reload_completed = 1;
 
+  /* Mark the end of the (empty) prologue.  */
+  emit_note (NOTE_INSN_PROLOGUE_END);
+ 
   /* We need two temporary registers in some cases.  */
   temp1 = gen_rtx_REG (Pmode, 8);
   temp2 = gen_rtx_REG (Pmode, 9);
@@ -425,7 +427,7 @@ th_select_rtx_section (enum machine_mode mode, rtx x,
 
 /* Implement TARGET_IN_SMALL_DATA_P.  */
 static bool
-th_in_small_data_p (tree decl)
+th_in_small_data_p (const_tree decl)
 {
   HOST_WIDE_INT size;
 
@@ -683,8 +685,8 @@ score_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 /* Implement TARGET_ARG_PARTIAL_BYTES macro.  */
 static int
-score_arg_partial_bytes (const CUMULATIVE_ARGS *cum,
-                         enum machine_mode mode, tree type, int named)
+score_arg_partial_bytes (CUMULATIVE_ARGS *cum,
+                         enum machine_mode mode, tree type, bool named)
 {
   struct score_arg_info info;
   classify_arg (cum, mode, type, named, &info);
@@ -728,7 +730,7 @@ score_function_arg (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
    VALTYPE is the return type and MODE is VOIDmode.  For libcalls,
    VALTYPE is null and MODE is the mode of the return value.  */
 rtx
-score_function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
+score_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED,
                       enum machine_mode mode)
 {
   if (valtype)
@@ -748,30 +750,13 @@ score_initialize_trampoline (rtx ADDR, rtx FUNC, rtx CHAIN)
 #define FFCACHE          "_flush_cache"
 #define CODE_SIZE        (TRAMPOLINE_INSNS * UNITS_PER_WORD)
 
-  unsigned int tramp[TRAMPOLINE_INSNS] = {
-    0x8103bc56,                         /* mv      r8, r3          */
-    0x9000bc05,                         /* bl      0x0x8           */
-    0xc1238000 | (CODE_SIZE - 8),       /* lw      r9, &func       */
-    0xc0038000
-    | (STATIC_CHAIN_REGNUM << 21)
-    | (CODE_SIZE - 4),                  /* lw  static chain reg, &chain */
-    0x8068bc56,                         /* mv      r3, r8          */
-    0x8009bc08,                         /* br      r9              */
-    0x0,
-    0x0,
-    };
   rtx pfunc, pchain;
-  int i;
-
-  for (i = 0; i < TRAMPOLINE_INSNS; i++)
-    emit_move_insn (gen_rtx_MEM (ptr_mode, plus_constant (ADDR, i << 2)),
-                    GEN_INT (tramp[i]));
 
   pfunc = plus_constant (ADDR, CODE_SIZE);
-  pchain = plus_constant (ADDR, CODE_SIZE + GET_MODE_SIZE (ptr_mode));
+  pchain = plus_constant (ADDR, CODE_SIZE + GET_MODE_SIZE (SImode));
 
-  emit_move_insn (gen_rtx_MEM (ptr_mode, pfunc), FUNC);
-  emit_move_insn (gen_rtx_MEM (ptr_mode, pchain), CHAIN);
+  emit_move_insn (gen_rtx_MEM (SImode, pfunc), FUNC);
+  emit_move_insn (gen_rtx_MEM (SImode, pchain), CHAIN);
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, FFCACHE),
                      0, VOIDmode, 2,
                      ADDR, Pmode,
@@ -1173,7 +1158,7 @@ score_print_operand (FILE *file, rtx op, int c)
         {
           rtx temp = gen_lowpart (SImode, op);
           gcc_assert (GET_MODE (op) == SFmode);
-          fprintf (file, HOST_WIDE_INT_PRINT_HEX, INTVAL (temp) & 0xffffffff); 
+          fprintf (file, HOST_WIDE_INT_PRINT_HEX, INTVAL (temp) & 0xffffffff);
         }
       else
         output_addr_const (file, op);
@@ -1298,8 +1283,11 @@ score_print_operand_address (FILE *file, rtx x)
                          INTVAL (addr.offset));
                 break;
               default:
-                fprintf (file, "[%s,%ld]", reg_names[REGNO (addr.reg)],
-                         INTVAL (addr.offset));
+                if (INTVAL(addr.offset) == 0)
+                  fprintf(file, "[%s]", reg_names[REGNO (addr.reg)]);
+                else 
+                  fprintf(file, "[%s, %ld]", reg_names[REGNO (addr.reg)], 
+                          INTVAL(addr.offset));
                 break;
               }
           }

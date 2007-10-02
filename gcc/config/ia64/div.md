@@ -140,10 +140,10 @@
         (if_then_else:RF (ne:RF (match_operand:BI 1 "register_operand"  "c,c")
                                 (const_int 0))
           (minus:RF
-            (match_operand:RF 2 "fr_reg_or_fp01_operand" "fg,fG")
+            (match_operand:RF 2 "fr_reg_or_fp01_operand" "fG,fG")
             (mult:RF
-              (match_operand:RF 3 "fr_reg_or_fp01_operand" "fg,fG")
-              (match_operand:RF 4 "fr_reg_or_fp01_operand" "fg,fG")))
+              (match_operand:RF 3 "fr_reg_or_fp01_operand" "fG,fG")
+              (match_operand:RF 4 "fr_reg_or_fp01_operand" "fG,fG")))
           (match_operand:RF 5 "fr_reg_or_0_operand" "0,H")))
    (use (match_operand:SI 6 "const_int_operand" ""))
    (use (match_operand:SI 7 "const_int_operand" ""))]
@@ -158,7 +158,7 @@
 ;; to be written for RFmode only and to not have to handle multiple
 ;; modes or to have to handle a register in more than one mode.
 
-(define_mode_macro SDX_F [SF DF XF])
+(define_mode_iterator SDX_F [SF DF XF])
 
 (define_insn "extend<mode>rf2"
   [(set (match_operand:RF 0 "fr_register_operand" "=f")
@@ -195,7 +195,7 @@
    operands[2] = gen_rtx_REG (<MODE>mode, REGNO (operands[1]));
 })
 
-;; Reciprical approximation
+;; Reciprocal approximation
 
 (define_insn "recip_approx_rf"
   [(set (match_operand:RF 0 "fr_register_operand" "=f")

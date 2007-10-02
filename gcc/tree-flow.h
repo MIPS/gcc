@@ -498,10 +498,6 @@ struct stmt_ann_d GTY(())
 
   /* Nonzero if the statement makes references to volatile storage.  */
   unsigned has_volatile_ops : 1;
-
-  /* Nonzero if the statement makes a function call that may clobber global
-     and local addressable variables.  */
-  unsigned makes_clobbering_call : 1;
 };
 
 union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
@@ -534,10 +530,7 @@ static inline bool noreturn_call_p (tree);
 static inline void update_stmt (tree);
 static inline bool stmt_modified_p (tree);
 static inline bitmap may_aliases (const_tree);
-static inline int get_lineno (tree);
-static inline const char *get_filename (tree);
-static inline bool is_exec_stmt (const_tree);
-static inline bool is_label_stmt (const_tree);
+static inline int get_lineno (const_tree);
 static inline bitmap addresses_taken (tree);
 
 /*---------------------------------------------------------------------------
@@ -552,7 +545,7 @@ struct edge_prediction GTY((chain_next ("%h.ep_next")))
 };
 
 /* Accessors for basic block annotations.  */
-static inline tree phi_nodes (basic_block);
+static inline tree phi_nodes (const_basic_block);
 static inline void set_phi_nodes (basic_block, tree);
 
 /*---------------------------------------------------------------------------
@@ -711,6 +704,9 @@ extern struct omp_region *root_omp_region;
 extern struct omp_region *new_omp_region (basic_block, enum tree_code,
 					  struct omp_region *);
 extern void free_omp_regions (void);
+void omp_expand_local (basic_block);
+extern tree find_omp_clause (tree, enum tree_code);
+tree copy_var_decl (tree, tree, tree);
 
 /*---------------------------------------------------------------------------
 			      Function prototypes
@@ -721,12 +717,12 @@ extern void free_omp_regions (void);
 #define PENDING_STMT(e)	((e)->insns.t)
 
 extern void delete_tree_cfg_annotations (void);
-extern bool stmt_ends_bb_p (tree);
-extern bool is_ctrl_stmt (tree);
-extern bool is_ctrl_altering_stmt (tree);
-extern bool computed_goto_p (tree);
-extern bool simple_goto_p (tree);
-extern bool tree_can_make_abnormal_goto (tree);
+extern bool stmt_ends_bb_p (const_tree);
+extern bool is_ctrl_stmt (const_tree);
+extern bool is_ctrl_altering_stmt (const_tree);
+extern bool computed_goto_p (const_tree);
+extern bool simple_goto_p (const_tree);
+extern bool tree_can_make_abnormal_goto (const_tree);
 extern basic_block single_noncomplex_succ (basic_block bb);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
@@ -758,11 +754,13 @@ extern tree tree_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
+extern bool tree_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
+				      basic_block *);
 extern void add_phi_args_after_copy_bb (basic_block);
-extern void add_phi_args_after_copy (basic_block *, unsigned);
+extern void add_phi_args_after_copy (basic_block *, unsigned, edge);
 extern bool tree_purge_dead_abnormal_call_edges (basic_block);
 extern bool tree_purge_dead_eh_edges (basic_block);
-extern bool tree_purge_all_dead_eh_edges (bitmap);
+extern bool tree_purge_all_dead_eh_edges (const_bitmap);
 extern tree gimplify_val (block_stmt_iterator *, tree, tree);
 extern tree gimplify_build1 (block_stmt_iterator *, enum tree_code,
 			     tree, tree);
@@ -783,7 +781,6 @@ void remove_edge_and_dominated_blocks (edge);
 /* In tree-cfgcleanup.c  */
 extern bitmap cfgcleanup_altered_bbs;
 extern bool cleanup_tree_cfg (void);
-extern bool cleanup_tree_cfg_loop (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -823,9 +820,10 @@ extern tree phi_reverse (tree);
 /* In gimple-low.c  */
 extern void record_vars_into (tree, tree);
 extern void record_vars (tree);
-extern bool block_may_fallthru (tree);
+extern bool block_may_fallthru (const_tree);
 
 /* In tree-ssa-alias.c  */
+extern unsigned int compute_may_aliases (void);
 extern void dump_may_aliases_for (FILE *, tree);
 extern void debug_may_aliases_for (tree);
 extern void dump_alias_info (FILE *);
@@ -959,7 +957,7 @@ struct tree_niter_desc
 
 /* In tree-vectorizer.c */
 unsigned vectorize_loops (void);
-extern bool vect_can_force_dr_alignment_p (tree, unsigned int);
+extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
 extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
@@ -975,7 +973,8 @@ unsigned int tree_unroll_loops_completely (bool);
 unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
-void tree_predictive_commoning (void);
+unsigned tree_predictive_commoning (void);
+bool parallelize_loops (void);
 
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
@@ -988,7 +987,7 @@ bool convert_affine_scev (struct loop *, tree, tree *, tree *, tree, bool);
 
 bool nowrap_type_p (tree);
 enum ev_direction {EV_DIR_GROWS, EV_DIR_DECREASES, EV_DIR_UNKNOWN};
-enum ev_direction scev_direction (tree);
+enum ev_direction scev_direction (const_tree);
 
 void free_numbers_of_iterations_estimates (void);
 void free_numbers_of_iterations_estimates_loop (struct loop *);
@@ -997,7 +996,7 @@ void verify_loop_closed_ssa (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
-void split_loop_exit_edge (edge);
+basic_block split_loop_exit_edge (edge);
 unsigned force_expr_to_var_cost (tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
@@ -1071,9 +1070,9 @@ static inline bool unmodifiable_var_p (const_tree);
 extern void make_eh_edges (tree);
 extern bool tree_could_trap_p (tree);
 extern bool tree_could_throw_p (tree);
-extern bool tree_can_throw_internal (tree);
+extern bool tree_can_throw_internal (const_tree);
 extern bool tree_can_throw_external (tree);
-extern int lookup_stmt_eh_region (tree);
+extern int lookup_stmt_eh_region (const_tree);
 extern void add_stmt_to_eh_region (tree, int);
 extern bool remove_stmt_from_eh_region (tree);
 extern bool maybe_clean_or_replace_eh_stmt (tree, tree);
@@ -1163,7 +1162,7 @@ struct fieldoff
   tree size;
   tree decl;
   HOST_WIDE_INT offset;  
-  HOST_WIDE_INT alias_set;
+  alias_set_type alias_set;
 };
 typedef struct fieldoff fieldoff_s;
 
