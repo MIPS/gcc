@@ -119,6 +119,8 @@ all_immediate_uses_same_place (tree stmt)
     {
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)
         {
+	  if (IS_DEBUG_STMT (USE_STMT (use_p)))
+	    continue;
 	  if (firstuse == NULL_TREE)
 	    firstuse = USE_STMT (use_p);
 	  else
@@ -213,7 +215,7 @@ is_hidden_global_store (tree stmt)
 /* Find the nearest common dominator of all of the immediate uses in IMM.  */
 
 static basic_block
-nearest_common_dominator_of_uses (tree stmt)
+nearest_common_dominator_of_uses (tree stmt, bool *debug_stmts)
 {  
   bitmap blocks = BITMAP_ALLOC (NULL);
   basic_block commondom;
@@ -237,6 +239,11 @@ nearest_common_dominator_of_uses (tree stmt)
 	      int idx = PHI_ARG_INDEX_FROM_USE (use_p);
 
 	      useblock = PHI_ARG_EDGE (usestmt, idx)->src;
+	    }
+	  else if (IS_DEBUG_STMT (usestmt))
+	    {
+	      *debug_stmts = true;
+	      continue;
 	    }
 	  else
 	    {
@@ -284,6 +291,9 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
     {
       FOR_EACH_IMM_USE_FAST (one_use, imm_iter, def)
 	{
+	  if (IS_DEBUG_STMT (USE_STMT (one_use)))
+	    continue;
+
 	  break;
 	}
       if (one_use != NULL_USE_OPERAND_P)
@@ -349,7 +359,9 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
      that is where insertion would have to take place.  */
   if (!all_immediate_uses_same_place (stmt))
     {
-      basic_block commondom = nearest_common_dominator_of_uses (stmt);
+      bool debug_stmts = false;
+      basic_block commondom = nearest_common_dominator_of_uses (stmt,
+								&debug_stmts);
      
       if (commondom == frombb)
 	return false;
@@ -378,8 +390,13 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
 	  fprintf (dump_file, "Common dominator of all uses is %d\n",
 		   commondom->index);
 	}
+
       *tobb = commondom;
       *tobsi = bsi_after_labels (commondom);
+
+      if (debug_stmts)
+	adjust_debug_stmts_for_move (stmt, *tobb, tobsi);
+
       return true;
     }
 
@@ -392,6 +409,9 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
 	return false;
       *tobb = sinkbb;
       *tobsi = bsi_for_stmt (use);
+
+      adjust_debug_stmts_for_move (stmt, *tobb, tobsi);
+
       return true;
     }
 
@@ -420,6 +440,8 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
 
   *tobb = sinkbb;
   *tobsi = bsi_after_labels (sinkbb);
+
+  adjust_debug_stmts_for_move (stmt, *tobb, tobsi);
 
   return true;
 }

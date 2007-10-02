@@ -545,7 +545,8 @@ remove_unused_locals (void)
 
       /* Walk the statements.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	mark_all_vars_used (bsi_stmt_ptr (bsi));
+	if (TREE_CODE (bsi_stmt (bsi)) != VAR_DEBUG_VALUE)
+	  mark_all_vars_used (bsi_stmt_ptr (bsi));
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
         {
@@ -772,6 +773,8 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
 		add_block = e->src;
 	    }
 	}
+      else if (IS_DEBUG_STMT (use_stmt))
+	continue;
       else
         {
 	  /* If its not defined in this block, its live on entry.  */

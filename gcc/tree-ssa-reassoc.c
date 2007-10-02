@@ -945,6 +945,7 @@ linearize_expr (tree stmt)
 
   bsinow = bsi_for_stmt (stmt);
   bsirhs = bsi_for_stmt (binrhs);
+  adjust_debug_stmts_for_move (binrhs, bb_for_stmt (stmt), &bsinow);
   bsi_move_before (&bsirhs, &bsinow);
 
   TREE_OPERAND (rhs, 1) = TREE_OPERAND (GIMPLE_STMT_OPERAND (binrhs, 1), 0);
@@ -1174,6 +1175,8 @@ linearize_expr_tree (VEC(operand_entry_t, heap) **ops, tree stmt)
 				      rhscode, loop));
   bsinow = bsi_for_stmt (stmt);
   bsilhs = bsi_for_stmt (SSA_NAME_DEF_STMT (binlhs));
+  adjust_debug_stmts_for_move (SSA_NAME_DEF_STMT (binlhs),
+			       bb_for_stmt (stmt), &bsinow);
   bsi_move_before (&bsilhs, &bsinow);
   linearize_expr_tree (ops, SSA_NAME_DEF_STMT (binlhs));
   add_to_ops_vec (ops, binrhs);

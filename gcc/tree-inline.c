@@ -201,6 +201,8 @@ remap_ssa_name (tree name, copy_body_data *id)
   return new;
 }
 
+bool processing_debug_stmt_p = false;
+
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
 
 tree
@@ -262,7 +264,8 @@ remap_decl (tree decl, copy_body_data *id)
 	      if (TREE_CODE (map) == SSA_NAME)
 	        set_default_def (t, map);
 	    }
-	  add_referenced_var (t);
+	  if (!processing_debug_stmt_p)
+	    add_referenced_var (t);
 	}
       return t;
     }
@@ -699,6 +702,13 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      return NULL;
 	    }
 	}
+      else if (IS_DEBUG_STMT (*tp))
+	{
+	  *tp = copy_node (*tp);
+	  VARRAY_PUSH_TREE (id->debug_stmts, *tp);
+	  *walk_subtrees = 0;
+	  goto shallow_stmt_copy;
+	}
 
       /* Here is the "usual case".  Copy this tree node, and then
 	 tweak some special cases.  */
@@ -714,6 +724,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 of function call.  */
       if (EXPR_P (*tp) || GIMPLE_STMT_P (*tp))
 	{
+	shallow_stmt_copy:
 	  new_block = id->block;
 	  if (TREE_BLOCK (*tp))
 	    {
@@ -817,6 +828,13 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 	    {
 	      tree *stmtp = bsi_stmt_ptr (copy_bsi);
 	      tree stmt = *stmtp;
+
+	      if (IS_DEBUG_STMT (stmt))
+		{
+		  bsi_next (&copy_bsi);
+		  continue;
+		}
+
 	      call = get_call_expr_in (stmt);
 
 	      if (call && CALL_EXPR_VA_ARG_PACK (call) && id->call_expr)
@@ -1102,9 +1120,12 @@ copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
       bool can_throw, nonlocal_goto;
 
       copy_stmt = bsi_stmt (bsi);
-      update_stmt (copy_stmt);
-      if (gimple_in_ssa_p (cfun))
-        mark_symbols_for_renaming (copy_stmt);
+      if (!IS_DEBUG_STMT (copy_stmt))
+	{
+	  update_stmt (copy_stmt);
+	  if (gimple_in_ssa_p (cfun))
+	    mark_symbols_for_renaming (copy_stmt);
+	}
       /* Do this before the possible split_block.  */
       bsi_next (&bsi);
 
@@ -1337,6 +1358,40 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   return new_fndecl;
 }
 
+static void
+copy_debug_stmt (tree stmt, copy_body_data *id)
+{
+  tree t;
+
+  processing_debug_stmt_p = true;
+
+  t = VAR_DEBUG_VALUE_VAR (stmt);
+  walk_tree (&t, copy_body_r, id, NULL);
+  VAR_DEBUG_VALUE_SET_VAR (stmt, t);
+
+  walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), copy_body_r, id, NULL);
+
+  processing_debug_stmt_p = false;
+
+  update_stmt (stmt);
+  if (gimple_in_ssa_p (cfun))
+    mark_symbols_for_renaming (stmt);
+}
+
+static void
+copy_debug_stmts (copy_body_data *id)
+{
+  size_t i, e;
+
+  if (!id->debug_stmts)
+    return;
+
+  for (i = 0, e = VARRAY_ACTIVE_SIZE (id->debug_stmts); i < e; i++)
+    copy_debug_stmt (VARRAY_TREE (id->debug_stmts, i), id);
+
+  VARRAY_POP_ALL (id->debug_stmts);
+}
+
 /* Make a copy of the body of FN so that it can be inserted inline in
    another function.  */
 
@@ -1348,6 +1403,7 @@ copy_generic_body (copy_body_data *id)
 
   body = DECL_SAVED_TREE (fndecl);
   walk_tree (&body, copy_body_r, id, NULL);
+  copy_debug_stmts (id);
 
   return body;
 }
@@ -1362,6 +1418,7 @@ copy_body (copy_body_data *id, gcov_type count, int frequency,
   /* If this body has a CFG, walk CFG and copy.  */
   gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (fndecl)));
   body = copy_cfg_body (id, count, frequency, entry_block_map, exit_block_map);
+  copy_debug_stmts (id);
 
   return body;
 }
@@ -1486,8 +1543,18 @@ setup_one_parameter (copy_body_data *id, tree p, tree value,
       if (init_stmt)
         bsi_insert_after (&bsi, init_stmt, BSI_NEW_STMT);
       if (gimple_in_ssa_p (cfun))
-	for (;!bsi_end_p (bsi); bsi_next (&bsi))
-	  mark_symbols_for_renaming (bsi_stmt (bsi));
+	{
+	  if (MAY_HAVE_DEBUG_STMTS && var_debug_value_for_decl (var))
+	    {
+	      tree note = build_var_debug_value (var,
+						 is_gimple_reg (p)
+						 ? def : var);
+	      bsi_insert_after (&bsi, note, BSI_SAME_STMT);
+	    }
+
+	  for (;!bsi_end_p (bsi); bsi_next (&bsi))
+	    mark_symbols_for_renaming (bsi_stmt (bsi));
+	}
     }
 }
 
@@ -2093,8 +2160,9 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
       return NULL;
 
-      /* CHANGE_DYNAMIC_TYPE_EXPR explicitly expands to nothing.  */
+      /* These explicitly expand to nothing.  */
     case CHANGE_DYNAMIC_TYPE_EXPR:
+    case VAR_DEBUG_VALUE:
       *walk_subtrees = 0;
       return NULL;
 
@@ -2804,6 +2872,8 @@ optimize_inline_calls (tree fn)
   id.transform_return_to_modify = true;
   id.transform_lang_insert_block = false;
   id.statements_to_fold = pointer_set_create ();
+  if (MAY_HAVE_DEBUG_STMTS)
+    VARRAY_TREE_INIT (id.debug_stmts, 8, "debug_stmt");
 
   push_gimplify_context ();
 
@@ -3376,6 +3446,9 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
       SET_DECL_RTL (new_decl, NULL_RTX);
       id.statements_to_fold = pointer_set_create ();
     }
+
+  if (MAY_HAVE_DEBUG_STMTS)
+    VARRAY_TREE_INIT (id.debug_stmts, 8, "debug_stmt");
   
   id.decl_map = pointer_map_create ();
   id.src_fn = old_decl;

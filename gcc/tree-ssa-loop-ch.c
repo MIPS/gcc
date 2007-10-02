@@ -83,6 +83,9 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
       if (TREE_CODE (last) == LABEL_EXPR)
 	continue;
 
+      if (IS_DEBUG_STMT (last))
+	continue;
+
       if (get_call_expr_in (last))
 	return false;
 

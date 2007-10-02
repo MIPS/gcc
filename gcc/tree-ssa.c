@@ -699,6 +699,9 @@ verify_ssa (bool check_modified_stmt)
 		  goto err;
 		}
 	    }
+	  else if (TREE_CODE (stmt) == VAR_DEBUG_VALUE
+		   && VAR_DEBUG_VALUE_VALUE (stmt) == VAR_DEBUG_VALUE_NOVALUE)
+	    continue;
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_VIRTUALS)
 	    {
@@ -1316,6 +1319,10 @@ execute_early_warn_uninitialized (void)
     for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
       {
 	tree context = bsi_stmt (bsi);
+
+	if (TREE_CODE (context) == VAR_DEBUG_VALUE)
+	  continue;
+
 	walk_tree (bsi_stmt_ptr (bsi), warn_uninitialized_var,
 		   context, NULL);
       }

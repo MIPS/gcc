@@ -387,7 +387,8 @@ empty_block_p (basic_block bb)
   bsi = bsi_start (bb);
   while (!bsi_end_p (bsi)
 	  && (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR
-	      || IS_EMPTY_STMT (bsi_stmt (bsi))))
+	      || IS_EMPTY_STMT (bsi_stmt (bsi))
+	      || IS_DEBUG_STMT (bsi_stmt (bsi))))
     bsi_next (&bsi);
 
   if (!bsi_end_p (bsi))

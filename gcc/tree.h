@@ -829,6 +829,32 @@ enum tree_node_structure_enum {
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->gstmt.operands[__i]; }))
 
+/* Set the variable set by the VAR_DEBUG_VALUE stmt.  */
+#define VAR_DEBUG_VALUE_SET_VAR(T, V) __extension__			\
+  ({const tree __t = VAR_DEBUG_VALUE_CHECK (T);				\
+    if (0 >= TREE_OPERAND_LENGTH (__t))					\
+      tree_operand_check_failed (0, __t,				\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    __t->gstmt.operands[0] = (V); })
+
+/* Rvalue for the variable set by the VAR_DEBUG_VALUE stmt.  */
+#define VAR_DEBUG_VALUE_VAR(T) __extension__				\
+  ({const tree __t = VAR_DEBUG_VALUE_CHECK (T);				\
+    tree __var;								\
+    if (0 >= TREE_OPERAND_LENGTH (__t))					\
+      tree_operand_check_failed (0, __t,				\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    __var = __t->gstmt.operands[0];					\
+    __var; })
+
+/* Lvalue for the value of the variable.  */
+#define VAR_DEBUG_VALUE_VALUE(T) __extension__				\
+(*({const tree __t = VAR_DEBUG_VALUE_CHECK (T);				\
+    if (1 >= TREE_OPERAND_LENGTH (__t))					\
+      tree_operand_check_failed (1, __t,				\
+				 __FILE__, __LINE__, __FUNCTION__);	\
+    &__t->gstmt.operands[1]; }))
+
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I) __extension__		\
 (*(rtx *)								\
  ({__typeof (T) const __t = (T);					\
@@ -926,6 +952,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
 #define GIMPLE_STMT_OPERAND_CHECK(T, I)		((T)->gstmt.operands[I])
+#define VAR_DEBUG_VALUE_SET_VAR(T, V)		((T)->gstmt.operands[0] = (V))
+#define VAR_DEBUG_VALUE_VAR(T)			((tree)(T)->gstmt.operands[0])
+#define VAR_DEBUG_VALUE_VALUE(T)		((T)->gstmt.operands[1])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
 #define PHI_NODE_ELT_CHECK(T, i)	((T)->phi.a[i])
 #define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->omp_clause.ops[i])
@@ -1572,6 +1601,12 @@ struct tree_constructor GTY(())
 				 && VOID_TYPE_P (TREE_TYPE (NODE)) \
 				 && integer_zerop (TREE_OPERAND (NODE, 0)))
 
+/* Nonzero if NODE is a debug statement (VAR_DEBUG_VALUE).  */
+#define IS_DEBUG_STMT(NODE)     (TREE_CODE (NODE) == VAR_DEBUG_VALUE)
+
+/* Nonzero if IS_DEBUG_STMT may possibly.  */
+#define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
+
 /* In ordinary expression nodes.  */
 #define TREE_OPERAND_LENGTH(NODE) tree_operand_length (NODE)
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
@@ -1588,6 +1623,10 @@ struct tree_constructor GTY(())
 #define GIMPLE_STMT_OPERAND(NODE, I) GIMPLE_STMT_OPERAND_CHECK (NODE, I)
 #define GIMPLE_STMT_LOCUS(NODE) (GIMPLE_STMT_CHECK (NODE)->gstmt.locus)
 #define GIMPLE_STMT_BLOCK(NODE) (GIMPLE_STMT_CHECK (NODE)->gstmt.block)
+
+/* The second operand of a VAR_DEBUG_VALUE when the value was
+   optimized away.  */
+#define VAR_DEBUG_VALUE_NOVALUE NULL_TREE /* error_mark_node */
 
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
@@ -3950,6 +3989,10 @@ extern tree build_gimple_modify_stmt_stat (tree, tree MEM_STAT_DECL);
 #define build_gimple_modify_stmt(t1,t2) \
   build_gimple_modify_stmt_stat (t1,t2 MEM_STAT_INFO)
 
+extern tree build_var_debug_value_stat (tree, tree MEM_STAT_DECL);
+#define build_var_debug_value(t1,t2) \
+  build_var_debug_value_stat (t1,t2 MEM_STAT_INFO)
+
 extern tree build_int_cst (tree, HOST_WIDE_INT);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
 extern tree build_int_cstu (tree, unsigned HOST_WIDE_INT);
@@ -5350,5 +5393,9 @@ more_const_call_expr_args_p (const const_call_expr_arg_iterator *iter)
 #define FOR_EACH_CONST_CALL_EXPR_ARG(arg, iter, call)			\
   for ((arg) = first_const_call_expr_arg ((call), &(iter)); (arg);	\
        (arg) = next_const_call_expr_arg (&(iter)))
+
+/* Determines whether the given TREE is subject to debug tracking.  */
+
+bool var_debug_value_for_decl (tree);
 
 #endif  /* GCC_TREE_H  */

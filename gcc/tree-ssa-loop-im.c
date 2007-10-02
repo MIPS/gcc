@@ -686,6 +686,7 @@ rewrite_bittest (block_stmt_iterator *bsi)
       SET_USE (use, name);
 
       bsi_insert_before (bsi, stmt1, BSI_SAME_STMT);
+      adjust_debug_stmts_for_move (bsi_stmt (*bsi), NULL, NULL);
       bsi_replace (bsi, stmt2, true);
 
       return stmt1;
@@ -852,6 +853,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 		   cost, level->num);
 	}
       bsi_insert_on_edge (loop_preheader_edge (level), stmt);
+      adjust_debug_stmts_for_move (bsi_stmt (bsi), NULL, NULL);
       bsi_remove (&bsi, false);
     }
 }

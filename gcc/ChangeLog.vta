@@ -1,5 +1,117 @@
 2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-inline.c (processing_debug_stmt_p): New variable.
+	(remap_decl): Register variables only while not processing debug
+	statements.
+	(copy_body_r): Enqueue debug statements for later processing.
+	(copy_bb): Skip debug statements.
+	(copy_edges_for_bb): Likewise.
+	(copy_debug_stmt): New fn.
+	(copy_debug_stmts): New fn.
+	(copy_generic_body, copy_body): Call it.
+	(setup_one_parameter): Insert debug notes for inlined parms.
+	(estimated_num_insns_1): Handle debug stmts.
+	(optimize_inline_calls): Initialize debug stmt queue.
+	(tree_function_versioning): Likewise.
+	* tree-into-ssa.c (mark_def_sites): Handle debug stmts.
+	(var_debug_value_for_decl): New fn.
+	(adjust_debug_stmts_for_var_def_move): New fn.
+	(adjust_debug_stmts_for_move): New fn.
+	(check_debug_predicate): New struct.
+	(check_and_update_debug_stmt_1): New fn.
+	(check_and_update_debug_stmt): New fn.
+	(insert_phi_nodes_for): Introduce debug stmts for phi nodes.
+	(rewrite_stmt): Likewise, for SSA defs.
+	(mark_use_interesting): Handle debug stmts.
+	(prepare_block_for_update): Likewise.
+	* tree.c (build_var_debug_value_stat): New fn.
+	(empty_body_p): Handle debug stmts.
+	* tree.def (VAR_DEBUG_VALUE): New tree code.
+	* tree.h (VAR_DEBUG_VALUE_SET_VAR): New macro.
+	(VAR_DEBUG_VALUE_VAR): Likewise.
+	(VAR_DEBUG_VALUE_VALUE): Likewise.
+	(IS_DEBUG_STMT): Likewise.
+	(MAY_HAVE_DEBUG_STMTS): Likewise.
+	(VAR_DEBUG_VALUE_NOVALUE): Likewise.
+	(build_var_debug_value_stat): Declare.
+	(build_var_debug_value): New macro.
+	(var_debug_value_for_decl): Declare.
+	* tree-gimple.c (is_gimple_stmt): Handle debug stmts.
+	* tree-ssa-operands.c (opf_debug_use): New flag.
+	(get_expr_operands): Handle debug stmts.  Don't mark objects
+	addressed in debug stmts as addressable.
+	(parse_ssa_operands): Handle debug stmts.
+	* tree-dump.c (dequeue_and_dump): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* tree-ssa-dce (mark_stmt_if_obviously_necessary): Likewise.
+	(necessary_p): New function.
+	(eliminate_unnecessary_stmts): Handle debug stmts.
+	* tree-ssa-propagate.c (get_rhs): Likewise.
+	* tree-ssa.c (verify_ssa): Likewise.
+	(execute_early_warn_uninitialized): Likewise.
+	* tree-ssa-live.c (remove_unused_locals): Likewise.
+	(set_var_live_on_entry): Likewise.
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Likewise.
+	* tree-flow-inline.h (has_zero_uses): Ignore uses in debug stmts.
+	(has_single_use): Likewise.
+	(single_imm_use): Likewise.
+	(num_imm_uses): Likewise.
+	(bsi_next_nondebug): New fn.
+	(bsi_prev_nondebug): Likewise.
+	(bsi_start_nondebug): Likewise.
+	(bsi_last_nondebug): Likewise.
+	* tree-ssa-phiopt.c (empty_block_p): Ignore debug stmts.
+	* tree-ssa-sink.c (all_immediate_uses_same_place): Likewise.
+	(nearest_common_dominator_of_uses): Check for debug stmts.
+	(statement_sink_location): Handle debug stmts.
+	* tree-ssa-threadedge.c
+	(record_temporary_equivalences_from_stmts): Skip debug stmts.
+	* tree-ssa-threadupdate.c (redirection_block_p): Ignore them.
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Likewise.
+	* tree-outof-ssa.c (replace_use_variable): Don't clear.
+	(analyze_edges_for_bb): Handle debug stmts.
+	* tree-cfg.c (first_stmt): Skip debug stmts.
+	(last_stmt): Likewise.
+	(last_and_only_stmt): Likewise.
+	(verify_expr): Verify debug value.
+	(tree_block_ends_with_call_p): Skip debug stmts.
+	* tree-flow.h (bsi_next_nondebug): Declare.
+	(bsi_prev_nondebug): Likewise.
+	(bsi_start_nondebug): Likewise.
+	(bsi_last_nondebug): Likewise.
+	(adjust_debug_stmts_for_move): Likewise.
+	(adjust_debug_stmts_for_var_def_move): Likewise.
+	(check_and_update_debug_stmt): Likewise.
+	* tree-ssa-reassoc.c (linearize_expr): Adjust debug stmts.
+	(linearize_expr_tree): Likewise.
+	* tree-ssa-loop-ch.c (should_duplicate_loop_header_p): Skip debug
+	stmts.
+	* tree-ssa-ter.c (find_replaceable_in_bb): Likewise.
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_stmt): Likewise.
+	(remove_unused_ivs): Adjust debug stmts.
+	* tree-ssa-loop-im.c (rewrite_bittest): Likewise.
+	(move_computations_stmt): Likewise.
+	* tree-ssanames.c (release_ssa_name): Likewise.
+	* tree-ssa-alias.c (find_used_portions): Handle debug exprs.
+	* tree-ssa-structalias.c (compute_points_to_sets): Ignore debug
+	stmts.
+	* tree-tailcall.c (find_tail_calls): Handle debug stmts.
+	* tree-vrp.c (find_assert_locations): Likewise.
+	* tree-ssa-coalesce.c (build_ssa_conflict_graph): Likewise.
+	(create_outofssa_var_map): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr): Handle debug
+	stmts.
+	* tree-ssa-pre.c (compute_avail): Skip debug stmts.
+	* tree-ssa-loop-manip.c (find_uses_to_rename_stmt): Likewise.
+	(check_loop_closed_ssa_stmt): Likewise.
+	* tree-inline.h (copy_body_data): Add debug_stmts queue.
+	* ipa-pure-const.c (scan_function): Skip debug stmts.
+	* ipa-reference.c (scan_for_static_refs): Likewise.
+	* ipa-type-escape.c (scan_for_refs): Likewise.
+	* tree-stdarg.c (execute_optimize_stdarg): Likewise.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* common.opt (fvar-tracking-assignments): New.
 	* doc/invoke.texi: Document it.
 	* toplev.c (flag_var_tracking_assignments): New.

@@ -1101,6 +1101,19 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  		 false);
       break;
 
+    case VAR_DEBUG_VALUE:
+      pp_string (buffer, "# DEBUG ");
+      dump_generic_node (buffer, VAR_DEBUG_VALUE_VAR (node), spc, flags, false);
+      if (VAR_DEBUG_VALUE_VALUE (node) == VAR_DEBUG_VALUE_NOVALUE)
+	pp_string (buffer, " optimized away");
+      else
+	{
+	  pp_string (buffer, " = ");
+	  dump_generic_node (buffer, VAR_DEBUG_VALUE_VALUE (node), spc, flags,
+			     false);
+	}
+      break;
+
     case TARGET_EXPR:
       pp_string (buffer, "TARGET_EXPR <");
       dump_generic_node (buffer, TARGET_EXPR_SLOT (node), spc, flags, false);

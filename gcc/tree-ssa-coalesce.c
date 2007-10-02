@@ -865,6 +865,8 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 	      if (TREE_CODE (lhs) == SSA_NAME && TREE_CODE (rhs) == SSA_NAME)
 		live_track_clear_var (live, rhs);
 	    }
+	  else if (IS_DEBUG_STMT (stmt))
+	    continue;
 
 	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_DEF)
 	    live_track_process_def (live, var, graph);
@@ -1026,6 +1028,9 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
 	  stmt = bsi_stmt (bsi);
+
+	  if (IS_DEBUG_STMT (stmt))
+	    continue;
 
 	  /* Register USE and DEF operands in each statement.  */
 	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, (SSA_OP_DEF|SSA_OP_USE))

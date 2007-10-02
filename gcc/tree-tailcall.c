@@ -391,7 +391,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       stmt = bsi_stmt (bsi);
 
       /* Ignore labels.  */
-      if (TREE_CODE (stmt) == LABEL_EXPR)
+      if (TREE_CODE (stmt) == LABEL_EXPR || IS_DEBUG_STMT (stmt))
 	continue;
 
       /* Check for a call.  */
@@ -494,6 +494,9 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
       if (TREE_CODE (stmt) == RETURN_EXPR)
 	break;
+
+      if (IS_DEBUG_STMT (stmt))
+	continue;
 
       if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
 	return;

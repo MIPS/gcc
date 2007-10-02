@@ -3908,6 +3908,10 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
 {
   switch (TREE_CODE (*tp))
     {
+    case VAR_DEBUG_VALUE:
+      *walk_subtrees = 0;
+      break;
+
     case GIMPLE_MODIFY_STMT:
       /* Recurse manually here to track whether the use is in the
 	 LHS of an assignment.  */

@@ -270,6 +270,11 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 	    return false;
 	  break;
 
+	  /* ??? For now, hope there's a corresponding debug
+	     assignment at the destination.  */
+	case VAR_DEBUG_VALUE:
+	  break;
+
 	default:
 	  return false;
 	}
