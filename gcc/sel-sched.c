@@ -1778,15 +1778,28 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
       /* We can move jumps without side-effects or jumps that are
 	 mutually exculsive with instruction THROUGH_INSN (all in cases
 	 dependencies allow to do so and jump is not speculative).  */
-      if (control_flow_insn_p (insn)
-          && !(onlyjump_p (insn)
-	           && any_condjump_p (insn)
-               && !control_flow_insn_p (through_insn)
-               && !sel_insn_is_speculation_check (insn))
-          && !(sched_insns_conditions_mutex_p (insn, through_insn)
-               && !control_flow_insn_p (through_insn)
-               && !sel_insn_is_speculation_check (insn)))
-        return MOVEUP_RHS_NULL;
+      if (control_flow_insn_p (insn))
+        {
+          basic_block fallthru_bb;
+
+          /* Do not move checks and do not move jumps through other 
+             jumps.  */
+          if (control_flow_insn_p (through_insn)
+              || sel_insn_is_speculation_check (insn))
+            return MOVEUP_RHS_NULL;
+            
+          /* The jump should have a clear fallthru block, and 
+             this block should be in the current region.  */
+          if ((fallthru_bb = fallthru_bb_of_jump (insn)) == NULL
+              || ! in_current_region_p (fallthru_bb))
+            return MOVEUP_RHS_NULL;
+          
+          /* And it should be mutually exclusive with through_insn, or 
+             be an unconditional jump.  */
+          if (! any_uncondjump_p (insn)
+              && ! sched_insns_conditions_mutex_p (insn, through_insn))
+            return MOVEUP_RHS_NULL;
+        }
 
       if (CANT_MOVE (insn)
 	  && BLOCK_FOR_INSN (through_insn) != BLOCK_FOR_INSN (insn))
@@ -3533,6 +3546,8 @@ find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence)
 }
 
 
+/* Functions that implement the core of the scheduler.  */
+
 /* Emit an instruction from EXPR with SEQNO after PLACE_TO_INSERT.  */
 static insn_t
 gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
@@ -3571,8 +3586,6 @@ gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
     return new_insn;
   }
 }
-
-/* Functions that implement the core of the scheduler.  */
 
 /* Generate a bookkeeping copy of "REG = CUR_RHS" insn at JOIN_POINT on the 
    ingoing path(s) to E2->dest, other than from E1->src (there could be some 
@@ -3774,17 +3787,6 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     copy_expr_onside (new_expr, c_rhs);
     change_vinsn_in_expr (new_expr, new_vinsn);
 
-    /* In preheader, make sure that the new insn is marked as not 
-       scheduled.  */
-    if (sel_is_loop_preheader_p (BLOCK_FOR_INSN (place_to_insert)))
-      EXPR_SCHED_TIMES (new_expr) = 0;
-    else
-      if (EXPR_SCHED_TIMES (new_expr)
-	>= PARAM_VALUE (PARAM_SELSCHED_MAX_SCHED_TIMES))
-      /* To make scheduling of this bookkeeping copy possible we decrease
-	 its scheduling counter.  */
-      --EXPR_SCHED_TIMES (new_expr);
-
     new_insn = gen_insn_from_expr_after (new_expr, new_seqno, place_to_insert);
     INSN_SCHED_TIMES (new_insn) = 0;
 
@@ -3907,6 +3909,7 @@ move_cond_jump (rtx insn, bnd_t bnd)
        link = NEXT_INSN (link))
     {
       set_block_for_insn (link, block_new);
+      EXPR_ORIG_BB_INDEX (INSN_EXPR (link)) = block_new->index;
       df_insn_change_bb (link);
     }
 
@@ -4678,9 +4681,9 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 
       c_rhs_inited_p = false;
 
-	/* If we're scheduling separate rhs, in order to generate correct code
-	   we need to stop the search at bookkeeping code generated with the 
-	   same destination register or memory.  */
+      /* If we're scheduling separate rhs, in order to generate correct code
+         we need to stop the search at bookkeeping code generated with the 
+         same destination register or memory.  */
       if (lhs_of_insn_equals_to_dest_p (insn, dest))
 	av_set_clear (&orig_ops);
       else
@@ -4732,23 +4735,31 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 		  c_rhs_inited_p = true;
 		}
 	      else
-		/* We must merge all found expressions to get reasonable
-		   EXPR_SPEC_DONE_DS () for the resulting insn.  If we don't
-		   do so then we can first find the expr with epsilon
-		   speculation success probability and only then with the
-		   good probability.  As a result the insn will get epsilon
-		   probability and will never be scheduled because of
-		   weakness_cutoff in find_best_expr.
+                {
+                  /* We must merge all found expressions to get reasonable
+                     EXPR_SPEC_DONE_DS for the resulting insn.  If we don't
+                     do so then we can first find the expr with epsilon
+                     speculation success probability and only then with the
+                     good probability.  As a result the insn will get epsilon
+                     probability and will never be scheduled because of
+                     weakness_cutoff in find_best_expr.
+                     
+                     We call merge_expr_data here instead of merge_expr 
+                     because due to speculation C_RHS and X may have the
+                     same insns with different speculation types.  And as of
+                     now such insns are considered non-equal.  
 
-		   We also workaround this in can_overcome_dep_p ()
-		   that consider low probability speculation success
-		   dependencies as hard ones.
+                     However, EXPR_SCHED_TIMES is different -- we must get 
+                     SCHED_TIMES from a real insn, not a bookkeeping copy.  
+                     We force this here.  Instead, we may consider merging
+                     SCHED_TIMES to the maximum instead of minimum in the 
+                     below function.  */
+                  int old_times = EXPR_SCHED_TIMES (c_rhs);
 
-		   We call merge_expr_data () here instead of merge_expr ()
-		   because due to speculation C_RHS and X may have the
-		   same insns with different speculation types.  And as of
-		   now such insns are considered non-correlable.  */
-		merge_expr_data (c_rhs, x);
+                  merge_expr_data (c_rhs, x);
+                  if (EXPR_SCHED_TIMES (x) == 0)
+                    EXPR_SCHED_TIMES (c_rhs) = old_times;
+                }
 
 	      clear_expr (x);
 	    }

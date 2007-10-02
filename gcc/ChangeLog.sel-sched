@@ -1,3 +1,45 @@
+2007-10-02  Andrey Belevantsev  <abel@ispras.ru>
+
+	Implement readonly dependence contexts.
+	* sched-int.h (struct deps): New bitfield readonly.
+	* sched-deps.c (add_dependence_list_and_free): Add deps parameter.
+	Update all users.  Do not free dependence list when 
+	deps context is readonly.
+	(flush_pending_lists): Likewise.
+	(add_insn_mem_dependence): Assert that deps context is not readonly.
+	(deps_start_bb): Likewise.
+	(extend_deps_reg_info): In a readonly context, do not extend 
+	reg arrays.
+	(sched_analyze_reg): Do not allocate sched_before_next_call in a 
+	readonly context.
+	(sched_analyze_1): Do not add memory dependence to a readonly context.
+	(sched_analyze_2): Likewise.
+	(sched_analyze_insn): Do not modify reg_last array of 
+	a readonly context.  Likewise for reg_conditional_* regsets. 
+	Do not handle post-call groups. 
+	(deps_analyze_insn): Do not flush lists on jumps for 
+	a readonly context.  Also, do not remember last function call;
+	do not process libcalls.
+	(init_deps_global, finish_deps_global): Kill #if 0'd code.
+	* sel-sched-ir.h (struct _sel_insn_data): New field deps_context.
+	(INSN_DEPS_CONTEXT, SUCC_ITER_EDGE): New accessor macros.
+	(fallthru_bb_of_jump): Export.
+	(inner_loop_header_p): Mark as inline.
+	* sel-sched.c (moveup_rhs): Reformat conditions for moving up 
+	a jump.
+	(generate_bookkeeping_insn): Kill unneeded code.
+	(move_cond_jump): Set EXPR_ORIG_BB_INDEX when moving an insn.
+	(move_op): Tidy comments.  When merging expression data, do not 
+	take into account bookkeeping insns.
+	* sel-sched-ir.c (first_time_insn_init, 
+	init_first_time_insn_data, free_first_time_insn_data): New.
+	(init_global_and_expr_for_insn, finish_global_and_expr_insn,
+	init_insn, init_simplejump): Use them.
+	(fallthru_bb_of_jump): New.
+	(sel_is_loop_preheader_p): Fix a merge thinko.  
+	(has_dependence_p, tick_check_p): Tidy up.  Use readonly contexts
+	when analyzing.
+
 2007-09-27  Dmitry Zhurikhin  <zhur@ispras.ru>
 	
 	Patch to allow moving conditional jumps through some instructions.

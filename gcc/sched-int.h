@@ -514,6 +514,10 @@ struct deps
 
   /* Element N is set for each register that is conditionally set.  */
   regset_head reg_conditional_sets;
+
+  /* True when this context should be treated as a readonly by 
+     the analysis.  */
+  BOOL_BITFIELD readonly : 1;
 };
 
 typedef struct deps *deps_t;

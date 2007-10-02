@@ -588,6 +588,9 @@ struct _sel_insn_data
      bitmap has its bit set.  */
   bitmap found_deps;
 
+  /* A context incapsulating this insn.  */
+  struct deps deps_context;
+
   /* Insn is an ASM.  */
   bool asm_p;
 
@@ -602,13 +605,13 @@ struct _sel_insn_data
      This is used for bundling.  */
   int sched_cycle;
 
+  /* Speculations that are being checked by this insn.  */
+  ds_t spec_checked_ds;
+
   /* True when an insn is scheduled after we've determined that a stall is
      required.
      This is used when emulating the Haifa scheduler for bundling.  */
   BOOL_BITFIELD after_stall_p : 1;
-
-  /* Speculations that are being checked by this insn.  */
-  ds_t spec_checked_ds;
 };
 
 typedef struct _sel_insn_data sel_insn_data_def;
@@ -627,6 +630,7 @@ extern sel_insn_data_def insn_sid (insn_t);
 #define INSN_SCHED_NEXT(INSN) (SID (INSN)->sched_next)
 #define INSN_ANALYZED_DEPS(INSN) (SID (INSN)->analyzed_deps)
 #define INSN_FOUND_DEPS(INSN) (SID (INSN)->found_deps) 
+#define INSN_DEPS_CONTEXT(INSN) (SID (INSN)->deps_context) 
 
 #define INSN_EXPR(INSN) (&SID (INSN)->_expr)
 #define INSN_VINSN(INSN) (RHS_VINSN (INSN_EXPR (INSN)))
@@ -929,10 +933,10 @@ extern insn_t sel_bb_head (basic_block);
 extern bool sel_bb_head_p (insn_t);
 extern insn_t sel_bb_end (basic_block);
 extern bool sel_bb_end_p (insn_t);
-
 extern bool sel_bb_empty_p (basic_block);
 
 extern bool in_current_region_p (basic_block);
+extern basic_block fallthru_bb_of_jump (rtx);
 
 extern void sel_init_bbs (bb_vec_t, basic_block);
 extern void sel_finish_bbs (void);
@@ -1008,7 +1012,7 @@ typedef struct
 
 
 /* True when BB is a header of the inner loop.  */
-static bool
+static inline bool
 inner_loop_header_p (basic_block bb)
 {
   struct loop *inner_loop; 
@@ -1390,6 +1394,9 @@ _eligible_successor_edge_p (edge e1, basic_block real_pred, int flags, edge *e2p
 
 #define FOR_EACH_SUCC(SUCC, ITER, INSN) \
 FOR_EACH_SUCC_1 (SUCC, ITER, INSN, SUCCS_NORMAL)
+
+/* Return the current edge along which a successor was built.  */
+#define SUCC_ITER_EDGE(ITER) ((ITER)->e1)
 
 extern regset sel_all_regs;
 

@@ -427,7 +427,8 @@ static int cache_size;
 
 static int deps_may_trap_p (rtx);
 static void add_dependence_list (rtx, rtx, int, enum reg_note);
-static void add_dependence_list_and_free (rtx, rtx *, int, enum reg_note);
+static void add_dependence_list_and_free (struct deps *, rtx, 
+                                          rtx *, int, enum reg_note);
 static void delete_all_dependences (rtx);
 static void fixup_sched_groups (rtx);
 
@@ -1333,13 +1334,21 @@ add_dependence_list (rtx insn, rtx list, int uncond, enum reg_note dep_type)
     }
 }
 
-/* Similar, but free *LISTP at the same time.  */
+/* Similar, but free *LISTP at the same time, when the context 
+   is not readonly.  */
 
 static void
-add_dependence_list_and_free (rtx insn, rtx *listp, int uncond,
-			      enum reg_note dep_type)
+add_dependence_list_and_free (struct deps *deps, rtx insn, rtx *listp, 
+                              int uncond, enum reg_note dep_type)
 {
   rtx list, next;
+
+  if (deps->readonly)
+    {
+      add_dependence_list (insn, *listp, uncond, dep_type);
+      return;
+    }
+
   for (list = *listp, *listp = NULL; list ; list = next)
     {
       next = XEXP (list, 1);
@@ -1427,6 +1436,7 @@ add_insn_mem_dependence (struct deps *deps, bool read_p,
   rtx *mem_list;
   rtx link;
 
+  gcc_assert (!deps->readonly);
   if (read_p)
     {
       insn_list = &deps->pending_read_insns;
@@ -1462,21 +1472,29 @@ flush_pending_lists (struct deps *deps, rtx insn, int for_read,
 {
   if (for_write)
     {
-      add_dependence_list_and_free (insn, &deps->pending_read_insns, 1,
-				    REG_DEP_ANTI);
-      free_EXPR_LIST_list (&deps->pending_read_mems);
-      deps->pending_read_list_length = 0;
+      add_dependence_list_and_free (deps, insn, &deps->pending_read_insns, 
+                                    1, REG_DEP_ANTI);
+      if (!deps->readonly)
+        {
+          free_EXPR_LIST_list (&deps->pending_read_mems);
+          deps->pending_read_list_length = 0;
+        }
     }
 
-  add_dependence_list_and_free (insn, &deps->pending_write_insns, 1,
+  add_dependence_list_and_free (deps, insn, &deps->pending_write_insns, 1,
 				for_read ? REG_DEP_ANTI : REG_DEP_OUTPUT);
-  free_EXPR_LIST_list (&deps->pending_write_mems);
-  deps->pending_write_list_length = 0;
 
-  add_dependence_list_and_free (insn, &deps->last_pending_memory_flush, 1,
-				for_read ? REG_DEP_ANTI : REG_DEP_OUTPUT);
-  deps->last_pending_memory_flush = alloc_INSN_LIST (insn, NULL_RTX);
-  deps->pending_flush_length = 1;
+  add_dependence_list_and_free (deps, insn, 
+                                &deps->last_pending_memory_flush, 1,
+                                for_read ? REG_DEP_ANTI : REG_DEP_OUTPUT);
+  if (!deps->readonly)
+    {
+      free_EXPR_LIST_list (&deps->pending_write_mems);
+      deps->pending_write_list_length = 0;
+
+      deps->last_pending_memory_flush = alloc_INSN_LIST (insn, NULL_RTX);
+      deps->pending_flush_length = 1;
+    }
 }
 
 /* Instruction which dependencies we are analyzing.  */
@@ -1611,6 +1629,14 @@ extend_deps_reg_info (struct deps *deps, int regno)
   int max_regno = regno + 1;
 
   gcc_assert (!reload_completed);
+  
+  /* In a readonly context, it would not hurt to extend info,
+     but it should not be needed.  */
+  if (deps->readonly)
+    {
+      deps->max_reg = max_regno;
+      return;
+    }
       
   if (max_regno > deps->max_reg)
     {
@@ -1690,7 +1716,8 @@ sched_analyze_reg (struct deps *deps, int regno, enum machine_mode mode,
 	 already cross one.  */
       if (REG_N_CALLS_CROSSED (regno) == 0)
 	{
-	  if (ref == USE)
+	  if (!deps->readonly 
+              && ref == USE)
 	    deps->sched_before_next_call
 	      = alloc_INSN_LIST (insn, deps->sched_before_next_call);
 	  else
@@ -1807,8 +1834,10 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 	}
       t = canon_rtx (t);
 
-      if ((deps->pending_read_list_length + deps->pending_write_list_length)
-	  > MAX_PENDING_LIST_LENGTH)
+      /* Pending lists can't get larger with a readonly context.  */
+      if (!deps->readonly
+          && ((deps->pending_read_list_length + deps->pending_write_list_length)
+              > MAX_PENDING_LIST_LENGTH))
 	{
 	  /* Flush all pending reads and writes to prevent the pending lists
 	     from getting any larger.  Insn scheduling runs too slowly when
@@ -1850,7 +1879,8 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 	  add_dependence_list (insn, deps->last_pending_memory_flush, 1,
 			       REG_DEP_ANTI);
 
-	  add_insn_mem_dependence (deps, false, insn, dest);
+          if (!deps->readonly)
+            add_insn_mem_dependence (deps, false, insn, dest);
 	}
       sched_analyze_2 (deps, XEXP (dest, 0), insn);
     }
@@ -2020,7 +2050,8 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 
 	/* Always add these dependencies to pending_reads, since
 	   this insn may be followed by a write.  */
-	add_insn_mem_dependence (deps, true, insn, x);
+        if (!deps->readonly)
+          add_insn_mem_dependence (deps, true, insn, x);
 
 	/* Take advantage of tail recursion here.  */
 	sched_analyze_2 (deps, XEXP (x, 0), insn);
@@ -2232,8 +2263,12 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
                   add_dependence_list (insn, reg_last->sets, 0, REG_DEP_ANTI);
                   add_dependence_list (insn, reg_last->clobbers, 0,
 				       REG_DEP_ANTI);
-                  reg_last->uses_length++;
-                  reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
+
+                  if (!deps->readonly)
+                    {
+                      reg_last->uses_length++;
+                      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
+                    }
                 }
               IOR_REG_SET (reg_pending_sets, &tmp_sets);
 
@@ -2305,31 +2340,38 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list_and_free (insn, &reg_last->uses, 0,
+	      add_dependence_list_and_free (deps, insn, &reg_last->uses, 0,
 					    REG_DEP_ANTI);
 	      add_dependence_list_and_free
-		(insn, &reg_last->sets, 0,
+		(deps, insn, &reg_last->sets, 0,
 		 reg_pending_barrier == TRUE_BARRIER ? REG_DEP_TRUE : REG_DEP_ANTI);
 	      add_dependence_list_and_free
-		(insn, &reg_last->clobbers, 0,
+		(deps, insn, &reg_last->clobbers, 0,
 		 reg_pending_barrier == TRUE_BARRIER ? REG_DEP_TRUE : REG_DEP_ANTI);
-	      reg_last->uses_length = 0;
-	      reg_last->clobbers_length = 0;
+
+              if (!deps->readonly)
+                {
+                  reg_last->uses_length = 0;
+                  reg_last->clobbers_length = 0;
+                }
 	    }
 	}
 
-      for (i = 0; i < (unsigned)deps->max_reg; i++)
-	{
-	  struct deps_reg *reg_last = &deps->reg_last[i];
-	  reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
-	  SET_REGNO_REG_SET (&deps->reg_last_in_use, i);
-	}
+      if (!deps->readonly)
+        for (i = 0; i < (unsigned)deps->max_reg; i++)
+          {
+            struct deps_reg *reg_last = &deps->reg_last[i];
+            reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
+            SET_REGNO_REG_SET (&deps->reg_last_in_use, i);
+          }
 
       /* Flush pending lists on jumps, but not on speculative checks.  */
       if (JUMP_P (insn) && !(SEL_SCHED_P 
                              && sel_insn_is_speculation_check (insn)))
 	flush_pending_lists (deps, insn, true, true);
-      CLEAR_REG_SET (&deps->reg_conditional_sets);
+      
+      if (!deps->readonly)
+        CLEAR_REG_SET (&deps->reg_conditional_sets);
       reg_pending_barrier = NOT_A_BARRIER;
     }
   else
@@ -2343,16 +2385,24 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_TRUE);
 	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_TRUE);
-	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
-	      reg_last->uses_length++;
+              
+              if (!deps->readonly)
+                {
+                  reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
+                  reg_last->uses_length++;
+                }
 	    }
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_OUTPUT);
 	      add_dependence_list (insn, reg_last->uses, 0, REG_DEP_ANTI);
-	      reg_last->clobbers = alloc_INSN_LIST (insn, reg_last->clobbers);
-	      reg_last->clobbers_length++;
+
+              if (!deps->readonly)
+                {
+                  reg_last->clobbers = alloc_INSN_LIST (insn, reg_last->clobbers);
+                  reg_last->clobbers_length++;
+                }
 	    }
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i, rsi)
 	    {
@@ -2360,8 +2410,12 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_OUTPUT);
 	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_OUTPUT);
 	      add_dependence_list (insn, reg_last->uses, 0, REG_DEP_ANTI);
-	      reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
-	      SET_REGNO_REG_SET (&deps->reg_conditional_sets, i);
+
+              if (!deps->readonly)
+                {
+                  reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
+                  SET_REGNO_REG_SET (&deps->reg_conditional_sets, i);
+                }
 	    }
 	}
       else
@@ -2371,8 +2425,12 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_TRUE);
 	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_TRUE);
-	      reg_last->uses_length++;
-	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
+
+              if (!deps->readonly)
+                {
+                  reg_last->uses_length++;
+                  reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
+                }
 	    }
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i, rsi)
 	    {
@@ -2380,43 +2438,58 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	      if (reg_last->uses_length > MAX_PENDING_LIST_LENGTH
 		  || reg_last->clobbers_length > MAX_PENDING_LIST_LENGTH)
 		{
-		  add_dependence_list_and_free (insn, &reg_last->sets, 0,
+		  add_dependence_list_and_free (deps, insn, &reg_last->sets, 0,
 					        REG_DEP_OUTPUT);
-		  add_dependence_list_and_free (insn, &reg_last->uses, 0,
+		  add_dependence_list_and_free (deps, insn, &reg_last->uses, 0,
 						REG_DEP_ANTI);
-		  add_dependence_list_and_free (insn, &reg_last->clobbers, 0,
+		  add_dependence_list_and_free (deps, insn, &reg_last->clobbers, 0,
 						REG_DEP_OUTPUT);
-		  reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
-		  reg_last->clobbers_length = 0;
-		  reg_last->uses_length = 0;
+
+                  if (!deps->readonly)
+                    {
+                      reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
+                      reg_last->clobbers_length = 0;
+                      reg_last->uses_length = 0;
+                    }
 		}
 	      else
 		{
 		  add_dependence_list (insn, reg_last->sets, 0, REG_DEP_OUTPUT);
 		  add_dependence_list (insn, reg_last->uses, 0, REG_DEP_ANTI);
 		}
-	      reg_last->clobbers_length++;
-	      reg_last->clobbers = alloc_INSN_LIST (insn, reg_last->clobbers);
+
+              if (!deps->readonly)
+                {
+                  reg_last->clobbers_length++;
+                  reg_last->clobbers = alloc_INSN_LIST (insn, reg_last->clobbers);
+                }
 	    }
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_sets, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list_and_free (insn, &reg_last->sets, 0,
+	      add_dependence_list_and_free (deps, insn, &reg_last->sets, 0,
 					    REG_DEP_OUTPUT);
-	      add_dependence_list_and_free (insn, &reg_last->clobbers, 0,
+	      add_dependence_list_and_free (deps, insn, &reg_last->clobbers, 0,
 					    REG_DEP_OUTPUT);
-	      add_dependence_list_and_free (insn, &reg_last->uses, 0,
+	      add_dependence_list_and_free (deps, insn, &reg_last->uses, 0,
 					    REG_DEP_ANTI);
-	      reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
-	      reg_last->uses_length = 0;
-	      reg_last->clobbers_length = 0;
-	      CLEAR_REGNO_REG_SET (&deps->reg_conditional_sets, i);
+
+              if (!deps->readonly)
+                {
+                  reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
+                  reg_last->uses_length = 0;
+                  reg_last->clobbers_length = 0;
+                  CLEAR_REGNO_REG_SET (&deps->reg_conditional_sets, i);
+                }
 	    }
 	}
 
-      IOR_REG_SET (&deps->reg_last_in_use, reg_pending_uses);
-      IOR_REG_SET (&deps->reg_last_in_use, reg_pending_clobbers);
-      IOR_REG_SET (&deps->reg_last_in_use, reg_pending_sets);
+      if (!deps->readonly)
+        {
+          IOR_REG_SET (&deps->reg_last_in_use, reg_pending_uses);
+          IOR_REG_SET (&deps->reg_last_in_use, reg_pending_clobbers);
+          IOR_REG_SET (&deps->reg_last_in_use, reg_pending_sets);
+        }
     }
 
   CLEAR_REG_SET (reg_pending_uses);
@@ -2476,7 +2549,8 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
       if (src_regno < FIRST_PSEUDO_REGISTER
 	  || dest_regno < FIRST_PSEUDO_REGISTER)
 	{
-	  if (deps->in_post_call_group_p == post_call_initial)
+	  if (!deps->readonly
+              && deps->in_post_call_group_p == post_call_initial)
 	    deps->in_post_call_group_p = post_call;
 
           if (!SEL_SCHED_P || sched_emulate_haifa_p) 
@@ -2488,7 +2562,8 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
       else
 	{
 	end_call_group:
-	  deps->in_post_call_group_p = not_post_call;
+          if (!deps->readonly)
+            deps->in_post_call_group_p = not_post_call;
 	}
     }
 
@@ -2526,8 +2601,9 @@ deps_analyze_insn (struct deps *deps, rtx insn)
     {
       /* Make each JUMP_INSN (but not a speculative check) 
          a scheduling barrier for memory references.  */
-      if (JUMP_P (insn) && !(SEL_SCHED_P 
-                             && sel_insn_is_speculation_check (insn)))
+      if (!deps->readonly
+          && JUMP_P (insn) && !(SEL_SCHED_P 
+                                && sel_insn_is_speculation_check (insn)))
         {
           /* Keep the list a reasonable size.  */
           if (deps->pending_flush_length++ > MAX_PENDING_LIST_LENGTH)
@@ -2585,7 +2661,8 @@ deps_analyze_insn (struct deps *deps, rtx insn)
 
       /* For each insn which shouldn't cross a call, add a dependence
          between that insn and this call insn.  */
-      add_dependence_list_and_free (insn, &deps->sched_before_next_call, 1,
+      add_dependence_list_and_free (deps, insn, 
+                                    &deps->sched_before_next_call, 1,
                                     REG_DEP_ANTI);
 
       sched_analyze_insn (deps, PATTERN (insn), insn);
@@ -2605,14 +2682,17 @@ deps_analyze_insn (struct deps *deps, rtx insn)
          be passed a pointer to something we haven't written yet).  */
       flush_pending_lists (deps, insn, true, !CONST_OR_PURE_CALL_P (insn));
 
-      /* Remember the last function call for limiting lifetimes.  */
-      free_INSN_LIST_list (&deps->last_function_call);
-      deps->last_function_call = alloc_INSN_LIST (insn, NULL_RTX);
-
-      /* Before reload, begin a post-call group, so as to keep the
-         lifetimes of hard registers correct.  */
-      if (! reload_completed)
-        deps->in_post_call_group_p = post_call;
+      if (!deps->readonly)
+        {
+          /* Remember the last function call for limiting lifetimes.  */
+          free_INSN_LIST_list (&deps->last_function_call);
+          deps->last_function_call = alloc_INSN_LIST (insn, NULL_RTX);
+          
+          /* Before reload, begin a post-call group, so as to keep the
+             lifetimes of hard registers correct.  */
+          if (! reload_completed)
+            deps->in_post_call_group_p = post_call;
+        }
     }
 
   if (sched_deps_info->use_cselib)
@@ -2635,7 +2715,8 @@ deps_analyze_insn (struct deps *deps, rtx insn)
      As a side effect, we may get better code due to decreased register
      pressure as well as less chance of a foreign insn appearing in
      a libcall block.  */
-  if (!reload_completed
+  if (!deps->readonly
+      && !reload_completed
       /* Note we may have nested libcall sequences.  We only care about
          the outermost libcall sequence.  */
       && deps->libcall_block_tail_insn == 0
@@ -2660,7 +2741,8 @@ deps_analyze_insn (struct deps *deps, rtx insn)
 
   /* If we have reached the end of a libcall block, then close the
      block.  */
-  if (deps->libcall_block_tail_insn == insn)
+  if (!deps->readonly
+      && deps->libcall_block_tail_insn == insn)
     deps->libcall_block_tail_insn = 0;
 
   if (sched_deps_info->finish_insn)
@@ -2676,6 +2758,8 @@ deps_analyze_insn (struct deps *deps, rtx insn)
 void
 deps_start_bb (struct deps *deps, rtx head)
 {
+  gcc_assert (!deps->readonly);
+
   /* Before reload, if the previous block ended in a call, show that
      we are inside a post-call group, so as to keep the lifetimes of
      hard registers correct.  */
@@ -2799,6 +2883,7 @@ init_deps (struct deps *deps)
   deps->sched_before_next_call = 0;
   deps->in_post_call_group_p = not_post_call;
   deps->libcall_block_tail_insn = 0;
+  deps->readonly = 0;
 }
 
 /* Free insn lists found in DEPS.  */
@@ -2999,11 +3084,6 @@ init_deps_global (void)
       sched_deps_info->note_mem_dep = haifa_note_mem_dep;
       sched_deps_info->note_dep = haifa_note_dep;
    }
-  
-#if 0
-  if (SEL_SCHED_P && sched_deps_info->use_cselib)
-    cselib_init (true);
-#endif
 }
 
 /* Free everything used by the dependency analysis code.  */
@@ -3014,11 +3094,6 @@ finish_deps_global (void)
   FREE_REG_SET (reg_pending_sets);
   FREE_REG_SET (reg_pending_clobbers);
   FREE_REG_SET (reg_pending_uses);
-
-#if 0
-  if (SEL_SCHED_P && sched_deps_info->use_cselib)
-    cselib_finish ();
-#endif
 }
 
 /* Estimate the weakness of dependence between MEM1 and MEM2.  */
