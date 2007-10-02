@@ -1,5 +1,9 @@
 2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgrtl.c (rtl_block_ends_with_call_p): Skip notes at the end.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-inline.c (self_inlining_addr_expr): Delete.
 	(setup_one_parameter): Drop fn argument.  Adjust callers.
 	Don't short-circuit optimization of declarations.
