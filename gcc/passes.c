@@ -1215,8 +1215,6 @@ dump_properties (FILE *dump, unsigned int props)
     fprintf (dump, "PROP_cfg\n");
   if (props & PROP_referenced_vars)
     fprintf (dump, "PROP_referenced_vars\n");
-  if (props & PROP_pta)
-    fprintf (dump, "PROP_pta\n");
   if (props & PROP_ssa)
     fprintf (dump, "PROP_ssa\n");
   if (props & PROP_no_crit_edges)
