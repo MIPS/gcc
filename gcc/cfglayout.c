@@ -1062,6 +1062,7 @@ duplicate_insn_chain (rtx from, rtx to)
     {
       switch (GET_CODE (insn))
 	{
+	case DEBUG_INSN:
 	case INSN:
 	case CALL_INSN:
 	case JUMP_INSN:

@@ -111,6 +111,9 @@ DEF_RTL_EXPR(ADDRESS, "address", "e", RTX_MATCH)
 
    ---------------------------------------------------------------------- */
 
+/* An annotation for variable assignment tracking.  */
+DEF_RTL_EXPR(DEBUG_INSN, "debug_insn", "iuuBieie", RTX_INSN)
+
 /* An instruction that cannot jump.  */
 DEF_RTL_EXPR(INSN, "insn", "iuuBieie", RTX_INSN)
 

@@ -9073,6 +9073,8 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
       /* ... fall through ...  */
 
     case SUBREG:
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
       /* The case of a subreg may arise when we have a local (register)
 	 variable or a formal (register) parameter which doesn't quite fill
 	 up an entire register.  For now, just assume that it is
@@ -9317,6 +9319,8 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
   switch (GET_CODE (rtl))
     {
     case SUBREG:
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
       /* The case of a subreg may arise when we have a local (register)
 	 variable or a formal (register) parameter which doesn't quite fill
 	 up an entire register.  For now, just assume that it is

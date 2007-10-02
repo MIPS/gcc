@@ -1465,6 +1465,624 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
   return bb;
 }
 
+/* Return the difference between the floor and the truncated result of
+   a signed division by OP1 with remainder MOD.  */
+static rtx
+floor_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
+{
+  /* (mod != 0 ? (op1 / mod < 0 ? -1 : 0) : 0) */
+  return gen_rtx_IF_THEN_ELSE
+    (mode, gen_rtx_NE (BImode, mod, const0_rtx),
+     gen_rtx_IF_THEN_ELSE
+     (mode, gen_rtx_LT (BImode,
+			gen_rtx_DIV (mode, op1, mod),
+			const0_rtx),
+      constm1_rtx, const0_rtx),
+     const0_rtx);
+}
+
+/* Return the difference between the ceil and the truncated result of
+   a signed division by OP1 with remainder MOD.  */
+static rtx
+ceil_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
+{
+  /* (mod != 0 ? (op1 / mod > 0 ? 1 : 0) : 0) */
+  return gen_rtx_IF_THEN_ELSE
+    (mode, gen_rtx_NE (BImode, mod, const0_rtx),
+     gen_rtx_IF_THEN_ELSE
+     (mode, gen_rtx_GT (BImode,
+			gen_rtx_DIV (mode, op1, mod),
+			const0_rtx),
+      const1_rtx, const0_rtx),
+     const0_rtx);
+}
+
+/* Return the difference between the ceil and the truncated result of
+   an unsigned division by OP1 with remainder MOD.  */
+static rtx
+ceil_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1 ATTRIBUTE_UNUSED)
+{
+  /* (mod != 0 ? 1 : 0) */
+  return gen_rtx_IF_THEN_ELSE
+    (mode, gen_rtx_NE (BImode, mod, const0_rtx),
+     const1_rtx, const0_rtx);
+}
+
+/* Return the difference between the rounded and the truncated result
+   of a signed division by OP1 with remainder MOD.  Halfway cases are
+   rounded away from zero, rather than to the nearest even number.  */
+static rtx
+round_sdiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
+{
+  /* (abs (mod) >= abs (op1) - abs (mod)
+      ? (op1 / mod > 0 ? 1 : -1)
+      : 0) */
+  return gen_rtx_IF_THEN_ELSE
+    (mode, gen_rtx_GE (BImode, gen_rtx_ABS (mode, mod),
+		       gen_rtx_MINUS (mode,
+				      gen_rtx_ABS (mode, op1),
+				      gen_rtx_ABS (mode, mod))),
+     gen_rtx_IF_THEN_ELSE
+     (mode, gen_rtx_GT (BImode,
+			gen_rtx_DIV (mode, op1, mod),
+			const0_rtx),
+      const1_rtx, constm1_rtx),
+     const0_rtx);
+}
+
+/* Return the difference between the rounded and the truncated result
+   of a unsigned division by OP1 with remainder MOD.  Halfway cases
+   are rounded away from zero, rather than to the nearest even
+   number.  */
+static rtx
+round_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
+{
+  /* (mod >= op1 - mod ? 1 : 0) */
+  return gen_rtx_IF_THEN_ELSE
+    (mode, gen_rtx_GE (BImode, mod,
+		       gen_rtx_MINUS (mode, op1, mod)),
+     const1_rtx, const0_rtx);
+}
+
+
+/* Return an RTX equivalent to the value of the tree expression
+   EXP.  */
+
+static rtx
+expand_debug_expr (tree exp)
+{
+  rtx op0 = NULL_RTX, op1 = NULL_RTX, op2 = NULL_RTX;
+  enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
+  int unsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
+
+  switch (TREE_CODE_CLASS (TREE_CODE (exp)))
+    {
+    case tcc_expression:
+      switch (TREE_CODE (exp))
+	{
+	case COND_EXPR:
+	  goto ternary;
+
+	case TRUTH_ANDIF_EXPR:
+	case TRUTH_ORIF_EXPR:
+	case TRUTH_AND_EXPR:
+	case TRUTH_OR_EXPR:
+	case TRUTH_XOR_EXPR:
+	  goto binary;
+
+	case TRUTH_NOT_EXPR:
+	  goto unary;
+
+	default:
+	  break;
+	}
+      break;
+
+    ternary:
+      op2 = expand_debug_expr (TREE_OPERAND (exp, 2));
+      if (!op2)
+	return NULL_RTX;
+      /* Fall through.  */
+
+    binary:
+    case tcc_binary:
+    case tcc_comparison:
+      op1 = expand_debug_expr (TREE_OPERAND (exp, 1));
+      if (!op1)
+	return NULL_RTX;
+      /* Fall through.  */
+
+    unary:
+    case tcc_unary:
+      op0 = expand_debug_expr (TREE_OPERAND (exp, 0));
+      if (!op0)
+	return NULL_RTX;
+      break;
+
+    case tcc_type:
+    case tcc_statement:
+    case tcc_gimple_stmt:
+      gcc_unreachable ();
+
+    case tcc_constant:
+    case tcc_exceptional:
+    case tcc_declaration:
+    case tcc_reference:
+    case tcc_vl_exp:
+      break;
+    }
+
+  switch (TREE_CODE (exp))
+    {
+    case VAR_DECL:
+    case PARM_DECL:
+    case FUNCTION_DECL:
+    case LABEL_DECL:
+    case CONST_DECL:
+    case RESULT_DECL:
+      /* This decl was optimized away.  */
+      if (!DECL_RTL_SET_P (exp))
+	return NULL;
+
+      return DECL_RTL (exp);
+
+    case INTEGER_CST:
+    case REAL_CST:
+    case FIXED_CST:
+    case COMPLEX_CST:
+    case STRING_CST:
+      op0 = expand_expr (exp, NULL_RTX, mode,
+			 EXPAND_INITIALIZER | EXPAND_CONST_ADDRESS);
+      if (op0 && GET_MODE (op0) == VOIDmode && mode != VOIDmode)
+	return op0 = gen_rtx_CONST (mode, op0);
+      return op0;
+
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+      {
+	enum machine_mode inner_mode
+	  = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+
+	if (mode == GET_MODE (op0))
+	  return op0;
+
+	if (CONSTANT_P (op0)
+	    || GET_MODE_BITSIZE (mode) <= GET_MODE_BITSIZE (GET_MODE (op0)))
+	  op0 = simplify_gen_subreg (mode, op0, inner_mode,
+				     subreg_lowpart_offset (mode,
+							    inner_mode));
+	else if (unsignedp)
+	  op0 = gen_rtx_ZERO_EXTEND (mode, op0);
+	else
+	  op0 = gen_rtx_SIGN_EXTEND (mode, op0);
+
+	return op0;
+      }
+
+    case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
+      op0 = expand_debug_expr (TREE_OPERAND (exp, 0));
+      if (!op0)
+	return NULL;
+
+      gcc_assert (GET_MODE (op0) == Pmode);
+
+      if (TREE_CODE (exp) == ALIGN_INDIRECT_REF)
+	{
+	  int align = TYPE_ALIGN_UNIT (TREE_TYPE (exp));
+	  op0 = gen_rtx_AND (Pmode, op0, GEN_INT (-align));
+	}
+
+      op0 = gen_rtx_MEM (mode, op0);
+
+      set_mem_attributes (op0, exp, 0);
+
+      return op0;
+
+    case TARGET_MEM_REF:
+      if (TMR_SYMBOL (exp) && !DECL_RTL_SET_P (TMR_SYMBOL (exp)))
+	return NULL;
+
+      op0 = expand_debug_expr
+	(tree_mem_ref_addr (build_pointer_type (TREE_TYPE (exp)),
+			    exp));
+      if (!op0)
+	return NULL;
+
+      gcc_assert (GET_MODE (op0) == Pmode);
+
+      op0 = gen_rtx_MEM (mode, op0);
+
+      set_mem_attributes (op0, exp, 0);
+
+      return op0;
+
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case COMPONENT_REF:
+    case BIT_FIELD_REF:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+    case VIEW_CONVERT_EXPR:
+      {
+	enum machine_mode mode1;
+	HOST_WIDE_INT bitsize, bitpos;
+	tree offset;
+	int volatilep = 0;
+	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
+					&mode1, &unsignedp, &volatilep, true);
+
+	op0 = expand_debug_expr (tem);
+
+	if (!op0)
+	  return NULL;
+
+	if (offset)
+	  {
+	    gcc_assert (MEM_P (op0));
+
+	    op1 = expand_debug_expr (offset);
+	    if (!op1)
+	      return NULL;
+
+	    op0 = gen_rtx_MEM (mode, gen_rtx_PLUS (Pmode, XEXP (op0, 0), op1));
+	  }
+
+	if (MEM_P (op0))
+	  {
+	    if (bitpos >= BITS_PER_UNIT)
+	      {
+		op0 = adjust_address_nv (op0, mode1, bitpos / BITS_PER_UNIT);
+		bitpos %= BITS_PER_UNIT;
+	      }
+	    else if (bitpos == 0 && bitsize == GET_MODE_BITSIZE (mode))
+	      op0 = adjust_address_nv (op0, mode, 0);
+	    else if (GET_MODE (op0) != mode1)
+	      op0 = adjust_address_nv (op0, mode1, 0);
+	    else
+	      op0 = copy_rtx (op0);
+	    set_mem_attributes (op0, exp, 0);
+	  }
+
+	if (bitpos == 0 && mode == GET_MODE (op0))
+	  return op0;
+
+	if ((bitpos % BITS_PER_UNIT) == 0
+	    && bitsize == GET_MODE_BITSIZE (mode1))
+	  return simplify_gen_subreg (mode, op0,
+				      GET_MODE (op0) != VOIDmode
+				      ? GET_MODE (op0) : mode1,
+				      bitpos / BITS_PER_UNIT);
+
+	return simplify_gen_ternary (SCALAR_INT_MODE_P (GET_MODE (op0))
+				     && TYPE_UNSIGNED (TREE_TYPE (exp))
+				     ? SIGN_EXTRACT
+				     : ZERO_EXTRACT, mode,
+				     GET_MODE (op0) != VOIDmode
+				     ? GET_MODE (op0) : mode1,
+				     op0, GEN_INT (bitsize), GEN_INT (bitpos));
+      }
+
+    case EXC_PTR_EXPR:
+      /* ??? Do not call get_exception_pointer(), we don't want to gen
+	 it if it hasn't been created yet.  */
+      return get_exception_pointer (cfun);
+
+    case FILTER_EXPR:
+      /* Likewise get_exception_filter().  */
+      return get_exception_filter (cfun);
+
+    case ABS_EXPR:
+      return gen_rtx_ABS (mode, op0);
+
+    case NEGATE_EXPR:
+      return gen_rtx_NEG (mode, op0);
+
+    case BIT_NOT_EXPR:
+      return gen_rtx_NOT (mode, op0);
+
+    case FLOAT_EXPR:
+      if (unsignedp)
+	return gen_rtx_UNSIGNED_FLOAT (mode, op0);
+      else
+	return gen_rtx_FLOAT (mode, op0);
+
+    case FIX_TRUNC_EXPR:
+      if (unsignedp)
+	return gen_rtx_UNSIGNED_FIX (mode, op0);
+      else
+	return gen_rtx_FIX (mode, op0);
+
+    case POINTER_PLUS_EXPR:
+    case PLUS_EXPR:
+      return gen_rtx_PLUS (mode, op0, op1);
+
+    case MINUS_EXPR:
+      return gen_rtx_MINUS (mode, op0, op1);
+
+    case MULT_EXPR:
+      return gen_rtx_MULT (mode, op0, op1);
+
+    case RDIV_EXPR:
+    case TRUNC_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+      if (unsignedp)
+	return gen_rtx_UDIV (mode, op0, op1);
+      else
+	return gen_rtx_DIV (mode, op0, op1);
+
+    case TRUNC_MOD_EXPR:
+      if (unsignedp)
+	return gen_rtx_UMOD (mode, op0, op1);
+      else
+	return gen_rtx_MOD (mode, op0, op1);
+
+    case FLOOR_DIV_EXPR:
+      if (unsignedp)
+	return gen_rtx_UDIV (mode, op0, op1);
+      else
+	{
+	  rtx div = gen_rtx_DIV (mode, op0, op1);
+	  rtx mod = gen_rtx_MOD (mode, op0, op1);
+	  rtx adj = floor_sdiv_adjust (mode, mod, op1);
+	  return gen_rtx_PLUS (mode, div, adj);
+	}
+
+    case FLOOR_MOD_EXPR:
+      if (unsignedp)
+	return gen_rtx_UMOD (mode, op0, op1);
+      else
+	{
+	  rtx mod = gen_rtx_MOD (mode, op0, op1);
+	  rtx adj = floor_sdiv_adjust (mode, mod, op1);
+	  adj = gen_rtx_NEG (mode, gen_rtx_MULT (mode, adj, op1));
+	  return gen_rtx_PLUS (mode, mod, adj);
+	}
+
+    case CEIL_DIV_EXPR:
+      if (unsignedp)
+	{
+	  rtx div = gen_rtx_UDIV (mode, op0, op1);
+	  rtx mod = gen_rtx_UMOD (mode, op0, op1);
+	  rtx adj = ceil_udiv_adjust (mode, mod, op1);
+	  return gen_rtx_PLUS (mode, div, adj);
+	}
+      else
+	{
+	  rtx div = gen_rtx_DIV (mode, op0, op1);
+	  rtx mod = gen_rtx_MOD (mode, op0, op1);
+	  rtx adj = ceil_sdiv_adjust (mode, mod, op1);
+	  return gen_rtx_PLUS (mode, div, adj);
+	}
+
+    case CEIL_MOD_EXPR:
+      if (unsignedp)
+	{
+	  rtx mod = gen_rtx_UMOD (mode, op0, op1);
+	  rtx adj = ceil_udiv_adjust (mode, mod, op1);
+	  adj = gen_rtx_NEG (mode, gen_rtx_MULT (mode, adj, op1));
+	  return gen_rtx_PLUS (mode, mod, adj);
+	}
+      else
+	{
+	  rtx mod = gen_rtx_MOD (mode, op0, op1);
+	  rtx adj = ceil_sdiv_adjust (mode, mod, op1);
+	  adj = gen_rtx_NEG (mode, gen_rtx_MULT (mode, adj, op1));
+	  return gen_rtx_PLUS (mode, mod, adj);
+	}
+
+    case ROUND_DIV_EXPR:
+      if (unsignedp)
+	{
+	  rtx div = gen_rtx_UDIV (mode, op0, op1);
+	  rtx mod = gen_rtx_UMOD (mode, op0, op1);
+	  rtx adj = round_udiv_adjust (mode, mod, op1);
+	  return gen_rtx_PLUS (mode, div, adj);
+	}
+      else
+	{
+	  rtx div = gen_rtx_DIV (mode, op0, op1);
+	  rtx mod = gen_rtx_MOD (mode, op0, op1);
+	  rtx adj = round_sdiv_adjust (mode, mod, op1);
+	  return gen_rtx_PLUS (mode, div, adj);
+	}
+
+    case ROUND_MOD_EXPR:
+      if (unsignedp)
+	{
+	  rtx mod = gen_rtx_UMOD (mode, op0, op1);
+	  rtx adj = round_udiv_adjust (mode, mod, op1);
+	  adj = gen_rtx_NEG (mode, gen_rtx_MULT (mode, adj, op1));
+	  return gen_rtx_PLUS (mode, mod, adj);
+	}
+      else
+	{
+	  rtx mod = gen_rtx_MOD (mode, op0, op1);
+	  rtx adj = round_sdiv_adjust (mode, mod, op1);
+	  adj = gen_rtx_NEG (mode, gen_rtx_MULT (mode, adj, op1));
+	  return gen_rtx_PLUS (mode, mod, adj);
+	}
+
+    case LSHIFT_EXPR:
+      return gen_rtx_ASHIFT (mode, op0, op1);
+
+    case RSHIFT_EXPR:
+      if (unsignedp)
+	return gen_rtx_LSHIFTRT (mode, op0, op1);
+      else
+	return gen_rtx_ASHIFTRT (mode, op0, op1);
+
+    case LROTATE_EXPR:
+      return gen_rtx_ROTATE (mode, op0, op1);
+
+    case RROTATE_EXPR:
+      return gen_rtx_ROTATERT (mode, op0, op1);
+
+    case MIN_EXPR:
+      if (unsignedp)
+	return gen_rtx_UMIN (mode, op0, op1);
+      else
+	return gen_rtx_SMIN (mode, op0, op1);
+
+    case MAX_EXPR:
+      if (unsignedp)
+	return gen_rtx_UMAX (mode, op0, op1);
+      else
+	return gen_rtx_SMAX (mode, op0, op1);
+
+    case BIT_AND_EXPR:
+    case TRUTH_AND_EXPR:
+      return gen_rtx_AND (mode, op0, op1);
+
+    case BIT_IOR_EXPR:
+    case TRUTH_OR_EXPR:
+      return gen_rtx_IOR (mode, op0, op1);
+
+    case BIT_XOR_EXPR:
+    case TRUTH_XOR_EXPR:
+      return gen_rtx_XOR (mode, op0, op1);
+
+    case TRUTH_ANDIF_EXPR:
+      return gen_rtx_IF_THEN_ELSE (mode, op0, op1, const0_rtx);
+
+    case TRUTH_ORIF_EXPR:
+      return gen_rtx_IF_THEN_ELSE (mode, op0, const_true_rtx, op1);
+
+    case TRUTH_NOT_EXPR:
+      return gen_rtx_EQ (mode, op0, const0_rtx);
+
+    case LT_EXPR:
+      if (unsignedp)
+	return gen_rtx_LTU (mode, op0, op1);
+      else
+	return gen_rtx_LT (mode, op0, op1);
+
+    case LE_EXPR:
+      if (unsignedp)
+	return gen_rtx_LEU (mode, op0, op1);
+      else
+	return gen_rtx_LE (mode, op0, op1);
+
+    case GT_EXPR:
+      if (unsignedp)
+	return gen_rtx_GTU (mode, op0, op1);
+      else
+	return gen_rtx_GT (mode, op0, op1);
+
+    case GE_EXPR:
+      if (unsignedp)
+	return gen_rtx_GEU (mode, op0, op1);
+      else
+	return gen_rtx_GE (mode, op0, op1);
+
+    case EQ_EXPR:
+      return gen_rtx_EQ (mode, op0, op1);
+
+    case NE_EXPR:
+      return gen_rtx_NE (mode, op0, op1);
+
+    case UNORDERED_EXPR:
+      return gen_rtx_UNORDERED (mode, op0, op1);
+
+    case ORDERED_EXPR:
+      return gen_rtx_ORDERED (mode, op0, op1);
+
+    case UNLT_EXPR:
+      return gen_rtx_UNLT (mode, op0, op1);
+
+    case UNLE_EXPR:
+      return gen_rtx_UNLE (mode, op0, op1);
+
+    case UNGT_EXPR:
+      return gen_rtx_UNGT (mode, op0, op1);
+
+    case UNGE_EXPR:
+      return gen_rtx_UNGE (mode, op0, op1);
+
+    case UNEQ_EXPR:
+      return gen_rtx_UNEQ (mode, op0, op1);
+
+    case LTGT_EXPR:
+      return gen_rtx_LTGT (mode, op0, op1);
+
+    case COND_EXPR:
+      return gen_rtx_IF_THEN_ELSE (mode, op0, op1, op2);
+
+    case COMPLEX_EXPR:
+      gcc_assert (COMPLEX_MODE_P (mode));
+      if (GET_MODE (op0) == VOIDmode)
+	op0 = gen_rtx_CONST (GET_MODE_INNER (mode), op0);
+      if (GET_MODE (op1) == VOIDmode)
+	op1 = gen_rtx_CONST (GET_MODE_INNER (mode), op1);
+      return gen_rtx_CONCAT (mode, op0, op1);
+
+    case ADDR_EXPR:
+      op0 = expand_debug_expr (TREE_OPERAND (exp, 0));
+      if (!op0 || !MEM_P (op0))
+	return NULL;
+
+      return XEXP (op0, 0);
+
+    case VECTOR_CST:
+      exp = build_constructor_from_list (TREE_TYPE (exp),
+					 TREE_VECTOR_CST_ELTS (exp));
+      /* Fall through.  */
+
+    case CONSTRUCTOR:
+      if (TREE_CODE (TREE_TYPE (exp)) == VECTOR_TYPE)
+	{
+	  unsigned i;
+	  tree val;
+
+	  op0 = gen_rtx_CONCATN
+	    (mode, rtvec_alloc (TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp))));
+
+	  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), i, val)
+	    {
+	      op1 = expand_debug_expr (val);
+	      if (!op1)
+		return NULL;
+	      XVECEXP (op0, 0, i) = op1;
+	    }
+
+	  if (i < TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)))
+	    {
+	      op1 = expand_debug_expr
+		(fold_convert (TREE_TYPE (TREE_TYPE (exp)), integer_zero_node));
+
+	      if (!op1)
+		return NULL;
+
+	      for (; i < TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp)); i++)
+		XVECEXP (op0, 0, i) = op1;
+	    }
+
+	  return op0;
+	}
+      else
+	goto flag_unsupported;
+
+    case CALL_EXPR:
+      /* ??? Maybe handle some builtins?  */
+      return NULL;
+
+      /* SSA names of optimized-away variables can survive un-SSA.  */
+    case SSA_NAME:
+    case ERROR_MARK:
+      return NULL;
+
+
+    default:
+    flag_unsupported:
+#if 0
+      return NULL;
+#endif
+      debug_tree (exp);
+      gcc_unreachable ();
+    }
+}
+
 /* Expand basic block BB from GIMPLE trees to RTL.  */
 
 static basic_block
@@ -1574,6 +2192,36 @@ expand_gimple_basic_block (basic_block bb)
 	  new_bb = expand_gimple_cond_expr (bb, stmt);
 	  if (new_bb)
 	    return new_bb;
+	}
+      else if (TREE_CODE (stmt) == VAR_DEBUG_VALUE)
+	{
+	  tree var = VAR_DEBUG_VALUE_VAR (stmt);
+	  tree value = VAR_DEBUG_VALUE_VALUE (stmt);
+	  rtx val;
+
+	  last = get_last_insn ();
+
+	  if (value == VAR_DEBUG_VALUE_NOVALUE)
+	    val = NULL_RTX;
+	  else
+	    val = expand_debug_expr (value);
+
+	  if (!val)
+	    val = gen_rtx_UNKNOWN_VAR_LOC (VOIDmode);
+
+	  val = gen_rtx_VAR_LOCATION
+	    (VOIDmode, var, val, VAR_INIT_STATUS_INITIALIZED);
+
+	  val = emit_debug_insn (val);
+
+	  maybe_dump_rtl_for_tree_stmt (stmt, last);
+
+	  if (last != PREV_INSN (val))
+	    {
+	      debug_generic_expr (stmt);
+	      debug_rtx_range (NEXT_INSN (last), get_last_insn ());
+	      gcc_unreachable ();
+	    }
 	}
       else
 	{

@@ -936,7 +936,7 @@ alloc_gcse_mem (void)
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
       {
-	if (INSN_P (insn))
+	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	  uid_cuid[INSN_UID (insn)] = i++;
 	else
 	  uid_cuid[INSN_UID (insn)] = i;
@@ -949,7 +949,7 @@ alloc_gcse_mem (void)
   i = 0;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
-      if (INSN_P (insn))
+      if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	CUID_INSN (i++) = insn;
 
   /* Allocate vars to track sets of regs.  */
@@ -3710,7 +3710,9 @@ bypass_conditional_jumps (void)
 	{
 	  setcc = NULL_RTX;
 	  FOR_BB_INSNS (bb, insn)
-	    if (NONJUMP_INSN_P (insn))
+	    if (DEBUG_INSN_P (insn))
+	      continue;
+	    else if (NONJUMP_INSN_P (insn))
 	      {
 		if (setcc)
 		  break;
@@ -5307,7 +5309,7 @@ compute_ld_motion_mems (void)
     {
       FOR_BB_INSNS (bb, insn)
 	{
-	  if (INSN_P (insn))
+	  if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	    {
 	      if (GET_CODE (PATTERN (insn)) == SET)
 		{

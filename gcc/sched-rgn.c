@@ -2247,6 +2247,9 @@ add_branch_dependences (rtx head, rtx tail)
      are not moved before reload because we can wind up with register
      allocation failures.  */
 
+  while (tail != head && DEBUG_INSN_P (tail))
+    tail = PREV_INSN (tail);
+
   insn = tail;
   last = 0;
   while (CALL_P (insn)
@@ -2282,6 +2285,13 @@ add_branch_dependences (rtx head, rtx tail)
 	break;
 
       insn = PREV_INSN (insn);
+      if (DEBUG_INSN_P (insn))
+	{
+	  if (last)
+	    add_dependence (last, insn, REG_DEP_ANTI);
+	  while (insn != head && DEBUG_INSN_P (insn))
+	    insn = PREV_INSN (insn);
+	}
     }
 
   /* Make sure these insns are scheduled last in their block.  */

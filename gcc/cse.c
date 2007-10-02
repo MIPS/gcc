@@ -4119,6 +4119,8 @@ cse_insn (rtx insn, rtx libcall_insn)
       apply_change_group ();
       fold_rtx (x, insn);
     }
+  else if (DEBUG_INSN_P (insn))
+    canon_reg (PATTERN (insn), insn);
 
   /* Store the equivalent value in SRC_EQV, if different, or if the DEST
      is a STRICT_LOW_PART.  The latter condition is necessary because SRC_EQV
@@ -5534,7 +5536,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 	    {
 	      prev = PREV_INSN (prev);
 	    }
-	  while (prev != bb_head && NOTE_P (prev));
+	  while (prev != bb_head && (NOTE_P (prev) || DEBUG_INSN_P (prev)));
 
 	  /* Do not swap the registers around if the previous instruction
 	     attaches a REG_EQUIV note to REG1.
@@ -5977,6 +5979,7 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	     FIXME: This is a real kludge and needs to be done some other
 		    way.  */
 	  if (INSN_P (insn)
+	      && !DEBUG_INSN_P (insn)
 	      && num_insns++ > PARAM_VALUE (PARAM_MAX_CSE_INSNS))
 	    {
 	      flush_hash_table ();
@@ -6422,6 +6425,20 @@ insn_live_p (rtx insn, int *counts)
 	}
       return false;
     }
+  else if (DEBUG_INSN_P (insn))
+    {
+      rtx next;
+
+      for (next = NEXT_INSN (insn); next; next = NEXT_INSN (next))
+	if (NOTE_P (next))
+	  continue;
+	else if (!DEBUG_INSN_P (next))
+	  return true;
+	else if (INSN_VAR_LOCATION_DECL (insn) == INSN_VAR_LOCATION_DECL (next))
+	  return false;
+
+      return true;
+    }
   else
     return true;
 }
@@ -6494,6 +6511,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
   int ndead = 0;
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
+
   /* First count the number of times each register is used.  */
   counts = XCNEWVEC (int, nreg);
   for (insn = insns; insn; insn = NEXT_INSN (insn))

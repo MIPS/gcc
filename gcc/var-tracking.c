@@ -112,6 +112,9 @@ enum micro_operation_type
   MO_USE,	/* Use location (REG or MEM).  */
   MO_USE_NO_VAR,/* Use location which is not associated with a variable
 		   or the variable is not trackable.  */
+  MO_LOC_MAIN,	/* Use location from the debug insn.  */
+  MO_LOC_USE,	/* The location appears in a debug insn, but it's not
+		   the location of the debug insn's decl.  */
   MO_SET,	/* Set location.  */
   MO_COPY,	/* Copy the same portion of a variable from one
 		   location to another.  */
@@ -836,14 +839,12 @@ var_debug_decl (tree decl)
   return decl;
 }
 
-/* Set the register to contain REG_EXPR (LOC), REG_OFFSET (LOC).  */
+/* Set the register LOC to contain DECL, OFFSET.  */
 
 static void
-var_reg_set (dataflow_set *set, rtx loc, enum var_init_status initialized, 
-	     rtx set_src)
+var_reg_decl_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
+		  tree decl, HOST_WIDE_INT offset, rtx set_src)
 {
-  tree decl = REG_EXPR (loc);
-  HOST_WIDE_INT offset = REG_OFFSET (loc);
   attrs node;
 
   decl = var_debug_decl (decl);
@@ -854,6 +855,18 @@ var_reg_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
   if (!node)
     attrs_list_insert (&set->regs[REGNO (loc)], decl, offset, loc);
   set_variable_part (set, loc, decl, offset, initialized, set_src);
+}
+
+/* Set the register to contain REG_EXPR (LOC), REG_OFFSET (LOC).  */
+
+static void
+var_reg_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
+	     rtx set_src)
+{
+  tree decl = REG_EXPR (loc);
+  HOST_WIDE_INT offset = REG_OFFSET (loc);
+
+  var_reg_decl_set (set, loc, initialized, decl, offset, set_src);
 }
 
 static int
@@ -975,6 +988,17 @@ var_regno_delete (dataflow_set *set, int regno)
   *reg = NULL;
 }
 
+/* Set the location of DECL, OFFSET as the MEM LOC.  */
+
+static void
+var_mem_decl_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
+		  tree decl, HOST_WIDE_INT offset, rtx set_src)
+{
+  decl = var_debug_decl (decl);
+
+  set_variable_part (set, loc, decl, offset, initialized, set_src);
+}
+
 /* Set the location part of variable MEM_EXPR (LOC) in dataflow set
    SET to LOC.
    Adjust the address first if it is stack pointer based.  */
@@ -986,9 +1010,7 @@ var_mem_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
   tree decl = MEM_EXPR (loc);
   HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
-  decl = var_debug_decl (decl);
-
-  set_variable_part (set, loc, decl, offset, initialized, set_src);
+  var_mem_decl_set (set, loc, initialized, decl, offset, set_src);
 }
 
 /* Delete and set the location part of variable MEM_EXPR (LOC) in
@@ -1672,26 +1694,71 @@ same_variable_part_p (rtx loc, tree expr, HOST_WIDE_INT offset)
   return (expr == expr2 && offset == offset2);
 }
 
+/* Determine what kind of micro operation to choose for a USE.  Return
+   MO_CLOBBER if no micro operation is to be generated.  */
+
+static enum micro_operation_type
+use_type (rtx *loc, rtx insn)
+{
+  tree expr;
+
+  if (DEBUG_INSN_P (insn))
+    {
+      if (!VAR_LOC_UNKNOWN_P (*loc) && !REG_P (*loc) && !MEM_P (*loc))
+	return MO_CLOBBER;
+
+      expr = INSN_VAR_LOCATION_DECL (insn);
+
+      if (!track_expr_p (expr))
+	return MO_CLOBBER;
+
+      if (&INSN_VAR_LOCATION_LOC (insn) == loc)
+	return MO_LOC_MAIN;
+      else
+	return MO_LOC_USE;
+    }
+  else if (REG_P (*loc))
+    {
+      gcc_assert (REGNO (*loc) < FIRST_PSEUDO_REGISTER);
+
+      expr = REG_EXPR (*loc);
+
+      if (!expr)
+	return MO_USE_NO_VAR;
+      else if (var_debug_value_for_decl (expr))
+	return MO_CLOBBER;
+      else if (track_expr_p (expr))
+	return MO_USE;
+      else
+	return MO_USE_NO_VAR;
+    }
+  else if (MEM_P (*loc))
+    {
+      expr = MEM_EXPR (*loc);
+
+      if (!expr)
+	return MO_CLOBBER;
+      else if (var_debug_value_for_decl (expr))
+	return MO_CLOBBER;
+      else if (track_expr_p (expr))
+	return MO_USE;
+      else
+	return MO_CLOBBER;
+    }
+
+  return MO_CLOBBER;
+}
 
 /* Count uses (register and memory references) LOC which will be tracked.
    INSN is instruction which the LOC is part of.  */
 
 static int
-count_uses (rtx *loc, void *insn)
+count_uses (rtx *loc, void *data)
 {
-  basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
+  rtx insn = (rtx) data;
 
-  if (REG_P (*loc))
-    {
-      gcc_assert (REGNO (*loc) < FIRST_PSEUDO_REGISTER);
-      VTI (bb)->n_mos++;
-    }
-  else if (MEM_P (*loc)
-	   && MEM_EXPR (*loc)
-	   && track_expr_p (MEM_EXPR (*loc)))
-    {
-      VTI (bb)->n_mos++;
-    }
+  if (use_type (loc, insn) != MO_CLOBBER)
+    VTI (BLOCK_FOR_INSN (insn))->n_mos++;
 
   return 0;
 }
@@ -1717,28 +1784,19 @@ count_stores (rtx loc, const_rtx expr ATTRIBUTE_UNUSED, void *insn)
    to VTI (bb)->mos.  INSN is instruction which the LOC is part of.  */
 
 static int
-add_uses (rtx *loc, void *insn)
+add_uses (rtx *loc, void *data)
 {
-  if (REG_P (*loc))
+  rtx insn = (rtx)data;
+  enum micro_operation_type type = use_type (loc, insn);
+
+  if (type != MO_CLOBBER)
     {
-      basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
+      basic_block bb = BLOCK_FOR_INSN (insn);
       micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
 
-      mo->type = ((REG_EXPR (*loc) && track_expr_p (REG_EXPR (*loc)))
-		  ? MO_USE : MO_USE_NO_VAR);
+      mo->type = type;
       mo->u.loc = *loc;
-      mo->insn = (rtx) insn;
-    }
-  else if (MEM_P (*loc)
-	   && MEM_EXPR (*loc)
-	   && track_expr_p (MEM_EXPR (*loc)))
-    {
-      basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
-      micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
-
-      mo->type = MO_USE;
-      mo->u.loc = *loc;
-      mo->insn = (rtx) insn;
+      mo->insn = insn;
     }
 
   return 0;
@@ -1759,6 +1817,9 @@ add_uses_1 (rtx *x, void *insn)
 static void
 add_stores (rtx loc, const_rtx expr, void *insn)
 {
+  if (use_type (&loc, (rtx) insn) == MO_CLOBBER)
+    return;
+
   if (REG_P (loc))
     {
       basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
@@ -1941,6 +2002,32 @@ compute_bb_dataflow (basic_block bb)
 		var_reg_set (out, loc, status, NULL);
 	      else if (GET_CODE (loc) == MEM)
 		var_mem_set (out, loc, status, NULL);
+	    }
+	    break;
+
+	  case MO_LOC_MAIN:
+	    {
+	      rtx loc = VTI (bb)->mos[i].u.loc;
+	      rtx insn = VTI (bb)->mos[i].insn;
+
+	      if (VAR_LOC_UNKNOWN_P (loc))
+		clobber_variable_part (out, NULL_RTX,
+				       INSN_VAR_LOCATION_DECL (insn), 0,
+				       NULL_RTX);
+	      else if (REG_P (loc))
+		var_reg_decl_set (out, loc, VAR_INIT_STATUS_INITIALIZED,
+				  INSN_VAR_LOCATION_DECL (insn), 0, NULL_RTX);
+	      else if (MEM_P (loc))
+		var_mem_decl_set (out, loc, VAR_INIT_STATUS_INITIALIZED,
+				  INSN_VAR_LOCATION_DECL (insn), 0, NULL_RTX);
+	    }
+	    break;
+
+	  case MO_LOC_USE:
+	    {
+	      /* ??? Note that this reg or mem is part of the value of
+		 decl such that, when it's set, we know the variable
+		 no longer holds its value.  */
 	    }
 	    break;
 
@@ -2867,8 +2954,8 @@ emit_notes_in_bb (basic_block bb)
 	  case MO_USE:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
-      
 	      enum var_init_status status = VAR_INIT_STATUS_UNINITIALIZED;
+
 	      if (! flag_var_tracking_uninit)
 		status = VAR_INIT_STATUS_INITIALIZED;
 	      if (GET_CODE (loc) == REG)
@@ -2877,6 +2964,42 @@ emit_notes_in_bb (basic_block bb)
 		var_mem_set (&set, loc, status, NULL);
 
 	      emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
+	    }
+	    break;
+
+	  case MO_LOC_MAIN:
+	    {
+	      rtx loc = VTI (bb)->mos[i].u.loc;
+	      rtx insn = VTI (bb)->mos[i].insn, next;
+
+	      if (VAR_LOC_UNKNOWN_P (loc))
+		clobber_variable_part (&set, NULL_RTX,
+				       INSN_VAR_LOCATION_DECL (insn), 0,
+				       NULL_RTX);
+	      else if (REG_P (loc))
+		var_reg_decl_set (&set, loc, VAR_INIT_STATUS_INITIALIZED,
+				  INSN_VAR_LOCATION_DECL (insn), 0, NULL_RTX);
+	      else if (MEM_P (loc))
+		var_mem_decl_set (&set, loc, VAR_INIT_STATUS_INITIALIZED,
+				  INSN_VAR_LOCATION_DECL (insn), 0, NULL_RTX);
+
+	      for (next = NEXT_INSN (insn);
+		   next && BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (next);
+		   next = NEXT_INSN (next))
+		if (DEBUG_INSN_P (next))
+		  insn = next;
+		else if (!NOTE_P (next))
+		  break;
+
+	      emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
+	    }
+	    break;
+
+	  case MO_LOC_USE:
+	    {
+	      /* ??? Note that this reg or mem is part of the value of
+		 decl such that, when it's set, we know the variable
+		 no longer holds its value.  */
 	    }
 	    break;
 
@@ -3087,6 +3210,7 @@ vt_initialize (void)
     {
       rtx insn;
       HOST_WIDE_INT pre, post = 0;
+      int count;
 
       /* Count the number of micro operations.  */
       VTI (bb)->n_mos = 0;
@@ -3109,6 +3233,8 @@ vt_initialize (void)
 		VTI (bb)->n_mos++;
 	    }
 	}
+
+      count = VTI (bb)->n_mos;
 
       /* Add the micro-operations to the array.  */
       VTI (bb)->mos = XNEWVEC (micro_operation, VTI (bb)->n_mos);
@@ -3137,12 +3263,13 @@ vt_initialize (void)
 	      note_uses (&PATTERN (insn), add_uses_1, insn);
 	      n2 = VTI (bb)->n_mos - 1;
 
-	      /* Order the MO_USEs to be before MO_USE_NO_VARs.  */
+	      /* Order the MO_USEs to be before MO_USE_NO_VARs,
+		 MO_LOC_MAIN and MO_LOC_USE.  */
 	      while (n1 < n2)
 		{
 		  while (n1 < n2 && VTI (bb)->mos[n1].type == MO_USE)
 		    n1++;
-		  while (n1 < n2 && VTI (bb)->mos[n2].type == MO_USE_NO_VAR)
+		  while (n1 < n2 && VTI (bb)->mos[n2].type != MO_USE)
 		    n2--;
 		  if (n1 < n2)
 		    {
@@ -3197,6 +3324,7 @@ vt_initialize (void)
 		}
 	    }
 	}
+      gcc_assert (count == VTI (bb)->n_mos);
     }
 
   /* Init the IN and OUT sets.  */
@@ -3217,6 +3345,38 @@ vt_initialize (void)
   changed_variables = htab_create (10, variable_htab_hash, variable_htab_eq,
 				   NULL);
   vt_add_function_parameters ();
+}
+
+/* Get rid of all debug insns from the insn stream.  */
+
+static void
+delete_debug_insns (void)
+{
+  basic_block bb;
+  rtx insn, next;
+
+  if (!MAY_HAVE_DEBUG_INSNS)
+    return;
+
+  FOR_EACH_BB (bb)
+    {
+      FOR_BB_INSNS_SAFE (bb, insn, next)
+	if (DEBUG_INSN_P (insn))
+	  delete_insn (insn);
+    }
+}
+
+/* Run a fast, BB-local only version of var tracking, to take care of
+   information that we don't do global analysis on, such that not all
+   information is lost.  If SKIPPED holds, we're skipping the global
+   pass entirely, so we should try to use information it would have
+   handled as well..  */
+
+static void
+vt_debug_insns_local (bool skipped ATTRIBUTE_UNUSED)
+{
+  /* ??? Just skip it all for now.  */
+  delete_debug_insns ();
 }
 
 /* Free the data structures needed for variable tracking.  */
@@ -3249,7 +3409,10 @@ unsigned int
 variable_tracking_main (void)
 {
   if (n_basic_blocks > 500 && n_edges / n_basic_blocks >= 20)
-    return 0;
+    {
+      vt_debug_insns_local (true);
+      return 0;
+    }
 
   mark_dfs_back_edges ();
   vt_initialize ();
@@ -3258,6 +3421,7 @@ variable_tracking_main (void)
       if (!vt_stack_adjustments ())
 	{
 	  vt_finalize ();
+	  vt_debug_insns_local (true);
 	  return 0;
 	}
     }
@@ -3272,6 +3436,7 @@ variable_tracking_main (void)
     }
 
   vt_finalize ();
+  vt_debug_insns_local (false);
   return 0;
 }
 

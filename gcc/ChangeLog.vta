@@ -1,5 +1,155 @@
 2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
 
+	* expr.c (expand_expr_real_1): Reject debug exprs.
+	* cfgexpand.c (floor_sdiv_adjust): New fn.
+	(ceil_sdiv_adjust): New fn.
+	(ceil_udiv_adjust): New fn.
+	(round_sdiv_adjust): New fn.
+	(round_udiv_adjust): New fn.
+	(expand_debug_expr): New fn.
+	(expand_gimple_basic_block): Handle debug stmts.
+	* cfgrtl.c (rtl_block_ends_with_call_p): Ignore debug insns.
+	* rtl.h (DEBUG_INSN_P): New macro.
+	(MAY_HAVE_DEBUG_INSNS): New macro.
+	(INSN_P): Accept debug insns.
+	(RTX_FRAME_RELATED_P): Likewise.
+	(INSN_DELETED_P): Likewise.
+	(PAT_VAR_LOCATION_DECL): New macro.
+	(PAT_VAR_LOCATION_LOC): New macro.
+	(NOTE_VAR_LOCATION_DECL): Reimplement.
+	(NOTE_VAR_LOCATION_LOC): Likewise.
+	(NOTE_VAR_LOCATION_STATUS): Likewise.
+	(INSN_VAR_LOCATION): New macro.
+	(INSN_VAR_LOCATION_DECL): Likewise.
+	(INSN_VAR_LOCATION_LOC): Likewise.
+	(INSN_VAR_LOCATION_STATUS): Likewise.
+	(gen_rtx_UNKNOWN_VAR_LOC): New macro.
+	(VAR_LOC_UNKNOWN_P): New macro.
+	(SCHED_GROUP_P): Accept debug insns.
+	(emit_debug_insn_before): Declare.
+	(emit_debug_insn_before_noloc): Likewise.
+	(emit_debug_insn_before_setloc): Likewise.
+	(emit_debug_insn_after): Likewise.
+	(emit_debug_insn_after_noloc): Likewise.
+	(emit_debug_insn_after_setloc): Likewise.
+	(emit_debug_insn): Likewise.
+	(make_debug_insn_raw): Likewise.
+	* recog.c (verify_changes): Accept debug insns.
+	(extract_insn): Handle them.
+	(peephole2_optimize): Skip them.
+	* dce.c (deletable_insn_p): Handle debug insns.
+	* reload1.c (reload): Don't scan subregs in debug insns.
+	(eliminate_regs_in_insn): Handle debug insns.
+	* cse.c (cse_insn): Handle debug insns.
+	(cse_extended_basic_block): Likewise.
+	(insn_live_p): Likewise.
+	* emit-rtl.c (copy_rtx_if_shared_1): Handle debug insns.
+	(reset_used_flags): Likewise.
+	(set_used_flags): Likewise.
+	(active_insn_p): Exclude debug insns.
+	(make_debug_insn_raw): New fn.
+	(emit_insn_before_noloc): Handle debug insns.
+	(emit_jump_insn_before_noloc): Likewise.
+	(emit_call_insn_before_noloc): Likewise.
+	(emit_debug_insn_before_noloc): New fn.
+	(emit_insn_after_noloc): Handle debug insns.
+	(emit_jump_insn_after_noloc): Likewise.
+	(emit_call_insn_after_noloc): Likewise.
+	(emit_debug_insn_after_noloc): New fn.
+	(emit_debug_insn_after_setloc): New fn.
+	(emit_debug_insn_after): New fn.
+	(emit_debug_insn_before_setloc): New fn.
+	(emit_debug_insn_before): New fn.
+	(emit_insn): Handle debug insn.
+	(emit_debug_insn): New fn.
+	(emit_jump_insn): Handle debug insn.
+	(emit_call_insn): Likewise.
+	(emit): Likewise.
+	(emit_copy_of_insn_after): Likewise.
+	* reg-stack.c (subst_stack_regs_pat): Handle var location rtx.
+	* var-tracking.c (MO_LOC_MAIN, MO_LOC_USE): New micro ops.
+	(var_reg_decl_set): New fn.
+	(var_reg_set): Adjust.
+	(var_mem_decl_set): New fn.
+	(var_mem_set): Adjust.
+	(use_type): New fn.
+	(count_uses, add_uses, add_stores): Adjust.
+	(compute_bb_dataflow): Handle new micro ops.
+	(emit_notes_in_bb): Likewise.
+	(vt_initialize): Likewise.
+	(delete_debug_insns): New fn.
+	(vt_debug_insns_local): New fn.
+	(variable_tracking_main): Call it.
+	* final.c (get_attr_length_1): Handle debug insns.
+	* lower-subreg.c (adjust_decomposed_uses): New fn.
+	(resolve_debug): New fn.
+	(decompose_multiword_subregs): Handle debug insns.
+	* print-rtl.c (print_rtx): Likewise.
+	* ifcvt.c (first_active_insn): Skip debug insns.
+	(last_active_insn): Likewise.
+	(cond_exec_process_insns): Handle debug insns.
+	(check_cond_move_block): Likewise.
+	(cond_move_convert_if_block): Likewise.
+	(block_jumps_and_fallthru_p): Likewise.
+	(dead_or_predicable): Likewise.
+	* cfgcleanup.c (flow_find_cross_jump): Skip debug insns.
+	* combine.c (create_log_links): Skip debug insns.
+	(combine_instructions): Likewise.
+	(rtx_subst_pair): New struct.
+	(propagate_for_debug_subst): New fn.
+	(propagate_for_debug): New fn.
+	(try_combine): Call it.
+	(distribute_links): Handle debug insns.
+	* df-problems.c (df_lr_bb_local_compute): Likewise.
+	(df_set_note): Reject debug insns.
+	(df_set_dead_notes_for_mw): Add added_notes_p argument.
+	(df_note_bb_compute): Handle debug insns.
+	(df_simulate_uses): Likewise.
+	(df_simulate_one_insn_forwards): Likewise.
+	(df_simulate_one_insn_backwards): Likewise.
+	* df-scan.c (df_insn_rescan_1): Renamed with new argument, from...
+	(df_insn_rescan): ... this.  Implement in terms of new name.
+	(df_insn_rescan_debug_internal): New fn.
+	(df_uses_record): Handle debug insns.
+	* haifa-sched.c (contributes_to_priority_p): Likewise.
+	(nondebug_dep_list_size): New fn.
+	(priority, add_jump_dependencies): Use it.
+	(rank_for_schedule): Handle debug insns.
+	(schedule_block): Always accept more debug insns.
+	* local-alloc.c (block_alloc): Handle debug insns.
+	* regrename.c (replace_oldest_value_reg): ??? Test without this
+	(replace_oldest_value_addr): Handle debug insns.
+	(replace_oldest_value_mem): Likewise.
+	(copyprop_hardreg_forward_1): Likewise.
+	* regstat.c (regstat_init_n_sets_and_refs): Skip debug uses.
+	(regstat_bb_compute_ri): Skip debug insns.
+	* sched-rgn.c (add_branch_dependences): Likewise.
+	* sched-vis.c (print_pattern): Handle debug insns.
+	* regmove.c (optimize_reg_copy_1): Don't count debug insns.
+	(fixup_match_2): Likewise.
+	(regmove_optimize): Handle debug insns.
+	(fixup_match_1): Don't count debug insns.  Adjust them.
+	* gcse.c (allolc_gcse_mem): Don't allocate uid for debug isnsn.
+	(bypass_conditional_jumps): Skip debug insns.
+	(compute_ld_motion_mems): Likewise.
+	* sched-deps.c (sched_analyze_2): Handle debug insns.
+	(sched_analyze_insn): Likewise.
+	(sched_analyze): Likewise.
+	* init-regs.c (initialize_uninitialized_regs): Skip debug insns.
+	* dse.c (scan_insn): Keep debug insns.
+	* resource.c (mark_target_live_regs): Skip debug insns.
+	* rtlanal.c (canonicalize_condition): Likewise.
+	* df.h (df_insn_rescan_debug_internal): Declare.
+	* dwarf2out.c (mem_loc_descriptor): Ignore sign and zero extend.
+	(loc_descriptor): Likewise.
+	* function.c (instantiate_virtual_regs): Handle debug insns.
+	* rtl.def (DEBUG_INSN): New rtl code.
+	* cfgbuild.c (inside_basic_block_p): Handle debug insns.
+	(control_flow_insn_p): Likewise.
+	* cfglayout.c (duplicate_insn_chain): Likewise.
+
+2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-inline.c (processing_debug_stmt_p): New variable.
 	(remap_decl): Register variables only while not processing debug
 	statements.

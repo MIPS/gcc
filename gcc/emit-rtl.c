@@ -2506,6 +2506,7 @@ repeat:
 	return;
       break;
 
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -2612,6 +2613,7 @@ repeat:
     case CC0:
       return;
 
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -2682,6 +2684,7 @@ set_used_flags (rtx x)
     case CC0:
       return;
 
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -2987,6 +2990,7 @@ active_insn_p (const_rtx insn)
 {
   return (CALL_P (insn) || JUMP_P (insn)
 	  || (NONJUMP_INSN_P (insn)
+	      && !DEBUG_INSN_P (insn)
 	      && (! reload_completed
 		  || (GET_CODE (PATTERN (insn)) != USE
 		      && GET_CODE (PATTERN (insn)) != CLOBBER))));
@@ -3422,6 +3426,25 @@ make_insn_raw (rtx pattern)
   return insn;
 }
 
+/* Like `make_insn_raw' but make a DEBUG_INSN instead of an insn.  */
+
+rtx
+make_debug_insn_raw (rtx pattern)
+{
+  rtx insn;
+
+  insn = rtx_alloc (DEBUG_INSN);
+  INSN_UID (insn) = cur_insn_uid++;
+
+  PATTERN (insn) = pattern;
+  INSN_CODE (insn) = -1;
+  REG_NOTES (insn) = NULL;
+  INSN_LOCATOR (insn) = curr_insn_locator ();
+  BLOCK_FOR_INSN (insn) = NULL;
+
+  return insn;
+}
+
 /* Like `make_insn_raw' but make a JUMP_INSN instead of an insn.  */
 
 rtx
@@ -3608,7 +3631,8 @@ add_insn_before (rtx insn, rtx before, basic_block bb)
 
 /* Replace insn with an deleted instruction note.  */
 
-void set_insn_deleted (rtx insn)
+void
+set_insn_deleted (rtx insn)
 {
   df_insn_delete (BLOCK_FOR_INSN (insn), INSN_UID (insn));
   PUT_CODE (insn, NOTE);
@@ -3837,6 +3861,7 @@ emit_insn_before_noloc (rtx x, rtx before, basic_block bb)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -3880,6 +3905,7 @@ emit_jump_insn_before_noloc (rtx x, rtx before)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -3923,6 +3949,7 @@ emit_call_insn_before_noloc (rtx x, rtx before)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -3947,6 +3974,50 @@ emit_call_insn_before_noloc (rtx x, rtx before)
 
     default:
       last = make_call_insn_raw (x);
+      add_insn_before (last, before, NULL);
+      break;
+    }
+
+  return last;
+}
+
+/* Make an instruction with body X and code DEBUG_INSN
+   and output it before the instruction BEFORE.  */
+
+rtx
+emit_debug_insn_before_noloc (rtx x, rtx before)
+{
+  rtx last = NULL_RTX, insn;
+
+  gcc_assert (before);
+
+  switch (GET_CODE (x))
+    {
+    case DEBUG_INSN:
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      insn = x;
+      while (insn)
+	{
+	  rtx next = NEXT_INSN (insn);
+	  add_insn_before (insn, before, NULL);
+	  last = insn;
+	  insn = next;
+	}
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      gcc_unreachable ();
+      break;
+#endif
+
+    default:
+      last = make_debug_insn_raw (x);
       add_insn_before (last, before, NULL);
       break;
     }
@@ -4059,6 +4130,7 @@ emit_insn_after_noloc (rtx x, rtx after, basic_block bb)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -4096,6 +4168,7 @@ emit_jump_insn_after_noloc (rtx x, rtx after)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -4132,6 +4205,7 @@ emit_call_insn_after_noloc (rtx x, rtx after)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -4149,6 +4223,43 @@ emit_call_insn_after_noloc (rtx x, rtx after)
 
     default:
       last = make_call_insn_raw (x);
+      add_insn_after (last, after, NULL);
+      break;
+    }
+
+  return last;
+}
+
+/* Make an instruction with body X and code CALL_INSN
+   and output it after the instruction AFTER.  */
+
+rtx
+emit_debug_insn_after_noloc (rtx x, rtx after)
+{
+  rtx last;
+
+  gcc_assert (after);
+
+  switch (GET_CODE (x))
+    {
+    case DEBUG_INSN:
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      last = emit_insn_after_1 (x, after, NULL);
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      gcc_unreachable ();
+      break;
+#endif
+
+    default:
+      last = make_debug_insn_raw (x);
       add_insn_after (last, after, NULL);
       break;
     }
@@ -4294,6 +4405,37 @@ emit_call_insn_after (rtx pattern, rtx after)
     return emit_call_insn_after_noloc (pattern, after);
 }
 
+/* Like emit_debug_insn_after_noloc, but set INSN_LOCATOR according to SCOPE.  */
+rtx
+emit_debug_insn_after_setloc (rtx pattern, rtx after, int loc)
+{
+  rtx last = emit_debug_insn_after_noloc (pattern, after);
+
+  if (pattern == NULL_RTX || !loc)
+    return last;
+
+  after = NEXT_INSN (after);
+  while (1)
+    {
+      if (active_insn_p (after) && !INSN_LOCATOR (after))
+	INSN_LOCATOR (after) = loc;
+      if (after == last)
+	break;
+      after = NEXT_INSN (after);
+    }
+  return last;
+}
+
+/* Like emit_debug_insn_after_noloc, but set INSN_LOCATOR according to AFTER.  */
+rtx
+emit_debug_insn_after (rtx pattern, rtx after)
+{
+  if (INSN_P (after))
+    return emit_debug_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
+  else
+    return emit_debug_insn_after_noloc (pattern, after);
+}
+
 /* Like emit_insn_before_noloc, but set INSN_LOCATOR according to SCOPE.  */
 rtx
 emit_insn_before_setloc (rtx pattern, rtx before, int loc)
@@ -4393,6 +4535,39 @@ emit_call_insn_before (rtx pattern, rtx before)
   else
     return emit_call_insn_before_noloc (pattern, before);
 }
+
+/* like emit_insn_before_noloc, but set insn_locator according to scope.  */
+rtx
+emit_debug_insn_before_setloc (rtx pattern, rtx before, int loc)
+{
+  rtx first = PREV_INSN (before);
+  rtx last = emit_debug_insn_before_noloc (pattern, before);
+
+  if (pattern == NULL_RTX)
+    return last;
+
+  first = NEXT_INSN (first);
+  while (1)
+    {
+      if (active_insn_p (first) && !INSN_LOCATOR (first))
+	INSN_LOCATOR (first) = loc;
+      if (first == last)
+	break;
+      first = NEXT_INSN (first);
+    }
+  return last;
+}
+
+/* like emit_debug_insn_before_noloc,
+   but set insn_locator according to before.  */
+rtx
+emit_debug_insn_before (rtx pattern, rtx before)
+{
+  if (INSN_P (before))
+    return emit_debug_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
+  else
+    return emit_debug_insn_before_noloc (pattern, before);
+}
 
 /* Take X and emit it at the end of the doubly-linked
    INSN list.
@@ -4410,6 +4585,7 @@ emit_insn (rtx x)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -4441,6 +4617,52 @@ emit_insn (rtx x)
   return last;
 }
 
+/* Make an insn of code DEBUG_INSN with pattern X
+   and add it to the end of the doubly-linked list.  */
+
+rtx
+emit_debug_insn (rtx x)
+{
+  rtx last = last_insn;
+  rtx insn;
+
+  if (x == NULL_RTX)
+    return last;
+
+  switch (GET_CODE (x))
+    {
+    case DEBUG_INSN:
+    case INSN:
+    case JUMP_INSN:
+    case CALL_INSN:
+    case CODE_LABEL:
+    case BARRIER:
+    case NOTE:
+      insn = x;
+      while (insn)
+	{
+	  rtx next = NEXT_INSN (insn);
+	  add_insn (insn);
+	  last = insn;
+	  insn = next;
+	}
+      break;
+
+#ifdef ENABLE_RTL_CHECKING
+    case SEQUENCE:
+      gcc_unreachable ();
+      break;
+#endif
+
+    default:
+      last = make_debug_insn_raw (x);
+      add_insn (last);
+      break;
+    }
+
+  return last;
+}
+
 /* Make an insn of code JUMP_INSN with pattern X
    and add it to the end of the doubly-linked list.  */
 
@@ -4451,6 +4673,7 @@ emit_jump_insn (rtx x)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -4492,6 +4715,7 @@ emit_call_insn (rtx x)
 
   switch (GET_CODE (x))
     {
+    case DEBUG_INSN:
     case INSN:
     case JUMP_INSN:
     case CALL_INSN:
@@ -4713,6 +4937,8 @@ emit (rtx x)
       }
     case CALL_INSN:
       return emit_call_insn (x);
+    case DEBUG_INSN:
+      return emit_debug_insn (x);
     default:
       gcc_unreachable ();
     }
@@ -5505,6 +5731,10 @@ emit_copy_of_insn_after (rtx insn, rtx after)
 
     case JUMP_INSN:
       new = emit_jump_insn_after (copy_insn (PATTERN (insn)), after);
+      break;
+
+    case DEBUG_INSN:
+      new = emit_debug_insn_after (copy_insn (PATTERN (insn)), after);
       break;
 
     case CALL_INSN:

@@ -104,6 +104,7 @@ deletable_insn_p (rtx insn, bool fast)
   switch (GET_CODE (body))
     {
     case USE:
+    case VAR_LOCATION:
       return false;
 
     case CLOBBER:

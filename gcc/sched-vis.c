@@ -557,6 +557,10 @@ print_pattern (char *buf, const_rtx x, int verbose)
       print_value (t1, XEXP (x, 0), verbose);
       sprintf (buf, "use %s", t1);
       break;
+    case VAR_LOCATION:
+      print_value (t1, PAT_VAR_LOCATION_LOC (x), verbose);
+      sprintf (buf, "loc %s", t1);
+      break;
     case COND_EXEC:
       if (GET_CODE (COND_EXEC_TEST (x)) == NE
 	  && XEXP (COND_EXEC_TEST (x), 1) == const0_rtx)

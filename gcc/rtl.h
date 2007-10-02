@@ -380,9 +380,15 @@ struct rtvec_def GTY(()) {
 /* Predicate yielding nonzero iff X is an insn that cannot jump.  */
 #define NONJUMP_INSN_P(X) (GET_CODE (X) == INSN)
 
+/* Predicate yielding nonzero iff X is a debug note/insn.  */
+#define DEBUG_INSN_P(X) (GET_CODE (X) == DEBUG_INSN)
+
+/* Nonzero if DEBUG_INSN_P may possibly hold.  */
+#define MAY_HAVE_DEBUG_INSNS (flag_var_tracking_assignments)
+
 /* Predicate yielding nonzero iff X is a real insn.  */
 #define INSN_P(X) \
-  (NONJUMP_INSN_P (X) || JUMP_P (X) || CALL_P (X))
+  (NONJUMP_INSN_P (X) || DEBUG_INSN_P (X) || JUMP_P (X) || CALL_P (X))
 
 /* Predicate yielding nonzero iff X is a note insn.  */
 #define NOTE_P(X) (GET_CODE (X) == NOTE)
@@ -753,12 +759,13 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 #define INSN_CODE(INSN) XINT (INSN, 6)
 
 #define RTX_FRAME_RELATED_P(RTX)					\
-  (RTL_FLAG_CHECK5("RTX_FRAME_RELATED_P", (RTX), INSN, CALL_INSN,	\
-		   JUMP_INSN, BARRIER, SET)->frame_related)
+  (RTL_FLAG_CHECK6("RTX_FRAME_RELATED_P", (RTX), DEBUG_INSN, INSN,	\
+		   CALL_INSN, JUMP_INSN, BARRIER, SET)->frame_related)
 
 /* 1 if RTX is an insn that has been deleted.  */
 #define INSN_DELETED_P(RTX)						\
-  (RTL_FLAG_CHECK6("INSN_DELETED_P", (RTX), INSN, CALL_INSN, JUMP_INSN,	\
+  (RTL_FLAG_CHECK7("INSN_DELETED_P", (RTX), DEBUG_INSN, INSN,		\
+		   CALL_INSN, JUMP_INSN,				\
 		   CODE_LABEL, BARRIER, NOTE)->volatil)
 
 /* 1 if RTX is a call to a const or pure function.  */
@@ -853,16 +860,40 @@ extern const char * const reg_note_name[];
    && NOTE_KIND (INSN) == NOTE_INSN_BASIC_BLOCK)
 
 /* Variable declaration and the location of a variable.  */
-#define NOTE_VAR_LOCATION_DECL(INSN)	(XCTREE (XCEXP (INSN, 4, NOTE), \
-						 0, VAR_LOCATION))
-#define NOTE_VAR_LOCATION_LOC(INSN)	(XCEXP (XCEXP (INSN, 4, NOTE),  \
-						1, VAR_LOCATION))
+#define PAT_VAR_LOCATION_DECL(PAT) (XCTREE ((PAT), 0, VAR_LOCATION))
+#define PAT_VAR_LOCATION_LOC(PAT) (XCEXP ((PAT), 1, VAR_LOCATION))
 
 /* Initialization status of the variable in the location.  Status
    can be unknown, uninitialized or initialized.  See enumeration
    type below.  */
-#define NOTE_VAR_LOCATION_STATUS(INSN)  (XCINT (XCEXP (INSN, 4, NOTE), \
-						2, VAR_LOCATION))
+#define PAT_VAR_LOCATION_STATUS(PAT) (XCINT ((PAT), 2, VAR_LOCATION))
+
+/* Accessors for a NOTE_INSN_VAR_LOCATION.  */
+#define NOTE_VAR_LOCATION_DECL(NOTE) \
+  PAT_VAR_LOCATION_DECL (NOTE_VAR_LOCATION (NOTE))
+#define NOTE_VAR_LOCATION_LOC(NOTE) \
+  PAT_VAR_LOCATION_LOC (NOTE_VAR_LOCATION (NOTE))
+#define NOTE_VAR_LOCATION_STATUS(NOTE) \
+  PAT_VAR_LOCATION_STATUS (NOTE_VAR_LOCATION (NOTE))
+
+/* The VAR_LOCATION rtx in a DEBUG_INSN.  */
+#define INSN_VAR_LOCATION(INSN) PATTERN (INSN)
+
+/* Accessors for a tree-expanded var location debug insn.  */
+#define INSN_VAR_LOCATION_DECL(INSN) \
+  PAT_VAR_LOCATION_DECL (INSN_VAR_LOCATION (INSN))
+#define INSN_VAR_LOCATION_LOC(INSN) \
+  PAT_VAR_LOCATION_LOC (INSN_VAR_LOCATION (INSN))
+#define INSN_VAR_LOCATION_STATUS(INSN) \
+  PAT_VAR_LOCATION_STATUS (INSN_VAR_LOCATION (INSN))
+
+/* Expand to the RTL that denotes an unknown variable location in a
+   DEBUG_INSN.  */
+#define gen_rtx_UNKNOWN_VAR_LOC(M) (gen_rtx_CLOBBER (M, const0_rtx))
+
+/* Determine whether X is such an unknown location.  */
+#define VAR_LOC_UNKNOWN_P(X) \
+  (GET_CODE (X) == CLOBBER && XEXP ((X), 0) == const0_rtx)
 
 /* Possible initialization status of a variable.   When requested
    by the user, this information is tracked and recorded in the DWARF
@@ -1238,8 +1269,9 @@ do {						\
 /* During sched, 1 if RTX is an insn that must be scheduled together
    with the preceding insn.  */
 #define SCHED_GROUP_P(RTX)						\
-  (RTL_FLAG_CHECK3("SCHED_GROUP_P", (RTX), INSN, JUMP_INSN, CALL_INSN	\
-		          )->in_struct)
+  (RTL_FLAG_CHECK4("SCHED_GROUP_P", (RTX), DEBUG_INSN, INSN,		\
+		   JUMP_INSN, CALL_INSN					\
+		   )->in_struct)
 
 /* For a SET rtx, SET_DEST is the place that is set
    and SET_SRC is the value it is set to.  */
@@ -1568,6 +1600,9 @@ extern rtx emit_jump_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_call_insn_before (rtx, rtx);
 extern rtx emit_call_insn_before_noloc (rtx, rtx);
 extern rtx emit_call_insn_before_setloc (rtx, rtx, int);
+extern rtx emit_debug_insn_before (rtx, rtx);
+extern rtx emit_debug_insn_before_noloc (rtx, rtx);
+extern rtx emit_debug_insn_before_setloc (rtx, rtx, int);
 extern rtx emit_barrier_before (rtx);
 extern rtx emit_label_before (rtx, rtx);
 extern rtx emit_note_before (enum insn_note, rtx);
@@ -1580,10 +1615,14 @@ extern rtx emit_jump_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_call_insn_after (rtx, rtx);
 extern rtx emit_call_insn_after_noloc (rtx, rtx);
 extern rtx emit_call_insn_after_setloc (rtx, rtx, int);
+extern rtx emit_debug_insn_after (rtx, rtx);
+extern rtx emit_debug_insn_after_noloc (rtx, rtx);
+extern rtx emit_debug_insn_after_setloc (rtx, rtx, int);
 extern rtx emit_barrier_after (rtx);
 extern rtx emit_label_after (rtx, rtx);
 extern rtx emit_note_after (enum insn_note, rtx);
 extern rtx emit_insn (rtx);
+extern rtx emit_debug_insn (rtx);
 extern rtx emit_jump_insn (rtx);
 extern rtx emit_call_insn (rtx);
 extern rtx emit_label (rtx);
@@ -1591,6 +1630,7 @@ extern rtx emit_barrier (void);
 extern rtx emit_note (enum insn_note);
 extern rtx emit_note_copy (rtx);
 extern rtx make_insn_raw (rtx);
+extern rtx make_debug_insn_raw (rtx);
 extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx last_call_insn (void);

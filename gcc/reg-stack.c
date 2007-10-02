@@ -310,7 +310,7 @@ stack_regs_mentioned (const_rtx insn)
   unsigned int uid, max;
   int test;
 
-  if (! INSN_P (insn) || !stack_regs_mentioned_data)
+  if (! INSN_P (insn) /* || DEBUG_INSN_P (insn) */ || !stack_regs_mentioned_data)
     return 0;
 
   uid = INSN_UID (insn);
@@ -1359,6 +1359,16 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	 of dataflow analyzer that ignores USE too.  (This also imply that 
 	 forcibly initializing the register to NaN here would lead to ICE later,
 	 since the REG_DEAD notes are not issued.)  */
+      break;
+
+    case VAR_LOCATION:
+      for (dest = &REG_NOTES (insn); *dest; dest = &XEXP (*dest, 1))
+	if (REG_NOTE_KIND (*dest) == REG_DEAD
+	    && STACK_REG_P (*(src = &XEXP (*dest, 0)))
+	    && TEST_HARD_REG_BIT (regstack->reg_set, REGNO (*src)))
+	  /* ??? This is not right.  We want to *avoid* emitting the
+	     pop and the corresponding push.  */
+	  emit_pop_insn (insn, regstack, *src, EMIT_AFTER);
       break;
 
     case CLOBBER:
