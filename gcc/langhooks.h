@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 /* This file should be #include-d after tree.h.  */
 
 struct diagnostic_context;
+struct diagnostic_info;
 
 struct gimplify_omp_ctx;
 
@@ -128,6 +129,12 @@ struct lang_hooks_for_types
   /* Register language specific type size variables as potentially OpenMP
      firstprivate variables.  */
   void (*omp_firstprivatize_type_sizes) (struct gimplify_omp_ctx *, tree);
+
+  /* Return TRUE if TYPE1 and TYPE2 are identical for type hashing purposes.
+     Called only after doing all language independent checks.
+     At present, this function is only called when both TYPE1 and TYPE2 are
+     FUNCTION_TYPEs.  */
+  bool (*type_hash_eq) (const_tree, const_tree);
 
   /* Nonzero if types that are identical are to be hashed so that only
      one copy is kept.  If a language requires unique types for each
@@ -361,7 +368,8 @@ struct lang_hooks
   tree (*lang_get_callee_fndecl) (const_tree);
 
   /* Called by report_error_function to print out function name.  */
-  void (*print_error_function) (struct diagnostic_context *, const char *);
+  void (*print_error_function) (struct diagnostic_context *, const char *,
+				struct diagnostic_info *);
 
   /* Called from expr_size to calculate the size of the value of an
      expression in a language-dependent way.  Returns a tree for the size

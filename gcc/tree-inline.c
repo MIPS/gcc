@@ -2322,7 +2322,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       {
 	tree decl = get_callee_fndecl (x);
 
-	cost = d->weights->call_cost;
+	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
+	  cost = d->weights->target_builtin_call_cost;
+	else
+	  cost = d->weights->call_cost;
+	
 	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (decl))
 	    {
@@ -2424,11 +2428,13 @@ void
 init_inline_once (void)
 {
   eni_inlining_weights.call_cost = PARAM_VALUE (PARAM_INLINE_CALL_COST);
+  eni_inlining_weights.target_builtin_call_cost = 1;
   eni_inlining_weights.div_mod_cost = 10;
   eni_inlining_weights.switch_cost = 1;
   eni_inlining_weights.omp_cost = 40;
 
   eni_size_weights.call_cost = 1;
+  eni_size_weights.target_builtin_call_cost = 1;
   eni_size_weights.div_mod_cost = 1;
   eni_size_weights.switch_cost = 10;
   eni_size_weights.omp_cost = 40;
@@ -2438,6 +2444,7 @@ init_inline_once (void)
      underestimating the cost does less harm than overestimating it, so
      we choose a rather small value here.  */
   eni_time_weights.call_cost = 10;
+  eni_time_weights.target_builtin_call_cost = 10;
   eni_time_weights.div_mod_cost = 10;
   eni_time_weights.switch_cost = 4;
   eni_time_weights.omp_cost = 40;

@@ -485,7 +485,7 @@ gimple_has_mem_ops (gimple g)
 /* Return true if no warnings should be emitted for statement STMT.  */
 
 static inline bool
-gimple_no_warning_p (gimple stmt)
+gimple_no_warning_p (const_gimple stmt)
 {
   return gimple_flags (stmt) & GIMPLE_NO_WARNING;
 }

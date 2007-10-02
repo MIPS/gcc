@@ -3399,15 +3399,15 @@
    (set_attr "length"   "8,16,*,*,8,8,8,*,8,*")])
 
 (define_insn "*movdi_gp32_fp64"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,m,*a,*d,*f,*f,*f,*d,*m")
-	(match_operand:DI 1 "move_operand" "d,i,m,d,*J*d,*a,*f,*J*d,*m,*f,*f"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,m,*a,*d,*f,*f,*d,*m")
+	(match_operand:DI 1 "move_operand" "d,i,m,d,*J*d,*a,*J*d,*m,*f,*f"))]
   "!TARGET_64BIT && TARGET_FLOAT64 && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "type"	"multi,multi,load,store,mthilo,mfhilo,fmove,mtc,fpload,mfc,fpstore")
+  [(set_attr "type"	"multi,multi,load,store,mthilo,mfhilo,mtc,fpload,mfc,fpstore")
    (set_attr "mode"	"DI")
-   (set_attr "length"   "8,16,*,*,8,8,4,8,*,8,*")])
+   (set_attr "length"   "8,16,*,*,8,8,8,*,8,*")])
 
 (define_insn "*movdi_32bit_mips16"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=d,y,d,d,d,d,m,*d")
@@ -3421,15 +3421,15 @@
    (set_attr "length"	"8,8,8,8,12,*,*,8")])
 
 (define_insn "*movdi_64bit"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,e,d,m,*f,*f,*f,*d,*m,*x,*B*C*D,*B*C*D,*d,*m")
-	(match_operand:DI 1 "move_operand" "d,U,T,m,dJ,*f,*d*J,*m,*f,*f,*J*d,*d,*m,*B*C*D,*B*C*D"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,e,d,m,*f,*f,*d,*m,*x,*B*C*D,*B*C*D,*d,*m")
+	(match_operand:DI 1 "move_operand" "d,U,T,m,dJ,*d*J,*m,*f,*f,*J*d,*d,*m,*B*C*D,*B*C*D"))]
   "TARGET_64BIT && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "type"	"move,const,const,load,store,fmove,mtc,fpload,mfc,fpstore,mthilo,mtc,load,mfc,store")
+  [(set_attr "type"	"move,const,const,load,store,mtc,fpload,mfc,fpstore,mthilo,mtc,load,mfc,store")
    (set_attr "mode"	"DI")
-   (set_attr "length"	"4,*,*,*,*,4,4,*,4,*,4,8,*,8,*")])
+   (set_attr "length"	"4,*,*,*,*,4,*,4,*,4,8,*,8,*")])
 
 (define_insn "*movdi_64bit_mips16"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m")
@@ -3518,15 +3518,15 @@
 ;; in FP registers (off by default, use -mdebugh to enable).
 
 (define_insn "*movsi_internal"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,e,d,m,*f,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m")
-	(match_operand:SI 1 "move_operand" "d,U,T,m,dJ,*f,*d*J,*m,*f,*f,*z,*d,*J*d,*A,*d,*m,*B*C*D,*B*C*D"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=d,d,e,d,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m")
+	(match_operand:SI 1 "move_operand" "d,U,T,m,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*A,*d,*m,*B*C*D,*B*C*D"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], SImode)
        || reg_or_0_operand (operands[1], SImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "type"	"move,const,const,load,store,fmove,mtc,fpload,mfc,fpstore,mfc,mtc,mthilo,mfhilo,mtc,load,mfc,store")
+  [(set_attr "type"	"move,const,const,load,store,mtc,fpload,mfc,fpstore,mfc,mtc,mthilo,mfhilo,mtc,load,mfc,store")
    (set_attr "mode"	"SI")
-   (set_attr "length"	"4,*,*,*,*,4,4,*,4,*,4,4,4,4,4,*,4,*")])
+   (set_attr "length"	"4,*,*,*,*,4,*,4,*,4,4,4,4,4,*,4,*")])
 
 (define_insn "*movsi_mips16"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m")
@@ -3727,8 +3727,8 @@
 })
 
 (define_insn "*movhi_internal"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=d,d,d,m,*d,*f,*f,*x")
-	(match_operand:HI 1 "move_operand"         "d,I,m,dJ,*f,*d,*f,*d"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=d,d,d,m,*d,*f,*x")
+	(match_operand:HI 1 "move_operand"         "d,I,m,dJ,*f,*d,*d"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], HImode)
        || reg_or_0_operand (operands[1], HImode))"
@@ -3739,11 +3739,10 @@
     sh\t%z1,%0
     mfc1\t%0,%1
     mtc1\t%1,%0
-    mov.s\t%0,%1
     mt%0\t%1"
-  [(set_attr "type"	"move,arith,load,store,mfc,mtc,fmove,mthilo")
+  [(set_attr "type"	"move,arith,load,store,mfc,mtc,mthilo")
    (set_attr "mode"	"HI")
-   (set_attr "length"	"4,4,*,*,4,4,4,4")])
+   (set_attr "length"	"4,4,*,*,4,4,4")])
 
 (define_insn "*movhi_mips16"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=d,y,d,d,d,d,m")
@@ -3834,8 +3833,8 @@
 })
 
 (define_insn "*movqi_internal"
-  [(set (match_operand:QI 0 "nonimmediate_operand" "=d,d,d,m,*d,*f,*f,*x")
-	(match_operand:QI 1 "move_operand"         "d,I,m,dJ,*f,*d,*f,*d"))]
+  [(set (match_operand:QI 0 "nonimmediate_operand" "=d,d,d,m,*d,*f,*x")
+	(match_operand:QI 1 "move_operand"         "d,I,m,dJ,*f,*d,*d"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], QImode)
        || reg_or_0_operand (operands[1], QImode))"
@@ -3846,11 +3845,10 @@
     sb\t%z1,%0
     mfc1\t%0,%1
     mtc1\t%1,%0
-    mov.s\t%0,%1
     mt%0\t%1"
-  [(set_attr "type"	"move,arith,load,store,mfc,mtc,fmove,mthilo")
+  [(set_attr "type"	"move,arith,load,store,mfc,mtc,mthilo")
    (set_attr "mode"	"QI")
-   (set_attr "length"	"4,4,*,*,4,4,4,4")])
+   (set_attr "length"	"4,4,*,*,4,4,4")])
 
 (define_insn "*movqi_mips16"
   [(set (match_operand:QI 0 "nonimmediate_operand" "=d,y,d,d,d,d,m")
@@ -4328,7 +4326,7 @@
   "%|sync%-")
 
 (define_insn "sync_compare_and_swap<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=&d,&d")
 	(match_operand:GPR 1 "memory_operand" "+R,R"))
    (set (match_dup 1)
 	(unspec_volatile:GPR [(match_operand:GPR 2 "register_operand" "d,d")
@@ -4341,7 +4339,7 @@
   else
     return MIPS_COMPARE_AND_SWAP ("<d>", "move");
 }
-  [(set_attr "length" "28")])
+  [(set_attr "length" "32")])
 
 (define_insn "sync_add<mode>"
   [(set (match_operand:GPR 0 "memory_operand" "+R,R")
@@ -4356,7 +4354,7 @@
   else
     return MIPS_SYNC_OP ("<d>", "<d>addu");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_sub<mode>"
   [(set (match_operand:GPR 0 "memory_operand" "+R")
@@ -4366,12 +4364,12 @@
 	 UNSPEC_SYNC_OLD_OP))]
   "GENERATE_LL_SC"
 {
-    return MIPS_SYNC_OP ("<d>", "<d>subu");	
+  return MIPS_SYNC_OP ("<d>", "<d>subu");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_old_add<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,&d")
 	(match_operand:GPR 1 "memory_operand" "+R,R"))
    (set (match_dup 1)
 	(unspec_volatile:GPR
@@ -4385,7 +4383,7 @@
   else
     return MIPS_SYNC_OLD_OP ("<d>", "<d>addu");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_old_sub<mode>"
   [(set (match_operand:GPR 0 "register_operand" "=&d")
@@ -4399,10 +4397,10 @@
 {
   return MIPS_SYNC_OLD_OP ("<d>", "<d>subu");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_new_add<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,&d")
         (plus:GPR (match_operand:GPR 1 "memory_operand" "+R,R")
 		  (match_operand:GPR 2 "arith_operand" "I,d")))
    (set (match_dup 1)
@@ -4416,7 +4414,7 @@
   else
     return MIPS_SYNC_NEW_OP ("<d>", "<d>addu");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_new_sub<mode>"
   [(set (match_operand:GPR 0 "register_operand" "=&d")
@@ -4430,7 +4428,7 @@
 {
   return MIPS_SYNC_NEW_OP ("<d>", "<d>subu");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_<optab><mode>"
   [(set (match_operand:GPR 0 "memory_operand" "+R,R")
@@ -4445,10 +4443,10 @@
   else
     return MIPS_SYNC_OP ("<d>", "<insn>");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_old_<optab><mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,&d")
 	(match_operand:GPR 1 "memory_operand" "+R,R"))
    (set (match_dup 1)
 	(unspec_volatile:GPR
@@ -4462,10 +4460,10 @@
   else
     return MIPS_SYNC_OLD_OP ("<d>", "<insn>");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_new_<optab><mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,&d")
 	(match_operand:GPR 1 "memory_operand" "+R,R"))
    (set (match_dup 1)
 	(unspec_volatile:GPR
@@ -4479,7 +4477,7 @@
   else
     return MIPS_SYNC_NEW_OP ("<d>", "<insn>");	
 }
-  [(set_attr "length" "24")])
+  [(set_attr "length" "28")])
 
 (define_insn "sync_nand<mode>"
   [(set (match_operand:GPR 0 "memory_operand" "+R,R")
@@ -4492,10 +4490,10 @@
   else
     return MIPS_SYNC_NAND ("<d>", "and");	
 }
-  [(set_attr "length" "28")])
+  [(set_attr "length" "32")])
 
 (define_insn "sync_old_nand<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,&d")
 	(match_operand:GPR 1 "memory_operand" "+R,R"))
    (set (match_dup 1)
         (unspec_volatile:GPR [(match_operand:GPR 2 "uns_arith_operand" "K,d")]
@@ -4507,10 +4505,10 @@
   else
     return MIPS_SYNC_OLD_NAND ("<d>", "and");	
 }
-  [(set_attr "length" "28")])
+  [(set_attr "length" "32")])
 
 (define_insn "sync_new_nand<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,&d")
 	(match_operand:GPR 1 "memory_operand" "+R,R"))
    (set (match_dup 1)
 	(unspec_volatile:GPR [(match_operand:GPR 2 "uns_arith_operand" "K,d")]
@@ -4522,10 +4520,10 @@
   else
     return MIPS_SYNC_NEW_NAND ("<d>", "and");	
 }
-  [(set_attr "length" "28")])
+  [(set_attr "length" "32")])
 
 (define_insn "sync_lock_test_and_set<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,&d")
 	(match_operand:GPR 1 "memory_operand" "+R,R"))
    (set (match_dup 1)
 	(unspec_volatile:GPR [(match_operand:GPR 2 "arith_operand" "I,d")]

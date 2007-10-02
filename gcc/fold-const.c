@@ -975,6 +975,9 @@ fold_undefer_overflow_warnings (bool issue, const_gimple stmt, int code)
   if (!issue || warnmsg == NULL)
     return;
 
+  if (gimple_no_warning_p (stmt))
+    return;
+
   /* Use the smallest code level when deciding to issue the
      warning.  */
   if (code == 0 || code > (int) fold_deferred_overflow_code)

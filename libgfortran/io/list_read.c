@@ -232,8 +232,14 @@ next_char (st_parameter_dt *dtp)
 	  return '\0';
 	}
       if (length == 0)
-	longjmp (*dtp->u.p.eof_jump, 1);
-      c = *p;
+	{
+	  if (dtp->u.p.current_unit->endfile == AT_ENDFILE)
+	    longjmp (*dtp->u.p.eof_jump, 1);
+	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	  c = '\n';
+	}
+      else
+	c = *p;
     }
 done:
   dtp->u.p.at_eol = (c == '\n' || c == '\r');
@@ -887,9 +893,7 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
       goto get_string;
 
     default:
-      if (dtp->u.p.namelist_mode
-	  && (dtp->u.p.current_unit->flags.delim == DELIM_APOSTROPHE
-	      || dtp->u.p.current_unit->flags.delim == DELIM_QUOTE))
+      if (dtp->u.p.namelist_mode)
 	{
 	  unget_char (dtp,c);
 	  return;

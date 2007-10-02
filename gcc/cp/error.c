@@ -396,16 +396,7 @@ dump_type (tree t, int flags)
       break;
 
     case TYPE_ARGUMENT_PACK:
-      {
-        tree args = ARGUMENT_PACK_ARGS (t);
-        int i;
-        for (i = 0; i < TREE_VEC_LENGTH (args); ++i)
-          {
-            if (i)
-              pp_separate_with_comma (cxx_pp);
-            dump_type (TREE_VEC_ELT (args, i), flags);
-          }
-      }
+      dump_template_argument (t, flags);
       break;
 
     case DECLTYPE_TYPE:
@@ -964,6 +955,7 @@ dump_decl (tree t, int flags)
       break;
 
     case UNBOUND_CLASS_TEMPLATE:
+    case TYPE_PACK_EXPANSION:
       dump_type (t, flags);
       break;
 
@@ -1168,22 +1160,8 @@ dump_parameters (tree parmtypes, int flags)
 	  pp_cxx_identifier (cxx_pp, "...");
 	  break;
 	}
-      if (ARGUMENT_PACK_P (TREE_VALUE (parmtypes)))
-        {
-          tree types = ARGUMENT_PACK_ARGS (TREE_VALUE (parmtypes));
-          int i, len = TREE_VEC_LENGTH (types);
-	  first = 1;
-          for (i = 0; i < len; ++i)
-            {
-              if (!first)
-                pp_separate_with_comma (cxx_pp);
-              first = 0;
-              
-              dump_type (TREE_VEC_ELT (types, i), flags);
-            }
-        }
-      else
-        dump_type (TREE_VALUE (parmtypes), flags);
+
+      dump_type (TREE_VALUE (parmtypes), flags);
 
       if ((flags & TFF_FUNCTION_DEFAULT_ARGUMENTS) && TREE_PURPOSE (parmtypes))
 	{
@@ -2031,6 +2009,10 @@ dump_expr (tree t, int flags)
       pp_cxx_identifier (cxx_pp, "...");
       break;
 
+    case ARGUMENT_PACK_SELECT:
+      dump_template_argument (ARGUMENT_PACK_SELECT_FROM_PACK (t), flags);
+      break;
+
     case RECORD_TYPE:
     case UNION_TYPE:
     case ENUMERAL_TYPE:
@@ -2064,6 +2046,11 @@ dump_expr (tree t, int flags)
 
     case VA_ARG_EXPR:
       pp_cxx_va_arg_expression (cxx_pp, t);
+      break;
+
+    case DELETE_EXPR:
+    case VEC_DELETE_EXPR:
+      pp_cxx_delete_expression (cxx_pp, t);
       break;
 
       /*  This list is incomplete, but should suffice for now.
@@ -2329,9 +2316,10 @@ cv_to_string (tree p, int v)
 
 /* Langhook for print_error_function.  */
 void
-cxx_print_error_function (diagnostic_context *context, const char *file)
+cxx_print_error_function (diagnostic_context *context, const char *file,
+			  diagnostic_info *diagnostic)
 {
-  lhd_print_error_function (context, file);
+  lhd_print_error_function (context, file, diagnostic);
   pp_base_set_prefix (context->printer, file);
   maybe_print_instantiation_context (context);
 }
@@ -2359,23 +2347,105 @@ static void
 cp_print_error_function (diagnostic_context *context,
 			 diagnostic_info *diagnostic)
 {
-  if (diagnostic_last_function_changed (context))
+  if (diagnostic_last_function_changed (context, diagnostic))
     {
       const char *old_prefix = context->printer->prefix;
       const char *file = LOCATION_FILE (diagnostic->location);
-      char *new_prefix = file ? file_name_as_prefix (file) : NULL;
+      tree abstract_origin = diagnostic->abstract_origin;
+      char *new_prefix = (file && abstract_origin == NULL)
+			 ? file_name_as_prefix (file) : NULL;
 
       pp_base_set_prefix (context->printer, new_prefix);
 
       if (current_function_decl == NULL)
 	pp_base_string (context->printer, "At global scope:");
       else
-	pp_printf (context->printer, "In %s %qs:",
-		   function_category (current_function_decl),
-		   cxx_printable_name (current_function_decl, 2));
+	{
+	  tree fndecl, ao;
+
+	  if (abstract_origin)
+	    {
+	      ao = BLOCK_ABSTRACT_ORIGIN (abstract_origin);
+	      while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+		ao = BLOCK_ABSTRACT_ORIGIN (ao);
+	      gcc_assert (TREE_CODE (ao) == FUNCTION_DECL);
+	      fndecl = ao;
+	    }
+	  else
+	    fndecl = current_function_decl;
+
+	  pp_printf (context->printer, "In %s %qs",
+		     function_category (fndecl),
+		     cxx_printable_name (fndecl, 2));
+
+	  while (abstract_origin)
+	    {
+	      location_t *locus;
+	      tree block = abstract_origin;
+
+	      locus = &BLOCK_SOURCE_LOCATION (block);
+	      fndecl = NULL;
+	      block = BLOCK_SUPERCONTEXT (block);
+	      while (block && TREE_CODE (block) == BLOCK
+		     && BLOCK_ABSTRACT_ORIGIN (block))
+		{
+		  ao = BLOCK_ABSTRACT_ORIGIN (block);
+
+		  while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+		    ao = BLOCK_ABSTRACT_ORIGIN (ao);
+
+		  if (TREE_CODE (ao) == FUNCTION_DECL)
+		    {
+		      fndecl = ao;
+		      break;
+		    }
+		  else if (TREE_CODE (ao) != BLOCK)
+		    break;
+
+		  block = BLOCK_SUPERCONTEXT (block);
+		}
+	      if (fndecl)
+		abstract_origin = block;
+	      else
+		{
+		  while (block && TREE_CODE (block) == BLOCK)
+		    block = BLOCK_SUPERCONTEXT (block);
+
+		  if (TREE_CODE (block) == FUNCTION_DECL)
+		    fndecl = block;
+		  abstract_origin = NULL;
+		}
+	      if (fndecl)
+		{
+		  expanded_location s = expand_location (*locus);
+		  pp_base_character (context->printer, ',');
+		  pp_base_newline (context->printer);
+		  if (s.file != NULL)
+		    {
+#ifdef USE_MAPPED_LOCATION
+		      if (flag_show_column && s.column != 0)
+			pp_printf (context->printer,
+				   "    inlined from %qs at %s:%d:%d",
+				   cxx_printable_name (fndecl, 2),
+				   s.file, s.line, s.column);
+		      else
+#endif
+			pp_printf (context->printer,
+				   "    inlined from %qs at %s:%d",
+				   cxx_printable_name (fndecl, 2),
+				   s.file, s.line);
+
+		    }
+		  else
+		    pp_printf (context->printer, "    inlined from %qs",
+			       cxx_printable_name (fndecl, 2));
+		}
+	    }
+	  pp_base_character (context->printer, ':');
+	}
       pp_base_newline (context->printer);
 
-      diagnostic_set_last_function (context);
+      diagnostic_set_last_function (context, diagnostic);
       pp_base_destroy_prefix (context->printer);
       context->printer->prefix = old_prefix;
     }

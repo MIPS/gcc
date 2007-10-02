@@ -425,8 +425,7 @@ fold_cond_expr_cond (void)
 	  else
 	    zerop = onep = false;
 
-	  fold_undefer_overflow_warnings (((zerop || onep)
-					   && !gimple_no_warning_p (stmt)),
+	  fold_undefer_overflow_warnings (zerop || onep,
 					  stmt,
 					  WARN_STRICT_OVERFLOW_CONDITIONAL);
 	  if (zerop)

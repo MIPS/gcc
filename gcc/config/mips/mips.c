@@ -753,94 +753,96 @@ const struct attribute_spec mips_attribute_table[] =
    options correctly.  */
 const struct mips_cpu_info mips_cpu_info_table[] = {
   /* Entries for generic ISAs */
-  { "mips1", PROCESSOR_R3000, 1 },
-  { "mips2", PROCESSOR_R6000, 2 },
-  { "mips3", PROCESSOR_R4000, 3 },
-  { "mips4", PROCESSOR_R8000, 4 },
-  { "mips32", PROCESSOR_4KC, 32 },
-  { "mips32r2", PROCESSOR_M4K, 33 },
-  { "mips64", PROCESSOR_5KC, 64 },
+  { "mips1", PROCESSOR_R3000, 1, 0 },
+  { "mips2", PROCESSOR_R6000, 2, 0 },
+  { "mips3", PROCESSOR_R4000, 3, 0 },
+  { "mips4", PROCESSOR_R8000, 4, 0 },
+  /* Prefer not to use branch-likely instructions for generic MIPS32rX
+     and MIPS64rX code.  The instructions were officially deprecated
+     in revisions 2 and earlier, but revision 3 is likely to downgrade
+     that to a recommendation to avoid the instructions in code that
+     isn't tuned to a specific processor.  */
+  { "mips32", PROCESSOR_4KC, 32, PTF_AVOID_BRANCHLIKELY },
+  { "mips32r2", PROCESSOR_M4K, 33, PTF_AVOID_BRANCHLIKELY },
+  { "mips64", PROCESSOR_5KC, 64, PTF_AVOID_BRANCHLIKELY },
 
   /* MIPS I */
-  { "r3000", PROCESSOR_R3000, 1 },
-  { "r2000", PROCESSOR_R3000, 1 }, /* = r3000 */
-  { "r3900", PROCESSOR_R3900, 1 },
+  { "r3000", PROCESSOR_R3000, 1, 0 },
+  { "r2000", PROCESSOR_R3000, 1, 0 }, /* = r3000 */
+  { "r3900", PROCESSOR_R3900, 1, 0 },
 
   /* MIPS II */
-  { "r6000", PROCESSOR_R6000, 2 },
+  { "r6000", PROCESSOR_R6000, 2, 0 },
 
   /* MIPS III */
-  { "r4000", PROCESSOR_R4000, 3 },
-  { "vr4100", PROCESSOR_R4100, 3 },
-  { "vr4111", PROCESSOR_R4111, 3 },
-  { "vr4120", PROCESSOR_R4120, 3 },
-  { "vr4130", PROCESSOR_R4130, 3 },
-  { "vr4300", PROCESSOR_R4300, 3 },
-  { "r4400", PROCESSOR_R4000, 3 }, /* = r4000 */
-  { "r4600", PROCESSOR_R4600, 3 },
-  { "orion", PROCESSOR_R4600, 3 }, /* = r4600 */
-  { "r4650", PROCESSOR_R4650, 3 },
+  { "r4000", PROCESSOR_R4000, 3, 0 },
+  { "vr4100", PROCESSOR_R4100, 3, 0 },
+  { "vr4111", PROCESSOR_R4111, 3, 0 },
+  { "vr4120", PROCESSOR_R4120, 3, 0 },
+  { "vr4130", PROCESSOR_R4130, 3, 0 },
+  { "vr4300", PROCESSOR_R4300, 3, 0 },
+  { "r4400", PROCESSOR_R4000, 3, 0 }, /* = r4000 */
+  { "r4600", PROCESSOR_R4600, 3, 0 },
+  { "orion", PROCESSOR_R4600, 3, 0 }, /* = r4600 */
+  { "r4650", PROCESSOR_R4650, 3, 0 },
 
   /* MIPS IV */
-  { "r8000", PROCESSOR_R8000, 4 },
-  { "vr5000", PROCESSOR_R5000, 4 },
-  { "vr5400", PROCESSOR_R5400, 4 },
-  { "vr5500", PROCESSOR_R5500, 4 },
-  { "rm7000", PROCESSOR_R7000, 4 },
-  { "rm9000", PROCESSOR_R9000, 4 },
+  { "r8000", PROCESSOR_R8000, 4, 0 },
+  { "vr5000", PROCESSOR_R5000, 4, 0 },
+  { "vr5400", PROCESSOR_R5400, 4, 0 },
+  { "vr5500", PROCESSOR_R5500, 4, PTF_AVOID_BRANCHLIKELY },
+  { "rm7000", PROCESSOR_R7000, 4, 0 },
+  { "rm9000", PROCESSOR_R9000, 4, 0 },
 
   /* MIPS32 */
-  { "4kc", PROCESSOR_4KC, 32 },
-  { "4km", PROCESSOR_4KC, 32 }, /* = 4kc */
-  { "4kp", PROCESSOR_4KP, 32 },
-  { "4ksc", PROCESSOR_4KC, 32 },
+  { "4kc", PROCESSOR_4KC, 32, 0 },
+  { "4km", PROCESSOR_4KC, 32, 0 }, /* = 4kc */
+  { "4kp", PROCESSOR_4KP, 32, 0 },
+  { "4ksc", PROCESSOR_4KC, 32, 0 },
 
   /* MIPS32 Release 2 */
-  { "m4k", PROCESSOR_M4K, 33 },
-  { "4kec", PROCESSOR_4KC, 33 },
-  { "4kem", PROCESSOR_4KC, 33 },
-  { "4kep", PROCESSOR_4KP, 33 },
-  { "4ksd", PROCESSOR_4KC, 33 },
+  { "m4k", PROCESSOR_M4K, 33, 0 },
+  { "4kec", PROCESSOR_4KC, 33, 0 },
+  { "4kem", PROCESSOR_4KC, 33, 0 },
+  { "4kep", PROCESSOR_4KP, 33, 0 },
+  { "4ksd", PROCESSOR_4KC, 33, 0 },
 
-  { "24kc", PROCESSOR_24KC, 33 },
-  { "24kf2_1", PROCESSOR_24KF2_1, 33 },
-  { "24kf", PROCESSOR_24KF2_1, 33 },
-  { "24kf1_1", PROCESSOR_24KF1_1, 33 },
-  { "24kfx", PROCESSOR_24KF1_1, 33 },
-  { "24kx", PROCESSOR_24KF1_1, 33 },
+  { "24kc", PROCESSOR_24KC, 33, 0 },
+  { "24kf2_1", PROCESSOR_24KF2_1, 33, 0 },
+  { "24kf", PROCESSOR_24KF2_1, 33, 0 },
+  { "24kf1_1", PROCESSOR_24KF1_1, 33, 0 },
+  { "24kfx", PROCESSOR_24KF1_1, 33, 0 },
+  { "24kx", PROCESSOR_24KF1_1, 33, 0 },
 
-  { "24kec", PROCESSOR_24KC, 33 }, /* 24K with DSP */
-  { "24kef2_1", PROCESSOR_24KF2_1, 33 },
-  { "24kef", PROCESSOR_24KF2_1, 33 },
-  { "24kef1_1", PROCESSOR_24KF1_1, 33 },
-  { "24kefx", PROCESSOR_24KF1_1, 33 },
-  { "24kex", PROCESSOR_24KF1_1, 33 },
+  { "24kec", PROCESSOR_24KC, 33, 0 }, /* 24K with DSP */
+  { "24kef2_1", PROCESSOR_24KF2_1, 33, 0 },
+  { "24kef", PROCESSOR_24KF2_1, 33, 0 },
+  { "24kef1_1", PROCESSOR_24KF1_1, 33, 0 },
+  { "24kefx", PROCESSOR_24KF1_1, 33, 0 },
+  { "24kex", PROCESSOR_24KF1_1, 33, 0 },
 
-  { "34kc", PROCESSOR_24KC, 33 }, /* 34K with MT/DSP */
-  { "34kf2_1", PROCESSOR_24KF2_1, 33 },
-  { "34kf", PROCESSOR_24KF2_1, 33 },
-  { "34kf1_1", PROCESSOR_24KF1_1, 33 },
-  { "34kfx", PROCESSOR_24KF1_1, 33 },
-  { "34kx", PROCESSOR_24KF1_1, 33 },
+  { "34kc", PROCESSOR_24KC, 33, 0 }, /* 34K with MT/DSP */
+  { "34kf2_1", PROCESSOR_24KF2_1, 33, 0 },
+  { "34kf", PROCESSOR_24KF2_1, 33, 0 },
+  { "34kf1_1", PROCESSOR_24KF1_1, 33, 0 },
+  { "34kfx", PROCESSOR_24KF1_1, 33, 0 },
+  { "34kx", PROCESSOR_24KF1_1, 33, 0 },
 
-  { "74kc", PROCESSOR_74KC, 33 }, /* 74K with DSPr2 */
-  { "74kf2_1", PROCESSOR_74KF2_1, 33 },
-  { "74kf", PROCESSOR_74KF2_1, 33 },
-  { "74kf1_1", PROCESSOR_74KF1_1, 33 },
-  { "74kfx", PROCESSOR_74KF1_1, 33 },
-  { "74kx", PROCESSOR_74KF1_1, 33 },
-  { "74kf3_2", PROCESSOR_74KF3_2, 33 },
+  { "74kc", PROCESSOR_74KC, 33, 0 }, /* 74K with DSPr2 */
+  { "74kf2_1", PROCESSOR_74KF2_1, 33, 0 },
+  { "74kf", PROCESSOR_74KF2_1, 33, 0 },
+  { "74kf1_1", PROCESSOR_74KF1_1, 33, 0 },
+  { "74kfx", PROCESSOR_74KF1_1, 33, 0 },
+  { "74kx", PROCESSOR_74KF1_1, 33, 0 },
+  { "74kf3_2", PROCESSOR_74KF3_2, 33, 0 },
 
   /* MIPS64 */
-  { "5kc", PROCESSOR_5KC, 64 },
-  { "5kf", PROCESSOR_5KF, 64 },
-  { "20kc", PROCESSOR_20KC, 64 },
-  { "sb1", PROCESSOR_SB1, 64 },
-  { "sb1a", PROCESSOR_SB1A, 64 },
-  { "sr71000", PROCESSOR_SR71000, 64 },
-
-  /* End marker */
-  { 0, 0, 0 }
+  { "5kc", PROCESSOR_5KC, 64, 0 },
+  { "5kf", PROCESSOR_5KF, 64, 0 },
+  { "20kc", PROCESSOR_20KC, 64, PTF_AVOID_BRANCHLIKELY },
+  { "sb1", PROCESSOR_SB1, 64, PTF_AVOID_BRANCHLIKELY },
+  { "sb1a", PROCESSOR_SB1A, 64, PTF_AVOID_BRANCHLIKELY },
+  { "sr71000", PROCESSOR_SR71000, 64, PTF_AVOID_BRANCHLIKELY },
 };
 
 /* Default costs. If these are used for a processor we should look
@@ -3545,7 +3547,8 @@ mips_split_64bit_move (rtx dest, rtx src)
       /* Loading an FPR from memory or from GPRs.  */
       if (ISA_HAS_MXHC1)
 	{
-	  dest = gen_lowpart (DFmode, dest);
+	  if (GET_MODE (dest) != DFmode)
+	    dest = gen_rtx_REG_offset (dest, DFmode, REGNO (dest), 0);
 	  emit_insn (gen_load_df_low (dest, mips_subword (src, 0)));
 	  emit_insn (gen_mthc1 (dest, mips_subword (src, 1),
 				copy_rtx (dest)));
@@ -3563,7 +3566,8 @@ mips_split_64bit_move (rtx dest, rtx src)
       /* Storing an FPR into memory or GPRs.  */
       if (ISA_HAS_MXHC1)
 	{
-	  src = gen_lowpart (DFmode, src);
+	  if (GET_MODE (src) != DFmode)
+	    src = gen_rtx_REG_offset (src, DFmode, REGNO (src), 0);
 	  mips_emit_move (mips_subword (dest, 0), mips_subword (src, 0));
 	  emit_insn (gen_mfhc1 (mips_subword (dest, 1), src));
 	}
@@ -6042,29 +6046,19 @@ override_options (void)
     {
       /* If neither -mbranch-likely nor -mno-branch-likely was given
 	 on the command line, set MASK_BRANCHLIKELY based on the target
-	 architecture.
-
-	 By default, we enable use of Branch Likely instructions on
-	 all architectures which support them with the following
-	 exceptions: when creating MIPS32 or MIPS64 code, and when
-	 tuning for architectures where their use tends to hurt
-	 performance.
-
-	 The MIPS32 and MIPS64 architecture specifications say "Software
-	 is strongly encouraged to avoid use of Branch Likely
-	 instructions, as they will be removed from a future revision
-	 of the [MIPS32 and MIPS64] architecture."  Therefore, we do not
-	 issue those instructions unless instructed to do so by
-	 -mbranch-likely.  */
+	 architecture and tuning flags.  Annulled delay slots are a
+	 size win, so we only consider the processor-specific tuning
+	 for !optimize_size.  */
       if (ISA_HAS_BRANCHLIKELY
-	  && !(ISA_MIPS32 || ISA_MIPS32R2 || ISA_MIPS64)
-	  && !(TUNE_MIPS5500 || TUNE_SB1))
+	  && (optimize_size
+	      || (mips_tune_info->tune_flags & PTF_AVOID_BRANCHLIKELY) == 0))
 	target_flags |= MASK_BRANCHLIKELY;
       else
 	target_flags &= ~MASK_BRANCHLIKELY;
     }
-  if (TARGET_BRANCHLIKELY && !ISA_HAS_BRANCHLIKELY)
-    warning (0, "generation of Branch Likely instructions enabled, but not supported by architecture");
+  else if (TARGET_BRANCHLIKELY && !ISA_HAS_BRANCHLIKELY)
+    warning (0, "the %qs architecture does not support branch-likely"
+	     " instructions", mips_arch_info->name);
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)
@@ -9322,44 +9316,38 @@ mips_callee_copies (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
    to mode TO.  */
 
 bool
-mips_cannot_change_mode_class (enum machine_mode from,
-			       enum machine_mode to, enum reg_class class)
+mips_cannot_change_mode_class (enum machine_mode from ATTRIBUTE_UNUSED,
+			       enum machine_mode to ATTRIBUTE_UNUSED,
+			       enum reg_class class)
 {
-  if (MIN (GET_MODE_SIZE (from), GET_MODE_SIZE (to)) <= UNITS_PER_WORD
-      && MAX (GET_MODE_SIZE (from), GET_MODE_SIZE (to)) > UNITS_PER_WORD)
-    {
-      if (TARGET_BIG_ENDIAN)
-	{
-	  /* When a multi-word value is stored in paired floating-point
-	     registers, the first register always holds the low word.
-	     We therefore can't allow FPRs to change between single-word
-	     and multi-word modes.  */
-	  if (MAX_FPRS_PER_FMT > 1 && reg_classes_intersect_p (FP_REGS, class))
-	    return true;
-	}
-    }
+  /* There are several problems with changing the modes of values
+     in floating-point registers:
 
-  /* gcc assumes that each word of a multiword register can be accessed
-     individually using SUBREGs.  This is not true for floating-point
-     registers if they are bigger than a word.  */
-  if (UNITS_PER_FPREG > UNITS_PER_WORD
-      && GET_MODE_SIZE (from) > UNITS_PER_WORD
-      && GET_MODE_SIZE (to) < UNITS_PER_FPREG
-      && reg_classes_intersect_p (FP_REGS, class))
-    return true;
+     - When a multi-word value is stored in paired floating-point
+       registers, the first register always holds the low word.
+       We therefore can't allow FPRs to change between single-word
+       and multi-word modes on big-endian targets.
 
-  /* Loading a 32-bit value into a 64-bit floating-point register
-     will not sign-extend the value, despite what LOAD_EXTEND_OP says.
-     We can't allow 64-bit float registers to change from SImode to
-     to a wider mode.  */
-  if (TARGET_64BIT
-      && TARGET_FLOAT64
-      && from == SImode
-      && GET_MODE_SIZE (to) >= UNITS_PER_WORD
-      && reg_classes_intersect_p (FP_REGS, class))
-    return true;
+     - GCC assumes that each word of a multiword register can be accessed
+       individually using SUBREGs.  This is not true for floating-point
+       registers if they are bigger than a word.
 
-  return false;
+     - Loading a 32-bit value into a 64-bit floating-point register
+       will not sign-extend the value, despite what LOAD_EXTEND_OP says.
+       We can't allow FPRs to change from SImode to to a wider mode on
+       64-bit targets.
+
+     - If the FPU has already interpreted a value in one format, we must
+       not ask it to treat the value as having a different format.
+
+     We therefore only allow changes between 4-byte and smaller integer
+     values, all of which have the "W" format as far as the FPU is
+     concerned.  */
+  return (reg_classes_intersect_p (FP_REGS, class)
+	  && (GET_MODE_CLASS (from) != MODE_INT
+	      || GET_MODE_CLASS (to) != MODE_INT
+	      || GET_MODE_SIZE (from) > 4
+	      || GET_MODE_SIZE (to) > 4));
 }
 
 /* Return true if X should not be moved directly into register $25.
@@ -9375,6 +9363,27 @@ mips_dangerous_for_la25_p (rtx x)
 	  && mips_global_symbol_p (x));
 }
 
+/* Return true if moves in mode MODE can use the FPU's mov.fmt instruction.  */
+
+static bool
+mips_mode_ok_for_mov_fmt_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case SFmode:
+      return TARGET_HARD_FLOAT;
+
+    case DFmode:
+      return TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT;
+
+    case V2SFmode:
+      return TARGET_HARD_FLOAT && TARGET_PAIRED_SINGLE_FLOAT;
+
+    default:
+      return false;
+    }
+}
+
 /* Implement PREFERRED_RELOAD_CLASS.  */
 
 enum reg_class
@@ -9383,9 +9392,8 @@ mips_preferred_reload_class (rtx x, enum reg_class class)
   if (mips_dangerous_for_la25_p (x) && reg_class_subset_p (LEA_REGS, class))
     return LEA_REGS;
 
-  if (TARGET_HARD_FLOAT
-      && FLOAT_MODE_P (GET_MODE (x))
-      && reg_class_subset_p (FP_REGS, class))
+  if (reg_class_subset_p (FP_REGS, class)
+      && mips_mode_ok_for_mov_fmt_p (GET_MODE (x)))
     return FP_REGS;
 
   if (reg_class_subset_p (GR_REGS, class))
@@ -9407,110 +9415,81 @@ enum reg_class
 mips_secondary_reload_class (enum reg_class class,
 			     enum machine_mode mode, rtx x, int in_p)
 {
-  enum reg_class gr_regs = TARGET_MIPS16 ? M16_REGS : GR_REGS;
-  int regno = -1;
-  int gp_reg_p;
+  int regno;
 
-  if (REG_P (x)|| GET_CODE (x) == SUBREG)
-    regno = true_regnum (x);
-
-  gp_reg_p = TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
-
+  /* If X is a constant that cannot be loaded into $25, it must be loaded
+     into some other GPR.  No other register class allows a direct move.  */
   if (mips_dangerous_for_la25_p (x))
+    return reg_class_subset_p (class, LEA_REGS) ? NO_REGS : LEA_REGS;
+
+  regno = true_regnum (x);
+  if (TARGET_MIPS16)
     {
-      gr_regs = LEA_REGS;
-      if (TEST_HARD_REG_BIT (reg_class_contents[(int) class], 25))
-	return gr_regs;
+      /* In MIPS16 mode, every move must involve a member of M16_REGS.  */
+      if (!reg_class_subset_p (class, M16_REGS) && !M16_REG_P (regno))
+	return M16_REGS;
+
+      /* We can't really copy to HI or LO at all in MIPS16 mode.  */
+      if (in_p ? reg_classes_intersect_p (class, ACC_REGS) : ACC_REG_P (regno))
+	return M16_REGS;
+
+      return NO_REGS;
     }
 
-  /* Copying from HI or LO to anywhere other than a general register
-     requires a general register.
-     This rule applies to both the original HI/LO pair and the new
-     DSP accumulators.  */
+  /* Copying from accumulator registers to anywhere other than a general
+     register requires a temporary general register.  */
   if (reg_class_subset_p (class, ACC_REGS))
-    {
-      if (TARGET_MIPS16 && in_p)
-	{
-	  /* We can't really copy to HI or LO at all in mips16 mode.  */
-	  return M16_REGS;
-	}
-      return gp_reg_p ? NO_REGS : gr_regs;
-    }
+    return GP_REG_P (regno) ? NO_REGS : GR_REGS;
   if (ACC_REG_P (regno))
-    {
-      if (TARGET_MIPS16 && ! in_p)
-	{
-	  /* We can't really copy to HI or LO at all in mips16 mode.  */
-	  return M16_REGS;
-	}
-      return class == gr_regs ? NO_REGS : gr_regs;
-    }
+    return reg_class_subset_p (class, GR_REGS) ? NO_REGS : GR_REGS;
 
   /* We can only copy a value to a condition code register from a
      floating point register, and even then we require a scratch
      floating point register.  We can only copy a value out of a
      condition code register into a general register.  */
-  if (class == ST_REGS)
+  if (reg_class_subset_p (class, ST_REGS))
     {
       if (in_p)
 	return FP_REGS;
-      return gp_reg_p ? NO_REGS : gr_regs;
+      return GP_REG_P (regno) ? NO_REGS : GR_REGS;
     }
   if (ST_REG_P (regno))
     {
-      if (! in_p)
+      if (!in_p)
 	return FP_REGS;
-      return class == gr_regs ? NO_REGS : gr_regs;
+      return reg_class_subset_p (class, GR_REGS) ? NO_REGS : GR_REGS;
     }
 
-  if (class == FP_REGS)
+  if (reg_class_subset_p (class, FP_REGS))
     {
-      if (MEM_P (x))
-	{
-	  /* In this case we can use lwc1, swc1, ldc1 or sdc1.  */
-	  return NO_REGS;
-	}
-      else if (CONSTANT_P (x) && GET_MODE_CLASS (mode) == MODE_FLOAT)
-	{
-	  /* We can use the l.s and l.d macros to load floating-point
-	     constants.  ??? For l.s, we could probably get better
-	     code by returning GR_REGS here.  */
-	  return NO_REGS;
-	}
-      else if (gp_reg_p || x == CONST0_RTX (mode))
-	{
-	  /* In this case we can use mtc1, mfc1, dmtc1 or dmfc1.  */
-	  return NO_REGS;
-	}
-      else if (FP_REG_P (regno))
-	{
-	  /* In this case we can use mov.s or mov.d.  */
-	  return NO_REGS;
-	}
-      else
-	{
-	  /* Otherwise, we need to reload through an integer register.  */
-	  return gr_regs;
-	}
-    }
+      if (MEM_P (x)
+	  && (GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8))
+	/* In this case we can use lwc1, swc1, ldc1 or sdc1.  We'll use
+	   pairs of lwc1s and swc1s if ldc1 and sdc1 are not supported.  */
+	return NO_REGS;
 
-  /* In mips16 mode, going between memory and anything but M16_REGS
-     requires an M16_REG.  */
-  if (TARGET_MIPS16)
-    {
-      if (class != M16_REGS && class != M16_NA_REGS)
+      if (GP_REG_P (regno) || x == CONST0_RTX (mode))
+	/* In this case we can use mtc1, mfc1, dmtc1 or dmfc1.  */
+	return NO_REGS;
+
+      if (mips_mode_ok_for_mov_fmt_p (mode))
 	{
-	  if (gp_reg_p)
+	  if (CONSTANT_P (x))
+	    /* We can force the constants to memory and use lwc1
+	       and ldc1.  As above, we will use pairs of lwc1s if
+	       ldc1 is not supported.  */
 	    return NO_REGS;
-	  return M16_REGS;
-	}
-      if (! gp_reg_p)
-	{
-	  if (class == M16_REGS || class == M16_NA_REGS)
+
+	  if (FP_REG_P (regno))
+	    /* In this case we can use mov.fmt.  */
 	    return NO_REGS;
-	  return M16_REGS;
 	}
+
+      /* Otherwise, we need to reload through an integer register.  */
+      return GR_REGS;
     }
+  if (FP_REG_P (regno))
+    return reg_class_subset_p (class, GR_REGS) ? NO_REGS : GR_REGS;
 
   return NO_REGS;
 }
@@ -11456,7 +11435,7 @@ mips_matching_cpu_name_p (const char *canonical, const char *given)
 static const struct mips_cpu_info *
 mips_parse_cpu (const char *cpu_string)
 {
-  const struct mips_cpu_info *p;
+  unsigned int i;
   const char *s;
 
   /* In the past, we allowed upper-case CPU names, but it doesn't
@@ -11482,9 +11461,9 @@ mips_parse_cpu (const char *cpu_string)
   if (strcasecmp (cpu_string, "default") == 0)
     return 0;
 
-  for (p = mips_cpu_info_table; p->name != 0; p++)
-    if (mips_matching_cpu_name_p (p->name, cpu_string))
-      return p;
+  for (i = 0; i < ARRAY_SIZE (mips_cpu_info_table); i++)
+    if (mips_matching_cpu_name_p (mips_cpu_info_table[i].name, cpu_string))
+      return mips_cpu_info_table + i;
 
   return 0;
 }
@@ -11496,11 +11475,11 @@ mips_parse_cpu (const char *cpu_string)
 static const struct mips_cpu_info *
 mips_cpu_info_from_isa (int isa)
 {
-  const struct mips_cpu_info *p;
+  unsigned int i;
 
-  for (p = mips_cpu_info_table; p->name != 0; p++)
-    if (p->isa == isa)
-      return p;
+  for (i = 0; i < ARRAY_SIZE (mips_cpu_info_table); i++)
+    if (mips_cpu_info_table[i].isa == isa)
+      return mips_cpu_info_table + i;
 
   return 0;
 }

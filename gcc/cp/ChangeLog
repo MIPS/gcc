@@ -1,3 +1,123 @@
+2007-09-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/33094
+	* decl.c (make_rtl_for_nonlocal_decl): It's ok for a member 
+	constant to not have DECL_EXTERNAL if it's file-local.
+
+2007-09-28  Ollie Wild  <aaw@google.com>
+
+	Revert
+	2007-09-27  Ollie Wild  <aaw@google.com>
+
+	* typeck2.c (digest_init): Call cplus_expand_constant after
+	convert_for_initialization.
+	* cp-objcp-common.h (LANG_HOOKS_EXPAND_CONSTANT): Removed.
+	* expr.c (cplus_expand_constant): Updated function description.
+
+2007-09-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10179
+	* class.c (layout_empty_base): Take rli parameter, update
+	rli->record_align if empty base has user-specified alignment.
+	(build_base_field): Pass rli to it.
+
+2007-09-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33213
+	* error.c (dump_decl): Deal with TYPE_PACK_EXPANSION.
+
+2007-09-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33118
+	* error.c (dump_expr): Deal with ARGUMENT_PACK_SELECT.
+	(dump_type): Use dump_template_argument for TYPE_ARGUMENT_PACK.
+	(dump_parameters): Just call dump_type for argument packs too.
+
+2007-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/31434
+	* tree.c (cp_build_qualified_type_real): Handle TYPE_PACK_EXPANSION
+	qualification by creating qualified PACK_EXPANSION_PATTERN and
+	then calling make_pack_expansion on it.
+
+2007-09-27  Ollie Wild  <aaw@google.com>
+
+	* typeck2.c (digest_init): Call cplus_expand_constant after
+	convert_for_initialization.
+	* cp-objcp-common.h (LANG_HOOKS_EXPAND_CONSTANT): Removed.
+	* expr.c (cplus_expand_constant): Updated function description.
+
+2007-09-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/33571
+	* decl2.c (is_late_template_attribute): Don't crash on unknown
+	attribute.
+
+2007-09-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33493
+	* error.c (dump_expr): Deal with DELETE_EXPR and VEC_DELETE_EXPR.
+	* cxx-pretty-print.c (pp_cxx_delete_expression): Add missing
+	spaces in the formatting.
+	* cxx-pretty-print.h (pp_cxx_delete_expression): Declare.
+
+2007-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* error.c (cxx_print_error_function): Add third argument, pass
+	it over to lhd_print_error_function.
+	(cp_print_error_function): If diagnostic->abstract_origin, print
+	virtual backtrace.
+	* cp-tree.h (struct diagnostic_info): New forward decl.
+	(cxx_print_error_function): Add third argument.
+
+2007-09-25  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/33207
+	* name-lookup.c (pushtag): Do not create an implicit typedef before
+	the associated type declaration is known to be valid.
+
+2007-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (cxx_printable_name): Compare FUNCTION_DECL uids
+	rather than pointers.
+
+2007-09-24  Danny Smith  <dannysmith@user.sourceforge.net>
+
+	PR c++/14688
+        * search.c (check_final_overrider): Fail if
+	targetm.comp_type_attributes returns 0.
+
+2007-09-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/33239
+	* pt.c (resolve_typename_type): Don't look things up in the original
+	template if it would mean losing template arguments.	
+
+2007-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33506
+	* cp-tree.h (cxx_type_hash_eq): New prototype.
+	* cp-objcp-common.h (LANG_HOOKS_TYPE_HASH_EQ): Redefine.
+	* tree.c (cxx_type_hash_eq): New function.
+
+2007-09-24  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/33185	
+	* tree.c (cp_build_qualified_type_real): Build a canonical
+	ARRAY_TYPE if the original ARRAY_TYPE was not a canonical type.
+	
+2007-09-24  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/33112
+	PR c++/33185	
+	* tree.c (cplus_array_compare): Compare pointers, not types.
+	(build_cplus_array_type_1): Store new array type into the hash
+	table before building the canonical type; build the canonical type
+	correctly.
+	(cp_build_qualified_type_real): Put all of the array types with
+	cv-qualified element types into the C++ array hash table, built as 
+	variants of the unqualified versions.
+	
 2007-09-23  Jason Merrill  <jason@redhat.com>
 
 	PR c++/16370

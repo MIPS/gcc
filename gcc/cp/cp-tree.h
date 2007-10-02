@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-common.h"
 #include "name-lookup.h"
 struct diagnostic_context;
+struct diagnostic_info;
 
 /* Usage of TREE_LANG_FLAG_?:
    0: IDENTIFIER_MARKED (IDENTIFIER_NODEs)
@@ -3224,7 +3225,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* DECL_EXTERNAL must be set on a decl until the decl is actually emitted,
    so that assemble_external will work properly.  So we have this flag to
-   tell us whether the decl is really not external.  */
+   tell us whether the decl is really not external.
+
+   This flag does not indicate whether or not the decl is defined in the
+   current translation unit; it indicates whether or not we should emit the
+   decl at the end of compilation if it is defined and needed.  */
 #define DECL_NOT_REALLY_EXTERN(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->decl_flags.not_really_extern)
 
@@ -4138,7 +4143,8 @@ extern void cxx_print_decl			(FILE *, tree, int);
 extern void cxx_print_type			(FILE *, tree, int);
 extern void cxx_print_identifier		(FILE *, tree, int);
 extern void cxx_print_error_function	(struct diagnostic_context *,
-						 const char *);
+						 const char *,
+						 struct diagnostic_info *);
 extern void build_self_reference		(void);
 extern int same_signature_p			(const_tree, const_tree);
 extern void maybe_add_class_template_decl_list	(tree, tree, int);
@@ -4752,6 +4758,7 @@ extern tree rvalue				(tree);
 extern tree convert_bitfield_to_declared_type   (tree);
 extern tree cp_save_expr			(tree);
 extern bool cast_valid_in_integral_constant_expression_p (tree);
+extern bool cxx_type_hash_eq			(const_tree, const_tree);
 
 /* in typeck.c */
 extern int string_conv_p			(const_tree, const_tree, int);

@@ -1,9 +1,251 @@
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33542
+	* gfortran.dg/ambiguous_specific_1.f90: New test.
+
+2007-10-02  Revital Eres  <eres@il.ibm.com>
+
+	* gcc.target/powerpc/paired-8.c: New test.
+	* gcc.target/powerpc/paired-9.c: New test.
+	* gcc.target/powerpc/paired-10.c: New test.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33566
+	* gfortran.dg/derived_comp_array_ref_5.f90: New test.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33554
+	* gfortran.dg/intent_out_2.f90: New test.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33550
+	* gfortran.dg/ambiguous_reference_1.f90: New test.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31154
+	PR fortran/31229
+	PR fortran/33334
+	* gfortran.dg/function_kinds_1.f90: New test.
+	* gfortran.dg/function_kinds_2.f90: New test.
+	* gfortran.dg/derived_function_interface_1.f90: Correct illegal
+	use association into interfaces.
+
+2007-10-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/31828
+	gcc.dg/float-range-3.c (INFINITY): Define if not defined.
+	(overflow): Use INFINITY, not FP_INFINITE.
+	gcc.dg/float-range-4.c: Likewise.
+	gcc.dg/float-range-5.c: Likewise.
+
+2007-10-01  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.c-torture/execute/20060102-1.c (f): Fix computation to work
+	for 16-bit targets.
+
+2007-09-30  Diego Novillo  <dnovillo@google.com>
+
+	PR 33593
+	* g++.dg/tree-ssa/pr33593.C: New test.
+
+2007-09-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33400
+	* gfortran.dg/PR19872.f: Fix test condition.
+	* gfortran.dg/list_read_7.f90: New test.
+
+2007-09-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/33597
+	* gcc.dg/vect/pr33597.c: New testcase.
+
+2007-09-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse5-convert.c: Fix target selector and rename to...
+	* gcc.target/i386/pr33524.c: ...this.
+
+2007-09-28  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33354
+	* gfortran.dg/minmaxloc_4.f90: New.
+
+2007-09-28  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/fold-bitand-4.c: Add -fno-common to options on hppa*-*-hpux*.
+
+2007-09-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/array-init-1.c: Add -mtune=i686 for 32bit x86 targets.
+
+2007-09-28  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33213
+	* g++.dg/cpp0x/variadic79.C: New.
+
+2007-09-28  Michael Matz  <matz@suse.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/33552
+	* gcc.target/i386/pr33552.c: New runtime test.
+	* gcc.target/i386/strinline.c: New compile time test.
+
+2007-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/openmp_stack.f90: Removed.
+
+	PR c++/31434
+	* g++.dg/cpp0x/variadic80.C: New test.
+
+2007-09-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/namelist_38.f90: Delete test for revertion of
+	r128057.
+
+2007-09-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/7003
+	* gcc.target/powerpc/gcse-1.c: New test.
+
+2007-09-27  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* gfortran.dg/array_initializer_3.f90: Adapt error annotations for
+	fixed capitalizations.
+	* gfortran.dg/compliant_elemental_intrinsics_1.f90: Likewise.
+	* gfortran.dg/compliant_elemental_intrinsics_2.f90: Likewise.
+	* gfortran.dg/elemental_subroutine_4.f90: Likewise.
+	* gfortran.dg/intrinsic_argument_conformance_1.f90: Likewise.
+	* gfortran.dg/maxloc_shape_1.f90: Likewise.
+	* gfortran.dg/maxval_maxloc_conformance_1.f90: Likewise.
+	* gfortran.dg/min_max_conformance.f90: Likewise.
+
+2007-09-27  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.dg/c99-tgmath-1.c: Require c99_runtime and add the associated
+	options.
+	* gcc.dg/c99-tgmath-2.c: Likewise.
+	* gcc.dg/c99-tgmath-3.c: Likewise.
+	* gcc.dg/c99-tgmath-4.c: Likewise.
+
+2007-09-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33568
+	* gfortran.dg/anint_1.f90: New test.
+
+2007-09-27  Ian Lance Taylor  <iant@google.com>
+
+	PR tree-optimization/33565
+	* gcc.dg/Wstrict-overflow-20.c: New test.
+
+2007-09-27  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/openmp_stack.f90: Fix typo.
+	* gfortran.dg/recursive_stack.f90: Fix typo.
+
+2007-09-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33493
+	* g++.dg/template/error31.C: New.
+
+2007-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/prune.exp: Prune also "^In function .*$" lines and
+	"^    inlined from .*$" lines.
+
+2007-09-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33563
+	* gcc.dg/torture/pr33563.c: New testcase.
+
+2007-09-26  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/25309
+	* gcc.dg/large-size-array-2.c: Expect diagnostic for too-large
+	array.
+	* gcc.dg/large-size-array-4.c: New.  Copy of large-size-array-2.c
+	without -O2.
+
+2007-09-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/30375
+	PR tree-optimization/33560
+	* gcc.dg/tree-ssa/complex-4.c: XFAIL.
+	* gcc.dg/tree-ssa/complex-5.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dse-9.c: Likewise.
+	* gcc.dg/torture/pr30375.c: New testcase.
+	* gcc.dg/torture/pr33560.c: New testcase.
+	* gcc.dg/tree-ssa/pr30375.c: Likewise.
+
+2007-09-25  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/33207
+	* g++.dg/parse/crash38.C: New test.
+
+2007-09-25  Michael Meissner  <michael.meissner@amd.com>
+
+	PR target/33524
+	* gcc.target/i386/sse5-convert.c: New file, test int->long
+	vectorized conversions.
+
+2007-09-25  Revital Eres  <eres@il.ibm.com>
+
+	* testsuite/gcc.target/powerpc/ppc-paired.c (paired_sel): Add.
+
+2007-09-25  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/32295
+	* gcc.dg/enum-incomplete-1.c: New test.
+
+2007-09-25  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* gcc.c-torture/compile/20070919-1.c: New test.
+
+2007-09-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gfortran.dg/init_flag_3.f90: Add -mieee for sh.
+
+2007-09-24  Danny Smith  <dannysmith@user.sourceforge.net>
+
+	PR c++/14688
+	* g++.dg/inherit/override_attribs.C: New file.
+
+2007-09-23  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33269
+	* io.c (check_format_string): Move NULL and constant checks into
+	this function.
+	(check_io_constraints): Call gfc_simplify_expr() before calling
+	check_format_string().  Remove NULL and constant checks.
+
+2007-09-24  Roman Zippel <zippel@linux-m68k.org>
+
+	* gcc.c-torture/execute/loop-2f.x: New. Disable test for m68k-linux.
+	* gcc.c-torture/execute/loop-2g.x: Likewise.
+
+2007-09-24  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (check_effective_target_mips16_attribute):
+	Reject hard-float modes unless the ABI is o32 or o64.
+	* gcc.target/mips/inter/mips16-inter.exp: Load gcc-dg.exp instead
+	of gcc.exp.  Skip the tests when mips16 code generation is not
+	supported.
+	* gcc.target/mips/mips16-attributes.c: Require mips16_attribute
+	and use dg-add-options mips16_attribute.
+
+2007-09-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33506
+	* g++.dg/ext/attrib29.C: New test.
+
 2007-09-23  Ollie Wild  <aaw@google.com>
 
-	gcc.dg/fold-bitand-1.c: New test.
-	gcc.dg/fold-bitand-2.c: New test.
-	gcc.dg/fold-bitand-3.c: New test.
-	gcc.dg/fold-bitand-4.c: New test.
+	* gcc.dg/fold-bitand-1.c: New test.
+	* gcc.dg/fold-bitand-2.c: New test.
+	* gcc.dg/fold-bitand-3.c: New test.
+	* gcc.dg/fold-bitand-4.c: New test.
 
 2007-09-23  Richard Sandiford  <rsandifo@nildram.co.uk>
 
@@ -1621,7 +1863,7 @@
 	* gnat.dg/test_oalign.adb, oalign[12].ads: New test.
 	
 2007-08-31  David Edelsohn  <edelsohn@gnu.org>
-            Revital Eres  <eres@il.ibm.com>
+	    Revital Eres  <eres@il.ibm.com>
 
 	* gcc.target/powerpc/paired-1.c: New test.
 	* gcc.target/powerpc/paired-2.c: New test.
@@ -1814,9 +2056,9 @@
 	* d++.dg/debug/dwarf2/const2b.C: New test.
 
 2007-08-28  Mircea Namolaru  <namolaru@il.ibm.com>
-            Vladimir Yanovsky  <yanov@il.ibm.com>
-            Revital Eres  <eres@il.ibm.com>
-            Andrey Belevantsev  <abel@ispras.ru>
+	    Vladimir Yanovsky  <yanov@il.ibm.com>
+	    Revital Eres  <eres@il.ibm.com>
+	    Andrey Belevantsev  <abel@ispras.ru>
 
 	* gcc.dg/sms-1.c: New test.
 

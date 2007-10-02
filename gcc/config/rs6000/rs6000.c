@@ -799,6 +799,7 @@ static int rs6000_sched_reorder (FILE *, int, rtx *, int *, int);
 static int rs6000_sched_reorder2 (FILE *, int, rtx *, int *, int);
 static int rs6000_use_sched_lookahead (void);
 static int rs6000_use_sched_lookahead_guard (rtx);
+static tree rs6000_builtin_reciprocal (unsigned int, bool, bool);
 static tree rs6000_builtin_mask_for_load (void);
 static tree rs6000_builtin_mul_widen_even (tree);
 static tree rs6000_builtin_mul_widen_odd (tree);
@@ -1212,6 +1213,9 @@ static const char alt_reg_names[][8] =
 #define TARGET_MAX_ANCHOR_OFFSET 0x7fffffff
 #undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
 #define TARGET_USE_BLOCKS_FOR_CONSTANT_P rs6000_use_blocks_for_constant_p
+
+#undef TARGET_BUILTIN_RECIPROCAL
+#define TARGET_BUILTIN_RECIPROCAL rs6000_builtin_reciprocal
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2712,6 +2716,59 @@ output_vec_const_move (rtx *operands)
     return "li %0,%1\n\tevmergelo %0,%0,%0\n\tli %0,%2";
 }
 
+/* Initialize TARGET of vector PAIRED to VALS.  */
+
+void
+paired_expand_vector_init (rtx target, rtx vals)
+{
+  enum machine_mode mode = GET_MODE (target);
+  int n_elts = GET_MODE_NUNITS (mode);
+  int n_var = 0;
+  rtx x, new, tmp, constant_op, op1, op2;
+  int i;
+
+  for (i = 0; i < n_elts; ++i)
+    {
+      x = XVECEXP (vals, 0, i);
+      if (!CONSTANT_P (x))
+	++n_var;
+    }
+  if (n_var == 0)
+    {
+      /* Load from constant pool.  */
+      emit_move_insn (target, gen_rtx_CONST_VECTOR (mode, XVEC (vals, 0)));
+      return;
+    }
+
+  if (n_var == 2)
+    {
+      /* The vector is initialized only with non-constants.  */
+      new = gen_rtx_VEC_CONCAT (V2SFmode, XVECEXP (vals, 0, 0),
+				XVECEXP (vals, 0, 1));
+
+      emit_move_insn (target, new);
+      return;
+    }
+  
+  /* One field is non-constant and the other one is a constant.  Load the
+     constant from the constant pool and use ps_merge instruction to
+     construct the whole vector.  */
+  op1 = XVECEXP (vals, 0, 0);
+  op2 = XVECEXP (vals, 0, 1);
+
+  constant_op = (CONSTANT_P (op1)) ? op1 : op2;
+
+  tmp = gen_reg_rtx (GET_MODE (constant_op));
+  emit_move_insn (tmp, constant_op);
+
+  if (CONSTANT_P (op1))
+    new = gen_rtx_VEC_CONCAT (V2SFmode, tmp, op2);
+  else
+    new = gen_rtx_VEC_CONCAT (V2SFmode, op1, tmp);
+
+  emit_move_insn (target, new);
+}
+
 /* Initialize vector TARGET to VALS.  */
 
 void
@@ -3377,7 +3434,10 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == REG
       && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && (unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1)) + 0x8000) >= 0x10000)
+      && (unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1)) + 0x8000) >= 0x10000
+      && !(SPE_VECTOR_MODE (mode)
+	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
+				      || mode == DImode))))
     {
       HOST_WIDE_INT high_int, low_int;
       rtx sum;
@@ -6670,6 +6730,7 @@ static const struct builtin_description bdesc_3arg[] =
   { 0, CODE_FOR_paired_nmadd, "__builtin_paired_nmadd", PAIRED_BUILTIN_NMADD },
   { 0, CODE_FOR_paired_sum0, "__builtin_paired_sum0", PAIRED_BUILTIN_SUM0 },
   { 0, CODE_FOR_paired_sum1, "__builtin_paired_sum1", PAIRED_BUILTIN_SUM1 },
+  { 0, CODE_FOR_selv2sf4, "__builtin_paired_selv2sf4", PAIRED_BUILTIN_SELV2SF4 },
 };
 
 /* DST operations: void foo (void *, const int, const char).  */
@@ -7751,7 +7812,10 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
   if (! (*insn_data[icode].operand[3].predicate) (op2, mode2))
     op2 = copy_to_mode_reg (mode2, op2);
 
-  pat = GEN_FCN (icode) (target, op0, op1, op2);
+  if (TARGET_PAIRED_FLOAT && icode == CODE_FOR_selv2sf4)
+    pat = GEN_FCN (icode) (target, op0, op1, op2, CONST0_RTX (SFmode));
+  else 
+    pat = GEN_FCN (icode) (target, op0, op1, op2);
   if (! pat)
     return 0;
   emit_insn (pat);
@@ -8652,6 +8716,15 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   rtx ret;
   bool success;
 
+  if (fcode == RS6000_BUILTIN_RECIP)
+      return rs6000_expand_binop_builtin (CODE_FOR_recipdf3, exp, target);    
+
+  if (fcode == RS6000_BUILTIN_RECIPF)
+      return rs6000_expand_binop_builtin (CODE_FOR_recipsf3, exp, target);    
+
+  if (fcode == RS6000_BUILTIN_RSQRTF)
+      return rs6000_expand_unop_builtin (CODE_FOR_rsqrtsf2, exp, target);    
+
   if (fcode == ALTIVEC_BUILTIN_MASK_FOR_LOAD
       || fcode == ALTIVEC_BUILTIN_MASK_FOR_STORE)
     {
@@ -8858,6 +8931,31 @@ rs6000_init_builtins (void)
     altivec_init_builtins ();
   if (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT)
     rs6000_common_init_builtins ();
+  if (TARGET_PPC_GFXOPT)
+    {
+      tree ftype = build_function_type_list (float_type_node,
+					     float_type_node,
+					     float_type_node,
+					     NULL_TREE);
+      def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
+		   RS6000_BUILTIN_RECIPF);
+
+      ftype = build_function_type_list (float_type_node,
+					float_type_node,
+					NULL_TREE);
+      def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
+		   RS6000_BUILTIN_RSQRTF);
+    }
+  if (TARGET_POPCNTB)
+    {
+      tree ftype = build_function_type_list (double_type_node,
+					     double_type_node,
+					     double_type_node,
+					     NULL_TREE);
+      def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
+		   RS6000_BUILTIN_RECIP);
+
+    }
 
 #if TARGET_XCOFF
   /* AIX libm provides clog as __clog.  */
@@ -20874,11 +20972,36 @@ rs6000_memory_move_cost (enum machine_mode mode, enum reg_class class,
     return 4 + rs6000_register_move_cost (mode, class, GENERAL_REGS);
 }
 
+/* Returns a code for a target-specific builtin that implements
+   reciprocal of the function, or NULL_TREE if not available.  */
+
+static tree
+rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
+			   bool sqrt ATTRIBUTE_UNUSED)
+{
+  if (! (TARGET_RECIP && TARGET_PPC_GFXOPT && !optimize_size
+	 && flag_finite_math_only && !flag_trapping_math
+	 && flag_unsafe_math_optimizations))
+    return NULL_TREE;
+
+  if (md_fn)
+    return NULL_TREE;
+  else
+    switch (fn)
+      {
+      case BUILT_IN_SQRTF:
+	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF];
+
+      default:
+	return NULL_TREE;
+      }
+}
+
 /* Newton-Raphson approximation of single-precision floating point divide n/d.
    Assumes no trapping math and finite arguments.  */
 
 void
-rs6000_emit_swdivsf (rtx res, rtx n, rtx d)
+rs6000_emit_swdivsf (rtx dst, rtx n, rtx d)
 {
   rtx x0, e0, e1, y1, u0, v0, one;
 
@@ -20913,8 +21036,8 @@ rs6000_emit_swdivsf (rtx res, rtx n, rtx d)
   emit_insn (gen_rtx_SET (VOIDmode, v0,
 			  gen_rtx_MINUS (SFmode, n,
 					 gen_rtx_MULT (SFmode, d, u0))));
-  /* res = u0 + v0 * y1 */
-  emit_insn (gen_rtx_SET (VOIDmode, res,
+  /* dst = u0 + v0 * y1 */
+  emit_insn (gen_rtx_SET (VOIDmode, dst,
 			  gen_rtx_PLUS (SFmode,
 					gen_rtx_MULT (SFmode, v0, y1), u0)));
 }
@@ -20923,7 +21046,7 @@ rs6000_emit_swdivsf (rtx res, rtx n, rtx d)
    Assumes no trapping math and finite arguments.  */
 
 void
-rs6000_emit_swdivdf (rtx res, rtx n, rtx d)
+rs6000_emit_swdivdf (rtx dst, rtx n, rtx d)
 {
   rtx x0, e0, e1, e2, y1, y2, y3, u0, v0, one;
 
@@ -20971,12 +21094,96 @@ rs6000_emit_swdivdf (rtx res, rtx n, rtx d)
   emit_insn (gen_rtx_SET (VOIDmode, v0,
 			  gen_rtx_MINUS (DFmode, n,
 					 gen_rtx_MULT (DFmode, d, u0))));
-  /* res = u0 + v0 * y3 */
-  emit_insn (gen_rtx_SET (VOIDmode, res,
+  /* dst = u0 + v0 * y3 */
+  emit_insn (gen_rtx_SET (VOIDmode, dst,
 			  gen_rtx_PLUS (DFmode,
 					gen_rtx_MULT (DFmode, v0, y3), u0)));
 }
 
+
+/* Newton-Raphson approximation of single-precision floating point rsqrt.
+   Assumes no trapping math and finite arguments.  */
+
+void
+rs6000_emit_swrsqrtsf (rtx dst, rtx src)
+{
+  rtx x0, x1, x2, y1, u0, u1, u2, v0, v1, v2, t0,
+    half, one, halfthree, c1, cond, label;
+
+  x0 = gen_reg_rtx (SFmode);
+  x1 = gen_reg_rtx (SFmode);
+  x2 = gen_reg_rtx (SFmode);
+  y1 = gen_reg_rtx (SFmode);
+  u0 = gen_reg_rtx (SFmode);
+  u1 = gen_reg_rtx (SFmode);
+  u2 = gen_reg_rtx (SFmode);
+  v0 = gen_reg_rtx (SFmode);
+  v1 = gen_reg_rtx (SFmode);
+  v2 = gen_reg_rtx (SFmode);
+  t0 = gen_reg_rtx (SFmode);
+  halfthree = gen_reg_rtx (SFmode);
+  cond = gen_rtx_REG (CCFPmode, CR1_REGNO);
+  label = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
+
+  /* check 0.0, 1.0, NaN, Inf by testing src * src = src */
+  emit_insn (gen_rtx_SET (VOIDmode, t0,
+			  gen_rtx_MULT (SFmode, src, src)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, cond,
+			  gen_rtx_COMPARE (CCFPmode, t0, src)));
+  c1 = gen_rtx_EQ (VOIDmode, cond, const0_rtx);
+  emit_unlikely_jump (c1, label);
+
+  half = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconsthalf, SFmode));
+  one = force_reg (SFmode, CONST_DOUBLE_FROM_REAL_VALUE (dconst1, SFmode));
+
+  /* halfthree = 1.5 = 1.0 + 0.5 */
+  emit_insn (gen_rtx_SET (VOIDmode, halfthree,
+			  gen_rtx_PLUS (SFmode, one, half)));
+
+  /* x0 = rsqrt estimate */
+  emit_insn (gen_rtx_SET (VOIDmode, x0,
+			  gen_rtx_UNSPEC (SFmode, gen_rtvec (1, src),
+					  UNSPEC_RSQRT)));
+
+  /* y1 = 0.5 * src = 1.5 * src - src -> fewer constants */
+  emit_insn (gen_rtx_SET (VOIDmode, y1,
+			  gen_rtx_MINUS (SFmode,
+					 gen_rtx_MULT (SFmode, src, halfthree),
+					 src)));
+
+  /* x1 = x0 * (1.5 - y1 * (x0 * x0)) */
+  emit_insn (gen_rtx_SET (VOIDmode, u0,
+			  gen_rtx_MULT (SFmode, x0, x0)));
+  emit_insn (gen_rtx_SET (VOIDmode, v0,
+			  gen_rtx_MINUS (SFmode,
+					 halfthree,
+					 gen_rtx_MULT (SFmode, y1, u0))));
+  emit_insn (gen_rtx_SET (VOIDmode, x1,
+			  gen_rtx_MULT (SFmode, x0, v0)));
+
+  /* x2 = x1 * (1.5 - y1 * (x1 * x1)) */
+  emit_insn (gen_rtx_SET (VOIDmode, u1,
+			  gen_rtx_MULT (SFmode, x1, x1)));
+  emit_insn (gen_rtx_SET (VOIDmode, v1,
+			  gen_rtx_MINUS (SFmode,
+					 halfthree,
+					 gen_rtx_MULT (SFmode, y1, u1))));
+  emit_insn (gen_rtx_SET (VOIDmode, x2,
+			  gen_rtx_MULT (SFmode, x1, v1)));
+
+  /* dst = x2 * (1.5 - y1 * (x2 * x2)) */
+  emit_insn (gen_rtx_SET (VOIDmode, u2,
+			  gen_rtx_MULT (SFmode, x2, x2)));
+  emit_insn (gen_rtx_SET (VOIDmode, v2,
+			  gen_rtx_MINUS (SFmode,
+					 halfthree,
+					 gen_rtx_MULT (SFmode, y1, u2))));
+  emit_insn (gen_rtx_SET (VOIDmode, dst,
+			  gen_rtx_MULT (SFmode, x2, v2)));
+
+  emit_label (XEXP (label, 0));
+}
 
 /* Emit popcount intrinsic on TARGET_POPCNTB targets.  DST is the
    target, and SRC is the argument operand.  */

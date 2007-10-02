@@ -986,6 +986,10 @@ is_late_template_attribute (tree attr, tree decl)
   tree args = TREE_VALUE (attr);
   const struct attribute_spec *spec = lookup_attribute_spec (name);
 
+  if (!spec)
+    /* Unknown attribute.  */
+    return false;
+
   if (is_attribute_p ("aligned", name)
       && args
       && value_dependent_expression_p (TREE_VALUE (args)))
@@ -1310,6 +1314,9 @@ coerce_delete_type (tree type)
   return type;
 }
 
+/* DECL is a VAR_DECL for a vtable: walk through the entries in the vtable
+   and mark them as needed.  */
+
 static void
 mark_vtable_entries (tree decl)
 {

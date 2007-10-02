@@ -618,6 +618,19 @@ override_options (void)
       gcc_unreachable ();
     }
 
+#ifndef ASM_OUTPUT_ALIGN_WITH_NOP
+  if (align_labels > 2)
+    {
+      warning (0, "-falign-labels=%d is not supported", align_labels);
+      align_labels = 0;
+    }
+  if (align_loops > 2)
+    {
+      warning (0, "-falign-loops=%d is not supported", align_loops);
+      align_loops = 0;
+    }
+#endif
+
   SUBTARGET_OVERRIDE_OPTIONS;
 
   /* Setup scheduling options.  */
@@ -3513,6 +3526,13 @@ notice_update_cc (rtx exp, rtx insn)
   if (((cc_status.value1 && FP_REG_P (cc_status.value1))
        || (cc_status.value2 && FP_REG_P (cc_status.value2))))
     cc_status.flags = CC_IN_68881;
+  if (cc_status.value2 && GET_CODE (cc_status.value2) == COMPARE
+      && GET_MODE_CLASS (GET_MODE (XEXP (cc_status.value2, 0))) == MODE_FLOAT)
+    {
+      cc_status.flags = CC_IN_68881;
+      if (!FP_REG_P (XEXP (cc_status.value2, 0)))
+	cc_status.flags |= CC_REVERSED;
+    }
 }
 
 const char *
@@ -3956,14 +3976,18 @@ bool
 strict_low_part_peephole_ok (enum machine_mode mode, rtx first_insn,
                              rtx target)
 {
-  rtx p;
+  rtx p = first_insn;
 
-  p = prev_nonnote_insn (first_insn);
-
-  while (p)
+  while ((p = PREV_INSN (p)))
     {
+      if (NOTE_INSN_BASIC_BLOCK_P (p))
+	return false;
+
+      if (NOTE_P (p))
+	continue;
+
       /* If it isn't an insn, then give up.  */
-      if (GET_CODE (p) != INSN)
+      if (!INSN_P (p))
 	return false;
 
       if (reg_set_p (target, p))
@@ -3993,8 +4017,6 @@ strict_low_part_peephole_ok (enum machine_mode mode, rtx first_insn,
 	  else
 	    return false;
 	}
-
-      p = prev_nonnote_insn (p);
     }
 
   return false;

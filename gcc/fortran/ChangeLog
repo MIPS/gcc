@@ -1,3 +1,98 @@
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33542
+	* interface.c (check_interface1): Specific procedures are
+	always ambiguous if they have the same name.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33566
+	* primary.c (gfc_match_rvalue): Make all expressions with array
+	references to structure parameters into variable expressions.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33554
+	* trans-decl.c (init_intent_out_dt): New function.
+	(gfc_trans_deferred_vars): Remove the code for default
+	initialization of INTENT(OUT) derived types and put it
+	in the new function.  Call it earlier than before, so
+	that array offsets and lower bounds are available.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33550
+	* decl.c (get_proc_name): Return rc if rc is non-zero; ie. if
+	the name is a reference to an ambiguous symbol.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31154
+	PR fortran/31229
+	PR fortran/33334
+	* decl.c : Declare gfc_function_kind_locs and
+	gfc_function_type_locus.
+	(gfc_match_kind_spec): Add second argument kind_expr_only.
+	Store locus before trying to match the expression. If the
+	current state corresponds to a function declaration and there
+	is no match to the expression, read to the parenthesis, return
+	kind = -1, dump the expression and return.
+	(gfc_match_type_spec): Renamed from match_type_spec and all
+	references changed.  If an interface or an external function,
+	store the locus, set kind = -1 and return.  Otherwise, if kind
+	is already = -1, use gfc_find_symbol to try to find a use
+	associated or imported type.
+	match.h : Prototype for gfc_match_type_spec.
+	* parse.c (match_deferred_characteristics): New function.
+	(parse_spec): If in a function, statement is USE or IMPORT
+	or DERIVED_DECL and the function kind=-1, call
+	match_deferred_characteristics.  If kind=-1 at the end of the
+	specification expressions, this is an error.
+	* parse.h : Declare external gfc_function_kind_locs and
+	gfc_function_type_locus.
+
+2007-09-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* module.c (mio_expr): Avoid -Wcast-qual warning.
+
+2007-09-27  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* arith.c (reduce_binary_aa): Fix capitalization.
+	* check.c (gfc_check_dot_product): Likewise.
+	(gfc_check_matmul): Likewise.
+	* expr.c (gfc_check_conformance): Likewise.
+	(gfc_check_assign): Likewise.
+	(gfc_default_initializer): Simplify logic.
+	* trans.c (gfc_msg_bounds): Make const.
+	(gfc_msg_fault): Likewise.
+	(gfc_msg_wrong_return): Likewise.
+	* trans.h: Add const to corresponding extern declarations.
+
+2007-09-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33568
+	* trans-intrinsic.c (gfc_conv_intrinsic_aint): Allow for the 
+	possibility of the optional KIND argument by making arg
+	an array, counting the number of arguments and using arg[0].
+
+2007-09-26  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/30780
+	* invoke.texi: Add note to -ffpe-trap option. Fix typos.
+
+2007-09-23  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33269
+	* io.c (check_format_string): Move NULL and constant checks into
+	this function.
+	(check_io_constraints): Call gfc_simplify_expr() before calling
+	check_format_string().  Remove NULL and constant checks.
+
+2007-09-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33538
+	* scanner.c, parse.c, gfortran.h: Revert revision 128671.
+
 2007-09-23  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/33528
