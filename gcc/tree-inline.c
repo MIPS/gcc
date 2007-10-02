@@ -1018,8 +1018,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
    we might want to change way build CFG pre-inlining to include
    all the possible edges then.  */
 static void
-update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
-				  bool can_throw, bool nonlocal_goto)
+update_ssa_across_eh_edges (basic_block bb)
 {
   edge e;
   edge_iterator ei;
@@ -1030,35 +1029,13 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
       {
 	tree phi;
 
-	gcc_assert (e->flags & EDGE_ABNORMAL);
-	if (!nonlocal_goto)
-	  gcc_assert (e->flags & EDGE_EH);
-	if (!can_throw)
-	  gcc_assert (!(e->flags & EDGE_EH));
+	gcc_assert (e->flags & EDGE_EH);
 	for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
 	  {
-	    edge re;
-
-	    /* There shouldn't be any PHI nodes in the ENTRY_BLOCK.  */
-	    gcc_assert (!e->dest->aux);
-
 	    gcc_assert (SSA_NAME_OCCURS_IN_ABNORMAL_PHI
 			(PHI_RESULT (phi)));
-
-	    if (!is_gimple_reg (PHI_RESULT (phi)))
-	      {
-		mark_sym_for_renaming
-		  (SSA_NAME_VAR (PHI_RESULT (phi)));
-		continue;
-	      }
-
-	    re = find_edge (ret_bb, e->dest);
-	    gcc_assert (re);
-	    gcc_assert ((re->flags & (EDGE_EH | EDGE_ABNORMAL))
-			== (e->flags & (EDGE_EH | EDGE_ABNORMAL)));
-
-	    SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e),
-		     USE_FROM_PTR (PHI_ARG_DEF_PTR_FROM_EDGE (phi, re)));
+	    mark_sym_for_renaming
+	      (SSA_NAME_VAR (PHI_RESULT (phi)));
 	  }
       }
 }
@@ -1067,7 +1044,7 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
    accordingly.  Edges will be taken care of later.  Assume aux
    pointers to point to the copies of each BB.  */
 static void
-copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
+copy_edges_for_bb (basic_block bb, int count_scale)
 {
   basic_block new_bb = (basic_block) bb->aux;
   edge_iterator ei;
@@ -1099,7 +1076,6 @@ copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
   for (bsi = bsi_start (new_bb); !bsi_end_p (bsi);)
     {
       tree copy_stmt;
-      bool can_throw, nonlocal_goto;
 
       copy_stmt = bsi_stmt (bsi);
       update_stmt (copy_stmt);
@@ -1120,10 +1096,7 @@ copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
          into a COMPONENT_REF which doesn't.  If the copy
          can throw, the original could also throw.  */
 
-      can_throw = tree_can_throw_internal (copy_stmt);
-      nonlocal_goto = tree_can_make_abnormal_goto (copy_stmt);
-
-      if (can_throw || nonlocal_goto)
+      if (tree_can_throw_internal (copy_stmt))
 	{
 	  if (!bsi_end_p (bsi))
 	    /* Note that bb's predecessor edges aren't necessarily
@@ -1135,18 +1108,12 @@ copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
 	      new_bb->aux = e->src->aux;
 	      bsi = bsi_start (new_bb);
 	    }
+
+           make_eh_edges (copy_stmt);
+
+	   if (gimple_in_ssa_p (cfun))
+	     update_ssa_across_eh_edges (bb_for_stmt (copy_stmt));
 	}
-
-      if (can_throw)
-	make_eh_edges (copy_stmt);
-
-      if (nonlocal_goto)
-	make_abnormal_goto_edges (bb_for_stmt (copy_stmt), true);
-
-      if ((can_throw || nonlocal_goto)
-	  && gimple_in_ssa_p (cfun))
-	update_ssa_across_abnormal_edges (bb_for_stmt (copy_stmt), ret_bb,
-					  can_throw, nonlocal_goto);
     }
 }
 
@@ -1318,7 +1285,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   last = last_basic_block;
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   FOR_ALL_BB_FN (bb, cfun_to_copy)
-    copy_edges_for_bb (bb, count_scale, exit_block_map);
+    copy_edges_for_bb (bb, count_scale);
   if (gimple_in_ssa_p (cfun))
     FOR_ALL_BB_FN (bb, cfun_to_copy)
       copy_phis_for_bb (bb, id);
@@ -2836,6 +2803,60 @@ has_abnormal_outgoing_edge_p (basic_block bb)
   return false;
 }
 
+/* When a block from the inlined function contains a call with side-effects
+   in the middle gets inlined in a function with non-locals labels, the call
+   becomes a potential non-local goto so we need to add appropriate edge.  */
+
+static void
+make_nonlocal_label_edges (void)
+{
+  block_stmt_iterator bsi;
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  if (tree_can_make_abnormal_goto (stmt))
+	    {
+	      if (stmt == bsi_stmt (bsi_last (bb)))
+		{
+		  if (!has_abnormal_outgoing_edge_p (bb))
+		    make_abnormal_goto_edges (bb, true);
+		}
+	      else
+		{
+		  edge e = split_block (bb, stmt);
+		  bb = e->src;
+		  make_abnormal_goto_edges (bb, true);
+		}
+	      break;
+	    }
+
+	  /* Update PHIs on nonlocal goto receivers we (possibly)
+	     just created new edges into.  */
+	  if (TREE_CODE (stmt) == LABEL_EXPR
+	      && gimple_in_ssa_p (cfun))
+	    {
+	      tree target = LABEL_EXPR_LABEL (stmt);
+	      if (DECL_NONLOCAL (target))
+		{
+		  tree phi;
+
+		  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+		    {
+		      gcc_assert (SSA_NAME_OCCURS_IN_ABNORMAL_PHI
+				  (PHI_RESULT (phi)));
+		      mark_sym_for_renaming
+			(SSA_NAME_VAR (PHI_RESULT (phi)));
+		    }
+		}
+	    }
+	}
+    }
+}
+
 /* Expand calls to inline functions in the body of FN.  */
 
 unsigned int
@@ -2914,6 +2935,8 @@ optimize_inline_calls (tree fn)
   cgraph_node_remove_callees (id.dst_node);
 
   fold_cond_expr_cond ();
+  if (current_function_has_nonlocal_label)
+    make_nonlocal_label_edges ();
   /* It would be nice to check SSA/CFG/statement consistency here, but it is
      not possible yet - the IPA passes might make various functions to not
      throw and they don't care to proactively update local EH info.  This is
