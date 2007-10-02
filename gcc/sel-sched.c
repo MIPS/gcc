@@ -171,10 +171,6 @@ int global_level;
 /* Current fences.  */
 flist_t fences;
 
-/* !!! Remove me: not used.
-   Stage of the loop pipelining process.  */
-static int stage;
-
 /* All newly emitted insns will have their uids greater than this value.  */
 static int first_emitted_uid;
 
@@ -5580,7 +5576,6 @@ sel_sched_region_1 (void)
     }
 
   global_level = 1;
-  stage = 1;
 
   sel_sched_region_2 (data);
 
@@ -5787,6 +5782,8 @@ sel_global_init (void)
 
   calculate_dominance_info (CDI_DOMINATORS);
 
+  init_sched_pools ();
+
   if (flag_sel_sched_pipelining_outer_loops)
     pipeline_outer_loops_init ();
 
@@ -5848,6 +5845,7 @@ sel_global_finish (void)
   if (flag_sel_sched_pipelining_outer_loops)
     pipeline_outer_loops_finish ();
 
+  free_sched_pools ();
   free_dominance_info (CDI_DOMINATORS);
 }
 

@@ -1,5 +1,16 @@
 2007-10-02  Andrey Belevantsev  <abel@ispras.ru>
 
+	* sel-sched-ir.c (sched_lists_pool): New global variable.
+	* sel-sched-ir.h (sched_lists_pool): Export.
+	(init_sched_pools, free_sched_pools): New inline functions.
+	(_list_add): Allocate memory from pool.
+	(_list_remove): Return memory to pool.
+	* sel-sched.c (stage): Kill unused variable.
+	(sel_global_init): Call init_sched_pools.
+	(sel_global_finish): Call free_sched_pools.
+
+2007-10-02  Andrey Belevantsev  <abel@ispras.ru>
+
 	Implement readonly dependence contexts.
 	* sched-int.h (struct deps): New bitfield readonly.
 	* sched-deps.c (add_dependence_list_and_free): Add deps parameter.

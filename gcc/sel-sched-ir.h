@@ -290,14 +290,29 @@ struct _list_node
 };
 
 
+extern alloc_pool sched_lists_pool;
+
 /* _list_t functions.
    All of _*list_* functions are used through accessor macros, thus
    we can't move them in sel-sched-ir.c.  */
 
 static inline void
+init_sched_pools (void)
+{
+  sched_lists_pool = create_alloc_pool ("sel-sched-lists", 
+                                        sizeof (struct _list_node), 500);
+}
+
+static inline void
+free_sched_pools (void)
+{
+  free_alloc_pool (sched_lists_pool);
+}
+
+static inline void
 _list_add (_list_t *lp)
 {
-  _list_t l = xmalloc (sizeof (*l));
+  _list_t l = (_list_t) pool_alloc (sched_lists_pool);
 
   _LIST_NEXT (l) = *lp;
   *lp = l;
@@ -309,7 +324,7 @@ _list_remove (_list_t *lp)
   _list_t n = *lp;
 
   *lp = _LIST_NEXT (n);
-  free (n);
+  pool_free (sched_lists_pool, n);
 }
 
 static inline void

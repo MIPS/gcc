@@ -65,6 +65,9 @@ VEC(sel_global_bb_info_def, heap) *sel_global_bb_info = NULL;
 /* A vector holding bb info.  */
 VEC(sel_region_bb_info_def, heap) *sel_region_bb_info = NULL;
 
+/* A pool for allocating all lists.  */
+alloc_pool sched_lists_pool;
+
 /* Data structure to describe interaction with the generic scheduler utils.  */
 static struct common_sched_info_def sel_common_sched_info;
 
