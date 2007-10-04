@@ -387,6 +387,16 @@ FILE *aux_info_file;
 FILE *dump_file = NULL;
 const char *dump_file_name;
 
+
+typedef const char *cchar_p;
+DEF_VEC_P(cchar_p);
+DEF_VEC_ALLOC_P(cchar_p,gc);
+
+/* Saved command-line arguments for the current job.  The server
+   copies these into GC-allocated memory so that file names, etc, are
+   not deleted when the current job completes.  */
+static GTY(()) VEC(cchar_p,gc) *job_arguments;
+
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
    file may specify the original directory in which it was
@@ -2241,9 +2251,14 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
   if (px)
     {
       int n, result;
+      /* Copy the arguments into GC memory.  */
+      job_arguments = NULL;
       for (n = 0; cc1_argv[n]; ++n)
-	;
-      decode_options (n, (const char **) cc1_argv);
+	{
+	  VEC_safe_push (cchar_p, gc, job_arguments, ggc_strdup (cc1_argv[n]));
+	}
+      VEC_safe_push (cchar_p, gc, job_arguments, NULL);
+      decode_options (n, VEC_address (cchar_p, job_arguments));
 
       flag_unit_at_a_time = 1;
 

@@ -1,5 +1,11 @@
 2007-10-04  Tom Tromey  <tromey@redhat.com>
 
+	* toplev.c (char_p): New typedef.
+	(job_arguments): New global.
+	(server_callback): GC-copy arguments.
+
+2007-10-04  Tom Tromey  <tromey@redhat.com>
+
 	* c-decl.c (bind): Note a smash when needed.
 	(c_decl_re_bind): Pass function definitions to
 	cgraph_finalize_function.
