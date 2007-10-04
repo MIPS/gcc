@@ -2013,6 +2013,8 @@ lto_static_init (void)
   SET_BIT (lto_types_needed_for, COMPLEX_CST);
   SET_BIT (lto_types_needed_for, CONSTRUCTOR);
   SET_BIT (lto_types_needed_for, CONVERT_EXPR);
+  SET_BIT (lto_types_needed_for, FIXED_CONVERT_EXPR);
+  SET_BIT (lto_types_needed_for, FIXED_CST);
   SET_BIT (lto_types_needed_for, INTEGER_CST);
   SET_BIT (lto_types_needed_for, NOP_EXPR);
   SET_BIT (lto_types_needed_for, REAL_CST);

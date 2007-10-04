@@ -1,3 +1,12 @@
+2007-10-04  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-tree-flags.def (FIXED_CONVERT_EXPR, FIXED_CST, FIXED_POINT_TYPE,
+	OMP_SECTIONS_SWITCH): Added new tree codes.
+	* lto-function-out.c (lto_static_init): Added types for FIXED_CONVERT_EXPR,
+	FIXED_CST.
+	* lto-tree-tags.def (FIXED_CONVERT_EXPR, FIXED_CST): Added mappings.
+	* lto-tags.h (LTO_fixed_convert_expr, LTO_fixed_cst): New codes.
+
 2007-10-02  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* omp-low.c (expand_omp_parallel): Added struct function param

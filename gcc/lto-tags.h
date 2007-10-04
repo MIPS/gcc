@@ -325,6 +325,8 @@ enum LTO_tags {
   LTO_exc_ptr_expr,
   LTO_field_decl,
   LTO_filter_expr,
+  LTO_fixed_convert_expr,
+  LTO_fixed_cst,
   LTO_fix_ceil_expr,
   LTO_fix_floor_expr,
   LTO_fix_round_expr,
