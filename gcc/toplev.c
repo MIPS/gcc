@@ -2205,7 +2205,7 @@ start_as (char **as_argv)
 	 redeclared in a number of files.  Yay.  */
       asm_out_file = pex_input_pipe (px, 0);
 
-      errstr = pex_run (px, PEX_LAST | PEX_SEARCH, as_argv[0], as_argv + 1,
+      errstr = pex_run (px, PEX_LAST | PEX_SEARCH, as_argv[0], as_argv,
 			NULL, NULL, &pxerr);
       if (errstr)
 	{

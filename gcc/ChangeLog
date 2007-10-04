@@ -1,3 +1,15 @@
+2007-10-04  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (bind): Note a smash when needed.
+	(c_decl_re_bind): Pass function definitions to
+	cgraph_finalize_function.
+	(c_builtin_function): Don't use decl's TREE_CHAIN for
+	visible_builtins linked list.
+	(push_file_scope): Update.
+	(duplicate_decls): Also avoid smashing objects in external scope.
+	(start_function): Don't call c_parser_note_smash.
+	* toplev.c (start_as): Fix argv argument to pex_run.
+
 2007-10-01  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_translation_unit): Make next_token a

@@ -516,6 +516,10 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible, bool nested,
   while (*here && (*here)->depth > scope->depth)
     here = &(*here)->shadowed;
 
+  if (!notify_ok && *here && (*here)->depth == scope->depth
+      && B_IN_FILE_SCOPE (scope)) /* FIXME: zenity crash w/o this here... */
+    c_parser_note_smash ((*here)->decl, decl);
+
   b->shadowed = *here;
   *here = b;
 }
@@ -540,7 +544,13 @@ c_decl_re_bind (tree name, tree decl)
 	  /*notify_ok=*/false);
 
   TREE_ASM_WRITTEN (decl) = 0;
-  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
+    {
+      /* Function has already been genericized, so just tell cgraph
+	 about it.  */
+      cgraph_finalize_function (decl, false);
+    }
+  else if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
     {
       /* FIXME: moral equivalent of decl smashing here.  */
       if (DECL_INITIAL (decl) == NULL_TREE
@@ -942,7 +952,7 @@ pop_scope (void)
 void
 push_file_scope (void)
 {
-  tree decl;
+  tree iter;
 
   if (file_scope)
     return;
@@ -952,9 +962,15 @@ push_file_scope (void)
 
   start_fname_decls ();
 
-  for (decl = visible_builtins; decl; decl = TREE_CHAIN (decl))
-    bind (DECL_NAME (decl), decl, file_scope,
-	  /*invisible=*/false, /*nested=*/true, /*notify_ok=*/true);
+  /* FIXME: some overlap between visible_builtins and all_c_built_ins.
+     Also, visible_builtins should probably be a set rather than using
+     tree_cons.  */
+  for (iter = visible_builtins; iter; iter = TREE_CHAIN (iter))
+    {
+      tree decl = TREE_VALUE (iter);
+      bind (DECL_NAME (decl), decl, file_scope,
+	    /*invisible=*/false, /*nested=*/true, /*notify_ok=*/true);
+    }
 }
 
 void
@@ -2085,7 +2101,12 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 
   if (need_merge)
     {
-      if (B_IN_FILE_SCOPE (binding) && !object_in_current_hunk_p (olddecl))
+      /* Objects in any non-local scope have to be duplicated here,
+	 since we do not want to smash any generally visible (and
+	 reusable) decl.  FIXME: should make just one duplicate for
+	 both scopes.  */
+      if ((B_IN_FILE_SCOPE (binding) || B_IN_EXTERNAL_SCOPE (binding))
+	  && !object_in_current_hunk_p (olddecl))
 	{
 	  /* Modify a copy of OLDDECL and install that in the
 	     bindings.  */
@@ -2096,6 +2117,7 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 	  /* FIXME: this triggers building libgcc.  */
 /* 	  gcc_assert (binding->decl == olddecl); */
 	  binding->decl = copy;
+	  c_parser_bind_callback (DECL_NAME (copy), copy);
 	  c_parser_note_smash (olddecl, copy);
 	}
       else
@@ -3076,8 +3098,9 @@ c_builtin_function (tree decl)
       slot = htab_find_slot (all_c_built_ins, decl, INSERT);
       *slot = decl;
 
-      TREE_CHAIN (decl) = visible_builtins;
-      visible_builtins = decl;
+      /* We use tree_cons here rather than the decl's TREE_CHAIN as
+	 the latter is re-used when popping scopes.  */
+      visible_builtins = tree_cons (NULL_TREE, decl, visible_builtins);
     }
 
   return decl;
@@ -6497,10 +6520,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* Record the decl so that the function name is defined.
      If we already have a decl for this name, note that we smashed it.  */
 
-  old_decl = pushdecl (decl1);
-  if (decl1 != old_decl)
-    c_parser_note_smash (old_decl, decl1);
-  current_function_decl = decl1;
+  current_function_decl = pushdecl (decl1);
 
   push_scope ();
   declare_parm_level ();
