@@ -1,5 +1,10 @@
 2007-10-05  Tom Tromey  <tromey@redhat.com>
 
+	* c-decl.c (c_clear_binding_stack): Move early exit...
+	(c_write_global_declarations): ... here.
+
+2007-10-05  Tom Tromey  <tromey@redhat.com>
+
 	* gdbinit.in (pt): Accept argument.
 
 2007-10-04  Tom Tromey  <tromey@redhat.com>

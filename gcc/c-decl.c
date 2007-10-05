@@ -8124,11 +8124,6 @@ c_clear_binding_stack (void)
   if (pch_file)
     return;
 
-  /* Don't waste time on further processing if -fsyntax-only or we've
-     encountered errors.  */
-  if (flag_syntax_only || errorcount || sorrycount || cpp_errors (parse_in))
-    return;
-
   /* Close the external scope.  */
   /* FIXME: we're keeping ext_block around too long in the server.  */
   ext_block = pop_scope ();
@@ -8152,6 +8147,11 @@ void
 c_write_global_declarations (void)
 {
   tree t;
+
+  /* Don't waste time on further processing if -fsyntax-only or we've
+     encountered errors.  */
+  if (flag_syntax_only || errorcount || sorrycount || cpp_errors (parse_in))
+    return;
 
   /* Process all file scopes in this compilation, and the external_scope,
      through wrapup_global_declarations and check_global_declarations.  */
