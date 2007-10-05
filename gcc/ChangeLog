@@ -1,3 +1,7 @@
+2007-10-05  Tom Tromey  <tromey@redhat.com>
+
+	* gdbinit.in (pt): Accept argument.
+
 2007-10-04  Tom Tromey  <tromey@redhat.com>
 
 	* toplev.c (char_p): New typedef.

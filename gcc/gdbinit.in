@@ -23,11 +23,17 @@ it using debug_rtx_list. Usage example: set $foo=debug_rtx_find(first, 42)
 end
 
 define pt
-set debug_tree ($)
+  if $argc == 0
+    set debug_tree ($)
+  else
+    set debug_tree ($arg0)
+  end
 end
 
 document pt
-Print the full structure of the tree that is $.
+Print the full structure of a tree.
+The tree may be passed as an argument to pt.
+If no argument is given, uses $.
 Works only when an inferior is executing.
 end
 
