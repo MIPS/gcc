@@ -1,0 +1,3 @@
+2007-10-05  Diego Novillo  <dnovillo@google.com>
+
+	* lib/gcc-dg.exp: Enable -flto at -O2.

@@ -429,6 +429,7 @@ get_trampoline_type (void)
   TYPE_NAME (record) = get_identifier ("__builtin_trampoline");
   TYPE_FIELDS (record) = t;
   layout_type (record);
+  DECL_CONTEXT (t) = record;
 
   return record;
 }

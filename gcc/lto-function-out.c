@@ -1118,7 +1118,7 @@ output_constructor (struct output_block *ob, tree ctor)
 
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), idx, purpose, value)
     {
-      if (TREE_CODE (purpose) == RANGE_EXPR)
+      if (purpose && TREE_CODE (purpose) == RANGE_EXPR)
 	{
 	  output_record_start (ob, NULL, NULL, LTO_constructor_range);
 	  /* Need the types here to reconstruct the ranges.  */
@@ -1278,7 +1278,7 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case VAR_DECL:
-      if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
+      if (DECL_CONTEXT (expr) == NULL_TREE)
 	{
 	  bool new;
 	  output_record_start (ob, NULL, NULL, LTO_var_decl1);
@@ -2191,10 +2191,11 @@ lto_output (void)
     if (node->analyzed && cgraph_is_master_clone (node, false))
       output_function (node->decl);
 
-  /* Process the static vars that have initializers or
+  /* Process the global static vars that have initializers or
      constructors.  */
   FOR_EACH_STATIC_INITIALIZER (vnode)
-    output_constructor_or_init (vnode->decl);
+    if (DECL_CONTEXT (vnode->decl) == NULL_TREE)
+      output_constructor_or_init (vnode->decl);
 
   /* Put back the assembly section that was there before we started
      writing lto info.  */

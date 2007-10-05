@@ -10374,9 +10374,10 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 /* Determine whether the evaluation of EXPR references any variables
    or functions which aren't otherwise used (and therefore may not be
    output).  */
+
 static tree
-reference_to_unused (tree * tp, int * walk_subtrees,
-		     void * data ATTRIBUTE_UNUSED)
+may_reference_to_unused (tree * tp, int * walk_subtrees,
+			 void * data ATTRIBUTE_UNUSED)
 {
   if (! EXPR_P (*tp) && ! GIMPLE_STMT_P (*tp) && ! CONSTANT_CLASS_P (*tp))
     *walk_subtrees = 0;
@@ -10388,7 +10389,12 @@ reference_to_unused (tree * tp, int * walk_subtrees,
     return NULL_TREE;
   else if (!cgraph_global_info_ready
 	   && (TREE_CODE (*tp) == VAR_DECL || TREE_CODE (*tp) == FUNCTION_DECL))
-    gcc_unreachable ();
+    {
+      /* We don't know if a DECL is really unsued until we have seen
+ 	 the complete call graph.  With no reliable information, we need to
+	 be conservative.  */
+      return *tp;
+    }
   else if (DECL_P (*tp) && TREE_CODE (*tp) == VAR_DECL)
     {
       struct varpool_node *node = varpool_node (*tp);
@@ -10444,7 +10450,7 @@ rtl_for_decl_init (tree init, tree type)
      immediate RTL constant, expand it now.  We must be careful not to
      reference variables which won't be output.  */
   else if (initializer_constant_valid_p (init, type)
-	   && ! walk_tree (&init, reference_to_unused, NULL, NULL))
+	   && ! walk_tree (&init, may_reference_to_unused, NULL, NULL))
     {
       /* Convert vector CONSTRUCTOR initializers to VECTOR_CST if
 	 possible.  */
