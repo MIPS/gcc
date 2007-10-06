@@ -1,3 +1,27 @@
+2007-10-05  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c: Include dwarf2out.h.
+	(lto_cache_store_DIE): Assert that we never change the value.
+	(LTO_BEGIN_READ_ATTRS): Print an informative error message.
+	(lto_read_compile_unit_DIE): Handle DW_AT_entry_pc.
+	(lto_read_array_type_DIE): Don't error on ndims == 0; build a
+	sensible type instead.
+	(lto_read_structure_union_class_type_DIE): Store the newly
+	created type prior to reading the members of the structure to
+	avoid infinite recursion.  Avoid computing types and alignments
+	for structures whose sizes are unknown.
+	(lto_read_variable_formal_parameter_const): Handle DW_AT_artificial
+	and set DECL_ARTIFICIAL accordingly.  Ignore DW_AT_abstract_origin,
+	DW_AT_const_value, and DW_AT_specification.
+	(lto_read_subroutine_type_subprogram_DIE): Handle DW_AT_declaration.
+	Return early if we have already constructed the function type.
+	(lto_read_typedef_DIE): Check to see if the type has been cached
+	already.  Cache the type before reading any children.
+	(lto_read_const_volatile_restrict_type_DIE): Handle DW_AT_name.
+	(lto_read_DIE): Unset context->skip_non_parameters around reading
+	the DIE.
+	(lto_resolve_fn_ref): Delete trailing whitespace.
+
 2007-09-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_expr_operand): Added type for STRING_CST.

@@ -25,6 +25,7 @@ Boston, MA 02110-1301, USA.  */
 #include "opts.h"
 #include "toplev.h"
 #include "dwarf2.h"
+#include "dwarf2out.h"          /* For dwarf_attr_name.  */
 #include "tree.h"
 #include "tm.h"
 #include "cgraph.h"
@@ -1201,14 +1202,20 @@ lto_cache_store_DIE (lto_info_fd *fd,
   slot = htab_find_slot_with_hash (fd->die_cache, die, 
 				   htab_hash_pointer (die),
 				   INSERT);
-  /* There can only be one entry for a given DIE.  */
-  gcc_assert (!*slot);
-  /* Store the value.  */
-  entry = XNEW (lto_die_cache_entry);
-  entry->die = die;
-  entry->val = val;
-  entry->sibling = fd->base.cur;
-  *slot = entry;
+  if (!*slot)
+    {
+      /* Store the value.  */
+      entry = XNEW (lto_die_cache_entry);
+      entry->die = die;
+      entry->val = val;
+      entry->sibling = fd->base.cur;
+      *slot = entry;
+    }
+  else
+    {
+      /* We should not change the value once created.  */
+      gcc_assert (((lto_die_cache_entry *) *slot)->val == val);
+    }
 }
 
 /* If FD points to a DIE that has already been processed, return the
@@ -1373,6 +1380,7 @@ lto_find_integral_type (tree base_type, int byte_size, bool got_byte_size)
 #define LTO_BEGIN_READ_ATTRS()			\
   LTO_BEGIN_READ_ATTRS_UNCHECKED()		\
     default:					\
+      fprintf (stderr, "Unhandled attribute in %s: %s\n", __FUNCTION__, dwarf_attr_name (attr->name)); \
       lto_file_corrupt_error ((lto_fd *)fd);	\
       break;  
 
@@ -1485,6 +1493,7 @@ lto_read_compile_unit_DIE (lto_info_fd *fd,
 
     case DW_AT_low_pc:
     case DW_AT_high_pc:
+    case DW_AT_entry_pc:
     case DW_AT_ranges:
     case DW_AT_name:
     case DW_AT_stmt_list:
@@ -1569,24 +1578,27 @@ lto_read_array_type_DIE (lto_info_fd *fd,
 
   /* Construct and cache the array type object for our caller.  */
   if (ndims == 0)
-    lto_file_corrupt_error ((lto_fd *)fd);
-  if (order == -1)
-    {
-      istart = ndims - 1;
-      iend = -1;
-    }
+    type = build_array_type (type, NULL_TREE);
   else
     {
-      gcc_assert (order == 1);
-      istart = 0;
-      iend = ndims;
-    }
-  for (i = istart; i != iend; i += order)
-    {
-      tree dim = VEC_index (tree, dims, i);
-      if (!dim || ! INTEGRAL_TYPE_P (dim))
-	lto_file_corrupt_error ((lto_fd *)fd);	
-      type = build_array_type (type, dim);
+      if (order == -1)
+        {
+          istart = ndims - 1;
+          iend = -1;
+        }
+      else
+        {
+          gcc_assert (order == 1);
+          istart = 0;
+          iend = ndims;
+        }
+      for (i = istart; i != iend; i += order)
+        {
+          tree dim = VEC_index (tree, dims, i);
+          if (!dim || ! INTEGRAL_TYPE_P (dim))
+            lto_file_corrupt_error ((lto_fd *)fd);	
+          type = build_array_type (type, dim);
+        }
     }
   VEC_free (tree, heap, dims);
   return type;
@@ -1695,6 +1707,16 @@ lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
       TYPE_SIZE_UNIT (type) = size_int (size);
     }
 
+  /* Store this entry so that cases like:
+
+     struct foo {
+       struct foo *next;
+       ....
+     }
+
+     don't cause infinite recursion.  */
+  lto_cache_store_DIE (fd, die, type);
+
   /* Process the members.  */
   parentdata = context->parentdata;
   context->parentdata = type;
@@ -1777,12 +1799,16 @@ lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
     }
   VEC_free (tree, heap, children);
 
-  /* The type mode isn't encoded in the DWARF spec, either, so just recompute
-     it from scratch.  */
-  compute_record_mode (type);
-  if (GET_MODE_ALIGNMENT (TYPE_MODE (type)) > align)
-    align = GET_MODE_ALIGNMENT (TYPE_MODE (type));
-  TYPE_ALIGN (type) = align;
+  /* We might not have any information about how big the structure is.  */
+  if (size)
+    {
+      /* The type mode isn't encoded in the DWARF spec, either, so just
+         recompute it from scratch.  */
+      compute_record_mode (type);
+      if (GET_MODE_ALIGNMENT (TYPE_MODE (type)) > align)
+        align = GET_MODE_ALIGNMENT (TYPE_MODE (type));
+      TYPE_ALIGN (type) = align;
+    }
 
   /* Finish debugging output for this type.  */
   if (!declaration)
@@ -1932,6 +1958,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   tree type;
   bool external;
   bool declaration;
+  bool artificial;
   enum tree_code code;
   tree decl;
 
@@ -1956,6 +1983,9 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     case DW_AT_decl_column:
     case DW_AT_decl_file:
     case DW_AT_decl_line:
+    case DW_AT_abstract_origin:
+    case DW_AT_const_value:
+    case DW_AT_specification:
       /* Ignore.  */
       break;
 
@@ -1966,6 +1996,10 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 	 available.  */
       if (!asm_name)
 	asm_name = name;
+      break;
+
+    case DW_AT_artificial:
+      artificial = attr_data.u.flag;
       break;
 
     case DW_AT_external:
@@ -1982,10 +2016,8 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
       declaration = attr_data.u.flag;
       break;
 
-    case DW_AT_specification:
     case DW_AT_variable_parameter:
     case DW_AT_is_optional:
-    case DW_AT_const_value:
       lto_unsupported_attr_error (abbrev, attr);
       break;
 
@@ -2028,6 +2060,8 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     {
       /* Build the tree node for this entity.  */
       decl = build_decl (code, name, type);
+
+      DECL_ARTIFICIAL (decl) = artificial;
 
       /* Parameter decls never have external linkage, never need merging,
 	 etc.  */
@@ -2317,6 +2351,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   tree asm_name = NULL_TREE;
   bool external;
   bool prototyped;
+  bool declaration;
   tree result;
   tree saved_scope;
   int inlined = DW_INL_not_inlined;
@@ -2361,6 +2396,10 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	case DW_AT_frame_base:
 	  /* Ignore.  */
 	  break;
+
+        case DW_AT_declaration:
+          declaration = attr_data.u.flag;
+          break;
 
 	case DW_AT_name:
 	  name = lto_get_identifier (&attr_data);
@@ -2425,6 +2464,15 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 
       if (!context->varargs_p)
 	*context->last_parm_type = void_list_node;
+    }
+
+  /* We might have constructed the necessary type already while reading
+     attributes.  */
+  if (abbrev->tag == DW_TAG_subroutine_type)
+    {
+      tree result = lto_cache_lookup_DIE (fd, die, false);
+
+      if (result) return result;
     }
 
   /* Build the function type.  */
@@ -2554,6 +2602,12 @@ lto_read_typedef_DIE (lto_info_fd *fd,
     }
   LTO_END_READ_ATTRS ();
 
+  {
+    tree type = lto_cache_lookup_DIE (fd, die, false);
+
+    if (type) return type;
+  }
+
   /* The DW_AT_name attribute is required.  */
   if (!name)
     lto_file_corrupt_error ((lto_fd *)fd);
@@ -2569,6 +2623,9 @@ lto_read_typedef_DIE (lto_info_fd *fd,
   decl = build_decl (TYPE_DECL, name, type);
   TYPE_NAME (type) = decl;
   DECL_ORIGINAL_TYPE (decl) = base_type;
+
+  /* Store this future references in our children.  */
+  lto_cache_store_DIE (fd, die, type);
 
   lto_read_child_DIEs (fd, abbrev, context);
   return type;
@@ -2880,6 +2937,9 @@ lto_read_const_volatile_restrict_type_DIE (lto_info_fd *fd,
 						context, 
 						attr_data.u.reference);
       break;
+    case DW_AT_name:
+      /* Ignore.  FIXME: is this right?  */
+      break;
     }
   LTO_END_READ_ATTRS ();
 
@@ -3059,12 +3119,22 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 
       if (reader)
 	{
+          /* If we are reading some sort of formal parameter or
+             unspecified parameter, then we need to unset
+             context->skip_non_parameters to read the types for said
+             parameter.  */
+          bool saved_skip_non_parameters = context->skip_non_parameters;
+
+          context->skip_non_parameters = false;
+
 	  /* If there is a reader, use it.  */
 	  val = reader (fd, die, abbrev, context);
 	  /* If this DIE refers to a type, cache the value so that future
 	     references to the type can be processed quickly.  */
 	  if (val && TYPE_P (val))
 	    lto_cache_store_DIE (fd, die, val);
+
+          context->skip_non_parameters = saved_skip_non_parameters;
 	}
       else
 	{
@@ -3322,7 +3392,7 @@ lto_resolve_fn_ref (lto_info_fd *info_fd,
   /* Map DIE to a variable.  */
   fn = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
   if (!fn || TREE_CODE (fn) != FUNCTION_DECL)
-    lto_file_corrupt_error ((lto_fd *)info_fd); 
+    lto_file_corrupt_error ((lto_fd *)info_fd);
   /* Clean up.  */
   if (new_context != context)
     XDELETE (new_context);

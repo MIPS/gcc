@@ -27,6 +27,7 @@ extern void debug_dwarf (void);
 struct die_struct;
 extern void debug_dwarf_die (struct die_struct *);
 extern void dwarf2out_set_demangle_name_func (const char *(*) (const char *));
+extern const char *dwarf_attr_name (unsigned);
 
 /* The LTO representations for the bodies of functions may refer to
    the LTO representations of global functions, variables, and

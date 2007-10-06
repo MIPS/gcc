@@ -4089,7 +4089,6 @@ static int is_pseudo_reg (const_rtx);
 static tree type_main_variant (tree);
 static int is_tagged_type (const_tree);
 static const char *dwarf_tag_name (unsigned);
-static const char *dwarf_attr_name (unsigned);
 static const char *dwarf_form_name (unsigned);
 static tree decl_ultimate_origin (const_tree);
 static tree block_ultimate_origin (const_tree);
@@ -4617,7 +4616,7 @@ dwarf_tag_name (unsigned int tag)
 
 /* Convert a DWARF attribute code into its string name.  */
 
-static const char *
+const char *
 dwarf_attr_name (unsigned int attr)
 {
   switch (attr)

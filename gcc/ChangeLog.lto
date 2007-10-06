@@ -1,3 +1,9 @@
+2007-10-05  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.h (dwarf_attr_name): Declare.
+	* dwarf2out.c (dwarf_attr_name): Remove declaration and change
+	definition accordingly.
+
 2007-10-05  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_constructor): Handle constructor elts
