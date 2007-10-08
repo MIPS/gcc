@@ -267,6 +267,24 @@ cgraph_note_duplicate (tree decl, tree duplicate)
 	      && TREE_CODE (duplicate) == FUNCTION_DECL);
   gcc_assert (decl != duplicate);
 
+  if (cgraph_hash)
+    {
+      struct cgraph_node key, **cg_slot;
+      key.decl = decl;
+      cg_slot = (struct cgraph_node **) htab_find_slot (cgraph_hash, &key,
+							NO_INSERT);
+      if (cg_slot && *cg_slot)
+	{
+	  /* We already saw a definition of the function, so reverse
+	     the duplication.  */
+	  tree tem;
+	  gcc_assert (DECL_INITIAL (decl));
+	  tem = duplicate;
+	  duplicate = decl;
+	  decl = tem;
+	}
+    }
+
   if (!duplicate_map)
     duplicate_map = pointer_map_create ();
 

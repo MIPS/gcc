@@ -1,3 +1,10 @@
+2007-10-08  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (pushdecl): Update file scope decl as well.
+	* cgraph.c (cgraph_note_duplicate): Swap decl and duplicate when
+	function already defined.
+	* cgraphbuild.c (record_reference): Don't canonicalize decl.
+
 2007-10-05  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (c_clear_binding_stack): Move early exit...
