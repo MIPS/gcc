@@ -1,3 +1,183 @@
+2007-10-08  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33689
+	* resolve.c (gfc_resolve_expr): Fix indentation.
+	(resolve_fl_variable_derived): Rename argument.
+	(resolve_fl_variable): Fix case in message.  Clarify logic.
+	Correctly simplify array bounds.
+
+2007-10-07  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/33683
+	* mathbuiltins.def (GAMMA):  Change function name to
+	"tgamma" instad of "gamma".
+
+2007-10-07  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/20851
+	* expr.c (check_inquiry): Typo fix in error message.
+	(check_init_expr): Same * 3.
+	(check_restricted): Verify that no dummy arguments appear in
+	restricted expressions in ELEMENTAL procedures.
+	* resolve.c (resolve_fl_variable): Exchange order of checks to
+	avoid side-effect.
+
+2007-10-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33609
+	* simplify.c (range_check): Return gfc_bad_expr if incoming expression 
+	is NULL.
+
+2007-10-06  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	* simplify.c (gfc_simplify_size): Fix typo.
+
+2007-10-06  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/25076
+	* resolve.c (gfc_find_forall_index): Move towards top,
+	renaming to ...
+	(find_forall_index): ... this.  Add check for NULL expr.
+	(resolve_forall_iterators): Verify additional constraint.
+	(resolve_forall): Remove checks obsoleted by new code in
+	resolve_forall_iterators.
+
+2007-10-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.h (gfc_get_data_variable, gfc_get_data_value,
+	gfc_get_data): Move to decl.c.
+	(global_used): Rename into gfc_global_used.
+	(gfc_formalize_init_value, gfc_get_section_index,
+	gfc_assign_data_value, gfc_assign_data_value_range,
+	gfc_advance_section): Move to data.h.
+	(gfc_set_in_match_data): Remove.
+	* decl.c (gfc_get_data_variable, gfc_get_data_value,
+	gfc_get_data): Move here.
+	(gfc_set_in_match_data): Rename into set_in_match_data.
+	(gfc_match_data): Likewise.
+	(add_global_entry): Rename global_used into gfc_global_used.
+	* data.c: Include data.h.
+	* trans.h (gfc_todo_error): Remove.
+	* trans-array.c (gfc_trans_array_constructor,
+	gfc_conv_ss_startstride, gfc_conv_loop_setup): Change
+	gfc_todo_error into assertions.
+	* resolve.c (resolve_global_procedure): Rename global_used into
+	gfc_global_used.
+	* parse.c (gfc_global_used, parse_module, add_global_procedure,
+	add_global_program): Likewise.
+	* trans-intrinsic.c (gfc_walk_intrinsic_function): Rename
+	global_used into gfc_global_used.
+	* Make-lang.in: Add dependencies on fortran/data.h.
+	* data.h: New file.
+
+2007-10-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33529
+	* decl.c (match_char_kind): New function.
+	(match_char_spec): Use match_char_kind.
+
+2007-10-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33502
+	* scanner.c (gfc_advance_line): Call debug_hooks->end_source_file
+	and debug_hooks->start_source_file when appropriate, and set
+	dbg_emitted.
+	(gfc_define_undef_line): New function.
+	(load_file): Don't error out on #define and #undef lines.
+	* parse.c (next_statement): Call gfc_define_undef_line.
+	(gfc_parse_file): Call debug_hooks->start_source_file and
+	debug_hooks->end_source_file for the main source file if
+	required.
+	* gfortran.h (gfc_linebuf): Add dbg_emitted field.
+	(gfc_define_undef_line): New prototype.
+
+2007-10-04  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33626
+	* resolve.c (resolve_operator): Always copy the type for
+	expressions in parentheses.
+
+2007-10-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33646
+	PR fortran/33542
+	* interface.c (check_interface1): Revert patch of 10-02.
+
+2007-10-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/26682
+	* trans-decl.c (build_function_decl): Set "externally_visible"
+	attribute on the MAIN program decl.
+
+2007-10-03  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33198
+	* resolve.c (has_default_initializer): Move to top.  Make bool.
+	(resolve_common_blocks): Simplify logic.  Add case for derived
+	type initialization.
+	(resolve_fl_variable_derived): Split out from ...
+	(resolve_fl_variable): ... here, while adapting to new h_d_i
+	interface.
+
+2007-10-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/26682
+	* options.c (gfc_post_options): Issue an error when
+	-fwhole-program is used.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33542
+	* interface.c (check_interface1): Specific procedures are
+	always ambiguous if they have the same name.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33566
+	* primary.c (gfc_match_rvalue): Make all expressions with array
+	references to structure parameters into variable expressions.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33554
+	* trans-decl.c (init_intent_out_dt): New function.
+	(gfc_trans_deferred_vars): Remove the code for default
+	initialization of INTENT(OUT) derived types and put it
+	in the new function.  Call it earlier than before, so
+	that array offsets and lower bounds are available.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33550
+	* decl.c (get_proc_name): Return rc if rc is non-zero; ie. if
+	the name is a reference to an ambiguous symbol.
+
+2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31154
+	PR fortran/31229
+	PR fortran/33334
+	* decl.c : Declare gfc_function_kind_locs and
+	gfc_function_type_locus.
+	(gfc_match_kind_spec): Add second argument kind_expr_only.
+	Store locus before trying to match the expression. If the
+	current state corresponds to a function declaration and there
+	is no match to the expression, read to the parenthesis, return
+	kind = -1, dump the expression and return.
+	(gfc_match_type_spec): Renamed from match_type_spec and all
+	references changed.  If an interface or an external function,
+	store the locus, set kind = -1 and return.  Otherwise, if kind
+	is already = -1, use gfc_find_symbol to try to find a use
+	associated or imported type.
+	match.h : Prototype for gfc_match_type_spec.
+	* parse.c (match_deferred_characteristics): New function.
+	(parse_spec): If in a function, statement is USE or IMPORT
+	or DERIVED_DECL and the function kind=-1, call
+	match_deferred_characteristics.  If kind=-1 at the end of the
+	specification expressions, this is an error.
+	* parse.h : Declare external gfc_function_kind_locs and
+	gfc_function_type_locus.
+
 2007-09-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* module.c (mio_expr): Avoid -Wcast-qual warning.

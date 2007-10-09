@@ -1,3 +1,22 @@
+2007-10-08  Ollie Wild  <aaw@google.com>
+
+	* misc.c (LANG_HOOKS_PUSHDECL): Replaced lhd_return_tree with
+	gnat_return_tree.
+	(gnat_init_gcc_eh): Replaced gnat_eh_runtime_type with
+	gnat_return_tree.
+	(gnat_eh_runtime_type): Removed.
+	(gnat_return_tree): New function.
+
+2007-10-08  Ben Elliston  <bje@au.ibm.com>
+
+	PR ada/33454
+	Revert:
+	2007-08-31  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.in (LIBGNAT_TARGET_PAIRS): Use system-linux-ppc64.ads
+	when compiling for powerpc64-*-linux.
+	* system-linux-ppc64.ads: New file.
+
 2007-09-27  Eric Botcazou  <ebotcazou@adacore.com>
 
 	Mapped location support

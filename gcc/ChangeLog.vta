@@ -269,10 +269,6 @@
 
 2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
 
-	* cfgrtl.c (rtl_block_ends_with_call_p): Skip notes at the end.
-
-2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
-
 	* tree-inline.c (self_inlining_addr_expr): Delete.
 	(setup_one_parameter): Drop fn argument.  Adjust callers.
 	Don't short-circuit optimization of declarations.
@@ -281,22 +277,6 @@
 
 	* ifcvt.c (noce_process_if_block): Try to handle only the then
 	block if the else block exists but isn't suitable.
-
-2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
-
-	* gcse.c (hash_scan_set): Insert set in insn before note at
-	the end of basic block.
-
-2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
-
-	PR tree-optimization/33572
-	* tree-cfg.c (verify_stmts): Check for missing PHI defs.
-	* tree-inline.c (update_ssa_across_eh_edges): Renamed to...
-	(update_ssa_across_abnormal_edges): ... this.  Set slots in the
-	return PHI node.
-	(copy_edges_for_bb): Handle nonlocal label edges.
-	(make_nonlocal_label_edges): Deleted.
-	(optimize_inline_calls): Don't call it.
 
 2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
 

@@ -1,3 +1,481 @@
+2007-10-08  Johannes Singler  <singler@ira.uka.de>
+
+	* include/parallel/base.h: Added plus and multiplies functor
+       for differently typed objects.
+	* include/parallel/numeric: Use it.
+	* include/parallel/for_each_selectors.h: Allowed different types.
+	* include/parallel/partial_sum.h: Fixed return value.
+	* testsuite/26_numerics/accumulate/1.cc: Tests for accumulate.
+	* testsuite/26_numerics/inner_product/1.cc: Tests for inner_product.
+
+2007-10-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_move.h (_GLIBCXX_MOVE): Add.
+	* include/bits/stl_algobase.h: Adjust.
+	* include/bits/stl_pair.h: Likewise.
+
+	* include/bits/stl_algo.h: Minor formatting fixes.
+
+2007-10-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/33489	
+	* include/parallel/multiseq_selection.h: Remove default constructed
+	value_type.
+	* include/parallel/partition.h: 
+	* include/parallel/partial_sum.h: Format.
+
+2007-10-08  Johannes Singler  <singler@ira.uka.de>
+
+        * include/parallel/multiway_merge.h: Added reference to paper.
+        * include/parallel/multiseq_selection.h: Added reference to paper.
+        * include/parallel/workstealing.h: Added reference to paper.
+        * include/parallel/balanced_quicksort.h: Added reference to paper.
+        * include/parallel/tree.h: Added reference to paper.
+        * docs/html/parallel_mode.html: Added reference to MCSTL.
+        More documentation on compile-time settings and tuning.
+
+2007-10-08  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/utility (identity, move, forward): Move to...
+	* include/bits/stl_move.h: ... here.
+	* include/Makefile.am: Add.
+	* include/bits/stl_algobase.h: Include the latter.
+	* include/Makefile.in: Regenerate.
+	* testsuite/20_util/pair/moveable.cc: Remove dg-require-rvalref.
+
+2007-10-08  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_pair.h (pair<>:pair(pair&&),
+	pair<>::operator=(pair&&)): Add.
+
+2007-10-07  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/debug/list (list<>::list(list&&),
+	list<>::operator=(list&&)): Add.
+	(list<>::swap): Adjust.
+	(swap(list&&, list& __y), swap(list&, list&& __y)): Add.
+	* include/debug/vector (vector<>::vector(vector&&),
+	vector<>::operator=(vector&&)): Add.
+	(vector<>::swap): Adjust.
+	(swap(vector&&, vector& __y), swap(vector&, vector&& __y)): Add.
+	* include/debug/deque (deque<>::deque(deque&&),
+	deque<>::operator=(deque&&)): Add.
+	(deque<>::swap): Adjust.
+	(swap(deque&&, deque& __y), swap(deque&, deque&& __y)): Add.
+	* include/debug/set.h (set<>::set(set&&),
+	set<>::operator=(set&&)): Add.
+	(set<>::swap): Adjust.
+	(swap(set&&, set& __y), swap(set&, set&& __y)): Add.
+	* include/debug/map.h (map<>::map(map&&),
+	map<>::operator=(map&&)): Add.
+	(map<>::swap): Adjust.
+	(swap(map&&, map& __y), swap(map&, map&& __y)): Add.
+	* include/debug/multiset.h (multiset<>::multiset(multiset&&),
+	multiset<>::operator=(multiset&&)): Add.
+	(smultiet<>::swap): Adjust.
+	(swap(multiset&&, multiset& __y),
+	swap(multiset&, multiset&& __y)): Add.
+	* include/debug/multimap.h (multimap<>::multimap(multimap&&),
+	multimap<>::operator=(multimap&&)): Add.
+	(multimap<>::swap): Adjust.
+	(swap(multimap&&, multimap& __y),
+	swap(multimap&, multimap&& __y)): Add.
+
+2007-10-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (_GLIBCXX_MOVE): Add.
+	(swap, __iter_swap): Use it.
+	* testsuite/25_algorithms/rotate/moveable.cc: Remove 
+	dg-require-rvalref.
+	* testsuite/25_algorithms/remove/moveable.cc: Likewise.
+	* testsuite/25_algorithms/partition/moveable.cc: Likewise. 
+	* testsuite/25_algorithms/swap_ranges/moveable.cc: Likewise.
+	* testsuite/25_algorithms/reverse/moveable.cc: Likewise. 
+	* testsuite/25_algorithms/unique/moveable.cc: Likewise. 
+	* testsuite/25_algorithms/remove_if/moveable.cc: Likewise. 
+
+	* include/bits/stl_algobase.h (lexicographical_compare):
+	Clean up.
+
+2007-10-07  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (remove, remove_if, unique,
+	__rotate(_RandomAccessIterator, _RandomAccessIterator,
+	_RandomAccessIterator, random_access_iterator_tag)): Use _GLIBCXX_MOVE.
+	(__rotate(_ForwardIterator, _ForwardIterator, _ForwardIterator,
+	forward_iterator_tag), __rotate(_BidirectionalIterator,
+	_BidirectionalIterator, _BidirectionalIterator,
+	bidirectional_iterator_tag), __partition(_ForwardIterator,
+	_ForwardIterator, _Predicate, forward_iterator_tag)): Use iter_swap.
+
+2007-10-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/33678	
+	* libsupc++/typeinfo (typeinfo): Revert ordering of virtual components.
+
+2007-10-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/33487
+	* include/parallel/algorithmfwd.h (for_each, generate, generate_n,
+	transform, replace, replace_if, max_element, min_element, count,
+	count_if): Consistently construct overloads.
+	* include/parallel/numericfwd.h (accumulate, adjacent_difference,
+	inner_product): Same.
+	* include/parallel/algobase.h: Same.
+	* include/parallel/algo.h: Same.
+	* include/parallel/numeric: Same.
+
+	* include/bits/algorithmfwd.h: Correct find_end placement.
+
+	* docs/html/parallel_mode.html: Document some of the interface
+	conventions.
+
+	* include/parallel/search.h (calc_borders): Only use operator ==.
+	
+	* include/parallel/algorithmfwd.h: Move __gnu_sequential bits to...
+	* include/parallel/tags.h: ...here, and use a using directive.
+
+	* include/parallel/random_shuffle.h: Include stl_numeric. Qualify
+	uses of partial_num with __gnu_sequential.
+
+	* include/parallel/tree.h: Formatting.
+	
+2007-10-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Fixes for --disable-libstdcxx-pch.
+	* include/ext/rc_string_base.h: Include stl_iterator_base_funcs.h.
+	* include/ext/vstring_util.h: Include stl_iterator.h and
+	numeric_traits.h.
+	* include/tr1/functional: Include new.
+	* testsuite/util/testsuite_api.h: Include exception.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Set
+	PCH_CXXFLAGS via cxxpchflags.
+
+	* testsuite/25_algorithms/binary_search/requirements/
+	explicit_instantiation/2.cc: Same.: Fix includes.
+	* testsuite/25_algorithms/count_if/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/equal_range/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/find_end/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/find_first_of/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/find_if/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/for_each/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/includes/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/inplace_merge/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/lexicographical_compare/
+	requirements/explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/lower_bound/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/make_heap/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/max_element/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/max/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/merge/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/min_element/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/min/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/next_permutation/
+	requirements/explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/nth_element/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/partial_sort_copy/
+	requirements/explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/partial_sort/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/partition/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/pop_heap/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/prev_permutation/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/push_heap/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/random_shuffle/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/remove_copy_if/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/remove_if/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/replace_copy_if/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/replace_if/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/search_n/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/search/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/set_difference/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/set_intersection/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/set_symmetric_difference/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/set_union/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/sort_heap/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/sort/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/stable_partition/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/stable_sort/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/transform/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/unique_copy/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/unique/requirements/
+	explicit_instantiation/2.cc: Same.
+	* testsuite/25_algorithms/upper_bound/requirements/
+	explicit_instantiation/2.cc: Same.
+
+	* testsuite/25_algorithms/remove/requirements/
+	explicit_instantiation/pod.cc: Provide a hint to the compiler.
+
+2007-10-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/23_containers/map/moveable.cc: Remove dg-require-rvalref.
+	* testsuite/23_containers/multimap/moveable.cc: Likewise.
+	* testsuite/23_containers/set/moveable.cc: Likewise. 
+	* testsuite/23_containers/multiset/moveable.cc: Likewise.
+	* testsuite/23_containers/deque/moveable.cc: Likewise. 
+	* testsuite/23_containers/list/moveable.cc: Likewise. 
+	* testsuite/23_containers/vector/moveable.cc: Likewise. 
+	* include/std/utility: Use _GLIBCXX_BEGIN_NAMESPACE.
+
+2007-10-05  Paolo Carlini  <pcarlini@suse.de>
+	    Chris Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_iterator.h (class move_iterator,
+	make_move_iterator): Add.
+
+2007-10-04  Doug Kwan  <dougkwan@google.com>
+
+	* include/ext/concurrent.h (class __mutex,
+	class __recursive_mutex): Add new method gthread_mutex to access
+	inner gthread mutex.
+	[__GTHREAD_HAS_COND] (class __concurrence_broadcast_error,
+	class __concurrence_wait_error, class __cond): Add.
+	* libsupc++/guard.cc (recursive_push, recursive_pop): Delete.
+	(init_in_progress_flag, set_init_in_progress_flag): Add to
+	replace recursive_push and recursive_pop.
+	(throw_recursive_init_exception): Add.
+	(acquire, __cxa_guard_acquire, __cxa_guard_abort and
+	__cxa_guard_release): [__GTHREAD_HAS_COND] Use a conditional
+	for synchronization of static variable initialization.
+	The global mutex is only held briefly when guards are
+	accessed. [!__GTHREAD_HAS_COND] Fall back to the old code,
+	which deadlocks.
+	* testsuite/thread/guard.cc: Add new test. It deadlocks with the
+	old locking code in libstdc++-v3/libsup++/guard.cc.
+
+2007-10-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+
+2007-10-04  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_list.h (list<>::list(list&&),
+	list<>::operator=(list&&)): Add.
+	(list<>::swap): Adjust.
+	(swap(list&&, list& __y), swap(list&, list&& __y)): Add.
+	* include/bits/stl_vector.h (vector<>::vector(vector&&),
+	vector<>::operator=(vector&&)): Add.
+	(vector<>::swap): Adjust.
+	(swap(vector&&, vector& __y), swap(vector&, vector&& __y)): Add.
+	* include/bits/stl_bvector.h (vector<>::vector(vector&&),
+	vector<>::operator=(vector&&)): Add.
+	(vector<>::swap): Adjust.
+	* include/bits/stl_deque.h (deque<>::deque(deque&&),
+	deque<>::operator=(deque&&)): Add.
+	(deque<>::swap): Adjust.
+	(swap(deque&&, deque& __y), swap(deque&, deque&& __y)): Add.
+	* include/bits/stl_set.h (set<>::set(set&&),
+	set<>::operator=(set&&)): Add.
+	(set<>::swap): Adjust.
+	(swap(set&&, set& __y), swap(set&, set&& __y)): Add.
+	* include/bits/stl_map.h (map<>::map(map&&),
+	map<>::operator=(map&&)): Add.
+	(map<>::swap): Adjust.
+	(swap(map&&, map& __y), swap(map&, map&& __y)): Add.
+	* include/bits/stl_multiset.h (multiset<>::multiset(multiset&&),
+	multiset<>::operator=(multiset&&)): Add.
+	(smultiet<>::swap): Adjust.
+	(swap(multiset&&, multiset& __y),
+	swap(multiset&, multiset&& __y)): Add.
+	* include/bits/stl_multimap.h (multimap<>::multimap(multimap&&),
+	multimap<>::operator=(multimap&&)): Add.
+	(multimap<>::swap): Adjust.
+	(swap(multimap&&, multimap& __y),
+	swap(multimap&, multimap&& __y)): Add.
+
+2007-10-04  Paolo Carlini  <pcarlini@suse.de>
+
+	Avoid copying some allocator objects.
+	* include/bits/stl_list.h (_List_impl::_List_impl(),
+	_List_base::_List_base(), list<>::list()): Add.
+	* include/bits/stl_vector.h  (_Vector_impl::_Vector_impl(),
+	_Vector_base::_Vector_base(), vector<>::vector()): Add.
+	* include/bits/stl_bvector.h (_Bvector_impl::_Bvector_impl(),
+	_Bvector_base::_Bvector_base(), vector<>::vector()): Add.
+	* include/bits/stl_deque.h  (_Deque_impl::_Deque_impl(),
+	_Deque_base::_Deque_base(), deque<>::deque()): Add.
+	* include/bits/stl_tree.h (_Rb_tree_impl<>::_Rb_tree_impl(),
+	_Rb_tree_impl<>::_M_initialize): Add.
+	(_Rb_tree<>::_Rb_tree(const _Compare&, const allocator_type&),
+	_Rb_tree(const _Rb_tree&)): Adjust.
+	* include/bits/stl_set.h (set<>::set(),
+	set(_InputIterator, _InputIterator)): Use _M_t default constructor. 
+	* include/bits/stl_map.h (map<>::map(), set(_InputIterator,
+	_InputIterator)): Use _M_t default constructor. 
+	* include/bits/stl_multiset.h (multiset<>::multiset(),
+	multiset(_InputIterator, _InputIterator)): Use _M_t default
+	constructor. 
+	* include/bits/stl_multimap.h (multimap<>::multimap(),
+	multimap(_InputIterator, _InputIterator)): Use _M_t default
+	constructor.
+
+2007-10-03  Chris Jefferson  <chris@bubblescope.net>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/20_util/pair/moveable.cc: New. Merge from 
+	libstdcxx_so_7-branch.
+	* testsuite/23_containers/deque/capacity/moveable.cc: Same.
+	* testsuite/23_containers/deque/cons/moveable.cc: Same.
+	* testsuite/23_containers/deque/modifiers/moveable.cc: Same.
+	* testsuite/23_containers/deque/moveable.cc: Same.
+	* testsuite/23_containers/list/moveable.cc: Same.
+	* testsuite/23_containers/map/moveable.cc: Same.
+	* testsuite/23_containers/multimap/moveable.cc: Same.
+	* testsuite/23_containers/multiset/moveable.cc: Same.
+	* testsuite/23_containers/set/moveable.cc: Same.
+	* testsuite/23_containers/vector/cons/moveable.cc: Same.
+	* testsuite/23_containers/vector/modifiers/moveable.cc: Same.
+	* testsuite/23_containers/vector/moveable.cc: Same.
+	* testsuite/23_containers/vector/resize/moveable.cc: Same.
+	* testsuite/25_algorithms/heap/moveable.cc: Same.
+	* testsuite/25_algorithms/nth_element/moveable.cc: Same.
+	* testsuite/25_algorithms/partial_sort/moveable.cc: Same.
+	* testsuite/25_algorithms/partition/moveable.cc: Same.
+	* testsuite/25_algorithms/remove_if/moveable.cc: Same.
+	* testsuite/25_algorithms/remove/moveable.cc: Same.
+	* testsuite/25_algorithms/reverse/moveable.cc: Same.
+	* testsuite/25_algorithms/rotate/moveable.cc: Same.
+	* testsuite/25_algorithms/sort/moveable.cc: Same.
+	* testsuite/25_algorithms/swap_ranges/moveable.cc: Same.
+	* testsuite/25_algorithms/unique/moveable.cc: Same.
+	* testsuite/util/testsuite_rvalref.h: New.
+
+	* testsuite/25_algorithms/equal/equal.cc: Move to...
+	* testsuite/25_algorithms/equal/no_operator_ne.cc: ...this.
+	* testsuite/25_algorithms/heap/heap.cc: Move to...
+	* testsuite/25_algorithms/heap/1.cc: ...this.
+	* testsuite/25_algorithms/lower_bound/lower_bound.cc: Move to...
+	* testsuite/25_algorithms/lower_bound/no_operator_ne.cc: ...this.
+	* testsuite/25_algorithms/partition/partition.cc: Move to...
+	* testsuite/25_algorithms/partition/1.cc: ...this.
+	* testsuite/25_algorithms/stable_partition/1.cc: ... and this.
+	
+	* testsuite/25_algorithms/search/1.cc: Update from merge.
+	* testsuite/25_algorithms/search/check_type.cc: Same.
+
+	* testsuite/lib/dg-options.exp (dg-require-rvalref): New.
+	* testsuite/lib/libstdc++.exp (check_v3_target_rvalref): New.
+	
+2007-10-03  Richard Sandiford  <richard@codesourcery.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Temporarily add
+	-fno-exceptions to CXXFLAGS.  Use GCC_TRY_COMPILE_OR_LINK.
+	Make the tests assign results to volatile variables.  Use -lm
+	for link tests in GCC_TRY_COMPILE_OR_LINK.  Fall back to
+	compile-only tests if -lm is not available.
+	* configure: Regenerate.
+
+2007-10-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/33613
+	* include/debug/functions.h (__check_partitioned): Rename to...
+	(__check_partioned_lower): ... this.
+	(__check_partioned_upper): Add.
+	* include/debug/macros.h (__glibcxx_check_partitioned): Rename to...
+	(__glibcxx_check_partitioned_lower): ... this, adjust.
+	(__glibcxx_check_partitioned_upper): Add.
+	* include/debug/debug.h (__glibcxx_requires_partitioned): Rename to...
+	(__glibcxx_requires_partitioned_lower): ... this, adjust.
+	(__glibcxx_requires_partitioned_upper): Add.
+	* include/bits/stl_algo.h (lower_bound, upper_bound, equal_range,
+	binary search): Use the above.
+	* testsuite/25_algorithms/lower_bound/33613.cc: New.
+	* testsuite/25_algorithms/upper_bound/33613.cc: Likewise.
+
+2007-10-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	Revert:
+	2007-10-02  Richard Sandiford  <richard@codesourcery.com>
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Temporarily add
+	-fno-exceptions to CXXFLAGS.  Use GCC_TRY_COMPILE_OR_LINK.
+	Make the tests assign results to volatile variables.
+	* configure: Regenerate.
+
+2007-10-02  Richard Sandiford  <richard@codesourcery.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Temporarily add
+	-fno-exceptions to CXXFLAGS.  Use GCC_TRY_COMPILE_OR_LINK.
+	Make the tests assign results to volatile variables.
+	* configure: Regenerate.
+
+2007-10-02  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/25_algorithms/binary_search/2.cc: Split into...
+	* testsuite/25_algorithms/upper_bound/2.cc: ... this.
+	* testsuite/25_algorithms/lower_bound/2.cc: ... this.
+	* testsuite/25_algorithms/equal_range/2.cc: ... and this.
+
+2007-10-02  Chris Jefferson  <chris@bubblescope.net>
+
+	* testsuite/25_algorithms/search/1.cc: Merge from 
+	libstdcxx_so_7-branch.
+	* testsuite/25_algorithms/search/check_type.cc: Same.
+	* testsuite/25_algorithms/sort/vectorbool.cc: Same.
+
 2007-09-30  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	* src/valarray-inst.cc, include/ext/atomicity.h,

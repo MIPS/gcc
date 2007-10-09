@@ -1027,9 +1027,11 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
    across EH edges from basic block within inlined functions destinating
    to landing pads in function we inline into.
 
-   The function mark PHI_RESULT of such PHI nodes for renaming; it is
-   safe the EH edges are abnormal and SSA_NAME_OCCURS_IN_ABNORMAL_PHI
-   must be set.  This means, that there will be no overlapping live ranges
+   The function fills in PHI_RESULTs of such PHI nodes if they refer
+   to gimple regs.  Otherwise, the function mark PHI_RESULT of such
+   PHI nodes for renaming.  For non-gimple regs, renaming is safe: the
+   EH edges are abnormal and SSA_NAME_OCCURS_IN_ABNORMAL_PHI must be
+   set, and this means that there will be no overlapping live ranges
    for the underlying symbol.
 
    This might change in future if we allow redirecting of EH edges and
@@ -1071,7 +1073,8 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
 	      }
 
 	    re = find_edge (ret_bb, e->dest);
-	    gcc_assert (re);
+	    if (!re)
+	      continue;
 	    gcc_assert ((re->flags & (EDGE_EH | EDGE_ABNORMAL))
 			== (e->flags & (EDGE_EH | EDGE_ABNORMAL)));
 

@@ -723,6 +723,7 @@ typedef struct gfc_linebuf
   struct gfc_linebuf *next;
 
   int truncated;
+  bool dbg_emitted;
 
   char line[1];
 } gfc_linebuf;
@@ -1792,10 +1793,6 @@ typedef struct gfc_data
 }
 gfc_data;
 
-#define gfc_get_data_variable() gfc_getmem(sizeof(gfc_data_variable))
-#define gfc_get_data_value() gfc_getmem(sizeof(gfc_data_value))
-#define gfc_get_data() gfc_getmem(sizeof(gfc_data))
-
 
 /* Structure for holding compile options */
 typedef struct
@@ -1908,16 +1905,8 @@ extern iterator_stack *iter_stack;
 
 /************************ Function prototypes *************************/
 
-/* data.c  */
-void gfc_formalize_init_value (gfc_symbol *);
-void gfc_get_section_index (gfc_array_ref *, mpz_t *, mpz_t *);
-try gfc_assign_data_value (gfc_expr *, gfc_expr *, mpz_t);
-void gfc_assign_data_value_range (gfc_expr *, gfc_expr *, mpz_t, mpz_t);
-void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
-
 /* decl.c */
 bool gfc_in_match_data (void);
-void gfc_set_in_match_data (bool);
 
 /* scanner.c */
 void gfc_scanner_done_1 (void);
@@ -1935,6 +1924,7 @@ int gfc_at_bol (void);
 int gfc_at_eol (void);
 void gfc_advance_line (void);
 int gfc_check_include (void);
+int gfc_define_undef_line (void);
 
 void gfc_skip_comments (void);
 int gfc_next_char_literal (int);
@@ -2369,7 +2359,7 @@ void gfc_show_typespec (gfc_typespec *);
 
 /* parse.c */
 try gfc_parse_file (void);
-void global_used (gfc_gsymbol *, locus *);
+void gfc_global_used (gfc_gsymbol *, locus *);
 
 /* dependency.c */
 int gfc_dep_compare_expr (gfc_expr *, gfc_expr *);
