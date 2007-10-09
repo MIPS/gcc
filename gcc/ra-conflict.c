@@ -811,7 +811,7 @@ global_conflicts (void)
 	  struct df_ref **def_rec;
 	  struct df_ref **use_rec;
 
-	  if (!INSN_P (insn))
+	  if (!INSN_P (insn) || DEBUG_INSN_P (insn))
 	    continue;	
 
 	  if (dump_file)

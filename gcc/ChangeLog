@@ -1,3 +1,7 @@
+2007-10-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ra-conflict.c (global_conflicts): Skip debug insns.
+
 2007-10-09  James E. Wilson  <wilson@specifix.com>
 
 	PR tree-optimization/33655
