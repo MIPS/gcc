@@ -731,8 +731,12 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      tree *n;
 	      n = (tree *) pointer_map_contains (id->decl_map,
 						 TREE_BLOCK (*tp));
-	      gcc_assert (n);
-	      new_block = *n;
+	      if (n)
+		new_block = *n;
+	      else if (IS_DEBUG_STMT (*tp) || processing_debug_stmt_p)
+		new_block = NULL;
+	      else
+		gcc_unreachable ();
 	    }
 	  TREE_BLOCK (*tp) = new_block;
 	}
