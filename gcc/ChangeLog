@@ -1,3 +1,45 @@
+2007-10-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* toplev.h (flag_ira_coalesce): New external variable.
+
+	* ira-int.h (allocno): New members first_coalesced_allocno,
+	next_coalesced_allocno.
+	(ALLOCNO_FIRST_COALESCED_ALLOCNO, ALLOCNO_NEXT_COALESCED_ALLOCNO):
+	New macros.
+	(reg_class_subintersect): New external variable.
+
+	* ira-color.c (processed_allocno_bitmap): New variable.
+	(allocno_cost_compare_func, print_coalesced_allocno): New
+	functions.
+	(assign_hard_reg): Process coalesced allocnos.
+	(get_coalesced_allocnos_best_class_and_freq): New function.
+	(add_allocno_to_ordered_bucket): Use the function.
+	(push_allocno_to_stack, push_allocnos_to_stack): Process coalesced
+	allocnos.
+	(remove_allocno_from_bucket_and_push, pop_allocnos_from_stack):
+	Use print_coalesced_allocno.
+	(setup_allocno_available_regs_num,
+	setup_allocno_left_conflicts_num): Process coalesced allocnos.
+	(copy_freq_compare_func, allocno_conflict_p, coalesce_allocnos):
+	New functions.
+	(color_allocnos): Allocate/free processed_allocno_bitmap.  Call
+	coalesce_allocnos.
+	(priority_coloring): Allocate/free processed_allocno_bitmap.
+
+	* ira-build.c (check_coalesced_allocnos): New function.
+	(create_allocno): Initiate next_coalesced_allocno,
+	first_coalesced_allocno.
+	(create_cap_allocno): Check  next_coalesced_allocno,
+	first_coalesced_allocno.
+
+	* common.opt (fira-coalesce): New option.
+
+	* ira.c (setup_reg_class_intersect): New function.
+	(reg_class_subintersect): New global variable.
+	(init_ira_once): Call setup_reg_class_intersect.
+
+	* doc/invoke.texi (-fira-coalescing): New option.
+	
 2007-09-20  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-build.c (create_allocno): Initialize ALLOCNO_BEST_CLASS.

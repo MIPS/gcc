@@ -328,9 +328,9 @@ Objective-C and Objective-C++ Dialects}.
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
 -finline-functions  -finline-functions-called-once @gol
--finline-limit=@var{n} -fira -fira-alogirthm=@var{algorithm} @gol
+-finline-limit=@var{n} -fira -fira-algorithm=@var{algorithm} @gol
 -fno-ira-assign-after-call-split @gol
--fira-biased-coloring -fira-ipra -fno-ira-move-spills @gol
+-fira-biased-coloring -fira-coalesce -fira-ipra -fno-ira-move-spills @gol
 -fira-propagate-cost @gol
 -fno-ira-share-spill-slots -fno-ira-share-save-slots @gol
 -fno-ira-split-around-calls @gol
@@ -5526,12 +5526,6 @@ Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 If supported for the target machine, use the integrated register
 allocator (@acronym{IRA}) for the register allocation.
 
-@item -fira-biased-coloring
-@opindex fira-biased-coloring
-Use biased coloring for the integrated register allocator for possible
-improvement of the generated code.  It makes register allocator
-slower.
-
 @item -fira-algorithm=@var{algorithm}
 Use specified algorithm for the integrated register allocator.  The
 @var{algorithm} argument should be one of @code{regional}, @code{CB},
@@ -5553,6 +5547,17 @@ Switch off additional assignment after splitting pseudos around calls.
 After splitting pseudos there is a chance that spilled pseudos
 conflicting with the new pseudos living through calls gets a hard
 register.
+
+@item -fira-biased-coloring
+@opindex fira-biased-coloring
+Use biased coloring for the integrated register allocator for possible
+improvement of the generated code.  It makes register allocator
+slower.
+
+@item -fira-coalescing
+@opindex fira-coalescing
+Do optimistic register coalescing.  This option might be profitable for
+architectures with big regular register files.
 
 @item -fira-ipra
 @opindex fira-ipra

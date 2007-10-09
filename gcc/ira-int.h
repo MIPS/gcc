@@ -237,6 +237,11 @@ struct allocno
   allocno_t prev_bucket_allocno;
   /* Used for temporary purposes.  */
   int temp;
+  /* Coalesced allocnos form a cyclic list.  One allocno given by
+     FIRST_COALESCED_ALLOCNO represents all coalesced allocnos.  The
+     list is chained by NEXT_COALESCED_ALLOCNO.  */
+  allocno_t first_coalesced_allocno;
+  allocno_t next_coalesced_allocno;
 };
 
 /* All members of the allocno node should be accessed only through the
@@ -281,6 +286,8 @@ struct allocno
 #define ALLOCNO_NEXT_BUCKET_ALLOCNO(P) ((P)->next_bucket_allocno)
 #define ALLOCNO_PREV_BUCKET_ALLOCNO(P) ((P)->prev_bucket_allocno)
 #define ALLOCNO_TEMP(P) ((P)->temp)
+#define ALLOCNO_FIRST_COALESCED_ALLOCNO(P) ((P)->first_coalesced_allocno)
+#define ALLOCNO_NEXT_COALESCED_ALLOCNO(P) ((P)->next_coalesced_allocno)
 
 /* Map regno -> allocno for the current loop tree node.  */
 extern allocno_t *regno_allocno_map;
@@ -380,6 +387,9 @@ extern int register_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES]
 
 /* Register class subset relation.  */
 extern int class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
+
+/* The biggest class inside of intersection of the two classes.  */
+extern enum reg_class reg_class_subintersect [N_REG_CLASSES] [N_REG_CLASSES];
 
 /* Hard registers which can be used for the allocation of given
    register class.  */

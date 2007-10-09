@@ -628,9 +628,13 @@ fira-biased-coloring
 Common Report Var(flag_ira_biased_coloring)
 Use biased coloring for the integrated register allocator.
 
+fira-coalesce
+Common Report Var(flag_ira_coalesce)
+Do optimistic coalescing.
+
 fira-ipra
 Common Report Var(flag_ira_ipra) Init(0)
-Inter-procedural register allocation for IRA
+Inter-procedural register allocation for IRA.
 
 fira-move-spills
 Common Report Var(flag_ira_move_spills) Init(1)

@@ -138,6 +138,7 @@ extern int time_report;
 extern int flag_ira;
 extern int flag_ira_assign_after_call_split;
 extern int flag_ira_biased_coloring;
+extern int flag_ira_coalesce;
 extern int flag_ira_ipra;
 extern int flag_ira_move_spills;
 extern int flag_ira_propagate_cost;

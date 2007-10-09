@@ -63,6 +63,9 @@ static void create_loop_allocnos (edge);
 static void create_loop_tree_node_allocnos (struct ira_loop_tree_node *);
 static void create_allocnos (void);
 static void create_loop_tree_node_caps (struct ira_loop_tree_node *);
+#ifdef ENABLE_IRA_CHECKING
+static void check_coalesced_allocnos (void);
+#endif
 
 /* All natural loops.  */
 struct loops ira_loops;
@@ -394,6 +397,8 @@ create_allocno (int regno, int cap_p, struct ira_loop_tree_node *loop_tree_node)
   ALLOCNO_MEMORY_COST (a) = 0;
   ALLOCNO_NEXT_BUCKET_ALLOCNO (a) = NULL;
   ALLOCNO_PREV_BUCKET_ALLOCNO (a) = NULL;
+  ALLOCNO_FIRST_COALESCED_ALLOCNO (a) = a;
+  ALLOCNO_NEXT_COALESCED_ALLOCNO (a) = a;
   VARRAY_PUSH_GENERIC_PTR (allocno_varray, a);
   allocnos = (allocno_t *) &VARRAY_GENERIC_PTR (allocno_varray, 0);
   allocnos_num = VARRAY_ACTIVE_SIZE (allocno_varray);
@@ -487,6 +492,8 @@ create_cap_allocno (allocno_t a)
   allocno_t *allocno_vec;
   struct ira_loop_tree_node *father;
 
+  ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) == a
+	      && ALLOCNO_NEXT_COALESCED_ALLOCNO (a) == a);
   father = ALLOCNO_LOOP_TREE_NODE (a)->father;
   cap = create_allocno (ALLOCNO_REGNO (a), TRUE, father);
   /* We just need to set a mode giving the same size.  */
@@ -887,6 +894,23 @@ create_loop_tree_node_caps (struct ira_loop_tree_node *loop_node)
 }
 
 
+
+#ifdef ENABLE_IRA_CHECKING
+/* The function checks that there are no coalesced allocnos.  */
+static void
+check_coalesced_allocnos (void)
+{
+  int i;
+  allocno_t a;
+
+  for (i = 0; i < allocnos_num; i++)
+    {
+      a = allocnos [i];
+      ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) == a
+		  && ALLOCNO_NEXT_COALESCED_ALLOCNO (a) == a);
+    }
+}
+#endif
 
 /* This entry function creates internal representation for IRA
    (allocnos, copies, loop tree nodes).  If LOOPS_P is zero the nodes

@@ -96,6 +96,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static void setup_inner_mode (void);
 static void setup_reg_mode_hard_regset (void);
 static void setup_class_subset_and_move_costs (void);
+static void setup_reg_class_intersect (void);
 static void setup_class_hard_regs (void);
 static void setup_available_class_regs (void);
 static void setup_alloc_regs (int);
@@ -165,6 +166,9 @@ int register_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [N_REG_CLASSES];
 /* Nonzero value of element of the following array means that the
    1st class is a subset of the 2nd class.  */
 int class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
+
+/* The biggest class inside of intersection of the two classes.  */
+enum reg_class reg_class_subintersect [N_REG_CLASSES] [N_REG_CLASSES];
 
 /* Temporary hard reg set used for different calculation.  */
 static HARD_REG_SET temp_hard_regset;
@@ -237,6 +241,31 @@ setup_class_subset_and_move_costs (void)
 	  class_subset_p [cl] [cl2]
 	    = hard_reg_set_subset_p (reg_class_contents[cl],
 				     reg_class_contents[cl2]);
+	}
+    }
+}
+
+/* The function sets up REG_CLASS_SUBINTERSECT.  */
+static void
+setup_reg_class_intersect (void)
+{
+  int cl1, cl2, cl3;
+  HARD_REG_SET temp_set;
+
+  for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
+    {
+      for (cl2 = 0; cl2 < N_REG_CLASSES; cl2++)
+	{
+	  reg_class_subintersect [cl1] [cl2] = NO_REGS;
+	  COPY_HARD_REG_SET (temp_set, reg_class_contents [cl1]);
+	  AND_HARD_REG_SET (temp_set, reg_class_contents [cl2]);
+	  for (cl3 = 0; cl3 < N_REG_CLASSES; cl3++)
+	    if (hard_reg_set_subset_p (reg_class_contents [cl3], temp_set)
+		&& ! hard_reg_set_subset_p (reg_class_contents [cl3],
+					    reg_class_contents
+					    [(int) reg_class_subintersect
+					     [cl1] [cl2]]))
+	      reg_class_subintersect [cl1] [cl2] = (enum reg_class) cl3;
 	}
     }
 }
@@ -740,6 +769,7 @@ init_ira_once (void)
   setup_inner_mode ();
   setup_reg_mode_hard_regset ();
   setup_class_subset_and_move_costs ();
+  setup_reg_class_intersect ();
   setup_alloc_regs (flag_omit_frame_pointer != 0);
   find_reg_class_closure ();
   setup_reg_class_nregs ();
