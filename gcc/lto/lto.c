@@ -831,10 +831,15 @@ lto_read_form (lto_info_fd *info_fd,
   name = attr->name;
   form = attr->form;
   /* Make sure this is an attribute we recognize.  */
-  if (attr->name >= sizeof (attr_classes) / sizeof (attr_classes[0]))
+  if (attr->name == DW_AT_MIPS_linkage_name)
+    class_mask = DW_cl_string;
+  else if (attr->name == DW_AT_GNU_vector)
+    class_mask = DW_cl_flag;
+  else if (attr->name >= sizeof (attr_classes) / sizeof (attr_classes[0]))
     lto_file_corrupt_error (fd);
-  /* Determine the set of permitted attribute classes.  */
-  class_mask = attr_classes[attr->name];
+  else
+    /* Determine the set of permitted attribute classes.  */
+    class_mask = attr_classes[attr->name];
 
   /* Initialize OUT.  */ 
   out->cl = DW_cl_error;
@@ -1067,7 +1072,7 @@ lto_read_form (lto_info_fd *info_fd,
   /* Make sure that we actually read something.  */
   gcc_assert (out->cl != DW_cl_error);
   /* Check the data read is of a class appropriate for the attribute.  */
-  if (!(out->cl & attr_classes[name]))
+  if (!(out->cl & class_mask))
     lto_file_corrupt_error (fd);
 }
 
@@ -3366,8 +3371,22 @@ lto_resolve_var_ref (lto_info_fd *info_fd,
   die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
   /* Map DIE to a variable.  */
   var = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
-  if (!var || TREE_CODE (var) != VAR_DECL)
-    lto_file_corrupt_error ((lto_fd *)info_fd); 
+  if (!var)
+    {
+      lto_fd *fd = (lto_fd *)info_fd;
+      lto_die_ptr saved_die = fd->cur;
+
+      fd->cur = die;
+      var = lto_read_DIE (fd, context, NULL);
+
+      if (!var)
+        lto_file_corrupt_error (fd);
+
+      fd->cur = saved_die;
+    }
+  if (TREE_CODE (var) != VAR_DECL)
+    lto_file_corrupt_error ((lto_fd *)info_fd);
+
   /* Clean up.  */
   if (new_context != context)
     XDELETE (new_context);
@@ -3391,8 +3410,22 @@ lto_resolve_fn_ref (lto_info_fd *info_fd,
   die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
   /* Map DIE to a variable.  */
   fn = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
-  if (!fn || TREE_CODE (fn) != FUNCTION_DECL)
+  if (!fn)
+    {
+      lto_fd *fd = (lto_fd *)info_fd;
+      lto_die_ptr saved_die = fd->cur;
+
+      fd->cur = die;
+      fn = lto_read_DIE (fd, context, NULL);
+
+      if (!fn)
+        lto_file_corrupt_error (fd);
+
+      fd->cur = saved_die;
+    }
+  if (TREE_CODE (fn) != FUNCTION_DECL)
     lto_file_corrupt_error ((lto_fd *)info_fd);
+
   /* Clean up.  */
   if (new_context != context)
     XDELETE (new_context);
@@ -3416,8 +3449,22 @@ lto_resolve_field_ref (lto_info_fd *info_fd,
   die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
   /* Map DIE to a variable.  */
   field = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
-  if (!field || TREE_CODE (field) != FIELD_DECL)
-    lto_file_corrupt_error ((lto_fd *)info_fd); 
+  if (!field)
+    {
+      lto_fd *fd = (lto_fd *)info_fd;
+      lto_die_ptr saved_die = fd->cur;
+
+      fd->cur = die;
+      field = lto_read_DIE (fd, context, NULL);
+
+      if (!field)
+        lto_file_corrupt_error (fd);
+
+      fd->cur = saved_die;
+    }
+  if (TREE_CODE (field) != FIELD_DECL)
+    lto_file_corrupt_error ((lto_fd *)info_fd);
+
   /* Clean up.  */
   if (new_context != context)
     XDELETE (new_context);

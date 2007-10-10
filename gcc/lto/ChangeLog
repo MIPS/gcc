@@ -1,3 +1,13 @@
+2007-10-10  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_form): Handle DW_AT_MIPS_linkage_name and
+	DW_AT_GNU_vector specially, as they are not contiguous with the
+	specified set of attribute names.  Use class_mask to check for
+	errors at the end of the function
+	(lto_resolve_var_ref): Read the DIE if it is not cached.
+	(lto_resolve_fn_ref): Likewise.
+	(lto_resolve_field_ref): Likewise.
+
 2007-10-05  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c: Include dwarf2out.h.
