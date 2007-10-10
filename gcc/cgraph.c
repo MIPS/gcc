@@ -278,7 +278,9 @@ cgraph_note_duplicate (tree decl, tree duplicate)
 	  /* We already saw a definition of the function, so reverse
 	     the duplication.  */
 	  tree tem;
-	  gcc_assert (DECL_INITIAL (decl));
+	  /* If unit-at-a-time, we should only see definitions here.
+	     If no-unit-at-a-time, we might see a declaration.  */
+	  gcc_assert (!flag_unit_at_a_time || DECL_INITIAL (decl));
 	  tem = duplicate;
 	  duplicate = decl;
 	  decl = tem;

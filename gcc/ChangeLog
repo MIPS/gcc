@@ -1,3 +1,8 @@
+2007-10-10  Tom Tromey  <tromey@redhat.com>
+
+	* cgraph.c (cgraph_note_duplicate): Refine assertion.
+	* cgraphbuild.c (record_reference): Use cgraph_canonical_decl.
+
 2007-10-08  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (pushdecl): Update file scope decl as well.
