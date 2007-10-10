@@ -1,3 +1,8 @@
+2007-10-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (copy_debug_stmt): Drop stmt that refers to
+	unmapped variable.
+
 2007-10-09  Alexandre Oliva  <aoliva@redhat.com>
 
 	* tree-ssa-live.c (copy_body_r): Cope with references to

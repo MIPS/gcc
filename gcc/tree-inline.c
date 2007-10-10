@@ -1368,13 +1368,21 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
 static void
 copy_debug_stmt (tree stmt, copy_body_data *id)
 {
-  tree t;
+  tree *tp;
 
   processing_debug_stmt_p = true;
 
-  t = VAR_DEBUG_VALUE_VAR (stmt);
-  walk_tree (&t, copy_body_r, id, NULL);
-  VAR_DEBUG_VALUE_SET_VAR (stmt, t);
+  tp = (tree *)pointer_map_contains (id->decl_map, VAR_DEBUG_VALUE_VAR (stmt));
+  if (!tp)
+    {
+      /* This debug stmt refers to a variable that was completely
+	 optimized away.  Drop it.  */
+      block_stmt_iterator bsi = bsi_for_stmt (stmt);
+      bsi_remove (&bsi, true);
+      processing_debug_stmt_p = false;
+      return;
+    }
+  VAR_DEBUG_VALUE_SET_VAR (stmt, *tp);
 
   walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), copy_body_r, id, NULL);
 
