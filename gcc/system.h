@@ -780,4 +780,6 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #define CONST_CAST(X) ((void*)(X))
 #endif
 
+#define GCC_THREAD __thread
+
 #endif /* ! GCC_SYSTEM_H */

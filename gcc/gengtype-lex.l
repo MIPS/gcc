@@ -107,6 +107,7 @@ EOID	[^[:alnum:]_]
 \\\n				{ lexer_line.line++; }
 
 "const"/{EOID}			/* don't care */
+"GCC_THREAD"/{EOID}		{ return THREAD; }
 "GTY"/{EOID}			{ return GTY_TOKEN; }
 "VEC"/{EOID}			{ return VEC_TOKEN; }
 "union"/{EOID}			{ return UNION; }

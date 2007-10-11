@@ -1083,6 +1083,8 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
   struct page_entry *entry;
   void *result;
 
+  host_mutex_lock (ggc_gc_lock);
+
   if (size < NUM_SIZE_LOOKUP)
     {
       order = size_lookup[size];
@@ -1264,6 +1266,8 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
 	     (unsigned long) size, (unsigned long) object_size, result,
 	     (void *) entry);
 
+  host_mutex_unlock (ggc_gc_lock);
+
   return result;
 }
 
@@ -1333,8 +1337,14 @@ ggc_marked_p (const void *p)
 size_t
 ggc_get_size (const void *p)
 {
-  page_entry *pe = lookup_page_table_entry (p);
-  return OBJECT_SIZE (pe->order);
+  page_entry *pe;
+  size_t result;
+
+  host_mutex_lock (ggc_gc_lock);
+  pe = lookup_page_table_entry (p);
+  result = OBJECT_SIZE (pe->order);
+  host_mutex_unlock (ggc_gc_lock);
+  return result;
 }
 
 /* Release the memory for object P.  */
@@ -1342,9 +1352,14 @@ ggc_get_size (const void *p)
 void
 ggc_free (void *p)
 {
-  page_entry *pe = lookup_page_table_entry (p);
-  size_t order = pe->order;
-  size_t size = OBJECT_SIZE (order);
+  page_entry *pe;
+  size_t order, size;
+
+  host_mutex_lock (ggc_gc_lock);
+
+  pe = lookup_page_table_entry (p);
+  order = pe->order;
+  size = OBJECT_SIZE (order);
 
 #ifdef GATHER_STATISTICS
   ggc_free_overhead (p);
@@ -1423,6 +1438,8 @@ ggc_free (void *p)
       }
   }
 #endif
+
+  host_mutex_unlock (ggc_gc_lock);
 }
 
 /* Subroutine of init_ggc which computes the pair of numbers used to
@@ -1881,7 +1898,8 @@ ggc_collect (void)
 
   float min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
 
-  if (G.allocated < allocated_last_gc + min_expand && !ggc_force_collect)
+  if (ggc_thread_pause (! (G.allocated < allocated_last_gc + min_expand
+			   && !ggc_force_collect)))
     return;
 
   timevar_push (TV_GC);
@@ -1918,6 +1936,8 @@ ggc_collect (void)
     fprintf (stderr, "%luk}", (unsigned long) G.allocated / 1024);
   if (GGC_DEBUG_LEVEL >= 2)
     fprintf (G.debug_file, "END COLLECTING\n");
+
+  ggc_collection_completed ();
 }
 
 /* Print allocation statistics.  */

@@ -1012,6 +1012,8 @@ ggc_alloc_zone_stat (size_t orig_size, struct alloc_zone *zone
   void *result;
   size_t size = orig_size;
 
+  host_mutex_lock (ggc_gc_lock);
+
   /* Make sure that zero-sized allocations get a unique and freeable
      pointer.  */
   if (size == 0)
@@ -1262,6 +1264,7 @@ ggc_alloc_zone_stat (size_t orig_size, struct alloc_zone *zone
     fprintf (G.debug_file, "Allocating object, size=%lu at %p\n",
 	     (unsigned long) size, result);
 
+  host_mutex_unlock (ggc_gc_lock);
   return result;
 }
 
@@ -1311,6 +1314,8 @@ ggc_free (void *p)
 {
   struct page_entry *page;
 
+  host_mutex_lock (ggc_gc_lock);
+
 #ifdef GATHER_STATISTICS
   ggc_free_overhead (p);
 #endif
@@ -1354,6 +1359,8 @@ ggc_free (void *p)
 	 since we are likely to want a chunk of this size again.  */
       free_chunk (p, size, page->zone);
     }
+
+  host_mutex_unlock (ggc_gc_lock);
 }
 
 /* If P is not marked, mark it and return false.  Otherwise return true.
@@ -1452,6 +1459,9 @@ ggc_get_size (const void *p)
 {
   struct page_entry *page;
   const char *ptr = (const char *) p;
+  size_t result;
+
+  host_mutex_lock (ggc_gc_lock);
 
   page = zone_get_object_page (p);
 
@@ -1462,14 +1472,16 @@ ggc_get_size (const void *p)
       alloc_word = offset / (8 * sizeof (alloc_type));
       alloc_bit = offset % (8 * sizeof (alloc_type));
       max_size = pch_zone.bytes - (ptr - pch_zone.page);
-      return zone_object_size_1 (pch_zone.alloc_bits, alloc_word, alloc_bit,
-				 max_size);
+      result = zone_object_size_1 (pch_zone.alloc_bits, alloc_word, alloc_bit,
+				   max_size);
     }
-
-  if (page->large_p)
-    return ((struct large_page_entry *)page)->bytes;
+  else if (page->large_p)
+    result = ((struct large_page_entry *)page)->bytes;
   else
-    return zone_find_object_size ((struct small_page_entry *) page, p);
+    result = zone_find_object_size ((struct small_page_entry *) page, p);
+
+  host_mutex_unlock (ggc_gc_lock);
+  return result;
 }
 
 /* Initialize the ggc-zone-mmap allocator.  */
@@ -1568,8 +1580,12 @@ new_ggc_zone_1 (struct alloc_zone *new_zone, const char * name)
 struct alloc_zone *
 new_ggc_zone (const char * name)
 {
-  struct alloc_zone *new_zone = xcalloc (1, sizeof (struct alloc_zone));
+  struct alloc_zone *new_zone;
+
+  host_mutex_lock (ggc_gc_lock);
+  new_zone = xcalloc (1, sizeof (struct alloc_zone));
   new_ggc_zone_1 (new_zone, name);
+  host_mutex_unlock (ggc_gc_lock);
   return new_zone;
 }
 
@@ -1578,6 +1594,8 @@ void
 destroy_ggc_zone (struct alloc_zone * dead_zone)
 {
   struct alloc_zone *z;
+
+  host_mutex_lock (ggc_gc_lock);
 
   for (z = G.zones; z && z->next_zone != dead_zone; z = z->next_zone)
     /* Just find that zone.  */
@@ -1588,6 +1606,8 @@ destroy_ggc_zone (struct alloc_zone * dead_zone)
 
   /* z is dead, baby. z is dead.  */
   z->dead = true;
+
+  host_mutex_unlock (ggc_gc_lock);
 }
 
 /* Free all empty pages and objects within a page for a given zone  */
@@ -1857,10 +1877,13 @@ ggc_collect (void)
 {
   struct alloc_zone *zone;
   bool marked = false;
+  bool want_gc;
 
   timevar_push (TV_GC);
 
-  if (!ggc_force_collect)
+  if (ggc_force_collect)
+    want_gc = true;
+  else
     {
       float allocated_last_gc = 0, allocated = 0, min_expand;
 
@@ -1875,11 +1898,12 @@ ggc_collect (void)
 	     (size_t) PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
       min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
 
-      if (allocated < allocated_last_gc + min_expand)
-	{
-	  timevar_pop (TV_GC);
-	  return;
-	}
+      want_gc = ! (allocated < allocated_last_gc + min_expand);
+    }
+  if (ggc_thread_pause (want_gc))
+    {
+      timevar_pop (TV_GC);
+      return;
     }
 
   /* Start by possibly collecting the main zone.  */
@@ -1947,6 +1971,8 @@ ggc_collect (void)
     }
 
   timevar_pop (TV_GC);
+
+  ggc_collection_completed ();
 }
 
 /* Print allocation statistics.  */

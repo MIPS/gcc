@@ -20,7 +20,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_GGC_H
 #define GCC_GGC_H
+
 #include "statistics.h"
+#include "host-thread.h"
 
 /* Symbols are marked with `ggc' for `gcc gc' so as not to interfere with
    an external gc library that might be linked in.  */
@@ -92,6 +94,32 @@ struct ggc_cache_tab {
 #define LAST_GGC_CACHE_TAB { NULL, 0, 0, NULL, NULL, NULL }
 /* Pointers to arrays of ggc_cache_tab, terminated by NULL.  */
 extern const struct ggc_cache_tab * const gt_ggc_cache_rtab[];
+
+/* Structure for thread-local root registration.  */
+struct ggc_thread_roots {
+  struct ggc_root_tab *rtab;
+  struct ggc_root_tab *deletable_rtab;
+  struct ggc_cache_tab *cache_rtab;
+  struct ggc_root_tab *pch_cache_rtab;
+  struct ggc_root_tab *pch_scalar_rtab;
+  struct ggc_thread_roots *next;
+};
+
+/* Holds one thread's list of roots.  */
+struct ggc_thread_root_list {
+  struct ggc_thread_roots *roots;
+  struct ggc_thread_root_list *next;
+};
+
+/* A function called during thread registration to return a set of new
+   roots.  */
+typedef struct ggc_thread_roots *(*ggc_thread_registration_function) (void);
+
+/* Array of all thread registration functions, NULL terminated.  */
+extern const ggc_thread_registration_function gt_ggc_thread_funcs[];
+
+/* The global GC lock.  Only the collector should use this lock.  */
+extern host_mutex *ggc_gc_lock;
 
 /* If EXPR is not NULL and previously unmarked, mark it and evaluate
    to true.  Otherwise evaluate to false.  */
@@ -193,6 +221,29 @@ extern void ggc_pch_finish (struct ggc_pch_data *, FILE *);
 /* A PCH file has just been read in at the address specified second
    parameter.  Set up the GC implementation for the new objects.  */
 extern void ggc_pch_read (FILE *, void *);
+
+/* Initialize GC thread code.  */
+extern void ggc_thread_init (void);
+
+/* Call just after thread startup to set up thread-local roots.  */
+extern void ggc_thread_start (void);
+
+/* Call just before thread exit to remove thread-local roots.  */
+extern void ggc_thread_clean_up (void);
+
+/* A thread can claim to always be at a GC safe point by calling this
+   function.  */
+extern void ggc_thread_ignore_me (void);
+
+/* GC implementations call this to pause pending a GC.  This functions
+   as a safe point.  Argument is true if a GC is requested.  Returns
+   false if this thread should GC; true in all other threads.  GCing
+   thread must call ggc_collection_completed.  */
+extern bool ggc_thread_pause (bool);
+
+/* Called by a GC implementation after a GC to wake up all paused
+   threads.  */
+extern void ggc_collection_completed (void);
 
 
 /* Allocation.  */

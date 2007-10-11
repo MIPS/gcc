@@ -1680,6 +1680,7 @@ general_init (const char *argv0)
   /* Initialize the garbage-collector, string pools and tree type hash
      table.  */
   init_ggc ();
+  ggc_thread_init ();
   init_stringpool ();
   linemap_init (&line_table);
   init_ttree ();

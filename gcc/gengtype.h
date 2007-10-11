@@ -62,7 +62,7 @@ extern pair_p create_field_at (pair_p next, type_p type, const char *name,
 			       options_p opt, struct fileloc *pos);
 extern pair_p nreverse_pairs (pair_p list);
 extern type_p adjust_field_type (type_p, options_p);
-extern void note_variable (const char *s, type_p t, options_p o,
+extern void note_variable (const char *s, bool, type_p t, options_p o,
 			   struct fileloc *pos);
 extern void note_def_vec (const char *typename, bool is_scalar,
 			  struct fileloc *pos);
@@ -85,6 +85,7 @@ enum {
 
   CHAR_TOKEN_OFFSET = UCHAR_MAX + 1,
   GTY_TOKEN = CHAR_TOKEN_OFFSET,
+  THREAD,
   TYPEDEF,
   EXTERN,
   STATIC,

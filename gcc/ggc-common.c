@@ -66,6 +66,9 @@ bool ggc_force_collect;
 /* Statistics about the allocation.  */
 static ggc_statistics *ggc_stats;
 
+/* List of thread-local roots.  */
+static struct ggc_thread_root_list *global_root_list;
+
 struct traversal_state;
 
 static int ggc_htab_delete (void **, void *);
@@ -105,16 +108,36 @@ ggc_mark_roots (void)
   const struct ggc_root_tab *rti;
   const struct ggc_cache_tab *const *ct;
   const struct ggc_cache_tab *cti;
+  struct ggc_thread_root_list *root_iter;
   size_t i;
 
   for (rt = gt_ggc_deletable_rtab; *rt; rt++)
     for (rti = *rt; rti->base != NULL; rti++)
       memset (rti->base, 0, rti->stride);
 
+  for (root_iter = global_root_list; root_iter; root_iter = root_iter->next)
+    {
+      struct ggc_thread_roots *ir;
+      for (ir = root_iter->roots; ir; ir = ir->next)
+	if (ir->deletable_rtab)
+	  for (rti = ir->deletable_rtab; rti->base != NULL; rti++)
+	    memset (rti->base, 0, rti->stride);
+    }
+
   for (rt = gt_ggc_rtab; *rt; rt++)
     for (rti = *rt; rti->base != NULL; rti++)
       for (i = 0; i < rti->nelt; i++)
 	(*rti->cb)(*(void **)((char *)rti->base + rti->stride * i));
+
+  for (root_iter = global_root_list; root_iter; root_iter = root_iter->next)
+    {
+      struct ggc_thread_roots *ir;
+      for (ir = root_iter->roots; ir; ir = ir->next)
+	if (ir->rtab)
+	  for (rti = ir->rtab; rti->base != NULL; rti++)
+	    for (i = 0; i < rti->nelt; i++)
+	      (*rti->cb)(*(void **)((char *)rti->base + rti->stride * i));
+    }
 
   ggc_mark_stringpool ();
 
@@ -128,6 +151,21 @@ ggc_mark_roots (void)
 	  htab_traverse_noresize (*cti->base, ggc_htab_delete, (void *) cti);
 	  ggc_set_mark ((*cti->base)->entries);
 	}
+
+  for (root_iter = global_root_list; root_iter; root_iter = root_iter->next)
+    {
+      struct ggc_thread_roots *ir;
+      for (ir = root_iter->roots; ir; ir = ir->next)
+	if (ir->cache_rtab)
+	  for (cti = ir->cache_rtab; cti->base != NULL; cti++)
+	    if (*cti->base)
+	      {
+		ggc_set_mark (*cti->base);
+		htab_traverse_noresize (*cti->base, ggc_htab_delete,
+					(void *) cti);
+		ggc_set_mark ((*cti->base)->entries);
+	      }
+    }
 }
 
 /* Allocate a block of memory, then clear it.  */
@@ -1019,4 +1057,166 @@ dump_ggc_loc_statistics (bool final ATTRIBUTE_UNUSED)
 	   "source location", "Garbage", "Freed", "Leak", "Overhead", "Times");
   fprintf (stderr, "-------------------------------------------------------\n");
 #endif
+}
+
+/* Thread-local storage handling.  */
+
+/* Thread-local so we know what to delete when the thread stops.  */
+static GCC_THREAD struct ggc_thread_root_list *roots;
+
+/* The number of threads currently registered with the GC.  */
+static int ggc_n_threads;
+
+/* The global GC lock.  This is held whenever manipulating GC global
+   data.  */
+host_mutex *ggc_gc_lock;
+
+/* The global GC condition variable.  This is used to pause threads
+   while one thread collects.  */
+static host_condition *gc_condition;
+
+/* The number of threads currently waiting for a GC.  */
+static int ggc_n_waiting_threads;
+
+/* The collection generation.  This is used to avoid spurious
+   condition variable wakeups.  */
+static unsigned int collection_generation;
+
+void
+ggc_thread_init (void)
+{
+  ggc_gc_lock = host_mutex_create ();
+  gc_condition = host_condition_create ();
+
+  /* Register this thread.  */
+  ggc_thread_start ();
+}
+
+/* Register all the thread-local variables for the current thread with
+   the GC.  Should be called just after the thread is created.  */
+void
+ggc_thread_start (void)
+{
+  int i;
+
+  host_mutex_lock (ggc_gc_lock);
+
+  roots = XNEW (struct ggc_thread_root_list);
+  roots->roots = NULL;
+  roots->next = global_root_list;
+  global_root_list = roots;
+
+  for (i = 0; gt_ggc_thread_funcs[i]; ++i)
+    {
+      struct ggc_thread_roots *r = (gt_ggc_thread_funcs[i]) ();
+      r->next = roots->roots;
+      roots->roots = r;
+    }
+
+  ++ggc_n_threads;
+
+  host_mutex_unlock (ggc_gc_lock);
+}
+
+/* Clean up when a thread exits.  */
+void
+ggc_thread_clean_up (void)
+{
+  struct ggc_thread_root_list **iter;
+  struct ggc_thread_roots *riter, *next;
+
+  host_mutex_lock (ggc_gc_lock);
+
+  while (ggc_n_waiting_threads)
+    {
+      /* A GC is pending, so we must pause here as well.  Otherwise,
+	 we could cause a lockup if this thread is the last one
+	 entering the safe point.  */
+      host_mutex_unlock (ggc_gc_lock);
+      ggc_collect ();
+      host_mutex_lock (ggc_gc_lock);
+    }
+
+  /* Remove our entry from the global root list.  */
+  for (iter = &global_root_list; *iter; iter = &(*iter)->next)
+    {
+      if (*iter == roots)
+	{
+	  *iter = (*iter)->next;
+	  break;
+	}
+    }
+
+  /* Free the data.  */
+  for (riter = roots->roots; riter; riter = next)
+    {
+      if (riter->rtab)
+	free (riter->rtab);
+      if (riter->deletable_rtab)
+	free (riter->deletable_rtab);
+      if (riter->cache_rtab)
+	free (riter->cache_rtab);
+      if (riter->pch_cache_rtab)
+	free (riter->pch_cache_rtab);
+      if (riter->pch_scalar_rtab)
+	free (riter->pch_scalar_rtab);
+      next = riter->next;
+      free (riter);
+    }
+
+  free (roots);
+
+  --ggc_n_threads;
+
+  host_mutex_unlock (ggc_gc_lock);
+}
+
+bool
+ggc_thread_pause (bool want_gc)
+{
+  bool result = true;
+
+  host_mutex_lock (ggc_gc_lock);
+
+  if (want_gc || ggc_n_waiting_threads)
+    {
+      ++ggc_n_waiting_threads;
+      if (ggc_n_waiting_threads == ggc_n_threads)
+	{
+	  /* Return with the lock still held.  */
+	  return false;
+	}
+      else
+	{
+	  /* Conditions may spuriously wake up, so we protect against
+	     this by checking the generation.  */
+	  unsigned int this_gen = collection_generation;
+	  while (this_gen == collection_generation)
+	    host_condition_wait (gc_condition, ggc_gc_lock);
+	}
+    }
+
+  host_mutex_unlock (ggc_gc_lock);
+
+  return result;
+}
+
+void
+ggc_collection_completed (void)
+{
+  /* Note that the lock is already held here.  */
+
+  ++collection_generation;
+  ggc_n_waiting_threads = 0;
+  host_condition_broadcast (gc_condition);
+
+  host_mutex_unlock (ggc_gc_lock);
+}
+
+void
+ggc_thread_ignore_me (void)
+{
+  host_mutex_lock (ggc_gc_lock);
+  --ggc_n_threads;
+  host_mutex_unlock (ggc_gc_lock);
 }

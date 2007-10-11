@@ -1,3 +1,57 @@
+2007-10-11  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in (LIBS): Add -lpthread.
+	* system.h (GCC_THREAD): New define.
+	* ggc-page.c (ggc_alloc_stat): Lock.
+	(ggc_get_size): Lock.
+	(ggc_free): Lock.
+	(ggc_collect): Call ggc_thread_pause, ggc_collection_completed.
+	* ggc-zone.c (ggc_alloc_zone_stat): Lock.
+	(ggc_free): Lock.
+	(ggc_get_size): Lock.
+	(new_ggc_zone): Lock.
+	(destroy_ggc_zone): Lock.
+	(ggc_collect): Call ggc_thread_pause, ggc_collection_completed.
+	* ggc-common.c (global_root_list): New global.
+	(ggc_mark_roots): Mark thread-local roots.
+	(roots, ggc_n_threads, ggc_gc_lock, gc_condition,
+	ggc_n_waiting_threads, collection_generation): New globals.
+	(ggc_thread_init): New function.
+	(ggc_thread_start): Likewise.
+	(ggc_thread_clean_up): Likewise.
+	(ggc_thread_pause): Likewise.
+	(ggc_collection_completed): Likewise.
+	(ggc_thread_ignore_me): Likewise.
+	* ggc.h: Include host-thread.h.
+	(struct ggc_thread_roots): New.
+	(struct ggc_thread_root_list): New.
+	(ggc_thread_registration_function): New typedef.
+	(gt_ggc_thread_funcs): Declare.
+	(ggc_gc_lock): Likewise.
+	(ggc_thread_init, ggc_thread_start, ggc_thread_clean_up,
+	ggc_thread_ignore_me, ggc_thread_pause, ggc_collection_completed):
+	Declare.
+	* gengtype-parse.c (extern_or_static): Handle GCC_THREAD.
+	* gengtype-lex.l: Recognize "GGC_THREAD".
+	* toplev.c (general_init): Call ggc_thread_init.
+	* host-thread.h: New file.
+	* gengtype.h (THREAD): New value.
+	(note_variable): Update.
+	* gengtype.c (struct pair) <thread_local>: New field.
+	(do_typedef): Initialize it.
+	(note_variable): Added 'thread_local' argument.
+	(create_field_all): Initialize new field.
+	(struct flist) <item_count, saved_offset>: New fields.
+	(finish_thread_registration): New function.
+	(write_thread_lang_registration): Likewise.
+	(start_root_field): Likewise.
+	(end_root_field): Likewise.
+	(write_root): Handle thread-local variables.
+	(start_thread_local_table): New function.
+	(write_roots): Added 'thread_local' argument.  Write thread
+	registration functions.
+	(main): Call write_roots twice.
+
 2007-10-10  Tom Tromey  <tromey@redhat.com>
 
 	* cgraph.c (cgraph_note_duplicate): Refine assertion.

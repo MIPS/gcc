@@ -62,6 +62,7 @@ struct pair
   pair_p next;
   const char *name;
   type_p type;
+  bool thread_local;
   struct fileloc line;
   options_p opt;
 };
@@ -548,6 +549,7 @@ do_typedef (const char *s, type_p t, struct fileloc *pos)
   p->next = typedefs;
   p->name = s;
   p->type = t;
+  p->thread_local = false;
   p->line = *pos;
   typedefs = p;
 }
@@ -792,12 +794,14 @@ create_nested_ptr_option (options_p next, type_p t,
    to `variables'.  */
 
 void
-note_variable (const char *s, type_p t, options_p o, struct fileloc *pos)
+note_variable (const char *s, bool thread_local, type_p t, options_p o,
+	       struct fileloc *pos)
 {
   pair_p n;
   n = XNEW (struct pair);
   n->name = s;
   n->type = t;
+  n->thread_local = thread_local;
   n->line = *pos;
   n->opt = o;
   n->next = variables;
@@ -814,6 +818,7 @@ create_field_all (pair_p next, type_p type, const char *name, options_p opt,
   field = XNEW (struct pair);
   field->next = next;
   field->type = type;
+  field->thread_local = false;
   field->name = name;
   field->opt = opt;
   field->line.file = file;
@@ -1719,6 +1724,8 @@ close_output_files (void)
 struct flist {
   struct flist *next;
   int started_p;
+  int item_count;
+  size_t saved_offset;
   const char *name;
   outf_p f;
 };
@@ -1775,7 +1782,7 @@ static void write_root (outf_p , pair_p, type_p, const char *, int,
 			struct fileloc *, const char *);
 static void write_array (outf_p f, pair_p v,
 			 const struct write_types_data *wtd);
-static void write_roots (pair_p);
+static void write_roots (pair_p, bool);
 
 /* Parameters for walk_type.  */
 
@@ -2956,6 +2963,127 @@ finish_root_table (struct flist *flp, const char *pfx, const char *lastname,
   }
 }
 
+/* Close one stanza of the thread registration function.  */
+
+static void
+finish_thread_registration (struct flist *flp, const char *name)
+{
+  struct flist *fli2;
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    {
+      if (fli2->started_p)
+	{
+	  char *num;
+
+	  oprintf (fli2->f, "    table[ndx] = final;\n");
+	  oprintf (fli2->f, "    roots->%s = table;\n", name);
+	  oprintf (fli2->f, "  }\n");
+
+	  /* Overwrite the saved space with the real length of the
+	     array.  */
+	  gcc_assert (fli2->item_count);
+	  gcc_assert (fli2->saved_offset);
+	  num = xasprintf ("%d", fli2->item_count + 1);
+	  gcc_assert (strlen (num) <= 10); /* We insert 10 spaces.  */
+	  memcpy (&fli2->f->buf[fli2->saved_offset], num, strlen (num));
+	  free (num);
+
+	  fli2->started_p = 0;
+	  fli2->item_count = 0;
+	  fli2->saved_offset = 0;
+	}
+    }
+}
+
+/* Write the end of the thread registration functions and generate the
+   per-language gt_ggc_thread_funcs arrays.  */
+
+static void
+write_thread_lang_registration (struct flist *flp)
+{
+  struct flist *fli2;
+
+  /* End the function definitions.  */
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    {
+      oprintf (fli2->f, "  return roots;\n");
+      oprintf (fli2->f, "}\n");
+    }
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    {
+      lang_bitmap bitmap = get_lang_bitmap (fli2->name);
+      int fnum;
+
+      for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
+	if (bitmap & 1)
+	  {
+	    oprintf (base_files[fnum],
+		     "extern struct ggc_thread_roots *ggc_thr_reg_");
+	    put_mangled_filename (base_files[fnum], fli2->name);
+	    oprintf (base_files[fnum], " (void);\n");
+	  }
+    }
+
+  {
+    size_t fnum;
+    for (fnum = 0; fnum < num_lang_dirs; fnum++)
+      oprintf (base_files [fnum],
+	       "const ggc_thread_registration_function gt_ggc_thread_funcs[] = {\n");
+  }
+
+
+  for (fli2 = flp; fli2; fli2 = fli2->next)
+    {
+      lang_bitmap bitmap = get_lang_bitmap (fli2->name);
+      int fnum;
+
+      for (fnum = 0; bitmap != 0; fnum++, bitmap >>= 1)
+	if (bitmap & 1)
+	  {
+	    oprintf (base_files[fnum], "  ggc_thr_reg_");
+	    put_mangled_filename (base_files[fnum], fli2->name);
+	    oprintf (base_files[fnum], ",\n");
+	  }
+    }
+
+  {
+    size_t fnum;
+    for (fnum = 0; fnum < num_lang_dirs; fnum++)
+      {
+	oprintf (base_files[fnum], "  NULL\n");
+	oprintf (base_files[fnum], "};\n");
+      }
+  }
+}
+
+/* Helper for write_root.  Begin initialization of a field.  */
+static void
+start_root_field (outf_p f, pair_p v, const char *fname)
+{
+  if (v->thread_local)
+    oprintf (f, "    table[ndx].%s = ", fname);
+  else
+    oprintf (f, "    ");
+}
+
+/* Helper for write_root.  End initialization of a field.  */
+static void
+end_root_field (outf_p f, pair_p v, bool final)
+{
+  if (v->thread_local)
+    {
+      oprintf (f, ";\n");
+      if (final)
+	oprintf (f, "    ++ndx;\n");
+    }
+  else if (final)
+    oprintf (f, "\n");
+  else
+    oprintf (f, ",\n");
+}
+
 /* Write out to F the table entry and any marker routines needed to
    mark NAME as TYPE.  The original variable is V, at LINE.
    HAS_LENGTH is nonzero iff V was a variable-length array.  IF_MARKED
@@ -3049,40 +3177,61 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
       {
 	type_p ap, tp;
 
-	oprintf (f, "  {\n");
-	oprintf (f, "    &%s,\n", name);
-	oprintf (f, "    1");
+	if (!v->thread_local)
+	  oprintf (f, "  {\n");
+
+	start_root_field (f, v, "base");
+	oprintf (f, "&%s", name);
+	end_root_field (f, v, false);
+	
+	start_root_field (f, v, "nelt");
+	oprintf (f, "1");
 
 	for (ap = v->type; ap->kind == TYPE_ARRAY; ap = ap->u.a.p)
 	  if (ap->u.a.len[0])
 	    oprintf (f, " * (%s)", ap->u.a.len);
 	  else if (ap == v->type)
 	    oprintf (f, " * ARRAY_SIZE (%s)", v->name);
-	oprintf (f, ",\n");
-	oprintf (f, "    sizeof (%s", v->name);
+	end_root_field (f, v, false);
+
+	start_root_field (f, v, "stride");
+	oprintf (f, "sizeof (%s", v->name);
 	for (ap = v->type; ap->kind == TYPE_ARRAY; ap = ap->u.a.p)
 	  oprintf (f, "[0]");
-	oprintf (f, "),\n");
+	oprintf (f, ")");
+	end_root_field (f, v, false);
 
 	tp = type->u.p;
 
 	if (! has_length && UNION_OR_STRUCT_P (tp))
 	  {
-	    oprintf (f, "    &gt_ggc_mx_%s,\n", tp->u.s.tag);
-	    oprintf (f, "    &gt_pch_nx_%s", tp->u.s.tag);
+	    start_root_field (f, v, "cb");
+	    oprintf (f, "&gt_ggc_mx_%s", tp->u.s.tag);
+	    end_root_field (f, v, false);
+	    start_root_field (f, v, "pchw");
+	    oprintf (f, "&gt_pch_nx_%s", tp->u.s.tag);
+	    end_root_field (f, v, !if_marked);
 	  }
 	else if (! has_length && tp->kind == TYPE_PARAM_STRUCT)
 	  {
-	    oprintf (f, "    &gt_ggc_m_");
+	    start_root_field (f, v, "cb");
+	    oprintf (f, "&gt_ggc_m_");
 	    output_mangled_typename (f, tp);
-	    oprintf (f, ",\n    &gt_pch_n_");
+	    end_root_field (f, v, false);
+	    start_root_field (f, v, "pchw");
+	    oprintf (f, "&gt_pch_n_");
 	    output_mangled_typename (f, tp);
+	    end_root_field (f, v, !if_marked);
 	  }
 	else if (has_length
 		 && (tp->kind == TYPE_POINTER || UNION_OR_STRUCT_P (tp)))
 	  {
-	    oprintf (f, "    &gt_ggc_ma_%s,\n", name);
-	    oprintf (f, "    &gt_pch_na_%s", name);
+	    start_root_field (f, v, "cb");
+	    oprintf (f, "&gt_ggc_ma_%s", name);
+	    end_root_field (f, v, false);
+	    start_root_field (f, v, "pchw");
+	    oprintf (f, "&gt_pch_na_%s", name);
+	    end_root_field (f, v, !if_marked);
 	  }
 	else
 	  {
@@ -3091,20 +3240,37 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
 			   name);
 	  }
 	if (if_marked)
-	  oprintf (f, ",\n    &%s", if_marked);
-	oprintf (f, "\n  },\n");
+	  {
+	    start_root_field (f, v, "marked_p");
+	    oprintf (f, "&%s", if_marked);
+	    end_root_field (f, v, true);
+	  }
+	if (!v->thread_local)
+	  oprintf (f, "  },\n");
       }
       break;
 
     case TYPE_STRING:
       {
-	oprintf (f, "  {\n");
-	oprintf (f, "    &%s,\n", name);
-	oprintf (f, "    1, \n");
-	oprintf (f, "    sizeof (%s),\n", v->name);
-	oprintf (f, "    &gt_ggc_m_S,\n");
-	oprintf (f, "    (gt_pointer_walker) &gt_pch_n_S\n");
-	oprintf (f, "  },\n");
+	if (!v->thread_local)
+	  oprintf (f, "  {\n");
+	start_root_field (f, v, "base");
+	oprintf (f, "&%s", name);
+	end_root_field (f, v, false);
+	start_root_field (f, v, "nelt");
+	oprintf (f, "1");
+	end_root_field (f, v, false);
+	start_root_field (f, v, "stride");
+	oprintf (f, "sizeof (%s)", v->name);
+	end_root_field (f, v, false);
+	start_root_field (f, v, "cb");
+	oprintf (f, "&gt_ggc_m_S");
+	end_root_field (f, v, false);
+	start_root_field (f, v, "pchw");
+	oprintf (f, "(gt_pointer_walker) &gt_pch_n_S");
+	end_root_field (f, v, true);
+	if (!v->thread_local)
+	  oprintf (f, "  },\n");
       }
       break;
 
@@ -3168,10 +3334,27 @@ write_array (outf_p f, pair_p v, const struct write_types_data *wtd)
   oprintf (f, "}\n\n");
 }
 
+/* Write the initialization part of a stanza in a thread registration
+   function.  */
+static void
+start_thread_local_table (struct flist *fli, const char *type,
+			  const char *final)
+{
+  oprintf (fli->f, "  {\n");
+  oprintf (fli->f, "    struct %s final = %s;\n", type, final);
+  oprintf (fli->f, "    struct %s *table = XCNEWVEC (struct ggc_root_tab, ",
+	   type);
+  /* A cheap hack to let us lazily compute the table length: save some
+     space in the output and then later go back and overwrite it.  */
+  fli->saved_offset = fli->f->bufused;
+  oprintf (fli->f, "          );\n");
+  oprintf (fli->f, "    int ndx = 0;\n");
+}
+
 /* Output a table describing the locations and types of VARIABLES.  */
 
 static void
-write_roots (pair_p variables)
+write_roots (pair_p variables, bool thread_local)
 {
   pair_p v;
   struct flist *flp = NULL;
@@ -3183,6 +3366,9 @@ write_roots (pair_p variables)
       const char *length = NULL;
       int deletable_p = 0;
       options_p o;
+
+      if (thread_local && ! v->thread_local)
+	continue;
 
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
@@ -3211,13 +3397,31 @@ write_roots (pair_p variables)
 	  fli->f = f;
 	  fli->next = flp;
 	  fli->started_p = 0;
+	  fli->item_count = 0;
+	  fli->saved_offset = 0;
 	  fli->name = v->line.file;
 	  flp = fli;
 
-	  oprintf (f, "\n/* GC roots.  */\n\n");
+	  if (thread_local)
+	    {
+	      oprintf (f, "\n/* Thread-local GC roots.  */\n\n");
+
+	      /* Emit a declaration first.  Bogus.  */
+	      oprintf (f, "struct ggc_thread_roots *ggc_thr_reg_");
+	      put_mangled_filename (f, v->line.file);
+	      oprintf (f, " (void);\n\n");
+
+	      oprintf (f, "struct ggc_thread_roots *\nggc_thr_reg_");
+	      put_mangled_filename (f, v->line.file);
+	      oprintf (f, " (void)\n{\n");
+	      oprintf (f, "  struct ggc_thread_roots *roots  = XCNEW (struct ggc_thread_roots);\n");
+	    }
+	  else
+	    oprintf (f, "\n/* GC roots.  */\n\n");
 	}
 
-      if (! deletable_p
+      if (! thread_local
+	  && ! deletable_p
 	  && length
 	  && v->type->kind == TYPE_POINTER
 	  && (v->type->u.p->kind == TYPE_POINTER
@@ -3236,6 +3440,9 @@ write_roots (pair_p variables)
       int length_p = 0;
       options_p o;
 
+      if (v->thread_local != thread_local)
+	continue;
+
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
 	  length_p = 1;
@@ -3253,16 +3460,25 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "const struct ggc_root_tab gt_ggc_r_");
-	  put_mangled_filename (f, v->line.file);
-	  oprintf (f, "[] = {\n");
+	  if (thread_local)
+	    start_thread_local_table (fli, "ggc_root_tab", "LAST_GGC_ROOT_TAB");
+	  else
+	    {
+	      oprintf (f, "const struct ggc_root_tab gt_ggc_r_");
+	      put_mangled_filename (f, v->line.file);
+	      oprintf (f, "[] = {\n");
+	    }
 	}
 
+      ++fli->item_count;
       write_root (f, v, v->type, v->name, length_p, &v->line, NULL);
     }
 
-  finish_root_table (flp, "ggc_r", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
-		     "gt_ggc_rtab");
+  if (thread_local)
+    finish_thread_registration (flp, "rtab");
+  else
+    finish_root_table (flp, "ggc_r", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
+		       "gt_ggc_rtab");
 
   for (v = variables; v; v = v->next)
     {
@@ -3270,6 +3486,9 @@ write_roots (pair_p variables)
       struct flist *fli;
       int skip_p = 1;
       options_p o;
+
+      if (v->thread_local != thread_local)
+	continue;
 
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "deletable") == 0)
@@ -3287,17 +3506,36 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "const struct ggc_root_tab gt_ggc_rd_");
-	  put_mangled_filename (f, v->line.file);
-	  oprintf (f, "[] = {\n");
+	  if (thread_local)
+	    start_thread_local_table (fli, "ggc_root_tab", "LAST_GGC_ROOT_TAB");
+	  else
+	    {
+	      oprintf (f, "const struct ggc_root_tab gt_ggc_rd_");
+	      put_mangled_filename (f, v->line.file);
+	      oprintf (f, "[] = {\n");
+	    }
 	}
 
-      oprintf (f, "  { &%s, 1, sizeof (%s), NULL, NULL },\n",
-	       v->name, v->name);
+      ++fli->item_count;
+      if (thread_local)
+	{
+	  oprintf (f, "    table[ndx].base = &%s;\n", v->name);
+	  oprintf (f, "    table[ndx].nelt = 1;\n");
+	  oprintf (f, "    table[ndx].stride = sizeof (%s);\n", v->name);
+	  oprintf (f, "    table[ndx].cb = NULL;\n");
+	  oprintf (f, "    table[ndx].pchw = NULL;\n");
+	  oprintf (f, "    ++ndx;\n");
+	}
+      else
+	oprintf (f, "  { &%s, 1, sizeof (%s), NULL, NULL },\n",
+		 v->name, v->name);
     }
 
-  finish_root_table (flp, "ggc_rd", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
-		     "gt_ggc_deletable_rtab");
+  if (thread_local)
+    finish_thread_registration (flp, "deletable_rtab");
+  else
+    finish_root_table (flp, "ggc_rd", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
+		       "gt_ggc_deletable_rtab");
 
   for (v = variables; v; v = v->next)
     {
@@ -3306,6 +3544,9 @@ write_roots (pair_p variables)
       const char *if_marked = NULL;
       int length_p = 0;
       options_p o;
+
+      if (v->thread_local != thread_local)
+	continue;
 
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
@@ -3331,17 +3572,27 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "const struct ggc_cache_tab gt_ggc_rc_");
-	  put_mangled_filename (f, v->line.file);
-	  oprintf (f, "[] = {\n");
+	  if (thread_local)
+	    start_thread_local_table (fli, "ggc_cache_tab",
+				      "LAST_GGC_CACHE_TAB");
+	  else
+	    {
+	      oprintf (f, "const struct ggc_cache_tab gt_ggc_rc_");
+	      put_mangled_filename (f, v->line.file);
+	      oprintf (f, "[] = {\n");
+	    }
 	}
 
+      ++fli->item_count;
       write_root (f, v, v->type->u.p->u.param_struct.param[0],
 		     v->name, length_p, &v->line, if_marked);
     }
 
-  finish_root_table (flp, "ggc_rc", "LAST_GGC_CACHE_TAB", "ggc_cache_tab",
-		     "gt_ggc_cache_rtab");
+  if (thread_local)
+    finish_thread_registration (flp, "cache_rtab");
+  else
+    finish_root_table (flp, "ggc_rc", "LAST_GGC_CACHE_TAB", "ggc_cache_tab",
+		       "gt_ggc_cache_rtab");
 
   for (v = variables; v; v = v->next)
     {
@@ -3350,6 +3601,9 @@ write_roots (pair_p variables)
       int length_p = 0;
       int if_marked_p = 0;
       options_p o;
+
+      if (v->thread_local != thread_local)
+	continue;
 
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
@@ -3367,16 +3621,25 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "const struct ggc_root_tab gt_pch_rc_");
-	  put_mangled_filename (f, v->line.file);
-	  oprintf (f, "[] = {\n");
+	  if (thread_local)
+	    start_thread_local_table (fli, "ggc_root_tab", "LAST_GGC_ROOT_TAB");
+	  else
+	    {
+	      oprintf (f, "const struct ggc_root_tab gt_pch_rc_");
+	      put_mangled_filename (f, v->line.file);
+	      oprintf (f, "[] = {\n");
+	    }
 	}
 
+      ++fli->item_count;
       write_root (f, v, v->type, v->name, length_p, &v->line, NULL);
     }
 
-  finish_root_table (flp, "pch_rc", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
-		     "gt_pch_cache_rtab");
+  if (thread_local)
+    finish_thread_registration (flp, "pch_cache_rtab");
+  else
+    finish_root_table (flp, "pch_rc", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
+		       "gt_pch_cache_rtab");
 
   for (v = variables; v; v = v->next)
     {
@@ -3384,6 +3647,9 @@ write_roots (pair_p variables)
       struct flist *fli;
       int skip_p = 0;
       options_p o;
+
+      if (v->thread_local != thread_local)
+	continue;
 
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "deletable") == 0
@@ -3403,17 +3669,39 @@ write_roots (pair_p variables)
 	{
 	  fli->started_p = 1;
 
-	  oprintf (f, "const struct ggc_root_tab gt_pch_rs_");
-	  put_mangled_filename (f, v->line.file);
-	  oprintf (f, "[] = {\n");
+	  if (thread_local)
+	    start_thread_local_table (fli, "ggc_root_tab", "LAST_GGC_ROOT_TAB");
+	  else
+	    {
+	      oprintf (f, "const struct ggc_root_tab gt_pch_rs_");
+	      put_mangled_filename (f, v->line.file);
+	      oprintf (f, "[] = {\n");
+	    }
 	}
 
-      oprintf (f, "  { &%s, 1, sizeof (%s), NULL, NULL },\n",
-	       v->name, v->name);
+      ++fli->item_count;
+      if (thread_local)
+	{
+	  oprintf (f, "    table[ndx].base = &%s;\n", v->name);
+	  oprintf (f, "    table[ndx].nelt = 1;\n");
+	  oprintf (f, "    table[ndx].stride = sizeof (%s);\n", v->name);
+	  oprintf (f, "    table[ndx].cb = NULL;\n");
+	  oprintf (f, "    table[ndx].pchw = NULL;\n");
+	  oprintf (f, "    ++ndx;\n");
+	}
+      else	
+	oprintf (f, "  { &%s, 1, sizeof (%s), NULL, NULL },\n",
+		 v->name, v->name);
     }
 
-  finish_root_table (flp, "pch_rs", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
-		     "gt_pch_scalar_rtab");
+  if (thread_local)
+    {
+      finish_thread_registration (flp, "pch_scalar_rtab");
+      write_thread_lang_registration (flp);
+    }
+  else
+    finish_root_table (flp, "pch_rs", "LAST_GGC_ROOT_TAB", "ggc_root_tab",
+		       "gt_pch_scalar_rtab");
 }
 
 /* Record the definition of a generic VEC structure, as if we had expanded
@@ -3555,7 +3843,8 @@ main (int argc, char **argv)
   write_types (structures, param_structs, &ggc_wtd);
   write_types (structures, param_structs, &pch_wtd);
   write_local (structures, param_structs);
-  write_roots (variables);
+  write_roots (variables, false);
+  write_roots (variables, true);
   write_rtx_next ();
   close_output_files ();
 

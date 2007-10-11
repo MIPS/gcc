@@ -804,7 +804,14 @@ extern_or_static (void)
   options_p opts, opts2, dopts;
   type_p ty, dty;
   const char *name;
+  bool thread_local = false;
   require2 (EXTERN, STATIC);
+
+  if (token () == THREAD)
+    {
+      advance ();
+      thread_local = true;
+    }
 
   if (token () != GTY_TOKEN)
     {
@@ -825,7 +832,8 @@ extern_or_static (void)
 
   if (dty)
     {
-      note_variable (name, adjust_field_type (dty, opts), opts, &lexer_line);
+      note_variable (name, thread_local, adjust_field_type (dty, opts),
+		     opts, &lexer_line);
       require2 (';', '=');
     }
 }
