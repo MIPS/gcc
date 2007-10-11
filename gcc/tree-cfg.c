@@ -2844,31 +2844,31 @@ gsi_insert_on_edge_immediate (edge e ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSE
 /* Reinstall those PHI arguments queued in OLD_EDGE to NEW_EDGE.  */
 
 static void
-reinstall_phi_args (edge new_edge ATTRIBUTE_UNUSED, edge old_edge ATTRIBUTE_UNUSED)
+reinstall_phi_args (edge new_edge, edge old_edge)
 {
-  /* FIXME tuples.  */
-#if 0
-  tree var, phi;
-
-  if (!PENDING_STMT (old_edge))
+  edge_var_map_vector v;
+  edge_var_map *vm;
+  int i;
+  gimple_stmt_iterator *phis;
+  
+  v = redirect_edge_var_map_vector (old_edge);
+  if (!v)
     return;
-
-  for (var = PENDING_STMT (old_edge), phi = phi_nodes (new_edge->dest);
-       var && phi;
-       var = TREE_CHAIN (var), phi = PHI_CHAIN (phi))
+  
+  for (i = 0, phis = gsi_start (phi_nodes (new_edge->dest));
+       VEC_iterate (edge_var_map, v, i, vm) && !gsi_end_p (phis);
+       i++, gsi_next (phis))
     {
-      tree result = TREE_PURPOSE (var);
-      tree arg = TREE_VALUE (var);
-
-      gcc_assert (result == PHI_RESULT (phi));
-
+      gimple phi = gsi_stmt (phis);
+      tree result = redirect_edge_var_map_result (vm);
+      tree arg = redirect_edge_var_map_def (vm);
+ 
+      gcc_assert (result == gimple_phi_result (phi));
+  
       add_phi_arg (phi, arg, new_edge);
     }
-
-  PENDING_STMT (old_edge) = NULL;
-#else
-  gcc_unreachable ();
-#endif
+  
+  redirect_edge_var_map_clear (old_edge);
 }
 
 /* Returns the basic block after which the new basic block created

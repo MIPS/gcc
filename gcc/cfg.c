@@ -67,6 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "df.h"
 #include "cfgloop.h"
+#include "tree-flow.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
@@ -363,6 +364,9 @@ remove_edge_raw (edge e)
   disconnect_src (e);
   disconnect_dest (e);
 
+  /* This is probably not needed, but it doesn't hurt.  */
+  redirect_edge_var_map_clear (e);
+
   free_edge (e);
 }
 
@@ -399,6 +403,7 @@ redirect_edge_succ_nodup (edge e, basic_block new_succ)
 	s->probability = REG_BR_PROB_BASE;
       s->count += e->count;
       remove_edge (e);
+      redirect_edge_var_map_dup (s, e);
       e = s;
     }
   else
