@@ -1,3 +1,45 @@
+2007-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/25309
+	* gcc.dg/large-size-array-2.c: Expect diagnostic for too-large
+	array.
+	* gcc.dg/large-size-array-4.c: New.  Copy of large-size-array-2.c
+	without -O2.
+
+2007-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/32295
+	* gcc.dg/enum-incomplete-1.c: New test.
+
+2007-10-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2007-09-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33438
+	* gcc.target/i386/pr33438.c: New test.
+
+	2007-09-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33369
+	* gcc.dg/vect/pr33369.c: New test.
+
+2007-10-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2007-10-03  Doug Kwan  <dougkwan@google.com>
+		Richard Guenther  <rguenther@suse.de>
+
+	PR debug/31899
+	* g++.dg/debug/using3.C: New testcase.
+
+2007-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33099
+	PR tree-optimization/33381
+	* gcc.c-torture/execute/pr33099.c: New testcase.
+	* gcc.c-torture/execute/pr33381.c: Likewise.
+
 2007-10-07  Release Manager
 
 	* GCC 4.2.2 released.

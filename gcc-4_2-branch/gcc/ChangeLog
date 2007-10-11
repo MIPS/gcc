@@ -1,3 +1,64 @@
+2007-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/25309
+	* c-common.c (complete_array_type): Diagnose too-large arrays and
+	set type to error_mark_node.
+
+2007-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/32295
+	* c-typeck.c (default_conversion): Call require_complete_type
+	before perform_integral_promotions.
+	(build_unary_op): Call require_complete_type except for ADDR_EXPR.
+	(build_c_cast): Call require_complete_type except for casts to
+	void types.
+	(convert_for_assignment): Call require_complete_type.
+
+2007-10-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2007-09-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33438
+	* config/i386/i386.md (fmodxf3): Copy operands[2] to temporary
+	register when operands[2] equals operands[1].
+	(dremxf3): Ditto.
+
+	2007-09-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33369
+	* gcc/config/i386/sse.md (ashr<mode>3): Change op2 mode to SImode.
+	Use 'N' operand constraint for op2.
+	(lshr<mode>3): Ditto.
+	(ashl<mode>3): Ditto.
+	(vec_shl_<mode>): Use const_0_to_255_mul_8_operand predicate for op2.
+	(vec_shr_<mode>): Use const_0_to_255_mul_8_operand predicate for op2.
+
+	* gcc/config/i386/i386.c (ix86_expand_builtin) [IX86_BUILTIN_PSLL?128,
+	IX86_BUILTIN_PSRA*?128, IX86_BUILTIN_PSRL?128]: Convert op1 to SImode.
+
+2007-10-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2007-10-03  Doug Kwan  <dougkwan@google.com>
+		Richard Guenther  <rguenther@suse.de>
+
+	PR debug/31899
+	* dwarf2out.c (reference_to_unused): Disable sanity checking,
+	be conservative instead.
+
+2007-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33099
+	PR tree-optimization/33381
+	* tree-vrp.c (adjust_range_with_scev): Do not adjust ranges
+	from pointer typed chrecs.
+
+2007-10-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* BASE-VER: Bump.
+	* DEV-PHASE: Mark as prerelease.
+
 2007-10-07  Release Manager
 
 	* GCC 4.2.2 released.
