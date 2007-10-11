@@ -2223,6 +2223,7 @@ output_call_frame_info (int for_eh)
      specialization doesn't.  */
   if (TARGET_USES_WEAK_UNWIND_INFO
       && ! flag_asynchronous_unwind_tables
+      && flag_exceptions
       && for_eh)
     for (i = 0; i < fde_table_in_use; i++)
       if ((fde_table[i].nothrow || fde_table[i].all_throwers_are_sibcalls)
@@ -2662,7 +2663,7 @@ dwarf2out_frame_init (void)
   dwarf2out_def_cfa (NULL, STACK_POINTER_REGNUM, INCOMING_FRAME_SP_OFFSET);
 
 #ifdef DWARF2_UNWIND_INFO
-  if (DWARF2_UNWIND_INFO)
+  if (DWARF2_UNWIND_INFO || DWARF2_FRAME_INFO)
     initial_return_save (INCOMING_RETURN_ADDR_RTX);
 #endif
 }
@@ -10344,9 +10345,12 @@ reference_to_unused (tree * tp, int * walk_subtrees,
     return *tp;
   else if (!flag_unit_at_a_time)
     return NULL_TREE;
+  /* ???  The C++ FE emits debug information for using decls, so
+     putting gcc_unreachable here falls over.  See PR31899.  For now
+     be conservative.  */
   else if (!cgraph_global_info_ready
 	   && (TREE_CODE (*tp) == VAR_DECL || TREE_CODE (*tp) == FUNCTION_DECL))
-    gcc_unreachable ();
+    return *tp;
   else if (DECL_P (*tp) && TREE_CODE (*tp) == VAR_DECL)
     {
       struct varpool_node *node = varpool_node (*tp);

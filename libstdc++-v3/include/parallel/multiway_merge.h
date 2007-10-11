@@ -30,6 +30,13 @@
 
 /** @file parallel/multiway_merge.h
  *  @brief Implementation of sequential and parallel multiway merge.
+ *
+ *  Explanations on the high-speed merging routines in the appendix of
+ *
+ *  P. Sanders.
+ *  Fast priority queues for cached memory.
+ *  ACM Journal of Experimental Algorithmics, 5, 2000.
+ *
  *  This file is a GNU parallel extension to the Standard C++ Library.
  */
 
@@ -258,7 +265,7 @@ namespace __gnu_parallel
   {
     _GLIBCXX_CALL(seqs_end - seqs_begin)
 
-      typedef typename std::iterator_traits<RandomAccessIteratorIterator>::value_type::first_type
+    typedef typename std::iterator_traits<RandomAccessIteratorIterator>::value_type::first_type
       RandomAccessIterator1;
     typedef typename std::iterator_traits<RandomAccessIterator1>::value_type
       value_type;
@@ -339,8 +346,7 @@ namespace __gnu_parallel
       difference_type;
 
     // Last element in sequence.
-    value_type max;
-    bool max_found = false;
+    value_type* max = NULL;
     for (RandomAccessIteratorIterator s = seqs_begin; s != seqs_end; s++)
       {
 	if ((*s).first == (*s).second)
@@ -350,20 +356,19 @@ namespace __gnu_parallel
 	value_type& v = *((*s).second - 1);
 
 	// Strictly greater.
-	if (!max_found || comp(max, v))
-	  max = v;
-	max_found = true;
+	if (!max || comp(*max, v))
+	  max = &v;
       }
 
     difference_type overhang_size = 0;
-
     for (RandomAccessIteratorIterator s = seqs_begin; s != seqs_end; s++)
       {
-	RandomAccessIterator1 split = std::lower_bound((*s).first, (*s).second, max, comp);
+	RandomAccessIterator1 split = std::lower_bound((*s).first, (*s).second,
+						       *max, comp);
 	overhang_size += (*s).second - split;
 
 	// Set sentinel.
-	*((*s).second) = max;
+	*((*s).second) = *max;
       }
 
     // So many elements will be left over afterwards.
@@ -715,7 +720,7 @@ namespace __gnu_parallel
     // Num remaining pieces.
     int k = static_cast<int>(seqs_end - seqs_begin), nrp;
 
-    value_type* pl = new value_type[k];
+    value_type* pl = static_cast<value_type*>(::operator new(sizeof(value_type) * k));
     int* source = new int[k];
     difference_type total_length = 0;
 
@@ -883,7 +888,7 @@ namespace __gnu_parallel
   {
     _GLIBCXX_CALL(length)
 
-      typedef _DifferenceTp difference_type;
+    typedef _DifferenceTp difference_type;
     typedef typename std::iterator_traits<RandomAccessIteratorIterator>::value_type::first_type
       RandomAccessIterator1;
     typedef typename std::iterator_traits<RandomAccessIterator1>::value_type
@@ -895,19 +900,21 @@ namespace __gnu_parallel
 
     difference_type total_length = 0;
 
+    // Default value for potentially non-default-constructible types.
+    value_type* defaultcons = NULL; 
     for (int t = 0; t < k; t++)
       {
 	if (stable)
 	  {
 	    if (seqs_begin[t].first == seqs_begin[t].second)
-	      lt.insert_start_stable(value_type(), t, true);
+	      lt.insert_start_stable(*defaultcons, t, true);
 	    else
 	      lt.insert_start_stable(*seqs_begin[t].first, t, false);
 	  }
 	else
 	  {
 	    if (seqs_begin[t].first == seqs_begin[t].second)
-	      lt.insert_start(value_type(), t, true);
+	      lt.insert_start(*defaultcons, t, true);
 	    else
 	      lt.insert_start(*seqs_begin[t].first, t, false);
 	  }
@@ -935,7 +942,7 @@ namespace __gnu_parallel
 
 	    // Feed.
 	    if (seqs_begin[source].first == seqs_begin[source].second)
-	      lt.delete_min_insert_stable(value_type(), true);
+	      lt.delete_min_insert_stable(*defaultcons, true);
 	    else
 	      // Replace from same source.
 	      lt.delete_min_insert_stable(*seqs_begin[source].first, false);
@@ -953,7 +960,7 @@ namespace __gnu_parallel
 
 	    // Feed.
 	    if (seqs_begin[source].first == seqs_begin[source].second)
-	      lt.delete_min_insert(value_type(), true);
+	      lt.delete_min_insert(*defaultcons, true);
 	    else
 	      // Replace from same source.
 	      lt.delete_min_insert(*seqs_begin[source].first, false);
@@ -1076,59 +1083,6 @@ namespace __gnu_parallel
     return target;
   }
 
-  template<typename _ValueTp, class Comparator>
-  struct loser_tree_traits
-  {
-    typedef LoserTree/*Pointer*/<_ValueTp, Comparator> LT;
-  };
-
-
-  /*#define NO_POINTER(T) \
-    template<typename Comparator> \
-    struct loser_tree_traits<T, Comparator> \
-    { \
-    typedef LoserTreePointer<T, Comparator> LT; \
-    };*/
-  //
-  // NO_POINTER(unsigned char)
-  // NO_POINTER(char)
-  // NO_POINTER(unsigned short)
-  // NO_POINTER(short)
-  // NO_POINTER(unsigned int)
-  // NO_POINTER(int)
-  // NO_POINTER(unsigned long)
-  // NO_POINTER(long)
-  // NO_POINTER(unsigned long long)
-  // NO_POINTER(long long)
-  //
-  // #undef NO_POINTER
-
-  template<typename _ValueTp, class Comparator>
-  struct loser_tree_traits_unguarded
-  {
-    typedef LoserTreeUnguarded<_ValueTp, Comparator> LT;
-  };
-
-  /*#define NO_POINTER_UNGUARDED(T) \
-    template<typename Comparator> \
-    struct loser_tree_traits_unguarded<T, Comparator> \
-    { \
-    typedef LoserTreePointerUnguarded<T, Comparator> LT; \
-    };*/
-  //
-  // NO_POINTER_UNGUARDED(unsigned char)
-  // NO_POINTER_UNGUARDED(char)
-  // NO_POINTER_UNGUARDED(unsigned short)
-  // NO_POINTER_UNGUARDED(short)
-  // NO_POINTER_UNGUARDED(unsigned int)
-  // NO_POINTER_UNGUARDED(int)
-  // NO_POINTER_UNGUARDED(unsigned long)
-  // NO_POINTER_UNGUARDED(long)
-  // NO_POINTER_UNGUARDED(unsigned long long)
-  // NO_POINTER_UNGUARDED(long long)
-  //
-  // #undef NO_POINTER_UNGUARDED
-
   template<typename RandomAccessIteratorIterator, typename RandomAccessIterator3, typename _DifferenceTp, typename Comparator>
   RandomAccessIterator3
   multiway_merge_loser_tree_combined(RandomAccessIteratorIterator seqs_begin, RandomAccessIteratorIterator seqs_end, RandomAccessIterator3 target, Comparator comp, _DifferenceTp length, bool stable)
@@ -1155,7 +1109,7 @@ namespace __gnu_parallel
       {
 	difference_type unguarded_length = std::min(length, total_length - overhang);
 	target_end = multiway_merge_loser_tree_unguarded
-	  <typename loser_tree_traits_unguarded<value_type, Comparator>::LT>
+	  <typename loser_tree_unguarded_traits<value_type, Comparator>::LT>
 	  (seqs_begin, seqs_end, target, comp, unguarded_length, stable);
 	overhang = length - unguarded_length;
       }
@@ -1212,7 +1166,7 @@ namespace __gnu_parallel
 
     difference_type unguarded_length = std::min(length, total_length - overhang);
     target_end = multiway_merge_loser_tree_unguarded
-      <typename loser_tree_traits_unguarded<value_type, Comparator>::LT>
+      <typename loser_tree_unguarded_traits<value_type, Comparator>::LT>
       (seqs_begin, seqs_end, target, comp, unguarded_length, stable);
     overhang = length - unguarded_length;
 
@@ -1416,7 +1370,7 @@ namespace __gnu_parallel
 
     if (Settings::multiway_merge_splitting == Settings::SAMPLING)
       {
-	value_type* samples = new value_type[k * num_samples];
+	value_type* samples = static_cast<value_type*>(::operator new(sizeof(value_type) * k * num_samples));
 	// Sample.
 	for (int s = 0; s < k; s++)
 	  for (int i = 0; (difference_type)i < num_samples; i++)

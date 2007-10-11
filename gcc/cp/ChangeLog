@@ -1,3 +1,52 @@
+2007-10-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33461
+	* pt.c (coerce_template_parameter_pack): Do not pass error_mark_node
+	to convert_template_argument.
+	(coerce_template_parms): Return error_mark_node after fixed-length
+	error.
+	(tsubst_decl): Check for error_mark_node the return value of the
+	first tsubst in 'case VAR_DECL'.
+
+2007-10-08  Ollie Wild  <aaw@google.com>
+
+	* typeck2.c (digest_init): Call cplus_expand_constant after
+	convert_for_initialization.
+	* cp-objcp-common.h (LANG_HOOKS_EXPAND_CONSTANT): Removed.
+	* expr.c (cplus_expand_constant): Updated function description.
+
+2007-10-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/20416
+	* call.c (initialize_reference): Handle local static reference
+	temps properly.
+
+2007-10-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/32470
+	* name-lookup.c (push_namespace_with_attrs): Fold back into...
+	(push_namespace): Here.
+	(handle_namespace_attrs): New fn for the attr code.
+	(leave_scope): Don't pop_visibility.
+	* name-lookup.h (struct cp_binding_level): Remove has_visibility.
+	* parser.c (cp_parser_namespace_definition): Call
+	handle_namespace_attrs and pop_visibility as appropriate. 
+
+	PR c++/11756
+	* mangle.c (write_type) [TYPEOF_TYPE]: Just sorry.
+
+2007-10-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* decl.c (duplicate_decls): Preserve linkage flags for mere
+	redeclarations of gnu_inline definitions.
+
+2007-10-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/15764
+	* decl.c (wrap_cleanups_r): New fn.
+	(wrap_temporary_cleanups): New fn.
+	(initialize_local_var): Call it.
+
 2007-09-29  Jason Merrill  <jason@redhat.com>
 
 	PR c++/33094

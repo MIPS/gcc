@@ -1044,8 +1044,6 @@ cgraph_mark_functions_to_output (void)
 static void
 cgraph_expand_function (struct cgraph_node *node)
 {
-  enum debug_info_type save_write_symbols = NO_DEBUG;
-  const struct gcc_debug_hooks *save_debug_hooks = NULL;
   tree decl = node->decl;
 
   /* We ought to not compile any inline clones.  */
@@ -1055,14 +1053,6 @@ cgraph_expand_function (struct cgraph_node *node)
     announce_function (decl);
 
   gcc_assert (node->lowered);
-
-  if (DECL_IGNORED_P (decl))
-    {
-      save_write_symbols = write_symbols;
-      write_symbols = NO_DEBUG;
-      save_debug_hooks = debug_hooks;
-      debug_hooks = &do_nothing_debug_hooks;
-    }
 
   /* Generate RTL for the body of DECL.  */
   if (lang_hooks.callgraph.emit_associated_thunks)
@@ -1075,12 +1065,6 @@ cgraph_expand_function (struct cgraph_node *node)
   /* ??? Can happen with nested function of extern inline.  */
   gcc_assert (TREE_ASM_WRITTEN (node->decl));
 #endif
-
-  if (DECL_IGNORED_P (decl))
-    {
-      write_symbols = save_write_symbols;
-      debug_hooks = save_debug_hooks;
-    }
 
   current_function_decl = NULL;
   if (!cgraph_preserve_function_body_p (node->decl))
@@ -1403,7 +1387,6 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
 
   resdecl = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (resdecl) = 1;
-  DECL_IGNORED_P (resdecl) = 1;
   DECL_RESULT (decl) = resdecl;
 
   allocate_struct_function (decl);
@@ -1411,7 +1394,6 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   TREE_STATIC (decl) = 1;
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_IGNORED_P (decl) = 1;
   DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
   DECL_SAVED_TREE (decl) = body;
   TREE_PUBLIC (decl) = ! targetm.have_ctors_dtors;

@@ -123,7 +123,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __median(const _Tp& __a, const _Tp& __b, const _Tp& __c, _Compare __comp)
     {
       // concept requirements
-      __glibcxx_function_requires(_BinaryFunctionConcept<_Compare,bool,_Tp,_Tp>)
+      __glibcxx_function_requires(_BinaryFunctionConcept<_Compare, bool,
+				                         _Tp, _Tp>)
       if (__comp(__a, __b))
 	if (__comp(__b, __c))
 	  return __b;
@@ -515,7 +516,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  while (1)
 	    {
 	      _ForwardIterator1 __new_result
-		= _GLIBCXX_STD_P::search(__first1, __last1, __first2, __last2, __comp);
+		= _GLIBCXX_STD_P::search(__first1, __last1, __first2,
+					 __last2, __comp);
 	      if (__new_result == __last1)
 		return __result;
 	      else
@@ -548,7 +550,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       _RevIterator1 __rlast1(__first1);
       _RevIterator2 __rlast2(__first2);
-      _RevIterator1 __rresult = _GLIBCXX_STD_P::search(_RevIterator1(__last1), __rlast1, _RevIterator2(__last2), __rlast2);
+      _RevIterator1 __rresult = _GLIBCXX_STD_P::search(_RevIterator1(__last1),
+						       __rlast1,
+						       _RevIterator2(__last2),
+						       __rlast2);
 
       if (__rresult == __rlast1)
 	return __last1;
@@ -788,9 +793,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_requires_valid_range(__first, __last);
 
       __first = _GLIBCXX_STD_P::find(__first, __last, __value);
-      _ForwardIterator __i = __first;
-      return __first == __last ? __first
-		        : std::remove_copy(++__i, __last, __first, __value);
+      if(__first == __last)
+        return __first;
+      _ForwardIterator __result = __first;
+      ++__first;
+      for(; __first != __last; ++__first)
+        if(!(*__first == __value))
+          {
+            *__result = _GLIBCXX_MOVE(*__first);
+            ++__result;
+          }
+      return __result;
     }
 
   /**
@@ -822,10 +835,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_requires_valid_range(__first, __last);
 
       __first = _GLIBCXX_STD_P::find_if(__first, __last, __pred);
-      _ForwardIterator __i = __first;
-      return __first == __last ? __first
-			       : std::remove_copy_if(++__i, __last,
-						     __first, __pred);
+      if(__first == __last)
+        return __first;
+      _ForwardIterator __result = __first;
+      ++__first;
+      for(; __first != __last; ++__first)
+        if(!__pred(*__first))
+          {
+            *__result = _GLIBCXX_MOVE(*__first);
+            ++__result;
+          }
+      return __result;
     }
 
   /**
@@ -862,7 +882,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       ++__first;
       while (++__first != __last)
 	if (!(*__dest == *__first))
-	  *++__dest = *__first;
+	  *++__dest = _GLIBCXX_MOVE(*__first);
       return ++__dest;
     }
 
@@ -903,7 +923,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       ++__first;
       while (++__first != __last)
 	if (!bool(__binary_pred(*__dest, *__first)))
-	  *++__dest = *__first;
+	  *++__dest = _GLIBCXX_MOVE(*__first);
       return ++__dest;
     }
 
@@ -1207,7 +1227,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       _ForwardIterator __first2 = __middle;
       do
 	{
-	  swap(*__first, *__first2);
+	  std::iter_swap(__first, __first2);
 	  ++__first;
 	  ++__first2;
 	  if (__first == __middle)
@@ -1219,7 +1239,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       while (__first2 != __last)
 	{
-	  swap(*__first, *__first2);
+	  std::iter_swap(__first, __first2);
 	  ++__first;
 	  ++__first2;
 	  if (__first == __middle)
@@ -1253,7 +1273,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       while (__first != __middle && __middle != __last)
 	{
-	  swap(*__first, *--__last);
+	  std::iter_swap(__first, --__last);
 	  ++__first;
 	}
 
@@ -1301,7 +1321,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       for (_Distance __i = 0; __i < __d; __i++)
 	{
-	  _ValueType __tmp = *__first;
+	  _ValueType __tmp = _GLIBCXX_MOVE(*__first);
 	  _RandomAccessIterator __p = __first;
 
 	  if (__k < __l)
@@ -1310,11 +1330,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		{
 		  if (__p > __first + __l)
 		    {
-		      *__p = *(__p - __l);
+		      *__p = _GLIBCXX_MOVE(*(__p - __l));
 		      __p -= __l;
 		    }
 
-		  *__p = *(__p + __k);
+		  *__p = _GLIBCXX_MOVE(*(__p + __k));
 		  __p += __k;
 		}
 	    }
@@ -1324,15 +1344,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		{
 		  if (__p < __last - __k)
 		    {
-		      *__p = *(__p + __k);
+		      *__p = _GLIBCXX_MOVE(*(__p + __k));
 		      __p += __k;
 		    }
-		  *__p = * (__p - __l);
+		  *__p = _GLIBCXX_MOVE(*(__p - __l));
 		  __p -= __l;
 		}
 	    }
 
-	  *__p = __tmp;
+	  *__p = _GLIBCXX_MOVE(__tmp);
 	  ++__first;
 	}
     }
@@ -1412,8 +1432,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _ForwardIterator, typename _Predicate>
     _ForwardIterator
     __partition(_ForwardIterator __first, _ForwardIterator __last,
-		_Predicate __pred,
-		forward_iterator_tag)
+		_Predicate __pred, forward_iterator_tag)
     {
       if (__first == __last)
 	return __first;
@@ -1427,7 +1446,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       while (++__next != __last)
 	if (__pred(*__next))
 	  {
-	    swap(*__first, *__next);
+	    std::iter_swap(__first, __next);
 	    ++__first;
 	  }
 
@@ -1442,8 +1461,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _BidirectionalIterator, typename _Predicate>
     _BidirectionalIterator
     __partition(_BidirectionalIterator __first, _BidirectionalIterator __last,
-		_Predicate __pred,
-		bidirectional_iterator_tag)
+		_Predicate __pred, bidirectional_iterator_tag)
     {
       while (true)
 	{
@@ -2186,7 +2204,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // concept requirements
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_LessThanOpConcept<_ValueType, _Tp>)
-      __glibcxx_requires_partitioned(__first, __last, __val);
+      __glibcxx_requires_partitioned_lower(__first, __last, __val);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2237,7 +2255,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 				  _ValueType, _Tp>)
-      __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
+      __glibcxx_requires_partitioned_lower_pred(__first, __last,
+						__val, __comp);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2283,7 +2302,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // concept requirements
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_LessThanOpConcept<_Tp, _ValueType>)
-      __glibcxx_requires_partitioned(__first, __last, __val);
+      __glibcxx_requires_partitioned_upper(__first, __last, __val);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2334,7 +2353,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 				  _Tp, _ValueType>)
-      __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
+      __glibcxx_requires_partitioned_upper_pred(__first, __last,
+						__val, __comp);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2387,7 +2407,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_LessThanOpConcept<_ValueType, _Tp>)
       __glibcxx_function_requires(_LessThanOpConcept<_Tp, _ValueType>)	
-      __glibcxx_requires_partitioned(__first, __last, __val);
+      __glibcxx_requires_partitioned_lower(__first, __last, __val);
+      __glibcxx_requires_partitioned_upper(__first, __last, __val);      
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2451,7 +2472,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 				  _ValueType, _Tp>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 				  _Tp, _ValueType>)
-      __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
+      __glibcxx_requires_partitioned_lower_pred(__first, __last,
+						__val, __comp);
+      __glibcxx_requires_partitioned_upper_pred(__first, __last,
+						__val, __comp);
 
       _DistanceType __len = std::distance(__first, __last);
       _DistanceType __half;
@@ -2503,7 +2527,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // concept requirements
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_LessThanOpConcept<_Tp, _ValueType>)
-      __glibcxx_requires_partitioned(__first, __last, __val);
+      __glibcxx_requires_partitioned_lower(__first, __last, __val);
+      __glibcxx_requires_partitioned_upper(__first, __last, __val);
 
       _ForwardIterator __i = std::lower_bound(__first, __last, __val);
       return __i != __last && !(__val < *__i);
@@ -2536,7 +2561,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
       __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
 				  _Tp, _ValueType>)
-      __glibcxx_requires_partitioned_pred(__first, __last, __val, __comp);
+      __glibcxx_requires_partitioned_lower_pred(__first, __last,
+						__val, __comp);
+      __glibcxx_requires_partitioned_upper_pred(__first, __last,
+						__val, __comp);
 
       _ForwardIterator __i = std::lower_bound(__first, __last, __val, __comp);
       return __i != __last && !bool(__comp(__val, *__i));
@@ -2737,7 +2765,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       if (__len1 <= __len2 && __len1 <= __buffer_size)
 	{
 	  _Pointer __buffer_end = std::copy(__first, __middle, __buffer);
-	  _GLIBCXX_STD_P::merge(__buffer, __buffer_end, __middle, __last, __first, __comp);
+	  _GLIBCXX_STD_P::merge(__buffer, __buffer_end, __middle, __last,
+				__first, __comp);
 	}
       else if (__len2 <= __buffer_size)
 	{
@@ -3048,7 +3077,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       std::__insertion_sort(__first, __last);
     }
 
-  template<typename _RandomAccessIterator, typename _Distance, typename _Compare>
+  template<typename _RandomAccessIterator, typename _Distance,
+	   typename _Compare>
     void
     __chunk_insertion_sort(_RandomAccessIterator __first,
 			   _RandomAccessIterator __last,

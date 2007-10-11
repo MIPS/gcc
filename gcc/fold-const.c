@@ -8129,7 +8129,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	     (for integers).  Avoid this if the final type is a pointer
 	     since then we sometimes need the inner conversion.  Likewise if
 	     the outer has a precision not equal to the size of its mode.  */
-	  if ((((inter_int || inter_ptr) && (inside_int || inside_ptr))
+	  if (((inter_int && inside_int)
 	       || (inter_float && inside_float)
 	       || (inter_vec && inside_vec))
 	      && inter_prec >= inside_prec
@@ -8159,7 +8159,6 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	       intermediate and final types differ, or
 	     - the final type is a pointer type and the precisions of the
 	       initial and intermediate types differ.
-	     - the final type is a pointer type and the initial type not
 	     - the initial type is a pointer to an array and the final type
 	       not.  */
 	  if (! inside_float && ! inter_float && ! final_float
@@ -8174,8 +8173,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	      && ! (final_ptr && inside_prec != inter_prec)
 	      && ! (final_prec != GET_MODE_BITSIZE (TYPE_MODE (type))
 		    && TYPE_MODE (type) == TYPE_MODE (inter_type))
-	      && final_ptr == inside_ptr
-	      && ! (inside_ptr
+	      && ! (inside_ptr && final_ptr
 		    && TREE_CODE (TREE_TYPE (inside_type)) == ARRAY_TYPE
 		    && TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE))
 	    return fold_build1 (code, type, TREE_OPERAND (op0, 0));
@@ -8377,10 +8375,11 @@ fold_unary (enum tree_code code, tree type, tree op0)
       if (TREE_CODE (arg0) == INTEGER_CST)
         return fold_not_const (arg0, type);
       else if (TREE_CODE (arg0) == BIT_NOT_EXPR)
-	return TREE_OPERAND (arg0, 0);
+	return TREE_OPERAND (op0, 0);
       /* Convert ~ (-A) to A - 1.  */
       else if (INTEGRAL_TYPE_P (type) && TREE_CODE (arg0) == NEGATE_EXPR)
-	return fold_build2 (MINUS_EXPR, type, TREE_OPERAND (arg0, 0),
+	return fold_build2 (MINUS_EXPR, type,
+			    fold_convert (type, TREE_OPERAND (arg0, 0)),
 			    build_int_cst (type, 1));
       /* Convert ~ (A - 1) or ~ (A + -1) to -A.  */
       else if (INTEGRAL_TYPE_P (type)
@@ -8388,7 +8387,8 @@ fold_unary (enum tree_code code, tree type, tree op0)
 		    && integer_onep (TREE_OPERAND (arg0, 1)))
 		   || (TREE_CODE (arg0) == PLUS_EXPR
 		       && integer_all_onesp (TREE_OPERAND (arg0, 1)))))
-	return fold_build1 (NEGATE_EXPR, type, TREE_OPERAND (arg0, 0));
+	return fold_build1 (NEGATE_EXPR, type,
+			    fold_convert (type, TREE_OPERAND (arg0, 0)));
       /* Convert ~(X ^ Y) to ~X ^ Y or X ^ ~Y if ~X or ~Y simplify.  */
       else if (TREE_CODE (arg0) == BIT_XOR_EXPR
 	       && (tem = fold_unary (BIT_NOT_EXPR, type,
@@ -10129,15 +10129,17 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	}
       /* A - (-B) -> A + B */
       if (TREE_CODE (arg1) == NEGATE_EXPR)
-	return fold_build2 (PLUS_EXPR, type, arg0, TREE_OPERAND (arg1, 0));
+	return fold_build2 (PLUS_EXPR, type, op0,
+			    fold_convert (type, TREE_OPERAND (arg1, 0)));
       /* (-A) - B -> (-B) - A  where B is easily negated and we can swap.  */
       if (TREE_CODE (arg0) == NEGATE_EXPR
 	  && (FLOAT_TYPE_P (type)
 	      || INTEGRAL_TYPE_P (type))
 	  && negate_expr_p (arg1)
 	  && reorder_operands_p (arg0, arg1))
-	return fold_build2 (MINUS_EXPR, type, negate_expr (arg1),
-			    TREE_OPERAND (arg0, 0));
+	return fold_build2 (MINUS_EXPR, type,
+			    fold_convert (type, negate_expr (arg1)),
+			    fold_convert (type, TREE_OPERAND (arg0, 0)));
       /* Convert -A - 1 to ~A.  */
       if (INTEGRAL_TYPE_P (type)
 	  && TREE_CODE (arg0) == NEGATE_EXPR
@@ -10347,16 +10349,16 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      && (tem = negate_expr (arg1)) != arg1
 	      && !TREE_OVERFLOW (tem))
 	    return fold_build2 (MULT_EXPR, type,
-	    			negate_expr (arg0), tem);
+	    			fold_convert (type, negate_expr (arg0)), tem);
 
 	  /* (a * (1 << b)) is (a << b)  */
 	  if (TREE_CODE (arg1) == LSHIFT_EXPR
 	      && integer_onep (TREE_OPERAND (arg1, 0)))
-	    return fold_build2 (LSHIFT_EXPR, type, arg0,
+	    return fold_build2 (LSHIFT_EXPR, type, op0,
 				TREE_OPERAND (arg1, 1));
 	  if (TREE_CODE (arg0) == LSHIFT_EXPR
 	      && integer_onep (TREE_OPERAND (arg0, 0)))
-	    return fold_build2 (LSHIFT_EXPR, type, arg1,
+	    return fold_build2 (LSHIFT_EXPR, type, op1,
 				TREE_OPERAND (arg0, 1));
 
 	  strict_overflow_p = false;
@@ -10892,11 +10894,16 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (arg0) == BIT_IOR_EXPR
 	  && TREE_CODE (arg1) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-	return fold_build2 (BIT_IOR_EXPR, type,
-			    fold_build2 (BIT_AND_EXPR, type,
-					 TREE_OPERAND (arg0, 0), arg1),
-			    fold_build2 (BIT_AND_EXPR, type,
-					 TREE_OPERAND (arg0, 1), arg1));
+	{
+	  tree tmp1 = fold_convert (TREE_TYPE (arg0), arg1);
+	  tree tmp2 = fold_build2 (BIT_AND_EXPR, TREE_TYPE (arg0),
+				   TREE_OPERAND (arg0, 0), tmp1);
+	  tree tmp3 = fold_build2 (BIT_AND_EXPR, TREE_TYPE (arg0),
+				   TREE_OPERAND (arg0, 1), tmp1);
+	  return fold_convert (type,
+			       fold_build2 (BIT_IOR_EXPR, TREE_TYPE (arg0),
+					    tmp2, tmp3));
+	}
 
       /* (X | Y) & Y is (X, Y).  */
       if (TREE_CODE (arg0) == BIT_IOR_EXPR
@@ -11006,8 +11013,10 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	{
 	  return fold_build1 (BIT_NOT_EXPR, type,
 			      build2 (BIT_IOR_EXPR, type,
-				      TREE_OPERAND (arg0, 0),
-				      TREE_OPERAND (arg1, 0)));
+				      fold_convert (type,
+						    TREE_OPERAND (arg0, 0)),
+				      fold_convert (type,
+						    TREE_OPERAND (arg1, 0))));
 	}
 
       /* If arg0 is derived from the address of an object or function, we may
@@ -11543,7 +11552,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  tree tem = build_int_cst (TREE_TYPE (arg1),
 				    GET_MODE_BITSIZE (TYPE_MODE (type)));
 	  tem = const_binop (MINUS_EXPR, tem, arg1, 0);
-	  return fold_build2 (RROTATE_EXPR, type, arg0, tem);
+	  return fold_build2 (RROTATE_EXPR, type, op0, tem);
 	}
 
       /* If we have a rotate of a bit operation with the rotate count and

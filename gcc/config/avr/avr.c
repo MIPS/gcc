@@ -95,15 +95,6 @@ static const char *const avr_regnames[] = REGISTER_NAMES;
 /* This holds the last insn address.  */
 static int last_insn_address = 0;
 
-/* Commands count in the compiled file */
-static int commands_in_file;
-
-/* Commands in the functions prologues in the compiled file */
-static int commands_in_prologues;
-
-/* Commands in the functions epilogues in the compiled file */
-static int commands_in_epilogues;
-
 /* Preprocessor macros to define depending on MCU type.  */
 const char *avr_base_arch_macro;
 const char *avr_extra_arch_macro;
@@ -796,13 +787,11 @@ expand_epilogue (void)
   int live_seq;
   int minimize;
   HOST_WIDE_INT size = get_frame_size();
-  rtx insn;
   
   /* epilogue: naked  */
   if (cfun->machine->is_naked)
     {
-      insn = emit_jump_insn (gen_return ());
-      RTX_FRAME_RELATED_P (insn) = 1;
+      emit_jump_insn (gen_return ());
       return;
     }
 
@@ -815,29 +804,23 @@ expand_epilogue (void)
     {
       /* Return value from main() is already in the correct registers
          (r25:r24) as the exit() argument.  */
-      insn = emit_jump_insn (gen_return ());
-      RTX_FRAME_RELATED_P (insn) = 1;
+      emit_jump_insn (gen_return ());
     }
   else if (minimize && (frame_pointer_needed || live_seq > 4))
     {
       if (frame_pointer_needed)
 	{
           /*  Get rid of frame.  */
-          insn = 
-	    emit_move_insn(frame_pointer_rtx,
-                           gen_rtx_PLUS (HImode, frame_pointer_rtx, 
-                                         gen_int_mode (size, HImode)));
-          RTX_FRAME_RELATED_P (insn) = 1;
+	  emit_move_insn(frame_pointer_rtx,
+                         gen_rtx_PLUS (HImode, frame_pointer_rtx,
+                                       gen_int_mode (size, HImode)));
 	}
       else
 	{
-          insn = emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
-          RTX_FRAME_RELATED_P (insn) = 1;
+          emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
 	}
 	
-      insn = 
-        emit_insn (gen_epilogue_restores (gen_int_mode (live_seq, HImode)));
-      RTX_FRAME_RELATED_P (insn) = 1;
+      emit_insn (gen_epilogue_restores (gen_int_mode (live_seq, HImode)));
     }
   else
     {
@@ -851,7 +834,7 @@ expand_epilogue (void)
               fp_plus_length = 
 	        get_attr_length (gen_move_insn (frame_pointer_rtx,
                                                 gen_rtx_PLUS (HImode, frame_pointer_rtx,
-                                                              gen_int_mode (size, 
+                                                              gen_int_mode (size,
 									    HImode))));
               /* Copy to stack pointer.  */
               fp_plus_length += 
@@ -864,32 +847,28 @@ expand_epilogue (void)
                   sp_plus_length = 
 		    get_attr_length (gen_move_insn (stack_pointer_rtx,
                                                     gen_rtx_PLUS (HImode, stack_pointer_rtx,
-                                                                  gen_int_mode (size, 
+                                                                  gen_int_mode (size,
 										HImode))));
                 }
               /* Use shortest method.  */
               if (size <= 5 && (sp_plus_length < fp_plus_length))
                 {
-                  insn = emit_move_insn (stack_pointer_rtx,
-                                         gen_rtx_PLUS (HImode, stack_pointer_rtx,
-                                                       gen_int_mode (size, HImode)));
-                  RTX_FRAME_RELATED_P (insn) = 1;
+                  emit_move_insn (stack_pointer_rtx,
+                                  gen_rtx_PLUS (HImode, stack_pointer_rtx,
+                                                gen_int_mode (size, HImode)));
                 }
               else
                 {
-                  insn = emit_move_insn (frame_pointer_rtx,
-                                         gen_rtx_PLUS (HImode, frame_pointer_rtx,
-                                                       gen_int_mode (size, HImode)));
-	          RTX_FRAME_RELATED_P (insn) = 1;	   
+                  emit_move_insn (frame_pointer_rtx,
+                                  gen_rtx_PLUS (HImode, frame_pointer_rtx,
+                                                gen_int_mode (size, HImode)));
                   /* Copy to stack pointer.  */
-                  insn = emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
-	          RTX_FRAME_RELATED_P (insn) = 1;
+                  emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
                 }
             }
         
           /* Restore previous frame_pointer.  */
-	  insn = emit_insn (gen_pophi (frame_pointer_rtx));
-          RTX_FRAME_RELATED_P (insn) = 1;
+	  emit_insn (gen_pophi (frame_pointer_rtx));
 	}
       /* Restore used registers.  */
       HARD_REG_SET set;      
@@ -897,33 +876,25 @@ expand_epilogue (void)
       for (reg = 31; reg >= 0; --reg)
         {
           if (TEST_HARD_REG_BIT (set, reg))
-            {
-              insn = emit_insn (gen_popqi (gen_rtx_REG (QImode, reg)));
-              RTX_FRAME_RELATED_P (insn) = 1;
-            }
+              emit_insn (gen_popqi (gen_rtx_REG (QImode, reg)));
         }
       if (cfun->machine->is_interrupt || cfun->machine->is_signal)
         {
 
           /* Restore SREG using tmp reg as scratch.  */
-          insn = emit_insn (gen_popqi (tmp_reg_rtx));
-          RTX_FRAME_RELATED_P (insn) = 1;
+          emit_insn (gen_popqi (tmp_reg_rtx));
       
-          insn = emit_move_insn (gen_rtx_MEM(QImode, GEN_INT(SREG_ADDR)), 
-				 tmp_reg_rtx);
-          RTX_FRAME_RELATED_P (insn) = 1;
+          emit_move_insn (gen_rtx_MEM(QImode, GEN_INT(SREG_ADDR)), 
+			  tmp_reg_rtx);
 
           /* Restore tmp REG.  */
-          insn = emit_insn (gen_popqi (tmp_reg_rtx));
-          RTX_FRAME_RELATED_P (insn) = 1;
+          emit_insn (gen_popqi (tmp_reg_rtx));
 
           /* Restore zero REG.  */
-          insn = emit_insn (gen_popqi (zero_reg_rtx));
-	  RTX_FRAME_RELATED_P (insn) = 1;
+          emit_insn (gen_popqi (zero_reg_rtx));
         }
 
-      insn = emit_jump_insn (gen_return ());
-      RTX_FRAME_RELATED_P (insn) = 1;
+      emit_jump_insn (gen_return ());
     }
 }
 
@@ -4807,10 +4778,6 @@ avr_file_start (void)
      initialization code from libgcc if one or both sections are empty.  */
   fputs ("\t.global __do_copy_data\n", asm_out_file);
   fputs ("\t.global __do_clear_bss\n", asm_out_file);
-
-  commands_in_file = 0;
-  commands_in_prologues = 0;
-  commands_in_epilogues = 0;
 }
 
 /* Outputs to the stdio stream FILE some
@@ -4819,14 +4786,6 @@ avr_file_start (void)
 static void
 avr_file_end (void)
 {
-  fputs ("/* File ", asm_out_file);
-  output_quoted_string (asm_out_file, main_input_filename);
-  fprintf (asm_out_file,
-	   ": code %4d = 0x%04x (%4d), prologues %3d, epilogues %3d */\n",
-	   commands_in_file,
-	   commands_in_file,
-	   commands_in_file - commands_in_prologues - commands_in_epilogues,
-	   commands_in_prologues, commands_in_epilogues);
 }
 
 /* Choose the order in which to allocate hard registers for

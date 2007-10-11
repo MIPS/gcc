@@ -1,3 +1,520 @@
+2007-10-11  Richard Guenther  <rguenther@suse.de>
+
+	* gcse.c (hash_scan_set): If the next nonnote insn is in
+	a different basic block insert the set.
+
+2007-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33724
+	* tree-cfg.c (one_pointer_to_useless_type_conversion_p): New function.
+	(verify_gimple_expr): Use it to verify pointer-to types for
+	ADDR_EXPRs.
+
+2007-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR c/33726
+	* c-typeck.c (build_array_ref): Do not strip qualifiers from
+	the array element type.
+
+2007-10-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/33638
+	* dse.c (struct insn_info): Remove 'stack_read' field,
+	add 'stack_pointer_based' field.
+	(record_store): For a store with non-constant base, record
+	whether it is stack pointer based.
+	(scan_insn): For the call to a const function, remove stack
+	pointer based stores from the list of local active stores.
+	(scan_reads_nospill): Delete code dealing with const functions.
+
+2007-10-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* ra-conflict.c (partial_bitnum, max_bitnum): Change type of variables
+	to HOST_WIDE_INT.
+	(conflict_p, set_conflict, set_conflicts): Likewise.
+	* global.c (global_alloc): Likewise.
+	* ra.h: Update prototypes.
+
+2007-10-10  Wolfgang Gellerich  <gellerich@de.ibm.com>
+
+	* opth-gen.awk: Fixed generation of comment stating the origin
+          of options.h
+
+2007-10-10  Kazu Hirata  <kazu@codesourcery.com>
+
+	Revert:
+	2007-10-09  Kazu Hirata  <kazu@codesourcery.com>
+	* longlong.h (count_leading_zeros): Replace '{' and '}' with '%{'
+	and '%}', respectively.
+
+	Revert:
+	2007-10-09  Kazu Hirata  <kazu@codesourcery.com>
+	* config/m68k/m68k.c (print_operand): Handle '{' and '}'.
+	* config/m68k/m68k.h (PRINT_OPERAND_PUNCT_VALID_P): Accept '{'
+	and '}'.
+	* config/m68k/m68k.md: Replace '{' with '%{' where '{' is
+	meant to be output.
+
+	Revert:
+	2007-10-07  Kazu Hirata  <kazu@codesourcery.com>
+	* config/m68k/m68k.c, config/m68k/m68k.md: Use the assembly
+	syntax for ASSEMBLER_DIALECT.
+	* config/m68k/m68k.h (ASSEMBLER_DIALECT): New.
+
+2007-10-10  Revital Eres  <eres@il.ibm.com>
+
+	* modulo-sched.c (check_nodes_order): Dump the final order of
+	the nodes.
+	(get_sched_window): Add dump info.
+	(calculate_order_params): Dump order params of the nodes.
+
+2007-10-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR middle-end/33669
+	* ra-conflict.c (record_one_conflict_between_regnos, 
+	set_conflicts_for_earlyclobber, global_conflicts): Improved logging.
+	(global_conflicts): Enhanced incorrect check.
+	
+2007-10-09  Geoffrey Keating  <geoffk@apple.com>
+
+	* dwarf2out.c (output_call_frame_info): FDEs are always emitted
+	if flag_exceptions is not set.
+	* config/darwin.c (darwin_emit_unwind_label): Rewrite to use
+	assemble_name rather than incorrectly emulating it.
+
+	* doc/extend.texi (Deprecated Features): Mention that <? and >? and
+	friends are removed from G++.
+
+2007-10-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* c-opts.c (c_common_handle_option): -Wnontemplate-friend,
+	-Wwrite-strings and -Wmultichar are enabled by default, so Wall
+	enabling them is redundant. Don't check two times for
+	c_dialect_cxx.
+	
+2007-10-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* ra-conflict.c (record_one_conflict_between_regnos): Revert
+	the last change.
+	(set_conflicts_for_earlyclobber): Likewise.
+	(global_conflicts): Likewise.
+
+2007-10-09  Kazu Hirata  <kazu@codesourcery.com>
+
+	* longlong.h (count_leading_zeros): Replace '{' and '}' with '%{'
+	and '%}', respectively.
+
+2007-10-09  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c (print_operand): Handle '{' and '}'.
+	* config/m68k/m68k.h (PRINT_OPERAND_PUNCT_VALID_P): Accept '{'
+	and '}'.
+	* config/m68k/m68k.md: Replace '{' with '%{' where '{' is
+	meant to be output.
+
+2007-10-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33692
+	* gimplify.c (canonicalize_component_ref): Honor qualifiers
+	of referenced structure and component.
+
+2007-10-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR middle-end/33669
+	* ra-conflict.c (record_one_conflict_between_regnos,
+	set_conflicts_for_earlyclobber, global_conflicts): Improved
+	logging.
+	(global_conflicts): Removed incorrect check.
+
+2007-10-09  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR tree-optimization/33615
+	* tree-ssa-pre.c (compute_avail): Don't call make_values_for_stmt
+	if the statement might throw.  Fix formatting.
+
+2007-10-09  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR tree-optimization/33615
+	* tree-ssa-loop-im.c (movement_possibility): Return MOVE_IMPOSSIBLE
+	if the rhs might throw.
+
+2007-10-09  Jan Hubicka  <jh@suse.cz>
+
+	* invoke.texi (align-threshold, align-loop-iterations): Document.
+	* final.c: Include cfgloop.h, params.h
+	(compute_alignments): Dump decisions and compare them with loop
+	structure; honor given parameters.
+	(pass_compute_alignments): New dump file.
+	* params.def (PARAM_ALIGN_THRESHOLD, PARAM_ALIGN_LOOP_ITERATIONS): New.
+	* Makefile.in (final.o): Add dependency on cfgloop.h and params.h
+
+2007-10-09  James E. Wilson  <wilson@specifix.com>
+
+	PR tree-optimization/33655
+	PR middle-end/22156
+	* tree-sra.c (bitfield_overlaps_p): When fld->element is INTEGER_CST,
+	convert it to bitsizetype before size_binop call.
+
+2007-10-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/33572
+	* tree-inline.c (update_ssa_across_abnormal_edges): Tolerate
+	the absence of a corresponding edge from the exit block.
+
+2007-10-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/22156
+	* tree-sra.c (instantiate_element): Use BYTES_BIG_ENDIAN for
+	bit-field layout.
+	(sra_build_assignment): Likewise.  Set up mask depending on
+	precision, not type.
+	(sra_build_bf_assignment): Use BYTES_BIG_ENDIAN.  Don't overflow
+	computing bit masks.
+	(sra_build_elt_assignment): Don't view-convert from signed to
+	unsigned.
+	(sra_explode_bitfield_assignment): Use bit-field type if
+	possible.  Use BYTES_BIG_ENDIAN.
+
+2007-10-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/22156
+	* tree-sra.c (scalarize_lsdt): Fix thinko in testing whether
+	the original stmt can throw.
+	(sra_build_bf_assignment): Fix type mismatch when applying negated
+	mask.
+
+2007-10-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (DARWIN_REGISTER_TARGET_PRAGMAS): Register
+	'#pragma mark' to be executed at preprocessing time.
+
+2007-10-08  Ollie Wild  <aaw@google.com>
+
+	* varasm.c (compare_constant): Removed call to
+	lang_hooks.expand_constant.
+	(copy_constants): Removed call to lang_hooks.expand_constant.
+	(compute_reloc_for_constant): Removed call to
+	lang_hooks.expand_constant.
+	(output_addressed_constants): Removed call to
+	lang_hooks.expand_constant.
+	(constructor_static_from_elts_p): Removed call to
+	lang_hooks.expand_constant.
+	(output_constant): Removed calls to lang_hooks.expand_constant.
+	* langhooks.h (struct lang_hooks): Removed field expand_constant.
+	* langhooks-def.h (lhd_return_tree): Removed.
+	(LANG_HOOKS_EXPAND_CONSTANT): Removed.
+	(LANG_HOOKS_INITIALIZER): Removed LANG_HOOKS_EXPAND_CONSTANT.
+	* langhooks.c (lhd_return_tree): Removed.
+
+2007-10-08  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* combine.c (setup_incoming_promotions): Ensure that
+	arguments that have not undergone mode promotions do not
+	incorrectly get marked as being sign- or zero-extended.
+
+2007-10-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33693
+	PR middle-end/33695
+	PR middle-end/33697
+	* fold-const.c (fold_binary): Use correct types in folding
+	of a * (1 << b) to (a << b).  Likewise for ~A & ~B to ~(A | B)
+	and building of RROTATE_EXPR.
+
+2007-10-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33691
+	PR middle-end/33694
+	PR middle-end/33696
+	* fold-const.c (fold_binary): Use the correct types when
+	folding (A | CST1) & CST2 to (A & CST2) | (CST1 & CST2).
+	(fold_binary): Use the correct types when folding
+	(-A) - B to (-B) - A.
+	(fold_unary): Use the correct types when folding ~(X).
+
+2007-10-08  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (Wall): fix formatting issues.
+	
+2007-10-07  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* simplify-rtx.c (simplify_binary_operation_1): Canonicalize
+	truncated shift counts.
+
+2007-10-07  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c, config/m68k/m68k.md: Use the assembly
+	syntax for ASSEMBLER_DIALECT.
+	* config/m68k/m68k.h (ASSEMBLER_DIALECT): New.
+
+2007-10-06  Eric Botcazou  <ebotcazou@adacore.com>
+            Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.c (dwarf2out_frame_init): Check for DWARF2_FRAME_INFO
+	when determining whether to record INCOMING_RETURN_ADDR_RTX.
+
+2007-10-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Revert:
+	2007-02-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.h (DECL_IGNORED_P): Document further effect for FUNCTION_DECL.
+	* cgraphunit.c (cgraph_expand_function): If DECL_IGNORED_P is set on
+	the function, temporarily point the debug interface to the null one.
+
+2007-10-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/33655
+	PR middle-end/22156
+	* tree-sra.c (bitfield_overlaps_p): Handle array and complex
+	elements.
+
+2007-10-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/33572
+	* tree-cfg.c (verify_stmts): Check for missing PHI defs.
+	* tree-inline.c (update_ssa_across_eh_edges): Renamed to...
+	(update_ssa_across_abnormal_edges): ... this.  Set slots in the
+	return PHI node.
+	(copy_edges_for_bb): Handle nonlocal label edges.
+	(make_nonlocal_label_edges): Deleted.
+	(optimize_inline_calls): Don't call it.
+
+2007-10-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gthr-single.h: Revert last change.
+
+2007-10-05  Michael Matz  <matz@suse.de>
+
+	PR middle-end/33667
+	* lower-subreg.c (decompose_multiword_subregs): Use
+	validate_unshare_change().
+
+2007-10-05  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* ra-conflict.c: Include "sparseset.h".
+	(conflicts): Change to HOST_WIDEST_FAST_INT.
+	(allocnos_live): Redefine variable as a sparseset.
+	(SET_ALLOCNO_LIVE, CLEAR_ALLOCNO_LIVE, GET_ALLOCNO_LIVE): Delete macros.
+	(allocno_row_words): Removed global variable.
+	(partial_bitnum, max_bitnum, adjacency_pool, adjacency): New variables.
+	(CONFLICT_BITNUM, CONFLICT_BITNUM_FAST): New defines.
+	(conflict_p, set_conflict_p, set_conflicts_p): New functions.
+	(record_one_conflict_between_regnos): Cache allocno values and reuse.
+	Use set_conflict_p.
+	(record_one_conflict): Update uses of allocnos_live to use
+	the sparseset routines.  Use set_conflicts_p.
+	(mark_reg_store): Likewise.
+	(set_reg_in_live): Likewise.
+	(global_conflicts): Update uses of allocnos_live.
+	Use the new adjacency list to visit an allocno's neighbors
+	rather than iterating over all possible allocnos.
+	Call set_conflicts_p to setup conflicts rather than adding
+	them manually.
+	* global.c: Comments updated.  
+	(CONFLICTP): Delete define.
+	(regno_compare): New function.  Add prototype.
+	(global_alloc): Sort the allocno to regno mapping according to
+	which basic blocks the regnos are referenced in.  Modify the
+	conflict bit matrix to a compressed triangular bitmatrix.
+	Only allocate the conflict bit matrix and adjacency lists if
+	we are actually going to allocate something.
+	(expand_preferences): Use conflict_p.  Update uses of allocnos_live.
+	(prune_preferences): Use the FOR_EACH_CONFLICT macro to visit an
+	allocno's neighbors rather than iterating over all possible allocnos.
+	(mirror_conflicts): Removed function.
+	(dump_conflicts): Iterate over regnos rather than allocnos so
+	that all dump output will be sorted by regno number.
+	Use the FOR_EACH_CONFLICT macro.
+	* ra.h: Comments updated.
+	(conflicts): Update prototype to HOST_WIDEST_FAST_INT.
+	(partial_bitnum, max_bitnum, adjacency, adjacency_pool): Add prototypes.
+	(ADJACENCY_VEC_LENGTH, FOR_EACH_CONFLICT): New defines.
+	(adjacency_list_d, adjacency_iterator_d): New types.
+	(add_neighbor, adjacency_iter_init, adjacency_iter_done,
+	adjacency_iter_next, regno_basic_block): New static inline functions.
+	(EXECUTE_IF_SET_IN_ALLOCNO_SET): Removed define.
+	(conflict_p): Add function prototype.
+	* sparseset.h, sparseset.c: New files.
+	* Makefile.in (OBJS-common): Add sparseset.o.
+	(sparseset.o): New rule.
+
+2007-10-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33666
+	* fold-const.c (fold_unary): Do not fold (long long)(int)ptr
+	to (long long)ptr.
+
+2007-10-05  Michael Matz  <matz@suse.de>
+
+	PR inline-asm/33600
+	* function.c (match_asm_constraints_1): Check for input
+	being used in the outputs.
+
+2007-10-05  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (verify_gimple_expr): Accept OBJ_TYPE_REF.
+
+2007-10-05  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33635
+	* config/mips/mips.c (mips_register_move_cost): Rewrite to use
+	subset checks.  Make the cost of FPR -> FPR moves depend on
+	mips_mode_ok_for_mov_fmt_p.
+
+2007-10-04  Doug Kwan  <dougkwan@google.com>
+
+	* gthr-posix.h (__gthread_cond_broadcast, __gthread_cond_wait,
+	__gthread_cond_wait_recursive): Add to extend interface for POSIX
+	conditional variables. (__GTHREAD_HAS_COND): Macro defined to signify
+	support of conditional variables.
+	* gthr-posix95.h (__gthread_cond_broadcast, __gthread_cond_wait,
+	__gthread_cond_wait_recursive): Add to extend interface for POSIX
+	conditional variables. (__GTHREAD_HAS_COND): Macro defined to signify
+	support of conditional variables.
+	* gthr-single.h (__gthread_cond_broadcast, __gthread_cond_wait,
+	__gthread_cond_wait_recursive): Add to extend interface for POSIX
+	conditional variables.
+	* gthr.h: Update comments to document new interface.
+
+2007-10-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* cgraphunit.c (cgraph_build_static_cdtor): Don't set
+	DECL_IGNORED_P.
+
+2007-10-04  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.c (expand_epilogue): Don't set RTX_FRAME_RELATED_P.
+
+2007-10-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33641
+	* tree-cfg.c (verify_gimple_expr): Operand one of POINTER_PLUS_EXPR
+	does not need to be of INTEGER_TYPE.
+	(verify_gimple_2): New function split out from ...
+	(verify_gimple_1): ... here.  ICE if there was an error during
+	verification.
+
+2007-10-04  Michael Matz  <matz@suse.de>
+
+	PR rtl-optimization/33653
+	* dce.c (deletable_insn_p_1): Use volatile_refs_p().
+	* dse.c (scan_insn): Same.
+
+2007-10-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config.gcc: Remove USE_GAS for m68k targets.
+
+2007-10-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33627
+	* tree-gimple.h (canonicalize_cond_expr_cond): Declare.
+	* tree-gimple.c (canonicalize_cond_expr_cond): New function,
+	split out from ...
+	* tree-ssa-forwprop.c (combine_cond_expr_cond): ... here.
+	* tree-ssa-ifcombine.c (ifcombine_iforif): Use it.
+
+2007-10-04  Anatoly Sokolov <aesok@post.ru>
+
+ 	* config/avr/avr.c (commands_in_file, commands_in_prologues, 
+	commands_in_epilogues): Remove variables.
+	(avr_file_start): Remove unneded initializations of commands_in_file,
+	commands_in_prologues and commands_in_epilogues variables.
+	(avr_file_end): Remove dead code.
+
+2007-10-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_movem): Use the MOTOROLA if
+	MOTOROLA is to true.
+
+2007-10-03  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33635
+	* config/mips/mips-protos.h (mips_split_64bit_move): Rename to...
+	(mips_split_doubleword_move): ...this.
+	* config/mips/mips.c (mips_subword): Extend to handle 64-bit words;
+	use natural endianness for multi-format FPR values.
+	(mips_split_64bit_move): Rename to...
+	(mips_split_doubleword_move): ...this and extend to 64-bit words.
+	Use move_doubleword_fpr* patterns for moves involving FPRs.
+	(mips_save_reg): Update the call to mips_split_64bit_move.
+	(mips_secondary_reload_class): Return NO_REGS for any reload of a
+	nonzero constant into an FPR if the constant can be forced to memory.
+	* config/mips/mips.md: Update the splitter calls to
+	mips_split_64bit_move.
+	(UNSPEC_LOAD_DF_LOW): Rename to...
+	(UNSPEC_LOAD_LOW): ...this.
+	(UNSPEC_LOAD_DF_HIGH): Rename to...
+	(UNSPEC_LOAD_HIGH): ...this.
+	(UNSPEC_STORE_DF_HIGH): Rename to...
+	(UNSPEC_STORE_WORD): ...this.
+	(SPLITF): New mode iterator.
+	(HALFMODE): New mode attribute.
+	(movtf): New expander.
+	(*movtf_internal): New define_insn_and_split.
+	(move_doubleword_fpr<mode>): New expander.
+	(load_df_low, load_df_high, store_df_high, mthc1, mfhc1): Replace
+	with...
+	(load_low<mode>, load_high<mode>, store_word<mode>, mthc1<mode>)
+	(mfhc1<mode>): ...these more general patterns.
+
+2007-10-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgrtl.c (rtl_block_ends_with_call_p): Skip notes at the end.
+
+2007-10-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcse.c (hash_scan_set): Insert set in insn before note at
+	the end of basic block.
+
+2007-10-03  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/33576
+	* testsuite/gcc.dg/tree-ssa/pr33576.c: New.
+	* tree-loop-linear.c (linear_transform_loops): Call remove_iv.
+	* lambda.h (lambda_loopnest_to_gcc_loopnest): New parameter.
+	(remove_iv): Declared.
+	* lambda-code.c (remove_iv): Not static.
+	(lambda_loopnest_to_gcc_loopnest): New parameter remove_ivs.
+	Don't remove ivs there, save ivs in the buffer.
+
+2007-10-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/15764
+	* tree-eh.c (same_handler_p): New fn.
+	(optimize_double_finally): New fn.
+	(refactor_eh_r): New fn.
+	(refactor_eh): New fn.
+	(pass_refactor_eh): New pass.
+	* tree-pass.h: Declare it.
+	* passes.c (init_optimization_passes): Add it.
+
+2007-10-03  Doug Kwan  <dougkwan@google.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR debug/31899
+	* dwarf2out.c (reference_to_unused): Disable sanity checking,
+	be conservative instead.
+
+2007-10-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/26682
+	* doc/invoke.texi (-fwhole-program): Document that Fortran
+	doesn't support this option.
+
+2007-10-02  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR middle-end/33617
+	* expr.c (expand_expr_addr_expr_1): Pass CONSTRUCTORs to
+	expand_expr.
+
+2007-10-02  David Daney  <ddaney@avtrex.com>
+
+	* config/mips/mips.md (sync_compare_and_swap<mode>): Handle compare
+	against constant zero.
+	* config/mips/mips.h (MIPS_COMPARE_AND_SWAP):  Handle constant zero
+	operand.
+
 2007-09-02  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* ra-conflict.c: New file.

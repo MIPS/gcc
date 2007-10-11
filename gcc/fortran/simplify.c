@@ -70,6 +70,9 @@ gfc_expr gfc_bad_expr;
 static gfc_expr *
 range_check (gfc_expr *result, const char *name)
 {
+  if (result == NULL)
+    return &gfc_bad_expr;
+
   switch (gfc_range_check (result))
     {
       case ARITH_OK:
@@ -3651,7 +3654,7 @@ gfc_simplify_size (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
   mpz_t size;
   gfc_expr *result;
   int d;
-  int k = get_kind (BT_INTEGER, kind, "SCAN", gfc_default_integer_kind);
+  int k = get_kind (BT_INTEGER, kind, "SIZE", gfc_default_integer_kind);
 
   if (k == -1)
     return &gfc_bad_expr;

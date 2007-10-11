@@ -3295,8 +3295,25 @@ verify_types_in_gimple_reference (tree expr)
   return verify_types_in_gimple_min_lval (expr);
 }
 
+/* Returns true if there is one pointer type in TYPE_POINTER_TO (SRC_OBJ)
+   list of pointer-to types that is trivially convertible to DEST.  */
 
-/* Verify that OP is a valid GIMPLE operand.  Return true if theere is
+static bool
+one_pointer_to_useless_type_conversion_p (tree dest, tree src_obj)
+{
+  tree src;
+
+  if (!TYPE_POINTER_TO (src_obj))
+    return true;
+
+  for (src = TYPE_POINTER_TO (src_obj); src; src = TYPE_NEXT_PTR_TO (src))
+    if (useless_type_conversion_p (dest, src))
+      return true;
+
+  return false;
+}
+
+/* Verify that OP is a valid GIMPLE operand.  Return true if there is
    an error, false otherwise.  */
 
 static bool
@@ -3531,9 +3548,7 @@ verify_types_in_gimple_assign (gimple stmt)
 	    error ("invalid operands in pointer plus expression");
 	    return true;
 	  }
-
 	if (!POINTER_TYPE_P (rhs1_type)
-	    || TREE_CODE (rhs2_type) != INTEGER_TYPE
 	    || !useless_type_conversion_p (lhs_type, rhs1_type)
 	    || !useless_type_conversion_p (sizetype, rhs2_type))
 	  {
@@ -3544,26 +3559,22 @@ verify_types_in_gimple_assign (gimple stmt)
 	    return true;
 	  }
 
-	return false;
-      }
-
+	return false; } 
     case ADDR_EXPR:
       {
-	tree ptr_type;
-
 	if (!is_gimple_addressable (rhs1))
 	  {
 	    error ("invalid operand in unary expression");
 	    return true;
 	  }
 
-	ptr_type = build_pointer_type (rhs1_type);
-	if (!useless_type_conversion_p (lhs_type, ptr_type)
+	if (!one_pointer_to_useless_type_conversion_p (lhs_type, rhs1_type)
 	    /* FIXME: a longstanding wart, &a == &a[0].  */
 	    && (TREE_CODE (rhs1_type) != ARRAY_TYPE
-		|| !useless_type_conversion_p (lhs_type,
-			build_pointer_type (TREE_TYPE (rhs1_type)))))
+		|| !one_pointer_to_useless_type_conversion_p (lhs_type,
+		      TREE_TYPE (rhs1_type))))
 	  {
+	    tree ptr_type = build_pointer_type (rhs1_type);
 	    error ("type mismatch in address expression");
 	    debug_generic_stmt (lhs_type);
 	    debug_generic_stmt (ptr_type);
@@ -3643,6 +3654,10 @@ verify_types_in_gimple_assign (gimple stmt)
 	error ("tree node that should already be gimple.");
 	return true;
       }
+
+    case OBJ_TYPE_REF:
+      /* FIXME.  */
+      return false;
 
     default:;
     }
@@ -3815,13 +3830,13 @@ verify_types_in_gimple_stmt (gimple stmt)
     }
 }
 
-
 /* Verify the GIMPLE statements inside the sequence STMTS.  */
 
-void
-verify_types_in_gimple_seq (gimple_seq stmts)
+static bool
+verify_types_in_gimple_seq_2 (gimple_seq stmts)
 {
   gimple_stmt_iterator* ittr;
+  bool err = false;
 
   for (ittr = gsi_start (stmts); !gsi_end_p (ittr); gsi_next (ittr))
     {
@@ -3830,23 +3845,24 @@ verify_types_in_gimple_seq (gimple_seq stmts)
       switch (gimple_code (stmt))
         {
           case GIMPLE_BIND:
-            verify_types_in_gimple_seq (gimple_bind_body (stmt));
+            err |= verify_types_in_gimple_seq_2 (gimple_bind_body (stmt));
             break;
 
           case GIMPLE_TRY:
-            verify_types_in_gimple_seq (gimple_try_eval (stmt));
-            verify_types_in_gimple_seq (gimple_try_cleanup (stmt));
+            err |= verify_types_in_gimple_seq_2 (gimple_try_eval (stmt));
+            err |= verify_types_in_gimple_seq_2 (gimple_try_cleanup (stmt));
             break;
 
           case EH_FILTER_EXPR:
-            verify_types_in_gimple_seq (gimple_eh_filter_failure (stmt));
+            err |= verify_types_in_gimple_seq_2
+	      	     (gimple_eh_filter_failure (stmt));
             break;
 
           case GIMPLE_CATCH:
-             verify_types_in_gimple_seq (gimple_catch_handler (stmt));
+             err |= verify_types_in_gimple_seq_2 (gimple_catch_handler (stmt));
              break;
 
-          case GIMPLE_OMP_CRITICAL:
+	  case GIMPLE_OMP_CRITICAL:
           case GIMPLE_OMP_CONTINUE:
           case GIMPLE_OMP_MASTER:
           case GIMPLE_OMP_ORDERED:
@@ -3857,21 +3873,33 @@ verify_types_in_gimple_seq (gimple_seq stmts)
           case GIMPLE_OMP_SINGLE:
             break;
 
-          /* Tuples that do not have trees.  */
+	  /* Tuples that do not have trees.  */
           case GIMPLE_NOP:
           case GIMPLE_RESX:
           case GIMPLE_OMP_RETURN:
             break;
 
-          default:
-            if (verify_types_in_gimple_stmt (stmt))
-	      {
-		error ("verifier found an invalid statement.");
-		debug_gimple_stmt (stmt);
-		gcc_unreachable ();
-	      }
-        }
+	default:
+	  {
+	    bool err2 = verify_types_in_gimple_stmt (stmt);
+	    if (err2)
+	      debug_gimple_stmt (stmt);
+	    err |= err2;
+	  }
+	}
     }
+
+  return err;
+}
+
+
+/* Verify the GIMPLE statements inside the statement list STMTS.  */
+
+void
+verify_types_in_gimple_seq (gimple_seq stmts)
+{
+  if (verify_types_in_gimple_seq_2 (stmts))
+    internal_error ("verify_gimple failed");
 }
 
 
@@ -4084,11 +4112,18 @@ verify_stmts (void)
 	      tree t = PHI_ARG_DEF (phi, i);
 	      tree addr;
 
+	      if (!t)
+		{
+		  error ("missing PHI def");
+		  debug_generic_stmt (phi);
+		  err |= true;
+		  continue;
+		}
 	      /* Addressable variables do have SSA_NAMEs but they
 		 are not considered gimple values.  */
-	      if (TREE_CODE (t) != SSA_NAME
-		  && TREE_CODE (t) != FUNCTION_DECL
-		  && !is_gimple_val (t))
+	      else if (TREE_CODE (t) != SSA_NAME
+		       && TREE_CODE (t) != FUNCTION_DECL
+		       && !is_gimple_val (t))
 		{
 		  error ("PHI def is not a GIMPLE value");
 		  debug_generic_stmt (phi);

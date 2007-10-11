@@ -114,3 +114,4 @@ DUMMY_FN (release_defs);
 DUMMY_FN (push_stmt_changes);
 DUMMY_FN (pop_stmt_changes);
 DUMMY_FN (replace_exp);
+DUMMY_FN (remove_iv);

@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "arith.h"  /* For gfc_compare_expr().  */
 #include "dependency.h"
+#include "data.h"
 
 /* Types used in equivalence statements.  */
 
@@ -602,6 +603,22 @@ resolve_entries (gfc_namespace *ns)
 }
 
 
+static bool
+has_default_initializer (gfc_symbol *der)
+{
+  gfc_component *c;
+
+  gcc_assert (der->attr.flavor == FL_DERIVED);
+  for (c = der->components; c; c = c->next)
+    if ((c->ts.type != BT_DERIVED && c->initializer)
+	|| (c->ts.type == BT_DERIVED
+	    && (!c->pointer && has_default_initializer (c->ts.derived))))
+      break;
+
+  return c != NULL;
+}
+
+
 /* Resolve common blocks.  */
 static void
 resolve_common_blocks (gfc_symtree *common_root)
@@ -618,23 +635,22 @@ resolve_common_blocks (gfc_symtree *common_root)
 
   for (csym = common_root->n.common->head; csym; csym = csym->common_next)
     {
-      if (csym->ts.type == BT_DERIVED
-	  && !(csym->ts.derived->attr.sequence
-	       || csym->ts.derived->attr.is_bind_c))
-	{
-	    gfc_error_now ("Derived type variable '%s' in COMMON at %L "
-			   "has neither the SEQUENCE nor the BIND(C) "
-			   "attribute", csym->name,
-			   &csym->declared_at);
-	}
-      else if (csym->ts.type == BT_DERIVED
-	       && csym->ts.derived->attr.alloc_comp)
-	{
-	    gfc_error_now ("Derived type variable '%s' in COMMON at %L "
-			   "has an ultimate component that is "
-			   "allocatable", csym->name,
-			   &csym->declared_at);
-	}
+      if (csym->ts.type != BT_DERIVED)
+	continue;
+
+      if (!(csym->ts.derived->attr.sequence
+	    || csym->ts.derived->attr.is_bind_c))
+	gfc_error_now ("Derived type variable '%s' in COMMON at %L "
+		       "has neither the SEQUENCE nor the BIND(C) "
+		       "attribute", csym->name, &csym->declared_at);
+      if (csym->ts.derived->attr.alloc_comp)
+	gfc_error_now ("Derived type variable '%s' in COMMON at %L "
+		       "has an ultimate component that is "
+		       "allocatable", csym->name, &csym->declared_at);
+      if (has_default_initializer (csym->ts.derived))
+	gfc_error_now ("Derived type variable '%s' in COMMON at %L "
+		       "may not have default initializer", csym->name,
+		       &csym->declared_at);
     }
 
   gfc_find_symbol (common_root->name, gfc_current_ns, 0, &sym);
@@ -1344,7 +1360,7 @@ resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
   gsym = gfc_get_gsymbol (sym->name);
 
   if ((gsym->type != GSYM_UNKNOWN && gsym->type != type))
-    global_used (gsym, where);
+    gfc_global_used (gsym, where);
 
   if (gsym->type == GSYM_UNKNOWN)
     {
@@ -2927,6 +2943,9 @@ resolve_operator (gfc_expr *e)
       goto bad_op;
 
     case INTRINSIC_PARENTHESES:
+      e->ts = op1->ts;
+      if (e->ts.type == BT_CHARACTER)
+	e->ts.cl = op1->ts.cl;
       break;
 
     default:
@@ -3011,14 +3030,6 @@ resolve_operator (gfc_expr *e)
       break;
 
     case INTRINSIC_PARENTHESES:
-
-      /*  This is always correct and sometimes necessary!  */
-      if (e->ts.type == BT_UNKNOWN)
-	e->ts = op1->ts;
-
-      if (e->ts.type == BT_CHARACTER && !e->ts.cl)
-	e->ts.cl = op1->ts.cl;
-
     case INTRINSIC_NOT:
     case INTRINSIC_UPLUS:
     case INTRINSIC_UMINUS:
@@ -4127,7 +4138,7 @@ gfc_resolve_expr (gfc_expr *e)
 	}
 
       if (e->ts.type == BT_CHARACTER && e->ts.cl == NULL && e->ref
-	    && e->ref->type != REF_SUBSTRING)
+	  && e->ref->type != REF_SUBSTRING)
 	gfc_resolve_substring_charlen (e);
 
       break;
@@ -4285,14 +4296,147 @@ gfc_resolve_iterator (gfc_iterator *iter, bool real_ok)
 }
 
 
+/* Check whether the FORALL index appears in the expression or not.
+   Returns SUCCESS if SYM is found in EXPR.  */
+
+static try
+find_forall_index (gfc_expr *expr, gfc_symbol *symbol)
+{
+  gfc_array_ref ar;
+  gfc_ref *tmp;
+  gfc_actual_arglist *args;
+  int i;
+
+  if (!expr)
+    return FAILURE;
+
+  switch (expr->expr_type)
+    {
+    case EXPR_VARIABLE:
+      gcc_assert (expr->symtree->n.sym);
+
+      /* A scalar assignment  */
+      if (!expr->ref)
+	{
+	  if (expr->symtree->n.sym == symbol)
+	    return SUCCESS;
+	  else
+	    return FAILURE;
+	}
+
+      /* the expr is array ref, substring or struct component.  */
+      tmp = expr->ref;
+      while (tmp != NULL)
+	{
+	  switch (tmp->type)
+	    {
+	    case  REF_ARRAY:
+	      /* Check if the symbol appears in the array subscript.  */
+	      ar = tmp->u.ar;
+	      for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
+		{
+		  if (ar.start[i])
+		    if (find_forall_index (ar.start[i], symbol) == SUCCESS)
+		      return SUCCESS;
+
+		  if (ar.end[i])
+		    if (find_forall_index (ar.end[i], symbol) == SUCCESS)
+		      return SUCCESS;
+
+		  if (ar.stride[i])
+		    if (find_forall_index (ar.stride[i], symbol) == SUCCESS)
+		      return SUCCESS;
+		}  /* end for  */
+	      break;
+
+	    case REF_SUBSTRING:
+	      if (expr->symtree->n.sym == symbol)
+		return SUCCESS;
+	      tmp = expr->ref;
+	      /* Check if the symbol appears in the substring section.  */
+	      if (find_forall_index (tmp->u.ss.start, symbol) == SUCCESS)
+		return SUCCESS;
+	      if (find_forall_index (tmp->u.ss.end, symbol) == SUCCESS)
+		return SUCCESS;
+	      break;
+
+	    case REF_COMPONENT:
+	      break;
+
+	    default:
+	      gfc_error("expression reference type error at %L", &expr->where);
+	    }
+	  tmp = tmp->next;
+	}
+      break;
+
+    /* If the expression is a function call, then check if the symbol
+       appears in the actual arglist of the function.  */
+    case EXPR_FUNCTION:
+      for (args = expr->value.function.actual; args; args = args->next)
+	{
+	  if (find_forall_index(args->expr,symbol) == SUCCESS)
+	    return SUCCESS;
+	}
+      break;
+
+    /* It seems not to happen.  */
+    case EXPR_SUBSTRING:
+      if (expr->ref)
+	{
+	  tmp = expr->ref;
+	  gcc_assert (expr->ref->type == REF_SUBSTRING);
+	  if (find_forall_index (tmp->u.ss.start, symbol) == SUCCESS)
+	    return SUCCESS;
+	  if (find_forall_index (tmp->u.ss.end, symbol) == SUCCESS)
+	    return SUCCESS;
+	}
+      break;
+
+    /* It seems not to happen.  */
+    case EXPR_STRUCTURE:
+    case EXPR_ARRAY:
+      gfc_error ("Unsupported statement while finding forall index in "
+		 "expression");
+      break;
+
+    case EXPR_OP:
+      /* Find the FORALL index in the first operand.  */
+      if (expr->value.op.op1)
+	{
+	  if (find_forall_index (expr->value.op.op1, symbol) == SUCCESS)
+	    return SUCCESS;
+	}
+
+      /* Find the FORALL index in the second operand.  */
+      if (expr->value.op.op2)
+	{
+	  if (find_forall_index (expr->value.op.op2, symbol) == SUCCESS)
+	    return SUCCESS;
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  return FAILURE;
+}
+
+
 /* Resolve a list of FORALL iterators.  The FORALL index-name is constrained
    to be a scalar INTEGER variable.  The subscripts and stride are scalar
-   INTEGERs, and if stride is a constant it must be nonzero.  */
+   INTEGERs, and if stride is a constant it must be nonzero.
+   Furthermore "A subscript or stride in a forall-triplet-spec shall
+   not contain a reference to any index-name in the
+   forall-triplet-spec-list in which it appears." (7.5.4.1)  */
 
 static void
-resolve_forall_iterators (gfc_forall_iterator *iter)
+resolve_forall_iterators (gfc_forall_iterator *it)
 {
-  while (iter)
+  gfc_forall_iterator *iter, *iter2;
+
+  for (iter = it; iter; iter = iter->next)
     {
       if (gfc_resolve_expr (iter->var) == SUCCESS
 	  && (iter->var->ts.type != BT_INTEGER || iter->var->rank != 0))
@@ -4326,9 +4470,21 @@ resolve_forall_iterators (gfc_forall_iterator *iter)
 	}
       if (iter->var->ts.kind != iter->stride->ts.kind)
 	gfc_convert_type (iter->stride, &iter->var->ts, 2);
-
-      iter = iter->next;
     }
+
+  for (iter = it; iter; iter = iter->next)
+    for (iter2 = iter; iter2; iter2 = iter2->next)
+      {
+	if (find_forall_index (iter2->start,
+			       iter->var->symtree->n.sym) == SUCCESS
+	    || find_forall_index (iter2->end,
+				  iter->var->symtree->n.sym) == SUCCESS
+	    || find_forall_index (iter2->stride,
+				  iter->var->symtree->n.sym) == SUCCESS)
+	  gfc_error ("FORALL index '%s' may not appear in triplet "
+		     "specification at %L", iter->var->symtree->name,
+		     &iter2->start->where);
+      }
 }
 
 
@@ -5518,130 +5674,6 @@ resolve_where (gfc_code *code, gfc_expr *mask)
 }
 
 
-/* Check whether the FORALL index appears in the expression or not.  */
-
-static try
-gfc_find_forall_index (gfc_expr *expr, gfc_symbol *symbol)
-{
-  gfc_array_ref ar;
-  gfc_ref *tmp;
-  gfc_actual_arglist *args;
-  int i;
-
-  switch (expr->expr_type)
-    {
-    case EXPR_VARIABLE:
-      gcc_assert (expr->symtree->n.sym);
-
-      /* A scalar assignment  */
-      if (!expr->ref)
-	{
-	  if (expr->symtree->n.sym == symbol)
-	    return SUCCESS;
-	  else
-	    return FAILURE;
-	}
-
-      /* the expr is array ref, substring or struct component.  */
-      tmp = expr->ref;
-      while (tmp != NULL)
-	{
-	  switch (tmp->type)
-	    {
-	    case  REF_ARRAY:
-	      /* Check if the symbol appears in the array subscript.  */
-	      ar = tmp->u.ar;
-	      for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
-		{
-		  if (ar.start[i])
-		    if (gfc_find_forall_index (ar.start[i], symbol) == SUCCESS)
-		      return SUCCESS;
-
-		  if (ar.end[i])
-		    if (gfc_find_forall_index (ar.end[i], symbol) == SUCCESS)
-		      return SUCCESS;
-
-		  if (ar.stride[i])
-		    if (gfc_find_forall_index (ar.stride[i], symbol) == SUCCESS)
-		      return SUCCESS;
-		}  /* end for  */
-	      break;
-
-	    case REF_SUBSTRING:
-	      if (expr->symtree->n.sym == symbol)
-		return SUCCESS;
-	      tmp = expr->ref;
-	      /* Check if the symbol appears in the substring section.  */
-	      if (gfc_find_forall_index (tmp->u.ss.start, symbol) == SUCCESS)
-		return SUCCESS;
-	      if (gfc_find_forall_index (tmp->u.ss.end, symbol) == SUCCESS)
-		return SUCCESS;
-	      break;
-
-	    case REF_COMPONENT:
-	      break;
-
-	    default:
-	      gfc_error("expression reference type error at %L", &expr->where);
-	    }
-	  tmp = tmp->next;
-	}
-      break;
-
-    /* If the expression is a function call, then check if the symbol
-       appears in the actual arglist of the function.  */
-    case EXPR_FUNCTION:
-      for (args = expr->value.function.actual; args; args = args->next)
-	{
-	  if (gfc_find_forall_index(args->expr,symbol) == SUCCESS)
-	    return SUCCESS;
-	}
-      break;
-
-    /* It seems not to happen.  */
-    case EXPR_SUBSTRING:
-      if (expr->ref)
-	{
-	  tmp = expr->ref;
-	  gcc_assert (expr->ref->type == REF_SUBSTRING);
-	  if (gfc_find_forall_index (tmp->u.ss.start, symbol) == SUCCESS)
-	    return SUCCESS;
-	  if (gfc_find_forall_index (tmp->u.ss.end, symbol) == SUCCESS)
-	    return SUCCESS;
-	}
-      break;
-
-    /* It seems not to happen.  */
-    case EXPR_STRUCTURE:
-    case EXPR_ARRAY:
-      gfc_error ("Unsupported statement while finding forall index in "
-		 "expression");
-      break;
-
-    case EXPR_OP:
-      /* Find the FORALL index in the first operand.  */
-      if (expr->value.op.op1)
-	{
-	  if (gfc_find_forall_index (expr->value.op.op1, symbol) == SUCCESS)
-	    return SUCCESS;
-	}
-
-      /* Find the FORALL index in the second operand.  */
-      if (expr->value.op.op2)
-	{
-	  if (gfc_find_forall_index (expr->value.op.op2, symbol) == SUCCESS)
-	    return SUCCESS;
-	}
-      break;
-
-    default:
-      break;
-    }
-
-  return FAILURE;
-}
-
-
 /* Resolve assignment in FORALL construct.
    NVAR is the number of FORALL index variables, and VAR_EXPR records the
    FORALL index variables.  */
@@ -5668,7 +5700,7 @@ gfc_resolve_assign_in_forall (gfc_code *code, int nvar, gfc_expr **var_expr)
 	  /* If one of the FORALL index variables doesn't appear in the
 	     assignment target, then there will be a many-to-one
 	     assignment.  */
-	  if (gfc_find_forall_index (code->expr, forall_index) == FAILURE)
+	  if (find_forall_index (code->expr, forall_index) == FAILURE)
 	    gfc_error ("The FORALL with index '%s' cause more than one "
 		       "assignment to this object at %L",
 		       var_expr[n]->symtree->name, &code->expr->where);
@@ -5774,7 +5806,6 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
   static int total_var = 0;
   static int nvar = 0;
   gfc_forall_iterator *fa;
-  gfc_symbol *forall_index;
   gfc_code *next;
   int i;
 
@@ -5813,18 +5844,6 @@ gfc_resolve_forall (gfc_code *code, gfc_namespace *ns, int forall_save)
       /* Record the current FORALL index.  */
       var_expr[nvar] = gfc_copy_expr (fa->var);
 
-      forall_index = fa->var->symtree->n.sym;
-
-      /* Check if the FORALL index appears in start, end or stride.  */
-      if (gfc_find_forall_index (fa->start, forall_index) == SUCCESS)
-	gfc_error ("A FORALL index must not appear in a limit or stride "
-		   "expression in the same FORALL at %L", &fa->start->where);
-      if (gfc_find_forall_index (fa->end, forall_index) == SUCCESS)
-	gfc_error ("A FORALL index must not appear in a limit or stride "
-		   "expression in the same FORALL at %L", &fa->end->where);
-      if (gfc_find_forall_index (fa->stride, forall_index) == SUCCESS)
-	gfc_error ("A FORALL index must not appear in a limit or stride "
-		   "expression in the same FORALL at %L", &fa->stride->where);
       nvar++;
     }
 
@@ -5910,21 +5929,6 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 
       resolve_code (b->next, ns);
     }
-}
-
-
-static gfc_component *
-has_default_initializer (gfc_symbol *der)
-{
-  gfc_component *c;
-  for (c = der->components; c; c = c->next)
-    if ((c->ts.type != BT_DERIVED && c->initializer)
-        || (c->ts.type == BT_DERIVED
-              && !c->pointer
-              && has_default_initializer (c->ts.derived)))
-      break;
-
-  return c;
 }
 
 
@@ -6563,7 +6567,7 @@ resolve_charlen (gfc_charlen *cl)
 
   /* "If the character length parameter value evaluates to a negative
      value, the length of character entities declared is zero."  */
-  if (cl->length && !gfc_extract_int (cl->length, &i) && i <= 0)
+  if (cl->length && !gfc_extract_int (cl->length, &i) && i < 0)
     {
       gfc_warning_now ("CHARACTER variable has zero length at %L",
 		       &cl->length->where);
@@ -6883,18 +6887,76 @@ resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
 }
 
 
+/* Additional checks for symbols with flavor variable and derived
+   type.  To be called from resolve_fl_variable.  */
+
+static try
+resolve_fl_variable_derived (gfc_symbol *sym, int no_init_flag)
+{
+  gcc_assert (sym->ts.type == BT_DERIVED);
+
+  /* Check to see if a derived type is blocked from being host
+     associated by the presence of another class I symbol in the same
+     namespace.  14.6.1.3 of the standard and the discussion on
+     comp.lang.fortran.  */
+  if (sym->ns != sym->ts.derived->ns
+      && sym->ns->proc_name->attr.if_source != IFSRC_IFBODY)
+    {
+      gfc_symbol *s;
+      gfc_find_symbol (sym->ts.derived->name, sym->ns, 0, &s);
+      if (s && (s->attr.flavor != FL_DERIVED
+		|| !gfc_compare_derived_types (s, sym->ts.derived)))
+	{
+	  gfc_error ("The type '%s' cannot be host associated at %L "
+		     "because it is blocked by an incompatible object "
+		     "of the same name declared at %L",
+		     sym->ts.derived->name, &sym->declared_at,
+		     &s->declared_at);
+	  return FAILURE;
+	}
+    }
+
+  /* 4th constraint in section 11.3: "If an object of a type for which
+     component-initialization is specified (R429) appears in the
+     specification-part of a module and does not have the ALLOCATABLE
+     or POINTER attribute, the object shall have the SAVE attribute."
+
+     The check for initializers is performed with
+     has_default_initializer because gfc_default_initializer generates
+     a hidden default for allocatable components.  */
+  if (!(sym->value || no_init_flag) && sym->ns->proc_name
+      && sym->ns->proc_name->attr.flavor == FL_MODULE
+      && !sym->ns->save_all && !sym->attr.save
+      && !sym->attr.pointer && !sym->attr.allocatable
+      && has_default_initializer (sym->ts.derived))
+    {
+      gfc_error("Object '%s' at %L must have the SAVE attribute for "
+		"default initialization of a component",
+		sym->name, &sym->declared_at);
+      return FAILURE;
+    }
+
+  /* Assign default initializer.  */
+  if (!(sym->value || sym->attr.pointer || sym->attr.allocatable)
+      && (!no_init_flag || sym->attr.intent == INTENT_OUT))
+    {
+      sym->value = gfc_default_initializer (&sym->ts);
+    }
+
+  return SUCCESS;
+}
+
+
 /* Resolve symbols with flavor variable.  */
 
 static try
 resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 {
-  int flag;
-  int i;
+  int no_init_flag, automatic_flag;
   gfc_expr *e;
-  gfc_component *c;
   const char *auto_save_msg;
 
-  auto_save_msg = "automatic object '%s' at %L cannot have the "
+  auto_save_msg = "Automatic object '%s' at %L cannot have the "
 		  "SAVE attribute";
 
   if (resolve_fl_var_and_proc (sym, mp_flag) == FAILURE)
@@ -6905,22 +6967,20 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
      is_non_constant_shape_array.  */
   specification_expr = 1;
 
-  if (!sym->attr.use_assoc
+  if (sym->ns->proc_name
+      && (sym->ns->proc_name->attr.flavor == FL_MODULE
+	  || sym->ns->proc_name->attr.is_main_program)
+      && !sym->attr.use_assoc
       && !sym->attr.allocatable
       && !sym->attr.pointer
       && is_non_constant_shape_array (sym))
     {
-	/* The shape of a main program or module array needs to be
-	   constant.  */
-	if (sym->ns->proc_name
-	    && (sym->ns->proc_name->attr.flavor == FL_MODULE
-		|| sym->ns->proc_name->attr.is_main_program))
-	  {
-	    gfc_error ("The module or main program array '%s' at %L must "
-		       "have constant shape", sym->name, &sym->declared_at);
-	    specification_expr = 0;
-	    return FAILURE;
-	  }
+      /* The shape of a main program or module array needs to be
+	 constant.  */
+      gfc_error ("The module or main program array '%s' at %L must "
+		 "have constant shape", sym->name, &sym->declared_at);
+      specification_expr = 0;
+      return FAILURE;
     }
 
   if (sym->ts.type == BT_CHARACTER)
@@ -6958,37 +7018,27 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
   if (sym->value == NULL && sym->attr.referenced)
     apply_default_init_local (sym); /* Try to apply a default initialization.  */
 
-  /* Can the symbol have an initializer?  */
-  flag = 0;
+  /* Determine if the symbol may not have an initializer.  */
+  no_init_flag = automatic_flag = 0;
   if (sym->attr.allocatable || sym->attr.external || sym->attr.dummy
-	|| sym->attr.intrinsic || sym->attr.result)
-    flag = 1;
-  else if (sym->attr.dimension && !sym->attr.pointer)
+      || sym->attr.intrinsic || sym->attr.result)
+    no_init_flag = 1;
+  else if (sym->attr.dimension && !sym->attr.pointer
+	   && is_non_constant_shape_array (sym))
     {
-      /* Don't allow initialization of automatic arrays.  */
-      for (i = 0; i < sym->as->rank; i++)
-	{
-	  if (sym->as->lower[i] == NULL
-	      || sym->as->lower[i]->expr_type != EXPR_CONSTANT
-	      || sym->as->upper[i] == NULL
-	      || sym->as->upper[i]->expr_type != EXPR_CONSTANT)
-	    {
-	      flag = 2;
-	      break;
-	    }
-	}
+      no_init_flag = automatic_flag = 1;
 
       /* Also, they must not have the SAVE attribute.
 	 SAVE_IMPLICIT is checked below.  */
-      if (flag && sym->attr.save == SAVE_EXPLICIT)
+      if (sym->attr.save == SAVE_EXPLICIT)
 	{
 	  gfc_error (auto_save_msg, sym->name, &sym->declared_at);
 	  return FAILURE;
 	}
-  }
+    }
 
   /* Reject illegal initializers.  */
-  if (!sym->mark && sym->value && flag)
+  if (!sym->mark && sym->value)
     {
       if (sym->attr.allocatable)
 	gfc_error ("Allocatable '%s' at %L cannot have an initializer",
@@ -7006,7 +7056,7 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
       else if (sym->attr.result)
 	gfc_error ("Function result '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
-      else if (flag == 2)
+      else if (automatic_flag)
 	gfc_error ("Automatic array '%s' at %L cannot have an initializer",
 		   sym->name, &sym->declared_at);
       else
@@ -7015,54 +7065,8 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
     }
 
 no_init_error:
-  /* Check to see if a derived type is blocked from being host associated
-     by the presence of another class I symbol in the same namespace.
-     14.6.1.3 of the standard and the discussion on comp.lang.fortran.  */
-  if (sym->ts.type == BT_DERIVED && sym->ns != sym->ts.derived->ns
-	&& sym->ns->proc_name->attr.if_source != IFSRC_IFBODY)
-    {
-      gfc_symbol *s;
-      gfc_find_symbol (sym->ts.derived->name, sym->ns, 0, &s);
-      if (s && (s->attr.flavor != FL_DERIVED
-		|| !gfc_compare_derived_types (s, sym->ts.derived)))
-	{
-	  gfc_error ("The type %s cannot be host associated at %L because "
-		     "it is blocked by an incompatible object of the same "
-		     "name at %L", sym->ts.derived->name, &sym->declared_at,
-		     &s->declared_at);
-	  return FAILURE;
-	}
-    }
-
-  /* Do not use gfc_default_initializer to test for a default initializer
-     in the fortran because it generates a hidden default for allocatable
-     components.  */
-  c = NULL;
-  if (sym->ts.type == BT_DERIVED && !(sym->value || flag))
-    c = has_default_initializer (sym->ts.derived);
-
-  /* 4th constraint in section 11.3:  "If an object of a type for which
-     component-initialization is specified (R429) appears in the
-     specification-part of a module and does not have the ALLOCATABLE
-     or POINTER attribute, the object shall have the SAVE attribute."  */
-  if (c && sym->ns->proc_name
-      && sym->ns->proc_name->attr.flavor == FL_MODULE
-      && !sym->ns->save_all && !sym->attr.save
-      && !sym->attr.pointer && !sym->attr.allocatable)
-    {
-      gfc_error("Object '%s' at %L must have the SAVE attribute %s",
- 	 	sym->name, &sym->declared_at,
-		"for default initialization of a component");
-      return FAILURE;
-    }
-
-  /* Assign default initializer.  */
-  if (sym->ts.type == BT_DERIVED
-      && !sym->value
-      && !sym->attr.pointer
-      && !sym->attr.allocatable
-      && (!flag || sym->attr.intent == INTENT_OUT))
-    sym->value = gfc_default_initializer (&sym->ts);
+  if (sym->ts.type == BT_DERIVED)
+    return resolve_fl_variable_derived (sym, no_init_flag);
 
   return SUCCESS;
 }

@@ -1660,7 +1660,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 #if 0
 /* Remove the induction variable defined at IV_STMT.  */
 
-static void
+void
 remove_iv (tree iv_stmt ATTRIBUTE_UNUSED)
 {
   if (TREE_CODE (iv_stmt) == PHI_NODE)
@@ -1714,9 +1714,10 @@ void
 lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
 				 VEC(tree,heap) *old_ivs ATTRIBUTE_UNUSED,
 				 VEC(tree,heap) *invariants ATTRIBUTE_UNUSED,
+				 VEC(tree,heap) **remove_ivs ATTRIBUTE_UNUSED,
 				 lambda_loopnest new_loopnest ATTRIBUTE_UNUSED,
-				 lambda_trans_matrix transform ATTRIBUTE_UNUSED,
-				 struct obstack * lambda_obstack ATTRIBUTE_UNUSED)
+                                 lambda_trans_matrix transform ATTRIBUTE_UNUSED,
+                                 struct obstack * lambda_obstack ATTRIBUTE_UNUSED)
 {
   /* FIXME tuples.  */
 #if 0
@@ -1886,7 +1887,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
 	}
 
       /* Remove the now unused induction variable.  */
-      remove_iv (oldiv_stmt);
+      VEC_safe_push (tree, heap, *remove_ivs, oldiv_stmt);
     }
   VEC_free (tree, heap, new_ivs);
 #else

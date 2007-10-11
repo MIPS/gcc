@@ -1,5 +1,12 @@
 2007-10-11  Aldy Hernandez  <aldyh@redhat.com>
 
+	Merge with mainline @129233.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2007-10-11  Aldy Hernandez  <aldyh@redhat.com>
+
 	* cfg.c: Include tree-flow.h.
 	(remove_edge_raw): Call redirect_edge_var_map_clear.
 	(redirect_edge_succ_nodup): Call redirect_edge_var_map_dup.

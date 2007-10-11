@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
+#include "debug.h"
 
 /* Current statement label.  Zero means no statement label.  Because new_st
    can get wiped during statement matching, we have to keep it separate.  */
@@ -672,6 +673,9 @@ next_statement (void)
 	  st = ST_NONE;
 	  break;
 	}
+
+      if (gfc_define_undef_line ())
+	continue;
 
       st = (gfc_current_form == FORM_FIXED) ? next_fixed () : next_free ();
 
@@ -3084,7 +3088,7 @@ done:
    something else.  */
 
 void
-global_used (gfc_gsymbol *sym, locus *where)
+gfc_global_used (gfc_gsymbol *sym, locus *where)
 {
   const char *name;
 
@@ -3150,7 +3154,7 @@ parse_block_data (void)
       s = gfc_get_gsymbol (gfc_new_block->name);
       if (s->defined
 	  || (s->type != GSYM_UNKNOWN && s->type != GSYM_BLOCK_DATA))
-       global_used(s, NULL);
+       gfc_global_used(s, NULL);
       else
        {
 	 s->type = GSYM_BLOCK_DATA;
@@ -3181,7 +3185,7 @@ parse_module (void)
 
   s = gfc_get_gsymbol (gfc_new_block->name);
   if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_MODULE))
-    global_used(s, NULL);
+    gfc_global_used(s, NULL);
   else
     {
       s->type = GSYM_MODULE;
@@ -3228,7 +3232,7 @@ add_global_procedure (int sub)
   if (s->defined
       || (s->type != GSYM_UNKNOWN
 	  && s->type != (sub ? GSYM_SUBROUTINE : GSYM_FUNCTION)))
-    global_used(s, NULL);
+    gfc_global_used(s, NULL);
   else
     {
       s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
@@ -3250,7 +3254,7 @@ add_global_program (void)
   s = gfc_get_gsymbol (gfc_new_block->name);
 
   if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_PROGRAM))
-    global_used(s, NULL);
+    gfc_global_used(s, NULL);
   else
     {
       s->type = GSYM_PROGRAM;
@@ -3269,6 +3273,11 @@ gfc_parse_file (void)
   gfc_state_data top, s;
   gfc_statement st;
   locus prog_locus;
+
+  /* If the debugger wants the name of the main source file,
+     we give it.  */
+  if (debug_hooks->start_end_main_source_file)
+    (*debug_hooks->start_source_file) (0, gfc_source_file);
 
   top.state = COMP_NONE;
   top.sym = NULL;
@@ -3380,6 +3389,9 @@ loop:
   goto loop;
 
 done:
+  if (debug_hooks->start_end_main_source_file)
+    (*debug_hooks->end_source_file) (0);
+
   return SUCCESS;
 
 duplicate_main:

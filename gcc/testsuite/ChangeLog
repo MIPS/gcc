@@ -1,3 +1,289 @@
+2007-10-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/31441
+	* g++.dg/cpp0x/variadic83.C: New.
+
+2007-10-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33461
+	* g++.dg/cpp0x/variadic81.C: New.
+	* g++.dg/cpp0x/variadic82.C: Likewise.
+
+2007-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33724
+	* gcc.dg/pr33724.c: New testcase.
+
+2007-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR c/33726
+	* gcc.dg/pr33726.c: New testcase.
+
+2007-10-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR fortran/33500
+	* gfortran.fortran-torture/compile/logical-1.f90: New testcase.
+	
+2007-10-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR testsuite/33391
+	* gfortran.dg/do_3.F90: Run with -fwrapv.
+
+2007-10-09  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/unwind-1.c: New.
+
+2007-10-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/33683
+	* gfortran.dg/gamma_5.f90:  Adjust tolerance to avoid
+	failure on some common systems.
+
+2007-10-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33692
+	* gcc.dg/pr33692.c: New testcase.
+
+2007-10-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR middle-end/33669
+	* gcc.c-torture/execute/pr33669.c: New.
+
+2007-10-09  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR tree-optimization/33615
+	* g++.dg/tree-ssa/pr33615-2.C: New test.
+
+2007-10-09  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR tree-optimization/33615
+	* g++.dg/tree-ssa/pr33615.C: New test.
+
+2007-10-08  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/33572
+	* g++.dg/torture/pr33572.C: Replace with complete test.
+
+2007-10-08  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33689
+	* gfortran.dg/spec_expr_5.f90: New.
+
+2007-10-08  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/pragma-darwin-2.c: New.
+
+2007-10-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33693
+	PR middle-end/33695
+	PR middle-end/33697
+	* gcc.dg/pr33693.c: New testcase.
+	* gcc.dg/pr33695.c: Likewise.
+	* gcc.dg/pr33697.c: Likewise.
+
+2007-10-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33691
+	PR middle-end/33694
+	PR middle-end/33696
+	* gcc.dg/pr33691.c: New testcase.
+	* gcc.dg/pr33694.c: Likewise.
+	* gcc.dg/pr33696.c: Likewise.
+
+2007-10-07  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/33683
+	* gfortran.dg/gamma_5.f90:  New test case
+
+2007-10-07  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/20851
+	* initialization_1.f90: Fix dg-error annotations.
+	* initialization_14.f90: New.
+	* initialization_7.f90: Fix dg-error annotations.
+	* initialization_9.f90: Likewise.
+
+2007-10-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/error_recovery_4.f90: New test.
+
+2007-10-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/default_format_denormal_2.f90: New test.
+	* gfortran.dg/default_format_2.inc: New test.
+	* gfortran.dg/default_format_denormal_1.f90: New test.
+	* gfortran.dg/default_format_1.inc: New test.
+	* gfortran.dg/default_format_1.f90: Don't test for denormalized
+	numbers.
+	* gfortran.dg/default_format_2.f90: Don't test for denormalized
+	numbers.
+
+2007-10-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/namelist_15.f90: Revise test.
+
+2007-10-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/33655
+	* gcc.dg/torture/pr33655.c: New.
+
+2007-10-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/33572
+	* g++.dg/torture/pr33572.C: New.
+
+2007-10-06  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/25076
+	* gfortran.dg/forall_11.f90: New.
+
+2007-10-05  Michael Matz  <matz@suse.de>
+
+	PR middle-end/33667
+	* gcc.dg/pr33667.c: New testcase.
+
+2007-10-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33666
+	* gcc.dg/pr33666.c: New testcase.
+
+2007-10-05  Michael Matz  <matz@suse.de>
+
+	PR inline-asm/33600
+	* gcc.target/i386/pr33600.c: New testcase.
+
+2007-10-05  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/tree-ssa/obj-type-ref.C: New testcase.
+
+2007-10-05  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33635
+	* gcc.target/mips/pr33635-1.c: New test.
+
+2007-10-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33253
+	* gfortran.dg/namelist_39.f90: Revise to use long names.
+
+2007-10-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/33646
+	* gfortran.dg/pr33646.f90: New file.
+
+2007-10-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33529
+	* gfortran.dg/char_type_len_2.f90: Adjust error message.
+	* gfortran.dg/char_decl_2.f90: New test.
+
+2007-10-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33641
+	* gcc.c-torture/compile/pr33641.c: New testcase.
+
+2007-10-04  Michael Matz  <matz@suse.de>
+
+	PR rtl-optimization/33653
+	* gcc.dg/pr33653.c: New.
+
+2007-10-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33627
+	* g++.dg/torture/pr33627.C: New testcase.
+
+2007-10-04  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33626
+	* gfortran.dg/parens_6.f90: New.
+
+2007-10-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33646
+	PR fortran/33542
+	* gfortran.dg/ambiguous_specific_1.f90: Remove.
+
+2007-10-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/ext/gnu-inline-global-redecl.C: New.
+
+2007-10-03  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33635
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set mips_isa_rev
+	and mips_forced_be.
+	(dg-mips-options): Handle -EL and -mel.  Make -mfp64 imply
+	-mhard-float and a suitable ISA.  Improve handling of -mipsXrY
+	options.
+	* gcc.target/mips/fpr-moves-1.c: New test.
+	* gcc.target/mips/fpr-moves-2.c: Likewise.
+	* gcc.target/mips/fpr-moves-3.c: Likewise.
+	* gcc.target/mips/fpr-moves-4.c: Likewise.
+	* gcc.target/mips/fpr-moves-5.c: Likewise.
+	* gcc.target/mips/fpr-moves-6.c: Likewise.
+	* gcc.target/mips/mips32r2-mxhc1.c: Remove -march=mips32r2
+
+2007-10-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/default_format_1.f90: XFAIL on all darwin targets.
+
+2007-10-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/default_format_1.f90: XFAIL on ppc-darwin.
+	* gfortran.dg/default_format_2.f90: XFAIL on ppc-darwin.
+
+2007-10-03  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/33198
+	* gfortran.dg/common_errors_1.f90: New.
+
+2007-10-03  Doug Kwan  <dougkwan@google.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR debug/31899
+	* g++.dg/debug/using3.C: New testcase.
+
+2007-10-03  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33253
+	* gfortran.dg/namelist_38.f90: New test.
+	* gfortran.dg/namelist_39.f90: New test.
+
+2007-10-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/33469
+	* gfortran.dg/default_format_1.f90: New test.
+	* gfortran.dg/default_format_2.f90: New test.
+	* gfortran.dg/namelist_print_1.f: Adjust expected output.
+	* gfortran.dg/real_const_3.f90: Adjust expected output.
+
+2007-10-02  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set mips_abi to the
+	default ABI.  Split mips_forced_abi into mips_forced_abi and
+	mips_forced_regs.
+	(is_gp32_flag): Return true for -mabi=32.
+	(is_gp64_flag): New function.  Handle 64-bit -mabi options.
+	(dg-mips-options): Use is_gp64_flag instead of checking specifically
+	for -mgp64.  Update after the mips_forced_abi split.  Handle -mabi=*.
+	Don't force an ABI for -mgp32 or -mfp32 if the flags contain -mabi=*.
+	* gcc.target/mips/pr33256.c: Remove -mips3 requirement.
+	* gcc.target/mips/save-restore-1.c: Use -mabi=32 instead of -mgp32.
+	* gcc.target/mips/save-restore-2.c: Likewise.
+	* gcc.target/mips/save-restore-3.c: Likewise.
+	* gcc.target/mips/save-restore-4.c: Likewise.
+
+2007-10-02  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR middle-end/33617
+	* gcc.c-torture/compile/pr33617.c: New test.
+
+2007-10-02  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* gcc.target/powerpc/stabs-attrib-vect-darwin.c: Change options to use
+	-gstabs+ for extended options.
+
 2007-10-02  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/33542
