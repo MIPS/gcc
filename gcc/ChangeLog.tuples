@@ -1,3 +1,8 @@
+2007-10-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.h (_ALLOC_GSI): New.
+	Use it throughout when allocating a new gimple_stmt_iterator.
+
 2007-10-11  Aldy Hernandez  <aldyh@redhat.com>
 
 	Merge with mainline @129233.

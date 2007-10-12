@@ -45,6 +45,8 @@ enum gimple_code {
     LAST_AND_UNUSED_GIMPLE_CODE
 };
 
+#define _ALLOC_GSI (gimple_stmt_iterator *) ggc_alloc_cleared \
+  (sizeof (gimple_stmt_iterator))
 
 /* A sequence of gimple statements.  */
 struct gimple_sequence GTY(())
@@ -1798,7 +1800,7 @@ typedef struct {
 static inline gimple_stmt_iterator *
 gsi_start (gimple_seq seq)
 {
-  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
+  gimple_stmt_iterator *i = _ALLOC_GSI;
 
   if (seq)
     {
@@ -1818,7 +1820,7 @@ gsi_start (gimple_seq seq)
 static inline gimple_stmt_iterator *
 gsi_start_bb (basic_block bb)
 {
-  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
+  gimple_stmt_iterator *i = _ALLOC_GSI;
   gimple_seq seq = bb_seq (bb);
 
   if (seq)
@@ -1838,7 +1840,7 @@ gsi_start_bb (basic_block bb)
 static inline gimple_stmt_iterator *
 gsi_last (gimple_seq seq)
 {
-  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
+  gimple_stmt_iterator *i = _ALLOC_GSI;
 
   if (seq)
     {
@@ -1858,7 +1860,7 @@ gsi_last (gimple_seq seq)
 static inline gimple_stmt_iterator *
 gsi_last_bb (basic_block bb)
 {
-  gimple_stmt_iterator *i = ggc_alloc_cleared (sizeof (gimple_stmt_iterator));
+  gimple_stmt_iterator *i = _ALLOC_GSI;
   gimple_seq seq = bb_seq (bb);
 
   if (seq)
