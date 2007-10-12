@@ -782,6 +782,30 @@ static format_kind_info *dynamic_format_types;
 
 static int n_format_types = ARRAY_SIZE (format_types_orig);
 
+/* An ad-hoc structure holding any global state needed by functions in
+   this module.  */
+struct format_state
+{
+  /* Memory can be allocated on this obstack by functions in this
+     module.  The obstack is deleted at module cleanup time.  */
+  struct obstack obstack;
+
+  /* State needed for init_dynamic_asm_fprintf_info.  */
+  tree fprintf_hwi;
+
+  /* State needed for init_dynamic_gfc_info.  */
+  tree locus;
+  format_char_info *gfc_fci;
+
+  /* State needed for init_dynamic_diag_info.  */
+  tree diag_t, diag_loc, diag_hwi;
+  format_char_info *diag_fci, *tdiag_fci, *cdiag_fci, *cxxdiag_fci;
+  format_length_info *diag_ls;
+};
+
+/* The global format_state object.  */
+static struct format_state *global_format_state;
+
 /* Structure detailing the results of checking a format function call
    where the format expression may be a conditional expression with
    many leaves resulting from nested conditional expressions.  */
@@ -855,6 +879,45 @@ static const format_flag_spec *get_flag_spec (const format_flag_spec *,
 static void check_format_types (format_wanted_type *, const char *, int);
 static void format_type_warning (const char *, const char *, int, tree,
 				 int, const char *, tree, int);
+
+
+
+/* Create an instance of this module.  */
+static void
+construct_format_state (void)
+{
+  gcc_assert (!global_format_state);
+  /* For the time being this is a singleton module.  */
+  global_format_state = XCNEW (struct format_state);
+  gcc_obstack_init (&global_format_state->obstack);
+}
+
+/* Destroy the module instance.  */
+void
+c_format_finalize (void)
+{
+  if (global_format_state)
+    {
+      obstack_free (&global_format_state->obstack, NULL);
+      free (global_format_state);
+      global_format_state = NULL;
+      /* dynamic_format_types was allocated on the obstack.  */
+      dynamic_format_types = NULL;
+      format_types = format_types_orig;
+      n_format_types = ARRAY_SIZE (format_types_orig);
+    }
+}
+
+/* Like xmemdup but use our obstack.  */
+static void *
+obdup_mem (const void *mem, size_t size)
+{
+  void *result = obstack_alloc (&global_format_state->obstack, size);
+  memcpy (result, mem, size);
+  return result;
+}
+
+
 
 /* Decode a format type from a string, returning the type, or
    format_type_error if not valid, in which case the caller should print an
@@ -2417,12 +2480,11 @@ find_length_info_modifier_index (const format_length_info *fli, int c)
 static void
 init_dynamic_asm_fprintf_info (void)
 {
-  static tree hwi;
-
-  if (!hwi)
+  if (!global_format_state->fprintf_hwi)
     {
       format_length_info *new_asm_fprintf_length_specs;
       unsigned int i;
+      tree hwi;
 
       /* Find the underlying type for HOST_WIDE_INT.  For the %w
 	 length modifier to work, one must have issued: "typedef
@@ -2449,11 +2511,12 @@ init_dynamic_asm_fprintf_info (void)
 	  return;
 	}
 
+      global_format_state->fprintf_hwi = hwi;
+
       /* Create a new (writable) copy of asm_fprintf_length_specs.  */
-      new_asm_fprintf_length_specs = (format_length_info *)
-				     xmemdup (asm_fprintf_length_specs,
-					      sizeof (asm_fprintf_length_specs),
-					      sizeof (asm_fprintf_length_specs));
+      new_asm_fprintf_length_specs
+	= (format_length_info *) obdup_mem (asm_fprintf_length_specs,
+					    sizeof (asm_fprintf_length_specs));
 
       /* HOST_WIDE_INT must be one of 'long' or 'long long'.  */
       i = find_length_info_modifier_index (new_asm_fprintf_length_specs, 'w');
@@ -2476,11 +2539,9 @@ init_dynamic_asm_fprintf_info (void)
 static void
 init_dynamic_gfc_info (void)
 {
-  static tree locus;
-
-  if (!locus)
+  if (!global_format_state->locus)
     {
-      static format_char_info *gfc_fci;
+      tree locus;
 
       /* For the GCC __gcc_gfc__ custom format specifier to work, one
 	 must have declared 'locus' prior to using this attribute.  If
@@ -2500,21 +2561,24 @@ init_dynamic_gfc_info (void)
 		locus = TREE_TYPE (locus);
 	    }
 	}
+      global_format_state->locus = locus;
 
       /* Assign the new data for use.  */
 
       /* Handle the __gcc_gfc__ format specifics.  */
-      if (!gfc_fci)
-	dynamic_format_types[gcc_gfc_format_type].conversion_specs =
-	  gfc_fci = (format_char_info *)
-		     xmemdup (gcc_gfc_char_table,
-			      sizeof (gcc_gfc_char_table),
-			      sizeof (gcc_gfc_char_table));
+      if (!global_format_state->gfc_fci)
+	dynamic_format_types[gcc_gfc_format_type].conversion_specs
+	  = global_format_state->gfc_fci
+	  = (format_char_info *) obdup_mem (gcc_gfc_char_table,
+					    sizeof (gcc_gfc_char_table));
       if (locus)
 	{
-	  const unsigned i = find_char_info_specifier_index (gfc_fci, 'L');
-	  gfc_fci[i].types[0].type = &locus;
-	  gfc_fci[i].pointer_count = 1;
+	  const unsigned i
+	    = find_char_info_specifier_index (global_format_state->gfc_fci,
+					      'L');
+	  global_format_state->gfc_fci[i].types[0].type
+	    = &global_format_state->locus;
+	  global_format_state->gfc_fci[i].pointer_count = 1;
 	}
     }
 }
@@ -2525,12 +2589,11 @@ init_dynamic_gfc_info (void)
 static void
 init_dynamic_diag_info (void)
 {
-  static tree t, loc, hwi;
-
-  if (!loc || !t || !hwi)
+  if (!global_format_state->diag_loc
+      || !global_format_state->diag_t
+      || !global_format_state->diag_hwi)
     {
-      static format_char_info *diag_fci, *tdiag_fci, *cdiag_fci, *cxxdiag_fci;
-      static format_length_info *diag_ls;
+      tree t, loc, hwi;
       unsigned int i;
 
       /* For the GCC-diagnostics custom format specifiers to work, one
@@ -2553,6 +2616,7 @@ init_dynamic_diag_info (void)
 		loc = TREE_TYPE (loc);
 	    }
 	}
+      global_format_state->diag_loc = loc;
 
       /* We need to grab the underlying 'union tree_node' so peek into
 	 an extra type level.  */
@@ -2575,6 +2639,7 @@ init_dynamic_diag_info (void)
 		t = TREE_TYPE (TREE_TYPE (t));
 	    }
 	}
+      global_format_state->diag_t = t;
 
       /* Find the underlying type for HOST_WIDE_INT.  For the %w
 	 length modifier to work, one must have issued: "typedef
@@ -2604,121 +2669,140 @@ init_dynamic_diag_info (void)
 		}
 	    }
 	}
+      global_format_state->diag_hwi = hwi;
 
       /* Assign the new data for use.  */
 
       /* All the GCC diag formats use the same length specs.  */
-      if (!diag_ls)
+      if (!global_format_state->diag_ls)
 	dynamic_format_types[gcc_diag_format_type].length_char_specs =
 	  dynamic_format_types[gcc_tdiag_format_type].length_char_specs =
 	  dynamic_format_types[gcc_cdiag_format_type].length_char_specs =
 	  dynamic_format_types[gcc_cxxdiag_format_type].length_char_specs =
-	  diag_ls = (format_length_info *)
-		    xmemdup (gcc_diag_length_specs,
-			     sizeof (gcc_diag_length_specs),
-			     sizeof (gcc_diag_length_specs));
+	  global_format_state->diag_ls = (format_length_info *)
+		    obdup_mem (gcc_diag_length_specs,
+			       sizeof (gcc_diag_length_specs));
       if (hwi)
 	{
 	  /* HOST_WIDE_INT must be one of 'long' or 'long long'.  */
-	  i = find_length_info_modifier_index (diag_ls, 'w');
+	  i = find_length_info_modifier_index (global_format_state->diag_ls,
+					       'w');
 	  if (hwi == long_integer_type_node)
-	    diag_ls[i].index = FMT_LEN_l;
+	    global_format_state->diag_ls[i].index = FMT_LEN_l;
 	  else if (hwi == long_long_integer_type_node)
-	    diag_ls[i].index = FMT_LEN_ll;
+	    global_format_state->diag_ls[i].index = FMT_LEN_ll;
 	  else
 	    gcc_unreachable ();
 	}
 
       /* Handle the __gcc_diag__ format specifics.  */
-      if (!diag_fci)
+      if (!global_format_state->diag_fci)
 	dynamic_format_types[gcc_diag_format_type].conversion_specs =
-	  diag_fci = (format_char_info *)
-		     xmemdup (gcc_diag_char_table,
-			      sizeof (gcc_diag_char_table),
-			      sizeof (gcc_diag_char_table));
+	  global_format_state->diag_fci = (format_char_info *)
+		     obdup_mem (gcc_diag_char_table,
+				sizeof (gcc_diag_char_table));
       if (loc)
 	{
-	  i = find_char_info_specifier_index (diag_fci, 'H');
-	  diag_fci[i].types[0].type = &loc;
-	  diag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->diag_fci,
+					      'H');
+	  global_format_state->diag_fci[i].types[0].type
+	    = &global_format_state->diag_loc;
+	  global_format_state->diag_fci[i].pointer_count = 1;
 	}
       if (t)
 	{
-	  i = find_char_info_specifier_index (diag_fci, 'J');
-	  diag_fci[i].types[0].type = &t;
-	  diag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->diag_fci,
+					      'J');
+	  global_format_state->diag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
+	  global_format_state->diag_fci[i].pointer_count = 1;
 	}
 
       /* Handle the __gcc_tdiag__ format specifics.  */
-      if (!tdiag_fci)
+      if (!global_format_state->tdiag_fci)
 	dynamic_format_types[gcc_tdiag_format_type].conversion_specs =
-	  tdiag_fci = (format_char_info *)
-		      xmemdup (gcc_tdiag_char_table,
-			       sizeof (gcc_tdiag_char_table),
-			       sizeof (gcc_tdiag_char_table));
+	  global_format_state->tdiag_fci = (format_char_info *)
+		      obdup_mem (gcc_tdiag_char_table,
+				 sizeof (gcc_tdiag_char_table));
       if (loc)
 	{
-	  i = find_char_info_specifier_index (tdiag_fci, 'H');
-	  tdiag_fci[i].types[0].type = &loc;
-	  tdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->tdiag_fci,
+					      'H');
+	  global_format_state->tdiag_fci[i].types[0].type
+	    = &global_format_state->diag_loc;
+	  global_format_state->tdiag_fci[i].pointer_count = 1;
 	}
       if (t)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
-	  i = find_char_info_specifier_index (tdiag_fci, 'D');
-	  tdiag_fci[i].types[0].type = &t;
-	  tdiag_fci[i].pointer_count = 1;
-	  i = find_char_info_specifier_index (tdiag_fci, 'J');
-	  tdiag_fci[i].types[0].type = &t;
-	  tdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->tdiag_fci,
+					      'D');
+	  global_format_state->tdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
+	  global_format_state->tdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->tdiag_fci,
+					      'J');
+	  global_format_state->tdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
+	  global_format_state->tdiag_fci[i].pointer_count = 1;
 	}
 
       /* Handle the __gcc_cdiag__ format specifics.  */
-      if (!cdiag_fci)
+      if (!global_format_state->cdiag_fci)
 	dynamic_format_types[gcc_cdiag_format_type].conversion_specs =
-	  cdiag_fci = (format_char_info *)
-		      xmemdup (gcc_cdiag_char_table,
-			       sizeof (gcc_cdiag_char_table),
-			       sizeof (gcc_cdiag_char_table));
+	  global_format_state->cdiag_fci = (format_char_info *)
+		      obdup_mem (gcc_cdiag_char_table,
+				 sizeof (gcc_cdiag_char_table));
       if (loc)
 	{
-	  i = find_char_info_specifier_index (cdiag_fci, 'H');
-	  cdiag_fci[i].types[0].type = &loc;
-	  cdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->cdiag_fci,
+					      'H');
+	  global_format_state->cdiag_fci[i].types[0].type
+	    = &global_format_state->diag_loc;
+	  global_format_state->cdiag_fci[i].pointer_count = 1;
 	}
       if (t)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
-	  i = find_char_info_specifier_index (cdiag_fci, 'D');
-	  cdiag_fci[i].types[0].type = &t;
-	  cdiag_fci[i].pointer_count = 1;
-	  i = find_char_info_specifier_index (cdiag_fci, 'J');
-	  cdiag_fci[i].types[0].type = &t;
-	  cdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->cdiag_fci,
+					      'D');
+	  global_format_state->cdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
+	  global_format_state->cdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->cdiag_fci,
+					      'J');
+	  global_format_state->cdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
+	  global_format_state->cdiag_fci[i].pointer_count = 1;
 	}
 
       /* Handle the __gcc_cxxdiag__ format specifics.  */
-      if (!cxxdiag_fci)
+      if (!global_format_state->cxxdiag_fci)
 	dynamic_format_types[gcc_cxxdiag_format_type].conversion_specs =
-	  cxxdiag_fci = (format_char_info *)
-			xmemdup (gcc_cxxdiag_char_table,
-				 sizeof (gcc_cxxdiag_char_table),
-				 sizeof (gcc_cxxdiag_char_table));
+	  global_format_state->cxxdiag_fci = (format_char_info *)
+			obdup_mem (gcc_cxxdiag_char_table,
+				   sizeof (gcc_cxxdiag_char_table));
       if (loc)
 	{
-	  i = find_char_info_specifier_index (cxxdiag_fci, 'H');
-	  cxxdiag_fci[i].types[0].type = &loc;
-	  cxxdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->cxxdiag_fci,
+					      'H');
+	  global_format_state->cxxdiag_fci[i].types[0].type
+	    = &global_format_state->diag_loc;
+	  global_format_state->cxxdiag_fci[i].pointer_count = 1;
 	}
       if (t)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
-	  i = find_char_info_specifier_index (cxxdiag_fci, 'D');
-	  cxxdiag_fci[i].types[0].type = &t;
-	  cxxdiag_fci[i].pointer_count = 1;
-	  i = find_char_info_specifier_index (cxxdiag_fci, 'J');
-	  cxxdiag_fci[i].types[0].type = &t;
-	  cxxdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->cxxdiag_fci,
+					      'D');
+	  global_format_state->cxxdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
+	  global_format_state->cxxdiag_fci[i].pointer_count = 1;
+	  i = find_char_info_specifier_index (global_format_state->cxxdiag_fci,
+					      'J');
+	  global_format_state->cxxdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
+	  global_format_state->cxxdiag_fci[i].pointer_count = 1;
 	}
     }
 }
@@ -2737,13 +2821,18 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   function_format_info info;
   tree argument;
 
+  if (!global_format_state)
+    construct_format_state ();
+
 #ifdef TARGET_FORMAT_TYPES
   /* If the target provides additional format types, we need to
      add them to FORMAT_TYPES at first use.  */
   if (TARGET_FORMAT_TYPES != NULL && !dynamic_format_types)
     {
-      dynamic_format_types = xmalloc ((n_format_types + TARGET_N_FORMAT_TYPES)
-				      * sizeof (dynamic_format_types[0]));
+      dynamic_format_types
+	= obstack_alloc (&global_format_state->obstack,
+			 (n_format_types + TARGET_N_FORMAT_TYPES)
+			 * sizeof (dynamic_format_types[0]));
       memcpy (dynamic_format_types, format_types_orig,
 	      sizeof (format_types_orig));
       memcpy (&dynamic_format_types[n_format_types], TARGET_FORMAT_TYPES,
@@ -2806,8 +2895,7 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	 format_type data is allocated dynamically and is modifiable.  */
       if (!dynamic_format_types)
 	format_types = dynamic_format_types = (format_kind_info *)
-	  xmemdup (format_types_orig, sizeof (format_types_orig),
-		   sizeof (format_types_orig));
+	  obdup_mem (dynamic_format_types, sizeof (format_types_orig));
 
       /* If this is format __asm_fprintf__, we have to initialize
 	 GCC's notion of HOST_WIDE_INT for checking %wd.  */

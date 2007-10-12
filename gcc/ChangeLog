@@ -1,5 +1,19 @@
 2007-10-12  Tom Tromey  <tromey@redhat.com>
 
+	* c-format.h (c_format_finalize): Declare.
+	* c-format.c (struct format_state): New struct.
+	(global_format_state): New global.
+	(construct_format_state): New function.
+	(c_format_finalize): Likewise.
+	(obdup_mem): Likewise.
+	(init_dynamic_asm_fprintf_info): Use global_format_state.
+	(init_dynamic_gfc_info): Likewise.
+	(init_dynamic_diag_info): Likewise.
+	(handle_format_attribute): Call construct_format_state.  Allocate
+	on obstack.
+
+2007-10-12  Tom Tromey  <tromey@redhat.com>
+
 	* c-format.c (dollar_argument_info): New struct.
 	(dollar_arguments_used, dollar_arguments_pointer_p,
 	dollar_arguments_alloc, dollar_arguments_count,

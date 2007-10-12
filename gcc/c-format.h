@@ -304,4 +304,8 @@ typedef struct
 #define T_D128  &dfloat128_type_node
 #define TEX_D128 { STD_EXT, "_Decimal128", T_D128 }
 
+
+/* Clean up state kept by the c-format module.  */
+extern void c_format_finalize (void);
+
 #endif /* GCC_C_FORMAT_H */
