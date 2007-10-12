@@ -816,18 +816,38 @@ typedef struct
   tree params;
 } format_check_context;
 
+/* State used by the checking of $ operand number formats.  */
+typedef struct dollar_argument_info
+{
+  char *dollar_arguments_used;
+  char *dollar_arguments_pointer_p;
+  int dollar_arguments_alloc;
+  int dollar_arguments_count;
+  int dollar_first_arg_num;
+  int dollar_max_arg_used;
+  int dollar_format_warned;
+} dollar_argument_info;
+
+
 static void check_format_info (function_format_info *, tree);
 static void check_format_arg (void *, tree, unsigned HOST_WIDE_INT);
+static void check_format_info_inner (dollar_argument_info *,
+				     format_check_results *,
+				     function_format_info *,
+				     const char *, int, tree,
+				     unsigned HOST_WIDE_INT);
 static void check_format_info_main (format_check_results *,
 				    function_format_info *,
 				    const char *, int, tree,
 				    unsigned HOST_WIDE_INT);
 
-static void init_dollar_format_checking (int, tree);
-static int maybe_read_dollar_number (const char **, int,
+static void init_dollar_format_checking (dollar_argument_info *, int, tree);
+static int maybe_read_dollar_number (dollar_argument_info *,
+				     const char **, int,
 				     tree, tree *, const format_kind_info *);
 static bool avoid_dollar_number (const char *);
-static void finish_dollar_format_checking (format_check_results *, int);
+static void finish_dollar_format_checking (dollar_argument_info *,
+					   format_check_results *, int);
 
 static const format_flag_spec *get_flag_spec (const format_flag_spec *,
 					      int, const char *);
@@ -931,15 +951,6 @@ check_function_format (tree attrs, int nargs, tree *argarray)
 }
 
 
-/* Variables used by the checking of $ operand number formats.  */
-static char *dollar_arguments_used = NULL;
-static char *dollar_arguments_pointer_p = NULL;
-static int dollar_arguments_alloc = 0;
-static int dollar_arguments_count;
-static int dollar_first_arg_num;
-static int dollar_max_arg_used;
-static int dollar_format_warned;
-
 /* Initialize the checking for a format string that may contain $
    parameter number specifications; we will need to keep track of whether
    each parameter has been used.  FIRST_ARG_NUM is the number of the first
@@ -947,43 +958,49 @@ static int dollar_format_warned;
    function; PARAMS is the list of arguments starting at this argument.  */
 
 static void
-init_dollar_format_checking (int first_arg_num, tree params)
+init_dollar_format_checking (dollar_argument_info *state,
+			     int first_arg_num, tree params)
 {
   tree oparams = params;
 
-  dollar_first_arg_num = first_arg_num;
-  dollar_arguments_count = 0;
-  dollar_max_arg_used = 0;
-  dollar_format_warned = 0;
+  state->dollar_first_arg_num = first_arg_num;
+  state->dollar_arguments_count = 0;
+  state->dollar_max_arg_used = 0;
+  state->dollar_format_warned = 0;
   if (first_arg_num > 0)
     {
       while (params)
 	{
-	  dollar_arguments_count++;
+	  state->dollar_arguments_count++;
 	  params = TREE_CHAIN (params);
 	}
     }
-  if (dollar_arguments_alloc < dollar_arguments_count)
+
+  state->dollar_arguments_alloc = state->dollar_arguments_count;
+  if (state->dollar_arguments_count)
     {
-      if (dollar_arguments_used)
-	free (dollar_arguments_used);
-      if (dollar_arguments_pointer_p)
-	free (dollar_arguments_pointer_p);
-      dollar_arguments_alloc = dollar_arguments_count;
-      dollar_arguments_used = XNEWVEC (char, dollar_arguments_alloc);
-      dollar_arguments_pointer_p = XNEWVEC (char, dollar_arguments_alloc);
+      state->dollar_arguments_used = XNEWVEC (char,
+					      state->dollar_arguments_alloc);
+      state->dollar_arguments_pointer_p = XNEWVEC (char,
+						   state->dollar_arguments_alloc);
     }
-  if (dollar_arguments_alloc)
+  else
     {
-      memset (dollar_arguments_used, 0, dollar_arguments_alloc);
+      state->dollar_arguments_used = NULL;
+      state->dollar_arguments_pointer_p = NULL;
+    }
+
+  if (state->dollar_arguments_alloc)
+    {
+      memset (state->dollar_arguments_used, 0, state->dollar_arguments_alloc);
       if (first_arg_num > 0)
 	{
 	  int i = 0;
 	  params = oparams;
 	  while (params)
 	    {
-	      dollar_arguments_pointer_p[i] = (TREE_CODE (TREE_TYPE (TREE_VALUE (params)))
-					       == POINTER_TYPE);
+	      state->dollar_arguments_pointer_p[i] = (TREE_CODE (TREE_TYPE (TREE_VALUE (params)))
+						      == POINTER_TYPE);
 	      params = TREE_CHAIN (params);
 	      i++;
 	    }
@@ -1002,7 +1019,8 @@ init_dollar_format_checking (int first_arg_num, tree params)
    a $ format is found, *FORMAT is updated to point just after it.  */
 
 static int
-maybe_read_dollar_number (const char **format,
+maybe_read_dollar_number (dollar_argument_info *state,
+			  const char **format,
 			  int dollar_needed, tree params, tree *param_ptr,
 			  const format_kind_info *fki)
 {
@@ -1041,44 +1059,47 @@ maybe_read_dollar_number (const char **format,
 	return 0;
     }
   *format = fcp + 1;
-  if (pedantic && !dollar_format_warned)
+  if (pedantic && !state->dollar_format_warned)
     {
       warning (OPT_Wformat, "%s does not support %%n$ operand number formats",
 	       C_STD_NAME (STD_EXT));
-      dollar_format_warned = 1;
+      state->dollar_format_warned = 1;
     }
   if (overflow_flag || argnum == 0
-      || (dollar_first_arg_num && argnum > dollar_arguments_count))
+      || (state->dollar_first_arg_num
+	  && argnum > state->dollar_arguments_count))
     {
       warning (OPT_Wformat, "operand number out of range in format");
       return -1;
     }
-  if (argnum > dollar_max_arg_used)
-    dollar_max_arg_used = argnum;
+  if (argnum > state->dollar_max_arg_used)
+    state->dollar_max_arg_used = argnum;
   /* For vprintf-style functions we may need to allocate more memory to
      track which arguments are used.  */
-  while (dollar_arguments_alloc < dollar_max_arg_used)
+  while (state->dollar_arguments_alloc < state->dollar_max_arg_used)
     {
       int nalloc;
-      nalloc = 2 * dollar_arguments_alloc + 16;
-      dollar_arguments_used = XRESIZEVEC (char, dollar_arguments_used,
-					  nalloc);
-      dollar_arguments_pointer_p = XRESIZEVEC (char, dollar_arguments_pointer_p,
-					       nalloc);
-      memset (dollar_arguments_used + dollar_arguments_alloc, 0,
-	      nalloc - dollar_arguments_alloc);
-      dollar_arguments_alloc = nalloc;
+      nalloc = 2 * state->dollar_arguments_alloc + 16;
+      state->dollar_arguments_used = XRESIZEVEC (char,
+						 state->dollar_arguments_used,
+						 nalloc);
+      state->dollar_arguments_pointer_p = XRESIZEVEC (char,
+						      state->dollar_arguments_pointer_p,
+						      nalloc);
+      memset (state->dollar_arguments_used + state->dollar_arguments_alloc, 0,
+	      nalloc - state->dollar_arguments_alloc);
+      state->dollar_arguments_alloc = nalloc;
     }
   if (!(fki->flags & (int) FMT_FLAG_DOLLAR_MULTIPLE)
-      && dollar_arguments_used[argnum - 1] == 1)
+      && state->dollar_arguments_used[argnum - 1] == 1)
     {
-      dollar_arguments_used[argnum - 1] = 2;
+      state->dollar_arguments_used[argnum - 1] = 2;
       warning (OPT_Wformat, "format argument %d used more than once in %s format",
 	       argnum, fki->name);
     }
   else
-    dollar_arguments_used[argnum - 1] = 1;
-  if (dollar_first_arg_num)
+    state->dollar_arguments_used[argnum - 1] = 1;
+  if (state->dollar_first_arg_num)
     {
       int i;
       *param_ptr = params;
@@ -1123,26 +1144,27 @@ avoid_dollar_number (const char *format)
    pointers.  */
 
 static void
-finish_dollar_format_checking (format_check_results *res, int pointer_gap_ok)
+finish_dollar_format_checking (dollar_argument_info *state,
+			       format_check_results *res, int pointer_gap_ok)
 {
   int i;
   bool found_pointer_gap = false;
-  for (i = 0; i < dollar_max_arg_used; i++)
+  for (i = 0; i < state->dollar_max_arg_used; i++)
     {
-      if (!dollar_arguments_used[i])
+      if (!state->dollar_arguments_used[i])
 	{
-	  if (pointer_gap_ok && (dollar_first_arg_num == 0
-				 || dollar_arguments_pointer_p[i]))
+	  if (pointer_gap_ok && (state->dollar_first_arg_num == 0
+				 || state->dollar_arguments_pointer_p[i]))
 	    found_pointer_gap = true;
 	  else
 	    warning (OPT_Wformat,
 		     "format argument %d unused before used argument %d in $-style format",
-		     i + 1, dollar_max_arg_used);
+		     i + 1, state->dollar_max_arg_used);
 	}
     }
   if (found_pointer_gap
-      || (dollar_first_arg_num
-	  && dollar_max_arg_used < dollar_arguments_count))
+      || (state->dollar_first_arg_num
+	  && state->dollar_max_arg_used < state->dollar_arguments_count))
     {
       res->number_other--;
       res->number_dollar_extra_args++;
@@ -1429,18 +1451,14 @@ check_format_arg (void *ctx, tree format_tree,
 }
 
 
-/* Do the main part of checking a call to a format function.  FORMAT_CHARS
-   is the NUL-terminated format string (which at this point may contain
-   internal NUL characters); FORMAT_LENGTH is its length (excluding the
-   terminating NUL character).  ARG_NUM is one less than the number of
-   the first format argument to check; PARAMS points to that format
-   argument in the list of arguments.  */
+/* Helper for check_format_info_main which does all the actual work.  */
 
 static void
-check_format_info_main (format_check_results *res,
-			function_format_info *info, const char *format_chars,
-			int format_length, tree params,
-			unsigned HOST_WIDE_INT arg_num)
+check_format_info_inner (dollar_argument_info *state,
+			 format_check_results *res,
+			 function_format_info *info, const char *format_chars,
+			 int format_length, tree params,
+			 unsigned HOST_WIDE_INT arg_num)
 {
   const char *orig_format_chars = format_chars;
   tree first_fillin_param = params;
@@ -1452,8 +1470,6 @@ check_format_info_main (format_check_results *res,
   /* -1 if no conversions taking an operand have been found; 0 if one has
      and it didn't use $; 1 if $ formats are in use.  */
   int has_operand_number = -1;
-
-  init_dollar_format_checking (info->first_arg_num, first_fillin_param);
 
   while (1)
     {
@@ -1490,7 +1506,8 @@ check_format_info_main (format_check_results *res,
 	      res->number_extra_args++;
 	    }
 	  if (has_operand_number > 0)
-	    finish_dollar_format_checking (res, fki->flags & (int) FMT_FLAG_DOLLAR_GAP_POINTER_OK);
+	    finish_dollar_format_checking (state, res,
+					   fki->flags & (int) FMT_FLAG_DOLLAR_GAP_POINTER_OK);
 	  return;
 	}
       if (*format_chars++ != '%')
@@ -1514,7 +1531,7 @@ check_format_info_main (format_check_results *res,
 	     is not used here, we can't immediately conclude this is a
 	     format without them, since it could be printf %m or scanf %*.  */
 	  int opnum;
-	  opnum = maybe_read_dollar_number (&format_chars, 0,
+	  opnum = maybe_read_dollar_number (state, &format_chars, 0,
 					    first_fillin_param,
 					    &main_arg_params, fki);
 	  if (opnum == -1)
@@ -1575,7 +1592,8 @@ check_format_info_main (format_check_results *res,
 	      if (has_operand_number != 0)
 		{
 		  int opnum;
-		  opnum = maybe_read_dollar_number (&format_chars,
+		  opnum = maybe_read_dollar_number (state,
+						    &format_chars,
 						    has_operand_number == 1,
 						    first_fillin_param,
 						    &params, fki);
@@ -1677,7 +1695,8 @@ check_format_info_main (format_check_results *res,
 	      if (has_operand_number != 0)
 		{
 		  int opnum;
-		  opnum = maybe_read_dollar_number (&format_chars,
+		  opnum = maybe_read_dollar_number (state,
+						    &format_chars,
 						    has_operand_number == 1,
 						    first_fillin_param,
 						    &params, fki);
@@ -2110,6 +2129,30 @@ check_format_info_main (format_check_results *res,
 	    }
 	}
     }
+}
+
+/* Do the main part of checking a call to a format function.  FORMAT_CHARS
+   is the NUL-terminated format string (which at this point may contain
+   internal NUL characters); FORMAT_LENGTH is its length (excluding the
+   terminating NUL character).  ARG_NUM is one less than the number of
+   the first format argument to check; PARAMS points to that format
+   argument in the list of arguments.  */
+
+static void
+check_format_info_main (format_check_results *res,
+			function_format_info *info, const char *format_chars,
+			int format_length, tree params,
+			unsigned HOST_WIDE_INT arg_num)
+{
+  dollar_argument_info dollar_state;
+
+  init_dollar_format_checking (&dollar_state, info->first_arg_num, params);
+  check_format_info_inner (&dollar_state, res, info, format_chars,
+			   format_length, params, arg_num);
+  if (dollar_state.dollar_arguments_used)
+    free (dollar_state.dollar_arguments_used);
+  if (dollar_state.dollar_arguments_pointer_p)
+    free (dollar_state.dollar_arguments_pointer_p);
 }
 
 

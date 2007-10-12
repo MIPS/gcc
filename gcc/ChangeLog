@@ -1,3 +1,17 @@
+2007-10-12  Tom Tromey  <tromey@redhat.com>
+
+	* c-format.c (dollar_argument_info): New struct.
+	(dollar_arguments_used, dollar_arguments_pointer_p,
+	dollar_arguments_alloc, dollar_arguments_count,
+	dollar_first_arg_num, dollar_max_arg_used, dollar_format_warned):
+	Remove.
+	(init_dollar_format_checking): Add 'state' argument.
+	(maybe_read_dollar_number): Likewise.
+	(finish_dollar_format_checking): Likewise.
+	(check_format_info_inner): Likewise.  Renamed from
+	check_format_info_main.
+	(check_format_info_main): New function.
+
 2007-10-11  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in (LIBS): Add -lpthread.
