@@ -784,7 +784,7 @@ TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
 BASIC_BLOCK_H = basic-block.h bitmap.h sbitmap.h varray.h $(PARTITION_H) \
           hard-reg-set.h cfghooks.h $(OBSTACK_H)
 GIMPLE_H = gimple.h gimple.def gsstruct.def pointer-set.h vec.h \
-	   $(BASIC_BLOCK_H)
+	   $(BASIC_BLOCK_H) $(TARGET_H)
 GCOV_IO_H = gcov-io.h gcov-iov.h auto-host.h
 COVERAGE_H = coverage.h $(GCOV_IO_H)
 DEMANGLE_H = $(srcdir)/../include/demangle.h

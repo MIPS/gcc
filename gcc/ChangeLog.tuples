@@ -1,5 +1,12 @@
 2007-10-12  Aldy Hernandez  <aldyh@redhat.com>
 
+	* Makefile.in (GIMPLE_H): Depend on TARGET_H.
+	* gimple.h (gsi_alloc): New.
+	(_ALLOC_GSI): Remove.
+	Replace _ALLOC_GSI uses by gsi_alloc.
+
+2007-10-12  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple.h (_ALLOC_GSI): New.
 	Use it throughout when allocating a new gimple_stmt_iterator.
 
