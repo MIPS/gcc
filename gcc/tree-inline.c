@@ -731,12 +731,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      tree *n;
 	      n = (tree *) pointer_map_contains (id->decl_map,
 						 TREE_BLOCK (*tp));
-	      if (n)
-		new_block = *n;
-	      else if (IS_DEBUG_STMT (*tp) || processing_debug_stmt_p)
-		new_block = NULL;
-	      else
-		gcc_unreachable ();
+	      gcc_assert (n);
+	      new_block = *n;
 	    }
 	  TREE_BLOCK (*tp) = new_block;
 	}
@@ -1368,21 +1364,13 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
 static void
 copy_debug_stmt (tree stmt, copy_body_data *id)
 {
-  tree *tp;
+  tree t;
 
   processing_debug_stmt_p = true;
 
-  tp = (tree *)pointer_map_contains (id->decl_map, VAR_DEBUG_VALUE_VAR (stmt));
-  if (!tp)
-    {
-      /* This debug stmt refers to a variable that was completely
-	 optimized away.  Drop it.  */
-      block_stmt_iterator bsi = bsi_for_stmt (stmt);
-      bsi_remove (&bsi, true);
-      processing_debug_stmt_p = false;
-      return;
-    }
-  VAR_DEBUG_VALUE_SET_VAR (stmt, *tp);
+  t = VAR_DEBUG_VALUE_VAR (stmt);
+  walk_tree (&t, copy_body_r, id, NULL);
+  VAR_DEBUG_VALUE_SET_VAR (stmt, t);
 
   walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), copy_body_r, id, NULL);
 
