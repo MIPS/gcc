@@ -1,5 +1,11 @@
 2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
 
+	* common.opt (ftree-coalesce-inlined-vars): Change default.
+	* doc/invoke.texi: Document default change.  Mention
+	var-tracking-assignments.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
 	* common.opt (ftree-coalesce-inlined-vars): New.
 	(ftree-coalesce-vars): New.
 	* doc/invoke.texi: Document them.

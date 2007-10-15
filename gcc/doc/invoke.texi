@@ -5810,11 +5810,12 @@ Permit the copyrename pass to subject inlined variables to coalescing
 into other variables.  This may harm debug information of such inlined
 variables, but it will keep variables of the main function apart from
 each other, such that they are more likely to contain the expected
-values in a debugging session.  This option is enabled by default.
+values in a debugging session.
 
 @item -ftree-coalesce-vars
 Permit the copyrename pass to subject all variables to SSA coalescing.
-This may severely limit the ability to debug a program.  In the negated
+This may severely limit the ability to debug an optimized program
+compiled without @option{-fvar-tracking-assignments}.  In the negated
 form, this flag prevents SSA coalescing of user variables, including
 inlined ones.
 
