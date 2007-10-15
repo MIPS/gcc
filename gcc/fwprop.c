@@ -776,11 +776,11 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
   bool set_reg_equal;
   enum machine_mode mode;
 
-  if (!use_set)
+  if (!use_set && !DEBUG_INSN_P (use_insn))
     return false;
 
   /* Do not propagate into PC, CC0, etc.  */
-  if (GET_MODE (SET_DEST (use_set)) == VOIDmode)
+  if (use_set && GET_MODE (SET_DEST (use_set)) == VOIDmode)
     return false;
 
   /* If def and use are subreg, check if they match.  */
@@ -812,7 +812,7 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
   if (MEM_P (src) && MEM_READONLY_P (src))
     {
       rtx x = avoid_constant_pool_reference (src);
-      if (x != src)
+      if (use_set && x != src)
 	{
           rtx note = find_reg_note (use_insn, REG_EQUAL, NULL_RTX);
 	  rtx old = note ? XEXP (note, 0) : SET_SRC (use_set);
@@ -828,6 +828,11 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
   if (DF_REF_TYPE (use) == DF_REF_REG_MEM_STORE)
     {
       loc = &SET_DEST (use_set);
+      set_reg_equal = false;
+    }
+  else if (!use_set)
+    {
+      loc = &INSN_VAR_LOCATION_LOC (use_insn);
       set_reg_equal = false;
     }
   else
