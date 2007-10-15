@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "target.h"
 #include "dbgcnt.h"
 
 
@@ -785,6 +786,64 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
   return 0;
 }
 
+/* Adjust all debug insns that reference REGNO to its equivalent
+   expression.  This assumes the debug insns are located between the
+   DEF and the USE, and that the expression in the DEF is still valid
+   at the point of USE.  */
+
+static void
+adjust_debug_insns_equivs (unsigned regno)
+{
+  struct df_ref *use;
+  rtx eqv = NULL;
+
+  gcc_assert (num_changes_pending () == 0);
+
+  for (use = DF_REG_USE_CHAIN (regno); use; use = DF_REF_NEXT_REG (use))
+    {
+      rtx insn = DF_REF_INSN (use), *loc, x;
+
+      if (!DEBUG_INSN_P (insn))
+	continue;
+
+      if (!eqv)
+	{
+	  eqv = *reg_equiv[regno].src_p;
+	  if (MEM_P (eqv))
+	    eqv = targetm.delegitimize_address (eqv);
+	}
+
+      loc = DF_REF_LOC (use);
+      x = *loc;
+
+      if (REG_P (x) && REGNO (x) == regno)
+	{
+	  gcc_assert (GET_MODE (eqv) == VOIDmode
+		      || GET_MODE (eqv) == GET_MODE (x));
+	  validate_unshare_change (insn, loc, eqv, true);
+	}
+      else if (GET_CODE (x) == SUBREG && REGNO (SUBREG_REG (x)) == regno)
+	{
+	  rtx sreqv;
+
+	  gcc_assert (GET_MODE (eqv) == VOIDmode
+		      || GET_MODE (eqv) == GET_MODE (SUBREG_REG (x)));
+
+
+	  sreqv = simplify_gen_subreg (GET_MODE (x), copy_rtx (eqv),
+				       GET_MODE (SUBREG_REG (x)),
+				       SUBREG_BYTE (x));
+
+	  validate_change (insn, loc, sreqv, true);
+	}
+      else
+	gcc_unreachable ();
+    }
+
+  if (eqv && !apply_change_group ())
+    gcc_unreachable ();
+}
+
 /* Find registers that are equivalent to a single value throughout the
    compilation (either because they can be referenced in memory or are set once
    from a single constant).  Lower their priority for a register.
@@ -1146,6 +1205,9 @@ update_equiv_regs (void)
 			   last_link = XEXP (last_link, 1))
 			;
 
+		      if (MAY_HAVE_DEBUG_INSNS)
+			adjust_debug_insns_equivs (regno);
+
 		      /* Append the REG_DEAD notes from equiv_insn.  */
 		      equiv_link = REG_NOTES (equiv_insn);
 		      while (equiv_link)
@@ -1164,6 +1226,7 @@ update_equiv_regs (void)
 		      remove_death (regno, insn);
 		      SET_REG_N_REFS (regno, 0);
 		      REG_FREQ (regno) = 0;
+		      df_insn_delete (bb, INSN_UID (equiv_insn));
 		      delete_insn (equiv_insn);
 
 		      reg_equiv[regno].init_insns
@@ -1174,9 +1237,12 @@ update_equiv_regs (void)
 		    }
 		  /* Move the initialization of the register to just before
 		     INSN.  Update the flow information.  */
-		  else if (PREV_INSN (insn) != equiv_insn)
+		  else if (prev_nondebug_insn (insn) != equiv_insn)
 		    {
 		      rtx new_insn;
+
+		      if (MAY_HAVE_DEBUG_INSNS)
+			adjust_debug_insns_equivs (regno);
 
 		      new_insn = emit_insn_before (PATTERN (equiv_insn), insn);
 		      REG_NOTES (new_insn) = REG_NOTES (equiv_insn);
@@ -1187,6 +1253,8 @@ update_equiv_regs (void)
 			 eliminate_regs_in_insn will die.  */
 		      INSN_CODE (new_insn) = INSN_CODE (equiv_insn);
 
+		      df_insn_rescan (new_insn);
+		      df_insn_delete (bb, INSN_UID (equiv_insn));
 		      delete_insn (equiv_insn);
 
 		      XEXP (reg_equiv[regno].init_insns, 0) = new_insn;

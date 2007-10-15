@@ -2931,6 +2931,38 @@ prev_nonnote_insn (rtx insn)
   return insn;
 }
 
+/* Return the next insn after INSN that is not a DEBUG_INSN.  This
+   routine does not look inside SEQUENCEs.  */
+
+rtx
+next_nondebug_insn (rtx insn)
+{
+  while (insn)
+    {
+      insn = NEXT_INSN (insn);
+      if (insn == 0 || !DEBUG_INSN_P (insn))
+	break;
+    }
+
+  return insn;
+}
+
+/* Return the previous insn before INSN that is not a DEBUG_INSN.
+   This routine does not look inside SEQUENCEs.  */
+
+rtx
+prev_nondebug_insn (rtx insn)
+{
+  while (insn)
+    {
+      insn = PREV_INSN (insn);
+      if (insn == 0 || !DEBUG_INSN_P (insn))
+	break;
+    }
+
+  return insn;
+}
+
 /* Return the next INSN, CALL_INSN or JUMP_INSN after INSN;
    or 0, if there is none.  This routine does not look inside
    SEQUENCEs.  */
