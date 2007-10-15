@@ -1,3 +1,11 @@
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-inline.c (processing_debug_stmt_p): Renamed to...
+	(processing_debug_stmt): ... this.  Change type to int.
+	(remap_decl): Don't remap new decls in debug stmts.  Mark error
+	condition.
+	(copy_debug_stmt): Check error conditions.
+
 2007-10-15  Alexandre Oliva  <aoliva@redhat.com>, Jan Hubicka  <jh@suse.cz>
 
 	* tree-ssa-live.c (remove_unused_scope_block_p): Drop

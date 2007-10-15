@@ -201,7 +201,11 @@ remap_ssa_name (tree name, copy_body_data *id)
   return new;
 }
 
-bool processing_debug_stmt_p = false;
+/* If nonzero, we're remapping the contents of inlined debug
+   statements.  If negative, an error has occurred, such as a
+   reference to a variable that isn't available in the inlined
+   context.  */
+int processing_debug_stmt = 0;
 
 /* Remap DECL during the copying of the BLOCK tree for the function.  */
 
@@ -217,6 +221,12 @@ remap_decl (tree decl, copy_body_data *id)
   /* See if we have remapped this declaration.  */
 
   n = (tree *) pointer_map_contains (id->decl_map, decl);
+
+  if (!n && processing_debug_stmt)
+    {
+      processing_debug_stmt = -1;
+      return decl;
+    }
 
   /* If we didn't already have an equivalent for this declaration,
      create one now.  */
@@ -264,8 +274,7 @@ remap_decl (tree decl, copy_body_data *id)
 	      if (TREE_CODE (map) == SSA_NAME)
 	        set_default_def (t, map);
 	    }
-	  if (!processing_debug_stmt_p)
-	    add_referenced_var (t);
+	  add_referenced_var (t);
 	}
       return t;
     }
@@ -1366,15 +1375,20 @@ copy_debug_stmt (tree stmt, copy_body_data *id)
 {
   tree t;
 
-  processing_debug_stmt_p = true;
+  processing_debug_stmt = 1;
 
   t = VAR_DEBUG_VALUE_VAR (stmt);
   walk_tree (&t, copy_body_r, id, NULL);
   VAR_DEBUG_VALUE_SET_VAR (stmt, t);
 
+  gcc_assert (processing_debug_stmt == 1);
+
   walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), copy_body_r, id, NULL);
 
-  processing_debug_stmt_p = false;
+  if (processing_debug_stmt < 0)
+    VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
+
+  processing_debug_stmt = 0;
 
   update_stmt (stmt);
   if (gimple_in_ssa_p (cfun))
