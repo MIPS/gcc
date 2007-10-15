@@ -1040,6 +1040,14 @@ ftree-ch
 Common Report Var(flag_tree_ch) Optimization
 Enable loop header copying on trees
 
+ftree-coalesce-inlined-vars
+Common Report Var(flag_ssa_coalesce_vars,1) Init(1) RejectNegative Optimization
+Permit SSA coalescing of inlined variables only
+
+ftree-coalesce-vars
+Common Report Var(flag_ssa_coalesce_vars,-1) Optimization
+Permit SSA coalescing of all variables
+
 ftree-copyrename
 Common Report Var(flag_tree_copyrename) Optimization
 Replace SSA temporaries with better names in copies

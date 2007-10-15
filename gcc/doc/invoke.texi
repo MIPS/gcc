@@ -359,7 +359,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -fcheck-data-deps -ftree-parallelize-loops @gol
--ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
+-ftree-dominator-opts -ftree-dse -ftree-sink @gol
+-ftree-copyrename -ftree-coalesce-inline-vars -ftree-coalesce-vars @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-fre -ftree-vectorize @gol
 -ftree-vect-loop-version -fvect-cost-model -ftree-salias -fipa-pta -fweb @gol
 -ftree-copy-prop -ftree-store-ccp -ftree-store-copy-prop -fwhole-program @gol
@@ -5803,6 +5804,19 @@ Perform copy renaming on trees.  This pass attempts to rename compiler
 temporaries to other variables at copy locations, usually resulting in
 variable names which more closely resemble the original variables.  This flag
 is enabled by default at @option{-O} and higher.
+
+@item -ftree-coalesce-inlined-vars
+Permit the copyrename pass to subject inlined variables to coalescing
+into other variables.  This may harm debug information of such inlined
+variables, but it will keep variables of the main function apart from
+each other, such that they are more likely to contain the expected
+values in a debugging session.  This option is enabled by default.
+
+@item -ftree-coalesce-vars
+Permit the copyrename pass to subject all variables to SSA coalescing.
+This may severely limit the ability to debug a program.  In the negated
+form, this flag prevents SSA coalescing of user variables, including
+inlined ones.
 
 @item -ftree-ter
 Perform temporary expression replacement during the SSA->normal phase.  Single
