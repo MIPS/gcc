@@ -2241,8 +2241,11 @@ dump_variable (void **slot, void *data ATTRIBUTE_UNUSED)
   int i;
   location_chain node;
 
-  fprintf (dump_file, "  name: %s\n",
-	   IDENTIFIER_POINTER (DECL_NAME (var->decl)));
+  if (DECL_NAME (var->decl))
+    fprintf (dump_file, "  name: %s\n",
+	     IDENTIFIER_POINTER (DECL_NAME (var->decl)));
+  else
+    fprintf (dump_file, "  name: D.%u", DECL_UID (var->decl));
   for (i = 0; i < var->n_var_parts; i++)
     {
       fprintf (dump_file, "    offset %ld\n",
