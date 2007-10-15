@@ -297,11 +297,6 @@
 	* ifcvt.c (noce_process_if_block): Try to handle only the then
 	block if the else block exists but isn't suitable.
 
-2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
-
-	* tree-ssa-copyrename.c (copy_rename_partition_coalesce):
-	Permit coalescing of user variables.
-
 Local Variables:
 mode: change-log
 change-log-default-name: "ChangeLog.vta"
