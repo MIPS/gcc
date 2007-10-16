@@ -193,14 +193,16 @@ input_string (struct data_in *data_in, unsigned int loc)
 /* Input a real constant of TYPE at LOC.  */
 
 static tree
-input_real (struct data_in *data_in, unsigned int loc, tree type)
+input_real (struct input_block *ib, struct data_in *data_in, tree type)
 {
+  unsigned int loc;
   unsigned int len;
-  const char * str = input_string_internal (data_in, loc, &len); 
+  const char * str;
   REAL_VALUE_TYPE value;
 
   LTO_DEBUG_TOKEN ("real");
-
+  loc = input_uleb128 (ib);
+  str = input_string_internal (data_in, loc, &len);
   real_from_string (&value, str);
   return build_real (type, value);
 }
@@ -214,22 +216,22 @@ input_integer (struct input_block *ib, tree type)
   HOST_WIDE_INT low = 0;
   HOST_WIDE_INT high = 0;
   int shift = 0;
-  unsigned int byte;
+  HOST_WIDE_INT byte;
 
   while (true)
     {
       byte = input_1_unsigned (ib);
-      if (shift < HOST_BITS_PER_INT - 7)
+      if (shift < HOST_BITS_PER_WIDE_INT - 7)
 	/* Working on the low part.  */
 	low |= (byte & 0x7f) << shift;
-      else if (shift >= HOST_BITS_PER_INT)
+      else if (shift >= HOST_BITS_PER_WIDE_INT)
 	/* Working on the high part.  */
-	high |= (byte & 0x7f) << (shift - HOST_BITS_PER_INT);
+	high |= (byte & 0x7f) << (shift - HOST_BITS_PER_WIDE_INT);
       else
 	{
 	  /* Working on the transition between the low and high parts.  */
 	  low |= (byte & 0x7f) << shift;
-	  high |= (byte & 0x7f) >> (HOST_BITS_PER_INT - shift);
+	  high |= (byte & 0x7f) >> (HOST_BITS_PER_WIDE_INT - shift);
 	}
 
       shift += 7;
@@ -238,12 +240,12 @@ input_integer (struct input_block *ib, tree type)
 	  if (byte & 0x40)
 	    {
 	      /* The number is negative.  */
-	      if (shift < HOST_BITS_PER_INT)
+	      if (shift < HOST_BITS_PER_WIDE_INT)
 		{
 		  low |= - (1 << shift);
 		  high = -1;
 		}
-	      else if (shift < (2 * HOST_BITS_PER_INT))
+	      else if (shift < (2 * HOST_BITS_PER_WIDE_INT))
 		high |= - (1 << shift);
 	    }
 
@@ -287,8 +289,10 @@ input_list (struct input_block *ib, struct data_in *data_in, struct function *fn
   tree first = NULL_TREE;
   if (tag)
     {
+      tree next;
+
       first = build_tree_list (NULL_TREE, input_expr_operand (ib, data_in, fn, tag));
-      tree next = first;
+      next = first;
       tag = input_record_start (ib);
       while (tag)
 	{
@@ -452,9 +456,9 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       if (tag == LTO_complex_cst1)
 	{
 	  TREE_REALPART (result) 
-	    = input_real (data_in, input_uleb128 (ib), type);
+	    = input_real (ib, data_in, type);
 	  TREE_IMAGPART (result) 
-	    = input_real (data_in, input_uleb128 (ib), type);
+	    = input_real (ib, data_in, type);
 	}
       else
 	{
@@ -468,7 +472,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       break;
 
     case REAL_CST:
-      result = input_real (data_in, input_uleb128 (ib), type);
+      result = input_real (ib, data_in, type);
       break;
 
     case STRING_CST:
@@ -485,18 +489,12 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  {
 	    int i;
 	    tree last 
-	      = build_tree_list (NULL_TREE, 
-				 input_real (data_in, 
-					     input_uleb128 (ib), 
-					     type));
+	      = build_tree_list (NULL_TREE, input_real (ib, data_in, type));
 	    chain = last; 
 	    for (i = 1; i < len; i++)
 	      {
 		tree t 
-		  = build_tree_list (NULL_TREE, 
-				     input_real (data_in, 
-						 input_uleb128 (ib), 
-						 type));
+		  = build_tree_list (NULL_TREE, input_real (ib, data_in, type));
 		TREE_CHAIN (last) = t;
 		last = t;
 	      }
@@ -720,8 +718,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	tree op2;
 	if (tag == LTO_bit_field_ref1)
 	  {
-	    op1 = input_integer (ib, SIZETYPE);
-	    op2 = input_integer (ib, SIZETYPE);
+	    op1 = build_int_cst_wide (sizetype, input_uleb128 (ib), 0);
+	    op2 = build_int_cst_wide (sizetype, input_uleb128 (ib), 0);
 	    op0 = input_expr_operand (ib, data_in, fn,
 				      input_record_start (ib));
 	  }
@@ -1067,8 +1065,7 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
   if (variant & 0x1)
     {
       LTO_DEBUG_TOKEN ("attributes");
-      DECL_ATTRIBUTES (result) 
-	= input_expr_operand (ib, data_in, fn, input_record_start (ib));
+      DECL_ATTRIBUTES (result) = input_list (ib, data_in, fn);
     }
   if (variant & 0x2)
     DECL_SIZE_UNIT (result) 
@@ -1688,8 +1685,8 @@ dump_debug_stream (struct input_block *stream, char b, char c)
   int chars = 0;
   int hit_pos = -1;
   fprintf (stderr, 
-	   "stream failure: looking for a '%c' in the debug stream.\nHowever the data translated into a '%c' at position%d\n\n",
-	   c, b, stream->p);
+	   "stream failure: looking for a '%c'[0x%x] in the debug stream.\nHowever the data translated into a '%c'[0x%x]at position%d\n\n",
+	   c, c, b, b, stream->p);
   
   while (i < stream->len)
     {
@@ -1746,7 +1743,7 @@ static void
 debug_out_fun (struct lto_debug_context *context, char c)
 {
   struct input_block *stream = (struct input_block *)context->current_data;
-  unsigned char b = input_1_unsigned (stream);
+  char b = input_1_unsigned (stream);
 
   if (b != c)
     {

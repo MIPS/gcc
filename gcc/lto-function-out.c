@@ -151,6 +151,7 @@ eq_label_slot_node (const void *p1, const void *p2)
 
 struct string_slot {
   const char *s;
+  int len;
   unsigned int slot_num;
 };
 
@@ -175,7 +176,15 @@ eq_string_slot_node (const void *p1, const void *p2)
   const struct string_slot *ds2 =
     (const struct string_slot *) p2;
 
-  return strcmp (ds1->s, ds2->s);
+  if (ds1->len == ds2->len)
+    {
+      int i;
+      for (i=0; i<ds1->len; i++)
+	if (ds1->s[i] != ds2->s[i])
+	  return 0;
+      return 1;
+    }
+  else return 0;
 }
 
 
@@ -583,6 +592,7 @@ output_string (struct output_block *ob,
   void **slot;
   struct string_slot s_slot;
   s_slot.s = string;
+  s_slot.len = len;
 
   slot = htab_find_slot (ob->string_hash_table, &s_slot, INSERT);
   if (*slot == NULL)
@@ -600,7 +610,6 @@ output_string (struct output_block *ob,
       output_uleb128_stream (string_stream, len);
       for (i=0; i<len; i++)
 	output_1_stream (string_stream, string[i]);
-
     }
   else
     {
@@ -612,7 +621,7 @@ output_string (struct output_block *ob,
 	 occurence of this string or not.  Thus, we simulate the same
 	 debugging info as would be output as if this was a new
 	 string.  */
-      LTO_DEBUG_WIDE ("U", old_slot->slot_num);
+      LTO_DEBUG_WIDE ("U", len);
     }
   LTO_DEBUG_STRING (string, len);
 }
@@ -1233,10 +1242,10 @@ output_expr_operand (struct output_block *ob, tree expr)
 			     LTO_case_label_expr0 + variant);
 
 	if (CASE_LOW (expr) != NULL_TREE)
-	  output_integer (ob, CASE_LOW (expr));
+	  output_expr_operand (ob, CASE_LOW (expr));
 	if (CASE_HIGH (expr) != NULL_TREE)
-	  output_integer (ob, CASE_HIGH (expr));
-	output_expr_operand (ob, CASE_LABEL (expr));
+	  output_expr_operand (ob, CASE_HIGH (expr));
+	output_label_ref (ob, CASE_LABEL (expr));
       }
       break;
 
