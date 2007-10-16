@@ -1418,7 +1418,7 @@ build_insn_chain (void)
 
       FOR_BB_INSNS_REVERSE (bb, insn)
 	{
-	  if (!NOTE_P (insn) && !BARRIER_P (insn) && !DEBUG_INSN_P (insn))
+	  if (!NOTE_P (insn) && !BARRIER_P (insn))
 	    {
 	      unsigned int uid = INSN_UID (insn);
 	      struct df_ref **def_rec;
