@@ -1,3 +1,8 @@
+2007-10-16  Tom Tromey  <tromey@redhat.com>
+
+	* gengtype.c (write_roots): Ensure thread-local variable does not
+	use global for 'length'.
+
 2007-10-12  Tom Tromey  <tromey@redhat.com>
 
 	* c-format.h (c_format_finalize): Declare.

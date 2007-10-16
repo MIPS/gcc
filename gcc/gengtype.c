@@ -3445,7 +3445,13 @@ write_roots (pair_p variables, bool thread_local)
 
       for (o = v->opt; o; o = o->next)
 	if (strcmp (o->name, "length") == 0)
-	  length_p = 1;
+	  {
+	    length_p = 1;
+	    if (v->thread_local && !strchr (o->info, '%'))
+	      error_at_line (&v->line,
+			     "thread-local `%s' has non-relative `length'",
+			     v->name);
+	  }
 	else if (strcmp (o->name, "deletable") == 0
 		 || strcmp (o->name, "if_marked") == 0)
 	  skip_p = 1;
