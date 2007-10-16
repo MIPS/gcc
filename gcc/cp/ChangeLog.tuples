@@ -1,0 +1,20 @@
+2007-10-16  Aldy Hernandez  <aldy@quesejoda.com>
+
+	* optimize.c (maybe_clone_body): Comment out call to clone_body.
+	* decl.c (finish_function): Use gimple_body instead of
+	DECL_SAVED_TREE.
+	* cp-tree.h (cp_gimplify_expr): Last 2 arguments are sequences.
+	* cp-gimplify.c (genericize_try_block): Comment out.
+	(genericize_catch_block): Same.
+	(genericize_eh_spec_block): Same.
+	(gimplify_cp_loop): Comment out calls to gimplify_stmt.
+	(gimplify_for_stmt): Comment out.
+	(gimplify_switch_stmt): Comment out call to gimplify_stmt.
+	(cp_gimplify_omp_for): Same.
+	(gimplify_must_not_throw_expr): Argument pre_p is a sequence.
+	Comment out call to gimplify_stmt and append_to_statement_list.
+	Rename gimple_build_eh_filter_tree to build_gimple_eh_filter_tree.
+	(cp_gimplify_init_expr): Arguments pre_p and post_p are sequences.
+	(cp_gimplify_expr): Same.
+	Comment out calls to genericize_*_block.  Comment out call to
+	gimplify_for_stmt.

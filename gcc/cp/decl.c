@@ -11652,6 +11652,7 @@ finish_function (int flags)
   tree fntype, ctype = NULL_TREE;
   int inclass_inline = (flags & 2) != 0;
   int nested;
+  gimple_seq body = gimple_body (fndecl);
 
   /* When we get some parse errors, we can end up without a
      current_function_decl, so cope.  */
@@ -11829,7 +11830,7 @@ finish_function (int flags)
       f->extern_decl_map = NULL;
 
       /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
-      c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+      c_warn_unused_result (body);
     }
   /* Clear out the bits we don't need.  */
   local_names = NULL;

@@ -108,6 +108,8 @@ build_bc_goto (enum bc_t bc)
 
 /* Genericize a TRY_BLOCK.  */
 
+/* FIXME tuples */
+#if 0
 static void
 genericize_try_block (tree *stmt_p)
 {
@@ -123,9 +125,12 @@ genericize_try_block (tree *stmt_p)
 
   *stmt_p = build2 (TRY_CATCH_EXPR, void_type_node, body, cleanup);
 }
+#endif
 
 /* Genericize a HANDLER by converting to a CATCH_EXPR.  */
 
+/* FIXME tuples */
+#if 0
 static void
 genericize_catch_block (tree *stmt_p)
 {
@@ -137,10 +142,12 @@ genericize_catch_block (tree *stmt_p)
   /* FIXME should the caught type go in TREE_TYPE?  */
   *stmt_p = build2 (CATCH_EXPR, void_type_node, type, body);
 }
+#endif
 
 /* Genericize an EH_SPEC_BLOCK by converting it to a
    TRY_CATCH_EXPR/EH_FILTER_EXPR pair.  */
 
+#if 0
 static void
 genericize_eh_spec_block (tree *stmt_p)
 {
@@ -151,6 +158,7 @@ genericize_eh_spec_block (tree *stmt_p)
 
   *stmt_p = gimple_build_eh_filter_tree (body, allowed, failure);
 }
+#endif
 
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
@@ -225,7 +233,9 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 	{
 	  t = build_bc_goto (bc_break);
 	  exit = fold_build3 (COND_EXPR, void_type_node, cond, exit, t);
+	  /* FIXME tuples
 	  gimplify_stmt (&exit);
+	  */
 
 	  if (cond_is_first)
 	    {
@@ -241,8 +251,10 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 	}
     }
 
+  /* FIXME tuples
   gimplify_stmt (&body);
   gimplify_stmt (&incr);
+  */
 
   body = finish_bc_block (bc_continue, cont_block, body);
 
@@ -252,7 +264,9 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
   append_to_statement_list (entry, &stmt_list);
   append_to_statement_list (exit, &stmt_list);
 
+  /* FIXME tuples
   annotate_all_with_locus (&stmt_list, stmt_locus);
+  */
 
   return finish_bc_block (bc_break, break_block, stmt_list);
 }
@@ -260,6 +274,8 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 /* Gimplify a FOR_STMT node.  Move the stuff in the for-init-stmt into the
    prequeue and hand off to gimplify_cp_loop.  */
 
+/* FIXME tuples */
+#if 0
 static void
 gimplify_for_stmt (tree *stmt_p, tree *pre_p)
 {
@@ -271,6 +287,7 @@ gimplify_for_stmt (tree *stmt_p, tree *pre_p)
   *stmt_p = gimplify_cp_loop (FOR_COND (stmt), FOR_BODY (stmt),
 			      FOR_EXPR (stmt), 1);
 }
+#endif
 
 /* Gimplify a WHILE_STMT node.  */
 
@@ -310,7 +327,9 @@ gimplify_switch_stmt (tree *stmt_p)
   *stmt_p = build3 (SWITCH_EXPR, SWITCH_STMT_TYPE (stmt),
 		    SWITCH_STMT_COND (stmt), body, NULL_TREE);
   SET_EXPR_LOCATION (*stmt_p, stmt_locus);
+  /* FIXME tuples
   gimplify_stmt (stmt_p);
+  */
 
   *stmt_p = finish_bc_block (bc_break, break_block, *stmt_p);
 }
@@ -336,7 +355,9 @@ cp_gimplify_omp_for (tree *expr_p)
      statement expressions within the INIT, COND, or INCR expressions.  */
   cont_block = begin_bc_block (bc_continue);
 
+  /* FIXME tuples
   gimplify_stmt (expr_p);
+  */
 
   OMP_FOR_BODY (for_stmt)
     = finish_bc_block (bc_continue, cont_block, OMP_FOR_BODY (for_stmt));
@@ -383,7 +404,7 @@ gimplify_expr_stmt (tree *stmt_p)
 /* Gimplify initialization from an AGGR_INIT_EXPR.  */
 
 static void
-cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
+cp_gimplify_init_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 {
   tree from = TREE_OPERAND (*expr_p, 1);
   tree to = TREE_OPERAND (*expr_p, 0);
@@ -421,20 +442,25 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
 /* Gimplify a MUST_NOT_THROW_EXPR.  */
 
 static void
-gimplify_must_not_throw_expr (tree *expr_p, tree *pre_p)
+gimplify_must_not_throw_expr (tree *expr_p, gimple_seq pre_p ATTRIBUTE_UNUSED)
+  /* FIXME tuples ATTRIBUTE_UNUSED */
 {
   tree stmt = *expr_p;
   tree temp = voidify_wrapper_expr (stmt, NULL);
   tree body = TREE_OPERAND (stmt, 0);
 
+  /* FIXME tuples
   gimplify_stmt (&body);
+  */
 
-  stmt = gimple_build_eh_filter_tree (body, NULL_TREE,
-				 build_call_n (terminate_node, 0));
+  stmt = build_gimple_eh_filter_tree (body, NULL_TREE,
+				      build_call_n (terminate_node, 0));
 
   if (temp)
     {
+      /* FIXME tuples
       append_to_statement_list (stmt, pre_p);
+      */
       *expr_p = temp;
     }
   else
@@ -444,7 +470,7 @@ gimplify_must_not_throw_expr (tree *expr_p, tree *pre_p)
 /* Do C++-specific gimplification.  Args are as for gimplify_expr.  */
 
 int
-cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
+cp_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 {
   int saved_stmts_are_full_exprs_p = 0;
   enum tree_code code = TREE_CODE (*expr_p);
@@ -501,17 +527,23 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       break;
 
     case TRY_BLOCK:
+      /* FIXME tuples
       genericize_try_block (expr_p);
+      */
       ret = GS_OK;
       break;
 
     case HANDLER:
+      /* FIXME tuples
       genericize_catch_block (expr_p);
+      */
       ret = GS_OK;
       break;
 
     case EH_SPEC_BLOCK:
+      /* FIXME tuples
       genericize_eh_spec_block (expr_p);
+      */
       ret = GS_OK;
       break;
 
@@ -528,7 +560,9 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       break;
 
     case FOR_STMT:
+      /* FIXME tuples
       gimplify_for_stmt (expr_p, pre_p);
+      */
       ret = GS_ALL_DONE;
       break;
 

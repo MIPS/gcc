@@ -4885,7 +4885,8 @@ extern void init_shadowed_var_for_decl		(void);
 extern tree cxx_staticp                         (tree);
 
 /* in cp-gimplify.c */
-extern int cp_gimplify_expr			(tree *, tree *, tree *);
+extern int cp_gimplify_expr			(tree *,
+    						 gimple_seq, gimple_seq);
 extern void cp_genericize			(tree);
 
 /* -- end of C++ */
