@@ -182,21 +182,6 @@ extern const enum tree_code_class tree_code_type[];
 
 #define EXPR_P(NODE) IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (NODE)))
 
-/* Returns nonzero iff NODE is an OpenMP directive.  */
-
-#define OMP_DIRECTIVE_P(NODE)				\
-    (TREE_CODE (NODE) == OMP_PARALLEL			\
-     || TREE_CODE (NODE) == OMP_FOR			\
-     || TREE_CODE (NODE) == OMP_SECTIONS		\
-     || TREE_CODE (NODE) == OMP_SECTIONS_SWITCH		\
-     || TREE_CODE (NODE) == OMP_SINGLE			\
-     || TREE_CODE (NODE) == OMP_SECTION			\
-     || TREE_CODE (NODE) == OMP_MASTER			\
-     || TREE_CODE (NODE) == OMP_ORDERED			\
-     || TREE_CODE (NODE) == OMP_CRITICAL		\
-     || TREE_CODE (NODE) == OMP_RETURN			\
-     || TREE_CODE (NODE) == OMP_CONTINUE)
-
 /* Number of argument-words in each kind of tree-node.  */
 
 extern const unsigned char tree_code_length[];
@@ -4853,7 +4838,6 @@ extern tree c_strlen (tree, int);
 extern tree std_gimplify_va_arg_expr (tree, tree, gimple_seq, gimple_seq);
 extern tree build_va_arg_indirect_ref (tree);
 extern tree build_string_literal (int, const char *);
-extern bool validate_arglist (const_tree, ...);
 extern rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 extern int get_pointer_alignment (tree, unsigned int);
 

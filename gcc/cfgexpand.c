@@ -1696,7 +1696,7 @@ construct_init_block (void)
      otherwise we have to jump into proper target.  */
   if (e && e->dest != ENTRY_BLOCK_PTR->next_bb)
     {
-      tree label = tree_block_label (e->dest);
+      tree label = gimple_block_label (e->dest);
 
       emit_jump (label_rtx (label));
       flags = 0;

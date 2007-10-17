@@ -127,9 +127,8 @@ lower_function_body (void)
      need to do anything special.  Otherwise build one by hand.  */
   if (gimple_seq_may_fallthru (lowered_body)
       && (VEC_empty (return_statements_t, data.return_statements)
-	  || gimple_return_retval
-	       (VEC_last (return_statements_t,
-			  data.return_statements)->stmt) != NULL))
+	  || gimple_return_retval (VEC_last (return_statements_t,
+			           data.return_statements)->stmt) != NULL))
     {
       x = build_gimple_return (NULL);
       set_gimple_locus (x, cfun->function_end_locus);

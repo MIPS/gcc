@@ -175,10 +175,9 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
       if (TREE_CODE_CLASS (rhs_code) == tcc_declaration
 	  || TREE_CODE_CLASS (rhs_code) == tcc_constant
 	  || TREE_CODE_CLASS (rhs_code) == tcc_reference
-	  || rhs_code == SSA_NAME)
+	  || rhs_code == SSA_NAME
+	  || rhs_code == ADDR_EXPR)
 	; /* do nothing.  */
-      else if (rhs_code == ADDR_EXPR)
-	pp_string (buffer, "&");
       else if (rhs_code == BIT_NOT_EXPR)
 	pp_string (buffer, "~");
       else if (rhs_code == TRUTH_NOT_EXPR)
@@ -308,6 +307,9 @@ dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
   for (i = 0; i < gimple_switch_num_labels (gs); i++)
     {
       tree case_label = gimple_switch_label (gs, i);
+      if (case_label == NULL_TREE)
+	continue;
+
       dump_generic_node (buffer, case_label, spc, flags, false);
       pp_string (buffer, " ");
       dump_generic_node (buffer, CASE_LABEL (case_label), spc, flags, false);
@@ -410,36 +412,44 @@ dump_gimple_asm (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   unsigned int i;
 
-  pp_string (buffer, "__asm__ (");
+  pp_string (buffer, "__asm__ (\"");
   pp_string (buffer, gimple_asm_string (gs));
+  pp_string (buffer, "\"");
 
   if (gimple_asm_ninputs (gs)
      || gimple_asm_noutputs (gs) 
-     || gimple_asm_nclobbered (gs))
+     || gimple_asm_nclobbers (gs))
     {
-      pp_character (buffer, ' ');
-      for (i = 0; i < gimple_asm_ninputs (gs); i++)
-        {
-          dump_generic_node (buffer, gimple_asm_input_op (gs,i),spc, flags,
-                             false);
-          if (i < gimple_asm_ninputs (gs) -1)
-            pp_string (buffer, ": ");
-        }
-      pp_string (buffer, ": ");
+      if (gimple_asm_noutputs (gs))
+	pp_string (buffer, " : ");
+
       for (i = 0; i < gimple_asm_noutputs (gs); i++)
         {
-          dump_generic_node (buffer, gimple_asm_output_op (gs,i),spc, flags,
+          dump_generic_node (buffer, gimple_asm_output_op (gs, i), spc, flags,
                              false);
           if ( i < gimple_asm_noutputs (gs) -1)
             pp_string (buffer, ", ");
         }
-      pp_string (buffer, ": ");
-      
-      for (i = 0; i < gimple_asm_nclobbered (gs); i++)
+
+      if (gimple_asm_ninputs (gs))
+	pp_string (buffer, " : ");
+
+      for (i = 0; i < gimple_asm_ninputs (gs); i++)
         {
-          dump_generic_node (buffer, gimple_asm_clobber_op (gs,i),spc, flags,
+          dump_generic_node (buffer, gimple_asm_input_op (gs, i), spc, flags,
                              false);
-          if ( i < gimple_asm_nclobbered (gs) -1)
+          if (i < gimple_asm_ninputs (gs) -1)
+            pp_string (buffer, " : ");
+        }
+
+      if (gimple_asm_nclobbers (gs))
+	pp_string (buffer, " : ");
+
+      for (i = 0; i < gimple_asm_nclobbers (gs); i++)
+        {
+          dump_generic_node (buffer, gimple_asm_clobber_op (gs, i), spc, flags,
+                             false);
+          if ( i < gimple_asm_nclobbers (gs) -1)
             pp_string (buffer, ", ");
         }
     }

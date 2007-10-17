@@ -581,7 +581,7 @@ copy_phi_node_args (unsigned first_new_block)
    after the loop has been duplicated.  */
 
 bool
-tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
+gimple_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 				    unsigned int ndupl, sbitmap wont_exit,
 				    edge orig, VEC (edge, heap) **to_remove,
 				    int flags)

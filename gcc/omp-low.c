@@ -1443,7 +1443,6 @@ scan_omp (tree *stmt_p, omp_context *ctx)
   memset (&wi, 0, sizeof (wi));
   wi.callback = scan_omp_1;
   wi.info = ctx;
-  wi.want_bind_expr = (ctx != NULL);
   wi.want_locations = true;
 
   saved_location = input_location;
@@ -4896,7 +4895,6 @@ diagnose_omp_structured_block_errors (tree fndecl)
   memset (&wi, 0, sizeof (wi));
   wi.callback_stmt = diagnose_sb_2;
   wi.want_locations = true;
-  wi.want_return_expr = true;
   walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
 
   splay_tree_delete (all_labels);

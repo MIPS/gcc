@@ -954,8 +954,6 @@ execute_function_todo (void *data)
   /* Always cleanup the CFG before trying to update SSA.  */
   if (flags & TODO_cleanup_cfg)
     {
-      /* FIXME tuples  */
-#if 0
       bool cleanup = cleanup_tree_cfg ();
 
       if (cleanup && (cfun->curr_properties & PROP_ssa))
@@ -969,9 +967,6 @@ execute_function_todo (void *data)
 	 still need to do one.  */
       if (!(flags & TODO_update_ssa_any) && need_ssa_update_p ())
 	flags |= TODO_update_ssa;
-#else
-      gcc_unreachable ();
-#endif
     }
 
   if (flags & TODO_update_ssa_any)

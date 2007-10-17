@@ -637,7 +637,7 @@ get_tmp_var_for (gimple stmt)
 
   /* FIXME tuples, add support for formal temporaries (worth it?)  */
   if (code == GIMPLE_ASSIGN)
-    lhs = create_tmp_from_val (gimple_assign_operand (stmt, 1));
+    lhs = create_tmp_from_val (gimple_op (stmt, 1));
   else if (code == GIMPLE_CALL)
     lhs = create_tmp_var (gimple_call_return_type (stmt),
 			   get_name (gimple_call_fn (stmt)));
@@ -1348,7 +1348,13 @@ compare_case_labels (const void *p1, const void *p2)
   const_tree const case1 = *(const_tree const*)p1;
   const_tree const case2 = *(const_tree const*)p2;
 
-  return tree_int_cst_compare (CASE_LOW (case1), CASE_LOW (case2));
+  /* The 'default' case label always goes first.  */
+  if (!CASE_LOW (case1))
+    return -1;
+  else if (!CASE_LOW (case2))
+    return 1;
+  else
+    return tree_int_cst_compare (CASE_LOW (case1), CASE_LOW (case2));
 }
 
 
@@ -1358,29 +1364,7 @@ void
 sort_case_labels (VEC(tree,heap)* label_vec)
 {
   size_t len = VEC_length (tree, label_vec);
-  tree default_case = VEC_index (tree, label_vec, len - 1);
-
-  if (CASE_LOW (default_case))
-    {
-      size_t i;
-
-      /* The last label in the vector should be the default case
-         but it is not.  */
-      for (i = 0; i < len; ++i)
-        {
-          tree t = VEC_index (tree, label_vec, i);
-          if (!CASE_LOW (t))
-            {
-              default_case = t;
-              tree index = VEC_index (tree, label_vec, len - 1);
-              VEC_replace (tree, label_vec, i, index);
-              VEC_replace (tree, label_vec, len - 1, default_case);
-              break;
-            }
-        }
-    }
-
-  qsort (VEC_address (tree, label_vec), len - 1, sizeof (tree),
+  qsort (VEC_address (tree, label_vec), len, sizeof (tree),
          compare_case_labels);
 }
 
@@ -3115,7 +3099,10 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	gimplify_init_ctor_eval (cref, CONSTRUCTOR_ELTS (value),
 				 pre_p, cleared);
       else
-	gimple_seq_add (pre_p, build_gimple_assign (cref, value));
+	{
+	  tree init = build2 (INIT_EXPR, TREE_TYPE (cref), cref, value);
+	  gimplify_and_add (init, pre_p);
+	}
     }
 }
 
@@ -3825,7 +3812,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
       SET_DECL_DEBUG_EXPR (*from_p, *to_p);
     }
 
-  assign = build_gimple_assign (*to_p, *from_p);
+  assign = build_gimple_assign (unshare_expr (*to_p), unshare_expr (*from_p));
   gimple_seq_add (pre_p, assign);
 
   if (gimplify_ctxp->into_ssa && is_gimple_reg (*to_p))
@@ -4106,19 +4093,21 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
   VEC(tree, gc) *inputs;
   VEC(tree, gc) *outputs;
   VEC(tree, gc) *clobbers;
+  tree link_next;
   
   expr = *expr_p;
   noutputs = list_length (ASM_OUTPUTS (expr));
   oconstraints = (const char **) alloca ((noutputs) * sizeof (const char *));
 
-  inputs = VEC_alloc (tree, gc, 5);
-  outputs = VEC_alloc (tree, gc, 5);
-  clobbers = VEC_alloc (tree, gc, 5);
-  
+  inputs = outputs = clobbers = NULL;
+
   ret = GS_ALL_DONE;
-  for (i = 0, link = ASM_OUTPUTS (expr); link; ++i, link = TREE_CHAIN (link))
+  link_next = NULL_TREE;
+  for (i = 0, link = ASM_OUTPUTS (expr); link; ++i, link = link_next)
     {
       size_t constraint_len;
+
+      link_next = TREE_CHAIN (link);
 
       oconstraints[i]
 	= constraint
@@ -4143,6 +4132,7 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 	}
 
       VEC_safe_push (tree, gc, outputs, link);
+      TREE_CHAIN (link) = NULL_TREE;
 
       if (is_inout)
 	{
@@ -4237,10 +4227,11 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 	}
     }
 
-  for (link = ASM_INPUTS (expr); link; ++i, link = TREE_CHAIN (link))
+  link_next = NULL_TREE;
+  for (link = ASM_INPUTS (expr); link; ++i, link = link_next)
     {
-      constraint
-	= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
+      link_next = TREE_CHAIN (link);
+      constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
       parse_input_constraint (&constraint, 0, 0, noutputs, 0,
 			      oconstraints, &allows_mem, &allows_reg);
 
@@ -4277,14 +4268,18 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 	    ret = tret;
 	}
 
+      TREE_CHAIN (link) = NULL_TREE;
       VEC_safe_push (tree, gc, inputs, link);
     }
   
   for (link = ASM_CLOBBERS (expr); link; ++i, link = TREE_CHAIN (link))
       VEC_safe_push (tree, gc, clobbers, link);
     
-  stmt = build_gimple_asm_vec (TREE_STRING_POINTER (ASM_STRING(expr)),
+  stmt = build_gimple_asm_vec (TREE_STRING_POINTER (ASM_STRING (expr)),
                                inputs, outputs, clobbers);
+  if (TREE_THIS_VOLATILE (expr))
+    gimple_asm_set_volatile (stmt);
+
   gimple_seq_add (pre_p, stmt);
   return ret;
 }
@@ -6458,10 +6453,11 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
     }
   else if ((fallback & fb_rvalue) && is_gimple_formal_tmp_rhs (*expr_p))
     {
+      /* An rvalue will do.  Assign the gimplified expression into a
+	 new temporary TMP and replace the original expression with
+	 TMP.  First, make sure that the expression has a type so that
+	 it can be assigned into a temporary.  */
       gcc_assert (!VOID_TYPE_P (TREE_TYPE (*expr_p)));
-
-      /* An rvalue will do.  Assign the gimplified expression into a new
-	 temporary TMP and replace the original expression with TMP.  */
 
       if (!gimple_seq_empty_p (&internal_post) || (fallback & fb_lvalue))
 	/* The postqueue might change the value of the expression between

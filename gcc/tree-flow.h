@@ -709,17 +709,17 @@ extern void clear_special_calls (void);
 extern void verify_stmts (void);
 extern void verify_gimple (void);
 extern void verify_types_in_gimple_seq (gimple_seq);
-extern tree tree_block_label (basic_block);
+extern tree gimple_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
-extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
+extern bool gimple_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
-extern bool tree_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
+extern bool gimple_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
 				      basic_block *);
 extern void add_phi_args_after_copy_bb (basic_block);
 extern void add_phi_args_after_copy (basic_block *, unsigned, edge);
-extern bool tree_purge_dead_abnormal_call_edges (basic_block);
-extern bool tree_purge_dead_eh_edges (basic_block);
-extern bool tree_purge_all_dead_eh_edges (const_bitmap);
+extern bool gimple_purge_dead_abnormal_call_edges (basic_block);
+extern bool gimple_purge_dead_eh_edges (basic_block);
+extern bool gimple_purge_all_dead_eh_edges (const_bitmap);
 extern tree gimplify_val (gimple_stmt_iterator *, tree, tree);
 extern tree gimplify_build1 (gimple_stmt_iterator *, enum tree_code,
 			     tree, tree);
@@ -986,7 +986,7 @@ void standard_iv_increment_position (struct loop *, gimple_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
 basic_block ip_normal_pos (struct loop *);
-bool tree_duplicate_loop_to_header_edge (struct loop *, edge,
+bool gimple_duplicate_loop_to_header_edge (struct loop *, edge,
 					 unsigned int, sbitmap,
 					 edge, VEC (edge, heap) **,
 					 int);
@@ -1053,12 +1053,19 @@ static inline bool unmodifiable_var_p (const_tree);
 /* In tree-eh.c  */
 extern void make_eh_edges (gimple);
 extern bool tree_could_trap_p (tree);
+extern bool stmt_could_throw_p (gimple);
 extern bool tree_could_throw_p (tree);
 extern bool stmt_can_throw_internal (gimple);
 extern bool tree_can_throw_external (tree);
 extern void add_stmt_to_eh_region (gimple, int);
 extern bool remove_stmt_from_eh_region (gimple);
 extern bool maybe_clean_or_replace_eh_stmt (gimple, gimple);
+extern void add_stmt_to_eh_region_fn (struct function *, gimple, int);
+extern bool remove_stmt_from_eh_region_fn (struct function *, gimple);
+extern int lookup_stmt_eh_region_fn (struct function *, gimple);
+extern int lookup_stmt_eh_region (gimple);
+extern bool verify_eh_edges (tree);
+
 
 /* In tree-ssa-pre.c  */
 void add_to_value (tree, tree);

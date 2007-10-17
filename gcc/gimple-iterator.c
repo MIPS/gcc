@@ -103,7 +103,8 @@ gsi_link_before (gimple_stmt_iterator *i,
 }
 
 
-/* Links a sequence after the current statement.  */
+/* Links sequence SEQ after the statement pointed-to by iterator I.
+   MODE is as in gsi_insert_after.  */
 
 void
 gsi_link_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
@@ -163,7 +164,8 @@ gsi_link_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
 }
 
 
-/* Links one gimple statement after the current statement.  */
+/* Links gimple statement G after the statement pointed-to by iterator
+   I.  MODE is as ing gsi_insert_after.  */
 
 void
 gsi_link_after (gimple_stmt_iterator *i, gimple g,

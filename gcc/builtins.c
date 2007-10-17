@@ -83,12 +83,18 @@ static int apply_result_size (void);
 #if defined (HAVE_untyped_call) || defined (HAVE_untyped_return)
 static rtx result_vector (int, rtx);
 #endif
+/* FIXME tuples.  */
+#if 0
 static void expand_builtin_update_setjmp_buf (rtx);
+#endif
 static void expand_builtin_prefetch (tree);
 static rtx expand_builtin_apply_args (void);
 static rtx expand_builtin_apply_args_1 (void);
 static rtx expand_builtin_apply (rtx, rtx, rtx);
+/* FIXME tuples.  */
+#if 0
 static void expand_builtin_return (rtx);
+#endif
 static enum type_class type_to_class (tree);
 static rtx expand_builtin_classify_type (tree);
 static void expand_errno_check (tree, rtx);
@@ -764,6 +770,8 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
   emit_insn (gen_blockage ());
 }
 
+/* FIXME tuples.  */
+#if 0
 /* __builtin_longjmp is passed a pointer to an array of five words (not
    all will be used on all machines).  It operates similarly to the C
    library function of the same name, but is more efficient.  Much of
@@ -854,6 +862,7 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 	break;
     }
 }
+#endif
 
 /* Expand a call to __builtin_nonlocal_goto.  We're passed the target label
    and the address of the save area.  */
@@ -864,8 +873,13 @@ expand_builtin_nonlocal_goto (tree exp)
   tree t_label, t_save_area;
   rtx r_label, r_save_area, r_fp, r_sp, insn;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   t_label = CALL_EXPR_ARG (exp, 0);
   t_save_area = CALL_EXPR_ARG (exp, 1);
@@ -929,6 +943,8 @@ expand_builtin_nonlocal_goto (tree exp)
   return const0_rtx;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* __builtin_update_setjmp_buf is passed a pointer to an array of five words
    (not all will be used on all machines) that was passed to __builtin_setjmp.
    It updates the stack pointer in that block to correspond to the current
@@ -962,6 +978,7 @@ expand_builtin_update_setjmp_buf (rtx buf_addr)
 
   emit_stack_save (SAVE_NONLOCAL, &stack_save, NULL_RTX);
 }
+#endif
 
 /* Expand a call to __builtin_prefetch.  For a target that does not support
    data prefetch, evaluate the memory address argument in case it has side
@@ -974,8 +991,13 @@ expand_builtin_prefetch (tree exp)
   int nargs;
   rtx op0, op1, op2;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, 0))
     return;
+#else
+  gcc_unreachable ();
+#endif
 
   arg0 = CALL_EXPR_ARG (exp, 0);
 
@@ -1552,6 +1574,8 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   return convert_memory_address (ptr_mode, result);
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Perform an untyped return.  */
 
 static void
@@ -1601,6 +1625,7 @@ expand_builtin_return (rtx result)
      of the function.  */
   expand_naked_return ();
 }
+#endif
 
 /* Used by expand_builtin_classify_type and fold_builtin_classify_type.  */
 
@@ -1814,8 +1839,13 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   bool errno_set = false;
   tree arg;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
 
@@ -1987,8 +2017,13 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
       break;
     }
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, op1_type, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg0 = CALL_EXPR_ARG (exp, 0);
   arg1 = CALL_EXPR_ARG (exp, 1);
@@ -2081,8 +2116,13 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
   enum machine_mode mode;
   tree arg;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
 
@@ -2188,8 +2228,13 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
   bool errno_set = false;
   tree arg;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
 
@@ -2325,9 +2370,14 @@ expand_builtin_sincos (tree exp)
   tree arg, sinp, cosp;
   int result;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE,
  			 POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
   sinp = CALL_EXPR_ARG (exp, 1);
@@ -2373,8 +2423,13 @@ expand_builtin_cexpi (tree exp, rtx target, rtx subtarget)
   enum machine_mode mode;
   rtx op0, op1, op2;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
   type = TREE_TYPE (arg);
@@ -2488,8 +2543,13 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
   enum machine_mode mode;
   tree arg;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     gcc_unreachable ();
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
 
@@ -2618,8 +2678,13 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target, rtx subtarget)
   if (flag_errno_math)
     return NULL_RTX;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
      gcc_unreachable ();
+#else
+  gcc_unreachable ();
+#endif
  
   arg = CALL_EXPR_ARG (exp, 0);
 
@@ -2889,8 +2954,13 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
   rtx op, op2;
   enum machine_mode mode = TYPE_MODE (type);
 
+  /* FIXME tuples.  */
+#if 0
   if (! validate_arglist (exp, REAL_TYPE, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg0 = CALL_EXPR_ARG (exp, 0);
   arg1 = CALL_EXPR_ARG (exp, 1);
@@ -3017,8 +3087,13 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
   enum machine_mode mode;
   enum machine_mode mode2;
 
+  /* FIXME tuples.  */
+#if 0
   if (! validate_arglist (exp, REAL_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg0 = CALL_EXPR_ARG (exp, 0);
   arg1 = CALL_EXPR_ARG (exp, 1);
@@ -3075,9 +3150,14 @@ static rtx
 expand_builtin_strlen (tree exp, rtx target,
 		       enum machine_mode target_mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       rtx pat;
       tree len;
@@ -3183,7 +3263,12 @@ expand_builtin_strlen (tree exp, rtx target,
 static rtx
 expand_builtin_strstr (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree type = TREE_TYPE (exp);
       tree result = fold_builtin_strstr (CALL_EXPR_ARG (exp, 0),
@@ -3201,7 +3286,12 @@ expand_builtin_strstr (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_strchr (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree type = TREE_TYPE (exp);
       tree result = fold_builtin_strchr (CALL_EXPR_ARG (exp, 0),
@@ -3221,7 +3311,12 @@ expand_builtin_strchr (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_strrchr (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree type = TREE_TYPE (exp);
       tree result = fold_builtin_strrchr (CALL_EXPR_ARG (exp, 0),
@@ -3239,7 +3334,12 @@ expand_builtin_strrchr (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_strpbrk (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree type = TREE_TYPE (exp);
       tree result = fold_builtin_strpbrk (CALL_EXPR_ARG (exp, 0),
@@ -3277,10 +3377,15 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 {
   tree fndecl = get_callee_fndecl (exp);
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp,
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
       tree src = CALL_EXPR_ARG (exp, 1);
@@ -3316,7 +3421,12 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
       if (src_align == 0)
 	return NULL_RTX;
  
+      /* FIXME tuples.  */
+#if 0
       stringop_block_profile (exp, &expected_align, &expected_size);
+#else
+      gcc_unreachable ();
+#endif
       if (expected_align < dest_align)
 	expected_align = dest_align;
       dest_mem = get_memory_rtx (dest, len);
@@ -3370,10 +3480,15 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_mempcpy(tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp,
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
       tree src = CALL_EXPR_ARG (exp, 1);
@@ -3482,10 +3597,15 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len, tree type,
 static rtx
 expand_builtin_memmove (tree exp, rtx target, enum machine_mode mode, int ignore)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp,
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
       tree src = CALL_EXPR_ARG (exp, 1);
@@ -3533,9 +3653,14 @@ expand_builtin_bcopy (tree exp, int ignore)
   tree type = TREE_TYPE (exp);
   tree src, dest, size;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp,
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   src = CALL_EXPR_ARG (exp, 0);
   dest = CALL_EXPR_ARG (exp, 1);
@@ -3625,7 +3750,12 @@ expand_movstr (tree dest, tree src, rtx target, int endp)
 static rtx
 expand_builtin_strcpy (tree fndecl, tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
    {
      tree dest = CALL_EXPR_ARG (exp, 0);
      tree src = CALL_EXPR_ARG (exp, 1);
@@ -3661,8 +3791,13 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 {
   tree dst, src;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   dst = CALL_EXPR_ARG (exp, 0);
   src = CALL_EXPR_ARG (exp, 1);
@@ -3754,8 +3889,13 @@ expand_builtin_strncpy (tree exp, rtx target, enum machine_mode mode)
 {
   tree fndecl = get_callee_fndecl (exp);
 
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp,
  			POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
       tree src = CALL_EXPR_ARG (exp, 1);
@@ -3858,10 +3998,15 @@ builtin_memset_gen_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
 static rtx
 expand_builtin_memset (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp,
  			 POINTER_TYPE, INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
       tree val = CALL_EXPR_ARG (exp, 1);
@@ -3894,7 +4039,12 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
   if (dest_align == 0)
     return NULL_RTX;
 
+  /* FIXME tuples.  */
+#if 0
   stringop_block_profile (orig_exp, &expected_align, &expected_size);
+#else
+  gcc_unreachable ();
+#endif
   if (expected_align < dest_align)
     expected_align = dest_align;
 
@@ -4004,8 +4154,13 @@ expand_builtin_bzero (tree exp)
 {
   tree dest, size;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   dest = CALL_EXPR_ARG (exp, 0);
   size = CALL_EXPR_ARG (exp, 1);
@@ -4027,8 +4182,13 @@ expand_builtin_bzero (tree exp)
 static rtx
 expand_builtin_memchr (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE,
 			INTEGER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree type = TREE_TYPE (exp);
       tree result = fold_builtin_memchr (CALL_EXPR_ARG (exp, 0),
@@ -4048,10 +4208,15 @@ expand_builtin_memchr (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp,
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       tree result = fold_builtin_memcmp (CALL_EXPR_ARG (exp, 0),
  					 CALL_EXPR_ARG (exp, 1),
@@ -4158,9 +4323,14 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       tree result = fold_builtin_strcmp (CALL_EXPR_ARG (exp, 0),
  					 CALL_EXPR_ARG (exp, 1));
@@ -4307,10 +4477,15 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp,
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       tree result = fold_builtin_strncmp (CALL_EXPR_ARG (exp, 0),
  					  CALL_EXPR_ARG (exp, 1),
@@ -4434,9 +4609,14 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_strcat (tree fndecl, tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
   else
+#else
+    gcc_unreachable ();
+#endif
     {
       tree dst = CALL_EXPR_ARG (exp, 0);
       tree src = CALL_EXPR_ARG (exp, 1);
@@ -4491,8 +4671,13 @@ expand_builtin_strcat (tree fndecl, tree exp, rtx target, enum machine_mode mode
 static rtx
 expand_builtin_strncat (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp,
  			POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree result = fold_builtin_strncat (CALL_EXPR_ARG (exp, 0),
 					  CALL_EXPR_ARG (exp, 1),
@@ -4510,7 +4695,12 @@ expand_builtin_strncat (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_strspn (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree result = fold_builtin_strspn (CALL_EXPR_ARG (exp, 0),
 					 CALL_EXPR_ARG (exp, 1));
@@ -4527,7 +4717,12 @@ expand_builtin_strspn (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_strcspn (tree exp, rtx target, enum machine_mode mode)
 {
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree result = fold_builtin_strcspn (CALL_EXPR_ARG (exp, 0),
 					  CALL_EXPR_ARG (exp, 1));
@@ -5046,8 +5241,13 @@ expand_builtin_alloca (tree exp, rtx target)
   if (flag_mudflap)
     return NULL_RTX;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   /* Compute the argument.  */
   op0 = expand_normal (CALL_EXPR_ARG (exp, 0));
@@ -5069,8 +5269,13 @@ expand_builtin_bswap (tree exp, rtx target, rtx subtarget)
   tree arg;
   rtx op0;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
   mode = TYPE_MODE (TREE_TYPE (arg));
@@ -5094,8 +5299,13 @@ expand_builtin_unop (enum machine_mode target_mode, tree exp, rtx target,
 {
   rtx op0;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   /* Compute the argument.  */
   op0 = expand_expr (CALL_EXPR_ARG (exp, 0), subtarget,
@@ -5116,7 +5326,12 @@ static rtx
 expand_builtin_fputs (tree exp, rtx target, bool unlocked)
 {
   /* Verify the arguments in the original call.  */
+  /* FIXME tuples.  */
+#if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+#else
+  gcc_unreachable ();
+#endif
     {
       tree result = fold_builtin_fputs (CALL_EXPR_ARG (exp, 0),
  					CALL_EXPR_ARG (exp, 1),
@@ -5174,8 +5389,13 @@ expand_builtin_fabs (tree exp, rtx target, rtx subtarget)
   tree arg;
   rtx op0;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
   mode = TYPE_MODE (TREE_TYPE (arg));
@@ -5194,8 +5414,13 @@ expand_builtin_copysign (tree exp, rtx target, rtx subtarget)
   rtx op0, op1;
   tree arg;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
   op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
@@ -5622,9 +5847,14 @@ expand_builtin_init_trampoline (tree exp)
   rtx blktramp;
 #endif
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE,
 			 POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   t_tramp = CALL_EXPR_ARG (exp, 0);
   t_func = CALL_EXPR_ARG (exp, 1);
@@ -5653,8 +5883,13 @@ expand_builtin_adjust_trampoline (tree exp)
 {
   rtx tramp;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   tramp = expand_normal (CALL_EXPR_ARG (exp, 0));
   tramp = round_trampoline_addr (tramp);
@@ -5685,8 +5920,13 @@ expand_builtin_signbit (tree exp, rtx target)
   enum insn_code icode;
   rtx temp;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   arg = CALL_EXPR_ARG (exp, 0);
   fmode = TYPE_MODE (TREE_TYPE (arg));
@@ -6241,12 +6481,17 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	 computed?  We'll also need a safe worst case value for varargs
 	 functions.  */
     case BUILT_IN_APPLY:
+      /* FIXME tuples.  */
+#if 0
       if (!validate_arglist (exp, POINTER_TYPE,
 			     POINTER_TYPE, INTEGER_TYPE, VOID_TYPE)
 	  && !validate_arglist (exp, REFERENCE_TYPE,
 				POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
 	return const0_rtx;
       else
+#else
+	gcc_unreachable ();
+#endif
 	{
 	  rtx ops[3];
 
@@ -6261,9 +6506,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	 value described by RESULT.  RESULT is address of the block of
 	 memory returned by __builtin_apply.  */
     case BUILT_IN_RETURN:
+      /* FIXME tuples.  */
+#if 0
       if (validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
 	expand_builtin_return (expand_normal (CALL_EXPR_ARG (exp, 0)));
       return const0_rtx;
+#else
+      gcc_unreachable ();
+#endif
 
     case BUILT_IN_SAVEREGS:
       return expand_builtin_saveregs ();
@@ -6518,6 +6768,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_SETJMP_SETUP:
       /* __builtin_setjmp_setup is passed a pointer to an array of five words
           and the receiver label.  */
+      /* FIXME tuples.  */
+#if 0
       if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
 	{
 	  rtx buf_addr = expand_expr (CALL_EXPR_ARG (exp, 0), subtarget,
@@ -6536,10 +6788,15 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  FORCED_LABEL (label) = 0;
 	  return const0_rtx;
 	}
+#else
+      gcc_unreachable ();
+#endif
       break;
 
     case BUILT_IN_SETJMP_DISPATCHER:
        /* __builtin_setjmp_dispatcher is passed the dispatcher label.  */
+      /* FIXME tuples.  */
+#if 0
       if (validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
 	{
 	  tree label = TREE_OPERAND (CALL_EXPR_ARG (exp, 0), 0);
@@ -6550,10 +6807,15 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  remove_node_from_expr_list (label_r, &nonlocal_goto_handler_labels);
 	  return const0_rtx;
 	}
+#else
+      gcc_unreachable ();
+#endif
       break;
 
     case BUILT_IN_SETJMP_RECEIVER:
        /* __builtin_setjmp_receiver is passed the receiver label.  */
+      /* FIXME tuples.  */
+#if 0
       if (validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
 	{
 	  tree label = TREE_OPERAND (CALL_EXPR_ARG (exp, 0), 0);
@@ -6562,12 +6824,17 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  expand_builtin_setjmp_receiver (label_r);
 	  return const0_rtx;
 	}
+#else
+      gcc_unreachable ();
+#endif
       break;
 
       /* __builtin_longjmp is passed a pointer to an array of five words.
 	 It's similar to the C library longjmp function but works with
 	 __builtin_setjmp above.  */
     case BUILT_IN_LONGJMP:
+      /* FIXME tuples.  */
+#if 0
       if (validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
 	{
 	  rtx buf_addr = expand_expr (CALL_EXPR_ARG (exp, 0), subtarget,
@@ -6583,6 +6850,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  expand_builtin_longjmp (buf_addr, value);
 	  return const0_rtx;
 	}
+#else
+      gcc_unreachable ();
+#endif
       break;
 
     case BUILT_IN_NONLOCAL_GOTO:
@@ -6594,6 +6864,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       /* This updates the setjmp buffer that is its argument with the value
 	 of the current stack pointer.  */
     case BUILT_IN_UPDATE_SETJMP_BUF:
+      /* FIXME tuples.  */
+#if 0
       if (validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
 	{
 	  rtx buf_addr
@@ -6602,6 +6874,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  expand_builtin_update_setjmp_buf (buf_addr);
 	  return const0_rtx;
 	}
+#else
+      gcc_unreachable ();
+#endif
       break;
 
     case BUILT_IN_TRAP:
@@ -10687,16 +10962,16 @@ validate_arg (const_tree arg, enum tree_code code)
    VOID_TYPE.  */
 
 bool
-validate_arglist (const_tree callexpr, ...)
+validate_arglist (const_gimple call, ...)
 {
   enum tree_code code;
   bool res = 0;
   va_list ap;
-  const_call_expr_arg_iterator iter;
   const_tree arg;
+  size_t i;
 
-  va_start (ap, callexpr);
-  init_const_call_expr_arg_iterator (callexpr, &iter);
+  va_start (ap, call);
+  i = 0;
 
   do
     {
@@ -10710,13 +10985,13 @@ validate_arglist (const_tree callexpr, ...)
 	case VOID_TYPE:
 	  /* This signifies an endlink, if no arguments remain, return
 	     true, otherwise return false.  */
-	  res = !more_const_call_expr_args_p (&iter);
+	  res = (i == gimple_call_nargs (call));
 	  goto end;
 	default:
 	  /* If no parameters remain or the parameter's code does not
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
-	  arg = next_const_call_expr_arg (&iter);
+	  arg = gimple_call_arg (call, i++);
 	  if (!validate_arg (arg, code))
 	    goto end;
 	  break;
@@ -11469,6 +11744,8 @@ expand_builtin_object_size (tree exp)
   int object_size_type;
   tree fndecl = get_callee_fndecl (exp);
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     {
       error ("%Kfirst argument of %D must be a pointer, second integer constant",
@@ -11476,6 +11753,9 @@ expand_builtin_object_size (tree exp)
       expand_builtin_trap ();
       return const0_rtx;
     }
+#else
+  gcc_unreachable ();
+#endif
 
   ost = CALL_EXPR_ARG (exp, 1);
   STRIP_NOPS (ost);
@@ -11507,12 +11787,17 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 {
   tree dest, src, len, size;
 
+  /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp,
 			 POINTER_TYPE,
 			 fcode == BUILT_IN_MEMSET_CHK
 			 ? INTEGER_TYPE : POINTER_TYPE,
 			 INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
+#else
+  gcc_unreachable ();
+#endif
 
   dest = CALL_EXPR_ARG (exp, 0);
   src = CALL_EXPR_ARG (exp, 1);

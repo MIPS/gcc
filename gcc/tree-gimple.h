@@ -51,6 +51,8 @@ extern void annotate_all_with_locus (gimple_seq, location_t);
 
 typedef bool (*gimple_predicate)(tree);
 
+/* In tree-gimple.c  */
+
 /* Returns true iff T is a valid GIMPLE statement.  */
 extern bool is_gimple_stmt (tree);
 
@@ -104,6 +106,7 @@ extern tree get_call_expr_in (tree t);
 
 extern void recalculate_side_effects (tree);
 extern enum gimple_rhs_class get_gimple_rhs_class (enum tree_code);
+extern size_t get_gimple_rhs_num_ops (enum tree_code);
 
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {

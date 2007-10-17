@@ -186,7 +186,7 @@ static struct pointer_map_t *bb_predictions;
    PREDICTOR.  */
 
 bool
-tree_predicted_by_p (const_basic_block bb, enum br_predictor predictor)
+gimple_predicted_by_p (const_basic_block bb, enum br_predictor predictor)
 {
   struct edge_prediction *i;
   void **preds = pointer_map_contains (bb_predictions, bb);
@@ -290,7 +290,7 @@ rtl_predict_edge (edge e, enum br_predictor predictor, int probability)
 
 /* Predict edge E with the given PROBABILITY.  */
 void
-tree_predict_edge (edge e, enum br_predictor predictor, int probability)
+gimple_predict_edge (edge e, enum br_predictor predictor, int probability)
 {
   gcc_assert (profile_status != PROFILE_GUESSED);
   if ((e->src != ENTRY_BLOCK_PTR && EDGE_COUNT (e->src->succs) > 1)

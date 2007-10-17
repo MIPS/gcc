@@ -71,7 +71,7 @@ DEF_VEC_ALLOC_P(histogram_value,heap);
 typedef VEC(histogram_value,heap) *histogram_values;
 
 /* Hooks registration.  */
-extern void tree_register_value_prof_hooks (void);
+extern void gimple_register_value_prof_hooks (void);
 
 /* IR-independent entry points.  */
 extern void find_values_to_profile (histogram_values *);
@@ -110,15 +110,17 @@ struct profile_hooks {
 };
 
 histogram_value gimple_histogram_value (struct function *, gimple);
-histogram_value gimple_histogram_value_of_type (struct function *, tree, enum hist_type);
+histogram_value gimple_histogram_value_of_type (struct function *, gimple,
+						enum hist_type);
 void gimple_add_histogram_value (struct function *, gimple, histogram_value);
 void dump_histograms_for_stmt (struct function *, FILE *, gimple);
 void gimple_remove_histogram_value (struct function *, gimple, histogram_value);
 void gimple_remove_stmt_histograms (struct function *, gimple);
-void gimple_duplicate_stmt_histograms (struct function *, gimple, struct function *, gimple);
+void gimple_duplicate_stmt_histograms (struct function *, gimple,
+				       struct function *, gimple);
 void verify_histograms (void);
 void free_histograms (void);
-void stringop_block_profile (tree, unsigned int *, HOST_WIDE_INT *);
+void stringop_block_profile (gimple, unsigned int *, HOST_WIDE_INT *);
 
 /* In profile.c.  */
 extern void init_branch_prob (void);

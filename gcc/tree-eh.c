@@ -1898,7 +1898,7 @@ verify_eh_edges (tree stmt)
 #endif
 
 
-/* Return true if the expr can trap, as in dereferencing an invalid pointer
+/* Return true if EXPR can trap, as in dereferencing an invalid pointer
    location or floating point arithmetic.  C.f. the rtl version, may_trap_p.
    This routine expects only GIMPLE lhs or rhs input.  */
 
@@ -2052,7 +2052,163 @@ tree_could_trap_p (tree expr)
 }
 
 
-/* Return true if statement T could throw an exception.  */
+/* Helper for stmt_could_throw_p.  Return true if STMT (assumed to be a
+   an assignment or a conditional) may throw.  FIXME tuples, this is
+   very similar to tree_could_trap_p but only works with GIMPLE
+   operands.  Try to factor out common code.  */
+
+static bool
+stmt_could_throw_1_p (gimple stmt)
+{
+  enum tree_code code = gimple_subcode (stmt);
+  bool honor_nans = false;
+  bool honor_snans = false;
+  bool fp_operation = false;
+  bool honor_trapv = false;
+  tree t;
+  size_t i;
+
+  if (TREE_CODE_CLASS (code) == tcc_comparison
+      || TREE_CODE_CLASS (code) == tcc_unary
+      || TREE_CODE_CLASS (code) == tcc_binary)
+    {
+      t = gimple_expr_type (stmt);
+      fp_operation = FLOAT_TYPE_P (t);
+      if (fp_operation)
+	{
+	  honor_nans = flag_trapping_math && !flag_finite_math_only;
+	  honor_snans = flag_signaling_nans != 0;
+	}
+      else if (INTEGRAL_TYPE_P (t) && TYPE_OVERFLOW_TRAPS (t))
+	honor_trapv = true;
+    }
+
+  /* Check if the main expression may trap.  */
+  switch (code)
+    {
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case TRUNC_MOD_EXPR:
+    case RDIV_EXPR:
+      if (honor_snans || honor_trapv)
+	return true;
+      if (fp_operation)
+	return flag_trapping_math;
+      t = gimple_assign_rhs2 (stmt);
+      if (!TREE_CONSTANT (t) || integer_zerop (t))
+	return true;
+      return false;
+
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case LTGT_EXPR:
+      /* Some floating point comparisons may trap.  */
+      return honor_nans;
+
+    case EQ_EXPR:
+    case NE_EXPR:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+      return honor_snans;
+
+    case CONVERT_EXPR:
+    case FIX_TRUNC_EXPR:
+      /* Conversion of floating point might trap.  */
+      return honor_nans;
+
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+    case CONJ_EXPR:
+      /* These operations don't trap with floating point.  */
+      if (honor_trapv)
+	return true;
+      return false;
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+      /* Any floating arithmetic may trap.  */
+      if (fp_operation && flag_trapping_math)
+	return true;
+      if (honor_trapv)
+	return true;
+      return false;
+
+    default:
+      /* Any floating arithmetic may trap.  */
+      if (fp_operation && flag_trapping_math)
+	return true;
+    }
+
+  /* If the expression does not trap, see if any of the individual operands may
+     trap.  */
+  for (i = 0; i < gimple_num_ops (stmt); i++)
+    if (tree_could_trap_p (gimple_op (stmt, i)))
+      return true;
+
+  return false;
+}
+
+
+/* Return true if statement STMT could throw an exception.  */
+
+bool
+stmt_could_throw_p (gimple stmt)
+{
+  enum gimple_code code;
+
+  if (!flag_exceptions)
+    return false;
+
+  /* The only statements that can throw an exception are assignments,
+     conditionals, calls and asms.  */
+  code = gimple_code (stmt);
+  if (code != GIMPLE_ASSIGN
+      && code != GIMPLE_COND
+      && code != GIMPLE_CALL
+      && code != GIMPLE_ASM)
+    return false;
+
+  /* If exceptions can only be thrown by function calls and STMT is not a
+     GIMPLE_CALL, the statement cannot throw.  */
+  if (!flag_non_call_exceptions && code != GIMPLE_CALL)
+    return false;
+
+  if (code == GIMPLE_ASSIGN || code == GIMPLE_COND)
+    return stmt_could_throw_1_p (stmt);
+  else if (gimple_code (stmt) == GIMPLE_CALL)
+    {
+      tree t = gimple_call_fndecl (stmt);
+
+      /* Assume that calls to weak functions may trap.  */
+      if (!t || !DECL_P (t) || DECL_WEAK (t))
+	return true;
+
+      return (gimple_call_flags (stmt) & ECF_NOTHROW) == 0;
+    }
+  else if (gimple_code (stmt) == GIMPLE_ASM)
+    return (gimple_asm_volatile_p (stmt));
+  else
+    gcc_unreachable ();
+
+  return false;
+}
+
+
+/* Return true if expression T could throw an exception.  */
 
 bool
 tree_could_throw_p (tree t)

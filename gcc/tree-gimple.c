@@ -37,6 +37,16 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Validation of GIMPLE expressions.  */
 
+/* Return true if OP is an acceptable tree node to be used as a GIMPLE
+   operand.  */
+
+bool
+is_gimple_operand (tree op)
+{
+  return op && get_gimple_rhs_class (TREE_CODE (op)) == GIMPLE_SINGLE_RHS;
+}
+
+
 /* Determine if expression T is one of the valid expressions that can
    be used on the RHS of GIMPLE assignments.  */
 
@@ -71,7 +81,6 @@ get_gimple_rhs_class (enum tree_code code)
       return GIMPLE_BINARY_RHS;
 
     case TRUTH_NOT_EXPR:
-    case ADDR_EXPR:
       return GIMPLE_UNARY_RHS;
 
     /* FIXME tuples.  We are not allowing CALL_EXPR on the RHS
@@ -79,6 +88,8 @@ get_gimple_rhs_class (enum tree_code code)
     case CONSTRUCTOR:
     case OBJ_TYPE_REF:
     case ASSERT_EXPR:
+    case ADDR_EXPR:
+    case WITH_SIZE_EXPR:
       return GIMPLE_SINGLE_RHS;
 
     default:
@@ -86,6 +97,23 @@ get_gimple_rhs_class (enum tree_code code)
     }
 
   return GIMPLE_INVALID_RHS;
+}
+
+
+/* Return the number of operands needed on the RHS of a GIMPLE
+   assignment for an expression with tree code CODE.  */
+
+size_t
+get_gimple_rhs_num_ops (enum tree_code code)
+{
+  enum gimple_rhs_class rhs_class = get_gimple_rhs_class (code);
+
+  if (rhs_class == GIMPLE_UNARY_RHS || rhs_class == GIMPLE_SINGLE_RHS)
+    return 1;
+  else if (rhs_class == GIMPLE_BINARY_RHS)
+    return 2;
+  else
+    gcc_unreachable ();
 }
 
 
@@ -445,8 +473,7 @@ is_gimple_cast (tree t)
 bool
 is_gimple_call_addr (tree t)
 {
-  return (TREE_CODE (t) == OBJ_TYPE_REF
-	  || is_gimple_val (t));
+  return (TREE_CODE (t) == OBJ_TYPE_REF || is_gimple_val (t));
 }
 
 /* If T makes a function call, return the corresponding CALL_EXPR operand.

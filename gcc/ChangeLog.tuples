@@ -1,3 +1,258 @@
+2007-10-17  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-loop-manip.c (gimple_duplicate_loop_to_header_edge): Rename
+	from tree_duplicate_loop_to_header_edge.
+	Update all users.
+	* value-prof.c: Convert and enable all functions in the file.
+	(gimple_divmod_fixed_value): Rename from
+	tree_divmod_fixed_value.
+	(gimple_mod_pow2): Rename from tree_mod_pow2.
+	(gimple_mod_subtract): Rename from tree_mod_subtract.
+	(gimple_divmod_fixed_value_transform): Rename from
+	tree_divmod_fixed_value_transform.
+	(gimple_mod_pow2_value_transform): Rename from
+	tree_mod_pow2_value_transform.
+	(gimple_mod_subtract_transform): Rename from
+	tree_mod_subtract_transform.
+	(gimple_stringops_transform): Rename from tree_stringops_transform.
+	(gimple_ic_transform): Rename from tree_ic_transform.
+	Update all users.
+	* value-prof.h (gimple_register_value_prof_hooks): Rename from
+	tree_register_value_prof_hooks.  Update all users.
+	* tree.h (OMP_DIRECTIVE_P): Remove.  Update all users.
+	(validate_arglist): Move to gimple.h.
+	* builtins.c: (validate_arglist): Change first argument to
+	const_gimple.  Disable most callers.
+	* gimple.def: Document all GIMPLE codes.
+	* tree-gimple.c (is_gimple_operand): New.
+	(get_gimple_rhs_class)<ADDR_EXPR>: Accept as a
+	GIMPLE_SINGLE_RHS.
+	<WITH_SIZE_EXPR>: Likewise.
+	(get_gimple_rhs_num_ops): New.
+	(is_gimple_call_addr): Tidy.
+	* tree-gimple.h (get_gimple_rhs_num_ops): Declare.
+	* gimple-dummy.c (free_histograms, stringop_block_profile):
+	Remove.
+	* gimple-low.c (lower_function_body): Tidy.
+	* predict.c (gimple_predicted_by_p): Rename from
+	tree_predicted_by_p.  Update all users.
+	(gimple_predict_edge): Rename from tree_predict_edge.  Update
+	all users.
+	* gimple-iterator.c (gsi_link_seq_after): Update documentation.
+	(gsi_link_after): Likewise.
+	* tree-eh.c (stmt_could_throw_1_p): New.
+	(stmt_could_throw_p): New.
+	* gimple-pretty-print.c (dump_unary_rhs): Print ADDR_EXPR as
+	a single operand.
+	(dump_gimple_switch): Support NULL case labels.
+	(dump_gimple_asm): Dump outputs first.
+	* gimplify.c (compare_case_labels): Make the default label
+	sort first.
+	(sort_case_labels): Do not special case the default label.
+	(gimplify_init_ctor_eval): Gimplify initializer expressions.
+	(gimplify_modify_expr): Unshare the operands before setting
+	them on the new GIMPLE_ASSIGN statement.
+	(gimplify_asm_expr): NULLify the chain on operands before
+	putting them on the input/output vectors.
+	* tree-cfgcleanup.c: Convert and enable CFG cleanup functions.
+	(cleanup_control_expr_graph): Call gimple_fold.
+	* tree-flow.h (gimple_block_label): Rename from
+	tree_block_label.  Update all users.
+	(gimple_duplicate_sese_region): Rename from
+	tree_duplicate_sese_region.  Update all users.
+	(gimple_duplicate_sese_tail): Rename from
+	tree_duplicate_sese_tail.  Update all users.
+	(gimple_purge_dead_abnormal_call_edges): Rename from
+	tree_purge_dead_abnormal_call_edges.  Update all users.
+	(gimple_purge_all_dead_eh_edges): Rename from
+	tree_purge_all_dead_eh_edges.  Update all users.
+	(stmt_could_throw_p): Declare.
+	(add_stmt_to_eh_region_fn): Move from except.h.
+	(remove_stmt_from_eh_region_fn): Likewise.
+	(lookup_stmt_eh_region_fn): Likewise.
+	(lookup_stmt_eh_region): Likewise.
+	(verify_eh_edges): Likewise.
+	* Makefile.in (GIMPLE_H): Add dependencies on GGC_H, TM_H and
+	TARGET_H.
+	(ipa-inline.o): Add dependency on TREE_FLOW_H.
+	(out_object_file): Add dependency on TREE_GIMPLE_H.
+	* gimple.c (gimple_set_code): Rename from set_gimple_code.
+	(gimple_size): New.
+	(gimple_alloc): New.
+	(gimple_alloc_ops): New.
+	(build_gimple_with_ops): Call them.
+	(build_gimple_return): Only call gimple_return_set_retval if
+	RETVAL is not NULL.
+	(build_gimple_call): Validate argument FN.
+	(extract_ops_from_tree): New.
+	(build_gimple_assign_with_ops): New.
+	(build_gimple_assign): Call them.
+	(build_gimple_nop):  Call gimple_alloc.
+	(build_gimple_bind): Likewise.
+	(build_gimple_asm_1): Tidy.
+	(build_gimple_asm_vec): Tidy.
+	(build_gimple_asm): Tidy.
+	(build_gimple_catch): Call gimple_alloc.
+	(build_gimple_eh_filter): Likewise.
+	(build_gimple_try): Likewise.
+	(build_gimple_wce): Likewise.
+	(build_gimple_phi): Remove.
+	(build_gimple_resx): Call gimple_alloc.
+	(build_gimple_switch_1): Tidy.
+	(build_gimple_switch): Tidy.
+	(build_gimple_omp_critical): Call gimple_alloc.
+	(build_gimple_omp_for): Likewise.
+	(build_gimple_omp_parallel): Likewise.
+	(build_gimple_omp_section): Likewise.
+	(build_gimple_omp_master): Likewise.
+	(build_gimple_omp_continue): Likewise.
+	(build_gimple_omp_ordered): Likewise.
+	(build_gimple_omp_return): Likewise.
+	(build_gimple_omp_sections): Likewise.
+	(build_gimple_omp_single): Likewise.
+	(gimple_check_failed): Change GS to const_gimple.  Update all
+	users.
+	(gimple_range_check_failed): Likewise.
+	(walk_gimple_seq): Change return type to tree.  Update all
+	users.
+	If the call to walk_gimple_stmt returns non-NULL,
+	return it immediately.
+	(walk_gimple_asm): Change return type to tree.  Update all
+	users.
+	If the call to walk_tree returns non-NULL, return it.
+	(walk_gimple_stmt): Likewise.
+	(gimple_fold): New.
+	(gimple_assign_set_rhs_from_tree): New.
+	(gimple_assign_set_rhs_with_ops): New.
+	(gimple_copy): New.
+	* basic-block.h (gimple_predicted_by_p): Rename from
+	tree_predicted_by_p.  Update all users.
+	(gimple_predict_edge): Rename from tree_predict_edge.  Update
+	all users.
+	* gimple.h: Add documentation to all inline functions.
+	(gimple_seq_first): Return NULL if S is NULL.
+	(gimple_seq_last): Likewise.
+	(GF_ASM_VOLATILE): Define.
+	(GF_NO_WARNING): Rename from GIMPLE_NO_WARNING.  Update all
+	users.
+	(build_gimple_assign_with_ops): Declare.
+	(build_gimple_asm): Change unsigned arguments to size_t.
+	Update all users.
+	(build_gimple_switch): Likewise.
+	(build_gimple_phi): Remove.
+	(validate_arglist): Declare.
+	(gimple_fold): Declare.
+	(gimple_assign_set_rhs_from_tree): Declare.
+	(gimple_assign_set_rhs_with_ops): Declare.
+	(gimple_copy): Declare.
+	(is_gimple_operand): Declare.
+	(gimple_num_ops): Change argument to const_gimple.
+	Return 0 if GS is not one of the statements that has tree
+	operands.
+	(gimple_ops): New.
+	(gimple_op): Change argument to const_gimple.
+	If GS is not a statement that has tree operands, return NULL.
+	(gimple_op_ptr): Likewise.
+	(gimple_assign_subcode): Change argument to const_gimple.
+	(gimple_assign_operand): Remove.  Update all users.
+	(gimple_assign_set_operand): Remove.  Update all users.
+	(gimple_assign_lhs): Change argument type to const_gimple.
+	(gimple_assign_rhs1): Likewise.
+	(gimple_assign_rhs2): Likewise.
+	(gimple_assign_set_rhs1): Assert that RHS is a valid operand.
+	(gimple_assign_set_rhs2): Likewise.
+	(gimple_call_lhs): Call gimple_op.
+	(gimple_call_set_lhs): Assert that LHS is a valid operand.
+	Call gimple_set_op.
+	(gimple_call_set_fn): New.
+	(gimple_call_fndecl): Change argument type to const_gimple.
+	Call gimple_call_fn.
+	(gimple_call_chain): Call gimple_op.
+	(gimple_call_set_chain): Assert that CHAIN is valid.
+	Call gimple_set_op.
+	(gimple_call_nargs): Change argument to const_gimple.
+	Call gimple_op.
+	(gimple_call_arg_ptr): Call gimple_op_ptr.
+	(gimple_call_set_arg): Assert that ARG is valid.
+	Call gimple_set_op.
+	(gimple_cond_code): Change argument to const_gimple.
+	(gimple_cond_lhs): Change argument to const_gimple.
+	(gimple_cond_set_lhs): Assert that the operand is valid.
+	Call gimple_set_op.
+	(gimple_cond_rhs): Change argument to const_gimple.
+	Call gimple_op.
+	(gimple_cond_true_label): Call gimple_op.
+	(gimple_cond_false_label): Likewise.
+	(gimple_label_label): Likewise.
+	(gimple_cond_set_true_label): Assert that the operand is
+	valid.
+	Call gimple_set_op.
+	(gimple_cond_set_false_label): Likewise.
+	(gimple_goto_dest): Change argument to const_gimple.
+	Call gimple_set_op.
+	(gimple_goto_set_dest): Assert that the operand is valid.
+	Call gimple_set_op.
+	(gimple_asm_ninputs): Change return type to size_t.  Update
+	all users.
+	(gimple_asm_noutputs): Likewise.
+	(gimple_asm_nclobbers): Rename from gimple_asm_nclobbered.
+	Change return type to size_t.
+	Update all users.
+	(gimple_asm_set_input_op): Assert that the argument is
+	valid.
+	(gimple_asm_set_output_op): Likewise.
+	(gimple_asm_set_clobber_op): Likewise.
+	(gimple_asm_volatile_p): New.
+	(gimple_asm_set_volatile): New.
+	(gimple_asm_clear_volatile): New.
+	(gimple_phi_set_capacity): Remove.
+	(gimple_phi_set_nargs): Remove.
+	(gimple_expr_type): New.
+	(struct walk_stmt_info): Remove fields want_bind_expr and
+	want_return_expr.  Update all users.
+	* tree-cfg.c: Convert all functions for CFG cleanup and
+	verification.
+	(gimple_redirect_edge_and_branch): Rename from
+	tree_redirect_edge_and_branch.
+	(gimple_try_redirect_by_replacing_jump): Rename from
+	tree_try_redirect_by_replacing_jump.
+	(gimple_verify_flow_info): Rename from tree_verify_flow_info.
+	(gimple_make_forwarder_block): Rename from
+	tree_make_forwarder_block.
+	(gimple_cfg2vcg): Rename from tree_cfg2vcg.
+	(gimple_merge_blocks): Rename from tree_merge_blocks.
+	(gimple_can_merge_blocks_p): Rename from tree_merge_blocks_p.
+	(gimple_can_remove_branch_p): Rename from tree_can_remove_branch_p.
+	(gimple_redirect_edge_and_branch): Rename from
+	tree_redirect_edge_and_branch.
+	(gimple_move_block_after): Rename from tree_move_block_after.
+	(gimple_predict_edge): Rename from tree_predict_edge.
+	(gimple_predicted_by_p): Rename from tree_predicted_by_p.
+	(gimple_duplicate_bb): Rename from tree_duplicate_bb.
+	(gimple_can_duplicate_bb_p): Rename from tree_can_duplicate_bb_p.
+	(gimple_split_edge): Rename from tree_split_edge.
+	(gimple_make_forwarder_block): Rename from tree_make_forwarder_block.
+	(gimple_block_ends_with_call_p): Rename from
+	tree_block_ends_with_call_p.
+	(gimple_block_ends_with_condjump_p): Rename from
+	tree_block_ends_with_condjump_p.
+	(gimple_flow_call_edges_add): Rename from
+	tree_flow_call_edges_add.
+	(gimple_execute_on_growing_pred): Rename from
+	tree_execute_on_growing_pred.
+	(gimple_execute_on_shrinking_pred): Rename from
+	tree_execute_on_shrinking_pred.
+	(gimple_duplicate_loop_to_header_edge): Rename from
+	tree_duplicate_loop_to_header_edge.
+	(gimple_lv_add_condition_to_bb): Rename from
+	tree_lv_add_condition_to_bb.
+	(gimple_lv_adjust_loop_header_phi): Rename from
+	tree_lv_adjust_loop_header_phi.
+	(struct pass_build_cfg): Enable TODO_verify_stmts and
+	TODO_cleanup_cfg.
+	* passes.c (execute_function_todo): Enable call to
+	cleanup_tree_cfg.
+
 2007-10-17  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple.def: Add GIMPLE_WITH_CLEANUP_EXPR.

@@ -452,7 +452,7 @@ do_tree_profiling (void)
 #else
       gcc_unreachable ();
 #endif
-      tree_register_value_prof_hooks ();
+      gimple_register_value_prof_hooks ();
       return true;
     }
   return false;
