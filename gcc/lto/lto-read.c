@@ -149,8 +149,8 @@ input_sleb128 (struct input_block *ib)
       shift += 7;
       if ((byte & 0x80) == 0)
 	{
-	  if ((shift < HOST_BITS_PER_INT) && (byte & 0x40))
-	    result |= - (1 << shift);
+	  if ((shift < HOST_BITS_PER_WIDE_INT) && (byte & 0x40))
+	    result |= - ((HOST_WIDE_INT)1 << shift);
 
 	  LTO_DEBUG_WIDE ("S", result);
 	  return result;
@@ -216,7 +216,7 @@ input_integer (struct input_block *ib, tree type)
   HOST_WIDE_INT low = 0;
   HOST_WIDE_INT high = 0;
   int shift = 0;
-  HOST_WIDE_INT byte;
+  unsigned HOST_WIDE_INT byte;
 
   while (true)
     {
@@ -242,11 +242,11 @@ input_integer (struct input_block *ib, tree type)
 	      /* The number is negative.  */
 	      if (shift < HOST_BITS_PER_WIDE_INT)
 		{
-		  low |= - (1 << shift);
+		  low |= - ((HOST_WIDE_INT)1 << shift);
 		  high = -1;
 		}
 	      else if (shift < (2 * HOST_BITS_PER_WIDE_INT))
-		high |= - (1 << shift);
+		high |= - ((HOST_WIDE_INT)1 << shift);
 	    }
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -283,27 +283,31 @@ input_record_start (struct input_block *ib)
 /* Build a tree list stopping when the tag is 0.  */
 
 static tree 
-input_list (struct input_block *ib, struct data_in *data_in, struct function *fn)
+input_tree_list (struct input_block *ib, struct data_in *data_in, struct function *fn)
 {
-  enum LTO_tags tag = input_record_start (ib);
+  unsigned int count = input_uleb128 (ib);
+
   tree first = NULL_TREE;
-  if (tag)
+
+  if (count)
     {
       tree next;
+      enum LTO_tags tag = input_record_start (ib);
 
+      /* Peel out the first iteration so we return the correct thing.  */
       first = build_tree_list (NULL_TREE, input_expr_operand (ib, data_in, fn, tag));
       next = first;
-      tag = input_record_start (ib);
-      while (tag)
+      count--;
+
+      while (count--)
 	{
+	  tag = input_record_start (ib);
 	  TREE_CHAIN (next) 
 	    = build_tree_list (NULL_TREE, input_expr_operand (ib, data_in, fn, tag));
 	  next = TREE_CHAIN (next);
-	  tag = input_record_start (ib);
 	}
     }
 
-  LTO_DEBUG_UNDENT();
   return first;
 }
 
@@ -752,9 +756,9 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
     case ASM_EXPR:
       {
 	tree str = input_string (data_in, input_uleb128 (ib));
-	tree ins = input_list (ib, data_in, fn); 
-	tree outs = input_list (ib, data_in, fn); 
-	tree clobbers = input_list (ib, data_in, fn);
+	tree ins = input_tree_list (ib, data_in, fn); 
+	tree outs = input_tree_list (ib, data_in, fn); 
+	tree clobbers = input_tree_list (ib, data_in, fn);
 	tree tl;
 	result = build4 (code, void_type_node, str, outs, ins, clobbers);
 
@@ -1065,7 +1069,7 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
   if (variant & 0x1)
     {
       LTO_DEBUG_TOKEN ("attributes");
-      DECL_ATTRIBUTES (result) = input_list (ib, data_in, fn);
+      DECL_ATTRIBUTES (result) = input_tree_list (ib, data_in, fn);
     }
   if (variant & 0x2)
     DECL_SIZE_UNIT (result) 
@@ -1580,9 +1584,6 @@ lto_read_body (lto_info_fd *fd,
   struct input_block ib_main 
     = {data + main_offset, 0, header->main_size};
 
-#ifdef LTO_STREAM_DEBUGGING
-  lto_debug_context.current_data = &debug_label;
-#endif
 
   data_in.strings            = data + string_offset;
   data_in.strings_len        = header->string_size;
@@ -1600,8 +1601,11 @@ lto_read_body (lto_info_fd *fd,
   if (in_function)
     {
       struct function *fn = DECL_STRUCT_FUNCTION (t);
-
       data_in.num_named_labels = header->num_named_labels;
+
+#ifdef LTO_STREAM_DEBUGGING
+      lto_debug_context.current_data = &debug_label;
+#endif
       input_labels (&data_in, &ib_named_labels, 
 		    header->num_named_labels, header->num_unnamed_labels);
       

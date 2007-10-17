@@ -296,7 +296,6 @@
   SET_NAME (LTO_asm_outputs, "asm_outputs")
   SET_NAME (LTO_asm_clobbers, "asm_clobbers")
   SET_NAME (LTO_function, "function")
-  SET_NAME (LTO_attribute_list, "attribute_list")
   SET_NAME (LTO_eh_table, "eh_table")
   SET_NAME (LTO_eh_table_cleanup0, "eh_table_cleanup0")
   SET_NAME (LTO_eh_table_cleanup1, "eh_table_cleanup1")

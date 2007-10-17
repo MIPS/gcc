@@ -672,13 +672,13 @@ output_integer (struct output_block *ob, tree t)
   do
     {
       unsigned HOST_WIDE_INT transfer = (high & 0x7f);
-      high >>= 7;
+      high = ((unsigned HOST_WIDE_INT) high) >> 7;
       transfer <<= (HOST_BITS_PER_WIDE_INT - 7);
 
       byte = (low & 0x7f);
 
       /* Logical shift.  */
-      low = ((unsigned HOST_WIDE_INT)low) >> 7;
+      low = ((unsigned HOST_WIDE_INT) low) >> 7;
       low |= transfer;
       more = !((high == 0 && low == 0 && (byte & 0x40) == 0)
 	       || (high == -1 && low == -1 && (byte & 0x40) != 0));
@@ -947,17 +947,16 @@ output_type_list (struct output_block *ob, tree list)
 }
 
 
-/* Output a LIST of TAG.  */
+/* Output a LIST of TAG.  Note that the list may be a NULL_TREE.  */
 
 static void
-output_tree_list (struct output_block *ob, tree list, unsigned int tag)
+output_tree_list (struct output_block *ob, tree list)
 {
   tree tl;
   int count = 0;
   if (list)
     {
       gcc_assert (TREE_CODE (list) == TREE_LIST);
-      output_record_start (ob, NULL, NULL, tag);
       for (tl = list; tl; tl = TREE_CHAIN (tl))
 	if (TREE_VALUE (tl) != NULL_TREE)
 	  count++;
@@ -966,7 +965,6 @@ output_tree_list (struct output_block *ob, tree list, unsigned int tag)
       for (tl = list; tl; tl = TREE_CHAIN (tl))
 	if (TREE_VALUE (tl) != NULL_TREE)
 	  output_expr_operand (ob, TREE_VALUE (tl));
-      LTO_DEBUG_UNDENT ();
     }
   else
     output_zero (ob);
@@ -1411,40 +1409,9 @@ output_expr_operand (struct output_block *ob, tree expr)
 		       TREE_STRING_POINTER (string_cst),
 		       TREE_STRING_LENGTH (string_cst));
 
-	/* Each of the operand sets is a list of trees terminated by a
-	   zero.  The problem is that the operands are not all
-	   variables.  They could be constants or strings so you need
-	   the general tree mechanism to put them out.  */
-	if (ASM_INPUTS (expr) != NULL_TREE)
-	  {
-	    tree tl;
-	    output_record_start (ob, NULL, NULL,
-				 LTO_asm_inputs);
-	    for (tl = ASM_INPUTS (expr); tl; tl = TREE_CHAIN (tl))
-	      output_expr_operand (ob, TREE_VALUE (tl));
-	    output_zero (ob);
-	    LTO_DEBUG_UNDENT ();
-	  }
-	if (ASM_OUTPUTS (expr) != NULL_TREE)
-	  {
-	    tree tl;
-	    output_record_start (ob, NULL, NULL,
-				 LTO_asm_outputs);
-	    for (tl = ASM_OUTPUTS (expr); tl; tl = TREE_CHAIN (tl))
-	      output_expr_operand (ob, TREE_VALUE (tl));
-	    output_zero (ob);
-	    LTO_DEBUG_UNDENT ();
-	  }
-	if (ASM_CLOBBERS (expr) != NULL_TREE)
-	  {
-	    tree tl;
-	    output_record_start (ob, NULL, NULL,
-				 LTO_asm_clobbers);
-	    for (tl = ASM_CLOBBERS (expr); tl; tl = TREE_CHAIN (tl))
-	      output_expr_operand (ob, TREE_VALUE (tl));
-	    output_zero (ob);
-	    LTO_DEBUG_UNDENT ();
-	  }
+	output_tree_list (ob, ASM_INPUTS (expr));
+	output_tree_list (ob, ASM_OUTPUTS (expr));
+	output_tree_list (ob, ASM_CLOBBERS (expr));
       }
       break;
 
@@ -1628,8 +1595,7 @@ output_local_vars (struct output_block *ob)
       if (DECL_ATTRIBUTES (decl)!= NULL_TREE)
 	{
 	  LTO_DEBUG_TOKEN ("attributes");
-	  output_tree_list (ob, DECL_ATTRIBUTES (decl),
-			    LTO_attribute_list);
+	  output_tree_list (ob, DECL_ATTRIBUTES (decl));
 	}
       if (DECL_SIZE_UNIT (decl) != NULL_TREE)
 	output_expr_operand (ob, DECL_SIZE_UNIT (decl));

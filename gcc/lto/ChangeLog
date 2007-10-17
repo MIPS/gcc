@@ -1,5 +1,15 @@
 2007-10-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	* lto-read.c (input_sleb128, input_integer): Use proper casts.
+	(input_list): Renamed input_tree_list and modified to follow same
+	protocol as lto-function-out.c:output_tree_list.
+	(input_expr_operand): Make asm operands use input_tree_list.
+	(input_local_var): Now uses input_tree_list.
+	(lto_read_body): Change placement for setting context of debug_labels.
+	
+	
+2007-10-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* lto-read.c (input_real): Output debugging in proper order.
 	(input_integer): Compute bit lengths properly.
 	(input_list): Clean up declaration.
