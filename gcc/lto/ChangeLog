@@ -1,5 +1,12 @@
 2007-10-17  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_only_for_child_DIEs): Mark die parameter as unused.
+	(lto_resolve_var_ref): Use proper types.
+	(lto_resolve_fn_ref): Likewise.
+	(lto_resolve_field_ref): Likewise.
+
+2007-10-17  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto-read.c (input_expr_operand): Remove case.
 
 2007-10-17  Nathan Froyd  <froydnj@codesourcery.com>
@@ -12,6 +19,7 @@
 	SSA_NAME.  Add missing case for mechanical codes.
 	(input_cfg): Use basic_block_info_for_function instead of
 	basic_block_info.
+
 2007-10-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_sleb128, input_integer): Use proper casts.

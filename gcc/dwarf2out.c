@@ -12161,13 +12161,16 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	{
 	  subr_die = old_die;
 
-	  /* Clear out the declaration attribute and the formal parameters.
-	     Do not remove all children, because it is possible that this
-	     declaration die was forced using force_decl_die(). In such
-	     cases die that forced declaration die (e.g. TAG_imported_module)
-	     is one of the children that we do not want to remove.  */
-	  remove_AT (subr_die, DW_AT_declaration);
-	  remove_child_TAG (subr_die, DW_TAG_formal_parameter);
+	  if (!flag_generate_lto)
+	    {
+	      /* Clear out the declaration attribute and the formal parameters.
+		 Do not remove all children, because it is possible that this
+		 declaration die was forced using force_decl_die(). In such
+		 cases die that forced declaration die (e.g. TAG_imported_module)
+		 is one of the children that we do not want to remove.  */
+	      remove_AT (subr_die, DW_AT_declaration);
+	      remove_child_TAG (subr_die, DW_TAG_formal_parameter);
+	    }
 	}
       else
 	{
@@ -12319,6 +12322,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	add_AT_location_description (subr_die, DW_AT_static_link,
 		 loc_descriptor_from_tree (cfun->static_chain_decl));
     }
+
+  /* LTO wil have already generated the necessary bits earlier.  */
+  if (flag_generate_lto && subr_die == old_die)
+    return;
 
   /* Now output descriptions of the arguments for this function. This gets
      (unnecessarily?) complex because of the fact that the DECL_ARGUMENT list

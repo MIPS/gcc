@@ -2123,7 +2123,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 
 static tree
 lto_read_only_for_child_DIEs (lto_info_fd *fd,
-                              lto_die_ptr die,
+                              lto_die_ptr die ATTRIBUTE_UNUSED,
                               const DWARF2_abbrev *abbrev,
                               lto_context *context)
 {
@@ -3391,10 +3391,10 @@ lto_resolve_var_ref (lto_info_fd *info_fd,
   if (!var)
     {
       lto_fd *fd = (lto_fd *)info_fd;
-      lto_die_ptr saved_die = fd->cur;
+      const char *saved_die = fd->cur;
 
-      fd->cur = die;
-      var = lto_read_DIE (fd, context, NULL);
+      fd->cur = (const char *) die;
+      var = lto_read_DIE (info_fd, context, NULL);
 
       if (!var)
         lto_file_corrupt_error (fd);
@@ -3430,10 +3430,10 @@ lto_resolve_fn_ref (lto_info_fd *info_fd,
   if (!fn)
     {
       lto_fd *fd = (lto_fd *)info_fd;
-      lto_die_ptr saved_die = fd->cur;
+      const char *saved_die = fd->cur;
 
-      fd->cur = die;
-      fn = lto_read_DIE (fd, context, NULL);
+      fd->cur = (const char *) die;
+      fn = lto_read_DIE (info_fd, context, NULL);
 
       if (!fn)
         lto_file_corrupt_error (fd);
@@ -3469,10 +3469,10 @@ lto_resolve_field_ref (lto_info_fd *info_fd,
   if (!field)
     {
       lto_fd *fd = (lto_fd *)info_fd;
-      lto_die_ptr saved_die = fd->cur;
+      const char *saved_die = fd->cur;
 
-      fd->cur = die;
-      field = lto_read_DIE (fd, context, NULL);
+      fd->cur = (const char *) die;
+      field = lto_read_DIE (info_fd, context, NULL);
 
       if (!field)
         lto_file_corrupt_error (fd);
