@@ -177,8 +177,32 @@ gsi_link_after (gimple_stmt_iterator *i, gimple g,
 }
 
 
-/* Move all statements in the sequence after I to a new sequence.  I
-   itself is unchanged.  */
+/* Remove a stmt from the sequence.  The iterator is updated to point to the
+   next stmt.  */
+
+void
+gsi_delink (gimple_stmt_iterator *i)
+{
+  gimple cur, next, prev;
+
+  cur = i->stmt;
+  next = gimple_next (cur);
+  prev = gimple_prev (cur);
+
+  if (prev)
+    set_gimple_next (prev, next);
+  else
+    gimple_seq_set_first (i->seq, next);
+  if (next)
+    set_gimple_prev (next, prev);
+  else
+    gimple_seq_set_last (i->seq, prev);
+
+  i->stmt = next;
+}
+
+/* Move all statements in the sequence after I to a new sequence.  Return this
+   new sequence.  I itself is unchanged.  */
 
 gimple_seq
 gsi_split_seq_after (const gimple_stmt_iterator *i)
@@ -204,8 +228,8 @@ gsi_split_seq_after (const gimple_stmt_iterator *i)
 }
 
 
-/* Move all statements in the sequence before I to a new sequence.  I
-   is set to the head of the new list.  */
+/* Move all statements in the sequence before I to a new sequence.  Return this
+   new sequence.  I is set to the head of the new list.  */
 
 gimple_seq
 gsi_split_seq_before (gimple_stmt_iterator *i)

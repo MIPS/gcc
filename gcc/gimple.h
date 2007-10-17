@@ -239,6 +239,20 @@ enum gimple_try_kind {
   GIMPLE_TRY_FINALLY = 2
 };
 
+/* GIMPLE_WITH_CLEANUP_EXPR */
+struct gimple_statement_wce GTY(())
+{
+  struct gimple_statement_base gsbase;
+
+  /* Subcode: CLEANUP_EH_ONLY.  True if the cleanup should only be
+	      executed if an exception is thrown, not on normal exit of its
+	      scope.  This flag is analogous to the CLEANUP_EH_ONLY flag
+	      in TARGET_EXPRs.  */
+
+  /* Cleanup expression.  */
+  struct gimple_sequence cleanup;
+};
+
 
 /* GIMPLE_ASM */
 struct gimple_statement_asm GTY(())
@@ -339,6 +353,7 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
   struct gimple_statement_phi GTY ((tag ("GSS_PHI"))) gimple_phi;
   struct gimple_statement_resx GTY ((tag ("GSS_RESX"))) gimple_resx;
   struct gimple_statement_try GTY ((tag ("GSS_TRY"))) gimple_try;
+  struct gimple_statement_wce GTY ((tag ("GSS_WCE"))) gimple_wce;
   struct gimple_statement_asm GTY ((tag ("GSS_ASM"))) gimple_asm;
   struct gimple_statement_omp_critical GTY ((tag ("GSS_OMP_CRITICAL"))) gimple_omp_critical;
   struct gimple_statement_omp_for GTY ((tag ("GSS_OMP_FOR"))) gimple_omp_for;
@@ -641,6 +656,7 @@ gimple build_gimple_asm_vec (const char *, VEC(tree,gc) *, VEC(tree,gc) *,
 gimple build_gimple_catch (tree, gimple_seq);
 gimple build_gimple_eh_filter (tree, gimple_seq);
 gimple build_gimple_try (gimple_seq, gimple_seq, unsigned int);
+gimple build_gimple_wce (gimple_seq);
 gimple build_gimple_phi (size_t, size_t, tree, ...);
 gimple build_gimple_resx (int);
 gimple build_gimple_switch (unsigned int, tree, tree, ...);
@@ -1292,6 +1308,39 @@ gimple_try_set_cleanup (gimple gs, gimple_seq cleanup)
 {
   GIMPLE_CHECK (gs, GIMPLE_TRY);
   gimple_seq_copy (gimple_try_cleanup (gs), cleanup);
+}
+
+
+/* GIMPLE_WITH_CLEANUP_EXPR accessors.  */
+
+static inline gimple_seq
+gimple_wce_cleanup (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
+  return &gs->gimple_wce.cleanup;
+}
+
+static inline void
+gimple_wce_set_cleanup (gimple gs, gimple_seq cleanup)
+{
+  GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
+  gimple_seq_copy (gimple_wce_cleanup (gs), cleanup);
+}
+
+/* Return the CLEANUP_EH_ONLY flag for a WCE tuple.  */
+static inline bool
+gimple_wce_cleanup_eh_only (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
+  return (bool) gimple_subcode (gs);
+}
+
+/* Set the CLEANUP_EH_ONLY flag for a WCE tuple.  */
+static inline void
+gimple_wce_set_cleanup_eh_only (gimple gs, bool eh_only_p)
+{
+  GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
+  set_gimple_subcode (gs, (unsigned int) eh_only_p);
 }
 
 
@@ -1973,6 +2022,7 @@ void gsi_link_before (gimple_stmt_iterator *, gimple,
 void gsi_link_seq_after (gimple_stmt_iterator *, gimple_seq,
 			 enum gsi_iterator_update);
 void gsi_link_after (gimple_stmt_iterator *, gimple, enum gsi_iterator_update);
+void gsi_delink (gimple_stmt_iterator *);
 gimple_seq gsi_split_seq_after (const gimple_stmt_iterator *);
 gimple_seq gsi_split_seq_before (gimple_stmt_iterator *);
 void gsi_replace (gimple_stmt_iterator *, gimple, bool);

@@ -69,30 +69,31 @@ gss_for_code (enum gimple_code code)
     {
     case GIMPLE_ASSIGN:
     case GIMPLE_CALL:
-    case GIMPLE_RETURN:		return GSS_WITH_MEM_OPS;
+    case GIMPLE_RETURN:			return GSS_WITH_MEM_OPS;
     case GIMPLE_COND:
     case GIMPLE_GOTO:
     case GIMPLE_LABEL:
-    case GIMPLE_SWITCH:		return GSS_WITH_OPS;
-    case GIMPLE_ASM:		return GSS_ASM;
-    case GIMPLE_BIND:		return GSS_BIND;
-    case GIMPLE_CATCH:		return GSS_CATCH;
-    case GIMPLE_EH_FILTER:	return GSS_EH_FILTER;
-    case GIMPLE_NOP:		return GSS_BASE;
-    case GIMPLE_PHI:		return GSS_PHI;
-    case GIMPLE_RESX:		return GSS_RESX;
-    case GIMPLE_TRY:		return GSS_TRY;
-    case GIMPLE_OMP_CRITICAL:	return GSS_OMP_CRITICAL;
-    case GIMPLE_OMP_FOR:	return GSS_OMP_FOR;
+    case GIMPLE_SWITCH:			return GSS_WITH_OPS;
+    case GIMPLE_ASM:			return GSS_ASM;
+    case GIMPLE_BIND:			return GSS_BIND;
+    case GIMPLE_CATCH:			return GSS_CATCH;
+    case GIMPLE_EH_FILTER:		return GSS_EH_FILTER;
+    case GIMPLE_NOP:			return GSS_BASE;
+    case GIMPLE_PHI:			return GSS_PHI;
+    case GIMPLE_RESX:			return GSS_RESX;
+    case GIMPLE_TRY:			return GSS_TRY;
+    case GIMPLE_WITH_CLEANUP_EXPR:	return GSS_WCE;
+    case GIMPLE_OMP_CRITICAL:		return GSS_OMP_CRITICAL;
+    case GIMPLE_OMP_FOR:		return GSS_OMP_FOR;
     case GIMPLE_OMP_CONTINUE:
     case GIMPLE_OMP_MASTER:		
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_RETURN:
-    case GIMPLE_OMP_SECTION:	return GSS_OMP;
-    case GIMPLE_OMP_PARALLEL:	return GSS_OMP_PARALLEL;
-    case GIMPLE_OMP_SECTIONS:	return GSS_OMP_SECTIONS;
-    case GIMPLE_OMP_SINGLE:	return GSS_OMP_SINGLE;
-    default:			gcc_unreachable ();
+    case GIMPLE_OMP_SECTION:		return GSS_OMP;
+    case GIMPLE_OMP_PARALLEL:		return GSS_OMP_PARALLEL;
+    case GIMPLE_OMP_SECTIONS:		return GSS_OMP_SECTIONS;
+    case GIMPLE_OMP_SINGLE:		return GSS_OMP_SINGLE;
+    default:				gcc_unreachable ();
     }
 }
 
@@ -449,6 +450,23 @@ build_gimple_try (gimple_seq eval, gimple_seq cleanup,
   if (cleanup)
     gimple_try_set_cleanup (p, cleanup);
   set_gimple_subcode (p, kind);
+
+  return p;
+}
+
+/* Construct a GIMPLE_WITH_CLEANUP_EXPR statement.
+
+   CLEANUP is the cleanup expression.  */
+
+gimple
+build_gimple_wce (gimple_seq cleanup)
+{
+  gimple p;
+
+  p = ggc_alloc_cleared (sizeof (struct gimple_statement_wce));
+  set_gimple_code (p, GIMPLE_WITH_CLEANUP_EXPR);
+  if (cleanup)
+    gimple_wce_set_cleanup (p, cleanup);
 
   return p;
 }

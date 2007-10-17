@@ -1,3 +1,20 @@
+2007-10-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.def: Add GIMPLE_WITH_CLEANUP_EXPR.
+	* gsstruct.def: Add GSS_WCE.
+	* gimple-iterator.c (gsi_delink): New.
+	(gsi_split_seq_*): Update comment.
+	* gimple.c (gss_for_code): Handle GIMPLE_WCE.  Adjust whitespace.
+	(build_gimple_wce): New.
+	* gimple.h (struct gimple_statement_wce): New.
+	(union gimple_statement_d): Add gimple_wce.
+	(build_gimple_wce): Protoize.
+	(gimple_wce_cleanup): New.
+	(gimple_wce_set_cleanup): New.
+	(gimple_wce_cleanup_eh_only): New.
+	(gimple_wce_set_cleanup_eh_only): New.
+	(gsi_delink): Protoize.
+
 2007-10-12  Aldy Hernandez  <aldyh@redhat.com>
 
 	* Makefile.in (GIMPLE_H): Depend on TARGET_H.

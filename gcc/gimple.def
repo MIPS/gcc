@@ -53,6 +53,14 @@ DEFGSCODE(GIMPLE_EH_FILTER, "gimple_eh_filter")
 DEFGSCODE(GIMPLE_PHI, "gimple_phi")
 DEFGSCODE(GIMPLE_RESX, "gimple_resx")
 DEFGSCODE(GIMPLE_TRY, "gimple_try")
+
+/*  This node represents a cleanup expression.  It is ONLY USED INTERNALLY
+    by the gimplifier as a placeholder for cleanups, and its uses will be
+    cleaned up by the time gimplification is done.
+    
+    This tuples should not exist outside of the gimplifier proper.  */
+DEFGSCODE(GIMPLE_WITH_CLEANUP_EXPR, "gimple_with_cleanup_expr")
+
 DEFGSCODE(GIMPLE_NOP, "gimple_nop")
 DEFGSCODE(GIMPLE_OMP_CONTINUE, "gimple_omp_continue")
 DEFGSCODE(GIMPLE_OMP_CRITICAL, "gimple_omp_critical")
