@@ -2119,6 +2119,23 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   return decl;
 }
 
+/* Used when we only care about reading the DIE's children.  */
+
+static tree
+lto_read_only_for_child_DIEs (lto_info_fd *fd,
+                              lto_die_ptr die,
+                              const DWARF2_abbrev *abbrev,
+                              lto_context *context)
+{
+  LTO_BEGIN_READ_ATTRS_UNCHECKED ()
+    {
+    }
+  LTO_END_READ_ATTRS ();
+
+  lto_read_child_DIEs (fd, abbrev, context);
+
+  return NULL_TREE;
+}
 
 static tree
 lto_read_member_DIE (lto_info_fd *fd,
@@ -3025,7 +3042,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* imported_declaration */
       NULL, /* padding */
       NULL, /* label */
-      NULL, /* lexical_block */
+      lto_read_only_for_child_DIEs, /* lexical_block */
       NULL, /* padding */
       lto_read_member_DIE,
       NULL, /* padding */
@@ -3043,7 +3060,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* common_block */
       NULL, /* common_inclusion */
       NULL, /* inheritance */
-      NULL, /* inlined_subroutine */
+      lto_read_only_for_child_DIEs, /* inlined_subroutine */
       NULL, /* module */
       NULL, /* ptr_to_member_type */
       NULL, /* set_type */

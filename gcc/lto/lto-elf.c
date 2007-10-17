@@ -60,9 +60,6 @@ typedef struct lto_elf_file lto_elf_file;
 /* Forward Declarations */
 
 static const void *
-lto_elf_map_lto_section (lto_file *file, const char *id);
-
-static const void *
 lto_elf_map_optional_lto_section (lto_file *file, const char *id);
 
 static void
@@ -70,7 +67,7 @@ lto_elf_unmap_fn_body (lto_file *file, const char *fn, const void *data);
 
 /* The vtable for ELF input files.  */
 static const lto_file_vtable lto_elf_file_vtable = {
-  lto_elf_map_lto_section,
+  lto_elf_map_optional_lto_section,
   lto_elf_unmap_fn_body,
   lto_elf_map_optional_lto_section,
   lto_elf_unmap_fn_body
@@ -447,20 +444,6 @@ lto_elf_map_optional_lto_section (lto_file *file,
     return NULL;
   else
     return (const void *)(data->d_buf);
-}
-
-/* Like lto_elf_map_optional_lto_section, but report an error
-   if the section is not present.  */
-static const void *
-lto_elf_map_lto_section (lto_file *file,
-                         const char *id)
-{
-  const void *data = lto_elf_map_optional_lto_section (file, id);
-
-  if (! data)
-    error ("unable to find LTO data for %qs: %s", id, elf_errmsg (0));
-
-  return data;
 }
 
 static void

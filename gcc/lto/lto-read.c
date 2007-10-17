@@ -580,6 +580,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case SSA_NAME:
       result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
+      /* We should not get an SSA_NAME that has been freed.  */
+      gcc_assert (result);
       break;
 
     case CONST_DECL:
@@ -866,6 +868,10 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  case 5:
 	    result = build5 (code, type, ops[0], ops[1], ops[2], ops[3], 
 			     ops[4]);
+	    break;
+          case 6:
+	    result = build5 (code, type, ops[0], ops[1], ops[2], ops[3], 
+			     ops[4], ops[5]);
 	    break;
 	  case 7:
 	    result = build7 (code, type, ops[0], ops[1], ops[2], ops[3], 
@@ -1166,7 +1172,8 @@ input_cfg (struct input_block *ib, struct function *fn)
   last_basic_block_for_function (fn) = bb_count;
   basic_block_info_for_function (fn)
     = VEC_alloc (basic_block, gc, bb_count);
-  VEC_safe_grow (basic_block, gc, basic_block_info, bb_count);
+  VEC_safe_grow (basic_block, gc,
+                 basic_block_info_for_function (fn), bb_count);
   memset (VEC_address (basic_block, 
 		       basic_block_info_for_function (fn)), 
 	  0, sizeof (basic_block) * bb_count);
