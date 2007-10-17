@@ -1,5 +1,9 @@
 2007-10-17  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto-read.c (input_expr_operand): Remove case.
+
+2007-10-17  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto.c (lto_read_only_for_child_DIEs): New function.
 	(lto_read_DIE): Use it for lexical_block and inlined_subroutine DIEs.
 	* lto-elf.c (lto_elf_map_lto_section): Remove.
@@ -8,7 +12,6 @@
 	SSA_NAME.  Add missing case for mechanical codes.
 	(input_cfg): Use basic_block_info_for_function instead of
 	basic_block_info.
-	
 2007-10-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_sleb128, input_integer): Use proper casts.

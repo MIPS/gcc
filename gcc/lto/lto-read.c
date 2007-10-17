@@ -869,10 +869,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	    result = build5 (code, type, ops[0], ops[1], ops[2], ops[3], 
 			     ops[4]);
 	    break;
-          case 6:
-	    result = build5 (code, type, ops[0], ops[1], ops[2], ops[3], 
-			     ops[4], ops[5]);
-	    break;
+            /* No 'case 6'.  */
 	  case 7:
 	    result = build7 (code, type, ops[0], ops[1], ops[2], ops[3], 
 			     ops[4], ops[5], ops[6]);
