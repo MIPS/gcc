@@ -1,5 +1,17 @@
 2007-10-17  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree-gimple.c (get_gimple_rhs_class): Add case for EXC_PTR_EXPR.
+	* gimplify.c (gimple_conditional_context): Enable.
+	(gimplify_cleanup_point_expr): Enable.  Adjust for tuples.
+	(gimple_push_cleanup): Enable.
+	(gimplify_target_expr): Do not gimplify TARGET_EXPR_CLEANUP before
+	calling gimple_push_cleanup.
+	(gimplify_expr): Rename `try' to `try_'.
+	Enable CLEANUP_POINT_EXPR case.
+	Gimplify CATCH_EXPR and EH_FILTER_EXPR cases correctly.
+
+2007-10-17  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple.c (gimple_size): Handle GIMPLE_WITH_CLEANUP_EXPR.
 	* gimple.h (struct gimple_statement_catch): Make handler a structure,
 	not a pointer.

@@ -222,14 +222,11 @@ gimple_current_bind_expr (void)
 /* Returns true iff there is a COND_EXPR between us and the innermost
    CLEANUP_POINT_EXPR.  This info is used by gimple_push_cleanup.  */
 
-/* FIXME tuples.  */
-#if 0
 static bool
 gimple_conditional_context (void)
 {
   return gimplify_ctxp->conditions > 0;
 }
-#endif
 
 /* Note that we've entered a COND_EXPR.  */
 
@@ -4285,7 +4282,7 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 }
 
 /* Gimplify a CLEANUP_POINT_EXPR.  Currently this works by adding
-   WITH_CLEANUP_EXPRs to the prequeue as we encounter cleanups while
+   GIMPLE_WITH_CLEANUP_EXPRs to the prequeue as we encounter cleanups while
    gimplifying the body, and converting them to TRY_FINALLY_EXPRs when we
    return to this function.
 
@@ -4298,13 +4295,11 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
    having an optimizer to tighten up try/finally regions would be a Good
    Thing.  */
 
-#if 0
-/* FIXME tuples */
 static enum gimplify_status
-gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
+gimplify_cleanup_point_expr (tree *expr_p, gimple_seq pre_p)
 {
-  tree_stmt_iterator iter;
-  tree body;
+  gimple_stmt_iterator *iter;
+  struct gimple_sequence body_sequence;
 
   tree temp = voidify_wrapper_expr (*expr_p, NULL);
 
@@ -4315,74 +4310,75 @@ gimplify_cleanup_point_expr (tree *expr_p, tree *pre_p)
   struct gimple_sequence old_cleanups = gimplify_ctxp->conditional_cleanups;
   gimplify_ctxp->conditions = 0;
   gimple_seq_init (&gimplify_ctxp->conditional_cleanups);
+  gimple_seq_init (&body_sequence);
 
-  body = TREE_OPERAND (*expr_p, 0);
-  gimplify_stmt (&body, pre_p);
+  gimplify_stmt (&TREE_OPERAND (*expr_p, 0), &body_sequence);
 
   gimplify_ctxp->conditions = old_conds;
   gimplify_ctxp->conditional_cleanups = old_cleanups;
 
-  for (iter = tsi_start (body); !tsi_end_p (iter); )
+  for (iter = gsi_start (&body_sequence); !gsi_end_p (iter); )
     {
-      tree *wce_p = tsi_stmt_ptr (iter);
-      tree wce = *wce_p;
+      gimple wce = gsi_stmt (iter);
 
-      if (TREE_CODE (wce) == WITH_CLEANUP_EXPR)
+      if (gimple_code (wce) == GIMPLE_WITH_CLEANUP_EXPR)
 	{
-	  if (tsi_one_before_end_p (iter))
+	  if (gsi_one_before_end_p (iter))
 	    {
-	      tsi_link_before (&iter, TREE_OPERAND (wce, 0), TSI_SAME_STMT);
-	      tsi_delink (&iter);
+	      gsi_link_seq_before (iter, gimple_wce_cleanup (wce),
+		  		   GSI_SAME_STMT);
+	      gsi_remove (iter, true);
 	      break;
 	    }
 	  else
 	    {
-	      tree sl, tfe;
-	      enum tree_code code;
+	      gimple try;
+	      gimple_seq seq;
+	      enum gimple_try_kind kind;
 
-	      if (CLEANUP_EH_ONLY (wce))
-		code = TRY_CATCH_EXPR;
+	      if (gimple_wce_cleanup_eh_only (wce))
+		kind = GIMPLE_TRY_CATCH;
 	      else
-		code = TRY_FINALLY_EXPR;
+		kind = GIMPLE_TRY_FINALLY;
 
-	      sl = tsi_split_statement_list_after (&iter);
-	      tfe = build2 (code, void_type_node, sl, NULL_TREE);
-	      append_to_statement_list (TREE_OPERAND (wce, 0),
-				        &TREE_OPERAND (tfe, 1));
-	      *wce_p = tfe;
-	      iter = tsi_start (sl);
+	      seq = gsi_split_seq_after (iter);
+
+	      try = gimple_build_try (seq, gimple_wce_cleanup (wce), kind);
+
+	      gsi_replace (iter, try, GSI_SAME_STMT);
+	      iter = gsi_start (seq);
 	    }
 	}
       else
-	tsi_next (&iter);
+	gsi_next (iter);
     }
 
+  gimple_seq_append (pre_p, &body_sequence);
   if (temp)
     {
       *expr_p = temp;
-      append_to_statement_list (body, pre_p);
       return GS_OK;
     }
   else
     {
-      *expr_p = body;
+      *expr_p = NULL;
       return GS_ALL_DONE;
     }
 }
-#endif
 
 /* Insert a cleanup marker for gimplify_cleanup_point_expr.  CLEANUP
-   is the cleanup action required.  */
+   is the cleanup action required.  EH_ONLY is true if the cleanup should
+   only be executed if an exception is thrown, not on normal exit.  */
 
 static void
-gimple_push_cleanup (tree var ATTRIBUTE_UNUSED, tree cleanup ATTRIBUTE_UNUSED, bool eh_only ATTRIBUTE_UNUSED, gimple_seq pre_p ATTRIBUTE_UNUSED)
+gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq pre_p)
 {
-/* FIXME tuples */
-#if 0 /* FIXME tuples */
-  tree wce;
+  gimple wce;
+  struct gimple_sequence cleanup_stmts;
+  gimple_seq_init (&cleanup_stmts);
 
   /* Errors can result in improperly nested cleanups.  Which results in
-     confusion when trying to resolve the WITH_CLEANUP_EXPR.  */
+     confusion when trying to resolve the GIMPLE_WITH_CLEANUP_EXPR.  */
   if (errorcount || sorrycount)
     return;
 
@@ -4408,14 +4404,17 @@ gimple_push_cleanup (tree var ATTRIBUTE_UNUSED, tree cleanup ATTRIBUTE_UNUSED, b
 	   }
 	   val
       */
-
       tree flag = create_tmp_var (boolean_type_node, "cleanup");
       gimple ffalse = gimple_build_assign (flag, boolean_false_node);
       gimple ftrue = gimple_build_assign (flag, boolean_true_node);
+
       cleanup = build3 (COND_EXPR, void_type_node, flag, cleanup, NULL);
-      wce = build1 (WITH_CLEANUP_EXPR, void_type_node, cleanup);
+      /* FIXME tuples: aldy-- is the above working?  */
+      gimplify_stmt (&cleanup, &cleanup_stmts);
+      wce = gimple_build_wce (&cleanup_stmts);
+
       gimple_seq_add (&gimplify_ctxp->conditional_cleanups, ffalse);
-      gimple_seq_append (&gimplify_ctxp->conditional_cleanups, wce);
+      gimple_seq_add (&gimplify_ctxp->conditional_cleanups, wce);
       gimple_seq_add (pre_p, ftrue);
 
       /* Because of this manipulation, and the EH edges that jump
@@ -4425,13 +4424,11 @@ gimple_push_cleanup (tree var ATTRIBUTE_UNUSED, tree cleanup ATTRIBUTE_UNUSED, b
     }
   else
     {
-      wce = build1 (WITH_CLEANUP_EXPR, void_type_node, cleanup);
-      CLEANUP_EH_ONLY (wce) = eh_only;
-      append_to_statement_list (wce, pre_p);
+      gimplify_stmt (&cleanup, &cleanup_stmts);
+      wce = gimple_build_wce (&cleanup_stmts);
+      gimple_wce_set_cleanup_eh_only (wce, eh_only);
+      gimple_seq_add (pre_p, wce);
     }
-
-  gimplify_stmt (&TREE_OPERAND (wce, 0), pre_p);
-#endif
 }
 
 /* Gimplify a TARGET_EXPR which doesn't appear on the rhs of an INIT_EXPR.  */
@@ -4478,11 +4475,8 @@ gimplify_target_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 
       /* If needed, push the cleanup for the temp.  */
       if (TARGET_EXPR_CLEANUP (targ))
-	{
-	  gimplify_stmt (&TARGET_EXPR_CLEANUP (targ), pre_p);
-	  gimple_push_cleanup (temp, TARGET_EXPR_CLEANUP (targ),
-			       CLEANUP_EH_ONLY (targ), pre_p);
-	}
+	gimple_push_cleanup (temp, TARGET_EXPR_CLEANUP (targ),
+			     CLEANUP_EH_ONLY (targ), pre_p);
 
       /* Only expand this once.  */
       TREE_OPERAND (targ, 3) = init;
@@ -6072,26 +6066,22 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	case TRY_FINALLY_EXPR:
 	case TRY_CATCH_EXPR:
 	  {
-	    gimple try
+	    gimple try_
 	      = gimple_build_try (NULL, NULL,
 				  TREE_CODE (*expr_p) == TRY_FINALLY_EXPR ?
 				  GIMPLE_TRY_FINALLY : GIMPLE_TRY_CATCH);
 
-	    gimplify_and_add (TREE_OPERAND (*expr_p, 0), gimple_try_eval (try));
+	    gimplify_and_add (TREE_OPERAND (*expr_p, 0), gimple_try_eval (try_));
 	    gimplify_and_add (TREE_OPERAND (*expr_p, 1),
-			      gimple_try_cleanup (try));
-	    gimple_seq_add (pre_p, try);
+			      gimple_try_cleanup (try_));
 
+	    gimple_seq_add (pre_p, try_);
 	    ret = GS_ALL_DONE;
 	    break;
 	  }
 
 	case CLEANUP_POINT_EXPR:
-	  gcc_unreachable();
-#if 0
-/* FIXME tuples */
 	  ret = gimplify_cleanup_point_expr (expr_p, pre_p);
-#endif
 	  break;
 
 	case TARGET_EXPR:
@@ -6099,14 +6089,31 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	  break;
 
 	case CATCH_EXPR:
-	  gimplify_stmt (&CATCH_BODY (*expr_p), pre_p);
-	  ret = GS_ALL_DONE;
-	  break;
+	  {
+	    gimple c
+	      = gimple_build_catch (CATCH_TYPES (*expr_p), NULL);
+
+	    gimplify_and_add (CATCH_BODY (*expr_p), gimple_catch_handler (c));
+	    gimple_seq_add (pre_p, c);
+
+	    ret = GS_ALL_DONE;
+	    break;
+	  }
 
 	case EH_FILTER_EXPR:
-	  gimplify_stmt (&EH_FILTER_FAILURE (*expr_p), pre_p);
-	  ret = GS_ALL_DONE;
-	  break;
+	  {
+	    gimple ehf
+	      = gimple_build_eh_filter (EH_FILTER_TYPES (*expr_p), NULL);
+
+	    gimplify_and_add (EH_FILTER_FAILURE (*expr_p),
+			      gimple_eh_filter_failure (ehf));
+	    gimple_eh_filter_set_must_not_throw
+	      (ehf, EH_FILTER_MUST_NOT_THROW (*expr_p));
+
+	    gimple_seq_add (pre_p, ehf);
+	    ret = GS_ALL_DONE;
+	    break;
+	  }
 
 	case CHANGE_DYNAMIC_TYPE_EXPR:
 	  ret = gimplify_expr (&CHANGE_DYNAMIC_TYPE_LOCATION (*expr_p),
