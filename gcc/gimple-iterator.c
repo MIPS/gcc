@@ -179,30 +179,6 @@ gsi_link_after (gimple_stmt_iterator *i, gimple g,
 }
 
 
-/* Remove a stmt from the sequence.  The iterator is updated to point to the
-   next stmt.  */
-
-void
-gsi_delink (gimple_stmt_iterator *i)
-{
-  gimple cur, next, prev;
-
-  cur = i->stmt;
-  next = gimple_next (cur);
-  prev = gimple_prev (cur);
-
-  if (prev)
-    gimple_set_next (prev, next);
-  else
-    gimple_seq_set_first (i->seq, next);
-  if (next)
-    gimple_set_prev (next, prev);
-  else
-    gimple_seq_set_last (i->seq, prev);
-
-  i->stmt = next;
-}
-
 /* Move all statements in the sequence after I to a new sequence.  Return this
    new sequence.  I itself is unchanged.  */
 

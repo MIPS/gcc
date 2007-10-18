@@ -1,3 +1,8 @@
+2007-10-18  Diego Novillo  <dnovillo@google.com>
+
+	* gimple-iterator.c (gsi_delink): Remove.
+	* gimple.h (gsi_delink): Remove.
+
 2007-10-17  Diego Novillo  <dnovillo@google.com>
 
 	* coretypes.h (const_gimple_seq): New typedef.
