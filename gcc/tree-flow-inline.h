@@ -332,7 +332,7 @@ mark_stmt_modified (gimple t)
 
   if (noreturn_call_p (t) && cfun->gimple_df)
     VEC_safe_push (gimple, gc, MODIFIED_NORETURN_CALLS (cfun), t);
-  set_gimple_modified (t, true);
+  gimple_set_modified (t, true);
 }
 
 /* Mark statement T as modified, and update it.  */
@@ -648,7 +648,7 @@ set_phi_nodes (basic_block bb, gimple_seq seq)
   bb->il.gimple->phi_nodes = seq;
   if (seq)
     for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (i))
-      set_gimple_bb (gsi_stmt (i), bb);
+      gimple_set_bb (gsi_stmt (i), bb);
 }
 
 /* Return the phi argument which contains the specified use.  */

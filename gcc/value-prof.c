@@ -537,23 +537,23 @@ gimple_divmod_fixed_value (gimple stmt, tree operation, tree op1, tree op2,
 
   tmpv = create_tmp_var (optype, "PROF");
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build_gimple_assign (tmpv, fold_convert (optype, value));
-  stmt2 = build_gimple_assign (tmp1, op2);
-  stmt3 = build_gimple_cond (NE_EXPR, tmp1, tmpv, NULL_TREE, NULL_TREE);
+  stmt1 = gimple_build_assign (tmpv, fold_convert (optype, value));
+  stmt2 = gimple_build_assign (tmp1, op2);
+  stmt3 = gimple_build_cond (NE_EXPR, tmp1, tmpv, NULL_TREE, NULL_TREE);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt2, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt3, GSI_SAME_STMT);
   bb1end = stmt3;
 
   tmp2 = create_tmp_var (optype, "PROF");
-  label1 = build_gimple_label (label_decl1);
-  stmt1 = build_gimple_assign_with_ops (TREE_CODE (operation), tmp2, op1, tmpv);
+  label1 = gimple_build_label (label_decl1);
+  stmt1 = gimple_build_assign_with_ops (TREE_CODE (operation), tmp2, op1, tmpv);
   gsi_insert_before (gsi, label1, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   bb2end = stmt1;
 
-  label2 = build_gimple_label (label_decl2);
-  stmt1 = build_gimple_assign_with_ops (TREE_CODE (operation), tmp2, op1, op2);
+  label2 = gimple_build_label (label_decl2);
+  stmt1 = gimple_build_assign_with_ops (TREE_CODE (operation), tmp2, op1, op2);
   gsi_insert_before (gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   bb3end = stmt1;
@@ -689,10 +689,10 @@ gimple_mod_pow2 (gimple stmt, tree operation, tree op1, tree op2, int prob,
 
   tmp2 = create_tmp_var (optype, "PROF");
   tmp3 = create_tmp_var (optype, "PROF");
-  stmt2 = build_gimple_assign_with_ops (PLUS_EXPR, tmp2, op2,
+  stmt2 = gimple_build_assign_with_ops (PLUS_EXPR, tmp2, op2,
 					build_int_cst (optype, -1));
-  stmt3 = build_gimple_assign_with_ops (BIT_AND_EXPR, tmp3, tmp2, op2);
-  stmt4 = build_gimple_cond (NE_EXPR, tmp3, build_int_cst (optype, 0),
+  stmt3 = gimple_build_assign_with_ops (BIT_AND_EXPR, tmp3, tmp2, op2);
+  stmt4 = gimple_build_cond (NE_EXPR, tmp3, build_int_cst (optype, 0),
 			     NULL_TREE, NULL_TREE);
   gsi_insert_before (gsi, stmt2, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt3, GSI_SAME_STMT);
@@ -700,14 +700,14 @@ gimple_mod_pow2 (gimple stmt, tree operation, tree op1, tree op2, int prob,
   bb1end = stmt4;
 
   /* tmp2 == op2-1 inherited from previous block */
-  label1 = build_gimple_label (label_decl1);
-  stmt1 = build_gimple_assign_with_ops (BIT_AND_EXPR, result, op1, tmp2);
+  label1 = gimple_build_label (label_decl1);
+  stmt1 = gimple_build_assign_with_ops (BIT_AND_EXPR, result, op1, tmp2);
   gsi_insert_before (gsi, label1, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   bb2end = stmt1;
 
-  label2 = build_gimple_label (label_decl2);
-  stmt1 = build_gimple_assign_with_ops (TREE_CODE (operation), result, op1,
+  label2 = gimple_build_label (label_decl2);
+  stmt1 = gimple_build_assign_with_ops (TREE_CODE (operation), result, op1,
 					op2);
   gsi_insert_before (gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
@@ -839,9 +839,9 @@ gimple_mod_subtract (gimple stmt, tree operation, tree op1, tree op2,
   gsi = gsi_for_stmt (stmt);
 
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build_gimple_assign (result, op1);
-  stmt2 = build_gimple_assign (tmp1, op2);
-  stmt3 = build_gimple_cond (LT_EXPR, result, tmp1, NULL_TREE, NULL_TREE);
+  stmt1 = gimple_build_assign (result, op1);
+  stmt2 = gimple_build_assign (tmp1, op2);
+  stmt3 = gimple_build_cond (LT_EXPR, result, tmp1, NULL_TREE, NULL_TREE);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt2, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt3, GSI_SAME_STMT);
@@ -849,9 +849,9 @@ gimple_mod_subtract (gimple stmt, tree operation, tree op1, tree op2,
 
   if (ncounts)	/* Assumed to be 0 or 1 */
     {
-      label1 = build_gimple_label (label_decl1);
-      stmt1 = build_gimple_assign_with_ops (MINUS_EXPR, result, result, tmp1);
-      stmt2 = build_gimple_cond (LT_EXPR, result, tmp1, NULL_TREE, NULL_TREE);
+      label1 = gimple_build_label (label_decl1);
+      stmt1 = gimple_build_assign_with_ops (MINUS_EXPR, result, result, tmp1);
+      stmt2 = gimple_build_cond (LT_EXPR, result, tmp1, NULL_TREE, NULL_TREE);
       gsi_insert_before (gsi, label1, GSI_SAME_STMT);
       gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
       gsi_insert_before (gsi, stmt2, GSI_SAME_STMT);
@@ -859,13 +859,13 @@ gimple_mod_subtract (gimple stmt, tree operation, tree op1, tree op2,
     }
 
   /* Fallback case. */
-  label2 = build_gimple_label (label_decl2);
-  stmt1 = build_gimple_assign_with_ops (TREE_CODE (operation), result, tmp1, 0);
+  label2 = gimple_build_label (label_decl2);
+  stmt1 = gimple_build_assign_with_ops (TREE_CODE (operation), result, tmp1, 0);
   gsi_insert_before (gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   bb3end = stmt1;
 
-  label3 = build_gimple_label (label_decl3);
+  label3 = gimple_build_label (label_decl3);
   gsi_insert_before (gsi, label3, GSI_SAME_STMT);
 
   /* Fix CFG. */
@@ -1062,18 +1062,18 @@ gimple_ic (gimple stmt, gimple call, struct cgraph_node *direct_call,
 
   tmpv = create_tmp_var (optype, "PROF");
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build_gimple_assign (tmpv, unshare_expr (gimple_call_fn (call)));
+  stmt1 = gimple_build_assign (tmpv, unshare_expr (gimple_call_fn (call)));
 
   tmp = fold_convert (optype, build_addr (direct_call->decl, 
 					  current_function_decl));
-  stmt2 = build_gimple_assign (tmp1, tmp);
-  stmt3 = build_gimple_cond (NE_EXPR, tmp1, tmpv, NULL_TREE, NULL_TREE);
+  stmt2 = gimple_build_assign (tmp1, tmp);
+  stmt3 = gimple_build_cond (NE_EXPR, tmp1, tmpv, NULL_TREE, NULL_TREE);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt2, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt3, GSI_SAME_STMT);
   bb1end = stmt3;
 
-  label1 = build_gimple_label (label_decl1);
+  label1 = gimple_build_label (label_decl1);
   stmt1 = gimple_copy (stmt);
   gimple_call_set_fn (stmt,
 		      build_addr (direct_call->decl, current_function_decl));
@@ -1081,7 +1081,7 @@ gimple_ic (gimple stmt, gimple call, struct cgraph_node *direct_call,
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   bb2end = stmt1;
 
-  label2 = build_gimple_label (label_decl2);
+  label2 = gimple_build_label (label_decl2);
   gsi_insert_before (gsi, label2, GSI_SAME_STMT);
   bb3end = stmt;
 
@@ -1268,15 +1268,15 @@ gimple_stringop_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
 
   tmpv = create_tmp_var (optype, "PROF");
   tmp1 = create_tmp_var (optype, "PROF");
-  stmt1 = build_gimple_assign (tmpv, fold_convert (optype, value));
-  stmt2 = build_gimple_assign (tmp1, blck_size);
-  stmt3 = build_gimple_cond (NE_EXPR, tmp1, tmpv, NULL_TREE, NULL_TREE);
+  stmt1 = gimple_build_assign (tmpv, fold_convert (optype, value));
+  stmt2 = gimple_build_assign (tmp1, blck_size);
+  stmt3 = gimple_build_cond (NE_EXPR, tmp1, tmpv, NULL_TREE, NULL_TREE);
   gsi_insert_before (gsi, stmt1, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt2, GSI_SAME_STMT);
   gsi_insert_before (gsi, stmt3, GSI_SAME_STMT);
   bb1end = stmt3;
 
-  label1 = build_gimple_label (label_decl1);
+  label1 = gimple_build_label (label_decl1);
   stmt1 = gimple_copy (stmt);
   gimple_call_set_arg (stmt1, 2, value);
   gsi_insert_before (gsi, label1, GSI_SAME_STMT);
@@ -1290,7 +1290,7 @@ gimple_stringop_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
   gcc_unreachable ();
 #endif
   bb2end = stmt1;
-  label2 = build_gimple_label (label_decl2);
+  label2 = gimple_build_label (label_decl2);
   gsi_insert_before (gsi, label2, GSI_SAME_STMT);
 
   /* Fix CFG. */

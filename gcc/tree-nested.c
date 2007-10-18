@@ -362,7 +362,7 @@ init_tmp_var_with_call (struct nesting_info *info, gimple_stmt_iterator *gsi,
   t = create_tmp_var_for (info, TREE_TYPE (TREE_TYPE (gimple_call_fn (call))),
                           NULL);
   gimple_call_set_lhs (call, t);
-  set_gimple_locus (call, gimple_locus (gsi_stmt (gsi)));
+  gimple_set_locus (call, gimple_locus (gsi_stmt (gsi)));
   gsi_link_before (gsi, call, GSI_SAME_STMT);
 
   return t;
@@ -379,8 +379,8 @@ init_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
   gimple stmt;
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
-  stmt = build_gimple_assign (t, exp);
-  set_gimple_locus (stmt, gimple_locus (gsi_stmt (gsi)));
+  stmt = gimple_build_assign (t, exp);
+  gimple_set_locus (stmt, gimple_locus (gsi_stmt (gsi)));
   gsi_link_before (gsi, stmt, GSI_SAME_STMT);
 
   return t;
@@ -409,8 +409,8 @@ save_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
   gimple stmt;
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
-  stmt = build_gimple_assign (exp, t);
-  set_gimple_locus (stmt, gimple_locus (gsi_stmt (gsi)));
+  stmt = gimple_build_assign (exp, t);
+  gimple_set_locus (stmt, gimple_locus (gsi_stmt (gsi)));
   gsi_link_after (gsi, stmt, GSI_SAME_STMT);
 
   return t;
@@ -1454,7 +1454,7 @@ convert_nl_goto_reference (gimple stmt, void *data)
   x = get_frame_field (info, target_context, field, wi->gsi);
   x = build_addr (x, target_context);
   x = gsi_gimplify_val (info, x, wi->gsi);
-  call = build_gimple_call (implicit_built_in_decls[BUILT_IN_NONLOCAL_GOTO], 2,
+  call = gimple_build_call (implicit_built_in_decls[BUILT_IN_NONLOCAL_GOTO], 2,
 			    build_addr (new_label, target_context), x);
   gsi_replace (wi->gsi, call, false);
 
@@ -1494,12 +1494,12 @@ convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
   gsi_prev (tmp_gsi);
   if (gsi_end_p (tmp_gsi) || gimple_stmt_may_fallthru (gsi_stmt (tmp_gsi)))
     {
-      gimple stmt = build_gimple_goto (label);
+      gimple stmt = gimple_build_goto (label);
       gsi_link_before (wi->gsi, stmt, GSI_SAME_STMT);
     }
 
   new_label = (tree) *slot;
-  stmt = build_gimple_label (new_label);
+  stmt = gimple_build_label (new_label);
   gsi_link_before (wi->gsi, stmt, GSI_SAME_STMT);
 
   return NULL_TREE;
@@ -1556,7 +1556,7 @@ convert_tramp_reference_op (tree *tp, int *walk_subtrees, void *data)
       /* Do machine-specific ugliness.  Normally this will involve
 	 computing extra alignment, but it can really be anything.  */
       builtin = implicit_built_in_decls[BUILT_IN_ADJUST_TRAMPOLINE];
-      call = build_gimple_call (builtin, 1, x);
+      call = gimple_build_call (builtin, 1, x);
       x = init_tmp_var_with_call (info, wi->gsi, call);
 
       /* Cast back to the proper function type.  */
@@ -1761,7 +1761,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 
 	  y = build3 (COMPONENT_REF, TREE_TYPE (field),
 		      root->frame_decl, field, NULL_TREE);
-	  stmt = build_gimple_assign (y, x);
+	  stmt = gimple_build_assign (y, x);
 	  gimple_seq_add (stmt_list, stmt);
 	}
     }
@@ -1772,7 +1772,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
     {
       tree x = build3 (COMPONENT_REF, TREE_TYPE (root->chain_field),
 		       root->frame_decl, root->chain_field, NULL_TREE);
-      stmt = build_gimple_assign (x, get_chain_decl (root));
+      stmt = gimple_build_assign (x, get_chain_decl (root));
       gimple_seq_add (stmt_list, stmt);
     }
 
@@ -1800,7 +1800,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	  arg1 = build_addr (x, context);
 
 	  x = implicit_built_in_decls[BUILT_IN_INIT_TRAMPOLINE];
-	  stmt = build_gimple_call (x, 3, arg1, arg2, arg3);
+	  stmt = gimple_build_call (x, 3, arg1, arg2, arg3);
 	  gimple_seq_add (stmt_list, stmt);
 	}
     }

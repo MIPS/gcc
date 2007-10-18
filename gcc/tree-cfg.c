@@ -211,7 +211,7 @@ static unsigned int
 execute_build_cfg (void)
 {
   build_gimple_cfg (gimple_body (current_function_decl));
-  set_gimple_body (current_function_decl, NULL);
+  gimple_set_body (current_function_decl, NULL);
   return 0;
 }
 
@@ -288,17 +288,17 @@ factor_computed_gotos (void)
 		 factored computed goto.  */
 	      factored_label_decl = create_artificial_label ();
 	      factored_computed_goto_label
-		= build_gimple_label (factored_label_decl);
+		= gimple_build_label (factored_label_decl);
 	      gsi_insert_after (new_gsi, factored_computed_goto_label,
 				GSI_NEW_STMT);
 
 	      /* Build our new computed goto.  */
-	      factored_computed_goto = build_gimple_goto (var);
+	      factored_computed_goto = gimple_build_goto (var);
 	      gsi_insert_after (new_gsi, factored_computed_goto, GSI_NEW_STMT);
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-	  assignment = build_gimple_assign (var, gimple_goto_dest (last));
+	  assignment = gimple_build_assign (var, gimple_goto_dest (last));
 	  gsi_insert_before (gsi, assignment, GSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
@@ -339,7 +339,7 @@ make_blocks (gimple_seq seq)
 
       /* Now add STMT to BB and create the subgraphs for special statement
 	 codes.  */
-      set_gimple_bb (stmt, bb);
+      gimple_set_bb (stmt, bb);
 
       if (computed_goto_p (stmt))
 	found_computed_goto = true;
@@ -791,7 +791,7 @@ label_to_block_fn (struct function *ifun, tree dest)
       gimple_stmt_iterator *gsi = gsi_start_bb (BASIC_BLOCK (NUM_FIXED_BLOCKS));
       gimple stmt;
 
-      stmt = build_gimple_label (dest);
+      stmt = gimple_build_label (dest);
       gsi_insert_before (gsi, stmt, GSI_NEW_STMT);
       uid = LABEL_DECL_UID (dest);
     }
@@ -1339,7 +1339,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	     with ordering of phi nodes.  This is because A is the single
 	     predecessor of B, therefore results of the phi nodes cannot
 	     appear as arguments of the phi nodes.  */
-	  copy = build_gimple_assign (def, use);
+	  copy = gimple_build_assign (def, use);
 	  gsi_insert_after (gsi, copy, GSI_NEW_STMT);
 	  SSA_NAME_DEF_STMT (def) = copy;
           remove_phi_node (phi, false);
@@ -2658,7 +2658,7 @@ last_and_only_stmt (basic_block bb)
 static inline void
 change_bb_for_stmt (gimple t, basic_block bb)
 {
-  set_gimple_bb (t, bb);
+  gimple_set_bb (t, bb);
   if (gimple_code (t) == GIMPLE_LABEL)
     VEC_replace (basic_block, label_to_block_map,
 		 LABEL_DECL_UID (gimple_label_label (t)), bb);

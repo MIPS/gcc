@@ -180,11 +180,11 @@ gimple_alloc_ops (gimple stmt, size_t num_ops)
    for the new tuple.  NUM_OPS is the number of operands to allocate.  */ 
 
 static gimple
-build_gimple_with_ops (enum gimple_code code, enum tree_code subcode,
+gimple_build_with_ops (enum gimple_code code, enum tree_code subcode,
 		       size_t num_ops)
 {
   gimple s = gimple_alloc (code);
-  set_gimple_subcode (s, subcode);
+  gimple_set_subcode (s, subcode);
   if (num_ops > 0)
     gimple_alloc_ops (s, num_ops);
 
@@ -195,26 +195,26 @@ build_gimple_with_ops (enum gimple_code code, enum tree_code subcode,
 /* Build a GIMPLE_RETURN statement returning RETVAL.  */
 
 gimple
-build_gimple_return (tree retval)
+gimple_build_return (tree retval)
 {
   gimple s;
   gcc_assert (retval == NULL_TREE
               || TREE_CODE (retval) == RESULT_DECL
 	      || is_gimple_val (retval));
-  s = build_gimple_with_ops (GIMPLE_RETURN, 0, 1);
+  s = gimple_build_with_ops (GIMPLE_RETURN, 0, 1);
   if (retval)
     gimple_return_set_retval (s, retval);
   return s;
 }
 
-/* Helper for build_gimple_call and build_gimple_call_vec.  Build the basic
+/* Helper for gimple_build_call and gimple_build_call_vec.  Build the basic
    components of a GIMPLE_CALL statement to function FN with NARGS
    arguments.  */
 
 static inline gimple
-build_gimple_call_1 (tree fn, size_t nargs)
+gimple_build_call_1 (tree fn, size_t nargs)
 {
-  gimple s = build_gimple_with_ops (GIMPLE_CALL, 0, nargs + 3);
+  gimple s = gimple_build_with_ops (GIMPLE_CALL, 0, nargs + 3);
   s->with_ops.op[1] = fn;
   return s;
 }
@@ -224,11 +224,11 @@ build_gimple_call_1 (tree fn, size_t nargs)
    specified in vector ARGS.  */
 
 gimple
-build_gimple_call_vec (tree fn, VEC(tree, gc) *args)
+gimple_build_call_vec (tree fn, VEC(tree, gc) *args)
 {
   size_t i;
   size_t nargs = VEC_length (tree, args);
-  gimple call = build_gimple_call_1 (fn, nargs);
+  gimple call = gimple_build_call_1 (fn, nargs);
 
   for (i = 0; i < nargs; i++)
     gimple_call_set_arg (call, i, VEC_index (tree, args, i));
@@ -241,7 +241,7 @@ build_gimple_call_vec (tree fn, VEC(tree, gc) *args)
    arguments.  The ... are the arguments.  */
 
 gimple
-build_gimple_call (tree fn, size_t nargs, ...)
+gimple_build_call (tree fn, size_t nargs, ...)
 {
   va_list ap;
   gimple call;
@@ -249,7 +249,7 @@ build_gimple_call (tree fn, size_t nargs, ...)
 
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL || is_gimple_call_addr (fn));
 
-  call = build_gimple_call_1 (fn, nargs);
+  call = gimple_build_call_1 (fn, nargs);
 
   va_start (ap, nargs);
   for (i = 0; i < nargs; i++)
@@ -301,13 +301,13 @@ extract_ops_from_tree (tree expr, enum tree_code *subcode_p, tree *op1_p,
    RHS of the assignment which can be unary or binary.  */
 
 gimple
-build_gimple_assign (tree lhs, tree rhs)
+gimple_build_assign (tree lhs, tree rhs)
 {
   enum tree_code subcode;
   tree op1, op2;
 
   extract_ops_from_tree (rhs, &subcode, &op1, &op2);
-  return build_gimple_assign_with_ops (subcode, lhs, op1, op2);
+  return gimple_build_assign_with_ops (subcode, lhs, op1, op2);
 }
 
 
@@ -316,7 +316,7 @@ build_gimple_assign (tree lhs, tree rhs)
    GIMPLE_UNARY_RHS or GIMPLE_SINGLE_RHS.  */
 
 gimple
-build_gimple_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
+gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
                               tree op2)
 {
   size_t num_ops;
@@ -326,7 +326,7 @@ build_gimple_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
      code).  */
   num_ops = get_gimple_rhs_num_ops (subcode) + 1;
   
-  p = build_gimple_with_ops (GIMPLE_ASSIGN, subcode, num_ops);
+  p = gimple_build_with_ops (GIMPLE_ASSIGN, subcode, num_ops);
   gimple_assign_set_lhs (p, lhs);
   gimple_assign_set_rhs1 (p, op1);
   if (op2)
@@ -346,13 +346,13 @@ build_gimple_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
    F_LABEL is teh label to jump to otherwise.  */
 
 gimple
-build_gimple_cond (enum tree_code pred_code, tree lhs, tree rhs,
+gimple_build_cond (enum tree_code pred_code, tree lhs, tree rhs,
 		   tree t_label, tree f_label)
 {
   gimple p;
 
   gcc_assert (TREE_CODE_CLASS (pred_code) == tcc_comparison);
-  p = build_gimple_with_ops (GIMPLE_COND, pred_code, 4);
+  p = gimple_build_with_ops (GIMPLE_COND, pred_code, 4);
   gimple_cond_set_lhs (p, lhs);
   gimple_cond_set_rhs (p, rhs);
   gimple_cond_set_true_label (p, t_label);
@@ -364,9 +364,9 @@ build_gimple_cond (enum tree_code pred_code, tree lhs, tree rhs,
 /* Build a GIMPLE_LABEL statement for LABEL.  */
 
 gimple
-build_gimple_label (tree label)
+gimple_build_label (tree label)
 {
-  gimple p = build_gimple_with_ops (GIMPLE_LABEL, 0, 1);
+  gimple p = gimple_build_with_ops (GIMPLE_LABEL, 0, 1);
   gimple_label_set_label (p, label);
   return p;
 }
@@ -374,9 +374,9 @@ build_gimple_label (tree label)
 /* Build a GIMPLE_GOTO statement to label DEST.  */
 
 gimple
-build_gimple_goto (tree dest)
+gimple_build_goto (tree dest)
 {
-  gimple p = build_gimple_with_ops (GIMPLE_GOTO, 0, 1);
+  gimple p = gimple_build_with_ops (GIMPLE_GOTO, 0, 1);
   gimple_goto_set_dest (p, dest);
   return p;
 }
@@ -385,7 +385,7 @@ build_gimple_goto (tree dest)
 /* Build a GIMPLE_NOP statement.  */
 
 gimple 
-build_gimple_nop (void)
+gimple_build_nop (void)
 {
   return gimple_alloc (GIMPLE_NOP);
 }
@@ -396,7 +396,7 @@ build_gimple_nop (void)
    VARS are the variables in BODY.  */
 
 gimple
-build_gimple_bind (tree vars, gimple_seq body)
+gimple_build_bind (tree vars, gimple_seq body)
 {
   gimple p = gimple_alloc (GIMPLE_BIND);
   gimple_bind_set_vars (p, vars);
@@ -414,11 +414,11 @@ build_gimple_bind (tree vars, gimple_seq body)
    */
 
 static inline gimple
-build_gimple_asm_1 (const char *string, size_t ninputs, size_t noutputs, 
+gimple_build_asm_1 (const char *string, size_t ninputs, size_t noutputs, 
                     size_t nclobbers)
 {
   gimple p;
-  p = build_gimple_with_ops (GIMPLE_ASM, 0, ninputs + noutputs + nclobbers);
+  p = gimple_build_with_ops (GIMPLE_ASM, 0, ninputs + noutputs + nclobbers);
 
   p->gimple_asm.ni = ninputs;
   p->gimple_asm.no = noutputs;
@@ -439,12 +439,12 @@ build_gimple_asm_1 (const char *string, size_t ninputs, size_t noutputs,
    CLOBBERS is a vector of the clobbered register parameters.  */
 
 gimple
-build_gimple_asm_vec (const char *string, VEC(tree,gc)* inputs, 
+gimple_build_asm_vec (const char *string, VEC(tree,gc)* inputs, 
                       VEC(tree,gc)* outputs, VEC(tree,gc)* clobbers)
 {
   gimple p;
   size_t i;
-  p = build_gimple_asm_1 (string,
+  p = gimple_build_asm_1 (string,
                           VEC_length (tree, inputs),
                           VEC_length (tree, outputs), 
                           VEC_length (tree, clobbers));
@@ -470,14 +470,14 @@ build_gimple_asm_vec (const char *string, VEC(tree,gc)* inputs,
    ... are trees for each input, output and clobbered register.  */
 
 gimple
-build_gimple_asm (const char *string, size_t ninputs, size_t noutputs, 
+gimple_build_asm (const char *string, size_t ninputs, size_t noutputs, 
 		  size_t nclobbers, ...)
 {
   gimple p;
   size_t i;
   va_list ap;
   
-  p = build_gimple_asm_1(string, ninputs, noutputs, nclobbers);
+  p = gimple_build_asm_1(string, ninputs, noutputs, nclobbers);
   
   va_start (ap, nclobbers);
 
@@ -501,7 +501,7 @@ build_gimple_asm (const char *string, size_t ninputs, size_t noutputs,
   HANDLER is the exception handler.  */
 
 gimple
-build_gimple_catch (tree types, gimple_seq handler)
+gimple_build_catch (tree types, gimple_seq handler)
 {
   gimple p = gimple_alloc (GIMPLE_CATCH);
   gimple_catch_set_types (p, types);
@@ -517,7 +517,7 @@ build_gimple_catch (tree types, gimple_seq handler)
    FAILURE is the filter's failure action.  */
 
 gimple
-build_gimple_eh_filter (tree types, gimple_seq failure)
+gimple_build_eh_filter (tree types, gimple_seq failure)
 {
   gimple p = gimple_alloc (GIMPLE_EH_FILTER);
   gimple_eh_filter_set_types (p, types);
@@ -535,14 +535,14 @@ build_gimple_eh_filter (tree types, gimple_seq failure)
    whether this is a try/catch or a try/finally respectively.  */
 
 gimple
-build_gimple_try (gimple_seq eval, gimple_seq cleanup,
+gimple_build_try (gimple_seq eval, gimple_seq cleanup,
     		  enum gimple_try_kind kind)
 {
   gimple p;
 
   gcc_assert (kind == GIMPLE_TRY_CATCH || kind == GIMPLE_TRY_FINALLY);
   p = gimple_alloc (GIMPLE_TRY);
-  set_gimple_subcode (p, kind);
+  gimple_set_subcode (p, kind);
   if (eval)
     gimple_try_set_eval (p, eval);
   if (cleanup)
@@ -556,7 +556,7 @@ build_gimple_try (gimple_seq eval, gimple_seq cleanup,
    CLEANUP is the cleanup expression.  */
 
 gimple
-build_gimple_wce (gimple_seq cleanup)
+gimple_build_wce (gimple_seq cleanup)
 {
   gimple p = gimple_alloc (GIMPLE_WITH_CLEANUP_EXPR);
   if (cleanup)
@@ -572,7 +572,7 @@ build_gimple_wce (gimple_seq cleanup)
    leave.  */
 
 gimple
-build_gimple_resx (int region)
+gimple_build_resx (int region)
 {
   gimple p = gimple_alloc (GIMPLE_RESX);
   gimple_resx_set_region (p, region);
@@ -586,10 +586,10 @@ build_gimple_resx (int region)
    DEFAULT_LABEL is the default label for the switch statement.  */
 
 static inline gimple 
-build_gimple_switch_1 (size_t nlabels, tree index, tree default_label)
+gimple_build_switch_1 (size_t nlabels, tree index, tree default_label)
 {
   /* nlabels + 1 default label + 1 index.  */
-  gimple p = build_gimple_with_ops (GIMPLE_SWITCH, 0, nlabels + 1 + 1);
+  gimple p = gimple_build_with_ops (GIMPLE_SWITCH, 0, nlabels + 1 + 1);
   gimple_switch_set_index (p, index);
   gimple_switch_set_default_label (p, default_label);
   return p;
@@ -603,13 +603,13 @@ build_gimple_switch_1 (size_t nlabels, tree index, tree default_label)
    ... are the labels excluding the default.  */
 
 gimple 
-build_gimple_switch (size_t nlabels, tree index, tree default_label, ...)
+gimple_build_switch (size_t nlabels, tree index, tree default_label, ...)
 {
   va_list al;
   size_t i;
   gimple p;
   
-  p = build_gimple_switch_1 (nlabels, index, default_label);
+  p = gimple_build_switch_1 (nlabels, index, default_label);
 
   /* Store the rest of the labels.  */
   va_start (al, default_label);
@@ -628,11 +628,11 @@ build_gimple_switch (size_t nlabels, tree index, tree default_label, ...)
    ARGS is a vector of labels excluding the default.  */
 
 gimple
-build_gimple_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
+gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
 {
   size_t i;
   size_t nlabels = VEC_length (tree, args);
-  gimple p = build_gimple_switch_1 (nlabels, index, default_label);
+  gimple p = gimple_build_switch_1 (nlabels, index, default_label);
 
   /*  Put labels in labels[1 - (nlabels + 1)].
      Default label is in labels[0].  */
@@ -649,7 +649,7 @@ build_gimple_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
    NAME is optional identifier for this critical block.  */
 
 gimple 
-build_gimple_omp_critical (gimple_seq body, tree name)
+gimple_build_omp_critical (gimple_seq body, tree name)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_CRITICAL);
   gimple_omp_critical_set_name (p, name);
@@ -672,7 +672,7 @@ build_gimple_omp_critical (gimple_seq body, tree name)
    INCR is the increment expression.  */
 
 gimple
-build_gimple_omp_for (gimple_seq body, tree clauses, tree index, 
+gimple_build_omp_for (gimple_seq body, tree clauses, tree index, 
                       tree initial, tree final, tree incr, 
                       gimple_seq pre_body, enum tree_code omp_for_cond)
 {
@@ -700,7 +700,7 @@ build_gimple_omp_for (gimple_seq body, tree clauses, tree index,
    DATA_ARG are the shared data argument(s).  */
 
 gimple 
-build_gimple_omp_parallel (gimple_seq body, tree clauses, tree child_fn, 
+gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn, 
                        tree data_arg)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_PARALLEL);
@@ -719,7 +719,7 @@ build_gimple_omp_parallel (gimple_seq body, tree clauses, tree child_fn,
    BODY is the sequence of statements in the section.  */
 
 gimple
-build_gimple_omp_section (gimple_seq body)
+gimple_build_omp_section (gimple_seq body)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_SECTION);
   if (body)
@@ -734,7 +734,7 @@ build_gimple_omp_section (gimple_seq body)
    BODY is the sequence of statements to be executed by just the master.  */
 
 gimple 
-build_gimple_omp_master (gimple_seq body)
+gimple_build_omp_master (gimple_seq body)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_MASTER);
   if (body)
@@ -748,7 +748,7 @@ build_gimple_omp_master (gimple_seq body)
    FIXME tuples: BODY.  */
 
 gimple 
-build_gimple_omp_continue (gimple_seq body)
+gimple_build_omp_continue (gimple_seq body)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_CONTINUE);
   if (body)
@@ -763,7 +763,7 @@ build_gimple_omp_continue (gimple_seq body)
    sequence.  */
 
 gimple 
-build_gimple_omp_ordered (gimple_seq body)
+gimple_build_omp_ordered (gimple_seq body)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_ORDERED);
   if (body)
@@ -777,11 +777,11 @@ build_gimple_omp_ordered (gimple_seq body)
    WAIT_P is true if this is a non-waiting return.  */
 
 gimple 
-build_gimple_omp_return (bool wait_p)
+gimple_build_omp_return (bool wait_p)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_RETURN);
   if (wait_p)
-    set_gimple_subcode (p, OMP_RETURN_NOWAIT_FLAG);
+    gimple_set_subcode (p, OMP_RETURN_NOWAIT_FLAG);
 
   return p;
 }
@@ -794,7 +794,7 @@ build_gimple_omp_return (bool wait_p)
    firstprivate, lastprivate, reduction, and nowait.  */
 
 gimple 
-build_gimple_omp_sections (gimple_seq body, tree clauses)
+gimple_build_omp_sections (gimple_seq body, tree clauses)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_SECTIONS);
   if (body)
@@ -812,7 +812,7 @@ build_gimple_omp_sections (gimple_seq body, tree clauses)
    copyprivate, nowait.  */
 
 gimple 
-build_gimple_omp_single (gimple_seq body, tree clauses)
+gimple_build_omp_single (gimple_seq body, tree clauses)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_SINGLE);
   if (body)
@@ -900,8 +900,8 @@ gimple_seq_add (gimple_seq seq, gimple gs)
   else
     {
       /* Otherwise, link GS to the end of SEQ.  */
-      set_gimple_prev (gs, gimple_seq_last (seq));
-      set_gimple_next (gimple_seq_last (seq), gs);
+      gimple_set_prev (gs, gimple_seq_last (seq));
+      gimple_set_next (gimple_seq_last (seq), gs);
       gimple_seq_set_last (seq, gs);
     }
 }
@@ -923,8 +923,8 @@ gimple_seq_append (gimple_seq dst, gimple_seq src)
     gimple_seq_copy (dst, src);
   else
     {
-      set_gimple_next (gimple_seq_last (dst), gimple_seq_first (src));
-      set_gimple_prev (gimple_seq_first (src), gimple_seq_last (dst));
+      gimple_set_next (gimple_seq_last (dst), gimple_seq_first (src));
+      gimple_set_prev (gimple_seq_first (src), gimple_seq_last (dst));
       gimple_seq_set_last (dst, gimple_seq_last (src));
     }
 }
@@ -1260,7 +1260,7 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 /* Set sequence SEQ to be the GIMPLE body for function FN.  */
 
 void
-set_gimple_body (tree fn, gimple_seq seq)
+gimple_set_body (tree fn, gimple_seq seq)
 {
   void **slot;
   size_t index;
@@ -1351,7 +1351,7 @@ gimple_remove (gimple stmt, gimple_seq seq, bool remove_eh_info)
 {
   gimple next, prev;
 
-  set_gimple_bb (stmt, NULL);
+  gimple_set_bb (stmt, NULL);
   delink_stmt_imm_use (stmt);
   mark_stmt_modified (stmt);
   if (remove_eh_info)
@@ -1364,7 +1364,7 @@ gimple_remove (gimple stmt, gimple_seq seq, bool remove_eh_info)
   prev = gimple_prev (stmt);
 
   if (prev)
-    set_gimple_next (prev, next);
+    gimple_set_next (prev, next);
   else
     {
       /* If STMT has no predecessor, it must be the first statement in
@@ -1374,7 +1374,7 @@ gimple_remove (gimple stmt, gimple_seq seq, bool remove_eh_info)
     }
   
   if (next)
-    set_gimple_prev (next, prev);
+    gimple_set_prev (next, prev);
   else
     {
       /* If STMT has no successor, it must be the last statement in
@@ -1385,8 +1385,8 @@ gimple_remove (gimple stmt, gimple_seq seq, bool remove_eh_info)
 
   /* Clear any links this statement may have, just in case someone is
      still using it.  */
-  set_gimple_next (stmt, NULL);
-  set_gimple_prev (stmt, NULL);
+  gimple_set_next (stmt, NULL);
+  gimple_set_prev (stmt, NULL);
 }
 
 
@@ -1403,8 +1403,8 @@ gimple_seq_reverse (gimple_seq seq)
   for (g = first; g; )
     {
       gimple next = gimple_next (g);
-      set_gimple_next (g, gimple_prev (g));
-      set_gimple_prev (g, next);
+      gimple_set_next (g, gimple_prev (g));
+      gimple_set_prev (g, next);
       g = next;
     }
 
@@ -1418,7 +1418,7 @@ gimple_seq_reverse (gimple_seq seq)
 /* Set BB to be the basic block holding G.  */
 
 void
-set_gimple_bb (gimple stmt, basic_block bb)
+gimple_set_bb (gimple stmt, basic_block bb)
 {
   stmt->gsbase.bb = bb;
 
@@ -1542,7 +1542,7 @@ gimple_assign_set_rhs_with_ops (gimple stmt, enum tree_code code, tree op1,
       gimple_assign_set_lhs (stmt, lhs);
     }
 
-  set_gimple_subcode (stmt, code);
+  gimple_set_subcode (stmt, code);
   gimple_assign_set_rhs1 (stmt, op1);
   if (num_ops > 1)
     gimple_assign_set_rhs2 (stmt, op2);

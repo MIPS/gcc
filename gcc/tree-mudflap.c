@@ -470,8 +470,8 @@ mf_decl_cache_locals (void)
 
   /* Build initialization nodes for the cache vars.  We just load the
      globals into the cache variables.  */
-  g = build_gimple_assign (mf_cache_shift_decl_l, mf_cache_shift_decl);
-  set_gimple_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
+  g = gimple_build_assign (mf_cache_shift_decl_l, mf_cache_shift_decl);
+  gimple_set_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
   /* FIXME tuples.  */
 #if 0
   insert_edge_copies (g, ENTRY_BLOCK_PTR);
@@ -479,8 +479,8 @@ mf_decl_cache_locals (void)
   gcc_unreachable ();
 #endif
 
-  g = build_gimple_assign (mf_cache_mask_decl_l, mf_cache_mask_decl);
-  set_gimple_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
+  g = gimple_build_assign (mf_cache_mask_decl_l, mf_cache_mask_decl);
+  gimple_set_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
   /* FIXME tuples.  */
 #if 0
   insert_edge_copies (g, ENTRY_BLOCK_PTR);

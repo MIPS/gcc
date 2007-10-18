@@ -118,7 +118,7 @@ lower_function_body (void)
 
   /* Once the old body has been lowered, replace it with the new
      lowered sequence.  */
-  set_gimple_body (current_function_decl, lowered_body);
+  gimple_set_body (current_function_decl, lowered_body);
 
   i = gsi_last (lowered_body);
 
@@ -130,8 +130,8 @@ lower_function_body (void)
 	  || gimple_return_retval (VEC_last (return_statements_t,
 			           data.return_statements)->stmt) != NULL))
     {
-      x = build_gimple_return (NULL);
-      set_gimple_locus (x, cfun->function_end_locus);
+      x = gimple_build_return (NULL);
+      gimple_set_locus (x, cfun->function_end_locus);
       gsi_link_after (i, x, GSI_CONTINUE_LINKING);
     }
 
@@ -149,13 +149,13 @@ lower_function_body (void)
 	  	    VEC_length (return_statements_t,
 		      		data.return_statements) - 1);
 
-      x = build_gimple_label (t.label);
+      x = gimple_build_label (t.label);
       gsi_link_after (i, x, GSI_CONTINUE_LINKING);
 
       /* Remove the line number from the representative return statement.
 	 It now fills in for many such returns.  Failure to remove this
 	 will result in incorrect results for coverage analysis.  */
-      set_gimple_locus (t.stmt, unknown_location);
+      gimple_set_locus (t.stmt, unknown_location);
       gsi_link_after (i, t.stmt, GSI_CONTINUE_LINKING);
     }
 
@@ -170,7 +170,7 @@ lower_function_body (void)
       /* This mark will create forward edges from every call site.  */
       DECL_NONLOCAL (disp_label) = 1;
       current_function_has_nonlocal_label = 1;
-      x = build_gimple_label (disp_label);
+      x = gimple_build_label (disp_label);
       gsi_link_after (i, x, GSI_CONTINUE_LINKING);
 
       /* Build 'DISP_VAR = __builtin_setjmp_dispatcher (DISP_LABEL);'
@@ -178,12 +178,12 @@ lower_function_body (void)
       disp_var = create_tmp_var (ptr_type_node, "setjmpvar");
       arg = build_addr (disp_label, current_function_decl);
       t = implicit_built_in_decls[BUILT_IN_SETJMP_DISPATCHER];
-      x = build_gimple_call (t, 1, arg);
+      x = gimple_build_call (t, 1, arg);
       gimple_call_set_lhs (x, disp_var);
 
       /* Build 'goto DISP_VAR;' and insert.  */
       gsi_link_after (i, x, GSI_CONTINUE_LINKING);
-      x = build_gimple_goto (disp_var);
+      x = gimple_build_goto (disp_var);
       gsi_link_after (i, x, GSI_CONTINUE_LINKING);
     }
 
@@ -264,7 +264,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
   gimple stmt = gsi_stmt (gsi);
 
-  set_gimple_block (stmt, data->block);
+  gimple_set_block (stmt, data->block);
 
   switch (gimple_code (stmt))
     {
@@ -667,8 +667,8 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
 
   /* Generate a goto statement and remove the return statement.  */
  found:
-  t = build_gimple_goto (tmp_rs.label);
-  set_gimple_locus (t, gimple_locus (stmt));
+  t = gimple_build_goto (tmp_rs.label);
+  gimple_set_locus (t, gimple_locus (stmt));
   gsi_link_before (gsi, t, GSI_SAME_STMT);
   gsi_remove (gsi, false);
 }
@@ -744,45 +744,45 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   /* Build '__builtin_setjmp_setup (BUF, NEXT_LABEL)' and insert.  */
   arg = build_addr (next_label, current_function_decl);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_SETUP];
-  g = build_gimple_call (t, 2, gimple_call_arg (stmt, 0));
-  set_gimple_locus (g, gimple_locus (stmt));
+  g = gimple_build_call (t, 2, gimple_call_arg (stmt, 0));
+  gimple_set_locus (g, gimple_locus (stmt));
   gsi_link_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 0' and insert.  */
   if (dest)
     {
-      g = build_gimple_assign (dest, fold_convert (TREE_TYPE (dest),
+      g = gimple_build_assign (dest, fold_convert (TREE_TYPE (dest),
 						   integer_zero_node));
-      set_gimple_locus (g, gimple_locus (stmt));
+      gimple_set_locus (g, gimple_locus (stmt));
       gsi_link_before (gsi, g, GSI_SAME_STMT);
     }
 
   /* Build 'goto CONT_LABEL' and insert.  */
-  g = build_gimple_goto (cont_label);
+  g = gimple_build_goto (cont_label);
   gsi_link_before (gsi, g, TSI_SAME_STMT);
 
   /* Build 'NEXT_LABEL:' and insert.  */
-  g = build_gimple_label (next_label);
+  g = gimple_build_label (next_label);
   gsi_link_before (gsi, g, GSI_SAME_STMT);
 
   /* Build '__builtin_setjmp_receiver (NEXT_LABEL)' and insert.  */
   arg = build_addr (next_label, current_function_decl);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_RECEIVER];
-  g = build_gimple_call (t, 1, arg);
-  set_gimple_locus (g, gimple_locus (stmt));
+  g = gimple_build_call (t, 1, arg);
+  gimple_set_locus (g, gimple_locus (stmt));
   gsi_link_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 1' and insert.  */
   if (dest)
     {
-      g = build_gimple_assign (dest, fold_convert (TREE_TYPE (dest),
+      g = gimple_build_assign (dest, fold_convert (TREE_TYPE (dest),
 						   integer_one_node));
-      set_gimple_locus (g, gimple_locus (stmt));
+      gimple_set_locus (g, gimple_locus (stmt));
       gsi_link_before (gsi, g, GSI_SAME_STMT);
     }
 
   /* Build 'CONT_LABEL:' and insert.  */
-  g = build_gimple_label (cont_label);
+  g = gimple_build_label (cont_label);
   gsi_link_before (gsi, g, GSI_SAME_STMT);
 
   /* Remove the call to __builtin_setjmp.  */

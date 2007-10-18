@@ -55,6 +55,7 @@ union section;
 typedef union section section;
 struct gimple_sequence;
 typedef struct gimple_sequence *gimple_seq;
+typedef const struct gimple_sequence *const_gimple_seq;
 
 /* The major intermediate representations of GCC.  */
 enum ir_type {

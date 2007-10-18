@@ -1,5 +1,162 @@
 2007-10-17  Diego Novillo  <dnovillo@google.com>
 
+	* coretypes.h (const_gimple_seq): New typedef.
+	* gimple.h (gimple_seq_first): Constify argument.
+	(gimple_seq_last): Likewise.
+	(gimple_seq_copy): Likewise.
+	(gimple_seq_empty_p): Likewise.
+	(gimple_set_prev): Rename from set_gimple_prev.
+	Update all users.
+	(gimple_set_next): Rename from set_gimple_next.
+	Update all users.
+	(gimple_set_flags): Rename from set_gimple_flags.
+	Update all users.
+	(gimple_add_flag): Rename from add_gimple_flag.
+	Update all users.
+	(gimple_set_subcode): Rename from set_gimple_subcode.  
+	Update all users.
+	(gimple_set_block): Rename from set_gimple_block.
+	Update all users.
+	(gimple_set_locus): Rename from set_gimple_locus.
+	Update all users.
+	(gimple_locus_empty_p): Constify argument.
+	(gimple_has_ops): Likewise.
+	(gimple_has_mem_ops): Likewise.
+	(gimple_def_ops): Likewise.
+	(gimple_set_def_ops): Rename from set_gimple_def_ops.
+	Update all users.
+	(gimple_use_ops): Constify argument.
+	(gimple_set_use_ops): Rename from set_gimple_use_ops.
+	Update all users.
+	(gimple_vuse_ops): Constify argument.
+	(gimple_set_vuse_ops): Rename from set_gimple_vuse_ops.
+	Update all users.
+	(gimple_vdef_ops): Constify argument.
+	(gimple_set_vdef_ops): Rename from set_gimple_vdef_ops.
+	Update all users.
+	(gimple_loaded_syms): Constify argument.
+	(gimple_stored_syms): Constify argument.
+	(gimple_modified): Constify argument.
+	(gimple_set_modified): Rename from set_gimple_modified.
+	Update all users.
+	(gimple_omp_return_nowait_p): Constify argument.
+	(gimple_omp_section_last_p): Constify argument.
+	(gimple_omp_parallel_combined_p): Constify argument.
+	(gimple_build_return): Rename from build_gimple_return.
+	Update all users.
+	(gimple_build_assign): Rename from build_gimple_assign.
+	Update all users.
+	(gimple_build_assign_with_ops): Rename from
+	build_gimple_assign_with_ops.
+	Update all users.
+	(gimple_build_call_vec): Rename from build_gimple_call_vec.
+	Update all users.
+	(gimple_build_call): Rename from build_gimple_call.
+	Update all users.
+	(gimple_build_cond): Rename from build_gimple_cond.
+	Update all users.
+	(gimple_build_label): Rename from build_gimple_label.
+	Update all users.
+	(gimple_build_goto): Rename from build_gimple_goto.
+	Update all users.
+	(gimple_build_nop): Rename from build_gimple_nop.
+	Update all users.
+	(gimple_build_asm): Rename from build_gimple_asm.
+	Update all users.
+	(gimple_build_asm_vec): Rename from build_gimple_asm_vec.
+	Update all users.
+	(gimple_build_catch): Rename from build_gimple_catch.
+	Update all users.
+	(gimple_build_eh_filter): Rename from build_gimple_eh_filter.
+	Update all users.
+	(gimple_build_try): Rename from build_gimple_try.
+	Update all users.
+	(gimple_build_wce): Rename from build_gimple_wce.
+	Update all users.
+	(gimple_build_resx): Rename from build_gimple_resx.
+	Update all users.
+	(gimple_build_switch): Rename from build_gimple_switch.
+	Update all users.
+	(gimple_build_switch_vec): Rename from
+	build_gimple_switch_vec.  Update all users.
+	(gimple_build_omp_parallel): Rename from
+	build_gimple_omp_parallel.  Update all users.
+	(gimple_build_omp_for): Rename from build_gimple_omp_for.
+	Update all users.
+	(gimple_build_omp_critical): Rename from
+	build_gimple_omp_critical.
+	Update all users.
+	(gimple_build_omp_section): Rename from
+	build_gimple_omp_section.  Update all users.
+	(gimple_build_omp_continue): Rename from
+	build_gimple_omp_continue.  Update all users.
+	(gimple_build_omp_master): Rename from
+	build_gimple_omp_master.  Update all users.
+	(gimple_build_omp_ordered): Rename from
+	build_gimple_omp_ordered.  Update all users.
+	(gimple_build_omp_sections): Rename from
+	build_gimple_omp_sections.  Update all users.
+	(gimple_build_omp_single): Rename from
+	build_gimple_omp_single.  Update all users.
+	(gimple_set_body): Rename from set_gimple_body.  Update all
+	users.
+	(gimple_set_bb): Rename from set_gimple_bb.  Update all users.
+	(is_gimple_operand): Constify argument.
+	(gimple_ops): Likewise.
+	(gimple_op_ptr): Likewise.
+	(gimple_call_lhs): Likewise.
+	(gimple_call_return_type): Likewise.
+	(gimple_call_chain): Likewise.
+	(gimple_call_arg_ptr): Likewise.
+	(gimple_cond_true_label): Likewise.
+	(gimple_bind_vars): Likewise.
+	(gimple_bind_set_body): Likewise.
+	(gimple_bind_block): Likewise.
+	(gimple_asm_ninputs): Likewise.
+	(gimple_asm_noutputs): Likewise.
+	(gimple_asm_nclobbers): Likewise.
+	(gimple_asm_input_op): Likewise.
+	(gimple_asm_output_op): Likewise.
+	(gimple_asm_clobber_op): Likewise.
+	(gimple_asm_string): Likewise.
+	(gimple_asm_volatile_p): Likewise.
+	(gimple_catch_types): Likewise.
+	(gimple_catch_handler): Likewise.
+	(gimple_eh_filter_types): Likewise.
+	(gimple_eh_filter_failure): Likewise.
+	(gimple_try_kind): Likewise.
+	(gimple_try_set_eval): Likewise.
+	(gimple_try_set_cleanup): Likewise.
+	(gimple_wce_set_cleanup): Likewise.
+	(gimple_wce_cleanup_eh_only): Likewise.
+	(gimple_phi_capacity): Likewise.
+	(gimple_phi_num_args): Likewise.
+	(gimple_phi_result): Likewise.
+	(gimple_resx_region): Likewise.
+	(gimple_switch_num_labels): Likewise.
+	(gimple_switch_label): Likewise.
+	(gimple_switch_default_label): Likewise.
+	(gimple_omp_set_body): Likewise.
+	(gimple_omp_critical_name): Likewise.
+	(gimple_omp_for_clauses): Likewise.
+	(gimple_omp_for_index): Likewise.
+	(gimple_omp_for_initial): Likewise.
+	(gimple_omp_for_final): Likewise.
+	(gimple_omp_for_incr): Likewise.
+	(gimple_omp_for_set_pre_body): Likewise.
+	(gimple_omp_parallel_clauses): Likewise.
+	(gimple_omp_parallel_child_fn): Likewise.
+	(gimple_omp_parallel_data_arg): Likewise.
+	(gimple_omp_single_clauses): Likewise.
+	(gimple_omp_sections_clauses): Likewise.
+	(gimple_omp_for_cond): Likewise.
+	(gimple_return_retval): Likewise.
+	(is_gimple_omp): Likewise.
+	(gimple_nop_p): Likewise.
+	(gimple_expr_type): Likewise.
+
+2007-10-17  Diego Novillo  <dnovillo@google.com>
+
 	* tree-ssa-loop-manip.c (gimple_duplicate_loop_to_header_edge): Rename
 	from tree_duplicate_loop_to_header_edge.
 	Update all users.

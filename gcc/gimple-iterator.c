@@ -55,19 +55,19 @@ gsi_link_seq_before (gimple_stmt_iterator *i,
   /* Link it into the sequence.  */
   if (cur)
     {
-      set_gimple_prev (head, gimple_prev (cur));
+      gimple_set_prev (head, gimple_prev (cur));
       if (gimple_prev (head))
-	set_gimple_next (gimple_prev (head), head);
+	gimple_set_next (gimple_prev (head), head);
       else
 	gimple_seq_set_first (i->seq, head);
-      set_gimple_next (tail, cur);
-      set_gimple_prev (cur, tail);
+      gimple_set_next (tail, cur);
+      gimple_set_prev (cur, tail);
     }
   else
     {
-      set_gimple_prev (head, gimple_seq_last (i->seq));
+      gimple_set_prev (head, gimple_seq_last (i->seq));
       if (gimple_prev (head))
-	set_gimple_next (gimple_prev (head), head);
+	gimple_set_next (gimple_prev (head), head);
       else
 	gimple_seq_set_first (i->seq, head);
       gimple_seq_set_last (i->seq, tail);
@@ -131,13 +131,13 @@ gsi_link_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
   /* Link it into the list.  */
   if (cur)
     {
-      set_gimple_next (tail, gimple_next (cur));
+      gimple_set_next (tail, gimple_next (cur));
       if (gimple_next (tail))
-	set_gimple_prev (gimple_next (tail), tail);
+	gimple_set_prev (gimple_next (tail), tail);
       else
 	gimple_seq_set_last (i->seq, tail);
-      set_gimple_prev (head, cur);
-      set_gimple_next (cur, head);
+      gimple_set_prev (head, cur);
+      gimple_set_next (cur, head);
     }
   else
     {
@@ -192,11 +192,11 @@ gsi_delink (gimple_stmt_iterator *i)
   prev = gimple_prev (cur);
 
   if (prev)
-    set_gimple_next (prev, next);
+    gimple_set_next (prev, next);
   else
     gimple_seq_set_first (i->seq, next);
   if (next)
-    set_gimple_prev (next, prev);
+    gimple_set_prev (next, prev);
   else
     gimple_seq_set_last (i->seq, prev);
 
@@ -223,8 +223,8 @@ gsi_split_seq_after (const gimple_stmt_iterator *i)
   gimple_seq_set_first (new_seq, next);
   gimple_seq_set_last (new_seq, gimple_seq_last (old_seq));
   gimple_seq_set_last (old_seq, cur);
-  set_gimple_next (cur, NULL);
-  set_gimple_prev (next, NULL);
+  gimple_set_next (cur, NULL);
+  gimple_set_prev (next, NULL);
 
   return new_seq;
 }
@@ -251,9 +251,9 @@ gsi_split_seq_before (gimple_stmt_iterator *i)
   gimple_seq_set_first (new_seq, cur);
   gimple_seq_set_last (new_seq, gimple_seq_last (old_seq));
   gimple_seq_set_last (old_seq, prev);
-  set_gimple_prev (cur, NULL);
+  gimple_set_prev (cur, NULL);
   if (prev)
-    set_gimple_next (prev, NULL);
+    gimple_set_next (prev, NULL);
   else
     gimple_seq_set_first (old_seq, NULL);
 
@@ -276,7 +276,7 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
   if (stmt == orig_stmt)
     return;
 
-  set_gimple_locus (stmt, gimple_locus (orig_stmt));
+  gimple_set_locus (stmt, gimple_locus (orig_stmt));
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
   gsi_remove (gsi, update_eh_info);
   gsi->stmt = stmt;
@@ -330,7 +330,7 @@ void
 gsi_insert_before (gimple_stmt_iterator *i, gimple stmt,
 		   enum gsi_iterator_update m)
 {
-  set_gimple_bb (stmt, i->bb);
+  gimple_set_bb (stmt, i->bb);
   update_modified_stmt (stmt);
   gsi_link_before (i, stmt, m);
 }
@@ -358,7 +358,7 @@ void
 gsi_insert_after (gimple_stmt_iterator *i, gimple stmt,
 		  enum gsi_iterator_update m)
 {
-  set_gimple_bb (stmt, i->bb);
+  gimple_set_bb (stmt, i->bb);
   update_modified_stmt (stmt);
   gsi_link_after (i, stmt, m);
 }

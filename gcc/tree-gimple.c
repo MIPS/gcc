@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
    operand.  */
 
 bool
-is_gimple_operand (tree op)
+is_gimple_operand (const_tree op)
 {
   return op && get_gimple_rhs_class (TREE_CODE (op)) == GIMPLE_SINGLE_RHS;
 }
