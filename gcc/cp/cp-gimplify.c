@@ -108,57 +108,39 @@ build_bc_goto (enum bc_t bc)
 
 /* Genericize a TRY_BLOCK.  */
 
-/* FIXME tuples */
-#if 0
 static void
 genericize_try_block (tree *stmt_p)
 {
   tree body = TRY_STMTS (*stmt_p);
   tree cleanup = TRY_HANDLERS (*stmt_p);
 
-  gimplify_stmt (&body);
-
-  if (CLEANUP_P (*stmt_p))
-    /* A cleanup is an expression, so it doesn't need to be genericized.  */;
-  else
-    gimplify_stmt (&cleanup);
-
   *stmt_p = build2 (TRY_CATCH_EXPR, void_type_node, body, cleanup);
 }
-#endif
 
 /* Genericize a HANDLER by converting to a CATCH_EXPR.  */
 
-/* FIXME tuples */
-#if 0
 static void
 genericize_catch_block (tree *stmt_p)
 {
   tree type = HANDLER_TYPE (*stmt_p);
   tree body = HANDLER_BODY (*stmt_p);
 
-  gimplify_stmt (&body);
-
   /* FIXME should the caught type go in TREE_TYPE?  */
   *stmt_p = build2 (CATCH_EXPR, void_type_node, type, body);
 }
-#endif
 
 /* Genericize an EH_SPEC_BLOCK by converting it to a
    TRY_CATCH_EXPR/EH_FILTER_EXPR pair.  */
 
-#if 0
 static void
 genericize_eh_spec_block (tree *stmt_p)
 {
   tree body = EH_SPEC_STMTS (*stmt_p);
   tree allowed = EH_SPEC_RAISES (*stmt_p);
   tree failure = build_call_n (call_unexpected_node, 1, build_exc_ptr ());
-  gimplify_stmt (&body);
 
-  *stmt_p = gimple_build_eh_filter_tree (body, allowed, failure);
+  *stmt_p = build_gimple_eh_filter_tree (body, allowed, failure);
 }
-#endif
 
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
@@ -527,23 +509,17 @@ cp_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
       break;
 
     case TRY_BLOCK:
-      /* FIXME tuples
       genericize_try_block (expr_p);
-      */
       ret = GS_OK;
       break;
 
     case HANDLER:
-      /* FIXME tuples
       genericize_catch_block (expr_p);
-      */
       ret = GS_OK;
       break;
 
     case EH_SPEC_BLOCK:
-      /* FIXME tuples
       genericize_eh_spec_block (expr_p);
-      */
       ret = GS_OK;
       break;
 

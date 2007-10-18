@@ -1,3 +1,12 @@
+2007-10-18  Aldy Hernandez  <aldy@quesejoda.com>
+
+	* cp-gimplify.c (genericize_try_block): Enable and do not call
+	gimplify_stmt.
+	(genericize_catch_block): Same.
+	(genericize_eh_spec_block): Same.
+	Rename gimple_build_eh_filter_tree to build_gimple_eh_filter_tree.
+	(cp_gimplify_expr): Enable TRY_BLOCK, HANDLER, and EH_SPEC_BLOCK.
+
 2007-10-16  Aldy Hernandez  <aldy@quesejoda.com>
 
 	* optimize.c (maybe_clone_body): Comment out call to clone_body.
