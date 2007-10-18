@@ -595,7 +595,7 @@ rewrite_reciprocal (block_stmt_iterator *bsi)
 		build_real (TREE_TYPE (rhs), dconst1),
 		TREE_OPERAND (rhs, 1));
   stmt1 = build_gimple_modify_stmt (var, tmp);
-  name = make_ssa_name (var, stmt1);
+  name = make_ssa_name (cfun, var, stmt1);
   GIMPLE_STMT_OPERAND (stmt1, 0) = name;
   tmp = build2 (MULT_EXPR, TREE_TYPE (rhs),
 		name, TREE_OPERAND (rhs, 0));
@@ -675,13 +675,13 @@ rewrite_bittest (block_stmt_iterator *bsi)
       t = fold_build2 (LSHIFT_EXPR, TREE_TYPE (a),
 		       build_int_cst (TREE_TYPE (a), 1), b);
       stmt1 = build_gimple_modify_stmt (var, t);
-      name = make_ssa_name (var, stmt1);
+      name = make_ssa_name (cfun, var, stmt1);
       GIMPLE_STMT_OPERAND (stmt1, 0) = name;
 
       /* A & (1 << B) */
       t = fold_build2 (BIT_AND_EXPR, TREE_TYPE (a), a, name);
       stmt2 = build_gimple_modify_stmt (var, t);
-      name = make_ssa_name (var, stmt2);
+      name = make_ssa_name (cfun, var, stmt2);
       GIMPLE_STMT_OPERAND (stmt2, 0) = name;
       SET_USE (use, name);
 

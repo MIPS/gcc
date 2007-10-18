@@ -458,7 +458,7 @@ get_component_ssa_name (tree ssa_name, bool imag_p)
   if (ret == NULL)
     {
       ret = get_component_var (SSA_NAME_VAR (ssa_name), imag_p);
-      ret = make_ssa_name (ret, NULL);
+      ret = make_ssa_name (cfun, ret, NULL);
 
       /* Copy some properties from the original.  In particular, whether it
 	 is used in an abnormal phi, and whether it's uninitialized.  */

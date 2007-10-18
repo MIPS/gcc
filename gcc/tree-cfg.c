@@ -4650,7 +4650,7 @@ tree_make_forwarder_block (edge fallthru)
       var = PHI_RESULT (phi);
       new_phi = create_phi_node (var, bb);
       SSA_NAME_DEF_STMT (var) = new_phi;
-      SET_PHI_RESULT (phi, make_ssa_name (SSA_NAME_VAR (var), phi));
+      SET_PHI_RESULT (phi, make_ssa_name (cfun, SSA_NAME_VAR (var), phi));
       add_phi_arg (new_phi, PHI_RESULT (phi), fallthru);
     }
 
@@ -5499,7 +5499,7 @@ replace_ssa_name (tree name, struct pointer_map_t *vars_map,
       if (gimple_in_ssa_p (cfun))
 	add_referenced_var (decl);
 
-      new_name = make_ssa_name (decl, SSA_NAME_DEF_STMT (name));
+      new_name = make_ssa_name (cfun, decl, SSA_NAME_DEF_STMT (name));
       if (SSA_NAME_IS_DEFAULT_DEF (name))
 	set_default_def (decl, new_name);
       pop_cfun ();

@@ -2226,9 +2226,9 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 	  tmp_var = create_tmp_var (TREE_TYPE (val), NULL);
 	  if (gimple_in_ssa_p (cfun))
 	    {
-	      tmp_then = make_ssa_name (tmp_var, NULL_TREE);
-	      tmp_else = make_ssa_name (tmp_var, NULL_TREE);
-	      tmp_join = make_ssa_name (tmp_var, NULL_TREE);
+	      tmp_then = make_ssa_name (cfun, tmp_var, NULL_TREE);
+	      tmp_else = make_ssa_name (cfun, tmp_var, NULL_TREE);
+	      tmp_join = make_ssa_name (cfun, tmp_var, NULL_TREE);
 	    }
 	  else
 	    {
@@ -2535,7 +2535,7 @@ expand_omp_parallel (struct omp_region *region)
 		 definition of the argument.  That should not be defined now,
 		 since the argument is not used uninitialized.  */
 	      gcc_assert (gimple_default_def (cfun, arg) == NULL);
-	      narg = make_ssa_name (arg, build_empty_stmt ());
+	      narg = make_ssa_name (cfun, arg, build_empty_stmt ());
 	      set_default_def (arg, narg);
 	      GIMPLE_STMT_OPERAND (parcopy_stmt, 1) = narg;
 	      update_stmt (parcopy_stmt);
@@ -3097,9 +3097,9 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   if (gimple_in_ssa_p (cfun))
     {
       add_referenced_var (trip_var);
-      trip_init = make_ssa_name (trip_var, NULL_TREE);
-      trip_main = make_ssa_name (trip_var, NULL_TREE);
-      trip_back = make_ssa_name (trip_var, NULL_TREE);
+      trip_init = make_ssa_name (cfun, trip_var, NULL_TREE);
+      trip_main = make_ssa_name (cfun, trip_var, NULL_TREE);
+      trip_back = make_ssa_name (cfun, trip_var, NULL_TREE);
     }
   else
     {

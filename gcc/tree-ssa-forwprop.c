@@ -1152,7 +1152,7 @@ phiprop_insert_phi (basic_block bb, tree phi, tree use_stmt,
 	      || TREE_CODE (TREE_TYPE (old_arg)) == VECTOR_TYPE)
 	    DECL_GIMPLE_REG_P (new_var) = 1;
 	  add_referenced_var (new_var);
-	  new_var = make_ssa_name (new_var, tmp);
+	  new_var = make_ssa_name (cfun, new_var, tmp);
 	  GIMPLE_STMT_OPERAND (tmp, 0) = new_var;
 
 	  bsi_insert_on_edge (e, tmp);

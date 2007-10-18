@@ -213,7 +213,7 @@ take_address_of (tree var, tree type, struct loop *loop, htab_t decl_address)
       stmt = build_gimple_modify_stmt (bvar,
 		     fold_convert (type,
 				   build_addr (var, current_function_decl)));
-      name = make_ssa_name (bvar, stmt);
+      name = make_ssa_name (cfun, bvar, stmt);
       GIMPLE_STMT_OPERAND (stmt, 0) = name;
       bsi_insert_on_edge_immediate (entry, stmt);
 
@@ -232,7 +232,7 @@ take_address_of (tree var, tree type, struct loop *loop, htab_t decl_address)
   bvar = SSA_NAME_VAR (name);
   stmt = build_gimple_modify_stmt (bvar,
 		 fold_convert (type, name));
-  name = make_ssa_name (bvar, stmt);
+  name = make_ssa_name (cfun, bvar, stmt);
   GIMPLE_STMT_OPERAND (stmt, 0) = name;
   bsi_insert_on_edge_immediate (entry, stmt);
 
@@ -604,7 +604,7 @@ separate_decls_in_loop (struct loop *loop, tree *arg_struct,
       add_referenced_var (*arg_struct);
       nvar = create_tmp_var (build_pointer_type (type), ".paral_data_load");
       add_referenced_var (nvar);
-      *new_arg_struct = make_ssa_name (nvar, NULL_TREE);
+      *new_arg_struct = make_ssa_name (cfun, nvar, NULL_TREE);
 
       clsn_data.store = *arg_struct;
       clsn_data.load = *new_arg_struct;
@@ -799,7 +799,7 @@ transform_to_exit_first_loop (struct loop *loop, tree nit)
   for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     {
       res = PHI_RESULT (phi);
-      t = make_ssa_name (SSA_NAME_VAR (res), phi);
+      t = make_ssa_name (cfun, SSA_NAME_VAR (res), phi);
       SET_PHI_RESULT (phi, t);
 
       nphi = create_phi_node (res, orig_header);
@@ -883,7 +883,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
     {
       bsi = bsi_after_labels (bb);
 
-      param = make_ssa_name (DECL_ARGUMENTS (loop_fn), NULL_TREE);
+      param = make_ssa_name (cfun, DECL_ARGUMENTS (loop_fn), NULL_TREE);
       t = build_gimple_modify_stmt (param, build_fold_addr_expr (data));
       bsi_insert_before (&bsi, t, BSI_SAME_STMT);
       SSA_NAME_DEF_STMT (param) = t;
@@ -907,7 +907,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   cvar_base = SSA_NAME_VAR (cvar);
   phi = SSA_NAME_DEF_STMT (cvar);
   cvar_init = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
-  initvar = make_ssa_name (cvar_base, NULL_TREE);
+  initvar = make_ssa_name (cfun, cvar_base, NULL_TREE);
   SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, loop_preheader_edge (loop)),
 	   initvar);
   cvar_next = PHI_ARG_DEF_FROM_EDGE (phi, loop_latch_edge (loop));

@@ -1020,7 +1020,7 @@ ifc_temp_var (tree type, tree exp)
 
   /* Get SSA name for the new variable and set make new statement
      its definition statement.  */
-  new_name = make_ssa_name (var, stmt);
+  new_name = make_ssa_name (cfun, var, stmt);
   GIMPLE_STMT_OPERAND (stmt, 0) = new_name;
   SSA_NAME_DEF_STMT (new_name) = stmt;
 

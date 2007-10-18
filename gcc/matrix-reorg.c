@@ -1777,7 +1777,7 @@ transform_access_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 				   TREE_TYPE (GIMPLE_STMT_OPERAND
 					      (acc_info->stmt, 0)), tmp,
 				   conv);
-		    tmp = make_ssa_name (tmp, stmts);
+		    tmp = make_ssa_name (cfun, tmp, stmts);
 		    GIMPLE_STMT_OPERAND (stmts, 0) = tmp;
 		    bsi = bsi_for_stmt (acc_info->stmt);
 		    bsi_insert_after (&bsi, stmts, BSI_SAME_STMT);

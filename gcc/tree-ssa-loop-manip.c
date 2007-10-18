@@ -63,10 +63,10 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
       add_referenced_var (var);
     }
 
-  vb = make_ssa_name (var, NULL_TREE);
+  vb = make_ssa_name (cfun, var, NULL_TREE);
   if (var_before)
     *var_before = vb;
-  va = make_ssa_name (var, NULL_TREE);
+  va = make_ssa_name (cfun, var, NULL_TREE);
   if (var_after)
     *var_after = va;
 
@@ -980,7 +980,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 	  add_referenced_var (var);
 	}
 
-      new_init = make_ssa_name (var, NULL_TREE);
+      new_init = make_ssa_name (cfun, var, NULL_TREE);
       phi_rest = create_phi_node (new_init, rest);
       SSA_NAME_DEF_STMT (new_init) = phi_rest;
 

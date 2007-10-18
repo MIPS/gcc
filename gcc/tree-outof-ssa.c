@@ -1255,7 +1255,7 @@ insert_backedge_copies (void)
 		     PHI result.  */
 		  stmt = build_gimple_modify_stmt (NULL_TREE,
 						   PHI_ARG_DEF (phi, i));
-		  name = make_ssa_name (result_var, stmt);
+		  name = make_ssa_name (cfun, result_var, stmt);
 		  GIMPLE_STMT_OPERAND (stmt, 0) = name;
 
 		  /* Insert the new statement into the block and update

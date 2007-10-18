@@ -3891,7 +3891,7 @@ extern void phinodes_print_statistics (void);
 
 extern void init_ssanames (struct function *, int);
 extern void fini_ssanames (void);
-extern tree make_ssa_name (tree, tree);
+extern tree make_ssa_name (struct function *, tree, tree);
 extern tree duplicate_ssa_name (tree, tree);
 extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern void release_ssa_name (tree);

@@ -1787,7 +1787,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       inc_stmt = build2 (PLUS_EXPR, type, 
 			 ivvar, build_int_cst (type, LL_STEP (newloop)));
       inc_stmt = build_gimple_modify_stmt (SSA_NAME_VAR (ivvar), inc_stmt);
-      ivvarinced = make_ssa_name (SSA_NAME_VAR (ivvar), inc_stmt);
+      ivvarinced = make_ssa_name (cfun, SSA_NAME_VAR (ivvar), inc_stmt);
       GIMPLE_STMT_OPERAND (inc_stmt, 0) = ivvarinced;
       bsi = bsi_for_stmt (exitcond);
       bsi_insert_before (&bsi, inc_stmt, BSI_SAME_STMT);
@@ -2084,7 +2084,7 @@ replace_uses_equiv_to_x_with_y (struct loop *loop, tree stmt, tree x,
       val = force_gimple_operand_bsi (firstbsi, val, false, NULL,
 				      true, BSI_SAME_STMT);
       setstmt = build_gimple_modify_stmt (var, val);
-      var = make_ssa_name (var, setstmt);
+      var = make_ssa_name (cfun, var, setstmt);
       GIMPLE_STMT_OPERAND (setstmt, 0) = var;
       bsi_insert_before (firstbsi, setstmt, BSI_SAME_STMT);
       update_stmt (setstmt);
@@ -2432,7 +2432,7 @@ perfect_nestify (struct loop *loop,
   uboundvar = create_tmp_var (integer_type_node, "uboundvar");
   add_referenced_var (uboundvar);
   stmt = build_gimple_modify_stmt (uboundvar, VEC_index (tree, ubounds, 0));
-  uboundvar = make_ssa_name (uboundvar, stmt);
+  uboundvar = make_ssa_name (cfun, uboundvar, stmt);
   GIMPLE_STMT_OPERAND (stmt, 0) = uboundvar;
 
   if (insert_after)

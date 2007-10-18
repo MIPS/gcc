@@ -184,7 +184,7 @@ remap_ssa_name (tree name, copy_body_data *id)
       && (TREE_CODE (SSA_NAME_VAR (name)) != RESULT_DECL
 	  || !id->transform_return_to_modify))
     {
-      new = make_ssa_name (new, NULL);
+      new = make_ssa_name (cfun, new, NULL);
       insert_decl_map (id, name, new);
       if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (name)))
 	{

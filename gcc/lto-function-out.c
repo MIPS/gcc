@@ -193,7 +193,6 @@ struct char_ptr_base
   char *ptr;
 };
 
-
 /* An incore byte stream to buffer the various parts of the
 function. The entire structure should be zeroed when created.  The
 record consists of a set of blocks.  The first sizeof (ptr) bytes are
@@ -1583,8 +1582,14 @@ output_local_vars (struct output_block *ob)
       output_type_ref (ob, TREE_TYPE (decl));
 
       if (!is_var)
-	output_type_ref (ob, DECL_ARG_TYPE (decl));
-      
+	{
+	  output_type_ref (ob, DECL_ARG_TYPE (decl));
+	  if (TREE_CHAIN (decl))
+	    output_expr_operand (ob, TREE_CHAIN (decl));
+	  else
+	    output_uleb128 (ob, 0);
+	}
+
       output_tree_flags (ob, 0, decl);
       LTO_DEBUG_TOKEN ("align");
       output_uleb128 (ob, DECL_ALIGN (decl));

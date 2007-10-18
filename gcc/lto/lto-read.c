@@ -580,8 +580,6 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case SSA_NAME:
       result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
-      /* We should not get an SSA_NAME that has been freed.  */
-      gcc_assert (result);
       break;
 
     case CONST_DECL:
@@ -1045,7 +1043,14 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
   data_in->local_decls[i] = result;
   
   if (!is_var)
-    DECL_ARG_TYPE (result) = get_type_ref (data_in, ib);
+    {
+      DECL_ARG_TYPE (result) = get_type_ref (data_in, ib);
+      tag = input_record_start (ib);
+      if (tag)
+	TREE_CHAIN (result) = input_expr_operand (ib, data_in, fn, tag);
+      else 
+	TREE_CHAIN (result) = NULL_TREE;
+    }
   
   LTO_DEBUG_TOKEN ("flags");
   flags = input_uleb128 (ib);
@@ -1307,7 +1312,7 @@ input_ssa_names (struct data_in *data_in, struct input_block *ib, struct functio
 	VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
 
       name = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-      ssa_name = make_ssa_name (name, build_empty_stmt ());
+      ssa_name = make_ssa_name (fn, name, build_empty_stmt ());
 
       LTO_DEBUG_TOKEN ("flags");
       flags = input_uleb128 (ib);
@@ -1384,9 +1389,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
   tag = input_record_start (ib);
   if (tag)
-    DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, data_in, fn, tag);
-  else
-    DECL_ARGUMENTS (fn_decl) = NULL;
+    DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, data_in, fn, tag); 
 
   tag = input_record_start (ib);
   while (tag)

@@ -3769,7 +3769,7 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
       /* If we've somehow already got an SSA_NAME on the LHS, then
 	 we're probably modified it twice.  Not good.  */
       gcc_assert (TREE_CODE (*to_p) != SSA_NAME);
-      *to_p = make_ssa_name (*to_p, *expr_p);
+      *to_p = make_ssa_name (cfun, *to_p, *expr_p);
     }
 
   /* Try to alleviate the effects of the gimplification creating artificial

@@ -711,7 +711,7 @@ vect_pattern_recog_1 (
   pattern_type = TREE_TYPE (pattern_expr);
   var = create_tmp_var (pattern_type, "patt");
   add_referenced_var (var);
-  var_name = make_ssa_name (var, NULL_TREE);
+  var_name = make_ssa_name (cfun, var, NULL_TREE);
   pattern_expr = build_gimple_modify_stmt (var_name, pattern_expr);
   SSA_NAME_DEF_STMT (var_name) = pattern_expr;
   bsi_insert_before (&si, pattern_expr, BSI_SAME_STMT);

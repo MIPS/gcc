@@ -1067,7 +1067,7 @@ get_default_def_for (tree sym)
 
   if (ddef == NULL_TREE)
     {
-      ddef = make_ssa_name (sym, build_empty_stmt ());
+      ddef = make_ssa_name (cfun, sym, build_empty_stmt ());
       set_default_def (sym, ddef);
     }
 
@@ -1380,7 +1380,7 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       {
 	tree var = DEF_FROM_PTR (def_p);
 	gcc_assert (DECL_P (var));
-	SET_DEF (def_p, make_ssa_name (var, stmt));
+	SET_DEF (def_p, make_ssa_name (cfun, var, stmt));
 	register_new_def (DEF_FROM_PTR (def_p), var);
       }
 }
@@ -1905,7 +1905,7 @@ maybe_register_def (def_operand_p def_p, tree stmt)
     {
       if (DECL_P (def))
 	{
-	  def = make_ssa_name (def, stmt);
+	  def = make_ssa_name (cfun, def, stmt);
 	  SET_DEF (def_p, def);
 	}
 

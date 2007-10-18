@@ -220,7 +220,7 @@ make_phi_node (tree var, int len)
   if (TREE_CODE (var) == SSA_NAME)
     SET_PHI_RESULT (phi, var);
   else
-    SET_PHI_RESULT (phi, make_ssa_name (var, phi));
+    SET_PHI_RESULT (phi, make_ssa_name (cfun, var, phi));
 
   for (i = 0; i < capacity; i++)
     {

@@ -568,7 +568,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 	      tmp = create_tmp_var (ret_type, "acc_tmp");
 	      add_referenced_var (tmp);
 
-	      var = make_ssa_name (tmp, stmt);
+	      var = make_ssa_name (cfun, tmp, stmt);
 	      GIMPLE_STMT_OPERAND (stmt, 0) = var;
 	      bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
 	    }
@@ -578,7 +578,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
 
       stmt = build_gimple_modify_stmt (NULL_TREE, build2 (PLUS_EXPR, ret_type,
 							  a_acc, var));
-      var = make_ssa_name (SSA_NAME_VAR (a_acc), stmt);
+      var = make_ssa_name (cfun, SSA_NAME_VAR (a_acc), stmt);
       GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       a_acc_arg = var;
@@ -589,7 +589,7 @@ adjust_accumulator_values (block_stmt_iterator bsi, tree m, tree a, edge back)
       stmt = build_gimple_modify_stmt (NULL_TREE,
 				       build2 (MULT_EXPR, ret_type,
 					       m_acc, m));
-      var = make_ssa_name (SSA_NAME_VAR (m_acc), stmt);
+      var = make_ssa_name (cfun, SSA_NAME_VAR (m_acc), stmt);
       GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       m_acc_arg = var;
@@ -648,7 +648,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
       tmp = create_tmp_var (ret_type, "acc_tmp");
       add_referenced_var (tmp);
 
-      var = make_ssa_name (tmp, stmt);
+      var = make_ssa_name (cfun, tmp, stmt);
       GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
@@ -664,7 +664,7 @@ adjust_return_value (basic_block bb, tree m, tree a)
       tmp = create_tmp_var (ret_type, "acc_tmp");
       add_referenced_var (tmp);
 
-      var = make_ssa_name (tmp, stmt);
+      var = make_ssa_name (cfun, tmp, stmt);
       GIMPLE_STMT_OPERAND (stmt, 0) = var;
       bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
     }
@@ -917,7 +917,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	    if (arg_needs_copy_p (param))
 	      {
 		tree name = gimple_default_def (cfun, param);
-		tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
+		tree new_name = make_ssa_name (cfun, param, SSA_NAME_DEF_STMT (name));
 		tree phi;
 
 		set_default_def (param, new_name);

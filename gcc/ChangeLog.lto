@@ -1,3 +1,50 @@
+2007-10-18  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-into-ssa.c (get_default_def_for, rewrite_stmt,
+	maybe_register_def): Add cfun parameter to make_ssa_name.
+	* tree-ssa-loop-im.c (rewrite_reciprocal, rewrite_bittest): Ditto.
+	* tree-complex.c (get_component_ssa_name): Ditto.
+	* tree-ssa-loop-manip.c (create_iv, tree_transform_and_unroll_loop): Ditto.
+	* tree-tailcall.c (adjust_accumulator_values,
+	adjust_return_value, tree_optimize_tail_calls_1): Ditto.
+	* tree.h (extern void phinodes_print_statistics): Ditto.
+	* tree-phinodes.c (make_phi_node): Ditto.
+	* omp-low.c (expand_parallel_call, expand_omp_parallel,
+	expand_omp_for_static_chunk): Ditto.
+	* tree-parloops.c (take_address_of, separate_decls_in_loop,
+	transform_to_exit_first_loop, create_parallel_loop): Ditto.
+	* matrix-reorg.c (transform_access_sites): Ditto.
+	* tree-if-conv.c (ifc_temp_var): Ditto.
+	* gimplify.c (gimplify_modify_expr): Ditto.
+	* tree-ssa-phiopt.c (conditional_replacement, abs_replacement,
+	cond_store_replacement): Ditto.
+	* tree-ssa-pre.c (create_expression_by_pieces, insert_fake_stores): Ditto.
+	* tree-predcom.c (initialize_root_vars,
+	* initialize_root_vars_lm, execute_load_motion,
+	reassociate_to_the_same_stmt): Ditto.
+	* tree-ssa-forwprop.c (phiprop_insert_phi): Ditto.
+	* tree-vect-patterns.c (vect_pattern_recog_1): Ditto.
+	* lambda-code.c (lambda_loopnest_to_gcc_loopnest,
+	replace_uses_equiv_to_x_with_y, perfect_nestify): Ditto.
+	* tree-inline.c (remap_ssa_name): Ditto.
+	* tree-vect-transform.c (vect_create_data_ref_ptr,
+	bump_vector_ptr, vect_init_vector,
+	get_initial_def_for_induction,
+	get_initial_def_for_induction,
+	vect_create_epilog_for_reduction, vect_finalize_reduction,
+	vectorizable_reduction, vectorizable_call,
+	vect_gen_widened_results_half, vectorizable_conversion,
+	vectorizable_assignment, vectorizable_operation,
+	vectorizable_type_demotion, vect_permute_store_chain,
+	vect_setup_realignment, vect_permute_load_chain,
+	vectorizable_load, vectorizable_condition,
+	vect_create_cond_for_align_checks): Ditto.
+	* tree-outof-ssa.c (insert_backedge_copies): Ditto.
+	* tree-cfg.c (tree_make_forwarder_block, replace_ssa_name): Ditto.
+	* tree-ssanames.c (duplicate_ssa_name): Ditto.
+	(make_ssa_name): Use struct function parameter rather than cfun.
+	* lto-function-out.c (output_local_vars): Add chaining for parm_decls.
+
 2007-10-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (output_integer): Added casting.

@@ -1480,7 +1480,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
     VEC_quick_push (tree, chain->vars, VEC_index (tree, chain->vars, 0));
   
   for (i = 0; VEC_iterate (tree, chain->vars, i, var); i++)
-    VEC_replace (tree, chain->vars, i, make_ssa_name (var, NULL_TREE));
+    VEC_replace (tree, chain->vars, i, make_ssa_name (cfun, var, NULL_TREE));
 
   for (i = 0; i < n; i++)
     {
@@ -1547,7 +1547,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
     VEC_quick_push (tree, *vars, VEC_index (tree, *vars, 0));
   
   for (i = 0; VEC_iterate (tree, *vars, i, var); i++)
-    VEC_replace (tree, *vars, i, make_ssa_name (var, NULL_TREE));
+    VEC_replace (tree, *vars, i, make_ssa_name (cfun, var, NULL_TREE));
 
   var = VEC_index (tree, *vars, 0);
       
@@ -1612,7 +1612,7 @@ execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
 	  if (n_writes)
 	    {
 	      var = VEC_index (tree, vars, 0);
-	      var = make_ssa_name (SSA_NAME_VAR (var), NULL_TREE);
+	      var = make_ssa_name (cfun, SSA_NAME_VAR (var), NULL_TREE);
 	      VEC_replace (tree, vars, 0, var);
 	    }
 	  else
@@ -2214,14 +2214,14 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
      combine it with the rhs of S1.  */
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
-  new_name = make_ssa_name (var, NULL_TREE);
+  new_name = make_ssa_name (cfun, var, NULL_TREE);
   new_stmt = build_gimple_modify_stmt (new_name,
 			    fold_build2 (code, type, name1, name2));
   SSA_NAME_DEF_STMT (new_name) = new_stmt;
 
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
-  tmp_name = make_ssa_name (var, NULL_TREE);
+  tmp_name = make_ssa_name (cfun, var, NULL_TREE);
   tmp_stmt = build_gimple_modify_stmt (tmp_name,
 					    GIMPLE_STMT_OPERAND (s1, 1));
   SSA_NAME_DEF_STMT (tmp_name) = tmp_stmt;

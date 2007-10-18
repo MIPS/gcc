@@ -491,7 +491,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 
       tmp = create_tmp_var (TREE_TYPE (cond), NULL);
       add_referenced_var (tmp);
-      new_var = make_ssa_name (tmp, NULL);
+      new_var = make_ssa_name (cfun, tmp, NULL);
       old_result = cond;
       cond = new_var;
     }
@@ -593,7 +593,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 	  op0 = TREE_OPERAND (cond, 0);
 	  tmp = create_tmp_var (TREE_TYPE (op0), NULL);
 	  add_referenced_var (tmp);
-	  cond_tmp = make_ssa_name (tmp, NULL);
+	  cond_tmp = make_ssa_name (cfun, tmp, NULL);
 	  new_stmt = build_gimple_modify_stmt (cond_tmp, op0);
 	  SSA_NAME_DEF_STMT (cond_tmp) = new_stmt;
 
@@ -1039,7 +1039,7 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
     {
       tree tmp = create_tmp_var (TREE_TYPE (result), NULL);
       add_referenced_var (tmp);
-      lhs = make_ssa_name (tmp, NULL);
+      lhs = make_ssa_name (cfun, tmp, NULL);
     }
   else
     lhs = result;
@@ -1294,7 +1294,7 @@ cond_store_replacement (basic_block middle_bb, basic_block join_bb,
         on the edge which did not contain the store.  */
   lhs = unshare_expr (lhs);
   newexpr = build_gimple_modify_stmt (condstoretemp, lhs);
-  name = make_ssa_name (condstoretemp, newexpr);
+  name = make_ssa_name (cfun, condstoretemp, newexpr);
   GIMPLE_STMT_OPERAND (newexpr, 0) = name;
   mark_symbols_for_renaming (newexpr);
   bsi_insert_on_edge (e1, newexpr);
