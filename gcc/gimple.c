@@ -143,6 +143,8 @@ gimple_size (enum gimple_code code)
       return sizeof (struct gimple_statement_omp_sections);
     case GIMPLE_OMP_SINGLE:
       return sizeof (struct gimple_statement_omp_single);
+    case GIMPLE_WITH_CLEANUP_EXPR:
+      return sizeof (struct gimple_statement_wce);
     default:
       break;
     }

@@ -217,7 +217,7 @@ struct gimple_statement_catch GTY(())
 {
   struct gimple_statement_base gsbase;
   tree types;
-  gimple_seq handler;
+  struct gimple_sequence handler;
 };
 
 
@@ -226,10 +226,14 @@ struct gimple_statement_catch GTY(())
 struct gimple_statement_eh_filter GTY(())
 {
   struct gimple_statement_base gsbase;
+
+  /* Subcode: EH_FILTER_MUST_NOT_THROW.  A boolean flag analogous to
+     the tree counterpart.  */
+
   /* Filter types.  */
   tree types;
   /* Failure actions.  */
-  gimple_seq failure;
+  struct gimple_sequence failure;
 };
 
 
@@ -1540,10 +1544,10 @@ gimple_catch_types_ptr (gimple gs)
    GIMPLE_CATCH statement GS.  */
 
 static inline gimple_seq
-gimple_catch_handler (const_gimple gs)
+gimple_catch_handler (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_CATCH);
-  return gs->gimple_catch.handler;
+  return &gs->gimple_catch.handler;
 }
 
 
@@ -1563,7 +1567,7 @@ static inline void
 gimple_catch_set_handler (gimple gs, gimple_seq handler)
 {
   GIMPLE_CHECK (gs, GIMPLE_CATCH);
-  gs->gimple_catch.handler = handler;
+  gimple_seq_copy (gimple_catch_handler (gs), handler);
 }
 
 
@@ -1592,10 +1596,10 @@ gimple_eh_filter_types_ptr (gimple gs)
    statement fails.  */
 
 static inline gimple_seq
-gimple_eh_filter_failure (const_gimple gs)
+gimple_eh_filter_failure (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
-  return gs->gimple_eh_filter.failure;
+  return &gs->gimple_eh_filter.failure;
 }
 
 
@@ -1616,9 +1620,27 @@ static inline void
 gimple_eh_filter_set_failure (gimple gs, gimple_seq failure)
 {
   GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
-  gs->gimple_eh_filter.failure = failure;
+  gimple_seq_copy (gimple_eh_filter_failure (gs), failure);
 }
 
+/* Return the EH_FILTER_MUST_NOT_THROW flag.  */
+static inline bool
+gimple_eh_filter_must_not_throw (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
+  return (bool) gimple_subcode (gs);
+}
+
+/* Set the EH_FILTER_MUST_NOT_THROW flag.  */
+static inline void
+gimple_eh_filter_set_must_not_throw (gimple gs, bool mntp)
+{
+  GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
+  gimple_set_subcode (gs, (unsigned int) mntp);
+}
+
+
+/* GIMPLE_TRY accessors. */
 
 /* Return the kind of try block represented by GIMPLE_TRY GS.  */
 
@@ -2458,7 +2480,7 @@ gsi_one_before_end_p (gimple_stmt_iterator *i)
   return i->stmt == gimple_seq_last (i->seq);
 }
 
-/* Return the next gimple statement in I.  */
+/* Advance the iterator to the next gimple statement.  */
 
 static inline void
 gsi_next (gimple_stmt_iterator *i)
@@ -2473,7 +2495,7 @@ gsi_next (gimple_stmt_iterator *i)
   i->stmt = gimple_next (i->stmt);
 }
 
-/* Return the previous gimple statement in I.  */
+/* Advance the iterator to the previous gimple statement.  */
 
 static inline void
 gsi_prev (gimple_stmt_iterator *i)

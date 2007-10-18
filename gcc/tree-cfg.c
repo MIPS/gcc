@@ -3854,7 +3854,7 @@ verify_types_in_gimple_seq_2 (gimple_seq stmts)
             err |= verify_types_in_gimple_seq_2 (gimple_try_cleanup (stmt));
             break;
 
-          case EH_FILTER_EXPR:
+          case GIMPLE_EH_FILTER:
             err |= verify_types_in_gimple_seq_2
 	      	     (gimple_eh_filter_failure (stmt));
             break;

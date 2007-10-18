@@ -1,3 +1,21 @@
+2007-10-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.c (gimple_size): Handle GIMPLE_WITH_CLEANUP_EXPR.
+	* gimple.h (struct gimple_statement_catch): Make handler a structure,
+	not a pointer.
+	(struct gimple_statement_eh_filter): Make failure a structure, not a
+	pointer.
+	document EH_FILTER_MUST_NOT_THROW subcode flag.
+	(gimple_catch_handler): Handler is now a struct.
+	(gimple_catch_set_handler): Same.
+	(gimple_eh_filter_failure): Failure is now a struct.
+	(gimple_eh_filter_set_failure): Same.
+	(gimple_eh_filter_must_not_throw): New.
+	(gimple_eh_filter_set_must_not_throw): New.
+	(gsi_next): Update comment.
+	(gsi_prev): Same.
+	* tree-cfg.c (verify_types_in_gimple_seq_2): Handle GIMPLE_EH_FILTER.
+
 2007-10-18  Diego Novillo  <dnovillo@google.com>
 
 	* gimple-iterator.c (gsi_delink): Remove.
