@@ -65,17 +65,6 @@ lto_mark_addressable (tree t ATTRIBUTE_UNUSED)
 }
 
 static tree
-lto_type_for_mode (enum machine_mode mode ATTRIBUTE_UNUSED, 
-		   int unsigned_p ATTRIBUTE_UNUSED)
-{
-  /* This hook is called by the middle-end.  For example,
-     assign_stack_local_1 uses this hook to determine whether
-     additional alignment is required for stack variables for which no
-     explicit alignment is provided.  */
-  return NULL_TREE;
-}
-
-static tree
 lto_type_for_size (unsigned precision ATTRIBUTE_UNUSED, 
 		   int unsignedp ATTRIBUTE_UNUSED)
 {
@@ -93,6 +82,20 @@ lto_type_for_size (unsigned precision ATTRIBUTE_UNUSED,
       = make_signed_type (precision);
   
   return t;
+}
+
+static tree
+lto_type_for_mode (enum machine_mode mode ATTRIBUTE_UNUSED, 
+		   int unsigned_p ATTRIBUTE_UNUSED)
+{
+  /* This hook is called by the middle-end.  For example,
+     assign_stack_local_1 uses this hook to determine whether
+     additional alignment is required for stack variables for which no
+     explicit alignment is provided.  */
+  if (SCALAR_INT_MODE_P (mode))
+    return lto_type_for_size (GET_MODE_BITSIZE (mode), unsigned_p);
+  else
+    return NULL_TREE;
 }
 
 static int
@@ -165,9 +168,15 @@ lto_init (void)
 			   /*signed_sizetype=*/false);
   /* Tell the middle end what type to use for the size of objects.  */
   if (strcmp (SIZE_TYPE, "unsigned int") == 0)
-    set_sizetype (unsigned_type_node);
+    {
+      set_sizetype (unsigned_type_node);
+      size_type_node = unsigned_type_node;
+    }
   else if (strcmp (SIZE_TYPE, "long unsigned int") == 0)
-    set_sizetype (long_unsigned_type_node);
+    {
+      set_sizetype (long_unsigned_type_node);
+      size_type_node = long_unsigned_type_node;
+    }
   else
     gcc_unreachable();
   /* Create other basic types.  */

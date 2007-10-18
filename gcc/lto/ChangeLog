@@ -1,3 +1,9 @@
+2007-10-18  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-lang.c (lto_type_for_mode): Move after lto_type_for_size.
+	Implement for scalar integer modes.
+	(lto_init): Initialize size_type_node.
+
 2007-10-18  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_expr_operand): Remove ssa name asserts.
