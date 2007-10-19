@@ -1,3 +1,38 @@
+2007-10-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32961
+	* config/i386/i386.c (ix86_expand_builtin) [IX86_BUILTIN_PSLLWI128,
+	IX86_BUILTIN_PSLLDI128, BUILTIN_PSLLQI128, IX86_BUILTIN_PSRAWI128,
+	IX86_BUILTIN_PSRADI128, IX86_BUILTIN_PSRLWI128,
+	IX86_BUILTIN_PSRLDI128, IX86_BUILTIN_PSRLQI128]: Do not require
+	immediate shift value.
+	* config/i386/emmintrin.h (_mm_slli_epi16, _mm_slli_epi32,
+	_mm_slli_epi64, _mm_srai_epi16, _mm_srai_epi32, _mm_srli_epi16,
+	_mm_srli_epi32, _mm_srli_epi64):  Enable disabled functions and
+	remove equivalent macro definitions.
+
+2007-10-18  Chen liqin  <liqin@sunnorth.com.cn>
+
+        * config.gcc : update score-*-elf(extra_objs).
+        * config/score/mac.md : Remove.
+        * config/score/misc.md : Remove.
+        * config/score/score7.md : Remove.
+        * config/score/score-mdaux.h : Remove.
+        * config/score/score-mdaux.c : Remove.
+        * config/score/score-version.h : Remove.
+        * config/score/score-generic.md : New.
+        * config/score/score3.h : New.
+        * config/score/score3.c : New.
+        * config/score/score7.h : New.
+        * config/score/score7.c : New.
+        * config/score/mul-div.S : add flush_cache score3 support.
+        * config/score/elf.h : Fix some typos.
+        * config/score/score.md : merge score3 and score7 pattern.
+        * config/score/score.c : use to seperate which target it used.
+        * config/score/score.h : use to seperate the target macro.
+        * config/score/score.opt : remove -mmac option , add -mscore3,
+        -mscore3d and -march OPTION support.
+
 2007-10-12  Zdenek Dvorak <ook@ucw.cz>
 
 	PR tree-optimization/33714
