@@ -1,5 +1,19 @@
 2007-10-19  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Handle
+	DW_AT_abstract_origin properly.  Ensure that we're not dealing with
+	both DW_AT_abstract_origin and DW_AT_specification.
+	(lto_read_subroutine_type_subprogram_DIE): Handle
+	DW_AT_abstract_origin.
+	(lto_read_DIE): Use lto_read_only_for_child_DIEs for labels.
+	(lto_read_DIE_at_ptr): Define as static to match declaration.
+	Lookup the PTR in the cache before reading it from the file.
+	(lto_resolve_var_ref): Adjust accordingly.
+	(lto_resolve_fn_ref): Adjust accordingly.  Tweak comment.
+	(lto_resolve_field_ref): Adjust accordingly.  Tweak comment.
+
+2007-10-19  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto.c (lto_read_DIE_at_ptr): New function.
 	(lto_resolve_var_ref): Use it.
 	(lto_resolve_fn_ref): Use it.
