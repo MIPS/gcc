@@ -1,5 +1,13 @@
 2007-10-19  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Check
+	definitively whether SPECIFICATION or ABSTRACT_ORIGIN exist before
+	inspecting fields within.
+	(lto_read_DIE_at_ptr): Delete check for null result; let callers
+	handle this appropriately.
+
+2007-10-19  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Handle
 	DW_AT_abstract_origin properly.  Ensure that we're not dealing with
 	both DW_AT_abstract_origin and DW_AT_specification.

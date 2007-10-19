@@ -2081,10 +2081,10 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   else
     {
       /* Check for a referenced declaration.  */
-      if ((specification || abstract_origin)
-	  && !name
-	  && !type
-	  && TREE_CODE (specification) == code)
+      if (!name
+          && !type
+          && ((specification && TREE_CODE (specification) == code)
+              || (abstract_origin && TREE_CODE (abstract_origin) == code)))
         {
           /* Make sure we have one or the other.  */
           gcc_assert (!specification || !abstract_origin);
@@ -3423,9 +3423,6 @@ lto_read_DIE_at_ptr (lto_info_fd *info_fd,
 
       fd->cur = (const char *) ptr;
       result = lto_read_DIE (info_fd, context, NULL);
-
-      if (!result)
-        lto_file_corrupt_error (fd);
 
       fd->cur = saved_die;
     }

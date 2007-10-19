@@ -1,3 +1,8 @@
+2007-10-19  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.c (gen_decl_die): Check cgraph_global_info_ready to determine
+	whether we can output information for abstract instances.
+
 2007-10-18  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-into-ssa.c (get_default_def_for, rewrite_stmt,
@@ -44,6 +49,13 @@
 	* tree-ssanames.c (duplicate_ssa_name): Ditto.
 	(make_ssa_name): Use struct function parameter rather than cfun.
 	* lto-function-out.c (output_local_vars): Add chaining for parm_decls.
+
+2007-10-17  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.c (gen_subprogram_die): Don't remove attributes and
+	formal parameters if we are generating LTO objects, as the formal
+	parameters likely have references to them from elsewhere.
+	Instead, return early if we find a DIE for this decl.
 
 2007-10-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 

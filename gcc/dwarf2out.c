@@ -13692,8 +13692,12 @@ gen_decl_die (tree decl, dw_die_ref context_die)
 	dwarf2out_abstract_function (DECL_ABSTRACT_ORIGIN (decl));
 
       /* If we're emitting an out-of-line copy of an inline function,
-	 emit info for the abstract instance and set up to refer to it.  */
-      else if (cgraph_function_possibly_inlined_p (decl)
+	 emit info for the abstract instance and set up to refer to it.
+
+         We check cgraph_global_info_ready as a way of determining
+         whether we are generating debug information for LTO.  */
+      else if (cgraph_global_info_ready
+	       && cgraph_function_possibly_inlined_p (decl)
 	       && ! DECL_ABSTRACT (decl)
 	       && ! class_or_namespace_scope_p (context_die)
 	       /* dwarf2out_abstract_function won't emit a die if this is just
