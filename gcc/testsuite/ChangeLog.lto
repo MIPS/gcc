@@ -1,3 +1,7 @@
+2007-10-19  Diego Novillo  <dnovillo@google.com>
+
+	* lib/c-torture.exp (TORTURE_OPTIONS): Add -flto for -O2 compiles.
+
 2007-10-05  Diego Novillo  <dnovillo@google.com>
 
 	* lib/gcc-dg.exp: Enable -flto at -O2.

@@ -791,32 +791,36 @@ add_lto_object (struct lto_object_list *list, const char *name)
   list->last = cell;
 }
 
-/* Perform a link-time recompilation and relink if any of the object files
-   contain LTO info.  The linker command line LTO_LD_ARGV represents the linker
-   command that would produce a final executable without the use of LTO.
-   OBJECT_LST is a vector of object file names appearing in LTO_LD_ARGV that
-   are to be considerd for link-time recompilation, where OBJECT is a pointer
-   to the last valid element.  (This awkward convention avoids an impedance
-   mismatch with the usage of similarly-named variables in main().)  The
-   elements of OBJECT_LST must be identical, i.e., pointer equal, to the
+/* Perform a link-time recompilation and relink if any of the object
+   files contain LTO info.  The linker command line LTO_LD_ARGV
+   represents the linker command that would produce a final executable
+   without the use of LTO. OBJECT_LST is a vector of object file names
+   appearing in LTO_LD_ARGV that are to be considerd for link-time
+   recompilation, where OBJECT is a pointer to the last valid element.
+   (This awkward convention avoids an impedance mismatch with the
+   usage of similarly-named variables in main().)  The elements of
+   OBJECT_LST must be identical, i.e., pointer equal, to the
    corresponding arguments in LTO_LD_ARGV.
 
-   Upon entry, at least one linker run has been performed without the use of any
-   LTO info that might be present.  Any recompilations necessary for template
-   instantiations have been performed, and initializer/finalizer tables have been
-   created if needed and included in the linker command line LTO_LD_ARGV.
-   If any of the object files contain LTO info, we run the LTO back end on all
-   such files, and perform the final link with the LTO back end output substituted
-   for the LTO-optimized files.  In some cases, a final link with all link-time
-   generated code has already been performed, so there is no need to relink if no
-   LTO info is found.  In other cases, our caller has not produced the final
-   executable, and is relying on us to perform the required link whether LTO info
-   is present or not.  In that case, the FORCE argument should be true.  Note that
-   the linker command line argument LTO_LD_ARGV passed into this function may be
-   modified in place.  */
+   Upon entry, at least one linker run has been performed without the
+   use of any LTO info that might be present.  Any recompilations
+   necessary for template instantiations have been performed, and
+   initializer/finalizer tables have been created if needed and
+   included in the linker command line LTO_LD_ARGV. If any of the
+   object files contain LTO info, we run the LTO back end on all such
+   files, and perform the final link with the LTO back end output
+   substituted for the LTO-optimized files.  In some cases, a final
+   link with all link-time generated code has already been performed,
+   so there is no need to relink if no LTO info is found.  In other
+   cases, our caller has not produced the final executable, and is
+   relying on us to perform the required link whether LTO info is
+   present or not.  In that case, the FORCE argument should be true.
+   Note that the linker command line argument LTO_LD_ARGV passed into
+   this function may be modified in place.  */
 
 static void
-maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst, const char ** object, bool force)
+maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
+			  const char **object, bool force)
 {
   const char **object_file = (const char **)object_lst;
 
@@ -866,16 +870,20 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst, const char ** o
         }
       obstack_free (&temporary_obstack, temporary_firstobj);
 
-      /* Increment the argument count by the number of initial arguments added below.  */
-      num_lto_c_args += 7;
+      /* Increment the argument count by the number of initial
+	 arguments added below.  */
+      num_lto_c_args += 8;
 
-      lto_c_ptr = (const char **) (lto_c_argv = xcalloc (sizeof (char *), num_lto_c_args));
+      lto_c_argv = xcalloc (sizeof (char *), num_lto_c_args);
+      lto_c_ptr = (const char **) lto_c_argv;
 
       *lto_c_ptr++ = c_file_name;
       *lto_c_ptr++ = "-combine";
       *lto_c_ptr++ = "-x";
       *lto_c_ptr++ = "lto";
       *lto_c_ptr++ = "-c";
+      /* FIXME lto.  Temporary workaround.  Remove before merging.  */
+      *lto_c_ptr++ = "-O2";
       *lto_c_ptr++ = "-o";
       *lto_c_ptr++ = lto_o_file;
 
@@ -911,10 +919,9 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst, const char ** o
         }
       obstack_free (&temporary_obstack, temporary_firstobj);
 
-      /* After running the LTO back end, we will relink, substituting the LTO
-         output for the object files that we submitted to the LTO.  Here, we
-         modify the linker command line for the relink.  */
-
+      /* After running the LTO back end, we will relink, substituting
+	 the LTO output for the object files that we submitted to the
+	 LTO. Here, we modify the linker command line for the relink.  */
       first = true;
 
       p = (const char **)lto_ld_argv;
@@ -1449,8 +1456,10 @@ main (int argc, char **argv)
 	    }
 	}
       else if ((p = strrchr (arg, '.')) != (char *) 0
-	       && (strcmp (p, ".o") == 0 || strcmp (p, ".a") == 0
-		   || strcmp (p, ".so") == 0 || strcmp (p, ".lo") == 0
+	       && (strcmp (p, ".o") == 0
+		   || strcmp (p, ".a") == 0
+		   || strcmp (p, ".so") == 0
+		   || strcmp (p, ".lo") == 0
 		   || strcmp (p, ".obj") == 0))
 	{
 	  if (first_file)
@@ -2390,7 +2399,8 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
   if (pex == NULL)
     fatal_perror ("pex_init failed");
 
-  errmsg = pex_run (pex, 0, nm_file_name, real_nm_argv, NULL, NULL, &err);
+  errmsg = pex_run (pex, 0, nm_file_name, real_nm_argv, NULL, HOST_BIT_BUCKET,
+		    &err);
   if (errmsg != NULL)
     {
       if (err != 0)
@@ -2432,14 +2442,14 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
         {
           /* Look for the LTO info marker symbol, and add filename to
              the LTO objects list if found.  */
-
           for (p = buf; (ch = *p) != '\0' && ch != '\n'; p++)
-            if (ch == ' ' && (strncmp (p+1, "gnu_lto_v1", 10) == 0) && ISSPACE(p[11]))
+            if (ch == ' '
+		&& (strncmp (p+1, "gnu_lto_v1", 10) == 0)
+		&& ISSPACE(p[11]))
               {
                 add_lto_object (&lto_objects, prog_name);
 
                 /* No need to look any further.  Clean up and return.  */
-
                 if (debug)
                   fprintf (stderr, "\n");
 
@@ -2456,7 +2466,6 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
         {
           /* If it contains a constructor or destructor name, add the name
              to the appropriate list.  */
-
           for (p = buf; (ch = *p) != '\0' && ch != '\n' && ch != '_'; p++)
             if (ch == ' ' && p[1] == 'U' && p[2] == ' ')
               break;

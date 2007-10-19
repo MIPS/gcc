@@ -1,3 +1,10 @@
+2007-10-19  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.c (cc1_options): Force -O2 if -flto is given.
+	* collect2.c (maybe_run_lto_and_relink): Tidy formatting.
+	Add -O2 when calling gcc to do an LTO link.
+	(scan_prog_file): Send the error output of 'nm' to HOST_BIT_BUCKET.
+
 2007-10-19  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* dwarf2out.c (gen_decl_die): Check cgraph_global_info_ready to determine
