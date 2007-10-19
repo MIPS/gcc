@@ -201,6 +201,11 @@ lto_read_DIE (lto_info_fd *fd,
 	      lto_context *context,
 	      bool *more);
 
+static tree
+lto_read_DIE_at_ptr (lto_info_fd *fd,
+		     lto_context *context,
+		     lto_die_ptr ptr);
+
 static void
 lto_read_child_DIEs (lto_info_fd *fd, 
 		     const DWARF2_abbrev *abbrev, 
@@ -1966,6 +1971,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   bool artificial;
   enum tree_code code;
   tree decl;
+  tree specification;
 
   gcc_assert (abbrev->tag == DW_TAG_variable
 	      || abbrev->tag == DW_TAG_formal_parameter
@@ -1978,6 +1984,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   declaration = false;
   code = ERROR_MARK;
   decl = NULL_TREE;
+  specification = NULL_TREE;
 
   LTO_BEGIN_READ_ATTRS ()
     {
@@ -1990,8 +1997,13 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     case DW_AT_decl_line:
     case DW_AT_abstract_origin:
     case DW_AT_const_value:
-    case DW_AT_specification:
       /* Ignore.  */
+      break;
+
+    case DW_AT_specification:
+      if (abbrev->tag == DW_TAG_variable)
+	specification = lto_read_DIE_at_ptr (fd, context,
+					     attr_data.u.reference);
       break;
 
     case DW_AT_name:
@@ -2063,6 +2075,14 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     ;
   else
     {
+      /* Check for a specification.  */
+      if (specification
+	  && !name
+	  && !type
+	  && TREE_CODE (specification) == code)
+	return specification;
+
+
       /* Build the tree node for this entity.  */
       decl = build_decl (code, name, type);
 
@@ -3372,6 +3392,25 @@ lto_resolve_type_ref (lto_info_fd *info_fd,
   return type;
 }
 
+tree
+lto_read_DIE_at_ptr (lto_info_fd *info_fd,
+		     lto_context *context,
+		     lto_die_ptr ptr)
+{
+  lto_fd *fd = (lto_fd *)info_fd;
+  const char *saved_die = fd->cur;
+  tree result;
+
+  fd->cur = (const char *) ptr;
+  result = lto_read_DIE (info_fd, context, NULL);
+
+  if (!result)
+    lto_file_corrupt_error (fd);
+
+  fd->cur = saved_die;
+  return result;
+}
+  
 tree 
 lto_resolve_var_ref (lto_info_fd *info_fd,
 		     lto_context *context,
@@ -3389,18 +3428,7 @@ lto_resolve_var_ref (lto_info_fd *info_fd,
   /* Map DIE to a variable.  */
   var = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
   if (!var)
-    {
-      lto_fd *fd = (lto_fd *)info_fd;
-      const char *saved_die = fd->cur;
-
-      fd->cur = (const char *) die;
-      var = lto_read_DIE (info_fd, context, NULL);
-
-      if (!var)
-        lto_file_corrupt_error (fd);
-
-      fd->cur = saved_die;
-    }
+    var = lto_read_DIE_at_ptr (info_fd, context, die);
   if (TREE_CODE (var) != VAR_DECL)
     lto_file_corrupt_error ((lto_fd *)info_fd);
 
@@ -3428,18 +3456,7 @@ lto_resolve_fn_ref (lto_info_fd *info_fd,
   /* Map DIE to a variable.  */
   fn = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
   if (!fn)
-    {
-      lto_fd *fd = (lto_fd *)info_fd;
-      const char *saved_die = fd->cur;
-
-      fd->cur = (const char *) die;
-      fn = lto_read_DIE (info_fd, context, NULL);
-
-      if (!fn)
-        lto_file_corrupt_error (fd);
-
-      fd->cur = saved_die;
-    }
+    fn = lto_read_DIE_at_ptr (info_fd, context, die);
   if (TREE_CODE (fn) != FUNCTION_DECL)
     lto_file_corrupt_error ((lto_fd *)info_fd);
 
@@ -3467,18 +3484,7 @@ lto_resolve_field_ref (lto_info_fd *info_fd,
   /* Map DIE to a variable.  */
   field = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
   if (!field)
-    {
-      lto_fd *fd = (lto_fd *)info_fd;
-      const char *saved_die = fd->cur;
-
-      fd->cur = (const char *) die;
-      field = lto_read_DIE (info_fd, context, NULL);
-
-      if (!field)
-        lto_file_corrupt_error (fd);
-
-      fd->cur = saved_die;
-    }
+    field = lto_read_DIE_at_ptr (info_fd, context, die);
   if (TREE_CODE (field) != FIELD_DECL)
     lto_file_corrupt_error ((lto_fd *)info_fd);
 

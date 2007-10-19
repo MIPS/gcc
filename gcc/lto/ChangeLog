@@ -1,3 +1,12 @@
+2007-10-19  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_DIE_at_ptr): New function.
+	(lto_resolve_var_ref): Use it.
+	(lto_resolve_fn_ref): Use it.
+	(lto_resolve_field_ref): Use it.
+	(lto_read_variable_formal_parameter_constant_DIE): Follow
+	DW_AT_specification and return the associated decl when appropriate.
+
 2007-10-18  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-lang.c (lto_type_for_mode): Move after lto_type_for_size.
