@@ -347,6 +347,7 @@ const struct gcc_debug_hooks dbx_debug_hooks =
 {
   dbxout_init,
   dbxout_finish,
+  debug_nothing_filestar,
   debug_nothing_int_charstar,
   debug_nothing_int_charstar,
   dbxout_start_source_file,

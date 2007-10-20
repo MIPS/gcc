@@ -26,6 +26,7 @@ const struct gcc_debug_hooks do_nothing_debug_hooks =
 {
   debug_nothing_charstar,
   debug_nothing_charstar,
+  debug_nothing_filestar,
   debug_nothing_int_charstar,
   debug_nothing_int_charstar,
   debug_nothing_int_charstar,
@@ -107,5 +108,10 @@ debug_nothing_int_int (unsigned int line ATTRIBUTE_UNUSED,
 void
 debug_nothing_tree_int (tree decl ATTRIBUTE_UNUSED,
 			int local ATTRIBUTE_UNUSED)
+{
+}
+
+void
+debug_nothing_filestar (FILE *output ATTRIBUTE_UNUSED)
 {
 }

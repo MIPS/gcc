@@ -1,3 +1,23 @@
+2007-10-19  Tom Tromey  <tromey@redhat.com>
+
+	* dbxout.c (dbx_debug_hooks): Update.
+	* varasm.c (assemble_external): Remove assert.
+	* dwarf2out.c (dw_asm_out_file): New global.
+	Changed all users of asm_out_file to use dw_asm_out_file.
+	(dwarf2out_init): Update.
+	(dwarf2out_set_output_file): New function.
+	* debug.h (struct gcc_debug_hooks) <set_output_file>: New hook.
+	(debug_nothing_filestar): Declare.
+	* debug.c (do_nothing_debug_hooks): Update.
+	(debug_nothing_filestar): New.
+	* toplev.c (server_asm_out_file): New global.
+	(compile_file): Don't flush asm_out_file.  Call init_asm_output in
+	server mode.  Call set_output_file debug hook.
+	(lang_dependent_init): Conditionally call init_asm_output and
+	set_output_file debug hook.
+	(finalize): Close server_asm_out_file.
+	(start_as): Set server_asm_out_file, not asm_out_file.
+
 2007-10-16  Tom Tromey  <tromey@redhat.com>
 
 	* gengtype.c (write_roots): Ensure thread-local variable does not

@@ -387,6 +387,11 @@ FILE *aux_info_file;
 FILE *dump_file = NULL;
 const char *dump_file_name;
 
+/* In server mode we want to ensure that nothing is written to the
+   assembler before we're ready for it.  So, we store the pipe to the
+   assembler here, and we don't set asm_out_file until relatively
+   late.  */
+static FILE *server_asm_out_file;
 
 typedef const char *cchar_p;
 DEF_VEC_P(cchar_p);
@@ -1070,12 +1075,18 @@ compile_file (void)
   if (flag_syntax_only)
     return false;
 
-  /* Make sure output file is flushed before forking.  */
-  if (asm_out_file)
-    fflush (asm_out_file);
-
   if (server_mode && server_start_back_end ())
     return false;
+
+  if (server_mode)
+    {
+      gcc_assert (server_asm_out_file && !asm_out_file);
+      asm_out_file = server_asm_out_file;
+      server_asm_out_file = NULL;
+      init_asm_output (main_input_filename);
+    }
+  if (flag_unit_at_a_time)
+    (*debug_hooks->set_output_file) (asm_out_file);
 
   cgraph_finalize_compilation_unit ();
 
@@ -2071,7 +2082,8 @@ lang_dependent_init (const char *name)
     return 0;
   input_location = save_loc;
 
-  init_asm_output (name);
+  if (!server_mode)
+    init_asm_output (name);
 
   /* These create various _DECL nodes, so need to be called after the
      front end is initialized.  */
@@ -2102,6 +2114,8 @@ lang_dependent_init (const char *name)
      debug output.  */
   (*debug_hooks->init) (name);
   dw2_initialize ();
+  if (!flag_unit_at_a_time)
+    (*debug_hooks->set_output_file) (asm_out_file);
 
   timevar_pop (TV_SYMOUT);
 
@@ -2145,6 +2159,12 @@ finalize (void)
       if (fclose (asm_out_file) != 0)
 	fatal_error ("error closing %s: %m", asm_file_name);
       asm_out_file = NULL;
+    }
+
+  if (server_asm_out_file)
+    {
+      fclose (server_asm_out_file);
+      server_asm_out_file = NULL;
     }
 
   finish_optimization_passes ();
@@ -2214,7 +2234,7 @@ start_as (char **as_argv)
 
       /* Note that asm_out_file is conditional on BUFSIZ and is
 	 redeclared in a number of files.  Yay.  */
-      asm_out_file = pex_input_pipe (px, 0);
+      server_asm_out_file = pex_input_pipe (px, 0);
 
       errstr = pex_run (px, PEX_LAST | PEX_SEARCH, as_argv[0], as_argv,
 			NULL, NULL, &pxerr);

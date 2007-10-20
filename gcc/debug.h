@@ -30,6 +30,10 @@ struct gcc_debug_hooks
   /* Output debug symbols.  */
   void (* finish) (const char *main_filename);
 
+  /* Set the output file.  No output should be written until this is
+     called.  */
+  void (* set_output_file) (FILE *output_file);
+
   /* Macro defined on line LINE with name and expansion TEXT.  */
   void (* define) (unsigned int line, const char *text);
 
@@ -142,6 +146,7 @@ extern void debug_nothing_tree_int (tree, int);
 extern void debug_nothing_tree_tree (tree, tree);
 extern bool debug_true_tree (tree);
 extern void debug_nothing_rtx (rtx);
+extern void debug_nothing_filestar (FILE *);
 
 /* Hooks for various debug formats.  */
 extern const struct gcc_debug_hooks do_nothing_debug_hooks;
