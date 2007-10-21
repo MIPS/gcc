@@ -1802,6 +1802,13 @@ _Jv_JNI_GetDirectBufferCapacity (JNIEnv *, jobject buffer)
   return tmp->capacity();
 }
 
+static jobjectRefType JNICALL
+_Jv_JNI_GetObjectRefType (JNIEnv *, jobject object)
+{
+  JvFail("GetObjectRefType not implemented");
+  return JNIInvalidRefType;
+}
+
 
 
 struct NativeMethodCacheEntry : public JNINativeMethod
@@ -2873,7 +2880,9 @@ struct JNINativeInterface_ _Jv_JNIFunctions =
 
   _Jv_JNI_NewDirectByteBuffer,		    // NewDirectByteBuffer
   _Jv_JNI_GetDirectBufferAddress,	    // GetDirectBufferAddress
-  _Jv_JNI_GetDirectBufferCapacity	    // GetDirectBufferCapacity
+  _Jv_JNI_GetDirectBufferCapacity,	    // GetDirectBufferCapacity
+
+  _Jv_JNI_GetObjectRefType		    // GetObjectRefType
 };
 
 struct JNIInvokeInterface_ _Jv_JNI_InvokeFunctions =
