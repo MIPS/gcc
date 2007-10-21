@@ -1,7 +1,688 @@
-2007-10-01  Alexandre Oliva  <aoliva@redhat.com>
+2007-10-16  Mark Wielaard  <mark@klomp.org>
+
+	* NEWS: Mention small compile/configure/build fixes.
+	* configure.ac: Set version to 0.96.1
+
+2007-10-16  from  Alexandre Oliva  <aoliva@redhat.com>
 
 	* scripts/check_jni_methods.sh: Don't depend on diff -b ignoring
 	a single trailing whitespace.
+
+2007-10-16  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* m4/acinclude.m4: Add -sourcepath so that
+	some proprietary JDKs don't try to compile the
+	whole of Classpath when testing the compiler.
+
+2007-10-16  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* doc/www.gnu.org/newsitems.txt: Add 0.96.
+	* doc/www.gnu.org/downloads/downloads.wml: Likewise.
+	* doc/www.gnu.org/announce/20071015.wml: New file.
+
+2007-10-15  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* NEWS: Kickoff updates for 0.97.
+	* configure.ac: Set version to 0.97-pre.
+
+2007-10-15  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* NEWS: Add date of 0.96 release.
+	* configure.ac: Set version to 0.96.
+
+2007-10-15  Mario Torre  <neugens@limasoftware.net>
+
+	* doc/cp-hacking.texinfo: Update GConf requirement, and added information
+	about the GStreamer Sound peer.
+	
+2007-10-15  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* README.gstreamer: Correct a few typos.
+	* doc/cp-hacking.texinfo: Update to match current status
+	(e.g. mention cacao, use of 1.5, etc.)
+
+2007-10-15  Roman Kennke  <roman.kennke@aicas.com>
+
+	* java/awt/event/MouseEvent.java
+	(MouseEvent): For the no-absX/absY constructor, set the
+	absX/absY to 0, instead of calling into getLocationOnScreen(),
+	which might cause nasty deadlocks.
+
+2007-10-15  Mario Torre  <neugens@limasoftware.net>
+
+	* javax/swing/text/DefaultStyledDocument.java (ElementBuffer.insertElement):
+	Added check for empty stack to avoid EmptyStackException. 
+
+2007-10-15  Roman Kennke  <roman.kennke@aicas.com>
+
+	* java/awt/LightweightDispatcher.java
+	(dispatchEvent): Don't synchronize on the AWT lock here,
+	this causes a deadlock in some situations.
+
+2007-10-12  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+        PR classpath/33385:
+	* tools/com/sun/tools/javac/Main.java:
+	Add bootclasspath and 1.5 options so the compiler
+	can run.
+	
+2007-10-12  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/33622:
+	* lib/Makefile.am: Use JAVAC_ARGS variable.
+	* m4/acinclude.m4: Check javac is 1.5 compliant
+	and whether it supports -J.
+	
+2007-10-12  Mario Torre  <neugens@limasoftware.net>
+
+	* gnu/javax/swing/text/html/css/FontSize.java (mapPercent): 
+	(mapPoints): prevent a NumberFormatException when a floating point is given
+	instead of a integer.
+	(mapPixels): likewise.
+	(mapPercent): likewise.
+
+2007-10-12  Mario Torre  <neugens@limasoftware.net>
+
+	* gnu/javax/sound/AudioSecurityManager.java: Added Copyright header.
+	(Permission): added missing javadoc.
+	(checkPermissions): likewise.
+
+2007-10-12  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/33622:
+	* lib/Makefile.am: Add -J-mX512M option to
+	allow javac enough memory to build Classpath.
+
+2007-10-12  Roman Kennke  <roman.kennke@aicas.com>
+
+	* NEWS: Added entry for Escher peers.
+
+2007-10-12  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* NEWS: Updated for 0.96
+
+2007-10-12  Robin Garner  <robin.garner@anu.edu.au>
+
+	PR classpath/32541:
+	* java/io/OutputStreamWriter.java:
+	Provide buffering when not converting to improve
+	performance.
+	
+2007-10-12  Ian Rogers  <ian.rogers@manchester.ac.uk>
+
+	PR classpath/33746:
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c:
+	Remove atexit call that makes JikesRVM deadlock.
+	
+2007-10-12  Ian Rogers  <ian.rogers@manchester.ac.uk>
+2007-10-12  Andrew Haley  <aph@redhat.com>
+
+	PR classpath/33741:
+	* java/lang/Double.java:
+	(compare(double,double)): Increase performance
+	of this method.
+	* java/lang/Float.java:
+	(compare(float,float)): Likewise.
+	
+2007-10-12  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/33623:
+	* m4/acinclude.m4:
+	Fix typo which prevents --with-ecj being used.
+
+2007-10-11  Roman Kennke  <roman.kennke@aicas.com>
+
+	* javax/swing/plaf/basic/BasicTreeUI.java
+	(EDIT): Removed obsolete constant.
+
+2007-10-10  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	Recommitting patch by Dalibor Topic from 2007-09-21.
+	* java/lang/management/ThreadInfo.java:
+	Removed unused private constructors.
+
+2007-10-09  Mario Torre  <neugens@limasoftware.net>
+
+	* README.gstreamer: new file.
+
+2007-10-08  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/33623:
+	* examples/Makefile.am:
+	Exit with no compiler.
+	* lib/Makefile.am: Likewise.
+	* m4/acinclude.m4: Handle ecj and javac
+	using separate variables and catch when JAVAC/ECJ is
+	empty.
+	
+2007-10-07  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	PR classpath/23854:
+	* java/util/zip/ZipEntry.java:
+	(parseExtra()): Pass time to setTime in milliseconds
+	rather than seconds by multiplying by 1000.
+	
+2007-09-27  Mario Torre  <neugens@limasoftware.net>
+
+	* gnu/javax/sound/sampled/gstreamer/io/GstAudioFileReaderNativePeer.java:
+	(gstreamer_get_audio_format_stream): Removed parameter from javadoc.
+	(gstreamer_get_audio_format_file): likewise.
+	* gnu/javax/sound/sampled/gstreamer/lines/GstPipeline.java:
+	Added class javadoc and implementation notes.
+	(READ): new constant.
+	(WRITE): likewise.
+	(QUEUED): likewise.
+	(CAPACITY_KEY): likewise.
+	(lock): likewise.
+	(prefs): new variable.
+	(GstPipeline constructor): added OS independent rutines to detect
+	filesystem pipes size plus save and restores this information via
+	preferences. Now closes open pipe on user abort at VM exit.
+	(open_native_pipe): new native method.
+	(close_native_pipe): likewise.
+	(detect_pipe_size): likewise.
+	(createForWrite): update to use new native methods.
+	(setState): removed hack to synchronize reading and writing of the
+	filesystme named pipe.
+	(available): implemented.
+	(drain): new implementation, now correctly waits for data to be consumed
+	in the pipeline.
+	(prepareWrite): removed hack to synchronize reading and writing of the
+	filesystme named pipe.
+	(CleanPipeline): new inner class, used for cleaning of native pipelines
+	still opened at VM exit.
+	* gnu/javax/sound/sampled/gstreamer/lines/GstSourceDataLine:
+	(getFramePosition): method still stubbed, now output "implement me"
+	note when called (used for testing).
+	(getLongFramePosition): likewise.
+	(getMicrosecondPosition): likewise.
+	* include/gnu_javax_sound_sampled_gstreamer_lines_GstPipeline.h:
+	regenerated.
+	* native/jni/gstreamer-peer/gst_native_data_line.c:
+	(setup_pipeline): Changed signature, now uses a file descriptor instead of
+	char with the name of the native pipeline. Also changed to use "fdsrc"
+	when creating the GStreamer pipeline.
+	(Java_gnu_javax_sound_sampled_gstreamer_lines_GstNativeDataLine_setup_1sink_1pipeline):
+	now uses gst_native_pipeline_get_pipeline_fd to get the file descriptor
+	of the native pipeline, instead of gst_native_pipeline_get_pipeline_name.
+	Chaged to use "autoaudiosink" as GStreamer audio sink.
+	(gst_newpad): fix indentation.
+	* native/jni/gstreamer-peer/gst_native_pipeline.c: include new headers for
+	compilation.
+	(capacityFID): new filed for caching.
+	(GST_DETECTED_PIPE_CAPACITY): new field.
+	(enum): maps READ and WRITE in GstPipeline class.
+	(_GstNativePipelinePrivate.fd): new field.
+	(create_name): new function.
+	(init_pointer_IDs): likewise.
+	(get_free_space): likewise.
+	(Java_gnu_javax_sound_sampled_gstreamer_lines_GstPipeline_init_1id_1cache):
+	cache capacityFID.
+	(Java_gnu_javax_sound_sampled_gstreamer_lines_GstPipeline_init_1instance):
+	get value for GST_DETECTED_PIPE_CAPACITY from mapped class.
+	(Java_gnu_javax_sound_sampled_gstreamer_lines_GstPipeline_set_1state):
+	removed "unused" attribute from parameters, clean pipeline name on exit.
+	(Java_gnu_javax_sound_sampled_gstreamer_lines_GstPipeline_open_1native_1pipe):
+	new function.
+	(Java_gnu_javax_sound_sampled_gstreamer_lines_GstPipeline_close_1native_1pipe):
+	likewise.
+	(Java_gnu_javax_sound_sampled_gstreamer_lines_GstPipeline_create_1named_1pipe):
+	pipe name created with a dedicated function.
+	(Java_gnu_javax_sound_sampled_gstreamer_lines_GstPipeline_available): new
+	function.
+	* native/jni/gstreamer-peer/gst_native_pipeline.h:
+	(gst_native_pipeline_clean): removed.
+	(gst_native_pipeline_get_pipeline_fd): new function.
+	* native/jni/gstreamer-peer/gst_peer.h: new defines used by the peer.
+	* native/jni/gstreamer-peer/gstreamer_io_peer.c: (_GST_MALLOC_SIZE_): moved
+	in gst_peer.h.
+
+2007-09-27  Dalibor Topic  <robilad@kaffe.org>
+
+	* native/fdlibm/dtoa.c: Include mprec.h after system includes.
+	* native/fdlibm/mprec.h [_EXFUN]: Only define _EXFUN if it is not 
+	already defined.
+
+2007-09-24  Dalibor Topic  <robilad@kaffe.org>
+
+	* java/lang/management/ThreadInfo.java: Reverted patch from 
+	2007-09-21, as it breaks JikesRVM.
+
+2007-09-23  Mark Wielaard  <mark@klomp.org>
+
+	* doc/www.gnu.org/include/layout.wml: Fix Planet Classpath link.
+	* doc/www.gnu.org/faq/faq.wml: Fix typo prorietary.
+
+2007-09-22  Paul Jenner  <psj@harker.dyndns.org>
+
+	* doc/www.gnu.org/include/layout.wml: Added link to Wiki.
+
+2007-09-21  Dalibor Topic  <robilad@kaffe.org>
+
+	* gnu/java/rmi/server/RMIClassLoaderImpl.java,
+	java/beans/beancontext/BeanContextServicesSupport.java,
+	java/lang/management/ThreadInfo.java:
+	Removed unused private constructors.
+
+2007-09-21  Dalibor Topic  <robilad@kaffe.org>
+
+	* gnu/CORBA/CDR/AbstractCdrInput.java,
+	gnu/CORBA/CDR/Vio.java,
+	gnu/CORBA/DynAn/gnuDynUnion.java,
+	gnu/CORBA/GIOP/MessageHeader.java,
+	gnu/CORBA/IorDelegate.java,
+	gnu/java/security/key/dss/FIPS186.java,
+	gnu/javax/crypto/key/dh/RFC2631.java,
+	gnu/javax/swing/text/html/parser/support/Parser.java,
+	gnu/javax/swing/text/html/parser/support/low/ReaderTokenizer.java,
+	gnu/xml/aelfred2/XmlParser.java,
+	java/awt/im/InputContext.java:
+	Removed unused labels.
+
+2007-09-21  Roman Kennke  <roman.kennke@aicas.com>
+
+	* javax/swing/plaf/basic/BasicGraphicsUtils.java
+	(drawStringUnderlineCharAt): Fix Y location of underline.
+
+2007-09-21  Roman Kennke  <roman.kennke@aicas.com>
+
+	* java/awt/LightweightDispatcher.java
+	(dispatchEvent): Lock the component's tree to avoid threading
+	problems.
+	(redispatch): Only redispatch when component is showing.
+
+2007-09-21  Roman Kennke  <roman.kennke@aicas.com>
+
+	* java/awt/Font.java
+	(hashCode): New field. Stores a cached hash code.
+	(hashCode()): Re-implemented. Don't create new string here, instead
+	make hashcode of name, style, size and transform. Cache hashcode.
+
+2007-09-20  Roman Kennke  <roman.kennke@aicas.com>
+
+	* gnu/java/awt/font/GNUGlyphVector.java
+	(cleanOutline): New field, caches the untransformed outline.
+	(getOutline()): No need to validate here. Already done in
+	getOutline(float,float).
+	(getOutline(float,float)): Cache untransformed outlines. Protect
+	returned shape from modification by wrapping in ShapeWrapper
+	object.
+	* gnu/java/awt/font/OpenTypeFontPeer.java: New class. Implements
+	ClasspathFontPeer for OpenType fonts.
+	* gnu/java/awt/java2d/AbstractGraphics2D.java
+	(DEFAULT_TEXT_AA): New constant/property for controlling
+	default anti-aliasing for text.
+	(GC_CACHE_SIZE): New constant for the size of the glyph vector
+	cache.
+	(shapeCache): Don't make shapeCache thread local. This wouldn't
+	gain much, because the event dispatch thread is restarted quite
+	often.
+	(scanlineConverters): Don't make scanlineConverters thread local,
+	but instead pool them into a list.
+	(gvCache): New cache for glyph vectors.
+	(searchTextKey): New static field, a shared key used for GV caching.
+	(drawString): Cache glyph vectors.
+	(getFontRenderContext): Protect the current transform from beeing
+	changed.
+	(clone): Check clip for null when cloning.
+	(drawLine): Use shared shape cache. No need for calling a method here.
+	(drawRect): Likewise. Add translation to rectangle coordinates.
+	(fillRect): Use shared shape cache. No need for calling a method here.
+	(drawRoundRect): Likewise.
+	(fillRoundRect): Likewise.
+	(drawOval): Likewise.
+	(fillOval): Likewise.
+	(drawArc): Likewise.
+	(fillArc): Likewise.
+	(drawPolyline): Likewise.
+	(drawPolygon): Likewise.
+	(fillPolygon): Likewise.
+	(fillShape): Check property for default text AA. Set Y resolution.
+	(rawDrawLine): Use shared shape cache. No need for calling a method
+	here.
+	(rawDrawRect): Likewise.
+	(rawFillRect): Likewise.
+	(rawDrawString): Removed. Subclasses override drawString() instead.
+	(getShapeCache): Removed. No longer needed.
+	(getScanlineConverter): New helper method for pooling
+	scanline converters.
+	(freeScanlineConverter): New helper method for pooling
+	scanline converters.
+	* gnu/java/awt/java2d/PixelCoverage.java: New class. Used by the
+	reworked scanline converter.
+	* gnu/java/awt/java2d/ScanlineConverter.java
+	(Y_RESOLUTION): Removed. The Y resolution is now specified
+	by the caller.
+	(yResolution): New field. Stores the Y resolution.
+	(renderShape): Take y resolution as argument.
+	(setResolution): Take y resolution as argument.
+	* gnu/java/awt/java2d/ShapeWrapper.java: New class. Protects
+	shape objects from modification by application code.
+	* gnu/java/awt/java2d/TextCacheKey.java: New class. Used for
+	caching GlyphVectors.
+	* gnu/java/awt/peer/x/XFontPeer2.java: Removed. This is now
+	implemented in OpenTypeFontPeer now.
+	* gnu/java/awt/peer/x/XEventPump.java
+	(handleEvent): Check insets.
+	* gnu/java/awt/peer/x/XFontPeer.java
+	Changed class and method names for changed Escher API.
+	(clinit): Use font properties from xfonts.properties.
+	(canDisplay): Changed to take int argument.
+	* gnu/java/awt/peer/x/XFramePeer.java
+	(XFramePeer): Set the title of the frame on creation time.
+	(setTitle): Implemented.
+	* gnu/java/awt/peer/x/XGraphics2D.java
+	(imageCache): New field. Caches native representations for
+	images.
+	(drawString): New method. Optimized version for X fonts.
+	(fillScanline): Removed.
+	(fillScanlineAA): Removed.
+	(rawDrawImage): Optimized drawing for ZPixmap-backed images.
+	(rawDrawRect): Optimized rectangle drawing.
+	(renderScanline): Added compositing code.
+	(setFont): Overridden for X font support.
+	(setPaint): Added TODO.
+	* gnu/java/awt/peer/x/XGraphicsConfiguration.java
+	(getSize): New helper method for XToolkit.
+	(getResolution): New helper method for XToolkit.
+	* gnu/java/awt/peer/x/XGraphicsEnvironment.java
+	(getAvailableFontFamilyNames): Implemented.
+	* gnu/java/awt/peer/x/XToolkit.java
+	(fontCache): New field for caching fonts.
+	(getClasspathFontPeer): Cache fonts.
+	(getScreenSize): Implemented.
+	(getScreenResolution): Implemented.
+	(getFontList): Implemented.
+	(isModalExclusionTypeSupported): New method.
+	(isModalityTypeSupported): New method.
+	* gnu/java/awt/peer/x/XWindowPeer.java
+	(insets): New field for storing the insets of the frame.
+	(XWindowPeer): Set correct decoration.
+	(getGraphics): Set foreground, background and font.
+	(show): Determine the correct frame extents.
+	(reshape): Only resize when not inside callback.
+	(insets): Implemented correctly.
+	(getFontMetrics): Use OpenTypeFontPeer.
+	* gnu/java/awt/peer/x/ZPixmapDataBuffer.java
+	(getZPixmap): New method. This is used in XGraphics2D for drawing
+	the buffer.
+	* gnu/java/util/LRUCache.java: New class. Implements an LRU cache.
+
+2007-09-19  Dalibor Topic  <robilad@kaffe.org>
+
+        * native/jni/native-lib/Makefile.am 
+        (AM_LDFLAGS) Use CLASSPATH_CONVENIENCE flags, as it is a convenience library.
+
+2007-09-19  Dalibor Topic  <robilad@kaffe.org>
+
+        * native/fdlibm/dtoa.c: Include stdlib.h to have a declaration for free.
+
+2007-09-18  Dalibor Topic  <robilad@kaffe.org>
+
+	* examples/gnu/classpath/examples/management/TestMemoryPool.java,
+	examples/gnu/classpath/examples/swing/DocumentFilterDemo.java,
+	examples/gnu/classpath/examples/swing/TableDemo.java,
+	gnu/CORBA/BigDecimalHelper.java,
+	gnu/CORBA/ByteArrayComparator.java,
+	gnu/CORBA/CollocatedOrbs.java,
+	gnu/CORBA/EmptyExceptionHolder.java,
+	gnu/CORBA/IorDelegate.java,
+	gnu/CORBA/OrbRestricted.java,
+	gnu/CORBA/ServiceRequestAdapter.java,
+	gnu/CORBA/gnuContextList.java,
+	gnu/CORBA/gnuExceptionList.java,
+	gnu/CORBA/gnuRequest.java,
+	gnu/CORBA/CDR/LittleEndianInputStream.java,
+	gnu/CORBA/DynAn/DivideableAny.java,
+	gnu/CORBA/DynAn/gnuDynArray.java,
+	gnu/CORBA/GIOP/CodeSetServiceContext.java,
+	gnu/CORBA/Interceptor/IORInterceptors.java,
+	gnu/CORBA/NamingService/NameParser.java,
+	gnu/CORBA/Poa/gnuPOAManager.java,
+	gnu/classpath/jdwp/event/filters/StepFilter.java,
+	gnu/classpath/jdwp/processor/ObjectReferenceCommandSet.java,
+	gnu/classpath/jdwp/processor/ReferenceTypeCommandSet.java,
+	gnu/java/awt/ClasspathToolkit.java,
+	gnu/java/awt/EmbeddedWindow.java,
+	gnu/java/awt/peer/KDEDesktopPeer.java,
+	gnu/java/awt/peer/gtk/CairoSurface.java,
+	gnu/java/awt/peer/swing/SwingCheckboxPeer.java,
+	gnu/java/awt/peer/swing/SwingTextAreaPeer.java,
+	gnu/java/awt/peer/swing/SwingTextFieldPeer.java,
+	gnu/java/awt/print/PostScriptGraphics2D.java,
+	gnu/java/awt/print/SpooledDocument.java,
+	gnu/java/io/PlatformHelper.java,
+	gnu/java/lang/management/BeanImpl.java,
+	gnu/java/locale/LocaleHelper.java,
+	gnu/java/net/protocol/http/Request.java,
+	gnu/java/nio/DatagramChannelImpl.java,
+	gnu/java/nio/KqueueSelectionKeyImpl.java,
+	gnu/java/nio/NIOSocket.java,
+	gnu/java/nio/ServerSocketChannelImpl.java,
+	gnu/java/nio/SocketChannelImpl.java,
+	gnu/java/rmi/server/RMIObjectInputStream.java,
+	gnu/java/util/regex/RE.java,
+	gnu/javax/imageio/bmp/DecodeBF16.java,
+	gnu/javax/imageio/bmp/EncodeRGB32.java,
+	gnu/javax/imageio/jpeg/JPEGDecoder.java,
+	gnu/javax/imageio/jpeg/JPEGException.java,
+	gnu/javax/imageio/jpeg/JPEGImageInputStream.java,
+	gnu/javax/imageio/png/PNGChunk.java,
+	gnu/javax/imageio/png/PNGEncoder.java,
+	gnu/javax/imageio/png/PNGFile.java,
+	gnu/javax/imageio/png/PNGGamma.java,
+	gnu/javax/net/ssl/SSLRecordHandler.java,
+	gnu/javax/net/ssl/StaticTrustAnchors.java,
+	gnu/javax/net/ssl/provider/CertificateRequestBuilder.java,
+	gnu/javax/net/ssl/provider/ClientHandshake.java,
+	gnu/javax/net/ssl/provider/ClientPSKParameters.java,
+	gnu/javax/net/ssl/provider/ClientRSA_PSKParameters.java,
+	gnu/javax/net/ssl/provider/ContentType.java,
+	gnu/javax/net/ssl/provider/EncryptedPreMasterSecret.java,
+	gnu/javax/net/ssl/provider/Handshake.java,
+	gnu/javax/net/ssl/provider/InputSecurityParameters.java,
+	gnu/javax/net/ssl/provider/OutputSecurityParameters.java,
+	gnu/javax/net/ssl/provider/ProtocolVersion.java,
+	gnu/javax/net/ssl/provider/Random.java,
+	gnu/javax/net/ssl/provider/SRPTrustManagerFactory.java,
+	gnu/javax/net/ssl/provider/ServerDHE_PSKParameters.java,
+	gnu/javax/net/ssl/provider/SessionImpl.java,
+	gnu/javax/net/ssl/provider/Signature.java,
+	gnu/javax/net/ssl/provider/SimpleSessionContext.java,
+	gnu/javax/net/ssl/provider/TLSHMac.java,
+	gnu/javax/net/ssl/provider/TrustedAuthorities.java,
+	gnu/javax/net/ssl/provider/UnresolvedExtensionValue.java,
+	gnu/javax/net/ssl/provider/X509KeyManagerFactory.java,
+	gnu/javax/security/auth/Password.java,
+	gnu/javax/sound/midi/dssi/DSSIMidiDeviceProvider.java,
+	gnu/javax/sound/midi/file/MidiFileWriter.java,
+	gnu/javax/sound/sampled/AU/AUReader.java,
+	gnu/javax/sound/sampled/gstreamer/GStreamerMixer.java,
+	gnu/javax/sound/sampled/gstreamer/io/GstAudioFileReader.java,
+	gnu/javax/sound/sampled/gstreamer/io/GstAudioFileWriter.java,
+	gnu/xml/dom/html2/DomHTMLButtonElement.java,
+	gnu/xml/dom/html2/DomHTMLCollection.java,
+	gnu/xml/dom/html2/DomHTMLParser.java,
+	gnu/xml/stream/EndDocumentImpl.java,
+	gnu/xml/stream/SAXParser.java,
+	gnu/xml/stream/XIncludeFilter.java,
+	gnu/xml/stream/XMLEventImpl.java,
+	gnu/xml/transform/StreamSerializer.java,
+	gnu/xml/transform/Stylesheet.java,
+	gnu/xml/validation/datatype/Base64BinaryType.java,
+	gnu/xml/validation/datatype/BooleanType.java,
+	gnu/xml/validation/datatype/DecimalType.java,
+	gnu/xml/validation/datatype/DoubleType.java,
+	gnu/xml/validation/datatype/FloatType.java,
+	gnu/xml/validation/datatype/HexBinaryType.java,
+	gnu/xml/validation/datatype/NotationType.java,
+	gnu/xml/validation/datatype/SimpleType.java,
+	gnu/xml/validation/datatype/StringType.java,
+	gnu/xml/validation/datatype/Type.java,
+	gnu/xml/validation/datatype/TypeBuilder.java,
+	gnu/xml/validation/relaxng/FullSyntaxBuilder.java,
+	gnu/xml/validation/xmlschema/XMLSchemaAttributeTypeInfo.java,
+	gnu/xml/validation/xmlschema/XMLSchemaBuilder.java,
+	gnu/xml/validation/xmlschema/XMLSchemaElementTypeInfo.java,
+	gnu/xml/xpath/XPathParser.java,
+	java/awt/MenuShortcut.java,
+	java/awt/font/LineBreakMeasurer.java,
+	java/awt/font/TextMeasurer.java,
+	java/awt/image/BufferedImage.java,
+	java/beans/beancontext/BeanContextServicesSupport.java,
+	java/security/SecureClassLoader.java,
+	java/security/cert/CertificateFactory.java,
+	javax/imageio/metadata/IIOMetadataFormatImpl.java,
+	javax/imageio/stream/MemoryCacheImageInputStream.java,
+	javax/management/ObjectName.java,
+	javax/management/openmbean/ArrayType.java,
+	javax/net/ssl/HttpsURLConnection.java,
+	javax/print/attribute/standard/JobStateReasons.java,
+	javax/swing/RepaintManager.java,
+	javax/swing/plaf/basic/BasicDirectoryModel.java,
+	javax/swing/plaf/basic/BasicFileChooserUI.java,
+	javax/swing/plaf/basic/BasicLabelUI.java,
+	javax/swing/plaf/metal/MetalScrollButton.java,
+	javax/swing/table/DefaultTableCellRenderer.java,
+	javax/swing/text/ParagraphView.java,
+	javax/swing/text/html/ResetableToggleButtonModel.java,
+	javax/swing/text/html/parser/Entity.java,
+	javax/swing/tree/DefaultTreeCellRenderer.java,
+	javax/xml/datatype/DatatypeFactory.java,
+	javax/xml/stream/XMLEventFactory.java,
+	javax/xml/stream/XMLInputFactory.java,
+	org/omg/IOP/TaggedComponentHelper.java,
+	sun/reflect/annotation/ExceptionProxy.java,
+	tools/gnu/classpath/tools/appletviewer/Main.java,
+	tools/gnu/classpath/tools/appletviewer/PluginAppletWindow.java,
+	tools/gnu/classpath/tools/orbd/Main.java,
+	tools/gnu/classpath/tools/rmic/ClassRmicCompiler.java,
+	tools/gnu/classpath/tools/rmic/Main.java,
+	tools/gnu/classpath/tools/rmid/Main.java,
+	tools/gnu/classpath/tools/tnameserv/Main.java,
+	vm/reference/gnu/classpath/jdwp/VMVirtualMachine.java,
+	vm/reference/java/lang/VMClass.java,
+	vm/reference/java/security/VMSecureRandom.java:
+	Removed unused imports.
+
+2007-09-18  Dalibor Topic  <robilad@kaffe.org>
+
+	* examples/gnu/classpath/examples/CORBA/SimpleCommunication/communication/StructureToPassHelper.java,
+	examples/gnu/classpath/examples/CORBA/SimpleCommunication/communication/StructureToReturnHelper.java, 
+	examples/gnu/classpath/examples/CORBA/SimpleCommunication/communication/TreeNodeHelper.java,
+	examples/gnu/classpath/examples/CORBA/SimpleCommunication/communication/WeThrowThisExceptionHelper.java,
+	examples/gnu/classpath/examples/awt/AnimationApplet.java: Removed unused imports.
+
+2007-09-18  Dalibor Topic  <robilad@kaffe.org>
+
+	* .classpath: Reverted escher-specific changes that break 
+	the build under Eclipse.
+
+2007-09-16  Mark Wielaard  <mark@klomp.org>
+
+	* examples/Makefile.am (JCOMPILER): Add tools.zip for ecj.
+
+2007-09-14  Roman Kennke  <roman@kennke.org>
+
+	* .classpath: Include javah in Eclipse build.
+
+2007-09-13  David P Grove  <groved@us.ibm.com>
+
+	PR 30275
+	* native/fdlibm/fdlibm.h [_AIX]: Define _ALL_SOURCE
+	rather than _XOPEN_SOURCE to fix build on AIX 5.
+
+2007-09-12  Robert Schuster  <robertschuster@fsfe.org>
+
+	* native/jni/java-net/gnu_java_net_local_LocalSocketImpl.c:
+	Add #ifndef guard around definition of _GNU_SOURCE.
+
+2007-09-12  Dalibor Topic  <robilad@kaffe.org>
+
+	* examples/Makefile.am, tools/Makefile.am 
+	(GLIBJ_CLASSPATH): Removed unnecessary paths to avoid 
+	using unix path separators on windows. 
+	(JCOMPILER) Don't add '.' to classpath for javac.
+	Fixes the build on Cygwin.
+
+2007-09-11  Roman Kennke  <roman@kennke.org>
+
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_CairoGraphics2D.c
+	Removed unused includes.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_CairoSurface.c
+	Removed unused includes.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_ComponentGraphics.c
+	Removed unusued excludes. Put Xrender includes in HAVE_XRENDER
+	conditional.
+	(flush): Use gdk_display_flush() instead of XFlush().
+	(initState): Use GDK/Cairo functions to get cairo_t object.
+	(initFromVolatile): Likewise.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_ComponentGraphicsCopy.c
+	Removed unused includes.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GdkRobotPeer.c
+	Use HAVE_XTEST conditionals for code that uses XTest.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkImage.c
+	Removed unused includes.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkToolkit.c
+	Removed unused includes.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkVolatileImage.c
+	Removed unused includes.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c
+	Removed unused includes. Rewrote frame-extents code to use
+	gdk_window_get_frame_extents() rather than the X window properties
+	directly.
+	* include/gnu_java_awt_peer_gtk_ComponentGraphics.h
+	(initFromVolatile): Removed width and height parameters.
+	* gnu/java/awt/peer/gtk/ComponentGraphics.java
+	(initFromVolatile): Remove width and height parameters.
+	* gnu/java/awt/peer/gtk/VolatileImageGraphics.java
+	(VolatileImageGraphics): Use initFromVolatile without width and
+	height.
+	* configure.ac: Check for presence of XTest, and define HAVE_XTEST
+	accordingly.
+
+2007-09-08  Michael Koch  <konqueror@gmx.de>
+
+	* native/jni/midi-alsa/Makefile.am (AM_CFLAGS):
+	Removed @ERROR_CFLAGS@ to not fail build with GCC 4.2.
+
+2007-09-05  Andrew Haley  <aph@redhat.com>
+
+	* gnu/javax/crypto/jce/DiffieHellmanImpl.java (engineDoPhase):
+	Don't check the length of q.
+
+2007-08-30  Christian Thalinger  <twisti@complang.tuwien.ac.at>
+
+	* include/jni.h (jobjectRefType): New type.
+	(JNI_VERSION_1_6): Added.
+	(JNINativeInterface_): Added GetObjectRefType.
+	(_Jv_JNIEnv): Likewise.
+
+2007-08-28  John X  <johnx@dodgit.com>
+
+	PR classpath/33206:
+	* java/math/BigInteger.java (isProbablePrime): Handle case of
+	large 'b'.
+
+2007-08-24  Mark Wielaard  <mark@klomp.org>
+
+	* include/gnu_java_awt_peer_gtk_GtkComponentPeer.h: Regenerated.
+
+2007-08-23  Francis Kung  <fkung@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java:
+	(getLocationOnScreen): Check for GTK main thread.
+	(gtkWidgetGetLocationOnScreenUnlocked): New native method.
+	(gtkWindowGetLocationOnScreenUnlocked): New native method.
+	* native/jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c:
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWindowGetLocationOnScreen):
+	Delegate to unlocked function.
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWindowGetLocationOnScreenUnlocked):
+	New function.
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetLocationOnScreen):
+	Delegate to unlocked function.
+	(Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetLocationOnScreenUnlocked):
+	New function.
 
 2007-08-22  Andrew John Hughes  <gnu_andrew@member.fsf.org>
 
@@ -9,6 +690,174 @@
 	Documented.
 	(complementOf(EnumSet)): Fixed to flip only
 	the bits used by the enumset.
+	
+2007-08-20  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* vm/reference/java/lang/VMClass.java:
+	(getCanonicalName(Class)): Fix handling of member
+	classes so we don't fall out of the if block.
+	(getSimpleName(Class)): Handle class names which include
+	the $ sign to break up anonymous/inner/member classes.
+
+2007-08-19  Mario Torre  <neugens@limasoftware.net>
+
+	* gnu/javax/sound/sampled/gstreamer/io/GstAudioFileReader.java: 
+	(getAudioFileFormat (File)): method implemented.
+	(getAudioFileFormat (InputStream)): likewise.
+	(getAudioFileFormat(InputStream, String)): new method.
+	(getAudioInputStream): better exception handling.
+	* gnu/javax/sound/sampled/gstreamer/io/GstAudioFileReaderNativePeer.java
+	(getAudioFormat): added basic extension detection for known files.
+	* gnu/javax/sound/sampled/gstreamer/GStreamerMixer.java:
+	(BASIC_FORMATS): removed, unused.
+	(GST_TYPE_NAME): new constant.
+	(GST_FILE_EXTENSION): likewise.
+	
+2007-08-19  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* resource/META-INF/services/javax.sound.sampled.spi.AudioFileReader:
+	Removed.
+	* resource/META-INF/services/javax.sound.sampled.spi.MixerProvider:
+	Likewise.
+	* resource/META-INF/services/.cvsignore: Updated to reflect this.
+	
+2007-08-19  Mario Torre  <neugens@limasoftware.net>
+
+	* native/jni/gstreamer-peer/gst_native_pipeline.c:
+	(init_pointer_IDs):	fix typo that prevents compilation on 64 bit systems.
+
+2007-08-19  Mario Torre  <neugens@limasoftware.net>
+
+	* resource/META-INF/services/javax.sound.sampled.spi.MixerProvider:
+	regenerated to avoid listing by default of the
+	gnu.javax.sound.sampled.gstreamer.GStreamerMixerProvider class, as the
+	GStreamer Sound peer is not enabled unless specified at configure time.
+
+2007-08-18  Mario Torre  <neugens@limasoftware.net>
+
+	* examples/gnu/classpath/examples/sound/AudioPlayerSample.java: new file.
+	* gnu/javax/sound/sampled/gstreamer/GStreamerMixer.java: removed
+	unused import.
+	* gnu/javax/sound/sampled/gstreamer/io/GstAudioFileWriter.java: likewise.
+	* gnu/javax/sound/sampled/gstreamer/io/GstAudioFileReaderNativePeer.java: 
+	(gstreamer_get_audio_format_stream): changed signature tu accept a Pointer
+	object instead of a BufferedInputStream.
+	(GstHeader): 
+	(getAudioFormat(InputStream, GstHeader)): new private method.
+	(getAudioFormat(public)): refactored to use the private getAudioFormat
+	with shared functionality.
+	(getAudioFormat(GstHeader header)): removed a redundant check.
+	(init_id_cache): new native method.
+	* gnu/javax/sound/sampled/gstreamer/io/GstInputStream.java: new file.
+	* gnu/javax/sound/sampled/gstreamer/lines/GstDataLine.java:
+	(GstDataLine.State): removed enum.
+	(state): removed local variable.
+	(isRunning): removed method.
+	(open): likewise.
+	(setFormat): new methods.
+	(setOpen): likewise.
+	(setBufferSize): likewise.
+	* gnu/javax/sound/sampled/gstreamer/lines/GstNativeDataLine.java: 
+	(createSourcePipeline): new method.
+	(setup_sink_pipeline): likewise.
+	(init_id_cache): likewise. Added to the static initializer.
+	* gnu/javax/sound/sampled/gstreamer/lines/GstPipeline.java: 
+	(GstPipeline.State): new enum.
+	(state): new local variable.
+	(name): likewise.
+	(output): likewise.
+	(source): likewise.
+	(ready): likewise.
+	(getState): new method.
+	(closePipe): likewise.
+	(create_named_pipe): likewise.
+	(set_state): likewise.
+	(available): likewise.
+	(drain): likewise.
+	(GstPipeline): likewise.
+	(close): likewise.
+	(prepareWrite): likewise.
+	(flush): likewise.
+	(write): likewise.
+	(init_instance): likewise.
+	(read): likewise.
+	(createForWrite): likewise.
+	(setState): likewise.
+	(getNativeClass): likewise.
+	(init_id_cache): likewise.
+	* gnu/javax/sound/sampled/gstreamer/lines/GstSourceDataLine.java:
+	(pipeline): new local variable.
+	(opne): likewise.
+	(isActive): method implemented.
+	(stop): likewise.
+	(open): likewise.
+	(flush): likewise.
+	(isRunning): likewise.
+	(start): likewise.
+	(write): likewise.
+	(available): likewise.
+	(drain): likewise.
+	(close): likewise.
+	* include/Makefile.am: added entry to generate new header file.
+	* include/gnu_javax_sound_sampled_gstreamer_io_GstAudioFileReaderNativePeer.h:
+	regenerated.
+	* include/gnu_javax_sound_sampled_gstreamer_io_GstInputStream.h: likewise.
+	* include/gnu_javax_sound_sampled_gstreamer_lines_GstNativeDataLine.h:
+	likewise.
+	* include/gnu_javax_sound_sampled_gstreamer_lines_GstPipeline.h:
+	likewise.
+	* native/jni/gstreamer-peer/gstclasspathsrc.c: removed.
+	* native/jni/gstreamer-peer/gstinputstream.c: likewise.
+	* native/jni/gstreamer-peer/GStreamerIOPeer.c: likewise.
+	* native/jni/gstreamer-peer/gstinputstream.h: likewise.
+	* native/jni/gstreamer-peer/gstclasspathsrc.h: likewise.
+	* native/jni/gstreamer-peer/Makefile.am: new file added for compilation.
+	code reformat to keep the 80 columns constraint.
+	* native/jni/gstreamer-peer/gst_native_pipeline.h: new file.
+	* native/jni/gstreamer-peer/gst_input_stream.c: likewise.
+	* native/jni/gstreamer-peer/gst_input_stream.h: likewise.
+	* native/jni/gstreamer-peer/gst_classpath_src.c: likewise.
+	* native/jni/gstreamer-peer/gst_native_pipeline.c: likewise.
+	* native/jni/gstreamer-peer/gst_native_data_line.c: likewise.
+	* native/jni/gstreamer-peer/gst_classpath_src.h: likewise.
+	* native/jni/gstreamer-peer/gstreamer_io_peer.c: likewise.
+	* native/jni/gstreamer-peer/gst_peer.c: likewise.
+	* native/jni/gstreamer-peer/gst_peer.h: likewise.
+	
+2007-08-16  Andrew John Hughes  <gnu_andrew@member.fsf.org>
+
+	* NEWS: Update with info on VM changes.
+	* vm/reference/gnu/java/lang/management/VMMemoryMXBeanImpl.java:
+	(getHeapMemoryUsage()): New default implementation.
+	(getNonHeapMemoryUsage()): Likewise.
+	
+2007-08-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/LinkedHashSet.java (LinkedHashSet): Fix typo.
+
+2007-08-15  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (internalGetFields): Use LinkedHashSet.
+
+2007-08-08  Mario Torre  <neugens@limasoftware.net>
+
+	* java/io/PipedInputStream.java:
+	(buffer): variable now initialized in constructors.
+	(PipedInputStream(int)): new constructor, creates the buffer
+	storage of size int.
+	(PipedInputStream()): now calls PipedInputStream(int) with
+	default capacity.
+	(PipedInputStream(PipedOutputStream)): now calls PipedInputStream().
+	(PipedInputStream(PipedOutputStream, int)): new constructor.
+
+2007-07-31  Christian Thalinger  <twisti@complang.tuwien.ac.at>
+
+	* tools/gnu/classpath/tools/javah/Main.java (writeHeaders):
+	Renamed filename to file.
+	* tools/gnu/classpath/tools/javah/CniIncludePrinter.java
+	(printClass): Likewise.
+	* tools/gnu/classpath/tools/javah/JniIncludePrinter.java
+	(printClass): Replace '$' with '_' in filename.
 
 2007-07-31  Dalibor Topic  <robilad@kaffe.org>
 
@@ -22,10 +871,15 @@
 	implementation independent.
 	(of(T)) return an instance of an anonymous class
 	implementing EmptySet.
- 
+
 2007-07-28  Matthias Klose  <doko@ubuntu.com>
 
-	* include/jvmti.h(jniNativeInterface): Rename type.
+	* include/jvmti.h (jniNativeInterface): Rename type.
+
+2007-07-28  Chris Burdess  <dog@gnu.org>
+
+	PR 32539
+	* gnu/xml/stream/XMLParser.java: don't call next() during hasNext().
 
 2007-07-24  Tom Tromey  <tromey@redhat.com>
 

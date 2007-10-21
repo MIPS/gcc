@@ -1,5 +1,5 @@
-/*gstclasspathsrc.h - Header file for the GstClasspathPlugin
- Copyright (C) 2007 Free Software Foundation, Inc.
+/* LRUCache.java -- A LRU Cache implementation
+   Copyright (C) 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,54 +35,43 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-#ifndef __GST_CLASSPATH_SRC_H__
-#define __GST_CLASSPATH_SRC_H__
+package gnu.java.util;
 
-#include <gst/gst.h>
-#include <gst/base/gstpushsrc.h>
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-#include "gstinputstream.h"
-
-G_BEGIN_DECLS
-
-/* #defines don't like whitespacey bits */
-#define GST_TYPE_CLASSPATH_SRC (gst_classpath_src_get_type())
-
-#define GST_CLASSPATH_SRC(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_CLASSPATH_SRC,GstClasspathSrc))
-  
-#define GST_CLASSPATH_SRC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_CLASSPATH_SRC,GstClasspathSrcClass))
-  
-#define GST_IS_CLASSPATH_SRC(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_CLASSPATH_SRC))
-  
-#define GST_IS_CLASSPATH_SRC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_CLASSPATH_SRC))
-  
-typedef struct _GstClasspathSrc GstClasspathSrc;
-typedef struct _GstClasspathSrcClass GstClasspathSrcClass;
-
-struct _GstClasspathSrc
+/**
+ * A least recently used cache, based on LinkedHashMap.
+ */
+public class LRUCache<K,V>
+  extends LinkedHashMap<K,V>
 {
-  GstPushSrc element;
-  
-  /* TODO: move in a private structure */
-  GstInputStream *istream;
-  int read_position;
-};
 
-struct _GstClasspathSrcClass
-{
-  GstPushSrcClass parent_class;
-};
+  /**
+   * The capacity of the cache.
+   */
+  private int capacity;
 
-GType gst_classpath_src_get_type (void);
+  /**
+   * Creates a new LRUCache instance with the specified capacity.
+   *
+   * @param cap the capacity of the new cache
+   */
+  public LRUCache(int cap)
+  {
+    super();
+    capacity = cap;
+  }
 
-/* exported properties */
-
-#define GST_CLASSPATH_SRC_ISTREAM "input-stream"
-
-G_END_DECLS
-
-#endif /* __GST_CLASSPATH_SRC_H__ */
+  /**
+   * Returns <code>true</code> when the oldest entry should be removed.
+   *
+   * @param eldest the entry about to be removed
+   *
+   * @return <code>true</code> when the oldest entry should be removed
+   */
+  protected boolean removeEldestEntry(Map.Entry<K, V> eldest)
+  {
+    return size() > capacity;
+  }
+}

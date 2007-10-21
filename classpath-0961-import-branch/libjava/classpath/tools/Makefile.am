@@ -13,7 +13,7 @@ if FOUND_ECJ
 JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
 else
 if FOUND_JAVAC
-JCOMPILER = $(JAVAC) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
+JCOMPILER = $(JAVAC) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
 else
 error dunno how to setup the JCOMPILER and compile
 endif # FOUND_JAVAC

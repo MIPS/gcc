@@ -1,3 +1,9 @@
+2007-10-21  Matthias Klose  <doko@ubuntu.com>
+
+	* native/jni/gstreamer-peer/Makefile.am: Do not link with
+	libclasspathnative.
+	* native/jni/gstreamer-peer/Makefile.in: Regenerate.
+
 2007-09-04  Matthias Klose  <doko@ubuntu.com>
 
 	* configure.ac: Append libgcj soversion to nativeexeclibdir.

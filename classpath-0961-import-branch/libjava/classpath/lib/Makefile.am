@@ -22,11 +22,13 @@ if FOUND_KJC
 JCOMPILER = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
 else
 if FOUND_ECJ
-JCOMPILER = $(ECJ) -source 1.4 -encoding UTF-8 -warn:-deprecation,serial,unused -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+JCOMPILER = $(ECJ) -source 1.5 -encoding UTF-8 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+else
+JCOMPILER = echo "No compiler found" 1>&2; exit 1
 endif # FOUND_ECJ
 endif # FOUND_KJC
-endif # FOUND_GCJ
 endif # FOUND_JIKES
+endif # FOUND_GCJ
 
 if CREATE_COLLECTIONS
 COLLECTIONS = collections.jar

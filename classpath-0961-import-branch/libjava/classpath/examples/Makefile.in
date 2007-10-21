@@ -193,6 +193,7 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAVAC = @JAVAC@
+JAVAC_OPTS = @JAVAC_OPTS@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
 JAVA_MAINTAINER_MODE_TRUE = @JAVA_MAINTAINER_MODE_TRUE@
@@ -324,8 +325,9 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 toolexeclibdir = @toolexeclibdir@
 vm_classes = @vm_classes@
-GLIBJ_CLASSPATH = '$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip':'$(top_builddir)/tools/tools.zip'
-@FOUND_ECJ_FALSE@@FOUND_JAVAC_TRUE@JCOMPILER = $(JAVAC) -encoding UTF-8 -bootclasspath $(GLIBJ_CLASSPATH) -classpath .
+GLIBJ_CLASSPATH = '$(top_builddir)/lib/glibj.zip'
+@FOUND_ECJ_FALSE@@FOUND_JAVAC_FALSE@JCOMPILER = echo "No compiler found" 1>&2; exit 1 
+@FOUND_ECJ_FALSE@@FOUND_JAVAC_TRUE@JCOMPILER = $(JAVAC) -encoding UTF-8 -bootclasspath $(GLIBJ_CLASSPATH) -classpath '$(top_builddir)/tools/tools.zip'
 
 # Setup the compiler to use the GNU Classpath library we just build
 #if FOUND_GCJ
@@ -334,7 +336,7 @@ GLIBJ_CLASSPATH = '$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip':'$(top_b
 #if FOUND_JIKES
 #JCOMPILER = $(JIKES) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(top_builddir)/lib:.
 #else
-@FOUND_ECJ_TRUE@JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -bootclasspath $(GLIBJ_CLASSPATH) -classpath .
+@FOUND_ECJ_TRUE@JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -bootclasspath $(GLIBJ_CLASSPATH) -classpath '$(top_builddir)/tools/tools.zip'
 #endif
 #endif
 
@@ -565,7 +567,6 @@ uninstall-am: uninstall-exampleDATA uninstall-info-am uninstall-local
 	uninstall uninstall-am uninstall-exampleDATA uninstall-info-am \
 	uninstall-local
 
-@FOUND_ECJ_FALSE@@FOUND_JAVAC_FALSE@error dunno how to setup the JCOMPILER and compile
 
 # Make sure all sources and icons are also installed so users can use them.
 # (Be careful to strip off the srcdir part of the path when installing.)

@@ -1,3 +1,15 @@
+2007-10-21  Matthias Klose  <doko@ubuntu.com>
+
+	Import GNU Classpath (classpath-0_96_1-release).
+
+	* Regenerate class and header files.
+	* Regenerate auto* files.
+
+	* gnu/classpath/jdwp/VMVirtualMachine.java,
+	java/security/VMSecureRandom.java: Merge from classpath.
+
+	* HACKING: Fix typo.
+
 2007-10-18  David Daney  <ddaney@avtrex.com>
 
 	* classpath/lib/gnu/java/locale/LocaleData.class: Regenerate

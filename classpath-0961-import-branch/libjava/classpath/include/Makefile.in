@@ -183,6 +183,7 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAVAC = @JAVAC@
+JAVAC_OPTS = @JAVAC_OPTS@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
 JAVA_MAINTAINER_MODE_TRUE = @JAVA_MAINTAINER_MODE_TRUE@
@@ -327,7 +328,10 @@ $(top_srcdir)/include/gnu_javax_sound_midi_dssi_DSSIMidiDeviceProvider.h \
 $(top_srcdir)/include/gnu_javax_sound_midi_dssi_DSSISynthesizer.h
 
 GST_PEER_H_FILES = \
-$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_io_GstAudioFileReaderNativePeer.h
+$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_io_GstAudioFileReaderNativePeer.h \
+$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_io_GstInputStream.h \
+$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_lines_GstNativeDataLine.h \
+$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_lines_GstPipeline.h
 
 XMLJ_H_FILES = \
 $(top_srcdir)/include/gnu_xml_libxmlj_dom_GnomeDocument.h \
@@ -846,6 +850,12 @@ uninstall-am: uninstall-info-am
 @CREATE_JNI_HEADERS_TRUE@	$(JAVAH) -o $@ gnu.java.util.prefs.gconf.GConfNativePeer
 @CREATE_JNI_HEADERS_TRUE@$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_io_GstAudioFileReaderNativePeer.h: $(top_builddir)/gnu/javax/sound/sampled/gstreamer/io/GstAudioFileReaderNativePeer.java
 @CREATE_JNI_HEADERS_TRUE@	$(JAVAH) -o $@ gnu.javax.sound.sampled.gstreamer.io.GstAudioFileReaderNativePeer
+@CREATE_JNI_HEADERS_TRUE@$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_io_GstInputStream.h: $(top_builddir)/gnu/javax/sound/sampled/gstreamer/io/GstInputStream.java
+@CREATE_JNI_HEADERS_TRUE@	$(JAVAH) -o $@ gnu.javax.sound.sampled.gstreamer.io.GstInputStream
+@CREATE_JNI_HEADERS_TRUE@$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_lines_GstNativeDataLine.h: $(top_builddir)/gnu/javax/sound/sampled/gstreamer/lines/GstNativeDataLine.java
+@CREATE_JNI_HEADERS_TRUE@	$(JAVAH) -o $@ gnu.javax.sound.sampled.gstreamer.lines.GstNativeDataLine
+@CREATE_JNI_HEADERS_TRUE@$(top_srcdir)/include/gnu_javax_sound_sampled_gstreamer_lines_GstPipeline.h: $(top_builddir)/gnu/javax/sound/sampled/gstreamer/lines/GstPipeline.java
+@CREATE_JNI_HEADERS_TRUE@	$(JAVAH) -o $@ gnu.javax.sound.sampled.gstreamer.lines.GstPipeline
 @CREATE_JNI_HEADERS_TRUE@$(top_srcdir)/include/gnu_java_net_VMPlainSocketImpl.h: $(top_srcdir)/vm/reference/gnu/java/net/VMPlainSocketImpl.java
 @CREATE_JNI_HEADERS_TRUE@	$(JAVAH) -o $@ gnu.java.net.VMPlainSocketImpl
 @CREATE_JNI_HEADERS_TRUE@$(top_srcdir)/include/gnu_java_net_local_LocalSocketImpl.h: $(top_srcdir)/gnu/java/net/local/LocalSocketImpl.java

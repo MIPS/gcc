@@ -326,6 +326,9 @@
 /* Define to 1 if you have libXrender. */
 #undef HAVE_XRENDER
 
+/* Define to 1 if you have libXtst. */
+#undef HAVE_XTEST
+
 /* Define if the host machine stores words of multi-word integers in
    big-endian order. */
 #undef HOST_WORDS_BIG_ENDIAN

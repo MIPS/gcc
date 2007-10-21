@@ -187,6 +187,7 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAVAC = @JAVAC@
+JAVAC_OPTS = @JAVAC_OPTS@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAVA_MAINTAINER_MODE_FALSE = @JAVA_MAINTAINER_MODE_FALSE@
 JAVA_MAINTAINER_MODE_TRUE = @JAVA_MAINTAINER_MODE_TRUE@
@@ -320,7 +321,8 @@ toolexeclibdir = @toolexeclibdir@
 vm_classes = @vm_classes@
 JAVA_DEPEND = java.dep
 compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:$(top_srcdir)/external/jsr166:.:$(USER_CLASSLIB):$(PATH_TO_ESCHER)
-@FOUND_ECJ_TRUE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_FALSE@JCOMPILER = $(ECJ) -source 1.4 -encoding UTF-8 -warn:-deprecation,serial,unused -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+@FOUND_ECJ_FALSE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_FALSE@JCOMPILER = echo "No compiler found" 1>&2; exit 1
+@FOUND_ECJ_TRUE@@FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_FALSE@JCOMPILER = $(ECJ) -source 1.5 -encoding UTF-8 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
 @FOUND_GCJ_FALSE@@FOUND_JIKES_FALSE@@FOUND_KJC_TRUE@JCOMPILER = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
 @FOUND_GCJ_FALSE@@FOUND_JIKES_TRUE@JCOMPILER = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
 
