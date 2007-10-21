@@ -276,6 +276,7 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAVAC = @JAVAC@
+JAVAC_OPTS = @JAVAC_OPTS@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAY = @JAY@
 JAY_SKELETON = @JAY_SKELETON@
@@ -396,9 +397,9 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 vm_classes = @vm_classes@
-GLIBJ_BOOTCLASSPATH = '$(top_builddir)/lib':'$(top_builddir)/lib/glibj.zip'
+GLIBJ_BOOTCLASSPATH = '$(top_builddir)/lib/glibj.zip'
 GLIBJ_CLASSPATH = asm
-@FOUND_ECJ_FALSE@@FOUND_JAVAC_TRUE@JCOMPILER = $(JAVAC) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)
+@FOUND_ECJ_FALSE@@FOUND_JAVAC_TRUE@JCOMPILER = $(JAVAC) -encoding UTF-8 -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath $(GLIBJ_CLASSPATH)
 
 # Setup the compiler to use the GNU Classpath library we just built.
 @FOUND_ECJ_TRUE@JCOMPILER = $(ECJ) -1.5 -encoding UTF-8 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -bootclasspath $(GLIBJ_BOOTCLASSPATH) -classpath .:$(GLIBJ_CLASSPATH)

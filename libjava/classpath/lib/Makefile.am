@@ -12,7 +12,7 @@ if FOUND_ECJ
 JCOMPILER = $(ECJ) -1.5 -warn:-deprecation,serial,typeHiding,unchecked,unused,varargsCast -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
 else
 if FOUND_JAVAC
-JCOMPILER = $(JAVAC) -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+JCOMPILER = $(JAVAC) $(JAVAC_OPTS) -bootclasspath '' -classpath $(compile_classpath) -d . @classes
 #else
 #if FOUND_GCJ
 ## This should never be used when gcj is the compiler.
@@ -25,6 +25,9 @@ JCOMPILER = $(JAVAC) -bootclasspath '' -classpath $(compile_classpath) -d . @cla
 #if FOUND_KJC
 ### FIXME: from what I can tell, kjc does not support a -encoding option.
 #JCOMPILER = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
+else
+JCOMPILER = echo "No compiler found" 1>&2; exit 1 
+#endif
 #endif # FOUND_KJC
 #endif # FOUND_GCJ
 #endif # FOUND_JIKES

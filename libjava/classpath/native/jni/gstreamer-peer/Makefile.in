@@ -63,9 +63,11 @@ am__installdirs = "$(DESTDIR)$(nativeexeclibdir)"
 nativeexeclibLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(nativeexeclib_LTLIBRARIES)
 libgstreamerpeer_la_DEPENDENCIES =  \
-	$(top_builddir)/native/jni/classpath/jcl.lo
-am_libgstreamerpeer_la_OBJECTS = GStreamerIOPeer.lo gstinputstream.lo \
-	gstclasspathsrc.lo
+	$(top_builddir)/native/jni/classpath/jcl.lo \
+	$(top_builddir)/native/jni/native-lib/libclasspathnative.la
+am_libgstreamerpeer_la_OBJECTS = gst_peer.lo gstreamer_io_peer.lo \
+	gst_native_data_line.lo gst_input_stream.lo \
+	gst_native_pipeline.lo gst_classpath_src.lo
 libgstreamerpeer_la_OBJECTS = $(am_libgstreamerpeer_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -193,6 +195,7 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAVAC = @JAVAC@
+JAVAC_OPTS = @JAVAC_OPTS@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
 JAY = @JAY@
 JAY_SKELETON = @JAY_SKELETON@
@@ -314,13 +317,20 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 vm_classes = @vm_classes@
 nativeexeclib_LTLIBRARIES = libgstreamerpeer.la
-libgstreamerpeer_la_SOURCES = GStreamerIOPeer.c \
-                              gstinputstream.c \
-														  gstclasspathsrc.c \
-                              gstclasspathsrc.h \
-                              gstinputstream.h
+libgstreamerpeer_la_SOURCES = gst_peer.c \
+                              gstreamer_io_peer.c \
+                              gst_native_data_line.c \
+                              gst_input_stream.c \
+                              gst_native_pipeline.c \
+                              gst_classpath_src.c \
+                              gst_peer.h \
+                              gst_classpath_src.h \
+                              gst_input_stream.h \
+                              gst_native_pipeline.h
 
-libgstreamerpeer_la_LIBADD = $(top_builddir)/native/jni/classpath/jcl.lo
+libgstreamerpeer_la_LIBADD = $(top_builddir)/native/jni/classpath/jcl.lo \
+             $(top_builddir)/native/jni/native-lib/libclasspathnative.la
+
 libgstreamerpeer_la_LDFLAGS = $(AM_LDFLAGS) @GST_PLUGIN_LDFLAGS@ -avoid-version
 AM_LDFLAGS = @CLASSPATH_MODULE@ @GSTREAMER_LIBS@ @GSTREAMER_BASE_LIBS@ \
              @GSTREAMER_PLUGINS_BASE_LIBS@ @GDK_LIBS@
@@ -329,7 +339,8 @@ AM_CPPFLAGS = @CLASSPATH_INCLUDES@
 
 # We cannot use -Wwrite-strings and the strict flags since
 # gstreamer contain broken prototypes (by design).
-AM_CFLAGS = @WARNING_CFLAGS@ -Wno-write-strings -Wno-missing-field-initializers \
+AM_CFLAGS = @WARNING_CFLAGS@ -Wno-write-strings \
+            -Wno-missing-field-initializers \
             @ERROR_CFLAGS@ -Wno-unused-parameter @GSTREAMER_BASE_CFLAGS@ \
             @GDK_CFLAGS@ @GSTREAMER_CFLAGS@ @GSTREAMER_PLUGINS_BASE_CFLAGS@ 
 
@@ -402,9 +413,12 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/GStreamerIOPeer.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gstclasspathsrc.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gstinputstream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gst_classpath_src.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gst_input_stream.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gst_native_data_line.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gst_native_pipeline.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gst_peer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gstreamer_io_peer.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \

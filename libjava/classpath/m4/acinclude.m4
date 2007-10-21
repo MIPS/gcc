@@ -3,6 +3,7 @@ dnl Used by aclocal to generate configure
 dnl -----------------------------------------------------------
 AC_DEFUN([CLASSPATH_FIND_JAVAC],
 [
+  user_specified_ecj=
   user_specified_javac=
 
 dnl  CLASSPATH_WITH_GCJ
@@ -11,22 +12,27 @@ dnl  CLASSPATH_WITH_KJC
   CLASSPATH_WITH_ECJ
   CLASSPATH_WITH_JAVAC
 
+  if test "x${user_specified_ecj}" = x; then
+    AM_CONDITIONAL(FOUND_ECJ, test "x${ECJ}" != x)
+  else
+    AM_CONDITIONAL(FOUND_ECJ, test "x${user_specified_ecj}" = xecj && test "x${ECJ}" != x)
+  fi
+
   if test "x${user_specified_javac}" = x; then
 dnl    AM_CONDITIONAL(FOUND_GCJ, test "x${GCJ}" != x)
 dnl    AM_CONDITIONAL(FOUND_JIKES, test "x${JIKES}" != x)
-    AM_CONDITIONAL(FOUND_ECJ, test "x${ECJ}" != x)
     AM_CONDITIONAL(FOUND_JAVAC, test "x${JAVAC}" != x)
   else
 dnl    AM_CONDITIONAL(FOUND_GCJ, test "x${user_specified_javac}" = xgcj)
 dnl    AM_CONDITIONAL(FOUND_JIKES, test "x${user_specified_javac}" = xjikes)
-    AM_CONDITIONAL(FOUND_ECJ, test "x${user_specified_javac}" = xecj)
-    AM_CONDITIONAL(FOUND_JAVAC, test "x${user_specified_javac}" = xjavac)
+    AM_CONDITIONAL(FOUND_JAVAC, test "x${user_specified_javac}" = xjavac && test "x${JAVAC}" != x)
   fi
+
 dnl  AM_CONDITIONAL(FOUND_KJC, test "x${user_specified_javac}" = xkjc)
 
 dnl  if test "x${GCJ}" = x && test "x${JIKES}" = x && test "x${user_specified_javac}" != xkjc; then
-  if test "x${ECJ}" = x && test "x${JAVAC}" = x && test "x${user_specified_javac}" != xecj; then
-      AC_MSG_ERROR([cannot find javac, try --with-ecj])
+  if test "x${ECJ}" = x && test "x${JAVAC}" = x && test "x${user_specified_ecj}" != xecj && test "x${user_specified_javac}" != xjavac; then
+      AC_MSG_ERROR([cannot find javac, try --with-ecj or --with-javac])
   fi
 ])
 
@@ -397,7 +403,7 @@ AC_DEFUN([CLASSPATH_WITH_ECJ],
         CLASSPATH_CHECK_ECJ
       fi
     fi
-    user_specified_javac=ecj
+    user_specified_ecj=ecj
   ],
   [ 
     CLASSPATH_CHECK_ECJ
@@ -438,6 +444,7 @@ AC_DEFUN([CLASSPATH_WITH_JAVAC],
     CLASSPATH_CHECK_JAVAC
   ])
   AC_SUBST(JAVAC)
+  AC_SUBST(JAVAC_OPTS)
 ])
 
 dnl -----------------------------------------------------------
@@ -447,5 +454,29 @@ AC_DEFUN([CLASSPATH_CHECK_JAVAC],
     JAVAC="$1"
   else
     AC_PATH_PROG(JAVAC, "javac")
+  fi
+  dnl Test the given javac
+  AC_MSG_CHECKING([if javac is 1.5-capable])
+  cat > conftest.java << EOF
+public class conftest {
+public static void main(String[] args) {
+java.util.List<String> l;
+}}
+EOF
+  $JAVAC -sourcepath '' conftest.java 
+  javac_result=$?
+  if test "x$javac_result" = "x0"; then
+    AC_MSG_RESULT([yes])
+  else
+    AC_MSG_WARN([1.5 capable javac required])
+  fi
+  AC_MSG_CHECKING([whether javac supports -J])
+  $JAVAC -J-Xmx512M -sourcepath '' conftest.java
+  javac_result=$?
+  if test "x$javac_result" = "x0"; then
+    AC_MSG_RESULT([yes])
+    JAVAC_OPTS="-J-Xmx512M"
+  else
+    AC_MSG_RESULT([javac doesn't support -J])
   fi
 ])

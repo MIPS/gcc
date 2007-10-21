@@ -1,4 +1,4 @@
-/*gstinputstream.h - Header file for the GstClasspathPlugin
+/*gst_peer.h - Common utility functions for the native peer.
  Copyright (C) 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -35,65 +35,25 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
-#ifndef __GST_INPUT_STREAM_H__
-#define __GST_INPUT_STREAM_H__
+#include <jni.h>
+#include "jcl.h"
 
-#include <glib-object.h>
+#ifdef MAXPATHLEN
+# define _GST_MALLOC_SIZE_ MAXPATHLEN
+#else
+# define _GST_MALLOC_SIZE_ 1024
+#endif
 
-/* TODO: is a gobject overkill for that? */
+#define _GST_PIPELINE_PREFIX_ "cp-"
+#define _GST_PIPELINE_SUFFIX_ "-classpath-gst-audio"
 
-G_BEGIN_DECLS
+/**
+ * Return a reference to the object stored in this Pointer.
+ */
+void *
+get_object_from_pointer (JNIEnv *env, jobject pointer, jfieldID pointerDataFID);
 
-/* #defines don't like whitespacey bits */
-#define GST_TYPE_INPUT_STREAM (gst_input_stream_get_type())
-
-#define GST_INPUT_STREAM(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_INPUT_STREAM,GstInputStream))
-  
-#define GST_INPUT_STREAM_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_INPUT_STREAM,GstInputStreamClass))
-  
-#define GST_IS_INPUT_STREAM(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_INPUT_STREAM))
-  
-#define GST_IS_INPUT_STREAM_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_INPUT_STREAM))
-  
-typedef struct _GstInputStream GstInputStream;
-typedef struct _GstInputStreamClass GstInputStreamClass;
-typedef struct _GstInputStreamPrivate GstInputStreamPrivate;
-
-struct _GstInputStream
-{
-  GObject parent;
-  
-  /* instance members */
-  GstInputStreamPrivate *priv;
-};
-
-struct _GstInputStreamClass
-{
-  GObjectClass parent_class;
-};
-
-GType gst_input_stream_get_type (void);
-
-int gst_input_stream_read (GstInputStream *self, int *data, int offset,
-                           int length);
-                           
-gboolean gst_input_stream_available (GstInputStream *self, guint64 *size);
-
-gboolean gst_input_stream_can_seek (GstInputStream *self);
-
-long gst_input_stream_skip (GstInputStream *self, long size);
-
-void gst_input_stream_reset (GstInputStream *self);
-
-/* exported properties */
-
-#define GST_ISTREAM_JVM "vm"
-#define GST_ISTREAM_READER "reader"
-
-G_END_DECLS
-
-#endif /* __GST_INPUT_STREAM_H__ */
+/**
+ * Return the JNIEnv valid under the current thread context.
+ */
+JNIEnv *gst_get_jenv (JavaVM *vm);

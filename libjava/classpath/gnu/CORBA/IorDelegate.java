@@ -58,8 +58,6 @@ import org.omg.PortableInterceptor.ForwardRequest;
 
 import java.io.IOException;
 
-import java.net.Socket;
-
 /**
  * The Classpath implementation of the {@link Delegate} functionality in the
  * case, when the object was constructed from an IOR object. The IOR can be
@@ -175,7 +173,7 @@ public class IorDelegate extends SimpleDelegate
     throws ApplicationException, RemarshalException
   {
     StreamBasedRequest request = (StreamBasedRequest) output;
-    Forwardings: while (true)
+    while (true)
       {
         try
           {
