@@ -26,6 +26,7 @@ Boston, MA 02110-1301, USA.  */
 
 #include "hashtab.h"
 #include "tree.h"
+#include "vec.h"
 #include <inttypes.h>
 
 /* Forward Declarations */
@@ -66,6 +67,8 @@ typedef struct lto_info_fd
   /* A map from DIEs to trees.  The keys are offsets into the DWARF
      information section; the values are trees.  */
   htab_t die_cache;
+  /* A vector of FUNCTION_DECLs whose bodies have not yet been read in.  */
+  VEC (tree, heap) *unmaterialized_fndecls;
 } lto_info_fd;
 
 /* A file descriptor for reading from a DWARF abbreviation section.  */

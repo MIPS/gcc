@@ -1,3 +1,16 @@
+2007-10-22  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.h (struct lto_info_fd): Add field unmaterialized_fndecls.
+	* lto.c (lto_info_fd_init): Initialize it.
+	(lto_info_fd_close): Free it.
+	(lto_materialize_function): New function.
+	(lto_read_subroutine_type_subprogram_DIE): Save the result decl on
+	unmaterialized_fndecls.
+	(lto_file_read): Read in all the function bodies after we have read
+	all of the DWARF info.
+	* lto-read.c (lto_read_body): Call init_ssa_operands if we are
+	reading a function body.
+
 2007-10-20  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_tree_flags): Renamed from input_flags to be

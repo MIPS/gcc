@@ -1623,6 +1623,9 @@ lto_read_body (lto_info_fd *fd,
       cfun = fn;
       data_in.num_named_labels = header->num_named_labels;
 
+      /* cgraph expects this to be called once for each function.  */
+      init_ssa_operands ();
+
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_label;
 #endif

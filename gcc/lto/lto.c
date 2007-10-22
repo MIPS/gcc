@@ -247,6 +247,7 @@ lto_info_fd_init (lto_info_fd *fd, const char *name, lto_file *file)
 			       lto_cache_hash,
 			       lto_cache_eq,
 			       free);
+  fd->unmaterialized_fndecls = VEC_alloc (tree, heap, 32);
 }
 
 /* Initialize FD, a newly allocated file descriptor for a DWARF2
@@ -269,6 +270,10 @@ lto_info_fd_close (lto_info_fd *fd)
   for (i = 0; i < fd->num_units; ++i)
     XDELETE (fd->units[i]);
   XDELETEVEC (fd->units);
+
+  /* Other people are holding references to the trees contained in this,
+     so just free the vector.  */
+  VEC_free (tree, heap, fd->unmaterialized_fndecls);
 }
 
 /* Close FD.  */
@@ -2388,6 +2393,42 @@ lto_read_abbrev (lto_info_fd *fd)
   return abbrev;
 }
 
+/* Read the function body for DECL out of FD if possible.  */
+
+static void
+lto_materialize_function (lto_info_fd *fd,
+                          lto_context *context,
+                          tree decl)
+{
+  lto_file *file;
+  const void *body;
+  const char *name;
+
+  file = fd->base.file;
+  name = IDENTIFIER_POINTER (DECL_NAME (decl));
+  body = file->vtable->map_fn_body (file, name);
+
+  if (body)
+    {
+      /* This function has a definition.  */
+      TREE_STATIC (decl) = 1;
+      DECL_EXTERNAL (decl) = 0;
+
+      allocate_struct_function (decl);
+      lto_read_function_body (fd, context, decl, body);
+      file->vtable->unmap_fn_body (file, name, body);
+    }
+  else
+    DECL_EXTERNAL (decl) = 0;
+
+  /* Let the middle end know about the function.  */
+  rest_of_decl_compilation (decl,
+                            /*top_level=*/1,
+                            /*at_end=*/0);
+  if (body)
+    cgraph_finalize_function (decl, /*nested=*/false);
+}
+
 static tree
 lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 					 lto_die_ptr die ATTRIBUTE_UNUSED,
@@ -2541,27 +2582,11 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
     result = type;
   else
     {
-      const void *body;
-      lto_file *file;
-      const char *name_str;
-
       if (!name)
 	lto_file_corrupt_error ((lto_fd *)fd);
 
       result = build_decl (FUNCTION_DECL, name, type);
       TREE_PUBLIC (result) = external;
-      /* Load the body of the function.  */
-      file = fd->base.file;
-      name_str = IDENTIFIER_POINTER (name);
-      body = file->vtable->map_fn_body (file, name_str);
-      if (body)
-	{
-	  /* This function has a definition.  */
-	  TREE_STATIC (result) = 1;
-	  DECL_EXTERNAL (result) = 0;
-	}
-      else
-	DECL_EXTERNAL (result) = 1;
       if (inlined == DW_INL_declared_inlined
 	  || inlined == DW_INL_declared_not_inlined)
 	DECL_DECLARED_INLINE_P (result) = 1;
@@ -2574,27 +2599,18 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	 declarations.  */
       result = lto_symtab_merge_fn (result);
       if (result != error_mark_node)
-	{
-	  /* Record this function in the DIE cache so that it can be
-	     resolved from the bodies of functions.  */
-	  lto_cache_store_DIE (fd, die, result);
-	  /* If the function has a body, read it in.  */ 
-	  if (body)
-	    {
-	      DECL_RESULT (result)
-		= build_decl (RESULT_DECL, NULL_TREE,
-			      TYPE_MAIN_VARIANT (ret_type));
-	      allocate_struct_function (result);
-	      lto_read_function_body (fd, context, result, body);
-	      file->vtable->unmap_fn_body (file, name_str, body);
-	    }
-	  /* Let the middle end know about the function.  */
-	  rest_of_decl_compilation (result,
-				    /*top_level=*/1,
-				    /*at_end=*/0);
-	  if (body)
-	    cgraph_finalize_function (result, /*nested=*/false);
-	}
+        {
+          /* Record this function in the DIE cache so that it can be
+             resolved from the bodies of functions.  */
+          lto_cache_store_DIE (fd, die, result);
+
+          DECL_RESULT (result)
+            = build_decl (RESULT_DECL, NULL_TREE,
+                          TYPE_MAIN_VARIANT (ret_type));
+        }
+
+      /* Save it for later.  */
+      VEC_safe_push (tree, heap, fd->unmaterialized_fndecls, result);
     }
 
   /* Read the child DIEs, which are in the scope of RESULT.  */
@@ -3365,6 +3381,8 @@ lto_file_read (lto_file *file)
       DWARF2_CompUnit *unit = file->debug_info.units[i];
       /* The context information for this compilation unit.  */
       lto_context context;
+      size_t j;
+      tree decl;
 
       /* Set up the context.  */
       lto_set_cu_context (&context, &file->debug_info, unit);
@@ -3380,6 +3398,14 @@ lto_file_read (lto_file *file)
       /* Read DIEs.  */
       while (fd->cur < context.cu_end)
 	lto_read_DIE (&file->debug_info, &context, NULL);
+
+      /* Read in function bodies now that we have the full DWARF tree
+         available.  */
+      for (j = 0;
+           VEC_iterate (tree, file->debug_info.unmaterialized_fndecls,
+                        j, decl);
+           j++)
+        lto_materialize_function (&file->debug_info, &context, decl);
     }
 
   return true;
