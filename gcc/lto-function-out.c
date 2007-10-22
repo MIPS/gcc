@@ -732,14 +732,13 @@ output_decl_index (struct output_stream * obs, htab_t table,
 static void
 output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
 {
-  int flags = 0;
+  unsigned HOST_WIDE_INT flags = 0;
   const char *file_to_write = NULL;
   int line_to_write = -1;
   const char *current_file;
 
   if (code == 0 || TEST_BIT (lto_flags_needed_for, code))
     {
-      LTO_DEBUG_TOKEN ("flags");
 
 #define START_CLASS_SWITCH()              \
   {                                       \
@@ -749,7 +748,8 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
     {
 
 #define START_CLASS_CASE(class)    case class:
-#define ADD_CLASS_FLAG(flag_name) { flags <<= 1; if (expr->base. flag_name ) flags |= 1; }
+#define ADD_CLASS_FLAG(flag_name) \
+      { flags <<= 1; if (expr->base. flag_name ) flags |= 1; }
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                \
     default:                              \
@@ -761,10 +761,14 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
     switch (code)			  \
     {
 #define START_EXPR_CASE(code)    case code:
-#define ADD_EXPR_FLAG(flag_name) { flags <<= 1; if (expr->base. flag_name ) flags |= 1; }
-#define ADD_DECL_FLAG(flag_name) { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
-#define ADD_VIS_FLAG(flag_name)  { flags <<= 1; if (expr->decl_with_vis. flag_name ) flags |= 1; }
-#define ADD_FUNC_FLAG(flag_name) { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
+#define ADD_EXPR_FLAG(flag_name) \
+      { flags <<= 1; if (expr->base. flag_name ) flags |= 1; }
+#define ADD_DECL_FLAG(flag_name) \
+      { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
+#define ADD_VIS_FLAG(flag_name)  \
+      { flags <<= 1; if (expr->decl_with_vis. flag_name ) flags |= 1; }
+#define ADD_FUNC_FLAG(flag_name) \
+      { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -814,7 +818,10 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
 	    }
 	}
 
+      LTO_DEBUG_TOKEN ("flags");
       output_uleb128 (ob, flags);
+      LTO_DEBUG_TREE_FLAGS (code, flags);
+
       if (file_to_write)
 	{
 	  LTO_DEBUG_TOKEN ("file");
@@ -1584,6 +1591,7 @@ output_local_vars (struct output_block *ob)
       if (!is_var)
 	{
 	  output_type_ref (ob, DECL_ARG_TYPE (decl));
+	  LTO_DEBUG_TOKEN ("chain");
 	  if (TREE_CHAIN (decl))
 	    output_expr_operand (ob, TREE_CHAIN (decl));
 	  else
@@ -2222,5 +2230,65 @@ debug_out_fun (struct lto_debug_context *context, char c)
   struct output_stream * stream 
     = (struct output_stream *)context->current_data;
   output_1_stream (stream, c);
+}
+/* Print the tree flags to the debugging stream.  */
+   
+void 
+lto_debug_tree_flags (struct lto_debug_context *context, 
+		      enum tree_code code, 
+		      unsigned HOST_WIDE_INT flags)
+{
+#define CLEAROUT (HOST_BITS_PER_WIDE_INT - 1)
+
+#define START_CLASS_SWITCH()              \
+  {                                       \
+                                          \
+    switch (TREE_CODE_CLASS (code))       \
+    {
+
+#define START_CLASS_CASE(class)    case class:
+#define ADD_CLASS_FLAG(flag_name) \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define END_CLASS_CASE(class)      break;
+#define END_CLASS_SWITCH()                \
+    default:                              \
+      gcc_unreachable ();                 \
+    }
+
+
+#define START_EXPR_SWITCH()               \
+    switch (code)			  \
+    {
+#define START_EXPR_CASE(code)    case code:
+#define ADD_EXPR_FLAG(flag_name) \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define ADD_DECL_FLAG(flag_name) \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define ADD_VIS_FLAG(flag_name)  \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define ADD_FUNC_FLAG(flag_name) \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define END_EXPR_CASE(class)      break;
+#define END_EXPR_SWITCH()                 \
+    default:                              \
+      gcc_unreachable ();                 \
+    }                                     \
+  }
+
+#include "lto-tree-flags.def"
+
+#undef START_CLASS_SWITCH
+#undef START_CLASS_CASE
+#undef ADD_CLASS_FLAG
+#undef END_CLASS_CASE
+#undef END_CLASS_SWITCH
+#undef START_EXPR_SWITCH
+#undef START_EXPR_CASE
+#undef ADD_EXPR_FLAG
+#undef ADD_DECL_FLAG
+#undef ADD_VIS_FLAG
+#undef ADD_FUNC_FLAG
+#undef END_EXPR_CASE
+#undef END_EXPR_SWITCH
 }
 #endif

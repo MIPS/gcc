@@ -838,7 +838,7 @@ TREE_INLINE_H = tree-inline.h $(VARRAY_H) pointer-set.h
 REAL_H = real.h $(MACHMODE_H)
 DBGCNT_H = dbgcnt.h dbgcnt.def
 EBIMAP_H = ebitmap.h sbitmap.h
-LTO_TAGS_H = lto-tags.h sbitmap.h
+LTO_TAGS_H = lto-tags.h tree.h sbitmap.h
 TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
 
 #

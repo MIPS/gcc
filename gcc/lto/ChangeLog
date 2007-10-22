@@ -1,3 +1,19 @@
+2007-10-20  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (input_tree_flags): Renamed from input_flags to be
+	semetric with output_tree_flags.  Added call to log flags.
+	(process_tree_flags): Renamed from process_flags.  Fixed a lot of
+	type issues to make everything consistent with flags being
+	unsigned HOST_WIDE_INTS.
+	(input_expr_operand): Added call to
+	recompute_tree_invariant_for_addr_expr.
+	(input_local_var): Added debugging for tree_chains.  Now calls
+	input_tree_flags.
+	(input_phi): Made flags unsigned HOST_WIDE_INT.
+	(input_ssa_names): Now calls input_tree_flags.
+	(lto_read_body): Now sets cfun.
+	(lto_read_function_body): Now sets current_function_pointer.
+	
 2007-10-19  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Check

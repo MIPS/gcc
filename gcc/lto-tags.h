@@ -24,6 +24,7 @@
 #ifndef GCC_LTO_TAGS_H
 #define GCC_LTO_TAGS_H
 
+#include "tree.h"
 #include "sbitmap.h"
 
 #define LTO_major_version 0
@@ -261,10 +262,13 @@ struct lto_header
 #define REDUNDANT_TYPE_SYSTEM 1
 
 enum LTO_tags {
+/* This allows flags to be sent for a tag even if the tag do not indicate one is needed.  */
+  LTO_flags_needed = 1,
 
 /* The 1 variant indicates that the basic block is not empty.  */
-  LTO_bb0 = 1,
+  LTO_bb0,
   LTO_bb1,
+
 /* Variant 1 is used to set region to no zero value.  */
   LTO_set_eh0,
   LTO_set_eh1,
@@ -496,10 +500,13 @@ void lto_static_init (void);
   lto_debug_string (&lto_debug_context, value, len)
 #define LTO_DEBUG_TOKEN(value) \
   lto_debug_token (&lto_debug_context, value)
+#define LTO_DEBUG_TREE_FLAGS(code,value) \
+  lto_debug_tree_flags (&lto_debug_context, code, flags)
 #define LTO_DEBUG_UNDENT() \
   lto_debug_undent (&lto_debug_context)
 #define LTO_DEBUG_WIDE(tag,value) \
   lto_debug_wide (&lto_debug_context, tag, value)
+
 
 struct lto_debug_context;
 
@@ -525,8 +532,10 @@ extern void lto_debug_indent_token (struct lto_debug_context *, const char *);
 extern void lto_debug_integer (struct lto_debug_context *, const char *, HOST_WIDE_INT, HOST_WIDE_INT);
 extern void lto_debug_string (struct lto_debug_context *, const char *, int);
 extern void lto_debug_token (struct lto_debug_context *, const char *);
+extern void lto_debug_tree_flags (struct lto_debug_context *, enum tree_code, unsigned HOST_WIDE_INT);
 extern void lto_debug_undent (struct lto_debug_context *);
 extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_INT);
+
 
 #else
 #define LTO_DEBUG_INDENT(tag) (void)0
@@ -534,6 +543,7 @@ extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_
 #define LTO_DEBUG_INTEGER(tag,high,low) (void)0
 #define LTO_DEBUG_STRING(value,len) (void)0
 #define LTO_DEBUG_TOKEN(value) (void)0
+#define LTO_DEBUG_TREE_FLAGS(code, value) (void)0
 #define LTO_DEBUG_UNDENT() (void)0
 #define LTO_DEBUG_WIDE(tag,value) (void)0
 #endif

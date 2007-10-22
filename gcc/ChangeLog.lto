@@ -1,3 +1,15 @@
+2007-10-22  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-function-out.c (output_tree_flags): Changed type of
+	flags and enhanced stream debugging for flags.
+	(output_local_vars): Added debugging for tree_chains.
+	(lto_debug_tree_flags): New function.
+	* lto-flags.h (lto_debug_tree_flags): New function.
+	(LTO_flags_needed): New LTO_tags.
+	(LTO_DEBUG_TREE_FLAGS): New macro.
+	* Makefile.in (LTO_TAGS_H): Add tree.h dependency.
+
+
 2007-10-19  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.c (cc1_options): Force -O2 if -flto is given.

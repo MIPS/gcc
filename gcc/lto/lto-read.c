@@ -338,18 +338,37 @@ get_type_ref (struct data_in *data_in, struct input_block *ib)
 }
 
 /* Set all of the FLAGS for NODE.  */
-#define CLEAROUT (HOST_BITS_PER_INT - 1)
+#define CLEAROUT (HOST_BITS_PER_WIDE_INT - 1)
+
+
+/* Read the tree flags for CODE from IB.  */
+
+static unsigned HOST_WIDE_INT 
+input_tree_flags (struct input_block *ib, enum tree_code code)
+{
+  unsigned HOST_WIDE_INT flags;
+
+  if (TEST_BIT (lto_flags_needed_for, code))
+    {
+      LTO_DEBUG_TOKEN ("flags");
+      flags = input_uleb128 (ib);
+      LTO_DEBUG_TREE_FLAGS (code, flags);
+    }
+  else
+    flags = 0;
+  return flags;
+}
 
 
 /* Set all of the flag bits inside EXPR by unpacking FLAGS.  */
 
 static void
-process_flags (tree expr, unsigned HOST_WIDE_INT flags)
+process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
 {
   enum tree_code code = TREE_CODE (expr);
   /* Shift the flags up so that the first flag is at the top of the
      flag word.  */
-  flags <<= HOST_BITS_PER_INT - num_flags_for_code[code];
+  flags <<= HOST_BITS_PER_WIDE_INT - num_flags_for_code[code];
 
 #define START_CLASS_SWITCH()              \
   {                                       \
@@ -358,7 +377,8 @@ process_flags (tree expr, unsigned HOST_WIDE_INT flags)
     {
 
 #define START_CLASS_CASE(class)    case class:
-#define ADD_CLASS_FLAG(flag_name) { expr->base. flag_name = flags >> CLEAROUT;  flags <<= 1; }
+#define ADD_CLASS_FLAG(flag_name) \
+  { expr->base. flag_name = flags >> CLEAROUT; flags <<= 1; }
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                \
     default:                              \
@@ -370,10 +390,14 @@ process_flags (tree expr, unsigned HOST_WIDE_INT flags)
     switch (code)			  \
     {
 #define START_EXPR_CASE(code)    case code:
-#define ADD_EXPR_FLAG(flag_name) { expr->base. flag_name = (flags >> CLEAROUT);  flags <<= 1; }
-#define ADD_DECL_FLAG(flag_name) { expr->decl_common. flag_name = flags >> CLEAROUT; flags <<= 1; }
-#define ADD_VIS_FLAG(flag_name)  { expr->decl_with_vis. flag_name = (flags >> CLEAROUT); flags <<= 1; }
-#define ADD_FUNC_FLAG(flag_name) { expr->function_decl. flag_name = (flags >> CLEAROUT); flags <<= 1; }
+#define ADD_EXPR_FLAG(flag_name) \
+  { expr->base. flag_name = (flags >> CLEAROUT); flags <<= 1; }
+#define ADD_DECL_FLAG(flag_name) \
+  { expr->decl_common. flag_name = flags >> CLEAROUT; flags <<= 1; }
+#define ADD_VIS_FLAG(flag_name)  \
+  { expr->decl_with_vis. flag_name = (flags >> CLEAROUT); flags <<= 1; }
+#define ADD_FUNC_FLAG(flag_name) \
+  { expr->function_decl. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -399,24 +423,6 @@ process_flags (tree expr, unsigned HOST_WIDE_INT flags)
 }
 
 
-/* Read the flags for CODE from IB.  */
-
-static unsigned int 
-input_flags (struct input_block *ib, enum tree_code code)
-{
-  unsigned int flags;
-
-  if (TEST_BIT (lto_flags_needed_for, code))
-    {
-      LTO_DEBUG_TOKEN ("flags");
-      flags = input_uleb128 (ib);
-    }
-  else
-    flags = 0;
-  return flags;
-}
-
-
 /* Read a node in the gimple tree from IB.  The TAG has already been
    read.  */
 
@@ -435,7 +441,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   if (TEST_BIT (lto_types_needed_for, code))
     type = get_type_ref (data_in, ib);
 
-  flags = input_flags (ib, code);
+  flags = input_tree_flags (ib, code);
 
   /* FIXME! need to figure out how to set the file and line number.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
@@ -908,7 +914,14 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
   LTO_DEBUG_UNDENT();
   if (flags)
-    process_flags (result, flags);
+    process_tree_flags (result, flags);
+
+  /* It is not enought to just put the flags back as we serialized
+     them.  There are side effects to the buildN functions which play
+     with the flags to the point that we just have to call this here
+     to get it right.  */
+  if (code == ADDR_EXPR)
+    recompute_tree_invariant_for_addr_expr (result);
   return result;
 }
 
@@ -1045,6 +1058,7 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
   if (!is_var)
     {
       DECL_ARG_TYPE (result) = get_type_ref (data_in, ib);
+      LTO_DEBUG_TOKEN ("chain");
       tag = input_record_start (ib);
       if (tag)
 	TREE_CHAIN (result) = input_expr_operand (ib, data_in, fn, tag);
@@ -1052,8 +1066,7 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
 	TREE_CHAIN (result) = NULL_TREE;
     }
   
-  LTO_DEBUG_TOKEN ("flags");
-  flags = input_uleb128 (ib);
+  flags = input_tree_flags (ib, LTO_flags_needed);
   
   /* FIXME: Need to figure out how to set the line number.  */
   if (flags & 0x2)
@@ -1090,7 +1103,7 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
     DECL_ABSTRACT_ORIGIN (result) 
       = input_expr_operand (ib, data_in, fn, input_record_start (ib));
   
-  process_flags (result, flags);
+  process_tree_flags (result, flags);
   LTO_DEBUG_UNDENT();
 
   /* Record the variable.  */
@@ -1252,7 +1265,7 @@ static tree
 input_phi (struct input_block *ib, basic_block bb, 
 	   struct data_in *data_in, struct function *fn)
 {
-  unsigned int flags = input_flags (ib, PHI_NODE);
+  unsigned HOST_WIDE_INT flags = input_tree_flags (ib, PHI_NODE);
 
   tree phi_result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
   int len = EDGE_COUNT (bb->preds);
@@ -1281,7 +1294,7 @@ input_phi (struct input_block *ib, basic_block bb,
     }
 
   if (flags)
-    process_flags (result, flags);
+    process_tree_flags (result, flags);
 
   LTO_DEBUG_UNDENT();
 
@@ -1305,7 +1318,7 @@ input_ssa_names (struct data_in *data_in, struct input_block *ib, struct functio
     {
       tree ssa_name;
       tree name;
-      unsigned int flags;
+      unsigned HOST_WIDE_INT flags;
 
       /* Skip over the elements that had been freed.  */
       while (VEC_length (tree, SSANAMES (fn)) < i)
@@ -1314,9 +1327,8 @@ input_ssa_names (struct data_in *data_in, struct input_block *ib, struct functio
       name = input_expr_operand (ib, data_in, fn, input_record_start (ib));
       ssa_name = make_ssa_name (fn, name, build_empty_stmt ());
 
-      LTO_DEBUG_TOKEN ("flags");
-      flags = input_uleb128 (ib);
-      process_flags (ssa_name, flags);
+      flags = input_tree_flags (ib, LTO_flags_needed);
+      process_tree_flags (ssa_name, flags);
 
       i = input_uleb128 (ib);
     } 
@@ -1608,6 +1620,7 @@ lto_read_body (lto_info_fd *fd,
   if (in_function)
     {
       struct function *fn = DECL_STRUCT_FUNCTION (t);
+      cfun = fn;
       data_in.num_named_labels = header->num_named_labels;
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -1671,6 +1684,7 @@ lto_read_function_body (lto_info_fd *fd,
 			tree fn_decl,
 			const void *data)
 {
+  current_function_decl = fn_decl;
   lto_read_body (fd, context, fn_decl, data, true);
 }
 
@@ -1762,5 +1776,5 @@ debug_out_fun (struct lto_debug_context *context, char c)
       gcc_unreachable ();
     }
 }
-    
+ 
 #endif
