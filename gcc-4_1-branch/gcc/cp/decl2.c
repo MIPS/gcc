@@ -1874,14 +1874,17 @@ constrain_class_visibility (tree type)
 	int subvis = type_visibility (TREE_TYPE (t));
 
 	if (subvis == VISIBILITY_ANON)
-	  warning (0, "\
+	  {
+	    if (!in_main_input_context ())
+	      warning (0, "\
 %qT has a field %qD whose type uses the anonymous namespace",
-		   type, t);
-	else if (vis < VISIBILITY_HIDDEN
-		 && subvis >= VISIBILITY_HIDDEN)
-	  warning (OPT_Wattributes, "\
+		       type, t);
+	    else if (vis < VISIBILITY_HIDDEN
+		     && subvis >= VISIBILITY_HIDDEN)
+	      warning (OPT_Wattributes, "\
 %qT declared with greater visibility than the type of its field %qD",
-		   type, t);
+		       type, t);
+	  }
       }
 
   binfo = TYPE_BINFO (type);
@@ -1890,14 +1893,17 @@ constrain_class_visibility (tree type)
       int subvis = type_visibility (TREE_TYPE (t));
 
       if (subvis == VISIBILITY_ANON)
-	warning (0, "\
+        {
+	  if (!in_main_input_context())
+	    warning (0, "\
 %qT has a base %qT whose type uses the anonymous namespace",
-		 type, TREE_TYPE (t));
-      else if (vis < VISIBILITY_HIDDEN
-	       && subvis >= VISIBILITY_HIDDEN)
-	warning (OPT_Wattributes, "\
+		     type, TREE_TYPE (t));
+	  else if (vis < VISIBILITY_HIDDEN
+		   && subvis >= VISIBILITY_HIDDEN)
+	    warning (OPT_Wattributes, "\
 %qT declared with greater visibility than its base %qT",
-		 type, TREE_TYPE (t));
+		     type, TREE_TYPE (t));
+	}
     }
 }
 
@@ -2226,6 +2232,8 @@ get_guard (tree decl)
       DECL_ONE_ONLY (guard) = DECL_ONE_ONLY (decl);
       if (TREE_PUBLIC (decl))
 	DECL_WEAK (guard) = DECL_WEAK (decl);
+      DECL_VISIBILITY (guard) = DECL_VISIBILITY (decl);
+      DECL_VISIBILITY_SPECIFIED (guard) = DECL_VISIBILITY_SPECIFIED (decl);
 
       DECL_ARTIFICIAL (guard) = 1;
       DECL_IGNORED_P (guard) = 1;
