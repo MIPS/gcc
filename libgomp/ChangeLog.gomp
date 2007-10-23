@@ -1,3 +1,23 @@
+2007-10-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_sched_t): New type.
+	(omp_set_schedule, omp_get_schedule, omp_get_thread_limit,
+	omp_set_max_active_levels, omp_get_max_active_levels,
+	omp_get_level, omp_get_ancestor_thread_num, omp_get_team_size,
+	omp_get_active_level): New prototypes.
+	* omp_lib.f90.in (omp_sched_kind, omp_sched_static, omp_sched_dynamic,
+	omp_sched_guided, omp_sched_auto): New parameters.
+	(omp_set_schedule, omp_get_schedule, omp_get_thread_limit,
+	omp_set_max_active_levels, omp_get_max_active_levels,
+	omp_get_level, omp_get_ancestor_thread_num, omp_get_team_size,
+	omp_get_active_level): New interfaces.
+	* omp_lib.h.in (omp_sched_kind, omp_sched_static, omp_sched_dynamic,
+	omp_sched_guided, omp_sched_auto): New parameters.
+	(omp_set_schedule, omp_get_schedule, omp_get_thread_limit,
+	omp_set_max_active_levels, omp_get_max_active_levels,
+	omp_get_level, omp_get_ancestor_thread_num, omp_get_team_size,
+	omp_get_active_level): New externals.
+
 2007-10-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* env.c (gomp_active_wait_policy, gomp_max_active_levels_var,
