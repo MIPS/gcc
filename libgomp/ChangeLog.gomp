@@ -1,0 +1,9 @@
+2007-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* env.c (gomp_active_wait_policy, gomp_max_active_levels_var,
+	gomp_thread_limit_var): New variables.
+	(parse_schedule): Parse "auto".
+	(parse_stacksize, parse_wait_policy): New functions.
+	(initialize_env): Handle OMP_WAIT_POLICY, OMP_MAX_ACTIVE_LEVELS,
+	OMP_THREAD_LIMIT, OMP_STACKSIZE env vars.  Handle unit specification
+	for GOMP_STACKSIZE.

@@ -60,7 +60,8 @@ enum gomp_schedule_type
   GFS_STATIC,
   GFS_DYNAMIC,
   GFS_GUIDED,
-  GFS_RUNTIME
+  GFS_RUNTIME,
+  GFS_AUTO
 };
 
 struct gomp_work_share

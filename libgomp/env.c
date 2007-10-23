@@ -43,7 +43,10 @@ bool gomp_nest_var = false;
 enum gomp_schedule_type gomp_run_sched_var = GFS_DYNAMIC;
 unsigned long gomp_run_sched_chunk = 1;
 unsigned short *gomp_cpu_affinity;
+bool gomp_active_wait_policy = false;
 size_t gomp_cpu_affinity_len;
+unsigned long gomp_max_active_levels_var = -1;
+unsigned long gomp_thread_limit_var = -1;
 
 /* Parse the OMP_SCHEDULE environment variable.  */
 
@@ -73,6 +76,11 @@ parse_schedule (void)
     {
       gomp_run_sched_var = GFS_GUIDED;
       env += 6;
+    }
+  else if (strncasecmp (env, "auto", 4) == 0)
+    {
+      gomp_run_sched_var = GFS_AUTO;
+      env += 4;
     }
   else
     goto unknown;
@@ -147,6 +155,67 @@ parse_unsigned_long (const char *name, unsigned long *pvalue)
   return false;
 }
 
+/* Parse the OMP_STACKSIZE environment varible.  Return true if one was
+   present and it was successfully parsed.  */
+
+static bool
+parse_stacksize (const char *name, unsigned long *pvalue)
+{
+  char *env, *end;
+  unsigned long value, shift = 10;
+
+  env = getenv (name);
+  if (env == NULL)
+    return false;
+
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (*env == '\0')
+    goto invalid;
+
+  errno = 0;
+  value = strtoul (env, &end, 10);
+  if (errno)
+    goto invalid;
+
+  while (isspace ((unsigned char) *end))
+    ++end;
+  if (*end != '\0')
+    {
+      switch (tolower (*end))
+	{
+	case 'b':
+	  shift = 0;
+	  break;
+	case 'k':
+	  break;
+	case 'm':
+	  shift = 20;
+	  break;
+	case 'g':
+	  shift = 30;
+	  break;
+	default:
+	  goto invalid;
+	}
+      ++end;
+      while (isspace ((unsigned char) *end))
+	++end;
+      if (*end != '\0')
+	goto invalid;
+    }
+
+  if (((value << shift) >> shift) != value)
+    goto invalid;
+
+  *pvalue = value << shift;
+  return true;
+
+ invalid:
+  gomp_error ("Invalid value for environment variable %s", name);
+  return false;
+}
+
 /* Parse a boolean value for environment variable NAME and store the 
    result in VALUE.  */
 
@@ -177,6 +246,38 @@ parse_boolean (const char *name, bool *value)
     ++env;
   if (*env != '\0')
     gomp_error ("Invalid value for environment variable %s", name);
+}
+
+/* Parse the OMP_WAIT_POLICY environment variable and store the 
+   result in gomp_active_wait_policy.  */
+
+static void
+parse_wait_policy (void)
+{
+  const char *env;
+
+  env = getenv ("OMP_WAIT_POLICY");
+  if (env == NULL)
+    return;
+
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (strncasecmp (env, "active", 6) == 0)
+    {
+      gomp_active_wait_policy = true;
+      env += 6;
+    }
+  else if (strncasecmp (env, "passive", 7) == 0)
+    {
+      gomp_active_wait_policy = false;
+      env += 7;
+    }
+  else
+    env = "X";
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (*env != '\0')
+    gomp_error ("Invalid value for environment variable OMP_WAIT_POLICY");
 }
 
 /* Parse the GOMP_CPU_AFFINITY environment varible.  Return true if one was
@@ -281,6 +382,9 @@ initialize_env (void)
   parse_schedule ();
   parse_boolean ("OMP_DYNAMIC", &gomp_dyn_var);
   parse_boolean ("OMP_NESTED", &gomp_nest_var);
+  parse_wait_policy ();
+  parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var);
+  parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var);
   if (!parse_unsigned_long ("OMP_NUM_THREADS", &gomp_nthreads_var))
     gomp_init_num_threads ();
   if (parse_affinity ())
@@ -290,11 +394,11 @@ initialize_env (void)
   pthread_attr_init (&gomp_thread_attr);
   pthread_attr_setdetachstate (&gomp_thread_attr, PTHREAD_CREATE_DETACHED);
 
-  if (parse_unsigned_long ("GOMP_STACKSIZE", &stacksize))
+  if (parse_stacksize ("OMP_STACKSIZE", &stacksize)
+      || parse_stacksize ("GOMP_STACKSIZE", &stacksize))
     {
       int err;
 
-      stacksize *= 1024;
       err = pthread_attr_setstacksize (&gomp_thread_attr, stacksize);
 
 #ifdef PTHREAD_STACK_MIN
