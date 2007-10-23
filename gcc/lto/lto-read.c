@@ -650,6 +650,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case LABEL_EXPR:
       result = build1 (code, void_type_node, get_label_decl (data_in, ib));
+      if (!DECL_CONTEXT (LABEL_EXPR_LABEL (result)))
+	DECL_CONTEXT (LABEL_EXPR_LABEL (result)) = fn->decl;
       break;
 
     case COND_EXPR:
@@ -832,7 +834,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  TREE_VEC_ELT (op2, i) 
 	    = input_expr_operand (ib, data_in, fn,
 				  input_record_start (ib));
-	result = build3 (code, NULL_TREE, op0, NULL_TREE, op2);
+	result = build3 (code, void_type_node, op0, NULL_TREE, op2);
       }
       break;
 

@@ -1,3 +1,8 @@
+2007-10-24  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (input_expr_operand): Give label_values the proper
+	context and provide switch statements with a default type.
+	
 2007-10-23  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-read.c (lto_read_body): Move call to init_ssa_operands...
