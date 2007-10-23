@@ -55,6 +55,33 @@ OMP_2.0 {
 	omp_get_wtime_;
 } OMP_1.0;
 
+OMP_3.0 {
+  global:
+	omp_set_schedule;
+	omp_set_schedule_;
+	omp_set_schedule_8_;
+	omp_get_schedule;
+	omp_get_schedule_;
+	omp_get_schedule_8_;
+	omp_get_thread_limit;
+	omp_get_thread_limit_;
+	omp_set_max_active_levels;
+	omp_set_max_active_levels_;
+	omp_set_max_active_levels_8_;
+	omp_get_max_active_levels;
+	omp_get_max_active_levels_;
+	omp_get_level;
+	omp_get_level_;
+	omp_get_ancestor_thread_num;
+	omp_get_ancestor_thread_num_;
+	omp_get_ancestor_thread_num_8_;
+	omp_get_team_size;
+	omp_get_team_size_;
+	omp_get_team_size_8_;
+	omp_get_active_level;
+	omp_get_active_level_;
+} OMP_2.0;
+
 GOMP_1.0 {
   global:
 	GOMP_atomic_end;

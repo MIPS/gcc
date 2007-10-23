@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -60,6 +60,15 @@ ialias_redirect (omp_get_num_threads)
 ialias_redirect (omp_get_thread_num)
 ialias_redirect (omp_get_wtick)
 ialias_redirect (omp_get_wtime)
+ialias_redirect (omp_set_schedule)
+ialias_redirect (omp_get_schedule)
+ialias_redirect (omp_get_thread_limit)
+ialias_redirect (omp_set_max_active_levels)
+ialias_redirect (omp_get_max_active_levels)
+ialias_redirect (omp_get_level)
+ialias_redirect (omp_get_ancestor_thread_num)
+ialias_redirect (omp_get_team_size)
+ialias_redirect (omp_get_active_level)
 #endif        
 
 void
@@ -224,4 +233,98 @@ double
 omp_get_wtime_ (void)
 {
   return omp_get_wtime ();
+}
+
+void
+omp_set_schedule_ (const int32_t *kind, const int32_t *modifier)
+{
+  omp_set_schedule (*kind, *modifier);
+}
+
+void
+omp_set_schedule_8_ (const int32_t *kind, const int64_t *modifier)
+{
+  omp_set_schedule (*kind, *modifier);
+}
+
+int32_t
+omp_get_schedule_ (int32_t *kind, int32_t *modifier)
+{
+  omp_sched_t k;
+  int m, r;
+  r = omp_get_schedule (&k, &m);
+  *kind = k;
+  *modifier = m;
+  return r;
+}
+
+int32_t
+omp_get_schedule_8_ (int32_t *kind, int64_t *modifier)
+{
+  omp_sched_t k;
+  int m, r;
+  r = omp_get_schedule (&k, &m);
+  *kind = k;
+  *modifier = m;
+  return r;
+}
+
+int32_t
+omp_get_thread_limit_ (void)
+{
+  return omp_get_thread_limit ();
+}
+
+void
+omp_set_max_active_levels_ (const int32_t *levels)
+{
+  omp_set_max_active_levels (*levels);
+}
+
+void
+omp_set_max_active_levels_8_ (const int64_t *levels)
+{
+  omp_set_max_active_levels (*levels);
+}
+
+int32_t
+omp_get_max_active_levels_ (void)
+{
+  return omp_get_max_active_levels ();
+}
+
+int32_t
+omp_get_level_ (void)
+{
+  return omp_get_level ();
+}
+
+int32_t
+omp_get_ancestor_thread_num_ (const int32_t *level)
+{
+  return omp_get_ancestor_thread_num (*level);
+}
+
+int32_t
+omp_get_ancestor_thread_num_8_ (const int64_t *level)
+{
+  return omp_get_ancestor_thread_num (*level);
+}
+
+int32_t
+omp_get_team_size_ (const int32_t *level)
+{
+  return omp_get_team_size (*level);
+}
+
+int32_t
+omp_get_team_size_8_ (const int64_t *level)
+{
+  return omp_get_team_size (*level);
+}
+
+int32_t
+omp_get_active_level_ (void)
+{
+  return omp_get_active_level ();
 }

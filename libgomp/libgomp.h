@@ -57,10 +57,10 @@
 
 enum gomp_schedule_type
 {
+  GFS_RUNTIME,
   GFS_STATIC,
   GFS_DYNAMIC,
   GFS_GUIDED,
-  GFS_RUNTIME,
   GFS_AUTO
 };
 
@@ -142,6 +142,9 @@ struct gomp_team_state
      guaranteed to be between 0 and N-1, where N is the number of
      threads in the team.  */
   unsigned team_id;
+
+  /* Nesting level.  */
+  unsigned level;
 
   /* The work share "generation" is a number that increases by one for
      each work share construct encountered in the dynamic flow of the

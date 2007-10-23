@@ -102,11 +102,12 @@ omp_get_thread_num (void)
   return gomp_thread ()->ts.team_id;
 }
 
-/* ??? This isn't right.  The definition of this function is false if any
-   of the IF clauses for any of the parallels is false.  Which is not the
-   same thing as any outer team having more than one thread.  */
+/* This wasn't right for OpenMP 2.5.  Active region used to be
+   one where IF clause doesn't evaluate to false, starting with
+   3.0 it is one with more than one thread in the team.  */
 
-int omp_in_parallel (void)
+int
+omp_in_parallel (void)
 {
   struct gomp_team *team = gomp_thread ()->ts.team;
 
@@ -120,7 +121,58 @@ int omp_in_parallel (void)
   return false;
 }
 
+int
+omp_get_level (void)
+{
+  return gomp_thread ()->ts.level;
+}
+
+int
+omp_get_ancestor_thread_num (int level)
+{
+  struct gomp_team_state *ts = &gomp_thread ()->ts;
+  if (level < 0 || level > ts->level)
+    return -1;
+  for (level = ts->level - level; level > 0; --level)
+    ts = &ts->team->prev_ts;
+  return ts->team_id;
+}
+
+int
+omp_get_team_size (int level)
+{
+  struct gomp_team_state *ts = &gomp_thread ()->ts;
+  if (level < 0 || level > ts->level)
+    return -1;
+  for (level = ts->level - level; level > 0; --level)
+    ts = &ts->team->prev_ts;
+  if (ts->team == NULL)
+    return 1;
+  else
+    return ts->team->nthreads;
+}
+
+int
+omp_get_active_level (void)
+{
+  struct gomp_team *team = gomp_thread ()->ts.team;
+  int active = 0;
+
+  while (team)
+    {
+      if (team->nthreads > 1)
+	++active;
+      team = team->prev_ts.team;
+    }
+
+  return active;
+}
+
 ialias (omp_get_num_threads)
 ialias (omp_get_max_threads)
 ialias (omp_get_thread_num)
 ialias (omp_in_parallel)
+ialias (omp_get_level)
+ialias (omp_get_ancestor_thread_num)
+ialias (omp_get_team_size)
+ialias (omp_get_active_level)

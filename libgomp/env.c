@@ -13,7 +13,7 @@
    FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
    more details.
 
-   You should have received a copy of the GNU Lesser General Public License 
+   You should have received a copy of the GNU Lesser General Public License
    along with libgomp; see the file COPYING.LIB.  If not, write to the
    Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
    MA 02110-1301, USA.  */
@@ -45,8 +45,8 @@ unsigned long gomp_run_sched_chunk = 1;
 unsigned short *gomp_cpu_affinity;
 bool gomp_active_wait_policy = false;
 size_t gomp_cpu_affinity_len;
-unsigned long gomp_max_active_levels_var = -1;
-unsigned long gomp_thread_limit_var = -1;
+unsigned long gomp_max_active_levels_var = INT_MAX;
+unsigned long gomp_thread_limit_var = INT_MAX;
 
 /* Parse the OMP_SCHEDULE environment variable.  */
 
@@ -216,7 +216,7 @@ parse_stacksize (const char *name, unsigned long *pvalue)
   return false;
 }
 
-/* Parse a boolean value for environment variable NAME and store the 
+/* Parse a boolean value for environment variable NAME and store the
    result in VALUE.  */
 
 static void
@@ -248,7 +248,7 @@ parse_boolean (const char *name, bool *value)
     gomp_error ("Invalid value for environment variable %s", name);
 }
 
-/* Parse the OMP_WAIT_POLICY environment variable and store the 
+/* Parse the OMP_WAIT_POLICY environment variable and store the
    result in gomp_active_wait_policy.  */
 
 static void
@@ -451,8 +451,61 @@ omp_get_nested (void)
   return gomp_nest_var;
 }
 
+void
+omp_set_schedule (omp_sched_t kind, int modifier)
+{
+  switch (kind)
+    {
+    case omp_sched_static:
+    case omp_sched_dynamic:
+    case omp_sched_guided:
+      if (modifier < 1)
+	modifier = 1;
+      gomp_run_sched_chunk = modifier;
+      break;
+    case omp_sched_auto:
+      break;
+    default:
+      return;
+    }
+  gomp_run_sched_var = kind;
+}
+
+int
+omp_get_schedule (omp_sched_t *kind, int *modifier)
+{
+  *kind = gomp_run_sched_var;
+  *modifier = gomp_run_sched_chunk;
+  /* FIXME: What is this supposed to return?  */
+  return 0;
+}
+
+int
+omp_get_thread_limit (void)
+{
+  return gomp_thread_limit_var;
+}
+
+void
+omp_set_max_active_levels (int max_levels)
+{
+  if (max_levels > 0)
+    gomp_max_active_levels_var = max_levels;
+}
+
+int
+omp_get_max_active_levels (void)
+{
+  return gomp_max_active_levels_var;
+}
+
 ialias (omp_set_dynamic)
 ialias (omp_set_nested)
 ialias (omp_set_num_threads)
 ialias (omp_get_dynamic)
 ialias (omp_get_nested)
+ialias (omp_set_schedule)
+ialias (omp_get_schedule)
+ialias (omp_get_thread_limit)
+ialias (omp_set_max_active_levels)
+ialias (omp_get_max_active_levels)

@@ -115,6 +115,7 @@ gomp_thread_start (void *xdata)
 	  thr->ts.team = NULL;
 	  thr->ts.work_share = NULL;
 	  thr->ts.team_id = 0;
+	  thr->ts.level = 0;
 	  thr->ts.work_share_generation = 0;
 	  thr->ts.static_trip = 0;
 
@@ -198,6 +199,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   thr->ts.team = team;
   thr->ts.work_share = work_share;
   thr->ts.team_id = 0;
+  ++thr->ts.level;
   thr->ts.work_share_generation = 0;
   thr->ts.static_trip = 0;
 
@@ -243,6 +245,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	  nthr->ts.team = team;
 	  nthr->ts.work_share = work_share;
 	  nthr->ts.team_id = i;
+	  nthr->ts.level = team->prev_ts.level + 1;
 	  nthr->ts.work_share_generation = 0;
 	  nthr->ts.static_trip = 0;
 	  nthr->fn = fn;
@@ -289,6 +292,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       start_data->ts.team = team;
       start_data->ts.work_share = work_share;
       start_data->ts.team_id = i;
+      start_data->ts.level = team->prev_ts.level + 1;
       start_data->ts.work_share_generation = 0;
       start_data->ts.static_trip = 0;
       start_data->fn = fn;
