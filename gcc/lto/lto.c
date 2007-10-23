@@ -2426,7 +2426,12 @@ lto_materialize_function (lto_info_fd *fd,
                             /*top_level=*/1,
                             /*at_end=*/0);
   if (body)
-    cgraph_finalize_function (decl, /*nested=*/false);
+    {
+      /* cgraph expects this to be called once for each function.  */
+      init_ssa_operands ();
+
+      cgraph_finalize_function (decl, /*nested=*/false);
+    }
 }
 
 static tree

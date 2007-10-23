@@ -1,3 +1,8 @@
+2007-10-23  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-read.c (lto_read_body): Move call to init_ssa_operands...
+	* lto.c (lto_materialize_function): ...to here.
+
 2007-10-22  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.h (struct lto_info_fd): Add field unmaterialized_fndecls.
