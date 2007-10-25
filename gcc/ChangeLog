@@ -1,5 +1,22 @@
 2007-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser) <current_hset>: New field.
+	(struct hunk_binding) <key, next>: Remove.
+	(struct hunk_set): New.
+	(hash_hunk_binding, eq_hunk_binding): Remove.
+	(hash_hunk_set, eq_hunk_set): New functions.
+	(global_hunk_map): Now contains 'hunk_set's.
+	(start_new_parsed_hunk): Remove 'new_signature' argument.  Update.
+	(finish_current_hunk): Add 'hset' argument.  Update.
+	(create_hunk_binding_map): Update.
+	(struct can_reuse_hunk_data): New.
+	(check_hunk_binding): New function.
+	(can_reuse_hunk): Add 'out_set' argument.  Update.  Use
+	check_hunk_binding.
+	(c_parser_translation_unit): Update.
+
+2007-10-25  Tom Tromey  <tromey@redhat.com>
+
 	* ggc-common.c (ggc_thread_clean_up): Check for pending GC after
 	cleanup.
 

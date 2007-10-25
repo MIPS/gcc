@@ -314,6 +314,9 @@ typedef struct c_parser GTY(())
   /* Map decls and types onto their smashed variants.  */
   htab_t GTY ((param_is (struct smash_entry))) smash_map;
 
+  /* FIXME: restructure parser main loop so this is not required.  */
+  struct hunk_set *current_hset;
+
   /* True if a syntax error is being recovered from; false otherwise.
      c_parser_error sets this flag.  It should clear this flag when
      enough tokens have been consumed to recover from the error.  */
@@ -585,14 +588,12 @@ traverse_hunk_binding_entry (void **slot, void *ignore ATTRIBUTE_UNUSED)
   return 1;
 }
 
-/* A hunk binding holds information about a parsed hunk.  It uses the
-   hunk's signature as a key, and contains information about the
-   hunk's various preconditions.  It also holds the parsed contents of
-   the hunk, in the form of a map from identifier names to values.  */
-struct hunk_binding GTY ((chain_next ("%h.next")))
+/* A hunk binding holds information about a parsed hunk.  It contains
+   information about the hunk's various preconditions.  It also holds
+   the parsed contents of the hunk, in the form of a map from
+   identifier names to values.  */
+struct hunk_binding GTY (())
 {
-  /* Signature of the hunk.  */
-  unsigned char key[16];
   /* If not NULL, this is a multi-hunk binding.  Hunks listed here
      must appear in order following the initial hunk.  All bindings
      are registered in this binding; so we just re-use the already
@@ -604,31 +605,39 @@ struct hunk_binding GTY ((chain_next ("%h.next")))
   htab_t GTY ((param_is (struct hunk_binding_entry))) binding_map;
   /* Set of all prerequisite hunks.  */
   htab_t GTY ((param_is (struct hunk_binding))) prereqs;
-  /* Hunk bindings are kept on a linked list.  Each element in the
-     list has a different set of prerequisites.  */
-  struct hunk_binding *next;
 };
 
-/* Hash function for a struct hunk_binding.  */
-static hashval_t
-hash_hunk_binding (const void *hb)
+/* A hunk set is a collection of hunk binding structures.  In a given
+   set, all hunk bindings share the same signature, but differ in
+   prerequisites.  */
+struct hunk_set GTY(())
 {
-  const struct hunk_binding *hunk = (const struct hunk_binding *) hb;
-  return iterative_hash (&hunk->key[0], 16, 0);
+  /* Signature of the hunks.  */
+  unsigned char key[16];
+  /* The collection of hunks.  */
+  htab_t GTY ((param_is (struct hunk_binding))) bindings;
+};
+
+/* Hash function for a struct hunk_set.  */
+static hashval_t
+hash_hunk_set (const void *hb)
+{
+  const struct hunk_set *hset = (const struct hunk_set *) hb;
+  return iterative_hash (&hset->key[0], 16, 0);
 }
 
 /* Equality function for a struct hunk_binding.  */
 static int
-eq_hunk_binding (const void *a, const void *b)
+eq_hunk_set (const void *a, const void *b)
 {
-  const struct hunk_binding *hb_a = (const struct hunk_binding *) a;
-  const struct hunk_binding *hb_b = (const struct hunk_binding *) b;
+  const struct hunk_set *hb_a = (const struct hunk_set *) a;
+  const struct hunk_set *hb_b = (const struct hunk_set *) b;
   return !memcmp (hb_a->key, hb_b->key, 16);
 }
 
 /* Map a hunk signature to its bindings.  This is a true global,
    shared by all parsers.  */
-static GTY ((param_is (struct hunk_binding))) htab_t global_hunk_map;
+static GTY ((param_is (struct hunk_set))) htab_t global_hunk_map;
 
 /* This is called when making a file-scope binding.  It registers the
    new binding in the current hunk binding map.  */
@@ -765,12 +774,9 @@ object_in_current_hunk_p (tree obj)
 /* Called when we start parsing a new hunk to initialize the hunk
    binding.  */
 static void
-start_new_parsed_hunk (c_parser *parser, unsigned char new_signature[],
-		       size_t table_size, location_t location)
+start_new_parsed_hunk (c_parser *parser, size_t table_size, location_t location)
 {
   parser->current_hunk_binding = GGC_NEW (struct hunk_binding);
-  memcpy (&parser->current_hunk_binding->key[0],
-	  new_signature, 16);
   parser->current_hunk_binding->multi_list = NULL;
   parser->current_hunk_binding->binding_map
     = htab_create_ggc (table_size,
@@ -781,7 +787,6 @@ start_new_parsed_hunk (c_parser *parser, unsigned char new_signature[],
 							   htab_eq_pointer,
 							   NULL);
   parser->current_hunk_binding->location = location;
-  parser->current_hunk_binding->next = NULL;
 }
 
 /* Called when finished parsing a hunk.  Registers the parsed hunk
@@ -789,7 +794,8 @@ start_new_parsed_hunk (c_parser *parser, unsigned char new_signature[],
 static void
 finish_current_hunk (c_parser *parser,
 		     struct parsed_hunk *initial,
-		     struct parsed_hunk *last_used)
+		     struct parsed_hunk *last_used,
+		     struct hunk_set *hset)
 {
   struct hunk_binding **slot;
 
@@ -799,16 +805,16 @@ finish_current_hunk (c_parser *parser,
   if (errorcount)
     return;
 
-  slot = (struct hunk_binding **)
-    htab_find_slot (global_hunk_map, parser->current_hunk_binding, INSERT);
   if (initial != last_used)
     {
       last_used->next = NULL;
       parser->current_hunk_binding->multi_list = initial->next;
     }
 
-  /* Chain.  */
-  parser->current_hunk_binding->next = *slot;
+  slot = (struct hunk_binding **) htab_find_slot (hset->bindings,
+						  parser->current_hunk_binding,
+						  INSERT);
+  gcc_assert (!*slot);
   *slot = parser->current_hunk_binding;
 }
 
@@ -817,8 +823,7 @@ static void
 create_hunk_binding_map (void)
 {
   if (!global_hunk_map)
-    global_hunk_map = htab_create_ggc (20, hash_hunk_binding,
-				       eq_hunk_binding, NULL);
+    global_hunk_map = htab_create_ggc (20, hash_hunk_set, eq_hunk_set, NULL);
 }
 
 
@@ -1695,56 +1700,98 @@ traverse_check_prereq (void **valp, void *ptd)
   return true;
 }
 
-/* Check to see if the HUNK has already been parsed and is available
-   for reuse.  Map in the bindings and return true if the hunk was
-   reused.  Return false otherwise.  */
-static bool
-can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
-		bool update_parser)
+/* Helper state for can_reuse_hunk and check_hunk_binding.  */
+struct can_reuse_hunk_data
 {
-  struct hunk_binding temp, *binding, **slot;
+  /* The parser.  */
+  c_parser *parser;
+  /* The hunk to check for.  */
+  struct parsed_hunk *hunk;
+  /* The result, or NULL if nothing reusable found.  */
+  struct parsed_hunk *self_iter;
+};
+
+/* Check whether a given hunk_binding is reusable.  */
+static int
+check_hunk_binding (void **valp, void *crhd)
+{
+  struct hunk_binding *binding = (struct hunk_binding *) *valp;
+  struct can_reuse_hunk_data *info = (struct can_reuse_hunk_data *) crhd;
+  c_parser *parser = info->parser;
+  struct parsed_hunk *hunk = info->hunk;
+  struct prereq_traverse_data data;
   struct parsed_hunk *binding_iter, *self_iter;
 
-  /* FIXME: kinda gross.  */
-  memcpy (&temp.key[0], &hunk->key[0], 16);
-  binding = (struct hunk_binding *) htab_find (global_hunk_map, &temp);
+  /* We can't re-use a hunk twice in one compilation unit.  FIXME:
+     this is a weird restriction and I think will go away once we have
+     anti-dependencies.  The issue here is that if we see 2 decls
+     "extern int f;" the second time we will re_bind the same decl,
+     eventually tripping over the GC since the decl's chain will point
+     to itself (as part of scope popping).  */
+  if (htab_find (parser->used_hunks, binding))
+    return true;
 
-  for (; binding; binding = binding->next)
+  /* Check prerequisites for this binding.  */
+  data.parser = parser;
+  data.result = true;
+  htab_traverse_noresize (binding->prereqs, traverse_check_prereq, &data);
+  if (!data.result)
+    return true;
+
+  /* If we have a multi-hunk binding, check to make sure the
+     current stream has the correct contents.  */
+  binding_iter = binding->multi_list;
+  self_iter = hunk->next;
+  while (binding_iter
+	 && self_iter
+	 && !memcmp (&binding_iter->key[0], &self_iter->key[0], 16))
     {
-      struct prereq_traverse_data data;
-
-      /* We can't re-use a hunk twice in one compilation unit.  FIXME:
-	 this is a weird restriction and I think will go away once we
-	 have anti-dependencies.  The issue here is that if we see 2
-	 decls "extern int f;" the second time we will re_bind the
-	 same decl, eventually tripping over the GC since the decl's
-	 chain will point to itself (as part of scope popping).  */
-      if (htab_find (parser->used_hunks, binding))
-	return false;
-
-      /* Check prerequisites for this binding.  */
-      data.parser = parser;
-      data.result = true;
-      htab_traverse_noresize (binding->prereqs, traverse_check_prereq, &data);
-      if (!data.result)
-	continue;
-
-      /* If we have a multi-hunk binding, check to make sure the
-	 current stream has the correct contents.  */
-      binding_iter = binding->multi_list;
-      self_iter = hunk->next;
-      while (binding_iter
-	     && self_iter
-	     && !memcmp (&binding_iter->key[0], &self_iter->key[0], 16))
-	{
-	  binding_iter = binding_iter->next;
-	  self_iter = self_iter->next;
-	}
-      if (binding_iter == NULL)
-	break;
+      binding_iter = binding_iter->next;
+      self_iter = self_iter->next;
     }
 
   if (binding == NULL)
+    return true;
+
+  info->self_iter = self_iter;
+  return false;
+}
+
+/* Check to see if the HUNK has already been parsed and is available
+   for reuse.  Map in the bindings and return true if the hunk was
+   reused.  Return false otherwise.  OUT_SET is an out parameter which
+   is filled in with the hunk_set for this hunk.  */
+static bool
+can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
+		bool update_parser, struct hunk_set **out_set)
+{
+  struct hunk_set temp, **set_slot;
+  struct hunk_binding *binding, **slot;
+  struct can_reuse_hunk_data info;
+
+  /* FIXME: kinda gross.  */
+  memcpy (&temp.key[0], &hunk->key[0], 16);
+  set_slot = (struct hunk_set **) htab_find_slot (global_hunk_map, &temp,
+						  INSERT);
+  if (!*set_slot)
+    {
+      /* Need a new hunk_set.  */
+      struct hunk_set *hset = GGC_NEW (struct hunk_set);
+      memcpy (&hset->key[0], &hunk->key[0], 16);
+      hset->bindings = htab_create_ggc (1, htab_hash_pointer, htab_eq_pointer,
+					NULL);
+      *out_set = hset;
+      /* We already know there's nothing to reuse.  */
+      return false;
+    }
+
+  *out_set = *set_slot;
+
+  info.parser = parser;
+  info.hunk = hunk;
+  info.self_iter = NULL;
+  htab_traverse_noresize ((*set_slot)->bindings, check_hunk_binding, &info);
+  if (!info.self_iter)
     return false;
 
   /* Make a note saying that we have used this hunk.  We only need to
@@ -1758,8 +1805,8 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
 			  NULL);
   if (update_parser)
     {
-      parser->first_hunk = self_iter;
-      parser->next_token = self_iter->start_token;
+      parser->first_hunk = info.self_iter;
+      parser->next_token = info.self_iter->start_token;
     }
   /* FIXME: ... hmm... */
   parser->tokens_avail = 0;
@@ -1794,6 +1841,7 @@ c_parser_translation_unit (c_parser *parser)
     {
       void *obstack_position = obstack_alloc (&parser_obstack, 0);
       bool parsed_any = false;
+
       parser->prev_hunk = parser->first_hunk;
       do
 	{
@@ -1821,8 +1869,11 @@ c_parser_translation_unit (c_parser *parser)
 	      if (parser->prev_hunk && parsed_any)
 		{
 		  gcc_assert (last_used->next == parser->first_hunk);
-		  finish_current_hunk (parser, parser->prev_hunk, last_used);
+		  finish_current_hunk (parser, parser->prev_hunk, last_used,
+				       parser->current_hset);
 		  parsed_any = false;
+		  /* Defensiveness.  */
+		  parser->current_hset = NULL;
 		}
 
 	      parser->prev_hunk = parser->first_hunk;
@@ -1850,7 +1901,8 @@ c_parser_translation_unit (c_parser *parser)
 		  /* Found the declaration bounds.  */
 		  c_parser_checksum_buffer (parser, isolani.start_token,
 					    isolani.next_token, isolani.key);
-		  if (can_reuse_hunk (parser, &isolani, false))
+		  if (can_reuse_hunk (parser, &isolani, false,
+				      &parser->current_hset))
 		    {
 		      /* Everything was mapped in via side effect, but
 			 we still have to update the token
@@ -1859,12 +1911,15 @@ c_parser_translation_unit (c_parser *parser)
 		    }
 		  else
 		    {
-		      start_new_parsed_hunk (parser, isolani.key, 1,
+		      start_new_parsed_hunk (parser, 1,
 					     parser->buffer[isolani.start_token].location);
 		      c_parser_external_declaration (parser);
-		      finish_current_hunk (parser, &isolani, &isolani);
+		      finish_current_hunk (parser, &isolani, &isolani,
+					   parser->current_hset);
 		      gcc_assert (parser->next_token == isolani.next_token + 1);
 		    }
+		  /* Defensiveness.  */
+		  parser->current_hset = NULL;
 		}
 	      else
 		{
@@ -1884,12 +1939,12 @@ c_parser_translation_unit (c_parser *parser)
 	    {
 	      /* This will map in the saved bindings and update the
 		 token pointer as side effects.  */
-	      if (can_reuse_hunk (parser, parser->first_hunk, true))
+	      if (can_reuse_hunk (parser, parser->first_hunk, true,
+				  &parser->current_hset))
 		continue;
 
 	      /* Couldn't reuse, so parse and save this hunk.  */
-	      start_new_parsed_hunk (parser, parser->first_hunk->key,
-				     20,
+	      start_new_parsed_hunk (parser, 20,
 				     parser->buffer[parser->prev_hunk->start_token].location);
 	    }
 
