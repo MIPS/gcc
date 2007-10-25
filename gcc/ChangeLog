@@ -1,3 +1,8 @@
+2007-10-25  Tom Tromey  <tromey@redhat.com>
+
+	* ggc-common.c (ggc_thread_clean_up): Check for pending GC after
+	cleanup.
+
 2007-10-19  Tom Tromey  <tromey@redhat.com>
 
 	* dbxout.c (dbx_debug_hooks): Update.

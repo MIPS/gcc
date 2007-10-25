@@ -1127,16 +1127,6 @@ ggc_thread_clean_up (void)
 
   host_mutex_lock (ggc_gc_lock);
 
-  while (ggc_n_waiting_threads)
-    {
-      /* A GC is pending, so we must pause here as well.  Otherwise,
-	 we could cause a lockup if this thread is the last one
-	 entering the safe point.  */
-      host_mutex_unlock (ggc_gc_lock);
-      ggc_collect ();
-      host_mutex_lock (ggc_gc_lock);
-    }
-
   /* Remove our entry from the global root list.  */
   for (iter = &global_root_list; *iter; iter = &(*iter)->next)
     {
@@ -1165,6 +1155,19 @@ ggc_thread_clean_up (void)
     }
 
   free (roots);
+
+  /* Note that we enter a pending GC after removing our roots from
+     consideration.  This way we collect the maximum amount of
+     garbage.  */
+  while (ggc_n_waiting_threads)
+    {
+      /* A GC is pending, so we must pause here as well.  Otherwise,
+	 we could cause a lockup if this thread is the last one
+	 entering the safe point.  */
+      host_mutex_unlock (ggc_gc_lock);
+      ggc_collect ();
+      host_mutex_lock (ggc_gc_lock);
+    }
 
   --ggc_n_threads;
 
