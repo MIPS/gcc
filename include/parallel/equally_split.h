@@ -63,6 +63,27 @@ namespace __gnu_parallel
     *s++ = n;
     return s;
   }
+
+
+  /** @brief Function to split a sequence into parts of almost equal size.
+   *
+   *  Returns the position of the splitting point between 
+   *  thread number thread_no (included) and 
+   *  thread number thread_no+1 (excluded).
+   *  @param n Number of elements
+   *  @param p Number of parts
+   *  @returns Splitting point */
+  template<typename _DifferenceTp>
+  _DifferenceTp
+  equally_split(_DifferenceTp n, thread_index_t p, thread_index_t thread_no)
+  {
+    typedef _DifferenceTp difference_type;
+    difference_type chunk_length = n / p, split = n % p, start = 0;
+    if(thread_no < split)
+        return thread_no * chunk_length;
+    else 
+        return split * chunk_length + (thread_no - split) * (chunk_length + 1);
+  }
 }
 
 #endif
