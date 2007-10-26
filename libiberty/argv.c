@@ -1,5 +1,5 @@
 /* Create and destroy argument vectors (argv's)
-   Copyright (C) 1992, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1992, 2001, 2007 Free Software Foundation, Inc.
    Written by Fred Fish @ Cygnus Support
 
 This file is part of the libiberty library.
@@ -28,6 +28,7 @@ Boston, MA 02110-1301, USA.  */
 #include "ansidecl.h"
 #include "libiberty.h"
 #include "safe-ctype.h"
+#include "dyn-string.h"
 
 /*  Routines imported from standard C runtime libraries. */
 
@@ -286,6 +287,42 @@ char **buildargv (const char *input)
       while (*input != EOS);
     }
   return (argv);
+}
+
+/*
+
+@deftypefn Extension char* argvtostr (const char **@var{argv})
+
+Return a new string which, when run through @code{buildargv}, will
+yield ARGV.  The return value is allocated using @code{malloc}.
+
+@end deftypefn
+
+*/
+
+char *
+argvtostr (const char **argv)
+{
+  dyn_string_t quoted;
+  int i;
+
+  quoted = dyn_string_new (50);
+
+  for (i = 0; argv[i]; ++i)
+    {
+      int j;
+      if (i > 0)
+	dyn_string_append_char (quoted, ' ');
+      for (j = 0; argv[i][j]; ++j)
+	{
+	  char c = argv[i][j];
+          if (ISSPACE(c) || c == '\\' || c == '\'' || c == '"')
+	    dyn_string_append_char (quoted, '\\');
+	  dyn_string_append_char (quoted, c);
+	}
+    }
+
+  return dyn_string_release (quoted);
 }
 
 /*

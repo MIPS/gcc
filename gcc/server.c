@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "server.h"
 #include "errors.h"
-#include "dyn-string.h"
 #include "opts.h"
 
 #include <sys/socket.h>
@@ -138,73 +137,6 @@ open_socket (const char *progname)
   return sockfd;
 }
 
-/* Free the contents of an ARGV array, then the array itself.  */
-static void
-free_argv (char **argv)
-{
-  int i;
-  for (i = 0; argv[i]; ++i)
-    free (argv[i]);
-  free (argv);
-}
-
-/* Split a string into elements at spaces.  A backslash in the string
-   quotes the following character.  The resulting array should later
-   be freed with free_argv.  */
-static char **
-split_argv (char *buffer)
-{
-  char **argv = NULL;
-  int alloc = 0;
-  int used = 0;
-  char *p = buffer;
-  dyn_string_t str = dyn_string_new (20);
-
-  while (*p)
-    {
-      if (*p == '\\')
-	{
-	  ++p;
-	  if (!*p)
-	    {
-	      /* Not actually valid...  */
-	      break;
-	    }
-	  dyn_string_append_char (str, *p);
-	}
-      else if (*p == ' ')
-	{
-	  if (used == alloc)
-	    {
-	      alloc = 2 * alloc + 20;
-	      argv = (char **) xrealloc (argv, alloc * sizeof (char *));
-	    }
-	  argv[used++] = dyn_string_release (str);
-	  if (!*p)
-	    {
-	      str = NULL;
-	      break;
-	    }
-	  str = dyn_string_new (20);
-	}
-      else
-	dyn_string_append_char (str, *p);
-      ++p;
-    }
-
-  if (used + 2 >= alloc)
-    {
-      alloc = used + 2;
-      argv = (char **) xrealloc (argv, alloc * sizeof (char *));
-    }
-
-  if (str)
-    argv[used++] = dyn_string_release (str);
-  argv[used] = NULL;
-
-  return argv;
-}
-
 /* Helper function for server_main_loop.  Read a request from the file
    descriptor REQFD and take action.  */
 static bool
@@ -231,7 +163,7 @@ request_and_response (int reqfd)
 	    break;
 	  buffer[len] = '\0';
 
-	  argv = split_argv (buffer);
+	  argv = buildargv (buffer);
 	  free (buffer);
 	  /* FIXME: obviously this is pretty lame.  */
 	  if (count >= 2)
@@ -252,8 +184,8 @@ request_and_response (int reqfd)
 	      continue;
 	    }
 	  server_callback (reqfd, argvs[0], argvs[1]);
-	  free_argv (argvs[0]);
-	  free_argv (argvs[1]);
+	  freeargv (argvs[0]);
+	  freeargv (argvs[1]);
 	  count = 0;
 	  break;
 	}
@@ -374,30 +306,13 @@ client_connect (const char *progname)
 bool
 client_send_command (const char **argv)
 {
-  dyn_string_t quoted;
   char cmd, *line;
-  int i, len;
+  int len;
   bool result;
 
   gcc_assert (connection_fd >= 0);
 
-  quoted = dyn_string_new (50);
-
-  for (i = 0; argv[i]; ++i)
-    {
-      int j;
-      if (i > 0)
-	dyn_string_append_char (quoted, ' ');
-      for (j = 0; argv[i][j]; ++j)
-	{
-	  if (argv[i][j] == ' ' || argv[i][j] == '\\')
-	    dyn_string_append_char (quoted, '\\');
-	  dyn_string_append_char (quoted, argv[i][j]);
-	}
-    }
-
-  line = dyn_string_release (quoted);
-
+  line = argvtostr (argv);
   len = strlen (line);
   cmd = 'X';
 

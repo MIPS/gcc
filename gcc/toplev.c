@@ -112,6 +112,8 @@ static void finalize (void);
 static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
 static bool compile_file (void);
+static struct pex_obj *start_as (char **);
+static void wait_for_as (struct pex_obj *, int *);
 
 /* Nonzero to dump debug info whilst parsing (-dy option).  */
 static int set_yydebug;
@@ -397,10 +399,23 @@ typedef const char *cchar_p;
 DEF_VEC_P(cchar_p);
 DEF_VEC_ALLOC_P(cchar_p,gc);
 
-/* Saved command-line arguments for the current job.  The server
-   copies these into GC-allocated memory so that file names, etc, are
-   not deleted when the current job completes.  */
-static GTY(()) VEC(cchar_p,gc) *job_arguments;
+/* The current compilation job.  */
+struct compilation_job GTY(())
+{
+  /* The command-line arguments to the compiler.  This is GC allocated
+     so that file names and the like are not deleted after the current
+     job has completed.  */
+  VEC(cchar_p,gc) *cc1_arguments;
+
+  /* The command-line arguments to the assembler.  */
+  VEC(cchar_p,gc) *as_arguments;
+
+  /* If not null, the executing assembler sub-process.  */
+  struct pex_obj * GTY ((skip)) as_process;
+};
+
+/* The current compilation job.  */
+static GTY(()) struct compilation_job *job;
 
 /* The current working directory of a translation.  It's generally the
    directory from which compilation was initiated, but a preprocessed
@@ -1075,12 +1090,19 @@ compile_file (void)
   if (flag_syntax_only)
     return false;
 
-  if (server_mode && server_start_back_end ())
-    return false;
-
   if (server_mode)
     {
+      /* Collect here so that the child process has the minimal amount
+	 of unclaimed garbage.  */
+      ggc_collect ();
+
+      if (server_start_back_end ())
+	return false;
+
+      job->as_process = start_as ((char **) VEC_address (cchar_p,
+							 job->as_arguments));
       gcc_assert (server_asm_out_file && !asm_out_file);
+
       asm_out_file = server_asm_out_file;
       server_asm_out_file = NULL;
       init_asm_output (main_input_filename);
@@ -2167,6 +2189,14 @@ finalize (void)
       server_asm_out_file = NULL;
     }
 
+  if (job->as_process)
+    {
+      int result;
+      wait_for_as (job->as_process, &result);
+      /* FIXME: handle error */
+      job->as_process = NULL;
+    }
+
   finish_optimization_passes ();
 
   if (mem_report)
@@ -2250,10 +2280,33 @@ start_as (char **as_argv)
   return px;
 }
 
+static void
+wait_for_as (struct pex_obj *px, int *result)
+{
+  /* FIXME: send a single byte back to the client for status?
+     FIXME: this function should return an error indication.  */
+  pex_get_status (px, 1, result);
+  pex_free (px);
+}
+
+/* Copy an argument vector into a VEC, reallocating all the strings
+   via the GC.  */
+static void
+copy_to_vec (VEC (cchar_p, gc) **out, char **args, int *n_args)
+{
+  int i;
+  *out = NULL;
+  for (i = 0; args[i]; ++i)
+    VEC_safe_push (cchar_p, gc, *out, ggc_strdup (args[i]));
+  VEC_safe_push (cchar_p, gc, *out, NULL);
+  if (n_args)
+    *n_args = i - 1;
+}
+
 void
 server_callback (int fd, char **cc1_argv, char **as_argv)
 {
-  struct pex_obj *px;
+  int n;
 
   /* For now, work single-threaded and just stomp on global state as
      needed.  */
@@ -2267,30 +2320,15 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
   errorcount = 0;
   sorrycount = 0;
 
-  px = start_as (as_argv);
+  job = GGC_CNEW (struct compilation_job);
+  copy_to_vec (&job->as_arguments, as_argv, NULL);
+  copy_to_vec (&job->cc1_arguments, cc1_argv, &n);
 
-  if (px)
-    {
-      int n, result;
-      /* Copy the arguments into GC memory.  */
-      job_arguments = NULL;
-      for (n = 0; cc1_argv[n]; ++n)
-	{
-	  VEC_safe_push (cchar_p, gc, job_arguments, ggc_strdup (cc1_argv[n]));
-	}
-      VEC_safe_push (cchar_p, gc, job_arguments, NULL);
-      decode_options (n, VEC_address (cchar_p, job_arguments));
+  decode_options (n, VEC_address (cchar_p, job->cc1_arguments));
+  flag_unit_at_a_time = 1;
 
-      flag_unit_at_a_time = 1;
-
-      init_local_tick ();		/* FIXME... */
-      do_compile ();
-
-      /* FIXME: send a single byte back to the client for status?
-	 FIXME: this function should return an error indication.  */
-      pex_get_status (px, 1, &result);
-      pex_free (px);
-    }
+  init_local_tick ();
+  do_compile ();
 
   /* Clean up after this compilation.  FIXME: instead of clean_up()
      running before a job, as we have in a couple files, we should
@@ -2299,6 +2337,8 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
   cgraph_reset ();
   cgraph_unit_reset ();
   varpool_reset ();
+  job = NULL;
+
   ggc_collect ();
 
   /* Make sure to close dup'd stderr, so that client will terminate
@@ -2344,3 +2384,5 @@ toplev_main (unsigned int argc, const char **argv)
 
   return (SUCCESS_EXIT_CODE);
 }
+
+#include "gt-toplev.h"

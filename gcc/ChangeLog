@@ -1,5 +1,23 @@
 2007-10-25  Tom Tromey  <tromey@redhat.com>
 
+	* Makefile.in (GTFILES): Added toplev.c.
+	* toplev.c (job_arguments): Removed.
+	(struct compilation_job): New.
+	(job): New global.
+	(compile_file): Collect before forking.  Start 'as'.
+	(finalize): Call wait_for_as.
+	(wait_for_as): New function.
+	(copy_to_vec): Likewise.
+	(server_callback): Create a compilation_job.  Don't start or wait
+	for as.
+	Include gt-toplev.h.
+	* server.c: Don't include dyn-string.h.
+	(free_argv, split_argv): Removed.
+	(request_and_response): Use buildargv, freeargv.
+	(client_send_command): Use argvtostr.
+
+2007-10-25  Tom Tromey  <tromey@redhat.com>
+
 	* c-parser.c (c_parser) <current_hset>: New field.
 	(struct hunk_binding) <key, next>: Remove.
 	(struct hunk_set): New.

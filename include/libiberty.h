@@ -1,6 +1,6 @@
 /* Function declarations for libiberty.
 
-   Copyright 2001, 2002, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2005, 2007 Free Software Foundation, Inc.
    
    Note - certain prototypes declared in this header file are for
    functions whoes implementation copyright does not belong to the
@@ -89,6 +89,9 @@ extern void expandargv PARAMS ((int *, char ***));
 /* Write argv to an @-file, inserting necessary quoting.  */
 
 extern int writeargv PARAMS ((char **, FILE *));
+
+/* Turn argv array into quoted string.  */
+extern char *argvtostr PARAMS ((const char **));
 
 /* Return the last component of a path name.  Note that we can't use a
    prototype here because the parameter is declared inconsistently

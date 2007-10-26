@@ -3078,7 +3078,8 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/profile.c $(srcdir)/regclass.c \
   $(srcdir)/reg-stack.c $(srcdir)/cfglayout.c $(srcdir)/cfglayout.h \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
-  $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
+  $(srcdir)/stringpool.c $(srcdir)/toplev.c $(srcdir)/tree.c \
+  $(srcdir)/varasm.c \
   $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h $(srcdir)/tree-scalar-evolution.c \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
   $(srcdir)/tree-phinodes.c $(srcdir)/tree-cfg.c \

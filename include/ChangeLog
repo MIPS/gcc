@@ -1,3 +1,7 @@
+2007-10-25  Tom Tromey  <tromey@redhat.com>
+
+	* libiberty.h (argvtostr): Declare.
+
 2007-07-25  Ben Elliston  <bje@au.ibm.com>
 
 	* ternary.h: Remove.
