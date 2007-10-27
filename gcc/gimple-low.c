@@ -744,7 +744,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   /* Build '__builtin_setjmp_setup (BUF, NEXT_LABEL)' and insert.  */
   arg = build_addr (next_label, current_function_decl);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_SETUP];
-  g = gimple_build_call (t, 2, gimple_call_arg (stmt, 0));
+  g = gimple_build_call (t, 2, gimple_call_arg (stmt, 0), arg);
   gimple_set_locus (g, gimple_locus (stmt));
   gsi_link_before (gsi, g, GSI_SAME_STMT);
 

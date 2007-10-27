@@ -1,3 +1,8 @@
+2007-10-26  Diego Novillo  <dnovillo@google.com>
+
+	* gimple-low.c (lower_builtin_setjmp): Pass ARG to first
+	call to gimple_build_call.
+
 2007-10-17  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-gimple.c (get_gimple_rhs_class): Add case for EXC_PTR_EXPR.
