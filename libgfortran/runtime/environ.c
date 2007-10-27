@@ -270,86 +270,6 @@ show_string (variable * v)
 }
 
 
-/* Structure for associating names and values.  */
-
-typedef struct
-{
-  const char *name;
-  int value;
-}
-choice;
-
-
-enum
-{ FP_ROUND_NEAREST, FP_ROUND_UP, FP_ROUND_DOWN, FP_ROUND_ZERO };
-
-static const choice rounding[] = {
-  {"NEAREST", FP_ROUND_NEAREST},
-  {"UP", FP_ROUND_UP},
-  {"DOWN", FP_ROUND_DOWN},
-  {"ZERO", FP_ROUND_ZERO},
-  {NULL, 0}
-};
-
-static const choice precision[] =
-{
-  { "24", 1},
-  { "53", 2},
-  { "64", 0},
-  { NULL, 0}
-};
-
-static const choice signal_choices[] =
-{
-  { "IGNORE", 1},
-  { "ABORT", 0},
-  { NULL, 0}
-};
-
-
-static void
-init_choice (variable * v, const choice * c)
-{
-  char *p;
-
-  p = getenv (v->name);
-  if (p == NULL)
-    goto set_default;
-
-  for (; c->name; c++)
-    if (strcasecmp (c->name, p) == 0)
-      break;
-
-  if (c->name == NULL)
-    {
-      v->bad = 1;
-      goto set_default;
-    }
-
-  *v->var = c->value;
-  return;
-
- set_default:
-  *v->var = v->value;
-}
-
-
-static void
-show_choice (variable * v, const choice * c)
-{
-  st_printf ("%s  ", var_source (v));
-
-  for (; c->name; c++)
-    if (c->value == *v->var)
-      break;
-
-  if (c->name)
-    st_printf ("%s\n", c->name);
-  else
-    st_printf ("(Unknown)\n");
-}
-
-
 static variable variable_table[] = {
   {"GFORTRAN_STDIN_UNIT", GFC_STDIN_UNIT_NUMBER, &options.stdin_unit,
    init_integer, show_integer,
@@ -378,6 +298,10 @@ static variable variable_table[] = {
    show_boolean,
    "If TRUE, all output is unbuffered.  This will slow down large writes "
    "but can be\nuseful for forcing data to be displayed immediately.", 0},
+
+  {"GFORTRAN_UNBUFFERED_PRECONNECTED", 0, &options.unbuffered_preconnected,
+   init_boolean, show_boolean,
+   "If TRUE, output to preconnected units is unbuffered.", 0},
 
   {"GFORTRAN_SHOW_LOCUS", 1, &options.locus, init_boolean, show_boolean,
    "If TRUE, print filename and line number where runtime errors happen.", 0},
@@ -423,32 +347,6 @@ init_variables (void)
 
   for (v = variable_table; v->name; v++)
     v->init (v);
-}
-
-
-/* check_buffered()-- Given an unit number n, determine if an override
- * for the stream exists.  Returns zero for unbuffered, one for
- * buffered or two for not set. */
-
-int
-check_buffered (int n)
-{
-  char name[22 + sizeof (n) * 3];
-  variable v;
-  int rv;
-
-  if (options.all_unbuffered)
-    return 0;
-
-  sprintf (name, "GFORTRAN_UNBUFFERED_%d", n);
-
-  v.name = name;
-  v.value = 2;
-  v.var = &rv;
-
-  init_boolean (&v);
-
-  return rv;
 }
 
 

@@ -1,3 +1,481 @@
+2007-10-26  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/other/pr33601.C: New.
+
+2007-10-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/31988
+	* g++.dg/init/new25.C: New.
+
+2007-10-26  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/cpp0x/pr33839.C: New.
+	
+2007-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33744
+	* g++.dg/template/arg6.C: New test.
+
+2007-10-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/31747
+	* g++.dg/parse/crash39.C: New.
+
+2007-10-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/tree-ssa/ivopts-1.C: Remove xfail on the search for
+	"&x\\\[5\\\]" pattern.  Search for "offset: 0x0f+fc" instead of
+	"offset: -4B".
+
+2007-10-25  David Daney  <ddaney@avtrex.com>
+
+	* g++.dg/tree-ssa/copyprop-1.C: Remove xfail.
+
+2007-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33843
+	* g++.dg/template/error32.C: New.
+
+2007-10-25  Martin Michlmayr <tbm@cyrius.com>
+            Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/33833
+	* gcc.dg/vect/pr33833.c: New testcase.
+
+2007-10-25  David Daney  <ddaney@avtrex.com>
+
+	* gcc.dg/tree-ssa/20040204-1.c: Un-xfail for mips*-*-*.
+
+2007-10-25  Martin Michlmayr <tbm@cyrius.com>
+            Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/33866
+	* gcc.dg/vect/pr33866.c: New testcase.
+
+2007-10-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr11001-*.c: Remove -m32 from compile flags.
+	Add -w to compile flags to suppress "call-clobbered register" warnings
+	and remove dg-warning directives.
+
+2007-10-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/sms-2.c: Cleanup sms dump file.
+	* gcc.dg/tree-prof/tracer-1.c: Cleanup tracer dump file after the
+	profile-use step.
+
+2007-10-24  David Daney  <ddaney@avtrex.com>
+
+	* gcc.dg/tree-ssa/update-threading.c: Remove xfail.
+
+2007-10-24  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33755
+	* gcc.target/mips/pr33755.c: New test.
+
+2007-10-24  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/33804
+	* gcc.dg/vect/pr33804.c: New testcase.
+
+2007-10-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR forrtran/33849
+	gfortran.dg/generic_actual_arg.f90: Fix dg-error message.
+
+2007-10-23  Martin Michlmayr <tbm@cyrius.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/33846
+	* gcc.dg/vect/pr33846.c: New testcase.
+
+2007-10-23  Martin Michlmayr <tbm@cyrius.com>
+	    Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/33860
+	* g++.dg/vect/pr33860.cc: New test.
+	* g++.dg/vect/pr33860a.cc: New test.
+
+2007-10-23  Tehila Meyzels  <tehila@il.ibm.com>
+	    Revital Eres  <eres@il.ibm.com>	 
+
+	* testsuite/gcc.dg/sms-2.c: New testcase.
+
+2007-10-22  David S. Miller  <davem@davemloft.net>
+
+	* gcc.dg/globalreg-1.c: New test.
+
+2007-10-22  Martin Michlmayr <tbm@cyrius.com>
+	    Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/33834
+	PR tree-optimization/33835
+	* g++.dg/vect/pr33834_1.cc: New test.
+	* g++.dg/vect/pr33834_2.cc: New test.
+	* g++.dg/vect/pr33835.cc: New test.
+
+2007-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/pr33644.c: New test.
+
+2007-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33372
+	* g++.dg/gomp/pr33372-1.C: New test.
+	* g++.dg/gomp/pr33372-2.C: New test.
+	* g++.dg/gomp/pr33372-3.C: New test.
+
+2007-10-22  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/33855
+	* gcc.c-torture/compile/pr33855.c: New testcase.
+
+2007-10-22  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/33854
+	* gcc.dg/vect/O1-pr33854.c: New testcase.
+	* gcc.dg/vect/vect.exp: Run tests starting with "O1-" with -O1.
+
+2007-10-21  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/unwind-1.c: Disable on AIX.
+	* gcc.dg/cpp/_Pragma6.c: Disable on AIX.
+
+2007-10-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33749
+	* gfortran.dg/assign_9.f90: New test.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set mips_mips16.
+	(dg-mips-options): Skip tests that specify an ABI other than o32
+	and o64 if generating MIPS16 hard-float code.
+
+2007-10-21  Ira Rosen  <irar@il.ibm.com>
+            Revital Eres  <eres@il.ibm.com>
+
+	* gcc.dg/vect/vect-ifcvt-5.c: Require vect_int.
+	* gcc.dg/vect/vect-16.c: Fix comment.
+	* gcc.dg/vect/pr33369.c: Require vect_int.
+	* gcc.dg/vect/slp-33.c: Add spaces.
+	* gcc.dg/vect/no-scevccp-outer-18.c: Enable only for vect_interleave
+	targets.
+	* gcc.dg/vect/vect-ifcvt-6.c: Require vect_int.
+	* gcc.dg/vect/no-scevccp-outer-19.c: Enable only for vect_unpack
+	targets.
+	* gcc.dg/vect/vect-ifcvt-7.c: Require vect_int.
+	* gcc.dg/vect/vect-strided-store-u16-i4.c: Add vect_unpack to
+	targets.
+	* gcc.dg/vect/slp-10.c: Add spaces.
+	* gcc.dg/vect/no-scevccp-outer-21.c: Enable only for vect_pack_trunc
+	targets.
+	* gcc.dg/vect/slp-36.c: Require vect_int.
+	* gcc.dg/vect/vect-ifcvt-9.c, gcc.dg/vect/vect-strided-store-u32-i2.c,
+	gcc.dg/vect/vect-ifcvt-2.c, gcc.dg/vect/vect-ifcvt-3.c,
+	gcc.dg/vect/vect-82.c, gcc.dg/vect/vect-83.c: Likewise.
+	* gcc.dg/vect/no-scevccp-outer-16.c: Enable only for vect_unpack
+	targets.
+	* gcc.dg/vect/no-scevccp-outer-17.c: Likewise.
+	* gcc.dg/vect/pr25413.c: Use vector alignment_reachable_for_64bit
+	instead of vector_alignment_reachable_for_double.
+	* lib/target-supports.exp (vect_aligned_arrays): Add spu-*-*.
+	(natural_alignment): Split into...
+	(natural_alignment_32, natural_alignment_64): New.
+	(vector_alignment_reachable): Depend on natural_alignment_32.
+	(vector_alignment_reachable_for_double): Rename to ...
+	(vector_alignment_reachable_for_64bit): And depend on
+	natural_alignment_64.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.dg/vect/vect.exp: Extend -mpaired-single handling to all
+	MIPS targets.
+	* g++.dg/vect/vect.exp: Likewise.
+	* lib/fortran-torture.exp: Likewise.
+	* gcc.target/mips/mips-ps-1.c: Use mpaired_single rather than
+	mipsisa64*-*-* as the target selector.  Remove -mips64,
+	-mhard-float and -mgp64 from the options list.
+	* gcc.target/mips/mips-ps-2.c: Likewise.
+	* gcc.target/mips/mips-ps-3.c: Likewise.
+	* gcc.target/mips/mips-ps-4.c: Likewise.
+	* gcc.target/mips/mips-ps-6.c: Likewise.
+	* gcc.target/mips/mips-ps-5.c: Remove -mhard-float from the
+	options list.
+	* gcc.target/mips/sb1-1.c: Likewise.
+	* gcc.target/mips/mips-ps-type.c: Likewise.
+	* gcc.target/mips/mips-ps-7.c: New test.
+	* gcc.target/mips/mips-ps-type-2.c: Likewise.
+	* gcc.target/mips/fpr-moves-6.c: Remove XFAIL.
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set mips_fp and
+	mips_gp instead of mips_fp64 and mips_gp64.  Treat -mgp32 -mfp64
+	as forcing an ABI and an architecture.
+	(is_gp32_flag, is_gp64_flag): Fold into...
+	(dg-mips-options): ...here.  Make -mpaired-single imply -mfp64,
+	then -mfp64 imply -mhard-float.  Apply register rules after the
+	loop.  Handle -march=mipsN like -mipsN.
+
+2007-10-20  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/vect/vect.exp: Use -mcpu=970 instead of 7400.
+	* gcc.dg/vect/costmodel/ppc/ppc-costmodel-vect.exp: Same.
+
+2007-10-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33818
+	* gfortran.dg/entry_dummy_ref_3.f90: New.
+
+2007-10-20  Paul Thomas  <pault@gcc.gnu.org>
+	    FX Coudert <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31608
+	* gfortran.dg/char_cast_1.f90: New test.
+
+2007-10-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/default_format_denormal_2.f90: xfail on FreeBSD.
+	* gfortran.dg/large_real_kind_2.F90: ditto.
+	* gfortran.dg/default_format_2.f90: ditto.
+	* gfortran.dg/default_format_denormal_1.f90: ditto.
+
+2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33816
+	PR middle-end/32921
+	* gfortran.dg/pr32921.f: New testcase.
+
+2007-10-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33544
+	* gfortran.dg/transfer_check_1.f90: Adjust options.
+
+2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32921
+	* gfortran.dg/pr32921.f: New testcase.
+
+2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/execute/20071018-1.c: New testcase.
+
+2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32921
+	* gfortran.dg/pr32921.f: New testcase.
+
+2007-10-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* g++.old-deja/g++.robertl/eb130.C: Adjust include paths.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/save-restore-3.c: Don't clobber $17.
+
+2007-10-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33233
+	* gfortran.dg/host_assoc_function_1.f90: Correct references.
+	* gfortran.dg/host_assoc_function_3.f90: New test.
+
+2007-10-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33733
+	* gfortran.dg/transfer_simplify_6.f90: New test.
+
+2007-10-17  Uros Bizjak  <ubizjak@gmail.com>
+	    Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR middle-end/33794
+	* gfortran.dg/pr33794.f90: New testcase.
+
+2007-10-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32961
+	* gcc.target/i386/pr32961.c: New testcase.
+	* gcc.target/i386/sse-13.c: Remove __builtin_ia32_psllwi128,
+	__builtin_ia32_psrlqi128, __builtin_ia32_psrlwi128,
+	__builtin_ia32_psrldi128, __builtin_ia32_psrawi128,
+	__builtin_ia32_psradi128, __builtin_ia32_psllqi128 and
+	__builtin_ia32_pslldi128 defines.
+
+2007-10-17  Christopher D. Rickett <crickett@lanl.gov>
+
+	PR fortran/33760
+	* gfortran.dg/c_ptr_tests_13.f03: New test case.
+
+2007-10-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/28639
+	PR c++/30299
+	* g++.dg/template/void12.C: New.
+	* g++.dg/template/void13.C: New.
+
+2007-10-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/31446
+	* g++.dg/template/void11.C: New.
+	* g++.dg/template/void2.C: Adjust error markers.
+	* g++.dg/template/void10.C: Likewise.
+	* g++.dg/template/crash55.C: Likewise.
+
+2007-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/opt/const5.C: New test.
+
+2007-10-15  Paolo Bonzini  <bonzini@gnu.org>
+	    Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* gcc.target/ia64/20040709-2.c: New test.
+
+2007-10-15  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* gfortran.dg/gamma_5.f90: xfail on FreeBSD
+
+2007-10-15  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/dse-1.c: Pass the union as a second parameter
+	to each function.  Check that there are no unsigned loads.
+
+2007-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33136
+	* gcc.c-torture/execute/20070824-1.c: New test.
+	* gcc.dg/pr33136-1.c: New test.
+	* gcc.dg/pr33136-2.c: New test.
+	* gcc.dg/pr33136-3.c: New test.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/33735
+	* g++.dg/torture/pr33735.C: New.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/33706
+	* gcc.dg/va-arg-pack-2.c: New.
+
+2007-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33619
+	* gcc.dg/pr33619.c: New test.
+
+2007-10-15  David Edelsohn  <edelsohn@gnu.org>
+
+	lib/target-supports.exp (check_vmx_hw_available): Add -maltivec
+	flag for AIX.
+	(check_effective_target_powerpc_altivec_ok): Only skip before AIX 5.3.
+
+2007-10-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33055
+	* gfortran.dg/inquire_11.f90: New test.
+	* gfortan.dg/negative_unit_int8.f: New test.
+
+2007-10-15  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	PR target/33133
+	* gcc.c-torture/compile/pr33133.c: New test.
+
+2007-10-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33672
+	* gfortran.dg/namelist_40.f90: New test.
+
+2007-10-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33745
+	* gfortran.dg/bounds_check_11.f90: New.
+
+2007-10-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR c++/30303
+	* g++.dg/other/ctor1.C: New test.
+	* g++.dg/other/ctor2.C: New test.
+	* g++.dg/other/dtor1.C: New test.
+
+2007-10-14  Tobias Burnus  <burnus@gcc.gnu.org>
+
+	* gfortran.dg/bounds_check_10.f90: Fix testcase.
+
+2007-10-13  Tobias Schlüter  <tobi@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33254
+	PR fortran/33727
+	* gfortran.dg/bounds_check_10.f90: New.
+
+2007-10-13  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.target/powerpc/parity-1.c: POWER5 feature, not POWER6.
+	* gcc.target/powerpc/popcount-1.c: Same.
+
+2007-10-12  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/26698
+	* g++.dg/conversion/op4.C: New test.
+
+2007-10-12  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* g++.dg/torture/pr33572.C (main): Allow argc to be zero.
+
+2007-10-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33542
+	* gfortran.dg/ambiguous_specific_1.f90: New test.
+
+2007-10-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33664
+	* gfortran.dg/impure_spec_expr_1.f90: New test.
+	* gfortran.dg/char_result_7.f90: Remove illegal test.
+
+2007-10-12  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR 11001
+	* gcc.target/i386/pr11001-strlen-1.c: New testcase.
+	* gcc.target/i386/pr11001-strlen-2.c: New testcase.
+	* gcc.target/i386/pr11001-strlen-3.c: New testcase.
+	* gcc.target/i386/pr11001-memset-1.c: New testcase.
+	* gcc.target/i386/pr11001-memset-2.c: New testcase.
+	* gcc.target/i386/pr11001-memset-3.c: New testcase.
+	* gcc.target/i386/pr11001-memcpy-1.c: New testcase.
+	* gcc.target/i386/pr11001-memcpy-2.c: New testcase.
+	* gcc.target/i386/pr11001-memcpy-3.c: New testcase.
+
+2007-10-12  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/26198
+	* gcc.dg/tree-ssa/forwprop-3.c: New testcase.
+	* gcc.c-torture/execute/20071011-1.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-9.c: Adjust.
+
+2007-10-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/33742
+	* gcc.dg/pr33742.c: New testcase.
+
+2007-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33645
+	* gcc.dg/pr33645-1.c: New test.
+	* gcc.dg/pr33645-2.c: New test.
+	* gcc.dg/pr33645-3.c: New test.
+ 
+	PR c++/32121
+	* g++.dg/ext/label4.C: Adjust error regexp.
+	* g++.dg/ext/label6.C: Adjust error regexp.
+	* g++.dg/ext/label7.C: New test.
+	* g++.dg/ext/label8.C: New test.
+	* g++.dg/ext/label9.C: New test.
+
+2007-10-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR middle-end/33676
+	* gcc.dg/pr33676.c: New.
+
 2007-10-11  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/31441

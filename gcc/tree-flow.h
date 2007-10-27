@@ -120,7 +120,7 @@ struct mem_ref_stats_d GTY(())
 struct gimple_df GTY(())
 {
   /* Array of all variables referenced in the function.  */
-  htab_t GTY((param_is (struct int_tree_map))) referenced_vars;
+  htab_t GTY((param_is (union tree_node))) referenced_vars;
 
   /* A vector of all the noreturn calls passed to modify_stmt.
      cleanup_control_flow uses it to detect cases where a mid-block
@@ -159,7 +159,7 @@ struct gimple_df GTY(())
      means that the first reference to this variable in the function is a
      USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
      for this variable with an empty defining statement.  */
-  htab_t GTY((param_is (struct int_tree_map))) default_defs;
+  htab_t GTY((param_is (union tree_node))) default_defs;
 
   /* 'true' after aliases have been computed (see compute_may_aliases).  */
   unsigned int aliases_computed_p : 1;
@@ -562,6 +562,9 @@ struct int_tree_map GTY(())
 extern unsigned int int_tree_map_hash (const void *);
 extern int int_tree_map_eq (const void *, const void *);
 
+extern unsigned int uid_decl_map_hash (const void *);
+extern int uid_decl_map_eq (const void *, const void *);
+
 typedef struct 
 {
   htab_iterator hti;
@@ -766,7 +769,6 @@ extern void find_new_referenced_vars (tree *);
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
-extern struct mem_sym_stats_d *mem_sym_stats (struct function *, tree);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -813,6 +815,7 @@ extern void dump_mem_ref_stats (FILE *);
 extern void debug_mem_ref_stats (void);
 extern void debug_memory_partitions (void);
 extern void debug_mem_sym_stats (tree var);
+extern void dump_mem_sym_stats_for_var (FILE *, tree);
 extern void debug_all_mem_sym_stats (void);
 
 /* Call-back function for walk_use_def_chains().  At each reaching

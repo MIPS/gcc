@@ -1,3 +1,1342 @@
+2007-10-26  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/33601
+	* tree.c (build_offset_type): Build canonical type based on the
+	TYPE_MAIN_VARIANT of the base type.
+
+2007-10-26  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* reorg.c (emit_delay_sequence): Move insn locator from the
+	first insn to the sequence.
+
+2007-10-26  Samuel Tardieu  <sam@rfc1149.net>
+
+	* ipa-pure-const.c (check_decl): Return immediately when
+	pure_const_state has been set to IPA_NEITHER.
+
+2007-10-25  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/33833
+	* tree-vect-analyze.c (vect_analyze_data_refs): Use POINTER_PLUS_EXPR
+	and convert init to sizetype in inner_base construction.
+
+2007-10-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (mem_sym_stats): Remove.
+	(dump_mem_sym_stats_for_var): Declare.
+	* tree-dfa.c (dump_variable): Call dump_mem_sym_stats_for_var.
+	(mem_sym_stats): Move ...
+	* tree-ssa-alias.c (mem_sym_stats): ... here and make it static.
+	(mem_sym_score): Rename from ...
+	(pscore): ... this.  Remove.
+	(dump_mem_sym_stats_for_var): New function.  Dump the score, but
+	not the frequencies.
+	(compare_mp_info_entries): Make sort stable by disambiguating
+	on DECL_UID.
+
+2007-10-25  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/33866
+	* tree-vect-transform.c (vectorizable_store): Check operands of all
+	the stmts in the group of strided accesses. Get def stmt type for each
+	store in the group and pass it to vect_get_vec_def_for_stmt_copy ().
+
+2007-10-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/constraints.md (Y0): Rename register constraint to Yz.
+	(Yt): Rename register constraint to Y2.
+	* config/i386/sse.md: Use renamed register constraints.
+	* config/i386/mmx.md: Ditto.
+	* config/i386/i386.md: Ditto.
+
+2007-10-25  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* config/i386/i386.md (*dummy_extendsfdf2): Fix operand 1 constraint.
+
+2007-10-24  Chao-ying Fu  <fu@mips.com>
+
+	* dwarf2out.c (base_type_die): Use DW_ATE_unsigned_fixed or
+	DW_ATE_signed_fixed to describe FIXED_POINT_TYPE.
+
+2007-10-24  Samuel Tardieu  <sam@rfc1149.net>
+            Olga Golovanevsky <olga@il.ibm.com>
+	
+	* ipa-struct-reorg.c (replace_field_acc): Make it clear to
+	the compiler that wr.wrap and wr.domain are initialized in
+	any case.
+
+2007-10-24  Samuel Tardieu  <sam@rfc1149.net>
+
+	* ipa-struct-reorg.c (sum_counts): Use HOST_WIDEST_PRINT_DEC
+	to print gcov_type values.
+
+2007-10-24  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* config/avr/avr.h: Do not include progmem_section definition when
+	building with IN_TARGET_LIBS.
+
+2007-10-24  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33755
+	* config/mips/mips.c (mips_lo_sum_offset): New structure.
+	(mips_hash_base, mips_lo_sum_offset_hash, mips_lo_sum_offset_eq)
+	(mips_lo_sum_offset_lookup, mips_record_lo_sum)
+	(mips_orphaned_high_part_p: New functions.
+	(mips_avoid_hazard): Don't check INSN_P here.
+	(mips_avoid_hazards): Rename to...
+	(mips_reorg_process_insns): ...this.  Cope with
+	!TARGET_EXPLICIT_RELOCS.  Delete orphaned high-part relocations,
+	or turn them into nops.
+	(mips_reorg): Remove TARGET_EXPLICIT_RELOCS check from calls to
+	dbr_schedule and mips_avoid_hazards/mips_reorg_process_insns.
+	(mips_set_mips16_mode): Don't set flag_delayed_branch here.
+	(mips_override_options): Set flag_delayed_branch to 0.
+
+2007-10-24  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.h (MOVE_MAX): Use UNITS_PER_WORD and describe
+	MIPS-specific implementation details.
+	(MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER): New macro.
+	(MIPS_MAX_MOVE_BYTES_STRAIGHT): Likewise.
+	(MOVE_RATIO): Define to MIPS_MAX_MOVE_BYTES_STRAIGHT / UNITS_PER_WORD
+	for targets with movmemsi.
+	(MOVE_BY_PIECES_P): Define.
+	* config/mips/mips.c (MAX_MOVE_REGS, MAX_MOVE_BYTES): Delete.
+	(mips_block_move_loop): Add a bytes_per_iter argument.
+	(mips_expand_block_move): Use MIPS_MAX_MOVE_BYTES_STRAIGHT.
+	Update call to mips_block_move_loop.
+
+2007-10-24  Michael Matz  <matz@suse.de>
+
+	PR debug/33868
+	* var-tracking.c (variable_union): Don't break after one loop
+	iteration but only when a difference is found.
+	(dump_variable): Also print DECL_UID.
+
+2007-10-24  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* ipa-type-escape.h: Expose function
+	is_array_access_through_pointer_and_index.
+	* ipa-type-escape.c
+	(is_array_access_through_pointer_and_index):
+	Add three new parameters. Add support of
+	POINTER_PLUS_EXPR tree code.
+
+2007-10-24  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* ipa-struct-reorg.c, ipa-struct-reorg.h: New files.
+	* tree-pass.h: Add pass_ipa_struct_reorg.
+	* common.opt: Add ipa-struct-reorg flag.
+	* Makefile.in: Add ipa-strcut-reorg.o compilation.
+	* passes.c: Add pass pass_ipa_struct_reorg.
+	* params.h:  Add STRUCT_REORG_COLD_STRUCT_RATIO.
+	* params.def: Add PARAM_STRUCT_REORG_COLD_STRUCT_RATIO.
+
+2007-10-24  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/33804
+	* tree-vect-transform.c (vectorizable_operation): Remove the
+	checks that the vectorization is worthwhile from the transformation
+	phase.
+
+2007-10-24  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_build_slp_tree): Return false if
+	vectype cannot be determined for the scalar type.
+	(vect_analyze_slp_instance): Likewise.
+	* tree-vect-transform.c (vect_model_reduction_cost): Change the
+	return type to bool. Return false if vectype cannot be determined 
+	for the scalar type.
+	(vect_get_constant_vectors): Return false if vectype cannot be
+	determined for the scalar type.
+	(get_initial_def_for_induction, vect_get_vec_def_for_operand,
+	get_initial_def_for_reduction, vect_create_epilog_for_reduction,
+	vectorizable_reduction): Likewise.	
+
+2007-10-23  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	* config.gcc: For a FreeBSD target, parse the value of ${target}
+	to determine the value of FBSD_MAJOR, instead of adding an
+	explicit check for every possible FreeBSD major version.
+
+2007-10-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/33846
+	* combine.c (simplify_shift_const_1) [NOT]: Skip vector modes.
+
+2007-10-23  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/33860
+	* tree-vect-transform.c (vect_analyze_data_ref_access): Don't allow
+	interleaved accesses in case the dr is inside the inner-loop during
+	outer-loop vectorization.
+
+2007-10-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/rtl.texi (Flags): Fix MEM_SCALAR_P entry.
+	Document MEM_POINTER.  Replace mentions of "integrated"
+	field with "return_val".  Delete outdated stuff.
+
+2007-10-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_override_options): Set
+	rs6000_altivec_abi on AIX.
+	(conditional_register_usage): Set VR20:31 fixed on AIX.
+
+2007-10-23  Richard Guenther  <rguenther@suse.de>
+
+	* alias.c (get_alias_set): For INDIRECT_REFs, deal with
+	SSA_NAME pointers.
+
+2007-10-22  Seongbae Park <seongbae.park@gmail.com>
+	David S. Miller  <davem@davemloft.net>
+
+	* df-scan.c (df_get_call_refs): Mark global registers as both a
+	DF_REF_REG_USE and a non-clobber DF_REF_REG_DEF.
+
+2007-10-22  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/33834
+	PR tree-optimization/33835
+	* tree-vect-analyze.c (vect_analyze_operations): RELEVANT and LIVE
+	stmts need to be checked for success seperately.
+	* tree-vect-transform.c (vectorizable_call, vectorizable_conversion):
+	Remove the check that stmt is not LIVE.
+	(vectorizable_assignment, vectorizable_induction): Likewise.
+	(vectorizable_operation, vectorizable_type_demotion): Likewise.
+	(vectorizable_type_promotion, vectorizable_load, vectorizable_store):
+	Likewise.
+	(vectorizable_live_operation): Check that op is not NULL. 
+
+2007-10-22  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/invoke.texi (Optimization Options): In the summary, show
+	that the value for options -falign-jumps, -falign-labels,
+	-falign-loops, -falign-functions, -fsched-stalled-insns, and
+	-fsched-stalled-insns-dep is optional.  In the summary, show that
+	-fsched-stalled-insns takes an optional argument and that
+	-fparallelize-loops takes an argument.  Add opindex for several
+	optimization options, and fix typos in the opindex commands for
+	several others.  In the descriptions for -fsched-stalled-insns
+	and -fsched-stalled-insns-dep, show the options with and without
+	values.
+
+2007-10-22  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* config/avr/avr.c (avr_mcu_types): Remove ATmega603 which was never
+	produced.
+	* config/avr/avr.h (LINK_SPEC): Likewise.
+	(CRT_BINUTILS_SPECS): Likewsie.
+	* config/avr/t-avr (MULTILIB_MATCHES): Likewise.
+
+2007-10-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/33644
+	* cfgcleanup.c: Do not include dce.h.
+	* cfgrtl.c (delete_insn_chain_and_edges): Resurrect.
+	* combine.c (distribute_notes): Delete REG_LIBCALL_ID case.
+	* dce.c (something_changed): Delete.
+	(libcall_dead_p): New predicate.
+	(delete_unmarked_insns): Use it to delete dead libcalls.
+	Deal with REG_LIBCALL and REG_RETVAL notes.
+	(prescan_libcall_for_dce): New function.
+	(prescan_insns_for_dce): Use it to deal with libcalls.
+	(mark_reg_dependencies): Do nothing special for libcalls.
+	(dce_process_block): Likewise.
+	(fast_dce): Delete unused local variable.
+	(run_fast_dce): Do not return a value.
+	* dce.h (struct df): Delete.
+	(run_fast_dce): Adjust prototype.
+	* optabs.c (libcall_id): Delete.
+	(maybe_encapsulate_block): Do not emit REG_LIBCALL_ID notes.
+	(emit_no_conflict_block): Do not look for REG_LIBCALL_ID notes.
+	* reload1.c (reload): Delete REG_LIBCALL_ID case.
+	* rtl.h (delete_insn_chain_and_edges): Resurrect prototype.
+	* see.c (see_update_relevancy): Look for REG_LIBCALL and REG_RETVAL
+	notes instead of REG_LIBCALL_ID notes.
+	* reg-notes.def (LIBCALL_ID): Delete.
+	* Makefile.in (see.o): Add dce.h dependency.
+	(cfgcleanup.o): Remove dce.h dependency.
+
+2007-10-22  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/33855
+	* tree-ssa-phiopt.c (cond_store_replacement): Handle COMPLEX_TYPE
+	and VECTOR_TYPE.
+
+2007-10-22  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/33854
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Add
+	FLOAT_EXPR to the list of promotion operations.	
+
+2007-10-22  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR target/29473
+	PR target/29493
+	* config/i386/i386.c (output_pic_addr_const): Support Intel asm syntax.
+	(print_reg): Print register prefix only with AT&T asm syntax. 
+	Support pc_rtx for RIP register.
+	(print_operand_address): Use print_reg()'s pc_rtx support for RIP
+	relative addressing.  Always print segment register prefix with AT&T
+	asm syntax and never with Intel asm syntax.
+	(print_operand): Suppress 'XXX PTR' prefix for BLKmode operands. 
+	Fix prefix for 16-byte XFmode operands.
+	(output_addr_const_extra): Support Intel asm syntax.
+	(x86_file_start): Don't use register prefix with Intel asm syntax.
+	* config/i386/i386.md ("*zero_extendqihi2_movzbl"): Fix typo.
+	("return_internal_long"): Fix Intel asm syntax output.
+	("set_got_rex64"): Support Intel asm syntax.
+	("set_rip_rex64"): Likewise.
+	("set_got_offset_rex64"): Likewise.
+	("*sibcall_1_rex64_v"): Print register prefix only with AT&T asm
+	syntax.
+	("*tls_global_dynamic_64"): Likewise.
+	("*tls_local_dynamic_base_64"): Likewise.
+	("*load_tp_si")("*load_tp_di"): Likewise.
+	("*add_tp_si")("*add_tp_di"): Likewise.
+	("*tls_dynamic_lea_64"): Likewise.
+	("*sibcall_value_1_rex64_v"): Likewise.
+	("stack_tls_protect_set_si"): Likewise.
+	("stack_tls_protect_set_di"): Likewise.
+	("stack_tls_protect_test_si"): Likewise.
+	("stack_tls_protect_test_di"): Likewise.
+	* config/i386/mmx.md ("*mov<mode>_internal_rex64"): Fix Intel asm
+	syntax output.
+	("*movv2sf_internal_rex64"): Likewise.
+	* config/i386/cpuid.h (__cpuid): Support Intel asm syntax.
+	(__get_cpuid_max): Likewise.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips-protos.h (mips_regno_mode_ok_for_base_p): Give
+	the STRICT_P argument type "bool" rather than "int".
+	(mips_legitimate_address_p): Likewise.
+	(fp_register_operand, lo_operand): Delete.
+	(mips_subword): Give the HIGH_P argument type "bool" rather than "int".
+	(mips_emit_scc): Rename to...
+	(mips_expand_scc): ...this.
+	(gen_conditional_branch): Rename to...
+	(mips_expand_conditional_branch): ...this.
+	(gen_conditional_move): Rename to...
+	(mips_expand_conditional_move): ...this.
+	(mips_gen_conditional_trap): Rename to...
+	(mips_expand_conditional_trap): ...this and take an rtx code instead
+	of an operands array.
+	(mips_expand_call): Give the SIBCALL_P argument type "bool"
+	rather than "int".
+	(mips_emit_fcc_reload): Rename to...
+	(mips_expand_fcc_reload): ...this.
+	(init_cumulative_args): Rename to...
+	(mips_init_cumulative_args): ...this and remove the libname argument.
+	(function_arg_advance): Rename to...
+	(mips_function_arg_advance): ...this.
+	(function_arg): Rename to...
+	(mips_function_arg): ...this and use "rtx" instead of
+	"struct rtx_def *".
+	(function_arg_boundary): Rename to...
+	(mips_function_arg_boundary): ...this.
+	(mips_expand_unaligned_load): Rename to...
+	(mips_expand_ext_as_unaligned_load): ...this and give the WIDTH
+	and BITPOS arguments type "HOST_WIDE_INT".
+	(mips_expand_unaligned_store): Rename to...
+	(mips_expand_ins_as_unaligned_store): ...this and give the WIDTH
+	and BITPOS arguments type "HOST_WIDE_INT".
+	(override_options): Rename to...
+	(mips_override_options): ...this.
+	(print_operand): Rename to...
+	(mips_print_operand): ...this.
+	(print_operand_address): Rename to...
+	(mips_print_operand_address): ...this.
+	(mips_output_ascii): Remove the PREFIX argument.
+	(mips_expand_epilogue): Give the SIBCALL_P argument type "bool"
+	rather than "int".
+	(mips_can_use_return_insn): Return a "bool" rather than an "int".
+	(mips_function_value): Remove the FUNC argument.  Use "rtx" instead
+	of "struct rtx_def *".
+	(mips_secondary_reload_class): Give the IN_P argument type "bool"
+	rather than "int".
+	(build_mips16_call_stub): Delete.
+	(mips_store_data_bypass_p): Return a "bool" rather than an "int".
+	(mips_use_ins_ext_p): Give the second and third arguments type
+	"HOST_WIDE_INT" rather than "rtx".
+	* config/mips/mips.h: Update after the above changes.  Tweak comments
+	and formatting.
+	(SECONDARY_INPUT_RELOAD_CLASS): Pass a boolean IN_P argument.
+	(SECONDARY_OUTPUT_RELOAD_CLASS): Likewise.
+	(mips_print_operand_punct, mips_hard_regno_mode_ok): Change the
+	element type from "char" to "bool".
+	(mips_section_threshold, sym_lineno, set_noat, mips_branch_likely)
+	(mips_cpu_info_table): Delete.
+	* config/mips/mips.md: Update after the above changes.  Tweak some
+	formatting.
+	* config/mips/mips-ps-3d.md: Likewise.
+	* config/mips/mips.c: Tweak comments and formatting.
+	Use NULL-like macros rather than 0 in various places.
+	(mips_section_threshold): Rename to...
+	(mips_small_data_threshold): ...this and give it an unsigned type.
+	(num_source_filenames): Remove explicit initialization.
+	(sdb_label_count): Likewise.
+	(sym_lineno): Delete.
+	(set_noat): Make static.
+	(mips_branch_likely): Likewise, and give it type "bool".
+	(mips_isa_info): Rename to...
+	(mips_isa_option_info): ...this.
+	(mips_flag_delayed_branch): Rename to...
+	(mips_base_delayed_branch): ...this.
+	(mips_split_addresses): Delete.
+	(mips_print_operand_punct, mips_hard_regno_mode_ok): Change the
+	element type from "char" to "bool".
+	(mips_regno_to_class): Add an explicit array size.
+	(mips16_flipper): Change from type "int" to type "bool".
+	(mips_comp_type_attributes): Remove redundant FUNCTION_TYPE check.
+	(mips_tls_operand_p): Rename to...
+	(mips_tls_symbol_p): ...this.
+	(mips_global_symbol_p): Remove redundant "const".
+	(mips_offset_within_alignment_p): Simplify.
+	(mips_regno_mode_ok_for_base_p): Change the name of the last argument
+	to STRICT_P and give it type bool.
+	(mips_valid_base_register_p): Likewise.
+	(mips_classify_address): Likewise.
+	(mips_legitimate_address_p): Likewise.
+	(mips16_unextended_reference_p): Take the offset as an
+	"unsigned HOST_WIDE_INT" rather than an "rtx".  Simplify.
+	(mips_const_insns): Use IN_RANGE.
+	(mips_force_temporary): Remove an unnecessary copy_rtx.
+	(mips16_gp_pseudo_reg): Simplify.
+	(mips_split_symbol): Remove an unnecessary copy_rtx.
+	(mips_legitimize_tls_address): Only create registers if we need them.
+	(mips_legitimize_address): Use mips_split_plus.
+	(mips_move_integer): Swap DEST and TEMP arguments.  Rename local
+	variable COST to NUM_OPS.
+	(mips_legitimize_move): Use gen_lowpart.
+	(mips_rewrite_small_data): Rename the OP parameter to PATTERN.
+	(m16_check_op): Use IN_RANGE.
+	(mips_subword): Give the HIGH_P argument type "bool" rather than "int".
+	(mips_split_doubleword_move): Pass booleans to mips_subword.
+	(mips_output_move): Store the mode in a local variable.
+	Explicitly assert that this function does not deal with
+	MFLO and MFHI.  Use SMALL_OPERAND_UNSIGNED.  Make order of
+	cases more consistent.
+	(mips_relational_operand_ok_p): Rename to...
+	(mips_int_order_operand_ok_p): ...this.
+	(mips_canonicalize_comparison): Rename to...
+	(mips_canonicalize_int_order_test): ...this.
+	(mips_emit_int_relational): Rename to...
+	(mips_emit_int_order_test): ...this.  Store the mode in a local
+	variable.
+	(mips_reverse_fp_cond_p): Rename to...
+	(mips_reversed_fp_cond): ...this.
+	(mips_emit_compare): Make the order of the statements more consistent.
+	(mips_emit_scc): Rename to...
+	(mips_expand_scc): ...this.
+	(gen_conditional_branch): Rename to...
+	(mips_expand_conditional_branch): ...this.
+	(gen_conditional_move): Rename to...
+	(mips_expand_conditional_move): ...this.  Build the condition
+	separately from the main pattern.
+	(mips_gen_conditional_trap): Rename to...
+	(mips_expand_conditional_trap): ...this and take an rtx code instead
+	of an operands array.  Simplify.
+	(init_cumulative_args): Rename to...
+	(mips_init_cumulative_args): ...this.  Use memset rather than a
+	copy from a zeroed static.  Use prototype_p and stdarg_p.
+	(mips_arg_info): Rename to...
+	(mips_get_arg_info): ...this and put the INFO argument first.
+	(function_arg): Rename to...
+	(mips_function_arg): ...this and use "rtx" instead of
+	"struct rtx_def *".  Only split structures into chunks if 
+	TARGET_HARD_FLOAT, rather than checking !TARGET_SOFT_FLOAT on
+	a chunk-by-chunk basis.  Use SCALAR_FLOAT_TYPE_P instead of a
+	comparison with REAL_TYPE.  Rename local variable REG to REGNO
+	and make it unsigned.
+	(function_arg_advance): Rename to...
+	(mips_function_arg_advance): ...this.
+	(function_arg_boundary): Rename to...
+	(mips_function_arg_boundary): ...this.
+	(mips_pad_arg_upward): Use SCALAR_INT_MODE_P instead of a comparison
+	with MODE_INT.
+	(mips_fpr_return_fields): Use SCALAR_FLOAT_TYPE_P instead of a
+	comparison with REAL_TYPE.
+	(mips_function_value): Remove the FUNC argument.  Rename local
+	variable UNSIGNEDP to UNSIGNED_P.
+	(mips_return_in_memory): Use IN_RANGE.
+	(mips_setup_incoming_varargs): Pass a boolean rather than an int
+	to FUNCTION_ARG_ADVANCE.
+	(mips_gimplify_va_arg_expr): Rename local variable INDIRECT
+	to INDIRECT_P.  Remove a redundant mips_abi check.  Only calculate
+	SIZE and RSIZE if needed.
+	(mips16_stub): Rename FPRET to FP_RET_P and give it type "bool"
+	rather than "int".
+	(build_mips16_function_stub): Rename to...
+	(mips16_build_function_stub): ...this.
+	(build_mips16_call_stub): Rename to...
+	(mips16_build_call_stub): ...this.  Make static, and return a
+	"bool" rather than an "int".  Rename the ARG_SIZE argument to
+	ARGS_SIZE.  Rename the local variable FPRET to FP_RET_P and give
+	it type "bool".  Use "jr" rather than "j".  Use XNEW.  Simplify.
+	(mips_load_call_address): Give the SIBCALL_P argument type "bool"
+	rather than "int".
+	(mips_expand_call): Likewise.  Assert that MIPS16 calls via stubs
+	are not sibling ones.
+	(mips_emit_fcc_reload): Rename to...
+	(mips_expand_fcc_reload): ...this.
+	(mips_get_unaligned_mem): Give the WIDTH and BITPOS arguments type
+	"HOST_WIDE_INT".
+	(mips_expand_unaligned_load): Rename to...
+	(mips_expand_ext_as_unaligned_load): ...this and give the WIDTH
+	and BITPOS arguments type "HOST_WIDE_INT".  Remove redundant
+	SUBREG_BYTE check.
+	(mips_expand_unaligned_store): Rename to...
+	(mips_expand_ins_as_unaligned_store): ...this and give the WIDTH
+	and BITPOS arguments type "HOST_WIDE_INT".
+	(mips_use_ins_ext_p): Rename second and third arguments to WIDTH
+	and BITPOS and give them type "HOST_WIDE_INT" rather than "rtx".
+	Use IN_RANGE.
+	(mips_init_split_addresses): Replace with...
+	(mips_split_addresses_p): ...this new function.
+	(mips_init_relocs): Check mips_split_addresses_p () rather than
+	mips_split_addresses.  Always initialize mips_split_p with booleans.
+	(print_operand_reloc): Rename to...
+	(mips_print_operand_reloc): ...this.  Use a gcc_assert rather than
+	a fatal_error.
+	(print_operand): Rename to...
+	(mips_print_operand): ...this.
+	(print_operand_address): Rename to...
+	(mips_print_operand_address): ...this.  Use GP_REG_FIRST.
+	(mips_in_small_data_p): Simplify.
+	(mips_output_ascii): Remove the PREFIX argument and "register"
+	keywords.  Use the STRING parameter directly and cast to
+	"unsigned char".
+	(mips16e_collect_argument_save_p): Use IN_RANGE.
+	(mips_function_has_gp_insn): Simplify.
+	(mips_set_return_address): Use BITSET_P.
+	(mips_restore_gp): Use a separate statement to pick the base
+	register.
+	(mips_output_function_prologue): Use a local FRAME variable.
+	(mips_save_reg): Pass booleans to mips_subword.
+	(mips_expand_prologue): Use a local FRAME variable.  Use
+	cprestore_size to detect when .cprestore is needed.
+	(mips_restore_reg): Use GP_REG_FIRST.
+	(mips_expand_epilogue): Give the SIBCALL_P argument type "bool"
+	rather than "int".  Use local FRAME and REGNO variables.
+	(mips_can_use_return_insn): Return a "bool" rather than an "int".
+	(mips_secondary_reload_class): Give the IN_P argument type "bool"
+	rather than "int".
+	(mips_linked_madd_p): Rename arguments to OUT_INSN and IN_INSN.
+	(mips_store_data_bypass_p): Return a "bool" rather than an "int".
+	(vr4130_swap_insns_p): Rename local variables to DEP1_P and DEP2_P.
+	(mips_74k_agen_init): Assume INSN satisfies USEFUL_INSN_P.
+	(mips_variable_issue): Do nothing unless INSN satisfies USEFUL_INSN_P.
+	(builtin_description): Rename to...
+	(mips_builtin_description): ...this.
+	(mips_bdesc): Rename to...
+	(mips_ps_bdesc): ...this.
+	(sb1_bdesc): Rename to...
+	(mips_sb1_bdesc): ...this.
+	(dsp_bdesc): Rename to...
+	(mips_dsp_bdesc): ...this.
+	(dsp_32only_bdesc): Rename to...
+	(mips_dsp_32only_bdesc): ...this.
+	(bdesc_map): Rename to...
+	(mips_bdesc_map): ...this.
+	(bdesc_arrays): Rename to...
+	(mips_bdesc_arrays): ...this.
+	(mips_prepare_builtin_arg): Rename OP to OPNO and ARGNUM to ARGNO.
+	Tweak error message.
+	(mips_expand_builtin_direct): Rename HAS_TARGET to HAS_TARGET_P.
+	Rename local variables I and J to OPNO and ARGNO respectively.
+	Assert that the number of arguments is no more than the number of
+	input operands.
+	(mips_expand_builtin_compare): Use an array of arguments rather
+	than an array of operands.  Assert that the number of operands is
+	as expected.
+	(add_constant): Rename to...
+	(mips16_add_constant): ...this.  Use XNEW.
+	(dump_constants_1): Rename to...
+	(mips16_emit_constants_1): ...this.  Use ALL_SCALAR_FIXED_POINT_MODE_P.
+	(dump_constants): Rename to...
+	(mips16_emit_constants): ...this.
+	(mips_sim_wait_reg, mips_sim_record_set): Use END_REGNO.
+	(mips_set_mips16_mode): Don't call mips_init_split_addresses.
+	Assign mips16_p to was_mips16_p.
+	(mips_parse_cpu): Tweak warning message.
+	(override_options): Rename to...
+	(mips_override_options): ...this.  Move the mips_cost initialization
+	out of the "shared with GAS" block.  Quote option names in error
+	messages.
+	(mips_conditional_register_usage): Make local variable REGNO unsigned.
+	(mips_order_regs_for_local_alloc): Remove register keyword.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* system.h (IN_RANGE): Cast each argument individually.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_set_mips16_mode) Say sorry for hard-float
+	MIPS16 code unless using o32 or o64.  
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_cannot_change_mode_class): Don't check
+	for modes smaller than 4 bytes.
+	* config/mips/mips.md (*movhi_internal, *movqi_internal): Remove
+	FPR alternatives.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips-protos.h (mips_output_aligned_bss): Delete.
+	* config/mips/linux.h (BSS_SECTION_ASM_OP): Delete.
+	(ASM_OUTPUT_ALIGNED_BSS): Delete.
+	* config/mips/mips.c (mips_output_aligned_bss): Delete.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_function_ok_for_sibcall): Only forbid
+	sibling calls to "mips16" functions if the function satisfies
+	const_call_insn_operand.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_va_start): Fix types in calls
+	to build_int_cst.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_rtx_costs): Only recognize reciprocals
+	if ISA_HAS_FP4.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.h (ISA_HAS_LDC1_SDC1): New macro.
+	* config/mips/mips.c (mips_split_64bit_move_p): Use ISA_HAS_LDC1_SDC1
+	instead of checking mips_isa.
+
+2007-10-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* doc/invoke.texi (-mpaired-single): Don't say that the option
+	requires 64-bit code.
+	* config/mips/mips-protos.h (mips_modes_tieable_p): Declare.
+	* config/mips/mips.h (ISA_HAS_PAIRED_SINGLE): New macro.
+	(ISA_HAS_NMADD_NMSUB): Add a mode argument.  Return true for
+	V2SF if ISA_MIPS32R2.
+	(MODES_TIEABLE_P): Use mips_modes_tieable_p.
+	* config/mips/mips.c (mips_rtx_costs): Pass a mode argument
+	to ISA_HAS_NMADD_NMSUB.
+	(mips_split_doubleword_move): Handle V2SF.
+	(mips_modes_tieable_p): New function.
+	(override_options): Report a warning rather than an error when
+	-mpaired-single is used on ISAs that don't support it; use
+	ISA_HAS_PAIRED_SINGLE to check that case.
+	* config/mips/mips.md (MOVE64): New mode iterator.  Replace DI
+	and DF move splitters with a single MOVE64 splitter, thereby adding
+	a V2SF splitter too.
+	(SPLITF): Add TARGET_DOUBLE_FLOAT conditions to DI and DF.
+	Add a TARGET_FLOAT64 condition to TF.  Add V2SF to the iterator.
+	(HALFMODE): Add V2SF.
+	(*nmadd<mode>, *nmadd<mode>_fastmath, *nmsub<mode>)
+	(*nmsub<mode>_fastmath): Add a mode argument to ISA_HAS_NMADD_NMSUB.
+	(movv2sf_hardfloat_64bit): Tweak ordering of conditions.
+	(movv2sf_hardfloat_32bit): New pattern.
+	(load_low<mode>, load_high<mode>, store_word<mode>): Remove
+	TARGET_DOUBLE_FLOAT conditions.
+
+2007-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/linux-unwind.h (ppc_fallback_frame_state): Point
+	saved CR2 offset to low 32 bits of regs->ccr rather than the whole
+	64-bit register in 64-bit libgcc.
+
+2007-10-20  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* config/avr/avr.c (avr_mcu_types): Add at90pwm2b, at90pwm3b.
+	* config/avr/avr.h (LINK_SPEC): Likewise.
+	(CRT_BINUTILS_SPECS): Likewsie.
+	* config/avr/t-avr (MULTILIB_MATCHES): Likewise.
+
+2007-10-20  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (Warning Options): Move -w, -Werror, -Werror=
+	and -Wfatal-errors together.
+	
+2007-10-20  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/33812
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Revert 2007-05-16
+	change for vrsave, ie restore after frame pop.
+
+2007-10-19  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/niagara2.md: Fix copyright notice.
+
+2007-10-19  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/23820
+	PR tree-optimization/24309
+	PR tree-optimization/33766
+	* testsuite/gcc.dg/tree-ssa/pr23820.c: New.
+	* testsuite/gcc.dg/tree-ssa/pr24309.c: New.
+	* testsuite/gcc.dg/tree-ssa/pr33766.c: New.
+	* testsuite/gcc.dg/tree-ssa/ltrans-3.c: XFAILed.
+	* tree-loop-linear.c (perfect_loop_nest_depth): New.
+	(linear_transform_loops): Use perfect_loop_nest_depth.
+	* lambda-code.c (perfect_nest_p): Outer loops in perfect nests 
+	should have a single condition: their exit.
+
+2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33816
+	PR middle-end/32921
+	* stor-layout.c (layout_type): Assert that aggregates do not
+	have their alias sets set.
+	* alias.c (get_alias_set): Return alias set zero for incomplete
+	types, return the alias set of the element for incomplete array
+	types, but do not remember these.
+
+2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	Revert
+	2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32921
+	* tree.c (build_array_type): Do not re-layout unbound array
+	types.
+
+2007-10-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32921
+	* tree.c (build_array_type): Do not re-layout unbound array
+	types.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_canonicalize_comparison):  Check
+	mips_relational_operand_ok_p before trying to rewrite the test.
+	Only calculate PLUS_ONE if needed.
+	(mips_emit_int_relational): Don't call mips_relational_operand_ok_p
+	here.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips16e_build_save_restore): Fix *OFFSET_PTR
+	calculation.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_call_tls_get_addr): Don't claim that
+	the call uses the incoming value of $2.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_call_tls_get_addr): Use gen_const_mem
+	rather then gen_rtx_MEM.
+	(mips_setup_incoming_varargs): Use gen_frame_mem rather than
+	gen_rtx_MEM.
+	(mips_set_return_address): Likewise.
+	(mips_restore_gp): Likewise.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (gpr_mode): Delete.
+	(mips16e_build_save_restore): Use word_mode and UNITS_PER_WORD
+	instead of gpr_mode.
+	(mips_for_each_saved_reg): Likewise.
+	(mips_expand_prologue, mips_expand_epilogue): Likewise.
+	(override_options): Don't initialize gpr_mode.
+	* config/mips/mips.md (eh_return): Use word_mode instead of gpr_mode.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_hard_regno_nregs): Put the UNITS_PER_WORD
+	case last.
+	(mips_class_max_nregs): Calculate the smallest consituent register
+	size and use that to determine an upper bound on the number of
+	registers.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips16_copy_fpr_return_value): New function,
+	split out from...
+	(mips_expand_epilogue): ...here.
+	(mips_mdebug_abi_name): New function, split out from...
+	(mips_file_start): ...here.
+	(mips_hard_regno_mode_ok_p): New function, split out from...
+	(override_options): ...here.
+	(mips_expand_builtin_1): New function, split out from...
+	(mips_expand_buitin): ...here.  Abort if we don't recognize
+	the function.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (build_mips16_function_stub): Load the
+	target address into $1 before transfering the arguments.
+	Don't use ".set noreorder".
+	(build_mips16_call_stub): Likewise.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_output_32bit_xfer): New function.
+	(mips_output_64bit_xfer): Likewise.
+	(mips16_fp_args): Rename to...
+	(mips_output_args_xfer): ...this and replace the FROM_FP_P argument
+	with a DIRECTION argument.  Use mips_output_32bit_xfer and
+	mips_output_64bit_xfer.
+	(build_mips16_function_stub): Update accordingly.
+	(mips16_fpret_double): Delete.
+	(build_mips16_call_stub): Update after above changes.
+	Use mips_output_32bit_xfer.  Use mips_output_64bit_xfer instead
+	of mips16_fpret_double.  Use GP_REG_RETURN.
+
+2007-10-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips16_fp_args): Remove the FILE argument and
+	use asm_out_file instead.
+	(build_mips16_function_stub): Likewise.
+	(build_mips16_call_stub, mips_output_function_prologue): Update
+	accordingly.
+
+2007-10-18  David S. Miller  <davem@davemloft.net>
+
+	Add Niagara-2 support.
+	* doc/invoke.texi: Document -m{cpu,tune}=niagara2.
+	* config.gcc: Add niagara2 to cpu and tune lists for sparc.
+	* config/sparc/sparc.md (sparc_cpu_attr): Add niagara2.
+	(include): Add inclusion of niagara2.md
+	* config/sparc/sparc.c (niagara2_costs): New.
+	(sparc_override_options): Add niagara2 entry to cpu_default[]
+	and cpu_table[].  Set align_functions to 32 on Niagara2.  Use
+	niagara2_costs when PROCESSOR_NIAGARA2.  Handle Niagara2 for
+	PARAM_SIMULTANEOUS_PREFETCHES and PARAM_L1_CACHE_LINE_SIZE.
+	(sparc_initialize_trampoline): Handle niagara2 like niagara.
+	(sparc64_initialize_trampoline): Likewise.
+	(sparc_use_sched_lookahead): Likewise.
+	(sparc_issue_rate): Likewise.
+	* config/sparc/sol2-bi.h: Handle TARGET_CPU_niagara2 and
+	mcpu=niagara2
+	* config/sparc/sparc.h (TARGET_CPU_niagara2): Define.
+	({CPP,ASM}_CPU64_DEFAULT_SPEC): Set appropriately for
+	TARGET_CPU_niagara2.
+	(PROCESSOR_NIAGARA2): New.
+	(REGISTER_MOVE_COST): Handle PROCESSOR_NIAGARA2.
+	(BRANCH_COST): Likewise.
+	* config/sparc/linux64.h: Handle TARGET_CPU_niagara2.
+	* config/sparc/sol2.h: Likewise.
+	* config/sparc/niagara2.md: New file.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_frame_info): Remove gp_reg_size and
+	and fp_reg_size.
+	(mips_compute_frame_info): Remove associated code.
+	(mips16e_build_save_restore): Check num_fp instead of fp_reg_size.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips-protos.h (compute_frame_size): Delete.
+	* config/mips/mips.h: Update comments.
+	* config/mips/mips.c (mips_frame_info): Remove initialized.
+	(compute_frame_size): Rename to...
+	(mips_compute_frame_info): ...this and make static.  Remove the
+	SIZE argument and return no value.  Remove the setting of initialized.
+	Update rest of file accordingly.
+	(mips_set_return_address): Don't call compute_frame_size.
+	(mips_can_use_return_insn): Don't check df_regs_ever_live_p (31).
+	Don't call compute_frame_size.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips-protos.h (mips_frame_pointer_required): Declare.
+	* config/mips/mips.h (FRAME_POINTER_REQUIRED): Use
+	mips_hard_frame_pointer_required.
+	(CAN_ELIMINATE): Rely on FRAME_POINTER_REQUIRED to check for
+	large MIPS16 frames.
+	* config/mips/mips.c (mips_frame_pointer_required): New function.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_frame_info): Add arg_pointer_offset
+	and hard_frame_pointer_offset.
+	(mips_debugger_offset): Use hard_frame_pointer_offset.
+	(mips16e_collect_argument_save_p): Likewise.
+	(compute_frame_size): Initialize arg_pointer_offset and
+	hard_frame_pointer_offset.
+	(mips_initial_elimination_offset): Use them.
+	(mips_output_function_prologue): Use hard_frame_pointer_offset.
+	(mips_expand_prologue, mips_expand_epilogue): Likewise.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.h (STARTING_FRAME_OFFSET): Remove rtl
+	profiling code.
+	* config/mips/mips.c (mips_frame_info): Give num_gp and num_fp type
+	"unsigned int" rather than "int" and put them with the other
+	register-related fields.  Put expanded comments above fields
+	rather than to their right.
+	(mips16e_mask_registers): Replace the GP_REG_SIZE_PTR argument
+	with a NUM_REGS_PTR argument.
+	(mips16e_save_restore_pattern_p): Update accordingly.
+	(compute_frame_size): Clarify frame diagram.  Rewrite.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips-ftypes.def: New file.
+	* config/mips/mips.c (MIPS_FTYPE_NAME1, MIPS_FTYPE_NAME2)
+	(MIPS_FTYPE_NAME3, MIPS_FTYPE_NAME4): New macros.
+	(mips_function_type): Redefine using mips-ftypes.def.
+	(dsp_bdesc): Use POINTER rather than PTR in the MIPS_*_FTYPE_* names.
+	(mips_builtin_vector_type): New function.
+	(MIPS_ATYPE_VOID, MIPS_ATYPE_INT, MIPS_ATYPE_POINTER, MIPS_ATYPE_SI)
+	(MIPS_ATYPE_USI, MIPS_ATYPE_DI, MIPS_ATYPE_SF, MIPS_ATYPE_DF)
+	(MIPS_ATYPE_V2SF, MIPS_ATYPE_V2HI, MIPS_ATYPE_V4QI, MIPS_FTYPE_ATYPES1)
+	(MIPS_FTYPE_ATYPES2, MIPS_FTYPE_ATYPES3, MIPS_FTYPE_ATYPES4): New
+	macros.
+	(mips_build_function_type): New function.
+	(mips_init_builtins): Use it to create types lazily.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.h (set_volatile): Delete.
+	* config/mips/mips.c (set_volatile): Delete.
+	(mips_print_operand_punctuation): New function, split out from
+	print_operand.  Remove '%{', '%}', '%~', '%&' and '%!'.
+	Use the same character ordering in the code and the comments.
+	Use a recursive call to handle '*'.  Abort on unknown characters.
+	(mips_init_print_operand_punct): New function, split out from
+	override_options.
+	(mips_print_int_branch_condition): New function, split out from
+	print_operand.  Use GET_RTX_NAME.  Use output_operand_lossage
+	to report unexpected codes.
+	(mips_print_float_branch_condition): New function, split out from
+	print_operand.  Use output_operand_lossage to report unexpected codes.
+	(print_operand): Rework to use a case statement.  Use the
+	same letter ordering in the code and the comments.  Use
+	output_operand_lossage to report unexpected codes and
+	reverse_condition to handle inverted branch conditions.
+	(override_options): Use mips_init_print_operand_punct.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.h: Move variable declarations to end of file and
+	enclose them all in #ifndef USED_FOR_TARGET.
+	* config/mips/mips.c: Reorder functions into more logical groups,
+	and so that callees appear before callers.  Put the targetm
+	initializer at the end of the file.  Remove forward static
+	declarations where possible.
+	(mips_init_builtins): Add "static" to definition.
+	(mips_expand_builtin, mips_mode_rep_extended): Likewise.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (TARGET_MIN_ANCHOR_OFFSET): Delete.
+	(TARGET_MAX_ANCHOR_OFFSET): Delete.
+	(mips_cannot_force_const_mem): Don't check TARGET_HAVE_TLS.
+	(mips_set_mips16_mode): Initialize min_anchor_offset and
+	max_anchor_offset directly to constants.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c: Delete trailing whitespace.
+
+2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_expand_call): Use FAKE_CALL_REGNO.
+	(mips_avoid_hazard): Allow multiple sets for HAZARD_DELAY,
+	and pick the first.
+	* config/mips/mips.md (load_call<mode>): Don't make the unspec
+	depend on FAKE_CALL_REGNO.  Set FAKE_CALL_REGNO.
+
+2007-10-18  David Daney  <ddaney@avtrex.com>
+
+	* config/mips/linux-unwind.h (mips_fallback_frame_state): Use new
+	reg_offset variable to calculate register locations.
+
+2007-10-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (uid_ssaname_map_eq): New function.
+	(uid_ssaname_map_has): Likewise.
+	(init_tree_ssa): Allocate default_defs as uid_ssaname map.
+	* tree-flow.h (struct gimple_df): Make default_defs a
+	uid_ssaname map.
+	* tree-dfa.c (gimple_default_def): Deal with it.
+	(set_default_def): Likewise.
+
+2007-10-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (struct gimple_df): Make referenced_vars
+	a uid_decl_map.
+	(uid_decl_map_eq): Declare.
+	(uid_decl_map_hash): Likewise.
+	* tree-ssa.c (uid_decl_map_eq): New function.
+	(uid_decl_map_hash): Likewise.
+	(init_tree_ssa): Make referenced_vars a uid_decl_map.
+	* tree-flow-inline.h (first_referenced_var): Deal with
+	the referenced_vars representation change.
+	(next_referenced_var): Likewise.
+	* tree-dfa.c (referenced_var_lookup): Likewise.
+	(referenced_var_check_and_insert): Likewise.
+	(remove_referenced_var): Likewise.
+
+2007-10-18  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/mips/mips.c (mips_dwarf_register_span): New.
+	(TARGET_DWARF_REGISTER_SPAN): Define.
+
+2007-10-18  Chen Liqin  <liqin@sunnorth.com.cn>
+
+        * config.gcc : update score-*-elf(extra_objs).
+        * config/score/mac.md : Remove.
+        * config/score/misc.md : Remove.
+        * config/score/score7.md : Remove.
+        * config/score/score-mdaux.h : Remove.
+        * config/score/score-mdaux.c : Remove.
+        * config/score/score-version.h : Remove.
+        * config/score/score-generic.md : New.
+        * config/score/score3.h : New.
+        * config/score/score3.c : New.
+        * config/score/score7.h : New.
+        * config/score/score7.c : New.
+        * config/score/mul-div.S : add flush_cache score3 support.
+        * config/score/elf.h : Fix some typos.
+        * config/score/score.md : merge score3 and score7 pattern.
+        * config/score/score.c : use to seperate which target it used.
+        * config/score/score.h : use to seperate the target macro.
+        * config/score/score.opt : remove -mmac option , add -mscore3,
+        -mscore3d and -march OPTION support.
+ 
+2007-10-17  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* cfgexpand.c (expand_stack_vars): Add checking to make sure
+	that the offset of a variable is not greater than the size
+	of the paritition.
+
+2007-10-17  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.c (avr_mcu_types): Add support for atmega48p, 
+	atmega88p, atmega168p and atmega328p devices.
+	* config/avr/avr.h (LINK_SPEC): (Ditto.).
+	(CRT_BINUTILS_SPECS): (Ditto.).
+	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.).
+
+2007-10-17  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* sched-ebb.c: Surround code with '#ifdef INSN_SCHEDULING'.
+	* ddg.c: Ditto.
+	* sched-deps.c: Ditto.  Remove nested #ifdef's INSN_SCHEDULING.
+	* sched-int.h: Surround declarations with '#ifdef INSN_SCHEDULING'.
+	(print_insn): Move declaration to ...
+	* rtl.h (print_insn): ... here.
+
+2007-10-17  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config/m68k/m68k.h (m68k_sched_cpu, m68k_sched_attr_opx_type,
+	m68k_sched_attr_opy_type, m68k_sched_attr_size, m68k_sched_attr_op_mem,
+	m68k_sched_branch_type): Move declarations to ...
+	* config/m68/m68k-protos.h: ... here.
+
+2007-10-17  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* genattrtab.c (main): Rearrange output of insn-attrtab.c headers.
+
+2007-10-17  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* config/avr/avr.c (avr_mcu_types): Add attiny48.
+	* config/avr/avr.h (LINK_SPEC): Likewise.
+	(CRT_BINUTILS_SPECS): Likewsie.
+	* config/avr/t-avr (MULTILIB_MATCHES): Likewise.
+
+2007-10-17  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* config/avr/avr.c (avr_mcu_types): Add attiny43u.
+	* config/avr/avr.h (CRT_BINUTILS_SPECS): Likewsie.
+	* config/avr/t-avr (MULTILIB_MATCHES): Likewise.
+
+2007-10-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/33794
+	* reg-stack.c (move_for_stack_reg): Swap input argument of
+	UNSPEC_TAN insn to the top of the stack.
+
+2007-10-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32961
+	* config/i386/i386.c (ix86_expand_builtin) [IX86_BUILTIN_PSLLWI128,
+	IX86_BUILTIN_PSLLDI128, BUILTIN_PSLLQI128, IX86_BUILTIN_PSRAWI128,
+	IX86_BUILTIN_PSRADI128, IX86_BUILTIN_PSRLWI128,
+	IX86_BUILTIN_PSRLDI128, IX86_BUILTIN_PSRLQI128]: Do not require
+	immediate shift value.
+	* config/i386/emmintrin.h (_mm_slli_epi16, _mm_slli_epi32,
+	_mm_slli_epi64, _mm_srai_epi16, _mm_srai_epi32, _mm_srli_epi16,
+	_mm_srli_epi32, _mm_srli_epi64): Remove 'const' from count argument.
+	Remove macros for !__OPTIMIZE__ case.
+
+2007-10-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c (rewrite_constraints): Don't test for
+	directness anymore.
+	(perform_var_substitution): Only DFS from real nodes. Don't test
+	for directness.
+	(unite_pointer_equivalences): Fix broken test.
+
+2007-10-17  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Correct
+	altivec sp_offset.  Rearrange sp_offset assignments to
+	correspond to stack adjustments.  Use frame_reg_rtx for
+	SPE register restores.  Correct SPE stack adjustment.
+
+2007-10-17  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* builtins.c (gimplify_va_arg_expr): Use inform for help message.
+	* toplev.c (check_global_declaration_1): Use appropriate warning
+	option instead of unnamed warning.
+	* stor-layout.c (layout_decl): Likewise.
+	* c-typeck.c (build_conditional_expr): Likewise.
+	(build_compound_expr): Fix wrong comment.
+	(build_binary_op): Use appropriate warning option instead of
+	unnamed warning.
+	* cfgexpand.c (tree_expand_cfg): Likewise.
+	* tree-optimize.c (tree_rest_of_compilation): Likewise.
+	* tree-cfg.c (remove_useless_stmts_warn_notreached): Likewise.
+	(execute_warn_function_return): Likewise.
+	* stmt.c (warn_if_unused_value): Likewise.
+
+2007-10-16  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* config/avr/avr.c (avr_mcu_types): Add at90pwm216, at90pwm316.
+	* config/avr/avr.h (LINK_SPEC): Likewise and remove regex for
+	similar devices.
+	(CRT_BINUTILS_SPECS): Likewsie.
+	* config/avr/t-avr (MULTILIB_MATCHES): Likewise.
+
+2007-10-16  Amruth Laxman  <amruth.laxman@nsn.com>
+
+	PR target/33594
+	* config/sparc/sparc.h (LOCAL_ALIGNMENT): Define.
+
+2007-10-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* dce.c (init_dce): Only initialize the obstacks for the fast pass.
+	(fini_dce): Only release them for the fast pass.
+	(end_ud_dce): Delete.
+	(rest_of_handle_ud_dce): Do not modify df_in_progress.
+	Call fini_dce instead of end_ud_dce.
+	(rest_of_handle_fast_dce): Do not modify df_in_progress.
+	(run_fast_df_dce): Reset df_in_progress to false on exit.
+
+2007-10-16  Paolo Bonzini  <bonzini@gnu.org>
+	    Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* target.h (unspec_may_trap_p): New target hook.
+	* target-def.h (TARGET_UNSPEC_MAY_TRAP_P): New macro.
+	* targhooks.c (default_unspec_may_trap_p): Default implementation of
+	the hook.
+	* targhooks.h (default_unspec_may_trap_p): Declare it.
+	* doc/tm.texi (TARGET_UNSPEC_MAY_TRAP_P): Document new hook.
+	* rtlanal.c (may_trap_p_1): Use new hook.  Make global.
+	* rtl.h (may_trap_p_1): Declare.
+	
+	* config/ia64/ia64.c (ia64_unspec_may_trap_p): New function to
+	override default hook implementation.
+	(TARGET_UNSPEC_MAY_TRAP_P): Override default implementation of the
+	hook.
+
+2007-10-16  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (Wextra): Move it just after Wall, list the
+	options enabled by Wextra and mention Wuninitialized.
+	
+2007-10-15  Nigel Stephens  <nigel@mips.com>
+
+	* config/mips/mips.h (LOCAL_ALIGNMENT): Define.
+
+2007-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33136
+	* opts.c (decode_options): Don't enable flag_ipa_type_escape.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR tree-optimization/33735
+	PR tree-optimization/33572
+	* tree-inline.c (update_ssa_across_abnormal_edges): Revert
+	2007-10-09's change.
+	* except.c (duplicate_eh_regions): Don't look for prev_try
+	beyond ERT_ALLOWED_EXCEPTIONS with an empty list.
+
+2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR middle-end/33706
+	* tree-inline.c (copy_bb): Use bsi_replace to replace a
+	__builtin_va_arg_pack-containing call stmt.
+
+2007-10-15  Razya Ladelsky  <razya@il.ibm.com>
+
+        * matrix-reorg.c (gate_matrix_reorg): Don't comment out whole
+        program flag.
+
+2007-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33619
+	* tree-ssa-ter.c (is_replaceable_p): Return false for all
+	calls.
+
+2007-10-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* config.gcc (powerpc-ibm-aix5*): Install altivec.h.
+
+2007-10-15  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (extract_array_ref): Remove.
+	(fold_comparison): Handle POINTER_PLUS_EXPR with the
+	generic address expression comparison folding.  Remove
+	the folding that used extract_array_ref.
+
+2007-10-15  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	PR target/33133
+	* haifa-sched.c (process_insn_forw_deps_be_in_spec): Check if
+	speculation type of insn can be changed before trying to do that.
+
+2007-10-15  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* dse.c (struct insn_info): Add 'frame_read' field.
+	(scan_insn): For the call to a const function, set frame_read if
+	reload has been run.
+	If the insn reads the frame, kill the frame related stores.
+	(scan_reads_nospill): Likewise.
+
+2007-10-14  Jason Merrill  <jason@redhat.com>
+
+	* tree-eh.c (optimize_double_finally): Don't assume that the
+	cleanup we're duplicating is only one statement.
+
+2007-10-14  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/fixed-bit.c, config/i386/cpuid.h, config/i386/i386.c,
+	config/i386/i386.md, config/i386/sse.md, function.c, jump.c,
+	modulo-sched.c, ra-conflict.c, toplev.c, tree-eh.c, tree-sra.c,
+	tree-ssa-dse.c, tree-vect-analyze.c, tree-vect-patterns.c,
+	tree-vect-transform.c: Fix comment typos.
+	* doc/extend.texi: Fix a typo.
+
+	* c-common.h: Remove the prototype for c_expand_body.
+	* c-tree.h: Remove the prototype for c_disregard_inline_limits.
+	* tree.h: Remove the prototype for fold_build_call_expr.
+
+	* c-objc-common.h (LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN):
+	Remove.
+	* c-tree.h: Remove the prototype for c_cannot_inline_tree_fn.
+
+2007-10-13  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix53.h: New file.
+	* config/rs6000/aix{41,43,51,52}.h (TARGET_ALTIVEC): Define to 0.
+	(TARGET_ALTIVEC_ABI): Same.
+	* config/rs6000/aix.h (TARGET_ALTIVEC): Delete.
+	(TARGET_ALTIVEC_ABI): Delete.
+	* config.gcc (powerpc-ibm-aix5*): Rename to aix5.2.  Add new
+	stanza defaulting to aix5.3.
+
+2007-10-12  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/i386/i386.md (SI_REG, DI_REG): New constants.
+	(strmov): Use defined constants.
+	(cmpstrnsi): Likewise.
+	* config/i386/i386.c (decide_alg): Use defined constants.
+	(ix86_expand_strlen): Likewise.
+
+2007-10-12  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* dse.c (find_shift_sequence): Reinstate "<= UNITS_PER_WORD" condition.
+	* var-tracking.c (micro_operation_def): Update comment on u.loc.
+	(mode_for_reg_attrs, var_lowpart): New functions.
+	(add_uses): Consider recording a lowpart of LOC for MO_USE.
+	(add_stores): Likewise MO_SET and MO_COPY.  If the source of a set
+	or copy is known, set LOC to the SET that performs the set, instead
+	of the destination.
+	(find_src_status, find_src_set_src): Remove LOC parameter.
+	Replace INSN with the source value.
+	(compute_bb_dataflow, emit_notes_in_bb): Check for a SET u.loc when
+	handling MO_SET and MO_COPY.  Update the calls to find_src_status
+	and find_src_set_src.
+
+2007-10-12  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR 11001
+	* config/i386/i386.md (strmov): Check for esi and edi usage.
+	* config/i386/i386.c (decide_alg): Check whether we can use a
+	rep prefix and adjust algorithm choice accordingly.
+	(ix86_expand_strlen): Check for eax, ecx, and edi usage.
+
+2007-10-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* config/c4x/c4x.md (mulqi3, mulhi3): Use optab_libfunc.
+
+2007-10-12  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* global.c (build_insn_chain): Formatting fixes.
+
+2007-10-12  Richard Guenther <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): For
+	combining both operands require either both have single uses
+	or combining to a constant.
+
+2007-10-12  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/26198
+	* tree-ssa-forwprop.c (can_propagate_from): Do not propagate from
+	a rhs with side-effects or which is a load.
+	(forward_propagate_into_cond): Also try combining both operands.
+
+2007-10-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/33742
+	* tree-vect-transform.c (vectorizable_operation): Return false
+	if get_vectype_for_scalar_type for scalar_dest can't be determined.
+	(vectorizable_call): Same for rhs_type and lhs_type.
+
+2007-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33645
+	* tree-ssa-live.c (mark_all_vars_used): Add data argument,
+	pass it to walk_tree.
+	(mark_all_vars_used_1): Pass data through to mark_all_vars_used.
+	When calling set_is_used on a VAR_DECL, if data is not NULL and
+	its DECL_UID is in the bitmap, call mark_all_vars_used on its
+	DECL_INITIAL after clearing the bit in bitmap.
+	(remove_unused_locals): Adjust mark_all_vars_used callers.
+	Instead of removing unused global vars from unexpanded_var_list
+	immediately record them in bitmap, call mark_all_vars_used on
+	all used global vars from unexpanded_var_list and only purge
+	global vars that weren't found used even during that step.
+ 
+2007-10-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gthr-posix.h (__gthread_active_init): Create detached instead of
+	joinable thread when testing whether threads are active on hppa-hpux.
+	* gthr-posix95.h (__gthread_active_init): Likewise.
+
+2007-10-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR middle-end/33676
+	* global.c (build_insn_chain): Include insn that occur between
+	basic blocks.
+	
+2007-10-11  Tom Tromey  <tromey@redhat.com>
+
+	* gengtype-yacc.y: Delete.
+
+2007-10-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (AX_REG, DX_REG, CX_REG): New constants.
+	* config/i386/i386.c (ix86_function_arg_regno_p, function_arg_32,
+	function_value_32, function_value_64, function_value_ms_64,
+	setup_incoming_varargs_64, ix86_expand_prologue, ix86_expand_call,
+	legitimize_tls_address, x86_this_parameter, x86_output_mi_thunk):
+	Use new constants.
+
 2007-10-11  Richard Guenther  <rguenther@suse.de>
 
 	* gcse.c (hash_scan_set): If the next nonnote insn is in
@@ -295,7 +1634,8 @@
 	* ra-conflict.c: Include "sparseset.h".
 	(conflicts): Change to HOST_WIDEST_FAST_INT.
 	(allocnos_live): Redefine variable as a sparseset.
-	(SET_ALLOCNO_LIVE, CLEAR_ALLOCNO_LIVE, GET_ALLOCNO_LIVE): Delete macros.
+	(SET_ALLOCNO_LIVE, CLEAR_ALLOCNO_LIVE, GET_ALLOCNO_LIVE):
+	Delete macros.
 	(allocno_row_words): Removed global variable.
 	(partial_bitnum, max_bitnum, adjacency_pool, adjacency): New variables.
 	(CONFLICT_BITNUM, CONFLICT_BITNUM_FAST): New defines.
@@ -328,7 +1668,8 @@
 	Use the FOR_EACH_CONFLICT macro.
 	* ra.h: Comments updated.
 	(conflicts): Update prototype to HOST_WIDEST_FAST_INT.
-	(partial_bitnum, max_bitnum, adjacency, adjacency_pool): Add prototypes.
+	(partial_bitnum, max_bitnum, adjacency, adjacency_pool):
+	Add prototypes.
 	(ADJACENCY_VEC_LENGTH, FOR_EACH_CONFLICT): New defines.
 	(adjacency_list_d, adjacency_iterator_d): New types.
 	(add_neighbor, adjacency_iter_init, adjacency_iter_done,
@@ -521,6 +1862,7 @@
 	* ra.h: New file.
 	* reload.c (push_reload, find_dummy_reload): Change DF_RA_LIVE
 	usage to DF_LIVE usage.
+	(reload): Remove reference to df_get_live_top.
 	* rtlanal.c (subreg_nregs_with_regno): New function.  
 	* df-scan.c (df_def_record_1, df_uses_record): Add code to set
 	DF_REF_EXTRACT, DF_REF_STRICT_LOWER_PART, and DF_REF_SUBREG flags.
@@ -970,8 +2312,8 @@
 2007-09-25  Bernd Schmidt  <bernd.schmidt@analog.com>
 
 	* config/bfin/bfin.c (expand_prologue_reg_save,
-	expand_epilogue_reg_restore): Code to save and restore I/M/B/L regs and
-	ASTAT moved here...
+	expand_epilogue_reg_restore): Code to save and restore I/M/B/L regs
+	and ASTAT moved here...
 	(expand_interrupt_handler_prologue, expand_interrupt_handler_epilogue):
 	... from here.  New argument ALL; callers changed.
 	(n_regs_saved_by_prologue): Count ASTAT for plain saveall functions.

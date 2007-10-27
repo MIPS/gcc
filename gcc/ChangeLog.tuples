@@ -1,5 +1,12 @@
 2007-10-26  Diego Novillo  <dnovillo@google.com>
 
+	Merge with mainline @129659.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2007-10-26  Diego Novillo  <dnovillo@google.com>
+
 	* gimple-low.c (lower_builtin_setjmp): Pass ARG to first
 	call to gimple_build_call.
 

@@ -1429,7 +1429,7 @@ unsigned int ix86_tune_features[X86_TUNE_LAST] = {
      replacement is long decoded, so this split helps here as well.  */
   m_K6,
 
-  /* X86_TUNE_USE_VECTOR_CONVERTS: Preffer vector packed SSE conversion
+  /* X86_TUNE_USE_VECTOR_CONVERTS: Prefer vector packed SSE conversion
      from integer to FP. */
   m_AMDFAM10,
 };
@@ -3361,7 +3361,7 @@ ix86_function_arg_regno_p (int regno)
     }
 
   /* RAX is used as hidden argument to va_arg functions.  */
-  if (!TARGET_64BIT_MS_ABI && regno == 0)
+  if (!TARGET_64BIT_MS_ABI && regno == AX_REG)
     return true;
 
   if (TARGET_64BIT_MS_ABI)
@@ -4236,8 +4236,8 @@ function_arg_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	        break;
 
 	      /* ECX not EAX is the first allocated register.  */
-	      if (regno == 0)
-		regno = 2;
+	      if (regno == AX_REG)
+		regno = CX_REG;
 	    }
 	  return gen_rtx_REG (mode, regno);
 	}
@@ -4558,7 +4558,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
     regno = FIRST_FLOAT_REG;
   else
     /* Most things go in %eax.  */
-    regno = 0;
+    regno = AX_REG;
 
   /* Override FP return register with %xmm0 for local functions when
      SSE math is enabled or for functions with sseregparm attribute.  */
@@ -4599,7 +4599,7 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 	case TCmode:
 	  return NULL;
 	default:
-	  return gen_rtx_REG (mode, 0);
+	  return gen_rtx_REG (mode, AX_REG);
 	}
     }
 
@@ -4610,7 +4610,7 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
   /* For zero sized structures, construct_container returns NULL, but we
      need to keep rest of compiler happy by returning meaningful value.  */
   if (!ret)
-    ret = gen_rtx_REG (orig_mode, 0);
+    ret = gen_rtx_REG (orig_mode, AX_REG);
 
   return ret;
 }
@@ -4618,7 +4618,7 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 static rtx
 function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode)
 {
-  unsigned int regno = 0;
+  unsigned int regno = AX_REG;
 
   if (TARGET_SSE)
     {
@@ -4928,7 +4928,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
          label - 5*eax + nnamed_sse_arguments*5  */
       tmp_reg = gen_reg_rtx (Pmode);
       nsse_reg = gen_reg_rtx (Pmode);
-      emit_insn (gen_zero_extendqidi2 (nsse_reg, gen_rtx_REG (QImode, 0)));
+      emit_insn (gen_zero_extendqidi2 (nsse_reg, gen_rtx_REG (QImode, AX_REG)));
       emit_insn (gen_rtx_SET (VOIDmode, tmp_reg,
 			      gen_rtx_MULT (Pmode, nsse_reg,
 					    GEN_INT (4))));
@@ -6171,7 +6171,7 @@ ix86_internal_arg_pointer (void)
 		   ix86_force_align_arg_pointer_string);
 	  return virtual_incoming_args_rtx;
 	}
-      cfun->machine->force_align_arg_pointer = gen_rtx_REG (Pmode, 2);
+      cfun->machine->force_align_arg_pointer = gen_rtx_REG (Pmode, CX_REG);
       return copy_to_reg (cfun->machine->force_align_arg_pointer);
     }
   else
@@ -6294,7 +6294,7 @@ ix86_expand_prologue (void)
   else
     {
       /* Only valid for Win32.  */
-      rtx eax = gen_rtx_REG (Pmode, 0);
+      rtx eax = gen_rtx_REG (Pmode, AX_REG);
       bool eax_live;
       rtx t;
 
@@ -6365,8 +6365,7 @@ ix86_expand_prologue (void)
 	{
 	  if (ix86_cmodel == CM_LARGE_PIC)
 	    {
-              rtx tmp_reg = gen_rtx_REG (DImode,
-					 FIRST_REX_INT_REG + 3 /* R11 */);
+              rtx tmp_reg = gen_rtx_REG (DImode, R11_REG);
 	      rtx label = gen_label_rtx ();
 	      emit_label (label);
 	      LABEL_PRESERVE_P (label) = 1;
@@ -6579,7 +6578,7 @@ ix86_expand_epilogue (int style)
 
       if (current_function_pops_args >= 65536)
 	{
-	  rtx ecx = gen_rtx_REG (SImode, 2);
+	  rtx ecx = gen_rtx_REG (SImode, CX_REG);
 
 	  /* There is no "pascal" calling convention in any 64bit ABI.  */
 	  gcc_assert (!TARGET_64BIT);
@@ -7642,7 +7641,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 
       if (TARGET_64BIT && ! TARGET_GNU2_TLS)
 	{
-	  rtx rax = gen_rtx_REG (Pmode, 0), insns;
+	  rtx rax = gen_rtx_REG (Pmode, AX_REG), insns;
 
 	  start_sequence ();
 	  emit_call_insn (gen_tls_global_dynamic_64 (rax, x));
@@ -7671,7 +7670,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 
       if (TARGET_64BIT && ! TARGET_GNU2_TLS)
 	{
-	  rtx rax = gen_rtx_REG (Pmode, 0), insns, note;
+	  rtx rax = gen_rtx_REG (Pmode, AX_REG), insns, note;
 
 	  start_sequence ();
 	  emit_call_insn (gen_tls_local_dynamic_base_64 (rax));
@@ -8183,7 +8182,8 @@ output_pic_addr_const (FILE *file, rtx x, int code)
 	  fputs ("@PLTOFF", file);
 	  break;
 	case UNSPEC_GOTPCREL:
-	  fputs ("@GOTPCREL(%rip)", file);
+	  fputs (ASSEMBLER_DIALECT == ASM_ATT ?
+		 "@GOTPCREL(%rip)" : "@GOTPCREL[rip]", file);
 	  break;
 	case UNSPEC_GOTTPOFF:
 	  /* FIXME: This might be @TPOFF in Sun ld too.  */
@@ -8203,7 +8203,8 @@ output_pic_addr_const (FILE *file, rtx x, int code)
 	  break;
 	case UNSPEC_GOTNTPOFF:
 	  if (TARGET_64BIT)
-	    fputs ("@GOTTPOFF(%rip)", file);
+	    fputs (ASSEMBLER_DIALECT == ASM_ATT ?
+		   "@GOTTPOFF(%rip)": "@GOTTPOFF[rip]", file);
 	  else
 	    fputs ("@GOTNTPOFF", file);
 	  break;
@@ -8529,14 +8530,22 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, int reverse,
 void
 print_reg (rtx x, int code, FILE *file)
 {
-  gcc_assert (REGNO (x) != ARG_POINTER_REGNUM
-	      && REGNO (x) != FRAME_POINTER_REGNUM
-	      && REGNO (x) != FLAGS_REG
-	      && REGNO (x) != FPSR_REG
-	      && REGNO (x) != FPCR_REG);
+  gcc_assert (x == pc_rtx
+	      || (REGNO (x) != ARG_POINTER_REGNUM
+		  && REGNO (x) != FRAME_POINTER_REGNUM
+		  && REGNO (x) != FLAGS_REG
+		  && REGNO (x) != FPSR_REG
+		  && REGNO (x) != FPCR_REG));
 
-  if (ASSEMBLER_DIALECT == ASM_ATT || USER_LABEL_PREFIX[0] == 0)
+  if (ASSEMBLER_DIALECT == ASM_ATT)
     putc ('%', file);
+
+  if (x == pc_rtx)
+    {
+      gcc_assert (TARGET_64BIT);
+      fputs ("rip", file);
+      return;
+    }
 
   if (code == 'w' || MMX_REG_P (x))
     code = 2;
@@ -9034,8 +9043,9 @@ print_operand (FILE *file, rtx x, int code)
 
   else if (MEM_P (x))
     {
-      /* No `byte ptr' prefix for call instructions.  */
-      if (ASSEMBLER_DIALECT == ASM_INTEL && code != 'X' && code != 'P')
+      /* No `byte ptr' prefix for call instructions or BLKmode operands.  */
+      if (ASSEMBLER_DIALECT == ASM_INTEL && code != 'X' && code != 'P'
+	  && GET_MODE (x) != BLKmode)
 	{
 	  const char * size;
 	  switch (GET_MODE_SIZE (GET_MODE (x)))
@@ -9045,7 +9055,12 @@ print_operand (FILE *file, rtx x, int code)
 	    case 4: size = "DWORD"; break;
 	    case 8: size = "QWORD"; break;
 	    case 12: size = "XWORD"; break;
-	    case 16: size = "XMMWORD"; break;
+	    case 16:
+	      if (GET_MODE (x) == XFmode)
+		size = "XWORD";
+              else
+		size = "XMMWORD";
+              break;
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -9163,7 +9178,7 @@ print_operand_address (FILE *file, rtx addr)
       break;
     case SEG_FS:
     case SEG_GS:
-      if (USER_LABEL_PREFIX[0] == 0)
+      if (ASSEMBLER_DIALECT == ASM_ATT)
 	putc ('%', file);
       fputs ((parts.seg == SEG_FS ? "fs:" : "gs:"), file);
       break;
@@ -9171,6 +9186,21 @@ print_operand_address (FILE *file, rtx addr)
       gcc_unreachable ();
     }
 
+  /* Use one byte shorter RIP relative addressing for 64bit mode.  */
+  if (TARGET_64BIT && !base && !index)
+    {
+      rtx symbol = disp;
+
+      if (GET_CODE (disp) == CONST
+	  && GET_CODE (XEXP (disp, 0)) == PLUS
+	  && CONST_INT_P (XEXP (XEXP (disp, 0), 1)))
+	symbol = XEXP (XEXP (disp, 0), 0);
+
+      if (GET_CODE (symbol) == LABEL_REF
+	  || (GET_CODE (symbol) == SYMBOL_REF
+	      && SYMBOL_REF_TLS_MODEL (symbol) == 0))
+	base = pc_rtx;
+    }
   if (!base && !index)
     {
       /* Displacement only requires special attention.  */
@@ -9178,30 +9208,13 @@ print_operand_address (FILE *file, rtx addr)
       if (CONST_INT_P (disp))
 	{
 	  if (ASSEMBLER_DIALECT == ASM_INTEL && parts.seg == SEG_DEFAULT)
-	    {
-	      if (USER_LABEL_PREFIX[0] == 0)
-		putc ('%', file);
-	      fputs ("ds:", file);
-	    }
+	    fputs ("ds:", file);
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (disp));
 	}
       else if (flag_pic)
 	output_pic_addr_const (file, disp, 0);
       else
 	output_addr_const (file, disp);
-
-      /* Use one byte shorter RIP relative addressing for 64bit mode.  */
-      if (TARGET_64BIT)
-	{
-	  if (GET_CODE (disp) == CONST
-	      && GET_CODE (XEXP (disp, 0)) == PLUS
-	      && CONST_INT_P (XEXP (XEXP (disp, 0), 1)))
-	    disp = XEXP (XEXP (disp, 0), 0);
-	  if (GET_CODE (disp) == LABEL_REF
-	      || (GET_CODE (disp) == SYMBOL_REF
-		  && SYMBOL_REF_TLS_MODEL (disp) == 0))
-	    fputs ("(%rip)", file);
-	}
     }
   else
     {
@@ -9317,7 +9330,8 @@ output_addr_const_extra (FILE *file, rtx x)
     case UNSPEC_GOTNTPOFF:
       output_addr_const (file, op);
       if (TARGET_64BIT)
-	fputs ("@GOTTPOFF(%rip)", file);
+	fputs (ASSEMBLER_DIALECT == ASM_ATT ?
+	       "@GOTTPOFF(%rip)" : "@GOTTPOFF[rip]", file);
       else
 	fputs ("@GOTNTPOFF", file);
       break;
@@ -13440,8 +13454,8 @@ ix86_expand_sse4_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 #define PPERM_REV_INV	0x60		/* bit reverse & invert src */
 #define PPERM_ZERO	0x80		/* all 0's */
 #define PPERM_ONES	0xa0		/* all 1's */
-#define PPERM_SIGN	0xc0		/* propigate sign bit */
-#define PPERM_INV_SIGN	0xe0		/* invert & propigate sign */
+#define PPERM_SIGN	0xc0		/* propagate sign bit */
+#define PPERM_INV_SIGN	0xe0		/* invert & propagate sign */
 
 #define PPERM_SRC1	0x00		/* use first source byte */
 #define PPERM_SRC2	0x10		/* use second source byte */
@@ -15054,21 +15068,32 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
 	    int *dynamic_check)
 {
   const struct stringop_algs * algs;
+  /* Algorithms using the rep prefix want at least edi and ecx;
+     additionally, memset wants eax and memcpy wants esi.  Don't
+     consider such algorithms if the user has appropriated those
+     registers for their own purposes.	*/
+  bool rep_prefix_usable = !(global_regs[CX_REG] || global_regs[DI_REG]
+                             || (memset ? global_regs[AX_REG] : global_regs[SI_REG]));
+
+#define ALG_USABLE_P(alg) (rep_prefix_usable			\
+			   || (alg != rep_prefix_1_byte		\
+			       && alg != rep_prefix_4_byte      \
+			       && alg != rep_prefix_8_byte))
 
   *dynamic_check = -1;
   if (memset)
     algs = &ix86_cost->memset[TARGET_64BIT != 0];
   else
     algs = &ix86_cost->memcpy[TARGET_64BIT != 0];
-  if (stringop_alg != no_stringop)
+  if (stringop_alg != no_stringop && ALG_USABLE_P (stringop_alg))
     return stringop_alg;
   /* rep; movq or rep; movl is the smallest variant.  */
   else if (optimize_size)
     {
       if (!count || (count & 3))
-	return rep_prefix_1_byte;
+	return rep_prefix_usable ? rep_prefix_1_byte : loop_1_byte;
       else
-	return rep_prefix_4_byte;
+	return rep_prefix_usable ? rep_prefix_4_byte : loop;
     }
   /* Very tiny blocks are best handled via the loop, REP is expensive to setup.
    */
@@ -15080,27 +15105,34 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
       enum stringop_alg alg = libcall;
       for (i = 0; i < NAX_STRINGOP_ALGS; i++)
 	{
-	  gcc_assert (algs->size[i].max);
+	  /* We get here if the algorithms that were not libcall-based
+	     were rep-prefix based and we are unable to use rep prefixes
+	     based on global register usage.  Break out of the loop and
+	     use the heuristic below.  */
+	  if (algs->size[i].max == 0)
+	    break;
 	  if (algs->size[i].max >= expected_size || algs->size[i].max == -1)
 	    {
-	      if (algs->size[i].alg != libcall)
-		alg = algs->size[i].alg;
+	      enum stringop_alg candidate = algs->size[i].alg;
+
+	      if (candidate != libcall && ALG_USABLE_P (candidate))
+		alg = candidate;
 	      /* Honor TARGET_INLINE_ALL_STRINGOPS by picking
-	         last non-libcall inline algorithm.  */
+		 last non-libcall inline algorithm.  */
 	      if (TARGET_INLINE_ALL_STRINGOPS)
 		{
 		  /* When the current size is best to be copied by a libcall,
-		     but we are still forced to inline, run the heuristic bellow
+		     but we are still forced to inline, run the heuristic below
 		     that will pick code for medium sized blocks.  */
 		  if (alg != libcall)
 		    return alg;
 		  break;
 		}
-	      else
-		return algs->size[i].alg;
+	      else if (ALG_USABLE_P (candidate))
+		return candidate;
 	    }
 	}
-      gcc_assert (TARGET_INLINE_ALL_STRINGOPS);
+      gcc_assert (TARGET_INLINE_ALL_STRINGOPS || !rep_prefix_usable);
     }
   /* When asked to inline the call anyway, try to pick meaningful choice.
      We look for maximal size of block that is faster to copy by hand and
@@ -15110,15 +15142,32 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
      If this turns out to be bad, we might simply specify the preferred
      choice in ix86_costs.  */
   if ((TARGET_INLINE_ALL_STRINGOPS || TARGET_INLINE_STRINGOPS_DYNAMICALLY)
-      && algs->unknown_size == libcall)
+      && (algs->unknown_size == libcall || !ALG_USABLE_P (algs->unknown_size)))
     {
       int max = -1;
       enum stringop_alg alg;
       int i;
+      bool any_alg_usable_p = true;
 
       for (i = 0; i < NAX_STRINGOP_ALGS; i++)
-	if (algs->size[i].alg != libcall && algs->size[i].alg)
-	  max = algs->size[i].max;
+        {
+          enum stringop_alg candidate = algs->size[i].alg;
+          any_alg_usable_p = any_alg_usable_p && ALG_USABLE_P (candidate);
+
+          if (candidate != libcall && candidate
+              && ALG_USABLE_P (candidate))
+              max = algs->size[i].max;
+        }
+      /* If there aren't any usable algorithms, then recursing on
+         smaller sizes isn't going to find anything.  Just return the
+         simple byte-at-a-time copy loop.  */
+      if (!any_alg_usable_p)
+        {
+          /* Pick something reasonable.  */
+          if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
+            *dynamic_check = 128;
+          return loop_1_byte;
+        }
       if (max == -1)
 	max = 4096;
       alg = decide_alg (count, max / 2, memset, dynamic_check);
@@ -15128,7 +15177,8 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
 	*dynamic_check = max;
       return alg;
     }
-  return algs->unknown_size;
+  return ALG_USABLE_P (algs->unknown_size) ? algs->unknown_size : libcall;
+#undef ALG_USABLE_P
 }
 
 /* Decide on alignment.  We know that the operand is already aligned to ALIGN
@@ -15982,6 +16032,11 @@ ix86_expand_strlen (rtx out, rtx src, rtx eoschar, rtx align)
   else
     {
       rtx unspec;
+
+      /* Can't use this if the user has appropriated eax, ecx, or edi.  */
+      if (global_regs[AX_REG] || global_regs[CX_REG] || global_regs[DI_REG])
+        return false;
+
       scratch2 = gen_reg_rtx (Pmode);
       scratch3 = gen_reg_rtx (Pmode);
       scratch4 = force_reg (Pmode, constm1_rtx);
@@ -16054,7 +16109,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 
   if (TARGET_64BIT && INTVAL (callarg2) >= 0)
     {
-      rtx al = gen_rtx_REG (QImode, 0);
+      rtx al = gen_rtx_REG (QImode, AX_REG);
       emit_move_insn (al, callarg2);
       use_reg (&use, al);
     }
@@ -20637,80 +20692,38 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       emit_insn (pat);
       return target;
 
-    case IX86_BUILTIN_PSLLWI128:
-      icode = CODE_FOR_ashlv8hi3;
-      goto do_pshifti;
-    case IX86_BUILTIN_PSLLDI128:
-      icode = CODE_FOR_ashlv4si3;
-      goto do_pshifti;
-    case IX86_BUILTIN_PSLLQI128:
-      icode = CODE_FOR_ashlv2di3;
-      goto do_pshifti;
-    case IX86_BUILTIN_PSRAWI128:
-      icode = CODE_FOR_ashrv8hi3;
-      goto do_pshifti;
-    case IX86_BUILTIN_PSRADI128:
-      icode = CODE_FOR_ashrv4si3;
-      goto do_pshifti;
-    case IX86_BUILTIN_PSRLWI128:
-      icode = CODE_FOR_lshrv8hi3;
-      goto do_pshifti;
-    case IX86_BUILTIN_PSRLDI128:
-      icode = CODE_FOR_lshrv4si3;
-      goto do_pshifti;
-    case IX86_BUILTIN_PSRLQI128:
-      icode = CODE_FOR_lshrv2di3;
-      goto do_pshifti;
-    do_pshifti:
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg1 = CALL_EXPR_ARG (exp, 1);
-      op0 = expand_normal (arg0);
-      op1 = expand_normal (arg1);
-
-      if (!CONST_INT_P (op1))
-	{
-	  error ("shift must be an immediate");
-	  return const0_rtx;
-	}
-      if (INTVAL (op1) < 0 || INTVAL (op1) > 255)
-	op1 = GEN_INT (255);
-
-      tmode = insn_data[icode].operand[0].mode;
-      mode1 = insn_data[icode].operand[1].mode;
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode1))
-	op0 = copy_to_reg (op0);
-
-      target = gen_reg_rtx (tmode);
-      pat = GEN_FCN (icode) (target, op0, op1);
-      if (!pat)
-	return 0;
-      emit_insn (pat);
-      return target;
-
     case IX86_BUILTIN_PSLLW128:
+    case IX86_BUILTIN_PSLLWI128:
       icode = CODE_FOR_ashlv8hi3;
       goto do_pshift;
     case IX86_BUILTIN_PSLLD128:
+    case IX86_BUILTIN_PSLLDI128:
       icode = CODE_FOR_ashlv4si3;
       goto do_pshift;
     case IX86_BUILTIN_PSLLQ128:
+    case IX86_BUILTIN_PSLLQI128:
       icode = CODE_FOR_ashlv2di3;
       goto do_pshift;
     case IX86_BUILTIN_PSRAW128:
+    case IX86_BUILTIN_PSRAWI128:
       icode = CODE_FOR_ashrv8hi3;
       goto do_pshift;
     case IX86_BUILTIN_PSRAD128:
+    case IX86_BUILTIN_PSRADI128:
       icode = CODE_FOR_ashrv4si3;
       goto do_pshift;
     case IX86_BUILTIN_PSRLW128:
+    case IX86_BUILTIN_PSRLWI128:
       icode = CODE_FOR_lshrv8hi3;
       goto do_pshift;
     case IX86_BUILTIN_PSRLD128:
+    case IX86_BUILTIN_PSRLDI128:
       icode = CODE_FOR_lshrv4si3;
       goto do_pshift;
     case IX86_BUILTIN_PSRLQ128:
+    case IX86_BUILTIN_PSRLQI128:
       icode = CODE_FOR_lshrv2di3;
-      goto do_pshift;
+
     do_pshift:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
@@ -20723,7 +20736,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       if (! (*insn_data[icode].operand[1].predicate) (op0, mode1))
 	op0 = copy_to_reg (op0);
 
-      op1 = simplify_gen_subreg (SImode, op1, GET_MODE (op1), 0);
+      if (!CONST_INT_P (op1))
+	op1 = simplify_gen_subreg (SImode, op1, GET_MODE (op1), 0);
+
       if (! (*insn_data[icode].operand[2].predicate) (op1, SImode))
 	op1 = copy_to_reg (op1);
 
@@ -22542,9 +22557,9 @@ x86_this_parameter (tree function)
 
   if (ix86_function_regparm (type, function) > 0 && !stdarg_p (type))
     {
-      int regno = 0;
+      int regno = AX_REG;
       if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
-	regno = 2;
+	regno = CX_REG;
       return gen_rtx_REG (SImode, regno);
     }
 
@@ -22601,7 +22616,7 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
     {
       /* Put the this parameter into %eax.  */
       xops[0] = this_param;
-      xops[1] = this_reg = gen_rtx_REG (Pmode, 0);
+      xops[1] = this_reg = gen_rtx_REG (Pmode, AX_REG);
       output_asm_insn ("mov{l}\t{%0, %1|%1, %0}", xops);
     }
   else
@@ -22635,10 +22650,10 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 	tmp = gen_rtx_REG (DImode, R10_REG);
       else
 	{
-	  int tmp_regno = 2 /* ECX */;
+	  int tmp_regno = CX_REG;
 	  if (lookup_attribute ("fastcall",
 				TYPE_ATTRIBUTES (TREE_TYPE (function))))
-	    tmp_regno = 0 /* EAX */;
+	    tmp_regno = AX_REG;
 	  tmp = gen_rtx_REG (SImode, tmp_regno);
 	}
 
@@ -22711,7 +22726,7 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 	else
 #endif /* TARGET_MACHO */
 	{
-	  tmp = gen_rtx_REG (SImode, 2 /* ECX */);
+	  tmp = gen_rtx_REG (SImode, CX_REG);
 	  output_set_got (tmp, NULL_RTX);
 
 	  xops[1] = tmp;
@@ -22733,7 +22748,7 @@ x86_file_start (void)
   if (X86_FILE_START_FLTUSED)
     fputs ("\t.global\t__fltused\n", asm_out_file);
   if (ix86_asm_dialect == ASM_INTEL)
-    fputs ("\t.intel_syntax\n", asm_out_file);
+    fputs ("\t.intel_syntax noprefix\n", asm_out_file);
 }
 
 int
@@ -24836,7 +24851,7 @@ ix86_expand_round (rtx operand0, rtx operand1)
 /* Validate whether a SSE5 instruction is valid or not.
    OPERANDS is the array of operands.
    NUM is the number of operands.
-   USES_OC0 is true if the instruction uses OC0 and provides 4 varients.
+   USES_OC0 is true if the instruction uses OC0 and provides 4 variants.
    NUM_MEMORY is the maximum number of memory operands to accept.  */
 bool ix86_sse5_valid_op_p (rtx operands[], rtx insn, int num, bool uses_oc0, int num_memory)
 {
@@ -24917,7 +24932,7 @@ bool ix86_sse5_valid_op_p (rtx operands[], rtx insn, int num, bool uses_oc0, int
   else if (num == 4 && num_memory == 2)
     {
       /* If there are two memory operations, we can load one of the memory ops
-	 into the destination register.  This is for optimizating the
+	 into the destination register.  This is for optimizing the
 	 multiply/add ops, which the combiner has optimized both the multiply
 	 and the add insns to have a memory operation.  We have to be careful
 	 that the destination doesn't overlap with the inputs.  */

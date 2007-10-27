@@ -1628,13 +1628,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		  _RandomAccessIterator __middle,
 		  _RandomAccessIterator __last)
     {
-      typedef typename iterator_traits<_RandomAccessIterator>::value_type
-	_ValueType;
-
       std::make_heap(__first, __middle);
       for (_RandomAccessIterator __i = __middle; __i < __last; ++__i)
 	if (*__i < *__first)
-	  std::__pop_heap(__first, __middle, __i, _ValueType(*__i));
+	  std::__pop_heap(__first, __middle, __i);
     }
 
   /**
@@ -1648,13 +1645,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		  _RandomAccessIterator __middle,
 		  _RandomAccessIterator __last, _Compare __comp)
     {
-      typedef typename iterator_traits<_RandomAccessIterator>::value_type
-	_ValueType;
-
       std::make_heap(__first, __middle, __comp);
       for (_RandomAccessIterator __i = __middle; __i < __last; ++__i)
 	if (__comp(*__i, *__first))
-	  std::__pop_heap(__first, __middle, __i, _ValueType(*__i), __comp);
+	  std::__pop_heap(__first, __middle, __i, __comp);
     }
 
   // partial_sort
@@ -2091,7 +2085,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @if maint
-   *  This is a helper function for the sort routines.
+   *  This is a helper function for the sort routines.  Precondition: __n > 0.
    *  @endif
   */
   template<typename _Size>
@@ -2099,10 +2093,22 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __lg(_Size __n)
     {
       _Size __k;
-      for (__k = 0; __n != 1; __n >>= 1)
+      for (__k = 0; __n != 0; __n >>= 1)
 	++__k;
-      return __k;
+      return __k - 1;
     }
+
+  inline int
+  __lg(int __n)
+  { return sizeof(int) * __CHAR_BIT__  - 1 - __builtin_clz(__n); }
+
+  inline long
+  __lg(long __n)
+  { return sizeof(long) * __CHAR_BIT__ - 1 - __builtin_clzl(__n); }
+
+  inline long long
+  __lg(long long __n)
+  { return sizeof(long long) * __CHAR_BIT__ - 1 - __builtin_clzll(__n); }
 
   // sort
 
@@ -3415,10 +3421,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @brief  Permute range into the next "dictionary" ordering using
-   *  comparison functor.
+   *          comparison functor.
    *  @param  first  Start of range.
    *  @param  last   End of range.
-   *  @param  comp
+   *  @param  comp   A comparison functor.
    *  @return  False if wrapped to first permutation, true otherwise.
    *
    *  Treats all permutations of the range [first,last) as a set of
@@ -3526,10 +3532,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @brief  Permute range into the previous "dictionary" ordering using
-   *  comparison functor.
+   *          comparison functor.
    *  @param  first  Start of range.
    *  @param  last   End of range.
-   *  @param  comp
+   *  @param  comp   A comparison functor.
    *  @return  False if wrapped to last permutation, true otherwise.
    *
    *  Treats all permutations of the range [first,last) as a set of
@@ -3656,6 +3662,90 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  *__result = *__first;
       return __result;
     }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  /**
+   *  @brief  Determines whether the elements of a sequence are sorted.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @return  True if the elements are sorted, false otherwise.
+  */
+  template<typename _ForwardIterator>
+    inline bool
+    is_sorted(_ForwardIterator __first, _ForwardIterator __last)
+    { return std::is_sorted_until(__first, __last) == __last; }
+
+  /**
+   *  @brief  Determines whether the elements of a sequence are sorted
+   *          according to a comparison functor.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  comp    A comparison functor.
+   *  @return  True if the elements are sorted, false otherwise.
+  */
+  template<typename _ForwardIterator, typename _Compare>
+    inline bool
+    is_sorted(_ForwardIterator __first, _ForwardIterator __last,
+	      _Compare __comp)
+    { return std::is_sorted_until(__first, __last, __comp) == __last; }
+
+  /**
+   *  @brief  Determines the end of a sorted sequence.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @return  An iterator pointing to the last iterator i in [first, last)
+   *           for which the range [first, i) is sorted.
+  */
+  template<typename _ForwardIterator>
+    _ForwardIterator
+    is_sorted_until(_ForwardIterator __first, _ForwardIterator __last)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
+      __glibcxx_function_requires(_LessThanComparableConcept<
+	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
+
+      if (__first == __last)
+	return __last;
+
+      _ForwardIterator __next = __first;
+      for (++__next; __next != __last; __first = __next, ++__next)
+	if (*__next < *__first)
+	  return __next;
+      return __next;
+    }
+
+  /**
+   *  @brief  Determines the end of a sorted sequence using comparison functor.
+   *  @param  first   An iterator.
+   *  @param  last    Another iterator.
+   *  @param  comp    A comparison functor.
+   *  @return  An iterator pointing to the last iterator i in [first, last)
+   *           for which the range [first, i) is sorted.
+  */
+  template<typename _ForwardIterator, typename _Compare>
+    _ForwardIterator
+    is_sorted_until(_ForwardIterator __first, _ForwardIterator __last,
+		    _Compare __comp)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
+      __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
+	    typename iterator_traits<_ForwardIterator>::value_type,
+	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
+
+      if (__first == __last)
+	return __last;
+
+      _ForwardIterator __next = __first;
+      for (++__next; __next != __last; __first = __next, ++__next)
+	if (__comp(*__next, *__first))
+	  return __next;
+      return __next;
+    }
+#endif // __GXX_EXPERIMENTAL_CXX0X__
 
 _GLIBCXX_END_NAMESPACE
 

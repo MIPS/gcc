@@ -1,3 +1,142 @@
+2007-10-26  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29784
+	* gfortran.texi: Document that there is no logical/integer
+	conversion performed during I/O operations.
+
+2007-10-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33849
+	* resolve.c (resolve_actual_arglist): Fix error message text.
+
+2007-10-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/31244
+	* gfortran.h (gfc_data_value): Change repeat from unsigned int
+	to mpz_t.
+	* decl.c(top_val_list): Remove msg variable.  Use mpz_t for
+	repeat count.
+	* resolve.c (values):  Change left from unsigned int to mpz_t.
+	(next_data_value): Change for mpz_t.
+	(check_data_variable): Change ??? to FIXME in a comment.  Use
+	"mpz_t left".
+	(resolve_data ): Use "mpz_t left".
+
+2007-10-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33749
+	* resolve.c (resolve_ordinary_assign): New function that takes
+	the code to resolve an assignment from resolve_code. In
+	addition, it makes a temporary of any vector index, on the
+	lhs, using gfc_get_parentheses.
+	(resolve_code): On EXEC_ASSIGN call the new function.
+
+2007-10-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33818
+	* resolve.c (resolve_variable): Check that symbol is in the same
+	namespace as the entry function.
+
+2007-10-20  Paul Thomas  <pault@gcc.gnu.org>
+	    FX Coudert <fxcoudert@gcc.gnu.org>
+
+	PR fortran/31608
+	* trans-array.c (gfc_conv_expr_descriptor): For all except
+	indirect references, use gfc_trans_scalar_assign instead of
+	gfc_add_modify_expr.
+	* iresolve.c (check_charlen_present): Separate creation of cl
+	if necessary and add code to treat an EXPR_ARRAY.
+	(gfc_resolve_char_achar): New function.
+	(gfc_resolve_achar, gfc_resolve_char): Call it.
+	(gfc_resolve_transfer): If the MOLD expression does not have a
+	character length expression, get it from a constant length.
+
+2007-10-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33544
+	* simplify.c (gfc_simplify_transfer): Only warn for short transfer when
+	-Wsurprising is given.
+	* invoke.texi: Document revised behavior.
+
+2007-10-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33795
+	* gfortran.texi: Document GFORTRAN_UNBUFFERED_PRECONNECTED
+	environment variable.  Delete mention of environment variable
+	GFORTRAN_UNBUFFERED_n.
+
+2007-10-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33233
+	* resolve.c (check_host_association): Check singly contained
+	namespaces and start search for symbol in current namespace.
+
+2007-10-18  Paul Thomas  <pault@gcc.gnu.org>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/33733
+	* simplify.c (gfc_simplify_transfer): Return null if the source
+	expression is EXPR_FUNCTION.
+
+2007-10-17 Christopher D. Rickett <crickett@lanl.gov>
+
+	PR fortran/33760
+	* symbol.c (gen_special_c_interop_ptr): Remove code to create
+	constructor for c_null_ptr and c_null_funptr with value of 0.
+	* expr.c (check_init_expr): Prevent check on constructors for
+	iso_c_binding derived types.
+	* resolve.c (resolve_structure_cons): Verify that the user isn't
+	trying to invoke a structure constructor for one of the
+	iso_c_binding derived types.
+
+2007-10-15 Christopher D. Rickett <crickett@lanl.gov>
+
+	PR fortran/32600
+	* trans-expr.c (gfc_conv_function_call): Generate code to inline
+	c_associated.
+	* symbol.c (get_iso_c_sym): Preserve from_intmod and intmod_sym_id
+	attributes in the resolved symbol.
+	* resolve.c (gfc_iso_c_sub_interface): Remove dead code.
+
+2007-10-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33055
+	* trans-io.c (create_dummy_iostat): New function to create a unique
+	dummy variable expression to use with IOSTAT.
+	(gfc_trans_inquire): Use the new function to pass unit number error info
+	to run-time library if a regular IOSTAT variable was not given.
+
+2007-10-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33745
+	* trans-array.c (gfc_conv_ss_startstride): Fix dimension check.
+	(gfc_trans_array_bound_check, gfc_conv_array_ref,
+	gfc_conv_ss_startstride): Simplify error message.
+	* resolve.c (check_dimension): Fix dimension-type switch;
+	improve error message.
+
+2007-10-13  Tobias Schlüter  <tobi@gcc.gnu.org>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33254
+	PR fortran/33727
+	* trans-array.c (get_array_ctor_var_strlen): Check upper bound for
+	constness instead of lower bound.
+	(get_array_ctor_strlen): Add bounds-checking code.
+
+2007-10-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33542
+	* resolve.c (resolve_actual_arglist): If the actual argument is
+	ambiguous, then there is an error.
+
+2007-10-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33664
+	* expr.c (gfc_specification_expr): If a function is not
+	external, intrinsic or pure is an error.  Set the symbol pure
+	to prevent repeat errors.
+
 2007-10-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/33636

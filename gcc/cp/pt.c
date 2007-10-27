@@ -3136,8 +3136,8 @@ current_template_args (void)
                           TREE_TYPE (t) = type;
                         }
                     }
+		  TREE_VEC_ELT (a, i) = t;
                 }
-	      TREE_VEC_ELT (a, i) = t;
 	    }
 	}
 
@@ -6488,23 +6488,47 @@ static void
 apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 				tree args, tsubst_flags_t complain, tree in_decl)
 {
-  tree late_attrs = NULL_TREE;
+  tree last_dep = NULL_TREE;
   tree t;
-
-  if (DECL_P (*decl_p))
-    DECL_ATTRIBUTES (*decl_p) = attributes;
-  else
-    TYPE_ATTRIBUTES (*decl_p) = attributes;
+  tree *p;
 
   for (t = attributes; t; t = TREE_CHAIN (t))
     if (ATTR_IS_DEPENDENT (t))
-      late_attrs = tree_cons
-	(TREE_PURPOSE (t),
-	 tsubst_expr (TREE_VALUE (t), args, complain, in_decl,
-		      /*integral_constant_expression_p=*/false),
-	 late_attrs);
+      {
+	last_dep = t;
+	attributes = copy_list (attributes);
+	break;
+      }
 
-  cplus_decl_attributes (decl_p, late_attrs, attr_flags);
+  if (DECL_P (*decl_p))
+    p = &DECL_ATTRIBUTES (*decl_p);
+  else
+    p = &TYPE_ATTRIBUTES (*decl_p);
+
+  if (last_dep)
+    {
+      tree late_attrs = NULL_TREE;
+      tree *q = &late_attrs;
+
+      for (*p = attributes; *p; )
+	{
+	  t = *p;
+	  if (ATTR_IS_DEPENDENT (t))
+	    {
+	      *p = TREE_CHAIN (t);
+	      TREE_CHAIN (t) = NULL_TREE;
+	      TREE_VALUE (t)
+		= tsubst_expr (TREE_VALUE (t), args, complain, in_decl,
+			       /*integral_constant_expression_p=*/false);
+	      *q = t;
+	      q = &TREE_CHAIN (t);
+	    }
+	  else
+	    p = &TREE_CHAIN (t);
+	}
+
+      cplus_decl_attributes (decl_p, late_attrs, attr_flags);
+    }
 }
 
 tree
@@ -8669,18 +8693,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	r = NULL_TREE;
 
 	gcc_assert (TREE_VEC_LENGTH (args) > 0);
-	if (TREE_CODE (t) == TEMPLATE_TYPE_PARM
-	    || TREE_CODE (t) == TEMPLATE_TEMPLATE_PARM
-	    || TREE_CODE (t) == BOUND_TEMPLATE_TEMPLATE_PARM)
-	  {
-	    idx = TEMPLATE_TYPE_IDX (t);
-	    level = TEMPLATE_TYPE_LEVEL (t);
-	  }
-	else
-	  {
-	    idx = TEMPLATE_PARM_IDX (t);
-	    level = TEMPLATE_PARM_LEVEL (t);
-	  }
+	template_parm_level_and_index (t, &level, &idx); 
 
 	levels = TMPL_ARGS_DEPTH (args);
 	if (level <= levels)

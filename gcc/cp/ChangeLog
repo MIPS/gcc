@@ -1,3 +1,118 @@
+2007-10-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/31988
+	* decl2.c (coerce_new_type): Do not allow a default argument for
+	the first parameter.
+
+2007-10-26  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/33839
+	* parser.c (cp_parser_decltype): Return ERROR_MARK_NODE if we
+	don't see the leading '('. Only lookup names if we get an
+	IDENTIFIER_NODE.
+
+2007-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33744
+	* parser.c (cp_parser_parenthesized_expression_list): Set
+	greater_than_is_operator_p to true in between the parens.
+
+2007-10-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/31747
+	* decl.c (grokdeclarator): In case of conflicting specifiers
+	just return error_mark_node.
+
+2007-10-26  Ollie Wild  <aaw@google.com>
+
+	* expr.c (cxx_expand_expr): Removed.
+	* cp-tree.h (exx_expand_expr): Removed.
+	* cp-objcp-common.h (LANK_HOOKS_EXPAND_EXPR): Replace cxx_expand_expr
+	with c_expand_expr.
+
+2007-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33843
+	* cxx-pretty-print.c (pp_cxx_unqualified_id): Deal with BIT_NOT_EXPR.
+
+2007-10-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/25950 (DR 391)
+	* call.c (struct conversion): Remove check_copy_constructor_p.
+	(reference_binding): Always bind a reference directly to a 
+	compatible class rvalue.  Pass down LOOKUP_NO_TEMP_BIND during 
+	temporary creation.
+	(check_constructor_callable): Remove.
+	(convert_like_real): Don't call it.
+	(initialize_reference): Don't call check_constructor_callable.
+	(standard_conversion): Check LOOKUP_NO_CONVERSION instead of
+	LOOKUP_CONSTRUCTOR_CALLABLE.  Don't require a temporary for base
+	conversions if LOOKUP_NO_TEMP_BIND.
+	(implicit_conversion): Pass through LOOKUP_NO_TEMP_BIND.
+	(build_user_type_conversion_1): Pass through LOOKUP_NO_TEMP_BIND for
+	second conversion.
+	* cp-tree.h (LOOKUP_CONSTRUCTOR_CALLABLE): Remove.
+
+2007-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33372
+	* semantics.c (finish_omp_clauses): Check !type_dependent_expression_p
+	before checking if its type is integral.
+
+2007-10-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/33620
+	* class.c (finish_struct_bits): Copy TYPE_ATTRIBUTES.
+	* pt.c (apply_late_template_attributes): Splice out dependent
+	attributes from DECL_ATTRIBUTES.
+
+	* decl.c (cxx_maybe_build_cleanup): Use build_address.
+
+2007-10-17  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* typeck.c (build_binary_op) : Use appropriate warning option
+	instead of unnamed warning.
+
+2007-10-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/31446
+	* pt.c (current_template_args): Do not change TREE_LIST elements
+	with a TREE_VALUE of error_mark_node.
+
+2007-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* typeck.c (cp_apply_type_quals_to_decl): Expand documentation.
+	* decl.c (start_decl): Tidy.
+	(start_decl_1): Call cp_apply_type_quals_to_decl after completing
+	the type.
+	(grokdeclarator): Clarify comment.
+
+2007-10-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR c++/30303
+	* decl.c (grokfndecl): Return NULL after the "definition of
+	implicitly-declared" error happened.
+
+2007-10-12  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/26698
+	* call.c (build_user_type_conversion_1): Do not consider conversion
+	functions to convert a (possibly cv-qualified) object to the (possibly
+	cv-qualified) same object type (or a reference to it), to a (possibly
+	cv-qualified) base class of that type (or a reference to it).
+
+2007-10-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* pt.c (tsubst): Use template_parm_level_and_index.
+
+2007-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/32121
+	* parser.c (cp_parser_compound_statement): Handle label-declarations
+	at the beginning of the compound statement.
+	(cp_parser_block_declaration): Issue diagnostics about __label__
+	not at the beginning of a block.
+
 2007-10-11  Paolo Carlini  <pcarlini@suse.de>
 
 	PR c++/33461

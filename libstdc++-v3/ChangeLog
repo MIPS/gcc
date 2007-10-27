@@ -1,3 +1,563 @@
+2007-10-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/unordered_map: Fix for parallel mode.
+	* include/std/unordered_set: Same.	
+
+2007-10-25  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* include/Makefile.am (parallel_headers): Remove timing.h.
+	* include/Makefile.in: Regenerate.
+
+2007-10-25  Johannes Singler  <singler@ira.uka.de>
+
+      * include/parallel/multiway_merge.h: Removed Timing<inactive_tag>
+      * include/parallel/random_shuffle.h: Same
+      * include/parallel/set_operations.h: Same
+      * include/parallel/tree.h: Same
+      * include/parallel/multiway_mergesort.h: Same
+      * include/parallel/timing.h: Removed completely
+
+2007-10-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (__lg<>(_Size)): Slightly tweak.
+	(__lg(int), __lg(long), __lg(long long)): Add, overloads
+	exploiting __builtin_clz*.
+
+2007-10-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1_impl/array (_M_instance): Align naturally.
+	* testsuite/ext/array_allocator/1.cc: Use ext/vstring,
+	more solid than our current basic_string vs alignment.
+	* testsuite/ext/array_allocator/2.cc: Likewise.
+	* testsuite/ext/array_allocator/3.cc: Likewise.
+
+2007-10-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_move.h (_GLIBCXX_MOVE): Wrap in parentheses.
+	* include/bits/stl_algobase.h (__niter_base<>): Pass iterators
+	by value, as everywhere else.
+
+2007-10-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1_impl/random
+	(uniform_int<>::_M_call(_UniformRandomNumberGenerator&, result_type,
+	result_type, true_type)): Fix small thinko.
+
+2007-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/33815
+	* include/tr1_impl/random
+	(uniform_int<>::_M_call(_UniformRandomNumberGenerator&, result_type,
+	result_type, true_type)): Avoid the modulo (which uses the low-order
+	bits).
+
+2007-10-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (struct __cm_assign,
+	struct __copy_move, struct __copy_move_backward, move,
+	move_backward): Add.
+	(struct __copy, struct __copy_backward): Remove.
+	(__copy_aux, __copy_backward_aux): Rename to...
+	(__copy_move_a, __copy_move_backward_a): ... this, and
+	adjust calls.
+	(copy, copy_backward): Adjust calls.
+	* include/bits/streambuf_iterator.h (__copy_aux): Rename
+	to ...
+	(__copy_move_a): ... this; add bool template parameter.
+	* include/std/streambuf: Adjust friend declarations.
+	* testsuite/util/testsuite_iterators.h
+	(WritableObject<>::operator=(U&&)): Add.
+	* testsuite/25_algorithms/move/1.cc: New.
+	* testsuite/25_algorithms/move/requirements/
+	explicit_instantiation/2.cc: Likewise.
+	* testsuite/25_algorithms/move/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+	* testsuite/25_algorithms/move_backward/1.cc: Likewise.
+	* testsuite/25_algorithms/move_backward/requirements/
+	explicit_instantiation/2.cc: Likewise.
+	* testsuite/25_algorithms/move_backward/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+
+2007-10-18  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	05_comp_ellint_2/check_nan.cc: Add -mieee for sh.
+
+2007-10-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/allocator.h (struct __alloc_neq): Add.
+	* include/bits/stl_list.h (list<>::_M_check_equal_allocators): Use it.
+
+2007-10-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/hash_map: To...
+	* include/backward/hash_map: ...here. Remove debug mode.
+	* include/ext/hash_set: To...
+	* include/backward/hash_set: ...here. Remove debug mode.
+	* include/ext/hash_fun.h: To...
+	* include/backward/hash_fun.h: ...here.
+	* include/ext/hashtable.h: To...
+	* include/backward/hashtable.h: ...here.
+	
+	* include/bits/c++config: Remove __gnu_cxx namespace from debug mode.
+	* include/debug/debug.h: Same.
+		
+	* include/debug/hash_map: Remove.
+	* include/debug/hash_multimap.h: Remove.
+	* include/debug/hash_set.h: Remove.
+	* include/debug/hash_set: Remove.
+	* include/debug/hash_multiset.h: Remove.
+	* include/debug/hash_map.h: Remove.
+	
+	* include/Makefile.am (ext_headers): Move hash_set, hash_map to
+	backward.
+	(debug_headers): Remove hash_map, hash_set, hash_map.h,
+	hash_map.h, hash_multiset.h, hash_multimap.h.	
+	* include/Makefile.in: Regenerate.
+
+	* docs/html/debug.html: Update.
+	* docs/html/ext/howto.html: Same.
+	* docs/html/faq/index.html: Same.
+	* docs/doxygen/Intro.3: Same.
+	* docs/doxygen/user.cfg.in: Adjust includes.
+	* testsuite/ext/hash_map: Move to...
+	* testsuite/backward/hash_map: ...here.
+	* testsuite/ext/hash_set: Move to...
+	* testsuite/backward/hash_set: ...here.
+	
+2007-10-18  Benjamin Kosnik  <bkoz@redhat.com>
+        
+	Removal of pre-ISO C++ items from include/backwards.
+	* include/Makefile.am (backward_headers): Remove all but strstream,
+	backward_warning.h.
+	* include/Makefile.in: Regenerate.
+	* include/backward/new.h: Remove.
+	* include/backward/iterator.h: Same.
+	* include/backward/alloc.h: Same.
+	* include/backward/set.h: Same.
+	* include/backward/hashtable.h: Same.
+	* include/backward/hash_set.h: Same.
+	* include/backward/fstream.h: Same.
+	* include/backward/tempbuf.h: Same.
+	* include/backward/istream.h: Same.
+	* include/backward/bvector.h: Same.
+	* include/backward/stack.h: Same.
+	* include/backward/rope.h: Same.
+	* include/backward/complex.h: Same.
+	* include/backward/ostream.h: Same.
+	* include/backward/heap.h: Same.
+	* include/backward/iostream.h: Same.
+	* include/backward/function.h: Same.
+	* include/backward/multimap.h: Same.
+	* include/backward/pair.h: Same.
+	* include/backward/stream.h: Same.
+	* include/backward/iomanip.h: Same.
+	* include/backward/slist.h: Same.
+	* include/backward/tree.h: Same.
+	* include/backward/vector.h: Same.
+	* include/backward/deque.h: Same.
+	* include/backward/multiset.h: Same.
+	* include/backward/defalloc.h: Same.
+	* include/backward/list.h: Same.
+	* include/backward/map.h: Same.
+	* include/backward/algobase.h: Same.
+	* include/backward/hash_map.h: Same.
+	* include/backward/algo.h: Same.
+	* include/backward/queue.h: Same.
+	* include/backward/streambuf.h: Same.
+	* testsuite/backward/header_hash_set_h.cc: Same.
+	* testsuite/backward/header_slist_h.cc: Same.
+	* testsuite/backward/header_hash_map_h.cc: Same.
+	* testsuite/backward/header_tempbuf_h.cc: Same.
+	* testsuite/backward/header_deque_h.cc: Same.
+	* testsuite/backward/header_rope_h.cc: Same.
+	* testsuite/backward/header_iterator_h.cc: Same.
+	* testsuite/backward/header_hashtable_h.cc: Same.
+
+2007-10-18  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/30085
+	* include/debug/unordered_map: New.
+	* include/debug/unordered_set: New.
+	* include/debug/safe_association.h: New.	
+	* include/std/unordered_map: Include debug header if _GLIBCXX_DEBUG.
+	* include/std/unordered_set: Same.
+	* include/Makefile.am (debug_headers): Add unordered_map,
+	unordered_set, safe_association.h.
+	* include/Makefile.in: Regenerate.
+	* testsuite/23_containers/unordered_map/requirements/debug.cc: New.
+	* testsuite/23_containers/unordered_multimap/requirements/
+	debug.cc: New.
+	* testsuite/23_containers/unordered_set/requirements/debug.cc: New.
+	* testsuite/23_containers/unordered_multiset/requirements/
+	debug.cc: New.
+
+2007-10-18  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* testsuite/util/native_type/assoc/native_hash_multimap.hpp: Remove
+	hash_map include.
+
+2007-10-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/33807
+	* include/bits/allocator.h (operator==(const allocator<_Tp>&,
+	const allocator<_Tp>&), operator!=(const allocator<_Tp>&,
+	const allocator<_Tp>&)): Add.
+	* testsuite/20_util/allocator/33807.cc: New.
+
+2007-10-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/cpp_type_traits.h (__is_byte): Add.
+	* include/bits/stl_algobase.h (struct __fill, struct __fill_n,
+	__fill_aux, __fill_n_aux): Remove.
+	(__fill_a, __fill_n_a): Add.
+	(fill, fill_n): Adjust.
+
+2007-10-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_iterator.h (back_insert_iterator<>::operator=
+	(typename _Container::value_type&&), front_insert_iterator<>::
+	operator=(typename _Container::value_type&&), insert_iterator<>::
+	operator=(typename _Container::value_type&&)): Add.
+
+	* include/bits/stl_iterator.h (insert_iterator<>::operator=
+	(typename _Container::const_reference)): Fix typo in signature.
+
+2007-10-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1_impl/array: Correct macro guarding cbegin, cend,
+	crbegin, crend.
+	* include/tr1_impl/hashtable: Likewise.
+
+2007-10-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (__versa_string<>::front, 
+	__versa_string<>::back): Add.
+	* testsuite/ext/vstring/element_access/char/front_back.cc: New.
+	* testsuite/ext/vstring/element_access/wchar_t/front_back.cc: Likewise.
+
+2007-10-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_queue.h (queue<>::queue(_Sequence&&),
+	queue<>::queue(queue&&), queue<>::operator=(queue&&),
+	queue<>::push(value_type&&), queue<>::swap(queue&&),
+	swap(queue<>&, queue<>&), swap(queue<>&&, queue<>&),
+	swap(queue<>&, queue<>&&), priority_queue<>::
+	priority_queue(const _Compare&, _Sequence&&),
+	priority_queue<>::priority_queue(_InputIterator, _InputIterator,
+	const _Compare&, _Sequence&&),
+	priority_queue<>::priority_queue(priority_queue&&),
+	priority_queue<>::operator=(priority_queue&&),
+	priority_queue<>::push(value_type&&),
+	priority_queue<>::swap(priority_queue&&),
+	swap(priority_queue<>&, priority_queue<>&),
+	swap(priority_queue<>&&, priority_queue<>&),
+	swap(priority_queue<>&, priority_queue<>&&)): Add.
+	* include/bits/stl_stack.h (stack<>::stack(_Sequence&&),
+	stack<>::push(value_type&&), stack<>::swap(stack&&),
+	swap(stack<>&, stack<>&), swap(stack<>&&, stack<>&),
+	swap(stack<>&, stack<>&&)): Add.
+	* testsuite/23_containers/queue/moveable.cc: New.
+	* testsuite/23_containers/priority_queue/moveable.cc: Likewise.
+
+2007-10-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (__versa_string<>::
+	__versa_string(__versa_string&&),
+	__versa_string<>::operator=(__versa_string&&,
+	swap(__versa_string<>&&, __versa_string<>&),
+	swap(__versa_string<>(&, __versa_string<>&&)): Add.
+	(__versa_string<>::swap(__versa_string&&)): Adjust for C++0x.
+	* include/ext/sso_string_base.h
+	(__sso_string_base(__sso_string_base&&)): Add.
+	(__sso_string_base()): Use _Alloc_hider(_CharT*).
+	* include/ext/rc_string_base.h (__rc_string_base(__rc_string_base&&)):
+	Add.
+	(__rc_string_base()): Use _Alloc_hider(_CharT*).
+	* include/ext/vstring_util.h (_Alloc_hider::_Alloc_hider(_CharT*)):
+	Add.
+	* testsuite/ext/vstring/moveable.cc: Add.
+
+	* include/bits/stl_tree.h (_Rb_tree(_Rb_tree&&)): Add.
+	* include/bits/stl_map.h (map<>::map(map&&)): Forward to the latter.
+	* include/bits/stl_set.h (set<>::set(set&&)): Likewise.
+	* include/bits/stl_multimap.h (multimap<>::multimap(multimap&&)):
+	Likewise.
+	* include/bits/stl_multiset.h (multiset<>::multiset(multiset&&)):
+	Likewise.
+	* include/bits/stl_deque.h (_Deque_base<>::_Deque_base(_Deque_base&&)):
+	Add.
+	(deque<>::deque(deque&&)): Forward to the latter.
+	* include/bits/stl_list.h (_List_base<>::_List_base(_List_base&&)):
+	Add.
+	(list<>::list(list&&)): Forward to the latter.
+	* include/bits/stl_vector.h
+	(_Vector_base<>::_Vector_base(_Vector_base&&)): Add.
+	(vector<>::vector(vector&&)): Forward to the latter.
+	* include/bits/stl_bvector.h
+	(_Bvector_base<>::_Bvector_base(_Bvector_base&&)): Add.
+	(vector<bool>::vector(vector&&)): Forward to the latter.
+
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error lines.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+
+2007-10-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/debug/set.h (set<>::cbegin, cend, crbegin, crend): Add.
+	* include/debug/multiset.h (set<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/debug/vector (vector<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/debug/map.h (map<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/debug/deque (deque<>::cbegin, cend, crbegin, crend): 
+	Likewise.
+	* include/debug/list (list<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/debug/multimap.h (multimap<>::cbegin, cend, crbegin,
+	crend): Likewise.
+	* include/tr1_impl/array (array<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/ext/vstring.h (__versa_string<>::cbegin, cend, crbegin,
+	crend): Likewise.
+	* include/bits/stl_list.h (list<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/bits/stl_map.h (map<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/bits/stl_set.h (set<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/bits/stl_multimap.h (multimap<>::cbegin, cend, crbegin,
+	crend): Likewise.
+	* include/bits/stl_vector.h (vector<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/bits/stl_deque.h (deque<>::cbegin, cend, crbegin, crend):
+	Likewise.
+	* include/bits/stl_multiset.h (multiset<>::cbegin, cend, crbegin,
+	crend): Likewise.
+	* include/bits/stl_bvector.h (vector<bool>::cbegin, cend, crbegin,
+	crend): Likewise.
+	* include/tr1_impl/hashtable (_Hashtable<>::cbegin, cend): Add.	
+
+	* testsuite/ext/vstring/requirements/citerators.cc: Add.
+	* testsuite/23_containers/unordered_map/requirements/citerators.cc:
+	Likewise.
+	* testsuite/23_containers/multimap/requirements/citerators.cc:
+	Likewise.
+	* testsuite/23_containers/set/requirements/citerators.cc: Likewise.
+	* testsuite/23_containers/unordered_multimap/requirements/
+	citerators.cc: Likewise.
+	* testsuite/23_containers/unordered_set/requirements/citerators.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/citerators.cc: Likewise.
+	* testsuite/23_containers/vector/bool/requirements/citerators.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/citerators.cc: Likewise.
+	* testsuite/23_containers/multiset/requirements/citerators.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/citerators.cc: Likewise.
+	* testsuite/23_containers/unordered_multiset/requirements/
+	citerators.cc: Likewise.
+	* testsuite/23_containers/map/requirements/citerators.cc: Likewise.
+	* testsuite/23_containers/array/requirements/citerators.cc: Likewise.
+
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error lines.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+
+2007-10-15  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/33773 (cont)
+	* testsuite/21_strings/headers/cwchar/macros.cc: Guard with
+	_GLIBCXX_USE_WCHAR_T, instead.
+
+2007-10-15  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/33771
+	PR libstdc++/33773
+	* testsuite/21_strings/headers/cwchar/macros.cc: Guard test with
+	_GLIBCXX_HAVE_WCHAR_H.
+	* testsuite/21_strings/headers/cwctype/macros.cc: Likewise with
+	_GLIBCXX_HAVE_WCTYPE_H.
+	* testsuite/17_intro/headers/c++200x/all.cc: Guard inclusions
+	of <wchar.h> and <wctype.h>.
+	* testsuite/17_intro/headers/c++200x/all_multiple_inclusion.cc:
+	Likewise.
+	* testsuite/17_intro/headers/c++1998/all.cc: Likewise.
+	* testsuite/17_intro/headers/c++1998/all_multiple_inclusion.cc:
+	Likewise.
+
+2007-10-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (is_sorted, is_sorted_until): Add.
+	* include/bits/algorithmfwd.h: Add.
+	* include/ext/algorithm: Adjust.
+	* testsuite/25_algorithms/is_sorted/requirements/
+	explicit_instantiation/2.cc: New.
+	* testsuite/25_algorithms/is_sorted/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+	* testsuite/25_algorithms/is_sorted/1.cc: Likewise.
+	* testsuite/25_algorithms/is_sorted_until/requirements/
+	explicit_instantiation/2.cc: Likewise.
+	* testsuite/25_algorithms/is_sorted_until/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+	* testsuite/25_algorithms/is_sorted_until/1.cc: Likewise.
+	* testsuite/25_algorithms/headers/algorithm/synopsis.cc:
+	Add is_sorted and is_sorted_until.
+
+	* include/bits/stl_heap.h (is_heap_until): Add concept and
+	debug-mode checks.
+
+2007-10-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_heap.h (__is_heap_until): Add.
+	(__is_heap(_RandomAccessIterator, _Distance),
+	__is_heap(_RandomAccessIterator, _Compare, _Distance)):
+	Adjust, call the latter.
+	(is_heap, is_heap_until): Add, call the above.
+	* include/bits/algorithmfwd.h: Add.
+	* testsuite/25_algorithms/is_heap/requirements/
+	explicit_instantiation/2.cc: New.
+	* testsuite/25_algorithms/is_heap/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+	* testsuite/25_algorithms/is_heap/1.cc: Likewise.
+	* testsuite/25_algorithms/is_heap_until/requirements/
+	explicit_instantiation/2.cc: Likewise.
+	* testsuite/25_algorithms/is_heap_until/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+	* testsuite/25_algorithms/is_heap_until/1.cc: Likewise.
+	* testsuite/25_algorithms/headers/algorithm/synopsis.cc:
+	Add is_heap and is_heap_until.
+
+2007-10-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/doxygen/user.cfg.in: Scan tr1_impl/hashtable.
+	* include/tr1_impl/hashtable: Correct comment.
+
+	* include/ext/hash_map: Remove extraneous public markers.
+	* include/ext/hash_set: Same.
+
+	* testsuite/25_algorithms/headers/parallel_algorithm.cc: Move
+	inside algorithm directory.	
+	* testsuite/25_algorithms/headers/algorithm_parallel_mode.cc: Same.
+	* testsuite/25_algorithms/headers/parallel_algorithm_mixed1.cc: Same.
+	* testsuite/25_algorithms/headers/parallel_algorithm_mixed2.cc: Same.
+	* testsuite/25_algorithms/headers/algorithm/parallel_algorithm.cc:
+	To this.	
+	* testsuite/25_algorithms/headers/algorithm/
+	algorithm_parallel_mode.cc: Same.
+	* testsuite/25_algorithms/headers/algorithm/
+	parallel_algorithm_mixed1.cc: Same.
+	* testsuite/25_algorithms/headers/algorithm/
+	parallel_algorithm_mixed2.cc: Same.
+
+	* testsuite/21_strings/basic_string/requirements/
+	explicit_instantiation/debug.cc: Remove exception text.
+	
+	* testsuite/23_containers/vector/bool/modifiers/insert/31370.cc:
+	Fix for debug mode testing.	
+	* testsuite/23_containers/vector/bool/capacity/29134.cc: Same.
+	
+2007-10-12  Jesper Nilsson  <jesper.nilsson@axis.com>
+
+       * testsuite/tr1/5_numerical_facilities/special_functions/
+       20_riemann_zeta/check_value_neg.c (MAX_ITERATIONS): Add limit
+       when target is simulator.
+       * testsuite/tr1/5_numerical_facilities/special_functions/
+       20_riemann_zeta/check_value_pos.c (MAX_ITERATIONS): Likewise.
+
+2007-10-11  Roger Sayle  <roger@eyesopen.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_SYSTEM_ERROR): Add EOVERFLOW for Tru64.
+	* configure: Regenerate.
+	* config/os/generic/error_constants.h: Guard.
+	* testsuite/19_diagnostics/headers/system_error/
+	types_std_c++0x.cc: Same.
+
+2007-10-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	Convert ext/hash_map, set to tr1/functional, tr1/unordered_map, set.
+	* include/ext/rope: Use tr1/functional hash instead of ext/hash_fun.h.
+	* include/ext/pb_ds/detail/standard_policies.hpp: Same.
+	* include/precompiled/extc++.h: Remove hash_map, hash_set.
+	* testsuite/util/testsuite_abi.h (__gnu_cxx): Use unordered_map
+	instead of hash_map. Remove hash specialization for string.
+	* testsuite/util/testsuite_abi.cc: Include <vector>.
+	* testsuite/util/native_type/assoc/native_hash_set.hpp: Remove
+	hash_set code.
+	* testsuite/util/native_type/assoc/native_hash_map.hpp: Remove
+	hash_map code.
+	* testsuite/util/native_type/assoc/native_hash_multimap.hpp:
+	Change hash_multimap to unordered_multimap.
+	* testsuite/util/testsuite_common_types.h: Remove hash_map, hash_set.
+	* testsuite/ext/headers.cc: Same.
+	* testsuite/17_intro/headers/all_c++200x_compatibility.cc: Remove
+	hash_map.h, hash_set.h.
+	* testsuite/17_intro/headers/all.cc: Same.
+	* testsuite/17_intro/headers/all_pedantic_errors.cc: Same.
+
+	* include/ext/pb_ds/detail/standard_policies.hpp: Format.
+	* testsuite/util/native_type/assoc/native_set.hpp: Same, 
+	update comment.
+	* testsuite/util/native_type/assoc/native_map.hpp: Same.
+	* testsuite/util/native_type/assoc/native_multimap.hpp: Same.
+	* testsuite/util/performance/assoc/timing/
+	multimap_insert_test.hpp: Same.
+	* testsuite/util/performance/assoc/timing/multimap_find_test.hpp: Same.
+
+2007-10-11  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_heap.h (__push_heap, push_heap, __adjust_heap,
+	make_heap): Use _GLIBCXX_MOVE.
+	(__pop_heap): Likewise, adjust signature.
+	(pop_heap): Adjust __pop_heap call.
+	* include/bits/stl_algo.h (__heap_select): Likewise.
+	* testsuite/25_algorithms/heap/moveable.cc: Remove dg-require-rvalref.
+	* testsuite/25_algorithms/partial_sort/moveable.cc: Likewise.
+
 2007-10-11  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/33734

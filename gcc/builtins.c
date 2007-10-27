@@ -5068,7 +5068,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
       if (! gave_help)
 	{
 	  gave_help = true;
-	  warning (0, "(so you should pass %qT not %qT to %<va_arg%>)",
+	  inform ("(so you should pass %qT not %qT to %<va_arg%>)",
 		   promoted_type, type);
 	}
 

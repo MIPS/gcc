@@ -2380,23 +2380,22 @@ optimize_double_finally (tree one, tree two)
 
   if (same_handler_p (TREE_OPERAND (oneh, 1), TREE_OPERAND (two, 1)))
     {
-      tree twoh;
-
       tree b = TREE_OPERAND (oneh, 0);
       TREE_OPERAND (one, 1) = b;
       TREE_SET_CODE (one, TRY_CATCH_EXPR);
 
-      b = tsi_stmt (tsi_start (b));
-      twoh = TREE_OPERAND (two, 0);
-      /* same_handler_p only handles single-statement handlers,
-	 so there must only be one statement.  */
-      i = tsi_start (twoh);
-      tsi_link_before (&i, unshare_expr (b), TSI_SAME_STMT);
+      i = tsi_start (TREE_OPERAND (two, 0));
+      /* FIXME tuples.  */
+#if 0
+      tsi_link_before (&i, unsave_expr_now (b), TSI_SAME_STMT);
+#else
+      gcc_unreachable ();
+#endif
     }
 }
 
 /* Perform EH refactoring optimizations that are simpler to do when code
-   flow has been lowered but EH structurs haven't.  */
+   flow has been lowered but EH structures haven't.  */
 
 static void
 refactor_eh_r (tree t)

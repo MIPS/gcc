@@ -128,7 +128,6 @@ c++			Nathan Sidwell		nathan@codesourcery.com
 java			Per Bothner		per@bothner.com
 java			Andrew Haley		aph@redhat.com
 java			Tom Tromey		tromey@redhat.com
-mercury			Fergus Henderson	fjh@cs.mu.oz.au
 objective-c/c++		Mike Stump		mrs@apple.com
 treelang                Tim Josling             tej@melbpc.org.au
 treelang                James A. Morrison	phython@gcc.gnu.org
@@ -235,7 +234,6 @@ outside of the parts of the compiler they maintain.
 
 			Reviewers
 
-dataflow		Daniel Berlin		dberlin@dberlin.org
 dataflow		Paolo Bonzini		bonzini@gnu.org
 dataflow		Seongbae Park		seongbae.park@gmail.com
 dataflow 		Kenneth Zadeck		zadeck@naturalbridge.com
@@ -244,7 +242,6 @@ Fortran			Tobias Burnus		burnus@net-b.de
 Fortran			François-Xavier Coudert	fxcoudert@gcc.gnu.org
 Fortran			Jerry DeLisle		jvdelisle@gcc.gnu.org
 Fortran			Erik Edelmann		erik.edelmann@iki.fi
-Fortran			Steve Kargl		sgk@troutmask.apl.washington.edu
 Fortran			Thomas Koenig		Thomas.Koenig@online.de
 Fortran			Toon Moene		toon@moene.indiv.nluug.nl
 Fortran			Brooks Moses		brooks.moses@codesourcery.com
@@ -305,7 +302,7 @@ Revital Eres                                    eres@il.ibm.com
 Marc Espie					espie@cvs.openbsd.org
 Rafael Ávila de Espíndola			rafael.espindola@gmail.com
 Ansgar Esztermann				ansgar@thphy.uni-duesseldorf.de
-Doug Evans					dje@transmeta.com
+Doug Evans					dje@google.com
 Bernhard Fischer				rep.nop@aon.at
 Thomas Fitzsimmons				fitzsim@redhat.com
 Brian Ford					ford@vss.fsi.com
@@ -321,6 +318,7 @@ Mostafa Hagog					hagog@gcc.gnu.org
 Olivier Hainque					hainque@act-europe.fr
 Stuart Hastings					stuart@apple.com
 Pat Haugen					pthaugen@us.ibm.com
+Fergus Henderson				fjh@cs.mu.oz.au
 Matthew Hiller					hiller@redhat.com
 Dan Hipschman					dsh@google.com
 Manfred Hollstein				mh@suse.com

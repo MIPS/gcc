@@ -430,26 +430,8 @@ case ${target} in
   gas=yes
   gnu_ld=yes
   extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
-  case ${target} in
-    *-*-freebsd3 | *-*-freebsd[3].*)
-      tm_defines="${tm_defines} FBSD_MAJOR=3" ;;
-    *-*-freebsd4 | *-*-freebsd[4].*)
-      tm_defines="${tm_defines} FBSD_MAJOR=4" ;;
-    *-*-freebsd5 | *-*-freebsd[5].*)
-      tm_defines="${tm_defines} FBSD_MAJOR=5" ;;
-    *-*-freebsd6 | *-*-freebsd[6].*)
-      tm_defines="${tm_defines} FBSD_MAJOR=6" ;;
-    *-*-freebsd7 | *-*-freebsd[7].*)
-      tm_defines="${tm_defines} FBSD_MAJOR=7" ;;
-    *-*-freebsd8 | *-*-freebsd[8].*)
-      tm_defines="${tm_defines} FBSD_MAJOR=8" ;;
-    *-*-freebsd9 | *-*-freebsd[9].*)
-      tm_defines="${tm_defines} FBSD_MAJOR=9" ;;
-    *)
-      echo 'Please update *-*-freebsd* in gcc/config.gcc'
-      exit 1
-      ;;
-  esac
+  fbsd_major=`echo ${target} | sed -e 's/.*freebsd//g' | sed -e 's/\..*//g'`
+  tm_defines="${tm_defines} FBSD_MAJOR=${fbsd_major}"
   tmake_file="t-slibgcc-elf-ver t-freebsd"
   case ${enable_threads} in
     no)
@@ -2085,13 +2067,21 @@ rs6000-ibm-aix5.1.* | powerpc-ibm-aix5.1.*)
 	thread_file='aix'
 	extra_headers=
 	;;
-rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+rs6000-ibm-aix5.2.* | powerpc-ibm-aix5.2.*)
 	tm_file="${tm_file} rs6000/aix.h rs6000/aix52.h rs6000/xcoff.h"
 	tmake_file=rs6000/t-aix52
 	extra_options="${extra_options} rs6000/aix64.opt"
 	use_collect2=yes
 	thread_file='aix'
 	extra_headers=
+	;;
+rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+	tm_file="${tm_file} rs6000/aix.h rs6000/aix53.h rs6000/xcoff.h"
+	tmake_file=rs6000/t-aix52
+	extra_options="${extra_options} rs6000/aix64.opt"
+	use_collect2=yes
+	thread_file='aix'
+	extra_headers=altivec.h
 	;;
 s390-*-linux*)
 	tm_file="s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
@@ -2119,7 +2109,7 @@ s390x-ibm-tpf*)
 score-*-elf)
         tm_file="dbxelf.h elfos.h score/elf.h score/score.h"
         tmake_file=score/t-score-elf
-        extra_objs="score-mdaux.o"
+        extra_objs="score7.o score3.o"
         ;;
 sh-*-elf* | sh[12346l]*-*-elf* | sh*-*-kaos* | \
 sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
@@ -3182,7 +3172,7 @@ case "${target}" in
 			"" | sparc | sparcv9 | sparc64 | sparc86x \
 			| v7 | cypress | v8 | supersparc | sparclite | f930 \
 			| f934 | hypersparc | sparclite86x | sparclet | tsc701 \
-			| v9 | ultrasparc | ultrasparc3 | niagara)
+			| v9 | ultrasparc | ultrasparc3 | niagara | niagara2)
 				# OK
 				;;
 			*)

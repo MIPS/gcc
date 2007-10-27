@@ -579,8 +579,11 @@ expand_stack_vars (bool (*pred) (tree))
       /* Create rtl for each variable based on their location within the
 	 partition.  */
       for (j = i; j != EOC; j = stack_vars[j].next)
-	expand_one_stack_var_at (stack_vars[j].decl,
-				 stack_vars[j].offset + offset);
+	{
+	  gcc_assert (stack_vars[j].offset <= stack_vars[i].size);
+	  expand_one_stack_var_at (stack_vars[j].decl,
+				   stack_vars[j].offset + offset);
+	}
     }
 }
 
@@ -1918,9 +1921,11 @@ tree_expand_cfg (void)
   if (warn_stack_protect)
     {
       if (current_function_calls_alloca)
-	warning (0, "not protecting local variables: variable length buffer");
+	warning (OPT_Wstack_protector, 
+		 "not protecting local variables: variable length buffer");
       if (has_short_buffer && !cfun->stack_protect_guard)
-	warning (0, "not protecting function: no buffer at least %d bytes long",
+	warning (OPT_Wstack_protector, 
+		 "not protecting function: no buffer at least %d bytes long",
 		 (int) PARAM_VALUE (PARAM_SSP_BUFFER_SIZE));
     }
 

@@ -1,3 +1,78 @@
+2007-10-26  Tobias Burnus  <burnus@net-b.de>
+
+	* mk-kinds-h.sh: Add "LANG=C".
+
+2007-10-26  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* libgfortran.h (GFC_REAL_*_HUGE, GFC_REAL_*_DIGITS,
+	GFC_REAL_*_RADIX): Remove.
+	* mk-kinds-h.sh: Define GFC_REAL_*_HUGE, GFC_REAL_*_DIGITS and
+	GFC_REAL_*_RADIX. Don't define GFC_REAL_LARGEST_FORMAT and
+	GFC_REAL_LARGEST.
+
+2007-10-19  Ben Elliston  <bje@au.ibm.com>
+
+	* intrinsics/signal.c (alarm_sub_i4): Mark conditionally unused
+	parameters with __attribute__ ((unused)).
+	(alarm_sub_i8): Likewise.
+	(alarm_sub_int_i4): Likewise.
+	(alarm_sub_int_i8): Likewise.
+
+2007-10-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33795
+	* libgfortran.h: Add unbuffered_preconnected.
+	* io/unix.c (output_stream): Set stream unbuffered flag if
+	options.unbuffered_preconnected has been set.
+	(error_stream): Ditto.
+	* runtime/environ.c (variable_table): Add to environment variable table
+	the entry: GFORTRAN_UNBUFFERED_PRECONNECTED. 
+	
+2007-10-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/32021
+	* runtime/backtrace.c (local_strcasestr): Protect by appropriate
+	macros.
+	* runtime/main.c (cleanup): Cast argument to free.
+	* intrinsics/spread_generic.c (spread_internal): Match runtime_error
+	arguments and format.
+	* intrinsics/signal.c (alarm_sub_int_i4, alarm_sub_int_i8): Cast
+	pointers to avoid warnings.
+
+2007-10-18  Ben Elliston  <bje@au.ibm.com>
+
+	* runtime/environ.c (init_choice): Remove unused function.
+	(show_choice): Likewise.
+	(choice): Remove.
+	(FP_ROUND_NEAREST, FP_ROUND_UP, FP_ROUND_DOWN, FP_ROUND_ZERO):
+	Remove.
+	(precision, signal_choices): Remove.
+
+2007-10-15 Christopher D. Rickett <crickett@lanl.gov>
+
+	PR fortran/32600
+	* libgfortran/intrinsics/iso_c_binding.c: Remove c_associated_1
+	and c_associated_2.
+	* libgfortran/intrinsics/iso_c_binding.h: Ditto.
+	* libgfortran/gfortran.map: Ditto.
+
+2007-10-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33055
+	* io/inquire.c (inquire_via_unit):  If inquiring by unit, check for
+	an error condition from the IOSTAT variable and set EXIST to false if
+	there was a bad unit number.
+
+2007-10-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/33672
+	* io/list_read.c (nml_parse_qualifier): Add character specific error
+	messages.  Check for proper form of sub-string qualifiers.  Return the
+	parsed_rank flag indicating a non-zero rank qualifier.
+	(nml_get_obj_data):  Count the instances of non-zero rank qualifiers.
+	Issue an error if more that one non-zero rank qualifier is found.
+
 2007-10-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/33253

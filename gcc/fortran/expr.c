@@ -2249,7 +2249,10 @@ check_init_expr (gfc_expr *e)
       break;
 
     case EXPR_STRUCTURE:
-      t = gfc_check_constructor (e, check_init_expr);
+      if (e->ts.is_iso_c)
+	t = SUCCESS;
+      else
+	t = gfc_check_constructor (e, check_init_expr);
       break;
 
     case EXPR_ARRAY:
@@ -2523,6 +2526,18 @@ gfc_specification_expr (gfc_expr *e)
   if (e->ts.type != BT_INTEGER)
     {
       gfc_error ("Expression at %L must be of INTEGER type", &e->where);
+      return FAILURE;
+    }
+
+  if (e->expr_type == EXPR_FUNCTION
+	  && !e->value.function.isym
+	  && !e->value.function.esym
+	  && !gfc_pure (e->symtree->n.sym))
+    {
+      gfc_error ("Function '%s' at %L must be PURE",
+		 e->symtree->n.sym->name, &e->where);
+      /* Prevent repeat error messages.  */
+      e->symtree->n.sym->attr.pure = 1;
       return FAILURE;
     }
 

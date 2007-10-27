@@ -9343,6 +9343,9 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  break;
 
 	case NOT:
+	  if (VECTOR_MODE_P (mode))
+	    break;
+
 	  /* Make this fit the case below.  */
 	  varop = gen_rtx_XOR (mode, XEXP (varop, 0),
 			       GEN_INT (GET_MODE_MASK (mode)));
@@ -12509,15 +12512,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	     to simply delete it.  */
 	  break;
 
-	case REG_LIBCALL_ID:
-	  /* If the insn previously containing this note still exists,
-	     put it back where it was.  Otherwise move it to the previous
-	     insn.  */
-	  if (!NOTE_P (from_insn))
-	    place = from_insn;
-	  else
-	    place = prev_real_insn (from_insn);
-	  break;
 	case REG_RETVAL:
 	  /* If the insn previously containing this note still exists,
 	     put it back where it was.  Otherwise move it to the previous

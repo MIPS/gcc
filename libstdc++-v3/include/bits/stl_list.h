@@ -351,6 +351,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       : _M_impl(__a)
       { _M_init(); }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      _List_base(_List_base&& __x)
+      : _M_impl(__x._M_get_Node_allocator())
+      {
+	_M_init();
+	_List_node_base::swap(this->_M_impl._M_node, __x._M_impl._M_node);	
+      }
+#endif
+
       // This is what actually destroys the list.
       ~_List_base()
       { _M_clear(); }
@@ -521,8 +530,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  The contents of @a x are a valid, but unspecified %list.
        */
       list(list&& __x)
-      : _Base(__x._M_get_Node_allocator())
-      { this->swap(__x); }
+      : _Base(std::forward<_Base>(__x)) { }
 #endif
 
       /**
@@ -690,6 +698,44 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       const_reverse_iterator
       rend() const
       { return const_reverse_iterator(begin()); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  Returns a read-only (constant) iterator that points to the
+       *  first element in the %list.  Iteration is done in ordinary
+       *  element order.
+       */
+      const_iterator
+      cbegin() const
+      { return const_iterator(this->_M_impl._M_node._M_next); }
+
+      /**
+       *  Returns a read-only (constant) iterator that points one past
+       *  the last element in the %list.  Iteration is done in ordinary
+       *  element order.
+       */
+      const_iterator
+      cend() const
+      { return const_iterator(&this->_M_impl._M_node); }
+
+      /**
+       *  Returns a read-only (constant) reverse iterator that points to
+       *  the last element in the %list.  Iteration is done in reverse
+       *  element order.
+       */
+      const_reverse_iterator
+      crbegin() const
+      { return const_reverse_iterator(end()); }
+
+      /**
+       *  Returns a read-only (constant) reverse iterator that points to one
+       *  before the first element in the %list.  Iteration is done in reverse
+       *  element order.
+       */
+      const_reverse_iterator
+      crend() const
+      { return const_reverse_iterator(begin()); }
+#endif
 
       // [23.2.2.2] capacity
       /**
@@ -1226,7 +1272,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       void
       _M_check_equal_allocators(list& __x)
       {
-	if (_M_get_Node_allocator() != __x._M_get_Node_allocator())
+	if (std::__alloc_neq<typename _Base::_Node_alloc_type>::
+	    _S_do_it(_M_get_Node_allocator(), __x._M_get_Node_allocator()))
 	  __throw_runtime_error(__N("list::_M_check_equal_allocators"));
       }
     };

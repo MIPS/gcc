@@ -244,7 +244,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      operation = GIMPLE_STMT_OPERAND (stmt, 1);
 	      if (TREE_CODE (operation) == NOP_EXPR
 		  || TREE_CODE (operation) == CONVERT_EXPR
-		  || TREE_CODE (operation) == WIDEN_MULT_EXPR)
+		  || TREE_CODE (operation) == WIDEN_MULT_EXPR
+		  || TREE_CODE (operation) == FLOAT_EXPR)
 		{
 		  tree rhs_type = TREE_TYPE (TREE_OPERAND (operation, 0));
 		  if (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (rhs_type)) < 
@@ -483,7 +484,10 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	      need_to_vectorize = true;
 	    }
 
-	  ok = (vectorizable_type_promotion (stmt, NULL, NULL)
+	  ok = true;
+	  if (STMT_VINFO_RELEVANT_P (stmt_info)
+	      || STMT_VINFO_DEF_TYPE (stmt_info) == vect_reduction_def)
+	    ok = (vectorizable_type_promotion (stmt, NULL, NULL)
 		|| vectorizable_type_demotion (stmt, NULL, NULL)
 		|| vectorizable_conversion (stmt, NULL, NULL, NULL)
 		|| vectorizable_operation (stmt, NULL, NULL, NULL)
@@ -494,17 +498,29 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 		|| vectorizable_condition (stmt, NULL, NULL)
 		|| vectorizable_reduction (stmt, NULL, NULL));
 
+	  if (!ok)
+	    {
+	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+		{
+		  fprintf (vect_dump, "not vectorized: relevant stmt not ");
+		  fprintf (vect_dump, "supported: ");
+		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
+		}
+	      return false;
+	    }
+
 	  /* Stmts that are (also) "live" (i.e. - that are used out of the loop)
 	     need extra handling, except for vectorizable reductions.  */
 	  if (STMT_VINFO_LIVE_P (stmt_info)
 	      && STMT_VINFO_TYPE (stmt_info) != reduc_vec_info_type) 
-	    ok |= vectorizable_live_operation (stmt, NULL, NULL);
+	    ok = vectorizable_live_operation (stmt, NULL, NULL);
 
 	  if (!ok)
 	    {
 	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
 		{
-		  fprintf (vect_dump, "not vectorized: stmt not supported: ");
+		  fprintf (vect_dump, "not vectorized: live stmt not ");
+		  fprintf (vect_dump, "supported: ");
 		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
 		}
 	      return false;
@@ -2281,7 +2297,7 @@ vect_analyze_group_access (struct data_reference *dr)
 
 
 /* Analyze the access pattern of the data-reference DR.
-   In case of non-consecutive accesse call vect_analyze_group_access() to
+   In case of non-consecutive accesses call vect_analyze_group_access() to
    analyze groups of strided accesses.  */
 
 static bool
@@ -2308,6 +2324,10 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 
   if (nested_in_vect_loop_p (loop, stmt))
     {
+      /* Interleaved accesses are not yet supported within outer-loop
+        vectorization for references in the inner-loop.  */
+      DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)) = NULL_TREE;
+
       /* For the rest of the analysis we use the outer-loop step.  */
       step = STMT_VINFO_DR_STEP (stmt_info);
       dr_step = TREE_INT_CST_LOW (step);
@@ -2664,6 +2684,16 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 
       scalar_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
       vectype = get_vectype_for_scalar_type (scalar_type);
+      if (!vectype)
+        {
+          if (vect_print_dump_info (REPORT_SLP))
+            {
+              fprintf (vect_dump, "Build SLP failed: unsupported data-type ");
+              print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
+            }
+          return false;
+        }
+
       gcc_assert (LOOP_VINFO_VECT_FACTOR (loop_vinfo));
       vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
       ncopies = vectorization_factor / TYPE_VECTOR_SUBPARTS (vectype);
@@ -2969,6 +2999,16 @@ vect_analyze_slp_instance (loop_vec_info loop_vinfo, tree stmt)
   /* FORNOW: multiple types are not supported.  */
   scalar_type = TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt))));
   vectype = get_vectype_for_scalar_type (scalar_type);
+  if (!vectype)
+    {
+      if (vect_print_dump_info (REPORT_SLP))
+        {
+          fprintf (vect_dump, "Build SLP failed: unsupported data-type ");
+          print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
+        }
+      return false;
+    }
+
   nunits = TYPE_VECTOR_SUBPARTS (vectype);
   vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   ncopies = vectorization_factor / nunits;
@@ -3249,9 +3289,11 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
 	  /* Build a reference to the first location accessed by the 
 	     inner-loop: *(BASE+INIT). (The first location is actually
-	     BASE+INIT+OFFSET, but we add OFFSET separately later.  */
-	  tree inner_base = build_fold_indirect_ref 
-				(fold_build2 (PLUS_EXPR, TREE_TYPE (base), base, init));
+	     BASE+INIT+OFFSET, but we add OFFSET separately later).  */
+          tree inner_base = build_fold_indirect_ref
+                                (fold_build2 (POINTER_PLUS_EXPR,
+                                              TREE_TYPE (base), base, 
+                                              fold_convert (sizetype, init)));
 
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    {

@@ -315,8 +315,8 @@ Objective-C and Objective-C++ Dialects}.
 
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
-@gccoptlist{-falign-functions=@var{n}  -falign-jumps=@var{n} @gol
--falign-labels=@var{n}  -falign-loops=@var{n}  @gol
+@gccoptlist{-falign-functions[=@var{n}]  -falign-jumps[=@var{n}] @gol
+-falign-labels[=@var{n}]  -falign-loops[=@var{n}]  @gol
 -fbounds-check -fmudflap -fmudflapth -fmudflapir @gol
 -fbranch-probabilities -fprofile-values -fvpt -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive @gol
@@ -347,7 +347,7 @@ Objective-C and Objective-C++ Dialects}.
 -fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  @gol
--fsched-stalled-insns=@var{n} -fsched-stalled-insns-dep=@var{n} @gol
+-fsched-stalled-insns[=@var{n}] -fsched-stalled-insns-dep[=@var{n}] @gol
 -fsched2-use-superblocks @gol
 -fsched2-use-traces -fsee -freschedule-modulo-scheduled-loops @gol
 -fsection-anchors  -fsignaling-nans  -fsingle-precision-constant @gol
@@ -358,7 +358,7 @@ Objective-C and Objective-C++ Dialects}.
 -fvariable-expansion-in-unroller -ftree-reassoc @gol
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
--fcheck-data-deps -ftree-parallelize-loops @gol
+-fcheck-data-deps -ftree-parallelize-loops=@var{n} @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-fre -ftree-vectorize @gol
 -ftree-vect-loop-version -fvect-cost-model -ftree-salias -fipa-pta -fweb @gol
@@ -2524,17 +2524,8 @@ Warnings are diagnostic messages that report constructions which
 are not inherently erroneous but which are risky or suggest there
 may have been an error.
 
-You can request many specific warnings with options beginning @samp{-W},
-for example @option{-Wimplicit} to request warnings on implicit
-declarations.  Each of these specific warning options also has a
-negative form beginning @samp{-Wno-} to turn off warnings;
-for example, @option{-Wno-implicit}.  This manual lists only one of the
-two forms, whichever is not the default.
-
-The following options control the amount and kinds of warnings produced
-by GCC; for further, language-specific options also refer to
-@ref{C++ Dialect Options} and @ref{Objective-C and Objective-C++ Dialect
-Options}.
+The following language-independent options do not enable specific
+warnings but control the kinds of diagnostics produced by GCC.
 
 @table @gcctabopt
 @cindex syntax checking
@@ -2542,6 +2533,48 @@ Options}.
 @opindex fsyntax-only
 Check the code for syntax errors, but don't do anything beyond that.
 
+@item -w
+@opindex w
+Inhibit all warning messages.
+
+@item -Werror
+@opindex Werror
+Make all warnings into errors.
+
+@item -Werror=
+@opindex Werror=
+Make the specified warning into an error.  The specifier for a warning
+is appended, for example @option{-Werror=switch} turns the warnings
+controlled by @option{-Wswitch} into errors.  This switch takes a
+negative form, to be used to negate @option{-Werror} for specific
+warnings, for example @option{-Wno-error=switch} makes
+@option{-Wswitch} warnings not be errors, even when @option{-Werror}
+is in effect.  You can use the @option{-fdiagnostics-show-option}
+option to have each controllable warning amended with the option which
+controls it, to determine what to use with this option.
+
+Note that specifying @option{-Werror=}@var{foo} automatically implies
+@option{-W}@var{foo}.  However, @option{-Wno-error=}@var{foo} does not
+imply anything.
+
+@item -Wfatal-errors
+@opindex Wfatal-errors
+This option causes the compiler to abort compilation on the first error
+occurred rather than trying to keep going and printing further error
+messages.
+
+@end table
+
+You can request many specific warnings with options beginning
+@samp{-W}, for example @option{-Wimplicit} to request warnings on
+implicit declarations.  Each of these specific warning options also
+has a negative form beginning @samp{-Wno-} to turn off warnings; for
+example, @option{-Wno-implicit}.  This manual lists only one of the
+two forms, whichever is not the default.  For further,
+language-specific options also refer to @ref{C++ Dialect Options} and
+@ref{Objective-C and Objective-C++ Dialect Options}.
+
+@table @gcctabopt
 @item -pedantic
 @opindex pedantic
 Issue all the warnings demanded by strict ISO C and ISO C++;
@@ -2588,10 +2621,6 @@ nothing to warn about.)
 Like @option{-pedantic}, except that errors are produced rather than
 warnings.
 
-@item -w
-@opindex w
-Inhibit all warning messages.
-
 @item -Wall
 @opindex Wall
 This enables all the warnings about constructions that some users
@@ -2623,13 +2652,73 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wstrict-overflow  @gol
 -Wswitch  @gol
 -Wtrigraphs  @gol
--Wuninitialized @r{(only with} @option{-O1}@r{,} @option{-O2} @r{or} @option{-O3}@r{)}  @gol
+-Wuninitialized @r{(only with} @option{-O1} @r{and above)}  @gol
 -Wunknown-pragmas  @gol
 -Wunused-function  @gol
 -Wunused-label     @gol
 -Wunused-value     @gol
 -Wunused-variable  @gol
 }
+
+Note that some warning flags are not implied by @option{-Wall}.  Some of
+them warn about constructions that users generally do not consider
+questionable, but which occasionally you might wish to check for;
+others warn about constructions that are necessary or hard to avoid in
+some cases, and there is no simple way to modify the code to suppress
+the warning. Some of them are enabled by @option{-Wextra} but many of
+them must be enabled individually.
+
+@item -Wextra
+@opindex W
+@opindex Wextra
+This enables some extra warning flags that are not enabled by
+@option{-Wall}. (This option used to be called @option{-W}.  The older
+name is still supported, but the newer name is more descriptive.)
+
+@gccoptlist{-Wclobbered  @gol
+-Wempty-body  @gol
+-Wmissing-field-initializers  @gol
+-Wmissing-parameter-type @r{(C only)}  @gol
+-Wold-style-declaration @r{(C only)}  @gol
+-Woverride-init  @gol
+-Wsign-compare  @gol
+-Wtype-limits  @gol
+-Wuninitialized @r{(only with} @option{-O1} @r{and above)}  @gol
+-Wunused-parameter @r{(only with} @option{-Wunused} @r{or} @option{-Wall}@r{)}  @gol
+}
+
+The option @option{-Wextra} also prints warning messages for the
+following cases:
+
+@itemize @bullet
+
+@item
+A pointer is compared against integer zero with @samp{<}, @samp{<=},
+@samp{>}, or @samp{>=}.
+
+@item 
+(C++ only) An enumerator and a non-enumerator both appear in a
+conditional expression.
+
+@item 
+(C++ only) A non-static reference or non-static @samp{const} member
+appears in a class without constructors.
+
+@item 
+(C++ only) Ambiguous virtual bases.
+
+@item 
+(C++ only) Subscripting an array which has been declared @samp{register}.
+
+@item 
+(C++ only) Taking the address of a variable which has been declared
+@samp{register}.
+
+@item 
+(C++ only) A base class is not initialized in a derived class' copy
+constructor.
+
+@end itemize
 
 @item -Wno-import
 @opindex Wno-import
@@ -2647,12 +2736,6 @@ This warning is enabled by @option{-Wall}.
 Warn whenever a comment-start sequence @samp{/*} appears in a @samp{/*}
 comment, or whenever a Backslash-Newline appears in a @samp{//} comment.
 This warning is enabled by @option{-Wall}.
-
-@item -Wfatal-errors
-@opindex Wfatal-errors
-This option causes the compiler to abort compilation on the first error
-occurred rather than trying to keep going and printing further error
-messages.
 
 @item -Wformat
 @opindex Wformat
@@ -3086,7 +3169,8 @@ Some spurious warnings can be avoided if you declare all the functions
 you use that never return as @code{noreturn}.  @xref{Function
 Attributes}.
 
-This warning is enabled by @option{-Wall}.
+This warning is enabled by @option{-Wall} or @option{-Wextra} in
+optimizing compilations (@option{-O1} and above).
 
 @item -Wunknown-pragmas
 @opindex Wunknown-pragmas
@@ -3206,100 +3290,6 @@ false positives.
 This option is only active when @option{-ftree-vrp} is active
 (default for -O2 and above). It warns about subscripts to arrays
 that are always out of bounds. This warning is enabled by @option{-Wall}.
-
-@end table
-
-The following @option{-W@dots{}} options are not implied by @option{-Wall}.
-Some of them warn about constructions that users generally do not
-consider questionable, but which occasionally you might wish to check
-for; others warn about constructions that are necessary or hard to avoid
-in some cases, and there is no simple way to modify the code to suppress
-the warning.
-
-@table @gcctabopt
-@item -Wextra
-@opindex W
-@opindex Wextra
-(This option used to be called @option{-W}.  The older name is still
-supported, but the newer name is more descriptive.)  Print extra warning
-messages for these events:
-
-@itemize @bullet
-@item
-Warn if a comparison is always true or always false due to the limited
-range of the data type, but do not warn for constant expressions.  For
-example, warn if an unsigned variable is compared against zero with
-@samp{<} or @samp{>=}.  This warning can be independently controlled
-by @option{-Wtype-limits}.
-
-@item @r{(C only)}
-Storage-class specifiers like @code{static} are not the first things
-in a declaration.  According to the C Standard, this usage is
-obsolescent.  This warning can be independently controlled by
-@option{-Wold-style-declaration}.
-
-@item
-If @option{-Wall} or @option{-Wunused} is also specified, warn about unused
-arguments.
-
-@item
-A comparison between signed and unsigned values could produce an
-incorrect result when the signed value is converted to unsigned.
-(But don't warn if @option{-Wno-sign-compare} is also specified.)
-
-@item
-An aggregate has an initializer which does not initialize all members.
-This warning can be independently controlled by
-@option{-Wmissing-field-initializers}.
-
-@item
-An initialized field without side effects is overridden when using
-designated initializers (@pxref{Designated Inits, , Designated
-Initializers}).  This warning can be independently controlled by
-@option{-Woverride-init}.
-
-@item @r{(C only)}
-A function parameter is declared without a type specifier in K&R-style
-functions.  This warning can be independently controlled by
-@option{-Wmissing-parameter-type}.
-
-@item
-An empty body occurs in an @samp{if}, @samp{else} or
-@samp{do while} statement. This warning can be independently
-controlled by @option{-Wempty-body}.
-
-@item @r{(C++ only)}
-An empty body occurs in a @samp{while} or @samp{for} statement with no
-whitespacing before the semicolon. This warning can be independently
-controlled by @option{-Wempty-body}.
-
-@item
-A pointer is compared against integer zero with @samp{<}, @samp{<=},
-@samp{>}, or @samp{>=}.
-
-@item
-A variable might be changed by @samp{longjmp} or @samp{vfork}.
-This warning can be independently controlled by @option{-Wclobbered}.
-
-@item @r{(C++ only)}
-An enumerator and a non-enumerator both appear in a conditional expression.
-
-@item @r{(C++ only)}
-A non-static reference or non-static @samp{const} member appears in a
-class without constructors.
-
-@item @r{(C++ only)}
-Ambiguous virtual bases.
-
-@item @r{(C++ only)}
-Subscripting an array which has been declared @samp{register}.
-
-@item @r{(C++ only)}
-Taking the address of a variable which has been declared @samp{register}.
-
-@item @r{(C++ only)}
-A base class is not initialized in a derived class' copy constructor.
-@end itemize
 
 @item -Wno-div-by-zero
 @opindex Wno-div-by-zero
@@ -3932,26 +3922,6 @@ Warn for pointer argument passing or assignment with different signedness.
 This option is only supported for C and Objective-C@.  It is implied by
 @option{-Wall} and by @option{-pedantic}, which can be disabled with
 @option{-Wno-pointer-sign}.
-
-@item -Werror
-@opindex Werror
-Make all warnings into errors.
-
-@item -Werror=
-@opindex Werror=
-Make the specified warning into an errors.  The specifier for a
-warning is appended, for example @option{-Werror=switch} turns the
-warnings controlled by @option{-Wswitch} into errors.  This switch
-takes a negative form, to be used to negate @option{-Werror} for
-specific warnings, for example @option{-Wno-error=switch} makes
-@option{-Wswitch} warnings not be errors, even when @option{-Werror}
-is in effect.  You can use the @option{-fdiagnostics-show-option}
-option to have each controllable warning amended with the option which
-controls it, to determine what to use with this option.
-
-Note that specifying @option{-Werror=}@var{foo} automatically implies
-@option{-W}@var{foo}.  However, @option{-Wno-error=}@var{foo} does not
-imply anything.
 
 @item -Wstack-protector
 @opindex Wstack-protector
@@ -5307,6 +5277,7 @@ check if the variable was referenced, regardless of whether or not
 optimization is turned on, use the @option{-fno-keep-static-consts} option.
 
 @item -fmerge-constants
+@opindex fmerge-constants
 Attempt to merge identical constants (string constants and floating point
 constants) across compilation units.
 
@@ -5317,6 +5288,7 @@ behavior.
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fmerge-all-constants
+@opindex fmerge-all-constants
 Attempt to merge identical constants and identical variables.
 
 This option implies @option{-fmerge-constants}.  In addition to
@@ -5509,14 +5481,14 @@ Using @option{-Wunsafe-loop-optimizations}, the compiler will warn you
 if it finds this kind of loop.
 
 @item -fcrossjumping
-@opindex crossjumping
+@opindex fcrossjumping
 Perform cross-jumping transformation.  This transformation unifies equivalent code and save code size.  The
 resulting code may or may not perform better than without cross-jumping.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fif-conversion
-@opindex if-conversion
+@opindex fif-conversion
 Attempt to transform conditional jumps into branch-less equivalents.  This
 include use of conditional moves, min, max, set flags and abs instructions, and
 some tricks doable by standard arithmetics.  The use of conditional execution
@@ -5525,7 +5497,7 @@ on chips where it is available is controlled by @code{if-conversion2}.
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fif-conversion2
-@opindex if-conversion2
+@opindex fif-conversion2
 Use conditional execution (where available) to transform conditional jumps into
 branch-less equivalents.
 
@@ -5616,17 +5588,27 @@ Allow speculative motion of more load instructions.  This only makes
 sense when scheduling before register allocation, i.e.@: with
 @option{-fschedule-insns} or at @option{-O2} or higher.
 
-@item -fsched-stalled-insns=@var{n}
+@item -fsched-stalled-insns
+@itemx -fsched-stalled-insns=@var{n}
 @opindex fsched-stalled-insns
 Define how many insns (if any) can be moved prematurely from the queue
 of stalled insns into the ready list, during the second scheduling pass.
+@option{-fno-fsched-stalled-insns} and @option{-fsched-stalled-insns=0}
+are equivalent and mean that no insns will be moved prematurely.
+If @var{n} is unspecified then there is no limit on how many queued
+insns can be moved prematurely.
 
-@item -fsched-stalled-insns-dep=@var{n}
+@item -fsched-stalled-insns-dep
+@itemx -fsched-stalled-insns-dep=@var{n}
 @opindex fsched-stalled-insns-dep
 Define how many insn groups (cycles) will be examined for a dependency
 on a stalled insn that is candidate for premature removal from the queue
-of stalled insns.  Has an effect only during the second scheduling pass,
+of stalled insns.  This has an effect only during the second scheduling pass,
 and only if @option{-fsched-stalled-insns} is used and its value is not zero.
+@option{-fno-sched-stalled-insns-dep} is equivalent to
+@option{-fsched-stalled-insns-dep=0}.
+@option{-fsched-stalled-insns-dep} without a value is equivalent to
+@option{-fsched-stalled-insns-dep=1}.
 
 @item -fsched2-use-superblocks
 @opindex fsched2-use-superblocks
@@ -5658,7 +5640,7 @@ Eliminates redundant extension instructions and move the non redundant
 ones to optimal placement using LCM.
 
 @item -freschedule-modulo-scheduled-loops
-@opindex fscheduling-in-modulo-scheduled-loops
+@opindex freschedule-modulo-scheduled-loops
 The modulo scheduling comes before the traditional scheduling, if a loop
 was modulo scheduled we may want to prevent the later scheduling passes
 from changing its schedule, we use this option to control that.
@@ -5676,14 +5658,17 @@ those which have no call-preserved registers to use instead.
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -ftree-reassoc
+@opindex ftree-reassoc
 Perform Reassociation on trees  This flag is enabled by default
 at @option{-O} and higher.
 
 @item -ftree-pre
+@opindex ftree-pre
 Perform Partial Redundancy Elimination (PRE) on trees.  This flag is
 enabled by default at @option{-O2} and @option{-O3}.
 
 @item -ftree-fre
+@opindex ftree-fre
 Perform Full Redundancy Elimination (FRE) on trees.  The difference
 between FRE and PRE is that FRE only considers expressions
 that are computed on all paths leading to the redundant computation.
@@ -5691,43 +5676,52 @@ This analysis is faster than PRE, though it exposes fewer redundancies.
 This flag is enabled by default at @option{-O} and higher.
 
 @item -ftree-copy-prop
+@opindex ftree-copy-prop
 Perform copy propagation on trees.  This pass eliminates unnecessary
 copy operations.  This flag is enabled by default at @option{-O} and
 higher.
 
 @item -ftree-store-copy-prop
+@opindex ftree-store-copy-prop
 Perform copy propagation of memory loads and stores.  This pass
 eliminates unnecessary copy operations in memory references
 (structures, global variables, arrays, etc).  This flag is enabled by
 default at @option{-O2} and higher.
 
 @item -ftree-salias
+@opindex ftree-salias
 Perform structural alias analysis on trees.  This flag
 is enabled by default at @option{-O} and higher.
 
 @item -fipa-pta
+@opindex fipa-pta
 Perform interprocedural pointer analysis.
 
 @item -ftree-sink
+@opindex ftree-sink
 Perform forward store motion  on trees.  This flag is
 enabled by default at @option{-O} and higher.
 
 @item -ftree-ccp
+@opindex ftree-ccp
 Perform sparse conditional constant propagation (CCP) on trees.  This
 pass only operates on local scalar variables and is enabled by default
 at @option{-O} and higher.
 
 @item -ftree-store-ccp
+@opindex ftree-store-ccp
 Perform sparse conditional constant propagation (CCP) on trees.  This
 pass operates on both local scalar variables and memory stores and
 loads (global variables, structures, arrays, etc).  This flag is
 enabled by default at @option{-O2} and higher.
 
 @item -ftree-dce
+@opindex ftree-dce
 Perform dead code elimination (DCE) on trees.  This flag is enabled by
 default at @option{-O} and higher.
 
 @item -ftree-dominator-opts
+@opindex ftree-dominator-opts
 Perform a variety of simple scalar cleanups (constant/copy
 propagation, redundancy elimination, range propagation and expression
 simplification) based on a dominator tree traversal.  This also
@@ -5742,24 +5736,29 @@ any intervening loads.  In this case the earlier store can be deleted.  This
 flag is enabled by default at @option{-O} and higher.
 
 @item -ftree-ch
+@opindex ftree-ch
 Perform loop header copying on trees.  This is beneficial since it increases
 effectiveness of code motion optimizations.  It also saves one jump.  This flag
 is enabled by default at @option{-O} and higher.  It is not enabled
 for @option{-Os}, since it usually increases code size.
 
 @item -ftree-loop-optimize
+@opindex ftree-loop-optimize
 Perform loop optimizations on trees.  This flag is enabled by default
 at @option{-O} and higher.
 
 @item -ftree-loop-linear
+@opindex ftree-loop-linear
 Perform linear loop transformations on tree.  This flag can improve cache
 performance and allow further loop optimizations to take place.
 
 @item -fcheck-data-deps
+@opindex fcheck-data-deps
 Compare the results of several data dependence analyzers.  This option
 is used for debugging the data dependence analyzers.
 
 @item -ftree-loop-im
+@opindex ftree-loop-im
 Perform loop invariant motion on trees.  This pass moves only invariants that
 would be hard to handle at RTL level (function calls, operations that expand to
 nontrivial sequences of insns).  With @option{-funswitch-loops} it also moves
@@ -5768,12 +5767,14 @@ just trivial invariantness analysis in loop unswitching.  The pass also includes
 store motion.
 
 @item -ftree-loop-ivcanon
+@opindex ftree-loop-ivcanon
 Create a canonical counter for number of iterations in the loop for that
 determining number of iterations requires complicated analysis.  Later
 optimizations then may determine the number easily.  Useful especially
 in connection with unrolling.
 
 @item -fivopts
+@opindex fivopts
 Perform induction variable optimizations (strength reduction, induction
 variable merging and induction variable elimination) on trees.
 
@@ -5786,17 +5787,20 @@ profitable on multiprocessor machines, for loops that are CPU-intensive,
 rather than constrained e.g. by memory bandwidth.
 
 @item -ftree-sra
+@opindex ftree-sra
 Perform scalar replacement of aggregates.  This pass replaces structure
 references with scalars to prevent committing structures to memory too
 early.  This flag is enabled by default at @option{-O} and higher.
 
 @item -ftree-copyrename
+@opindex ftree-copyrename
 Perform copy renaming on trees.  This pass attempts to rename compiler
 temporaries to other variables at copy locations, usually resulting in
 variable names which more closely resemble the original variables.  This flag
 is enabled by default at @option{-O} and higher.
 
 @item -ftree-ter
+@opindex ftree-ter
 Perform temporary expression replacement during the SSA->normal phase.  Single
 use/single def temporaries are replaced at their use location with their
 defining expression.  This results in non-GIMPLE code, but gives the expanders
@@ -5804,6 +5808,7 @@ much more complex trees to work on resulting in better RTL generation.  This is
 enabled by default at @option{-O} and higher.
 
 @item -ftree-vectorize
+@opindex ftree-vectorize
 Perform loop vectorization on trees.
 
 @item -ftree-vect-loop-version
@@ -5816,9 +5821,11 @@ to control which version is executed.  This option is enabled by default
 except at level @option{-Os} where it is disabled.
 
 @item -fvect-cost-model
+@opindex fvect-cost-model
 Enable cost model for vectorization.
 
 @item -ftree-vrp
+@opindex ftree-vrp
 Perform Value Range Propagation on trees.  This is similar to the
 constant propagation pass, but instead of values, ranges of values are
 propagated.  This allows the optimizers to remove unnecessary range
@@ -6254,7 +6261,7 @@ Enables @option{-freciprocal-math} and @option{-fassociative-math}.
 The default is @option{-fno-unsafe-math-optimizations}.
 
 @item -fassociative-math
-@opindex -fassociative-math
+@opindex fassociative-math
 
 Allow re-association of operands in series of floating-point operations.
 This violates the ISO C and C++ language standard by possibly changing
@@ -6269,7 +6276,7 @@ or @option{-fno-trapping-math} or with @option{-frounding-math}.
 The default is @option{-fno-associative-math}.
 
 @item -freciprocal-math
-@opindex -freciprocal-math
+@opindex freciprocal-math
 
 Allow the reciprocal of a value to be used instead of dividing by
 the value if this enables optimizations.  For example @code{x / y}
@@ -11909,9 +11916,8 @@ Use (do not use) the MIPS SmartMIPS ASE.
 @opindex mpaired-single
 @opindex mno-paired-single
 Use (do not use) paired-single floating-point instructions.
-@xref{MIPS Paired-Single Support}.  This option can only be used
-when generating 64-bit code and requires hardware floating-point
-support to be enabled.
+@xref{MIPS Paired-Single Support}.  This option requires
+hardware floating-point support to be enabled.
 
 @item -mdmx
 @itemx -mno-mdmx
@@ -13956,7 +13962,7 @@ for machine type @var{cpu_type}.  Supported values for @var{cpu_type} are
 @samp{v7}, @samp{cypress}, @samp{v8}, @samp{supersparc}, @samp{sparclite},
 @samp{f930}, @samp{f934}, @samp{hypersparc}, @samp{sparclite86x},
 @samp{sparclet}, @samp{tsc701}, @samp{v9}, @samp{ultrasparc},
-@samp{ultrasparc3}, and @samp{niagara}.
+@samp{ultrasparc3}, @samp{niagara} and @samp{niagara2}.
 
 Default instruction scheduling parameters are used for values that select
 an architecture and not an implementation.  These are @samp{v7}, @samp{v8},
@@ -13970,7 +13976,7 @@ implementations.
     v8:             supersparc, hypersparc
     sparclite:      f930, f934, sparclite86x
     sparclet:       tsc701
-    v9:             ultrasparc, ultrasparc3, niagara
+    v9:             ultrasparc, ultrasparc3, niagara, niagara2
 @end smallexample
 
 By default (unless configured otherwise), GCC generates code for the V7
@@ -14008,7 +14014,8 @@ optimizes it for the Sun UltraSPARC I/II/IIi chips.  With
 @option{-mcpu=ultrasparc3}, the compiler additionally optimizes it for the
 Sun UltraSPARC III/III+/IIIi/IIIi+/IV/IV+ chips.  With
 @option{-mcpu=niagara}, the compiler additionally optimizes it for
-Sun UltraSPARC T1 chips.
+Sun UltraSPARC T1 chips.  With @option{-mcpu=niagara2}, the compiler
+additionally optimizes it for Sun UltraSPARC T2 chips.
 
 @item -mtune=@var{cpu_type}
 @opindex mtune
@@ -14021,7 +14028,7 @@ The same values for @option{-mcpu=@var{cpu_type}} can be used for
 that select a particular cpu implementation.  Those are @samp{cypress},
 @samp{supersparc}, @samp{hypersparc}, @samp{f930}, @samp{f934},
 @samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc},
-@samp{ultrasparc3}, and @samp{niagara}.
+@samp{ultrasparc3}, @samp{niagara}, and @samp{niagara2}.
 
 @item -mv8plus
 @itemx -mno-v8plus

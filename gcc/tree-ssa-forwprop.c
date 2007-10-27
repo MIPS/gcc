@@ -239,6 +239,14 @@ can_propagate_from (tree def_stmt)
 {
   tree rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
 
+  /* If the rhs has side-effects we cannot propagate from it.  */
+  if (TREE_SIDE_EFFECTS (rhs))
+    return false;
+
+  /* If the rhs is a load we cannot propagate from it.  */
+  if (REFERENCE_CLASS_P (rhs))
+    return false;
+
   /* We cannot propagate ssa names that occur in abnormal phi nodes.  */
   switch (TREE_CODE_LENGTH (TREE_CODE (rhs)))
     {
@@ -353,8 +361,8 @@ forward_propagate_into_cond (tree cond_expr, tree stmt)
   do {
     tree tmp = NULL_TREE;
     tree cond = COND_EXPR_COND (cond_expr);
-    tree name, def_stmt, rhs;
-    bool single_use_p;
+    tree name, def_stmt, rhs0 = NULL_TREE, rhs1 = NULL_TREE;
+    bool single_use0_p = false, single_use1_p = false;
 
     /* We can do tree combining on SSA_NAME and comparison expressions.  */
     if (COMPARISON_CLASS_P (cond)
@@ -363,15 +371,15 @@ forward_propagate_into_cond (tree cond_expr, tree stmt)
 	/* For comparisons use the first operand, that is likely to
 	   simplify comparisons against constants.  */
 	name = TREE_OPERAND (cond, 0);
-	def_stmt = get_prop_source_stmt (name, false, &single_use_p);
+	def_stmt = get_prop_source_stmt (name, false, &single_use0_p);
 	if (def_stmt != NULL_TREE
 	    && can_propagate_from (def_stmt))
 	  {
 	    tree op1 = TREE_OPERAND (cond, 1);
-	    rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	    rhs0 = GIMPLE_STMT_OPERAND (def_stmt, 1);
 	    tmp = combine_cond_expr_cond (TREE_CODE (cond), boolean_type_node,
-				          fold_convert (TREE_TYPE (op1), rhs),
-				          op1, !single_use_p);
+				          fold_convert (TREE_TYPE (op1), rhs0),
+				          op1, !single_use0_p);
 	  }
 	/* If that wasn't successful, try the second operand.  */
 	if (tmp == NULL_TREE
@@ -379,17 +387,25 @@ forward_propagate_into_cond (tree cond_expr, tree stmt)
 	  {
 	    tree op0 = TREE_OPERAND (cond, 0);
 	    name = TREE_OPERAND (cond, 1);
-	    def_stmt = get_prop_source_stmt (name, false, &single_use_p);
+	    def_stmt = get_prop_source_stmt (name, false, &single_use1_p);
 	    if (def_stmt == NULL_TREE
 	        || !can_propagate_from (def_stmt))
 	      return did_something;
 
-	    rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	    rhs1 = GIMPLE_STMT_OPERAND (def_stmt, 1);
 	    tmp = combine_cond_expr_cond (TREE_CODE (cond), boolean_type_node,
 					  op0,
-				          fold_convert (TREE_TYPE (op0), rhs),
-					  !single_use_p);
+				          fold_convert (TREE_TYPE (op0), rhs1),
+					  !single_use1_p);
 	  }
+	/* If that wasn't successful either, try both operands.  */
+	if (tmp == NULL_TREE
+	    && rhs0 != NULL_TREE
+	    && rhs1 != NULL_TREE)
+	  tmp = combine_cond_expr_cond (TREE_CODE (cond), boolean_type_node,
+					rhs0,
+				        fold_convert (TREE_TYPE (rhs0), rhs1),
+					!(single_use0_p && single_use1_p));
       }
     else if (TREE_CODE (cond) == SSA_NAME)
       {
@@ -399,9 +415,9 @@ forward_propagate_into_cond (tree cond_expr, tree stmt)
 	    || !can_propagate_from (def_stmt))
 	  return did_something;
 
-	rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
-	tmp = combine_cond_expr_cond (NE_EXPR, boolean_type_node, rhs,
-				      build_int_cst (TREE_TYPE (rhs), 0),
+	rhs0 = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	tmp = combine_cond_expr_cond (NE_EXPR, boolean_type_node, rhs0,
+				      build_int_cst (TREE_TYPE (rhs0), 0),
 				      false);
       }
 
