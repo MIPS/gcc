@@ -6691,8 +6691,12 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
       gimple_seq_add (&seq, outer_bind);
     }
 
-  /* If there isn't an outer GIMPLE_BIND, add one.  */
-  if (gimple_code (outer_bind) != GIMPLE_BIND)
+  /* The body must contain exactly one statement, a GIMPLE_BIND.  If this is
+     not the case, wrap everything in a GIMPLE_BIND to make it so.  */
+  if (gimple_code (outer_bind) == GIMPLE_BIND
+      && gimple_seq_first (&seq) == gimple_seq_last (&seq))
+    ;
+  else
     outer_bind = gimple_build_bind (NULL_TREE, &seq);
 
   *body_p = NULL_TREE;
