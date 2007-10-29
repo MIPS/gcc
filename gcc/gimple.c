@@ -1009,11 +1009,12 @@ walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
 
 
 
-/* Walk GIMPLE statement STMT using traversal state stored in WI.  The
-   callback CALLBACK_STMT is called.  If CALLBACK_STMT returns true,
-   it means that the callback function has handled all the operands of
-   STMT and it is no necessary to walk STMT's operands.
-   
+/* Walk GIMPLE statement STMT (optionally using traversal state stored
+   in WI).  If WI is NULL, no state is kept during traversal.
+   The callback CALLBACK_STMT is called.  If CALLBACK_STMT returns
+   true, it means that the callback function has handled all the
+   operands of STMT and it is no necessary to walk STMT's operands.
+
    Otherwise, CALLBACK_OP is called on each operand of STMT.  If
    CALLBACK_OP returns non-NULL for an operand, the remaining operands
    are not scanned.

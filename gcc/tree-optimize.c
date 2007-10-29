@@ -150,13 +150,8 @@ struct tree_opt_pass pass_all_early_optimizations =
 static unsigned int
 execute_cleanup_cfg_pre_ipa (void)
 {
-  /* FIXME tuples  */
-#if 0
   cleanup_tree_cfg ();
   return 0;
-#else
-  gcc_unreachable ();
-#endif
 }
 
 struct tree_opt_pass pass_cleanup_cfg =
@@ -174,7 +169,7 @@ struct tree_opt_pass pass_cleanup_cfg =
   0,					/* todo_flags_start */
   TODO_dump_func,					/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };
 
 

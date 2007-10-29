@@ -1,3 +1,8 @@
+2007-10-29  Diego Novillo  <dnovillo@google.com>
+
+	* tree-optimize.c (execute_cleanup_cfg_pre_ipa): Re-enable.
+	* gimple.c (walk_gimple_asm): Tidy comment.
+
 2007-10-29  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-gimple.h (build_gimple_eh_filter_tree): Remove.
