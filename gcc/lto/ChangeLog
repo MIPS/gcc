@@ -1,3 +1,9 @@
+2007-10-29  Mark Mitchell  <mark@codesourcery.com>
+	    Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_subroutine_type_subprogram_DIE): Read the child
+	DIEs even if we find an abstract origin for this DIE.
+
 2007-10-29  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_subroutine_type_subprogram_DIE): Build the

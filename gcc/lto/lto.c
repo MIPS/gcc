@@ -2541,7 +2541,11 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
     }
 
   if (abstract_origin)
-    return abstract_origin;
+    {
+      result = abstract_origin;
+
+      goto read_children;
+    }
 
   /* The DWARF3 specification says that a return type is only
      specified for functions that return a value.  Therefore,
@@ -2619,6 +2623,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
     }
 
   /* Read the child DIEs, which are in the scope of RESULT.  */
+ read_children:
   if (TREE_CODE (result) == FUNCTION_DECL)
     {
       saved_scope = context->scope;
