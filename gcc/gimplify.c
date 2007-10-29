@@ -911,25 +911,6 @@ unshare_expr (tree expr)
   walk_tree (&expr, mostly_copy_tree_r, NULL, NULL);
   return expr;
 }
-
-/* A terser interface for building a representation of an exception
-   specification.  */
-
-tree
-build_gimple_eh_filter_tree (tree body, tree allowed, tree failure)
-{
-  tree t;
-
-  /* FIXME should the allowed types go in TREE_TYPE?  */
-  t = build2 (EH_FILTER_EXPR, void_type_node, allowed, NULL_TREE);
-  append_to_statement_list (failure, &EH_FILTER_FAILURE (t));
-
-  t = build2 (TRY_CATCH_EXPR, void_type_node, NULL_TREE, t);
-  append_to_statement_list (body, &TREE_OPERAND (t, 0));
-
-  return t;
-}
-
 
 /* WRAPPER is a code such as BIND_EXPR or CLEANUP_POINT_EXPR which can both
    contain statements and have a value.  Assign its value to a temporary

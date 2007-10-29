@@ -1,3 +1,10 @@
+2007-10-29  Aldy Hernandez  <aldy@quesejoda.com>
+
+	* cp/cp-gimplify.c: Move build_gimple_eh_filter_tree here.
+	(cp_gimplify_init_expr): Convert to tuples.
+	(gimplify_must_not_throw_expr): Make function return a
+	gimplify_status and convert to tuples.
+
 2007-10-18  Aldy Hernandez  <aldy@quesejoda.com>
 
 	* cp-gimplify.c (genericize_try_block): Enable and do not call

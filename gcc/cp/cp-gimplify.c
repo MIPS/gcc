@@ -129,6 +129,24 @@ genericize_catch_block (tree *stmt_p)
   *stmt_p = build2 (CATCH_EXPR, void_type_node, type, body);
 }
 
+/* A terser interface for building a representation of an exception
+   specification.  */
+
+static tree
+build_gimple_eh_filter_tree (tree body, tree allowed, tree failure)
+{
+  tree t;
+
+  /* FIXME should the allowed types go in TREE_TYPE?  */
+  t = build2 (EH_FILTER_EXPR, void_type_node, allowed, NULL_TREE);
+  append_to_statement_list (failure, &EH_FILTER_FAILURE (t));
+
+  t = build2 (TRY_CATCH_EXPR, void_type_node, NULL_TREE, t);
+  append_to_statement_list (body, &TREE_OPERAND (t, 0));
+
+  return t;
+}
+
 /* Genericize an EH_SPEC_BLOCK by converting it to a
    TRY_CATCH_EXPR/EH_FILTER_EXPR pair.  */
 
@@ -386,7 +404,7 @@ gimplify_expr_stmt (tree *stmt_p)
 /* Gimplify initialization from an AGGR_INIT_EXPR.  */
 
 static void
-cp_gimplify_init_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
+cp_gimplify_init_expr (tree *expr_p)
 {
   tree from = TREE_OPERAND (*expr_p, 1);
   tree to = TREE_OPERAND (*expr_p, 0);
@@ -410,7 +428,6 @@ cp_gimplify_init_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
      case we want to replace the INIT_EXPR.  */
   if (TREE_CODE (sub) == AGGR_INIT_EXPR)
     {
-      gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
       AGGR_INIT_EXPR_SLOT (sub) = to;
       *expr_p = from;
 
@@ -423,30 +440,25 @@ cp_gimplify_init_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 
 /* Gimplify a MUST_NOT_THROW_EXPR.  */
 
-static void
-gimplify_must_not_throw_expr (tree *expr_p, gimple_seq pre_p ATTRIBUTE_UNUSED)
-  /* FIXME tuples ATTRIBUTE_UNUSED */
+static enum gimplify_status
+gimplify_must_not_throw_expr (tree *expr_p, gimple_seq pre_p)
 {
   tree stmt = *expr_p;
   tree temp = voidify_wrapper_expr (stmt, NULL);
   tree body = TREE_OPERAND (stmt, 0);
 
-  /* FIXME tuples
-  gimplify_stmt (&body);
-  */
-
   stmt = build_gimple_eh_filter_tree (body, NULL_TREE,
 				      build_call_n (terminate_node, 0));
 
+  gimplify_and_add (stmt, pre_p);
   if (temp)
     {
-      /* FIXME tuples
-      append_to_statement_list (stmt, pre_p);
-      */
       *expr_p = temp;
+      return GS_OK;
     }
-  else
-    *expr_p = stmt;
+
+  *expr_p = NULL;
+  return GS_ALL_DONE;
 }
 
 /* Do C++-specific gimplification.  Args are as for gimplify_expr.  */
@@ -485,15 +497,14 @@ cp_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
       break;
 
     case MUST_NOT_THROW_EXPR:
-      gimplify_must_not_throw_expr (expr_p, pre_p);
-      ret = GS_OK;
+      ret = gimplify_must_not_throw_expr (expr_p, pre_p);
       break;
 
       /* We used to do this for GIMPLE_MODIFY_STMT as well, but that's unsafe; the
 	 LHS of an assignment might also be involved in the RHS, as in bug
 	 25979.  */
     case INIT_EXPR:
-      cp_gimplify_init_expr (expr_p, pre_p, post_p);
+      cp_gimplify_init_expr (expr_p);
       ret = GS_OK;
       break;
 
@@ -526,7 +537,7 @@ cp_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
     case USING_STMT:
       /* Just ignore for now.  Eventually we will want to pass this on to
 	 the debugger.  */
-      *expr_p = build_empty_stmt ();
+      *expr_p = NULL;
       ret = GS_ALL_DONE;
       break;
 

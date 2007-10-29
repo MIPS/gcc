@@ -144,7 +144,6 @@ extern void gimplify_and_add (tree, gimple_seq);
 extern void gimple_add_tmp_var (tree);
 extern gimple gimple_current_bind_expr (void);
 extern tree voidify_wrapper_expr (tree, tree);
-extern tree build_gimple_eh_filter_tree (tree, tree, tree);
 extern tree build_and_jump (tree *);
 extern tree alloc_stmt_list (void);
 extern void free_stmt_list (tree);

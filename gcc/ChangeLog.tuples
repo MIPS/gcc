@@ -1,3 +1,14 @@
+2007-10-29  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-gimple.h (build_gimple_eh_filter_tree): Remove.
+	* gimplify.c (build_gimple_eh_filter_tree): Move from here...
+	* cp/cp-gimplify.c: ...to here.
+	(cp_gimplify_init_expr): Convert to tuples.
+	(gimplify_must_not_throw_expr): Make function return a
+	gimplify_status and convert to tuples.
+	(cp_gimplify_expr): Convert MUST_NOT_THROW_EXPR, INIT_EXPR, and
+	USING_STMT to tuples.
+
 2007-10-28  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimplify.c (gimplify_body): Make work when body contains more than
