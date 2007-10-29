@@ -72,4 +72,8 @@ extern void lto_fn_ref (tree fn, lto_out_ref *ref);
 
 /* Upon return, *REF contains a reference to FIELD, which must be a
    FIELD_DECL.  */
-extern void lto_field_ref (tree fn, lto_out_ref *ref);
+extern void lto_field_ref (tree field, lto_out_ref *ref);
+
+/* Upon return, *REF contains a reference to TDECL, which must be a
+   TYPE_DECL.  */
+extern void lto_typedecl_ref (tree tdecl, lto_out_ref *ref);

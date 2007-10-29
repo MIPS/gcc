@@ -1,3 +1,12 @@
+2007-10-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.h (lto_typedecl_ref): Declare.
+	* dwarf2out.c (force_die_for_context): New function.
+	(force_decl_die): Use it.  Handle TYPE_DECLs.
+	(force_type_die): Use it.
+	(force_block_die): New function.
+	(lto_typedecl_ref): New function.
+
 2007-10-22  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (output_tree_flags): Changed type of

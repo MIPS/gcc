@@ -3543,6 +3543,32 @@ lto_resolve_field_ref (lto_info_fd *info_fd,
   return field;
 }
 
+tree 
+lto_resolve_typedecl_ref (lto_info_fd *info_fd,
+			  lto_context *context,
+			  const lto_ref *ref)
+{
+  lto_die_ptr die;
+  lto_context *new_context = context;
+  tree decl;
+
+  /* At present, we only support a single DWARF section.  */
+  if (ref->section != 0)
+    lto_abi_mismatch_error ();
+  /* Map REF to a DIE.  */
+  die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
+  /* Map DIE to a decl.  */
+  decl = lto_read_DIE_at_ptr (info_fd, context, die);
+  if (!decl || TREE_CODE (decl) != TYPE_DECL)
+    lto_file_corrupt_error ((lto_fd *)info_fd);
+
+  /* Clean up.  */
+  if (new_context != context)
+    XDELETE (new_context);
+
+  return decl;
+}
+
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
 {

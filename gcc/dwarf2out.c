@@ -4308,6 +4308,8 @@ static void decls_for_scope (tree, dw_die_ref, int);
 static int is_redundant_typedef (const_tree);
 static void gen_namespace_die (tree);
 static void gen_decl_die (tree, dw_die_ref);
+static dw_die_ref force_die_for_context (tree);
+static dw_die_ref force_block_die (tree);
 static dw_die_ref force_decl_die (tree);
 static dw_die_ref force_type_die (tree);
 static dw_die_ref setup_namespace_context (tree, dw_die_ref);
@@ -13452,6 +13454,31 @@ is_redundant_typedef (const_tree decl)
   return 0;
 }
 
+/* Returns the context DIE for CONTEXT.  A DIE will always be returned.  */
+
+static dw_die_ref
+force_die_for_context (tree context)
+{
+  if (!context)
+    return comp_unit_die;
+  if (TYPE_P (context))
+    return force_type_die (context);
+  if (DECL_P (context))
+    return force_decl_die (context);
+  if (TREE_CODE (context) == BLOCK)
+    return force_block_die (context);
+
+  gcc_unreachable ();
+}
+
+/* Returns the DIE for block.  A DIE will always be returned.  */
+
+static dw_die_ref
+force_block_die (tree block)
+{
+  gcc_unreachable ();
+}
+
 /* Returns the DIE for decl.  A DIE will always be returned.  */
 
 static dw_die_ref
@@ -13463,18 +13490,8 @@ force_decl_die (tree decl)
   decl_die = lookup_decl_die (decl);
   if (!decl_die)
     {
-      dw_die_ref context_die;
       tree decl_context = DECL_CONTEXT (decl);
-      if (decl_context)
-	{
-	  /* Find die that represents this context.  */
-	  if (TYPE_P (decl_context))
-	    context_die = force_type_die (decl_context);
-	  else
-	    context_die = force_decl_die (decl_context);
-	}
-      else
-	context_die = comp_unit_die;
+      dw_die_ref context_die = force_die_for_context (decl_context);
 
       decl_die = lookup_decl_die (decl);
       if (decl_die)
@@ -13501,6 +13518,7 @@ force_decl_die (tree decl)
 	  DECL_EXTERNAL (decl) = saved_external_flag;
 	  break;
 
+	case TYPE_DECL:
 	case NAMESPACE_DECL:
 	  dwarf2out_decl (decl);
 	  break;
@@ -13529,16 +13547,7 @@ force_type_die (tree type)
   type_die = lookup_type_die (type);
   if (!type_die)
     {
-      dw_die_ref context_die;
-      if (TYPE_CONTEXT (type))
-	{
-	  if (TYPE_P (TYPE_CONTEXT (type)))
-	    context_die = force_type_die (TYPE_CONTEXT (type));
-	  else
-	    context_die = force_decl_die (TYPE_CONTEXT (type));
-	}
-      else
-	context_die = comp_unit_die;
+      dw_die_ref context_die = force_die_for_context (TYPE_CONTEXT (type));
 
       type_die = lookup_type_die (type);
       if (type_die)
@@ -15142,6 +15151,19 @@ lto_field_ref (tree field,
   die = force_field_die (field);
   /* Construct the reference.  */
   lto_init_ref (ref, die, DECL_CONTEXT (field));
+}
+
+void
+lto_typedecl_ref (tree decl, lto_out_ref *ref)
+{
+  dw_die_ref die;
+
+  gcc_assert (TREE_CODE (decl) == TYPE_DECL);
+
+  /* Generate the DIE for DECL.  */
+  die = force_decl_die (decl);
+  /* Construct the reference.  */
+  lto_init_ref (ref, die, DECL_CONTEXT (decl));
 }
 
 #else
