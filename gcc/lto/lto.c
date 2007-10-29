@@ -2600,6 +2600,10 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
          information in the DIE.  */
       SET_DECL_ASSEMBLER_NAME (result, asm_name ? asm_name : name);
 
+      DECL_RESULT (result)
+	= build_decl (RESULT_DECL, NULL_TREE,
+		      TYPE_MAIN_VARIANT (ret_type));
+
       /* If the function has already been declared, merge the
 	 declarations.  */
       result = lto_symtab_merge_fn (result);
@@ -2609,13 +2613,9 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
              resolved from the bodies of functions.  */
           lto_cache_store_DIE (fd, die, result);
 
-          DECL_RESULT (result)
-            = build_decl (RESULT_DECL, NULL_TREE,
-                          TYPE_MAIN_VARIANT (ret_type));
+	  /* Save it for later.  */
+	  VEC_safe_push (tree, heap, fd->unmaterialized_fndecls, result);
         }
-
-      /* Save it for later.  */
-      VEC_safe_push (tree, heap, fd->unmaterialized_fndecls, result);
     }
 
   /* Read the child DIEs, which are in the scope of RESULT.  */

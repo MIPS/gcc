@@ -1,3 +1,9 @@
+2007-10-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_subroutine_type_subprogram_DIE): Build the
+	RESULT_DECL slightly earlier.  Only remember the decl for later
+	if we successfully merge declarations.
+
 2007-10-24  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_expr_operand): Give label_values the proper
