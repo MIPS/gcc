@@ -783,7 +783,7 @@ gimple_build_omp_return (bool wait_p)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_RETURN);
   if (wait_p)
-    gimple_set_subcode (p, OMP_RETURN_NOWAIT_FLAG);
+    gimple_omp_return_set_nowait (p);
 
   return p;
 }

@@ -45,6 +45,71 @@ enum gimple_code {
     LAST_AND_UNUSED_GIMPLE_CODE
 };
 
+/* Error out if a gimple tuple is addressed incorrectly.  */
+#if defined ENABLE_GIMPLE_CHECKING
+extern void gimple_check_failed (const_gimple, const char *, int,          \
+                                 const char *, enum gimple_code,           \
+				 enum tree_code) ATTRIBUTE_NORETURN;
+extern void gimple_range_check_failed (const_gimple, const char *, int,    \
+                                       const char *, enum gimple_code,     \
+				       enum gimple_code) ATTRIBUTE_NORETURN;
+
+#define GIMPLE_CHECK(GS, CODE)						\
+  do {									\
+    const_gimple __gs = (GS);						\
+    if (gimple_code (__gs) != (CODE))					\
+      gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
+	  		   (CODE), 0);					\
+  } while (0)
+
+#define GIMPLE_CHECK2(GS, CODE1, CODE2)					\
+  do {									\
+    const_gimple __gs = (GS);						\
+    if (gimple_code (__gs) != (CODE1)					\
+	|| gimple_subcode (__gs) != (CODE2))				\
+      gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
+	  		   (CODE1), (CODE2));				\
+  } while (0)
+
+#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)				\
+  do {									\
+    const_gimple __gs = (GS);						\
+    if (gimple_code (__gs) < (CODE1) || gimple_code (__gs) > (CODE2))	\
+      gimple_range_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,\
+		                 (CODE1), (CODE2));			\
+  } while (0)
+#else  /* not ENABLE_GIMPLE_CHECKING  */
+#define GIMPLE_CHECK(GS, CODE)			(void)0
+#define GIMPLE_CHECK2(GS, C1, C2)		(void)0
+#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)	(void)0
+#endif
+
+/* Bit flags used in various GIMPLE statements.  Common flags for all
+   statements must have unique values, but specific flags may have
+   overlapping values.  */
+
+/* Common flags for every GIMPLE statement.  Stored in
+   gimple_statement_base.flags.  There can only be up to 8 flags.  */
+static const unsigned int GF_NO_WARNING			= 1 << 0;
+
+
+/* Specific flags for individual GIMPLE statements.  Depending on the
+   statement, these flags may be stored in gimple_statement_base.subcode,
+   gimple_statement_base.flags or inside special bitfields of the
+   statement.
+   
+   See the individual getter/setter predicates for details, and be
+   careful when using gimple_statement_base.flags not to overlap the
+   value of common flags above.
+
+   Keep this list sorted.  */
+static const unsigned int GF_ASM_VOLATILE		= 1 << 1;
+static const unsigned int GF_CALL_TAILCALL		= 1 << 1;
+static const unsigned int GF_OMP_PARALLEL_COMBINED	= 1 << 1;
+static const unsigned int GF_OMP_RETURN_NOWAIT		= 1 << 1;
+static const unsigned int GF_OMP_SECTION_LAST		= 1 << 1;
+
+
 /* A sequence of gimple statements.  */
 struct gimple_sequence GTY(())
 {
@@ -306,10 +371,6 @@ struct gimple_statement_asm GTY(())
   size_t nc;		/* Number of clobbers.  */
 };
 
-/* Flags specific for GIMPLE_ASMs.  */
-#define GF_ASM_VOLATILE         (1 << 0)
-
-
 /* GIMPLE_OMP_CRITICAL */
 
 struct gimple_statement_omp_critical GTY(())
@@ -370,18 +431,6 @@ struct gimple_statement_omp_single GTY(())
   tree clauses;
 };
 
-/* GIMPLE_OMP_RETURN */
-/* Flags stored in GIMPLE_OMP_RETURN's flags.  */
-#define OMP_RETURN_NOWAIT_FLAG 1 << 0
-
-/* GIMPLE_OMP_SECTION */
-/* Flags stored in GIMPLE_OMP_SECTION's flags.  */
-#define OMP_SECTION_LAST_FLAG 1 << 0
-
-/* GIMPLE_OMP_PARALLEL */
-/* Flags stored in GIMPLE_OMP_PARALLEL's flags.  */
-#define OMP_PARALLEL_COMBINED_FLAG 1 << 0
-
 enum gimple_statement_structure_enum {
 #define DEFGSSTRUCT(SYM, STRING)	SYM,
 #include "gsstruct.def"
@@ -439,10 +488,6 @@ gimple_code (const_gimple g)
 {
   return g->gsbase.code;
 }
-
-/* Common flags for every GIMPLE statement.  */
-#define GF_NO_WARNING	        (1 << 0)
-
 
 /* Return the set of flags for statement G.  */
 
@@ -733,36 +778,46 @@ gimple_set_modified (gimple g, bool modifiedp)
 }
 
 
+/* Set the nowait flag on OMP_RETURN statement S.  */
+
+static inline void
+gimple_omp_return_set_nowait (gimple s)
+{
+  GIMPLE_CHECK (s, OMP_RETURN);
+  gimple_set_subcode (s, GF_OMP_RETURN_NOWAIT);
+}
+
+
 /* Return true if statement G is a GIMPLE_OMP_RETURN and has the
-   OMP_RETURN_NOWAIT_FLAG set.  */
+   GF_OMP_RETURN_NOWAIT flag set.  */
 
 static inline bool
 gimple_omp_return_nowait_p (const_gimple g)
 {
-  gcc_assert (gimple_code (g) == GIMPLE_OMP_RETURN);
-  return gimple_subcode (g) & OMP_RETURN_NOWAIT_FLAG;
+  GIMPLE_CHECK (g, GIMPLE_OMP_RETURN);
+  return gimple_subcode (g) & GF_OMP_RETURN_NOWAIT;
 }
 
 
 /* Return true if statement G is a GIMPLE_OMP_SECTION and has the
-   OMP_SECTION_LAST_FLAG set.  */
+   GF_OMP_SECTION_LAST flag set.  */
 
 static inline bool
 gimple_omp_section_last_p (const_gimple g)
 {
-  gcc_assert (gimple_code (g) == GIMPLE_OMP_SECTION);
-  return gimple_subcode (g) & OMP_SECTION_LAST_FLAG;
+  GIMPLE_CHECK (g, GIMPLE_OMP_SECTION);
+  return gimple_subcode (g) & GF_OMP_SECTION_LAST;
 }
 
 
 /* Return true if statement G is a GIMPLE_OMP_PARALLEL and has the
-   OMP_PARALLEL_COMBINED_FLAG set.  */
+   GF_OMP_PARALLEL_COMBINED flag set.  */
 
 static inline bool
 gimple_omp_parallel_combined_p (const_gimple g)
 {
-  gcc_assert (gimple_code (g) == GIMPLE_OMP_PARALLEL);
-  return gimple_subcode (g) & OMP_PARALLEL_COMBINED_FLAG;
+  GIMPLE_CHECK (g, GIMPLE_OMP_PARALLEL);
+  return gimple_subcode (g) & GF_OMP_PARALLEL_COMBINED;
 }
 
 
@@ -821,46 +876,6 @@ bool is_gimple_operand (const_tree);
 extern bool validate_arglist (const_gimple, ...);
 
 extern const char *const gimple_code_name[];
-
-
-/* Error out if a gimple tuple is addressed incorrectly.  */
-#if defined ENABLE_GIMPLE_CHECKING
-extern void gimple_check_failed (const_gimple, const char *, int,          \
-                                 const char *, enum gimple_code,           \
-				 enum tree_code) ATTRIBUTE_NORETURN;
-extern void gimple_range_check_failed (const_gimple, const char *, int,    \
-                                       const char *, enum gimple_code,     \
-				       enum gimple_code) ATTRIBUTE_NORETURN;
-
-#define GIMPLE_CHECK(GS, CODE)						\
-  do {									\
-    const_gimple __gs = (GS);						\
-    if (gimple_code (__gs) != (CODE))					\
-      gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-	  		   (CODE), 0);					\
-  } while (0)
-
-#define GIMPLE_CHECK2(GS, CODE1, CODE2)					\
-  do {									\
-    const_gimple __gs = (GS);						\
-    if (gimple_code (__gs) != (CODE1)					\
-	|| gimple_subcode (__gs) != (CODE2))				\
-      gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-	  		   (CODE1), (CODE2));				\
-  } while (0)
-
-#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)				\
-  do {									\
-    const_gimple __gs = (GS);						\
-    if (gimple_code (__gs) < (CODE1) || gimple_code (__gs) > (CODE2))	\
-      gimple_range_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,\
-		                 (CODE1), (CODE2));			\
-  } while (0)
-#else  /* not ENABLE_GIMPLE_CHECKING  */
-#define GIMPLE_CHECK(GS, CODE)			(void)0
-#define GIMPLE_CHECK2(GS, C1, C2)		(void)0
-#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)	(void)0
-#endif
 
 
 /* Return the number of operands for statement GS.  */
@@ -1139,6 +1154,28 @@ gimple_call_set_arg (gimple gs, size_t index, tree arg)
   GIMPLE_CHECK (gs, GIMPLE_CALL);
   gcc_assert (is_gimple_operand (arg));
   gimple_set_op (gs, index + 3, arg);
+}
+
+
+/* Mark call statement S as being a tail call (i.e., a call just
+   before the exit of a function).  These calls are candidate for tail
+   call optimization.  */
+
+static inline void
+gimple_call_set_tail (gimple s)
+{
+  GIMPLE_CHECK (s, GIMPLE_CALL);
+  s->gsbase.subcode |= GF_CALL_TAILCALL;
+}
+
+
+/* Return true if GIMPLE_CALL S is marked as a tail call.  */
+
+static inline bool
+gimple_call_tail_p (gimple s)
+{
+  GIMPLE_CHECK (s, GIMPLE_CALL);
+  return (gimple_subcode (s) & GF_CALL_TAILCALL) != 0;
 }
 
 

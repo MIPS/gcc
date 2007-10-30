@@ -1,3 +1,24 @@
+2007-10-30  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.c (gimple_build_omp_return): Call
+	gimple_omp_return_set_nowait if needed.
+	* gimple.h (GIMPLE_CHECK, GIMPLE_CHECK2, GIMPLE_RANGE_CHECK):
+	Move earlier in the file.
+	(GF_NO_WARNING): Change to static const unsigned.
+	(GF_CALL_TAILCALL): New.
+	(GF_OMP_PARALLEL_COMBINED): Rename from
+	OMP_PARALLEL_COMBINED_FLAG.  Change to static const unsigned.
+	Update all users.
+	(GF_OMP_RETURN_NOWAIT): Rename from OMP_RETURN_NOWAIT_FLAG.
+	Change to static const unsigned.
+	Update all users.
+	(GF_OMP_SECTION_LAST): Rename from OMP_SECTION_LAST_FLAG.
+	Change to static const unsigned.
+	Update all users.
+	(gimple_omp_return_set_nowait): New.
+	(gimple_call_set_tail): New.
+	(gimple_call_tail_p): New.
+
 2007-10-30  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimplify.c (get_tmp_var_for): Remove reference to IS_FORMAL in
