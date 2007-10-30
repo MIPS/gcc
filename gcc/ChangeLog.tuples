@@ -1,3 +1,14 @@
+2007-10-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimplify.c (get_tmp_var_for): Remove reference to IS_FORMAL in
+	opening comment.
+	(gimplify_return_expr): Return GS_ERROR if we have errored.
+	(gimplify_statement_list): Handle case where voidify_wrapper returns a
+	temporary.
+	(gimplify_call_expr): Return gracefully on error.
+	(gimplify_cond_expr): Same.
+	* gimple.h (gimple_call_return_type): Do not error on methods.
+
 2007-10-29  Diego Novillo  <dnovillo@google.com>
 	    Tom Tromey  <tromey@redhat.com>
 

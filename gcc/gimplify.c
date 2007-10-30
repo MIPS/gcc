@@ -621,10 +621,7 @@ get_initialized_tmp_var (tree val, gimple_seq pre_p, gimple_seq post_p)
 }
 
 /* Create a temporary variable to be used as the LHS of the given GIMPLE
-   statement STMT. STMT must be GIMPLE_ASSIGN or GIMPLE_CALL.  If IS_FORMAL is
-   true, try to return a temporary from the formal temporaries table
-   (which will attempt to return the same temporary created for a
-   previous statement identical to STMT.  */
+   statement STMT. STMT must be GIMPLE_ASSIGN or GIMPLE_CALL.  */
 
 static tree
 get_tmp_var_for (gimple stmt)
@@ -1105,6 +1102,9 @@ gimplify_return_expr (tree stmt, gimple_seq pre_p)
   tree ret_expr = TREE_OPERAND (stmt, 0);
   tree result_decl, result;
 
+  if (ret_expr == error_mark_node)
+    return GS_ERROR;
+
   if (!ret_expr
       || TREE_CODE (ret_expr) == RESULT_DECL
       || ret_expr == error_mark_node)
@@ -1304,13 +1304,8 @@ gimplify_statement_list (tree *expr_p, gimple_seq pre_p)
 
   if (temp)
     {
-      /* FIXME tuples.  Not clear how this should be handled.  */
-      gcc_unreachable ();
-#if 0
-      append_to_statement_list (*expr_p, pre_p);
       *expr_p = temp;
       return GS_OK;
-#endif
     }
 
   return GS_ALL_DONE;
@@ -2255,6 +2250,11 @@ gimplify_call_expr (tree *expr_p, gimple_seq pre_p, bool want_value)
 	  return GS_OK;
 	}
     }
+  else
+    {
+      *expr_p = NULL_TREE;
+      return GS_ERROR;
+    }
 
   /* If the function is "const" or "pure", then clear
      TREE_SIDE_EFFECTS on its decl.  This allows us to eliminate
@@ -2666,6 +2666,8 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
   /* Gimplify condition.  */
   ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, NULL, is_gimple_condexpr,
 		       fb_rvalue);
+  if (ret == GS_ERROR)
+    return GS_ERROR;
   gcc_assert (TREE_OPERAND (expr, 0) != NULL_TREE);
 
   gimple_push_condition ();

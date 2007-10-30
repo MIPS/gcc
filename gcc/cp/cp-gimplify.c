@@ -214,6 +214,7 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
       if (cond_is_first)
 	{
 	  t = build_bc_goto (bc_break);
+	  SET_EXPR_LOCATION (t, stmt_locus);
 	  append_to_statement_list (t, &stmt_list);
 	}
     }
@@ -233,9 +234,6 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 	{
 	  t = build_bc_goto (bc_break);
 	  exit = fold_build3 (COND_EXPR, void_type_node, cond, exit, t);
-	  /* FIXME tuples
-	  gimplify_stmt (&exit);
-	  */
 
 	  if (cond_is_first)
 	    {
@@ -246,27 +244,36 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 		}
 	      else
 		t = build_bc_goto (bc_continue);
+	      SET_EXPR_LOCATION (t, stmt_locus);
 	      append_to_statement_list (t, &stmt_list);
 	    }
 	}
     }
 
-  /* FIXME tuples
-  gimplify_stmt (&body);
-  gimplify_stmt (&incr);
-  */
-
   body = finish_bc_block (bc_continue, cont_block, body);
 
-  append_to_statement_list (top, &stmt_list);
-  append_to_statement_list (body, &stmt_list);
-  append_to_statement_list (incr, &stmt_list);
-  append_to_statement_list (entry, &stmt_list);
-  append_to_statement_list (exit, &stmt_list);
+  /* Annotate the new statements individually because annotate_all_with_locus
+     only works on gimple sequences.  */
 
-  /* FIXME tuples
-  annotate_all_with_locus (&stmt_list, stmt_locus);
-  */
+  if (top && CAN_HAVE_LOCATION_P (top))
+    SET_EXPR_LOCATION (top, stmt_locus);
+  append_to_statement_list (top, &stmt_list);
+
+  if (body && CAN_HAVE_LOCATION_P (body))
+    SET_EXPR_LOCATION (body, stmt_locus);
+  append_to_statement_list (body, &stmt_list);
+
+  if (incr && CAN_HAVE_LOCATION_P (incr))
+    SET_EXPR_LOCATION (incr, stmt_locus);
+  append_to_statement_list (incr, &stmt_list);
+
+  if (entry && CAN_HAVE_LOCATION_P (entry))
+    SET_EXPR_LOCATION (entry, stmt_locus);
+  append_to_statement_list (entry, &stmt_list);
+
+  if (exit && CAN_HAVE_LOCATION_P (exit))
+    SET_EXPR_LOCATION (exit, stmt_locus);
+  append_to_statement_list (exit, &stmt_list);
 
   return finish_bc_block (bc_break, break_block, stmt_list);
 }
@@ -274,10 +281,8 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 /* Gimplify a FOR_STMT node.  Move the stuff in the for-init-stmt into the
    prequeue and hand off to gimplify_cp_loop.  */
 
-/* FIXME tuples */
-#if 0
 static void
-gimplify_for_stmt (tree *stmt_p, tree *pre_p)
+gimplify_for_stmt (tree *stmt_p, gimple_seq pre_p)
 {
   tree stmt = *stmt_p;
 
@@ -287,7 +292,6 @@ gimplify_for_stmt (tree *stmt_p, tree *pre_p)
   *stmt_p = gimplify_cp_loop (FOR_COND (stmt), FOR_BODY (stmt),
 			      FOR_EXPR (stmt), 1);
 }
-#endif
 
 /* Gimplify a WHILE_STMT node.  */
 
@@ -327,9 +331,6 @@ gimplify_switch_stmt (tree *stmt_p)
   *stmt_p = build3 (SWITCH_EXPR, SWITCH_STMT_TYPE (stmt),
 		    SWITCH_STMT_COND (stmt), body, NULL_TREE);
   SET_EXPR_LOCATION (*stmt_p, stmt_locus);
-  /* FIXME tuples
-  gimplify_stmt (stmt_p);
-  */
 
   *stmt_p = finish_bc_block (bc_break, break_block, *stmt_p);
 }
@@ -547,25 +548,23 @@ cp_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
       break;
 
     case FOR_STMT:
-      /* FIXME tuples
       gimplify_for_stmt (expr_p, pre_p);
-      */
-      ret = GS_ALL_DONE;
+      ret = GS_OK;
       break;
 
     case WHILE_STMT:
       gimplify_while_stmt (expr_p);
-      ret = GS_ALL_DONE;
+      ret = GS_OK;
       break;
 
     case DO_STMT:
       gimplify_do_stmt (expr_p);
-      ret = GS_ALL_DONE;
+      ret = GS_OK;
       break;
 
     case SWITCH_STMT:
       gimplify_switch_stmt (expr_p);
-      ret = GS_ALL_DONE;
+      ret = GS_OK;
       break;
 
     case OMP_FOR:
@@ -574,12 +573,12 @@ cp_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 
     case CONTINUE_STMT:
       *expr_p = build_bc_goto (bc_continue);
-      ret = GS_ALL_DONE;
+      ret = GS_OK;
       break;
 
     case BREAK_STMT:
       *expr_p = build_bc_goto (bc_break);
-      ret = GS_ALL_DONE;
+      ret = GS_OK;
       break;
 
     case EXPR_STMT:
@@ -760,9 +759,17 @@ cp_genericize (tree fndecl)
       relayout_decl (t);
     }
 
-  /* If we're a clone, the body is already GIMPLE.  */
+  /* If we're a clone, the body is already GIMPLE.  Find the original
+     body, and set the gimple body for this function accordingly.  */
   if (DECL_CLONED_FUNCTION_P (fndecl))
-    return;
+    {
+      tree orig = DECL_CLONED_FUNCTION (fndecl);
+      gimple_seq seq = gimple_body (orig);
+
+      gimple_set_body (fndecl, seq);
+      DECL_SAVED_TREE (fndecl) = NULL_TREE;
+      return;
+    }
 
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */

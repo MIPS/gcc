@@ -1069,7 +1069,8 @@ gimple_call_return_type (const_gimple gs)
   if (TREE_CODE (type) == POINTER_TYPE)
     type = TREE_TYPE (type);
 
-  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
+  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE
+	      || TREE_CODE (type) == METHOD_TYPE);
 
   /* The type returned by a FUNCTION_DECL is the type of its
      function type.  */
