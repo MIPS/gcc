@@ -1,3 +1,7 @@
+2007-10-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* Makefile.in (lto/lto-stream-debug.o): Add dependency on $(TREE_H).
+
 2007-10-29  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-tree-flags.def (VAR_DECL): Added seen_in_bind_expr flag.

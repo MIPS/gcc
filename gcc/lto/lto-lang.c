@@ -233,3 +233,4 @@ lto_tree_node_structure (union lang_tree_node *t ATTRIBUTE_UNUSED)
 
 #include "ggc.h"
 #include "gtype-lto.h"
+#include "gt-lto-lto-lang.h"

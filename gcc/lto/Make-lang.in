@@ -78,15 +78,15 @@ $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 
 lto/lto-lang.o: lto/lto-lang.c $(CONFIG_H) coretypes.h debug.h \
 	flags.h $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(SYSTEM_H) \
-	$(TM_H) lto/lto-tree.h $(LTO_H) gtype-lto.h
+	$(TM_H) lto/lto-tree.h $(LTO_H) gtype-lto.h gt-lto-lto-lang.h
 lto/lto.o: lto/lto.c $(CONFIG_H) $(CGRAPH_H) coretypes.h dwarf2.h \
 	$(GGC_H) opts.h $(SYSTEM_H) toplev.h $(TM_H) $(LTO_H)
 lto/lto-elf.o: lto/lto-elf.c $(CONFIG_H) coretypes.h $(SYSTEM_H) \
 	toplev.h $(LTO_H) $(LTO_TAGS_H) $(TM_H)
 lto/lto-symtab.o: lto/lto-symtab.c $(CONFIG_H) coretypes.h \
-	$(SYSTEM_H) toplev.h $(TREE_H) $(LTO_H) lto/lto-tree.h
+	$(SYSTEM_H) toplev.h $(LTO_H) lto/lto-tree.h
 lto/lto-read.o: lto/lto-read.c $(CONFIG_H) $(SYSTEM_H) \
-	coretypes.h $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) \
+	coretypes.h $(TM_H) toplev.h $(LTO_H) $(EXPR_H) $(FLAGS_H) \
 	$(PARAMS_H) input.h $(VARRAY_H) $(HASHTAB_H) langhooks.h \
 	$(BASIC_BLOCK_H) tree-iterator.h tree-pass.h tree-flow.h \
 	$(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
