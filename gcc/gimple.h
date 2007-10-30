@@ -543,8 +543,7 @@ gimple_set_block (gimple g, tree block)
 }
 
 
-/* Return locus information for statement G.  FIXME tuples, fix for
-   mapped location support.  */
+/* Return locus information for statement G.  */
 
 static inline location_t
 gimple_locus (const_gimple g)
@@ -553,8 +552,7 @@ gimple_locus (const_gimple g)
 }
 
 
-/* Set locus information for statement G.  FIXME tuples, fix for
-   mapped location support.  */
+/* Set locus information for statement G.  */
 
 static inline void
 gimple_set_locus (gimple g, location_t locus)
@@ -568,7 +566,11 @@ gimple_set_locus (gimple g, location_t locus)
 static inline bool
 gimple_locus_empty_p (const_gimple g)
 {
+#ifdef USE_MAPPED_LOCATION
+  return gimple_locus (g) == UNKNOWN_LOCATION;
+#else
   return gimple_locus (g).file == NULL && gimple_locus (g).line == 0;
+#endif
 }
 
 

@@ -1,4 +1,11 @@
 2007-10-29  Diego Novillo  <dnovillo@google.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* gimple.h (gimple_locus): Update comment.
+	(gimple_set_locus): Likewise.
+	(gimple_locus_empty_p): Add support for mapped locations.
+
+2007-10-29  Diego Novillo  <dnovillo@google.com>
 
 	* tree-optimize.c (execute_cleanup_cfg_pre_ipa): Re-enable.
 	* gimple.c (walk_gimple_asm): Tidy comment.
