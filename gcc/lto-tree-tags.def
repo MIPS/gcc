@@ -85,6 +85,7 @@
   MAP_EXPR_TAG(SSA_NAME, LTO_ssa_name)
   MAP_EXPR_TAG(STRING_CST, LTO_string_cst)
   MAP_EXPR_TAG(SWITCH_EXPR, LTO_switch_expr)
+  MAP_EXPR_TAG(TYPE_DECL, LTO_type_decl)
 #endif /* TREE_SINGLE_MECHANICAL_FALSE */
 
 #ifdef TREE_SINGLE_MECHANICAL_TRUE
@@ -275,6 +276,7 @@
   SET_NAME (LTO_truth_not_expr, "truth_not_expr")
   SET_NAME (LTO_truth_or_expr, "truth_or_expr")
   SET_NAME (LTO_truth_xor_expr, "truth_xor_expr")
+  SET_NAME (LTO_type_decl, "type_decl")
   SET_NAME (LTO_uneq_expr, "uneq_expr")
   SET_NAME (LTO_unge_expr, "unge_expr")
   SET_NAME (LTO_ungt_expr, "ungt_expr")

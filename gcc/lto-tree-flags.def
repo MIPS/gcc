@@ -747,6 +747,7 @@
       ADD_VIS_FLAG (tls_model)
       ADD_VIS_FLAG (in_text_section)
       ADD_VIS_FLAG (common_flag)
+      ADD_VIS_FLAG (seen_in_bind_expr)
     END_EXPR_CASE (VAR_DECL)
       
     START_EXPR_CASE (VEC_COND_EXPR)

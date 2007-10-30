@@ -96,7 +96,18 @@ find_referenced_vars (void)
 	}
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	walk_tree (&phi, find_vars_r, NULL, NULL);
+	{
+	  int len = PHI_NUM_ARGS (phi);
+	  int i;
+
+	  walk_tree (&phi, find_vars_r, NULL, NULL);
+
+	  for (i = 0; i < len; i++)
+	    {
+	      tree arg = PHI_ARG_DEF (phi, i);
+	      walk_tree (&arg, find_vars_r, NULL, NULL);
+	    }
+	}
     }
 
   return 0;

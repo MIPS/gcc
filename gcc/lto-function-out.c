@@ -281,6 +281,12 @@ struct output_block
   unsigned int next_var_decl_index;
   VEC(tree,heap) *var_decls;
 
+  /* The hash table that contains the set of type_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t type_decl_hash_table;
+  unsigned int next_type_decl_index;
+  VEC(tree,heap) *type_decls;
+
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */
   htab_t string_hash_table;
@@ -295,8 +301,11 @@ struct output_block
   /* These are the last file and line that were seen in the stream.
      If the current node differs from these, it needs to insert
      something into the stream and fix these up.  */
-  const char *last_file;
-  int last_line;
+  const char *current_file;
+  int current_line;
+#ifdef USE_MAPPED_LOCATION  
+  int current_col;
+#endif
 };
 
 
@@ -319,6 +328,19 @@ do { \
 #define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)
 #define LTO_CLEAR_DEBUGGING_STREAM(STREAM)  (void)0
 #endif
+
+
+/* Clear the line info stored in DATA_IN.  */
+
+static void
+clear_line_info (struct output_block *ob)
+{
+  ob->current_file = NULL;
+  ob->current_line = 0;
+#ifdef USE_MAPPED_LOCATION  
+  ob->current_col = 0;
+#endif
+}
 
 
 /* Create the output block and return it.  IS_FUNTION is true if this
@@ -344,8 +366,7 @@ create_output_block (bool is_function)
   lto_debug_context.indent = 0;
 #endif
 
-  ob->last_file = NULL;
-  ob->last_line = -1;
+  clear_line_info (ob);
 
   if (is_function)
     {
@@ -360,6 +381,8 @@ create_output_block (bool is_function)
   ob->fn_decl_hash_table
     = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
   ob->var_decl_hash_table
+    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
+  ob->type_decl_hash_table
     = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
   ob->string_hash_table
     = htab_create (37, hash_string_slot_node, eq_string_slot_node, free);
@@ -386,6 +409,7 @@ destroy_output_block (struct output_block * ob, bool is_function)
   htab_delete (ob->field_decl_hash_table);
   htab_delete (ob->fn_decl_hash_table);
   htab_delete (ob->var_decl_hash_table);
+  htab_delete (ob->type_decl_hash_table);
   htab_delete (ob->string_hash_table);
   htab_delete (ob->type_hash_table);
 
@@ -612,7 +636,7 @@ output_string (struct output_block *ob,
     }
   else
     {
-      struct decl_slot *old_slot = (struct decl_slot *)*slot;
+      struct string_slot *old_slot = (struct string_slot *)*slot;
       output_uleb128_stream (index_stream, old_slot->slot_num);
 
       /* From the debugging protocol's point of view, the entry needs
@@ -726,16 +750,19 @@ output_decl_index (struct output_stream * obs, htab_t table,
 
 /* Build a densely packed word that contains only the flags that are
    used for this type of tree EXPR and write the word in uleb128 to
-   the OB.  */
+   the OB.  FORCE_LOC forces the line number to be serialized
+   reguardless of the type of tree.  */
 
 
 static void
-output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
+output_tree_flags (struct output_block *ob, 
+		   enum tree_code code, 
+		   tree expr, 
+		   bool force_loc)
 {
   unsigned HOST_WIDE_INT flags = 0;
   const char *file_to_write = NULL;
   int line_to_write = -1;
-  const char *current_file;
 
   if (code == 0 || TEST_BIT (lto_flags_needed_for, code))
     {
@@ -792,30 +819,64 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 
-      /* Add two more bits onto the flag if this is a tree node that can
-	 have a line number.  The first bit is true if this node changes
-	 files and the second is set if this node changes lines.  */
-      if (expr && EXPR_P (expr))
-        {
-	  flags <<= 2;
-	  if (EXPR_HAS_LOCATION (expr))
+      flags <<= LTO_SOURCE_LOC_BITS;
+      if (expr)
+	{
+	  const char *current_file = NULL;
+	  int current_line = 0;
+#ifdef USE_MAPPED_LOCATION
+	  int current_col = 0;
+#endif
+	  if (EXPR_P (expr))
 	    {
-	      LOC current_loc = EXPR_LOC (expr);
-	      const int current_line = LOC_LINE (current_loc);
-	      current_file = LOC_FILE (current_loc);
-	      if (ob->last_file != current_file)
+	      if (EXPR_HAS_LOCATION (expr))
 		{
-		  file_to_write = current_file;
-		  ob->last_file = current_file;
-		  flags |= 0x2;
-		}
-	      if (ob->last_line != current_line)
-		{
-		  line_to_write = current_line;
-		  ob->last_line = current_line;
-		  flags |= 0x1;
+		  current_file = EXPR_FILENAME (expr);
+		  current_line = EXPR_LINENO (expr);
+#ifdef USE_MAPPED_LOCATION
+		/* This will blow up because i cannot find the function
+		   that i would have expected to have the name
+		   expr_col.  */ 
+		  current_col = ????
+#endif
 		}
 	    }
+	  else if (force_loc && DECL_P (expr))
+	    {
+	      expanded_location xloc 
+		= expand_location (DECL_SOURCE_LOCATION (expr));
+
+	      current_file = xloc.file;
+	      current_line = xloc.line;
+#ifdef USE_MAPPED_LOCATION
+	      current_col = xloc.column;
+#endif
+	    }
+
+	  if (current_file
+	      && (ob->current_file == NULL
+		  || strcmp (ob->current_file, current_file) != 0))
+	    {
+	      file_to_write = current_file;
+	      ob->current_file = current_file;
+	      flags |= LTO_SOURCE_FILE;
+	    }
+	  if (current_line != 0
+	      && ob->current_line != current_line)
+	    {
+	      line_to_write = current_line;
+	      ob->current_line = current_line;
+	      flags |= LTO_SOURCE_LINE;
+	    }
+#ifdef USE_MAPPED_LOCATION
+	  if (current_loc != 0
+	      && ob->current_col != current_col)
+	    {
+	      col_to_write = current_col;
+	      ob->current_clo = current_col;
+	      flags |= LTO_SOURCE_COL;
+	    }
+#endif
 	}
 
       LTO_DEBUG_TOKEN ("flags");
@@ -826,13 +887,20 @@ output_tree_flags (struct output_block *ob, enum tree_code code, tree expr)
 	{
 	  LTO_DEBUG_TOKEN ("file");
 	  output_string (ob, ob->main_stream, 
-			 file_to_write, strlen (file_to_write));
+			 file_to_write, strlen (file_to_write) + 1);
 	}
       if (line_to_write != -1)
 	{
 	  LTO_DEBUG_TOKEN ("line");
 	  output_uleb128 (ob, line_to_write);
 	}
+#ifdef USE_MAPPED_LOCATION
+      if (col_to_write != -1)
+	{
+	  LTO_DEBUG_TOKEN ("col");
+	  output_uleb128 (ob, col_to_write);
+	}
+#endif
     }
 }
 
@@ -924,7 +992,7 @@ output_record_start (struct output_block *ob, tree expr,
       enum tree_code code = TREE_CODE (expr);
       if (value && TEST_BIT (lto_types_needed_for, code))
 	output_type_ref (ob, TREE_TYPE (value));
-      output_tree_flags (ob, code, expr);
+      output_tree_flags (ob, code, expr, false);
     }
 }
 
@@ -1308,6 +1376,18 @@ output_expr_operand (struct output_block *ob, tree expr)
 	}
       break;
 
+    case TYPE_DECL:
+      {
+	bool new;
+	output_record_start (ob, NULL, NULL, tag);
+	
+	new = output_decl_index (ob->main_stream, ob->type_decl_hash_table,
+				 &ob->next_type_decl_index, expr);
+	if (new)
+	  VEC_safe_push (tree, heap, ob->type_decls, expr);
+      }
+      break;
+
     case PARM_DECL:
       gcc_assert (!DECL_RTL_SET_P (expr));
       output_record_start (ob, NULL, NULL, tag);
@@ -1589,16 +1669,23 @@ output_local_vars (struct output_block *ob)
       output_type_ref (ob, TREE_TYPE (decl));
 
       if (!is_var)
-	{
-	  output_type_ref (ob, DECL_ARG_TYPE (decl));
-	  LTO_DEBUG_TOKEN ("chain");
-	  if (TREE_CHAIN (decl))
-	    output_expr_operand (ob, TREE_CHAIN (decl));
-	  else
-	    output_uleb128 (ob, 0);
-	}
+	output_type_ref (ob, DECL_ARG_TYPE (decl));
 
-      output_tree_flags (ob, 0, decl);
+      clear_line_info (ob);
+      output_tree_flags (ob, 0, decl, true);
+
+      LTO_DEBUG_TOKEN ("chain");
+      if (TREE_CHAIN (decl))
+	output_expr_operand (ob, TREE_CHAIN (decl));
+      else
+	output_uleb128 (ob, 0);
+
+      LTO_DEBUG_TOKEN ("context");
+      if (DECL_CONTEXT (decl))
+	output_expr_operand (ob, DECL_CONTEXT (decl));
+      else 
+	output_uleb128 (ob, 0);
+
       LTO_DEBUG_TOKEN ("align");
       output_uleb128 (ob, DECL_ALIGN (decl));
 
@@ -1653,6 +1740,7 @@ static void
 output_named_labels (struct output_block *ob)
 {
   unsigned int index = 0;
+  clear_line_info (ob);
 
   while (index < VEC_length (tree, ob->named_labels))
     {
@@ -1690,7 +1778,7 @@ output_ssa_names (struct output_block *ob, struct function *fn)
       output_uleb128 (ob, i);
       output_expr_operand (ob, SSA_NAME_VAR (ptr));
       /* Lie about the type of object to get the flags out.  */
-      output_tree_flags (ob, 0, ptr);
+      output_tree_flags (ob, 0, ptr, false);
     }
 
   output_uleb128 (ob, 0);
@@ -1748,7 +1836,7 @@ output_phi (struct output_block *ob, tree expr)
   
   output_record_start (ob, expr, expr, LTO_phi_node);
   output_uleb128 (ob, SSA_NAME_VERSION (PHI_RESULT (expr)));
-  
+
   for (i = 0; i < len; i++)
     {
       output_expr_operand (ob, PHI_ARG_DEF (expr, i));
@@ -1851,6 +1939,7 @@ produce_asm (struct output_block *ob, tree t, bool is_function)
   header.num_field_decls = VEC_length (tree, ob->field_decls);
   header.num_fn_decls = VEC_length (tree, ob->fn_decls);
   header.num_var_decls = VEC_length (tree, ob->var_decls);
+  header.num_type_decls = VEC_length (tree, ob->type_decls);
   header.num_types = VEC_length (tree, ob->types);
   if (is_function)
     {
@@ -1914,6 +2003,15 @@ produce_asm (struct output_block *ob, tree t, bool is_function)
   for (index = 0; VEC_iterate(tree, ob->var_decls, index, decl); index++)
     {
       lto_var_ref (decl, &out_ref);
+      dw2_asm_output_data (8, out_ref.section, " ");
+      dw2_asm_output_delta (8, out_ref.label,
+			    out_ref.base_label, " ");
+    }
+
+  /* Write the global type_decl references.  */
+  for (index = 0; VEC_iterate(tree, ob->type_decls, index, decl); index++)
+    {
+      lto_typedecl_ref (decl, &out_ref);
       dw2_asm_output_data (8, out_ref.section, " ");
       dw2_asm_output_delta (8, out_ref.label,
 			    out_ref.base_label, " ");
@@ -2074,6 +2172,7 @@ output_function (tree function)
   struct output_block *ob = create_output_block (true);
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
+  clear_line_info (ob);
 
   gcc_assert (!current_function_decl && !cfun);
 
@@ -2109,9 +2208,6 @@ output_function (tree function)
   output_zero (ob);
   LTO_DEBUG_UNDENT();
 
-  LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data);
-  output_named_labels (ob);
-
   LTO_SET_DEBUGGING_STREAM (debug_ssa_names_stream, ssa_names_data);
   output_ssa_names (ob, fn);
 
@@ -2123,6 +2219,9 @@ output_function (tree function)
 
   LTO_SET_DEBUGGING_STREAM (debug_decl_index_stream, decl_index_data);
   output_local_vars_index (ob);
+
+  LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data);
+  output_named_labels (ob);
 
   /* Create a file to hold the pickled output of this function.  This
      is a temp standin until we start writing sections.  */
@@ -2143,6 +2242,7 @@ output_constructor_or_init (tree var)
   struct output_block *ob = create_output_block (false);
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
+  clear_line_info (ob);
 
   /* Make string 0 be a NULL string.  */
   output_1_stream (ob->string_stream, 0);

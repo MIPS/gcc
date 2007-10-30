@@ -1,3 +1,25 @@
+2007-10-29  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (data_in): Added type_decls and current_col fields.
+	(string_slot): New type to hold canonized file name.
+	(hash_string_slot_node, eq_string_slot_node, canon_file_name, 
+	input_line_info, set_line_info, clear_line_info): New functions.
+	(file_name_hash_table): New hash table.
+	(input_local_var, input_labels, input_local_vars_index, 
+	input_local_var, input_local_vars, input_ssa_names): Reorganized parameters.
+	(input_uleb128): Changed type of byte var.
+	(input_expr_operand): Large number of changes to get line numbers
+	correct.  Added TYPE_DECL case.
+	(input_globals): Added code to get TYPE_DECLs processed.
+	(input_local_var): Added code to process line numbers and
+	TREE_CHAIN and DECL_CONTEXT.
+	(input_function, input_constructor): Added call to
+	clear_line_number.
+	(lto_static_init_local): Added code to get line numbers correct.
+	(lto_read_body): Added code to get TYPE_DECLS read and to change
+	parameters to the calls above that had their parms reorganized.
+
+	
 2007-10-29  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.h (lto_resolve_typedecl_ref): Declare.

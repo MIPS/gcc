@@ -44,14 +44,15 @@
    2)    FIELD_DECLS.
    3)    FUNCTION_DECLS.
    4)    global VAR_DECLS.
-   5)    types.
-   6)    Names for the labels that have names
-   7)    The ssa names.
-   8)    The control flow graph.
-   9-10) Gimple for local decls.
-   11)   Gimple for the function.
-   12)   Strings.
-   13)   Redundant information to aid in debugging the stream.
+   5)    type_decls
+   6)    types.
+   7)    Names for the labels that have names
+   8)    The ssa names.
+   9)    The control flow graph.
+   10-11)Gimple for local decls.
+   12)   Gimple for the function.
+   13)   Strings.
+   14)   Redundant information to aid in debugging the stream.
          This is only present if the compiler is built with
          LTO_STREAM_DEBUGGING defined.
 
@@ -70,6 +71,7 @@ struct lto_header
   int32_t num_field_decls;        /* Number of FIELD_DECLS.  */
   int32_t num_fn_decls;           /* Number of FUNCTION_DECLS.  */
   int32_t num_var_decls;          /* Number of non local VAR_DECLS.  */
+  int32_t num_type_decls;         /* Number of TYPE_DECLs.  */
   int32_t num_types;              /* Number of types.  */
   int32_t num_local_decls;        /* Number of local VAR_DECLS and PARM_DECLS.  */
   int32_t num_named_labels;       /* Number of labels with names.  */
@@ -78,8 +80,8 @@ struct lto_header
   int32_t named_label_size;       /* Size of names for named labels.  */
   int32_t ssa_names_size;         /* Size of the SSA_NAMES table.  */
   int32_t cfg_size;               /* Size of the cfg.  */
-  int32_t local_decls_index_size; /* Size of local par and var decl index region. */
-  int32_t local_decls_size;       /* Size of local par and var decl region. */
+  int32_t local_decls_index_size; /* Size of local parm and var decl index region. */
+  int32_t local_decls_size;       /* Size of local parm and var decl region. */
   int32_t main_size;              /* Size of main gimple body of function.  */
   int32_t string_size;            /* Size of the string table.  */
   int32_t debug_decl_index_size;  /* Size of local decl index debugging information.  */
@@ -90,7 +92,7 @@ struct lto_header
   int32_t debug_main_size;        /* Size of main stream debugging information.  */
 };
 
-/* 2-5) THE GLOBAL DECLS AND TYPES.
+/* 2-6) THE GLOBAL DECLS AND TYPES.
 
       The global decls and types are encoded in the same way.  For each
       entry, there is a pair of words.  The first is the debugging
@@ -101,7 +103,7 @@ struct lto_header
       a label for the debugging section.  This will cause more work for
       the linker but will make ln -r work properly.
 
-   6) THE LABEL NAMES.  
+   7) THE LABEL NAMES.  
 
       Since most labels do not have names, this section my be of zero
       length.  It consists of an array of string table references, one
@@ -110,18 +112,18 @@ struct lto_header
       the negative ones do not.  The positive index can be used to
       find the name in this array.
 
-   7) THE ACTIVE SSA NAMES.  
+   8) THE ACTIVE SSA NAMES.  
 
       The SSA_NAME_VERSION in an SSA_NAME in used as an index into
       this table.
 
-   8) THE CFG. 
+   9) THE CFG. 
 
-   9) Index into the local decls.  Since local decls can have local
+   10) Index into the local decls.  Since local decls can have local
       decls inside them, they must be read in randomly in order to
       properly restore them.  
 
-   10-11) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
+   11-12) GIMPLE FOR THE LOCAL DECLS AND THE FUNCTION BODY.
 
      The gimple consists of a set of records.
 
@@ -403,6 +405,7 @@ enum LTO_tags {
   LTO_truth_not_expr,
   LTO_truth_or_expr,
   LTO_truth_xor_expr,
+  LTO_type_decl,
   LTO_uneq_expr,
   LTO_unge_expr,
   LTO_ungt_expr,
@@ -524,6 +527,21 @@ struct lto_debug_context
   void * cfg_data;
   void * main_data;
 };
+
+
+/* Serialize out a file, line (and if USE_MAPPED_LOCATION was set) a
+   column.  */
+#define LTO_SOURCE_FILE 0x1
+#define LTO_SOURCE_LINE 0x2
+
+#ifdef USE_MAPPED_LOCATION
+#define LTO_SOURCE_LOC_BITS 3
+#define LTO_SOURCE_COL 0x4
+#else
+#define LTO_SOURCE_LOC_BITS 2
+#endif
+
+
 
 extern const char * LTO_tag_names[LTO_last_tag];
 

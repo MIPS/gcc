@@ -1,3 +1,36 @@
+2007-10-29  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-tree-flags.def (VAR_DECL): Added seen_in_bind_expr flag.
+	* lto-function-out.c (struct output_block): Added
+	type_decl_hash_table, next_type_decl_index, type_decls,
+	current_col. Changed last_file to current_file. Changed last_line
+	to current_line.
+	(clear_line_info): New function.
+	(create_output_block): Added call to clear_line_info.  Added
+	initialization of type_decl_hash_table.
+	(destroy_output_block): Added destruction of type_decl_hash_table.
+	(output_string): Fixed type snafu.
+	(output_tree_flags): Added force_loc parameter and uses of it.
+	Full rewrite of processing of line numbers.
+	(output_expr_operand): Added TYPE_DECL case.
+	(output_local_vars): Properly handle TREE_CHAIN and DECL_CONTEXT.
+	(output_named_labels, output_constructor_or_init): Added call to
+	clear_line_info.
+	(output_ssa_names): Added parm to not process line numbers for ssa
+	names.
+	(produce_asm): Added code to output type_decls.
+	(output_function): Added call to clear_line_info.  Moved
+	production of labels to after local_vars to get processing of
+	context correct.
+	* lto-tree-tags.def (LTO_type_decl): New tag.
+	* lto-tags.h (lto_header): Added num_type_decls.
+	(LTO_type_decl): New tag.
+	(LTO_SOURCE_FILE, LTO_SOURCE_LINE, LTO_SOURCE_LOC_BITS,
+	LTO_SOURCE_COL): New macros.
+	* tree-dfa.c (find_referenced_vars): Added code to walk phi
+	operands.
+	
+
 2007-10-29  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* dwarf2out.h (lto_typedecl_ref): Declare.

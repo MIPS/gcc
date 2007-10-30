@@ -52,6 +52,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tags.h"
 #include "lto.h"
 #include <ctype.h>
+#include "cpplib.h"
 
 static enum tree_code tag_to_expr[LTO_last_tag];
 
@@ -63,6 +64,7 @@ struct data_in
   tree *field_decls;        /* The field decls.  */
   tree *fn_decls;           /* The function decls.  */
   tree *var_decls;          /* The global or static var_decls.  */
+  tree *type_decls;         /* The type_decls.  */
   tree *types;              /* All of the types.  */
   int *local_decls_index;   /* The offsets to decode the local_decls.  */
 #ifdef LTO_STREAM_DEBUGGING
@@ -75,8 +77,51 @@ struct data_in
   /* Number of named labels.  Used to find the index of unnamed labels
      since they share space with the named labels.  */
   unsigned int num_named_labels;  
+  const char *current_file;
+  int current_line;
+#ifdef USE_MAPPED_LOCATION  
+  int current_col;
+#endif
 };
 
+
+
+/* This hash table is used to hash the file names in the
+   source_location field.  Unlike other structures here, this is a
+   persistent structure whose data lives for the entire
+   compilation.  */
+
+struct string_slot {
+  const char *s;
+  unsigned int slot_num;
+};
+
+
+/* Returns a hash code for P.  */
+
+static hashval_t
+hash_string_slot_node (const void *p)
+{
+  const struct string_slot *ds = (const struct string_slot *) p;
+  return (hashval_t) htab_hash_string (ds->s);
+}
+
+
+/* Returns nonzero if P1 and P2 are equal.  */
+
+static int
+eq_string_slot_node (const void *p1, const void *p2)
+{
+  const struct string_slot *ds1 =
+    (const struct string_slot *) p1;
+  const struct string_slot *ds2 =
+    (const struct string_slot *) p2;
+
+  return strcmp (ds1->s, ds2->s) == 0;
+}
+
+/* The table to hold the file_names.  */
+static htab_t file_name_hash_table;
 
 struct input_block 
 {
@@ -96,7 +141,7 @@ static tree
 input_expr_operand (struct input_block *, struct data_in *, struct function *, 
                     enum LTO_tags);
 static tree
-input_local_var (struct data_in *, struct input_block *, struct function *, unsigned int i);
+input_local_var (struct input_block *, struct data_in *, struct function *, unsigned int i);
 
 
 /* Return the next character of input from IB.  Abort if you
@@ -117,7 +162,7 @@ input_uleb128 (struct input_block *ib)
 {
   unsigned HOST_WIDE_INT result = 0;
   int shift = 0;
-  unsigned int byte;
+  unsigned HOST_WIDE_INT byte;
 
   while (true)
     {
@@ -423,6 +468,129 @@ process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
 }
 
 
+/* Return the one true copy of STRING.  */
+
+static const char *
+canon_file_name (const char *string)
+{
+  void **slot;
+  struct string_slot s_slot;
+  s_slot.s = string;
+
+  slot = htab_find_slot (file_name_hash_table, &s_slot, INSERT);
+  if (*slot == NULL)
+    {
+      size_t len = strlen (string);
+      char * saved_string = xmalloc (len + 1);
+      strcpy (saved_string, string);
+
+      struct string_slot *new_slot
+	= xmalloc (sizeof (struct string_slot));
+
+      new_slot->s = saved_string;
+      *slot = new_slot;
+      return saved_string;
+    }
+  else
+    {
+      struct string_slot *old_slot = (struct string_slot *)*slot;
+      return old_slot->s;
+    }
+}
+
+
+/* Based on the FLAGS, read in a file, a line and a col into the
+   fields in DATA_IN.  */
+
+static void 
+input_line_info (struct input_block *ib, struct data_in *data_in, 
+		 unsigned HOST_WIDE_INT flags)
+{
+#ifdef USE_MAPPED_LOCATION  
+  if (flags & LTO_SOURCE_FILE)
+    {
+      unsigned int len;
+      if (data_in->current_file)
+	linemap_add (line_table, LC_LEAVE, false, data_in->current_file, 0);
+
+      LTO_DEBUG_TOKEN ("file");
+      data_in->current_file 
+	= canon_file_name (input_string_internal (data_in, input_uleb128 (ib), &len));
+    }
+  if (flags & LTO_SOURCE_LINE)
+    {
+      LTO_DEBUG_TOKEN ("line");
+      data_in->current_line = input_uleb128 (ib);
+
+      if (!(flags & LTO_SOURCE_FILE))
+	linemap_line_start (line_table, data_in->current_line, 80);
+    }
+  if (flags & LTO_SOURCE_FILE)
+    linemap_add (line_table, LC_ENTER, false, data_in->current_file, data_in->current_line);
+    
+  if (flags & LTO_SOURCE_COL)
+    {
+      LTO_DEBUG_TOKEN ("col");
+      data_in->current_col = input_uleb128 (ib);
+    }
+#else
+  if (flags & LTO_SOURCE_FILE)
+    {
+      unsigned int len;
+      LTO_DEBUG_TOKEN ("file");
+      data_in->current_file 
+	= input_string_internal (data_in, input_uleb128 (ib), &len);
+    }
+  if (flags & LTO_SOURCE_LINE)
+    {
+      LTO_DEBUG_TOKEN ("line");
+      data_in->current_line = input_uleb128 (ib);
+    }
+#endif
+}
+
+
+/* Set the line info stored in DATA_IN for NODE.  */
+
+static void
+set_line_info (struct data_in *data_in, tree node)
+{
+  if (data_in->current_file)
+    {
+#ifdef USE_MAPPED_LOCATION
+  
+
+
+#else
+      if (EXPR_P (node))
+	  annotate_with_file_line (node, 
+				   canon_file_name (data_in->current_file), 
+				   data_in->current_line);
+      else if (DECL_P (node))
+	{
+	  DECL_SOURCE_LOCATION (node).file = canon_file_name (data_in->current_file);
+	  DECL_SOURCE_LOCATION (node).line = data_in->current_line;
+	}
+#endif
+    }
+}
+
+
+/* Clear the line info stored in DATA_IN.  */
+
+static void
+clear_line_info (struct data_in *data_in)
+{
+#ifdef USE_MAPPED_LOCATION  
+  if (data_in->current_file)
+    linemap_add (line_table, LC_LEAVE, false, data_in->current_file, 0);
+  data_in->current_col = 0;
+#endif
+  data_in->current_file = NULL;
+  data_in->current_line = 0;
+}
+
+
 /* Read a node in the gimple tree from IB.  The TAG has already been
    read.  */
 
@@ -433,8 +601,6 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   enum tree_code code = tag_to_expr[tag];
   tree type = NULL_TREE;
   unsigned HOST_WIDE_INT flags;
-  const char *new_file = NULL;
-  int new_line = -1;
   gcc_assert (code);
   tree result = NULL_TREE;
   
@@ -445,19 +611,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
   /* FIXME! need to figure out how to set the file and line number.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
-    {
-      if (flags & 0x2)
-	{
-	  unsigned int len;
-	  LTO_DEBUG_TOKEN ("file");
-	  new_file = input_string_internal (data_in, input_uleb128 (ib), &len);
-	}
-      if (flags & 0x1)
-	{
-	  LTO_DEBUG_TOKEN ("line");
-	  new_line = input_uleb128 (ib);
-	}
-    }
+    input_line_info (ib, data_in, flags);
 
   switch (code)
     {
@@ -601,6 +755,11 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       gcc_assert (result);
       break;
 
+    case TYPE_DECL:
+      result = data_in->type_decls [input_uleb128 (ib)];
+      gcc_assert (result);
+      break;
+
     case VAR_DECL:
     case PARM_DECL:
       if (tag == LTO_var_decl1)
@@ -632,7 +791,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	      lib.len = ib->len;
 	      lib.p = data_in->local_decls_index[lv_index];
 
-	      result = input_local_var (data_in, &lib, fn, lv_index); 
+	      result = input_local_var (&lib, data_in, fn, lv_index); 
 	      data_in->local_decls [lv_index] = result;
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -918,6 +1077,9 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   if (flags)
     process_tree_flags (result, flags);
 
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+    set_line_info (data_in, result);
+
   /* It is not enought to just put the flags back as we serialized
      them.  There are side effects to the buildN functions which play
      with the flags to the point that we just have to call this here
@@ -939,12 +1101,14 @@ input_globals (struct lto_header * header,
 	      lto_ref in_field_decls[],
 	      lto_ref in_fn_decls[],
 	      lto_ref in_var_decls[],
+	      lto_ref in_type_decls[],
 	      lto_ref in_types[])
 {
   int i;
   data_in->field_decls = xcalloc (header->num_field_decls, sizeof (tree*));
   data_in->fn_decls    = xcalloc (header->num_fn_decls, sizeof (tree*));
   data_in->var_decls   = xcalloc (header->num_var_decls, sizeof (tree*));
+  data_in->type_decls  = xcalloc (header->num_type_decls, sizeof (tree*));
   data_in->types       = xcalloc (header->num_types, sizeof (tree*));
 
   for (i=0; i<header->num_field_decls; i++)
@@ -959,6 +1123,10 @@ input_globals (struct lto_header * header,
     data_in->var_decls[i] 
       = lto_resolve_var_ref (fd, context, &in_var_decls[i]);
 
+  for (i=0; i<header->num_type_decls; i++)
+    data_in->type_decls[i] 
+      = lto_resolve_typedecl_ref (fd, context, &in_type_decls[i]);
+
   for (i=0; i<header->num_types; i++)
     data_in->types[i] = lto_resolve_type_ref (fd, context, &in_types[i]);
 }
@@ -968,11 +1136,12 @@ input_globals (struct lto_header * header,
    labels from DATA segment SIZE bytes long using DATA_IN.  */
 
 static void 
-input_labels (struct data_in *data_in, struct input_block *ib, 
+input_labels (struct input_block *ib, struct data_in *data_in, 
 	      unsigned int named_count, unsigned int unnamed_count)
 {
   unsigned int i;
 
+  clear_line_info (data_in);
   /* The named and unnamed labels share the same array.  In the lto
      code, the unnamed labels have a negative index.  Their position
      in the array can be found by subtracting that index from the
@@ -997,7 +1166,7 @@ input_labels (struct data_in *data_in, struct input_block *ib,
 
 
 static void
-input_local_vars_index (struct data_in *data_in, struct input_block *ib, 
+input_local_vars_index (struct input_block *ib, struct data_in *data_in, 
 			unsigned int count)
 {
   unsigned int i;
@@ -1019,7 +1188,7 @@ input_local_vars_index (struct data_in *data_in, struct input_block *ib,
 /* Input local var I from IB.  */
 
 static tree
-input_local_var (struct data_in *data_in, struct input_block *ib, 
+input_local_var (struct input_block *ib, struct data_in *data_in, 
 		 struct function *fn, unsigned int i)
 {
   enum LTO_tags tag;
@@ -1029,9 +1198,12 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
   tree name;
   tree type;
   unsigned HOST_WIDE_INT flags;
-  const char *new_file = NULL;
-  int new_line = -1;
   tree result;
+  tree context;
+
+  /* The line number info needs to be reset for each local var since
+     they are read in random order.  */
+  clear_line_info (data_in);
 
   tag = input_record_start (ib);
   variant = tag & 0xF;
@@ -1058,37 +1230,31 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
   data_in->local_decls[i] = result;
   
   if (!is_var)
-    {
-      DECL_ARG_TYPE (result) = get_type_ref (data_in, ib);
-      LTO_DEBUG_TOKEN ("chain");
-      tag = input_record_start (ib);
-      if (tag)
-	TREE_CHAIN (result) = input_expr_operand (ib, data_in, fn, tag);
-      else 
-	TREE_CHAIN (result) = NULL_TREE;
-    }
-  
+    DECL_ARG_TYPE (result) = get_type_ref (data_in, ib);
+
   flags = input_tree_flags (ib, LTO_flags_needed);
-  
-  /* FIXME: Need to figure out how to set the line number.  */
-  if (flags & 0x2)
-    {
-      unsigned int len;
-      LTO_DEBUG_TOKEN ("file");
-      new_file = input_string_internal (data_in, input_uleb128 (ib), &len);
-    }
-  if (flags & 0x1)
-    {
-      LTO_DEBUG_TOKEN ("line");
-      new_line = input_uleb128 (ib);
-    }
+  input_line_info (ib, data_in, flags);
+  set_line_info (data_in, result);
+
+  LTO_DEBUG_TOKEN ("chain");
+  tag = input_record_start (ib);
+  if (tag)
+    TREE_CHAIN (result) = input_expr_operand (ib, data_in, fn, tag);
+  else 
+    TREE_CHAIN (result) = NULL_TREE;
+
+  LTO_DEBUG_TOKEN ("context");
+  context = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+  if (TYPE_P (context))
+    DECL_CONTEXT (result) = TYPE_NAME (context);
+  else
+    DECL_CONTEXT (result) = context;
   
   LTO_DEBUG_TOKEN ("align");
   DECL_ALIGN (result) = input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("size");
-  DECL_SIZE (result) 
-    = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-  
+  DECL_SIZE (result) = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+
   if (variant & 0x1)
     {
       LTO_DEBUG_TOKEN ("attributes");
@@ -1121,7 +1287,7 @@ input_local_var (struct data_in *data_in, struct input_block *ib,
    bytes long using DATA_IN.  */
 
 static void 
-input_local_vars (struct data_in *data_in, struct input_block *ib, 
+input_local_vars (struct input_block *ib, struct data_in *data_in, 
 		  struct function *fn, unsigned int count)
 {
   unsigned int i;
@@ -1137,7 +1303,7 @@ input_local_vars (struct data_in *data_in, struct input_block *ib,
 	  = data_in->local_decls_index_d[i]; 
 #endif
 	ib->p = data_in->local_decls_index[i];
-	input_local_var (data_in, ib, fn, i);
+	input_local_var (ib, data_in, fn, i);
       }
 }
 
@@ -1307,7 +1473,7 @@ input_phi (struct input_block *ib, basic_block bb,
 /* Read in the ssa_names array from IB.  */
 
 static void
-input_ssa_names (struct data_in *data_in, struct input_block *ib, struct function *fn)
+input_ssa_names (struct input_block *ib, struct data_in *data_in, struct function *fn)
 {
   unsigned int i;
   int size = input_uleb128 (ib);
@@ -1394,6 +1560,7 @@ input_function (tree fn_decl, struct data_in *data_in,
 
   DECL_INITIAL (fn_decl) = DECL_SAVED_TREE (fn_decl) = make_node (BLOCK);
   BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
+  clear_line_info (data_in);
 
   tree_register_cfg_hooks ();
   gcc_assert (tag == LTO_function);
@@ -1424,6 +1591,7 @@ input_constructor (tree var, struct data_in *data_in,
 {
   enum LTO_tags tag;
 
+  clear_line_info (data_in);
   LTO_DEBUG_INDENT_TOKEN ("init");
   tag = input_record_start (ib);
   DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
@@ -1432,7 +1600,8 @@ input_constructor (tree var, struct data_in *data_in,
 
 static bool initialized_local = false;
 
-/* Static initialization for the lto writer.  */
+
+/* Static initialization for the lto reader.  */
 
 static void
 lto_static_init_local (void)
@@ -1470,11 +1639,8 @@ lto_static_init_local (void)
     int code;				      \
     for (code=0; code<NUM_TREE_CODES; code++) \
       {                                       \
-	/* The 2 leaves room for file and line number for exprs.  */ \
-	if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))  \
-          num_flags_for_code[code] = 2;	      \
-	else                                  \
-          num_flags_for_code[code] = 0;	      \
+	/* The LTO_SOURCE_LOC_BITS leaves room for file and line number for exprs.  */ \
+        num_flags_for_code[code] = LTO_SOURCE_LOC_BITS; \
                                               \
         switch (TREE_CODE_CLASS (code))       \
           {
@@ -1526,6 +1692,9 @@ lto_static_init_local (void)
 
   lto_static_init ();
   tree_register_cfg_hooks ();
+
+  file_name_hash_table
+    = htab_create (37, hash_string_slot_node, eq_string_slot_node, free);
 }
 
 
@@ -1549,8 +1718,10 @@ lto_read_body (lto_info_fd *fd,
     = fields_offset + (header->num_field_decls * sizeof (lto_ref));
   int32_t vars_offset 
     = fns_offset + (header->num_fn_decls * sizeof (lto_ref));
+  int32_t type_decls_offset 
+    = vars_offset + (header->num_type_decls * sizeof (lto_ref));
   int32_t types_offset 
-    = vars_offset + (header->num_var_decls * sizeof (lto_ref));
+    = type_decls_offset + (header->num_var_decls * sizeof (lto_ref));
   int32_t named_label_offset 
     = types_offset + (header->num_types * sizeof (lto_ref));
   int32_t ssa_names_offset 
@@ -1590,6 +1761,7 @@ lto_read_body (lto_info_fd *fd,
   lto_ref *in_field_decls = (lto_ref*)(data + fields_offset);
   lto_ref *in_fn_decls    = (lto_ref*)(data + fns_offset);
   lto_ref *in_var_decls   = (lto_ref*)(data + vars_offset);
+  lto_ref *in_type_decls  = (lto_ref*)(data + type_decls_offset);
   lto_ref *in_types       = (lto_ref*)(data + types_offset);
 
   struct input_block ib_named_labels 
@@ -1616,8 +1788,8 @@ lto_read_body (lto_info_fd *fd,
   gcc_assert (header->minor_version == LTO_minor_version);
 
   input_globals (header, fd, context, &data_in, 
-		in_field_decls, in_fn_decls, 
-		in_var_decls, in_types);
+		 in_field_decls, in_fn_decls, 
+		 in_var_decls, in_type_decls, in_types);
 
   if (in_function)
     {
@@ -1628,23 +1800,23 @@ lto_read_body (lto_info_fd *fd,
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_label;
 #endif
-      input_labels (&data_in, &ib_named_labels, 
+      input_labels (&ib_named_labels, &data_in, 
 		    header->num_named_labels, header->num_unnamed_labels);
       
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_decl_index;
 #endif
-      input_local_vars_index (&data_in, &ib_local_decls_index, header->num_local_decls);
+      input_local_vars_index (&ib_local_decls_index, &data_in, header->num_local_decls);
       
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_decl;
 #endif
-      input_local_vars (&data_in, &ib_local_decls, fn, header->num_local_decls);
+      input_local_vars (&ib_local_decls, &data_in, fn, header->num_local_decls);
       
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_ssa_names;
 #endif
-      input_ssa_names (&data_in, &ib_ssa_names, fn);
+      input_ssa_names (&ib_ssa_names, &data_in, fn);
       
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_cfg;
@@ -1668,6 +1840,7 @@ lto_read_body (lto_info_fd *fd,
   free (data_in.field_decls);
   free (data_in.fn_decls);
   free (data_in.var_decls);
+  free (data_in.type_decls);
   free (data_in.types);
   if (in_function)
     {
