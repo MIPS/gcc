@@ -1,3 +1,190 @@
+2007-10-29  Ian Lance Taylor  <iant@google.com>
+
+	* ifcvt.c (noce_can_store_speculate_p): New static function.
+	(noce_process_if_block): Call it.
+	(find_if_header): Only call find_if_case_1 and find_if_case_2 if
+	life_data_ok is set.
+	(if_convert): Always compute postdominators.
+
+2007-10-29  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/invoke.texi (Option Summary, optimizations): Remove
+	-fbounds-check.  Show that the value for options -falign-jumps,
+	-falign-labels, -falign-loops, -falign-functions,
+	-fsched-stalled-insns, and -fsched-stalled-insns-dep is optional.
+	Break up a long line.  Add -ftree-vrp and -funit-at-a-time.
+	(Option Summary, code gen options)  Add -fno-stack-limit.  Add
+	missing @gol to the end of a line.
+	* doc/invoke.texi (Option Summary, optimizations):
+	(Optimization Options): Remove -fbounds-check, which is also
+	documented under Code Generation Options.  In the descriptions for
+	-fsched-stalled-insns and -fsched-stalled-insns-dep, show the
+	options with and without values.  Change -fno-cprop-registers
+	to -fcprop-registers to match other options, and say when it is
+	enabled rather than disabled.  Remove extra index entry for
+	-fno-cx-limited-range.  Add opindex for several optimization
+	options, and fix typos in the opindex commands for several others.
+	(Code Gen Options): Add index entry for -ftls-model.
+
+2007-10-24  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33755
+	* config/mips/mips.c (override_options): Always move
+	flag_delayed_branch to mips_flag_delayed_branch.
+	(mips_lo_sum_offset): New structure.
+	(mips_hash_base, mips_lo_sum_offset_hash, mips_lo_sum_offset_eq)
+	(mips_lo_sum_offset_lookup, mips_record_lo_sum)
+	(mips_orphaned_high_part_p: New functions.
+	(mips_avoid_hazard): Don't check INSN_P here.
+	(mips_avoid_hazards): Rename to...
+	(mips_reorg_process_insns): ...this.  Cope with
+	!TARGET_EXPLICIT_RELOCS.  Delete orphaned high-part relocations,
+	or turn them into nops.
+	(mips_reorg): Remove TARGET_EXPLICIT_RELOCS check from calls to
+	dbr_schedule and mips_avoid_hazards/mips_reorg_process_insns.
+
+2007-10-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/rtl.texi (Flags): Fix MEM_SCALAR_P entry.
+	Document MEM_POINTER.  Replace mentions of "integrated"
+	field with "return_val".  Delete outdated stuff.
+
+2007-10-22  Seongbae Park <seongbae.park@gmail.com>
+	David S. Miller  <davem@davemloft.net>
+
+	* df-scan.c (df_get_call_refs): Mark global registers as both a
+	DF_REF_REG_USE and a non-clobber DF_REF_REG_DEF.
+
+2007-10-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33169
+	Backport from mainline:
+
+	2006-10-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips.c (mips_classify_symbol): Test DECL_WEAK as well
+	as TREE_PUBLIC when deciding whether to return SYMBOL_GOT_GLOBAL.
+
+2007-10-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	Backport from mainline:
+
+	2007-10-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* config/mips/mips.c (mips_expand_call): Use FAKE_CALL_REGNO.
+	(mips_avoid_hazard): Allow multiple sets for HAZARD_DELAY,
+	and pick the first.
+	* config/mips/mips.md (load_call<mode>): Don't make the unspec
+	depend on FAKE_CALL_REGNO.  Set FAKE_CALL_REGNO.
+
+2007-10-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/linux-unwind.h (ppc_fallback_frame_state): Point
+	saved CR2 offset to low 32 bits of regs->ccr rather than the whole
+	64-bit register in 64-bit libgcc.
+
+2007-10-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32961
+	* config/i386/i386.c (ix86_expand_builtin) [IX86_BUILTIN_PSLLWI128,
+	IX86_BUILTIN_PSLLDI128, BUILTIN_PSLLQI128, IX86_BUILTIN_PSRAWI128,
+	IX86_BUILTIN_PSRADI128, IX86_BUILTIN_PSRLWI128,
+	IX86_BUILTIN_PSRLDI128, IX86_BUILTIN_PSRLQI128]: Do not require
+	immediate shift value.
+	* config/i386/emmintrin.h (_mm_slli_epi16, _mm_slli_epi32,
+	_mm_slli_epi64, _mm_srai_epi16, _mm_srai_epi32, _mm_srli_epi16,
+	_mm_srli_epi32, _mm_srli_epi64):  Enable disabled functions and
+	remove equivalent macro definitions.
+
+2007-10-18  Chen liqin  <liqin@sunnorth.com.cn>
+
+        * config.gcc : update score-*-elf(extra_objs).
+        * config/score/mac.md : Remove.
+        * config/score/misc.md : Remove.
+        * config/score/score7.md : Remove.
+        * config/score/score-mdaux.h : Remove.
+        * config/score/score-mdaux.c : Remove.
+        * config/score/score-version.h : Remove.
+        * config/score/score-generic.md : New.
+        * config/score/score3.h : New.
+        * config/score/score3.c : New.
+        * config/score/score7.h : New.
+        * config/score/score7.c : New.
+        * config/score/mul-div.S : add flush_cache score3 support.
+        * config/score/elf.h : Fix some typos.
+        * config/score/score.md : merge score3 and score7 pattern.
+        * config/score/score.c : use to seperate which target it used.
+        * config/score/score.h : use to seperate the target macro.
+        * config/score/score.opt : remove -mmac option , add -mscore3,
+        -mscore3d and -march OPTION support.
+
+2007-10-12  Zdenek Dvorak <ook@ucw.cz>
+
+	PR tree-optimization/33714
+	* tree-ssa-loop-ivopts.c (constant_multiple_of): Pass the arguments to
+	division in the correct order.
+
+2007-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/25309
+	* c-common.c (complete_array_type): Diagnose too-large arrays and
+	set type to error_mark_node.
+
+2007-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/32295
+	* c-typeck.c (default_conversion): Call require_complete_type
+	before perform_integral_promotions.
+	(build_unary_op): Call require_complete_type except for ADDR_EXPR.
+	(build_c_cast): Call require_complete_type except for casts to
+	void types.
+	(convert_for_assignment): Call require_complete_type.
+
+2007-10-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2007-09-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33438
+	* config/i386/i386.md (fmodxf3): Copy operands[2] to temporary
+	register when operands[2] equals operands[1].
+	(dremxf3): Ditto.
+
+	2007-09-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33369
+	* gcc/config/i386/sse.md (ashr<mode>3): Change op2 mode to SImode.
+	Use 'N' operand constraint for op2.
+	(lshr<mode>3): Ditto.
+	(ashl<mode>3): Ditto.
+	(vec_shl_<mode>): Use const_0_to_255_mul_8_operand predicate for op2.
+	(vec_shr_<mode>): Use const_0_to_255_mul_8_operand predicate for op2.
+
+	* gcc/config/i386/i386.c (ix86_expand_builtin) [IX86_BUILTIN_PSLL?128,
+	IX86_BUILTIN_PSRA*?128, IX86_BUILTIN_PSRL?128]: Convert op1 to SImode.
+
+2007-10-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2007-10-03  Doug Kwan  <dougkwan@google.com>
+		Richard Guenther  <rguenther@suse.de>
+
+	PR debug/31899
+	* dwarf2out.c (reference_to_unused): Disable sanity checking,
+	be conservative instead.
+
+2007-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33099
+	PR tree-optimization/33381
+	* tree-vrp.c (adjust_range_with_scev): Do not adjust ranges
+	from pointer typed chrecs.
+
+2007-10-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* BASE-VER: Bump.
+	* DEV-PHASE: Mark as prerelease.
+
 2007-10-07  Release Manager
 
 	* GCC 4.2.2 released.

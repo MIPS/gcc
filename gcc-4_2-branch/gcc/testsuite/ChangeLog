@@ -1,3 +1,88 @@
+2007-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33744
+	* g++.dg/template/arg6.C: New test.
+
+2007-10-24  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/33755
+	* gcc.target/mips/pr33755.c: New test.
+
+2007-10-22  David S. Miller  <davem@davemloft.net>
+
+	* gcc.dg/globalreg-1.c: New test.
+
+2007-10-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/32961
+	* gcc.target/i386/pr32961.c: New testcase.
+
+2007-10-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr31167.c: Add i?86-*-* to target selector.
+	Require lp64 effective target.
+
+2007-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/opt/const5.C: New test.
+
+2007-10-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/33354
+	* gfortran.dg/minmaxloc_4.f90:  New test.
+
+2007-10-13  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/26698
+	* g++.dg/conversion/op4.C: New test.
+
+2007-10-12  Zdenek Dvorak <ook@ucw.cz>
+
+	PR tree-optimization/33714
+	* gcc.dg/tree-ssa/pr33714.c: New test.
+
+2007-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/25309
+	* gcc.dg/large-size-array-2.c: Expect diagnostic for too-large
+	array.
+	* gcc.dg/large-size-array-4.c: New.  Copy of large-size-array-2.c
+	without -O2.
+
+2007-10-10  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/32295
+	* gcc.dg/enum-incomplete-1.c: New test.
+
+2007-10-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2007-09-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33438
+	* gcc.target/i386/pr33438.c: New test.
+
+	2007-09-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33369
+	* gcc.dg/vect/pr33369.c: New test.
+
+2007-10-10  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2007-10-03  Doug Kwan  <dougkwan@google.com>
+		Richard Guenther  <rguenther@suse.de>
+
+	PR debug/31899
+	* g++.dg/debug/using3.C: New testcase.
+
+2007-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33099
+	PR tree-optimization/33381
+	* gcc.c-torture/execute/pr33099.c: New testcase.
+	* gcc.c-torture/execute/pr33381.c: Likewise.
+
 2007-10-07  Release Manager
 
 	* GCC 4.2.2 released.

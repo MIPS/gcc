@@ -1,3 +1,37 @@
+2007-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33744
+	* parser.c (cp_parser_parenthesized_expression_list): Set
+	greater_than_is_operator_p to true in between the parens.
+
+2007-10-16  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (start_decl_1): Call cp_apply_type_quals_to_decl after
+	completing the type.
+
+2007-10-13  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/26698
+	* call.c (build_user_type_conversion_1): Do not consider conversion
+	functions to convert a (possibly cv-qualified) object to the (possibly
+	cv-qualified) same object type (or a reference to it), to a (possibly
+	cv-qualified) base class of that type (or a reference to it).
+
+2007-10-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/32470
+	* name-lookup.c (push_namespace_with_attrs): Fold back into...
+	(push_namespace): Here.
+	(handle_namespace_attrs): New fn for the attr code.
+	(leave_scope): Don't pop_visibility.
+	* name-lookup.h (struct cp_binding_level): Remove has_visibility.
+	* parser.c (cp_parser_namespace_definition): Call
+	handle_namespace_attrs and pop_visibility as appropriate. 
+
+	PR c++/33094
+	* decl.c (make_rtl_for_nonlocal_decl): It's ok for a member 
+	constant to not have DECL_EXTERNAL if it's file-local.
+
 2007-10-07  Release Manager
 
 	* GCC 4.2.2 released.
