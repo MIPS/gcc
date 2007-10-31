@@ -1,3 +1,19 @@
+2007-10-31  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport the following patches:
+
+	2007-09-04  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_stack_info): Allocate space for the
+	GOT pointer only if there is a constant pool.  Use the allocated space
+	for SPE also.
+
+	2006-12-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR target/28966
+	PR target/29248
+	* reload1.c (reload): Realign stack after it changes size.
+
 2007-10-01  Pat Haugen  <pthaugen@us.ibm.com>
 
 	Backport the following patch:
