@@ -2710,7 +2710,7 @@ lto_read_typedef_DIE (lto_info_fd *fd,
   TYPE_NAME (type) = decl;
   DECL_ORIGINAL_TYPE (decl) = base_type;
 
-  /* Store this future references in our children.  */
+  /* Store this for future references in our children.  */
   lto_cache_store_DIE (fd, die, type);
 
   lto_read_child_DIEs (fd, abbrev, context);
@@ -3543,30 +3543,16 @@ lto_resolve_field_ref (lto_info_fd *info_fd,
   return field;
 }
 
+/* Fetch the type specified and build a fake TYPE_DECL to represent it.  */
+
 tree 
 lto_resolve_typedecl_ref (lto_info_fd *info_fd,
 			  lto_context *context,
 			  const lto_ref *ref)
 {
-  lto_die_ptr die;
-  lto_context *new_context = context;
-  tree decl;
+  tree type = lto_resolve_type_ref (info_fd, context, ref);
 
-  /* At present, we only support a single DWARF section.  */
-  if (ref->section != 0)
-    lto_abi_mismatch_error ();
-  /* Map REF to a DIE.  */
-  die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
-  /* Map DIE to a decl.  */
-  decl = lto_read_DIE_at_ptr (info_fd, context, die);
-  if (!decl || TREE_CODE (decl) != TYPE_DECL)
-    lto_file_corrupt_error ((lto_fd *)info_fd);
-
-  /* Clean up.  */
-  if (new_context != context)
-    XDELETE (new_context);
-
-  return decl;
+  return build_decl (TYPE_DECL, NULL_TREE, type);
 }
 
 void

@@ -1719,9 +1719,9 @@ lto_read_body (lto_info_fd *fd,
   int32_t vars_offset 
     = fns_offset + (header->num_fn_decls * sizeof (lto_ref));
   int32_t type_decls_offset 
-    = vars_offset + (header->num_type_decls * sizeof (lto_ref));
+    = vars_offset + (header->num_var_decls * sizeof (lto_ref));
   int32_t types_offset 
-    = type_decls_offset + (header->num_var_decls * sizeof (lto_ref));
+    = type_decls_offset + (header->num_type_decls * sizeof (lto_ref));
   int32_t named_label_offset 
     = types_offset + (header->num_types * sizeof (lto_ref));
   int32_t ssa_names_offset 

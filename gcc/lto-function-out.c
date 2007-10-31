@@ -1384,7 +1384,10 @@ output_expr_operand (struct output_block *ob, tree expr)
 	new = output_decl_index (ob->main_stream, ob->type_decl_hash_table,
 				 &ob->next_type_decl_index, expr);
 	if (new)
-	  VEC_safe_push (tree, heap, ob->type_decls, expr);
+          {
+            gcc_assert (!DECL_NAME (expr));
+            VEC_safe_push (tree, heap, ob->type_decls, expr);
+          }
       }
       break;
 
@@ -2074,6 +2077,7 @@ lto_static_init (void)
   RESET_BIT (lto_flags_needed_for, PARM_DECL);
   RESET_BIT (lto_flags_needed_for, SSA_NAME);
   RESET_BIT (lto_flags_needed_for, VAR_DECL);
+  RESET_BIT (lto_flags_needed_for, TYPE_DECL);
 
   lto_types_needed_for = sbitmap_alloc (NUM_TREE_CODES);
 
@@ -2094,6 +2098,7 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, SSA_NAME);
   RESET_BIT (lto_types_needed_for, SWITCH_EXPR);
   RESET_BIT (lto_types_needed_for, VAR_DECL);
+  RESET_BIT (lto_types_needed_for, TYPE_DECL);
 #else
   /* These forms will need types, even when the type system is fixed.  */
   SET_BIT (lto_types_needed_for, COMPLEX_CST);
@@ -2154,12 +2159,7 @@ static void
 generate_early_dwarf_information (tree function)
 {
   /* Don't bother with frame information, since we have no RTL.  */
-  dwarf2_generate_frame_info_p = false;
-
   dwarf2out_decl (function);
-
-  /* Later passes, however, will need frame information.  */
-  dwarf2_generate_frame_info_p = true;
 }
 
 /* Output FN.  */
@@ -2273,6 +2273,9 @@ lto_output (void)
 
   lto_static_init_local ();
 
+  /* We have no RTL at this point.  */
+  dwarf2_generate_frame_info_p = false;
+
   /* Process only the fuctions with bodies and only process the master
      ones of them.  */
   for (node = cgraph_nodes; node; node = node->next)
@@ -2289,6 +2292,8 @@ lto_output (void)
      writing lto info.  */
   if (saved_section)
     switch_to_section (saved_section);
+
+  dwarf2_generate_frame_info_p = true;
 
   return 0;
 }

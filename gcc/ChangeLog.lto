@@ -1,3 +1,16 @@
+2007-10-31  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-function.c (output_expr_operand): Assert that DECL_NAME of a
+	TYPE_DECL is NULL, as it should be for function-local TYPE_DECLs.
+	(lto_static_init): Reset the bit for TYPE_DECLs in
+	lto_flags_needed_for and lto_types_needed_for.
+	(generate_early_dwarf_information): Move the setting of
+	dwarf2_generate_frame_info_p to...
+	(lto_output): ...here.
+	* dwarf2out.c (force_decl_die): Don't handle TYPE_DECL.
+	(lto_typedecl_ref): Dump a reference to the decl's type instead of
+	the decl itself.
+
 2007-10-30  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* Makefile.in (lto/lto-stream-debug.o): Add dependency on $(TREE_H).

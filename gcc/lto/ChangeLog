@@ -1,3 +1,11 @@
+2007-10-31  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_typedef_DIE): Fix comment typo.
+	(lto_resolve_typedecl_ref): Fetch the referred-to type and build a fake
+	TYPE_DECL for it.
+	* lto-read.c (lto_read_body): Use correct sizes for calculating
+	type_decls_offset and types_offset.
+
 2007-10-30  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-tree.h (union lang_tree_node): Change GTY description to chain
