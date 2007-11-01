@@ -564,20 +564,19 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	  {
 	    int index_op;
 
-	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
+	    if (REG_OK_FOR_INDEX_P (op1)
+		&& REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
+	      index_op = 1;
+	    else if (REG_OK_FOR_INDEX_P (op0)
+		     && REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode)
+		     || REG_OK_FOR_INDEX_P (op1))
 	      index_op = 1;
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
-	      index_op = 1;
-	    else if (REG_OK_FOR_INDEX_P (op1))
-	      index_op = 1;
 	    else
-	      index_op = 0;
+	      index_op = 1;
 
 	    locI = &XEXP (x, index_op);
 	    locB_reg = &XEXP (x, !index_op);
@@ -1477,20 +1476,19 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	  {
 	    int index_op;
 
-	    if (REG_OK_FOR_INDEX_P (op0)
-		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
+	    if (REG_OK_FOR_INDEX_P (op1)
+		&& REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
+	      index_op = 1;
+	    else if (REG_OK_FOR_INDEX_P (op0)
+		     && REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_OK_FOR_INDEX_P (op1)
-		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode)
+		     || REG_OK_FOR_INDEX_P (op1))
 	      index_op = 1;
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
-	      index_op = 1;
-	    else if (REG_OK_FOR_INDEX_P (op1))
-	      index_op = 1;
 	    else
-	      index_op = 0;
+	      index_op = 1;
 
 	    locI = &XEXP (x, index_op);
 	    locB_reg = &XEXP (x, !index_op);

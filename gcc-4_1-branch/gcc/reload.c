@@ -5440,11 +5440,11 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	    else if (REG_OK_FOR_INDEX_P (op1)
 		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      return 0;
-	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
-	      find_reloads_address_1 (mode, orig_op0, 1, &XEXP (x, 0), opnum,
-				      type, ind_levels, insn);
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      find_reloads_address_1 (mode, orig_op1, 1, &XEXP (x, 1), opnum,
+				      type, ind_levels, insn);
+	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
+	      find_reloads_address_1 (mode, orig_op0, 1, &XEXP (x, 0), opnum,
 				      type, ind_levels, insn);
 	    else if (REG_OK_FOR_INDEX_P (op1))
 	      find_reloads_address_1 (mode, orig_op0, 2, &XEXP (x, 0), opnum,
@@ -5454,9 +5454,9 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 				      type, ind_levels, insn);
 	    else
 	      {
-		find_reloads_address_1 (mode, orig_op0, 1, &XEXP (x, 0), opnum,
+		find_reloads_address_1 (mode, orig_op0, 0, &XEXP (x, 0), opnum,
 					type, ind_levels, insn);
-		find_reloads_address_1 (mode, orig_op1, 0, &XEXP (x, 1), opnum,
+		find_reloads_address_1 (mode, orig_op1, 1, &XEXP (x, 1), opnum,
 					type, ind_levels, insn);
 	      }
 	  }
