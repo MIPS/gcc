@@ -325,38 +325,6 @@ input_record_start (struct input_block *ib)
 } 
 
 
-/* Build a tree list stopping when the tag is 0.  */
-
-static tree 
-input_tree_list (struct input_block *ib, struct data_in *data_in, struct function *fn)
-{
-  unsigned int count = input_uleb128 (ib);
-
-  tree first = NULL_TREE;
-
-  if (count)
-    {
-      tree next;
-      enum LTO_tags tag = input_record_start (ib);
-
-      /* Peel out the first iteration so we return the correct thing.  */
-      first = build_tree_list (NULL_TREE, input_expr_operand (ib, data_in, fn, tag));
-      next = first;
-      count--;
-
-      while (count--)
-	{
-	  tag = input_record_start (ib);
-	  TREE_CHAIN (next) 
-	    = build_tree_list (NULL_TREE, input_expr_operand (ib, data_in, fn, tag));
-	  next = TREE_CHAIN (next);
-	}
-    }
-
-  return first;
-}
-
-
 /* Get the label referenced by the next token in IB.  */
 
 static tree 
@@ -389,11 +357,11 @@ get_type_ref (struct data_in *data_in, struct input_block *ib)
 /* Read the tree flags for CODE from IB.  */
 
 static unsigned HOST_WIDE_INT 
-input_tree_flags (struct input_block *ib, enum tree_code code)
+input_tree_flags (struct input_block *ib, enum tree_code code, bool force)
 {
   unsigned HOST_WIDE_INT flags;
 
-  if (TEST_BIT (lto_flags_needed_for, code))
+  if (force || TEST_BIT (lto_flags_needed_for, code))
     {
       LTO_DEBUG_TOKEN ("flags");
       flags = input_uleb128 (ib);
@@ -607,7 +575,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   if (TEST_BIT (lto_types_needed_for, code))
     type = get_type_ref (data_in, ib);
 
-  flags = input_tree_flags (ib, code);
+  flags = input_tree_flags (ib, code, false);
 
   /* FIXME! need to figure out how to set the file and line number.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
@@ -642,6 +610,14 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
     case STRING_CST:
       result = input_string (data_in, input_uleb128 (ib));
       TREE_TYPE (result) = type;
+      break;
+
+    case IDENTIFIER_NODE:
+      {
+	unsigned int len;
+	const char * ptr = input_string_internal (data_in, input_uleb128 (ib), &len);
+	result = get_identifier_with_length (ptr, len);
+      }
       break;
 
     case VECTOR_CST:
@@ -923,10 +899,21 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
     case ASM_EXPR:
       {
 	tree str = input_string (data_in, input_uleb128 (ib));
-	tree ins = input_tree_list (ib, data_in, fn); 
-	tree outs = input_tree_list (ib, data_in, fn); 
-	tree clobbers = input_tree_list (ib, data_in, fn);
+	tree ins = NULL_TREE;
+	tree outs = NULL_TREE;
+	tree clobbers = NULL_TREE;
 	tree tl;
+
+	tag = input_record_start (ib);
+	if (tag)
+	  ins = input_expr_operand (ib, data_in, fn, tag); 
+	tag = input_record_start (ib);
+	if (tag)
+	  outs = input_expr_operand (ib, data_in, fn, tag); 
+	tag = input_record_start (ib);
+	if (tag)
+	  clobbers = input_expr_operand (ib, data_in, fn, tag);
+
 	result = build4 (code, void_type_node, str, outs, ins, clobbers);
 
 	for (tl = ASM_OUTPUTS (result); tl; tl = TREE_CHAIN (tl))
@@ -994,6 +981,40 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	    = input_expr_operand (ib, data_in, fn,
 				  input_record_start (ib));
 	result = build3 (code, void_type_node, op0, NULL_TREE, op2);
+      }
+      break;
+
+    case TREE_LIST:
+      {
+	unsigned int count = input_uleb128 (ib);
+
+	result = NULL_TREE;
+	while (count--)
+	  {
+	    tree value;
+	    tree purpose;
+	    tree next;
+	    tree elt;
+	    enum LTO_tags tag = input_record_start (ib);
+
+	    if (tag)
+	      value = input_expr_operand (ib, data_in, fn, tag);
+	    else 
+	      value = NULL_TREE;
+	    tag = input_record_start (ib);
+	    if (tag)
+	      purpose = input_expr_operand (ib, data_in, fn, tag);
+	    else 
+	      purpose = NULL_TREE;
+
+	    elt = build_tree_list (purpose, value);
+	    if (result)
+	      TREE_CHAIN (next) = elt;
+	    else
+	      /* Save the first one.  */
+	      result = elt;
+	    next = elt;
+	  }
       }
       break;
 
@@ -1232,7 +1253,7 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
   if (!is_var)
     DECL_ARG_TYPE (result) = get_type_ref (data_in, ib);
 
-  flags = input_tree_flags (ib, LTO_flags_needed);
+  flags = input_tree_flags (ib, 0, true);
   input_line_info (ib, data_in, flags);
   set_line_info (data_in, result);
 
@@ -1258,7 +1279,8 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
   if (variant & 0x1)
     {
       LTO_DEBUG_TOKEN ("attributes");
-      DECL_ATTRIBUTES (result) = input_tree_list (ib, data_in, fn);
+      DECL_ATTRIBUTES (result) 
+	= input_expr_operand (ib, data_in, fn, input_record_start (ib));
     }
   if (variant & 0x2)
     DECL_SIZE_UNIT (result) 
@@ -1433,7 +1455,7 @@ static tree
 input_phi (struct input_block *ib, basic_block bb, 
 	   struct data_in *data_in, struct function *fn)
 {
-  unsigned HOST_WIDE_INT flags = input_tree_flags (ib, PHI_NODE);
+  unsigned HOST_WIDE_INT flags = input_tree_flags (ib, PHI_NODE, false);
 
   tree phi_result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
   int len = EDGE_COUNT (bb->preds);
@@ -1481,7 +1503,7 @@ input_ssa_names (struct input_block *ib, struct data_in *data_in, struct functio
   init_tree_ssa (fn);
   init_ssanames (fn, size);
   i = input_uleb128 (ib);
-  
+
   while (i)
     {
       tree ssa_name;
@@ -1495,9 +1517,8 @@ input_ssa_names (struct input_block *ib, struct data_in *data_in, struct functio
       name = input_expr_operand (ib, data_in, fn, input_record_start (ib));
       ssa_name = make_ssa_name (fn, name, build_empty_stmt ());
 
-      flags = input_tree_flags (ib, LTO_flags_needed);
+      flags = input_tree_flags (ib, 0, true);
       process_tree_flags (ssa_name, flags);
-
       i = input_uleb128 (ib);
     } 
 }

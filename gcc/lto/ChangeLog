@@ -1,3 +1,15 @@
+2007-11-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (input_tree_list): Removed.
+	(input_tree_flags): Added parameter to force flags no matter what
+	tree code.
+	(input_expr_operand): Added parameter to input_tree_flags.
+	Added case for IDENTIFIER_NODE and TREE_LIST.  Changed ASM to call
+	input_expr_operand rather than input_tree_lists.
+	(input_local_var): Use input_expr_operand to read attributes
+	rather then input_tree_list.
+	(input_phi, input_ssa_names): Added parameter to input_tree_flags.
+
 2007-10-31  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_typedef_DIE): Fix comment typo.

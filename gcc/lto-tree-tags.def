@@ -73,6 +73,7 @@
   MAP_EXPR_TAG(FIXED_CST, LTO_fixed_cst)
   MAP_EXPR_TAG(FUNCTION_DECL, LTO_function_decl)
   MAP_EXPR_TAG(GIMPLE_MODIFY_STMT, LTO_gimple_modify_stmt)
+  MAP_EXPR_TAG(IDENTIFIER_NODE, LTO_identifier_node)
   MAP_EXPR_TAG(INTEGER_CST, LTO_integer_cst)
   MAP_EXPR_TAG(LABEL_DECL, LTO_label_decl)
   MAP_EXPR_TAG(LABEL_EXPR, LTO_label_expr)
@@ -85,6 +86,7 @@
   MAP_EXPR_TAG(SSA_NAME, LTO_ssa_name)
   MAP_EXPR_TAG(STRING_CST, LTO_string_cst)
   MAP_EXPR_TAG(SWITCH_EXPR, LTO_switch_expr)
+  MAP_EXPR_TAG(TREE_LIST, LTO_tree_list)
   MAP_EXPR_TAG(TYPE_DECL, LTO_type_decl)
 #endif /* TREE_SINGLE_MECHANICAL_FALSE */
 
@@ -225,6 +227,7 @@
   SET_NAME (LTO_goto_expr, "goto_expr")
   SET_NAME (LTO_gt_expr, "gt_expr")
   SET_NAME (LTO_imagpart_expr, "imagpart_expr")
+  SET_NAME (LTO_identifier_node, "identifier_node")
   SET_NAME (LTO_indirect_ref, "indirect_ref")
   SET_NAME (LTO_integer_cst, "integer_cst")
   SET_NAME (LTO_label_decl, "label_decl")
@@ -270,6 +273,7 @@
   SET_NAME (LTO_ssa_name, "ssa_name")
   SET_NAME (LTO_string_cst, "string_cst")
   SET_NAME (LTO_switch_expr, "switch_expr")
+  SET_NAME (LTO_tree_list, "tree_list")
   SET_NAME (LTO_trunc_div_expr, "trunc_div_expr")
   SET_NAME (LTO_trunc_mod_expr, "trunc_mod_expr")
   SET_NAME (LTO_truth_and_expr, "truth_and_expr")

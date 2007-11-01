@@ -1021,30 +1021,6 @@ output_type_list (struct output_block *ob, tree list)
 }
 
 
-/* Output a LIST of TAG.  Note that the list may be a NULL_TREE.  */
-
-static void
-output_tree_list (struct output_block *ob, tree list)
-{
-  tree tl;
-  int count = 0;
-  if (list)
-    {
-      gcc_assert (TREE_CODE (list) == TREE_LIST);
-      for (tl = list; tl; tl = TREE_CHAIN (tl))
-	if (TREE_VALUE (tl) != NULL_TREE)
-	  count++;
-
-      output_uleb128 (ob, count);
-      for (tl = list; tl; tl = TREE_CHAIN (tl))
-	if (TREE_VALUE (tl) != NULL_TREE)
-	  output_expr_operand (ob, TREE_VALUE (tl));
-    }
-  else
-    output_zero (ob);
-}
-
-
 /* Output an eh_cleanup region with REGION_NUMBER.  HAS_INNER is true if
    there are children of this node and HAS_PEER is true if there are
    siblings of this node.  MAY_CONTAIN_THROW and PREV_TRY are the
@@ -1275,6 +1251,16 @@ output_expr_operand (struct output_block *ob, tree expr)
       }
       break;
 
+    case IDENTIFIER_NODE:
+      {
+	output_record_start (ob, expr, expr, LTO_identifier_node);
+	output_string (ob, ob->main_stream, 
+		       IDENTIFIER_POINTER (expr),
+		       IDENTIFIER_LENGTH (expr));
+      }
+      break;
+      
+
     case VECTOR_CST:
       {
 	tree t = TREE_VECTOR_CST_ELTS (expr);
@@ -1497,10 +1483,20 @@ output_expr_operand (struct output_block *ob, tree expr)
 	output_string (ob, ob->main_stream, 
 		       TREE_STRING_POINTER (string_cst),
 		       TREE_STRING_LENGTH (string_cst));
+	if (ASM_INPUTS (expr))
+	  output_expr_operand (ob, ASM_INPUTS (expr));
+	else 
+	  output_zero (ob);
 
-	output_tree_list (ob, ASM_INPUTS (expr));
-	output_tree_list (ob, ASM_OUTPUTS (expr));
-	output_tree_list (ob, ASM_CLOBBERS (expr));
+	if (ASM_OUTPUTS (expr))
+	  output_expr_operand (ob, ASM_OUTPUTS (expr));
+	else 
+	  output_zero (ob);
+
+	if (ASM_CLOBBERS (expr))
+	  output_expr_operand (ob, ASM_CLOBBERS (expr));
+	else 
+	  output_zero (ob);
       }
       break;
 
@@ -1557,6 +1553,32 @@ output_expr_operand (struct output_block *ob, tree expr)
       }
       break;
 
+    case TREE_LIST:
+      {
+	tree tl;
+	int count = 0;
+
+	output_record_start (ob, expr, NULL, tag);
+	for (tl = expr; tl; tl = TREE_CHAIN (tl))
+	  count++;
+
+	gcc_assert (count);
+	output_uleb128 (ob, count);
+	for (tl = expr; tl; tl = TREE_CHAIN (tl))
+	  {
+	    if (TREE_VALUE (tl) != NULL_TREE)
+	      output_expr_operand (ob, TREE_VALUE (tl));
+	    else
+	      output_zero (ob);
+	    
+	    if (TREE_PURPOSE (tl))
+	      output_expr_operand (ob, TREE_PURPOSE (tl));
+	    else
+	      output_zero (ob);
+	  }
+      }
+      break;
+
       /* This is the default case. All of the cases that can be done
 	 completely mechanically are done here.  */
       {
@@ -1574,6 +1596,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 	  output_expr_operand (ob, TREE_OPERAND (expr, i));
 	break;
       }
+
       /* This is the error case, these are type codes that will either
 	 never happen or that we have not gotten around to dealing
 	 with are here.  */
@@ -1667,7 +1690,7 @@ output_local_vars (struct output_block *ob)
 			 IDENTIFIER_LENGTH (name));
 	}
       else
-	output_uleb128 (ob, 0);
+	output_zero (ob);
 
       output_type_ref (ob, TREE_TYPE (decl));
 
@@ -1681,13 +1704,13 @@ output_local_vars (struct output_block *ob)
       if (TREE_CHAIN (decl))
 	output_expr_operand (ob, TREE_CHAIN (decl));
       else
-	output_uleb128 (ob, 0);
+	output_zero (ob);
 
       LTO_DEBUG_TOKEN ("context");
       if (DECL_CONTEXT (decl))
 	output_expr_operand (ob, DECL_CONTEXT (decl));
       else 
-	output_uleb128 (ob, 0);
+	output_zero (ob);
 
       LTO_DEBUG_TOKEN ("align");
       output_uleb128 (ob, DECL_ALIGN (decl));
@@ -1698,7 +1721,7 @@ output_local_vars (struct output_block *ob)
       if (DECL_ATTRIBUTES (decl)!= NULL_TREE)
 	{
 	  LTO_DEBUG_TOKEN ("attributes");
-	  output_tree_list (ob, DECL_ATTRIBUTES (decl));
+	  output_expr_operand (ob, DECL_ATTRIBUTES (decl));
 	}
       if (DECL_SIZE_UNIT (decl) != NULL_TREE)
 	output_expr_operand (ob, DECL_SIZE_UNIT (decl));
@@ -1768,7 +1791,6 @@ output_ssa_names (struct output_block *ob, struct function *fn)
   unsigned int len = VEC_length (tree, SSANAMES (fn));
 
   ob->main_stream = ob->ssa_names_stream;
-
   output_uleb128 (ob, len);
 
   for (i = 1; i < len; i++)
@@ -1784,7 +1806,7 @@ output_ssa_names (struct output_block *ob, struct function *fn)
       output_tree_flags (ob, 0, ptr, false);
     }
 
-  output_uleb128 (ob, 0);
+  output_zero (ob);
   ob->main_stream = tmp_stream;
 }
 
@@ -2074,9 +2096,11 @@ lto_static_init (void)
   sbitmap_ones (lto_flags_needed_for);
   RESET_BIT (lto_flags_needed_for, FIELD_DECL);
   RESET_BIT (lto_flags_needed_for, FUNCTION_DECL);
+  RESET_BIT (lto_flags_needed_for, IDENTIFIER_NODE);
   RESET_BIT (lto_flags_needed_for, PARM_DECL);
   RESET_BIT (lto_flags_needed_for, SSA_NAME);
   RESET_BIT (lto_flags_needed_for, VAR_DECL);
+  RESET_BIT (lto_flags_needed_for, TREE_LIST);
   RESET_BIT (lto_flags_needed_for, TYPE_DECL);
 
   lto_types_needed_for = sbitmap_alloc (NUM_TREE_CODES);
@@ -2089,6 +2113,7 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, FIELD_DECL);
   RESET_BIT (lto_types_needed_for, FUNCTION_DECL);
   RESET_BIT (lto_types_needed_for, GIMPLE_MODIFY_STMT);
+  RESET_BIT (lto_types_needed_for, IDENTIFIER_NODE);
   RESET_BIT (lto_types_needed_for, LABEL_DECL);
   RESET_BIT (lto_types_needed_for, LABEL_EXPR);
   RESET_BIT (lto_types_needed_for, MODIFY_EXPR);
@@ -2098,6 +2123,7 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, SSA_NAME);
   RESET_BIT (lto_types_needed_for, SWITCH_EXPR);
   RESET_BIT (lto_types_needed_for, VAR_DECL);
+  RESET_BIT (lto_types_needed_for, TREE_LIST);
   RESET_BIT (lto_types_needed_for, TYPE_DECL);
 #else
   /* These forms will need types, even when the type system is fixed.  */

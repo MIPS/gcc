@@ -264,11 +264,8 @@ struct lto_header
 #define REDUNDANT_TYPE_SYSTEM 1
 
 enum LTO_tags {
-/* This allows flags to be sent for a tag even if the tag do not indicate one is needed.  */
-  LTO_flags_needed = 1,
-
 /* The 1 variant indicates that the basic block is not empty.  */
-  LTO_bb0,
+  LTO_bb0 = 1,
   LTO_bb1,
 
 /* Variant 1 is used to set region to no zero value.  */
@@ -346,6 +343,7 @@ enum LTO_tags {
   LTO_goto_expr,
   LTO_gt_expr,
   LTO_imagpart_expr,
+  LTO_identifier_node,
   LTO_indirect_ref,
   LTO_integer_cst,
   LTO_label_decl,
@@ -399,6 +397,7 @@ enum LTO_tags {
 
 /* Cases are terminated a zero.  */
   LTO_switch_expr,
+  LTO_tree_list,
   LTO_trunc_div_expr,
   LTO_trunc_mod_expr,
   LTO_truth_and_expr,
