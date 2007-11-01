@@ -454,7 +454,7 @@ tree_rest_of_compilation (tree fndecl)
 
   if (!flag_inline_trees)
     {
-      DECL_SAVED_TREE (fndecl) = NULL;
+      gimple_set_body (fndecl, NULL);
       if (DECL_STRUCT_FUNCTION (fndecl) == 0
 	  && !cgraph_node (fndecl)->origin)
 	{

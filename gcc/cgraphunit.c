@@ -715,7 +715,7 @@ verify_cgraph_node (struct cgraph_node *node)
 	      error ("edge %s->%s has no corresponding call_stmt",
 		     cgraph_node_name (e->caller),
 		     cgraph_node_name (e->callee));
-	      debug_generic_stmt (e->call_stmt);
+	      debug_gimple_stmt (e->call_stmt);
 	      error_found = true;
 	    }
 	  e->aux = 0;
@@ -898,10 +898,20 @@ cgraph_analyze_functions (void)
   while (cgraph_nodes_queue)
     {
       struct cgraph_edge *edge;
+      tree decl = cgraph_nodes_queue->decl;
 
       node = cgraph_nodes_queue;
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
       node->next_needed = NULL;
+
+      /* ??? It is possible to create extern inline function and later using
+	 weak alias attribute to kill its body. See
+	 gcc.c-torture/compile/20011119-1.c  */
+      if (!DECL_STRUCT_FUNCTION (decl))
+	{
+	  cgraph_reset_node (node);
+	  continue;
+	}
 
       gcc_assert (!node->analyzed && node->reachable);
 
@@ -1059,13 +1069,12 @@ cgraph_expand_function (struct cgraph_node *node)
     lang_hooks.callgraph.emit_associated_thunks (decl);
   tree_rest_of_compilation (decl);
 
-  /* FIXME tuples */
+  /* FIXME tuples.  Remove once RTL code is being emitted.  */
 #if 0
   /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
   gcc_assert (TREE_ASM_WRITTEN (node->decl));
 #endif
-
   current_function_decl = NULL;
   if (!cgraph_preserve_function_body_p (node->decl))
     {
@@ -1441,10 +1450,10 @@ update_call_expr (struct cgraph_node *new_version)
   struct cgraph_edge *e;
 
   gcc_assert (new_version);
+
+  /* Update the call expr on the edges to call the new version.  */
   for (e = new_version->callers; e; e = e->next_caller)
-    /* Update the call expr on the edges
-       to call the new version.  */
-    TREE_OPERAND (CALL_EXPR_FN (get_call_expr_in (e->call_stmt)), 0) = new_version->decl;
+    gimple_call_set_fn (e->call_stmt, new_version->decl);
 }
 
 

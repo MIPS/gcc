@@ -103,11 +103,12 @@ static const unsigned int GF_NO_WARNING			= 1 << 0;
    value of common flags above.
 
    Keep this list sorted.  */
-static const unsigned int GF_ASM_VOLATILE		= 1 << 1;
-static const unsigned int GF_CALL_TAILCALL		= 1 << 1;
-static const unsigned int GF_OMP_PARALLEL_COMBINED	= 1 << 1;
-static const unsigned int GF_OMP_RETURN_NOWAIT		= 1 << 1;
-static const unsigned int GF_OMP_SECTION_LAST		= 1 << 1;
+static const unsigned int GF_ASM_VOLATILE		= 1 << 0;
+static const unsigned int GF_CALL_TAILCALL		= 1 << 0;
+static const unsigned int GF_CALL_CANNOT_INLINE		= 1 << 1;
+static const unsigned int GF_OMP_PARALLEL_COMBINED	= 1 << 0;
+static const unsigned int GF_OMP_RETURN_NOWAIT		= 1 << 0;
+static const unsigned int GF_OMP_SECTION_LAST		= 1 << 0;
 
 
 /* A sequence of gimple statements.  */
@@ -1027,6 +1028,16 @@ gimple_call_lhs (const_gimple gs)
 }
 
 
+/* Return a pointer to the LHS of call statement GS.  */
+
+static inline tree *
+gimple_call_lhs_ptr (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return gimple_op_ptr (gs, 0);
+}
+
+
 /* Set LHS to be the LHS operand of call statement GS.  */
 
 static inline void
@@ -1176,6 +1187,26 @@ gimple_call_tail_p (gimple s)
 {
   GIMPLE_CHECK (s, GIMPLE_CALL);
   return (gimple_subcode (s) & GF_CALL_TAILCALL) != 0;
+}
+
+
+/* Mark GIMPLE_CALL S as being uninlinable.  */
+
+static inline void
+gimple_call_mark_uninlinable (gimple s)
+{
+  GIMPLE_CHECK (s, GIMPLE_CALL);
+  s->gsbase.subcode |= GF_CALL_CANNOT_INLINE;
+}
+
+
+/* Return true if GIMPLE_CALL S cannot be inlined.  */
+
+static inline bool
+gimple_call_cannot_inline_p (gimple s)
+{
+  GIMPLE_CHECK (s, GIMPLE_CALL);
+  return (gimple_subcode (s) & GF_CALL_CANNOT_INLINE) != 0;
 }
 
 
@@ -2628,6 +2659,11 @@ struct walk_stmt_info
   /* Additional data that the callback functions may want to carry
      through the recursion.  */
   void *info;
+
+  /* Pointer map used to mark visited tree nodes when calling
+     walk_tree on each operand.  If set to NULL, duplicate tree nodes
+     will be visited more than once.  */
+  struct pointer_set_t *pset;
 
   /* Indicates whether the operand being examined may be replaced
      with something that matches is_gimple_val (if true) or something

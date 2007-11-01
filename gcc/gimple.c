@@ -1015,9 +1015,15 @@ walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
    true, it means that the callback function has handled all the
    operands of STMT and it is no necessary to walk STMT's operands.
 
-   Otherwise, CALLBACK_OP is called on each operand of STMT.  If
-   CALLBACK_OP returns non-NULL for an operand, the remaining operands
-   are not scanned.
+   If CALLBACK_STMT is NULL or it returns false, CALLBACK_OP is called
+   on each operand of STMT via walk_tree.  Additional parameters to
+   walk_tree must be stored in WI.  For each operand OP, walk_tree is
+   called as:
+
+   	walk_tree (&OP, CALLBACK_OP, WI, WI->PSET)
+
+   If CALLBACK_OP returns non-NULL for an operand, the remaining
+   operands are not scanned.
 
    The return value is that returned by the last call to walk_tree, or
    NULL_TREE if no CALLBACK_OP is specified.  */
@@ -1053,7 +1059,8 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 
 	for (i = 1; i < gimple_num_ops (stmt); i++)
 	  {
-	    ret = walk_tree (gimple_op_ptr (stmt, 1), callback_op, wi, NULL);
+	    ret = walk_tree (gimple_op_ptr (stmt, 1), callback_op, wi,
+			     wi->pset);
 	    if (ret)
 	      return ret;
 	  }
@@ -1066,7 +1073,7 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 	    wi->is_lhs = true;
 	  }
 
-	ret = walk_tree (gimple_op_ptr (stmt, 0), callback_op, wi, NULL);
+	ret = walk_tree (gimple_op_ptr (stmt, 0), callback_op, wi, wi->pset);
 	if (ret)
 	  return ret;
 
@@ -1078,14 +1085,15 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 	break;
 
       case GIMPLE_CATCH:
-	ret = walk_tree (gimple_catch_types_ptr (stmt), callback_op, wi, NULL);
+	ret = walk_tree (gimple_catch_types_ptr (stmt), callback_op, wi,
+			 wi->pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_EH_FILTER:
 	ret = walk_tree (gimple_eh_filter_types_ptr (stmt), callback_op, wi,
-	                 NULL);
+	                 wi->pset);
 	if (ret)
 	  return ret;
 	break;
@@ -1098,54 +1106,59 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 
       case GIMPLE_OMP_CRITICAL:
 	ret = walk_tree (gimple_omp_critical_name_ptr (stmt), callback_op, wi,
-	                 NULL);
+	                 wi->pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_OMP_FOR:
-	ret = walk_tree (gimple_omp_for_clauses_ptr (stmt), callback_op, wi, 0);
+	ret = walk_tree (gimple_omp_for_clauses_ptr (stmt), callback_op, wi,
+			 wi->pset);
 	if (ret)
 	  return ret;
-	ret = walk_tree (gimple_omp_for_index_ptr (stmt), callback_op, wi, 0);
+	ret = walk_tree (gimple_omp_for_index_ptr (stmt), callback_op, wi,
+			 wi->pset);
 	if (ret)
 	  return ret;
-	ret = walk_tree (gimple_omp_for_initial_ptr (stmt), callback_op, wi, 0);
+	ret = walk_tree (gimple_omp_for_initial_ptr (stmt), callback_op, wi,
+			 wi->pset);
 	if (ret)
 	  return ret;
-	ret = walk_tree (gimple_omp_for_final_ptr (stmt), callback_op, wi, 0);
+	ret = walk_tree (gimple_omp_for_final_ptr (stmt), callback_op, wi,
+			 wi->pset);
 	if (ret)
 	  return ret;
-	ret = walk_tree (gimple_omp_for_incr_ptr (stmt), callback_op, wi, 0);
+	ret = walk_tree (gimple_omp_for_incr_ptr (stmt), callback_op, wi,
+			 wi->pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_OMP_PARALLEL:
 	ret = walk_tree (gimple_omp_parallel_clauses_ptr (stmt), callback_op,
-	                 wi, 0);
+	                 wi, wi->pset);
 	if (ret)
 	  return ret;
 	ret = walk_tree (gimple_omp_parallel_child_fn_ptr (stmt), callback_op,
-	                 wi, 0);
+	                 wi, wi->pset);
 	if (ret)
 	  return ret;
 	ret = walk_tree (gimple_omp_parallel_data_arg_ptr (stmt), callback_op,
-	                 wi, 0);
+	                 wi, wi->pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_OMP_SECTIONS:
 	ret = walk_tree (gimple_omp_sections_clauses_ptr (stmt), callback_op,
-	                 wi, 0);
+	                 wi, wi->pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_OMP_SINGLE:
 	ret = walk_tree (gimple_omp_single_clauses_ptr (stmt), callback_op, wi,
-	                 NULL);
+	                 wi->pset);
 	if (ret)
 	  return ret;
 	break;
@@ -1161,7 +1174,8 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 	if (gss == GSS_WITH_OPS || gss == GSS_WITH_MEM_OPS)
 	  for (i = 0; i < gimple_num_ops (stmt); i++)
 	    {
-	      ret = walk_tree (gimple_op_ptr (stmt, i), callback_op, wi, NULL);
+	      ret = walk_tree (gimple_op_ptr (stmt, i), callback_op, wi,
+			       wi->pset);
 	      if (ret)
 		return ret;
 	    }

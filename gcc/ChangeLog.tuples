@@ -1,3 +1,36 @@
+2007-11-01  Diego Novillo  <dnovillo@google.com>
+
+	* cgraphbuild.c (initialize_inline_failed): Re-enable.
+	(build_cgraph_edges): Adapt to use tuples.
+	(pass_build_cgraph): Re-enable.
+	(rebuild_cgraph_edges): Adapt to use tuples.
+	* cgraph.c (cgraph_release_function_body): Also NULLify the
+	gimple body.
+	(debug_cgraph_node): New.
+	(debug_cgraph): New.
+	* cgraph.h (struct cgraph_edge): Change field CALL_STMT to
+	type gimple.  Update all users.
+	* cgraphunit.c (cgraph_analyze_functions): If DECL does not
+	have a struct function entry, discard it.
+	* gimple.h (GF_CALL_CANNOT_INLINE): New.
+	(gimple_call_lhs_ptr): New.
+	(gimple_call_mark_uninlinable): New.
+	(gimple_call_cannot_inline_p): New.
+	(struct walk_stmt_info): Add field PSET.
+
+2007-11-01  Diego Novillo  <dnovillo@google.com>
+
+	* tree-optimize.c (tree_rest_of_compilation): Call
+	gimple_set_body to remove the body if not inlining.
+	* gimple.c (walk_gimple_stmt): Update documentation.
+	Pass WI->PSET to every call to walk_tree.
+
+2007-11-01  Diego Novillo  <dnovillo@google.com>
+
+	* langhooks.h (struct lang_hooks_for_callgraph): Remove third
+	argument from function pointer ANALYZE_EXPR.  Update all
+	users.
+
 2007-10-30  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.c (gimple_build_omp_return): Call

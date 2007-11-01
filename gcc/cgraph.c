@@ -256,9 +256,12 @@ edge_eq (const void *x, const void *y)
   return ((const struct cgraph_edge *) x)->call_stmt == y;
 }
 
-/* Return callgraph edge representing CALL_EXPR statement.  */
+
+/* Return the callgraph edge representing the GIMPLE_CALL statement
+   CALL_STMT.  */
+
 struct cgraph_edge *
-cgraph_edge (struct cgraph_node *node, tree call_stmt)
+cgraph_edge (struct cgraph_node *node, gimple call_stmt)
 {
   struct cgraph_edge *e, *e2;
   int n = 0;
@@ -278,6 +281,7 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
 	break;
       n++;
     }
+
   if (n > 100)
     {
       node->call_site_hash = htab_create_ggc (120, edge_hash, edge_eq, NULL);
@@ -292,13 +296,15 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
 	  *slot = e2;
 	}
     }
+
   return e;
 }
 
-/* Change call_smtt of edge E to NEW_STMT.  */
+
+/* Change field call_smt of edge E to NEW_STMT.  */
 
 void
-cgraph_set_call_stmt (struct cgraph_edge *e, tree new_stmt)
+cgraph_set_call_stmt (struct cgraph_edge *e, gimple new_stmt)
 {
   if (e->caller->call_site_hash)
     {
@@ -323,7 +329,7 @@ cgraph_set_call_stmt (struct cgraph_edge *e, tree new_stmt)
 
 struct cgraph_edge *
 cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
-		    tree call_stmt, gcov_type count, int freq, int nest)
+		    gimple call_stmt, gcov_type count, int freq, int nest)
 {
   struct cgraph_edge *edge = GGC_NEW (struct cgraph_edge);
 #ifdef ENABLE_CHECKING
@@ -333,7 +339,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
     gcc_assert (e->call_stmt != call_stmt);
 #endif
 
-  gcc_assert (get_call_expr_in (call_stmt));
+  gcc_assert (gimple_code (call_stmt) == GIMPLE_CALL);
 
   if (!DECL_SAVED_TREE (callee->decl))
     edge->inline_failed = N_("function body not available");
@@ -493,6 +499,7 @@ cgraph_release_function_body (struct cgraph_node *node)
       pop_cfun();
     }
   DECL_SAVED_TREE (node->decl) = NULL;
+  gimple_set_body (node->decl, NULL);
   DECL_STRUCT_FUNCTION (node->decl) = NULL;
   DECL_INITIAL (node->decl) = error_mark_node;
 }
@@ -657,7 +664,9 @@ cgraph_node_name (struct cgraph_node *node)
 const char * const cgraph_availability_names[] =
   {"unset", "not_available", "overwrittable", "available", "local"};
 
-/* Dump given cgraph node.  */
+
+/* Dump call graph node NODE to file F.  */
+
 void
 dump_cgraph_node (FILE *f, struct cgraph_node *node)
 {
@@ -742,7 +751,17 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   fprintf (f, "\n");
 }
 
-/* Dump the callgraph.  */
+
+/* Dump call graph node NODE to stderr.  */
+
+void
+debug_cgraph_node (struct cgraph_node *node)
+{
+  dump_cgraph_node (stderr, node);
+}
+
+
+/* Dump the callgraph to file F.  */
 
 void
 dump_cgraph (FILE *f)
@@ -754,7 +773,18 @@ dump_cgraph (FILE *f)
     dump_cgraph_node (f, node);
 }
 
+
+/* Dump the call graph to stderr.  */
+
+void
+debug_cgraph (void)
+{
+  dump_cgraph (stderr);
+}
+
+
 /* Set the DECL_ASSEMBLER_NAME and update cgraph hashtables.  */
+
 void
 change_decl_assembler_name (tree decl, tree name)
 {
@@ -804,7 +834,7 @@ cgraph_function_possibly_inlined_p (tree decl)
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
 cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
-		   tree call_stmt, gcov_type count_scale, int freq_scale,
+		   gimple call_stmt, gcov_type count_scale, int freq_scale,
 		   int loop_nest, bool update_original)
 {
   struct cgraph_edge *new;
