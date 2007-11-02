@@ -13476,7 +13476,22 @@ force_die_for_context (tree context)
 static dw_die_ref
 force_block_die (tree block)
 {
-  gcc_unreachable ();
+  tree context = block;
+
+  /* FIXME: at some point, we should really look into using
+     tree.c:decl_function_context in this function's callers to do this
+     work, since it handles C++ bits for us as well.  */
+  while (context && TREE_CODE (context) != FUNCTION_DECL)
+    {
+      if (TREE_CODE (context) == BLOCK)
+        context = BLOCK_SUPERCONTEXT (context);
+      else
+        context = get_containing_scope (context);
+    }
+
+  gcc_assert (context);
+
+  return force_decl_die (context);
 }
 
 /* Returns the DIE for decl.  A DIE will always be returned.  */

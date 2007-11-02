@@ -1,5 +1,9 @@
 2007-11-02  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* dwarf2out.c (force_block_die): Implement.  
+
+2007-11-02  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto-function-out.c (output_expr_operand): Change the
 	single-argument RETURN_EXPR case to check whether we are writing
 	out DECL_RESULT.
