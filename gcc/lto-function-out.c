@@ -1527,7 +1527,15 @@ output_expr_operand (struct output_block *ob, tree expr)
 	    /* Form return a; */
 	    output_record_start (ob, expr, expr,
 				 LTO_return_expr1);
-	    output_expr_operand (ob, t);
+            /* If the type of the argument is a type that gets returned
+               in memory, then the gimplifier would have changed the
+               argument of the RETURN_EXPR to point at DECL_RESULT of
+               the current function.  Communicate this fact to the
+               reader so we avoid reading in superfluous trees.  */
+            if (t == DECL_RESULT (current_function_decl))
+              output_zero (ob);
+            else
+              output_expr_operand (ob, t);
 	  }
       }
       break;

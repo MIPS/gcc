@@ -934,9 +934,17 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  break;
 	  
 	case LTO_return_expr1:
-	  result = build1 (code, type, 
-			   input_expr_operand (ib, data_in, fn, 
-					       input_record_start (ib)));
+          {
+            enum LTO_tags tag = input_record_start (ib);
+            tree op0;
+
+            if (tag)
+              op0 = input_expr_operand (ib, data_in, fn, tag);
+            else
+              op0 = DECL_RESULT (current_function_decl);
+
+            result = build1 (code, type, op0);
+          }
 	  break;
 	  
 	case LTO_return_expr2:

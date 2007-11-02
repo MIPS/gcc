@@ -1,3 +1,8 @@
+2007-11-02  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-read.c (input_expr_operand): Change the LTO_return_expr1
+	case to use DECL_RESULT if necessary.
+
 2007-11-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_tree_list): Removed.

@@ -1,3 +1,9 @@
+2007-11-02  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-function-out.c (output_expr_operand): Change the
+	single-argument RETURN_EXPR case to check whether we are writing
+	out DECL_RESULT.
+	
 2007-11-01  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (output_tree_list): Removed function.
