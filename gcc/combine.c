@@ -2192,23 +2192,37 @@ propagate_for_debug_subst (rtx *loc, void *data)
 }
 
 /* Replace occurrences of DEST with SRC in DEBUG_INSNs between INSN
-   and LAST.  */
+   and LAST.  If MOVE holds, debug insns must also be moved past
+   LAST.  */
 
 static void
-propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src)
+propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src, bool move)
 {
   struct rtx_subst_pair p;
+  rtx next, move_pos = move ? last : NULL_RTX;
 
   p.from = dest;
   p.to = src;
 
-  while ((insn = NEXT_INSN (insn)) != last)
-    if (DEBUG_INSN_P (insn))
-      {
-	for_each_rtx (&INSN_VAR_LOCATION_LOC (insn),
-		      propagate_for_debug_subst, &p);
-	df_insn_rescan (insn);
-      }
+  next = NEXT_INSN (insn);
+  while (next != last)
+    {
+      insn = next;
+      next = NEXT_INSN (insn);
+      if (DEBUG_INSN_P (insn))
+	{
+	  for_each_rtx (&INSN_VAR_LOCATION_LOC (insn),
+			propagate_for_debug_subst, &p);
+	  if (move_pos)
+	    {
+	      remove_insn (insn);
+	      PREV_INSN (insn) = NEXT_INSN (insn) = NULL_RTX;
+	      move_pos = emit_debug_insn_after (insn, move_pos);
+	    }
+	  else
+	    df_insn_rescan (insn);
+	}
+    }
 }
 
 /* Try to combine the insns I1 and I2 into I3.
@@ -2329,7 +2343,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       && GET_CODE (SET_DEST (PATTERN (i3))) != STRICT_LOW_PART
       && ! reg_overlap_mentioned_p (SET_SRC (PATTERN (i3)),
 				    SET_DEST (PATTERN (i3)))
-      && next_real_insn (i2) == i3)
+      && next_active_insn (i2) == i3)
     {
       rtx p2 = PATTERN (i2);
 
@@ -2362,6 +2376,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	      subst_low_luid = DF_INSN_LUID (i2);
 
 	      added_sets_2 = added_sets_1 = 0;
+	      i2src = SET_DEST (PATTERN (i3));
 	      i2dest = SET_SRC (PATTERN (i3));
 	      i2dest_killed = dead_or_set_p (i2, i2dest);
 
@@ -3618,7 +3633,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     else
       {
 	if (MAY_HAVE_DEBUG_INSNS)
-	  propagate_for_debug (i2, i3, i2dest, i2src);
+	  propagate_for_debug (i2, i3, i2dest, i2src, i3_subst_into_i2);
 	SET_INSN_DELETED (i2);
       }
 
@@ -3627,7 +3642,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	LOG_LINKS (i1) = 0;
 	REG_NOTES (i1) = 0;
 	if (MAY_HAVE_DEBUG_INSNS)
-	  propagate_for_debug (i1, i3, i1dest, i1src);
+	  propagate_for_debug (i1, i3, i1dest, i1src, false);
 	SET_INSN_DELETED (i1);
       }
 

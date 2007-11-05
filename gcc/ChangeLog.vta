@@ -1,3 +1,9 @@
+2007-11-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (propagate_for_debug): Add move argument.
+	(try_combine): Tolerate debug insns between i2 and reg-copy i3.
+	Move and adjust debug insns between them past i3-that-was-i2.
+
 2007-10-15  Alexandre Oliva  <aoliva@redhat.com>
 
 	* tree-inline.c (processing_debug_stmt_p): Renamed to...
