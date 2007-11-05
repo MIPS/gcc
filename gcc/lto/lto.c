@@ -1636,6 +1636,7 @@ lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
   int i, n;
   tree *fields_tail;
   tree *methods_tail;
+  record_layout_info rli;
 
   LTO_BEGIN_READ_ATTRS ()
     {
@@ -1741,6 +1742,7 @@ lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
   n = VEC_length (tree, children);
   fields_tail = &TYPE_FIELDS (type);
   methods_tail = &TYPE_METHODS (type);
+  rli = start_record_layout (type);
   for (i = 0; i < n; i++)
     {
       tree child = VEC_index (tree, children, i);
@@ -1811,19 +1813,16 @@ lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
 		}
 	    }
 	}
-    }
-  VEC_free (tree, heap, children);
 
-  /* We might not have any information about how big the structure is.  */
-  if (size)
-    {
-      /* The type mode isn't encoded in the DWARF spec, either, so just
-         recompute it from scratch.  */
-      compute_record_mode (type);
-      if (GET_MODE_ALIGNMENT (TYPE_MODE (type)) > align)
-        align = GET_MODE_ALIGNMENT (TYPE_MODE (type));
-      TYPE_ALIGN (type) = align;
+      if (TREE_CODE_CLASS (TREE_CODE (child)) == tcc_declaration)
+        place_field (rli, child);
     }
+
+  /* We have all the information we need about this structure.  */
+  finish_record_layout (rli, false);
+
+  VEC_free (tree, heap, children);
+  free (rli);
 
   /* Finish debugging output for this type.  */
   if (!declaration)

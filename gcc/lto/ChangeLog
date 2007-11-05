@@ -1,3 +1,9 @@
+2007-11-05  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_structure_union_class_type_DIE): Use proper record
+	layout functions to compute information about the newly constructed
+	type.
+
 2007-11-02  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-read.c (input_expr_operand): Change the LTO_return_expr1
