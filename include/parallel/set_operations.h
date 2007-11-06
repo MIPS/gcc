@@ -346,15 +346,14 @@ namespace __gnu_parallel
   template<typename InputIterator, typename OutputIterator, typename Operation>
   OutputIterator
   parallel_set_operation(InputIterator begin1, InputIterator end1,
-			 InputIterator begin2, InputIterator end2,
-			 OutputIterator result, Operation op)
+                         InputIterator begin2, InputIterator end2,
+                         OutputIterator result, Operation op)
   {
     _GLIBCXX_CALL((end1 - begin1) + (end2 - begin2))
 
     typedef std::iterator_traits<InputIterator> traits_type;
     typedef typename traits_type::difference_type difference_type;
     typedef typename std::pair<InputIterator, InputIterator> iterator_pair;
-
 
     if (begin1 == end1)
       return op.first_empty(begin2, end2, result);
@@ -364,90 +363,96 @@ namespace __gnu_parallel
 
     const difference_type size = (end1 - begin1) + (end2 - begin2);
 
+    const iterator_pair sequence[ 2 ] =
+        { std::make_pair(begin1, end1), std::make_pair(begin2, end2) } ;
+    OutputIterator return_value = result;
+    difference_type *borders;
+    iterator_pair *block_begins;
+    difference_type* lengths;
+
     thread_index_t num_threads = std::min<difference_type>(std::min(end1 - begin1, end2 - begin2), get_max_threads());
 
-    difference_type borders[num_threads + 2];
-    equally_split(size, num_threads + 1, borders);
+    #pragma omp parallel num_threads(num_threads)
+      {
+        #pragma omp single
+          {
+            num_threads = omp_get_num_threads();
 
-    const iterator_pair sequence[ 2 ] = { std::make_pair(begin1, end1), std::make_pair(begin2, end2) } ;
+            borders = new difference_type[num_threads + 2];
+            equally_split(size, num_threads + 1, borders);
+            block_begins = new iterator_pair[num_threads + 1];
+            // Very start.
+            block_begins[0] = std::make_pair(begin1, begin2);
+            lengths = new difference_type[num_threads];
+          } //single
 
-    iterator_pair block_begins[num_threads + 1];
+        thread_index_t iam = omp_get_thread_num();
 
-    // Very start.
-    block_begins[0] = std::make_pair(begin1, begin2);
-    difference_type length[num_threads];
+        // Result from multiseq_partition.
+        InputIterator offset[2];
+        const difference_type rank = borders[iam + 1];
 
-    OutputIterator return_value = result;
+        multiseq_partition(sequence, sequence + 2, rank, offset, op.comp);
 
-#pragma omp parallel num_threads(num_threads)
-    {
-      // Result from multiseq_partition.
-      InputIterator offset[2];
-      const int iam = omp_get_thread_num();
+        // allowed to read?
+        // together
+        // *(offset[ 0 ] - 1) == *offset[ 1 ]
+        if (offset[ 0 ] != begin1 && offset[ 1 ] != end2
+            && !op.comp(*(offset[ 0 ] - 1), *offset[ 1 ])
+            && !op.comp(*offset[ 1 ], *(offset[ 0 ] - 1)))
+          {
+            // Avoid split between globally equal elements: move one to
+            // front in first sequence.
+            --offset[ 0 ];
+          }
 
-      const difference_type rank = borders[iam + 1];
+        iterator_pair block_end = block_begins[ iam + 1 ] = iterator_pair(offset[ 0 ], offset[ 1 ]);
 
-      multiseq_partition(sequence, sequence + 2, rank, offset, op.comp);
+        // Make sure all threads have their block_begin result written out.
+        #pragma omp barrier
 
-      // allowed to read?
-      // together
-      // *(offset[ 0 ] - 1) == *offset[ 1 ]
-      if (offset[ 0 ] != begin1 && offset[ 1 ] != end2
-	   && !op.comp(*(offset[ 0 ] - 1), *offset[ 1 ])
-	   && !op.comp(*offset[ 1 ], *(offset[ 0 ] - 1)))
-	{
-	  // Avoid split between globally equal elements: move one to
-	  // front in first sequence.
-	  --offset[ 0 ];
-	}
+        iterator_pair block_begin = block_begins[ iam ];
 
-      iterator_pair block_end = block_begins[ iam + 1 ] = iterator_pair(offset[ 0 ], offset[ 1 ]);
+        // Begin working for the first block, while the others except
+        // the last start to count.
+        if (iam == 0)
+          {
+            // The first thread can copy already.
+            lengths[ iam ] = op.invoke(block_begin.first, block_end.first, block_begin.second, block_end.second, result) - result;
+          }
+        else
+          {
+            lengths[ iam ] = op.count(block_begin.first, block_end.first,
+                        block_begin.second, block_end.second);
+          }
 
-      // Make sure all threads have their block_begin result written out.
-#pragma omp barrier
+        // Make sure everyone wrote their lengths.
+        #pragma omp barrier
 
-      iterator_pair block_begin = block_begins[ iam ];
+        OutputIterator r = result;
 
-      // Begin working for the first block, while the others except
-      // the last start to count.
-      if (iam == 0)
-	{
-	  // The first thread can copy already.
-	  length[ iam ] = op.invoke(block_begin.first, block_end.first, block_begin.second, block_end.second, result) - result;
-	}
-      else
-	{
-	  length[ iam ] = op.count(block_begin.first, block_end.first,
-				   block_begin.second, block_end.second);
-	}
+        if (iam == 0)
+          {
+            // Do the last block.
+            for (int i = 0; i < num_threads; ++i)
+              r += lengths[i];
 
-      // Make sure everyone wrote their lengths.
-#pragma omp barrier
+            block_begin = block_begins[num_threads];
 
-      OutputIterator r = result;
+            // Return the result iterator of the last block.
+            return_value = op.invoke(block_begin.first, end1, block_begin.second, end2, r);
 
-      if (iam == 0)
-	{
-	  // Do the last block.
-	  for (int i = 0; i < num_threads; ++i)
-	    r += length[i];
+          }
+        else
+          {
+            for (int i = 0; i < iam; ++i)
+              r += lengths[ i ];
 
-	  block_begin = block_begins[num_threads];
-
-	  // Return the result iterator of the last block.
-	  return_value = op.invoke(block_begin.first, end1, block_begin.second, end2, r);
-
-	}
-      else
-	{
-	  for (int i = 0; i < iam; ++i)
-	    r += length[ i ];
-
-	  // Reset begins for copy pass.
-	  op.invoke(block_begin.first, block_end.first,
-		    block_begin.second, block_end.second, r);
-	}
-    }
+            // Reset begins for copy pass.
+            op.invoke(block_begin.first, block_end.first,
+                  block_begin.second, block_end.second, r);
+          }
+      }
     return return_value;
   }
 
@@ -455,61 +460,57 @@ namespace __gnu_parallel
   template<typename InputIterator, typename OutputIterator, typename Comparator>
   OutputIterator
   parallel_set_union(InputIterator begin1, InputIterator end1,
-		     InputIterator begin2, InputIterator end2,
-		     OutputIterator result, Comparator comp)
+                     InputIterator begin2, InputIterator end2,
+                     OutputIterator result, Comparator comp)
   {
     return parallel_set_operation(begin1, end1, begin2, end2, result,
-				  union_func< InputIterator, OutputIterator, Comparator>(comp));
+                  union_func< InputIterator, OutputIterator, Comparator>(comp));
   }
 
   template<typename InputIterator, typename OutputIterator, typename Comparator>
   OutputIterator
   parallel_set_intersection(InputIterator begin1, InputIterator end1,
-			    InputIterator begin2, InputIterator end2,
-			    OutputIterator result, Comparator comp)
+                            InputIterator begin2, InputIterator end2,
+                            OutputIterator result, Comparator comp)
   {
     return parallel_set_operation(begin1, end1, begin2, end2, result,
-				  intersection_func<InputIterator, OutputIterator, Comparator>(comp));
+                  intersection_func<InputIterator, OutputIterator, Comparator>(comp));
   }
 
 
   template<typename InputIterator, typename OutputIterator>
   OutputIterator
-  set_intersection(InputIterator begin1, InputIterator end1, InputIterator begin2, InputIterator end2, OutputIterator result)
+  set_intersection(InputIterator begin1, InputIterator end1,
+                   InputIterator begin2, InputIterator end2,
+                   OutputIterator result)
   {
     typedef std::iterator_traits<InputIterator> traits_type;
     typedef typename traits_type::value_type value_type;
 
     return set_intersection(begin1, end1, begin2, end2, result,
-			    std::less<value_type>());
+                  std::less<value_type>());
   }
 
   template<typename InputIterator, typename OutputIterator, typename Comparator>
   OutputIterator
   parallel_set_difference(InputIterator begin1, InputIterator end1,
-			  InputIterator begin2, InputIterator end2,
-			  OutputIterator result, Comparator comp)
+                          InputIterator begin2, InputIterator end2,
+                          OutputIterator result, Comparator comp)
   {
     return parallel_set_operation(begin1, end1, begin2, end2, result,
-				  difference_func<InputIterator, OutputIterator, Comparator>(comp));
+                  difference_func<InputIterator, OutputIterator, Comparator>(comp));
   }
 
   template<typename InputIterator, typename OutputIterator, typename Comparator>
   OutputIterator
-  parallel_set_symmetric_difference(InputIterator begin1, InputIterator end1, InputIterator begin2, InputIterator end2, OutputIterator result, Comparator comp)
+  parallel_set_symmetric_difference(InputIterator begin1, InputIterator end1,
+                                    InputIterator begin2, InputIterator end2,
+                                    OutputIterator result, Comparator comp)
   {
     return parallel_set_operation(begin1, end1, begin2, end2, result,
-				  symmetric_difference_func<InputIterator, OutputIterator, Comparator>(comp));
+                  symmetric_difference_func<InputIterator, OutputIterator, Comparator>(comp));
   }
 
 }
 
 #endif // _GLIBCXX_SET_ALGORITHM_
-
-
-
-
-
-
-
-
