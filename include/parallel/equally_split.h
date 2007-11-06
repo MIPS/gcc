@@ -52,17 +52,17 @@ namespace __gnu_parallel
   template<typename _DifferenceTp, typename OutputIterator>
   OutputIterator
   equally_split(_DifferenceTp n, thread_index_t num_threads, OutputIterator s)
-    {
-      typedef _DifferenceTp difference_type;
-      difference_type chunk_length = n / num_threads, num_longer_chunks = n % num_threads, start = 0;
-      for (thread_index_t i = 0; i < num_threads; ++i)
-        {
-          *s++ = start;
-          start += (i < num_longer_chunks) ? (chunk_length + 1) : chunk_length;
-        }
-      *s++ = n;
-      return s;
-    }
+  {
+    typedef _DifferenceTp difference_type;
+    difference_type chunk_length = n / num_threads, num_longer_chunks = n % num_threads, start = 0;
+    for (thread_index_t i = 0; i < num_threads; ++i)
+      {
+        *s++ = start;
+        start += (i < num_longer_chunks) ? (chunk_length + 1) : chunk_length;
+      }
+    *s++ = n;
+    return s;
+  }
 
 
   /** @brief Function to num_longer_chunks a sequence into parts of almost equal size.
@@ -76,14 +76,14 @@ namespace __gnu_parallel
   template<typename _DifferenceTp>
   _DifferenceTp
   equally_split_point(_DifferenceTp n, thread_index_t num_threads, thread_index_t thread_no)
-    {
-      typedef _DifferenceTp difference_type;
-      difference_type chunk_length = n / num_threads, num_longer_chunks = n % num_threads;
-      if(thread_no < num_longer_chunks)
-        return thread_no * (chunk_length + 1);
-      else 
-        return num_longer_chunks * (chunk_length + 1) + (thread_no - num_longer_chunks) * chunk_length;
-    }
+  {
+    typedef _DifferenceTp difference_type;
+    difference_type chunk_length = n / num_threads, num_longer_chunks = n % num_threads;
+    if(thread_no < num_longer_chunks)
+      return thread_no * (chunk_length + 1);
+    else
+      return num_longer_chunks * (chunk_length + 1) + (thread_no - num_longer_chunks) * chunk_length;
+  }
 }
 
 #endif
