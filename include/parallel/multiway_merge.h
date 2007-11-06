@@ -1348,9 +1348,9 @@ namespace __gnu_parallel
 
       bool tight = (total_length == length);
 
-      thread_index_t num_threads = static_cast<thread_index_t>(std::min(static_cast<difference_type>(get_max_threads()), total_length));
-
       std::vector<std::pair<difference_type, difference_type> >* pieces;
+
+      thread_index_t num_threads = static_cast<thread_index_t>(std::min(static_cast<difference_type>(get_max_threads()), total_length));
 
       #pragma omp parallel num_threads (num_threads)
         {

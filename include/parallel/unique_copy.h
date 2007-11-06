@@ -62,28 +62,36 @@ namespace __gnu_parallel
     typedef typename traits_type::difference_type difference_type;
 
     difference_type size = last - first;
-    int num_threads = __gnu_parallel::get_max_threads();
-    difference_type counter[num_threads + 1];
 
     if (size == 0)
       return result;
 
     // Let the first thread process two parts.
-    difference_type borders[num_threads + 2];
-    __gnu_parallel::equally_split(size, num_threads + 1, borders);
+    difference_type *counter;
+    difference_type *borders;
 
+    thread_index_t num_threads = get_max_threads();
     // First part contains at least one element.
-#pragma omp parallel num_threads(num_threads)
-    {
-      int iam = omp_get_thread_num();
+    #pragma omp parallel num_threads(num_threads)
+      {
+        #pragma omp single
+          {
+                num_threads = omp_get_num_threads();
+                borders = new difference_type[num_threads + 2];
+                equally_split(size, num_threads + 1, borders);
+                counter = new difference_type[num_threads + 1];
+          }
 
-      difference_type begin, end;
+        thread_index_t iam = omp_get_thread_num();
 
-      // Check for length without duplicates
-      // Needed for position in output
-      difference_type i = 0;
-      OutputIterator out = result;
-      if (iam == 0)
+        difference_type begin, end;
+
+        // Check for length without duplicates
+        // Needed for position in output
+        difference_type i = 0;
+        OutputIterator out = result;
+
+        if (iam == 0)
 	{
 	  begin = borders[0] + 1;	// == 1
 	  end = borders[iam + 1];
@@ -169,6 +177,8 @@ namespace __gnu_parallel
     difference_type end_output = 0;
     for (int t = 0; t < num_threads + 1; t++)
       end_output += counter[t];
+
+    delete[] borders;
 
     return result + end_output;
   }

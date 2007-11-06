@@ -162,6 +162,8 @@ namespace __gnu_parallel
 
     omp_destroy_lock(&result_lock);
 
+    delete[] splitters;
+
     // Return iterator on found element.
     return (begin1 + result);
   }
