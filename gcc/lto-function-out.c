@@ -998,7 +998,9 @@ output_record_start (struct output_block *ob, tree expr,
   if (expr)
     {
       enum tree_code code = TREE_CODE (expr);
-      if (value && TEST_BIT (lto_types_needed_for, code))
+      if (value
+	  && TEST_BIT (lto_types_needed_for, code)
+	  && TREE_TYPE (value))
 	output_type_ref (ob, TREE_TYPE (value));
       output_tree_flags (ob, code, expr, false);
     }
