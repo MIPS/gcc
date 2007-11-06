@@ -1325,182 +1325,184 @@ namespace __gnu_parallel
   template<typename RandomAccessIteratorIterator, typename RandomAccessIterator3, typename _DifferenceTp, typename Comparator>
   RandomAccessIterator3
   parallel_multiway_merge(RandomAccessIteratorIterator seqs_begin, RandomAccessIteratorIterator seqs_end, RandomAccessIterator3 target, Comparator comp, _DifferenceTp length, bool stable, bool sentinel)
-  {
-    _GLIBCXX_CALL(length)
-
-    typedef _DifferenceTp difference_type;
-    typedef typename std::iterator_traits<RandomAccessIteratorIterator>::value_type::first_type
-      RandomAccessIterator1;
-    typedef typename std::iterator_traits<RandomAccessIterator1>::value_type
-      value_type;
-
-#if _GLIBCXX_ASSERTIONS
-    for (RandomAccessIteratorIterator rii = seqs_begin; rii != seqs_end; rii++)
-      _GLIBCXX_PARALLEL_ASSERT(is_sorted((*rii).first, (*rii).second, comp));
-#endif
-
-    // k sequences.
-    int k = static_cast<int>(seqs_end - seqs_begin);
-
-    difference_type total_length = 0;
-    for (RandomAccessIteratorIterator raii = seqs_begin; raii != seqs_end; raii++)
-      total_length += LENGTH(*raii);
-
-    _GLIBCXX_CALL(total_length)
-
-    if (total_length == 0 || k == 0)
-      return target;
-
-    thread_index_t num_threads = static_cast<thread_index_t>(std::min(static_cast<difference_type>(get_max_threads()), total_length));
-
-    bool tight = (total_length == length);
-
-    // Thread t will have to merge pieces[iam][0..k - 1]
-    std::vector<std::pair<difference_type, difference_type> >* pieces = new std::vector<std::pair<difference_type, difference_type> >[num_threads];
-    for (int s = 0; s < num_threads; s++)
-      pieces[s].resize(k);
-
-    difference_type num_samples = Settings::merge_oversampling * num_threads;
-
-    if (Settings::multiway_merge_splitting == Settings::SAMPLING)
-      {
-	value_type* samples = static_cast<value_type*>(::operator new(sizeof(value_type) * k * num_samples));
-	// Sample.
-	for (int s = 0; s < k; s++)
-	  for (int i = 0; (difference_type)i < num_samples; i++)
-	    {
-	      difference_type sample_index = static_cast<difference_type>(LENGTH(seqs_begin[s]) * (double(i + 1) / (num_samples + 1)) * (double(length) / total_length));
-	      samples[s * num_samples + i] = seqs_begin[s].first[sample_index];
-	    }
-
-	if (stable)
-	  __gnu_sequential::stable_sort(samples, samples + (num_samples * k), comp);
-	else
-	  __gnu_sequential::sort(samples, samples + (num_samples * k), comp);
-
-	for (int slab = 0; slab < num_threads; slab++)
-	  // For each slab / processor.
-	  for (int seq = 0; seq < k; seq++)
-	    {
-	      // For each sequence.
-	      if (slab > 0)
-		pieces[slab][seq].first = std::upper_bound(seqs_begin[seq].first, seqs_begin[seq].second, samples[num_samples * k * slab / num_threads], comp) - seqs_begin[seq].first;
-	      else
-		{
-		  // Absolute beginning.
-		  pieces[slab][seq].first = 0;
-		}
-	      if ((slab + 1) < num_threads)
-		pieces[slab][seq].second = std::upper_bound(seqs_begin[seq].first, seqs_begin[seq].second, samples[num_samples * k * (slab + 1) / num_threads], comp) - seqs_begin[seq].first;
-	      else
-		pieces[slab][seq].second = LENGTH(seqs_begin[seq]);	//absolute ending
-	    }
-	delete[] samples;
-      }
-    else
-      {
-	// (Settings::multiway_merge_splitting == Settings::EXACT).
-	std::vector<RandomAccessIterator1>* offsets = new std::vector<RandomAccessIterator1>[num_threads];
-	std::vector<std::pair<RandomAccessIterator1, RandomAccessIterator1> > se(k);
-
-	copy(seqs_begin, seqs_end, se.begin());
-
-	difference_type* borders = static_cast<difference_type*>(__builtin_alloca(sizeof(difference_type) * (num_threads + 1)));
-	equally_split(length, num_threads, borders);
-
-	for (int s = 0; s < (num_threads - 1); s++)
-	  {
-	    offsets[s].resize(k);
-	    multiseq_partition(se.begin(), se.end(), borders[s + 1],
-			       offsets[s].begin(), comp);
-
-	    // Last one also needed and available.
-	    if (!tight)
-	      {
-		offsets[num_threads - 1].resize(k);
-		multiseq_partition(se.begin(), se.end(), 
-				   difference_type(length), 
-				   offsets[num_threads - 1].begin(),  comp);
-	      }
-	  }
-
-
-	for (int slab = 0; slab < num_threads; slab++)
-	  {
-	    // For each slab / processor.
-	    for (int seq = 0; seq < k; seq++)
-	      {
-		// For each sequence.
-		if (slab == 0)
-		  {
-		    // Absolute beginning.
-		    pieces[slab][seq].first = 0;
-		  }
-		else
-		  pieces[slab][seq].first = pieces[slab - 1][seq].second;
-		if (!tight || slab < (num_threads - 1))
-		  pieces[slab][seq].second = offsets[slab][seq] - seqs_begin[seq].first;
-		else
-		  {
-		    // slab == num_threads - 1
-		    pieces[slab][seq].second = LENGTH(seqs_begin[seq]);
-		  }
-	      }
-	  }
-	delete[] offsets;
-      }
-
-#	pragma omp parallel num_threads(num_threads)
     {
-      thread_index_t iam = omp_get_thread_num();
+      _GLIBCXX_CALL(length)
 
-      difference_type target_position = 0;
+      typedef _DifferenceTp difference_type;
+      typedef typename std::iterator_traits<RandomAccessIteratorIterator>::value_type::first_type
+        RandomAccessIterator1;
+      typedef typename std::iterator_traits<RandomAccessIterator1>::value_type
+        value_type;
 
-      for (int c = 0; c < k; c++)
-	target_position += pieces[iam][c].first;
+      // k sequences.
+      int k = static_cast<int>(seqs_end - seqs_begin);
 
-      if (k > 2)
-	{
-	  std::pair<RandomAccessIterator1, RandomAccessIterator1>* chunks = new std::pair<RandomAccessIterator1, RandomAccessIterator1>[k];
+      difference_type total_length = 0;
+      for (RandomAccessIteratorIterator raii = seqs_begin; raii != seqs_end; raii++)
+        total_length += LENGTH(*raii);
 
-	  difference_type local_length = 0;
-	  for (int s = 0; s < k; s++)
-	    {
-	      chunks[s] = std::make_pair(seqs_begin[s].first + pieces[iam][s].first, seqs_begin[s].first + pieces[iam][s].second);
-	      local_length += LENGTH(chunks[s]);
-	    }
+      _GLIBCXX_CALL(total_length)
 
-	  multiway_merge(chunks, chunks + k, target + target_position, comp,
-			 std::min(local_length, length - target_position),
-			 stable, false, sequential_tag());
+      if (total_length == 0 || k == 0)
+        return target;
 
-	  delete[] chunks;
-	}
-      else if (k == 2)
-	{
-	  RandomAccessIterator1 begin0 = seqs_begin[0].first + pieces[iam][0].first, begin1 = seqs_begin[1].first + pieces[iam][1].first;
-	  merge_advance(begin0,
-			seqs_begin[0].first + pieces[iam][0].second,
-			begin1,
-			seqs_begin[1].first + pieces[iam][1].second,
-			target + target_position,
-			(pieces[iam][0].second - pieces[iam][0].first) + (pieces[iam][1].second - pieces[iam][1].first),
-			comp);
-	}
+      bool tight = (total_length == length);
+
+      thread_index_t num_threads = static_cast<thread_index_t>(std::min(static_cast<difference_type>(get_max_threads()), total_length));
+
+      std::vector<std::pair<difference_type, difference_type> >* pieces;
+
+      #pragma omp parallel num_threads (num_threads)
+        {
+
+          #pragma omp single
+            {
+              num_threads = omp_get_num_threads();
+              // Thread t will have to merge pieces[iam][0..k - 1]
+              pieces = new std::vector<std::pair<difference_type, difference_type> >[num_threads];
+              for (int s = 0; s < num_threads; s++)
+                pieces[s].resize(k);
+
+              difference_type num_samples = Settings::merge_oversampling * num_threads;
+
+              if (Settings::multiway_merge_splitting == Settings::SAMPLING)
+                {
+                  value_type* samples = static_cast<value_type*>(::operator new(sizeof(value_type) * k * num_samples));
+                  // Sample.
+                  for (int s = 0; s < k; s++)
+                    for (int i = 0; (difference_type)i < num_samples; i++)
+                      {
+                        difference_type sample_index = static_cast<difference_type>(LENGTH(seqs_begin[s]) * (double(i + 1) / (num_samples + 1)) * (double(length) / total_length));
+                        samples[s * num_samples + i] = seqs_begin[s].first[sample_index];
+                      }
+
+                  if (stable)
+                    __gnu_sequential::stable_sort(samples, samples + (num_samples * k), comp);
+                  else
+                    __gnu_sequential::sort(samples, samples + (num_samples * k), comp);
+
+                  for (int slab = 0; slab < num_threads; slab++)
+                    // For each slab / processor.
+                    for (int seq = 0; seq < k; seq++)
+                      {
+                        // For each sequence.
+                        if (slab > 0)
+                          pieces[slab][seq].first = std::upper_bound(seqs_begin[seq].first, seqs_begin[seq].second, samples[num_samples * k * slab / num_threads], comp) - seqs_begin[seq].first;
+                        else
+                          {
+                            // Absolute beginning.
+                            pieces[slab][seq].first = 0;
+                          }
+                        if ((slab + 1) < num_threads)
+                          pieces[slab][seq].second = std::upper_bound(seqs_begin[seq].first, seqs_begin[seq].second, samples[num_samples * k * (slab + 1) / num_threads], comp) - seqs_begin[seq].first;
+                        else
+                        pieces[slab][seq].second = LENGTH(seqs_begin[seq]);	//absolute ending
+                      }
+                    delete[] samples;
+                }
+              else
+                {
+                  // (Settings::multiway_merge_splitting == Settings::EXACT).
+                  std::vector<RandomAccessIterator1>* offsets = new std::vector<RandomAccessIterator1>[num_threads];
+                  std::vector<std::pair<RandomAccessIterator1, RandomAccessIterator1> > se(k);
+
+                  copy(seqs_begin, seqs_end, se.begin());
+
+                  difference_type* borders = static_cast<difference_type*>(__builtin_alloca(sizeof(difference_type) * (num_threads + 1)));
+                  equally_split(length, num_threads, borders);
+
+                  for (int s = 0; s < (num_threads - 1); s++)
+                    {
+                      offsets[s].resize(k);
+                      multiseq_partition(se.begin(), se.end(), borders[s + 1],
+                                offsets[s].begin(), comp);
+
+                      // Last one also needed and available.
+                      if (!tight)
+                        {
+                          offsets[num_threads - 1].resize(k);
+                          multiseq_partition(se.begin(), se.end(),
+                                difference_type(length),
+                                offsets[num_threads - 1].begin(),  comp);
+                        }
+                    }
+
+
+                  for (int slab = 0; slab < num_threads; slab++)
+                    {
+                      // For each slab / processor.
+                      for (int seq = 0; seq < k; seq++)
+                        {
+                          // For each sequence.
+                          if (slab == 0)
+                            {
+                              // Absolute beginning.
+                              pieces[slab][seq].first = 0;
+                            }
+                          else
+                            pieces[slab][seq].first = pieces[slab - 1][seq].second;
+                          if (!tight || slab < (num_threads - 1))
+                            pieces[slab][seq].second = offsets[slab][seq] - seqs_begin[seq].first;
+                          else
+                            {
+                              // slab == num_threads - 1
+                              pieces[slab][seq].second = LENGTH(seqs_begin[seq]);
+                            }
+                        }
+                    }
+                  delete[] offsets;
+                }
+            } //single
+
+          thread_index_t iam = omp_get_thread_num();
+
+          difference_type target_position = 0;
+
+          for (int c = 0; c < k; c++)
+            target_position += pieces[iam][c].first;
+
+          if (k > 2)
+            {
+              std::pair<RandomAccessIterator1, RandomAccessIterator1>* chunks = new std::pair<RandomAccessIterator1, RandomAccessIterator1>[k];
+
+              difference_type local_length = 0;
+              for (int s = 0; s < k; s++)
+                {
+                  chunks[s] = std::make_pair(seqs_begin[s].first + pieces[iam][s].first, seqs_begin[s].first + pieces[iam][s].second);
+                  local_length += LENGTH(chunks[s]);
+                }
+
+              multiway_merge(chunks, chunks + k, target + target_position, comp,
+                    std::min(local_length, length - target_position),
+                    stable, false, sequential_tag());
+
+              delete[] chunks;
+            }
+          else if (k == 2)
+            {
+              RandomAccessIterator1 begin0 = seqs_begin[0].first + pieces[iam][0].first, begin1 = seqs_begin[1].first + pieces[iam][1].first;
+              merge_advance(begin0,
+                    seqs_begin[0].first + pieces[iam][0].second,
+                    begin1,
+                    seqs_begin[1].first + pieces[iam][1].second,
+                    target + target_position,
+                    (pieces[iam][0].second - pieces[iam][0].first) + (pieces[iam][1].second - pieces[iam][1].first),
+                    comp);
+            }
+        } //parallel
+
+  #if _GLIBCXX_ASSERTIONS
+      _GLIBCXX_PARALLEL_ASSERT(is_sorted(target, target + length, comp));
+  #endif
+
+      // Update ends of sequences.
+      for (int s = 0; s < k; s++)
+        seqs_begin[s].first += pieces[num_threads - 1][s].second;
+
+      delete[] pieces;
+
+      return target + length;
     }
-
-#if _GLIBCXX_ASSERTIONS
-    _GLIBCXX_PARALLEL_ASSERT(is_sorted(target, target + length, comp));
-#endif
-
-    // Update ends of sequences.
-    for (int s = 0; s < k; s++)
-      seqs_begin[s].first += pieces[num_threads - 1][s].second;
-
-    delete[] pieces;
-
-    return target + length;
-  }
 
   /** 
    *  @brief Multi-way merging front-end.
