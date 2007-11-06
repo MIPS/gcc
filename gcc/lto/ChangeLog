@@ -4,9 +4,9 @@
 	 * lto-read.c (process_flags, lto_static_init_local):
 	 read flags of VAR_DECL and FUNCTION_DECL of size>1.
 	 change global array num_flags_for_code to flags_length_for_code.
-
-
-	2007-11-05  Nathan Froyd  <froydnj@codesourcery.com>
+	 (set_line_info): Make decls work in USE_MAPPED_LOCATION mode.
+	
+2007-11-05  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_structure_union_class_type_DIE): Use proper record
 	layout functions to compute information about the newly constructed
