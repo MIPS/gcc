@@ -63,34 +63,47 @@ namespace __gnu_parallel
    *  std::count_n()).
    *  @return User-supplied functor (that may contain a part of the result).
    */
-  template<typename RandomAccessIterator, typename Op, typename Fu, typename Red, typename Result>
+  template<typename RandomAccessIterator,
+             typename Op,
+             typename Fu,
+             typename Red,
+             typename Result>
   Op
-  for_each_template_random_access_omp_loop(RandomAccessIterator begin, RandomAccessIterator end, Op o, Fu& f, Red r, Result base, Result& output, typename std::iterator_traits<RandomAccessIterator>::difference_type bound)
+  for_each_template_random_access_omp_loop(
+             RandomAccessIterator begin,
+             RandomAccessIterator end,
+             Op o, Fu& f, Red r, Result base, Result& output,
+             typename std::iterator_traits<RandomAccessIterator>::difference_type bound)
   {
-    typedef typename std::iterator_traits<RandomAccessIterator>::difference_type difference_type;
+    typedef typename std::iterator_traits<RandomAccessIterator>::difference_type
+        difference_type;
 
-    thread_index_t num_threads = (get_max_threads() < (end - begin)) ? get_max_threads() : static_cast<thread_index_t>((end - begin));
-    Result *thread_results = new Result[num_threads];
     difference_type length = end - begin;
+    thread_index_t num_threads = std::min<difference_type>(get_max_threads(), length);
+
+    Result *thread_results;
+
+    #pragma omp parallel num_threads(num_threads)
+      {
+        #pragma omp single
+          {
+            num_threads = omp_get_num_threads();
+            thread_results = new Result[num_threads];
+
+            for (thread_index_t i = 0; i < num_threads; i++)
+              thread_results[i] = Result();
+          }
+
+        thread_index_t iam = omp_get_thread_num();
+
+        #pragma omp for schedule(dynamic, Settings::workstealing_chunk_size)
+        for (difference_type pos = 0; pos < length; pos++)
+          thread_results[iam] =
+              r(thread_results[iam], f(o, begin+pos));
+      } //parallel
 
     for (thread_index_t i = 0; i < num_threads; i++)
-      {
-	thread_results[i] = r(thread_results[i], f(o, begin+i));
-      }
-
-#pragma omp parallel num_threads(num_threads)
-    {
-#pragma omp for schedule(dynamic, Settings::workstealing_chunk_size)
-      for (difference_type pos = 0; pos < length; pos++)
-	{
-	  thread_results[omp_get_thread_num()] = r(thread_results[omp_get_thread_num()], f(o, begin+pos));
-	}
-    }
-
-    for (thread_index_t i = 0; i < num_threads; i++)
-      {
-	output = r(output, thread_results[i]);
-      }
+        output = r(output, thread_results[i]);
 
     delete [] thread_results;
 
@@ -100,6 +113,7 @@ namespace __gnu_parallel
 
     return o;
   }
+
 } // end namespace
 
 #endif

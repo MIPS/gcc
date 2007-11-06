@@ -65,45 +65,47 @@ namespace __gnu_parallel
    */
   template<typename RandomAccessIterator, typename Op, typename Fu, typename Red, typename Result>
   Op
-  for_each_template_random_access_ed(RandomAccessIterator begin,
-				     RandomAccessIterator end, Op o, Fu& f,
-				     Red r, Result base, Result& output,
-				     typename std::iterator_traits<RandomAccessIterator>::difference_type bound)
+  for_each_template_random_access_ed(
+              RandomAccessIterator begin,
+              RandomAccessIterator end,
+              Op o, Fu& f, Red r, Result base, Result& output,
+              typename std::iterator_traits<RandomAccessIterator>::difference_type bound)
   {
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::difference_type difference_type;
 
     const difference_type length = end - begin;
-    const difference_type settings_threads = static_cast<difference_type>(get_max_threads());
-    const difference_type dmin = settings_threads < length ? settings_threads : length;
-    const difference_type dmax = dmin > 1 ? dmin : 1;
+    Result *thread_results;
 
-    thread_index_t num_threads = static_cast<thread_index_t>(dmax);
+    thread_index_t num_threads = std::min<difference_type>(get_max_threads(), length);
 
+    #pragma omp parallel num_threads(num_threads)
+      {
+        #pragma omp single
+          {
+            num_threads = omp_get_num_threads();
+            thread_results = new Result[num_threads];
+          }
 
-    Result *thread_results = new Result[num_threads];
+        thread_index_t iam = omp_get_thread_num();
 
-#pragma omp parallel num_threads(num_threads)
-    {
-      // Neutral element.
-      Result reduct = Result();
+        // Neutral element.
+        Result reduct = Result();
 
-      thread_index_t p = num_threads;
-      thread_index_t iam = omp_get_thread_num();
-      difference_type start = iam * length / p;
-      difference_type limit = (iam == p - 1) ? length : (iam + 1) * length / p;
+        difference_type start = equally_split_point(length, num_threads, iam),
+                        stop = equally_split_point(length, num_threads, iam + 1);
 
-      if (start < limit)
-	{
-	  reduct = f(o, begin + start);
-	  start++;
-	}
+        if (start < stop)
+          {
+            reduct = f(o, begin + start);
+            ++start;
+          }
 
-      for (; start < limit; start++)
-	reduct = r(reduct, f(o, begin + start));
+        for (; start < stop; ++start)
+          reduct = r(reduct, f(o, begin + start));
 
-      thread_results[iam] = reduct;
-    }
+        thread_results[iam] = reduct;
+      } //parallel
 
     for (thread_index_t i = 0; i < num_threads; i++)
       output = r(output, thread_results[i]);

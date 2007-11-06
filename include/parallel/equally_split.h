@@ -39,51 +39,51 @@
 
 namespace __gnu_parallel
 {
-  /** @brief Function to split a sequence into parts of almost equal size.
+  /** @brief Function to num_longer_chunks a sequence into parts of almost equal size.
    *
-   *  The resulting sequence s of length p+1 contains the splitting
+   *  The resulting sequence s of length num_threads+1 contains the splitting
    *  positions when splitting the range [0,n) into parts of almost
    *  equal size (plus minus 1).  The first entry is 0, the last one
    *  n. There may result empty parts.
    *  @param n Number of elements
-   *  @param p Number of parts
+   *  @param num_threads Number of parts
    *  @param s Splitters
-   *  @returns End of splitter sequence, i. e. @c s+p+1 */
+   *  @returns End of splitter sequence, i. e. @c s+num_threads+1 */
   template<typename _DifferenceTp, typename OutputIterator>
   OutputIterator
-  equally_split(_DifferenceTp n, thread_index_t p, OutputIterator s)
-  {
-    typedef _DifferenceTp difference_type;
-    difference_type chunk_length = n / p, split = n % p, start = 0;
-    for (int i = 0; i < p; i++)
-      {
-	*s++ = start;
-	start += (difference_type(i) < split) ? (chunk_length + 1) : chunk_length;
-      }
-    *s++ = n;
-    return s;
-  }
+  equally_split(_DifferenceTp n, thread_index_t num_threads, OutputIterator s)
+    {
+      typedef _DifferenceTp difference_type;
+      difference_type chunk_length = n / num_threads, num_longer_chunks = n % num_threads, start = 0;
+      for (thread_index_t i = 0; i < num_threads; ++i)
+        {
+          *s++ = start;
+          start += (i < num_longer_chunks) ? (chunk_length + 1) : chunk_length;
+        }
+      *s++ = n;
+      return s;
+    }
 
 
-  /** @brief Function to split a sequence into parts of almost equal size.
+  /** @brief Function to num_longer_chunks a sequence into parts of almost equal size.
    *
    *  Returns the position of the splitting point between 
    *  thread number thread_no (included) and 
    *  thread number thread_no+1 (excluded).
    *  @param n Number of elements
-   *  @param p Number of parts
+   *  @param num_threads Number of parts
    *  @returns Splitting point */
   template<typename _DifferenceTp>
   _DifferenceTp
-  equally_split(_DifferenceTp n, thread_index_t p, thread_index_t thread_no)
-  {
-    typedef _DifferenceTp difference_type;
-    difference_type chunk_length = n / p, split = n % p, start = 0;
-    if(thread_no < split)
-        return thread_no * chunk_length;
-    else 
-        return split * chunk_length + (thread_no - split) * (chunk_length + 1);
-  }
+  equally_split_point(_DifferenceTp n, thread_index_t num_threads, thread_index_t thread_no)
+    {
+      typedef _DifferenceTp difference_type;
+      difference_type chunk_length = n / num_threads, num_longer_chunks = n % num_threads;
+      if(thread_no < num_longer_chunks)
+        return thread_no * (chunk_length + 1);
+      else 
+        return num_longer_chunks * (chunk_length + 1) + (thread_no - num_longer_chunks) * chunk_length;
+    }
 }
 
 #endif
