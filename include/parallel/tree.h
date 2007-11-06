@@ -162,10 +162,11 @@ namespace __gnu_parallel
   class _Rb_tree 
   : public std::_Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>
   {
-  private:
+  public:
     /** @brief Sequential tree */
     typedef std::_Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc> base_type;
 
+  private:
     /** @brief Renaming of base node type */
     typedef typename std::_Rb_tree_node<_Val> _Rb_tree_node;
 

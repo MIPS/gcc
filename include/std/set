@@ -62,9 +62,15 @@
 
 #pragma GCC system_header
 
-#include <bits/stl_tree.h>
-#include <bits/stl_set.h>
-#include <bits/stl_multiset.h>
+#ifdef _GLIBCXX_PARALLEL
+# include <parallel/tree.h>
+# include <parallel/stl_set.h>
+# include <parallel/stl_multiset.h>
+#else
+# include <bits/stl_tree.h>
+# include <bits/stl_set.h>
+# include <bits/stl_multiset.h>
+#endif
 
 #ifdef _GLIBCXX_DEBUG
 # include <debug/set>
