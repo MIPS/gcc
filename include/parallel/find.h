@@ -100,43 +100,46 @@ namespace __gnu_parallel
     typedef typename traits_type::value_type value_type;
 
     difference_type length = end1 - begin1;
-
     difference_type result = length;
+    difference_type* borders;
 
-    const thread_index_t num_threads = get_max_threads();
     omp_lock_t result_lock;
     omp_init_lock(&result_lock);
 
-    difference_type* borders = static_cast<difference_type*>(__builtin_alloca(sizeof(difference_type) * (num_threads + 1)));
+    thread_index_t num_threads = get_max_threads();
+    #pragma omp parallel shared(result) num_threads(num_threads)
+      {
+        #pragma omp single
+          {
+            num_threads = omp_get_num_threads();
+            borders = static_cast<difference_type*>(__builtin_alloca(sizeof(difference_type) * (num_threads + 1)));
+            equally_split(length, num_threads, borders);
+          } //single
 
-    equally_split(length, num_threads, borders);
+        int iam = omp_get_thread_num();
+        difference_type pos = borders[iam], limit = borders[iam + 1];
 
-#pragma omp parallel shared(result) num_threads(num_threads)
-    {
-      int iam = omp_get_thread_num();
-      difference_type pos = borders[iam], limit = borders[iam + 1];
-
-      RandomAccessIterator1 i1 = begin1 + pos;
-      RandomAccessIterator2 i2 = begin2 + pos;
-      for (; pos < limit; pos++)
-	{
-#pragma omp flush(result)
-          // Result has been set to something lower.
-          if (result < pos)
-            break;
-
-          if (selector(i1, i2, pred))
-            {
-              omp_set_lock(&result_lock);
-              if (result > pos)
-                result = pos;
-              omp_unset_lock(&result_lock);
+        RandomAccessIterator1 i1 = begin1 + pos;
+        RandomAccessIterator2 i2 = begin2 + pos;
+        for (; pos < limit; pos++)
+          {
+            #pragma omp flush(result)
+            // Result has been set to something lower.
+            if (result < pos)
               break;
-            }
-          i1++;
-          i2++;
-        }
-    }
+
+            if (selector(i1, i2, pred))
+              {
+                omp_set_lock(&result_lock);
+                if (result > pos)
+                  result = pos;
+                omp_unset_lock(&result_lock);
+                break;
+              }
+            i1++;
+            i2++;
+          }
+      }
 
     omp_destroy_lock(&result_lock);
     return std::pair<RandomAccessIterator1, RandomAccessIterator2>(begin1 + result, begin2 + result);
@@ -171,8 +174,8 @@ namespace __gnu_parallel
   template<typename RandomAccessIterator1, typename RandomAccessIterator2, typename Pred, typename Selector>
   std::pair<RandomAccessIterator1, RandomAccessIterator2>
   find_template(RandomAccessIterator1 begin1, RandomAccessIterator1 end1,
-		RandomAccessIterator2 begin2, Pred pred, Selector selector,
-		growing_blocks_tag)
+                RandomAccessIterator2 begin2, Pred pred, Selector selector,
+                growing_blocks_tag)
   {
     _GLIBCXX_CALL(end1 - begin1)
 
@@ -194,55 +197,58 @@ namespace __gnu_parallel
     // Index of beginning of next free block (after sequential find).
     difference_type next_block_pos = sequential_search_size;
     difference_type result = length;
-    const thread_index_t num_threads = get_max_threads();
 
     omp_lock_t result_lock;
     omp_init_lock(&result_lock);
 
-#pragma omp parallel shared(result) num_threads(num_threads)
-    {
-      // Not within first k elements -> start parallel.
-      thread_index_t iam = omp_get_thread_num();
+    thread_index_t num_threads = get_max_threads();
+    #pragma omp parallel shared(result) num_threads(num_threads)
+      {
+        #pragma omp single
+          num_threads = omp_get_num_threads();
 
-      difference_type block_size = Settings::find_initial_block_size;
-      difference_type start = fetch_and_add<difference_type>(&next_block_pos, block_size);
+        // Not within first k elements -> start parallel.
+        thread_index_t iam = omp_get_thread_num();
 
-      // Get new block, update pointer to next block.
-      difference_type stop = std::min<difference_type>(length, start + block_size);
+        difference_type block_size = Settings::find_initial_block_size;
+        difference_type start = fetch_and_add<difference_type>(&next_block_pos, block_size);
 
-      std::pair<RandomAccessIterator1, RandomAccessIterator2> local_result;
+        // Get new block, update pointer to next block.
+        difference_type stop = std::min<difference_type>(length, start + block_size);
 
-      while (start < length)
-	{
-#pragma omp flush(result)
-	  // Get new value of result.
-	  if (result < start)
-	    {
-	      // No chance to find first element.
-	      break;
-	    }
+        std::pair<RandomAccessIterator1, RandomAccessIterator2> local_result;
 
-	  local_result = selector.sequential_algorithm(begin1 + start, begin1 + stop, begin2 + start, pred);
-	  if (local_result.first != (begin1 + stop))
-	    {
-              omp_set_lock(&result_lock);
-	      if ((local_result.first - begin1) < result)
-		{
-		  result = local_result.first - begin1;
+        while (start < length)
+          {
+            #pragma omp flush(result)
+            // Get new value of result.
+            if (result < start)
+              {
+                // No chance to find first element.
+                break;
+              }
 
-		  // Result cannot be in future blocks, stop algorithm.
-		  fetch_and_add<difference_type>(&next_block_pos, length);
-		}
-              omp_unset_lock(&result_lock);
-	    }
+            local_result = selector.sequential_algorithm(begin1 + start, begin1 + stop, begin2 + start, pred);
+            if (local_result.first != (begin1 + stop))
+              {
+                    omp_set_lock(&result_lock);
+                if ((local_result.first - begin1) < result)
+              {
+                result = local_result.first - begin1;
 
-	  block_size = std::min<difference_type>(block_size * Settings::find_increasing_factor, Settings::find_maximum_block_size);
+                // Result cannot be in future blocks, stop algorithm.
+                fetch_and_add<difference_type>(&next_block_pos, length);
+              }
+                    omp_unset_lock(&result_lock);
+              }
 
-	  // Get new block, update pointer to next block.
-	  start = fetch_and_add<difference_type>(&next_block_pos, block_size);
-	  stop = (length < (start + block_size)) ? length : (start + block_size);
-	}
-    }
+            block_size = std::min<difference_type>(block_size * Settings::find_increasing_factor, Settings::find_maximum_block_size);
+
+            // Get new block, update pointer to next block.
+            start = fetch_and_add<difference_type>(&next_block_pos, block_size);
+            stop = (length < (start + block_size)) ? length : (start + block_size);
+          }
+      } //parallel
 
     omp_destroy_lock(&result_lock);
 
@@ -275,8 +281,8 @@ namespace __gnu_parallel
   template<typename RandomAccessIterator1, typename RandomAccessIterator2, typename Pred, typename Selector>
   std::pair<RandomAccessIterator1, RandomAccessIterator2>
   find_template(RandomAccessIterator1 begin1, RandomAccessIterator1 end1,
-		RandomAccessIterator2 begin2, Pred pred, Selector selector,
-		constant_size_blocks_tag)
+                RandomAccessIterator2 begin2, Pred pred, Selector selector,
+                constant_size_blocks_tag)
   {
     _GLIBCXX_CALL(end1 - begin1)
     typedef std::iterator_traits<RandomAccessIterator1> traits_type;
@@ -295,54 +301,58 @@ namespace __gnu_parallel
       return find_seq_result;
 
     difference_type result = length;
-    const thread_index_t num_threads = get_max_threads();
-
     omp_lock_t result_lock;
     omp_init_lock(&result_lock);
 
     // Not within first sequential_search_size elements -> start parallel.
-#pragma omp parallel shared(result) num_threads(num_threads)
-    {
-      thread_index_t iam = omp_get_thread_num();
-      difference_type block_size = Settings::find_initial_block_size;
 
-      difference_type start, stop;
+    thread_index_t num_threads = get_max_threads();
+    #pragma omp parallel shared(result) num_threads(num_threads)
+      {
+        #pragma omp single
+          num_threads = omp_get_num_threads();
 
-      // First element of thread's current iteration.
-      difference_type iteration_start = sequential_search_size;
+        thread_index_t iam = omp_get_thread_num();
+        difference_type block_size = Settings::find_initial_block_size;
 
-      // Where to work (initialization).
-      start = iteration_start + iam * block_size;
-      stop = std::min<difference_type>(length, start + block_size);
+        difference_type start, stop;
 
-      std::pair<RandomAccessIterator1, RandomAccessIterator2> local_result;
+        // First element of thread's current iteration.
+        difference_type iteration_start = sequential_search_size;
 
-      while (start < length)
-	{
-	  // Get new value of result.
-#pragma omp flush(result)
-	  // No chance to find first element.
-	  if (result < start)
-	    break;
+        // Where to work (initialization).
+        start = iteration_start + iam * block_size;
+        stop = std::min<difference_type>(length, start + block_size);
 
-	  local_result = selector.sequential_algorithm(begin1 + start, begin1 + stop, begin2 + start, pred);
-	  if (local_result.first != (begin1 + stop))
-	    {
-	      omp_set_lock(&result_lock);
-	      if ((local_result.first - begin1) < result)
-		result = local_result.first - begin1;
-              omp_unset_lock(&result_lock);
-	      // Will not find better value in its interval.
-	      break;
-	    }
+        std::pair<RandomAccessIterator1, RandomAccessIterator2> local_result;
 
-	  iteration_start += num_threads * block_size;
+        while (start < length)
+          {
+            // Get new value of result.
+            #pragma omp flush(result)
+            // No chance to find first element.
+            if (result < start)
+              break;
 
-	  // Where to work.
-	  start = iteration_start + iam * block_size;
-	  stop = std::min<difference_type>(length, start + block_size);
-	}
-    }
+            local_result = selector.sequential_algorithm(begin1 + start, begin1 + stop,
+                                                         begin2 + start, pred);
+            if (local_result.first != (begin1 + stop))
+              {
+                omp_set_lock(&result_lock);
+                if ((local_result.first - begin1) < result)
+              result = local_result.first - begin1;
+                    omp_unset_lock(&result_lock);
+                // Will not find better value in its interval.
+                break;
+              }
+
+            iteration_start += num_threads * block_size;
+
+            // Where to work.
+            start = iteration_start + iam * block_size;
+            stop = std::min<difference_type>(length, start + block_size);
+          }
+      } //parallel
 
     omp_destroy_lock(&result_lock);
 
@@ -353,4 +363,3 @@ namespace __gnu_parallel
 } // end namespace
 
 #endif
-
