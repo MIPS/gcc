@@ -794,6 +794,8 @@ output_tree_flags (struct output_block *ob,
       { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
 #define ADD_VIS_FLAG(flag_name)  \
       { flags <<= 1; if (expr->decl_with_vis. flag_name ) flags |= 1; }
+#define ADD_VIS_FLAG_SIZE(flag_name,size)					\
+      { flags <<= size; if (expr->decl_with_vis. flag_name ) flags |= expr->decl_with_vis. flag_name; }
 #define ADD_FUNC_FLAG(flag_name) \
       { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
 #define END_EXPR_CASE(class)      break;
@@ -815,6 +817,7 @@ output_tree_flags (struct output_block *ob,
 #undef ADD_EXPR_FLAG
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
+#undef ADD_VIS_FLAG_SIZE
 #undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
@@ -831,16 +834,21 @@ output_tree_flags (struct output_block *ob,
 	    {
 	      if (EXPR_HAS_LOCATION (expr))
 		{
-		  current_file = EXPR_FILENAME (expr);
-		  current_line = EXPR_LINENO (expr);
+		  expanded_location xloc 
+		    = expand_location (EXPR_LOCATION (expr));
+
+		  current_file = xloc.file;
+		  current_line = xloc.line;
 #ifdef USE_MAPPED_LOCATION
-		/* This will blow up because i cannot find the function
-		   that i would have expected to have the name
-		   expr_col.  */ 
-		  current_col = ????
+		  current_col = xloc.column;
 #endif
 		}
 	    }
+
+	  /* We use force_loc here because we only want to put out the
+	     line number when we are writing the top level list of var
+	     and parm decls, not when we access them inside a
+	     function.  */
 	  else if (force_loc && DECL_P (expr))
 	    {
 	      expanded_location xloc 
@@ -2405,6 +2413,8 @@ lto_debug_tree_flags (struct lto_debug_context *context,
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_VIS_FLAG(flag_name)  \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define ADD_VIS_FLAG_SIZE(flag_name,size)					\
+  { if (flags >> (HOST_BITS_PER_WIDE_INT - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
 #define ADD_FUNC_FLAG(flag_name) \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define END_EXPR_CASE(class)      break;

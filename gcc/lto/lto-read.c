@@ -57,7 +57,7 @@ Boston, MA 02110-1301, USA.  */
 static enum tree_code tag_to_expr[LTO_last_tag];
 
 /* The number of flags that are defined for each tree code.  */
-static int num_flags_for_code[NUM_TREE_CODES];
+static int flags_length_for_code[NUM_TREE_CODES];
 
 struct data_in
 {
@@ -381,7 +381,7 @@ process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
   enum tree_code code = TREE_CODE (expr);
   /* Shift the flags up so that the first flag is at the top of the
      flag word.  */
-  flags <<= HOST_BITS_PER_WIDE_INT - num_flags_for_code[code];
+  flags <<= HOST_BITS_PER_WIDE_INT - flags_length_for_code[code];
 
 #define START_CLASS_SWITCH()              \
   {                                       \
@@ -409,6 +409,8 @@ process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
   { expr->decl_common. flag_name = flags >> CLEAROUT; flags <<= 1; }
 #define ADD_VIS_FLAG(flag_name)  \
   { expr->decl_with_vis. flag_name = (flags >> CLEAROUT); flags <<= 1; }
+#define ADD_VIS_FLAG_SIZE(flag_name,size)					\
+  { expr->decl_with_vis. flag_name = (flags >> (HOST_BITS_PER_WIDE_INT - size)); flags <<= size; }
 #define ADD_FUNC_FLAG(flag_name) \
   { expr->function_decl. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define END_EXPR_CASE(class)      break;
@@ -430,6 +432,7 @@ process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
 #undef ADD_EXPR_FLAG
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
+#undef ADD_VIS_FLAG_SIZE
 #undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
@@ -526,9 +529,7 @@ set_line_info (struct data_in *data_in, tree node)
   if (data_in->current_file)
     {
 #ifdef USE_MAPPED_LOCATION
-  
-
-
+      LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col);
 #else
       if (EXPR_P (node))
 	  annotate_with_file_line (node, 
@@ -1660,7 +1661,7 @@ lto_static_init_local (void)
 #undef TREE_SINGLE_MECHANICAL_TRUE
 #undef TREE_SINGLE_MECHANICAL_FALSE
 #undef SET_NAME
-  /* Initialize num_flags_for_code.  */
+  /* Initialize flags_length_for_code.  */
 
 
 #define START_CLASS_SWITCH()                  \
@@ -1669,13 +1670,13 @@ lto_static_init_local (void)
     for (code=0; code<NUM_TREE_CODES; code++) \
       {                                       \
 	/* The LTO_SOURCE_LOC_BITS leaves room for file and line number for exprs.  */ \
-        num_flags_for_code[code] = LTO_SOURCE_LOC_BITS; \
+        flags_length_for_code[code] = LTO_SOURCE_LOC_BITS; \
                                               \
         switch (TREE_CODE_CLASS (code))       \
           {
 
 #define START_CLASS_CASE(class)    case class:
-#define ADD_CLASS_FLAG(flag_name)    num_flags_for_code[code]++;
+#define ADD_CLASS_FLAG(flag_name)    flags_length_for_code[code]++;
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                    \
           default:                            \
@@ -1689,10 +1690,11 @@ lto_static_init_local (void)
         switch (code)			      \
           {
 #define START_EXPR_CASE(code)    case code:
-#define ADD_EXPR_FLAG(flag_name)    num_flags_for_code[code]++;
-#define ADD_DECL_FLAG(flag_name)    num_flags_for_code[code]++;
-#define ADD_VIS_FLAG(flag_name)     num_flags_for_code[code]++;
-#define ADD_FUNC_FLAG(flag_name)    num_flags_for_code[code]++;
+#define ADD_EXPR_FLAG(flag_name)           flags_length_for_code[code]++;
+#define ADD_DECL_FLAG(flag_name)           flags_length_for_code[code]++;
+#define ADD_VIS_FLAG(flag_name)            flags_length_for_code[code]++;
+#define ADD_VIS_FLAG_SIZE(flag_name,size)  flags_length_for_code[code] += size;
+#define ADD_FUNC_FLAG(flag_name)           flags_length_for_code[code]++;
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                     \
           default:                            \
@@ -1715,6 +1717,7 @@ lto_static_init_local (void)
 #undef ADD_EXPR_FLAG
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
+#undef ADD_VIS_FLAG_SIZE
 #undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
