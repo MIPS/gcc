@@ -1,4 +1,28 @@
-2007-11-08 Alon Dayan  <alond@il.ibm.com>
+2007-11-07  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* Make-lang.in (lto/lto.o): Depend on gt-lto-lto.h.
+	* config-lang.in (gtfiles): Add lto.h and lto.c.
+	* lto-elf.c: Include ggc.h.
+	(lto_elf_file_open): Allocate elf_file from GC memory.
+	* lto.c: Include tree-ssa-operands.h and gt-lto-lto.h
+	(lto_info_fd_init): Allocate the die_cache and unmaterialized_fndecls
+	in GC memory.
+	(lto_info_fd_close): Free unmaterialized_fndecls from GC memory.
+	(lto_file_close): Free file from GC memory.
+	(lto_cache_store_DIE): Allocate the new entry in GC memory.
+	(lto_read_member_DIE): Fix declaration.
+	(lto_read_subroutine_type_subprogram_DIE): unmaterialized_fndecls lives
+	in GC memory.
+	(current_lto_file): New variable.
+	(lto_main): Use it.
+	(DWARF2_attr, DWARF2_abbrev, lto_die_ptr, DWARF2_CompUnit,
+	lto_die_cache_entry): Move to...
+	* lto.h: ...here and add GTY markers as appropriate.  Delete forward
+	declarations accordingly.
+	(struct lto_file_struct): Declare.
+	(lto_file_vtable): Use it instead of lto_file.
+
+2007-11-06 Alon Dayan  <alond@il.ibm.com>
 	   Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	 * lto-read.c (process_flags, lto_static_init_local):

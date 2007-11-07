@@ -1,9 +1,14 @@
+2007-11-07  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* doc/gty.texi (Source Files Containing Type Information): Note
+	that headers should appear first in the gtfiles list.
+
 2007-11-06  Doug Kwan  <dougkwan@google.com>
 
         * lto-function-out.c (output_record_start): Check for presence of
         type before calling output_type_ref.
 		  
-2007-11-08  Alon Dayan <alond@il.ibm.com>
+2007-11-06  Alon Dayan <alond@il.ibm.com>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 
      	* lto-function-out.c: (output_tree_flags): Use expanded location for exprs.

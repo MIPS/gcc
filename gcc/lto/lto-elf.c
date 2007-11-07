@@ -36,6 +36,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tags.h"
 #include "tm.h"
 #include "libiberty.h"
+#include "ggc.h"
 
 /* An ELF input file.  */
 struct lto_elf_file 
@@ -294,7 +295,7 @@ lto_elf_file_open (const char *filename)
   lto_fd *fd;
 
   /* Set up.  */
-  elf_file = XNEW (lto_elf_file);
+  elf_file = GGC_NEW (lto_elf_file);
   result = (lto_file *)elf_file;
   lto_file_init (result, &lto_elf_file_vtable, filename);
   elf_file->fd = -1;

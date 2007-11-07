@@ -31,15 +31,74 @@ Boston, MA 02110-1301, USA.  */
 
 /* Forward Declarations */
 
-typedef struct lto_file lto_file;
-typedef struct DWARF2_abbrev DWARF2_abbrev;
-typedef struct DWARF2_CompUnit DWARF2_CompUnit;
+struct lto_file_struct;
 typedef struct lto_context lto_context;
 
 /* Types */
 
+/* A DWARF2 attribute.  */ 
+typedef struct DWARF2_attr_struct GTY(())
+{
+  /* The name of the attribute, e.g., DW_AT_name.  */
+  uint64_t name;
+  /* The form of the attribute, e.g., DW_FORM_data2.  */
+  uint64_t form;
+}
+DWARF2_attr;
+
+/* A DWARF2 abbreviation-table entry.  */
+typedef struct DWARF2_abbrev_struct GTY(())
+{
+  /* The tag for a DIE using this abbreviation, e.g.,
+     DW_TAG_pointer_type.  */
+  uint64_t tag;
+  /* True if the next DIE is a child of this one; false, if the next
+     DIE is a sibling of this one.  */
+  bool has_children;
+  /* The number of attributes in the ATTRIBUTES array.  */
+  size_t num_attrs;
+  /* A dynamically-sized array of attributes.  */
+  DWARF2_attr GTY((length ("%h.num_attrs"))) attrs[1];
+}
+DWARF2_abbrev;
+
+/* A DWARF2 compilation unit.  */
+typedef struct DWARF2_CompUnit_struct GTY(())
+{
+  /* Offset from start of .debug_info for this CU.  */
+  uint64_t cu_start_offset;  
+  /* Length of the CU header.  */
+  uint64_t cu_header_length;
+  /* Length of CU *including* the length field.  */
+  uint64_t cu_length;
+  /* DWARF version number of this CU.  */
+  unsigned short cu_version;
+  /* Offset of abbrevs for this CU from the start of debug_abbrev.  */
+  uint64_t cu_abbrev_offset;
+  /* Pointer size of this CU.  */
+  unsigned char cu_pointer_size;
+}
+DWARF2_CompUnit;
+
+/* A pointer to a DWARF2 DIE, as mapped into memory.  
+
+   The "lto_die" type is intentionally never defined.  This typedef
+   exists purely for type safety.  */
+typedef struct lto_die *lto_die_ptr;
+
+/* A cache entry for mapping DIEs to trees.  */
+typedef struct lto_die_cache_entry GTY(())
+{
+  /* The DIE address.  */
+  lto_die_ptr GTY((skip)) die;
+  /* The tree corresponding to this DIE.  */
+  tree val;
+  /* The address of the next sibling after the DIE.  */
+  const char *sibling;
+} lto_die_cache_entry;
+
 /* A file descriptor for reading from a particular DWARF section.  */
-typedef struct lto_fd
+typedef struct lto_fd_struct GTY(())
 {
   /* The name of this section.  */
   const char *name;
@@ -50,69 +109,74 @@ typedef struct lto_fd
   /* The next available byte.  */
   const char *cur;
   /* The lto_file with which this section is associated.  */
-  lto_file *file;
+  struct lto_file_struct * GTY((skip)) file;
   /* True if using 64-bit DWARF.  */
   bool dwarf64;
-} lto_fd;
+}
+lto_fd;
 
 /* A file descriptor for reading from a DWARF information section. */
-typedef struct lto_info_fd
+typedef struct lto_info_fd_struct GTY(())
 {
   /* The base object.  */
   lto_fd base;
   /* The number of compilation units in this section.  */
   size_t num_units;
   /* The compilation units themselves.  */
-  DWARF2_CompUnit **units;
+  DWARF2_CompUnit ** GTY((length ("%h.num_units"), skip)) units;
   /* A map from DIEs to trees.  The keys are offsets into the DWARF
      information section; the values are trees.  */
-  htab_t die_cache;
+  htab_t GTY((param_is (lto_die_cache_entry))) die_cache;
   /* A vector of FUNCTION_DECLs whose bodies have not yet been read in.  */
-  VEC (tree, heap) *unmaterialized_fndecls;
-} lto_info_fd;
+  VEC (tree, gc) *unmaterialized_fndecls;
+}
+lto_info_fd;
 
 /* A file descriptor for reading from a DWARF abbreviation section.  */
-typedef struct lto_abbrev_fd
+typedef struct lto_abbrev_fd_struct GTY(())
 {
   /* The base object.  */
   lto_fd base;
   /* The number of abbreviations in this section.  */
   size_t num_abbrevs;
   /* The abbreviations themselves.  */
-  DWARF2_abbrev **abbrevs;
-} lto_abbrev_fd;
+  DWARF2_abbrev ** GTY((length ("%h.num_abbrevs"), skip)) abbrevs;
+}
+lto_abbrev_fd;
 
 /* The virtual function table for an lto_file.  */
-typedef struct lto_file_vtable
+typedef struct lto_file_vtable_struct GTY(())
 {
   /* Return the address of the function-body data for the function
      named FN, or NULL if the data is not available.  */
-  const void *(*map_fn_body)(lto_file *file, const char *fn);
+  const void *(*map_fn_body)(struct lto_file_struct *file, const char *fn);
   /* DATA is the non-NULL address returned by a previous call to
      MAP_FN_BODY, with the same value of FN.  Release any resources
      allocated by MAP_FN_BODY.  */
-  void (*unmap_fn_body)(lto_file *file, const char *fn, const void *data);
+  void (*unmap_fn_body)(struct lto_file_struct *file, const char *fn, const void *data);
   /* Return the address of the variable-initializer data for the function
      named VAR, or NULL if the data is not available.  */
-  const void *(*map_var_init)(lto_file *file, const char *var);
+  const void *(*map_var_init)(struct lto_file_struct *file, const char *var);
   /* DATA is the non-NULL address returned by a previous call to
      MAP_VAR_INIT, with the same value of VAR.  Release any resources
      allocated by MAP_VAR_INIT.  */
-  void (*unmap_var_init)(lto_file *file, const char *var, const void *data);
-} lto_file_vtable;
+  void (*unmap_var_init)(struct lto_file_struct *file, const char *var, const void *data);
+}
+lto_file_vtable;
 
 /* An input file.  */
-struct lto_file
+typedef struct lto_file_struct GTY(())
 {
   /* Virtual functions implemented by the derived file class.  */
-  const lto_file_vtable *vtable;
+  const lto_file_vtable * GTY((skip)) vtable;
   /* The name of the file.  */
   const char *filename;
   /* The contents of the .debug_info section.  */
   lto_info_fd debug_info;
   /* The contents of the .debug_abbrev section.  */
   lto_abbrev_fd debug_abbrev;
-};
+}
+lto_file;
 
 /* A reference to a global entity (type, variable, or function).  */
 typedef struct lto_ref
