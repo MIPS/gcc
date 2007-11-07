@@ -53,12 +53,12 @@ namespace __gnu_parallel
    *  @param begin Begin iterator of input sequence to split.
    *  @param end End iterator of input sequence to split.
    *  @param pred Partition predicate, possibly including some kind of pivot.
-   *  @param max_num_threads Maximum number of threads to use for this task.
+   *  @param num_threads Maximum number of threads to use for this task.
    *  @return Number of elements not fulfilling the predicate. */
   template<typename RandomAccessIterator, typename Predicate>
-  inline typename std::iterator_traits<RandomAccessIterator>::difference_type
+  typename std::iterator_traits<RandomAccessIterator>::difference_type
   parallel_partition(RandomAccessIterator begin, RandomAccessIterator end,
-		     Predicate pred, thread_index_t max_num_threads)
+                     Predicate pred, thread_index_t num_threads)
   {
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::value_type value_type;
@@ -73,212 +73,226 @@ namespace __gnu_parallel
     _GLIBCXX_VOLATILE difference_type leftover_left, leftover_right;
     _GLIBCXX_VOLATILE difference_type leftnew, rightnew;
 
-    bool* reserved_left, * reserved_right;
-
-    reserved_left = new bool[max_num_threads];
-    reserved_right = new bool[max_num_threads];
+    bool* reserved_left = NULL, * reserved_right = NULL;
 
     difference_type chunk_size;
-    if (Settings::partition_chunk_share > 0.0)
-      chunk_size = std::max((difference_type)Settings::partition_chunk_size, (difference_type)((double)n * Settings::partition_chunk_share / (double)max_num_threads));
-    else
-      chunk_size = Settings::partition_chunk_size;
 
     omp_lock_t result_lock;
     omp_init_lock(&result_lock);
 
-    // At least good for two processors.
-    while (right - left + 1 >= 2 * max_num_threads * chunk_size)
+    //at least two chunks per thread
+    if(right - left + 1 >= 2 * num_threads * chunk_size)
+    #pragma omp parallel num_threads(num_threads)
       {
-	difference_type num_chunks = (right - left + 1) / chunk_size;
-	thread_index_t num_threads = (int)std::min((difference_type)max_num_threads, num_chunks / 2);
+        #pragma omp single
+          {
+            num_threads = omp_get_num_threads();
+            reserved_left = new bool[num_threads];
+            reserved_right = new bool[num_threads];
 
-	for (int r = 0; r < num_threads; r++)
-	  {
-	    reserved_left[r] = false;
-	    reserved_right[r] = false;
-	  }
-	leftover_left = 0;
-	leftover_right = 0;
+            if (Settings::partition_chunk_share > 0.0)
+              chunk_size = std::max<difference_type>(Settings::partition_chunk_size,
+                (double)n * Settings::partition_chunk_share / (double)num_threads);
+            else
+              chunk_size = Settings::partition_chunk_size;
+          }
 
-#pragma omp parallel num_threads(num_threads)
-	{
-	  // Private.
-	  difference_type thread_left, thread_left_border, thread_right, thread_right_border;
-	  thread_left = left + 1;
+        while (right - left + 1 >= 2 * num_threads * chunk_size)
+          {
+            #pragma omp single
+              {
+                difference_type num_chunks = (right - left + 1) / chunk_size;
 
-	  // Just to satisfy the condition below.
-	  thread_left_border = thread_left - 1;
-	  thread_right = n - 1;
-	  thread_right_border = thread_right + 1;
+                for (int r = 0; r < num_threads; r++)
+                  {
+                    reserved_left[r] = false;
+                    reserved_right[r] = false;
+                  }
+                leftover_left = 0;
+                leftover_right = 0;
+              } //implicit barrier
 
-	  bool iam_finished = false;
-	  while (!iam_finished)
-	    {
-	      if (thread_left > thread_left_border)
-		{
-                  omp_set_lock(&result_lock);
-		  if (left + (chunk_size - 1) > right)
-		    iam_finished = true;
-		  else
-		    {
-		      thread_left = left;
-		      thread_left_border = left + (chunk_size - 1);
-		      left += chunk_size;
-		    }
-                  omp_unset_lock(&result_lock);
-		}
+            // Private.
+            difference_type thread_left, thread_left_border, thread_right, thread_right_border;
+            thread_left = left + 1;
 
-	      if (thread_right < thread_right_border)
-		{
-                  omp_set_lock(&result_lock);
-		  if (left > right - (chunk_size - 1))
-		    iam_finished = true;
-		  else
-		    {
-		      thread_right = right;
-		      thread_right_border = right - (chunk_size - 1);
-		      right -= chunk_size;
-		    }
-                  omp_unset_lock(&result_lock);
-		}
+            // Just to satisfy the condition below.
+            thread_left_border = thread_left - 1;
+            thread_right = n - 1;
+            thread_right_border = thread_right + 1;
 
-	      if (iam_finished)
-		break;
+            bool iam_finished = false;
+            while (!iam_finished)
+              {
+                if (thread_left > thread_left_border)
+                  {
+                    omp_set_lock(&result_lock);
+                    if (left + (chunk_size - 1) > right)
+                      iam_finished = true;
+                    else
+                      {
+                        thread_left = left;
+                        thread_left_border = left + (chunk_size - 1);
+                        left += chunk_size;
+                      }
+                    omp_unset_lock(&result_lock);
+                  }
 
-	      // Swap as usual.
-	      while (thread_left < thread_right)
-		{
-		  while (pred(begin[thread_left]) && thread_left <= thread_left_border)
-		    thread_left++;
-		  while (!pred(begin[thread_right]) && thread_right >= thread_right_border)
-		    thread_right--;
+                if (thread_right < thread_right_border)
+                  {
+                    omp_set_lock(&result_lock);
+                    if (left > right - (chunk_size - 1))
+                      iam_finished = true;
+                    else
+                      {
+                        thread_right = right;
+                        thread_right_border = right - (chunk_size - 1);
+                        right -= chunk_size;
+                      }
+                    omp_unset_lock(&result_lock);
+                  }
 
-		  if (thread_left > thread_left_border || thread_right < thread_right_border)
-		    // Fetch new chunk(s).
-		    break;
+                if (iam_finished)
+                  break;
 
-		  std::swap(begin[thread_left], begin[thread_right]);
-		  thread_left++;
-		  thread_right--;
-		}
-	    }
+                // Swap as usual.
+                while (thread_left < thread_right)
+                  {
+                    while (pred(begin[thread_left]) && thread_left <= thread_left_border)
+                      thread_left++;
+                    while (!pred(begin[thread_right]) && thread_right >= thread_right_border)
+                      thread_right--;
 
-	  // Now swap the leftover chunks to the right places.
-	  if (thread_left <= thread_left_border)
-#pragma omp atomic
-	    leftover_left++;
-	  if (thread_right >= thread_right_border)
-#pragma omp atomic
-	    leftover_right++;
+                    if (thread_left > thread_left_border || thread_right < thread_right_border)
+                      // Fetch new chunk(s).
+                      break;
 
-#pragma omp barrier
+                    std::swap(begin[thread_left], begin[thread_right]);
+                    thread_left++;
+                    thread_right--;
+                  }
+              }
 
-#pragma omp single
-	  {
-	    leftnew = left - leftover_left * chunk_size;
-	    rightnew = right + leftover_right * chunk_size;
-	  }
+            // Now swap the leftover chunks to the right places.
+            if (thread_left <= thread_left_border)
+            #pragma omp atomic
+              leftover_left++;
+            if (thread_right >= thread_right_border)
+            #pragma omp atomic
+              leftover_right++;
 
-#pragma omp barrier
+            #pragma omp barrier
 
-	  // <=> thread_left_border + (chunk_size - 1) >= leftnew
-	  if (thread_left <= thread_left_border
-	      && thread_left_border >= leftnew)
-	    {
-	      // Chunk already in place, reserve spot.
-	      reserved_left[(left - (thread_left_border + 1)) / chunk_size] = true;
-	    }
+            #pragma omp single
+              {
+                leftnew = left - leftover_left * chunk_size;
+                rightnew = right + leftover_right * chunk_size;
+              }
 
-	  // <=> thread_right_border - (chunk_size - 1) <= rightnew
-	  if (thread_right >= thread_right_border
-	      && thread_right_border <= rightnew)
-	    {
-	      // Chunk already in place, reserve spot.
-	      reserved_right[((thread_right_border - 1) - right) / chunk_size] = true;
-	    }
+            #pragma omp barrier
 
-#pragma omp barrier
+            // <=> thread_left_border + (chunk_size - 1) >= leftnew
+            if (thread_left <= thread_left_border
+                && thread_left_border >= leftnew)
+              {
+                // Chunk already in place, reserve spot.
+                reserved_left[(left - (thread_left_border + 1)) / chunk_size] = true;
+              }
 
-	  if (thread_left <= thread_left_border && thread_left_border < leftnew)
-	    {
-	      // Find spot and swap.
-	      difference_type swapstart = -1;
-              omp_set_lock(&result_lock);
-	      for (int r = 0; r < leftover_left; r++)
+            // <=> thread_right_border - (chunk_size - 1) <= rightnew
+            if (thread_right >= thread_right_border
+                && thread_right_border <= rightnew)
+              {
+                // Chunk already in place, reserve spot.
+                reserved_right[((thread_right_border - 1) - right) / chunk_size] = true;
+              }
+
+            #pragma omp barrier
+
+            if (thread_left <= thread_left_border && thread_left_border < leftnew)
+              {
+                // Find spot and swap.
+                difference_type swapstart = -1;
+                omp_set_lock(&result_lock);
+                for (int r = 0; r < leftover_left; r++)
                   if (!reserved_left[r])
                     {
                       reserved_left[r] = true;
                       swapstart = left - (r + 1) * chunk_size;
                       break;
                     }
-              omp_unset_lock(&result_lock);
+                omp_unset_lock(&result_lock);
 
 #if _GLIBCXX_ASSERTIONS
-	      _GLIBCXX_PARALLEL_ASSERT(swapstart != -1);
+                _GLIBCXX_PARALLEL_ASSERT(swapstart != -1);
 #endif
 
-	      std::swap_ranges(begin + thread_left_border - (chunk_size - 1), begin + thread_left_border + 1, begin + swapstart);
-	    }
+                std::swap_ranges(begin + thread_left_border - (chunk_size - 1),
+                                 begin + thread_left_border + 1,
+                                 begin + swapstart);
+              }
 
-	  if (thread_right >= thread_right_border
-	      && thread_right_border > rightnew)
-	    {
-	      // Find spot and swap
-	      difference_type swapstart = -1;
-              omp_set_lock(&result_lock);
-	      for (int r = 0; r < leftover_right; r++)
-		  if (!reserved_right[r])
-		    {
-		      reserved_right[r] = true;
-		      swapstart = right + r * chunk_size + 1;
-		      break;
-		    }
-              omp_unset_lock(&result_lock);
+            if (thread_right >= thread_right_border && thread_right_border > rightnew)
+              {
+                // Find spot and swap
+                difference_type swapstart = -1;
+                omp_set_lock(&result_lock);
+                for (int r = 0; r < leftover_right; r++)
+                  if (!reserved_right[r])
+                    {
+                      reserved_right[r] = true;
+                      swapstart = right + r * chunk_size + 1;
+                      break;
+                    }
+                omp_unset_lock(&result_lock);
 
 #if _GLIBCXX_ASSERTIONS
-	      _GLIBCXX_PARALLEL_ASSERT(swapstart != -1);
+                _GLIBCXX_PARALLEL_ASSERT(swapstart != -1);
 #endif
 
-	      std::swap_ranges(begin + thread_right_border, begin + thread_right_border + chunk_size, begin + swapstart);
-	    }
+                std::swap_ranges(begin + thread_right_border,
+                                begin + thread_right_border + chunk_size,
+                                begin + swapstart);
+              }
 #if _GLIBCXX_ASSERTIONS
-#pragma omp barrier
+              #pragma omp barrier
 
-#pragma omp single
-	  {
-	    for (int r = 0; r < leftover_left; r++)
-	      _GLIBCXX_PARALLEL_ASSERT(reserved_left[r]);
-	    for (int r = 0; r < leftover_right; r++)
-	      _GLIBCXX_PARALLEL_ASSERT(reserved_right[r]);
-	  }
+              #pragma omp single
+                {
+                  for (int r = 0; r < leftover_left; r++)
+                    _GLIBCXX_PARALLEL_ASSERT(reserved_left[r]);
+                  for (int r = 0; r < leftover_right; r++)
+                    _GLIBCXX_PARALLEL_ASSERT(reserved_right[r]);
+                }
 
-#pragma omp barrier
+              #pragma omp barrier
 #endif
 
-#pragma omp barrier
-	  left = leftnew;
-	  right = rightnew;
-	}
-      }	// end "recursion"
+              #pragma omp barrier
+
+              left = leftnew;
+              right = rightnew;
+          }
+          #pragma omp flush(left, right)
+      } // end "recursion" //parallel
 
     difference_type final_left = left, final_right = right;
 
     while (final_left < final_right)
       {
-	// Go right until key is geq than pivot.
-	while (pred(begin[final_left]) && final_left < final_right)
-	  final_left++;
+        // Go right until key is geq than pivot.
+        while (pred(begin[final_left]) && final_left < final_right)
+          final_left++;
 
-	// Go left until key is less than pivot.
-	while (!pred(begin[final_right]) && final_left < final_right)
-	  final_right--;
+        // Go left until key is less than pivot.
+        while (!pred(begin[final_right]) && final_left < final_right)
+          final_right--;
 
-	if (final_left == final_right)
-	  break;
-	std::swap(begin[final_left], begin[final_right]);
-	final_left++;
-	final_right--;
+        if (final_left == final_right)
+          break;
+        std::swap(begin[final_left], begin[final_right]);
+        final_left++;
+        final_right--;
       }
 
     // All elements on the left side are < piv, all elements on the
