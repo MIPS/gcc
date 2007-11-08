@@ -1,5 +1,13 @@
 2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cse.c (count_reg_usage): Not in debug insns.
+	(is_dead_reg): New.
+	(set_live_p): Use it.
+	(insn_live_p): Delete references to trivially dead registers
+	in debug insns.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-vectorizer.c (vect_is_simple_reduction): Disregard uses
 	in debug insns.
 
