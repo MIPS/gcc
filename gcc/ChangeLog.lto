@@ -1,3 +1,7 @@
+2007-11-08  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* gengtype.c (main): Add uint64_t as a typedef.
+
 2007-11-07  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* doc/gty.texi (Source Files Containing Type Information): Note
