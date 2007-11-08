@@ -1,3 +1,11 @@
+2007-11-08  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_subroutine_type_subprogram_DIE): Handle
+	DW_AT_decl_line.
+	* lto-symtab.c (lto_symtab_merge_decl): Handle redefinition of a
+	builtin specially.  Move check for attribute compatibility
+	earlier.
+
 2007-11-07  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* Make-lang.in (lto/lto.o): Depend on gt-lto-lto.h.

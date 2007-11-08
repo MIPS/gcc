@@ -1,5 +1,11 @@
 2007-11-08  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* c-decl.c (match_builtin_function_types): Move this...
+	* tree.c (match_builtin_function_types): ...here.
+	* tree.h (match_builtin_function_types): Declare it.
+
+2007-11-08  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* gengtype.c (main): Add uint64_t as a typedef.
 
 2007-11-07  Nathan Froyd  <froydnj@codesourcery.com>

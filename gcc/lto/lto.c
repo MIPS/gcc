@@ -2390,6 +2390,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   tree saved_scope;
   int inlined = DW_INL_not_inlined;
   tree abstract_origin = NULL_TREE;
+  int line;
 
   gcc_assert (abbrev->tag == DW_TAG_subroutine_type
 	      || abbrev->tag == DW_TAG_subprogram);
@@ -2421,7 +2422,6 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	{
 	case DW_AT_decl_column:
 	case DW_AT_decl_file:
-	case DW_AT_decl_line:
 	  /* Ignore.  */
 	  break;
 
@@ -2431,6 +2431,10 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	case DW_AT_frame_base:
 	  /* Ignore.  */
 	  break;
+
+        case DW_AT_decl_line:
+          line = attribute_value_as_int (&attr_data);
+          break;
 
         case DW_AT_declaration:
           declaration = attr_data.u.flag;
@@ -2545,6 +2549,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       DECL_RESULT (result)
 	= build_decl (RESULT_DECL, NULL_TREE,
 		      TYPE_MAIN_VARIANT (ret_type));
+      DECL_SOURCE_LINE (result) = line;
 
       /* If the function has already been declared, merge the
 	 declarations.  */

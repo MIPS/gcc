@@ -288,6 +288,15 @@ lto_symtab_merge_decl (tree new_decl)
       if (TREE_CODE (new_decl) == VAR_DECL)
 	merged_type = lto_merge_types (TREE_TYPE (old_decl),
 				       TREE_TYPE (new_decl));
+      else if (TREE_CODE (new_decl) == FUNCTION_DECL
+               && (DECL_IS_BUILTIN (old_decl) || DECL_IS_BUILTIN (new_decl)))
+        {
+          tree candidate = match_builtin_function_types (TREE_TYPE (new_decl),
+                                                         TREE_TYPE (old_decl));
+          merged_type =
+            lto_same_type_p (candidate, TREE_TYPE (new_decl)) ? candidate : NULL_TREE;
+        }
+
       if (!merged_type)
 	{
 	  error ("type of %qD does not match original declaration",
@@ -322,23 +331,28 @@ lto_symtab_merge_decl (tree new_decl)
 	     new_decl);
       return error_mark_node;
     }
-  /* FIXME: DWARF doesn't include a "weak" attribute, so where is that
-     info supposed to come from?  */
-  if (!DECL_EXTERNAL (old_decl) && !DECL_EXTERNAL (new_decl)
-      && !DECL_WEAK (old_decl) && !DECL_WEAK (new_decl)
-      && !(TREE_CODE (new_decl) == FUNCTION_DECL
-	   && DECL_DECLARED_INLINE_P (old_decl)
-	   && DECL_DECLARED_INLINE_P (new_decl)))
-    {
-      error ("%qD has already been defined", new_decl);
-      return error_mark_node;
-    }
   if (!lto_compatible_attributes_p (old_decl,
 				    DECL_ATTRIBUTES (old_decl),
 				    DECL_ATTRIBUTES (new_decl)))
     {
       error ("attributes applied to %qD are incompatible with original "
 	     "declaration", new_decl);
+      return error_mark_node;
+    }
+  /* FIXME: DWARF doesn't include a "weak" attribute, so where is that
+     info supposed to come from?  */
+  if (!DECL_EXTERNAL (old_decl) && !DECL_EXTERNAL (new_decl)
+      && !DECL_WEAK (old_decl) && !DECL_WEAK (new_decl)
+      && !(TREE_CODE (new_decl) == FUNCTION_DECL
+	   && DECL_DECLARED_INLINE_P (old_decl)
+	   && DECL_DECLARED_INLINE_P (new_decl))
+      /* If we have gotten this far, then we are redeclaring a builtin
+         function and we have found the new declaration consistent with
+         the old.  Don't complain.  */
+      && !DECL_IS_BUILTIN (old_decl)
+      && !DECL_IS_BUILTIN (new_decl))
+    {
+      error ("%qD has already been defined", new_decl);
       return error_mark_node;
     }
   /* We do not require matches for:
