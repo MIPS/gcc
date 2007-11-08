@@ -2531,7 +2531,8 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 	  if (advance != 0)
 	    break;
 
-	  first_cycle_insn_p = 0;
+	  if (!DEBUG_INSN_P (insn))
+	    first_cycle_insn_p = 0;
 
 	  /* Sort the ready list based on priority.  This must be
 	     redone here, as schedule_insn may have readied additional
