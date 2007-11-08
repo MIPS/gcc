@@ -181,6 +181,8 @@ static const struct resword reswords[] =
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
 
+static void create_hunk_binding_map (void);
+
 /* Initialization routine for this file.  */
 
 void
@@ -209,6 +211,8 @@ c_parse_init (void)
       C_IS_RESERVED_WORD (id) = 1;
       ridpointers [(int) reswords[i].rid] = id;
     }
+
+  create_hunk_binding_map ();
 }
 
 /* The C lexer intermediates between the lexer in cpplib and c-lex.c
@@ -8872,9 +8876,6 @@ c_parse_file (void)
 					    htab_eq_pointer, NULL);
   the_parser->smash_map = htab_create_ggc (20, hash_smash_entry, eq_smash_entry,
 					   NULL);
-
-  /* FIXME: should be in ordinary module initialization.  */
-  create_hunk_binding_map ();
 
   c_parser_lex_all (the_parser);
   c_parser_translation_unit (the_parser);
