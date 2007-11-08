@@ -2189,7 +2189,7 @@ finalize (void)
       server_asm_out_file = NULL;
     }
 
-  if (job->as_process)
+  if (job && job->as_process)
     {
       int result;
       wait_for_as (job->as_process, &result);
