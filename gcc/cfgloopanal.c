@@ -173,7 +173,7 @@ num_loop_insns (const struct loop *loop)
       bb = bbs[i];
       ninsns++;
       for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
-	if (INSN_P (insn))
+	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	  ninsns++;
     }
   free(bbs);
@@ -197,7 +197,7 @@ average_num_loop_insns (const struct loop *loop)
 
       binsns = 1;
       for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
-	if (INSN_P (insn))
+	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	  binsns++;
 
       ratio = loop->header->frequency == 0

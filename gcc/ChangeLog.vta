@@ -1,5 +1,10 @@
 2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgloopanal.c (num_loop_insns): Don't count debug insn.
+	(average_num_loop_insns): Likewise.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-into-ssa.c (maybe_replace_use_in_debug_insn): New.
 	(rewrite_update_stmt): Never introduce uses of a default
 	definition in a debug stmt.
