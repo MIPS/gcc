@@ -1,5 +1,11 @@
 2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-into-ssa.c (maybe_replace_use_in_debug_insn): New.
+	(rewrite_update_stmt): Never introduce uses of a default
+	definition in a debug stmt.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
 	* fwprop.c (forward_propagate_and_simplify): Update the debug
 	insn ref only, not the entire location expression.
 

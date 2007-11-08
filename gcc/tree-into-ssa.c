@@ -2079,6 +2079,30 @@ maybe_replace_use (use_operand_p use_p)
 }
 
 
+/* Same as maybe_replace_use, but without introducing default stmts,
+   returning false to indicate a need to do so.  */
+
+static inline bool
+maybe_replace_use_in_debug_insn (use_operand_p use_p)
+{
+  tree rdef = NULL_TREE;
+  tree use = USE_FROM_PTR (use_p);
+  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
+
+  if (symbol_marked_for_renaming (sym))
+    rdef = get_current_def (sym);
+  else if (is_old_name (use))
+    rdef = get_current_def (use);
+  else
+    return true;
+
+  if (rdef && rdef != use)
+    SET_USE (use_p, rdef);
+
+  return rdef != NULL_TREE;
+}
+
+
 /* If the operand pointed to by DEF_P is an SSA name in NEW_SSA_NAMES
    or OLD_SSA_NAMES, or if it is a symbol marked for renaming,
    register it as the current definition for the names replaced by
@@ -2153,7 +2177,7 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
   /* Rewrite USES included in OLD_SSA_NAMES and USES whose underlying
      symbol is marked for renaming.  */
-  if (REWRITE_THIS_STMT (stmt))
+  if (REWRITE_THIS_STMT (stmt) && !IS_DEBUG_STMT (stmt))
     {
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	maybe_replace_use (use_p);
@@ -2161,6 +2185,43 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       if (need_to_update_vops_p)
 	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
 	  maybe_replace_use (use_p);
+    }
+  else if (REWRITE_THIS_STMT (stmt) && IS_DEBUG_STMT (stmt))
+    {
+      bool failed = false;
+
+      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
+	if (!maybe_replace_use_in_debug_insn (use_p))
+	  {
+	    failed = true;
+	    break;
+	  }
+
+      if (!failed && need_to_update_vops_p)
+	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
+	  if (!maybe_replace_use_in_debug_insn (use_p))
+	    {
+	      failed = true;
+	      break;
+	    }
+
+      if (failed)
+	{
+	  /* DOM sometimes threads jumps in such a way that a debug
+	     stmt ends up referencing a SSA variable that no longer
+	     dominates the debug stmt, but such that all incoming
+	     definitions refer to the same definition in an earlier
+	     dominator.  We could try to recover that definition
+	     somehow, but this will have to do for now.
+
+	     Introducing a default definition, which is what
+	     maybe_replace_use() would do in such cases, may modify
+	     code generation, for the otherwise-unused default
+	     definition would never go away, modifying SSA version
+	     numbers all over.  */
+	  VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
+	  update_stmt (stmt);
+	}
     }
 
   /* Register definitions of names in NEW_SSA_NAMES and OLD_SSA_NAMES.
