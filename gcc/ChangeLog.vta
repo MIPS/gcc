@@ -1,5 +1,10 @@
 2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
 
+	* regrename.c (build_def_use): Don't mark uses in debug insns
+	as chain terminators.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgloopanal.c (num_loop_insns): Don't count debug insn.
 	(average_num_loop_insns): Likewise.
 

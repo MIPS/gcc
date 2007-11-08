@@ -258,6 +258,7 @@ regrename_optimize (void)
 	  n_uses = 0;
 	  for (last = this; last->next_use; last = last->next_use)
 	    {
+	      /* ??? Do we need to discount debug insns here?  */
 	      n_uses++;
 	      IOR_COMPL_HARD_REG_SET (this_unavailable,
 				      reg_class_contents[last->cl]);
@@ -809,7 +810,8 @@ build_def_use (basic_block bb)
 	      *recog_data.dup_loc[i] = cc0_rtx;
 	    }
 
-	  scan_rtx (insn, &PATTERN (insn), NO_REGS, terminate_all_read,
+	  scan_rtx (insn, &PATTERN (insn), NO_REGS,
+		    DEBUG_INSN_P (insn) ? mark_access : terminate_all_read,
 		    OP_IN, 0);
 
 	  for (i = 0; i < recog_data.n_dups; i++)
