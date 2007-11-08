@@ -653,8 +653,8 @@ init_optimization_passes (void)
       /* FIXME tuples.  */
 #if 0
       NEXT_PASS (pass_store_ccp);
+      NEXT_PASS (pass_copy_prop);
 #endif
-      NEXT_PASS (pass_store_copy_prop);
       /* FIXME tuples.  */
 #if 0
       NEXT_PASS (pass_fold_builtins);

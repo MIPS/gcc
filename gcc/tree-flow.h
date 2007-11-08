@@ -308,18 +308,7 @@ enum noalias_state {
 };
 
 
-struct subvar;
-typedef struct subvar *subvar_t;
-
-/* This structure represents a fake sub-variable for a structure field.  */
-struct subvar GTY(())
-{
-  /* Fake variable.  */
-  tree var;
-
-  /* Next subvar for this structure.  */
-  subvar_t next;
-};
+typedef VEC(tree,gc) *subvar_t;
 
 struct var_ann_d GTY(())
 {
@@ -384,9 +373,9 @@ struct var_ann_d GTY(())
      current version of this variable (an SSA_NAME).  */
   tree current_def;
 
-  /* If this variable is a structure, this fields holds a list of
-     symbols representing each of the fields of the structure.  */
-  subvar_t subvars;
+  /* If this variable is a structure, this fields holds an array
+     of symbols representing each of the fields of the structure.  */
+  VEC(tree,gc) *subvars;
 
   /* Mask of values saying the reasons why this variable has escaped
      the function.  */
@@ -1144,17 +1133,30 @@ rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
 
-/* This structure is simply used during pushing fields onto the fieldstack
-   to track the offset of the field, since bitpos_of_field gives it relative
-   to its immediate containing type, and we want it relative to the ultimate
-   containing object.  */
+/* This structure is used during pushing fields onto the fieldstack
+   to track the offset of the field, since bitpos_of_field gives it
+   relative to its immediate containing type, and we want it relative
+   to the ultimate containing object.  */
 
 struct fieldoff
 {
+  /* Type of the field.  */
   tree type;
+
+  /* Size, in bits, of the field.  */
   tree size;
+
+  /* Field.  */
   tree decl;
+
+  /* True if this field is inside a structure nested inside the base
+     containing object.  */
+  unsigned int in_nested_struct : 1;
+
+  /* Offset from the base of the base containing object to this field.  */
   HOST_WIDE_INT offset;  
+
+  /* Alias set for the field.  */
   alias_set_type alias_set;
 };
 typedef struct fieldoff fieldoff_s;

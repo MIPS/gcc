@@ -2403,6 +2403,8 @@ is_gimple_omp (const_gimple stmt)
 	  || gimple_code (stmt) == GIMPLE_OMP_ORDERED
 	  || gimple_code (stmt) == GIMPLE_OMP_CRITICAL
 	  || gimple_code (stmt) == GIMPLE_OMP_RETURN
+	  /* FIXME tuples: || gimple_code (stmt) == OMP_ATOMIC_LOAD */
+	  /* FIXME tuples: || gimple_code (stmt) == OMP_ATOMIC_STORE */
 	  || gimple_code (stmt) == GIMPLE_OMP_CONTINUE);
 }
 

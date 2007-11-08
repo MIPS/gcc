@@ -544,6 +544,13 @@ make_edges (void)
 #endif
 	      break;
 
+
+            case OMP_ATOMIC_LOAD:
+            case OMP_ATOMIC_STORE:
+               fallthru = true;
+               break;
+
+
 	    case OMP_RETURN:
 	      /* FIXME tuples.  */
 #if 0

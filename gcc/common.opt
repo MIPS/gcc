@@ -1058,8 +1058,8 @@ Common Report Var(flag_tree_copy_prop) Optimization
 Enable copy propagation on trees
 
 ftree-store-copy-prop
-Common Report Var(flag_tree_store_copy_prop) Optimization
-Enable copy propagation for stores and loads
+Common
+This switch is obsolete
 
 ftree-cselim
 Common Report Var(flag_tree_cselim) Init(2) Optimization
@@ -1303,5 +1303,13 @@ Display the compiler's version
 w
 Common Var(inhibit_warnings)
 Suppress warnings
+
+shared
+Common RejectNegative Negative(pie)
+Create a shared library
+
+pie
+Common RejectNegative Negative(shared)
+Create a position independent executable
 
 ; This comment is to ensure we retain the blank line above.

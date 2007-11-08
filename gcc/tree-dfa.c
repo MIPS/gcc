@@ -290,16 +290,18 @@ void
 dump_subvars_for (FILE *file, tree var)
 {
   subvar_t sv = get_subvars_for_var (var);
+  tree subvar;
+  unsigned int i;
 
   if (!sv)
     return;
 
   fprintf (file, "{ ");
 
-  for (; sv; sv = sv->next)
+  for (i = 0; VEC_iterate (tree, sv, i, subvar); ++i)
     {
-      print_generic_expr (file, sv->var, dump_flags);
-      fprintf (file, " ");
+      print_generic_expr (file, subvar, dump_flags);
+      fprintf (file, "@" HOST_WIDE_INT_PRINT_UNSIGNED " ", SFT_OFFSET (subvar));
     }
 
   fprintf (file, "}");

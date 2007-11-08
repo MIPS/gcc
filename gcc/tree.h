@@ -2538,7 +2538,11 @@ struct tree_memory_tag GTY(())
 
   bitmap GTY ((skip)) aliases;
 
+  /* True if this tag has global scope.  */
   unsigned int is_global:1;
+
+  /* True if this SFT is for a field in a nested structure.  */
+  unsigned int in_nested_struct : 1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
@@ -2560,12 +2564,15 @@ struct tree_struct_field_tag GTY(())
   /* Alias set for a DECL_NONADDRESSABLE_P field.  Otherwise -1.  */
   alias_set_type alias_set;
 };
+
 #define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.parent_var)
 #define SFT_OFFSET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.offset)
 #define SFT_SIZE(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.size)
 #define SFT_NONADDRESSABLE_P(NODE) \
   (STRUCT_FIELD_TAG_CHECK (NODE)->sft.alias_set != -1)
 #define SFT_ALIAS_SET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.alias_set)
+#define SFT_IN_NESTED_STRUCT(NODE) \
+  (STRUCT_FIELD_TAG_CHECK (NODE)->sft.common.in_nested_struct)
 
 /* Memory Partition Tags (MPTs) group memory symbols under one
    common name for the purposes of placing memory PHI nodes.  */
@@ -3128,16 +3135,15 @@ extern void decl_fini_priority_insert (tree, priority_type);
 #define DECL_HAS_INIT_PRIORITY_P(NODE) \
   (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
 
-/* For a VAR_DECL or FUNCTION_DECL with DECL_HAS_INIT_PRIORITY_P set,
-   the initialization priority of NODE.  */
+/* For a VAR_DECL or FUNCTION_DECL the initialization priority of
+   NODE.  */ 
 #define DECL_INIT_PRIORITY(NODE) \
   (decl_init_priority_lookup (NODE))
 /* Set the initialization priority for NODE to VAL.  */
 #define SET_DECL_INIT_PRIORITY(NODE, VAL) \
   (decl_init_priority_insert (NODE, VAL))
 
-/* For a FUNCTION_DECL with DECL_HAS_INIT_PRIORITY_P set, the
-   finalization priority of NODE.  */
+/* For a FUNCTION_DECL the finalization priority of NODE.  */
 #define DECL_FINI_PRIORITY(NODE) \
   (decl_fini_priority_lookup (NODE))
 /* Set the finalization priority for NODE to VAL.  */

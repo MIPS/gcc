@@ -1,3 +1,233 @@
+2007-11-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_iterator.h (move_iterator<>::pointer): Adjust
+	typedef per DR 680 [Ready].
+
+2007-11-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/vector.tcc (vector<>::_M_insert_aux<>(iterator,
+	_Args&&...)): In C++0x mode do not use temporary copies.
+	(insert(iterator, const value_type&)): Copy to a temporary
+	when not reallocating.
+
+	* include/bits/vector.tcc (insert(iterator, value_type&&)):
+	Minor tweaks in C++0x mode.
+
+2007-11-06  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/tr1_impl/boost_shared_ptr.h: Avoid unnecessary memory
+	barriers in _S_atomic case.
+
+2007-11-05  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector<>::push_back<>(_Args...),
+	emplace<>(iterator, _Args...), insert(iterator, _Tp&&),
+	_M_insert_aux<>(iterator, _Args&&...)): Add.
+	* include/bits/vector.tcc (insert(iterator, value_type&&),
+	emplace<>(iterator, _Args...), _M_insert_aux<>(iterator, _Args&&...)):
+	Define.
+	(_M_fill_insert(iterator, size_type, const value_type&),
+	_M_range_insert(iterator, _ForwardIterator, _ForwardIterator,
+	std::forward_iterator_tag)): Use __uninitialized_move_a,
+	_GLIBCXX_MOVE_BACKWARD3 when possible.
+	* include/bits/stl_uninitialized.h (__uninitialized_move_a): Add.
+	* include/debug/vector (vector<>::push_back<>(_Args...),
+	emplace<>(iterator, _Args...), insert(iterator, _Tp&&)): Add.
+	* testsuite/23_containers/vector/modifiers/moveable.cc: Enable.
+	* testsuite/23_containers/vector/resize/moveable.cc: Likewise.
+	* testsuite/23_containers/vector/cons/moveable.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line numbers.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+
+2007-11-03  Paolo Carlini  <pcarlini@suse.de>
+	    Kai-Uwe Bux  <bux@kubux.net>
+
+	* include/tr1_impl/random (variate_generator<>::min, max,
+	operator()()): Return non-trivial values when _Engine_result_type
+	is a floating point type and result_type is an integer type.
+
+2007-11-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (minmax, minmax_element): Add.
+	* include/bits/algorithmfwd.h: Update.
+	* testsuite/25_algorithms/minmax/requirements/
+	explicit_instantiation/2.cc: New.
+	* testsuite/25_algorithms/minmax/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+	* testsuite/25_algorithms/minmax/1.cc: Likewise.
+	* testsuite/25_algorithms/minmax_element/check_type.cc: Likewise.
+	* testsuite/25_algorithms/minmax_element/requirements/
+	explicit_instantiation/2.cc: Likewise.
+	* testsuite/25_algorithms/minmax_element/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+	* testsuite/25_algorithms/minmax_element/1.cc: Likewise.
+	* testsuite/25_algorithms/headers/algorithm/synopsis.cc: Update.
+
+2007-11-02  Johannes Singler  <singler@ira.uka.de>
+
+        * include/parallel/workstealing.h: Replaced pragma by function
+          call lock.
+        * include/parallel/search.h: Same
+        * include/parallel/partition.h: Same
+        * include/parallel/find.h: Same
+
+2007-11-01  Janis Johnson  <janis187@us.ibm.com>
+
+	PR testsuite/25352
+	* testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
+	Remove xfail from dg-do and add dg-skip-if.
+
+2007-10-31  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_queue.h (queue<>::push(value_type&&)): Replace
+	with "emplace" version per DR 756.
+	(priority_queue<>::push(value_type&&)): Likewise.
+	* include/bits/stl_stack.h (stack<>::push(value_type&&)): Likewise.
+
+2007-10-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1_impl/random (uniform_int<>::
+	_M_call(_UniformRandomNumberGenerator&, result_type, result_type,
+	true_type)): Only declare.
+	* include/tr1_impl/random.tcc (uniform_int<>::
+	_M_call(_UniformRandomNumberGenerator&, result_type, result_type,
+	true_type)): Re-do, unbiased for the currently supported ranges;
+	add comment.
+
+2007-10-30  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/ext/pb_ds/multimap_text_insert_timing_test_small.html:
+	Correct filename.	
+	* docs/html/ext/pb_ds/multimap_text_find_timing_test_large.html: Same.
+	* docs/html/ext/pb_ds/
+	multimap_text_insert_mem_usage_test_small.html: Same.
+	* docs/html/ext/pb_ds/multimap_text_insert_timing_test_large.html: Same.
+	* docs/html/ext/pb_ds/
+	multimap_text_insert_mem_usage_test_large.html: Same.
+	* docs/html/ext/pb_ds/multimap_text_find_timing_test_small.html: Same.
+
+2007-10-30  Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/Makefile.am (PCHFLAGS): Remove -Wno-deprecated.
+	* include/Makefile.in: Regenerate.
+
+	* include/std/memory: Remove extraneous include.	
+
+2007-10-29  Benjamin Kosnik  <bkoz@redhat.com>
+ 
+	* include/bits/c++config (_GLIBCXX_DEPRECATED,
+	_GLIBCXX_USE_DEPRECATED): New. Adjust comments.
+	* include/bits/stl_auto_ptr.h: Move...
+	* includse/backward/auto_ptr.h: ...here.
+	* include/bits/stl_function.h (binder1st, binder2nd, bind1st,
+	bind2nd): Move...
+	* include/backward/binders.h: ...here. Deprecate in C++0x.
+
+	* include/tr1_impl/boost_shared_ptr.h: Guard auto_ptr usage.
+	* include/std/memory: Same.
+	* include/std/streambuf: Consistent use of _GLIBCXX_USE_DEPRECATED.
+
+	* include/backward/strstream: Fix guard macros.
+	* include/backward/backward_warning.h: Adjust for all new items.
+
+	* config/abi/pre/gnu.ver: Export basic_streambuf::stossc.
+	
+	* include/Makefile.am (backward_headers): Adjust.
+	* include/Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2007-10-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/Makefile.am (ext_compat_headers): New.
+	* include/Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2007-10-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (_GLIBCXX_MOVE3,
+	_GLIBCXX_MOVE_BACKWARD3): Add.
+	* include/bits/stl_iterator.h (_GLIBCXX_MAKE_MOVE_ITERATOR): Add.
+	* include/bits/vector.tcc (vector<>::reserve): Use the latter.
+	(vector<>::erase): Use _GLIBCXX_MOVE3.
+	* include/bits/deque.tcc (deque<>::erase): Use _GLIBCXX_MOVE3
+	and _GLIBCXX_MOVE_BACKWARD3.
+	* testsuite/23_containers/vector/modifiers/erase/moveable.cc: New.
+	* testsuite/23_containers/vector/capacity/reserve/moveable.cc: New.
+	* testsuite/23_containers/deque/modifiers/erase/moveable.cc: New.
+
+2007-10-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_uninitialized.h (uninitialized_copy): Use
+	::new and value_type per the letter of the standard.
+	* testsuite/20_util/specialized_algorithms/uninitialized_copy/
+	move_iterators/1.cc: New.
+
+	* testsuite/20_util/specialized_algorithms/16505.cc: Move to...
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill_n/
+	16505.cc: ... here.
+	* testsuite/20_util/specialized_algorithms/32158.cc: Move to...
+	* testsuite/20_util/specialized_algorithms/uninitialized_fill/
+	32158.cc: ... here.
+
+	* include/bits/stl_construct.h (_Construct(_T1*)): Remove, unused.
+
+2007-10-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algobase.h (struct __miter_base): Add.
+	(__copy_move_a2, __copy_move_backward_a2): Add.
+	(copy, copy_backward, move, move_backward): Adjust, call *a2 helpers.
+	* include/bits/cpp_type_traits.h (struct __is_move_iterator): Add.
+	* include/bits/streambuf_iterator.h (__copy_move_a<>): Rename
+	to __copy_move_a2.
+	* include/std/streambuf (friend __copy_move_a<>): Likewise.
+	* testsuite/25_algorithms/copy/move_iterators/1.cc: New.
+	* testsuite/25_algorithms/copy_backward/move_iterators/1.cc: Likewise.
+
+	* include/bits/stl_iterator.h (__normal_iterator<>::_Iterator_type):
+	Rename to iterator_type.
+
+2007-10-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/throw_allocator.h (throw_allocator<>::
+	construct<>(pointer, _Args&&...)): Add.
+	* include/ext/pool_allocator.h (__pool_alloc<>::
+	construct<>(pointer, _Args&&...)): Likewise.
+	(construct(pointer, const _Tp&)): Cast pointer to void*. 
+	* include/ext/bitmap_allocator.h (bitmap_allocator<>::
+	construct<>(pointer, _Args&&...)): Add.
+	(construct(pointer, const _Tp&)): Cast pointer to void*.
+	* include/ext/new_allocator.h (new_allocator<>::
+	construct<>(pointer, _Args&&...)): Add.
+	(construct(pointer, const _Tp&)): Cast pointer to void*.
+	* include/ext/malloc_allocator.h (malloc_allocator<>::
+	construct<>(pointer, _Args&&...)): Add.
+	(construct(pointer, const _Tp&)): Cast pointer to void*.
+	* include/ext/array_allocator.h (array_allocator<>::
+	construct<>(pointer, _Args&&...)): Add.
+	(construct(pointer, const _Tp&)): Cast pointer to void*.
+	* include/ext/mt_allocator.h (__mt_alloc<>::
+	construct<>(pointer, _Args&&...)): Add.
+	(construct(pointer, const _Tp&)): Cast pointer to void*.
+	* testsuite/util/testsuite_allocator.h (tracker_allocator<>::
+	construct<>(pointer, _Args&&...)): Add.
+	(construct(pointer, const _Tp&)): Cast pointer to void*.
+ 	(uneq_allocator<>::construct<>(pointer, _Args&&...)): Add.
+	(construct(pointer, const _Tp&)): Cast pointer to void*.
+	* testsuite/ext/mt_allocator/variadic_construct.cc: New.
+	* testsuite/ext/new_allocator/variadic_construct.cc: Likewise.
+	* testsuite/ext/throw_allocator/variadic_construct.cc: Likewise.
+	* testsuite/ext/malloc_allocator/variadic_construct.cc: Likewise.
+	* testsuite/ext/pool_allocator/variadic_construct.cc: Likewise.
+	* testsuite/ext/bitmap_allocator/variadic_construct.cc: Likewise.
+	* testsuite/ext/array_allocator/variadic_construct.cc: Likewise.
+
 2007-10-26  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/std/unordered_map: Fix for parallel mode.

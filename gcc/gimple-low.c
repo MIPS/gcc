@@ -306,6 +306,8 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_RETURN:
+    /* FIXME tuples:  case OMP_ATOMIC_LOAD:  */
+    /* FIXME tuples: case OMP_ATOMIC_STORE:  */
     case GIMPLE_OMP_CONTINUE:
       break;
 

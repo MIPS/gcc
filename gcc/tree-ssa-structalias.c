@@ -255,6 +255,15 @@ struct variable_info
      variable.  This is used for C++ placement new.  */
   unsigned int no_tbaa_pruning : 1;
 
+  /* True if this variable is inside a structure nested in the
+     structure for the base variable.  For instance, in 
+     struct X { int a; struct Y { int b; int c; } }, the variables for
+     fields 'b' and 'c' are inside a nested structure.  We are not
+     interested in tracking how many levels of nesting, just whether
+     there is nesting at all.  This is later used to adjust offsets
+     for pointers pointing into sub-structures.  */
+  unsigned int in_nested_struct : 1;
+
   /* Points-to set for this variable.  */
   bitmap solution;
 
@@ -4135,6 +4144,12 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 		pair->alias_set = get_alias_set (addressable_type);
 	      else
 		pair->alias_set = -1;
+
+	      /* If the base offset is positive, this field belongs to
+		 a structure nested inside the base structure.  */
+	      if (offset > 0)
+		pair->in_nested_struct = true;
+
 	      count++;
 	    }
 	  else
@@ -4183,6 +4198,12 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 	      pair->alias_set = get_alias_set (addressable_type);
 	    else
 	      pair->alias_set = -1;
+
+	    /* If the base offset is positive, this field belongs to
+	       a structure nested inside the base structure.  */
+	    if (offset > 0)
+	      pair->in_nested_struct = true;
+
 	    count++;
 	  }
 	else
@@ -4493,6 +4514,7 @@ create_variable_info_for (tree decl, const char *name)
 	  newvi->offset = fo->offset;
 	  newvi->size = TREE_INT_CST_LOW (fo->size);
 	  newvi->fullsize = vi->fullsize;
+	  newvi->in_nested_struct = fo->in_nested_struct;
 	  insert_into_field_list (vi, newvi);
 	  VEC_safe_push (varinfo_t, heap, varmap, newvi);
 	  if (is_global && (!flag_whole_program || !in_ipa_mode))
@@ -4704,7 +4726,6 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 {
   unsigned int i;
   bitmap_iterator bi;
-  subvar_t sv;
   alias_set_type ptr_alias_set = get_alias_set (TREE_TYPE (ptr));
 
   EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)
@@ -4719,10 +4740,14 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 
       if (vi->has_union && get_subvars_for_var (vi->decl) != NULL)
 	{
+	  unsigned int i;
+	  tree subvar;
+	  subvar_t sv = get_subvars_for_var (vi->decl);
+
 	  /* Variables containing unions may need to be converted to
 	     their SFT's, because SFT's can have unions and we cannot.  */
-	  for (sv = get_subvars_for_var (vi->decl); sv; sv = sv->next)
-	    bitmap_set_bit (into, DECL_UID (sv->var));
+	  for (i = 0; VEC_iterate (tree, sv, i, subvar); ++i)
+	    bitmap_set_bit (into, DECL_UID (subvar));
 	}
       else if (TREE_CODE (vi->decl) == VAR_DECL
 	       || TREE_CODE (vi->decl) == PARM_DECL
@@ -4742,6 +4767,7 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 		      || (!is_derefed && !vi->directly_dereferenced)
 		      || alias_sets_conflict_p (ptr_alias_set, var_alias_set))
 		    bitmap_set_bit (into, DECL_UID (sft));
+		  SFT_IN_NESTED_STRUCT (sft) = vi->in_nested_struct;
 		}
 	    }
 	  else
@@ -4945,7 +4971,6 @@ find_what_p_points_to (tree p)
 	    }
 
 	  /* Share the final set of variables when possible.  */
-
 	  finished_solution = BITMAP_GGC_ALLOC ();
 	  stats.points_to_sets_created++;
 

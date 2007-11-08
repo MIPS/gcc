@@ -192,8 +192,14 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
       if (single_succ_p (bb))
 	{
 	  basic_block bb_n = single_succ (bb);
-	  if (cond != NULL_TREE)
-	    add_to_predicate_list (bb_n, cond);
+
+	  /* Successor bb inherits predicate of its predecessor. If there
+	     is no predicate in predecessor bb, then consider successor bb
+	     as always executed.  */
+	  if (cond == NULL_TREE)
+	    cond = boolean_true_node;
+
+	  add_to_predicate_list (bb_n, cond);
 	}
     }
 
@@ -727,6 +733,8 @@ find_phi_replacement_condition (struct loop *loop,
 
   /* Select condition that is not TRUTH_NOT_EXPR.  */
   tmp_cond = (first_edge->src)->aux;
+  gcc_assert (tmp_cond);
+
   if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
     {
       edge tmp_edge;
@@ -868,7 +876,7 @@ process_phi_nodes (struct loop *loop)
   /* Replace phi nodes with cond. modify expr.  */
   for (i = 1; i < orig_loop_num_nodes; i++)
     {
-      tree phi, cond;
+      tree phi, cond = NULL_TREE;
       block_stmt_iterator bsi;
       basic_block true_bb = NULL;
       bb = ifc_bbs[i];

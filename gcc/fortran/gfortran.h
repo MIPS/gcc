@@ -665,9 +665,7 @@ typedef struct
   /* Set if the symbol has ambiguous interfaces.  */
   unsigned ambiguous_interfaces:1;
 
-  /* Set if the is the symbol for the main program.  This is the least
-     cumbersome way to communicate this function property without
-     strcmp'ing with __MAIN everywhere.  */
+  /* Set if this is the symbol for the main program.  */
   unsigned is_main_program:1;
 
   /* Mutually exclusive multibit attributes.  */
@@ -2233,6 +2231,9 @@ try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
 gfc_expr *gfc_default_initializer (gfc_typespec *);
 gfc_expr *gfc_get_variable_expr (gfc_symtree *);
 
+bool gfc_traverse_expr (gfc_expr *, gfc_symbol *,
+			bool (*)(gfc_expr *, gfc_symbol *, int*),
+			int);
 void gfc_expr_set_symbols_referenced (gfc_expr *);
 
 /* st.c */
@@ -2252,6 +2253,7 @@ int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
 try gfc_resolve_iterator (gfc_iterator *, bool);
+try find_forall_index (gfc_expr *, gfc_symbol *, int);
 try gfc_resolve_index (gfc_expr *, int);
 try gfc_resolve_dim_arg (gfc_expr *);
 int gfc_is_formal_arg (void);

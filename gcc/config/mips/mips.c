@@ -4407,7 +4407,7 @@ mips_fpr_return_fields (const_tree valtype, tree *fields)
       if (TREE_CODE (field) != FIELD_DECL)
 	continue;
 
-      if (SCALAR_FLOAT_TYPE_P (TREE_TYPE (field)))
+      if (!SCALAR_FLOAT_TYPE_P (TREE_TYPE (field)))
 	return 0;
 
       if (i == 2)
@@ -6783,7 +6783,7 @@ mips_output_filename (FILE *stream, const char *name)
 
 /* Implement TARGET_ASM_OUTPUT_DWARF_DTPREL.  */
 
-static void
+static void ATTRIBUTE_UNUSED
 mips_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
   switch (size)

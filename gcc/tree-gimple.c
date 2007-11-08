@@ -286,6 +286,8 @@ is_gimple_stmt (tree t)
     case OMP_CRITICAL:
     case OMP_RETURN:
     case OMP_CONTINUE:
+    case OMP_ATOMIC_LOAD:
+    case OMP_ATOMIC_STORE:
       /* These are always void.  */
       return true;
 

@@ -76,7 +76,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  try
 	    {
 	      for (; __first != __last; ++__first, ++__cur)
-		std::_Construct(&*__cur, *__first);
+		::new(static_cast<void*>(&*__cur)) typename
+		    iterator_traits<_ForwardIterator>::value_type(*__first);
 	      return __cur;
 	    }
 	  catch(...)
@@ -259,6 +260,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __uninitialized_copy_a(_InputIterator __first, _InputIterator __last,
 			   _ForwardIterator __result, allocator<_Tp>&)
     { return std::uninitialized_copy(__first, __last, __result); }
+
+  template<typename _InputIterator, typename _ForwardIterator,
+	   typename _Allocator>
+    inline _ForwardIterator
+    __uninitialized_move_a(_InputIterator __first, _InputIterator __last,
+			   _ForwardIterator __result, _Allocator& __alloc)
+    {
+      return std::__uninitialized_copy_a(_GLIBCXX_MAKE_MOVE_ITERATOR(__first),
+					 _GLIBCXX_MAKE_MOVE_ITERATOR(__last),
+					 __result, __alloc);
+    }
 
   template<typename _ForwardIterator, typename _Tp, typename _Allocator>
     void
