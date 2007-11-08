@@ -832,8 +832,14 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
     }
   else if (!use_set)
     {
-      loc = &INSN_VAR_LOCATION_LOC (use_insn);
+      loc = DF_REF_LOC (use);
       set_reg_equal = false;
+
+      if (GET_MODE (reg) != GET_MODE (src))
+	{
+	  gcc_assert (GET_CODE (src) == CONST_INT);
+	  src = gen_rtx_CONST (GET_MODE (reg), src);
+	}
     }
   else
     {

@@ -1,5 +1,10 @@
 2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
 
+	* fwprop.c (forward_propagate_and_simplify): Update the debug
+	insn ref only, not the entire location expression.
+
+2007-11-08  Alexandre Oliva  <aoliva@redhat.com>
+
 	* haifa-sched.c (schedule_block): Don't clear
 	first-insn-in-cycle status after scheduling debug insn.
 
