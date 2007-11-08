@@ -344,11 +344,10 @@ static GTY (()) c_parser *the_parser;
 /* Read in and lex a single token, storing it in *TOKEN.  */
 
 static void
-c_lex_one_token (c_parser *parser, c_token *token)
+c_lex_one_token (c_token *token)
 {
   token->type = c_lex_with_flags (&token->value, &token->location, NULL,
-				  (parser->lex_untranslated_string
-				   ? C_LEX_STRING_NO_TRANSLATE : 0));
+				  C_LEX_RAW_STRINGS);
   token->id_kind = C_ID_NONE;
   token->keyword = RID_MAX;
   token->pragma_kind = PRAGMA_NONE;
@@ -367,10 +366,136 @@ c_parser_set_source_position_from_token (c_token *token)
     }
 }
 
-/* Possibly modify a token before returning it from the lexer.  */
+/* Returns nonzero if TOKEN is a string literal.  */
+
+static bool
+c_parser_is_string_literal (c_token *token)
+{
+  return (token->type == CPP_STRING || token->type == CPP_WSTRING);
+}
+
+/* Convert a series of STRING and/or WSTRING tokens into a tree,
+   performing string constant concatenation.  PARSER is the C parser.
+   OFFSET is the index of the first string token.  TRANSLATE is true
+   if the string should be translated, false otherwise.
+   
+   This will overwrite the last token it reads from the token buffer.
+
+   This is unfortunately more work than it should be.  If any of the
+   strings in the series has an L prefix, the result is a wide string
+   (6.4.5p4).  Whether or not the result is a wide string affects the
+   meaning of octal and hexadecimal escapes (6.4.4.4p6,9).  But escape
+   sequences do not continue across the boundary between two strings in
+   a series (6.4.5p7), so we must not lose the boundaries.  Therefore
+   cpp_interpret_string takes a vector of cpp_string structures, which
+   we must arrange to provide.  */
 
 static void
-c_hack_token (c_parser *parser, c_token *token)
+c_parser_lex_string (c_parser *parser, size_t offset, bool translate)
+{
+  tree value;
+  bool wide = false;
+  bool objc_string = false;
+  size_t count = 0;
+  struct obstack str_ob;
+  cpp_string str, istr, *strs;
+  location_t second_str_loc;
+  c_token *tok = &parser->buffer[offset];
+
+  gcc_assert (c_parser_is_string_literal (tok));
+  do
+    {
+      ++offset;
+      ++count;
+      /* Try to avoid the overhead of creating and destroying an
+	 obstack for the common case of just one string.  */
+      if (count == 2)
+	{
+	  gcc_obstack_init (&str_ob);
+	  /* ... and save the first string we saw.  */
+	  obstack_grow (&str_ob, &str, sizeof (cpp_string));
+	  second_str_loc = tok->location;
+	}
+
+      str.text = (const unsigned char *) TREE_STRING_POINTER (tok->value);
+      str.len = TREE_STRING_LENGTH (tok->value);
+      if (tok->type == CPP_WSTRING)
+	wide = true;
+
+      if (count > 1)
+	obstack_grow (&str_ob, &str, sizeof (cpp_string));
+
+      /* Strangely, the old approach allowed any number of '@' tokens
+	 here.  We keep this behavior in the name of conservatism.  */
+      if (c_dialect_objc ())
+	{
+	  while (parser->buffer[offset + 1].type == CPP_ATSIGN)
+	    {
+	      ++offset;
+	      objc_string = true;
+	    }
+	}
+
+      tok = &parser->buffer[offset];
+    }
+  while (c_parser_is_string_literal (tok));
+
+  /* We read one token too many.  */
+  --offset;
+
+  if (count > 1)
+    strs = XOBFINISH (&str_ob, cpp_string *);
+  else
+    strs = &str;
+
+  if (count > 1 && !objc_string && !in_system_header)
+    warning (OPT_Wtraditional,
+	     "%Htraditional C rejects string constant concatenation",
+	     &second_str_loc);
+
+  if ((translate
+       ? cpp_interpret_string : cpp_interpret_string_notranslate)
+      (parse_in, strs, count, &istr, wide))
+    {
+      value = build_string (istr.len, (const char *) istr.text);
+      free (CONST_CAST (istr.text));
+    }
+  else
+    {
+      /* Callers cannot generally handle error_mark_node in this context,
+	 so return the empty string instead.  cpp_interpret_string has
+	 issued an error.  */
+      if (wide)
+	value = build_string (TYPE_PRECISION (wchar_type_node)
+			      / TYPE_PRECISION (char_type_node),
+			      "\0\0\0");  /* widest supported wchar_t
+					     is 32 bits */
+      else
+	value = build_string (1, "");
+    }
+
+  TREE_TYPE (value) = wide ? wchar_array_type_node : char_array_type_node;
+
+  parser->next_token = offset;
+  parser->buffer[offset].type = (objc_string
+				 ? CPP_OBJC_STRING
+				 : wide ? CPP_WSTRING : CPP_STRING);
+  parser->buffer[offset].value = fix_string_type (value);
+
+  if (count > 1)
+    obstack_free (&str_ob, 0);
+}
+
+/* Possibly modify a token before returning it from the lexer.
+   RAW_STRING is true if a raw string should be returned; in this case
+   no string concatenation is done.
+
+   Returns true if the token was successfully hacked, false otherwise.
+   Currently a false return can only occur when RAW_STRING is true and
+   a string token is seen.  */
+
+static bool
+c_hack_token (c_parser *parser, c_token *token, bool raw_string)
 {
   timevar_push (TV_LEX);
 
@@ -457,6 +582,18 @@ c_hack_token (c_parser *parser, c_token *token)
       token->pragma_kind = TREE_INT_CST_LOW (token->value);
       token->value = NULL;
       break;
+
+    case CPP_STRING:
+    case CPP_WSTRING:
+    case CPP_OBJC_STRING:
+      if (raw_string)
+	return false;
+      /* This can reset parser->next_token, and the caller is expected
+	 to know that.  */
+      c_parser_lex_string (parser, parser->next_token,
+			   !parser->lex_untranslated_string);
+      break;
+
     default:
       break;
     }
@@ -464,6 +601,7 @@ c_hack_token (c_parser *parser, c_token *token)
   c_parser_set_source_position_from_token (token);
 
   timevar_pop (TV_LEX);
+  return true;
 }
 
 /* Scan forward in the token stream and find the boundary of the next
@@ -1012,7 +1150,7 @@ c_parser_lex_all (c_parser *parser)
 	  buffer = GGC_RESIZEVEC (c_token, buffer, alloc);
 	  memset (&buffer[save], 0, (alloc - save) * sizeof (c_token));
 	}
-      c_lex_one_token (parser, &buffer[pos]);
+      c_lex_one_token (&buffer[pos]);
       buffer[pos].user_owned = lstate->user_owned;
 
       /* If there was a file change event, it happened before this
@@ -1059,7 +1197,8 @@ c_parser_peek_token (c_parser *parser)
 {
   if (parser->tokens_avail == 0)
     {
-      c_hack_token (parser, &parser->buffer[parser->next_token]);
+      /* Note that c_hack_token might reset parser->next_token.  */
+      c_hack_token (parser, &parser->buffer[parser->next_token], false);
       parser->tokens_avail = 1;
     }
   return &parser->buffer[parser->next_token];
@@ -1249,8 +1388,15 @@ c_parser_peek_2nd_token (c_parser *parser)
   gcc_assert (parser->tokens_avail == 1);
   gcc_assert (parser->buffer[parser->next_token].type != CPP_EOF);
   gcc_assert (parser->buffer[parser->next_token].type != CPP_PRAGMA_EOL);
-  c_hack_token (parser, &parser->buffer[parser->next_token + 1]);
-  parser->tokens_avail = 2;
+  /* This is fairly questionable, but we only return a raw string
+     here.  Otherwise buffer management is complicated, and we didn't
+     need this facility.  Note that the older lexer would merge
+     strings on lookahead -- inconsistent with the new approach, but
+     also subtly buggy given lex_untranslated_string.  If we see a
+     string token here, we pretend that the token was not hacked, so
+     that next time we peek it, we may try string concatenation.  */
+  if (c_hack_token (parser, &parser->buffer[parser->next_token + 1], true))
+    parser->tokens_avail = 2;
   return &parser->buffer[parser->next_token + 1];
 }
 

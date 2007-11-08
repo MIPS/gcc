@@ -1,5 +1,14 @@
 2007-11-08  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_is_string_literal): New function.
+	(c_parser_lex_string): Likewise.
+	(c_hack_token): Add raw_string argument.  Use
+	c_parser_lex_string.
+	(c_parser_peek_token): Update.
+	(c_parser_peek_2nd_token): Update.
+
+2007-11-08  Tom Tromey  <tromey@redhat.com>
+
 	* toplev.c (finalize): Check 'job'.
 
 2007-10-25  Tom Tromey  <tromey@redhat.com>
