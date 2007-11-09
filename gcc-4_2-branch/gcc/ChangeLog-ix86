@@ -1,5 +1,7 @@
 2007-11-09  Michael Meissner  <michael.meissner@amd.com>
+	    Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
 
+	(patch backported from GCC 4.3)
 	* doc/extend.texi (_mm_stream_sd): New SSE4a intrinsic function.
 	(_mm_stream_ss): Ditto.
 	(_mm_extract_si64): Ditto.

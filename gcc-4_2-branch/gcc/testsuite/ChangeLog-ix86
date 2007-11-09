@@ -1,5 +1,7 @@
 2007-11-09  Michael Meissner  <michael.meissner@amd.com>
+	    Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
 
+	(patch backported from GCC 4.3)
 	* gcc.target/i386/sse4a-extract.c: New test for SSE4A.
 	* gcc.target/i386/sse4a-montss.c: Ditto.
 	* gcc.target/i386/sse4a-insert.c: Ditto.
