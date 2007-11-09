@@ -1,3 +1,11 @@
+2007-11-09  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (c_parser_lex_all): Added 'initial' argument.
+	(c_parser_pragma_pch_preprocess): Changed argument type.  Use
+	c_lex_with_flags.
+	(c_parse_file): Don't create initial parser.  Examine first token
+	with c_lex_with_flags.
+
 2007-11-08  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parse_init): Call create_hunk_binding_map here...

@@ -1127,7 +1127,7 @@ c_parser_checksum_buffer (c_parser *parser, size_t first, size_t last,
 /* Lex the entire file into the parser's buffer.  */
 
 static void
-c_parser_lex_all (c_parser *parser)
+c_parser_lex_all (c_parser *parser, c_token *initial)
 {
 #define C_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (c_token))
 
@@ -1144,6 +1144,11 @@ c_parser_lex_all (c_parser *parser)
   md5_init_ctx (&current_hash);
   next_hunk_pointer = &parser->first_hunk;
   hunk_start = 0;
+
+  /* Add the initial token.  */
+  buffer[pos] = *initial;
+  buffer[pos].user_owned = lstate->user_owned;
+  ++pos;
 
   while (true)
     {
@@ -7617,22 +7622,23 @@ pragma_lex (tree *value)
 }
 
 static void
-c_parser_pragma_pch_preprocess (c_parser *parser)
+c_parser_pragma_pch_preprocess (c_token *token)
 {
   tree name = NULL;
 
-  c_parser_consume_pragma (parser);
-  if (c_parser_next_token_is (parser, CPP_STRING))
-    {
-      name = c_parser_peek_token (parser)->value;
-      c_parser_consume_token (parser);
-    }
+  token->type = c_lex_with_flags (&token->value, &token->location, NULL, 0);
+  if (token->type == CPP_STRING)
+    name = token->value;
   else
-    c_parser_error (parser, "expected string literal");
-  c_parser_skip_to_pragma_eol (parser);
+    error ("%Hexpected string literal", &token->location);
+  while (token->type != CPP_PRAGMA_EOL && token->type != CPP_EOF)
+    token->type = c_lex_with_flags (&token->value, &token->location, NULL, 0);
 
   if (name)
     c_common_pch_pragma (parse_in, TREE_STRING_POINTER (name));
+
+  /* Read one more token after reading the PCH file.  */
+  token->type = c_lex_with_flags (&token->value, &token->location, NULL, 0);
 }
 
 /* OpenMP 2.5 parsing routines.  */
@@ -8856,28 +8862,28 @@ c_parser_omp_threadprivate (c_parser *parser)
 void
 c_parse_file (void)
 {
-  /* Use local storage to begin.  If the first token is a pragma, parse it.
-     If it is #pragma GCC pch_preprocess, then this will load a PCH file
-     which will cause garbage collection.  */
-  c_parser tparser;
+  c_token token;
 
-  memset (&tparser, 0, sizeof tparser);
-  the_parser = &tparser;
+  token.type = c_lex_with_flags (&token.value, &token.location, NULL, 0);
+  token.id_kind = C_ID_NONE;
+  token.keyword = RID_MAX;
+  token.pragma_kind = PRAGMA_NONE;
+  token.in_system_header = in_system_header;
 
-  /* FIXME: see the C++ FE for what must be done to make this work
-     again.  */
-  if (0 && c_parser_peek_token (&tparser)->pragma_kind == PRAGMA_GCC_PCH_PREPROCESS)
-    c_parser_pragma_pch_preprocess (&tparser);
+  if (token.type == CPP_PRAGMA)
+    {
+      /* We smuggled the cpp_token.u.pragma value in an INTEGER_CST.  */
+      if (TREE_INT_CST_LOW (token.value) == PRAGMA_GCC_PCH_PREPROCESS)
+	c_parser_pragma_pch_preprocess (&token);
+    }
 
-  the_parser = GGC_NEW (c_parser);
-  *the_parser = tparser;
-
+  the_parser = GGC_CNEW (c_parser);
   the_parser->used_hunks = htab_create_ggc (20, htab_hash_pointer,
 					    htab_eq_pointer, NULL);
   the_parser->smash_map = htab_create_ggc (20, hash_smash_entry, eq_smash_entry,
 					   NULL);
 
-  c_parser_lex_all (the_parser);
+  c_parser_lex_all (the_parser, &token);
   c_parser_translation_unit (the_parser);
   the_parser = NULL;
 }
