@@ -31,6 +31,7 @@ Boston, MA 02110-1301, USA.  */
 #include "cgraph.h"
 #include "ggc.h"
 #include "lto.h"
+#include "lto-tree.h"
 #include "tree-ssa-operands.h"  /* For init_ssa_operands.  */
 
 /* References 
@@ -1945,7 +1946,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 
     case DW_AT_abstract_origin:
       abstract_origin = lto_read_DIE_at_ptr (fd, context,
-                                             attr_data.u.reference);
+					     attr_data.u.reference);
       break;
 
     case DW_AT_specification:
@@ -1988,7 +1989,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 
     case DW_AT_MIPS_linkage_name:
       /* Set the DECL_ASSEMBLER_NAME so we don't have to remangle
-	 names in LTO.  */
+	 names in LTO.	*/
       asm_name = lto_get_identifier (&attr_data);
       break;
     }
@@ -2006,7 +2007,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     case DW_TAG_constant:
       /* GCC doesn't have a distinct tree representation for this, and never
 	 generates this DWARF tag.  (CONST_DECL is only for enumerators.)
-	 Do something reasonable if we see one.  */
+	 Do something reasonable if we see one.	 */
       code = VAR_DECL;
       break;
     default:
@@ -2023,16 +2024,26 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
     ;
   else
     {
+      tree referenced = NULL_TREE;
+
       /* Check for a referenced declaration.  */
       if (!name
-          && !type
-          && ((specification && TREE_CODE (specification) == code)
-              || (abstract_origin && TREE_CODE (abstract_origin) == code)))
-        {
-          /* Make sure we have one or the other.  */
-          gcc_assert (!specification || !abstract_origin);
-          return specification ? specification : abstract_origin;
-        }
+	  && !type
+	  && ((specification && TREE_CODE (specification) == code)
+	      || (abstract_origin && TREE_CODE (abstract_origin) == code)))
+	{
+	  /* Make sure we have one or the other.  */
+	  gcc_assert (!specification || !abstract_origin);
+	  referenced = specification ? specification : abstract_origin;
+	}
+
+      /* Copy bits from the referenced declaration.  */
+      if (referenced && !name)
+	name = DECL_NAME (referenced);
+      if (referenced && !type)
+	type = TREE_TYPE (referenced);
+      if (referenced && !asm_name)
+	asm_name = DECL_ASSEMBLER_NAME (referenced);
 
       /* Build the tree node for this entity.  */
       decl = build_decl (code, name, type);
@@ -2047,6 +2058,9 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 	  TREE_PUBLIC (decl) = external;
 	  DECL_EXTERNAL (decl) = declaration;
 	  TREE_STATIC (decl) = 1;
+	  TREE_USED (decl) = 1;
+	  TREE_ADDRESSABLE (decl) = 1;
+
 	  /* If there is an initializer, read it now.  */
 	  if (!declaration)
 	    {
@@ -2057,25 +2071,19 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 	      name_str = IDENTIFIER_POINTER (asm_name);
 	      file = fd->base.file;
 	      init = file->vtable->map_var_init (file, name_str);
-              if (init)
-                {
-                  lto_read_var_init (fd, context, decl, init);
-                  file->vtable->unmap_var_init (file, name_str, init);
-                }
+	      if (init)
+		{
+		  lto_read_var_init (fd, context, decl, init);
+		  file->vtable->unmap_var_init (file, name_str, init);
+		}
 	    }
 	  /* If this variable has already been declared, merge the
 	     declarations.  */
 	  decl = lto_symtab_merge_var (decl);
 	  if (decl != error_mark_node)
-	    {
-	      /* Record this variable in the DIE cache so that it can be
-		 resolved from the bodies of functions.  */
-	      lto_cache_store_DIE (fd, die, decl);
-	      /* Let the middle end know about the new entity.  */
-	      rest_of_decl_compilation (decl,
-					/*top_level=*/1,
-					/*at_end=*/0);
-	    }
+	    /* Record this variable in the DIE cache so that it can be
+	       resolved from the bodies of functions.  */
+	    lto_cache_store_DIE (fd, die, decl);
 	}
       else if (code == PARM_DECL)
 	{
@@ -3507,6 +3515,7 @@ void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
   unsigned i;
+  tree decl;
 
   /* Read all of the object files specified on the command line.  */
   for (i = 0; i < num_in_fnames; ++i)
@@ -3519,6 +3528,12 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       lto_elf_file_close (current_lto_file);
       current_lto_file = NULL;
     }
+
+  /* Inform the middle end about the global variables we have seen.  */
+  for (i = 0; VEC_iterate (tree, lto_global_var_decls, i, decl); i++)
+    rest_of_decl_compilation (decl,
+                              /*top_level=*/1,
+                              /*at_end=*/0);
 
   /* Let the middle end know that we have read and merged all of the
      input files.  */ 

@@ -1,5 +1,9 @@
 2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* dwarf2out.c (lto_var_ref): Don't remove DW_AT_declaration.
+
+2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* dwarf2out.h (dwarf2_generate_frame_info_p): Rename this...
 	(dwarf2_called_from_lto_p): ...to this.
 	* dwarf2out.c (dwarf2_generate_frame_info): Rename this...

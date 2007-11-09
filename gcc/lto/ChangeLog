@@ -1,3 +1,16 @@
+2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c: Include lto-tree.h.  Effect small spaces->tabs cleanup.
+	(lto_read_variable_formal_parameter_constant_DIE): Transfer bits
+	from a DW_AT_specification or DW_AT_abstract_origin attribute to
+	the new decl we are creating.  Move informing the middle end about
+	the new decl to...
+	(lto_main): ...here.  Inform the middle end about global variables
+	after we have read in all the input files.
+	* lto-symtab.c (lto_symtab_merge_decl): We really do need to merge
+	variables with internal linkage, so delete the check for internal
+	linkage.  Combine TREE_PUBLIC flags.
+
 2007-11-08  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_subroutine_type_subprogram_DIE): Handle

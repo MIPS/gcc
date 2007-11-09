@@ -236,9 +236,6 @@ lto_symtab_merge_decl (tree new_decl)
 
   gcc_assert (TREE_CODE (new_decl) == VAR_DECL
 	      || TREE_CODE (new_decl) == FUNCTION_DECL);
-  /* Variables with internal linkage do not need to be merged.  */
-  if (!TREE_PUBLIC (new_decl))
-    return new_decl;
 
   /* Check that declarations reaching this function do not have
      properties inconsistent with having external linkage.  If any of
@@ -379,6 +376,8 @@ lto_symtab_merge_decl (tree new_decl)
   TREE_READONLY (old_decl) |= TREE_READONLY (new_decl);
   TREE_INVARIANT (old_decl) |= TREE_INVARIANT (new_decl);
   DECL_EXTERNAL (old_decl) &= DECL_EXTERNAL (new_decl);
+  TREE_PUBLIC (old_decl) &= TREE_PUBLIC (new_decl);
+    
   DECL_WEAK (old_decl) &= DECL_WEAK (new_decl);
   DECL_PRESERVE_P (old_decl) |= DECL_PRESERVE_P (new_decl);
   if (TREE_CODE (new_decl) == VAR_DECL)
