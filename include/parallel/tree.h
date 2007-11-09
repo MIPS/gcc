@@ -2253,7 +2253,9 @@ namespace __gnu_parallel
 	{
 	  if (pos_end == pos_beg) return NULL;
 	  t = simple_tree_construct(r_array,pos_beg, pos_end, black_h);
+#ifndef NDEBUG
 	  _GLIBCXX_PARALLEL_ASSERT(rb_verify_tree(t,count));
+#endif
 	  return t;
 	}
       if (pos_end == pos_beg)
@@ -2266,7 +2268,9 @@ namespace __gnu_parallel
 	    {
 	      t = _M_insert_local(t, r_array[p], existing, black_h, strictly_less_or_less_equal);
 	    }
+#ifndef NDEBUG
 	  _GLIBCXX_PARALLEL_ASSERT(rb_verify_tree(t,count));
+#endif
 	  return t;
 	}
 
@@ -2732,12 +2736,12 @@ namespace __gnu_parallel
     {
 #ifndef NDEBUG
       int count = 0, count1 = 0, count2 = 0;
-#endif
       _GLIBCXX_PARALLEL_ASSERT(rb_verify_tree(l, count1));
       _GLIBCXX_PARALLEL_ASSERT(rb_verify_tree(r, count2));
 
       _GLIBCXX_PARALLEL_ASSERT(l != NULL ? l->_M_color != std::_S_red and black_h_l > 0 : black_h_l == 0);
       _GLIBCXX_PARALLEL_ASSERT(r != NULL ? r->_M_color != std::_S_red and black_h_r > 0 : black_h_r == 0);
+#endif
 
       if (black_h_l > black_h_r)
 	if (root != NULL)
