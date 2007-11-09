@@ -1,3 +1,8 @@
+2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.c (lto_var_ref): Remove DW_AT_declaration if we are
+	forcing an initialized global variable.
+
 2007-11-08  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* c-decl.c (match_builtin_function_types): Move this...

@@ -15137,6 +15137,11 @@ lto_var_ref (tree var,
   gcc_assert (TREE_CODE (var) == VAR_DECL);
   /* Generate the DIE for VAR.  */
   die = force_decl_die (var);
+  /* If we are forcing an initialized global variable, then remove
+     DW_AT_declaration so the LTO reader understands that we need to
+     read in its initializer.  */
+  if (DECL_CONTEXT (var) == NULL_TREE && DECL_INITIAL (var))
+    remove_AT (die, DW_AT_declaration);
   /* Construct the reference.  */
   lto_init_ref (ref, die, DECL_CONTEXT (var));
 }
