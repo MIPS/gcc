@@ -1,0 +1,12 @@
+2007-11-09  Michael Meissner  <michael.meissner@amd.com>
+
+	* gcc.target/i386/sse4a-extract.c: New test for SSE4A.
+	* gcc.target/i386/sse4a-montss.c: Ditto.
+	* gcc.target/i386/sse4a-insert.c: Ditto.
+	* gcc.target/i386/sse4a-montsd.c: Ditto.
+
+	* gcc.dg/i386-cpuid.h (bit_SSE4a): Add bit for SSE4A.
+
+2007-11-08  Michael Meissner <michael.meissner@amd.com>
+
+	* Copy from branches/gcc-4_2-branch, version 130014.

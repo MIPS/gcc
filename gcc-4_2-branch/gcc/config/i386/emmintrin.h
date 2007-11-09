@@ -30,7 +30,9 @@
 #ifndef _EMMINTRIN_H_INCLUDED
 #define _EMMINTRIN_H_INCLUDED
 
-#ifdef __SSE2__
+#ifndef __SSE2__
+# error "SSE2 instruction set not enabled"
+#else
 #include <xmmintrin.h>
 
 /* SSE2 */

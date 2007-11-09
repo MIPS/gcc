@@ -1,3 +1,286 @@
+2007-11-09  Michael Meissner  <michael.meissner@amd.com>
+
+	* doc/extend.texi (_mm_stream_sd): New SSE4a intrinsic function.
+	(_mm_stream_ss): Ditto.
+	(_mm_extract_si64): Ditto.
+	(_mm_extracti_si64): Ditto.
+	(_mm_insert_si64): Ditto.
+	(_mm_inserti_si64): Ditto.
+
+	* doc/invoke.texi (-msse4a): Document the AMD Barcelona switches.
+	(-mno-sse4a): Ditto.
+	(-mpopcnt): Ditto.
+	(-mno-popcnt): Ditto.
+	(-mabm): Ditto.
+	(-mno-abm): Ditto.
+	(-march=barcelona, -march=amdfam10): Ditto.
+	(-mtune=barcelona, -mtune=amdfam10): Ditto.
+
+	* config.gcc (i[34567]86-*-*): Add ammintrin.h include file.  Add
+	support for --with-cpu=amdfam10 and --with-cpu=barcelona.
+	(x86_64-*-*): Ditto.
+
+	* config/i386/i386.h (TARGET_AMDFAM10): New macro for Barcelona.
+	(TARGET_CPU_DEFAULT_amdfam10): Ditto.
+	(x86_sse_unaligned_move_optimal): Add support for unalgined SSE
+	memory operations.
+	(TARGET_SSE_UNALIGNED_MOVE_OPTIMAL): Ditto.
+	(TARGET_CPU_CPP_BUILTINS): Add Barcelona support.
+	(TARGET_CPU_DEFAULT_NAMES): Ditto.
+	(processor_type enum): Ditto.
+
+	* config/i386/i386.md (UNSPEC_EXTRQI): New constant for SSE4A.
+	(UNSPEC_EXTRQ): Ditto.
+	(UNSPEC_INSERTQI): Ditto.
+	(UNSPEC_INSERTQ): Ditto.
+	(cpu attribute): Add amdfam10 support.
+	(type attribute): Add bitmanip, sseins attributes.
+	(unit attribute): Add amdfam10 support.
+	(memory attribute): Ditto.
+	(x86_sahf_1): Set amdfam10_decode.
+	(cmpfp_i_mixed): Ditto.
+	(cmpfp_i_sse): Ditto.
+	(cmpfp_i_i387): Ditto.
+	(cmpfp_iu_mixed): Ditto.
+	(cmpfp_iu_sse): Ditto.
+	(cmpfp_iu_387): Ditto.
+	(swapsi): Ditto.
+	(swaphi_1): Ditto.
+	(swapqi_1): Ditto.
+	(swapdi_rex64): Ditto.
+	(fix_truncsfdi_sse): Ditto.
+	(fix_truncdfdi_sse): Ditto.
+	(fix_truncsfsi_sse): Ditto.
+	(fix_truncdfsi_sse): Ditto.
+	(x86_fldcw_1): Ditto.
+	(floatsisf2_mixed): Ditto.
+	(floatsisf2_sse): Ditto.
+	(floatdisf2_mixed): Ditto.
+	(floatdisf2_sse): Ditto.
+	(floatsidf2_mixed): Ditto.
+	(floatsidf2_sse): Ditto.
+	(floatdidf2_mixed): Ditto.
+	(floatdidf2_sse): Ditto.
+	(muldi3_1_rex64): Ditto.
+	(mulsi3_1): Ditto.
+	(mulsi3_1_zext): Ditto.
+	(mulhi3_1): Ditto.
+	(mulqi3_1): Ditto.
+	(umulqihi3_1): Ditto.
+	(mulqihi3_insn): Ditto.
+	(umulditi3_insn): Ditto.
+	(umulsidi3_insn): Ditto.
+	(mulditi3_insn): Ditto.
+	(mulsidi3_insn): Ditto.
+	(umuldi3_highpart_rex64): Ditto.
+	(umulsi3_highpart_insn): Ditto.
+	(umulsi3_highpart_zext): Ditto.
+	(umulsi3_highpart_zext): Ditto.
+	(smuldi3_highpart_rex64): Ditto.
+	(smulsi3_highpart_insn): Ditto.
+	(smulsi3_highpart_zext): Ditto.
+	(x86_64_shld): Ditto.
+	(x86_64_shld_1): Ditto.
+	(x86_64_shrd): Ditto.
+	(sqrtsf2_mixed): Ditto.
+	(sqrtsf2_sse): Ditto.
+	(sqrtsf2_i387): Ditto.
+	(sqrtdf2_mixed): Ditto.
+	(sqrtdf2_sse): Ditto.
+	(sqrtdf2_i387): Ditto.
+	(sqrtextendsfdf2_i387): Ditto.
+	(sqrtxf2): Ditto.
+	(sqrtextendsfxf2_i387): Ditto.
+	(sqrtextenddfxf2_i387): Ditto.
+	(imul peepholes): Know imul by constant is not direct on AMDFAM10.
+	(clzsi2): If TARGET_ABM, generate lzcnt instruction.
+	(clzsi2_abm): Ditto.
+	(clzdi2): Ditto.
+	(clzdi2_abm): Ditto.
+	(clzhi2): Ditto.
+	(clzhi2_abm): Ditto.
+	(bsrhi): New insn, modeled after bsr.
+	(popcountsi2): Add popcnt support if TARGET_POPCNT.
+	(popcountsi2_cmp): Ditto.
+	(popcountsi2_cmp_zext): Ditto.
+	(popcountdi2): Ditto.
+	(popcountdi2_cmp): Ditto.
+	(popcounthi2): Ditto.
+	(popcounthi2_cmp): Ditto.
+
+	* config/i386/athlon.md (amdfam10_decode): New attribute for
+	Barcelona.
+	(athlon_branch): Add Barcelona support.
+	(athlon_call_amdfam10): Ditto.
+	(athlon_pop_amdfam10): Ditto.
+	(athlon_leave_k8): Ditto.
+	(athlon_lea_amdfam10): Ditto.
+	(athlon_imul_k8_DI): Ditto.
+	(athlon_imul_k8): Ditto.
+	(athlon_imul_amdfam10_HI): Ditto.
+	(athlon_imul_mem_k8_DI): Ditto.
+	(athlon_imul_mem_k8): Ditto.
+	(athlon_idiv): Ditto.
+	(athlon_idiv_mem): Ditto.
+	(athlon_str): Ditto.
+	(athlon_idirect_amdfam10): Ditto.
+	(athlon_ivector_amdfam10): Ditto.
+	(athlon_idirect_loadmov): Ditto.
+	(athlon_idirect_load_amdfam10): Ditto.
+	(athlon_idirect_movstore): Ditto.
+	(athlon_idirect_both_amdfam10): Ditto.
+	(athlon_ivector_both_amdfam10): Ditto.
+	(athlon_idirect_store_amdfam10): Ditto.
+	(athlon_ivector_store_amdfam10): Ditto.
+	(athlon_fldxf_k8): Ditto.
+	(athlon_fld_k8): Ditto.
+	(athlon_fstxf_k8): Ditto.
+	(athlon_fst_k8): Ditto.
+	(athlon_fist): Ditto.
+	(athlon_fmov): Ditto.
+	(athlon_fadd_load_k8): Ditto.
+	(athlon_fadd): Ditto.
+	(athlon_fmul_load_k8): Ditto.
+	(athlon_fmul): Ditto.
+	(athlon_fsgn): Ditto.
+	(athlon_fdiv_load_k8): Ditto.
+	(athlon_fdiv_k8): Ditto.
+	(athlon_fpspc_load): Ditto.
+	(athlon_fpspc): Ditto.
+	(athlon_fcmov_load_k8): Ditto.
+	(athlon_fcmov_k8): Ditto.
+	(athlon_fcomi_load_k8): Ditto.
+	(athlon_fcomi): Ditto.
+	(athlon_fcom_load_k8): Ditto.
+	(athlon_fcom): Ditto.
+	(athlon_fxch): Ditto.
+	(athlon_sseld_amdfam10): Ditto.
+	(athlon_mmxld_amdfam10): Ditto.
+	(athlon_ssest_amdfam10): Ditto.
+	(athlon_mmxssest_short_amdfam10): Ditto.
+	(athlon_movaps_k8): Ditto.
+	(athlon_sselog_load_amdfam10): Ditto.
+	(athlon_sselog_amdfam10): Ditto.
+	(athlon_ssecmp_load_k8): Ditto.
+	(athlon_ssecmp): Ditto.
+	(athlon_ssecmpvector_load_amdfam10): Ditto.
+	(athlon_ssecmpvector_amdfam10): Ditto.
+	(athlon_ssecomi_load_amdfam10): Ditto.
+	(athlon_ssecomi_amdfam10): Ditto.
+	(athlon_sseadd_load_k8): Ditto.
+	(athlon_sseadd): Ditto.
+	(athlon_sseaddvector_load_amdfam10): Ditto.
+	(athlon_sseaddvector_amdfam10): Ditto.
+	(athlon_ssecvt_cvtss2sd_load_amdfam10): Ditto.
+	(athlon_ssecvt_cvtss2sd_amdfam10): Ditto.
+	(athlon_ssecvt_cvtps2pd_load_amdfam10): Ditto.
+	(athlon_ssecvt_cvtps2pd_amdfam10): Ditto.
+	(athlon_sseicvt_cvtsi2sd_load_amdfam10): Ditto.
+	(athlon_sseicvt_cvtsi2ss_load_amdfam10): Ditto.
+	(athlon_sseicvt_cvtsi2sd_amdfam10): Ditto.
+	(athlon_sseicvt_cvtsi2ss_amdfam10): Ditto.
+	(athlon_ssecvt_cvtsd2ss_load_amdfam10): Ditto.
+	(athlon_ssecvt_cvtpd2ps_amdfam10): Ditto.
+	(athlon_secvt_cvtsX2si_load_amdfam10): Ditto.
+	(athlon_ssecvt_cvtsX2si_amdfam10): Ditto.
+	(athlon_sseicvt_cvtpd2dq_load_amdfam10): Ditto.
+	(athlon_sseicvt_cvtpd2dq_amdfam10): Ditto.
+	(athlon_ssemul_load_k8): Ditto.
+	(athlon_ssemul): Ditto.
+	(athlon_ssemulvector_load_amdfam10): Ditto.
+	(athlon_ssemulvector): Ditto.
+	(athlon_ssemulvector_amdfam10): Ditto.
+	(athlon_ssediv_load_k8): Ditto.
+	(athlon_ssediv): Ditto.
+	(athlon_ssedivvector_load_amdfam10): Ditto.
+	(athlon_ssedivvector): Ditto.
+	(athlon_ssedivvector_amdfam10): Ditto.
+	(athlon_sseins_amdfam10): Ditto.
+
+	* config/i386/pmmintrin.h: Add checking for __SSE3__.
+
+	* config/i386/xmmintrin.h: Add checking for __SSE2__.
+
+	* config/i386/sse.md (sse_cvtsi2ss): Set amdfam10_decode
+	properly.
+	(sse_cvtsi2ssq): Ditto.
+	(sse_cvtss2si): Ditto.
+	(sse_cvtss2siq): Ditto.
+	(sse_cvttss2si): Ditto.
+	(sse_cvstss2siq): Ditto.
+	(sse2_cvtsi2sd): Ditto.
+	(sse2_cvtsi2sdq): Ditto.
+	(sse2_cvtsd2si): Ditto.
+	(sse2_cvtsd2siq): Ditto.
+	(sse2_cvttsd2si): Ditto.
+	(sse2_cvttsd2siq): Ditto.
+	(sse2_cvtpd2dq): Ditto.
+	(sse2_cvttpd2dq): Ditto.
+	(sse2_cvtsd2ss): Ditto.
+	(sse2_cvtss2sd): Ditto.
+	(*sse2_cvtpd2ps): Ditto.
+	(sse2_cvtps2pd): Ditto.
+	(sse4a_vmmovntv2df): New SSE4A insn.
+	(sse4a_movntdf): Ditto.
+	(sse4a_vmmovntv4sf): Ditto.
+	(sse4a_movntsf): Ditto.
+	(sse4a_extrqi): Ditto.
+	(sse4a_extrq): Ditto.
+	(sse4a_insertqi): Ditto.
+	(sse4a_insertq): Ditto.
+
+	* config/i386/i386.opt (-msse4a): New switch for Barcelona.
+	(-mpopcnt): Ditto.
+	(-mabm): Ditto.
+
+	* config/i386/ammintrin.h: New file for Barcelona.
+
+	* config/i386/emmintrin.h: Add check for __SSE2__.
+
+	* config/i386/driver-i386.c (bit_SSE4a): Define SSE4a bit.
+	(host_dectect_local_cpu): Detect Barcelona CPU.
+
+	* config/i386/i386.c (amdfam10_cost): Define Barcelona costs.
+	(m_AMDFAM10): New macro for Barcelona.
+	(m_ATHLON_K8_AMDFAM10): Ditto.
+	(x86_use_leave): Add Barcelona support.
+	(x86_push_memory): Ditto.
+	(x86_movx): Ditto.
+	(x86_unroll_strlen): Ditto.
+	(x86_cmove): Ditto.
+	(x86_3dnow_a): Ditto.
+	(x86_use_simode_fiop): Ditto.
+	(x86_promote_QImode): Ditto.
+	(x86_sub_esp_4): Ditto.
+	(x86_sub_esp_8): Ditto.
+	(x86_add_esp_4): Ditto.
+	(x86_add_esp_8): Ditto.
+	(x86_integer_DFmode_moves): Ditto.
+	(x86_partial_reg_dependency): Ditto.
+	(x86_memory_mismatch_stall): Ditto.
+	(x86_accumulate_outgoing_args): Ditto.
+	(x86_arch_always_fancy_math_387): Ditto.
+	(x86_sse_partial_reg_dependency): Ditto.
+	(x86_sse_split_regs): Ditto.
+	(x86_sse_unaligned_move_optimal): Ditto.
+	(x86_use_ffreep): Ditto.
+	(x86_four_jump_limit): Ditto.
+	(x86_schedule): Ditto.
+	(x86_use_bt): Ditto.
+	(x86_pad_returns): Ditto.
+	(ix86_handle_options): Ditto.
+	(processor_alias_table): Ditto.
+	(override_options): Ditto.
+	(ix86_expand_vector_move_misalign): Ditto.
+	(ix86_issue_rate): Ditto.
+	(ix86_adjust_cost): Ditto.
+	(ix86_init_mmx_sse_builtins): Ditto.
+	(ix86_expand_builtin): Ditto.
+	(pta_flags enum): Add PTA_CX16, PTA_POPCNT, PTA_ABM, PTA_SSE4A.
+	(ix86_builtin): Add IX86_BUILTIN_MOVNTSD, IX86_BUILTIN_MOVNTSS,
+	IX86_BUILTIN_EXTRQI, IX86_BUILTIN_EXTRQ, IX86_BUILTIN_INSERTQI,
+	IX86_BUILTIN_INSERTQ.
+
 2007-11-08  Michael Meissner <michael.meissner@amd.com>
 
 	* Copy from branches/gcc-4_2-branch, version 130014.
