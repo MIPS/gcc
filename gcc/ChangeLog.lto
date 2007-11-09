@@ -1,3 +1,8 @@
+2007-11-09  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (input_expr_operand): Change type of operand 2 of
+	BIT_FIELD_REF expression to be bitsizetype instead of sizetype.
+
 2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* dwarf2out.c (lto_var_ref): Don't remove DW_AT_declaration.

@@ -867,7 +867,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	if (tag == LTO_bit_field_ref1)
 	  {
 	    op1 = build_int_cst_wide (sizetype, input_uleb128 (ib), 0);
-	    op2 = build_int_cst_wide (sizetype, input_uleb128 (ib), 0);
+	    op2 = build_int_cst_wide (bitsizetype, input_uleb128 (ib), 0);
 	    op0 = input_expr_operand (ib, data_in, fn,
 				      input_record_start (ib));
 	  }
