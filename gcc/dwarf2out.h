@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 extern void dwarf2out_decl (tree);
 extern void dwarf2out_frame_debug (rtx, bool);
 
-extern bool dwarf2_generate_frame_info_p;
+extern bool dwarf2_called_from_lto_p;
 
 extern void debug_dwarf (void);
 struct die_struct;

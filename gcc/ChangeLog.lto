@@ -1,5 +1,17 @@
 2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* dwarf2out.h (dwarf2_generate_frame_info_p): Rename this...
+	(dwarf2_called_from_lto_p): ...to this.
+	* dwarf2out.c (dwarf2_generate_frame_info): Rename this...
+	(dwarf2_called_from_lto_p): ...to this.
+	(gen_subprogram_die): Use dwarf2_called_from_lto_p and invert sense.
+	(add_high_low_attributes): Disable generation of the attributes if
+	we are generating information for LTO.
+	* lto-function-out.c (output_function): Use push_cfun and pop_cfun.
+	(lto_output): Use dwarf2_called_from_lto_p and invert sense.
+
+2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* dwarf2out.c (lto_var_ref): Remove DW_AT_declaration if we are
 	forcing an initialized global variable.
 

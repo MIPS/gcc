@@ -112,13 +112,10 @@ static void dwarf2out_source_line (unsigned int, const char *);
 
 /* LTO needs to call into the dwarf machinery to generate dwarf as early
    as possible, but said machinery was not implemented with this
-   possibility in mind.  The bits that cause us real problems are those
-   that deal with frame/unwind information.  We provide this flag to
-   suppress the normal generation of frame/unwind information when
-   necessary.  It should only ever be used by LTO and it may not catch
-   every case in existence--just those of interest to LTO call
-   paths.  */
-bool dwarf2_generate_frame_info_p = true;
+   possibility in mind.  There are several bits that need to be turned
+   off when LTO is calling into the dwarf code; this flag controls
+   execution of those bits.  */
+bool dwarf2_called_from_lto_p = false;
 
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
@@ -12283,7 +12280,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	   */
 	}
 
-      if (dwarf2_generate_frame_info_p)
+      if (!dwarf2_called_from_lto_p)
         {
 #ifdef MIPS_DEBUGGING_INFO
           /* Add a reference to the FDE for this routine.  */
@@ -12615,6 +12612,12 @@ static inline void
 add_high_low_attributes (tree stmt, dw_die_ref die)
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
+
+  /* Don't bother generating these attributes if we are doing this for
+     LTO, as the block in question may not exist by the time we get
+     around to final assembly.  */
+  if (dwarf2_called_from_lto_p)
+    return;
 
   if (BLOCK_FRAGMENT_CHAIN (stmt))
     {

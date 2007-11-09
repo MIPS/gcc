@@ -2222,7 +2222,7 @@ output_function (tree function)
 
   /* Set current_function_decl to what the dwarf2 machinery expects.  */
   current_function_decl = function;
-  cfun = fn;
+  push_cfun (fn);
 
   /* Generate debugging info as early as we can.  */
   generate_early_dwarf_information (function);
@@ -2274,7 +2274,7 @@ output_function (tree function)
   destroy_output_block (ob, true);
 
   current_function_decl = NULL;
-  cfun = NULL;
+  pop_cfun ();
 }
 
 
@@ -2317,8 +2317,8 @@ lto_output (void)
 
   lto_static_init_local ();
 
-  /* We have no RTL at this point.  */
-  dwarf2_generate_frame_info_p = false;
+  /* Turn off some DWARF2 bits.  */
+  dwarf2_called_from_lto_p = true;
 
   /* Process only the fuctions with bodies and only process the master
      ones of them.  */
@@ -2337,7 +2337,7 @@ lto_output (void)
   if (saved_section)
     switch_to_section (saved_section);
 
-  dwarf2_generate_frame_info_p = true;
+  dwarf2_called_from_lto_p = false;
 
   return 0;
 }
