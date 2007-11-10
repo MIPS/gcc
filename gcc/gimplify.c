@@ -762,6 +762,26 @@ should_carry_locus_p (gimple gs)
   return true;
 }
 
+/* Same, but for a tree.  */
+
+static bool
+tree_should_carry_locus_p (const_tree stmt)
+{
+  /* Don't emit a line note for a label.  We particularly don't want to
+     emit one for the break label, since it doesn't actually correspond
+     to the beginning of the loop/switch.  */
+  if (TREE_CODE (stmt) == LABEL_EXPR)
+    return false;
+
+  /* Do not annotate empty statements, since it confuses gcov.  */
+  if (!TREE_SIDE_EFFECTS (stmt))
+    return false;
+
+  return true;
+}
+
+/* Set the location for gimple statement GS to LOCUS.  */
+
 static void
 annotate_one_with_locus (gimple gs, location_t locus)
 {
@@ -769,6 +789,18 @@ annotate_one_with_locus (gimple gs, location_t locus)
   if (gimple_locus_empty_p (gs) && should_carry_locus_p (gs))
     gimple_set_locus (gs, locus);
 }
+
+/* Same, but for tree T.  */
+
+static void
+tree_annotate_one_with_locus (tree t, location_t locus)
+{
+  if (CAN_HAVE_LOCATION_P (t)
+      && ! EXPR_HAS_LOCATION (t) && tree_should_carry_locus_p (t))
+    SET_EXPR_LOCATION (t, locus);
+}
+
+/* Set the location for all the statements in a sequence STMT_P to LOCUS.  */
 
 void
 annotate_all_with_locus (gimple_seq stmt_p, location_t locus)
@@ -784,6 +816,30 @@ annotate_all_with_locus (gimple_seq stmt_p, location_t locus)
       annotate_one_with_locus (gs, locus);
     }
 }
+
+/* Same, but for statement or statement list in *STMT_P.  */
+
+void
+tree_annotate_all_with_locus (tree *stmt_p, location_t locus)
+{
+  tree_stmt_iterator i;
+
+  if (!*stmt_p)
+    return;
+
+  for (i = tsi_start (*stmt_p); !tsi_end_p (i); tsi_next (&i))
+    {
+      tree t = tsi_stmt (i);
+
+      /* Assuming we've already been gimplified, we shouldn't
+	  see nested chaining constructs anymore.  */
+      gcc_assert (TREE_CODE (t) != STATEMENT_LIST
+		  && TREE_CODE (t) != COMPOUND_EXPR);
+
+      tree_annotate_one_with_locus (t, locus);
+    }
+}
+
 
 /* Similar to copy_tree_r() but do not copy SAVE_EXPR or TARGET_EXPR nodes.
    These nodes model computations that should only be done once.  If we

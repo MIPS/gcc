@@ -252,28 +252,13 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 
   body = finish_bc_block (bc_continue, cont_block, body);
 
-  /* Annotate the new statements individually because annotate_all_with_locus
-     only works on gimple sequences.  */
-
-  if (top && CAN_HAVE_LOCATION_P (top))
-    SET_EXPR_LOCATION (top, stmt_locus);
   append_to_statement_list (top, &stmt_list);
-
-  if (body && CAN_HAVE_LOCATION_P (body))
-    SET_EXPR_LOCATION (body, stmt_locus);
   append_to_statement_list (body, &stmt_list);
-
-  if (incr && CAN_HAVE_LOCATION_P (incr))
-    SET_EXPR_LOCATION (incr, stmt_locus);
   append_to_statement_list (incr, &stmt_list);
-
-  if (entry && CAN_HAVE_LOCATION_P (entry))
-    SET_EXPR_LOCATION (entry, stmt_locus);
   append_to_statement_list (entry, &stmt_list);
-
-  if (exit && CAN_HAVE_LOCATION_P (exit))
-    SET_EXPR_LOCATION (exit, stmt_locus);
   append_to_statement_list (exit, &stmt_list);
+
+  tree_annotate_all_with_locus (&stmt_list, stmt_locus);
 
   return finish_bc_block (bc_break, break_block, stmt_list);
 }

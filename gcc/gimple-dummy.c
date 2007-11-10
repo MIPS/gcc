@@ -112,3 +112,5 @@ DUMMY_FN (push_stmt_changes);
 DUMMY_FN (pop_stmt_changes);
 DUMMY_FN (replace_exp);
 DUMMY_FN (remove_iv);
+DUMMY_FN (omp_reduction_init);
+DUMMY_FN (diagnose_omp_structured_block_errors);

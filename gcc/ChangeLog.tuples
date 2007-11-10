@@ -1,4 +1,14 @@
+2007-11-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-gimple.h (tree_annotate_all_with_locus): New.
+	* gimple-dummy.c: Add omp_reduction_init and
+	diagnose_omp_structured_block_errors.
+	* gimplify.c (tree_should_carry_locus_p): New.
+	(tree_annotate_one_with_locus): New.
+	(tree_annotate_all_with_locus): New.
+
 2007-11-08  Diego Novillo  <dnovillo@google.com>
+
 
 	Merge with mainline @129982
 

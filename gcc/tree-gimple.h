@@ -43,6 +43,7 @@ extern tree create_tmp_var (tree, const char *);
 extern tree get_initialized_tmp_var (tree, gimple_seq, gimple_seq);
 extern tree get_formal_tmp_var (tree, gimple_seq);
 extern void declare_vars (tree, gimple, bool);
+extern void tree_annotate_all_with_locus (tree *, location_t);
 extern void annotate_all_with_locus (gimple_seq, location_t);
 
 /* Validation of GIMPLE expressions.  Note that these predicates only check

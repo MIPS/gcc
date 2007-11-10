@@ -1,3 +1,8 @@
+2007-11-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cp-gimplify.c (gimplify_cp_loop): Call tree_annotate_all_with_locus
+	instead of annotating each block manually.
+
 2007-10-30  Aldy Hernandez  <aldyh@redhat.com>
 
 	* cp-gimplify.c (gimplify_cp_loop): Tuplify.

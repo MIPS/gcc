@@ -973,7 +973,7 @@ gfc_trans_code (gfc_code * code)
 
   gfc_start_block (&block);
 
-  /* Translate statements one by one to GIMPLE trees until we reach
+  /* Translate statements one by one into GENERIC trees until we reach
      the end of this gfc_code branch.  */
   for (; code; code = code->next)
     {
@@ -1155,7 +1155,7 @@ gfc_trans_code (gfc_code * code)
       if (res != NULL_TREE && ! IS_EMPTY_STMT (res))
 	{
 	  if (TREE_CODE (res) == STATEMENT_LIST)
-	    annotate_all_with_locus (&res, input_location);
+	    tree_annotate_all_with_locus (&res, input_location);
 	  else
 	    SET_EXPR_LOCATION (res, input_location);
 	    
