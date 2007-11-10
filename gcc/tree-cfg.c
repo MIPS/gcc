@@ -3344,11 +3344,15 @@ verify_types_in_gimple_call (gimple stmt)
 {
   bool failed = false;
   unsigned int i;
+  tree fn;
 
   if (gimple_call_lhs (stmt))
     failed |= verify_types_in_gimple_op (gimple_call_lhs (stmt));
 
-  failed |= verify_types_in_gimple_op (gimple_call_fn (stmt));
+  fn = gimple_call_fn (stmt);
+  if (TREE_CODE (fn) != OBJ_TYPE_REF
+      && verify_types_in_gimple_op (fn))
+    failed = true;
 
   if (gimple_call_chain (stmt))
     failed |= verify_types_in_gimple_op (gimple_call_chain (stmt));

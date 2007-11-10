@@ -1,0 +1,4 @@
+2007-11-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* objc-act.c (objc_gimplify_expr): Change pre and post to sequences.
+	* objc-act.h (objc_gimplify_expr): Change prototype accordingly.
