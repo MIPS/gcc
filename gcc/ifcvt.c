@@ -2198,7 +2198,7 @@ noce_process_if_block (struct noce_if_info *if_info)
     {
       insn_b = prev_nonnote_insn (if_info->cond_earliest);
       while (insn_b && DEBUG_INSN_P (insn_b))
-	insn_b = PREV_INSN (insn_b);
+	insn_b = prev_nonnote_insn (insn_b);
       /* We're going to be moving the evaluation of B down from above
 	 COND_EARLIEST to JUMP.  Make sure the relevant data is still
 	 intact.  */
@@ -2209,14 +2209,13 @@ noce_process_if_block (struct noce_if_info *if_info)
 	  || ! rtx_equal_p (x, SET_DEST (set_b))
 	  || ! noce_operand_ok (SET_SRC (set_b))
 	  || reg_overlap_mentioned_p (x, SET_SRC (set_b))
-	  || modified_between_p (SET_SRC (set_b),
-				 PREV_INSN (if_info->cond_earliest), jump)
+	  || modified_between_p (SET_SRC (set_b), NEXT_INSN (insn_b), jump)
 	  /* Likewise with X.  In particular this can happen when
 	     noce_get_condition looks farther back in the instruction
 	     stream than one might expect.  */
 	  || reg_overlap_mentioned_p (x, cond)
 	  || reg_overlap_mentioned_p (x, a)
-	  || modified_between_p (x, PREV_INSN (if_info->cond_earliest), jump))
+	  || modified_between_p (x, NEXT_INSN (insn_b), jump))
 	insn_b = set_b = NULL_RTX;
     }
 

@@ -1,5 +1,11 @@
 2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* ifcvt.c (noce_process_if_block): Skip notes in between debug
+	insns when scanning back for insn_b.  Check for mods starting
+	after insn_b.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* caller-save.c (refmarker_fn): New type.
 	(save_call_clobbered_regs): Don't restore saved regs for debug insns.
 	(mark_referenced_regs): Add mark and arg parameters.  Make
