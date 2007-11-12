@@ -338,6 +338,7 @@ STAGE4_CFLAGS=$(BOOT_CFLAGS)
 do-compare = @do_compare@
 do-compare3 = $(do-compare)
 do-compare-debug = $(SHELL) $(srcdir)/contrib/compare-debug $$f1 $$f2
+do-compare3-debug = $(do-compare-debug)
 
 # -----------------------------------------------
 # Programs producing files for the TARGET machine
@@ -4988,6 +4989,37 @@ configure-stage4-bfd:
 	  @stage2_werror_flag@ 
 @endif bfd-bootstrap
 
+.PHONY: configure-stageb4g-bfd maybe-configure-stageb4g-bfd
+maybe-configure-stageb4g-bfd:
+@if bfd-bootstrap
+maybe-configure-stageb4g-bfd: configure-stageb4g-bfd
+configure-stageb4g-bfd:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/bfd
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/bfd/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/bfd ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/bfd ; \
+	cd $(HOST_SUBDIR)/bfd || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/bfd/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/bfd"; \
+	libsrcdir="$$s/bfd"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif bfd-bootstrap
+
 .PHONY: configure-stageprofile-bfd maybe-configure-stageprofile-bfd
 maybe-configure-stageprofile-bfd:
 @if bfd-bootstrap
@@ -5272,6 +5304,41 @@ clean-stage4-bfd:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-bfd/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/bfd && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif bfd-bootstrap
+
+
+.PHONY: all-stageb4g-bfd maybe-all-stageb4g-bfd
+.PHONY: clean-stageb4g-bfd maybe-clean-stageb4g-bfd
+maybe-all-stageb4g-bfd:
+maybe-clean-stageb4g-bfd:
+@if bfd-bootstrap
+maybe-all-stageb4g-bfd: all-stageb4g-bfd
+all-stageb4g: all-stageb4g-bfd
+TARGET-stageb4g-bfd = $(TARGET-bfd)
+all-stageb4g-bfd: configure-stageb4g-bfd
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/bfd && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-bfd)
+
+maybe-clean-stageb4g-bfd: clean-stageb4g-bfd
+clean-stageb4g: clean-stageb4g-bfd
+clean-stageb4g-bfd:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/bfd/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-bfd/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/bfd && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -5926,6 +5993,37 @@ configure-stage4-opcodes:
 	  @stage2_werror_flag@ 
 @endif opcodes-bootstrap
 
+.PHONY: configure-stageb4g-opcodes maybe-configure-stageb4g-opcodes
+maybe-configure-stageb4g-opcodes:
+@if opcodes-bootstrap
+maybe-configure-stageb4g-opcodes: configure-stageb4g-opcodes
+configure-stageb4g-opcodes:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/opcodes
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/opcodes/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/opcodes ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/opcodes ; \
+	cd $(HOST_SUBDIR)/opcodes || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/opcodes/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/opcodes"; \
+	libsrcdir="$$s/opcodes"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif opcodes-bootstrap
+
 .PHONY: configure-stageprofile-opcodes maybe-configure-stageprofile-opcodes
 maybe-configure-stageprofile-opcodes:
 @if opcodes-bootstrap
@@ -6210,6 +6308,41 @@ clean-stage4-opcodes:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-opcodes/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/opcodes && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif opcodes-bootstrap
+
+
+.PHONY: all-stageb4g-opcodes maybe-all-stageb4g-opcodes
+.PHONY: clean-stageb4g-opcodes maybe-clean-stageb4g-opcodes
+maybe-all-stageb4g-opcodes:
+maybe-clean-stageb4g-opcodes:
+@if opcodes-bootstrap
+maybe-all-stageb4g-opcodes: all-stageb4g-opcodes
+all-stageb4g: all-stageb4g-opcodes
+TARGET-stageb4g-opcodes = $(TARGET-opcodes)
+all-stageb4g-opcodes: configure-stageb4g-opcodes
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/opcodes && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-opcodes)
+
+maybe-clean-stageb4g-opcodes: clean-stageb4g-opcodes
+clean-stageb4g: clean-stageb4g-opcodes
+clean-stageb4g-opcodes:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/opcodes/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-opcodes/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/opcodes && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -6864,6 +6997,37 @@ configure-stage4-binutils:
 	  @stage2_werror_flag@ 
 @endif binutils-bootstrap
 
+.PHONY: configure-stageb4g-binutils maybe-configure-stageb4g-binutils
+maybe-configure-stageb4g-binutils:
+@if binutils-bootstrap
+maybe-configure-stageb4g-binutils: configure-stageb4g-binutils
+configure-stageb4g-binutils:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/binutils
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/binutils/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/binutils ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/binutils ; \
+	cd $(HOST_SUBDIR)/binutils || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/binutils/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/binutils"; \
+	libsrcdir="$$s/binutils"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif binutils-bootstrap
+
 .PHONY: configure-stageprofile-binutils maybe-configure-stageprofile-binutils
 maybe-configure-stageprofile-binutils:
 @if binutils-bootstrap
@@ -7148,6 +7312,41 @@ clean-stage4-binutils:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-binutils/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/binutils && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif binutils-bootstrap
+
+
+.PHONY: all-stageb4g-binutils maybe-all-stageb4g-binutils
+.PHONY: clean-stageb4g-binutils maybe-clean-stageb4g-binutils
+maybe-all-stageb4g-binutils:
+maybe-clean-stageb4g-binutils:
+@if binutils-bootstrap
+maybe-all-stageb4g-binutils: all-stageb4g-binutils
+all-stageb4g: all-stageb4g-binutils
+TARGET-stageb4g-binutils = $(TARGET-binutils)
+all-stageb4g-binutils: configure-stageb4g-binutils
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/binutils && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-binutils)
+
+maybe-clean-stageb4g-binutils: clean-stageb4g-binutils
+clean-stageb4g: clean-stageb4g-binutils
+clean-stageb4g-binutils:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/binutils/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-binutils/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/binutils && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -13304,6 +13503,37 @@ configure-stage4-gas:
 	  @stage2_werror_flag@ 
 @endif gas-bootstrap
 
+.PHONY: configure-stageb4g-gas maybe-configure-stageb4g-gas
+maybe-configure-stageb4g-gas:
+@if gas-bootstrap
+maybe-configure-stageb4g-gas: configure-stageb4g-gas
+configure-stageb4g-gas:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gas
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/gas/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/gas ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gas ; \
+	cd $(HOST_SUBDIR)/gas || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/gas/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/gas"; \
+	libsrcdir="$$s/gas"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif gas-bootstrap
+
 .PHONY: configure-stageprofile-gas maybe-configure-stageprofile-gas
 maybe-configure-stageprofile-gas:
 @if gas-bootstrap
@@ -13588,6 +13818,41 @@ clean-stage4-gas:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-gas/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/gas && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif gas-bootstrap
+
+
+.PHONY: all-stageb4g-gas maybe-all-stageb4g-gas
+.PHONY: clean-stageb4g-gas maybe-clean-stageb4g-gas
+maybe-all-stageb4g-gas:
+maybe-clean-stageb4g-gas:
+@if gas-bootstrap
+maybe-all-stageb4g-gas: all-stageb4g-gas
+all-stageb4g: all-stageb4g-gas
+TARGET-stageb4g-gas = $(TARGET-gas)
+all-stageb4g-gas: configure-stageb4g-gas
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/gas && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-gas)
+
+maybe-clean-stageb4g-gas: clean-stageb4g-gas
+clean-stageb4g: clean-stageb4g-gas
+clean-stageb4g-gas:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/gas/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-gas/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gas && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -14242,6 +14507,37 @@ configure-stage4-gcc:
 	  @stage2_werror_flag@ 
 @endif gcc-bootstrap
 
+.PHONY: configure-stageb4g-gcc maybe-configure-stageb4g-gcc
+maybe-configure-stageb4g-gcc:
+@if gcc-bootstrap
+maybe-configure-stageb4g-gcc: configure-stageb4g-gcc
+configure-stageb4g-gcc:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gcc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/gcc/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/gcc ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gcc ; \
+	cd $(HOST_SUBDIR)/gcc || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/gcc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/gcc"; \
+	libsrcdir="$$s/gcc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif gcc-bootstrap
+
 .PHONY: configure-stageprofile-gcc maybe-configure-stageprofile-gcc
 maybe-configure-stageprofile-gcc:
 @if gcc-bootstrap
@@ -14526,6 +14822,41 @@ clean-stage4-gcc:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-gcc/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/gcc && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(EXTRA_GCC_FLAGS) clean
+@endif gcc-bootstrap
+
+
+.PHONY: all-stageb4g-gcc maybe-all-stageb4g-gcc
+.PHONY: clean-stageb4g-gcc maybe-clean-stageb4g-gcc
+maybe-all-stageb4g-gcc:
+maybe-clean-stageb4g-gcc:
+@if gcc-bootstrap
+maybe-all-stageb4g-gcc: all-stageb4g-gcc
+all-stageb4g: all-stageb4g-gcc
+TARGET-stageb4g-gcc = $(TARGET-gcc)
+all-stageb4g-gcc: configure-stageb4g-gcc
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/gcc && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
+		$(TARGET-stageb4g-gcc)
+
+maybe-clean-stageb4g-gcc: clean-stageb4g-gcc
+clean-stageb4g: clean-stageb4g-gcc
+clean-stageb4g-gcc:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/gcc/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-gcc/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gcc && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -16028,6 +16359,37 @@ configure-stage4-gmp:
 	  @stage2_werror_flag@ --disable-shared
 @endif gmp-bootstrap
 
+.PHONY: configure-stageb4g-gmp maybe-configure-stageb4g-gmp
+maybe-configure-stageb4g-gmp:
+@if gmp-bootstrap
+maybe-configure-stageb4g-gmp: configure-stageb4g-gmp
+configure-stageb4g-gmp:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gmp
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/gmp/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/gmp ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gmp ; \
+	cd $(HOST_SUBDIR)/gmp || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/gmp/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/gmp"; \
+	libsrcdir="$$s/gmp"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=none-${host_vendor}-${host_os} \
+	  --target=none-${host_vendor}-${host_os} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ --disable-shared
+@endif gmp-bootstrap
+
 .PHONY: configure-stageprofile-gmp maybe-configure-stageprofile-gmp
 maybe-configure-stageprofile-gmp:
 @if gmp-bootstrap
@@ -16312,6 +16674,41 @@ clean-stage4-gmp:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-gmp/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/gmp && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif gmp-bootstrap
+
+
+.PHONY: all-stageb4g-gmp maybe-all-stageb4g-gmp
+.PHONY: clean-stageb4g-gmp maybe-clean-stageb4g-gmp
+maybe-all-stageb4g-gmp:
+maybe-clean-stageb4g-gmp:
+@if gmp-bootstrap
+maybe-all-stageb4g-gmp: all-stageb4g-gmp
+all-stageb4g: all-stageb4g-gmp
+TARGET-stageb4g-gmp = $(TARGET-gmp)
+all-stageb4g-gmp: configure-stageb4g-gmp
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/gmp && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-gmp)
+
+maybe-clean-stageb4g-gmp: clean-stageb4g-gmp
+clean-stageb4g: clean-stageb4g-gmp
+clean-stageb4g-gmp:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/gmp/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-gmp/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gmp && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -16960,6 +17357,37 @@ configure-stage4-mpfr:
 	  @stage2_werror_flag@ --disable-shared --with-gmp-build=$$r/$(HOST_SUBDIR)/gmp
 @endif mpfr-bootstrap
 
+.PHONY: configure-stageb4g-mpfr maybe-configure-stageb4g-mpfr
+maybe-configure-stageb4g-mpfr:
+@if mpfr-bootstrap
+maybe-configure-stageb4g-mpfr: configure-stageb4g-mpfr
+configure-stageb4g-mpfr:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/mpfr
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/mpfr/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/mpfr ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/mpfr ; \
+	cd $(HOST_SUBDIR)/mpfr || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/mpfr/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/mpfr"; \
+	libsrcdir="$$s/mpfr"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=none-${host_vendor}-${host_os} \
+	  --target=none-${host_vendor}-${host_os} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ --disable-shared --with-gmp-build=$$r/$(HOST_SUBDIR)/gmp
+@endif mpfr-bootstrap
+
 .PHONY: configure-stageprofile-mpfr maybe-configure-stageprofile-mpfr
 maybe-configure-stageprofile-mpfr:
 @if mpfr-bootstrap
@@ -17244,6 +17672,41 @@ clean-stage4-mpfr:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-mpfr/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/mpfr && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif mpfr-bootstrap
+
+
+.PHONY: all-stageb4g-mpfr maybe-all-stageb4g-mpfr
+.PHONY: clean-stageb4g-mpfr maybe-clean-stageb4g-mpfr
+maybe-all-stageb4g-mpfr:
+maybe-clean-stageb4g-mpfr:
+@if mpfr-bootstrap
+maybe-all-stageb4g-mpfr: all-stageb4g-mpfr
+all-stageb4g: all-stageb4g-mpfr
+TARGET-stageb4g-mpfr = $(TARGET-mpfr)
+all-stageb4g-mpfr: configure-stageb4g-mpfr
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/mpfr && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-mpfr)
+
+maybe-clean-stageb4g-mpfr: clean-stageb4g-mpfr
+clean-stageb4g: clean-stageb4g-mpfr
+clean-stageb4g-mpfr:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/mpfr/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-mpfr/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/mpfr && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -20012,6 +20475,37 @@ configure-stage4-intl:
 	  @stage2_werror_flag@ 
 @endif intl-bootstrap
 
+.PHONY: configure-stageb4g-intl maybe-configure-stageb4g-intl
+maybe-configure-stageb4g-intl:
+@if intl-bootstrap
+maybe-configure-stageb4g-intl: configure-stageb4g-intl
+configure-stageb4g-intl:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/intl
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/intl/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/intl ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/intl ; \
+	cd $(HOST_SUBDIR)/intl || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/intl/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/intl"; \
+	libsrcdir="$$s/intl"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif intl-bootstrap
+
 .PHONY: configure-stageprofile-intl maybe-configure-stageprofile-intl
 maybe-configure-stageprofile-intl:
 @if intl-bootstrap
@@ -20296,6 +20790,41 @@ clean-stage4-intl:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-intl/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/intl && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif intl-bootstrap
+
+
+.PHONY: all-stageb4g-intl maybe-all-stageb4g-intl
+.PHONY: clean-stageb4g-intl maybe-clean-stageb4g-intl
+maybe-all-stageb4g-intl:
+maybe-clean-stageb4g-intl:
+@if intl-bootstrap
+maybe-all-stageb4g-intl: all-stageb4g-intl
+all-stageb4g: all-stageb4g-intl
+TARGET-stageb4g-intl = $(TARGET-intl)
+all-stageb4g-intl: configure-stageb4g-intl
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/intl && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-intl)
+
+maybe-clean-stageb4g-intl: clean-stageb4g-intl
+clean-stageb4g: clean-stageb4g-intl
+clean-stageb4g-intl:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/intl/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-intl/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/intl && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -21783,6 +22312,37 @@ configure-stage4-ld:
 	  @stage2_werror_flag@ 
 @endif ld-bootstrap
 
+.PHONY: configure-stageb4g-ld maybe-configure-stageb4g-ld
+maybe-configure-stageb4g-ld:
+@if ld-bootstrap
+maybe-configure-stageb4g-ld: configure-stageb4g-ld
+configure-stageb4g-ld:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/ld
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/ld/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/ld ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/ld ; \
+	cd $(HOST_SUBDIR)/ld || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/ld/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/ld"; \
+	libsrcdir="$$s/ld"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif ld-bootstrap
+
 .PHONY: configure-stageprofile-ld maybe-configure-stageprofile-ld
 maybe-configure-stageprofile-ld:
 @if ld-bootstrap
@@ -22067,6 +22627,41 @@ clean-stage4-ld:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-ld/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/ld && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif ld-bootstrap
+
+
+.PHONY: all-stageb4g-ld maybe-all-stageb4g-ld
+.PHONY: clean-stageb4g-ld maybe-clean-stageb4g-ld
+maybe-all-stageb4g-ld:
+maybe-clean-stageb4g-ld:
+@if ld-bootstrap
+maybe-all-stageb4g-ld: all-stageb4g-ld
+all-stageb4g: all-stageb4g-ld
+TARGET-stageb4g-ld = $(TARGET-ld)
+all-stageb4g-ld: configure-stageb4g-ld
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/ld && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-ld)
+
+maybe-clean-stageb4g-ld: clean-stageb4g-ld
+clean-stageb4g: clean-stageb4g-ld
+clean-stageb4g-ld:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/ld/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-ld/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/ld && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -22721,6 +23316,37 @@ configure-stage4-libcpp:
 	  @stage2_werror_flag@ 
 @endif libcpp-bootstrap
 
+.PHONY: configure-stageb4g-libcpp maybe-configure-stageb4g-libcpp
+maybe-configure-stageb4g-libcpp:
+@if libcpp-bootstrap
+maybe-configure-stageb4g-libcpp: configure-stageb4g-libcpp
+configure-stageb4g-libcpp:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libcpp
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libcpp/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/libcpp ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libcpp ; \
+	cd $(HOST_SUBDIR)/libcpp || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libcpp/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libcpp"; \
+	libsrcdir="$$s/libcpp"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif libcpp-bootstrap
+
 .PHONY: configure-stageprofile-libcpp maybe-configure-stageprofile-libcpp
 maybe-configure-stageprofile-libcpp:
 @if libcpp-bootstrap
@@ -23005,6 +23631,41 @@ clean-stage4-libcpp:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-libcpp/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libcpp && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif libcpp-bootstrap
+
+
+.PHONY: all-stageb4g-libcpp maybe-all-stageb4g-libcpp
+.PHONY: clean-stageb4g-libcpp maybe-clean-stageb4g-libcpp
+maybe-all-stageb4g-libcpp:
+maybe-clean-stageb4g-libcpp:
+@if libcpp-bootstrap
+maybe-all-stageb4g-libcpp: all-stageb4g-libcpp
+all-stageb4g: all-stageb4g-libcpp
+TARGET-stageb4g-libcpp = $(TARGET-libcpp)
+all-stageb4g-libcpp: configure-stageb4g-libcpp
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libcpp && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-libcpp)
+
+maybe-clean-stageb4g-libcpp: clean-stageb4g-libcpp
+clean-stageb4g: clean-stageb4g-libcpp
+clean-stageb4g-libcpp:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/libcpp/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-libcpp/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/libcpp && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -23659,6 +24320,37 @@ configure-stage4-libdecnumber:
 	  @stage2_werror_flag@ 
 @endif libdecnumber-bootstrap
 
+.PHONY: configure-stageb4g-libdecnumber maybe-configure-stageb4g-libdecnumber
+maybe-configure-stageb4g-libdecnumber:
+@if libdecnumber-bootstrap
+maybe-configure-stageb4g-libdecnumber: configure-stageb4g-libdecnumber
+configure-stageb4g-libdecnumber:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libdecnumber
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libdecnumber/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/libdecnumber ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libdecnumber ; \
+	cd $(HOST_SUBDIR)/libdecnumber || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libdecnumber/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libdecnumber"; \
+	libsrcdir="$$s/libdecnumber"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif libdecnumber-bootstrap
+
 .PHONY: configure-stageprofile-libdecnumber maybe-configure-stageprofile-libdecnumber
 maybe-configure-stageprofile-libdecnumber:
 @if libdecnumber-bootstrap
@@ -23943,6 +24635,41 @@ clean-stage4-libdecnumber:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-libdecnumber/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libdecnumber && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif libdecnumber-bootstrap
+
+
+.PHONY: all-stageb4g-libdecnumber maybe-all-stageb4g-libdecnumber
+.PHONY: clean-stageb4g-libdecnumber maybe-clean-stageb4g-libdecnumber
+maybe-all-stageb4g-libdecnumber:
+maybe-clean-stageb4g-libdecnumber:
+@if libdecnumber-bootstrap
+maybe-all-stageb4g-libdecnumber: all-stageb4g-libdecnumber
+all-stageb4g: all-stageb4g-libdecnumber
+TARGET-stageb4g-libdecnumber = $(TARGET-libdecnumber)
+all-stageb4g-libdecnumber: configure-stageb4g-libdecnumber
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libdecnumber && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-libdecnumber)
+
+maybe-clean-stageb4g-libdecnumber: clean-stageb4g-libdecnumber
+clean-stageb4g: clean-stageb4g-libdecnumber
+clean-stageb4g-libdecnumber:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/libdecnumber/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-libdecnumber/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/libdecnumber && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -25021,6 +25748,37 @@ configure-stage4-libiberty:
 	  @stage2_werror_flag@ 
 @endif libiberty-bootstrap
 
+.PHONY: configure-stageb4g-libiberty maybe-configure-stageb4g-libiberty
+maybe-configure-stageb4g-libiberty:
+@if libiberty-bootstrap
+maybe-configure-stageb4g-libiberty: configure-stageb4g-libiberty
+configure-stageb4g-libiberty:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libiberty
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libiberty/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/libiberty ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libiberty ; \
+	cd $(HOST_SUBDIR)/libiberty || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libiberty/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libiberty"; \
+	libsrcdir="$$s/libiberty"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif libiberty-bootstrap
+
 .PHONY: configure-stageprofile-libiberty maybe-configure-stageprofile-libiberty
 maybe-configure-stageprofile-libiberty:
 @if libiberty-bootstrap
@@ -25305,6 +26063,41 @@ clean-stage4-libiberty:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-libiberty/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libiberty && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif libiberty-bootstrap
+
+
+.PHONY: all-stageb4g-libiberty maybe-all-stageb4g-libiberty
+.PHONY: clean-stageb4g-libiberty maybe-clean-stageb4g-libiberty
+maybe-all-stageb4g-libiberty:
+maybe-clean-stageb4g-libiberty:
+@if libiberty-bootstrap
+maybe-all-stageb4g-libiberty: all-stageb4g-libiberty
+all-stageb4g: all-stageb4g-libiberty
+TARGET-stageb4g-libiberty = $(TARGET-libiberty)
+all-stageb4g-libiberty: configure-stageb4g-libiberty
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/libiberty && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-libiberty)
+
+maybe-clean-stageb4g-libiberty: clean-stageb4g-libiberty
+clean-stageb4g: clean-stageb4g-libiberty
+clean-stageb4g-libiberty:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/libiberty/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-libiberty/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/libiberty && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -35690,6 +36483,37 @@ configure-stage4-zlib:
 	  @stage2_werror_flag@ 
 @endif zlib-bootstrap
 
+.PHONY: configure-stageb4g-zlib maybe-configure-stageb4g-zlib
+maybe-configure-stageb4g-zlib:
+@if zlib-bootstrap
+maybe-configure-stageb4g-zlib: configure-stageb4g-zlib
+configure-stageb4g-zlib:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/zlib
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/zlib/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/zlib ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/zlib ; \
+	cd $(HOST_SUBDIR)/zlib || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/zlib/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/zlib"; \
+	libsrcdir="$$s/zlib"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif zlib-bootstrap
+
 .PHONY: configure-stageprofile-zlib maybe-configure-stageprofile-zlib
 maybe-configure-stageprofile-zlib:
 @if zlib-bootstrap
@@ -35974,6 +36798,41 @@ clean-stage4-zlib:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-zlib/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/zlib && \
+	$(MAKE) $(FLAGS_TO_PASS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif zlib-bootstrap
+
+
+.PHONY: all-stageb4g-zlib maybe-all-stageb4g-zlib
+.PHONY: clean-stageb4g-zlib maybe-clean-stageb4g-zlib
+maybe-all-stageb4g-zlib:
+maybe-clean-stageb4g-zlib:
+@if zlib-bootstrap
+maybe-all-stageb4g-zlib: all-stageb4g-zlib
+all-stageb4g: all-stageb4g-zlib
+TARGET-stageb4g-zlib = $(TARGET-zlib)
+all-stageb4g-zlib: configure-stageb4g-zlib
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/zlib && \
+	$(MAKE) $(FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-zlib)
+
+maybe-clean-stageb4g-zlib: clean-stageb4g-zlib
+clean-stageb4g: clean-stageb4g-zlib
+clean-stageb4g-zlib:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/zlib/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-zlib/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/zlib && \
 	$(MAKE) $(FLAGS_TO_PASS)  \
@@ -41369,6 +42228,49 @@ configure-stage4-target-libgcc:
 	  @stage2_werror_flag@ 
 @endif target-libgcc-bootstrap
 
+.PHONY: configure-stageb4g-target-libgcc maybe-configure-stageb4g-target-libgcc
+maybe-configure-stageb4g-target-libgcc:
+@if target-libgcc-bootstrap
+maybe-configure-stageb4g-target-libgcc: configure-stageb4g-target-libgcc
+configure-stageb4g-target-libgcc:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgcc
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	echo "Checking multilib configuration for libgcc..."; \
+	$(CC_FOR_TARGET) --print-multi-lib > $(TARGET_SUBDIR)/libgcc/multilib.tmp 2> /dev/null ; \
+	if test -r $(TARGET_SUBDIR)/libgcc/multilib.out; then \
+	  if cmp -s $(TARGET_SUBDIR)/libgcc/multilib.tmp $(TARGET_SUBDIR)/libgcc/multilib.out; then \
+	    rm -f $(TARGET_SUBDIR)/libgcc/multilib.tmp; \
+	  else \
+	    rm -f $(TARGET_SUBDIR)/libgcc/Makefile; \
+	    mv $(TARGET_SUBDIR)/libgcc/multilib.tmp $(TARGET_SUBDIR)/libgcc/multilib.out; \
+	  fi; \
+	else \
+	  mv $(TARGET_SUBDIR)/libgcc/multilib.tmp $(TARGET_SUBDIR)/libgcc/multilib.out; \
+	fi; \
+	test ! -f $(TARGET_SUBDIR)/libgcc/Makefile || exit 0; \
+	$(NORMAL_TARGET_EXPORTS) \
+	 \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	echo Configuring stage b4g in $(TARGET_SUBDIR)/libgcc ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgcc ; \
+	cd $(TARGET_SUBDIR)/libgcc || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(TARGET_SUBDIR)/libgcc/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libgcc"; \
+	libsrcdir="$$s/libgcc"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(TARGET_CONFIGARGS) --build=${build_alias} --host=${target_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif target-libgcc-bootstrap
+
 .PHONY: configure-stageprofile-target-libgcc maybe-configure-stageprofile-target-libgcc
 maybe-configure-stageprofile-target-libgcc:
 @if target-libgcc-bootstrap
@@ -41677,6 +42579,41 @@ clean-stage4-target-libgcc:
 	else \
 	  [ -f $(TARGET_SUBDIR)/stage4-libgcc/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(TARGET_SUBDIR)/libgcc && \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS)  \
+		  \
+		 clean
+@endif target-libgcc-bootstrap
+
+
+.PHONY: all-stageb4g-target-libgcc maybe-all-stageb4g-target-libgcc
+.PHONY: clean-stageb4g-target-libgcc maybe-clean-stageb4g-target-libgcc
+maybe-all-stageb4g-target-libgcc:
+maybe-clean-stageb4g-target-libgcc:
+@if target-libgcc-bootstrap
+maybe-all-stageb4g-target-libgcc: all-stageb4g-target-libgcc
+all-stageb4g: all-stageb4g-target-libgcc
+TARGET-stageb4g-target-libgcc = $(TARGET-target-libgcc)
+all-stageb4g-target-libgcc: configure-stageb4g-target-libgcc
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(NORMAL_TARGET_EXPORTS) \
+	 \
+	cd $(TARGET_SUBDIR)/libgcc && \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2"   \
+		$(TARGET-stageb4g-target-libgcc)
+
+maybe-clean-stageb4g-target-libgcc: clean-stageb4g-target-libgcc
+clean-stageb4g: clean-stageb4g-target-libgcc
+clean-stageb4g-target-libgcc:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(TARGET_SUBDIR)/libgcc/Makefile ] || exit 0; \
+	else \
+	  [ -f $(TARGET_SUBDIR)/stageb4g-libgcc/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(TARGET_SUBDIR)/libgcc && \
 	$(MAKE) $(TARGET_FLAGS_TO_PASS)  \
@@ -50704,6 +51641,282 @@ distclean-stage4::
 @endif gcc-bootstrap
 
 
+.PHONY: stageb4g-start stageb4g-end
+
+stageb4g-start::
+	@: $(MAKE); $(stage); \
+	echo stageb4g > stage_current ; \
+	echo stageb4g > stage_last; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)
+@if bfd
+	@cd $(HOST_SUBDIR); [ -d stageb4g-bfd ] || \
+	  mkdir stageb4g-bfd; \
+	mv stageb4g-bfd bfd  ; \
+	mv stageb3g2-bfd prev-bfd || test -f stageb3g2-lean 
+@endif bfd
+@if opcodes
+	@cd $(HOST_SUBDIR); [ -d stageb4g-opcodes ] || \
+	  mkdir stageb4g-opcodes; \
+	mv stageb4g-opcodes opcodes  ; \
+	mv stageb3g2-opcodes prev-opcodes || test -f stageb3g2-lean 
+@endif opcodes
+@if binutils
+	@cd $(HOST_SUBDIR); [ -d stageb4g-binutils ] || \
+	  mkdir stageb4g-binutils; \
+	mv stageb4g-binutils binutils  ; \
+	mv stageb3g2-binutils prev-binutils || test -f stageb3g2-lean 
+@endif binutils
+@if gas
+	@cd $(HOST_SUBDIR); [ -d stageb4g-gas ] || \
+	  mkdir stageb4g-gas; \
+	mv stageb4g-gas gas  ; \
+	mv stageb3g2-gas prev-gas || test -f stageb3g2-lean 
+@endif gas
+@if gcc
+	@cd $(HOST_SUBDIR); [ -d stageb4g-gcc ] || \
+	  mkdir stageb4g-gcc; \
+	mv stageb4g-gcc gcc  ; \
+	mv stageb3g2-gcc prev-gcc || test -f stageb3g2-lean 
+@endif gcc
+@if gmp
+	@cd $(HOST_SUBDIR); [ -d stageb4g-gmp ] || \
+	  mkdir stageb4g-gmp; \
+	mv stageb4g-gmp gmp  ; \
+	mv stageb3g2-gmp prev-gmp || test -f stageb3g2-lean 
+@endif gmp
+@if mpfr
+	@cd $(HOST_SUBDIR); [ -d stageb4g-mpfr ] || \
+	  mkdir stageb4g-mpfr; \
+	mv stageb4g-mpfr mpfr  ; \
+	mv stageb3g2-mpfr prev-mpfr || test -f stageb3g2-lean 
+@endif mpfr
+@if intl
+	@cd $(HOST_SUBDIR); [ -d stageb4g-intl ] || \
+	  mkdir stageb4g-intl; \
+	mv stageb4g-intl intl  ; \
+	mv stageb3g2-intl prev-intl || test -f stageb3g2-lean 
+@endif intl
+@if ld
+	@cd $(HOST_SUBDIR); [ -d stageb4g-ld ] || \
+	  mkdir stageb4g-ld; \
+	mv stageb4g-ld ld  ; \
+	mv stageb3g2-ld prev-ld || test -f stageb3g2-lean 
+@endif ld
+@if libcpp
+	@cd $(HOST_SUBDIR); [ -d stageb4g-libcpp ] || \
+	  mkdir stageb4g-libcpp; \
+	mv stageb4g-libcpp libcpp  ; \
+	mv stageb3g2-libcpp prev-libcpp || test -f stageb3g2-lean 
+@endif libcpp
+@if libdecnumber
+	@cd $(HOST_SUBDIR); [ -d stageb4g-libdecnumber ] || \
+	  mkdir stageb4g-libdecnumber; \
+	mv stageb4g-libdecnumber libdecnumber  ; \
+	mv stageb3g2-libdecnumber prev-libdecnumber || test -f stageb3g2-lean 
+@endif libdecnumber
+@if libiberty
+	@cd $(HOST_SUBDIR); [ -d stageb4g-libiberty ] || \
+	  mkdir stageb4g-libiberty; \
+	mv stageb4g-libiberty libiberty  ; \
+	mv stageb3g2-libiberty prev-libiberty || test -f stageb3g2-lean 
+@endif libiberty
+@if zlib
+	@cd $(HOST_SUBDIR); [ -d stageb4g-zlib ] || \
+	  mkdir stageb4g-zlib; \
+	mv stageb4g-zlib zlib  ; \
+	mv stageb3g2-zlib prev-zlib || test -f stageb3g2-lean 
+@endif zlib
+	@[ -d stageb4g-$(TARGET_SUBDIR) ] || \
+	  mkdir stageb4g-$(TARGET_SUBDIR); \
+	mv stageb4g-$(TARGET_SUBDIR) $(TARGET_SUBDIR)  ; \
+	mv stageb3g2-$(TARGET_SUBDIR) prev-$(TARGET_SUBDIR) || test -f stageb3g2-lean 
+
+stageb4g-end:: 
+@if bfd
+	@if test -d $(HOST_SUBDIR)/bfd ; then \
+	  cd $(HOST_SUBDIR); mv bfd stageb4g-bfd ; \
+	  mv prev-bfd stageb3g2-bfd ; :  ; \
+	fi
+@endif bfd
+@if opcodes
+	@if test -d $(HOST_SUBDIR)/opcodes ; then \
+	  cd $(HOST_SUBDIR); mv opcodes stageb4g-opcodes ; \
+	  mv prev-opcodes stageb3g2-opcodes ; :  ; \
+	fi
+@endif opcodes
+@if binutils
+	@if test -d $(HOST_SUBDIR)/binutils ; then \
+	  cd $(HOST_SUBDIR); mv binutils stageb4g-binutils ; \
+	  mv prev-binutils stageb3g2-binutils ; :  ; \
+	fi
+@endif binutils
+@if gas
+	@if test -d $(HOST_SUBDIR)/gas ; then \
+	  cd $(HOST_SUBDIR); mv gas stageb4g-gas ; \
+	  mv prev-gas stageb3g2-gas ; :  ; \
+	fi
+@endif gas
+@if gcc
+	@if test -d $(HOST_SUBDIR)/gcc ; then \
+	  cd $(HOST_SUBDIR); mv gcc stageb4g-gcc ; \
+	  mv prev-gcc stageb3g2-gcc ; :  ; \
+	fi
+@endif gcc
+@if gmp
+	@if test -d $(HOST_SUBDIR)/gmp ; then \
+	  cd $(HOST_SUBDIR); mv gmp stageb4g-gmp ; \
+	  mv prev-gmp stageb3g2-gmp ; :  ; \
+	fi
+@endif gmp
+@if mpfr
+	@if test -d $(HOST_SUBDIR)/mpfr ; then \
+	  cd $(HOST_SUBDIR); mv mpfr stageb4g-mpfr ; \
+	  mv prev-mpfr stageb3g2-mpfr ; :  ; \
+	fi
+@endif mpfr
+@if intl
+	@if test -d $(HOST_SUBDIR)/intl ; then \
+	  cd $(HOST_SUBDIR); mv intl stageb4g-intl ; \
+	  mv prev-intl stageb3g2-intl ; :  ; \
+	fi
+@endif intl
+@if ld
+	@if test -d $(HOST_SUBDIR)/ld ; then \
+	  cd $(HOST_SUBDIR); mv ld stageb4g-ld ; \
+	  mv prev-ld stageb3g2-ld ; :  ; \
+	fi
+@endif ld
+@if libcpp
+	@if test -d $(HOST_SUBDIR)/libcpp ; then \
+	  cd $(HOST_SUBDIR); mv libcpp stageb4g-libcpp ; \
+	  mv prev-libcpp stageb3g2-libcpp ; :  ; \
+	fi
+@endif libcpp
+@if libdecnumber
+	@if test -d $(HOST_SUBDIR)/libdecnumber ; then \
+	  cd $(HOST_SUBDIR); mv libdecnumber stageb4g-libdecnumber ; \
+	  mv prev-libdecnumber stageb3g2-libdecnumber ; :  ; \
+	fi
+@endif libdecnumber
+@if libiberty
+	@if test -d $(HOST_SUBDIR)/libiberty ; then \
+	  cd $(HOST_SUBDIR); mv libiberty stageb4g-libiberty ; \
+	  mv prev-libiberty stageb3g2-libiberty ; :  ; \
+	fi
+@endif libiberty
+@if zlib
+	@if test -d $(HOST_SUBDIR)/zlib ; then \
+	  cd $(HOST_SUBDIR); mv zlib stageb4g-zlib ; \
+	  mv prev-zlib stageb3g2-zlib ; :  ; \
+	fi
+@endif zlib
+	@if test -d $(TARGET_SUBDIR) ; then \
+	  mv $(TARGET_SUBDIR) stageb4g-$(TARGET_SUBDIR)  ; \
+	  mv prev-$(TARGET_SUBDIR) stageb3g2-$(TARGET_SUBDIR) ; :  ; \
+	fi
+	rm -f stage_current
+
+# Bubble a bug fix through all the stages up to stage b4g.  They are
+# remade, but not reconfigured.  The next stage (if any) will not be
+# reconfigured as well.
+.PHONY: stageb4g-bubble
+stageb4g-bubble:: stageb3g2-bubble
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	if test -f stageb4g-lean || test -f stageb3g2-lean  ; then \
+	  echo Skipping rebuild of stageb4g ; \
+	else \
+	  $(MAKE) stageb4g-start; \
+	  if $(LEAN); then \
+	    rm -rf stage2-* ; \
+	    $(STAMP) stage2-lean ; \
+	  fi; \
+	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-stageb4g; \
+	fi
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) compare3-debug
+
+.PHONY: all-stageb4g clean-stageb4g
+do-clean: clean-stageb4g
+
+# FIXME: Will not need to be conditional when toplevel bootstrap is the
+# only possibility, but now it conflicts with no-bootstrap rules
+@if gcc-bootstrap
+
+compare3-debug:
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	if test -f stageb3g2-lean; then \
+	  echo Cannot compare object files as stage b3g2 was deleted. ; \
+	  exit 0 ; \
+	fi; \
+	: $(MAKE); $(stage); \
+	rm -f .bad_compare ; \
+	echo Comparing stages b3g2 and b4g ; \
+        sed=`echo stageb4g | sed 's,^stage,,;s,.,.,g'`; \
+	files=`find stageb4g-* -name "*$(objext)" -print | \
+		 sed -n s,^stage$$sed-,,p` ; \
+	for file in $${files} ; do \
+	  f1=$$r/stageb3g2-$$file; f2=$$r/stageb4g-$$file; \
+	  if test ! -f $$f1; then continue; fi; \
+	  $(do-compare3-debug) > /dev/null 2>&1; \
+	  if test $$? -eq 1; then \
+	    case $$file in \
+	      gcc/cc*-checksum$(objext) | ./libgcc/* ) \
+	        echo warning: $$file differs ;; \
+	      *) \
+	        echo $$file differs >> .bad_compare ;; \
+	    esac ; \
+	  fi ; \
+	done ; \
+	if [ -f .bad_compare ]; then \
+	  echo "Bootstrap comparison failure!"; \
+	  cat .bad_compare; \
+	  exit 1; \
+	else \
+	  echo Comparison successful.; \
+	fi ; \
+	$(STAMP) compare3-debug
+	if $(LEAN); then \
+	  rm -rf stageb3g2-*; \
+	  $(STAMP) stageb3g2-lean; \
+	fi
+
+
+
+.PHONY: bootstrap4-debug bootstrap4-debug-lean
+bootstrap4-debug:
+	echo stageb4g > stage_final
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stageb4g-bubble
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target
+
+bootstrap4-debug-lean:
+	echo stageb4g > stage_final
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) LEAN=: stageb4g-bubble
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target
+
+
+# Rules to wipe a stage and all the following ones, also used for cleanstrap
+distclean-stageb3g2:: distclean-stageb4g 
+.PHONY: distclean-stageb4g
+distclean-stageb4g::
+	@: $(MAKE); $(stage)
+	@test "`cat stage_last`" != stageb4g || rm -f stage_last
+	rm -rf stageb4g-* compare3-debug 
+
+
+@endif gcc-bootstrap
+
+
 .PHONY: stageprofile-start stageprofile-end
 
 stageprofile-start::
@@ -51177,7 +52390,7 @@ stage_current:
 .PHONY: restrap
 restrap:
 	@: $(MAKE); $(stage)
-	rm -rf stage1-$(TARGET_SUBDIR) stage2-* stageb2g0-* stage3-* stageb3g2-* stage4-* stageprofile-* stagefeedback-* 
+	rm -rf stage1-$(TARGET_SUBDIR) stage2-* stageb2g0-* stage3-* stageb3g2-* stage4-* stageb4g-* stageprofile-* stagefeedback-* 
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
 @endif gcc-bootstrap
 
@@ -51197,6 +52410,7 @@ configure-stageb2g0-target-libgcc: maybe-all-stageb2g0-gcc
 configure-stage3-target-libgcc: maybe-all-stage3-gcc
 configure-stageb3g2-target-libgcc: maybe-all-stageb3g2-gcc
 configure-stage4-target-libgcc: maybe-all-stage4-gcc
+configure-stageb4g-target-libgcc: maybe-all-stageb4g-gcc
 configure-stageprofile-target-libgcc: maybe-all-stageprofile-gcc
 configure-stagefeedback-target-libgcc: maybe-all-stagefeedback-gcc
 configure-target-libgfortran: stage_last
@@ -51276,6 +52490,7 @@ configure-stageb2g0-gcc: maybe-configure-stageb2g0-intl
 configure-stage3-gcc: maybe-configure-stage3-intl
 configure-stageb3g2-gcc: maybe-configure-stageb3g2-intl
 configure-stage4-gcc: maybe-configure-stage4-intl
+configure-stageb4g-gcc: maybe-configure-stageb4g-intl
 configure-stageprofile-gcc: maybe-configure-stageprofile-intl
 configure-stagefeedback-gcc: maybe-configure-stagefeedback-intl
 configure-gcc: maybe-all-binutils
@@ -51286,6 +52501,7 @@ configure-stageb2g0-gcc: maybe-all-stageb2g0-binutils
 configure-stage3-gcc: maybe-all-stage3-binutils
 configure-stageb3g2-gcc: maybe-all-stageb3g2-binutils
 configure-stage4-gcc: maybe-all-stage4-binutils
+configure-stageb4g-gcc: maybe-all-stageb4g-binutils
 configure-stageprofile-gcc: maybe-all-stageprofile-binutils
 configure-stagefeedback-gcc: maybe-all-stagefeedback-binutils
 configure-gcc: maybe-all-gas
@@ -51296,6 +52512,7 @@ configure-stageb2g0-gcc: maybe-all-stageb2g0-gas
 configure-stage3-gcc: maybe-all-stage3-gas
 configure-stageb3g2-gcc: maybe-all-stageb3g2-gas
 configure-stage4-gcc: maybe-all-stage4-gas
+configure-stageb4g-gcc: maybe-all-stageb4g-gas
 configure-stageprofile-gcc: maybe-all-stageprofile-gas
 configure-stagefeedback-gcc: maybe-all-stagefeedback-gas
 configure-gcc: maybe-all-ld
@@ -51306,6 +52523,7 @@ configure-stageb2g0-gcc: maybe-all-stageb2g0-ld
 configure-stage3-gcc: maybe-all-stage3-ld
 configure-stageb3g2-gcc: maybe-all-stageb3g2-ld
 configure-stage4-gcc: maybe-all-stage4-ld
+configure-stageb4g-gcc: maybe-all-stageb4g-ld
 configure-stageprofile-gcc: maybe-all-stageprofile-ld
 configure-stagefeedback-gcc: maybe-all-stagefeedback-ld
 all-gcc: all-libiberty
@@ -51316,6 +52534,7 @@ all-stageb2g0-gcc: all-stageb2g0-libiberty
 all-stage3-gcc: all-stage3-libiberty
 all-stageb3g2-gcc: all-stageb3g2-libiberty
 all-stage4-gcc: all-stage4-libiberty
+all-stageb4g-gcc: all-stageb4g-libiberty
 all-stageprofile-gcc: all-stageprofile-libiberty
 all-stagefeedback-gcc: all-stagefeedback-libiberty
 all-gcc: maybe-all-gmp
@@ -51326,6 +52545,7 @@ all-stageb2g0-gcc: maybe-all-stageb2g0-gmp
 all-stage3-gcc: maybe-all-stage3-gmp
 all-stageb3g2-gcc: maybe-all-stageb3g2-gmp
 all-stage4-gcc: maybe-all-stage4-gmp
+all-stageb4g-gcc: maybe-all-stageb4g-gmp
 all-stageprofile-gcc: maybe-all-stageprofile-gmp
 all-stagefeedback-gcc: maybe-all-stagefeedback-gmp
 all-gcc: maybe-all-intl
@@ -51336,6 +52556,7 @@ all-stageb2g0-gcc: maybe-all-stageb2g0-intl
 all-stage3-gcc: maybe-all-stage3-intl
 all-stageb3g2-gcc: maybe-all-stageb3g2-intl
 all-stage4-gcc: maybe-all-stage4-intl
+all-stageb4g-gcc: maybe-all-stageb4g-intl
 all-stageprofile-gcc: maybe-all-stageprofile-intl
 all-stagefeedback-gcc: maybe-all-stagefeedback-intl
 all-gcc: maybe-all-mpfr
@@ -51346,6 +52567,7 @@ all-stageb2g0-gcc: maybe-all-stageb2g0-mpfr
 all-stage3-gcc: maybe-all-stage3-mpfr
 all-stageb3g2-gcc: maybe-all-stageb3g2-mpfr
 all-stage4-gcc: maybe-all-stage4-mpfr
+all-stageb4g-gcc: maybe-all-stageb4g-mpfr
 all-stageprofile-gcc: maybe-all-stageprofile-mpfr
 all-stagefeedback-gcc: maybe-all-stagefeedback-mpfr
 all-gcc: maybe-all-build-texinfo
@@ -51356,6 +52578,7 @@ all-stageb2g0-gcc: maybe-all-build-texinfo
 all-stage3-gcc: maybe-all-build-texinfo
 all-stageb3g2-gcc: maybe-all-build-texinfo
 all-stage4-gcc: maybe-all-build-texinfo
+all-stageb4g-gcc: maybe-all-build-texinfo
 all-stageprofile-gcc: maybe-all-build-texinfo
 all-stagefeedback-gcc: maybe-all-build-texinfo
 all-gcc: maybe-all-build-bison
@@ -51366,6 +52589,7 @@ all-stageb2g0-gcc: maybe-all-build-bison
 all-stage3-gcc: maybe-all-build-bison
 all-stageb3g2-gcc: maybe-all-build-bison
 all-stage4-gcc: maybe-all-build-bison
+all-stageb4g-gcc: maybe-all-build-bison
 all-stageprofile-gcc: maybe-all-build-bison
 all-stagefeedback-gcc: maybe-all-build-bison
 all-gcc: maybe-all-build-byacc
@@ -51376,6 +52600,7 @@ all-stageb2g0-gcc: maybe-all-build-byacc
 all-stage3-gcc: maybe-all-build-byacc
 all-stageb3g2-gcc: maybe-all-build-byacc
 all-stage4-gcc: maybe-all-build-byacc
+all-stageb4g-gcc: maybe-all-build-byacc
 all-stageprofile-gcc: maybe-all-build-byacc
 all-stagefeedback-gcc: maybe-all-build-byacc
 all-gcc: maybe-all-build-flex
@@ -51386,6 +52611,7 @@ all-stageb2g0-gcc: maybe-all-build-flex
 all-stage3-gcc: maybe-all-build-flex
 all-stageb3g2-gcc: maybe-all-build-flex
 all-stage4-gcc: maybe-all-build-flex
+all-stageb4g-gcc: maybe-all-build-flex
 all-stageprofile-gcc: maybe-all-build-flex
 all-stagefeedback-gcc: maybe-all-build-flex
 all-gcc: maybe-all-build-libiberty
@@ -51396,6 +52622,7 @@ all-stageb2g0-gcc: maybe-all-build-libiberty
 all-stage3-gcc: maybe-all-build-libiberty
 all-stageb3g2-gcc: maybe-all-build-libiberty
 all-stage4-gcc: maybe-all-build-libiberty
+all-stageb4g-gcc: maybe-all-build-libiberty
 all-stageprofile-gcc: maybe-all-build-libiberty
 all-stagefeedback-gcc: maybe-all-build-libiberty
 all-gcc: maybe-all-build-fixincludes
@@ -51406,6 +52633,7 @@ all-stageb2g0-gcc: maybe-all-build-fixincludes
 all-stage3-gcc: maybe-all-build-fixincludes
 all-stageb3g2-gcc: maybe-all-build-fixincludes
 all-stage4-gcc: maybe-all-build-fixincludes
+all-stageb4g-gcc: maybe-all-build-fixincludes
 all-stageprofile-gcc: maybe-all-build-fixincludes
 all-stagefeedback-gcc: maybe-all-build-fixincludes
 all-gcc: maybe-all-zlib
@@ -51416,6 +52644,7 @@ all-stageb2g0-gcc: maybe-all-stageb2g0-zlib
 all-stage3-gcc: maybe-all-stage3-zlib
 all-stageb3g2-gcc: maybe-all-stageb3g2-zlib
 all-stage4-gcc: maybe-all-stage4-zlib
+all-stageb4g-gcc: maybe-all-stageb4g-zlib
 all-stageprofile-gcc: maybe-all-stageprofile-zlib
 all-stagefeedback-gcc: maybe-all-stagefeedback-zlib
 all-gcc: all-libcpp
@@ -51426,6 +52655,7 @@ all-stageb2g0-gcc: all-stageb2g0-libcpp
 all-stage3-gcc: all-stage3-libcpp
 all-stageb3g2-gcc: all-stageb3g2-libcpp
 all-stage4-gcc: all-stage4-libcpp
+all-stageb4g-gcc: all-stageb4g-libcpp
 all-stageprofile-gcc: all-stageprofile-libcpp
 all-stagefeedback-gcc: all-stagefeedback-libcpp
 all-gcc: all-libdecnumber
@@ -51436,6 +52666,7 @@ all-stageb2g0-gcc: all-stageb2g0-libdecnumber
 all-stage3-gcc: all-stage3-libdecnumber
 all-stageb3g2-gcc: all-stageb3g2-libdecnumber
 all-stage4-gcc: all-stage4-libdecnumber
+all-stageb4g-gcc: all-stageb4g-libdecnumber
 all-stageprofile-gcc: all-stageprofile-libdecnumber
 all-stagefeedback-gcc: all-stagefeedback-libdecnumber
 all-gcc: maybe-all-libiberty
@@ -51446,6 +52677,7 @@ all-stageb2g0-gcc: maybe-all-stageb2g0-libiberty
 all-stage3-gcc: maybe-all-stage3-libiberty
 all-stageb3g2-gcc: maybe-all-stageb3g2-libiberty
 all-stage4-gcc: maybe-all-stage4-libiberty
+all-stageb4g-gcc: maybe-all-stageb4g-libiberty
 all-stageprofile-gcc: maybe-all-stageprofile-libiberty
 all-stagefeedback-gcc: maybe-all-stagefeedback-libiberty
 all-gcc: maybe-all-fixincludes
@@ -51458,6 +52690,7 @@ configure-stageb2g0-libcpp: configure-stageb2g0-libiberty
 configure-stage3-libcpp: configure-stage3-libiberty
 configure-stageb3g2-libcpp: configure-stageb3g2-libiberty
 configure-stage4-libcpp: configure-stage4-libiberty
+configure-stageb4g-libcpp: configure-stageb4g-libiberty
 configure-stageprofile-libcpp: configure-stageprofile-libiberty
 configure-stagefeedback-libcpp: configure-stagefeedback-libiberty
 configure-libcpp: maybe-configure-intl
@@ -51468,6 +52701,7 @@ configure-stageb2g0-libcpp: maybe-configure-stageb2g0-intl
 configure-stage3-libcpp: maybe-configure-stage3-intl
 configure-stageb3g2-libcpp: maybe-configure-stageb3g2-intl
 configure-stage4-libcpp: maybe-configure-stage4-intl
+configure-stageb4g-libcpp: maybe-configure-stageb4g-intl
 configure-stageprofile-libcpp: maybe-configure-stageprofile-intl
 configure-stagefeedback-libcpp: maybe-configure-stagefeedback-intl
 all-libcpp: all-libiberty
@@ -51478,6 +52712,7 @@ all-stageb2g0-libcpp: all-stageb2g0-libiberty
 all-stage3-libcpp: all-stage3-libiberty
 all-stageb3g2-libcpp: all-stageb3g2-libiberty
 all-stage4-libcpp: all-stage4-libiberty
+all-stageb4g-libcpp: all-stageb4g-libiberty
 all-stageprofile-libcpp: all-stageprofile-libiberty
 all-stagefeedback-libcpp: all-stagefeedback-libiberty
 all-libcpp: maybe-all-intl
@@ -51488,6 +52723,7 @@ all-stageb2g0-libcpp: maybe-all-stageb2g0-intl
 all-stage3-libcpp: maybe-all-stage3-intl
 all-stageb3g2-libcpp: maybe-all-stageb3g2-intl
 all-stage4-libcpp: maybe-all-stage4-intl
+all-stageb4g-libcpp: maybe-all-stageb4g-intl
 all-stageprofile-libcpp: maybe-all-stageprofile-intl
 all-stagefeedback-libcpp: maybe-all-stagefeedback-intl
 all-fixincludes: maybe-all-libiberty
@@ -51500,6 +52736,7 @@ configure-stageb2g0-mpfr: maybe-all-stageb2g0-gmp
 configure-stage3-mpfr: maybe-all-stage3-gmp
 configure-stageb3g2-mpfr: maybe-all-stageb3g2-gmp
 configure-stage4-mpfr: maybe-all-stage4-gmp
+configure-stageb4g-mpfr: maybe-all-stageb4g-gmp
 configure-stageprofile-mpfr: maybe-all-stageprofile-gmp
 configure-stagefeedback-mpfr: maybe-all-stagefeedback-gmp
 configure-gdb: maybe-configure-intl
@@ -51525,6 +52762,7 @@ configure-stageb2g0-bfd: configure-stageb2g0-libiberty
 configure-stage3-bfd: configure-stage3-libiberty
 configure-stageb3g2-bfd: configure-stageb3g2-libiberty
 configure-stage4-bfd: configure-stage4-libiberty
+configure-stageb4g-bfd: configure-stageb4g-libiberty
 configure-stageprofile-bfd: configure-stageprofile-libiberty
 configure-stagefeedback-bfd: configure-stagefeedback-libiberty
 configure-bfd: maybe-configure-intl
@@ -51535,6 +52773,7 @@ configure-stageb2g0-bfd: maybe-configure-stageb2g0-intl
 configure-stage3-bfd: maybe-configure-stage3-intl
 configure-stageb3g2-bfd: maybe-configure-stageb3g2-intl
 configure-stage4-bfd: maybe-configure-stage4-intl
+configure-stageb4g-bfd: maybe-configure-stageb4g-intl
 configure-stageprofile-bfd: maybe-configure-stageprofile-intl
 configure-stagefeedback-bfd: maybe-configure-stagefeedback-intl
 all-bfd: maybe-all-libiberty
@@ -51545,6 +52784,7 @@ all-stageb2g0-bfd: maybe-all-stageb2g0-libiberty
 all-stage3-bfd: maybe-all-stage3-libiberty
 all-stageb3g2-bfd: maybe-all-stageb3g2-libiberty
 all-stage4-bfd: maybe-all-stage4-libiberty
+all-stageb4g-bfd: maybe-all-stageb4g-libiberty
 all-stageprofile-bfd: maybe-all-stageprofile-libiberty
 all-stagefeedback-bfd: maybe-all-stagefeedback-libiberty
 all-bfd: maybe-all-intl
@@ -51555,6 +52795,7 @@ all-stageb2g0-bfd: maybe-all-stageb2g0-intl
 all-stage3-bfd: maybe-all-stage3-intl
 all-stageb3g2-bfd: maybe-all-stageb3g2-intl
 all-stage4-bfd: maybe-all-stage4-intl
+all-stageb4g-bfd: maybe-all-stageb4g-intl
 all-stageprofile-bfd: maybe-all-stageprofile-intl
 all-stagefeedback-bfd: maybe-all-stagefeedback-intl
 configure-binutils: maybe-configure-intl
@@ -51565,6 +52806,7 @@ configure-stageb2g0-binutils: maybe-configure-stageb2g0-intl
 configure-stage3-binutils: maybe-configure-stage3-intl
 configure-stageb3g2-binutils: maybe-configure-stageb3g2-intl
 configure-stage4-binutils: maybe-configure-stage4-intl
+configure-stageb4g-binutils: maybe-configure-stageb4g-intl
 configure-stageprofile-binutils: maybe-configure-stageprofile-intl
 configure-stagefeedback-binutils: maybe-configure-stagefeedback-intl
 all-binutils: maybe-all-libiberty
@@ -51575,6 +52817,7 @@ all-stageb2g0-binutils: maybe-all-stageb2g0-libiberty
 all-stage3-binutils: maybe-all-stage3-libiberty
 all-stageb3g2-binutils: maybe-all-stageb3g2-libiberty
 all-stage4-binutils: maybe-all-stage4-libiberty
+all-stageb4g-binutils: maybe-all-stageb4g-libiberty
 all-stageprofile-binutils: maybe-all-stageprofile-libiberty
 all-stagefeedback-binutils: maybe-all-stagefeedback-libiberty
 all-binutils: maybe-all-opcodes
@@ -51585,6 +52828,7 @@ all-stageb2g0-binutils: maybe-all-stageb2g0-opcodes
 all-stage3-binutils: maybe-all-stage3-opcodes
 all-stageb3g2-binutils: maybe-all-stageb3g2-opcodes
 all-stage4-binutils: maybe-all-stage4-opcodes
+all-stageb4g-binutils: maybe-all-stageb4g-opcodes
 all-stageprofile-binutils: maybe-all-stageprofile-opcodes
 all-stagefeedback-binutils: maybe-all-stagefeedback-opcodes
 all-binutils: maybe-all-bfd
@@ -51595,6 +52839,7 @@ all-stageb2g0-binutils: maybe-all-stageb2g0-bfd
 all-stage3-binutils: maybe-all-stage3-bfd
 all-stageb3g2-binutils: maybe-all-stageb3g2-bfd
 all-stage4-binutils: maybe-all-stage4-bfd
+all-stageb4g-binutils: maybe-all-stageb4g-bfd
 all-stageprofile-binutils: maybe-all-stageprofile-bfd
 all-stagefeedback-binutils: maybe-all-stagefeedback-bfd
 all-binutils: maybe-all-build-flex
@@ -51605,6 +52850,7 @@ all-stageb2g0-binutils: maybe-all-build-flex
 all-stage3-binutils: maybe-all-build-flex
 all-stageb3g2-binutils: maybe-all-build-flex
 all-stage4-binutils: maybe-all-build-flex
+all-stageb4g-binutils: maybe-all-build-flex
 all-stageprofile-binutils: maybe-all-build-flex
 all-stagefeedback-binutils: maybe-all-build-flex
 all-binutils: maybe-all-build-bison
@@ -51615,6 +52861,7 @@ all-stageb2g0-binutils: maybe-all-build-bison
 all-stage3-binutils: maybe-all-build-bison
 all-stageb3g2-binutils: maybe-all-build-bison
 all-stage4-binutils: maybe-all-build-bison
+all-stageb4g-binutils: maybe-all-build-bison
 all-stageprofile-binutils: maybe-all-build-bison
 all-stagefeedback-binutils: maybe-all-build-bison
 all-binutils: maybe-all-build-byacc
@@ -51625,6 +52872,7 @@ all-stageb2g0-binutils: maybe-all-build-byacc
 all-stage3-binutils: maybe-all-build-byacc
 all-stageb3g2-binutils: maybe-all-build-byacc
 all-stage4-binutils: maybe-all-build-byacc
+all-stageb4g-binutils: maybe-all-build-byacc
 all-stageprofile-binutils: maybe-all-build-byacc
 all-stagefeedback-binutils: maybe-all-build-byacc
 all-binutils: maybe-all-intl
@@ -51635,6 +52883,7 @@ all-stageb2g0-binutils: maybe-all-stageb2g0-intl
 all-stage3-binutils: maybe-all-stage3-intl
 all-stageb3g2-binutils: maybe-all-stageb3g2-intl
 all-stage4-binutils: maybe-all-stage4-intl
+all-stageb4g-binutils: maybe-all-stageb4g-intl
 all-stageprofile-binutils: maybe-all-stageprofile-intl
 all-stagefeedback-binutils: maybe-all-stagefeedback-intl
 install-binutils: maybe-install-opcodes
@@ -51647,6 +52896,7 @@ configure-stageb2g0-gas: maybe-configure-stageb2g0-intl
 configure-stage3-gas: maybe-configure-stage3-intl
 configure-stageb3g2-gas: maybe-configure-stageb3g2-intl
 configure-stage4-gas: maybe-configure-stage4-intl
+configure-stageb4g-gas: maybe-configure-stageb4g-intl
 configure-stageprofile-gas: maybe-configure-stageprofile-intl
 configure-stagefeedback-gas: maybe-configure-stagefeedback-intl
 all-gas: maybe-all-libiberty
@@ -51657,6 +52907,7 @@ all-stageb2g0-gas: maybe-all-stageb2g0-libiberty
 all-stage3-gas: maybe-all-stage3-libiberty
 all-stageb3g2-gas: maybe-all-stageb3g2-libiberty
 all-stage4-gas: maybe-all-stage4-libiberty
+all-stageb4g-gas: maybe-all-stageb4g-libiberty
 all-stageprofile-gas: maybe-all-stageprofile-libiberty
 all-stagefeedback-gas: maybe-all-stagefeedback-libiberty
 all-gas: maybe-all-opcodes
@@ -51667,6 +52918,7 @@ all-stageb2g0-gas: maybe-all-stageb2g0-opcodes
 all-stage3-gas: maybe-all-stage3-opcodes
 all-stageb3g2-gas: maybe-all-stageb3g2-opcodes
 all-stage4-gas: maybe-all-stage4-opcodes
+all-stageb4g-gas: maybe-all-stageb4g-opcodes
 all-stageprofile-gas: maybe-all-stageprofile-opcodes
 all-stagefeedback-gas: maybe-all-stagefeedback-opcodes
 all-gas: maybe-all-bfd
@@ -51677,6 +52929,7 @@ all-stageb2g0-gas: maybe-all-stageb2g0-bfd
 all-stage3-gas: maybe-all-stage3-bfd
 all-stageb3g2-gas: maybe-all-stageb3g2-bfd
 all-stage4-gas: maybe-all-stage4-bfd
+all-stageb4g-gas: maybe-all-stageb4g-bfd
 all-stageprofile-gas: maybe-all-stageprofile-bfd
 all-stagefeedback-gas: maybe-all-stagefeedback-bfd
 all-gas: maybe-all-intl
@@ -51687,6 +52940,7 @@ all-stageb2g0-gas: maybe-all-stageb2g0-intl
 all-stage3-gas: maybe-all-stage3-intl
 all-stageb3g2-gas: maybe-all-stageb3g2-intl
 all-stage4-gas: maybe-all-stage4-intl
+all-stageb4g-gas: maybe-all-stageb4g-intl
 all-stageprofile-gas: maybe-all-stageprofile-intl
 all-stagefeedback-gas: maybe-all-stagefeedback-intl
 configure-gprof: maybe-configure-intl
@@ -51702,6 +52956,7 @@ configure-stageb2g0-ld: maybe-configure-stageb2g0-intl
 configure-stage3-ld: maybe-configure-stage3-intl
 configure-stageb3g2-ld: maybe-configure-stageb3g2-intl
 configure-stage4-ld: maybe-configure-stage4-intl
+configure-stageb4g-ld: maybe-configure-stageb4g-intl
 configure-stageprofile-ld: maybe-configure-stageprofile-intl
 configure-stagefeedback-ld: maybe-configure-stagefeedback-intl
 all-ld: maybe-all-libiberty
@@ -51712,6 +52967,7 @@ all-stageb2g0-ld: maybe-all-stageb2g0-libiberty
 all-stage3-ld: maybe-all-stage3-libiberty
 all-stageb3g2-ld: maybe-all-stageb3g2-libiberty
 all-stage4-ld: maybe-all-stage4-libiberty
+all-stageb4g-ld: maybe-all-stageb4g-libiberty
 all-stageprofile-ld: maybe-all-stageprofile-libiberty
 all-stagefeedback-ld: maybe-all-stagefeedback-libiberty
 all-ld: maybe-all-bfd
@@ -51722,6 +52978,7 @@ all-stageb2g0-ld: maybe-all-stageb2g0-bfd
 all-stage3-ld: maybe-all-stage3-bfd
 all-stageb3g2-ld: maybe-all-stageb3g2-bfd
 all-stage4-ld: maybe-all-stage4-bfd
+all-stageb4g-ld: maybe-all-stageb4g-bfd
 all-stageprofile-ld: maybe-all-stageprofile-bfd
 all-stagefeedback-ld: maybe-all-stagefeedback-bfd
 all-ld: maybe-all-opcodes
@@ -51732,6 +52989,7 @@ all-stageb2g0-ld: maybe-all-stageb2g0-opcodes
 all-stage3-ld: maybe-all-stage3-opcodes
 all-stageb3g2-ld: maybe-all-stageb3g2-opcodes
 all-stage4-ld: maybe-all-stage4-opcodes
+all-stageb4g-ld: maybe-all-stageb4g-opcodes
 all-stageprofile-ld: maybe-all-stageprofile-opcodes
 all-stagefeedback-ld: maybe-all-stagefeedback-opcodes
 all-ld: maybe-all-build-bison
@@ -51742,6 +53000,7 @@ all-stageb2g0-ld: maybe-all-build-bison
 all-stage3-ld: maybe-all-build-bison
 all-stageb3g2-ld: maybe-all-build-bison
 all-stage4-ld: maybe-all-build-bison
+all-stageb4g-ld: maybe-all-build-bison
 all-stageprofile-ld: maybe-all-build-bison
 all-stagefeedback-ld: maybe-all-build-bison
 all-ld: maybe-all-build-byacc
@@ -51752,6 +53011,7 @@ all-stageb2g0-ld: maybe-all-build-byacc
 all-stage3-ld: maybe-all-build-byacc
 all-stageb3g2-ld: maybe-all-build-byacc
 all-stage4-ld: maybe-all-build-byacc
+all-stageb4g-ld: maybe-all-build-byacc
 all-stageprofile-ld: maybe-all-build-byacc
 all-stagefeedback-ld: maybe-all-build-byacc
 all-ld: maybe-all-build-flex
@@ -51762,6 +53022,7 @@ all-stageb2g0-ld: maybe-all-build-flex
 all-stage3-ld: maybe-all-build-flex
 all-stageb3g2-ld: maybe-all-build-flex
 all-stage4-ld: maybe-all-build-flex
+all-stageb4g-ld: maybe-all-build-flex
 all-stageprofile-ld: maybe-all-build-flex
 all-stagefeedback-ld: maybe-all-build-flex
 all-ld: maybe-all-intl
@@ -51772,6 +53033,7 @@ all-stageb2g0-ld: maybe-all-stageb2g0-intl
 all-stage3-ld: maybe-all-stage3-intl
 all-stageb3g2-ld: maybe-all-stageb3g2-intl
 all-stage4-ld: maybe-all-stage4-intl
+all-stageb4g-ld: maybe-all-stageb4g-intl
 all-stageprofile-ld: maybe-all-stageprofile-intl
 all-stagefeedback-ld: maybe-all-stagefeedback-intl
 configure-opcodes: maybe-configure-intl
@@ -51782,6 +53044,7 @@ configure-stageb2g0-opcodes: maybe-configure-stageb2g0-intl
 configure-stage3-opcodes: maybe-configure-stage3-intl
 configure-stageb3g2-opcodes: maybe-configure-stageb3g2-intl
 configure-stage4-opcodes: maybe-configure-stage4-intl
+configure-stageb4g-opcodes: maybe-configure-stageb4g-intl
 configure-stageprofile-opcodes: maybe-configure-stageprofile-intl
 configure-stagefeedback-opcodes: maybe-configure-stagefeedback-intl
 all-opcodes: maybe-all-bfd
@@ -51792,6 +53055,7 @@ all-stageb2g0-opcodes: maybe-all-stageb2g0-bfd
 all-stage3-opcodes: maybe-all-stage3-bfd
 all-stageb3g2-opcodes: maybe-all-stageb3g2-bfd
 all-stage4-opcodes: maybe-all-stage4-bfd
+all-stageb4g-opcodes: maybe-all-stageb4g-bfd
 all-stageprofile-opcodes: maybe-all-stageprofile-bfd
 all-stagefeedback-opcodes: maybe-all-stagefeedback-bfd
 all-opcodes: maybe-all-libiberty
@@ -51802,6 +53066,7 @@ all-stageb2g0-opcodes: maybe-all-stageb2g0-libiberty
 all-stage3-opcodes: maybe-all-stage3-libiberty
 all-stageb3g2-opcodes: maybe-all-stageb3g2-libiberty
 all-stage4-opcodes: maybe-all-stage4-libiberty
+all-stageb4g-opcodes: maybe-all-stageb4g-libiberty
 all-stageprofile-opcodes: maybe-all-stageprofile-libiberty
 all-stagefeedback-opcodes: maybe-all-stagefeedback-libiberty
 all-opcodes: maybe-all-intl
@@ -51812,6 +53077,7 @@ all-stageb2g0-opcodes: maybe-all-stageb2g0-intl
 all-stage3-opcodes: maybe-all-stage3-intl
 all-stageb3g2-opcodes: maybe-all-stageb3g2-intl
 all-stage4-opcodes: maybe-all-stage4-intl
+all-stageb4g-opcodes: maybe-all-stageb4g-intl
 all-stageprofile-opcodes: maybe-all-stageprofile-intl
 all-stagefeedback-opcodes: maybe-all-stagefeedback-intl
 all-dejagnu: maybe-all-tcl

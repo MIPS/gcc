@@ -543,6 +543,12 @@ bootstrap_stage = {
 	stage_configure_flags="@stage2_werror_flag@" ;
 	stage_cflags="$(STAGE4_CFLAGS)" ; };
 bootstrap_stage = {
+	id=b4g ; prev=b3g2 ; lean=2 ;
+	compare_target=compare3-debug ;
+	bootstrap_target=bootstrap4-debug ;
+	stage_configure_flags="@stage2_werror_flag@" ;
+	stage_cflags="$(STAGE4_CFLAGS) -g2" ; };
+bootstrap_stage = {
 	id=profile ; prev=1 ;
 	stage_configure_flags="@stage2_werror_flag@" ;
 	stage_cflags='$(STAGE2_CFLAGS) -fprofile-generate' ; };

@@ -341,6 +341,7 @@ STAGE4_CFLAGS=$(BOOT_CFLAGS)
 do-compare = @do_compare@
 do-compare3 = $(do-compare)
 do-compare-debug = $(SHELL) $(srcdir)/contrib/compare-debug $$f1 $$f2
+do-compare3-debug = $(do-compare-debug)
 
 # -----------------------------------------------
 # Programs producing files for the TARGET machine
