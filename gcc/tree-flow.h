@@ -569,9 +569,6 @@ struct int_tree_map GTY(())
 extern unsigned int int_tree_map_hash (const void *);
 extern int int_tree_map_eq (const void *, const void *);
 
-extern unsigned int uid_decl_map_hash (const void *);
-extern int uid_decl_map_eq (const void *, const void *);
-
 typedef struct 
 {
   htab_iterator hti;

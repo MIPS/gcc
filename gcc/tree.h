@@ -398,6 +398,7 @@ struct tree_base GTY(())
   unsigned lang_flag_6 : 1;
   unsigned visited : 1;
 
+  unsigned nogc_flag : 1;
   unsigned spare : 23;
 
   /* FIXME tuples: Eventually, we need to move this somewhere external to
@@ -2734,6 +2735,10 @@ struct tree_memory_partition_tag GTY(())
    This indicates compiler tools that this decl needs to be preserved.  */
 #define DECL_PRESERVE_P(DECL) \
   DECL_COMMON_CHECK (DECL)->decl_common.preserve_flag
+
+/* Nonzero for a decl that should be protected from GC.  */
+#define DECL_NOGC_P(DECL) \
+  ((DECL)->base.nogc_flag)
 
 /* For function local variables of COMPLEX and VECTOR types,
    indicates that the variable is not aliased, and that all
@@ -5208,6 +5213,12 @@ struct tree_int_map GTY(())
 #define tree_int_map_eq tree_map_base_eq
 #define tree_int_map_hash tree_map_base_hash
 #define tree_int_map_marked_p tree_map_base_marked_p
+
+/* Map from a DECL_UID to the decl tree.  */
+
+extern unsigned int uid_decl_map_hash (const void *);
+extern int uid_decl_map_eq (const void *, const void *);
+extern tree lookup_decl_from_uid (int);
 
 /* Map from a tree to initialization/finalization priorities.  */
 
