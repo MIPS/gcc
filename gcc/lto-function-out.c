@@ -750,8 +750,9 @@ output_decl_index (struct output_stream * obs, htab_t table,
 
 /* Build a densely packed word that contains only the flags that are
    used for this type of tree EXPR and write the word in uleb128 to
-   the OB.  FORCE_LOC forces the line number to be serialized
-   reguardless of the type of tree.  */
+   the OB.  IF CODE is 0 (ERROR_MARK), put the flags anyway.
+   FORCE_LOC forces the line number to be serialized reguardless of
+   the type of tree.  */
 
 
 static void
@@ -796,8 +797,6 @@ output_tree_flags (struct output_block *ob,
       { flags <<= 1; if (expr->decl_with_vis. flag_name ) flags |= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)					\
       { flags <<= size; if (expr->decl_with_vis. flag_name ) flags |= expr->decl_with_vis. flag_name; }
-#define ADD_FUNC_FLAG(flag_name) \
-      { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -818,7 +817,6 @@ output_tree_flags (struct output_block *ob,
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
 #undef ADD_VIS_FLAG_SIZE
-#undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 
@@ -830,7 +828,7 @@ output_tree_flags (struct output_block *ob,
 #ifdef USE_MAPPED_LOCATION
 	  int current_col = 0;
 #endif
-	  if (EXPR_P (expr))
+	  if (EXPR_P (expr) || GIMPLE_STMT_P (expr))
 	    {
 	      if (EXPR_HAS_LOCATION (expr))
 		{
@@ -842,6 +840,7 @@ output_tree_flags (struct output_block *ob,
 #ifdef USE_MAPPED_LOCATION
 		  current_col = xloc.column;
 #endif
+		  flags |= LTO_SOURCE_HAS_LOC;
 		}
 	    }
 
@@ -853,12 +852,15 @@ output_tree_flags (struct output_block *ob,
 	    {
 	      expanded_location xloc 
 		= expand_location (DECL_SOURCE_LOCATION (expr));
-
-	      current_file = xloc.file;
-	      current_line = xloc.line;
+	      if (xloc.file)
+		{
+		  current_file = xloc.file;
+		  current_line = xloc.line;
 #ifdef USE_MAPPED_LOCATION
-	      current_col = xloc.column;
+		  current_col = xloc.column;
 #endif
+		  flags |= LTO_SOURCE_HAS_LOC;
+		}
 	    }
 
 	  if (current_file
@@ -951,7 +953,7 @@ output_local_decl_ref (struct output_block *ob, tree name)
     }
 }
 
-/* Look up LABEL in the type table and write the uleb128 index for it.  */
+/* Look up LABEL in the label table and write the uleb128 index for it.  */
 
 static void
 output_label_ref (struct output_block *ob, tree label)
@@ -1820,7 +1822,7 @@ output_ssa_names (struct output_block *ob, struct function *fn)
 
       output_uleb128 (ob, i);
       output_expr_operand (ob, SSA_NAME_VAR (ptr));
-      /* Lie about the type of object to get the flags out.  */
+      /* Use code 0 to force flags to be output.  */
       output_tree_flags (ob, 0, ptr, false);
     }
 
@@ -2352,7 +2354,7 @@ gate_lto_out (void)
 
 struct tree_opt_pass pass_ipa_lto_out =
 {
-  "lto-function-out",	                /* name */
+  "lto_function_out",	                /* name */
   gate_lto_out,			        /* gate */
   lto_output,		        	/* execute */
   NULL,					/* sub */
@@ -2362,8 +2364,8 @@ struct tree_opt_pass pass_ipa_lto_out =
   0,	                                /* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  TODO_dump_func,			/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  0,            			/* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
   0					/* letter */
 };
 
@@ -2417,8 +2419,6 @@ lto_debug_tree_flags (struct lto_debug_context *context,
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)					\
   { if (flags >> (HOST_BITS_PER_WIDE_INT - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
-#define ADD_FUNC_FLAG(flag_name) \
-  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -2438,7 +2438,6 @@ lto_debug_tree_flags (struct lto_debug_context *context,
 #undef ADD_EXPR_FLAG
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
-#undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 }

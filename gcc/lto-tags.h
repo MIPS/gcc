@@ -528,19 +528,18 @@ struct lto_debug_context
 };
 
 
-/* Serialize out a file, line (and if USE_MAPPED_LOCATION was set) a
-   column.  */
-#define LTO_SOURCE_FILE 0x1
-#define LTO_SOURCE_LINE 0x2
-
-#ifdef USE_MAPPED_LOCATION
-#define LTO_SOURCE_LOC_BITS 3
-#define LTO_SOURCE_COL 0x4
-#else
-#define LTO_SOURCE_LOC_BITS 2
-#endif
-
-
+/* The serialization plan is that when any of the current file, line,
+   or col change (from the state last serialized), we write the
+   changed entity and only that entity into the stream.  We also
+   serialize the fact that the current node needs a line number.
+   Otherwise we end up putting line numbers on everything.  This takes
+   4 bits on every node and are added to the flags that are serialized
+   for the node.*/
+#define LTO_SOURCE_FILE    0x1
+#define LTO_SOURCE_LINE    0x2
+#define LTO_SOURCE_COL     0x4
+#define LTO_SOURCE_HAS_LOC 0x8
+#define LTO_SOURCE_LOC_BITS 4
 
 extern const char * LTO_tag_names[LTO_last_tag];
 

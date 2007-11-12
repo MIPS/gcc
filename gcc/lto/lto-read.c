@@ -82,6 +82,7 @@ struct data_in
 #ifdef USE_MAPPED_LOCATION  
   int current_col;
 #endif
+  bool current_node_has_loc;
 };
 
 
@@ -411,8 +412,6 @@ process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
   { expr->decl_with_vis. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)					\
   { expr->decl_with_vis. flag_name = (flags >> (HOST_BITS_PER_WIDE_INT - size)); flags <<= size; }
-#define ADD_FUNC_FLAG(flag_name) \
-  { expr->function_decl. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -433,7 +432,6 @@ process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
 #undef ADD_VIS_FLAG_SIZE
-#undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 }
@@ -518,6 +516,8 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
       data_in->current_line = input_uleb128 (ib);
     }
 #endif
+  if (flags & LTO_SOURCE_HAS_LOC)
+    data_in->current_node_has_loc = true;
 }
 
 
@@ -526,12 +526,17 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
 static void
 set_line_info (struct data_in *data_in, tree node)
 {
-  if (data_in->current_file)
+  if (data_in->current_node_has_loc && data_in->current_file)
     {
 #ifdef USE_MAPPED_LOCATION
-      LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col);
-#else
       if (EXPR_P (node))
+	LINEMAP_POSITION_FOR_COLUMN (EXPR_CHECK (node)->exp.locus, line_table, data_in->current_col);
+      else if (GIMPLE_STMT_P (node))
+	LINEMAP_POSITION_FOR_COLUMN (GIMPLE_STMT_LOCUS (node), line_table, data_in->current_col);
+      else if (DECL_P (node))
+	LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col);
+#else
+      if (EXPR_P (node) || GIMPLE_STMT_P (node))
 	  annotate_with_file_line (node, 
 				   canon_file_name (data_in->current_file), 
 				   data_in->current_line);
@@ -542,6 +547,7 @@ set_line_info (struct data_in *data_in, tree node)
 	}
 #endif
     }
+  data_in->current_node_has_loc = false;
 }
 
 
@@ -557,6 +563,7 @@ clear_line_info (struct data_in *data_in)
 #endif
   data_in->current_file = NULL;
   data_in->current_line = 0;
+  data_in->current_node_has_loc = false;
 }
 
 
@@ -578,8 +585,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
   flags = input_tree_flags (ib, code, false);
 
-  /* FIXME! need to figure out how to set the file and line number.  */
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
+      || IS_GIMPLE_STMT_CODE_CLASS(TREE_CODE_CLASS (code)))
     input_line_info (ib, data_in, flags);
 
   switch (code)
@@ -1107,7 +1114,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   if (flags)
     process_tree_flags (result, flags);
 
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
+      || IS_GIMPLE_STMT_CODE_CLASS(TREE_CODE_CLASS (code)))
     set_line_info (data_in, result);
 
   /* It is not enought to just put the flags back as we serialized
@@ -1694,7 +1702,6 @@ lto_static_init_local (void)
 #define ADD_DECL_FLAG(flag_name)           flags_length_for_code[code]++;
 #define ADD_VIS_FLAG(flag_name)            flags_length_for_code[code]++;
 #define ADD_VIS_FLAG_SIZE(flag_name,size)  flags_length_for_code[code] += size;
-#define ADD_FUNC_FLAG(flag_name)           flags_length_for_code[code]++;
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                     \
           default:                            \
@@ -1718,7 +1725,6 @@ lto_static_init_local (void)
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
 #undef ADD_VIS_FLAG_SIZE
-#undef ADD_FUNC_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 

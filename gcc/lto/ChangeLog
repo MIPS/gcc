@@ -1,3 +1,19 @@
+2007-11-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (ADD_FUNC_FLAG): Deleted macro.
+	(data_in): Added current_node_has_loc field.
+	(input_line_info, set_line_info, clear_line_info): Added a support
+	for USE_MAPPED_LOCATION and not adding line numbers to nodes that
+	did not have on on the source side.
+	(input_expr_operand): Make sure that GIMPLE_MODIFY_STMTS get line
+	numbers too.
+	
+	
+2007-11-09  Doug Kwan  <dougkwan@google.com>
+
+	* lto-read.c (input_expr_operand): Change type of operand 2 of
+	BIT_FIELD_REF expression to be bitsizetype instead of sizetype.
+
 2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c: Include lto-tree.h.  Effect small spaces->tabs cleanup.

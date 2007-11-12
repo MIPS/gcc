@@ -1,8 +1,27 @@
-2007-11-09  Doug Kwan  <dougkwan@google.com>
+2007-11-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* lto.c (input_expr_operand): Change type of operand 2 of
-	BIT_FIELD_REF expression to be bitsizetype instead of sizetype.
-
+	* doc/invoke.text (-fdump-tree-*-verbose): New option.
+	* tree-dump.c (dump_options): New verbose option.
+	* tree-pretty-print.c (dump_phi_nodes, dump_generic_bb_buff):
+	Add verbose dump.
+	* lto-tree-flags.def (tcc_expression, tcc_gimple_stmt,
+	tcc_statement): Add asm_written flag to support undocumented use.
+	(FUNCTION_DECL): Removed all flags since these are not serialized
+	by lto-function-out.
+	(VAR_DECL): Reorganized flags and added missing ones.
+	* tree-pass.h (TDF_VERBOSE): New dump flag.
+	* lto-function-out.c (output_tree_flags): Removed ADD_FUNCT_FLAG
+	macro.  Added fixes to get line numbers correct.
+	(pass_ipa_lto_out): Fixed dump options and name.
+	* lto-flags.h (LTO_SOURCE_*): Removed conditional code
+	USE_MAPPED_LOCATION.
+	(LTO_SOURCE_HAS_LOC): New macro.
+	* tree-dfa-c (pass_referenced_var): Added dump option.
+	* print-tree.c (print_node): Added code to be able to print
+	PHI_NODES.
+	(tree-flow.h): Added include.
+	Makefile.in (print-tree.o):  Added TREE_FLOW_H.
+		
 2007-11-09  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* dwarf2out.c (lto_var_ref): Don't remove DW_AT_declaration.
