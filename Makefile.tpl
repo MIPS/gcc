@@ -1609,6 +1609,53 @@ configure-gdb: $(CONFIGURE_GDB_TK)
 all-gdb: $(gdbnlmrequirements) $(GDB_TK)
 install-gdb: $(INSTALL_GDB_TK)
 
+@if gcc-bootstrap
+bootstrap4-debug-init = stgsrc=stageb3g2 stgdst=stageb4g
+bootstrap4-debug-lib-gcc-clean = stamp-gnatlib* stamp-tools ada/rts
+
+cp-lR = cp -lR
+
+.PHONY: prepare-bootstrap4-debug-lib
+prepare-bootstrap4-debug-lib:
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	: $(MAKE); $(stage); \
+	$(bootstrap4-debug-init) didgcc=false; \
+	for d3 in $$stgsrc-*; do \
+	  case $$d3 in "$$stgsrc-$(TARGET_SUBDIR)") continue ;; esac; \
+	  d4=`echo $$d3 | sed s,^$$stgsrc,$$stgdst,`; \
+	  if test -d $$d4; then \
+	    echo $$d4 already set up, skipping...; \
+	    continue; \
+	  fi; \
+	  d4t=$$d4.tmp; \
+	  rm -rf $$d4t || :; \
+	  $(cp-lR) $$d3/. $$d4t; \
+	  case $$d3 in "$$stgsrc-gcc") \
+	    (cd $$d4t && rm -rf $(bootstrap4-debug-lib-gcc-clean)) || :;; \
+	  esac; \
+	  mv $$d4t $$d4; \
+	done
+
+.PHONY: clean-bootstrap4-debug-lib
+clean-bootstrap4-debug-lib: prepare-bootstrap4-debug-lib
+	@$(bootstrap4-debug-init); \
+	rm -rf $$stgdst-$(TARGET_SUBDIR) || :; \
+	(cd $$stgdst-gcc && rm -rf $(bootstrap4-debug-lib-gcc-clean)) || :
+
+sed-script-prepare-bootstrap4-debug-lib-g0 = 's,%{g\*},,'
+sed-script-prepare-bootstrap4-debug-lib-novta = 's,%{g\*},& %{!fvar-tracking-assignments:%{!fno-var-tracking-assignments:-fno-var-tracking-assignments}},'
+sed-script-prepare-bootstrap4-debug-lib-custom = 's,x,x,'
+
+.PHONY: prepare-bootstrap4-debug-lib-g0 prepare-bootstrap4-debug-lib-novta prepare-bootstrap4-debug-lib-custom
+prepare-bootstrap4-debug-lib-g0 prepare-bootstrap4-debug-lib-novta \
+prepare-bootstrap4-debug-lib-custom: prepare-bootstrap4-debug-lib
+	@$(bootstrap4-debug-init); \
+	rm -f $$stgdst-gcc/specs; \
+	sed $(sed-script-$@) < $$stgsrc-gcc/specs > $$stgdst-gcc/specs
+
+@endif gcc-bootstrap
+
 # Serialization dependencies.  Host configures don't work well in parallel to
 # each other, due to contention over config.cache.  Target configures and 
 # build configures are similar.

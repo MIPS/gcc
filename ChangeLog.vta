@@ -1,5 +1,20 @@
 2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* Makefile.tpl (bootstrap4-debug-init): New macro.
+	(bootstrap4-debug-lib-gcc-clean): New macro.
+	(cp-lR): New macro.
+	(prepare-bootstrap4-debug-lib): New target.
+	(clean-bootstrap4-debug-lib): New target.
+	(sed-script-prepare-bootstrap4-debug-lib-g0): New macro.
+	(sed-script-prepare-bootstrap4-debug-lib-novta): New macro.
+	(sed-script-prepare-bootstrap4-debug-lib-custom): New macro.
+	(prepare-bootstrap4-debug-lib-g0): New target.
+	(prepare-bootstrap4-debug-lib-novta): New target.
+	(prepare-bootstrap4-debug-lib-custom): New target.
+	* Makefile.in: Rebuilt.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* Makefile.def: Add stage b4g after b3g2.
 	* Makefile.tpl (do-compare3-debug): Define.
 	* Makefile.in: Rebuilt.
