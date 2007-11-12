@@ -1900,6 +1900,11 @@ extern GTY(()) rtx return_address_pointer_rtx;
 #define gen_rtx_ASM_OPERANDS(MODE, ARG0, ARG1, ARG2, ARG3, ARG4, LOC) \
   gen_rtx_fmt_ssiEEsi (ASM_OPERANDS, (MODE), (ARG0), (ARG1), (ARG2), (ARG3), (ARG4), (LOC).file, (LOC).line)
 #endif
+#undef gen_rtx_SET
+#define gen_rtx_SET(MODE, ARG0, ARG1) \
+  gen_rtx_fmt_eeb (SET, (MODE), (ARG0), (ARG1), 0)
+#define gen_rtx_SET_with_vars(MODE, ARG0, ARG1, ARG2) \
+  gen_rtx_fmt_eeb (SET, (MODE), (ARG0), (ARG1), (ARG2))
 #endif
 
 /* There are some RTL codes that require special attention; the

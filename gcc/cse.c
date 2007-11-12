@@ -2558,6 +2558,7 @@ exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
 
 	case '0':
 	case 't':
+	case 'b':
 	  break;
 
 	default:

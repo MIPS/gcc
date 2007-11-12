@@ -275,7 +275,7 @@ DEF_RTL_EXPR(PREFETCH, "prefetch", "eee", RTX_EXTRA)
    ALL assignment must use SET.
    Instructions that do multiple assignments must use multiple SET,
    under PARALLEL.  */
-DEF_RTL_EXPR(SET, "set", "ee", RTX_EXTRA)
+DEF_RTL_EXPR(SET, "set", "eeb", RTX_EXTRA)
 
 /* Indicate something is used in a way that we don't want to explain.
    For example, subroutine calls will use the register

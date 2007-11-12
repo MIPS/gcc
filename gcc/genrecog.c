@@ -566,7 +566,7 @@ find_operand (rtx pattern, int n, rtx stop)
 	      return r;
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'w': case '0': case 's': case 'b':
 	  break;
 
 	default:
@@ -617,7 +617,7 @@ find_matching_operand (rtx pattern, int n)
 	      return r;
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'w': case '0': case 's': case 'b':
 	  break;
 
 	default:
@@ -870,7 +870,7 @@ validate_pattern (rtx pattern, rtx insn, rtx set, int set_code)
 	    validate_pattern (XVECEXP (pattern, i, j), insn, NULL_RTX, 0);
 	  break;
 
-	case 'i': case 'w': case '0': case 's':
+	case 'i': case 'w': case '0': case 's': case 'b':
 	  break;
 
 	default:
@@ -1149,6 +1149,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
 	  /* Handled above.  */
 	  break;
 	case '0':
+	case 'b':
 	  break;
 
 	default:

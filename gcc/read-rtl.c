@@ -1554,6 +1554,7 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 	/* 0 means a field for internal use only.
 	   Don't expect it to be present in the input.  */
       case '0':
+      case 'b':
 	break;
 
       case 'e':

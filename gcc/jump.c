@@ -1670,6 +1670,7 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
 	    return 0;
 	  /* Fall through.  */
 	case '0':
+	case 'b':
 	  break;
 
 	case 'E':

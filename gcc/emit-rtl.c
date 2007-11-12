@@ -4986,6 +4986,7 @@ copy_insn_1 (rtx orig)
       case 'S':
       case 'u':
       case '0':
+      case 'b':
 	/* These are left unchanged.  */
 	break;
 

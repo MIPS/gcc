@@ -274,7 +274,7 @@ gen_exp (rtx x, enum rtx_code subroutine_type, char *used)
   len = GET_RTX_LENGTH (code);
   for (i = 0; i < len; i++)
     {
-      if (fmt[i] == '0')
+      if (fmt[i] == '0' || fmt[i] == 'b')
 	break;
       printf (",\n\t");
       switch (fmt[i])

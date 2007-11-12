@@ -307,6 +307,7 @@ copy_rtx (rtx orig)
       case 'u':
       case 'B':
       case '0':
+      case 'b':
 	/* These are left unchanged.  */
 	break;
 
@@ -432,6 +433,10 @@ rtx_equal_p (const_rtx x, const_rtx y)
 
 	case '0':
 	case 't':
+	  break;
+
+	case 'b':
+	  /* In SETs we have debug variable bitmaps.  Ignore them.  */
 	  break;
 
 	  /* It is believed that rtx's at this level will never

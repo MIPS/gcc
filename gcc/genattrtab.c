@@ -495,6 +495,7 @@ attr_rtx_1 (enum rtx_code code, va_list p)
 	  switch (*fmt++)
 	    {
 	    case '0':		/* Unused field.  */
+	    case 'b':
 	      break;
 
 	    case 'i':		/* An integer?  */

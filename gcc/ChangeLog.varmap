@@ -1,0 +1,39 @@
+2007-11-12  Michael Matz  <matz@suse.de>
+	Richard Guenther  <rguenther@suse.de>
+
+	* rtl.def (SET): Add bitmap operand.
+	* rtl.h (gen_rtx_SET): Re-define to always create SET
+	with NULL bitmap.
+	(gen_rtx_SET_with_vars): New.
+	* genrecog.c (find_operand): Handle 'b'.
+	(find_matching_operand): Likewise.
+	(validate_pattern): Likewise.
+	(add_to_sequence): Likewise.
+	* genemit.c (gen_exp): Handle 'b' like '0'.
+	* genattrtab.c (attr_rtx_1): Likewise.
+	* jump.c (rtx_renumbered_equal_p): Likewise.
+	* read-rtl.c (read_rtx_1): Likewise.
+	* emit-rtl.c (copy_insn_1): Likewise.
+	* rtl.c (copy_rtx): Likewise.
+	(rtx_equal_p): Ignore bitmaps.
+	* cse.c (exp_equiv_p): Likewise.
+
+2007-11-12  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (uid_decl_map_hash, uid_decl_map_eq): Move ...
+	* tree.h (uid_decl_map_hash, uid_decl_map_eq): ... here.
+	(lookup_decl_from_uid): Declare.
+	(struct tree_base): Add nogc_flag.
+	(DECL_NOGC_P): New define.
+	* tree-ssa.c (uid_decl_map_eq, uid_decl_map_hash): Move ...
+	* tree.c (uid_decl_map_eq, uid_decl_map_hash): ... here.
+	(uid_decl_map_marked_p): New static helper function.
+	(decl_for_uid_map): New global hashtable mapping DECL_UID
+	to the decl tree.
+	(init_ttree): Allocate it.
+	(insert_decl_to_uid_decl_map): New helper function.
+	(make_node_stat): Insert new decls into the map.
+	(copy_node_stat): Likewise.
+	(lookup_decl_from_uid): New function.
+	(print_decl_for_uid_map_statistics): New helper.
+	(dump_tree_statistics): Call it.
