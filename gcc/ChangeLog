@@ -1,3 +1,8 @@
+2007-11-12  Tom Tromey  <tromey@redhat.com>
+
+	* c-pragma.c (c_register_pragma_1): Update.
+	* c-parser.c (c_token) <pragma_kind>: Use 6 bits, not 7.
+
 2007-11-09  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_lex_all): Added 'initial' argument.

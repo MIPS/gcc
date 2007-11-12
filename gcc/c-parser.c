@@ -257,7 +257,7 @@ typedef struct c_token GTY (())
   ENUM_BITFIELD (rid) keyword : 8;
   /* If this token is a CPP_PRAGMA, this indicates the pragma that
      was seen.  Otherwise it is PRAGMA_NONE.  */
-  ENUM_BITFIELD (pragma_kind) pragma_kind : 7;
+  ENUM_BITFIELD (pragma_kind) pragma_kind : 6;
   /* True if this token is from a system header.  */
   BOOL_BITFIELD in_system_header : 1;
   /* True if this token comes from a header owned by the user.  */
