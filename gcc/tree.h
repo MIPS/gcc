@@ -5214,6 +5214,16 @@ struct tree_int_map GTY(())
 #define tree_int_map_hash tree_map_base_hash
 #define tree_int_map_marked_p tree_map_base_marked_p
 
+/* Map from a tree to a bitmap.  */
+
+struct tree_bitmap_map GTY(()) {
+  struct tree_map_base base;
+  struct bitmap_head_def *map;
+};
+
+#define tree_bitmap_map_eq tree_map_base_eq
+#define tree_bitmap_map_hash tree_map_base_hash
+
 /* Map from a DECL_UID to the decl tree.  */
 
 extern unsigned int uid_decl_map_hash (const void *);

@@ -583,4 +583,13 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
        bmp_iter_and_compl (&(ITER), &(BITNUM));				\
        bmp_iter_next (&(ITER), &(BITNUM)))
 
+struct uid_bitmap_map GTY(()) {
+  int uid;
+  struct bitmap_head_def *map;
+};
+
+int uid_bitmap_map_eq (const void *va, const void *vb);
+unsigned int uid_bitmap_map_hash (const void *item);
+
+
 #endif /* GCC_BITMAP_H */

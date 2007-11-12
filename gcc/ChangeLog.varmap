@@ -1,3 +1,14 @@
+2007-11-12  Richard Guenther  <rguenther@suse.de>
+
+	* bitmap.h (struct uid_bitmap_map): Declare.
+	(uid_bitmap_map_eq): Likewise.
+	(uid_bitmap_map_hash): Likewise.
+	* bitmap.c (uid_bitmap_map_eq): New function.
+	(uid_bitmap_map_hash): Likewise.
+	* tree.h (struct tree_bitmap_map): Add.
+	(tree_bitmap_map_eq): Define.
+	(tree_bitmap_map_hash): Likewise.
+
 2007-11-12  Michael Matz  <matz@suse.de>
 	Richard Guenther  <rguenther@suse.de>
 

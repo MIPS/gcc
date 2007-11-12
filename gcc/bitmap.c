@@ -2003,4 +2003,22 @@ bitmap_hash (const_bitmap head)
   return (hashval_t)hash;
 }
 
+/* Equality function for uid to bitmap map.  */
+
+int
+uid_bitmap_map_eq (const void *va, const void *vb)
+{
+  const struct uid_bitmap_map *a = (const struct uid_bitmap_map *) va;
+  const struct uid_bitmap_map *b = (const struct uid_bitmap_map *) vb;
+  return (a->uid == b->uid);
+}
+
+/* Hash value for uid to bitmap map.  */
+
+unsigned int
+uid_bitmap_map_hash (const void *item)
+{
+  return ((const struct uid_bitmap_map *)item)->uid;
+}
+
 #include "gt-bitmap.h"
