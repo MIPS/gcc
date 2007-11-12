@@ -1648,9 +1648,6 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
       if (TREE_CODE (op) != SSA_NAME)
 	continue;
 
-      if (IS_DEBUG_STMT (USE_STMT (use_p)))
-	continue;
-
       iv = get_iv (data, op);
       if (!iv)
 	continue;
@@ -1704,7 +1701,8 @@ find_interesting_uses (struct ivopts_data *data)
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	find_interesting_uses_stmt (data, phi);
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	find_interesting_uses_stmt (data, bsi_stmt (bsi));
+	if (!IS_DEBUG_STMT (bsi_stmt (bsi)))
+	  find_interesting_uses_stmt (data, bsi_stmt (bsi));
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))

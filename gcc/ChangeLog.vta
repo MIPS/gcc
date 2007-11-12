@@ -1,5 +1,10 @@
 2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-ssa-loop-ivopts.c (find_interesting_uses): Skip debug stmts.
+	(find_interesting_uses_stmt): No longer test for debug stmts.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* dwarf2asm.c (splay_tree_compare_strings): New function.
 	(dw2_force_const_mem): Use it.
 
