@@ -1,5 +1,9 @@
 2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree.c (type_hash_add): Don't violate strict aliasing rules.
+
+2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* ifcvt.c (noce_process_if_block): Skip notes in between debug
 	insns when scanning back for insn_b.  Check for mods starting
 	after insn_b.
