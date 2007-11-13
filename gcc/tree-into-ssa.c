@@ -2255,6 +2255,10 @@ rewrite_into_ssa (void)
   
   timevar_push (TV_TREE_SSA_OTHER);
 
+  /* Initialize the SSA_NAME to debug variables mapping.  */
+  cfun->varmap_hash = htab_create_ggc (7, uid_bitmap_map_hash,
+				       uid_bitmap_map_eq, NULL);
+
   /* Initialize operand data structures.  */
   init_ssa_operands ();
 

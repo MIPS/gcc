@@ -3905,6 +3905,12 @@ extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern void release_ssa_name (tree);
 extern void release_defs (tree);
 extern void replace_ssa_name_symbol (tree, tree);
+extern bitmap ssa_varmap_lookup (tree);
+extern void ssa_varmap_process_copy (tree);
+extern void ssa_varmap_add_var (tree, tree);
+extern void ssa_varmap_process_phi (tree);
+#define ssa_varmap_get_ref(uid) lookup_decl_from_uid (uid)
+void ssa_varmap_add_ref (tree);
 
 #ifdef GATHER_STATISTICS
 extern void ssanames_print_statistics (void);

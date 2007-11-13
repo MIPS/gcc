@@ -322,6 +322,10 @@ struct function GTY(())
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
 
+  /* A mapping of SSA_NAME version to the SSA_NAMEs variable DECL_UID bitmap
+     and an obstack to allocate the bitmaps from.  */
+  htab_t GTY((param_is (struct uid_bitmap_map))) varmap_hash;
+
   /* Assembly labels for the hot and cold text sections, to
      be used by debugger functions for determining the size of text
      sections.  */

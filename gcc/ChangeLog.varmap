@@ -1,3 +1,30 @@
+2007-11-13  Richard Guenther  <rguenther@suse.de>
+
+	* function.h (struct function): Add varmap_hash member.
+	* tree-ssanames.c (release_ssa_name): Call ssa_varmap_release.
+	(release_defs): Process a copy for updating variable mappings.
+	(ssa_varmap_lookup): New function.
+	(ssa_varmap_set): Likewise.
+	(ssa_varmap_replace): Likewise.
+	(ssa_varmap_release): Likewise.
+	(ssa_varmap_add_ref): Likewise.
+	(ssa_varmap_process_copy_1): Likewise.
+	(ssa_varmap_process_copy): Likewise.
+	(ssa_varmap_add_var): Likewise.
+	(ssa_varmap_process_phi): Likewise.
+	* function.c (allocate_struct_function): Initialize varmap members.
+	* tree-inline.c (setup_one_parameter): Add the decl of the param
+	to the argument SSA_NAME varmap.
+	* tree.h (ssa_varmap_lookup): Declare.
+	(ssa_varmap_add_ref): Likewise.
+	(ssa_varmap_get_ref): Likewise.
+	(ssa_varmap_process_copy): Likewise.
+	(ssa_varmap_add_var): Likewise.
+	(ssa_varmap_process_phi): Likewise.
+	* tree-into-ssa.c (rewrite_into_ssa): Allocate SSA_NAME to
+	bitmap of names mapping.
+	* tree-parloops.c (create_loop_fn): Likewise.
+
 2007-11-12  Richard Guenther  <rguenther@suse.de>
 
 	* bitmap.h (struct uid_bitmap_map): Declare.

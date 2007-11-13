@@ -67,6 +67,8 @@ unsigned int ssa_name_nodes_reused;
 unsigned int ssa_name_nodes_created;
 #endif
 
+static void ssa_varmap_release (tree var);
+
 /* Initialize management of SSA_NAMEs.  */
 
 void
@@ -176,6 +178,9 @@ release_ssa_name (tree var)
 {
   if (!var)
     return;
+
+  /* Remove variable mapping for this name.  */
+  ssa_varmap_release (var);
 
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
@@ -290,6 +295,12 @@ release_defs (tree stmt)
      to garbage.  */
   gcc_assert (gimple_in_ssa_p (cfun));
 
+  /* If this was a copy stmt, save what the lhs knows about variables.  */
+  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME
+      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == SSA_NAME)
+    ssa_varmap_process_copy (stmt);
+
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)
       release_ssa_name (def);
@@ -303,6 +314,251 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
 {
   SSA_NAME_VAR (ssa_name) = sym;
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
+}
+
+bitmap
+ssa_varmap_lookup (tree name)
+{
+  struct uid_bitmap_map x;
+  struct uid_bitmap_map **loc;
+
+  x.uid = SSA_NAME_VERSION (name);
+  loc = (struct uid_bitmap_map **)
+	htab_find_slot_with_hash (cfun->varmap_hash, &x,
+ 				  SSA_NAME_VERSION (name), NO_INSERT);
+  if (!loc)
+    return NULL;
+  return (*loc)->map;
+}
+
+static void
+ssa_varmap_set (tree name, bitmap map)
+{
+  struct uid_bitmap_map x;
+  struct uid_bitmap_map **loc;
+
+  x.uid = SSA_NAME_VERSION (name);
+  loc = (struct uid_bitmap_map **)
+	htab_find_slot_with_hash (cfun->varmap_hash, &x,
+ 				  SSA_NAME_VERSION (name), INSERT);
+  if (!*loc)
+    {
+      *loc = GGC_NEW (struct uid_bitmap_map);
+      (*loc)->uid = SSA_NAME_VERSION (name);
+    }
+  (*loc)->map = map;
+}
+
+static void
+ssa_varmap_replace (tree name, bitmap map)
+{
+  struct uid_bitmap_map x;
+  struct uid_bitmap_map **loc;
+
+  x.uid = SSA_NAME_VERSION (name);
+  loc = (struct uid_bitmap_map **)
+	htab_find_slot_with_hash (cfun->varmap_hash, &x,
+ 				  SSA_NAME_VERSION (name), INSERT);
+  if (!*loc)
+    {
+      *loc = GGC_NEW (struct uid_bitmap_map);
+      (*loc)->uid = SSA_NAME_VERSION (name);
+      (*loc)->map = BITMAP_GGC_ALLOC ();
+    }
+  bitmap_copy ((*loc)->map, map);
+}
+
+/* Releases the variable mapping information for SSA_NAME var.  */
+
+static void
+ssa_varmap_release (tree var)
+{
+  struct uid_bitmap_map x;
+  struct uid_bitmap_map **loc;
+
+  /* After going out of SSA we don't care for released SSA_NAMES.  */
+  if (!cfun->varmap_hash)
+    return;
+
+  x.uid = SSA_NAME_VERSION (var);
+  loc = (struct uid_bitmap_map **)
+	htab_find_slot_with_hash (cfun->varmap_hash, &x,
+ 				  SSA_NAME_VERSION (var), NO_INSERT);
+  if (loc)
+    htab_remove_elt_with_hash (cfun->varmap_hash, &x, SSA_NAME_VERSION (var));
+}
+
+/* Reference the variable VAR used in variable mappings.
+   ???  Do this only if creating debug information.  */
+
+void
+ssa_varmap_add_ref (tree var)
+{
+  DECL_NOGC_P (var) = true;
+}
+
+/* Update the two SSA_NAMEs variable map appearing in the copy
+   relation LHS = RHS.  */
+
+static void
+ssa_varmap_process_copy_1 (tree lhs, tree rhs)
+{
+  bitmap lhs_vars, rhs_vars;
+
+  /* We cannot blindly exchange an artificial vars ssa_name variable
+     with another as this may create overlapping life-ranges.  So we
+     also cannot assume that artificial vars do not have a variable map.  */
+
+  /* Instead we merge variable maps if available or add the variable
+     uids of non-artificial variables to the maps.  */
+  lhs_vars = ssa_varmap_lookup (lhs);
+  rhs_vars = ssa_varmap_lookup (rhs);
+  if (lhs_vars && rhs_vars
+      && lhs_vars != rhs_vars)
+    {
+      /* We IOR both ways to reach shared bitmaps on both sides of
+	 the copy relation.  There's no point in changing what SSA_NAME
+	 references what bitmap though.  */
+      bitmap_ior_into (lhs_vars, rhs_vars);
+      bitmap_ior_into (rhs_vars, lhs_vars);
+    }
+  else if (lhs_vars && !rhs_vars)
+    {
+      if (!DECL_ARTIFICIAL (SSA_NAME_VAR (rhs)))
+	bitmap_set_bit (lhs_vars, DECL_UID (SSA_NAME_VAR (rhs)));
+      ssa_varmap_set (rhs, lhs_vars);
+    }
+  else if (!lhs_vars && rhs_vars)
+    {
+      if (!DECL_ARTIFICIAL (SSA_NAME_VAR (lhs)))
+        bitmap_set_bit (rhs_vars, DECL_UID (SSA_NAME_VAR (lhs)));
+      ssa_varmap_set (lhs, rhs_vars);
+    }
+  else if (!lhs_vars && !rhs_vars
+	   && SSA_NAME_VAR (lhs) != SSA_NAME_VAR (rhs)
+	   && (!DECL_ARTIFICIAL (SSA_NAME_VAR (rhs))
+	       || !DECL_ARTIFICIAL (SSA_NAME_VAR (lhs))))
+    {
+      bitmap tmp = BITMAP_GGC_ALLOC ();
+      if (!DECL_ARTIFICIAL (SSA_NAME_VAR (lhs)))
+        bitmap_set_bit (tmp, DECL_UID (SSA_NAME_VAR (lhs)));
+      if (!DECL_ARTIFICIAL (SSA_NAME_VAR (rhs)))
+        bitmap_set_bit (tmp, DECL_UID (SSA_NAME_VAR (rhs)));
+      ssa_varmap_set (lhs, tmp);
+      ssa_varmap_set (rhs, tmp);
+    }
+}
+
+/* Update the two SSA_NAMEs variable map appearing in the copy
+   relation STMT.  */
+
+void
+ssa_varmap_process_copy (tree stmt)
+{
+  gcc_assert (gimple_in_ssa_p (cfun)
+	      && TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
+
+  ssa_varmap_process_copy_1 (GIMPLE_STMT_OPERAND (stmt, 0),
+			     GIMPLE_STMT_OPERAND (stmt, 1));
+}
+
+/* Add a single variable VAR to the mapping of SSA_NAME NAME.  */
+
+void
+ssa_varmap_add_var (tree name, tree var)
+{
+  bitmap lhs_vars;
+
+  if (DECL_ARTIFICIAL (var))
+    return;
+
+  lhs_vars = ssa_varmap_lookup (name);
+  if (lhs_vars)
+    bitmap_set_bit (lhs_vars, DECL_UID (var));
+  else if (SSA_NAME_VAR (name) != var)
+    {
+      bitmap tmp = BITMAP_GGC_ALLOC ();
+      if (!DECL_ARTIFICIAL (SSA_NAME_VAR (name)))
+        bitmap_set_bit (tmp, DECL_UID (SSA_NAME_VAR (name)));
+      bitmap_set_bit (tmp, DECL_UID (var));
+      ssa_varmap_set (name, tmp);
+    }
+
+  ssa_varmap_add_ref (var);
+}
+
+/* Update the PHI_RESULTs variable map of STMT based on the PHI arguments.  */
+
+void
+ssa_varmap_process_phi (tree stmt)
+{
+  tree lhs;
+  bitmap arg_vars;
+  bitmap tmp;
+  ssa_op_iter i;
+  use_operand_p use;
+  bool first_p;
+
+  gcc_assert (gimple_in_ssa_p (cfun)
+	      && TREE_CODE (stmt) == PHI_NODE);
+
+  if (MTAG_P (SSA_NAME_VAR (PHI_RESULT (stmt))))
+    return;
+
+  /* A PHI nodes result represents the intersection of all decls of
+     the PHI arguments.  */
+  tmp = BITMAP_GGC_ALLOC ();
+  first_p = true;
+  FOR_EACH_PHI_ARG (use, stmt, i, SSA_OP_USE)
+    {
+      tree op = USE_FROM_PTR (use);
+
+      /* Just ignore constants.  */
+      if (!op
+	  || is_gimple_min_invariant (op))
+	continue;
+
+      /* Look up vars for the argument.  If it is the first variable
+	 we visit, initialize the temporary map with its map.  */
+      arg_vars = ssa_varmap_lookup (op);
+      if (arg_vars)
+        {
+	  if (first_p)
+	    bitmap_copy (tmp, arg_vars);
+	  else
+	    bitmap_and_into (tmp, arg_vars);
+	}
+      else
+	{
+	  if (first_p
+	      && !DECL_ARTIFICIAL (SSA_NAME_VAR (op)))
+	    bitmap_set_bit (tmp, DECL_UID (SSA_NAME_VAR (op)));
+	  else if (!bitmap_bit_p (tmp, DECL_UID (SSA_NAME_VAR (op))))
+	    {
+	      bitmap_clear (tmp);
+	      break;
+	    }
+	}
+
+      if (bitmap_empty_p (tmp))
+        break;
+      first_p = false;
+    }
+
+  /* Clearing the PHI results bit first makes the following easier.  */
+  lhs = PHI_RESULT (stmt);
+  bitmap_clear_bit (tmp, DECL_UID (SSA_NAME_VAR (lhs)));
+
+  /* The result is now the argument intersection.  If that is empty
+     there is nothing to do.  */
+  if (bitmap_empty_p (tmp))
+    return;
+
+  /* Otherwise re-add the UID from the PHI result var and replace the
+     map.  Note this by purpose affects all shared copies.  */
+  if (!DECL_ARTIFICIAL (SSA_NAME_VAR (lhs)))
+    bitmap_set_bit (tmp, DECL_UID (SSA_NAME_VAR (lhs)));
+  ssa_varmap_replace (lhs, tmp);
 }
 
 /* Return SSA names that are unused to GGC memory.  This is used to keep

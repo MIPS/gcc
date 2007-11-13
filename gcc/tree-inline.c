@@ -1520,6 +1520,12 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	  || is_gimple_min_invariant (rhs))
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
     {
+      /* This remembers the parameters name.  It should not lose any
+	 interesting information as the variable mapping from the param
+	 from inside the inlined function should be empty (as DEFs definition
+	 should be a default def).  */
+      if (TREE_CODE (rhs) == SSA_NAME)
+	ssa_varmap_add_var (rhs, SSA_NAME_VAR (def));
       insert_decl_map (id, def, rhs);
       return;
     }

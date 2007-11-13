@@ -1250,6 +1250,10 @@ create_loop_fn (void)
 
   allocate_struct_function (decl);
 
+  /* Allocate the variable tracking hashtable.  */
+  cfun->varmap_hash = htab_create_ggc (7, uid_bitmap_map_hash,
+				       uid_bitmap_map_eq, NULL);
+
   /* The call to allocate_struct_function clobbers CFUN, so we need to restore
      it.  */
   cfun = act_cfun;
