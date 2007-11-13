@@ -3185,6 +3185,20 @@ mark_label_nuses (rtx x)
 }
 
 
+static void
+move_xbitmap (rtx x, const_rtx cset, void *data)
+{
+  rtx orig_set = (rtx)data;
+  rtx set = (rtx)cset;
+  if (GET_CODE (set) == CLOBBER)
+    return;
+  if (!reg_overlap_mentioned_p (x, SET_DEST (orig_set)))
+    return;
+  if (XBITMAP (set, 2))
+    return;
+  XBITMAP (set, 2) = XBITMAP (orig_set, 2);
+}
+
 /* Try splitting insns that can be split for better scheduling.
    PAT is the pattern which might split.
    TRIAL is the insn providing PAT.
@@ -3367,6 +3381,35 @@ try_split (rtx pat, rtx trial, int last)
 	  insn = PREV_INSN (insn);
 	}
     }
+
+  if (GET_CODE (pat) == SET && XBITMAP (pat, 2))
+    {
+      insn = insn_last;
+      while (insn != NULL_RTX)
+        {
+	  if (INSN_P (insn))
+	    note_stores (PATTERN (insn), move_xbitmap, pat);
+	  insn = PREV_INSN (insn);
+        }
+    }
+  else if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+      for (i = 0; i < XVECLEN (pat, 0); i++)
+        if (GET_CODE (XVECEXP (pat, 0, i)) == SET
+	    && XBITMAP (XVECEXP (pat, 0, i), 2))
+          {
+	    rtx set = XVECEXP (pat, 0, i);
+	    insn = insn_last;
+	    while (insn != NULL_RTX)
+	      {
+	        if (INSN_P (insn))
+		  note_stores (PATTERN (insn), move_xbitmap, set);
+		insn = PREV_INSN (insn);
+	      }
+          }
+    }
+
 
   tem = emit_insn_after_setloc (seq, trial, INSN_LOCATOR (trial));
 

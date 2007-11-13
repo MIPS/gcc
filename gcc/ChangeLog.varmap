@@ -1,3 +1,8 @@
+2007-11-13  Michael Matz  <matz@suse.de>
+
+	* emit-rtl.c (move_xbitmap): New helper.
+	(try_split): Preserve bitmap of names from splitters.
+
 2007-11-13  Richard Guenther  <rguenther@suse.de>
 
 	* tree.h (print_ssa_varmap): Declare.
