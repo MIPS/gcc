@@ -1,5 +1,9 @@
 2007-11-09  Michael Meissner  <michael.meissner@amd.com>
 
+	merge up to revision 130144.
+
+2007-11-09  Michael Meissner  <michael.meissner@amd.com>
+
 	* DEVPHASE: Set to ix86 processor branch.
 
 2007-11-09  Michael Meissner  <michael.meissner@amd.com>
