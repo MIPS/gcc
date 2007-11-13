@@ -326,6 +326,11 @@ struct function GTY(())
      and an obstack to allocate the bitmaps from.  */
   htab_t GTY((param_is (struct uid_bitmap_map))) varmap_hash;
 
+  /* A mapping from expression tree address to bitmap of DECL_UIDs that
+     represent this value.  This is initialized during out-of-ssa from
+     the varmap_hash data.  */
+  htab_t GTY((param_is (struct tree_bitmap_map))) varmap_exprmap;
+
   /* Assembly labels for the hot and cold text sections, to
      be used by debugger functions for determining the size of text
      sections.  */

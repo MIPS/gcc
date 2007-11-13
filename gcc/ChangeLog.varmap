@@ -1,5 +1,29 @@
 2007-11-13  Richard Guenther  <rguenther@suse.de>
 
+	* function.h (struct function): Add varmap_exprmap member.
+	* tree-ssanames.c (ssa_varmap_exprmap_lookup): New function.
+	(ssa_varmap_exprmap_insert): Likewise.
+	(ssa_varmap_build_exprmap): Likewise.
+	* tree.h (ssa_varmap_exprmap_lookup): Likewise.
+	(ssa_varmap_exprmap_insert): Likewise.
+	(ssa_varmap_build_exprmap): Likewise.
+	* tree-outof-ssa.c (replace_use_variable): Remember names
+	for TERed expressions.
+	(rewrite_trees): If available, associate
+	the expressions with the bitmap of names.
+	(remove_ssa_form): Associate expressions with bitmaps of names.
+	(rewrite_out_of_ssa): Propagate names information.  Allocate
+	map of expressions to names bitmaps.  Free SSA_NAME to decls
+	bitmap.
+	* expr.c (expand_expr_real): Rename to ...
+	(expand_expr_real_x): ... this.
+	(expand_expr_real): New wrapper initializing the expanded
+	expressions target SET insns bitmap of names if possible.
+	* cfgexpand.c (tree_expand_cfg): Delete expression to names
+	bitmap after expansion.
+
+2007-11-13  Richard Guenther  <rguenther@suse.de>
+
 	* function.h (struct function): Add varmap_hash member.
 	* tree-ssanames.c (release_ssa_name): Call ssa_varmap_release.
 	(release_defs): Process a copy for updating variable mappings.

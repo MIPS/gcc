@@ -7042,8 +7042,8 @@ expand_constructor (tree exp, rtx target, enum expand_modifier modifier,
 static rtx expand_expr_real_1 (tree, rtx, enum machine_mode,
 			       enum expand_modifier, rtx *);
 
-rtx
-expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
+static rtx
+expand_expr_real_x (tree exp, rtx target, enum machine_mode tmode,
 		  enum expand_modifier modifier, rtx *alt_rtl)
 {
   int rn = -1;
@@ -7114,6 +7114,63 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
     }
 
   return ret;
+}
+
+/* Generate code for computing expression EXP.
+   An rtx for the computed value is returned.  The value is never null.
+   In the case of a void EXP, const0_rtx is returned.  */
+rtx
+expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
+		  enum expand_modifier modifier, rtx *alt_rtl)
+{
+  rtx result, dest, insn, set;
+  bitmap vars;
+
+  result = expand_expr_real_x (exp, target, tmode, modifier, alt_rtl);
+
+  /* If there is no variable map attached to the expression, we
+     have done everything required.  */
+  vars = ssa_varmap_exprmap_lookup (exp);
+  if (!vars)
+    return result;
+
+  /* If we expanded an assignment, lookup the target RTX from the
+     lhs tree.  */
+  if (TREE_CODE (exp) == GIMPLE_MODIFY_STMT
+      && DECL_P (GIMPLE_STMT_OPERAND (exp, 0)))
+    dest = DECL_RTL (GIMPLE_STMT_OPERAND (exp, 0));
+  else
+    dest = result;
+
+  /* Now look for the last insn if this sets the result RTX.  */
+  insn = get_last_insn ();
+  if (insn
+      && (set = single_set (insn))
+      && XEXP (set, 0) == dest)
+    {
+      /* Found the set.  What we now can do is, if dest is a pseudo,
+	 attach a user variable to it.  This makes it more interesting
+	 to var-tracking.
+	 ???  What about mems and MEM_EXPR?  */
+      if (REG_P (dest)
+	  && REG_EXPR (dest)
+	  && DECL_ARTIFICIAL (REG_EXPR (dest)))
+	{
+	  int uid = bitmap_first_set_bit (vars);
+	  tree var = ssa_varmap_get_ref (uid);
+	  if (var)
+	    {
+	      REG_ATTRS (dest)->decl = var;
+	      /* If this was the only set bit we can get
+		 away without attaching the bitmap to the SET.  */
+	      if (bitmap_single_bit_set_p (vars))
+		return result;
+	    }
+	}
+      XBITMAP (set, 2) = vars;
+    }
+
+  return result;
 }
 
 static rtx

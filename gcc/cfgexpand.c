@@ -1925,6 +1925,9 @@ tree_expand_cfg (void)
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
 
+  /* Get rid of the temporary expression to debug variable mapping.  */
+  cfun->varmap_exprmap = NULL;
+
   /* Convert tree EH labels to RTL EH labels, and clean out any unreachable
      EH regions.  */
   convert_from_eh_region_ranges ();

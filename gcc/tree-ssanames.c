@@ -561,6 +561,74 @@ ssa_varmap_process_phi (tree stmt)
   ssa_varmap_replace (lhs, tmp);
 }
 
+/* Find the variable bitmap associated with EXPR.  Returns NULL if there
+   is no such association.  */
+
+bitmap
+ssa_varmap_exprmap_lookup (tree expr)
+{
+  struct tree_bitmap_map id;
+  struct tree_bitmap_map *h;
+
+  if (!cfun
+      /* We might never have gone into and out of SSA.  */
+      || !cfun->varmap_exprmap)
+    return NULL;
+
+  id.base.from = expr;
+  h = (struct tree_bitmap_map *)
+      htab_find_with_hash (cfun->varmap_exprmap, &id, htab_hash_pointer (expr));
+  if (h)
+    return h->map;
+  return NULL;
+}
+
+/* Insert a mapping from EXPR to VARS.  */
+
+void
+ssa_varmap_exprmap_insert (tree expr, bitmap vars)
+{
+  struct tree_bitmap_map id;
+  struct tree_bitmap_map **loc;
+
+  id.base.from = expr;
+  loc = (struct tree_bitmap_map **)
+	htab_find_slot_with_hash (cfun->varmap_exprmap, &id,
+				  htab_hash_pointer (expr), INSERT);
+  if (*loc)
+    return;
+  *loc = GGC_NEW (struct tree_bitmap_map);
+  (*loc)->base.from = expr;
+  (*loc)->map = vars;
+}
+
+/* Build a map from expressions that define ssa names *VALUES to
+   the variable bitmap.  */
+
+void
+ssa_varmap_build_exprmap (tree *values)
+{
+  int i;
+
+  for (i = 0; i < (int)num_ssa_names; ++i)
+    if (values[i])
+      {
+	tree ssa_name = GIMPLE_STMT_OPERAND (values[i], 0);
+	tree expr = GIMPLE_STMT_OPERAND (values[i], 1);
+	bitmap map = ssa_varmap_lookup (ssa_name);
+	if (!map)
+	  continue;
+
+	ssa_varmap_exprmap_insert (expr, map);
+
+	/* Hold on the variable name.
+	   ???  Maybe as a fallback we could also reference the
+	   first bit set in the map.  */
+	if (!DECL_ARTIFICIAL (SSA_NAME_VAR (ssa_name)))
+	  ssa_varmap_add_ref (SSA_NAME_VAR (ssa_name));
+      }
+}
+
 /* Return SSA names that are unused to GGC memory.  This is used to keep
    footprint of compiler during interprocedural optimization.
    As a side effect the SSA_NAME_VERSION number reuse is reduced

@@ -559,8 +559,20 @@ replace_use_variable (var_map map, use_operand_p p, tree *expr)
       int version = SSA_NAME_VERSION (var);
       if (expr[version])
         {
+	  bitmap vars;
 	  tree new_expr = GIMPLE_STMT_OPERAND (expr[version], 1);
 	  SET_USE (p, new_expr);
+
+	  /* For this replaced expression, record its names, if available.  */
+	  vars = ssa_varmap_lookup (var);
+	  if (!vars
+	      && !DECL_ARTIFICIAL (SSA_NAME_VAR (var)))
+	    {
+	      vars = BITMAP_GGC_ALLOC ();
+	      bitmap_set_bit (vars, DECL_UID (SSA_NAME_VAR (var)));
+	    }
+	  if (vars)
+	    ssa_varmap_exprmap_insert (new_expr, vars);
 
 	  /* Clear the stmt's RHS, or GC might bite us.  */
 	  GIMPLE_STMT_OPERAND (expr[version], 1) = NULL_TREE;
@@ -737,6 +749,9 @@ rewrite_trees (var_map map, tree *values)
 		remove = true;
 	      else
 		{
+		  /* Remember the ssa names variable map.  */
+		  bitmap vars = ssa_varmap_lookup (DEF_FROM_PTR (def_p));
+
 		  if (replace_def_variable (map, def_p, NULL))
 		    changed = true;
 		  /* If both SSA_NAMEs coalesce to the same variable,
@@ -747,6 +762,10 @@ rewrite_trees (var_map map, tree *values)
 		      if (DEF_FROM_PTR (def_p) == USE_FROM_PTR (copy_use_p))
 			remove = true;
 		    }
+
+		  /* Attach the variable map to the defining stmt.  */
+		  if (!remove && vars)
+		    ssa_varmap_exprmap_insert (stmt, vars);
 		}
 	    }
 	  else
@@ -1158,6 +1177,10 @@ remove_ssa_form (bool perform_ter)
       values = find_replaceable_exprs (map);
       if (values && dump_file && (dump_flags & TDF_DETAILS))
 	dump_replaceable_exprs (dump_file, values);
+
+      /* Create expression to varmap map based on the TER table.  */
+      if (values)
+        ssa_varmap_build_exprmap (values);
     }
 
   /* Assign real variables to the partitions now.  */
@@ -1283,6 +1306,10 @@ insert_backedge_copies (void)
 static unsigned int
 rewrite_out_of_ssa (void)
 {
+  /* And allocate the temporary expression to debug variables mapping.  */
+  cfun->varmap_exprmap = htab_create_ggc (7, tree_bitmap_map_hash,
+					  tree_bitmap_map_eq, NULL);
+
   /* If elimination of a PHI requires inserting a copy on a backedge,
      then we will have to split the backedge which has numerous
      undesirable performance effects.
@@ -1302,6 +1329,10 @@ rewrite_out_of_ssa (void)
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
   cfun->gimple_df->in_ssa_p = false;
+
+  /* Finally remove the SSA_NAME to debug variables mapping.  */
+  cfun->varmap_hash = NULL;
+
   return 0;
 }
 

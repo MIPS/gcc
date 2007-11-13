@@ -3911,6 +3911,9 @@ extern void ssa_varmap_add_var (tree, tree);
 extern void ssa_varmap_process_phi (tree);
 #define ssa_varmap_get_ref(uid) lookup_decl_from_uid (uid)
 void ssa_varmap_add_ref (tree);
+extern bitmap ssa_varmap_exprmap_lookup (tree);
+extern void ssa_varmap_exprmap_insert (tree, bitmap);
+extern void ssa_varmap_build_exprmap (tree *);
 
 #ifdef GATHER_STATISTICS
 extern void ssanames_print_statistics (void);
