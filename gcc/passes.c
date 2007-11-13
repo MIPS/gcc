@@ -902,6 +902,10 @@ execute_function_todo (void *data)
       unsigned update_flags = flags & TODO_update_ssa_any;
       update_ssa (update_flags);
       cfun->last_verified &= ~TODO_verify_ssa;
+
+      if (dump_flags & TDF_VARS
+	  && dump_file)
+	print_ssa_varmap (dump_file);
     }
   
   if (flags & TODO_rebuild_alias)

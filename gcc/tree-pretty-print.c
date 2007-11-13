@@ -435,6 +435,75 @@ dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
 }
 
 
+static void
+print_varmap (pretty_printer *buffer, tree name, int spc, int flags)
+{
+  bitmap vars;
+  bitmap_iterator bi;
+  unsigned int i;
+
+  if (DECL_ARTIFICIAL (SSA_NAME_VAR (name)))
+    return;
+
+  vars = ssa_varmap_lookup (name);
+  if (!vars)
+    return;
+
+  pp_string (buffer, "\t{ ");
+  EXECUTE_IF_SET_IN_BITMAP (vars, 0, i, bi)
+    {
+      tree var = ssa_varmap_get_ref (i);
+      if (var)
+	dump_generic_node (buffer, var, spc, flags, false);
+      else
+	pp_string (buffer, "[optimized out]");
+      pp_space (buffer);
+    }
+  pp_character (buffer, '}');
+}
+
+static void
+print_expr_varmap (pretty_printer *buffer, tree expr, int spc, int flags)
+{
+  bitmap vars;
+  bitmap_iterator bi;
+  unsigned int i;
+  bool rhs = false;
+
+  if (TREE_CODE (expr) != GIMPLE_MODIFY_STMT
+      && !EXPR_P (expr))
+    return;
+
+  vars = ssa_varmap_exprmap_lookup (expr);
+  if (!vars)
+    {
+      if (TREE_CODE (expr) == GIMPLE_MODIFY_STMT)
+	{
+	  vars = ssa_varmap_exprmap_lookup (GIMPLE_STMT_OPERAND (expr, 1));
+	  if (!vars)
+	    return;
+	  rhs = true;
+	}
+      else
+	return;
+    }
+
+  if (!rhs)
+    pp_string (buffer, " E{ ");
+  else
+    pp_string (buffer, " R{ ");
+  EXECUTE_IF_SET_IN_BITMAP (vars, 0, i, bi)
+    {
+      tree var = ssa_varmap_get_ref (i);
+      if (var)
+	dump_generic_node (buffer, var, spc, flags, false);
+      else
+	pp_string (buffer, "[optimized out]");
+      pp_space (buffer);
+    }
+  pp_character (buffer, '}');
+}
+
 /* Dump the node NODE on the pretty_printer BUFFER, SPC spaces of indent.
    FLAGS specifies details to show in the dump (see TDF_* in tree-pass.h).
    If IS_STMT is true, the object printed is considered to be a statement
@@ -1099,6 +1168,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_space (buffer);
       dump_generic_node (buffer, GENERIC_TREE_OPERAND (node, 1), spc, flags,
 	  		 false);
+      if (flags & TDF_VARS
+	  && TREE_CODE (node) == GIMPLE_MODIFY_STMT
+	  && TREE_CODE (GIMPLE_STMT_OPERAND (node, 0)) == SSA_NAME)
+	print_varmap (buffer, GIMPLE_STMT_OPERAND (node, 0), spc, flags);
       break;
 
     case TARGET_EXPR:
@@ -1594,10 +1667,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  pp_space (buffer);
 	  if (TREE_CODE (op0) == MODIFY_EXPR
 	      || TREE_CODE (op0) == GIMPLE_MODIFY_STMT)
-	    dump_generic_node (buffer, GENERIC_TREE_OPERAND (op0, 1),
-			       spc, flags, false);
-	  else
-	    dump_generic_node (buffer, op0, spc, flags, false);
+	    op0 = GENERIC_TREE_OPERAND (op0, 1);
+	  dump_generic_node (buffer, op0, spc, flags, false);
+	  if (flags & TDF_VARS
+	      && TREE_CODE (op0) == SSA_NAME)
+	    print_varmap (buffer, op0, spc, flags);
 	}
       break;
 
@@ -2159,6 +2233,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     default:
       NIY;
     }
+
+  if (flags & TDF_VARS && is_expr)
+    print_expr_varmap (buffer, node, spc, flags);
 
   if (is_stmt && is_expr)
     pp_semicolon (buffer);

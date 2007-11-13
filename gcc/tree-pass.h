@@ -73,6 +73,8 @@ enum tree_dump_index
 #define TDF_DIAGNOSTIC	(1 << 15)	/* A dump to be put in a diagnostic
 					   message.  */
 
+#define TDF_VARS	(1 << 16)	/* Dump variable mappings.  */
+
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
 extern int dump_initialized_p (enum tree_dump_index);

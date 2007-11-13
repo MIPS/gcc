@@ -40,6 +40,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "tree-flow.h"
+#include "diagnostic.h"
 #endif
 
 static FILE *outfile;
@@ -505,7 +507,33 @@ print_rtx (const_rtx in_rtx)
 
       case 'b':
 #ifndef GENERATOR_FILE
-	if (XBITMAP (in_rtx, i) == NULL)
+	if (GET_CODE (in_rtx) == SET
+	    && XBITMAP (in_rtx, 2) != NULL)
+	  {
+	    bitmap_iterator bi;
+	    unsigned int i;
+	    bool first = true;
+
+	    fputs (" { ", outfile);
+	    EXECUTE_IF_SET_IN_BITMAP (XBITMAP (in_rtx, 2), 0, i, bi)
+	      {
+		/* ???  We don't keep referenced vars after RTL expansion,
+		   so we might want to add all to our internal map.  */
+		tree var = ssa_varmap_get_ref (i);
+		if (!first)
+		  fputs (", ", outfile);
+		first = false;
+		if (var)
+		  print_generic_expr (outfile, var, 0);
+		else
+		  /* Optimized out.  */
+		  fprintf (outfile, "D.%u", i);
+	      }
+	    fputs (" }", outfile);
+	  }
+	else if (GET_CODE (in_rtx) == SET)
+	  /* Do not print {null} for non-existant SET var bitmaps.  */ ;
+	else if (XBITMAP (in_rtx, i) == NULL)
 	  fputs (" {null}", outfile);
 	else
 	  bitmap_print (outfile, XBITMAP (in_rtx, i), " {", "}");

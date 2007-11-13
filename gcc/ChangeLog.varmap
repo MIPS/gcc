@@ -1,5 +1,20 @@
 2007-11-13  Richard Guenther  <rguenther@suse.de>
 
+	* tree.h (print_ssa_varmap): Declare.
+	* tree-ssanames.c (print_ssa_varmap): New function.
+	* Makefile.in (tree-ssanames.o): Add $(DIAGNOSTIC_H) dependency.
+	* tree-dump.c (struct dump_option_value_in): Add vars modifier.
+	* tree-pass.h (TDF_VARS): Define.
+	* tree-pretty-print.c (print_varmap): New helper function.
+	(print_expr_varmap): Likewise.
+	(dump_generic_node): Call it on defs and return expressions.
+	* passes.c (execute_function_todo): Print variable mapping
+	info if requested.
+	* print-rtl.c (print_rtx): Print variable bitmap for SETs if
+	available.
+
+2007-11-13  Richard Guenther  <rguenther@suse.de>
+
 	* function.h (struct function): Add varmap_exprmap member.
 	* tree-ssanames.c (ssa_varmap_exprmap_lookup): New function.
 	(ssa_varmap_exprmap_insert): Likewise.

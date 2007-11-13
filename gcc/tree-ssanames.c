@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
+#include "diagnostic.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -405,6 +406,15 @@ ssa_varmap_process_copy_1 (tree lhs, tree rhs)
 {
   bitmap lhs_vars, rhs_vars;
 
+  if (dump_file && dump_flags & TDF_VARS)
+    {
+      fprintf (dump_file, "Processing copy relation ");
+      print_generic_expr (dump_file, lhs, 0);
+      fprintf (dump_file, " = ");
+      print_generic_expr (dump_file, rhs, 0);
+      fprintf (dump_file, "\n");
+    }
+
   /* We cannot blindly exchange an artificial vars ssa_name variable
      with another as this may create overlapping life-ranges.  So we
      also cannot assume that artificial vars do not have a variable map.  */
@@ -469,6 +479,15 @@ ssa_varmap_add_var (tree name, tree var)
 {
   bitmap lhs_vars;
 
+  if (dump_file && dump_flags & TDF_VARS)
+    {
+      fprintf (dump_file, "Adding variable ");
+      print_generic_expr (dump_file, var, 0);
+      fprintf (dump_file, " to SSA_NAME ");
+      print_generic_expr (dump_file, name, 0);
+      fprintf (dump_file, " map\n");
+    }
+
   if (DECL_ARTIFICIAL (var))
     return;
 
@@ -504,6 +523,13 @@ ssa_varmap_process_phi (tree stmt)
 
   if (MTAG_P (SSA_NAME_VAR (PHI_RESULT (stmt))))
     return;
+
+  if (dump_file && dump_flags & TDF_VARS)
+    {
+      fprintf (dump_file, "Processing merge relation ");
+      print_generic_expr (dump_file, stmt, 0);
+      fprintf (dump_file, "\n");
+    }
 
   /* A PHI nodes result represents the intersection of all decls of
      the PHI arguments.  */
@@ -627,6 +653,52 @@ ssa_varmap_build_exprmap (tree *values)
 	if (!DECL_ARTIFICIAL (SSA_NAME_VAR (ssa_name)))
 	  ssa_varmap_add_ref (SSA_NAME_VAR (ssa_name));
       }
+}
+
+/* Print variable maps to FILE.  */
+
+void
+print_ssa_varmap (FILE *file)
+{
+  int live_ssa_names = 0, with_map = 0, max_vars = 0, total_vars = 0;
+  unsigned int i;
+
+  fprintf (file, "\nSSA variable maps:\n");
+  for (i = 0; i < num_ssa_names; ++i)
+    {
+      tree name = ssa_name (i);
+      int n = 0;
+      bitmap_iterator bi;
+      unsigned int i;
+      bitmap vars;
+      if (!name)
+        continue;
+      live_ssa_names++;
+      vars = ssa_varmap_lookup (name);
+      if (!vars)
+        continue;
+      with_map++;
+      fprintf (file, "  ");
+      print_generic_expr (file, name, 0);
+      fprintf (file, ": ");
+      EXECUTE_IF_SET_IN_BITMAP (vars, 0, i, bi)
+	{
+	  tree var = ssa_varmap_get_ref (i);
+	  n++;
+	  if (var)
+	    print_generic_expr (file, var, 0);
+	  else
+	    fprintf (file, "%u", i);
+	  fprintf (file, " ");
+	}
+      total_vars += n;
+      if (n > max_vars)
+	max_vars = n;
+      fprintf (file, "\n");
+    }
+  fprintf (file, "%d SSA_NAMEs, %d with variable map\n"
+	   "with average %.3f variables (%d max)\n\n", live_ssa_names,
+	   with_map, with_map > 0 ? total_vars / (float)with_map : 0, max_vars);
 }
 
 /* Return SSA names that are unused to GGC memory.  This is used to keep

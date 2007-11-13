@@ -1306,6 +1306,9 @@ insert_backedge_copies (void)
 static unsigned int
 rewrite_out_of_ssa (void)
 {
+  if (dump_file && dump_flags & TDF_VARS)
+    print_ssa_varmap (dump_file);
+
   /* And allocate the temporary expression to debug variables mapping.  */
   cfun->varmap_exprmap = htab_create_ggc (7, tree_bitmap_map_hash,
 					  tree_bitmap_map_eq, NULL);
