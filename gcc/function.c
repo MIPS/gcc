@@ -2788,6 +2788,9 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
       data->stack_parm = NULL;
     }
 
+  /* Record vars for this parameter.  */
+  set_expr_vars (parmreg, parm);
+
   /* Mark the register as eliminable if we did no conversion and it was
      copied from memory at a fixed offset, and the arg pointer was not
      copied to a pseudo-reg.  If the arg pointer is a pseudo reg or the

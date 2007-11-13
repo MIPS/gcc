@@ -1,5 +1,16 @@
 2007-11-13  Richard Guenther  <rguenther@suse.de>
 
+	* rtl.h (set_reg_decl): Declare.
+	* emit-rtl.c (set_reg_decl): New function.
+	* expr.h (set_expr_vars): Declare.
+	* expr.c (set_expr_vars): New helper function, split out from ...
+	(expand_expr_real): Here.  Use set_reg_decl instead of messing
+	with REG_EXPR directly.
+	* function.h (assign_parm_setup_reg): Use set_expr_vars to get
+	vars for function parameter pseudos.
+
+2007-11-13  Richard Guenther  <rguenther@suse.de>
+
 	* tree.h (ssa_varmap_exprmap_merge_name): Declare.
 	* tree-ssanames.c (ssa_varmap_process_copy_1): Use dump_flags
 	for dumping.

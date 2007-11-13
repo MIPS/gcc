@@ -522,6 +522,8 @@ expand_normal (tree exp)
 
 extern void expand_var (tree);
 
+extern void set_expr_vars (rtx, tree);
+
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
 extern void init_pending_stack_adjust (void);

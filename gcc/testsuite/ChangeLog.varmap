@@ -1,5 +1,9 @@
 2007-11-13  Richard Guenther  <rguenther@suse.de>
 
+	* gcc.dg/tree-ssa/vars-7.c: New testcase.
+
+2007-11-13  Richard Guenther  <rguenther@suse.de>
+
 	* gcc.dg/tree-ssa/vars-6.c: New testcase.
 
 2007-11-13  Michael Matz  <matz@suse.de>

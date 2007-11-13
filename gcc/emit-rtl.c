@@ -1043,6 +1043,13 @@ set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
     }
 }
 
+/* Change the decl associated with REG to DECL.  */
+void
+set_reg_decl (rtx reg, tree decl)
+{
+  REG_ATTRS (reg) = get_reg_attrs (decl, REG_OFFSET (reg));
+}
+
 /* Assign the RTX X to declaration T.  */
 void
 set_decl_rtl (tree t, rtx x)
