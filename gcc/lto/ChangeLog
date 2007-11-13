@@ -41,8 +41,7 @@
 	did not have on on the source side.
 	(input_expr_operand): Make sure that GIMPLE_MODIFY_STMTS get line
 	numbers too.
-	
-	
+
 2007-11-09  Doug Kwan  <dougkwan@google.com>
 
 	* lto-read.c (input_expr_operand): Change type of operand 2 of
