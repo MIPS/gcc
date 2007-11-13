@@ -366,6 +366,9 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       case OMP_CLAUSE_SCHEDULE_RUNTIME:
 	pp_string (buffer, "runtime");
 	break;
+      case OMP_CLAUSE_SCHEDULE_AUTO:
+	pp_string (buffer, "auto");
+	break;
       default:
 	gcc_unreachable ();
 	}
@@ -376,6 +379,18 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 	      OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clause),
 	      spc, flags, false);
 	}
+      pp_character (buffer, ')');
+      break;
+
+    case OMP_CLAUSE_UNTIED:
+      pp_string (buffer, "untied");
+      break;
+
+    case OMP_CLAUSE_COLLAPSE:
+      pp_string (buffer, "collapse(");
+      dump_generic_node (buffer,
+			 OMP_CLAUSE_COLLAPSE_EXPR (clause),
+			 spc, flags, false);
       pp_character (buffer, ')');
       break;
 
@@ -1846,6 +1861,26 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       is_expr = false;
       break;
+
+    case OMP_TASK:
+      pp_string (buffer, "#pragma omp task");
+      dump_omp_clauses (buffer, OMP_TASK_CLAUSES (node), spc, flags);
+      if (OMP_TASK_FN (node))
+	{
+	  pp_string (buffer, " [child fn: ");
+	  dump_generic_node (buffer, OMP_TASK_FN (node), spc, flags, false);
+
+	  pp_string (buffer, " (");
+
+	  if (OMP_TASK_DATA_ARG (node))
+	    dump_generic_node (buffer, OMP_TASK_DATA_ARG (node), spc, flags,
+			       false);
+	  else
+	    pp_string (buffer, "???");
+
+	  pp_string (buffer, ")]");
+	}
+      goto dump_omp_body;
 
     case OMP_FOR:
       pp_string (buffer, "#pragma omp for");

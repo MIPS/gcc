@@ -1,0 +1,40 @@
+2007-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_pragma): Handle PRAGMA_OMP_TASKWAIT.
+	(c_parser_omp_clause_name): Handle collapse and untied clauses.
+	(c_parser_omp_clause_collapse, c_parser_omp_clause_untied): New
+	functions.
+	(c_parser_omp_clause_schedule): Handle schedule(auto).
+	(c_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_COLLAPSE
+	and PRAGMA_OMP_CLAUSE_UNTIED.
+	(OMP_TASK_CLAUSE_MASK): Define.
+	(c_parser_omp_task, c_parser_omp_taskwait): New functions.
+	(c_parser_omp_construct): Handle PRAGMA_OMP_TASK.
+	* tree-gimple.c (is_gimple_stmt): Handle OMP_TASK.
+	* tree.def (OMP_TASK): New tree code.
+	* c-tree.h (c_begin_omp_task, c_finish_omp_task): New prototypes.
+	* omp-builtins.def (BUILT_IN_GOMP_TASKWAIT): New builtin.
+	* tree.h (OMP_DIRECTIVE_P): Add OMP_TASK.
+	(OMP_CLAUSE_COLLAPSE, OMP_CLAUSE_UNTIED): New clause codes.
+	(OMP_TASK_BODY, OMP_TASK_CLAUSES, OMP_TASK_FN, OMP_TASK_DATA_ARG):
+	Define.
+	(OMP_CLAUSE_COLLAPSE_EXPR): Define.
+	(OMP_CLAUSE_SCHEDULE_AUTO): New schedule kind.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Add
+	OMP_CLAUSE_COLLAPSE and OMP_CLAUSE_UNTIED entries.
+	(walk_tree_1): Handle OMP_CLAUSE_COLLAPSE and OMP_CLAUSE_UNTIED.
+	* c-pragma.h (PRAGMA_OMP_TASK, PRAGMA_OMP_TASKWAIT): New.
+	(PRAGMA_OMP_CLAUSE_COLLAPSE, PRAGMA_OMP_CLAUSE_UNTIED): New.
+	* c-typeck.c (c_begin_omp_task, c_finish_omp_task): New functions.
+	(c_finish_omp_clauses): Handle OMP_CLAUSE_COLLAPSE and
+	OMP_CLAUSE_UNTIED.
+	* c-pragma.c (init_pragma): Init omp task and omp taskwait pragmas.
+	* c-common.h (c_finish_omp_taskwait): New prototype.
+	* gimple-low.c (lower_stmt): Handle OMP_TASK.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	OMP_CLAUSE_SCHEDULE_AUTO, OMP_CLAUSE_UNTIED and OMP_CLAUSE_COLLAPSE.
+	(dump_generic_node): Handle OMP_TASK.
+	* c-omp.c (c_finish_omp_taskwait): New function.
+	(c_split_parallel_clauses): Put OMP_CLAUSE_COLLAPSE clause to
+	ws_clauses.
+

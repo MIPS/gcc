@@ -80,6 +80,19 @@ c_finish_omp_barrier (void)
 }
 
 
+/* Complete a #pragma omp taskwait construct.  */
+
+void
+c_finish_omp_taskwait (void)
+{
+  tree x;
+
+  x = built_in_decls[BUILT_IN_GOMP_TASKWAIT];
+  x = build_call_expr (x, 0);
+  add_stmt (x);
+}
+
+
 /* Complete a #pragma omp atomic construct.  The expression to be 
    implemented atomically is LHS code= RHS.  The value returned is
    either error_mark_node (if the construct was erroneous) or an
@@ -416,6 +429,7 @@ c_split_parallel_clauses (tree clauses, tree *par_clauses, tree *ws_clauses)
 
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_COLLAPSE:
 	  OMP_CLAUSE_CHAIN (clauses) = *ws_clauses;
 	  *ws_clauses = clauses;
 	  break;
