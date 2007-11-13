@@ -1302,23 +1302,24 @@ output_expr_operand (struct output_block *ob, tree expr)
       {
 	tree t = TREE_VECTOR_CST_ELTS (expr);
 	int len = 1;
+
 	while ((t = TREE_CHAIN (t)) != NULL)
 	  len++;
 	t = TREE_VECTOR_CST_ELTS (expr);
 	if (TREE_CODE (TREE_VALUE(t)) == REAL_CST)
 	  {
-	    output_record_start (ob, expr, TREE_VALUE (t),
-				 LTO_vector_cst1);
+	    output_record_start (ob, expr, expr, LTO_vector_cst1);
 	    output_uleb128 (ob, len);
+	    output_type_ref (ob, TREE_TYPE (TREE_VALUE (t)));
 	    output_real (ob, TREE_VALUE (t));
 	    while ((t = TREE_CHAIN (t)) != NULL)
 	      output_real (ob, TREE_VALUE (t));
 	  }
 	else
 	  {
-	    output_record_start (ob, expr, TREE_VALUE (t),
-				 LTO_vector_cst0);
+	    output_record_start (ob, expr, expr, LTO_vector_cst0);
 	    output_uleb128 (ob, len);
+	    output_type_ref (ob, TREE_TYPE (TREE_VALUE (t)));
 	    output_integer (ob, TREE_VALUE (t));
 	    while ((t = TREE_CHAIN (t)) != NULL)
 	      output_integer (ob, TREE_VALUE (t));

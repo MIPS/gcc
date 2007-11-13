@@ -363,7 +363,7 @@ get_label_decl (struct data_in *data_in, struct input_block *ib)
 /* Get the type referenced by the next token in IB.  */
 
 static tree
-get_type_ref (struct data_in *data_in, struct input_block *ib)
+input_type_ref (struct data_in *data_in, struct input_block *ib)
 {
   int index;
 
@@ -602,7 +602,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   tree result = NULL_TREE;
   
   if (TEST_BIT (lto_types_needed_for, code))
-    type = get_type_ref (data_in, ib);
+    type = input_type_ref (data_in, ib);
 
   flags = input_tree_flags (ib, code, false);
 
@@ -653,17 +653,18 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       {
 	tree chain = NULL_TREE;
 	int len = input_uleb128 (ib);
+	tree elt_type = input_type_ref (data_in, ib);
 
 	if (len && tag == LTO_vector_cst1)
 	  {
 	    int i;
 	    tree last 
-	      = build_tree_list (NULL_TREE, input_real (ib, data_in, type));
+	      = build_tree_list (NULL_TREE, input_real (ib, data_in, elt_type));
 	    chain = last; 
 	    for (i = 1; i < len; i++)
 	      {
 		tree t 
-		  = build_tree_list (NULL_TREE, input_real (ib, data_in, type));
+		  = build_tree_list (NULL_TREE, input_real (ib, data_in, elt_type));
 		TREE_CHAIN (last) = t;
 		last = t;
 	      }
@@ -671,12 +672,12 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	else
 	  {
 	    int i;
-	    tree last = build_tree_list (NULL_TREE, input_integer (ib, type));
+	    tree last = build_tree_list (NULL_TREE, input_integer (ib, elt_type));
 	    chain = last; 
 	    for (i = 1; i < len; i++)
 	      {
 		tree t 
-		  = build_tree_list (NULL_TREE, input_integer (ib, type));
+		  = build_tree_list (NULL_TREE, input_integer (ib, elt_type));
 		TREE_CHAIN (last) = t;
 		last = t;
 	      }
@@ -963,6 +964,10 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
               op0 = DECL_RESULT (current_function_decl);
 
             result = build1 (code, type, op0);
+
+	    if ((TREE_CODE (op0) == GIMPLE_MODIFY_STMT)
+		&& (TREE_CODE (GIMPLE_STMT_OPERAND (op0, 0)) == SSA_NAME))
+		SSA_NAME_DEF_STMT (GIMPLE_STMT_OPERAND (op0, 0)) = result;
           }
 	  break;
 	  
@@ -984,8 +989,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case RANGE_EXPR:
       {
-	tree op0 = input_integer (ib, get_type_ref (data_in, ib));
-	tree op1 = input_integer (ib, get_type_ref (data_in, ib));
+	tree op0 = input_integer (ib, input_type_ref (data_in, ib));
+	tree op1 = input_integer (ib, input_type_ref (data_in, ib));
 	result = build2 (RANGE_EXPR, sizetype, op0, op1);
       }
       break;
@@ -1276,7 +1281,7 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
   else 
     name = NULL_TREE;
   
-  type = get_type_ref (data_in, ib);
+  type = input_type_ref (data_in, ib);
   gcc_assert (type);
   
   if (is_var)
@@ -1287,7 +1292,7 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
   data_in->local_decls[i] = result;
   
   if (!is_var)
-    DECL_ARG_TYPE (result) = get_type_ref (data_in, ib);
+    DECL_ARG_TYPE (result) = input_type_ref (data_in, ib);
 
   flags = input_tree_flags (ib, 0, true);
   input_line_info (ib, data_in, flags);
