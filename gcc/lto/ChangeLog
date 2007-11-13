@@ -1,3 +1,14 @@
+2007-11-13  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-lang.c: Include target.h.
+	(registered_builtin_types): New variable.
+	(lto_type_for_mode): Increase number of modes handled.
+	(lto_builtin_function): Fix argument list and return the decl.
+	(lto_register_builtin_type): New function.
+	(lto_init): Initialize target builtins and language-independent
+	nodes.
+	(LANG_HOOKS_REGISTER_BUILTIN_TYPE): Define.
+
 2007-11-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_expr_operand): Added code to properly handle

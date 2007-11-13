@@ -25,6 +25,7 @@ Boston, MA 02110-1301, USA.  */
 #include "flags.h"
 #include "tm.h"
 #include "tree.h"
+#include "target.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "debug.h"
@@ -56,6 +57,8 @@ const char *const tree_code_name[] = {
    allocate each of them once. Signed and unsigned types are kept separate.  */
 static GTY(()) tree signed_and_unsigned_types[MAX_BITS_PER_WORD + 1][2];
 
+static GTY(()) tree registered_builtin_types;
+
 /* Language hooks.  */
 
 static bool 
@@ -84,18 +87,77 @@ lto_type_for_size (unsigned precision ATTRIBUTE_UNUSED,
   return t;
 }
 
+/* For better or for worse, we have copied a good chunk of this from
+   c-common.c.  */
+
 static tree
 lto_type_for_mode (enum machine_mode mode ATTRIBUTE_UNUSED, 
 		   int unsigned_p ATTRIBUTE_UNUSED)
 {
+  tree t;
+
   /* This hook is called by the middle-end.  For example,
      assign_stack_local_1 uses this hook to determine whether
      additional alignment is required for stack variables for which no
      explicit alignment is provided.  */
   if (SCALAR_INT_MODE_P (mode))
     return lto_type_for_size (GET_MODE_BITSIZE (mode), unsigned_p);
-  else
-    return NULL_TREE;
+
+  if (mode == TYPE_MODE (float_type_node))
+    return float_type_node;
+
+  if (mode == TYPE_MODE (double_type_node))
+    return double_type_node;
+
+  if (mode == TYPE_MODE (long_double_type_node))
+    return long_double_type_node;
+
+  if (mode == TYPE_MODE (void_type_node))
+    return void_type_node;
+
+  if (mode == TYPE_MODE (build_pointer_type (char_type_node)))
+    return (unsigned_p
+	    ? make_unsigned_type (GET_MODE_PRECISION (mode))
+	    : make_signed_type (GET_MODE_PRECISION (mode)));
+
+  if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
+    return (unsigned_p
+	    ? make_unsigned_type (GET_MODE_PRECISION (mode))
+	    : make_signed_type (GET_MODE_PRECISION (mode)));
+
+  if (COMPLEX_MODE_P (mode))
+    {
+      enum machine_mode inner_mode;
+      tree inner_type;
+
+      if (mode == TYPE_MODE (complex_float_type_node))
+	return complex_float_type_node;
+      if (mode == TYPE_MODE (complex_double_type_node))
+	return complex_double_type_node;
+      if (mode == TYPE_MODE (complex_long_double_type_node))
+	return complex_long_double_type_node;
+
+      if (mode == TYPE_MODE (complex_integer_type_node) && !unsigned_p)
+	return complex_integer_type_node;
+
+      inner_mode = GET_MODE_INNER (mode);
+      inner_type = lto_type_for_mode (inner_mode, unsigned_p);
+      if (inner_type != NULL_TREE)
+	return build_complex_type (inner_type);
+    }
+  else if (VECTOR_MODE_P (mode))
+    {
+      enum machine_mode inner_mode = GET_MODE_INNER (mode);
+      tree inner_type = lto_type_for_mode (inner_mode, unsigned_p);
+      if (inner_type != NULL_TREE)
+	return build_vector_type_for_mode (inner_type, mode);
+    }
+
+  for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
+    if (TYPE_MODE (TREE_VALUE (t)) == mode)
+      return TREE_VALUE (t);
+
+  return NULL_TREE;
 }
 
 static int
@@ -144,14 +206,23 @@ lto_write_globals (void)
 }
 
 static tree
-lto_builtin_function (const char *name ATTRIBUTE_UNUSED,
-		      tree type ATTRIBUTE_UNUSED,
-		      int function_code ATTRIBUTE_UNUSED,
-		      enum built_in_class bt_class ATTRIBUTE_UNUSED,
-		      const char *library_name ATTRIBUTE_UNUSED,
-		      tree attrs ATTRIBUTE_UNUSED)
+lto_builtin_function (tree decl)
 {
-  gcc_unreachable ();
+  /* No special processing required.  */
+  return decl;
+}
+
+static void
+lto_register_builtin_type (tree type, const char *name)
+{
+  tree decl;
+
+  decl = build_decl (TYPE_DECL, get_identifier (name), type);
+  DECL_ARTIFICIAL (decl) = 1;
+  if (!TYPE_NAME (type))
+    TYPE_NAME (type) = decl;
+
+  registered_builtin_types = tree_cons (0, type, registered_builtin_types);
 }
 
 /* Perform LTO-specific initialization.  */
@@ -181,6 +252,8 @@ lto_init (void)
     gcc_unreachable();
   /* Create other basic types.  */
   build_common_tree_nodes_2 (/*short_double=*/false);
+  targetm.init_builtins ();
+  build_common_builtin_nodes ();
 
   /* Initialize LTO-specific data structures.  */
   lto_global_var_decls = VEC_alloc (tree, gc, 256);
@@ -204,6 +277,8 @@ lto_init (void)
 #define LANG_HOOKS_GETDECLS lto_getdecls
 #undef LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS lto_write_globals
+#undef LANG_HOOKS_REGISTER_BUILTIN_TYPE
+#define LANG_HOOKS_REGISTER_BUILTIN_TYPE lto_register_builtin_type
 #undef LANG_HOOKS_BUILTIN_FUNCTION
 #define LANG_HOOKS_BUILTIN_FUNCTION lto_builtin_function
 #undef LANG_HOOKS_INIT
