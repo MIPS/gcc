@@ -492,6 +492,7 @@
     END_EXPR_CASE (ORDERED_EXPR)
       
     START_EXPR_CASE (PARM_DECL)
+      ADD_EXPR_FLAG (addressable_flag)
       ADD_DECL_FLAG (nonlocal_flag)
       ADD_DECL_FLAG (virtual_flag)
       ADD_DECL_FLAG (abstract_flag)
@@ -503,6 +504,7 @@
     END_EXPR_CASE (PARM_DECL)
       
     START_EXPR_CASE (PHI_NODE)
+      ADD_EXPR_FLAG (asm_written_flag)
     END_EXPR_CASE (PHI_NODE)
       
     START_EXPR_CASE (PLACEHOLDER_EXPR)
