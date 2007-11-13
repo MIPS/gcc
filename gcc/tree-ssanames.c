@@ -409,9 +409,9 @@ ssa_varmap_process_copy_1 (tree lhs, tree rhs)
   if (dump_file && dump_flags & TDF_VARS)
     {
       fprintf (dump_file, "Processing copy relation ");
-      print_generic_expr (dump_file, lhs, 0);
+      print_generic_expr (dump_file, lhs, dump_flags);
       fprintf (dump_file, " = ");
-      print_generic_expr (dump_file, rhs, 0);
+      print_generic_expr (dump_file, rhs, dump_flags);
       fprintf (dump_file, "\n");
     }
 
@@ -482,9 +482,9 @@ ssa_varmap_add_var (tree name, tree var)
   if (dump_file && dump_flags & TDF_VARS)
     {
       fprintf (dump_file, "Adding variable ");
-      print_generic_expr (dump_file, var, 0);
+      print_generic_expr (dump_file, var, dump_flags);
       fprintf (dump_file, " to SSA_NAME ");
-      print_generic_expr (dump_file, name, 0);
+      print_generic_expr (dump_file, name, dump_flags);
       fprintf (dump_file, " map\n");
     }
 
@@ -527,7 +527,7 @@ ssa_varmap_process_phi (tree stmt)
   if (dump_file && dump_flags & TDF_VARS)
     {
       fprintf (dump_file, "Processing merge relation ");
-      print_generic_expr (dump_file, stmt, 0);
+      print_generic_expr (dump_file, stmt, dump_flags);
       fprintf (dump_file, "\n");
     }
 
@@ -628,6 +628,37 @@ ssa_varmap_exprmap_insert (tree expr, bitmap vars)
   (*loc)->map = vars;
 }
 
+/* Merge vars from SSA_NAME NAME to EXPR.  */
+
+void
+ssa_varmap_exprmap_merge_name (tree expr, tree name)
+{
+  bitmap name_vars = ssa_varmap_lookup (name);
+  bitmap expr_vars = ssa_varmap_exprmap_lookup (expr);
+  tree var = SSA_NAME_VAR (name);
+
+  if (expr_vars && name_vars)
+    bitmap_ior_into (expr_vars, name_vars);
+  else if (expr_vars && !name_vars)
+    {
+      if (!DECL_ARTIFICIAL (var))
+	bitmap_set_bit (expr_vars, DECL_UID (var));
+    }
+  else if (!expr_vars && name_vars)
+    {
+      expr_vars = BITMAP_GGC_ALLOC ();
+      bitmap_copy (expr_vars, name_vars);
+      ssa_varmap_exprmap_insert (expr, expr_vars);
+    }
+  else if (expr != var
+	   && !DECL_ARTIFICIAL (var))
+    {
+      expr_vars = BITMAP_GGC_ALLOC ();
+      bitmap_set_bit (expr_vars, DECL_UID (var));
+      ssa_varmap_exprmap_insert (expr, expr_vars);
+    }
+}
+
 /* Build a map from expressions that define ssa names *VALUES to
    the variable bitmap.  */
 
@@ -679,14 +710,14 @@ print_ssa_varmap (FILE *file)
         continue;
       with_map++;
       fprintf (file, "  ");
-      print_generic_expr (file, name, 0);
+      print_generic_expr (file, name, dump_flags);
       fprintf (file, ": ");
       EXECUTE_IF_SET_IN_BITMAP (vars, 0, i, bi)
 	{
 	  tree var = ssa_varmap_get_ref (i);
 	  n++;
 	  if (var)
-	    print_generic_expr (file, var, 0);
+	    print_generic_expr (file, var, dump_flags);
 	  else
 	    fprintf (file, "%u", i);
 	  fprintf (file, " ");

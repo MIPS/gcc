@@ -559,20 +559,11 @@ replace_use_variable (var_map map, use_operand_p p, tree *expr)
       int version = SSA_NAME_VERSION (var);
       if (expr[version])
         {
-	  bitmap vars;
 	  tree new_expr = GIMPLE_STMT_OPERAND (expr[version], 1);
 	  SET_USE (p, new_expr);
 
 	  /* For this replaced expression, record its names, if available.  */
-	  vars = ssa_varmap_lookup (var);
-	  if (!vars
-	      && !DECL_ARTIFICIAL (SSA_NAME_VAR (var)))
-	    {
-	      vars = BITMAP_GGC_ALLOC ();
-	      bitmap_set_bit (vars, DECL_UID (SSA_NAME_VAR (var)));
-	    }
-	  if (vars)
-	    ssa_varmap_exprmap_insert (new_expr, vars);
+	  ssa_varmap_exprmap_merge_name (new_expr, var);
 
 	  /* Clear the stmt's RHS, or GC might bite us.  */
 	  GIMPLE_STMT_OPERAND (expr[version], 1) = NULL_TREE;
@@ -585,6 +576,8 @@ replace_use_variable (var_map map, use_operand_p p, tree *expr)
     {
       SET_USE (p, new_var);
       set_is_used (new_var);
+      /* For this replaced variable, record its names, if available.  */
+      ssa_varmap_exprmap_merge_name (new_var, var);
       return true;
     }
   return false;

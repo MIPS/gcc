@@ -3913,6 +3913,7 @@ extern void ssa_varmap_process_phi (tree);
 void ssa_varmap_add_ref (tree);
 extern bitmap ssa_varmap_exprmap_lookup (tree);
 extern void ssa_varmap_exprmap_insert (tree, bitmap);
+extern void ssa_varmap_exprmap_merge_name (tree expr, tree name);
 extern void ssa_varmap_build_exprmap (tree *);
 #ifdef BUFSIZ
 extern void print_ssa_varmap (FILE *);

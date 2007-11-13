@@ -1,3 +1,16 @@
+2007-11-13  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (ssa_varmap_exprmap_merge_name): Declare.
+	* tree-ssanames.c (ssa_varmap_process_copy_1): Use dump_flags
+	for dumping.
+	(ssa_varmap_add_var): Likewise.
+	(ssa_varmap_process_phi): Likewise.
+	(print_ssa_varmap): Likewise.
+	(ssa_varmap_exprmap_merge_name): New helper function, split
+	out from ...
+	* tree-outof-ssa.c (replace_use_variable): ... here.  Use
+	it also for simple variable replacement.
+
 2007-11-13  Michael Matz  <matz@suse.de>
 
 	* emit-rtl.c (move_xbitmap): New helper.
