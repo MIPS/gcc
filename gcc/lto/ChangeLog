@@ -1,3 +1,8 @@
+2007-11-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (input_expr_operand): Added code to properly handle
+	index filed. Added new RANGE_EXPR case.
+	
 2007-11-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (ADD_FUNC_FLAG): Deleted macro.

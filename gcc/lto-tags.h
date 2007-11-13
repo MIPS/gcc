@@ -320,7 +320,6 @@ enum LTO_tags {
 
 /* This form is terminated by a zero.  */
   LTO_constructor,
-  LTO_constructor_range,
   LTO_convert_expr,
   LTO_dot_prod_expr,
   LTO_eq_expr,
@@ -534,7 +533,11 @@ struct lto_debug_context
    serialize the fact that the current node needs a line number.
    Otherwise we end up putting line numbers on everything.  This takes
    4 bits on every node and are added to the flags that are serialized
-   for the node.*/
+   for the node.  
+
+   We waste a bit for the col even though we do not use the col except in
+   USE_MAPPED_LOCATION
+*/
 #define LTO_SOURCE_FILE    0x1
 #define LTO_SOURCE_LINE    0x2
 #define LTO_SOURCE_COL     0x4

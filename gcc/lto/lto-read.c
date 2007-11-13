@@ -690,32 +690,22 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	
 	if (len)
 	  {
-	    tree purpose = NULL_TREE;
 	    unsigned int i = 0;
 	    vec = VEC_alloc (constructor_elt, gc, len);
-	    while (i < len)
+	    for (i = 0; i < len; i++)
 	      {
+		tree purpose = NULL_TREE;
+		tree value;
+		constructor_elt *elt; 
 		enum LTO_tags ctag = input_record_start (ib);
-		if (ctag == LTO_constructor_range)
-		  {
-		    tree op0 = input_integer (ib, get_type_ref (data_in, ib));
-		    tree op1 = input_integer (ib, get_type_ref (data_in, ib));
-		    purpose = build2 (RANGE_EXPR, sizetype, op0, op1);
-		    LTO_DEBUG_UNDENT();
-		  }
-		else
-		  {
-		    tree value = 
-		      input_expr_operand (ib, data_in, fn, ctag);
-		    constructor_elt *elt 
-		      = VEC_quick_push (constructor_elt, vec, NULL);
-		    elt->index = purpose;
-		    elt->value = value;
-		    
-		    /* Only use the range once.  */
-		    purpose = NULL_TREE;
-		    i++;
-		  }
+		
+		if (ctag)
+		  purpose = input_expr_operand (ib, data_in, fn, ctag);
+		
+		value = input_expr_operand (ib, data_in, fn, input_record_start (ib));
+		elt = VEC_quick_push (constructor_elt, vec, NULL);
+		elt->index = purpose;
+		elt->value = value;
 	      }
 	  }
 	result = build_constructor (type, vec);
@@ -969,6 +959,14 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
         default:
           gcc_unreachable ();
 	}
+      break;
+
+    case RANGE_EXPR:
+      {
+	tree op0 = input_integer (ib, get_type_ref (data_in, ib));
+	tree op1 = input_integer (ib, get_type_ref (data_in, ib));
+	result = build2 (RANGE_EXPR, sizetype, op0, op1);
+      }
       break;
 
     case GIMPLE_MODIFY_STMT:

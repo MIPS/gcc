@@ -1187,16 +1187,10 @@ output_constructor (struct output_block *ob, tree ctor)
 
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), idx, purpose, value)
     {
-      if (purpose && TREE_CODE (purpose) == RANGE_EXPR)
-	{
-	  output_record_start (ob, NULL, NULL, LTO_constructor_range);
-	  /* Need the types here to reconstruct the ranges.  */
-	  output_type_ref (ob, TREE_OPERAND (purpose, 0));
-	  output_integer (ob, TREE_OPERAND (purpose, 0));
-	  output_type_ref (ob, TREE_OPERAND (purpose, 1));
-	  output_integer (ob, TREE_OPERAND (purpose, 1));
-	  LTO_DEBUG_UNDENT ();
-	}
+      if (purpose)
+	output_expr_operand (ob, purpose);
+      else 
+	output_zero (ob);
 
       if (TREE_CODE (value) == CONSTRUCTOR)
 	{
@@ -1382,10 +1376,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 	new = output_decl_index (ob->main_stream, ob->type_decl_hash_table,
 				 &ob->next_type_decl_index, expr);
 	if (new)
-          {
-            gcc_assert (!DECL_NAME (expr));
-            VEC_safe_push (tree, heap, ob->type_decls, expr);
-          }
+	  VEC_safe_push (tree, heap, ob->type_decls, expr);
       }
       break;
 
@@ -1511,6 +1502,17 @@ output_expr_operand (struct output_block *ob, tree expr)
 	  output_zero (ob);
       }
       break;
+
+    case RANGE_EXPR:
+      {
+	output_record_start (ob, NULL, NULL, LTO_range_expr);
+	/* Need the types here to reconstruct the ranges.  */
+	output_type_ref (ob, TREE_OPERAND (expr, 0));
+	output_integer (ob, TREE_OPERAND (expr, 0));
+	output_type_ref (ob, TREE_OPERAND (expr, 1));
+	output_integer (ob, TREE_OPERAND (expr, 1));
+      }
+      break; 
 
     case RESX_EXPR:
       output_record_start (ob, expr, NULL, tag);

@@ -207,7 +207,6 @@
   SET_NAME (LTO_conj_expr, "conj_expr")
   SET_NAME (LTO_const_decl, "const_decl")
   SET_NAME (LTO_constructor, "constructor")
-  SET_NAME (LTO_constructor_range, "constructor_range")
   SET_NAME (LTO_convert_expr, "convert_expr")
   SET_NAME (LTO_dot_prod_expr, "dot_prod_expr")
   SET_NAME (LTO_eq_expr, "eq_expr")
