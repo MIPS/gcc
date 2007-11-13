@@ -178,6 +178,27 @@ input_uleb128 (struct input_block *ib)
     }
 }
 
+/* HOST_WIDEST_INT version of input_uleb128.  IB is as in input_uleb128.  */
+
+static unsigned HOST_WIDEST_INT 
+input_widest_uint_uleb128 (struct input_block *ib)
+{
+  unsigned HOST_WIDEST_INT result = 0;
+  int shift = 0;
+  unsigned HOST_WIDEST_INT byte;
+
+  while (true)
+    {
+      byte = input_1_unsigned (ib);
+      result |= (byte & 0x7f) << shift;
+      shift += 7;
+      if ((byte & 0x80) == 0)
+	{
+	  LTO_DEBUG_WIDE ("U", result);
+	  return result;
+	}
+    }
+}
 
 /* Read an SLEB128 Number of IB.  */
 
@@ -352,20 +373,20 @@ get_type_ref (struct data_in *data_in, struct input_block *ib)
 }
 
 /* Set all of the FLAGS for NODE.  */
-#define CLEAROUT (HOST_BITS_PER_WIDE_INT - 1)
+#define CLEAROUT (BITS_PER_LTO_FLAGS_TYPE - 1)
 
 
 /* Read the tree flags for CODE from IB.  */
 
-static unsigned HOST_WIDE_INT 
+static lto_flags_type
 input_tree_flags (struct input_block *ib, enum tree_code code, bool force)
 {
-  unsigned HOST_WIDE_INT flags;
+  lto_flags_type flags;
 
   if (force || TEST_BIT (lto_flags_needed_for, code))
     {
       LTO_DEBUG_TOKEN ("flags");
-      flags = input_uleb128 (ib);
+      flags = input_widest_uint_uleb128 (ib);
       LTO_DEBUG_TREE_FLAGS (code, flags);
     }
   else
@@ -377,12 +398,12 @@ input_tree_flags (struct input_block *ib, enum tree_code code, bool force)
 /* Set all of the flag bits inside EXPR by unpacking FLAGS.  */
 
 static void
-process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
+process_tree_flags (tree expr, lto_flags_type flags)
 {
   enum tree_code code = TREE_CODE (expr);
   /* Shift the flags up so that the first flag is at the top of the
      flag word.  */
-  flags <<= HOST_BITS_PER_WIDE_INT - flags_length_for_code[code];
+  flags <<= BITS_PER_LTO_FLAGS_TYPE - flags_length_for_code[code];
 
 #define START_CLASS_SWITCH()              \
   {                                       \
@@ -411,7 +432,7 @@ process_tree_flags (tree expr, unsigned HOST_WIDE_INT flags)
 #define ADD_VIS_FLAG(flag_name)  \
   { expr->decl_with_vis. flag_name = (flags >> CLEAROUT); flags <<= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)					\
-  { expr->decl_with_vis. flag_name = (flags >> (HOST_BITS_PER_WIDE_INT - size)); flags <<= size; }
+  { expr->decl_with_vis. flag_name = (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)); flags <<= size; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -473,7 +494,7 @@ canon_file_name (const char *string)
 
 static void 
 input_line_info (struct input_block *ib, struct data_in *data_in, 
-		 unsigned HOST_WIDE_INT flags)
+		 lto_flags_type flags)
 {
 #ifdef USE_MAPPED_LOCATION  
   if (flags & LTO_SOURCE_FILE)
@@ -576,7 +597,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 {
   enum tree_code code = tag_to_expr[tag];
   tree type = NULL_TREE;
-  unsigned HOST_WIDE_INT flags;
+  lto_flags_type flags;
   gcc_assert (code);
   tree result = NULL_TREE;
   
@@ -1233,7 +1254,7 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
   unsigned int name_index;
   tree name;
   tree type;
-  unsigned HOST_WIDE_INT flags;
+  lto_flags_type flags;
   tree result;
   tree context;
 
@@ -1470,7 +1491,7 @@ static tree
 input_phi (struct input_block *ib, basic_block bb, 
 	   struct data_in *data_in, struct function *fn)
 {
-  unsigned HOST_WIDE_INT flags = input_tree_flags (ib, PHI_NODE, false);
+  lto_flags_type flags = input_tree_flags (ib, PHI_NODE, false);
 
   tree phi_result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
   int len = EDGE_COUNT (bb->preds);
@@ -1523,7 +1544,7 @@ input_ssa_names (struct input_block *ib, struct data_in *data_in, struct functio
     {
       tree ssa_name;
       tree name;
-      unsigned HOST_WIDE_INT flags;
+      lto_flags_type flags;
 
       /* Skip over the elements that had been freed.  */
       while (VEC_length (tree, SSANAMES (fn)) < i)
@@ -1726,6 +1747,13 @@ lto_static_init_local (void)
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 
+  /* Verify that lto_flags_type is wide enough.  */
+  {
+    int code;
+    for (code = 0; code < NUM_TREE_CODES; code++)
+      gcc_assert (flags_length_for_code[code] <= BITS_PER_LTO_FLAGS_TYPE);
+  }
+  
   lto_static_init ();
   tree_register_cfg_hooks ();
 

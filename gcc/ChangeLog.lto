@@ -1,3 +1,22 @@
+2007-11-13  Diego Novillo  <dnovillo@google.com>
+
+	* lto-tags.h: Call #error if BITS_PER_LTO_FLAGS_TYPE is
+	not wide enough.
+
+2007-11-13  Doug Kwan  <dougkwan@google.com>
+
+	* lto-function-out.c (output_widest_uint_uleb128_stream,
+	output_widest_uint_uleb128): New functions. 
+	(output_tree_flags): Use lto_flags_type instead of unsigned
+	HOST_WIDE_INT.  Call output_widest_unint_uleb128 instead of
+	output_uleb128.
+	(lto_debug_tree_flags): Replace HOST_BITS_PER_WIDE_INT with
+	BITS_PER_LTO_FLAGS_TYPE as appropriate.
+	* lto-tags.h (lto_flags_type): New type.
+	(BITS_PER_LTO_FLAGS_TYPES): New macro.
+	(lto_debug_tree_flags): Change prototype to use
+	lto_flags_type.
+
 2007-11-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (output_constructor): Modified to output

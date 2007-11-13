@@ -526,6 +526,14 @@ struct lto_debug_context
   void * main_data;
 };
 
+/* The VAR_DECL tree code has more than 32 bits in flags.  On some hosts,
+   HOST_WIDE_INT is not wide enough.  */
+typedef unsigned HOST_WIDEST_INT 	lto_flags_type;
+#define	BITS_PER_LTO_FLAGS_TYPE		HOST_BITS_PER_WIDEST_INT
+
+#if BITS_PER_LTO_FLAGS_TYPE <= 32
+#  error "Your host should support integer types wider than 32 bits."
+#endif
 
 /* The serialization plan is that when any of the current file, line,
    or col change (from the state last serialized), we write the
@@ -551,7 +559,7 @@ extern void lto_debug_indent_token (struct lto_debug_context *, const char *);
 extern void lto_debug_integer (struct lto_debug_context *, const char *, HOST_WIDE_INT, HOST_WIDE_INT);
 extern void lto_debug_string (struct lto_debug_context *, const char *, int);
 extern void lto_debug_token (struct lto_debug_context *, const char *);
-extern void lto_debug_tree_flags (struct lto_debug_context *, enum tree_code, unsigned HOST_WIDE_INT);
+extern void lto_debug_tree_flags (struct lto_debug_context *, enum tree_code, lto_flags_type);
 extern void lto_debug_undent (struct lto_debug_context *);
 extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_INT);
 

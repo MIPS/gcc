@@ -558,7 +558,29 @@ output_uleb128_stream (struct output_stream *obs, unsigned HOST_WIDE_INT work)
       output_1_stream (obs, byte);
     }
   while (work != 0);
+}
 
+/* Identical to output_uleb128_stream above except using unsigned 
+   HOST_WIDEST_INT type.  For efficiency on host where unsigned HOST_WIDEST_INT
+   is not native, we only use this if we know that HOST_WIDE_INT is not wide
+   enough.  */
+
+static void
+output_widest_uint_uleb128_stream (struct output_stream *obs,
+				   unsigned HOST_WIDEST_INT work)
+{
+  LTO_DEBUG_WIDE ("U", work);
+  do
+    {
+      unsigned int byte = (work & 0x7f);
+      work >>= 7;
+      if (work != 0)
+	/* More bytes to follow.  */
+	byte |= 0x80;
+
+      output_1_stream (obs, byte);
+    }
+  while (work != 0);
 }
 
 
@@ -570,6 +592,15 @@ output_uleb128 (struct output_block *ob, unsigned HOST_WIDE_INT work)
   output_uleb128_stream (ob->main_stream, work);
 }
 
+/* HOST_WIDEST_INT version of output_uleb128.  OB and WORK are as in
+   output_uleb128. */
+
+static void
+output_widest_uint_uleb128 (struct output_block *ob,
+			    unsigned HOST_WIDEST_INT work)
+{
+  output_widest_uint_uleb128_stream (ob->main_stream, work);
+}
 
 /* Output a signed LEB128 quantity.  */
 
@@ -761,7 +792,7 @@ output_tree_flags (struct output_block *ob,
 		   tree expr, 
 		   bool force_loc)
 {
-  unsigned HOST_WIDE_INT flags = 0;
+  lto_flags_type flags = 0;
   const char *file_to_write = NULL;
   int line_to_write = -1;
 
@@ -890,7 +921,7 @@ output_tree_flags (struct output_block *ob,
 	}
 
       LTO_DEBUG_TOKEN ("flags");
-      output_uleb128 (ob, flags);
+      output_widest_uint_uleb128 (ob, flags);
       LTO_DEBUG_TREE_FLAGS (code, flags);
 
       if (file_to_write)
@@ -2389,9 +2420,9 @@ debug_out_fun (struct lto_debug_context *context, char c)
 void 
 lto_debug_tree_flags (struct lto_debug_context *context, 
 		      enum tree_code code, 
-		      unsigned HOST_WIDE_INT flags)
+		      lto_flags_type flags)
 {
-#define CLEAROUT (HOST_BITS_PER_WIDE_INT - 1)
+#define CLEAROUT (BITS_PER_LTO_FLAGS_TYPE - 1)
 
 #define START_CLASS_SWITCH()              \
   {                                       \
@@ -2420,7 +2451,7 @@ lto_debug_tree_flags (struct lto_debug_context *context,
 #define ADD_VIS_FLAG(flag_name)  \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)					\
-  { if (flags >> (HOST_BITS_PER_WIDE_INT - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
+  { if (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \

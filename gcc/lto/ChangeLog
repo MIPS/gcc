@@ -1,3 +1,13 @@
+2007-11-13  Doug Kwan  <dougkwan@google.com>
+
+	* lto-read.c (input_widest_uint_uleb128): New function.
+	(input_tree_flags, process_tree_flags, input_line_info,
+	input_expr_operand, input_local_var, input_phi, input_ssa_names):
+	Change to use lto_flags_type and BITS_PER_LTO_FLAGS_TYPES instead of
+	unsigned HOST_WIDE_INT and HOST_BITS_PER_WIDE_INT.
+	(lto_static_init_local): Add code to assert that lto_flags_type is
+	wide enough.
+
 2007-11-13  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_array_type_DIE): Handle DW_AT_GNU_vector.
