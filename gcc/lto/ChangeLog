@@ -1,5 +1,13 @@
 2007-11-13  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_array_type_DIE): Handle DW_AT_GNU_vector.
+	(lto_read_subroutine_type_subprogram_DIE): Handle
+	DW_AT_static_link and DW_AT_specification.  Return the
+	specification if present.
+	(lto_read_base_type_DIE): Handle DW_ATE_complex_float.
+	
+2007-11-13  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto-lang.c: Include target.h.
 	(registered_builtin_types): New variable.
 	(lto_type_for_mode): Increase number of modes handled.

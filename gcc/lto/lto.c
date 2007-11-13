@@ -1488,6 +1488,7 @@ lto_read_array_type_DIE (lto_info_fd *fd,
     case DW_AT_decl_column:
     case DW_AT_decl_file:
     case DW_AT_decl_line:
+    case DW_AT_GNU_vector:
       /* Ignore.  */
       break;
 
@@ -2399,6 +2400,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   int inlined = DW_INL_not_inlined;
   tree abstract_origin = NULL_TREE;
   int line;
+  tree specification = NULL_TREE;
 
   gcc_assert (abbrev->tag == DW_TAG_subroutine_type
 	      || abbrev->tag == DW_TAG_subprogram);
@@ -2437,7 +2439,14 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	case DW_AT_high_pc:
 	case DW_AT_ranges:
 	case DW_AT_frame_base:
+	case DW_AT_static_link:
 	  /* Ignore.  */
+	  break;
+
+	case DW_AT_specification:
+	  specification = lto_read_DIE_at_ptr (fd, context,
+					       attr_data.u.reference);
+          gcc_assert (TREE_CODE (specification) == FUNCTION_DECL);
 	  break;
 
         case DW_AT_decl_line:
@@ -2490,9 +2499,11 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       LTO_END_READ_ATTRS ();
     }
 
-  if (abstract_origin)
+  if (abstract_origin || specification)
     {
-      result = abstract_origin;
+      /* Ensure that we only have one of them.  */
+      gcc_assert (!abstract_origin || !specification);
+      result = abstract_origin ? abstract_origin : specification;
 
       goto read_children;
     }
@@ -2931,8 +2942,16 @@ lto_read_base_type_DIE (lto_info_fd *fd,
       layout_type (type);
       break;
 
-    case DW_ATE_decimal_float:
     case DW_ATE_complex_float:
+      {
+	tree base = make_node (REAL_TYPE);
+	TYPE_PRECISION (base) = bits / 2;
+	layout_type (base);
+	type = build_complex_type (base);
+      }
+      break;
+
+    case DW_ATE_decimal_float:
     case DW_ATE_lo_user:  
     default:
       sorry ("unsupported base type encoding - 0x%x", encoding);
