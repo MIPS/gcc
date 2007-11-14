@@ -114,7 +114,7 @@ namespace __gnu_parallel
           {
             num_threads = omp_get_num_threads();
 
-            borders = static_cast<difference_type*>(__builtin_alloca(sizeof(difference_type) * (num_threads + 2)));
+            borders = new difference_type[num_threads + 2];
 
             if (Settings::partial_sum_dilatation == 1.0f)
               equally_split(n, num_threads + 1, borders);
@@ -165,7 +165,8 @@ namespace __gnu_parallel
                       sums[iam]);
       } //parallel
 
-    delete [] sums;
+    delete[] sums;
+    delete[] borders;
 
     return result + n;
   }

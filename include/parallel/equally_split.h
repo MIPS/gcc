@@ -54,11 +54,11 @@ namespace __gnu_parallel
   equally_split(_DifferenceTp n, thread_index_t num_threads, OutputIterator s)
   {
     typedef _DifferenceTp difference_type;
-    difference_type chunk_length = n / num_threads, num_longer_chunks = n % num_threads, start = 0;
+    difference_type chunk_length = n / num_threads, num_longer_chunks = n % num_threads, pos = 0;
     for (thread_index_t i = 0; i < num_threads; ++i)
       {
-        *s++ = start;
-        start += (i < num_longer_chunks) ? (chunk_length + 1) : chunk_length;
+        *s++ = pos;
+        pos += (i < num_longer_chunks) ? (chunk_length + 1) : chunk_length;
       }
     *s++ = n;
     return s;

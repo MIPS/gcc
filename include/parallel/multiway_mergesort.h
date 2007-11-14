@@ -111,8 +111,6 @@ namespace __gnu_parallel
 
     /** @brief Stable sorting desired. */
     bool stable;
-    /** @brief Pointer to global data. */
-    PMWMSSortingData<RandomAccessIterator>* sd;
 };
 
   /** 
@@ -133,8 +131,7 @@ namespace __gnu_parallel
     num_samples =
         Settings::sort_mwms_oversampling * sd->num_threads - 1;
 
-    difference_type* es = static_cast<difference_type*>(
-        __builtin_alloca(sizeof(difference_type) * (num_samples + 2)));
+    difference_type* es = new difference_type[num_samples + 2];
 
     equally_split(sd->starts[iam + 1] - sd->starts[iam], 
                   num_samples + 1, es);
@@ -142,6 +139,8 @@ namespace __gnu_parallel
     for (difference_type i = 0; i < num_samples; i++)
       sd->samples[iam * num_samples + i] =
           sd->source[sd->starts[iam] + es[i + 1]];
+
+    delete[] es;
   }
 
   /** @brief PMWMS code executed by each thread.
@@ -381,6 +380,7 @@ namespace __gnu_parallel
         for (int s = 0; s < num_threads; s++)
           sd.pieces[s].resize(num_threads);
         starts = sd.starts = new difference_type[num_threads + 1];
+        sd.stable = stable;
 
         difference_type chunk_length = n / num_threads;
         difference_type split = n % num_threads;
