@@ -383,7 +383,6 @@ top_val_list (gfc_data *data)
 {
   gfc_data_value *new, *tail;
   gfc_expr *expr;
-  const char *msg;
   match m;
 
   tail = NULL;
@@ -397,6 +396,7 @@ top_val_list (gfc_data *data)
 	return MATCH_ERROR;
 
       new = gfc_get_data_value ();
+      mpz_init (new->repeat);
 
       if (tail == NULL)
 	data->value = new;
@@ -408,19 +408,13 @@ top_val_list (gfc_data *data)
       if (expr->ts.type != BT_INTEGER || gfc_match_char ('*') != MATCH_YES)
 	{
 	  tail->expr = expr;
-	  tail->repeat = 1;
+	  mpz_set_ui (tail->repeat, 1);
 	}
       else
 	{
-	  signed int tmp;
-	  msg = gfc_extract_int (expr, &tmp);
+	  if (expr->ts.type == BT_INTEGER)
+	    mpz_set (tail->repeat, expr->value.integer);
 	  gfc_free_expr (expr);
-	  if (msg != NULL)
-	    {
-	      gfc_error (msg);
-	      return MATCH_ERROR;
-	    }
-	  tail->repeat = tmp;
 
 	  m = match_data_constant (&tail->expr);
 	  if (m == MATCH_NO)
@@ -572,13 +566,39 @@ match_intent_spec (void)
 static match
 char_len_param_value (gfc_expr **expr)
 {
+  match m;
+
   if (gfc_match_char ('*') == MATCH_YES)
     {
       *expr = NULL;
       return MATCH_YES;
     }
 
-  return gfc_match_expr (expr);
+  m = gfc_match_expr (expr);
+  if (m == MATCH_YES && (*expr)->expr_type == EXPR_FUNCTION)
+    {
+      if ((*expr)->value.function.actual
+	  && (*expr)->value.function.actual->expr->symtree)
+	{
+	  gfc_expr *e;
+	  e = (*expr)->value.function.actual->expr;
+	  if (e->symtree->n.sym->attr.flavor == FL_PROCEDURE
+	      && e->expr_type == EXPR_VARIABLE)
+	    {
+	      if (e->symtree->n.sym->ts.type == BT_UNKNOWN)
+		goto syntax;
+	      if (e->symtree->n.sym->ts.type == BT_CHARACTER
+		  && e->symtree->n.sym->ts.cl
+		  && e->symtree->n.sym->ts.cl->length->ts.type == BT_UNKNOWN)
+	        goto syntax;
+	    }
+	}
+    }
+  return m;
+
+syntax:
+  gfc_error ("Conflict in attributes of function argument at %C");
+  return MATCH_ERROR;
 }
 
 
@@ -3948,19 +3968,9 @@ match_procedure_decl (void)
 		    "in PROCEDURE statement at %C", proc_if->name);
 	  return MATCH_ERROR;
 	}
-      /* TODO: Allow intrinsics with gfc_intrinsic_actual_ok
-	 (proc_if->name, 0) after PR33162 is fixed.  */
-      if (proc_if->attr.intrinsic)
-	{
-	  gfc_error ("Fortran 2003: Support for intrinsic procedure '%s' "
-		     "in PROCEDURE statement at %C not yet implemented "
-		     "in gfortran", proc_if->name);
-	  return MATCH_ERROR;
-	}
     }
 
 got_ts:
-
   if (gfc_match (" )") != MATCH_YES)
     {
       gfc_current_locus = entry_loc;
@@ -3975,7 +3985,6 @@ got_ts:
   /* Get procedure symbols.  */
   for(num=1;;num++)
     {
-
       m = gfc_match_symbol (&sym, 0);
       if (m == MATCH_NO)
 	goto syntax;
@@ -4020,7 +4029,10 @@ got_ts:
 
       /* Set interface.  */
       if (proc_if != NULL)
-	sym->interface = proc_if;
+	{
+	  sym->interface = proc_if;
+	  sym->attr.untyped = 1;
+	}
       else if (current_ts.type != BT_UNKNOWN)
 	{
 	  sym->interface = gfc_new_symbol ("", gfc_current_ns);
@@ -4070,8 +4082,6 @@ match_procedure_in_interface (void)
 
       if (gfc_add_interface (sym) == FAILURE)
 	return MATCH_ERROR;
-
-      sym->attr.procedure = 1;
 
       if (gfc_match_eos () == MATCH_YES)
 	break;
@@ -4376,7 +4386,7 @@ gfc_match_entry (void)
   if (state == COMP_SUBROUTINE)
     {
       /* An entry in a subroutine.  */
-      if (!add_global_entry (name, 1))
+      if (!gfc_current_ns->parent && !add_global_entry (name, 1))
 	return MATCH_ERROR;
 
       m = gfc_match_formal_arglist (entry, 0, 1);
@@ -4398,7 +4408,7 @@ gfc_match_entry (void)
 	    ENTRY f() RESULT (r)
 	 can't be written as
 	    ENTRY f RESULT (r).  */
-      if (!add_global_entry (name, 0))
+      if (!gfc_current_ns->parent && !add_global_entry (name, 0))
 	return MATCH_ERROR;
 
       old_loc = gfc_current_locus;

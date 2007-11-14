@@ -276,15 +276,19 @@ void
 dump_subvars_for (FILE *file, tree var)
 {
   subvar_t sv = get_subvars_for_var (var);
+  tree subvar;
+  unsigned int i;
 
   if (!sv)
     return;
 
   fprintf (file, "{ ");
 
-  for (; sv; sv = sv->next)
+  for (i = 0; VEC_iterate (tree, sv, i, subvar); ++i)
     {
-      print_generic_expr (file, sv->var, dump_flags);
+      print_generic_expr (file, subvar, dump_flags);
+      fprintf (file, "@" HOST_WIDE_INT_PRINT_UNSIGNED, SFT_OFFSET (subvar));
+      fprintf (file, "[%u]", SFT_NESTING_LEVEL (subvar));
       fprintf (file, " ");
     }
 
@@ -345,16 +349,7 @@ dump_variable (FILE *file, tree var)
   if (TREE_THIS_VOLATILE (var))
     fprintf (file, ", is volatile");
 
-  if (mem_sym_stats (cfun, var))
-    {
-      mem_sym_stats_t stats = mem_sym_stats (cfun, var);
-      fprintf (file, ", direct reads: %ld", stats->num_direct_reads);
-      fprintf (file, ", direct writes: %ld", stats->num_direct_writes);
-      fprintf (file, ", indirect reads: %ld", stats->num_indirect_reads);
-      fprintf (file, ", indirect writes: %ld", stats->num_indirect_writes);
-      fprintf (file, ", read frequency: %ld", stats->frequency_reads);
-      fprintf (file, ", write frequency: %ld", stats->frequency_writes);
-    }
+  dump_mem_sym_stats_for_var (file, var);
 
   if (is_call_clobbered (var))
     {
@@ -423,6 +418,15 @@ dump_variable (FILE *file, tree var)
 	{
 	  fprintf (file, ", partition symbols: ");
 	  dump_decl_set (file, MPT_SYMBOLS (var));
+	}
+
+      if (TREE_CODE (var) == STRUCT_FIELD_TAG)
+	{
+	  fprintf (file, ", offset: " HOST_WIDE_INT_PRINT_UNSIGNED,
+		   SFT_OFFSET (var));
+	  fprintf (file, ", nesting: %u", SFT_NESTING_LEVEL (var));
+	  fprintf (file, ", partitionable: %s",
+		   SFT_UNPARTITIONABLE_P (var) ? "NO" : "YES");
 	}
     }
 
@@ -758,10 +762,22 @@ remove_referenced_var (tree var)
   struct tree_decl_minimal in;
   void **loc;
   unsigned int uid = DECL_UID (var);
+  subvar_t sv;
+
+  /* If we remove a var, we should also remove its subvars, as we kill
+     their parent var and its annotation.  */
+  if (var_can_have_subvars (var)
+      && (sv = get_subvars_for_var (var)))
+    {
+      unsigned int i;
+      tree subvar;
+      for (i = 0; VEC_iterate (tree, sv, i, subvar); ++i)
+        remove_referenced_var (subvar);
+    }
 
   clear_call_clobbered (var);
-  v_ann = get_var_ann (var);
-  ggc_free (v_ann);
+  if ((v_ann = var_ann (var)))
+    ggc_free (v_ann);
   var->base.ann = NULL;
   gcc_assert (DECL_P (var));
   in.uid = uid;
@@ -1010,25 +1026,3 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
   return exp;
 }
 
-
-/* Return memory reference statistics for variable VAR in function FN.
-   This is computed by alias analysis, but it is not kept
-   incrementally up-to-date.  So, these stats are only accurate if
-   pass_may_alias has been run recently.  If no alias information
-   exists, this function returns NULL.  */
-
-mem_sym_stats_t
-mem_sym_stats (struct function *fn, tree var)
-{
-  void **slot;
-  struct pointer_map_t *stats_map = gimple_mem_ref_stats (fn)->mem_sym_stats;
-
-  if (stats_map == NULL)
-    return NULL;
-
-  slot = pointer_map_contains (stats_map, var);
-  if (slot == NULL)
-    return NULL;
-
-  return (mem_sym_stats_t) *slot;
-}

@@ -3376,6 +3376,13 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
   if (loop->temp_ss != NULL)
     {
       gcc_assert (loop->temp_ss->type == GFC_SS_TEMP);
+
+      /* Make absolutely sure that this is a complete type.  */
+      if (loop->temp_ss->string_length)
+	loop->temp_ss->data.temp.type
+		= gfc_get_character_type_len (gfc_default_character_kind,
+					      loop->temp_ss->string_length);
+
       tmp = loop->temp_ss->data.temp.type;
       len = loop->temp_ss->string_length;
       n = loop->temp_ss->data.temp.dimen;
@@ -4965,8 +4972,8 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
   if (expr->expr_type == EXPR_ARRAY && expr->ts.type == BT_CHARACTER)
     {
       get_array_ctor_strlen (&se->pre, expr->value.constructor, &tmp);
-      expr->ts.cl->backend_decl = gfc_evaluate_now (tmp, &se->pre);
-      se->string_length = expr->ts.cl->backend_decl;
+      expr->ts.cl->backend_decl = tmp;
+      se->string_length = gfc_evaluate_now (tmp, &se->pre);
     }
 
   /* Is this the result of the enclosing procedure?  */

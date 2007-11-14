@@ -53,7 +53,7 @@ extern int avr_mega_p;
 extern int avr_have_mul_p;
 extern int avr_asm_only_p;
 extern int avr_have_movw_lpmx_p;
-#ifndef IN_LIBGCC2
+#if !defined(IN_LIBGCC2) && !defined(IN_TARGET_LIBS)
 extern GTY(()) section *progmem_section;
 #endif
 
@@ -758,7 +758,6 @@ mmcu=*:-mmcu=%*}"
   mmcu=attiny4*|\
   mmcu=attiny8*:-m avr2}\
 %{mmcu=atmega103|\
-  mmcu=atmega603|\
   mmcu=at43*|\
   mmcu=at76*:-m avr3}\
 %{mmcu=atmega8*|\
@@ -851,7 +850,6 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=attiny43u:crttn43u.o%s} \
 %{mmcu=attiny48:crttn48.o%s} \
 %{mmcu=atmega103|mmcu=avr3:crtm103.o%s} \
-%{mmcu=atmega603:crtm603.o%s} \
 %{mmcu=at43usb320:crt43320.o%s} \
 %{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at76c711:crt76711.o%s} \
@@ -958,9 +956,6 @@ mmcu=*:-mmcu=%*}"
    This is added to the cfun structure.  */
 struct machine_function GTY(())
 {
-  /* 'true' - if current function is a 'main' function.  */
-  int is_main;
-
   /* 'true' - if current function is a naked function.  */
   int is_naked;
 
@@ -971,4 +966,8 @@ struct machine_function GTY(())
   /* 'true' - if current function is a signal function 
      as specified by the "signal" attribute.  */
   int is_signal;
+  
+  /* 'true' - if current function is a signal function 
+     as specified by the "OS_task" attribute.  */
+  int is_OS_task;
 };

@@ -2627,17 +2627,17 @@ static const mstring intrinsics[] =
     minit ("OR", INTRINSIC_OR),
     minit ("EQV", INTRINSIC_EQV),
     minit ("NEQV", INTRINSIC_NEQV),
-    minit ("==", INTRINSIC_EQ),
+    minit ("EQ_SIGN", INTRINSIC_EQ),
     minit ("EQ", INTRINSIC_EQ_OS),
-    minit ("/=", INTRINSIC_NE),
+    minit ("NE_SIGN", INTRINSIC_NE),
     minit ("NE", INTRINSIC_NE_OS),
-    minit (">", INTRINSIC_GT),
+    minit ("GT_SIGN", INTRINSIC_GT),
     minit ("GT", INTRINSIC_GT_OS),
-    minit (">=", INTRINSIC_GE),
+    minit ("GE_SIGN", INTRINSIC_GE),
     minit ("GE", INTRINSIC_GE_OS),
-    minit ("<", INTRINSIC_LT),
+    minit ("LT_SIGN", INTRINSIC_LT),
     minit ("LT", INTRINSIC_LT_OS),
-    minit ("<=", INTRINSIC_LE),
+    minit ("LE_SIGN", INTRINSIC_LE),
     minit ("LE", INTRINSIC_LE_OS),
     minit ("NOT", INTRINSIC_NOT),
     minit ("PARENTHESES", INTRINSIC_PARENTHESES),
@@ -3880,7 +3880,7 @@ write_equiv (void)
 static void
 write_symbol (int n, gfc_symbol *sym)
 {
-   const char *label;
+  const char *label;
 
   if (sym->attr.flavor == FL_UNKNOWN || sym->attr.flavor == FL_LABEL)
     gfc_internal_error ("write_symbol(): bad module symbol '%s'", sym->name);
@@ -3913,12 +3913,12 @@ write_symbol0 (gfc_symtree *st)
 {
   gfc_symbol *sym;
   pointer_info *p;
+  bool dont_write = false;
 
   if (st == NULL)
     return;
 
   write_symbol0 (st->left);
-  write_symbol0 (st->right);
 
   sym = st->n.sym;
   if (sym->module == NULL)
@@ -3926,20 +3926,25 @@ write_symbol0 (gfc_symtree *st)
 
   if (sym->attr.flavor == FL_PROCEDURE && sym->attr.generic
       && !sym->attr.subroutine && !sym->attr.function)
-    return;
+    dont_write = true;
 
   if (!gfc_check_access (sym->attr.access, sym->ns->default_access))
-    return;
+    dont_write = true;
 
-  p = get_pointer (sym);
-  if (p->type == P_UNKNOWN)
-    p->type = P_SYMBOL;
+  if (!dont_write)
+    {
+      p = get_pointer (sym);
+      if (p->type == P_UNKNOWN)
+	p->type = P_SYMBOL;
 
-  if (p->u.wsym.state == WRITTEN)
-    return;
+      if (p->u.wsym.state != WRITTEN)
+	{
+	  write_symbol (p->integer, sym);
+	  p->u.wsym.state = WRITTEN;
+	}
+    }
 
-  write_symbol (p->integer, sym);
-  p->u.wsym.state = WRITTEN;
+  write_symbol0 (st->right);
 }
 
 
@@ -3953,22 +3958,22 @@ write_symbol0 (gfc_symtree *st)
 static int
 write_symbol1 (pointer_info *p)
 {
+  int result;
 
-  if (p == NULL)
+  if (!p)
     return 0;
 
-  if (write_symbol1 (p->left))
-    return 1;
-  if (write_symbol1 (p->right))
-    return 1;
+  result = write_symbol1 (p->left);
 
-  if (p->type != P_SYMBOL || p->u.wsym.state != NEEDS_WRITE)
-    return 0;
+  if (!(p->type != P_SYMBOL || p->u.wsym.state != NEEDS_WRITE))
+    {
+      p->u.wsym.state = WRITTEN;
+      write_symbol (p->integer, p->u.wsym.sym);
+      result = 1;
+    }
 
-  p->u.wsym.state = WRITTEN;
-  write_symbol (p->integer, p->u.wsym.sym);
-
-  return 1;
+  result |= write_symbol1 (p->right);
+  return result;
 }
 
 
@@ -4103,7 +4108,8 @@ write_module (void)
   mio_lparen ();
 
   write_symbol0 (gfc_current_ns->sym_root);
-  while (write_symbol1 (pi_root));
+  while (write_symbol1 (pi_root))
+    /* Nothing.  */;
 
   mio_rparen ();
 

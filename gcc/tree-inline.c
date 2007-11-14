@@ -748,6 +748,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 and friends are up-to-date.  */
       else if (TREE_CODE (*tp) == ADDR_EXPR)
 	{
+	  int invariant = TREE_INVARIANT (*tp);
 	  walk_tree (&TREE_OPERAND (*tp, 0), copy_body_r, id, NULL);
 	  /* Handle the case where we substituted an INDIRECT_REF
 	     into the operand of the ADDR_EXPR.  */
@@ -755,6 +756,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    *tp = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0);
 	  else
 	    recompute_tree_invariant_for_addr_expr (*tp);
+	  /* If this used to be invariant, but is not any longer,
+	     then regimplification is probably needed.  */
+	  if (invariant && !TREE_INVARIANT (*tp))
+	    id->regimplify = true;
 	  *walk_subtrees = 0;
 	}
     }
@@ -792,6 +797,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
       tree stmt = bsi_stmt (bsi);
       tree orig_stmt = stmt;
 
+      id->regimplify = false;
       walk_tree (&stmt, copy_body_r, id, NULL);
 
       /* RETURN_EXPR might be removed,
@@ -804,9 +810,10 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 
 	  /* With return slot optimization we can end up with
 	     non-gimple (foo *)&this->m, fix that here.  */
-	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == NOP_EXPR
-	      && !is_gimple_val (TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0)))
+	  if ((TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	       && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == NOP_EXPR
+	       && !is_gimple_val (TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0)))
+	      || id->regimplify)
 	    gimplify_stmt (&stmt);
 
           bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
@@ -1193,6 +1200,17 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 
 	      walk_tree (&new_arg, copy_body_r, id, NULL);
 	      gcc_assert (new_arg);
+	      /* With return slot optimization we can end up with
+	         non-gimple (foo *)&this->m, fix that here.  */
+	      if (TREE_CODE (new_arg) != SSA_NAME
+		  && TREE_CODE (new_arg) != FUNCTION_DECL
+		  && !is_gimple_val (new_arg))
+		{
+		  tree stmts = NULL_TREE;
+		  new_arg = force_gimple_operand (new_arg, &stmts,
+						  true, NULL);
+		  bsi_insert_on_edge_immediate (new_edge, stmts);
+		}
 	      add_phi_arg (new_phi, new_arg, new_edge);
 	    }
 	}
@@ -2154,6 +2172,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case OMP_RETURN:
     case OMP_CONTINUE:
     case OMP_SECTIONS_SWITCH:
+    case OMP_ATOMIC_STORE:
       break;
 
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -2384,6 +2403,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case OMP_ORDERED:
     case OMP_CRITICAL:
     case OMP_ATOMIC:
+    case OMP_ATOMIC_LOAD:
       /* OpenMP directives are generally very expensive.  */
       d->count += d->weights->omp_cost;
       break;

@@ -1056,9 +1056,9 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 		  }
 
 	      if (p == NULL || e->symtree == NULL)
-		gfc_error ("GENERIC non-INTRINSIC procedure '%s' is not "
-				"allowed as an actual argument at %L", sym->name,
-				&e->where);
+		gfc_error ("GENERIC procedure '%s' is not "
+			   "allowed as an actual argument at %L", sym->name,
+			   &e->where);
 	    }
 
 	  /* If the symbol is the function that names the current (or
@@ -1071,18 +1071,21 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 	    goto got_variable;
 
 	  /* If all else fails, see if we have a specific intrinsic.  */
-	  if (sym->attr.function
-	      && sym->ts.type == BT_UNKNOWN && sym->attr.intrinsic)
+	  if (sym->ts.type == BT_UNKNOWN && sym->attr.intrinsic)
 	    {
 	      gfc_intrinsic_sym *isym;
+
 	      isym = gfc_find_function (sym->name);
 	      if (isym == NULL || !isym->specific)
 		{
 		  gfc_error ("Unable to find a specific INTRINSIC procedure "
 			     "for the reference '%s' at %L", sym->name,
 			     &e->where);
+		  return FAILURE;
 		}
 	      sym->ts = isym->ts;
+	      sym->attr.intrinsic = 1;
+	      sym->attr.function = 1;
 	    }
 	  goto argument_list;
 	}
@@ -1485,6 +1488,22 @@ static match
 resolve_specific_f0 (gfc_symbol *sym, gfc_expr *expr)
 {
   match m;
+
+  /* See if we have an intrinsic interface.  */
+
+  if (sym->interface != NULL && sym->interface->attr.intrinsic)
+    {
+      gfc_intrinsic_sym *isym;
+      isym = gfc_find_function (sym->interface->name);
+
+      /* Existance of isym should be checked already.  */
+      gcc_assert (isym);
+
+      sym->ts = isym->ts;
+      sym->attr.function = 1;
+      sym->attr.proc = PROC_EXTERNAL;
+      goto found;
+    }
 
   if (sym->attr.external || sym->attr.if_source == IFSRC_IFBODY)
     {
@@ -2511,6 +2530,22 @@ static match
 resolve_specific_s0 (gfc_code *c, gfc_symbol *sym)
 {
   match m;
+
+  /* See if we have an intrinsic interface.  */
+  if (sym->interface != NULL && !sym->interface->attr.abstract
+      && !sym->interface->attr.subroutine)
+    {
+      gfc_intrinsic_sym *isym;
+
+      isym = gfc_find_function (sym->interface->name);
+
+      /* Existance of isym should be checked already.  */
+      gcc_assert (isym);
+
+      sym->ts = isym->ts;
+      sym->attr.function = 1;
+      goto found;
+    }
 
   if(sym->attr.is_iso_c)
     {
@@ -4322,131 +4357,39 @@ gfc_resolve_iterator (gfc_iterator *iter, bool real_ok)
 }
 
 
+/* Traversal function for find_forall_index.  f == 2 signals that
+   that variable itself is not to be checked - only the references.  */
+
+static bool
+forall_index (gfc_expr *expr, gfc_symbol *sym, int *f)
+{
+  gcc_assert (expr->expr_type == EXPR_VARIABLE);
+
+  /* A scalar assignment  */
+  if (!expr->ref || *f == 1)
+    {
+      if (expr->symtree->n.sym == sym)
+	return true;
+      else
+	return false;
+    }
+
+  if (*f == 2)
+    *f = 1;
+  return false;
+}
+
+
 /* Check whether the FORALL index appears in the expression or not.
    Returns SUCCESS if SYM is found in EXPR.  */
 
-static try
-find_forall_index (gfc_expr *expr, gfc_symbol *symbol)
+try
+find_forall_index (gfc_expr *expr, gfc_symbol *sym, int f)
 {
-  gfc_array_ref ar;
-  gfc_ref *tmp;
-  gfc_actual_arglist *args;
-  int i;
-
-  if (!expr)
+  if (gfc_traverse_expr (expr, sym, forall_index, f))
+    return SUCCESS;
+  else
     return FAILURE;
-
-  switch (expr->expr_type)
-    {
-    case EXPR_VARIABLE:
-      gcc_assert (expr->symtree->n.sym);
-
-      /* A scalar assignment  */
-      if (!expr->ref)
-	{
-	  if (expr->symtree->n.sym == symbol)
-	    return SUCCESS;
-	  else
-	    return FAILURE;
-	}
-
-      /* the expr is array ref, substring or struct component.  */
-      tmp = expr->ref;
-      while (tmp != NULL)
-	{
-	  switch (tmp->type)
-	    {
-	    case  REF_ARRAY:
-	      /* Check if the symbol appears in the array subscript.  */
-	      ar = tmp->u.ar;
-	      for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
-		{
-		  if (ar.start[i])
-		    if (find_forall_index (ar.start[i], symbol) == SUCCESS)
-		      return SUCCESS;
-
-		  if (ar.end[i])
-		    if (find_forall_index (ar.end[i], symbol) == SUCCESS)
-		      return SUCCESS;
-
-		  if (ar.stride[i])
-		    if (find_forall_index (ar.stride[i], symbol) == SUCCESS)
-		      return SUCCESS;
-		}  /* end for  */
-	      break;
-
-	    case REF_SUBSTRING:
-	      if (expr->symtree->n.sym == symbol)
-		return SUCCESS;
-	      tmp = expr->ref;
-	      /* Check if the symbol appears in the substring section.  */
-	      if (find_forall_index (tmp->u.ss.start, symbol) == SUCCESS)
-		return SUCCESS;
-	      if (find_forall_index (tmp->u.ss.end, symbol) == SUCCESS)
-		return SUCCESS;
-	      break;
-
-	    case REF_COMPONENT:
-	      break;
-
-	    default:
-	      gfc_error("expression reference type error at %L", &expr->where);
-	    }
-	  tmp = tmp->next;
-	}
-      break;
-
-    /* If the expression is a function call, then check if the symbol
-       appears in the actual arglist of the function.  */
-    case EXPR_FUNCTION:
-      for (args = expr->value.function.actual; args; args = args->next)
-	{
-	  if (find_forall_index(args->expr,symbol) == SUCCESS)
-	    return SUCCESS;
-	}
-      break;
-
-    /* It seems not to happen.  */
-    case EXPR_SUBSTRING:
-      if (expr->ref)
-	{
-	  tmp = expr->ref;
-	  gcc_assert (expr->ref->type == REF_SUBSTRING);
-	  if (find_forall_index (tmp->u.ss.start, symbol) == SUCCESS)
-	    return SUCCESS;
-	  if (find_forall_index (tmp->u.ss.end, symbol) == SUCCESS)
-	    return SUCCESS;
-	}
-      break;
-
-    /* It seems not to happen.  */
-    case EXPR_STRUCTURE:
-    case EXPR_ARRAY:
-      gfc_error ("Unsupported statement while finding forall index in "
-		 "expression");
-      break;
-
-    case EXPR_OP:
-      /* Find the FORALL index in the first operand.  */
-      if (expr->value.op.op1)
-	{
-	  if (find_forall_index (expr->value.op.op1, symbol) == SUCCESS)
-	    return SUCCESS;
-	}
-
-      /* Find the FORALL index in the second operand.  */
-      if (expr->value.op.op2)
-	{
-	  if (find_forall_index (expr->value.op.op2, symbol) == SUCCESS)
-	    return SUCCESS;
-	}
-      break;
-
-    default:
-      break;
-    }
-
-  return FAILURE;
 }
 
 
@@ -4502,11 +4445,11 @@ resolve_forall_iterators (gfc_forall_iterator *it)
     for (iter2 = iter; iter2; iter2 = iter2->next)
       {
 	if (find_forall_index (iter2->start,
-			       iter->var->symtree->n.sym) == SUCCESS
+			       iter->var->symtree->n.sym, 0) == SUCCESS
 	    || find_forall_index (iter2->end,
-				  iter->var->symtree->n.sym) == SUCCESS
+				  iter->var->symtree->n.sym, 0) == SUCCESS
 	    || find_forall_index (iter2->stride,
-				  iter->var->symtree->n.sym) == SUCCESS)
+				  iter->var->symtree->n.sym, 0) == SUCCESS)
 	  gfc_error ("FORALL index '%s' may not appear in triplet "
 		     "specification at %L", iter->var->symtree->name,
 		     &iter2->start->where);
@@ -5726,7 +5669,7 @@ gfc_resolve_assign_in_forall (gfc_code *code, int nvar, gfc_expr **var_expr)
 	  /* If one of the FORALL index variables doesn't appear in the
 	     assignment target, then there will be a many-to-one
 	     assignment.  */
-	  if (find_forall_index (code->expr, forall_index) == FAILURE)
+	  if (find_forall_index (code->expr, forall_index, 0) == FAILURE)
 	    gfc_error ("The FORALL with index '%s' cause more than one "
 		       "assignment to this object at %L",
 		       var_expr[n]->symtree->name, &code->expr->where);
@@ -7672,6 +7615,9 @@ resolve_symbol (gfc_symbol *sym)
   if (sym->attr.procedure && sym->interface
       && sym->attr.if_source != IFSRC_DECL)
     {
+      while (sym->interface->interface)
+	sym->interface = sym->interface->interface;
+
       /* Get the attributes from the interface (now resolved).  */
       if (sym->interface->attr.if_source || sym->interface->attr.intrinsic)
 	{
@@ -8002,7 +7948,7 @@ resolve_symbol (gfc_symbol *sym)
 static struct
 {
   gfc_data_value *vnode;
-  unsigned int left;
+  mpz_t left;
 }
 values;
 
@@ -8012,13 +7958,14 @@ values;
 static try
 next_data_value (void)
 {
-  while (values.left == 0)
+
+  while (mpz_cmp_ui (values.left, 0) == 0)
     {
       if (values.vnode->next == NULL)
 	return FAILURE;
 
       values.vnode = values.vnode->next;
-      values.left = values.vnode->repeat;
+      mpz_set (values.left, values.vnode->repeat);
     }
 
   return SUCCESS;
@@ -8121,23 +8068,23 @@ check_data_variable (gfc_data_variable *var, locus *where)
       /* If we have more than one element left in the repeat count,
 	 and we have more than one element left in the target variable,
 	 then create a range assignment.  */
-      /* ??? Only done for full arrays for now, since array sections
+      /* FIXME: Only done for full arrays for now, since array sections
 	 seem tricky.  */
       if (mark == AR_FULL && ref && ref->next == NULL
-	  && values.left > 1 && mpz_cmp_ui (size, 1) > 0)
+	  && mpz_cmp_ui (values.left, 1) > 0 && mpz_cmp_ui (size, 1) > 0)
 	{
 	  mpz_t range;
 
-	  if (mpz_cmp_ui (size, values.left) >= 0)
+	  if (mpz_cmp (size, values.left) >= 0)
 	    {
-	      mpz_init_set_ui (range, values.left);
-	      mpz_sub_ui (size, size, values.left);
-	      values.left = 0;
+	      mpz_init_set (range, values.left);
+	      mpz_sub (size, size, values.left);
+	      mpz_set_ui (values.left, 0);
 	    }
 	  else
 	    {
 	      mpz_init_set (range, size);
-	      values.left -= mpz_get_ui (size);
+	      mpz_sub (values.left, values.left, size);
 	      mpz_set_ui (size, 0);
 	    }
 
@@ -8151,7 +8098,7 @@ check_data_variable (gfc_data_variable *var, locus *where)
       /* Assign initial value to symbol.  */
       else
 	{
-	  values.left -= 1;
+	  mpz_sub_ui (values.left, values.left, 1);
 	  mpz_sub_ui (size, size, 1);
 
 	  t = gfc_assign_data_value (var->expr, values.vnode->expr, offset);
@@ -8324,13 +8271,17 @@ resolve_data_variables (gfc_data_variable *d)
    variables list, expanding iterators and such.  */
 
 static void
-resolve_data (gfc_data * d)
+resolve_data (gfc_data *d)
 {
+
   if (resolve_data_variables (d->var) == FAILURE)
     return;
 
   values.vnode = d->value;
-  values.left = (d->value == NULL) ? 0 : d->value->repeat;
+  if (d->value == NULL)
+    mpz_set_ui (values.left, 0);
+  else
+    mpz_set (values.left, d->value->repeat);
 
   if (traverse_data_var (d->var, &d->where) == FAILURE)
     return;

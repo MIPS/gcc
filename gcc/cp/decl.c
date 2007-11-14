@@ -4331,7 +4331,7 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	  HOST_WIDE_INT i;
 	  for (i = 0; 
 	       VEC_iterate (constructor_elt, v, i, ce);
-	       ++i)
+	       ++i) 
 	    if (!check_array_designated_initializer (ce))
 	      failure = 1;
 	}
@@ -5455,8 +5455,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	 require a guard variable, and since the mangled name of the
 	 guard variable will depend on the mangled name of this
 	 variable.  */
-      if (!processing_template_decl
-	  && DECL_FUNCTION_SCOPE_P (decl)
+      if (DECL_FUNCTION_SCOPE_P (decl)
 	  && TREE_STATIC (decl)
 	  && !DECL_ARTIFICIAL (decl))
 	push_local_name (decl);
@@ -5561,6 +5560,21 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       /* This needs to happen after the linkage is set. */
       determine_visibility (decl);
 
+      if (var_definition_p && TREE_STATIC (decl))
+	{
+	  /* If a TREE_READONLY variable needs initialization
+	     at runtime, it is no longer readonly and we need to
+	     avoid MEM_READONLY_P being set on RTL created for it.  */
+	  if (init)
+	    {
+	      if (TREE_READONLY (decl))
+		TREE_READONLY (decl) = 0;
+	      was_readonly = 0;
+	    }
+	  else if (was_readonly)
+	    TREE_READONLY (decl) = 1;
+	}
+
       make_rtl_for_nonlocal_decl (decl, init, asmspec);
 
       /* Check for abstractness of the type. Notice that there is no
@@ -5583,40 +5597,21 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  if (init)
 	    DECL_INITIAL (decl) = init;
 	}
-      else
-	{
-	  /* A variable definition.  */
-	  if (DECL_FUNCTION_SCOPE_P (decl))
-	    {
-	      /* Initialize the local variable.  */
-	      if (processing_template_decl)
-		DECL_INITIAL (decl) = init;
-	      else if (!TREE_STATIC (decl))
-		initialize_local_var (decl, init);
-	    }
+      /* A variable definition.  */
+      else if (DECL_FUNCTION_SCOPE_P (decl) && !TREE_STATIC (decl))
+	/* Initialize the local variable.  */
+	initialize_local_var (decl, init);
 
-	  /* If a variable is defined, and then a subsequent
-	     definition with external linkage is encountered, we will
-	     get here twice for the same variable.  We want to avoid
-	     calling expand_static_init more than once.  For variables
-	     that are not static data members, we can call
-	     expand_static_init only when we actually process the
-	     initializer.  It is not legal to redeclare a static data
-	     member, so this issue does not arise in that case.  */
-	  if (var_definition_p && TREE_STATIC (decl))
-	    {
-	      /* If a TREE_READONLY variable needs initialization
-		 at runtime, it is no longer readonly and we need to
-		 avoid MEM_READONLY_P being set on RTL created for it.  */
-	      if (init)
-		{
-		  if (TREE_READONLY (decl))
-		    TREE_READONLY (decl) = 0;
-		  was_readonly = 0;
-		}
-	      expand_static_init (decl, init);
-	    }
-	}
+      /* If a variable is defined, and then a subsequent
+	 definition with external linkage is encountered, we will
+	 get here twice for the same variable.  We want to avoid
+	 calling expand_static_init more than once.  For variables
+	 that are not static data members, we can call
+	 expand_static_init only when we actually process the
+	 initializer.  It is not legal to redeclare a static data
+	 member, so this issue does not arise in that case.  */
+      else if (var_definition_p && TREE_STATIC (decl))
+	expand_static_init (decl, init);
     }
 
   /* If a CLEANUP_STMT was created to destroy a temporary bound to a
@@ -6115,6 +6110,9 @@ cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 
   if (initial_value)
     {
+      unsigned HOST_WIDE_INT i;
+      tree value;
+
       /* An array of character type can be initialized from a
 	 brace-enclosed string constant.
 
@@ -6130,6 +6128,18 @@ cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	  if (TREE_CODE (value) == STRING_CST
 	      && VEC_length (constructor_elt, v) == 1)
 	    initial_value = value;
+	}
+
+      /* If any of the elements are parameter packs, we can't actually
+	 complete this type now because the array size is dependent.  */
+      if (TREE_CODE (initial_value) == CONSTRUCTOR)
+	{
+	  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (initial_value), 
+				      i, value)
+	    {
+	      if (PACK_EXPANSION_P (value))
+		return 0;
+	    }
 	}
     }
 
@@ -7552,6 +7562,12 @@ grokdeclarator (const cp_declarator *declarator,
       return error_mark_node;
     }
 
+  if (declspecs->conflicting_specifiers_p)
+    {
+      error ("conflicting specifiers in declaration of %qs", name);
+      return error_mark_node;
+    }
+
   /* Extract the basic type from the decl-specifier-seq.  */
   type = declspecs->type;
   if (type == error_mark_node)
@@ -7846,15 +7862,10 @@ grokdeclarator (const cp_declarator *declarator,
       error ("multiple storage classes in declaration of %qs", name);
       thread_p = false;
     }
-  if (declspecs->conflicting_specifiers_p)
-    {
-      error ("conflicting specifiers in declaration of %qs", name);
-      storage_class = sc_none;
-    }
-  else if (decl_context != NORMAL
-	   && ((storage_class != sc_none
-		&& storage_class != sc_mutable)
-	       || thread_p))
+  if (decl_context != NORMAL
+      && ((storage_class != sc_none
+	   && storage_class != sc_mutable)
+	  || thread_p))
     {
       if ((decl_context == PARM || decl_context == CATCHPARM)
 	  && (storage_class == sc_register
@@ -8152,7 +8163,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  type_quals = TYPE_UNQUALIFIED;
 
 	  if (declarator->kind == cdk_ptrmem
-	      && (TREE_CODE (type) == FUNCTION_TYPE || memfn_quals))
+	      && (TREE_CODE (type) == FUNCTION_TYPE
+		  || (memfn_quals && TREE_CODE (type) == METHOD_TYPE)))
 	    {
 	      memfn_quals |= cp_type_quals (type);
 	      type = build_memfn_type (type,
@@ -12134,10 +12146,7 @@ cxx_maybe_build_cleanup (tree decl)
       if (TREE_CODE (type) == ARRAY_TYPE)
 	addr = decl;
       else
-	{
-	  cxx_mark_addressable (decl);
-	  addr = build_unary_op (ADDR_EXPR, decl, 0);
-	}
+	addr = build_address (decl);
 
       /* Optimize for space over speed here.  */
       if (!has_vbases || flag_expensive_optimizations)

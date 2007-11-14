@@ -1210,8 +1210,8 @@ do {						\
    refer to part of a DECL.  */
 #define REG_EXPR(RTX) (REG_ATTRS (RTX) == 0 ? 0 : REG_ATTRS (RTX)->decl)
 
-/* For a MEM rtx, the offset from the start of MEM_DECL, if known, as a
-   RTX that is always a CONST_INT.  */
+/* For a REG rtx, the offset from the start of REG_EXPR, if known, as an
+   HOST_WIDE_INT.  */
 #define REG_OFFSET(RTX) (REG_ATTRS (RTX) == 0 ? 0 : REG_ATTRS (RTX)->offset)
 
 /* Copy the attributes that apply to memory locations from RHS to LHS.  */
@@ -2093,6 +2093,7 @@ extern void emit_insn_at_entry (rtx);
 extern void delete_insn_chain (rtx, rtx, bool);
 extern rtx unlink_insn_chain (rtx, rtx);
 extern rtx delete_insn_and_edges (rtx);
+extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
 extern rtx gen_frame_mem (enum machine_mode, rtx);

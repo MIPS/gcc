@@ -2085,7 +2085,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @if maint
-   *  This is a helper function for the sort routines.
+   *  This is a helper function for the sort routines.  Precondition: __n > 0.
    *  @endif
   */
   template<typename _Size>
@@ -2093,10 +2093,22 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     __lg(_Size __n)
     {
       _Size __k;
-      for (__k = 0; __n != 1; __n >>= 1)
+      for (__k = 0; __n != 0; __n >>= 1)
 	++__k;
-      return __k;
+      return __k - 1;
     }
+
+  inline int
+  __lg(int __n)
+  { return sizeof(int) * __CHAR_BIT__  - 1 - __builtin_clz(__n); }
+
+  inline long
+  __lg(long __n)
+  { return sizeof(long) * __CHAR_BIT__ - 1 - __builtin_clzl(__n); }
+
+  inline long long
+  __lg(long long __n)
+  { return sizeof(long long) * __CHAR_BIT__ - 1 - __builtin_clzll(__n); }
 
   // sort
 
@@ -3732,6 +3744,189 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	if (__comp(*__next, *__first))
 	  return __next;
       return __next;
+    }
+
+  /**
+   *  @brief  Determines min and max at once as an ordered pair.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @return  A pair(b, a) if b is smaller than a, pair(a, b) otherwise.
+  */
+  template<typename _Tp>
+    inline pair<const _Tp&, const _Tp&>
+    minmax(const _Tp& __a, const _Tp& __b)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_LessThanComparableConcept<_Tp>)
+
+      return __b < __a ? pair<const _Tp&, const _Tp&>(__b, __a)
+	               : pair<const _Tp&, const _Tp&>(__a, __b);
+    }
+
+  /**
+   *  @brief  Determines min and max at once as an ordered pair.
+   *  @param  a  A thing of arbitrary type.
+   *  @param  b  Another thing of arbitrary type.
+   *  @param  comp  A @link s20_3_3_comparisons comparison functor@endlink.
+   *  @return  A pair(b, a) if b is smaller than a, pair(a, b) otherwise.
+  */
+  template<typename _Tp, typename _Compare>
+    inline pair<const _Tp&, const _Tp&>
+    minmax(const _Tp& __a, const _Tp& __b, _Compare __comp)
+    {
+      return __comp(__b, __a) ? pair<const _Tp&, const _Tp&>(__b, __a)
+	                      : pair<const _Tp&, const _Tp&>(__a, __b);
+    }
+
+  /**
+   *  @brief  Return a pair of iterators pointing to the minimum and maximum
+   *          elements in a range.
+   *  @param  first  Start of range.
+   *  @param  last   End of range.
+   *  @return  make_pair(m, M), where m is the first iterator i in 
+   *           [first, last) such that no other element in the range is
+   *           smaller, and where M is the last iterator i in [first, last)
+   *           such that no other element in the range is larger.
+  */
+  template<typename _ForwardIterator>
+    pair<_ForwardIterator, _ForwardIterator>
+    minmax_element(_ForwardIterator __first, _ForwardIterator __last)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
+      __glibcxx_function_requires(_LessThanComparableConcept<
+	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
+
+      _ForwardIterator __next = __first;
+      if (__first == __last
+	  || ++__next == __last)
+	return std::make_pair(__first, __first);
+
+      _ForwardIterator __min, __max;
+      if (*__next < *__first)
+	{
+	  __min = __next;
+	  __max = __first;
+	}
+      else
+	{
+	  __min = __first;
+	  __max = __next;
+	}
+
+      __first = __next;
+      ++__first;
+
+      while (__first != __last)
+	{
+	  __next = __first;
+	  if (++__next == __last)
+	    {
+	      if (*__first < *__min)
+		__min = __first;
+	      else if (!(*__first < *__max))
+		__max = __first;
+	      break;
+	    }
+
+	  if (*__next < *__first)
+	    {
+	      if (*__next < *__min)
+		__min = __next;
+	      if (!(*__first < *__max))
+		__max = __first;
+	    }
+	  else
+	    {
+	      if (*__first < *__min)
+		__min = __first;
+	      if (!(*__next < *__max))
+		__max = __next;
+	    }
+
+	  __first = __next;
+	  ++__first;
+	}
+
+      return std::make_pair(__min, __max);
+    }
+
+  /**
+   *  @brief  Return a pair of iterators pointing to the minimum and maximum
+   *          elements in a range.
+   *  @param  first  Start of range.
+   *  @param  last   End of range.
+   *  @param  comp   Comparison functor.
+   *  @return  make_pair(m, M), where m is the first iterator i in 
+   *           [first, last) such that no other element in the range is
+   *           smaller, and where M is the last iterator i in [first, last)
+   *           such that no other element in the range is larger.
+  */
+  template<typename _ForwardIterator, typename _Compare>
+    pair<_ForwardIterator, _ForwardIterator>
+    minmax_element(_ForwardIterator __first, _ForwardIterator __last,
+		   _Compare __comp)
+    {
+      // concept requirements
+      __glibcxx_function_requires(_ForwardIteratorConcept<_ForwardIterator>)
+      __glibcxx_function_requires(_BinaryPredicateConcept<_Compare,
+	    typename iterator_traits<_ForwardIterator>::value_type,
+	    typename iterator_traits<_ForwardIterator>::value_type>)
+      __glibcxx_requires_valid_range(__first, __last);
+
+      _ForwardIterator __next = __first;
+      if (__first == __last
+	  || ++__next == __last)
+	return std::make_pair(__first, __first);
+
+      _ForwardIterator __min, __max;
+      if (__comp(*__next, *__first))
+	{
+	  __min = __next;
+	  __max = __first;
+	}
+      else
+	{
+	  __min = __first;
+	  __max = __next;
+	}
+
+      __first = __next;
+      ++__first;
+
+      while (__first != __last)
+	{
+	  __next = __first;
+	  if (++__next == __last)
+	    {
+	      if (__comp(*__first, *__min))
+		__min = __first;
+	      else if (!__comp(*__first, *__max))
+		__max = __first;
+	      break;
+	    }
+
+	  if (__comp(*__next, *__first))
+	    {
+	      if (__comp(*__next, *__min))
+		__min = __next;
+	      if (!__comp(*__first, *__max))
+		__max = __first;
+	    }
+	  else
+	    {
+	      if (__comp(*__first, *__min))
+		__min = __first;
+	      if (!__comp(*__next, *__max))
+		__max = __next;
+	    }
+
+	  __first = __next;
+	  ++__first;
+	}
+
+      return std::make_pair(__min, __max);
     }
 #endif // __GXX_EXPERIMENTAL_CXX0X__
 

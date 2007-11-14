@@ -1,3 +1,70 @@
+2007-11-13  Samuel Tardieu  <sam@rfc1149.net>
+
+	* a-tasatt.adb: Add a comment at the beginning of the package
+	explaining why in general 'Unchecked_Access must be used instead
+	of 'Access.
+
+	* sem_prag.adb (Process_Convention): Move the test for the
+	entity on which the Convention pragma applies down to also
+	forbid pragma Convention on enumeration literals reached
+	through renamings.
+
+2007-11-10  Samuel Tardieu  <sam@rfc1149.net>
+
+	* a-tasatt.adb: Revert previous change for this file as it will
+	generate an error when this package is instantiated from a
+	local context.
+
+2007-11-07  Samuel Tardieu  <sam@rfc1149.net>
+
+	* a-tasatt.adb: Type Wrapper should be declared in comment instead
+	of already declared type Node_Access.
+	Use 'Access instead of 'Unchecked_Access when applicable. Local
+	lifetime is the one of the package.
+	(Set_Value): W is allocated on the heap.
+
+	* g-socket.adb: Use 'Access instead of 'Unchecked_Access when
+	applicable.
+	(Get_Socket_Option): Optlen formal of C_Getsockopt is of an anonymous
+	access type.
+	(Receive_Socket): Fromlen formal of C_Recvfrom is of an anonymous
+	access type.
+
+	* s-taasde.adb: Use 'Access instead of 'Unchecked_Access when
+	applicable.
+	(elaboration code): Timer_Queue lifetime is the one of the
+	package.
+
+	* tracebak.c (i386 alternative): Remove useless comparaison
+	which is always false; LOWEST_ADDRESS is 0 and is never greater
+	than an unsigned integer.
+
+	* sem_attr.adb (Analyze_Attribute): Remove duplicate identical
+	embedded check for "Ada_Version >= Ada_05".
+
+2007-11-07  Olivier Hainque  <hainque@adacore.com>
+
+	* decl.c (make_aligning_type): Set the mode of the RECORD_TYPE we
+	craft and expand comment.
+
+2007-11-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lang-specs.h: Move translation of -fRTS= after -gnatez switch.
+
+2007-10-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* misc.c (gnat_handle_option): Replace call to abort with
+	call to gcc_unreachable.
+	(gnat_init): Likewise.
+	(gnat_expand_expr): Likewise.
+	(fp_prec_to_size): Likewise.
+	(fp_size_to_prec): Likewise.
+
+2007-10-23  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/33608
+	* tracebak.c: #undef abort after including system.h.
+
 2007-10-20  Danny Smith <dannysmith@users.sourceforge.net>
 
 	* Makefile.in (LIBGNAT_TARGET_PAIRS) Add s-tasinf-mingw.adb,
