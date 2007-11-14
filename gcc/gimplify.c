@@ -4958,6 +4958,8 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_UNTIED:
+	case OMP_CLAUSE_COLLAPSE:
 	  break;
 
 	case OMP_CLAUSE_DEFAULT:
@@ -5093,6 +5095,8 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
+	case OMP_CLAUSE_UNTIED:
+	case OMP_CLAUSE_COLLAPSE:
 	  break;
 
 	default:

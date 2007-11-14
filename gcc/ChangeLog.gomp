@@ -1,3 +1,24 @@
+2007-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_collapse): Include correct
+	location in the error message.  Ensure the argument is reasonable
+	positive integer and set OMP_CLAUSE_COLLAPSE_EXPR to it.
+	(c_parser_omp_clause_schedule): Include correct location in the
+	error message.
+	(c_parser_omp_for_loop): Add clauses argument, on success set
+	OMP_FOR_CLAUSES to it.  Look up collapse count in clauses.
+	(c_parser_omp_for, c_parser_omp_parallel): Adjust callers.
+	(OMP_FOR_CLAUSE_MASK): Add 1 << PRAGMA_OMP_CLAUSE_COLLAPSE.
+	* omp-builtins.def (BUILT_IN_GOMP_LOOP_AUTO_START,
+	BUILT_IN_GOMP_LOOP_ORDERED_AUTO_START, BUILT_IN_GOMP_LOOP_AUTO_NEXT,
+	BUILT_IN_GOMP_LOOP_ORDERED_AUTO_NEXT,
+	BUILT_IN_GOMP_PARALLEL_LOOP_AUTO_START): New.
+	* gimplify.c (gimplify_scan_omp_clauses, gimplify_adjust_omp_clauses):
+	Handle OMP_CLAUSE_COLLAPSE and OMP_CLAUSE_UNTIED.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	(expand_omp_for): Adjust fn_index computation for the addition of
+	schedule(auto).
+
 2007-11-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_pragma): Handle PRAGMA_OMP_TASKWAIT.

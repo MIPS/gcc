@@ -1030,6 +1030,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_UNTIED:
 	  break;
 
 	default:
@@ -1076,6 +1078,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_UNTIED:
 	  break;
 
 	default:
@@ -3279,7 +3283,7 @@ expand_omp_for (struct omp_region *region)
     }
   else
     {
-      int fn_index = fd.sched_kind + fd.have_ordered * 4;
+      int fn_index = fd.sched_kind + fd.have_ordered * 5;
       int start_ix = BUILT_IN_GOMP_LOOP_STATIC_START + fn_index;
       int next_ix = BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index;
       expand_omp_for_generic (region, &fd, start_ix, next_ix);

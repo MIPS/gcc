@@ -6872,9 +6872,12 @@ static tree
 c_parser_omp_clause_collapse (c_parser *parser, tree list)
 {
   tree c, num = error_mark_node;
+  HOST_WIDE_INT n;
+  location_t loc;
 
   check_no_duplicate_clause (list, OMP_CLAUSE_COLLAPSE, "collapse");
 
+  loc = c_parser_peek_token (parser)->location;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       num = c_parser_expr_no_commas (parser, NULL).value;
@@ -6883,13 +6886,16 @@ c_parser_omp_clause_collapse (c_parser *parser, tree list)
   if (num == error_mark_node)
     return list;
   if (!INTEGRAL_TYPE_P (TREE_TYPE (num))
-      || TREE_CODE (num) != INTEGER_CST
-      || tree_int_cst_sgn (num) != 1)
+      || !host_integerp (num, 0)
+      || (n = tree_low_cst (num, 0)) <= 0
+      || (int) n != n)
     {
-      error ("collapse argument needs positive constant integer expression");
+      error ("%Hcollapse argument needs positive constant integer expression",
+	     &loc);
       return list;
     }
   c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
+  OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -7214,8 +7220,8 @@ c_parser_omp_clause_schedule (c_parser *parser, tree list)
 	error ("%Hschedule %<runtime%> does not take "
 	       "a %<chunk_size%> parameter", &here);
       else if (OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_AUTO)
-	error ("schedule %<auto%> does not take "
-	       "a %<chunk_size%> parameter");
+	error ("%Hschedule %<auto%> does not take "
+	       "a %<chunk_size%> parameter", &here);
       else if (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE)
 	OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
       else
@@ -7533,10 +7539,15 @@ c_parser_omp_flush (c_parser *parser)
    so that we can push a new decl if necessary to make it private.  */
 
 static tree
-c_parser_omp_for_loop (c_parser *parser)
+c_parser_omp_for_loop (c_parser *parser, tree clauses)
 {
-  tree decl, cond, incr, save_break, save_cont, body, init;
+  tree decl, cond, incr, save_break, save_cont, body, init, stmt, cl;
   location_t loc;
+  int collapse = 1;
+
+  for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
+    if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
+      collapse = tree_low_cst (OMP_CLAUSE_COLLAPSE_EXPR (cl), 0);
 
   if (!c_parser_next_token_is_keyword (parser, RID_FOR))
     {
@@ -7609,7 +7620,12 @@ c_parser_omp_for_loop (c_parser *parser)
   /* Only bother calling c_finish_omp_for if we havn't already generated
      an error from the initialization parsing.  */
   if (decl != NULL && decl != error_mark_node && init != error_mark_node)
-    return c_finish_omp_for (loc, decl, init, cond, incr, body, NULL);
+    {
+      stmt = c_finish_omp_for (loc, decl, init, cond, incr, body, NULL);
+      if (stmt)
+	OMP_FOR_CLAUSES (stmt) = clauses;
+      return stmt;
+    }
   return NULL;
 
  error_init:
@@ -7631,6 +7647,7 @@ c_parser_omp_for_loop (c_parser *parser)
 	| (1u << PRAGMA_OMP_CLAUSE_REDUCTION)		\
 	| (1u << PRAGMA_OMP_CLAUSE_ORDERED)		\
 	| (1u << PRAGMA_OMP_CLAUSE_SCHEDULE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_COLLAPSE)		\
 	| (1u << PRAGMA_OMP_CLAUSE_NOWAIT))
 
 static tree
@@ -7642,9 +7659,7 @@ c_parser_omp_for (c_parser *parser)
 				      "#pragma omp for");
 
   block = c_begin_compound_stmt (true);
-  ret = c_parser_omp_for_loop (parser);
-  if (ret)
-    OMP_FOR_CLAUSES (ret) = clauses;
+  ret = c_parser_omp_for_loop (parser, clauses);
   block = c_end_compound_stmt (block, true);
   add_stmt (block);
 
@@ -7849,9 +7864,7 @@ c_parser_omp_parallel (c_parser *parser)
     case PRAGMA_OMP_PARALLEL_FOR:
       block = c_begin_omp_parallel ();
       c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
-      stmt = c_parser_omp_for_loop (parser);
-      if (stmt)
-	OMP_FOR_CLAUSES (stmt) = ws_clause;
+      c_parser_omp_for_loop (parser, ws_clause);
       stmt = c_finish_omp_parallel (par_clause, block);
       OMP_PARALLEL_COMBINED (stmt) = 1;
       break;
