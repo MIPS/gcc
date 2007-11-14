@@ -70,6 +70,9 @@ gfc_expr gfc_bad_expr;
 static gfc_expr *
 range_check (gfc_expr *result, const char *name)
 {
+  if (result == NULL)
+    return &gfc_bad_expr;
+
   switch (gfc_range_check (result))
     {
       case ARITH_OK:
@@ -3651,7 +3654,7 @@ gfc_simplify_size (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
   mpz_t size;
   gfc_expr *result;
   int d;
-  int k = get_kind (BT_INTEGER, kind, "SCAN", gfc_default_integer_kind);
+  int k = get_kind (BT_INTEGER, kind, "SIZE", gfc_default_integer_kind);
 
   if (k == -1)
     return &gfc_bad_expr;
@@ -4008,6 +4011,9 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
 	|| !gfc_is_constant_expr (size))
     return NULL;
 
+  if (source->expr_type == EXPR_FUNCTION)
+    return NULL;
+
   /* Calculate the size of the source.  */
   if (source->expr_type == EXPR_ARRAY
       && gfc_array_size (source, &tmp) == FAILURE)
@@ -4059,7 +4065,7 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
       result_size = result_elt_size;
     }
 
-  if (source_size < result_size)
+  if (gfc_option.warn_surprising && source_size < result_size)
     gfc_warning("Intrinsic TRANSFER at %L has partly undefined result: "
 		"source size %ld < result size %ld", &source->where,
 		(long) source_size, (long) result_size);

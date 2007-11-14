@@ -1913,7 +1913,7 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
   tree type;
   bool external;
   bool declaration;
-  bool artificial;
+  bool artificial = false;
   enum tree_code code;
   tree decl;
   tree specification = NULL_TREE;
@@ -2409,6 +2409,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   prototyped = false;
   name = NULL_TREE;
   external = false;
+  saved_scope = NULL_TREE;
 
   if (abbrev->tag == DW_TAG_subroutine_type)
     {
@@ -2568,7 +2569,9 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       DECL_RESULT (result)
 	= build_decl (RESULT_DECL, NULL_TREE,
 		      TYPE_MAIN_VARIANT (ret_type));
-      DECL_SOURCE_LINE (result) = line;
+#if 0
+      DECL_SOURCE_LOCATION (result) = { input_filename, line };
+#endif
 
       /* If the function has already been declared, merge the
 	 declarations.  */

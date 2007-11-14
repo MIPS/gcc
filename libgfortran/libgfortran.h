@@ -249,33 +249,6 @@ internal_proto(l8_to_l4_offset);
   (GFC_INTEGER_16)((((GFC_UINTEGER_16)1) << 127) - 1)
 #endif
 
-#define GFC_REAL_4_HUGE FLT_MAX
-#define GFC_REAL_8_HUGE DBL_MAX
-#ifdef HAVE_GFC_REAL_10
-#define GFC_REAL_10_HUGE LDBL_MAX
-#endif
-#ifdef HAVE_GFC_REAL_16
-#define GFC_REAL_16_HUGE LDBL_MAX
-#endif
-
-#define GFC_REAL_4_DIGITS FLT_MANT_DIG
-#define GFC_REAL_8_DIGITS DBL_MANT_DIG
-#ifdef HAVE_GFC_REAL_10
-#define GFC_REAL_10_DIGITS LDBL_MANT_DIG
-#endif
-#ifdef HAVE_GFC_REAL_16
-#define GFC_REAL_16_DIGITS LDBL_MANT_DIG
-#endif
-
-#define GFC_REAL_4_RADIX FLT_RADIX
-#define GFC_REAL_8_RADIX FLT_RADIX
-#ifdef HAVE_GFC_REAL_10
-#define GFC_REAL_10_RADIX FLT_RADIX
-#endif
-#ifdef HAVE_GFC_REAL_16
-#define GFC_REAL_16_RADIX FLT_RADIX
-#endif
-
 
 typedef struct descriptor_dimension
 {
@@ -344,19 +317,13 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 typedef struct
 {
   int stdin_unit, stdout_unit, stderr_unit, optional_plus;
-  int allocate_init_flag, allocate_init_value;
   int locus;
 
   int separator_len;
   const char *separator;
 
-  int mem_check;
-  int use_stderr, all_unbuffered, default_recl;
-
-  int fpu_round, fpu_precision, fpe;
-
-  int sighup, sigint;
-  int dump_core, backtrace;
+  int use_stderr, all_unbuffered, unbuffered_preconnected, default_recl;
+  int fpe, dump_core, backtrace;
 }
 options_t;
 

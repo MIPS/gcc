@@ -1639,7 +1639,7 @@ lle_to_gcc_expression (lambda_linear_expression lle,
 
 /* Remove the induction variable defined at IV_STMT.  */
 
-static void
+void
 remove_iv (tree iv_stmt)
 {
   if (TREE_CODE (iv_stmt) == PHI_NODE)
@@ -1692,6 +1692,7 @@ void
 lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 				 VEC(tree,heap) *old_ivs,
 				 VEC(tree,heap) *invariants,
+				 VEC(tree,heap) **remove_ivs,
 				 lambda_loopnest new_loopnest,
                                  lambda_trans_matrix transform,
                                  struct obstack * lambda_obstack)
@@ -1861,7 +1862,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 	}
 
       /* Remove the now unused induction variable.  */
-      remove_iv (oldiv_stmt);
+      VEC_safe_push (tree, heap, *remove_ivs, oldiv_stmt);
     }
   VEC_free (tree, heap, new_ivs);
 }
@@ -1971,32 +1972,42 @@ perfect_nest_p (struct loop *loop)
   size_t i;
   tree exit_cond;
 
+  /* Loops at depth 0 are perfect nests.  */
   if (!loop->inner)
     return true;
+
   bbs = get_loop_body (loop);
   exit_cond = get_loop_exit_condition (loop);
+
   for (i = 0; i < loop->num_nodes; i++)
     {
       if (bbs[i]->loop_father == loop)
 	{
 	  block_stmt_iterator bsi;
+
 	  for (bsi = bsi_start (bbs[i]); !bsi_end_p (bsi); bsi_next (&bsi))
 	    {
 	      tree stmt = bsi_stmt (bsi);
+
+	      if (TREE_CODE (stmt) == COND_EXPR
+		  && exit_cond != stmt)
+		goto non_perfectly_nested;
+
 	      if (stmt == exit_cond
 		  || not_interesting_stmt (stmt)
 		  || stmt_is_bumper_for_loop (loop, stmt))
 		continue;
+
+	    non_perfectly_nested:
 	      free (bbs);
 	      return false;
 	    }
 	}
     }
+
   free (bbs);
-  /* See if the inner loops are perfectly nested as well.  */
-  if (loop->inner)    
-    return perfect_nest_p (loop->inner);
-  return true;
+
+  return perfect_nest_p (loop->inner);
 }
 
 /* Replace the USES of X in STMT, or uses with the same step as X with Y.

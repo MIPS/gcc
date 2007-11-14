@@ -31,6 +31,13 @@
 /** @file parallel/workstealing.h
  *  @brief Parallelization of embarrassingly parallel execution by
  *  means of work-stealing.
+ *
+ *  Work stealing is described in
+ *
+ *  R. D. Blumofe and C. E. Leiserson.
+ *  Scheduling multithreaded computations by work stealing.
+ *  Journal of the ACM, 46(5):720–748, 1999.
+ *
  *  This file is a GNU parallel extension to the Standard C++ Library.
  */
 
@@ -115,6 +122,9 @@ namespace __gnu_parallel
     thread_index_t busy = 0;
     thread_index_t num_threads = get_max_threads();
     difference_type num_threads_min = num_threads < end - begin ? num_threads : end - begin;
+
+    omp_lock_t output_lock;
+    omp_init_lock(&output_lock);
 
     // No more threads than jobs, at least one thread.
     difference_type num_threads_max = num_threads_min > 1 ? num_threads_min : 1;
@@ -269,9 +279,10 @@ namespace __gnu_parallel
 	    }
 #pragma omp flush(busy)
 	} // end while busy > 0
-#pragma omp critical(writeOutput)
       // Add accumulated result to output.
+      omp_set_lock(&output_lock);
       output = r(output, result);
+      omp_unset_lock(&output_lock);
 
       //omp_destroy_lock(&(my_job.lock));
     }
@@ -281,6 +292,8 @@ namespace __gnu_parallel
     // Points to last element processed (needed as return value for
     // some algorithms like transform)
     f.finish_iterator = begin + length;
+
+    omp_destroy_lock(&output_lock);
 
     return op;
   }

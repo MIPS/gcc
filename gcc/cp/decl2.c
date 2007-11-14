@@ -1251,15 +1251,33 @@ coerce_new_type (tree type)
       error ("%<operator new%> must return type %qT", ptr_type_node);
     }
 
-  if (!args || args == void_list_node
-      || !same_type_p (TREE_VALUE (args), size_type_node))
+  if (args && args != void_list_node)
     {
-      e = 2;
-      if (args && args != void_list_node)
-	args = TREE_CHAIN (args);
-      pedwarn ("%<operator new%> takes type %<size_t%> (%qT) "
-	       "as first parameter", size_type_node);
+      if (TREE_PURPOSE (args))
+	{
+	  /* [basic.stc.dynamic.allocation]
+	     
+	     The first parameter shall not have an associated default
+	     argument.  */
+	  error ("the first parameter of %<operator new%> cannot "
+		 "have a default argument");
+	  /* Throw away the default argument.  */
+	  TREE_PURPOSE (args) = NULL_TREE;
+	}
+
+      if (!same_type_p (TREE_VALUE (args), size_type_node))
+	{
+	  e = 2;
+	  args = TREE_CHAIN (args);
+	}
     }
+  else
+    e = 2;
+
+  if (e == 2)
+    pedwarn ("%<operator new%> takes type %<size_t%> (%qT) "
+	     "as first parameter", size_type_node);
+
   switch (e)
   {
     case 2:
@@ -1686,6 +1704,7 @@ constrain_visibility (tree decl, int visibility)
       if (!DECL_EXTERN_C_P (decl))
 	{
 	  TREE_PUBLIC (decl) = 0;
+	  DECL_ONE_ONLY (decl) = 0;
 	  DECL_INTERFACE_KNOWN (decl) = 1;
 	  if (DECL_LANG_SPECIFIC (decl))
 	    DECL_NOT_REALLY_EXTERN (decl) = 1;
@@ -3008,8 +3027,7 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
    Here we must deal with member pointers.  */
 
 tree
-cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-			    tree from ATTRIBUTE_UNUSED)
+cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
 
@@ -3481,9 +3499,9 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 	 parameter.  That must be done before the FN is transformed
 	 because we depend on the form of FN.  */
       args = build_non_dependent_args (args);
+      object = build_non_dependent_expr (object);
       if (TREE_CODE (fn) == DOTSTAR_EXPR)
 	object = build_unary_op (ADDR_EXPR, object, 0);
-      object = build_non_dependent_expr (object);
       args = tree_cons (NULL_TREE, object, args);
       /* Now that the arguments are done, transform FN.  */
       fn = build_non_dependent_expr (fn);

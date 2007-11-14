@@ -591,7 +591,6 @@ write_buf (st_parameter_dt *dtp, void *buf, size_t nbytes)
   size_t have_written, to_write_subrecord;
   int short_record;
 
-
   /* Stream I/O.  */
 
   if (is_stream_io (dtp))

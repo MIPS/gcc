@@ -468,6 +468,7 @@ compare_type_rank (gfc_symbol *s1, gfc_symbol *s2)
 
 
 static int compare_interfaces (gfc_symbol *, gfc_symbol *, int);
+static int compare_intr_interfaces (gfc_symbol *, gfc_symbol *);
 
 /* Given two symbols that are formal arguments, compare their types
    and rank and their formal interfaces if they are both dummy
@@ -942,7 +943,7 @@ compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
   gfc_formal_arglist *f1, *f2;
 
   if (s1->attr.function != s2->attr.function
-      && s1->attr.subroutine != s2->attr.subroutine)
+      || s1->attr.subroutine != s2->attr.subroutine)
     return 0;		/* Disagreement between function/subroutine.  */
 
   f1 = s1->formal;
@@ -967,6 +968,56 @@ compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
     {
       if (operator_correspondence (f1, f2))
 	return 0;
+    }
+
+  return 1;
+}
+
+
+static int
+compare_intr_interfaces (gfc_symbol *s1, gfc_symbol *s2)
+{
+  static gfc_formal_arglist *f, *f1;
+  static gfc_intrinsic_arg *fi, *f2;
+  gfc_intrinsic_sym *isym;
+
+  if (s1->attr.function != s2->attr.function
+      || s1->attr.subroutine != s2->attr.subroutine)
+    return 0;		/* Disagreement between function/subroutine.  */
+
+  isym = gfc_find_function (s2->name);
+  
+  /* This should already have been checked in
+     resolve.c (resolve_actual_arglist).  */
+  gcc_assert (isym);
+
+  f1 = s1->formal;
+  f2 = isym->formal;
+
+  /* Special case.  */
+  if (f1 == NULL && f2 == NULL)
+    return 1;
+  
+  /* First scan through the formal argument list and check the intrinsic.  */
+  fi = f2;
+  for (f = f1; f; f = f->next)
+    {
+      if (fi == NULL)
+	return 0;
+      if ((fi->ts.type != f->sym->ts.type) || (fi->ts.kind != f->sym->ts.kind))
+	return 0;
+      fi = fi->next;
+    }
+
+  /* Now scan through the intrinsic argument list and check the formal.  */
+  f = f1;
+  for (fi = f2; fi; fi = fi->next)
+    {
+      if (f == NULL)
+	return 0;
+      if ((fi->ts.type != f->sym->ts.type) || (fi->ts.kind != f->sym->ts.kind))
+	return 0;
+      f = f->next;
     }
 
   return 1;
@@ -1044,8 +1095,7 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
 	if (p->sym->name == q->sym->name && p->sym->module == q->sym->module)
 	  continue;
 
-	if (compare_interfaces (p->sym, q->sym, generic_flag)
-	      || p->sym->name == q->sym->name)
+	if (compare_interfaces (p->sym, q->sym, generic_flag))
 	  {
 	    if (referenced)
 	      {
@@ -1087,7 +1137,9 @@ check_sym_interfaces (gfc_symbol *sym)
 
       for (p = sym->generic; p; p = p->next)
 	{
-	  if (p->sym->attr.mod_proc && p->sym->attr.if_source != IFSRC_DECL)
+	  if (p->sym->attr.mod_proc
+	      && (p->sym->attr.if_source != IFSRC_DECL
+		  || p->sym->attr.procedure))
 	    {
 	      gfc_error ("'%s' at %L is not a module procedure",
 			 p->sym->name, &p->where);
@@ -1324,7 +1376,10 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 	  || actual->symtree->n.sym->attr.external)
 	return 1;		/* Assume match.  */
 
-      return compare_interfaces (formal, actual->symtree->n.sym, 0);
+      if (actual->symtree->n.sym->attr.intrinsic)
+	return compare_intr_interfaces (formal, actual->symtree->n.sym);
+      else
+	return compare_interfaces (formal, actual->symtree->n.sym, 0);
     }
 
   if ((actual->expr_type != EXPR_NULL || actual->ts.type != BT_UNKNOWN)

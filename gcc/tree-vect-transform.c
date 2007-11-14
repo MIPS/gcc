@@ -380,7 +380,7 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo)
    generated within the strip-mine loop, the initial definition before
    the loop, and the epilogue code that must be generated.  */
 
-static void
+static bool 
 vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
 			   int ncopies)
 {
@@ -401,6 +401,16 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
 
   reduction_op = TREE_OPERAND (operation, op_type-1);
   vectype = get_vectype_for_scalar_type (TREE_TYPE (reduction_op));
+  if (!vectype)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "unsupported data-type ");
+          print_generic_expr (vect_dump, TREE_TYPE (reduction_op), TDF_SLIM);
+        }
+      return false;
+   }
+  
   mode = TYPE_MODE (vectype);
   orig_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
 
@@ -452,6 +462,8 @@ vect_model_reduction_cost (stmt_vec_info stmt_info, enum tree_code reduc_code,
     fprintf (vect_dump, "vect_model_reduction_cost: inside_cost = %d, "
              "outside_cost = %d .", STMT_VINFO_INSIDE_OF_LOOP_COST (stmt_info),
              STMT_VINFO_OUTSIDE_OF_LOOP_COST (stmt_info));
+
+  return true;
 }
 
 
@@ -1306,6 +1318,7 @@ vect_get_constant_vectors (slp_tree slp_node, VEC(tree,heap) **vec_oprnds,
   bool is_store = false;
   unsigned int number_of_vectors = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
   VEC (tree, heap) *voprnds = VEC_alloc (tree, heap, number_of_vectors);
+  bool constant_p;
 
   if (STMT_VINFO_DATA_REF (stmt_vinfo))
     is_store = true;
@@ -1329,6 +1342,7 @@ vect_get_constant_vectors (slp_tree slp_node, VEC(tree,heap) **vec_oprnds,
   number_of_copies = least_common_multiple (nunits, group_size) / group_size;
 
   number_of_places_left_in_vector = nunits;
+  constant_p = true;
   for (j = 0; j < number_of_copies; j++)
     {
       for (i = group_size - 1; VEC_iterate (tree, stmts, i, stmt); i--)
@@ -1338,6 +1352,8 @@ vect_get_constant_vectors (slp_tree slp_node, VEC(tree,heap) **vec_oprnds,
 	    op = operation;
 	  else
 	    op = TREE_OPERAND (operation, op_num);
+	  if (!CONSTANT_CLASS_P (op))
+	    constant_p = false;
 
           /* Create 'vect_ = {op0,op1,...,opn}'.  */
           t = tree_cons (NULL_TREE, op, t);
@@ -1349,7 +1365,12 @@ vect_get_constant_vectors (slp_tree slp_node, VEC(tree,heap) **vec_oprnds,
               number_of_places_left_in_vector = nunits;
 
 	      vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
-              vec_cst = build_constructor_from_list (vector_type, t);
+              gcc_assert (vector_type);
+	      if (constant_p)
+		vec_cst = build_vector (vector_type, t);
+	      else
+		vec_cst = build_constructor_from_list (vector_type, t);
+	      constant_p = true;
               VEC_quick_push (tree, voprnds,
                               vect_init_vector (stmt, vec_cst, vector_type,
 						NULL));
@@ -1381,7 +1402,7 @@ vect_get_constant_vectors (slp_tree slp_node, VEC(tree,heap) **vec_oprnds,
 }
 
 
-/* Get vectorized defintions from SLP_NODE that contains corresponding
+/* Get vectorized definitions from SLP_NODE that contains corresponding
    vectorized def-stmts.  */
  
 static void
@@ -1473,8 +1494,8 @@ get_initial_def_for_induction (tree iv_phi)
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   tree scalar_type = TREE_TYPE (PHI_RESULT_TREE (iv_phi));
-  tree vectype = get_vectype_for_scalar_type (scalar_type);
-  int nunits =  TYPE_VECTOR_SUBPARTS (vectype);
+  tree vectype; 
+  int nunits;
   edge pe = loop_preheader_edge (loop);
   struct loop *iv_loop;
   basic_block new_bb;
@@ -1488,7 +1509,7 @@ get_initial_def_for_induction (tree iv_phi)
   int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
   int i;
   bool ok;
-  int ncopies = vf / nunits;
+  int ncopies;
   tree expr;
   stmt_vec_info phi_info = vinfo_for_stmt (iv_phi);
   bool nested_in_vect_loop = false;
@@ -1500,6 +1521,11 @@ get_initial_def_for_induction (tree iv_phi)
   tree loop_arg;
   block_stmt_iterator si;
   basic_block bb = bb_for_stmt (iv_phi);
+
+  vectype = get_vectype_for_scalar_type (scalar_type);
+  gcc_assert (vectype);
+  nunits = TYPE_VECTOR_SUBPARTS (vectype);
+  ncopies = vf / nunits;
 
   gcc_assert (phi_info);
   gcc_assert (ncopies >= 1);
@@ -1599,7 +1625,8 @@ get_initial_def_for_induction (tree iv_phi)
   t = NULL_TREE;
   for (i = 0; i < nunits; i++)
     t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
-  vec = build_constructor_from_list (vectype, t);
+  gcc_assert (CONSTANT_CLASS_P (new_name));
+  vec = build_vector (vectype, t);
   vec_step = vect_init_vector (iv_phi, vec, vectype, NULL);
 
 
@@ -1655,7 +1682,8 @@ get_initial_def_for_induction (tree iv_phi)
       t = NULL_TREE;
       for (i = 0; i < nunits; i++)
 	t = tree_cons (NULL_TREE, unshare_expr (new_name), t);
-      vec = build_constructor_from_list (vectype, t);
+      gcc_assert (CONSTANT_CLASS_P (new_name));
+      vec = build_vector (vectype, t);
       vec_step = vect_init_vector (iv_phi, vec, vectype, NULL);
 
       vec_def = induc_def;
@@ -1791,6 +1819,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
             t = tree_cons (NULL_TREE, op, t);
           }
         vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
+        gcc_assert (vector_type);
         vec_cst = build_vector (vector_type, t);
 
         return vect_init_vector (stmt, vec_cst, vector_type, NULL);
@@ -1813,6 +1842,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
 
 	/* FIXME: use build_constructor directly.  */
 	vector_type = get_vectype_for_scalar_type (TREE_TYPE (def));
+        gcc_assert (vector_type);
         vec_inv = build_constructor_from_list (vector_type, t);
         return vect_init_vector (stmt, vec_inv, vector_type, NULL);
       }
@@ -2087,7 +2117,7 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *adjustment_def)
   tree vector_type;
   bool nested_in_vect_loop = false; 
 
-  gcc_assert (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type));
+  gcc_assert (POINTER_TYPE_P (type) || INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type));
   if (nested_in_vect_loop_p (loop, stmt))
     nested_in_vect_loop = true;
   else
@@ -2100,18 +2130,19 @@ get_initial_def_for_reduction (tree stmt, tree init_val, tree *adjustment_def)
   case WIDEN_SUM_EXPR:
   case DOT_PROD_EXPR:
   case PLUS_EXPR:
-      if (nested_in_vect_loop)
-	*adjustment_def = vecdef;
-      else
-	*adjustment_def = init_val;
-    /* Create a vector of zeros for init_def.  */
-    if (INTEGRAL_TYPE_P (type))
-      def_for_init = build_int_cst (type, 0);
+    if (nested_in_vect_loop)
+      *adjustment_def = vecdef;
     else
+      *adjustment_def = init_val;
+    /* Create a vector of zeros for init_def.  */
+    if (SCALAR_FLOAT_TYPE_P (type))
       def_for_init = build_real (type, dconst0);
-      for (i = nunits - 1; i >= 0; --i)
-    t = tree_cons (NULL_TREE, def_for_init, t);
+    else
+      def_for_init = build_int_cst (type, 0);
+    for (i = nunits - 1; i >= 0; --i)
+      t = tree_cons (NULL_TREE, def_for_init, t);
     vector_type = get_vectype_for_scalar_type (TREE_TYPE (def_for_init));
+    gcc_assert (vector_type);
     init_def = build_vector (vector_type, t);
     break;
 
@@ -2222,6 +2253,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   op_type = TREE_OPERAND_LENGTH (operation);
   reduction_op = TREE_OPERAND (operation, op_type-1);
   vectype = get_vectype_for_scalar_type (TREE_TYPE (reduction_op));
+  gcc_assert (vectype);
   mode = TYPE_MODE (vectype);
 
   /*** 1. Create the reduction def-use cycle  ***/
@@ -2694,6 +2726,9 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     return false;
   scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   scalar_type = TREE_TYPE (scalar_dest);
+  if (!POINTER_TYPE_P (scalar_type) && !INTEGRAL_TYPE_P (scalar_type) 
+      && !SCALAR_FLOAT_TYPE_P (scalar_type))
+    return false;
 
   /* All uses but the last are expected to be defined in the loop.
      The last use is the reduction variable.  */
@@ -2795,6 +2830,16 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
          reduction variable, and get the tree-code from orig_stmt.  */
       orig_code = TREE_CODE (GIMPLE_STMT_OPERAND (orig_stmt, 1));
       vectype = get_vectype_for_scalar_type (TREE_TYPE (def));
+      if (!vectype)
+	{
+          if (vect_print_dump_info (REPORT_DETAILS))
+            {
+              fprintf (vect_dump, "unsupported data-type ");
+              print_generic_expr (vect_dump, TREE_TYPE (def), TDF_SLIM);
+            }
+          return false;
+        }
+
       vec_mode = TYPE_MODE (vectype);
     }
   else
@@ -2823,7 +2868,8 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (!vec_stmt) /* transformation not required.  */
     {
       STMT_VINFO_TYPE (stmt_info) = reduc_vec_info_type;
-      vect_model_reduction_cost (stmt_info, epilog_reduc_code, ncopies);
+      if (!vect_model_reduction_cost (stmt_info, epilog_reduc_code, ncopies))
+        return false;
       return true;
     }
 
@@ -2961,14 +3007,6 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   if (STMT_SLP_TYPE (stmt_info))
     return false;
 
-  /* FORNOW: not yet supported.  */
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
-
   /* Is STMT a vectorizable call?   */
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
@@ -3016,10 +3054,14 @@ vectorizable_call (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
     return false;
 
   vectype_in = get_vectype_for_scalar_type (rhs_type);
+  if (!vectype_in)
+    return false;
   nunits_in = TYPE_VECTOR_SUBPARTS (vectype_in);
 
   lhs_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
   vectype_out = get_vectype_for_scalar_type (lhs_type);
+  if (!vectype_out)
+    return false;
   nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
 
   /* FORNOW */
@@ -3303,14 +3345,6 @@ vectorizable_conversion (tree stmt, block_stmt_iterator *bsi,
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_loop_def)
     return false;
 
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      /* FORNOW: not yet supported.  */
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
-
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
@@ -3581,14 +3615,6 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_loop_def)
     return false;
 
-  /* FORNOW: not yet supported.  */
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
-
   /* Is vectorizable assignment?  */
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
@@ -3698,14 +3724,6 @@ vectorizable_induction (tree phi, block_stmt_iterator *bsi ATTRIBUTE_UNUSED,
 
   gcc_assert (STMT_VINFO_DEF_TYPE (stmt_info) == vect_induction_def);
 
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      /* FORNOW: not yet supported.  */
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
-
   if (TREE_CODE (phi) != PHI_NODE)
     return false;
 
@@ -3767,6 +3785,8 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   int j, i;
   VEC(tree,heap) *vec_oprnds0 = NULL, *vec_oprnds1 = NULL;
   tree vop0, vop1;
+  unsigned int k;
+  bool scalar_shift_arg = false;
 
   /* FORNOW: SLP with multiple types is not supported. The SLP analysis verifies
      this, so we can safely override NCOPIES with 1 here.  */
@@ -3787,14 +3807,6 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_loop_def)
     return false;
 
-  /* FORNOW: not yet supported.  */
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
-
   /* Is STMT a vectorizable binary/unary operation?   */
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
@@ -3804,6 +3816,8 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 
   scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
   vectype_out = get_vectype_for_scalar_type (TREE_TYPE (scalar_dest));
+  if (!vectype_out)
+    return false;
   nunits_out = TYPE_VECTOR_SUBPARTS (vectype_out);
   if (nunits_out != nunits_in)
     return false;
@@ -3859,18 +3873,21 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "op not supported by target.");
+      /* Check only during analysis.  */
       if (GET_MODE_SIZE (vec_mode) != UNITS_PER_WORD
-          || LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	     < vect_min_worthwhile_factor (code))
+          || (LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	      < vect_min_worthwhile_factor (code)
+              && !vec_stmt))
         return false;
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "proceeding using word mode.");
     }
 
-  /* Worthwhile without SIMD support?  */
+  /* Worthwhile without SIMD support? Check only during analysis.  */
   if (!VECTOR_MODE_P (TYPE_MODE (vectype))
       && LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	 < vect_min_worthwhile_factor (code))
+	 < vect_min_worthwhile_factor (code)
+      && !vec_stmt)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "not worthwhile without SIMD support.");
@@ -3886,14 +3903,18 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
       /* Invariant argument is needed for a vector shift
 	 by a scalar shift operand.  */
       optab_op2_mode = insn_data[icode].operand[2].mode;
-      if (! (VECTOR_MODE_P (optab_op2_mode)
-	     || dt[1] == vect_constant_def
-	     || dt[1] == vect_invariant_def))
+      if (!VECTOR_MODE_P (optab_op2_mode))
 	{
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    fprintf (vect_dump, "operand mode requires invariant argument.");
-	  return false;
-	}
+	  if (dt[1] != vect_constant_def && dt[1] != vect_invariant_def)
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+	        fprintf (vect_dump, "operand mode requires invariant"
+                                    " argument.");
+	      return false;
+	    }
+
+          scalar_shift_arg = true;
+        }
     }
 
   if (!vec_stmt) /* transformation not required.  */
@@ -3913,10 +3934,21 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   /* Handle def.  */
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
+  /* Allocate VECs for vector operands. In case of SLP, vector operands are 
+     created in the previous stages of the recursion, so no allocation is
+     needed, except for the case of shift with scalar shift argument. In that
+     case we store the scalar operand in VEC_OPRNDS1 for every vector stmt to
+     be created to vectorize the SLP group, i.e., SLP_NODE->VEC_STMTS_SIZE.
+     In case of loop-based vectorization we allocate VECs of size 1. We 
+     allocate VEC_OPRNDS1 only in case of binary operation.  */ 
   if (!slp_node)
-    vec_oprnds0 = VEC_alloc (tree, heap, 1);
-  if (op_type == binary_op)
-    vec_oprnds1 = VEC_alloc (tree, heap, 1);
+    {
+      vec_oprnds0 = VEC_alloc (tree, heap, 1);
+      if (op_type == binary_op)
+        vec_oprnds1 = VEC_alloc (tree, heap, 1);
+    }
+  else if (scalar_shift_arg)
+    vec_oprnds1 = VEC_alloc (tree, heap, slp_node->vec_stmts_size);  
 
   /* In case the vectorization factor (VF) is bigger than the number
      of elements that we can fit in a vectype (nunits), we have to generate
@@ -3991,10 +4023,20 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 		    fprintf (vect_dump, "operand 1 using scalar mode.");
 		  vec_oprnd1 = op1;
 		  VEC_quick_push (tree, vec_oprnds1, vec_oprnd1);
+	          if (slp_node)
+	            {
+	              /* Store vec_oprnd1 for every vector stmt to be created
+	                 for SLP_NODE. We check during the analysis that all the
+                         shift arguments are the same.  
+	                 TODO: Allow different constants for different vector 
+	                 stmts generated for an SLP instance.  */          
+	              for (k = 0; k < slp_node->vec_stmts_size - 1; k++)
+	                VEC_quick_push (tree, vec_oprnds1, vec_oprnd1);
+	            }
 		}
 	    }
 	 
-          /* vec_oprnd is available if operand 1 should be of a scalar-type 
+          /* vec_oprnd1 is available if operand 1 should be of a scalar-type 
              (a special case for certain kind of vector shifts); otherwise, 
              operand 1 should be of a vector type (the usual case).  */
 	  if (op_type == binary_op && !vec_oprnd1)
@@ -4081,14 +4123,6 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
 
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_loop_def)
     return false;
-
-  /* FORNOW: not yet supported.  */
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
 
   /* Is STMT a vectorizable type-demotion operation?  */
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
@@ -4242,14 +4276,6 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
 
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_loop_def)
     return false;
-
-  /* FORNOW: not yet supported.  */
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
 
   /* Is STMT a vectorizable type-promotion operation?  */
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
@@ -4592,7 +4618,7 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
   int j;
-  tree next_stmt, first_stmt;
+  tree next_stmt, first_stmt = NULL_TREE;
   bool strided_store = false;
   unsigned int group_size, i;
   VEC(tree,heap) *dr_chain = NULL, *oprnds = NULL, *result_chain = NULL;
@@ -4622,13 +4648,6 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_loop_def)
     return false;
-
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
 
   /* Is vectorizable store? */
 
@@ -4661,9 +4680,28 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   if (STMT_VINFO_STRIDED_ACCESS (stmt_info))
     {
       strided_store = true;
+      first_stmt = DR_GROUP_FIRST_DR (stmt_info);
       if (!vect_strided_store_supported (vectype)
 	  && !PURE_SLP_STMT (stmt_info) && !slp)
-	return false;      
+	return false;
+     
+      if (first_stmt == stmt)
+	{
+          /* STMT is the leader of the group. Check the operands of all the
+             stmts of the group.  */
+          next_stmt = DR_GROUP_NEXT_DR (stmt_info);
+          while (next_stmt)
+            {
+              op = GIMPLE_STMT_OPERAND (next_stmt, 1);
+              if (!vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt))
+                {
+                  if (vect_print_dump_info (REPORT_DETAILS))
+                    fprintf (vect_dump, "use not simple.");
+                  return false;
+                }
+              next_stmt = DR_GROUP_NEXT_DR (vinfo_for_stmt (next_stmt));
+            }
+        }
     }
 
   if (!vec_stmt) /* transformation not required.  */
@@ -4678,7 +4716,6 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 
   if (strided_store)
     {
-      first_stmt = DR_GROUP_FIRST_DR (stmt_info);
       first_dr = STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt));
       group_size = DR_GROUP_SIZE (vinfo_for_stmt (first_stmt));
 
@@ -4824,8 +4861,9 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 	     OPRNDS are of size 1.  */
 	  for (i = 0; i < group_size; i++)
 	    {
-	      vec_oprnd = vect_get_vec_def_for_stmt_copy (dt, 
-						   VEC_index (tree, oprnds, i));
+	      op = VEC_index (tree, oprnds, i);
+	      vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt);
+	      vec_oprnd = vect_get_vec_def_for_stmt_copy (dt, op); 
 	      VEC_replace(tree, dr_chain, i, vec_oprnd);
 	      VEC_replace(tree, oprnds, i, vec_oprnd);
 	    }
@@ -5452,14 +5490,6 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   if (STMT_VINFO_DEF_TYPE (stmt_info) != vect_loop_def)
     return false;
 
-  /* FORNOW: not yet supported.  */
-  if (STMT_VINFO_LIVE_P (stmt_info))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "value used after loop.");
-      return false;
-    }
-
   /* Is vectorizable load? */
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
@@ -5887,7 +5917,7 @@ vectorizable_live_operation (tree stmt,
   for (i = 0; i < op_type; i++)
     {
       op = TREE_OPERAND (operation, i);
-      if (!vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt))
+      if (op && !vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt))
         {
           if (vect_print_dump_info (REPORT_DETAILS))
             fprintf (vect_dump, "use not simple.");

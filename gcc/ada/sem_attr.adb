@@ -1841,10 +1841,9 @@ package body Sem_Attr is
          --  entry wrappers, the attributes Count, Caller and AST_Entry require
          --  a context check
 
-         if Ada_Version >= Ada_05
-           and then (Aname = Name_Count
-                      or else Aname = Name_Caller
-                      or else Aname = Name_AST_Entry)
+         if Aname = Name_Count
+           or else Aname = Name_Caller
+           or else Aname = Name_AST_Entry
          then
             declare
                Count : Natural := 0;
@@ -7904,6 +7903,10 @@ package body Sem_Attr is
          when Attribute_Partition_ID =>
             Process_Partition_Id (N);
             return;
+
+         ------------------
+         -- Pool_Address --
+         ------------------
 
          when Attribute_Pool_Address =>
             Resolve (P);

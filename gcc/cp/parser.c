@@ -4085,7 +4085,15 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	  && !COMPLETE_TYPE_P (new_scope)
 	  /* Do not try to complete dependent types.  */
 	  && !dependent_type_p (new_scope))
-	new_scope = complete_type (new_scope);
+	{
+	  new_scope = complete_type (new_scope);
+	  /* If it is a typedef to current class, use the current
+	     class instead, as the typedef won't have any names inside
+	     it yet.  */
+	  if (!COMPLETE_TYPE_P (new_scope)
+	      && currently_open_class (new_scope))
+	    new_scope = TYPE_MAIN_VARIANT (new_scope);
+	}
       /* Make sure we look in the right scope the next time through
 	 the loop.  */
       parser->scope = new_scope;
@@ -4850,8 +4858,10 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
   pseudo_destructor_p = false;
 
   /* If the SCOPE is a scalar type, then, if this is a valid program,
-     we must be looking at a pseudo-destructor-name.  */
-  if (scope && SCALAR_TYPE_P (scope))
+     we must be looking at a pseudo-destructor-name.  If POSTFIX_EXPRESSION
+     is type dependent, it can be pseudo-destructor-name or something else.
+     Try to parse it as pseudo-destructor-name first.  */
+  if ((scope && SCALAR_TYPE_P (scope)) || dependent_p)
     {
       tree s;
       tree type;
@@ -4860,7 +4870,12 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
       /* Parse the pseudo-destructor-name.  */
       s = NULL_TREE;
       cp_parser_pseudo_destructor_name (parser, &s, &type);
-      if (cp_parser_parse_definitely (parser))
+      if (dependent_p
+	  && (cp_parser_error_occurred (parser)
+	      || TREE_CODE (type) != TYPE_DECL
+	      || !SCALAR_TYPE_P (TREE_TYPE (type))))
+	cp_parser_abort_tentative_parse (parser);
+      else if (cp_parser_parse_definitely (parser))
 	{
 	  pseudo_destructor_p = true;
 	  postfix_expression
@@ -4976,6 +4991,7 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
   tree expression_list = NULL_TREE;
   bool fold_expr_p = is_attribute_list;
   tree identifier = NULL_TREE;
+  bool saved_greater_than_is_operator_p;
 
   /* Assume all the expressions will be constant.  */
   if (non_constant_p)
@@ -4983,6 +4999,12 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
     return error_mark_node;
+
+  /* Within a parenthesized expression, a `>' token is always
+     the greater-than operator.  */
+  saved_greater_than_is_operator_p
+    = parser->greater_than_is_operator_p;
+  parser->greater_than_is_operator_p = true;
 
   /* Consume expressions until there are no more.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
@@ -5069,8 +5091,15 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
       if (ending < 0)
 	goto get_comma;
       if (!ending)
-	return error_mark_node;
+	{
+	  parser->greater_than_is_operator_p
+	    = saved_greater_than_is_operator_p;
+	  return error_mark_node;
+	}
     }
+
+  parser->greater_than_is_operator_p
+    = saved_greater_than_is_operator_p;
 
   /* We built up the list in reverse order so we must reverse it now.  */
   expression_list = nreverse (expression_list);
@@ -5300,13 +5329,18 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
 	       && token->type == CPP_AND_AND)
 	{
 	  tree identifier;
+	  tree expression;
 
 	  /* Consume the '&&' token.  */
 	  cp_lexer_consume_token (parser->lexer);
 	  /* Look for the identifier.  */
 	  identifier = cp_parser_identifier (parser);
 	  /* Create an expression representing the address.  */
-	  return finish_label_address_expr (identifier);
+	  expression = finish_label_address_expr (identifier);
+	  if (cp_parser_non_integral_constant_expression (parser,
+						"the address of a label"))
+	    expression = error_mark_node;
+	  return expression;
 	}
     }
   if (unary_operator != ERROR_MARK)
@@ -6821,6 +6855,15 @@ cp_parser_expression_statement (cp_parser* parser, tree in_statement_expr)
    compound-statement:
      { statement-seq [opt] }
 
+   GNU extension:
+
+   compound-statement:
+     { label-declaration-seq [opt] statement-seq [opt] }
+
+   label-declaration-seq:
+     label-declaration
+     label-declaration-seq label-declaration
+
    Returns a tree representing the statement.  */
 
 static tree
@@ -6834,6 +6877,9 @@ cp_parser_compound_statement (cp_parser *parser, tree in_statement_expr,
     return error_mark_node;
   /* Begin the compound-statement.  */
   compound_stmt = begin_compound_stmt (in_try ? BCS_TRY_BLOCK : 0);
+  /* If the next keyword is `__label__' we have a label declaration.  */
+  while (cp_lexer_next_token_is_keyword (parser->lexer, RID_LABEL))
+    cp_parser_label_declaration (parser);
   /* Parse an (optional) statement-seq.  */
   cp_parser_statement_seq_opt (parser, in_statement_expr);
   /* Finish the compound-statement.  */
@@ -7711,7 +7757,6 @@ cp_parser_declaration (cp_parser* parser)
 
    block-declaration:
      __extension__ block-declaration
-     label-declaration
 
    C++0x Extension:
 
@@ -7772,12 +7817,16 @@ cp_parser_block_declaration (cp_parser *parser,
 	cp_parser_using_declaration (parser,
 				     /*access_declaration_p=*/false);
     }
-  /* If the next keyword is `__label__' we have a label declaration.  */
+  /* If the next keyword is `__label__' we have a misplaced label
+     declaration.  */
   else if (token1->keyword == RID_LABEL)
     {
-      if (statement_p)
-	cp_parser_commit_to_tentative_parse (parser);
-      cp_parser_label_declaration (parser);
+      cp_lexer_consume_token (parser->lexer);
+      error ("%<__label__%> not at the beginning of a block");
+      cp_parser_skip_to_end_of_statement (parser);
+      /* If the next token is now a `;', consume it.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+	cp_lexer_consume_token (parser->lexer);
     }
   /* If the next token is `static_assert' we have a static assertion.  */
   else if (token1->keyword == RID_STATIC_ASSERT)
@@ -8435,7 +8484,8 @@ cp_parser_decltype (cp_parser *parser)
   ++skip_evaluation;
 
   /* Parse the opening `('.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+    return error_mark_node;
   
   /* First, try parsing an id-expression.  */
   cp_parser_parse_tentatively (parser);
@@ -8453,14 +8503,15 @@ cp_parser_decltype (cp_parser *parser)
       cp_id_kind idk;
       const char *error_msg;
 
-      /* Lookup the name we got back from the id-expression.  */
-      expr = cp_parser_lookup_name (parser, expr,
-                                    none_type,
-                                    /*is_template=*/false,
-                                    /*is_namespace=*/false,
-                                    /*check_dependency=*/true,
-                                    /*ambiguous_decls=*/NULL);
-      
+      if (TREE_CODE (expr) == IDENTIFIER_NODE)
+	/* Lookup the name we got back from the id-expression.  */
+	expr = cp_parser_lookup_name (parser, expr,
+				      none_type,
+				      /*is_template=*/false,
+				      /*is_namespace=*/false,
+				      /*check_dependency=*/true,
+				      /*ambiguous_decls=*/NULL);
+
       if (expr 
           && expr != error_mark_node
           && TREE_CODE (expr) != TEMPLATE_ID_EXPR
@@ -11475,6 +11526,7 @@ static void
 cp_parser_namespace_definition (cp_parser* parser)
 {
   tree identifier, attribs;
+  bool has_visibility;
 
   /* Look for the `namespace' keyword.  */
   cp_parser_require_keyword (parser, RID_NAMESPACE, "`namespace'");
@@ -11494,9 +11546,18 @@ cp_parser_namespace_definition (cp_parser* parser)
   /* Look for the `{' to start the namespace.  */
   cp_parser_require (parser, CPP_OPEN_BRACE, "`{'");
   /* Start the namespace.  */
-  push_namespace_with_attribs (identifier, attribs);
+  push_namespace (identifier);
+
+  has_visibility = handle_namespace_attrs (current_namespace, attribs);
+
   /* Parse the body of the namespace.  */
   cp_parser_namespace_body (parser);
+
+#ifdef HANDLE_PRAGMA_VISIBILITY
+  if (has_visibility)
+    pop_visibility ();
+#endif
+
   /* Finish the namespace.  */
   pop_namespace ();
   /* Look for the final `}'.  */
@@ -13563,7 +13624,7 @@ cp_parser_parameter_declaration (cp_parser *parser,
 	      token = cp_lexer_consume_token (parser->lexer);
 	    }
 
-	  /* Create a DEFAULT_ARG to represented the unparsed default
+	  /* Create a DEFAULT_ARG to represent the unparsed default
 	     argument.  */
 	  default_argument = make_node (DEFAULT_ARG);
 	  DEFARG_TOKENS (default_argument)
@@ -15187,7 +15248,7 @@ cp_parser_base_clause (cp_parser* parser)
             /* Make this a pack expansion type. */
             TREE_VALUE (base) = make_pack_expansion (TREE_VALUE (base));
           else
-            check_for_bare_parameter_packs (TREE_VALUE (base));
+            check_for_bare_parameter_packs (&TREE_VALUE (base));
 
 	  TREE_CHAIN (base) = bases;
 	  bases = base;
@@ -17797,7 +17858,7 @@ cp_parser_check_class_key (enum tag_types class_key, tree type)
 static void
 cp_parser_check_access_in_redeclaration (tree decl)
 {
-  if (!CLASS_TYPE_P (TREE_TYPE (decl)))
+  if (!decl || !CLASS_TYPE_P (TREE_TYPE (decl)))
     return;
 
   if ((TREE_PRIVATE (decl)

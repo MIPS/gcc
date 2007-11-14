@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "timevar.h"
 #include "df.h"
+#include "diagnostic.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -6740,8 +6741,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
   /* ??? This should be considered a front-end bug.  We should not be
      generating ADDR_EXPR of something that isn't an LVALUE.  The only
      exception here is STRING_CST.  */
-  if (TREE_CODE (exp) == CONSTRUCTOR
-      || CONSTANT_CLASS_P (exp))
+  if (CONSTANT_CLASS_P (exp))
     return XEXP (expand_expr_constant (exp, 0, modifier), 0);
 
   /* Everything must be something allowed by is_gimple_addressable.  */
@@ -6788,9 +6788,12 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
     default:
       /* If the object is a DECL, then expand it for its rtl.  Don't bypass
 	 expand_expr, as that can have various side effects; LABEL_DECLs for
-	 example, may not have their DECL_RTL set yet.  Assume language
-	 specific tree nodes can be expanded in some interesting way.  */
+	 example, may not have their DECL_RTL set yet.  Expand the rtl of
+	 CONSTRUCTORs too, which should yield a memory reference for the
+	 constructor's contents.  Assume language specific tree nodes can
+	 be expanded in some interesting way.  */
       if (DECL_P (exp)
+	  || TREE_CODE (exp) == CONSTRUCTOR
 	  || TREE_CODE (exp) >= LAST_AND_UNUSED_TREE_CODE)
 	{
 	  result = expand_expr (exp, target, tmode,
@@ -9357,6 +9360,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
 	goto binop;
       }
+
+    case OMP_ATOMIC_LOAD:
+    case OMP_ATOMIC_STORE:
+      /* OMP expansion is not run when there were errors, so these codes
+		  can get here.  */
+      gcc_assert (errorcount != 0);
+      return NULL_RTX;
 
     default:
       return lang_hooks.expand_expr (exp, original_target, tmode,

@@ -70,7 +70,9 @@ namespace __gnu_parallel
 
     // Shared.
     _GLIBCXX_VOLATILE difference_type left = 0, right = n - 1;
-    _GLIBCXX_VOLATILE difference_type leftover_left, leftover_right, leftnew, rightnew;
+    _GLIBCXX_VOLATILE difference_type leftover_left, leftover_right;
+    _GLIBCXX_VOLATILE difference_type leftnew, rightnew;
+
     bool* reserved_left, * reserved_right;
 
     reserved_left = new bool[max_num_threads];
@@ -81,6 +83,9 @@ namespace __gnu_parallel
       chunk_size = std::max((difference_type)Settings::partition_chunk_size, (difference_type)((double)n * Settings::partition_chunk_share / (double)max_num_threads));
     else
       chunk_size = Settings::partition_chunk_size;
+
+    omp_lock_t result_lock;
+    omp_init_lock(&result_lock);
 
     // At least good for two processors.
     while (right - left + 1 >= 2 * max_num_threads * chunk_size)
@@ -111,8 +116,8 @@ namespace __gnu_parallel
 	  while (!iam_finished)
 	    {
 	      if (thread_left > thread_left_border)
-#pragma omp critical
 		{
+                  omp_set_lock(&result_lock);
 		  if (left + (chunk_size - 1) > right)
 		    iam_finished = true;
 		  else
@@ -121,11 +126,12 @@ namespace __gnu_parallel
 		      thread_left_border = left + (chunk_size - 1);
 		      left += chunk_size;
 		    }
+                  omp_unset_lock(&result_lock);
 		}
 
 	      if (thread_right < thread_right_border)
-#pragma omp critical
 		{
+                  omp_set_lock(&result_lock);
 		  if (left > right - (chunk_size - 1))
 		    iam_finished = true;
 		  else
@@ -134,6 +140,7 @@ namespace __gnu_parallel
 		      thread_right_border = right - (chunk_size - 1);
 		      right -= chunk_size;
 		    }
+                  omp_unset_lock(&result_lock);
 		}
 
 	      if (iam_finished)
@@ -197,16 +204,15 @@ namespace __gnu_parallel
 	    {
 	      // Find spot and swap.
 	      difference_type swapstart = -1;
-#pragma omp critical
-	      {
-		for (int r = 0; r < leftover_left; r++)
-		  if (!reserved_left[r])
-		    {
-		      reserved_left[r] = true;
-		      swapstart = left - (r + 1) * chunk_size;
-		      break;
-		    }
-	      }
+              omp_set_lock(&result_lock);
+	      for (int r = 0; r < leftover_left; r++)
+                  if (!reserved_left[r])
+                    {
+                      reserved_left[r] = true;
+                      swapstart = left - (r + 1) * chunk_size;
+                      break;
+                    }
+              omp_unset_lock(&result_lock);
 
 #if _GLIBCXX_ASSERTIONS
 	      _GLIBCXX_PARALLEL_ASSERT(swapstart != -1);
@@ -220,16 +226,15 @@ namespace __gnu_parallel
 	    {
 	      // Find spot and swap
 	      difference_type swapstart = -1;
-#pragma omp critical
-	      {
-		for (int r = 0; r < leftover_right; r++)
+              omp_set_lock(&result_lock);
+	      for (int r = 0; r < leftover_right; r++)
 		  if (!reserved_right[r])
 		    {
 		      reserved_right[r] = true;
 		      swapstart = right + r * chunk_size + 1;
 		      break;
 		    }
-	      }
+              omp_unset_lock(&result_lock);
 
 #if _GLIBCXX_ASSERTIONS
 	      _GLIBCXX_PARALLEL_ASSERT(swapstart != -1);
@@ -281,6 +286,8 @@ namespace __gnu_parallel
     delete[] reserved_left;
     delete[] reserved_right;
 
+    omp_destroy_lock(&result_lock);
+
     // Element "between" final_left and final_right might not have
     // been regarded yet
     if (final_left < n && !pred(begin[final_left]))
@@ -299,7 +306,8 @@ namespace __gnu_parallel
    */
   template<typename RandomAccessIterator, typename Comparator>
   void 
-  parallel_nth_element(RandomAccessIterator begin, RandomAccessIterator nth, RandomAccessIterator end, Comparator comp)
+  parallel_nth_element(RandomAccessIterator begin, RandomAccessIterator nth, 
+		       RandomAccessIterator end, Comparator comp)
   {
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::value_type value_type;
@@ -308,7 +316,6 @@ namespace __gnu_parallel
     _GLIBCXX_CALL(end - begin)
 
     RandomAccessIterator split;
-    value_type pivot;
     random_number rng;
 
     difference_type minimum_length = std::max<difference_type>(2, Settings::partition_minimal_n);

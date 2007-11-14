@@ -3834,12 +3834,22 @@ DEF_VEC_ALLOC_P(function_p,heap);
 
 static VEC(function_p,heap) *cfun_stack;
 
+/* We save the value of in_system_header here when pushing the first
+   function on the cfun stack, and we restore it from here when
+   popping the last function.  */
+
+static bool saved_in_system_header;
+
 /* Push the current cfun onto the stack, and set cfun to new_cfun.  */
 
 void
 push_cfun (struct function *new_cfun)
 {
+  if (cfun == NULL)
+    saved_in_system_header = in_system_header;
   VEC_safe_push (function_p, heap, cfun_stack, cfun);
+  if (new_cfun)
+    in_system_header = DECL_IN_SYSTEM_HEADER (new_cfun->decl);
   set_cfun (new_cfun);
 }
 
@@ -3848,7 +3858,10 @@ push_cfun (struct function *new_cfun)
 void
 pop_cfun (void)
 {
-  set_cfun (VEC_pop (function_p, cfun_stack));
+  struct function *new_cfun = VEC_pop (function_p, cfun_stack);
+  in_system_header = ((new_cfun == NULL) ? saved_in_system_header
+		      : DECL_IN_SYSTEM_HEADER (new_cfun->decl));
+  set_cfun (new_cfun);
 }
 
 /* Return value of funcdef and increase it.  */
@@ -3922,7 +3935,11 @@ allocate_struct_function (tree fndecl)
 void
 push_struct_function (tree fndecl)
 {
+  if (cfun == NULL)
+    saved_in_system_header = in_system_header;
   VEC_safe_push (function_p, heap, cfun_stack, cfun);
+  if (fndecl)
+    in_system_header = DECL_IN_SYSTEM_HEADER (fndecl);
   allocate_struct_function (fndecl);
 }
 
@@ -5702,7 +5719,7 @@ match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
 
 	   asm ("" : "=r" (output), "=m" (input) : "0" (input))
 
-	 Here 'input' is used in two occurences as input (once for the
+	 Here 'input' is used in two occurrences as input (once for the
 	 input operand, once for the address in the second output operand).
 	 If we would replace only the occurence of the input operand (to
 	 make the matching) we would be left with this:
@@ -5714,9 +5731,9 @@ match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
 	 value, but different pseudos) where we formerly had only one.
 	 With more complicated asms this might lead to reload failures
 	 which wouldn't have happen without this pass.  So, iterate over
-	 all operands and replace all occurences of the register used.  */
+	 all operands and replace all occurrences of the register used.  */
       for (j = 0; j < noutputs; j++)
-	if (!rtx_equal_p (SET_DEST (p_sets[j]), output)
+	if (!rtx_equal_p (SET_DEST (p_sets[j]), input)
 	    && reg_overlap_mentioned_p (input, SET_DEST (p_sets[j])))
 	  SET_DEST (p_sets[j]) = replace_rtx (SET_DEST (p_sets[j]),
 					      input, output);

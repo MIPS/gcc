@@ -830,7 +830,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_cse_follow_jumps = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
-      flag_ipa_type_escape = 1;
       flag_rerun_cse_after_loop = 1;
       flag_caller_saves = 1;
       flag_peephole2 = 1;
@@ -845,7 +844,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
       flag_tree_store_ccp = 1;
-      flag_tree_store_copy_prop = 1;
       flag_tree_vrp = 1;
 
       if (!optimize_size)

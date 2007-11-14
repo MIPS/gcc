@@ -195,6 +195,8 @@ extern const enum tree_code_class tree_code_type[];
      || TREE_CODE (NODE) == OMP_ORDERED			\
      || TREE_CODE (NODE) == OMP_CRITICAL		\
      || TREE_CODE (NODE) == OMP_RETURN			\
+     || TREE_CODE (NODE) == OMP_ATOMIC_LOAD                            \
+     || TREE_CODE (NODE) == OMP_ATOMIC_STORE                           \
      || TREE_CODE (NODE) == OMP_CONTINUE)
 
 /* Number of argument-words in each kind of tree-node.  */
@@ -2552,7 +2554,11 @@ struct tree_memory_tag GTY(())
 
   bitmap GTY ((skip)) aliases;
 
-  unsigned int is_global:1;
+  /* True if this tag has global scope.  */
+  unsigned int is_global : 1;
+
+  /* True if this tag should not be grouped into a memory partition.  */
+  unsigned int unpartitionable : 1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
@@ -2573,13 +2579,23 @@ struct tree_struct_field_tag GTY(())
 
   /* Alias set for a DECL_NONADDRESSABLE_P field.  Otherwise -1.  */
   alias_set_type alias_set;
+
+  /* Nesting level for this subvariable.  This indicates how many
+     structures are wrapping this field.  Fields at the top level have
+     a nesting level of 0.  */
+  unsigned int nesting_level;
 };
+
 #define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.parent_var)
 #define SFT_OFFSET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.offset)
 #define SFT_SIZE(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.size)
 #define SFT_NONADDRESSABLE_P(NODE) \
   (STRUCT_FIELD_TAG_CHECK (NODE)->sft.alias_set != -1)
 #define SFT_ALIAS_SET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.alias_set)
+#define SFT_NESTING_LEVEL(NODE) \
+  (STRUCT_FIELD_TAG_CHECK (NODE)->sft.nesting_level)
+#define SFT_UNPARTITIONABLE_P(NODE) \
+  (STRUCT_FIELD_TAG_CHECK (NODE)->sft.common.unpartitionable)
 
 /* Memory Partition Tags (MPTs) group memory symbols under one
    common name for the purposes of placing memory PHI nodes.  */
@@ -2656,8 +2672,7 @@ struct tree_memory_partition_tag GTY(())
   (DECL_COMMON_CHECK (NODE)->decl_common.debug_expr_is_from)
 
 /* Nonzero for a given ..._DECL node means that the name of this node should
-   be ignored for symbolic debug purposes.  Moreover, for a FUNCTION_DECL,
-   the body of the function should also be ignored.  */
+   be ignored for symbolic debug purposes.  */
 #define DECL_IGNORED_P(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.ignored_flag)
 
 /* Nonzero for a given ..._DECL node means that this node represents an
@@ -3147,16 +3162,15 @@ extern void decl_fini_priority_insert (tree, priority_type);
 #define DECL_HAS_INIT_PRIORITY_P(NODE) \
   (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
 
-/* For a VAR_DECL or FUNCTION_DECL with DECL_HAS_INIT_PRIORITY_P set,
-   the initialization priority of NODE.  */
+/* For a VAR_DECL or FUNCTION_DECL the initialization priority of
+   NODE.  */ 
 #define DECL_INIT_PRIORITY(NODE) \
   (decl_init_priority_lookup (NODE))
 /* Set the initialization priority for NODE to VAL.  */
 #define SET_DECL_INIT_PRIORITY(NODE, VAL) \
   (decl_init_priority_insert (NODE, VAL))
 
-/* For a FUNCTION_DECL with DECL_HAS_INIT_PRIORITY_P set, the
-   finalization priority of NODE.  */
+/* For a FUNCTION_DECL the finalization priority of NODE.  */
 #define DECL_FINI_PRIORITY(NODE) \
   (decl_fini_priority_lookup (NODE))
 /* Set the finalization priority for NODE to VAL.  */
@@ -4842,7 +4856,6 @@ extern tree fold_builtin_snprintf_chk (tree, tree, enum built_in_function);
 extern bool fold_builtin_next_arg (tree, bool);
 extern enum built_in_function builtin_mathfn_code (const_tree);
 extern tree build_function_call_expr (tree, tree);
-extern tree fold_build_call_expr (tree, tree, tree, tree);
 extern tree fold_builtin_call_array (tree, tree, int, tree *);
 extern void debug_fold_checksum (const_tree);
 extern tree build_call_expr (tree, int, ...);

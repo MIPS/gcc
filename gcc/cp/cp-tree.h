@@ -53,7 +53,6 @@ struct diagnostic_info;
       TYPENAME_IS_ENUM_P (in TYPENAME_TYPE)
       REFERENCE_REF_P (in INDIRECT_EXPR)
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
-      OMP_ATOMIC_DEPENDENT_P (in OMP_ATOMIC)
       OMP_FOR_GIMPLIFYING_P (in OMP_FOR)
       BASELINK_QUALIFIED_P (in BASELINK)
       TARGET_EXPR_IMPLICIT_P (in TARGET_EXPR)
@@ -3699,13 +3698,10 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define LOOKUP_PREFER_NAMESPACES (1 << 9)
 /* Accept types or namespaces.  */
 #define LOOKUP_PREFER_BOTH (LOOKUP_PREFER_TYPES | LOOKUP_PREFER_NAMESPACES)
-/* We are checking that a constructor can be called -- but we do not
-   actually plan to call it.  */
-#define LOOKUP_CONSTRUCTOR_CALLABLE (1 << 10)
 /* Return friend declarations and un-declared builtin functions.
    (Normally, these entities are registered in the symbol table, but
    not found by lookup.)  */
-#define LOOKUP_HIDDEN (LOOKUP_CONSTRUCTOR_CALLABLE << 1)
+#define LOOKUP_HIDDEN (LOOKUP_PREFER_NAMESPACES << 1)
 /* Prefer that the lvalue be treated as an rvalue.  */
 #define LOOKUP_PREFER_RVALUE (LOOKUP_HIDDEN << 1)
 
@@ -4306,7 +4302,7 @@ extern tree cp_build_parm_decl			(tree, tree);
 extern tree get_guard				(tree);
 extern tree get_guard_cond			(tree);
 extern tree set_guard				(tree);
-extern tree cxx_callgraph_analyze_expr		(tree *, int *, tree);
+extern tree cxx_callgraph_analyze_expr		(tree *, int *);
 extern void mark_needed				(tree);
 extern bool decl_needed_p			(tree);
 extern void note_vague_linkage_fn		(tree);
@@ -4335,9 +4331,6 @@ extern void choose_personality_routine		(enum languages);
 extern tree eh_type_info			(tree);
 
 /* in expr.c */
-extern rtx cxx_expand_expr			(tree, rtx,
-						 enum machine_mode,
-						 int, rtx *);
 extern tree cplus_expand_constant		(tree);
 
 /* friend.c */
@@ -4442,7 +4435,8 @@ extern int comp_template_parms			(const_tree, const_tree);
 extern bool uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (const_tree);
 extern tree make_pack_expansion                 (tree);
-extern bool check_for_bare_parameter_packs      (tree);
+extern bool check_for_bare_parameter_packs      (tree*);
+extern tree get_template_info			(tree);
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);
 extern bool is_specialization_of_friend		(tree, tree);

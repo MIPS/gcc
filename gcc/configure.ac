@@ -525,7 +525,7 @@ AC_SUBST(valgrind_command)
 
 AC_ARG_ENABLE(mapped-location,
 [  --enable-mapped-location   location_t is fileline integer cookie],,
-enable_mapped_location=no)
+enable_mapped_location=yes)
 
 if test "$enable_mapped_location" = yes ; then
   AC_DEFINE(USE_MAPPED_LOCATION, 1,
@@ -769,7 +769,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([GCC])
+ACX_PKGVERSION([lto - merge rev. 130155])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel

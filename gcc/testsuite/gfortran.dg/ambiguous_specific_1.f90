@@ -6,32 +6,33 @@
 !
 MODULE M1
    INTERFACE FOO
-     MODULE PROCEDURE FOO2
+     MODULE PROCEDURE FOO
    END INTERFACE
 CONTAINS
-   SUBROUTINE FOO2(I)
+   SUBROUTINE FOO(I)
      INTEGER, INTENT(IN) :: I
      WRITE(*,*) 'INTEGER'
-   END SUBROUTINE FOO2
+   END SUBROUTINE FOO
 END MODULE M1
 
 MODULE M2
    INTERFACE FOO
-     MODULE PROCEDURE FOO2
+     MODULE PROCEDURE FOO
    END INTERFACE
 CONTAINS
-   SUBROUTINE FOO2(R)
+   SUBROUTINE FOO(R)
      REAL, INTENT(IN) :: R
      WRITE(*,*) 'REAL'
-   END SUBROUTINE FOO2
+   END SUBROUTINE FOO
 END MODULE M2
 
 PROGRAM P
-   USE M1  ! { dg-error "Ambiguous interfaces" }
+   USE M1
    USE M2
    implicit none
    external bar
    CALL FOO(10)
    CALL FOO(10.)
+   call bar (foo)  ! { dg-error "is ambiguous" }
 END PROGRAM P
 ! { dg-final { cleanup-modules "m1 m2" } }

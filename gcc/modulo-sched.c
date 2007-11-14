@@ -194,15 +194,14 @@ static int compute_split_row (sbitmap, int, int, int, ddg_node_ptr);
 
 static int issue_rate;
 
-static int sms_order_nodes (ddg_ptr, int, int * result);
+static int sms_order_nodes (ddg_ptr, int, int *, int *);
 static void set_node_sched_params (ddg_ptr);
 static partial_schedule_ptr sms_schedule_by_order (ddg_ptr, int, int, int *);
-static void permute_partial_schedule (partial_schedule_ptr ps, rtx last);
-static void generate_prolog_epilog (partial_schedule_ptr, struct loop *loop,
+static void permute_partial_schedule (partial_schedule_ptr, rtx);
+static void generate_prolog_epilog (partial_schedule_ptr, struct loop *,
                                     rtx, rtx);
-static void duplicate_insns_of_cycles (partial_schedule_ptr ps,
-				       int from_stage, int to_stage,
-				       int is_prolog, rtx count_reg);
+static void duplicate_insns_of_cycles (partial_schedule_ptr,
+				       int, int, int, rtx);
 
 #define SCHED_ASAP(x) (((node_sched_params_ptr)(x)->aux.info)->asap)
 #define SCHED_TIME(x) (((node_sched_params_ptr)(x)->aux.info)->time)
@@ -866,7 +865,7 @@ sms_schedule (void)
   rtx insn;
   ddg_ptr *g_arr, g;
   int * node_order;
-  int maxii;
+  int maxii, max_asap;
   loop_iterator li;
   partial_schedule_ptr ps;
   basic_block bb = NULL;
@@ -902,7 +901,7 @@ sms_schedule (void)
   df_set_flags (DF_LR_RUN_DCE);
   df_rd_add_problem ();
   df_note_add_problem ();
-  df_chain_add_problem (DF_DU_CHAIN);
+  df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
   df_analyze ();
   regstat_compute_calls_crossed ();
   sched_init ();
@@ -1093,9 +1092,9 @@ sms_schedule (void)
       node_order = XNEWVEC (int, g->num_nodes);
 
       mii = 1; /* Need to pass some estimate of mii.  */
-      rec_mii = sms_order_nodes (g, mii, node_order);
+      rec_mii = sms_order_nodes (g, mii, node_order, &max_asap);
       mii = MAX (res_MII (g), rec_mii);
-      maxii = MAXII_FACTOR * mii;
+      maxii = MAX (max_asap, MAXII_FACTOR * mii);
 
       if (dump_file)
 	fprintf (dump_file, "SMS iis %d %d %d (rec_mii, mii, maxii)\n",
@@ -1331,21 +1330,27 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
               print_ddg_edge (dump_file, e);
 	      fprintf (dump_file,
 		       "\nScheduling %d (%d) in psp_not_empty,"
-		       " checking node %d (%d): ", u_node->cuid,
+		       " checking p %d (%d): ", u_node->cuid,
 		       INSN_UID (u_node->insn), v_node->cuid, INSN_UID
 		       (v_node->insn));
             }
 
 	  if (TEST_BIT (sched_nodes, v_node->cuid))
 	    {
-	      int node_st = SCHED_TIME (v_node)
-	      		    + e->latency - (e->distance * ii);
+              int p_st = SCHED_TIME (v_node);
 
-	      early_start = MAX (early_start, node_st);
+              early_start =
+                MAX (early_start, p_st + e->latency - (e->distance * ii));
+
+              if (dump_file)
+                fprintf (dump_file, "pred st = %d; early_start = %d; ", p_st,
+                         early_start);
 
 	      if (e->data_type == MEM_DEP)
 		end = MIN (end, SCHED_TIME (v_node) + ii - 1);
 	    }
+         else if (dump_file)
+            fprintf (dump_file, "the node is not scheduled\n");
 	}
       start = early_start;
       end = MIN (end, early_start + ii);
@@ -1372,18 +1377,21 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
               print_ddg_edge (dump_file, e);
               fprintf (dump_file,
                        "\nScheduling %d (%d) in pss_not_empty,"
-                       " checking node %d (%d): ", u_node->cuid,
+                       " checking s %d (%d): ", u_node->cuid,
                        INSN_UID (u_node->insn), v_node->cuid, INSN_UID
                        (v_node->insn));
             }
 
 	  if (TEST_BIT (sched_nodes, v_node->cuid))
 	    {
-	      late_start = MIN (late_start,
-				SCHED_TIME (v_node) - e->latency
-				+ (e->distance * ii));
-               if (dump_file)
-                 fprintf (dump_file, "late_start = %d;", late_start);
+              int s_st = SCHED_TIME (v_node);
+
+              late_start = MIN (late_start,
+                                s_st - e->latency + (e->distance * ii));
+
+              if (dump_file)
+                fprintf (dump_file, "succ st = %d; late_start = %d;", s_st,
+                         late_start);
 
 	      if (e->data_type == MEM_DEP)
 		end = MAX (end, SCHED_TIME (v_node) - ii + 1);
@@ -1430,12 +1438,22 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
 
 	  if (TEST_BIT (sched_nodes, v_node->cuid))
 	    {
+              int p_st = SCHED_TIME (v_node);
+
 	      early_start = MAX (early_start,
-				 SCHED_TIME (v_node) + e->latency
+				 p_st + e->latency
 				 - (e->distance * ii));
+
+              if (dump_file)
+                fprintf (dump_file, "pred st = %d; early_start = %d;", p_st,
+                         early_start);
+
 	      if (e->data_type == MEM_DEP)
 		end = MIN (end, SCHED_TIME (v_node) + ii - 1);
 	    }
+          else if (dump_file)
+            fprintf (dump_file, "the node is not scheduled\n");
+
 	}
       for (e = u_node->out; e != 0; e = e->next_out)
 	{
@@ -1454,12 +1472,22 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
 
 	  if (TEST_BIT (sched_nodes, v_node->cuid))
 	    {
+              int s_st = SCHED_TIME (v_node);
+
 	      late_start = MIN (late_start,
-				SCHED_TIME (v_node) - e->latency
+				s_st - e->latency
 				+ (e->distance * ii));
+
+               if (dump_file)
+                 fprintf (dump_file, "succ st = %d; late_start = %d;", s_st,
+                          late_start);
+
 	      if (e->data_type == MEM_DEP)
 		start = MAX (start, SCHED_TIME (v_node) - ii + 1);
 	    }
+          else if (dump_file)
+            fprintf (dump_file, "the node is not scheduled\n");
+
 	}
       start = MAX (start, early_start);
       end = MIN (end, MIN (early_start + ii, late_start + 1));
@@ -1731,7 +1759,7 @@ ps_insert_empty_row (partial_schedule_ptr ps, int split_row,
 
 /* Given U_NODE which is the node that failed to be scheduled; LOW and
    UP which are the boundaries of it's scheduling window; compute using
-   SCHED_NODES and II a row in the partial schedule that can be splitted
+   SCHED_NODES and II a row in the partial schedule that can be split
    which will separate a critical predecessor from a critical successor
    thereby expanding the window, and return it.  */
 static int
@@ -1822,7 +1850,7 @@ typedef struct node_order_params * nopa;
 
 static void order_nodes_of_sccs (ddg_all_sccs_ptr, int * result);
 static int order_nodes_in_scc (ddg_ptr, sbitmap, sbitmap, int*, int);
-static nopa  calculate_order_params (ddg_ptr, int mii);
+static nopa  calculate_order_params (ddg_ptr, int, int *);
 static int find_max_asap (ddg_ptr, sbitmap);
 static int find_max_hv_min_mob (ddg_ptr, sbitmap);
 static int find_max_dv_min_mob (ddg_ptr, sbitmap);
@@ -1845,29 +1873,37 @@ check_nodes_order (int *node_order, int num_nodes)
 
   sbitmap_zero (tmp);
 
+  if (dump_file)
+    fprintf (dump_file, "SMS final nodes order: \n");
+
   for (i = 0; i < num_nodes; i++)
     {
       int u = node_order[i];
 
+      if (dump_file)
+        fprintf (dump_file, "%d ", u);
       gcc_assert (u < num_nodes && u >= 0 && !TEST_BIT (tmp, u));
 
       SET_BIT (tmp, u);
     }
-
+ 
+  if (dump_file)
+    fprintf (dump_file, "\n");
+ 
   sbitmap_free (tmp);
 }
 
 /* Order the nodes of G for scheduling and pass the result in
    NODE_ORDER.  Also set aux.count of each node to ASAP.
-   Return the recMII for the given DDG.  */
+   Put maximal ASAP to PMAX_ASAP.  Return the recMII for the given DDG.  */
 static int
-sms_order_nodes (ddg_ptr g, int mii, int * node_order)
+sms_order_nodes (ddg_ptr g, int mii, int * node_order, int *pmax_asap)
 {
   int i;
   int rec_mii = 0;
   ddg_all_sccs_ptr sccs = create_ddg_all_sccs (g);
 
-  nopa nops = calculate_order_params (g, mii);
+  nopa nops = calculate_order_params (g, mii, pmax_asap);
 
   if (dump_file)
     print_sccs (dump_file, sccs, g);
@@ -1942,7 +1978,7 @@ order_nodes_of_sccs (ddg_all_sccs_ptr all_sccs, int * node_order)
 
 /* MII is needed if we consider backarcs (that do not close recursive cycles).  */
 static struct node_order_params *
-calculate_order_params (ddg_ptr g, int mii ATTRIBUTE_UNUSED)
+calculate_order_params (ddg_ptr g, int mii ATTRIBUTE_UNUSED, int *pmax_asap)
 {
   int u;
   int max_asap;
@@ -1993,7 +2029,19 @@ calculate_order_params (ddg_ptr g, int mii ATTRIBUTE_UNUSED)
 				   HEIGHT (e->dest) + e->latency);
 	  }
     }
+  if (dump_file)
+  {
+    fprintf (dump_file, "\nOrder params\n");
+    for (u = 0; u < num_nodes; u++)
+      {
+        ddg_node_ptr u_node = &g->nodes[u];
 
+        fprintf (dump_file, "node %d, ASAP: %d, ALAP: %d, HEIGHT: %d\n", u,
+                 ASAP (u_node), ALAP (u_node), HEIGHT (u_node));
+      }
+  }
+
+  *pmax_asap = max_asap;
   return node_order_params_arr;
 }
 

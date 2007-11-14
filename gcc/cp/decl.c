@@ -1846,24 +1846,24 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   new_template = NULL_TREE;
   if (DECL_LANG_SPECIFIC (newdecl) && DECL_LANG_SPECIFIC (olddecl))
     {
-      bool old_decl_gnu_inline;
+      bool new_redefines_gnu_inline = false;
 
-      if ((DECL_INTERFACE_KNOWN (olddecl)
-	   && TREE_CODE (olddecl) == FUNCTION_DECL)
-	  || (TREE_CODE (olddecl) == TEMPLATE_DECL
-	      && TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)) == FUNCTION_DECL))
+      if (new_defines_function
+	  && ((DECL_INTERFACE_KNOWN (olddecl)
+	       && TREE_CODE (olddecl) == FUNCTION_DECL)
+	      || (TREE_CODE (olddecl) == TEMPLATE_DECL
+		  && (TREE_CODE (DECL_TEMPLATE_RESULT (olddecl))
+		      == FUNCTION_DECL))))
 	{
 	  tree fn = olddecl;
 
 	  if (TREE_CODE (fn) == TEMPLATE_DECL)
 	    fn = DECL_TEMPLATE_RESULT (olddecl);
 
-	  old_decl_gnu_inline = GNU_INLINE_P (fn) && DECL_INITIAL (fn);
+	  new_redefines_gnu_inline = GNU_INLINE_P (fn) && DECL_INITIAL (fn);
 	}
-      else
-	old_decl_gnu_inline = false;
 
-      if (!old_decl_gnu_inline)
+      if (!new_redefines_gnu_inline)
 	{
 	  DECL_INTERFACE_KNOWN (newdecl) |= DECL_INTERFACE_KNOWN (olddecl);
 	  DECL_NOT_REALLY_EXTERN (newdecl) |= DECL_NOT_REALLY_EXTERN (olddecl);
@@ -3914,20 +3914,20 @@ groktypename (cp_decl_specifier_seq *type_specifiers,
   return type;
 }
 
-/* Decode a declarator in an ordinary declaration or data definition.
-   This is called as soon as the type information and variable name
-   have been parsed, before parsing the initializer if any.
-   Here we create the ..._DECL node, fill in its type,
-   and put it on the list of decls for the current context.
-   The ..._DECL node is returned as the value.
-
-   Exception: for arrays where the length is not specified,
-   the type is left null, to be filled in by `cp_finish_decl'.
-
-   Function definitions do not come here; they go to start_function
-   instead.  However, external and forward declarations of functions
-   do go through here.  Structure field declarations are done by
-   grokfield and not through here.  */
+/* Process a DECLARATOR for a function-scope variable declaration,
+   namespace-scope variable declaration, or function declaration.
+   (Function definitions go through start_function; class member
+   declarations appearing in the body of the class go through
+   grokfield.)  The DECL corresponding to the DECLARATOR is returned.
+   If an error occurs, the error_mark_node is returned instead.
+   
+   DECLSPECS are the decl-specifiers for the declaration.  INITIALIZED
+   is true if an explicit initializer is present, but false if this is
+   a variable implicitly initialized via a default constructor.
+   ATTRIBUTES and PREFIX_ATTRIBUTES are GNU attributes associated with
+   this declaration.  *PUSHED_SCOPE_P is set to the scope entered in
+   this function, if any; if set, the caller is responsible for
+   calling pop_scope.  */
 
 tree
 start_decl (const cp_declarator *declarator,
@@ -3938,7 +3938,7 @@ start_decl (const cp_declarator *declarator,
 	    tree *pushed_scope_p)
 {
   tree decl;
-  tree type, tem;
+  tree type;
   tree context;
   bool was_public;
 
@@ -4099,11 +4099,11 @@ start_decl (const cp_declarator *declarator,
   was_public = TREE_PUBLIC (decl);
 
   /* Enter this declaration into the symbol table.  */
-  tem = maybe_push_decl (decl);
+  decl = maybe_push_decl (decl);
 
   if (processing_template_decl)
-    tem = push_template_decl (tem);
-  if (tem == error_mark_node)
+    decl = push_template_decl (decl);
+  if (decl == error_mark_node)
     return error_mark_node;
 
   /* Tell the back end to use or not use .common as appropriate.  If we say
@@ -4112,33 +4112,42 @@ start_decl (const cp_declarator *declarator,
      produce errors about redefs; to do this we force variables into the
      data segment.  */
   if (flag_conserve_space
-      && TREE_CODE (tem) == VAR_DECL
-      && TREE_PUBLIC (tem)
-      && !DECL_THREAD_LOCAL_P (tem)
+      && TREE_CODE (decl) == VAR_DECL
+      && TREE_PUBLIC (decl)
+      && !DECL_THREAD_LOCAL_P (decl)
       && !have_global_bss_p ())
-    DECL_COMMON (tem) = 1;
+    DECL_COMMON (decl) = 1;
 
-  if (TREE_CODE (tem) == VAR_DECL
-      && DECL_NAMESPACE_SCOPE_P (tem) && !TREE_PUBLIC (tem) && !was_public
-      && !DECL_THIS_STATIC (tem) && !DECL_ARTIFICIAL (tem))
+  if (TREE_CODE (decl) == VAR_DECL
+      && DECL_NAMESPACE_SCOPE_P (decl) && !TREE_PUBLIC (decl) && !was_public
+      && !DECL_THIS_STATIC (decl) && !DECL_ARTIFICIAL (decl))
     {
       /* This is a const variable with implicit 'static'.  Set
 	 DECL_THIS_STATIC so we can tell it from variables that are
 	 !TREE_PUBLIC because of the anonymous namespace.  */
-      gcc_assert (cp_type_readonly (TREE_TYPE (tem)));
-      DECL_THIS_STATIC (tem) = 1;
+      gcc_assert (cp_type_readonly (TREE_TYPE (decl)));
+      DECL_THIS_STATIC (decl) = 1;
     }
 
-  if (!processing_template_decl && TREE_CODE (tem) == VAR_DECL)
-    start_decl_1 (tem, initialized);
+  if (!processing_template_decl && TREE_CODE (decl) == VAR_DECL)
+    start_decl_1 (decl, initialized);
 
-  return tem;
+  return decl;
 }
+
+/* Process the declaration of a variable DECL.  INITIALIZED is true
+   iff DECL is explicitly initialized.  (INITIALIZED is false if the
+   variable is initialized via an implicitly-called constructor.)
+   This function must be called for ordinary variables (including, for
+   example, implicit instantiations of templates), but must not be
+   called for template declarations.  */
 
 void
 start_decl_1 (tree decl, bool initialized)
 {
   tree type;
+  bool complete_p;
+  bool aggregate_definition_p;
 
   gcc_assert (!processing_template_decl);
 
@@ -4146,21 +4155,37 @@ start_decl_1 (tree decl, bool initialized)
     return;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL);
+
   type = TREE_TYPE (decl);
+  complete_p = COMPLETE_TYPE_P (type);
+  aggregate_definition_p = IS_AGGR_TYPE (type) && !DECL_EXTERNAL (decl);
+
+  /* If an explicit initializer is present, or if this is a definition
+     of an aggregate, then we need a complete type at this point.
+     (Scalars are always complete types, so there is nothing to
+     check.)  This code just sets COMPLETE_P; errors (if necessary)
+     are issued below.  */
+  if ((initialized || aggregate_definition_p) 
+      && !complete_p
+      && COMPLETE_TYPE_P (complete_type (type)))
+    {
+      complete_p = true;
+      /* We will not yet have set TREE_READONLY on DECL if the type
+	 was "const", but incomplete, before this point.  But, now, we
+	 have a complete type, so we can try again.  */
+      cp_apply_type_quals_to_decl (cp_type_quals (type), decl);
+    }
 
   if (initialized)
-    /* Is it valid for this decl to have an initializer at all?
-       If not, set INITIALIZED to zero, which will indirectly
-       tell `cp_finish_decl' to ignore the initializer once it is parsed.  */
+    /* Is it valid for this decl to have an initializer at all?  */
     {
       /* Don't allow initializations for incomplete types except for
 	 arrays which might be completed by the initialization.  */
-      if (COMPLETE_TYPE_P (complete_type (type)))
+      if (complete_p)
 	;			/* A complete type is ok.  */
       else if (TREE_CODE (type) != ARRAY_TYPE)
 	{
 	  error ("variable %q#D has initializer but incomplete type", decl);
-	  initialized = 0;
 	  type = TREE_TYPE (decl) = error_mark_node;
 	}
       else if (!COMPLETE_TYPE_P (complete_type (TREE_TYPE (type))))
@@ -4168,30 +4193,15 @@ start_decl_1 (tree decl, bool initialized)
 	  if (DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl))
 	    error ("elements of array %q#D have incomplete type", decl);
 	  /* else we already gave an error in start_decl.  */
-	  initialized = 0;
 	}
     }
-  else if (IS_AGGR_TYPE (type)
-	   && ! DECL_EXTERNAL (decl))
+  else if (aggregate_definition_p && !complete_p)
     {
-      if (!COMPLETE_TYPE_P (complete_type (type)))
-	{
-	  error ("aggregate %q#D has incomplete type and cannot be defined",
-		 decl);
-	  /* Change the type so that assemble_variable will give
-	     DECL an rtl we can live with: (mem (const_int 0)).  */
-	  type = TREE_TYPE (decl) = error_mark_node;
-	}
-      else
-	{
-	  /* If any base type in the hierarchy of TYPE needs a constructor,
-	     then we set initialized to 1.  This way any nodes which are
-	     created for the purposes of initializing this aggregate
-	     will live as long as it does.  This is necessary for global
-	     aggregates which do not have their initializers processed until
-	     the end of the file.  */
-	  initialized = TYPE_NEEDS_CONSTRUCTING (type);
-	}
+      error ("aggregate %q#D has incomplete type and cannot be defined",
+	     decl);
+      /* Change the type so that assemble_variable will give
+	 DECL an rtl we can live with: (mem (const_int 0)).  */
+      type = TREE_TYPE (decl) = error_mark_node;
     }
 
   /* Create a new scope to hold this declaration if necessary.
@@ -4321,7 +4331,7 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	  HOST_WIDE_INT i;
 	  for (i = 0; 
 	       VEC_iterate (constructor_elt, v, i, ce);
-	       ++i)
+	       ++i) 
 	    if (!check_array_designated_initializer (ce))
 	      failure = 1;
 	}
@@ -5136,6 +5146,41 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
     rest_of_decl_compilation (decl, toplev, at_eof);
 }
 
+/* walk_tree helper for wrap_temporary_cleanups, below.  */
+
+static tree
+wrap_cleanups_r (tree *stmt_p, int *walk_subtrees, void *data)
+{
+  if (TYPE_P (*stmt_p))
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (*stmt_p) == TARGET_EXPR)
+    {
+      tree guard = (tree)data;
+      tree tcleanup = TARGET_EXPR_CLEANUP (*stmt_p);
+
+      tcleanup = build2 (TRY_CATCH_EXPR, void_type_node, tcleanup, guard);
+
+      TARGET_EXPR_CLEANUP (*stmt_p) = tcleanup;
+    }
+
+  return NULL_TREE;
+}
+
+/* We're initializing a local variable which has a cleanup GUARD.  If there
+   are any temporaries used in the initializer INIT of this variable, we
+   need to wrap their cleanups with TRY_CATCH_EXPR (, GUARD) so that the
+   variable will be cleaned up properly if one of them throws.  */
+
+static void
+wrap_temporary_cleanups (tree init, tree guard)
+{
+  cp_walk_tree_without_duplicates (&init, wrap_cleanups_r, (void *)guard);
+}
+
 /* Generate code to initialize DECL (a local variable).  */
 
 static void
@@ -5143,6 +5188,7 @@ initialize_local_var (tree decl, tree init)
 {
   tree type = TREE_TYPE (decl);
   tree cleanup;
+  int already_used;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == RESULT_DECL);
@@ -5153,46 +5199,53 @@ initialize_local_var (tree decl, tree init)
       /* If we used it already as memory, it must stay in memory.  */
       DECL_INITIAL (decl) = NULL_TREE;
       TREE_ADDRESSABLE (decl) = TREE_USED (decl);
+      return;
     }
 
-  if (DECL_SIZE (decl) && type != error_mark_node)
-    {
-      int already_used;
+  if (type == error_mark_node)
+    return;
 
-      /* Compute and store the initial value.  */
-      already_used = TREE_USED (decl) || TREE_USED (type);
-
-      /* Perform the initialization.  */
-      if (init)
-	{
-	  int saved_stmts_are_full_exprs_p;
-
-	  gcc_assert (building_stmt_tree ());
-	  saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
-	  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
-	  finish_expr_stmt (init);
-	  current_stmt_tree ()->stmts_are_full_exprs_p =
-	    saved_stmts_are_full_exprs_p;
-	}
-
-      /* Set this to 0 so we can tell whether an aggregate which was
-	 initialized was ever used.  Don't do this if it has a
-	 destructor, so we don't complain about the 'resource
-	 allocation is initialization' idiom.  Now set
-	 attribute((unused)) on types so decls of that type will be
-	 marked used. (see TREE_USED, above.)  */
-      if (TYPE_NEEDS_CONSTRUCTING (type)
-	  && ! already_used
-	  && TYPE_HAS_TRIVIAL_DESTRUCTOR (type)
-	  && DECL_NAME (decl))
-	TREE_USED (decl) = 0;
-      else if (already_used)
-	TREE_USED (decl) = 1;
-    }
+  /* Compute and store the initial value.  */
+  already_used = TREE_USED (decl) || TREE_USED (type);
 
   /* Generate a cleanup, if necessary.  */
   cleanup = cxx_maybe_build_cleanup (decl);
-  if (DECL_SIZE (decl) && cleanup)
+
+  /* Perform the initialization.  */
+  if (init)
+    {
+      int saved_stmts_are_full_exprs_p;
+
+      /* If we're only initializing a single object, guard the destructors
+	 of any temporaries used in its initializer with its destructor.
+	 This isn't right for arrays because each element initialization is
+	 a full-expression.  */
+      if (cleanup && TREE_CODE (type) != ARRAY_TYPE)
+	wrap_temporary_cleanups (init, cleanup);
+
+      gcc_assert (building_stmt_tree ());
+      saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
+      current_stmt_tree ()->stmts_are_full_exprs_p = 1;
+      finish_expr_stmt (init);
+      current_stmt_tree ()->stmts_are_full_exprs_p =
+	saved_stmts_are_full_exprs_p;
+    }
+
+  /* Set this to 0 so we can tell whether an aggregate which was
+     initialized was ever used.  Don't do this if it has a
+     destructor, so we don't complain about the 'resource
+     allocation is initialization' idiom.  Now set
+     attribute((unused)) on types so decls of that type will be
+     marked used. (see TREE_USED, above.)  */
+  if (TYPE_NEEDS_CONSTRUCTING (type)
+      && ! already_used
+      && TYPE_HAS_TRIVIAL_DESTRUCTOR (type)
+      && DECL_NAME (decl))
+    TREE_USED (decl) = 0;
+  else if (already_used)
+    TREE_USED (decl) = 1;
+
+  if (cleanup)
     finish_decl_cleanup (decl, cleanup);
 }
 
@@ -5402,8 +5455,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	 require a guard variable, and since the mangled name of the
 	 guard variable will depend on the mangled name of this
 	 variable.  */
-      if (!processing_template_decl
-	  && DECL_FUNCTION_SCOPE_P (decl)
+      if (DECL_FUNCTION_SCOPE_P (decl)
 	  && TREE_STATIC (decl)
 	  && !DECL_ARTIFICIAL (decl))
 	push_local_name (decl);
@@ -5508,6 +5560,21 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       /* This needs to happen after the linkage is set. */
       determine_visibility (decl);
 
+      if (var_definition_p && TREE_STATIC (decl))
+	{
+	  /* If a TREE_READONLY variable needs initialization
+	     at runtime, it is no longer readonly and we need to
+	     avoid MEM_READONLY_P being set on RTL created for it.  */
+	  if (init)
+	    {
+	      if (TREE_READONLY (decl))
+		TREE_READONLY (decl) = 0;
+	      was_readonly = 0;
+	    }
+	  else if (was_readonly)
+	    TREE_READONLY (decl) = 1;
+	}
+
       make_rtl_for_nonlocal_decl (decl, init, asmspec);
 
       /* Check for abstractness of the type. Notice that there is no
@@ -5530,40 +5597,21 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  if (init)
 	    DECL_INITIAL (decl) = init;
 	}
-      else
-	{
-	  /* A variable definition.  */
-	  if (DECL_FUNCTION_SCOPE_P (decl))
-	    {
-	      /* Initialize the local variable.  */
-	      if (processing_template_decl)
-		DECL_INITIAL (decl) = init;
-	      else if (!TREE_STATIC (decl))
-		initialize_local_var (decl, init);
-	    }
+      /* A variable definition.  */
+      else if (DECL_FUNCTION_SCOPE_P (decl) && !TREE_STATIC (decl))
+	/* Initialize the local variable.  */
+	initialize_local_var (decl, init);
 
-	  /* If a variable is defined, and then a subsequent
-	     definition with external linkage is encountered, we will
-	     get here twice for the same variable.  We want to avoid
-	     calling expand_static_init more than once.  For variables
-	     that are not static data members, we can call
-	     expand_static_init only when we actually process the
-	     initializer.  It is not legal to redeclare a static data
-	     member, so this issue does not arise in that case.  */
-	  if (var_definition_p && TREE_STATIC (decl))
-	    {
-	      /* If a TREE_READONLY variable needs initialization
-		 at runtime, it is no longer readonly and we need to
-		 avoid MEM_READONLY_P being set on RTL created for it.  */
-	      if (init)
-		{
-		  if (TREE_READONLY (decl))
-		    TREE_READONLY (decl) = 0;
-		  was_readonly = 0;
-		}
-	      expand_static_init (decl, init);
-	    }
-	}
+      /* If a variable is defined, and then a subsequent
+	 definition with external linkage is encountered, we will
+	 get here twice for the same variable.  We want to avoid
+	 calling expand_static_init more than once.  For variables
+	 that are not static data members, we can call
+	 expand_static_init only when we actually process the
+	 initializer.  It is not legal to redeclare a static data
+	 member, so this issue does not arise in that case.  */
+      else if (var_definition_p && TREE_STATIC (decl))
+	expand_static_init (decl, init);
     }
 
   /* If a CLEANUP_STMT was created to destroy a temporary bound to a
@@ -6062,6 +6110,9 @@ cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 
   if (initial_value)
     {
+      unsigned HOST_WIDE_INT i;
+      tree value;
+
       /* An array of character type can be initialized from a
 	 brace-enclosed string constant.
 
@@ -6077,6 +6128,18 @@ cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	  if (TREE_CODE (value) == STRING_CST
 	      && VEC_length (constructor_elt, v) == 1)
 	    initial_value = value;
+	}
+
+      /* If any of the elements are parameter packs, we can't actually
+	 complete this type now because the array size is dependent.  */
+      if (TREE_CODE (initial_value) == CONSTRUCTOR)
+	{
+	  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (initial_value), 
+				      i, value)
+	    {
+	      if (PACK_EXPANSION_P (value))
+		return 0;
+	    }
 	}
     }
 
@@ -6534,7 +6597,10 @@ grokfndecl (tree ctype,
 	       XXX Isn't this done in start_function, too?  */
 	    revert_static_member_fn (decl);
 	  if (DECL_ARTIFICIAL (old_decl))
-	    error ("definition of implicitly-declared %qD", old_decl);
+	    {
+	      error ("definition of implicitly-declared %qD", old_decl);
+	      return NULL_TREE;
+	    }
 
 	  /* Since we've smashed OLD_DECL to its
 	     DECL_TEMPLATE_RESULT, we must do the same to DECL.  */
@@ -7496,6 +7562,12 @@ grokdeclarator (const cp_declarator *declarator,
       return error_mark_node;
     }
 
+  if (declspecs->conflicting_specifiers_p)
+    {
+      error ("conflicting specifiers in declaration of %qs", name);
+      return error_mark_node;
+    }
+
   /* Extract the basic type from the decl-specifier-seq.  */
   type = declspecs->type;
   if (type == error_mark_node)
@@ -7790,15 +7862,10 @@ grokdeclarator (const cp_declarator *declarator,
       error ("multiple storage classes in declaration of %qs", name);
       thread_p = false;
     }
-  if (declspecs->conflicting_specifiers_p)
-    {
-      error ("conflicting specifiers in declaration of %qs", name);
-      storage_class = sc_none;
-    }
-  else if (decl_context != NORMAL
-	   && ((storage_class != sc_none
-		&& storage_class != sc_mutable)
-	       || thread_p))
+  if (decl_context != NORMAL
+      && ((storage_class != sc_none
+	   && storage_class != sc_mutable)
+	  || thread_p))
     {
       if ((decl_context == PARM || decl_context == CATCHPARM)
 	  && (storage_class == sc_register
@@ -8096,7 +8163,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  type_quals = TYPE_UNQUALIFIED;
 
 	  if (declarator->kind == cdk_ptrmem
-	      && (TREE_CODE (type) == FUNCTION_TYPE || memfn_quals))
+	      && (TREE_CODE (type) == FUNCTION_TYPE
+		  || (memfn_quals && TREE_CODE (type) == METHOD_TYPE)))
 	    {
 	      memfn_quals |= cp_type_quals (type);
 	      type = build_memfn_type (type,
@@ -9067,9 +9135,9 @@ grokdeclarator (const cp_declarator *declarator,
     else if (storage_class == sc_static)
       DECL_THIS_STATIC (decl) = 1;
 
-    /* Record constancy and volatility.  There's no need to do this
-       when processing a template; we'll do this for the instantiated
-       declaration based on the type of DECL.  */
+    /* Record constancy and volatility on the DECL itself .  There's
+       no need to do this when processing a template; we'll do this
+       for the instantiated declaration based on the type of DECL.  */
     if (!processing_template_decl)
       cp_apply_type_quals_to_decl (type_quals, decl);
 
@@ -12078,10 +12146,7 @@ cxx_maybe_build_cleanup (tree decl)
       if (TREE_CODE (type) == ARRAY_TYPE)
 	addr = decl;
       else
-	{
-	  cxx_mark_addressable (decl);
-	  addr = build_unary_op (ADDR_EXPR, decl, 0);
-	}
+	addr = build_address (decl);
 
       /* Optimize for space over speed here.  */
       if (!has_vbases || flag_expensive_optimizations)

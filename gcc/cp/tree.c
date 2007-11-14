@@ -649,6 +649,14 @@ cp_build_reference_type (tree to_type, bool rval)
 
 }
 
+/* Used by the C++ front end to build qualified array types.  However,
+   the C version of this function does not properly maintain canonical
+   types (which are not used in C).  */
+tree
+c_build_qualified_type (tree type, int type_quals)
+{
+  return cp_build_qualified_type (type, type_quals);
+}
 
 
 /* Make a variant of TYPE, qualified with the TYPE_QUALS.  Handles
@@ -846,6 +854,9 @@ cp_build_qualified_type_real (tree type,
 tree
 canonical_type_variant (tree t)
 {
+  if (t == error_mark_node)
+    return error_mark_node;
+
   return cp_build_qualified_type (TYPE_MAIN_VARIANT (t), cp_type_quals (t));
 }
 
@@ -2248,7 +2259,7 @@ make_ptrmem_cst (tree type, tree member)
 }
 
 /* Build a variant of TYPE that has the indicated ATTRIBUTES.  May
-   return an existing type of an appropriate type already exists.  */
+   return an existing type if an appropriate type already exists.  */
 
 tree
 cp_build_type_attribute_variant (tree type, tree attributes)
@@ -2480,6 +2491,10 @@ decl_linkage (tree decl)
 
   /* Things that don't have names have no linkage.  */
   if (!DECL_NAME (decl))
+    return lk_none;
+
+  /* Fields have no linkage.  */
+  if (TREE_CODE (decl) == FIELD_DECL)
     return lk_none;
 
   /* Things that are TREE_PUBLIC have external linkage.  */

@@ -39,14 +39,9 @@
 #define _GLIBCXX_PARALLEL_RANDOM_SHUFFLE_H 1
 
 #include <limits>
-
-#include <parallel/basic_iterator.h>
-#include <bits/stl_algo.h>
-
+#include <bits/stl_numeric.h>
 #include <parallel/parallel.h>
-#include <parallel/base.h>
 #include <parallel/random_number.h>
-#include <parallel/timing.h>
 
 namespace __gnu_parallel
 {
@@ -125,22 +120,20 @@ namespace __gnu_parallel
    *  @param rng Random number generator to use.
    */
   template<typename RandomNumberGenerator>
-  inline int random_number_pow2(int logp, RandomNumberGenerator& rng)
-  {
-    return rng.genrand_bits(logp);
-  }
+  inline int
+  random_number_pow2(int logp, RandomNumberGenerator& rng)
+  { return rng.genrand_bits(logp); }
 
   /** @brief Random shuffle code executed by each thread.
    *  @param pus Array of thread-local data records. */
   template<typename RandomAccessIterator, typename RandomNumberGenerator>
-  inline void parallel_random_shuffle_drs_pu(DRSSorterPU<RandomAccessIterator, RandomNumberGenerator>* pus)
+  inline void 
+  parallel_random_shuffle_drs_pu(DRSSorterPU<RandomAccessIterator, 
+				 RandomNumberGenerator>* pus)
   {
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::value_type value_type;
     typedef typename traits_type::difference_type difference_type;
-
-    Timing<sequential_tag> t;
-    t.tic();
 
     DRSSorterPU<RandomAccessIterator, RandomNumberGenerator>* d = &pus[omp_get_thread_num()];
     DRandomShufflingGlobalData<RandomAccessIterator>* sd = d->sd;
@@ -173,23 +166,19 @@ namespace __gnu_parallel
     for (bin_index b = 0; b < sd->num_bins + 1; b++)
       sd->dist[b][iam + 1] = dist[b];
 
-    t.tic();
-
 #pragma omp barrier
-
-    t.tic();
 
 #pragma omp single
     {
       // Sum up bins, sd->dist[s + 1][d->num_threads] now contains the
       // total number of items in bin s
       for (bin_index s = 0; s < sd->num_bins; s++)
-	partial_sum(sd->dist[s + 1], sd->dist[s + 1] + d->num_threads + 1, sd->dist[s + 1]);
+	__gnu_sequential::partial_sum(sd->dist[s + 1],
+				      sd->dist[s + 1] + d->num_threads + 1,
+				      sd->dist[s + 1]);
     }
 
 #pragma omp barrier
-
-    t.tic();
 
     sequence_index_t offset = 0, global_offset = 0;
     for (bin_index s = 0; s < d->bins_begin; s++)
@@ -204,13 +193,9 @@ namespace __gnu_parallel
 	offset = sd->dist[s + 1][d->num_threads];
       }
 
-    sd->temporaries[iam] = new value_type[offset];
-
-    t.tic();
+    sd->temporaries[iam] = static_cast<value_type*>(::operator new(sizeof(value_type) * offset));
 
 #pragma omp barrier
-
-    t.tic();
 
     // Draw local copies to avoid false sharing.
     for (bin_index b = 0; b < sd->num_bins + 1; b++)
@@ -238,11 +223,7 @@ namespace __gnu_parallel
     delete[] bin_proc;
     delete[] temporaries;
 
-    t.tic();
-
 #pragma omp barrier
-
-    t.tic();
 
     // Shuffle bins internally.
     for (bin_index b = d->bins_begin; b < d->bins_end; b++)
@@ -254,16 +235,13 @@ namespace __gnu_parallel
       }
 
     delete[] sd->temporaries[iam];
-
-    t.tic();
-
-    t.print();
   }
 
   /** @brief Round up to the next greater power of 2.
    *  @param x Integer to round up */
   template<typename T>
-  T round_up_to_pow2(T x)
+  T 
+  round_up_to_pow2(T x)
   {
     if (x <= 1)
       return 1;
@@ -396,7 +374,9 @@ namespace __gnu_parallel
    */
   template<typename RandomAccessIterator, typename RandomNumberGenerator>
   inline void
-  sequential_random_shuffle(RandomAccessIterator begin, RandomAccessIterator end, RandomNumberGenerator& rng)
+  sequential_random_shuffle(RandomAccessIterator begin, 
+			    RandomAccessIterator end, 
+			    RandomNumberGenerator& rng)
   {
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::value_type value_type;
@@ -444,15 +424,12 @@ namespace __gnu_parallel
 
     if (num_bins > 1)
       {
-	value_type* target = new value_type[n];
+	value_type* target = static_cast<value_type*>(::operator new(sizeof(value_type) * n));
 	bin_index* oracles = new bin_index[n];
 	difference_type* dist0 = new difference_type[num_bins + 1], * dist1 = new difference_type[num_bins + 1];
 
 	for (int b = 0; b < num_bins + 1; b++)
 	  dist0[b] = 0;
-
-	Timing<sequential_tag> t;
-	t.tic();
 
 	random_number bitrng(rng(0xFFFFFFFF));
 
@@ -465,15 +442,11 @@ namespace __gnu_parallel
 	    dist0[oracle + 1]++;
 	  }
 
-	t.tic();
-
 	// Sum up bins.
-	partial_sum(dist0, dist0 + num_bins + 1, dist0);
+	__gnu_sequential::partial_sum(dist0, dist0 + num_bins + 1, dist0);
 
 	for (int b = 0; b < num_bins + 1; b++)
 	  dist1[b] = dist0[b];
-
-	t.tic();
 
 	// Distribute according to oracles.
 	for (difference_type i = 0; i < n; i++)
@@ -483,9 +456,7 @@ namespace __gnu_parallel
 	  {
 	    sequential_random_shuffle(target + dist1[b], target + dist1[b + 1],
 				      rng);
-	    t.tic();
 	  }
-	t.print();
 
 	delete[] dist0;
 	delete[] dist1;
@@ -503,7 +474,8 @@ namespace __gnu_parallel
    */
   template<typename RandomAccessIterator, typename RandomNumberGenerator>
   inline void
-  parallel_random_shuffle(RandomAccessIterator begin, RandomAccessIterator end, RandomNumberGenerator rng = random_number())
+  parallel_random_shuffle(RandomAccessIterator begin, RandomAccessIterator end,
+			  RandomNumberGenerator rng = random_number())
   {
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::difference_type difference_type;

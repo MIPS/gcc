@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
+#include "debug.h"
 
 /* Current statement label.  Zero means no statement label.  Because new_st
    can get wiped during statement matching, we have to keep it separate.  */
@@ -673,6 +674,9 @@ next_statement (void)
 	  break;
 	}
 
+      if (gfc_define_undef_line ())
+	continue;
+
       st = (gfc_current_form == FORM_FIXED) ? next_fixed () : next_free ();
 
       if (st != ST_NONE)
@@ -1233,14 +1237,14 @@ gfc_ascii_statement (gfc_statement st)
 /* Create a symbol for the main program and assign it to ns->proc_name.  */
  
 static void 
-main_program_symbol (gfc_namespace *ns)
+main_program_symbol (gfc_namespace *ns, const char *name)
 {
   gfc_symbol *main_program;
   symbol_attribute attr;
 
-  gfc_get_symbol ("MAIN__", ns, &main_program);
+  gfc_get_symbol (name, ns, &main_program);
   gfc_clear_attr (&attr);
-  attr.flavor = FL_PROCEDURE;
+  attr.flavor = FL_PROGRAM;
   attr.proc = PROC_UNKNOWN;
   attr.subroutine = 1;
   attr.access = ACCESS_PUBLIC;
@@ -2854,11 +2858,26 @@ gfc_fixup_sibling_symbols (gfc_symbol *sym, gfc_namespace *siblings)
 	continue;
 
       old_sym = st->n.sym;
-      if ((old_sym->attr.flavor == FL_PROCEDURE
-	   || old_sym->ts.type == BT_UNKNOWN)
-	  && old_sym->ns == ns
-	  && !old_sym->attr.contained
-	  && old_sym->attr.flavor != FL_NAMELIST)
+      if (old_sym->ns == ns
+	    && !old_sym->attr.contained
+
+	    /* By 14.6.1.3, host association should be excluded
+	       for the following.  */
+	    && !(old_sym->attr.external
+		  || (old_sym->ts.type != BT_UNKNOWN
+			&& !old_sym->attr.implicit_type)
+		  || old_sym->attr.flavor == FL_PARAMETER
+		  || old_sym->attr.in_common
+		  || old_sym->attr.in_equivalence
+		  || old_sym->attr.data
+		  || old_sym->attr.dummy
+		  || old_sym->attr.result
+		  || old_sym->attr.dimension
+		  || old_sym->attr.allocatable
+		  || old_sym->attr.intrinsic
+		  || old_sym->attr.generic
+		  || old_sym->attr.flavor == FL_NAMELIST
+		  || old_sym->attr.proc == PROC_ST_FUNCTION))
 	{
 	  /* Replace it with the symbol from the parent namespace.  */
 	  st->n.sym = sym;
@@ -3084,7 +3103,7 @@ done:
    something else.  */
 
 void
-global_used (gfc_gsymbol *sym, locus *where)
+gfc_global_used (gfc_gsymbol *sym, locus *where)
 {
   const char *name;
 
@@ -3150,7 +3169,7 @@ parse_block_data (void)
       s = gfc_get_gsymbol (gfc_new_block->name);
       if (s->defined
 	  || (s->type != GSYM_UNKNOWN && s->type != GSYM_BLOCK_DATA))
-       global_used(s, NULL);
+       gfc_global_used(s, NULL);
       else
        {
 	 s->type = GSYM_BLOCK_DATA;
@@ -3181,7 +3200,7 @@ parse_module (void)
 
   s = gfc_get_gsymbol (gfc_new_block->name);
   if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_MODULE))
-    global_used(s, NULL);
+    gfc_global_used(s, NULL);
   else
     {
       s->type = GSYM_MODULE;
@@ -3228,7 +3247,7 @@ add_global_procedure (int sub)
   if (s->defined
       || (s->type != GSYM_UNKNOWN
 	  && s->type != (sub ? GSYM_SUBROUTINE : GSYM_FUNCTION)))
-    global_used(s, NULL);
+    gfc_global_used(s, NULL);
   else
     {
       s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
@@ -3250,7 +3269,7 @@ add_global_program (void)
   s = gfc_get_gsymbol (gfc_new_block->name);
 
   if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_PROGRAM))
-    global_used(s, NULL);
+    gfc_global_used(s, NULL);
   else
     {
       s->type = GSYM_PROGRAM;
@@ -3269,6 +3288,11 @@ gfc_parse_file (void)
   gfc_state_data top, s;
   gfc_statement st;
   locus prog_locus;
+
+  /* If the debugger wants the name of the main source file,
+     we give it.  */
+  if (debug_hooks->start_end_main_source_file)
+    (*debug_hooks->start_source_file) (0, gfc_source_file);
 
   top.state = COMP_NONE;
   top.sym = NULL;
@@ -3307,7 +3331,7 @@ loop:
       prog_locus = gfc_current_locus;
 
       push_state (&s, COMP_PROGRAM, gfc_new_block);
-      main_program_symbol(gfc_current_ns);
+      main_program_symbol(gfc_current_ns, gfc_new_block->name);
       accept_statement (st);
       add_global_program ();
       parse_progunit (ST_NONE);
@@ -3349,7 +3373,7 @@ loop:
       prog_locus = gfc_current_locus;
 
       push_state (&s, COMP_PROGRAM, gfc_new_block);
-      main_program_symbol (gfc_current_ns);
+      main_program_symbol (gfc_current_ns, "MAIN__");
       parse_progunit (st);
       break;
     }
@@ -3380,6 +3404,9 @@ loop:
   goto loop;
 
 done:
+  if (debug_hooks->start_end_main_source_file)
+    (*debug_hooks->end_source_file) (0);
+
   return SUCCESS;
 
 duplicate_main:

@@ -1363,15 +1363,17 @@ setup_incoming_promotions (rtx first)
 
       /* Eliminate sign extensions in the callee when possible.  Only
          do this when:
-	 (a) the mode of the register is the same as the mode of
+	 (a) a mode promotion has occurred;
+	 (b) the mode of the register is the same as the mode of
 	     the argument as it is passed; and
-	 (b) the signedness does not change across any of the promotions; and
-	 (c) when no language-level promotions (which we cannot guarantee
+	 (c) the signedness does not change across any of the promotions; and
+	 (d) when no language-level promotions (which we cannot guarantee
 	     will have been done by an external caller) are necessary,
 	     unless we know that this function is only ever called from
 	     the current compilation unit -- all of whose call sites will
 	     do the mode1 --> mode2 promotion.  */
-      if (mode3 == mode4
+      if (mode1 != mode3
+          && mode3 == mode4
           && uns1 == uns3
 	  && (mode1 == mode2 || strictly_local))
         {
@@ -9341,6 +9343,9 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  break;
 
 	case NOT:
+	  if (VECTOR_MODE_P (mode))
+	    break;
+
 	  /* Make this fit the case below.  */
 	  varop = gen_rtx_XOR (mode, XEXP (varop, 0),
 			       GEN_INT (GET_MODE_MASK (mode)));
@@ -12507,15 +12512,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	     to simply delete it.  */
 	  break;
 
-	case REG_LIBCALL_ID:
-	  /* If the insn previously containing this note still exists,
-	     put it back where it was.  Otherwise move it to the previous
-	     insn.  */
-	  if (!NOTE_P (from_insn))
-	    place = from_insn;
-	  else
-	    place = prev_real_insn (from_insn);
-	  break;
 	case REG_RETVAL:
 	  /* If the insn previously containing this note still exists,
 	     put it back where it was.  Otherwise move it to the previous

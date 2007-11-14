@@ -763,10 +763,27 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
   AC_LANG_SAVE
   AC_LANG_CPLUSPLUS
 
-  # Use -fno-exceptions so that the C driver can link these tests without
-  # hitting undefined references to personality routines.
+  # Use -std=c++98 because the default (-std=gnu++98) leaves __STRICT_ANSI__
+  # undefined and fake C99 facilities - like pre-standard snprintf - may be
+  # spuriously enabled.
+  # Long term, -std=c++0x could be even better, could manage to explicitely
+  # request C99 facilities to the underlying C headers.
   ac_save_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS -fno-exceptions"
+  CXXFLAGS="$CXXFLAGS -std=c++98"
+  ac_save_LIBS="$LIBS"
+  ac_save_gcc_no_link="$gcc_no_link"
+
+  if test x$gcc_no_link != xyes; then
+    # Use -fno-exceptions to that the C driver can link these tests without
+    # hitting undefined references to personality routines.
+    CXXFLAGS="$CXXFLAGS -fno-exceptions"
+    AC_CHECK_LIB(m, sin, [
+      LIBS="$LIBS -lm"
+    ], [
+      # Use the default compile-only tests in GCC_TRY_COMPILE_OR_LINK
+      gcc_no_link=yes
+    ])
+  fi
 
   # Check for the existence of <math.h> functions used if C99 is enabled.
   AC_MSG_CHECKING([for ISO C99 support in <math.h>])
@@ -963,6 +980,8 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
     <complex.h>, <stdio.h>, and <stdlib.h> can be used or exposed.])
   fi
 
+  gcc_no_link="$ac_save_gcc_no_link"
+  LIBS="$ac_save_LIBS"
   CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
   fi	
@@ -980,6 +999,11 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 
   AC_LANG_SAVE
   AC_LANG_CPLUSPLUS
+
+  # Use -std=c++98 because the default (-std=gnu++98) leaves __STRICT_ANSI__
+  # undefined and fake C99 facilities may be spuriously enabled.
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -std=c++98"
 
   # Check for the existence of <complex.h> complex math functions used
   # by tr1/complex.
@@ -1251,6 +1275,7 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
   # Check for the existence of the <stdbool.h> header.	
   AC_CHECK_HEADERS(stdbool.h)
 
+  CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
 ])
 
@@ -1394,6 +1419,16 @@ AC_DEFUN([GLIBCXX_CHECK_SYSTEM_ERROR], [
   AC_MSG_RESULT($ac_system_error_11)
   if test x"$ac_system_error_11" = x"yes"; then
     AC_DEFINE(HAVE_ECANCELED, 1, [Define if ECANCELED exists.])
+  fi
+
+  AC_MSG_CHECKING([for EOVERFLOW])
+  AC_CACHE_VAL(ac_system_error_12, [
+  AC_TRY_COMPILE([#include <errno.h>], [ int i = EOVERFLOW; ],
+             [ac_system_error_12=yes], [ac_system_error_12=no])
+  ])
+  AC_MSG_RESULT($ac_system_error_12)
+  if test x"$ac_system_error_12" = x"yes"; then
+    AC_DEFINE(HAVE_EOVERFLOW, 1, [Define if EOVERFLOW exists.])
   fi
 ])
 

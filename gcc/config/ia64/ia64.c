@@ -203,6 +203,7 @@ static int ia64_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 static bool ia64_function_ok_for_sibcall (tree, tree);
 static bool ia64_return_in_memory (const_tree, const_tree);
 static bool ia64_rtx_costs (rtx, int, int, int *);
+static int ia64_unspec_may_trap_p (const_rtx, unsigned);
 static void fix_range (const char *);
 static bool ia64_handle_option (size_t, const char *, int);
 static struct machine_function * ia64_init_machine_status (void);
@@ -408,6 +409,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_RTX_COSTS ia64_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+#undef TARGET_UNSPEC_MAY_TRAP_P
+#define TARGET_UNSPEC_MAY_TRAP_P ia64_unspec_may_trap_p
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG ia64_reorg
@@ -5073,6 +5077,29 @@ ia64_secondary_reload_class (enum reg_class class,
 }
 
 
+/* Implement targetm.unspec_may_trap_p hook.  */
+static int
+ia64_unspec_may_trap_p (const_rtx x, unsigned flags)
+{
+  if (GET_CODE (x) == UNSPEC)
+    {
+      switch (XINT (x, 1))
+	{
+	case UNSPEC_LDA:
+	case UNSPEC_LDS:
+	case UNSPEC_LDSA:
+	case UNSPEC_LDCCLR:
+	case UNSPEC_CHKACLR:
+	case UNSPEC_CHKS:
+	  /* These unspecs are just wrappers.  */
+	  return may_trap_p_1 (XVECEXP (x, 0, 0), flags);
+	}
+    }
+
+  return default_unspec_may_trap_p (x, flags);
+}
+
+
 /* Parse the -mfixed-range= option string.  */
 
 static void
@@ -5281,20 +5308,62 @@ ia64_safe_type (rtx insn)
    If a predicate register is written by an AND.ORCM we set WRITTEN_BY_AND
    to true; if it was written by an OR.ANDCM we set WRITTEN_BY_OR to true.  */
 
+#if GCC_VERSION >= 4000
+#define RWS_FIELD_TYPE __extension__ unsigned short
+#else
+#define RWS_FIELD_TYPE unsigned int
+#endif
 struct reg_write_state
 {
-  unsigned int write_count : 2;
-  unsigned int first_pred : 16;
-  unsigned int written_by_fp : 1;
-  unsigned int written_by_and : 1;
-  unsigned int written_by_or : 1;
+  RWS_FIELD_TYPE write_count : 2;
+  RWS_FIELD_TYPE first_pred : 10;
+  RWS_FIELD_TYPE written_by_fp : 1;
+  RWS_FIELD_TYPE written_by_and : 1;
+  RWS_FIELD_TYPE written_by_or : 1;
 };
 
 /* Cumulative info for the current instruction group.  */
 struct reg_write_state rws_sum[NUM_REGS];
-/* Info for the current instruction.  This gets copied to rws_sum after a
-   stop bit is emitted.  */
-struct reg_write_state rws_insn[NUM_REGS];
+#ifdef ENABLE_CHECKING
+/* Bitmap whether a register has been written in the current insn.  */
+HARD_REG_ELT_TYPE rws_insn[(NUM_REGS + HOST_BITS_PER_WIDEST_FAST_INT - 1)
+			   / HOST_BITS_PER_WIDEST_FAST_INT];
+
+static inline void
+rws_insn_set (int regno)
+{
+  gcc_assert (!TEST_HARD_REG_BIT (rws_insn, regno));
+  SET_HARD_REG_BIT (rws_insn, regno);
+}
+
+static inline int
+rws_insn_test (int regno)
+{
+  return TEST_HARD_REG_BIT (rws_insn, regno);
+}
+#else
+/* When not checking, track just REG_AR_CFM and REG_VOLATILE.  */
+unsigned char rws_insn[2];
+
+static inline void
+rws_insn_set (int regno)
+{
+  if (regno == REG_AR_CFM)
+    rws_insn[0] = 1;
+  else if (regno == REG_VOLATILE)
+    rws_insn[1] = 1;
+}
+
+static inline int
+rws_insn_test (int regno)
+{
+  if (regno == REG_AR_CFM)
+    return rws_insn[0];
+  if (regno == REG_VOLATILE)
+    return rws_insn[1];
+  return 0;
+}
+#endif
 
 /* Indicates whether this is the first instruction after a stop bit,
    in which case we don't need another stop bit.  Without this,
@@ -5313,7 +5382,7 @@ struct reg_flags
   unsigned int is_sibcall : 1;	/* Is this a sibling or normal call?  */
 };
 
-static void rws_update (struct reg_write_state *, int, struct reg_flags, int);
+static void rws_update (int, struct reg_flags, int);
 static int rws_access_regno (int, struct reg_flags, int);
 static int rws_access_reg (rtx, struct reg_flags, int);
 static void update_set_flags (rtx, struct reg_flags *);
@@ -5322,26 +5391,27 @@ static int rtx_needs_barrier (rtx, struct reg_flags, int);
 static void init_insn_group_barriers (void);
 static int group_barrier_needed (rtx);
 static int safe_group_barrier_needed (rtx);
+static int in_safe_group_barrier;
 
 /* Update *RWS for REGNO, which is being written by the current instruction,
    with predicate PRED, and associated register flags in FLAGS.  */
 
 static void
-rws_update (struct reg_write_state *rws, int regno, struct reg_flags flags, int pred)
+rws_update (int regno, struct reg_flags flags, int pred)
 {
   if (pred)
-    rws[regno].write_count++;
+    rws_sum[regno].write_count++;
   else
-    rws[regno].write_count = 2;
-  rws[regno].written_by_fp |= flags.is_fp;
+    rws_sum[regno].write_count = 2;
+  rws_sum[regno].written_by_fp |= flags.is_fp;
   /* ??? Not tracking and/or across differing predicates.  */
-  rws[regno].written_by_and = flags.is_and;
-  rws[regno].written_by_or = flags.is_or;
-  rws[regno].first_pred = pred;
+  rws_sum[regno].written_by_and = flags.is_and;
+  rws_sum[regno].written_by_or = flags.is_or;
+  rws_sum[regno].first_pred = pred;
 }
 
 /* Handle an access to register REGNO of type FLAGS using predicate register
-   PRED.  Update rws_insn and rws_sum arrays.  Return 1 if this access creates
+   PRED.  Update rws_sum array.  Return 1 if this access creates
    a dependency with an earlier instruction in the same group.  */
 
 static int
@@ -5358,18 +5428,15 @@ rws_access_regno (int regno, struct reg_flags flags, int pred)
     {
       int write_count;
 
-      /* One insn writes same reg multiple times?  */
-      gcc_assert (!rws_insn[regno].write_count);
-
-      /* Update info for current instruction.  */
-      rws_update (rws_insn, regno, flags, pred);
+      rws_insn_set (regno);
       write_count = rws_sum[regno].write_count;
 
       switch (write_count)
 	{
 	case 0:
 	  /* The register has not been written yet.  */
-	  rws_update (rws_sum, regno, flags, pred);
+	  if (!in_safe_group_barrier)
+	    rws_update (regno, flags, pred);
 	  break;
 
 	case 1:
@@ -5383,7 +5450,8 @@ rws_access_regno (int regno, struct reg_flags flags, int pred)
 	    ;
 	  else if ((rws_sum[regno].first_pred ^ 1) != pred)
 	    need_barrier = 1;
-	  rws_update (rws_sum, regno, flags, pred);
+	  if (!in_safe_group_barrier)
+	    rws_update (regno, flags, pred);
 	  break;
 
 	case 2:
@@ -5395,8 +5463,11 @@ rws_access_regno (int regno, struct reg_flags flags, int pred)
 	    ;
 	  else
 	    need_barrier = 1;
-	  rws_sum[regno].written_by_and = flags.is_and;
-	  rws_sum[regno].written_by_or = flags.is_or;
+	  if (!in_safe_group_barrier)
+	    {
+	      rws_sum[regno].written_by_and = flags.is_and;
+	      rws_sum[regno].written_by_or = flags.is_or;
+	    }
 	  break;
 
 	default:
@@ -5608,7 +5679,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 
       /* Avoid multiple register writes, in case this is a pattern with
 	 multiple CALL rtx.  This avoids a failure in rws_access_reg.  */
-      if (! flags.is_sibcall && ! rws_insn[REG_AR_CFM].write_count)
+      if (! flags.is_sibcall && ! rws_insn_test (REG_AR_CFM))
 	{
 	  new_flags.is_write = 1;
 	  need_barrier |= rws_access_regno (REG_RP, new_flags, pred);
@@ -5650,7 +5721,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	{
 	  /* Avoid writing the register multiple times if we have multiple
 	     asm outputs.  This avoids a failure in rws_access_reg.  */
-	  if (! rws_insn[REG_VOLATILE].write_count)
+	  if (! rws_insn_test (REG_VOLATILE))
 	    {
 	      new_flags.is_write = 1;
 	      rws_access_regno (REG_VOLATILE, new_flags, pred);
@@ -6044,17 +6115,16 @@ group_barrier_needed (rtx insn)
 static int
 safe_group_barrier_needed (rtx insn)
 {
-  struct reg_write_state rws_saved[NUM_REGS];
   int saved_first_instruction;
   int t;
 
-  memcpy (rws_saved, rws_sum, NUM_REGS * sizeof *rws_saved);
   saved_first_instruction = first_instruction;
+  in_safe_group_barrier = 1;
 
   t = group_barrier_needed (insn);
 
-  memcpy (rws_sum, rws_saved, NUM_REGS * sizeof *rws_saved);
   first_instruction = saved_first_instruction;
+  in_safe_group_barrier = 0;
 
   return t;
 }

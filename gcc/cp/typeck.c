@@ -620,7 +620,7 @@ merge_types (tree t1, tree t2)
 	if (code1 == POINTER_TYPE)
 	  t1 = build_pointer_type (target);
 	else
-	  t1 = build_reference_type (target);
+	  t1 = cp_build_reference_type (target, TYPE_REF_IS_RVALUE (t1));
 	t1 = build_type_attribute_variant (t1, attributes);
 	t1 = cp_build_qualified_type (t1, quals);
 
@@ -3357,12 +3357,12 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  result_type = type0;
-	  error ("ISO C++ forbids comparison between pointer and integer");
+	  pedwarn ("ISO C++ forbids comparison between pointer and integer");
 	}
       else if (code0 == INTEGER_TYPE && code1 == POINTER_TYPE)
 	{
 	  result_type = type1;
-	  error ("ISO C++ forbids comparison between pointer and integer");
+	  pedwarn ("ISO C++ forbids comparison between pointer and integer");
 	}
       else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (op1))
 	{
@@ -3746,7 +3746,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      && TYPE_MAIN_VARIANT (TREE_TYPE (orig_op0))
 		 != TYPE_MAIN_VARIANT (TREE_TYPE (orig_op1)))
 	    {
-	      warning (0, "comparison between types %q#T and %q#T",
+	      warning (OPT_Wsign_compare, "comparison between types %q#T and %q#T",
 		       TREE_TYPE (orig_op0), TREE_TYPE (orig_op1));
 	    }
 
@@ -3782,7 +3782,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 						(result_type)))))
 	    /* OK */;
 	  else
-	    warning (0, "comparison between signed and unsigned integer expressions");
+	    warning (OPT_Wsign_compare, 
+		     "comparison between signed and unsigned integer expressions");
 
 	  /* Warn if two unsigned values are being compared in a size
 	     larger than their original size, and one (and only one) is the
@@ -3826,7 +3827,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		    {
 		      mask = (~ (HOST_WIDE_INT) 0) << bits;
 		      if ((mask & constant) != mask)
-			warning (0, "comparison of promoted ~unsigned with constant");
+			warning (OPT_Wsign_compare, "comparison of promoted ~unsigned with constant");
 		    }
 		}
 	      else if (unsignedp0 && unsignedp1
@@ -3834,7 +3835,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			   < TYPE_PRECISION (result_type))
 		       && (TYPE_PRECISION (TREE_TYPE (primop1))
 			   < TYPE_PRECISION (result_type)))
-		warning (0, "comparison of promoted ~unsigned with unsigned");
+		warning (OPT_Wsign_compare, "comparison of promoted ~unsigned with unsigned");
 	    }
 	}
     }
@@ -6612,7 +6613,7 @@ check_return_expr (tree retval, bool *no_warning)
   if (processing_template_decl)
     {
       current_function_returns_value = 1;
-      check_for_bare_parameter_packs (retval);
+      check_for_bare_parameter_packs (&retval);
       return retval;
     }
 
@@ -6743,7 +6744,9 @@ check_return_expr (tree retval, bool *no_warning)
         function.  */
      && same_type_p ((TYPE_MAIN_VARIANT (TREE_TYPE (retval))),
                      (TYPE_MAIN_VARIANT
-                      (TREE_TYPE (TREE_TYPE (current_function_decl))))));
+                      (TREE_TYPE (TREE_TYPE (current_function_decl)))))
+     /* And the returned value must be non-volatile.  */
+     && ! TYPE_VOLATILE (TREE_TYPE (retval)));
      
   if (fn_returns_value_p && flag_elide_constructors)
     {
@@ -6976,7 +6979,18 @@ cp_has_mutable_p (const_tree type)
   return CLASS_TYPE_P (type) && CLASSTYPE_HAS_MUTABLE (type);
 }
 
-/* Apply the TYPE_QUALS to the new DECL.  */
+/* Set TREE_READONLY and TREE_VOLATILE on DECL as indicated by the
+   TYPE_QUALS.  For a VAR_DECL, this may be an optimistic
+   approximation.  In particular, consider:
+
+     int f();
+     struct S { int i; };
+     const S s = { f(); }
+
+   Here, we will make "s" as TREE_READONLY (because it is declared
+   "const") -- only to reverse ourselves upon seeing that the
+   initializer is non-constant.  */
+
 void
 cp_apply_type_quals_to_decl (int type_quals, tree decl)
 {

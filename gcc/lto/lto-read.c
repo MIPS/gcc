@@ -551,11 +551,11 @@ set_line_info (struct data_in *data_in, tree node)
     {
 #ifdef USE_MAPPED_LOCATION
       if (EXPR_P (node))
-	LINEMAP_POSITION_FOR_COLUMN (EXPR_CHECK (node)->exp.locus, line_table, data_in->current_col);
+	LINEMAP_POSITION_FOR_COLUMN (EXPR_CHECK (node)->exp.locus, line_table, data_in->current_col)
       else if (GIMPLE_STMT_P (node))
-	LINEMAP_POSITION_FOR_COLUMN (GIMPLE_STMT_LOCUS (node), line_table, data_in->current_col);
+	LINEMAP_POSITION_FOR_COLUMN (GIMPLE_STMT_LOCUS (node), line_table, data_in->current_col)
       else if (DECL_P (node))
-	LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col);
+	LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col)
 #else
       if (EXPR_P (node) || GIMPLE_STMT_P (node))
 	  annotate_with_file_line (node, 

@@ -795,6 +795,9 @@ output_tree_flags (struct output_block *ob,
   lto_flags_type flags = 0;
   const char *file_to_write = NULL;
   int line_to_write = -1;
+#ifdef USE_MAPPED_LOCATION
+  int col_to_write = -1;
+#endif
 
   if (code == 0 || TEST_BIT (lto_flags_needed_for, code))
     {
@@ -910,11 +913,11 @@ output_tree_flags (struct output_block *ob,
 	      flags |= LTO_SOURCE_LINE;
 	    }
 #ifdef USE_MAPPED_LOCATION
-	  if (current_loc != 0
+	  if (current_col != 0
 	      && ob->current_col != current_col)
 	    {
 	      col_to_write = current_col;
-	      ob->current_clo = current_col;
+	      ob->current_col = current_col;
 	      flags |= LTO_SOURCE_COL;
 	    }
 #endif

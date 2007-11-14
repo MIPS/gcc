@@ -161,6 +161,9 @@ form_from_filename (const char *filename)
     ".for", FORM_FIXED}
     ,
     {
+    ".ftn", FORM_FIXED}
+    ,
+    {
     "", FORM_UNKNOWN}
   };		/* sentinel value */
 
@@ -210,6 +213,10 @@ gfc_post_options (const char **pfilename)
   const char *filename = *pfilename, *canon_source_file = NULL;
   char *source_path;
   int i;
+
+  /* Issue an error if -fwhole-program was used.  */
+  if (flag_whole_program)
+    gfc_fatal_error ("Option -fwhole-program is not supported for Fortran");
 
   /* Verify the input file name.  */
   if (!filename || strcmp (filename, "-") == 0)

@@ -461,8 +461,10 @@ struct constraint_graph
      variable substitution.  */
   int *eq_rep;
 
-  /* Pointer equivalence node for a node.  if pe[a] != a, then node a
-     can be united with node pe[a] after initial constraint building.  */
+  /* Pointer equivalence label for a node.  All nodes with the same
+     pointer equivalence label can be unified together at some point
+     (either during constraint optimization or after the constraint
+     graph is built).  */
   unsigned int *pe;
 
   /* Pointer equivalence representative for a label.  This is used to
@@ -969,13 +971,12 @@ init_graph (unsigned int size)
   graph->indirect_cycles = XNEWVEC (int, graph->size);
   graph->rep = XNEWVEC (unsigned int, graph->size);
   graph->complex = XCNEWVEC (VEC(constraint_t, heap) *, size);
-  graph->pe = XNEWVEC (unsigned int, graph->size);
+  graph->pe = XCNEWVEC (unsigned int, graph->size);
   graph->pe_rep = XNEWVEC (int, graph->size);
 
   for (j = 0; j < graph->size; j++)
     {
       graph->rep[j] = j;
-      graph->pe[j] = j;
       graph->pe_rep[j] = -1;
       graph->indirect_cycles[j] = -1;
     }
@@ -1276,28 +1277,29 @@ unify_nodes (constraint_graph_t graph, unsigned int to, unsigned int from,
 	  changed_count--;
 	}
     }
-
-  /* If the solution changes because of the merging, we need to mark
-     the variable as changed.  */
-  if (bitmap_ior_into (get_varinfo (to)->solution,
-		       get_varinfo (from)->solution))
+  if (get_varinfo (from)->solution)
     {
-      if (update_changed && !TEST_BIT (changed, to))
+      /* If the solution changes because of the merging, we need to mark
+	 the variable as changed.  */
+      if (bitmap_ior_into (get_varinfo (to)->solution,
+			   get_varinfo (from)->solution))
 	{
-	  SET_BIT (changed, to);
-	  changed_count++;
+	  if (update_changed && !TEST_BIT (changed, to))
+	    {
+	      SET_BIT (changed, to);
+	      changed_count++;
+	    }
+	}
+      
+      BITMAP_FREE (get_varinfo (from)->solution);
+      BITMAP_FREE (get_varinfo (from)->oldsolution);
+      
+      if (stats.iterations > 0)
+	{
+	  BITMAP_FREE (get_varinfo (to)->oldsolution);
+	  get_varinfo (to)->oldsolution = BITMAP_ALLOC (&oldpta_obstack);
 	}
     }
-
-  BITMAP_FREE (get_varinfo (from)->solution);
-  BITMAP_FREE (get_varinfo (from)->oldsolution);
-
-  if (stats.iterations > 0)
-    {
-      BITMAP_FREE (get_varinfo (to)->oldsolution);
-      get_varinfo (to)->oldsolution = BITMAP_ALLOC (&oldpta_obstack);
-    }
-
   if (valid_graph_edge (graph, to, to))
     {
       if (graph->succs[to])
@@ -1942,13 +1944,13 @@ perform_var_substitution (constraint_graph_t graph)
 
   /* Condense the nodes, which means to find SCC's, count incoming
      predecessors, and unite nodes in SCC's.  */
-  for (i = 0; i < LAST_REF_NODE; i++)
+  for (i = 0; i < FIRST_REF_NODE; i++)
     if (!TEST_BIT (si->visited, si->node_mapping[i]))
       condense_visit (graph, si, si->node_mapping[i]);
 
   sbitmap_zero (si->visited);
   /* Actually the label the nodes for pointer equivalences  */
-  for (i = 0; i < LAST_REF_NODE; i++)
+  for (i = 0; i < FIRST_REF_NODE; i++)
     if (!TEST_BIT (si->visited, si->node_mapping[i]))
       label_visit (graph, si, si->node_mapping[i]);
 
@@ -2014,8 +2016,7 @@ perform_var_substitution (constraint_graph_t graph)
     {
       unsigned int node = si->node_mapping[i];
 
-      if (graph->pointer_label[node] == 0
-	  && TEST_BIT (graph->direct_nodes, node))
+      if (graph->pointer_label[node] == 0)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
@@ -2100,13 +2101,20 @@ unite_pointer_equivalences (constraint_graph_t graph)
 
   /* Go through the pointer equivalences and unite them to their
      representative, if they aren't already.  */
-  for (i = 0; i < graph->size; i++)
+  for (i = 0; i < FIRST_REF_NODE; i++)
     {
       unsigned int label = graph->pe[i];
-      int label_rep = graph->pe_rep[label];
-
-      if (label != i && unite (label_rep, i))
-	unify_nodes (graph, label_rep, i, false);
+      if (label)
+	{
+	  int label_rep = graph->pe_rep[label];
+	  
+	  if (label_rep == -1)
+	    continue;
+	  
+	  label_rep = find (label_rep);
+	  if (label_rep >= 0 && unite (label_rep, find (i)))
+	    unify_nodes (graph, label_rep, i, false);
+	}
     }
 }
 
@@ -2177,40 +2185,30 @@ rewrite_constraints (constraint_graph_t graph,
 	 the constraint.  */
       if (lhslabel == 0)
 	{
-	  if (!TEST_BIT (graph->direct_nodes, lhsnode))
-	    lhslabel = graph->pointer_label[lhsnode] = pointer_equiv_class++;
-	  else
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-
-		  fprintf (dump_file, "%s is a non-pointer variable,"
-			   "ignoring constraint:",
-			   get_varinfo (lhs.var)->name);
-		  dump_constraint (dump_file, c);
-		}
-	      VEC_replace (constraint_t, constraints, i, NULL);
-	      continue;
+	      
+	      fprintf (dump_file, "%s is a non-pointer variable,"
+		       "ignoring constraint:",
+		       get_varinfo (lhs.var)->name);
+	      dump_constraint (dump_file, c);
 	    }
+	  VEC_replace (constraint_t, constraints, i, NULL);
+	  continue;
 	}
 
       if (rhslabel == 0)
 	{
-	  if (!TEST_BIT (graph->direct_nodes, rhsnode))
-	    rhslabel = graph->pointer_label[rhsnode] = pointer_equiv_class++;
-	  else
+	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-
-		  fprintf (dump_file, "%s is a non-pointer variable,"
-			   "ignoring constraint:",
-			   get_varinfo (rhs.var)->name);
-		  dump_constraint (dump_file, c);
-		}
-	      VEC_replace (constraint_t, constraints, i, NULL);
-	      continue;
+	      
+	      fprintf (dump_file, "%s is a non-pointer variable,"
+		       "ignoring constraint:",
+		       get_varinfo (rhs.var)->name);
+	      dump_constraint (dump_file, c);
 	    }
+	  VEC_replace (constraint_t, constraints, i, NULL);
+	  continue;
 	}
 
       lhsvar = find_equivalent_node (graph, lhsvar, lhslabel);
@@ -4043,19 +4041,28 @@ sort_fieldstack (VEC(fieldoff_s,heap) *fieldstack)
 	 fieldoff_compare);
 }
 
-/* Given a TYPE, and a vector of field offsets FIELDSTACK, push all the fields
-   of TYPE onto fieldstack, recording their offsets along the way.
-   OFFSET is used to keep track of the offset in this entire structure, rather
-   than just the immediately containing structure.  Returns the number
-   of fields pushed.
+/* Given a TYPE, and a vector of field offsets FIELDSTACK, push all
+   the fields of TYPE onto fieldstack, recording their offsets along
+   the way.
+
+   OFFSET is used to keep track of the offset in this entire
+   structure, rather than just the immediately containing structure.
+   Returns the number of fields pushed.
+
    HAS_UNION is set to true if we find a union type as a field of
-   TYPE.  ADDRESSABLE_TYPE is the type of the outermost object that could have
-   its address taken.  */
+   TYPE.
+
+   ADDRESSABLE_TYPE is the type of the outermost object that could
+   have its address taken.
+
+   NESTING_LEVEL indicates whether TYPE is a structure nested inside
+   another, it starts at 0 and it is incremented by one on every
+   structure recursed into.  */
 
 int
 push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 			     HOST_WIDE_INT offset, bool *has_union,
-			     tree addressable_type)
+			     tree addressable_type, unsigned nesting_level)
 {
   tree field;
   int count = 0;
@@ -4112,11 +4119,14 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 	  if (!AGGREGATE_TYPE_P (TREE_TYPE (type))) /* var_can_have_subvars */
 	    push = true;
 	  else if (!(pushed = push_fields_onto_fieldstack
-		     (TREE_TYPE (type), fieldstack,
-		      offset + i * TREE_INT_CST_LOW (elsz), has_union,
+		     (TREE_TYPE (type),
+		      fieldstack,
+		      offset + i * TREE_INT_CST_LOW (elsz),
+		      has_union,
 		      (TYPE_NONALIASED_COMPONENT (type)
 		       ? addressable_type
-		       : TREE_TYPE (type)))))
+		       : TREE_TYPE (type)),
+		      nesting_level + 1)))
 	    /* Empty structures may have actual size, like in C++. So
 	       see if we didn't push any subfields and the size is
 	       nonzero, push the field onto the stack */
@@ -4135,6 +4145,7 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 		pair->alias_set = get_alias_set (addressable_type);
 	      else
 		pair->alias_set = -1;
+	      pair->nesting_level = nesting_level;
 	      count++;
 	    }
 	  else
@@ -4158,11 +4169,14 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 	if (!var_can_have_subvars (field))
 	  push = true;
 	else if (!(pushed = push_fields_onto_fieldstack
-		   (TREE_TYPE (field), fieldstack,
-		    offset + bitpos_of_field (field), has_union,
+		   (TREE_TYPE (field),
+		    fieldstack,
+		    offset + bitpos_of_field (field),
+		    has_union,
 		    (DECL_NONADDRESSABLE_P (field)
 		     ? addressable_type
-		     : TREE_TYPE (field))))
+		     : TREE_TYPE (field)),
+		    nesting_level + 1))
 		 && DECL_SIZE (field)
 		 && !integer_zerop (DECL_SIZE (field)))
 	  /* Empty structures may have actual size, like in C++. So
@@ -4183,6 +4197,7 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 	      pair->alias_set = get_alias_set (addressable_type);
 	    else
 	      pair->alias_set = -1;
+	    pair->nesting_level = nesting_level;
 	    count++;
 	  }
 	else
@@ -4382,7 +4397,7 @@ create_variable_info_for (tree decl, const char *name)
   if (var_can_have_subvars (decl) && use_field_sensitive && !hasunion)
     {
       push_fields_onto_fieldstack (decltype, &fieldstack, 0, &hasunion,
-				   decltype);
+				   decltype, 0);
       if (hasunion)
 	{
 	  VEC_free (fieldoff_s, heap, fieldstack);
@@ -4704,7 +4719,6 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 {
   unsigned int i;
   bitmap_iterator bi;
-  subvar_t sv;
   alias_set_type ptr_alias_set = get_alias_set (TREE_TYPE (ptr));
 
   EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)
@@ -4719,10 +4733,14 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 
       if (vi->has_union && get_subvars_for_var (vi->decl) != NULL)
 	{
+	  unsigned int i;
+	  tree subvar;
+	  subvar_t sv = get_subvars_for_var (vi->decl);
+
 	  /* Variables containing unions may need to be converted to
 	     their SFT's, because SFT's can have unions and we cannot.  */
-	  for (sv = get_subvars_for_var (vi->decl); sv; sv = sv->next)
-	    bitmap_set_bit (into, DECL_UID (sv->var));
+	  for (i = 0; VEC_iterate (tree, sv, i, subvar); ++i)
+	    bitmap_set_bit (into, DECL_UID (subvar));
 	}
       else if (TREE_CODE (vi->decl) == VAR_DECL
 	       || TREE_CODE (vi->decl) == PARM_DECL
@@ -4741,7 +4759,20 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 		  if (no_tbaa_pruning
 		      || (!is_derefed && !vi->directly_dereferenced)
 		      || alias_sets_conflict_p (ptr_alias_set, var_alias_set))
-		    bitmap_set_bit (into, DECL_UID (sft));
+		    {
+		      bitmap_set_bit (into, DECL_UID (sft));
+		      
+		      /* If SFT is inside a nested structure, it will
+			 be needed by the operand scanner to adjust
+			 offsets when adding operands to memory
+			 expressions that dereference PTR.  This means
+			 that memory partitioning may not partition
+			 this SFT because the operand scanner will not
+			 be able to find the other SFTs next to this
+			 one.  */
+		      if (SFT_NESTING_LEVEL (sft) > 0)
+			SFT_UNPARTITIONABLE_P (sft) = true;
+		    }
 		}
 	    }
 	  else
@@ -4945,7 +4976,6 @@ find_what_p_points_to (tree p)
 	    }
 
 	  /* Share the final set of variables when possible.  */
-
 	  finished_solution = BITMAP_GGC_ALLOC ();
 	  stats.points_to_sets_created++;
 

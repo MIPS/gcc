@@ -1165,7 +1165,7 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 	{
 	  gcc_assert (begin);
 
-	  if (begin->expr_type != EXPR_ARRAY)
+	  if (begin->expr_type != EXPR_ARRAY || !gfc_is_constant_expr (begin))
 	    {
 	      t = FAILURE;
 	      goto cleanup;
@@ -2012,7 +2012,7 @@ check_inquiry (gfc_expr *e, int not_restricted)
 	    && ap->expr->symtree->n.sym->ts.type == BT_CHARACTER
 	    && ap->expr->symtree->n.sym->ts.cl->length == NULL)
 	  {
-	    gfc_error ("assumed character length variable '%s' in constant "
+	    gfc_error ("Assumed character length variable '%s' in constant "
 		       "expression at %L", e->symtree->n.sym->name, &e->where);
 	      return MATCH_ERROR;
 	  }
@@ -2204,19 +2204,19 @@ check_init_expr (gfc_expr *e)
 	  switch (e->symtree->n.sym->as->type)
 	    {
 	      case AS_ASSUMED_SIZE:
-		gfc_error ("assumed size array '%s' at %L is not permitted "
+		gfc_error ("Assumed size array '%s' at %L is not permitted "
 			   "in an initialization expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
 
 	      case AS_ASSUMED_SHAPE:
-		gfc_error ("assumed shape array '%s' at %L is not permitted "
+		gfc_error ("Assumed shape array '%s' at %L is not permitted "
 			   "in an initialization expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
 
 	      case AS_DEFERRED:
-		gfc_error ("deferred array '%s' at %L is not permitted "
+		gfc_error ("Deferred array '%s' at %L is not permitted "
 			   "in an initialization expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
@@ -2249,7 +2249,10 @@ check_init_expr (gfc_expr *e)
       break;
 
     case EXPR_STRUCTURE:
-      t = gfc_check_constructor (e, check_init_expr);
+      if (e->ts.is_iso_c)
+	t = SUCCESS;
+      else
+	t = gfc_check_constructor (e, check_init_expr);
       break;
 
     case EXPR_ARRAY:
@@ -2429,6 +2432,19 @@ check_restricted (gfc_expr *e)
       sym = e->symtree->n.sym;
       t = FAILURE;
 
+      /* If a dummy argument appears in a context that is valid for a
+	 restricted expression in an elemental procedure, it will have
+	 already been simplified away once we get here.  Therefore we
+	 don't need to jump through hoops to distinguish valid from
+	 invalid cases.  */
+      if (sym->attr.dummy && sym->ns == gfc_current_ns
+	  && sym->ns->proc_name && sym->ns->proc_name->attr.elemental)
+	{
+	  gfc_error ("Dummy argument '%s' not allowed in expression at %L",
+		     sym->name, &e->where);
+	  break;
+	}
+
       if (sym->attr.optional)
 	{
 	  gfc_error ("Dummy argument '%s' at %L cannot be OPTIONAL",
@@ -2510,6 +2526,18 @@ gfc_specification_expr (gfc_expr *e)
   if (e->ts.type != BT_INTEGER)
     {
       gfc_error ("Expression at %L must be of INTEGER type", &e->where);
+      return FAILURE;
+    }
+
+  if (e->expr_type == EXPR_FUNCTION
+	  && !e->value.function.isym
+	  && !e->value.function.esym
+	  && !gfc_pure (e->symtree->n.sym))
+    {
+      gfc_error ("Function '%s' at %L must be PURE",
+		 e->symtree->n.sym->name, &e->where);
+      /* Prevent repeat error messages.  */
+      e->symtree->n.sym->attr.pure = 1;
       return FAILURE;
     }
 
@@ -2970,32 +2998,36 @@ gfc_get_variable_expr (gfc_symtree *var)
 }
 
 
-/* Traverse expr, marking all EXPR_VARIABLE symbols referenced.  */
+/* General expression traversal function.  */
 
-void
-gfc_expr_set_symbols_referenced (gfc_expr *expr)
+bool
+gfc_traverse_expr (gfc_expr *expr, gfc_symbol *sym,
+		   bool (*func)(gfc_expr *, gfc_symbol *, int*),
+		   int f)
 {
-  gfc_actual_arglist *arg;
-  gfc_constructor *c;
+  gfc_array_ref ar;
   gfc_ref *ref;
+  gfc_actual_arglist *args;
+  gfc_constructor *c;
   int i;
 
-  if (!expr) return;
+  if (!expr)
+    return false;
 
   switch (expr->expr_type)
     {
-    case EXPR_OP:
-      gfc_expr_set_symbols_referenced (expr->value.op.op1);
-      gfc_expr_set_symbols_referenced (expr->value.op.op2);
-      break;
+    case EXPR_VARIABLE:
+      gcc_assert (expr->symtree->n.sym);
+
+      if ((*func) (expr, sym, &f))
+	return true;
 
     case EXPR_FUNCTION:
-      for (arg = expr->value.function.actual; arg; arg = arg->next)
-	gfc_expr_set_symbols_referenced (arg->expr);
-      break;
-
-    case EXPR_VARIABLE:
-      gfc_set_sym_referenced (expr->symtree->n.sym);
+      for (args = expr->value.function.actual; args; args = args->next)
+	{
+	  if (gfc_traverse_expr (args->expr, sym, func, f))
+	    return true;
+	}
       break;
 
     case EXPR_CONSTANT:
@@ -3009,33 +3041,67 @@ gfc_expr_set_symbols_referenced (gfc_expr *expr)
 	gfc_expr_set_symbols_referenced (c->expr);
       break;
 
+    case EXPR_OP:
+      if (gfc_traverse_expr (expr->value.op.op1, sym, func, f))
+	return true;
+      if (gfc_traverse_expr (expr->value.op.op2, sym, func, f))
+	return true;
+      break;
+
     default:
       gcc_unreachable ();
       break;
     }
 
-    for (ref = expr->ref; ref; ref = ref->next)
+  ref = expr->ref;
+  while (ref != NULL)
+    {
       switch (ref->type)
 	{
-	case REF_ARRAY:
-	  for (i = 0; i < ref->u.ar.dimen; i++)
+	case  REF_ARRAY:
+	  ar = ref->u.ar;
+	  for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
 	    {
-	      gfc_expr_set_symbols_referenced (ref->u.ar.start[i]);
-	      gfc_expr_set_symbols_referenced (ref->u.ar.end[i]);
-	      gfc_expr_set_symbols_referenced (ref->u.ar.stride[i]);
+	      if (gfc_traverse_expr (ar.start[i], sym, func, f))
+		return true;
+	      if (gfc_traverse_expr (ar.end[i], sym, func, f))
+		return true;
+	      if (gfc_traverse_expr (ar.stride[i], sym, func, f))
+		return true;
 	    }
 	  break;
-	   
-	case REF_COMPONENT:
-	  break;
-	   
+
 	case REF_SUBSTRING:
-	  gfc_expr_set_symbols_referenced (ref->u.ss.start);
-	  gfc_expr_set_symbols_referenced (ref->u.ss.end);
+	  if (gfc_traverse_expr (ref->u.ss.start, sym, func, f))
+	    return true;
+	  if (gfc_traverse_expr (ref->u.ss.end, sym, func, f))
+	    return true;
 	  break;
-	   
+
+	  case REF_COMPONENT:
+	    break;
+
 	default:
 	  gcc_unreachable ();
-	  break;
 	}
+      ref = ref->next;
+    }
+  return false;
+}
+
+/* Traverse expr, marking all EXPR_VARIABLE symbols referenced.  */
+
+static bool
+expr_set_symbols_referenced (gfc_expr *expr,
+			     gfc_symbol *sym ATTRIBUTE_UNUSED,
+			     int *f ATTRIBUTE_UNUSED)
+{
+  gfc_set_sym_referenced (expr->symtree->n.sym);
+  return false;
+}
+
+void
+gfc_expr_set_symbols_referenced (gfc_expr *expr)
+{
+  gfc_traverse_expr (expr, NULL, expr_set_symbols_referenced, 0);
 }

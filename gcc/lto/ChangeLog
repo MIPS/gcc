@@ -1,3 +1,12 @@
+2007-11-13  Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE):
+	Initialize ARTIFICIAL.
+	(lto_read_subroutine_type_subprogram_DIE): Initialize
+	SAVED_SCOPE.
+	* lto-read.c (set_line_info): Remove ; from calls to
+	LINEMAP_POSITION_FOR_COLUMN.
+
 2007-11-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_type_ref): Renamed from get_type_ref.

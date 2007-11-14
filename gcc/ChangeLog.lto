@@ -1,3 +1,19 @@
+2007-11-14  Diego Novillo  <dnovillo@google.com>
+
+	Merge with mainline @130155.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge
+	string.
+	* configure: Regenerate.
+
+2007-11-13  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_tree_flags): Declare local
+	variable CURRENT_COL.  Fix existing misspellings of its
+	name.
+	* dwarf2out.c (lto_typedecl_ref): Remove unused variable.
+	Reformat comments.
+
 2007-11-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-tree-flags.def (PARM_DECL): Serialize the addressable_flag.
@@ -5,9 +21,10 @@
 
 2007-11-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* lto-function-out.c (output_expr_operand): Get the types correct for 
-	vector-cst.
-	* tree-cfg.c (dump_function_to_file): Print the function_decl in verbose mode.
+	* lto-function-out.c (output_expr_operand): Get the types
+	correct for vector-cst.
+	* tree-cfg.c (dump_function_to_file): Print the
+	function_decl in verbose mode.
 
 2007-11-13  Diego Novillo  <dnovillo@google.com>
 

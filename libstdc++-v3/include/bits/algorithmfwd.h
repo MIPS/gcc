@@ -43,6 +43,10 @@
   generate_n
   includes
   inplace_merge
+  is_heap (C++0x)
+  is_heap_until (C++0x)
+  is_sorted (C++0x)
+  is_sorted_until (C++0x)
   iter_swap
   lexicographical_compare
   lower_bound
@@ -52,6 +56,8 @@
   merge
   min
   min_element
+  minmax (C++0x)
+  minmax_element (C++0x)
   mismatch
   next_permutation
   nth_element
@@ -148,7 +154,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     fill_n(_OIter, _Size, const _Tp&);
 
   // find
-  // find_end
+
+  template<typename _FIter1, typename _FIter2>
+    _FIter1
+    find_end(_FIter1, _FIter1, _FIter2, _FIter2);
+
+  template<typename _FIter1, typename _FIter2, typename _BinaryPredicate>
+    _FIter1
+    find_end(_FIter1, _FIter1, _FIter2, _FIter2, _BinaryPredicate);
+
   // find_first_of
   // find_if
   // for_each
@@ -170,6 +184,40 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _BIter, typename _Compare>
     void 
     inplace_merge(_BIter, _BIter, _BIter, _Compare);
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _RAIter>
+    bool 
+    is_heap(_RAIter, _RAIter);
+
+  template<typename _RAIter, typename _Compare>
+    bool 
+    is_heap(_RAIter, _RAIter, _Compare);
+
+  template<typename _RAIter>
+    _RAIter 
+    is_heap_until(_RAIter, _RAIter);
+
+  template<typename _RAIter, typename _Compare>
+    _RAIter 
+    is_heap_until(_RAIter, _RAIter, _Compare);
+
+  template<typename _FIter>
+    bool 
+    is_sorted(_FIter, _FIter);
+
+  template<typename _FIter, typename _Compare>
+    bool 
+    is_sorted(_FIter, _FIter, _Compare);
+
+  template<typename _FIter>
+    _FIter 
+    is_sorted_until(_FIter, _FIter);
+
+  template<typename _FIter, typename _Compare>
+    _FIter 
+    is_sorted_until(_FIter, _FIter, _Compare);
+#endif
 
   template<typename _FIter1, typename _FIter2>
     void 
@@ -219,6 +267,25 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     min(const _Tp&, const _Tp&, _Compare);
 
   // min_element
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _Tp>
+    pair<const _Tp&, const _Tp&> 
+    minmax(const _Tp&, const _Tp&);
+
+  template<typename _Tp, typename _Compare>
+    pair<const _Tp&, const _Tp&>
+    minmax(const _Tp&, const _Tp&, _Compare);
+
+  template<typename _FIter>
+    pair<_FIter, _FIter>
+    minmax_element(_FIter, _FIter);
+
+  template<typename _FIter, typename _Compare>
+    pair<_FIter, _FIter>
+    minmax_element(_FIter, _FIter, _Compare);
+#endif
+
   // mismatch
 
   template<typename _BIter>
@@ -388,14 +455,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_P)
   template<typename _IIter, typename _Tp>
     _IIter 
     find(_IIter, _IIter, const _Tp&);
-
-  template<typename _FIter1, typename _FIter2>
-    _FIter1
-    find_end(_FIter1, _FIter1, _FIter2, _FIter2);
-
-  template<typename _FIter1, typename _FIter2, typename _BinaryPredicate>
-    _FIter1
-    find_end(_FIter1, _FIter1, _FIter2, _FIter2, _BinaryPredicate);
 
   template<typename _FIter1, typename _FIter2>
     _FIter1

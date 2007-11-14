@@ -524,6 +524,13 @@ make_edges (void)
 	      fallthru = false;
 	      break;
 
+
+            case OMP_ATOMIC_LOAD:
+            case OMP_ATOMIC_STORE:
+               fallthru = true;
+               break;
+
+
 	    case OMP_RETURN:
 	      /* In the case of an OMP_SECTION, the edge will go somewhere
 		 other than the next block.  This will be created later.  */
@@ -1422,7 +1429,7 @@ remove_useless_stmts_warn_notreached (tree stmt)
       location_t loc = EXPR_LOCATION (stmt);
       if (LOCATION_LINE (loc) > 0)
 	{
-	  warning (0, "%Hwill never be executed", &loc);
+	  warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
 	  return true;
 	}
     }
@@ -3538,6 +3545,24 @@ verify_gimple_reference (tree expr)
   return verify_gimple_min_lval (expr);
 }
 
+/* Returns true if there is one pointer type in TYPE_POINTER_TO (SRC_OBJ)
+   list of pointer-to types that is trivially convertible to DEST.  */
+
+static bool
+one_pointer_to_useless_type_conversion_p (tree dest, tree src_obj)
+{
+  tree src;
+
+  if (!TYPE_POINTER_TO (src_obj))
+    return true;
+
+  for (src = TYPE_POINTER_TO (src_obj); src; src = TYPE_NEXT_PTR_TO (src))
+    if (useless_type_conversion_p (dest, src))
+      return true;
+
+  return false;
+}
+
 /* Verify the GIMPLE expression EXPR.  Returns true if there is an
    error, otherwise false.  */
 
@@ -3724,7 +3749,6 @@ verify_gimple_expr (tree expr)
 	    return true;
 	  }
 	if (!POINTER_TYPE_P (TREE_TYPE (op0))
-	    || TREE_CODE (TREE_TYPE (op1)) != INTEGER_TYPE
 	    || !useless_type_conversion_p (type, TREE_TYPE (op0))
 	    || !useless_type_conversion_p (sizetype, TREE_TYPE (op1)))
 	  {
@@ -3774,14 +3798,11 @@ verify_gimple_expr (tree expr)
 	    error ("invalid operand in unary expression");
 	    return true;
 	  }
-	if (TYPE_POINTER_TO (TREE_TYPE (op))
-	    && !useless_type_conversion_p (type,
-					   TYPE_POINTER_TO (TREE_TYPE (op)))
+	if (!one_pointer_to_useless_type_conversion_p (type, TREE_TYPE (op))
 	    /* FIXME: a longstanding wart, &a == &a[0].  */
 	    && (TREE_CODE (TREE_TYPE (op)) != ARRAY_TYPE
-		|| (TYPE_POINTER_TO (TREE_TYPE (TREE_TYPE (op)))
-		    && !useless_type_conversion_p (type,
-			  TYPE_POINTER_TO (TREE_TYPE (TREE_TYPE (op)))))))
+		|| !one_pointer_to_useless_type_conversion_p (type,
+		      TREE_TYPE (TREE_TYPE (op)))))
 	  {
 	    error ("type mismatch in address expression");
 	    debug_generic_stmt (TREE_TYPE (expr));
@@ -3849,6 +3870,10 @@ verify_gimple_expr (tree expr)
     case CALL_EXPR:
       /* FIXME.  The C frontend passes unpromoted arguments in case it
 	 didn't see a function declaration before the call.  */
+      return false;
+
+    case OBJ_TYPE_REF:
+      /* FIXME.  */
       return false;
 
     default:;
@@ -4023,12 +4048,14 @@ verify_gimple_stmt (tree stmt)
     }
 }
 
-/* Verify the GIMPLE statements inside the statement list STMTS.  */
+/* Verify the GIMPLE statements inside the statement list STMTS.
+   Returns true if there were any errors.  */
 
-void
-verify_gimple_1 (tree stmts)
+static bool
+verify_gimple_2 (tree stmts)
 {
   tree_stmt_iterator tsi;
+  bool err = false;
 
   for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
     {
@@ -4037,28 +4064,44 @@ verify_gimple_1 (tree stmts)
       switch (TREE_CODE (stmt))
 	{
 	case BIND_EXPR:
-	  verify_gimple_1 (BIND_EXPR_BODY (stmt));
+	  err |= verify_gimple_2 (BIND_EXPR_BODY (stmt));
 	  break;
 
 	case TRY_CATCH_EXPR:
 	case TRY_FINALLY_EXPR:
-	  verify_gimple_1 (TREE_OPERAND (stmt, 0));
-	  verify_gimple_1 (TREE_OPERAND (stmt, 1));
+	  err |= verify_gimple_2 (TREE_OPERAND (stmt, 0));
+	  err |= verify_gimple_2 (TREE_OPERAND (stmt, 1));
 	  break;
 
 	case CATCH_EXPR:
-	  verify_gimple_1 (CATCH_BODY (stmt));
+	  err |= verify_gimple_2 (CATCH_BODY (stmt));
 	  break;
 
 	case EH_FILTER_EXPR:
-	  verify_gimple_1 (EH_FILTER_FAILURE (stmt));
+	  err |= verify_gimple_2 (EH_FILTER_FAILURE (stmt));
 	  break;
 
 	default:
-	  if (verify_gimple_stmt (stmt))
-	    debug_generic_expr (stmt);
+	  {
+	    bool err2 = verify_gimple_stmt (stmt);
+	    if (err2)
+	      debug_generic_expr (stmt);
+	    err |= err2;
+	  }
 	}
     }
+
+  return err;
+}
+
+
+/* Verify the GIMPLE statements inside the statement list STMTS.  */
+
+void
+verify_gimple_1 (tree stmts)
+{
+  if (verify_gimple_2 (stmts))
+    internal_error ("verify_gimple failed");
 }
 
 /* Verify the GIMPLE statements inside the current function.  */
@@ -4258,11 +4301,18 @@ verify_stmts (void)
 	      tree t = PHI_ARG_DEF (phi, i);
 	      tree addr;
 
+	      if (!t)
+		{
+		  error ("missing PHI def");
+		  debug_generic_stmt (phi);
+		  err |= true;
+		  continue;
+		}
 	      /* Addressable variables do have SSA_NAMEs but they
 		 are not considered gimple values.  */
-	      if (TREE_CODE (t) != SSA_NAME
-		  && TREE_CODE (t) != FUNCTION_DECL
-		  && !is_gimple_val (t))
+	      else if (TREE_CODE (t) != SSA_NAME
+		       && TREE_CODE (t) != FUNCTION_DECL
+		       && !is_gimple_val (t))
 		{
 		  error ("PHI def is not a GIMPLE value");
 		  debug_generic_stmt (phi);
@@ -6917,12 +6967,12 @@ execute_warn_function_return (void)
 	      location = EXPR_LOCATION (last);
 	      if (location == UNKNOWN_LOCATION)
 		  location = cfun->function_end_locus;
-	      warning (0, "%Hcontrol reaches end of non-void function", &location);
+	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", &location);
 #else
 	      locus = EXPR_LOCUS (last);
 	      if (!locus)
 		locus = &cfun->function_end_locus;
-	      warning (0, "%Hcontrol reaches end of non-void function", locus);
+	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", locus);
 #endif
 	      TREE_NO_WARNING (cfun->decl) = 1;
 	      break;

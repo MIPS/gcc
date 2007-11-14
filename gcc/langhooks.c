@@ -76,14 +76,6 @@ lhd_do_nothing_f (struct function * ARG_UNUSED (f))
 {
 }
 
-/* Do nothing (return the tree node passed).  */
-
-tree
-lhd_return_tree (tree t)
-{
-  return t;
-}
-
 /* Do nothing (return NULL_TREE).  */
 
 tree
@@ -494,8 +486,7 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
 
 tree
 lhd_callgraph_analyze_expr (tree *tp ATTRIBUTE_UNUSED,
-			    int *walk_subtrees ATTRIBUTE_UNUSED,
-			    tree decl ATTRIBUTE_UNUSED)
+			    int *walk_subtrees ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

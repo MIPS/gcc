@@ -45,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "gfortran.h"
 #include "toplev.h"
+#include "debug.h"
+#include "flags.h"
 
 /* Structure for holding module and include file search path.  */
 typedef struct gfc_directorylist
@@ -298,19 +300,86 @@ gfc_at_eol (void)
 }
 
 
+struct file_entered_chainon
+{
+  gfc_file *file;
+  struct file_entered_chainon *prev;
+};
+
+static struct file_entered_chainon *last_file_entered = NULL;
+
+static void
+start_source_file (int line, gfc_file *file)
+{
+  struct file_entered_chainon *f = gfc_getmem (sizeof
+                                       (struct file_entered_chainon));
+
+  f->file = file;
+  f->prev = last_file_entered;
+  last_file_entered = f;
+
+  (*debug_hooks->start_source_file) (line, file->filename);
+}
+
+static void
+end_source_file (int line)
+{
+  gcc_assert (last_file_entered);
+  last_file_entered = last_file_entered->prev;
+  (*debug_hooks->end_source_file) (line);
+}
+
+static void
+exit_remaining_files (void)
+{
+  struct file_entered_chainon *f = last_file_entered;
+  while (f)
+    {
+      /* The line number doesn't matter much, because we're at the end of
+         the toplevel file anyway.  */
+      (*debug_hooks->end_source_file) (0);
+
+      f = f->prev;
+    }
+}
+
 /* Advance the current line pointer to the next line.  */
 
 void
 gfc_advance_line (void)
 {
   if (gfc_at_end ())
-    return;
+    {
+      exit_remaining_files ();
+      return;
+    }
 
   if (gfc_current_locus.lb == NULL) 
     {
       end_flag = 1;
       return;
     } 
+
+  if (gfc_current_locus.lb->next
+      && gfc_current_locus.lb->next->file != gfc_current_locus.lb->file)
+    {
+      if (gfc_current_locus.lb->next->file
+	  && !gfc_current_locus.lb->next->dbg_emitted
+	  && gfc_current_locus.lb->file->up == gfc_current_locus.lb->next->file)
+	{
+	  /* We exit from an included file. */
+	  end_source_file (gfc_linebuf_linenum (gfc_current_locus.lb->next));
+	  gfc_current_locus.lb->next->dbg_emitted = true;
+	}
+      else if (gfc_current_locus.lb->next->file != gfc_current_locus.lb->file
+	       && !gfc_current_locus.lb->next->dbg_emitted)
+	{
+	  /* We enter into a new file.  */
+	  start_source_file (gfc_linebuf_linenum (gfc_current_locus.lb),
+			     gfc_current_locus.lb->next->file);
+	  gfc_current_locus.lb->next->dbg_emitted = true;
+	}
+    }
 
   gfc_current_locus.lb = gfc_current_locus.lb->next;
 
@@ -369,6 +438,28 @@ skip_comment_line (void)
   while (c != '\n');
 
   gfc_advance_line ();
+}
+
+
+int
+gfc_define_undef_line (void)
+{
+  /* All lines beginning with '#' are either #define or #undef.  */
+  if (debug_info_level != DINFO_LEVEL_VERBOSE || gfc_peek_char () != '#')
+    return 0;
+
+  if (strncmp (gfc_current_locus.nextc, "#define ", 8) == 0)
+    (*debug_hooks->define) (gfc_linebuf_linenum (gfc_current_locus.lb),
+			    &(gfc_current_locus.nextc[8]));
+
+  if (strncmp (gfc_current_locus.nextc, "#undef ", 7) == 0)
+    (*debug_hooks->undef) (gfc_linebuf_linenum (gfc_current_locus.lb),
+			   &(gfc_current_locus.nextc[7]));
+
+  /* Skip the rest of the line.  */
+  skip_comment_line ();
+
+  return 1;
 }
 
 
@@ -1505,8 +1596,18 @@ load_file (const char *filename, bool initial)
 
       if (line[0] == '#')
 	{
-	  preprocessor_line (line);
-	  continue;
+	  /* When -g3 is specified, it's possible that we emit #define
+	     and #undef lines, which we need to pass to the middle-end
+	     so that it can emit correct debug info.  */
+	  if (debug_info_level == DINFO_LEVEL_VERBOSE
+	      && (strncmp (line, "#define ", 8) == 0
+		  || strncmp (line, "#undef ", 7) == 0))
+	    ;
+	  else
+	    {
+	      preprocessor_line (line);
+	      continue;
+	    }
 	}
 
       /* Preprocessed files have preprocessor lines added before the byte

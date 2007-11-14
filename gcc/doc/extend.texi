@@ -2126,9 +2126,12 @@ versions of the GNU linker, but can now be avoided by passing the
 functions, using the attribute for a variable eliminates a thunk in
 the DLL@.
 
-One drawback to using this attribute is that a pointer to a function
-or variable marked as @code{dllimport} cannot be used as a constant
-address.  On Microsoft Windows targets, the attribute can be disabled
+One drawback to using this attribute is that a pointer to a
+@emph{variable} marked as @code{dllimport} cannot be used as a constant
+address. However, a pointer to a @emph{function} with the
+@code{dllimport} attribute can be used as a constant initializer; in
+this case, the address of a stub function in the import lib is
+referenced.  On Microsoft Windows targets, the attribute can be disabled
 for functions by setting the @option{-mnop-fun-dllimport} flag.
 
 @item eightbit_data
@@ -8143,7 +8146,7 @@ v2di __builtin_ia32_pshlq (v2di, v2di)
 v8hi __builtin_ia32_pshlw (v8hi, v8hi)
 @end smallexample
 
-The following builtin-in functions are avaialble when @option{-msse5}
+The following builtin-in functions are available when @option{-msse5}
 is used.  The second argument must be an integer constant and generate
 the machine instruction that is part of the name with the @samp{_imm}
 suffix removed.
@@ -12241,8 +12244,8 @@ future version.
 
 The G++ minimum and maximum operators (@samp{<?} and @samp{>?}) and
 their compound forms (@samp{<?=}) and @samp{>?=}) have been deprecated
-and will be removed in a future version.  Code using these operators
-should be modified to use @code{std::min} and @code{std::max} instead.
+and are now removed from G++.  Code using these operators should be
+modified to use @code{std::min} and @code{std::max} instead.
 
 The named return value extension has been deprecated, and is now
 removed from G++.

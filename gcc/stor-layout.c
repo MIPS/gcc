@@ -464,9 +464,9 @@ layout_decl (tree decl, unsigned int known_align)
 	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
-	    warning (0, "size of %q+D is %d bytes", decl, size_as_int);
+	    warning (OPT_Wlarger_than_, "size of %q+D is %d bytes", decl, size_as_int);
 	  else
-	    warning (0, "size of %q+D is larger than %wd bytes",
+	    warning (OPT_Wlarger_than_, "size of %q+D is larger than %wd bytes",
                      decl, larger_than_size);
 	}
     }
@@ -1886,13 +1886,10 @@ layout_type (tree type)
       && TREE_CODE (type) != QUAL_UNION_TYPE)
     finalize_type_size (type);
 
-  /* If an alias set has been set for this aggregate when it was incomplete,
-     force it into alias set 0.
-     This is too conservative, but we cannot call record_component_aliases
-     here because some frontends still change the aggregates after
-     layout_type.  */
-  if (AGGREGATE_TYPE_P (type) && TYPE_ALIAS_SET_KNOWN_P (type))
-    TYPE_ALIAS_SET (type) = 0;
+  /* We should never see alias sets on incomplete aggregates.  And we
+     should not call layout_type on not incomplete aggregates.  */
+  if (AGGREGATE_TYPE_P (type))
+    gcc_assert (!TYPE_ALIAS_SET_KNOWN_P (type));
 }
 
 /* Create and return a type for signed integers of PRECISION bits.  */

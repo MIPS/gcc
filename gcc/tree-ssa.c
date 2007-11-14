@@ -774,6 +774,24 @@ int_tree_map_hash (const void *item)
   return ((const struct int_tree_map *)item)->uid;
 }
 
+/* Return true if the DECL_UID in both trees are equal.  */
+
+int
+uid_decl_map_eq (const void *va, const void *vb)
+{
+  const_tree a = (const_tree) va;
+  const_tree b = (const_tree) vb;
+  return (a->decl_minimal.uid == b->decl_minimal.uid);
+}
+
+/* Hash a tree in a uid_decl_map.  */
+
+unsigned int
+uid_decl_map_hash (const void *item)
+{
+  return ((const_tree)item)->decl_minimal.uid;
+}
+
 /* Return true if the uid in both int tree maps are equal.  */
 
 static int
@@ -792,6 +810,24 @@ var_ann_hash (const void *item)
   return ((const struct static_var_ann_d *)item)->uid;
 }
 
+/* Return true if the DECL_UID in both trees are equal.  */
+
+static int
+uid_ssaname_map_eq (const void *va, const void *vb)
+{
+  const_tree a = (const_tree) va;
+  const_tree b = (const_tree) vb;
+  return (a->ssa_name.var->decl_minimal.uid == b->ssa_name.var->decl_minimal.uid);
+}
+
+/* Hash a tree in a uid_decl_map.  */
+
+static unsigned int
+uid_ssaname_map_hash (const void *item)
+{
+  return ((const_tree)item)->ssa_name.var->decl_minimal.uid;
+}
+
 
 /* Initialize global DFA and SSA structures.  */
 
@@ -799,12 +835,12 @@ void
 init_tree_ssa (struct function *fn)
 {
   fn->gimple_df = GGC_CNEW (struct gimple_df);
-  fn->gimple_df->referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
-				     		      int_tree_map_eq, NULL);
-  fn->gimple_df->default_defs = htab_create_ggc (20, int_tree_map_hash, 
-				                   int_tree_map_eq, NULL);
+  fn->gimple_df->referenced_vars = htab_create_ggc (20, uid_decl_map_hash, 
+				     		    uid_decl_map_eq, NULL);
+  fn->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash, 
+				                 uid_ssaname_map_eq, NULL);
   fn->gimple_df->var_anns = htab_create_ggc (20, var_ann_hash, 
-					       var_ann_eq, NULL);
+					     var_ann_eq, NULL);
   fn->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
   fn->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
   init_ssanames (fn, 0);
@@ -1390,7 +1426,7 @@ execute_update_addresses_taken (void)
   basic_block bb;
   bitmap addresses_taken = BITMAP_ALLOC (NULL);
   bitmap vars_updated = BITMAP_ALLOC (NULL);
-  bool update_vops;
+  bool update_vops = false;
   tree phi;
 
   /* Collect into ADDRESSES_TAKEN all variables whose address is taken within

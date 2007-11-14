@@ -402,8 +402,8 @@ static GTY(()) tree trampoline_type;
 static tree
 get_trampoline_type (void)
 {
-  tree record, t;
   unsigned align, size;
+  tree t;
 
   if (trampoline_type)
     return trampoline_type;
@@ -425,13 +425,13 @@ get_trampoline_type (void)
   DECL_ALIGN (t) = align;
   DECL_USER_ALIGN (t) = 1;
 
-  record = make_node (RECORD_TYPE);
-  TYPE_NAME (record) = get_identifier ("__builtin_trampoline");
-  TYPE_FIELDS (record) = t;
-  layout_type (record);
-  DECL_CONTEXT (t) = record;
+  trampoline_type = make_node (RECORD_TYPE);
+  TYPE_NAME (trampoline_type) = get_identifier ("__builtin_trampoline");
+  TYPE_FIELDS (trampoline_type) = t;
+  layout_type (trampoline_type);
+  DECL_CONTEXT (t) = trampoline_type;
 
-  return record;
+  return trampoline_type;
 }
 
 /* Given DECL, a nested function, find or create a field in the non-local

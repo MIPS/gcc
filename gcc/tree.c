@@ -4306,9 +4306,6 @@ decl_init_priority_lookup (tree decl)
   struct tree_map_base in;
 
   gcc_assert (VAR_OR_FUNCTION_DECL_P (decl));
-  gcc_assert (TREE_CODE (decl) == VAR_DECL
-	      ? DECL_HAS_INIT_PRIORITY_P (decl)
-	      : DECL_STATIC_CONSTRUCTOR (decl));
   in.from = decl;
   h = htab_find (init_priority_for_decl, &in);
   return h ? h->init : DEFAULT_INIT_PRIORITY;
@@ -4323,7 +4320,6 @@ decl_fini_priority_lookup (tree decl)
   struct tree_map_base in;
 
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
-  gcc_assert (DECL_STATIC_DESTRUCTOR (decl));
   in.from = decl;
   h = htab_find (init_priority_for_decl, &in);
   return h ? h->fini : DEFAULT_INIT_PRIORITY;
@@ -5949,10 +5945,10 @@ build_offset_type (tree basetype, tree type)
       if (TYPE_STRUCTURAL_EQUALITY_P (basetype)
 	  || TYPE_STRUCTURAL_EQUALITY_P (type))
 	SET_TYPE_STRUCTURAL_EQUALITY (t);
-      else if (TYPE_CANONICAL (basetype) != basetype
+      else if (TYPE_CANONICAL (TYPE_MAIN_VARIANT (basetype)) != basetype
 	       || TYPE_CANONICAL (type) != type)
 	TYPE_CANONICAL (t) 
-	  = build_offset_type (TYPE_CANONICAL (basetype), 
+	  = build_offset_type (TYPE_CANONICAL (TYPE_MAIN_VARIANT (basetype)),
 			       TYPE_CANONICAL (type));
     }
 
