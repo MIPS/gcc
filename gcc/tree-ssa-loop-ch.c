@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -133,8 +132,11 @@ copy_loop_headers (void)
 
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS
 		       | LOOPS_HAVE_SIMPLE_LATCHES);
-  if (!current_loops)
-    return 0;
+  if (number_of_loops () <= 1)
+    {
+      loop_optimizer_finalize ();
+      return 0;
+    }
 
 #ifdef ENABLE_CHECKING
   verify_loop_structure ();
@@ -213,11 +215,22 @@ copy_loop_headers (void)
 
 	  for (i = 0; i < n_bbs; ++i)
 	    {
-	      tree last;
+	      block_stmt_iterator bsi;
 
-	      last = last_stmt (copied_bbs[i]);
-	      if (TREE_CODE (last) == COND_EXPR)
-		TREE_NO_WARNING (last) = 1;
+	      for (bsi = bsi_start (copied_bbs[i]);
+		   !bsi_end_p (bsi);
+		   bsi_next (&bsi))
+		{
+		  tree stmt = bsi_stmt (bsi);
+		  if (TREE_CODE (stmt) == COND_EXPR)
+		    TREE_NO_WARNING (stmt) = 1;
+		  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+		    {
+		      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+		      if (COMPARISON_CLASS_P (rhs))
+			TREE_NO_WARNING (stmt) = 1;
+		    }
+		}
 	    }
 	}
 

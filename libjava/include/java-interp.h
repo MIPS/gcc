@@ -15,6 +15,13 @@ details.  */
 #include <java-cpool.h>
 #include <gnu/gcj/runtime/NameFinder.h>
 
+enum _Jv_FrameType
+{
+  frame_native,
+  frame_interpreter,
+  frame_proxy
+};
+
 #ifdef INTERPRETER
 
 #pragma interface
@@ -138,17 +145,27 @@ struct  _Jv_LineTableEntry
 };
 
 // This structure holds local variable information.
-// The pc value is the first pc where the variable must have a value and it
-// must continue to have a value until (start_pc + length).
-// The name is the variable name, and the descriptor contains type information.
-// The slot is the index in the local variable array of this method, long and
-// double occupy slot and slot+1.
+// Like _Jv_LineTableEntry above, it is remapped when the method is
+// compiled for direct threading.
 struct _Jv_LocalVarTableEntry
 {
-  int bytecode_start_pc;
+  // First PC value at which variable is live
+  union
+  {
+    pc_t pc;
+    int bytecode_pc;
+  };
+
+  // length of visibility of variable
   int length;
+
+  // variable name
   char *name;
+
+  // type description
   char *descriptor;
+
+  // stack slot number (long and double occupy slot and slot + 1)
   int slot;
 };
 
@@ -274,6 +291,9 @@ class _Jv_InterpMethod : public _Jv_MethodBase
      the insn or NULL if index is invalid. */
   pc_t set_insn (jlong index, pc_t insn);
 
+  // Is the given location in this method a breakpoint?
+  bool breakpoint_at (jlong index);
+
 #ifdef DIRECT_THREADED
   friend void _Jv_CompileMethod (_Jv_InterpMethod*);
 #endif
@@ -358,13 +378,6 @@ public:
   {
     function = f;
   }
-};
-
-enum _Jv_FrameType
-{
-  frame_native,
-  frame_interpreter,
-  frame_proxy
 };
 
 //  The composite call stack as represented by a linked list of frames
@@ -463,9 +476,9 @@ public:
     if (pc_ptr == NULL)
       pc = 0;
     else
-      pc = *pc_ptr;
+      pc = *pc_ptr - 1;
     
-    return pc - 1;
+    return pc;
   }
 };
 

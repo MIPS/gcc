@@ -25,8 +25,8 @@ extern "Java"
         {
           namespace gtk
           {
+              class CairoSurface;
               class ComponentGraphics;
-              class GdkFontPeer;
               class GtkComponentPeer;
               class GtkImage;
           }
@@ -110,9 +110,6 @@ private:
 public: // actually protected
   virtual ::java::awt::image::ColorModel * getNativeCM();
   virtual jlong init(jlong);
-public:
-  virtual void disposeNative(jlong);
-public: // actually protected
   virtual void drawPixels(jlong, JArray< jint > *, jint, jint, jint, JArray< jdouble > *, jdouble, jint);
   virtual void setGradient(jlong, jdouble, jdouble, jdouble, jdouble, jint, jint, jint, jint, jint, jint, jint, jint, jboolean);
   virtual void setPaintPixels(jlong, JArray< jint > *, jint, jint, jint, jboolean, jint, jint);
@@ -123,8 +120,6 @@ public: // actually protected
   virtual void cairoSetFillRule(jlong, jint);
   virtual void cairoSetLine(jlong, jdouble, jint, jint, jdouble);
   virtual void cairoSetDash(jlong, JArray< jdouble > *, jint, jdouble);
-  virtual void cairoDrawGlyphVector(jlong, ::gnu::java::awt::peer::gtk::GdkFontPeer *, jfloat, jfloat, jint, JArray< jint > *, JArray< jfloat > *);
-  virtual void cairoSetFont(jlong, ::gnu::java::awt::peer::gtk::GdkFontPeer *);
   virtual void cairoRectangle(jlong, jdouble, jdouble, jdouble, jdouble);
   virtual void cairoArc(jlong, jdouble, jdouble, jdouble, jdouble, jdouble);
   virtual void cairoSave(jlong);
@@ -138,6 +133,8 @@ public: // actually protected
   virtual void cairoFill(jlong, jdouble);
   virtual void cairoClip(jlong);
   virtual void cairoResetClip(jlong);
+  virtual void cairoSetAntialias(jlong, jboolean);
+  virtual void drawCairoSurface(::gnu::java::awt::peer::gtk::CairoSurface *, ::java::awt::geom::AffineTransform *, jdouble, jint);
 private:
   static jboolean hasXRenderExtension;
   ::gnu::java::awt::peer::gtk::GtkComponentPeer * __attribute__((aligned(__alignof__( ::gnu::java::awt::peer::gtk::CairoGraphics2D)))) component;

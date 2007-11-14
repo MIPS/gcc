@@ -69,6 +69,8 @@ void mda_gen_cmp (enum machine_mode mode);
 
 int mda_symbolic_constant_p (rtx x, enum score_symbol_type *symbol_type);
 
+bool mda_pindex_mem (rtx addr);
+
 int mda_bp (void);
 
 /* Machine Expand.  */
@@ -85,6 +87,8 @@ void mdx_call_value (rtx *ops, bool sibcall);
 /* Machine Split.  */
 void mds_movdi (rtx *ops);
 
+void mds_addsi (rtx *ops);
+
 void mds_zero_extract_andi (rtx *ops);
 
 /* Machine Print.  */
@@ -96,21 +100,14 @@ const char * mdp_linsn (rtx *ops, enum mda_mem_unit unit, bool sign);
 
 const char * mdp_sinsn (rtx *ops, enum mda_mem_unit unit);
 
-const char * mdp_select_add_imm (rtx *ops, bool set_cc);
+const char * mdp_add_imm_ucc (rtx *ops);
 
 const char * mdp_select (rtx *ops, const char *inst_pre,
-                        bool commu, const char *letter, bool set_cc);
+                        bool comu, const char *let);
 
 const char * mdp_limm (rtx *ops);
 
 const char * mdp_move (rtx *ops);
-
-/* Machine unaligned memory load/store. */
-bool mdx_unaligned_load (rtx* ops);
-
-bool mdx_unaligned_store (rtx* ops);
-
-bool mdx_block_move (rtx* ops);
 
 #endif
 

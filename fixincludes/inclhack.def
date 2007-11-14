@@ -1167,6 +1167,32 @@ fix = {
 
 
 /*
+ *  On darwin8 and earlier, mach-o/swap.h isn't properly guarded
+ *  by 'extern "C"'.  On darwin7 some mach/ headers aren't properly guarded.
+ */
+fix = {
+  hackname  = darwin_externc;
+  mach      = "*-*-darwin*";
+  files     = mach-o/swap.h;
+  files     = mach/mach_time.h;
+  files     = mach/mach_traps.h;
+  files     = mach/message.h;
+  files     = mach/mig.h;
+  files     = mach/semaphore.h;
+  bypass    = "extern \"C\"";
+  bypass    = "__BEGIN_DECLS";
+  c_fix     = wrap;
+  c_fix_arg = "#ifdef __cplusplus\n"
+              "extern \"C\" {\n"
+              "#endif\n";
+  c_fix_arg = "#ifdef __cplusplus\n"
+              "}\n"
+              "#endif\n";
+  test_text = "extern void swap_fat_header();\n";
+};
+
+
+/*
  * AvailabilityMacros.h on Darwin breaks with GCC 4.0, because of
  * bad __GNUC__ tests.
  */
@@ -1558,6 +1584,27 @@ fix = {
 };
 
 
+fix = {
+     hackname  = hppa_hpux_fp_macros;
+     mach      = hppa*-hp-hpux11*;
+     files     = math.h;
+     select    = "#[ \t]*define[ \t]*FP_NORMAL.*\n"
+		 "#[ \t]*define[ \t]*FP_ZERO.*\n"
+		 "#[ \t]*define[ \t]*FP_INFINITE.*\n"
+		 "#[ \t]*define[ \t]*FP_SUBNORMAL.*\n"
+		 "#[ \t]*define[ \t]*FP_NAN.*\n";
+     c_fix     = format;
+     c_fix_arg = "#endif /* _INCLUDE_HPUX_SOURCE */\n\n#if defined(_INCLUDE_HPUX_SOURCE) || (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))\n%0#endif\n\n#ifdef _INCLUDE_HPUX_SOURCE\n";
+
+     test_text =
+            "#  define FP_NORMAL     0\n"
+            "#  define FP_ZERO       1\n"
+            "#  define FP_INFINITE   2\n"
+            "#  define FP_SUBNORMAL  3\n"
+            "#  define FP_NAN        4\n";
+};
+
+
 /*
  *  Fix hpux 10.X missing ctype declarations 1
  */
@@ -1905,6 +1952,20 @@ fix = {
 };
 
 /*
+ *  Fix C99 constant in __POINTER_SET define.
+ */
+fix = {
+    hackname  = hpux11_pthread_const;
+    mach      = "*-hp-hpux11.[0-3]*";
+    files     = sys/pthread.h;
+    select    = "^#define[ \t]*__POINTER_SET[ \t]*\\(\\(void \\*\\) 1LL\\)";
+
+    c_fix     = format;
+    c_fix_arg = "#define __POINTER_SET\t\t((void *) 1L)";
+    test_text = "#define __POINTER_SET\t\t((void *) 1LL)";
+};
+
+/*
  *  Add missing braces to pthread initializer defines.
  */
 fix = {
@@ -2188,6 +2249,24 @@ fix = {
 
     test_text = "#define _SOCKLEN_T\ntypedef u_int32_t socklen_t;";
 };
+
+/*
+ *  IRIX 6.5 <stdint.h> only works with ISO C99 and errors out
+ *  otherwise.
+ */
+fix = {
+    hackname  = irix_stdint_c99;
+    files     = stdint.h;
+    select = "(#ifndef __c99\n)(#error This header file is to be used only for c99 mode compilations)";
+
+    mach      = "mips-sgi-irix6.5";
+    c_fix  = format;
+    c_fix_arg = "#if 0\n"
+	        "%2";
+    test_text =
+    "#ifndef __c99\n#error This header file is to be used only for c99 mode compilations\n#else";
+};
+
 
 /*
  *  IRIX 5.x's stdio.h and IRIX 6.5's internal/stdio_core.h declare
@@ -2566,6 +2645,25 @@ fix = {
     c_fix_arg = "extern\n#ifdef __GNUC_STDC_INLINE__\n__attribute__((__gnu_inline__))\n#endif\n__inline int";
 
     test_text = "extern __inline int\nsigaddset(sigset_t *set, int signo)\n{}";
+};
+
+
+fix = {
+    hackname  = netbsd_c99_inline_2;
+    mach      = *-*-netbsd*;
+    files     = signal.h;
+    select    = "#define _SIGINLINE extern __inline";
+
+    c_fix     = format;
+    c_fix_arg = <<- _EOArg_
+	#ifdef __GNUC_STDC_INLINE__
+	#define _SIGINLINE extern __attribute__((__gnu_inline__)) __inline
+	#else
+	%0
+	#endif
+	_EOArg_;
+
+    test_text = "#define _SIGINLINE extern __inline";
 };
 
 
@@ -3049,7 +3147,7 @@ fix = {
     files = iso/math_c99.h;
     c_fix = format;
     c_fix_arg = "#define\tfpclassify(x) \\\n"
-                "  __extension__ ({ __typeof(x) __x_fp = (x); \\\n"
+                "  __extension__ ({ const __typeof(x) __x_fp = (x); \\\n"
                 "\t\t   isnan(__x_fp) \\\n"
                 "\t\t     ? FP_NAN \\\n"
                 "\t\t     : isinf(__x_fp) \\\n"
@@ -3064,60 +3162,6 @@ fix = {
     '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
     "#undef	fpclassify\n"
     "#define	fpclassify(x)	__builtin_fpclassify(x)";
-};
-
-fix = {
-    hackname = solaris_math_5;
-    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
-    bypass = "__GNUC__";
-    files = iso/math_c99.h;
-    c_fix = format;
-    c_fix_arg = "#define\tisfinite(x) \\\n"
-                "  __extension__ ({ __typeof (x) __x_f = (x); \\\n"
-                "\t\t   __builtin_expect(!isnan(__x_f - __x_f), 1); })";
-    c_fix_arg = "^#define[ \t]+isfinite\\(x\\)[ \t]+__builtin_isfinite\\(x\\)";
-    test_text =
-    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
-    "#undef	isfinite\n"
-    "#define	isfinite(x)	__builtin_isfinite(x)";
-};
-
-fix = {
-    hackname = solaris_math_6;
-    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
-    bypass = "__GNUC__";
-    files = iso/math_c99.h;
-    c_fix = format;
-    c_fix_arg = "#define\tisinf(x) \\\n"
-                "  __extension__ ({ __typeof (x) __x_i = (x); \\\n"
-                "\t\t   __builtin_expect(!isnan(__x_i) && !isfinite(__x_i), 0); })";
-    c_fix_arg = "^#define[ \t]+isinf\\(x\\)[ \t]+__builtin_isinf\\(x\\)";
-    test_text =
-    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
-    "#undef	isinf\n"
-    "#define	isinf(x)	__builtin_isinf(x)";
-};
-
-fix = {
-    hackname = solaris_math_7;
-    select = '@\(#\)math_c99.h' "[ \t]+1.[0-9]+[ \t]+[0-9/]+ SMI";
-    bypass = "__GNUC__";
-    files = iso/math_c99.h;
-    c_fix = format;
-    c_fix_arg = "#define\tisnormal(x) \\\n"
-                "  __extension__ ({ __typeof(x) __x_n = (x); \\\n"
-                "\t\t   if (__x_n < 0.0) __x_n = -__x_n; \\\n"
-                "\t\t   __builtin_expect(isfinite(__x_n) \\\n"
-                "\t\t\t\t    && (sizeof(__x_n) == sizeof(float) \\\n"
-                "\t\t\t\t\t  ? __x_n >= __FLT_MIN__ \\\n"
-                "\t\t\t\t\t  : sizeof(__x_n) == sizeof(long double) \\\n"
-                "\t\t\t\t\t    ? __x_n >= __LDBL_MIN__ \\\n"
-                "\t\t\t\t\t    : __x_n >= __DBL_MIN__), 1); })";
-    c_fix_arg = "^#define[ \t]+isnormal\\(x\\)[ \t]+__builtin_isnormal\\(x\\)";
-    test_text =
-    '#ident	"@(#)math_c99.h	1.9	04/11/01 SMI"'"\n"
-    "#undef	isnormal\n"
-    "#define	isnormal(x)	__builtin_isnormal(x)";
 };
 
 fix = {

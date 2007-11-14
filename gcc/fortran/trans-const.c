@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* trans-const.c -- convert constant values */
 
@@ -209,45 +208,45 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 {
   gcc_assert (expr->expr_type == EXPR_CONSTANT);
 
-  /* If it is converted from Hollerith constant, we build string constant
-     and VIEW_CONVERT to its type.  */
+  /* If it is has a prescribed memory representation, we build a string
+     constant and VIEW_CONVERT to its type.  */
  
   switch (expr->ts.type)
     {
     case BT_INTEGER:
-      if (expr->from_H)
+      if (expr->representation.string)
 	return build1 (VIEW_CONVERT_EXPR,
 			gfc_get_int_type (expr->ts.kind),
-			gfc_build_string_const (expr->value.character.length,
-				expr->value.character.string));
+			gfc_build_string_const (expr->representation.length,
+				expr->representation.string));
       else
 	return gfc_conv_mpz_to_tree (expr->value.integer, expr->ts.kind);
 
     case BT_REAL:
-      if (expr->from_H)
+      if (expr->representation.string)
 	return build1 (VIEW_CONVERT_EXPR,
 			gfc_get_real_type (expr->ts.kind),
-			gfc_build_string_const (expr->value.character.length,
-				expr->value.character.string));
+			gfc_build_string_const (expr->representation.length,
+				expr->representation.string));
       else
 	return gfc_conv_mpfr_to_tree (expr->value.real, expr->ts.kind);
 
     case BT_LOGICAL:
-      if (expr->from_H)
+      if (expr->representation.string)
 	return build1 (VIEW_CONVERT_EXPR,
 			gfc_get_logical_type (expr->ts.kind),
-			gfc_build_string_const (expr->value.character.length,
-				expr->value.character.string));
+			gfc_build_string_const (expr->representation.length,
+				expr->representation.string));
       else
 	return build_int_cst (gfc_get_logical_type (expr->ts.kind),
 			    expr->value.logical);
 
     case BT_COMPLEX:
-      if (expr->from_H)
+      if (expr->representation.string)
 	return build1 (VIEW_CONVERT_EXPR,
 			gfc_get_complex_type (expr->ts.kind),
-			gfc_build_string_const (expr->value.character.length,
-				expr->value.character.string));
+			gfc_build_string_const (expr->representation.length,
+				expr->representation.string));
       else
 	{
 	  tree real = gfc_conv_mpfr_to_tree (expr->value.complex.r,
@@ -260,9 +259,12 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 	}
 
     case BT_CHARACTER:
-    case BT_HOLLERITH:
       return gfc_build_string_const (expr->value.character.length,
 				     expr->value.character.string);
+
+    case BT_HOLLERITH:
+      return gfc_build_string_const (expr->representation.length,
+				     expr->representation.string);
 
     default:
       fatal_error ("gfc_conv_constant_to_tree(): invalid type: %s",
@@ -277,6 +279,20 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 void
 gfc_conv_constant (gfc_se * se, gfc_expr * expr)
 {
+  /* We may be receiving an expression for C_NULL_PTR or C_NULL_FUNPTR.  If
+     so, they expr_type will not yet be an EXPR_CONSTANT.  We need to make
+     it so here.  */
+  if (expr->ts.type == BT_DERIVED && expr->ts.derived
+      && expr->ts.derived->attr.is_iso_c)
+    {
+      if (expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_PTR 
+          || expr->symtree->n.sym->intmod_sym_id == ISOCBINDING_NULL_FUNPTR)
+        {
+          /* Create a new EXPR_CONSTANT expression for our local uses.  */
+          expr = gfc_int_expr (0);
+        }
+    }
+
   gcc_assert (expr->expr_type == EXPR_CONSTANT);
 
   if (se->ss != NULL)

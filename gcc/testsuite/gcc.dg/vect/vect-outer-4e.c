@@ -19,6 +19,8 @@ foo (){
     }
     out[i]=(unsigned short)diff;
   }
+
+  return;
 }
 
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" { xfail *-*-* } } } */

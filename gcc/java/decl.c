@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -738,7 +737,6 @@ java_init_decl_processing (void)
   void_signature_node = get_identifier ("()V");
   finalize_identifier_node = get_identifier ("finalize");
   this_identifier_node = get_identifier ("this");
-  classdollar_identifier_node = get_identifier ("class$");
 
   java_lang_cloneable_identifier_node = get_identifier ("java.lang.Cloneable");
   java_io_serializable_identifier_node =
@@ -1077,7 +1075,10 @@ java_init_decl_processing (void)
   eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
                                              ? "__gcj_personality_sj0"
                                              : "__gcj_personality_v0");
-  default_init_unwind_resume_libfunc ();
+  if (targetm.arm_eabi_unwinder)
+    unwind_resume_libfunc = init_one_libfunc ("__cxa_end_cleanup");
+  else
+    default_init_unwind_resume_libfunc ();
 
   lang_eh_runtime_type = do_nothing;
 
@@ -1124,41 +1125,6 @@ lookup_name_current_level (tree name)
       break;
 
   return t;
-}
-
-/* Use a binding level to record a labeled block declaration */
-
-void
-push_labeled_block (tree lb)
-{
-  tree name = DECL_NAME (LABELED_BLOCK_LABEL (lb));
-  struct binding_level *b = current_binding_level;
-  tree oldlocal = IDENTIFIER_LOCAL_VALUE (name);
-  if (oldlocal != 0)
-      b->shadowed = tree_cons (name, oldlocal, b->shadowed);
-  TREE_CHAIN (lb) = b->names;
-  b->names = lb;
-  IDENTIFIER_LOCAL_VALUE (name) = lb;
-}
-
-/* Pop the current binding level, reinstalling values for the previous
-   labeled block */
-
-void
-pop_labeled_block (void)
-{
-  struct binding_level *b = current_binding_level;
-  tree label =  b->names;
-  IDENTIFIER_LOCAL_VALUE (DECL_NAME (LABELED_BLOCK_LABEL (label))) = 
-    NULL_TREE;
-  if (b->shadowed)
-    IDENTIFIER_LOCAL_VALUE (TREE_PURPOSE (b->shadowed)) = 
-      TREE_VALUE (b->shadowed);
-
-  /* Pop the current level, and free the structure for reuse.  */
-  current_binding_level = current_binding_level->level_chain;
-  b->level_chain = free_binding_level;
-  free_binding_level = b;
 }
 
 /* Record a decl-node X as belonging to the current lexical scope.
@@ -1882,7 +1848,7 @@ finish_method (tree fndecl)
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
   if (DECL_STRUCT_FUNCTION (fndecl))
-    cfun = DECL_STRUCT_FUNCTION (fndecl);
+    set_cfun (DECL_STRUCT_FUNCTION (fndecl));
   else
     allocate_struct_function (fndecl);
 #ifdef USE_MAPPED_LOCATION
@@ -1894,14 +1860,6 @@ finish_method (tree fndecl)
 
   /* Defer inlining and expansion to the cgraph optimizers.  */
   cgraph_finalize_function (fndecl, false);
-}
-
-/* Optimize and expand a function's entire body.  */
-
-void
-java_expand_body (tree fndecl)
-{
-  tree_rest_of_compilation (fndecl);
 }
 
 /* We pessimistically marked all methods and fields external until we

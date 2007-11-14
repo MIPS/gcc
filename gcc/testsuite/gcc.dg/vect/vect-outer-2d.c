@@ -5,7 +5,7 @@
 #define N 40
 float image[N][N][N+1] __attribute__ ((__aligned__(16)));
 
-void
+__attribute__ ((noinline)) void
 foo (){
   int i,j,k;
 
@@ -29,7 +29,7 @@ int main (void)
   for (i = 0; i < N; i++) {
     for (j = 0; j < i+1; j++) {
       if (image[k][j][i] != j+i+k)
-	abort ();
+       abort ();
     }
   }
  }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -27,11 +27,9 @@ along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "io.h"
 #include <stdlib.h>
 #include <string.h>
-#include "libgfortran.h"
-#include "io.h"
 
 
 /* IO locking rules:
@@ -83,6 +81,12 @@ __gthread_mutex_t unit_lock = __GTHREAD_MUTEX_INIT;
 #else
 __gthread_mutex_t unit_lock;
 #endif
+
+/* We use these filenames for error reporting.  */
+
+static char stdin_name[] = "stdin";
+static char stdout_name[] = "stdout";
+static char stderr_name[] = "stderr";
 
 /* This implementation is based on Stefan Nilsson's article in the
  * July 1997 Doctor Dobb's Journal, "Treaps in Java". */
@@ -371,7 +375,7 @@ get_internal_unit (st_parameter_dt *dtp)
   iunit = get_mem (sizeof (gfc_unit));
   if (iunit == NULL)
     {
-      generate_error (&dtp->common, ERROR_INTERNAL_UNIT, NULL);
+      generate_error (&dtp->common, LIBERROR_INTERNAL_UNIT, NULL);
       return NULL;
     }
 
@@ -506,6 +510,10 @@ init_units (void)
       u->recl = options.default_recl;
       u->endfile = NO_ENDFILE;
 
+      u->file_len = strlen (stdin_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stdin_name, u->file_len);
+    
       __gthread_mutex_unlock (&u->lock);
     }
 
@@ -524,6 +532,10 @@ init_units (void)
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
+    
+      u->file_len = strlen (stdout_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stdout_name, u->file_len);
 
       __gthread_mutex_unlock (&u->lock);
     }
@@ -543,6 +555,10 @@ init_units (void)
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
+
+      u->file_len = strlen (stderr_name);
+      u->file = get_mem (u->file_len);
+      memmove (u->file, stderr_name, u->file_len);
 
       __gthread_mutex_unlock (&u->lock);
     }
@@ -665,3 +681,40 @@ update_position (gfc_unit *u)
   else
     u->flags.position = POSITION_ASIS;
 }
+
+
+/* filename_from_unit()-- If the unit_number exists, return a pointer to the
+   name of the associated file, otherwise return the empty string.  The caller
+   must free memory allocated for the filename string.  */
+
+char *
+filename_from_unit (int n)
+{
+  char *filename;
+  gfc_unit *u;
+  int c;
+
+  /* Find the unit.  */
+  u = unit_root;
+  while (u != NULL)
+    {
+      c = compare (n, u->unit_number);
+      if (c < 0)
+	u = u->left;
+      if (c > 0)
+	u = u->right;
+      if (c == 0)
+	break;
+    }
+
+  /* Get the filename.  */
+  if (u != NULL)
+    {
+      filename = (char *) get_mem (u->file_len + 1);
+      unpack_filename (filename, u->file, u->file_len);
+      return filename;
+    }
+  else
+    return (char *) NULL;
+}
+

@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -30,6 +29,8 @@ with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Dbug; use Exp_Dbug;
 with Exp_Util; use Exp_Util;
+with Layout;   use Layout;
+with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Rtsfind;  use Rtsfind;
@@ -772,7 +773,7 @@ package body Exp_Pakd is
          end if;
 
          if Scope (Typ) /= Current_Scope then
-            New_Scope (Scope (Typ));
+            Push_Scope (Scope (Typ));
             Pushed_Scope := True;
          end if;
 
@@ -785,14 +786,18 @@ package body Exp_Pakd is
          end if;
 
          --  Set Esize and RM_Size to the actual size of the packed object
-         --  Do not reset RM_Size if already set, as happens in the case
-         --  of a modular type.
+         --  Do not reset RM_Size if already set, as happens in the case of
+         --  a modular type.
 
-         Set_Esize (PAT, PASize);
+         if Unknown_Esize (PAT) then
+            Set_Esize (PAT, PASize);
+         end if;
 
          if Unknown_RM_Size (PAT) then
             Set_RM_Size (PAT, PASize);
          end if;
+
+         Adjust_Esize_Alignment (PAT);
 
          --  Set remaining fields of packed array type
 
@@ -874,7 +879,7 @@ package body Exp_Pakd is
       --  type, since this size clearly belongs to the packed array type. The
       --  size of the conceptual unpacked type is always set to unknown.
 
-      PASize := Esize (Typ);
+      PASize := RM_Size (Typ);
 
       --  Case of an array where at least one index is of an enumeration
       --  type with a non-standard representation, but the component size
@@ -1144,15 +1149,13 @@ package body Exp_Pakd is
                --      range 0 .. 2 ** ((Typ'Length (1)
                --                * ... * Typ'Length (n)) * Csize) - 1;
 
-               --  The bounds are statically known, and btyp is one
-               --  of the unsigned types, depending on the length. If the
-               --  type is its first subtype, i.e. it is a user-defined
-               --  type, no object of the type will be larger, and it is
-               --  worthwhile to use a small unsigned type.
+               --  The bounds are statically known, and btyp is one of the
+               --  unsigned types, depending on the length.
 
-               if Len_Bits <= Standard_Short_Integer_Size
-                 and then First_Subtype (Typ) = Typ
-               then
+               if Len_Bits <= Standard_Short_Short_Integer_Size then
+                  Btyp := RTE (RE_Short_Short_Unsigned);
+
+               elsif Len_Bits <= Standard_Short_Integer_Size then
                   Btyp := RTE (RE_Short_Unsigned);
 
                elsif Len_Bits <= Standard_Integer_Size then
@@ -2200,7 +2203,7 @@ package body Exp_Pakd is
       --  one bits of length equal to the size of this packed type and
       --  rtyp is the actual subtype of the operand
 
-      Lit := Make_Integer_Literal (Loc, 2 ** Esize (PAT) - 1);
+      Lit := Make_Integer_Literal (Loc, 2 ** RM_Size (PAT) - 1);
       Set_Print_In_Hex (Lit);
 
       if not Is_Array_Type (PAT) then

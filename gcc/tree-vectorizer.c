@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Loop Vectorization Pass.
 
@@ -112,7 +111,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 	Since we only vectorize operations which vector form can be
    expressed using existing tree codes, to verify that an operation is
    supported, the vectorizer checks the relevant optab at the relevant
-   machine_mode (e.g, add_optab->handlers[(int) V8HImode].insn_code). If
+   machine_mode (e.g, optab_handler (add_optab, V8HImode)->insn_code). If
    the value found is CODE_FOR_nothing, then there's no target support, and
    we can't vectorize the stmt.
 
@@ -832,7 +831,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
     }
 
   /* Generate new loop structure.  */
-  new_loop = duplicate_loop (loop, loop->outer);
+  new_loop = duplicate_loop (loop, loop_outer (loop));
   if (!new_loop)
     {
       free (bbs);
@@ -949,7 +948,7 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond, basic_block exit_bb,
  */
 
 bool
-slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
+slpeel_can_duplicate_loop_p (const struct loop *loop, const_edge e)
 {
   edge exit_e = single_exit (loop);
   edge entry_e = loop_preheader_edge (loop);
@@ -962,7 +961,7 @@ slpeel_can_duplicate_loop_p (struct loop *loop, edge e)
   if (loop->inner
       /* All loops have an outer scope; the only case loop->outer is NULL is for
          the function itself.  */
-      || !loop->outer
+      || !loop_outer (loop)
       || loop->num_nodes != 2
       || !empty_block_p (loop->latch)
       || !single_exit (loop)
@@ -1358,9 +1357,9 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   else
     STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
-  STMT_VINFO_SLP_TYPE (res) = 0;
   STMT_VINFO_INSIDE_OF_LOOP_COST (res) = 0;
   STMT_VINFO_OUTSIDE_OF_LOOP_COST (res) = 0;
+  STMT_SLP_TYPE (res) = 0;
   DR_GROUP_FIRST_DR (res) = NULL_TREE;
   DR_GROUP_NEXT_DR (res) = NULL_TREE;
   DR_GROUP_SIZE (res) = 0;
@@ -1378,9 +1377,9 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
    Used as predicate for dfs order traversal of the loop bbs.  */
 
 static bool
-bb_in_loop_p (basic_block bb, void *data)
+bb_in_loop_p (const_basic_block bb, const void *data)
 {
-  struct loop *loop = (struct loop *)data;
+  const struct loop *const loop = (const struct loop *)data;
   if (flow_bb_inside_loop_p (loop, bb))
     return true;
   return false;
@@ -1441,19 +1440,19 @@ new_loop_vec_info (struct loop *loop)
       else
 	{
 	  /* bb in current nest.  */
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-        {
-          stmt_ann_t ann = get_stmt_ann (phi);
-          set_stmt_info (ann, new_stmt_vec_info (phi, res));
-        }
+	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	    {
+	      stmt_ann_t ann = get_stmt_ann (phi);
+	      set_stmt_info (ann, new_stmt_vec_info (phi, res));
+	    }
 
-      for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
-	{
-	  tree stmt = bsi_stmt (si);
+	  for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	    {
+	      tree stmt = bsi_stmt (si);
 	      stmt_ann_t ann = stmt_ann (stmt);
-	  set_stmt_info (ann, new_stmt_vec_info (stmt, res));
+	      set_stmt_info (ann, new_stmt_vec_info (stmt, res));
+	    }
 	}
-    }
     }
 
   /* CHECKME: We want to visit all BBs before their successors (except for 
@@ -1476,8 +1475,10 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_DATAREFS (res) = VEC_alloc (data_reference_p, heap, 10);
   LOOP_VINFO_DDRS (res) = VEC_alloc (ddr_p, heap, 10 * 10);
   LOOP_VINFO_UNALIGNED_DR (res) = NULL;
-  LOOP_VINFO_MAY_MISALIGN_STMTS (res)
-    = VEC_alloc (tree, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_CHECKS));
+  LOOP_VINFO_MAY_MISALIGN_STMTS (res) =
+    VEC_alloc (tree, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIGNMENT_CHECKS));
+  LOOP_VINFO_MAY_ALIAS_DDRS (res) =
+    VEC_alloc (ddr_p, heap, PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS));
   LOOP_VINFO_STRIDED_STORES (res) = VEC_alloc (tree, heap, 10);
   LOOP_VINFO_SLP_INSTANCES (res) = VEC_alloc (slp_instance, heap, 10);
   LOOP_VINFO_SLP_UNROLLING_FACTOR (res) = 1;
@@ -1516,11 +1517,6 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
       free_data_refs (LOOP_VINFO_DATAREFS (loop_vinfo));
       free_dependence_relations (LOOP_VINFO_DDRS (loop_vinfo));
       VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
-      VEC_free (tree, heap, LOOP_VINFO_STRIDED_STORES (loop_vinfo));
-      slp_instances = LOOP_VINFO_SLP_INSTANCES (loop_vinfo);
-      for (j = 0; VEC_iterate (slp_instance, slp_instances, j, instance); j++)
-	vect_free_slp_tree (SLP_INSTANCE_TREE (instance));
-      VEC_free (slp_instance, heap, LOOP_VINFO_SLP_INSTANCES (loop_vinfo));
 
       free (loop_vinfo);
       loop->aux = NULL;
@@ -1579,6 +1575,11 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
   free_data_refs (LOOP_VINFO_DATAREFS (loop_vinfo));
   free_dependence_relations (LOOP_VINFO_DDRS (loop_vinfo));
   VEC_free (tree, heap, LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
+  VEC_free (ddr_p, heap, LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo));
+  slp_instances = LOOP_VINFO_SLP_INSTANCES (loop_vinfo);
+  for (j = 0; VEC_iterate (slp_instance, slp_instances, j, instance); j++)
+    vect_free_slp_tree (SLP_INSTANCE_TREE (instance));
+  VEC_free (slp_instance, heap, LOOP_VINFO_SLP_INSTANCES (loop_vinfo));
 
   free (loop_vinfo);
   loop->aux = NULL;
@@ -1591,7 +1592,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
    on ALIGNMENT bit boundary.  */
 
 bool 
-vect_can_force_dr_alignment_p (tree decl, unsigned int alignment)
+vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 {
   if (TREE_CODE (decl) != VAR_DECL)
     return false;
@@ -1605,12 +1606,9 @@ vect_can_force_dr_alignment_p (tree decl, unsigned int alignment)
   if (TREE_STATIC (decl))
     return (alignment <= MAX_OFILE_ALIGNMENT);
   else
-    /* This is not 100% correct.  The absolute correct stack alignment
-       is STACK_BOUNDARY.  We're supposed to hope, but not assume, that
-       PREFERRED_STACK_BOUNDARY is honored by all translation units.
-       However, until someone implements forced stack alignment, SSE
-       isn't really usable without this.  */  
-    return (alignment <= PREFERRED_STACK_BOUNDARY); 
+    /* This used to be PREFERRED_STACK_BOUNDARY, however, that is not 100%
+       correct until someone implements forced stack alignment.  */
+    return (alignment <= STACK_BOUNDARY); 
 }
 
 
@@ -1684,7 +1682,7 @@ vect_supportable_dr_alignment (struct data_reference *dr)
   if (nested_in_vect_loop)
     {
       tree outerloop_step = STMT_VINFO_DR_STEP (stmt_info);
-      invariant_in_outerloop = 
+      invariant_in_outerloop =
 	(tree_int_cst_compare (outerloop_step, size_zero_node) == 0);
     }
 
@@ -1694,12 +1692,12 @@ vect_supportable_dr_alignment (struct data_reference *dr)
      a misaligned_move stmt) and the explicit realignment scheme (generating
      aligned loads with a REALIGN_LOAD). There are two variants to the explicit
      realignment scheme: optimized, and unoptimized.
-     We can optimize the realignment only if the step between consecutive 
-     vector loads is equal to the vector size.  Since the vector memory 
-     accesses advance in steps of VS (Vector Size) in the vectorized loop, it 
+     We can optimize the realignment only if the step between consecutive
+     vector loads is equal to the vector size.  Since the vector memory
+     accesses advance in steps of VS (Vector Size) in the vectorized loop, it
      is guaranteed that the misalignment amount remains the same throughout the
-     execution of the vectorized loop.  Therefore, we can create the 
-     "realignment token" (the permutation mask that is passed to REALIGN_LOAD) 
+     execution of the vectorized loop.  Therefore, we can create the
+     "realignment token" (the permutation mask that is passed to REALIGN_LOAD)
      at the loop preheader.
 
      However, in the case of outer-loop vectorization, when vectorizing a
@@ -1709,82 +1707,65 @@ vect_supportable_dr_alignment (struct data_reference *dr)
      iterations, it is *not* guaranteed that is will remain the same throughout
      the execution of the inner-loop.  This is because the inner-loop advances
      with the original scalar step (and not in steps of VS).  If the inner-loop
-     step happens to be a multiple of VS, then the misalignment remaines fixed
-     and we can use the optimized relaignment scheme.  For example:
+     step happens to be a multiple of VS, then the misalignment remains fixed
+     and we can use the optimized realignment scheme.  For example:
 
-	for (i=0; i<N; i++)
-	  for (j=0; j<M; j++)
-	    s += a[i+j];
+      for (i=0; i<N; i++)
+        for (j=0; j<M; j++)
+          s += a[i+j];
 
-     When vectorizing the i-loop in the above example, the step between 
-     consecutive vector loads is 1, and so the misalignment does not remain 
-     fixed across the execution of the inner-loop, and the realignment cannot 
+     When vectorizing the i-loop in the above example, the step between
+     consecutive vector loads is 1, and so the misalignment does not remain
+     fixed across the execution of the inner-loop, and the realignment cannot
      be optimized (as illustrated in the following pseudo vectorized loop):
 
-	for (i=0; i<N; i+=4)
-	  for (j=0; j<M; j++){
-	    vs += vp[i+j]; // misalignment of &vp[i+j] is {0,1,2,3,0,1,2,3,...}
-			   // when j is {0,1,2,3,4,5,6,7,...} respectively. 
-			   // (assuming that we start from an aligned address).
+      for (i=0; i<N; i+=4)
+        for (j=0; j<M; j++){
+          vs += vp[i+j]; // misalignment of &vp[i+j] is {0,1,2,3,0,1,2,3,...}
+                         // when j is {0,1,2,3,4,5,6,7,...} respectively.
+                         // (assuming that we start from an aligned address).
           }
 
      We therefore have to use the unoptimized realignment scheme:
 
-	for (i=0; i<N; i+=4)
-	  for (j=0; j<M; j++){
-	    rt = get_realignment_token (&vp[i+j]);
-	    v1 = vp[i+j];
-	    v2 = vp[i+j+VS-1];
-	    va = REALIGN_LOAD <v1,v2,rt>;
-	    vs += va;
-	  }
-
-     On the other hand, when vectorizing the i-loop in the following example 
-     (that implements the same computation as above):
-
-	for (k=0; k<4; k++)
-	  for (i=0; i<N; i++)
-	    for (j=k; j<M; j+=4)
-	      s += a[i+j];
-
-     the step between consecutive vector loads is 4, which (if assuming that 
-     the vector size is also 4) can be optimized:
-
-	for (k=0; k<4; k++)
-	  for (i=0; i<N; i+=4)
-	    for (j=k; j<M; j+=4)
-	      vs += vp[i+j]; // misalignment of &vp[i+j] is always k (assuming 
-			     // that the misalignment of the initial address is
-			     // 0).
+      for (i=0; i<N; i+=4)
+          for (j=k; j<M; j+=4)
+          vs += vp[i+j]; // misalignment of &vp[i+j] is always k (assuming
+                           // that the misalignment of the initial address is
+                           // 0).
 
      The loop can then be vectorized as follows:
 
-	for (k=0; k<4; k++){
-	  rt = get_realignment_token (&vp[k]);
-	  for (i=0; i<N; i+=4){
-	    v1 = vp[i+k];
-	    for (j=k; j<M; j+=4){
-	      v2 = vp[i+j+VS-1];
-	      va = REALIGN_LOAD <v1,v2,rt>;
-	      vs += va;
-	      v1 = v2;
-	    }
-	  }
-	} */
+      for (k=0; k<4; k++){
+        rt = get_realignment_token (&vp[k]);
+        for (i=0; i<N; i+=4){
+          v1 = vp[i+k];
+          for (j=k; j<M; j+=4){
+            v2 = vp[i+j+VS-1];
+            va = REALIGN_LOAD <v1,v2,rt>;
+            vs += va;
+            v1 = v2;
+          }
+        }
+    } */
 
   if (DR_IS_READ (dr))
     {
-      if (vec_realign_load_optab->handlers[mode].insn_code != CODE_FOR_nothing
+      if (optab_handler (vec_realign_load_optab, mode)->insn_code != 
+						   	     CODE_FOR_nothing
 	  && (!targetm.vectorize.builtin_mask_for_load
 	      || targetm.vectorize.builtin_mask_for_load ()))
 	{
-          if (nested_in_vect_loop
-	      && TREE_INT_CST_LOW (DR_STEP (dr)) != UNITS_PER_SIMD_WORD)
-	    return dr_explicit_realign;
-	  else
-	    return dr_explicit_realign_optimized;
+	    if (nested_in_vect_loop
+		&& TREE_INT_CST_LOW (DR_STEP (dr)) != UNITS_PER_SIMD_WORD)
+	      return dr_explicit_realign;
+	    else
+	      return dr_explicit_realign_optimized;
 	}
-      if (movmisalign_optab->handlers[mode].insn_code != CODE_FOR_nothing)
+
+      if (optab_handler (movmisalign_optab, mode)->insn_code != 
+							     CODE_FOR_nothing)
+	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
 
@@ -1918,10 +1899,10 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
    widening operation that is supported by the target platform in 
    vector form (i.e., when operating on arguments of type VECTYPE).
     
-   The two kinds of widening operations we currently support are
-   NOP and WIDEN_MULT. This function checks if these operations
-   are supported by the target platform either directly (via vector 
-   tree-codes), or via target builtins.
+   Widening operations we currently support are NOP (CONVERT), FLOAT
+   and WIDEN_MULT.  This function checks if these operations are supported
+   by the target platform either directly (via vector tree-codes), or via
+   target builtins.
 
    Output:
    - CODE1 and CODE2 are codes of vector operations to be used when 
@@ -2005,6 +1986,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
       break;
 
     case NOP_EXPR:
+    case CONVERT_EXPR:
       if (BYTES_BIG_ENDIAN)
         {
           c1 = VEC_UNPACK_HI_EXPR;
@@ -2017,26 +1999,120 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
         }
       break;
 
+    case FLOAT_EXPR:
+      if (BYTES_BIG_ENDIAN)
+        {
+          c1 = VEC_UNPACK_FLOAT_HI_EXPR;
+          c2 = VEC_UNPACK_FLOAT_LO_EXPR;
+        }
+      else
+        {
+          c2 = VEC_UNPACK_FLOAT_HI_EXPR;
+          c1 = VEC_UNPACK_FLOAT_LO_EXPR;
+        }
+      break;
+
+    case FIX_TRUNC_EXPR:
+      /* ??? Not yet implemented due to missing VEC_UNPACK_FIX_TRUNC_HI_EXPR/
+	 VEC_UNPACK_FIX_TRUNC_LO_EXPR tree codes and optabs used for
+	 computing the operation.  */
+      return false;
+
     default:
       gcc_unreachable ();
     }
 
-  *code1 = c1;
-  *code2 = c2;
-  optab1 = optab_for_tree_code (c1, vectype);
-  optab2 = optab_for_tree_code (c2, vectype);
+  if (code == FIX_TRUNC_EXPR)
+    {
+      /* The signedness is determined from output operand.  */
+      optab1 = optab_for_tree_code (c1, type);
+      optab2 = optab_for_tree_code (c2, type);
+    }
+  else
+    {
+      optab1 = optab_for_tree_code (c1, vectype);
+      optab2 = optab_for_tree_code (c2, vectype);
+    }
 
   if (!optab1 || !optab2)
     return false;
 
   vec_mode = TYPE_MODE (vectype);
-  if ((icode1 = optab1->handlers[(int) vec_mode].insn_code) == CODE_FOR_nothing
+  if ((icode1 = optab_handler (optab1, vec_mode)->insn_code) == CODE_FOR_nothing
       || insn_data[icode1].operand[0].mode != TYPE_MODE (wide_vectype)
-      || (icode2 = optab2->handlers[(int) vec_mode].insn_code)
+      || (icode2 = optab_handler (optab2, vec_mode)->insn_code)
                                                         == CODE_FOR_nothing
       || insn_data[icode2].operand[0].mode != TYPE_MODE (wide_vectype))
     return false;
 
+  *code1 = c1;
+  *code2 = c2;
+  return true;
+}
+
+
+/* Function supportable_narrowing_operation
+
+   Check whether an operation represented by the code CODE is a 
+   narrowing operation that is supported by the target platform in 
+   vector form (i.e., when operating on arguments of type VECTYPE).
+    
+   Narrowing operations we currently support are NOP (CONVERT) and
+   FIX_TRUNC. This function checks if these operations are supported by
+   the target platform directly via vector tree-codes.
+
+   Output:
+   - CODE1 is the code of a vector operation to be used when 
+   vectorizing the operation, if available.  */
+
+bool
+supportable_narrowing_operation (enum tree_code code,
+				 const_tree stmt, const_tree vectype,
+				 enum tree_code *code1)
+{
+  enum machine_mode vec_mode;
+  enum insn_code icode1;
+  optab optab1;
+  tree expr = GIMPLE_STMT_OPERAND (stmt, 1);
+  tree type = TREE_TYPE (expr);
+  tree narrow_vectype = get_vectype_for_scalar_type (type);
+  enum tree_code c1;
+
+  switch (code)
+    {
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+      c1 = VEC_PACK_TRUNC_EXPR;
+      break;
+
+    case FIX_TRUNC_EXPR:
+      c1 = VEC_PACK_FIX_TRUNC_EXPR;
+      break;
+
+    case FLOAT_EXPR:
+      /* ??? Not yet implemented due to missing VEC_PACK_FLOAT_EXPR
+	 tree code and optabs used for computing the operation.  */
+      return false;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  if (code == FIX_TRUNC_EXPR)
+    /* The signedness is determined from output operand.  */
+    optab1 = optab_for_tree_code (c1, type);
+  else
+    optab1 = optab_for_tree_code (c1, vectype);
+
+  if (!optab1)
+    return false;
+
+  vec_mode = TYPE_MODE (vectype);
+  if ((icode1 = optab_handler (optab1, vec_mode)->insn_code) == CODE_FOR_nothing
+      || insn_data[icode1].operand[0].mode != TYPE_MODE (narrow_vectype))
+    return false;
+
+  *code1 = c1;
   return true;
 }
 
@@ -2234,7 +2310,7 @@ vect_is_simple_reduction (loop_vec_info loop_info, tree phi)
      outer-loop vectorization is safe.  */
 
   /* CHECKME: check for !flag_finite_math_only too?  */
-  if (SCALAR_FLOAT_TYPE_P (type) && !flag_unsafe_math_optimizations
+  if (SCALAR_FLOAT_TYPE_P (type) && !flag_associative_math
       && !nested_in_vect_loop_p (vect_loop, def_stmt)) 
     {
       /* Changing the order of operations changes the semantics.  */
@@ -2252,6 +2328,16 @@ vect_is_simple_reduction (loop_vec_info loop_info, tree phi)
       if (vect_print_dump_info (REPORT_DETAILS))
         {
           fprintf (vect_dump, "reduction: unsafe int math optimization: ");
+          print_generic_expr (vect_dump, operation, TDF_SLIM);
+        }
+      return NULL_TREE;
+    }
+  else if (SAT_FIXED_POINT_TYPE_P (type))
+    {
+      /* Changing the order of operations changes the semantics.  */
+      if (vect_print_dump_info (REPORT_DETAILS))
+        {
+          fprintf (vect_dump, "reduction: unsafe fixed-point math optimization: ");
           print_generic_expr (vect_dump, operation, TDF_SLIM);
         }
       return NULL_TREE;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,8 +35,9 @@
 --  information. It contains the routine to load subsidiary units.
 
 with Alloc;
+with Namet; use Namet;
 with Table;
-with Types;  use Types;
+with Types; use Types;
 
 package Lib is
 
@@ -324,6 +325,10 @@ package Lib is
    --      (RACW) object. This is used for controlling generation of the RA
    --      attribute in the ali file.
 
+   --    Is_Compiler_Unit
+   --      A Boolean flag, initially set False by default, set to True if a
+   --      pragma Compiler_Unit appears in the unit.
+
    --    Ident_String
    --      N_String_Literal node from a valid pragma Ident that applies to
    --      this unit. If no Ident pragma applies to the unit, then Empty.
@@ -376,6 +381,7 @@ package Lib is
    function Generate_Code    (U : Unit_Number_Type) return Boolean;
    function Ident_String     (U : Unit_Number_Type) return Node_Id;
    function Has_RACW         (U : Unit_Number_Type) return Boolean;
+   function Is_Compiler_Unit (U : Unit_Number_Type) return Boolean;
    function Loading          (U : Unit_Number_Type) return Boolean;
    function Main_Priority    (U : Unit_Number_Type) return Int;
    function Munit_Index      (U : Unit_Number_Type) return Nat;
@@ -384,17 +390,18 @@ package Lib is
    function Unit_Name        (U : Unit_Number_Type) return Unit_Name_Type;
    --  Get value of named field from given units table entry
 
-   procedure Set_Cunit          (U : Unit_Number_Type; N : Node_Id);
-   procedure Set_Cunit_Entity   (U : Unit_Number_Type; E : Entity_Id);
-   procedure Set_Dynamic_Elab   (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Error_Location (U : Unit_Number_Type; W : Source_Ptr);
-   procedure Set_Fatal_Error    (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Generate_Code  (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Has_RACW       (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Ident_String   (U : Unit_Number_Type; N : Node_Id);
-   procedure Set_Loading        (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Main_Priority  (U : Unit_Number_Type; P : Int);
-   procedure Set_Unit_Name      (U : Unit_Number_Type; N : Unit_Name_Type);
+   procedure Set_Cunit            (U : Unit_Number_Type; N : Node_Id);
+   procedure Set_Cunit_Entity     (U : Unit_Number_Type; E : Entity_Id);
+   procedure Set_Dynamic_Elab     (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Error_Location   (U : Unit_Number_Type; W : Source_Ptr);
+   procedure Set_Fatal_Error      (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Generate_Code    (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Has_RACW         (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Is_Compiler_Unit (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Ident_String     (U : Unit_Number_Type; N : Node_Id);
+   procedure Set_Loading          (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Main_Priority    (U : Unit_Number_Type; P : Int);
+   procedure Set_Unit_Name        (U : Unit_Number_Type; N : Unit_Name_Type);
    --  Set value of named field for given units table entry. Note that we
    --  do not have an entry for each possible field, since some of the fields
    --  can only be set by specialized interfaces (defined below).
@@ -502,10 +509,11 @@ package Lib is
    --  Same function as above but argument is a source pointer
 
    function Earlier_In_Extended_Unit (S1, S2 : Source_Ptr) return Boolean;
-   --  Given two Sloc values  for which In_Same_Extended_Unit is true,
-   --  determine if S1 appears before S2. Returns True if S1 appears before
-   --  S2, and False otherwise. The result is undefined if S1 and S2 are
-   --  not in the same extended unit.
+   --  Given two Sloc values for which In_Same_Extended_Unit is true, determine
+   --  if S1 appears before S2. Returns True if S1 appears before S2, and False
+   --  otherwise. The result is undefined if S1 and S2 are not in the same
+   --  extended unit. Note: this routine will not give reliable results if
+   --  called after Sprint has been called with -gnatD set.
 
    function Compilation_Switches_Last return Nat;
    --  Return the count of stored compilation switches
@@ -562,6 +570,9 @@ package Lib is
    procedure Lock;
    --  Lock internal tables before calling back end
 
+   procedure Unlock;
+   --  Unlock internal tables, in cases where the back end needs to modify them
+
    procedure Tree_Read;
    --  Initializes internal tables from current tree file using the relevant
    --  Table.Tree_Read routines.
@@ -589,42 +600,23 @@ package Lib is
    --  time stamp are also output. File_Names_Only also restricts the list to
    --  exclude any predefined files.
 
-   function Generic_Separately_Compiled (E : Entity_Id) return Boolean;
-   --  This is the old version of tbe documentation of this function:
-   --
-   --  Most generic units must be separately compiled. Since we always use
+   function Generic_May_Lack_ALI (Sfile : File_Name_Type) return Boolean;
+   --  Generic units must be separately compiled. Since we always use
    --  macro substitution for generics, the resulting object file is a dummy
-   --  one with no code, but the ali file has the normal form, and we need
-   --  this ali file so that the binder can work out a correct order of
-   --  elaboration. However, we do not need to separate compile generics
-   --  if the generic files are language defined, since in this case there
-   --  are no order of elaborration problems, and we can simply incorporate
-   --  the context clause of the generic unit into the client. There are two
-   --  reasons for making this exception for predefined units. First, clearly
-   --  it is more efficient not to introduce extra unnecessary files. Second,
-   --  the old version of GNAT did not compile any generic units. That was
-   --  clearly incorrect in some cases of complex order of elaboration and
-   --  was fixed in version 3.10 of GNAT. However, the transition would have
-   --  caused bootstrap path problems in the case of generics used in the
-   --  compiler itself. The only such generics are predefined ones. This
-   --  function returns True if the given generic unit entity E is for a
-   --  generic unit that should be separately compiled, and false otherwise.
-   --
-   --  Now GNAT can compile any generic unit including predefined ones, but
-   --  because of the backward compatibility (to keep the ability to use old
-   --  compiler versions to build GNAT) compiling library generics is an
-   --  option. That is, now GNAT compiles a library generic as an ordinary
-   --  unit, but it also can build an exeutable in case if its library contains
-   --  some (or all) predefined generics non compiled. See 9628-002 for the
-   --  description of changes to be done to get rid of a special processing of
-   --  library generic.
-   --
-   --  So now this function returns TRUE if a generic MUST be separately
-   --  compiled with the current approach.
+   --  one with no code, but the ALI file has the normal form, and we need
+   --  this ALI file so that the binder can work out a correct order of
+   --  elaboration.
 
-   function Generic_Separately_Compiled
-     (Sfile : File_Name_Type) return  Boolean;
-   --  Same as the previous function, but works directly on a unit file name
+   --  However, ancient versions of GNAT used to not generate code or ALI
+   --  files for generic units, and this would yield complex order of
+   --  elaboration issues. These were fixed in GNAT 3.10. The support for not
+   --  compiling language-defined library generics was retained nonetheless
+   --  to facilitate bootstrap. Specifically, it is convenient to have
+   --  the same list of files to be compiled for all stages. So, if the
+   --  bootstrap compiler does not generate code for a given file, then
+   --  the stage1 compiler (and binder) also must deal with the case of
+   --  that file not being compiled. The predicate Generic_May_Lack_ALI is
+   --  True for those generic units for which missing ALI files are allowed.
 
 private
    pragma Inline (Cunit);
@@ -633,6 +625,7 @@ private
    pragma Inline (Fatal_Error);
    pragma Inline (Generate_Code);
    pragma Inline (Has_RACW);
+   pragma Inline (Is_Compiler_Unit);
    pragma Inline (Increment_Serial_Number);
    pragma Inline (Loading);
    pragma Inline (Main_Priority);
@@ -658,17 +651,47 @@ private
       Cunit            : Node_Id;
       Cunit_Entity     : Entity_Id;
       Dependency_Num   : Int;
-      Fatal_Error      : Boolean;
-      Generate_Code    : Boolean;
-      Has_RACW         : Boolean;
       Ident_String     : Node_Id;
-      Loading          : Boolean;
       Main_Priority    : Int;
       Serial_Number    : Nat;
       Version          : Word;
-      Dynamic_Elab     : Boolean;
       Error_Location   : Source_Ptr;
+      Fatal_Error      : Boolean;
+      Generate_Code    : Boolean;
+      Has_RACW         : Boolean;
+      Is_Compiler_Unit : Boolean;
+      Dynamic_Elab     : Boolean;
+      Loading          : Boolean;
    end record;
+
+   --  The following representation clause ensures that the above record
+   --  has no holes. We do this so that when instances of this record are
+   --  written by Tree_Gen, we do not write uninitialized values to the file.
+
+   for Unit_Record use record
+      Unit_File_Name   at  0 range 0 .. 31;
+      Unit_Name        at  4 range 0 .. 31;
+      Munit_Index      at  8 range 0 .. 31;
+      Expected_Unit    at 12 range 0 .. 31;
+      Source_Index     at 16 range 0 .. 31;
+      Cunit            at 20 range 0 .. 31;
+      Cunit_Entity     at 24 range 0 .. 31;
+      Dependency_Num   at 28 range 0 .. 31;
+      Ident_String     at 32 range 0 .. 31;
+      Main_Priority    at 36 range 0 .. 31;
+      Serial_Number    at 40 range 0 .. 31;
+      Version          at 44 range 0 .. 31;
+      Error_Location   at 48 range 0 .. 31;
+      Fatal_Error      at 52 range 0 ..  7;
+      Generate_Code    at 53 range 0 ..  7;
+      Has_RACW         at 54 range 0 ..  7;
+      Dynamic_Elab     at 55 range 0 ..  7;
+      Is_Compiler_Unit at 56 range 0 .. 31;
+      Loading          at 60 range 0 .. 31;
+   end record;
+
+   for Unit_Record'Size use 64 * 8;
+   --  This ensures that we did not leave out any fields
 
    package Units is new Table.Table (
      Table_Component_Type => Unit_Record,
@@ -724,8 +747,8 @@ private
    --  Type to hold list of indirect references to unit number table
 
    type Load_Stack_Entry is record
-      Unit_Number       : Unit_Number_Type;
-      From_Limited_With : Boolean;
+      Unit_Number : Unit_Number_Type;
+      With_Node   : Node_Id;
    end record;
 
    --  The Load_Stack table contains a list of unit numbers (indices into the
@@ -740,7 +763,7 @@ private
 
    package Load_Stack is new Table.Table (
      Table_Component_Type => Load_Stack_Entry,
-     Table_Index_Type     => Nat,
+     Table_Index_Type     => Int,
      Table_Low_Bound      => 0,
      Table_Initial        => Alloc.Load_Stack_Initial,
      Table_Increment      => Alloc.Load_Stack_Increment,

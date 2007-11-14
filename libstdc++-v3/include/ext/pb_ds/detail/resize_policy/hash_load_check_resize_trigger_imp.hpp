@@ -175,7 +175,7 @@ notify_externally_resized(size_type new_size)
 {
   m_resize_needed = false;
   size_type new_grow_size = size_type(m_load_max * new_size - 1);
-  size_type new_shrink_size = size_type(m_load_min * new_size );
+  size_type new_shrink_size = size_type(m_load_min * new_size);
   if (new_grow_size >= m_next_grow_size)
     {
       _GLIBCXX_DEBUG_ASSERT(new_shrink_size > m_next_shrink_size);
@@ -265,7 +265,7 @@ set_loads(std::pair<float, float> load_pair)
       m_load_max = load_pair.second;
       do_resize(static_cast<size_type>(size_base::get_size() / ((m_load_min + m_load_max) / 2)));
     }
-  catch (...)
+  catch(...)
     {
       m_load_min = old_load_min;
       m_load_max = old_load_max;

@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -168,9 +167,6 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
   tree type, half_type;
   tree pattern_expr;
   tree prod_type;
-  tree name;
-  imm_use_iterator imm_iter;
-  use_operand_p use_p;
   loop_vec_info loop_info = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   struct loop *loop = LOOP_VINFO_LOOP (loop_info);
 
@@ -206,23 +202,6 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
 
   if (TREE_CODE (expr) != PLUS_EXPR)
     return NULL;
-
-  /* A DOT_PROD_EXPR can be vectorized only if its ok to change the
-     computation order.  Here we check if the summation has any uses
-     in LOOP, which would require maintaining the same computation order.  */
-  name = GIMPLE_STMT_OPERAND (last_stmt, 0);
-  if (TREE_CODE (name) == SSA_NAME)
-    {
-      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, name)
-	{
-	  tree use_stmt = USE_STMT (use_p);
-	  basic_block bb = bb_for_stmt (use_stmt);
-	  if (flow_bb_inside_loop_p (loop, bb)
-	      && (TREE_CODE (use_stmt) != PHI_NODE
-		  || !is_loop_header_bb_p (bb)))
-            return NULL;
-	}
-    }
 
   if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
     {
@@ -566,7 +545,7 @@ vect_recog_pow_pattern (tree last_stmt, tree *type_in, tree *type_out)
    stmts that constitute the pattern. In this case it will be:
         WIDEN_SUM <x_t, sum_0>
 
-   Note: The widneing-sum idiom is a widening reduction pattern that is 
+   Note: The widening-sum idiom is a widening reduction pattern that is 
 	 vectorized without preserving all the intermediate results. It
          produces only N/2 (widened) results (by summing up pairs of 
 	 intermediate results) rather than all N results.  Therefore, we 
@@ -710,11 +689,12 @@ vect_pattern_recog_1 (
       optab = optab_for_tree_code (TREE_CODE (pattern_expr), pattern_vectype);
       vec_mode = TYPE_MODE (pattern_vectype);
       if (!optab
-          || (icode = optab->handlers[(int) vec_mode].insn_code) ==
+          || (icode = optab_handler (optab, vec_mode)->insn_code) ==
               CODE_FOR_nothing
           || (type_out
-              && (insn_data[icode].operand[0].mode !=
-                  TYPE_MODE (get_vectype_for_scalar_type (type_out)))))
+              && (!get_vectype_for_scalar_type (type_out)
+                  || (insn_data[icode].operand[0].mode !=
+                      TYPE_MODE (get_vectype_for_scalar_type (type_out))))))
 	return;
     }
 

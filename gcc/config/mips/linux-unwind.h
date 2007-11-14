@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for MIPS Linux.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,9 +51,8 @@ mips_fallback_frame_state (struct _Unwind_Context *context,
 			   _Unwind_FrameState *fs)
 {
   u_int32_t *pc = (u_int32_t *) context->ra;
-  u_int32_t t;
   struct sigcontext *sc;
-  _Unwind_Ptr new_cfa;
+  _Unwind_Ptr new_cfa, reg_offset;
   int i;
 
   /* 24021061 li v0, 0x1061 (rt_sigreturn)*/
@@ -86,31 +85,32 @@ mips_fallback_frame_state (struct _Unwind_Context *context,
   else
     return _URC_END_OF_STACK;
 
-  new_cfa = (_Unwind_Ptr)sc;
+  new_cfa = (_Unwind_Ptr) sc;
   fs->regs.cfa_how = CFA_REG_OFFSET;
   fs->regs.cfa_reg = STACK_POINTER_REGNUM;
   fs->regs.cfa_offset = new_cfa - (_Unwind_Ptr) context->cfa;
 
-#if _MIPS_SIM == _ABIO32 && defined __MIPSEB__
   /* On o32 Linux, the register save slots in the sigcontext are
      eight bytes.  We need the lower half of each register slot,
      so slide our view of the structure back four bytes.  */
-  new_cfa -= 4;
+#if _MIPS_SIM == _ABIO32 && defined __MIPSEB__
+  reg_offset = 4;
+#else
+  reg_offset = 0;
 #endif
 
   for (i = 0; i < 32; i++) {
     fs->regs.reg[i].how = REG_SAVED_OFFSET;
     fs->regs.reg[i].loc.offset
-      = (_Unwind_Ptr)&(sc->sc_regs[i]) - new_cfa;
+      = (_Unwind_Ptr)&(sc->sc_regs[i]) + reg_offset - new_cfa;
   }
   /* The PC points to the faulting instruction, but the unwind tables
      expect it point to the following instruction.  We compensate by
      reporting a return address at the next instruction. */
-  fs->regs.reg[SIGNAL_UNWIND_RETURN_COLUMN].how = REG_SAVED_VAL_OFFSET;
-  t = (*(u_int32_t *)(void *)&sc->sc_pc) + 4;
-  fs->regs.reg[SIGNAL_UNWIND_RETURN_COLUMN].loc.offset
-    = (_Unwind_Ptr)t - new_cfa;
-  fs->retaddr_column = SIGNAL_UNWIND_RETURN_COLUMN;
+  fs->regs.reg[DWARF_ALT_FRAME_RETURN_COLUMN].how = REG_SAVED_VAL_OFFSET;
+  fs->regs.reg[DWARF_ALT_FRAME_RETURN_COLUMN].loc.offset
+    = (_Unwind_Ptr)(sc->sc_pc) + 4 - new_cfa;
+  fs->retaddr_column = DWARF_ALT_FRAME_RETURN_COLUMN;
 
   return _URC_NO_REASON;
 }

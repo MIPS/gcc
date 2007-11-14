@@ -1,12 +1,12 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -196,6 +195,7 @@ static const size_t extra_order_size_table[] = {
   sizeof (struct function),
   sizeof (struct basic_block_def),
   sizeof (bitmap_element),
+  sizeof (bitmap_head),
   /* PHI nodes with one to three arguments are already covered by the
      above sizes.  */
   sizeof (struct tree_phi_node) + sizeof (struct phi_arg_d) * 3,
@@ -2244,6 +2244,9 @@ ggc_pch_read (FILE *f, void *addr)
 #ifdef ENABLE_GC_CHECKING
   poison_pages ();
 #endif
+  /* Since we free all the allocated objects, the free list becomes
+     useless.  Validate it now, which will also clear it.  */
+  validate_free_objects();
 
   /* No object read from a PCH file should ever be freed.  So, set the
      context depth to 1, and set the depth of all the currently-allocated

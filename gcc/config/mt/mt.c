@@ -1,12 +1,12 @@
 /* Target definitions for the MorphoRISC1
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -156,7 +155,7 @@ mt_get_attr_type (rtx complete_insn)
 /* A helper routine for insn_dependent_p called through note_stores.  */
 
 static void
-insn_dependent_p_1 (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
+insn_dependent_p_1 (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
   rtx * pinsn = (rtx *) data;
 
@@ -353,7 +352,7 @@ mt_print_operand_simple_address (FILE * file, rtx addr)
     switch (GET_CODE (addr))
       {
       case REG:
-	fprintf (file, "%s, #0", reg_names [REGNO (addr)]);
+	fprintf (file, "%s, #0", reg_names[REGNO (addr)]);
 	break;
 	
       case PLUS:
@@ -375,11 +374,11 @@ mt_print_operand_simple_address (FILE * file, rtx addr)
 	      reg = arg1, offset = arg0;
 	  else if (CONSTANT_P (arg0) && CONSTANT_P (arg1))
 	    {
-	      fprintf (file, "%s, #", reg_names [GPR_R0]);
+	      fprintf (file, "%s, #", reg_names[GPR_R0]);
 	      output_addr_const (file, addr);
 	      break;
 	    }
-	  fprintf (file, "%s, #", reg_names [REGNO (reg)]);
+	  fprintf (file, "%s, #", reg_names[REGNO (reg)]);
 	  output_addr_const (file, offset);
 	  break;
 	}
@@ -457,7 +456,7 @@ mt_print_operand (FILE * file, rtx x, int code)
   switch (GET_CODE (x))
     {
     case REG:
-      fputs (reg_names [REGNO (x)], file);
+      fputs (reg_names[REGNO (x)], file);
       break;
 
     case CONST:
@@ -632,9 +631,9 @@ mt_arg_partial_bytes (CUMULATIVE_ARGS * pcum,
 /* Implement TARGET_PASS_BY_REFERENCE hook.  */
 static bool
 mt_pass_by_reference (CUMULATIVE_ARGS * cum ATTRIBUTE_UNUSED,
-		       enum machine_mode mode ATTRIBUTE_UNUSED,
-		       tree type,
-		       bool named ATTRIBUTE_UNUSED)
+		      enum machine_mode mode ATTRIBUTE_UNUSED,
+		      const_tree type,
+		      bool named ATTRIBUTE_UNUSED)
 {
   return (type && int_size_in_bytes (type) > 4 * UNITS_PER_WORD);
 }
@@ -884,10 +883,10 @@ mt_compute_frame_size (int size)
         }
     }
 
-  current_frame_info.save_fp = (regs_ever_live [GPR_FP]
+  current_frame_info.save_fp = (df_regs_ever_live_p (GPR_FP)
 				|| frame_pointer_needed
 				|| interrupt_handler);
-  current_frame_info.save_lr = (regs_ever_live [GPR_LINK]
+  current_frame_info.save_lr = (df_regs_ever_live_p (GPR_LINK)
 				|| profile_flag
 				|| interrupt_handler);
  
@@ -1465,7 +1464,7 @@ mt_secondary_reload_class (enum reg_class class ATTRIBUTE_UNUSED,
 /* Handle FUNCTION_VALUE, FUNCTION_OUTGOING_VALUE, and LIBCALL_VALUE
    macros.  */
 rtx
-mt_function_value (tree valtype, enum machine_mode mode, tree func_decl ATTRIBUTE_UNUSED)
+mt_function_value (const_tree valtype, enum machine_mode mode, const_tree func_decl ATTRIBUTE_UNUSED)
 {
   if ((mode) == DImode || (mode) == DFmode)
     return gen_rtx_MEM (mode, gen_rtx_REG (mode, RETURN_VALUE_REGNUM));
@@ -1632,7 +1631,7 @@ mt_split_words (enum machine_mode nmode,
 
 /* Implement TARGET_MUST_PASS_IN_STACK hook.  */
 static bool
-mt_pass_in_stack (enum machine_mode mode ATTRIBUTE_UNUSED, tree type)
+mt_pass_in_stack (enum machine_mode mode ATTRIBUTE_UNUSED, const_tree type)
 {
   return (((type) != 0
 	   && (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
@@ -2470,7 +2469,7 @@ const struct attribute_spec mt_attribute_table[];
 #undef  TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX		mt_struct_value_rtx
 #undef  TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES	hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES	hook_bool_const_tree_true
 #undef  TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE	mt_pass_by_reference
 #undef  TARGET_MUST_PASS_IN_STACK

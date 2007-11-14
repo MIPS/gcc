@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_EBITMAP_H
 #define GCC_EBITMAP_H
@@ -30,10 +29,10 @@ typedef struct ebitmap_def
 {  
   unsigned int n_elts;		/* number of elements in the array.  */
   sbitmap wordmask;		/* wordmask saying which words are
-				   non-zero.  */
-  unsigned int numwords;	/* number of non-zero words.  */
+				   nonzero.  */
+  unsigned int numwords;	/* number of nonzero words.  */
   unsigned int cacheindex;	/* which word cache is.  */
-  EBITMAP_ELT_TYPE *elts;	/* non-zero element array.  */
+  EBITMAP_ELT_TYPE *elts;	/* nonzero element array.  */
   EBITMAP_ELT_TYPE *cache;	/* last tested element, or NULL.  */
 } *ebitmap;
 

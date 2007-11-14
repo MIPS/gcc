@@ -68,7 +68,7 @@ main1 ()
       out[i*4] = (in[i*4] + 2) * 3;
       out[i*4 + 1] = (in[i*4 + 1] + 2) * 7;
       out[i*4 + 2] = (in[i*4 + 2] + 7) * 3;
-      out[i*4 + 3] = (in[i*4 + 3] + 3) * 4;
+      out[i*4 + 3] = (in[i*4 + 3] + 7) * 7;
 
       ib[i] = 7;
     }
@@ -79,14 +79,14 @@ main1 ()
       if (out[i*4] !=  (in[i*4] + 2) * 3
          || out[i*4 + 1] != (in[i*4 + 1] + 2) * 7
          || out[i*4 + 2] != (in[i*4 + 2] + 7) * 3
-         || out[i*4 + 3] != (in[i*4 + 3] + 3) * 4
+         || out[i*4 + 3] != (in[i*4 + 3] + 7) * 7
          || ib[i] != 7)
         abort ();
     }
 
   for (i = 0; i < N*4; i++)
     {
-      out2[i*2] = (float) (in[i*2] * 2 + 6) ;
+      out2[i*2] = (float) (in[i*2] * 2 + 11) ;
       out2[i*2 + 1] = (float) (in[i*2 + 1] * 3 + 7);
     
       fa[i] = (float) in[i*2+1];
@@ -95,7 +95,7 @@ main1 ()
   /* check results:  */
   for (i = 0; i < N*4; i++)
     {
-      if (out2[i*2] !=  (float) (in[i*2] * 2 + 6)
+      if (out2[i*2] !=  (float) (in[i*2] * 2 + 11)
          || out2[i*2 + 1] != (float) (in[i*2 + 1] * 3 + 7)
          || fa[i] != (float) in[i*2+1])
         abort ();
@@ -114,11 +114,7 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect"  {target { vect_strided && vect_int_mult } } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  {target { {! {vect_strided}} && vect_int_mult } } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect"  {target  { ! vect_int_mult } } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" {target { vect_strided && vect_int_mult } } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" {target { {! {vect_strided}} && vect_int_mult } } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect" {target  { ! vect_int_mult } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  {target { vect_strided && vect_int_mult } } } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 1 "vect" {target { vect_strided && vect_int_mult } } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
   

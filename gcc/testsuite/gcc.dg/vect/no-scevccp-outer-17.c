@@ -9,7 +9,7 @@ int a[N];
 int b[N];
 int c[N];
 
-int
+__attribute__ ((noinline)) int
 foo (){
   int i;
   unsigned short j;
@@ -64,5 +64,5 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED." 1 "vect" { target vect_unpack } } } */
+/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED." 1 "vect" { xfail { ! {vect_unpack } } } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

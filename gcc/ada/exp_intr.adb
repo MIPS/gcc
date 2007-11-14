@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -34,7 +33,6 @@ with Exp_Ch4;  use Exp_Ch4;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Ch11; use Exp_Ch11;
 with Exp_Code; use Exp_Code;
-with Exp_Disp; use Exp_Disp;
 with Exp_Fixd; use Exp_Fixd;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
@@ -155,6 +153,14 @@ package body Exp_Intr is
       Act_Constr := Entity (Name (Act_Rename));
       Result_Typ := Class_Wide_Type (Etype (Act_Constr));
 
+      --  Ada 2005 (AI-251): If the result is an interface type, the function
+      --  returns a class-wide interface type (otherwise the resulting object
+      --  would be abstract!)
+
+      if Is_Interface (Etype (Act_Constr)) then
+         Set_Etype (Act_Constr, Result_Typ);
+      end if;
+
       --  Create the call to the actual Constructor function
 
       Cnstr_Call :=
@@ -215,9 +221,9 @@ package body Exp_Intr is
            Make_Implicit_If_Statement (N,
              Condition =>
                Make_Op_Not (Loc,
-                 Make_DT_Access_Action (Result_Typ,
-                    Action => IW_Membership,
-                    Args   => New_List (
+                 Make_Function_Call (Loc,
+                    Name => New_Occurrence_Of (RTE (RE_IW_Membership), Loc),
+                    Parameter_Associations => New_List (
                       Make_Attribute_Reference (Loc,
                         Prefix => Duplicate_Subexpr (Tag_Arg),
                         Attribute_Name => Name_Address),
@@ -763,7 +769,7 @@ package body Exp_Intr is
 
    begin
       if No_Pool_Assigned (Rtyp) then
-         Error_Msg_N ("?deallocation from empty storage pool", N);
+         Error_Msg_N ("?deallocation from empty storage pool!", N);
       end if;
 
       --  Nothing to do if we know the argument is null
@@ -984,7 +990,27 @@ package body Exp_Intr is
          end if;
       end if;
 
-      Set_Expression (Free_Node, Free_Arg);
+      --  Ada 2005 (AI-251): In case of abstract interface type we must
+      --  displace the pointer to reference the base of the object to
+      --  deallocate its memory.
+
+      --  Generate:
+      --    free (Base_Address (Obj_Ptr))
+
+      if Is_Interface (Directly_Designated_Type (Typ)) then
+         Set_Expression (Free_Node,
+           Unchecked_Convert_To (Typ,
+             Make_Function_Call (Loc,
+               Name => New_Reference_To (RTE (RE_Base_Address), Loc),
+               Parameter_Associations => New_List (
+                 Unchecked_Convert_To (RTE (RE_Address), Free_Arg)))));
+
+      --  Generate:
+      --    free (Obj_Ptr)
+
+      else
+         Set_Expression (Free_Node, Free_Arg);
+      end if;
 
       --  Only remaining step is to set result to null, or generate a
       --  raise of constraint error if the target object is "not null".

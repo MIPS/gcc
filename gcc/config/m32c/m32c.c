@@ -1,5 +1,5 @@
 /* Target Code for R8C/M16C/M32C
-   Copyright (C) 2005
+   Copyright (C) 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Red Hat.
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -49,6 +48,7 @@
 #include "tm_p.h"
 #include "langhooks.h"
 #include "tree-gimple.h"
+#include "df.h"
 
 /* Prototypes */
 
@@ -61,20 +61,24 @@ typedef enum
 } Push_Pop_Type;
 
 static tree interrupt_handler (tree *, tree, tree, int, bool *);
+static tree function_vector_handler (tree *, tree, tree, int, bool *);
 static int interrupt_p (tree node);
 static bool m32c_asm_integer (rtx, unsigned int, int);
-static int m32c_comp_type_attributes (tree, tree);
+static int m32c_comp_type_attributes (const_tree, const_tree);
 static bool m32c_fixed_condition_code_regs (unsigned int *, unsigned int *);
 static struct machine_function *m32c_init_machine_status (void);
 static void m32c_insert_attributes (tree, tree *);
 static bool m32c_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				    tree, bool);
-static bool m32c_promote_prototypes (tree);
+				    const_tree, bool);
+static bool m32c_promote_prototypes (const_tree);
 static int m32c_pushm_popm (Push_Pop_Type);
 static bool m32c_strict_argument_naming (CUMULATIVE_ARGS *);
 static rtx m32c_struct_value_rtx (tree, int);
 static rtx m32c_subreg (enum machine_mode, rtx, enum machine_mode, int);
 static int need_to_save (int);
+int current_function_special_page_vector (rtx);
+
+#define SYMBOL_FLAG_FUNCVEC_FUNCTION    (SYMBOL_FLAG_MACH_DEP << 0)
 
 #define streq(a,b) (strcmp ((a), (b)) == 0)
 
@@ -441,7 +445,7 @@ m32c_init_expanders (void)
 #undef TARGET_PROMOTE_FUNCTION_RETURN
 #define TARGET_PROMOTE_FUNCTION_RETURN m32c_promote_function_return
 bool
-m32c_promote_function_return (tree fntype ATTRIBUTE_UNUSED)
+m32c_promote_function_return (const_tree fntype ATTRIBUTE_UNUSED)
 {
   return false;
 }
@@ -1123,7 +1127,10 @@ m32c_eh_return_data_regno (int n)
     case 0:
       return A0_REGNO;
     case 1:
-      return A1_REGNO;
+      if (TARGET_A16)
+	return R3_REGNO;
+      else
+	return R1_REGNO;
     default:
       return INVALID_REGNUM;
     }
@@ -1138,7 +1145,7 @@ m32c_eh_return_stackadj_rtx (void)
     {
       rtx sa;
 
-      sa = gen_reg_rtx (Pmode);
+      sa = gen_rtx_REG (Pmode, R0_REGNO);
       cfun->machine->eh_stack_adjust = sa;
     }
   return cfun->machine->eh_stack_adjust;
@@ -1244,7 +1251,7 @@ need_to_save (int regno)
   if (cfun->machine->is_interrupt
       && (!cfun->machine->is_leaf || regno == A0_REGNO))
     return 1;
-  if (regs_ever_live[regno]
+  if (df_regs_ever_live_p (regno)
       && (!call_used_regs[regno] || cfun->machine->is_interrupt))
     return 1;
   return 0;
@@ -1423,7 +1430,7 @@ m32c_initial_elimination_offset (int from, int to)
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES m32c_promote_prototypes
 static bool
-m32c_promote_prototypes (tree fntype ATTRIBUTE_UNUSED)
+m32c_promote_prototypes (const_tree fntype ATTRIBUTE_UNUSED)
 {
   return 0;
 }
@@ -1510,7 +1517,7 @@ m32c_function_arg (CUMULATIVE_ARGS * ca,
 static bool
 m32c_pass_by_reference (CUMULATIVE_ARGS * ca ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED,
-			tree type ATTRIBUTE_UNUSED,
+			const_tree type ATTRIBUTE_UNUSED,
 			bool named ATTRIBUTE_UNUSED)
 {
   return 0;
@@ -1635,10 +1642,10 @@ m32c_libcall_value (enum machine_mode mode)
 /* Implements FUNCTION_VALUE.  Functions and libcalls have the same
    conventions.  */
 rtx
-m32c_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+m32c_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 {
   /* return reg or parallel */
-  enum machine_mode mode = TYPE_MODE (valtype);
+  const enum machine_mode mode = TYPE_MODE (valtype);
   return m32c_libcall_value (mode);
 }
 
@@ -2721,18 +2728,112 @@ interrupt_handler (tree * node ATTRIBUTE_UNUSED,
   return NULL_TREE;
 }
 
+/* Returns TRUE if given tree has the "function_vector" attribute. */
+int
+m32c_special_page_vector_p (tree func)
+{
+  if (TREE_CODE (func) != FUNCTION_DECL)
+    return 0;
+
+  tree list = M32C_ATTRIBUTES (func);
+  while (list)
+    {
+      if (is_attribute_p ("function_vector", TREE_PURPOSE (list)))
+        return 1;
+      list = TREE_CHAIN (list);
+    }
+  return 0;
+}
+
+static tree
+function_vector_handler (tree * node ATTRIBUTE_UNUSED,
+                         tree name ATTRIBUTE_UNUSED,
+                         tree args ATTRIBUTE_UNUSED,
+                         int flags ATTRIBUTE_UNUSED,
+                         bool * no_add_attrs ATTRIBUTE_UNUSED)
+{
+  if (TARGET_R8C)
+    {
+      /* The attribute is not supported for R8C target.  */
+      warning (OPT_Wattributes,
+                "`%s' attribute is not supported for R8C target",
+                IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      /* The attribute must be applied to functions only.  */
+      warning (OPT_Wattributes,
+                "`%s' attribute applies only to functions",
+                IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
+    {
+      /* The argument must be a constant integer.  */
+      warning (OPT_Wattributes,
+                "`%s' attribute argument not an integer constant",
+                IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else if (TREE_INT_CST_LOW (TREE_VALUE (args)) < 18
+           || TREE_INT_CST_LOW (TREE_VALUE (args)) > 255)
+    {
+      /* The argument value must be between 18 to 255.  */
+      warning (OPT_Wattributes,
+                "`%s' attribute argument should be between 18 to 255",
+                IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  return NULL_TREE;
+}
+
+/* If the function is assigned the attribute 'function_vector', it
+   returns the function vector number, otherwise returns zero.  */
+int
+current_function_special_page_vector (rtx x)
+{
+  int num;
+
+  if ((GET_CODE(x) == SYMBOL_REF)
+      && (SYMBOL_REF_FLAGS (x) & SYMBOL_FLAG_FUNCVEC_FUNCTION))
+    {
+      tree t = SYMBOL_REF_DECL (x);
+
+      if (TREE_CODE (t) != FUNCTION_DECL)
+        return 0;
+
+      tree list = M32C_ATTRIBUTES (t);
+      while (list)
+        {
+          if (is_attribute_p ("function_vector", TREE_PURPOSE (list)))
+            {
+              num = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (list)));
+              return num;
+            }
+
+          list = TREE_CHAIN (list);
+        }
+
+      return 0;
+    }
+  else
+    return 0;
+}
+
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE m32c_attribute_table
 static const struct attribute_spec m32c_attribute_table[] = {
   {"interrupt", 0, 0, false, false, false, interrupt_handler},
+  {"function_vector", 1, 1, true,  false, false, function_vector_handler},
   {0, 0, 0, 0, 0, 0, 0}
 };
 
 #undef TARGET_COMP_TYPE_ATTRIBUTES
 #define TARGET_COMP_TYPE_ATTRIBUTES m32c_comp_type_attributes
 static int
-m32c_comp_type_attributes (tree type1 ATTRIBUTE_UNUSED,
-			   tree type2 ATTRIBUTE_UNUSED)
+m32c_comp_type_attributes (const_tree type1 ATTRIBUTE_UNUSED,
+			   const_tree type2 ATTRIBUTE_UNUSED)
 {
   /* 0=incompatible 1=compatible 2=warning */
   return 1;
@@ -2892,7 +2993,7 @@ m32c_immd_dbl_mov (rtx * operands,
            && GET_CODE (XEXP (XEXP (XEXP (operands[0], 0), 0), 0)) == SYMBOL_REF
            && MEM_SCALAR_P (operands[0])
            && !MEM_IN_STRUCT_P (operands[0])
-           && !(XINT (XEXP (XEXP (XEXP (operands[0], 0), 0), 1), 0) %4)
+           && !(INTVAL (XEXP (XEXP (XEXP (operands[0], 0), 0), 1)) %4)
            && GET_CODE (XEXP (operands[2], 0)) == CONST
            && GET_CODE (XEXP (XEXP (operands[2], 0), 0)) == PLUS
            && GET_CODE (XEXP (XEXP (XEXP (operands[2], 0), 0), 0)) == SYMBOL_REF
@@ -2906,7 +3007,7 @@ m32c_immd_dbl_mov (rtx * operands,
            &&  GET_CODE (XEXP (XEXP (operands[0], 0), 1)) == CONST_INT
            &&  MEM_SCALAR_P (operands[0])
            &&  !MEM_IN_STRUCT_P (operands[0])
-           &&  !(XINT (XEXP (XEXP (operands[0], 0), 1), 0) %4)
+           &&  !(INTVAL (XEXP (XEXP (operands[0], 0), 1)) %4)
            &&  REGNO (XEXP (XEXP (operands[2], 0), 0)) == FB_REGNO 
            &&  GET_CODE (XEXP (XEXP (operands[2], 0), 1)) == CONST_INT
            &&  MEM_SCALAR_P (operands[2])
@@ -2935,8 +3036,8 @@ m32c_immd_dbl_mov (rtx * operands,
 	okflag = 0; 
       break; 
     case 3:
-      offset1 = XINT (XEXP (XEXP (operands[0], 0), 1), 0);
-      offset2 = XINT (XEXP (XEXP (operands[2], 0), 1), 0);
+      offset1 = INTVAL (XEXP (XEXP (operands[0], 0), 1));
+      offset2 = INTVAL (XEXP (XEXP (operands[2], 0), 1));
       offsetsign = offset1 >> ((sizeof (offset1) * 8) -1);
       if (((offset2-offset1) == 2) && offsetsign != 0)
 	okflag = 1;
@@ -2952,7 +3053,7 @@ m32c_immd_dbl_mov (rtx * operands,
       HOST_WIDE_INT val;
       operands[4] = gen_rtx_MEM (SImode, XEXP (operands[0], 0));
 
-      val = (XINT (operands[3], 0) << 16) + (XINT (operands[1], 0) & 0xFFFF);
+      val = (INTVAL (operands[3]) << 16) + (INTVAL (operands[1]) & 0xFFFF);
       operands[5] = gen_rtx_CONST_INT (VOIDmode, val);
      
       return true;
@@ -3056,7 +3157,7 @@ m32c_prepare_move (rtx * operands, enum machine_mode mode)
       emit_insn (gen_rtx_SET (Pmode, dest_reg, dest_mod));
       operands[0] = gen_rtx_MEM (mode, dest_reg);
     }
-  if (!no_new_pseudos && MEM_P (operands[0]) && MEM_P (operands[1]))
+  if (can_create_pseudo_p () && MEM_P (operands[0]) && MEM_P (operands[1]))
     operands[1] = copy_to_mode_reg (mode, operands[1]);
   return 0;
 }
@@ -3121,7 +3222,7 @@ m32c_split_move (rtx * operands, enum machine_mode mode, int split_all)
 
   /* Before splitting mem-mem moves, force one operand into a
      register.  */
-  if (!no_new_pseudos && MEM_P (operands[0]) && MEM_P (operands[1]))
+  if (can_create_pseudo_p () && MEM_P (operands[0]) && MEM_P (operands[1]))
     {
 #if DEBUG0
       fprintf (stderr, "force_reg...\n");
@@ -3136,7 +3237,8 @@ m32c_split_move (rtx * operands, enum machine_mode mode, int split_all)
   parts = 2;
 
 #if DEBUG_SPLIT
-  fprintf (stderr, "\nsplit_move %d all=%d\n", no_new_pseudos, split_all);
+  fprintf (stderr, "\nsplit_move %d all=%d\n", !can_create_pseudo_p (),
+	   split_all);
   debug_rtx (operands[0]);
   debug_rtx (operands[1]);
 #endif
@@ -3675,7 +3777,7 @@ m32c_expand_insv (rtx *operands)
 	op0 = sub;
     }
 
-  if (no_new_pseudos
+  if (!can_create_pseudo_p ()
       || (GET_CODE (op0) == MEM && MEM_VOLATILE_P (op0)))
     src0 = op0;
   else
@@ -3749,6 +3851,23 @@ m32c_scc_pattern(rtx *operands, RTX_CODE code)
     }
   sprintf(buf, "bm%s\t0,%%h0\n\tand.b\t#1,%%0", GET_RTX_NAME (code));
   return buf;
+}
+
+/* Encode symbol attributes of a SYMBOL_REF into its
+   SYMBOL_REF_FLAGS. */
+static void
+m32c_encode_section_info (tree decl, rtx rtl, int first)
+{
+  int extra_flags = 0;
+
+  default_encode_section_info (decl, rtl, first);
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && m32c_special_page_vector_p (decl))
+
+    extra_flags = SYMBOL_FLAG_FUNCVEC_FUNCTION;
+
+  if (extra_flags)
+    SYMBOL_REF_FLAGS (XEXP (rtl, 0)) |= extra_flags;
 }
 
 /* Returns TRUE if the current function is a leaf, and thus we can
@@ -3862,8 +3981,8 @@ m32c_emit_prologue (void)
   if (cfun->machine->use_rts == 0)
     F (emit_insn (m32c_all_frame_related
 		  (TARGET_A16
-		   ? gen_prologue_enter_16 (GEN_INT (frame_size))
-		   : gen_prologue_enter_24 (GEN_INT (frame_size)))));
+		   ? gen_prologue_enter_16 (GEN_INT (frame_size + 2))
+		   : gen_prologue_enter_24 (GEN_INT (frame_size + 4)))));
 
   if (extra_frame_size)
     {
@@ -3910,12 +4029,17 @@ m32c_emit_epilogue (void)
       else
 	emit_insn (gen_poppsi (gen_rtx_REG (PSImode, FP_REGNO)));
       emit_insn (gen_popm (GEN_INT (cfun->machine->intr_pushm)));
-      emit_jump_insn (gen_epilogue_reit (GEN_INT (TARGET_A16 ? 4 : 6)));
+      if (TARGET_A16)
+	emit_jump_insn (gen_epilogue_reit_16 ());
+      else
+	emit_jump_insn (gen_epilogue_reit_24 ());
     }
   else if (cfun->machine->use_rts)
     emit_jump_insn (gen_epilogue_rts ());
+  else if (TARGET_A16)
+    emit_jump_insn (gen_epilogue_exitd_16 ());
   else
-    emit_jump_insn (gen_epilogue_exitd (GEN_INT (TARGET_A16 ? 2 : 4)));
+    emit_jump_insn (gen_epilogue_exitd_24 ());
   emit_barrier ();
 }
 
@@ -4163,6 +4287,9 @@ m32c_output_compare (rtx insn, rtx *operands)
 #endif
   return template + 1;
 }
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO m32c_encode_section_info
 
 /* The Global `targetm' Variable. */
 

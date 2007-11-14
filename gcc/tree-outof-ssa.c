@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -759,7 +758,12 @@ rewrite_trees (var_map map, tree *values)
 	  if (remove)
 	    bsi_remove (&si, true);
 	  else
-	    bsi_next (&si);
+	    {
+	      if (changed)
+		if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
+		  tree_purge_dead_eh_edges (bb);
+	      bsi_next (&si);
+	    }
 	}
 
       phi = phi_nodes (bb);
@@ -796,7 +800,7 @@ same_stmt_list_p (edge e)
 /* Return TRUE if S1 and S2 are equivalent copies.  */
 
 static inline bool
-identical_copies_p (tree s1, tree s2)
+identical_copies_p (const_tree s1, const_tree s2)
 {
 #ifdef ENABLE_CHECKING
   gcc_assert (TREE_CODE (s1) == GIMPLE_MODIFY_STMT);
@@ -822,7 +826,7 @@ identical_copies_p (tree s1, tree s2)
    contain the same sequence of copies.  */
 
 static inline bool 
-identical_stmt_lists_p (edge e1, edge e2)
+identical_stmt_lists_p (const_edge e1, const_edge e2)
 {
   tree t1 = PENDING_STMT (e1);
   tree t2 = PENDING_STMT (e2);

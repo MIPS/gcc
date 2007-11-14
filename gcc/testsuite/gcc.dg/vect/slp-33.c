@@ -75,7 +75,7 @@ main1 ()
   /* SLP with unrolling by 4.  */
   for (i = 0; i < N*2; i++)
     {
-      out2[i*3] = (float) (in[i*3] * 2 + 6) ;
+      out2[i*3] = (float) (in[i*3] * 2 + 5) ;
       out2[i*3 + 1] = (float) (in[i*3 + 1] * 3 + 7);
       out2[i*3 + 2] = (float) (in[i*3 + 2] * 5 + 4);
     }
@@ -83,7 +83,7 @@ main1 ()
   /* check results:  */
   for (i = 0; i < N*2; i++)
     {
-      if (out2[i*3] !=  (float) (in[i*3] * 2 + 6)
+      if (out2[i*3] !=  (float) (in[i*3] * 2 + 5)
          || out2[i*3 + 1] != (float) (in[i*3 + 1] * 3 + 7)
          || out2[i*3 + 2] != (float) (in[i*3 + 2] * 5 + 4))
         abort ();
@@ -104,9 +104,9 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect"  {target {vect_intfloat_cvt && vect_int_mult} } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect"  {target {{! { vect_intfloat_cvt}} && vect_int_mult} } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect"  {target {{! { vect_intfloat_cvt}} && {!{vect_int_mult}}} } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect"  {target {{! { vect_intfloat_cvt}} && {! {vect_int_mult}}} } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" {target {vect_intfloat_cvt && vect_int_mult} } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect"  {target {{! { vect_intfloat_cvt}} && vect_int_mult} } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect"  {target {{! { vect_intfloat_cvt}} && {!{vect_int_mult}}} } } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect"  {target {{! { vect_intfloat_cvt}} && {! {vect_int_mult}}} } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
   

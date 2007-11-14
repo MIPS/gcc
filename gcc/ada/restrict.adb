@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -30,7 +29,6 @@ with Errout;   use Errout;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
 with Lib;      use Lib;
-with Namet;    use Namet;
 with Opt;      use Opt;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
@@ -86,6 +84,17 @@ package body Restrict is
       end if;
    end Abort_Allowed;
 
+   -------------------------
+   -- Check_Compiler_Unit --
+   -------------------------
+
+   procedure Check_Compiler_Unit (N : Node_Id) is
+   begin
+      if Is_Compiler_Unit (Get_Source_Unit (N)) then
+         Error_Msg_N ("use of construct not allowed in compiler", N);
+      end if;
+   end Check_Compiler_Unit;
+
    ------------------------------------
    -- Check_Elaboration_Code_Allowed --
    ------------------------------------
@@ -100,7 +109,7 @@ package body Restrict is
         and then not Suppress_Restriction_Message (N)
       then
          Namet.Unlock;
-         Check_Restriction (Restriction_Id'(No_Elaboration_Code), N);
+         Check_Restriction (No_Elaboration_Code, N);
          Namet.Lock;
       end if;
    end Check_Elaboration_Code_Allowed;
@@ -111,7 +120,7 @@ package body Restrict is
 
    procedure Check_No_Implicit_Heap_Alloc (N : Node_Id) is
    begin
-      Check_Restriction (Restriction_Id'(No_Implicit_Heap_Allocations), N);
+      Check_Restriction (No_Implicit_Heap_Allocations, N);
    end Check_No_Implicit_Heap_Alloc;
 
    ---------------------------
@@ -416,7 +425,10 @@ package body Restrict is
 
    function No_Exception_Handlers_Set return Boolean is
    begin
-      return Restrictions.Set (No_Exception_Handlers);
+      return (No_Run_Time_Mode or else Configurable_Run_Time_Mode)
+        and then (Restrictions.Set (No_Exception_Handlers)
+                    or else
+                  Restrictions.Set (No_Exception_Propagation));
    end No_Exception_Handlers_Set;
 
    ----------------------------------
@@ -625,6 +637,23 @@ package body Restrict is
       N : Node_Id)
    is
    begin
+      --  Restriction No_Elaboration_Code must be enforced on a unit by unit
+      --  basis. Hence, we avoid setting the restriction when processing an
+      --  unit which is not the main one being compiled (or its corresponding
+      --  spec). It can happen, for example, when processing an inlined body
+      --  (the package containing the inlined subprogram is analyzed,
+      --  including its pragma Restrictions).
+
+      --  This seems like a very nasty kludge??? This is not the only per unit
+      --  restriction why is this treated specially ???
+
+      if R = No_Elaboration_Code
+        and then Current_Sem_Unit /= Main_Unit
+        and then Cunit (Current_Sem_Unit) /= Library_Unit (Cunit (Main_Unit))
+      then
+         return;
+      end if;
+
       Restrictions.Set (R) := True;
 
       if Restricted_Profile_Cached and Restricted_Profile_Result then

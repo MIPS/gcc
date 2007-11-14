@@ -1,12 +1,12 @@
 /* Routines for performing Temporary Expression Replacement (TER) in SSA trees.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -367,6 +366,10 @@ is_replaceable_p (tree stmt)
   if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
     return false;
 
+  /* If the statement may throw an exception, it cannot be replaced.  */
+  if (tree_could_throw_p (stmt))
+    return false;
+
   /* Punt if there is more than 1 def.  */
   def = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_DEF);
   if (!def)
@@ -399,14 +402,9 @@ is_replaceable_p (tree stmt)
       && DECL_HARD_REGISTER (GENERIC_TREE_OPERAND (stmt, 1)))
     return false;
 
-  /* Calls to functions with side-effects cannot be replaced.  */
+  /* No function calls can be replaced.  */
   if ((call_expr = get_call_expr_in (stmt)) != NULL_TREE)
-    {
-      int call_flags = call_expr_flags (call_expr);
-      if (TREE_SIDE_EFFECTS (call_expr)
-	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	return false;
-    }
+    return false;
 
   /* Leave any stmt with volatile operands alone as well.  */
   if (stmt_ann (stmt)->has_volatile_ops)
@@ -440,7 +438,7 @@ finished_with_expr (temp_expr_table_p tab, int version, bool free_expr)
 }
 
 
-/* Create an expression entry fora replaceable expression.  */
+/* Create an expression entry for a replaceable expression.  */
 
 static void 
 process_replaceable (temp_expr_table_p tab, tree stmt)

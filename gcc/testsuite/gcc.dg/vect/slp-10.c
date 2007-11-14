@@ -64,7 +64,7 @@ main1 ()
       out[i*4] = (in[i*4] + 2) * 3;
       out[i*4 + 1] = (in[i*4 + 1] + 2) * 7;
       out[i*4 + 2] = (in[i*4 + 2] + 7) * 3;
-      out[i*4 + 3] = (in[i*4 + 3] + 3) * 4;
+      out[i*4 + 3] = (in[i*4 + 3] + 7) * 7;
     }
 
   /* check results:  */
@@ -73,20 +73,20 @@ main1 ()
       if (out[i*4] !=  (in[i*4] + 2) * 3
          || out[i*4 + 1] != (in[i*4 + 1] + 2) * 7
          || out[i*4 + 2] != (in[i*4 + 2] + 7) * 3
-         || out[i*4 + 3] != (in[i*4 + 3] + 3) * 4)
+         || out[i*4 + 3] != (in[i*4 + 3] + 7) * 7)
         abort ();
     }
 
   for (i = 0; i < N*4; i++)
     {
-      out2[i*2] = (float) (in[i*2] * 2 + 6) ;
+      out2[i*2] = (float) (in[i*2] * 2 + 5) ;
       out2[i*2 + 1] = (float) (in[i*2 + 1] * 3 + 7);
     }
 
   /* check results:  */
   for (i = 0; i < N*4; i++)
     {
-      if (out2[i*2] !=  (float) (in[i*2] * 2 + 6)
+      if (out2[i*2] !=  (float) (in[i*2] * 2 + 5)
          || out2[i*2 + 1] != (float) (in[i*2 + 1] * 3 + 7))
         abort ();
     }
@@ -106,9 +106,9 @@ int main (void)
 
 /* { dg-final { scan-tree-dump-times "vectorized 3 loops" 1 "vect"  {target {vect_intfloat_cvt && vect_int_mult} } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 2 loops" 1 "vect"  {target {{! { vect_intfloat_cvt}} && vect_int_mult} } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect"  {target {{! { vect_intfloat_cvt}} && {!{vect_int_mult}}} } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect"  {target {{! { vect_intfloat_cvt}} && { ! {vect_int_mult}}} } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 3 "vect" {target {vect_intfloat_cvt && vect_int_mult} } } } */
 /* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 2 "vect"  {target {{! { vect_intfloat_cvt}} && vect_int_mult} } } } */
-/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect"  {target {{! { vect_intfloat_cvt}} && {!{vect_int_mult}}} } } } */
+/* { dg-final { scan-tree-dump-times "vectorizing stmts using SLP" 0 "vect"  {target {{! { vect_intfloat_cvt}} && { ! {vect_int_mult}}} } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
   

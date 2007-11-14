@@ -15,7 +15,7 @@ main1 ()
 
   for (i = 0; i < N; i++)
     {
-      out2[i*2] = (float) (in[i*2] * 2 + 6) ;
+      out2[i*2] = (float) (in[i*2] * 2 + 11) ;
       out2[i*2 + 1] = (float) (in[i*2 + 1] * 3 + 7);
     
       fa[i] = (float) in[i*2+1];
@@ -24,7 +24,7 @@ main1 ()
   /* check results:  */
   for (i = 0; i < N; i++)
     {
-      if (out2[i*2] !=  (float) (in[i*2] * 2 + 6)
+      if (out2[i*2] !=  (float) (in[i*2] * 2 + 11)
          || out2[i*2 + 1] != (float) (in[i*2 + 1] * 3 + 7)
          || fa[i] != (float) in[i*2+1])
         abort ();

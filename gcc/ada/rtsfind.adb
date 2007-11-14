@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -31,6 +30,7 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
+with Exp_Dist; use Exp_Dist;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
 with Lib;      use Lib;
@@ -541,7 +541,15 @@ package body Rtsfind is
          Output_Entity_Name (Id, "not available");
       end if;
 
-      raise RE_Not_Available;
+      --  In configurable run time mode, we raise RE_Not_Available, and we hope
+      --  the caller deals gracefully with this. If we are in normal full run
+      --  time mode, a load failure is considered fatal and unrecoverable.
+
+      if Configurable_Run_Time_Mode then
+         raise RE_Not_Available;
+      else
+         raise Unrecoverable_Error;
+      end if;
    end Load_Fail;
 
    --------------
@@ -576,7 +584,6 @@ package body Rtsfind is
 
       begin
          E_Par := First_Elmt (Priv_Par);
-
          while Present (E_Par) loop
             if not In_Private_Part (Node (E_Par)) then
                Install_Private_Declarations (Node (E_Par));
@@ -595,7 +602,6 @@ package body Rtsfind is
 
       begin
          Par := Scope (Current_Scope);
-
          while Present (Par)
            and then Par /= Standard_Standard
          loop
@@ -643,12 +649,23 @@ package body Rtsfind is
       --  file as a fatal error, and that it should not output any kind
       --  of diagnostics, since we will take care of it here.
 
-      U.Unum :=
-        Load_Unit
-          (Load_Name  => U.Uname,
-           Required   => False,
-           Subunit    => False,
-           Error_Node => Empty);
+      --  We save style checking switches and turn off style checking for
+      --  loading the unit, since we don't want any style checking!
+
+      declare
+         Save_Style_Check : constant Boolean := Style_Check;
+      begin
+         Style_Check := False;
+         U.Unum :=
+           Load_Unit
+             (Load_Name  => U.Uname,
+              Required   => False,
+              Subunit    => False,
+              Error_Node => Empty);
+         Style_Check := Save_Style_Check;
+      end;
+
+      --  Check for bad unit load
 
       if U.Unum = No_Unit then
          Load_Fail ("not found", U_Id, Id);
@@ -683,12 +700,24 @@ package body Rtsfind is
          Set_Analyzed (Cunit (Current_Sem_Unit), True);
 
          if not Analyzed (Cunit (U.Unum)) then
-            Save_Private_Visibility;
-            Semantics (Cunit (U.Unum));
-            Restore_Private_Visibility;
 
-            if Fatal_Error (U.Unum) then
-               Load_Fail ("had semantic errors", U_Id, Id);
+            --  If the unit is already loaded through a limited_with clauses,
+            --  the relevant entities must already be available. We do not
+            --  want to load and analyze the unit because this would create
+            --  a real semantic dependence when the purpose of the limited_with
+            --  is precisely to avoid such.
+
+            if From_With_Type (Cunit_Entity (U.Unum)) then
+               null;
+
+            else
+               Save_Private_Visibility;
+               Semantics (Cunit (U.Unum));
+               Restore_Private_Visibility;
+
+               if Fatal_Error (U.Unum) then
+                  Load_Fail ("had semantic errors", U_Id, Id);
+               end if;
             end if;
          end if;
 
@@ -842,9 +871,10 @@ package body Rtsfind is
 
       procedure Check_RPC;
       --  Reject programs that make use of distribution features not supported
-      --  on the current target. On such targets (VMS, Vxworks, others?) we
-      --  only provide a minimal body for System.Rpc that only supplies an
-      --  implementation of partition_id.
+      --  on the current target. Also check that the PCS is compatible with
+      --  the code generator version. On such targets (VMS, Vxworks, others?)
+      --  we provide a minimal body for System.Rpc that only supplies an
+      --  implementation of Partition_Id.
 
       function Find_Local_Entity (E : RE_Id) return Entity_Id;
       --  This function is used when entity E is in this compilation's main
@@ -855,6 +885,25 @@ package body Rtsfind is
       ---------------
 
       procedure Check_RPC is
+
+         procedure Check_RPC_Failure (Msg : String);
+         pragma No_Return (Check_RPC_Failure);
+         --  Display Msg on standard error and raise Unrecoverable_Error
+
+         -----------------------
+         -- Check_RPC_Failure --
+         -----------------------
+
+         procedure Check_RPC_Failure (Msg : String) is
+         begin
+            Set_Standard_Error;
+            Write_Str (Msg);
+            Write_Eol;
+            raise Unrecoverable_Error;
+         end Check_RPC_Failure;
+
+      --  Start of processing for Check_RPC
+
       begin
          --  Bypass this check if debug flag -gnatdR set
 
@@ -877,12 +926,14 @@ package body Rtsfind is
                      E = RE_Params_Stream_Type
                        or else
                      E = RE_Request_Access)
-           and then Get_PCS_Name = Name_No_DSA
          then
-            Set_Standard_Error;
-            Write_Str ("distribution feature not supported");
-            Write_Eol;
-            raise Unrecoverable_Error;
+            if Get_PCS_Name = Name_No_DSA then
+               Check_RPC_Failure ("distribution feature not supported");
+
+            elsif Get_PCS_Version /= Exp_Dist.PCS_Version_Number then
+               Check_RPC_Failure ("PCS version mismatch");
+
+            end if;
          end if;
       end Check_RPC;
 
@@ -891,7 +942,8 @@ package body Rtsfind is
       -----------------------
 
       function Find_Local_Entity (E : RE_Id) return Entity_Id is
-         RE_Str : String renames RE_Id'Image (E);
+         RE_Str : constant String := RE_Id'Image (E);
+         Nam    : Name_Id;
          Ent    : Entity_Id;
 
          Save_Nam : constant String := Name_Buffer (1 .. Name_Len);
@@ -902,7 +954,8 @@ package body Rtsfind is
          Name_Buffer (1 .. Name_Len) :=
            RE_Str (RE_Str'First + 3 .. RE_Str'Last);
 
-         Ent := Entity_Id (Get_Name_Table_Info (Name_Find));
+         Nam := Name_Find;
+         Ent := Entity_Id (Get_Name_Table_Info (Nam));
 
          Name_Len := Save_Nam'Length;
          Name_Buffer (1 .. Name_Len) := Save_Nam;
@@ -956,9 +1009,16 @@ package body Rtsfind is
             pragma Assert (Nkind (Lib_Unit) = N_Package_Declaration);
             Ename := RE_Chars (E);
 
-            --  First we search the package entity chain
+            --  First we search the package entity chain. If the package
+            --  only has a limited view, scan the corresponding list of
+            --  incomplete types.
 
-            Pkg_Ent := First_Entity (U.Entity);
+            if From_With_Type (U.Entity) then
+               Pkg_Ent := First_Entity (Limited_View (U.Entity));
+            else
+               Pkg_Ent := First_Entity (U.Entity);
+            end if;
+
             while Present (Pkg_Ent) loop
                if Ename = Chars (Pkg_Ent) then
                   RE_Table (E) := Pkg_Ent;
@@ -1067,6 +1127,7 @@ package body Rtsfind is
       U        : RT_Unit_Table_Record renames RT_Unit_Table (U_Id);
       E1       : Entity_Id;
       Ename    : Name_Id;
+      Found_E  : Entity_Id;
       Lib_Unit : Node_Id;
       Pkg_Ent  : Entity_Id;
 
@@ -1103,13 +1164,15 @@ package body Rtsfind is
       --  Search the entity in the components of record type declarations
       --  found in the package entity chain.
 
+      Found_E := Empty;
       Pkg_Ent := First_Entity (U.Entity);
       Search : while Present (Pkg_Ent) loop
          if Is_Record_Type (Pkg_Ent) then
             E1 := First_Entity (Pkg_Ent);
             while Present (E1) loop
                if Ename = Chars (E1) then
-                  exit Search;
+                  pragma Assert (not Present (Found_E));
+                  Found_E := E1;
                end if;
 
                Next_Entity (E1);
@@ -1157,7 +1220,7 @@ package body Rtsfind is
       end if;
 
       Front_End_Inlining := Save_Front_End_Inlining;
-      return Check_CRT (E, E1);
+      return Check_CRT (E, Found_E);
    end RTE_Record_Component;
 
    ------------------------------------
@@ -1366,6 +1429,12 @@ package body Rtsfind is
             end if;
          end loop;
       end if;
+
+   exception
+      --  Generate error message if run-time unit not available
+
+      when RE_Not_Available =>
+         Error_Msg_N ("& not available", Nam);
    end Text_IO_Kludge;
 
 end Rtsfind;

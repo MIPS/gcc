@@ -1,5 +1,6 @@
 /* { dg-require-effective-target vect_int } */
 
+#include <stdio.h>
 #include <stdarg.h>
 #include <signal.h>
 #include "tree-vect.h"
@@ -9,12 +10,14 @@
 
 extern void abort(void); 
 
+__attribute__ ((noinline)) 
 int main1 ()
 {  
   float A[N] __attribute__ ((__aligned__(16)));
   float B[N] __attribute__ ((__aligned__(16)));
   float C[N] __attribute__ ((__aligned__(16)));
   float D[N] __attribute__ ((__aligned__(16)));
+  float E[4] = {0,1,2,480};
   float s;
 
   int i, j;
@@ -52,16 +55,13 @@ int main1 ()
       s = 0;
       for (j=0; j<N; j+=4)
 	s += C[j];
-      B[i] = B[i+3] + s;
+      B[i+3] = B[i] + s;
     }
 
   /* check results:  */
   for (i = 0; i < 4; i++)
     {
-      s = 0;
-      for (j=0; j<N; j+=4)
-	s += C[j];
-      if (B[i] != D[i+3] + s)
+      if (B[i] != E[i])
 	abort ();
     }
 
@@ -74,7 +74,10 @@ int main ()
   return main1();
 }
 
-/* { dg-final { scan-tree-dump-times "not vectorized: possible dependence between data-refs" 1 "vect" } } */
+/* NOTE: We temporarily xfail the following check until versioning for
+   aliasing is fixed to avoid versioning when the dependence distance
+   is known.  */
+/* { dg-final { scan-tree-dump-times "not vectorized: possible dependence between data-refs" 1 "vect" { xfail *-*-* } } } */
 /* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED" 1 "vect" } } */
 /* { dg-final { scan-tree-dump-times "zero step in outer loop." 1 "vect" } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

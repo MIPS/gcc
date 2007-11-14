@@ -45,7 +45,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   // Available locking policies:
   // _S_single    single-threaded code that doesn't need to be locked.
   // _S_mutex     multi-threaded code that requires additional support
-  //              from gthr.h or abstraction layers in concurrance.h.
+  //              from gthr.h or abstraction layers in concurrence.h.
   // _S_atomic    multi-threaded code using atomic operations.
   enum _Lock_policy { _S_single, _S_mutex, _S_atomic }; 
 
@@ -53,9 +53,8 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   // the current configuration.
   static const _Lock_policy __default_lock_policy = 
 #ifdef __GTHREADS
-  // NB: This macro doesn't actually exist yet in the compiler, but is
-  // set somewhat haphazardly at configure time.
-#ifdef _GLIBCXX_ATOMIC_BUILTINS
+#if (defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2) \
+     && defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4))
   _S_atomic;
 #else
   _S_mutex;
@@ -63,7 +62,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 #else
   _S_single;
 #endif
-  
+
   // NB: As this is used in libsupc++, need to only depend on
   // exception. No stdexception classes, no use of std::string.
   class __concurrence_lock_error : public std::exception
@@ -80,6 +79,22 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     virtual char const*
     what() const throw()
     { return "__gnu_cxx::__concurrence_unlock_error"; }
+  };
+
+  class __concurrence_broadcast_error : public std::exception
+  {
+  public:
+    virtual char const*
+    what() const throw()
+    { return "__gnu_cxx::__concurrence_broadcast_error"; }
+  };
+
+  class __concurrence_wait_error : public std::exception
+  {
+  public:
+    virtual char const*
+    what() const throw()
+    { return "__gnu_cxx::__concurrence_wait_error"; }
   };
 
   // Substitute for concurrence_error object in the case of -fno-exceptions.
@@ -103,6 +118,28 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 #endif
   }
 
+#ifdef __GTHREAD_HAS_COND
+  inline void
+  __throw_concurrence_broadcast_error()
+  {
+#if __EXCEPTIONS
+    throw __concurrence_broadcast_error();
+#else
+    __builtin_abort();
+#endif
+  }
+
+  inline void
+  __throw_concurrence_wait_error()
+  {
+#if __EXCEPTIONS
+    throw __concurrence_wait_error();
+#else
+    __builtin_abort();
+#endif
+  }
+#endif
+ 
   class __mutex 
   {
   private:
@@ -148,6 +185,9 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	}
 #endif
     }
+
+    __gthread_mutex_t* gthread_mutex(void)
+      { return &_M_mutex; }
   };
 
   class __recursive_mutex 
@@ -195,6 +235,9 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	}
 #endif
     }
+
+    __gthread_recursive_mutex_t* gthread_recursive_mutex(void)
+      { return &_M_mutex; }
   };
 
   /// @brief  Scoped lock idiom.
@@ -218,6 +261,66 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     ~__scoped_lock() throw()
     { _M_device.unlock(); }
   };
+
+#ifdef __GTHREAD_HAS_COND
+  class __cond
+  {
+  private:
+    __gthread_cond_t _M_cond;
+
+    __cond(const __cond&);
+    __cond& operator=(const __cond&);
+
+  public:
+    __cond() 
+    { 
+#if __GTHREADS
+      if (__gthread_active_p())
+	{
+#if defined __GTHREAD_COND_INIT
+	  __gthread_cond_t __tmp = __GTHREAD_COND_INIT;
+	  _M_cond = __tmp;
+#else
+	  __GTHREAD_MUTEX_INIT_FUNCTION(&_M_cond);
+#endif
+	}
+#endif 
+    }
+
+    void broadcast()
+    {
+#if __GTHREADS
+      if (__gthread_active_p())
+	{
+	  if (__gthread_cond_broadcast(&_M_cond) != 0)
+	    __throw_concurrence_broadcast_error();
+	}
+#endif
+    }
+
+    void wait(__mutex *mutex)
+    {
+#if __GTHREADS
+      {
+	  if (__gthread_cond_wait(&_M_cond, mutex->gthread_mutex()) != 0)
+	    __throw_concurrence_wait_error();
+      }
+#endif
+    }
+
+    void wait_recursive(__recursive_mutex *mutex)
+    {
+#if __GTHREADS
+      {
+	  if (__gthread_cond_wait_recursive(&_M_cond,
+					    mutex->gthread_recursive_mutex())
+	      != 0)
+	    __throw_concurrence_wait_error();
+      }
+#endif
+    }
+  };
+#endif
 
 _GLIBCXX_END_NAMESPACE
 

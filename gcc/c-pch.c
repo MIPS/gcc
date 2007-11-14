@@ -1,11 +1,11 @@
 /* Precompiled header implementation for the C languages.
-   Copyright (C) 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -34,6 +33,7 @@ Boston, MA 02110-1301, USA.  */
 #include "langhooks.h"
 #include "hosthooks.h"
 #include "target.h"
+#include "opts.h"
 
 /* This is a list of flag variables that must match exactly, and their
    names for the error message.  The possible values for *flag_var must
@@ -366,6 +366,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
   FILE *f;
   struct c_pch_header h;
   struct save_macro_data *smd;
+  expanded_location saved_loc;
 
   f = fdopen (fd, "rb");
   if (f == NULL)
@@ -407,6 +408,18 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
 	cpp_errno (pfile, CPP_DL_ERROR, "seeking");
     }
 
+  /* Save the location and then restore it after reading the PCH.  */
+#ifdef USE_MAPPED_LOCATION
+  saved_loc = expand_location (line_table->highest_line);
+#else
+  {
+    const struct line_map *map = linemap_lookup (line_table,
+						 line_table->highest_line);
+    saved_loc.file = map->to_file;
+    saved_loc.line = SOURCE_LINE (map, line_table->highest_line);
+  }
+#endif
+
   cpp_prepare_state (pfile, &smd);
 
   gt_pch_restore (f);
@@ -415,6 +428,9 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
     return;
 
   fclose (f);
+
+  cpp_set_line_map (pfile, line_table);
+  linemap_add (line_table, LC_RENAME, 0, saved_loc.file, saved_loc.line);
 
   /* Give the front end a chance to take action after a PCH file has
      been loaded.  */

@@ -1,12 +1,12 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /*  This file contains basic routines manipulating call graph
 
@@ -246,7 +245,7 @@ cgraph_node_for_asm (tree asmname)
 static hashval_t
 edge_hash (const void *x)
 {
-  return htab_hash_pointer (((struct cgraph_edge *) x)->call_stmt);
+  return htab_hash_pointer (((const struct cgraph_edge *) x)->call_stmt);
 }
 
 /* Return nonzero if decl_id of die_struct X is the same as UID of decl *Y.  */
@@ -254,7 +253,7 @@ edge_hash (const void *x)
 static int
 edge_eq (const void *x, const void *y)
 {
-  return ((struct cgraph_edge *) x)->call_stmt == y;
+  return ((const struct cgraph_edge *) x)->call_stmt == y;
 }
 
 /* Return callgraph edge representing CALL_EXPR statement.  */
@@ -658,7 +657,9 @@ cgraph_node_name (struct cgraph_node *node)
 const char * const cgraph_availability_names[] =
   {"unset", "not_available", "overwrittable", "available", "local"};
 
-/* Dump given cgraph node.  */
+
+/* Dump call graph node NODE to file F.  */
+
 void
 dump_cgraph_node (FILE *f, struct cgraph_node *node)
 {
@@ -743,7 +744,17 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   fprintf (f, "\n");
 }
 
-/* Dump the callgraph.  */
+
+/* Dump call graph node NODE to stderr.  */
+
+void
+debug_cgraph_node (struct cgraph_node *node)
+{
+  dump_cgraph_node (stderr, node);
+}
+
+
+/* Dump the callgraph to file F.  */
 
 void
 dump_cgraph (FILE *f)
@@ -755,7 +766,18 @@ dump_cgraph (FILE *f)
     dump_cgraph_node (f, node);
 }
 
+
+/* Dump the call graph to stderr.  */
+
+void
+debug_cgraph (void)
+{
+  dump_cgraph (stderr);
+}
+
+
 /* Set the DECL_ASSEMBLER_NAME and update cgraph hashtables.  */
+
 void
 change_decl_assembler_name (tree decl, tree name)
 {

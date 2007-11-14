@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -184,6 +184,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Free_Statement);
       return Node4 (N);
    end Actual_Designated_Subtype;
+
+   function Address_Warning_Posted
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Attribute_Definition_Clause);
+      return Flag18 (N);
+   end Address_Warning_Posted;
 
    function Aggregate_Bounds
       (N : Node_Id) return Node_Id is
@@ -727,14 +735,6 @@ package body Sinfo is
       return Node4 (N);
    end Delay_Alternative;
 
-   function Delay_Finalize_Attach
-      (N : Node_Id) return Boolean is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Object_Declaration);
-      return Flag14 (N);
-   end Delay_Finalize_Attach;
-
    function Delay_Statement
       (N : Node_Id) return Node_Id is
    begin
@@ -1101,11 +1101,12 @@ package body Sinfo is
      (N : Node_Id) return Boolean is
    begin
       pragma Assert (False
+        or else NT (N).Nkind = N_Block_Statement
         or else NT (N).Nkind = N_Goto_Statement
         or else NT (N).Nkind = N_Label
         or else NT (N).Nkind = N_Object_Declaration
         or else NT (N).Nkind = N_Subtype_Declaration);
-      return Flag7 (N);
+      return Flag8 (N);
    end Exception_Junk;
 
    function Exception_Label
@@ -1360,6 +1361,22 @@ package body Sinfo is
       return Flag12 (N);
    end Has_Dynamic_Range_Check;
 
+   function Has_Init_Expression
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Object_Declaration);
+      return Flag14 (N);
+   end Has_Init_Expression;
+
+   function Has_Local_Raise
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Exception_Handler);
+      return Flag8 (N);
+   end Has_Local_Raise;
+
    function Has_No_Elaboration_Code
       (N : Node_Id) return Boolean is
    begin
@@ -1541,14 +1558,6 @@ package body Sinfo is
       return Flag7 (N);
    end Is_Asynchronous_Call_Block;
 
-   function Is_Coextension
-      (N : Node_Id) return Boolean is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Allocator);
-      return Flag18 (N);
-   end Is_Coextension;
-
    function Is_Component_Left_Opnd
       (N : Node_Id) return Boolean is
    begin
@@ -1573,6 +1582,14 @@ package body Sinfo is
       return Flag16 (N);
    end Is_Controlling_Actual;
 
+   function Is_Dynamic_Coextension
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Allocator);
+      return Flag18 (N);
+   end Is_Dynamic_Coextension;
+
    function Is_Entry_Barrier_Function
       (N : Node_Id) return Boolean is
    begin
@@ -1580,6 +1597,22 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Body);
       return Flag8 (N);
    end Is_Entry_Barrier_Function;
+
+   function Is_Expanded_Build_In_Place_Call
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Function_Call);
+      return Flag11 (N);
+   end Is_Expanded_Build_In_Place_Call;
+
+   function Is_Folded_In_Parser
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_String_Literal);
+      return Flag4 (N);
+   end Is_Folded_In_Parser;
 
    function Is_In_Discriminant_Check
       (N : Node_Id) return Boolean is
@@ -1628,6 +1661,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Body);
       return Flag7 (N);
    end Is_Protected_Subprogram_Body;
+
+   function Is_Static_Coextension
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Allocator);
+      return Flag14 (N);
+   end Is_Static_Coextension;
 
    function Is_Static_Expression
       (N : Node_Id) return Boolean is
@@ -1900,8 +1941,7 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Renaming_Declaration
         or else NT (N).Nkind = N_Subunit
         or else NT (N).Nkind = N_Variant_Part
-        or else NT (N).Nkind = N_With_Clause
-        or else NT (N).Nkind = N_With_Type_Clause);
+        or else NT (N).Nkind = N_With_Clause);
       return Node2 (N);
    end Name;
 
@@ -2348,6 +2388,14 @@ package body Sinfo is
       return Flag13 (N);
    end Redundant_Use;
 
+   function Renaming_Exception
+      (N : Node_Id) return Node_Id is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Exception_Declaration);
+      return Node2 (N);
+   end Renaming_Exception;
+
    function Result_Definition
      (N : Node_Id) return Node_Id is
    begin
@@ -2576,8 +2624,7 @@ package body Sinfo is
         or else NT (N).Nkind = N_Formal_Private_Type_Definition
         or else NT (N).Nkind = N_Incomplete_Type_Declaration
         or else NT (N).Nkind = N_Private_Type_Declaration
-        or else NT (N).Nkind = N_Record_Definition
-        or else NT (N).Nkind = N_With_Type_Clause);
+        or else NT (N).Nkind = N_Record_Definition);
       return Flag15 (N);
    end Tagged_Present;
 
@@ -2869,6 +2916,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Free_Statement);
       Set_Node4 (N, Val);
    end Set_Actual_Designated_Subtype;
+
+   procedure Set_Address_Warning_Posted
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Attribute_Definition_Clause);
+      Set_Flag18 (N, Val);
+   end Set_Address_Warning_Posted;
 
    procedure Set_Aggregate_Bounds
       (N : Node_Id; Val : Node_Id) is
@@ -3412,14 +3467,6 @@ package body Sinfo is
       Set_Node4_With_Parent (N, Val);
    end Set_Delay_Alternative;
 
-   procedure Set_Delay_Finalize_Attach
-      (N : Node_Id; Val : Boolean := True) is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Object_Declaration);
-      Set_Flag14 (N, Val);
-   end Set_Delay_Finalize_Attach;
-
    procedure Set_Delay_Statement
       (N : Node_Id; Val : Node_Id) is
    begin
@@ -3777,11 +3824,12 @@ package body Sinfo is
      (N : Node_Id; Val : Boolean := True) is
    begin
       pragma Assert (False
+        or else NT (N).Nkind = N_Block_Statement
         or else NT (N).Nkind = N_Goto_Statement
         or else NT (N).Nkind = N_Label
         or else NT (N).Nkind = N_Object_Declaration
         or else NT (N).Nkind = N_Subtype_Declaration);
-      Set_Flag7 (N, Val);
+      Set_Flag8 (N, Val);
    end Set_Exception_Junk;
 
    procedure Set_Exception_Label
@@ -4036,6 +4084,22 @@ package body Sinfo is
       Set_Flag12 (N, Val);
    end Set_Has_Dynamic_Range_Check;
 
+   procedure Set_Has_Init_Expression
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Object_Declaration);
+      Set_Flag14 (N, Val);
+   end Set_Has_Init_Expression;
+
+   procedure Set_Has_Local_Raise
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Exception_Handler);
+      Set_Flag8 (N, Val);
+   end Set_Has_Local_Raise;
+
    procedure Set_Has_No_Elaboration_Code
       (N : Node_Id; Val : Boolean := True) is
    begin
@@ -4217,14 +4281,6 @@ package body Sinfo is
       Set_Flag7 (N, Val);
    end Set_Is_Asynchronous_Call_Block;
 
-   procedure Set_Is_Coextension
-      (N : Node_Id; Val : Boolean := True) is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Allocator);
-      Set_Flag18 (N, Val);
-   end Set_Is_Coextension;
-
    procedure Set_Is_Component_Left_Opnd
       (N : Node_Id; Val : Boolean := True) is
    begin
@@ -4249,6 +4305,14 @@ package body Sinfo is
       Set_Flag16 (N, Val);
    end Set_Is_Controlling_Actual;
 
+   procedure Set_Is_Dynamic_Coextension
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Allocator);
+      Set_Flag18 (N, Val);
+   end Set_Is_Dynamic_Coextension;
+
    procedure Set_Is_Entry_Barrier_Function
       (N : Node_Id; Val : Boolean := True) is
    begin
@@ -4256,6 +4320,22 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Body);
       Set_Flag8 (N, Val);
    end Set_Is_Entry_Barrier_Function;
+
+   procedure Set_Is_Expanded_Build_In_Place_Call
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Function_Call);
+      Set_Flag11 (N, Val);
+   end Set_Is_Expanded_Build_In_Place_Call;
+
+   procedure Set_Is_Folded_In_Parser
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_String_Literal);
+      Set_Flag4 (N, Val);
+   end Set_Is_Folded_In_Parser;
 
    procedure Set_Is_In_Discriminant_Check
       (N : Node_Id; Val : Boolean := True) is
@@ -4304,6 +4384,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Body);
       Set_Flag7 (N, Val);
    end Set_Is_Protected_Subprogram_Body;
+
+   procedure Set_Is_Static_Coextension
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Allocator);
+      Set_Flag14 (N, Val);
+   end Set_Is_Static_Coextension;
 
    procedure Set_Is_Static_Expression
       (N : Node_Id; Val : Boolean := True) is
@@ -4576,8 +4664,7 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Renaming_Declaration
         or else NT (N).Nkind = N_Subunit
         or else NT (N).Nkind = N_Variant_Part
-        or else NT (N).Nkind = N_With_Clause
-        or else NT (N).Nkind = N_With_Type_Clause);
+        or else NT (N).Nkind = N_With_Clause);
       Set_Node2_With_Parent (N, Val);
    end Set_Name;
 
@@ -5024,6 +5111,14 @@ package body Sinfo is
       Set_Flag13 (N, Val);
    end Set_Redundant_Use;
 
+   procedure Set_Renaming_Exception
+      (N : Node_Id; Val : Node_Id) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Exception_Declaration);
+      Set_Node2 (N, Val);
+   end Set_Renaming_Exception;
+
    procedure Set_Result_Definition
      (N : Node_Id; Val : Node_Id) is
    begin
@@ -5252,8 +5347,7 @@ package body Sinfo is
         or else NT (N).Nkind = N_Formal_Private_Type_Definition
         or else NT (N).Nkind = N_Incomplete_Type_Declaration
         or else NT (N).Nkind = N_Private_Type_Declaration
-        or else NT (N).Nkind = N_Record_Definition
-        or else NT (N).Nkind = N_With_Type_Clause);
+        or else NT (N).Nkind = N_Record_Definition);
       Set_Flag15 (N, Val);
    end Set_Tagged_Present;
 

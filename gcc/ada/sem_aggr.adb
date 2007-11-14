@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -33,6 +32,7 @@ with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
 with Itypes;   use Itypes;
+with Lib;      use Lib;
 with Lib.Xref; use Lib.Xref;
 with Namet;    use Namet;
 with Nmake;    use Nmake;
@@ -41,7 +41,6 @@ with Opt;      use Opt;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch3;  use Sem_Ch3;
-with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
@@ -86,7 +85,7 @@ package body Sem_Aggr is
    --  E_Component/E_Discriminant entity in the record case, in which case the
    --  type of the component will be used for the test. If Typ is any other
    --  kind of entity, the call is ignored. Expr is the component node in the
-   --  aggregate which is an explicit occurrence of NULL. An error will be
+   --  aggregate which is known to have a null value. A warning message will be
    --  issued if the component is null excluding.
    --
    --  It would be better to pass the proper type for Typ ???
@@ -124,7 +123,7 @@ package body Sem_Aggr is
    --  subtree transformation is performed during resolution rather than
    --  expansion. Had we decided otherwise we would have had to duplicate most
    --  of the code in the expansion procedure Expand_Record_Aggregate. Note,
-   --  however, that all the expansion concerning aggegates for tagged records
+   --  however, that all the expansion concerning aggregates for tagged records
    --  is done in Expand_Record_Aggregate.
    --
    --  The algorithm of Resolve_Record_Aggregate proceeds as follows:
@@ -177,7 +176,7 @@ package body Sem_Aggr is
    --     should we not find such values or should they be duplicated.
    --
    --  7. We then make sure no illegal component names appear in the
-   --     record aggegate and make sure that the type of the record
+   --     record aggregate and make sure that the type of the record
    --     components appearing in a same choice list is the same.
    --     Finally we ensure that the others choice, if present, is
    --     used to provide the value of at least a record component.
@@ -352,7 +351,7 @@ package body Sem_Aggr is
    --  those defined by the aggregate. When this routine is invoked
    --  Resolve_Array_Aggregate has already processed aggregate N. Thus the
    --  Aggregate_Bounds of each sub-aggregate, is an N_Range node giving the
-   --  sub-aggregate bounds. When building the aggegate itype, this function
+   --  sub-aggregate bounds. When building the aggregate itype, this function
    --  traverses the array aggregate N collecting such Aggregate_Bounds and
    --  constructs the proper array aggregate itype.
    --
@@ -637,9 +636,11 @@ package body Sem_Aggr is
             Index_Typ  : Entity_Id;
 
          begin
-            --  Construct the Index subtype
+            --  Construct the Index subtype, and associate it with the range
+            --  construct that generates it.
 
-            Index_Typ := Create_Itype (Subtype_Kind (Ekind (Index_Base)), N);
+            Index_Typ :=
+              Create_Itype (Subtype_Kind (Ekind (Index_Base)), Aggr_Range (J));
 
             Set_Etype (Index_Typ, Index_Base);
 
@@ -1003,7 +1004,7 @@ package body Sem_Aggr is
                Pkind = N_Procedure_Call_Statement  or else
                Pkind = N_Generic_Association       or else
                Pkind = N_Formal_Object_Declaration or else
-               Pkind = N_Return_Statement          or else
+               Pkind = N_Simple_Return_Statement   or else
                Pkind = N_Object_Declaration        or else
                Pkind = N_Component_Declaration     or else
                Pkind = N_Parameter_Specification   or else
@@ -1257,10 +1258,13 @@ package body Sem_Aggr is
          Val_AL : Uint;
          Val_AH : Uint;
 
-         OK_L  : Boolean;
-         OK_H  : Boolean;
+         OK_L : Boolean;
+         OK_H : Boolean;
+
          OK_AL : Boolean;
-         OK_AH : Boolean;
+         OK_AH  : Boolean;
+         pragma Warnings (Off, OK_AL);
+         pragma Warnings (Off, OK_AH);
 
       begin
          if Raises_Constraint_Error (N)
@@ -1463,18 +1467,19 @@ package body Sem_Aggr is
       Choice  : Node_Id;
       Expr    : Node_Id;
 
-      Who_Cares : Node_Id;
+      Discard : Node_Id;
+      pragma Warnings (Off, Discard);
 
       Aggr_Low  : Node_Id := Empty;
       Aggr_High : Node_Id := Empty;
-      --  The actual low and high bounds of this sub-aggegate
+      --  The actual low and high bounds of this sub-aggregate
 
       Choices_Low  : Node_Id := Empty;
       Choices_High : Node_Id := Empty;
       --  The lowest and highest discrete choices values for a named aggregate
 
       Nb_Elements : Uint := Uint_0;
-      --  The number of elements in a positional aggegate
+      --  The number of elements in a positional aggregate
 
       Others_Present : Boolean := False;
 
@@ -1700,7 +1705,7 @@ package body Sem_Aggr is
                --  Ada 2005 (AI-231)
 
                if Ada_Version >= Ada_05
-                 and then Nkind (Expression (Assoc)) = N_Null
+                 and then Known_Null (Expression (Assoc))
                then
                   Check_Can_Never_Be_Null (Etype (N), Expression (Assoc));
                end if;
@@ -1832,7 +1837,7 @@ package body Sem_Aggr is
             --  Ada 2005 (AI-231)
 
             if Ada_Version >= Ada_05
-              and then Nkind (Expr) = N_Null
+              and then Known_Null (Expr)
             then
                Check_Can_Never_Be_Null (Etype (N), Expr);
             end if;
@@ -1850,7 +1855,7 @@ package body Sem_Aggr is
             --  Ada 2005 (AI-231)
 
             if Ada_Version >= Ada_05
-              and then Nkind (Assoc) = N_Null
+              and then Known_Null (Assoc)
             then
                Check_Can_Never_Be_Null (Etype (N), Expression (Assoc));
             end if;
@@ -1880,7 +1885,7 @@ package body Sem_Aggr is
 
          else
             if Others_Allowed then
-               Get_Index_Bounds (Index_Constr, Aggr_Low, Who_Cares);
+               Get_Index_Bounds (Index_Constr, Aggr_Low, Discard);
             else
                Aggr_Low := Index_Typ_Low;
             end if;
@@ -2382,7 +2387,7 @@ package body Sem_Aggr is
                      --  Ada 2005 (AI-231)
 
                      if Ada_Version >= Ada_05
-                       and then Nkind (Expression (Assoc)) = N_Null
+                       and then Known_Null (Expression (Assoc))
                      then
                         Check_Can_Never_Be_Null (Compon, Expression (Assoc));
                      end if;
@@ -2397,14 +2402,15 @@ package body Sem_Aggr is
                         Is_Box_Present := True;
 
                         --  Duplicate the default expression of the component
-                        --  from the record type declaration
+                        --  from the record type declaration, so a new copy
+                        --  can be attached to the association.
 
-                        if Present (Next (Selector_Name)) then
-                           Expr :=
-                             New_Copy_Tree (Expression (Parent (Compon)));
-                        else
-                           Expr := Expression (Parent (Compon));
-                        end if;
+                        --  Note that we always copy the default expression,
+                        --  even when the association has a single choice, in
+                        --  order to create a proper association for the
+                        --  expanded aggregate.
+
+                        Expr := New_Copy_Tree (Expression (Parent (Compon)));
 
                      else
                         if Present (Next (Selector_Name)) then
@@ -2663,6 +2669,13 @@ package body Sem_Aggr is
                      Error_Msg_N ("OTHERS must appear last in an aggregate",
                                   Selector_Name);
                      return;
+
+                  --  (Ada2005): If this is an association with a box,
+                  --  indicate that the association need not represent
+                  --  any component.
+
+                  elsif Box_Present (Assoc) then
+                     Others_Box := True;
                   end if;
 
                else
@@ -2711,7 +2724,7 @@ package body Sem_Aggr is
                --  Ada 2005 (AI-231)
 
                if Ada_Version >= Ada_05
-                 and then Nkind (Positional_Expr) = N_Null
+                 and then Known_Null (Positional_Expr)
                then
                   Check_Can_Never_Be_Null (Discrim, Positional_Expr);
                end if;
@@ -2949,7 +2962,7 @@ package body Sem_Aggr is
          --  Ada 2005 (AI-231)
 
          if Ada_Version >= Ada_05
-           and then Nkind (Positional_Expr) = N_Null
+           and then Known_Null (Positional_Expr)
          then
             Check_Can_Never_Be_Null (Component, Positional_Expr);
          end if;
@@ -2975,57 +2988,208 @@ package body Sem_Aggr is
          Expr := Get_Value (Component, Component_Associations (N), True);
 
          --  Note: The previous call to Get_Value sets the value of the
-         --  variable Is_Box_Present
+         --  variable Is_Box_Present.
 
          --  Ada 2005 (AI-287): Handle components with default initialization.
          --  Note: This feature was originally added to Ada 2005 for limited
          --  but it was finally allowed with any type.
 
          if Is_Box_Present then
-            declare
-               Is_Array_Subtype : constant Boolean :=
-                                    Ekind (Etype (Component)) =
-                                                           E_Array_Subtype;
-
-               Ctyp : Entity_Id;
+            Check_Box_Component : declare
+               Ctyp : constant Entity_Id := Etype (Component);
 
             begin
-               if Is_Array_Subtype then
-                  Ctyp := Component_Type (Base_Type (Etype (Component)));
-               else
-                  Ctyp := Etype (Component);
-               end if;
+               --  If there is a default expression for the aggregate, copy
+               --  it into a new association.
 
                --  If the component has an initialization procedure (IP) we
                --  pass the component to the expander, which will generate
                --  the call to such IP.
 
-               if Has_Non_Null_Base_Init_Proc (Ctyp)
+               --  If the component has discriminants, their values must
+               --  be taken from their subtype. This is indispensable for
+               --  constraints that are given by the current instance of an
+               --  enclosing type, to allow the expansion of the aggregate
+               --  to replace the reference to the current instance by the
+               --  target object of the aggregate.
+
+               if Present (Parent (Component))
+                 and then
+                   Nkind (Parent (Component)) = N_Component_Declaration
+                 and then Present (Expression (Parent (Component)))
+               then
+                  Expr :=
+                    New_Copy_Tree (Expression (Parent (Component)),
+                      New_Sloc => Sloc (N));
+
+                  Add_Association
+                    (Component => Component,
+                     Expr      => Expr);
+                  Set_Has_Self_Reference (N);
+
+               --  A box-defaulted access component gets the value null. Also
+               --  included are components of private types whose underlying
+               --  type is an access type.
+
+               elsif Present (Underlying_Type (Ctyp))
+                 and then Is_Access_Type (Underlying_Type (Ctyp))
+               then
+                  if not Is_Private_Type (Ctyp) then
+                     Add_Association
+                       (Component => Component,
+                        Expr      => Make_Null (Sloc (N)));
+
+                  --  If the component's type is private with an access type as
+                  --  its underlying type then we have to create an unchecked
+                  --  conversion to satisfy type checking.
+
+                  else
+                     declare
+                        Qual_Null : constant Node_Id :=
+                                      Make_Qualified_Expression (Sloc (N),
+                                        Subtype_Mark =>
+                                          New_Occurrence_Of
+                                            (Underlying_Type (Ctyp), Sloc (N)),
+                                        Expression => Make_Null (Sloc (N)));
+
+                        Convert_Null : constant Node_Id :=
+                                         Unchecked_Convert_To
+                                           (Ctyp, Qual_Null);
+
+                     begin
+                        Analyze_And_Resolve (Convert_Null, Ctyp);
+                        Add_Association
+                          (Component => Component, Expr => Convert_Null);
+                     end;
+                  end if;
+
+               elsif Has_Non_Null_Base_Init_Proc (Ctyp)
                  or else not Expander_Active
                then
-                  Add_Association
-                    (Component      => Component,
-                     Expr           => Empty,
-                     Is_Box_Present => True);
+                  if Is_Record_Type (Ctyp)
+                    and then Has_Discriminants (Ctyp)
+                  then
+                     --  We build a partially initialized aggregate with the
+                     --  values of the discriminants and box initialization
+                     --  for the rest, if other components are present.
+
+                     declare
+                        Loc        : constant Source_Ptr := Sloc (N);
+                        Assoc      : Node_Id;
+                        Discr      : Entity_Id;
+                        Discr_Elmt : Elmt_Id;
+                        Discr_Val  : Node_Id;
+                        Expr       : Node_Id;
+
+                     begin
+                        Expr := Make_Aggregate (Loc, New_List, New_List);
+
+                        Discr_Elmt :=
+                          First_Elmt (Discriminant_Constraint (Ctyp));
+                        while Present (Discr_Elmt) loop
+                           Discr_Val := Node (Discr_Elmt);
+
+                           --  The constraint may be given by a discriminant
+                           --  of the enclosing type, in which case we have
+                           --  to retrieve its value, which is part of the
+                           --  current aggregate.
+
+                           if Is_Entity_Name (Discr_Val)
+                             and then
+                               Ekind (Entity (Discr_Val)) = E_Discriminant
+                           then
+                              Discr := Entity (Discr_Val);
+
+                              Assoc := First (New_Assoc_List);
+                              while Present (Assoc) loop
+                                 if Present
+                                   (Entity (First (Choices (Assoc))))
+                                   and then
+                                     Entity (First (Choices (Assoc))) = Discr
+                                 then
+                                    Discr_Val := Expression (Assoc);
+                                    exit;
+                                 end if;
+                                 Next (Assoc);
+                              end loop;
+                           end if;
+
+                           Append
+                             (New_Copy_Tree (Discr_Val), Expressions (Expr));
+
+                           --  If the discriminant constraint is a current
+                           --  instance, mark the current aggregate so that
+                           --  the self-reference can be expanded later.
+
+                           if Nkind (Discr_Val) = N_Attribute_Reference
+                             and then Is_Entity_Name (Prefix (Discr_Val))
+                             and then Is_Type (Entity (Prefix (Discr_Val)))
+                             and then Etype (N) = Entity (Prefix (Discr_Val))
+                           then
+                              Set_Has_Self_Reference (N);
+                           end if;
+
+                           Next_Elmt (Discr_Elmt);
+                        end loop;
+
+                        declare
+                           Comp : Entity_Id;
+
+                        begin
+                           --  Look for a component that is not a discriminant
+                           --  before creating an others box association.
+
+                           Comp := First_Component (Ctyp);
+                           while Present (Comp) loop
+                              if Ekind (Comp) = E_Component then
+                                 Append
+                                   (Make_Component_Association (Loc,
+                                      Choices     =>
+                                        New_List (Make_Others_Choice (Loc)),
+                                      Expression  => Empty,
+                                      Box_Present => True),
+                                    Component_Associations (Expr));
+                                 exit;
+                              end if;
+
+                              Next_Component (Comp);
+                           end loop;
+                        end;
+
+                        Add_Association
+                          (Component      => Component,
+                           Expr           => Expr);
+                     end;
+
+                  else
+                     Add_Association
+                       (Component      => Component,
+                        Expr           => Empty,
+                        Is_Box_Present => True);
+                  end if;
 
                --  Otherwise we only need to resolve the expression if the
                --  component has partially initialized values (required to
                --  expand the corresponding assignments and run-time checks).
 
                elsif Present (Expr)
-                 and then
-                   ((not Is_Array_Subtype
-                       and then Is_Partially_Initialized_Type (Component))
-                      or else
-                        (Is_Array_Subtype
-                           and then Is_Partially_Initialized_Type (Ctyp)))
+                 and then Is_Partially_Initialized_Type (Ctyp)
                then
                   Resolve_Aggr_Expr (Expr, Component);
                end if;
-            end;
+            end Check_Box_Component;
 
          elsif No (Expr) then
-            Error_Msg_NE ("no value supplied for component &!", N, Component);
+
+            --  Ignore hidden components associated with the position of the
+            --  interface tags: these are initialized dynamically.
+
+            if Present (Related_Interface (Component)) then
+               null;
+            else
+               Error_Msg_NE
+                 ("no value supplied for component &!", N, Component);
+            end if;
 
          else
             Resolve_Aggr_Expr (Expr, Component);
@@ -3165,7 +3329,7 @@ package body Sem_Aggr is
       pragma Assert
         (Ada_Version >= Ada_05
           and then Present (Expr)
-          and then Nkind (Expr) = N_Null);
+          and then Known_Null (Expr));
 
       case Ekind (Typ) is
          when E_Array_Type  =>
@@ -3189,7 +3353,7 @@ package body Sem_Aggr is
          Insert_Action
            (Compile_Time_Constraint_Error
               (Expr,
-               "(Ada 2005) NULL not allowed in null-excluding components?"),
+               "(Ada 2005) null not allowed in null-excluding component?"),
             Make_Raise_Constraint_Error (Sloc (Expr),
               Reason => CE_Access_Check_Failed));
 

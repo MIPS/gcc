@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,7 +44,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "except.h"
 #include "tree.h"
+#include "df.h"
 #include "target.h"
+#include "dse.h"
 
 /* This file contains the reload pass of the compiler, which is
    run after register allocation has been done.  It checks that
@@ -394,7 +395,7 @@ static void check_eliminable_occurrences (rtx);
 static void elimination_effects (rtx, enum machine_mode);
 static int eliminate_regs_in_insn (rtx, int);
 static void update_eliminable_offsets (void);
-static void mark_not_eliminable (rtx, rtx, void *);
+static void mark_not_eliminable (rtx, const_rtx, void *);
 static void set_initial_elim_offsets (void);
 static bool verify_initial_elim_offsets (void);
 static void set_initial_label_offsets (void);
@@ -407,7 +408,7 @@ static void scan_paradoxical_subregs (rtx);
 static void count_pseudo (int);
 static void order_regs_for_reload (struct insn_chain *);
 static void reload_as_needed (int);
-static void forget_old_reloads_1 (rtx, rtx, void *);
+static void forget_old_reloads_1 (rtx, const_rtx, void *);
 static void forget_marked_reloads (regset);
 static int reload_reg_class_lower (const void *, const void *);
 static void mark_reload_reg_in_use (unsigned int, int, enum reload_type,
@@ -447,7 +448,8 @@ static int reloads_conflict (int, int);
 static rtx gen_reload (rtx, rtx, int, enum reload_type);
 static rtx emit_insn_if_valid_for_reload (rtx);
 
-/* Initialize the reload pass once per compilation.  */
+/* Initialize the reload pass.  This is called at the beginning of compilation
+   and may be called again if the target is reinitialized.  */
 
 void
 init_reload (void)
@@ -542,22 +544,17 @@ compute_use_by_pseudos (HARD_REG_SET *to, regset from)
   EXECUTE_IF_SET_IN_REG_SET (from, FIRST_PSEUDO_REGISTER, regno, rsi)
     {
       int r = reg_renumber[regno];
-      int nregs;
 
       if (r < 0)
 	{
 	  /* reload_combine uses the information from
-	     BASIC_BLOCK->global_live_at_start, which might still
+	     DF_LIVE_IN (BASIC_BLOCK), which might still
 	     contain registers that have not actually been allocated
 	     since they have an equivalence.  */
 	  gcc_assert (reload_completed);
 	}
       else
-	{
-	  nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
-	  while (nregs-- > 0)
-	    SET_HARD_REG_BIT (*to, r + nregs);
-	}
+	add_to_hard_reg_set (to, PSEUDO_REGNO_MODE (regno), r);
     }
 }
 
@@ -620,6 +617,61 @@ replace_pseudos_in (rtx *loc, enum machine_mode mem_mode, rtx usage)
     else if (*fmt == 'E')
       for (j = 0; j < XVECLEN (x, i); j++)
 	replace_pseudos_in (& XVECEXP (x, i, j), mem_mode, usage);
+}
+
+/* Determine if the current function has an exception receiver block
+   that reaches the exit block via non-exceptional edges  */
+
+static bool
+has_nonexceptional_receiver (void)
+{
+  edge e;
+  edge_iterator ei;
+  basic_block *tos, *worklist, bb;
+
+  /* If we're not optimizing, then just err on the safe side.  */
+  if (!optimize)
+    return true;
+  
+  /* First determine which blocks can reach exit via normal paths.  */
+  tos = worklist = xmalloc (sizeof (basic_block) * (n_basic_blocks + 1));
+
+  FOR_EACH_BB (bb)
+    bb->flags &= ~BB_REACHABLE;
+
+  /* Place the exit block on our worklist.  */
+  EXIT_BLOCK_PTR->flags |= BB_REACHABLE;
+  *tos++ = EXIT_BLOCK_PTR;
+  
+  /* Iterate: find everything reachable from what we've already seen.  */
+  while (tos != worklist)
+    {
+      bb = *--tos;
+
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (!(e->flags & EDGE_ABNORMAL))
+	  {
+	    basic_block src = e->src;
+
+	    if (!(src->flags & BB_REACHABLE))
+	      {
+		src->flags |= BB_REACHABLE;
+		*tos++ = src;
+	      }
+	  }
+    }
+  free (worklist);
+
+  /* Now see if there's a reachable block with an exceptional incoming
+     edge.  */
+  FOR_EACH_BB (bb)
+    if (bb->flags & BB_REACHABLE)
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	if (e->flags & EDGE_ABNORMAL)
+	  return true;
+
+  /* No exceptional block reached exit unexceptionally.  */
+  return false;
 }
 
 
@@ -688,12 +740,17 @@ reload (rtx first, int global)
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     mark_home_live (i);
 
-  /* A function that receives a nonlocal goto must save all call-saved
+  /* A function that has a nonlocal label that can reach the exit
+     block via non-exceptional paths must save all call-saved
      registers.  */
-  if (current_function_has_nonlocal_label)
+  if (current_function_has_nonlocal_label
+      && has_nonexceptional_receiver ())
+    current_function_saves_all_registers = 1;
+
+  if (current_function_saves_all_registers)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
-	regs_ever_live[i] = 1;
+	df_set_regs_ever_live (i, true);
 
   /* Find all the pseudo registers that didn't get hard regs
      but do have known equivalent constants or memory slots.
@@ -1101,9 +1158,8 @@ reload (rtx first, int global)
 
   if (! frame_pointer_needed)
     FOR_EACH_BB (bb)
-      CLEAR_REGNO_REG_SET (bb->il.rtl->global_live_at_start,
-			   HARD_FRAME_POINTER_REGNUM);
-
+      bitmap_clear_bit (df_get_live_in (bb), HARD_FRAME_POINTER_REGNUM);
+	
   /* Come here (with failure set nonzero) if we can't get enough spill
      regs.  */
  failed:
@@ -1257,7 +1313,7 @@ reload (rtx first, int global)
       static int verbose_warned = 0;
 
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (regs_ever_live[i] && ! fixed_regs[i] && call_used_regs[i])
+	if (df_regs_ever_live_p (i) && ! fixed_regs[i] && call_used_regs[i])
 	  size += UNITS_PER_WORD;
 
       if (size > STACK_CHECK_MAX_FRAME_SIZE)
@@ -1479,8 +1535,8 @@ calculate_needs_all_insns (int global)
       chain->need_operand_change = 0;
 
       /* If this is a label, a JUMP_INSN, or has REG_NOTES (which might
-	 include REG_LABEL), we need to see what effects this has on the
-	 known offsets at labels.  */
+	 include REG_LABEL_OPERAND and REG_LABEL_TARGET), we need to see
+	 what effects this has on the known offsets at labels.  */
 
       if (LABEL_P (insn) || JUMP_P (insn)
 	  || (INSN_P (insn) && REG_NOTES (insn) != 0))
@@ -1989,8 +2045,8 @@ alter_reg (int i, int from_reg)
 
   /* Modify the reg-rtx to contain the new hard reg
      number or else to contain its pseudo reg number.  */
-  REGNO (regno_reg_rtx[i])
-    = reg_renumber[i] >= 0 ? reg_renumber[i] : i;
+  SET_REGNO (regno_reg_rtx[i],
+	     reg_renumber[i] >= 0 ? reg_renumber[i] : i);
 
   /* If we have a pseudo that is needed but has no hard reg or equivalent,
      allocate a stack slot for it.  */
@@ -2019,6 +2075,8 @@ alter_reg (int i, int from_reg)
 	 inherent space, and no less total space, then the previous slot.  */
       if (from_reg == -1)
 	{
+	  alias_set_type alias_set = new_alias_set ();
+
 	  /* No known place to spill from => no slot to reuse.  */
 	  x = assign_stack_local (mode, total_size,
 				  min_align > inherent_align
@@ -2031,7 +2089,8 @@ alter_reg (int i, int from_reg)
 	    adjust = inherent_size - total_size;
 
 	  /* Nothing can alias this slot except this pseudo.  */
-	  set_mem_alias_set (x, new_alias_set ());
+	  set_mem_alias_set (x, alias_set);
+	  dse_record_singleton_alias_set (alias_set, mode);
 	}
 
       /* Reuse a stack slot if possible.  */
@@ -2041,7 +2100,6 @@ alter_reg (int i, int from_reg)
 		   >= inherent_size)
 	       && MEM_ALIGN (spill_stack_slot[from_reg]) >= min_align)
 	x = spill_stack_slot[from_reg];
-
       /* Allocate a bigger slot.  */
       else
 	{
@@ -2068,9 +2126,18 @@ alter_reg (int i, int from_reg)
 
 	  /* All pseudos mapped to this slot can alias each other.  */
 	  if (spill_stack_slot[from_reg])
-	    set_mem_alias_set (x, MEM_ALIAS_SET (spill_stack_slot[from_reg]));
+	    {
+	      alias_set_type alias_set 
+		= MEM_ALIAS_SET (spill_stack_slot[from_reg]);
+	      set_mem_alias_set (x, alias_set);
+	      dse_invalidate_singleton_alias_set (alias_set);
+	    }
 	  else
-	    set_mem_alias_set (x, new_alias_set ());
+	    {
+	      alias_set_type alias_set = new_alias_set ();
+	      set_mem_alias_set (x, alias_set);
+	      dse_record_singleton_alias_set (alias_set, mode);
+	    }
 
 	  if (BYTES_BIG_ENDIAN)
 	    {
@@ -2125,20 +2192,30 @@ alter_reg (int i, int from_reg)
     }
 }
 
-/* Mark the slots in regs_ever_live for the hard regs
-   used by pseudo-reg number REGNO.  */
+/* Mark the slots in regs_ever_live for the hard regs used by
+   pseudo-reg number REGNO, accessed in MODE.  */
 
-void
-mark_home_live (int regno)
+static void
+mark_home_live_1 (int regno, enum machine_mode mode)
 {
   int i, lim;
 
   i = reg_renumber[regno];
   if (i < 0)
     return;
-  lim = i + hard_regno_nregs[i][PSEUDO_REGNO_MODE (regno)];
+  lim = end_hard_regno (mode, i);
   while (i < lim)
-    regs_ever_live[i++] = 1;
+    df_set_regs_ever_live(i++, true);
+}
+
+/* Mark the slots in regs_ever_live for the hard regs
+   used by pseudo-reg number REGNO.  */
+
+void
+mark_home_live (int regno)
+{
+  if (reg_renumber[regno] >= 0)
+    mark_home_live_1 (regno, PSEUDO_REGNO_MODE (regno));
 }
 
 /* This function handles the tracking of elimination offsets around branches.
@@ -2214,10 +2291,11 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 
     case INSN:
     case CALL_INSN:
-      /* Any labels mentioned in REG_LABEL notes can be branched to indirectly
-	 and hence must have all eliminations at their initial offsets.  */
+      /* Any labels mentioned in REG_LABEL_OPERAND notes can be branched
+	 to indirectly and hence must have all eliminations at their
+	 initial offsets.  */
       for (tem = REG_NOTES (x); tem; tem = XEXP (tem, 1))
-	if (REG_NOTE_KIND (tem) == REG_LABEL)
+	if (REG_NOTE_KIND (tem) == REG_LABEL_OPERAND)
 	  set_label_offsets (XEXP (tem, 0), insn, 1);
       return;
 
@@ -2333,6 +2411,7 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
@@ -2726,6 +2805,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case CONST:
     case SYMBOL_REF:
@@ -3399,7 +3479,7 @@ update_eliminable_offsets (void)
    the insns of the function.  */
 
 static void
-mark_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
+mark_not_eliminable (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
 {
   unsigned int i;
 
@@ -3696,7 +3776,7 @@ spill_hard_reg (unsigned int regno, int cant_eliminate)
   if (cant_eliminate)
     {
       SET_HARD_REG_BIT (bad_spill_regs_global, regno);
-      regs_ever_live[regno] = 1;
+      df_set_regs_ever_live (regno, true);
     }
 
   /* Spill every pseudo reg that was allocated to this reg
@@ -3705,10 +3785,7 @@ spill_hard_reg (unsigned int regno, int cant_eliminate)
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     if (reg_renumber[i] >= 0
 	&& (unsigned int) reg_renumber[i] <= regno
-	&& ((unsigned int) reg_renumber[i]
-	    + hard_regno_nregs[(unsigned int) reg_renumber[i]]
-			      [PSEUDO_REGNO_MODE (i)]
-	    > regno))
+	&& end_hard_regno (PSEUDO_REGNO_MODE (i), reg_renumber[i]) > regno)
       SET_REGNO_REG_SET (&spilled_pseudos, i);
 }
 
@@ -3743,9 +3820,9 @@ finish_spills (int global)
       {
 	spill_reg_order[i] = n_spills;
 	spill_regs[n_spills++] = i;
-	if (num_eliminable && ! regs_ever_live[i])
+	if (num_eliminable && ! df_regs_ever_live_p (i))
 	  something_changed = 1;
-	regs_ever_live[i] = 1;
+	df_set_regs_ever_live (i, true);
       }
     else
       spill_reg_order[i] = -1;
@@ -3833,9 +3910,8 @@ finish_spills (int global)
 	  AND_HARD_REG_SET (chain->used_spill_regs, used_spill_regs);
 
 	  /* Make sure we only enlarge the set.  */
-	  GO_IF_HARD_REG_SUBSET (used_by_pseudos2, chain->used_spill_regs, ok);
-	  gcc_unreachable ();
-	ok:;
+	  gcc_assert (hard_reg_set_subset_p (used_by_pseudos2,
+					    chain->used_spill_regs));
 	}
     }
 
@@ -3878,6 +3954,7 @@ scan_paradoxical_subregs (rtx x)
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR: /* shouldn't happen, but just in case.  */
     case CC0:
     case PC:
@@ -3889,8 +3966,11 @@ scan_paradoxical_subregs (rtx x)
       if (REG_P (SUBREG_REG (x))
 	  && (GET_MODE_SIZE (GET_MODE (x))
 	      > reg_max_ref_width[REGNO (SUBREG_REG (x))]))
-	reg_max_ref_width[REGNO (SUBREG_REG (x))]
-	  = GET_MODE_SIZE (GET_MODE (x));
+	{
+	  reg_max_ref_width[REGNO (SUBREG_REG (x))]
+	    = GET_MODE_SIZE (GET_MODE (x));
+	  mark_home_live_1 (REGNO (SUBREG_REG (x)), GET_MODE (x));
+	}
       return;
 
     default:
@@ -4250,7 +4330,7 @@ reload_as_needed (int live_known)
    to be forgotten later.  */
 
 static void
-forget_old_reloads_1 (rtx x, rtx ignored ATTRIBUTE_UNUSED,
+forget_old_reloads_1 (rtx x, const_rtx ignored ATTRIBUTE_UNUSED,
 		      void *data)
 {
   unsigned int regno;
@@ -4529,8 +4609,7 @@ clear_reload_reg_in_use (unsigned int regno, int opnum,
 	    {
 	      unsigned int conflict_start = true_regnum (rld[i].reg_rtx);
 	      unsigned int conflict_end
-		= (conflict_start
-		   + hard_regno_nregs[conflict_start][rld[i].mode]);
+		= end_hard_regno (rld[i].mode, conflict_start);
 
 	      /* If there is an overlap with the first to-be-freed register,
 		 adjust the interval start.  */
@@ -5247,7 +5326,7 @@ free_for_value_p (int regno, enum machine_mode mode, int opnum,
    memory.  */
 
 int
-function_invariant_p (rtx x)
+function_invariant_p (const_rtx x)
 {
   if (CONSTANT_P (x))
     return 1;
@@ -5556,7 +5635,14 @@ choose_reload_regs (struct insn_chain *chain)
   for (j = 0; j < n_reloads; j++)
     {
       reload_order[j] = j;
-      reload_spill_index[j] = -1;
+      if (rld[j].reg_rtx != NULL_RTX)
+	{
+	  gcc_assert (REG_P (rld[j].reg_rtx)
+		      && HARD_REGISTER_P (rld[j].reg_rtx));
+	  reload_spill_index[j] = REGNO (rld[j].reg_rtx);
+	}
+      else
+	reload_spill_index[j] = -1;
 
       if (rld[j].nregs > 1)
 	{
@@ -7857,7 +7943,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
 	 DEFINE_PEEPHOLE should be specified that recognizes the sequence
 	 we emit below.  */
 
-      code = (int) add_optab->handlers[(int) GET_MODE (out)].insn_code;
+      code = (int) optab_handler (add_optab, GET_MODE (out))->insn_code;
 
       if (CONSTANT_P (op1) || MEM_P (op1) || GET_CODE (op1) == SUBREG
 	  || (REG_P (op1)
@@ -7960,7 +8046,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
   else if (OBJECT_P (in) || GET_CODE (in) == SUBREG)
     {
       tem = emit_insn (gen_move_insn (out, in));
-      /* IN may contain a LABEL_REF, if so add a REG_LABEL note.  */
+      /* IN may contain a LABEL_REF, if so add a REG_LABEL_OPERAND note.  */
       mark_jump_label (in, tem, 0);
     }
 
@@ -8096,7 +8182,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg)
   if (rld[j].out != rld[j].in
       && REG_N_DEATHS (REGNO (reg)) == 1
       && REG_N_SETS (REGNO (reg)) == 1
-      && REG_BASIC_BLOCK (REGNO (reg)) >= 0
+      && REG_BASIC_BLOCK (REGNO (reg)) >= NUM_FIXED_BLOCKS
       && find_regno_note (insn, REG_DEAD, REGNO (reg)))
     {
       rtx i2;
@@ -8515,7 +8601,7 @@ fixup_abnormal_edges (void)
 		  next = NEXT_INSN (insn);
 		  if (INSN_P (insn))
 		    {
-	              delete_insn (insn);
+		      delete_insn (insn);
 
 		      /* Sometimes there's still the return value USE.
 			 If it's placed after a trapping call (i.e. that
@@ -8533,6 +8619,8 @@ fixup_abnormal_edges (void)
 			  inserted = true;
 			}
 		    }
+		  else if (!BARRIER_P (insn))
+		    set_block_for_insn (insn, NULL);
 		  insn = next;
 		}
 	    }
@@ -8553,6 +8641,7 @@ fixup_abnormal_edges (void)
       blocks = sbitmap_alloc (last_basic_block);
       sbitmap_ones (blocks);
       find_many_sub_basic_blocks (blocks);
+      sbitmap_free (blocks);
     }
 
   if (inserted)

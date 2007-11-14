@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file is part of the C++ front end.
@@ -52,7 +51,7 @@ static tree cp_pointer_int_sum (enum tree_code, tree, tree);
 static tree rationalize_conditional_expr (enum tree_code, tree);
 static int comp_ptr_ttypes_real (tree, tree, int);
 static bool comp_except_types (tree, tree, bool);
-static bool comp_array_types (tree, tree, bool);
+static bool comp_array_types (const_tree, const_tree, bool);
 static tree pointer_diff (tree, tree, tree);
 static tree get_delta_difference (tree, tree, bool, bool);
 static void casts_away_constness_r (tree *, tree *);
@@ -152,7 +151,7 @@ complete_type_or_else (tree type, tree value)
 /* Return truthvalue of whether type of EXP is instantiated.  */
 
 int
-type_unknown_p (tree exp)
+type_unknown_p (const_tree exp)
 {
   return (TREE_CODE (exp) == TREE_LIST
 	  || TREE_TYPE (exp) == unknown_type_node);
@@ -621,7 +620,7 @@ merge_types (tree t1, tree t2)
 	if (code1 == POINTER_TYPE)
 	  t1 = build_pointer_type (target);
 	else
-	  t1 = build_reference_type (target);
+	  t1 = cp_build_reference_type (target, TYPE_REF_IS_RVALUE (t1));
 	t1 = build_type_attribute_variant (t1, attributes);
 	t1 = cp_build_qualified_type (t1, quals);
 
@@ -821,10 +820,10 @@ comp_except_types (tree a, tree b, bool exact)
    we should try to make use of that.  */
 
 bool
-comp_except_specs (tree t1, tree t2, bool exact)
+comp_except_specs (const_tree t1, const_tree t2, bool exact)
 {
-  tree probe;
-  tree base;
+  const_tree probe;
+  const_tree base;
   int  length = 0;
 
   if (t1 == t2)
@@ -868,7 +867,7 @@ comp_except_specs (tree t1, tree t2, bool exact)
    [] can match [size].  */
 
 static bool
-comp_array_types (tree t1, tree t2, bool allow_redeclaration)
+comp_array_types (const_tree t1, const_tree t2, bool allow_redeclaration)
 {
   tree d1;
   tree d2;
@@ -943,20 +942,10 @@ structural_comptypes (tree t1, tree t2, int strict)
   /* TYPENAME_TYPEs should be resolved if the qualifying scope is the
      current instantiation.  */
   if (TREE_CODE (t1) == TYPENAME_TYPE)
-    {
-      tree resolved = resolve_typename_type (t1, /*only_current_p=*/true);
-
-      if (resolved != error_mark_node)
-	t1 = resolved;
-    }
+    t1 = resolve_typename_type (t1, /*only_current_p=*/true);
 
   if (TREE_CODE (t2) == TYPENAME_TYPE)
-    {
-      tree resolved = resolve_typename_type (t2, /*only_current_p=*/true);
-
-      if (resolved != error_mark_node)
-	t2 = resolved;
-    }
+    t2 = resolve_typename_type (t2, /*only_current_p=*/true);
 
   if (TYPE_PTRMEMFUNC_P (t1))
     t1 = TYPE_PTRMEMFUNC_FN_TYPE (t1);
@@ -1026,8 +1015,12 @@ structural_comptypes (tree t1, tree t2, int strict)
 	return false;
       break;
 
-    case POINTER_TYPE:
     case REFERENCE_TYPE:
+      if (TYPE_REF_IS_RVALUE (t1) != TYPE_REF_IS_RVALUE (t2))
+	return false;
+      /* fall through to checks for pointer types */
+
+    case POINTER_TYPE:
       if (TYPE_MODE (t1) != TYPE_MODE (t2)
 	  || TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2)
 	  || !same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
@@ -1086,6 +1079,14 @@ structural_comptypes (tree t1, tree t2, int strict)
       return same_type_p (PACK_EXPANSION_PATTERN (t1), 
                           PACK_EXPANSION_PATTERN (t2));
 
+    case DECLTYPE_TYPE:
+      if (DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t1)
+          != DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t2)
+          || !cp_tree_equal (DECLTYPE_TYPE_EXPR (t1), 
+                             DECLTYPE_TYPE_EXPR (t2)))
+        return false;
+      break;
+
     default:
       return false;
     }
@@ -1104,8 +1105,6 @@ comptypes (tree t1, tree t2, int strict)
 {
   if (strict == COMPARE_STRICT)
     {
-      bool result;
-
       if (t1 == t2)
 	return true;
 
@@ -1117,37 +1116,34 @@ comptypes (tree t1, tree t2, int strict)
 	   perform a deep check. */
 	return structural_comptypes (t1, t2, strict);
 
-      if (VERIFY_CANONICAL_TYPES)
+#ifdef ENABLE_CHECKING
+      if (USE_CANONICAL_TYPES)
 	{
-	  result = structural_comptypes (t1, t2, strict);
-
+	  bool result = structural_comptypes (t1, t2, strict);
+	  
 	  if (result && TYPE_CANONICAL (t1) != TYPE_CANONICAL (t2))
-	    {
-	      /* The two types are structurally equivalent, but their
-		 canonical types were different. This is a failure of the
-		 canonical type propagation code.*/
-	      warning(0,
-		      "canonical types differ for identical types %T and %T", 
-		      t1, t2);
-	      debug_tree (t1);
-	      debug_tree (t2);
-	    }
+	    /* The two types are structurally equivalent, but their
+	       canonical types were different. This is a failure of the
+	       canonical type propagation code.*/
+	    internal_error 
+	      ("canonical types differ for identical types %T and %T", 
+	       t1, t2);
 	  else if (!result && TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2))
-	    {
-	      /* Two types are structurally different, but the canonical
-		 types are the same. This means we were over-eager in
-		 assigning canonical types. */
-	      warning (0, 
-		       "same canonical type node for different types %T and %T",
-		       t1, t2);
-	      debug_tree (t1);
-	      debug_tree (t2);
-	    }
+	    /* Two types are structurally different, but the canonical
+	       types are the same. This means we were over-eager in
+	       assigning canonical types. */
+	    internal_error 
+	      ("same canonical type node for different types %T and %T",
+	       t1, t2);
 	  
 	  return result;
 	}
-      else
+#else
+      if (USE_CANONICAL_TYPES)
 	return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
+#endif
+      else
+	return structural_comptypes (t1, t2, strict);
     }
   else if (strict == COMPARE_STRUCTURAL)
     return structural_comptypes (t1, t2, COMPARE_STRICT);
@@ -1158,7 +1154,7 @@ comptypes (tree t1, tree t2, int strict)
 /* Returns 1 if TYPE1 is at least as qualified as TYPE2.  */
 
 bool
-at_least_as_qualified_p (tree type1, tree type2)
+at_least_as_qualified_p (const_tree type1, const_tree type2)
 {
   int q1 = cp_type_quals (type1);
   int q2 = cp_type_quals (type2);
@@ -1171,7 +1167,7 @@ at_least_as_qualified_p (tree type1, tree type2)
    more cv-qualified that TYPE1, and 0 otherwise.  */
 
 int
-comp_cv_qualification (tree type1, tree type2)
+comp_cv_qualification (const_tree type1, const_tree type2)
 {
   int q1 = cp_type_quals (type1);
   int q2 = cp_type_quals (type2);
@@ -1210,9 +1206,9 @@ comp_cv_qual_signature (tree type1, tree type2)
    element by element.  */
 
 bool
-compparms (tree parms1, tree parms2)
+compparms (const_tree parms1, const_tree parms2)
 {
-  tree t1, t2;
+  const_tree t1, t2;
 
   /* An unspecified parmlist matches any specified parmlist
      whose argument types don't need default promotions.  */
@@ -1357,7 +1353,10 @@ cxx_alignof_expr (tree e)
     {
       pedwarn ("ISO C++ forbids applying %<__alignof%> to an expression of "
 	       "function type");
-      t = size_one_node;
+      if (TREE_CODE (e) == FUNCTION_DECL)
+	t = size_int (DECL_ALIGN_UNIT (e));
+      else
+	t = size_one_node;
     }
   else if (type_unknown_p (e))
     {
@@ -1399,7 +1398,7 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
    violates these rules.  */
 
 bool
-invalid_nonstatic_memfn_p (tree expr)
+invalid_nonstatic_memfn_p (const_tree expr)
 {
   if (TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE)
     {
@@ -1414,7 +1413,7 @@ invalid_nonstatic_memfn_p (tree expr)
    of the bitfield.  Otherwise, return NULL_TREE.  */
 
 tree
-is_bitfield_expr_with_lowered_type (tree exp)
+is_bitfield_expr_with_lowered_type (const_tree exp)
 {
   switch (TREE_CODE (exp))
     {
@@ -1453,7 +1452,7 @@ is_bitfield_expr_with_lowered_type (tree exp)
    than NULL_TREE.  */
 
 tree
-unlowered_expr_type (tree exp)
+unlowered_expr_type (const_tree exp)
 {
   tree type;
 
@@ -1634,7 +1633,7 @@ inline_conversion (tree exp)
    decay_conversion to one.  */
 
 int
-string_conv_p (tree totype, tree exp, int warn)
+string_conv_p (const_tree totype, const_tree exp, int warn)
 {
   tree t;
 
@@ -2333,6 +2332,19 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	 types.  */
       tree t = canonical_type_variant (TREE_TYPE (type));
 
+      if (TREE_CODE (ptr) == CONVERT_EXPR
+          || TREE_CODE (ptr) == NOP_EXPR
+          || TREE_CODE (ptr) == VIEW_CONVERT_EXPR)
+	{
+	  /* If a warning is issued, mark it to avoid duplicates from
+	     the backend.  This only needs to be done at
+	     warn_strict_aliasing > 2.  */
+	  if (warn_strict_aliasing > 2)
+	    if (strict_aliasing_warning (TREE_TYPE (TREE_OPERAND (ptr, 0)),
+					 type, TREE_OPERAND (ptr, 0)))
+	      TREE_NO_WARNING (ptr) = 1;
+	}
+
       if (VOID_TYPE_P (t))
 	{
 	  /* A pointer to incomplete type (other than cv void) can be
@@ -2610,8 +2622,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	    return error_mark_node;
 	}
       /* ...and then the delta in the PMF.  */
-      instance_ptr = build2 (PLUS_EXPR, TREE_TYPE (instance_ptr),
-			     instance_ptr, delta);
+      instance_ptr = build2 (POINTER_PLUS_EXPR, TREE_TYPE (instance_ptr),
+			     instance_ptr, fold_convert (sizetype, delta));
 
       /* Hand back the adjusted 'this' argument to our caller.  */
       *instance_ptrptr = instance_ptr;
@@ -2622,7 +2634,8 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
       vtbl = build_indirect_ref (vtbl, NULL);
 
       /* Finally, extract the function pointer from the vtable.  */
-      e2 = fold_build2 (PLUS_EXPR, TREE_TYPE (vtbl), vtbl, idx);
+      e2 = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (vtbl), vtbl,
+			fold_convert (sizetype, idx));
       e2 = build_indirect_ref (e2, NULL);
       TREE_CONSTANT (e2) = 1;
       TREE_INVARIANT (e2) = 1;
@@ -2633,7 +2646,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	e2 = build1 (NOP_EXPR, TREE_TYPE (e2),
 		     build_unary_op (ADDR_EXPR, e2, /*noconvert=*/1));
 
-      TREE_TYPE (e2) = TREE_TYPE (e3);
+      e2 = fold_convert (TREE_TYPE (e3), e2);
       e1 = build_conditional_expr (e1, e2, e3);
 
       /* Make sure this doesn't get evaluated first inside one of the
@@ -2879,8 +2892,14 @@ convert_arguments (int nargs, tree *argarray,
 
   if (typetail != 0 && typetail != void_list_node)
     {
-      /* See if there are default arguments that can be used.  */
-      if (TREE_PURPOSE (typetail)
+      /* See if there are default arguments that can be used.  Because
+	 we hold default arguments in the FUNCTION_TYPE (which is so
+	 wrong), we can see default parameters here from deduced
+	 contexts (and via typeof) for indirect function calls.
+	 Fortunately we know whether we have a function decl to
+	 provide default arguments in a language conformant
+	 manner.  */
+      if (fndecl && TREE_PURPOSE (typetail)
 	  && TREE_CODE (TREE_PURPOSE (typetail)) != DEFAULT_ARG)
 	{
 	  for (; typetail != void_list_node; ++i)
@@ -3195,7 +3214,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
       if ((code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
-	  || (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE))
+	  || (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+	      && !VECTOR_FLOAT_TYPE_P (type0)
+	      && !VECTOR_FLOAT_TYPE_P (type1)))
 	shorten = -1;
       break;
 
@@ -3336,12 +3357,12 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
 	{
 	  result_type = type0;
-	  error ("ISO C++ forbids comparison between pointer and integer");
+	  pedwarn ("ISO C++ forbids comparison between pointer and integer");
 	}
       else if (code0 == INTEGER_TYPE && code1 == POINTER_TYPE)
 	{
 	  result_type = type1;
-	  error ("ISO C++ forbids comparison between pointer and integer");
+	  pedwarn ("ISO C++ forbids comparison between pointer and integer");
 	}
       else if (TYPE_PTRMEMFUNC_P (type0) && null_ptr_cst_p (op1))
 	{
@@ -3539,7 +3560,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      || !same_scalar_type_ignoring_signedness (TREE_TYPE (type0),
 							TREE_TYPE (type1)))
 	    {
-	      binary_op_error (code);
+	      binary_op_error (code, type0, type1);
 	      return error_mark_node;
 	    }
 	  arithmetic_types_p = 1;
@@ -3561,9 +3582,17 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   /* If we're in a template, the only thing we need to know is the
      RESULT_TYPE.  */
   if (processing_template_decl)
-    return build2 (resultcode,
-		   build_type ? build_type : result_type,
-		   op0, op1);
+    {
+      /* Since the middle-end checks the type when doing a build2, we
+	 need to build the tree in pieces.  This built tree will never
+	 get out of the front-end as we replace it when instantiating
+	 the template.  */
+      tree tmp = build2 (resultcode,
+			 build_type ? build_type : result_type,
+			 NULL_TREE, op1);
+      TREE_OPERAND (tmp, 0) = op0;
+      return tmp;
+    }
 
   if (arithmetic_types_p)
     {
@@ -3717,7 +3746,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      && TYPE_MAIN_VARIANT (TREE_TYPE (orig_op0))
 		 != TYPE_MAIN_VARIANT (TREE_TYPE (orig_op1)))
 	    {
-	      warning (0, "comparison between types %q#T and %q#T",
+	      warning (OPT_Wsign_compare, "comparison between types %q#T and %q#T",
 		       TREE_TYPE (orig_op0), TREE_TYPE (orig_op1));
 	    }
 
@@ -3753,7 +3782,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 						(result_type)))))
 	    /* OK */;
 	  else
-	    warning (0, "comparison between signed and unsigned integer expressions");
+	    warning (OPT_Wsign_compare, 
+		     "comparison between signed and unsigned integer expressions");
 
 	  /* Warn if two unsigned values are being compared in a size
 	     larger than their original size, and one (and only one) is the
@@ -3797,7 +3827,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		    {
 		      mask = (~ (HOST_WIDE_INT) 0) << bits;
 		      if ((mask & constant) != mask)
-			warning (0, "comparison of promoted ~unsigned with constant");
+			warning (OPT_Wsign_compare, "comparison of promoted ~unsigned with constant");
 		    }
 		}
 	      else if (unsignedp0 && unsignedp1
@@ -3805,7 +3835,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			   < TYPE_PRECISION (result_type))
 		       && (TYPE_PRECISION (TREE_TYPE (primop1))
 			   < TYPE_PRECISION (result_type)))
-		warning (0, "comparison of promoted ~unsigned with unsigned");
+		warning (OPT_Wsign_compare, "comparison of promoted ~unsigned with unsigned");
 	    }
 	}
     }
@@ -4208,8 +4238,11 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  arg = stabilize_reference (arg);
 	  real = build_unary_op (REALPART_EXPR, arg, 1);
 	  imag = build_unary_op (IMAGPART_EXPR, arg, 1);
+	  real = build_unary_op (code, real, 1);
+	  if (real == error_mark_node || imag == error_mark_node)
+	    return error_mark_node;
 	  return build2 (COMPLEX_EXPR, TREE_TYPE (arg),
-			 build_unary_op (code, real, 1), imag);
+			 real, imag);
 	}
 
       /* Report invalid types.  */
@@ -4227,6 +4260,8 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	    errstring ="no post-decrement operator for type";
 	  break;
 	}
+      else if (arg == error_mark_node)
+	return error_mark_node;
 
       /* Report something read-only.  */
 
@@ -4278,41 +4313,6 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 
 	inc = cp_convert (argtype, inc);
 
-	/* Handle incrementing a cast-expression.  */
-
-	switch (TREE_CODE (arg))
-	  {
-	  case NOP_EXPR:
-	  case CONVERT_EXPR:
-	  case FLOAT_EXPR:
-	  case FIX_TRUNC_EXPR:
-	    {
-	      tree incremented, modify, value, compound;
-	      if (! lvalue_p (arg) && pedantic)
-		pedwarn ("cast to non-reference type used as lvalue");
-	      arg = stabilize_reference (arg);
-	      if (code == PREINCREMENT_EXPR || code == PREDECREMENT_EXPR)
-		value = arg;
-	      else
-		value = save_expr (arg);
-	      incremented = build2 (((code == PREINCREMENT_EXPR
-				      || code == POSTINCREMENT_EXPR)
-				     ? PLUS_EXPR : MINUS_EXPR),
-				    argtype, value, inc);
-
-	      modify = build_modify_expr (arg, NOP_EXPR, incremented);
-	      compound = build2 (COMPOUND_EXPR, TREE_TYPE (arg),
-				 modify, value);
-
-	      /* Eliminate warning about unused result of + or -.  */
-	      TREE_NO_WARNING (compound) = 1;
-	      return compound;
-	    }
-
-	  default:
-	    break;
-	  }
-
 	/* Complain about anything else that is not a true lvalue.  */
 	if (!lvalue_or_else (arg, ((code == PREINCREMENT_EXPR
 				    || code == POSTINCREMENT_EXPR)
@@ -4324,7 +4324,8 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  {
 	    if (code == POSTDECREMENT_EXPR || code == PREDECREMENT_EXPR)
 	      {
-		error ("invalid use of %<--%> on bool variable %qD", arg);
+		error ("invalid use of Boolean expression as operand "
+		       "to %<operator--%>");
 		return error_mark_node;
 	      }
 	    val = boolean_increment (code, arg);
@@ -4869,9 +4870,19 @@ convert_ptrmem (tree type, tree expr, bool allow_inverse_p,
 				    allow_inverse_p,
 				    c_cast_p);
       if (!integer_zerop (delta))
-	expr = cp_build_binary_op (PLUS_EXPR,
-				   build_nop (ptrdiff_type_node, expr),
-				   delta);
+	{
+	  tree cond, op1, op2;
+
+	  cond = cp_build_binary_op (EQ_EXPR,
+				     expr,
+				     build_int_cst (TREE_TYPE (expr), -1));
+	  op1 = build_nop (ptrdiff_type_node, expr);
+	  op2 = cp_build_binary_op (PLUS_EXPR, op1, delta);
+
+	  expr = fold_build3 (COND_EXPR, ptrdiff_type_node, cond, op1, op2);
+			 
+	}
+
       return build_nop (type, expr);
     }
   else
@@ -5102,7 +5113,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	  t1 = intype;
 	  t2 = type;
 	}
-      if (can_convert (t1, t2))
+      if (can_convert (t1, t2) || can_convert (t2, t1))
 	{
 	  if (!c_cast_p)
 	    check_for_casting_away_constness (intype, type, diag_fn,
@@ -5324,7 +5335,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       /* We need to strip nops here, because the front end likes to
 	 create (int *)&a for array-to-pointer decay, instead of &a[0].  */
       STRIP_NOPS (sexpr);
-      strict_aliasing_warning (intype, type, sexpr);
+      if (warn_strict_aliasing <= 2)
+	strict_aliasing_warning (intype, type, sexpr);
 
       return fold_if_not_in_template (build_nop (type, expr));
     }
@@ -5967,7 +5979,43 @@ build_x_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   return build_modify_expr (lhs, modifycode, rhs);
 }
 
-
+/* Helper function for get_delta_difference which assumes FROM is a base
+   class of TO.  Returns a delta for the conversion of pointer-to-member
+   of FROM to pointer-to-member of TO.  If the conversion is invalid,
+   returns zero.  If FROM is not a base class of TO, returns NULL_TREE.
+   If C_CAST_P is true, this conversion is taking place as part of a C-style
+   cast.  */
+
+static tree
+get_delta_difference_1 (tree from, tree to, bool c_cast_p)
+{
+  tree binfo;
+  base_kind kind;
+
+  binfo = lookup_base (to, from, c_cast_p ? ba_unique : ba_check, &kind);
+  if (kind == bk_inaccessible || kind == bk_ambig)
+    {
+      error ("   in pointer to member function conversion");
+      return size_zero_node;
+    }
+  else if (binfo)
+    {
+      if (kind != bk_via_virtual)
+	return BINFO_OFFSET (binfo);
+      else
+	/* FROM is a virtual base class of TO.  Issue an error or warning
+	   depending on whether or not this is a reinterpret cast.  */
+	{
+	  error ("pointer to member conversion via virtual base %qT",
+		 BINFO_TYPE (binfo_from_vbase (binfo)));
+
+	  return size_zero_node;
+	}
+      }
+    else
+      return NULL_TREE;
+}
+
 /* Get difference in deltas for different pointer to member function
    types.  Returns an integer constant of type PTRDIFF_TYPE_NODE.  If
    the conversion is invalid, the constant is zero.  If
@@ -5985,56 +6033,36 @@ get_delta_difference (tree from, tree to,
 		      bool allow_inverse_p,
 		      bool c_cast_p)
 {
-  tree binfo;
-  base_kind kind;
   tree result;
 
-  /* Assume no conversion is required.  */
-  result = integer_zero_node;
-  binfo = lookup_base (to, from, c_cast_p ? ba_unique : ba_check, &kind);
-  if (kind == bk_inaccessible || kind == bk_ambig)
-    error ("   in pointer to member function conversion");
-  else if (binfo)
-    {
-      if (kind != bk_via_virtual)
-	result = BINFO_OFFSET (binfo);
-      else
-	{
-	  tree virt_binfo = binfo_from_vbase (binfo);
-
-	  /* This is a reinterpret cast, we choose to do nothing.  */
-	  if (allow_inverse_p)
-	    warning (0, "pointer to member cast via virtual base %qT",
-		     BINFO_TYPE (virt_binfo));
-	  else
-	    error ("pointer to member conversion via virtual base %qT",
-		   BINFO_TYPE (virt_binfo));
-	}
-    }
-  else if (same_type_ignoring_top_level_qualifiers_p (from, to))
-    /* Pointer to member of incomplete class is permitted*/;
-  else if (!allow_inverse_p)
-    {
-      error_not_base_type (from, to);
-      error ("   in pointer to member conversion");
-    }
+  if (same_type_ignoring_top_level_qualifiers_p (from, to))
+    /* Pointer to member of incomplete class is permitted*/
+    result = size_zero_node;
   else
-    {
-      binfo = lookup_base (from, to, c_cast_p ? ba_unique : ba_check, &kind);
-      if (binfo)
-	{
-	  if (kind != bk_via_virtual)
-	    result = size_diffop (size_zero_node, BINFO_OFFSET (binfo));
-	  else
-	    {
-	      /* This is a reinterpret cast, we choose to do nothing.  */
-	      tree virt_binfo = binfo_from_vbase (binfo);
+    result = get_delta_difference_1 (from, to, c_cast_p);
 
-	      warning (0, "pointer to member cast via virtual base %qT",
-		       BINFO_TYPE (virt_binfo));
-	    }
-	}
-    }
+  if (!result)
+  {
+    if (!allow_inverse_p)
+      {
+	error_not_base_type (from, to);
+	error ("   in pointer to member conversion");
+	result = size_zero_node;
+      }
+    else
+      {
+	result = get_delta_difference_1 (to, from, c_cast_p);
+
+	if (result)
+	  result = size_diffop (size_zero_node, result);
+	else
+	  {
+	    error_not_base_type (from, to);
+	    error ("   in pointer to member conversion");
+	    result = size_zero_node;
+	  }
+      }
+  }
 
   return fold_if_not_in_template (convert_to_integer (ptrdiff_type_node,
 						      result));
@@ -6057,6 +6085,9 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
 
   /* Make sure DELTA has the type we want.  */
   delta = convert_and_check (delta_type_node, delta);
+
+  /* Convert to the correct target type if necessary.  */
+  pfn = fold_convert (TREE_TYPE (pfn_field), pfn);
 
   /* Finish creating the initializer.  */
   v = VEC_alloc(constructor_elt, gc, 2);
@@ -6550,6 +6581,7 @@ check_return_expr (tree retval, bool *no_warning)
      promotions.  */
   tree valtype;
   int fn_returns_value_p;
+  bool named_return_value_okay_p;
 
   *no_warning = false;
 
@@ -6581,7 +6613,7 @@ check_return_expr (tree retval, bool *no_warning)
   if (processing_template_decl)
     {
       current_function_returns_value = 1;
-      check_for_bare_parameter_packs (retval);
+      check_for_bare_parameter_packs (&retval);
       return retval;
     }
 
@@ -6649,7 +6681,7 @@ check_return_expr (tree retval, bool *no_warning)
        || DECL_OVERLOADED_OPERATOR_P (current_function_decl) == VEC_NEW_EXPR)
       && !TYPE_NOTHROW_P (TREE_TYPE (current_function_decl))
       && ! flag_check_new
-      && null_ptr_cst_p (retval))
+      && retval && null_ptr_cst_p (retval))
     warning (0, "%<operator new%> must not return NULL unless it is "
 	     "declared %<throw()%> (or -fcheck-new is in effect)");
 
@@ -6698,20 +6730,29 @@ check_return_expr (tree retval, bool *no_warning)
 
      See finish_function and finalize_nrv for the rest of this optimization.  */
 
+  named_return_value_okay_p = 
+    (retval != NULL_TREE
+     /* Must be a local, automatic variable.  */
+     && TREE_CODE (retval) == VAR_DECL
+     && DECL_CONTEXT (retval) == current_function_decl
+     && ! TREE_STATIC (retval)
+     && ! DECL_ANON_UNION_VAR_P (retval)
+     && (DECL_ALIGN (retval)
+         >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
+     /* The cv-unqualified type of the returned value must be the
+        same as the cv-unqualified return type of the
+        function.  */
+     && same_type_p ((TYPE_MAIN_VARIANT (TREE_TYPE (retval))),
+                     (TYPE_MAIN_VARIANT
+                      (TREE_TYPE (TREE_TYPE (current_function_decl)))))
+     /* And the returned value must be non-volatile.  */
+     && ! TYPE_VOLATILE (TREE_TYPE (retval)));
+     
   if (fn_returns_value_p && flag_elide_constructors)
     {
-      if (retval != NULL_TREE
-	  && (current_function_return_value == NULL_TREE
-	      || current_function_return_value == retval)
-	  && TREE_CODE (retval) == VAR_DECL
-	  && DECL_CONTEXT (retval) == current_function_decl
-	  && ! TREE_STATIC (retval)
-	  && (DECL_ALIGN (retval)
-	      >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
-	  && same_type_p ((TYPE_MAIN_VARIANT
-			   (TREE_TYPE (retval))),
-			  (TYPE_MAIN_VARIANT
-			   (TREE_TYPE (TREE_TYPE (current_function_decl))))))
+      if (named_return_value_okay_p
+          && (current_function_return_value == NULL_TREE
+              || current_function_return_value == retval))
 	current_function_return_value = retval;
       else
 	current_function_return_value = error_mark_node;
@@ -6730,18 +6771,29 @@ check_return_expr (tree retval, bool *no_warning)
     {
       /* The type the function is declared to return.  */
       tree functype = TREE_TYPE (TREE_TYPE (current_function_decl));
+      int flags = LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING;
 
       /* The functype's return type will have been set to void, if it
 	 was an incomplete type.  Just treat this as 'return;' */
       if (VOID_TYPE_P (functype))
 	return error_mark_node;
 
+      /* Under C++0x [12.8/16 class.copy], a returned lvalue is sometimes
+	 treated as an rvalue for the purposes of overload resolution to
+	 favor move constructors over copy constructors.  */
+      if ((cxx_dialect != cxx98) 
+          && named_return_value_okay_p
+          /* The variable must not have the `volatile' qualifier.  */
+	  && !(cp_type_quals (TREE_TYPE (retval)) & TYPE_QUAL_VOLATILE)
+	  /* The return type must be a class type.  */
+	  && CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
+	flags = flags | LOOKUP_PREFER_RVALUE;
+
       /* First convert the value to the function's return type, then
 	 to the type of return value's location to handle the
 	 case that functype is smaller than the valtype.  */
       retval = convert_for_initialization
-	(NULL_TREE, functype, retval, LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING,
-	 "return", NULL_TREE, 0);
+	(NULL_TREE, functype, retval, flags, "return", NULL_TREE, 0);
       retval = convert (valtype, retval);
 
       /* If the conversion failed, treat this just like `return;'.  */
@@ -6831,7 +6883,7 @@ comp_ptr_ttypes (tree to, tree from)
    type or inheritance-related types, regardless of cv-quals.  */
 
 int
-ptr_reasonably_similar (tree to, tree from)
+ptr_reasonably_similar (const_tree to, const_tree from)
 {
   for (; ; to = TREE_TYPE (to), from = TREE_TYPE (from))
     {
@@ -6893,9 +6945,11 @@ comp_ptr_ttypes_const (tree to, tree from)
    elements for an array type.  */
 
 int
-cp_type_quals (tree type)
+cp_type_quals (const_tree type)
 {
-  type = strip_array_types (type);
+  /* This CONST_CAST is okay because strip_array_types returns it's
+     argument unmodified and we assign it to a const_tree.  */
+  type = strip_array_types (CONST_CAST_TREE(type));
   if (type == error_mark_node)
     return TYPE_UNQUALIFIED;
   return TYPE_QUALS (type);
@@ -6905,23 +6959,38 @@ cp_type_quals (tree type)
    arrays.  */
 
 bool
-cp_type_readonly (tree type)
+cp_type_readonly (const_tree type)
 {
-  type = strip_array_types (type);
+  /* This CONST_CAST is okay because strip_array_types returns it's
+     argument unmodified and we assign it to a const_tree.  */
+  type = strip_array_types (CONST_CAST_TREE(type));
   return TYPE_READONLY (type);
 }
 
 /* Returns nonzero if the TYPE contains a mutable member.  */
 
 bool
-cp_has_mutable_p (tree type)
+cp_has_mutable_p (const_tree type)
 {
-  type = strip_array_types (type);
+  /* This CONST_CAST is okay because strip_array_types returns it's
+     argument unmodified and we assign it to a const_tree.  */
+  type = strip_array_types (CONST_CAST_TREE(type));
 
   return CLASS_TYPE_P (type) && CLASSTYPE_HAS_MUTABLE (type);
 }
 
-/* Apply the TYPE_QUALS to the new DECL.  */
+/* Set TREE_READONLY and TREE_VOLATILE on DECL as indicated by the
+   TYPE_QUALS.  For a VAR_DECL, this may be an optimistic
+   approximation.  In particular, consider:
+
+     int f();
+     struct S { int i; };
+     const S s = { f(); }
+
+   Here, we will make "s" as TREE_READONLY (because it is declared
+   "const") -- only to reverse ourselves upon seeing that the
+   initializer is non-constant.  */
+
 void
 cp_apply_type_quals_to_decl (int type_quals, tree decl)
 {
@@ -7088,7 +7157,7 @@ non_reference (tree t)
    how the lvalue is being used and so selects the error message.  */
 
 int
-lvalue_or_else (tree ref, enum lvalue_use use)
+lvalue_or_else (const_tree ref, enum lvalue_use use)
 {
   int win = lvalue_p (ref);
 

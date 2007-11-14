@@ -1,3 +1,9 @@
+2007-11-14  Victor Kaplansky  <victork@il.ibm.com>
+
+        Merged revisions up to 130138 from
+        svn+ssh://gcc.gnu.org/svn/gcc/trunk.
+        Reverted revisions 123213, 123212, 123211.
+
 2007-08-12  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_analyze_loop_form): Check that the 

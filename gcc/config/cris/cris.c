@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -46,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 #include "target-def.h"
 #include "ggc.h"
 #include "optabs.h"
+#include "df.h"
 
 /* Usable when we have an amount to add or subtract, and want the
    optimal size of the insn.  */
@@ -120,7 +120,7 @@ static void cris_init_libfuncs (void);
 static bool cris_rtx_costs (rtx, int, int, int *);
 static int cris_address_cost (rtx);
 static bool cris_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
-				    tree, bool);
+				    const_tree, bool);
 static int cris_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				   tree, bool);
 static tree cris_md_asm_clobbers (tree, tree, tree);
@@ -170,7 +170,7 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_ADDRESS_COST cris_address_cost
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX cris_struct_value_rtx
 #undef TARGET_SETUP_INCOMING_VARARGS
@@ -496,8 +496,6 @@ cris_operand_lossage (const char *msgid, rtx op)
 static void
 cris_print_index (rtx index, FILE *file)
 {
-  rtx inner = XEXP (index, 0);
-
   /* Make the index "additive" unless we'll output a negative number, in
      which case the sign character is free (as in free beer).  */
   if (!CONST_INT_P (index) || INTVAL (index) >= 0)
@@ -514,8 +512,9 @@ cris_print_index (rtx index, FILE *file)
 
       putc (INTVAL (XEXP (index, 1)) == 2 ? 'w' : 'd', file);
     }
-  else if (GET_CODE (index) == SIGN_EXTEND && MEM_P (inner))
+  else if (GET_CODE (index) == SIGN_EXTEND && MEM_P (XEXP (index, 0)))
     {
+      rtx inner = XEXP (index, 0);
       rtx inner_inner = XEXP (inner, 0);
 
       if (GET_CODE (inner_inner) == POST_INC)
@@ -533,6 +532,7 @@ cris_print_index (rtx index, FILE *file)
     }
   else if (MEM_P (index))
     {
+      rtx inner = XEXP (index, 0);
       if (GET_CODE (inner) == POST_INC)
 	fprintf (file, "[$%s+].d", reg_names[REGNO (XEXP (inner, 0))]);
       else
@@ -578,13 +578,13 @@ static int
 cris_reg_saved_in_regsave_area (unsigned int regno, bool got_really_used)
 {
   return
-    (((regs_ever_live[regno]
+    (((df_regs_ever_live_p (regno)
        && !call_used_regs[regno])
       || (regno == PIC_OFFSET_TABLE_REGNUM
 	  && (got_really_used
 	      /* It is saved anyway, if there would be a gap.  */
 	      || (flag_pic
-		  && regs_ever_live[regno + 1]
+		  && df_regs_ever_live_p (regno + 1)
 		  && !call_used_regs[regno + 1]))))
      && (regno != FRAME_POINTER_REGNUM || !frame_pointer_needed)
      && regno != CRIS_SRP_REGNUM)
@@ -871,9 +871,8 @@ cris_print_operand (FILE *file, rtx x, int code)
 
     case 'e':
       /* Like 'E', but ignore state set by 'x'.  FIXME: Use code
-	 iterators ("code macros") and attributes in cris.md to avoid
-	 the need for %x and %E (and %e) and state passed between
-	 those modifiers.  */
+	 iterators and attributes in cris.md to avoid the need for %x
+	 and %E (and %e) and state passed between those modifiers.  */
       cris_output_insn_is_bound = 0;
       /* FALL THROUGH.  */
     case 'E':
@@ -1122,7 +1121,7 @@ cris_return_addr_rtx (int count, rtx frameaddr ATTRIBUTE_UNUSED)
 bool
 cris_return_address_on_stack (void)
 {
-  return regs_ever_live[CRIS_SRP_REGNUM]
+  return df_regs_ever_live_p (CRIS_SRP_REGNUM)
     || cfun->machine->needs_return_address_on_stack;
 }
 
@@ -1718,7 +1717,12 @@ cris_address_cost (rtx x)
   /* The metric to use for the cost-macros is unclear.
      The metric used here is (the number of cycles needed) / 2,
      where we consider equal a cycle for a word of code and a cycle to
-     read memory.  */
+     read memory.  FIXME: Adding "+ 1" to all values would avoid
+     returning 0, as tree-ssa-loop-ivopts.c as of r128272 "normalizes"
+     0 to 1, thereby giving equal costs to [rN + rM] and [rN].
+     Unfortunately(?) such a hack would expose other pessimizations,
+     at least with g++.dg/tree-ssa/ivopts-1.C, adding insns to the
+     loop there, without apparent reason.  */
 
   /* The cheapest addressing modes get 0, since nothing extra is needed.  */
   if (BASE_OR_AUTOINCR_P (x))
@@ -1740,34 +1744,34 @@ cris_address_cost (rtx x)
       rtx tem1 = XEXP (x, 0);
       rtx tem2 = XEXP (x, 1);
 
-    /* A BIAP is 2 extra bytes for the prefix insn, nothing more.  We
-       recognize the typical MULT which is always in tem1 because of
-       insn canonicalization.  */
-    if ((GET_CODE (tem1) == MULT && BIAP_INDEX_P (tem1))
-	|| REG_P (tem1))
-      return 2 / 2;
+      /* We'll "assume" canonical RTX.  */
+      gcc_assert (REG_P (tem1) || GET_CODE (tem1) == MULT);
 
-    /* A BDAP (quick) is 2 extra bytes.  Any constant operand to the
-       PLUS is always found in tem2.  */
-    if (CONST_INT_P (tem2) && INTVAL (tem2) < 128 && INTVAL (tem2) >= -128)
-      return 2 / 2;
+      /* A BIAP is 2 extra bytes for the prefix insn, nothing more.  We
+	 recognize the typical MULT which is always in tem1 because of
+	 insn canonicalization.  */
+      if ((GET_CODE (tem1) == MULT && BIAP_INDEX_P (tem1))
+	  || REG_P (tem2))
+	return 2 / 2;
 
-    /* A BDAP -32768 .. 32767 is like BDAP quick, but with 2 extra
-       bytes.  */
-    if (CONST_INT_P (tem2) && CONST_OK_FOR_LETTER_P (INTVAL (tem2), 'L'))
-      return (2 + 2) / 2;
+      /* A BDAP (quick) is 2 extra bytes.  Any constant operand to the
+	 PLUS is always found in tem2.  */
+      if (CONST_INT_P (tem2) && INTVAL (tem2) < 128 && INTVAL (tem2) >= -128)
+	return 2 / 2;
 
-    /* A BDAP with some other constant is 2 bytes extra.  */
-    if (CONSTANT_P (tem2))
+      /* A BDAP -32768 .. 32767 is like BDAP quick, but with 2 extra
+	 bytes.  */
+      if (CONST_INT_P (tem2) && CONST_OK_FOR_LETTER_P (INTVAL (tem2), 'L'))
+	return (2 + 2) / 2;
+
+      /* A BDAP with some other constant is 2 bytes extra.  */
+      if (CONSTANT_P (tem2))
+	return (2 + 2 + 2) / 2;
+
+      /* BDAP with something indirect should have a higher cost than
+	 BIAP with register.   FIXME: Should it cost like a MEM or more?  */
       return (2 + 2 + 2) / 2;
-
-    /* BDAP with something indirect should have a higher cost than
-       BIAP with register.   FIXME: Should it cost like a MEM or more?  */
-    /* Don't need to check it, it's the only one left.
-       FIXME:  There was a REG test missing, perhaps there are others.
-       Think more.  */
-    return (2 + 2 + 2) / 2;
-  }
+    }
 
   /* What else?  Return a high cost.  It matters only for valid
      addressing modes.  */
@@ -3149,10 +3153,11 @@ cris_emit_movem_store (rtx dest, rtx nregs_rtx, int increment,
       if (increment != 0)
 	{
 	  rtx seq = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (nregs + 1));
-	  XVECEXP (seq, 0, 0) = XVECEXP (PATTERN (insn), 0, 0);
+	  XVECEXP (seq, 0, 0) = copy_rtx (XVECEXP (PATTERN (insn), 0, 0));
 	  for (i = 1; i < nregs; i++)
-	    XVECEXP (seq, 0, i) = XVECEXP (PATTERN (insn), 0, i + 1);
-	  XVECEXP (seq, 0, nregs) = XVECEXP (PATTERN (insn), 0, 1);
+	    XVECEXP (seq, 0, i)
+	      = copy_rtx (XVECEXP (PATTERN (insn), 0, i + 1));
+	  XVECEXP (seq, 0, nregs) = copy_rtx (XVECEXP (PATTERN (insn), 0, 1));
 	  REG_NOTES (insn)
 	    = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, seq,
 				 REG_NOTES (insn));
@@ -3177,11 +3182,11 @@ cris_expand_pic_call_address (rtx *opp)
   /* It might be that code can be generated that jumps to 0 (or to a
      specific address).  Don't die on that.  (There is a
      testcase.)  */
-  if (CONSTANT_ADDRESS_P (op) && CONST_INT_P (op))
+  if (CONSTANT_ADDRESS_P (op) && !CONST_INT_P (op))
     {
       enum cris_pic_symbol_type t = cris_pic_symbol_type_of (op);
 
-      CRIS_ASSERT (!no_new_pseudos);
+      CRIS_ASSERT (can_create_pseudo_p ());
 
       /* For local symbols (non-PLT), just get the plain symbol
 	 reference into a register.  For symbols that can be PLT, make
@@ -3196,7 +3201,7 @@ cris_expand_pic_call_address (rtx *opp)
 		 "move.d (const (unspec [sym] CRIS_UNSPEC_PLT)),rM"
 		 "add.d rPIC,rM,rO", "jsr rO".  */
 	      rtx tem, rm, ro;
-	      gcc_assert (! no_new_pseudos);
+	      gcc_assert (can_create_pseudo_p ());
 	      current_function_uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op), CRIS_UNSPEC_PLT);
 	      rm = gen_reg_rtx (Pmode);
@@ -3222,7 +3227,7 @@ cris_expand_pic_call_address (rtx *opp)
 		 access of the PLTGOT isn't constant).  */
 	      rtx tem, mem, rm, ro;
 
-	      gcc_assert (! no_new_pseudos);
+	      gcc_assert (can_create_pseudo_p ());
 	      current_function_uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
 				    CRIS_UNSPEC_PLTGOTREAD);
@@ -3404,7 +3409,7 @@ cris_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
 
 static bool
 cris_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
-			enum machine_mode mode, tree type,
+			enum machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
   return (targetm.calls.must_pass_in_stack (mode, type)

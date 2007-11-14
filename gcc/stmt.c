@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file handles the generation of rtl code from tree structure
    above the level of expressions, using subroutines in exp*.c and emit-rtl.c.
@@ -50,6 +49,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "optabs.h"
 #include "target.h"
 #include "regs.h"
+#include "alloc-pool.h"
 
 /* Functions and data structures for expanding case statements.  */
 
@@ -80,7 +80,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    For very small, suitable switch statements, we can generate a series
    of simple bit test and branches instead.  */
 
-struct case_node GTY(())
+struct case_node
 {
   struct case_node	*left;	/* Left son in binary tree */
   struct case_node	*right;	/* Right son in binary tree; also node chain */
@@ -122,7 +122,7 @@ static int node_has_high_bound (case_node_ptr, tree);
 static int node_is_bounded (case_node_ptr, tree);
 static void emit_case_nodes (rtx, case_node_ptr, rtx, tree);
 static struct case_node *add_case_node (struct case_node *, tree,
-					tree, tree, tree);
+                                        tree, tree, tree, alloc_pool);
 
 
 /* Return the rtx-label that corresponds to a LABEL_DECL,
@@ -575,14 +575,9 @@ decl_overlaps_hard_reg_set_p (tree *declp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  && REGNO (DECL_RTL (decl)) < FIRST_PSEUDO_REGISTER)
 	{
 	  rtx reg = DECL_RTL (decl);
-	  unsigned int regno;
 
-	  for (regno = REGNO (reg);
-	       regno < (REGNO (reg)
-			+ hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]);
-	       regno++)
-	    if (TEST_HARD_REG_BIT (*regs, regno))
-	      return decl;
+	  if (overlaps_hard_reg_set_p (*regs, GET_MODE (reg), REGNO (reg)))
+	    return decl;
 	}
       walk_subtrees = 0;
     }
@@ -1083,6 +1078,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
     if (real_output_rtx[i])
       emit_move_insn (real_output_rtx[i], output_rtx[i]);
 
+  cfun->has_asm_statement = 1;
   free_temp_slots ();
 }
 
@@ -1119,7 +1115,7 @@ expand_asm_expr (tree exp)
     {
       if (o[i] != TREE_VALUE (tail))
 	{
-	  expand_assignment (o[i], TREE_VALUE (tail));
+	  expand_assignment (o[i], TREE_VALUE (tail), false);
 	  free_temp_slots ();
 
 	  /* Restore the original value so that it's correct the next
@@ -1362,7 +1358,7 @@ expand_expr_stmt (tree exp)
   rtx value;
   tree type;
 
-  value = expand_expr (exp, const0_rtx, VOIDmode, 0);
+  value = expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
   if (GIMPLE_TUPLE_P (exp))
     type = void_type_node;
   else
@@ -1397,7 +1393,7 @@ expand_expr_stmt (tree exp)
    (potential) location of the expression.  */
 
 int
-warn_if_unused_value (tree exp, location_t locus)
+warn_if_unused_value (const_tree exp, location_t locus)
 {
  restart:
   if (TREE_USED (exp) || TREE_NO_WARNING (exp))
@@ -1483,7 +1479,7 @@ warn_if_unused_value (tree exp, location_t locus)
 	return 0;
 
     warn:
-      warning (0, "%Hvalue computed is not used", &locus);
+      warning (OPT_Wunused_value, "%Hvalue computed is not used", &locus);
       return 1;
     }
 }
@@ -1728,7 +1724,7 @@ expand_return (tree retval)
       tree nt = build_qualified_type (ot, TYPE_QUALS (ot) | TYPE_QUAL_CONST);
 
       val = assign_temp (nt, 0, 0, 1);
-      val = expand_expr (retval_rhs, val, GET_MODE (val), 0);
+      val = expand_expr (retval_rhs, val, GET_MODE (val), EXPAND_NORMAL);
       val = force_not_mem (val);
       /* Return the calculated value.  */
       expand_value_return (val);
@@ -1736,7 +1732,7 @@ expand_return (tree retval)
   else
     {
       /* No hard reg used; calculate value into hard return reg.  */
-      expand_expr (retval, const0_rtx, VOIDmode, 0);
+      expand_expr (retval, const0_rtx, VOIDmode, EXPAND_NORMAL);
       expand_value_return (result_rtl);
     }
 }
@@ -1752,7 +1748,7 @@ expand_return (tree retval)
    *that* node in turn will point to the relevant FUNCTION_DECL node.  */
 
 int
-is_body_block (tree stmt)
+is_body_block (const_tree stmt)
 {
   if (lang_hooks.no_body_blocks)
     return 0;
@@ -1835,12 +1831,10 @@ expand_nl_goto_receiver (void)
     emit_insn (gen_nonlocal_goto_receiver ());
 #endif
 
-  /* @@@ This is a kludge.  Not all machine descriptions define a blockage
-     insn, but we must not allow the code we just generated to be reordered
-     by scheduling.  Specifically, the update of the frame pointer must
-     happen immediately, not later.  So emit an ASM_INPUT to act as blockage
-     insn.  */
-  emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+  /* We must not allow the code we just generated to be reordered by
+     scheduling.  Specifically, the update of the frame pointer must
+     happen immediately, not later.  */
+  emit_insn (gen_blockage ());
 }
 
 /* Generate RTL for the automatic variable declaration DECL.
@@ -1905,19 +1899,11 @@ expand_decl (tree decl)
 
       /* Note if the object is a user variable.  */
       if (!DECL_ARTIFICIAL (decl))
-	{
 	  mark_user_reg (DECL_RTL (decl));
 
-	  /* Trust user variables which have a pointer type to really
-	     be pointers.  Do not trust compiler generated temporaries
-	     as our type system is totally busted as it relates to
-	     pointer arithmetic which translates into lots of compiler
-	     generated objects with pointer types, but which are not really
-	     pointers.  */
-	  if (POINTER_TYPE_P (type))
-	    mark_reg_pointer (DECL_RTL (decl),
-			      TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
-	}
+      if (POINTER_TYPE_P (type))
+	mark_reg_pointer (DECL_RTL (decl),
+			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
@@ -2082,7 +2068,7 @@ expand_anon_union_decl (tree decl, tree cleanup ATTRIBUTE_UNUSED,
 
 static struct case_node *
 add_case_node (struct case_node *head, tree type, tree low, tree high,
-	       tree label)
+               tree label, alloc_pool case_node_pool)
 {
   tree min_value, max_value;
   struct case_node *r;
@@ -2134,7 +2120,7 @@ add_case_node (struct case_node *head, tree type, tree low, tree high,
 
 
   /* Add this label to the chain.  Make sure to drop overflow flags.  */
-  r = ggc_alloc (sizeof (struct case_node));
+  r = (struct case_node *) pool_alloc (case_node_pool);
   r->low = build_int_cst_wide (TREE_TYPE (low), TREE_INT_CST_LOW (low),
 			       TREE_INT_CST_HIGH (low));
   r->high = build_int_cst_wide (TREE_TYPE (high), TREE_INT_CST_LOW (high),
@@ -2150,7 +2136,7 @@ add_case_node (struct case_node *head, tree type, tree low, tree high,
 
 /* By default, enable case bit tests on targets with ashlsi3.  */
 #ifndef CASE_USE_BIT_TESTS
-#define CASE_USE_BIT_TESTS  (ashl_optab->handlers[word_mode].insn_code \
+#define CASE_USE_BIT_TESTS  (optab_handler (ashl_optab, word_mode)->insn_code \
 			     != CODE_FOR_nothing)
 #endif
 
@@ -2317,7 +2303,7 @@ expand_case (tree exp)
   rtx table_label;
   int ncases;
   rtx *labelvec;
-  int i, fail;
+  int i;
   rtx before_case, end, lab;
 
   tree vec = SWITCH_LABELS (exp);
@@ -2336,6 +2322,10 @@ expand_case (tree exp)
 
   /* Label to jump to if no case matches.  */
   tree default_label_decl;
+
+  alloc_pool case_node_pool = create_alloc_pool ("struct case_node pool",
+                                                 sizeof (struct case_node),
+                                                 100);
 
   /* The switch body is lowered in gimplify.c, we should never have
      switches with a non-NULL SWITCH_BODY here.  */
@@ -2374,7 +2364,7 @@ expand_case (tree exp)
 	    continue;
 
 	  case_list = add_case_node (case_list, index_type, low, high,
-				     CASE_LABEL (elt));
+                                     CASE_LABEL (elt), case_node_pool);
 	}
 
 
@@ -2425,6 +2415,7 @@ expand_case (tree exp)
       if (count == 0)
 	{
 	  emit_jump (default_label);
+          free_alloc_pool (case_node_pool);
 	  return;
 	}
 
@@ -2591,12 +2582,11 @@ expand_case (tree exp)
 
       before_case = NEXT_INSN (before_case);
       end = get_last_insn ();
-      fail = squeeze_notes (&before_case, &end);
-      gcc_assert (!fail);
       reorder_insns (before_case, end, start);
     }
 
   free_temp_slots ();
+  free_alloc_pool (case_node_pool);
 }
 
 /* Generate code to jump to LABEL if OP0 and OP1 are equal in mode MODE.  */

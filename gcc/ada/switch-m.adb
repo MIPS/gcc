@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -27,6 +26,7 @@
 with Debug;    use Debug;
 with Osint;    use Osint;
 with Opt;      use Opt;
+with Prj.Ext;  use Prj.Ext;
 with Table;
 
 package body Switch.M is
@@ -118,9 +118,7 @@ package body Switch.M is
          --  Add a new component in the table.
 
          Switches (Last) := new String'(S);
-         Normalized_Switches.Increment_Last;
-         Normalized_Switches.Table (Normalized_Switches.Last) :=
-           Switches (Last);
+         Normalized_Switches.Append (Switches (Last));
       end Add_Switch_Component;
 
    --  Start of processing for Normalize_Compiler_Switches
@@ -152,7 +150,7 @@ package body Switch.M is
             when False =>
 
                --  All switches that don't start with -gnat stay as is,
-               --  except -v and -pg
+               --  except -v, -E and -pg
 
                if Switch_Chars = "-pg" then
 
@@ -161,7 +159,10 @@ package body Switch.M is
 
                   Add_Switch_Component ("-p");
 
-               elsif C /= 'v' then
+               --  Do not take into account switches that are not transmitted
+               --  to gnat1 by the gcc driver.
+
+               elsif C /= 'v' and then C /= 'E' then
                   Add_Switch_Component (Switch_Chars);
                end if;
 
@@ -515,6 +516,12 @@ package body Switch.M is
       if Switch_Chars'Length > 2 then
          if Switch_Chars = "--create-missing-dirs" then
             Setup_Projects := True;
+
+         elsif Switch_Chars'Length > 3 and then
+               Switch_Chars (Ptr .. Ptr + 1) = "aP"
+         then
+            Add_Search_Project_Directory
+              (Switch_Chars (Ptr + 2 .. Switch_Chars'Last));
 
          elsif C = 'v' and then Switch_Chars'Length = 3 then
             Ptr := Ptr + 1;

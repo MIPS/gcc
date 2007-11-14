@@ -6,17 +6,19 @@
 #define M 128
 unsigned short in[N+M];
 unsigned int out[N];
+unsigned char arr[N];
 
 /* Outer-loop vectorization. */
 /* Not vectorized due to multiple-types in the inner-loop.  */
 
-unsigned int
+__attribute__ ((noinline)) unsigned int
 foo (){
   int i,j;
   unsigned int diff;
   unsigned int s=0;
 
   for (i = 0; i < N; i++) {
+    arr[i] = 3;
     diff = 0;
     for (j = 0; j < M; j+=8) {
       diff += in[j+i];
@@ -26,7 +28,7 @@ foo (){
   return s;
 }
 
-unsigned int
+__attribute__ ((noinline)) unsigned int
 bar (int i, unsigned int diff, unsigned short *in)
 {
     int j;
@@ -51,6 +53,7 @@ int main (void)
   sum=foo ();
 
   for (i = 0; i < N; i++) {
+    arr[i] = 3;
     diff = 0;
     diff = bar (i, diff, in);
     s += diff;

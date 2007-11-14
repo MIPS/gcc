@@ -39,7 +39,7 @@
 // purpose. It is provided "as is" without express or implied
 // warranty.
 
-/** @file ext/vstring.h
+/** @file ext/throw_allocator.h
  *  This file is a GNU extension to the Standard C++ Library.
  *
  *  Contains an exception-throwing allocator, useful for testing
@@ -47,14 +47,11 @@
  *  sanity checked.
  */
 
-/**
- * @file throw_allocator.h 
- */
-
 #ifndef _THROW_ALLOCATOR_H
 #define _THROW_ALLOCATOR_H 1
 
 #include <cmath>
+#include <ctime>
 #include <map>
 #include <set>
 #include <string>
@@ -62,6 +59,8 @@
 #include <stdexcept>
 #include <utility>
 #include <tr1/random>
+#include <bits/functexcept.h>
+#include <bits/stl_move.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -81,9 +80,19 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     std::tr1::mt19937 _M_generator;
   };
 
-
   struct forced_exception_error : public std::exception
   { };
+
+  // Substitute for concurrence_error object in the case of -fno-exceptions.
+  inline void
+  __throw_forced_exception_error()
+  {
+#if __EXCEPTIONS
+    throw forced_exception_error();
+#else
+    __builtin_abort();
+#endif
+  }
 
   class throw_allocator_base
   {
@@ -209,32 +218,45 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       { return std::allocator<value_type>().max_size(); }
 
       pointer
-      allocate(size_type num, std::allocator<void>::const_pointer hint = 0)
+      allocate(size_type __n, std::allocator<void>::const_pointer hint = 0)
       {
+	if (__builtin_expect(__n > this->max_size(), false))
+	  std::__throw_bad_alloc();
+
 	throw_conditionally();
-	value_type* const a = std::allocator<value_type>().allocate(num, hint);
-	insert(a, sizeof(value_type) * num);
+	value_type* const a = std::allocator<value_type>().allocate(__n, hint);
+	insert(a, sizeof(value_type) * __n);
 	return a;
       }
 
       void
-      construct(pointer p, const T& val)
-      { return std::allocator<value_type>().construct(p, val); }
+      construct(pointer __p, const T& val)
+      { return std::allocator<value_type>().construct(__p, val); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename... _Args>
+        void
+        construct(pointer __p, _Args&&... __args)
+	{ 
+	  return std::allocator<value_type>().
+	    construct(__p, std::forward<_Args>(__args)...);
+	}
+#endif
 
       void
-      destroy(pointer p)
-      { std::allocator<value_type>().destroy(p); }
+      destroy(pointer __p)
+      { std::allocator<value_type>().destroy(__p); }
 
       void
-      deallocate(pointer p, size_type num)
+      deallocate(pointer __p, size_type __n)
       {
-	erase(p, sizeof(value_type) * num);
-	std::allocator<value_type>().deallocate(p, num);
+	erase(__p, sizeof(value_type) * __n);
+	std::allocator<value_type>().deallocate(__p, __n);
       }
 
       void
-      check_allocated(pointer p, size_type num)
-      { throw_allocator_base::check_allocated(p, sizeof(value_type) * num); }
+      check_allocated(pointer __p, size_type __n)
+      { throw_allocator_base::check_allocated(__p, sizeof(value_type) * __n); }
 
       void
       check_allocated(size_type label)
@@ -325,7 +347,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	error += '\n';
 	print_to_string(error, make_entry(p, size));
 	print_to_string(error, *found_it);
-	throw std::logic_error(error);
+	std::__throw_logic_error(error.c_str());
       }
     _S_map.insert(make_entry(p, size));
   }
@@ -351,7 +373,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	error += "null erase!";
 	error += '\n';
 	print_to_string(error, make_entry(p, size));
-	throw std::logic_error(error);
+	std::__throw_logic_error(error.c_str());
       }
 
     if (found_it->second.second != size)
@@ -361,7 +383,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	error += '\n';
 	print_to_string(error, make_entry(p, size));
 	print_to_string(error, *found_it);
-	throw std::logic_error(error);
+	std::__throw_logic_error(error.c_str());
       }
   }
 
@@ -382,7 +404,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	std::string error("throw_allocator_base::check_allocated by label ");
 	error += '\n';
 	error += found;
-	throw std::logic_error(error);
+	std::__throw_logic_error(error.c_str());
       }	
   }
 
@@ -390,7 +412,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   throw_allocator_base::throw_conditionally()
   {
     if (_S_g.get_prob() < _S_throw_prob)
-      throw forced_exception_error();
+      __throw_forced_exception_error();
   }
 
   void

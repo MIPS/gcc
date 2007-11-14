@@ -3437,13 +3437,7 @@ elim_reg_cond (rtx x, unsigned int regno)
 
   if (COMPARISON_P (x))
     {
-      rtx reg;
-
-      reg = XEXP (x, 0);
-      if (GET_CODE (reg) == SUBREG)
-	reg = SUBREG_REG (reg);
-      gcc_assert (REG_P (reg));
-      if (REGNO (reg) == regno)
+      if (REGNO (XEXP (x, 0)) == regno)
 	return const0_rtx;
       return x;
     }

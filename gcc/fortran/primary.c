@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -236,7 +235,6 @@ match_hollerith_constant (gfc_expr **result)
   locus old_loc;
   gfc_expr *e = NULL;
   const char *msg;
-  char *buffer;
   int num;
   int i;  
 
@@ -270,18 +268,18 @@ match_hollerith_constant (gfc_expr **result)
 	}
       else
 	{
-	  buffer = (char *) gfc_getmem (sizeof(char) * num + 1);
-	  for (i = 0; i < num; i++)
-	    {
-	      buffer[i] = gfc_next_char_literal (1);
-	    }
 	  gfc_free_expr (e);
 	  e = gfc_constant_result (BT_HOLLERITH, gfc_default_character_kind,
 				   &gfc_current_locus);
-	  e->value.character.string = gfc_getmem (num + 1);
-	  memcpy (e->value.character.string, buffer, num);
-	  e->value.character.string[num] = '\0';
-	  e->value.character.length = num;
+
+	  e->representation.string = gfc_getmem (num + 1);
+	  for (i = 0; i < num; i++)
+	    {
+	      e->representation.string[i] = gfc_next_char_literal (1);
+	    }
+	  e->representation.string[num] = '\0';
+	  e->representation.length = num;
+
 	  *result = e;
 	  return MATCH_YES;
 	}
@@ -733,38 +731,8 @@ next_string_char (char delimiter)
     {
       old_locus = gfc_current_locus;
 
-      switch (gfc_next_char_literal (1))
-	{
-	case 'a':
-	  c = '\a';
-	  break;
-	case 'b':
-	  c = '\b';
-	  break;
-	case 't':
-	  c = '\t';
-	  break;
-	case 'f':
-	  c = '\f';
-	  break;
-	case 'n':
-	  c = '\n';
-	  break;
-	case 'r':
-	  c = '\r';
-	  break;
-	case 'v':
-	  c = '\v';
-	  break;
-	case '\\':
-	  c = '\\';
-	  break;
-
-	default:
-	  /* Unknown backslash codes are simply not expanded */
-	  gfc_current_locus = old_locus;
-	  break;
-	}
+      if (gfc_match_special_char (&c) == MATCH_NO)
+	gfc_current_locus = old_locus;
 
       if (!(gfc_option.allow_std & GFC_STD_GNU) && !inhibit_warnings)
 	gfc_warning ("Extension: backslash character at %C");
@@ -972,6 +940,8 @@ got_delim:
   e->ref = NULL;
   e->ts.type = BT_CHARACTER;
   e->ts.kind = kind;
+  e->ts.is_c_interop = 0;
+  e->ts.is_iso_c = 0;
   e->where = start_locus;
 
   e->value.character.string = p = gfc_getmem (length + 1);
@@ -1007,21 +977,50 @@ no_match:
 }
 
 
+/* Match a .true. or .false.  Returns 1 if a .true. was found,
+   0 if a .false. was found, and -1 otherwise.  */
+static int
+match_logical_constant_string (void)
+{
+  locus orig_loc = gfc_current_locus;
+
+  gfc_gobble_whitespace ();
+  if (gfc_next_char () == '.')
+    {
+      int ch = gfc_next_char();
+      if (ch == 'f')
+	{
+	  if (gfc_next_char () == 'a'
+	      && gfc_next_char () == 'l'
+	      && gfc_next_char () == 's'
+	      && gfc_next_char () == 'e'
+	      && gfc_next_char () == '.')
+	    /* Matched ".false.".  */
+	    return 0;
+	}
+      else if (ch == 't')
+	{
+	  if (gfc_next_char () == 'r'
+	      && gfc_next_char () == 'u'
+	      && gfc_next_char () == 'e'
+	      && gfc_next_char () == '.')
+	    /* Matched ".true.".  */
+	    return 1;
+	}
+    }
+  gfc_current_locus = orig_loc;
+  return -1;
+}
+
 /* Match a .true. or .false.  */
 
 static match
 match_logical_constant (gfc_expr **result)
 {
-  static mstring logical_ops[] = {
-    minit (".false.", 0),
-    minit (".true.", 1),
-    minit (NULL, -1)
-  };
-
   gfc_expr *e;
   int i, kind;
 
-  i = gfc_match_strings (logical_ops);
+  i = match_logical_constant_string ();
   if (i == -1)
     return MATCH_NO;
 
@@ -1043,6 +1042,8 @@ match_logical_constant (gfc_expr **result)
   e->value.logical = i;
   e->ts.type = BT_LOGICAL;
   e->ts.kind = kind;
+  e->ts.is_c_interop = 0;
+  e->ts.is_iso_c = 0;
   e->where = gfc_current_locus;
 
   *result = e;
@@ -1227,6 +1228,8 @@ match_complex_constant (gfc_expr **result)
     }
   target.type = BT_REAL;
   target.kind = kind;
+  target.is_c_interop = 0;
+  target.is_iso_c = 0;
 
   if (real->ts.type != BT_REAL || kind != real->ts.kind)
     gfc_convert_type (real, &target, 2);
@@ -1919,6 +1922,7 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
   gfc_expr *e;
   locus where;
   match m;
+  bool private_comp = false;
 
   head = tail = NULL;
 
@@ -1931,6 +1935,11 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
 
   for (comp = sym->components; comp; comp = comp->next)
     {
+      if (comp->access == ACCESS_PRIVATE)
+	{
+	  private_comp = true;
+	  break;
+	}
       if (head == NULL)
 	tail = head = gfc_get_constructor ();
       else
@@ -1957,6 +1966,14 @@ gfc_match_structure_constructor (gfc_symbol *sym, gfc_expr **result)
 	}
 
       break;
+    }
+
+  if (sym->attr.use_assoc
+      && (sym->component_access == ACCESS_PRIVATE || private_comp))
+    {
+      gfc_error ("Structure constructor for '%s' at %C has PRIVATE "
+		 "components", sym->name);
+      goto cleanup;
     }
 
   if (gfc_match_char (')') != MATCH_YES)
@@ -2029,6 +2046,7 @@ gfc_match_rvalue (gfc_expr **result)
   int i;
   gfc_typespec *ts;
   bool implicit_char;
+  gfc_ref *ref;
 
   m = gfc_match_name (name);
   if (m != MATCH_YES)
@@ -2062,17 +2080,16 @@ gfc_match_rvalue (gfc_expr **result)
       gfc_gobble_whitespace ();
       if (sym->attr.recursive
 	  && gfc_peek_char () == '('
-	  && gfc_current_ns->proc_name == sym)
+	  && gfc_current_ns->proc_name == sym
+	  && !sym->attr.dimension)
 	{
-	  if (!sym->attr.dimension)
-	    goto function0;
-
-	  gfc_error ("'%s' is array valued and directly recursive "
-		     "at %C , so the keyword RESULT must be specified "
-		     "in the FUNCTION statement", sym->name);
+	  gfc_error ("'%s' at %C is the name of a recursive function "
+		     "and so refers to the result variable. Use an "
+		     "explicit RESULT variable for direct recursion "
+		     "(12.5.2.1)", sym->name);
 	  return MATCH_ERROR;
 	}
-	
+
       if (gfc_current_ns->proc_name == sym
 	  || (gfc_current_ns->parent != NULL
 	      && gfc_current_ns->parent->proc_name == sym))
@@ -2127,6 +2144,32 @@ gfc_match_rvalue (gfc_expr **result)
 
       e->symtree = symtree;
       m = match_varspec (e, 0);
+
+      if (sym->ts.is_c_interop || sym->ts.is_iso_c)
+	break;
+
+      /* Variable array references to derived type parameters cause
+	 all sorts of headaches in simplification. Treating such
+	 expressions as variable works just fine for all array
+	 references.  */
+      if (sym->value && sym->ts.type == BT_DERIVED && e->ref)
+	{
+	  for (ref = e->ref; ref; ref = ref->next)
+	    if (ref->type == REF_ARRAY)
+	      break;
+
+	  if (ref == NULL || ref->u.ar.type == AR_FULL)
+	    break;
+
+	  ref = e->ref;
+	  e->ref = NULL;
+	  gfc_free_expr (e);
+	  e = gfc_get_expr ();
+	  e->expr_type = EXPR_VARIABLE;
+	  e->symtree = symtree;
+	  e->ref = ref;
+	}
+
       break;
 
     case FL_DERIVED:
@@ -2207,6 +2250,25 @@ gfc_match_rvalue (gfc_expr **result)
 	  m = MATCH_ERROR;
 	  break;
 	}
+
+      /* Check here for the existence of at least one argument for the
+         iso_c_binding functions C_LOC, C_FUNLOC, and C_ASSOCIATED.  The
+         argument(s) given will be checked in gfc_iso_c_func_interface,
+         during resolution of the function call.  */
+      if (sym->attr.is_iso_c == 1
+	  && (sym->from_intmod == INTMOD_ISO_C_BINDING
+	      && (sym->intmod_sym_id == ISOCBINDING_LOC
+		  || sym->intmod_sym_id == ISOCBINDING_FUNLOC
+		  || sym->intmod_sym_id == ISOCBINDING_ASSOCIATED)))
+        {
+          /* make sure we were given a param */
+          if (actual_arglist == NULL)
+            {
+              gfc_error ("Missing argument to '%s' at %C", sym->name);
+              m = MATCH_ERROR;
+              break;
+            }
+        }
 
       if (sym->result == NULL)
 	sym->result = sym;
@@ -2445,6 +2507,9 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
       break;
 
     case FL_UNKNOWN:
+      if (sym->attr.access == ACCESS_PUBLIC
+	  || sym->attr.access == ACCESS_PRIVATE)
+	break;
       if (gfc_add_flavor (&sym->attr, FL_VARIABLE,
 			  sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;

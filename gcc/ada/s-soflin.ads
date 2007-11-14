@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,6 +39,10 @@
 --  initialized to non-tasking versions, and then if the tasking support is
 --  initialized, they are set to the real tasking versions.
 
+pragma Warnings (Off);
+pragma Compiler_Unit;
+pragma Warnings (On);
+
 with Ada.Exceptions;
 with System.Stack_Checking;
 
@@ -52,8 +56,7 @@ package System.Soft_Links is
 
    function Current_Target_Exception return EO;
    pragma Import
-     (Ada, Current_Target_Exception,
-      "__gnat_current_target_exception");
+     (Ada, Current_Target_Exception, "__gnat_current_target_exception");
    --  Import this subprogram from the private part of Ada.Exceptions
 
    --  First we have the access subprogram types used to establish the links.

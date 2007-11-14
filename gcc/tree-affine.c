@@ -1,11 +1,11 @@
 /* Operations with affine combinations of trees.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -29,9 +28,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "output.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
+#include "pointer-set.h"
 #include "tree-affine.h"
 #include "tree-gimple.h"
-#include "hashtab.h"
 
 /* Extends CST as appropriate for the affine combinations COMB.  */
 
@@ -111,6 +110,9 @@ aff_combination_scale (aff_tree *comb, double_int scale)
 
   if (comb->rest)
     {
+      tree type = comb->type;
+      if (POINTER_TYPE_P (type))
+	type = sizetype;
       if (comb->n < MAX_AFF_ELTS)
 	{
 	  comb->elts[comb->n].coef = scale;
@@ -119,8 +121,8 @@ aff_combination_scale (aff_tree *comb, double_int scale)
 	  comb->n++;
 	}
       else
-	comb->rest = fold_build2 (MULT_EXPR, comb->type, comb->rest, 
-				  double_int_to_tree (comb->type, scale));
+	comb->rest = fold_build2 (MULT_EXPR, type, comb->rest, 
+				  double_int_to_tree (type, scale));
     }
 }
 
@@ -130,6 +132,7 @@ void
 aff_combination_add_elt (aff_tree *comb, tree elt, double_int scale)
 {
   unsigned i;
+  tree type;
 
   scale = double_int_ext_for_comb (scale, comb);
   if (double_int_zero_p (scale))
@@ -169,15 +172,20 @@ aff_combination_add_elt (aff_tree *comb, tree elt, double_int scale)
       return;
     }
 
+  type = comb->type;
+  if (POINTER_TYPE_P (type))
+    type = sizetype;
+
   if (double_int_one_p (scale))
-    elt = fold_convert (comb->type, elt);
+    elt = fold_convert (type, elt);
   else
-    elt = fold_build2 (MULT_EXPR, comb->type,
-		       fold_convert (comb->type, elt),
-		       double_int_to_tree (comb->type, scale)); 
+    elt = fold_build2 (MULT_EXPR, type,
+		       fold_convert (type, elt),
+		       double_int_to_tree (type, scale)); 
 
   if (comb->rest)
-    comb->rest = fold_build2 (PLUS_EXPR, comb->type, comb->rest, elt);
+    comb->rest = fold_build2 (PLUS_EXPR, type, comb->rest,
+			      elt);
   else
     comb->rest = elt;
 }
@@ -220,7 +228,7 @@ aff_combination_convert (aff_tree *comb, tree type)
     }
 
   comb->type = type;
-  if (comb->rest)
+  if (comb->rest && !POINTER_TYPE_P (type))
     comb->rest = fold_convert (type, comb->rest);
 
   if (TYPE_PRECISION (type) == TYPE_PRECISION (comb_type))
@@ -266,6 +274,13 @@ tree_to_aff_combination (tree expr, tree type, aff_tree *comb)
     {
     case INTEGER_CST:
       aff_combination_const (comb, type, tree_to_double_int (expr));
+      return;
+
+    case POINTER_PLUS_EXPR:
+      tree_to_aff_combination (TREE_OPERAND (expr, 0), type, comb);
+      tree_to_aff_combination (TREE_OPERAND (expr, 1), sizetype, &tmp);
+      aff_combination_convert (&tmp, type);
+      aff_combination_add (comb, &tmp);
       return;
 
     case PLUS_EXPR:
@@ -496,40 +511,51 @@ aff_combination_mult (aff_tree *c1, aff_tree *c2, aff_tree *r)
   aff_combination_add_product (c1, c2->offset, NULL, r);
 }
 
+/* Returns the element of COMB whose value is VAL, or NULL if no such
+   element exists.  If IDX is not NULL, it is set to the index of VAL in
+   COMB.  */
+	      
+static struct aff_comb_elt *
+aff_combination_find_elt (aff_tree *comb, tree val, unsigned *idx)
+{
+  unsigned i;
+
+  for (i = 0; i < comb->n; i++)
+    if (operand_equal_p (comb->elts[i].val, val, 0))
+      {
+	if (idx)
+	  *idx = i;
+
+	return &comb->elts[i];
+      }
+
+  return NULL;
+}
+
 /* Element of the cache that maps ssa name NAME to its expanded form
    as an affine expression EXPANSION.  */
 
 struct name_expansion
 {
   aff_tree expansion;
-  tree name;
 
   /* True if the expansion for the name is just being generated.  */
   unsigned in_progress : 1;
 };
 
-/* Hash function for struct name_expansion.  */
-
-static hashval_t
-name_expansion_hash (const void *e)
-{
-  return SSA_NAME_VERSION (((struct name_expansion *) e)->name);
-}
-
-/* Equality function for struct name_expansion.  The second argument is an
-   SSA name.  */
-
-static int
-name_expansion_eq (const void *e, const void *n)
-{
-  return ((struct name_expansion *) e)->name == n;
-}
-
-/* Expands SSA names in COMB recursively.  CACHE is used to cache the
-   results.  */
+/* Similar to tree_to_aff_combination, but follows SSA name definitions
+   and expands them recursively.  CACHE is used to cache the expansions
+   of the ssa names, to avoid exponential time complexity for cases
+   like
+ 
+   a1 = a0 + a0;
+   a2 = a1 + a1;
+   a3 = a2 + a2;
+   ...  */
 
 void
-aff_combination_expand (aff_tree *comb, htab_t *cache)
+tree_to_aff_combination_expand (tree expr, tree type, aff_tree *comb,
+				struct pointer_map_t **cache)
 {
   unsigned i;
   aff_tree to_add, current, curre;
@@ -538,7 +564,8 @@ aff_combination_expand (aff_tree *comb, htab_t *cache)
   void **slot;
   struct name_expansion *exp;
 
-  aff_combination_zero (&to_add, comb->type);
+  tree_to_aff_combination (expr, type, comb);
+  aff_combination_zero (&to_add, type);
   for (i = 0; i < comb->n; i++)
     {
       e = comb->elts[i].val;
@@ -560,39 +587,33 @@ aff_combination_expand (aff_tree *comb, htab_t *cache)
       if (REFERENCE_CLASS_P (rhs))
 	continue;
 
-      /* Also, we do not want to return call_exprs.  */
-      if (get_call_expr_in (def) != NULL)
-	continue;
-
       if (!*cache)
-	*cache = htab_create (10, name_expansion_hash, name_expansion_eq,
-			      free);
-      slot = htab_find_slot_with_hash (*cache, e, SSA_NAME_VERSION (e), INSERT);
+	*cache = pointer_map_create ();
+      slot = pointer_map_insert (*cache, e);
       exp = *slot;
 
-      if (exp)
+      if (!exp)
+	{
+	  exp = XNEW (struct name_expansion);
+	  exp->in_progress = 1;
+	  *slot = exp;
+	  tree_to_aff_combination_expand (rhs, type, &current, cache);
+	  exp->expansion = current;
+	  exp->in_progress = 0;
+	}
+      else
 	{
 	  /* Since we follow the definitions in the SSA form, we should not
 	     enter a cycle unless we pass through a phi node.  */
 	  gcc_assert (!exp->in_progress);
 	  current = exp->expansion;
 	}
-      else
-	{
-	  exp = XNEW (struct name_expansion);
-	  exp->name = e;
-	  exp->in_progress = 1;
-	  *slot = exp;
-	  tree_to_aff_combination_expand (rhs, comb->type, &current, cache);
-	  exp->expansion = current;
-	  exp->in_progress = 0;
-	}
 
       /* Accumulate the new terms to TO_ADD, so that we do not modify
 	 COMB while traversing it; include the term -coef * E, to remove
          it from COMB.  */
       scale = comb->elts[i].coef;
-      aff_combination_zero (&curre, comb->type);
+      aff_combination_zero (&curre, type);
       aff_combination_add_elt (&curre, e, double_int_neg (scale));
       aff_combination_scale (&current, scale);
       aff_combination_add (&to_add, &current);
@@ -601,53 +622,145 @@ aff_combination_expand (aff_tree *comb, htab_t *cache)
   aff_combination_add (comb, &to_add);
 }
 
-/* Similar to tree_to_aff_combination, but follows SSA name definitions
-   and expands them recursively.  CACHE is used to cache the expansions
-   of the ssa names, to avoid exponential time complexity for cases
-   like
- 
-   a1 = a0 + a0;
-   a2 = a1 + a1;
-   a3 = a2 + a2;
-   ...  */
+/* Frees memory occupied by struct name_expansion in *VALUE.  Callback for
+   pointer_map_traverse.  */
 
-void
-tree_to_aff_combination_expand (tree expr, tree type, aff_tree *comb,
-				htab_t *cache)
+static bool
+free_name_expansion (const void *key ATTRIBUTE_UNUSED, void **value,
+		     void *data ATTRIBUTE_UNUSED)
 {
-  tree_to_aff_combination (expr, type, comb);
-  aff_combination_expand (comb, cache);
+  struct name_expansion *exp = *value;
+
+  free (exp);
+  return true;
 }
 
-/* Returns address of the reference REF in ADDR.  The size of the accessed
-   location is stored to SIZE.  */
+/* Frees memory allocated for the CACHE used by
+   tree_to_aff_combination_expand.  */
 
 void
-get_inner_reference_aff (tree ref, aff_tree *addr, double_int *size)
+free_affine_expand_cache (struct pointer_map_t **cache)
 {
-  HOST_WIDE_INT bitsize, bitpos;
-  tree toff;
-  enum machine_mode mode;
-  int uns, vol;
-  aff_tree tmp;
-  tree base = get_inner_reference (ref, &bitsize, &bitpos, &toff, &mode,
-				   &uns, &vol, false);
-  tree base_addr = build_fold_addr_expr (base);
+  if (!*cache)
+    return;
 
-  /* ADDR = &BASE + TOFF + BITPOS / BITS_PER_UNIT.  */
+  pointer_map_traverse (*cache, free_name_expansion, NULL);
+  pointer_map_destroy (*cache);
+  *cache = NULL;
+}
 
-  tree_to_aff_combination (base_addr, sizetype, addr);
+/* If VAL != CST * DIV for any constant CST, returns false.
+   Otherwise, if VAL != 0 (and hence CST != 0), and *MULT_SET is true,
+   additionally compares CST and MULT, and if they are different,
+   returns false.  Finally, if neither of these two cases occur,
+   true is returned, and if CST != 0, CST is stored to MULT and
+   MULT_SET is set to true.  */
 
-  if (toff)
+static bool
+double_int_constant_multiple_p (double_int val, double_int div,
+				bool *mult_set, double_int *mult)
+{
+  double_int rem, cst;
+
+  if (double_int_zero_p (val))
+    return true;
+
+  if (double_int_zero_p (div))
+    return false;
+
+  cst = double_int_sdivmod (val, div, FLOOR_DIV_EXPR, &rem);
+  if (!double_int_zero_p (rem))
+    return false;
+
+  if (*mult_set && !double_int_equal_p (*mult, cst))
+    return false;
+
+  *mult_set = true;
+  *mult = cst;
+  return true;
+}
+
+/* Returns true if VAL = X * DIV for some constant X.  If this is the case,
+   X is stored to MULT.  */
+
+bool
+aff_combination_constant_multiple_p (aff_tree *val, aff_tree *div,
+				     double_int *mult)
+{
+  bool mult_set = false;
+  unsigned i;
+
+  if (val->n == 0 && double_int_zero_p (val->offset))
     {
-      tree_to_aff_combination (toff, sizetype, &tmp);
-      aff_combination_add (addr, &tmp);
+      *mult = double_int_zero;
+      return true;
+    }
+  if (val->n != div->n)
+    return false;
+
+  if (val->rest || div->rest)
+    return false;
+
+  if (!double_int_constant_multiple_p (val->offset, div->offset,
+				       &mult_set, mult))
+    return false;
+
+  for (i = 0; i < div->n; i++)
+    {
+      struct aff_comb_elt *elt
+	      = aff_combination_find_elt (val, div->elts[i].val, NULL);
+      if (!elt)
+	return false;
+      if (!double_int_constant_multiple_p (elt->coef, div->elts[i].coef,
+					   &mult_set, mult))
+	return false;
     }
 
-  aff_combination_const (&tmp, sizetype,
-			 shwi_to_double_int (bitpos / BITS_PER_UNIT));
-  aff_combination_add (addr, &tmp);
-
-  *size = shwi_to_double_int ((bitsize + BITS_PER_UNIT - 1) / BITS_PER_UNIT);
+  gcc_assert (mult_set);
+  return true;
 }
 
+/* Prints the affine VAL to the FILE. */
+
+void
+print_aff (FILE *file, aff_tree *val)
+{
+  unsigned i;
+  bool uns = TYPE_UNSIGNED (val->type);
+  if (POINTER_TYPE_P (val->type))
+    uns = false;
+  fprintf (file, "{\n  type = ");
+  print_generic_expr (file, val->type, TDF_VOPS|TDF_MEMSYMS);
+  fprintf (file, "\n  offset = ");
+  dump_double_int (file, val->offset, uns);
+  if (val->n > 0)
+    {
+      fprintf (file, "\n  elements = {\n");
+      for (i = 0; i < val->n; i++)
+	{
+	  fprintf (file, "    [%d] = ", i);
+	  print_generic_expr (file, val->elts[i].val, TDF_VOPS|TDF_MEMSYMS);
+	  
+	  fprintf (file, " * ");
+	  dump_double_int (file, val->elts[i].coef, uns);
+	  if (i != val->n - 1)
+	    fprintf (file, ", \n");
+	}
+      fprintf (file, "\n  }");
+  }
+  if (val->rest)
+    {
+      fprintf (file, "\n  rest = ");
+      print_generic_expr (file, val->rest, TDF_VOPS|TDF_MEMSYMS);
+    }
+  fprintf (file, "\n}");
+}
+
+/* Prints the affine VAL to the standard error, used for debugging.  */
+
+void
+debug_aff (aff_tree *val)
+{
+  print_aff (stderr, val);
+  fprintf (stderr, "\n");
+}

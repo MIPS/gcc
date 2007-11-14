@@ -1,11 +1,11 @@
-/* { dg-require-effective-target vect_int } */
+/* { dg-require-effective-target vect_float } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
 
 #define N 32
 
-int main1 ()
+__attribute__ ((noinline)) int main1 ()
 {
   int i;
   int ib[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};

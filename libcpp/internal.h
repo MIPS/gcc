@@ -339,6 +339,14 @@ struct cpp_reader
   /* Token generated while handling a directive, if any. */
   cpp_token directive_result;
 
+  /* When expanding a macro at top-level, this is the location of the
+     macro invocation.  */
+  source_location invocation_location;
+
+  /* True if this call to cpp_get_token should consider setting
+     invocation_location.  */
+  bool set_invocation_location;
+
   /* Search paths for include files.  */
   struct cpp_dir *quote_include;	/* "" */
   struct cpp_dir *bracket_include;	/* <> */
@@ -354,6 +362,10 @@ struct cpp_reader
   struct htab *dir_hash;
   struct file_hash_entry *file_hash_entries;
   unsigned int file_hash_entries_allocated, file_hash_entries_used;
+
+  /* Negative path lookup hash table.  */
+  struct htab *nonexistent_file_hash;
+  struct obstack nonexistent_file_ob;
 
   /* Nonzero means don't look for #include "foo" the source-file
      directory.  */
@@ -448,6 +460,9 @@ struct cpp_reader
   /* A saved list of the defined macros, for dependency checking
      of precompiled headers.  */
   struct cpp_savedstate *savedstate;
+
+  /* Next value of __COUNTER__ macro. */
+  unsigned int counter;
 };
 
 /* Character classes.  Based on the more primitive macros in safe-ctype.h.
@@ -561,12 +576,23 @@ extern int _cpp_handle_directive (cpp_reader *, int);
 extern void _cpp_define_builtin (cpp_reader *, const char *);
 extern char ** _cpp_save_pragma_names (cpp_reader *);
 extern void _cpp_restore_pragma_names (cpp_reader *, char **);
-extern void _cpp_do__Pragma (cpp_reader *);
+extern int _cpp_do__Pragma (cpp_reader *);
 extern void _cpp_init_directives (cpp_reader *);
 extern void _cpp_init_internal_pragmas (cpp_reader *);
 extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,
 				 unsigned int, unsigned int);
 extern void _cpp_pop_buffer (cpp_reader *);
+
+/* In directives.c */
+struct _cpp_dir_only_callbacks
+{
+  /* Called to print a block of lines. */
+  void (*print_lines) (int, const void *, size_t);
+  void (*maybe_print_line) (source_location);
+};
+
+extern void _cpp_preprocess_dir_only (cpp_reader *,
+				      const struct _cpp_dir_only_callbacks *);
 
 /* In traditional.c.  */
 extern bool _cpp_scan_out_logical_line (cpp_reader *, cpp_macro *);

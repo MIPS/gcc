@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2002-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2002-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,7 +25,6 @@
 
 with Csets;    use Csets;
 with Err_Vars; use Err_Vars;
-with Namet;    use Namet;
 with Opt;      use Opt;
 with Osint;    use Osint;
 with Output;   use Output;
@@ -191,7 +189,9 @@ package body Prep is
    function Deleting return Boolean;
    --  Return True if code should be deleted or commented out
 
-   function Expression (Evaluate_It : Boolean) return Boolean;
+   function Expression
+     (Evaluate_It  : Boolean;
+      Complemented : Boolean := False) return Boolean;
    --  Evaluate a condition in an #if or an #elsif statement.
    --  If Evaluate_It is False, the condition is effectively evaluated,
    --  otherwise, only the syntax is checked.
@@ -361,7 +361,6 @@ package body Prep is
 
       if Pp_States.Last = Ground then
          return False;
-
       else
          return Pp_States.Table (Pp_States.Last).Deleting;
       end if;
@@ -371,7 +370,10 @@ package body Prep is
    -- Expression --
    ----------------
 
-   function Expression (Evaluate_It : Boolean) return Boolean is
+   function Expression
+     (Evaluate_It  : Boolean;
+      Complemented : Boolean := False) return Boolean
+   is
       Evaluation : Boolean := Evaluate_It;
       --  Is set to False after an "or else" when left term is True and
       --  after an "and then" when left term is False.
@@ -420,7 +422,8 @@ package body Prep is
                --  not expression
 
                Scan.all;
-               Current_Result := not Expression (Evaluation);
+               Current_Result :=
+                 not Expression (Evaluation, Complemented => True);
 
             when Tok_Identifier =>
                Symbol_Name1 := Token_Name;
@@ -601,7 +604,12 @@ package body Prep is
          --  Check the next operator
 
          if Token = Tok_And then
-            if Current_Operator = Op_Or then
+            if Complemented then
+               Error_Msg
+                ("mixing NOT and AND is not allowed, parentheses are required",
+                 Token_Ptr);
+
+            elsif Current_Operator = Op_Or then
                Error_Msg ("mixing OR and AND is not allowed", Token_Ptr);
             end if;
 
@@ -617,7 +625,12 @@ package body Prep is
             end if;
 
          elsif Token = Tok_Or then
-            if Current_Operator = Op_And then
+            if Complemented then
+               Error_Msg
+                 ("mixing NOT and OR is not allowed, parentheses are required",
+                  Token_Ptr);
+
+            elsif Current_Operator = Op_And then
                Error_Msg ("mixing AND and OR is not allowed", Token_Ptr);
             end if;
 
