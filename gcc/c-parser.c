@@ -689,9 +689,9 @@ struct hunk_binding_entry GTY (())
   /* The identifier.  */
   tree name;
   /* The enum/union/struct tag binding.  */
-  tree x1;
+  tree tag_binding;
   /* The variable/function/etc binding.  */
-  tree x2;
+  tree symbol_binding;
 };
 
 /* Hash function for a struct hunk_binding_entry.   */
@@ -722,10 +722,10 @@ traverse_hunk_binding_entry (void **slot, void *ignore ATTRIBUTE_UNUSED)
 {
   struct hunk_binding_entry *hb = (struct hunk_binding_entry *) *slot;
 
-  if (hb->x1 != NULL_TREE)
-    c_decl_re_bind (hb->name, hb->x1);
-  if (hb->x2 != NULL_TREE)
-    c_decl_re_bind (hb->name, hb->x2);
+  if (hb->tag_binding != NULL_TREE)
+    c_decl_re_bind (hb->name, hb->tag_binding);
+  if (hb->symbol_binding != NULL_TREE)
+    c_decl_re_bind (hb->name, hb->symbol_binding);
 
   return 1;
 }
@@ -831,7 +831,7 @@ c_parser_bind_callback (tree name, tree decl)
     case ENUMERAL_TYPE:
     case UNION_TYPE:
     case RECORD_TYPE:
-      (*slot)->x1 = decl;
+      (*slot)->tag_binding = decl;
       break;
 
     case VAR_DECL:
@@ -840,7 +840,7 @@ c_parser_bind_callback (tree name, tree decl)
     case CONST_DECL:
     case PARM_DECL:
     case ERROR_MARK:
-      (*slot)->x2 = decl;
+      (*slot)->symbol_binding = decl;
       break;
 
     default:
@@ -1863,6 +1863,9 @@ struct can_reuse_hunk_data
   /* The hunk to check for.  */
   struct parsed_hunk *hunk;
   /* The result, or NULL if nothing reusable found.  */
+  struct hunk_binding *binding;
+  /* The next hunk which should be parsed.  This is how the result
+     from a multi-hunk binding is communicated.  */
   struct parsed_hunk *self_iter;
 };
 
@@ -1908,6 +1911,7 @@ check_hunk_binding (void **valp, void *crhd)
   if (binding == NULL)
     return true;
 
+  info->binding = binding;
   info->self_iter = self_iter;
   return false;
 }
@@ -1921,7 +1925,7 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
 		bool update_parser, struct hunk_set **out_set)
 {
   struct hunk_set temp, **set_slot;
-  struct hunk_binding *binding, **slot;
+  struct hunk_binding **slot;
   struct can_reuse_hunk_data info;
 
   /* FIXME: kinda gross.  */
@@ -1935,6 +1939,8 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
       memcpy (&hset->key[0], &hunk->key[0], 16);
       hset->bindings = htab_create_ggc (1, htab_hash_pointer, htab_eq_pointer,
 					NULL);
+      *set_slot = hset;
+
       *out_set = hset;
       /* We already know there's nothing to reuse.  */
       return false;
@@ -1944,19 +1950,21 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
 
   info.parser = parser;
   info.hunk = hunk;
+  info.binding = NULL;
   info.self_iter = NULL;
   htab_traverse_noresize ((*set_slot)->bindings, check_hunk_binding, &info);
-  if (!info.self_iter)
+  if (!info.binding)
     return false;
 
   /* Make a note saying that we have used this hunk.  We only need to
      mark the first in a sequence.  */
   slot = (struct hunk_binding **) htab_find_slot (parser->used_hunks,
-						  binding, INSERT);
-  *slot = binding;
+						  info.binding, INSERT);
+  *slot = info.binding;
 
   /* Map in the bindings.  */
-  htab_traverse_noresize (binding->binding_map, traverse_hunk_binding_entry,
+  htab_traverse_noresize (info.binding->binding_map,
+			  traverse_hunk_binding_entry,
 			  NULL);
   if (update_parser)
     {

@@ -1,3 +1,14 @@
+2007-11-14  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (hunk_binding_entry) <tag_binding, symbol_binding>:
+	Renamed.
+	(traverse_hunk_binding_entry): Update.
+	(c_parser_bind_callback): Update.
+	(struct can_reuse_hunk_data) <binding>: New field.
+	(check_hunk_binding): Set binding field.
+	(can_reuse_hunk): Set slot in hash to new hunk_set.  Use
+	'info.binding' field.
+
 2007-11-12  Tom Tromey  <tromey@redhat.com>
 
 	* c-pragma.c (c_register_pragma_1): Update.
