@@ -2597,7 +2597,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       DECL_RESULT (result)
 	= build_decl (RESULT_DECL, NULL_TREE,
 		      TYPE_MAIN_VARIANT (ret_type));
-      TREE_CONTEXT (DECL_RESULT (result)) = result;
+      DECL_CONTEXT (DECL_RESULT (result)) = result;
 #if 0
       DECL_SOURCE_LOCATION (result) = { input_filename, line };
 #endif

@@ -1,5 +1,10 @@
 2007-11-15  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_subroutine_type_subprogram_DIE): Fix thinko'd
+	DECL_CONTEXT.
+
+2007-11-15  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto.c: Include langhooks.h.
 	(lto_find_integral_type): Rework logic to handle the case where
 	got_byte_size is true, but the bitsize requested and that of the
