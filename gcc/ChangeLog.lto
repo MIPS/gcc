@@ -1,3 +1,7 @@
+2007-11-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree.h (DECL_CONTEXT): Note that this applies to RESULT_DECLs too.
+
 2007-11-15  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-dump.c (dump_options): Removed verbose from -all option.

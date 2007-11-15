@@ -59,6 +59,11 @@ static GTY(()) tree signed_and_unsigned_types[MAX_BITS_PER_WORD + 1][2];
 
 static GTY(()) tree registered_builtin_types;
 
+/* A chain of builtin functions that we need to recognize.  We will
+   assume that all other function names we see will be defined by the
+   user's program.  */
+static GTY(()) tree registered_builtin_fndecls;
+
 /* Language hooks.  */
 
 static bool 
@@ -193,7 +198,7 @@ lto_pushdecl (tree t ATTRIBUTE_UNUSED)
 static tree
 lto_getdecls (void)
 {
-  gcc_unreachable ();
+  return registered_builtin_fndecls;
 }
 
 static void
@@ -208,7 +213,10 @@ lto_write_globals (void)
 static tree
 lto_builtin_function (tree decl)
 {
-  /* No special processing required.  */
+  /* Record it.  */
+  TREE_CHAIN (decl) = registered_builtin_fndecls;
+  registered_builtin_fndecls = decl;
+
   return decl;
 }
 

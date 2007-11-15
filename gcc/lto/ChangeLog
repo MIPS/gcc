@@ -1,3 +1,21 @@
+2007-11-15  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c: Include langhooks.h.
+	(lto_find_integral_type): Rework logic to handle the case where
+	got_byte_size is true, but the bitsize requested and that of the
+	base_type doesn't match.
+	(lto_read_variable_formal_parameter_constant_DIE): Only check for
+	asm_name if we are creating a VAR_DECL.
+	(lto_materialize_function): Set DECL_EXTERNAL if we can't find a
+	definition.
+	(lto_read_subroutine_type_subprogram_DIE): Check for a builtin
+	function reference and use the builtin's decl if so.  Set the
+	DECL_CONTEXT of the RESULT_DECL for the function.
+	* lto-lang.c (registered_builtin_fndecls): New variable.
+	(lto_getdecls): Return it.
+	(lto_builtin_function): Chain the new decl onto
+	registered_builtin_fndecls.
+
 2007-11-15  Kenneth Zadeck <zadeck@naturalbridge.com>
 	    
 	* lto-read.c (process_tree_flags, lto_static_init_local):

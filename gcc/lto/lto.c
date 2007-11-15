@@ -33,6 +33,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto.h"
 #include "lto-tree.h"
 #include "tree-ssa-operands.h"  /* For init_ssa_operands.  */
+#include "langhooks.h"
 
 /* References 
 
@@ -1230,9 +1231,12 @@ lto_find_integral_type (tree base_type, int byte_size, bool got_byte_size)
 	   || !TYPE_SIZE (base_type)
 	   || !host_integerp (TYPE_SIZE (base_type), 1))
     lto_abi_mismatch_error ();
-  else if (got_byte_size
-	   && nbits != tree_low_cst (TYPE_SIZE (base_type), 1))
-    sorry ("size of base type (%d bits) doesn't match specified size (%d bits)",
+  else if (!got_byte_size)
+    return base_type;
+  else if (nbits <= tree_low_cst (TYPE_SIZE (base_type), 1))
+    base_type = lang_hooks.types.type_for_size (nbits, /*unsigned=*/true);
+  else
+    sorry ("size of base type (%d bits) smaller than specified size (%d bits)",
 	   (int) tree_low_cst (TYPE_SIZE (base_type), 1),
 	   nbits);
   return base_type;
@@ -2043,8 +2047,6 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 	name = DECL_NAME (referenced);
       if (referenced && !type)
 	type = TREE_TYPE (referenced);
-      if (referenced && !asm_name)
-	asm_name = DECL_ASSEMBLER_NAME (referenced);
 
       /* Build the tree node for this entity.  */
       decl = build_decl (code, name, type);
@@ -2055,6 +2057,8 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 	 etc.  */
       if (code == VAR_DECL)
 	{
+	  if (referenced && !asm_name)
+	    asm_name = DECL_ASSEMBLER_NAME (referenced);
 	  SET_DECL_ASSEMBLER_NAME (decl, asm_name);
 	  TREE_PUBLIC (decl) = external;
 	  DECL_EXTERNAL (decl) = declaration;
@@ -2366,7 +2370,7 @@ lto_materialize_function (lto_info_fd *fd,
       file->vtable->unmap_fn_body (file, name, body);
     }
   else
-    DECL_EXTERNAL (decl) = 0;
+    DECL_EXTERNAL (decl) = 1;
 
   /* Let the middle end know about the function.  */
   rest_of_decl_compilation (decl,
@@ -2556,6 +2560,30 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       if (!name)
 	lto_file_corrupt_error ((lto_fd *)fd);
 
+      if (external && declaration)
+	{
+	  /* Check to see if this function is a builtin.  */
+	  tree builtins = lang_hooks.decls.getdecls ();
+
+	  while (builtins)
+	    {
+	      tree candidate = builtins;
+
+	      /* Check to see if this builtin matches this function's
+		 DIE.  Use the builtin decl if so.  */
+	      if (name == DECL_NAME (candidate)
+		  || (DECL_ASSEMBLER_NAME (candidate)
+		      && name == DECL_ASSEMBLER_NAME (candidate)))
+		{
+		  result = candidate;
+
+		  goto read_children;
+		}
+
+	      builtins = TREE_CHAIN (candidate);
+	    }
+	}
+
       result = build_decl (FUNCTION_DECL, name, type);
       TREE_PUBLIC (result) = external;
       if (inlined == DW_INL_declared_inlined
@@ -2569,6 +2597,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
       DECL_RESULT (result)
 	= build_decl (RESULT_DECL, NULL_TREE,
 		      TYPE_MAIN_VARIANT (ret_type));
+      TREE_CONTEXT (DECL_RESULT (result)) = result;
 #if 0
       DECL_SOURCE_LOCATION (result) = { input_filename, line };
 #endif
