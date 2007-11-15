@@ -810,7 +810,9 @@ output_tree_flags (struct output_block *ob,
     {
 
 #define START_CLASS_CASE(class)    case class:
-#define ADD_CLASS_FLAG(flag_name) \
+#define ADD_CLASS_DECL_FLAG(flag_name)    \
+      { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
+#define ADD_CLASS_EXPR_FLAG(flag_name)    \
       { flags <<= 1; if (expr->base. flag_name ) flags |= 1; }
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                \
@@ -842,7 +844,8 @@ output_tree_flags (struct output_block *ob,
 
 #undef START_CLASS_SWITCH
 #undef START_CLASS_CASE
-#undef ADD_CLASS_FLAG
+#undef ADD_CLASS_DECL_FLAG
+#undef ADD_CLASS_EXPR_FLAG
 #undef END_CLASS_CASE
 #undef END_CLASS_SWITCH
 #undef START_EXPR_SWITCH
@@ -1600,7 +1603,7 @@ output_expr_operand (struct output_block *ob, tree expr)
 	tree label_vec = TREE_OPERAND (expr, 2);
 	size_t len = TREE_VEC_LENGTH (label_vec);
 	size_t i;
-	output_record_start (ob, expr, NULL, tag);
+	output_record_start (ob, expr, expr, tag);
 	output_uleb128 (ob, len);
 	output_expr_operand (ob, TREE_OPERAND (expr, 0));
 	gcc_assert (TREE_OPERAND (expr, 1) == NULL);
@@ -2178,7 +2181,6 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, PHI_NODE);
   RESET_BIT (lto_types_needed_for, RESX_EXPR);
   RESET_BIT (lto_types_needed_for, SSA_NAME);
-  RESET_BIT (lto_types_needed_for, SWITCH_EXPR);
   RESET_BIT (lto_types_needed_for, VAR_DECL);
   RESET_BIT (lto_types_needed_for, TREE_LIST);
   RESET_BIT (lto_types_needed_for, TYPE_DECL);
@@ -2435,7 +2437,9 @@ lto_debug_tree_flags (struct lto_debug_context *context,
     {
 
 #define START_CLASS_CASE(class)    case class:
-#define ADD_CLASS_FLAG(flag_name) \
+#define ADD_CLASS_DECL_FLAG(flag_name) \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define ADD_CLASS_EXPR_FLAG(flag_name) \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                \
@@ -2467,7 +2471,8 @@ lto_debug_tree_flags (struct lto_debug_context *context,
 
 #undef START_CLASS_SWITCH
 #undef START_CLASS_CASE
-#undef ADD_CLASS_FLAG
+#undef ADD_CLASS_DECL_FLAG
+#undef ADD_CLASS_EXPR_FLAG
 #undef END_CLASS_CASE
 #undef END_CLASS_SWITCH
 #undef START_EXPR_SWITCH

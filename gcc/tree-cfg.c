@@ -6093,7 +6093,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
     }
   fprintf (file, ")\n");
 
-  if (flags && TDF_VERBOSE)
+  if (flags & TDF_VERBOSE)
     print_node (file, "", fn, 2);
 
   dsf = DECL_STRUCT_FUNCTION (fn);

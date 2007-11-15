@@ -1,3 +1,12 @@
+2007-11-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+	    
+	* lto-read.c (process_tree_flags, lto_static_init_local):
+	Renamed to ADD_CLASS_EXPR_FLAG. ADD_CLASS_DECL_FLAG New Macro.
+	(input_line_info, clear_line_info): Fixed new line number code.
+	(input_expr_operand): Added type to SWITCH_EXPR.
+	(lto_read_body): Properly initialized data_in.
+	Clear line info when leaving.
+	
 2007-11-13  Diego Novillo  <dnovillo@google.com>
 
 	* lto.c (lto_read_variable_formal_parameter_constant_DIE):

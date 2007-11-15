@@ -412,7 +412,9 @@ process_tree_flags (tree expr, lto_flags_type flags)
     {
 
 #define START_CLASS_CASE(class)    case class:
-#define ADD_CLASS_FLAG(flag_name) \
+#define ADD_CLASS_DECL_FLAG(flag_name)    \
+  { expr->decl_common. flag_name = flags >> CLEAROUT; flags <<= 1; }
+#define ADD_CLASS_EXPR_FLAG(flag_name)    \
   { expr->base. flag_name = flags >> CLEAROUT; flags <<= 1; }
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                \
@@ -444,7 +446,8 @@ process_tree_flags (tree expr, lto_flags_type flags)
 
 #undef START_CLASS_SWITCH
 #undef START_CLASS_CASE
-#undef ADD_CLASS_FLAG
+#undef ADD_CLASS_DECL_FLAG
+#undef ADD_CLASS_EXPR_FLAG
 #undef END_CLASS_CASE
 #undef END_CLASS_SWITCH
 #undef START_EXPR_SWITCH
@@ -501,7 +504,7 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
     {
       unsigned int len;
       if (data_in->current_file)
-	linemap_add (line_table, LC_LEAVE, false, data_in->current_file, 0);
+	linemap_add (line_table, LC_LEAVE, false, NULL, 0);
 
       LTO_DEBUG_TOKEN ("file");
       data_in->current_file 
@@ -517,7 +520,7 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
     }
   if (flags & LTO_SOURCE_FILE)
     linemap_add (line_table, LC_ENTER, false, data_in->current_file, data_in->current_line);
-    
+
   if (flags & LTO_SOURCE_COL)
     {
       LTO_DEBUG_TOKEN ("col");
@@ -579,7 +582,7 @@ clear_line_info (struct data_in *data_in)
 {
 #ifdef USE_MAPPED_LOCATION  
   if (data_in->current_file)
-    linemap_add (line_table, LC_LEAVE, false, data_in->current_file, 0);
+    linemap_add (line_table, LC_LEAVE, false, NULL, 0);
   data_in->current_col = 0;
 #endif
   data_in->current_file = NULL;
@@ -1020,7 +1023,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  TREE_VEC_ELT (op2, i) 
 	    = input_expr_operand (ib, data_in, fn,
 				  input_record_start (ib));
-	result = build3 (code, void_type_node, op0, NULL_TREE, op2);
+	result = build3 (code, type, op0, NULL_TREE, op2);
       }
       break;
 
@@ -1708,7 +1711,8 @@ lto_static_init_local (void)
           {
 
 #define START_CLASS_CASE(class)    case class:
-#define ADD_CLASS_FLAG(flag_name)    flags_length_for_code[code]++;
+#define ADD_CLASS_DECL_FLAG(flag_name)    flags_length_for_code[code]++;
+#define ADD_CLASS_EXPR_FLAG(flag_name)    flags_length_for_code[code]++;
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                    \
           default:                            \
@@ -1740,7 +1744,8 @@ lto_static_init_local (void)
 
 #undef START_CLASS_SWITCH
 #undef START_CLASS_CASE
-#undef ADD_CLASS_FLAG
+#undef ADD_CLASS_DECL_FLAG
+#undef ADD_CLASS_EXPR_FLAG
 #undef END_CLASS_CASE
 #undef END_CLASS_SWITCH
 #undef START_EXPR_SWITCH
@@ -1846,7 +1851,7 @@ lto_read_body (lto_info_fd *fd,
   struct input_block ib_main 
     = {data + main_offset, 0, header->main_size};
 
-
+  memset (&data_in, 0, sizeof (struct data_in));
   data_in.strings            = data + string_offset;
   data_in.strings_len        = header->string_size;
 
@@ -1906,6 +1911,7 @@ lto_read_body (lto_info_fd *fd,
       input_constructor (t, &data_in, &ib_main);
     }
 
+  clear_line_info (&data_in);
   free (data_in.field_decls);
   free (data_in.fn_decls);
   free (data_in.var_decls);
