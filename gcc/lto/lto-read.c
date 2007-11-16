@@ -1395,6 +1395,7 @@ make_new_block (struct function *fn, unsigned int index)
   bb->index = index;
   SET_BASIC_BLOCK_FOR_FUNCTION (fn, index, bb);
   bb->il.tree = GGC_CNEW (struct tree_bb_info);
+  n_basic_blocks_for_function (fn)++;
   bb->flags = 0;
   set_bb_stmt_list (bb, alloc_stmt_list ());
   return bb;
@@ -1417,7 +1418,7 @@ input_cfg (struct input_block *ib, struct function *fn)
   bb_count = input_uleb128 (ib);
 
   profile_status_for_function (fn) = PROFILE_ABSENT;
-  n_basic_blocks_for_function (fn) = bb_count;
+  n_basic_blocks_for_function (fn) = NUM_FIXED_BLOCKS;
   last_basic_block_for_function (fn) = bb_count;
   basic_block_info_for_function (fn)
     = VEC_alloc (basic_block, gc, bb_count);
