@@ -1486,14 +1486,18 @@ lto_read_array_type_DIE (lto_info_fd *fd,
   int ndims;
   int order = -1;
   int i, istart, iend;
+  bool is_vector = false;
 
   LTO_BEGIN_READ_ATTRS ()
     {
     case DW_AT_decl_column:
     case DW_AT_decl_file:
     case DW_AT_decl_line:
-    case DW_AT_GNU_vector:
       /* Ignore.  */
+      break;
+
+    case DW_AT_GNU_vector:
+      is_vector = true;
       break;
 
     case DW_AT_type:
@@ -1536,29 +1540,51 @@ lto_read_array_type_DIE (lto_info_fd *fd,
   dims = lto_collect_child_DIEs (fd, abbrev, context);
   ndims = VEC_length (tree, dims);
 
-  /* Construct and cache the array type object for our caller.  */
-  if (ndims == 0)
-    type = build_array_type (type, NULL_TREE);
+  if (is_vector)
+    {
+      /* We should have a lone child DIE describing how many packed
+	 elements this vector type has.  The DW_AT_type attribute
+	 describes the type of the vector elements.  */
+      tree range;
+      tree upper_bound;
+      HOST_WIDE_INT count;
+
+      gcc_assert (ndims == 1);
+
+      range = VEC_index (tree, dims, 0);
+      upper_bound = TYPE_MAX_VALUE (range);
+      count = TREE_INT_CST_LOW (upper_bound);
+
+      /* RANGE describes the indices of the vector, so we need to add 1
+	 to find the number of elements.  */
+      type = build_vector_type (type, (int) count + 1);
+    }
   else
     {
-      if (order == -1)
-        {
-          istart = ndims - 1;
-          iend = -1;
-        }
+      /* Construct and cache the array type object for our caller.  */
+      if (ndims == 0)
+	type = build_array_type (type, NULL_TREE);
       else
-        {
-          gcc_assert (order == 1);
-          istart = 0;
-          iend = ndims;
-        }
-      for (i = istart; i != iend; i += order)
-        {
-          tree dim = VEC_index (tree, dims, i);
-          if (!dim || ! INTEGRAL_TYPE_P (dim))
-            lto_file_corrupt_error ((lto_fd *)fd);	
-          type = build_array_type (type, dim);
-        }
+	{
+	  if (order == -1)
+	    {
+	      istart = ndims - 1;
+	      iend = -1;
+	    }
+	  else
+	    {
+	      gcc_assert (order == 1);
+	      istart = 0;
+	      iend = ndims;
+	    }
+	  for (i = istart; i != iend; i += order)
+	    {
+	      tree dim = VEC_index (tree, dims, i);
+	      if (!dim || ! INTEGRAL_TYPE_P (dim))
+		lto_file_corrupt_error ((lto_fd *)fd);	
+	      type = build_array_type (type, dim);
+	    }
+	}
     }
   VEC_free (tree, heap, dims);
   return type;

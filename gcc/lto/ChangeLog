@@ -1,5 +1,10 @@
 2007-11-16  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_array_type_DIE): Handle DIEs with DW_AT_GNU_vector
+	set properly by building a VECTOR_TYPE instead of an ARRAY_TYPE.
+
+2007-11-16  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto.c (lto_read_base_type_DIE): Use make_bitfield_integer_type to
 	construct the integer type for bitfields.
 
