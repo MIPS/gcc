@@ -2944,20 +2944,13 @@ lto_read_base_type_DIE (lto_info_fd *fd,
   switch (encoding)
     {
     case DW_ATE_unsigned:
-      type = build_nonstandard_integer_type (bits, 1);
-      break;
-
     case DW_ATE_signed:
-      type = build_nonstandard_integer_type (bits, 0);
-      break;
-      
-    case DW_ATE_unsigned_char:
-      type = build_nonstandard_integer_type (bits, 1);
-      TYPE_STRING_FLAG (type) = 1;
+      type = make_bitfield_integer_type (bits, encoding == DW_ATE_unsigned);
       break;
 
+    case DW_ATE_unsigned_char:
     case DW_ATE_signed_char:
-      type = build_nonstandard_integer_type (bits, 0);
+      type = make_bitfield_integer_type (bits, encoding == DW_ATE_unsigned_char);
       TYPE_STRING_FLAG (type) = 1;
       break;
 

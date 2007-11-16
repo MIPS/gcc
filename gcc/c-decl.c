@@ -5618,7 +5618,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  if (width != TYPE_PRECISION (type))
 	    {
 	      TREE_TYPE (*fieldlistp)
-		= c_build_bitfield_integer_type (width, TYPE_UNSIGNED (type));
+		= make_bitfield_integer_type (width, TYPE_UNSIGNED (type));
 	      DECL_MODE (*fieldlistp) = TYPE_MODE (TREE_TYPE (*fieldlistp));
 	    }
 	  DECL_INITIAL (*fieldlistp) = 0;

@@ -4801,8 +4801,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	  width = tree_low_cst (DECL_SIZE (field), /*unsignedp=*/1);
 	  if (width != TYPE_PRECISION (ftype))
 	    TREE_TYPE (field)
-	      = c_build_bitfield_integer_type (width,
-					       TYPE_UNSIGNED (ftype));
+	      = make_bitfield_integer_type (width, TYPE_UNSIGNED (ftype));
 	}
 
       /* If we needed additional padding after this field, add it

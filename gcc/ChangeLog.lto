@@ -1,3 +1,11 @@
+2007-11-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* c-common.c (c_build_bitfield_integer_type): Rename this...
+	* stor-layout.c (make_bitfield_integer_type): ...to this.
+	* c-decl.c (finish_struct): Use new name.
+	* c-common.h (c_build_bitfield_integer_type): Move declaration...
+	* tree.h (make_bitfield_integer_type): ...here.
+
 2007-11-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-tree-flags.def (tcc_constant): Added static_flag.
