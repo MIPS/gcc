@@ -1757,7 +1757,7 @@ remove_useless_stmts_bind (tree *stmt_p, struct rus_data *data)
      optimization again.  */
   block = BIND_EXPR_BLOCK (*stmt_p);
   if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
-      && *stmt_p != DECL_SAVED_TREE (current_function_decl)
+      && *stmt_p != gimple_body (current_function_decl)
       && (! block
 	  || ! BLOCK_ABSTRACT_ORIGIN (block)
 	  || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
@@ -1964,7 +1964,7 @@ remove_useless_stmts (void)
   do
     {
       memset (&data, 0, sizeof (data));
-      remove_useless_stmts_1 (&DECL_SAVED_TREE (current_function_decl), &data);
+      remove_useless_stmts_1 (&gimple_body (current_function_decl), &data);
     }
   while (data.repeat);
   return 0;

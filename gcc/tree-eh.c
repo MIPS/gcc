@@ -1721,9 +1721,10 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
 static unsigned int
 lower_eh_constructs (void)
 {
-  /* FIXME tuples  */
+  /* FIXME tuples.  */
 #if 0
   struct leh_state null_state;
+  /* FIXME tuples.  DECL_SAVED_TREE needs to be changed to gimple_body.  */
   tree *tp = &DECL_SAVED_TREE (current_function_decl);
 
   finally_tree = htab_create (31, struct_ptr_hash, struct_ptr_eq, free);
@@ -2451,6 +2452,7 @@ refactor_eh_r (tree t)
 static unsigned
 refactor_eh (void)
 {
+  /* FIXME tuples.  DECL_SAVED_TREE needs to be changed to gimple_body.  */
   refactor_eh_r (DECL_SAVED_TREE (current_function_decl));
   return 0;
 }

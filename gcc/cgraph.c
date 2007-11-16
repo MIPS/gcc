@@ -341,7 +341,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
 
   gcc_assert (gimple_code (call_stmt) == GIMPLE_CALL);
 
-  if (!DECL_SAVED_TREE (callee->decl))
+  if (!gimple_body (callee->decl))
     edge->inline_failed = N_("function body not available");
   else if (callee->local.redefined_extern_inline)
     edge->inline_failed = N_("redefined extern inline functions are not "
@@ -698,7 +698,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " needed");
   else if (node->reachable)
     fprintf (f, " reachable");
-  if (DECL_SAVED_TREE (node->decl))
+  if (gimple_body (node->decl))
     fprintf (f, " tree");
   if (node->output)
     fprintf (f, " output");

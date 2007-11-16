@@ -41,6 +41,68 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "value-prof.h"
 
+/* FIXME tuples.  THIS IS A HACK.  DO NOT USE.
+
+   RTL expansion has traditionally been done on trees, so the
+   transition to doing it on GIMPLE tuples is very invasive to the RTL
+   expander.  To facilitate the transition, this function takes a
+   GIMPLE tuple STMT and returns the same statement in the form of a
+   tree.
+
+   This mechanism is ONLY used during the transition and will not be
+   merged into mainline.  If you think you need this function for
+   other uses, you are most likely wrong.  */
+
+static tree
+gimple_to_tree (gimple stmt)
+{
+  tree t;
+
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_ASSIGN:
+      {
+	enum gimple_rhs_class class;
+	
+	class = get_gimple_rhs_class (gimple_subcode (stmt));
+	if (class == GIMPLE_BINARY_RHS)
+	  t = build2 (gimple_assign_subcode (stmt),
+		      TREE_TYPE (gimple_assign_lhs (stmt)),
+		      gimple_assign_rhs1 (stmt),
+		      gimple_assign_rhs2 (stmt));
+	else if (class == GIMPLE_UNARY_RHS)
+	  t = build1 (gimple_assign_subcode (stmt),
+		      TREE_TYPE (gimple_assign_lhs (stmt)),
+		      gimple_assign_rhs1 (stmt));
+	else if (class == GIMPLE_SINGLE_RHS)
+	  t = gimple_assign_rhs1 (stmt);
+	else
+	  gcc_unreachable ();
+	
+	return build_gimple_modify_stmt (gimple_assign_lhs (stmt), t);
+      }
+	                                 
+    case GIMPLE_COND:
+      t = build2 (gimple_cond_code (stmt), boolean_type_node,
+	          gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+      return build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
+
+    case GIMPLE_GOTO:
+      return build1 (GOTO_EXPR, void_type_node, gimple_goto_dest (stmt));
+
+    case GIMPLE_LABEL:
+      return build1 (LABEL_EXPR, void_type_node, gimple_label_label (stmt));
+
+    case GIMPLE_SWITCH:
+    case GIMPLE_ASM:
+    case GIMPLE_CALL:
+    case GIMPLE_RETURN:
+    default:
+      gcc_unreachable ();
+    }
+}
+
+
 /* Verify that there is exactly single jump instruction since last and attach
    REG_BR_PROB note specifying probability.
    ??? We really ought to pass the probability down to RTL expanders and let it
@@ -1225,21 +1287,18 @@ expand_used_vars (void)
    for STMT to the dump file.  SINCE is the last RTX after which the RTL
    generated for STMT should have been appended.  */
 
-/* FIXME tuples.  */
-#if 0
 static void
-maybe_dump_rtl_for_tree_stmt (tree stmt, rtx since)
+maybe_dump_rtl_for_gimple_stmt (gimple stmt, rtx since)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\n;; ");
-      print_generic_expr (dump_file, stmt, TDF_SLIM);
+      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
       fprintf (dump_file, "\n");
 
       print_rtl (dump_file, since ? NEXT_INSN (since) : since);
     }
 }
-#endif
 
 /* Maps the blocks that do not contain tree labels to rtx labels.  */
 
@@ -1247,12 +1306,10 @@ static struct pointer_map_t *lab_rtx_for_bb;
 
 /* Returns the label_rtx expression for a label starting basic block BB.  */
 
-/* FIXME tuples.  */
-#if 0
 static rtx
 label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 {
-  tree_stmt_iterator *gsi;
+  gimple_stmt_iterator *gsi;
   tree lab;
   gimple lab_stmt;
   void **elt;
@@ -1283,33 +1340,32 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
   *elt = gen_label_rtx ();
   return (rtx) *elt;
 }
-#endif
 
-/* A subroutine of expand_gimple_basic_block.  Expand one COND_EXPR.
+
+/* A subroutine of expand_gimple_basic_block.  Expand one GIMPLE_COND.
    Returns a new basic block if we've terminated the current basic
    block and created a new one.  */
 
-/* FIXME tuples.  */
-#if 0
 static basic_block
-expand_gimple_cond_expr (basic_block bb, tree stmt)
+expand_gimple_cond (basic_block bb, gimple stmt)
 {
   basic_block new_bb, dest;
   edge new_edge;
   edge true_edge;
   edge false_edge;
-  tree pred = COND_EXPR_COND (stmt);
+  tree stmt_tree = gimple_to_tree (stmt);
+  tree pred = COND_EXPR_COND (stmt_tree);
   rtx last2, last;
 
-  gcc_assert (COND_EXPR_THEN (stmt) == NULL_TREE);
-  gcc_assert (COND_EXPR_ELSE (stmt) == NULL_TREE);
+  gcc_assert (COND_EXPR_THEN (stmt_tree) == NULL_TREE);
+  gcc_assert (COND_EXPR_ELSE (stmt_tree) == NULL_TREE);
   last2 = last = get_last_insn ();
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
-  if (EXPR_LOCUS (stmt))
+  if (!gimple_locus_empty_p (stmt))
     {
-      set_curr_insn_source_location (*(EXPR_LOCUS (stmt)));
-      set_curr_insn_block (TREE_BLOCK (stmt));
+      set_curr_insn_source_location (gimple_locus (stmt));
+      set_curr_insn_block (gimple_block (stmt));
     }
 
   /* These flags have no purpose in RTL land.  */
@@ -1322,14 +1378,9 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
     {
       jumpif (pred, label_rtx_for_bb (true_edge->dest));
       add_reg_br_prob_note (last, true_edge->probability);
-      maybe_dump_rtl_for_tree_stmt (stmt, last);
-      /* FIXME tuples.  */
-#if 0
-      if (true_edge->goto_locus)
-  	set_curr_insn_source_location (location_from_locus (true_edge->goto_locus));
-#else
-      gcc_unreachable ();
-#endif
+      maybe_dump_rtl_for_gimple_stmt (stmt, last);
+      if (!IS_LOCATION_EMPTY (true_edge->goto_locus))
+  	set_curr_insn_source_location (true_edge->goto_locus);
       false_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1337,14 +1388,9 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
     {
       jumpifnot (pred, label_rtx_for_bb (false_edge->dest));
       add_reg_br_prob_note (last, false_edge->probability);
-      maybe_dump_rtl_for_tree_stmt (stmt, last);
-      /* FIXME tuples.  */
-#if 0
-      if (false_edge->goto_locus)
-  	set_curr_insn_source_location (location_from_locus (false_edge->goto_locus));
-#else
-      gcc_unreachable ();
-#endif
+      maybe_dump_rtl_for_gimple_stmt (stmt, last);
+      if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
+  	set_curr_insn_source_location (false_edge->goto_locus);
       true_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
@@ -1372,21 +1418,15 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
     BB_END (new_bb) = PREV_INSN (BB_END (new_bb));
   update_bb_for_insn (new_bb);
 
-  maybe_dump_rtl_for_tree_stmt (stmt, last2);
+  maybe_dump_rtl_for_gimple_stmt (stmt, last2);
 
-  /* FIXME tuples.  */
-#if 0
-  if (false_edge->goto_locus)
-    set_curr_insn_source_location (location_from_locus (false_edge->goto_locus));
-#else
-  gcc_unreachable ();
-#endif
+  if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
+    set_curr_insn_source_location (false_edge->goto_locus);
 
   return new_bb;
 }
-#endif
 
-/* A subroutine of expand_gimple_basic_block.  Expand one CALL_EXPR
+/* A subroutine of expand_gimple_basic_block.  Expand one GIMPLE_CALL
    that has CALL_EXPR_TAILCALL set.  Returns non-null if we actually
    generated a tail call (something that might be denied by the ABI
    rules governing the call; see calls.c).
@@ -1396,26 +1436,25 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
    where the NaN result goes through the external function (with a
    tailcall) and the normal result happens via a sqrt instruction.  */
 
-/* FIXME tuples.  */
-#if 0
 static basic_block
-expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
+expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
 {
   rtx last2, last;
   edge e;
   edge_iterator ei;
   int probability;
   gcov_type count;
+  tree stmt_tree = gimple_to_tree (stmt);
 
   last2 = last = get_last_insn ();
 
-  expand_expr_stmt (stmt);
+  expand_expr_stmt (stmt_tree);
 
   for (last = NEXT_INSN (last); last; last = NEXT_INSN (last))
     if (CALL_P (last) && SIBLING_CALL_P (last))
       goto found;
 
-  maybe_dump_rtl_for_tree_stmt (stmt, last2);
+  maybe_dump_rtl_for_gimple_stmt (stmt, last2);
 
   *can_fallthru = true;
   return NULL;
@@ -1490,33 +1529,26 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 	BB_END (bb) = PREV_INSN (last);
     }
 
-  maybe_dump_rtl_for_tree_stmt (stmt, last2);
+  maybe_dump_rtl_for_gimple_stmt (stmt, last2);
 
   return bb;
 }
-#endif
 
 /* Expand basic block BB from GIMPLE trees to RTL.  */
 
 static basic_block
 expand_gimple_basic_block (basic_block bb)
 {
-  /* FIXME tuples.  */
-#if 0
-  tree_stmt_iterator tsi;
-  tree stmts = bb_seq (bb);
-  tree stmt = NULL;
+  gimple_stmt_iterator *gsi;
+  gimple stmt = NULL;
   rtx note, last;
   edge e;
   edge_iterator ei;
   void **elt;
 
   if (dump_file)
-    {
-      fprintf (dump_file,
-	       "\n;; Generating RTL for tree basic block %d\n",
-	       bb->index);
-    }
+    fprintf (dump_file, "\n;; Generating RTL for gimple basic block %d\n",
+	     bb->index);
 
   bb->il.gimple = NULL;
   init_rtl_bb_info (bb);
@@ -1524,29 +1556,29 @@ expand_gimple_basic_block (basic_block bb)
 
   /* Remove the RETURN_EXPR if we may fall though to the exit
      instead.  */
-  tsi = tsi_last (stmts);
-  if (!tsi_end_p (tsi)
-      && TREE_CODE (tsi_stmt (tsi)) == RETURN_EXPR)
+  gsi = gsi_last_bb (bb);
+  if (!gsi_end_p (gsi)
+      && gimple_code (gsi_stmt (gsi)) == GIMPLE_RETURN)
     {
-      tree ret_stmt = tsi_stmt (tsi);
+      gimple ret_stmt = gsi_stmt (gsi);
 
       gcc_assert (single_succ_p (bb));
       gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR);
 
       if (bb->next_bb == EXIT_BLOCK_PTR
-	  && !TREE_OPERAND (ret_stmt, 0))
+	  && !gimple_return_retval (ret_stmt))
 	{
-	  tsi_delink (&tsi);
+	  gsi_remove (gsi, false);
 	  single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
 	}
     }
 
-  tsi = tsi_start (stmts);
-  if (!tsi_end_p (tsi))
+  gsi = gsi_start_bb (bb);
+  if (!gsi_end_p (gsi))
     {
-      stmt = tsi_stmt (tsi);
-      if (TREE_CODE (stmt) != LABEL_EXPR)
-	stmt = NULL_TREE;
+      stmt = gsi_stmt (gsi);
+      if (gimple_code (stmt) != GIMPLE_LABEL)
+	stmt = NULL;
     }
 
   elt = pointer_map_contains (lab_rtx_for_bb, bb);
@@ -1557,8 +1589,10 @@ expand_gimple_basic_block (basic_block bb)
 
       if (stmt)
 	{
-	  expand_expr_stmt (stmt);
-	  tsi_next (&tsi);
+	  tree stmt_tree = gimple_to_tree (stmt);
+	  expand_expr_stmt (stmt_tree);
+	  ggc_free (stmt_tree);
+	  gsi_next (gsi);
 	}
 
       if (elt)
@@ -1571,7 +1605,7 @@ expand_gimple_basic_block (basic_block bb)
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
       note = emit_note_after (NOTE_INSN_BASIC_BLOCK, BB_HEAD (bb));
 
-      maybe_dump_rtl_for_tree_stmt (stmt, last);
+      maybe_dump_rtl_for_gimple_stmt (stmt, last);
     }
   else
     note = BB_HEAD (bb) = emit_note (NOTE_INSN_BASIC_BLOCK);
@@ -1592,35 +1626,23 @@ expand_gimple_basic_block (basic_block bb)
 	ei_next (&ei);
     }
 
-  for (; !tsi_end_p (tsi); tsi_next (&tsi))
+  for (; !gsi_end_p (gsi); gsi_next (gsi))
     {
-      tree stmt = tsi_stmt (tsi);
+      gimple stmt = gsi_stmt (gsi);
       basic_block new_bb;
-
-      if (!stmt)
-	continue;
 
       /* Expand this statement, then evaluate the resulting RTL and
 	 fixup the CFG accordingly.  */
-      if (TREE_CODE (stmt) == COND_EXPR)
+      if (gimple_code (stmt) == GIMPLE_COND)
 	{
-	  new_bb = expand_gimple_cond_expr (bb, stmt);
+	  new_bb = expand_gimple_cond (bb, stmt);
 	  if (new_bb)
 	    return new_bb;
 	}
       else
 	{
-	  tree call = get_call_expr_in (stmt);
-	  int region;
-	  /* For the benefit of calls.c, converting all this to rtl,
-	     we need to record the call expression, not just the outer
-	     modify statement.  */
-	  if (call && call != stmt)
-	    {
-	      if ((region = lookup_stmt_eh_region (stmt)) > 0)
-	        add_stmt_to_eh_region (call, region);
-	      gimple_duplicate_stmt_histograms (cfun, call, cfun, stmt);
-	    }
+	  tree call = gimple_call_fn (stmt);
+
 	  if (call && CALL_EXPR_TAILCALL (call))
 	    {
 	      bool can_fallthru;
@@ -1635,9 +1657,11 @@ expand_gimple_basic_block (basic_block bb)
 	    }
 	  else
 	    {
+	      tree stmt_tree = gimple_to_tree (stmt);
 	      last = get_last_insn ();
-	      expand_expr_stmt (stmt);
-	      maybe_dump_rtl_for_tree_stmt (stmt, last);
+	      expand_expr_stmt (stmt_tree);
+	      maybe_dump_rtl_for_gimple_stmt (stmt, last);
+	      ggc_free (stmt_tree);
 	    }
 	}
     }
@@ -1652,8 +1676,8 @@ expand_gimple_basic_block (basic_block bb)
   if (e && e->dest != bb->next_bb)
     {
       emit_jump (label_rtx_for_bb (e->dest));
-      if (e->goto_locus)
-        set_curr_insn_source_location (location_from_locus (e->goto_locus));
+      if (!IS_LOCATION_EMPTY (e->goto_locus))
+        set_curr_insn_source_location (e->goto_locus);
       e->flags &= ~EDGE_FALLTHRU;
     }
 
@@ -1669,9 +1693,6 @@ expand_gimple_basic_block (basic_block bb)
   BB_END (bb) = last;
 
   update_bb_for_insn (bb);
-#else
-  gcc_unreachable ();
-#endif
 
   return bb;
 }
@@ -1815,8 +1836,6 @@ construct_exit_block (void)
    Look for ARRAY_REF nodes with non-constant indexes and mark them
    addressable.  */
 
-/* FIXME tuples.  */
-#if 0
 static tree
 discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 				   void *data ATTRIBUTE_UNUSED)
@@ -1854,7 +1873,6 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 
   return NULL_TREE;
 }
-#endif
 
 /* RTL expansion is not able to compile array references with variable
    offsets for arrays stored in single register.  Discover such
@@ -1864,20 +1882,13 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 static void
 discover_nonconstant_array_refs (void)
 {
-  /* FIXME tuples.  */
-#if 0
   basic_block bb;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator *gsi;
 
   FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	walk_tree (bsi_stmt_ptr (bsi), discover_nonconstant_array_refs_r,
-		   NULL , NULL);
-    }
-#else
-  gcc_unreachable ();
-#endif
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      walk_gimple_stmt (gsi_stmt (gsi), NULL, discover_nonconstant_array_refs_r,
+                        NULL);
 }
 
 /* Translate the intermediate representation contained in the CFG

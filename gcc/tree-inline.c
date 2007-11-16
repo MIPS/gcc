@@ -1397,7 +1397,7 @@ copy_generic_body (copy_body_data *id)
   tree body;
   tree fndecl = id->src_fn;
 
-  body = DECL_SAVED_TREE (fndecl);
+  body = gimple_body (fndecl);
   walk_tree (&body, copy_body_r, id, NULL);
 
   return body;
@@ -2053,7 +2053,7 @@ inlinable_function_p (tree fn)
   /* If we don't have the function body available, we can't inline it.
      However, this should not be recorded since we also get here for
      forward declared inline functions.  Therefore, return at once.  */
-  if (!DECL_SAVED_TREE (fn))
+  if (!gimple_body (fn))
     return false;
 
   /* If we're not inlining at all, then we cannot inline this function.  */
@@ -3009,6 +3009,7 @@ clone_body (tree clone, tree fn, void *arg_map)
   id.eh_region = -1;
 
   /* Actually copy the body.  */
+  /* FIXME tuples.  DECL_SAVED_TREE needs to be changed to gimple_body.  */
   append_to_statement_list_force (copy_generic_body (&id), &DECL_SAVED_TREE (clone));
 }
 #endif

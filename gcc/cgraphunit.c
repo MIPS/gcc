@@ -742,7 +742,8 @@ verify_cgraph_node (struct cgraph_node *node)
     }
 
   if (node->analyzed
-      && DECL_SAVED_TREE (node->decl) && !TREE_ASM_WRITTEN (node->decl)
+      && gimple_body (node->decl)
+      && !TREE_ASM_WRITTEN (node->decl)
       && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
     {
       if (this_cfun->cfg)
@@ -976,7 +977,7 @@ cgraph_analyze_functions (void)
     {
       fprintf (cgraph_dump_file, "Initial entry points:");
       for (node = cgraph_nodes; node != first_analyzed; node = node->next)
-	if (node->needed && DECL_SAVED_TREE (node->decl))
+	if (node->needed && gimple_body (node->decl))
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n");
     }
@@ -1027,7 +1028,7 @@ cgraph_analyze_functions (void)
     {
       fprintf (cgraph_dump_file, "Unit entry points:");
       for (node = cgraph_nodes; node != first_analyzed; node = node->next)
-	if (node->needed && DECL_SAVED_TREE (node->decl))
+	if (node->needed && gimple_body (node->decl))
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n\nInitial ");
       dump_cgraph (cgraph_dump_file);
@@ -1041,10 +1042,10 @@ cgraph_analyze_functions (void)
       tree decl = node->decl;
       next = node->next;
 
-      if (node->local.finalized && !DECL_SAVED_TREE (decl))
+      if (node->local.finalized && !gimple_body (decl))
 	cgraph_reset_node (node);
 
-      if (!node->reachable && DECL_SAVED_TREE (decl))
+      if (!node->reachable && gimple_body (decl))
 	{
 	  if (cgraph_dump_file)
 	    fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
@@ -1053,7 +1054,7 @@ cgraph_analyze_functions (void)
 	}
       else
 	node->next_needed = NULL;
-      gcc_assert (!node->local.finalized || DECL_SAVED_TREE (decl));
+      gcc_assert (!node->local.finalized || gimple_body (decl));
       gcc_assert (node->analyzed == node->local.finalized);
     }
   if (cgraph_dump_file)
@@ -1114,7 +1115,7 @@ cgraph_mark_functions_to_output (void)
       /* We need to output all local functions that are used and not
 	 always inlined, as well as those that are reachable from
 	 outside the current compilation unit.  */
-      if (DECL_SAVED_TREE (decl)
+      if (gimple_body (decl)
 	  && !node->global.inlined_to
 	  && (node->needed
 	      || (e && node->reachable))
@@ -1125,14 +1126,16 @@ cgraph_mark_functions_to_output (void)
 	{
 	  /* We should've reclaimed all functions that are not needed.  */
 #ifdef ENABLE_CHECKING
-	  if (!node->global.inlined_to && DECL_SAVED_TREE (decl)
+	  if (!node->global.inlined_to
+	      && gimple_body (decl)
 	      && !DECL_EXTERNAL (decl))
 	    {
 	      dump_cgraph_node (stderr, node);
 	      internal_error ("failed to reclaim unneeded function");
 	    }
 #endif
-	  gcc_assert (node->global.inlined_to || !DECL_SAVED_TREE (decl)
+	  gcc_assert (node->global.inlined_to
+		      || !gimple_body (decl)
 		      || DECL_EXTERNAL (decl));
 
 	}
@@ -1457,7 +1460,7 @@ cgraph_optimize (void)
       for (node = cgraph_nodes; node; node = node->next)
 	if (node->analyzed
 	    && (node->global.inlined_to
-		|| DECL_SAVED_TREE (node->decl)))
+		|| gimple_body (node->decl)))
 	  {
 	    error_found = true;
 	    dump_cgraph_node (stderr, node);

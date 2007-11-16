@@ -1015,6 +1015,7 @@ execute_mudflap_function_decls (void)
 
   push_gimplify_context ();
 
+  /* FIXME tuples.  DECL_SAVED_TREE needs to be changed to gimple_body.  */
   mf_xform_decls (DECL_SAVED_TREE (current_function_decl),
                   DECL_ARGUMENTS (current_function_decl));
 

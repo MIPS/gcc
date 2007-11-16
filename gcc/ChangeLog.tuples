@@ -1,3 +1,36 @@
+2007-11-16  Diego Novillo  <dnovillo@google.com>
+
+	* cgraph.c (cgraph_create_edge): Call gimple_body
+	instead of DECL_SAVED_TREE.
+	(dump_cgraph_node): Likewise.
+	* cgraphunit.c (verify_cgraph_node): Likewise.
+	(cgraph_analyze_functions): Likewise.
+	(cgraph_mark_functions_to_output): Likewise.
+	(cgraph_optimize): Likewise.
+	* tree-eh.c (lower_eh_constructs): Add notes for future
+	changes to calls to DECL_SAVED_TREE.
+	(refactor_eh_r): Likewise.
+	* cfgexpand.c (gimple_to_tree): New function.
+	(maybe_dump_rtl_for_gimple_stmt): Rename from
+	maybe_dump_rtl_for_tree_stmt.  Convert to tuples.
+	(label_rtx_for_bb): Convert to tuples.
+	(expand_gimple_cond): Rename from
+	expand_gimple_cond_expr.  Convert to tuples.
+	(expand_gimple_tailcall): Convert to tuples.
+	(expand_gimple_basic_block): Convert to tuples.
+	(discover_nonconstant_array_refs_r): Convert to tuples.
+	(discover_nonconstant_array_refs): Convert to tuples.
+	* tree-mudflap.c (execute_mudflap_function_decls): Add
+	deprecation comment for DECL_SAVED_TREE call.
+	* tree-inline.c (copy_generic_body): Call gimple_body
+	instead of DECL_SAVED_TREE.
+	(inlinable_function_p): Likewise.
+	(clone_body): Add deprecation comment for DECL_SAVED_TREE
+	call.
+	* tree-cfg.c (remove_useless_stmts_bind): Call
+	gimple_body instead of DECL_SAVED_TREE.
+	(remove_useless_stmts): Likewise.
+
 2007-11-10  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-cfg.c (verify_types_in_gimple_call): OBJ_TYPE_REF are allowed
