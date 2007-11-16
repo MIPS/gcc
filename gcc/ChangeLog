@@ -1,3 +1,17 @@
+2007-11-15  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (struct hunk_binding) <prereqs>: Changed type.
+	(c_parser_lookup_callback): Record name/value pairs, not hunk
+	signatures.
+	(start_new_parsed_hunk): Update.
+	(traverse_check_prereq): Update.
+	(struct prereq_traverse_data): Removed.
+	(c_parser_lex_all): Handle empty files.
+	* c-tree.h (lookup_name_no_callback, lookup_tag_no_callback):
+	Declare.
+	* c-decl.c (lookup_name_no_callback): New function.
+	(lookup_tag_no_callback): Likewise.
+
 2007-11-14  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (hunk_binding_entry) <tag_binding, symbol_binding>:

@@ -2862,7 +2862,10 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
   int thislevel = 0;
 
   if (!b || !b->decl)
-    return 0;
+    {
+      c_parser_lookup_callback (name, NULL_TREE, true);
+      return 0;
+    }
 
   /* We only care about whether it's in this level if
      thislevel_only was set or it might be a type clash.  */
@@ -2878,7 +2881,10 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
     }
 
   if (thislevel_only && !thislevel)
-    return 0;
+    {
+      c_parser_lookup_callback (name, NULL_TREE, true);
+      return 0;
+    }
 
   if (TREE_CODE (b->decl) != code)
     {
@@ -2895,10 +2901,23 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
     }
 
   if (B_IN_FILE_SCOPE (b))
-    c_parser_lookup_callback (b->decl);
+    c_parser_lookup_callback (name, b->decl, true);
 
   return b->decl;
 }
+
+/* Like lookup_tag, but don't call the parser notification callback.
+   This should only be used by the reuse mechanism itself.  */
+tree
+lookup_tag_no_callback (enum tree_code code, tree name)
+{
+  struct c_binding *b = I_TAG_BINDING (name);
+
+  if (!b || !b->decl || TREE_CODE (b->decl) != code)
+    return 0;
+  return b->decl;
+}
+
 
 /* Print an error message now
    for a recent invalid struct, union or enum cross reference.
@@ -2927,9 +2946,21 @@ lookup_name (tree name)
   if (b && !b->invisible)
     {
       if (B_IN_FILE_SCOPE (b))
-	c_parser_lookup_callback (b->decl);
+	c_parser_lookup_callback (name, b->decl, false);
       return b->decl;
     }
+  c_parser_lookup_callback (name, NULL_TREE, false);
+  return 0;
+}
+
+/* Like lookup_name, but don't call the parser notification callback.
+   This should only be used by the reuse mechanism itself.  */
+tree
+lookup_name_no_callback (tree name)
+{
+  struct c_binding *b = I_SYMBOL_BINDING (name);
+  if (b && !b->invisible)
+    return b->decl;
   return 0;
 }
 
@@ -2944,9 +2975,10 @@ lookup_name_in_scope (tree name, struct c_scope *scope)
     if (B_IN_SCOPE (b, scope))
       {
 	if (B_IN_FILE_SCOPE (b))
-	  c_parser_lookup_callback (b->decl);
+	  c_parser_lookup_callback (name, b->decl, false);
 	return b->decl;
       }
+  c_parser_lookup_callback (name, NULL_TREE, false);
   return 0;
 }
 

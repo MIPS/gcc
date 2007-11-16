@@ -446,7 +446,7 @@ extern void c_parser_bind_callback (tree, tree);
 extern void c_parser_note_smash (tree, tree);
 extern bool object_in_current_hunk_p (tree);
 extern tree c_parser_find_binding (tree);
-extern void c_parser_lookup_callback (tree);
+extern void c_parser_lookup_callback (tree, tree, bool);
 
 /* True if this decl or type has been smashed.  */
 #define C_SMASHED_P(T) TREE_LANG_FLAG_5 (T)
@@ -536,6 +536,9 @@ extern struct c_declspecs *declspecs_add_type (struct c_declspecs *,
 extern struct c_declspecs *declspecs_add_scspec (struct c_declspecs *, tree);
 extern struct c_declspecs *declspecs_add_attrs (struct c_declspecs *, tree);
 extern struct c_declspecs *finish_declspecs (struct c_declspecs *);
+
+extern tree lookup_name_no_callback (tree);
+extern tree lookup_tag_no_callback (enum tree_code, tree);
 
 /* in c-objc-common.c */
 extern int c_disregard_inline_limits (const_tree);

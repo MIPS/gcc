@@ -183,6 +183,10 @@ static const struct resword reswords[] =
 
 static void create_hunk_binding_map (void);
 
+/* A sentinel value used to indicate that no value has been set in a
+   hunk prerequisite.  */
+static GTY (()) tree hunk_binding_sentinel;
+
 /* Initialization routine for this file.  */
 
 void
@@ -213,6 +217,9 @@ c_parse_init (void)
     }
 
   create_hunk_binding_map ();
+
+  /* Any new tree value is ok here.  */
+  hunk_binding_sentinel = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
 }
 
 /* The C lexer intermediates between the lexer in cpplib and c-lex.c
@@ -745,8 +752,8 @@ struct hunk_binding GTY (())
   location_t location;
   /* Map names to bindings.  */
   htab_t GTY ((param_is (struct hunk_binding_entry))) binding_map;
-  /* Set of all prerequisite hunks.  */
-  htab_t GTY ((param_is (struct hunk_binding))) prereqs;
+  /* Set of all prerequisite bindings.  */
+  htab_t GTY ((param_is (struct hunk_binding_entry))) prereqs;
 };
 
 /* A hunk set is a collection of hunk binding structures.  In a given
@@ -874,7 +881,7 @@ find_hunk_binding (tree obj)
    registers a prerequisite for the resulting object's hunk with the
    hunk currently being parsed.  */
 void
-c_parser_lookup_callback (tree result)
+c_parser_lookup_callback (tree name, tree result, bool is_tag)
 {
   struct hunk_binding *binding;
   /* We'd like this to be an argument to this function, but that
@@ -883,17 +890,42 @@ c_parser_lookup_callback (tree result)
 
   if (!parser || !parser->current_hunk_binding)
     return;
-  binding = find_hunk_binding (result);
+  binding = result ? find_hunk_binding (result) : NULL;
 
   /* We might be using something declared in the current hunk -- don't
-     register that fact.  */
-  if (binding && binding != parser->current_hunk_binding)
+     register that fact.  Otherwise, record the name/value pair in our
+     prerequisite list.  When evaluating prerequisites we look to make
+     sure that all listed names have the indicated value.  FIXME: we
+     also need to handle NULL values properly, since we may do a
+     "failing" lookup.  */
+  if (!result || (binding && binding != parser->current_hunk_binding))
     {
       htab_t prereqs = parser->current_hunk_binding->prereqs;
-      struct hunk_binding **slot
-	= (struct hunk_binding **) htab_find_slot (prereqs, binding, INSERT);
-      /* FIXME: assert that slot is empty? */
-      *slot = binding;
+      struct hunk_binding_entry key, **slot;
+
+      key.name = name;
+      slot = (struct hunk_binding_entry **) htab_find_slot (prereqs, &key,
+							    INSERT);
+      if (!*slot)
+	{
+	  *slot = GGC_NEW (struct hunk_binding_entry);
+	  (*slot)->name = name;
+	  (*slot)->symbol_binding = hunk_binding_sentinel;
+	  (*slot)->tag_binding = hunk_binding_sentinel;
+	}
+
+      if (is_tag)
+	{
+	  gcc_assert ((*slot)->tag_binding == hunk_binding_sentinel
+		      || (*slot)->tag_binding == result);
+	  (*slot)->tag_binding = result;
+	}
+      else
+	{
+	  gcc_assert ((*slot)->symbol_binding == hunk_binding_sentinel
+		      || (*slot)->symbol_binding == result);
+	  (*slot)->symbol_binding = result;
+	}
     }
 }
 
@@ -924,10 +956,11 @@ start_new_parsed_hunk (c_parser *parser, size_t table_size, location_t location)
     = htab_create_ggc (table_size,
 		       hash_hunk_binding_entry, eq_hunk_binding_entry,
 		       NULL);
-  parser->current_hunk_binding->prereqs = htab_create_ggc (table_size,
-							   htab_hash_pointer,
-							   htab_eq_pointer,
-							   NULL);
+  parser->current_hunk_binding->prereqs
+    = htab_create_ggc (table_size,
+		       hash_hunk_binding_entry,
+		       eq_hunk_binding_entry,
+		       NULL);
   parser->current_hunk_binding->location = location;
 }
 
@@ -1127,7 +1160,7 @@ c_parser_checksum_buffer (c_parser *parser, size_t first, size_t last,
 /* Lex the entire file into the parser's buffer.  */
 
 static void
-c_parser_lex_all (c_parser *parser, c_token *initial)
+c_parser_lex_all (c_parser *parser, c_token *token)
 {
 #define C_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (c_token))
 
@@ -1145,12 +1178,12 @@ c_parser_lex_all (c_parser *parser, c_token *initial)
   next_hunk_pointer = &parser->first_hunk;
   hunk_start = 0;
 
-  /* Add the initial token.  */
-  buffer[pos] = *initial;
+  /* Add the token token.  */
+  buffer[pos] = *token;
   buffer[pos].user_owned = lstate->user_owned;
   ++pos;
 
-  while (true)
+  while (token->type != CPP_EOF)
     {
       if (pos >= alloc)
 	{
@@ -1187,9 +1220,8 @@ c_parser_lex_all (c_parser *parser, c_token *initial)
 
       c_parser_update_checksum (&current_hash, &buffer[pos]);
 
+      token = &buffer[pos];
       ++pos;
-      if (buffer[pos - 1].type == CPP_EOF)
-	break;
     }
 
   parser->buffer = buffer;
@@ -1832,26 +1864,51 @@ static tree c_parser_objc_receiver (c_parser *);
 static tree c_parser_objc_message_args (c_parser *);
 static tree c_parser_objc_keywordexpr (c_parser *);
 
-/* Helper state for checking a hunk's prerequisites.  */
-struct prereq_traverse_data
-{
-  /* The associated parser.  */
-  c_parser *parser;
-  /* True if all prerequisites are satisfied, false otherwise.  */
-  bool result;
-};
-
-/* Check a single prerequisite hunk.  */
+/* Check a single prerequisite hunk.  We do this by looking at a
+   name/value prerequisite pair and verifying that the current binding
+   of the name is identical to the prerequisite binding.  Note that in
+   the future we may want to handle "semantic dependencies" here.
+   This means checking that the current value is ABI compatible with
+   the prerequisite value.  (One wrinkle here is handling inlining
+   properly.)  */
 static int
 traverse_check_prereq (void **valp, void *ptd)
 {
-  struct prereq_traverse_data *data = (struct prereq_traverse_data *) ptd;
-  struct hunk_binding *binding = (struct hunk_binding *) *valp;
-  if (!htab_find (data->parser->used_hunks, binding))
+  bool *result = (bool *) ptd;
+  struct hunk_binding_entry *entry = (struct hunk_binding_entry *) *valp;
+  if (entry->symbol_binding != hunk_binding_sentinel)
     {
-      data->result = false;
-      return false;
+      if (lookup_name_no_callback (entry->name) != entry->symbol_binding)
+	{
+	  *result = false;
+	  return false;
+	}
     }
+  if (entry->tag_binding != hunk_binding_sentinel)
+    {
+      if (entry->tag_binding)
+	{
+	  if (lookup_tag_no_callback (TREE_CODE (entry->tag_binding),
+				      entry->name) != entry->tag_binding)
+	    {
+	      *result = false;
+	      return false;
+	    }
+	}
+      else
+	{
+	  /* Here we expect there to be no tag binding, so check them
+	     all.  */
+	  if (lookup_tag_no_callback (UNION_TYPE, entry->name)
+	      || lookup_tag_no_callback (RECORD_TYPE, entry->name)
+	      || lookup_tag_no_callback (ENUMERAL_TYPE, entry->name))
+	    {
+	      *result = false;
+	      return false;
+	    }
+	}
+    }
+
   return true;
 }
 
@@ -1877,8 +1934,8 @@ check_hunk_binding (void **valp, void *crhd)
   struct can_reuse_hunk_data *info = (struct can_reuse_hunk_data *) crhd;
   c_parser *parser = info->parser;
   struct parsed_hunk *hunk = info->hunk;
-  struct prereq_traverse_data data;
   struct parsed_hunk *binding_iter, *self_iter;
+  bool ok;
 
   /* We can't re-use a hunk twice in one compilation unit.  FIXME:
      this is a weird restriction and I think will go away once we have
@@ -1886,14 +1943,16 @@ check_hunk_binding (void **valp, void *crhd)
      "extern int f;" the second time we will re_bind the same decl,
      eventually tripping over the GC since the decl's chain will point
      to itself (as part of scope popping).  */
+  /* FIXME: need more testing before really deleting this.  */
+#if 0
   if (htab_find (parser->used_hunks, binding))
     return true;
+#endif
 
   /* Check prerequisites for this binding.  */
-  data.parser = parser;
-  data.result = true;
-  htab_traverse_noresize (binding->prereqs, traverse_check_prereq, &data);
-  if (!data.result)
+  ok = true;
+  htab_traverse_noresize (binding->prereqs, traverse_check_prereq, &ok);
+  if (!ok)
     return true;
 
   /* If we have a multi-hunk binding, check to make sure the
