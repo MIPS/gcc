@@ -6087,6 +6087,8 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   while (arg)
     {
       print_generic_expr (file, arg, dump_flags);
+      if (flags & TDF_VERBOSE)
+	print_node (file, "", arg, 4);
       if (TREE_CHAIN (arg))
 	fprintf (file, ", ");
       arg = TREE_CHAIN (arg);
@@ -6121,6 +6123,8 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	  var = TREE_VALUE (vars);
 
 	  print_generic_decl (file, var, flags);
+	  if (flags & TDF_VERBOSE)
+	    print_node (file, "", var, 4);
 	  fprintf (file, "\n");
 
 	  any_var = true;

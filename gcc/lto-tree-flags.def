@@ -54,6 +54,7 @@
 
     START_CLASS_CASE (tcc_constant)
       ADD_CLASS_EXPR_FLAG (side_effects_flag)
+      ADD_CLASS_EXPR_FLAG (static_flag)
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
     END_CLASS_CASE (tcc_constant)
@@ -137,6 +138,7 @@
     END_CLASS_CASE (tcc_unary)
 
     START_CLASS_CASE (tcc_vl_exp)
+      ADD_CLASS_EXPR_FLAG (asm_written_flag)
       ADD_CLASS_EXPR_FLAG (side_effects_flag)
       ADD_CLASS_EXPR_FLAG (volatile_flag)
       ADD_CLASS_EXPR_FLAG (readonly_flag)

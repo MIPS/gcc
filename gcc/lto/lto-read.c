@@ -82,7 +82,6 @@ struct data_in
 #ifdef USE_MAPPED_LOCATION  
   int current_col;
 #endif
-  bool current_node_has_loc;
 };
 
 
@@ -495,7 +494,7 @@ canon_file_name (const char *string)
 /* Based on the FLAGS, read in a file, a line and a col into the
    fields in DATA_IN.  */
 
-static void 
+static bool
 input_line_info (struct input_block *ib, struct data_in *data_in, 
 		 lto_flags_type flags)
 {
@@ -540,8 +539,7 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
       data_in->current_line = input_uleb128 (ib);
     }
 #endif
-  if (flags & LTO_SOURCE_HAS_LOC)
-    data_in->current_node_has_loc = true;
+  return (flags & LTO_SOURCE_HAS_LOC) != 0;
 }
 
 
@@ -550,28 +548,24 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
 static void
 set_line_info (struct data_in *data_in, tree node)
 {
-  if (data_in->current_node_has_loc && data_in->current_file)
-    {
 #ifdef USE_MAPPED_LOCATION
-      if (EXPR_P (node))
-	LINEMAP_POSITION_FOR_COLUMN (EXPR_CHECK (node)->exp.locus, line_table, data_in->current_col)
-      else if (GIMPLE_STMT_P (node))
-	LINEMAP_POSITION_FOR_COLUMN (GIMPLE_STMT_LOCUS (node), line_table, data_in->current_col)
-      else if (DECL_P (node))
-	LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col)
+  if (EXPR_P (node))
+    LINEMAP_POSITION_FOR_COLUMN (EXPR_CHECK (node)->exp.locus, line_table, data_in->current_col)
+  else if (GIMPLE_STMT_P (node))
+    LINEMAP_POSITION_FOR_COLUMN (GIMPLE_STMT_LOCUS (node), line_table, data_in->current_col)
+  else if (DECL_P (node))
+    LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col)
 #else
-      if (EXPR_P (node) || GIMPLE_STMT_P (node))
-	  annotate_with_file_line (node, 
-				   canon_file_name (data_in->current_file), 
-				   data_in->current_line);
-      else if (DECL_P (node))
-	{
-	  DECL_SOURCE_LOCATION (node).file = canon_file_name (data_in->current_file);
-	  DECL_SOURCE_LOCATION (node).line = data_in->current_line;
-	}
-#endif
+  if (EXPR_P (node) || GIMPLE_STMT_P (node))
+    annotate_with_file_line (node, 
+			     canon_file_name (data_in->current_file), 
+			     data_in->current_line);
+  else if (DECL_P (node))
+    {
+      DECL_SOURCE_LOCATION (node).file = canon_file_name (data_in->current_file);
+      DECL_SOURCE_LOCATION (node).line = data_in->current_line;
     }
-  data_in->current_node_has_loc = false;
+#endif
 }
 
 
@@ -587,7 +581,6 @@ clear_line_info (struct data_in *data_in)
 #endif
   data_in->current_file = NULL;
   data_in->current_line = 0;
-  data_in->current_node_has_loc = false;
 }
 
 
@@ -603,6 +596,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   lto_flags_type flags;
   gcc_assert (code);
   tree result = NULL_TREE;
+  bool needs_line_set = false;
   
   if (TEST_BIT (lto_types_needed_for, code))
     type = input_type_ref (data_in, ib);
@@ -611,7 +605,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
       || IS_GIMPLE_STMT_CODE_CLASS(TREE_CODE_CLASS (code)))
-    input_line_info (ib, data_in, flags);
+    needs_line_set = input_line_info (ib, data_in, flags);
 
   switch (code)
     {
@@ -1141,8 +1135,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   if (flags)
     process_tree_flags (result, flags);
 
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
-      || IS_GIMPLE_STMT_CODE_CLASS(TREE_CODE_CLASS (code)))
+  if (needs_line_set)
     set_line_info (data_in, result);
 
   /* It is not enought to just put the flags back as we serialized
@@ -1294,12 +1287,19 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
 
   data_in->local_decls[i] = result;
   
-  if (!is_var)
+  if (is_var)
+    {
+      LTO_DEBUG_INDENT_TOKEN ("init");
+      tag = input_record_start (ib);
+      if (tag)
+	DECL_INITIAL (result) = input_expr_operand (ib, data_in, fn, tag);
+    }
+  else
     DECL_ARG_TYPE (result) = input_type_ref (data_in, ib);
 
   flags = input_tree_flags (ib, 0, true);
-  input_line_info (ib, data_in, flags);
-  set_line_info (data_in, result);
+  if (input_line_info (ib, data_in, flags))
+    set_line_info (data_in, result);
 
   LTO_DEBUG_TOKEN ("chain");
   tag = input_record_start (ib);
@@ -1508,6 +1508,9 @@ input_phi (struct input_block *ib, basic_block bb,
 
   SSA_NAME_DEF_STMT (phi_result) = result;
 
+  /* We have to go thru a lookup process here because the preds in the
+     reconstructed graph are generally in a different order than they
+     were in the original program.  */
   for (i = 0; i < len; i++)
     {
       tree def = input_expr_operand (ib, data_in, fn, input_record_start (ib));

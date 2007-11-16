@@ -1754,7 +1754,15 @@ output_local_vars (struct output_block *ob)
 
       output_type_ref (ob, TREE_TYPE (decl));
 
-      if (!is_var)
+      if (is_var)
+	{
+	  LTO_DEBUG_INDENT_TOKEN ("init");
+	  if (DECL_INITIAL (decl))
+	    output_expr_operand (ob, DECL_INITIAL (decl));
+	  else
+	    output_zero (ob);
+	}
+      else
 	output_type_ref (ob, DECL_ARG_TYPE (decl));
 
       clear_line_info (ob);
@@ -2194,6 +2202,7 @@ lto_static_init (void)
   SET_BIT (lto_types_needed_for, INTEGER_CST);
   SET_BIT (lto_types_needed_for, NOP_EXPR);
   SET_BIT (lto_types_needed_for, REAL_CST);
+  SET_BIT (lto_types_needed_for, STRING_CST);
   SET_BIT (lto_types_needed_for, VECTOR_CST );
   SET_BIT (lto_types_needed_for, VIEW_CONVERT_EXPR);
 #endif
