@@ -1,3 +1,8 @@
+2007-11-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (make_new_block, input_cfg): Properly set
+	n_basic_blocks.
+	
 2007-11-16  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_array_type_DIE): Handle DIEs with DW_AT_GNU_vector
