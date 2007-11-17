@@ -1,5 +1,10 @@
 2007-11-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	* lto-read.c (input_expr_operand): Get types right 
+	for COMPLEX_CST.
+
+2007-11-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* lto-read.c (make_new_block, input_cfg): Properly set
 	n_basic_blocks.
 	

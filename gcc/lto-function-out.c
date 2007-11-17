@@ -1261,15 +1261,15 @@ output_expr_operand (struct output_block *ob, tree expr)
     case COMPLEX_CST:
       if (TREE_CODE (TREE_REALPART (expr)) == REAL_CST)
 	{
-	  output_record_start (ob, expr, TREE_REALPART (expr),
-			       LTO_complex_cst1);
+	  output_record_start (ob, expr, expr, LTO_complex_cst1);
+	  output_type_ref (ob, TREE_TYPE (TREE_REALPART (expr)));
 	  output_real (ob, TREE_REALPART (expr));
 	  output_real (ob, TREE_IMAGPART (expr));
 	}
       else
 	{
-	  output_record_start (ob, expr, TREE_REALPART (expr),
-			       LTO_complex_cst0);
+	  output_record_start (ob, expr, expr, LTO_complex_cst0);
+	  output_type_ref (ob, TREE_TYPE (TREE_REALPART (expr)));
 	  output_integer (ob, TREE_REALPART (expr));
 	  output_integer (ob, TREE_IMAGPART (expr));
 	}

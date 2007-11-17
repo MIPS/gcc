@@ -610,19 +610,21 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
   switch (code)
     {
     case COMPLEX_CST:
-      result = build0 (code, type);
-      if (tag == LTO_complex_cst1)
-	{
-	  TREE_REALPART (result) 
-	    = input_real (ib, data_in, type);
-	  TREE_IMAGPART (result) 
-	    = input_real (ib, data_in, type);
-	}
-      else
-	{
-	  TREE_REALPART (result) = input_integer (ib, type);
-	  TREE_IMAGPART (result) = input_integer (ib, type);
-	}
+      {
+	tree elt_type = input_type_ref (data_in, ib);
+
+	result = build0 (code, type);
+	if (tag == LTO_complex_cst1)
+	  {
+	    TREE_REALPART (result) = input_real (ib, data_in, elt_type);
+	    TREE_IMAGPART (result) = input_real (ib, data_in, elt_type);
+	  }
+	else
+	  {
+	    TREE_REALPART (result) = input_integer (ib, elt_type);
+	    TREE_IMAGPART (result) = input_integer (ib, elt_type);
+	  }
+      }
       break;
 
     case INTEGER_CST:
