@@ -2454,6 +2454,7 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
       return NULL_TREE;
     }
 
+recheck:
   /* Identify whether this is a parameter pack or not.  */
   switch (TREE_CODE (t))
     {
@@ -2476,6 +2477,16 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
           *walk_subtrees = 0;
 	  parameter_pack_p = true;
         }
+      break;
+
+    case POINTER_TYPE:
+      if (ppd->set_packs_to_error)
+	/* Pointer types are shared, set in that case the outermost
+	   POINTER_TYPE to error_mark_node rather than the parameter pack.  */
+	{
+	  t = TREE_TYPE (t);
+	  goto recheck;
+	}
       break;
 
     default:
@@ -2553,7 +2564,6 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
                    ppd, NULL);
       *walk_subtrees = 0;
       return NULL_TREE;
-
       
     case TYPE_PACK_EXPANSION:
     case EXPR_PACK_EXPANSION:
@@ -3864,11 +3874,15 @@ push_template_decl_real (tree decl, bool is_friend)
 
       /* Check for bare parameter packs in the return type and the
          exception specifiers.  */
-      check_for_bare_parameter_packs (&TREE_TYPE (type));
+      if (!check_for_bare_parameter_packs (&TREE_TYPE (type)))
+	/* Errors were already issued, set return type to int
+	   as the frontend doesn't expect error_mark_node as
+	   the return type.  */
+	TREE_TYPE (type) = integer_type_node;
       check_for_bare_parameter_packs (&TYPE_RAISES_EXCEPTIONS (type));
     }
-  else
-    check_for_bare_parameter_packs (&TREE_TYPE (decl));
+  else if (!check_for_bare_parameter_packs (&TREE_TYPE (decl)))
+    return error_mark_node;
 
   if (is_partial)
     return process_partial_specialization (decl);
@@ -4151,10 +4165,10 @@ redeclare_class_template (tree type, tree parms)
 
   if (TREE_VEC_LENGTH (parms) != TREE_VEC_LENGTH (tmpl_parms))
     {
-      error ("previous declaration %q+D", tmpl);
-      error ("used %d template parameter(s) instead of %d",
-	     TREE_VEC_LENGTH (tmpl_parms),
-	     TREE_VEC_LENGTH (parms));
+      error ("redeclared with %d template parameter(s)", 
+             TREE_VEC_LENGTH (parms));
+      inform ("previous declaration %q+D used %d template parameter(s)", 
+             tmpl, TREE_VEC_LENGTH (tmpl_parms));
       return false;
     }
 
@@ -4193,7 +4207,7 @@ redeclare_class_template (tree type, tree parms)
 	     A template-parameter may not be given default arguments
 	     by two different declarations in the same scope.  */
 	  error ("redefinition of default argument for %q#D", parm);
-	  error ("%J  original definition appeared here", tmpl_parm);
+	  inform ("%Joriginal definition appeared here", tmpl_parm);
 	  return false;
 	}
 
@@ -6521,9 +6535,15 @@ tsubst_friend_class (tree friend_tmpl, tree args)
 	  > TMPL_ARGS_DEPTH (args))
 	{
 	  tree parms;
+          location_t saved_input_location;
 	  parms = tsubst_template_parms (DECL_TEMPLATE_PARMS (friend_tmpl),
 					 args, tf_warning_or_error);
+
+          saved_input_location = input_location;
+          input_location = DECL_SOURCE_LOCATION (friend_tmpl);
 	  redeclare_class_template (TREE_TYPE (tmpl), parms);
+          input_location = saved_input_location;
+          
 	}
 
       friend_type = TREE_TYPE (tmpl);
@@ -6602,7 +6622,11 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
       }
 
   if (DECL_P (*decl_p))
-    p = &DECL_ATTRIBUTES (*decl_p);
+    {
+      if (TREE_TYPE (*decl_p) == error_mark_node)
+	return;
+      p = &DECL_ATTRIBUTES (*decl_p);
+    }
   else
     p = &TYPE_ATTRIBUTES (*decl_p);
 
@@ -11004,15 +11028,23 @@ tsubst_copy_and_build (tree t,
 
 	if (object_type && !CLASS_TYPE_P (object_type))
 	  {
-	    if (TREE_CODE (member) == BIT_NOT_EXPR)
-	      return finish_pseudo_destructor_expr (object,
-						    NULL_TREE,
-						    object_type);
-	    else if (TREE_CODE (member) == SCOPE_REF
-		     && (TREE_CODE (TREE_OPERAND (member, 1)) == BIT_NOT_EXPR))
-	      return finish_pseudo_destructor_expr (object,
-						    object,
-						    object_type);
+	    if (SCALAR_TYPE_P (object_type))
+	      {
+		tree s = NULL_TREE;
+		tree dtor = member;
+
+		if (TREE_CODE (dtor) == SCOPE_REF)
+		  {
+		    s = TREE_OPERAND (dtor, 0);
+		    dtor = TREE_OPERAND (dtor, 1);
+		  }
+		if (TREE_CODE (dtor) == BIT_NOT_EXPR)
+		  {
+		    dtor = TREE_OPERAND (dtor, 0);
+		    if (TYPE_P (dtor))
+		      return finish_pseudo_destructor_expr (object, s, dtor);
+		  }
+	      }
 	  }
 	else if (TREE_CODE (member) == SCOPE_REF
 		 && TREE_CODE (TREE_OPERAND (member, 1)) == TEMPLATE_ID_EXPR)

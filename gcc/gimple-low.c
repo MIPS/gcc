@@ -155,7 +155,7 @@ lower_function_body (void)
       /* Remove the line number from the representative return statement.
 	 It now fills in for many such returns.  Failure to remove this
 	 will result in incorrect results for coverage analysis.  */
-      gimple_set_locus (t.stmt, unknown_location);
+      gimple_set_locus (t.stmt, UNKNOWN_LOCATION);
       gsi_link_after (i, t.stmt, GSI_CONTINUE_LINKING);
     }
 

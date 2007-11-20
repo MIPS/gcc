@@ -299,10 +299,10 @@ get_lineno (const_gimple stmt)
     return -1;
 
   loc = gimple_locus (stmt);
-  if (loc.line == 0 && loc.file == 0)
+  if (IS_LOCATION_EMPTY (loc))
     return -1;
 
-  return gimple_locus (stmt).line;
+  return LOCATION_LINE (loc);
 }
 
 /* Return true if T is a noreturn call.  */

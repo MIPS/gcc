@@ -1,3 +1,77 @@
+2007-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30988
+	semantics.c (finish_call_expr): Set current_function_returns_abnormally
+	if fn is noreturn FUNCTION_DECL or OVERLOAD with all noreturn
+	functions.
+
+2007-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34100
+	* pt.c (apply_late_template_attributes): Do nothing if decl's type is
+	error_mark_node.
+
+2007-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34054
+	PR c++/34056
+	PR c++/34057
+	PR c++/34058
+	PR c++/34060
+	* pt.c (find_parameter_packs_r): If ppd->set_packs_to_error,
+	set to error_mark_node the outermost POINTER_TYPE to the pack if
+	it is seen in a POINTER_TYPE.
+	(push_template_decl_real): If check_for_bare_parameter_packs
+	fails for function return type, set the return type to
+	integer_type_node.  If check_for_bare_parameter_packs failed
+	for non-function, return error_mark_node.
+
+	PR c++/29225
+	* call.c (build_new_op): Call resolve_args before calling
+	build_over_call.
+
+2007-11-11  Tom Tromey  <tromey@redhat.com>
+
+	PR c++/17577:
+	* lex.c (handle_pragma_implementation): Use cpp_included_before.
+
+2007-11-12  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/8570
+	* pt.c (redeclare_class_template): Update error message. Use a
+	note to show the previous declaration.
+	(tsubst_friend_class): Use the location of the friend template as
+	the input location before calling redeclare_class_template.
+
+2007-11-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34068
+	* semantics.c (finish_pseudo_destructor_expr): Handle
+	object == error_mark_node.
+
+2007-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/32241
+	* pt.c (tsubst_copy_and_build) <case COMPONENT_REF>: If object_type
+	is not scalar type, let finish_class_member_access_expr handle
+	diagnostics.  Pass BIT_NOT_EXPR argument to
+	finish_pseudo_destructor_expr.  Handle SCOPE_REF properly.
+
+2007-11-09  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/33510
+	* decl.c (cp_complete_array_type): If any of the initializer
+	elements are pack expansions, don't compute the array size yet.
+
+2007-11-08  Andrew Pinski  <pinskia@gmail.com>
+
+	PR c++/30297:
+	* tree.c (decl_linkage): Fields have no linkage.
+
+2007-11-08  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* class.c (build_ctor_vtbl_group): Lay out the new type and decl.
+
 2007-11-07  Douglas Gregor  <doug.gregor@gmail.com>
 
 	PR c++/33045
