@@ -1,11 +1,11 @@
 /* Lower vector operations to scalar operations.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -301,14 +300,14 @@ expand_vector_operation (block_stmt_iterator *bsi, tree type, tree compute_type,
       {
       case PLUS_EXPR:
       case MINUS_EXPR:
-        if (!TYPE_TRAP_SIGNED (type))
+        if (!TYPE_OVERFLOW_TRAPS (type))
           return expand_vector_addition (bsi, do_binop, do_plus_minus, type,
 		      		         TREE_OPERAND (rhs, 0),
 					 TREE_OPERAND (rhs, 1), code);
 	break;
 
       case NEGATE_EXPR:
-        if (!TYPE_TRAP_SIGNED (type))
+        if (!TYPE_OVERFLOW_TRAPS (type))
           return expand_vector_addition (bsi, do_unop, do_negate, type,
 		      		         TREE_OPERAND (rhs, 0),
 					 NULL_TREE, code);
@@ -380,14 +379,14 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
     {
     case RETURN_EXPR:
       stmt = TREE_OPERAND (stmt, 0);
-      if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
+      if (!stmt || TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
 	return;
 
       /* FALLTHRU */
 
-    case MODIFY_EXPR:
-      p_lhs = &TREE_OPERAND (stmt, 0);
-      p_rhs = &TREE_OPERAND (stmt, 1);
+    case GIMPLE_MODIFY_STMT:
+      p_lhs = &GIMPLE_STMT_OPERAND (stmt, 0);
+      p_rhs = &GIMPLE_STMT_OPERAND (stmt, 1);
       lhs = *p_lhs;
       rhs = *p_rhs;
       break;
@@ -405,15 +404,32 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
       && TREE_CODE_CLASS (code) != tcc_binary)
     return;
 
-  if (code == NOP_EXPR || code == VIEW_CONVERT_EXPR)
+  if (code == NOP_EXPR 
+      || code == FLOAT_EXPR
+      || code == FIX_TRUNC_EXPR
+      || code == VIEW_CONVERT_EXPR)
     return;
   
   gcc_assert (code != CONVERT_EXPR);
+
+  /* The signedness is determined from input argument.  */
+  if (code == VEC_UNPACK_FLOAT_HI_EXPR
+      || code == VEC_UNPACK_FLOAT_LO_EXPR)
+    type = TREE_TYPE (TREE_OPERAND (rhs, 0));
+
   op = optab_for_tree_code (code, type);
 
-  /* For widening vector operations, the relevant type is of the arguments,
-     not the widened result.  */
-  if (code == WIDEN_SUM_EXPR)
+  /* For widening/narrowing vector operations, the relevant type is of the 
+     arguments, not the widened result.  VEC_UNPACK_FLOAT_*_EXPR is
+     calculated in the same way above.  */
+  if (code == WIDEN_SUM_EXPR
+      || code == VEC_WIDEN_MULT_HI_EXPR
+      || code == VEC_WIDEN_MULT_LO_EXPR
+      || code == VEC_UNPACK_HI_EXPR
+      || code == VEC_UNPACK_LO_EXPR
+      || code == VEC_PACK_TRUNC_EXPR
+      || code == VEC_PACK_SAT_EXPR
+      || code == VEC_PACK_FIX_TRUNC_EXPR)
     type = TREE_TYPE (TREE_OPERAND (rhs, 0));
 
   /* Optabs will try converting a negation into a subtraction, so
@@ -452,7 +468,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
 
   gcc_assert (code != VEC_LSHIFT_EXPR && code != VEC_RSHIFT_EXPR);
   rhs = expand_vector_operation (bsi, type, compute_type, rhs, code);
-  if (lang_hooks.types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
+  if (useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
     *p_rhs = rhs;
   else
     *p_rhs = gimplify_build1 (bsi, VIEW_CONVERT_EXPR, TREE_TYPE (lhs), rhs);

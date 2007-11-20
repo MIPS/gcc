@@ -1,12 +1,12 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -528,8 +527,8 @@ pp_c_direct_abstract_declarator (c_pretty_printer *pp, tree t)
 	  if (host_integerp (maxval, 0))
 	    pp_wide_integer (pp, tree_low_cst (maxval, 0) + 1);
 	  else
-	    pp_expression (pp, fold (build2 (PLUS_EXPR, type, maxval,
-					     build_int_cst (type, 1))));
+	    pp_expression (pp, fold_build2 (PLUS_EXPR, type, maxval,
+					    build_int_cst (type, 1)));
 	}
       pp_c_right_bracket (pp);
       pp_direct_abstract_declarator (pp, TREE_TYPE (t));
@@ -810,17 +809,16 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
     pp_wide_integer (pp, TREE_INT_CST_LOW (i));
   else
     {
+      unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (i);
+      HOST_WIDE_INT high = TREE_INT_CST_HIGH (i);
       if (tree_int_cst_sgn (i) < 0)
 	{
 	  pp_character (pp, '-');
-	  i = build_int_cst_wide (NULL_TREE,
-				  -TREE_INT_CST_LOW (i),
-				  ~TREE_INT_CST_HIGH (i)
-				  + !TREE_INT_CST_LOW (i));
+	  high = ~high + !low;
+	  low = -low;
 	}
       sprintf (pp_buffer (pp)->digit_buffer,
-	       HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-	       TREE_INT_CST_HIGH (i), TREE_INT_CST_LOW (i));
+	       HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
   if (TYPE_UNSIGNED (type))
@@ -1271,9 +1269,20 @@ pp_c_postfix_expression (c_pretty_printer *pp, tree e)
       break;
 
     case CALL_EXPR:
-      pp_postfix_expression (pp, TREE_OPERAND (e, 0));
-      pp_c_call_argument_list (pp, TREE_OPERAND (e, 1));
-      break;
+      {
+	call_expr_arg_iterator iter;
+	tree arg;
+	pp_postfix_expression (pp, CALL_EXPR_FN (e));
+	pp_c_left_paren (pp);
+	FOR_EACH_CALL_EXPR_ARG (arg, iter, e)
+	  {
+	    pp_expression (pp, arg);
+	    if (more_call_expr_args_p (&iter))
+	      pp_separate_with (pp, ',');
+	  }
+	pp_c_right_paren (pp);
+	break;
+      }
 
     case UNORDERED_EXPR:
       pp_c_identifier (pp, flag_isoc99
@@ -1420,7 +1429,8 @@ pp_c_constructor_elts (c_pretty_printer *pp, VEC(constructor_elt,gc) *v)
     }
 }
 
-/* Print out an expression-list in parens, as in a function call.  */
+/* Print out an expression-list in parens, as if it were the argument
+   list to a function.  */
 
 void
 pp_c_call_argument_list (c_pretty_printer *pp, tree t)
@@ -1795,13 +1805,15 @@ pp_c_conditional_expression (c_pretty_printer *pp, tree e)
 static void
 pp_c_assignment_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == MODIFY_EXPR || TREE_CODE (e) == INIT_EXPR)
+  if (TREE_CODE (e) == MODIFY_EXPR 
+      || TREE_CODE (e) == GIMPLE_MODIFY_STMT
+      || TREE_CODE (e) == INIT_EXPR)
     {
-      pp_c_unary_expression (pp, TREE_OPERAND (e, 0));
+      pp_c_unary_expression (pp, GENERIC_TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
       pp_equal (pp);
       pp_space (pp);
-      pp_c_expression (pp, TREE_OPERAND (e, 1));
+      pp_c_expression (pp, GENERIC_TREE_OPERAND (e, 1));
     }
   else
     pp_c_conditional_expression (pp, e);
@@ -1942,6 +1954,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       break;
 
     case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
       pp_assignment_expression (pp, e);
       break;

@@ -1,6 +1,6 @@
 // Queue implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -59,25 +59,13 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _QUEUE_H
-#define _QUEUE_H 1
+#ifndef _STL_QUEUE_H
+#define _STL_QUEUE_H 1
 
 #include <bits/concept_check.h>
 #include <debug/debug.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
-
-  // Forward declarations of operators < and ==, needed for friend declaration.
-  template<typename _Tp, typename _Sequence = deque<_Tp> >
-    class queue;
-
-  template<typename _Tp, typename _Seq>
-    inline bool
-    operator==(const queue<_Tp, _Seq>&, const queue<_Tp, _Seq>&);
-
-  template<typename _Tp, typename _Seq>
-    inline bool
-    operator<(const queue<_Tp, _Seq>&, const queue<_Tp, _Seq>&);
 
   /**
    *  @brief  A standard container giving FIFO behavior.
@@ -103,7 +91,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  which is a typedef for the second Sequence parameter, and @c push and
    *  @c pop, which are standard %queue/FIFO operations.
   */
-  template<typename _Tp, typename _Sequence>
+  template<typename _Tp, typename _Sequence = deque<_Tp> >
     class queue
     {
       // concept requirements
@@ -452,4 +440,4 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 _GLIBCXX_END_NAMESPACE
 
-#endif /* _QUEUE_H */
+#endif /* _STL_QUEUE_H */

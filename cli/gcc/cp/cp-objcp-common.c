@@ -68,7 +68,7 @@ cxx_warn_unused_global_decl (tree decl)
   return true;
 }
 
-/* Langhook for expr_size: Tell the backend that the value of an expression
+/* Langhook for expr_size: Tell the back end that the value of an expression
    of non-POD class type does not include any tail padding; a derived class
    might have allocated something there.  */
 
@@ -79,32 +79,32 @@ cp_expr_size (tree exp)
 
   if (CLASS_TYPE_P (type))
     {
-      /* The backend should not be interested in the size of an expression
+      /* The back end should not be interested in the size of an expression
 	 of a type with both of these set; all copies of such types must go
 	 through a constructor or assignment op.  */
-      gcc_assert (!TYPE_HAS_COMPLEX_INIT_REF (type)
-		  || !TYPE_HAS_COMPLEX_ASSIGN_REF (type)
-		  /* But storing a CONSTRUCTOR isn't a copy.  */
-		  || TREE_CODE (exp) == CONSTRUCTOR
-		  /* And, the gimplifier will sometimes make a copy of
-		     an aggregate.  In particular, for a case like:
+      if (!TYPE_HAS_COMPLEX_INIT_REF (type)
+	  || !TYPE_HAS_COMPLEX_ASSIGN_REF (type)
+	  /* But storing a CONSTRUCTOR isn't a copy.  */
+	  || TREE_CODE (exp) == CONSTRUCTOR
+	  /* And, the gimplifier will sometimes make a copy of
+	     an aggregate.  In particular, for a case like:
 
-			struct S { S(); };
-			struct X { int a; S s; };
-			X x = { 0 };
+		struct S { S(); };
+		struct X { int a; S s; };
+		X x = { 0 };
 
-		     the gimplifier will create a temporary with
-		     static storage duration, perform static
-		     initialization of the temporary, and then copy
-		     the result.  Since the "s" subobject is never
-		     constructed, this is a valid transformation.  */
-		  || CP_AGGREGATE_TYPE_P (type));
-
-      /* This would be wrong for a type with virtual bases, but they are
-	 caught by the assert above.  */
-      return (is_empty_class (type)
-	      ? size_zero_node
-	      : CLASSTYPE_SIZE_UNIT (type));
+	     the gimplifier will create a temporary with
+	     static storage duration, perform static
+	     initialization of the temporary, and then copy
+	     the result.  Since the "s" subobject is never
+	     constructed, this is a valid transformation.  */
+	  || CP_AGGREGATE_TYPE_P (type))
+	/* This would be wrong for a type with virtual bases.  */
+	return (is_empty_class (type)
+		? size_zero_node
+		: CLASSTYPE_SIZE_UNIT (type));
+      else
+	return NULL_TREE;
     }
   else
     /* Use the default code.  */
@@ -123,6 +123,21 @@ cp_tree_size (enum tree_code code)
     case TEMPLATE_PARM_INDEX:	return sizeof (template_parm_index);
     case DEFAULT_ARG:		return sizeof (struct tree_default_arg);
     case OVERLOAD:		return sizeof (struct tree_overload);
+    case STATIC_ASSERT:         return sizeof (struct tree_static_assert);
+    case TYPE_ARGUMENT_PACK:
+    case TYPE_PACK_EXPANSION:
+      return sizeof (struct tree_common);
+
+    case NONTYPE_ARGUMENT_PACK:
+    case EXPR_PACK_EXPANSION:
+      return sizeof (struct tree_exp);
+
+    case ARGUMENT_PACK_SELECT:
+      return sizeof (struct tree_argument_pack_select);
+
+    case TRAIT_EXPR:
+      return sizeof (struct tree_trait_expr);
+
     default:
       gcc_unreachable ();
     }
@@ -185,6 +200,21 @@ cxx_types_compatible_p (tree x, tree y)
   return 0;
 }
 
+tree
+cxx_staticp (tree arg)
+{
+  switch (TREE_CODE (arg))
+    {
+    case BASELINK:
+      return staticp (BASELINK_FUNCTIONS (arg));
+
+    default:
+      break;
+    }
+  
+  return NULL_TREE;
+}
+
 /* Stubs to keep c-opts.c happy.  */
 void
 push_file_scope (void)
@@ -212,7 +242,7 @@ tree
 decl_shadowed_for_var_lookup (tree from)
 {
   struct tree_map *h, in;
-  in.from = from;
+  in.base.from = from;
 
   h = (struct tree_map *) htab_find_with_hash (shadowed_var_for_decl, &in,
 					       htab_hash_pointer (from));
@@ -231,7 +261,7 @@ decl_shadowed_for_var_insert (tree from, tree to)
 
   h = GGC_NEW (struct tree_map);
   h->hash = htab_hash_pointer (from);
-  h->from = from;
+  h->base.from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (shadowed_var_for_decl, h, h->hash, INSERT);
   *(struct tree_map **) loc = h;

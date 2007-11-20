@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,12 +24,12 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Opt;    use Opt;
+with System; use System;
+
 with Ada.Unchecked_Conversion;
 
-with GNAT.OS_Lib; use GNAT.OS_Lib;
-with Namet;       use Namet;
-with Opt;         use Opt;
-with System;      use System;
+with System.OS_Lib; use System.OS_Lib;
 
 package body Sinput.C is
 
@@ -52,8 +52,8 @@ package body Sinput.C is
 
       Actual_Len : Integer;
 
-      Path_Id : Name_Id;
-      File_Id : Name_Id;
+      Path_Id : File_Name_Type;
+      File_Id : File_Name_Type;
 
    begin
       if Path = "" then

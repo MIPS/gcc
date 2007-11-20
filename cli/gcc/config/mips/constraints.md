@@ -30,10 +30,10 @@
 (define_register_constraint "f" "TARGET_HARD_FLOAT ? FP_REGS : NO_REGS"
   "A floating-point register (if available).")
 
-(define_register_constraint "h" "HI_REG"
+(define_register_constraint "h" "TARGET_BIG_ENDIAN ? MD0_REG : MD1_REG"
   "The @code{hi} register.")
 
-(define_register_constraint "l" "LO_REG"
+(define_register_constraint "l" "TARGET_BIG_ENDIAN ? MD1_REG : MD0_REG"
   "The @code{lo} register.")
 
 (define_register_constraint "x" "MD_REGS"
@@ -42,7 +42,7 @@
 (define_register_constraint "b" "ALL_REGS"
   "@internal")
 
-(define_register_constraint "c" "TARGET_ABICALLS ? PIC_FN_ADDR_REG
+(define_register_constraint "c" "TARGET_USE_PIC_FN_ADDR_REG ? PIC_FN_ADDR_REG
 				 : TARGET_MIPS16 ? M16_NA_REGS
 				 : GR_REGS"
   "A register suitable for use in an indirect jump.  This will always be
@@ -77,6 +77,18 @@
 
 (define_register_constraint "D" "COP3_REGS"
   "@internal")
+
+;; Registers that can be used as the target of multiply-accumulate
+;; instructions.  The core MIPS32 ISA provides a hi/lo madd,
+;; but the DSPr2 version allows any accumulator target.
+(define_register_constraint "ka" "TARGET_DSPR2 ? ACC_REGS : MD_REGS")
+
+;; This is a normal rather than a register constraint because we can
+;; never use the stack pointer as a reload register.
+(define_constraint "ks"
+  "@internal"
+  (and (match_code "reg")
+       (match_test "REGNO (op) == STACK_POINTER_REGNUM")))
 
 ;; Integer constraints
 

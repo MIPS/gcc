@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -47,6 +47,7 @@
 #ifndef PB_DS_LU_POLICY_HPP
 #define PB_DS_LU_POLICY_HPP
 
+#include <cstdlib>
 #include <ext/pb_ds/detail/list_update_policy/counter_lu_metadata.hpp>
 
 namespace pb_ds
@@ -78,7 +79,8 @@ namespace pb_ds
     metadata_type
     operator()() const;
       
-    // Decides whether a metadata object should be moved to the front of the list.
+    // Decides whether a metadata object should be moved to the front
+    // of the list.
     inline bool
     operator()(metadata_reference r_metadata) const;
       
@@ -94,7 +96,8 @@ namespace pb_ds
 #define PB_DS_CLASS_T_DEC template<size_t Max_Count, class Allocator>
 #define PB_DS_CLASS_C_DEC counter_lu_policy<Max_Count, Allocator>
 
-  // A list-update policy that moves elements to the front of the list based on the counter algorithm.
+  // A list-update policy that moves elements to the front of the list
+  // based on the counter algorithm.
   template<size_t Max_Count = 5, typename Allocator = std::allocator<char> >
   class counter_lu_policy 
   : private detail::counter_lu_policy_base<typename Allocator::size_type>
@@ -120,7 +123,8 @@ namespace pb_ds
     metadata_type
     operator()() const;
 
-    // Decides whether a metadata object should be moved to the front of the list.
+    // Decides whether a metadata object should be moved to the front
+    // of the list.
     bool
     operator()(metadata_reference r_metadata) const;
 

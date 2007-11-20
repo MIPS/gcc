@@ -1,11 +1,11 @@
 /* Operations with long integers.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -26,7 +25,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Returns mask for PREC bits.  */
 
-static inline double_int
+double_int
 double_int_mask (unsigned prec)
 {
   unsigned HOST_WIDE_INT m;
@@ -203,18 +202,46 @@ double_int_neg (double_int a)
 
 /* Returns A / B (computed as unsigned depending on UNS, and rounded as
    specified by CODE).  CODE is enum tree_code in fact, but double_int.h
+   must be included before tree.h.  The remainder after the division is
+   stored to MOD.  */
+
+double_int
+double_int_divmod (double_int a, double_int b, bool uns, unsigned code,
+		   double_int *mod)
+{
+  double_int ret;
+
+  div_and_round_double (code, uns, a.low, a.high, b.low, b.high,
+			&ret.low, &ret.high, &mod->low, &mod->high);
+  return ret;
+}
+
+/* The same as double_int_divmod with UNS = false.  */
+
+double_int
+double_int_sdivmod (double_int a, double_int b, unsigned code, double_int *mod)
+{
+  return double_int_divmod (a, b, false, code, mod);
+}
+
+/* The same as double_int_divmod with UNS = true.  */
+
+double_int
+double_int_udivmod (double_int a, double_int b, unsigned code, double_int *mod)
+{
+  return double_int_divmod (a, b, true, code, mod);
+}
+
+/* Returns A / B (computed as unsigned depending on UNS, and rounded as
+   specified by CODE).  CODE is enum tree_code in fact, but double_int.h
    must be included before tree.h.  */
 
 double_int
 double_int_div (double_int a, double_int b, bool uns, unsigned code)
 {
-  unsigned HOST_WIDE_INT rem_lo;
-  HOST_WIDE_INT rem_hi;
-  double_int ret;
+  double_int mod;
 
-  div_and_round_double (code, uns, a.low, a.high, b.low, b.high,
-			&ret.low, &ret.high, &rem_lo, &rem_hi);
-  return ret;
+  return double_int_divmod (a, b, uns, code, &mod);
 }
 
 /* The same as double_int_div with UNS = false.  */
@@ -233,7 +260,37 @@ double_int_udiv (double_int a, double_int b, unsigned code)
   return double_int_div (a, b, true, code);
 }
 
-/* Constructs tree in type TYPE from with value given by CST.  */
+/* Returns A % B (computed as unsigned depending on UNS, and rounded as
+   specified by CODE).  CODE is enum tree_code in fact, but double_int.h
+   must be included before tree.h.  */
+
+double_int
+double_int_mod (double_int a, double_int b, bool uns, unsigned code)
+{
+  double_int mod;
+
+  double_int_divmod (a, b, uns, code, &mod);
+  return mod;
+}
+
+/* The same as double_int_mod with UNS = false.  */
+
+double_int
+double_int_smod (double_int a, double_int b, unsigned code)
+{
+  return double_int_mod (a, b, false, code);
+}
+
+/* The same as double_int_mod with UNS = true.  */
+
+double_int
+double_int_umod (double_int a, double_int b, unsigned code)
+{
+  return double_int_mod (a, b, true, code);
+}
+
+/* Constructs tree in type TYPE from with value given by CST.  Signedness of CST
+   is assumed to be the same as the signedness of TYPE.  */
 
 tree
 double_int_to_tree (tree type, double_int cst)
@@ -241,6 +298,19 @@ double_int_to_tree (tree type, double_int cst)
   cst = double_int_ext (cst, TYPE_PRECISION (type), TYPE_UNSIGNED (type));
 
   return build_int_cst_wide (type, cst.low, cst.high);
+}
+
+/* Returns true if CST fits into range of TYPE.  Signedness of CST is assumed
+   to be the same as the signedness of TYPE.  */
+
+bool
+double_int_fits_to_tree_p (tree type, double_int cst)
+{
+  double_int ext = double_int_ext (cst,
+				   TYPE_PRECISION (type),
+				   TYPE_UNSIGNED (type));
+
+  return double_int_equal_p (cst, ext);
 }
 
 /* Returns true if CST is negative.  Of course, CST is considered to
@@ -341,4 +411,82 @@ dump_double_int (FILE *file, double_int cst, bool uns)
     digits[n] = double_int_split_digit (&cst, 10);
   for (i = n - 1; i >= 0; i--)
     fprintf (file, "%u", digits[i]);
+}
+
+
+/* Sets RESULT to VAL, taken unsigned if UNS is true and as signed
+   otherwise.  */
+
+void
+mpz_set_double_int (mpz_t result, double_int val, bool uns)
+{
+  bool negate = false;
+  unsigned HOST_WIDE_INT vp[2];
+
+  if (!uns && double_int_negative_p (val))
+    {
+      negate = true;
+      val = double_int_neg (val);
+    }
+
+  vp[0] = val.low;
+  vp[1] = (unsigned HOST_WIDE_INT) val.high;
+  mpz_import (result, 2, -1, sizeof (HOST_WIDE_INT), 0, 0, vp);
+
+  if (negate)
+    mpz_neg (result, result);
+}
+
+/* Returns VAL converted to TYPE.  If WRAP is true, then out-of-range
+   values of VAL will be wrapped; otherwise, they will be set to the
+   appropriate minimum or maximum TYPE bound.  */
+
+double_int
+mpz_get_double_int (tree type, mpz_t val, bool wrap)
+{
+  unsigned HOST_WIDE_INT *vp;
+  size_t count, numb;
+  double_int res;
+
+  if (!wrap)
+    {  
+      mpz_t min, max;
+
+      mpz_init (min);
+      mpz_init (max);
+      get_type_static_bounds (type, min, max);
+
+      if (mpz_cmp (val, min) < 0)
+	mpz_set (val, min);
+      else if (mpz_cmp (val, max) > 0)
+	mpz_set (val, max);
+
+      mpz_clear (min);
+      mpz_clear (max);
+    }
+
+  /* Determine the number of unsigned HOST_WIDE_INT that are required
+     for representing the value.  The code to calculate count is
+     extracted from the GMP manual, section "Integer Import and Export":
+     http://gmplib.org/manual/Integer-Import-and-Export.html  */
+  numb = 8*sizeof(HOST_WIDE_INT);
+  count = (mpz_sizeinbase (val, 2) + numb-1) / numb;
+  if (count < 2)
+    count = 2;
+  vp = (unsigned HOST_WIDE_INT *) alloca (count * sizeof(HOST_WIDE_INT));
+
+  vp[0] = 0;
+  vp[1] = 0;
+  mpz_export (vp, &count, -1, sizeof (HOST_WIDE_INT), 0, 0, val);
+
+  gcc_assert (wrap || count <= 2);
+
+  res.low = vp[0];
+  res.high = (HOST_WIDE_INT) vp[1];
+
+  res = double_int_ext (res, TYPE_PRECISION (type), TYPE_UNSIGNED (type));
+  if (mpz_sgn (val) < 0)
+    res = double_int_neg (res);
+
+  return res;
 }

@@ -155,7 +155,7 @@ enum cpp_ttype
 
 /* C language kind, used when calling cpp_create_reader.  */
 enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_STDC89, CLK_STDC94, CLK_STDC99,
-	     CLK_GNUCXX, CLK_CXX98, CLK_ASM};
+	     CLK_GNUCXX, CLK_CXX98, CLK_GNUCXX0X, CLK_CXX0X, CLK_ASM};
 
 /* Payload of a NUMBER, STRING, CHAR or COMMENT token.  */
 struct cpp_string GTY(())
@@ -555,7 +555,8 @@ enum builtin_type
   BT_TIME,			/* `__TIME__' */
   BT_STDC,			/* `__STDC__' */
   BT_PRAGMA,			/* `_Pragma' operator */
-  BT_TIMESTAMP			/* `__TIMESTAMP__' */
+  BT_TIMESTAMP,			/* `__TIMESTAMP__' */
+  BT_COUNTER			/* `__COUNTER__' */
 };
 
 #define CPP_HASHNODE(HNODE)	((cpp_hashnode *) (HNODE))
@@ -704,6 +705,9 @@ extern void cpp_assert (cpp_reader *, const char *);
 extern void cpp_undef (cpp_reader *, const char *);
 extern void cpp_unassert (cpp_reader *, const char *);
 
+extern cpp_macro *cpp_push_definition (cpp_reader *, const char *);
+extern void cpp_pop_definition (cpp_reader *, const char *, cpp_macro *);
+
 /* Undefine all macros and assertions.  */
 extern void cpp_undef_all (cpp_reader *);
 
@@ -740,10 +744,15 @@ struct cpp_num
 #define CPP_N_MEDIUM	0x0020	/* long, double.  */
 #define CPP_N_LARGE	0x0040	/* long long, long double.  */
 
+#define CPP_N_WIDTH_MD	0xF0000	/* machine defined.  */
+#define CPP_N_MD_W	0x10000
+#define CPP_N_MD_Q	0x20000
+
 #define CPP_N_RADIX	0x0F00
 #define CPP_N_DECIMAL	0x0100
 #define CPP_N_HEX	0x0200
 #define CPP_N_OCTAL	0x0400
+#define CPP_N_BINARY	0x0800
 
 #define CPP_N_UNSIGNED	0x1000	/* Properties.  */
 #define CPP_N_IMAGINARY	0x2000

@@ -1,6 +1,7 @@
 // Functions used by iterators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -61,8 +62,8 @@
  *  functions, such as distance() and advance().
  */
 
-#ifndef _ITERATOR_BASE_FUNCS_H
-#define _ITERATOR_BASE_FUNCS_H 1
+#ifndef _STL_ITERATOR_BASE_FUNCS_H
+#define _STL_ITERATOR_BASE_FUNCS_H 1
 
 #pragma GCC system_header
 #include <bits/concept_check.h>
@@ -131,7 +132,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _BidirectionalIterator, typename _Distance>
     inline void
     __advance(_BidirectionalIterator& __i, _Distance __n,
-              bidirectional_iterator_tag)
+	      bidirectional_iterator_tag)
     {
       // concept requirements
       __glibcxx_function_requires(_BidirectionalIteratorConcept<
@@ -172,9 +173,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     advance(_InputIterator& __i, _Distance __n)
     {
       // concept requirements -- taken care of in __advance
-      std::__advance(__i, __n, std::__iterator_category(__i));
+      typename iterator_traits<_InputIterator>::difference_type __d = __n;
+      std::__advance(__i, __d, std::__iterator_category(__i));
     }
 
 _GLIBCXX_END_NAMESPACE
 
-#endif /* _ITERATOR_BASE_FUNCS_H */
+#endif /* _STL_ITERATOR_BASE_FUNCS_H */

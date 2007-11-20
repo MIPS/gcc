@@ -1,6 +1,7 @@
 // Iterators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -62,10 +63,11 @@
  *  supporting functions and overloaded operators.
  */
 
-#ifndef _ITERATOR_H
-#define _ITERATOR_H 1
+#ifndef _STL_ITERATOR_H
+#define _STL_ITERATOR_H 1
 
 #include <bits/cpp_type_traits.h>
+#include <ext/type_traits.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -645,6 +647,8 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       typedef typename iterator_traits<_Iterator>::reference reference;
       typedef typename iterator_traits<_Iterator>::pointer   pointer;
 
+      typedef _Iterator _Iterator_type;
+
       __normal_iterator() : _M_current(_Iterator()) { }
 
       explicit
@@ -653,10 +657,9 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // Allow iterator to const_iterator conversion
       template<typename _Iter>
         __normal_iterator(const __normal_iterator<_Iter,
-			  typename std::__enable_if<_Container,
-			  (std::__are_same<_Iter,
-			   typename _Container::pointer>::__value)
-			  >::__type>& __i)
+			  typename __enable_if<
+      	       (std::__are_same<_Iter, typename _Container::pointer>::__value),
+		      _Container>::__type>& __i)
         : _M_current(__i.base()) { }
 
       // Forward iterator requirements

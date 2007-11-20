@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,7 +28,6 @@ with Alloc;    use Alloc;
 with Atree;    use Atree;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
-with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -36,7 +35,6 @@ with Output;   use Output;
 with Sem_Eval; use Sem_Eval;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
-with Snames;   use Snames;
 with Stand;    use Stand;
 with Stringt;  use Stringt;
 with Table;
@@ -493,12 +491,22 @@ package body Exp_Dbug is
       Has_Suffix : Boolean;
 
    begin
-      --  If not generating code, there is no need to create encoded
-      --  names, and problems when the back-end is called to annotate
-      --  types without full code generation. See comments at beginning
-      --  of Get_External_Name_With_Suffix for additional details.
+      --  If not generating code, there is no need to create encoded names, and
+      --  problems when the back-end is called to annotate types without full
+      --  code generation. See comments in Get_External_Name_With_Suffix for
+      --  additional details.
 
-      if Operating_Mode /= Generate_Code then
+      --  However we do create encoded names if the back end is active, even
+      --  if Operating_Mode got reset. Otherwise any serious error reported
+      --  by the backend calling Error_Msg changes the Compilation_Mode to
+      --  Check_Semantics, which disables the functionality of this routine,
+      --  causing the generation of spurious additional errors.
+
+      --  Couldn't we just test Original_Operating_Mode here? ???
+
+      if Operating_Mode /= Generate_Code
+        and then not Generating_Code
+      then
          return;
       end if;
 
@@ -546,7 +554,6 @@ package body Exp_Dbug is
       --  Vax floating-point case
 
       elsif Vax_Float (E) then
-
          if Digits_Value (Base_Type (E)) = 6 then
             Get_External_Name_With_Suffix (E, "XFF");
 
@@ -679,13 +686,13 @@ package body Exp_Dbug is
          else
             Get_Name_String_And_Append (Chars (Entity));
          end if;
-
       end Get_Qualified_Name_And_Append;
 
    --  Start of processing for Get_External_Name
 
    begin
-      Name_Len := 0;
+      Name_Len    := 0;
+      Homonym_Len := 0;
 
       --  If this is a child unit, we want the child
 
@@ -887,9 +894,10 @@ package body Exp_Dbug is
    ------------------------------------
 
    procedure Get_Secondary_DT_External_Name
-     (Typ             : Entity_Id;
-      Ancestor_Typ    : Entity_Id;
-      Suffix_Index    : Int) is
+     (Typ          : Entity_Id;
+      Ancestor_Typ : Entity_Id;
+      Suffix_Index : Int)
+   is
    begin
       Get_External_Name (Typ, Has_Suffix => False);
 
@@ -1116,26 +1124,13 @@ package body Exp_Dbug is
                Get_Name_String (Chars (E));
             end if;
 
-            --  A special check here, we never add internal block or loop
-            --  names, since they intefere with debugging. We identify these
-            --  by the fact that they start with an upper case B or L.
-            --  But do add these if what we are qualifying is a __clean
-            --  procedure since those need to be made unique.
+            --  Here we do one step of the qualification
 
-            if (Name_Buffer (1) = 'B' or else Name_Buffer (1) = 'L')
-                and then (not Debug_Flag_VV)
-                and then Full_Qualify_Len > 2
-                and then Chars (Ent) /= Name_uClean
-            then
-               Full_Qualify_Len := Full_Qualify_Len - 2;
-
-            else
-               Full_Qualify_Name
-                 (Full_Qualify_Len + 1 .. Full_Qualify_Len + Name_Len) :=
-                   Name_Buffer (1 .. Name_Len);
-               Full_Qualify_Len := Full_Qualify_Len + Name_Len;
-               Append_Homonym_Number (E);
-            end if;
+            Full_Qualify_Name
+              (Full_Qualify_Len + 1 .. Full_Qualify_Len + Name_Len) :=
+                 Name_Buffer (1 .. Name_Len);
+            Full_Qualify_Len := Full_Qualify_Len + Name_Len;
+            Append_Homonym_Number (E);
          end if;
 
          if Is_BNPE (E) then

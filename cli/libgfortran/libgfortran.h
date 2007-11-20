@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfortran.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -67,6 +67,7 @@ typedef off_t gfc_offset;
 #define __attribute__(x)
 #endif
 
+
 /* For a library, a standard prefix is a requirement in order to partition
    the namespace.  IPREFIX is for symbols intended to be internal to the
    library.  */
@@ -125,10 +126,10 @@ typedef off_t gfc_offset;
 # define export_proto(x)	sym_rename(x, PREFIX(x))
 # define export_proto_np(x)	extern char swallow_semicolon
 # define iexport_proto(x)	internal_proto(x)
-# define iexport(x)		iexport1(x, __USER_LABEL_PREFIX__, IPREFIX(x))
-# define iexport1(x,p,y)	iexport2(x,p,y)
-# define iexport2(x,p,y) \
-	extern __typeof(x) PREFIX(x) __attribute__((__alias__(#p #y)))
+# define iexport(x)		iexport1(x, IPREFIX(x))
+# define iexport1(x,y)		iexport2(x,y)
+# define iexport2(x,y) \
+	extern __typeof(x) PREFIX(x) __attribute__((__alias__(#y)))
 /* ??? We're not currently building a dll, and it's wrong to add dllexport
    to objects going into a static library archive.  */
 #elif 0 && defined(HAVE_ATTRIBUTE_DLLEXPORT)
@@ -223,6 +224,10 @@ internal_proto(l8_to_l4_offset);
 #define GFOR_POINTER_L8_TO_L4(p8) \
   (l8_to_l4_offset + (GFC_LOGICAL_4 *)(p8))
 
+#define GFC_INTEGER_1_HUGE \
+  (GFC_INTEGER_1)((((GFC_UINTEGER_1)1) << 7) - 1)
+#define GFC_INTEGER_2_HUGE \
+  (GFC_INTEGER_2)((((GFC_UINTEGER_2)1) << 15) - 1)
 #define GFC_INTEGER_4_HUGE \
   (GFC_INTEGER_4)((((GFC_UINTEGER_4)1) << 31) - 1)
 #define GFC_INTEGER_8_HUGE \
@@ -282,6 +287,8 @@ struct {\
 /* Commonly used array descriptor types.  */
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) gfc_array_void;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, char) gfc_array_char;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_1) gfc_array_i1;
+typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_2) gfc_array_i2;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_4) gfc_array_i4;
 typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_8) gfc_array_i8;
 #ifdef HAVE_GFC_INTEGER_16
@@ -313,6 +320,9 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 #define GFC_DTYPE_TYPE_SHIFT 3
 #define GFC_DTYPE_TYPE_MASK 0x38
 #define GFC_DTYPE_SIZE_SHIFT 6
+
+/* added for f03.  --Rickett, 02.28.06 */
+#define GFC_NUM_RANK_BITS 3
 
 enum
 {
@@ -354,6 +364,7 @@ typedef struct
   int fpu_round, fpu_precision, fpe;
 
   int sighup, sigint;
+  int dump_core, backtrace;
 }
 options_t;
 
@@ -369,7 +380,12 @@ typedef struct
   int allow_std;
   int pedantic;
   int convert;
+  int dump_core;
+  int backtrace;
+  int sign_zero;
   size_t record_marker;
+  int max_subrecord_length;
+  int bounds_check;
 }
 compile_options_t;
 
@@ -379,6 +395,7 @@ internal_proto(compile_options);
 extern void init_compile_options (void);
 internal_proto(init_compile_options);
 
+#define GFC_MAX_SUBRECORD_LENGTH 2147483639   /* 2**31 - 9 */
 
 /* Structure for statement options.  */
 
@@ -389,7 +406,9 @@ typedef struct
 }
 st_option;
 
-/* Runtime errors.  The EOR and EOF errors are required to be negative.  */
+/* Runtime errors.  The EOR and EOF errors are required to be negative.
+   These codes must be kept sychronized with their equivalents in
+   gcc/fortran/gfortran.h .  */
 
 typedef enum
 {
@@ -397,7 +416,7 @@ typedef enum
   ERROR_EOR = -2,
   ERROR_END = -1,
   ERROR_OK = 0,			/* Indicates success, must be zero.  */
-  ERROR_OS,			/* Operating system error, more info in errno.  */
+  ERROR_OS = 5000,		/* Operating system error, more info in errno.  */
   ERROR_OPTION_CONFLICT,
   ERROR_BAD_OPTION,
   ERROR_MISSING_OPTION,
@@ -413,6 +432,8 @@ typedef enum
   ERROR_INTERNAL_UNIT,
   ERROR_ALLOCATION,
   ERROR_DIRECT_EOR,
+  ERROR_SHORT_RECORD,
+  ERROR_CORRUPT_FILE,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;
@@ -465,22 +486,90 @@ iexport_data_proto(filename);
 #define gfc_alloca(x)  __builtin_alloca(x)
 
 
+/* Various I/O stuff also used in other parts of the library.  */
+
+#define DEFAULT_TEMPDIR "/tmp"
+
+/* The default value of record length for preconnected units is defined
+   here. This value can be overriden by an environment variable.
+   Default value is 1 Gb.  */
+#define DEFAULT_RECL 1073741824
+
+typedef enum
+{ CONVERT_NONE=-1, CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
+unit_convert;
+
+#define CHARACTER2(name) \
+              gfc_charlen_type name ## _len; \
+              char * name
+
+typedef struct st_parameter_common
+{
+  GFC_INTEGER_4 flags;
+  GFC_INTEGER_4 unit;
+  const char *filename;
+  GFC_INTEGER_4 line;
+  CHARACTER2 (iomsg);
+  GFC_INTEGER_4 *iostat;
+}
+st_parameter_common;
+
+#undef CHARACTER2
+
+#define IOPARM_LIBRETURN_MASK           (3 << 0)
+#define IOPARM_LIBRETURN_OK             (0 << 0)
+#define IOPARM_LIBRETURN_ERROR          (1 << 0)
+#define IOPARM_LIBRETURN_END            (2 << 0)
+#define IOPARM_LIBRETURN_EOR            (3 << 0)
+#define IOPARM_ERR                      (1 << 2)
+#define IOPARM_END                      (1 << 3)
+#define IOPARM_EOR                      (1 << 4)
+#define IOPARM_HAS_IOSTAT               (1 << 5)
+#define IOPARM_HAS_IOMSG                (1 << 6)
+
+#define IOPARM_COMMON_MASK              ((1 << 7) - 1)
+
+#define IOPARM_OPEN_HAS_RECL_IN         (1 << 7)
+#define IOPARM_OPEN_HAS_FILE            (1 << 8)
+#define IOPARM_OPEN_HAS_STATUS          (1 << 9)
+#define IOPARM_OPEN_HAS_ACCESS          (1 << 10)
+#define IOPARM_OPEN_HAS_FORM            (1 << 11)
+#define IOPARM_OPEN_HAS_BLANK           (1 << 12)
+#define IOPARM_OPEN_HAS_POSITION        (1 << 13)
+#define IOPARM_OPEN_HAS_ACTION          (1 << 14)
+#define IOPARM_OPEN_HAS_DELIM           (1 << 15)
+#define IOPARM_OPEN_HAS_PAD             (1 << 16)
+#define IOPARM_OPEN_HAS_CONVERT         (1 << 17)
+
+/* library start function and end macro.  These can be expanded if needed
+   in the future.  cmp is st_parameter_common *cmp  */
+
+extern void library_start (st_parameter_common *);
+internal_proto(library_start);
+
+#define library_end()
+
 /* main.c */
 
 extern void stupid_function_name_for_static_linking (void);
 internal_proto(stupid_function_name_for_static_linking);
-
-struct st_parameter_common;
-extern void library_start (struct st_parameter_common *);
-internal_proto(library_start);
-
-#define library_end()
 
 extern void set_args (int, char **);
 export_proto(set_args);
 
 extern void get_args (int *, char ***);
 internal_proto(get_args);
+
+extern void store_exe_path (const char *);
+export_proto(store_exe_path);
+
+extern char * full_exe_path (void);
+internal_proto(full_exe_path);
+
+/* backtrace.c */
+
+extern void show_backtrace (void);
+internal_proto(show_backtrace);
 
 /* error.c */
 
@@ -489,6 +578,9 @@ internal_proto(get_args);
 #define GFC_OTOA_BUF_SIZE (sizeof (GFC_INTEGER_LARGEST) * 3 + 1)
 #define GFC_BTOA_BUF_SIZE (sizeof (GFC_INTEGER_LARGEST) * 8 + 1)
 
+extern void sys_exit (int) __attribute__ ((noreturn));
+internal_proto(sys_exit);
+
 extern const char *gfc_itoa (GFC_INTEGER_LARGEST, char *, size_t);
 internal_proto(gfc_itoa);
 
@@ -496,27 +588,24 @@ extern const char *xtoa (GFC_UINTEGER_LARGEST, char *, size_t);
 internal_proto(xtoa);
 
 extern void os_error (const char *) __attribute__ ((noreturn));
-internal_proto(os_error);
+iexport_proto(os_error);
 
-extern void show_locus (struct st_parameter_common *);
+extern void show_locus (st_parameter_common *);
 internal_proto(show_locus);
 
 extern void runtime_error (const char *) __attribute__ ((noreturn));
 iexport_proto(runtime_error);
 
-extern void internal_error (struct st_parameter_common *, const char *)
+extern void runtime_error_at (const char *, const char *)
+__attribute__ ((noreturn));
+iexport_proto(runtime_error_at);
+
+extern void internal_error (st_parameter_common *, const char *)
   __attribute__ ((noreturn));
 internal_proto(internal_error);
 
 extern const char *get_oserror (void);
 internal_proto(get_oserror);
-
-extern void sys_exit (int) __attribute__ ((noreturn));
-internal_proto(sys_exit);
-
-extern int st_printf (const char *, ...)
-  __attribute__ ((format (printf, 1, 2)));
-internal_proto(st_printf);
 
 extern void st_sprintf (char *, const char *, ...)
   __attribute__ ((format (printf, 2, 3)));
@@ -525,11 +614,14 @@ internal_proto(st_sprintf);
 extern const char *translate_error (int);
 internal_proto(translate_error);
 
-extern void generate_error (struct st_parameter_common *, int, const char *);
-internal_proto(generate_error);
+extern void generate_error (st_parameter_common *, int, const char *);
+iexport_proto(generate_error);
 
-extern try notify_std (struct st_parameter_common *, int, const char *);
+extern try notify_std (st_parameter_common *, int, const char *);
 internal_proto(notify_std);
+
+extern notification notification_std(int);
+internal_proto(notification_std);
 
 /* fpu.c */
 
@@ -544,11 +636,8 @@ internal_proto(get_mem);
 extern void free_mem (void *);
 internal_proto(free_mem);
 
-extern void *internal_malloc_size (size_t);
+extern void *internal_malloc_size (size_t) __attribute__ ((malloc));
 internal_proto(internal_malloc_size);
-
-extern void internal_free (void *);
-iexport_proto(internal_free);
 
 /* environ.c */
 
@@ -561,20 +650,28 @@ internal_proto(init_variables);
 extern void show_variables (void);
 internal_proto(show_variables);
 
+unit_convert get_unformatted_convert (int);
+internal_proto(get_unformatted_convert);
+
 /* string.c */
 
-extern int find_option (struct st_parameter_common *, const char *, int,
+extern int find_option (st_parameter_common *, const char *, gfc_charlen_type,
 			const st_option *, const char *);
 internal_proto(find_option);
 
-extern int fstrlen (const char *, int);
+extern gfc_charlen_type fstrlen (const char *, gfc_charlen_type);
 internal_proto(fstrlen);
 
-extern void fstrcpy (char *, int, const char *, int);
+extern gfc_charlen_type fstrcpy (char *, gfc_charlen_type, const char *, gfc_charlen_type);
 internal_proto(fstrcpy);
 
-extern void cf_strcpy (char *, int, const char *);
+extern gfc_charlen_type cf_strcpy (char *, gfc_charlen_type, const char *);
 internal_proto(cf_strcpy);
+
+/* io/intrinsics.c */
+
+extern void flush_all_units (void);
+internal_proto(flush_all_units);
 
 /* io.c */
 
@@ -587,9 +684,16 @@ internal_proto(close_units);
 extern int unit_to_fd (int);
 internal_proto(unit_to_fd);
 
+extern int st_printf (const char *, ...)
+  __attribute__ ((format (printf, 1, 2)));
+internal_proto(st_printf);
+
+extern char * filename_from_unit (int);
+internal_proto(filename_from_unit);
+
 /* stop.c */
 
-extern void stop_numeric (GFC_INTEGER_4);
+extern void stop_numeric (GFC_INTEGER_4) __attribute__ ((noreturn));
 iexport_proto(stop_numeric);
 
 /* reshape_packed.c */
@@ -644,6 +748,11 @@ internal_proto(internal_unpack_c8);
 #if defined HAVE_GFC_COMPLEX_10
 extern void internal_unpack_c10 (gfc_array_c10 *, const GFC_COMPLEX_10 *);
 internal_proto(internal_unpack_c10);
+#endif
+
+#if defined HAVE_GFC_COMPLEX_16
+extern void internal_unpack_c16 (gfc_array_c16 *, const GFC_COMPLEX_16 *);
+internal_proto(internal_unpack_c16);
 #endif
 
 /* string_intrinsics.c */

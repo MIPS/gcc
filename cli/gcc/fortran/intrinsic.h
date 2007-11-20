@@ -1,6 +1,6 @@
 /* Header file for intrinsics check, resolve and simplify function
    prototypes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -62,7 +62,6 @@ try gfc_check_fn_c (gfc_expr *);
 try gfc_check_fn_r (gfc_expr *);
 try gfc_check_fn_rc (gfc_expr *);
 try gfc_check_fnum (gfc_expr *);
-try gfc_check_g77_math1 (gfc_expr *);
 try gfc_check_hostnm (gfc_expr *);
 try gfc_check_huge (gfc_expr *);
 try gfc_check_i (gfc_expr *);
@@ -98,6 +97,7 @@ try gfc_check_merge (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_minloc_maxloc (gfc_actual_arglist *);
 try gfc_check_minval_maxval (gfc_actual_arglist *);
 try gfc_check_nearest (gfc_expr *, gfc_expr *);
+try gfc_check_new_line (gfc_expr *);
 try gfc_check_null (gfc_expr *);
 try gfc_check_pack (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_precision (gfc_expr *);
@@ -121,6 +121,7 @@ try gfc_check_shape (gfc_expr *);
 try gfc_check_size (gfc_expr *, gfc_expr *);
 try gfc_check_sign (gfc_expr *, gfc_expr *);
 try gfc_check_signal (gfc_expr *, gfc_expr *);
+try gfc_check_sizeof (gfc_expr *);
 try gfc_check_spread (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_srand (gfc_expr *);
 try gfc_check_stat (gfc_expr *, gfc_expr *);
@@ -153,6 +154,7 @@ try gfc_check_free (gfc_expr *);
 try gfc_check_fstat_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_gerror (gfc_expr *);
 try gfc_check_getlog (gfc_expr *);
+try gfc_check_move_alloc (gfc_expr *, gfc_expr *);
 try gfc_check_mvbits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *,
 		      gfc_expr *);
 try gfc_check_random_number (gfc_expr *);
@@ -160,6 +162,7 @@ try gfc_check_random_seed (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_etime_sub (gfc_expr *, gfc_expr *);
 try gfc_check_fgetputc_sub (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_fgetput_sub (gfc_expr *, gfc_expr *);
+try gfc_check_fseek_sub (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_ftell_sub (gfc_expr *, gfc_expr *);
 try gfc_check_getcwd_sub (gfc_expr *, gfc_expr *);
 try gfc_check_hostnm_sub (gfc_expr *, gfc_expr *);
@@ -255,6 +258,7 @@ gfc_expr *gfc_simplify_modulo (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_mvbits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *,
 			       gfc_expr *);
 gfc_expr *gfc_simplify_nearest (gfc_expr *, gfc_expr *);
+gfc_expr *gfc_simplify_new_line (gfc_expr *);
 gfc_expr *gfc_simplify_nint (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_null (gfc_expr *);
 gfc_expr *gfc_simplify_idnint (gfc_expr *);
@@ -298,6 +302,7 @@ gfc_expr *gfc_convert_constant (gfc_expr *, bt, int);
 /* Resolution functions.  */
 void gfc_resolve_abs (gfc_expr *, gfc_expr *);
 void gfc_resolve_access (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_achar (gfc_expr *, gfc_expr *);
 void gfc_resolve_acos (gfc_expr *, gfc_expr *);
 void gfc_resolve_acosh (gfc_expr *, gfc_expr *);
 void gfc_resolve_aimag (gfc_expr *, gfc_expr *);
@@ -357,6 +362,7 @@ void gfc_resolve_iand (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibclr (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibits (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ibset (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_index_func (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ierrno (gfc_expr *);
 void gfc_resolve_ieor (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ichar (gfc_expr *, gfc_expr *);
@@ -451,6 +457,7 @@ void gfc_resolve_exit (gfc_code *);
 void gfc_resolve_fdate_sub (gfc_code *);
 void gfc_resolve_flush (gfc_code *);
 void gfc_resolve_free (gfc_code *);
+void gfc_resolve_fseek_sub (gfc_code *);
 void gfc_resolve_fstat_sub (gfc_code *);
 void gfc_resolve_ftell_sub (gfc_code *);
 void gfc_resolve_fgetc_sub (gfc_code *);

@@ -28,13 +28,15 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file ext/atomicity.h
+ *  This file is a GNU extension to the Standard C++ Library.
+ */
+
 #include <bits/c++config.h>
 #include <bits/atomic_word.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
-  // XXX GLIBCXX_ABI Deprecated
-  // Should be inlined, and not exported.
   _Atomic_word 
   __attribute__ ((__unused__))
   __exchange_and_add(volatile _Atomic_word* __mem, int __val)

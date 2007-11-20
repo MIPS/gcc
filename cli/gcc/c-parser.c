@@ -1,6 +1,6 @@
 /* Parser for C and Objective-C.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -9,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -18,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* TODO:
 
@@ -59,25 +58,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cgraph.h"
 
 
-/* Miscellaneous data and functions needed for the parser.  */
-
-int yydebug;
-
-/* Objective-C specific parser/lexer information.  */
-
-static int objc_pq_context = 0;
-
-/* The following flag is needed to contextualize Objective-C lexical
-   analysis.  In some cases (e.g., 'int NSObject;'), it is undesirable
-   to bind an identifier to an Objective-C class, even if a class with
-   that name exists.  */
-static int objc_need_raw_identifier = 0;
-#define OBJC_NEED_RAW_IDENTIFIER(VAL)		\
-  do {						\
-    if (c_dialect_objc ())			\
-      objc_need_raw_identifier = VAL;		\
-  } while (0)
-
 /* The reserved keyword table.  */
 struct resword
 {
@@ -200,26 +180,6 @@ static const struct resword reswords[] =
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
 
-/* All OpenMP clauses.  OpenMP 2.5.  */
-typedef enum pragma_omp_clause {
-  PRAGMA_OMP_CLAUSE_NONE = 0,
-
-  PRAGMA_OMP_CLAUSE_COPYIN,
-  PRAGMA_OMP_CLAUSE_COPYPRIVATE,
-  PRAGMA_OMP_CLAUSE_DEFAULT,
-  PRAGMA_OMP_CLAUSE_FIRSTPRIVATE,
-  PRAGMA_OMP_CLAUSE_IF,
-  PRAGMA_OMP_CLAUSE_LASTPRIVATE,
-  PRAGMA_OMP_CLAUSE_NOWAIT,
-  PRAGMA_OMP_CLAUSE_NUM_THREADS,
-  PRAGMA_OMP_CLAUSE_ORDERED,
-  PRAGMA_OMP_CLAUSE_PRIVATE,
-  PRAGMA_OMP_CLAUSE_REDUCTION,
-  PRAGMA_OMP_CLAUSE_SCHEDULE,
-  PRAGMA_OMP_CLAUSE_SHARED
-} pragma_omp_clause;
-
-
 /* Initialization routine for this file.  */
 
 void
@@ -317,6 +277,13 @@ typedef struct c_parser GTY(())
   /* True if we're processing a pragma, and shouldn't automatically
      consume CPP_PRAGMA_EOL.  */
   BOOL_BITFIELD in_pragma : 1;
+  /* Objective-C specific parser/lexer information.  */
+  BOOL_BITFIELD objc_pq_context : 1;
+  /* The following flag is needed to contextualize Objective-C lexical
+     analysis.  In some cases (e.g., 'int NSObject;'), it is
+     undesirable to bind an identifier to an Objective-C class, even
+     if a class with that name exists.  */
+  BOOL_BITFIELD objc_need_raw_identifier : 1;
 } c_parser;
 
 
@@ -329,7 +296,7 @@ static GTY (()) c_parser *the_parser;
 /* Read in and lex a single token, storing it in *TOKEN.  */
 
 static void
-c_lex_one_token (c_token *token)
+c_lex_one_token (c_parser *parser, c_token *token)
 {
   timevar_push (TV_LEX);
 
@@ -345,8 +312,9 @@ c_lex_one_token (c_token *token)
       {
 	tree decl;
 
-	int objc_force_identifier = objc_need_raw_identifier;
-	OBJC_NEED_RAW_IDENTIFIER (0);
+	bool objc_force_identifier = parser->objc_need_raw_identifier;
+	if (c_dialect_objc ())
+	  parser->objc_need_raw_identifier = false;
 
 	if (C_IS_RESERVED_WORD (token->value))
 	  {
@@ -355,7 +323,8 @@ c_lex_one_token (c_token *token)
 	    if (c_dialect_objc ())
 	      {
 		if (!OBJC_IS_AT_KEYWORD (rid_code)
-		    && (!OBJC_IS_PQ_KEYWORD (rid_code) || objc_pq_context))
+		    && (!OBJC_IS_PQ_KEYWORD (rid_code)
+			|| parser->objc_pq_context))
 		  {
 		    /* Return the canonical spelling for this keyword.  */
 		    token->value = ridpointers[(int) rid_code];
@@ -412,7 +381,8 @@ c_lex_one_token (c_token *token)
     case CPP_SEMICOLON:
       /* These tokens may affect the interpretation of any identifiers
 	 following, if doing Objective-C.  */
-      OBJC_NEED_RAW_IDENTIFIER (0);
+      if (c_dialect_objc ())
+	parser->objc_need_raw_identifier = false;
       break;
     case CPP_PRAGMA:
       /* We smuggled the cpp_token->u.pragma value in an INTEGER_CST.  */
@@ -433,7 +403,7 @@ c_parser_peek_token (c_parser *parser)
 {
   if (parser->tokens_avail == 0)
     {
-      c_lex_one_token (&parser->tokens[0]);
+      c_lex_one_token (parser, &parser->tokens[0]);
       parser->tokens_avail = 1;
     }
   return &parser->tokens[0];
@@ -623,7 +593,7 @@ c_parser_peek_2nd_token (c_parser *parser)
   gcc_assert (parser->tokens_avail == 1);
   gcc_assert (parser->tokens[0].type != CPP_EOF);
   gcc_assert (parser->tokens[0].type != CPP_PRAGMA_EOL);
-  c_lex_one_token (&parser->tokens[1]);
+  c_lex_one_token (parser, &parser->tokens[1]);
   parser->tokens_avail = 2;
   return &parser->tokens[1];
 }
@@ -1629,7 +1599,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	    goto out;
 	  attrs_ok = true;
 	  seen_type = true;
-	  OBJC_NEED_RAW_IDENTIFIER (1);
+	  if (c_dialect_objc ())
+	    parser->objc_need_raw_identifier = true;
 	  t.kind = ctsk_resword;
 	  t.spec = c_parser_peek_token (parser)->value;
 	  declspecs_add_type (specs, t);
@@ -1722,7 +1693,8 @@ c_parser_enum_specifier (c_parser *parser)
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
     {
       /* Parse an enum definition.  */
-      tree type = start_enum (ident);
+      struct c_enum_contents the_enum;
+      tree type = start_enum (&the_enum, ident);
       tree postfix_attrs;
       /* We chain the enumerators in reverse order, then put them in
 	 forward order at the end.  */
@@ -1750,7 +1722,7 @@ c_parser_enum_specifier (c_parser *parser)
 	    }
 	  else
 	    enum_value = NULL_TREE;
-	  enum_decl = build_enumerator (enum_id, enum_value);
+	  enum_decl = build_enumerator (&the_enum, enum_id, enum_value);
 	  TREE_CHAIN (enum_decl) = values;
 	  values = enum_decl;
 	  seen_comma = false;
@@ -2172,7 +2144,7 @@ c_parser_typeof_specifier (c_parser *parser)
 	  if (DECL_P (e) || CONSTANT_CLASS_P (e))
 	    e = build1 (NOP_EXPR, void_type_node, e);
 
-	  if (EXPR_P (e))
+	  if (CAN_HAVE_LOCATION_P (e))
 	    SET_EXPR_LOCATION (e, input_location);
 
 	  add_stmt (e);
@@ -2537,6 +2509,7 @@ c_parser_parms_declarator (c_parser *parser, bool id_list_ok, tree attrs)
 	  ret->tags = 0;
 	  ret->types = list;
 	  ret->others = 0;
+	  ret->pending_sizes = 0;
 	  ret->had_vla_unspec = 0;
 	  c_parser_consume_token (parser);
 	  pop_scope ();
@@ -2579,6 +2552,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
       ret->tags = 0;
       ret->types = 0;
       ret->others = 0;
+      ret->pending_sizes = 0;
       ret->had_vla_unspec = 0;
       c_parser_consume_token (parser);
       return ret;
@@ -2589,6 +2563,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
       ret->parms = 0;
       ret->tags = 0;
       ret->others = 0;
+      ret->pending_sizes = 0;
       ret->had_vla_unspec = 0;
       /* Suppress -Wold-style-definition for this case.  */
       ret->types = error_mark_node;
@@ -2640,6 +2615,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 	      ret->tags = 0;
 	      ret->types = 0;
 	      ret->others = 0;
+	      ret->pending_sizes = 0;
 	      ret->had_vla_unspec = 0;
 	      return ret;
 	    }
@@ -2666,6 +2642,7 @@ c_parser_parms_list_declarator (c_parser *parser, tree attrs)
 		  ret->tags = 0;
 		  ret->types = 0;
 		  ret->others = 0;
+		  ret->pending_sizes = 0;
 		  ret->had_vla_unspec = 0;
 		  return ret;
 		}
@@ -3812,7 +3789,7 @@ c_parser_statement_after_labels (c_parser *parser)
      (recursively) all of the component statements should already have
      line numbers assigned.  ??? Can we discard no-op statements
      earlier?  */
-  if (stmt && EXPR_P (stmt))
+  if (stmt && CAN_HAVE_LOCATION_P (stmt))
     SET_EXPR_LOCATION (stmt, loc);
 }
 
@@ -3831,7 +3808,7 @@ c_parser_paren_condition (c_parser *parser)
   loc = c_parser_peek_token (parser)->location;
   cond = c_objc_common_truthvalue_conversion
     (c_parser_expression_conv (parser).value);
-  if (EXPR_P (cond))
+  if (CAN_HAVE_LOCATION_P (cond))
     SET_EXPR_LOCATION (cond, loc);
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
   return cond;
@@ -3851,7 +3828,7 @@ c_parser_c99_block_statement (c_parser *parser)
    is just parsing a statement but (a) it is a block in C99, (b) we
    track whether the body is an if statement for the sake of
    -Wparentheses warnings, (c) we handle an empty body specially for
-   the sake of -Wextra warnings.  */
+   the sake of -Wempty-body warnings.  */
 
 static tree
 c_parser_if_body (c_parser *parser, bool *if_p)
@@ -3863,7 +3840,7 @@ c_parser_if_body (c_parser *parser, bool *if_p)
 	     && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
     c_parser_label (parser);
   *if_p = c_parser_next_token_is_keyword (parser, RID_IF);
-  if (extra_warnings && c_parser_next_token_is (parser, CPP_SEMICOLON))
+  if (c_parser_next_token_is (parser, CPP_SEMICOLON))
     add_stmt (build_empty_stmt ());
   c_parser_statement_after_labels (parser);
   return c_end_compound_stmt (block, flag_isoc99);
@@ -3972,6 +3949,9 @@ c_parser_do_statement (c_parser *parser)
   location_t loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_DO));
   c_parser_consume_token (parser);
+  if (c_parser_next_token_is (parser, CPP_SEMICOLON))
+    warning (OPT_Wempty_body,
+             "suggest braces around empty body in %<do%> statement");
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
   save_break = c_break_label;
@@ -4068,7 +4048,7 @@ c_parser_for_statement (c_parser *parser)
 	{
 	  tree ocond = c_parser_expression_conv (parser).value;
 	  cond = c_objc_common_truthvalue_conversion (ocond);
-	  if (EXPR_P (cond))
+	  if (CAN_HAVE_LOCATION_P (cond))
 	    SET_EXPR_LOCATION (cond, loc);
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 	}
@@ -5923,11 +5903,11 @@ c_parser_objc_protocol_definition (c_parser *parser)
       c_parser_consume_token (parser);
       if (c_parser_next_token_is (parser, CPP_LESS))
 	proto = c_parser_objc_protocol_refs (parser);
-      objc_pq_context = 1;
+      parser->objc_pq_context = true;
       objc_start_protocol (id, proto);
       c_parser_objc_methodprotolist (parser);
       c_parser_require_keyword (parser, RID_AT_END, "expected %<@end%>");
-      objc_pq_context = 0;
+      parser->objc_pq_context = false;
       objc_finish_interface ();
     }
 }
@@ -5967,7 +5947,7 @@ c_parser_objc_method_definition (c_parser *parser)
   enum tree_code type = c_parser_objc_method_type (parser);
   tree decl;
   objc_set_method_type (type);
-  objc_pq_context = 1;
+  parser->objc_pq_context = true;
   decl = c_parser_objc_method_decl (parser);
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
     {
@@ -5980,7 +5960,7 @@ c_parser_objc_method_definition (c_parser *parser)
       c_parser_error (parser, "expected %<{%>");
       return;
     }
-  objc_pq_context = 0;
+  parser->objc_pq_context = false;
   objc_start_method_definition (decl);
   add_stmt (c_parser_compound_statement (parser));
   objc_finish_method_definition (current_function_decl);
@@ -6044,10 +6024,10 @@ c_parser_objc_methodproto (c_parser *parser)
   tree decl;
   objc_set_method_type (type);
   /* Remember protocol qualifiers in prototypes.  */
-  objc_pq_context = 1;
+  parser->objc_pq_context = true;
   decl = c_parser_objc_method_decl (parser);
   /* Forget protocol qualifiers here.  */
-  objc_pq_context = 0;
+  parser->objc_pq_context = false;
   objc_add_method_declaration (decl);
   c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 }
@@ -7419,7 +7399,7 @@ c_parser_omp_for_loop (c_parser *parser)
     {
       cond = c_parser_expression_conv (parser).value;
       cond = c_objc_common_truthvalue_conversion (cond);
-      if (EXPR_P (cond))
+      if (CAN_HAVE_LOCATION_P (cond))
 	SET_EXPR_LOCATION (cond, input_location);
     }
   c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
@@ -7750,6 +7730,12 @@ c_parser_omp_construct (c_parser *parser)
   p_kind = c_parser_peek_token (parser)->pragma_kind;
   c_parser_consume_pragma (parser);
 
+  /* For all constructs below except #pragma omp atomic
+     MUST_NOT_THROW catch handlers are needed when exceptions
+     are enabled.  */
+  if (p_kind != PRAGMA_OMP_ATOMIC)
+    c_maybe_initialize_eh ();
+
   switch (p_kind)
     {
     case PRAGMA_OMP_ATOMIC:
@@ -7795,9 +7781,6 @@ c_parser_omp_threadprivate (c_parser *parser)
 
   c_parser_consume_pragma (parser);
   vars = c_parser_omp_var_list_parens (parser, 0, NULL);
-
-  if (!targetm.have_tls)
-    sorry ("threadprivate variables not supported in this target");
 
   /* Mark every variable in VARS to be assigned thread local storage.  */
   for (t = vars; t; t = TREE_CHAIN (t))

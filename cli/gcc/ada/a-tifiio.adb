@@ -279,7 +279,7 @@ package body Ada.Text_IO.Fixed_IO is
    --  decimal point.
 
    subtype Int is Integer;
-   E0 : constant Int := -20 * Boolean'Pos (Num'Small >= 1.0E1);
+   E0 : constant Int := -(20 * Boolean'Pos (Num'Small >= 1.0E1));
    E1 : constant Int := E0 + 10 * Boolean'Pos (Num'Small * 10.0**E0 < 1.0E-10);
    E2 : constant Int := E1 +  5 * Boolean'Pos (Num'Small * 10.0**E1 < 1.0E-5);
    E3 : constant Int := E2 +  3 * Boolean'Pos (Num'Small * 10.0**E2 < 1.0E-3);
@@ -399,7 +399,7 @@ package body Ada.Text_IO.Fixed_IO is
       Last : Natural;
 
    begin
-      if Fore < 1 or else Fore > Field'Last then
+      if Fore - Boolean'Pos (Item < 0.0) < 1 or else Fore > Field'Last then
          raise Layout_Error;
       end if;
 
@@ -462,7 +462,13 @@ package body Ada.Text_IO.Fixed_IO is
       procedure Put_Character (C : Character) is
       begin
          Last := Last + 1;
-         To (Last) := C;
+
+         --  Never put a character outside of string To. Exception Layout_Error
+         --  will be raised later if Last is greater than To'Last.
+
+         if Last <= To'Last then
+            To (Last) := C;
+         end if;
       end Put_Character;
 
       ---------------
@@ -637,10 +643,10 @@ package body Ada.Text_IO.Fixed_IO is
 
       if Exact then
          Y := Int64'Min (Int64 (-Num'Small), -1) * 10**Integer'Max (0, D);
-         Z := Int64'Min (Int64 (-1.0 / Num'Small), -1)
+         Z := Int64'Min (Int64 (-(1.0 / Num'Small)), -1)
                                                  * 10**Integer'Max (0, -D);
       else
-         Y := Int64 (-Num'Small * 10.0**E);
+         Y := Int64 (-(Num'Small * 10.0**E));
          Z := -10**Max_Digits;
       end if;
 

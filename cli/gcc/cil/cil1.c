@@ -25,6 +25,10 @@
    Author:
      Ricardo Fernandez Pascual <ricardof@um.es>
 
+   Contact information at STMicroelectronics:
+     Andrea C. Ornstein <andrea.ornstein@st.com>
+     Erven Rohou        <erven.rohou@st.com>
+
 */
 
 #include "config.h"
@@ -46,6 +50,8 @@
 #include "cil.h"
 #include "cil-tree.h"
 #include "parser.h"
+
+static void cil_read_vm_profile_info (const char *fname);
 
 /* Language for usage for messages.  */
 const char *const language_string = "CIL front end for GCC ";
@@ -70,6 +76,9 @@ cil_handle_option (size_t scode, const char *arg, int value)
       break;
     case OPT_ferror_unsupported:
       flag_unsupported_method_behavior = UMB_ERROR;
+      break;
+    case OPT_fvm_profile_info:
+      cil_read_vm_profile_info (arg);
       break;
     case OPT_fcbuiltin:
       flag_no_cbuiltin = !value;
@@ -145,6 +154,96 @@ cil_parse_file (int debug_flag ATTRIBUTE_UNUSED)
   linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
 #endif
   cgraph_optimize ();
+}
+
+static void
+cil_read_vm_profile_info (const char *fname)
+{
+  FILE *f = fopen (fname, "r");
+  if (f)
+    {
+      location_profile_info_init ();
+      char *line = NULL;
+      size_t line_max_size = 0;
+      char *current_assembly = NULL;
+      int current_method = -1;
+      while (!feof (f))
+        {
+          if (getline (&line, &line_max_size, f) > 0)
+            {
+#define PREFIX(p,s) (!strncmp (p, s, strlen (p)))
+              if (PREFIX ("Assembly: ", line))
+                {
+                  const char *p = line + strlen ("Assembly: ");
+                  size_t len = strchr (p, '\n') ? (size_t) (strchr (p, '\n') - p) : strlen (p);
+                  free (current_assembly);
+                  current_assembly = xstrndup (p, len);
+
+                  /* HACK: add .exe if it is not there */
+                  if (!strstr (current_assembly, ".exe"))
+                    {
+                      char *s = xmalloc (strlen (current_assembly) + strlen (".exe") + 1);
+                      strcpy (s, current_assembly);
+                      strcat (s, ".exe");
+                      current_assembly = s;
+                    }
+                }
+              else if (PREFIX ("Method: ", line))
+                {
+                  const char *p = line + strlen ("Method: ");
+                  current_method = atoi (p);
+                }
+              else if (PREFIX ("exec_count ", line))
+                {
+                  gcc_assert (current_assembly);
+                  gcc_assert (current_method != -1);
+                  unsigned int bb;
+                  int count;
+                  if (sscanf (line, "exec_count %x = %d", &bb, &count) == 2)
+                    {
+                      unsigned int fake_line = (current_method << 16) + (bb & 0xffff);
+                      location_profile_info_add_bb_exec_count (current_assembly, fake_line, count);
+                    }
+                  else
+                    {
+                      error ("Wrong file format in %<%s%>", fname);
+                      break;
+                    }
+                }
+              else
+                {
+                  gcc_assert (current_assembly);
+                  gcc_assert (current_method != -1);
+                  unsigned int src;
+                  unsigned int dst;
+                  int count;
+                  if (sscanf (line, "%x -> %x = %d", &src, &dst, &count) == 3)
+                    {
+                      unsigned int fake_src = (current_method << 16) + (src & 0xffff);
+                      unsigned int fake_dst = (current_method << 16) + (dst & 0xffff);
+                      location_profile_info_add_edge_count (current_assembly, fake_src, fake_dst, count);
+                    }
+                  else
+                    {
+                      error ("Wrong file format in %<%s%>", fname);
+                      break;
+                    }
+                }
+#undef PREFIX
+            }
+          else
+            {
+              break;
+            }
+        }
+      free (current_assembly);
+      free (line);
+      location_profile_info_dump (stderr);
+    }
+  else
+    {
+      error ("Could not open %<%s%>", fname);
+    }
 }
 
 #include "debug.h" /* for debug_hooks */

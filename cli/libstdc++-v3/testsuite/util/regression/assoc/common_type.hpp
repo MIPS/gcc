@@ -54,17 +54,18 @@ namespace pb_ds
 {
 namespace test
 {
-  typedef dbg_ex_allocator<basic_type> alloc_type;
+  typedef __gnu_cxx::throw_allocator<basic_type> alloc_type;
 
   struct hash
   {
-    typedef alloc_type::rebind<basic_type>::other::const_reference const_key_reference;
+    typedef alloc_type::rebind<basic_type>::other basic_type_rebind;
+    typedef basic_type_rebind::const_reference const_reference;
+    typedef basic_type::const_iterator const_iterator;
 
     size_t
-    operator()(const_key_reference r_key) const
+    operator()(const_reference r_key) const
     {
       size_t ret = 0;
-      typedef basic_type::const_iterator const_iterator;
       for (const_iterator it = r_key.begin(); it != r_key.end(); ++it)
 	ret = ret * 5 + static_cast<size_t>(*it);
       return ret;
@@ -82,7 +83,7 @@ namespace test
     typedef typename tree_common_types<basic_type, Data_Type, std::less<basic_type>, pb_ds::tree_order_statistics_node_update, alloc_type>::regression_tl order_statistics_tl_t;
 
   public:
-    typedef typename pb_ds::detail::typelist_append<no_order_statistics_tl_t, order_statistics_tl_t>::type tl_t;
+    typedef typename __gnu_cxx::typelist::append<no_order_statistics_tl_t, order_statistics_tl_t>::type tl_t;
 
     typedef no_order_statistics_tl_t min_tl_t;
   };
@@ -98,7 +99,7 @@ namespace test
     typedef typename trie_common_types<basic_type, Data_Type, e_access_traits_t, pb_ds::pat_trie_tag, pb_ds::trie_prefix_search_node_update, alloc_type>::regression_tl prefix_search_tl_t;
 
   public:
-    typedef typename pb_ds::detail::typelist_append<no_updates_tl_t, typename pb_ds::detail::typelist_append<prefix_search_tl_t, order_statistics_tl_t>::type>::type tl_t;
+    typedef typename __gnu_cxx::typelist::append<no_updates_tl_t, typename __gnu_cxx::typelist::append<prefix_search_tl_t, order_statistics_tl_t>::type>::type tl_t;
 
     typedef no_updates_tl_t min_tl_t;
   };
@@ -141,4 +142,4 @@ namespace test
 } // namespace test
 } // namespace pb_ds
 
-#endif // #ifndef PB_DS_RAND_REGRESSION_TEST_COMMON_TYPE_HPP
+#endif 

@@ -27,6 +27,10 @@
    Author:
      Ricardo Fernandez Pascual <ricardof@um.es>
 
+   Contact information at STMicroelectronics:
+     Andrea C. Ornstein <andrea.ornstein@st.com>
+     Erven Rohou        <erven.rohou@st.com>
+
 */
 
 #ifndef GCC_CIL_TREE_H
@@ -39,14 +43,17 @@ struct lang_identifier GTY(())
 
 struct lang_decl GTY(())
 {
+    char dummy;
 };
 
 struct lang_type GTY(())
 {
+    char dummy;
 };
 
 struct language_function GTY(())
 {
+    char dummy;
 };
 
 enum cil_tree_node_structure_enum {

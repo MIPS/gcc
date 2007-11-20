@@ -28,7 +28,7 @@
 #define DEFAULT_SIGNED_CHAR 0
 
 #undef  SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC  "%{posix:-D_POSIX_SOURCE}"
+#define SUBTARGET_CPP_SPEC  "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
 #undef  SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
@@ -36,8 +36,10 @@
 #undef  PTRDIFF_TYPE
 #define PTRDIFF_TYPE "int"
 
-#undef  WCHAR_TYPE
-#define WCHAR_TYPE "long int"
+/* Use the AAPCS type for wchar_t, or the previous Linux default for
+   non-AAPCS.  */
+#undef WCHAR_TYPE
+#define WCHAR_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long int")
 
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD

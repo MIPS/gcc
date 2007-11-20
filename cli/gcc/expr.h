@@ -1,13 +1,13 @@
 /* Definitions for code generation pass of GNU compiler.
    Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_EXPR_H
 #define GCC_EXPR_H
@@ -377,6 +376,9 @@ extern void init_block_move_fn (const char *);
 extern void init_block_clear_fn (const char *);
 
 extern rtx emit_block_move (rtx, rtx, rtx, enum block_op_methods);
+extern rtx emit_block_move_via_libcall (rtx, rtx, rtx, bool);
+extern rtx emit_block_move_hints (rtx, rtx, rtx, enum block_op_methods,
+			          unsigned int, HOST_WIDE_INT);
 
 /* Copy all or part of a value X into registers starting at REGNO.
    The number of registers to be filled is NREGS.  */
@@ -423,9 +425,14 @@ extern void use_group_regs (rtx *, rtx);
 /* Write zeros through the storage of OBJECT.
    If OBJECT has BLKmode, SIZE is its length in bytes.  */
 extern rtx clear_storage (rtx, rtx, enum block_op_methods);
+extern rtx clear_storage_hints (rtx, rtx, enum block_op_methods,
+			        unsigned int, HOST_WIDE_INT);
+/* The same, but always output an library call.  */
+rtx set_storage_via_libcall (rtx, rtx, rtx, bool);
 
 /* Expand a setmem pattern; return true if successful.  */
-extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int);
+extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int, 
+				    unsigned int, HOST_WIDE_INT);
 
 /* Determine whether the LEN bytes can be moved by using several move
    instructions.  Return nonzero if a call to move_by_pieces should
@@ -457,6 +464,9 @@ extern rtx emit_move_insn (rtx, rtx);
 /* Emit insns to set X from Y, with no frills.  */
 extern rtx emit_move_insn_1 (rtx, rtx);
 
+extern rtx emit_move_complex_push (enum machine_mode, rtx, rtx);
+extern rtx emit_move_complex_parts (rtx, rtx);
+
 /* Push a block of length SIZE (perhaps variable)
    and return an rtx to address the beginning of the block.  */
 extern rtx push_block (rtx, int, int);
@@ -466,13 +476,13 @@ extern void emit_push_insn (rtx, enum machine_mode, tree, rtx, unsigned int,
 			    int, rtx, int, rtx, rtx, int, rtx);
 
 /* Expand an assignment that stores the value of FROM into TO.  */
-extern void expand_assignment (tree, tree);
+extern void expand_assignment (tree, tree, bool);
 
 /* Generate code for computing expression EXP,
    and storing the value into TARGET.
    If SUGGEST_REG is nonzero, copy the value through a register
    and return that register, if that is possible.  */
-extern rtx store_expr (tree, rtx, int);
+extern rtx store_expr (tree, rtx, int, bool);
 
 /* Given an rtx that may include add and multiply operations,
    generate them as insns and return a pseudo-reg containing the value.
@@ -585,9 +595,6 @@ extern rtx label_rtx (tree);
    list of its containing function (i.e. it is treated as reachable even
    if how is not obvious).  */
 extern rtx force_label_rtx (tree);
-
-/* Indicate how an input argument register was promoted.  */
-extern rtx promoted_input_arg (unsigned int, enum machine_mode *, int *);
 
 /* Return an rtx like arg but sans any constant terms.
    Returns the original rtx if it has no constant terms.
@@ -724,8 +731,8 @@ enum extraction_pattern { EP_insv, EP_extv, EP_extzv };
 extern enum machine_mode
 mode_for_extraction (enum extraction_pattern, int);
 
-extern rtx store_bit_field (rtx, unsigned HOST_WIDE_INT,
-			    unsigned HOST_WIDE_INT, enum machine_mode, rtx);
+extern void store_bit_field (rtx, unsigned HOST_WIDE_INT,
+			     unsigned HOST_WIDE_INT, enum machine_mode, rtx);
 extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT, int, rtx,
 			      enum machine_mode, enum machine_mode);

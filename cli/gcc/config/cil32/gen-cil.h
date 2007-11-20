@@ -26,7 +26,9 @@ Authors:
    Roberto Costa
 
 Contact information at STMicroelectronics:
-Roberto Costa <roberto.costa@st.com>   */
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Erven Rohou             <erven.rohou@st.com>
+*/
 
 #ifndef GEN_CIL_H
 #define GEN_CIL_H
@@ -43,5 +45,9 @@ void
 gen_cil_init (void);
 void
 gen_cil_fini (void);
+
+
+/* Defined in rm_ldloc.c */
+void remove_stloc_ldloc (void);
 
 #endif  /* GEN_CIL_H */

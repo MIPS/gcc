@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,7 +33,6 @@ with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
 with Lib.Util; use Lib.Util;
 with Lib.Xref; use Lib.Xref;
-with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Gnatvsn;  use Gnatvsn;
 with Opt;      use Opt;
@@ -45,6 +44,7 @@ with Rident;   use Rident;
 with Scn;      use Scn;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
+with Snames;   use Snames;
 with Stringt;  use Stringt;
 with Tbuild;   use Tbuild;
 with Uname;    use Uname;
@@ -71,8 +71,8 @@ package body Lib.Writ is
       Units.Increment_Last;
       Units.Table (Units.Last) :=
         (Unit_File_Name  => File_Name (S),
-         Unit_Name       => No_Name,
-         Expected_Unit   => No_Name,
+         Unit_Name       => No_Unit_Name,
+         Expected_Unit   => No_Unit_Name,
          Source_Index    => S,
          Cunit           => Empty,
          Cunit_Entity    => Empty,
@@ -354,6 +354,16 @@ package body Lib.Writ is
          Write_Info_Tab (49);
          Write_Info_Str (Version_Get (Unit_Num));
 
+         --  Add BD parameter if Elaborate_Body pragma desirable
+
+         if Ekind (Uent) = E_Package
+           and then Elaborate_Body_Desirable (Uent)
+         then
+            Write_Info_Str (" BD");
+         end if;
+
+         --  Add BN parameter if body needed for SAL
+
          if (Is_Subprogram (Uent)
               or else Ekind (Uent) = E_Package
               or else Is_Generic_Unit (Uent))
@@ -417,7 +427,16 @@ package body Lib.Writ is
                              (Declaration_Node
                                (Body_Entity (Uent))))))
          then
-            Write_Info_Str (" EE");
+            if Convention (Uent) = Convention_CIL then
+
+               --  Special case for generic CIL packages which never have
+               --  elaboration code
+
+               Write_Info_Str (" NE");
+
+            else
+               Write_Info_Str (" EE");
+            end if;
          end if;
 
          if Has_No_Elaboration_Code (Unode) then
@@ -619,6 +638,34 @@ package body Lib.Writ is
          Body_Fname : File_Name_Type;
          Body_Index : Nat;
 
+         procedure Write_With_File_Names
+           (Nam : in out File_Name_Type;
+            Idx : Nat);
+         --  Write source file name Nam and ALI file name for unit index Idx.
+         --  Possibly change Nam to lowercase (generating a new file name).
+
+         --------------------------
+         -- Write_With_File_Name --
+         --------------------------
+
+         procedure Write_With_File_Names
+           (Nam : in out File_Name_Type;
+            Idx : Nat)
+         is
+         begin
+            if not File_Names_Case_Sensitive then
+               Get_Name_String (Nam);
+               To_Lower (Name_Buffer (1 .. Name_Len));
+               Nam := Name_Find;
+            end if;
+
+            Write_Info_Name (Nam);
+            Write_Info_Tab (49);
+            Write_Info_Name (Lib_File_Name (Nam, Idx));
+         end Write_With_File_Names;
+
+      --  Start of processing for Write_With_Lines
+
       begin
          --  Loop to build the with table. A with on the main unit itself
          --  is ignored (AARM 10.2(14a)). Such a with-clause can occur if
@@ -634,7 +681,7 @@ package body Lib.Writ is
             --  For preproc. data and def. files, there is no Unit_Name,
             --  check for that first.
 
-            if Unit_Name (J) /= No_Name
+            if Unit_Name (J) /= No_Unit_Name
               and then (With_Flags (J) or else Unit_Name (J) = Pname)
             then
                Num_Withs := Num_Withs + 1;
@@ -695,33 +742,9 @@ package body Lib.Writ is
                  or else (Ada_Version = Ada_83
                            and then Full_Source_Name (Body_Fname) /= No_File)
                then
-                  --  Ensure that on platforms where the file names are not
-                  --  case sensitive, the recorded file name is in lower case.
-
-                  if not File_Names_Case_Sensitive then
-                     Get_Name_String (Body_Fname);
-                     To_Lower (Name_Buffer (1 .. Name_Len));
-                     Body_Fname := Name_Find;
-                  end if;
-
-                  Write_Info_Name (Body_Fname);
-                  Write_Info_Tab (49);
-                  Write_Info_Name
-                    (Lib_File_Name (Body_Fname, Body_Index));
+                  Write_With_File_Names (Body_Fname, Body_Index);
                else
-                  --  Ensure that on platforms where the file names are not
-                  --  case sensitive, the recorded file name is in lower case.
-
-                  if not File_Names_Case_Sensitive then
-                     Get_Name_String (Fname);
-                     To_Lower (Name_Buffer (1 .. Name_Len));
-                     Fname := Name_Find;
-                  end if;
-
-                  Write_Info_Name (Fname);
-                  Write_Info_Tab (49);
-                  Write_Info_Name
-                    (Lib_File_Name (Fname, Munit_Index (Unum)));
+                  Write_With_File_Names (Fname, Munit_Index (Unum));
                end if;
 
                if Elab_Flags (Unum) then
@@ -1047,6 +1070,23 @@ package body Lib.Writ is
          Write_Info_Nat
            (Nat (Get_Logical_Line_Number
                    (Interrupt_States.Table (J).Pragma_Loc)));
+         Write_Info_EOL;
+      end loop;
+
+      --  Output priority specific dispatching lines
+
+      for J in Specific_Dispatching.First .. Specific_Dispatching.Last loop
+         Write_Info_Initiate ('S');
+         Write_Info_Char (' ');
+         Write_Info_Char (Specific_Dispatching.Table (J).Dispatching_Policy);
+         Write_Info_Char (' ');
+         Write_Info_Nat (Specific_Dispatching.Table (J).First_Priority);
+         Write_Info_Char (' ');
+         Write_Info_Nat (Specific_Dispatching.Table (J).Last_Priority);
+         Write_Info_Char (' ');
+         Write_Info_Nat
+           (Nat (Get_Logical_Line_Number
+                   (Specific_Dispatching.Table (J).Pragma_Loc)));
          Write_Info_EOL;
       end loop;
 

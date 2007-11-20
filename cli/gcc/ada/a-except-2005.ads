@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -65,9 +65,13 @@ package Ada.Exceptions is
    --  pragma, which is fine for the bootstrap.
 
    type Exception_Id is private;
+   pragma Preelaborable_Initialization (Exception_Id);
+
    Null_Id : constant Exception_Id;
 
    type Exception_Occurrence is limited private;
+   pragma Preelaborable_Initialization (Exception_Occurrence);
+
    type Exception_Occurrence_Access is access all Exception_Occurrence;
 
    Null_Occurrence : constant Exception_Occurrence;
@@ -134,6 +138,23 @@ package Ada.Exceptions is
    function Save_Occurrence
      (Source : Exception_Occurrence)
       return   Exception_Occurrence_Access;
+
+   --  Ada 2005 (AI-438): The language revision introduces the
+   --  following subprograms and attribute definitions. We do not
+   --  provide them explicitly; instead, the corresponding stream
+   --  attributes are made available through a pragma Stream_Convert
+   --  in the private part of this package.
+
+   --  procedure Read_Exception_Occurrence
+   --    (Stream : not null access Ada.Streams.Root_Stream_Type'Class;
+   --     Item   : out Exception_Occurrence);
+
+   --  procedure Write_Exception_Occurrence
+   --    (Stream : not null access Ada.Streams.Root_Stream_Type'Class;
+   --     Item   : Exception_Occurrence);
+
+   --  for Exception_Occurrence'Read use Read_Exception_Occurrence;
+   --  for Exception_Occurrence'Write use Write_Exception_Occurrence;
 
 private
    package SSL renames System.Standard_Library;
@@ -214,6 +235,12 @@ private
    --  systems where the right way to get out of signal handler is to alter the
    --  PC value in the machine state or in some other way ask the operating
    --  system to return here rather than to the original location.
+
+   procedure Raise_From_Controlled_Operation
+     (X : Ada.Exceptions.Exception_Occurrence);
+   pragma No_Return (Raise_From_Controlled_Operation);
+   --  Raise Program_Error, proviving information about X (an exception
+   --  raised during a controlled operation) in the exception message.
 
    procedure Reraise_Occurrence_Always (X : Exception_Occurrence);
    pragma No_Return (Reraise_Occurrence_Always);

@@ -9,6 +9,15 @@
    Software Foundation; either version 2, or (at your option) any later
    version.
 
+   In addition to the permissions in the GNU General Public License,
+   the Free Software Foundation gives you unlimited permission to link
+   the compiled version of this file into combinations with other
+   programs, and to distribute those combinations without any
+   restriction coming from the use of this file.  (The General Public
+   License restrictions do apply in other respects; for example, they
+   cover modification of the file, and distribution when not linked
+   into a combine executable.)
+
    GCC is distributed in the hope that it will be useful, but WITHOUT ANY
    WARRANTY; without even the implied warranty of MERCHANTABILITY or
    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
@@ -130,43 +139,46 @@ typedef struct
 
   /* Conversions */
 decNumber *decNumberFromString (decNumber *, const char *, decContext *);
-char *decNumberToString (decNumber *, char *);
-char *decNumberToEngString (decNumber *, char *);
+char *decNumberToString (const decNumber *, char *);
+char *decNumberToEngString (const decNumber *, char *);
 
   /* Operators */
-decNumber *decNumberAbs (decNumber *, decNumber *, decContext *);
-decNumber *decNumberAdd (decNumber *, decNumber *, decNumber *, decContext *);
-decNumber *decNumberCompare (decNumber *, decNumber *, decNumber *,
-			     decContext *);
-decNumber *decNumberDivide (decNumber *, decNumber *, decNumber *,
-			    decContext *);
-decNumber *decNumberDivideInteger (decNumber *, decNumber *, decNumber *,
-				   decContext *);
-decNumber *decNumberMax (decNumber *, decNumber *, decNumber *, decContext *);
-decNumber *decNumberMin (decNumber *, decNumber *, decNumber *, decContext *);
-decNumber *decNumberMinus (decNumber *, decNumber *, decContext *);
-decNumber *decNumberMultiply (decNumber *, decNumber *, decNumber *,
-			      decContext *);
-decNumber *decNumberNormalize (decNumber *, decNumber *, decContext *);
-decNumber *decNumberPlus (decNumber *, decNumber *, decContext *);
-decNumber *decNumberPower (decNumber *, decNumber *, decNumber *,
-			   decContext *);
-decNumber *decNumberQuantize (decNumber *, decNumber *, decNumber *,
-			      decContext *);
-decNumber *decNumberRemainder (decNumber *, decNumber *, decNumber *,
-			       decContext *);
-decNumber *decNumberRemainderNear (decNumber *, decNumber *, decNumber *,
-				   decContext *);
-decNumber *decNumberRescale (decNumber *, decNumber *, decNumber *,
-			     decContext *);
-decNumber *decNumberSameQuantum (decNumber *, decNumber *, decNumber *);
-decNumber *decNumberSquareRoot (decNumber *, decNumber *, decContext *);
-decNumber *decNumberSubtract (decNumber *, decNumber *, decNumber *,
-			      decContext *);
-decNumber *decNumberToIntegralValue (decNumber *, decNumber *, decContext *);
+decNumber *decNumberAbs (decNumber *, const decNumber *, decContext *);
+decNumber *decNumberAdd (decNumber *, const decNumber *,
+			 const decNumber *, decContext *);
+decNumber *decNumberCompare (decNumber *, const decNumber *,
+			     const decNumber *, decContext *);
+decNumber *decNumberDivide (decNumber *, const decNumber *,
+			    const decNumber *, decContext *);
+decNumber *decNumberDivideInteger (decNumber *, const decNumber *,
+				   const decNumber *, decContext *);
+decNumber *decNumberMax (decNumber *, const decNumber *,
+			 const decNumber *, decContext *);
+decNumber *decNumberMin (decNumber *, const decNumber *,
+			 const decNumber *, decContext *);
+decNumber *decNumberMinus (decNumber *, const decNumber *, decContext *);
+decNumber *decNumberMultiply (decNumber *, const decNumber *,
+			      const decNumber *, decContext *);
+decNumber *decNumberNormalize (decNumber *, const decNumber *, decContext *);
+decNumber *decNumberPlus (decNumber *, const decNumber *, decContext *);
+decNumber *decNumberPower (decNumber *, const decNumber *,
+			   const decNumber *, decContext *);
+decNumber *decNumberQuantize (decNumber *, const decNumber *,
+			      const decNumber *, decContext *);
+decNumber *decNumberRemainder (decNumber *, const decNumber *,
+			       const decNumber *, decContext *);
+decNumber *decNumberRemainderNear (decNumber *, const decNumber *,
+				   const decNumber *, decContext *);
+decNumber *decNumberRescale (decNumber *, const decNumber *,
+			     const decNumber *, decContext *);
+decNumber *decNumberSameQuantum (decNumber *, const decNumber *, const decNumber *);
+decNumber *decNumberSquareRoot (decNumber *, const decNumber *, decContext *);
+decNumber *decNumberSubtract (decNumber *, const decNumber *,
+			      const decNumber *, decContext *);
+decNumber *decNumberToIntegralValue (decNumber *, const decNumber *, decContext *);
 
   /* Utilities */
-decNumber *decNumberCopy (decNumber *, decNumber *);
+decNumber *decNumberCopy (decNumber *, const decNumber *);
 decNumber *decNumberTrim (decNumber *);
 const char *decNumberVersion (void);
 decNumber *decNumberZero (decNumber *);

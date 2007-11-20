@@ -58,15 +58,20 @@ final class RETokenChar extends REToken {
   }
   
     REMatch matchThis(CharIndexed input, REMatch mymatch) {
-	int z = ch.length;
 	if (matchOneString(input, mymatch.index)) {
-	    mymatch.index += z;
+	    mymatch.index += matchedLength;
 	    return mymatch;
 	}
+	// java.util.regex.Matcher#hitEnd() requires that the length of
+	// partial match be counted.
+	mymatch.index += matchedLength;
+	input.setHitEnd(mymatch);
 	return null;
     }
 
-    boolean matchOneString(CharIndexed input, int index) {
+    private int matchedLength;
+    private boolean matchOneString(CharIndexed input, int index) {
+        matchedLength = 0;
 	int z = ch.length;
 	char c;
 	for (int i=0; i<z; i++) {
@@ -74,6 +79,7 @@ final class RETokenChar extends REToken {
 	    if (! charEquals(c, ch[i])) {
 		return false;
 	    }
+	    ++matchedLength;
 	}
 	return true;
     }
@@ -107,7 +113,6 @@ final class RETokenChar extends REToken {
   boolean chain(REToken next) {
     if (next instanceof RETokenChar && ((RETokenChar)next).insens == insens) {
       RETokenChar cnext = (RETokenChar) next;
-      // assume for now that next can only be one character
       int newsize = ch.length + cnext.ch.length;
       
       char[] chTemp = new char [newsize];
@@ -116,7 +121,9 @@ final class RETokenChar extends REToken {
       System.arraycopy(cnext.ch,0,chTemp,ch.length,cnext.ch.length);
       
       ch = chTemp;
-      return false;
+      if (cnext.next == null)
+        return false;
+      return chain(cnext.next);
     } else return super.chain(next);
   }
 

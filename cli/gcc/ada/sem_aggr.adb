@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -33,13 +33,16 @@ with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
 with Itypes;   use Itypes;
+with Lib;      use Lib;
 with Lib.Xref; use Lib.Xref;
 with Namet;    use Namet;
 with Nmake;    use Nmake;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
+with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Cat;  use Sem_Cat;
+with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Eval; use Sem_Eval;
@@ -123,7 +126,7 @@ package body Sem_Aggr is
    --  subtree transformation is performed during resolution rather than
    --  expansion. Had we decided otherwise we would have had to duplicate most
    --  of the code in the expansion procedure Expand_Record_Aggregate. Note,
-   --  however, that all the expansion concerning aggegates for tagged records
+   --  however, that all the expansion concerning aggregates for tagged records
    --  is done in Expand_Record_Aggregate.
    --
    --  The algorithm of Resolve_Record_Aggregate proceeds as follows:
@@ -176,7 +179,7 @@ package body Sem_Aggr is
    --     should we not find such values or should they be duplicated.
    --
    --  7. We then make sure no illegal component names appear in the
-   --     record aggegate and make sure that the type of the record
+   --     record aggregate and make sure that the type of the record
    --     components appearing in a same choice list is the same.
    --     Finally we ensure that the others choice, if present, is
    --     used to provide the value of at least a record component.
@@ -351,7 +354,7 @@ package body Sem_Aggr is
    --  those defined by the aggregate. When this routine is invoked
    --  Resolve_Array_Aggregate has already processed aggregate N. Thus the
    --  Aggregate_Bounds of each sub-aggregate, is an N_Range node giving the
-   --  sub-aggregate bounds. When building the aggegate itype, this function
+   --  sub-aggregate bounds. When building the aggregate itype, this function
    --  traverses the array aggregate N collecting such Aggregate_Bounds and
    --  constructs the proper array aggregate itype.
    --
@@ -450,8 +453,12 @@ package body Sem_Aggr is
             Apply_Scalar_Range_Check (Exp, Check_Typ);
          end if;
 
+      --  Verify that target type is also scalar, to prevent view anomalies
+      --  in instantiations.
+
       elsif (Is_Scalar_Type (Exp_Typ)
-             or else Nkind (Exp) = N_String_Literal)
+              or else Nkind (Exp) = N_String_Literal)
+        and then Is_Scalar_Type (Check_Typ)
         and then Exp_Typ /= Check_Typ
       then
          if Is_Entity_Name (Exp)
@@ -677,15 +684,32 @@ package body Sem_Aggr is
       Set_Is_Internal    (Itype, True);
       Init_Size_Align    (Itype);
 
+      --  Handle aggregate initializing statically allocated dispatch table
+
+      if Static_Dispatch_Tables
+        and then VM_Target = No_VM
+        and then RTU_Loaded (Ada_Tags)
+
+         --  Avoid circularity when rebuilding the compiler
+
+        and then Cunit_Entity (Get_Source_Unit (N)) /= RTU_Entity (Ada_Tags)
+        and then (Etype (N) = RTE (RE_Address_Array)
+                    or else
+                  Base_Type (Etype (N)) = RTE (RE_Tag_Table))
+      then
+         Set_Size_Known_At_Compile_Time (Itype);
+
       --  A simple optimization: purely positional aggregates of static
       --  components should be passed to gigi unexpanded whenever possible,
       --  and regardless of the staticness of the bounds themselves. Subse-
       --  quent checks in exp_aggr verify that type is not packed, etc.
 
-      Set_Size_Known_At_Compile_Time (Itype,
-         Is_Fully_Positional
-           and then Comes_From_Source (N)
-           and then Size_Known_At_Compile_Time (Component_Type (Typ)));
+      else
+         Set_Size_Known_At_Compile_Time (Itype,
+            Is_Fully_Positional
+              and then Comes_From_Source (N)
+              and then Size_Known_At_Compile_Time (Component_Type (Typ)));
+      end if;
 
       --  We always need a freeze node for a packed array subtype, so that
       --  we can build the Packed_Array_Type corresponding to the subtype.
@@ -781,19 +805,6 @@ package body Sem_Aggr is
          return;
 
       elsif Nkind (V) /= N_Integer_Literal then
-         return;
-
-      elsif Is_Access_Type (Etype (Disc)) then
-         null;
-
-      --  If the bounds of the discriminant type are not compile time known,
-      --  the back-end will treat this as a variable-size object.
-
-      elsif not
-        (Compile_Time_Known_Value (Type_Low_Bound  (Etype (Disc)))
-           and then
-         Compile_Time_Known_Value (Type_High_Bound (Etype (Disc))))
-      then
          return;
       end if;
 
@@ -899,15 +910,9 @@ package body Sem_Aggr is
          Error_Msg_CRT ("aggregate", N);
       end if;
 
-      if Is_Limited_Composite (Typ) then
-         Error_Msg_N ("aggregate type cannot have limited component", N);
-         Explain_Limited_Type (Typ, N);
-
       --  Ada 2005 (AI-287): Limited aggregates allowed
 
-      elsif Is_Limited_Type (Typ)
-        and Ada_Version < Ada_05
-      then
+      if Is_Limited_Type (Typ) and then Ada_Version < Ada_05 then
          Error_Msg_N ("aggregate type cannot be limited", N);
          Explain_Limited_Type (Typ, N);
 
@@ -1481,14 +1486,14 @@ package body Sem_Aggr is
 
       Aggr_Low  : Node_Id := Empty;
       Aggr_High : Node_Id := Empty;
-      --  The actual low and high bounds of this sub-aggegate
+      --  The actual low and high bounds of this sub-aggregate
 
       Choices_Low  : Node_Id := Empty;
       Choices_High : Node_Id := Empty;
       --  The lowest and highest discrete choices values for a named aggregate
 
       Nb_Elements : Uint := Uint_0;
-      --  The number of elements in a positional aggegate
+      --  The number of elements in a positional aggregate
 
       Others_Present : Boolean := False;
 
@@ -2114,7 +2119,7 @@ package body Sem_Aggr is
          end if;
 
       else
-         Error_Msg_N (" No unique type for this aggregate",  A);
+         Error_Msg_N ("no unique type for this aggregate",  A);
       end if;
    end Resolve_Extension_Aggregate;
 
@@ -2329,40 +2334,6 @@ package body Sem_Aggr is
          Expr          : Node_Id := Empty;
          Selector_Name : Node_Id;
 
-         procedure Check_Non_Limited_Type;
-         --  Relax check to allow the default initialization of limited types.
-         --  For example:
-         --      record
-         --         C : Lim := (..., others => <>);
-         --      end record;
-
-         ----------------------------
-         -- Check_Non_Limited_Type --
-         ----------------------------
-
-         procedure Check_Non_Limited_Type is
-         begin
-            if Is_Limited_Type (Etype (Compon))
-               and then Comes_From_Source (Compon)
-               and then not In_Instance_Body
-            then
-               --  Ada 2005 (AI-287): Limited aggregates are allowed
-
-               if Ada_Version >= Ada_05
-                 and then Present (Expression (Assoc))
-                 and then Nkind (Expression (Assoc)) = N_Aggregate
-               then
-                  null;
-               else
-                  Error_Msg_N
-                    ("initialization not allowed for limited types", N);
-                  Explain_Limited_Type (Etype (Compon), Compon);
-               end if;
-            end if;
-         end Check_Non_Limited_Type;
-
-      --  Start of processing for Get_Value
-
       begin
          Is_Box_Present := False;
 
@@ -2387,21 +2358,25 @@ package body Sem_Aggr is
 
                      --  Ada 2005 (AI-287): In case of default initialization
                      --  of components, we duplicate the corresponding default
-                     --  expression (from the record type declaration).
+                     --  expression (from the record type declaration). The
+                     --  copy must carry the sloc of the association (not the
+                     --  original expression) to prevent spurious elaboration
+                     --  checks when the default includes function calls.
 
                      if Box_Present (Assoc) then
                         Others_Box     := True;
                         Is_Box_Present := True;
 
                         if Expander_Active then
-                           return New_Copy_Tree (Expression (Parent (Compon)));
+                           return
+                             New_Copy_Tree
+                               (Expression (Parent (Compon)),
+                                New_Sloc => Sloc (Assoc));
                         else
                            return Expression (Parent (Compon));
                         end if;
 
                      else
-                        Check_Non_Limited_Type;
-
                         if Present (Others_Etype) and then
                            Base_Type (Others_Etype) /= Base_Type (Etype
                                                                    (Compon))
@@ -2441,18 +2416,17 @@ package body Sem_Aggr is
                         Is_Box_Present := True;
 
                         --  Duplicate the default expression of the component
-                        --  from the record type declaration
+                        --  from the record type declaration, so a new copy
+                        --  can be attached to the association.
 
-                        if Present (Next (Selector_Name)) then
-                           Expr :=
-                             New_Copy_Tree (Expression (Parent (Compon)));
-                        else
-                           Expr := Expression (Parent (Compon));
-                        end if;
+                        --  Note that we always copy the default expression,
+                        --  even when the association has a single choice, in
+                        --  order to create a proper association for the
+                        --  expanded aggregate.
+
+                        Expr := New_Copy_Tree (Expression (Parent (Compon)));
 
                      else
-                        Check_Non_Limited_Type;
-
                         if Present (Next (Selector_Name)) then
                            Expr := New_Copy_Tree (Expression (Assoc));
                         else
@@ -2478,6 +2452,31 @@ package body Sem_Aggr is
 
          return Expr;
       end Get_Value;
+
+      procedure Check_Non_Limited_Type (Expr : Node_Id);
+      --  Relax check to allow the default initialization of limited types.
+      --  For example:
+      --      record
+      --         C : Lim := (..., others => <>);
+      --      end record;
+
+      ----------------------------
+      -- Check_Non_Limited_Type --
+      ----------------------------
+
+      procedure Check_Non_Limited_Type (Expr : Node_Id) is
+      begin
+         if Is_Limited_Type (Etype (Expr))
+            and then Comes_From_Source (Expr)
+            and then not In_Instance_Body
+         then
+            if not OK_For_Limited_Init (Expr) then
+               Error_Msg_N
+                 ("initialization not allowed for limited types", N);
+               Explain_Limited_Type (Etype (Expr), Expr);
+            end if;
+         end if;
+      end Check_Non_Limited_Type;
 
       -----------------------
       -- Resolve_Aggr_Expr --
@@ -2602,6 +2601,7 @@ package body Sem_Aggr is
          end if;
 
          Analyze_And_Resolve (Expr, Expr_Type);
+         Check_Non_Limited_Type (Expr);
          Check_Non_Static_Context (Expr);
          Check_Unset_Reference (Expr);
 
@@ -2632,7 +2632,7 @@ package body Sem_Aggr is
 
       --  STEP 1: abstract type and null record verification
 
-      if Is_Abstract (Typ) then
+      if Is_Abstract_Type (Typ) then
          Error_Msg_N ("type of aggregate cannot be abstract",  N);
       end if;
 
@@ -3016,15 +3016,94 @@ package body Sem_Aggr is
                   Ctyp := Etype (Component);
                end if;
 
+               --  If there is a default expression for the aggregate, copy
+               --  it into a new association.
+
                --  If the component has an initialization procedure (IP) we
                --  pass the component to the expander, which will generate
                --  the call to such IP.
 
-               if Has_Non_Null_Base_Init_Proc (Ctyp) then
+               --  If the component has discriminants, their values must
+               --  be taken from their subtype. This is indispensable for
+               --  constraints that are given by the current instance of an
+               --  enclosing type, to allow the expansion of the aggregate
+               --  to replace the reference to the current instance by the
+               --  target object of the aggregate.
+
+               if Present (Parent (Component))
+                 and then
+                   Nkind (Parent (Component)) = N_Component_Declaration
+                 and then Present (Expression (Parent (Component)))
+               then
+                  Expr :=
+                    New_Copy_Tree (Expression (Parent (Component)),
+                      New_Sloc => Sloc (N));
+
                   Add_Association
-                    (Component      => Component,
-                     Expr           => Empty,
-                     Is_Box_Present => True);
+                    (Component => Component,
+                     Expr      => Expr);
+                  Set_Has_Self_Reference (N);
+
+               elsif Has_Non_Null_Base_Init_Proc (Ctyp)
+                 or else not Expander_Active
+               then
+                  if Is_Record_Type (Ctyp)
+                    and then Has_Discriminants (Ctyp)
+                  then
+                     --  We build a partially initialized aggregate with the
+                     --  values of the discriminants and box initialization
+                     --  for the rest.
+
+                     declare
+                        Loc        : constant Source_Ptr := Sloc (N);
+                        Discr_Elmt : Elmt_Id;
+                        Discr_Val  : Node_Id;
+                        Expr       : Node_Id;
+
+                     begin
+                        Expr := Make_Aggregate (Loc, New_List, New_List);
+
+                        Discr_Elmt :=
+                          First_Elmt (Discriminant_Constraint (Ctyp));
+                        while Present (Discr_Elmt) loop
+                           Discr_Val := Node (Discr_Elmt);
+                           Append
+                             (New_Copy_Tree (Discr_Val), Expressions (Expr));
+
+                           --  If the discriminant constraint is a current
+                           --  instance, mark the current aggregate so that
+                           --  the self-reference can be expanded later.
+
+                           if Nkind (Discr_Val) = N_Attribute_Reference
+                             and then Is_Entity_Name (Prefix (Discr_Val))
+                             and then Is_Type (Entity (Prefix (Discr_Val)))
+                             and then Etype (N) = Entity (Prefix (Discr_Val))
+                           then
+                              Set_Has_Self_Reference (N);
+                           end if;
+
+                           Next_Elmt (Discr_Elmt);
+                        end loop;
+
+                        Append
+                          (Make_Component_Association (Loc,
+                             Choices     =>
+                               New_List (Make_Others_Choice (Loc)),
+                             Expression  => Empty,
+                             Box_Present => True),
+                           Component_Associations (Expr));
+
+                        Add_Association
+                          (Component      => Component,
+                           Expr           => Expr);
+                     end;
+
+                  else
+                     Add_Association
+                       (Component      => Component,
+                        Expr           => Empty,
+                        Is_Box_Present => True);
+                  end if;
 
                --  Otherwise we only need to resolve the expression if the
                --  component has partially initialized values (required to
@@ -3043,7 +3122,16 @@ package body Sem_Aggr is
             end;
 
          elsif No (Expr) then
-            Error_Msg_NE ("no value supplied for component &!", N, Component);
+
+            --  Ignore hidden components associated with the position of the
+            --  interface tags: these are initialized dynamically.
+
+            if Present (Related_Interface (Component)) then
+               null;
+            else
+               Error_Msg_NE
+                 ("no value supplied for component &!", N, Component);
+            end if;
 
          else
             Resolve_Aggr_Expr (Expr, Component);
@@ -3095,12 +3183,34 @@ package body Sem_Aggr is
                end loop;
 
                --  If no association, this is not a legal component of
-               --  of the type in question,  except if this is an internal
-               --  component supplied by a previous expansion.
+               --  of the type in question, except if its association
+               --  is provided with a box.
 
                if No (New_Assoc) then
                   if Box_Present (Parent (Selectr)) then
-                     null;
+
+                     --  This may still be a bogus component with a box. Scan
+                     --  list of components to verify that a component with
+                     --  that name exists.
+
+                     declare
+                        C : Entity_Id;
+
+                     begin
+                        C := First_Component (Typ);
+                        while Present (C) loop
+                           if Chars (C) = Chars (Selectr) then
+                              exit;
+                           end if;
+
+                           Next_Component (C);
+                        end loop;
+
+                        if No (C) then
+                           Error_Msg_Node_2 := Typ;
+                           Error_Msg_N ("& is not a component of}", Selectr);
+                        end if;
+                     end;
 
                   elsif Chars (Selectr) /= Name_uTag
                     and then Chars (Selectr) /= Name_uParent
@@ -3108,9 +3218,7 @@ package body Sem_Aggr is
                   then
                      if not Has_Discriminants (Typ) then
                         Error_Msg_Node_2 := Typ;
-                        Error_Msg_N
-                          ("& is not a component of}",
-                            Selectr);
+                        Error_Msg_N ("& is not a component of}", Selectr);
                      else
                         Error_Msg_N
                           ("& is not a component of the aggregate subtype",

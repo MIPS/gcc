@@ -1,6 +1,6 @@
 /* Software floating-point emulation.
    Basic four-word fraction declaration and manipulation.
-   Copyright (C) 1997,1998,1999,2006 Free Software Foundation, Inc.
+   Copyright (C) 1997,1998,1999,2006,2007 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
    Contributed by Richard Henderson (rth@cygnus.com),
 		  Jakub Jelinek (jj@ultra.linux.cz),
@@ -564,7 +564,7 @@
     r1 = x1 - y1;						\
     _c2 = r1 > x1;						\
     r1 -= _c1;							\
-    _c2 |= r1 > _c1;						\
+    _c2 |= _c1 && (y1 == x1);					\
     r2 = x2 - y2 - _c2;						\
   } while (0)
 #endif
@@ -578,11 +578,11 @@
     r1 = x1 - y1;						\
     _c2 = r1 > x1;						\
     r1 -= _c1;							\
-    _c2 |= r1 > _c1;						\
+    _c2 |= _c1 && (y1 == x1);					\
     r2 = x2 - y2;						\
     _c3 = r2 > x2;						\
     r2 -= _c2;							\
-    _c3 |= r2 > _c2;						\
+    _c3 |= _c2 && (y2 == x2);					\
     r3 = x3 - y3 - _c3;						\
   } while (0)
 #endif
@@ -684,3 +684,5 @@ do {						\
   D##_f[1] = S##_f1;				\
   D##_f[2] = D##_f[3] = 0;			\
 } while (0)
+
+#define _FP_FRAC_COPY_4_4(D,S)	_FP_FRAC_COPY_4(D,S)

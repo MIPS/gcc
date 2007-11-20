@@ -27,6 +27,10 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file os_defines.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
 
 #ifndef _GLIBCXX_OS_DEFINES
 #  define _GLIBCXX_OS_DEFINES
@@ -41,7 +45,7 @@
 #endif
 
 // Don't let win32api windef.h define min and max as macros
-// if included after stl_algobase.h. 
+// if included after c++config.h.
 #undef NOMINMAX
 #define NOMINMAX 1
 

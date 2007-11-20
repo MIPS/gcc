@@ -1,6 +1,7 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -45,17 +46,9 @@
 
 #pragma GCC system_header
 
+#include <cxxabi-forced.h>
+
 _GLIBCXX_BEGIN_NAMESPACE(std)
-
-  template<typename _Type>
-    inline bool
-    __is_null_pointer(_Type* __ptr)
-    { return __ptr == 0; }
-
-  template<typename _Type>
-    inline bool
-    __is_null_pointer(_Type)
-    { return false; }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     const typename basic_string<_CharT, _Traits, _Alloc>::size_type
@@ -141,7 +134,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  return _S_empty_rep()._M_refdata();
 #endif
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__is_null_pointer(__beg) && __beg != __end, 0))
+	if (__builtin_expect(__gnu_cxx::__is_null_pointer(__beg)
+			     && __beg != __end, 0))
 	  __throw_logic_error(__N("basic_string::_S_construct NULL not valid"));
 
 	const size_type __dnew = static_cast<size_type>(std::distance(__beg,
@@ -588,6 +582,14 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       void* __place = _Raw_bytes_alloc(__alloc).allocate(__size);
       _Rep *__p = new (__place) _Rep;
       __p->_M_capacity = __capacity;
+      // ABI compatibility - 3.4.x set in _S_create both
+      // _M_refcount and _M_length.  All callers of _S_create
+      // in basic_string.tcc then set just _M_length.
+      // In 4.0.x and later both _M_refcount and _M_length
+      // are initialized in the callers, unfortunately we can
+      // have 3.4.x compiled code with _S_create callers inlined
+      // calling 4.0.x+ _S_create.
+      __p->_M_set_sharable();
       return __p;
     }
 
@@ -710,17 +712,21 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     find(const _CharT* __s, size_type __pos, size_type __n) const
     {
       __glibcxx_requires_string_len(__s, __n);
-      size_type __ret = npos;
       const size_type __size = this->size();
-      if (__pos + __n <= __size)
+      const _CharT* __data = _M_data();
+
+      if (__n == 0)
+	return __pos <= __size ? __pos : npos;
+
+      if (__n <= __size)
 	{
-	  const _CharT* __data = _M_data();
-	  const _CharT* __p = std::search(__data + __pos, __data + __size,
-					  __s, __s + __n, traits_type::eq);
-	  if (__p != __data + __size || __n == 0)
-	    __ret = __p - __data;
+	  for (; __pos <= __size - __n; ++__pos)
+	    if (traits_type::eq(__data[__pos], __s[0])
+		&& traits_type::compare(__data + __pos + 1,
+					__s + 1, __n - 1) == 0)
+	      return __pos;
 	}
-      return __ret;
+      return npos;
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -890,7 +896,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const size_type __len = std::min(__n, __osize);
       int __r = traits_type::compare(_M_data() + __pos, __str.data(), __len);
       if (!__r)
-	__r = __n - __osize;
+	__r = _S_compare(__n, __osize);
       return __r;
     }
 
@@ -908,7 +914,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       int __r = traits_type::compare(_M_data() + __pos1,
 				     __str.data() + __pos2, __len);
       if (!__r)
-	__r = __n1 - __n2;
+	__r = _S_compare(__n1, __n2);
       return __r;
     }
 
@@ -923,7 +929,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const size_type __len = std::min(__size, __osize);
       int __r = traits_type::compare(_M_data(), __s, __len);
       if (!__r)
-	__r = __size - __osize;
+	__r = _S_compare(__size, __osize);
       return __r;
     }
 
@@ -939,7 +945,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const size_type __len = std::min(__n1, __osize);
       int __r = traits_type::compare(_M_data() + __pos, __s, __len);
       if (!__r)
-	__r = __n1 - __osize;
+	__r = _S_compare(__n1, __osize);
       return __r;
     }
 
@@ -955,8 +961,144 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       const size_type __len = std::min(__n1, __n2);
       int __r = traits_type::compare(_M_data() + __pos, __s, __len);
       if (!__r)
-	__r = __n1 - __n2;
+	__r = _S_compare(__n1, __n2);
       return __r;
+    }
+
+  // 21.3.7.9 basic_string::getline and operators
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_istream<_CharT, _Traits>&
+    operator>>(basic_istream<_CharT, _Traits>& __in,
+	       basic_string<_CharT, _Traits, _Alloc>& __str)
+    {
+      typedef basic_istream<_CharT, _Traits>		__istream_type;
+      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
+      typedef typename __istream_type::ios_base         __ios_base;
+      typedef typename __istream_type::int_type		__int_type;
+      typedef typename __string_type::size_type		__size_type;
+      typedef ctype<_CharT>				__ctype_type;
+      typedef typename __ctype_type::ctype_base         __ctype_base;
+
+      __size_type __extracted = 0;
+      typename __ios_base::iostate __err = __ios_base::goodbit;
+      typename __istream_type::sentry __cerb(__in, false);
+      if (__cerb)
+	{
+	  try
+	    {
+	      // Avoid reallocation for common case.
+	      __str.erase();
+	      _CharT __buf[128];
+	      __size_type __len = 0;	      
+	      const streamsize __w = __in.width();
+	      const __size_type __n = __w > 0 ? static_cast<__size_type>(__w)
+		                              : __str.max_size();
+	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
+	      const __int_type __eof = _Traits::eof();
+	      __int_type __c = __in.rdbuf()->sgetc();
+
+	      while (__extracted < __n
+		     && !_Traits::eq_int_type(__c, __eof)
+		     && !__ct.is(__ctype_base::space,
+				 _Traits::to_char_type(__c)))
+		{
+		  if (__len == sizeof(__buf) / sizeof(_CharT))
+		    {
+		      __str.append(__buf, sizeof(__buf) / sizeof(_CharT));
+		      __len = 0;
+		    }
+		  __buf[__len++] = _Traits::to_char_type(__c);
+		  ++__extracted;
+		  __c = __in.rdbuf()->snextc();
+		}
+	      __str.append(__buf, __len);
+
+	      if (_Traits::eq_int_type(__c, __eof))
+		__err |= __ios_base::eofbit;
+	      __in.width(0);
+	    }
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __in._M_setstate(__ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  catch(...)
+	    {
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 91. Description of operator>> and getline() for string<>
+	      // might cause endless loop
+	      __in._M_setstate(__ios_base::badbit);
+	    }
+	}
+      // 211.  operator>>(istream&, string&) doesn't set failbit
+      if (!__extracted)
+	__err |= __ios_base::failbit;
+      if (__err)
+	__in.setstate(__err);
+      return __in;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_istream<_CharT, _Traits>&
+    getline(basic_istream<_CharT, _Traits>& __in,
+	    basic_string<_CharT, _Traits, _Alloc>& __str, _CharT __delim)
+    {
+      typedef basic_istream<_CharT, _Traits>		__istream_type;
+      typedef basic_string<_CharT, _Traits, _Alloc>	__string_type;
+      typedef typename __istream_type::ios_base         __ios_base;
+      typedef typename __istream_type::int_type		__int_type;
+      typedef typename __string_type::size_type		__size_type;
+
+      __size_type __extracted = 0;
+      const __size_type __n = __str.max_size();
+      typename __ios_base::iostate __err = __ios_base::goodbit;
+      typename __istream_type::sentry __cerb(__in, true);
+      if (__cerb)
+	{
+	  try
+	    {
+	      __str.erase();
+	      const __int_type __idelim = _Traits::to_int_type(__delim);
+	      const __int_type __eof = _Traits::eof();
+	      __int_type __c = __in.rdbuf()->sgetc();
+
+	      while (__extracted < __n
+		     && !_Traits::eq_int_type(__c, __eof)
+		     && !_Traits::eq_int_type(__c, __idelim))
+		{
+		  __str += _Traits::to_char_type(__c);
+		  ++__extracted;
+		  __c = __in.rdbuf()->snextc();
+		}
+
+	      if (_Traits::eq_int_type(__c, __eof))
+		__err |= __ios_base::eofbit;
+	      else if (_Traits::eq_int_type(__c, __idelim))
+		{
+		  ++__extracted;		  
+		  __in.rdbuf()->sbumpc();
+		}
+	      else
+		__err |= __ios_base::failbit;
+	    }
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      __in._M_setstate(__ios_base::badbit);
+	      __throw_exception_again;
+	    }
+	  catch(...)
+	    {
+	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	      // 91. Description of operator>> and getline() for string<>
+	      // might cause endless loop
+	      __in._M_setstate(__ios_base::badbit);
+	    }
+	}
+      if (!__extracted)
+	__err |= __ios_base::failbit;
+      if (__err)
+	__in.setstate(__err);
+      return __in;
     }
 
   // Inhibit implicit instantiations for required instantiations,

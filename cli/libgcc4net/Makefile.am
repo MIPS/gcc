@@ -22,7 +22,8 @@
 #    Roberto Costa
 #
 # Contact information at STMicroelectronics:
-# Roberto Costa <roberto.costa@st.com>
+# Andrea C. Ornstein    <andrea.ornstein@st.com>
+# Erven Rohou           <erven.rohou@st.com>
 
 
 AUTOMAKE_OPTIONS = 1.9.5 foreign
@@ -41,3 +42,9 @@ toollib2_SCRIPTS = gcc4net.dll
 
 gcc4net.dll: $(srcdir)/gcc4net.cs
 	$(MCS) $< -unsafe -target:library -out:$@
+
+# No install-html or install-pdf support in automake yet
+.PHONY: install-html install-pdf
+install-html:
+
+install-pdf:

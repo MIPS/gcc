@@ -26,7 +26,8 @@
 ;    Roberto Costa
 ;
 ; Contact information at STMicroelectronics:
-; Roberto Costa <roberto.costa@st.com>
+; Andrea C. Ornstein   <andrea.ornstein@st.com>
+; Erven Rohou          <erven.rohou@st.com>
 
 mopensystemc
 Target Undocumented Mask(OPENSYSTEMC)
@@ -55,6 +56,10 @@ Emits all external symbols as if defined in an assembly called ExternalAssembly
 memit-vcg
 Target Mask(EMIT_VCG)
 Emits the functions in VCG format
+
+memit-jit-compilation-hints
+Target Mask(EMIT_JIT_COMPILATION_HINTS)
+Emits compilation hints for a JIT encoded in custom attributes
 
 Wcil-missing-prototypes
 Target Var(warn_cil_missing_prototypes) Init(1)

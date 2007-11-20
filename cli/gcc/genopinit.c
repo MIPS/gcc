@@ -1,12 +1,12 @@
 /* Generate code to initialize optabs from machine description.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "bconfig.h"
@@ -85,6 +84,10 @@ static const char * const optabs[] =
   "smul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(mul$a$b3$)$N",
   "umul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(umul$a$b3$)$N",
   "usmul_widen_optab->handlers[$B].insn_code = CODE_FOR_$(usmul$a$b3$)$N",
+  "smadd_widen_optab->handlers[$B].insn_code = CODE_FOR_$(madd$a$b4$)$N",
+  "umadd_widen_optab->handlers[$B].insn_code = CODE_FOR_$(umadd$a$b4$)$N",
+  "smsub_widen_optab->handlers[$B].insn_code = CODE_FOR_$(msub$a$b4$)$N",
+  "umsub_widen_optab->handlers[$B].insn_code = CODE_FOR_$(umsub$a$b4$)$N",
   "sdiv_optab->handlers[$A].insn_code = CODE_FOR_$(div$a3$)",
   "sdivv_optab->handlers[$A].insn_code = CODE_FOR_$(div$V$I$a3$)",
   "udiv_optab->handlers[$A].insn_code = CODE_FOR_$(udiv$I$a3$)",
@@ -93,7 +96,7 @@ static const char * const optabs[] =
   "smod_optab->handlers[$A].insn_code = CODE_FOR_$(mod$a3$)",
   "umod_optab->handlers[$A].insn_code = CODE_FOR_$(umod$a3$)",
   "fmod_optab->handlers[$A].insn_code = CODE_FOR_$(fmod$a3$)",
-  "drem_optab->handlers[$A].insn_code = CODE_FOR_$(drem$a3$)",
+  "remainder_optab->handlers[$A].insn_code = CODE_FOR_$(remainder$a3$)",
   "ftrunc_optab->handlers[$A].insn_code = CODE_FOR_$(ftrunc$F$a2$)",
   "and_optab->handlers[$A].insn_code = CODE_FOR_$(and$a3$)",
   "ior_optab->handlers[$A].insn_code = CODE_FOR_$(ior$a3$)",
@@ -118,16 +121,19 @@ static const char * const optabs[] =
     abs_optab->handlers[$A].insn_code = CODE_FOR_$(abs$F$a2$)",
   "absv_optab->handlers[$A].insn_code = CODE_FOR_$(absv$I$a2$)",
   "copysign_optab->handlers[$A].insn_code = CODE_FOR_$(copysign$F$a3$)",
+  "signbit_optab->handlers[$A].insn_code = CODE_FOR_$(signbit$F$a2$)",
+  "isinf_optab->handlers[$A].insn_code = CODE_FOR_$(isinf$a2$)",
   "sqrt_optab->handlers[$A].insn_code = CODE_FOR_$(sqrt$a2$)",
   "floor_optab->handlers[$A].insn_code = CODE_FOR_$(floor$a2$)",
-  "lfloor_optab->handlers[$A].insn_code = CODE_FOR_$(lfloor$a2$)",
+  "lfloor_optab->handlers[$B][$A].insn_code = CODE_FOR_$(lfloor$F$a$I$b2$)",
   "ceil_optab->handlers[$A].insn_code = CODE_FOR_$(ceil$a2$)",
-  "lceil_optab->handlers[$A].insn_code = CODE_FOR_$(lceil$a2$)",
+  "lceil_optab->handlers[$B][$A].insn_code = CODE_FOR_$(lceil$F$a$I$b2$)",
   "round_optab->handlers[$A].insn_code = CODE_FOR_$(round$a2$)",
   "btrunc_optab->handlers[$A].insn_code = CODE_FOR_$(btrunc$a2$)",
   "nearbyint_optab->handlers[$A].insn_code = CODE_FOR_$(nearbyint$a2$)",
   "rint_optab->handlers[$A].insn_code = CODE_FOR_$(rint$a2$)",
-  "lrint_optab->handlers[$A].insn_code = CODE_FOR_$(lrint$a2$)",
+  "lrint_optab->handlers[$B][$A].insn_code = CODE_FOR_$(lrint$F$a$I$b2$)",
+  "lround_optab->handlers[$B][$A].insn_code = CODE_FOR_$(lround$F$a$I$b2$)",
   "sincos_optab->handlers[$A].insn_code = CODE_FOR_$(sincos$a3$)",
   "sin_optab->handlers[$A].insn_code = CODE_FOR_$(sin$a2$)",
   "asin_optab->handlers[$A].insn_code = CODE_FOR_$(asin$a2$)",
@@ -138,6 +144,7 @@ static const char * const optabs[] =
   "exp2_optab->handlers[$A].insn_code = CODE_FOR_$(exp2$a2$)",
   "expm1_optab->handlers[$A].insn_code = CODE_FOR_$(expm1$a2$)",
   "ldexp_optab->handlers[$A].insn_code = CODE_FOR_$(ldexp$a3$)",
+  "scalb_optab->handlers[$A].insn_code = CODE_FOR_$(scalb$a3$)",
   "logb_optab->handlers[$A].insn_code = CODE_FOR_$(logb$a2$)",
   "ilogb_optab->handlers[$A].insn_code = CODE_FOR_$(ilogb$a2$)",
   "log_optab->handlers[$A].insn_code = CODE_FOR_$(log$a2$)",
@@ -148,6 +155,7 @@ static const char * const optabs[] =
   "atan_optab->handlers[$A].insn_code = CODE_FOR_$(atan$a2$)",
   "strlen_optab->handlers[$A].insn_code = CODE_FOR_$(strlen$a$)",
   "one_cmpl_optab->handlers[$A].insn_code = CODE_FOR_$(one_cmpl$a2$)",
+  "bswap_optab->handlers[$A].insn_code = CODE_FOR_$(bswap$a2$)",
   "ffs_optab->handlers[$A].insn_code = CODE_FOR_$(ffs$a2$)",
   "clz_optab->handlers[$A].insn_code = CODE_FOR_$(clz$a2$)",
   "ctz_optab->handlers[$A].insn_code = CODE_FOR_$(ctz$a2$)",
@@ -156,6 +164,7 @@ static const char * const optabs[] =
   "mov_optab->handlers[$A].insn_code = CODE_FOR_$(mov$a$)",
   "movstrict_optab->handlers[$A].insn_code = CODE_FOR_$(movstrict$a$)",
   "movmisalign_optab->handlers[$A].insn_code = CODE_FOR_$(movmisalign$a$)",
+  "storent_optab->handlers[$A].insn_code = CODE_FOR_$(storent$a$)",
   "cmp_optab->handlers[$A].insn_code = CODE_FOR_$(cmp$a$)",
   "tst_optab->handlers[$A].insn_code = CODE_FOR_$(tst$a$)",
   "addcc_optab->handlers[$A].insn_code = CODE_FOR_$(add$acc$)",
@@ -197,6 +206,10 @@ static const char * const optabs[] =
   "sync_lock_release[$A] = CODE_FOR_$(sync_lock_release$I$a$)",
   "vec_set_optab->handlers[$A].insn_code = CODE_FOR_$(vec_set$a$)",
   "vec_extract_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract$a$)",
+  "vec_extract_even_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract_even$a$)",
+  "vec_extract_odd_optab->handlers[$A].insn_code = CODE_FOR_$(vec_extract_odd$a$)",
+  "vec_interleave_high_optab->handlers[$A].insn_code = CODE_FOR_$(vec_interleave_high$a$)",
+  "vec_interleave_low_optab->handlers[$A].insn_code = CODE_FOR_$(vec_interleave_low$a$)",
   "vec_init_optab->handlers[$A].insn_code = CODE_FOR_$(vec_init$a$)",
   "vec_shl_optab->handlers[$A].insn_code = CODE_FOR_$(vec_shl_$a$)",
   "vec_shr_optab->handlers[$A].insn_code = CODE_FOR_$(vec_shr_$a$)",
@@ -212,7 +225,24 @@ static const char * const optabs[] =
   "reduc_smin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_smin_$a$)",
   "reduc_umin_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_umin_$a$)",
   "reduc_splus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_splus_$a$)" ,
-  "reduc_uplus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_uplus_$a$)" 
+  "reduc_uplus_optab->handlers[$A].insn_code = CODE_FOR_$(reduc_uplus_$a$)",
+  "vec_widen_umult_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_widen_umult_hi_$a$)",
+  "vec_widen_umult_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_widen_umult_lo_$a$)",
+  "vec_widen_smult_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_widen_smult_hi_$a$)",
+  "vec_widen_smult_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_widen_smult_lo_$a$)",
+  "vec_unpacks_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacks_hi_$a$)",
+  "vec_unpacks_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacks_lo_$a$)",
+  "vec_unpacku_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_hi_$a$)",
+  "vec_unpacku_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_lo_$a$)",
+  "vec_unpacks_float_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacks_float_hi_$a$)",
+  "vec_unpacks_float_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacks_float_lo_$a$)",
+  "vec_unpacku_float_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_float_hi_$a$)",
+  "vec_unpacku_float_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_float_lo_$a$)",
+  "vec_pack_trunc_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_trunc_$a$)",
+  "vec_pack_ssat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_ssat_$a$)",
+  "vec_pack_usat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_usat_$a$)",
+  "vec_pack_sfix_trunc_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_sfix_trunc_$a$)",
+  "vec_pack_ufix_trunc_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_ufix_trunc_$a$)"
 };
 
 static void gen_insn (rtx);

@@ -53,7 +53,7 @@ package body Xref_Lib is
    --  the .ali files
 
    procedure Parse_EOL
-     (Source                 : access String;
+     (Source                 : not null access String;
       Ptr                    : in out Positive;
       Skip_Continuation_Line : Boolean := False);
    --  On return Source (Ptr) is the first character of the next line
@@ -98,7 +98,7 @@ package body Xref_Lib is
    --  The entity will never be reported as unreferenced by gnatxref -u
 
    procedure Parse_Token
-     (Source    : access String;
+     (Source    : not null access String;
       Ptr       : in out Positive;
       Token_Ptr : out Positive);
    --  Skips any separators and stores the start of the token in Token_Ptr.
@@ -107,7 +107,7 @@ package body Xref_Lib is
    --  and ASCII.HT. Parse_Token will never skip to the next line.
 
    procedure Parse_Number
-     (Source : access String;
+     (Source : not null access String;
       Ptr    : in out Positive;
       Number : out Natural);
    --  Skips any separators and parses Source upto the first character that
@@ -136,12 +136,14 @@ package body Xref_Lib is
       Entity  : String;
       Glob    : Boolean := False)
    is
-      File_Start  : Natural;
-      Line_Start  : Natural;
-      Col_Start   : Natural;
-      Line_Num    : Natural := 0;
-      Col_Num     : Natural := 0;
-      File_Ref    : File_Reference := Empty_File;
+      File_Start : Natural;
+      Line_Start : Natural;
+      Col_Start  : Natural;
+      Line_Num   : Natural := 0;
+      Col_Num    : Natural := 0;
+
+      File_Ref : File_Reference := Empty_File;
+      pragma Warnings (Off, File_Ref);
 
    begin
       --  Find the end of the first item in Entity (pattern or file?)
@@ -275,7 +277,9 @@ package body Xref_Lib is
         Add_To_Xref_File
           (Entity (File_Start .. Line_Start - 1), Visited => True);
       Pattern.File_Ref := File_Ref;
+
       Add_Line (Pattern.File_Ref, Line_Num, Col_Num);
+
       File_Ref :=
         Add_To_Xref_File
           (ALI_File_Name (Entity (File_Start .. Line_Start - 1)),
@@ -690,7 +694,7 @@ package body Xref_Lib is
    ---------------
 
    procedure Parse_EOL
-     (Source                 : access String;
+     (Source                 : not null access String;
       Ptr                    : in out Positive;
       Skip_Continuation_Line : Boolean := False)
    is
@@ -1139,7 +1143,7 @@ package body Xref_Lib is
    ------------------
 
    procedure Parse_Number
-     (Source : access String;
+     (Source : not null access String;
       Ptr    : in out Positive;
       Number : out Natural)
    is
@@ -1163,7 +1167,7 @@ package body Xref_Lib is
    -----------------
 
    procedure Parse_Token
-     (Source    : access String;
+     (Source    : not null access String;
       Ptr       : in out Positive;
       Token_Ptr : out Positive)
    is

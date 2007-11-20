@@ -23,6 +23,7 @@ Boston, MA 02110-1301, USA.  */
 /* Prototype function used in various macros.  */
 extern int symbolic_operand (rtx, enum machine_mode);
 extern int tls_symbolic_operand (rtx);
+extern rtx pa_eh_return_handler_rtx (void);
 
 /* Used in insn-*.c.  */
 extern int following_call (rtx);
@@ -133,7 +134,8 @@ extern int insn_refs_are_delayed (rtx);
 extern rtx get_deferred_plabel (rtx);
 #endif /* RTX_CODE */
 
-/* Prototype function used in macro CONST_OK_FOR_LETTER_P.  */
+extern int integer_store_memory_operand (rtx, enum machine_mode);
+extern int ldil_cint_p (HOST_WIDE_INT);
 extern int zdepi_cint_p (unsigned HOST_WIDE_INT);
 
 extern void override_options (void);
@@ -143,7 +145,6 @@ extern int and_mask_p (unsigned HOST_WIDE_INT);
 extern int cint_ok_for_move (HOST_WIDE_INT);
 extern void hppa_expand_prologue (void);
 extern void hppa_expand_epilogue (void);
-extern int hppa_can_use_return_insn_p (void);
 extern int ior_mask_p (unsigned HOST_WIDE_INT);
 extern void compute_zdepdi_operands (unsigned HOST_WIDE_INT,
 				     unsigned *);

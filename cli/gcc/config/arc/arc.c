@@ -1,7 +1,6 @@
 /* Subroutines used for code generation on the Argonaut ARC cpu.
-   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -262,7 +261,7 @@ arc_select_cc_mode (enum rtx_code op,
    indexed by hard register number, and one indexed by mode.  */
 
 /* The purpose of arc_mode_class is to shrink the range of modes so that
-   they all fit (as bit numbers) in a 32 bit word (again).  Each real mode is
+   they all fit (as bit numbers) in a 32-bit word (again).  Each real mode is
    mapped into one arc_mode_class mode.  */
 
 enum arc_mode_class {
@@ -479,7 +478,7 @@ long_immediate_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
     case CONST_INT :
       return !SMALL_INT (INTVAL (op));
     case CONST_DOUBLE :
-      /* These can happen because large unsigned 32 bit constants are
+      /* These can happen because large unsigned 32-bit constants are
 	 represented this way (the multiplication patterns can cause these
 	 to be generated).  They also occur for SFmode values.  */
       return 1;
@@ -516,7 +515,7 @@ long_immediate_loadstore_operand (rtx op,
 	 assume that it does.  */
       return 1;
     case CONST_DOUBLE :
-      /* These can happen because large unsigned 32 bit constants are
+      /* These can happen because large unsigned 32-bit constants are
 	 represented this way (the multiplication patterns can cause these
 	 to be generated).  They also occur for SFmode values.  */
       return 1;
@@ -550,10 +549,10 @@ move_src_operand (rtx op, enum machine_mode mode)
     case CONST_DOUBLE :
       /* We can handle DImode integer constants in SImode if the value
 	 (signed or unsigned) will fit in 32 bits.  This is needed because
-	 large unsigned 32 bit constants are represented as CONST_DOUBLEs.  */
+	 large unsigned 32-bit constants are represented as CONST_DOUBLEs.  */
       if (mode == SImode)
 	return arc_double_limm_p (op);
-      /* We can handle 32 bit floating point constants.  */
+      /* We can handle 32-bit floating point constants.  */
       if (mode == SFmode)
 	return GET_MODE (op) == SFmode;
       return 0;
@@ -1057,9 +1056,9 @@ arc_compute_function_type (tree decl)
    Don't consider them here.  */
 #define MUST_SAVE_REGISTER(regno, interrupt_p) \
 ((regno) != RETURN_ADDR_REGNUM && (regno) != FRAME_POINTER_REGNUM \
- && (regs_ever_live[regno] && (!call_used_regs[regno] || interrupt_p)))
+ && (df_regs_ever_live_p (regno) && (!call_used_regs[regno] || interrupt_p)))
 
-#define MUST_SAVE_RETURN_ADDR (regs_ever_live[RETURN_ADDR_REGNUM])
+#define MUST_SAVE_RETURN_ADDR (df_regs_ever_live_p (RETURN_ADDR_REGNUM))
 
 /* Return the bytes needed to compute the frame pointer from the current
    stack pointer.

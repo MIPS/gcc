@@ -19,6 +19,18 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
+
+
+/* Prototypes of functions used for constraint evaluation in 
+   constraints.c.  */
+
+extern int s390_mem_constraint (const char *str, rtx op);
+extern int s390_O_constraint_str (const char c, HOST_WIDE_INT value);
+extern int s390_N_constraint_str (const char *str, HOST_WIDE_INT value);
+extern int s390_float_const_zero_p (rtx value);
+
+
+
 /* Declare functions in s390.c.  */
 
 extern void optimization_options (int, int);
@@ -95,7 +107,6 @@ extern void print_operand (FILE *, rtx, int);
 extern void s390_output_pool_entry (rtx, enum machine_mode, unsigned int);
 extern void s390_trampoline_template (FILE *);
 extern void s390_initialize_trampoline (rtx, rtx, rtx);
-extern rtx s390_gen_rtx_const_DI (int, int);
 extern int s390_agen_dep_p (rtx, rtx);
 extern rtx s390_load_got (void);
 extern rtx s390_get_thread_pointer (void);

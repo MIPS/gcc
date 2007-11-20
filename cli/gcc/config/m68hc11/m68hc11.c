@@ -1,5 +1,5 @@
 /* Subroutines for code generation on Motorola 68HC11 and 68HC12.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Stephane Carrez (stcarrez@nerim.fr)
 
@@ -59,6 +59,7 @@ Note:
 #include "reload.h"
 #include "target.h"
 #include "target-def.h"
+#include "df.h"
 
 static void emit_move_after_reload (rtx, rtx, rtx);
 static rtx simplify_logical (enum machine_mode, int, rtx, rtx *);
@@ -382,9 +383,9 @@ create_regs_rtx (void)
 }
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
-    - 8 bit values are stored anywhere (except the SP register).
-    - 16 bit values can be stored in any register whose mode is 16
-    - 32 bit values can be stored in D, X registers or in a soft register
+    - 8-bit values are stored anywhere (except the SP register).
+    - 16-bit values can be stored in any register whose mode is 16
+    - 32-bit values can be stored in D, X registers or in a soft register
       (except the last one because we need 2 soft registers)
     - Values whose size is > 32 bit are not stored in real hard
       registers.  They may be stored in soft registers if there are
@@ -1336,7 +1337,7 @@ m68hc11_initial_elimination_offset (int from, int to)
   /* Push any 2 byte pseudo hard registers that we need to save.  */
   for (regno = SOFT_REG_FIRST; regno < SOFT_REG_LAST; regno++)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  size += 2;
 	}
@@ -1550,7 +1551,7 @@ m68hc11_total_frame_size (void)
     size += HARD_REG_SIZE;
 
   for (regno = SOFT_REG_FIRST; regno <= SOFT_REG_LAST; regno++)
-    if (regs_ever_live[regno] && !call_used_regs[regno])
+    if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
       size += HARD_REG_SIZE;
 
   return size;
@@ -1662,7 +1663,7 @@ expand_prologue (void)
   /* Push any 2 byte pseudo hard registers that we need to save.  */
   for (regno = SOFT_REG_FIRST; regno <= SOFT_REG_LAST; regno++)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  emit_move_after_reload (stack_push_word,
 				  gen_rtx_REG (HImode, regno), scratch);
@@ -1700,7 +1701,7 @@ expand_epilogue (void)
   /* Pop any 2 byte pseudo hard registers that we saved.  */
   for (regno = SOFT_REG_LAST; regno >= SOFT_REG_FIRST; regno--)
     {
-      if (regs_ever_live[regno] && !call_used_regs[regno])
+      if (df_regs_ever_live_p (regno) && !call_used_regs[regno])
 	{
 	  emit_move_after_reload (gen_rtx_REG (HImode, regno),
 				  stack_pop_word, scratch);
@@ -4247,9 +4248,7 @@ m68hc11_check_z_replacement (rtx insn, struct replace_info *info)
 		  info->must_restore_reg = 0;
 		  info->found_call = 1;
 		  info->can_use_d = 0;
-		  PUT_CODE (insn, NOTE);
-		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		  NOTE_SOURCE_FILE (insn) = 0;
+		  SET_INSN_DELETED (insn);
 		  info->last = NEXT_INSN (insn);
 		  return 0;
 		}
@@ -4330,9 +4329,7 @@ m68hc11_check_z_replacement (rtx insn, struct replace_info *info)
 		  info->must_restore_reg = 0;
 		  info->found_call = 1;
 		  info->can_use_d = 0;
-		  PUT_CODE (insn, NOTE);
-		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		  NOTE_SOURCE_FILE (insn) = 0;
+		  SET_INSN_DELETED (insn);
 		  info->last = NEXT_INSN (insn);
 		  return 0;
 		}
@@ -5008,7 +5005,7 @@ static void
 m68hc11_reorg (void)
 {
   int split_done = 0;
-  rtx insn, first;
+  rtx first;
 
   z_replacement_completed = 0;
   z_reg = gen_rtx_REG (HImode, HARD_Z_REGNUM);
@@ -5040,29 +5037,9 @@ m68hc11_reorg (void)
      description to use the best assembly directives.  */
   if (optimize)
     {
-      /* Before recomputing the REG_DEAD notes, remove all of them.
-         This is necessary because the reload_cse_regs() pass can
-         have replaced some (MEM) with a register.  In that case,
-         the REG_DEAD that could exist for that register may become
-         wrong.  */
-      for (insn = first; insn; insn = NEXT_INSN (insn))
-        {
-          if (INSN_P (insn))
-            {
-              rtx *pnote;
-
-              pnote = &REG_NOTES (insn);
-              while (*pnote != 0)
-                {
-                  if (REG_NOTE_KIND (*pnote) == REG_DEAD)
-                    *pnote = XEXP (*pnote, 1);
-                  else
-                    pnote = &XEXP (*pnote, 1);
-                }
-            }
-        }
-
-      life_analysis (PROP_REG_INFO | PROP_DEATH_NOTES);
+      df_note_add_problem ();
+      df_analyze ();
+      df_remove_problem (df_note);
     }
 
   z_replacement_completed = 2;
@@ -5098,9 +5075,7 @@ m68hc11_reorg (void)
 	if (GET_CODE (body) == SET
 	    && rtx_equal_p (SET_SRC (body), SET_DEST (body)))
 	  {
-	    PUT_CODE (insn, NOTE);
-	    NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-	    NOTE_SOURCE_FILE (insn) = 0;
+	    SET_INSN_DELETED  (insn);
 	    continue;
 	  }
       }

@@ -11,11 +11,13 @@
 #  XLDFLAGS		Add extra link flags to use.
 
 # Optimize TLS usage by avoiding the overhead of dynamic allocation.
-# This does require that the library be present during process 
-# startup, so mark the library as not to be dlopened.
-if test $have_tls = yes && test "$with_gnu_ld" = "yes"; then
+if test $have_tls = yes ; then
+  case "${target}" in
+
+    *-*-linux*)
 	XCFLAGS="${XCFLAGS} -ftls-model=initial-exec"
-	XLDFLAGS="${XLDFLAGS} -Wl,-z,nodlopen"
+	;;
+  esac
 fi
 
 # Since we require POSIX threads, assume a POSIX system by default.
@@ -44,9 +46,14 @@ if test $enable_linux_futex = yes; then
     # Note that bare i386 is not included here.  We need cmpxchg.
     i[456]86-*-linux*)
 	config_path="linux/x86 linux posix"
-	if test -z "$with_arch"; then
-	  XCFLAGS="${XCFLAGS} -march=i486 -mtune=${target_cpu}"
-	fi
+	case " ${CC} ${CFLAGS} " in
+	  *" -m64 "*)
+	    ;;
+	  *)
+	    if test -z "$with_arch"; then
+	      XCFLAGS="${XCFLAGS} -march=i486 -mtune=${target_cpu}"
+	    fi
+	esac
 	;;
 
     # Similar jiggery-pokery for x86_64 multilibs, except here we
@@ -93,6 +100,11 @@ case "${target}" in
 
   *-*-mingw32*)
 	config_path="mingw32 posix"
+	;;
+
+  *-*-solaris2.[56]*)
+	config_path="posix95 posix"
+	XLDFLAGS="${XLDFLAGS} -lposix4"
 	;;
 
   *)

@@ -55,7 +55,7 @@
 # endif
 
 /* And one for FreeBSD: */
-# if defined(__FreeBSD__) && !defined(FREEBSD)
+# if ( defined(__FreeBSD__) || defined(__FreeBSD_kernel__) ) && !defined(FREEBSD)
 #    define FREEBSD
 # endif
 
@@ -150,6 +150,11 @@
 # endif
 # if defined(sun) && (defined(i386) || defined(__i386__))
 #    define I386
+#    define SUNOS5
+#    define mach_type_known
+# endif
+# if defined(sun) && defined(__amd64)
+#    define X86_64
 #    define SUNOS5
 #    define mach_type_known
 # endif
@@ -302,9 +307,12 @@
 #   if defined(__ppc__)  || defined(__ppc64__)
 #    define POWERPC
 #    define mach_type_known
+#   elif defined(__x86_64__)
+#    define X86_64
+#    define mach_type_known
 #   elif defined(__i386__)
 #    define I386
-     --> Not really supported, but at least we recognize it.
+#    define mach_type_known
 #   endif
 # endif
 # if defined(NeXT) && defined(mc68000)
@@ -324,6 +332,10 @@
 # endif
 # if defined(FREEBSD) && (defined(i386) || defined(__i386__))
 #   define I386
+#   define mach_type_known
+# endif
+# if defined(FREEBSD) && defined(__x86_64__)
+#   define X86_64
 #   define mach_type_known
 # endif
 # if defined(__NetBSD__) && (defined(i386) || defined(__i386__))
@@ -665,10 +677,10 @@
 #   endif
 #   ifdef LINUX
 #       define OS_TYPE "LINUX"
-#       define STACKBOTTOM ((ptr_t)0xf0000000)
+#       define LINUX_STACKBOTTOM
 #       define USE_GENERIC_PUSH_REGS
 		/* We never got around to the assembly version. */
-/* #       define MPROTECT_VDB - Reported to not work  9/17/01 */
+#       define MPROTECT_VDB
 #       ifdef __ELF__
 #            define DYNAMIC_LOADING
 #	     include <features.h>
@@ -787,26 +799,29 @@
 #     define DATAEND (_end)
 #   endif
 #   ifdef DARWIN
-#     ifdef __ppc64__
-#       define ALIGNMENT 8
-#       define CPP_WORDSZ 64
-#     else
-#       define ALIGNMENT 4
-#     endif
 #     define OS_TYPE "DARWIN"
 #     define DYNAMIC_LOADING
+#     if defined(__ppc64__)
+#       define ALIGNMENT 8
+#       define CPP_WORDSZ 64
+#       define STACKBOTTOM ((ptr_t) 0x7fff5fc00000)
+#       define CACHE_LINE_SIZE 64
+#       ifndef HBLKSIZE
+#         define HBLKSIZE 4096
+#       endif
+#     else
+#       define ALIGNMENT 4
+#       define STACKBOTTOM ((ptr_t) 0xc0000000)
+#     endif
       /* XXX: see get_end(3), get_etext() and get_end() should not be used.
-         These aren't used when dyld support is enabled (it is by default) */
+	 These aren't used when dyld support is enabled (it is by default) */
 #     define DATASTART ((ptr_t) get_etext())
 #     define DATAEND	((ptr_t) get_end())
-#     define STACKBOTTOM ((ptr_t) 0xc0000000)
 #     define USE_MMAP
 #     define USE_MMAP_ANON
 #     define USE_ASM_PUSH_REGS
-      /* This is potentially buggy. It needs more testing. See the comments in
-         os_dep.c.  It relies on threads to track writes. */
 #     ifdef GC_DARWIN_THREADS
-/* #       define MPROTECT_VDB -- diabled for now.  May work for some apps. */
+#       define MPROTECT_VDB
 #     endif
 #     include <unistd.h>
 #     define GETPAGESIZE() getpagesize()
@@ -818,7 +833,7 @@
 	  __asm__ __volatile__ ("dcbtst 0,%0" : : "r" ((const void *) (x)))
 #     endif
       /* There seems to be some issues with trylock hanging on darwin. This
-         should be looked into some more */
+	 should be looked into some more */
 #     define NO_PTHREAD_TRYLOCK
 #   endif
 #   ifdef FREEBSD
@@ -1241,8 +1256,15 @@
 #	ifndef GC_FREEBSD_THREADS
 #	    define MPROTECT_VDB
 #	endif
-#	define SIG_SUSPEND SIGUSR1
-#	define SIG_THR_RESTART SIGUSR2
+#	ifdef __GLIBC__
+#	    define SIG_SUSPEND		(32+6)
+#	    define SIG_THR_RESTART	(32+5)
+	    extern int _end[];
+#	    define DATAEND (_end)
+#	else
+#	    define SIG_SUSPEND SIGUSR1
+#	    define SIG_THR_RESTART SIGUSR2
+#	endif
 #	define FREEBSD_STACKBOTTOM
 #	ifdef __ELF__
 #	    define DYNAMIC_LOADING
@@ -1301,6 +1323,27 @@
 /* #     define MPROTECT_VDB  Not quite working yet? */
 #     define DYNAMIC_LOADING
 #   endif
+#   ifdef DARWIN
+#     define OS_TYPE "DARWIN"
+#     define DARWIN_DONT_PARSE_STACK
+#     define DYNAMIC_LOADING
+      /* XXX: see get_end(3), get_etext() and get_end() should not be used.
+	 These aren't used when dyld support is enabled (it is by default) */
+#     define DATASTART ((ptr_t) get_etext())
+#     define DATAEND	((ptr_t) get_end())
+#     define STACKBOTTOM ((ptr_t) 0xc0000000)
+#     define USE_MMAP
+#     define USE_MMAP_ANON
+#     define USE_ASM_PUSH_REGS
+#     ifdef GC_DARWIN_THREADS
+#       define MPROTECT_VDB
+#     endif
+#     include <unistd.h>
+#     define GETPAGESIZE() getpagesize()
+      /* There seems to be some issues with trylock hanging on darwin. This
+	 should be looked into some more */
+#     define NO_PTHREAD_TRYLOCK
+#   endif /* DARWIN */
 # endif
 
 # ifdef NS32K
@@ -1952,6 +1995,48 @@
 #	    define PREFETCH_FOR_WRITE(x) __builtin_prefetch((x), 1)
 #	endif
 #   endif
+#   ifdef DARWIN
+#     define OS_TYPE "DARWIN"
+#     define DARWIN_DONT_PARSE_STACK
+#     define DYNAMIC_LOADING
+      /* XXX: see get_end(3), get_etext() and get_end() should not be used.
+	 These aren't used when dyld support is enabled (it is by default) */
+#     define DATASTART ((ptr_t) get_etext())
+#     define DATAEND	((ptr_t) get_end())
+#     define STACKBOTTOM ((ptr_t) 0x7fff5fc00000)
+#     define USE_MMAP
+#     define USE_MMAP_ANON
+#     ifdef GC_DARWIN_THREADS
+#       define MPROTECT_VDB
+#     endif
+#     include <unistd.h>
+#     define GETPAGESIZE() getpagesize()
+      /* There seems to be some issues with trylock hanging on darwin. This
+	 should be looked into some more */
+#     define NO_PTHREAD_TRYLOCK
+#   endif
+#   ifdef FREEBSD
+#	define OS_TYPE "FREEBSD"
+#	ifndef GC_FREEBSD_THREADS
+#	    define MPROTECT_VDB
+#	endif
+#	ifdef __GLIBC__
+#	    define SIG_SUSPEND		(32+6)
+#	    define SIG_THR_RESTART	(32+5)
+	    extern int _end[];
+#	    define DATAEND (_end)
+#	else
+#	    define SIG_SUSPEND SIGUSR1
+#	    define SIG_THR_RESTART SIGUSR2
+#	endif
+#	define FREEBSD_STACKBOTTOM
+#	ifdef __ELF__
+#	    define DYNAMIC_LOADING
+#	endif
+	extern char etext[];
+	extern char * GC_FreeBSDGetDataStart();
+#	define DATASTART GC_FreeBSDGetDataStart(0x1000, &etext)
+#   endif
 #   ifdef NETBSD
 #	define OS_TYPE "NETBSD"
 #	ifdef __ELF__
@@ -1960,6 +2045,36 @@
 #	define HEURISTIC2
 	extern char etext[];
 #	define SEARCH_FOR_DATA_START
+#   endif
+#   ifdef SUNOS5
+#	define ELF_CLASS ELFCLASS64
+#	define OS_TYPE "SUNOS5"
+        extern int _etext[], _end[];
+  	extern ptr_t GC_SysVGetDataStart();
+#       define DATASTART GC_SysVGetDataStart(0x1000, _etext)
+#	define DATAEND (_end)
+/*	# define STACKBOTTOM ((ptr_t)(_start)) worked through 2.7,  	*/
+/*      but reportedly breaks under 2.8.  It appears that the stack	*/
+/* 	base is a property of the executable, so this should not break	*/
+/* 	old executables.						*/
+/*  	HEURISTIC2 probably works, but this appears to be preferable.	*/
+/* #       include <sys/vm.h> */
+/* #	define STACKBOTTOM USRSTACK */
+#	define HEURISTIC2
+#	define PROC_VDB
+#	define DYNAMIC_LOADING
+#	if !defined(USE_MMAP) && defined(REDIRECT_MALLOC)
+#	    define USE_MMAP
+	    /* Otherwise we now use calloc.  Mmap may result in the	*/
+	    /* heap interleaved with thread stacks, which can result in	*/
+	    /* excessive blacklisting.  Sbrk is unusable since it	*/
+	    /* doesn't interact correctly with the system malloc.	*/
+#	endif
+#       ifdef USE_MMAP
+#         define HEAP_START (ptr_t)0x40000000
+#       else
+#	  define HEAP_START DATAEND
+#       endif
 #   endif
 # endif
 
@@ -2023,7 +2138,7 @@
 #   define SUNOS5SIGS
 # endif
 
-# if defined(FREEBSD) && (__FreeBSD__ >= 4)
+# if defined(FREEBSD) && ((__FreeBSD__ >= 4) || (__FreeBSD_kernel__ >= 4))
 #   define SUNOS5SIGS
 # endif
 
@@ -2086,7 +2201,7 @@
 #   define CACHE_LINE_SIZE 32	/* Wild guess	*/
 # endif
 
-# ifdef LINUX
+# if defined(LINUX) || defined(__GLIBC__)
 #   define REGISTER_LIBRARIES_EARLY
     /* We sometimes use dl_iterate_phdr, which may acquire an internal	*/
     /* lock.  This isn't safe after the world has stopped.  So we must	*/
@@ -2105,11 +2220,6 @@
 		((word*)x)[0] = 0; \
 		((word*)x)[1] = 0;
 # endif /* CLEAR_DOUBLE */
-
-	/* Internally we use GC_SOLARIS_THREADS to test for either old or pthreads. */
-# if defined(GC_SOLARIS_PTHREADS) && !defined(GC_SOLARIS_THREADS)
-#   define GC_SOLARIS_THREADS
-# endif
 
 # if defined(GC_IRIX_THREADS) && !defined(IRIX5)
 	--> inconsistent configuration
@@ -2167,7 +2277,7 @@
 #if defined(SPARC)
 # define CAN_SAVE_CALL_ARGS
 #endif
-#if (defined(I386) || defined(X86_64)) && defined(LINUX)
+#if (defined(I386) || defined(X86_64)) && (defined(LINUX) || defined(__GLIBC__))
 	    /* SAVE_CALL_CHAIN is supported if the code is compiled to save	*/
 	    /* frame pointers by default, i.e. no -fomit-frame-pointer flag.	*/
 # define CAN_SAVE_CALL_ARGS

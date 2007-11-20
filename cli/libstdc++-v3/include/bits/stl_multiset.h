@@ -1,6 +1,7 @@
 // Multiset implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,27 +59,12 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _MULTISET_H
-#define _MULTISET_H 1
+#ifndef _STL_MULTISET_H
+#define _STL_MULTISET_H 1
 
 #include <bits/concept_check.h>
 
 _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
-
-  // Forward declaration of operators < and ==, needed for friend declaration.
-  template <class _Key, class _Compare = std::less<_Key>,
-	    class _Alloc = std::allocator<_Key> >
-    class multiset;
-
-  template <class _Key, class _Compare, class _Alloc>
-    inline bool
-    operator==(const multiset<_Key, _Compare, _Alloc>& __x,
-	       const multiset<_Key, _Compare, _Alloc>& __y);
-
-  template <class _Key, class _Compare, class _Alloc>
-    inline bool
-    operator<(const multiset<_Key, _Compare, _Alloc>& __x,
-	      const multiset<_Key, _Compare, _Alloc>& __y);
 
   /**
    *  @brief A standard container made up of elements, which can be retrieved
@@ -100,7 +86,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
    *  called (*_unique versus *_equal, same as the standard).
    *  @endif
   */
-  template <class _Key, class _Compare, class _Alloc>
+  template <class _Key, class _Compare = std::less<_Key>,
+	    class _Alloc = std::allocator<_Key> >
     class multiset
     {
       // concept requirements
@@ -330,7 +317,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        */
       iterator
       insert(iterator __position, const value_type& __x)
-      { return _M_t._M_insert_equal(__position, __x); }
+      { return _M_t._M_insert_equal_(__position, __x); }
 
       /**
        *  @brief A template function that attemps to insert a range of elements.
@@ -576,4 +563,4 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
 _GLIBCXX_END_NESTED_NAMESPACE
 
-#endif /* _MULTISET_H */
+#endif /* _STL_MULTISET_H */

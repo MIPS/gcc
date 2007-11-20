@@ -1,11 +1,11 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* The migration of target macros to target hooks works as follows:
 
@@ -140,6 +139,18 @@ default_eh_return_filter_mode (void)
   return word_mode;
 }
 
+enum machine_mode
+default_libgcc_cmp_return_mode (void)
+{
+  return word_mode;
+}
+
+enum machine_mode
+default_libgcc_shift_count_mode (void)
+{
+  return word_mode;
+}
+
 /* The default implementation of TARGET_SHIFT_TRUNCATION_MASK.  */
 
 unsigned HOST_WIDE_INT
@@ -173,6 +184,13 @@ hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* Return machine mode for non-standard suffix
+   or VOIDmode if non-standard suffixes are unsupported.  */
+enum machine_mode
+default_mode_for_suffix (char suffix ATTRIBUTE_UNUSED)
+{
+  return VOIDmode;
+}
 
 /* The generic C++ ABI specifies this is a 64-bit value.  */
 tree
@@ -319,6 +337,35 @@ default_invalid_within_doloop (rtx insn)
   return NULL;
 }
 
+/* Mapping of builtin functions to vectorized variants.  */
+
+tree
+default_builtin_vectorized_function (enum built_in_function fn ATTRIBUTE_UNUSED,
+				     tree type_out ATTRIBUTE_UNUSED,
+				     tree type_in ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+/* Vectorized conversion.  */
+
+tree
+default_builtin_vectorized_conversion (enum tree_code code ATTRIBUTE_UNUSED,
+				       tree type ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+/* Reciprocal.  */
+
+tree
+default_builtin_reciprocal (enum built_in_function fn ATTRIBUTE_UNUSED,
+			    bool md_fn ATTRIBUTE_UNUSED,
+			    bool sqrt ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
@@ -413,7 +460,7 @@ default_external_stack_protect_fail (void)
       stack_chk_fail_decl = t;
     }
 
-  return build_function_call_expr (t, NULL_TREE);
+  return build_call_expr (t, 0);
 }
 
 tree
@@ -446,7 +493,7 @@ default_hidden_stack_protect_fail (void)
       stack_chk_fail_decl = t;
     }
 
-  return build_function_call_expr (t, NULL_TREE);
+  return build_call_expr (t, 0);
 #endif
 }
 
@@ -581,18 +628,44 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
   return class;
 }
 
+bool
+default_handle_c_option (size_t code ATTRIBUTE_UNUSED,
+			 const char *arg ATTRIBUTE_UNUSED,
+			 int value ATTRIBUTE_UNUSED)
+{
+  return false;
+}
 
-/* If STRICT_ALIGNMENT is true we use the container type for accessing
-   volatile bitfields.  This is generally the preferred behavior for memory
-   mapped peripherals on RISC architectures.
-   If STRICT_ALIGNMENT is false we use the narrowest type possible.  This
-   is typically used to avoid spurious page faults and extra memory accesses
-   due to unaligned accesses on CISC architectures.  */
+/* By default, if flag_pic is true, then neither local nor global relocs
+   should be placed in readonly memory.  */
+
+int
+default_reloc_rw_mask (void)
+{
+  return flag_pic ? 3 : 0;
+}
+
+/* By default, do no modification. */
+tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
+					 tree id)
+{
+   return id;
+}
 
 bool
-default_narrow_bitfield (void)
+default_builtin_vector_alignment_reachable (tree type, bool is_packed)
 {
-  return !STRICT_ALIGNMENT;
+  if (is_packed)
+    return false;
+
+  /* Assuming that types whose size is > pointer-size are not guaranteed to be
+     naturally aligned.  */
+  if (tree_int_cst_compare (TYPE_SIZE (type), bitsize_int (POINTER_SIZE)) > 0)
+    return false;
+
+  /* Assuming that types whose size is <= pointer-size
+     are naturally aligned.  */
+  return true;
 }
 
 #include "gt-targhooks.h"

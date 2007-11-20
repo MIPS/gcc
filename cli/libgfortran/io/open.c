@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005
+/* Copyright (C) 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -32,6 +32,7 @@ Boston, MA 02110-1301, USA.  */
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include "libgfortran.h"
 #include "io.h"
 
@@ -108,12 +109,13 @@ static const st_option convert_opt[] =
   { NULL, 0}
 };
 
+
 /* Given a unit, test to see if the file is positioned at the terminal
    point, and if so, change state from NO_ENDFILE flag to AT_ENDFILE.
    This prevents us from changing the state from AFTER_ENDFILE to
    AT_ENDFILE.  */
 
-void
+static void
 test_endfile (gfc_unit * u)
 {
   if (u->endfile == NO_ENDFILE && file_length (u->s) == file_position (u->s))
@@ -178,7 +180,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
 
       if (flags->pad != PAD_UNSPECIFIED)
 	generate_error (&opp->common, ERROR_OPTION_CONFLICT,
-			"PAD paramter conflicts with UNFORMATTED form in "
+			"PAD parameter conflicts with UNFORMATTED form in "
 			"OPEN statement");
     }
 
@@ -208,7 +210,7 @@ edit_modes (st_parameter_open *opp, gfc_unit * u, unit_flags * flags)
       u->current_record = 0;
       u->last_record = 0;
 
-      test_endfile (u);		/* We might be at the end.  */
+      test_endfile (u);
       break;
 
     case POSITION_APPEND:
@@ -284,7 +286,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
       if (flags->form == FORM_UNFORMATTED)
 	{
 	  generate_error (&opp->common, ERROR_OPTION_CONFLICT,
-			  "PAD paramter conflicts with UNFORMATTED form in "
+			  "PAD parameter conflicts with UNFORMATTED form in "
 			  "OPEN statement");
 	  goto fail;
 	}
@@ -343,7 +345,12 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 	break;
 
       opp->file = tmpname;
-      opp->file_len = sprintf(opp->file, "fort.%d", opp->common.unit);
+#ifdef HAVE_SNPRINTF
+      opp->file_len = snprintf(opp->file, sizeof (tmpname), "fort.%d", 
+			       (int) opp->common.unit);
+#else
+      opp->file_len = sprintf(opp->file, "fort.%d", (int) opp->common.unit);
+#endif
       break;
 
     default:
@@ -374,7 +381,34 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   s = open_external (opp, flags);
   if (s == NULL)
     {
-      generate_error (&opp->common, ERROR_OS, NULL);
+      char *path, *msg;
+      path = (char *) gfc_alloca (opp->file_len + 1);
+      msg = (char *) gfc_alloca (opp->file_len + 51);
+      unpack_filename (path, opp->file, opp->file_len);
+
+      switch (errno)
+	{
+	case ENOENT: 
+	  st_sprintf (msg, "File '%s' does not exist", path);
+	  break;
+
+	case EEXIST:
+	  st_sprintf (msg, "File '%s' already exists", path);
+	  break;
+
+	case EACCES:
+	  st_sprintf (msg, "Permission denied trying to open file '%s'", path);
+	  break;
+
+	case EISDIR:
+	  st_sprintf (msg, "'%s' is a directory", path);
+	  break;
+
+	default:
+	  msg = NULL;
+	}
+
+      generate_error (&opp->common, ERROR_OS, msg);
       goto cleanup;
     }
 
@@ -395,6 +429,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   u->mode = READING;
   u->maxrec = 0;
   u->bytes_left = 0;
+  u->saved_pos = 0;
 
   if (flags->position == POSITION_APPEND)
     {
@@ -406,26 +441,38 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
   /* Unspecified recl ends up with a processor dependent value.  */
 
   if ((opp->common.flags & IOPARM_OPEN_HAS_RECL_IN))
-    u->recl = opp->recl_in;
+    {
+      u->flags.has_recl = 1;
+      u->recl = opp->recl_in;
+      u->recl_subrecord = u->recl;
+      u->bytes_left = u->recl;
+    }
   else
     {
-      switch (compile_options.record_marker)
+      u->flags.has_recl = 0;
+      u->recl = max_offset;
+      if (compile_options.max_subrecord_length)
 	{
-	case 0:
-	  u->recl = max_offset;
-	  break;
+	  u->recl_subrecord = compile_options.max_subrecord_length;
+	}
+      else
+	{
+	  switch (compile_options.record_marker)
+	    {
+	    case 0:
+	      /* Fall through */
+	    case sizeof (GFC_INTEGER_4):
+	      u->recl_subrecord = GFC_MAX_SUBRECORD_LENGTH;
+	      break;
 
-	case sizeof (GFC_INTEGER_4):
-	  u->recl = GFC_INTEGER_4_HUGE;
-	  break;
+	    case sizeof (GFC_INTEGER_8):
+	      u->recl_subrecord = max_offset - 16;
+	      break;
 
-	case sizeof (GFC_INTEGER_8):
-	  u->recl = max_offset;
-	  break;
-
-	default:
-	  runtime_error ("Illegal value for record marker");
-	  break;
+	    default:
+	      runtime_error ("Illegal value for record marker");
+	      break;
+	    }
 	}
     }
 
@@ -440,7 +487,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
     {
       u->maxrec = max_offset;
       u->recl = 1;
-      u->last_record = 1;
+      u->strm_pos = 1;
     }
 
   memmove (u->file, opp->file, opp->file_len);
@@ -448,7 +495,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   /* Curiously, the standard requires that the
      position specifier be ignored for new files so a newly connected
-     file starts out that the initial point.  We still need to figure
+     file starts out at the initial point.  We still need to figure
      out if the file is at the end or not.  */
 
   test_endfile (u);

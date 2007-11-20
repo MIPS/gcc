@@ -26,8 +26,12 @@
 
    Authors:
      Ricardo Fernandez Pascual <ricardof@um.es>
-     Roberto Costa <roberto.costa@st.com>
+     Roberto Costa
      Andrea C. Ornstein <andrea.ornstein@st.com>
+
+   Contact information at STMicroelectronics:
+     Andrea C. Ornstein <andrea.ornstein@st.com>
+     Erven Rohou        <erven.rohou@st.com>
 
 */
 
@@ -327,13 +331,6 @@ cil_signed_type (tree type)
   return cil_type_for_size (bits, false);
 }
 
-static tree
-cil_signed_or_unsigned_type (int unsigned_p ATTRIBUTE_UNUSED,
-                             tree type ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
 static void
 cil_register_builtin_type (tree type, const char* name)
 {
@@ -375,36 +372,12 @@ cil_getdecls (void)
   return cil_bindings_get_decls ();
 }
 
-/* Return a definition for a builtin function named NAME and whose data type
-   is TYPE.  TYPE should be a function type with argument types.
-   FUNCTION_CODE tells later passes how to compile calls to this function.
-   See tree.h for its possible values.
-
-   If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  If
-   ATTRS is nonzero, use that for the function's attribute list.
-
-   copied from gcc/c-decl.c
+/* 
 */
 static tree
-cil_builtin_function (const char *name, tree type, int function_code,
-                      enum built_in_class bt_class, const char *library_name,
-                      tree attrs)
+cil_builtin_function (tree decl)
 {
-  tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
-  DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
-  if (library_name)
-    SET_DECL_ASSEMBLER_NAME (decl, get_identifier (library_name));
   cil_bindings_push_decl (decl);
-  DECL_BUILT_IN_CLASS (decl) = bt_class;
-  DECL_FUNCTION_CODE (decl) = function_code;
-
-  /* Possibly apply some default attributes to this built-in function.  */
-  if (attrs)
-    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
-  else
-    decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -500,9 +473,6 @@ cil_get_alias_set (tree t)
 #define LANG_HOOKS_MARK_ADDRESSABLE cil_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE cil_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE cil_type_for_size
-#define LANG_HOOKS_UNSIGNED_TYPE cil_unsigned_type
-#define LANG_HOOKS_SIGNED_TYPE cil_signed_type
-#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE cil_signed_or_unsigned_type
 #undef LANG_HOOKS_GLOBAL_BINDINGS_P
 #define LANG_HOOKS_GLOBAL_BINDINGS_P cil_global_bindings_p
 #undef LANG_HOOKS_INSERT_BLOCK

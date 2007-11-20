@@ -1,6 +1,6 @@
 /* Subroutines for assembler code output on the TMS320C[34]x
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2003,
-   2004, 2005
+   2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
@@ -750,13 +750,13 @@ c4x_isr_reg_used_p (unsigned int regno)
 
   /* Only save/restore regs in leaf function that are used.  */
   if (c4x_leaf_function)
-    return regs_ever_live[regno] && fixed_regs[regno] == 0;
+    return df_regs_ever_live_p (regno) && fixed_regs[regno] == 0;
 
   /* Only save/restore regs that are used by the ISR and regs
      that are likely to be used by functions the ISR calls
      if they are not fixed.  */
   return IS_EXT_REGNO (regno)
-    || ((regs_ever_live[regno] || call_used_regs[regno]) 
+    || ((df_regs_ever_live_p (regno) || call_used_regs[regno]) 
 	&& fixed_regs[regno] == 0);
 }
 
@@ -890,9 +890,9 @@ c4x_expand_prologue (void)
       /* We need to clear the repeat mode flag if the ISR is
          going to use a RPTB instruction or uses the RC, RS, or RE
          registers.  */
-      if (regs_ever_live[RC_REGNO] 
-	  || regs_ever_live[RS_REGNO] 
-	  || regs_ever_live[RE_REGNO])
+      if (df_regs_ever_live_p (RC_REGNO) 
+	  || df_regs_ever_live_p (RS_REGNO) 
+	  || df_regs_ever_live_p (RE_REGNO))
 	{
           insn = emit_insn (gen_andn_st (GEN_INT(~0x100)));
           RTX_FRAME_RELATED_P (insn) = 1;
@@ -983,7 +983,7 @@ c4x_expand_prologue (void)
       
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	{
-	  if (regs_ever_live[regno] && ! call_used_regs[regno])
+	  if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	    {
 	      if (IS_FLOAT_CALL_SAVED_REGNO (regno))
 		{
@@ -1111,7 +1111,7 @@ c4x_expand_epilogue(void)
          where required.  */
       for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
 	{
-	  if (regs_ever_live[regno] && ! call_used_regs[regno])
+	  if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])
 	    {
 	      if (regno == AR3_REGNO && dont_pop_ar3)
 		continue;
@@ -1220,7 +1220,7 @@ c4x_null_epilogue_p (void)
       && ! get_frame_size ())
     {
       for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
-	if (regs_ever_live[regno] && ! call_used_regs[regno]
+	if (df_regs_ever_live_p (regno) && ! call_used_regs[regno]
 	    && (regno != AR3_REGNO))
 	  return 1;
       return 0;
@@ -2443,11 +2443,7 @@ c4x_reorg (void)
 	     with only the 'deleted' bit set.  Transform it into a note
 	     to avoid confusion of subsequent processing.  */
 	  if (INSN_DELETED_P (old))
-	    {
-	      PUT_CODE (old, NOTE);
-	      NOTE_LINE_NUMBER (old) = NOTE_INSN_DELETED;
-	      NOTE_SOURCE_FILE (old) = 0;
-	    }
+	    SET_INSN_DELETED (old);
 	}
     }
 }
@@ -4339,52 +4335,52 @@ c4x_init_builtins (void)
 {
   tree endlink = void_list_node;
 
-  lang_hooks.builtin_function ("fast_ftoi",
-			       build_function_type 
-			       (integer_type_node,
-				tree_cons (NULL_TREE, double_type_node,
-					   endlink)),
-			       C4X_BUILTIN_FIX, BUILT_IN_MD, NULL, NULL_TREE);
-  lang_hooks.builtin_function ("ansi_ftoi",
-			       build_function_type 
-			       (integer_type_node, 
-				tree_cons (NULL_TREE, double_type_node,
-					   endlink)),
-			       C4X_BUILTIN_FIX_ANSI, BUILT_IN_MD, NULL,
-			       NULL_TREE);
+  add_builtin_function ("fast_ftoi",
+			build_function_type 
+			(integer_type_node,
+			 tree_cons (NULL_TREE, double_type_node,
+				    endlink)),
+			C4X_BUILTIN_FIX, BUILT_IN_MD, NULL, NULL_TREE);
+  add_builtin_function ("ansi_ftoi",
+			build_function_type 
+			(integer_type_node, 
+			 tree_cons (NULL_TREE, double_type_node,
+				    endlink)),
+			C4X_BUILTIN_FIX_ANSI, BUILT_IN_MD, NULL,
+			NULL_TREE);
   if (TARGET_C3X)
-    lang_hooks.builtin_function ("fast_imult",
-				 build_function_type
-				 (integer_type_node, 
-				  tree_cons (NULL_TREE, integer_type_node,
-					     tree_cons (NULL_TREE,
-							integer_type_node,
-							endlink))),
-				 C4X_BUILTIN_MPYI, BUILT_IN_MD, NULL,
-				 NULL_TREE);
+    add_builtin_function ("fast_imult",
+			  build_function_type
+			  (integer_type_node, 
+			   tree_cons (NULL_TREE, integer_type_node,
+				      tree_cons (NULL_TREE,
+						 integer_type_node,
+						 endlink))),
+			  C4X_BUILTIN_MPYI, BUILT_IN_MD, NULL,
+			  NULL_TREE);
   else
     {
-      lang_hooks.builtin_function ("toieee",
-				   build_function_type 
-				   (double_type_node,
-				    tree_cons (NULL_TREE, double_type_node,
-					       endlink)),
-				   C4X_BUILTIN_TOIEEE, BUILT_IN_MD, NULL,
-				   NULL_TREE);
-      lang_hooks.builtin_function ("frieee",
-				   build_function_type
-				   (double_type_node, 
-				    tree_cons (NULL_TREE, double_type_node,
-					       endlink)),
-				   C4X_BUILTIN_FRIEEE, BUILT_IN_MD, NULL,
-				   NULL_TREE);
-      lang_hooks.builtin_function ("fast_invf",
-				   build_function_type 
-				   (double_type_node, 
-				    tree_cons (NULL_TREE, double_type_node,
-					       endlink)),
-				   C4X_BUILTIN_RCPF, BUILT_IN_MD, NULL,
-				   NULL_TREE);
+      add_builtin_function ("toieee",
+			    build_function_type 
+			    (double_type_node,
+			     tree_cons (NULL_TREE, double_type_node,
+					endlink)),
+			    C4X_BUILTIN_TOIEEE, BUILT_IN_MD, NULL,
+			    NULL_TREE);
+      add_builtin_function ("frieee",
+			    build_function_type
+			    (double_type_node, 
+			     tree_cons (NULL_TREE, double_type_node,
+					endlink)),
+			    C4X_BUILTIN_FRIEEE, BUILT_IN_MD, NULL,
+			    NULL_TREE);
+      add_builtin_function ("fast_invf",
+			    build_function_type 
+			    (double_type_node, 
+			     tree_cons (NULL_TREE, double_type_node,
+					endlink)),
+			    C4X_BUILTIN_RCPF, BUILT_IN_MD, NULL,
+			    NULL_TREE);
     }
 }
 
@@ -4395,16 +4391,15 @@ c4x_expand_builtin (tree exp, rtx target,
 		    enum machine_mode mode ATTRIBUTE_UNUSED,
 		    int ignore ATTRIBUTE_UNUSED)
 {
-  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
-  tree arglist = TREE_OPERAND (exp, 1);
   tree arg0, arg1;
   rtx r0, r1;
 
   switch (fcode)
     {
     case C4X_BUILTIN_FIX:
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
@@ -4412,7 +4407,7 @@ c4x_expand_builtin (tree exp, rtx target,
       return target;
 
     case C4X_BUILTIN_FIX_ANSI:
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QImode))
 	target = gen_reg_rtx (QImode);
@@ -4422,8 +4417,8 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_MPYI:
       if (! TARGET_C3X)
 	break;
-      arg0 = TREE_VALUE (arglist);
-      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
       r0 = expand_expr (arg0, NULL_RTX, QImode, 0);
       r1 = expand_expr (arg1, NULL_RTX, QImode, 0);
       if (! target || ! register_operand (target, QImode))
@@ -4434,7 +4429,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_TOIEEE:
       if (TARGET_C3X)
 	break;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QFmode))
 	target = gen_reg_rtx (QFmode);
@@ -4444,7 +4439,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_FRIEEE:
       if (TARGET_C3X)
 	break;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (register_operand (r0, QFmode))
 	{
@@ -4460,7 +4455,7 @@ c4x_expand_builtin (tree exp, rtx target,
     case C4X_BUILTIN_RCPF:
       if (TARGET_C3X)
 	break;
-      arg0 = TREE_VALUE (arglist);
+      arg0 = CALL_EXPR_ARG (exp, 0);
       r0 = expand_expr (arg0, NULL_RTX, QFmode, 0);
       if (! target || ! register_operand (target, QFmode))
 	target = gen_reg_rtx (QFmode);

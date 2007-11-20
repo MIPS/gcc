@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -8,7 +8,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Instruction scheduling pass.  This file, along with sched-deps.c,
    contains the generic parts.  The actual entry point is found for
@@ -82,9 +81,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    compute_block_backward_dependences ().
 
    Dependencies set up by memory references are treated in exactly the
-   same way as other dependencies, by using LOG_LINKS backward
-   dependences.  LOG_LINKS are translated into INSN_DEPEND forward
-   dependences for the purpose of forward list scheduling.
+   same way as other dependencies, by using insn backward dependences
+   INSN_BACK_DEPS.  INSN_BACK_DEPS are translated into forward dependences
+   INSN_FORW_DEPS the purpose of forward list scheduling.
 
    Having optimized the critical path, we may have also unduly
    extended the lifetimes of some registers.  If an operation requires
@@ -144,6 +143,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "output.h"
 #include "params.h"
+#include "dbgcnt.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -186,7 +186,6 @@ fix_sched_param (const char *param, const char *val)
 
 struct haifa_insn_data *h_i_d;
 
-#define LINE_NOTE(INSN)		(h_i_d[INSN_UID (INSN)].line_note)
 #define INSN_TICK(INSN)		(h_i_d[INSN_UID (INSN)].tick)
 #define INTER_TICK(INSN)        (h_i_d[INSN_UID (INSN)].inter_tick)
 
@@ -199,10 +198,6 @@ struct haifa_insn_data *h_i_d;
 /* Issue points are used to distinguish between instructions in max_issue ().
    For now, all instructions are equally good.  */
 #define ISSUE_POINTS(INSN) 1
-
-/* Vector indexed by basic block number giving the starting line-number
-   for each basic block.  */
-static rtx *line_note_head;
 
 /* List of important notes we must keep around.  This is a pointer to the
    last element in the list.  */
@@ -219,9 +214,6 @@ static bool added_recovery_block_p;
 
 /* Counters of different types of speculative instructions.  */
 static int nr_begin_data, nr_be_in_data, nr_begin_control, nr_be_in_control;
-
-/* Pointers to GLAT data.  See init_glat for more information.  */
-regset *glat_start, *glat_end;
 
 /* Array used in {unlink, restore}_bb_notes.  */
 static rtx *bb_header = 0;
@@ -256,8 +248,8 @@ static basic_block before_recovery;
    sufficient time has passed to make them ready.  As time passes,
    insns move from the "Queued" set to the "Ready" list.
 
-   The "Pending" list (P) are the insns in the INSN_DEPEND of the unscheduled
-   insns, i.e., those that are ready, queued, and pending.
+   The "Pending" list (P) are the insns in the INSN_FORW_DEPS of the
+   unscheduled insns, i.e., those that are ready, queued, and pending.
    The "Queued" set (Q) is implemented by the variable `insn_queue'.
    The "Ready" list (R) is implemented by the variables `ready' and
    `n_ready'.
@@ -492,9 +484,11 @@ haifa_classify_insn (rtx insn)
   return insn_class;
 }
 
+/* A typedef for rtx vector.  */
+typedef VEC(rtx, heap) *rtx_vec_t;
+
 /* Forward declarations.  */
 
-HAIFA_INLINE static int insn_cost1 (rtx, enum reg_note, rtx, rtx);
 static int priority (rtx);
 static int rank_for_schedule (const void *, const void *);
 static void swap_sort (rtx *, int);
@@ -509,28 +503,20 @@ static void advance_one_cycle (void);
 /* Notes handling mechanism:
    =========================
    Generally, NOTES are saved before scheduling and restored after scheduling.
-   The scheduler distinguishes between three types of notes:
+   The scheduler distinguishes between two types of notes:
 
-   (1) LINE_NUMBER notes, generated and used for debugging.  Here,
-   before scheduling a region, a pointer to the LINE_NUMBER note is
-   added to the insn following it (in save_line_notes()), and the note
-   is removed (in rm_line_notes() and unlink_line_notes()).  After
-   scheduling the region, this pointer is used for regeneration of
-   the LINE_NUMBER note (in restore_line_notes()).
-
-   (2) LOOP_BEGIN, LOOP_END, SETJMP, EHREGION_BEG, EHREGION_END notes:
+   (1) LOOP_BEGIN, LOOP_END, SETJMP, EHREGION_BEG, EHREGION_END notes:
    Before scheduling a region, a pointer to the note is added to the insn
    that follows or precedes it.  (This happens as part of the data dependence
    computation).  After scheduling an insn, the pointer contained in it is
    used for regenerating the corresponding note (in reemit_notes).
 
-   (3) All other notes (e.g. INSN_DELETED):  Before scheduling a block,
+   (2) All other notes (e.g. INSN_DELETED):  Before scheduling a block,
    these notes are put in a list (in rm_other_notes() and
    unlink_other_notes ()).  After scheduling the block, these notes are
    inserted at the beginning of the block (in schedule_block()).  */
 
 static rtx unlink_other_notes (rtx, rtx);
-static rtx unlink_line_notes (rtx, rtx);
 static void reemit_notes (rtx);
 
 static rtx *ready_lastpos (struct ready_list *);
@@ -552,12 +538,11 @@ static rtx ready_remove (struct ready_list *, int);
 static void ready_remove_insn (rtx);
 static int max_issue (struct ready_list *, int *, int);
 
-static rtx choose_ready (struct ready_list *);
+static int choose_ready (struct ready_list *, rtx *);
 
 static void fix_inter_tick (rtx, rtx);
 static int fix_tick_ready (rtx);
 static void change_queue_index (rtx, int);
-static void resolve_dep (rtx, rtx);
 
 /* The following functions are used to implement scheduling of data/control
    speculative instructions.  */
@@ -568,7 +553,7 @@ static void extend_global (rtx);
 static void extend_all (rtx);
 static void init_h_i_d (rtx);
 static void generate_recovery_code (rtx);
-static void process_insn_depend_be_in_spec (rtx, rtx, ds_t);
+static void process_insn_forw_deps_be_in_spec (deps_list_t, rtx, ds_t);
 static void begin_speculative_block (rtx);
 static void add_to_speculative_block (rtx);
 static dw_t dep_weak (ds_t);
@@ -577,23 +562,18 @@ static void init_before_recovery (void);
 static basic_block create_recovery_block (void);
 static void create_check_block_twin (rtx, bool);
 static void fix_recovery_deps (basic_block);
-static void associate_line_notes_with_blocks (basic_block);
 static void change_pattern (rtx, rtx);
 static int speculate_insn (rtx, ds_t, rtx *);
 static void dump_new_block_header (int, basic_block, rtx, rtx);
 static void restore_bb_notes (basic_block);
-static void extend_bb (basic_block);
+static void extend_bb (void);
 static void fix_jump_move (rtx);
 static void move_block_after_check (rtx);
 static void move_succs (VEC(edge,gc) **, basic_block);
-static void init_glat (void);
-static void init_glat1 (basic_block);
-static void attach_life_info1 (basic_block);
-static void free_glat (void);
 static void sched_remove_insn (rtx);
-static void clear_priorities (rtx);
+static void clear_priorities (rtx, rtx_vec_t *);
+static void calc_priorities (rtx_vec_t);
 static void add_jump_dependencies (rtx, rtx);
-static void calc_priorities (rtx);
 #ifdef ENABLE_CHECKING
 static int has_edge_p (VEC(edge,gc) *, int);
 static void check_cfg (rtx, rtx);
@@ -621,27 +601,15 @@ static struct sched_info current_sched_info_var;
 
 static rtx last_scheduled_insn;
 
-/* Compute cost of executing INSN given the dependence LINK on the insn USED.
+/* Cached cost of the instruction.  Use below function to get cost of the
+   insn.  -1 here means that the field is not initialized.  */
+#define INSN_COST(INSN)		(h_i_d[INSN_UID (INSN)].cost)
+
+/* Compute cost of executing INSN.
    This is the number of cycles between instruction issue and
    instruction results.  */
-
 HAIFA_INLINE int
-insn_cost (rtx insn, rtx link, rtx used)
-{
-  return insn_cost1 (insn, used ? REG_NOTE_KIND (link) : REG_NOTE_MAX,
-		     link, used);
-}
-
-/* Compute cost of executing INSN given the dependence on the insn USED.
-   If LINK is not NULL, then its REG_NOTE_KIND is used as a dependence type.
-   Otherwise, dependence between INSN and USED is assumed to be of type
-   DEP_TYPE.  This function was introduced as a workaround for
-   targetm.adjust_cost hook.
-   This is the number of cycles between instruction issue and
-   instruction results.  */
-
-HAIFA_INLINE static int
-insn_cost1 (rtx insn, enum reg_note dep_type, rtx link, rtx used)
+insn_cost (rtx insn)
 {
   int cost = INSN_COST (insn);
 
@@ -666,9 +634,17 @@ insn_cost1 (rtx insn, enum reg_note dep_type, rtx link, rtx used)
 	}
     }
 
-  /* In this case estimate cost without caring how insn is used.  */
-  if (used == 0)
-    return cost;
+  return cost;
+}
+
+/* Compute cost of dependence LINK.
+   This is the number of cycles between instruction issue and
+   instruction results.  */
+int
+dep_cost (dep_t link)
+{
+  rtx used = DEP_CON (link);
+  int cost;
 
   /* A USE insn should never require the value used to be computed.
      This allows the computation of a function's result and parameter
@@ -677,7 +653,10 @@ insn_cost1 (rtx insn, enum reg_note dep_type, rtx link, rtx used)
     cost = 0;
   else
     {
-      gcc_assert (!link || dep_type == REG_NOTE_KIND (link));
+      rtx insn = DEP_PRO (link);
+      enum reg_note dep_type = DEP_KIND (link);
+
+      cost = insn_cost (insn);
 
       if (INSN_CODE (insn) >= 0)
 	{
@@ -694,13 +673,23 @@ insn_cost1 (rtx insn, enum reg_note dep_type, rtx link, rtx used)
 	    cost = insn_latency (insn, used);
 	}
 
-      if (targetm.sched.adjust_cost_2)
-	cost = targetm.sched.adjust_cost_2 (used, (int) dep_type, insn, cost);
-      else
+      if (targetm.sched.adjust_cost != NULL)
 	{
-	  gcc_assert (link);
-	  if (targetm.sched.adjust_cost)
-	    cost = targetm.sched.adjust_cost (used, link, insn, cost);
+	  /* This variable is used for backward compatibility with the
+	     targets.  */
+	  rtx dep_cost_rtx_link = alloc_INSN_LIST (NULL_RTX, NULL_RTX);
+
+	  /* Make it self-cycled, so that if some tries to walk over this
+	     incomplete list he/she will be caught in an endless loop.  */
+	  XEXP (dep_cost_rtx_link, 1) = dep_cost_rtx_link;
+
+	  /* Targets use only REG_NOTE_KIND of the link.  */
+	  PUT_REG_NOTE_KIND (dep_cost_rtx_link, DEP_KIND (link));
+
+	  cost = targetm.sched.adjust_cost (used, dep_cost_rtx_link,
+					    insn, cost);
+
+	  free_INSN_LIST_node (dep_cost_rtx_link);
 	}
 
       if (cost < 0)
@@ -710,22 +699,51 @@ insn_cost1 (rtx insn, enum reg_note dep_type, rtx link, rtx used)
   return cost;
 }
 
-/* Compute the priority number for INSN.  */
+/* Return 'true' if DEP should be included in priority calculations.  */
+static bool
+contributes_to_priority_p (dep_t dep)
+{
+  /* Critical path is meaningful in block boundaries only.  */
+  if (!current_sched_info->contributes_to_priority (DEP_CON (dep),
+						    DEP_PRO (dep)))
+    return false;
 
+  /* If flag COUNT_SPEC_IN_CRITICAL_PATH is set,
+     then speculative instructions will less likely be
+     scheduled.  That is because the priority of
+     their producers will increase, and, thus, the
+     producers will more likely be scheduled, thus,
+     resolving the dependence.  */
+  if ((current_sched_info->flags & DO_SPECULATION)
+      && !(spec_info->flags & COUNT_SPEC_IN_CRITICAL_PATH)
+      && (DEP_STATUS (dep) & SPECULATIVE))
+    return false;
+
+  return true;
+}
+
+/* Compute the priority number for INSN.  */
 static int
 priority (rtx insn)
 {
-  rtx link;
+  dep_link_t link;
 
   if (! INSN_P (insn))
     return 0;
 
-  if (! INSN_PRIORITY_KNOWN (insn))
+  /* We should not be interested in priority of an already scheduled insn.  */
+  gcc_assert (QUEUE_INDEX (insn) != QUEUE_SCHEDULED);
+
+  if (!INSN_PRIORITY_KNOWN (insn))
     {
       int this_priority = 0;
 
-      if (INSN_DEPEND (insn) == 0)
-	this_priority = insn_cost (insn, 0, 0);
+      if (deps_list_empty_p (INSN_FORW_DEPS (insn)))
+	/* ??? We should set INSN_PRIORITY to insn_cost when and insn has
+	   some forward deps but all of them are ignored by
+	   contributes_to_priority hook.  At the moment we set priority of
+	   such insn to 0.  */
+	this_priority = insn_cost (insn);
       else
 	{
 	  rtx prev_first, twin;
@@ -733,8 +751,9 @@ priority (rtx insn)
 
 	  /* For recovery check instructions we calculate priority slightly
 	     different than that of normal instructions.  Instead of walking
-	     through INSN_DEPEND (check) list, we walk through INSN_DEPEND list
-	     of each instruction in the corresponding recovery block.  */ 
+	     through INSN_FORW_DEPS (check) list, we walk through
+	     INSN_FORW_DEPS list of each instruction in the corresponding
+	     recovery block.  */ 
 
 	  rec = RECOVERY_BLOCK (insn);
 	  if (!rec || rec == EXIT_BLOCK_PTR)
@@ -750,37 +769,33 @@ priority (rtx insn)
 
 	  do
 	    {
-	      for (link = INSN_DEPEND (twin); link; link = XEXP (link, 1))
+	      FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (twin))
 		{
 		  rtx next;
 		  int next_priority;
-		  
-		  next = XEXP (link, 0);
-		  
+		  dep_t dep = DEP_LINK_DEP (link);
+
+		  next = DEP_CON (dep);
+
 		  if (BLOCK_FOR_INSN (next) != rec)
 		    {
-		      /* Critical path is meaningful in block boundaries
-			 only.  */
-		      if (! (*current_sched_info->contributes_to_priority)
-			  (next, insn)
-			  /* If flag COUNT_SPEC_IN_CRITICAL_PATH is set,
-			     then speculative instructions will less likely be
-			     scheduled.  That is because the priority of
-			     their producers will increase, and, thus, the
-			     producers will more likely be scheduled, thus,
-			     resolving the dependence.  */
-			  || ((current_sched_info->flags & DO_SPECULATION)
-			      && (DEP_STATUS (link) & SPECULATIVE)
-			      && !(spec_info->flags
-				   & COUNT_SPEC_IN_CRITICAL_PATH)))
+		      int cost;
+
+		      if (!contributes_to_priority_p (dep))
 			continue;
-		      
-		      next_priority = insn_cost1 (insn,
-						  twin == insn ?
-						  REG_NOTE_KIND (link) :
-						  REG_DEP_ANTI,
-						  twin == insn ? link : 0,
-						  next) + priority (next);
+
+		      if (twin == insn)
+			cost = dep_cost (dep);
+		      else
+			{
+			  struct _dep _dep1, *dep1 = &_dep1;
+
+			  init_dep (dep1, insn, next, REG_DEP_ANTI);
+
+			  cost = dep_cost (dep1);
+			}
+
+		      next_priority = cost + priority (next);
 
 		      if (next_priority > this_priority)
 			this_priority = next_priority;
@@ -792,7 +807,7 @@ priority (rtx insn)
 	  while (twin != prev_first);
 	}
       INSN_PRIORITY (insn) = this_priority;
-      INSN_PRIORITY_KNOWN (insn) = 1;
+      INSN_PRIORITY_STATUS (insn) = 1;
     }
 
   return INSN_PRIORITY (insn);
@@ -817,13 +832,16 @@ rank_for_schedule (const void *x, const void *y)
 {
   rtx tmp = *(const rtx *) y;
   rtx tmp2 = *(const rtx *) x;
-  rtx link;
-  int tmp_class, tmp2_class, depend_count1, depend_count2;
+  dep_link_t link1, link2;
+  int tmp_class, tmp2_class;
   int val, priority_val, weight_val, info_val;
 
   /* The insn in a schedule group should be issued the first.  */
   if (SCHED_GROUP_P (tmp) != SCHED_GROUP_P (tmp2))
     return SCHED_GROUP_P (tmp2) ? 1 : -1;
+
+  /* Make sure that priority of TMP and TMP2 are initialized.  */
+  gcc_assert (INSN_PRIORITY_KNOWN (tmp) && INSN_PRIORITY_KNOWN (tmp2));
 
   /* Prefer insn with higher priority.  */
   priority_val = INSN_PRIORITY (tmp2) - INSN_PRIORITY (tmp);
@@ -872,18 +890,26 @@ rank_for_schedule (const void *x, const void *y)
          2) Anti/Output dependent on last scheduled insn.
          3) Independent of last scheduled insn, or has latency of one.
          Choose the insn from the highest numbered class if different.  */
-      link = find_insn_list (tmp, INSN_DEPEND (last_scheduled_insn));
-      if (link == 0 || insn_cost (last_scheduled_insn, link, tmp) == 1)
+      link1
+	= find_link_by_con_in_deps_list (INSN_FORW_DEPS (last_scheduled_insn),
+					 tmp);
+
+      if (link1 == NULL || dep_cost (DEP_LINK_DEP (link1)) == 1)
 	tmp_class = 3;
-      else if (REG_NOTE_KIND (link) == 0)	/* Data dependence.  */
+      else if (/* Data dependence.  */
+	       DEP_LINK_KIND (link1) == REG_DEP_TRUE)
 	tmp_class = 1;
       else
 	tmp_class = 2;
 
-      link = find_insn_list (tmp2, INSN_DEPEND (last_scheduled_insn));
-      if (link == 0 || insn_cost (last_scheduled_insn, link, tmp2) == 1)
+      link2
+	= find_link_by_con_in_deps_list (INSN_FORW_DEPS (last_scheduled_insn),
+					 tmp2);
+
+      if (link2 == NULL || dep_cost (DEP_LINK_DEP (link2))  == 1)
 	tmp2_class = 3;
-      else if (REG_NOTE_KIND (link) == 0)	/* Data dependence.  */
+      else if (/* Data dependence.  */
+	       DEP_LINK_KIND (link2) == REG_DEP_TRUE)
 	tmp2_class = 1;
       else
 	tmp2_class = 2;
@@ -895,17 +921,22 @@ rank_for_schedule (const void *x, const void *y)
   /* Prefer the insn which has more later insns that depend on it.
      This gives the scheduler more freedom when scheduling later
      instructions at the expense of added register pressure.  */
-  depend_count1 = 0;
-  for (link = INSN_DEPEND (tmp); link; link = XEXP (link, 1))
-    depend_count1++;
 
-  depend_count2 = 0;
-  for (link = INSN_DEPEND (tmp2); link; link = XEXP (link, 1))
-    depend_count2++;
+  link1 = DEPS_LIST_FIRST (INSN_FORW_DEPS (tmp));
+  link2 = DEPS_LIST_FIRST (INSN_FORW_DEPS (tmp2));
 
-  val = depend_count2 - depend_count1;
-  if (val)
-    return val;
+  while (link1 != NULL && link2 != NULL)
+    {
+      link1 = DEP_LINK_NEXT (link1);
+      link2 = DEP_LINK_NEXT (link2);
+    }
+
+  if (link1 != NULL && link2 == NULL)
+    /* TMP (Y) has more insns that depend on it.  */
+    return -1;
+  if (link1 == NULL && link2 != NULL)
+    /* TMP2 (X) has more insns that depend on it.  */
+    return 1;
 
   /* If insns are equally good, sort by INSN_LUID (original insn order),
      so that we make the sort stable.  This minimizes instruction movement,
@@ -1141,7 +1172,7 @@ static int last_clock_var;
 static int
 schedule_insn (rtx insn)
 {
-  rtx link;
+  dep_link_t link;
   int advance = 0;
 
   if (sched_verbose >= 1)
@@ -1161,18 +1192,16 @@ schedule_insn (rtx insn)
 
   /* Scheduling instruction should have all its dependencies resolved and
      should have been removed from the ready list.  */
-  gcc_assert (INSN_DEP_COUNT (insn) == 0);
-  gcc_assert (!LOG_LINKS (insn));
-  gcc_assert (QUEUE_INDEX (insn) == QUEUE_NOWHERE);
+  gcc_assert (INSN_DEP_COUNT (insn) == 0
+	      && deps_list_empty_p (INSN_BACK_DEPS (insn)));
+  free_deps_list (INSN_BACK_DEPS (insn));
 
+  /* Now we can free INSN_RESOLVED_BACK_DEPS list.  */
+  delete_deps_list (INSN_RESOLVED_BACK_DEPS (insn));
+
+  gcc_assert (QUEUE_INDEX (insn) == QUEUE_NOWHERE);
   QUEUE_INDEX (insn) = QUEUE_SCHEDULED;
-  
-  /* Now we can free RESOLVED_DEPS list.  */
-  if (current_sched_info->flags & USE_DEPS_LIST)
-    free_DEPS_LIST_list (&RESOLVED_DEPS (insn));
-  else
-    free_INSN_LIST_list (&RESOLVED_DEPS (insn));
-    
+
   gcc_assert (INSN_TICK (insn) >= MIN_TICK);
   if (INSN_TICK (insn) > clock_var)
     /* INSN has been prematurely moved from the queue to the ready list.
@@ -1184,14 +1213,21 @@ schedule_insn (rtx insn)
   INSN_TICK (insn) = clock_var;
 
   /* Update dependent instructions.  */
-  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
     {
-      rtx next = XEXP (link, 0);
+      rtx next = DEP_LINK_CON (link);
 
-      resolve_dep (next, insn);
+      /* Resolve the dependence between INSN and NEXT.  */
 
-      if (!RECOVERY_BLOCK (insn)
-	  || RECOVERY_BLOCK (insn) == EXIT_BLOCK_PTR)
+      INSN_DEP_COUNT (next)--;
+
+      move_dep_link (DEP_NODE_BACK (DEP_LINK_NODE (link)),
+			INSN_RESOLVED_BACK_DEPS (next));
+
+      gcc_assert ((INSN_DEP_COUNT (next) == 0)
+		  == deps_list_empty_p (INSN_BACK_DEPS (next)));
+
+      if (!IS_SPECULATION_BRANCHY_CHECK_P (insn))
 	{
 	  int effective_cost;      
 	  
@@ -1206,7 +1242,7 @@ schedule_insn (rtx insn)
 	/* Check always has only one forward dependence (to the first insn in
 	   the recovery block), therefore, this will be executed only once.  */
 	{
-	  gcc_assert (XEXP (link, 1) == 0);
+	  gcc_assert (DEP_LINK_NEXT (link) == NULL);
 	  fix_recovery_deps (RECOVERY_BLOCK (insn));
 	}
     }
@@ -1262,8 +1298,8 @@ unlink_other_notes (rtx insn, rtx tail)
         }
 
       /* See sched_analyze to see how these are handled.  */
-      if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END)
+      if (NOTE_KIND (insn) != NOTE_INSN_EH_REGION_BEG
+	  && NOTE_KIND (insn) != NOTE_INSN_EH_REGION_END)
 	{
 	  /* Insert the note at the end of the notes list.  */
 	  PREV_INSN (insn) = note_list;
@@ -1271,50 +1307,6 @@ unlink_other_notes (rtx insn, rtx tail)
 	    NEXT_INSN (note_list) = insn;
 	  note_list = insn;
 	}
-
-      insn = next;
-    }
-  return insn;
-}
-
-/* Delete line notes beginning with INSN. Record line-number notes so
-   they can be reused.  Returns the insn following the notes.  */
-
-static rtx
-unlink_line_notes (rtx insn, rtx tail)
-{
-  rtx prev = PREV_INSN (insn);
-
-  while (insn != tail && NOTE_NOT_BB_P (insn))
-    {
-      rtx next = NEXT_INSN (insn);
-
-      if (write_symbols != NO_DEBUG && NOTE_LINE_NUMBER (insn) > 0)
-	{
-          basic_block bb = BLOCK_FOR_INSN (insn);
-
-	  /* Delete the note from its current position.  */
-	  if (prev)
-	    NEXT_INSN (prev) = next;
-	  if (next)
-	    PREV_INSN (next) = prev;
-
-          if (bb)
-            {
-              /* Basic block can begin with either LABEL or
-                 NOTE_INSN_BASIC_BLOCK.  */
-              gcc_assert (BB_HEAD (bb) != insn);
-
-              /* Check if we are removing last insn in the BB.  */
-              if (BB_END (bb) == insn)
-                BB_END (bb) = prev;
-            }
-
-	  /* Record line-number notes so they can be reused.  */
-	  LINE_NOTE (insn) = insn;
-	}
-      else
-	prev = insn;
 
       insn = next;
     }
@@ -1372,182 +1364,6 @@ no_real_insns_p (rtx head, rtx tail)
       head = NEXT_INSN (head);
     }
   return 1;
-}
-
-/* Delete line notes from one block. Save them so they can be later restored
-   (in restore_line_notes).  HEAD and TAIL are the boundaries of the
-   block in which notes should be processed.  */
-
-void
-rm_line_notes (rtx head, rtx tail)
-{
-  rtx next_tail;
-  rtx insn;
-
-  next_tail = NEXT_INSN (tail);
-  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
-    {
-      rtx prev;
-
-      /* Farm out notes, and maybe save them in NOTE_LIST.
-         This is needed to keep the debugger from
-         getting completely deranged.  */
-      if (NOTE_NOT_BB_P (insn))
-	{
-	  prev = insn;
-	  insn = unlink_line_notes (insn, next_tail);
-
-	  gcc_assert (prev != tail && prev != head && insn != next_tail);
-	}
-    }
-}
-
-/* Save line number notes for each insn in block B.  HEAD and TAIL are
-   the boundaries of the block in which notes should be processed.  */
-
-void
-save_line_notes (int b, rtx head, rtx tail)
-{
-  rtx next_tail;
-
-  /* We must use the true line number for the first insn in the block
-     that was computed and saved at the start of this pass.  We can't
-     use the current line number, because scheduling of the previous
-     block may have changed the current line number.  */
-
-  rtx line = line_note_head[b];
-  rtx insn;
-
-  next_tail = NEXT_INSN (tail);
-
-  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
-    if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
-      line = insn;
-    else
-      LINE_NOTE (insn) = line;
-}
-
-/* After a block was scheduled, insert line notes into the insns list.
-   HEAD and TAIL are the boundaries of the block in which notes should
-   be processed.  */
-
-void
-restore_line_notes (rtx head, rtx tail)
-{
-  rtx line, note, prev, new;
-  int added_notes = 0;
-  rtx next_tail, insn;
-
-  head = head;
-  next_tail = NEXT_INSN (tail);
-
-  /* Determine the current line-number.  We want to know the current
-     line number of the first insn of the block here, in case it is
-     different from the true line number that was saved earlier.  If
-     different, then we need a line number note before the first insn
-     of this block.  If it happens to be the same, then we don't want to
-     emit another line number note here.  */
-  for (line = head; line; line = PREV_INSN (line))
-    if (NOTE_P (line) && NOTE_LINE_NUMBER (line) > 0)
-      break;
-
-  /* Walk the insns keeping track of the current line-number and inserting
-     the line-number notes as needed.  */
-  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
-    if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
-      line = insn;
-  /* This used to emit line number notes before every non-deleted note.
-     However, this confuses a debugger, because line notes not separated
-     by real instructions all end up at the same address.  I can find no
-     use for line number notes before other notes, so none are emitted.  */
-    else if (!NOTE_P (insn)
-	     && INSN_UID (insn) < old_max_uid
-	     && (note = LINE_NOTE (insn)) != 0
-	     && note != line
-	     && (line == 0
-#ifdef USE_MAPPED_LOCATION
-		 || NOTE_SOURCE_LOCATION (note) != NOTE_SOURCE_LOCATION (line)
-#else
-		 || NOTE_LINE_NUMBER (note) != NOTE_LINE_NUMBER (line)
-		 || NOTE_SOURCE_FILE (note) != NOTE_SOURCE_FILE (line)
-#endif
-		 ))
-      {
-	line = note;
-	prev = PREV_INSN (insn);
-	if (LINE_NOTE (note))
-	  {
-	    /* Re-use the original line-number note.  */
-	    LINE_NOTE (note) = 0;
-	    PREV_INSN (note) = prev;
-	    NEXT_INSN (prev) = note;
-	    PREV_INSN (insn) = note;
-	    NEXT_INSN (note) = insn;
-	    set_block_for_insn (note, BLOCK_FOR_INSN (insn));
-	  }
-	else
-	  {
-	    added_notes++;
-	    new = emit_note_after (NOTE_LINE_NUMBER (note), prev);
-#ifndef USE_MAPPED_LOCATION
-	    NOTE_SOURCE_FILE (new) = NOTE_SOURCE_FILE (note);
-#endif
-	  }
-      }
-  if (sched_verbose && added_notes)
-    fprintf (sched_dump, ";; added %d line-number notes\n", added_notes);
-}
-
-/* After scheduling the function, delete redundant line notes from the
-   insns list.  */
-
-void
-rm_redundant_line_notes (void)
-{
-  rtx line = 0;
-  rtx insn = get_insns ();
-  int active_insn = 0;
-  int notes = 0;
-
-  /* Walk the insns deleting redundant line-number notes.  Many of these
-     are already present.  The remainder tend to occur at basic
-     block boundaries.  */
-  for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
-    if (NOTE_P (insn) && NOTE_LINE_NUMBER (insn) > 0)
-      {
-	/* If there are no active insns following, INSN is redundant.  */
-	if (active_insn == 0)
-	  {
-	    notes++;
-	    SET_INSN_DELETED (insn);
-	  }
-	/* If the line number is unchanged, LINE is redundant.  */
-	else if (line
-#ifdef USE_MAPPED_LOCATION
-		 && NOTE_SOURCE_LOCATION (line) == NOTE_SOURCE_LOCATION (insn)
-#else
-		 && NOTE_LINE_NUMBER (line) == NOTE_LINE_NUMBER (insn)
-		 && NOTE_SOURCE_FILE (line) == NOTE_SOURCE_FILE (insn)
-#endif
-)
-	  {
-	    notes++;
-	    SET_INSN_DELETED (line);
-	    line = insn;
-	  }
-	else
-	  line = insn;
-	active_insn = 0;
-      }
-    else if (!((NOTE_P (insn)
-		&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_DELETED)
-	       || (NONJUMP_INSN_P (insn)
-		   && (GET_CODE (PATTERN (insn)) == USE
-		       || GET_CODE (PATTERN (insn)) == CLOBBER))))
-      active_insn++;
-
-  if (sched_verbose && notes)
-    fprintf (sched_dump, ";; deleted %d line-number notes\n", notes);
 }
 
 /* Delete notes between HEAD and TAIL and put them in the chain
@@ -1666,8 +1482,16 @@ queue_to_ready (struct ready_list *ready)
 {
   rtx insn;
   rtx link;
+  rtx skip_insn;
 
   q_ptr = NEXT_Q (q_ptr);
+
+  if (dbg_cnt (sched_insn) == false)
+    /* If debug counter is activated do not requeue insn next after
+       last_scheduled_insn.  */
+    skip_insn = next_nonnote_insn (last_scheduled_insn);
+  else
+    skip_insn = NULL_RTX;
 
   /* Add all pending insns that can be scheduled without stalls to the
      ready list.  */
@@ -1684,7 +1508,8 @@ queue_to_ready (struct ready_list *ready)
 	 See the comment in schedule_block for the rationale.  */
       if (!reload_completed
 	  && ready->n_ready > MAX_SCHED_READY_INSNS
-	  && !SCHED_GROUP_P (insn))
+	  && !SCHED_GROUP_P (insn)
+	  && insn != skip_insn)
 	{
 	  if (sched_verbose >= 2)
 	    fprintf (sched_dump, "requeued because ready full\n");
@@ -1760,17 +1585,22 @@ ok_for_early_queue_removal (rtx insn)
 	{
 	  for ( ; prev_insn; prev_insn = PREV_INSN (prev_insn))
 	    {
-	      rtx dep_link = 0;
-	      int dep_cost;
+	      int cost;
 
 	      if (!NOTE_P (prev_insn))
 		{
-		  dep_link = find_insn_list (insn, INSN_DEPEND (prev_insn));
+		  dep_link_t dep_link;
+
+		  dep_link = (find_link_by_con_in_deps_list
+			      (INSN_FORW_DEPS (prev_insn), insn));
+
 		  if (dep_link)
 		    {
-		      dep_cost = insn_cost (prev_insn, dep_link, insn) ;
-		      if (targetm.sched.is_costly_dependence (prev_insn, insn, 
-				dep_link, dep_cost, 
+		      dep_t dep = DEP_LINK_DEP (dep_link);
+
+		      cost = dep_cost (dep);
+
+		      if (targetm.sched.is_costly_dependence (dep, cost,
 				flag_sched_stalled_insns_dep - n_cycles))
 			return false;
 		    }
@@ -1960,8 +1790,7 @@ move_insn (rtx insn)
 
 	  gcc_assert (!jump_p
 		      || ((current_sched_info->flags & SCHED_RGN)
-			  && RECOVERY_BLOCK (insn)
-			  && RECOVERY_BLOCK (insn) != EXIT_BLOCK_PTR)
+			  && IS_SPECULATION_BRANCHY_CHECK_P (insn))
 		      || (current_sched_info->flags & SCHED_EBB));
 	  
 	  gcc_assert (BLOCK_FOR_INSN (PREV_INSN (insn)) == bb);
@@ -2013,6 +1842,7 @@ move_insn (rtx insn)
 	}
 
       set_block_for_insn (insn, bb);    
+      df_insn_change_bb (insn);
   
       /* Update BB_END, if needed.  */
       if (BB_END (bb) == last)
@@ -2158,17 +1988,43 @@ max_issue (struct ready_list *ready, int *index, int max_points)
 
 /* The following function chooses insn from READY and modifies
    *N_READY and READY.  The following function is used only for first
-   cycle multipass scheduling.  */
-
-static rtx
-choose_ready (struct ready_list *ready)
+   cycle multipass scheduling.
+   Return:
+   -1 if cycle should be advanced,
+   0 if INSN_PTR is set to point to the desirable insn,
+   1 if choose_ready () should be restarted without advancing the cycle.  */
+static int
+choose_ready (struct ready_list *ready, rtx *insn_ptr)
 {
-  int lookahead = 0;
+  int lookahead;
+
+  if (dbg_cnt (sched_insn) == false)
+    {
+      rtx insn;
+
+      insn = next_nonnote_insn (last_scheduled_insn);
+
+      if (QUEUE_INDEX (insn) == QUEUE_READY)
+	/* INSN is in the ready_list.  */
+	{
+	  ready_remove_insn (insn);
+	  *insn_ptr = insn;
+	  return 0;
+	}
+
+      /* INSN is in the queue.  Advance cycle to move it to the ready list.  */
+      return -1;
+    }
+
+  lookahead = 0;
 
   if (targetm.sched.first_cycle_multipass_dfa_lookahead)
     lookahead = targetm.sched.first_cycle_multipass_dfa_lookahead ();
   if (lookahead <= 0 || SCHED_GROUP_P (ready_element (ready, 0)))
-    return ready_remove_first (ready);
+    {
+      *insn_ptr = ready_remove_first (ready);
+      return 0;
+    }
   else
     {
       /* Try to choose the better insn.  */
@@ -2185,7 +2041,10 @@ choose_ready (struct ready_list *ready)
 	}
       insn = ready_element (ready, 0);
       if (INSN_CODE (insn) < 0)
-	return ready_remove_first (ready);
+	{
+	  *insn_ptr = ready_remove_first (ready);
+	  return 0;
+	}
 
       if (spec_info
 	  && spec_info->flags & (PREFER_NON_DATA_SPEC
@@ -2227,7 +2086,7 @@ choose_ready (struct ready_list *ready)
 	   list.  */
 	{
 	  change_queue_index (insn, 1);
-	  return 0;
+	  return 1;
 	}
 
       max_points = ISSUE_POINTS (insn);
@@ -2249,9 +2108,15 @@ choose_ready (struct ready_list *ready)
 	}
 
       if (max_issue (ready, &index, max_points) == 0)
-	return ready_remove_first (ready);
+	{
+	  *insn_ptr = ready_remove_first (ready);
+	  return 0;
+	}
       else
-	return ready_remove (ready, index);
+	{
+	  *insn_ptr = ready_remove (ready, index);
+	  return 0;
+	}
     }
 }
 
@@ -2350,9 +2215,27 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 		   ";;\t\t before reload => truncated to %d insns\n", i);
 	}
 
-      /* Delay all insns past it for 1 cycle.  */
-      while (i < ready.n_ready)
-	queue_insn (ready_remove (&ready, i), 1);
+      /* Delay all insns past it for 1 cycle.  If debug counter is
+	 activated make an exception for the insn right after
+	 last_scheduled_insn.  */
+      {
+	rtx skip_insn;
+
+	if (dbg_cnt (sched_insn) == false)
+	  skip_insn = next_nonnote_insn (last_scheduled_insn);
+	else
+	  skip_insn = NULL_RTX;
+
+	while (i < ready.n_ready)
+	  {
+	    rtx insn;
+
+	    insn = ready_remove (&ready, i);
+
+	    if (insn != skip_insn)
+	      queue_insn (insn, 1);
+	  }
+      }
     }
 
   /* Now we can restore basic block notes and maintain precise cfg.  */
@@ -2438,7 +2321,7 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 		 there's nothing better to do (ready list is empty) but
 		 there are still vacant dispatch slots in the current cycle.  */
 	      if (sched_verbose >= 6)
-		fprintf(sched_dump,";;\t\tSecond chance\n");
+		fprintf (sched_dump,";;\t\tSecond chance\n");
 	      memcpy (temp_state, curr_state, dfa_state_size);
 	      if (early_queue_to_ready (temp_state, &ready))
 		ready_sort (&ready);
@@ -2452,9 +2335,19 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 	  /* Select and remove the insn from the ready list.  */
 	  if (sort_p)
 	    {
-	      insn = choose_ready (&ready);
-	      if (!insn)
+	      int res;
+
+	      insn = NULL_RTX;
+	      res = choose_ready (&ready, &insn);
+
+	      if (res < 0)
+		/* Finish cycle.  */
+		break;
+	      if (res > 0)
+		/* Restart choose_ready ().  */
 		continue;
+
+	      gcc_assert (insn != NULL_RTX);
 	    }
 	  else
 	    insn = ready_remove_first (&ready);
@@ -2532,7 +2425,7 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
             generate_recovery_code (insn);
 
 	  if (control_flow_insn_p (last_scheduled_insn)	     
-	      /* This is used to to switch basic blocks by request
+	      /* This is used to switch basic blocks by request
 		 from scheduler front-end (actually, sched-ebb.c only).
 		 This is used to process blocks with single fallthru
 		 edge.  If succeeding block has jump, it [jump] will try
@@ -2657,14 +2550,6 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
       fix_inter_tick (NEXT_INSN (prev_head), last_scheduled_insn);
     }
 
-#ifdef ENABLE_CHECKING
-  /* After the reload the ia64 backend doesn't maintain BB_END, so
-     if we want to check anything, better do it now. 
-     And it already clobbered previously scheduled code.  */
-  if (reload_completed)
-    check_cfg (BB_HEAD (BLOCK_FOR_INSN (prev_head)), 0);
-#endif
-
   if (targetm.sched.md_finish)
     targetm.sched.md_finish (sched_dump, sched_verbose);
 
@@ -2740,9 +2625,10 @@ set_priorities (rtx head, rtx tail)
       n_insn++;
       (void) priority (insn);
 
-      if (INSN_PRIORITY_KNOWN (insn))
-	sched_max_insns_priority =
-	  MAX (sched_max_insns_priority, INSN_PRIORITY (insn)); 
+      gcc_assert (INSN_PRIORITY_KNOWN (insn));
+
+      sched_max_insns_priority = MAX (sched_max_insns_priority,
+				      INSN_PRIORITY (insn));
     }
 
   current_sched_info->sched_max_insns_priority = sched_max_insns_priority;
@@ -2859,14 +2745,8 @@ sched_init (void)
 
   init_alias_analysis ();
 
-  line_note_head = 0;
   old_last_basic_block = 0;
-  glat_start = 0;  
-  glat_end = 0;
-  extend_bb (0);
-
-  if (current_sched_info->flags & USE_GLAT)
-    init_glat ();
+  extend_bb ();
 
   /* Compute INSN_REG_WEIGHT for all blocks.  We must do this before
      removing death notes.  */
@@ -2895,8 +2775,6 @@ sched_finish (void)
   dfa_finish ();
   free_dependency_caches ();
   end_alias_analysis ();
-  free (line_note_head);
-  free_glat ();
 
   if (targetm.sched.md_finish_global)
     targetm.sched.md_finish_global (sched_dump, sched_verbose);
@@ -2951,7 +2829,7 @@ fix_inter_tick (rtx head, rtx tail)
       if (INSN_P (head))
 	{
 	  int tick;
-	  rtx link;
+	  dep_link_t link;
                   
 	  tick = INSN_TICK (head);
 	  gcc_assert (tick >= MIN_TICK);
@@ -2968,11 +2846,11 @@ fix_inter_tick (rtx head, rtx tail)
 	      INSN_TICK (head) = tick;		 
 	    }
 	  
-	  for (link = INSN_DEPEND (head); link; link = XEXP (link, 1))
+	  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (head))
 	    {
 	      rtx next;
 	      
-	      next = XEXP (link, 0);
+	      next = DEP_LINK_CON (link);
 	      tick = INSN_TICK (next);
 
 	      if (tick != INVALID_TICK
@@ -3010,7 +2888,7 @@ int
 try_ready (rtx next)
 {  
   ds_t old_ts, *ts;
-  rtx link;
+  dep_link_t link;
 
   ts = &TODO_SPEC (next);
   old_ts = *ts;
@@ -3021,27 +2899,34 @@ try_ready (rtx next)
   
   if (!(current_sched_info->flags & DO_SPECULATION))
     {
-      if (!LOG_LINKS (next))
+      if (deps_list_empty_p (INSN_BACK_DEPS (next)))
         *ts &= ~HARD_DEP;
     }
   else
     {
-      *ts &= ~SPECULATIVE & ~HARD_DEP;          
-  
-      link = LOG_LINKS (next);
-      if (link)
+      *ts &= ~SPECULATIVE & ~HARD_DEP;
+
+      link = DEPS_LIST_FIRST (INSN_BACK_DEPS (next));
+
+      if (link != NULL)
         {
-          /* LOG_LINKS are maintained sorted. 
+	  ds_t ds = DEP_LINK_STATUS (link) & SPECULATIVE;
+
+          /* Backward dependencies of the insn are maintained sorted. 
              So if DEP_STATUS of the first dep is SPECULATIVE,
              than all other deps are speculative too.  */
-          if (DEP_STATUS (link) & SPECULATIVE)          
+          if (ds != 0)
             {          
               /* Now we've got NEXT with speculative deps only.
                  1. Look at the deps to see what we have to do.
                  2. Check if we can do 'todo'.  */
-	      *ts = DEP_STATUS (link) & SPECULATIVE;
-              while ((link = XEXP (link, 1)))
-		*ts = ds_merge (*ts, DEP_STATUS (link) & SPECULATIVE);
+	      *ts = ds;
+
+              while ((link = DEP_LINK_NEXT (link)) != NULL)
+		{
+		  ds = DEP_LINK_STATUS (link) & SPECULATIVE;
+		  *ts = ds_merge (*ts, ds);
+		}
 
 	      if (dep_weak (*ts) < spec_info->weakness_cutoff)
 		/* Too few points.  */
@@ -3051,25 +2936,25 @@ try_ready (rtx next)
             *ts |= HARD_DEP;
         }
     }
-  
+
   if (*ts & HARD_DEP)
     gcc_assert (*ts == old_ts
 		&& QUEUE_INDEX (next) == QUEUE_NOWHERE);
   else if (current_sched_info->new_ready)
-    *ts = current_sched_info->new_ready (next, *ts);  
+    *ts = current_sched_info->new_ready (next, *ts);
 
-  /* * if !(old_ts & SPECULATIVE) (e.g. HARD_DEP or 0), then insn might 
+  /* * if !(old_ts & SPECULATIVE) (e.g. HARD_DEP or 0), then insn might
      have its original pattern or changed (speculative) one.  This is due
      to changing ebb in region scheduling.
      * But if (old_ts & SPECULATIVE), then we are pretty sure that insn
      has speculative pattern.
-     
+
      We can't assert (!(*ts & HARD_DEP) || *ts == old_ts) here because
      control-speculative NEXT could have been discarded by sched-rgn.c
      (the same case as when discarded by can_schedule_ready_p ()).  */
-  
+
   if ((*ts & SPECULATIVE)
-      /* If (old_ts == *ts), then (old_ts & SPECULATIVE) and we don't 
+      /* If (old_ts == *ts), then (old_ts & SPECULATIVE) and we don't
 	 need to change anything.  */
       && *ts != old_ts)
     {
@@ -3115,8 +3000,7 @@ try_ready (rtx next)
      or we simply don't care (*ts & HARD_DEP).  */
   
   gcc_assert (!ORIG_PAT (next)
-	      || !RECOVERY_BLOCK (next)
-	      || RECOVERY_BLOCK (next) == EXIT_BLOCK_PTR);
+	      || !IS_SPECULATION_BRANCHY_CHECK_P (next));
   
   if (*ts & HARD_DEP)
     {
@@ -3128,11 +3012,11 @@ try_ready (rtx next)
       change_queue_index (next, QUEUE_NOWHERE);
       return -1;
     }
-  else if (!(*ts & BEGIN_SPEC) && ORIG_PAT (next) && !RECOVERY_BLOCK (next))
+  else if (!(*ts & BEGIN_SPEC) && ORIG_PAT (next) && !IS_SPECULATION_CHECK_P (next))
     /* We should change pattern of every previously speculative 
        instruction - and we determine if NEXT was speculative by using
-       ORIG_PAT field.  Except one case - simple checks have ORIG_PAT
-       pat too, hence we also check for the RECOVERY_BLOCK.  */
+       ORIG_PAT field.  Except one case - speculation checks have ORIG_PAT
+       pat too, so skip them.  */
     {
       change_pattern (next, ORIG_PAT (next));
       ORIG_PAT (next) = 0;
@@ -3167,33 +3051,34 @@ try_ready (rtx next)
 static int
 fix_tick_ready (rtx next)
 {
-  rtx link;
   int tick, delay;
 
-  link = RESOLVED_DEPS (next);
-      
-  if (link)
+  if (!deps_list_empty_p (INSN_RESOLVED_BACK_DEPS (next)))
     {
       int full_p;
+      dep_link_t link;
 
       tick = INSN_TICK (next);
       /* if tick is not equal to INVALID_TICK, then update
 	 INSN_TICK of NEXT with the most recent resolved dependence
 	 cost.  Otherwise, recalculate from scratch.  */
-      full_p = tick == INVALID_TICK;
-      do
-        {        
-          rtx pro;
+      full_p = (tick == INVALID_TICK);
+
+      FOR_EACH_DEP_LINK (link, INSN_RESOLVED_BACK_DEPS (next))
+        {       
+	  dep_t dep = DEP_LINK_DEP (link);
+          rtx pro = DEP_PRO (dep);
           int tick1;
               
-          pro = XEXP (link, 0);
 	  gcc_assert (INSN_TICK (pro) >= MIN_TICK);
 
-          tick1 = INSN_TICK (pro) + insn_cost (pro, link, next);
+          tick1 = INSN_TICK (pro) + dep_cost (dep);
           if (tick1 > tick)
             tick = tick1;
+
+	  if (!full_p)
+	    break;
         }
-      while ((link = XEXP (link, 1)) && full_p);
     }
   else
     tick = -1;
@@ -3252,29 +3137,13 @@ change_queue_index (rtx next, int delay)
     }
 }
 
-/* INSN is being scheduled.  Resolve the dependence between INSN and NEXT.  */
-static void
-resolve_dep (rtx next, rtx insn)
-{
-  rtx dep;
-
-  INSN_DEP_COUNT (next)--;
-  
-  dep = remove_list_elem (insn, &LOG_LINKS (next));
-  XEXP (dep, 1) = RESOLVED_DEPS (next);
-  RESOLVED_DEPS (next) = dep;
-  
-  gcc_assert ((INSN_DEP_COUNT (next) != 0 || !LOG_LINKS (next))
-	      && (LOG_LINKS (next) || INSN_DEP_COUNT (next) == 0));
-}
-
 /* Extend H_I_D data.  */
 static void
 extend_h_i_d (void)
 {
   /* We use LUID 0 for the fake insn (UID 0) which holds dependencies for
      pseudos which do not cross calls.  */
-  int new_max_uid = get_max_uid() + 1;  
+  int new_max_uid = get_max_uid () + 1;  
 
   h_i_d = xrecalloc (h_i_d, new_max_uid, old_max_uid, sizeof (*h_i_d));
   old_max_uid = new_max_uid;
@@ -3342,7 +3211,15 @@ init_h_i_d (rtx insn)
   QUEUE_INDEX (insn) = QUEUE_NOWHERE;
   INSN_TICK (insn) = INVALID_TICK;
   INTER_TICK (insn) = INVALID_TICK;
-  find_insn_reg_weight1 (insn);  
+  find_insn_reg_weight1 (insn);
+
+  /* These two lists will be freed in schedule_insn ().  */
+  INSN_BACK_DEPS (insn) = create_deps_list (false);
+  INSN_RESOLVED_BACK_DEPS (insn) = create_deps_list (false);
+
+  /* This one should be allocated on the obstack because it should live till
+     the scheduling ends.  */
+  INSN_FORW_DEPS (insn) = create_deps_list (true);
 }
 
 /* Generates recovery code for INSN.  */
@@ -3361,18 +3238,20 @@ generate_recovery_code (rtx insn)
 
 /* Helper function.
    Tries to add speculative dependencies of type FS between instructions
-   in LINK list and TWIN.  */
+   in deps_list L and TWIN.  */
 static void
-process_insn_depend_be_in_spec (rtx link, rtx twin, ds_t fs)
+process_insn_forw_deps_be_in_spec (deps_list_t l, rtx twin, ds_t fs)
 {
-  for (; link; link = XEXP (link, 1))
+  dep_link_t link;
+
+  FOR_EACH_DEP_LINK (link, l)
     {
       ds_t ds;
       rtx consumer;
 
-      consumer = XEXP (link, 0);
+      consumer = DEP_LINK_CON (link);
 
-      ds = DEP_STATUS (link);
+      ds = DEP_LINK_STATUS (link);
 
       if (/* If we want to create speculative dep.  */
 	  fs
@@ -3399,7 +3278,7 @@ process_insn_depend_be_in_spec (rtx link, rtx twin, ds_t fs)
 	    ds |= fs;
 	}
 
-      add_back_forw_dep (consumer, twin, REG_NOTE_KIND (link), ds);
+      add_back_forw_dep (consumer, twin, DEP_LINK_KIND (link), ds);
     }
 }
 
@@ -3422,7 +3301,9 @@ static void
 add_to_speculative_block (rtx insn)
 {
   ds_t ts;
-  rtx link, twins = NULL;
+  dep_link_t link;
+  rtx twins = NULL;
+  rtx_vec_t priorities_roots;
 
   ts = TODO_SPEC (insn);
   gcc_assert (!(ts & ~BE_IN_SPEC));
@@ -3438,43 +3319,50 @@ add_to_speculative_block (rtx insn)
   DONE_SPEC (insn) |= ts;
 
   /* First we convert all simple checks to branchy.  */
-  for (link = LOG_LINKS (insn); link;)
+  for (link = DEPS_LIST_FIRST (INSN_BACK_DEPS (insn)); link != NULL;)
     {
-      rtx check;
+      rtx check = DEP_LINK_PRO (link);
 
-      check = XEXP (link, 0);
-
-      if (RECOVERY_BLOCK (check))
+      if (IS_SPECULATION_SIMPLE_CHECK_P (check))
 	{
 	  create_check_block_twin (check, true);
-	  link = LOG_LINKS (insn);
+
+	  /* Restart search.  */
+	  link = DEPS_LIST_FIRST (INSN_BACK_DEPS (insn));
 	}
       else
-	link = XEXP (link, 1);
+	/* Continue search.  */
+	link = DEP_LINK_NEXT (link);
     }
 
-  clear_priorities (insn);
+  priorities_roots = NULL;
+  clear_priorities (insn, &priorities_roots);
  
   do
     {
-      rtx link, check, twin;
+      dep_link_t link;
+      rtx check, twin;
       basic_block rec;
 
-      link = LOG_LINKS (insn);
-      gcc_assert (!(DEP_STATUS (link) & BEGIN_SPEC)
-		  && (DEP_STATUS (link) & BE_IN_SPEC)
-		  && (DEP_STATUS (link) & DEP_TYPES) == DEP_TRUE);
+      link = DEPS_LIST_FIRST (INSN_BACK_DEPS (insn));
 
-      check = XEXP (link, 0);
-      gcc_assert (!RECOVERY_BLOCK (check) && !ORIG_PAT (check)
+      gcc_assert ((DEP_LINK_STATUS (link) & BEGIN_SPEC) == 0
+		  && (DEP_LINK_STATUS (link) & BE_IN_SPEC) != 0
+		  && (DEP_LINK_STATUS (link) & DEP_TYPES) == DEP_TRUE);
+
+      check = DEP_LINK_PRO (link);
+
+      gcc_assert (!IS_SPECULATION_CHECK_P (check) && !ORIG_PAT (check)
 		  && QUEUE_INDEX (check) == QUEUE_NOWHERE);
       
       rec = BLOCK_FOR_INSN (check);
       
-      twin = emit_insn_before (copy_rtx (PATTERN (insn)), BB_END (rec));
+      twin = emit_insn_before (copy_insn (PATTERN (insn)), BB_END (rec));
       extend_global (twin);
 
-      RESOLVED_DEPS (twin) = copy_DEPS_LIST_list (RESOLVED_DEPS (insn));
+      copy_deps_list_change_con (INSN_RESOLVED_BACK_DEPS (twin),
+				 INSN_RESOLVED_BACK_DEPS (insn),
+				 twin);
 
       if (sched_verbose && spec_info->dump)
         /* INSN_BB (insn) isn't determined for twin insns yet.
@@ -3492,10 +3380,11 @@ add_to_speculative_block (rtx insn)
 	  
 	  do	    	  
 	    {  
-	      link = XEXP (link, 1);
-	      if (link)
+	      link = DEP_LINK_NEXT (link);
+
+	      if (link != NULL)
 		{
-		  check = XEXP (link, 0);
+		  check = DEP_LINK_PRO (link);
 		  if (BLOCK_FOR_INSN (check) == rec)
 		    break;
 		}
@@ -3504,39 +3393,45 @@ add_to_speculative_block (rtx insn)
 	    }
 	  while (1);
 	}
-      while (link);
+      while (link != NULL);
 
-      process_insn_depend_be_in_spec (INSN_DEPEND (insn), twin, ts);
+      process_insn_forw_deps_be_in_spec (INSN_FORW_DEPS (insn), twin, ts);
 
-      for (link = LOG_LINKS (insn); link;)
+      /* Remove all dependencies between INSN and insns in REC.  */
+      for (link = DEPS_LIST_FIRST (INSN_BACK_DEPS (insn)); link != NULL;)
 	{
-	  check = XEXP (link, 0);
+	  check = DEP_LINK_PRO (link);
 
 	  if (BLOCK_FOR_INSN (check) == rec)
 	    {
-	      delete_back_forw_dep (insn, check);
-	      link = LOG_LINKS (insn);
+	      delete_back_forw_dep (link);
+
+	      /* Restart search.  */
+	      link = DEPS_LIST_FIRST (INSN_BACK_DEPS (insn));
 	    }
 	  else
-	    link = XEXP (link, 1);
+	    /* Continue search.  */
+	    link = DEP_LINK_NEXT (link);
 	}
     }
-  while (LOG_LINKS (insn));
+  while (!deps_list_empty_p (INSN_BACK_DEPS (insn)));
 
-  /* We can't add the dependence between insn and twin earlier because
-     that would make twin appear in the INSN_DEPEND (insn).  */
+  /* We couldn't have added the dependencies between INSN and TWINS earlier
+     because that would make TWINS appear in the INSN_BACK_DEPS (INSN).  */
   while (twins)
     {
       rtx twin;
 
       twin = XEXP (twins, 0);
-      calc_priorities (twin);
       add_back_forw_dep (twin, insn, REG_DEP_OUTPUT, DEP_OUTPUT);
 
       twin = XEXP (twins, 1);
       free_INSN_LIST_node (twins);
       twins = twin;      
     }
+
+  calc_priorities (priorities_roots);
+  VEC_free (rtx, heap, priorities_roots);
 }
 
 /* Extends and fills with zeros (only the new part) array pointed to by P.  */
@@ -3681,18 +3576,22 @@ static basic_block
 create_recovery_block (void)
 {
   rtx label;
+  rtx barrier;
   basic_block rec;
   
   added_recovery_block_p = true;
 
   if (!before_recovery)
     init_before_recovery ();
- 
-  label = gen_label_rtx ();
-  gcc_assert (BARRIER_P (NEXT_INSN (BB_END (before_recovery))));
-  label = emit_label_after (label, NEXT_INSN (BB_END (before_recovery)));
 
-  rec = create_basic_block (label, label, before_recovery); 
+  barrier = get_last_bb_insn (before_recovery);
+  gcc_assert (BARRIER_P (barrier));
+
+  label = emit_label_after (gen_label_rtx (), barrier);
+
+  rec = create_basic_block (label, label, before_recovery);
+
+  /* Recovery block always end with an unconditional jump.  */
   emit_barrier_after (BB_END (rec));
 
   if (BB_PARTITION (before_recovery) != BB_UNPARTITIONED)
@@ -3713,12 +3612,13 @@ static void
 create_check_block_twin (rtx insn, bool mutate_p)
 {
   basic_block rec;
-  rtx label, check, twin, link;
+  rtx label, check, twin;
+  dep_link_t link;
   ds_t fs;
 
   gcc_assert (ORIG_PAT (insn)
 	      && (!mutate_p 
-		  || (RECOVERY_BLOCK (insn) == EXIT_BLOCK_PTR
+		  || (IS_SPECULATION_SIMPLE_CHECK_P (insn)
 		      && !(TODO_SPEC (insn) & SPECULATIVE))));
 
   /* Create recovery block.  */
@@ -3763,14 +3663,14 @@ create_check_block_twin (rtx insn, bool mutate_p)
      in the recovery block).  */
   if (rec != EXIT_BLOCK_PTR)
     {
-      rtx link;
-
-      for (link = RESOLVED_DEPS (insn); link; link = XEXP (link, 1))    
-	if (DEP_STATUS (link) & DEP_OUTPUT)
+      FOR_EACH_DEP_LINK (link, INSN_RESOLVED_BACK_DEPS (insn))
+	if ((DEP_LINK_STATUS (link) & DEP_OUTPUT) != 0)
 	  {
-	    RESOLVED_DEPS (check) = 
-	      alloc_DEPS_LIST (XEXP (link, 0), RESOLVED_DEPS (check), DEP_TRUE);
-	    PUT_REG_NOTE_KIND (RESOLVED_DEPS (check), REG_DEP_TRUE);
+	    struct _dep _dep, *dep = &_dep;
+
+	    init_dep (dep, DEP_LINK_PRO (link), check, REG_DEP_TRUE);
+
+	    add_back_dep_to_deps_list (INSN_RESOLVED_BACK_DEPS (check), dep);
 	  }
 
       twin = emit_insn_after (ORIG_PAT (insn), BB_END (rec));
@@ -3791,7 +3691,9 @@ create_check_block_twin (rtx insn, bool mutate_p)
 	 (TRUE | OUTPUT).  */
     }
 
-  RESOLVED_DEPS (twin) = copy_DEPS_LIST_list (RESOLVED_DEPS (insn));  
+  copy_deps_list_change_con (INSN_RESOLVED_BACK_DEPS (twin),
+			     INSN_RESOLVED_BACK_DEPS (insn),
+			     twin);
 
   if (rec != EXIT_BLOCK_PTR)
     /* In case of branchy check, fix CFG.  */
@@ -3854,8 +3756,10 @@ create_check_block_twin (rtx insn, bool mutate_p)
 
   /* Move backward dependences from INSN to CHECK and 
      move forward dependences from INSN to TWIN.  */
-  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_BACK_DEPS (insn))
     {
+      rtx pro = DEP_LINK_PRO (link);
+      enum reg_note dk = DEP_LINK_KIND (link);
       ds_t ds;
 
       /* If BEGIN_DATA: [insn ~~TRUE~~> producer]:
@@ -3873,7 +3777,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
 	 twin  ~~TRUE~~> producer
 	 twin  --ANTI--> check  */	      	  
 
-      ds = DEP_STATUS (link);
+      ds = DEP_LINK_STATUS (link);
 
       if (ds & BEGIN_SPEC)
 	{
@@ -3883,24 +3787,27 @@ create_check_block_twin (rtx insn, bool mutate_p)
 
       if (rec != EXIT_BLOCK_PTR)
 	{
-	  add_back_forw_dep (check, XEXP (link, 0), REG_NOTE_KIND (link), ds);
-	  add_back_forw_dep (twin, XEXP (link, 0), REG_NOTE_KIND (link), ds);
+	  add_back_forw_dep (check, pro, dk, ds);
+	  add_back_forw_dep (twin, pro, dk, ds);
 	}    
       else
-	add_back_forw_dep (check, XEXP (link, 0), REG_NOTE_KIND (link), ds);
+	add_back_forw_dep (check, pro, dk, ds);
     }
 
-  for (link = LOG_LINKS (insn); link;)
-    if ((DEP_STATUS (link) & BEGIN_SPEC)
+  for (link = DEPS_LIST_FIRST (INSN_BACK_DEPS (insn)); link != NULL;)
+    if ((DEP_LINK_STATUS (link) & BEGIN_SPEC)
 	|| mutate_p)
       /* We can delete this dep only if we totally overcome it with
 	 BEGIN_SPECULATION.  */
       {
-        delete_back_forw_dep (insn, XEXP (link, 0));
-        link = LOG_LINKS (insn);
+        delete_back_forw_dep (link);
+
+	/* Restart search.  */
+        link = DEPS_LIST_FIRST (INSN_BACK_DEPS (insn));
       }
     else
-      link = XEXP (link, 1);    
+      /* Continue search.  */
+      link = DEP_LINK_NEXT (link);    
 
   fs = 0;
 
@@ -3925,7 +3832,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
     CHECK_SPEC (check) = CHECK_SPEC (insn);
 
   /* Future speculations: call the helper.  */
-  process_insn_depend_be_in_spec (INSN_DEPEND (insn), twin, fs);
+  process_insn_forw_deps_be_in_spec (INSN_FORW_DEPS (insn), twin, fs);
 
   if (rec != EXIT_BLOCK_PTR)
     {
@@ -3940,12 +3847,19 @@ create_check_block_twin (rtx insn, bool mutate_p)
 	}
       else
 	{
+	  dep_link_t link;
+
 	  if (spec_info->dump)    
 	    fprintf (spec_info->dump, ";;\t\tRemoved simple check : %s\n",
 		     (*current_sched_info->print_insn) (insn, 0));
 
-	  for (link = INSN_DEPEND (insn); link; link = INSN_DEPEND (insn))
-	    delete_back_forw_dep (XEXP (link, 0), insn);
+	  /* Remove all forward dependencies of the INSN.  */
+	  link = DEPS_LIST_FIRST (INSN_FORW_DEPS (insn));
+	  while (link != NULL)
+	    {
+	      delete_back_forw_dep (link);
+	      link = DEPS_LIST_FIRST (INSN_FORW_DEPS (insn));
+	    }
 
 	  if (QUEUE_INDEX (insn) != QUEUE_NOWHERE)
 	    try_ready (check);
@@ -3962,8 +3876,11 @@ create_check_block_twin (rtx insn, bool mutate_p)
     /* Fix priorities.  If MUTATE_P is nonzero, this is not necessary,
        because it'll be done later in add_to_speculative_block.  */
     {
-      clear_priorities (twin);
-      calc_priorities (twin);
+      rtx_vec_t priorities_roots = NULL;
+
+      clear_priorities (twin, &priorities_roots);
+      calc_priorities (priorities_roots);
+      VEC_free (rtx, heap, priorities_roots);
     }
 }
 
@@ -3973,8 +3890,10 @@ create_check_block_twin (rtx insn, bool mutate_p)
 static void
 fix_recovery_deps (basic_block rec)
 {
-  rtx note, insn, link, jump, ready_list = 0;
+  dep_link_t link;
+  rtx note, insn, jump, ready_list = 0;
   bitmap_head in_ready;
+  rtx link1;
 
   bitmap_initialize (&in_ready, 0);
   
@@ -3987,29 +3906,31 @@ fix_recovery_deps (basic_block rec)
 
   do
     {    
-      for (link = INSN_DEPEND (insn); link;)
+      for (link = DEPS_LIST_FIRST (INSN_FORW_DEPS (insn)); link != NULL;)
 	{
 	  rtx consumer;
 
-	  consumer = XEXP (link, 0);
+	  consumer = DEP_LINK_CON (link);
 
 	  if (BLOCK_FOR_INSN (consumer) != rec)
 	    {
-	      delete_back_forw_dep (consumer, insn);
+	      delete_back_forw_dep (link);
 
 	      if (!bitmap_bit_p (&in_ready, INSN_LUID (consumer)))
 		{
 		  ready_list = alloc_INSN_LIST (consumer, ready_list);
 		  bitmap_set_bit (&in_ready, INSN_LUID (consumer));
 		}
-	      
-	      link = INSN_DEPEND (insn);
+
+	      /* Restart search.  */
+	      link = DEPS_LIST_FIRST (INSN_FORW_DEPS (insn));
 	    }
 	  else
 	    {
-	      gcc_assert ((DEP_STATUS (link) & DEP_TYPES) == DEP_TRUE);
+	      gcc_assert ((DEP_LINK_STATUS (link) & DEP_TYPES) == DEP_TRUE);
 
-	      link = XEXP (link, 1);
+	      /* Continue search.  */
+	      link = DEP_LINK_NEXT (link);
 	    }
 	}
       
@@ -4020,8 +3941,8 @@ fix_recovery_deps (basic_block rec)
   bitmap_clear (&in_ready);
 
   /* Try to add instructions to the ready or queue list.  */
-  for (link = ready_list; link; link = XEXP (link, 1))
-    try_ready (XEXP (link, 0));
+  for (link1 = ready_list; link1; link1 = XEXP (link1, 1))
+    try_ready (XEXP (link1, 0));
   free_INSN_LIST_list (&ready_list);
 
   /* Fixing jump's dependences.  */
@@ -4033,29 +3954,6 @@ fix_recovery_deps (basic_block rec)
   
   gcc_assert (NOTE_INSN_BASIC_BLOCK_P (insn));
   add_jump_dependencies (insn, jump);
-}
-
-/* The function saves line notes at the beginning of block B.  */
-static void
-associate_line_notes_with_blocks (basic_block b)
-{
-  rtx line;
-
-  for (line = BB_HEAD (b); line; line = PREV_INSN (line))
-    if (NOTE_P (line) && NOTE_LINE_NUMBER (line) > 0)
-      {
-        line_note_head[b->index] = line;
-        break;
-      }
-  /* Do a forward search as well, since we won't get to see the first
-     notes in a basic block.  */
-  for (line = BB_HEAD (b); line; line = NEXT_INSN (line))
-    {
-      if (INSN_P (line))
-        break;
-      if (NOTE_P (line) && NOTE_LINE_NUMBER (line) > 0)
-        line_note_head[b->index] = line;
-    }
 }
 
 /* Changes pattern of the INSN to NEW_PAT.  */
@@ -4091,7 +3989,7 @@ speculate_insn (rtx insn, ds_t request, rtx *new_pat)
       || (request & spec_info->mask) != request)    
     return -1;
   
-  gcc_assert (!RECOVERY_BLOCK (insn));
+  gcc_assert (!IS_SPECULATION_CHECK_P (insn));
 
   if (request & BE_IN_SPEC)
     {            
@@ -4220,36 +4118,11 @@ restore_bb_notes (basic_block first)
    If BB is NULL, initialize structures for the whole CFG.
    Otherwise, initialize them for the just created BB.  */
 static void
-extend_bb (basic_block bb)
+extend_bb (void)
 {
   rtx insn;
 
-  if (write_symbols != NO_DEBUG)
-    {
-      /* Save-line-note-head:
-         Determine the line-number at the start of each basic block.
-         This must be computed and saved now, because after a basic block's
-         predecessor has been scheduled, it is impossible to accurately
-         determine the correct line number for the first insn of the block.  */
-      line_note_head = xrecalloc (line_note_head, last_basic_block, 
-				  old_last_basic_block,
-				  sizeof (*line_note_head));
-
-      if (bb)
-	associate_line_notes_with_blocks (bb);
-      else
-	FOR_EACH_BB (bb)
-	  associate_line_notes_with_blocks (bb);
-    }        
-  
   old_last_basic_block = last_basic_block;
-
-  if (current_sched_info->flags & USE_GLAT)
-    {
-      glat_start = xrealloc (glat_start,
-                             last_basic_block * sizeof (*glat_start));
-      glat_end = xrealloc (glat_end, last_basic_block * sizeof (*glat_end));
-    }
 
   /* The following is done to keep current_sched_info->next_tail non null.  */
 
@@ -4260,8 +4133,9 @@ extend_bb (basic_block bb)
 	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
 	  && !BARRIER_P (NEXT_INSN (insn))))
     {
-      emit_note_after (NOTE_INSN_DELETED, insn);
-      /* Make insn to appear outside BB.  */
+      rtx note = emit_note_after (NOTE_INSN_DELETED, insn);
+      /* Make insn appear outside BB.  */
+      set_block_for_insn (note, NULL);
       BB_END (EXIT_BLOCK_PTR->prev_bb) = insn;
     }
 }
@@ -4272,14 +4146,9 @@ extend_bb (basic_block bb)
 void
 add_block (basic_block bb, basic_block ebb)
 {
-  gcc_assert (current_sched_info->flags & DETACH_LIFE_INFO
-	      && bb->il.rtl->global_live_at_start == 0
-	      && bb->il.rtl->global_live_at_end == 0);
+  gcc_assert (current_sched_info->flags & NEW_BBS);
 
-  extend_bb (bb);
-
-  glat_start[bb->index] = 0;
-  glat_end[bb->index] = 0;
+  extend_bb ();
 
   if (current_sched_info->add_block)
     /* This changes only data structures of the front-end.  */
@@ -4299,8 +4168,7 @@ fix_jump_move (rtx jump)
   jump_bb_next = jump_bb->next_bb;
 
   gcc_assert (current_sched_info->flags & SCHED_EBB
-	      || (RECOVERY_BLOCK (jump)
-		  && RECOVERY_BLOCK (jump) != EXIT_BLOCK_PTR));
+	      || IS_SPECULATION_BRANCHY_CHECK_P (jump));
   
   if (!NOTE_INSN_BASIC_BLOCK_P (BB_END (jump_bb_next)))
     /* if jump_bb_next is not empty.  */
@@ -4333,8 +4201,8 @@ move_block_after_check (rtx jump)
   
   update_bb_for_insn (jump_bb);
   
-  gcc_assert (RECOVERY_BLOCK (jump)
-	      || RECOVERY_BLOCK (BB_END (jump_bb_next)));
+  gcc_assert (IS_SPECULATION_CHECK_P (jump)
+	      || IS_SPECULATION_CHECK_P (BB_END (jump_bb_next)));
 
   unlink_block (jump_bb_next);
   link_block (jump_bb_next, bb);
@@ -4344,6 +4212,8 @@ move_block_after_check (rtx jump)
   move_succs (&(jump_bb->succs), bb);
   move_succs (&(jump_bb_next->succs), jump_bb);
   move_succs (&t, jump_bb_next);
+
+  df_mark_solutions_dirty ();
   
   if (current_sched_info->fix_recovery_cfg)
     current_sched_info->fix_recovery_cfg 
@@ -4369,115 +4239,6 @@ move_succs (VEC(edge,gc) **succsp, basic_block to)
   *succsp = 0;
 }
 
-/* Initialize GLAT (global_live_at_{start, end}) structures.
-   GLAT structures are used to substitute global_live_{start, end}
-   regsets during scheduling.  This is necessary to use such functions as
-   split_block (), as they assume consistency of register live information.  */
-static void
-init_glat (void)
-{
-  basic_block bb;
-
-  FOR_ALL_BB (bb)
-    init_glat1 (bb);
-}
-
-/* Helper function for init_glat.  */
-static void
-init_glat1 (basic_block bb)
-{
-  gcc_assert (bb->il.rtl->global_live_at_start != 0
-	      && bb->il.rtl->global_live_at_end != 0);
-
-  glat_start[bb->index] = bb->il.rtl->global_live_at_start;
-  glat_end[bb->index] = bb->il.rtl->global_live_at_end;
-  
-  if (current_sched_info->flags & DETACH_LIFE_INFO)
-    {
-      bb->il.rtl->global_live_at_start = 0;
-      bb->il.rtl->global_live_at_end = 0;
-    }
-}
-
-/* Attach reg_live_info back to basic blocks.
-   Also save regsets, that should not have been changed during scheduling,
-   for checking purposes (see check_reg_live).  */
-void
-attach_life_info (void)
-{
-  basic_block bb;
-
-  FOR_ALL_BB (bb)
-    attach_life_info1 (bb);
-}
-
-/* Helper function for attach_life_info.  */
-static void
-attach_life_info1 (basic_block bb)
-{
-  gcc_assert (bb->il.rtl->global_live_at_start == 0
-	      && bb->il.rtl->global_live_at_end == 0);
-
-  if (glat_start[bb->index])
-    {
-      gcc_assert (glat_end[bb->index]);    
-
-      bb->il.rtl->global_live_at_start = glat_start[bb->index];
-      bb->il.rtl->global_live_at_end = glat_end[bb->index];
-
-      /* Make them NULL, so they won't be freed in free_glat.  */
-      glat_start[bb->index] = 0;
-      glat_end[bb->index] = 0;
-
-#ifdef ENABLE_CHECKING
-      if (bb->index < NUM_FIXED_BLOCKS
-	  || current_sched_info->region_head_or_leaf_p (bb, 0))
-	{
-	  glat_start[bb->index] = ALLOC_REG_SET (&reg_obstack);
-	  COPY_REG_SET (glat_start[bb->index],
-			bb->il.rtl->global_live_at_start);
-	}
-
-      if (bb->index < NUM_FIXED_BLOCKS
-	  || current_sched_info->region_head_or_leaf_p (bb, 1))
-	{       
-	  glat_end[bb->index] = ALLOC_REG_SET (&reg_obstack);
-	  COPY_REG_SET (glat_end[bb->index], bb->il.rtl->global_live_at_end);
-	}
-#endif
-    }
-  else
-    {
-      gcc_assert (!glat_end[bb->index]);
-
-      bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
-    }
-}
-
-/* Free GLAT information.  */
-static void
-free_glat (void)
-{
-#ifdef ENABLE_CHECKING
-  if (current_sched_info->flags & DETACH_LIFE_INFO)
-    {
-      basic_block bb;
-
-      FOR_ALL_BB (bb)
-	{
-	  if (glat_start[bb->index])
-	    FREE_REG_SET (glat_start[bb->index]);
-	  if (glat_end[bb->index])
-	    FREE_REG_SET (glat_end[bb->index]);
-	}
-    }
-#endif
-
-  free (glat_start);
-  free (glat_end);
-}
-
 /* Remove INSN from the instruction stream.
    INSN should have any dependencies.  */
 static void
@@ -4488,44 +4249,50 @@ sched_remove_insn (rtx insn)
   remove_insn (insn);
 }
 
-/* Clear priorities of all instructions, that are
-   forward dependent on INSN.  */
+/* Clear priorities of all instructions, that are forward dependent on INSN.
+   Store in vector pointed to by ROOTS_PTR insns on which priority () should
+   be invoked to initialize all cleared priorities.  */
 static void
-clear_priorities (rtx insn)
+clear_priorities (rtx insn, rtx_vec_t *roots_ptr)
 {
-  rtx link;
+  dep_link_t link;
+  bool insn_is_root_p = true;
 
-  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
+  gcc_assert (QUEUE_INDEX (insn) != QUEUE_SCHEDULED);
+
+  FOR_EACH_DEP_LINK (link, INSN_BACK_DEPS (insn))
     {
-      rtx pro;
+      dep_t dep = DEP_LINK_DEP (link);
+      rtx pro = DEP_PRO (dep);
 
-      pro = XEXP (link, 0);
-      if (INSN_PRIORITY_KNOWN (pro))
+      if (INSN_PRIORITY_STATUS (pro) >= 0
+	  && QUEUE_INDEX (insn) != QUEUE_SCHEDULED)
 	{
-	  INSN_PRIORITY_KNOWN (pro) = 0;
-	  clear_priorities (pro);
+	  /* If DEP doesn't contribute to priority then INSN itself should
+	     be added to priority roots.  */
+	  if (contributes_to_priority_p (dep))
+	    insn_is_root_p = false;
+
+	  INSN_PRIORITY_STATUS (pro) = -1;
+	  clear_priorities (pro, roots_ptr);
 	}
     }
+
+  if (insn_is_root_p)
+    VEC_safe_push (rtx, heap, *roots_ptr, insn);
 }
 
 /* Recompute priorities of instructions, whose priorities might have been
-   changed due to changes in INSN.  */
+   changed.  ROOTS is a vector of instructions whose priority computation will
+   trigger initialization of all cleared priorities.  */
 static void
-calc_priorities (rtx insn)
+calc_priorities (rtx_vec_t roots)
 {
-  rtx link;
+  int i;
+  rtx insn;
 
-  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
-    {
-      rtx pro;
-
-      pro = XEXP (link, 0);
-      if (!INSN_PRIORITY_KNOWN (pro))
-	{
-	  priority (pro);
-	  calc_priorities (pro);
-	}
-    }
+  for (i = 0; VEC_iterate (rtx, roots, i, insn); i++)
+    priority (insn);
 }
 
 
@@ -4540,11 +4307,12 @@ add_jump_dependencies (rtx insn, rtx jump)
       if (insn == jump)
 	break;
       
-      if (!INSN_DEPEND (insn))	    
+      if (deps_list_empty_p (INSN_FORW_DEPS (insn)))
 	add_back_forw_dep (jump, insn, REG_DEP_ANTI, DEP_ANTI);
     }
   while (1);
-  gcc_assert (LOG_LINKS (jump));
+
+  gcc_assert (!deps_list_empty_p (INSN_BACK_DEPS (jump)));
 }
 
 /* Return the NOTE_INSN_BASIC_BLOCK of BB.  */
@@ -4709,54 +4477,8 @@ check_sched_flags (void)
     gcc_assert (!(f & DO_SPECULATION));
   if (f & DO_SPECULATION)
     gcc_assert (!flag_sched_stalled_insns
-		&& (f & DETACH_LIFE_INFO)
 		&& spec_info
 		&& spec_info->mask);
-  if (f & DETACH_LIFE_INFO)
-    gcc_assert (f & USE_GLAT);
-}
-
-/* Check global_live_at_{start, end} regsets.
-   If FATAL_P is TRUE, then abort execution at the first failure.
-   Otherwise, print diagnostics to STDERR (this mode is for calling
-   from debugger).  */
-void
-check_reg_live (bool fatal_p)
-{
-  basic_block bb;
-
-  FOR_ALL_BB (bb)
-    {
-      int i;
-
-      i = bb->index;
-
-      if (glat_start[i])
-	{
-	  bool b = bitmap_equal_p (bb->il.rtl->global_live_at_start,
-				   glat_start[i]);
-
-	  if (!b)
-	    {
-	      gcc_assert (!fatal_p);
-
-	      fprintf (stderr, ";; check_reg_live_at_start (%d) failed.\n", i);
-	    }
-	}
-
-      if (glat_end[i])
-	{
-	  bool b = bitmap_equal_p (bb->il.rtl->global_live_at_end,
-				   glat_end[i]);
-
-	  if (!b)
-	    {
-	      gcc_assert (!fatal_p);
-
-	      fprintf (stderr, ";; check_reg_live_at_end (%d) failed.\n", i);
-	    }
-	}
-    }
 }
 #endif /* ENABLE_CHECKING */
 

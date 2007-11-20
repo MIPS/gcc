@@ -1,6 +1,6 @@
 // Low-level functions for atomic operations: sh version  -*- C++ -*-
 
-// Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,10 +28,10 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _BITS_ATOMICITY_H
-#define _BITS_ATOMICITY_H	1
-
 #ifdef __SH4A__
+
+#ifndef _GLIBCXX_ATOMICITY_H
+#define _GLIBCXX_ATOMICITY_H	1
 
 typedef int _Atomic_word;
 
@@ -70,17 +70,19 @@ __atomic_add (volatile _Atomic_word* __mem, int __val)
       : "r0");
 }
 
+#endif
+
 #else /* !__SH4A__ */
 
 /* This is generic/atomicity.h */
 
-#include <bits/atomicity.h>
-#include <bits/concurrence.h>
+#include <ext/atomicity.h>
+#include <ext/concurrence.h>
 
-namespace __gnu_internal
+namespace 
 {
-  __glibcxx_mutex_define_initialized(atomic_mutex);
-} // namespace __gnu_internal
+  __gnu_cxx::__mutex atomic_mutex;
+} // anonymous namespace
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -88,11 +90,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   __attribute__ ((__unused__))
   __exchange_and_add(volatile _Atomic_word* __mem, int __val)
   {
-    __glibcxx_mutex_lock(__gnu_internal::atomic_mutex);
+    __gnu_cxx::__scoped_lock sentry(atomic_mutex);
     _Atomic_word __result;
     __result = *__mem;
     *__mem += __val;
-    __glibcxx_mutex_unlock(__gnu_internal::atomic_mutex);
     return __result;
   }
 
@@ -104,5 +105,3 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 _GLIBCXX_END_NAMESPACE
 
 #endif /* !__SH4A__ */
-
-#endif /* atomicity.h */

@@ -26,4 +26,6 @@ Authors:
    Roberto Costa
 
 Contact information at STMicroelectronics:
-Roberto Costa <roberto.costa@st.com>   */
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Erven Rohou             <erven.rohou@st.com>
+*/

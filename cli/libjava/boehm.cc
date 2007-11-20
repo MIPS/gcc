@@ -1,6 +1,6 @@
 // boehm.cc - interface between libjava and Boehm GC.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation
 
    This file is part of libgcj.
@@ -166,6 +166,9 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
       p = (GC_PTR) c->hack_signers;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
       p = (GC_PTR) c->aux_info;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
+
+      p = (GC_PTR) c->reflection_data;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 
       // The class chain must be marked for runtime-allocated Classes
@@ -375,6 +378,29 @@ void *
 _Jv_AllocRawObj (jsize size)
 {
   return (void *) GC_MALLOC (size ? size : 1);
+}
+
+typedef _Jv_ClosureList *closure_list_pointer;
+
+/* Release closures in a _Jv_ClosureList.  */
+static void
+finalize_closure_list (GC_PTR obj, GC_PTR)
+{
+  _Jv_ClosureList **clpp = (_Jv_ClosureList **)obj;
+  _Jv_ClosureList::releaseClosures (clpp);
+}
+
+/* Allocate a double-indirect pointer to a _Jv_ClosureList that will
+   get garbage-collected after this double-indirect pointer becomes
+   unreachable by any other objects, including finalizable ones.  */
+_Jv_ClosureList **
+_Jv_ClosureListFinalizer ()
+{
+  _Jv_ClosureList **clpp;
+  clpp = (_Jv_ClosureList **)_Jv_AllocBytes (sizeof (*clpp));
+  GC_REGISTER_FINALIZER_UNREACHABLE (clpp, finalize_closure_list,
+				     NULL, NULL, NULL);
+  return clpp;
 }
 
 static void
@@ -696,12 +722,24 @@ _Jv_ResumeThread (_Jv_Thread_t *thread)
 #endif
 }
 
+int
+_Jv_IsThreadSuspended (_Jv_Thread_t *thread)
+{
+#if defined(GC_PTHREADS) && !defined(GC_SOLARIS_THREADS) \
+     && !defined(GC_WIN32_THREADS) && !defined(GC_DARWIN_THREADS)
+  return GC_is_thread_suspended (_Jv_GetPlatformThreadID (thread));
+#else
+  return 0;
+#endif
+}
+
 void
 _Jv_GCAttachThread ()
 {
   // The registration interface is only defined on posixy systems and
   // only actually works if pthread_getattr_np is defined.
-#ifdef HAVE_PTHREAD_GETATTR_NP
+  // FIXME: until gc7 it is simpler to disable this on solaris.
+#if defined(HAVE_PTHREAD_GETATTR_NP) && !defined(GC_SOLARIS_THREADS)
   GC_register_my_thread ();
 #endif
 }
@@ -709,7 +747,7 @@ _Jv_GCAttachThread ()
 void
 _Jv_GCDetachThread ()
 {
-#ifdef HAVE_PTHREAD_GETATTR_NP
+#if defined(HAVE_PTHREAD_GETATTR_NP) && !defined(GC_SOLARIS_THREADS)
   GC_unregister_my_thread ();
 #endif
 }

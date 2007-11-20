@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,10 +28,10 @@ with Alloc;
 with Debug;    use Debug;
 with Fmap;     use Fmap;
 with Krunch;
-with Namet;    use Namet;
 with Opt;      use Opt;
 with Osint;    use Osint;
 with Table;
+with Targparm; use Targparm;
 with Uname;    use Uname;
 with Widechar; use Widechar;
 
@@ -193,7 +193,7 @@ package body Fname.UF is
       --  Null or error name means that some previous error occurred
       --  This is an unrecoverable error, so signal it.
 
-      if Uname <= Error_Name then
+      if Uname in Error_Unit_Name_Or_No_Unit_Name then
          raise Unrecoverable_Error;
       end if;
 
@@ -412,7 +412,8 @@ package body Fname.UF is
                           (Name_Buffer,
                            Name_Len,
                            Integer (Maximum_File_Name_Length),
-                           Debug_Flag_4);
+                           Debug_Flag_4,
+                           OpenVMS_On_Target);
 
                         --  Replace extension
 
@@ -432,7 +433,7 @@ package body Fname.UF is
                         Debug_Flag_4);
                   end if;
 
-                  Fnam := File_Name_Type (Name_Find);
+                  Fnam := Name_Find;
 
                   --  If we are in the second search of the table, we accept
                   --  the file name without checking, because we know that

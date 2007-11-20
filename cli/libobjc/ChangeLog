@@ -1,6 +1,79 @@
+2007-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* aclocal.m4: Regenerated.
+
+2007-06-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* configure.ac: Fix a typo in *-*-darwin clause.
+	* configure: Regenerated.
+
+2007-06-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac: Fix a typo.
+	* configure: Regenerated.
+
+2007-06-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
+
+2007-06-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* Makefile.in: Replace all uses of libext with libsuffix.
+	* configure.ac: Likewise.
+	* configure: Regenerate.
+
+	Revert:
+	* Makefile.in: Remove all uses of $(libext).
+
+2007-05-23  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* Makefile.in: Remove all uses of $(libext).
+
+2007-05-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+
+2007-04-21  Andrew Ruder  <andy@aeruder.net>
+
+	* sendmsg.c (__objc_get_forward_imp): Call
+	__objc_msg_forward2 for real.
+
+2007-04-09  Andrew Ruder  <andy@aeruder.net>
+
+	* sendmsg.c: Added __objc_msg_forward2, a hook that allows
+	external libraries to provide a function that returns the real
+	forwarding function based on both the selector and the receiver.
+	* objc/objc-api.h: Define __objc_msg_forward2.
+
+2007-03-01  Brooks Moses  <brooks.moses@codesourcery.com>
+
+	* Makefile.in: Add dummy install-pdf target.
+
+2007-02-18  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* objc/objc-list.h (list_free): Add keyword 'inline' to avoid
+	unused warning.
+	
+2006-10-31  Geoffrey Keating  <geoffk@apple.com>
+
+	* encoding.c (darwin_rs6000_special_round_type_align): New.
+
+2006-10-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* Makefile.in: Use multi_basedir instead of toplevel_srcdir.
+	* configure.ac: Use multi.m4 from aclocal rather than custom
+	code.  Use multi_basedir instead of toplevel_srcdir.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2006-10-10  Brooks Moses  <bmoses@stanford.edu>
+
+	* Makefile.in: Added empty "pdf" target.
+
 2006-07-18  Paolo Bonzini  <bonzini@gnu.org>
 
-        * configure: Regenerate.
+	* configure: Regenerate.
 
 2006-05-23  Carlos O'Donell  <carlos@codesourcery.com>
 
@@ -30,10 +103,10 @@
 2005-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR objc/25360
-        * objc/objc-api.c (_C_COMPLEX): New define.
-        * encoding.c (objc_sizeof_type): Handle _C_Complex.
-        (objc_alignof_type): Likewise.
-        (objc_skip_typespec): Likewise.
+	* objc/objc-api.c (_C_COMPLEX): New define.
+	* encoding.c (objc_sizeof_type): Handle _C_Complex.
+	(objc_alignof_type): Likewise.
+	(objc_skip_typespec): Likewise.
 
 2005-12-15  David Ayers  <d.ayers@inode.at>
 

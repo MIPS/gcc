@@ -1,12 +1,12 @@
 /* Analysis Utilities for Loop Vectorization.
-   Copyright (C) 2003,2004,2005,2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -25,6 +24,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "target.h"
 #include "basic-block.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
+#include "toplev.h"
 
 /* Main analysis functions.  */
 static loop_vec_info vect_analyze_loop_form (struct loop *);
@@ -54,8 +55,6 @@ static bool vect_determine_vectorization_factor (loop_vec_info);
 
 /* Utility functions for the analyses.  */
 static bool exist_non_indexing_operands_for_use_p (tree, tree);
-static void vect_mark_relevant (VEC(tree,heap) **, tree, bool, bool);
-static bool vect_stmt_relevant_p (tree, loop_vec_info, bool *, bool *);
 static tree vect_get_loop_niters (struct loop *, tree *);
 static bool vect_analyze_data_ref_dependence
   (struct data_dependence_relation *, loop_vec_info);
@@ -64,7 +63,6 @@ static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_can_advance_ivs_p (loop_vec_info);
 static void vect_update_misalignment_for_peel
   (struct data_reference *, struct data_reference *, int npeel);
- 
 
 /* Function vect_determine_vectorization_factor
 
@@ -99,8 +97,12 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
   int nbbs = loop->num_nodes;
   block_stmt_iterator si;
   unsigned int vectorization_factor = 0;
-  int i;
   tree scalar_type;
+  tree phi;
+  tree vectype;
+  unsigned int nunits;
+  stmt_vec_info stmt_info;
+  int i;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_determine_vectorization_factor ===");
@@ -109,53 +111,125 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
     {
       basic_block bb = bbs[i];
 
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{
+	  stmt_info = vinfo_for_stmt (phi);
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "==> examining phi: ");
+	      print_generic_expr (vect_dump, phi, TDF_SLIM);
+	    }
+
+	  gcc_assert (stmt_info);
+
+	  if (STMT_VINFO_RELEVANT_P (stmt_info))
+            {
+	      gcc_assert (!STMT_VINFO_VECTYPE (stmt_info));
+              scalar_type = TREE_TYPE (PHI_RESULT (phi));
+
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		{
+		  fprintf (vect_dump, "get vectype for scalar type:  ");
+		  print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
+		}
+
+	      vectype = get_vectype_for_scalar_type (scalar_type);
+	      if (!vectype)
+		{
+		  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+		    {
+		      fprintf (vect_dump,
+		               "not vectorized: unsupported data-type ");
+		      print_generic_expr (vect_dump, scalar_type, TDF_SLIM);
+		    }
+		  return false;
+		}
+	      STMT_VINFO_VECTYPE (stmt_info) = vectype;
+
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		{
+		  fprintf (vect_dump, "vectype: ");
+		  print_generic_expr (vect_dump, vectype, TDF_SLIM);
+		}
+
+	      nunits = TYPE_VECTOR_SUBPARTS (vectype);
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		fprintf (vect_dump, "nunits = %d", nunits);
+
+	      if (!vectorization_factor
+		  || (nunits > vectorization_factor))
+		vectorization_factor = nunits;
+	    }
+	}
+
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
         {
-          tree stmt = bsi_stmt (si);
-          unsigned int nunits;
-          stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-          tree vectype;
+	  tree stmt = bsi_stmt (si);
+	  stmt_info = vinfo_for_stmt (stmt);
 
-          if (vect_print_dump_info (REPORT_DETAILS))
-            {
-              fprintf (vect_dump, "==> examining statement: ");
-              print_generic_expr (vect_dump, stmt, TDF_SLIM);
-            }
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "==> examining statement: ");
+	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
+	    }
 
-          gcc_assert (stmt_info);
-          /* skip stmts which do not need to be vectorized.  */
-          if (!STMT_VINFO_RELEVANT_P (stmt_info)
+	  gcc_assert (stmt_info);
+
+	  /* skip stmts which do not need to be vectorized.  */
+	  if (!STMT_VINFO_RELEVANT_P (stmt_info)
 	      && !STMT_VINFO_LIVE_P (stmt_info))
-            {
-              if (vect_print_dump_info (REPORT_DETAILS))
-                fprintf (vect_dump, "skip.");
-              continue;
-            }
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+	        fprintf (vect_dump, "skip.");
+	      continue;
+	    }
 
-          if (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))))
-            {
-              if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-                {
-                  fprintf (vect_dump, "not vectorized: vector stmt in loop:");
-                  print_generic_expr (vect_dump, stmt, TDF_SLIM);
-                }
-              return false;
-            }
+	  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+	    {
+	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+		{
+	          fprintf (vect_dump, "not vectorized: irregular stmt.");
+		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
+		}
+	      return false;
+	    }
+
+	  if (!GIMPLE_STMT_P (stmt)
+	      && VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))))
+	    {
+	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+	        {
+	          fprintf (vect_dump, "not vectorized: vector stmt in loop:");
+	          print_generic_expr (vect_dump, stmt, TDF_SLIM);
+	        }
+	      return false;
+	    }
 
 	  if (STMT_VINFO_VECTYPE (stmt_info))
 	    {
+	      /* The only case when a vectype had been already set is for stmts 
+	         that contain a dataref, or for "pattern-stmts" (stmts generated
+		 by the vectorizer to represent/replace a certain idiom).  */
+	      gcc_assert (STMT_VINFO_DATA_REF (stmt_info) 
+			  || is_pattern_stmt_p (stmt_info));
 	      vectype = STMT_VINFO_VECTYPE (stmt_info);
-	      scalar_type = TREE_TYPE (vectype);
 	    }
 	  else
 	    {
-	      if (STMT_VINFO_DATA_REF (stmt_info))
-		scalar_type = 
-			TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (stmt_info)));
-	      else if (TREE_CODE (stmt) == MODIFY_EXPR)
-		scalar_type = TREE_TYPE (TREE_OPERAND (stmt, 0));
-	      else
-		scalar_type = TREE_TYPE (stmt);
+	      gcc_assert (! STMT_VINFO_DATA_REF (stmt_info)
+			  && !is_pattern_stmt_p (stmt_info));
+
+	      /* We set the vectype according to the type of the result (lhs).
+		 For stmts whose result-type is different than the type of the
+		 arguments (e.g. demotion, promotion), vectype will be reset 
+		 appropriately (later).  Note that we have to visit the smallest 
+		 datatype in this function, because that determines the VF.  
+		 If the smallest datatype in the loop is present only as the 
+		 rhs of a promotion operation - we'd miss it here.
+		 However, in such a case, that a variable of this datatype
+		 does not appear in the lhs anywhere in the loop, it shouldn't
+		 affect the vectorization factor.   */
+	      scalar_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
 
 	      if (vect_print_dump_info (REPORT_DETAILS))
 		{
@@ -177,37 +251,26 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      STMT_VINFO_VECTYPE (stmt_info) = vectype;
             }
 
-          if (vect_print_dump_info (REPORT_DETAILS))
-            {
-              fprintf (vect_dump, "vectype: ");
-              print_generic_expr (vect_dump, vectype, TDF_SLIM);
-            }
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "vectype: ");
+	      print_generic_expr (vect_dump, vectype, TDF_SLIM);
+	    }
 
-          nunits = TYPE_VECTOR_SUBPARTS (vectype);
-          if (vect_print_dump_info (REPORT_DETAILS))
-            fprintf (vect_dump, "nunits = %d", nunits);
+	  nunits = TYPE_VECTOR_SUBPARTS (vectype);
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "nunits = %d", nunits);
 
-          if (vectorization_factor)
-            {
-              /* FORNOW: don't allow mixed units. 
-                 This restriction will be relaxed in the future.  */
-              if (nunits != vectorization_factor) 
-                {
-                  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-                    fprintf (vect_dump, "not vectorized: mixed data-types");
-                  return false;
-                }
-            }
-          else
-            vectorization_factor = nunits;
+	  if (!vectorization_factor
+	      || (nunits > vectorization_factor))
+	    vectorization_factor = nunits;
 
-          gcc_assert (GET_MODE_SIZE (TYPE_MODE (scalar_type))
-                        * vectorization_factor == UNITS_PER_SIMD_WORD);
         }
     }
 
   /* TODO: Analyze cost. Decide if worth while to vectorize.  */
-
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "vectorization factor = %d", vectorization_factor);
   if (vectorization_factor <= 1)
     {
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
@@ -237,6 +300,9 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   tree phi;
   stmt_vec_info stmt_info;
   bool need_to_vectorize = false;
+  int min_profitable_iters;
+  int min_scalar_loop_bound;
+  unsigned int th;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_analyze_operations ===");
@@ -250,6 +316,8 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
         {
+	  ok = true;
+
 	  stmt_info = vinfo_for_stmt (phi);
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    {
@@ -264,16 +332,34 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	      /* FORNOW: not yet supported.  */
 	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
 		fprintf (vect_dump, "not vectorized: value used after loop.");
-	    return false;
-	  }
+	      return false;
+	    }
+
+	  if (STMT_VINFO_RELEVANT (stmt_info) == vect_used_in_loop
+	      && STMT_VINFO_DEF_TYPE (stmt_info) != vect_induction_def)
+	    {
+	      /* A scalar-dependence cycle that we don't support.  */
+	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+		fprintf (vect_dump, "not vectorized: scalar dependence cycle.");
+	      return false;
+	    }
 
 	  if (STMT_VINFO_RELEVANT_P (stmt_info))
 	    {
-	      /* Most likely a reduction-like computation that is used
-	         in the loop.  */
+	      need_to_vectorize = true;
+	      if (STMT_VINFO_DEF_TYPE (stmt_info) == vect_induction_def)
+		ok = vectorizable_induction (phi, NULL, NULL);
+	    }
+
+	  if (!ok)
+	    {
 	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-	        fprintf (vect_dump, "not vectorized: unsupported pattern.");
- 	     return false;
+		{
+		  fprintf (vect_dump,
+			   "not vectorized: relevant phi not supported: ");
+		  print_generic_expr (vect_dump, phi, TDF_SLIM);
+		}
+	      return false;
 	    }
 	}
 
@@ -281,6 +367,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	{
 	  tree stmt = bsi_stmt (si);
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+	  enum vect_def_type relevance = STMT_VINFO_RELEVANT (stmt_info);
 
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    {
@@ -305,54 +392,59 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	      continue;
 	    }
 
-          if (STMT_VINFO_RELEVANT_P (stmt_info))
-            {
-              gcc_assert (!VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))));
-              gcc_assert (STMT_VINFO_VECTYPE (stmt_info));
-
-	      ok = (vectorizable_operation (stmt, NULL, NULL)
-		    || vectorizable_assignment (stmt, NULL, NULL)
-		    || vectorizable_load (stmt, NULL, NULL)
-		    || vectorizable_store (stmt, NULL, NULL)
-		    || vectorizable_condition (stmt, NULL, NULL));
-
-	      if (!ok)
-		{
-		  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-		    {
-		      fprintf (vect_dump, 
-			       "not vectorized: relevant stmt not supported: ");
-		      print_generic_expr (vect_dump, stmt, TDF_SLIM);
-		    }
-		  return false;
-		}	
-	      need_to_vectorize = true;
-            }
-
-	  if (STMT_VINFO_LIVE_P (stmt_info))
+	  switch (STMT_VINFO_DEF_TYPE (stmt_info))
 	    {
-	      ok = vectorizable_reduction (stmt, NULL, NULL);
+ 	    case vect_loop_def:
+	      break;
+	
+	    case vect_reduction_def:
+	      gcc_assert (relevance == vect_unused_in_loop);
+	      break;	
 
-	      if (ok)
-                need_to_vectorize = true;
-              else
-	        ok = vectorizable_live_operation (stmt, NULL, NULL);
-
-	      if (!ok)
-		{
-		  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-		    {
-		      fprintf (vect_dump, 
-			       "not vectorized: live stmt not supported: ");
-		      print_generic_expr (vect_dump, stmt, TDF_SLIM);
-		    }
-		  return false;
-		}
+	    case vect_induction_def:
+	    case vect_constant_def:
+	    case vect_invariant_def:
+	    case vect_unknown_def_type:
+	    default:
+	      gcc_unreachable ();	
 	    }
+
+	  if (STMT_VINFO_RELEVANT_P (stmt_info))
+	    {
+	      gcc_assert (GIMPLE_STMT_P (stmt)
+			  || !VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))));
+	      gcc_assert (STMT_VINFO_VECTYPE (stmt_info));
+	      need_to_vectorize = true;
+	    }
+
+	  ok = (vectorizable_type_promotion (stmt, NULL, NULL)
+		|| vectorizable_type_demotion (stmt, NULL, NULL)
+		|| vectorizable_conversion (stmt, NULL, NULL)
+		|| vectorizable_operation (stmt, NULL, NULL)
+		|| vectorizable_assignment (stmt, NULL, NULL)
+		|| vectorizable_load (stmt, NULL, NULL)
+		|| vectorizable_call (stmt, NULL, NULL)
+		|| vectorizable_store (stmt, NULL, NULL)
+		|| vectorizable_condition (stmt, NULL, NULL)
+		|| vectorizable_reduction (stmt, NULL, NULL));
+
+	  /* Stmts that are (also) "live" (i.e. - that are used out of the loop)
+	     need extra handling, except for vectorizable reductions.  */
+	  if (STMT_VINFO_LIVE_P (stmt_info)
+	      && STMT_VINFO_TYPE (stmt_info) != reduc_vec_info_type) 
+	    ok |= vectorizable_live_operation (stmt, NULL, NULL);
+
+	  if (!ok)
+	    {
+	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+		{
+		  fprintf (vect_dump, "not vectorized: stmt not supported: ");
+		  print_generic_expr (vect_dump, stmt, TDF_SLIM);
+		}
+	      return false;
+	    }	
 	} /* stmts in bb */
     } /* bbs */
-
-  /* TODO: Analyze cost. Decide if worth while to vectorize.  */
 
   /* All operations in the loop are either irrelevant (deal with loop
      control, or dead), or only used outside the loop and can be moved
@@ -377,12 +469,54 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
         vectorization_factor, LOOP_VINFO_INT_NITERS (loop_vinfo));
 
   if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      && LOOP_VINFO_INT_NITERS (loop_vinfo) < vectorization_factor)
+      && (LOOP_VINFO_INT_NITERS (loop_vinfo) < vectorization_factor))
     {
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-	fprintf (vect_dump, "not vectorized: iteration count too small.");
+        fprintf (vect_dump, "not vectorized: iteration count too small.");
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump,"not vectorized: iteration count smaller than "
+                 "vectorization factor.");
       return false;
     }
+
+  /* Analyze cost. Decide if worth while to vectorize.  */
+
+  min_profitable_iters = vect_estimate_min_profitable_iters (loop_vinfo);
+  LOOP_VINFO_COST_MODEL_MIN_ITERS (loop_vinfo) = min_profitable_iters;
+  if (min_profitable_iters < 0)
+    {
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+        fprintf (vect_dump, "not vectorized: vectorization not profitable.");
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "not vectorized: vector version will never be "
+                 "profitable.");
+      return false;
+    }
+
+  min_scalar_loop_bound = (PARAM_VALUE (PARAM_MIN_VECT_LOOP_BOUND))
+                          * vectorization_factor;
+
+  /* Use the cost model only if it is more conservative than user specified
+     threshold.  */
+
+  th = (unsigned) min_scalar_loop_bound;
+  if (min_profitable_iters 
+      && (!min_scalar_loop_bound
+          || min_profitable_iters > min_scalar_loop_bound))
+    th = (unsigned) min_profitable_iters;
+
+  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+      && LOOP_VINFO_INT_NITERS (loop_vinfo) < th)
+    {
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))	      
+        fprintf (vect_dump, "not vectorized: vectorization not "
+                 "profitable.");
+      if (vect_print_dump_info (REPORT_DETAILS))	      
+        fprintf (vect_dump, "not vectorized: iteration count smaller than "
+                 "user specified loop bound parameter or minimum "
+                 "profitable iterations (whichever is more conservative).");
+      return false;
+    }  
 
   if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
       || LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0
@@ -397,7 +531,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
                      "not vectorized: can't create epilog loop 1.");
           return false;
         }
-      if (!slpeel_can_duplicate_loop_p (loop, loop->single_exit))
+      if (!slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
             fprintf (vect_dump,
@@ -440,10 +574,10 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
      Therefore, all we need to check is if STMT falls into the
      first case, and whether var corresponds to USE.  */
  
-  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
+  if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME)
     return false;
 
-  operand = TREE_OPERAND (stmt, 1);
+  operand = GIMPLE_STMT_OPERAND (stmt, 1);
 
   if (TREE_CODE (operand) != SSA_NAME)
     return false;
@@ -500,58 +634,69 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   tree phi;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block bb = loop->header;
-  tree dummy;
+  tree dumy;
+  VEC(tree,heap) *worklist = VEC_alloc (tree, heap, 64);
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_analyze_scalar_cycles ===");
 
+  /* First - identify all inductions.  */
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
       tree access_fn = NULL;
       tree def = PHI_RESULT (phi);
       stmt_vec_info stmt_vinfo = vinfo_for_stmt (phi);
-      tree reduc_stmt;
 
       if (vect_print_dump_info (REPORT_DETAILS))
 	{
-          fprintf (vect_dump, "Analyze phi: ");
-          print_generic_expr (vect_dump, phi, TDF_SLIM);
+	  fprintf (vect_dump, "Analyze phi: ");
+	  print_generic_expr (vect_dump, phi, TDF_SLIM);
 	}
 
       /* Skip virtual phi's. The data dependences that are associated with
          virtual defs/uses (i.e., memory accesses) are analyzed elsewhere.  */
-
       if (!is_gimple_reg (SSA_NAME_VAR (def)))
-	{
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    fprintf (vect_dump, "virtual phi. skip.");
-	  continue;
-	}
+	continue;
 
       STMT_VINFO_DEF_TYPE (stmt_vinfo) = vect_unknown_def_type;
 
       /* Analyze the evolution function.  */
-
       access_fn = analyze_scalar_evolution (loop, def);
-
-      if (!access_fn)
-	continue;
-
-      if (vect_print_dump_info (REPORT_DETAILS))
-        {
-           fprintf (vect_dump, "Access function of PHI: ");
-           print_generic_expr (vect_dump, access_fn, TDF_SLIM);
-        }
-
-      if (vect_is_simple_iv_evolution (loop->num, access_fn, &dummy, &dummy))
+      if (access_fn && vect_print_dump_info (REPORT_DETAILS))
 	{
-	  if (vect_print_dump_info (REPORT_DETAILS))
-	    fprintf (vect_dump, "Detected induction.");
-	  STMT_VINFO_DEF_TYPE (stmt_vinfo) = vect_induction_def;
-          continue;
+	  fprintf (vect_dump, "Access function of PHI: ");
+	  print_generic_expr (vect_dump, access_fn, TDF_SLIM);
 	}
 
-      /* TODO: handle invariant phis  */
+      if (!access_fn
+	  || !vect_is_simple_iv_evolution (loop->num, access_fn, &dumy, &dumy)) 
+	{
+	  VEC_safe_push (tree, heap, worklist, phi);	  
+	  continue;
+	}
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "Detected induction.");
+      STMT_VINFO_DEF_TYPE (stmt_vinfo) = vect_induction_def;
+    }
+
+
+  /* Second - identify all reductions.  */
+  while (VEC_length (tree, worklist) > 0)
+    {
+      tree phi = VEC_pop (tree, worklist);
+      tree def = PHI_RESULT (phi);
+      stmt_vec_info stmt_vinfo = vinfo_for_stmt (phi);
+      tree reduc_stmt;
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+        { 
+          fprintf (vect_dump, "Analyze phi: ");
+          print_generic_expr (vect_dump, phi, TDF_SLIM);
+        }
+
+      gcc_assert (is_gimple_reg (SSA_NAME_VAR (def)));
+      gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_unknown_def_type);
 
       reduc_stmt = vect_is_simple_reduction (loop, phi);
       if (reduc_stmt)
@@ -565,10 +710,299 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
       else
         if (vect_print_dump_info (REPORT_DETAILS))
           fprintf (vect_dump, "Unknown def-use cycle pattern.");
-
     }
 
+  VEC_free (tree, heap, worklist);
   return;
+}
+
+
+/* Function vect_insert_into_interleaving_chain.
+
+   Insert DRA into the interleaving chain of DRB according to DRA's INIT.  */
+
+static void
+vect_insert_into_interleaving_chain (struct data_reference *dra,
+				     struct data_reference *drb)
+{
+  tree prev, next, next_init;
+  stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra)); 
+  stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
+
+  prev = DR_GROUP_FIRST_DR (stmtinfo_b);
+  next = DR_GROUP_NEXT_DR (vinfo_for_stmt (prev));		  
+  while (next)
+    {
+      next_init = DR_INIT (STMT_VINFO_DATA_REF (vinfo_for_stmt (next)));
+      if (tree_int_cst_compare (next_init, DR_INIT (dra)) > 0)
+	{
+	  /* Insert here.  */
+	  DR_GROUP_NEXT_DR (vinfo_for_stmt (prev)) = DR_STMT (dra);
+	  DR_GROUP_NEXT_DR (stmtinfo_a) = next;
+	  return;
+	}
+      prev = next;
+      next = DR_GROUP_NEXT_DR (vinfo_for_stmt (prev));
+    }
+
+  /* We got to the end of the list. Insert here.  */
+  DR_GROUP_NEXT_DR (vinfo_for_stmt (prev)) = DR_STMT (dra);
+  DR_GROUP_NEXT_DR (stmtinfo_a) = NULL_TREE;
+}
+
+
+/* Function vect_update_interleaving_chain.
+   
+   For two data-refs DRA and DRB that are a part of a chain interleaved data 
+   accesses, update the interleaving chain. DRB's INIT is smaller than DRA's.
+
+   There are four possible cases:
+   1. New stmts - both DRA and DRB are not a part of any chain:
+      FIRST_DR = DRB
+      NEXT_DR (DRB) = DRA
+   2. DRB is a part of a chain and DRA is not:
+      no need to update FIRST_DR
+      no need to insert DRB
+      insert DRA according to init
+   3. DRA is a part of a chain and DRB is not:
+      if (init of FIRST_DR > init of DRB)
+          FIRST_DR = DRB
+	  NEXT(FIRST_DR) = previous FIRST_DR
+      else
+          insert DRB according to its init
+   4. both DRA and DRB are in some interleaving chains:
+      choose the chain with the smallest init of FIRST_DR
+      insert the nodes of the second chain into the first one.  */
+
+static void
+vect_update_interleaving_chain (struct data_reference *drb,
+				struct data_reference *dra)
+{
+  stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra)); 
+  stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
+  tree next_init, init_dra_chain, init_drb_chain, first_a, first_b;
+  tree node, prev, next, node_init, first_stmt;
+
+  /* 1. New stmts - both DRA and DRB are not a part of any chain.   */
+  if (!DR_GROUP_FIRST_DR (stmtinfo_a) && !DR_GROUP_FIRST_DR (stmtinfo_b))
+    {
+      DR_GROUP_FIRST_DR (stmtinfo_a) = DR_STMT (drb);
+      DR_GROUP_FIRST_DR (stmtinfo_b) = DR_STMT (drb);
+      DR_GROUP_NEXT_DR (stmtinfo_b) = DR_STMT (dra);
+      return;
+    }
+
+  /* 2. DRB is a part of a chain and DRA is not.  */
+  if (!DR_GROUP_FIRST_DR (stmtinfo_a) && DR_GROUP_FIRST_DR (stmtinfo_b))
+    {
+      DR_GROUP_FIRST_DR (stmtinfo_a) = DR_GROUP_FIRST_DR (stmtinfo_b);
+      /* Insert DRA into the chain of DRB.  */
+      vect_insert_into_interleaving_chain (dra, drb);
+      return;
+    }
+
+  /* 3. DRA is a part of a chain and DRB is not.  */  
+  if (DR_GROUP_FIRST_DR (stmtinfo_a) && !DR_GROUP_FIRST_DR (stmtinfo_b))
+    {
+      tree old_first_stmt = DR_GROUP_FIRST_DR (stmtinfo_a);
+      tree init_old = DR_INIT (STMT_VINFO_DATA_REF (vinfo_for_stmt (
+							      old_first_stmt)));
+      tree tmp;
+
+      if (tree_int_cst_compare (init_old, DR_INIT (drb)) > 0)
+	{
+	  /* DRB's init is smaller than the init of the stmt previously marked 
+	     as the first stmt of the interleaving chain of DRA. Therefore, we 
+	     update FIRST_STMT and put DRB in the head of the list.  */
+	  DR_GROUP_FIRST_DR (stmtinfo_b) = DR_STMT (drb);
+	  DR_GROUP_NEXT_DR (stmtinfo_b) = old_first_stmt;
+		
+	  /* Update all the stmts in the list to point to the new FIRST_STMT.  */
+	  tmp = old_first_stmt;
+	  while (tmp)
+	    {
+	      DR_GROUP_FIRST_DR (vinfo_for_stmt (tmp)) = DR_STMT (drb);
+	      tmp = DR_GROUP_NEXT_DR (vinfo_for_stmt (tmp));
+	    }
+	}
+      else
+	{
+	  /* Insert DRB in the list of DRA.  */
+	  vect_insert_into_interleaving_chain (drb, dra);
+	  DR_GROUP_FIRST_DR (stmtinfo_b) = DR_GROUP_FIRST_DR (stmtinfo_a);	      
+	}
+      return;
+    }
+  
+  /* 4. both DRA and DRB are in some interleaving chains.  */
+  first_a = DR_GROUP_FIRST_DR (stmtinfo_a);
+  first_b = DR_GROUP_FIRST_DR (stmtinfo_b);
+  if (first_a == first_b)
+    return;
+  init_dra_chain = DR_INIT (STMT_VINFO_DATA_REF (vinfo_for_stmt (first_a)));
+  init_drb_chain = DR_INIT (STMT_VINFO_DATA_REF (vinfo_for_stmt (first_b)));
+
+  if (tree_int_cst_compare (init_dra_chain, init_drb_chain) > 0)
+    {
+      /* Insert the nodes of DRA chain into the DRB chain.  
+	 After inserting a node, continue from this node of the DRB chain (don't
+         start from the beginning.  */
+      node = DR_GROUP_FIRST_DR (stmtinfo_a);
+      prev = DR_GROUP_FIRST_DR (stmtinfo_b);      
+      first_stmt = first_b;
+    }
+  else
+    {
+      /* Insert the nodes of DRB chain into the DRA chain.  
+	 After inserting a node, continue from this node of the DRA chain (don't
+         start from the beginning.  */
+      node = DR_GROUP_FIRST_DR (stmtinfo_b);
+      prev = DR_GROUP_FIRST_DR (stmtinfo_a);      
+      first_stmt = first_a;
+    }
+  
+  while (node)
+    {
+      node_init = DR_INIT (STMT_VINFO_DATA_REF (vinfo_for_stmt (node)));
+      next = DR_GROUP_NEXT_DR (vinfo_for_stmt (prev));		  
+      while (next)
+	{	  
+	  next_init = DR_INIT (STMT_VINFO_DATA_REF (vinfo_for_stmt (next)));
+	  if (tree_int_cst_compare (next_init, node_init) > 0)
+	    {
+	      /* Insert here.  */
+	      DR_GROUP_NEXT_DR (vinfo_for_stmt (prev)) = node;
+	      DR_GROUP_NEXT_DR (vinfo_for_stmt (node)) = next;
+	      prev = node;
+	      break;
+	    }
+	  prev = next;
+	  next = DR_GROUP_NEXT_DR (vinfo_for_stmt (prev));
+	}
+      if (!next)
+	{
+	  /* We got to the end of the list. Insert here.  */
+	  DR_GROUP_NEXT_DR (vinfo_for_stmt (prev)) = node;
+	  DR_GROUP_NEXT_DR (vinfo_for_stmt (node)) = NULL_TREE;
+	  prev = node;
+	}			
+      DR_GROUP_FIRST_DR (vinfo_for_stmt (node)) = first_stmt;
+      node = DR_GROUP_NEXT_DR (vinfo_for_stmt (node));	       
+    }
+}
+
+
+/* Function vect_equal_offsets.
+
+   Check if OFFSET1 and OFFSET2 are identical expressions.  */
+
+static bool
+vect_equal_offsets (tree offset1, tree offset2)
+{
+  bool res0, res1;
+
+  STRIP_NOPS (offset1);
+  STRIP_NOPS (offset2);
+
+  if (offset1 == offset2)
+    return true;
+
+  if (TREE_CODE (offset1) != TREE_CODE (offset2)
+      || !BINARY_CLASS_P (offset1)
+      || !BINARY_CLASS_P (offset2))    
+    return false;
+  
+  res0 = vect_equal_offsets (TREE_OPERAND (offset1, 0), 
+			     TREE_OPERAND (offset2, 0));
+  res1 = vect_equal_offsets (TREE_OPERAND (offset1, 1), 
+			     TREE_OPERAND (offset2, 1));
+
+  return (res0 && res1);
+}
+
+
+/* Function vect_check_interleaving.
+
+   Check if DRA and DRB are a part of interleaving. In case they are, insert
+   DRA and DRB in an interleaving chain.  */
+
+static void
+vect_check_interleaving (struct data_reference *dra,
+			 struct data_reference *drb)
+{
+  HOST_WIDE_INT type_size_a, type_size_b, diff_mod_size, step, init_a, init_b;
+
+  /* Check that the data-refs have same first location (except init) and they
+     are both either store or load (not load and store).  */
+  if ((DR_BASE_ADDRESS (dra) != DR_BASE_ADDRESS (drb)
+       && (TREE_CODE (DR_BASE_ADDRESS (dra)) != ADDR_EXPR 
+	   || TREE_CODE (DR_BASE_ADDRESS (drb)) != ADDR_EXPR
+	   || TREE_OPERAND (DR_BASE_ADDRESS (dra), 0) 
+	   != TREE_OPERAND (DR_BASE_ADDRESS (drb),0)))
+      || !vect_equal_offsets (DR_OFFSET (dra), DR_OFFSET (drb))
+      || !tree_int_cst_compare (DR_INIT (dra), DR_INIT (drb)) 
+      || DR_IS_READ (dra) != DR_IS_READ (drb))
+    return;
+
+  /* Check:
+     1. data-refs are of the same type
+     2. their steps are equal
+     3. the step is greater than the difference between data-refs' inits  */
+  type_size_a = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))));
+  type_size_b = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))));
+
+  if (type_size_a != type_size_b
+      || tree_int_cst_compare (DR_STEP (dra), DR_STEP (drb)))
+    return;
+
+  init_a = TREE_INT_CST_LOW (DR_INIT (dra));
+  init_b = TREE_INT_CST_LOW (DR_INIT (drb));
+  step = TREE_INT_CST_LOW (DR_STEP (dra));
+
+  if (init_a > init_b)
+    {
+      /* If init_a == init_b + the size of the type * k, we have an interleaving, 
+	 and DRB is accessed before DRA.  */
+      diff_mod_size = (init_a - init_b) % type_size_a;
+
+      if ((init_a - init_b) > step)
+         return; 
+
+      if (diff_mod_size == 0)
+	{
+	  vect_update_interleaving_chain (drb, dra);	  
+	  if (vect_print_dump_info (REPORT_DR_DETAILS))
+	    {
+	      fprintf (vect_dump, "Detected interleaving ");
+	      print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
+	      fprintf (vect_dump, " and ");
+	      print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
+	    }
+	  return;
+	} 
+    }
+  else 
+    {
+      /* If init_b == init_a + the size of the type * k, we have an 
+	 interleaving, and DRA is accessed before DRB.  */
+      diff_mod_size = (init_b - init_a) % type_size_a;
+
+      if ((init_b - init_a) > step)
+         return;
+
+      if (diff_mod_size == 0)
+	{
+	  vect_update_interleaving_chain (dra, drb);	  
+	  if (vect_print_dump_info (REPORT_DR_DETAILS))
+	    {
+	      fprintf (vect_dump, "Detected interleaving ");
+	      print_generic_expr (vect_dump, DR_REF (dra), TDF_SLIM);
+	      fprintf (vect_dump, " and ");
+	      print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
+	    }
+	  return;
+	} 
+    }
 }
 
 
@@ -588,10 +1022,19 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
   struct data_reference *drb = DDR_B (ddr);
   stmt_vec_info stmtinfo_a = vinfo_for_stmt (DR_STMT (dra)); 
   stmt_vec_info stmtinfo_b = vinfo_for_stmt (DR_STMT (drb));
+  int dra_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dra))));
+  int drb_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (drb))));
   lambda_vector dist_v;
   unsigned int loop_depth;
          
   if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+    {
+      /* Independent data accesses.  */
+      vect_check_interleaving (dra, drb);
+      return false;
+    }
+
+  if ((DR_IS_READ (dra) && DR_IS_READ (drb)) || dra == drb)
     return false;
   
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
@@ -628,7 +1071,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	fprintf (vect_dump, "dependence distance  = %d.", dist);
 
       /* Same loop iteration.  */
-      if (dist % vectorization_factor == 0)
+      if (dist % vectorization_factor == 0 && dra_size == drb_size)
 	{
 	  /* Two references with distance zero have the same alignment.  */
 	  VEC_safe_push (dr_p, heap, STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_a), drb);
@@ -642,7 +1085,18 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	      fprintf (vect_dump, " and ");
 	      print_generic_expr (vect_dump, DR_REF (drb), TDF_SLIM);
 	    }
-	  continue;
+
+          /* For interleaving, mark that there is a read-write dependency if
+             necessary. We check before that one of the data-refs is store.  */ 
+          if (DR_IS_READ (dra))
+            DR_GROUP_READ_WRITE_DEPENDENCE (stmtinfo_a) = true;
+	  else
+            {
+              if (DR_IS_READ (drb))
+                DR_GROUP_READ_WRITE_DEPENDENCE (stmtinfo_b) = true;
+	    }
+	  
+          continue;
 	}
 
       if (abs (dist) >= vectorization_factor)
@@ -721,17 +1175,16 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
     fprintf (vect_dump, "vect_compute_data_ref_alignment:");
 
   /* Initialize misalignment to unknown.  */
-  DR_MISALIGNMENT (dr) = -1;
+  SET_DR_MISALIGNMENT (dr, -1);
 
-  misalign = DR_OFFSET_MISALIGNMENT (dr);
+  misalign = DR_INIT (dr);
   aligned_to = DR_ALIGNED_TO (dr);
   base_addr = DR_BASE_ADDRESS (dr);
   base = build_fold_indirect_ref (base_addr);
   vectype = STMT_VINFO_VECTYPE (stmt_info);
   alignment = ssize_int (TYPE_ALIGN (vectype)/BITS_PER_UNIT);
 
-  if ((aligned_to && tree_int_cst_compare (aligned_to, alignment) < 0)
-      || !misalign)
+  if (tree_int_cst_compare (aligned_to, alignment) < 0)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
 	{
@@ -792,7 +1245,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       return false;
     }
 
-  DR_MISALIGNMENT (dr) = TREE_INT_CST_LOW (misalign);
+  SET_DR_MISALIGNMENT (dr, TREE_INT_CST_LOW (misalign));
 
   if (vect_print_dump_info (REPORT_DETAILS))
     {
@@ -837,16 +1290,19 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
                                    struct data_reference *dr_peel, int npeel)
 {
   unsigned int i;
-  int drsize;
   VEC(dr_p,heap) *same_align_drs;
   struct data_reference *current_dr;
+  int dr_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
+  int dr_peel_size = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr_peel))));
+  stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
+  stmt_vec_info peel_stmt_info = vinfo_for_stmt (DR_STMT (dr_peel));
 
-  if (known_alignment_for_access_p (dr)
-      && DR_MISALIGNMENT (dr) == DR_MISALIGNMENT (dr_peel))
-    {
-      DR_MISALIGNMENT (dr) = 0;
-      return;
-    }
+ /* For interleaved data accesses the step in the loop must be multiplied by
+     the size of the interleaving group.  */
+  if (DR_GROUP_FIRST_DR (stmt_info))
+    dr_size *= DR_GROUP_SIZE (vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)));
+  if (DR_GROUP_FIRST_DR (peel_stmt_info))
+    dr_peel_size *= DR_GROUP_SIZE (peel_stmt_info);
 
   /* It can be assumed that the data refs with the same alignment as dr_peel
      are aligned in the vector loop.  */
@@ -856,21 +1312,25 @@ vect_update_misalignment_for_peel (struct data_reference *dr,
     {
       if (current_dr != dr)
         continue;
-      gcc_assert (DR_MISALIGNMENT (dr) == DR_MISALIGNMENT (dr_peel));
-      DR_MISALIGNMENT (dr) = 0;
+      gcc_assert (DR_MISALIGNMENT (dr) / dr_size ==
+                  DR_MISALIGNMENT (dr_peel) / dr_peel_size);
+      SET_DR_MISALIGNMENT (dr, 0);
       return;
     }
 
   if (known_alignment_for_access_p (dr)
       && known_alignment_for_access_p (dr_peel))
-    {  
-      drsize = GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr))));
-      DR_MISALIGNMENT (dr) += npeel * drsize;
-      DR_MISALIGNMENT (dr) %= UNITS_PER_SIMD_WORD;
+    {
+      int misal = DR_MISALIGNMENT (dr);
+      misal += npeel * dr_size;
+      misal %= UNITS_PER_SIMD_WORD;
+      SET_DR_MISALIGNMENT (dr, misal);
       return;
     }
 
-  DR_MISALIGNMENT (dr) = -1;
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "Setting misalignment to -1.");
+  SET_DR_MISALIGNMENT (dr, -1);
 }
 
 
@@ -889,6 +1349,14 @@ vect_verify_datarefs_alignment (loop_vec_info loop_vinfo)
 
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
     {
+      tree stmt = DR_STMT (dr);
+      stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+
+      /* For interleaving, only the alignment of the first access matters.  */
+      if (DR_GROUP_FIRST_DR (stmt_info)
+          && DR_GROUP_FIRST_DR (stmt_info) != stmt)
+        continue;
+
       supportable_dr_alignment = vect_supportable_dr_alignment (dr);
       if (!supportable_dr_alignment)
         {
@@ -910,6 +1378,76 @@ vect_verify_datarefs_alignment (loop_vec_info loop_vinfo)
   return true;
 }
 
+
+/* Function vector_alignment_reachable_p
+
+   Return true if vector alignment for DR is reachable by peeling
+   a few loop iterations.  Return false otherwise.  */
+
+static bool
+vector_alignment_reachable_p (struct data_reference *dr)
+{
+  tree stmt = DR_STMT (dr);
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+
+  if (DR_GROUP_FIRST_DR (stmt_info))
+    {
+      /* For interleaved access we peel only if number of iterations in
+	 the prolog loop ({VF - misalignment}), is a multiple of the
+	 number of the interleaved accesses.  */
+      int elem_size, mis_in_elements;
+      int nelements = TYPE_VECTOR_SUBPARTS (vectype);
+
+      /* FORNOW: handle only known alignment.  */
+      if (!known_alignment_for_access_p (dr))
+	return false;
+
+      elem_size = UNITS_PER_SIMD_WORD / nelements;
+      mis_in_elements = DR_MISALIGNMENT (dr) / elem_size;
+
+      if ((nelements - mis_in_elements) % DR_GROUP_SIZE (stmt_info))
+	return false;
+    }
+
+  /* If misalignment is known at the compile time then allow peeling
+     only if natural alignment is reachable through peeling.  */
+  if (known_alignment_for_access_p (dr) && !aligned_access_p (dr))
+    {
+      HOST_WIDE_INT elmsize = 
+		int_cst_value (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
+      if (vect_print_dump_info (REPORT_DETAILS))
+	{
+	  fprintf (vect_dump, "data size =" HOST_WIDE_INT_PRINT_DEC, elmsize);
+	  fprintf (vect_dump, ". misalignment = %d. ", DR_MISALIGNMENT (dr));
+	}
+      if (DR_MISALIGNMENT (dr) % elmsize)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "data size does not divide the misalignment.\n");
+	  return false;
+	}
+    }
+
+  if (!known_alignment_for_access_p (dr))
+    {
+      tree type = (TREE_TYPE (DR_REF (dr)));
+      tree ba = DR_BASE_OBJECT (dr);
+      bool is_packed = false;
+
+      if (ba)
+	is_packed = contains_packed_reference (ba);
+
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "Unknown misalignment, is_packed = %d",is_packed);
+      if (targetm.vectorize.vector_alignment_reachable (type, is_packed))
+	return true;
+      else
+	return false;
+    }
+
+  return true;
+}
 
 /* Function vect_enhance_data_refs_alignment
 
@@ -1006,6 +1544,7 @@ static bool
 vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 {
   VEC (data_reference_p, heap) *datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   enum dr_alignment_support supportable_dr_alignment;
   struct data_reference *dr0 = NULL;
   struct data_reference *dr;
@@ -1013,6 +1552,11 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   bool do_peeling = false;
   bool do_versioning = false;
   bool stat;
+  tree stmt;
+  stmt_vec_info stmt_info;
+
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "=== vect_enhance_data_refs_alignment ===");
 
   /* While cost model enhancements are expected in the future, the high level
      view of the code at this time is as follows:
@@ -1021,7 +1565,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         can make all data references satisfy vect_supportable_dr_alignment.
         If so, update data structures as needed and return true.  Note that
         at this time vect_supportable_dr_alignment is known to return false
-        for a a misaligned write.
+        for a misaligned write.
 
      B) If peeling wasn't possible and there is a data reference with an
         unknown misalignment that does not satisfy vect_supportable_dr_alignment
@@ -1054,22 +1598,41 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
      TODO: Use a cost model.  */
 
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
-    if (!DR_IS_READ (dr) && !aligned_access_p (dr))
-      {
-	dr0 = dr;
-	do_peeling = true;
-	break;
-      }
+    {
+      stmt = DR_STMT (dr);
+      stmt_info = vinfo_for_stmt (stmt);
+
+      /* For interleaving, only the alignment of the first access
+         matters.  */
+      if (DR_GROUP_FIRST_DR (stmt_info)
+          && DR_GROUP_FIRST_DR (stmt_info) != stmt)
+        continue;
+
+      if (!DR_IS_READ (dr) && !aligned_access_p (dr))
+        {
+	  do_peeling = vector_alignment_reachable_p (dr);
+	  if (do_peeling)
+	    dr0 = dr;
+	  if (!do_peeling && vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "vector alignment may not be reachable");
+	  break;
+	}
+    }
 
   /* Often peeling for alignment will require peeling for loop-bound, which in 
      turn requires that we know how to adjust the loop ivs after the loop.  */
-  if (!vect_can_advance_ivs_p (loop_vinfo))
+  if (!vect_can_advance_ivs_p (loop_vinfo)
+      || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
     do_peeling = false;
 
   if (do_peeling)
     {
       int mis;
       int npeel = 0;
+      tree stmt = DR_STMT (dr0);
+      stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+      tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+      int nelements = TYPE_VECTOR_SUBPARTS (vectype);
 
       if (known_alignment_for_access_p (dr0))
         {
@@ -1079,7 +1642,17 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
              factor minus the misalignment as an element count.  */
           mis = DR_MISALIGNMENT (dr0);
           mis /= GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (DR_REF (dr0))));
-          npeel = LOOP_VINFO_VECT_FACTOR (loop_vinfo) - mis;
+          npeel = nelements - mis;
+
+	  /* For interleaved data access every iteration accesses all the 
+	     members of the group, therefore we divide the number of iterations
+	     by the group size.  */
+	  stmt_info = vinfo_for_stmt (DR_STMT (dr0));	  
+	  if (DR_GROUP_FIRST_DR (stmt_info))
+	    npeel /= DR_GROUP_SIZE (stmt_info);
+
+          if (vect_print_dump_info (REPORT_DETAILS))
+            fprintf (vect_dump, "Try peeling by %d", npeel);
         }
 
       /* Ensure that all data refs can be vectorized after the peel.  */
@@ -1090,10 +1663,18 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 	  if (dr == dr0)
 	    continue;
 
+	  stmt = DR_STMT (dr);
+	  stmt_info = vinfo_for_stmt (stmt);
+	  /* For interleaving, only the alignment of the first access
+            matters.  */
+	  if (DR_GROUP_FIRST_DR (stmt_info)
+	      && DR_GROUP_FIRST_DR (stmt_info) != stmt)
+	    continue;
+
 	  save_misalignment = DR_MISALIGNMENT (dr);
 	  vect_update_misalignment_for_peel (dr, dr0, npeel);
 	  supportable_dr_alignment = vect_supportable_dr_alignment (dr);
-	  DR_MISALIGNMENT (dr) = save_misalignment;
+	  SET_DR_MISALIGNMENT (dr, save_misalignment);
 	  
 	  if (!supportable_dr_alignment)
 	    {
@@ -1117,7 +1698,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr0;
           LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo) = DR_MISALIGNMENT (dr0);
-          DR_MISALIGNMENT (dr0) = 0;
+	  SET_DR_MISALIGNMENT (dr0, 0);
 	  if (vect_print_dump_info (REPORT_ALIGNMENT))
             fprintf (vect_dump, "Alignment of access forced using peeling.");
 
@@ -1147,10 +1728,17 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
     {
       for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
         {
-          if (aligned_access_p (dr))
-            continue;
+	  stmt = DR_STMT (dr);
+	  stmt_info = vinfo_for_stmt (stmt);
 
-          supportable_dr_alignment = vect_supportable_dr_alignment (dr);
+	  /* For interleaving, only the alignment of the first access
+	     matters.  */
+	  if (aligned_access_p (dr)
+	      || (DR_GROUP_FIRST_DR (stmt_info)
+		  && DR_GROUP_FIRST_DR (stmt_info) != stmt))
+	    continue;
+
+	  supportable_dr_alignment = vect_supportable_dr_alignment (dr);
 
           if (!supportable_dr_alignment)
             {
@@ -1211,7 +1799,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         {
           stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
           dr = STMT_VINFO_DATA_REF (stmt_info);
-          DR_MISALIGNMENT (dr) = 0;
+	  SET_DR_MISALIGNMENT (dr, 0);
 	  if (vect_print_dump_info (REPORT_ALIGNMENT))
             fprintf (vect_dump, "Alignment of access forced using versioning.");
         }
@@ -1267,13 +1855,182 @@ static bool
 vect_analyze_data_ref_access (struct data_reference *dr)
 {
   tree step = DR_STEP (dr);
+  HOST_WIDE_INT dr_step = TREE_INT_CST_LOW (step);
   tree scalar_type = TREE_TYPE (DR_REF (dr));
+  HOST_WIDE_INT type_size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (scalar_type));
+  tree stmt = DR_STMT (dr);
+  /* For interleaving, STRIDE is STEP counted in elements, i.e., the size of the 
+     interleaving group (including gaps).  */
+  HOST_WIDE_INT stride = dr_step / type_size;
 
-  if (!step || tree_int_cst_compare (step, TYPE_SIZE_UNIT (scalar_type)))
+  if (!step)
     {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump, "bad data-ref access");
+      return false;
+    }
+
+  /* Consecutive?  */
+  if (!tree_int_cst_compare (step, TYPE_SIZE_UNIT (scalar_type)))
+    {
+      /* Mark that it is not interleaving.  */
+      DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)) = NULL_TREE;
+      return true;
+    }
+
+  /* Not consecutive access is possible only if it is a part of interleaving.  */
+  if (!DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)))
+    {
+      /* Check if it this DR is a part of interleaving, and is a single
+	 element of the group that is accessed in the loop.  */
+      
+      /* Gaps are supported only for loads. STEP must be a multiple of the type
+	 size.  The size of the group must be a power of 2.  */
+      if (DR_IS_READ (dr)
+	  && (dr_step % type_size) == 0
+	  && stride > 0
+	  && exact_log2 (stride) != -1)
+	{
+	  DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)) = stmt;
+	  DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = stride;
+	  if (vect_print_dump_info (REPORT_DR_DETAILS))
+	    {
+	      fprintf (vect_dump, "Detected single element interleaving %d ",
+		       DR_GROUP_SIZE (vinfo_for_stmt (stmt)));
+	      print_generic_expr (vect_dump, DR_REF (dr), TDF_SLIM);
+	      fprintf (vect_dump, " step ");
+	      print_generic_expr (vect_dump, step, TDF_SLIM);
+	    }
+	  return true;
+	}
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "not consecutive access");
       return false;
+    }
+
+  if (DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)) == stmt)
+    {
+      /* First stmt in the interleaving chain. Check the chain.  */
+      tree next = DR_GROUP_NEXT_DR (vinfo_for_stmt (stmt));
+      struct data_reference *data_ref = dr;
+      unsigned int count = 1;
+      tree next_step;
+      tree prev_init = DR_INIT (data_ref);
+      tree prev = stmt;
+      HOST_WIDE_INT diff, count_in_bytes;
+
+      while (next)
+	{
+	  /* Skip same data-refs. In case that two or more stmts share data-ref
+	     (supported only for loads), we vectorize only the first stmt, and
+	     the rest get their vectorized loads from the first one.  */
+	  if (!tree_int_cst_compare (DR_INIT (data_ref),
+				     DR_INIT (STMT_VINFO_DATA_REF (
+						      vinfo_for_stmt (next)))))
+	    {
+              if (!DR_IS_READ (data_ref))
+                { 
+                  if (vect_print_dump_info (REPORT_DETAILS))
+                    fprintf (vect_dump, "Two store stmts share the same dr.");
+                  return false; 
+                }
+
+              /* Check that there is no load-store dependencies for this loads 
+                 to prevent a case of load-store-load to the same location.  */
+              if (DR_GROUP_READ_WRITE_DEPENDENCE (vinfo_for_stmt (next))
+                  || DR_GROUP_READ_WRITE_DEPENDENCE (vinfo_for_stmt (prev)))
+                {
+                  if (vect_print_dump_info (REPORT_DETAILS))
+                    fprintf (vect_dump, 
+                             "READ_WRITE dependence in interleaving.");
+                  return false;
+                }
+
+	      /* For load use the same data-ref load.  */
+	      DR_GROUP_SAME_DR_STMT (vinfo_for_stmt (next)) = prev;
+
+	      prev = next;
+	      next = DR_GROUP_NEXT_DR (vinfo_for_stmt (next));
+	      continue;
+	    }
+	  prev = next;
+
+	  /* Check that all the accesses have the same STEP.  */
+	  next_step = DR_STEP (STMT_VINFO_DATA_REF (vinfo_for_stmt (next)));
+	  if (tree_int_cst_compare (step, next_step))
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		fprintf (vect_dump, "not consecutive access in interleaving");
+	      return false;
+	    }
+
+	  data_ref = STMT_VINFO_DATA_REF (vinfo_for_stmt (next));
+	  /* Check that the distance between two accesses is equal to the type
+	     size. Otherwise, we have gaps.  */
+	  diff = (TREE_INT_CST_LOW (DR_INIT (data_ref)) 
+		  - TREE_INT_CST_LOW (prev_init)) / type_size;
+	  if (!DR_IS_READ (data_ref) && diff != 1)
+	    {
+	      if (vect_print_dump_info (REPORT_DETAILS))
+		fprintf (vect_dump, "interleaved store with gaps");
+	      return false;
+	    }
+	  /* Store the gap from the previous member of the group. If there is no
+             gap in the access, DR_GROUP_GAP is always 1.  */
+	  DR_GROUP_GAP (vinfo_for_stmt (next)) = diff;
+
+	  prev_init = DR_INIT (data_ref);
+	  next = DR_GROUP_NEXT_DR (vinfo_for_stmt (next));
+	  /* Count the number of data-refs in the chain.  */
+	  count++;
+	}
+
+      /* COUNT is the number of accesses found, we multiply it by the size of 
+	 the type to get COUNT_IN_BYTES.  */
+      count_in_bytes = type_size * count;
+
+      /* Check that the size of the interleaving is not greater than STEP.  */
+      if (dr_step < count_in_bytes) 
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "interleaving size is greater than step for ");
+	      print_generic_expr (vect_dump, DR_REF (dr), TDF_SLIM); 
+	    }
+	  return false;
+	}
+
+      /* Check that the size of the interleaving is equal to STEP for stores, 
+         i.e., that there are no gaps.  */ 
+      if (!DR_IS_READ (dr) && dr_step != count_in_bytes) 
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "interleaved store with gaps");
+	  return false;
+	}
+
+      /* Check that STEP is a multiple of type size.  */
+      if ((dr_step % type_size) != 0)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS)) 
+            {
+              fprintf (vect_dump, "step is not a multiple of type size: step ");
+              print_generic_expr (vect_dump, step, TDF_SLIM);
+              fprintf (vect_dump, " size ");
+              print_generic_expr (vect_dump, TYPE_SIZE_UNIT (scalar_type),
+                                  TDF_SLIM);
+            }
+	  return false;
+	}
+
+      /* FORNOW: we handle only interleaving that is a power of 2.  */
+      if (exact_log2 (stride) == -1)
+	{
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    fprintf (vect_dump, "interleaving is not a power of 2");
+	  return false;
+	}
+      DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = stride;
     }
   return true;
 }
@@ -1334,9 +2091,9 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
   tree scalar_type;
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "=== vect_analyze_data_refs ===");
+    fprintf (vect_dump, "=== vect_analyze_data_refs ===\n");
 
-  compute_data_dependences_for_loop (loop, false,
+  compute_data_dependences_for_loop (loop, true,
                                      &LOOP_VINFO_DATAREFS (loop_vinfo),
                                      &LOOP_VINFO_DDRS (loop_vinfo));
 
@@ -1359,7 +2116,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
       /* Update DR field in stmt_vec_info struct.  */
       stmt = DR_STMT (dr);
       stmt_info = vinfo_for_stmt (stmt);
-  
+
       if (STMT_VINFO_DATA_REF (stmt_info))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
@@ -1383,7 +2140,16 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
             }
           return false;
         }
-      if (!DR_MEMTAG (dr))
+
+      if (TREE_CODE (DR_BASE_ADDRESS (dr)) == INTEGER_CST)
+        {
+          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+            fprintf (vect_dump, "not vectorized: base addr of dr is a "
+                     "constant");
+          return false;
+        }
+
+      if (!DR_SYMBOL_TAG (dr))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
             {
@@ -1423,14 +2189,14 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 
 static void
 vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
-		    bool relevant_p, bool live_p)
+		    enum vect_relevant relevant, bool live_p)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  bool save_relevant_p = STMT_VINFO_RELEVANT_P (stmt_info);
+  enum vect_relevant save_relevant = STMT_VINFO_RELEVANT (stmt_info);
   bool save_live_p = STMT_VINFO_LIVE_P (stmt_info);
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "mark relevant %d, live %d.",relevant_p, live_p);
+    fprintf (vect_dump, "mark relevant %d, live %d.", relevant, live_p);
 
   if (STMT_VINFO_IN_PATTERN_P (stmt_info))
     {
@@ -1445,20 +2211,16 @@ vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
       pattern_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
       stmt_info = vinfo_for_stmt (pattern_stmt);
       gcc_assert (STMT_VINFO_RELATED_STMT (stmt_info) == stmt);
-      save_relevant_p = STMT_VINFO_RELEVANT_P (stmt_info);
+      save_relevant = STMT_VINFO_RELEVANT (stmt_info);
       save_live_p = STMT_VINFO_LIVE_P (stmt_info);
       stmt = pattern_stmt;
     }
 
   STMT_VINFO_LIVE_P (stmt_info) |= live_p;
-  STMT_VINFO_RELEVANT_P (stmt_info) |= relevant_p;
+  if (relevant > STMT_VINFO_RELEVANT (stmt_info))
+    STMT_VINFO_RELEVANT (stmt_info) = relevant;
 
-  if (TREE_CODE (stmt) == PHI_NODE)
-    /* Don't put phi-nodes in the worklist. Phis that are marked relevant
-       or live will fail vectorization later on.  */
-    return;
-
-  if (STMT_VINFO_RELEVANT_P (stmt_info) == save_relevant_p
+  if (STMT_VINFO_RELEVANT (stmt_info) == save_relevant
       && STMT_VINFO_LIVE_P (stmt_info) == save_live_p)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -1484,7 +2246,7 @@ vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
 
 static bool
 vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
-		      bool *relevant_p, bool *live_p)
+		      enum vect_relevant *relevant, bool *live_p)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   ssa_op_iter op_iter;
@@ -1492,12 +2254,12 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
   use_operand_p use_p;
   def_operand_p def_p;
 
-  *relevant_p = false;
+  *relevant = vect_unused_in_loop;
   *live_p = false;
 
   /* cond stmt other than loop exit cond.  */
   if (is_ctrl_stmt (stmt) && (stmt != LOOP_VINFO_EXIT_COND (loop_vinfo)))
-    *relevant_p = true;
+    *relevant = vect_used_in_loop;
 
   /* changing memory.  */
   if (TREE_CODE (stmt) != PHI_NODE)
@@ -1505,7 +2267,7 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
       {
 	if (vect_print_dump_info (REPORT_DETAILS))
 	  fprintf (vect_dump, "vec_stmt_relevant_p: stmt has vdefs.");
-	*relevant_p = true;
+	*relevant = vect_used_in_loop;
       }
 
   /* uses outside the loop.  */
@@ -1522,14 +2284,89 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo,
 	      /* We expect all such uses to be in the loop exit phis
 		 (because of loop closed form)   */
 	      gcc_assert (TREE_CODE (USE_STMT (use_p)) == PHI_NODE);
-	      gcc_assert (bb == loop->single_exit->dest);
+	      gcc_assert (bb == single_exit (loop)->dest);
 
               *live_p = true;
 	    }
 	}
     }
 
-  return (*live_p || *relevant_p);
+  return (*live_p || *relevant);
+}
+
+
+/* 
+   Function process_use.
+
+   Inputs:
+   - a USE in STMT in a loop represented by LOOP_VINFO
+   - LIVE_P, RELEVANT - enum values to be set in the STMT_VINFO of the stmt 
+     that defined USE. This is dont by calling mark_relevant and passing it
+     the WORKLIST (to add DEF_STMT to the WORKlist in case itis relevant). 
+
+   Outputs:
+   Generally, LIVE_P and RELEVANT are used to define the liveness and
+   relevance info of the DEF_STMT of this USE:
+       STMT_VINFO_LIVE_P (DEF_STMT_info) <-- live_p
+       STMT_VINFO_RELEVANT (DEF_STMT_info) <-- relevant
+   Exceptions:
+   - case 1: If USE is used only for address computations (e.g. array indexing),
+   which does not need to be directly vectorized, then the liveness/relevance 
+   of the respective DEF_STMT is left unchanged.
+   - case 2: If STMT is a reduction phi and DEF_STMT is a reduction stmt, we 
+   skip DEF_STMT cause it had already been processed.  
+
+   Return true if everything is as expected. Return false otherwise.  */
+
+static bool
+process_use (tree stmt, tree use, loop_vec_info loop_vinfo, bool live_p, 
+	     enum vect_relevant relevant, VEC(tree,heap) **worklist)
+{
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  stmt_vec_info dstmt_vinfo;
+  basic_block def_bb;
+  tree def, def_stmt;
+  enum vect_def_type dt;
+
+  /* case 1: we are only interested in uses that need to be vectorized.  Uses 
+     that are used for address computation are not considered relevant.  */
+  if (!exist_non_indexing_operands_for_use_p (use, stmt))
+     return true;
+
+  if (!vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt))
+    { 
+      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
+        fprintf (vect_dump, "not vectorized: unsupported use in stmt.");
+      return false;
+    }
+
+  if (!def_stmt || IS_EMPTY_STMT (def_stmt))
+    return true;
+
+  def_bb = bb_for_stmt (def_stmt);
+  if (!flow_bb_inside_loop_p (loop, def_bb))
+    return true;
+
+  /* case 2: A reduction phi defining a reduction stmt (DEF_STMT). DEF_STMT 
+     must have already been processed, so we just check that everything is as 
+     expected, and we are done.  */
+  dstmt_vinfo = vinfo_for_stmt (def_stmt);
+  if (TREE_CODE (stmt) == PHI_NODE
+      && STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def
+      && TREE_CODE (def_stmt) != PHI_NODE
+      && STMT_VINFO_DEF_TYPE (dstmt_vinfo) == vect_reduction_def)
+    {
+      if (STMT_VINFO_IN_PATTERN_P (dstmt_vinfo))
+	dstmt_vinfo = vinfo_for_stmt (STMT_VINFO_RELATED_STMT (dstmt_vinfo));
+      gcc_assert (STMT_VINFO_RELEVANT (dstmt_vinfo) < vect_used_by_reduction);
+      gcc_assert (STMT_VINFO_LIVE_P (dstmt_vinfo) 
+		  || STMT_VINFO_RELEVANT (dstmt_vinfo) > vect_unused_in_loop);
+      return true;
+    }
+
+  vect_mark_relevant (worklist, def_stmt, relevant, live_p);
+  return true;
 }
 
 
@@ -1557,16 +2394,14 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   unsigned int nbbs = loop->num_nodes;
   block_stmt_iterator si;
-  tree stmt, use;
+  tree stmt;
   stmt_ann_t ann;
-  ssa_op_iter iter;
   unsigned int i;
   stmt_vec_info stmt_vinfo;
   basic_block bb;
   tree phi;
-  bool relevant_p, live_p;
-  tree def, def_stmt;
-  enum vect_def_type dt;
+  bool live_p;
+  enum vect_relevant relevant;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_mark_stmts_to_be_vectorized ===");
@@ -1574,145 +2409,110 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
   worklist = VEC_alloc (tree, heap, 64);
 
   /* 1. Init worklist.  */
-
-  bb = loop->header;
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-        {
-          fprintf (vect_dump, "init: phi relevant? ");
-          print_generic_expr (vect_dump, phi, TDF_SLIM);
-        }
-
-      if (vect_stmt_relevant_p (phi, loop_vinfo, &relevant_p, &live_p))
-	vect_mark_relevant (&worklist, phi, relevant_p, live_p);
-    }
-
   for (i = 0; i < nbbs; i++)
     {
       bb = bbs[i];
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{ 
+	  if (vect_print_dump_info (REPORT_DETAILS))
+	    {
+	      fprintf (vect_dump, "init: phi relevant? ");
+	      print_generic_expr (vect_dump, phi, TDF_SLIM);
+	    }
+
+	  if (vect_stmt_relevant_p (phi, loop_vinfo, &relevant, &live_p))
+	    vect_mark_relevant (&worklist, phi, relevant, live_p);
+	}
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  stmt = bsi_stmt (si);
-
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    {
 	      fprintf (vect_dump, "init: stmt relevant? ");
 	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
 	    } 
 
-	  if (vect_stmt_relevant_p (stmt, loop_vinfo, &relevant_p, &live_p))
-            vect_mark_relevant (&worklist, stmt, relevant_p, live_p);
+	  if (vect_stmt_relevant_p (stmt, loop_vinfo, &relevant, &live_p))
+            vect_mark_relevant (&worklist, stmt, relevant, live_p);
 	}
     }
 
-
   /* 2. Process_worklist */
-
   while (VEC_length (tree, worklist) > 0)
     {
-      stmt = VEC_pop (tree, worklist);
+      use_operand_p use_p;
+      ssa_op_iter iter;
 
+      stmt = VEC_pop (tree, worklist);
       if (vect_print_dump_info (REPORT_DETAILS))
 	{
           fprintf (vect_dump, "worklist: examine stmt: ");
           print_generic_expr (vect_dump, stmt, TDF_SLIM);
 	}
 
-      /* Examine the USEs of STMT. For each ssa-name USE thta is defined
-         in the loop, mark the stmt that defines it (DEF_STMT) as
-         relevant/irrelevant and live/dead according to the liveness and
-         relevance properties of STMT.
-       */
-
-      gcc_assert (TREE_CODE (stmt) != PHI_NODE);
-
+      /* Examine the USEs of STMT. For each USE, mark the stmt that defines it 
+	 (DEF_STMT) as relevant/irrelevant and live/dead according to the 
+	 liveness and relevance properties of STMT.  */
       ann = stmt_ann (stmt);
       stmt_vinfo = vinfo_for_stmt (stmt);
-
-      relevant_p = STMT_VINFO_RELEVANT_P (stmt_vinfo);
+      relevant = STMT_VINFO_RELEVANT (stmt_vinfo);
       live_p = STMT_VINFO_LIVE_P (stmt_vinfo);
 
       /* Generally, the liveness and relevance properties of STMT are
-         propagated to the DEF_STMTs of its USEs:
-             STMT_VINFO_LIVE_P (DEF_STMT_info) <-- live_p
-             STMT_VINFO_RELEVANT_P (DEF_STMT_info) <-- relevant_p
+	 propagated as is to the DEF_STMTs of its USEs:
+	  live_p <-- STMT_VINFO_LIVE_P (STMT_VINFO)
+	  relevant <-- STMT_VINFO_RELEVANT (STMT_VINFO)
 
-         Exceptions:
+	 One exception is when STMT has been identified as defining a reduction
+	 variable; in this case we set the liveness/relevance as follows:
+	   live_p = false
+	   relevant = vect_used_by_reduction
+	 This is because we distinguish between two kinds of relevant stmts -
+	 those that are used by a reduction computation, and those that are 
+	 (also) used by a regular computation. This allows us later on to 
+	 identify stmts that are used solely by a reduction, and therefore the 
+	 order of the results that they produce does not have to be kept.
 
-	 (case 1)
-           If USE is used only for address computations (e.g. array indexing),
-           which does not need to be directly vectorized, then the
-           liveness/relevance of the respective DEF_STMT is left unchanged.
+         Reduction phis are expected to be used by a reduction stmt;  Other 
+	 reduction stmts are expected to be unused in the loop.  These are the 
+	 expected values of "relevant" for reduction phis/stmts in the loop:
 
-	 (case 2)
-           If STMT has been identified as defining a reduction variable, then
-	   we have two cases:
-	   (case 2.1)
-	     The last use of STMT is the reduction-variable, which is defined
-	     by a loop-header-phi. We don't want to mark the phi as live or
-	     relevant (because it does not need to be vectorized, it is handled
-             as part of the vectorization of the reduction), so in this case we
-	     skip the call to vect_mark_relevant.
-	   (case 2.2)
-	     The rest of the uses of STMT are defined in the loop body. For
-             the def_stmt of these uses we want to set liveness/relevance
-             as follows:
-               STMT_VINFO_LIVE_P (DEF_STMT_info) <-- false
-               STMT_VINFO_RELEVANT_P (DEF_STMT_info) <-- true
-             because even though STMT is classified as live (since it defines a
-             value that is used across loop iterations) and irrelevant (since it
-             is not used inside the loop), it will be vectorized, and therefore
-             the corresponding DEF_STMTs need to marked as relevant.
-       */
+	 relevance:				phi	stmt
+	 vect_unused_in_loop				ok
+	 vect_used_by_reduction			ok
+	 vect_used_in_loop 						  */
 
-      /* case 2.2:  */
       if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def)
         {
-          gcc_assert (!relevant_p && live_p);
-          relevant_p = true;
-          live_p = false;
-        }
-
-      FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
-	{
-	  /* case 1: we are only interested in uses that need to be vectorized. 
-	     Uses that are used for address computation are not considered 
-	     relevant.
-	   */
-	  if (!exist_non_indexing_operands_for_use_p (use, stmt))
-	    continue;
-
-	  if (!vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt))
-            {
-              if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-                fprintf (vect_dump, "not vectorized: unsupported use in stmt.");
+	  switch (relevant)
+	    {
+	    case vect_unused_in_loop:
+	      gcc_assert (TREE_CODE (stmt) != PHI_NODE);
+	      break;
+	    case vect_used_by_reduction:
+	      if (TREE_CODE (stmt) == PHI_NODE)
+		break;
+	    case vect_used_in_loop:
+	    default:
+	      if (vect_print_dump_info (REPORT_DETAILS))
+	        fprintf (vect_dump, "unsupported use of reduction.");
 	      VEC_free (tree, heap, worklist);
-              return false;
-            }
-
-	  if (!def_stmt || IS_EMPTY_STMT (def_stmt))
-	    continue;
-
-          if (vect_print_dump_info (REPORT_DETAILS))
-            {
-              fprintf (vect_dump, "worklist: examine use %d: ", i);
-              print_generic_expr (vect_dump, use, TDF_SLIM);
-            }
-
-	  bb = bb_for_stmt (def_stmt);
-          if (!flow_bb_inside_loop_p (loop, bb))
-            continue;
-
-	  /* case 2.1: the reduction-use does not mark the defining-phi
-	     as relevant.  */
-	  if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def
-	      && TREE_CODE (def_stmt) == PHI_NODE)
-	    continue;
-
-	  vect_mark_relevant (&worklist, def_stmt, relevant_p, live_p);
+	      return false;
+	    }
+	  relevant = vect_used_by_reduction;
+	  live_p = false;	
 	}
-    }				/* while worklist */
+
+      FOR_EACH_PHI_OR_STMT_USE (use_p, stmt, iter, SSA_OP_USE)
+	{
+	  tree op = USE_FROM_PTR (use_p);
+	  if (!process_use (stmt, op, loop_vinfo, live_p, relevant, &worklist))
+	    {
+	      VEC_free (tree, heap, worklist);
+	      return false;
+	    }
+	}
+    } /* while worklist */
 
   VEC_free (tree, heap, worklist);
   return true;
@@ -1738,7 +2538,7 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
   /* Analyze phi functions of the loop header.  */
 
   if (vect_print_dump_info (REPORT_DETAILS))
-    fprintf (vect_dump, "=== vect_can_advance_ivs_p ===");
+    fprintf (vect_dump, "vect_can_advance_ivs_p:");
 
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
@@ -1823,7 +2623,7 @@ vect_get_loop_niters (struct loop *loop, tree *number_of_iterations)
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== get_loop_niters ===");
 
-  niters = number_of_iterations_in_loop (loop);
+  niters = number_of_exit_cond_executions (loop);
 
   if (niters != NULL_TREE
       && niters != chrec_dont_know)
@@ -1868,13 +2668,13 @@ vect_analyze_loop_form (struct loop *loop)
       return NULL;
     }
   
-  if (!loop->single_exit 
+  if (!single_exit (loop) 
       || loop->num_nodes != 2
       || EDGE_COUNT (loop->header->preds) != 2)
     {
       if (vect_print_dump_info (REPORT_BAD_FORM_LOOPS))
         {
-          if (!loop->single_exit)
+          if (!single_exit (loop))
             fprintf (vect_dump, "not vectorized: multiple exits.");
           else if (loop->num_nodes != 2)
             fprintf (vect_dump, "not vectorized: too many BBs in loop.");
@@ -1898,9 +2698,9 @@ vect_analyze_loop_form (struct loop *loop)
     }
 
   /* Make sure there exists a single-predecessor exit bb:  */
-  if (!single_pred_p (loop->single_exit->dest))
+  if (!single_pred_p (single_exit (loop)->dest))
     {
-      edge e = loop->single_exit;
+      edge e = single_exit (loop);
       if (!(e->flags & EDGE_ABNORMAL))
 	{
 	  split_loop_exit_edge (e);
@@ -1945,10 +2745,7 @@ vect_analyze_loop_form (struct loop *loop)
       return false;
     }
 
-  loop_vinfo = new_loop_vec_info (loop);
-  LOOP_VINFO_NITERS (loop_vinfo) = number_of_iterations;
-
-  if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
+  if (!NITERS_KNOWN_P (number_of_iterations))
     {
       if (vect_print_dump_info (REPORT_DETAILS))
         {
@@ -1956,16 +2753,19 @@ vect_analyze_loop_form (struct loop *loop)
           print_generic_expr (vect_dump, number_of_iterations, TDF_DETAILS);
         }
     }
-  else
-  if (LOOP_VINFO_INT_NITERS (loop_vinfo) == 0)
+  else if (TREE_INT_CST_LOW (number_of_iterations) == 0)
     {
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
         fprintf (vect_dump, "not vectorized: number of iterations = 0.");
       return NULL;
     }
 
+  loop_vinfo = new_loop_vec_info (loop);
+  LOOP_VINFO_NITERS (loop_vinfo) = number_of_iterations;
   LOOP_VINFO_EXIT_COND (loop_vinfo) = loop_cond;
 
+  gcc_assert (!loop->aux);
+  loop->aux = loop_vinfo;
   return loop_vinfo;
 }
 

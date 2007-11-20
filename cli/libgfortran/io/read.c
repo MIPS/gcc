@@ -92,7 +92,9 @@ GFC_UINTEGER_LARGEST
 max_value (int length, int signed_flag)
 {
   GFC_UINTEGER_LARGEST value;
+#if defined HAVE_GFC_REAL_16 || defined HAVE_GFC_REAL_10
   int n;
+#endif
 
   switch (length)
     {
@@ -175,10 +177,10 @@ convert_real (st_parameter_dt *dtp, void *dest, const char *buffer, int length)
       internal_error (&dtp->common, "Unsupported real kind during IO");
     }
 
-  if (errno != 0 && errno != EINVAL)
+  if (errno == EINVAL)
     {
       generate_error (&dtp->common, ERROR_READ_VALUE,
-		      "Range error during floating point read");
+		      "Error during floating point read");
       return 1;
     }
 
@@ -853,5 +855,5 @@ read_x (st_parameter_dt *dtp, int n)
       dtp->u.p.sf_read_comma = 1;
     }
   else
-    dtp->rec += (GFC_IO_INT) n;
+    dtp->u.p.current_unit->strm_pos += (gfc_offset) n;
 }

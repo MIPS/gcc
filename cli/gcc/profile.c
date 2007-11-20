@@ -1,6 +1,7 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -9,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -18,9 +19,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Generate basic block profile instrumentation and auxiliary files.
    Profile generation is optimized, so that not all arcs in the basic
@@ -68,6 +68,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
+#include "splay-tree.h"
 
 /* Hooks for profiling.  */
 static struct profile_hooks* profile_hooks;
@@ -192,6 +193,18 @@ instrument_values (histogram_values values)
 	  t = GCOV_COUNTER_V_DELTA;
 	  break;
 
+ 	case HIST_TYPE_INDIR_CALL:
+ 	  t = GCOV_COUNTER_V_INDIR;
+ 	  break;
+
+ 	case HIST_TYPE_AVERAGE:
+ 	  t = GCOV_COUNTER_AVERAGE;
+ 	  break;
+
+ 	case HIST_TYPE_IOR:
+ 	  t = GCOV_COUNTER_IOR;
+ 	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -214,6 +227,18 @@ instrument_values (histogram_values values)
 
 	case HIST_TYPE_CONST_DELTA:
 	  (profile_hooks->gen_const_delta_profiler) (hist, t, 0);
+	  break;
+
+ 	case HIST_TYPE_INDIR_CALL:
+ 	  (profile_hooks->gen_ic_profiler) (hist, t, 0);
+  	  break;
+
+	case HIST_TYPE_AVERAGE:
+	  (profile_hooks->gen_average_profiler) (hist, t, 0);
+	  break;
+
+	case HIST_TYPE_IOR:
+	  (profile_hooks->gen_ior_profiler) (hist, t, 0);
 	  break;
 
 	default:
@@ -254,6 +279,254 @@ get_exec_counts (void)
   return counts;
 }
 
+
+struct location_profile_info
+{
+  int exec_count;
+  splay_tree edges; /* destination:int -> count:int */
+};
+
+struct location_profile_info_file
+{
+  splay_tree locations; /* location:int -> location_profile_info */
+};
+
+static splay_tree location_profile_info_files = NULL; /* file_name : char* -> location_profile_info_file */
+
+static int
+splay_tree_compare_strings (splay_tree_key k1, splay_tree_key k2)
+{
+  int c = strcmp ((const char *) k1, (const char *) k2);
+  if (c < 0)
+    return -1;
+  else if (c > 0)
+    return 1;
+  else 
+    return 0;
+}
+
+void
+location_profile_info_init (void)
+{
+  if (!location_profile_info_files)
+    {
+      location_profile_info_files = splay_tree_new (splay_tree_compare_strings, NULL, NULL);
+    }
+}
+
+static struct location_profile_info_file *
+location_profile_info_get_file_info (const char *file)
+{
+  splay_tree_node node;
+  if (!location_profile_info_files)
+    {
+      return NULL;
+    }
+  node = splay_tree_lookup (location_profile_info_files, (splay_tree_key) file);
+  if (!node)
+    {
+      struct location_profile_info_file *ret = XNEW (struct location_profile_info_file);
+      char *key = xstrdup (file);
+      ret->locations = splay_tree_new (splay_tree_compare_ints, NULL, NULL);
+      node = splay_tree_insert (location_profile_info_files, (splay_tree_key) key, (splay_tree_value) ret);
+    }
+  return (struct location_profile_info_file *) node->value;
+}
+
+static struct location_profile_info *
+location_profile_info_file_get_location_info (struct location_profile_info_file *fi, int line)
+{
+  splay_tree_node node = splay_tree_lookup (fi->locations, (splay_tree_key) line);
+  if (!node)
+    {
+      struct location_profile_info *ret = XNEW (struct location_profile_info);
+      ret->exec_count = 0;
+      ret->edges = splay_tree_new (splay_tree_compare_ints, NULL, NULL);
+      node = splay_tree_insert (fi->locations, (splay_tree_key) line, (splay_tree_value) ret);
+    }
+  return (struct location_profile_info *) node->value;
+}
+
+static struct location_profile_info *
+location_profile_info_file_get_nearest_location_info (struct location_profile_info_file *fi, int line, int *used_line)
+{
+  splay_tree_node node = splay_tree_lookup (fi->locations, (splay_tree_key) line);
+  if (!node)
+    {
+      node = splay_tree_predecessor (fi->locations, (splay_tree_key) line);
+    }
+  if (!node)
+    {
+      if (used_line)
+        {
+          *used_line = -1;
+        }
+      return NULL;
+    }
+  if (used_line)
+    {
+      *used_line = (int) node->key;
+    }
+  return (struct location_profile_info *) node->value;
+}
+
+static int
+location_profile_info_get_nearest_count_info (struct location_profile_info *li, int line, int *used_line)
+{
+  splay_tree_node node = splay_tree_lookup (li->edges, (splay_tree_key) line);
+  if (!node)
+    {
+      node = splay_tree_predecessor (li->edges, (splay_tree_key) line);
+    }
+  if (!node)
+    {
+      if (used_line)
+        {
+          *used_line = -1;
+        }
+      return 0;
+    }
+  if (used_line)
+    {
+      *used_line = (int) node->key;
+    }
+  return (int) node->value;
+}
+
+void
+location_profile_info_add_edge_count (const char *file, int src_line, int dst_line, int count)
+{
+  struct location_profile_info_file *file_info = location_profile_info_get_file_info (file);
+  if (file_info) 
+    {
+      struct location_profile_info *location_info = location_profile_info_file_get_location_info (file_info, src_line);
+      int current_count;
+      splay_tree_node node = splay_tree_lookup (location_info->edges, (splay_tree_key) dst_line);
+      if (node)
+        {
+          current_count = (int) node->value;
+        }
+      else
+        {
+          current_count = 0;
+        }
+      splay_tree_insert (location_info->edges, (splay_tree_key) dst_line, (splay_tree_value) (current_count + count));
+    }
+}
+
+void
+location_profile_info_add_bb_exec_count (const char *file, int bb_line, int count)
+{
+  struct location_profile_info_file *file_info = location_profile_info_get_file_info (file);
+  if (file_info)
+    {
+      struct location_profile_info *location_info = location_profile_info_file_get_location_info (file_info, bb_line);
+      int current_count = location_info->exec_count;
+      location_info->exec_count = current_count + count;
+    }
+}
+
+static int 
+location_profile_info_dump_edge (splay_tree_node n, void *d)
+{
+  FILE *f = d;
+  int v = (int) n->value;
+  fprintf (f, "-> %x: %d\n", (int) n->key, v);
+  return 0;
+}
+
+static int 
+location_profile_info_dump_location (splay_tree_node n, void *d)
+{
+  FILE *f = d;
+  struct location_profile_info *v = (struct location_profile_info *) n->value;
+  fprintf (f, "%x\n", (int) n->key);
+  splay_tree_foreach (v->edges, location_profile_info_dump_edge, f);  
+  return 0;
+}
+
+static int 
+location_profile_info_dump_file (splay_tree_node n, void *d)
+{
+  FILE *f = d;
+  struct location_profile_info_file *v = (struct location_profile_info_file *) n->value;
+  fprintf (f, "File: '%s'\n", (const char *) n->key);
+  splay_tree_foreach (v->locations, location_profile_info_dump_location, f);  
+  return 0;
+}
+
+void
+location_profile_info_dump (FILE *f)
+{
+  splay_tree_foreach (location_profile_info_files, location_profile_info_dump_file, f);
+}
+
+static location_t 
+basic_block_get_location (basic_block bb)
+{
+  while (bb)
+    {
+      if (bb_stmt_list (bb))
+        {
+          tree_stmt_iterator i = tsi_start (bb_stmt_list (bb));
+          while (!tsi_end_p (i))
+            {
+              if (EXPR_HAS_LOCATION (tsi_stmt (i)))
+                {
+                  return EXPR_LOCATION (tsi_stmt (i));
+                }
+              tsi_next (&i);
+            }
+        }
+      if (single_succ_p (bb))
+        {
+          bb = single_succ_edge (bb)->dest;
+        }
+      else
+        {
+          break;
+        }
+    }
+  return UNKNOWN_LOCATION;
+}
+
+static gcov_type
+get_edge_count_from_location_profile (edge e)
+{
+  location_t srcl = basic_block_get_location (e->src);
+  location_t destl = basic_block_get_location (e->dest);
+  struct location_profile_info_file *fi = location_profile_info_get_file_info (LOCATION_FILE (srcl));
+  if (fi)
+    {
+      int src_near;
+      struct location_profile_info *li = location_profile_info_file_get_nearest_location_info (fi, LOCATION_LINE (srcl), &src_near);
+      if (li)
+        {
+          int dst_near;
+          int count = location_profile_info_get_nearest_count_info (li, LOCATION_LINE (destl), &dst_near);
+
+          if (count == 0 && dst_near == src_near)
+            {
+              /* this is an edge wich appears in GCC but not in the trace
+                 file, it is interior to a basic block. Hence, its count
+                 must be equal to the exec count of the BB. */
+              count = li->exec_count;
+            }
+          
+          verbatim ("%s:%x(%x) -> %s:%x(%x) = %d", LOCATION_FILE (srcl), LOCATION_LINE (srcl), src_near, LOCATION_FILE (destl), LOCATION_LINE (destl), dst_near, count);
+          
+          return count;
+        }
+      else
+        {
+          return 0;
+        }
+    }
+  else
+    {
+      return 0;
+    }
+}
 
 /* Compute the branch probabilities for the various branches.
    Annotate them accordingly.  */
@@ -332,6 +605,10 @@ compute_branch_probabilities (void)
 			   bb->index, e->dest->index);
 		  }
 	      }
+            else if (location_profile_info_files)
+              {
+                e->count = get_edge_count_from_location_profile (e);
+              }
 	    else
 	      e->count = 0;
 
@@ -648,15 +925,13 @@ compute_value_histograms (histogram_values values)
     {
       histogram_value hist = VEC_index (histogram_value, values, i);
       tree stmt = hist->hvalue.stmt;
-      stmt_ann_t ann = get_stmt_ann (stmt);
 
       t = (int) hist->type;
 
       aact_count = act_count[t];
       act_count[t] += hist->n_counters;
 
-      hist->hvalue.next = ann->histograms;
-      ann->histograms = hist;
+      gimple_add_histogram_value (cfun, stmt, hist);
       hist->hvalue.counters =  XNEWVEC (gcov_type, hist->n_counters);
       for (j = 0; j < hist->n_counters; j++)
 	hist->hvalue.counters[j] = aact_count[j];
@@ -983,6 +1258,15 @@ branch_prob (void)
 	      if (EXPR_HAS_LOCATION (stmt))
 		output_location (EXPR_FILENAME (stmt), EXPR_LINENO (stmt),
 				 &offset, bb);
+	      /* Take into account modify statements nested in return
+		 produced by C++ NRV transformation.  */
+	      if (TREE_CODE (stmt) == RETURN_EXPR
+		  && TREE_OPERAND (stmt, 0)
+		  && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR
+		  && EXPR_HAS_LOCATION (TREE_OPERAND (stmt, 0)))
+		output_location (EXPR_FILENAME (TREE_OPERAND (stmt, 0)),
+				 EXPR_LINENO (TREE_OPERAND (stmt, 0)),
+				 &offset, bb);
 	    }
 
 	  /* Notice GOTO expressions we eliminated while constructing the
@@ -1228,7 +1512,7 @@ end_branch_prob (void)
 void
 tree_register_profile_hooks (void)
 {
-  gcc_assert (ir_type ());
+  gcc_assert (current_ir_type () == IR_GIMPLE);
   profile_hooks = &tree_profile_hooks;
 }
 

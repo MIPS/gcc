@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,8 +25,7 @@
 ------------------------------------------------------------------------------
 
 with Err_Vars; use Err_Vars;
-with Namet;    use Namet;
-with Opt;
+with Opt;      use Opt;
 with Osint;    use Osint;
 with Output;   use Output;
 with Prj.Attr; use Prj.Attr;
@@ -142,7 +141,7 @@ package body Prj.Proc is
 
    procedure Add (To_Exp : in out Name_Id; Str : Name_Id) is
    begin
-      if To_Exp = Types.No_Name or else To_Exp = Empty_String then
+      if To_Exp = No_Name or else To_Exp = Empty_String then
 
          --  To_Exp is nil or empty. The result is Str
 
@@ -568,17 +567,19 @@ package body Prj.Proc is
             when N_Variable_Reference | N_Attribute_Reference =>
 
                declare
-                  The_Project     : Project_Id  := Project;
-                  The_Package     : Package_Id  := Pkg;
-                  The_Name        : Name_Id     := No_Name;
-                  The_Variable_Id : Variable_Id := No_Variable;
+                  The_Project     : Project_Id     := Project;
+                  The_Package     : Package_Id     := Pkg;
+                  The_Name        : Name_Id        := No_Name;
+                  The_Variable_Id : Variable_Id    := No_Variable;
                   The_Variable    : Variable_Value;
                   Term_Project    : constant Project_Node_Id :=
-                    Project_Node_Of
-                      (The_Current_Term, From_Project_Node_Tree);
+                                      Project_Node_Of
+                                        (The_Current_Term,
+                                         From_Project_Node_Tree);
                   Term_Package    : constant Project_Node_Id :=
-                    Package_Node_Of
-                      (The_Current_Term, From_Project_Node_Tree);
+                                      Package_Node_Of
+                                        (The_Current_Term,
+                                         From_Project_Node_Tree);
                   Index           : Name_Id   := No_Name;
 
                begin
@@ -589,6 +590,7 @@ package body Prj.Proc is
 
                      The_Name :=
                        Name_Of (Term_Project, From_Project_Node_Tree);
+
                      The_Project := Imported_Or_Extended_Project_From
                                       (Project   => Project,
                                        In_Tree   => In_Tree,
@@ -601,6 +603,7 @@ package body Prj.Proc is
 
                      The_Name :=
                        Name_Of (Term_Package, From_Project_Node_Tree);
+
                      The_Package := In_Tree.Projects.Table
                                       (The_Project).Decl.Packages;
 
@@ -950,7 +953,7 @@ package body Prj.Proc is
                   Value := Prj.Ext.Value_Of (Name, Default);
 
                   if Value = No_Name then
-                     if not Opt.Quiet_Output then
+                     if not Quiet_Output then
                         if Error_Report = null then
                            Error_Msg
                              ("?undefined external reference",
@@ -1139,7 +1142,7 @@ package body Prj.Proc is
       Follow_Links           : Boolean := True;
       When_No_Sources        : Error_Warning := Error)
    is
-      Obj_Dir    : Name_Id;
+      Obj_Dir    : Path_Name_Type;
       Extending  : Project_Id;
       Extending2 : Project_Id;
 
@@ -1174,7 +1177,7 @@ package body Prj.Proc is
         and then Is_Extending_All (From_Project_Node, From_Project_Node_Tree)
       then
          declare
-            Object_Dir : constant Name_Id :=
+            Object_Dir : constant Path_Name_Type :=
                            In_Tree.Projects.Table (Project).Object_Directory;
          begin
             for Index in
@@ -1219,7 +1222,7 @@ package body Prj.Proc is
 
                         if Error_Report = null then
                            Error_Msg
-                             ("project { cannot be extended by a virtual " &
+                             ("project % cannot be extended by a virtual " &
                               "project with the same object directory",
                               In_Tree.Projects.Table (Proj).Location);
                         else
@@ -1239,7 +1242,7 @@ package body Prj.Proc is
 
                         if Error_Report = null then
                            Error_Msg
-                             ("project { cannot extend project {",
+                             ("project %% cannot extend project %%",
                               In_Tree.Projects.Table (Extending2).Location);
                            Error_Msg
                              ("\they share the same object directory",
@@ -1268,7 +1271,10 @@ package body Prj.Proc is
          end loop;
       end if;
 
-      Success := Total_Errors_Detected = 0;
+      Success :=
+        Total_Errors_Detected = 0
+          and then
+            (Warning_Mode /= Treat_As_Error or else Warnings_Detected = 0);
    end Process;
 
    -------------------------------
@@ -1433,7 +1439,9 @@ package body Prj.Proc is
 
                   declare
                      Current_Item_Name : constant Name_Id :=
-                       Name_Of (Current_Item, From_Project_Node_Tree);
+                                           Name_Of
+                                             (Current_Item,
+                                              From_Project_Node_Tree);
                      --  The name of the attribute
 
                      New_Array  : Array_Id;
@@ -1526,10 +1534,10 @@ package body Prj.Proc is
                      --  Find the project where the value is declared
 
                      Orig_Project_Name :=
-                       Name_Of
-                         (Associative_Project_Of
-                              (Current_Item, From_Project_Node_Tree),
-                          From_Project_Node_Tree);
+                         Name_Of
+                          (Associative_Project_Of
+                             (Current_Item, From_Project_Node_Tree),
+                              From_Project_Node_Tree);
 
                      for Index in Project_Table.First ..
                                   Project_Table.Last
@@ -1783,7 +1791,8 @@ package body Prj.Proc is
 
                                  if Error_Report = null then
                                     Error_Msg
-                                      ("value { is illegal for typed string %",
+                                      ("value %% is illegal for "
+                                       & "typed string %",
                                        Location_Of
                                          (Current_Item,
                                           From_Project_Node_Tree));
@@ -1796,6 +1805,10 @@ package body Prj.Proc is
                                        Get_Name_String (Error_Msg_Name_2) &
                                        """",
                                        Project, In_Tree);
+                                    --  Calls like this to Error_Report are
+                                    --  wrong, since they don't properly case
+                                    --  and decode names corresponding to the
+                                    --  ordinary case of % insertion ???
                                  end if;
                               end if;
                            end;
@@ -2295,7 +2308,7 @@ package body Prj.Proc is
                 (Imported_Project_List).Next;
          end loop;
 
-         if Opt.Verbose_Mode then
+         if Verbose_Mode then
             Write_Str ("Checking project file """);
             Write_Str (Get_Name_String (Data.Name));
             Write_Line ("""");
@@ -2340,6 +2353,16 @@ package body Prj.Proc is
             Project := Processed_Projects.Get (Name);
 
             if Project /= No_Project then
+
+               --  Make sure that, when a project is extended, the project id
+               --  of the project extending it is recorded in its data, even
+               --  when it has already been processed as an imported project.
+               --  This is for virtually extended projects.
+
+               if Extended_By /= No_Project then
+                  In_Tree.Projects.Table (Project).Extended_By := Extended_By;
+               end if;
+
                return;
             end if;
 
@@ -2391,7 +2414,8 @@ package body Prj.Proc is
               Location_Of (From_Project_Node, From_Project_Node_Tree);
 
             Processed_Data.Display_Directory :=
-              Directory_Of (From_Project_Node, From_Project_Node_Tree);
+              Path_Name_Type
+                (Directory_Of (From_Project_Node, From_Project_Node_Tree));
             Get_Name_String (Processed_Data.Display_Directory);
             Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
             Processed_Data.Directory := Name_Find;

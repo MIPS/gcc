@@ -1,11 +1,11 @@
 /* Language independent return value optimizations
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -133,10 +132,10 @@ tree_nrv (void)
 	      if (ret_expr)
 		gcc_assert (ret_expr == result);
 	    }
-	  else if (TREE_CODE (stmt) == MODIFY_EXPR
-		   && TREE_OPERAND (stmt, 0) == result)
+	  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+		   && GIMPLE_STMT_OPERAND (stmt, 0) == result)
 	    {
-	      ret_expr = TREE_OPERAND (stmt, 1);
+	      ret_expr = GIMPLE_STMT_OPERAND (stmt, 1);
 
 	      /* Now verify that this return statement uses the same value
 		 as any previously encountered return statement.  */
@@ -159,8 +158,16 @@ tree_nrv (void)
 		  || TREE_STATIC (found)
 		  || TREE_ADDRESSABLE (found)
 		  || DECL_ALIGN (found) > DECL_ALIGN (result)
-		  || !lang_hooks.types_compatible_p (TREE_TYPE (found), 
-						     result_type))
+		  || !useless_type_conversion_p (result_type,
+					        TREE_TYPE (found)))
+		return 0;
+	    }
+	  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+	    {
+	      tree addr = get_base_address (GIMPLE_STMT_OPERAND (stmt, 0));
+	       /* If there's any MODIFY of component of RESULT, 
+		  then bail out.  */
+	      if (addr && addr == result)
 		return 0;
 	    }
 	}
@@ -197,9 +204,9 @@ tree_nrv (void)
 	{
 	  tree *tp = bsi_stmt_ptr (bsi);
 	  /* If this is a copy from VAR to RESULT, remove it.  */
-	  if (TREE_CODE (*tp) == MODIFY_EXPR
-	      && TREE_OPERAND (*tp, 0) == result
-	      && TREE_OPERAND (*tp, 1) == found)
+	  if (TREE_CODE (*tp) == GIMPLE_MODIFY_STMT
+	      && GIMPLE_STMT_OPERAND (*tp, 0) == result
+	      && GIMPLE_STMT_OPERAND (*tp, 1) == found)
 	    bsi_remove (&bsi, true);
 	  else
 	    {
@@ -231,7 +238,37 @@ struct tree_opt_pass pass_nrv =
   0					/* letter */
 };
 
-/* Walk through the function looking for MODIFY_EXPRs with calls that
+/* Determine (pessimistically) whether DEST is available for NRV
+   optimization, where DEST is expected to be the LHS of a modify
+   expression where the RHS is a function returning an aggregate.
+
+   We search for a base VAR_DECL and look to see if it, or any of its
+   subvars are clobbered.  Note that we could do better, for example, by
+   attempting to doing points-to analysis on INDIRECT_REFs.  */
+
+static bool
+dest_safe_for_nrv_p (tree dest)
+{
+  subvar_t subvar;
+
+  while (handled_component_p (dest))
+    dest = TREE_OPERAND (dest, 0);
+
+  if (! SSA_VAR_P (dest))
+    return false;
+
+  if (TREE_CODE (dest) == SSA_NAME)
+    dest = SSA_NAME_VAR (dest);
+
+  if (is_call_clobbered (dest))
+    return false;
+  for (subvar = get_subvars_for_var (dest); subvar; subvar = subvar->next)
+    if (is_call_clobbered (subvar->var))
+      return false;
+  return true;
+}
+
+/* Walk through the function looking for GIMPLE_MODIFY_STMTs with calls that
    return in memory on the RHS.  For each of these, determine whether it is
    safe to pass the address of the LHS as the return slot, and mark the
    call appropriately if so.
@@ -256,36 +293,15 @@ execute_return_slot_opt (void)
 	  tree stmt = bsi_stmt (i);
 	  tree call;
 
-	  if (TREE_CODE (stmt) == MODIFY_EXPR
-	      && (call = TREE_OPERAND (stmt, 1),
+	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	      && (call = GIMPLE_STMT_OPERAND (stmt, 1),
 		  TREE_CODE (call) == CALL_EXPR)
 	      && !CALL_EXPR_RETURN_SLOT_OPT (call)
 	      && aggregate_value_p (call, call))
-	    {
-	      def_operand_p def_p;
-	      ssa_op_iter op_iter;
-
-	      /* We determine whether or not the LHS address escapes by
-		 asking whether it is call clobbered.  When the LHS isn't a
-		 simple decl, we need to check the VDEFs, so it's simplest
-		 to just loop through all the DEFs.  */
-	      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, op_iter, SSA_OP_ALL_DEFS)
-		{
-		  tree def = DEF_FROM_PTR (def_p);
-		  if (TREE_CODE (def) == SSA_NAME)
-		    def = SSA_NAME_VAR (def);
-		  if (is_call_clobbered (def))
-		    goto unsafe;
-		}
-
-	      /* No defs are call clobbered, so the optimization is safe.  */
-	      CALL_EXPR_RETURN_SLOT_OPT (call) = 1;
-	      /* This is too late to mark the target addressable like we do
-		 in gimplify_modify_expr_rhs, but that's OK; anything that
-		 wasn't already addressable was handled there.  */
-
-	      unsafe:;
-	    }
+	    /* Check if the location being assigned to is
+	       call-clobbered.  */
+	    CALL_EXPR_RETURN_SLOT_OPT (call) =
+	      dest_safe_for_nrv_p (GIMPLE_STMT_OPERAND (stmt, 0)) ? 1 : 0;
 	}
     }
   return 0;

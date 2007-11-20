@@ -1,6 +1,6 @@
 // Short-string-optimized versatile string base -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -51,21 +51,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       typedef typename _CharT_alloc_type::size_type	    size_type;
       
     private:
-      // The maximum number of individual char_type elements of an
-      // individual string is determined by _S_max_size. This is the
-      // value that will be returned by max_size().  (Whereas npos
-      // is the maximum number of bytes the allocator can allocate.)
-      // If one was to divvy up the theoretical largest size string,
-      // with a terminating character and m _CharT elements, it'd
-      // look like this:
-      // npos = m * sizeof(_CharT) + sizeof(_CharT)
-      // Solving for m:
-      // m = npos / sizeof(_CharT) - 1
-      // In addition, this implementation halfs this amount.
-      enum { _S_max_size = (((static_cast<size_type>(-1)
-			      / sizeof(_CharT)) - 1) / 2) };
-
-      // Data Members (private):
+      // Data Members:
       typename _Util_Base::template _Alloc_hider<_CharT_alloc_type>
                                                             _M_dataplus;
       size_type                                             _M_string_length;
@@ -106,23 +92,26 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       }
 
       void
-      _M_destroy(size_type) throw();
+      _M_destroy(size_type __size) throw()
+      { _M_get_allocator().deallocate(_M_data(), __size + 1); }
 
       // _M_construct_aux is used to implement the 21.3.1 para 15 which
       // requires special behaviour if _InIterator is an integral type
       template<typename _InIterator>
         void
-        _M_construct_aux(_InIterator __beg, _InIterator __end, __false_type)
+        _M_construct_aux(_InIterator __beg, _InIterator __end, 
+			 std::__false_type)
 	{
           typedef typename iterator_traits<_InIterator>::iterator_category _Tag;
           _M_construct(__beg, __end, _Tag());
 	}
 
-      template<typename _InIterator>
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 438. Ambiguity in the "do the right thing" clause
+      template<typename _Integer>
         void
-        _M_construct_aux(_InIterator __beg, _InIterator __end, __true_type)
-	{ _M_construct(static_cast<size_type>(__beg),
-		       static_cast<value_type>(__end)); }
+        _M_construct_aux(_Integer __beg, _Integer __end, std::__true_type)
+	{ _M_construct(static_cast<size_type>(__beg), __end); }
 
       template<typename _InIterator>
         void
@@ -151,7 +140,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     public:
       size_type
       _M_max_size() const
-      { return size_type(_S_max_size); }
+      { return (_M_get_allocator().max_size() - 1) / 2; }
 
       _CharT*
       _M_data() const
@@ -238,12 +227,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     __sso_string_base<_CharT, _Traits, _Alloc>::
-    _M_destroy(size_type __size) throw()
-    { _M_dataplus._CharT_alloc_type::deallocate(_M_data(), __size + 1); }
-
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    void
-    __sso_string_base<_CharT, _Traits, _Alloc>::
     _M_swap(__sso_string_base& __rcs)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
@@ -322,7 +305,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 83.  String::npos vs. string::max_size()
-      if (__capacity > size_type(_S_max_size))
+      if (__capacity > _M_max_size())
 	std::__throw_length_error(__N("__sso_string_base::_M_create"));
 
       // The below implements an exponential growth policy, necessary to
@@ -331,14 +314,14 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       if (__capacity > __old_capacity && __capacity < 2 * __old_capacity)
 	{
 	  __capacity = 2 * __old_capacity;
-	  // Never allocate a string bigger than _S_max_size.
-	  if (__capacity > size_type(_S_max_size))
-	    __capacity = size_type(_S_max_size);
+	  // Never allocate a string bigger than max_size.
+	  if (__capacity > _M_max_size())
+	    __capacity = _M_max_size();
 	}
 
       // NB: Need an array of char_type[__capacity], plus a terminating
       // null char_type() element.
-      return _M_dataplus._CharT_alloc_type::allocate(__capacity + 1);
+      return _M_get_allocator().allocate(__capacity + 1);
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -422,7 +405,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 		   std::forward_iterator_tag)
       {
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(_S_is_null_pointer(__beg) && __beg != __end, 0))
+	if (__builtin_expect(__is_null_pointer(__beg) && __beg != __end, 0))
 	  std::__throw_logic_error(__N("__sso_string_base::"
 				       "_M_construct NULL not valid"));
 
@@ -555,28 +538,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 		__how_much);
 
       _M_set_length(_M_length() - __n);
-    }
-
-  template<>
-    inline bool
-    __sso_string_base<char, std::char_traits<char>,
-		      std::allocator<char> >::
-    _M_compare(const __sso_string_base& __rcs) const
-    {
-      if (this == &__rcs)
-	return true;
-      return false;
-    }
-
-  template<>
-    inline bool
-    __sso_string_base<wchar_t, std::char_traits<wchar_t>,
-		      std::allocator<wchar_t> >::
-    _M_compare(const __sso_string_base& __rcs) const
-    {
-      if (this == &__rcs)
-	return true;
-      return false;
     }
 
 _GLIBCXX_END_NAMESPACE

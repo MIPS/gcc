@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -81,6 +81,7 @@ package System.WCh_Con is
    --     4.  Adjust definition of WC_Longest_Sequence if necessary
    --     5.  Add an entry in WC_Encoding_Letters for the new method
    --     6.  Add proper code to s-wchstw.adb, s-wchwts.adb, s-widwch.adb
+   --     7.  Update documentation (remember section on form strings)
 
    --  Note that the WC_Encoding_Method values must be kept ordered so that
    --  the definitions of the subtypes WC_Upper_Half_Encoding_Method and
@@ -185,5 +186,10 @@ package System.WCh_Con is
    function Get_WC_Encoding_Method (C : Character) return WC_Encoding_Method;
    --  Given a character C, returns corresponding encoding method (see array
    --  WC_Encoding_Letters above). Raises Constraint_Error if not in list.
+
+   function Get_WC_Encoding_Method (S : String) return WC_Encoding_Method;
+   --  Given a lower case string that is one of hex, upper, shift_jis, euc,
+   --  utf8, brackets, return the corresponding encoding method. Raises
+   --  Constraint_Error if not in list.
 
 end System.WCh_Con;

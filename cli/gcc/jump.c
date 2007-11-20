@@ -1,13 +1,13 @@
 /* Optimize jump instructions, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This is the pathetic reminder of old fame of the jump-optimization pass
    of the compiler.  Now it contains basically a set of utility functions to
@@ -68,11 +67,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static void init_label_info (rtx);
 static void mark_all_labels (rtx);
-static void delete_computation (rtx);
 static void redirect_exp_1 (rtx *, rtx, rtx, rtx);
 static int invert_exp_1 (rtx, rtx);
 static int returnjump_p_1 (rtx *, void *);
-static void delete_prior_computation (rtx, rtx);
 
 /* Alternate entry into the jump optimizer.  This entry point only rebuilds
    the JUMP_LABEL field in jumping insns and REG_LABEL notes in non-jumping
@@ -128,62 +125,6 @@ struct tree_opt_pass pass_cleanup_barriers =
   "barriers",                           /* name */
   NULL,                                 /* gate */
   cleanup_barriers,                     /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
-};
-
-unsigned int
-purge_line_number_notes (void)
-{
-  rtx last_note = 0;
-  rtx insn;
-  /* Delete extraneous line number notes.
-     Note that two consecutive notes for different lines are not really
-     extraneous.  There should be some indication where that line belonged,
-     even if it became empty.  */
-
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (NOTE_P (insn))
-      {
-	if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
-	  /* Any previous line note was for the prologue; gdb wants a new
-	     note after the prologue even if it is for the same line.  */
-	  last_note = NULL_RTX;
-	else if (NOTE_LINE_NUMBER (insn) >= 0)
-	  {
-	    /* Delete this note if it is identical to previous note.  */
-	    if (last_note
-#ifdef USE_MAPPED_LOCATION
-		&& NOTE_SOURCE_LOCATION (insn) == NOTE_SOURCE_LOCATION (last_note)
-#else
-		&& NOTE_SOURCE_FILE (insn) == NOTE_SOURCE_FILE (last_note)
-		&& NOTE_LINE_NUMBER (insn) == NOTE_LINE_NUMBER (last_note)
-#endif
-)
-	      {
-		delete_related_insns (insn);
-		continue;
-	      }
-
-	    last_note = insn;
-	  }
-      }
-  return 0;
-}
-
-struct tree_opt_pass pass_purge_lineno_notes =
-{
-  "elnotes",                            /* name */
-  NULL,                                 /* gate */
-  purge_line_number_notes,              /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -258,104 +199,31 @@ mark_all_labels (rtx f)
 	      }
 	  }
       }
-}
-
-/* Move all block-beg, block-end and loop-beg notes between START and END out
-   before START.  START and END may be such notes.  Returns the values of the
-   new starting and ending insns, which may be different if the original ones
-   were such notes.  Return true if there were only such notes and no real
-   instructions.  */
-
-bool
-squeeze_notes (rtx* startp, rtx* endp)
-{
-  rtx start = *startp;
-  rtx end = *endp;
-
-  rtx insn;
-  rtx next;
-  rtx last = NULL;
-  rtx past_end = NEXT_INSN (end);
-
-  for (insn = start; insn != past_end; insn = next)
+  
+  /* If we are in cfglayout mode, there may be non-insns between the
+     basic blocks.  If those non-insns represent tablejump data, they
+     contain label references that we must record.  */
+  if (current_ir_type () == IR_RTL_CFGLAYOUT)
     {
-      next = NEXT_INSN (insn);
-      if (NOTE_P (insn)
-	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG))
+      basic_block bb;
+      rtx insn;
+      FOR_EACH_BB (bb)
 	{
-	  /* BLOCK_BEG or BLOCK_END notes only exist in the `final' pass.  */
-	  gcc_assert (NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_BEG
-		      && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_END);
+	  for (insn = bb->il.rtl->header; insn; insn = NEXT_INSN (insn))
+	    if (INSN_P (insn))
+	      {
+		gcc_assert (JUMP_TABLE_DATA_P (insn));
+		mark_jump_label (PATTERN (insn), insn, 0);
+	      }
 
-	  if (insn == start)
-	    start = next;
-	  else
-	    {
-	      rtx prev = PREV_INSN (insn);
-	      PREV_INSN (insn) = PREV_INSN (start);
-	      NEXT_INSN (insn) = start;
-	      NEXT_INSN (PREV_INSN (insn)) = insn;
-	      PREV_INSN (NEXT_INSN (insn)) = insn;
-	      NEXT_INSN (prev) = next;
-	      PREV_INSN (next) = prev;
-	    }
+	  for (insn = bb->il.rtl->footer; insn; insn = NEXT_INSN (insn))
+	    if (INSN_P (insn))
+	      {
+		gcc_assert (JUMP_TABLE_DATA_P (insn));
+		mark_jump_label (PATTERN (insn), insn, 0);
+	      }
 	}
-      else
-	last = insn;
     }
-
-  /* There were no real instructions.  */
-  if (start == past_end)
-    return true;
-
-  end = last;
-
-  *startp = start;
-  *endp = end;
-  return false;
-}
-
-/* Return the label before INSN, or put a new label there.  */
-
-rtx
-get_label_before (rtx insn)
-{
-  rtx label;
-
-  /* Find an existing label at this point
-     or make a new one if there is none.  */
-  label = prev_nonnote_insn (insn);
-
-  if (label == 0 || !LABEL_P (label))
-    {
-      rtx prev = PREV_INSN (insn);
-
-      label = gen_label_rtx ();
-      emit_label_after (label, prev);
-      LABEL_NUSES (label) = 0;
-    }
-  return label;
-}
-
-/* Return the label after INSN, or put a new label there.  */
-
-rtx
-get_label_after (rtx insn)
-{
-  rtx label;
-
-  /* Find an existing label at this point
-     or make a new one if there is none.  */
-  label = next_nonnote_insn (insn);
-
-  if (label == 0 || !LABEL_P (label))
-    {
-      label = gen_label_rtx ();
-      emit_label_after (label, insn);
-      LABEL_NUSES (label) = 0;
-    }
-  return label;
 }
 
 /* Given a comparison (CODE ARG0 ARG1), inside an insn, INSN, return a code
@@ -1032,61 +900,6 @@ sets_cc0_p (rtx x)
 }
 #endif
 
-/* Follow any unconditional jump at LABEL;
-   return the ultimate label reached by any such chain of jumps.
-   Return null if the chain ultimately leads to a return instruction.
-   If LABEL is not followed by a jump, return LABEL.
-   If the chain loops or we can't find end, return LABEL,
-   since that tells caller to avoid changing the insn.
-
-   If RELOAD_COMPLETED is 0, we do not chain across a USE or CLOBBER.  */
-
-rtx
-follow_jumps (rtx label)
-{
-  rtx insn;
-  rtx next;
-  rtx value = label;
-  int depth;
-
-  for (depth = 0;
-       (depth < 10
-	&& (insn = next_active_insn (value)) != 0
-	&& JUMP_P (insn)
-	&& ((JUMP_LABEL (insn) != 0 && any_uncondjump_p (insn)
-	     && onlyjump_p (insn))
-	    || GET_CODE (PATTERN (insn)) == RETURN)
-	&& (next = NEXT_INSN (insn))
-	&& BARRIER_P (next));
-       depth++)
-    {
-      rtx tem;
-      if (!reload_completed && flag_test_coverage)
-	{
-	  /* ??? Optional.  Disables some optimizations, but makes
-	     gcov output more accurate with -O.  */
-	  for (tem = value; tem != insn; tem = NEXT_INSN (tem))
-	    if (NOTE_P (tem) && NOTE_LINE_NUMBER (tem) > 0)
-	      return value;
-	}
-
-      /* If we have found a cycle, make the insn jump to itself.  */
-      if (JUMP_LABEL (insn) == label)
-	return label;
-
-      tem = next_active_insn (JUMP_LABEL (insn));
-      if (tem && (GET_CODE (PATTERN (tem)) == ADDR_VEC
-		  || GET_CODE (PATTERN (tem)) == ADDR_DIFF_VEC))
-	break;
-
-      value = JUMP_LABEL (insn);
-    }
-  if (depth == 10)
-    return label;
-  return value;
-}
-
-
 /* Find all CODE_LABELs referred to in X, and increment their use counts.
    If INSN is a JUMP_INSN and there is at least one CODE_LABEL referenced
    in INSN, then store one of them in JUMP_LABEL (INSN).
@@ -1122,6 +935,12 @@ mark_jump_label (rtx x, rtx insn, int in_mem)
       in_mem = 1;
       break;
 
+    case SEQUENCE:
+      for (i = 0; i < XVECLEN (x, 0); i++)
+	mark_jump_label (PATTERN (XVECEXP (x, 0, i)),
+			 XVECEXP (x, 0, i), 0);
+      return;
+
     case SYMBOL_REF:
       if (!in_mem)
 	return;
@@ -1138,7 +957,7 @@ mark_jump_label (rtx x, rtx insn, int in_mem)
 	/* Ignore remaining references to unreachable labels that
 	   have been deleted.  */
 	if (NOTE_P (label)
-	    && NOTE_LINE_NUMBER (label) == NOTE_INSN_DELETED_LABEL)
+	    && NOTE_KIND (label) == NOTE_INSN_DELETED_LABEL)
 	  break;
 
 	gcc_assert (LABEL_P (label));
@@ -1200,192 +1019,6 @@ mark_jump_label (rtx x, rtx insn, int in_mem)
     }
 }
 
-/* If all INSN does is set the pc, delete it,
-   and delete the insn that set the condition codes for it
-   if that's what the previous thing was.  */
-
-void
-delete_jump (rtx insn)
-{
-  rtx set = single_set (insn);
-
-  if (set && GET_CODE (SET_DEST (set)) == PC)
-    delete_computation (insn);
-}
-
-/* Recursively delete prior insns that compute the value (used only by INSN
-   which the caller is deleting) stored in the register mentioned by NOTE
-   which is a REG_DEAD note associated with INSN.  */
-
-static void
-delete_prior_computation (rtx note, rtx insn)
-{
-  rtx our_prev;
-  rtx reg = XEXP (note, 0);
-
-  for (our_prev = prev_nonnote_insn (insn);
-       our_prev && (NONJUMP_INSN_P (our_prev)
-		    || CALL_P (our_prev));
-       our_prev = prev_nonnote_insn (our_prev))
-    {
-      rtx pat = PATTERN (our_prev);
-
-      /* If we reach a CALL which is not calling a const function
-	 or the callee pops the arguments, then give up.  */
-      if (CALL_P (our_prev)
-	  && (! CONST_OR_PURE_CALL_P (our_prev)
-	      || GET_CODE (pat) != SET || GET_CODE (SET_SRC (pat)) != CALL))
-	break;
-
-      /* If we reach a SEQUENCE, it is too complex to try to
-	 do anything with it, so give up.  We can be run during
-	 and after reorg, so SEQUENCE rtl can legitimately show
-	 up here.  */
-      if (GET_CODE (pat) == SEQUENCE)
-	break;
-
-      if (GET_CODE (pat) == USE
-	  && NONJUMP_INSN_P (XEXP (pat, 0)))
-	/* reorg creates USEs that look like this.  We leave them
-	   alone because reorg needs them for its own purposes.  */
-	break;
-
-      if (reg_set_p (reg, pat))
-	{
-	  if (side_effects_p (pat) && !CALL_P (our_prev))
-	    break;
-
-	  if (GET_CODE (pat) == PARALLEL)
-	    {
-	      /* If we find a SET of something else, we can't
-		 delete the insn.  */
-
-	      int i;
-
-	      for (i = 0; i < XVECLEN (pat, 0); i++)
-		{
-		  rtx part = XVECEXP (pat, 0, i);
-
-		  if (GET_CODE (part) == SET
-		      && SET_DEST (part) != reg)
-		    break;
-		}
-
-	      if (i == XVECLEN (pat, 0))
-		delete_computation (our_prev);
-	    }
-	  else if (GET_CODE (pat) == SET
-		   && REG_P (SET_DEST (pat)))
-	    {
-	      int dest_regno = REGNO (SET_DEST (pat));
-	      int dest_endregno
-		= (dest_regno
-		   + (dest_regno < FIRST_PSEUDO_REGISTER
-		      ? hard_regno_nregs[dest_regno]
-					[GET_MODE (SET_DEST (pat))] : 1));
-	      int regno = REGNO (reg);
-	      int endregno
-		= (regno
-		   + (regno < FIRST_PSEUDO_REGISTER
-		      ? hard_regno_nregs[regno][GET_MODE (reg)] : 1));
-
-	      if (dest_regno >= regno
-		  && dest_endregno <= endregno)
-		delete_computation (our_prev);
-
-	      /* We may have a multi-word hard register and some, but not
-		 all, of the words of the register are needed in subsequent
-		 insns.  Write REG_UNUSED notes for those parts that were not
-		 needed.  */
-	      else if (dest_regno <= regno
-		       && dest_endregno >= endregno)
-		{
-		  int i;
-
-		  REG_NOTES (our_prev)
-		    = gen_rtx_EXPR_LIST (REG_UNUSED, reg,
-					 REG_NOTES (our_prev));
-
-		  for (i = dest_regno; i < dest_endregno; i++)
-		    if (! find_regno_note (our_prev, REG_UNUSED, i))
-		      break;
-
-		  if (i == dest_endregno)
-		    delete_computation (our_prev);
-		}
-	    }
-
-	  break;
-	}
-
-      /* If PAT references the register that dies here, it is an
-	 additional use.  Hence any prior SET isn't dead.  However, this
-	 insn becomes the new place for the REG_DEAD note.  */
-      if (reg_overlap_mentioned_p (reg, pat))
-	{
-	  XEXP (note, 1) = REG_NOTES (our_prev);
-	  REG_NOTES (our_prev) = note;
-	  break;
-	}
-    }
-}
-
-/* Delete INSN and recursively delete insns that compute values used only
-   by INSN.  This uses the REG_DEAD notes computed during flow analysis.
-   If we are running before flow.c, we need do nothing since flow.c will
-   delete dead code.  We also can't know if the registers being used are
-   dead or not at this point.
-
-   Otherwise, look at all our REG_DEAD notes.  If a previous insn does
-   nothing other than set a register that dies in this insn, we can delete
-   that insn as well.
-
-   On machines with CC0, if CC0 is used in this insn, we may be able to
-   delete the insn that set it.  */
-
-static void
-delete_computation (rtx insn)
-{
-  rtx note, next;
-
-#ifdef HAVE_cc0
-  if (reg_referenced_p (cc0_rtx, PATTERN (insn)))
-    {
-      rtx prev = prev_nonnote_insn (insn);
-      /* We assume that at this stage
-	 CC's are always set explicitly
-	 and always immediately before the jump that
-	 will use them.  So if the previous insn
-	 exists to set the CC's, delete it
-	 (unless it performs auto-increments, etc.).  */
-      if (prev && NONJUMP_INSN_P (prev)
-	  && sets_cc0_p (PATTERN (prev)))
-	{
-	  if (sets_cc0_p (PATTERN (prev)) > 0
-	      && ! side_effects_p (PATTERN (prev)))
-	    delete_computation (prev);
-	  else
-	    /* Otherwise, show that cc0 won't be used.  */
-	    REG_NOTES (prev) = gen_rtx_EXPR_LIST (REG_UNUSED,
-						  cc0_rtx, REG_NOTES (prev));
-	}
-    }
-#endif
-
-  for (note = REG_NOTES (insn); note; note = next)
-    {
-      next = XEXP (note, 1);
-
-      if (REG_NOTE_KIND (note) != REG_DEAD
-	  /* Verify that the REG_NOTE is legitimate.  */
-	  || !REG_P (XEXP (note, 0)))
-	continue;
-
-      delete_prior_computation (note, insn);
-    }
-
-  delete_related_insns (insn);
-}
 
 /* Delete insn INSN from the chain of insns and update label ref counts
    and delete insns now unreachable.
@@ -1498,8 +1131,7 @@ delete_related_insns (rtx insn)
       while (next)
 	{
 	  code = GET_CODE (next);
-	  if (code == NOTE
-	      && NOTE_LINE_NUMBER (next) != NOTE_INSN_FUNCTION_END)
+	  if (code == NOTE)
 	    next = NEXT_INSN (next);
 	  /* Keep going past other deleted labels to delete what follows.  */
 	  else if (code == CODE_LABEL && INSN_DELETED_P (next))
@@ -1662,8 +1294,7 @@ redirect_jump (rtx jump, rtx nlabel, int delete_unused)
 }
 
 /* Fix up JUMP_LABEL and label ref counts after OLABEL has been replaced with
-   NLABEL in JUMP.  If DELETE_UNUSED is non-negative, copy a
-   NOTE_INSN_FUNCTION_END found after OLABEL to the place after NLABEL.
+   NLABEL in JUMP.  
    If DELETE_UNUSED is positive, delete related insn to OLABEL if its ref
    count has dropped to zero.  */
 void
@@ -1672,6 +1303,10 @@ redirect_jump_2 (rtx jump, rtx olabel, rtx nlabel, int delete_unused,
 {
   rtx note;
 
+  /* Negative DELETE_UNUSED used to be used to signalize behavior on
+     moving FUNCTION_END note.  Just sanity check that no user still worry
+     about this.  */
+  gcc_assert (delete_unused >= 0);
   JUMP_LABEL (jump) = nlabel;
   if (nlabel)
     ++LABEL_NUSES (nlabel);
@@ -1687,15 +1322,6 @@ redirect_jump_2 (rtx jump, rtx olabel, rtx nlabel, int delete_unused,
 	  confirm_change_group ();
 	}
     }
-
-  /* If we're eliding the jump over exception cleanups at the end of a
-     function, move the function end note so that -Wreturn-type works.  */
-  if (olabel && nlabel
-      && NEXT_INSN (olabel)
-      && NOTE_P (NEXT_INSN (olabel))
-      && NOTE_LINE_NUMBER (NEXT_INSN (olabel)) == NOTE_INSN_FUNCTION_END
-      && delete_unused >= 0)
-    emit_note_after (NOTE_INSN_FUNCTION_END, nlabel);
 
   if (olabel && --LABEL_NUSES (olabel) == 0 && delete_unused > 0
       /* Undefined labels will remain outside the insn stream.  */
@@ -1989,7 +1615,11 @@ true_regnum (rtx x)
   if (GET_CODE (x) == SUBREG)
     {
       int base = true_regnum (SUBREG_REG (x));
-      if (base >= 0 && base < FIRST_PSEUDO_REGISTER)
+      if (base >= 0
+	  && base < FIRST_PSEUDO_REGISTER
+	  && subreg_offset_representable_p (REGNO (SUBREG_REG (x)),
+					    GET_MODE (SUBREG_REG (x)),
+					    SUBREG_BYTE (x), GET_MODE (x)))
 	return base + subreg_regno_offset (REGNO (SUBREG_REG (x)),
 					   GET_MODE (SUBREG_REG (x)),
 					   SUBREG_BYTE (x), GET_MODE (x));

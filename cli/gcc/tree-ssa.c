@@ -1,11 +1,11 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -76,7 +75,7 @@ ssa_redirect_edge (edge e, basic_block dest)
   return e;
 }
 
-/* Add PHI arguments queued in PENDINT_STMT list on edge E to edge
+/* Add PHI arguments queued in PENDING_STMT list on edge E to edge
    E->dest.  */
 
 void
@@ -143,6 +142,13 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
+  if (SSA_NAME_IS_DEFAULT_DEF (ssa_name)
+      && !IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name)))
+    {
+      error ("found a default name with a non-empty defining statement");
+      return true;
+    }
+
   return false;
 }
 
@@ -156,8 +162,7 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       it means that the block in that array slot contains the
       definition of SSA_NAME.
 
-   IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF or a
-      V_MUST_DEF.  */
+   IS_VIRTUAL is true if SSA_NAME is created by a VDEF.  */
 
 static bool
 verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
@@ -208,21 +213,15 @@ err:
       is flowing through an abnormal edge (only used when checking PHI
       arguments).
 
-   IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF or a
-      V_MUST_DEF.
-   
    If NAMES_DEFINED_IN_BB is not NULL, it contains a bitmap of ssa names
      that are defined before STMT in basic block BB.  */
 
 static bool
 verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
-	    tree stmt, bool check_abnormal, bool is_virtual,
-	    bitmap names_defined_in_bb)
+	    tree stmt, bool check_abnormal, bitmap names_defined_in_bb)
 {
   bool err = false;
   tree ssa_name = USE_FROM_PTR (use_p);
-
-  err = verify_ssa_name (ssa_name, is_virtual);
 
   if (!TREE_VISITED (ssa_name))
     if (verify_imm_links (stderr, ssa_name))
@@ -231,7 +230,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
   TREE_VISITED (ssa_name) = 1;
 
   if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name))
-      && default_def (SSA_NAME_VAR (ssa_name)) == ssa_name)
+      && SSA_NAME_IS_DEFAULT_DEF (ssa_name))
     ; /* Default definitions have empty statements.  Nothing to do.  */
   else if (!def_bb)
     {
@@ -296,9 +295,10 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
 /* Return true if any of the arguments for PHI node PHI at block BB is
    malformed.
 
-   DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME version
-      numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set, it means that the
-      block in that array slot contains the definition of SSA_NAME.  */
+   DEFINITION_BLOCK is an array of basic blocks indexed by SSA_NAME
+      version numbers.  If DEFINITION_BLOCK[SSA_NAME_VERSION] is set,
+      it means that the block in that array slot contains the
+      definition of SSA_NAME.  */
 
 static bool
 verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
@@ -319,7 +319,6 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
       use_operand_p op_p = PHI_ARG_DEF_PTR (phi, i);
       tree op = USE_FROM_PTR (op_p);
 
-
       e = EDGE_PRED (bb, i);
 
       if (op == NULL_TREE)
@@ -338,10 +337,11 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 	}
 
       if (TREE_CODE (op) == SSA_NAME)
-	err = verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op_p,
-			  phi, e->flags & EDGE_ABNORMAL,
-			  !is_gimple_reg (PHI_RESULT (phi)),
-			  NULL);
+	{
+	  err = verify_ssa_name (op, !is_gimple_reg (PHI_RESULT (phi)));
+	  err |= verify_use (e->src, definition_block[SSA_NAME_VERSION (op)],
+			     op_p, phi, e->flags & EDGE_ABNORMAL, NULL);
+	}
 
       if (e->dest != bb)
 	{
@@ -362,7 +362,7 @@ error:
   if (err)
     {
       fprintf (stderr, "for PHI node\n");
-      print_generic_stmt (stderr, phi, TDF_VOPS);
+      print_generic_stmt (stderr, phi, TDF_VOPS|TDF_MEMSYMS);
     }
 
 
@@ -374,24 +374,26 @@ static void
 verify_flow_insensitive_alias_info (void)
 {
   tree var;
-  bitmap visited = BITMAP_ALLOC (NULL);
   referenced_var_iterator rvi;
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      size_t j;
-      var_ann_t ann;
-      VEC(tree,gc) *may_aliases;
+      unsigned int j;
+      bitmap aliases;
       tree alias;
+      bitmap_iterator bi;
 
-      ann = var_ann (var);
-      may_aliases = ann->may_aliases;
+      if (!MTAG_P (var) || !MTAG_ALIASES (var))
+	continue;
+      
+      aliases = MTAG_ALIASES (var);
 
-      for (j = 0; VEC_iterate (tree, may_aliases, j, alias); j++)
+      EXECUTE_IF_SET_IN_BITMAP (aliases, 0, j, bi)
 	{
-	  bitmap_set_bit (visited, DECL_UID (alias));
+	  alias = referenced_var (j);
 
-	  if (!may_be_aliased (alias))
+	  if (TREE_CODE (alias) != MEMORY_PARTITION_TAG
+	      && !may_be_aliased (alias))
 	    {
 	      error ("non-addressable variable inside an alias set");
 	      debug_variable (alias);
@@ -400,21 +402,6 @@ verify_flow_insensitive_alias_info (void)
 	}
     }
 
-  FOR_EACH_REFERENCED_VAR (var, rvi)
-    {
-      var_ann_t ann;
-      ann = var_ann (var);
-
-      if (!MTAG_P (var)
-	  && ann->is_aliased
-	  && !bitmap_bit_p (visited, DECL_UID (var)))
-	{
-	  error ("addressable variable that is aliased but is not in any alias set");
-	  goto err;
-	}
-    }
-
-  BITMAP_FREE (visited);
   return;
 
 err:
@@ -472,12 +459,17 @@ verify_flow_sensitive_alias_info (void)
 	  goto err;
 	}
 
-      if (pi->value_escapes_p
-	  && pi->name_mem_tag
-	  && !is_call_clobbered (pi->name_mem_tag))
+      if (pi->value_escapes_p && pi->name_mem_tag)
 	{
-	  error ("pointer escapes but its name tag is not call-clobbered");
-	  goto err;
+	  tree t = memory_partition (pi->name_mem_tag);
+	  if (t == NULL_TREE)
+	    t = pi->name_mem_tag;
+	  
+	  if (!is_call_clobbered (t))
+	    {
+	      error ("pointer escapes but its name tag is not call-clobbered");
+	      goto err;
+	    }
 	}
     }
 
@@ -488,132 +480,9 @@ err:
   internal_error ("verify_flow_sensitive_alias_info failed");
 }
 
-DEF_VEC_P (bitmap);
-DEF_VEC_ALLOC_P (bitmap,heap);
-
-/* Verify that all name tags have different points to sets.
-   This algorithm takes advantage of the fact that every variable with the
-   same name tag must have the same points-to set. 
-   So we check a single variable for each name tag, and verify that its
-   points-to set is different from every other points-to set for other name
-   tags.
-
-   Additionally, given a pointer P_i with name tag NMT and symbol tag
-   SMT, this function verified the alias set of SMT is a superset of
-   the alias set of NMT.  */
-
-static void
-verify_name_tags (void)
-{
-  size_t i;  
-  size_t j;
-  bitmap first, second;  
-  VEC(tree,heap) *name_tag_reps = NULL;
-  VEC(bitmap,heap) *pt_vars_for_reps = NULL;
-  bitmap type_aliases = BITMAP_ALLOC (NULL);
-
-  /* First we compute the name tag representatives and their points-to sets.  */
-  for (i = 0; i < num_ssa_names; i++)
-    {
-      struct ptr_info_def *pi;
-      tree smt, ptr = ssa_name (i);
-
-      if (ptr == NULL_TREE)
-	continue;
-      
-      pi = SSA_NAME_PTR_INFO (ptr);
-
-      if (!TREE_VISITED (ptr) 
-	  || !POINTER_TYPE_P (TREE_TYPE (ptr)) 
-	  || !pi
-	  || !pi->name_mem_tag 
-	  || TREE_VISITED (pi->name_mem_tag))
-	continue;
-
-      TREE_VISITED (pi->name_mem_tag) = 1;
-
-      if (pi->pt_vars == NULL)
-	continue;
-
-      VEC_safe_push (tree, heap, name_tag_reps, ptr);
-      VEC_safe_push (bitmap, heap, pt_vars_for_reps, pi->pt_vars);
-
-      /* Verify that alias set of PTR's symbol tag is a superset of the
-	 alias set of PTR's name tag.  */
-      smt = var_ann (SSA_NAME_VAR (ptr))->symbol_mem_tag;
-      if (smt)
-	{
-	  size_t i;
-	  VEC(tree,gc) *aliases = var_ann (smt)->may_aliases;
-	  tree alias;
-
-	  bitmap_clear (type_aliases);
-	  for (i = 0; VEC_iterate (tree, aliases, i, alias); i++)
-	    bitmap_set_bit (type_aliases, DECL_UID (alias));
-
-	  /* When grouping, we may have added PTR's symbol tag into the
-	     alias set of PTR's name tag.  To prevent a false
-	     positive, pretend that SMT is in its own alias set.  */
-	  bitmap_set_bit (type_aliases, DECL_UID (smt));
-
-	  if (bitmap_equal_p (type_aliases, pi->pt_vars))
-	    continue;
-
-	  if (!bitmap_intersect_compl_p (type_aliases, pi->pt_vars))
-	    {
-	      error ("alias set of a pointer's symbol tag should be a superset of the corresponding name tag");
-	      debug_variable (smt);
-	      debug_variable (pi->name_mem_tag);
-	      goto err;
-	    }
-	}
-    }
-  
-  /* Now compare all the representative bitmaps with all other representative
-     bitmaps, to verify that they are all different.  */
-  for (i = 0; VEC_iterate (bitmap, pt_vars_for_reps, i, first); i++)
-    {
-       for (j = i + 1; VEC_iterate (bitmap, pt_vars_for_reps, j, second); j++)
-	 { 
-	   if (bitmap_equal_p (first, second))
-	     {
-	       error ("two different pointers with identical points-to sets but different name tags");
-	       debug_variable (VEC_index (tree, name_tag_reps, j));
-	       goto err;
-	     }
-	 }
-    }
-
-  /* Lastly, clear out the visited flags.  */
-  for (i = 0; i < num_ssa_names; i++)
-    {
-      if (ssa_name (i))
-	{
-	  tree ptr = ssa_name (i);
-	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
-	  if (!TREE_VISITED (ptr) 
-	      || !POINTER_TYPE_P (TREE_TYPE (ptr)) 
-	      || !pi
-	      || !pi->name_mem_tag)
-	    continue;
-	  TREE_VISITED (pi->name_mem_tag) = 0;
-	}
-    } 
-
-  /* We do not have to free the bitmaps or trees in the vectors, as
-     they are not owned by us.  */
-  VEC_free (bitmap, heap, pt_vars_for_reps);
-  VEC_free (tree, heap, name_tag_reps);
-  BITMAP_FREE (type_aliases);
-  return;
-  
-err:
-  debug_variable (VEC_index (tree, name_tag_reps, i));
-  internal_error ("verify_name_tags failed");
-}
-
 
 /* Verify the consistency of call clobbering information.  */
+
 static void
 verify_call_clobbering (void)
 {
@@ -622,36 +491,96 @@ verify_call_clobbering (void)
   tree var;
   referenced_var_iterator rvi;
 
-  /* At all times, the result of the DECL_CALL_CLOBBERED flag should
+  /* At all times, the result of the call_clobbered flag should
      match the result of the call_clobbered_vars bitmap.  Verify both
      that everything in call_clobbered_vars is marked
-     DECL_CALL_CLOBBERED, and that everything marked
-     DECL_CALL_CLOBBERED is in call_clobbered_vars.  */
-  EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, i, bi)
+     call_clobbered, and that everything marked
+     call_clobbered is in call_clobbered_vars.  */
+  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
     {
       var = referenced_var (i);
-      if (!MTAG_P (var) && !DECL_CALL_CLOBBERED (var))
+
+      if (memory_partition (var))
+	var = memory_partition (var);
+
+      if (!MTAG_P (var) && !var_ann (var)->call_clobbered)
 	{
-	  error ("variable in call_clobbered_vars but not marked DECL_CALL_CLOBBERED");
+	  error ("variable in call_clobbered_vars but not marked "
+	         "call_clobbered");
 	  debug_variable (var);
 	  goto err;
 	}
     }
+
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      if (!MTAG_P (var) && DECL_CALL_CLOBBERED (var)
-	  && !bitmap_bit_p (call_clobbered_vars, DECL_UID (var)))
+      if (is_gimple_reg (var))
+	continue;
+
+      if (memory_partition (var))
+	var = memory_partition (var);
+
+      if (!MTAG_P (var)
+	  && var_ann (var)->call_clobbered
+	  && !bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)))
 	{
-	  error ("variable marked DECL_CALL_CLOBBERED but not in call_clobbered_vars bitmap.");
+	  error ("variable marked call_clobbered but not in "
+	         "call_clobbered_vars bitmap.");
 	  debug_variable (var);
 	  goto err;
 	}
     }
+
   return;
 
  err:
     internal_error ("verify_call_clobbering failed");
 }
+
+
+/* Verify invariants in memory partitions.  */
+
+static void
+verify_memory_partitions (void)
+{
+  unsigned i;
+  tree mpt;
+  VEC(tree,heap) *mpt_table = gimple_ssa_operands (cfun)->mpt_table;
+  struct pointer_set_t *partitioned_syms = pointer_set_create ();
+
+  for (i = 0; VEC_iterate (tree, mpt_table, i, mpt); i++)
+    {
+      unsigned j;
+      bitmap_iterator bj;
+
+      if (MPT_SYMBOLS (mpt) == NULL)
+	{
+	  error ("Memory partitions should have at least one symbol");
+	  debug_variable (mpt);
+	  goto err;
+	}
+
+      EXECUTE_IF_SET_IN_BITMAP (MPT_SYMBOLS (mpt), 0, j, bj)
+	{
+	  tree var = referenced_var (j);
+	  if (pointer_set_insert (partitioned_syms, var))
+	    {
+	      error ("Partitioned symbols should belong to exactly one "
+		     "partition");
+	      debug_variable (var);
+	      goto err;
+	    }
+	}
+    }
+
+  pointer_set_destroy (partitioned_syms);
+
+  return;
+
+err:
+  internal_error ("verify_memory_partitions failed");
+}
+
 
 /* Verify the consistency of aliasing information.  */
 
@@ -659,9 +588,9 @@ static void
 verify_alias_info (void)
 {
   verify_flow_sensitive_alias_info ();
-  verify_name_tags ();
   verify_call_clobbering ();
   verify_flow_insensitive_alias_info ();
+  verify_memory_partitions ();
 }
 
 
@@ -676,7 +605,7 @@ verify_ssa (bool check_modified_stmt)
   basic_block *definition_block = XCNEWVEC (basic_block, num_ssa_names);
   ssa_op_iter iter;
   tree op;
-  enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
+  enum dom_state orig_dom_state = dom_info_state (CDI_DOMINATORS);
   bitmap names_defined_in_bb = BITMAP_ALLOC (NULL);
 
   gcc_assert (!need_ssa_update_p ());
@@ -732,6 +661,7 @@ verify_ssa (bool check_modified_stmt)
 	{
 	  if (verify_phi_args (phi, bb, definition_block))
 	    goto err;
+
 	  bitmap_set_bit (names_defined_in_bb,
 			  SSA_NAME_VERSION (PHI_RESULT (phi)));
 	}
@@ -744,38 +674,57 @@ verify_ssa (bool check_modified_stmt)
 
 	  if (check_modified_stmt && stmt_modified_p (stmt))
 	    {
-	      error ("stmt (%p) marked modified after optimization pass : ",
+	      error ("stmt (%p) marked modified after optimization pass: ",
 		     (void *)stmt);
 	      print_generic_stmt (stderr, stmt, TDF_VOPS);
 	      goto err;
 	    }
 
-	  if (TREE_CODE (stmt) == MODIFY_EXPR
-	      && TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
+	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) != SSA_NAME)
 	    {
 	      tree lhs, base_address;
 
-	      lhs = TREE_OPERAND (stmt, 0);
+	      lhs = GIMPLE_STMT_OPERAND (stmt, 0);
 	      base_address = get_base_address (lhs);
 
 	      if (base_address
+		  && gimple_aliases_computed_p (cfun)
 		  && SSA_VAR_P (base_address)
-		  && ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF|SSA_OP_VMUSTDEF))
+		  && !stmt_ann (stmt)->has_volatile_ops
+		  && ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
 		{
-		  error ("statement makes a memory store, but has no "
-			 "V_MAY_DEFS nor V_MUST_DEFS");
+		  error ("statement makes a memory store, but has no VDEFS");
 		  print_generic_stmt (stderr, stmt, TDF_VOPS);
 		  goto err;
 		}
 	    }
 
-	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-	                            SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_VIRTUALS)
+	    {
+	      if (verify_ssa_name (op, true))
+		{
+		  error ("in statement");
+		  print_generic_stmt (stderr, stmt, TDF_VOPS|TDF_MEMSYMS);
+		  goto err;
+		}
+	    }
+
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE|SSA_OP_DEF)
+	    {
+	      if (verify_ssa_name (op, false))
+		{
+		  error ("in statement");
+		  print_generic_stmt (stderr, stmt, TDF_VOPS|TDF_MEMSYMS);
+		  goto err;
+		}
+	    }
+
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE|SSA_OP_VUSE)
 	    {
 	      op = USE_FROM_PTR (use_p);
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      use_p, stmt, false, !is_gimple_reg (op),
-			      names_defined_in_bb))
+			      use_p, stmt, false, names_defined_in_bb))
 		goto err;
 	    }
 
@@ -787,7 +736,8 @@ verify_ssa (bool check_modified_stmt)
     }
 
   /* Finally, verify alias information.  */
-  verify_alias_info ();
+  if (gimple_aliases_computed_p (cfun))
+    verify_alias_info ();
 
   free (definition_block);
 
@@ -796,7 +746,7 @@ verify_ssa (bool check_modified_stmt)
   if (orig_dom_state == DOM_NONE)
     free_dominance_info (CDI_DOMINATORS);
   else
-    dom_computed[CDI_DOMINATORS] = orig_dom_state;
+    set_dom_info_availability (CDI_DOMINATORS, orig_dom_state);
   
   BITMAP_FREE (names_defined_in_bb);
   timevar_pop (TV_TREE_SSA_VERIFY);
@@ -824,22 +774,41 @@ int_tree_map_hash (const void *item)
   return ((const struct int_tree_map *)item)->uid;
 }
 
+/* Return true if the uid in both int tree maps are equal.  */
+
+static int
+var_ann_eq (const void *va, const void *vb)
+{
+  const struct static_var_ann_d *a = (const struct static_var_ann_d *) va;
+  const_tree const b = (const_tree) vb;
+  return (a->uid == DECL_UID (b));
+}
+
+/* Hash a UID in a int_tree_map.  */
+
+static unsigned int
+var_ann_hash (const void *item)
+{
+  return ((const struct static_var_ann_d *)item)->uid;
+}
+
 
 /* Initialize global DFA and SSA structures.  */
 
 void
 init_tree_ssa (void)
 {
-  referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
-				     int_tree_map_eq, NULL);
-  default_defs = htab_create_ggc (20, int_tree_map_hash, int_tree_map_eq, NULL);
-  call_clobbered_vars = BITMAP_ALLOC (NULL);
-  addressable_vars = BITMAP_ALLOC (NULL);
-  init_alias_heapvars ();
+  cfun->gimple_df = GGC_CNEW (struct gimple_df);
+  cfun->gimple_df->referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
+				     		      int_tree_map_eq, NULL);
+  cfun->gimple_df->default_defs = htab_create_ggc (20, int_tree_map_hash, 
+				                   int_tree_map_eq, NULL);
+  cfun->gimple_df->var_anns = htab_create_ggc (20, var_ann_hash, 
+					       var_ann_eq, NULL);
+  cfun->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
+  cfun->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
   init_ssanames ();
   init_phinodes ();
-  global_var = NULL_TREE;
-  aliases_computed_p = false;
 }
 
 
@@ -884,109 +853,199 @@ delete_tree_ssa (void)
   /* Remove annotations from every referenced variable.  */
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      ggc_free (var->common.ann);
-      var->common.ann = NULL;
+      if (var->base.ann)
+        ggc_free (var->base.ann);
+      var->base.ann = NULL;
     }
-  htab_delete (referenced_vars);
-  referenced_vars = NULL;
+  htab_delete (gimple_referenced_vars (cfun));
+  cfun->gimple_df->referenced_vars = NULL;
 
   fini_ssanames ();
   fini_phinodes ();
+  /* we no longer maintain the SSA operand cache at this point.  */
+  fini_ssa_operands ();
 
-  global_var = NULL_TREE;
+  cfun->gimple_df->global_var = NULL_TREE;
   
-  htab_delete (default_defs);
-  BITMAP_FREE (call_clobbered_vars);
-  call_clobbered_vars = NULL;
-  BITMAP_FREE (addressable_vars);
-  addressable_vars = NULL;
-  modified_noreturn_calls = NULL;
-  aliases_computed_p = false;
-  delete_alias_heapvars ();
-  gcc_assert (!need_ssa_update_p ());
+  htab_delete (cfun->gimple_df->default_defs);
+  cfun->gimple_df->default_defs = NULL;
+  htab_delete (cfun->gimple_df->var_anns);
+  cfun->gimple_df->var_anns = NULL;
+  cfun->gimple_df->call_clobbered_vars = NULL;
+  cfun->gimple_df->addressable_vars = NULL;
+  cfun->gimple_df->modified_noreturn_calls = NULL;
+  if (gimple_aliases_computed_p (cfun))
+    {
+      delete_alias_heapvars ();
+      gcc_assert (!need_ssa_update_p ());
+    }
+  cfun->gimple_df->aliases_computed_p = false;
+  delete_mem_ref_stats (cfun);
+
+  cfun->gimple_df = NULL;
 }
 
 
 /* Return true if the conversion from INNER_TYPE to OUTER_TYPE is a
-   useless type conversion, otherwise return false.  */
+   useless type conversion, otherwise return false.
+
+   This function implicitly defines the middle-end type system.  With
+   the notion of 'a < b' meaning that useless_type_conversion_p (a, b)
+   holds and 'a > b' meaning that useless_type_conversion_p (b, a) holds,
+   the following invariants shall be fulfilled:
+
+     1) useless_type_conversion_p is transitive.
+	If a < b and b < c then a < c.
+
+     2) useless_type_conversion_p is not symmetric.
+	From a < b does not follow a > b.
+
+     3) Types define the available set of operations applicable to values.
+	A type conversion is useless if the operations for the target type
+	is a subset of the operations for the source type.  For example
+	casts to void* are useless, casts from void* are not (void* can't
+	be dereferenced or offsetted, but copied, hence its set of operations
+	is a strict subset of that of all other data pointer types).  Casts
+	to const T* are useless (can't be written to), casts from const T*
+	to T* are not.  */
 
 bool
-tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
+useless_type_conversion_p (tree outer_type, tree inner_type)
 {
+  /* Qualifiers on value types do not matter.  */
+  inner_type = TYPE_MAIN_VARIANT (inner_type);
+  outer_type = TYPE_MAIN_VARIANT (outer_type);
+
   if (inner_type == outer_type)
+    return true;
+
+  /* If we know the canonical types, compare them.  */
+  if (TYPE_CANONICAL (inner_type)
+      && TYPE_CANONICAL (inner_type) == TYPE_CANONICAL (outer_type))
     return true;
 
   /* Changes in machine mode are never useless conversions.  */
   if (TYPE_MODE (inner_type) != TYPE_MODE (outer_type))
     return false;
 
-  /* If the inner and outer types are effectively the same, then
-     strip the type conversion and enter the equivalence into
-     the table.  */
-  if (lang_hooks.types_compatible_p (inner_type, outer_type))
-    return true;
-
-  /* If both types are pointers and the outer type is a (void *), then
-     the conversion is not necessary.  The opposite is not true since
-     that conversion would result in a loss of information if the
-     equivalence was used.  Consider an indirect function call where
-     we need to know the exact type of the function to correctly
-     implement the ABI.  */
-  else if (POINTER_TYPE_P (inner_type)
-           && POINTER_TYPE_P (outer_type)
-	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
-	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
-	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
-    return true;
-
-  /* Don't lose casts between pointers to volatile and non-volatile
-     qualified types.  Doing so would result in changing the semantics
-     of later accesses.  */
-  else if (POINTER_TYPE_P (inner_type)
-           && POINTER_TYPE_P (outer_type)
-	   && TYPE_VOLATILE (TREE_TYPE (outer_type))
-	      != TYPE_VOLATILE (TREE_TYPE (inner_type)))
-    return false;
-
-  /* Pointers/references are equivalent if their pointed to types
-     are effectively the same.  This allows to strip conversions between
-     pointer types with different type qualifiers.  */
-  else if (POINTER_TYPE_P (inner_type)
-           && POINTER_TYPE_P (outer_type)
-	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
-	      == TYPE_REF_CAN_ALIAS_ALL (outer_type)
-           && lang_hooks.types_compatible_p (TREE_TYPE (inner_type),
-					     TREE_TYPE (outer_type)))
-    return true;
-
   /* If both the inner and outer types are integral types, then the
      conversion is not necessary if they have the same mode and
-     signedness and precision, and both or neither are boolean.  Some
-     code assumes an invariant that boolean types stay boolean and do
-     not become 1-bit bit-field types.  Note that types with precision
-     not using all bits of the mode (such as bit-field types in C)
-     mean that testing of precision is necessary.  */
-  else if (INTEGRAL_TYPE_P (inner_type)
-           && INTEGRAL_TYPE_P (outer_type)
-	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
-	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type)
-	   && simple_cst_equal (TYPE_MAX_VALUE (inner_type), TYPE_MAX_VALUE (outer_type))
-	   && simple_cst_equal (TYPE_MIN_VALUE (inner_type), TYPE_MIN_VALUE (outer_type)))
+     signedness and precision, and both or neither are boolean.  */
+  if (INTEGRAL_TYPE_P (inner_type)
+      && INTEGRAL_TYPE_P (outer_type))
     {
-      bool first_boolean = (TREE_CODE (inner_type) == BOOLEAN_TYPE);
-      bool second_boolean = (TREE_CODE (outer_type) == BOOLEAN_TYPE);
-      if (first_boolean == second_boolean)
+      /* Preserve changes in signedness or precision.  */
+      if (TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
+	  || TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
+	return false;
+
+      /* Conversions from a non-base to a base type are not useless.
+	 This way we preserve the invariant to do arithmetic in
+	 base types only.  */
+      if (TREE_TYPE (inner_type)
+	  && TREE_TYPE (inner_type) != inner_type
+	  && (TREE_TYPE (outer_type) == outer_type
+	      || TREE_TYPE (outer_type) == NULL_TREE))
+	return false;
+
+      /* We don't need to preserve changes in the types minimum or
+	 maximum value in general as these do not generate code
+	 unless the types precisions are different.  */
+
+      return true;
+    }
+
+  /* Scalar floating point types with the same mode are compatible.  */
+  else if (SCALAR_FLOAT_TYPE_P (inner_type)
+	   && SCALAR_FLOAT_TYPE_P (outer_type))
+    return true;
+
+  /* We need to take special care recursing to pointed-to types.  */
+  else if (POINTER_TYPE_P (inner_type)
+	   && POINTER_TYPE_P (outer_type))
+    {
+      /* If the outer type is (void *), then the conversion is not
+	 necessary.  */
+      if (TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
 	return true;
+
+      /* Don't lose casts between pointers to volatile and non-volatile
+	 qualified types.  Doing so would result in changing the semantics
+	 of later accesses.  */
+      if ((TYPE_VOLATILE (TREE_TYPE (outer_type))
+	   != TYPE_VOLATILE (TREE_TYPE (inner_type)))
+	  && TYPE_VOLATILE (TREE_TYPE (outer_type)))
+	return false;
+
+      /* Do not lose casts between pointers with different
+	 TYPE_REF_CAN_ALIAS_ALL setting or alias sets.  */
+      if ((TYPE_REF_CAN_ALIAS_ALL (inner_type)
+	   != TYPE_REF_CAN_ALIAS_ALL (outer_type))
+	  || (get_alias_set (TREE_TYPE (inner_type))
+	      != get_alias_set (TREE_TYPE (outer_type))))
+	return false;
+
+      /* Do not lose casts from const qualified to non-const
+	 qualified.  */
+      if ((TYPE_READONLY (TREE_TYPE (outer_type))
+	   != TYPE_READONLY (TREE_TYPE (inner_type)))
+	  && TYPE_READONLY (TREE_TYPE (inner_type)))
+	return false;
+
+      /* Do not lose casts to restrict qualified pointers.  */
+      if ((TYPE_RESTRICT (outer_type)
+	   != TYPE_RESTRICT (inner_type))
+	  && TYPE_RESTRICT (outer_type))
+	return false;
+
+      /* Otherwise pointers/references are equivalent if their pointed
+	 to types are effectively the same.  We can strip qualifiers
+	 on pointed-to types for further comparison, which is done in
+	 the callee.  */
+      return useless_type_conversion_p (TREE_TYPE (outer_type),
+				        TREE_TYPE (inner_type));
     }
 
   /* Recurse for complex types.  */
   else if (TREE_CODE (inner_type) == COMPLEX_TYPE
-	   && TREE_CODE (outer_type) == COMPLEX_TYPE
-	   && tree_ssa_useless_type_conversion_1 (TREE_TYPE (outer_type),
-						  TREE_TYPE (inner_type)))
-    return true;
+	   && TREE_CODE (outer_type) == COMPLEX_TYPE)
+    return useless_type_conversion_p (TREE_TYPE (outer_type),
+				      TREE_TYPE (inner_type));
+
+  /* Recurse for vector types with the same number of subparts.  */
+  else if (TREE_CODE (inner_type) == VECTOR_TYPE
+	   && TREE_CODE (outer_type) == VECTOR_TYPE
+	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
+    return useless_type_conversion_p (TREE_TYPE (outer_type),
+				      TREE_TYPE (inner_type));
+
+  /* For aggregates we may need to fall back to structural equality
+     checks.  */
+  else if (AGGREGATE_TYPE_P (inner_type)
+	   && AGGREGATE_TYPE_P (outer_type))
+    {
+      /* Different types of aggregates are incompatible.  */
+      if (TREE_CODE (inner_type) != TREE_CODE (outer_type))
+	return false;
+
+      /* ???  Add structural equivalence check.  */
+
+      /* ???  This should eventually just return false.  */
+      return lang_hooks.types_compatible_p (inner_type, outer_type);
+    }
 
   return false;
+}
+
+/* Return true if a conversion from either type of TYPE1 and TYPE2
+   to the other is not required.  Otherwise return false.  */
+
+bool
+types_compatible_p (tree type1, tree type2)
+{
+  return (type1 == type2
+	  || (useless_type_conversion_p (type1, type2)
+	      && useless_type_conversion_p (type2, type1)));
 }
 
 /* Return true if EXPR is a useless type conversion, otherwise return
@@ -1002,26 +1061,16 @@ tree_ssa_useless_type_conversion (tree expr)
   if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR
       || TREE_CODE (expr) == VIEW_CONVERT_EXPR
       || TREE_CODE (expr) == NON_LVALUE_EXPR)
-    return tree_ssa_useless_type_conversion_1 (TREE_TYPE (expr),
-					       TREE_TYPE (TREE_OPERAND (expr,
-									0)));
-
+    /* FIXME: Use of GENERIC_TREE_TYPE here is a temporary measure to work
+       around known bugs with GIMPLE_MODIFY_STMTs appearing in places
+       they shouldn't.  See PR 30391.  */
+    return useless_type_conversion_p
+      (TREE_TYPE (expr),
+       GENERIC_TREE_TYPE (TREE_OPERAND (expr, 0)));
 
   return false;
 }
 
-/* Returns true if statement STMT may read memory.  */
-
-bool
-stmt_references_memory_p (tree stmt)
-{
-  stmt_ann_t ann = stmt_ann (stmt);
-
-  if (ann->has_volatile_ops)
-    return true;
-
-  return (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS));
-}
 
 /* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
    described in walk_use_def_chains.
@@ -1068,7 +1117,10 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
       for (i = 0; i < PHI_NUM_ARGS (def_stmt); i++)
 	{
 	  tree arg = PHI_ARG_DEF (def_stmt, i);
-	  if (TREE_CODE (arg) == SSA_NAME
+
+	  /* ARG may be NULL for newly introduced PHI nodes.  */
+	  if (arg
+	      && TREE_CODE (arg) == SSA_NAME
 	      && walk_use_def_chains_1 (arg, fn, data, visited, is_dfs))
 	    return true;
 	}
@@ -1105,7 +1157,6 @@ walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
 
    If IS_DFS is false, the two steps above are done in reverse order
    (i.e., a breadth-first search).  */
-
 
 void
 walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
@@ -1154,7 +1205,8 @@ warn_uninit (tree t, const char *gmsgid, void *data)
   tree var = SSA_NAME_VAR (t);
   tree def = SSA_NAME_DEF_STMT (t);
   tree context = (tree) data;
-  location_t * locus;
+  location_t *locus;
+  expanded_location xloc, floc;
 
   /* Default uses (indicated by an empty definition statement),
      are uninitialized.  */
@@ -1177,7 +1229,14 @@ warn_uninit (tree t, const char *gmsgid, void *data)
   locus = (context != NULL && EXPR_HAS_LOCATION (context)
 	   ? EXPR_LOCUS (context)
 	   : &DECL_SOURCE_LOCATION (var));
-  warning (0, gmsgid, locus, var);
+  warning (OPT_Wuninitialized, gmsgid, locus, var);
+  xloc = expand_location (*locus);
+  floc = expand_location (DECL_SOURCE_LOCATION (cfun->decl));
+  if (xloc.file != floc.file
+      || xloc.line < floc.line
+      || xloc.line > LOCATION_LINE (cfun->function_end_locus))
+    inform ("%J%qD was declared here", var, var);
+
   TREE_NO_WARNING (var) = 1;
 }
    
@@ -1309,4 +1368,3 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,                                    /* todo_flags_finish */
   0				        /* letter */
 };
-	  

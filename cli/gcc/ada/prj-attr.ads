@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -110,7 +110,7 @@ package Prj.Attr is
    --  The type to refers to an attribute, self-initialized
 
    Empty_Attribute : constant Attribute_Node_Id;
-   --  Indicates no attribute. Default value of Attribute_Node_Id objects.
+   --  Indicates no attribute. Default value of Attribute_Node_Id objects
 
    Attribute_First : constant Attribute_Node_Id;
    --  First attribute node id of project level attributes
@@ -205,7 +205,7 @@ private
    ----------------
 
    Attributes_Initial   : constant := 50;
-   Attributes_Increment : constant := 50;
+   Attributes_Increment : constant := 100;
 
    Attribute_Node_Low_Bound  : constant := 0;
    Attribute_Node_High_Bound : constant := 099_999_999;
@@ -235,7 +235,7 @@ private
    --------------
 
    Packages_Initial   : constant := 10;
-   Packages_Increment : constant := 50;
+   Packages_Increment : constant := 100;
 
    Package_Node_Low_Bound  : constant := 0;
    Package_Node_High_Bound : constant := 099_999_999;
@@ -274,12 +274,13 @@ private
    --  Data for an attribute
 
    package Attrs is
-      new Table.Table (Table_Component_Type => Attribute_Record,
-                       Table_Index_Type     => Attr_Node_Id,
-                       Table_Low_Bound      => First_Attribute,
-                       Table_Initial        => Attributes_Initial,
-                       Table_Increment      => Attributes_Increment,
-                       Table_Name           => "Prj.Attr.Attrs");
+     new Table.Table
+       (Table_Component_Type => Attribute_Record,
+        Table_Index_Type     => Attr_Node_Id,
+        Table_Low_Bound      => First_Attribute,
+        Table_Initial        => Attributes_Initial,
+        Table_Increment      => Attributes_Increment,
+        Table_Name           => "Prj.Attr.Attrs");
    --  The table of the attributes
 
    --------------
@@ -294,12 +295,13 @@ private
    --  Data for a package
 
    package Package_Attributes is
-      new Table.Table (Table_Component_Type => Package_Record,
-                       Table_Index_Type     => Pkg_Node_Id,
-                       Table_Low_Bound      => First_Package,
-                       Table_Initial        => Packages_Initial,
-                       Table_Increment      => Packages_Increment,
-                       Table_Name           => "Prj.Attr.Packages");
+     new Table.Table
+       (Table_Component_Type => Package_Record,
+        Table_Index_Type     => Pkg_Node_Id,
+        Table_Low_Bound      => First_Package,
+        Table_Initial        => Packages_Initial,
+        Table_Increment      => Packages_Increment,
+        Table_Name           => "Prj.Attr.Packages");
    --  The table of the packages
 
 end Prj.Attr;

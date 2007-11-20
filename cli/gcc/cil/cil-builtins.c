@@ -24,6 +24,10 @@
 
    Authors:
      Andrea C. Ornstein <andrea.ornstein@st.com>
+
+   Contact information at STMicroelectronics:
+     Andrea C. Ornstein <andrea.ornstein@st.com>
+     Erven Rohou        <erven.rohou@st.com>
 */
 
 #include "config.h"
@@ -350,7 +354,7 @@ def_builtin_1 (enum built_in_function fncode,
 
   libname = name + strlen ("__builtin_");
 
-  decl = lang_hooks.builtin_function (libname, libtype, fncode, fnclass, NULL, fnattrs);
+  decl = add_builtin_function (libname, libtype, fncode, fnclass, NULL, fnattrs);
   built_in_decls[(int) fncode] = decl;
   if (implicit_p)
     implicit_built_in_decls[(int) fncode] = decl;

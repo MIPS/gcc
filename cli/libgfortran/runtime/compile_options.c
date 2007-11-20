@@ -1,5 +1,5 @@
 /* Handling of compile-time options that influence the library.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -35,19 +35,27 @@ Boston, MA 02110-1301, USA.  */
 /* Useful compile-time options will be stored in here.  */
 compile_options_t compile_options;
 
-
-/* Prototypes */
-extern void set_std (GFC_INTEGER_4, GFC_INTEGER_4, GFC_INTEGER_4);
-export_proto(set_std);
-
+/* Set the usual compile-time options.  */
+extern void set_options (int , int []);
+export_proto(set_options);
 
 void
-set_std (GFC_INTEGER_4 warn_std, GFC_INTEGER_4 allow_std,
-	 GFC_INTEGER_4 pedantic)
+set_options (int num, int options[])
 {
-  compile_options.pedantic = pedantic;
-  compile_options.warn_std = warn_std;
-  compile_options.allow_std = allow_std;
+  if (num >= 1)
+    compile_options.warn_std = options[0];
+  if (num >= 2)
+    compile_options.allow_std = options[1];
+  if (num >= 3)
+    compile_options.pedantic = options[2];
+  if (num >= 4)
+    compile_options.dump_core = options[3];
+  if (num >= 5)
+    compile_options.backtrace = options[4];
+  if (num >= 6)
+    compile_options.sign_zero = options[5];
+  if (num >= 7)
+    compile_options.bounds_check = options[6];
 }
 
 
@@ -61,6 +69,9 @@ init_compile_options (void)
   compile_options.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
     | GFC_STD_F2003 | GFC_STD_F95 | GFC_STD_F77 | GFC_STD_GNU | GFC_STD_LEGACY;
   compile_options.pedantic = 0;
+  compile_options.dump_core = 0;
+  compile_options.backtrace = 0;
+  compile_options.sign_zero = 1;
 }
 
 /* Function called by the front-end to tell us the
@@ -86,17 +97,29 @@ set_record_marker (int val)
   switch(val)
     {
     case 4:
-      if (sizeof (GFC_INTEGER_4) != sizeof (gfc_offset))
-	compile_options.record_marker = sizeof (GFC_INTEGER_4);
+      compile_options.record_marker = sizeof (GFC_INTEGER_4);
       break;
 
     case 8:
-      if (sizeof (GFC_INTEGER_8) != sizeof (gfc_offset))
-	compile_options.record_marker = sizeof (GFC_INTEGER_8);
+      compile_options.record_marker = sizeof (GFC_INTEGER_8);
       break;
 
     default:
       runtime_error ("Invalid value for record marker");
       break;
     }
+}
+
+extern void set_max_subrecord_length (int);
+export_proto (set_max_subrecord_length);
+
+void set_max_subrecord_length(int val)
+{
+  if (val > GFC_MAX_SUBRECORD_LENGTH || val < 1)
+    {
+      runtime_error ("Invalid value for maximum subrecord length");
+      return;
+    }
+
+  compile_options.max_subrecord_length = val;
 }

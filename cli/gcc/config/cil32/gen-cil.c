@@ -26,7 +26,9 @@ Authors:
    Roberto Costa
 
 Contact information at STMicroelectronics:
-Roberto Costa <roberto.costa@st.com>   */
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Erven Rohou             <erven.rohou@st.com>
+*/
 
 #include "config.h"
 #include "system.h"
@@ -50,6 +52,7 @@ Roberto Costa <roberto.costa@st.com>   */
 #include "ggc.h"
 #include "tree-simp-cil.h"
 #include "gen-cil.h"
+#include "emit-hints.h"
 
 /* Nonzero for a type which is at file scope.  */
 #define TYPE_FILE_SCOPE_P(EXP)                                  \
@@ -71,6 +74,7 @@ struct fnct_attr
 {
   const char *assembly_name;
   const char *cil_name;
+  const char *cusattr_string;
   const char *pinvoke_assembly;
   const char *pinvoke_fname;
 };
@@ -86,8 +90,6 @@ struct pointer_id_data
 static hashval_t pointer_id_data_hash (const void *);
 static int pointer_id_data_eq (const void *, const void *);
 static void decode_function_attrs (tree, struct fnct_attr *);
-static void mark_var_defs_uses (tree);
-static void remove_stloc_ldloc (block_stmt_iterator, tree *, bool *);
 static void mark_referenced_type (tree);
 static void mark_referenced_string (tree);
 static unsigned int get_string_cst_id (tree);
@@ -97,9 +99,9 @@ static void dump_label_name (FILE *, tree);
 static void dump_entry_label_name (FILE *, basic_block);
 static void dump_fun_type (FILE *, tree, tree, const char *, bool);
 static void dump_valuetype_name (FILE *, tree);
-static void compute_addr_expr (FILE *, tree);
+static void gen_addr_expr (FILE *, tree);
 static void print_type_suffix (FILE *, tree, bool);
-static void gen_cil_modify_expr (FILE *, tree);
+static void gen_cil_modify_expr (FILE *, tree, tree);
 static char * append_string (char *, const char *,
                              unsigned int *, unsigned int *);
 static char * append_coded_type (char *, tree, unsigned int *, unsigned int *);
@@ -121,18 +123,15 @@ static void stack_pop (unsigned int);
 static void gen_conv (FILE *, bool, tree, tree);
 static void gen_integral_conv (FILE *, tree, tree);
 static void gen_binary_cond_branch (FILE *, tree, tree);
+static void gen_call_expr (FILE *, tree);
 static void gen_start_function (FILE *);
+static void gen_string_custom_attr (FILE *, const char*);
 static unsigned int gen_cil (void);
 static void gen_cil_1 (FILE *);
 static void gen_cil_node (FILE *, tree);
 static bool gen_cil_gate (void);
-static void create_init_method(tree);
+static void create_init_method(void);
 
-static struct pointer_set_t *defd_vars;
-static struct pointer_set_t *defd_more_than_once_vars;
-static struct pointer_set_t *used_vars;
-static struct pointer_set_t *used_more_than_once_vars;
-static struct pointer_set_t *useless_vars;
 static struct pointer_set_t *referenced_types;
 static GTY(()) varray_type referenced_strings;
 static struct pointer_set_t *referenced_string_ptrs;
@@ -161,361 +160,6 @@ pointer_id_data_eq (const void *p1, const void *p2)
 
   return ptr1 == ptr2;
 }
-
-
-/* Recursively mark the definitions and the uses of the non-static
-   non-volatile local variables used in tree NODE.   */
-
-static void
-mark_var_defs_uses (tree node)
-{
-  if (node == NULL_TREE || node == error_mark_node)
-    return;
-
-  switch (TREE_CODE (node))
-    {
-    case COND_EXPR:
-      mark_var_defs_uses (COND_EXPR_COND (node));
-      break;
-
-    case SWITCH_EXPR:
-      mark_var_defs_uses (SWITCH_COND (node));
-      break;
-
-    case CALL_EXPR:
-      {
-        tree args = TREE_OPERAND (node, 1);
-
-        mark_var_defs_uses (TREE_OPERAND (node, 0));
-
-        while (args)
-          {
-            mark_var_defs_uses (TREE_VALUE (args));
-            args = TREE_CHAIN (args);
-          }
-      }
-      break;
-
-    case MULT_EXPR:
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case RDIV_EXPR:
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-    case BIT_AND_EXPR:
-    case TRUTH_AND_EXPR:
-    case TRUTH_OR_EXPR:
-    case TRUTH_XOR_EXPR:
-    case LT_EXPR:
-    case GT_EXPR:
-    case EQ_EXPR:
-    case NE_EXPR:
-    case LE_EXPR:
-    case GE_EXPR:
-    case EXACT_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case TRUNC_DIV_EXPR:
-    case TRUNC_MOD_EXPR:
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
-    case MAX_EXPR:
-    case MIN_EXPR:
-    case UNORDERED_EXPR:
-    case ORDERED_EXPR:
-    case UNLT_EXPR:
-    case UNLE_EXPR:
-    case UNGT_EXPR:
-    case UNGE_EXPR:
-    case COMPLEX_EXPR:
-      mark_var_defs_uses (TREE_OPERAND (node, 0));
-      mark_var_defs_uses (TREE_OPERAND (node, 1));
-      break;
-
-    case INIT_EXPR:
-    case MODIFY_EXPR:
-      {
-        tree lhs = TREE_OPERAND (node, 0);
-        tree rhs = TREE_OPERAND (node, 1);
-
-        if (TREE_CODE (lhs) == VAR_DECL)
-          {
-            if (! TREE_ADDRESSABLE (lhs)
-                && ! TREE_STATIC (lhs)
-                && ! TREE_SIDE_EFFECTS (lhs)
-                && ! DECL_FILE_SCOPE_P (lhs))
-              {
-                TREE_LANG_FLAG_0 (lhs) = false;
-
-                if (!pointer_set_contains (defd_vars, lhs))
-                  pointer_set_insert (defd_vars, lhs);
-                else if (!pointer_set_contains (defd_more_than_once_vars, lhs))
-                  pointer_set_insert (defd_more_than_once_vars, lhs);
-              }
-            else
-              TREE_LANG_FLAG_0 (lhs) = true;
-          }
-        else
-          mark_var_defs_uses (lhs);
-
-        mark_var_defs_uses (rhs);
-
-        if (AGGREGATE_TYPE_P (TREE_TYPE (lhs)) && TREE_CODE (rhs) == VAR_DECL)
-          TREE_LANG_FLAG_0 (rhs) = true;
-
-        gcc_assert (TREE_CODE (rhs) != CONSTRUCTOR
-                    && TREE_CODE (rhs) != STRING_CST);
-      }
-      break;
-
-    case NEGATE_EXPR:
-    case BIT_NOT_EXPR:
-    case TRUTH_NOT_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
-    case FLOAT_EXPR:
-    case FIX_TRUNC_EXPR:
-    case ABS_EXPR:
-    case WITH_SIZE_EXPR:
-    case VIEW_CONVERT_EXPR:
-    case REALPART_EXPR:
-    case IMAGPART_EXPR:
-      mark_var_defs_uses (TREE_OPERAND (node, 0));
-      break;
-
-    case RETURN_EXPR:
-      {
-        tree op = TREE_OPERAND (node, 0);
-
-        if (op)
-          {
-            if (TREE_CODE (op) == MODIFY_EXPR)
-              mark_var_defs_uses (TREE_OPERAND (op, 1));
-            else
-              mark_var_defs_uses (op);
-          }
-      }
-      break;
-
-    case ARRAY_REF:
-      gcc_assert (integer_zerop (TREE_OPERAND (node, 1)));
-    case ADDR_EXPR:
-    case COMPONENT_REF:
-    case INDIRECT_REF:
-      {
-        tree op = TREE_OPERAND (node, 0);
-
-        mark_var_defs_uses (op);
-        if (AGGREGATE_TYPE_P (TREE_TYPE (op)) && TREE_CODE (op) == VAR_DECL)
-          TREE_LANG_FLAG_0 (op) = true;
-      }
-      break;
-
-    case COMPLEX_CST:
-    case INTEGER_CST:
-    case REAL_CST:
-    case STRING_CST:
-    case VECTOR_CST:
-    case PARM_DECL:
-    case FUNCTION_DECL:
-    case LABEL_DECL:
-    case LABEL_EXPR:
-    case GOTO_EXPR:
-    case ASM_EXPR:
-      break;
-
-    case VAR_DECL:
-      if (! TREE_ADDRESSABLE (node)
-          && ! TREE_STATIC (node)
-          && ! TREE_THIS_VOLATILE (node)
-          && ! DECL_FILE_SCOPE_P (node))
-        {
-          TREE_LANG_FLAG_0 (node) = false;
-
-          if (! pointer_set_contains (used_vars, node))
-            pointer_set_insert (used_vars, node);
-          else if (! pointer_set_contains (used_more_than_once_vars, node))
-            pointer_set_insert (used_more_than_once_vars, node);
-        }
-      else
-        TREE_LANG_FLAG_0 (node) = true;
-      break;
-
-    default:
-      fprintf (stderr, "mark_var_defs_uses: Cannot handle '%s' ",
-               tree_code_name [TREE_CODE (node)]);
-      debug_generic_expr (node);
-      gcc_assert (0);
-    }
-}
-
-/* Avoids couple of useless stloc - ldloc from being emitted by removing
-   non-static non-volatile local variables used exactly once
-   throughout the entire function from tree NODE_PTR.
-   BSI is the statement iterator pointing to the statement containing NODE_PTR.
-   The bool pointed by MOD is set if the function changed anything,
-   otherwise its value is not modified.
-   This function works recursively, looking for VAR_DECLs corresponding
-   to local non-static non-volatile local variables used exactly once
-   in the function.
-   When such a variable is found, if its only definition is in
-   the statement immediately preceding BSI, then the use of the variable is
-   replaced by its definition (and that statement is removed).
-   By doing so, the code exits GIMPLE form; however, the CIL emission
-   mechanism is able to handle such a hybrid GIMPLE representation.   */
-
-static void
-remove_stloc_ldloc (block_stmt_iterator bsi, tree *node_ptr, bool *mod)
-{
-  tree node = *node_ptr;
-  block_stmt_iterator prev_bsi;
-
-  if (node == NULL_TREE || node == error_mark_node)
-    return;
-
-  /* Get iterator for the previous statememt */
-  prev_bsi = bsi;
-  bsi_prev (&prev_bsi);
-
-  /* No remotion is possible if the statement is the first in the block */
-  if (bsi_end_p (prev_bsi))
-    return;
-
-  switch (TREE_CODE (node))
-    {
-    case COND_EXPR:
-      remove_stloc_ldloc (bsi, &COND_EXPR_COND (node), mod);
-      break;
-
-    case SWITCH_EXPR:
-      remove_stloc_ldloc (bsi, &SWITCH_COND (node), mod);
-      break;
-
-    case CALL_EXPR:
-      {
-        tree args = TREE_OPERAND (node, 1);
-
-        remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
-
-        while (args)
-          {
-            remove_stloc_ldloc (bsi, &TREE_VALUE (args), mod);
-            args = TREE_CHAIN (args);
-          }
-      }
-      break;
-
-    case MULT_EXPR:
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case RDIV_EXPR:
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-    case BIT_AND_EXPR:
-    case TRUTH_AND_EXPR:
-    case TRUTH_OR_EXPR:
-    case TRUTH_XOR_EXPR:
-    case LT_EXPR:
-    case GT_EXPR:
-    case EQ_EXPR:
-    case NE_EXPR:
-    case LE_EXPR:
-    case GE_EXPR:
-    case EXACT_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case TRUNC_DIV_EXPR:
-    case TRUNC_MOD_EXPR:
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
-    case MAX_EXPR:
-    case MIN_EXPR:
-    case UNORDERED_EXPR:
-    case ORDERED_EXPR:
-    case UNLT_EXPR:
-    case UNLE_EXPR:
-    case UNGT_EXPR:
-    case UNGE_EXPR:
-      remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
-      remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 1), mod);
-      break;
-
-    case INIT_EXPR:
-    case MODIFY_EXPR:
-      if (TREE_CODE (TREE_OPERAND (node, 0)) != VAR_DECL)
-        remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
-      remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 1), mod);
-      gcc_assert (TREE_CODE (TREE_OPERAND (node, 1)) != CONSTRUCTOR
-                  && TREE_CODE (TREE_OPERAND (node, 1)) != STRING_CST);
-      break;
-
-    case NEGATE_EXPR:
-    case BIT_NOT_EXPR:
-    case TRUTH_NOT_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
-    case FLOAT_EXPR:
-    case FIX_TRUNC_EXPR:
-    case ADDR_EXPR:
-    case COMPONENT_REF:
-    case INDIRECT_REF:
-    case ARRAY_REF:
-    case ABS_EXPR:
-    case WITH_SIZE_EXPR:
-      remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
-      break;
-
-    case RETURN_EXPR:
-      {
-        tree op = TREE_OPERAND (node, 0);
-
-        if (op)
-          {
-            if (TREE_CODE (op) == MODIFY_EXPR)
-              remove_stloc_ldloc (bsi, &TREE_OPERAND (op, 1), mod);
-            else
-              remove_stloc_ldloc (bsi, &TREE_OPERAND (node, 0), mod);
-          }
-      }
-      break;
-
-    case VAR_DECL:
-      /* mark_var_defs_uses (...) function sets TREE_LANG_FLAG_0
-         for some variables that shouldn't be removed.   */
-      if (! TREE_LANG_FLAG_0 (node))
-        {
-          tree prev_stmt;
-
-          /* Get the previous statement */
-          prev_stmt = bsi_stmt (prev_bsi);
-
-          /* If the variable is used exactly once and the definition
-             is in the previous statement, then remove it */
-          if (TREE_CODE (prev_stmt) == MODIFY_EXPR
-              && TREE_OPERAND (prev_stmt, 0) == node
-              && pointer_set_contains (used_vars, node)
-              && ! pointer_set_contains (used_more_than_once_vars, node))
-            {
-              /* If the definition is unique, set that
-                 the variable has become useless.   */
-              if (! pointer_set_contains (defd_more_than_once_vars, node))
-                pointer_set_insert (useless_vars, node);
-
-              /* Replace variable's use with the definition */
-              *node_ptr = TREE_OPERAND (prev_stmt, 1);
-
-              /* Remove the previous statement */
-              bsi_remove (&prev_bsi, true);
-
-              /* Set that the function changed something */
-              *mod = true;
-            }
-        }
-      break;
-
-    default:
-      ;
-    }
-}
-
 
 /* stack_* functions are used to keep track of the number of elements
    in the evaluation stack, in order to record the maximum number.
@@ -570,6 +214,7 @@ decode_function_attrs (tree t, struct fnct_attr *attrs)
 
   attrs->assembly_name    = 0;
   attrs->cil_name         = 0;
+  attrs->cusattr_string   = 0;
   attrs->pinvoke_assembly = 0;
   attrs->pinvoke_fname    = 0;
 
@@ -583,6 +228,8 @@ decode_function_attrs (tree t, struct fnct_attr *attrs)
         attrs->assembly_name = TREE_STRING_POINTER (TREE_VALUE (params));
       else if (strcmp (attr_name, "cil_name") == 0)
         attrs->cil_name = TREE_STRING_POINTER (TREE_VALUE (params));
+      else if (strcmp (attr_name, "cil_strattr") == 0)
+        attrs->cusattr_string = TREE_STRING_POINTER (TREE_VALUE (params));
       else if (strcmp (attr_name, "pinvoke") == 0)
         {
           attrs->pinvoke_assembly = TREE_STRING_POINTER (TREE_VALUE (params));
@@ -1143,7 +790,7 @@ dump_complex_type (FILE *file, tree node, bool full)
 }
 
 
-/* Dump vector type NODE.  
+/* Dump vector type NODE.
 
    FULL tells whether the type must be qualified with the 'valuetype' keyword,
    assembly and namespace.
@@ -1452,7 +1099,7 @@ dump_type_eval_mode (FILE *stream, tree node, bool all_types, bool sign)
 }
 
 static void
-compute_addr_expr (FILE *file, tree t)
+gen_addr_expr (FILE *file, tree t)
 {
   if (t == NULL_TREE || t == error_mark_node)
     return;
@@ -1532,7 +1179,7 @@ compute_addr_expr (FILE *file, tree t)
           node = TREE_OPERAND (node, 0);
         } while (TREE_CODE (node) == ARRAY_REF);
 
-        compute_addr_expr (file, node);
+        gen_addr_expr (file, node);
       }
       break;
 
@@ -1544,7 +1191,7 @@ compute_addr_expr (FILE *file, tree t)
 
         gcc_assert (! DECL_BIT_FIELD (fld));
 
-        compute_addr_expr (file, obj);
+        gen_addr_expr (file, obj);
         fputs ("\n\tldflda\t", file);
         dump_type (file, TREE_TYPE (fld), true, false);
         fputs (" ", file);
@@ -1831,7 +1478,519 @@ gen_binary_cond_branch (FILE *file, tree node, tree label)
   stack_pop (2);
 }
 
+/* Dump a CALL_EXPR gimple node NODE in CIL on the file FILE. */
+
+static void
+gen_call_expr (FILE *file, tree node)
+{
+  bool done = false;
+  tree fdecl;
+  tree fun_expr;
+  tree fun_type;
+  bool direct_call;
+  tree static_chain;
+  tree args;
+  tree args_type;
+  tree last_arg_type;
+  bool varargs;
+  int promote_types = 0;
+  unsigned int aidx;
+  unsigned int nargs;
+
+  gcc_assert(TREE_CODE (node) == CALL_EXPR);
+
+  fun_expr = get_callee_fndecl (node);
+  if (fun_expr)
+    {
+      fdecl = fun_expr;
+      fun_type = TREE_TYPE (fun_expr);
+      direct_call = true;
+    }
+  else
+    {
+      fun_expr = CALL_EXPR_FN (node);
+      fdecl    = NULL_TREE;
+      fun_type = TREE_TYPE (TREE_TYPE (fun_expr));
+      direct_call = false;
+    }
+  nargs = call_expr_nargs(node);
+
+  /* Built-in functions must be handled in a special way */
+  if (direct_call && DECL_BUILT_IN (fdecl))
+    {
+
+      if (DECL_BUILT_IN_CLASS (fdecl) == BUILT_IN_MD)
+        {
+          switch (DECL_FUNCTION_CODE (fdecl))
+            {
+            case CIL32_BUILT_IN_VA_START:
+              {
+                tree va = CALL_EXPR_ARG (node, 0);
+
+                gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
+                            && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
+                               == cil32_arg_iterator_type);
+
+                gen_cil_node (file, va);
+                fputs ("\n\tdup"
+                       "\n\tinitobj\tvaluetype [mscorlib]System.ArgIterator"
+                       "\n\targlist"
+                       "\n\tcall\tinstance void "
+                       "[mscorlib]System.ArgIterator::.ctor(valuetype "
+                       "[mscorlib]System.RuntimeArgumentHandle)",
+                       file);
+
+                stack_push (1);
+                stack_pop (2);
+                done = true;
+              }
+              break;
+
+            case CIL32_BUILT_IN_VA_ARG:
+              {
+                tree va    = CALL_EXPR_ARG (node, 0);
+                tree dummy = CALL_EXPR_ARG (node, 1);
+                tree type  = TREE_TYPE (TREE_TYPE (dummy));
+
+                gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
+                            && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
+                               == cil32_arg_iterator_type);
+
+                gen_cil_node (file, va);
+                fputs ("\n\tcall\tinstance typedref [mscorlib]System.ArgIterator::GetNextArg()"
+                       "\n\trefanyval ",
+                       file);
+
+                if (dump_type_promoted_type_def (file, type))
+                  fputs ("\n\tconv.i", file);
+
+                done = true;
+              }
+              break;
+
+            case CIL32_BUILT_IN_VA_END:
+              {
+                tree va = CALL_EXPR_ARG (node, 0);
+
+                gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
+                            && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
+                               == cil32_arg_iterator_type);
+
+                gen_cil_node (file, va);
+                fputs ("\n\tcall\tinstance void [mscorlib]System.ArgIterator::End()",
+                       file);
+
+                stack_pop (1);
+                done = true;
+              }
+              break;
+
+            case CIL32_BUILT_IN_VA_COPY:
+              {
+                tree va_dest = CALL_EXPR_ARG (node, 0);
+                tree va_src  = CALL_EXPR_ARG (node, 1);
+
+                gcc_assert (POINTER_TYPE_P (TREE_TYPE (va_dest))
+                            && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va_dest)))
+                               == cil32_arg_iterator_type);
+                gcc_assert (POINTER_TYPE_P (TREE_TYPE (va_src))
+                            && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va_src)))
+                               == cil32_arg_iterator_type);
+
+                gen_cil_node (file, va_dest);
+                fputs ("\n\tdup"
+                       "\n\tinitobj\tvaluetype [mscorlib]System.ArgIterator",
+                       file);
+                stack_push (1);
+                stack_pop (1);
+
+                gen_cil_node (file, va_src);
+                fputs ("\n\tcpobj\t[mscorlib]System.ArgIterator", file);
+
+                stack_pop (2);
+                done = true;
+              }
+              break;
+
+            case CIL32_BUILT_IN_IS_LITTLE_ENDIAN:
+              {
+                fputs ("\n\tcall\tbool [gcc4net]gcc4net.Crt::__isLittleEndian()",
+                       file);
+
+                stack_push (1);
+                done = true;
+              }
+              break;
+
+            case CIL32_V2SF_CTOR:
+            case CIL32_V4SF_CTOR:
+            case CIL32_V4QI_CTOR:
+            case CIL32_V2HI_CTOR:
+            case CIL32_V8QI_CTOR:
+            case CIL32_V4HI_CTOR:
+            case CIL32_V2SI_CTOR:
+            case CIL32_V4SI_CTOR:
+            case CIL32_V8HI_CTOR:
+            case CIL32_V16QI_CTOR:
+              {
+                unsigned int i;
+                tree arg;
+                call_expr_arg_iterator iter;
+                tree arg_type;
+                tree result = TREE_TYPE (fun_type);
+
+                /* the type should be the same for all args. */
+                arg_type = TREE_TYPE (CALL_EXPR_ARG (node, 0));
+                FOR_EACH_CALL_EXPR_ARG (arg, iter, node)
+                  gen_cil_node (file, arg);
+
+                fputs ("\n\tcall ", file);
+                dump_vector_type (file, result, true);
+                fputs (" [gcc4net]gcc4net.", file);
+                dump_vector_type (file, result, false);
+                fputs ("::", file);
+                dump_decl_name (file, fdecl);
+                fputs ("(", file);
+
+                /* emit the same type 'nargs' times */
+                for(i = 0; i < nargs; ++i)
+                  {
+                    if (i)
+                      fputs (", ", file);
+
+                    if (TREE_CODE (arg_type) == INTEGER_TYPE
+                        && !TYPE_UNSIGNED (arg_type))
+                      fputs ("unsigned ", file);
+
+                    dump_type (file, arg_type, false, false);
+                  }
+                fputs (")", file);
+
+                stack_pop (nargs-1);
+                done = true;
+                break;
+              }
+
+            default:
+              gcc_assert (0);
+            }
+        }
+      else
+        {
+          switch (DECL_FUNCTION_CODE (fdecl))
+            {
+            case BUILT_IN_VA_START:
+            case BUILT_IN_VA_END:
+            case BUILT_IN_VA_COPY:
+              gcc_assert (0);
+              break;
+
+            case BUILT_IN_INIT_TRAMPOLINE:
+            case BUILT_IN_ADJUST_TRAMPOLINE:
+            case BUILT_IN_NONLOCAL_GOTO:
+              internal_error ("Builtins to support Trampolines not implemented\n");
+              break;
+
+            case BUILT_IN_PROFILE_FUNC_ENTER:
+            case BUILT_IN_PROFILE_FUNC_EXIT:
+              internal_error ("Builtins to support Profiling not implemented\n");
+              break;
+
+            case BUILT_IN_SETJMP_SETUP:
+            case BUILT_IN_SETJMP_DISPATCHER:
+            case BUILT_IN_SETJMP_RECEIVER:
+              internal_error ("Builtins to support Setjump not implemented\n");
+              break;
+
+            case BUILT_IN_MEMSET:
+              {
+                tree ptr   = CALL_EXPR_ARG (node, 0);
+                tree value = CALL_EXPR_ARG (node, 1);
+                tree size  = CALL_EXPR_ARG (node, 2);
+
+                gen_cil_node (file, ptr);
+                fputs ("\n\tdup", file);
+                stack_push (1);
+
+                gen_cil_node (file, value);
+                gen_cil_node (file, size);
+
+                fputs ("\n\tunaligned. 1"
+                       "\n\tinitblk", file);
+                stack_pop (3);
+                done = true;
+              }
+              break;
+
+            case BUILT_IN_MEMCPY:
+              {
+                tree ptr_dst = CALL_EXPR_ARG (node, 0);
+                tree ptr_src = CALL_EXPR_ARG (node, 1);
+                tree size    = CALL_EXPR_ARG (node, 2);
+
+                gen_cil_node (file, ptr_dst);
+                fputs ("\n\tdup", file);
+                stack_push (1);
+
+                gen_cil_node (file, ptr_src);
+                gen_cil_node (file, size);
+
+                fputs ("\n\tunaligned. 1"
+                       "\n\tcpblk", file);
+                stack_pop (3);
+                done = true;
+              }
+              break;
+
+            case BUILT_IN_ALLOCA:
+              {
+                tree size = CALL_EXPR_ARG (node, 0);
+
+                gen_cil_node (file, size);
+                fputs ("\n\tlocalloc", file);
+
+                done = true;
+              }
+              break;
+
+            case BUILT_IN_STACK_SAVE:
+              /* This built-in is only used for the implementation
+                 of variable-length arrays.
+                 It's not needed in CIL.   */
+              fputs ("\n\tldc.i4.0"
+                     "\n\tconv.i", file);
+              stack_push (1);
+              done = true;
+              break;
+
+            case BUILT_IN_STACK_RESTORE:
+              /* This built-in is only used for the implementation
+                 of variable-length arrays.
+                 It's not needed in CIL.   */
+              done = true;
+              break;
+
+            case BUILT_IN_EXPECT:
+              /* __builtin_expect(exp,val) evalutes exp and tells the
+                 compiler that it most likely gives val.  We just
+                 evaluate exp.  */
+              gen_cil_node (file, CALL_EXPR_ARG (node, 0));
+              done = true;
+              break;
+
+            case BUILT_IN_TRAP:
+              fputs ("\n\tcall\tvoid 'abort' ()", file);
+              done = true;
+              break;
+
+            case BUILT_IN_CLZ:
+            case BUILT_IN_CLZL:
+            case BUILT_IN_CLZLL:
+            case BUILT_IN_CTZ:
+            case BUILT_IN_CTZL:
+            case BUILT_IN_CTZLL:
+            case BUILT_IN_FFS:
+            case BUILT_IN_FFSL:
+            case BUILT_IN_FFSLL:
+            case BUILT_IN_PARITY:
+            case BUILT_IN_PARITYL:
+            case BUILT_IN_PARITYLL:
+            case BUILT_IN_POPCOUNT:
+            case BUILT_IN_POPCOUNTL:
+            case BUILT_IN_POPCOUNTLL:
+              {
+                tree fun_arg_types = TYPE_ARG_TYPES (fun_type);
+                tree arg = CALL_EXPR_ARG (node, 0);
+                tree arg_type = TREE_VALUE (fun_arg_types);
+                gen_cil_node (file, arg);
+                fputs ("\n\tcall\tint32 [gcc4net]gcc4net.Crt::__", file);
+                switch (DECL_FUNCTION_CODE (fdecl))
+                  {
+                  case BUILT_IN_CLZ:
+                  case BUILT_IN_CLZL:
+                  case BUILT_IN_CLZLL:
+                    fputs ("clz", file);
+                    break;
+                  case BUILT_IN_CTZ:
+                  case BUILT_IN_CTZL:
+                  case BUILT_IN_CTZLL:
+                    fputs ("ctz", file);
+                    break;
+                  case BUILT_IN_FFS:
+                  case BUILT_IN_FFSL:
+                  case BUILT_IN_FFSLL:
+                    fputs ("ffs", file);
+                    break;
+                  case BUILT_IN_PARITY:
+                  case BUILT_IN_PARITYL:
+                  case BUILT_IN_PARITYLL:
+                    fputs ("parity", file);
+                    break;
+                  case BUILT_IN_POPCOUNT:
+                  case BUILT_IN_POPCOUNTL:
+                  case BUILT_IN_POPCOUNTLL:
+                    fputs ("popcount", file);
+                    break;
+                  default:
+                    gcc_assert (0);
+                    break;
+                  }
+                dump_type_eval_mode (file, arg_type, false, false);
+                fputs ("2(", file);
+                dump_type_for_builtin (file, arg_type, false);
+                fputs (")", file);
+              }
+              done = true;
+              break;
+
+            default:
+              if (DECL_ASSEMBLER_NAME_SET_P (node))
+                {
+                  /* Go Ahead as a normal function call */
+                }
+/*               else */
+/*                 { */
+/*                   fprintf (stderr, */
+/*                            "unsupported builtin: %s\n", */
+/*                            IDENTIFIER_POINTER (DECL_NAME (fdecl))); */
+/*                   gcc_assert (0); */
+/*                 } */
+            }
+        }
+    }
+
+  if (!done)
+    {
+      /* Print parameters.  */
+
+      /* If static Chain present, it will be the first argument */
+      static_chain = CALL_EXPR_STATIC_CHAIN(node);
+      if (static_chain)
+        gen_cil_node (file, static_chain);
+
+      for (aidx=0;aidx<nargs;++aidx)
+        gen_cil_node (file, CALL_EXPR_ARG (node, aidx));
+
+      /* Print function pointer, in case of indirect call */
+      if (!direct_call)
+        gen_cil_node (file, fun_expr);
+
+#if 0
+      if (0 && CALL_EXPR_RETURN_SLOT_OPT (node))
+        fprintf (file, " [return slot optimization]");
+#endif
+
+      fprintf (file, "\n\t");
+#if 0
+      if (CALL_EXPR_TAILCALL (node))
+        fprintf (file, "tail.");
+#endif
+      if (direct_call)
+        fputs ("call\t", file);
+      else
+        fputs ("calli\t", file);
+
+      args_type = TYPE_ARG_TYPES (fun_type);
+      last_arg_type = 0;
+      varargs = FALSE;
+
+      if (args_type == NULL)
+        {
+          if (direct_call)
+            warning (OPT_Wcil_missing_prototypes,
+                     "Missing function %s prototype, guessing it, "
+                     "you should fix the code",
+                     IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+          else
+            warning (OPT_Wcil_missing_prototypes,
+                     "Missing indirect function prototype, guessing it, "
+                     "you should fix the code");
+          /* Guess types using the type of the arguments */
+          promote_types = 1;
+        }
+      else
+        {
+          last_arg_type = tree_last (args_type);
+
+          if (TREE_VALUE (last_arg_type) != void_type_node)
+            {
+              last_arg_type = 0;
+              varargs = TRUE;
+            }
+        }
+
+      if (varargs)
+        fputs ("vararg ", file);
+
+      dump_type (file, TREE_TYPE (fun_type), true, false);
+
+      if (direct_call)
+        {
+          struct fnct_attr attrs;
+          decode_function_attrs (fdecl, &attrs);
+
+          fputs (" ", file);
+
+          if (attrs.assembly_name)
+            fprintf (file, "[%s]", attrs.assembly_name);
+          else if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (fdecl))
+            fputs ("[ExternalAssembly]ExternalAssembly::", file);
+
+          if (attrs.cil_name)
+            fprintf (file, "%s", attrs.cil_name);
+          else
+            dump_decl_name (file, fdecl);
+        }
+
+      fputs (" (", file);
+      args = TREE_OPERAND (node, 1);
+
+      if (static_chain)
+        {
+          dump_type (file, TREE_TYPE (static_chain), true, true);
+          if (args_type != last_arg_type)
+            fputs (", ", file);
+        }
+
+      for (aidx=0;aidx<nargs;++aidx)
+        {
+          if (aidx!=0)
+            {
+              if (!promote_types && varargs && args_type == last_arg_type)
+                {
+                  fputs (", ..., ", file);
+                  promote_types = 1;
+                }
+              else
+                fputs (", ", file);
+            }
+
+          if (promote_types)
+            {
+              dump_type_promotion (file, TREE_TYPE (CALL_EXPR_ARG (node, aidx)), true);
+            }
+          else
+            {
+              dump_type (file, TREE_VALUE (args_type), true, true);
+              args_type = TREE_CHAIN (args_type);
+            }
+        }
+
+      fputs (")", file);
+
+      if (!direct_call)
+        ++nargs;
+      if (static_chain)
+        ++nargs;
+      stack_pop (nargs);
+
+      if (TREE_CODE (TREE_TYPE (fun_type)) != VOID_TYPE)
+        stack_push (1);
+    }
+}
+
 /* Dump the node NODE in CIL on the file FILE. */
+
 static void
 gen_cil_node (FILE *file, tree node)
 {
@@ -1994,7 +2153,10 @@ gen_cil_node (FILE *file, tree node)
 
     case INIT_EXPR:
     case MODIFY_EXPR:
-      gen_cil_modify_expr (file, node);
+    case GIMPLE_MODIFY_STMT:
+      gen_cil_modify_expr (file,
+                           GENERIC_TREE_OPERAND (node, 0),
+                           GENERIC_TREE_OPERAND (node, 1));
       break;
 
     case GOTO_EXPR:
@@ -2033,65 +2195,96 @@ gen_cil_node (FILE *file, tree node)
       break;
 
     case COND_EXPR:
-      /* At this point, both clauses of COND_EXPR must contain simple gotos */
-      gcc_assert (TREE_CODE (COND_EXPR_THEN (node)) == GOTO_EXPR
-                  && TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR);
+      {
+        tree label_then, label_else;
 
-      op0 = COND_EXPR_COND (node);
-      if (TREE_CODE (op0) == EQ_EXPR
-          || TREE_CODE (op0) == NE_EXPR)
+        if (COND_EXPR_THEN (node)
+            && simple_goto_p (COND_EXPR_THEN (node)))
+          {
+            /* At this point, both clauses of COND_EXPR must contain simple gotos */
+            gcc_assert (COND_EXPR_ELSE (node)
+                        && simple_goto_p (COND_EXPR_ELSE (node)));
+            label_then = GOTO_DESTINATION (COND_EXPR_THEN (node));
+            label_else = GOTO_DESTINATION (COND_EXPR_ELSE (node));
+          }
+        else
+          {
+            edge true_edge;
+            edge false_edge;
+            extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+            label_then = tree_block_label (true_edge->dest);
+            label_else = tree_block_label (false_edge->dest);
+          }
+
+        gcc_assert (label_then != NULL_TREE && label_else != NULL_TREE);
+
+        op0 = COND_EXPR_COND (node);
+        if (TREE_CODE (op0) == EQ_EXPR
+            || TREE_CODE (op0) == NE_EXPR)
+          {
+            tree op00 = TREE_OPERAND (op0, 0);
+            tree op01 = TREE_OPERAND (op0, 1);
+            tree cond_type = TREE_TYPE (op00);
+
+            if ((INTEGRAL_TYPE_P (cond_type) || POINTER_TYPE_P (cond_type))
+                && ((TREE_CODE (op00) == INTEGER_CST
+                     && double_int_zero_p (TREE_INT_CST (op00)))
+                    || (TREE_CODE (op01) == INTEGER_CST
+                        && double_int_zero_p (TREE_INT_CST (op01)))))
+              {
+                if ((TREE_CODE (op00) == INTEGER_CST
+                     && double_int_zero_p (TREE_INT_CST (op00))))
+                  gen_cil_node (file, op01);
+                else
+                  gen_cil_node (file, op00);
+
+                if (TREE_CODE (op0) == EQ_EXPR)
+                  fputs ("\n\tbrfalse\t", file);
+                else
+                  fputs ("\n\tbrtrue\t", file);
+                dump_label_name (file, label_then);
+
+                stack_pop (1);
+              }
+            else
+              gen_binary_cond_branch (file, op0, label_then);
+          }
+        else if (TREE_CODE (op0) == LE_EXPR
+                 || TREE_CODE (op0) == LT_EXPR
+                 || TREE_CODE (op0) == GE_EXPR
+                 || TREE_CODE (op0) == GT_EXPR
+                 || TREE_CODE (op0) == UNLT_EXPR
+                 || TREE_CODE (op0) == UNLE_EXPR
+                 || TREE_CODE (op0) == UNGT_EXPR
+                 || TREE_CODE (op0) == UNGE_EXPR)
+          {
+            gen_binary_cond_branch (file, op0, label_then);
+          }
+        else
+          {
+            gen_cil_node (file, op0);
+            fputs ("\n\tldc.i4.0"
+                   "\n\tbne.un\t", file);
+            dump_label_name (file, label_then);
+            stack_push (1);
+            stack_pop (2);
+          }
+
+        if (TARGET_EMIT_JIT_COMPILATION_HINTS)
+          branch_probability_add (file, node);
+
         {
-          tree op00 = TREE_OPERAND (op0, 0);
-          tree op01 = TREE_OPERAND (op0, 1);
-          tree cond_type = TREE_TYPE (op00);
+          basic_block dest_bb = label_to_block (label_else);
 
-          if ((INTEGRAL_TYPE_P (cond_type) || POINTER_TYPE_P (cond_type))
-              && ((TREE_CODE (op00) == INTEGER_CST
-                   && double_int_zero_p (TREE_INT_CST (op00)))
-                  || (TREE_CODE (op01) == INTEGER_CST
-                      && double_int_zero_p (TREE_INT_CST (op01)))))
+          /* Emit else block only if it is not a fallthrough */
+          if (bb->next_bb != dest_bb)
             {
-              if ((TREE_CODE (op00) == INTEGER_CST
-                   && double_int_zero_p (TREE_INT_CST (op00))))
-                gen_cil_node (file, op01);
-              else
-                gen_cil_node (file, op00);
-
-              if (TREE_CODE (op0) == EQ_EXPR)
-                fputs ("\n\tbrfalse\t", file);
-              else
-                fputs ("\n\tbrtrue\t", file);
-              dump_label_name (file, GOTO_DESTINATION (COND_EXPR_THEN (node)));
-
-              stack_pop (1);
+              fputs ("\n\tbr\t", file);
+              dump_label_name (file, label_else);
             }
-          else
-            gen_binary_cond_branch (file, op0,
-                                    GOTO_DESTINATION (COND_EXPR_THEN (node)));
+          gcc_assert (stack == 0);
         }
-      else if (TREE_CODE (op0) == LE_EXPR
-               || TREE_CODE (op0) == LT_EXPR
-               || TREE_CODE (op0) == GE_EXPR
-               || TREE_CODE (op0) == GT_EXPR
-               || TREE_CODE (op0) == UNLT_EXPR
-               || TREE_CODE (op0) == UNLE_EXPR
-               || TREE_CODE (op0) == UNGT_EXPR
-               || TREE_CODE (op0) == UNGE_EXPR)
-        {
-          gen_binary_cond_branch (file, op0,
-                                  GOTO_DESTINATION (COND_EXPR_THEN (node)));
-        }
-      else
-        {
-          gen_cil_node (file, op0);
-          fputs ("\n\tldc.i4.0"
-                 "\n\tbne.un\t", file);
-          dump_label_name (file, GOTO_DESTINATION (COND_EXPR_THEN (node)));
-          stack_push (1);
-          stack_pop (2);
-        }
-
-      gen_cil_node (file, COND_EXPR_ELSE (node));
+      }
       break;
 
     case SWITCH_EXPR:
@@ -2237,535 +2430,12 @@ gen_cil_node (FILE *file, tree node)
       break;
 
     case CALL_EXPR:
-      {
-        tree fun_expr = TREE_OPERAND (node, 0);
-        tree fun_type = TREE_TYPE (TREE_TYPE (fun_expr));
-        bool direct_call = (TREE_CODE (fun_expr) == ADDR_EXPR
-                            && TREE_CODE (TREE_OPERAND (fun_expr, 0)) == FUNCTION_DECL);
-        tree static_chain;
-        tree args;
-        tree args_type;
-        tree last_arg_type;
-        bool varargs;
-        unsigned int nargs = 0;
-        tree dfun = 0;
-
-        if (direct_call)
-          dfun = TREE_OPERAND (fun_expr, 0);
-
-        /* Built-in functions must be handled in a special way */
-        if (dfun && DECL_BUILT_IN (dfun))
-          {
-            bool done = false;
-            gcc_assert (direct_call);
-
-            if (DECL_BUILT_IN_CLASS (dfun) == BUILT_IN_MD)
-              {
-                switch (DECL_FUNCTION_CODE (dfun))
-                  {
-                  case CIL32_BUILT_IN_VA_START:
-                    {
-                      tree va = TREE_VALUE (TREE_OPERAND (node, 1));
-
-                      gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
-                                  && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
-                                     == cil32_arg_iterator_type);
-
-                      gen_cil_node (file, va);
-                      fputs ("\n\tdup"
-                             "\n\tinitobj\tvaluetype [mscorlib]System.ArgIterator"
-                             "\n\targlist"
-                             "\n\tcall\tinstance void "
-                             "[mscorlib]System.ArgIterator::.ctor(valuetype "
-                             "[mscorlib]System.RuntimeArgumentHandle)",
-                             file);
-
-                      stack_push (1);
-                      stack_pop (2);
-                      done = true;
-                    }
-                    break;
-
-                  case CIL32_BUILT_IN_VA_ARG:
-                    {
-                      tree args = TREE_OPERAND (node, 1);
-                      tree va = TREE_VALUE (args);
-                      tree dummy = TREE_VALUE (TREE_CHAIN (args));
-                      tree type = TREE_TYPE (TREE_TYPE (dummy));
-
-                      gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
-                                  && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
-                                     == cil32_arg_iterator_type);
-
-                      gen_cil_node (file, va);
-                      fputs ("\n\tcall\tinstance typedref [mscorlib]System.ArgIterator::GetNextArg()"
-                             "\n\trefanyval ",
-                             file);
-
-                      if (dump_type_promoted_type_def (file, type))
-                        fputs ("\n\tconv.i", file);
-
-                      done = true;
-                    }
-                    break;
-
-                  case CIL32_BUILT_IN_VA_END:
-                    {
-                      tree va = TREE_VALUE (TREE_OPERAND (node, 1));
-
-                      gcc_assert (POINTER_TYPE_P (TREE_TYPE (va))
-                                  && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va)))
-                                     == cil32_arg_iterator_type);
-
-                      gen_cil_node (file, va);
-                      fputs ("\n\tcall\tinstance void [mscorlib]System.ArgIterator::End()",
-                             file);
-
-                      stack_pop (1);
-                      done = true;
-                    }
-                    break;
-
-                  case CIL32_BUILT_IN_VA_COPY:
-                    {
-                      tree args = TREE_OPERAND (node, 1);
-                      tree va_dest = TREE_VALUE (args);
-                      tree va_src = TREE_VALUE (TREE_CHAIN (args));
-
-                      gcc_assert (POINTER_TYPE_P (TREE_TYPE (va_dest))
-                                  && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va_dest)))
-                                     == cil32_arg_iterator_type);
-                      gcc_assert (POINTER_TYPE_P (TREE_TYPE (va_src))
-                                  && TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (va_src)))
-                                     == cil32_arg_iterator_type);
-
-                      gen_cil_node (file, va_dest);
-                      fputs ("\n\tdup"
-                             "\n\tinitobj\tvaluetype [mscorlib]System.ArgIterator",
-                             file);
-                      stack_push (1);
-                      stack_pop (1);
-
-                      gen_cil_node (file, va_src);
-                      fputs ("\n\tcpobj\t[mscorlib]System.ArgIterator", file);
-
-                      stack_pop (2);
-                      done = true;
-                    }
-                    break;
-
-                  case CIL32_BUILT_IN_IS_LITTLE_ENDIAN:
-                    {
-                      fputs ("\n\tcall\tbool [gcc4net]gcc4net.Crt::__isLittleEndian()",
-                             file);
-
-                      stack_push (1);
-                      done = true;
-                    }
-                    break;
-
-                  case CIL32_V2SF_CTOR:
-                  case CIL32_V4SF_CTOR:
-                  case CIL32_V4QI_CTOR:
-                  case CIL32_V2HI_CTOR:
-                  case CIL32_V8QI_CTOR:
-                  case CIL32_V4HI_CTOR:
-                  case CIL32_V2SI_CTOR:
-                  case CIL32_V4SI_CTOR:
-                  case CIL32_V8HI_CTOR:
-                  case CIL32_V16QI_CTOR:
-                    {
-                      int i;
-                      int num_args = 0;
-                      tree arg_type;
-                      tree fun = TREE_OPERAND (node, 0);
-                      tree args = TREE_OPERAND (node, 1);
-                      tree fun_decl = TREE_OPERAND (fun, 0);
-                      tree result = TREE_TYPE (TREE_TYPE (fun_decl));
-
-                      /* the type should be the same for all args. */
-                      arg_type = TREE_TYPE (TREE_VALUE (args));
-                      while (args)
-                        {
-                          gen_cil_node (file, TREE_VALUE (args));
-                          args = TREE_CHAIN (args);
-                          ++num_args;
-                        }
-
-                      fputs ("\n\tcall ", file);
-                      dump_vector_type (file, result, true);
-                      fputs (" [gcc4net]gcc4net.", file);
-                      dump_vector_type (file, result, false);
-                      fputs ("::", file);
-                      dump_decl_name (file, fun_decl);
-                      fputs ("(", file);
-
-                      /* emit the same type 'num_args' times */
-                      for(i = 0; i < num_args; ++i)
-                        {
-                          if (i)
-                            fputs (", ", file);
-
-                          if (TREE_CODE (arg_type) == INTEGER_TYPE
-                              && !TYPE_UNSIGNED (arg_type))
-                            fputs ("unsigned ", file);
-
-                          dump_type (file, arg_type, false, false);
-                        }
-                      fputs (")", file);
-
-                      stack_pop (num_args-1);
-                      done = true;
-                      break;
-                    }
-
-                  default:
-                    gcc_assert (0);
-                  }
-              }
-            else
-              {
-                switch (DECL_FUNCTION_CODE (dfun))
-                  {
-                  case BUILT_IN_VA_START:
-                  case BUILT_IN_VA_END:
-                  case BUILT_IN_VA_COPY:
-                    gcc_assert (0);
-                    break;
-
-                  case BUILT_IN_INIT_TRAMPOLINE:
-                  case BUILT_IN_ADJUST_TRAMPOLINE:
-                  case BUILT_IN_NONLOCAL_GOTO:
-                    internal_error ("Builtins to support Trampolines not implemented\n");
-                    break;
-
-                  case BUILT_IN_PROFILE_FUNC_ENTER:
-                  case BUILT_IN_PROFILE_FUNC_EXIT:
-                    internal_error ("Builtins to support Profiling not implemented\n");
-                    break;
-
-                  case BUILT_IN_MEMSET:
-                    {
-                      tree args  = TREE_OPERAND (node, 1);
-
-                      tree ptr   = TREE_VALUE (args);
-                      tree value = TREE_VALUE (TREE_CHAIN (args));
-                      tree size  = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (args)));
-
-                      gen_cil_node (file, ptr);
-                      fputs ("\n\tdup", file);
-                      stack_push (1);
-
-                      gen_cil_node (file, value);
-                      gen_cil_node (file, size);
-
-                      fputs ("\n\tunaligned. 1"
-                             "\n\tinitblk", file);
-                      stack_pop (3);
-                      done = true;
-                    }
-                    break;
-
-                  case BUILT_IN_MEMCPY:
-                    {
-                      tree args  = TREE_OPERAND (node, 1);
-
-                      tree ptr_dst = TREE_VALUE (args);
-                      tree ptr_src = TREE_VALUE (TREE_CHAIN (args));
-                      tree size    = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (args)));
-
-                      gen_cil_node (file, ptr_dst);
-                      fputs ("\n\tdup", file);
-                      stack_push (1);
-
-                      gen_cil_node (file, ptr_src);
-                      gen_cil_node (file, size);
-
-                      fputs ("\n\tunaligned. 1"
-                             "\n\tcpblk", file);
-                      stack_pop (3);
-                      done = true;
-                    }
-                    break;
-
-                  case BUILT_IN_ALLOCA:
-                    {
-                      tree args = TREE_OPERAND (node, 1);
-                      tree size = TREE_VALUE (args);
-
-                      gen_cil_node (file, size);
-                      fputs ("\n\tlocalloc", file);
-
-                      done = true;
-                    }
-                    break;
-
-                  case BUILT_IN_STACK_SAVE:
-                    /* This built-in is only used for the implementation
-                       of variable-length arrays.
-                       It's not needed in CIL.   */
-                    fputs ("\n\tldc.i4.0"
-                           "\n\tconv.i", file);
-                    stack_push (1);
-                    done = true;
-                    break;
-
-                  case BUILT_IN_STACK_RESTORE:
-                    /* This built-in is only used for the implementation
-                       of variable-length arrays.
-                       It's not needed in CIL.   */
-                    done = true;
-                    break;
-
-                  case BUILT_IN_EXPECT:
-                    {
-                      /* __builtin_expect(exp,val) evalutes exp and tells the
-                         compiler that it most likely gives val.  We just
-                         evaluate exp.  */
-                      tree args = TREE_OPERAND (node, 1);
-                      gen_cil_node (file, TREE_VALUE (args));
-                    }
-                    done = true;
-                    break;
-
-                  case BUILT_IN_TRAP:
-                    fputs ("\n\tcall\tvoid 'abort' ()", file);
-                    done = true;
-                    break;
-
-                  case BUILT_IN_CLZ:
-                  case BUILT_IN_CLZL:
-                  case BUILT_IN_CLZLL:
-                  case BUILT_IN_CTZ:
-                  case BUILT_IN_CTZL:
-                  case BUILT_IN_CTZLL:
-                  case BUILT_IN_FFS:
-                  case BUILT_IN_FFSL:
-                  case BUILT_IN_FFSLL:
-                  case BUILT_IN_PARITY:
-                  case BUILT_IN_PARITYL:
-                  case BUILT_IN_PARITYLL:
-                  case BUILT_IN_POPCOUNT:
-                  case BUILT_IN_POPCOUNTL:
-                  case BUILT_IN_POPCOUNTLL:
-                    {
-                      tree fun = TREE_OPERAND (node, 0);
-                      tree fun_decl = TREE_OPERAND (fun, 0);
-                      tree fun_type = TREE_TYPE (TREE_TYPE (fun));
-                      tree fun_arg_types = TYPE_ARG_TYPES (fun_type);
-                      tree args = TREE_OPERAND (node, 1);
-                      tree arg = TREE_VALUE (args);
-                      tree arg_type = TREE_VALUE (fun_arg_types);
-                      gen_cil_node (file, arg);
-                      fputs ("\n\tcall\tint32 [gcc4net]gcc4net.Crt::__", file);
-                      switch (DECL_FUNCTION_CODE (dfun))
-                        {
-                        case BUILT_IN_CLZ:
-                        case BUILT_IN_CLZL:
-                        case BUILT_IN_CLZLL:
-                          fputs ("clz", file);
-                          break;
-                        case BUILT_IN_CTZ:
-                        case BUILT_IN_CTZL:
-                        case BUILT_IN_CTZLL:
-                          fputs ("ctz", file);
-                          break;
-                        case BUILT_IN_FFS:
-                        case BUILT_IN_FFSL:
-                        case BUILT_IN_FFSLL:
-                          fputs ("ffs", file);
-                          break;
-                        case BUILT_IN_PARITY:
-                        case BUILT_IN_PARITYL:
-                        case BUILT_IN_PARITYLL:
-                          fputs ("parity", file);
-                          break;
-                        case BUILT_IN_POPCOUNT:
-                        case BUILT_IN_POPCOUNTL:
-                        case BUILT_IN_POPCOUNTLL:
-                          fputs ("popcount", file);
-                          break;
-                        default:
-                          gcc_assert (0);
-                          break;
-                        }
-                      dump_type_eval_mode (file, arg_type, false, false);
-                      fputs ("2(", file);
-                      dump_type_for_builtin (file, arg_type, false);
-                      fputs (")", file);
-                    }
-                    done = true;
-                    break;
-
-                    {
-                      tree args = TREE_OPERAND (node, 1);
-                      tree arg = TREE_VALUE (args);
-                      tree arg_type = TREE_TYPE (arg);
-                      gen_cil_node (file, arg);
-                      fputs ("\n\tcall\t", file);
-                      fputs ("int32 [gcc4net]gcc4net.Crt::__ctz", file);
-                      dump_type_eval_mode (file, arg_type, false, false);
-                      fputs ("2(", file);
-                      dump_type_for_builtin (file, arg_type, false);
-                      fputs (")", file);
-                    }
-                    done = true;
-                    break;
-
-                  default:
-                    if (DECL_ASSEMBLER_NAME_SET_P (node))
-                      {
-                        /* Go Ahead as a normal function call */
-                      }
-/*                     else */
-/*                       { */
-/*                         fprintf (stderr, */
-/*                                  "unsupported builtin: %s\n", */
-/*                                  IDENTIFIER_POINTER (DECL_NAME (dfun))); */
-/*                         gcc_assert (0); */
-/*                       } */
-                  }
-              }
-
-            if (done)
-              break;
-          }
-
-        /* Print parameters.  */
-
-        /* If static Chain present, it will be the first argument */
-        static_chain = TREE_OPERAND (node, 2);
-        if (static_chain)
-            gen_cil_node (file, static_chain);
-
-        args = TREE_OPERAND (node, 1);
-        while (args)
-          {
-            gen_cil_node (file, TREE_VALUE (args));
-            args = TREE_CHAIN (args);
-          }
-
-        /* Print function pointer, in case of indirect call */
-        if (!direct_call)
-          gen_cil_node (file, fun_expr);
-
-#if 0
-        if (0 && CALL_EXPR_RETURN_SLOT_OPT (node))
-          fprintf (file, " [return slot optimization]");
-#endif
-
-        fprintf (file, "\n\t");
-#if 0
-        if (CALL_EXPR_TAILCALL (node))
-          fprintf (file, "tail.");
-#endif
-        if (direct_call)
-          fputs ("call\t", file);
-        else
-          fputs ("calli\t", file);
-
-        args_type = TYPE_ARG_TYPES (fun_type);
-        last_arg_type = 0;
-        varargs = FALSE;
-
-        if (args_type == NULL)
-          {
-            if (direct_call)
-              warning (OPT_Wcil_missing_prototypes,
-                       "Missing function %s prototype, guessing it, "
-                       "you should fix the code",
-                       IDENTIFIER_POINTER (DECL_NAME (dfun)));
-            else
-              warning (OPT_Wcil_missing_prototypes,
-                       "Missing indirect function prototype, guessing it, "
-                       "you should fix the code");
-          }
-
-        else
-          {
-            last_arg_type = args_type;
-
-            while (TREE_CHAIN (last_arg_type))
-              last_arg_type = TREE_CHAIN (last_arg_type);
-
-            if (TREE_VALUE (last_arg_type) != void_type_node)
-              {
-                last_arg_type = 0;
-                varargs = TRUE;
-              }
-          }
-
-        if (varargs)
-          fputs ("vararg ", file);
-
-        dump_type (file, TREE_TYPE (fun_type), true, false);
-
-        if (direct_call)
-          {
-            struct fnct_attr attrs;
-            decode_function_attrs (dfun, &attrs);
-
-            fputs (" ", file);
-
-            if (attrs.assembly_name)
-              fprintf (file, "[%s]", attrs.assembly_name);
-            else if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (dfun))
-              fputs ("[ExternalAssembly]ExternalAssembly::", file);
-
-            if (attrs.cil_name)
-              fprintf (file, "%s", attrs.cil_name);
-            else
-              dump_decl_name (file, dfun);
-          }
-
-        fputs (" (", file);
-        args = TREE_OPERAND (node, 1);
-
-        if (static_chain)
-          {
-            ++nargs;
-            dump_type (file, TREE_TYPE (static_chain), true, true);
-            if (args_type != last_arg_type)
-              fputs (", ", file);
-          }
-
-        while (args_type != last_arg_type)
-          {
-            ++nargs;
-            dump_type (file, TREE_VALUE (args_type), true, true);
-            args = TREE_CHAIN (args);
-            args_type = TREE_CHAIN (args_type);
-            if (args_type != last_arg_type)
-              fputs (", ", file);
-          }
-
-        if (varargs && args)
-          fputs (", ..., ", file);
-
-        while (args)
-          {
-            ++nargs;
-            dump_type_promotion (file, TREE_TYPE (TREE_VALUE (args)), true);
-            args = TREE_CHAIN (args);
-            if (args)
-              fputs (", ", file);
-          }
-
-        fputs (")", file);
-
-        if (direct_call)
-          stack_pop (nargs);
-        else
-          stack_pop (nargs + 1);
-
-        if (TREE_CODE (TREE_TYPE (fun_type)) != VOID_TYPE)
-          stack_push (1);
-
-        break;
-      }
+      gen_call_expr (file, node);
+      break;
 
     case MULT_EXPR:
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
     case RDIV_EXPR:
     case LSHIFT_EXPR:
@@ -2778,6 +2448,7 @@ gen_cil_node (FILE *file, tree node)
       switch (TREE_CODE (node))
         {
         case MULT_EXPR:    fputs ("\n\tmul", file); break;
+        case POINTER_PLUS_EXPR:
         case PLUS_EXPR:    fputs ("\n\tadd", file); break;
         case MINUS_EXPR:   fputs ("\n\tsub", file); break;
         case RDIV_EXPR:    fputs ("\n\tdiv", file); break;
@@ -3084,7 +2755,7 @@ gen_cil_node (FILE *file, tree node)
 
     case INDIRECT_REF:
     case ARRAY_REF:
-      compute_addr_expr (file, node);
+      gen_addr_expr (file, node);
 
       if (TREE_THIS_VOLATILE (node))
         fputs ("\n\tvolatile.", file);
@@ -3148,10 +2819,10 @@ gen_cil_node (FILE *file, tree node)
       if (op0)
         {
           /* dump_generic_node (file, op0); */
-          if (TREE_CODE (op0) == MODIFY_EXPR)
-            gen_cil_node (file, TREE_OPERAND (op0, 1));
-          else
-            gen_cil_node (file, op0);
+          if (TREE_CODE (op0) == MODIFY_EXPR || TREE_CODE (op0) == GIMPLE_MODIFY_STMT)
+            op0 = GENERIC_TREE_OPERAND (op0, 1);
+
+          gen_cil_node (file, op0);
         }
 
       /* Pre-C99 code may contain void-returns for non-void functions,
@@ -3312,7 +2983,7 @@ gen_cil_node (FILE *file, tree node)
       break;
 
     case ADDR_EXPR:
-      compute_addr_expr (file, TREE_OPERAND (node, 0));
+      gen_addr_expr (file, TREE_OPERAND (node, 0));
       break;
 
     case COMPONENT_REF:
@@ -3325,7 +2996,7 @@ gen_cil_node (FILE *file, tree node)
         gcc_assert (TREE_CODE (fld) == FIELD_DECL);
         gcc_assert (! DECL_BIT_FIELD (fld));
 
-        compute_addr_expr (file, obj);
+        gen_addr_expr (file, obj);
         if (TREE_THIS_VOLATILE (node))
           fputs ("\n\tvolatile.", file);
         fputs ("\n\tldfld\t", file);
@@ -3505,11 +3176,8 @@ gen_cil_node (FILE *file, tree node)
 }
 
 static void
-gen_cil_modify_expr (FILE *file, tree node)
+gen_cil_modify_expr (FILE *file, tree lhs, tree rhs)
 {
-  tree lhs = TREE_OPERAND (node, 0);
-  tree rhs = TREE_OPERAND (node, 1);
-
   switch (TREE_CODE (lhs))
     {
     case SSA_NAME:
@@ -3522,7 +3190,7 @@ gen_cil_modify_expr (FILE *file, tree node)
         tree cplx_op = TREE_OPERAND (lhs, 0);
         tree cplx_type = TREE_TYPE (cplx_op);
 
-        compute_addr_expr (file, cplx_op);
+        gen_addr_expr (file, cplx_op);
         gen_cil_node (file, rhs);
 
         fputs ("\n\tcall instance void [gcc4net]gcc4net.", file);
@@ -3543,7 +3211,7 @@ gen_cil_modify_expr (FILE *file, tree node)
     case INDIRECT_REF:
     case ARRAY_REF:
     case COMPLEX_EXPR:
-      compute_addr_expr (file, lhs);
+      gen_addr_expr (file, lhs);
       gen_cil_node (file, rhs);
 
       if (TREE_THIS_VOLATILE (lhs))
@@ -3634,7 +3302,7 @@ gen_cil_modify_expr (FILE *file, tree node)
         gcc_assert (TREE_CODE (fld) == FIELD_DECL);
         gcc_assert (! DECL_BIT_FIELD (fld));
 
-        compute_addr_expr (file, obj);
+        gen_addr_expr (file, obj);
         gen_cil_node (file, rhs);
         mark_referenced_type (obj_type);
         if (TREE_THIS_VOLATILE (lhs))
@@ -4100,6 +3768,26 @@ print_valuetype_decl (FILE *file, tree t)
   fputs ("}\n", file);
 }
 
+  /* The attribute string must be less than 127 characters and
+     contain only 7-bit ASCII chars.  No checks though. */
+static void
+gen_string_custom_attr (FILE *stream, const char* parameter)
+{
+  int i;
+  int len = strlen (parameter);
+
+  if (TARGET_EMIT_GIMPLE_COMMENTS)
+    fprintf (stream, "\n\t// Custom attribute String \"%s\"", parameter);
+
+  gcc_assert (len <= 127);
+
+  fprintf (stream, "\n\t.custom instance void [mscorlib]System.String::.ctor(int8 *) = (01 00 %02x ", len);
+  for (i=0; i < len; ++i)
+    fprintf (stream, "%02x ", parameter[i]);
+  fputs ("00 00)\n", stream);
+}
+
+
 static void
 print_string_decl (FILE *file, tree t)
 {
@@ -4253,7 +3941,7 @@ gen_cil_vcg (FILE *vcg_stream)
 
           if (TREE_CODE (stmt) == CALL_EXPR)
             {
-              tree fun_expr = TREE_OPERAND (stmt, 0);
+              tree fun_expr = CALL_EXPR_FN (stmt);
               tree fun_type = TREE_TYPE (TREE_TYPE (fun_expr));
 
               if (TREE_CODE (TREE_TYPE (fun_type)) != VOID_TYPE)
@@ -4315,11 +4003,8 @@ gen_cil_1 (FILE *stream)
   bool varargs = FALSE;
   tree args;
 
-  /* Mark defs and uses of local non-static variables */
-  defd_vars = pointer_set_create ();
-  defd_more_than_once_vars = pointer_set_create ();
-  used_vars = pointer_set_create ();
-  used_more_than_once_vars = pointer_set_create ();
+  remove_stloc_ldloc ();
+
   addr_taken_labels = NULL;
   FOR_EACH_BB (bb)
     {
@@ -4338,65 +4023,19 @@ gen_cil_1 (FILE *stream)
                   addr_taken_labels = label; /* new list head */
                 }
             }
-          else
-            mark_var_defs_uses (stmt);
         }
     }
-  pointer_set_destroy (defd_vars);
 
-  /* Remove useless pairs of stloc - ldloc */
-  useless_vars = pointer_set_create ();
+  /* Make sure that every bb has a label */
   FOR_EACH_BB (bb)
     {
-      /* Start from the second statement, if any */
-      bsi = bsi_start (bb);
-      if (! bsi_end_p (bsi))
-        bsi_next (&bsi);
-
-      for (; !bsi_end_p (bsi); bsi_next (&bsi))
-        {
-          bool changed;
-
-          /* Remove stloc - ldloc pairs until no change is done
-             to the current statement */
-          do {
-            changed = false;
-            remove_stloc_ldloc (bsi, bsi_stmt_ptr (bsi), &changed);
-          } while (changed);
-        }
+      tree_block_label (bb);
     }
-  pointer_set_destroy (defd_more_than_once_vars);
-  pointer_set_destroy (used_vars);
-  pointer_set_destroy (used_more_than_once_vars);
-
-  /* Remove useless vars (only used in removed stloc - ldloc pairs) */
-  {
-    tree cell, prev_cell = NULL_TREE;
-
-    for (cell = cfun->unexpanded_var_list;
-         cell;
-         cell = TREE_CHAIN (cell))
-      {
-        tree var = TREE_VALUE (cell);
-
-        if (pointer_set_contains (useless_vars, var))
-          {
-            if (prev_cell == NULL_TREE)
-              cfun->unexpanded_var_list = TREE_CHAIN (cell);
-            else
-              TREE_CHAIN (prev_cell) = TREE_CHAIN (cell);
-          }
-        else
-          prev_cell = cell;
-      }
-  }
-  pointer_set_destroy (useless_vars);
 
   stack_reset ();
   max_stack = 0;
 
-  if (strcmp ("main",
-              lang_hooks.decl_printable_name (current_function_decl, 1)) == 0)
+  if (MAIN_NAME_P (DECL_NAME (current_function_decl)))
     gen_start_function (stream);
 
   {
@@ -4493,11 +4132,21 @@ gen_cil_1 (FILE *stream)
 
   if (DECL_STATIC_CONSTRUCTOR (current_function_decl))
     {
+      /* For the time being this attribute is a String. */
+      gen_string_custom_attr (stream, "initfun");
+
       if (TARGET_OPENSYSTEMC)
         fputs ("\n\t.custom instance "
                "void ['OpenSystem.C']'OpenSystem.C'.InitializerAttribute::.ctor() "
                "= (01 00 00 00)", stream);
     }
+
+  {
+    struct fnct_attr attributes;
+    decode_function_attrs (current_function_decl, &attributes);
+    if (attributes.cusattr_string)
+      gen_string_custom_attr (stream, attributes.cusattr_string);
+  }
 
   FOR_EACH_BB (bb)
     {
@@ -4526,7 +4175,7 @@ gen_cil_1 (FILE *stream)
 
           if (TREE_CODE (stmt) == CALL_EXPR)
             {
-              tree fun_expr = TREE_OPERAND (stmt, 0);
+              tree fun_expr = CALL_EXPR_FN (stmt);
               tree fun_type = TREE_TYPE (TREE_TYPE (fun_expr));
 
               if (TREE_CODE (TREE_TYPE (fun_type)) != VOID_TYPE)
@@ -4569,6 +4218,12 @@ gen_cil_1 (FILE *stream)
         }
     }
 
+  if (TARGET_EMIT_JIT_COMPILATION_HINTS)
+    {
+      basic_block_frequency_emit (stream);
+      branch_probability_emit_and_reset (stream);
+    }
+
   fprintf (stream, "\n\t.maxstack %d\n", max_stack);
   fprintf (stream, "\n} // %s\n",
            lang_hooks.decl_printable_name (current_function_decl, 1));
@@ -4576,22 +4231,16 @@ gen_cil_1 (FILE *stream)
 }
 
 static void
-create_init_method (tree decl)
+create_init_method (void)
 {
-  static int init_counter = 0;
   struct function *current_cfun = cfun;
-  tree init;
-  char name[30];
   tree fun_type;
   tree fun_decl;
   tree init_expr = NULL;
   tree result;
 
-  ++init_counter;
-  sprintf (name, "?init-%d", init_counter);
-
   fun_type = build_function_type (void_type_node, void_list_node);
-  fun_decl = build_decl (FUNCTION_DECL, get_identifier (name), fun_type);
+  fun_decl = build_decl (FUNCTION_DECL, get_identifier ("COBJ?init"), fun_type);
 
   result = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (result) = 1;
@@ -4602,8 +4251,8 @@ create_init_method (tree decl)
      allocate_struct_function clobbers CFUN, so we need to restore
      it afterward.  */
   allocate_struct_function (fun_decl);
-  DECL_SOURCE_LOCATION (fun_decl) = DECL_SOURCE_LOCATION (decl);
-  cfun->function_end_locus = DECL_SOURCE_LOCATION (decl);
+/*   DECL_SOURCE_LOCATION (fun_decl) = DECL_SOURCE_LOCATION (decl); */
+/*   cfun->function_end_locus = DECL_SOURCE_LOCATION (decl); */
 
 
   TREE_STATIC (fun_decl) = 1;
@@ -4618,11 +4267,26 @@ create_init_method (tree decl)
   DECL_CONTEXT (fun_decl) = NULL_TREE;
   DECL_INITIAL (fun_decl) = make_node (BLOCK);
 
-  init = DECL_INITIAL (decl);
-  DECL_INITIAL (decl) = NULL_TREE;
+  {
+    int i, n;
 
-  expand_init_to_stmt_list (decl, init, &init_expr);
+    i = 0;
+    n = VARRAY_ACTIVE_SIZE (pending_ctors);
+    while (i<n)
+      {
+        for (; i < n; ++i)
+          {
+            tree decl = VARRAY_TREE (pending_ctors, i);
+            tree init = DECL_INITIAL (decl);
 
+            DECL_INITIAL (decl) = NULL_TREE;
+
+            expand_init_to_stmt_list (decl, init, &init_expr);
+
+          }
+        n = VARRAY_ACTIVE_SIZE (pending_ctors);
+      }
+  }
   DECL_SAVED_TREE (fun_decl) = init_expr;
 
   gimplify_function_tree (fun_decl);
@@ -4700,16 +4364,9 @@ gen_cil_fini (void)
   int i, n;
 
 
-  i = 0;
-  n = VARRAY_ACTIVE_SIZE (pending_ctors);
-  while (i<n)
+  if (VARRAY_ACTIVE_SIZE (pending_ctors) > 0)
     {
-      for (; i < n; ++i)
-        {
-          tree decl = VARRAY_TREE (pending_ctors, i);
-          create_init_method (decl);
-        }
-      n = VARRAY_ACTIVE_SIZE (pending_ctors);
+      create_init_method ();
     }
   VARRAY_CLEAR (pending_ctors);
 

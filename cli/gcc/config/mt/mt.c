@@ -1,5 +1,5 @@
 /* Target definitions for the MorphoRISC1
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GCC.
@@ -353,7 +353,7 @@ mt_print_operand_simple_address (FILE * file, rtx addr)
     switch (GET_CODE (addr))
       {
       case REG:
-	fprintf (file, "%s, #0", reg_names [REGNO (addr)]);
+	fprintf (file, "%s, #0", reg_names[REGNO (addr)]);
 	break;
 	
       case PLUS:
@@ -375,11 +375,11 @@ mt_print_operand_simple_address (FILE * file, rtx addr)
 	      reg = arg1, offset = arg0;
 	  else if (CONSTANT_P (arg0) && CONSTANT_P (arg1))
 	    {
-	      fprintf (file, "%s, #", reg_names [GPR_R0]);
+	      fprintf (file, "%s, #", reg_names[GPR_R0]);
 	      output_addr_const (file, addr);
 	      break;
 	    }
-	  fprintf (file, "%s, #", reg_names [REGNO (reg)]);
+	  fprintf (file, "%s, #", reg_names[REGNO (reg)]);
 	  output_addr_const (file, offset);
 	  break;
 	}
@@ -457,7 +457,7 @@ mt_print_operand (FILE * file, rtx x, int code)
   switch (GET_CODE (x))
     {
     case REG:
-      fputs (reg_names [REGNO (x)], file);
+      fputs (reg_names[REGNO (x)], file);
       break;
 
     case CONST:
@@ -701,7 +701,7 @@ mt_legitimate_address_p (enum machine_mode mode, rtx xinsn, int strict)
 }
 
 /* Return truth value of whether OP can be used as an operands where a
-   register or 16 bit unsigned integer is needed.  */
+   register or 16-bit unsigned integer is needed.  */
 
 int
 uns_arith_operand (rtx op, enum machine_mode mode)
@@ -713,7 +713,7 @@ uns_arith_operand (rtx op, enum machine_mode mode)
 }
 
 /* Return truth value of whether OP can be used as an operands where a
-   16 bit integer is needed.  */
+   16-bit integer is needed.  */
 
 int
 arith_operand (rtx op, enum machine_mode mode)
@@ -884,10 +884,10 @@ mt_compute_frame_size (int size)
         }
     }
 
-  current_frame_info.save_fp = (regs_ever_live [GPR_FP]
+  current_frame_info.save_fp = (df_regs_ever_live_p (GPR_FP)
 				|| frame_pointer_needed
 				|| interrupt_handler);
-  current_frame_info.save_lr = (regs_ever_live [GPR_LINK]
+  current_frame_info.save_lr = (df_regs_ever_live_p (GPR_LINK)
 				|| profile_flag
 				|| interrupt_handler);
  

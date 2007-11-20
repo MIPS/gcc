@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+;; Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -29,7 +29,7 @@
 ;; Return 1 if op is COUNT register.
 (define_predicate "count_register_operand"
   (and (match_code "reg")
-       (match_test "REGNO (op) == COUNT_REGISTER_REGNUM
+       (match_test "REGNO (op) == CTR_REGNO
 		    || REGNO (op) > LAST_VIRTUAL_REGISTER")))
   
 ;; Return 1 if op is an Altivec register.
@@ -84,10 +84,12 @@
 ;; Return 1 if op is a register that is not special.
 (define_predicate "gpc_reg_operand"
    (and (match_operand 0 "register_operand")
-	(match_test "GET_CODE (op) != REG
-		     || (REGNO (op) >= ARG_POINTER_REGNUM
-			 && !XER_REGNO_P (REGNO (op)))
-		     || REGNO (op) < MQ_REGNO")))
+	(match_test "(GET_CODE (op) != REG
+		      || (REGNO (op) >= ARG_POINTER_REGNUM
+			  && !XER_REGNO_P (REGNO (op)))
+		      || REGNO (op) < MQ_REGNO)
+		     && !((TARGET_E500_DOUBLE || TARGET_SPE)
+			  && invalid_e500_subreg (op, mode))")))
 
 ;; Return 1 if op is a register that is a condition register field.
 (define_predicate "cc_reg_operand"
@@ -638,8 +640,8 @@
        (match_operand 0 "reg_or_mem_operand")))
 
 ;; Return 1 if the operand is a general register or memory operand without
-;; pre_inc or pre_dec, which produces invalid form of PowerPC lwa
-;; instruction.
+;; pre_inc or pre_dec or pre_modify, which produces invalid form of PowerPC
+;; lwa instruction.
 (define_predicate "lwa_operand"
   (match_code "reg,subreg,mem")
 {
@@ -652,6 +654,8 @@
     || (memory_operand (inner, mode)
 	&& GET_CODE (XEXP (inner, 0)) != PRE_INC
 	&& GET_CODE (XEXP (inner, 0)) != PRE_DEC
+	&& (GET_CODE (XEXP (inner, 0)) != PRE_MODIFY
+	    || legitimate_indexed_address_p (XEXP (XEXP (inner, 0), 1), 0))
 	&& (GET_CODE (XEXP (inner, 0)) != PLUS
 	    || GET_CODE (XEXP (XEXP (inner, 0), 1)) != CONST_INT
 	    || INTVAL (XEXP (XEXP (inner, 0), 1)) % 4 == 0));
@@ -682,8 +686,8 @@
 ;; to CALL.  This is a SYMBOL_REF, a pseudo-register, LR or CTR.
 (define_predicate "call_operand"
   (if_then_else (match_code "reg")
-     (match_test "REGNO (op) == LINK_REGISTER_REGNUM
-		  || REGNO (op) == COUNT_REGISTER_REGNUM
+     (match_test "REGNO (op) == LR_REGNO
+		  || REGNO (op) == CTR_REGNO
 		  || REGNO (op) >= FIRST_PSEUDO_REGISTER")
      (match_code "symbol_ref")))
 
@@ -692,7 +696,9 @@
 (define_predicate "current_file_function_operand"
   (and (match_code "symbol_ref")
        (match_test "(DEFAULT_ABI != ABI_AIX || SYMBOL_REF_FUNCTION_P (op))
-		    && (SYMBOL_REF_LOCAL_P (op)
+		    && ((SYMBOL_REF_LOCAL_P (op)
+			 && (DEFAULT_ABI != ABI_AIX
+			     || !SYMBOL_REF_EXTERNAL_P (op)))
 		        || (op == XEXP (DECL_RTL (current_function_decl),
 						  0)))")))
 
@@ -721,6 +727,12 @@
   if (GET_CODE (op) == CONST_VECTOR
       && easy_vector_constant (op, mode))
     return 1;
+
+  /* Do not allow invalid E500 subregs.  */
+  if ((TARGET_E500_DOUBLE || TARGET_SPE)
+      && GET_CODE (op) == SUBREG
+      && invalid_e500_subreg (op, mode))
+    return 0;
 
   /* For floating-point or multi-word mode, the only remaining valid type
      is a register.  */
@@ -756,7 +768,7 @@
 (define_predicate "rs6000_nonimmediate_operand"
   (match_code "reg,subreg,mem")
 {
-  if (TARGET_E500_DOUBLE
+  if ((TARGET_E500_DOUBLE || TARGET_SPE)
       && GET_CODE (op) == SUBREG
       && invalid_e500_subreg (op, mode))
     return 0;

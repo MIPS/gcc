@@ -26,7 +26,9 @@ Authors:
    Roberto Costa
 
 Contact information at STMicroelectronics:
-Roberto Costa <roberto.costa@st.com>   */
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Erven Rohou             <erven.rohou@st.com>
+*/
 
 #define DISABLE_RTL_PASSES 1
 
@@ -525,9 +527,10 @@ struct cum_args {int regs;};
 
 #define NO_IMPLICIT_EXTERN_C
 
-extern struct tree_opt_pass pass_gen_cil;
+extern struct tree_opt_pass pass_bb_layout;
 extern struct tree_opt_pass pass_simp_cil_early;
 extern struct tree_opt_pass pass_simp_cil_final;
+extern struct tree_opt_pass pass_gen_cil;
 
 /* cil32 builtin ID */
 enum cil32_builtin

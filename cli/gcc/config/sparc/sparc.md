@@ -1237,7 +1237,7 @@
   "TARGET_V9
    && REGNO (operands[1]) == SPARC_ICC_REG
    && (GET_MODE (operands[1]) == CCXmode
-       /* 32 bit LTU/GEU are better implemented using addx/subx.  */
+       /* 32-bit LTU/GEU are better implemented using addx/subx.  */
        || (GET_CODE (operands[2]) != LTU && GET_CODE (operands[2]) != GEU))"
   [(set (match_dup 0) (const_int 0))
    (set (match_dup 0)
@@ -1845,7 +1845,7 @@
 {
   current_function_uses_pic_offset_table = 1;
   operands[2] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     {
       operands[3] = operands[0];
       operands[4] = operands[0];
@@ -1873,6 +1873,22 @@
 		    (match_operand:SI 3 "" "")] UNSPEC_MOVE_PIC_LABEL)))]
   "flag_pic"
   "or\t%1, %%lo(%a3-(%a2-.)), %0")
+
+;; Set up the PIC register for VxWorks.
+
+(define_expand "vxworks_load_got"
+  [(set (match_dup 0)
+	(high:SI (match_dup 1)))
+   (set (match_dup 0)
+	(mem:SI (lo_sum:SI (match_dup 0) (match_dup 1))))
+   (set (match_dup 0)
+	(mem:SI (lo_sum:SI (match_dup 0) (match_dup 2))))]
+  "TARGET_VXWORKS_RTP"
+{
+  operands[0] = pic_offset_table_rtx;
+  operands[1] = gen_rtx_SYMBOL_REF (SImode, VXWORKS_GOTT_BASE);
+  operands[2] = gen_rtx_SYMBOL_REF (SImode, VXWORKS_GOTT_INDEX);
+})
 
 (define_expand "movdi"
   [(set (match_operand:DI 0 "nonimmediate_operand" "")
@@ -1978,7 +1994,7 @@
 {
   current_function_uses_pic_offset_table = 1;
   operands[2] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
-  if (no_new_pseudos)
+  if (!can_create_pseudo_p ())
     {
       operands[3] = operands[0];
       operands[4] = operands[0];
@@ -4592,7 +4608,7 @@
 
 ;; Integer multiply/divide instructions.
 
-;; The 32 bit multiply/divide instructions are deprecated on v9, but at
+;; The 32-bit multiply/divide instructions are deprecated on v9, but at
 ;; least in UltraSPARC I, II and IIi it is a win tick-wise.
 
 (define_insn "mulsi3"
@@ -4699,8 +4715,8 @@
     }
 })
 
-;; V9 puts the 64 bit product in a 64 bit register.  Only out or global
-;; registers can hold 64 bit values in the V8plus environment.
+;; V9 puts the 64-bit product in a 64-bit register.  Only out or global
+;; registers can hold 64-bit values in the V8plus environment.
 ;; XXX
 (define_insn "mulsidi3_v8plus"
   [(set (match_operand:DI 0 "register_operand" "=h,r")
@@ -6676,7 +6692,7 @@
 {
   rtx fn_rtx;
 
-  gcc_assert (GET_MODE (operands[0]) == FUNCTION_MODE);
+  gcc_assert (MEM_P (operands[0]) && GET_MODE (operands[0]) == FUNCTION_MODE);
 
   gcc_assert (GET_CODE (operands[3]) == CONST_INT);
 
@@ -6712,18 +6728,20 @@
 
   /* We accept negative sizes for untyped calls.  */
   if (! TARGET_ARCH64 && INTVAL (operands[3]) != 0)
-    emit_call_insn
+    sparc_emit_call_insn
       (gen_rtx_PARALLEL
        (VOIDmode,
 	gen_rtvec (3, gen_rtx_CALL (VOIDmode, fn_rtx, const0_rtx),
 		   operands[3],
-		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))));
+		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))),
+       XEXP (fn_rtx, 0));
   else
-    emit_call_insn
+    sparc_emit_call_insn
       (gen_rtx_PARALLEL
        (VOIDmode,
 	gen_rtvec (2, gen_rtx_CALL (VOIDmode, fn_rtx, const0_rtx),
-		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))));
+		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))),
+       XEXP (fn_rtx, 0));
 
  finish_call:
 
@@ -6840,7 +6858,7 @@
   rtx fn_rtx;
   rtvec vec;
 
-  gcc_assert (GET_MODE (operands[1]) == FUNCTION_MODE);
+  gcc_assert (MEM_P (operands[1]) && GET_MODE (operands[1]) == FUNCTION_MODE);
 
   fn_rtx = operands[1];
 
@@ -6849,7 +6867,7 @@
 				gen_rtx_CALL (VOIDmode, fn_rtx, const0_rtx)),
 		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)));
 
-  emit_call_insn (gen_rtx_PARALLEL (VOIDmode, vec));
+  sparc_emit_call_insn (gen_rtx_PARALLEL (VOIDmode, vec), XEXP (fn_rtx, 0));
 
   DONE;
 })

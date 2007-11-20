@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004, 2005, 2006
+   Copyright (C) 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -45,7 +44,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "params.h"
 #include "gcov-io.h"
-#include "df.h"
 #include "ddg.h"
 #include "timevar.h"
 #include "tree-pass.h"
@@ -260,9 +258,6 @@ static struct sched_info sms_sched_info =
   0, 0, 0,
 
   NULL, NULL, NULL, NULL, NULL,
-#ifdef ENABLE_CHECKING
-  NULL,
-#endif
   0
 };
 
@@ -430,7 +425,7 @@ calculate_maxii (ddg_ptr g)
                             ii                          { 1 if not.
 */
 static struct undo_replace_buff_elem *
-generate_reg_moves (partial_schedule_ptr ps)
+generate_reg_moves (partial_schedule_ptr ps, bool rescan)
 {
   ddg_ptr g = ps->g;
   int ii = ps->ii;
@@ -502,7 +497,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 	  rtx reg_move = gen_move_insn (new_reg, prev_reg);
 	  sbitmap_iterator sbi;
 
-	  add_insn_before (reg_move, last_reg_move);
+	  add_insn_before (reg_move, last_reg_move, NULL);
 	  last_reg_move = reg_move;
 
 	  if (!SCHED_FIRST_REG_MOVE (u))
@@ -527,6 +522,8 @@ generate_reg_moves (partial_schedule_ptr ps)
 		}
 
 	      replace_rtx (g->nodes[i_use].insn, old_reg, new_reg);
+	      if (rescan)
+		df_insn_rescan (g->nodes[i_use].insn);
 	    }
 
 	  prev_reg = new_reg;
@@ -742,9 +739,9 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
   for (i = 0; i < last_stage; i++)
     duplicate_insns_of_cycles (ps, 0, i, 1);
 
-  /* Put the prolog ,  on the one and only entry edge.  */
+  /* Put the prolog on the entry edge.  */
   e = loop_preheader_edge (loop);
-  loop_split_edge_with(e , get_insns());
+  split_edge_and_insert (e, get_insns ());
 
   end_sequence ();
 
@@ -754,24 +751,11 @@ generate_prolog_epilog (partial_schedule_ptr ps, struct loop * loop, rtx count_r
   for (i = 0; i < last_stage; i++)
     duplicate_insns_of_cycles (ps, i + 1, last_stage, 0);
 
-  /* Put the epilogue on the one and only one exit edge.  */
-  gcc_assert (loop->single_exit);
-  e = loop->single_exit;
-  loop_split_edge_with(e , get_insns());
+  /* Put the epilogue on the exit edge.  */
+  gcc_assert (single_exit (loop));
+  e = single_exit (loop);
+  split_edge_and_insert (e, get_insns ());
   end_sequence ();
-}
-
-/* Return the line note insn preceding INSN, for debugging.  Taken from
-   emit-rtl.c.  */
-static rtx
-find_line_note (rtx insn)
-{
-  for (; insn; insn = PREV_INSN (insn))
-    if (NOTE_P (insn)
-	&& NOTE_LINE_NUMBER (insn) >= 0)
-      break;
-
-  return insn;
 }
 
 /* Return true if all the BBs of the loop are empty except the
@@ -824,23 +808,18 @@ static bool
 loop_canon_p (struct loop *loop)
 {
 
-  if (loop->inner || ! loop->outer)
+  if (loop->inner || !loop_outer (loop))
     return false;
 
-  if (!loop->single_exit)
+  if (!single_exit (loop))
     {
       if (dump_file)
 	{
-	  rtx line_note = find_line_note (BB_END (loop->header));
-
+	  rtx insn = BB_END (loop->header);
+ 
 	  fprintf (dump_file, "SMS loop many exits ");
-	  if (line_note)
-	    {
-	      expanded_location xloc;
-	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (dump_file, " %s %d (file, line)\n",
-		       xloc.file, xloc.line);
-	    }
+	  	  fprintf (dump_file, " %s %d (file, line)\n",
+			   insn_file (insn), insn_line (insn));
 	}
       return false;
     }
@@ -849,16 +828,11 @@ loop_canon_p (struct loop *loop)
     {
       if (dump_file)
 	{
-	  rtx line_note = find_line_note (BB_END (loop->header));
-
+	  rtx insn = BB_END (loop->header);
+ 
 	  fprintf (dump_file, "SMS loop many BBs. ");
-	  if (line_note)
-	    {
-	      expanded_location xloc;
-  	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (dump_file, " %s %d (file, line)\n",
-		       xloc.file, xloc.line);
-	    }
+	  fprintf (dump_file, " %s %d (file, line)\n",
+		   insn_file (insn), insn_line (insn));
 	}
       return false;
     }
@@ -879,7 +853,7 @@ canon_loop (struct loop *loop)
      block.  */
   FOR_EACH_EDGE (e, i, EXIT_BLOCK_PTR->preds)
     if ((e->flags & EDGE_FALLTHRU) && (EDGE_COUNT (e->src->succs) > 1))
-      loop_split_edge_with (e, NULL_RTX);
+      split_edge (e);
 
   if (loop->latch == loop->header
       || EDGE_COUNT (loop->latch->succs) > 1)
@@ -887,9 +861,13 @@ canon_loop (struct loop *loop)
       FOR_EACH_EDGE (e, i, loop->header->preds)
         if (e->src == loop->latch)
           break;
-      loop_split_edge_with (e, NULL_RTX);
+      split_edge (e);
     }
 }
+
+/* Probability in % that the sms-ed loop rolls enough so that optimized
+   version may be entered.  Just a guess.  */
+#define PROB_SMS_ENOUGH_ITERATIONS 80
 
 /* Main entry point, perform SMS scheduling on the loops of the function
    that consist of single basic blocks.  */
@@ -901,21 +879,21 @@ sms_schedule (void)
   ddg_ptr *g_arr, g;
   int * node_order;
   int maxii;
-  unsigned i,num_loops;
+  loop_iterator li;
   partial_schedule_ptr ps;
-  struct df *df;
-  struct loops *loops;
   basic_block bb = NULL;
-  /* vars to the versioning only if needed*/
-  struct loop * nloop;
+  struct loop *loop;
   basic_block condition_bb = NULL;
   edge latch_edge;
   gcov_type trip_count = 0;
 
-  loops = loop_optimizer_init (LOOPS_HAVE_PREHEADERS
-			       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
-  if (!loops)
-    return;  /* There is no loops to schedule.  */
+  loop_optimizer_init (LOOPS_HAVE_PREHEADERS
+		       | LOOPS_HAVE_RECORDED_EXITS);
+  if (number_of_loops () <= 1)
+    {
+      loop_optimizer_finalize ();
+      return;  /* There are no loops to schedule.  */
+    }
 
   /* Initialize issue_rate.  */
   if (targetm.sched.issue_rate)
@@ -931,30 +909,27 @@ sms_schedule (void)
 
   /* Initialize the scheduler.  */
   current_sched_info = &sms_sched_info;
-  sched_init ();
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
-  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES | DF_SUBREGS);
-  df_rd_add_problem (df, 0);
-  df_ru_add_problem (df, 0);
-  df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
-  df_analyze (df);
-
-  if (dump_file)
-    df_dump (df, dump_file);
+  df_set_flags (DF_LR_RUN_DCE);
+  df_rd_add_problem ();
+  df_ru_add_problem ();
+  df_note_add_problem ();
+  df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
+  df_analyze ();
+  regstat_compute_calls_crossed ();
+  sched_init ();
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
-  g_arr = XCNEWVEC (ddg_ptr, loops->num);
-
+  g_arr = XCNEWVEC (ddg_ptr, number_of_loops ());
 
   /* Build DDGs for all the relevant loops and hold them in G_ARR
      indexed by the loop index.  */
-  for (i = 0; i < loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
       rtx head, tail;
       rtx count_reg;
-      struct loop *loop = loops->parray[i];
 
       /* For debugging.  */
       if ((passes++ > MAX_SMS_LOOP_NUMBER) && (MAX_SMS_LOOP_NUMBER != -1))
@@ -975,26 +950,19 @@ sms_schedule (void)
 
       get_ebb_head_tail (bb, bb, &head, &tail);
       latch_edge = loop_latch_edge (loop);
-      gcc_assert (loop->single_exit);
-      if (loop->single_exit->count)
-	trip_count = latch_edge->count / loop->single_exit->count;
+      gcc_assert (single_exit (loop));
+      if (single_exit (loop)->count)
+	trip_count = latch_edge->count / single_exit (loop)->count;
 
       /* Perfrom SMS only on loops that their average count is above threshold.  */
 
       if ( latch_edge->count
-          && (latch_edge->count < loop->single_exit->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD))
+          && (latch_edge->count < single_exit (loop)->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD))
 	{
 	  if (dump_file)
 	    {
-	      rtx line_note = find_line_note (tail);
-
-	      if (line_note)
-		{
-		  expanded_location xloc;
-		  NOTE_EXPANDED_LOCATION (xloc, line_note);
-		  fprintf (dump_file, "SMS bb %s %d (file, line)\n",
-			   xloc.file, xloc.line);
-		}
+	      fprintf (dump_file, " %s %d (file, line)\n",
+		       insn_file (tail), insn_line (tail));
 	      fprintf (dump_file, "SMS single-bb-loop\n");
 	      if (profile_info && flag_branch_probabilities)
 	    	{
@@ -1043,33 +1011,26 @@ sms_schedule (void)
 	  continue;
 	}
 
-      if (! (g = create_ddg (bb, df, 0)))
+      if (! (g = create_ddg (bb, 0)))
         {
           if (dump_file)
 	    fprintf (dump_file, "SMS doloop\n");
 	  continue;
         }
 
-      g_arr[i] = g;
+      g_arr[loop->num] = g;
     }
 
-  /* Release Data Flow analysis data structures.  */
-  df_finish (df);
-  df = NULL;
-
   /* We don't want to perform SMS on new loops - created by versioning.  */
-  num_loops = loops->num;
-  /* Go over the built DDGs and perfrom SMS for each one of them.  */
-  for (i = 0; i < num_loops; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
       rtx head, tail;
       rtx count_reg, count_init;
       int mii, rec_mii;
       unsigned stage_count = 0;
       HOST_WIDEST_INT loop_count = 0;
-      struct loop *loop = loops->parray[i];
 
-      if (! (g = g_arr[i]))
+      if (! (g = g_arr[loop->num]))
         continue;
 
       if (dump_file)
@@ -1078,21 +1039,14 @@ sms_schedule (void)
       get_ebb_head_tail (loop->header, loop->header, &head, &tail);
 
       latch_edge = loop_latch_edge (loop);
-      gcc_assert (loop->single_exit);
-      if (loop->single_exit->count)
-	trip_count = latch_edge->count / loop->single_exit->count;
+      gcc_assert (single_exit (loop));
+      if (single_exit (loop)->count)
+	trip_count = latch_edge->count / single_exit (loop)->count;
 
       if (dump_file)
 	{
-	  rtx line_note = find_line_note (tail);
-
-	  if (line_note)
-	    {
-	      expanded_location xloc;
-	      NOTE_EXPANDED_LOCATION (xloc, line_note);
-	      fprintf (dump_file, "SMS bb %s %d (file, line)\n",
-		       xloc.file, xloc.line);
-	    }
+	  fprintf (dump_file, " %s %d (file, line)\n",
+		   insn_file (tail), insn_line (tail));
 	  fprintf (dump_file, "SMS single-bb-loop\n");
 	  if (profile_info && flag_branch_probabilities)
 	    {
@@ -1198,7 +1152,7 @@ sms_schedule (void)
 
 	  /* Generate the kernel just to be able to measure its cycles.  */
 	  permute_partial_schedule (ps, g->closing_branch->first_note);
-	  reg_move_replaces = generate_reg_moves (ps);
+	  reg_move_replaces = generate_reg_moves (ps, false);
 
 	  /* Get the number of cycles the new kernel expect to execute in.  */
 	  new_cycles = kernel_number_of_cycles (BB_HEAD (g->bb), BB_END (g->bb));
@@ -1225,9 +1179,12 @@ sms_schedule (void)
 		{
 		  rtx comp_rtx = gen_rtx_fmt_ee (GT, VOIDmode, count_reg,
 						 GEN_INT(stage_count));
+		  unsigned prob = (PROB_SMS_ENOUGH_ITERATIONS
+				   * REG_BR_PROB_BASE) / 100;
 
-		  nloop = loop_version (loops, loop, comp_rtx, &condition_bb,
-					true);
+		  loop_version (loop, comp_rtx, &condition_bb,
+				prob, prob, REG_BR_PROB_BASE - prob,
+				true);
 		}
 
 	      /* Set new iteration count of loop kernel.  */
@@ -1243,9 +1200,9 @@ sms_schedule (void)
 	      if (! flag_resched_modulo_sched)
 		g->bb->flags |= BB_DISABLE_SCHEDULE;
 	      /* The life-info is not valid any more.  */
-	      g->bb->flags |= BB_DIRTY;
+	      df_set_bb_dirty (g->bb);
 
-	      reg_move_replaces = generate_reg_moves (ps);
+	      reg_move_replaces = generate_reg_moves (ps, true);
 	      if (dump_file)
 		print_node_sched_params (dump_file, g->num_nodes);
 	      /* Generate prolog and epilog.  */
@@ -1263,11 +1220,12 @@ sms_schedule (void)
       free_ddg (g);
     }
 
+  regstat_free_calls_crossed ();
   free (g_arr);
 
   /* Release scheduler data, needed until now because of DFA.  */
   sched_finish ();
-  loop_optimizer_finalize (loops);
+  loop_optimizer_finalize ();
 }
 
 /* The SMS scheduling algorithm itself
@@ -1506,7 +1464,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
       bool unscheduled_nodes = false;
 
       if (dump_file)
-	fprintf(dump_file, "Starting with ii=%d\n", ii);
+	fprintf (dump_file, "Starting with ii=%d\n", ii);
       if (try_again_with_larger_ii)
 	{
 	  try_again_with_larger_ii = false;
@@ -1558,8 +1516,9 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 	    }
 	  /* 2. Try scheduling u in window.  */
 	  if (dump_file)
-	    fprintf(dump_file, "Trying to schedule node %d in (%d .. %d) step %d\n",
-		    u, start, end, step);
+	    fprintf (dump_file,
+		     "Trying to schedule node %d in (%d .. %d) step %d\n",
+		     u, start, end, step);
 
           /* use must_follow & must_precede bitmaps to determine order
 	     of nodes within the cycle.  */
@@ -1593,7 +1552,7 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 		    SET_BIT (sched_nodes, u);
 		    success = 1;
 		    if (dump_file)
-		      fprintf(dump_file, "Schedule in %d\n", c);
+		      fprintf (dump_file, "Schedule in %d\n", c);
 		    break;
 		  }
 	      }
@@ -1687,6 +1646,9 @@ sms_order_nodes (ddg_ptr g, int mii, int * node_order)
   ddg_all_sccs_ptr sccs = create_ddg_all_sccs (g);
 
   nopa nops = calculate_order_params (g, mii);
+
+  if (dump_file)
+    print_sccs (dump_file, sccs, g);
 
   order_nodes_of_sccs (sccs, node_order);
 
@@ -2509,29 +2471,19 @@ rest_of_handle_sms (void)
 #ifdef INSN_SCHEDULING
   basic_block bb;
 
-  /* We want to be able to create new pseudos.  */
-  no_new_pseudos = 0;
   /* Collect loop information to be used in SMS.  */
-  cfg_layout_initialize (CLEANUP_UPDATE_LIFE);
+  cfg_layout_initialize (0);
   sms_schedule ();
 
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
-  allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-                    (PROP_DEATH_NOTES
-                     | PROP_REG_INFO
-                     | PROP_KILL_DEAD_CODE
-                     | PROP_SCAN_DEAD_CODE));
-
-  no_new_pseudos = 1;
 
   /* Finalize layout changes.  */
   FOR_EACH_BB (bb)
     if (bb->next_bb != EXIT_BLOCK_PTR)
       bb->aux = bb->next_bb;
-  cfg_layout_finalize ();
   free_dominance_info (CDI_DOMINATORS);
+  cfg_layout_finalize ();
 #endif /* INSN_SCHEDULING */
   return 0;
 }
@@ -2549,6 +2501,7 @@ struct tree_opt_pass pass_sms =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   TODO_dump_func,                       /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'm'                                   /* letter */

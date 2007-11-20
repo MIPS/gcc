@@ -24,9 +24,12 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Roberto Costa
+   Gabriele Svelto
 
 Contact information at STMicroelectronics:
-Roberto Costa <roberto.costa@st.com>   */
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Erven Rohou             <erven.rohou@st.com>
+*/
 
 #include "config.h"
 #include "system.h"
@@ -74,14 +77,6 @@ Roberto Costa <roberto.costa@st.com>   */
       The expansion requires changes to the control-flow graph.
 
    *) Expansion of COND_EXPR nodes used as expressions (not statements).
-      The expansion requires changes to the control-flow graph.
-
-   *) Expansion of SWITCH_EXPR, when it is not profitable to have
-      a switch table (heuristic decision is based on case density).
-      CIL emission pass (gen_cil) always emits a SWITCH_EXPR to a
-      CIL switch opcode. When a low case density makes compare trees
-      preferable, the SWITCH_EXPR is expanded; otherwise the
-      SWITCH_EXPR is not modified.
       The expansion requires changes to the control-flow graph.
 
    *) Expansion of COMPONENT_REF nodes operating on bit-fields.
@@ -193,9 +188,6 @@ static bool is_copy_required (tree);
 static bool mostly_zeros_p (tree);
 static bool all_zeros_p (tree);
 static void simp_cond_stmt (block_stmt_iterator, tree);
-static void rescale_out_edge_probabilities (basic_block, int);
-static void simp_switch (block_stmt_iterator *, tree *);
-static void simp_trivial_switch (block_stmt_iterator *, tree *);
 static void simp_builtin_call (block_stmt_iterator, tree *);
 static void simp_abs (block_stmt_iterator *, tree *);
 static void simp_min_max (block_stmt_iterator *, tree *);
@@ -212,13 +204,11 @@ static void simp_bitfield (block_stmt_iterator *, tree *, tree, unsigned int,
 static void simp_rhs_bitfield_component_ref (block_stmt_iterator *, tree *);
 static void simp_lhs_bitfield_component_ref (block_stmt_iterator *, tree *);
 static void simp_bitfield_ref (block_stmt_iterator *, tree *);
-static void pre_simp_init (block_stmt_iterator *, tree);
+static void pre_simp_init (block_stmt_iterator *, tree, tree, tree);
 static void simp_cil_node (block_stmt_iterator *, tree *);
 static void split_use (block_stmt_iterator, tree *, bool);
 static void rename_var (tree, const char*, unsigned long);
 static void simp_vars (void);
-static unsigned int simp_cil (void);
-static unsigned int simp_cil_early (void);
 static unsigned int simp_cil_final (void);
 static bool simp_cil_gate (void);
 
@@ -343,25 +333,21 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
 
     case SWITCH_EXPR:
       simp_cil_node (bsi, &SWITCH_COND (node));
-      if (simp_final)
-        simp_switch (bsi, node_ptr);
       break;
 
     case CALL_EXPR:
       {
-        tree args = TREE_OPERAND (node, 1);
+        unsigned int aidx  = 0;
+        unsigned int nargs = call_expr_nargs(node);
 
-        simp_cil_node (bsi, &TREE_OPERAND (node, 0));
+        simp_cil_node (bsi, &CALL_EXPR_FN (node));
 
-        while (args)
-          {
-            simp_cil_node (bsi, &TREE_VALUE (args));
-            args = TREE_CHAIN (args);
-          }
+        for (;aidx<nargs;++aidx)
+            simp_cil_node (bsi, &CALL_EXPR_ARG (node, aidx));
 
         if (simp_final)
           {
-            tree fun_expr = TREE_OPERAND (node, 0);
+            tree fun_expr = CALL_EXPR_FN (node);
             tree dfun = NULL_TREE;
 
             if (TREE_CODE (fun_expr) == ADDR_EXPR
@@ -377,6 +363,7 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
 
     case MULT_EXPR:
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
     case RDIV_EXPR:
     case BIT_IOR_EXPR:
@@ -434,14 +421,15 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
 
     case INIT_EXPR:
     case MODIFY_EXPR:
-      simp_cil_node (bsi, &TREE_OPERAND (node, 0));
-      simp_cil_node (bsi, &TREE_OPERAND (node, 1));
-      gcc_assert (TREE_CODE (TREE_OPERAND (node, 1)) != CONSTRUCTOR
-                  && TREE_CODE (TREE_OPERAND (node, 1)) != STRING_CST);
-      if (AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (node, 1)))
-          && TREE_CODE (TREE_OPERAND (node, 0)) == INDIRECT_REF
-          && TREE_CODE (TREE_OPERAND (node, 1)) == CALL_EXPR)
-        split_use (*bsi, &TREE_OPERAND (node, 1), false);
+    case GIMPLE_MODIFY_STMT:
+      simp_cil_node (bsi, &GENERIC_TREE_OPERAND (node, 0));
+      simp_cil_node (bsi, &GENERIC_TREE_OPERAND (node, 1));
+      gcc_assert (TREE_CODE (GENERIC_TREE_OPERAND (node, 1)) != CONSTRUCTOR
+                  && TREE_CODE (GENERIC_TREE_OPERAND (node, 1)) != STRING_CST);
+      if (AGGREGATE_TYPE_P (TREE_TYPE (GENERIC_TREE_OPERAND (node, 1)))
+          && TREE_CODE (GENERIC_TREE_OPERAND (node, 0)) == INDIRECT_REF
+          && TREE_CODE (GENERIC_TREE_OPERAND (node, 1)) == CALL_EXPR)
+        split_use (*bsi, &GENERIC_TREE_OPERAND (node, 1), false);
       break;
 
     case NEGATE_EXPR:
@@ -509,8 +497,9 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
         {
           tree stmt = bsi_stmt (*bsi);
 
-          if (TREE_CODE (stmt) == MODIFY_EXPR
-              && TREE_OPERAND (stmt, 0) == node)
+          if ((TREE_CODE (stmt) == MODIFY_EXPR
+               || TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+              && GENERIC_TREE_OPERAND (stmt, 0) == node)
             simp_lhs_bitfield_component_ref (bsi, node_ptr);
           else
             simp_rhs_bitfield_component_ref (bsi, node_ptr);
@@ -571,6 +560,11 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
           /* Pre-C99 code may contain void-returns for non-void functions.
              In this case, return the result variable.   */
 
+          tree res_type = TREE_TYPE (DECL_RESULT (current_function_decl));
+          if (TYPE_SIZE (res_type) != NULL_TREE
+              && TREE_CODE (TYPE_SIZE (res_type)) != INTEGER_CST)
+            internal_error ("Returned type cannot be a variable size array or struct\n");
+
           if (res_var == NULL_TREE)
             res_var = create_tmp_var (TREE_TYPE (DECL_RESULT (current_function_decl)),
                                       "cilsimp");
@@ -583,8 +577,14 @@ simp_cil_node (block_stmt_iterator *bsi, tree *node_ptr)
     case RESULT_DECL:
       if (simp_final
           && (TREE_CODE (bsi_stmt (*bsi)) != RETURN_EXPR
-              || TREE_CODE (TREE_OPERAND (bsi_stmt (*bsi), 0)) != MODIFY_EXPR))
+              || (TREE_CODE (TREE_OPERAND (bsi_stmt (*bsi), 0)) != MODIFY_EXPR
+                  && TREE_CODE (TREE_OPERAND (bsi_stmt (*bsi), 0)) != GIMPLE_MODIFY_STMT)))
         {
+          tree res_type = TREE_TYPE (node);
+          if (TYPE_SIZE (res_type) != NULL_TREE
+              && TREE_CODE (TYPE_SIZE (res_type)) != INTEGER_CST)
+            internal_error ("Returned type cannot be a variable size array or struct\n");
+
           if (res_var == NULL_TREE)
             res_var = create_tmp_var (TREE_TYPE (node), "cilsimp");
 
@@ -631,15 +631,18 @@ simp_cond_stmt (block_stmt_iterator bsi, tree node)
   enum tree_code cond_code, rev_code;
   tree cond_type;
 
-  /* The condition targets are lowered in gimplify.c, we should never have
-     COND_EXPR with 'then' or 'else' operands that aren't GOTO_EXPRs.   */
-  gcc_assert (TREE_CODE (node) == COND_EXPR
-              && TREE_CODE (COND_EXPR_THEN (node)) == GOTO_EXPR
-              && TREE_CODE (COND_EXPR_ELSE (node)) == GOTO_EXPR);
   gcc_assert (bsi_stmt (bsi) == node);
-
+  gcc_assert (TREE_CODE (node) == COND_EXPR);
   cond_expr = COND_EXPR_COND (node);
   then_expr = COND_EXPR_THEN (node);
+
+  /* Skip the optimization if then and else are not GOTO_EXPR */
+  if (then_expr == NULL_TREE || !simple_goto_p (then_expr))
+    {
+      return;
+    }
+
+  gcc_assert (COND_EXPR_ELSE (node) && simple_goto_p (COND_EXPR_ELSE (node)));
 
   /* Nothing to do if the condition is not a comparison */
   if (! COMPARISON_CLASS_P (cond_expr))
@@ -667,564 +670,6 @@ simp_cond_stmt (block_stmt_iterator bsi, tree node)
     }
 }
 
-/* Rescale the probabilities of the out-edge of basic block BB
-   by assuming TOT_PROB as the sum of the current probabilities.   */
-
-static void
-rescale_out_edge_probabilities (basic_block bb, int tot_prob)
-{
-  edge e;
-  edge_iterator ei;
-
-  if (tot_prob <= 0)
-    {
-      EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
-      ei = ei_start (bb->succs);
-      ei_next (&ei);
-      for (; (e = ei_safe_edge (ei)); ei_next (&ei))
-        e->probability = 0;
-    }
-  else if (tot_prob != REG_BR_PROB_BASE)
-    {
-      int scale = (65536 * REG_BR_PROB_BASE) / tot_prob;
-
-      FOR_EACH_EDGE (e, ei, bb->succs)
-        {
-          e->probability = (e->probability * scale) / 65536;
-          gcc_assert (e->probability <= REG_BR_PROB_BASE);
-        }
-    }
-}
-
-/* Expand the SWITCH_EXPR pointed by NODE_PTR by inserting
-   compare trees. The expansion occurs only if heuristics say
-   it is profitable; the current heuristic is based on case label
-   density.
-   BSI points to the iterator of the statement that contains *NODE_PTR
-   (in order to allow insertion of new statements).
-   BSI is passed by reference because instructions are inserted,
-   new basic blocks created...
-   NODE is passed by reference because simplification requires
-   replacing the node.   */
-
-static void
-simp_switch (block_stmt_iterator *bsi, tree *node_ptr)
-{
-  tree node = *node_ptr;
-  location_t locus = EXPR_LOCATION (bsi_stmt (*bsi));
-  tree vec = SWITCH_LABELS (node), vec1, vec2;
-  unsigned int vec_len, i;
-  bool first_case = true;
-  tree min_val = 0, max_val = 0;
-  double_int range, n_elems = double_int_zero, density1000, tmp_elems;
-  unsigned int sw1_last;
-  tree sw1_last_int_cst;
-  tree sw1_stmt, sw2_stmt;
-  block_stmt_iterator tmp_bsi;
-  basic_block bb_orig_sw, bb1, bb2;
-  tree cmp_stmt;
-  tree label1_decl, label2_decl, label1, label2;
-  edge_iterator ei;
-  edge e1, e2, tmp_edge;
-  int bb1_probs, bb2_probs;
-
-  /* The switch body is lowered in gimplify.c, we should never have
-     switches with a non-NULL SWITCH_BODY here.  */
-  gcc_assert (TREE_CODE (node) == SWITCH_EXPR && vec && !SWITCH_BODY (node));
-
-  vec_len = TREE_VEC_LENGTH (vec);
-
-  /* Switches made of one case are always separately handled
-     (they are transformed into if ... then ... else ...).   */
-  if (vec_len == 2)
-    {
-      simp_trivial_switch (bsi, node_ptr);
-      return;
-    }
-
-  /* Compute range of cases */
-  for (i = 0; i < vec_len - 1; ++i)
-    {
-      tree elt  = TREE_VEC_ELT (vec, i);
-      tree low  = CASE_LOW (elt);
-      tree high = CASE_HIGH (elt);
-
-      if (!high)
-        high = low;
-
-      gcc_assert (low && high);
-
-      /* Discard empty ranges.  */
-      if (INT_CST_LT (high, low))
-        continue;
-
-      /* Increment number of elements seen so far */
-      n_elems = double_int_add (n_elems, TREE_INT_CST (high));
-      n_elems = double_int_add (n_elems, double_int_one);
-      n_elems = double_int_add (n_elems, double_int_neg (TREE_INT_CST (low)));
-
-      if (first_case)
-        {
-          min_val = low;
-          max_val = high;
-          first_case = false;
-        }
-      else
-        {
-          if (INT_CST_LT (low, min_val))
-            min_val = low;
-
-          if (INT_CST_LT (max_val, high))
-            max_val = high;
-        }
-    }
-  gcc_assert (!INT_CST_LT (max_val, min_val));
-  range = double_int_add (TREE_INT_CST (max_val), double_int_one);
-  range = double_int_add (range, double_int_neg (TREE_INT_CST (min_val)));
-
-  /* If the range density is not high, keep the switch statement */
-  density1000 = double_int_udiv (double_int_mul (n_elems,
-                                                 shwi_to_double_int (1000)),
-                                 range,
-                                 TRUNC_DIV_EXPR);
-  if (! double_int_negative_p (double_int_add (density1000,
-                                               shwi_to_double_int (-333))))
-    return;
-
-  /* Insert a copy of the switch condition, if required */
-  if (is_copy_required (SWITCH_COND (node)))
-    {
-      tree cond = SWITCH_COND (node);
-      tree var = create_tmp_var (TREE_TYPE (cond), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (cond), var, cond);
-
-      SET_EXPR_LOCATION (stmt, locus);
-      bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
-      SWITCH_COND (node) = var;
-    }
-
-  /* Compute the last CASE_LABEL_EXPR that will go to the 1st switch.
-     To do that, count number of elements until tmp_elems >= 0   */
-  tmp_elems = double_int_neg (double_int_udiv (n_elems,
-                                               double_int_two,
-                                               TRUNC_DIV_EXPR));
-  for (i = 0; i < vec_len - 1; ++i)
-    {
-      tree elt  = TREE_VEC_ELT (vec, i);
-      tree low  = CASE_LOW (elt);
-      tree high = CASE_HIGH (elt);
-
-      if (!high)
-        high = low;
-
-      gcc_assert (low && high);
-
-      /* Discard empty ranges.  */
-      if (INT_CST_LT (high, low))
-        continue;
-
-      /* Increment number of elements seen so far */
-      tmp_elems = double_int_add (tmp_elems, TREE_INT_CST (high));
-      tmp_elems = double_int_add (tmp_elems, double_int_one);
-      tmp_elems = double_int_add (tmp_elems,
-                                  double_int_neg (TREE_INT_CST (low)));
-
-      if (! double_int_negative_p (tmp_elems))
-        break;
-    }
-  gcc_assert (! double_int_negative_p (tmp_elems));
-  gcc_assert (i <= vec_len - 2);
-  if (i == vec_len - 2)
-    /* It's the last case! Then, take the previous case */
-    i = vec_len - 3;
-  sw1_last = i;
-  sw1_last_int_cst = CASE_HIGH (TREE_VEC_ELT (vec, sw1_last));
-  if (! sw1_last_int_cst)
-    sw1_last_int_cst = CASE_LOW (TREE_VEC_ELT (vec, sw1_last));
-
-  /* For each out-going edge of the original switch basic block,
-     mark whether it is going to be replicated in the first newly
-     created switch block, in the second, or in both.
-     This is needed in order to update counts, frequencies and
-     probabilities.
-     In order to do that, use the following edge flags:
-     EDGE_FALSE_VALUE: 1st block
-     EDGE_TRUE_VALUE:  2nd block
-     This is fine because these edges are removed later on.   */
-  bb_orig_sw = bb_for_stmt (bsi_stmt (*bsi));
-  for (i = 0; i < vec_len; ++i)
-    {
-      tree elt = TREE_VEC_ELT (vec, i);
-      basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e = find_edge (bb_orig_sw, target_bb);
-
-      gcc_assert (e);
-      e->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-    }
-  for (i = 0; i < vec_len; ++i)
-    {
-      tree elt = TREE_VEC_ELT (vec, i);
-      basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e = find_edge (bb_orig_sw, target_bb);
-
-      gcc_assert (e);
-      if (i <= sw1_last)
-        e->flags |= EDGE_FALSE_VALUE;
-      else if (i != vec_len - 1)
-        e->flags |= EDGE_TRUE_VALUE;
-      else
-        e->flags |= (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
-    }
-
-  /* Build a COND_EXPR, replace the switch with the COND_EXPR */
-  label1_decl = create_artificial_label ();
-  label2_decl = create_artificial_label ();
-  cmp_stmt = build3 (COND_EXPR, void_type_node,
-                     build2 (GT_EXPR, boolean_type_node,
-                             SWITCH_COND (node), sw1_last_int_cst),
-                     build1 (GOTO_EXPR, void_type_node, label2_decl),
-                     build1 (GOTO_EXPR, void_type_node, label1_decl));
-  SET_EXPR_LOCATION (cmp_stmt, locus);
-  gcc_assert (stmt_ends_bb_p (node) && bb_for_stmt (node) == bb_orig_sw);
-
-  /* Replace the original switch with the COND_EXPR */
-  *node_ptr = cmp_stmt;
-  set_bb_for_stmt (cmp_stmt, bb_orig_sw);
-
-  /* Update the basic block statement iterator */
-  *bsi = bsi_last (bb_orig_sw);
-
-  /* Generate a basic block with the first switch */
-  bb1 = create_empty_bb (bb_orig_sw);
-  label1 = build1 (LABEL_EXPR, void_type_node, label1_decl);
-  vec1 = make_tree_vec (sw1_last + 2);
-  sw1_stmt = build3 (SWITCH_EXPR, TREE_TYPE (node),
-                     SWITCH_COND (node), NULL, vec1);
-  SET_EXPR_LOCATION (sw1_stmt, locus);
-  tmp_bsi = bsi_start (bb1);
-  bsi_insert_after (&tmp_bsi, label1, BSI_NEW_STMT);
-  bsi_insert_after (&tmp_bsi, sw1_stmt, BSI_SAME_STMT);
-
-  /* Generate a basic block with the second switch */
-  bb2 = create_empty_bb (bb1);
-  label2 = build1 (LABEL_EXPR, void_type_node, label2_decl);
-  vec2 = make_tree_vec (vec_len - sw1_last - 1);
-  sw2_stmt = build3 (SWITCH_EXPR, TREE_TYPE (node),
-                     SWITCH_COND (node), NULL, vec2);
-  SET_EXPR_LOCATION (sw2_stmt, locus);
-  tmp_bsi = bsi_start (bb2);
-  bsi_insert_after (&tmp_bsi, label2, BSI_NEW_STMT);
-  bsi_insert_after (&tmp_bsi, sw2_stmt, BSI_SAME_STMT);
-
-  /* Build the case labels for the 1st new switch and the out-edges
-     of its basic block.    */
-  for (i = 0; i < sw1_last + 1; ++i)
-    {
-      tree elt = TREE_VEC_ELT (vec, i);
-      basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e = find_edge (bb1, target_bb);
-
-      if (!e)
-        {
-          edge old_e = find_edge (bb_orig_sw, target_bb);
-
-          e = make_edge (bb1, target_bb, 0);
-          gcc_assert (e);
-          gcc_assert (old_e && (old_e->flags & EDGE_FALSE_VALUE) != 0);
-          if (old_e->flags & EDGE_TRUE_VALUE)
-            {
-              e->count = old_e->count / 2;
-              e->probability = old_e->probability / 2;
-            }
-          else
-            {
-              e->count = old_e->count;
-              e->probability = old_e->probability;
-            }
-        }
-
-      TREE_VEC_ELT (vec1, i) = elt;
-    }
-
-  /* Build the case labels for the 2nd new switch and the out-edges
-     of its basic block.    */
-  for (; i < vec_len - 1; ++i)
-    {
-      tree elt = TREE_VEC_ELT (vec, i);
-      basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e = find_edge (bb2, target_bb);
-
-      if (!e)
-        {
-          edge old_e = find_edge (bb_orig_sw, target_bb);
-
-          e = make_edge (bb2, target_bb, 0);
-          gcc_assert (e);
-          gcc_assert (old_e && (old_e->flags & EDGE_TRUE_VALUE) != 0);
-          if (old_e->flags & EDGE_FALSE_VALUE)
-            {
-              e->count = old_e->count - old_e->count / 2;
-              e->probability = old_e->probability - old_e->probability / 2;
-            }
-          else
-            {
-              e->count = old_e->count;
-              e->probability = old_e->probability;
-            }
-        }
-
-      TREE_VEC_ELT (vec2, i - sw1_last - 1) = elt;
-    }
-
-  /* Build the default labels for both new switches and the out-edges
-     of their basic blocks.   */
-    {
-      tree elt = TREE_VEC_ELT (vec, vec_len - 1);
-      tree new_elt;
-      basic_block target_bb = label_to_block (CASE_LABEL (elt));
-      edge e1 = find_edge (bb1, target_bb);
-      edge e2 = find_edge (bb2, target_bb);
-      edge old_e = NULL;
-
-      if (!e1 || !e2)
-        {
-          old_e = find_edge (bb_orig_sw, target_bb);
-          gcc_assert (old_e
-                      && (old_e->flags & EDGE_TRUE_VALUE) != 0
-                      && (old_e->flags & EDGE_FALSE_VALUE) != 0);
-        }
-
-      if (!e1)
-        {
-          e1 = make_edge (bb1, target_bb, 0);
-          gcc_assert (e1);
-          e1->count = old_e->count / 2;
-          e1->probability = old_e->probability / 2;
-        }
-
-      if (!e2)
-        {
-          e2 = make_edge (bb2, target_bb, 0);
-          gcc_assert (e2);
-          e2->count = old_e->count - old_e->count / 2;
-          e2->probability = old_e->probability - old_e->probability / 2;
-        }
-
-      TREE_VEC_ELT (vec1, sw1_last + 1) = elt;
-
-      /* Duplicate this case label expression, since it is used
-         in the first switch.   */
-      new_elt = build3 (CASE_LABEL_EXPR, TREE_TYPE (elt),
-                        CASE_LOW (elt), CASE_HIGH (elt), CASE_LABEL (elt));
-      TREE_VEC_ELT (vec2, vec_len - sw1_last - 2) = new_elt;
-    }
-
-  /* Re-scale probabilities of the out-going edges of the new blocks
-     and compute counts of such blocks.   */
-  bb1_probs = 0;
-  bb1->count = 0;
-  FOR_EACH_EDGE (tmp_edge, ei, bb1->succs)
-    {
-      bb1->count += tmp_edge->count;
-      bb1_probs += tmp_edge->probability;
-    }
-  rescale_out_edge_probabilities (bb1, bb1_probs);
-
-  bb2_probs = 0;
-  bb2->count = 0;
-  FOR_EACH_EDGE (tmp_edge, ei, bb2->succs)
-    {
-      bb2->count += tmp_edge->count;
-      bb2_probs += tmp_edge->probability;
-    }
-  rescale_out_edge_probabilities (bb2, bb2_probs);
-  gcc_assert (bb1->count + bb2->count == bb_orig_sw->count);
-
-  /* Update out-edges of original switch basic block */
-  for (ei = ei_start (bb_orig_sw->succs); (tmp_edge = ei_safe_edge (ei)); )
-    {
-      remove_edge (tmp_edge);
-    }
-  e1 = unchecked_make_edge (bb_orig_sw, bb1, EDGE_FALSE_VALUE);
-  e2 = unchecked_make_edge (bb_orig_sw, bb2, EDGE_TRUE_VALUE);
-  if (bb1_probs + bb2_probs > 0)
-    e1->probability = ((bb1_probs * 256 * REG_BR_PROB_BASE) /
-                       (bb1_probs + bb2_probs)) / 256;
-  else
-    e1->probability = REG_BR_PROB_BASE / 2;
-  e1->count = bb1->count;
-  e2->probability = REG_BR_PROB_BASE - e1->probability;
-  e2->count = bb2->count;
-  bb1->frequency = EDGE_FREQUENCY (e1);
-  bb2->frequency = EDGE_FREQUENCY (e2);
-}
-
-/* Expand the SWITCH_EXPR pointed by NODE_PTR, composed of just
-   one case, into a COND_EXPR (or fallthru).
-   The expansion always occurs, since generally profitable.
-   BSI points to the iterator of the statement that contains *NODE_PTR
-   (in order to allow insertion of new statements).
-   BSI is passed by reference because instructions are inserted,
-   new basic blocks may be created...
-   NODE is passed by reference because simplification requires
-   replacing the node.   */
-
-static void
-simp_trivial_switch (block_stmt_iterator *bsi, tree *node_ptr)
-{
-  tree node = *node_ptr;
-  location_t locus = EXPR_LOCATION (bsi_stmt (*bsi));
-  tree one_case = TREE_VEC_ELT (SWITCH_LABELS (node), 0);
-  basic_block bb_sw = bb_for_stmt (bsi_stmt (*bsi));
-  basic_block bb_case = label_to_block (CASE_LABEL (one_case));
-
-  /* The switch body is lowered in gimplify.c, we should never have
-     switches with a non-NULL SWITCH_BODY here.  */
-  gcc_assert (TREE_CODE (node) == SWITCH_EXPR
-              && !SWITCH_BODY (node)
-              && SWITCH_LABELS (node)
-              && TREE_VEC_LENGTH (SWITCH_LABELS (node)) == 2);
-
-  gcc_assert (stmt_ends_bb_p (node) && bb_for_stmt (node) == bb_sw);
-
-  /* Check for the easiest situation: the one case and default go
-     to the same basic block.
-     If so, SWITCH_EXPR is replaced by a fallthru.   */
-  if (single_succ_p (bb_sw))
-    {
-      edge e;
-
-      gcc_assert (bb_case
-                  == label_to_block (CASE_LABEL (TREE_VEC_ELT (SWITCH_LABELS (node), 1))));
-
-      /* Update CFG */
-      e = find_edge (bb_sw, bb_case);
-      e->flags |= EDGE_FALLTHRU;
-
-      /* Remove the original switch */
-      bsi_remove (bsi, true);
-
-      /* Update the basic block statement iterator */
-      *bsi = bsi_last (bb_sw);
-      *node_ptr = bsi_stmt (*bsi);
-    }
-
-  /* Check whether the one case is not a range.
-     If it is not, SWITCH_EXPR is replaced by a single COND_EXPR.   */
-  else if (! CASE_HIGH (one_case))
-    {
-      tree deft = TREE_VEC_ELT (SWITCH_LABELS (node), 1);
-      tree cmp_stmt;
-      basic_block bb_deft = label_to_block (CASE_LABEL (deft));
-      edge e1, e2;
-
-      /* Build the COND_EXPR */
-      cmp_stmt = build3 (COND_EXPR, void_type_node,
-                         build2 (EQ_EXPR, boolean_type_node,
-                                 SWITCH_COND (node),
-                                 CASE_LOW (one_case)),
-                         build1 (GOTO_EXPR, void_type_node,
-                                 CASE_LABEL (one_case)),
-                         build1 (GOTO_EXPR, void_type_node,
-                                 CASE_LABEL (deft)));
-      SET_EXPR_LOCATION (cmp_stmt, locus);
-
-      /* Update CFG */
-      e1 = find_edge (bb_sw, bb_case);
-      e2 = find_edge (bb_sw, bb_deft);
-      gcc_assert (e1 && e2 && e1 != e2);
-      gcc_assert ((e1->flags & EDGE_FALSE_VALUE) == 0);
-      gcc_assert ((e2->flags & EDGE_TRUE_VALUE) == 0);
-      e1->flags |= EDGE_TRUE_VALUE;
-      e2->flags |= EDGE_FALSE_VALUE;
-
-      /* Replace the original switch with the COND_EXPR */
-      *node_ptr = cmp_stmt;
-      set_bb_for_stmt (cmp_stmt, bb_sw);
-
-      /* Update the basic block statement iterator */
-      *bsi = bsi_last (bb_sw);
-    }
-
-  /* The one case is a range.
-     Therefore, SWITCH_EXPR is replaced by a couple of COND_EXPRs.   */
-  else
-    {
-      tree deft = TREE_VEC_ELT (SWITCH_LABELS (node), 1);
-      tree label_decl = create_artificial_label ();
-      tree cmp1_stmt, cmp2_stmt, label;
-      basic_block bb_deft = label_to_block (CASE_LABEL (deft));
-      basic_block bb_new;
-      block_stmt_iterator tmp_bsi;
-      edge e1, e2, e3, e4;
-      int e1_orig_prob, e2_orig_prob;
-
-      /* Build the 1st COND_EXPR */
-      cmp1_stmt = build3 (COND_EXPR, void_type_node,
-                          build2 (GE_EXPR, boolean_type_node,
-                                  SWITCH_COND (node),
-                                  CASE_LOW (one_case)),
-                          build1 (GOTO_EXPR, void_type_node, label_decl),
-                          build1 (GOTO_EXPR, void_type_node,
-                                  CASE_LABEL (deft)));
-      SET_EXPR_LOCATION (cmp1_stmt, locus);
-
-      /* Replace the original switch with the 1st COND_EXPR */
-      *node_ptr = cmp1_stmt;
-      set_bb_for_stmt (cmp1_stmt, bb_sw);
-
-      /* Build the 2nd COND_EXPR */
-      cmp2_stmt = build3 (COND_EXPR, void_type_node,
-                          build2 (LE_EXPR, boolean_type_node,
-                                  SWITCH_COND (node),
-                                  CASE_HIGH (one_case)),
-                          build1 (GOTO_EXPR, void_type_node,
-                                  CASE_LABEL (one_case)),
-                          build1 (GOTO_EXPR, void_type_node,
-                                  CASE_LABEL (deft)));
-      SET_EXPR_LOCATION (cmp2_stmt, locus);
-
-      /* Create new basic block and insert the 2nd COND_EXPR */
-      bb_new = create_empty_bb (bb_sw);
-      label = build1 (LABEL_EXPR, void_type_node, label_decl);
-      tmp_bsi = bsi_start (bb_new);
-      bsi_insert_after (&tmp_bsi, label, BSI_NEW_STMT);
-      bsi_insert_after (&tmp_bsi, cmp2_stmt, BSI_SAME_STMT);
-
-      /* Update CFG */
-      e1 = find_edge (bb_sw, bb_case);
-      e2 = find_edge (bb_sw, bb_deft);
-      gcc_assert (e1 && e2 && e1 != e2);
-      gcc_assert ((e1->flags & EDGE_FALSE_VALUE) == 0);
-      gcc_assert ((e2->flags & EDGE_TRUE_VALUE) == 0);
-      redirect_edge_succ (e1, bb_new);
-      e2->flags |= EDGE_FALSE_VALUE;
-      e3 = unchecked_make_edge (bb_new, bb_case, EDGE_TRUE_VALUE);
-      e3->flags = e1->flags | EDGE_TRUE_VALUE;;
-      e4 = unchecked_make_edge (bb_new, bb_deft, EDGE_FALSE_VALUE);
-      e4->flags = e2->flags;
-      e1->flags = EDGE_TRUE_VALUE;
-
-      /* Update edge and basic block counts */
-      e3->count = e1->count;
-      e4->count = e2->count / 2;
-      e2->count = e2->count - e4->count;
-      e1->count = e3->count + e4->count;
-      bb_new->count = e1->count;
-
-      /* Update edge probabilities */
-      e1_orig_prob = e1->probability;
-      e2_orig_prob = e2->probability;
-      e2->probability = e2_orig_prob / 2;
-      e1->probability = REG_BR_PROB_BASE - e2->probability;
-      e3->probability = (e1_orig_prob * REG_BR_PROB_BASE) / e1->probability;
-      e4->probability = REG_BR_PROB_BASE - e3->probability;
-
-      /* Update the basic block statement iterator */
-      *bsi = tmp_bsi;
-    }
-}
-
 /* Force specific arguments of the CALL_EXPR to a built-in function
    pointed by NODE_PTR to be local variables.
    Which arguments are forced depend on the built-in function.
@@ -1236,11 +681,15 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 {
   tree node = *node_ptr;
   location_t locus = EXPR_LOCATION (bsi_stmt (bsi));
-  tree fun_expr = TREE_OPERAND (node, 0);
-  tree dfun = TREE_OPERAND (fun_expr, 0);
+  tree fun_expr;
+  tree dfun;
 
   gcc_assert (TREE_CODE (node) == CALL_EXPR);
+
+  fun_expr = CALL_EXPR_FN (node);
   gcc_assert (TREE_CODE (fun_expr) == ADDR_EXPR);
+
+  dfun = TREE_OPERAND (fun_expr, 0);
   gcc_assert (TREE_CODE (dfun) == FUNCTION_DECL);
   gcc_assert (DECL_BUILT_IN (dfun));
 
@@ -1250,8 +699,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
         {
         case BUILT_IN_VA_START:
           {
-            tree args = TREE_OPERAND (node, 1);
-            tree va_ref = TREE_VALUE (args);
+            tree va_ref = CALL_EXPR_ARG (node, 0);
             tree va;
 
             switch (TREE_CODE (va_ref)) {
@@ -1276,9 +724,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
             {
               tree argiter = create_tmp_var (cil32_arg_iterator_type, "arg_iterator");
               location_t locus = EXPR_LOCATION (bsi_stmt (bsi));
-              tree stmt = build2 (MODIFY_EXPR, cil32_va_list_type,
-                                               va,
-                                               build1 (ADDR_EXPR, cil32_va_list_type, argiter));
+              tree stmt = build_gimple_modify_stmt(va, build1 (ADDR_EXPR, cil32_va_list_type, argiter));
               SET_EXPR_LOCATION (stmt, locus);
               bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
             }
@@ -1299,7 +745,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 
         case BUILT_IN_VA_END:
           {
-            tree va_ref = TREE_VALUE (TREE_OPERAND (node, 1));
+            tree va_ref = CALL_EXPR_ARG (node, 0);
             tree va;
 
             switch (TREE_CODE (va_ref)) {
@@ -1336,10 +782,9 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 
         case BUILT_IN_VA_COPY:
           {
-            tree args = TREE_OPERAND (node, 1);
-            tree va_dest_ref = TREE_VALUE (args);
+            tree va_dest_ref = CALL_EXPR_ARG (node, 0);
             tree va_dest;
-            tree va_src = TREE_VALUE (TREE_CHAIN (args));
+            tree va_src = CALL_EXPR_ARG (node, 1);
 
             switch (TREE_CODE (va_dest_ref)) {
             case INDIRECT_REF:
@@ -1367,9 +812,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
             {
               tree argiter = create_tmp_var (cil32_arg_iterator_type, "arg_iterator");
               location_t locus = EXPR_LOCATION (bsi_stmt (bsi));
-              tree stmt = build2 (MODIFY_EXPR, cil32_va_list_type,
-                                               va_dest,
-                                               build1 (ADDR_EXPR, cil32_va_list_type, argiter));
+              tree stmt = build_gimple_modify_stmt(va_dest, build1 (ADDR_EXPR, cil32_va_list_type, argiter));
               SET_EXPR_LOCATION (stmt, locus);
               bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
             }
@@ -1392,8 +835,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
           {
             /* Inspired from 'expand_builtin_object_size' in builtins.c. We
                return -1 for types 0 and 1, and 0 for types 2 and 3.  */
-            tree args = TREE_OPERAND (node, 1);
-            tree arg2 = TREE_VALUE (TREE_CHAIN (args));
+            tree arg2 = CALL_EXPR_ARG (node, 0);
             int  obj_type;
             gcc_assert (TREE_CODE (arg2) == INTEGER_CST);
             obj_type = TREE_INT_CST_LOW (arg2);
@@ -1417,7 +859,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 
         case BUILT_IN_PREFETCH:
           {
-            tree exp = TREE_VALUE (TREE_OPERAND (node, 1));
+            tree exp = CALL_EXPR_ARG (node, 0);
 
             gcc_assert (bsi_stmt (bsi) == node);
 
@@ -1438,8 +880,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
           {
             /* Supported (sort of) only for non-zero parameter, when it is ok
                to return NULL.  */
-            tree args = TREE_OPERAND (node, 1);
-            tree arg = TREE_VALUE (args);
+            tree arg = CALL_EXPR_ARG (node, 0);
             int  int_arg;
             gcc_assert (TREE_CODE (arg) == INTEGER_CST);
             int_arg = TREE_INT_CST_LOW (arg);
@@ -1492,7 +933,7 @@ simp_abs (block_stmt_iterator *bsi, tree *node_ptr)
      generating an extra basic block.   */
   op = TREE_OPERAND (node, 0);
   sel_var = create_tmp_var (TREE_TYPE (op), "cilsimp");
-  asn_op_stmt = build2 (MODIFY_EXPR, TREE_TYPE (op), sel_var, op);
+  asn_op_stmt = build_gimple_modify_stmt(sel_var, op);
   SET_EXPR_LOCATION (asn_op_stmt, locus);
   bsi_insert_before (bsi, asn_op_stmt, BSI_SAME_STMT);
 
@@ -1525,9 +966,8 @@ simp_abs (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Insert labels and statements into neg bb */
   label_neg = build1 (LABEL_EXPR, void_type_node, label_decl_neg);
-  asn_neg_stmt = build2 (MODIFY_EXPR, TREE_TYPE (op),
-                         sel_var,
-                         build1 (NEGATE_EXPR, TREE_TYPE (op), sel_var));
+  asn_neg_stmt = build_gimple_modify_stmt(sel_var,
+                                          build1 (NEGATE_EXPR, TREE_TYPE (op), sel_var));
   SET_EXPR_LOCATION (asn_neg_stmt, locus);
   tmp_bsi = bsi_start (bb_neg);
   bsi_insert_after (&tmp_bsi, label_neg, BSI_NEW_STMT);
@@ -1580,7 +1020,7 @@ simp_min_max (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (op0))
     {
       tree var = create_tmp_var (TREE_TYPE (op0), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op0), var, op0);
+      tree stmt = build_gimple_modify_stmt(var, op0);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1591,7 +1031,7 @@ simp_min_max (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (op1))
     {
       tree var = create_tmp_var (TREE_TYPE (op1), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op1), var, op1);
+      tree stmt = build_gimple_modify_stmt(var, op1);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1633,7 +1073,7 @@ simp_min_max (block_stmt_iterator *bsi, tree *node_ptr)
   /* Insert labels and statements into op0 bb */
   sel_var = create_tmp_var (TREE_TYPE (node), "cilsimp");
   label_op0 = build1 (LABEL_EXPR, void_type_node, label_decl_op0);
-  asn_op0_stmt = build2 (MODIFY_EXPR, TREE_TYPE (op0), sel_var, op0);
+  asn_op0_stmt = build_gimple_modify_stmt(sel_var, op0);
   SET_EXPR_LOCATION (asn_op0_stmt, locus);
   tmp_bsi = bsi_start (bb_op0);
   bsi_insert_after (&tmp_bsi, label_op0, BSI_NEW_STMT);
@@ -1641,7 +1081,7 @@ simp_min_max (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Insert labels and statements into op1 bb */
   label_op1 = build1 (LABEL_EXPR, void_type_node, label_decl_op1);
-  asn_op1_stmt = build2 (MODIFY_EXPR, TREE_TYPE (op1), sel_var, op1);
+  asn_op1_stmt = build_gimple_modify_stmt(sel_var, op1);
   SET_EXPR_LOCATION (asn_op1_stmt, locus);
   tmp_bsi = bsi_start (bb_op1);
   bsi_insert_after (&tmp_bsi, label_op1, BSI_NEW_STMT);
@@ -1688,7 +1128,7 @@ simp_cond_expr (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (then_op))
     {
       tree var = create_tmp_var (TREE_TYPE (then_op), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (then_op), var, then_op);
+      tree stmt = build_gimple_modify_stmt(var, then_op);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1699,7 +1139,7 @@ simp_cond_expr (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (else_op))
     {
       tree var = create_tmp_var (TREE_TYPE (else_op), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (else_op), var, else_op);
+      tree stmt = build_gimple_modify_stmt(var, else_op);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1740,7 +1180,7 @@ simp_cond_expr (block_stmt_iterator *bsi, tree *node_ptr)
   /* Insert labels and statements into then bb */
   sel_var = create_tmp_var (TREE_TYPE (node), "cilsimp");
   label_then = build1 (LABEL_EXPR, void_type_node, label_decl_then);
-  asn_then_stmt = build2 (MODIFY_EXPR, TREE_TYPE (then_op), sel_var, then_op);
+  asn_then_stmt = build_gimple_modify_stmt(sel_var, then_op);
   SET_EXPR_LOCATION (asn_then_stmt, locus);
   tmp_bsi = bsi_start (bb_then);
   bsi_insert_after (&tmp_bsi, label_then, BSI_NEW_STMT);
@@ -1748,7 +1188,7 @@ simp_cond_expr (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Insert labels and statements into else bb */
   label_else = build1 (LABEL_EXPR, void_type_node, label_decl_else);
-  asn_else_stmt = build2 (MODIFY_EXPR, TREE_TYPE (else_op), sel_var, else_op);
+  asn_else_stmt = build_gimple_modify_stmt(sel_var, else_op);
   SET_EXPR_LOCATION (asn_else_stmt, locus);
   tmp_bsi = bsi_start (bb_else);
   bsi_insert_after (&tmp_bsi, label_else, BSI_NEW_STMT);
@@ -1789,7 +1229,7 @@ simp_unordered_comp_expr (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (op0))
     {
       tree var = create_tmp_var (TREE_TYPE (op0), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op0), var, op0);
+      tree stmt = build_gimple_modify_stmt(var, op0);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1800,7 +1240,7 @@ simp_unordered_comp_expr (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (op1))
     {
       tree var = create_tmp_var (TREE_TYPE (op1), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op1), var, op1);
+      tree stmt = build_gimple_modify_stmt(var, op1);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1825,7 +1265,7 @@ simp_unordered_comp_expr (block_stmt_iterator *bsi, tree *node_ptr)
               fold_build2 (UNORDERED_EXPR, TREE_TYPE (node),
                            op0,
                            op1));
-  t = force_gimple_operand_bsi (bsi, t, TRUE, NULL);
+  t = force_gimple_operand_bsi (bsi, t, TRUE, NULL, TRUE, BSI_SAME_STMT);
 
   /* Update the current node */
   *node_ptr = t;
@@ -1855,7 +1295,7 @@ simp_ltgt_expr (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (op0))
     {
       tree var = create_tmp_var (TREE_TYPE (op0), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op0), var, op0);
+      tree stmt = build_gimple_modify_stmt(var, op0);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1866,7 +1306,7 @@ simp_ltgt_expr (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (op1))
     {
       tree var = create_tmp_var (TREE_TYPE (op1), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op1), var, op1);
+      tree stmt = build_gimple_modify_stmt(var, op1);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1882,7 +1322,7 @@ simp_ltgt_expr (block_stmt_iterator *bsi, tree *node_ptr)
               fold_build2 (GT_EXPR, TREE_TYPE (node),
                            op0,
                            op1));
-  t = force_gimple_operand_bsi (bsi, t, TRUE, NULL);
+  t = force_gimple_operand_bsi (bsi, t, TRUE, NULL, TRUE, BSI_SAME_STMT);
 
   /* Update the current node */
   *node_ptr = t;
@@ -1923,7 +1363,7 @@ simp_rotate (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (op0))
     {
       tree var = create_tmp_var (TREE_TYPE (op0), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op0), var, op0);
+      tree stmt = build_gimple_modify_stmt(var, op0);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1933,7 +1373,7 @@ simp_rotate (block_stmt_iterator *bsi, tree *node_ptr)
   if (is_copy_required (op1))
     {
       tree var = create_tmp_var (TREE_TYPE (op1), "cilsimp");
-      tree stmt = build2 (MODIFY_EXPR, TREE_TYPE (op1), var, op1);
+      tree stmt = build_gimple_modify_stmt(var, op1);
 
       SET_EXPR_LOCATION (stmt, locus);
       bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
@@ -1955,13 +1395,13 @@ simp_rotate (block_stmt_iterator *bsi, tree *node_ptr)
                                  op1));
 
   /* Gimplify the two shifts */
-  t1 = force_gimple_operand_bsi (bsi, t1, TRUE, NULL);
-  t2 = force_gimple_operand_bsi (bsi, t2, TRUE, NULL);
+  t1 = force_gimple_operand_bsi (bsi, t1, TRUE, NULL, TRUE, BSI_SAME_STMT);
+  t2 = force_gimple_operand_bsi (bsi, t2, TRUE, NULL, TRUE, BSI_SAME_STMT);
 
   /* Build the rotate result and gimplify it */
   t1 = build2 (BIT_IOR_EXPR, op0_uns_type, t1, t2);
   t1 = fold_convert (TREE_TYPE (TREE_OPERAND (node, 0)), t1);
-  t1 = force_gimple_operand_bsi (bsi, t1, TRUE, NULL);
+  t1 = force_gimple_operand_bsi (bsi, t1, TRUE, NULL, TRUE, BSI_SAME_STMT);
 
   /* Update the current node */
   *node_ptr = t1;
@@ -1986,7 +1426,7 @@ simp_shift (block_stmt_iterator *bsi, tree node)
   t = fold_convert (unsigned_intSI_type_node, TREE_OPERAND (node, 1));
 
   /* Gimplify the equivalent expression and update the current node */
-  TREE_OPERAND (node, 1) = force_gimple_operand_bsi (bsi, t, FALSE, NULL);
+  TREE_OPERAND (node, 1) = force_gimple_operand_bsi (bsi, t, FALSE, NULL, TRUE, BSI_SAME_STMT);
 }
 
 /* Expand the TARGET_MEM_REF pointed by NODE_PTR by inserting
@@ -2052,7 +1492,7 @@ simp_target_mem_ref (block_stmt_iterator *bsi, tree *node_ptr)
   t1 = build1 (INDIRECT_REF, TREE_TYPE (node), t1);
 
   /* Gimplify the equivalent expression and update the current node */
-  *node_ptr = force_gimple_operand_bsi (bsi, t1, FALSE, NULL);
+  *node_ptr = force_gimple_operand_bsi (bsi, t1, FALSE, NULL, TRUE, BSI_SAME_STMT);
 }
 
 /* Given NODE of code ARRAY_REF:
@@ -2128,17 +1568,17 @@ simp_array_ref (block_stmt_iterator *bsi, tree *node_ptr)
   /* Build the expression for the adress of the first array element */
   t1 = build1 (ADDR_EXPR, ptr_type, array_start);
   recompute_tree_invariant_for_addr_expr (t1);
-  t1 = force_gimple_operand_bsi (bsi, t1, FALSE, NULL);
+  t1 = force_gimple_operand_bsi (bsi, t1, FALSE, NULL, TRUE, BSI_SAME_STMT);
   t2 = create_tmp_var (ptr_type, "cilsimp");
-  stmt = build2 (MODIFY_EXPR, ptr_type, t2, t1);
+  stmt = build_gimple_modify_stmt(t2, t1);
   SET_EXPR_LOCATION (stmt, locus);
   bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
 
   /* Build the expression for the access to the array element */
-  t1 = fold_build2 (PLUS_EXPR, ptr_type,
+  t1 = fold_build2 (POINTER_PLUS_EXPR, ptr_type,
                     t2,
-                    fold_convert (ptr_type, array_disp));
-  t1 = force_gimple_operand_bsi (bsi, t1, TRUE, NULL);
+                    fold_convert (long_unsigned_type_node, array_disp));
+  t1 = force_gimple_operand_bsi (bsi, t1, TRUE, NULL, TRUE, BSI_SAME_STMT);
 
   /* Update the current node */
   *node_ptr = t1;
@@ -2185,17 +1625,15 @@ simp_bitfield (block_stmt_iterator *bsi, tree *node_ptr,
   /* Build the (gimplified) equivalent expression */
 
   tmp_var = create_tmp_var (obj_ptr_type, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, obj_ptr_type,
-                     tmp_var,
-                     build1 (ADDR_EXPR, obj_ptr_type, obj));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build1 (ADDR_EXPR, obj_ptr_type, obj));
   gcc_assert (TREE_CODE (obj) != CALL_EXPR);
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
   tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, new_type_ptr,
-                     tmp_var,
-                     build1 (NOP_EXPR, new_type_ptr, t));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build1 (NOP_EXPR, new_type_ptr, t));
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2203,20 +1641,18 @@ simp_bitfield (block_stmt_iterator *bsi, tree *node_ptr,
   if (off > 0)
     {
       tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
-      tmp_stmt = build2 (MODIFY_EXPR, new_type_ptr,
-                         tmp_var,
-                         build2 (PLUS_EXPR, new_type_ptr,
-                                 t,
-                                 build_int_cst (long_integer_type_node, off)));
+      tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                          build2 (POINTER_PLUS_EXPR, new_type_ptr,
+                                                  t,
+                                                  build_int_cst (long_unsigned_type_node, off)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
       t = tmp_var;
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
     }
 
   tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                     tmp_var,
-                     build1 (INDIRECT_REF, new_type, t));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build1 (INDIRECT_REF, new_type, t));
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2224,13 +1660,11 @@ simp_bitfield (block_stmt_iterator *bsi, tree *node_ptr,
   if (cont_size > bfld_size + bfld_off)
     {
       tmp_var = create_tmp_var (new_type, "cilsimp");
-      tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                         tmp_var,
-                         build2 (LSHIFT_EXPR, new_type,
-                                 t,
-                                 build_int_cstu (unsigned_intSI_type_node,
-                                                 cont_size
-                                                 - bfld_size - bfld_off)));
+      tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                          build2 (LSHIFT_EXPR, new_type,
+                                                  t,
+                                                  build_int_cstu (unsigned_intSI_type_node,
+                                                                  cont_size - bfld_size - bfld_off)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
       t = tmp_var;
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2239,12 +1673,11 @@ simp_bitfield (block_stmt_iterator *bsi, tree *node_ptr,
   if (cont_size > bfld_size)
     {
       tmp_var = create_tmp_var (new_type, "cilsimp");
-      tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                         tmp_var,
-                         build2 (RSHIFT_EXPR, new_type,
-                                 t,
-                                 build_int_cstu (unsigned_intSI_type_node,
-                                                 cont_size - bfld_size)));
+      tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                          build2 (RSHIFT_EXPR, new_type,
+                                                  t,
+                                                  build_int_cstu (unsigned_intSI_type_node,
+                                                                  cont_size - bfld_size)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
       t = tmp_var;
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2323,8 +1756,9 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 
   gcc_assert (TREE_CODE (node) == COMPONENT_REF);
   gcc_assert (DECL_BIT_FIELD (fld));
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR
-              && TREE_OPERAND (stmt, 0) == node);
+  gcc_assert ((TREE_CODE (stmt) == MODIFY_EXPR
+               || TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+              && GENERIC_TREE_OPERAND (stmt, 0) == node);
 
   /* Set that the object being accessed is addressable */
   UPDATE_ADDRESSABLE (obj);
@@ -2345,11 +1779,10 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
   obj_ptr_type = build_pointer_type (TREE_TYPE (obj));
 
   /* Convert the original rhs into the new type */
-  gcc_assert (TREE_CODE (TREE_OPERAND (stmt, 1)) == VAR_DECL);
+  gcc_assert (TREE_CODE (GENERIC_TREE_OPERAND (stmt, 1)) == VAR_DECL);
   tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                     tmp_var,
-                     build1 (NOP_EXPR, new_type, TREE_OPERAND (stmt, 1)));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build1 (NOP_EXPR, new_type, GENERIC_TREE_OPERAND (stmt, 1)));
   SET_EXPR_LOCATION (tmp_stmt, locus);
   rhs = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2358,12 +1791,11 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
   if (cont_size > bfld_size)
     {
       tmp_var = create_tmp_var (new_type, "cilsimp");
-      tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                         tmp_var,
-                         build2 (LSHIFT_EXPR, new_type,
-                                 rhs,
-                                 build_int_cstu (unsigned_intSI_type_node,
-                                                 cont_size - bfld_size)));
+      tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                          build2 (LSHIFT_EXPR, new_type,
+                                                  rhs,
+                                                  build_int_cstu (unsigned_intSI_type_node,
+                                                                  cont_size - bfld_size)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
       rhs = tmp_var;
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2374,13 +1806,11 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
                  therefore, the right shift doesn't introduce any 1 */
 
       tmp_var = create_tmp_var (new_type, "cilsimp");
-      tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                         tmp_var,
-                         build2 (RSHIFT_EXPR, new_type,
-                                 rhs,
-                                 build_int_cstu (unsigned_intSI_type_node,
-                                                 cont_size
-                                                 - bfld_size - bfld_off)));
+      tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                          build2 (RSHIFT_EXPR, new_type,
+                                                  rhs,
+                                                  build_int_cstu (unsigned_intSI_type_node,
+                                                                  cont_size - bfld_size - bfld_off)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
       rhs = tmp_var;
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2388,17 +1818,15 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Build expression to compute the address to be accessed */
   tmp_var = create_tmp_var (obj_ptr_type, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, obj_ptr_type,
-                     tmp_var,
-                     build1 (ADDR_EXPR, obj_ptr_type, obj));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build1 (ADDR_EXPR, obj_ptr_type, obj));
   gcc_assert (TREE_CODE (obj) != CALL_EXPR);
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
   tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, new_type_ptr,
-                     tmp_var,
-                     build1 (NOP_EXPR, new_type_ptr, t));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build1 (NOP_EXPR, new_type_ptr, t));
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2413,11 +1841,10 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
   if (off > 0)
     {
       tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
-      tmp_stmt = build2 (MODIFY_EXPR, new_type_ptr,
-                         tmp_var,
-                         build2 (PLUS_EXPR, new_type_ptr,
-                                 t,
-                                 build_int_cst (long_integer_type_node, off)));
+      tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                          build2 (POINTER_PLUS_EXPR, new_type_ptr,
+                                                  t,
+                                                  build_int_cst (long_unsigned_type_node, off)));
       SET_EXPR_LOCATION (tmp_stmt, locus);
       t = tmp_var;
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2426,9 +1853,8 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Read existing value at the address just computed */
   tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                     tmp_var,
-                     build1 (INDIRECT_REF, new_type, t));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build1 (INDIRECT_REF, new_type, t));
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
@@ -2441,31 +1867,29 @@ simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 
   /* Apply the mask to the existing value */
   tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                     tmp_var,
-                     build2 (BIT_AND_EXPR, new_type,
-                             t,
-                             build_int_cst_wide (new_type,
-                                                 mask,
-                                                 mask >> HOST_BITS_PER_WIDE_INT)));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build2 (BIT_AND_EXPR, new_type,
+                                              t,
+                                              build_int_cst_wide (new_type,
+                                                                  mask,
+                                                                  mask >> HOST_BITS_PER_WIDE_INT)));
   SET_EXPR_LOCATION (tmp_stmt, locus);
   t = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
 
   /* Compute the new value for the rhs of the current statement */
   tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build2 (MODIFY_EXPR, new_type,
-                     tmp_var,
-                     build2 (BIT_IOR_EXPR, new_type,
-                             rhs,
-                             t));
+  tmp_stmt = build_gimple_modify_stmt(tmp_var,
+                                      build2 (BIT_IOR_EXPR, new_type,
+                                              rhs,
+                                              t));
   SET_EXPR_LOCATION (tmp_stmt, locus);
   rhs = tmp_var;
   bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
 
   /* Update the current statement (and the current node) */
   *node_ptr = build1 (INDIRECT_REF, new_type, addr);
-  TREE_OPERAND (stmt, 1) = rhs;
+  GENERIC_TREE_OPERAND (stmt, 1) = rhs;
 }
 
 /* Expand the BIT_FIELD_REF (pointed by NODE_PTR) by transforming it
@@ -2526,18 +1950,17 @@ simp_bitfield_ref (block_stmt_iterator *bsi, tree *node_ptr)
    BSI is passed by reference because instructions are inserted.   */
 
 static void
-pre_simp_init (block_stmt_iterator *bsi, tree node)
+pre_simp_init (block_stmt_iterator *bsi, tree node, tree lhs, tree rhs)
 {
   location_t locus = EXPR_LOCATION (bsi_stmt (*bsi));
-  tree lhs = TREE_OPERAND (node, 0);
-  tree rhs = TREE_OPERAND (node, 1);
   tree stmt_list = 0;
   block_stmt_iterator tmp_bsi;
   tree_stmt_iterator i;
 
   gcc_assert (bsi_stmt (*bsi) == node);
   gcc_assert (TREE_CODE (node) == INIT_EXPR
-              || TREE_CODE (node) == MODIFY_EXPR);
+              || TREE_CODE (node) == MODIFY_EXPR
+              || TREE_CODE (node) == GIMPLE_MODIFY_STMT);
   gcc_assert (TREE_CODE (rhs) == CONSTRUCTOR || TREE_CODE (rhs) == STRING_CST);
 
   /* Expand the constructor into a separate statement list */
@@ -2556,7 +1979,7 @@ pre_simp_init (block_stmt_iterator *bsi, tree node)
       /* Insert the new statements before the old */
       stmt = tsi_stmt (i);
       if (TREE_CODE (stmt) == STATEMENT_LIST)
-	{
+        {
           tree_stmt_iterator j;
 
           for (j = tsi_start (stmt); !tsi_end_p (j); tsi_next (&j))
@@ -2566,7 +1989,7 @@ pre_simp_init (block_stmt_iterator *bsi, tree node)
               SET_EXPR_LOCATION (t, locus);
               bsi_insert_after (&tmp_bsi, t, BSI_NEW_STMT);
             }
-	}
+        }
       else if (stmt != NULL)
         {
           SET_EXPR_LOCATION (stmt, locus);
@@ -2602,7 +2025,7 @@ split_use (block_stmt_iterator bsi, tree *node_ptr, bool local)
 
   /* Split the current statement by creating a new local variable */
   var = create_tmp_var (type, "cilsimp");
-  stmt = build2 (MODIFY_EXPR, type, var, node);
+  stmt = build_gimple_modify_stmt(var, node);
   SET_EXPR_LOCATION (stmt, locus);
   bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
   *node_ptr = var;
@@ -3030,7 +2453,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 
             /* Note that the args list must be reversed. Can do better? */
             fun = build_function_call_expr (ctor_fun, nreverse (args));
-            stmt = build2 (MODIFY_EXPR, TREE_TYPE (decl), decl, fun);
+            stmt = build_gimple_modify_stmt(decl, fun);
             append_to_statement_list (stmt, stmt_list1);
             append_to_statement_list (stmt, stmt_list2);
           }
@@ -3045,7 +2468,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
     case INTEGER_CST:
       {
         int type_size = TREE_INT_CST_LOW (decl_size);
-        tree t = build2 (MODIFY_EXPR, TREE_TYPE (decl), decl, init);
+        tree t = build_gimple_modify_stmt(decl, init);
         append_to_statement_list (t, stmt_list1);
 
         if (le_image != NULL)
@@ -3104,7 +2527,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
       /* Missing optimization, fall through for now */
     default:
       {
-        tree t = build2 (MODIFY_EXPR, TREE_TYPE (decl), decl, init);
+        tree t = build_gimple_modify_stmt(decl, init);
         append_to_statement_list (t, stmt_list1);
         append_to_statement_list (t, stmt_list2);
       }
@@ -3259,7 +2682,7 @@ simp_vars (void)
 
           DECL_INITIAL (var) = NULL_TREE;
           bsi_insert_before (&bsi,
-                             build2 (MODIFY_EXPR, TREE_TYPE (var), var, init),
+                             build_gimple_modify_stmt(var, init),
                              BSI_SAME_STMT);
         }
     }
@@ -3268,11 +2691,12 @@ simp_vars (void)
 /* Simplify pass that makes CIL emission easier. */
 
 static unsigned int
-simp_cil (void)
+simp_cil_final (void)
 {
   basic_block bb;
   block_stmt_iterator bsi;
 
+  simp_final = true;
   push_gimplify_context ();
   res_var = NULL_TREE;
 
@@ -3290,17 +2714,19 @@ simp_cil (void)
         {
           tree stmt = bsi_stmt (bsi);
 
-          if (TREE_CODE (stmt) == INIT_EXPR || TREE_CODE (stmt) == MODIFY_EXPR)
+          if (TREE_CODE (stmt) == INIT_EXPR
+              || TREE_CODE (stmt) == MODIFY_EXPR
+              || TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
             {
-              tree lhs = TREE_OPERAND (stmt, 0);
-              tree rhs = TREE_OPERAND (stmt, 1);
+              tree lhs = GENERIC_TREE_OPERAND (stmt, 0);
+              tree rhs = GENERIC_TREE_OPERAND (stmt, 1);
 
               if (TREE_CODE (rhs) == CONSTRUCTOR
                   || TREE_CODE (rhs) == STRING_CST)
-                pre_simp_init (&bsi, stmt);
+                pre_simp_init (&bsi, stmt, lhs, rhs);
               else if (TREE_CODE (lhs) == COMPONENT_REF
                        && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
-                split_use (bsi, &TREE_OPERAND (stmt, 1), false);
+                split_use (bsi, &GENERIC_TREE_OPERAND (stmt, 1), false);
             }
         }
     }
@@ -3340,20 +2766,6 @@ simp_cil (void)
   return 0;
 }
 
-static unsigned int
-simp_cil_early (void)
-{
-  simp_final = false;
-  return simp_cil ();
-}
-
-static unsigned int
-simp_cil_final (void)
-{
-  simp_final = true;
-  return simp_cil ();
-}
-
 /* Gate function of CIL simplify pass. */
 
 static bool
@@ -3362,44 +2774,24 @@ simp_cil_gate (void)
   return current_function_decl != NULL;
 }
 
-/* Define the parameters of the tree-simp-CIL pass.  */
-
-struct tree_opt_pass pass_simp_cil_early =
-{
-  "simpcil",                            /* name */
-  simp_cil_gate,			/* gate */
-  simp_cil_early,			        /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_REST_OF_COMPILATION,		/* tv_id */
-  PROP_cfg,                     	/* properties_required */
-  0,					/* properties_provided */
-  /* ??? If TER is enabled, we also kill gimple.  */
-  0,    				/* properties_destroyed */
-  0,
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
-};
-
 /* Define the parameters of the tree-final-simp-CIL pass.  */
 
 struct tree_opt_pass pass_simp_cil_final =
 {
-  "finsimpcil",                            /* name */
-  simp_cil_gate,			/* gate */
-  simp_cil_final,		        /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_REST_OF_COMPILATION,		/* tv_id */
-  PROP_cfg,                     	/* properties_required */
-  0,					/* properties_provided */
+  "finsimpcil",                         /* name */
+  simp_cil_gate,                        /* gate */
+  simp_cil_final,                       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SIMP_CIL,                          /* tv_id */
+  PROP_cfg,                             /* properties_required */
+  0,                                    /* properties_provided */
   /* ??? If TER is enabled, we also kill gimple.  */
-  0,    				/* properties_destroyed */
+  0,                                    /* properties_destroyed */
   0,
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
 };
 
 /*

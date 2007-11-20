@@ -1,12 +1,12 @@
 /* Callgraph based analysis of static variables.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file mark functions as being either const (TREE_READONLY) or
    pure (DECL_IS_PURE).
@@ -80,8 +79,8 @@ typedef struct funct_state_d * funct_state;
 static inline funct_state
 get_function_state (struct cgraph_node *node)
 {
-  struct ipa_dfs_info * info = node->aux;
-  return info->aux;
+  struct ipa_dfs_info * info = (struct ipa_dfs_info *) node->aux;
+  return (funct_state) info->aux;
 }
 
 /* Check to see if the use (or definition when CHECHING_WRITE is true) 
@@ -163,8 +162,17 @@ check_operand (funct_state local,
 static void
 check_tree (funct_state local, tree t, bool checking_write)
 {
-  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR))
+  if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR)
+      || TREE_CODE (t) == SSA_NAME)
     return;
+
+  /* Any tree which is volatile disqualifies thie function from being
+     const or pure. */
+  if (TREE_THIS_VOLATILE (t))
+    {
+      local->pure_const_state = IPA_NEITHER;
+      return;
+    }
 
   while (TREE_CODE (t) == REALPART_EXPR 
 	 || TREE_CODE (t) == IMAGPART_EXPR
@@ -183,12 +191,13 @@ check_tree (funct_state local, tree t, bool checking_write)
       
       /* Any indirect reference that occurs on the lhs
 	 disqualifies the function from being pure or const. Any
-	 indirect reference to a volatile disqualifies the
-	 function from being pure or const.  Any indirect
-	 reference that occurs on the rhs disqualifies the
+	 indirect reference that occurs on the rhs disqualifies the
 	 function from being const.  */
-      if (checking_write || TREE_THIS_VOLATILE (t)) 
-	local->pure_const_state = IPA_NEITHER;
+      if (checking_write) 
+	{
+	  local->pure_const_state = IPA_NEITHER;
+	  return;
+	}
       else if (local->pure_const_state == IPA_CONST)
 	local->pure_const_state = IPA_PURE;
     }
@@ -306,20 +315,15 @@ get_asm_expr_operands (funct_state local, tree stmt)
 static void
 check_call (funct_state local, tree call_expr) 
 {
-  int flags = call_expr_flags(call_expr);
-  tree operand_list = TREE_OPERAND (call_expr, 1);
+  int flags = call_expr_flags (call_expr);
   tree operand;
+  call_expr_arg_iterator iter;
   tree callee_t = get_callee_fndecl (call_expr);
   struct cgraph_node* callee;
   enum availability avail = AVAIL_NOT_AVAILABLE;
 
-  for (operand = operand_list;
-       operand != NULL_TREE;
-       operand = TREE_CHAIN (operand))
-    {
-      tree argument = TREE_VALUE (operand);
-      check_rhs_var (local, argument);
-    }
+  FOR_EACH_CALL_EXPR_ARG (operand, iter, call_expr)
+    check_rhs_var (local, operand);
   
   /* The const and pure flags are set by a variety of places in the
      compiler (including here).  If someone has already set the flags
@@ -391,7 +395,7 @@ scan_function (tree *tp,
 		      int *walk_subtrees, 
 		      void *data)
 {
-  struct cgraph_node *fn = data;
+  struct cgraph_node *fn = (struct cgraph_node *) data;
   tree t = *tp;
   funct_state local = get_function_state (fn);
 
@@ -403,11 +407,11 @@ scan_function (tree *tp,
       *walk_subtrees = 0;
       break;
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       {
 	/* First look on the lhs and see what variable is stored to */
-	tree lhs = TREE_OPERAND (t, 0);
-	tree rhs = TREE_OPERAND (t, 1);
+	tree lhs = GIMPLE_STMT_OPERAND (t, 0);
+	tree rhs = GIMPLE_STMT_OPERAND (t, 1);
 	check_lhs_var (local, lhs);
 
 	/* For the purposes of figuring out what the cast affects */
@@ -442,7 +446,14 @@ scan_function (tree *tp,
 	      case ADDR_EXPR:
 		check_rhs_var (local, rhs);
 		break;
-	      case CALL_EXPR: 
+	      default:
+		break;
+	      }
+	    break;
+	  case tcc_vl_exp:
+	    switch (TREE_CODE (rhs)) 
+	      {
+	      case CALL_EXPR:
 		check_call (local, rhs);
 		break;
 	      default:
@@ -493,7 +504,7 @@ analyze_function (struct cgraph_node *fn)
 {
   funct_state l = XCNEW (struct funct_state_d);
   tree decl = fn->decl;
-  struct ipa_dfs_info * w_info = fn->aux;
+  struct ipa_dfs_info * w_info = (struct ipa_dfs_info *) fn->aux;
 
   w_info->aux = l;
 
@@ -541,7 +552,7 @@ analyze_function (struct cgraph_node *fn)
 	      walk_tree (bsi_stmt_ptr (bsi), scan_function, 
 			 fn, visited_nodes);
 	      if (l->pure_const_state == IPA_NEITHER) 
-		return;
+		goto end;
 	    }
 	}
 
@@ -568,6 +579,14 @@ analyze_function (struct cgraph_node *fn)
 	  pop_cfun ();
 	}
     }
+
+end:
+  if (dump_file)
+    {
+      fprintf (dump_file, "after local analysis of %s with initial value = %d\n ", 
+	       cgraph_node_name (fn),
+	       l->pure_const_state);
+    }
 }
 
 
@@ -582,7 +601,7 @@ static_execute (void)
   struct cgraph_node *w;
   struct cgraph_node **order =
     XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
-  int order_pos = order_pos = ipa_utils_reduced_inorder (order, true, false);
+  int order_pos = ipa_utils_reduced_inorder (order, true, false);
   int i;
   struct ipa_dfs_info * w_info;
 
@@ -653,7 +672,7 @@ static_execute (void)
 		    }
 		}
 	    }
-	  w_info = w->aux;
+	  w_info = (struct ipa_dfs_info *) w->aux;
 	  w = w_info->next_cycle;
 	}
 
@@ -688,7 +707,7 @@ static_execute (void)
 		  break;
 		}
 	    }
-	  w_info = w->aux;
+	  w_info = (struct ipa_dfs_info *) w->aux;
 	  w = w_info->next_cycle;
 	}
     }
@@ -698,7 +717,7 @@ static_execute (void)
     /* Get rid of the aux information.  */
     if (node->aux)
       {
-	w_info = node->aux;
+	w_info = (struct ipa_dfs_info *) node->aux;
 	if (w_info->aux)
 	  free (w_info->aux);
 	free (node->aux);

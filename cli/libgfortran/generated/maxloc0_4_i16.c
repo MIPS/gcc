@@ -31,7 +31,6 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
-#include <float.h>
 #include <limits.h>
 #include "libgfortran.h"
 
@@ -103,7 +102,7 @@ maxloc0_4_i16 (gfc_array_i4 * const restrict retarray,
 
   GFC_INTEGER_16 maxval;
 
-  maxval = -GFC_INTEGER_16_HUGE;
+  maxval = (-GFC_INTEGER_16_HUGE-1);
 
   while (base)
     {
@@ -128,7 +127,7 @@ maxloc0_4_i16 (gfc_array_i4 * const restrict retarray,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           base -= sstride[n] * extent[n];
           n++;
           if (n == rank)
@@ -227,7 +226,7 @@ mmaxloc0_4_i16 (gfc_array_i4 * const restrict retarray,
 
   GFC_INTEGER_16 maxval;
 
-  maxval = -GFC_INTEGER_16_HUGE;
+  maxval = (-GFC_INTEGER_16_HUGE-1);
 
   while (base)
     {
@@ -253,7 +252,7 @@ mmaxloc0_4_i16 (gfc_array_i4 * const restrict retarray,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           base -= sstride[n] * extent[n];
           mbase -= mstride[n] * extent[n];
           n++;

@@ -1,11 +1,11 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -39,13 +38,15 @@ Boston, MA 02110-1301, USA.  */
 #include "toplev.h"
 #include "debug.h"
 #include "params.h"
+#include "tree-inline.h"
+#include "value-prof.h"
 
 /* Verify that there is exactly single jump instruction since last and attach
    REG_BR_PROB note specifying probability.
    ??? We really ought to pass the probability down to RTL expanders and let it
    re-distribute it when the conditional expands into multiple conditionals.
    This is however difficult to do.  */
-static void
+void
 add_reg_br_prob_note (rtx last, int probability)
 {
   if (profile_status == PROFILE_ABSENT)
@@ -350,10 +351,18 @@ stack_var_size_cmp (const void *a, const void *b)
 {
   HOST_WIDE_INT sa = stack_vars[*(const size_t *)a].size;
   HOST_WIDE_INT sb = stack_vars[*(const size_t *)b].size;
+  unsigned int uida = DECL_UID (stack_vars[*(const size_t *)a].decl);
+  unsigned int uidb = DECL_UID (stack_vars[*(const size_t *)b].decl);
 
   if (sa < sb)
     return -1;
   if (sa > sb)
+    return 1;
+  /* For stack variables of the same size use the uid of the decl
+     to make the sort stable.  */
+  if (uida < uidb)
+    return -1;
+  if (uida > uidb)
     return 1;
   return 0;
 }
@@ -575,6 +584,28 @@ expand_stack_vars (bool (*pred) (tree))
     }
 }
 
+/* Take into account all sizes of partitions and reset DECL_RTLs.  */
+static HOST_WIDE_INT
+account_stack_vars (void)
+{
+  size_t si, j, i, n = stack_vars_num;
+  HOST_WIDE_INT size = 0;
+
+  for (si = 0; si < n; ++si)
+    {
+      i = stack_vars_sorted[si];
+
+      /* Skip variables that aren't partition representatives, for now.  */
+      if (stack_vars[i].representative != i)
+	continue;
+
+      size += stack_vars[i].size;
+      for (j = i; j != EOC; j = stack_vars[j].next)
+	SET_DECL_RTL (stack_vars[j].decl, NULL);
+    }
+  return size;
+}
+
 /* A subroutine of expand_one_var.  Called to immediately assign rtl
    to a variable to be allocated in the stack frame.  */
 
@@ -713,31 +744,54 @@ defer_stack_allocation (tree var, bool toplevel)
 
 /* A subroutine of expand_used_vars.  Expand one variable according to
    its flavor.  Variables to be placed on the stack are not actually
-   expanded yet, merely recorded.  */
+   expanded yet, merely recorded.  
+   When REALLY_EXPAND is false, only add stack values to be allocated.
+   Return stack usage this variable is supposed to take.
+*/
 
-static void
-expand_one_var (tree var, bool toplevel)
+static HOST_WIDE_INT
+expand_one_var (tree var, bool toplevel, bool really_expand)
 {
   if (TREE_CODE (var) != VAR_DECL)
-    lang_hooks.expand_decl (var);
+    {
+      if (really_expand)
+        lang_hooks.expand_decl (var);
+    }
   else if (DECL_EXTERNAL (var))
     ;
   else if (DECL_HAS_VALUE_EXPR_P (var))
     ;
   else if (TREE_STATIC (var))
-    expand_one_static_var (var);
+    {
+      if (really_expand)
+        expand_one_static_var (var);
+    }
   else if (DECL_RTL_SET_P (var))
     ;
   else if (TREE_TYPE (var) == error_mark_node)
-    expand_one_error_var (var);
+    {
+      if (really_expand)
+        expand_one_error_var (var);
+    }
   else if (DECL_HARD_REGISTER (var))
-    expand_one_hard_reg_var (var);
+    {
+      if (really_expand)
+        expand_one_hard_reg_var (var);
+    }
   else if (use_register_for_decl (var))
-    expand_one_register_var (var);
+    {
+      if (really_expand)
+        expand_one_register_var (var);
+    }
   else if (defer_stack_allocation (var, toplevel))
     add_stack_var (var);
   else
-    expand_one_stack_var (var);
+    {
+      if (really_expand)
+        expand_one_stack_var (var);
+      return tree_low_cst (DECL_SIZE_UNIT (var), 1);
+    }
+  return 0;
 }
 
 /* A subroutine of expand_used_vars.  Walk down through the BLOCK tree
@@ -756,8 +810,13 @@ expand_used_vars_for_block (tree block, bool toplevel)
 
   /* Expand all variables at this level.  */
   for (t = BLOCK_VARS (block); t ; t = TREE_CHAIN (t))
-    if (TREE_USED (t))
-      expand_one_var (t, toplevel);
+    if (TREE_USED (t)
+	/* Force local static variables to be output when marked by
+	   used attribute.  For unit-at-a-time, cgraph code already takes
+	   care of this.  */
+	|| (!flag_unit_at_a_time && TREE_STATIC (t)
+	    && DECL_PRESERVE_P (t)))
+      expand_one_var (t, toplevel, true);
 
   this_sv_num = stack_vars_num;
 
@@ -934,6 +993,122 @@ create_stack_guard (void)
   cfun->stack_protect_guard = guard;
 }
 
+/* A subroutine of expand_used_vars.  Walk down through the BLOCK tree
+   expanding variables.  Those variables that can be put into registers
+   are allocated pseudos; those that can't are put on the stack.
+
+   TOPLEVEL is true if this is the outermost BLOCK.  */
+
+static HOST_WIDE_INT
+account_used_vars_for_block (tree block, bool toplevel)
+{
+  size_t i, j, old_sv_num, this_sv_num, new_sv_num;
+  tree t;
+  HOST_WIDE_INT size = 0;
+
+  old_sv_num = toplevel ? 0 : stack_vars_num;
+
+  /* Expand all variables at this level.  */
+  for (t = BLOCK_VARS (block); t ; t = TREE_CHAIN (t))
+    if (TREE_USED (t))
+      size += expand_one_var (t, toplevel, false);
+
+  this_sv_num = stack_vars_num;
+
+  /* Expand all variables at containing levels.  */
+  for (t = BLOCK_SUBBLOCKS (block); t ; t = BLOCK_CHAIN (t))
+    size += account_used_vars_for_block (t, false);
+
+  /* Since we do not track exact variable lifetimes (which is not even
+     possible for variables whose address escapes), we mirror the block
+     tree in the interference graph.  Here we cause all variables at this
+     level, and all sublevels, to conflict.  Do make certain that a
+     variable conflicts with itself.  */
+  if (old_sv_num < this_sv_num)
+    {
+      new_sv_num = stack_vars_num;
+      resize_stack_vars_conflict (new_sv_num);
+
+      for (i = old_sv_num; i < new_sv_num; ++i)
+	for (j = i < this_sv_num ? i+1 : this_sv_num; j-- > old_sv_num ;)
+	  add_stack_var_conflict (i, j);
+    }
+  return size;
+}
+
+/* Prepare for expanding variables.  */
+static void 
+init_vars_expansion (void)
+{
+  tree t;
+  /* Set TREE_USED on all variables in the unexpanded_var_list.  */
+  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+    TREE_USED (TREE_VALUE (t)) = 1;
+
+  /* Clear TREE_USED on all variables associated with a block scope.  */
+  clear_tree_used (DECL_INITIAL (current_function_decl));
+
+  /* Initialize local stack smashing state.  */
+  has_protected_decls = false;
+  has_short_buffer = false;
+}
+
+/* Free up stack variable graph data.  */
+static void
+fini_vars_expansion (void)
+{
+  XDELETEVEC (stack_vars);
+  XDELETEVEC (stack_vars_sorted);
+  XDELETEVEC (stack_vars_conflict);
+  stack_vars = NULL;
+  stack_vars_alloc = stack_vars_num = 0;
+  stack_vars_conflict = NULL;
+  stack_vars_conflict_alloc = 0;
+}
+
+HOST_WIDE_INT
+estimated_stack_frame_size (void)
+{
+  HOST_WIDE_INT size = 0;
+  tree t, outer_block = DECL_INITIAL (current_function_decl);
+
+  init_vars_expansion ();
+
+  /* At this point all variables on the unexpanded_var_list with TREE_USED
+     set are not associated with any block scope.  Lay them out.  */
+  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+    {
+      tree var = TREE_VALUE (t);
+
+      if (TREE_USED (var))
+        size += expand_one_var (var, true, false);
+      TREE_USED (var) = 1;
+    }
+  size += account_used_vars_for_block (outer_block, true);
+  if (stack_vars_num > 0)
+    {
+      /* Due to the way alias sets work, no variables with non-conflicting
+	 alias sets may be assigned the same address.  Add conflicts to
+	 reflect this.  */
+      add_alias_set_conflicts ();
+
+      /* If stack protection is enabled, we don't share space between
+	 vulnerable data and non-vulnerable data.  */
+      if (flag_stack_protect)
+	add_stack_protection_conflicts ();
+
+      /* Now that we have collected all stack variables, and have computed a
+	 minimal interference graph, attempt to save some stack space.  */
+      partition_stack_vars ();
+      if (dump_file)
+	dump_stack_var_partition ();
+
+      size += account_stack_vars ();
+      fini_vars_expansion ();
+    }
+  return size;
+}
+
 /* Expand all variables used in the function.  */
 
 static void
@@ -948,16 +1123,7 @@ expand_used_vars (void)
     frame_phase = off ? align - off : 0;
   }
 
-  /* Set TREE_USED on all variables in the unexpanded_var_list.  */
-  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
-    TREE_USED (TREE_VALUE (t)) = 1;
-
-  /* Clear TREE_USED on all variables associated with a block scope.  */
-  clear_tree_used (outer_block);
-
-  /* Initialize local stack smashing state.  */
-  has_protected_decls = false;
-  has_short_buffer = false;
+  init_vars_expansion ();
 
   /* At this point all variables on the unexpanded_var_list with TREE_USED
      set are not associated with any block scope.  Lay them out.  */
@@ -992,7 +1158,7 @@ expand_used_vars (void)
       TREE_USED (var) = 1;
 
       if (expand_now)
-	expand_one_var (var, true);
+	expand_one_var (var, true, true);
     }
   cfun->unexpanded_var_list = NULL_TREE;
 
@@ -1046,14 +1212,7 @@ expand_used_vars (void)
 
       expand_stack_vars (NULL);
 
-      /* Free up stack variable graph data.  */
-      XDELETEVEC (stack_vars);
-      XDELETEVEC (stack_vars_sorted);
-      XDELETEVEC (stack_vars_conflict);
-      stack_vars = NULL;
-      stack_vars_alloc = stack_vars_num = 0;
-      stack_vars_conflict = NULL;
-      stack_vars_conflict_alloc = 0;
+      fini_vars_expansion ();
     }
 
   /* If the target requires that FRAME_OFFSET be aligned, do it.  */
@@ -1084,6 +1243,46 @@ maybe_dump_rtl_for_tree_stmt (tree stmt, rtx since)
     }
 }
 
+/* Maps the blocks that do not contain tree labels to rtx labels.  */
+
+static struct pointer_map_t *lab_rtx_for_bb;
+
+/* Returns the label_rtx expression for a label starting basic block BB.  */
+
+static rtx
+label_rtx_for_bb (basic_block bb)
+{
+  tree_stmt_iterator tsi;
+  tree lab, lab_stmt;
+  void **elt;
+
+  if (bb->flags & BB_RTL)
+    return block_label (bb);
+
+  elt = pointer_map_contains (lab_rtx_for_bb, bb);
+  if (elt)
+    return (rtx) *elt;
+
+  /* Find the tree label if it is present.  */
+     
+  for (tsi = tsi_start (bb_stmt_list (bb)); !tsi_end_p (tsi); tsi_next (&tsi))
+    {
+      lab_stmt = tsi_stmt (tsi);
+      if (TREE_CODE (lab_stmt) != LABEL_EXPR)
+	break;
+
+      lab = LABEL_EXPR_LABEL (lab_stmt);
+      if (DECL_NONLOCAL (lab))
+	break;
+
+      return label_rtx (lab);
+    }
+
+  elt = pointer_map_insert (lab_rtx_for_bb, bb);
+  *elt = gen_label_rtx ();
+  return (rtx) *elt;
+}
+
 /* A subroutine of expand_gimple_basic_block.  Expand one COND_EXPR.
    Returns a new basic block if we've terminated the current basic
    block and created a new one.  */
@@ -1096,17 +1295,17 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
   edge true_edge;
   edge false_edge;
   tree pred = COND_EXPR_COND (stmt);
-  tree then_exp = COND_EXPR_THEN (stmt);
-  tree else_exp = COND_EXPR_ELSE (stmt);
   rtx last2, last;
 
+  gcc_assert (COND_EXPR_THEN (stmt) == NULL_TREE);
+  gcc_assert (COND_EXPR_ELSE (stmt) == NULL_TREE);
   last2 = last = get_last_insn ();
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
   if (EXPR_LOCUS (stmt))
     {
-      emit_line_note (*(EXPR_LOCUS (stmt)));
-      record_block_change (TREE_BLOCK (stmt));
+      set_curr_insn_source_location (*(EXPR_LOCUS (stmt)));
+      set_curr_insn_block (TREE_BLOCK (stmt));
     }
 
   /* These flags have no purpose in RTL land.  */
@@ -1115,31 +1314,31 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 
   /* We can either have a pure conditional jump with one fallthru edge or
      two-way jump that needs to be decomposed into two basic blocks.  */
-  if (TREE_CODE (then_exp) == GOTO_EXPR && IS_EMPTY_STMT (else_exp))
+  if (false_edge->dest == bb->next_bb)
     {
-      jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
+      jumpif (pred, label_rtx_for_bb (true_edge->dest));
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
-      if (EXPR_LOCUS (then_exp))
-	emit_line_note (*(EXPR_LOCUS (then_exp)));
+      if (true_edge->goto_locus)
+  	set_curr_insn_source_location (*true_edge->goto_locus);
+      false_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
-  if (TREE_CODE (else_exp) == GOTO_EXPR && IS_EMPTY_STMT (then_exp))
+  if (true_edge->dest == bb->next_bb)
     {
-      jumpifnot (pred, label_rtx (GOTO_DESTINATION (else_exp)));
+      jumpifnot (pred, label_rtx_for_bb (false_edge->dest));
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_tree_stmt (stmt, last);
-      if (EXPR_LOCUS (else_exp))
-	emit_line_note (*(EXPR_LOCUS (else_exp)));
+      if (false_edge->goto_locus)
+  	set_curr_insn_source_location (*false_edge->goto_locus);
+      true_edge->flags |= EDGE_FALLTHRU;
       return NULL;
     }
-  gcc_assert (TREE_CODE (then_exp) == GOTO_EXPR
-	      && TREE_CODE (else_exp) == GOTO_EXPR);
 
-  jumpif (pred, label_rtx (GOTO_DESTINATION (then_exp)));
+  jumpif (pred, label_rtx_for_bb (true_edge->dest));
   add_reg_br_prob_note (last, true_edge->probability);
   last = get_last_insn ();
-  expand_expr (else_exp, const0_rtx, VOIDmode, 0);
+  emit_jump (label_rtx_for_bb (false_edge->dest));
 
   BB_END (bb) = last;
   if (BARRIER_P (BB_END (bb)))
@@ -1161,8 +1360,8 @@ expand_gimple_cond_expr (basic_block bb, tree stmt)
 
   maybe_dump_rtl_for_tree_stmt (stmt, last2);
 
-  if (EXPR_LOCUS (else_exp))
-    emit_line_note (*(EXPR_LOCUS (else_exp)));
+  if (false_edge->goto_locus)
+    set_curr_insn_source_location (*false_edge->goto_locus);
 
   return new_bb;
 }
@@ -1279,11 +1478,13 @@ expand_gimple_tailcall (basic_block bb, tree stmt, bool *can_fallthru)
 static basic_block
 expand_gimple_basic_block (basic_block bb)
 {
-  block_stmt_iterator bsi = bsi_start (bb);
+  tree_stmt_iterator tsi;
+  tree stmts = bb_stmt_list (bb);
   tree stmt = NULL;
   rtx note, last;
   edge e;
   edge_iterator ei;
+  void **elt;
 
   if (dump_file)
     {
@@ -1292,24 +1493,57 @@ expand_gimple_basic_block (basic_block bb)
 	       bb->index);
     }
 
+  bb->il.tree = NULL;
   init_rtl_bb_info (bb);
   bb->flags |= BB_RTL;
 
-  if (!bsi_end_p (bsi))
-    stmt = bsi_stmt (bsi);
+  /* Remove the RETURN_EXPR if we may fall though to the exit
+     instead.  */
+  tsi = tsi_last (stmts);
+  if (!tsi_end_p (tsi)
+      && TREE_CODE (tsi_stmt (tsi)) == RETURN_EXPR)
+    {
+      tree ret_stmt = tsi_stmt (tsi);
 
-  if (stmt && TREE_CODE (stmt) == LABEL_EXPR)
+      gcc_assert (single_succ_p (bb));
+      gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR);
+
+      if (bb->next_bb == EXIT_BLOCK_PTR
+	  && !TREE_OPERAND (ret_stmt, 0))
+	{
+	  tsi_delink (&tsi);
+	  single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
+	}
+    }
+
+  tsi = tsi_start (stmts);
+  if (!tsi_end_p (tsi))
+    {
+      stmt = tsi_stmt (tsi);
+      if (TREE_CODE (stmt) != LABEL_EXPR)
+	stmt = NULL_TREE;
+    }
+
+  elt = pointer_map_contains (lab_rtx_for_bb, bb);
+
+  if (stmt || elt)
     {
       last = get_last_insn ();
 
-      expand_expr_stmt (stmt);
+      if (stmt)
+	{
+	  expand_expr_stmt (stmt);
+	  tsi_next (&tsi);
+	}
+
+      if (elt)
+	emit_label ((rtx) *elt);
 
       /* Java emits line number notes in the top of labels.
 	 ??? Make this go away once line number notes are obsoleted.  */
       BB_HEAD (bb) = NEXT_INSN (last);
       if (NOTE_P (BB_HEAD (bb)))
 	BB_HEAD (bb) = NEXT_INSN (BB_HEAD (bb));
-      bsi_next (&bsi);
       note = emit_note_after (NOTE_INSN_BASIC_BLOCK, BB_HEAD (bb));
 
       maybe_dump_rtl_for_tree_stmt (stmt, last);
@@ -1333,9 +1567,9 @@ expand_gimple_basic_block (basic_block bb)
 	ei_next (&ei);
     }
 
-  for (; !bsi_end_p (bsi); bsi_next (&bsi))
+  for (; !tsi_end_p (tsi); tsi_next (&tsi))
     {
-      tree stmt = bsi_stmt (bsi);
+      tree stmt = tsi_stmt (tsi);
       basic_block new_bb;
 
       if (!stmt)
@@ -1352,6 +1586,16 @@ expand_gimple_basic_block (basic_block bb)
       else
 	{
 	  tree call = get_call_expr_in (stmt);
+	  int region;
+	  /* For the benefit of calls.c, converting all this to rtl,
+	     we need to record the call expression, not just the outer
+	     modify statement.  */
+	  if (call && call != stmt)
+	    {
+	      if ((region = lookup_stmt_eh_region (stmt)) > 0)
+	        add_stmt_to_eh_region (call, region);
+	      gimple_duplicate_stmt_histograms (cfun, call, cfun, stmt);
+	    }
 	  if (call && CALL_EXPR_TAILCALL (call))
 	    {
 	      bool can_fallthru;
@@ -1371,6 +1615,21 @@ expand_gimple_basic_block (basic_block bb)
 	      maybe_dump_rtl_for_tree_stmt (stmt, last);
 	    }
 	}
+    }
+
+  /* Expand implicit goto.  */
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      if (e->flags & EDGE_FALLTHRU)
+	break;
+    }
+
+  if (e && e->dest != bb->next_bb)
+    {
+      emit_jump (label_rtx_for_bb (e->dest));
+      if (e->goto_locus)
+        set_curr_insn_source_location (*e->goto_locus);
+      e->flags &= ~EDGE_FALLTHRU;
     }
 
   do_pending_stack_adjust ();
@@ -1440,6 +1699,19 @@ construct_init_block (void)
   return init_block;
 }
 
+/* For each lexical block, set BLOCK_NUMBER to the depth at which it is
+   found in the block tree.  */
+
+static void
+set_block_levels (tree block, int level)
+{
+  while (block)
+    {
+      BLOCK_NUMBER (block) = level;
+      set_block_levels (BLOCK_SUBBLOCKS (block), level + 1);
+      block = BLOCK_CHAIN (block);
+    }
+}
 
 /* Create a block containing landing pads and similar stuff.  */
 
@@ -1452,6 +1724,7 @@ construct_exit_block (void)
   edge e, e2;
   unsigned ix;
   edge_iterator ei;
+  rtx orig_end = BB_END (EXIT_BLOCK_PTR->prev_bb);
 
   /* Make sure the locus is set to the end of the function, so that
      epilogue line numbers and warnings are set properly.  */
@@ -1463,7 +1736,7 @@ construct_exit_block (void)
     input_location = cfun->function_end_locus;
 
   /* The following insns belong to the top scope.  */
-  record_block_change (DECL_INITIAL (current_function_decl));
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
 
   /* Generate rtl for function exit.  */
   expand_function_end ();
@@ -1471,6 +1744,9 @@ construct_exit_block (void)
   end = get_last_insn ();
   if (head == end)
     return;
+  /* While emitting the function end we could move end of the last basic block.
+   */
+  BB_END (EXIT_BLOCK_PTR->prev_bb) = orig_end;
   while (NEXT_INSN (head) && NOTE_P (NEXT_INSN (head)))
     head = NEXT_INSN (head);
   exit_block = create_basic_block (NEXT_INSN (head), end,
@@ -1588,8 +1864,16 @@ tree_expand_cfg (void)
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
 
-  /* Prepare the rtl middle end to start recording block changes.  */
-  reset_block_changes ();
+  insn_locators_alloc ();
+  if (!DECL_BUILT_IN (current_function_decl))
+    set_curr_insn_source_location (DECL_SOURCE_LOCATION (current_function_decl));
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
+  prologue_locator = curr_insn_locator ();
+
+  /* Make sure first insn is a note even if we don't want linenums.
+     This makes sure the first insn will never be deleted.
+     Also, final expects a note to appear there.  */
+  emit_note (NOTE_INSN_DELETED);
 
   /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
   discover_nonconstant_array_refs ();
@@ -1632,10 +1916,14 @@ tree_expand_cfg (void)
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     e->flags &= ~EDGE_EXECUTABLE;
 
+  lab_rtx_for_bb = pointer_map_create ();
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR, next_bb)
     bb = expand_gimple_basic_block (bb);
+  pointer_map_destroy (lab_rtx_for_bb);
 
   construct_exit_block ();
+  set_curr_insn_block (DECL_INITIAL (current_function_decl));
+  insn_locators_finalize ();
 
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
@@ -1655,7 +1943,7 @@ tree_expand_cfg (void)
 
   compact_blocks ();
 #ifdef ENABLE_CHECKING
-  verify_flow_info();
+  verify_flow_info ();
 #endif
 
   /* There's no need to defer outputting this function any more; we
@@ -1665,8 +1953,6 @@ tree_expand_cfg (void)
   /* Now that we're done expanding trees to RTL, we shouldn't have any
      more CONCATs anywhere.  */
   generating_concat_p = 0;
-
-  finalize_block_changes ();
 
   if (dump_file)
     {
@@ -1697,6 +1983,10 @@ tree_expand_cfg (void)
   /* After expanding, the return labels are no longer needed. */
   return_label = NULL;
   naked_return_label = NULL;
+  free_histograms ();
+  /* Tag the blocks with a depth number so that change_scope can find
+     the common parent easily.  */
+  set_block_levels (DECL_INITIAL (cfun->decl), 0);
   return 0;
 }
 

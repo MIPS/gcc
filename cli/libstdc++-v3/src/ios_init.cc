@@ -36,7 +36,6 @@
 #include <ostream>
 #include <istream>
 #include <fstream>
-#include <bits/atomicity.h>
 #include <ext/stdio_filebuf.h>
 #include <ext/stdio_sync_filebuf.h>
 
@@ -143,7 +142,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	    wclog.flush();    
 #endif
 	  }
-	catch (...)
+	catch(...)
 	  { }
       }
   } 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2002, Free Software Foundation, Inc.              --
+--          Copyright (C) 2002-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,7 +26,8 @@
 
 with GNAT.Dynamic_Tables;
 
-with Types;  use Types;
+with Namet; use Namet;
+with Types; use Types;
 
 package Prep is
 
@@ -71,7 +72,7 @@ package Prep is
       Table_Index_Type     => Symbol_Id,
       Table_Low_Bound      => 1,
       Table_Initial        => 10,
-      Table_Increment      => 10);
+      Table_Increment      => 100);
    --  The table of all symbols
 
    Mapping : Symbol_Table.Instance;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -51,8 +51,10 @@ package Ada.Containers.Vectors is
    No_Index : constant Extended_Index := Extended_Index'First;
 
    type Vector is tagged private;
+   pragma Preelaborable_Initialization (Vector);
 
    type Cursor is private;
+   pragma Preelaborable_Initialization (Cursor);
 
    Empty_Vector : constant Vector;
 
@@ -343,8 +345,6 @@ private
 
    for Vector'Read use Read;
 
-   Empty_Vector : constant Vector := (Controlled with null, No_Index, 0, 0);
-
    type Vector_Access is access constant Vector;
    for Vector_Access'Storage_Size use 0;
 
@@ -364,6 +364,8 @@ private
       Position : out Cursor);
 
    for Cursor'Read use Read;
+
+   Empty_Vector : constant Vector := (Controlled with null, No_Index, 0, 0);
 
    No_Element : constant Cursor := Cursor'(null, Index_Type'First);
 

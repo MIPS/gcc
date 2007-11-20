@@ -1,12 +1,13 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007 
+   Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,11 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.
-
-*/
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file contains definitions for language-independent
    parameters.  The DEFPARAM macro takes 6 arguments:
@@ -146,6 +144,12 @@ DEFPARAM (PARAM_MAX_VARIABLE_EXPANSIONS,
 	  "If -fvariable-expansion-in-unroller is used, the maximum number of times that an individual variable will be expanded during loop unrolling",
           1, 0, 0)
      
+/* Limit loop autovectorization to loops with large enough iteration count.  */
+DEFPARAM (PARAM_MIN_VECT_LOOP_BOUND,
+	  "min-vect-loop-bound",
+	  "If -ftree-vectorize is used, the minimal loop bound of a loop to be considered for vectorization",
+	  0, 0, 0)
+
 /* The maximum number of instructions to consider when looking for an
    instruction to fill a delay slot.  If more than this arbitrary
    number of instructions is searched, the time savings from filling
@@ -193,11 +197,19 @@ DEFPARAM(PARAM_LARGE_UNIT_INSNS,
 DEFPARAM(PARAM_INLINE_UNIT_GROWTH,
 	 "inline-unit-growth",
 	 "how much can given compilation unit grow because of the inlining (in percent)",
-	 50, 0, 0)
+	 30, 0, 0)
 DEFPARAM(PARAM_INLINE_CALL_COST,
 	 "inline-call-cost",
 	 "expense of call operation relative to ordinary arithmetic operations",
 	 16, 0, 0)
+DEFPARAM(PARAM_LARGE_STACK_FRAME,
+	 "large-stack-frame",
+	 "The size of stack frame to be considered large",
+	 256, 0, 0)
+DEFPARAM(PARAM_STACK_FRAME_GROWTH,
+	 "large-stack-frame-growth",
+	 "Maximal stack frame growth due to inlining (in percent)",
+	 1000, 0, 0)
 
 /* The GCSE optimization will be disabled if it would require
    significantly more memory than this value.  */
@@ -292,6 +304,12 @@ DEFPARAM(PARAM_MAX_ITERATIONS_TO_TRACK,
 	"max-iterations-to-track",
 	"Bound on the number of iterations the brute force # of iterations analysis algorithm evaluates",
 	1000, 0, 0)
+/* A cutoff to avoid costly computations of the number of iterations in
+   the doloop transformation.  */
+DEFPARAM(PARAM_MAX_ITERATIONS_COMPUTATION_COST,
+	"max-iterations-computation-cost",
+	"Bound on the cost of an expression to compute the number of iterations",
+	10, 0, 0)
 
 DEFPARAM(PARAM_MAX_SMS_LOOP_NUMBER,
 	 "max-sms-loop-number",
@@ -432,17 +450,45 @@ DEFPARAM(PARAM_SCEV_MAX_EXPR_SIZE,
 	 "Bound on size of expressions used in the scalar evolutions analyzer",
 	 20, 0, 0)
 
+DEFPARAM(PARAM_OMEGA_MAX_VARS,
+ 	 "omega-max-vars",
+	 "Bound on the number of variables in Omega constraint systems",
+	 128, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_MAX_GEQS,
+ 	 "omega-max-geqs",
+	 "Bound on the number of inequalities in Omega constraint systems",
+	 256, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_MAX_EQS,
+ 	 "omega-max-eqs",
+	 "Bound on the number of equalities in Omega constraint systems",
+	 128, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_MAX_WILD_CARDS,
+ 	 "omega-max-wild-cards",
+	 "Bound on the number of wild cards in Omega constraint systems",
+	 18, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_HASH_TABLE_SIZE,
+ 	 "omega-hash-table-size",
+	 "Bound on the size of the hash table in Omega constraint systems",
+	 550, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_MAX_KEYS,
+ 	 "omega-max-keys",
+	 "Bound on the number of keys in Omega constraint systems",
+	 500, 0, 0)
+
+DEFPARAM(PARAM_OMEGA_ELIMINATE_REDUNDANT_CONSTRAINTS,
+ 	 "omega-eliminate-redundant-constraints",
+	 "When set to 1, use expensive methods to eliminate all redundant constraints",
+	 0, 0, 1)
+
 DEFPARAM(PARAM_VECT_MAX_VERSION_CHECKS,
          "vect-max-version-checks",
          "Bound on number of runtime checks inserted by the vectorizer's loop versioning",
          6, 0, 0)
-
-/* The product of the next two is used to decide whether or not to
-   use .GLOBAL_VAR.  See tree-dfa.c.  */
-DEFPARAM(PARAM_GLOBAL_VAR_THRESHOLD,
-	"global-var-threshold",
-	"Given N calls and V call-clobbered vars in a function.  Use .GLOBAL_VAR if NxV is larger than this limit",
-	500000, 0, 0)
 
 DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
 	 "max-cselib-memory-locations",
@@ -481,8 +527,13 @@ DEFPARAM(PARAM_MAX_RELOAD_SEARCH_INSNS,
 
 DEFPARAM(PARAM_MAX_ALIASED_VOPS,
          "max-aliased-vops",
-	 "The maximum number of virtual operands allowed to represent aliases before triggering alias grouping",
-	 500, 0, 0)
+	 "The maximum number of virtual operators that a function is allowed to have before triggering memory partitioning heuristics",
+	 100, 0, 0)
+
+DEFPARAM(PARAM_AVG_ALIASED_VOPS,
+    	 "avg-aliased-vops",
+	 "The average number of virtual operators that memory statements are allowed to have before triggering memory partitioning heuristics",
+	 1, 0, 0)
 
 DEFPARAM(PARAM_MAX_SCHED_REGION_BLOCKS,
 	 "max-sched-region-blocks",
@@ -588,7 +639,49 @@ DEFPARAM(PARAM_MAX_SCHED_READY_INSNS,
 	 "The maximum number of instructions ready to be issued to be considered by the scheduler during the first scheduling pass",
 	 100, 0, 0)
 
+/* Prefetching and cache-optimizations related parameters.  Default values are
+   usually set by machine description.  */
+
+/* The number of insns executed before prefetch is completed.  */
+
+DEFPARAM (PARAM_PREFETCH_LATENCY,
+	 "prefetch-latency",
+	 "The number of insns executed before prefetch is completed",
+	 200, 0, 0)
+
+/* The number of prefetches that can run at the same time.  */
+
+DEFPARAM (PARAM_SIMULTANEOUS_PREFETCHES,
+	  "simultaneous-prefetches",
+	  "The number of prefetches that can run at the same time",
+	  3, 0, 0)
+
+/* The size of L1 cache in number of cache lines.  */
+
+DEFPARAM (PARAM_L1_CACHE_SIZE,
+	  "l1-cache-size",
+	  "The size of L1 cache",
+	  1024, 0, 0)
+
+/* The size of L1 cache line in bytes.  */
+
+DEFPARAM (PARAM_L1_CACHE_LINE_SIZE,
+	  "l1-cache-line-size",
+	  "The size of L1 cache line",
+	  32, 0, 0)
+
+/* Whether we should use canonical types rather than deep "structural"
+   type checking.  Setting this value to 1 (the default) improves
+   compilation performance in the C++ and Objective-C++ front end;
+   this value should only be set to zero to work around bugs in the
+   canonical type system by disabling it.  */
+
+DEFPARAM (PARAM_USE_CANONICAL_TYPES,
+	  "use-canonical-types",
+	  "Whether to use canonical types",
+	  1, 0, 1)
 /*
 Local variables:
 mode:c
-End: */
+End:
+*/

@@ -1,6 +1,6 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -74,8 +74,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       typedef std::reverse_iterator<iterator>		    reverse_iterator;
 
       // Data Member (public):
-      // NB: This is an unsigned type, and thus represents the maximum
-      // size that the allocator can hold.
       ///  Value returned by various member functions when they fail.
       static const size_type	npos = static_cast<size_type>(-1);
 
@@ -1202,13 +1200,13 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       template<class _Integer>
 	__versa_string&
 	_M_replace_dispatch(iterator __i1, iterator __i2, _Integer __n,
-			    _Integer __val, __true_type)
+			    _Integer __val, std::__true_type)
         { return _M_replace_aux(__i1 - _M_ibegin(), __i2 - __i1, __n, __val); }
 
       template<class _InputIterator>
 	__versa_string&
 	_M_replace_dispatch(iterator __i1, iterator __i2, _InputIterator __k1,
-			    _InputIterator __k2, __false_type);
+			    _InputIterator __k2, std::__false_type);
 
       __versa_string&
       _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
@@ -1365,7 +1363,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       /**
        *  @brief  Find last position of a C string.
        *  @param s  C string to locate.
-       *  @param pos  Index of character to start search at (default 0).
+       *  @param pos  Index of character to start search at (default end).
        *  @return  Index of start of  last occurrence.
        *
        *  Starting from @a pos, searches backward for the value of @a s within
@@ -1382,7 +1380,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       /**
        *  @brief  Find last position of a character.
        *  @param c  Character to locate.
-       *  @param pos  Index of character to search back from (default 0).
+       *  @param pos  Index of character to search back from (default end).
        *  @return  Index of last occurrence.
        *
        *  Starting from @a pos, searches backward for @a c within this string.
@@ -1677,7 +1675,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
 	int __r = traits_type::compare(this->_M_data(), __str.data(), __len);
 	if (!__r)
-	  __r =  __size - __osize;
+	  __r = _S_compare(__size, __osize);
 	return __r;
       }
 
@@ -1869,6 +1867,17 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	       const __versa_string<_CharT, _Traits, _Alloc, _Base>& __rhs)
     { return __lhs.compare(__rhs) == 0; }
 
+  template<typename _CharT,
+	   template <typename, typename, typename> class _Base>
+    inline typename __enable_if<std::__is_char<_CharT>::__value, bool>::__type
+    operator==(const __versa_string<_CharT, std::char_traits<_CharT>,
+	       std::allocator<_CharT>, _Base>& __lhs,
+	       const __versa_string<_CharT, std::char_traits<_CharT>,
+	       std::allocator<_CharT>, _Base>& __rhs)
+    { return (__lhs.size() == __rhs.size()
+	      && !std::char_traits<_CharT>::compare(__lhs.data(), __rhs.data(),
+						    __lhs.size())); }
+
   /**
    *  @brief  Test equivalence of C string and string.
    *  @param lhs  C string.
@@ -1907,7 +1916,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     inline bool
     operator!=(const __versa_string<_CharT, _Traits, _Alloc, _Base>& __lhs,
 	       const __versa_string<_CharT, _Traits, _Alloc, _Base>& __rhs)
-    { return __rhs.compare(__lhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   /**
    *  @brief  Test difference of C string and string.
@@ -1920,7 +1929,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     inline bool
     operator!=(const _CharT* __lhs,
 	       const __versa_string<_CharT, _Traits, _Alloc, _Base>& __rhs)
-    { return __rhs.compare(__lhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   /**
    *  @brief  Test difference of string and C string.
@@ -1933,7 +1942,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     inline bool
     operator!=(const __versa_string<_CharT, _Traits, _Alloc, _Base>& __lhs,
 	       const _CharT* __rhs)
-    { return __lhs.compare(__rhs) != 0; }
+    { return !(__lhs == __rhs); }
 
   // operator <
   /**
@@ -2141,11 +2150,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  writing a C string.
    */
   template<typename _CharT, typename _Traits, typename _Alloc,
-           template <typename, typename, typename> class _Base>
-    basic_ostream<_CharT, _Traits>&
+	   template <typename, typename, typename> class _Base>
+    inline basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __os,
-	       const __gnu_cxx::__versa_string<_CharT, _Traits,
-	                                       _Alloc, _Base>& __str);
+	       const __gnu_cxx::__versa_string<_CharT, _Traits, _Alloc,
+	       _Base>& __str)
+    {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 586. string inserter not a formatted function
+      return __ostream_insert(__os, __str.data(), __str.size());
+    }
 
   /**
    *  @brief  Read a line from stream into a string.

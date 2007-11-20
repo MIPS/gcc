@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.        --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,9 +28,9 @@ with Atree;    use Atree;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Lib;      use Lib;
-with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
+with Opt;      use Opt;
 with Restrict; use Restrict;
 with Rident;   use Rident;
 with Sinfo;    use Sinfo;
@@ -53,25 +53,46 @@ package body Tbuild is
    -- Add_Unique_Serial_Number --
    ------------------------------
 
+   Config_Serial_Number : Nat := 0;
+   --  Counter for use in config pragmas, see comment below
+
    procedure Add_Unique_Serial_Number is
-      Unit_Node : constant Node_Id := Unit (Cunit (Current_Sem_Unit));
-
    begin
-      Add_Nat_To_Name_Buffer (Increment_Serial_Number);
+      --  If we are analyzing configuration pragmas, Cunit (Main_Unit) will
+      --  not be set yet. This happens for example when analyzing static
+      --  string expressions in configuration pragmas. For this case, we
+      --  just maintain a local counter, defined above and we do not need
+      --  to add a b or s indication in this case.
 
-      --  Add either b or s, depending on whether current unit is a spec
-      --  or a body. This is needed because we may generate the same name
-      --  in a spec and a body otherwise.
+      if No (Cunit (Current_Sem_Unit)) then
+         Config_Serial_Number := Config_Serial_Number + 1;
+         Add_Nat_To_Name_Buffer (Config_Serial_Number);
+         return;
 
-      Name_Len := Name_Len + 1;
+      --  Normal case, within a unit
 
-      if Nkind (Unit_Node) = N_Package_Declaration
-        or else Nkind (Unit_Node) = N_Subprogram_Declaration
-        or else Nkind (Unit_Node) in N_Generic_Declaration
-      then
-         Name_Buffer (Name_Len) := 's';
       else
-         Name_Buffer (Name_Len) := 'b';
+         declare
+            Unit_Node : constant Node_Id := Unit (Cunit (Current_Sem_Unit));
+
+         begin
+            Add_Nat_To_Name_Buffer (Increment_Serial_Number);
+
+            --  Add either b or s, depending on whether current unit is a spec
+            --  or a body. This is needed because we may generate the same name
+            --  in a spec and a body otherwise.
+
+            Name_Len := Name_Len + 1;
+
+            if Nkind (Unit_Node) = N_Package_Declaration
+              or else Nkind (Unit_Node) = N_Subprogram_Declaration
+              or else Nkind (Unit_Node) in N_Generic_Declaration
+            then
+               Name_Buffer (Name_Len) := 's';
+            else
+               Name_Buffer (Name_Len) := 'b';
+            end if;
+         end;
       end if;
    end Add_Unique_Serial_Number;
 
@@ -177,6 +198,46 @@ package body Tbuild is
             Selector_Name =>
               New_Reference_To (First_Tag_Component (Full_Type), Loc)));
    end Make_DT_Access;
+
+   -------------------------------------
+   -- Make_Implicit_Exception_Handler --
+   -------------------------------------
+
+   function Make_Implicit_Exception_Handler
+     (Sloc              : Source_Ptr;
+      Choice_Parameter  : Node_Id := Empty;
+      Exception_Choices : List_Id;
+      Statements        : List_Id) return Node_Id
+   is
+      Handler : Node_Id;
+      Loc     : Source_Ptr;
+
+   begin
+      --  Set the source location only when debugging the expanded code
+
+      --  When debugging the source code directly, we do not want the compiler
+      --  to associate this implicit exception handler with any specific source
+      --  line, because it can potentially confuse the debugger. The most
+      --  damaging situation would arise when the debugger tries to insert a
+      --  breakpoint at a certain line. If the code of the associated implicit
+      --  exception handler is generated before the code of that line, then the
+      --  debugger will end up inserting the breakpoint inside the exception
+      --  handler, rather than the code the user intended to break on. As a
+      --  result, it is likely that the program will not hit the breakpoint
+      --  as expected.
+
+      if Debug_Generated_Code then
+         Loc := Sloc;
+      else
+         Loc := No_Location;
+      end if;
+
+      Handler :=
+        Make_Exception_Handler
+          (Loc, Choice_Parameter, Exception_Choices, Statements);
+      Set_Local_Raise_Statements (Handler, No_Elist);
+      return Handler;
+   end Make_Implicit_Exception_Handler;
 
    --------------------------------
    -- Make_Implicit_If_Statement --

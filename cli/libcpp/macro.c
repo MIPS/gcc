@@ -1,6 +1,7 @@
 /* Part of CPP library.  (Macro and #define handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2006 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -262,6 +263,10 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
       else
 	result = pfile->time;
       break;
+
+    case BT_COUNTER:
+      number = pfile->counter++;
+      break;
     }
 
   if (result == NULL)
@@ -430,21 +435,19 @@ stringify_arg (cpp_reader *pfile, macro_arg *arg)
 static bool
 paste_tokens (cpp_reader *pfile, const cpp_token **plhs, const cpp_token *rhs)
 {
-  unsigned char *buf, *end;
-  const cpp_token *lhs;
+  unsigned char *buf, *end, *lhsend;
+  cpp_token *lhs;
   unsigned int len;
-  bool valid;
 
-  lhs = *plhs;
-  len = cpp_token_len (lhs) + cpp_token_len (rhs) + 1;
+  len = cpp_token_len (*plhs) + cpp_token_len (rhs) + 1;
   buf = (unsigned char *) alloca (len);
-  end = cpp_spell_token (pfile, lhs, buf, false);
+  end = lhsend = cpp_spell_token (pfile, *plhs, buf, false);
 
   /* Avoid comment headers, since they are still processed in stage 3.
      It is simpler to insert a space here, rather than modifying the
      lexer to ignore comments in some circumstances.  Simply returning
      false doesn't work, since we want to clear the PASTE_LEFT flag.  */
-  if (lhs->type == CPP_DIV && rhs->type != CPP_EQ)
+  if ((*plhs)->type == CPP_DIV && rhs->type != CPP_EQ)
     *end++ = ' ';
   end = cpp_spell_token (pfile, rhs, end, false);
   *end = '\n';
@@ -454,11 +457,33 @@ paste_tokens (cpp_reader *pfile, const cpp_token **plhs, const cpp_token *rhs)
 
   /* Set pfile->cur_token as required by _cpp_lex_direct.  */
   pfile->cur_token = _cpp_temp_token (pfile);
-  *plhs = _cpp_lex_direct (pfile);
-  valid = pfile->buffer->cur == pfile->buffer->rlimit;
-  _cpp_pop_buffer (pfile);
+  lhs = _cpp_lex_direct (pfile);
+  if (pfile->buffer->cur != pfile->buffer->rlimit)
+    {
+      source_location saved_loc = lhs->src_loc;
 
-  return valid;
+      _cpp_pop_buffer (pfile);
+      _cpp_backup_tokens (pfile, 1);
+      *lhsend = '\0';
+
+      /* We have to remove the PASTE_LEFT flag from the old lhs, but
+	 we want to keep the new location.  */
+      *lhs = **plhs;
+      *plhs = lhs;
+      lhs->src_loc = saved_loc;
+      lhs->flags &= ~PASTE_LEFT;
+
+      /* Mandatory error for all apart from assembler.  */
+      if (CPP_OPTION (pfile, lang) != CLK_ASM)
+	cpp_error (pfile, CPP_DL_ERROR,
+	 "pasting \"%s\" and \"%s\" does not give a valid preprocessing token",
+		   buf, cpp_token_as_text (pfile, rhs));
+      return false;
+    }
+
+  *plhs = lhs;
+  _cpp_pop_buffer (pfile);
+  return true;
 }
 
 /* Handles an arbitrarily long sequence of ## operators, with initial
@@ -490,17 +515,7 @@ paste_all_tokens (cpp_reader *pfile, const cpp_token *lhs)
 	abort ();
 
       if (!paste_tokens (pfile, &lhs, rhs))
-	{
-	  _cpp_backup_tokens (pfile, 1);
-
-	  /* Mandatory error for all apart from assembler.  */
-	  if (CPP_OPTION (pfile, lang) != CLK_ASM)
-	    cpp_error (pfile, CPP_DL_ERROR,
-	 "pasting \"%s\" and \"%s\" does not give a valid preprocessing token",
-		       cpp_token_as_text (pfile, lhs),
-		       cpp_token_as_text (pfile, rhs));
-	  break;
-	}
+	break;
     }
   while (rhs->flags & PASTE_LEFT);
 
@@ -1397,10 +1412,12 @@ alloc_expansion_token (cpp_reader *pfile, cpp_macro *macro)
 static cpp_token *
 lex_expansion_token (cpp_reader *pfile, cpp_macro *macro)
 {
-  cpp_token *token;
+  cpp_token *token, *saved_cur_token;
 
+  saved_cur_token = pfile->cur_token;
   pfile->cur_token = alloc_expansion_token (pfile, macro);
   token = _cpp_lex_direct (pfile);
+  pfile->cur_token = saved_cur_token;
 
   /* Is this a parameter?  */
   if (token->type == CPP_NAME
@@ -1421,6 +1438,9 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
 {
   cpp_token *token;
   const cpp_token *ctoken;
+  bool following_paste_op = false;
+  const char *paste_op_error_msg =
+    N_("'##' cannot appear at either end of a macro expansion");
 
   /* Get the first token of the expansion (or the '(' of a
      function-like macro).  */
@@ -1514,26 +1534,34 @@ create_iso_definition (cpp_reader *pfile, cpp_macro *macro)
 	}
 
       if (token->type == CPP_EOF)
-	break;
+	{
+	  /* Paste operator constraint 6.10.3.3.1:
+	     Token-paste ##, can appear in both object-like and
+	     function-like macros, but not at the end.  */
+	  if (following_paste_op)
+	    {
+	      cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
+	      return false;
+	    }
+	  break;
+	}
 
       /* Paste operator constraint 6.10.3.3.1.  */
       if (token->type == CPP_PASTE)
 	{
 	  /* Token-paste ##, can appear in both object-like and
-	     function-like macros, but not at the ends.  */
-	  if (--macro->count > 0)
-	    token = lex_expansion_token (pfile, macro);
-
-	  if (macro->count == 0 || token->type == CPP_EOF)
+	     function-like macros, but not at the beginning.  */
+	  if (macro->count == 1)
 	    {
-	      cpp_error (pfile, CPP_DL_ERROR,
-		 "'##' cannot appear at either end of a macro expansion");
+	      cpp_error (pfile, CPP_DL_ERROR, paste_op_error_msg);
 	      return false;
 	    }
 
+	  --macro->count;
 	  token[-1].flags |= PASTE_LEFT;
 	}
 
+      following_paste_op = (token->type == CPP_PASTE);
       token = lex_expansion_token (pfile, macro);
     }
 
@@ -1589,18 +1617,12 @@ _cpp_create_definition (cpp_reader *pfile, cpp_hashnode *node)
     ok = _cpp_create_trad_definition (pfile, macro);
   else
     {
-      cpp_token *saved_cur_token = pfile->cur_token;
-
       ok = create_iso_definition (pfile, macro);
 
-      /* Restore lexer position because of games lex_expansion_token()
-	 plays lexing the macro.  We set the type for SEEN_EOL() in
-	 directives.c.
+      /* We set the type for SEEN_EOL() in directives.c.
 
 	 Longer term we should lex the whole line before coming here,
 	 and just copy the expansion.  */
-      saved_cur_token[-1].type = pfile->cur_token[-1].type;
-      pfile->cur_token = saved_cur_token;
 
       /* Stop the lexer accepting __VA_ARGS__.  */
       pfile->state.va_args_ok = 0;

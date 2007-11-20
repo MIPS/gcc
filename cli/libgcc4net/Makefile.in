@@ -37,7 +37,8 @@
 #    Roberto Costa
 #
 # Contact information at STMicroelectronics:
-# Roberto Costa <roberto.costa@st.com>
+# Andrea C. Ornstein    <andrea.ornstein@st.com>
+# Erven Rohou           <erven.rohou@st.com>
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -471,6 +472,12 @@ uninstall-am: uninstall-info-am uninstall-toollib2SCRIPTS \
 
 gcc4net.dll: $(srcdir)/gcc4net.cs
 	$(MCS) $< -unsafe -target:library -out:$@
+
+# No install-html or install-pdf support in automake yet
+.PHONY: install-html install-pdf
+install-html:
+
+install-pdf:
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

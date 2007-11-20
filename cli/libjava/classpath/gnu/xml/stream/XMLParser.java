@@ -439,6 +439,7 @@ public class XMLParser
             throw e2;
           }
       }
+    systemId = canonicalize(systemId);
     pushInput(new Input(in, null, null, systemId, null, null, false, true));
   }
 
@@ -513,6 +514,7 @@ public class XMLParser
             throw e2;
           }
       }
+    systemId = canonicalize(systemId);
     pushInput(new Input(null, reader, null, systemId, null, null, false, true));
   }
 
@@ -1540,7 +1542,7 @@ public class XMLParser
   {
     if (!externalEntities)
       return;
-    String url = absolutize(input.systemId, ids.systemId);
+    String url = canonicalize(absolutize(input.systemId, ids.systemId));
     // Check for recursion
     for (Iterator i = inputStack.iterator(); i.hasNext(); )
       {
@@ -1587,12 +1589,25 @@ public class XMLParser
   }
 
   /**
+   * Returns a canonicalized version of the specified URL.
+   * This is largely to work around a problem with the specification of
+   * file URLs.
+   */
+  static String canonicalize(String url)
+  {
+    if (url == null)
+      return null;
+    if (url.startsWith("file:") && !url.startsWith("file://"))
+      url = "file://" + url.substring(5);
+    return url;
+  }
+
+  /**
    * "Absolutize" a URL. This resolves a relative URL into an absolute one.
    * @param base the current base URL
    * @param href the (absolute or relative) URL to resolve
    */
   public static String absolutize(String base, String href)
-    throws MalformedURLException
   {
     if (href == null)
       return null;
@@ -1622,7 +1637,60 @@ public class XMLParser
         if (!base.endsWith("/"))
           base += "/";
       }
-    return new URL(new URL(base), href).toString();
+    // We can't use java.net.URL here to do the parsing, as it searches for
+    // a protocol handler. A protocol handler may not be registered for the
+    // URL scheme here. Do it manually.
+    // 
+    // Set aside scheme and host portion of base URL
+    String basePrefix = null;
+    ci = base.indexOf(':');
+    if (ci > 1 && isURLScheme(base.substring(0, ci)))
+      {
+          if (base.length() > (ci + 3)  &&
+              base.charAt(ci + 1) == '/' &&
+              base.charAt(ci + 2) == '/')
+            {
+              int si = base.indexOf('/', ci + 3);
+              if (si == -1)
+                base = null;
+              else
+                {
+                  basePrefix = base.substring(0, si);
+                  base = base.substring(si);
+                }
+            }
+          else
+            base = null;
+      }
+    if (base == null) // unknown or malformed base URL, use href
+      return href;
+    if (href.startsWith("/")) // absolute href pathname
+      return (basePrefix == null) ? href : basePrefix + href;
+    // relative href pathname
+    if (!base.endsWith("/"))
+      {
+        int lsi = base.lastIndexOf('/');
+        if (lsi == -1)
+          base = "/";
+        else
+          base = base.substring(0, lsi + 1);
+      }
+    while (href.startsWith("../") || href.startsWith("./"))
+      {
+        if (href.startsWith("../"))
+          {
+            // strip last path component from base
+            int lsi = base.lastIndexOf('/', base.length() - 2);
+            if (lsi > -1)
+              base = base.substring(0, lsi + 1);
+            href = href.substring(3); // strip ../ prefix
+          }
+        else
+          {
+            href = href.substring(2); // strip ./ prefix
+          }
+      }
+    return (basePrefix == null) ? base + href : basePrefix + base + href;
   }
 
   /**

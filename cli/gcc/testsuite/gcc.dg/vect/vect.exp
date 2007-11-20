@@ -37,7 +37,10 @@ set save-dg-do-what-default ${dg-do-what-default}
 # code.  Set additional target-dependent vector flags, which can be
 # overridden by using dg-options in individual tests.
 if [istarget "powerpc*-*-*"] {
-    # If there are powerpc targets to skip, do it here.
+    # Skip targets not supporting -maltivec.
+    if ![is-effective-target powerpc_altivec_ok] {
+	return
+    }
 
     lappend DEFAULT_VECTCFLAGS "-maltivec"
     if [check_vmx_hw_available] {
@@ -49,6 +52,8 @@ if [istarget "powerpc*-*-*"] {
 	}
 	set dg-do-what-default compile
     }
+} elseif { [istarget  "spu-*-*"] } {
+   set dg-do-what-default run
 } elseif { [istarget "i?86-*-*"] || [istarget "x86_64-*-*"] } {
     lappend DEFAULT_VECTCFLAGS "-msse2"
     set dg-do-what-default run
@@ -58,8 +63,18 @@ if [istarget "powerpc*-*-*"] {
     set dg-do-what-default run
 } elseif [istarget "sparc*-*-*"] {
     lappend DEFAULT_VECTCFLAGS "-mcpu=ultrasparc" "-mvis"
-    set dg-do-what-default run
+    if [check_effective_target_ultrasparc_hw] {
+	set dg-do-what-default run
+    } else {
+	set dg-do-what-default compile
+    }
 } elseif [istarget "alpha*-*-*"] {
+    # Alpha's vectorization capabilities are extremely limited.
+    # It's more effort than its worth disabling all of the tests
+    # that it cannot pass.  But if you actually want to see what
+    # does work, command out the return.
+    return
+
     lappend DEFAULT_VECTCFLAGS "-mmax"
     if [check_alpha_max_hw_available] {
 	set dg-do-what-default run
@@ -68,6 +83,13 @@ if [istarget "powerpc*-*-*"] {
     }
 } elseif [istarget "ia64-*-*"] {
     set dg-do-what-default run
+} elseif [is-effective-target arm_neon_ok] {
+    lappend DEFAULT_VECTCFLAGS "-mfpu=neon" "-mfloat-abi=softfp"
+    if [is-effective-target arm_neon_hw] {
+      set dg-do-what-default run
+    } else {
+      set dg-do-what-default compile
+    }
 } else {
     return
 }
@@ -95,6 +117,12 @@ set SAVED_DEFAULT_VECTCFLAGS $DEFAULT_VECTCFLAGS
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
 lappend DEFAULT_VECTCFLAGS "-ffast-math"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/fast-math-vect*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fno-math-errno tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-math-errno"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-math-errno-vect*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
 # -fwrapv tests
@@ -139,9 +167,34 @@ lappend DEFAULT_VECTCFLAGS "-funswitch-loops"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/unswitch-loops-*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 
+# -fno-trapping-math tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-trapping-math"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-trapping-math-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fno-tree-scev-cprop
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-tree-scev-cprop"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-tree-scev-cprop-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
+# -fno-tree-dominator-opts
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fno-tree-dominator-opts"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-tree-dom-*.\[cS\]]]  \
+	"" $DEFAULT_VECTCFLAGS
+
 # With -Os
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
 lappend DEFAULT_VECTCFLAGS "-Os"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/Os-vect-*.\[cS\]]]  \
+        "" $DEFAULT_VECTCFLAGS
+
+# With -O3
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-O3"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/O3-vect-*.\[cS\]]]  \
         "" $DEFAULT_VECTCFLAGS
 
 # Clean up.

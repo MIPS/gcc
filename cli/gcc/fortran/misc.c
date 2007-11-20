@@ -1,5 +1,5 @@
 /* Miscellaneous stuff that doesn't fit anywhere else.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -20,11 +20,9 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
-
 #include "config.h"
 #include "system.h"
 #include "gfortran.h"
-
 
 /* Get a block of memory.  Many callers assume that the memory we
    return is zeroed.  */
@@ -54,7 +52,6 @@ gfc_getmem (size_t n)
 void
 gfc_free (void *p)
 {
-
   if (p != NULL)
     free (p);
 }
@@ -63,10 +60,10 @@ gfc_free (void *p)
 #undef temp
 
 
-/* Get terminal width */
+/* Get terminal width.  */
 
 int
-gfc_terminal_width(void)
+gfc_terminal_width (void)
 {
   return 80;
 }
@@ -75,13 +72,18 @@ gfc_terminal_width(void)
 /* Initialize a typespec to unknown.  */
 
 void
-gfc_clear_ts (gfc_typespec * ts)
+gfc_clear_ts (gfc_typespec *ts)
 {
-
   ts->type = BT_UNKNOWN;
   ts->kind = 0;
   ts->derived = NULL;
   ts->cl = NULL;
+  /* flag that says if the type is C interoperable */
+  ts->is_c_interop = 0;
+  /* says what f90 type the C kind interops with */
+  ts->f90_type = BT_UNKNOWN;
+  /* flag that says whether it's from iso_c_binding or not */
+  ts->is_iso_c = 0;
 }
 
 
@@ -154,9 +156,10 @@ gfc_basic_typename (bt type)
    the argument list of a single statement.  */
 
 const char *
-gfc_typename (gfc_typespec * ts)
+gfc_typename (gfc_typespec *ts)
 {
-  static char buffer1[60], buffer2[60];
+  static char buffer1[GFC_MAX_SYMBOL_LEN + 7];  /* 7 for "TYPE()" + '\0'.  */
+  static char buffer2[GFC_MAX_SYMBOL_LEN + 7];
   static int flag = 0;
   char *buffer;
 
@@ -193,7 +196,7 @@ gfc_typename (gfc_typespec * ts)
       strcpy (buffer, "UNKNOWN");
       break;
     default:
-      gfc_internal_error ("gfc_typespec(): Undefined type");
+      gfc_internal_error ("gfc_typename(): Undefined type");
     }
 
   return buffer;
@@ -204,9 +207,8 @@ gfc_typename (gfc_typespec * ts)
    returning a pointer to the string.  */
 
 const char *
-gfc_code2string (const mstring * m, int code)
+gfc_code2string (const mstring *m, int code)
 {
-
   while (m->string != NULL)
     {
       if (m->tag == code)
@@ -220,13 +222,11 @@ gfc_code2string (const mstring * m, int code)
 
 
 /* Given an mstring array and a string, returns the value of the tag
-   field.  Returns the final tag if no matches to the string are
-   found.  */
+   field.  Returns the final tag if no matches to the string are found.  */
 
 int
-gfc_string2code (const mstring * m, const char *string)
+gfc_string2code (const mstring *m, const char *string)
 {
-
   for (; m->string != NULL; m++)
     if (strcmp (m->string, string) == 0)
       return m->tag;
@@ -237,10 +237,10 @@ gfc_string2code (const mstring * m, const char *string)
 
 /* Convert an intent code to a string.  */
 /* TODO: move to gfortran.h as define.  */
+
 const char *
 gfc_intent_string (sym_intent i)
 {
-
   return gfc_code2string (intents, i);
 }
 
@@ -256,7 +256,6 @@ gfc_init_1 (void)
   gfc_scanner_init_1 ();
   gfc_arith_init_1 ();
   gfc_intrinsic_init_1 ();
-  gfc_simplify_init_1 ();
 }
 
 
@@ -265,7 +264,6 @@ gfc_init_1 (void)
 void
 gfc_init_2 (void)
 {
-
   gfc_symbol_init_2 ();
   gfc_module_init_2 ();
 }
@@ -289,8 +287,22 @@ gfc_done_1 (void)
 void
 gfc_done_2 (void)
 {
-
   gfc_symbol_done_2 ();
   gfc_module_done_2 ();
 }
 
+
+/* Returns the index into the table of C interoperable kinds where the
+   kind with the given name (c_kind_name) was found.  */
+
+int
+get_c_kind(const char *c_kind_name, CInteropKind_t kinds_table[])
+{
+  int index = 0;
+
+  for (index = 0; index < ISOCBINDING_LAST; index++)
+    if (strcmp (kinds_table[index].name, c_kind_name) == 0)
+      return index;
+
+  return ISOCBINDING_INVALID;
+}

@@ -1,12 +1,12 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
    Copyright (C) 1992, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006 Free Software Foundation, Inc.
+   2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -244,6 +243,144 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
     }
 }
 #endif  /* HANDLE_PRAGMA_PACK */
+
+struct def_pragma_macro_value GTY(())
+{
+  struct def_pragma_macro_value *prev;
+  cpp_macro *value;
+};
+
+struct def_pragma_macro GTY(())
+{
+  hashval_t hash;
+  const char *name;
+  struct def_pragma_macro_value value;
+};
+
+static GTY((param_is (struct def_pragma_macro))) htab_t pushed_macro_table;
+
+#ifdef HANDLE_PRAGMA_PUSH_POP_MACRO
+/* Hash table control functions for pushed_macro_table.  */
+static hashval_t
+dpm_hash (const void *p)
+{
+  return ((const struct def_pragma_macro *)p)->hash;
+}
+
+static int
+dpm_eq (const void *pa, const void *pb)
+{
+  const struct def_pragma_macro *a = pa, *b = pb;
+  return a->hash == b->hash && strcmp (a->name, b->name) == 0;
+}
+
+/* #pragma push_macro("MACRO_NAME")
+   #pragma pop_macro("MACRO_NAME") */
+
+static void
+handle_pragma_push_macro (cpp_reader *reader)
+{
+  tree x, id = 0;
+  enum cpp_ttype token;
+  struct def_pragma_macro dummy, *c;
+  const char *macroname;
+  void **slot;
+
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
+    GCC_BAD ("missing %<(%> after %<#pragma push_macro%> - ignored");
+
+  token = pragma_lex (&id);
+
+  /* Silently ignore */
+  if (token == CPP_CLOSE_PAREN)
+    return;
+  if (token != CPP_STRING)
+    GCC_BAD ("invalid constant in %<#pragma push_macro%> - ignored");
+
+  if (pragma_lex (&x) != CPP_CLOSE_PAREN)
+    GCC_BAD ("missing %<)%> after %<#pragma push_macro%> - ignored");
+
+  if (pragma_lex (&x) != CPP_EOF)
+    warning (OPT_Wpragmas, "junk at end of %<#pragma push_macro%>");
+
+  /* Check for empty string, and silently ignore.  */
+  if (TREE_STRING_LENGTH (id) < 1)
+    return;
+  macroname = TREE_STRING_POINTER (id);
+
+  if (pushed_macro_table == NULL)
+    pushed_macro_table = htab_create_ggc (15, dpm_hash, dpm_eq, 0);
+
+  dummy.hash = htab_hash_string (macroname);
+  dummy.name = macroname;
+  slot = htab_find_slot_with_hash (pushed_macro_table, &dummy,
+				   dummy.hash, INSERT);
+  c = *slot;
+  if (c == NULL)
+    {
+      *slot = c = ggc_alloc (sizeof (struct def_pragma_macro));
+      c->hash = dummy.hash;
+      c->name = ggc_alloc_string (macroname, TREE_STRING_LENGTH (id) - 1);
+      c->value.prev = NULL;
+    }
+  else
+    {
+      struct def_pragma_macro_value *v;
+      v = ggc_alloc (sizeof (struct def_pragma_macro_value));
+      *v = c->value;
+      c->value.prev = v;
+    }
+
+  c->value.value = cpp_push_definition (reader, macroname);
+}
+
+static void
+handle_pragma_pop_macro (cpp_reader *reader)
+{
+  tree x, id = 0;
+  enum cpp_ttype token;
+  struct def_pragma_macro dummy, *c;
+  const char *macroname;
+  void **slot;
+
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
+    GCC_BAD ("missing %<(%> after %<#pragma pop_macro%> - ignored");
+
+  token = pragma_lex (&id);
+
+  /* Silently ignore */
+  if (token == CPP_CLOSE_PAREN)
+    return;
+  if (token != CPP_STRING)
+    GCC_BAD ("invalid constant in %<#pragma pop_macro%> - ignored");
+
+  if (pragma_lex (&x) != CPP_CLOSE_PAREN)
+    GCC_BAD ("missing %<)%> after %<#pragma pop_macro%> - ignored");
+
+  if (pragma_lex (&x) != CPP_EOF)
+    warning (OPT_Wpragmas, "junk at end of %<#pragma pop_macro%>");
+
+  /* Check for empty string, and silently ignore.  */
+  if (TREE_STRING_LENGTH (id) < 1)
+    return;
+  macroname = TREE_STRING_POINTER (id);
+
+  dummy.hash = htab_hash_string (macroname);
+  dummy.name = macroname;
+  slot = htab_find_slot_with_hash (pushed_macro_table, &dummy,
+				   dummy.hash, NO_INSERT);
+  if (slot == NULL)
+    return;
+  c = *slot;
+
+  cpp_pop_definition (reader, c->name, c->value.value);
+
+  if (c->value.prev)
+    c->value = *c->value.prev;
+  else
+    htab_clear_slot (pushed_macro_table, slot);
+}
+#endif /* HANDLE_PRAGMA_PUSH_POP_MACRO */
 
 static GTY(()) tree pending_weaks;
 
@@ -818,6 +955,10 @@ init_pragma (void)
 #else
   c_register_pragma (0, "pack", handle_pragma_pack);
 #endif
+#endif
+#ifdef HANDLE_PRAGMA_PUSH_POP_MACRO
+  c_register_pragma (0 ,"push_macro", handle_pragma_push_macro);
+  c_register_pragma (0 ,"pop_macro", handle_pragma_pop_macro);
 #endif
 #ifdef HANDLE_PRAGMA_WEAK
   c_register_pragma (0, "weak", handle_pragma_weak);

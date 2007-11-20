@@ -32,6 +32,7 @@ Boston, MA 02110-1301, USA.  */
 #include "assert.h"
 #include "toplev.h"
 #include "convert.h"
+#include "target.h"
 
 /* C++ returns type information to the user in struct type_info
    objects. We also use type information to implement dynamic_cast and
@@ -179,8 +180,8 @@ build_headof (tree exp)
 
   type = build_qualified_type (ptr_type_node,
 			       cp_type_quals (TREE_TYPE (exp)));
-  return build2 (PLUS_EXPR, type, exp,
-		 convert_to_integer (ptrdiff_type_node, offset));
+  return build2 (POINTER_PLUS_EXPR, type, exp,
+		 convert_to_integer (sizetype, offset));
 }
 
 /* Get a bad_cast node for the program to throw...
@@ -195,7 +196,7 @@ throw_bad_cast (void)
     fn = push_throw_library_fn (fn, build_function_type (ptr_type_node,
 							 void_list_node));
 
-  return build_cxx_call (fn, NULL_TREE);
+  return build_cxx_call (fn, 0, NULL);
 }
 
 /* Return an expression for "__cxa_bad_typeid()".  The expression
@@ -214,7 +215,7 @@ throw_bad_typeid (void)
       fn = push_throw_library_fn (fn, t);
     }
 
-  return build_cxx_call (fn, NULL_TREE);
+  return build_cxx_call (fn, 0, NULL);
 }
 
 /* Return an lvalue expression whose type is "const std::type_info"
@@ -237,7 +238,7 @@ get_tinfo_decl_dynamic (tree exp)
   /* Peel off cv qualifiers.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (!VOID_TYPE_P (type))
+  if (CLASS_TYPE_P (type))
     type = complete_type_or_else (type, exp);
 
   if (!type)
@@ -342,11 +343,10 @@ get_tinfo_decl (tree type)
   tree name;
   tree d;
 
-  if (COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+  if (variably_modified_type_p (type, /*fn=*/NULL_TREE))
     {
       error ("cannot create type information for type %qT because "
-	     "its size is variable",
+	     "it involves types of variable size",
 	     type);
       return error_mark_node;
     }
@@ -385,10 +385,11 @@ get_tinfo_decl (tree type)
 	 define it later if we need to do so.  */
       DECL_EXTERNAL (d) = 1;
       DECL_NOT_REALLY_EXTERN (d) = 1;
+      set_linkage_according_to_type (type, d);
+
+      d = pushdecl_top_level_and_finish (d, NULL_TREE);
       if (CLASS_TYPE_P (type))
 	CLASSTYPE_TYPEINFO_VAR (TYPE_MAIN_VARIANT (type)) = d;
-      set_linkage_according_to_type (type, d);
-      pushdecl_top_level_and_finish (d, NULL_TREE);
 
       /* Add decl to the global array of tinfo decls.  */
       VEC_safe_push (tree, gc, unemitted_tinfo_decls, d);
@@ -430,7 +431,7 @@ get_typeid (tree type)
      that is the operand of typeid are always ignored.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  if (!VOID_TYPE_P (type))
+  if (CLASS_TYPE_P (type))
     type = complete_type_or_else (type, NULL_TREE);
 
   if (!type)
@@ -587,7 +588,8 @@ build_dynamic_cast_1 (tree type, tree expr)
       else
 	{
 	  tree retval;
-	  tree result, td2, td3, elems;
+	  tree result, td2, td3;
+	  tree elems[4];
 	  tree static_type, target_type, boff;
 
 	  /* If we got here, we can't convert statically.  Therefore,
@@ -645,11 +647,10 @@ build_dynamic_cast_1 (tree type, tree expr)
 	  if (tc == REFERENCE_TYPE)
 	    expr1 = build_unary_op (ADDR_EXPR, expr1, 0);
 
-	  elems = tree_cons
-	    (NULL_TREE, expr1, tree_cons
-	     (NULL_TREE, td3, tree_cons
-	      (NULL_TREE, td2, tree_cons
-	       (NULL_TREE, boff, NULL_TREE))));
+	  elems[0] = expr1;
+	  elems[1] = td3;
+	  elems[2] = td2;
+	  elems[3] = boff;
 
 	  dcast_fn = dynamic_cast_node;
 	  if (!dcast_fn)
@@ -679,7 +680,7 @@ build_dynamic_cast_1 (tree type, tree expr)
 	      pop_nested_namespace (ns);
 	      dynamic_cast_node = dcast_fn;
 	    }
-	  result = build_cxx_call (dcast_fn, elems);
+	  result = build_cxx_call (dcast_fn, 4, elems);
 
 	  if (tc == REFERENCE_TYPE)
 	    {
@@ -825,13 +826,7 @@ tinfo_base_init (tinfo_s *ti, tree target)
     TREE_STATIC (name_decl) = 1;
     DECL_EXTERNAL (name_decl) = 0;
     DECL_TINFO_P (name_decl) = 1;
-    if (involves_incomplete_p (target))
-      {
-	TREE_PUBLIC (name_decl) = 0;
-	DECL_INTERFACE_KNOWN (name_decl) = 1;
-      }
-    else
-      set_linkage_according_to_type (target, name_decl);
+    set_linkage_according_to_type (target, name_decl);
     import_export_decl (name_decl);
     DECL_INITIAL (name_decl) = name_string;
     mark_used (name_decl);
@@ -861,7 +856,7 @@ tinfo_base_init (tinfo_s *ti, tree target)
 
       /* We need to point into the middle of the vtable.  */
       vtable_ptr = build2
-	(PLUS_EXPR, TREE_TYPE (vtable_ptr), vtable_ptr,
+	(POINTER_PLUS_EXPR, TREE_TYPE (vtable_ptr), vtable_ptr,
 	 size_binop (MULT_EXPR,
 		     size_int (2 * TARGET_VTABLE_DATA_ENTRY_DISTANCE),
 		     TYPE_SIZE_UNIT (vtable_entry_type)));
@@ -1044,6 +1039,7 @@ get_pseudo_ti_init (tree type, unsigned tk_index)
 	tree binfo = TYPE_BINFO (type);
 	int nbases = BINFO_N_BASE_BINFOS (binfo);
 	VEC(tree,gc) *base_accesses = BINFO_BASE_ACCESSES (binfo);
+	tree offset_type = integer_types[itk_long];
 	tree base_inits = NULL_TREE;
 	int ix;
 
@@ -1066,17 +1062,17 @@ get_pseudo_ti_init (tree type, unsigned tk_index)
 		/* We store the vtable offset at which the virtual
 		   base offset can be found.  */
 		offset = BINFO_VPTR_FIELD (base_binfo);
-		offset = convert (sizetype, offset);
 		flags |= 1;
 	      }
 	    else
 	      offset = BINFO_OFFSET (base_binfo);
 
 	    /* Combine offset and flags into one field.  */
-	    offset = cp_build_binary_op (LSHIFT_EXPR, offset,
-					 build_int_cst (NULL_TREE, 8));
-	    offset = cp_build_binary_op (BIT_IOR_EXPR, offset,
-					 build_int_cst (NULL_TREE, flags));
+	    offset = fold_convert (offset_type, offset);
+	    offset = fold_build2 (LSHIFT_EXPR, offset_type, offset,
+				  build_int_cst (offset_type, 8));
+	    offset = fold_build2 (BIT_IOR_EXPR, offset_type, offset,
+				  build_int_cst (offset_type, flags));
 	    base_init = tree_cons (NULL_TREE, offset, base_init);
 	    base_init = tree_cons (NULL_TREE, tinfo, base_init);
 	    base_init = build_constructor_from_list (NULL_TREE, base_init);
@@ -1434,8 +1430,11 @@ emit_support_tinfos (void)
 	     comdat_linkage for details.)  Since we want these objects
 	     to have external linkage so that copies do not have to be
 	     emitted in code outside the runtime library, we make them
-	     non-COMDAT here.  */
-	  if (!flag_weak)
+	     non-COMDAT here.  
+
+	     It might also not be necessary to follow this detail of the
+	     ABI.  */
+	  if (!flag_weak || ! targetm.cxx.library_rtti_comdat ())
 	    {
 	      gcc_assert (TREE_PUBLIC (tinfo) && !DECL_COMDAT (tinfo));
 	      DECL_INTERFACE_KNOWN (tinfo) = 1;

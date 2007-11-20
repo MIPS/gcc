@@ -1,12 +1,12 @@
 /* Lambda matrix and vector interface.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef LAMBDA_H
 #define LAMBDA_H
@@ -40,7 +39,7 @@ typedef lambda_vector *lambda_matrix;
 /* A transformation matrix, which is a self-contained ROWSIZE x COLSIZE
    matrix.  Rather than use floats, we simply keep a single DENOMINATOR that
    represents the denominator for every element in the matrix.  */
-typedef struct
+typedef struct lambda_trans_matrix_s
 {
   lambda_matrix matrix;
   int rowsize;
@@ -61,7 +60,7 @@ typedef struct
    This structure is used during code generation in order to rewrite the old
    induction variable uses in a statement in terms of the newly created
    induction variables.  */
-typedef struct
+typedef struct lambda_body_vector_s
 {
   lambda_vector coefficients;
   int size;
@@ -127,7 +126,7 @@ typedef struct lambda_loop_s
    and an integer representing the number of INVARIANTS in the loop.  Both of
    these integers are used to size the associated coefficient vectors in the
    linear expression structures.  */
-typedef struct
+typedef struct lambda_loopnest_s
 {
   lambda_loop *loops;
   int depth;
@@ -141,7 +140,6 @@ typedef struct
 lambda_loopnest lambda_loopnest_new (int, int);
 lambda_loopnest lambda_loopnest_transform (lambda_loopnest, lambda_trans_matrix);
 struct loop;
-struct loops;
 bool perfect_nest_p (struct loop *);
 void print_lambda_loopnest (FILE *, lambda_loopnest, char);
 
@@ -196,8 +194,7 @@ lambda_body_vector lambda_body_vector_new (int);
 lambda_body_vector lambda_body_vector_compute_new (lambda_trans_matrix, 
 						   lambda_body_vector);
 void print_lambda_body_vector (FILE *, lambda_body_vector);
-lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loops *,
-						 struct loop *,
+lambda_loopnest gcc_loopnest_to_lambda_loopnest (struct loop *,
 						 VEC(tree,heap) **,
 						 VEC(tree,heap) **);
 void lambda_loopnest_to_gcc_loopnest (struct loop *,
@@ -434,6 +431,33 @@ lambda_vector_lexico_pos (lambda_vector v,
 	return true;
     }
   return true;
+}
+
+/* Given a vector of induction variables IVS, and a vector of
+   coefficients COEFS, build a tree that is a linear combination of
+   the induction variables.  */
+
+static inline tree
+build_linear_expr (tree type, lambda_vector coefs, VEC (tree, heap) *ivs)
+{
+  unsigned i;
+  tree iv;
+  tree expr = fold_convert (type, integer_zero_node);
+
+  for (i = 0; VEC_iterate (tree, ivs, i, iv); i++)
+    {
+      int k = coefs[i];
+
+      if (k == 1)
+	expr = fold_build2 (PLUS_EXPR, type, expr, iv);
+
+      else if (k != 0)
+	expr = fold_build2 (PLUS_EXPR, type, expr,
+			    fold_build2 (MULT_EXPR, type, iv,
+					 build_int_cst (type, k)));
+    }
+
+  return expr;
 }
 
 #endif /* LAMBDA_H  */

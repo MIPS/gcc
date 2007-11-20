@@ -1,11 +1,11 @@
 /* Operations with long integers.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,12 +14,14 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef DOUBLE_INT_H
 #define DOUBLE_INT_H
+
+#include <gmp.h>
+#include "coretypes.h"
 
 /* A large integer is currently represented as a pair of HOST_WIDE_INTs.
    It therefore represents a number with precision of
@@ -58,7 +60,8 @@ union tree_node;
 /* Constructors and conversions.  */
 
 union tree_node *double_int_to_tree (union tree_node *, double_int);
-double_int tree_to_double_int (union tree_node *tree);
+bool double_int_fits_to_tree_p (union tree_node *, double_int);
+double_int tree_to_double_int (union tree_node *);
 
 /* Constructs double_int from integer CST.  The bits over the precision of
    HOST_WIDE_INT are filled with the sign bit.  */
@@ -116,6 +119,12 @@ unsigned HOST_WIDE_INT double_int_to_uhwi (double_int);
 double_int double_int_div (double_int, double_int, bool, unsigned);
 double_int double_int_sdiv (double_int, double_int, unsigned);
 double_int double_int_udiv (double_int, double_int, unsigned);
+double_int double_int_mod (double_int, double_int, bool, unsigned);
+double_int double_int_smod (double_int, double_int, unsigned);
+double_int double_int_umod (double_int, double_int, unsigned);
+double_int double_int_divmod (double_int, double_int, bool, unsigned, double_int *);
+double_int double_int_sdivmod (double_int, double_int, unsigned, double_int *);
+double_int double_int_udivmod (double_int, double_int, unsigned, double_int *);
 bool double_int_negative_p (double_int);
 int double_int_cmp (double_int, double_int, bool);
 int double_int_scmp (double_int, double_int);
@@ -127,6 +136,7 @@ void dump_double_int (FILE *, double_int, bool);
 double_int double_int_ext (double_int, unsigned, bool);
 double_int double_int_sext (double_int, unsigned);
 double_int double_int_zext (double_int, unsigned);
+double_int double_int_mask (unsigned);
 
 #define ALL_ONES (~((unsigned HOST_WIDE_INT) 0))
 
@@ -165,5 +175,11 @@ double_int_equal_p (double_int cst1, double_int cst2)
 {
   return cst1.low == cst2.low && cst1.high == cst2.high;
 }
+
+/* Conversion to and from GMP integer representations.  */
+
+void mpz_set_double_int (mpz_t, double_int, bool);
+double_int mpz_get_double_int (tree, mpz_t, bool);
+
 
 #endif /* DOUBLE_INT_H */

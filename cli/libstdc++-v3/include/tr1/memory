@@ -1,6 +1,6 @@
 // <tr1/memory> -*- C++ -*-
 
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,25 +27,44 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _TR1_MEMORY
-#define _TR1_MEMORY 1
+/**
+ * @file tr1/memory
+ * This is a TR1 C++ Library header. 
+ */
 
-#include "../memory"
-#include <functional>       // std::less
-#include <exception>        // std::exception
-#include <new>              // std::bad_alloc
-#include <typeinfo>         // std::type_info in get_deleter
-#include <cstddef>          // std::size_t
-#include <algorithm>        // std::swap
-#include <iosfwd>           // std::basic_ostream
-#include <cstdlib>          // std::abort
+#ifndef _GLIBCXX_TR1_MEMORY
+#define _GLIBCXX_TR1_MEMORY 1
 
-#include <bits/gthr.h>
-#include <bits/atomicity.h>
-#include <bits/functexcept.h>
-#include <bits/concurrence.h>
-#include <debug/debug.h>
+#pragma GCC system_header
 
-#include <tr1/boost_shared_ptr.h>
-
+#if defined(_GLIBCXX_INCLUDE_AS_CXX0X)
+#  error TR1 header cannot be included from C++0x header
 #endif
+
+#include <memory>
+#include <exception>        	// std::exception
+#include <typeinfo>         	// std::type_info in get_deleter
+#include <bits/stl_algobase.h>  // std::swap
+#include <iosfwd>           	// std::basic_ostream
+#include <ext/atomicity.h>
+#include <ext/concurrence.h>
+#include <bits/functexcept.h>
+#include <bits/stl_function.h> 	// std::less
+#include <debug/debug.h>
+#include <tr1/type_traits>
+
+#if defined(_GLIBCXX_INCLUDE_AS_TR1)
+#  include <tr1_impl/boost_shared_ptr.h>
+#else
+#  define _GLIBCXX_INCLUDE_AS_TR1
+#  define _GLIBCXX_BEGIN_NAMESPACE_TR1 namespace tr1 {
+#  define _GLIBCXX_END_NAMESPACE_TR1 }
+#  define _GLIBCXX_TR1 tr1::
+#  include <tr1_impl/boost_shared_ptr.h>
+#  undef _GLIBCXX_TR1
+#  undef _GLIBCXX_END_NAMESPACE_TR1
+#  undef _GLIBCXX_BEGIN_NAMESPACE_TR1
+#  undef _GLIBCXX_INCLUDE_AS_TR1
+#endif
+
+#endif // _GLIBCXX_TR1_MEMORY

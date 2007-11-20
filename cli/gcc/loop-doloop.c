@@ -1,12 +1,12 @@
 /* Perform doloop optimizations
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Based on code by Michael P. Hayes (m.hayes@elec.canterbury.ac.nz)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -248,7 +247,7 @@ add_test (rtx cond, edge *e, basic_block dest)
   do_compare_rtx_and_jump (op0, op1, code, 0, mode, NULL_RTX, NULL_RTX, label);
 
   jump = get_last_insn ();
-  if (!JUMP_P (jump))
+  if (!jump || !JUMP_P (jump))
     {
       /* The condition is always false and the jump was optimized out.  */
       end_sequence ();
@@ -257,7 +256,11 @@ add_test (rtx cond, edge *e, basic_block dest)
 
   seq = get_insns ();
   end_sequence ();
-  bb = loop_split_edge_with (*e, seq);
+
+  /* There always is at least the jump insn in the sequence.  */
+  gcc_assert (seq != NULL_RTX);
+
+  bb = split_edge_and_insert (*e, seq);
   *e = single_succ_edge (bb);
 
   if (any_uncondjump_p (jump))
@@ -372,9 +375,9 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
       rtx ass = copy_rtx (desc->noloop_assumptions);
       basic_block preheader = loop_preheader_edge (loop)->src;
       basic_block set_zero
-	      = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
+	      = split_edge (loop_preheader_edge (loop));
       basic_block new_preheader
-	      = loop_split_edge_with (loop_preheader_edge (loop), NULL_RTX);
+	      = split_edge (loop_preheader_edge (loop));
       edge te;
 
       /* Expand the condition testing the assumptions and if it does not pass,
@@ -406,7 +409,6 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 	{
 	  /* All the conditions were simplified to false, remove the
 	     unreachable set_zero block.  */
-	  remove_bb_from_loops (set_zero);
 	  delete_basic_block (set_zero);
 	}
       else
@@ -419,13 +421,13 @@ doloop_modify (struct loop *loop, struct niter_desc *desc,
 	  emit_insn_after (sequence, BB_END (set_zero));
       
 	  set_immediate_dominator (CDI_DOMINATORS, set_zero,
-				   recount_dominator (CDI_DOMINATORS,
-						      set_zero));
+				   recompute_dominator (CDI_DOMINATORS,
+							set_zero));
 	}
 
       set_immediate_dominator (CDI_DOMINATORS, new_preheader,
-			       recount_dominator (CDI_DOMINATORS,
-						  new_preheader));
+			       recompute_dominator (CDI_DOMINATORS,
+						    new_preheader));
     }
 
   /* Some targets (eg, C4x) need to initialize special looping
@@ -485,6 +487,7 @@ doloop_optimize (struct loop *loop)
   rtx start_label;
   rtx condition;
   unsigned level, est_niter;
+  int max_cost;
   struct niter_desc *desc;
   unsigned word_mode_size;
   unsigned HOST_WIDE_INT word_mode_max;
@@ -522,6 +525,16 @@ doloop_optimize (struct loop *loop)
 	fprintf (dump_file,
 		 "Doloop: Too few iterations (%u) to be profitable.\n",
 		 est_niter);
+      return false;
+    }
+
+  max_cost
+    = COSTS_N_INSNS (PARAM_VALUE (PARAM_MAX_ITERATIONS_COMPUTATION_COST));
+  if (rtx_cost (desc->niter_expr, SET) > max_cost)
+    {
+      if (dump_file)
+	fprintf (dump_file,
+		 "Doloop: number of iterations too costly to compute.\n");
       return false;
     }
 
@@ -602,20 +615,16 @@ doloop_optimize (struct loop *loop)
   return true;
 }
 
-/* This is the main entry point.  Process all LOOPS using doloop_optimize.  */
+/* This is the main entry point.  Process all loops using doloop_optimize.  */
 
 void
-doloop_optimize_loops (struct loops *loops)
+doloop_optimize_loops (void)
 {
-  unsigned i;
+  loop_iterator li;
   struct loop *loop;
 
-  for (i = 1; i < loops->num; i++)
+  FOR_EACH_LOOP (li, loop, 0)
     {
-      loop = loops->parray[i];
-      if (!loop)
-	continue;
-
       doloop_optimize (loop);
     }
 
@@ -623,7 +632,7 @@ doloop_optimize_loops (struct loops *loops)
 
 #ifdef ENABLE_CHECKING
   verify_dominators (CDI_DOMINATORS);
-  verify_loop_structure (loops);
+  verify_loop_structure ();
 #endif
 }
 #endif /* HAVE_doloop_end */

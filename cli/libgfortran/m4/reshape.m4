@@ -34,27 +34,27 @@ Boston, MA 02110-1301, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
-`#if defined (HAVE_'rtype_name`)'
+`#if defined (HAVE_'rtype_name`)
 
-typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
+typedef GFC_ARRAY_DESCRIPTOR(1, 'index_type`) 'shape_type`;'
 
-/* The shape parameter is ignored. We can currently deduce the shape from the
-   return array.  */
-dnl Only the kind (ie size) is used to name the function.
+dnl For integer routines, only the kind (ie size) is used to name the
+dnl function.  The same function will be used for integer and logical
+dnl arrays of the same kind.
 
-extern void reshape_`'rtype_ccode (rtype * const restrict, 
-	rtype * const restrict, 
-	shape_type * const restrict,
-	rtype * const restrict, 
-	shape_type * const restrict);
-export_proto(reshape_`'rtype_ccode);
+`extern void reshape_'rtype_ccode` ('rtype` * const restrict, 
+	'rtype` * const restrict, 
+	'shape_type` * const restrict,
+	'rtype` * const restrict, 
+	'shape_type` * const restrict);
+export_proto(reshape_'rtype_ccode`);
 
 void
-reshape_`'rtype_ccode (rtype * const restrict ret, 
-	rtype * const restrict source, 
-	shape_type * const restrict shape,
-	rtype * const restrict pad, 
-	shape_type * const restrict order)
+reshape_'rtype_ccode` ('rtype` * const restrict ret, 
+	'rtype` * const restrict source, 
+	'shape_type` * const restrict shape,
+	'rtype` * const restrict pad, 
+	'shape_type` * const restrict order)
 {
   /* r.* indicates the return array.  */
   index_type rcount[GFC_MAX_DIMENSIONS];
@@ -65,7 +65,7 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
   index_type rsize;
   index_type rs;
   index_type rex;
-  rtype_name *rptr;
+  'rtype_name` *rptr;
   /* s.* indicates the source array.  */
   index_type scount[GFC_MAX_DIMENSIONS];
   index_type sextent[GFC_MAX_DIMENSIONS];
@@ -73,24 +73,25 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
   index_type sstride0;
   index_type sdim;
   index_type ssize;
-  const rtype_name *sptr;
+  const 'rtype_name` *sptr;
   /* p.* indicates the pad array.  */
   index_type pcount[GFC_MAX_DIMENSIONS];
   index_type pextent[GFC_MAX_DIMENSIONS];
   index_type pstride[GFC_MAX_DIMENSIONS];
   index_type pdim;
   index_type psize;
-  const rtype_name *pptr;
+  const 'rtype_name` *pptr;
 
-  const rtype_name *src;
+  const 'rtype_name` *src;
   int n;
   int dim;
+  int sempty, pempty;
 
   if (ret->data == NULL)
     {
       rdim = shape->dim[0].ubound - shape->dim[0].lbound + 1;
       rs = 1;
-      for (n=0; n < rdim; n++)
+      for (n = 0; n < rdim; n++)
 	{
 	  ret->dim[n].lbound = 0;
 	  rex = shape->data[n * shape->dim[0].stride];
@@ -99,7 +100,7 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
 	  rs *= rex;
 	}
       ret->offset = 0;
-      ret->data = internal_malloc_size ( rs * sizeof (rtype_name));
+      ret->data = internal_malloc_size ( rs * sizeof ('rtype_name`));
       ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
     }
   else
@@ -132,13 +133,17 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
 
   sdim = GFC_DESCRIPTOR_RANK (source);
   ssize = 1;
+  sempty = 0;
   for (n = 0; n < sdim; n++)
     {
       scount[n] = 0;
       sstride[n] = source->dim[n].stride;
       sextent[n] = source->dim[n].ubound + 1 - source->dim[n].lbound;
       if (sextent[n] <= 0)
-        abort ();
+	{
+	  sempty = 1;
+	  sextent[n] = 0;
+	}
 
       if (ssize == sstride[n])
         ssize *= sextent[n];
@@ -150,13 +155,18 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
     {
       pdim = GFC_DESCRIPTOR_RANK (pad);
       psize = 1;
+      pempty = 0;
       for (n = 0; n < pdim; n++)
         {
           pcount[n] = 0;
           pstride[n] = pad->dim[n].stride;
           pextent[n] = pad->dim[n].ubound + 1 - pad->dim[n].lbound;
           if (pextent[n] <= 0)
-            abort ();
+	    {
+	      pempty = 1;
+	      pextent[n] = 0;
+	    }
+
           if (psize == pstride[n])
             psize *= pextent[n];
           else
@@ -168,14 +178,15 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
     {
       pdim = 0;
       psize = 1;
+      pempty = 1;
       pptr = NULL;
     }
 
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
-      rsize *= sizeof (rtype_name);
-      ssize *= sizeof (rtype_name);
-      psize *= sizeof (rtype_name);
+      rsize *= sizeof ('rtype_name`);
+      ssize *= sizeof ('rtype_name`);
+      psize *= sizeof ('rtype_name`);
       reshape_packed ((char *)ret->data, rsize, (char *)source->data,
 		      ssize, pad ? (char *)pad->data : NULL, psize);
       return;
@@ -184,6 +195,24 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
   src = sptr = source->data;
   rstride0 = rstride[0];
   sstride0 = sstride[0];
+
+  if (sempty && pempty)
+    abort ();
+
+  if (sempty)
+    {
+      /* Switch immediately to the pad array.  */
+      src = pptr;
+      sptr = NULL;
+      sdim = pdim;
+      for (dim = 0; dim < pdim; dim++)
+	{
+	  scount[dim] = pcount[dim];
+	  sextent[dim] = pextent[dim];
+	  sstride[dim] = pstride[dim];
+	  sstride0 = sstride[0] * sizeof ('rtype_name`);
+	}
+    }
 
   while (rptr)
     {
@@ -194,6 +223,7 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
       src += sstride0;
       rcount[0]++;
       scount[0]++;
+
       /* Advance to the next destination element.  */
       n = 0;
       while (rcount[n] == rextent[n])
@@ -202,7 +232,7 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
              the next dimension.  */
           rcount[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           rptr -= rstride[n] * rextent[n];
           n++;
           if (n == rdim)
@@ -225,7 +255,7 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
              the next dimension.  */
           scount[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           src -= sstride[n] * sextent[n];
           n++;
           if (n == sdim)
@@ -256,4 +286,4 @@ reshape_`'rtype_ccode (rtype * const restrict ret,
     }
 }
 
-#endif
+#endif'

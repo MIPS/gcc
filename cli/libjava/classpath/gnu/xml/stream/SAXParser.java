@@ -1,5 +1,5 @@
 /* SAXParser.java -- 
-   Copyright (C) 2005, 2006  Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -187,6 +187,8 @@ public class SAXParser
       lexicalHandler = (LexicalHandler) value;
     else if ((GNU_FEATURES + "xml-base").equals(name))
       baseAware = Boolean.TRUE.equals(value);
+    else if ((GNU_FEATURES + "coalescing").equals(name))
+      coalescing = Boolean.TRUE.equals(value);
     else
       throw new SAXNotSupportedException(name);
   }
@@ -1021,9 +1023,18 @@ public class SAXParser
         SAXParser parser = new SAXParser(validating, namespaceAware,
                                          xIncludeAware);
         InputSource input = new InputSource(args[pos]);
-        XMLReader reader = parser.getXMLReader();
-        reader.setContentHandler(handler);
-        reader.parse(input);
+        java.io.FileReader fr = new java.io.FileReader(args[pos]);
+        input.setCharacterStream(fr);
+        try
+          {
+            XMLReader reader = parser.getXMLReader();
+            reader.setContentHandler(handler);
+            reader.parse(input);
+          }
+        finally
+          {
+            fr.close();
+          }
         pos++;
       }
   }

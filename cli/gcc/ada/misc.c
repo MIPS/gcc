@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -127,6 +127,8 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_GETDECLS		lhd_return_null_tree_v
 #undef  LANG_HOOKS_PUSHDECL
 #define LANG_HOOKS_PUSHDECL		lhd_return_tree
+#undef  LANG_HOOKS_WRITE_GLOBALS
+#define LANG_HOOKS_WRITE_GLOBALS      gnat_write_global_declarations
 #undef  LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL gnat_finish_incomplete_decl
 #undef	LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
@@ -155,12 +157,10 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_TYPE_FOR_MODE	gnat_type_for_mode
 #undef  LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE	gnat_type_for_size
-#undef  LANG_HOOKS_SIGNED_TYPE
-#define LANG_HOOKS_SIGNED_TYPE		gnat_signed_type
-#undef  LANG_HOOKS_UNSIGNED_TYPE
-#define LANG_HOOKS_UNSIGNED_TYPE	gnat_unsigned_type
-#undef  LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
-#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE gnat_signed_or_unsigned_type
+#undef  LANG_HOOKS_ATTRIBUTE_TABLE
+#define LANG_HOOKS_ATTRIBUTE_TABLE	gnat_internal_attribute_table
+#undef  LANG_HOOKS_BUILTIN_FUNCTION
+#define LANG_HOOKS_BUILTIN_FUNCTION        gnat_builtin_function
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -229,23 +229,22 @@ gnat_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 {
   int seh[2];
 
-  /* call the target specific initializations */
+  /* Call the target specific initializations.  */
   __gnat_initialize (NULL);
 
-  /* ??? call the SEH initialization routine, this is to workaround a
-  bootstrap path problem. The call below should be removed at some point and
-  the seh pointer passed to __gnat_initialize() above.  */
-
+  /* ??? Call the SEH initialization routine.  This is to workaround
+  a bootstrap path problem.  The call below should be removed at some
+  point and the SEH pointer passed to __gnat_initialize() above.  */
   __gnat_install_SEH_handler((void *)seh);
 
-  /* Call the front-end elaboration procedures */
+  /* Call the front-end elaboration procedures.  */
   adainit ();
 
-  /* Call the front end */
+  /* Call the front end.  */
   _ada_gnat1drv ();
 
+  /* We always have a single compilation unit in Ada.  */
   cgraph_finalize_compilation_unit ();
-  cgraph_optimize ();
 }
 
 /* Decode all the language specific options that cannot be decoded by GCC.
@@ -299,6 +298,14 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
     case OPT_nostdlib:
       gnat_argv[gnat_argc] = xstrdup ("-nostdlib");
       gnat_argc++;
+      break;
+
+    case OPT_feliminate_unused_debug_types:
+      /* We arrange for post_option to be able to only set the corresponding
+         flag to 1 when explicitely requested by the user.  We expect the
+         default flag value to be either 0 or positive, and expose a positive
+         -f as a negative value to post_option.  */
+      flag_eliminate_unused_debug_types = -value;
       break;
 
     case OPT_fRTS_:
@@ -361,7 +368,13 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (flag_inline_functions)
     flag_inline_trees = 2;
 
-  flag_tree_salias = 0;
+  /* Force eliminate_unused_debug_types to 0 unless an explicit positive
+     -f has been passed.  This forces the default to 0 for Ada, which might
+     differ from the common default.  */
+  if (flag_eliminate_unused_debug_types < 0)
+    flag_eliminate_unused_debug_types = 1;
+  else
+    flag_eliminate_unused_debug_types = 0;
 
   return false;
 }
@@ -372,10 +385,10 @@ static void
 internal_error_function (const char *msgid, va_list *ap)
 {
   text_info tinfo;
-  char *buffer;
-  char *p;
-  String_Template temp;
-  Fat_Pointer fp;
+  char *buffer, *p, *loc;
+  String_Template temp, temp_loc;
+  Fat_Pointer fp, fp_loc;
+  expanded_location s;
 
   /* Reset the pretty-printer.  */
   pp_clear_output_area (global_dc->printer);
@@ -402,8 +415,20 @@ internal_error_function (const char *msgid, va_list *ap)
   fp.Bounds = &temp;
   fp.Array = buffer;
 
+  s = expand_location (input_location);
+#ifdef USE_MAPPED_LOCATION
+  if (flag_show_column && s.column != 0)
+    asprintf (&loc, "%s:%d:%d", s.file, s.line, s.column);
+  else
+#endif
+    asprintf (&loc, "%s:%d", s.file, s.line);
+  temp_loc.Low_Bound = 1;
+  temp_loc.High_Bound = strlen (loc);
+  fp_loc.Bounds = &temp_loc;
+  fp_loc.Array = loc;
+
   Current_Error_Node = error_gnat_node;
-  Compiler_Abort (fp, -1);
+  Compiler_Abort (fp, -1, fp_loc);
 }
 
 /* Perform all the initialization steps that are language-specific.  */
@@ -468,6 +493,11 @@ gnat_compute_largest_alignment (void)
 void
 gnat_init_gcc_eh (void)
 {
+#ifdef DWARF2_UNWIND_INFO
+  /* lang_dependent_init already called dwarf2out_frame_init if true.  */
+  int dwarf2out_frame_initialized = dwarf2out_do_frame ();
+#endif
+
   /* We shouldn't do anything if the No_Exceptions_Handler pragma is set,
      though. This could for instance lead to the emission of tables with
      references to symbols (such as the Ada eh personality routine) within
@@ -501,7 +531,7 @@ gnat_init_gcc_eh (void)
 
   init_eh ();
 #ifdef DWARF2_UNWIND_INFO
-  if (dwarf2out_do_frame ())
+  if (!dwarf2out_frame_initialized && dwarf2out_do_frame ())
     dwarf2out_frame_init ();
 #endif
 }
@@ -617,13 +647,6 @@ gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode,
   tree type = TREE_TYPE (exp);
   tree new;
 
-  /* If this is a statement, call the expansion routine for statements.  */
-  if (IS_STMT (exp))
-    {
-      gnat_expand_stmt (exp);
-      return const0_rtx;
-    }
-
   /* Update EXP to be the new expression to expand.  */
   switch (TREE_CODE (exp))
     {
@@ -658,18 +681,7 @@ gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode,
 static void
 gnat_expand_body (tree gnu_decl)
 {
-  if (!DECL_INITIAL (gnu_decl) || DECL_INITIAL (gnu_decl) == error_mark_node)
-    return;
-
   tree_rest_of_compilation (gnu_decl);
-
-  if (DECL_STATIC_CONSTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
-    targetm.asm_out.constructor (XEXP (DECL_RTL (gnu_decl), 0),
-                                 DEFAULT_INIT_PRIORITY);
-
-  if (DECL_STATIC_DESTRUCTOR (gnu_decl) && targetm.have_ctors_dtors)
-    targetm.asm_out.destructor (XEXP (DECL_RTL (gnu_decl), 0),
-                                DEFAULT_INIT_PRIORITY);
 }
 
 /* Adjusts the RLI used to layout a record after all the fields have been
@@ -741,25 +753,27 @@ gnat_get_alias_set (tree type)
     return
       get_alias_set (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (type)))));
 
+  /* If the type can alias any other types, return the alias set 0.  */
+  else if (TYPE_P (type)
+	   && TYPE_UNIVERSAL_ALIASING_P (TYPE_MAIN_VARIANT (type)))
+    return 0;
 
   return -1;
 }
 
-/* GNU_TYPE is a type.  Return its maxium size in bytes, if known,
+/* GNU_TYPE is a type.  Return its maximum size in bytes, if known,
    as a constant when possible.  */
 
 static tree
 gnat_type_max_size (tree gnu_type)
 {
-  /* First see what we can get from TYPE_SIZE_UNIT, which might not be
-     constant even for simple expressions if it has already been gimplified
-     and replaced by a VAR_DECL.  */
-
+  /* First see what we can get from TYPE_SIZE_UNIT, which might not
+     be constant even for simple expressions if it has already been
+     elaborated and possibly replaced by a VAR_DECL.  */
   tree max_unitsize = max_size (TYPE_SIZE_UNIT (gnu_type), true);
 
   /* If we don't have a constant, see what we can get from TYPE_ADA_SIZE,
-     typically not gimplified.  */
-
+     which should stay untouched.  */
   if (!host_integerp (max_unitsize, 1)
       && (TREE_CODE (gnu_type) == RECORD_TYPE
 	  || TREE_CODE (gnu_type) == UNION_TYPE
@@ -767,10 +781,9 @@ gnat_type_max_size (tree gnu_type)
       && TYPE_ADA_SIZE (gnu_type))
     {
       tree max_adasize = max_size (TYPE_ADA_SIZE (gnu_type), true);
-      
-      /* If we have succeded in finding a constant, round it up to the
-	 type's alignment and return the result in byte units.  */
 
+      /* If we have succeeded in finding a constant, round it up to the
+	 type's alignment and return the result in units.  */
       if (host_integerp (max_adasize, 1))
 	max_unitsize
 	  = size_binop (CEIL_DIV_EXPR,
@@ -894,7 +907,7 @@ enumerate_modes (void (*f) (int, int, int, int, int, int, unsigned int))
 	{
 	  const struct real_format *fmt = REAL_MODE_FORMAT (inner_mode);
 
-	  mantissa = fmt->p * fmt->log2_b;
+	  mantissa = fmt->p;
 	}
 
       if (!skip_p && j != VOIDmode)

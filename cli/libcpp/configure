@@ -2816,7 +2816,7 @@ fi
 echo "$as_me:$LINENO: result: $acx_cv_prog_cc_pedantic__Wno_long_long" >&5
 echo "${ECHO_T}$acx_cv_prog_cc_pedantic__Wno_long_long" >&6
 if test $acx_cv_prog_cc_pedantic__Wno_long_long = yes; then
-  WARN_PEDANTIC="-pedantic -Wno-long-long"
+  WARN_PEDANTIC="$WARN_PEDANTIC${WARN_PEDANTIC:+ }-pedantic -Wno-long-long"
 fi
 
 
@@ -2835,8 +2835,9 @@ else
   enable_werror_always=no
 fi;
 if test $enable_werror_always = yes; then
-  WERROR=-Werror
+  WERROR="$WERROR${WERROR:+ }-Werror"
 fi
+
 
 
 
@@ -7264,8 +7265,9 @@ INCINTL=
 XGETTEXT=
 GMSGFMT=
 POSUB=
-if test -f ../intl/config.intl; then
-  . ../intl/config.intl
+
+if test -f  ../intl/config.intl; then
+  .  ../intl/config.intl
 fi
 echo "$as_me:$LINENO: checking whether NLS is requested" >&5
 echo $ECHO_N "checking whether NLS is requested... $ECHO_C" >&6
@@ -8233,6 +8235,7 @@ case $target in
 	x86_64-*-* | \
 	ia64-*-* | \
 	hppa*64*-*-* | parisc*64*-*-* | \
+	i[34567]86-*-darwin* | \
 	i[34567]86-*-solaris2.1[0-9]* | \
 	mips*-*-* | \
 	mmix-*-* | \
@@ -8242,8 +8245,16 @@ case $target in
 	sparc64*-*-* | ultrasparc-*-freebsd* | \
 	sparcv9-*-solaris2* | \
 	sparc-*-solaris2.[789] | sparc-*-solaris2.1[0-9]* | \
+	spu-*-* | \
 	sh[123456789l]*-*-*)
 		need_64bit_hwint=yes ;;
+	i[34567]86-*-linux*)
+		if test "x$enable_targets" = xall; then
+			need_64bit_hwint=yes
+		else
+			need_64bit_hwint=no
+		fi
+		;;
 	*)
 		need_64bit_hwint=no ;;
 esac
@@ -8790,7 +8801,7 @@ cat >>$CONFIG_STATUS <<_ACEOF
 # INIT-COMMANDS section.
 #
 
-DEPDIR=$DEPDIR
+ac_aux_dir=$ac_aux_dir DEPDIR=$DEPDIR
 
 _ACEOF
 
@@ -9524,7 +9535,7 @@ esac
   { echo "$as_me:$LINENO: executing $ac_dest commands" >&5
 echo "$as_me: executing $ac_dest commands" >&6;}
   case $ac_dest in
-    depdir ) mkdir $DEPDIR ;;
+    depdir ) $SHELL $ac_aux_dir/mkinstalldirs $DEPDIR ;;
   esac
 done
 _ACEOF

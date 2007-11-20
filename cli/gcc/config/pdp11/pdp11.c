@@ -1,6 +1,6 @@
 /* Subroutines for gcc2 for pdp11.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2004, 2005,
+   2006, 2007 Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
 This file is part of GCC.
@@ -78,6 +78,7 @@ const struct real_format pdp11_f_format =
     false,
     false,
     false,
+    false,
     false
   };
 
@@ -92,6 +93,7 @@ const struct real_format pdp11_d_format =
     -127,
     127,
     15,
+    false,
     false,
     false,
     false,
@@ -289,7 +291,7 @@ pdp11_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 
     /* save CPU registers  */
     for (regno = 0; regno < 8; regno++)				
-	if (regs_ever_live[regno] && ! call_used_regs[regno])	
+      if (df_regs_ever_live_p (regno) && ! call_used_regs[regno])	
 	    if (! ((regno == FRAME_POINTER_REGNUM)			
 		   && frame_pointer_needed))				
 		fprintf (stream, "\tmov %s, -(sp)\n", reg_names[regno]);	
@@ -302,7 +304,7 @@ pdp11_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
     {
 	/* ac0 - ac3 */						
 	if (LOAD_FPU_REG_P(regno)
-	    && regs_ever_live[regno] 
+	    && df_regs_ever_live_p (regno) 
 	    && ! call_used_regs[regno])
 	{
 	    fprintf (stream, "\tstd %s, -(sp)\n", reg_names[regno]);
@@ -312,7 +314,7 @@ pdp11_output_function_prologue (FILE *stream, HOST_WIDE_INT size)
 	/* maybe make ac4, ac5 call used regs?? */
 	/* ac4 - ac5 */
 	if (NO_LOAD_FPU_REG_P(regno)
-	    && regs_ever_live[regno]
+	    && df_regs_ever_live_p (regno)
 	    && ! call_used_regs[regno])
 	{
 	  gcc_assert (via_ac != -1);
@@ -371,10 +373,10 @@ pdp11_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
     if (frame_pointer_needed)					
     {								
 	/* hope this is safe - m68k does it also .... */		
-	regs_ever_live[FRAME_POINTER_REGNUM] = 0;			
+      df_regs_ever_live_p (FRAME_POINTER_REGNUM) = 0;			
 								
 	for (i =7, j = 0 ; i >= 0 ; i--)				
-	    if (regs_ever_live[i] && ! call_used_regs[i])		
+	  if (df_regs_ever_live_p (i) && ! call_used_regs[i])		
 		j++;
 	
 	/* remember # of pushed bytes for CPU regs */
@@ -382,14 +384,14 @@ pdp11_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	
 	/* change fp -> r5 due to the compile error on libgcc2.c */
 	for (i =7 ; i >= 0 ; i--)					
-	    if (regs_ever_live[i] && ! call_used_regs[i])		
+	  if (df_regs_ever_live_p (i) && ! call_used_regs[i])		
 		fprintf(stream, "\tmov %#o(r5), %s\n",(-fsize-2*j--)&0xffff, reg_names[i]);
 
 	/* get ACs */						
 	via_ac = FIRST_PSEUDO_REGISTER -1;
 	
 	for (i = FIRST_PSEUDO_REGISTER; i > 7; i--)
-	    if (regs_ever_live[i] && ! call_used_regs[i])
+	  if (df_regs_ever_live_p (i) && ! call_used_regs[i])
 	    {
 		via_ac = i;
 		k += 8;
@@ -398,7 +400,7 @@ pdp11_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	for (i = FIRST_PSEUDO_REGISTER; i > 7; i--)
 	{
 	    if (LOAD_FPU_REG_P(i)
-		&& regs_ever_live[i]
+		&& df_regs_ever_live_p (i)
 		&& ! call_used_regs[i])
 	    {
 		fprintf(stream, "\tldd %#o(r5), %s\n", (-fsize-k)&0xffff, reg_names[i]);
@@ -406,7 +408,7 @@ pdp11_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	    }
 	    
 	    if (NO_LOAD_FPU_REG_P(i)
-		&& regs_ever_live[i]
+		&& df_regs_ever_live_p (i)
 		&& ! call_used_regs[i])
 	    {
 	        gcc_assert (LOAD_FPU_REG_P(via_ac));
@@ -426,18 +428,18 @@ pdp11_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	
 	/* get ACs */
 	for (i = FIRST_PSEUDO_REGISTER; i > 7; i--)
-	    if (regs_ever_live[i] && call_used_regs[i])
+	  if (df_regs_ever_live_p (i) && call_used_regs[i])
 		via_ac = i;
 	
 	for (i = FIRST_PSEUDO_REGISTER; i > 7; i--)
 	{
 	    if (LOAD_FPU_REG_P(i)
-		&& regs_ever_live[i]
+		&& df_regs_ever_live_p (i)
 		&& ! call_used_regs[i])
 	      fprintf(stream, "\tldd (sp)+, %s\n", reg_names[i]);
 	    
 	    if (NO_LOAD_FPU_REG_P(i)
-		&& regs_ever_live[i]
+		&& df_regs_ever_live_p (i)
 		&& ! call_used_regs[i])
 	    {
 	        gcc_assert (LOAD_FPU_REG_P(via_ac));
@@ -448,7 +450,7 @@ pdp11_output_function_epilogue (FILE *stream, HOST_WIDE_INT size)
 	}
 
 	for (i=7; i >= 0; i--)					
-	    if (regs_ever_live[i] && !call_used_regs[i])		
+	  if (df_regs_ever_live_p (i) && !call_used_regs[i])		
 		fprintf(stream, "\tmov (sp)+, %s\n", reg_names[i]);	
 								
 	if (fsize)						
@@ -582,7 +584,7 @@ output_move_double (rtx *operands)
 	    operands[1] = GEN_INT (INTVAL(operands[1]) & 0xff);
 	}
 	else
-	  /* immediate 32 bit values not allowed */
+	  /* immediate 32-bit values not allowed */
 	  gcc_assert (GET_CODE (operands[1]) != CONST_DOUBLE);
     }
   else

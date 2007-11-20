@@ -8,7 +8,7 @@
 @c                                                                            o
 @c                              G N A T _ RM                                  o
 @c                                                                            o
-@c              Copyright (C) 1995-2005 Free Software Foundation              o
+@c              Copyright (C) 1995-2007, Free Software Foundation             o
 @c                                                                            o
 @c                                                                            o
 @c  GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).    o
@@ -17,7 +17,9 @@
 
 @setfilename gnat_rm.info
 
-@set FSFEDITION
+@set EDITION GNAT
+@set DEFAULTLANGUAGEVERSION Ada 2005
+@set NONDEFAULTLANGUAGEVERSION Ada 95
 
 @settitle GNAT Reference Manual
 
@@ -32,7 +34,7 @@
 @end direntry
 
 @copying
-Copyright @copyright{} 1995-2004, Free Software Foundation
+Copyright @copyright{} 1995-2007, Free Software Foundation
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2
@@ -44,12 +46,10 @@ entitled ``GNU Free Documentation License''.
 @end copying
 
 @titlepage
-
 @title GNAT Reference Manual
-@subtitle GNAT, The GNU Ada 95 Compiler
-@subtitle GCC version @value{version-GCC}
+@subtitle GNAT, The GNU Ada Compiler
+@versionsubtitle
 @author AdaCore
-
 @page
 @vskip 0pt plus 1filll
 
@@ -65,7 +65,7 @@ entitled ``GNU Free Documentation License''.
 GNAT Reference Manual
 
 @noindent
-GNAT, The GNU Ada 95 Compiler@*
+GNAT, The GNU Ada Compiler@*
 GCC version @value{version-GCC}@*
 
 @noindent
@@ -110,6 +110,7 @@ Implementation Defined Pragmas
 * Pragma C_Pass_By_Copy::
 * Pragma Comment::
 * Pragma Common_Object::
+* Pragma Compile_Time_Error::
 * Pragma Compile_Time_Warning::
 * Pragma Complete_Representation::
 * Pragma Complex_Representation::
@@ -158,6 +159,7 @@ Implementation Defined Pragmas
 * Pragma Long_Float::
 * Pragma Machine_Attribute::
 * Pragma Main_Storage::
+* Pragma No_Body::
 * Pragma No_Return::
 * Pragma No_Strict_Aliasing ::
 * Pragma Normalize_Scalars::
@@ -176,19 +178,21 @@ Implementation Defined Pragmas
 * Pragma Stream_Convert::
 * Pragma Style_Checks::
 * Pragma Subtitle::
+* Pragma Suppress::
 * Pragma Suppress_All::
 * Pragma Suppress_Exception_Locations::
 * Pragma Suppress_Initialization::
 * Pragma Task_Info::
 * Pragma Task_Name::
 * Pragma Task_Storage::
-* Pragma Thread_Body::
 * Pragma Time_Slice::
 * Pragma Title::
 * Pragma Unchecked_Union::
 * Pragma Unimplemented_Unit::
+* Pragma Universal_Aliasing ::
 * Pragma Universal_Data::
 * Pragma Unreferenced::
+* Pragma Unreferenced_Objects::
 * Pragma Unreserve_All_Interrupts::
 * Pragma Unsuppress::
 * Pragma Use_VADS_Size::
@@ -196,6 +200,7 @@ Implementation Defined Pragmas
 * Pragma Volatile::
 * Pragma Warnings::
 * Pragma Weak_External::
+* Pragma Wide_Character_Encoding::
 
 Implementation Defined Attributes
 
@@ -234,6 +239,7 @@ Implementation Defined Attributes
 * Safe_Large::
 * Small::
 * Storage_Unit::
+* Stub_Type::
 * Target_Name::
 * Tick::
 * To_Address::
@@ -258,6 +264,7 @@ The Implementation of Standard I/O
 * Wide_Wide_Text_IO::
 * Stream_IO::
 * Shared Files::
+* Filenames encoding::
 * Open Modes::
 * Operations on C Streams::
 * Interfacing to C Streams::
@@ -294,6 +301,7 @@ The GNAT Library
 * GNAT.Bubble_Sort (g-bubsor.ads)::
 * GNAT.Bubble_Sort_A (g-busora.ads)::
 * GNAT.Bubble_Sort_G (g-busorg.ads)::
+* GNAT.Byte_Swapping (g-bytswa.ads)::
 * GNAT.Calendar (g-calend.ads)::
 * GNAT.Calendar.Time_IO (g-catiio.ads)::
 * GNAT.Case_Util (g-casuti.ads)::
@@ -332,6 +340,7 @@ The GNAT Library
 * GNAT.Regpat (g-regpat.ads)::
 * GNAT.Secondary_Stack_Info (g-sestin.ads)::
 * GNAT.Semaphores (g-semaph.ads)::
+* GNAT.SHA1 (g-sha1.ads)::
 * GNAT.Signals (g-signal.ads)::
 * GNAT.Sockets (g-socket.ads)::
 * GNAT.Source_Info (g-souinf.ads)::
@@ -405,7 +414,7 @@ Implementation of Specific Ada Features
 * GNAT Implementation of Shared Passive Packages::
 * Code Generation for Array Aggregates::
 * The Size of Discriminated Records with Default Discriminants::
-* Strict Conformance to the Ada 95 Reference Manual::
+* Strict Conformance to the Ada Reference Manual::
 
 Project File Reference
 
@@ -421,26 +430,26 @@ Index
 @node About This Guide
 @unnumbered About This Guide
 
-@ifclear PROEDITION
 @noindent
 This manual contains useful information in writing programs using the
-GNAT compiler.  It includes information on implementation dependent
-characteristics of GNAT, including all the information required by Annex
-M of the standard.
-@end ifclear
+@value{EDITION} compiler.  It includes information on implementation dependent
+characteristics of @value{EDITION}, including all the information required by
+Annex M of the Ada language standard.
 
-@ifset PROEDITION
-@noindent
-This manual contains useful information in writing programs using the
-GNAT Pro compiler.  It includes information on implementation dependent
-characteristics of GNAT Pro, including all the information required by Annex
-M of the standard.
-@end ifset
+@value{EDITION} implements Ada 95 and Ada 2005, and it may also be invoked in
+Ada 83 compatibility mode.
+By default, @value{EDITION} assumes @value{DEFAULTLANGUAGEVERSION},
+but you can override with a compiler switch
+to explicitly specify the language version.
+(Please refer to the section ``Compiling Different Versions of Ada'', in
+@cite{@value{EDITION} User's Guide}, for details on these switches.)
+Throughout this manual, references to ``Ada'' without a year suffix
+apply to both the Ada 95 and Ada 2005 versions of the language.
 
-Ada 95 is designed to be highly portable.
+Ada is designed to be highly portable.
 In general, a program will have the same effect even when compiled by
 different compilers on different platforms.
-However, since Ada 95 is designed to be used in a
+However, since Ada is designed to be used in a
 wide variety of applications, it also contains a number of system
 dependent features to be used in interfacing to the external world.
 @cindex Implementation-dependent features
@@ -537,11 +546,17 @@ obsolescent forms are retained for backwards compatibility.
 
 @end itemize
 
-@cindex Ada 95 ISO/ANSI Standard
+@cindex Ada 95 Language Reference Manual
+@cindex Ada 2005 Language Reference Manual
 @noindent
-This reference manual assumes that you are familiar with Ada 95
-language, as described in the International Standard
-ANSI/ISO/IEC-8652:1995, Jan 1995.
+This reference manual assumes a basic familiarity with the Ada 95 language, as
+described in the International Standard ANSI/ISO/IEC-8652:1995,
+January 1995.
+It does not require knowledge of the new features introduced by Ada 2005,
+(officially known as ISO/IEC 8652:1995 with Technical Corrigendum 1
+and Amendment 1).
+Both reference manuals are included in the GNAT documentation
+package.
 
 @node Conventions
 @unnumberedsec Conventions
@@ -602,9 +617,19 @@ material for the Ada 95 programming language.
 
 @item
 @cite{Ada 95 Annotated Reference Manual}, which is an annotated version
-of the standard reference manual cited above.  The annotations describe
+of the Ada 95 standard.  The annotations describe
 detailed aspects of the design decision, and in particular contain useful
 sections on Ada 83 compatibility.
+
+@item
+@cite{Ada 2005 Reference Manual}, which contains all reference
+material for the Ada 2005 programming language.
+
+@item
+@cite{Ada 2005 Annotated Reference Manual}, which is an annotated version
+of the Ada 2005 standard.  The annotations describe
+detailed aspects of the design decision, and in particular contain useful
+sections on Ada 83 and Ada 95 compatibility.
 
 @item
 @cite{DEC Ada, Technical Overview and Comparison on DIGITAL Platforms},
@@ -622,12 +647,12 @@ compiler system.
 @chapter Implementation Defined Pragmas
 
 @noindent
-Ada 95 defines a set of pragmas that can be used to supply additional
+Ada defines a set of pragmas that can be used to supply additional
 information to the compiler.  These language defined pragmas are
-implemented in GNAT and work as described in the Ada 95 Reference
+implemented in GNAT and work as described in the Ada Reference
 Manual.
 
-In addition, Ada 95 allows implementations to define additional pragmas
+In addition, Ada allows implementations to define additional pragmas
 whose meaning is defined by the implementation.  GNAT provides a number
 of these implementation-dependent pragmas which can be used to extend
 and enhance the functionality of the compiler.  This section of the GNAT
@@ -650,6 +675,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma C_Pass_By_Copy::
 * Pragma Comment::
 * Pragma Common_Object::
+* Pragma Compile_Time_Error::
 * Pragma Compile_Time_Warning::
 * Pragma Complete_Representation::
 * Pragma Complex_Representation::
@@ -698,6 +724,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Long_Float::
 * Pragma Machine_Attribute::
 * Pragma Main_Storage::
+* Pragma No_Body::
 * Pragma No_Return::
 * Pragma No_Strict_Aliasing::
 * Pragma Normalize_Scalars::
@@ -716,19 +743,21 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Stream_Convert::
 * Pragma Style_Checks::
 * Pragma Subtitle::
+* Pragma Suppress::
 * Pragma Suppress_All::
 * Pragma Suppress_Exception_Locations::
 * Pragma Suppress_Initialization::
 * Pragma Task_Info::
 * Pragma Task_Name::
 * Pragma Task_Storage::
-* Pragma Thread_Body::
 * Pragma Time_Slice::
 * Pragma Title::
 * Pragma Unchecked_Union::
 * Pragma Unimplemented_Unit::
+* Pragma Universal_Aliasing ::
 * Pragma Universal_Data::
 * Pragma Unreferenced::
+* Pragma Unreferenced_Objects::
 * Pragma Unreserve_All_Interrupts::
 * Pragma Unsuppress::
 * Pragma Use_VADS_Size::
@@ -736,6 +765,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Volatile::
 * Pragma Warnings::
 * Pragma Weak_External::
+* Pragma Wide_Character_Encoding::
 @end menu
 
 @node Pragma Abort_Defer
@@ -769,14 +799,14 @@ A configuration pragma that establishes Ada 83 mode for the unit to
 which it applies, regardless of the mode set by the command line
 switches.  In Ada 83 mode, GNAT attempts to be as compatible with
 the syntax and semantics of Ada 83, as defined in the original Ada
-83 Reference Manual as possible.  In particular, the new Ada 95
-keywords are not recognized, optional package bodies are allowed,
+83 Reference Manual as possible.  In particular, the keywords added by Ada 95
+(and Ada 2005) are not recognized, optional package bodies are allowed,
 and generics may name types with unknown discriminants without using
 the @code{(<>)} notation.  In addition, some but not all of the additional
 restrictions of Ada 83 are enforced.
 
 Ada 83 mode is intended for two purposes.  Firstly, it allows existing
-legacy Ada 83 code to be compiled and adapted to GNAT with less effort.
+Ada 83 code to be compiled and adapted to GNAT with less effort.
 Secondly, it aids in keeping code backwards compatible with Ada 83.
 However, there is no guarantee that code that is processed correctly
 by GNAT in Ada 83 mode will in fact compile and execute with an Ada
@@ -1033,6 +1063,33 @@ support is available, then the code generator will issue a message
 indicating that the necessary attribute for implementation of this
 pragma is not available.
 
+@node Pragma Compile_Time_Error
+@unnumberedsec Pragma Compile_Time_Error
+@findex Compile_Time_Error
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Compile_Time_Error
+         (boolean_EXPRESSION, static_string_EXPRESSION);
+@end smallexample
+
+@noindent
+This pragma can be used to generate additional compile time
+error messages. It
+is particularly useful in generics, where errors can be issued for
+specific problematic instantiations. The first parameter is a boolean
+expression. The pragma is effective only if the value of this expression
+is known at compile time, and has the value True. The set of expressions
+whose values are known at compile time includes all static boolean
+expressions, and also other values which the compiler can determine
+at compile time (e.g. the size of a record type set by an explicit
+size representation clause, or the value of a variable which was
+initialized to a constant and is known not to have been modified).
+If these conditions are met, an error message is generated using
+the value given as the second argument. This string value may contain
+embedded ASCII.LF characters to break the message into multiple lines.
+
 @node Pragma Compile_Time_Warning
 @unnumberedsec Pragma Compile_Time_Warning
 @findex Compile_Time_Warning
@@ -1225,24 +1282,25 @@ pragma CPP_Class ([Entity =>] local_NAME);
 @end smallexample
 
 @noindent
-The argument denotes an entity in the current declarative region
-that is declared as a tagged or untagged record type.  It indicates that
-the type corresponds to an externally declared C++ class type, and is to
-be laid out the same way that C++ would lay out the type.
-
-If (and only if) the type is tagged, at least one component in the
-record must be of type @code{Interfaces.CPP.Vtable_Ptr}, corresponding
-to the C++ Vtable (or Vtables in the case of multiple inheritance) used
-for dispatching.
+The argument denotes an entity in the current declarative region that is
+declared as a tagged record type. It indicates that the type corresponds
+to an externally declared C++ class type, and is to be laid out the same
+way that C++ would lay out the type.
 
 Types for which @code{CPP_Class} is specified do not have assignment or
 equality operators defined (such operations can be imported or declared
-as subprograms as required).  Initialization is allowed only by
-constructor functions (see pragma @code{CPP_Constructor}).
+as subprograms as required). Initialization is allowed only by constructor
+functions (see pragma @code{CPP_Constructor}). Such types are implicitly
+limited if not explicitly declared as limited or derived from a limited
+type, and a warning is issued in that case.
 
 Pragma @code{CPP_Class} is intended primarily for automatic generation
 using an automatic binding generator tool.
 See @ref{Interfacing to C++} for related information.
+
+Note: Pragma @code{CPP_Class} is currently obsolete. It is supported
+for backward compatibility but its functionality is available
+using pragma @code{Import} with @code{Convention} = @code{CPP}.
 
 @node Pragma CPP_Constructor
 @unnumberedsec Pragma CPP_Constructor
@@ -1252,16 +1310,18 @@ See @ref{Interfacing to C++} for related information.
 Syntax:
 
 @smallexample @c ada
-pragma CPP_Constructor ([Entity =>] local_NAME);
+pragma CPP_Constructor ([Entity =>] local_NAME
+  [, [External_Name =>] static_string_EXPRESSION ]
+  [, [Link_Name     =>] static_string_EXPRESSION ]);
 @end smallexample
 
 @noindent
 This pragma identifies an imported function (imported in the usual way
-with pragma @code{Import}) as corresponding to a C++
-constructor.  The argument is a name that must have been
-previously mentioned in a pragma @code{Import}
-with @code{Convention} = @code{CPP}, and must be of one of the following
-forms:
+with pragma @code{Import}) as corresponding to a C++ constructor. If
+@code{External_Name} and @code{Link_Name} are not specified then the
+@code{Entity} argument is a name that must have been previously mentioned
+in a pragma @code{Import} with @code{Convention} = @code{CPP}. Such name
+must be of one of the following forms:
 
 @itemize @bullet
 @item
@@ -1323,37 +1383,9 @@ See @ref{Interfacing to C++} for more related information.
 @cindex Interfacing to C++
 @findex CPP_Virtual
 @noindent
-Syntax:
+This pragma is now obsolete has has no effect because GNAT generates
+the same object layout than the G++ compiler.
 
-@smallexample @c ada
-pragma CPP_Virtual
-     [Entity     =>] ENTITY,
-  [, [Vtable_Ptr =>] vtable_ENTITY,]
-  [, [Position   =>] static_integer_EXPRESSION]);
-@end smallexample
-
-@noindent
-This pragma serves the same function as pragma @code{Import} in that
-case of a virtual function imported from C++.  The @var{Entity} argument
-must be a
-primitive subprogram of a tagged type to which pragma @code{CPP_Class}
-applies.  The @var{Vtable_Ptr} argument specifies
-the Vtable_Ptr component which contains the
-entry for this virtual function.  The @var{Position} argument
-is the sequential number
-counting virtual functions for this Vtable starting at 1.
-
-The @code{Vtable_Ptr} and @code{Position} arguments may be omitted if
-there is one Vtable_Ptr present (single inheritance case) and all
-virtual functions are imported.  In that case the compiler can deduce both
-these values.
-
-No @code{External_Name} or @code{Link_Name} arguments are required for a
-virtual function, since it is always accessed indirectly via the
-appropriate Vtable entry.
-
-Pragma @code{CPP_Virtual} is intended primarily for automatic generation
-using an automatic binding generator tool.
 See @ref{Interfacing to C++} for related information.
 
 @node Pragma CPP_Vtable
@@ -1361,31 +1393,9 @@ See @ref{Interfacing to C++} for related information.
 @cindex Interfacing with C++
 @findex CPP_Vtable
 @noindent
-Syntax:
+This pragma is now obsolete has has no effect because GNAT generates
+the same object layout than the G++ compiler.
 
-@smallexample @c ada
-pragma CPP_Vtable (
-  [Entity      =>] ENTITY,
-  [Vtable_Ptr  =>] vtable_ENTITY,
-  [Entry_Count =>] static_integer_EXPRESSION);
-@end smallexample
-
-@noindent
-Given a record to which the pragma @code{CPP_Class} applies,
-this pragma can be specified for each component of type
-@code{CPP.Interfaces.Vtable_Ptr}.
-@var{Entity} is the tagged type, @var{Vtable_Ptr}
-is the record field of type @code{Vtable_Ptr}, and @var{Entry_Count} is
-the number of virtual functions on the C++ side.  Not all of these
-functions need to be imported on the Ada side.
-
-You may omit the @code{CPP_Vtable} pragma if there is only one
-@code{Vtable_Ptr} component in the record and all virtual functions are
-imported on the Ada side (the default value for the entry count in this
-case is simply the total number of virtual functions).
-
-Pragma @code{CPP_Vtable} is intended primarily for automatic generation
-using an automatic binding generator tool.
 See @ref{Interfacing to C++} for related information.
 
 @node Pragma Debug
@@ -1660,6 +1670,9 @@ MECHANISM_ASSOCIATION ::=
 MECHANISM_NAME ::=
   Value
 | Reference
+| Descriptor [([Class =>] CLASS_NAME)]
+
+CLASS_NAME ::= ubs | ubsb | uba | s | sb | a
 @end smallexample
 
 @noindent
@@ -1689,8 +1702,7 @@ anonymous access parameter.
 
 @cindex OpenVMS
 @cindex Passing by descriptor
-Note that passing by descriptor is not supported, even on the OpenVMS
-ports of GNAT@.
+Passing by descriptor is supported only on the OpenVMS ports of GNAT@.
 
 @cindex Suppressing external name
 Special treatment is given if the EXTERNAL is an explicit null
@@ -1759,6 +1771,9 @@ MECHANISM_ASSOCIATION ::=
 MECHANISM_NAME ::=
   Value
 | Reference
+| Descriptor [([Class =>] CLASS_NAME)]
+
+CLASS_NAME ::= ubs | ubsb | uba | s | sb | a
 @end smallexample
 
 @noindent
@@ -1773,8 +1788,7 @@ pragma that specifies the desired foreign convention.
 
 @cindex OpenVMS
 @cindex Passing by descriptor
-Note that passing by descriptor is not supported, even on the OpenVMS
-ports of GNAT@.
+Passing by descriptor is supported only on the OpenVMS ports of GNAT@.
 
 @cindex Suppressing external name
 Special treatment is given if the EXTERNAL is an explicit null
@@ -1839,6 +1853,9 @@ MECHANISM_ASSOCIATION ::=
 MECHANISM_NAME ::=
   Value
 | Reference
+| Descriptor [([Class =>] CLASS_NAME)]
+
+CLASS_NAME ::= ubs | ubsb | uba | s | sb | a
 @end smallexample
 
 @noindent
@@ -1858,8 +1875,7 @@ pragma that specifies the desired foreign convention.
 
 @cindex OpenVMS
 @cindex Passing by descriptor
-Note that passing by descriptor is not supported, even on the OpenVMS
-ports of GNAT@.
+Passing by descriptor is supported only on the OpenVMS ports of GNAT@.
 
 @cindex Suppressing external name
 Special treatment is given if the EXTERNAL is an explicit null
@@ -1883,7 +1899,7 @@ pragma Extend_System ([Name =>] IDENTIFIER);
 This pragma is used to provide backwards compatibility with other
 implementations that extend the facilities of package @code{System}.  In
 GNAT, @code{System} contains only the definitions that are present in
-the Ada 95 RM@.  However, other implementations, notably the DEC Ada 83
+the Ada RM@.  However, other implementations, notably the DEC Ada 83
 implementation, provide many extensions to package @code{System}.
 
 For each such implementation accommodated by this pragma, GNAT provides a
@@ -1957,7 +1973,7 @@ with Import and Export pragmas.  There are two cases to consider:
 @table @asis
 @item Implicit external names
 Implicit external names are derived from identifiers.  The most common case
-arises when a standard Ada 95 Import or Export pragma is used with only two
+arises when a standard Ada Import or Export pragma is used with only two
 arguments, as in:
 
 @smallexample @c ada
@@ -1965,7 +1981,7 @@ arguments, as in:
 @end smallexample
 
 @noindent
-Since Ada is a case insensitive language, the spelling of the identifier in
+Since Ada is a case-insensitive language, the spelling of the identifier in
 the Ada source program does not provide any information on the desired
 casing of the external name, and so a convention is needed.  In GNAT the
 default treatment is that such names are converted to all lower case
@@ -1981,7 +1997,7 @@ specified using an identifier rather than a string.
 
 @item Explicit external names
 Explicit external names are given as string literals.  The most common case
-arises when a standard Ada 95 Import or Export pragma is used with three
+arises when a standard Ada Import or Export pragma is used with three
 arguments, as in:
 
 @smallexample @c ada
@@ -2449,7 +2465,7 @@ pragma Interface (
 
 @noindent
 This pragma is identical in syntax and semantics to
-the standard Ada 95 pragma @code{Import}.  It is provided for compatibility
+the standard Ada pragma @code{Import}.  It is provided for compatibility
 with Ada 83.  The definition is upwards compatible both with pragma
 @code{Interface} as defined in the Ada 83 Reference Manual, and also
 with some extended implementations of this pragma in certain Ada 83
@@ -2922,6 +2938,29 @@ This pragma is provided for compatibility with OpenVMS VAX Systems.  It has
 no effect in GNAT, other than being syntax checked.  Note that the pragma
 also has no effect in DEC Ada 83 for OpenVMS Alpha Systems.
 
+@node Pragma No_Body
+@unnumberedsec Pragma No_Body
+@findex No_Body
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma No_Body;
+@end smallexample
+
+@noindent
+There are a number of cases in which a package spec does not require a body,
+and in fact a body is not permitted. GNAT will not permit the spec to be
+compiled if there is a body around. The pragma No_Body allows you to provide
+a body file, even in a case where no body is allowed. The body file must
+contain only comments and a single No_Body pragma. This is recognized by
+the compiler as indicating that no body is logically present.
+
+This is particularly useful during maintenance when a package is modified in
+such a way that a body needed before is no longer needed. The provision of a
+dummy body with a No_Body pragma ensures that there is no inteference from
+earlier versions of the package body.
+
 @node Pragma No_Return
 @unnumberedsec Pragma No_Return
 @findex No_Return
@@ -3052,38 +3091,88 @@ will always generate an invalid value if one exists.
 Syntax:
 
 @smallexample @c ada
-pragma Obsolescent [(static_string_EXPRESSION [,Ada_05])];
+pragma Obsolescent
+  (Entity => NAME [, static_string_EXPRESSION [,Ada_05]]);
 @end smallexample
 
 @noindent
-This pragma can occur immediately following a subprogram
-declaration and indicates that the associated function or procedure
+This pragma can occur immediately following a declaration of an entity,
+including the case of a record component, and usually the Entity name
+must match the name of the entity declared by this declaration.
+Alternatively, the pragma can immediately follow an
+enumeration type declaration, where the entity argument names one of the
+enumeration literals.
+
+This pragma is used to indicate that the named entity
 is considered obsolescent and should not be used. Typically this is
 used when an API must be modified by eventually removing or modifying
-existing subprograms. The pragma can be used at an intermediate stage
-when the subprogram is still present, but will be removed later.
+existing subprograms or other entities. The pragma can be used at an
+intermediate stage when the entity is still present, but will be
+removed later.
 
 The effect of this pragma is to output a warning message on
 a call to a program thus marked that the
 subprogram is obsolescent if the appropriate warning option in the
-compiler is activated. If a parameter is present, then a second
+compiler is activated. If the string parameter is present, then a second
 warning message is given containing this text.
 In addition, a call to such a program is considered a violation of
 pragma Restrictions (No_Obsolescent_Features).
 
 This pragma can also be used as a program unit pragma for a package,
-in which case it indicates that the entire package is considered
+in which case the entity name is the name of the package, and the
+pragma indicates that the entire package is considered
 obsolescent. In this case a client @code{with}'ing such a package
 violates the restriction, and the @code{with} statement is
 flagged with warnings if the warning option is set.
 
-If the optional second parameter is present (which must be exactly
+If the optional third parameter is present (which must be exactly
 the identifier Ada_05, no other argument is allowed), then the
 indication of obsolescence applies only when compiling in Ada 2005
 mode. This is primarily intended for dealing with the situations
 in the predefined library where subprograms or packages
 have become defined as obsolescent in Ada 2005
 (e.g. in Ada.Characters.Handling), but may be used anywhere.
+
+The following examples show typical uses of this pragma:
+
+@smallexample @c ada
+package p is
+   pragma Obsolescent
+     (Entity => p, "use pp instead of p");
+end p;
+
+package q is
+   procedure q2;
+   pragma Obsolescent
+     (Entity => q2, "use q2new instead");
+
+   type R is new integer;
+   pragma Obsolescent
+     (Entity => R, "use RR in Ada 2005", Ada_05);
+
+   type M is record
+      F1 : Integer;
+      F2 : Integer;
+      pragma Obsolescent (Entity => F2);
+      F3 : Integer;
+   end record;
+
+   type E is (a, bc, 'd', quack);
+   pragma Obsolescent (Entity => bc)
+   pragma Obsolescent (Entity => 'd')
+
+   function "+"
+     (a, b : character) return character;
+   pragma Obsolescent (Entity => "+");
+end;
+@end smallexample
+
+@noindent
+In an earlier version of GNAT, the Entity parameter was not required,
+and this form is still accepted for compatibility purposes. If the
+Entity parameter is omitted, then the pragma applies to the declaration
+immediately preceding the pragma (this form cannot be used for the
+enumeration literal case).
 
 @node Pragma Passive
 @unnumberedsec Pragma Passive
@@ -3298,7 +3387,7 @@ This set of configuration pragmas and restrictions correspond to the
 definition of the ``Ravenscar Profile'' for limited tasking, devised and
 published by the @cite{International Real-Time Ada Workshop}, 1997,
 and whose most recent description is available at
-@url{ftp://ftp.openravenscar.org/openravenscar/ravenscar00.pdf}.
+@url{http://www-users.cs.york.ac.uk/~burns/ravenscar.ps}.
 
 The original definition of the profile was revised at subsequent IRTAW
 meetings. It has been included in the ISO
@@ -3612,7 +3701,7 @@ pragma Stream_Convert
 @end smallexample
 
 @noindent
-The specifications of the referenced functions, as given in the Ada 95
+The specifications of the referenced functions, as given in the Ada
 Reference Manual are:
 
 @smallexample @c ada
@@ -3717,6 +3806,24 @@ pragma Subtitle ([Subtitle =>] STRING_LITERAL);
 @noindent
 This pragma is recognized for compatibility with other Ada compilers
 but is ignored by GNAT@.
+
+@node Pragma Suppress
+@unnumberedsec Pragma Suppress
+@findex Suppress
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Suppress (Identifier [, [On =>] Name]);
+@end smallexample
+
+@noindent
+This is a standard pragma, and supports all the check names required in
+the RM. It is included here because GNAT recognizes one additional check
+name: @code{Alignment_Check} which can be used to suppress alignment checks
+on addresses used in address clauses. Such checks can also be suppressed
+by suppressing range checks, but the specific use of @code{Alignment_Check}
+allows suppression of alignment checks without suppressing other range checks.
 
 @node Pragma Suppress_All
 @unnumberedsec Pragma Suppress_All
@@ -3870,46 +3977,6 @@ created, depending on the target.  This pragma can appear anywhere a
 @code{Storage_Size} attribute definition clause is allowed for a task
 type.
 
-@node Pragma Thread_Body
-@unnumberedsec Pragma Thread_Body
-@findex Thread_Body
-Syntax:
-
-@smallexample @c ada
-pragma Thread_Body (
-  [Entity =>] local_NAME,
- [[Secondary_Stack_Size =>] static_integer_EXPRESSION)];
-@end smallexample
-
-@noindent
-This pragma specifies that the subprogram whose name is given as the
-@code{Entity} argument is a thread body, which will be activated
-by being called via its Address from foreign code. The purpose is
-to allow execution and registration of the foreign thread within the
-Ada run-time system.
-
-See the library unit @code{System.Threads} for details on the expansion of
-a thread body subprogram, including the calls made to subprograms
-within System.Threads to register the task.  This unit also lists the
-targets and runtime systems for which this pragma is supported.
-
-A thread body subprogram may not be called directly from Ada code, and
-it is not permitted to apply the Access (or Unrestricted_Access) attributes
-to such a subprogram. The only legitimate way of calling such a subprogram
-is to pass its Address to foreign code and then make the call from the
-foreign code.
-
-A thread body subprogram may have any parameters, and it may be a function
-returning a result. The convention of the thread body subprogram may be
-set in the usual manner using @code{pragma Convention}.
-
-The secondary stack size parameter, if given, is used to set the size
-of secondary stack for the thread. The secondary stack is allocated as
-a local variable of the expanded thread body subprogram, and thus is
-allocated out of the main thread stack size. If no secondary stack
-size parameter is present, the default size (from the declaration in
-@code{System.Secondary_Stack} is used.
-
 @node Pragma Time_Slice
 @unnumberedsec Pragma Time_Slice
 @findex Time_Slice
@@ -3966,64 +4033,12 @@ pragma Unchecked_Union (first_subtype_local_NAME);
 @end smallexample
 
 @noindent
-This pragma is used to declare that the specified type should be represented
-in a manner
-equivalent to a C union type, and is intended only for use in
-interfacing with C code that uses union types.  In Ada terms, the named
-type must obey the following rules:
-
-@itemize @bullet
-@item
-It is a non-tagged non-limited record type.
-@item
-It has a single discrete discriminant with a default value.
-@item
-The component list consists of a single variant part.
-@item
-Each variant has a component list with a single component.
-@item
-No nested variants are allowed.
-@item
-No component has an explicit default value.
-@item
-No component has a non-static constraint.
-@end itemize
-
-@noindent
-In addition, given a type that meets the above requirements, the
-following restrictions apply to its use throughout the program:
-
-@itemize @bullet
-@item
-The discriminant name can be mentioned only in an aggregate.
-@item
-No subtypes may be created of this type.
-@item
-The type may not be constrained by giving a discriminant value.
-@item
-The type cannot be passed as the actual for a generic formal with a
-discriminant.
-@end itemize
-
-@noindent
-Equality and inequality operations on @code{unchecked_unions} are not
-available, since there is no discriminant to compare and the compiler
-does not even know how many bits to compare.  It is implementation
-dependent whether this is detected at compile time as an illegality or
-whether it is undetected and considered to be an erroneous construct.  In
-GNAT, a direct comparison is illegal, but GNAT does not attempt to catch
-the composite case (where two composites are compared that contain an
-unchecked union component), so such comparisons are simply considered
-erroneous.
-
-The layout of the resulting type corresponds exactly to a C union, where
-each branch of the union corresponds to a single variant in the Ada
-record.  The semantics of the Ada program is not changed in any way by
-the pragma, i.e.@: provided the above restrictions are followed, and no
-erroneous incorrect references to fields or erroneous comparisons occur,
-the semantics is exactly as described by the Ada reference manual.
-Pragma @code{Suppress (Discriminant_Check)} applies implicitly to the
-type and the default convention is C.
+This pragma is used to specify a representation of a record type that is
+equivalent to a C union. It was introduced as a GNAT implementation defined
+pragma in the GNAT Ada 95 mode. Ada 2005 includes an extended version of this
+pragma, making it language defined, and GNAT fully implements this extended
+version in all language modes (Ada 83, Ada 95, and Ada 2005). For full
+details, consult the Ada 2005 Reference Manual, section B.3.3.
 
 @node Pragma Unimplemented_Unit
 @unnumberedsec Pragma Unimplemented_Unit
@@ -4044,6 +4059,25 @@ a clean manner.
 
 The abort only happens if code is being generated.  Thus you can use
 specs of unimplemented packages in syntax or semantic checking mode.
+
+@node Pragma Universal_Aliasing
+@unnumberedsec Pragma Universal_Aliasing
+@findex Universal_Aliasing
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Universal_Aliasing [([Entity =>] type_LOCAL_NAME)];
+@end smallexample
+
+@noindent
+@var{type_LOCAL_NAME} must refer to a type declaration in the current
+declarative part.  The effect is to inhibit strict type-based aliasing
+optimization for the given type.  In other words, the effect is as though
+access types designating this type were subject to pragma No_Strict_Aliasing.
+For a detailed description of the strict aliasing optimization, and the
+situations in which it must be suppressed, see section
+``Optimization and Strict Aliasing'' in the @value{EDITION} User's Guide.
 
 @node Pragma Universal_Data
 @unnumberedsec Pragma Universal_Data
@@ -4078,6 +4112,7 @@ Syntax:
 
 @smallexample @c ada
 pragma Unreferenced (local_NAME @{, local_NAME@});
+pragma Unreferenced (library_unit_NAME @{, library_unit_NAME@});
 @end smallexample
 
 @noindent
@@ -4111,6 +4146,35 @@ regardless of whether they occur in the same unit as the subprogram
 declaration, then this pragma should not be used (calls from another
 unit would not be flagged); pragma Obsolescent can be used instead
 for this purpose, see @xref{Pragma Obsolescent}.
+
+The second form of pragma @code{Unreferenced} is used within a context
+clause. In this case the arguments must be unit names of units previously
+mentioned in @code{with} clauses (similar to the usage of pragma
+@code{Elaborate_All}. The effect is to suppress warnings about unreferenced
+units.
+
+@node Pragma Unreferenced_Objects
+@unnumberedsec Pragma Unreferenced_Objects
+@findex Unreferenced_Objects
+@cindex Warnings, unreferenced
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Unreferenced_Objects (local_subtype_NAME @{, local_subtype_NAME@});
+@end smallexample
+
+@noindent
+This pragma signals that for the types or subtypes whose names are
+listed, objects which are declared with one of these types or subtypes may
+not be referenced, and if no references appear, no warnings are given.
+
+This is particularly useful for objects which are declared solely for their
+initialization and finalization effect. Such variables are sometimes referred
+to as RAII variables (Resource Acquisition Is Initialization). Using this
+pragma on the relevant type (most typically a limited controlled type), the
+compiler will automatically suppress unwanted warnings about these variables
+not being referenced.
 
 @node Pragma Unreserve_All_Interrupts
 @unnumberedsec Pragma Unreserve_All_Interrupts
@@ -4185,8 +4249,8 @@ pragma Use_VADS_Size;
 This is a configuration pragma.  In a unit to which it applies, any use
 of the 'Size attribute is automatically interpreted as a use of the
 'VADS_Size attribute.  Note that this may result in incorrect semantic
-processing of valid Ada 95 programs.  This is intended to aid in the
-handling of legacy code which depends on the interpretation of Size
+processing of valid Ada 95 or Ada 2005 programs.  This is intended to aid in
+the handling of existing code which depends on the interpretation of Size
 as implemented in the VADS compiler.  See description of the VADS_Size
 attribute for further details.
 
@@ -4260,12 +4324,12 @@ pragma Volatile (local_NAME);
 @end smallexample
 
 @noindent
-This pragma is defined by the Ada 95 Reference Manual, and the GNAT
+This pragma is defined by the Ada Reference Manual, and the GNAT
 implementation is fully conformant with this definition.  The reason it
 is mentioned in this section is that a pragma of the same name was supplied
-in some Ada 83 compilers, including DEC Ada 83.  The Ada 95 implementation
-of pragma Volatile is upwards compatible with the implementation in
-Dec Ada 83.
+in some Ada 83 compilers, including DEC Ada 83.  The Ada 95 / Ada 2005
+implementation of pragma Volatile is upwards compatible with the
+implementation in DEC Ada 83.
 
 @node Pragma Warnings
 @unnumberedsec Pragma Warnings
@@ -4274,8 +4338,10 @@ Dec Ada 83.
 Syntax:
 
 @smallexample @c ada
-pragma Warnings (On | Off [, local_NAME]);
+pragma Warnings (On | Off);
+pragma Warnings (On | Off, local_NAME);
 pragma Warnings (static_string_EXPRESSION);
+pragma Warnings (On | Off, static_string_EXPRESSION);
 @end smallexample
 
 @noindent
@@ -4286,14 +4352,14 @@ current unit.  If generation of warnings is turned off using this
 pragma, then no warning messages are output, regardless of the
 setting of the command line switches.
 
-The form with a single argument is a configuration pragma.
+The form with a single argument may be used as a configuration pragma.
 
 If the @var{local_NAME} parameter is present, warnings are suppressed for
 the specified entity.  This suppression is effective from the point where
 it occurs till the end of the extended scope of the variable (similar to
 the scope of @code{Suppress}).
 
-The form with a static_string_EXPRESSION argument provides more precise
+The form with a single static_string_EXPRESSION argument provides more precise
 control over which warnings are active. The string is a list of letters
 specifying which warnings are to be activated and which deactivated. The
 code for these letters is the same as the string used in the command
@@ -4326,18 +4392,24 @@ l   turn on warnings for missing elaboration pragma
 L   turn off warnings for missing elaboration pragma
 m   turn on warnings for variable assigned but not read
 M   turn off warnings for variable assigned but not read
-n   normal warning mode (cancels s/e)
+n   normal warning mode (cancels -gnatws/-gnatwe)
 o   turn on warnings for address clause overlay
 O   turn off warnings for address clause overlay
 p   turn on warnings for ineffective pragma Inline
 P   turn off warnings for ineffective pragma Inline
+q   turn on warnings for questionable missing parentheses
+Q   turn off warnings for questionable missing parentheses
 r   turn on warnings for redundant construct
 R   turn off warnings for redundant construct
 s   suppress all warnings
+t   turn on warnings for tracking deleted code
+T   turn off warnings for tracking deleted code
 u   turn on warnings for unused entity
 U   turn off warnings for unused entity
 v   turn on warnings for unassigned variable
 V   turn off warnings for unassigned variable
+w   turn on warnings for wrong low bound assumption
+W   turn off warnings for wrong low bound assumption
 x   turn on warnings for export/import
 X   turn off warnings for export/import
 y   turn on warnings for Ada 2005 incompatibility
@@ -4351,7 +4423,39 @@ The specified warnings will be in effect until the end of the program
 or another pragma Warnings is encountered. The effect of the pragma is
 cumulative. Initially the set of warnings is the standard default set
 as possibly modified by compiler switches. Then each pragma Warning
-modifies this set of warnings as specified.
+modifies this set of warnings as specified. This form of the pragma may
+also be used as a configuration pragma.
+
+The fourth form, with an On|Off parameter and a string, is used to
+control individual messages, based on their text. The string argument
+is a pattern that is used to match against the text of individual
+warning messages (not including the initial "warnings: " tag).
+
+The pattern may start with an asterisk, which matches otherwise unmatched
+characters at the start of the message, and it may also end with an asterisk
+which matches otherwise unmatched characters at the end of the message. For
+example, the string "*alignment*" could be used to match any warnings about
+alignment problems. Within the string, the sequence "*" can be used to match
+any sequence of characters enclosed in quotation marks. No other regular
+expression notations are permitted. All characters other than asterisk in
+these three specific cases are treated as literal characters in the match.
+
+There are two ways to use this pragma. The OFF form can be used as a
+configuration pragma. The effect is to suppress all warnings (if any)
+that match the pattern string throughout the compilation.
+
+The second usage is to suppress a warning locally, and in this case, two
+pragmas must appear in sequence:
+
+@smallexample @c ada
+pragma Warnings (Off, Pattern);
+.. code where given warning is to be suppressed
+pragma Warnings (On, Pattern);
+@end smallexample
+
+@noindent
+In this usage, the pattern string must match in the Off and On pragmas,
+and at least one matching warning must be suppressed.
 
 @node Pragma Weak_External
 @unnumberedsec Pragma Weak_External
@@ -4404,15 +4508,41 @@ package body External_Module is
 end External_Module;
 @end smallexample
 
+@node Pragma Wide_Character_Encoding
+@unnumberedsec Pragma Wide_Character_Encoding
+@findex Wide_Character_Encoding
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Wide_Character_Encoding (IDENTIFIER | CHARACTER_LITERAL);
+@end smallexample
+
+@noindent
+This pragma specifies the wide character encoding to be used in program
+source text appearing subsequently. It is a configuration pragma, but may
+also be used at any point that a pragma is allowed, and it is permissible
+to have more than one such pragma in a file, allowing multiple encodings
+to appear within the same file.
+
+The argument can be an identifier or a character literal. In the identifier
+case, it is one of @code{HEX}, @code{UPPER}, @code{SHIFT_JIS},
+@code{EUC}, @code{UTF8}, or @code{BRACKETS}. In the character literal
+case it is correspondingly one of the characters h,u,s,e,8,b.
+
+Note that when the pragma is used within a file, it affects only the
+encoding within that file, and does not affect withed units, specs,
+or subunits.
+
 @node Implementation Defined Attributes
 @chapter Implementation Defined Attributes
-Ada 95 defines (throughout the Ada 95 reference manual,
-summarized in annex K),
+Ada defines (throughout the Ada reference manual,
+summarized in Annex K),
 a set of attributes that provide useful additional functionality in all
 areas of the language.  These language defined attributes are implemented
-in GNAT and work as described in the Ada 95 Reference Manual.
+in GNAT and work as described in the Ada Reference Manual.
 
-In addition, Ada 95 allows implementations to define additional
+In addition, Ada allows implementations to define additional
 attributes whose meaning is defined by the implementation.  GNAT provides
 a number of these implementation-dependent attributes which can be used
 to extend and enhance the functionality of the compiler.  This section of
@@ -4459,6 +4589,7 @@ consideration, you should minimize the use of these attributes.
 * Safe_Large::
 * Small::
 * Storage_Unit::
+* Stub_Type::
 * Target_Name::
 * Tick::
 * To_Address::
@@ -4584,8 +4715,8 @@ the containing record @var{R}.
 @cindex Address of subprogram code
 @noindent
 The @code{'Address}
-attribute may be applied to subprograms in Ada 95, but the
-intended effect from the Ada 95 reference manual seems to be to provide
+attribute may be applied to subprograms in Ada 95 and Ada 2005, but the
+intended effect seems to be to provide
 an address value which can be used to call the subprogram by means of
 an address clause as in the following example:
 
@@ -4600,7 +4731,7 @@ pragma Import (Ada, L);
 @noindent
 A call to @code{L} is then expected to result in a call to @code{K}@.
 In Ada 83, where there were no access-to-subprogram values, this was
-a common work around for getting the effect of an indirect call.
+a common work-around for getting the effect of an indirect call.
 GNAT implements the above use of @code{Address} and the technique
 illustrated by the example code works correctly.
 
@@ -4984,6 +5115,14 @@ by default be 32 bits (four bytes).  But objects of type
 @code{R2} will be only
 8 bits (one byte), since @code{R2'Object_Size} has been set to 8.
 
+Although @code{Object_Size} does properly reflect the default object size
+value, it is not necessarily the case that all objects will be of this size
+in a case where it is not specified explicitly. The compiler is free to
+increase the size and alignment of stand alone objects to improve efficiency
+of the generated code and sometimes does so in the case of large composite
+objects. If the size of a stand alone object is critical to the
+application, it should be specified explicitly.
+
 @node Passed_By_Reference
 @unnumberedsec Passed_By_Reference
 @cindex Parameters, when passed by reference
@@ -5028,7 +5167,8 @@ this attribute.
 @cindex Ada 83 attributes
 @findex Small
 @noindent
-The @code{Small} attribute is defined in Ada 95 only for fixed-point types.
+The @code{Small} attribute is defined in Ada 95 (and Ada 2005) only for
+fixed-point types.
 GNAT also allows this attribute to be applied to floating-point types
 for compatibility with Ada 83.  See
 the Ada 83 reference manual for an exact description of the semantics of
@@ -5040,6 +5180,27 @@ this attribute when applied to floating-point types.
 @noindent
 @code{Standard'Storage_Unit} (@code{Standard} is the only permissible
 prefix) provides the same value as @code{System.Storage_Unit}.
+
+@node Stub_Type
+@unnumberedsec Stub_Type
+@findex Stub_Type
+@noindent
+The GNAT implementation of remote access-to-classwide types is
+organized as described in AARM section E.4 (20.t): a value of an RACW type
+(designating a remote object) is represented as a normal access
+value, pointing to a "stub" object which in turn contains the
+necessary information to contact the designated remote object. A
+call on any dispatching operation of such a stub object does the
+remote call, if necessary, using the information in the stub object
+to locate the target partition, etc.
+
+For a prefix @code{T} that denotes a remote access-to-classwide type,
+@code{T'Stub_Type} denotes the type of the corresponding stub objects.
+
+By construction, the layout of @code{T'Stub_Type} is identical to that of
+type @code{RACW_Stub_Type} declared in the internal implementation-defined
+unit @code{System.Partition_Interface}. Use of this attribute will create
+an implicit dependency on this unit.
 
 @node Target_Name
 @unnumberedsec Target_Name
@@ -5164,7 +5325,7 @@ conversion to a desired access type.  In GNAT, but not necessarily in
 other implementations, the use of static chains for inner level
 subprograms means that @code{Unrestricted_Access} applied to a
 subprogram yields a value that can be called as long as the subprogram
-is in scope (normal Ada 95 accessibility rules restrict this usage).
+is in scope (normal Ada accessibility rules restrict this usage).
 
 It is possible to use @code{Unrestricted_Access} for any type, but care
 must be exercised if it is used to create pointers to unconstrained
@@ -5215,21 +5376,20 @@ prefix) provides the value @code{System.Word_Size}.
 @node Implementation Advice
 @chapter Implementation Advice
 @noindent
-The main text of the Ada 95 Reference Manual describes the required
-behavior of all Ada 95 compilers, and the GNAT compiler conforms to
+The main text of the Ada Reference Manual describes the required
+behavior of all Ada compilers, and the GNAT compiler conforms to
 these requirements.
 
-In addition, there are sections throughout the Ada 95
-reference manual headed
-by the phrase ``implementation advice''.  These sections are not normative,
-i.e.@: they do not specify requirements that all compilers must
+In addition, there are sections throughout the Ada Reference Manual headed
+by the phrase ``Implementation advice''.  These sections are not normative,
+i.e., they do not specify requirements that all compilers must
 follow.  Rather they provide advice on generally desirable behavior.  You
 may wonder why they are not requirements.  The most typical answer is
 that they describe behavior that seems generally desirable, but cannot
 be provided on all systems, or which may be undesirable on some systems.
 
 As far as practical, GNAT follows the implementation advice sections in
-the Ada 95 Reference Manual.  This chapter contains a table giving the
+the Ada Reference Manual.  This chapter contains a table giving the
 reference manual section number, paragraph number and several keywords
 for each advice.  Each entry consists of the text of the advice followed
 by the GNAT interpretation of this advice.  Most often, this simply says
@@ -5291,10 +5451,6 @@ Affects semantics
 @item CPP_Class
 Affects semantics
 @item CPP_Constructor
-Affects semantics
-@item CPP_Virtual
-Affects semantics
-@item CPP_Vtable
 Affects semantics
 @item Debug
 Affects semantics
@@ -6107,8 +6263,8 @@ convention.  Any declarations useful for interfacing to any language on
 the given hardware architecture should be provided directly in
 @code{Interfaces}.
 @end cartouche
-Followed.  An additional package not defined
-in the Ada 95 Reference Manual is @code{Interfaces.CPP}, used
+Followed. An additional package not defined
+in the Ada Reference Manual is @code{Interfaces.CPP}, used
 for interfacing to C++.
 
 @sp 1
@@ -6667,9 +6823,9 @@ Followed.
 
 @noindent
 In addition to the implementation dependent pragmas and attributes, and
-the implementation advice, there are a number of other features of Ada
-95 that are potentially implementation dependent.  These are mentioned
-throughout the Ada 95 Reference Manual, and are summarized in annex M@.
+the implementation advice, there are a number of other Ada features
+that are potentially implementation dependent.  These are mentioned
+throughout the Ada Reference Manual, and are summarized in annex M@.
 
 A requirement for conforming Ada compilers is that they provide
 documentation describing how the implementation deals with each of these
@@ -6685,7 +6841,7 @@ handles the implementation dependence.
 You can use this chapter as a guide to minimizing implementation
 dependent features in your programs if portability to other compilers
 and other operating systems is an important consideration.  The numbers
-in each section below correspond to the paragraph number in the Ada 95
+in each section below correspond to the paragraph number in the Ada
 Reference Manual.
 
 @sp 1
@@ -7043,9 +7199,9 @@ corresponding @file{ALI} file as the input parameter to the binder.
 @end cartouche
 @noindent
 The first constraint on ordering is that it meets the requirements of
-chapter 10 of the Ada 95 Reference Manual.  This still leaves some
+Chapter 10 of the Ada Reference Manual.  This still leaves some
 implementation dependent choices, which are resolved by first
-elaborating bodies as early as possible (i.e.@: in preference to specs
+elaborating bodies as early as possible (i.e., in preference to specs
 where there is a choice), and second by evaluating the immediate with
 clauses of a unit to determine the probably best choice, and
 third by elaborating in alphabetical order of unit names
@@ -7376,13 +7532,17 @@ where the certification protocol requires the use of short-circuit
 @findex No_Dispatching_Calls
 This restriction ensures at compile time that the code generated by the
 compiler involves no dispatching calls. The use of this restriction allows the
-safe use of record extensions and membership tests and ensures that the code 
-contains no indirect calls through a dispatching mechanism. (Note that this
-includes internally-generated calls created by the compiler, for example in
-the implementation of the predefined attributes on class-wide objects.) The
+safe use of record extensions, classwide membership tests and other classwide
+features not involving implicit dispatching. This restriction ensures that
+the code contains no indirect calls through a dispatching mechanism. Note that
+this includes internally-generated calls created by the compiler, for example
+in the implementation of class-wide objects assignments. The
 membership test is allowed in the presence of this restriction, because its
-implementation requires no dispatching. The following example indicates
-constructs that violate this restriction.
+implementation requires no dispatching.
+This restriction is comparable to the official Ada restriction
+@code{No_Dispatch} except that it is a bit less restrictive in that it allows
+all classwide constructs that do not imply dispatching.
+The following example indicates constructs that violate this restriction.
 
 @smallexample
 package Pkg is
@@ -7400,10 +7560,11 @@ end Pkg;
 with Pkg; use Pkg;
 procedure Example is
   procedure Test (O : T'Class) is
-    N : Natural := O'Size; --  Error: Dispatching call
+    N : Natural  := O'Size;--  Error: Dispatching call
+    C : T'Class := O;      --  Error: implicit Dispatching Call
   begin
     if O in DT'Class then  --  OK   : Membership test
-       Q (DT (O));         --  OK   : Type conversion plus direct call         
+       Q (DT (O));         --  OK   : Type conversion plus direct call
     else
        P (O);              --  Error: Dispatching call
     end if;
@@ -7459,8 +7620,19 @@ must define with the following profile:
    statement generated by the compiler). The Line parameter when nonzero
    represents the line number in the source program where the raise occurs.
 
-@item No_Exception_Streams
-@findex No_Exception_Streams
+@item No_Exception_Propagation
+@findex No_Exception_Propagation
+This restriction guarantees that exceptions are never propagated to an outer
+subprogram scope). The only case in which an exception may be raised is when
+the handler is statically in the same subprogram, so that the effect of a raise
+is essentially like a goto statement. Any other raise statement (implicit or
+explicit) will be considered unhandled. Exception handlers are allowed, but may
+not contain an exception occurrence identifier (exception choice). In addition
+use of the package GNAT.Current_Exception is not permitted, and reraise
+statements (raise with no operand) are not permitted.
+
+@item No_Exception_Registration
+@findex No_Exception_Registration
 This restriction ensures at compile time that no stream operations for
 types Exception_Id or Exception_Occurrence are used. This also makes it
 impossible to pass exceptions to or from a partition with this restriction
@@ -7599,6 +7771,14 @@ registry procedure).  This restriction is enforced on
 a unit by unit basis, it need not be obeyed consistently
 throughout a partition.
 
+In the case of aggregates with others, if the aggregate has a dynamic
+size, there is no way to eliminate the elaboration code (such dynamic
+bounds would be incompatible with @code{Preelaborate} in any case. If
+the bounds are static, then use of this restriction actually modifies
+the code choice of the compiler to avoid generating a loop, and instead
+generate the aggregate statically if possible, no matter how many times
+the data for the others clause must be repeatedly generated.
+
 It is not possible to precisely document
 the constructs which are compatible with this restriction, since,
 unlike most other restrictions, this is not a restriction on the
@@ -7617,6 +7797,10 @@ can be done by the loader, and requires no initialization code. It
 is not possible to document the precise conditions under which the
 optimizer can figure this out.
 
+Note that this the implementation of this restriction requires full
+code generation. If it is used in conjunction with "semantics only"
+checking, then some cases of violations may be missed.
+
 @item No_Entry_Queue
 @findex No_Entry_Queue
 This restriction is a declaration that any protected entry compiled in
@@ -7629,20 +7813,20 @@ is made to queue a second task on such an entry.
 @findex No_Implementation_Attributes
 This restriction checks at compile time that no GNAT-defined attributes
 are present.  With this restriction, the only attributes that can be used
-are those defined in the Ada 95 Reference Manual.
+are those defined in the Ada Reference Manual.
 
 @item No_Implementation_Pragmas
 @findex No_Implementation_Pragmas
 This restriction checks at compile time that no GNAT-defined pragmas
 are present.  With this restriction, the only pragmas that can be used
-are those defined in the Ada 95 Reference Manual.
+are those defined in the Ada Reference Manual.
 
 @item No_Implementation_Restrictions
 @findex No_Implementation_Restrictions
 This restriction checks at compile time that no GNAT-defined restriction
 identifiers (other than @code{No_Implementation_Restrictions} itself)
 are present.  With this restriction, the only other restriction identifiers
-that can be used are those defined in the Ada 95 Reference Manual.
+that can be used are those defined in the Ada Reference Manual.
 
 @item No_Wide_Characters
 @findex No_Wide_Characters
@@ -7844,7 +8028,7 @@ Allowed only for record types, like C, but also notes that record
 is to be passed by copy rather than reference.
 @item COBOL
 COBOL
-@item CPP
+@item C_Plus_Plus (or CPP)
 C++
 @item Default
 Treated the same as C
@@ -8022,9 +8206,29 @@ Pos values.
 attribute.  See C.7.1(7).
 @end cartouche
 @noindent
-The result of this attribute is an 8-digit hexadecimal string
-representing the virtual address of the task control block.
-
+The result of this attribute is a string that identifies
+the object or component that denotes a given task. If a variable Var has a task
+type, the image for this task will have the form Var_XXXXXXXX, where the
+suffix
+is the hexadecimal representation of the virtual address of the corresponding
+task control block. If the variable is an array of tasks, the image of each
+task will have the form of an indexed component indicating the position of a
+given task in the array, eg.  Group(5)_XXXXXXX. If the task is a
+component of a record, the image of the task will have the form of a selected
+component. These rules are fully recursive, so that the image of a task that
+is a subcomponent of a composite object corresponds to the expression that
+designates this task.
+@noindent
+If a task is created by an allocator, its image depends on the context. If the
+allocator is part of an object declaration, the rules described above are used
+to construct its image, and this image is not affected by subsequent
+assignments. If the allocator appears within an expression, the image
+includes only the name of the task type.
+@noindent
+If the configuration pragma Discard_Names is present, or if the restriction
+No_Implicit_Heap_Allocation is in effect,  the image reduces to
+the numeric suffix, that is to say the hexadecimal representation of the
+virtual address of the control block of the task.
 @sp 1
 @cartouche
 @noindent
@@ -8166,7 +8370,7 @@ requesting the lock.
 @end cartouche
 @noindent
 The ceiling priority of protected objects of the type
-@code{System.Interrupt_Priority'Last} as described in the Ada 95
+@code{System.Interrupt_Priority'Last} as described in the Ada
 Reference Manual D.3(10),
 
 @sp 1
@@ -8700,7 +8904,7 @@ source line.
 @section Rotate_Left
 @cindex Rotate_Left
 @noindent
-In standard Ada 95, the @code{Rotate_Left} function is available only
+In standard Ada, the @code{Rotate_Left} function is available only
 for the predefined modular types in package @code{Interfaces}.  However, in
 GNAT it is possible to define a Rotate_Left function for a user
 defined modular type or any signed integer type as in this example:
@@ -8867,25 +9071,14 @@ strict alignment.
 @end itemize
 
 @noindent
-An alignment clause may
-always specify a larger alignment than the default value, up to some
-maximum value dependent on the target (obtainable by using the
-attribute reference @code{Standard'Maximum_Alignment}).
-The only case where
-it is permissible to specify a smaller alignment than the default value
-is for a record with a record representation clause.
-In this case, packable fields for which a component clause is
-given still result in a default alignment corresponding to the original
-type, but this may be overridden, since these components in fact only
-require an alignment of one byte.  For example, given
+An alignment clause may specify a larger alignment than the default value
+up to some maximum value dependent on the target (obtainable by using the
+attribute reference @code{Standard'Maximum_Alignment}). It may also specify
+a smaller alignment than the default value, for example
 
 @smallexample @c ada
   type V is record
      A : Integer;
-  end record;
-
-  for V use record
-     A at 0  range 0 .. 31;
   end record;
 
   for V'alignment use 1;
@@ -8894,9 +9087,8 @@ require an alignment of one byte.  For example, given
 @noindent
 @cindex Alignment, default
 The default alignment for the type @code{V} is 4, as a result of the
-Integer field in the record, but since this field is placed with a
-component clause, it is permissible, as shown, to override the default
-alignment of the record with a smaller value.
+Integer field in the record, but it is permissible, as shown, to
+override the default alignment of the record with a smaller value.
 
 @node Size Clauses
 @section Size Clauses
@@ -9201,14 +9393,15 @@ enumeration types for which a representation clause is given.
 @cindex Size, of objects
 
 @noindent
-In Ada 95, @code{T'Size} for a type @code{T} is the minimum number of bits
-required to hold values of type @code{T}.  Although this interpretation was
-allowed in Ada 83, it was not required, and this requirement in practice
-can cause some significant difficulties.  For example, in most Ada 83
-compilers, @code{Natural'Size} was 32.  However, in Ada 95,
+In Ada 95 and Ada 2005, @code{T'Size} for a type @code{T} is the minimum
+number of bits required to hold values of type @code{T}.
+Although this interpretation was allowed in Ada 83, it was not required,
+and this requirement in practice can cause some significant difficulties.
+For example, in most Ada 83 compilers, @code{Natural'Size} was 32.
+However, in Ada 95 and Ada 2005,
 @code{Natural'Size} is
 typically 31.  This means that code may change in behavior when moving
-from Ada 83 to Ada 95.  For example, consider:
+from Ada 83 to Ada 95 or Ada 2005.  For example, consider:
 
 @smallexample @c ada
    type Rec is record;
@@ -9225,8 +9418,8 @@ from Ada 83 to Ada 95.  For example, consider:
 @noindent
 In the above code, since the typical size of @code{Natural} objects
 is 32 bits and @code{Natural'Size} is 31, the above code can cause
-unexpected inefficient packing in Ada 95, and in general there are
-cases where the fact that the object size can exceed the
+unexpected inefficient packing in Ada 95 and Ada 2005, and in general
+there are cases where the fact that the object size can exceed the
 size of the type causes surprises.
 
 To help get around this problem GNAT provides two implementation
@@ -9345,9 +9538,9 @@ subtype x6 is x2'base range 0 .. dynamic;   8               3*
 @end smallexample
 
 @noindent
-Note: the entries marked ``3*'' are not actually specified by the Ada 95 RM,
-but it seems in the spirit of the RM rules to allocate the minimum number
-of bits (here 3, given the range for @code{x2})
+Note: the entries marked ``3*'' are not actually specified by the Ada
+Reference Manual, but it seems in the spirit of the RM rules to allocate
+the minimum number of bits (here 3, given the range for @code{x2})
 known to be large enough to hold the given range of values.
 
 So far, so good, but GNAT has to obey the RM rules, so the question is
@@ -9820,8 +10013,9 @@ Then the component size of @code{ar} will be set to 5 (i.e.@: to @code{r'size},
 and the size of the array @code{ar} will be exactly 40 bits.
 
 Note that in some cases this rather fierce approach to packing can produce
-unexpected effects.  For example, in Ada 95, type Natural typically has a
-size of 31, meaning that if you pack an array of Natural, you get 31-bit
+unexpected effects.  For example, in Ada 95 and Ada 2005,
+subtype @code{Natural} typically has a size of 31, meaning that if you
+pack an array of @code{Natural}, you get 31-bit
 close packing, which saves a few bits, but results in far less efficient
 access.  Since many other Ada compilers will ignore such a packing request,
 GNAT will generate a warning on some uses of pragma @code{Pack} that it guesses
@@ -9878,11 +10072,12 @@ In all commonly used Ada 83 compilers, this pragma Pack would be ignored,
 since typically @code{Natural'Size} is 32 in Ada 83, and in any case most
 Ada 83 compilers did not attempt 31 bit packing.
 
-In Ada 95, @code{Natural'Size} is required to be 31. Furthermore, GNAT really
-does pack 31-bit subtype to 31 bits. This may result in a substantial
-unintended performance penalty when porting legacy Ada 83 code. To help
-prevent this, GNAT generates a warning in such cases. If you really want 31
-bit packing in a case like this, you can set the component size explicitly:
+In Ada 95 and Ada 2005, @code{Natural'Size} is required to be 31. Furthermore,
+GNAT really does pack 31-bit subtype to 31 bits. This may result in a
+substantial unintended performance penalty when porting legacy Ada 83 code.
+To help prevent this, GNAT generates a warning in such cases. If you really
+want 31 bit packing in a case like this, you can set the component size
+explicitly:
 
 @smallexample @c ada
    type Arr is array (1 .. 32) of Natural;
@@ -10223,7 +10418,8 @@ Since this source of erroneous behavior can have unfortunate effects, GNAT
 checks (at compile time if possible, generating a warning, or at execution
 time with a run-time check) that the alignment is appropriate.  If the
 run-time check fails, then @code{Program_Error} is raised.  This run-time
-check is suppressed if range checks are suppressed, or if
+check is suppressed if range checks are suppressed, or if the special GNAT
+check Alignment_Check is suppressed, or if
 @code{pragma Restrictions (No_Elaboration_Code)} is in effect.
 
 @findex Export
@@ -10309,9 +10505,9 @@ In both of these cases, @code{A}
 and @code{B} become aliased to one another via the
 address clause. This use of address clauses to overlay
 variables, achieving an effect similar to unchecked
-conversion was erroneous in Ada 83, but in Ada 95
+conversion was erroneous in Ada 83, but in Ada 95 and Ada 2005
 the effect is implementation defined. Furthermore, the
-Ada 95 RM specifically recommends that in a situation
+Ada RM specifically recommends that in a situation
 like this, @code{B} should be subject to the following
 implementation advice (RM 13.3(19)):
 
@@ -10340,7 +10536,7 @@ conventions, and for example records are laid out in a manner that is
 consistent with C@.  This means that specifying convention C (for example)
 has no effect.
 
-There are three exceptions to this general rule:
+There are four exceptions to this general rule:
 
 @itemize @bullet
 
@@ -10367,6 +10563,14 @@ are essentially of type int.  If pragma @code{Convention C} is specified for an
 Ada enumeration type, then the size is modified as necessary (usually to
 32 bits) to be consistent with the C convention for enum values.
 
+Note that this treatment applies only to types. If Convention C is given for
+an enumeration object, where the enumeration type is not Convention C, then
+Object_Size bits are allocated. For example, for a normal enumeration type,
+with less than 256 elements, only 8 bits will be allocated for the object.
+Since this may be a surprise in terms of what C expects, GNAT will issue a
+warning in this situation. The warning can be suppressed by giving an explicit
+size clause specifying the desired size.
+
 @item Convention C/Fortran and Boolean types
 In C, the usual convention for boolean values, that is values used for
 conditions, is that zero represents false, and nonzero values represent
@@ -10388,6 +10592,14 @@ C or Fortran convention for a derived Boolean, as in the following example:
 then the GNAT generated code will treat any nonzero value as true.  For truth
 values generated by GNAT, the conventional value 1 will be used for True, but
 when one of these values is read, any nonzero value is treated as True.
+
+@item Access types on OpenVMS
+For 64-bit OpenVMS systems, access types (other than those for unconstrained
+arrays) are 64-bits long. An exception to this rule is for the case of
+C-convention access types where there is no explicit size clause present (or
+inherited for derived types). In this case, GNAT chooses to make these
+pointers 32-bits, which provides an easier path for migration of 32-bit legacy
+code. size clause specifying 64-bits must be used to obtain a 64-bit pointer.
 
 @end itemize
 
@@ -10545,26 +10757,25 @@ the actual representation to be used.
 @chapter Standard Library Routines
 
 @noindent
-The Ada 95 Reference Manual contains in Annex A a full description of an
+The Ada Reference Manual contains in Annex A a full description of an
 extensive set of standard library routines that can be used in any Ada
 program, and which must be provided by all Ada compilers.  They are
 analogous to the standard C library used by C programs.
 
 GNAT implements all of the facilities described in annex A, and for most
-purposes the description in the Ada 95
-reference manual, or appropriate Ada
+purposes the description in the Ada Reference Manual, or appropriate Ada
 text book, will be sufficient for making use of these facilities.
 
 In the case of the input-output facilities,
 @xref{The Implementation of Standard I/O},
 gives details on exactly how GNAT interfaces to the
-file system.  For the remaining packages, the Ada 95 reference manual
+file system.  For the remaining packages, the Ada Reference Manual
 should be sufficient.  The following is a list of the packages included,
 together with a brief description of the functionality that is provided.
 
 For completeness, references are included to other predefined library
-routines defined in other sections of the Ada 95 reference manual (these are
-cross-indexed from annex A).
+routines defined in other sections of the Ada Reference Manual (these are
+cross-indexed from Annex A).
 
 @table @code
 @item Ada (A.2)
@@ -10908,7 +11119,8 @@ be unaligned in this case).
 A pointer other than a pointer to an unconstrained array type may be
 converted to and from System.Address.  Such usage is common in Ada 83
 programs, but note that Ada.Address_To_Access_Conversions is the
-preferred method of performing such conversions in Ada 95.  Neither
+preferred method of performing such conversions in Ada 95 and Ada 2005.
+Neither
 unchecked conversion nor Ada.Address_To_Access_Conversions should be
 used in conjunction with pointers to unconstrained objects, since
 the bounds information cannot be handled correctly in this case.
@@ -11049,14 +11261,14 @@ types are @code{Wide_Character} and @code{Wide_String} instead of
 
 @noindent
 GNAT implements all the required input-output facilities described in
-A.6 through A.14.  These sections of the Ada 95 reference manual describe the
+A.6 through A.14.  These sections of the Ada Reference Manual describe the
 required behavior of these packages from the Ada point of view, and if
 you are writing a portable Ada program that does not need to know the
 exact manner in which Ada maps to the outside world when it comes to
 reading or writing external files, then you do not need to read this
 chapter.  As long as your files are all regular files (not pipes or
 devices), and as long as you write and read the files only from Ada, the
-description in the Ada 95 reference manual is sufficient.
+description in the Ada Reference Manual is sufficient.
 
 However, if you want to do input-output to pipes or other devices, such
 as the keyboard or screen, or if the files you are dealing with are
@@ -11086,6 +11298,7 @@ these additional facilities are also described in this chapter.
 * Wide_Wide_Text_IO::
 * Stream_IO::
 * Shared Files::
+* Filenames encoding::
 * Open Modes::
 * Operations on C Streams::
 * Interfacing to C Streams::
@@ -11164,7 +11377,7 @@ there are two keywords defined.
 
 @smallexample
 SHARED=[YES|NO]
-WCEM=[n|h|u|s\e]
+WCEM=[n|h|u|s|e|8|b]
 @end smallexample
 
 @noindent
@@ -11233,9 +11446,9 @@ On some Ada implementations, this will print @code{hell}, but the program is
 clearly incorrect, since there is only one element in the file, and that
 element is the string @code{hello!}.
 
-In Ada 95, this kind of behavior can be legitimately achieved using
-Stream_IO, and this is the preferred mechanism.  In particular, the above
-program fragment rewritten to use Stream_IO will work correctly.
+In Ada 95 and Ada 2005, this kind of behavior can be legitimately achieved
+using Stream_IO, and this is the preferred mechanism.  In particular, the
+above program fragment rewritten to use Stream_IO will work correctly.
 
 @node Text_IO
 @section Text_IO
@@ -11276,10 +11489,10 @@ or @code{Put_Line}.  There will be no @code{FF} character at the end of
 the file unless an explicit @code{New_Page} operation was performed
 before closing the file.
 
-A canonical Text_IO file that is a regular file, i.e.@: not a device or a
-pipe, can be read using any of the routines in Text_IO@.  The
-semantics in this case will be exactly as defined in the Ada 95 reference
-manual and all the routines in Text_IO are fully implemented.
+A canonical Text_IO file that is a regular file (i.e., not a device or a
+pipe) can be read using any of the routines in Text_IO@.  The
+semantics in this case will be exactly as defined in the Ada Reference
+Manual, and all the routines in Text_IO are fully implemented.
 
 A text file that does not meet the requirements for a canonical Text_IO
 file has one of the following:
@@ -11615,10 +11828,49 @@ On input, brackets coding can also be used for upper half characters,
 e.g.@: @code{["C1"]} for lower case a.  However, on output, brackets notation
 is only used for wide characters with a code greater than @code{16#FF#}.
 
+Note that brackets coding is not normally used in the context of
+Wide_Text_IO or Wide_Wide_Text_IO, since it is really just designed as
+a portable way of encoding source files. In the context of Wide_Text_IO
+or Wide_Wide_Text_IO, it can only be used if the file does not contain
+any instance of the left bracket character other than to encode wide
+character values using the brackets encoding method. In practice it is
+expected that some standard wide character encoding method such
+as UTF-8 will be used for text input output.
+
+If brackets notation is used, then any occurrence of a left bracket
+in the input file which is not the start of a valid wide character
+sequence will cause Constraint_Error to be raised. It is possible to
+encode a left bracket as ["5B"] and Wide_Text_IO and Wide_Wide_Text_IO
+input will interpret this as a left bracket.
+
+However, when a left bracket is output, it will be output as a left bracket
+and not as ["5B"]. We make this decision because for normal use of
+Wide_Text_IO for outputting messages, it is unpleasant to clobber left
+brackets. For example, if we write:
+
+@smallexample
+   Put_Line ("Start of output [first run]");
+@end smallexample
+
+@noindent
+we really do not want to have the left bracket in this message clobbered so
+that the output reads:
+
+@smallexample
+   Start of output ["5B"]first run]
+@end smallexample
+
+@noindent
+In practice brackets encoding is reasonably useful for normal Put_Line use
+since we won't get confused between left brackets and wide character
+sequences in the output. But for input, or when files are written out
+and read back in, it really makes better sense to use one of the standard
+encoding methods such as UTF-8.
+
 @end table
 
 @noindent
-For the coding schemes other than Hex and Brackets encoding,
+For the coding schemes other than UTF-8, Hex, or Brackets encoding,
 not all wide character
 values can be represented.  An attempt to output a character that cannot
 be represented using the encoding scheme for the file causes
@@ -11811,7 +12063,7 @@ it is possible to read beyond an end of file.
 
 @noindent
 A stream file is a sequence of bytes, where individual elements are
-written to the file as described in the Ada 95 reference manual.  The type
+written to the file as described in the Ada Reference Manual.  The type
 @code{Stream_Element} is simply a byte.  There are two ways to read or
 write a stream file.
 
@@ -11829,7 +12081,7 @@ manner described for stream attributes.
 @section Shared Files
 
 @noindent
-Section A.14 of the Ada 95 Reference Manual allows implementations to
+Section A.14 of the Ada Reference Manual allows implementations to
 provide a wide variety of behavior if an attempt is made to access the
 same external file with two or more internal files.
 
@@ -11856,7 +12108,7 @@ multiple accesses to the same external files using separate streams.
 If the form parameter @samp{shared=yes} appears in the form string for
 each of two or more files opened using the same full name, the same
 stream is shared between these files, and the semantics are as described
-in Ada 95 Reference Manual, Section A.14.
+in Ada Reference Manual, Section A.14.
 @end itemize
 
 @noindent
@@ -11883,8 +12135,30 @@ completely.
 One common use of file sharing in Ada 83 is the use of instantiations of
 Sequential_IO on the same file with different types, to achieve
 heterogeneous input-output.  Although this approach will work in GNAT if
-@samp{shared=yes} is specified, it is preferable in Ada 95 to use Stream_IO
+@samp{shared=yes} is specified, it is preferable in Ada to use Stream_IO
 for this purpose (using the stream attributes)
+
+@node Filenames encoding
+@section Filenames encoding
+
+@noindent
+An encoding form parameter can be used to specify the filename
+encoding @samp{encoding=@var{xxx}}.
+
+@itemize @bullet
+@item
+If the form parameter @samp{encoding=utf8} appears in the form string, the
+filename must be encoded in UTF-8.
+
+@item
+If the form parameter @samp{encoding=8bits} appears in the form
+string, the filename must be a standard 8bits string.
+@end itemize
+
+In the absence of a @samp{encoding=@var{xxx}} form parameter, the
+value UTF-8 is used. This encoding form parameter is only supported on
+the Windows platform. On the other Operating Systems the runtime is
+supporting UTF-8 natively.
 
 @node Open Modes
 @section Open Modes
@@ -12231,6 +12505,7 @@ of GNAT, and will generate a warning message.
 * GNAT.Bubble_Sort (g-bubsor.ads)::
 * GNAT.Bubble_Sort_A (g-busora.ads)::
 * GNAT.Bubble_Sort_G (g-busorg.ads)::
+* GNAT.Byte_Swapping (g-bytswa.ads)::
 * GNAT.Calendar (g-calend.ads)::
 * GNAT.Calendar.Time_IO (g-catiio.ads)::
 * GNAT.CRC32 (g-crc32.ads)::
@@ -12269,6 +12544,7 @@ of GNAT, and will generate a warning message.
 * GNAT.Regpat (g-regpat.ads)::
 * GNAT.Secondary_Stack_Info (g-sestin.ads)::
 * GNAT.Semaphores (g-semaph.ads)::
+* GNAT.SHA1 (g-sha1.ads)::
 * GNAT.Signals (g-signal.ads)::
 * GNAT.Sockets (g-socket.ads)::
 * GNAT.Source_Info (g-souinf.ads)::
@@ -12321,7 +12597,7 @@ RM-defined package @code{Ada.Characters.Latin_1} but with the
 few modifications required for @code{Latin-9}
 The provision of such a package
 is specifically authorized by the Ada Reference Manual
-(RM A.3(27)).
+(RM A.3.3(27)).
 
 @node Ada.Characters.Wide_Latin_1 (a-cwila1.ads)
 @section @code{Ada.Characters.Wide_Latin_1} (@file{a-cwila1.ads})
@@ -12335,7 +12611,7 @@ RM-defined package @code{Ada.Characters.Latin_1} but with the
 types of the constants being @code{Wide_Character}
 instead of @code{Character}.  The provision of such a package
 is specifically authorized by the Ada Reference Manual
-(RM A.3(27)).
+(RM A.3.3(27)).
 
 @node Ada.Characters.Wide_Latin_9 (a-cwila9.ads)
 @section @code{Ada.Characters.Wide_Latin_9} (@file{a-cwila1.ads})
@@ -12349,7 +12625,7 @@ GNAT defined package @code{Ada.Characters.Latin_9} but with the
 types of the constants being @code{Wide_Character}
 instead of @code{Character}.  The provision of such a package
 is specifically authorized by the Ada Reference Manual
-(RM A.3(27)).
+(RM A.3.3(27)).
 
 @node Ada.Characters.Wide_Wide_Latin_1 (a-czila1.ads)
 @section @code{Ada.Characters.Wide_Wide_Latin_1} (@file{a-czila1.ads})
@@ -12363,7 +12639,7 @@ RM-defined package @code{Ada.Characters.Latin_1} but with the
 types of the constants being @code{Wide_Wide_Character}
 instead of @code{Character}.  The provision of such a package
 is specifically authorized by the Ada Reference Manual
-(RM A.3(27)).
+(RM A.3.3(27)).
 
 @node Ada.Characters.Wide_Wide_Latin_9 (a-czila9.ads)
 @section @code{Ada.Characters.Wide_Wide_Latin_9} (@file{a-czila9.ads})
@@ -12377,7 +12653,7 @@ GNAT defined package @code{Ada.Characters.Latin_9} but with the
 types of the constants being @code{Wide_Wide_Character}
 instead of @code{Character}.  The provision of such a package
 is specifically authorized by the Ada Reference Manual
-(RM A.3(27)).
+(RM A.3.3(27)).
 
 @node Ada.Command_Line.Remove (a-colire.ads)
 @section @code{Ada.Command_Line.Remove} (@file{a-colire.ads})
@@ -12647,6 +12923,16 @@ are provided as generic parameters, this improves efficiency, especially
 if the procedures can be inlined, at the expense of duplicating code for
 multiple instantiations.
 
+@node GNAT.Byte_Swapping (g-bytswa.ads)
+@section @code{GNAT.Byte_Swapping} (@file{g-bytswa.ads})
+@cindex @code{GNAT.Byte_Swapping} (@file{g-bytswa.ads})
+@cindex Byte swapping
+@cindex Endian
+
+@noindent
+General routines for swapping the bytes in 2-, 4-, and 8-byte quantities.
+Machine-specific implementations are available in some cases.
+
 @node GNAT.Calendar (g-calend.ads)
 @section @code{GNAT.Calendar} (@file{g-calend.ads})
 @cindex @code{GNAT.Calendar} (@file{g-calend.ads})
@@ -12676,10 +12962,6 @@ of this algorithm see
 ``Computation of Cyclic Redundancy Checks via Table Look-Up'',
 @cite{Communications of the ACM}, Vol.@: 31 No.@: 8, pp.@: 1008-1013,
 Aug.@: 1988.  Sarwate, D.V@.
-
-@noindent
-Provides an extended capability for formatted output of time values with
-full user control over the format.  Modeled on the GNU Date specification.
 
 @node GNAT.Case_Util (g-casuti.ads)
 @section @code{GNAT.Case_Util} (@file{g-casuti.ads})
@@ -12763,8 +13045,9 @@ Provides a simple interface to handle Ctrl-C keyboard events.
 
 @noindent
 Provides access to information on the current exception that has been raised
-without the need for using the Ada-95 exception choice parameter specification
-syntax.  This is particularly useful in simulating typical facilities for
+without the need for using the Ada 95 / Ada 2005 exception choice parameter
+specification syntax.
+This is particularly useful in simulating typical facilities for
 obtaining information about exceptions provided by Ada 83 compilers.
 
 @node GNAT.Debug_Pools (g-debpoo.ads)
@@ -12790,8 +13073,8 @@ to and from string images of address values. Supports both C and Ada formats
 for hexadecimal literals.
 
 @node GNAT.Directory_Operations (g-dirope.ads)
-@section @code{GNAT.Directory_Operations} (g-dirope.ads)
-@cindex @code{GNAT.Directory_Operations} (g-dirope.ads)
+@section @code{GNAT.Directory_Operations} (@file{g-dirope.ads})
+@cindex @code{GNAT.Directory_Operations} (@file{g-dirope.ads})
 @cindex Directory operations
 
 @noindent
@@ -13073,6 +13356,14 @@ secondary stack.
 @noindent
 Provides classic counting and binary semaphores using protected types.
 
+@node GNAT.SHA1 (g-sha1.ads)
+@section @code{GNAT.SHA1} (@file{g-sha1.ads})
+@cindex @code{GNAT.SHA1} (@file{g-sha1.ads})
+@cindex Secure Hash Algorithm SHA-1
+
+@noindent
+Implements the SHA-1 Secure Hash Algorithm as described in RFC 3174.
+
 @node GNAT.Signals (g-signal.ads)
 @section @code{GNAT.Signals} (@file{g-signal.ads})
 @cindex @code{GNAT.Signals} (@file{g-signal.ads})
@@ -13263,7 +13554,8 @@ in various debugging situations.
 
 @noindent
 Provides symbolic traceback information that includes the subprogram
-name and line number information.
+name and line number information. Note that this capability is not available
+on all targets, see g-trasym.ads for list of supported targets.
 
 @node GNAT.Wide_String_Split (g-wistsp.ads)
 @section @code{GNAT.Wide_String_Split} (@file{g-wistsp.ads})
@@ -13504,7 +13796,7 @@ the package @code{System.Wch_Cnv}.
 @node Interfacing to Other Languages
 @chapter Interfacing to Other Languages
 @noindent
-The facilities in annex B of the Ada 95 Reference Manual are fully
+The facilities in annex B of the Ada Reference Manual are fully
 implemented in GNAT, and in addition, a full interface to C++ is
 provided.
 
@@ -13595,24 +13887,23 @@ tool, although it is possible to construct them by hand.  No suitable binding
 generator tool is supplied with GNAT though.
 
 Using these pragmas it is possible to achieve complete
-inter-operability between Ada tagged types and C class definitions.
+inter-operability between Ada tagged types and C++ class definitions.
 See @ref{Implementation Defined Pragmas}, for more details.
 
 @table @code
 @item pragma CPP_Class ([Entity =>] @var{local_NAME})
 The argument denotes an entity in the current declarative region that is
-declared as a tagged or untagged record type.  It indicates that the type
+declared as a tagged or untagged record type. It indicates that the type
 corresponds to an externally declared C++ class type, and is to be laid
 out the same way that C++ would lay out the type.
+
+Note: Pragma @code{CPP_Class} is currently obsolete. It is supported
+for backward compatibility but its functionality is available
+using pragma @code{Import} with @code{Convention} = @code{CPP}.
 
 @item pragma CPP_Constructor ([Entity =>] @var{local_NAME})
 This pragma identifies an imported function (imported in the usual way
 with pragma @code{Import}) as corresponding to a C++ constructor.
-
-@item pragma CPP_Vtable @dots{}
-One @code{CPP_Vtable} pragma can be present for each component of type
-@code{CPP.Interfaces.Vtable_Ptr} in a record to which pragma @code{CPP_Class}
-applies.
 @end table
 
 @node Interfacing to COBOL
@@ -13620,14 +13911,14 @@ applies.
 
 @noindent
 Interfacing to COBOL is achieved as described in section B.4 of
-the Ada 95 reference manual.
+the Ada Reference Manual.
 
 @node Interfacing to Fortran
 @section Interfacing to Fortran
 
 @noindent
 Interfacing to Fortran is achieved as described in section B.5 of the
-reference manual.  The pragma @code{Convention Fortran}, applied to a
+Ada Reference Manual.  The pragma @code{Convention Fortran}, applied to a
 multi-dimensional array causes the array to be stored in column-major
 order as required for convenient interface to Fortran.
 
@@ -13637,7 +13928,7 @@ order as required for convenient interface to Fortran.
 It is possible to specify the convention @code{Ada} in a pragma
 @code{Import} or pragma @code{Export}.  However this refers to
 the calling conventions used by GNAT, which may or may not be
-similar enough to those used by some other Ada 83 or Ada 95
+similar enough to those used by some other Ada 83 / Ada 95 / Ada 2005
 compiler to allow interoperation.
 
 If arguments types are kept simple, and if the foreign compiler generally
@@ -13657,9 +13948,9 @@ types with fixed bounds.
 @chapter Specialized Needs Annexes
 
 @noindent
-Ada 95 defines a number of specialized needs annexes, which are not
+Ada 95 and Ada 2005 define a number of Specialized Needs Annexes, which are not
 required in all implementations.  However, as described in this chapter,
-GNAT implements all of these special needs annexes:
+GNAT implements all of these annexes:
 
 @table @asis
 @item Systems Programming (Annex C)
@@ -13680,8 +13971,9 @@ The Information Systems annex is fully implemented.
 @item Numerics (Annex G)
 The Numerics Annex is fully implemented.
 
-@item Safety and Security (Annex H)
-The Safety and Security annex is fully implemented.
+@item Safety and Security / High-Integrity Systems (Annex H)
+The Safety and Security Annex (termed the High-Integrity Systems Annex
+in Ada 2005) is fully implemented.
 @end table
 
 @node Implementation of Specific Ada Features
@@ -13697,15 +13989,16 @@ facilities.
 * GNAT Implementation of Shared Passive Packages::
 * Code Generation for Array Aggregates::
 * The Size of Discriminated Records with Default Discriminants::
-* Strict Conformance to the Ada 95 Reference Manual::
+* Strict Conformance to the Ada Reference Manual::
 @end menu
 
 @node Machine Code Insertions
 @section Machine Code Insertions
+@cindex Machine Code insertions
 
 @noindent
 Package @code{Machine_Code} provides machine code support as described
-in the Ada 95 Reference Manual in two separate forms:
+in the Ada Reference Manual in two separate forms:
 @itemize @bullet
 @item
 Machine code statements, consisting of qualified expressions that
@@ -13721,7 +14014,8 @@ provided by the asm instruction in the GNU C compiler.  Full understanding
 and use of the facilities in this package requires understanding the asm
 instruction as described in @cite{Using the GNU Compiler Collection (GCC)}
 by Richard Stallman. The relevant section is titled ``Extensions to the C
-Language Family'' -> ``Assembler Instructions with C Expression Operands''.
+Language Family'' @result{} ``Assembler Instructions with C Expression
+Operands''.
 
 Calls to the function @code{Asm} and the procedure @code{Asm} have identical
 semantic restrictions and effects as described below.  Both are provided so
@@ -13796,6 +14090,10 @@ optimizations with respect to the instruction specified should be
 suppressed, and that in particular, for an instruction that has outputs,
 the instruction will still be generated, even if none of the outputs are
 used.  See the full description in the GCC manual for further details.
+Generally it is strongly advisable to use Volatile for any ASM statement
+that is missing either input or output operands, or when two or more ASM
+statements appear in sequence, to avoid unwanted optimizations. A warning
+is generated if this advice is not followed.
 
 The @code{Asm} subprograms may be used in two ways.  First the procedure
 forms can be used anywhere a procedure call would be valid, and
@@ -14292,7 +14590,7 @@ was used by some Ada83 compilers, where the @code{Name} component above
 would have
 been stored as a pointer to a dynamic string). Following the principle that
 dynamic storage management should never be introduced implicitly,
-an Ada95 compiler should reserve the full size for an unconstrained declared
+an Ada compiler should reserve the full size for an unconstrained declared
 object, and place it on the stack.
 
 This maximum size approach
@@ -14331,20 +14629,20 @@ aliasing all views of the object (which may be manipulated by different tasks,
 say) must be consistent, so it is imperative that the object, once created,
 remain invariant.
 
-@node Strict Conformance to the Ada 95 Reference Manual
-@section Strict Conformance to the Ada 95 Reference Manual
+@node Strict Conformance to the Ada Reference Manual
+@section Strict Conformance to the Ada Reference Manual
 
 @noindent
-The dynamic semantics defined by the Ada 95 Reference Manual impose a set of
+The dynamic semantics defined by the Ada Reference Manual impose a set of
 run-time checks to be generated. By default, the GNAT compiler will insert many
 run-time checks into the compiled code, including most of those required by the
-Ada 95 Reference Manual. However, there are three checks that are not enabled
+Ada Reference Manual. However, there are three checks that are not enabled
 in the default mode for efficiency reasons: arithmetic overflow checking for
 integer operations (including division by zero), checks for access before
 elaboration on subprogram calls, and stack overflow checking (most operating
 systems do not perform this check by default).
 
-Strict conformance to the Ada 95 Reference Manual can be achieved by adding
+Strict conformance to the Ada Reference Manual can be achieved by adding
 three compiler options for overflow checking for integer operations
 (@option{-gnato}), dynamic checks for access-before-elaboration on subprogram
 calls and generic instantiations (@option{-gnatE}), and stack overflow
@@ -14394,7 +14692,7 @@ See the chapter on project files in the GNAT Users guide for examples of use.
 @section Reserved Words
 
 @noindent
-All Ada95 reserved words are reserved in project files, and cannot be used
+All Ada reserved words are reserved in project files, and cannot be used
 as variable names or project names. In addition, the following are
 also reserved in project files:
 
@@ -14411,9 +14709,9 @@ also reserved in project files:
 @section Lexical Elements
 
 @noindent
-Rules for identifiers are the same as in Ada95. Identifiers
+Rules for identifiers are the same as in Ada. Identifiers
 are case-insensitive.  Strings are case sensitive, except where noted.
-Comments have the same form as in Ada95.
+Comments have the same form as in Ada.
 
 @noindent
 Syntax:
@@ -14689,17 +14987,19 @@ and must be writable.
 Expression must be a single string. Its value is the single file name of a
 symbol file to be created when building a stand-alone library when the
 symbol policy is either "compliant", "controlled" or "restricted",
-on platforms that support symbol control, such as VMS.
+on platforms that support symbol control, such as VMS. When symbol policy
+is "direct", then a file with this name must exist in the object directory.
 
 @item   Library_Reference_Symbol_File
-Expression must be a single string. Its value is the single file name of a
+Expression must be a single string. Its value is the path name of a
 reference symbol file that is read when the symbol policy is either
 "compliant" or "controlled", on platforms that support symbol control,
-such as VMS, when building a stand-alone library.
+such as VMS, when building a stand-alone library. The path may be an absolute
+path or a path relative to the project directory.
 
 @item  Library_Symbol_Policy
 Expression must be a single string. Its case-insensitive value can only be
-"autonomous", "default", "compliant", "controlled" or "restricted".
+"autonomous", "default", "compliant", "controlled", "restricted" or "direct".
 
 This attribute is not taken into account on all platforms. It controls the
 policy for exported symbols and, on some platforms (like VMS) that have the
@@ -14724,6 +15024,10 @@ the interfaces do not match exactly the symbol in the symbol file.
 will fail to build if there are symbols in the symbol file that are not in
 the exported symbols of the object files of the interfaces. Additional symbols
 in the object files are not added to the symbol file.
+
+"direct": The attribute Library_Symbol_File must be defined and must designate
+an existing file in the object directory. This symbol file is passed directly
+to the underlying linker without any symbol processing.
 
 @item  Main
 Expression must be a list of strings that are legal file names.
@@ -14803,8 +15107,8 @@ external value either on the command line or in the environment.
 @section Case Construction
 
 @noindent
-A case construction supports attribute declarations that depend on the value of
-a previously declared variable.
+A case construction supports attribute and variable declarations that depend
+on the value of a previously declared variable.
 
 Syntax:
 @smallexample
@@ -14815,7 +15119,10 @@ case_construction ::=
 
 case_item ::=
   @b{when} discrete_choice_list =>
-    @{case_construction | attribute_declaration | empty_declaration@}
+    @{case_construction |
+      attribute_declaration |
+      variable_declaration |
+      empty_declaration@}
 
 discrete_choice_list ::=
   string_literal @{| string_literal@} |
@@ -14823,6 +15130,9 @@ discrete_choice_list ::=
 @end smallexample
 
 @noindent
+Inside a case construction, variable declarations must be for variables that
+have already been declared before the case construction.
+
 All choices in a choice list must be distinct. The choice lists of two
 distinct alternatives must be disjoint. Unlike Ada, the choice lists of all
 alternatives do not need to include all values of the type. An @code{others}

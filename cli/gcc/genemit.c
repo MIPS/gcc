@@ -1,12 +1,12 @@
 /* Generate code from machine description to emit insns as rtl.
    Copyright (C) 1987, 1988, 1991, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "bconfig.h"
@@ -428,15 +427,18 @@ gen_insn (rtx insn, int lineno)
     }
   else
     {
+      char *used = XCNEWVEC (char, operands);
+
       printf ("  return gen_rtx_PARALLEL (VOIDmode, gen_rtvec (%d",
 	      XVECLEN (insn, 1));
 
       for (i = 0; i < XVECLEN (insn, 1); i++)
 	{
 	  printf (",\n\t\t");
-	  gen_exp (XVECEXP (insn, 1, i), DEFINE_INSN, NULL);
+	  gen_exp (XVECEXP (insn, 1, i), DEFINE_INSN, used);
 	}
       printf ("));\n}\n\n");
+      XDELETEVEC (used);
     }
 }
 
@@ -447,6 +449,7 @@ gen_expand (rtx expand)
 {
   int operands;
   int i;
+  char *used;
 
   if (strlen (XSTR (expand, 0)) == 0)
     fatal ("define_expand lacks a name");
@@ -530,6 +533,9 @@ gen_expand (rtx expand)
      Use emit_insn to add them to the sequence being accumulated.
      But don't do this if the user's code has set `no_more' nonzero.  */
 
+  used = XCNEWVEC (char,
+		   MAX (operands, MAX (max_scratch_opno, max_dup_opno) + 1));
+
   for (i = 0; i < XVECLEN (expand, 1); i++)
     {
       rtx next = XVECEXP (expand, 1, i);
@@ -560,12 +566,14 @@ gen_expand (rtx expand)
 	printf ("  emit (");
       else
 	printf ("  emit_insn (");
-      gen_exp (next, DEFINE_EXPAND, NULL);
+      gen_exp (next, DEFINE_EXPAND, used);
       printf (");\n");
       if (GET_CODE (next) == SET && GET_CODE (SET_DEST (next)) == PC
 	  && GET_CODE (SET_SRC (next)) == LABEL_REF)
 	printf ("  emit_barrier ();");
     }
+
+  XDELETEVEC (used);
 
   /* Call `get_insns' to extract the list of all the
      insns emitted within this gen_... function.  */
@@ -612,7 +620,7 @@ gen_split (rtx split)
   else
     {
       printf ("extern rtx gen_split_%d (rtx, rtx *);\n", insn_code_number);
-      printf ("rtx\ngen_split_%d (rtx curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n", 
+      printf ("rtx\ngen_split_%d (rtx curr_insn ATTRIBUTE_UNUSED, rtx *operands%s)\n",
 	      insn_code_number, unused);
     }
   printf ("{\n");
@@ -836,6 +844,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"expr.h\"\n");
   printf ("#include \"optabs.h\"\n");
   printf ("#include \"real.h\"\n");
+  printf ("#include \"dfp.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"output.h\"\n");
   printf ("#include \"insn-config.h\"\n");
@@ -844,9 +853,11 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"resource.h\"\n");
   printf ("#include \"reload.h\"\n");
   printf ("#include \"toplev.h\"\n");
+  printf ("#include \"regs.h\"\n");
   printf ("#include \"tm-constrs.h\"\n");
-  printf ("#include \"ggc.h\"\n\n");
-  printf ("#include \"basic-block.h\"\n\n");
+  printf ("#include \"ggc.h\"\n");
+  printf ("#include \"basic-block.h\"\n");
+  printf ("#include \"integrate.h\"\n\n");
   printf ("#define FAIL return (end_sequence (), _val)\n");
   printf ("#define DONE return (_val = get_insns (), end_sequence (), _val)\n\n");
 

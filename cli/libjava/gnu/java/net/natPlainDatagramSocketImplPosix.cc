@@ -83,8 +83,6 @@ gnu::java::net::PlainDatagramSocketImpl::create ()
       throw new ::java::net::SocketException (JvNewStringUTF (strerr));
     }
 
-  _Jv_platform_close_on_exec (sock);
-
   // We use native_fd in place of fd here.  From leaving fd null we avoid
   // the double close problem in FileDescriptor.finalize.
   native_fd = sock;
@@ -290,7 +288,7 @@ gnu::java::net::PlainDatagramSocketImpl::peekData (::java::net::DatagramPacket *
   else
     throw new ::java::net::SocketException (JvNewStringUTF ("invalid family"));
 
-  p->setAddress (new ::java::net::InetAddress (raddr, NULL));
+  p->setAddress (::java::net::InetAddress::getByAddress (raddr));
   p->setPort (rport);
   p->length = (int) retlen;
   return rport;
@@ -430,7 +428,7 @@ gnu::java::net::PlainDatagramSocketImpl::receive (::java::net::DatagramPacket *p
   else
     throw new ::java::net::SocketException (JvNewStringUTF ("invalid family"));
 
-  p->setAddress (new ::java::net::InetAddress (raddr, NULL));
+  p->setAddress (::java::net::InetAddress::getByAddress (raddr));
   p->setPort (rport);
   p->length = (jint) retlen;
   return;
@@ -564,7 +562,7 @@ getLocalAddress (int native_fd)
   else
     throw new ::java::net::SocketException (JvNewStringUTF ("invalid family"));
 
-  return new ::java::net::InetAddress (laddr, NULL);
+  return ::java::net::InetAddress::getByAddress (laddr);
 }
 
 void

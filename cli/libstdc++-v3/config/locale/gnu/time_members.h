@@ -1,6 +1,7 @@
 // std::time_get, std::time_put implementation, GNU version -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,12 +28,19 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file time_members.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
 //
 // ISO C++ 14882: 22.2.5.1.2 - time_get functions
 // ISO C++ 14882: 22.2.5.3.2 - time_put functions
 //
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   template<typename _CharT>
     __timepunct<_CharT>::__timepunct(size_t __refs) 
@@ -51,17 +59,23 @@
 				     size_t __refs) 
     : facet(__refs), _M_data(NULL), _M_c_locale_timepunct(NULL), 
       _M_name_timepunct(NULL)
-    { 
-      const size_t __len = std::strlen(__s) + 1;
-      char* __tmp = new char[__len];
-      std::memcpy(__tmp, __s, __len);
-      _M_name_timepunct = __tmp;
+    {
+      if (__builtin_strcmp(__s, _S_get_c_name()) != 0)
+	{
+	  const size_t __len = __builtin_strlen(__s) + 1;
+	  char* __tmp = new char[__len];
+	  __builtin_memcpy(__tmp, __s, __len);
+	  _M_name_timepunct = __tmp;
+	}
+      else
+	_M_name_timepunct = _S_get_c_name();
 
       try
 	{ _M_initialize_timepunct(__cloc); }
       catch(...)
 	{
-	  delete [] _M_name_timepunct;
+	  if (_M_name_timepunct != _S_get_c_name())
+	    delete [] _M_name_timepunct;
 	  __throw_exception_again;
 	}
     }
@@ -74,3 +88,5 @@
       delete _M_data; 
       _S_destroy_c_locale(_M_c_locale_timepunct); 
     }
+
+_GLIBCXX_END_NAMESPACE

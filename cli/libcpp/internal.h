@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -355,6 +355,10 @@ struct cpp_reader
   struct file_hash_entry *file_hash_entries;
   unsigned int file_hash_entries_allocated, file_hash_entries_used;
 
+  /* Negative path lookup hash table.  */
+  struct htab *nonexistent_file_hash;
+  struct obstack nonexistent_file_ob;
+
   /* Nonzero means don't look for #include "foo" the source-file
      directory.  */
   bool quote_ignores_source_dir;
@@ -448,6 +452,9 @@ struct cpp_reader
   /* A saved list of the defined macros, for dependency checking
      of precompiled headers.  */
   struct cpp_savedstate *savedstate;
+
+  /* Next value of __COUNTER__ macro. */
+  unsigned int counter;
 };
 
 /* Character classes.  Based on the more primitive macros in safe-ctype.h.
@@ -487,6 +494,13 @@ cpp_in_system_header (cpp_reader *pfile)
 }
 #define CPP_PEDANTIC(PF) CPP_OPTION (PF, pedantic)
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)
+
+static inline int cpp_in_primary_file (cpp_reader *);
+static inline int
+cpp_in_primary_file (cpp_reader *pfile)
+{
+  return pfile->line_table->depth == 1;
+}
 
 /* In errors.c  */
 extern int _cpp_begin_message (cpp_reader *, int,

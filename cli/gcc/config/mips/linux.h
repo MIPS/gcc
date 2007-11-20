@@ -89,8 +89,14 @@ Boston, MA 02110-1301, USA.  */
     builtin_define ("_MIPS_SZINT=32");				\
   } while (0)
 
-#undef  SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC "%{pthread:-D_REENTRANT}"
+#undef SUBTARGET_CPP_SPEC
+#define SUBTARGET_CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
+
+/* A standard GNU/Linux mapping.  On most targets, it is included in
+   CC1_SPEC itself by config/linux.h, but mips.h overrides CC1_SPEC
+   and provides this hook instead.  */
+#undef SUBTARGET_CC1_SPEC
+#define SUBTARGET_CC1_SPEC "%{profile:-p}"
 
 /* From iris5.h */
 /* -G is incompatible with -KPIC which is the default, so only allow objects
@@ -168,8 +174,18 @@ Boston, MA 02110-1301, USA.  */
 
 #undef LIB_SPEC
 #define LIB_SPEC "\
-%{shared: -lc} \
-%{!shared: %{pthread:-lpthread} \
-  %{profile:-lc_p} %{!profile: -lc}}"
+%{pthread:-lpthread} \
+%{shared:-lc} \
+%{!shared: \
+  %{profile:-lc_p} %{!profile:-lc}}"
 
 #define MD_UNWIND_SUPPORT "config/mips/linux-unwind.h"
+
+#ifdef HAVE_AS_NO_SHARED
+/* Default to -mno-shared for non-PIC.  */
+#define NO_SHARED_SPECS \
+  "%{mshared|mno-shared|fpic|fPIC|fpie|fPIE:;:-mno-shared}"
+#define DRIVER_SELF_SPECS NO_SHARED_SPECS
+#else
+#define NO_SHARED_SPECS
+#endif

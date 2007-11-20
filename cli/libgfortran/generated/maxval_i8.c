@@ -31,7 +31,6 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
-#include <float.h>
 #include "libgfortran.h"
 
 
@@ -70,16 +69,24 @@ maxval_i8 (gfc_array_i8 * const restrict retarray,
     {
       sstride[n] = array->dim[n].stride;
       extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+
+      if (extent[n] < 0)
+	extent[n] = 0;
     }
   for (n = dim; n < rank; n++)
     {
       sstride[n] = array->dim[n + 1].stride;
       extent[n] =
         array->dim[n + 1].ubound + 1 - array->dim[n + 1].lbound;
+
+      if (extent[n] < 0)
+	extent[n] = 0;
     }
 
   if (retarray->data == NULL)
     {
+      size_t alloc_size;
+
       for (n = 0; n < rank; n++)
         {
           retarray->dim[n].lbound = 0;
@@ -90,12 +97,21 @@ maxval_i8 (gfc_array_i8 * const restrict retarray,
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data
-	 = internal_malloc_size (sizeof (GFC_INTEGER_8)
-		 		 * retarray->dim[rank-1].stride
-				 * extent[rank-1]);
       retarray->offset = 0;
       retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
+
+      alloc_size = sizeof (GFC_INTEGER_8) * retarray->dim[rank-1].stride
+    		   * extent[rank-1];
+
+      if (alloc_size == 0)
+	{
+	  /* Make sure we have a zero-sized array.  */
+	  retarray->dim[0].lbound = 0;
+	  retarray->dim[0].ubound = -1;
+	  return;
+	}
+      else
+	retarray->data = internal_malloc_size (alloc_size);
     }
   else
     {
@@ -121,9 +137,9 @@ maxval_i8 (gfc_array_i8 * const restrict retarray,
       src = base;
       {
 
-  result = -GFC_INTEGER_8_HUGE;
+  result = (-GFC_INTEGER_8_HUGE-1);
         if (len <= 0)
-	  *dest = -GFC_INTEGER_8_HUGE;
+	  *dest = (-GFC_INTEGER_8_HUGE-1);
 	else
 	  {
 	    for (n = 0; n < len; n++, src += delta)
@@ -146,7 +162,7 @@ maxval_i8 (gfc_array_i8 * const restrict retarray,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           base -= sstride[n] * extent[n];
           dest -= dstride[n] * extent[n];
           n++;
@@ -207,6 +223,10 @@ mmaxval_i8 (gfc_array_i8 * const restrict retarray,
       sstride[n] = array->dim[n].stride;
       mstride[n] = mask->dim[n].stride;
       extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+
+      if (extent[n] < 0)
+	extent[n] = 0;
+
     }
   for (n = dim; n < rank; n++)
     {
@@ -214,10 +234,15 @@ mmaxval_i8 (gfc_array_i8 * const restrict retarray,
       mstride[n] = mask->dim[n + 1].stride;
       extent[n] =
         array->dim[n + 1].ubound + 1 - array->dim[n + 1].lbound;
+
+      if (extent[n] < 0)
+	extent[n] = 0;
     }
 
   if (retarray->data == NULL)
     {
+      size_t alloc_size;
+
       for (n = 0; n < rank; n++)
         {
           retarray->dim[n].lbound = 0;
@@ -228,12 +253,22 @@ mmaxval_i8 (gfc_array_i8 * const restrict retarray,
             retarray->dim[n].stride = retarray->dim[n-1].stride * extent[n-1];
         }
 
-      retarray->data
-	 = internal_malloc_size (sizeof (GFC_INTEGER_8)
-		 		 * retarray->dim[rank-1].stride
-				 * extent[rank-1]);
+      alloc_size = sizeof (GFC_INTEGER_8) * retarray->dim[rank-1].stride
+    		   * extent[rank-1];
+
       retarray->offset = 0;
       retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
+
+      if (alloc_size == 0)
+	{
+	  /* Make sure we have a zero-sized array.  */
+	  retarray->dim[0].lbound = 0;
+	  retarray->dim[0].ubound = -1;
+	  return;
+	}
+      else
+	retarray->data = internal_malloc_size (alloc_size);
+
     }
   else
     {
@@ -272,9 +307,9 @@ mmaxval_i8 (gfc_array_i8 * const restrict retarray,
       msrc = mbase;
       {
 
-  result = -GFC_INTEGER_8_HUGE;
+  result = (-GFC_INTEGER_8_HUGE-1);
         if (len <= 0)
-	  *dest = -GFC_INTEGER_8_HUGE;
+	  *dest = (-GFC_INTEGER_8_HUGE-1);
 	else
 	  {
 	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
@@ -298,7 +333,7 @@ mmaxval_i8 (gfc_array_i8 * const restrict retarray,
              the next dimension.  */
           count[n] = 0;
           /* We could precalculate these products, but this is a less
-             frequently used path so proabably not worth it.  */
+             frequently used path so probably not worth it.  */
           base -= sstride[n] * extent[n];
           mbase -= mstride[n] * extent[n];
           dest -= dstride[n] * extent[n];
@@ -368,7 +403,7 @@ smaxval_i8 (gfc_array_i8 * const restrict retarray,
     dest = retarray->data;
 
     for (n = 0; n < rank; n++)
-      dest[n * dstride] = -GFC_INTEGER_8_HUGE ;
+      dest[n * dstride] = (-GFC_INTEGER_8_HUGE-1) ;
 }
 
 #endif

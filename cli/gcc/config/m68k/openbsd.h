@@ -34,9 +34,8 @@ Boston, MA 02110-1301, USA.  */
 #undef CPP_SPEC
 #define CPP_SPEC "%{!msoft-float:-D__HAVE_68881__ -D__HAVE_FPU__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_POSIX_THREADS}"
 
-/* m68k as needs to know about the processor subtype.  */
 #undef ASM_SPEC
-#define ASM_SPEC "%{m68030} %{m68040} %{m68060} %{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
+#define ASM_SPEC "%(asm_cpu_spec) %{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
 
 #define AS_NEEDS_DASH_FOR_PIPED_INPUT
 
@@ -73,6 +72,10 @@ Boston, MA 02110-1301, USA.  */
 #define DBX_CONTIN_CHAR '?'
 
 /* Stack & calling: aggregate returns.  */
+
+/* ??? This is traditional, but quite possibly wrong.  It appears to
+   disagree with gdb.  */
+#define PCC_STATIC_STRUCT_RETURN 1
 
 /* Don't default to pcc-struct-return, because gcc is the only compiler, and
    we want to retain compatibility with older gcc versions.  */

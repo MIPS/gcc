@@ -42,7 +42,6 @@ struct scope_binding {
 #define EMPTY_SCOPE_BINDING { NULL_TREE, NULL_TREE }
 
 static cxx_scope *innermost_nonclass_level (void);
-static tree select_decl (const struct scope_binding *, int);
 static cxx_binding *binding_for_name (cxx_scope *, tree);
 static tree lookup_name_innermost_nonclass_level (tree);
 static tree push_overloaded_decl (tree, int, bool);
@@ -61,6 +60,24 @@ tree global_namespace;
    unit.  */
 static GTY(()) tree anonymous_namespace_name;
 
+/* Initialize anonymous_namespace_name if necessary, and return it.  */
+
+static tree
+get_anonymous_namespace_name(void)
+{
+  if (!anonymous_namespace_name)
+    {
+      /* The anonymous namespace has to have a unique name
+	 if typeinfo objects are being compared by name.  */
+      if (! flag_weak || ! SUPPORTS_ONE_ONLY)
+	anonymous_namespace_name = get_file_function_name ("N");
+      else
+	/* The demangler expects anonymous namespaces to be called
+	   something starting with '_GLOBAL__N_'.  */
+	anonymous_namespace_name = get_identifier ("_GLOBAL__N_1");
+    }
+  return anonymous_namespace_name;
+}
 
 /* Compute the chain index of a binding_entry given the HASH value of its
    name and the total COUNT of chains.  COUNT is assumed to be a power
@@ -753,7 +770,7 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 
       check_template_shadow (x);
 
-      /* If this is a function conjured up by the backend, massage it
+      /* If this is a function conjured up by the back end, massage it
 	 so it looks friendly.  */
       if (DECL_NON_THUNK_FUNCTION_P (x) && ! DECL_LANG_SPECIFIC (x))
 	{
@@ -1271,11 +1288,11 @@ begin_scope (scope_kind kind, tree entity)
   if (!ENABLE_SCOPE_CHECKING && free_binding_level)
     {
       scope = free_binding_level;
+      memset (scope, 0, sizeof (cxx_scope));
       free_binding_level = scope->level_chain;
     }
   else
-    scope = GGC_NEW (cxx_scope);
-  memset (scope, 0, sizeof (cxx_scope));
+    scope = GGC_CNEW (cxx_scope);
 
   scope->this_entity = entity;
   scope->more_cleanups_ok = true;
@@ -2824,18 +2841,19 @@ do_class_using_decl (tree scope, tree name)
      class type.  However, if all of the base classes are
      non-dependent, then we can avoid delaying the check until
      instantiation.  */
-  if (!scope_dependent_p && !bases_dependent_p)
+  if (!scope_dependent_p)
     {
       base_kind b_kind;
-      tree binfo;
       binfo = lookup_base (current_class_type, scope, ba_any, &b_kind);
       if (b_kind < bk_proper_base)
 	{
-	  error_not_base_type (scope, current_class_type);
-	  return NULL_TREE;
+	  if (!bases_dependent_p)
+	    {
+	      error_not_base_type (scope, current_class_type);
+	      return NULL_TREE;
+	    }
 	}
-
-      if (!name_dependent_p)
+      else if (!name_dependent_p)
 	{
 	  decl = lookup_member (binfo, name, 0, false);
 	  if (!decl)
@@ -3010,11 +3028,7 @@ push_namespace_with_attribs (tree name, tree attributes)
 
   if (anon)
     {
-      /* The name of anonymous namespace is unique for the translation
-	 unit.  */
-      if (!anonymous_namespace_name)
-	anonymous_namespace_name = get_file_function_name ('N');
-      name = anonymous_namespace_name;
+      name = get_anonymous_namespace_name();
       d = IDENTIFIER_NAMESPACE_VALUE (name);
       if (d)
 	/* Reopening anonymous namespace.  */
@@ -3482,36 +3496,55 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
 {
   tree val, type;
   gcc_assert (old != NULL);
+
+  /* Copy the type.  */
+  type = new->type;
+  if (LOOKUP_NAMESPACES_ONLY (flags)
+      || (type && hidden_name_p (type) && !(flags & LOOKUP_HIDDEN)))
+    type = NULL_TREE;
+
   /* Copy the value.  */
   val = new->value;
   if (val)
-    switch (TREE_CODE (val))
-      {
-      case TEMPLATE_DECL:
-	/* If we expect types or namespaces, and not templates,
-	   or this is not a template class.  */
-	if ((LOOKUP_QUALIFIERS_ONLY (flags)
-	     && !DECL_CLASS_TEMPLATE_P (val))
-	    || hidden_name_p (val))
-	  val = NULL_TREE;
-	break;
-      case TYPE_DECL:
-	if (LOOKUP_NAMESPACES_ONLY (flags) || hidden_name_p (val))
-	  val = NULL_TREE;
-	break;
-      case NAMESPACE_DECL:
-	if (LOOKUP_TYPES_ONLY (flags))
-	  val = NULL_TREE;
-	break;
-      case FUNCTION_DECL:
-	/* Ignore built-in functions that are still anticipated.  */
-	if (LOOKUP_QUALIFIERS_ONLY (flags) || hidden_name_p (val))
-	  val = NULL_TREE;
-	break;
-      default:
-	if (LOOKUP_QUALIFIERS_ONLY (flags))
-	  val = NULL_TREE;
-      }
+    {
+      if (hidden_name_p (val) && !(flags & LOOKUP_HIDDEN))
+	val = NULL_TREE;
+      else
+	switch (TREE_CODE (val))
+	  {
+	  case TEMPLATE_DECL:
+	    /* If we expect types or namespaces, and not templates,
+	       or this is not a template class.  */
+	    if ((LOOKUP_QUALIFIERS_ONLY (flags)
+		 && !DECL_CLASS_TEMPLATE_P (val)))
+	      val = NULL_TREE;
+	    break;
+	  case TYPE_DECL:
+	    if (LOOKUP_NAMESPACES_ONLY (flags)
+		|| (type && (flags & LOOKUP_PREFER_TYPES)))
+	      val = NULL_TREE;
+	    break;
+	  case NAMESPACE_DECL:
+	    if (LOOKUP_TYPES_ONLY (flags))
+	      val = NULL_TREE;
+	    break;
+	  case FUNCTION_DECL:
+	    /* Ignore built-in functions that are still anticipated.  */
+	    if (LOOKUP_QUALIFIERS_ONLY (flags))
+	      val = NULL_TREE;
+	    break;
+	  default:
+	    if (LOOKUP_QUALIFIERS_ONLY (flags))
+	      val = NULL_TREE;
+	  }
+    }
+
+  /* If val is hidden, shift down any class or enumeration name.  */
+  if (!val)
+    {
+      val = type;
+      type = NULL_TREE;
+    }
 
   if (!old->value)
     old->value = val;
@@ -3522,14 +3555,11 @@ ambiguous_decl (tree name, struct scope_binding *old, cxx_binding *new,
       else
 	{
 	  old->value = tree_cons (NULL_TREE, old->value,
-				  build_tree_list (NULL_TREE, new->value));
+				  build_tree_list (NULL_TREE, val));
 	  TREE_TYPE (old->value) = error_mark_node;
 	}
     }
-  /* ... and copy the type.  */
-  type = new->type;
-  if (LOOKUP_NAMESPACES_ONLY (flags))
-    type = NULL_TREE;
+
   if (!old->type)
     old->type = type;
   else if (type && old->type != type)
@@ -3629,36 +3659,6 @@ remove_hidden_names (tree fns)
   return fns;
 }
 
-/* Select the right _DECL from multiple choices.  */
-
-static tree
-select_decl (const struct scope_binding *binding, int flags)
-{
-  tree val;
-  val = binding->value;
-
-  timevar_push (TV_NAME_LOOKUP);
-  if (LOOKUP_NAMESPACES_ONLY (flags))
-    {
-      /* We are not interested in types.  */
-      if (val && (TREE_CODE (val) == NAMESPACE_DECL
-		  || TREE_CODE (val) == TREE_LIST))
-	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
-      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, NULL_TREE);
-    }
-
-  /* If looking for a type, or if there is no non-type binding, select
-     the value binding.  */
-  if (binding->type && (!val || (flags & LOOKUP_PREFER_TYPES)))
-    val = binding->type;
-  /* Don't return non-types if we really prefer types.  */
-  else if (val && LOOKUP_TYPES_ONLY (flags)
-	   && ! DECL_DECLARES_TYPE_P (val))
-    val = NULL_TREE;
-
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
-}
-
 /* Unscoped lookup of a global: iterate over current namespaces,
    considering using-directives.  */
 
@@ -3670,22 +3670,17 @@ unqualified_namespace_lookup (tree name, int flags)
   tree siter;
   struct cp_binding_level *level;
   tree val = NULL_TREE;
-  struct scope_binding binding = EMPTY_SCOPE_BINDING;
 
   timevar_push (TV_NAME_LOOKUP);
 
   for (; !val; scope = CP_DECL_CONTEXT (scope))
     {
+      struct scope_binding binding = EMPTY_SCOPE_BINDING;
       cxx_binding *b =
 	 cxx_scope_find_binding_for_name (NAMESPACE_LEVEL (scope), name);
 
       if (b)
-	{
-	  if (b->value
-	      && ((flags & LOOKUP_HIDDEN) || !hidden_name_p (b->value)))
-	    binding.value = b->value;
-	  binding.type = b->type;
-	}
+	ambiguous_decl (name, &binding, b, flags);
 
       /* Add all _DECLs seen through local using-directives.  */
       for (level = current_binding_level;
@@ -3710,7 +3705,7 @@ unqualified_namespace_lookup (tree name, int flags)
 	  siter = CP_DECL_CONTEXT (siter);
 	}
 
-      val = select_decl (&binding, flags);
+      val = binding.value;
       if (scope == global_namespace)
 	break;
     }
@@ -3740,7 +3735,7 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
       if (is_type_p)
 	flags |= LOOKUP_PREFER_TYPES;
       if (qualified_lookup_using_namespace (name, scope, &binding, flags))
-	t = select_decl (&binding, flags);
+	t = binding.value;
     }
   else if (is_aggr_type (scope, complain))
     t = lookup_member (scope, name, 2, is_type_p);
@@ -4548,6 +4543,18 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case LANG_TYPE:
       gcc_assert (type == unknown_type_node);
       return false;
+    case TYPE_PACK_EXPANSION:
+      return arg_assoc_type (k, PACK_EXPANSION_PATTERN (type));
+    case TYPE_ARGUMENT_PACK:
+      {
+        tree args = ARGUMENT_PACK_ARGS (type);
+        int i, len = TREE_VEC_LENGTH (args);
+        for (i = 0; i < len; i++)
+          if (arg_assoc_type (k, TREE_VEC_ELT (args, i)))
+            return true;
+      }
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -4668,7 +4675,19 @@ lookup_arg_dependent (tree name, tree fns, tree args)
   k.namespaces = NULL_TREE;
 
   arg_assoc_args (&k, args);
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, k.functions);
+
+  fns = k.functions;
+  
+  if (fns
+      && TREE_CODE (fns) != VAR_DECL
+      && !is_overloaded_fn (fns))
+    {
+      error ("argument dependent lookup finds %q+D", fns);
+      error ("  in call to %qD", name);
+      fns = error_mark_node;
+    }
+    
+  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fns);
 }
 
 /* Add namespace to using_directives. Return NULL_TREE if nothing was
@@ -4991,7 +5010,7 @@ push_to_top_level (void)
   struct cp_binding_level *b;
   cxx_saved_binding *sb;
   size_t i;
-  int need_pop;
+  bool need_pop;
 
   timevar_push (TV_NAME_LOOKUP);
   s = GGC_CNEW (struct saved_scope);
@@ -5001,11 +5020,11 @@ push_to_top_level (void)
   /* If we're in the middle of some function, save our state.  */
   if (cfun)
     {
-      need_pop = 1;
+      need_pop = true;
       push_function_context_to (NULL_TREE);
     }
   else
-    need_pop = 0;
+    need_pop = false;
 
   if (scope_chain && previous_class_level)
     store_class_bindings (previous_class_level->class_shadowed,

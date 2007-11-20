@@ -47,11 +47,8 @@ AC_DEFUN([LIBGOMP_CHECK_ATTRIBUTE_ALIAS], [
   AC_CACHE_CHECK([whether the target supports symbol aliases],
 		 have_attribute_alias, [
   AC_TRY_LINK([
-#define ULP	STR1(__USER_LABEL_PREFIX__)
-#define STR1(x)	STR2(x)
-#define STR2(x)	#x
 void foo(void) { }
-extern void bar(void) __attribute__((alias(ULP "foo")));],
+extern void bar(void) __attribute__((alias("foo")));],
     [bar();], have_attribute_alias=yes, have_attribute_alias=no)])
   if test $have_attribute_alias = yes; then
     AC_DEFINE(HAVE_ATTRIBUTE_ALIAS, 1,
@@ -151,7 +148,7 @@ AC_DEFUN([LIBGOMP_CHECK_LINKER_FEATURES], [
   # does some of this, but throws away the result.
   changequote(,)
   ldver=`$LD --version 2>/dev/null | head -1 | \
-         sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
+         sed -e 's/GNU ld \(version \)\{0,1\}\(([^)]*) \)\{0,1\}\([0-9.][0-9.]*\).*/\3/'`
   changequote([,])
   libgomp_gnu_ld_version=`echo $ldver | \
          $AWK -F. '{ if (NF<3) [$]3=0; print ([$]1*100+[$]2)*100+[$]3 }'`

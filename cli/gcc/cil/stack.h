@@ -24,6 +24,9 @@
    Author:
      Ricardo Fernandez Pascual <ricardof@um.es>
 
+   Contact information at STMicroelectronics:
+     Andrea C. Ornstein <andrea.ornstein@st.com>
+     Erven Rohou        <erven.rohou@st.com>
 */
 
 #ifndef GCC_CIL_STACK_H

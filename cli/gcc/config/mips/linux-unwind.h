@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for MIPS Linux.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -86,9 +86,9 @@ mips_fallback_frame_state (struct _Unwind_Context *context,
     return _URC_END_OF_STACK;
 
   new_cfa = (_Unwind_Ptr)sc;
-  fs->cfa_how = CFA_REG_OFFSET;
-  fs->cfa_reg = STACK_POINTER_REGNUM;
-  fs->cfa_offset = new_cfa - (_Unwind_Ptr) context->cfa;
+  fs->regs.cfa_how = CFA_REG_OFFSET;
+  fs->regs.cfa_reg = STACK_POINTER_REGNUM;
+  fs->regs.cfa_offset = new_cfa - (_Unwind_Ptr) context->cfa;
 
 #if _MIPS_SIM == _ABIO32 && defined __MIPSEB__
   /* On o32 Linux, the register save slots in the sigcontext are
@@ -102,10 +102,13 @@ mips_fallback_frame_state (struct _Unwind_Context *context,
     fs->regs.reg[i].loc.offset
       = (_Unwind_Ptr)&(sc->sc_regs[i]) - new_cfa;
   }
-  fs->regs.reg[SIGNAL_UNWIND_RETURN_COLUMN].how = REG_SAVED_OFFSET;
-  fs->regs.reg[SIGNAL_UNWIND_RETURN_COLUMN].loc.offset
-    = (_Unwind_Ptr)&(sc->sc_pc) - new_cfa;
-  fs->retaddr_column = SIGNAL_UNWIND_RETURN_COLUMN;
+  /* The PC points to the faulting instruction, but the unwind tables
+     expect it point to the following instruction.  We compensate by
+     reporting a return address at the next instruction. */
+  fs->regs.reg[DWARF_ALT_FRAME_RETURN_COLUMN].how = REG_SAVED_VAL_OFFSET;
+  fs->regs.reg[DWARF_ALT_FRAME_RETURN_COLUMN].loc.offset
+    = (_Unwind_Ptr)(sc->sc_pc) + 4 - new_cfa;
+  fs->retaddr_column = DWARF_ALT_FRAME_RETURN_COLUMN;
 
   return _URC_NO_REASON;
 }

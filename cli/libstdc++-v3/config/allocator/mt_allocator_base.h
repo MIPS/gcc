@@ -27,8 +27,13 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _CXX_ALLOCATOR_H
-#define _CXX_ALLOCATOR_H 1
+/** @file c++allocator.h
+ *  This is an internal header file, included by other library headers.
+ *  You should not attempt to use it directly.
+ */
+
+#ifndef _GLIBCXX_CXX_ALLOCATOR_H
+#define _GLIBCXX_CXX_ALLOCATOR_H 1
 
 // Define mt_allocator as the base class to std::allocator.
 #include <ext/mt_allocator.h>

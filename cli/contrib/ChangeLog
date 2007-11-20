@@ -1,3 +1,59 @@
+2007-06-30  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc_update (files_and_dependencies): Handle
+	gcc/testsuite/gcc.dg/cpp/direct2s.c.
+
+2007-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* gennews (files): Reference GCC 4.2 web pages.
+
+2007-04-04  Zack Weinberg  <zack@mrtock.ucsd.edu>
+
+	* texi2pod.pl: Correct handling of @itemize with no argument.
+
+2007-03-17  Hans-Peter Nilsson  <hp@axis.com>
+
+	* uninclude: New utility, from Alexandre Oliva.
+
+2007-02-26  Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	* test_installed: Adjust to the move from g77 to gfortran.
+
+2007-02-16  Matthias Klose  <doko@debian.org>
+
+	* texi2pod.pl: Handle @subsubsection, ignore @anchor.
+
+2007-02-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	* test_summary (configflags): Adjust for changes in the
+	config.status format due to update to autoconf 2.59.
+
+2007-02-09  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc_update: Update for configure.in -> configure.ac.
+
+2007-02-06  Richard Sandiford  <richard@codesourcery.com>
+
+	* texi2pod.pl: Handle @multitable.
+
+2007-01-15  Tom Tromey  <tromey@redhat.com>
+
+	* download_ecj: New file.
+
+2006-09-27  Matthew Sachs  <msachs@apple.com>
+
+	* compareSumTests3: POD syntax fix.
+
+2006-09-27  Matthew Sachs  <msachs@apple.com>
+
+	* dglib.pm: Initial commit.
+	* compareSumTests3: Initial commit.
+
+2006-09-18  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* dg-cmp-results.sh (compare-$$.awk): Print name[old]
+	and not non-existing nm[old].
+
 2006-07-06  Paul Eggert  <eggert@cs.ucla.edu>
 
 	Port to hosts whose 'sort' and 'tail' implementations

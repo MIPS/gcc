@@ -24,6 +24,10 @@
    Author:
      Ricardo Fernandez Pascual <ricardof@um.es>
      Andrea C. Ornstein <andrea.ornstein@st.com>
+
+   Contact information at STMicroelectronics:
+     Andrea C. Ornstein <andrea.ornstein@st.com>
+     Erven Rohou        <erven.rohou@st.com>
 */
 
 /* Mono headers must be included before GCC ones, because they use
@@ -73,7 +77,8 @@ UnsupportedMethodBehavior flag_unsupported_method_behavior = UMB_WARNING;
 
 /* Auxiliary types and variables for compilation */
 
-typedef GHashTable CILLabelsMap; /* maps ip to label */
+// typedef GHashTable CILLabelsMap; /* maps ip to label */
+#define CILLabelsMap GHashTable
 
 static CILLabelsMap *
 cil_labels_set_new (void)
@@ -269,6 +274,9 @@ parser_get_type_tree (MonoType *type)
       break;
     case MONO_TYPE_I:
       ret = integer_type_node;
+      break;
+    case MONO_TYPE_U:
+      ret = unsigned_type_node;
       break;
     case MONO_TYPE_FNPTR:
       /* TODO FIXME (but this works anyway) */
@@ -704,7 +712,7 @@ parser_emit_call (MonoMethod *caller, guint32 token)
   if (parser_get_method_mode (called) == GCC_CIL_METHOD_MODE_PINVOKE)
     {
       /* the tree is a variable declaration of a pointer to the function */
-      exp = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (TREE_TYPE (called_tree))), called_tree, arglist, NULL_TREE);
+      exp = build_call_list (TREE_TYPE (TREE_TYPE (TREE_TYPE (called_tree))), called_tree, arglist);
     }
   else
     {
@@ -760,7 +768,7 @@ parser_emit_calli (MonoMethod *caller, guint32 token)
       args_type_list = TREE_CHAIN (args_type_list);
     }
   gcc_assert (args_type_list == NULL_TREE);
-  tree exp = build3 (CALL_EXPR, parser_get_type_tree (mono_signature_get_return_type (signature)), converted_ftn_tree, arglist, NULL_TREE);
+  tree exp = build_call_list (parser_get_type_tree (mono_signature_get_return_type (signature)), converted_ftn_tree, arglist);
 
   if (mono_type_get_type (mono_signature_get_return_type (signature)) == MONO_TYPE_VOID)
     {
@@ -3111,6 +3119,7 @@ parser_parse_type (MonoType *type)
       /* TODO FIXME */
       break;
     case MONO_TYPE_I:
+    case MONO_TYPE_U:
     case MONO_TYPE_FNPTR:
       /* TODO FIXME */
       break;

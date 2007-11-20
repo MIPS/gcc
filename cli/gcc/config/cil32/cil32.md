@@ -26,7 +26,8 @@
 ;;    Roberto Costa
 ;;
 ;; Contact information at STMicroelectronics:
-;; Roberto Costa <roberto.costa@st.com>
+;; Andrea C. Ornstein   <andrea.ornstein@st.com>
+;; Erven Rohou          <erven.rohou@st.com>
 
 ;; See files "md.texi" and "rtl.def" for documentation on define_insn,
 ;; match_*, et. al.

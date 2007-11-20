@@ -1,12 +1,12 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_CFGHOOKS_H
 #define GCC_CFGHOOKS_H
@@ -47,13 +46,17 @@ struct cfg_hooks
      not be abnormal.  */
   basic_block (*redirect_edge_and_branch_force) (edge, basic_block);
 
+  /* Returns true if it is possible to remove the edge by redirecting it
+     to the destination of the other edge going from its source.  */
+  bool (*can_remove_branch_p) (edge);
+
   /* Remove statements corresponding to a given basic block.  */
   void (*delete_basic_block) (basic_block);
 
   /* Creates a new basic block just after basic block B by splitting
      everything after specified instruction I.  */
   basic_block (*split_block) (basic_block b, void * i);
-
+  
   /* Move block B immediately after block A.  */
   bool (*move_block_after) (basic_block b, basic_block a);
 
@@ -111,13 +114,10 @@ struct cfg_hooks
 
   /* A hook for duplicating loop in CFG, currently this is used
      in loop versioning.  */
-  bool (*cfg_hook_duplicate_loop_to_header_edge) (struct loop *loop, edge e,
-						  struct loops *loops,
-						  unsigned int ndupl,
-						  sbitmap wont_exit,
-						  edge orig, edge *to_remove,
-						  unsigned int *n_to_remove,
-						  int flags);
+  bool (*cfg_hook_duplicate_loop_to_header_edge) (struct loop *, edge,
+						  unsigned, sbitmap,
+						  edge, VEC (edge, heap) **,
+						  int);
 
   /* Add condition to new basic block and update CFG used in loop
      versioning.  */
@@ -141,6 +141,9 @@ extern void verify_flow_info (void);
 extern void dump_bb (basic_block, FILE *, int);
 extern edge redirect_edge_and_branch (edge, basic_block);
 extern basic_block redirect_edge_and_branch_force (edge, basic_block);
+extern bool can_remove_branch_p (edge);
+extern void remove_branch (edge);
+extern void remove_edge (edge);
 extern edge split_block (basic_block, void *);
 extern edge split_block_after_labels (basic_block);
 extern bool move_block_after (basic_block, basic_block);
@@ -164,11 +167,10 @@ extern int flow_call_edges_add (sbitmap);
 extern void execute_on_growing_pred (edge);
 extern void execute_on_shrinking_pred (edge);
 extern bool cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge,
-						    struct loops *loops,
 						    unsigned int ndupl,
 						    sbitmap wont_exit,
-						    edge orig, edge *to_remove,
-						    unsigned int *n_to_remove,
+						    edge orig,
+						    VEC (edge, heap) **to_remove,
 						    int flags);
 
 extern void lv_flush_pending_stmts (edge);
@@ -184,7 +186,7 @@ extern struct cfg_hooks rtl_cfg_hooks;
 extern struct cfg_hooks cfg_layout_rtl_cfg_hooks;
 
 /* Declarations.  */
-extern int ir_type (void);
+extern enum ir_type current_ir_type (void);
 extern void rtl_register_cfg_hooks (void);
 extern void cfg_layout_rtl_register_cfg_hooks (void);
 extern void tree_register_cfg_hooks (void);

@@ -1,11 +1,11 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -112,12 +111,6 @@ add_stmt_to_eh_region_fn (struct function *ifun, tree t, int num)
   slot = htab_find_slot (get_eh_throw_stmt_table (ifun), n, INSERT);
   gcc_assert (!*slot);
   *slot = n;
-  /* ??? For the benefit of calls.c, converting all this to rtl,
-     we need to record the call expression, not just the outer
-     modify statement.  */
-  if (TREE_CODE (t) == MODIFY_EXPR
-      && (t = get_call_expr_in (t)))
-    add_stmt_to_eh_region_fn (ifun, t, num);
 }
 
 void
@@ -141,12 +134,6 @@ remove_stmt_from_eh_region_fn (struct function *ifun, tree t)
   if (slot)
     {
       htab_clear_slot (get_eh_throw_stmt_table (ifun), slot);
-      /* ??? For the benefit of calls.c, converting all this to rtl,
-	 we need to record the call expression, not just the outer
-	 modify statement.  */
-      if (TREE_CODE (t) == MODIFY_EXPR
-	  && (t = get_call_expr_in (t)))
-	remove_stmt_from_eh_region_fn (ifun, t);
       return true;
     }
   else
@@ -624,10 +611,10 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 	  q->cont_stmt = q->stmt;
 	  break;
 
-	case MODIFY_EXPR:
+	case GIMPLE_MODIFY_STMT:
 	  {
-	    tree result = TREE_OPERAND (ret_expr, 0);
-	    tree new, old = TREE_OPERAND (ret_expr, 1);
+	    tree result = GIMPLE_STMT_OPERAND (ret_expr, 0);
+	    tree new, old = GIMPLE_STMT_OPERAND (ret_expr, 1);
 
 	    if (!*return_value_p)
 	      {
@@ -646,13 +633,13 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, tree mod,
 	    else
 	      new = *return_value_p;
 
-	    x = build2 (MODIFY_EXPR, TREE_TYPE (new), new, old);
+	    x = build_gimple_modify_stmt (new, old);
 	    append_to_statement_list (x, &q->repl_stmt);
 
 	    if (new == result)
 	      x = result;
 	    else
-	      x = build2 (MODIFY_EXPR, TREE_TYPE (result), result, new);
+	      x = build_gimple_modify_stmt (result, new);
 	    q->cont_stmt = build1 (RETURN_EXPR, void_type_node, x);
 	  }
 
@@ -842,20 +829,20 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
 
       i = tsi_start (finally);
       x = build0 (EXC_PTR_EXPR, ptr_type_node);
-      x = build2 (MODIFY_EXPR, void_type_node, save_eptr, x);
+      x = build_gimple_modify_stmt (save_eptr, x);
       tsi_link_before (&i, x, TSI_CONTINUE_LINKING);
 
       x = build0 (FILTER_EXPR, integer_type_node);
-      x = build2 (MODIFY_EXPR, void_type_node, save_filt, x);
+      x = build_gimple_modify_stmt (save_filt, x);
       tsi_link_before (&i, x, TSI_CONTINUE_LINKING);
 
       i = tsi_last (finally);
       x = build0 (EXC_PTR_EXPR, ptr_type_node);
-      x = build2 (MODIFY_EXPR, void_type_node, x, save_eptr);
+      x = build_gimple_modify_stmt (x, save_eptr);
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
       x = build0 (FILTER_EXPR, integer_type_node);
-      x = build2 (MODIFY_EXPR, void_type_node, x, save_filt);
+      x = build_gimple_modify_stmt (x, save_filt);
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
       x = build_resx (get_eh_region_number (tf->region));
@@ -1177,8 +1164,9 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
   if (tf->may_fallthru)
     {
-      x = build2 (MODIFY_EXPR, void_type_node, finally_tmp,
-		  build_int_cst (NULL_TREE, fallthru_index));
+      x = build_gimple_modify_stmt (finally_tmp,
+				    build_int_cst (integer_type_node,
+						   fallthru_index));
       append_to_statement_list (x, tf->top_p);
 
       if (tf->may_throw)
@@ -1207,8 +1195,9 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       x = build1 (LABEL_EXPR, void_type_node, tf->eh_label);
       append_to_statement_list (x, tf->top_p);
 
-      x = build2 (MODIFY_EXPR, void_type_node, finally_tmp,
-		  build_int_cst (NULL_TREE, eh_index));
+      x = build_gimple_modify_stmt (finally_tmp,
+				    build_int_cst (integer_type_node,
+						   eh_index));
       append_to_statement_list (x, tf->top_p);
 
       last_case = build3 (CASE_LABEL_EXPR, void_type_node,
@@ -1239,15 +1228,17 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
       if (q->index < 0)
 	{
-	  mod = build2 (MODIFY_EXPR, void_type_node, finally_tmp,
-		        build_int_cst (NULL_TREE, return_index));
+	  mod = build_gimple_modify_stmt (finally_tmp,
+					  build_int_cst (integer_type_node,
+							 return_index));
 	  do_return_redirection (q, finally_label, mod, &return_val);
 	  switch_id = return_index;
 	}
       else
 	{
-	  mod = build2 (MODIFY_EXPR, void_type_node, finally_tmp,
-		        build_int_cst (NULL_TREE, q->index));
+	  mod = build_gimple_modify_stmt (finally_tmp,
+					  build_int_cst (integer_type_node,
+							 q->index));
 	  do_goto_redirection (q, finally_label, mod);
 	  switch_id = q->index;
 	}
@@ -1320,7 +1311,7 @@ decide_copy_try_finally (int ndests, tree finally)
     return false;
 
   /* Finally estimate N times, plus N gotos.  */
-  f_estimate = estimate_num_insns (finally);
+  f_estimate = estimate_num_insns (finally, &eni_size_weights);
   f_estimate = (f_estimate + 1) * ndests;
 
   /* Switch statement (cost 10), N variable assignments, N gotos.  */
@@ -1505,6 +1496,10 @@ lower_eh_filter (struct leh_state *state, tree *tp)
 					 EH_FILTER_TYPES (inner));
   this_state = *state;
   this_state.cur_region = this_region;
+  /* For must not throw regions any cleanup regions inside it
+     can't reach outer catch regions.  */
+  if (EH_FILTER_MUST_NOT_THROW (inner))
+    this_state.prev_try = NULL;
 
   lower_eh_constructs_1 (&this_state, &TREE_OPERAND (*tp, 0));
 
@@ -1612,7 +1607,7 @@ lower_eh_constructs_1 (struct leh_state *state, tree *tp)
 	}
       break;
 
-    case MODIFY_EXPR:
+    case GIMPLE_MODIFY_STMT:
       /* Look for things that can throw exceptions, and record them.  */
       if (state->cur_region && tree_could_throw_p (t))
 	{
@@ -1865,7 +1860,7 @@ tree_could_trap_p (tree expr)
 	  honor_nans = flag_trapping_math && !flag_finite_math_only;
 	  honor_snans = flag_signaling_nans != 0;
 	}
-      else if (INTEGRAL_TYPE_P (t) && TYPE_TRAP_SIGNED (t))
+      else if (INTEGRAL_TYPE_P (t) && TYPE_OVERFLOW_TRAPS (t))
 	honor_trapv = true;
     }
 
@@ -1883,6 +1878,7 @@ tree_could_trap_p (tree expr)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case BIT_FIELD_REF:
+    case VIEW_CONVERT_EXPR:
     case WITH_SIZE_EXPR:
       expr = TREE_OPERAND (expr, 0);
       code = TREE_CODE (expr);
@@ -1956,9 +1952,6 @@ tree_could_trap_p (tree expr)
 
     case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
-    case FIX_CEIL_EXPR:
-    case FIX_FLOOR_EXPR:
-    case FIX_ROUND_EXPR:
       /* Conversion of floating point might trap.  */
       return honor_nans;
 
@@ -2000,12 +1993,12 @@ tree_could_throw_p (tree t)
 {
   if (!flag_exceptions)
     return false;
-  if (TREE_CODE (t) == MODIFY_EXPR)
+  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
     {
       if (flag_non_call_exceptions
-	  && tree_could_trap_p (TREE_OPERAND (t, 0)))
+	  && tree_could_trap_p (GIMPLE_STMT_OPERAND (t, 0)))
 	return true;
-      t = TREE_OPERAND (t, 1);
+      t = GIMPLE_STMT_OPERAND (t, 1);
     }
 
   if (TREE_CODE (t) == WITH_SIZE_EXPR)
@@ -2077,25 +2070,3 @@ maybe_clean_or_replace_eh_stmt (tree old_stmt, tree new_stmt)
 
   return false;
 }
-
-#ifdef ENABLE_CHECKING
-static int
-verify_eh_throw_stmt_node (void **slot, void *data ATTRIBUTE_UNUSED)
-{
-  struct throw_stmt_node *node = (struct throw_stmt_node *)*slot;
-
-  gcc_assert (node->stmt->common.ann == NULL);
-  return 1;
-}
-
-void
-verify_eh_throw_table_statements (void)
-{
-  if (!get_eh_throw_stmt_table (cfun))
-    return;
-  htab_traverse (get_eh_throw_stmt_table (cfun),
-		 verify_eh_throw_stmt_node,
-		 NULL);
-}
-
-#endif

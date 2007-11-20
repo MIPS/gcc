@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -47,10 +47,11 @@
 #ifndef PB_DS_NATIVE_HASH_MAP_HPP
 #define PB_DS_NATIVE_HASH_MAP_HPP
 
+#include <string>
+#include <ext/pb_ds/detail/type_utils.hpp>
 #include <ext/pb_ds/detail/standard_policies.hpp>
 #include <native_type/assoc/native_hash_tag.hpp>
 #include <io/xml.hpp>
-#include <string>
 
 // Default to using tr1.
 #define PB_DS_USE_TR1 1
@@ -67,7 +68,7 @@ namespace pb_ds
   {
 #ifdef PB_DS_USE_TR1
 #define PB_DS_BASE_C_DEC \
-    std::tr1::unordered_map<Key, Data, Hash_Fn, Eq_Fn, \
+    std::tr1::__unordered_map<Key, Data, Hash_Fn, Eq_Fn, \
     typename Allocator::template rebind<std::pair<const Key, Data> >::other, Cache_Hash>
 #else 
 #define PB_DS_BASE_C_DEC \
@@ -133,5 +134,5 @@ namespace pb_ds
   } // namespace test
 } // namespace pb_ds
 
-#endif // #ifndef PB_DS_NATIVE_HASH_MAP_HPP
+#endif 
 

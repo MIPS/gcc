@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -73,6 +73,7 @@
 #else
 #include "config.h"
 #include "system.h"
+#include "version.h"
 #endif
 
 #ifdef __MINGW32__
@@ -196,7 +197,7 @@ struct vstring
 #endif
 
 /* Check for cross-compilation */
-#ifdef CROSS_COMPILE
+#ifdef CROSS_DIRECTORY_STRUCTURE
 int __gnat_is_cross_compiler = 1;
 #else
 int __gnat_is_cross_compiler = 0;
@@ -323,6 +324,14 @@ to_ptr32 (char **ptr64)
 #define MAYBE_TO_PTR32(argv) argv
 #endif
 
+OS_Time
+__gnat_current_time
+  (void)
+{
+  time_t res = time (NULL);
+  return (OS_Time) res;
+}
+
 void
 __gnat_to_gm_time
   (OS_Time *p_time,
@@ -417,8 +426,8 @@ __gnat_try_lock (char *dir, char *file)
   TCHAR wfile[GNAT_MAX_PATH_LEN];
   TCHAR wdir[GNAT_MAX_PATH_LEN];
 
-  S2WS (wdir, dir, GNAT_MAX_PATH_LEN);
-  S2WS (wfile, file, GNAT_MAX_PATH_LEN);
+  S2WSU (wdir, dir, GNAT_MAX_PATH_LEN);
+  S2WSU (wfile, file, GNAT_MAX_PATH_LEN);
 
   _stprintf (wfull_path, _T("%s%c%s"), wdir, _T(DIR_SEPARATOR), wfile);
   fd = _topen (wfull_path, O_CREAT | O_EXCL, 0600);
@@ -541,7 +550,7 @@ __gnat_get_current_dir (char *dir, int *length)
 
   _tgetcwd (wdir, *length);
 
-  WS2S (dir, wdir, GNAT_MAX_PATH_LEN);
+  WS2SU (dir, wdir, GNAT_MAX_PATH_LEN);
 
 #elif defined (VMS)
    /* Force Unix style, which is what GNAT uses internally.  */
@@ -610,6 +619,69 @@ __gnat_get_debuggable_suffix_ptr (int *len, const char **value)
   return;
 }
 
+/* Returns the OS filename and corresponding encoding.  */
+
+void
+__gnat_os_filename (char *filename, char *w_filename,
+		    char *os_name, int *o_length,
+		    char *encoding, int *e_length)
+{
+#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
+  WS2SU (os_name, (TCHAR *)w_filename, o_length);
+  *o_length = strlen (os_name);
+  strcpy (encoding, "encoding=utf8");
+  *e_length = strlen (encoding);
+#else
+  strcpy (os_name, filename);
+  *o_length = strlen (filename);
+  *e_length = 0;
+#endif
+}
+
+FILE *
+__gnat_fopen (char *path, char *mode, int encoding)
+{
+#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
+  TCHAR wpath[GNAT_MAX_PATH_LEN];
+  TCHAR wmode[10];
+
+  S2WS (wmode, mode, 10);
+
+  if (encoding == Encoding_UTF8)
+    S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
+  else
+    S2WS (wpath, path, GNAT_MAX_PATH_LEN);
+
+  return _tfopen (wpath, wmode);
+#elif defined (VMS)
+  return decc$fopen (path, mode);
+#else
+  return fopen (path, mode);
+#endif
+}
+
+FILE *
+__gnat_freopen (char *path, char *mode, FILE *stream, int encoding)
+{
+#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
+  TCHAR wpath[GNAT_MAX_PATH_LEN];
+  TCHAR wmode[10];
+
+  S2WS (wmode, mode, 10);
+
+  if (encoding == Encoding_UTF8)
+    S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
+  else
+    S2WS (wpath, path, GNAT_MAX_PATH_LEN);
+
+  return _tfreopen (wpath, wmode, stream);
+#elif defined (VMS)
+  return decc$freopen (path, mode, stream);
+#else
+  return freopen (path, mode, stream);
+#endif
+}
+
 int
 __gnat_open_read (char *path, int fmode)
 {
@@ -629,7 +701,7 @@ __gnat_open_read (char *path, int fmode)
  {
    TCHAR wpath[GNAT_MAX_PATH_LEN];
 
-   S2WS (wpath, path, GNAT_MAX_PATH_LEN);
+   S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
    fd = _topen (wpath, O_RDONLY | o_fmode, 0444);
  }
 #else
@@ -670,7 +742,7 @@ __gnat_open_rw (char *path, int fmode)
   {
     TCHAR wpath[GNAT_MAX_PATH_LEN];
 
-    S2WS (wpath, path, GNAT_MAX_PATH_LEN);
+    S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
     fd = _topen (wpath, O_RDWR | o_fmode, PERM);
   }
 #else
@@ -696,7 +768,7 @@ __gnat_open_create (char *path, int fmode)
   {
     TCHAR wpath[GNAT_MAX_PATH_LEN];
 
-    S2WS (wpath, path, GNAT_MAX_PATH_LEN);
+    S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
     fd = _topen (wpath, O_WRONLY | O_CREAT | O_TRUNC | o_fmode, PERM);
   }
 #else
@@ -718,7 +790,7 @@ __gnat_create_output_file (char *path)
   {
     TCHAR wpath[GNAT_MAX_PATH_LEN];
 
-    S2WS (wpath, path, GNAT_MAX_PATH_LEN);
+    S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
     fd = _topen (wpath, O_WRONLY | O_CREAT | O_TRUNC | O_TEXT, PERM);
   }
 #else
@@ -744,7 +816,7 @@ __gnat_open_append (char *path, int fmode)
   {
     TCHAR wpath[GNAT_MAX_PATH_LEN];
 
-    S2WS (wpath, path, GNAT_MAX_PATH_LEN);
+    S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
     fd = _topen (wpath, O_WRONLY | O_CREAT | O_APPEND | o_fmode, PERM);
   }
 #else
@@ -772,7 +844,7 @@ __gnat_open_new (char *path, int fmode)
   {
     TCHAR wpath[GNAT_MAX_PATH_LEN];
 
-    S2WS (wpath, path, GNAT_MAX_PATH_LEN);
+    S2WSU (wpath, path, GNAT_MAX_PATH_LEN);
     fd = _topen (wpath, O_WRONLY | O_CREAT | O_EXCL | o_fmode, PERM);
   }
 #else
@@ -908,7 +980,7 @@ DIR* __gnat_opendir (char *name)
 #ifdef __MINGW32__
   TCHAR wname[GNAT_MAX_PATH_LEN];
 
-  S2WS (wname, name, GNAT_MAX_PATH_LEN);
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN);
   return (DIR*)_topendir (wname);
 
 #else
@@ -927,7 +999,7 @@ __gnat_readdir (DIR *dirp, char *buffer, int *len)
 
   if (dirent != NULL)
     {
-      WS2S (buffer, dirent->d_name, GNAT_MAX_PATH_LEN);
+      WS2SU (buffer, dirent->d_name, GNAT_MAX_PATH_LEN);
       *len = strlen (buffer);
 
       return buffer;
@@ -938,8 +1010,10 @@ __gnat_readdir (DIR *dirp, char *buffer, int *len)
 #elif defined (HAVE_READDIR_R)
   /* If possible, try to use the thread-safe version.  */
   if (readdir_r (dirp, buffer) != NULL)
-    *len = strlen (((struct dirent*) buffer)->d_name);
-    return ((struct dirent*) buffer)->d_name;
+    {
+      *len = strlen (((struct dirent*) buffer)->d_name);
+      return ((struct dirent*) buffer)->d_name;
+    }
   else
     return NULL;
 
@@ -1023,10 +1097,10 @@ __gnat_file_time_name (char *name)
   return (OS_Time)ret;
 
 #elif defined (_WIN32)
-  time_t ret = 0;
+  time_t ret = -1;
   TCHAR wname[GNAT_MAX_PATH_LEN];
 
-  S2WS (wname, name, GNAT_MAX_PATH_LEN);
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN);
 
   HANDLE h = CreateFile
     (wname, GENERIC_READ, FILE_SHARE_READ, 0,
@@ -1163,7 +1237,7 @@ __gnat_set_file_time_name (char *name, time_t time_stamp)
   } t_write;
   TCHAR wname[GNAT_MAX_PATH_LEN];
 
-  S2WS (wname, name, GNAT_MAX_PATH_LEN);
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN);
 
   HANDLE h  = CreateFile
     (wname, GENERIC_WRITE, FILE_SHARE_WRITE, NULL,
@@ -1370,7 +1444,7 @@ __gnat_get_libraries_from_registry (void)
 {
   char *result = (char *) "";
 
-#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_COMPILE)
+#if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
 
   HKEY reg_key;
   DWORD name_size, value_size;
@@ -1398,8 +1472,8 @@ __gnat_get_libraries_from_registry (void)
   for (index = 0; res == ERROR_SUCCESS; index++)
     {
       value_size = name_size = 256;
-      res = RegEnumValue (reg_key, index, (TCHAR*)name, &name_size, 0,
-                          &type, (LPBYTE)value, &value_size);
+      res = RegEnumValueA (reg_key, index, (TCHAR*)name, &name_size, 0,
+                           &type, (LPBYTE)value, &value_size);
 
       if (res == ERROR_SUCCESS && type == REG_SZ)
         {
@@ -1430,7 +1504,7 @@ __gnat_stat (char *name, struct stat *statbuf)
   int name_len;
   TCHAR last_char;
 
-  S2WS (wname, name, GNAT_MAX_PATH_LEN + 2);
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
   name_len = _tcslen (wname);
 
   if (name_len > GNAT_MAX_PATH_LEN)
@@ -1460,9 +1534,19 @@ __gnat_stat (char *name, struct stat *statbuf)
 int
 __gnat_file_exists (char *name)
 {
+#ifdef __MINGW32__
+  /*  On Windows do not use __gnat_stat() because a bug in Microsoft
+  _stat() routine. When the system time-zone is set with a negative
+  offset the _stat() routine fails on specific files like CON:  */
+  TCHAR wname [GNAT_MAX_PATH_LEN + 2];
+
+  S2WSU (wname, name, GNAT_MAX_PATH_LEN + 2);
+  return GetFileAttributes (wname) != INVALID_FILE_ATTRIBUTES;
+#else
   struct stat statbuf;
 
   return !__gnat_stat (name, &statbuf);
+#endif
 }
 
 int
@@ -1822,7 +1906,7 @@ win32_no_block_spawn (char *command, char *args[])
     int wsize = csize * 2;
     TCHAR *wcommand = (TCHAR *) xmalloc (wsize);
 
-    S2WS (wcommand, full_command, wsize);
+    S2WSU (wcommand, full_command, wsize);
 
     free (full_command);
 
@@ -2113,7 +2197,7 @@ __gnat_locate_exec_on_path (char *exec_name)
 
   apath_val = alloca (EXPAND_BUFFER_SIZE);
 
-  WS2S (apath_val, wapath_val, EXPAND_BUFFER_SIZE);
+  WS2SU (apath_val, wapath_val, EXPAND_BUFFER_SIZE);
   return __gnat_locate_exec (exec_name, apath_val);
 
 #else
@@ -2123,6 +2207,7 @@ __gnat_locate_exec_on_path (char *exec_name)
 #else
   char *path_val = getenv ("PATH");
 #endif
+  if (path_val == NULL) return NULL;
   apath_val = alloca (strlen (path_val) + 1);
   strcpy (apath_val, path_val);
   return __gnat_locate_exec (exec_name, apath_val);
@@ -2571,7 +2656,7 @@ _flush_cache()
 }
 #endif
 
-#if defined (CROSS_COMPILE)  \
+#if defined (CROSS_DIRECTORY_STRUCTURE)  \
   || (! ((defined (sparc) || defined (i386)) && defined (sun) \
       && defined (__SVR4)) \
       && ! (defined (linux) && (defined (i386) || defined (__x86_64__))) \
@@ -2590,7 +2675,8 @@ _flush_cache()
    version of this procedure in libaddr2line.a.  */
 
 void
-convert_addresses (void *addrs ATTRIBUTE_UNUSED,
+convert_addresses (const char *file_name ATTRIBUTE_UNUSED,
+		   void *addrs ATTRIBUTE_UNUSED,
 		   int n_addr ATTRIBUTE_UNUSED,
 		   void *buf ATTRIBUTE_UNUSED,
 		   int *len ATTRIBUTE_UNUSED)
@@ -2675,11 +2761,15 @@ __gnat_lseek (int fd, long offset, int whence)
   return (int) lseek (fd, offset, whence);
 }
 
-/* This function returns the version of GCC being used.  Here it's GCC 3.  */
+/* This function returns the major version number of GCC being used.  */
 int
 get_gcc_version (void)
 {
-  return 3;
+#ifdef IN_RTS
+  return __GNUC__;
+#else
+  return (int) (version_string[0] - '0');
+#endif
 }
 
 int

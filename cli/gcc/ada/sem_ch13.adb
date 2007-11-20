@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,7 @@ with Errout;   use Errout;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Lib;      use Lib;
+with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -43,6 +44,7 @@ with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
+with Sem_Warn; use Sem_Warn;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
@@ -92,37 +94,25 @@ package body Sem_Ch13 is
    --  the expression N is of the form of K'Address, then the entity that
    --  is associated with K is marked as volatile.
 
-   procedure New_Stream_Function
+   procedure New_Stream_Subprogram
      (N    : Node_Id;
       Ent  : Entity_Id;
       Subp : Entity_Id;
       Nam  : TSS_Name_Type);
-   --  Create a function renaming of a given stream attribute to the
-   --  designated subprogram and then in the tagged case, provide this as
-   --  a primitive operation, or in the non-tagged case make an appropriate
-   --  TSS entry. Used for Input. This is more properly an expansion activity
-   --  than just semantics, but the presence of user-defined stream functions
-   --  for limited types is a legality check, which is why this takes place
-   --  here rather than in exp_ch13, where it was previously. Nam indicates
-   --  the name of the TSS function to be generated.
+   --  Create a subprogram renaming of a given stream attribute to the
+   --  designated subprogram and then in the tagged case, provide this as a
+   --  primitive operation, or in the non-tagged case make an appropriate TSS
+   --  entry. This is more properly an expansion activity than just semantics,
+   --  but the presence of user-defined stream functions for limited types is a
+   --  legality check, which is why this takes place here rather than in
+   --  exp_ch13, where it was previously. Nam indicates the name of the TSS
+   --  function to be generated.
    --
    --  To avoid elaboration anomalies with freeze nodes, for untagged types
    --  we generate both a subprogram declaration and a subprogram renaming
    --  declaration, so that the attribute specification is handled as a
    --  renaming_as_body. For tagged types, the specification is one of the
    --  primitive specs.
-
-   procedure New_Stream_Procedure
-     (N     : Node_Id;
-      Ent   : Entity_Id;
-      Subp  : Entity_Id;
-      Nam   : TSS_Name_Type;
-      Out_P : Boolean := False);
-   --  Create a procedure renaming of a given stream attribute to the
-   --  designated subprogram and then in the tagged case, provide this as
-   --  a primitive operation, or in the non-tagged case make an appropriate
-   --  TSS entry. Used for Read, Output, Write. Nam indicates the name of
-   --  the TSS procedure to be generated.
 
    ----------------------------------------------
    -- Table for Validate_Unchecked_Conversions --
@@ -176,6 +166,265 @@ package body Sem_Ch13 is
 
       return Empty;
    end Address_Aliased_Entity;
+
+   -----------------------------------------
+   -- Adjust_Record_For_Reverse_Bit_Order --
+   -----------------------------------------
+
+   procedure Adjust_Record_For_Reverse_Bit_Order (R : Entity_Id) is
+      Max_Machine_Scalar_Size : constant Uint :=
+                                  UI_From_Int
+                                    (Standard_Long_Long_Integer_Size);
+      --  We use this as the maximum machine scalar size in the sense of AI-133
+
+      Num_CC : Natural;
+      Comp   : Entity_Id;
+      SSU    : constant Uint := UI_From_Int (System_Storage_Unit);
+
+   begin
+      --  This first loop through components does two things. First it deals
+      --  with the case of components with component clauses whose length is
+      --  greater than the maximum machine scalar size (either accepting them
+      --  or rejecting as needed). Second, it counts the number of components
+      --  with component clauses whose length does not exceed this maximum for
+      --  later processing.
+
+      Num_CC := 0;
+      Comp   := First_Component_Or_Discriminant (R);
+      while Present (Comp) loop
+         declare
+            CC    : constant Node_Id := Component_Clause (Comp);
+            Fbit  : constant Uint    := Static_Integer (First_Bit (CC));
+
+         begin
+            if Present (CC) then
+
+               --  Case of component with size > max machine scalar
+
+               if Esize (Comp) > Max_Machine_Scalar_Size then
+
+                  --  Must begin on byte boundary
+
+                  if Fbit mod SSU /= 0 then
+                     Error_Msg_N
+                       ("illegal first bit value for reverse bit order",
+                        First_Bit (CC));
+                     Error_Msg_Uint_1 := SSU;
+                     Error_Msg_Uint_2 := Max_Machine_Scalar_Size;
+
+                     Error_Msg_N
+                       ("\must be a multiple of ^ if size greater than ^",
+                        First_Bit (CC));
+
+                  --  Must end on byte boundary
+
+                  elsif Esize (Comp) mod SSU /= 0 then
+                     Error_Msg_N
+                       ("illegal last bit value for reverse bit order",
+                        Last_Bit (CC));
+                     Error_Msg_Uint_1 := SSU;
+                     Error_Msg_Uint_2 := Max_Machine_Scalar_Size;
+
+                     Error_Msg_N
+                       ("\must be a multiple of ^ if size greater than ^",
+                        Last_Bit (CC));
+
+                  --  OK, give warning if enabled
+
+                  elsif Warn_On_Reverse_Bit_Order then
+                     Error_Msg_N
+                       ("multi-byte field specified with non-standard"
+                        & " Bit_Order?", CC);
+
+                     if Bytes_Big_Endian then
+                        Error_Msg_N
+                          ("\bytes are not reversed "
+                           & "(component is big-endian)?", CC);
+                     else
+                        Error_Msg_N
+                          ("\bytes are not reversed "
+                           & "(component is little-endian)?", CC);
+                     end if;
+                  end if;
+
+               --  Case where size is not greater than max machine scalar.
+               --  For now, we just count these.
+
+               else
+                  Num_CC := Num_CC + 1;
+               end if;
+            end if;
+         end;
+
+         Next_Component_Or_Discriminant (Comp);
+      end loop;
+
+      --  We need to sort the component clauses on the basis of the Position
+      --  values in the clause, so we can group clauses with the same Position
+      --  together to determine the relevant machine scalar size.
+
+      declare
+         Comps : array (0 .. Num_CC) of Entity_Id;
+         --  Array to collect component and discrimninant entities. The data
+         --  starts at index 1, the 0'th entry is for GNAT.Heap_Sort_A.
+
+         function CP_Lt (Op1, Op2 : Natural) return Boolean;
+         --  Compare routine for Sort (See GNAT.Heap_Sort_A)
+
+         procedure CP_Move (From : Natural; To : Natural);
+         --  Move routine for Sort (see GNAT.Heap_Sort_A)
+
+         Start : Natural;
+         Stop  : Natural;
+         --  Start and stop positions in component list of set of components
+         --  with the same starting position (that constitute components in
+         --  a single machine scalar).
+
+         MaxL : Uint;
+         --  Maximum last bit value of any component in this set
+
+         MSS : Uint;
+         --  Corresponding machine scalar size
+
+         -----------
+         -- CP_Lt --
+         -----------
+
+         function CP_Lt (Op1, Op2 : Natural) return Boolean is
+         begin
+            return Position (Component_Clause (Comps (Op1))) <
+                   Position (Component_Clause (Comps (Op2)));
+         end CP_Lt;
+
+         -------------
+         -- CP_Move --
+         -------------
+
+         procedure CP_Move (From : Natural; To : Natural) is
+         begin
+            Comps (To) := Comps (From);
+         end CP_Move;
+
+      begin
+         --  Collect the component clauses
+
+         Num_CC := 0;
+         Comp   := First_Component_Or_Discriminant (R);
+         while Present (Comp) loop
+            if Present (Component_Clause (Comp))
+              and then Esize (Comp) <= Max_Machine_Scalar_Size
+            then
+               Num_CC := Num_CC + 1;
+               Comps (Num_CC) := Comp;
+            end if;
+
+            Next_Component_Or_Discriminant (Comp);
+         end loop;
+
+         --  Sort by ascending position number
+
+         Sort (Num_CC, CP_Move'Unrestricted_Access, CP_Lt'Unrestricted_Access);
+
+         --  We now have all the components whose size does not exceed the max
+         --  machine scalar value, sorted by starting position. In this loop
+         --  we gather groups of clauses starting at the same position, to
+         --  process them in accordance with Ada 2005 AI-133.
+
+         Stop := 0;
+         while Stop < Num_CC loop
+            Start := Stop + 1;
+            Stop  := Start;
+            MaxL  :=
+              Static_Integer (Last_Bit (Component_Clause (Comps (Start))));
+            while Stop < Num_CC loop
+               if Static_Integer
+                    (Position (Component_Clause (Comps (Stop + 1)))) =
+                  Static_Integer
+                    (Position (Component_Clause (Comps (Stop))))
+               then
+                  Stop := Stop + 1;
+                  MaxL :=
+                    UI_Max
+                      (MaxL,
+                       Static_Integer
+                         (Last_Bit (Component_Clause (Comps (Stop)))));
+               else
+                  exit;
+               end if;
+            end loop;
+
+            --  Now we have a group of component clauses from Start to Stop
+            --  whose positions are identical, and MaxL is the maximum last bit
+            --  value of any of these components.
+
+            --  We need to determine the corresponding machine scalar size.
+            --  This loop assumes that machine scalar sizes are even, and that
+            --  each possible machine scalar has twice as many bits as the
+            --  next smaller one.
+
+            MSS := Max_Machine_Scalar_Size;
+            while MSS mod 2 = 0
+              and then (MSS / 2) >= SSU
+              and then (MSS / 2) > MaxL
+            loop
+               MSS := MSS / 2;
+            end loop;
+
+            --  Here is where we fix up the Component_Bit_Offset value to
+            --  account for the reverse bit order. Some examples of what needs
+            --  to be done for the case of a machine scalar size of 8 are:
+
+            --    First_Bit .. Last_Bit     Component_Bit_Offset
+            --      old          new          old       new
+
+            --     0 .. 0       7 .. 7         0         7
+            --     0 .. 1       6 .. 7         0         6
+            --     0 .. 2       5 .. 7         0         5
+            --     0 .. 7       0 .. 7         0         4
+
+            --     1 .. 1       6 .. 6         1         6
+            --     1 .. 4       3 .. 6         1         3
+            --     4 .. 7       0 .. 3         4         0
+
+            --  The general rule is that the first bit is is obtained by
+            --  subtracting the old ending bit from machine scalar size - 1.
+
+            for C in Start .. Stop loop
+               declare
+                  Comp : constant Entity_Id := Comps (C);
+                  CC   : constant Node_Id   := Component_Clause (Comp);
+                  LB   : constant Uint := Static_Integer (Last_Bit (CC));
+                  NFB  : constant Uint := MSS - Uint_1 - LB;
+                  NLB  : constant Uint := NFB + Esize (Comp) - 1;
+                  Pos  : constant Uint := Static_Integer (Position (CC));
+
+               begin
+                  if Warn_On_Reverse_Bit_Order then
+                     Error_Msg_Uint_1 := MSS;
+                     Error_Msg_N
+                       ("?reverse bit order in machine " &
+                       "scalar of length^", First_Bit (CC));
+                     Error_Msg_Uint_1 := NFB;
+                     Error_Msg_Uint_2 := NLB;
+
+                     if Bytes_Big_Endian then
+                        Error_Msg_NE
+                          ("?\big-endian range for component & is ^ .. ^",
+                           First_Bit (CC), Comp);
+                     else
+                        Error_Msg_NE
+                          ("?\little-endian range for component & is ^ .. ^",
+                           First_Bit (CC), Comp);
+                     end if;
+                  end if;
+
+                  Set_Component_Bit_Offset (Comp, Pos * SSU + NFB);
+                  Set_Normalized_First_Bit (Comp, NFB mod SSU);
+               end;
+            end loop;
+         end loop;
+      end;
+   end Adjust_Record_For_Reverse_Bit_Order;
 
    --------------------------------------
    -- Alignment_Check_For_Esize_Change --
@@ -322,7 +571,21 @@ package body Sem_Ch13 is
 
          Pnam := TSS (Base_Type (U_Ent), TSS_Nam);
 
-         if Present (Pnam) and then Has_Good_Profile (Pnam) then
+         --  If Pnam is present, it can be either inherited from an ancestor
+         --  type (in which case it is legal to redefine it for this type), or
+         --  be a previous definition of the attribute for the same type (in
+         --  which case it is illegal).
+
+         --  In the first case, it will have been analyzed already, and we
+         --  can check that its profile does not match the expected profile
+         --  for a stream attribute of U_Ent. In the second case, either Pnam
+         --  has been analyzed (and has the expected profile), or it has not
+         --  been analyzed yet (case of a type that has not been frozen yet
+         --  and for which the stream attribute has been set using Set_TSS).
+
+         if Present (Pnam)
+           and then (No (First_Entity (Pnam)) or else Has_Good_Profile (Pnam))
+         then
             Error_Msg_Sloc := Sloc (Pnam);
             Error_Msg_Name_1 := Attr;
             Error_Msg_N ("% attribute already defined #", Nam);
@@ -352,7 +615,7 @@ package body Sem_Ch13 is
          end if;
 
          if Present (Subp) then
-            if Is_Abstract (Subp) then
+            if Is_Abstract_Subprogram (Subp) then
                Error_Msg_N ("stream subprogram must not be abstract", Expr);
                return;
             end if;
@@ -360,12 +623,7 @@ package body Sem_Ch13 is
             Set_Entity (Expr, Subp);
             Set_Etype (Expr, Etype (Subp));
 
-            if TSS_Nam = TSS_Stream_Input then
-               New_Stream_Function (N, U_Ent, Subp, TSS_Nam);
-            else
-               New_Stream_Procedure (N, U_Ent, Subp, TSS_Nam,
-                                     Out_P => Is_Read);
-            end if;
+            New_Stream_Subprogram (N, U_Ent, Subp, TSS_Nam);
 
          else
             Error_Msg_Name_1 := Attr;
@@ -623,11 +881,14 @@ package body Sem_Ch13 is
                         Nam);
                   end if;
 
-                  --  Entity has delayed freeze, so we will generate
-                  --  an alignment check at the freeze point.
+                  --  Entity has delayed freeze, so we will generate an
+                  --  alignment check at the freeze point unless suppressed.
 
-                  Set_Check_Address_Alignment
-                    (N, not Range_Checks_Suppressed (U_Ent));
+                  if not Range_Checks_Suppressed (U_Ent)
+                    and then not Alignment_Checks_Suppressed (U_Ent)
+                  then
+                     Set_Check_Address_Alignment (N);
+                  end if;
 
                   --  Kill the size check code, since we are not allocating
                   --  the variable, it is somewhere else.
@@ -792,7 +1053,13 @@ package body Sem_Ch13 is
                  ("static string required for tag name!", Nam);
             end if;
 
-            Set_Has_External_Tag_Rep_Clause (U_Ent);
+            if VM_Target = No_VM then
+               Set_Has_External_Tag_Rep_Clause (U_Ent);
+            else
+               Error_Msg_Name_1 := Attr;
+               Error_Msg_N
+                 ("% attribute unsupported in this configuration", Nam);
+            end if;
          end External_Tag;
 
          -----------
@@ -925,12 +1192,12 @@ package body Sem_Ch13 is
                   Etyp := Etype (U_Ent);
                end if;
 
-               --  Check size, note that Gigi is in charge of checking
-               --  that the size of an array or record type is OK. Also
-               --  we do not check the size in the ordinary fixed-point
-               --  case, since it is too early to do so (there may be a
-               --  subsequent small clause that affects the size). We can
-               --  check the size if a small clause has already been given.
+               --  Check size, note that Gigi is in charge of checking that the
+               --  size of an array or record type is OK. Also we do not check
+               --  the size in the ordinary fixed-point case, since it is too
+               --  early to do so (there may be subsequent small clause that
+               --  affects the size). We can check the size if a small clause
+               --  has already been given.
 
                if not Is_Ordinary_Fixed_Point_Type (U_Ent)
                  or else Has_Small_Clause (U_Ent)
@@ -944,9 +1211,9 @@ package body Sem_Ch13 is
                if Is_Type (U_Ent) then
                   Set_RM_Size (U_Ent, Size);
 
-                  --  For scalar types, increase Object_Size to power of 2,
-                  --  but not less than a storage unit in any case (i.e.,
-                  --  normally this means it will be byte addressable).
+                  --  For scalar types, increase Object_Size to power of 2, but
+                  --  not less than a storage unit in any case (i.e., normally
+                  --  this means it will be byte addressable).
 
                   if Is_Scalar_Type (U_Ent) then
                      if Size <= System_Storage_Unit then
@@ -1047,75 +1314,6 @@ package body Sem_Ch13 is
          end Small;
 
          ------------------
-         -- Storage_Size --
-         ------------------
-
-         --  Storage_Size attribute definition clause
-
-         when Attribute_Storage_Size => Storage_Size : declare
-            Btype : constant Entity_Id := Base_Type (U_Ent);
-            Sprag : Node_Id;
-
-         begin
-            if Is_Task_Type (U_Ent) then
-               Check_Restriction (No_Obsolescent_Features, N);
-
-               if Warn_On_Obsolescent_Feature then
-                  Error_Msg_N
-                    ("storage size clause for task is an " &
-                     "obsolescent feature ('R'M 'J.9)?", N);
-                  Error_Msg_N
-                    ("\use Storage_Size pragma instead?", N);
-               end if;
-
-               FOnly := True;
-            end if;
-
-            if not Is_Access_Type (U_Ent)
-              and then Ekind (U_Ent) /= E_Task_Type
-            then
-               Error_Msg_N ("storage size cannot be given for &", Nam);
-
-            elsif Is_Access_Type (U_Ent) and Is_Derived_Type (U_Ent) then
-               Error_Msg_N
-                 ("storage size cannot be given for a derived access type",
-                  Nam);
-
-            elsif Has_Storage_Size_Clause (Btype) then
-               Error_Msg_N ("storage size already given for &", Nam);
-
-            else
-               Analyze_And_Resolve (Expr, Any_Integer);
-
-               if Is_Access_Type (U_Ent) then
-
-                  if Present (Associated_Storage_Pool (U_Ent)) then
-                     Error_Msg_N ("storage pool already given for &", Nam);
-                     return;
-                  end if;
-
-                  if Compile_Time_Known_Value (Expr)
-                    and then Expr_Value (Expr) = 0
-                  then
-                     Set_No_Pool_Assigned (Btype);
-                  end if;
-
-               else -- Is_Task_Type (U_Ent)
-                  Sprag := Get_Rep_Pragma (Btype, Name_Storage_Size);
-
-                  if Present (Sprag) then
-                     Error_Msg_Sloc := Sloc (Sprag);
-                     Error_Msg_N
-                       ("Storage_Size already specified#", Nam);
-                     return;
-                  end if;
-               end if;
-
-               Set_Has_Storage_Size_Clause (Btype);
-            end if;
-         end Storage_Size;
-
-         ------------------
          -- Storage_Pool --
          ------------------
 
@@ -1126,11 +1324,17 @@ package body Sem_Ch13 is
             T    : Entity_Id;
 
          begin
-            if Ekind (U_Ent) /= E_Access_Type
+            if Ekind (U_Ent) = E_Access_Subprogram_Type then
+               Error_Msg_N
+                 ("storage pool cannot be given for access-to-subprogram type",
+                  Nam);
+               return;
+
+            elsif Ekind (U_Ent) /= E_Access_Type
               and then Ekind (U_Ent) /= E_General_Access_Type
             then
-               Error_Msg_N (
-                 "storage pool can only be given for access types", Nam);
+               Error_Msg_N
+                 ("storage pool can only be given for access types", Nam);
                return;
 
             elsif Is_Derived_Type (U_Ent) then
@@ -1165,8 +1369,10 @@ package body Sem_Ch13 is
             --    type Q is access Float;
             --    for Q'Storage_Size use T'Storage_Size; -- incorrect
 
-            if Base_Type (T) = RTE (RE_Stack_Bounded_Pool) then
-               Error_Msg_N ("non-sharable internal Pool", Expr);
+            if RTE_Available (RE_Stack_Bounded_Pool)
+              and then Base_Type (T) = RTE (RE_Stack_Bounded_Pool)
+            then
+               Error_Msg_N ("non-shareable internal Pool", Expr);
                return;
             end if;
 
@@ -1229,6 +1435,74 @@ package body Sem_Ch13 is
             end if;
          end Storage_Pool;
 
+         ------------------
+         -- Storage_Size --
+         ------------------
+
+         --  Storage_Size attribute definition clause
+
+         when Attribute_Storage_Size => Storage_Size : declare
+            Btype : constant Entity_Id := Base_Type (U_Ent);
+            Sprag : Node_Id;
+
+         begin
+            if Is_Task_Type (U_Ent) then
+               Check_Restriction (No_Obsolescent_Features, N);
+
+               if Warn_On_Obsolescent_Feature then
+                  Error_Msg_N
+                    ("storage size clause for task is an " &
+                     "obsolescent feature ('R'M 'J.9)?", N);
+                  Error_Msg_N
+                    ("\use Storage_Size pragma instead?", N);
+               end if;
+
+               FOnly := True;
+            end if;
+
+            if not Is_Access_Type (U_Ent)
+              and then Ekind (U_Ent) /= E_Task_Type
+            then
+               Error_Msg_N ("storage size cannot be given for &", Nam);
+
+            elsif Is_Access_Type (U_Ent) and Is_Derived_Type (U_Ent) then
+               Error_Msg_N
+                 ("storage size cannot be given for a derived access type",
+                  Nam);
+
+            elsif Has_Storage_Size_Clause (Btype) then
+               Error_Msg_N ("storage size already given for &", Nam);
+
+            else
+               Analyze_And_Resolve (Expr, Any_Integer);
+
+               if Is_Access_Type (U_Ent) then
+                  if Present (Associated_Storage_Pool (U_Ent)) then
+                     Error_Msg_N ("storage pool already given for &", Nam);
+                     return;
+                  end if;
+
+                  if Compile_Time_Known_Value (Expr)
+                    and then Expr_Value (Expr) = 0
+                  then
+                     Set_No_Pool_Assigned (Btype);
+                  end if;
+
+               else -- Is_Task_Type (U_Ent)
+                  Sprag := Get_Rep_Pragma (Btype, Name_Storage_Size);
+
+                  if Present (Sprag) then
+                     Error_Msg_Sloc := Sloc (Sprag);
+                     Error_Msg_N
+                       ("Storage_Size already specified#", Nam);
+                     return;
+                  end if;
+               end if;
+
+               Set_Has_Storage_Size_Clause (Btype);
+            end if;
+         end Storage_Size;
+
          -----------------
          -- Stream_Size --
          -----------------
@@ -1237,6 +1511,10 @@ package body Sem_Ch13 is
             Size : constant Uint := Static_Integer (Expr);
 
          begin
+            if Ada_Version <= Ada_95 then
+               Check_Restriction (No_Implementation_Attributes, N);
+            end if;
+
             if Has_Stream_Size_Clause (U_Ent) then
                Error_Msg_N ("Stream_Size already given for &", Nam);
 
@@ -1287,6 +1565,12 @@ package body Sem_Ch13 is
                      (U_Ent, Attribute_Value_Size))
             then
                Error_Msg_N ("Value_Size already given for &", Nam);
+
+            elsif Is_Array_Type (U_Ent)
+              and then not Is_Constrained (U_Ent)
+            then
+               Error_Msg_N
+                 ("Value_Size cannot be given for unconstrained array", Nam);
 
             else
                if Is_Elementary_Type (U_Ent) then
@@ -1348,6 +1632,8 @@ package body Sem_Ch13 is
          Error_Msg_N ("incorrect type for code statement", N);
          return;
       end if;
+
+      Check_Code_Statement (N);
 
       --  Make sure we appear in the handled statement sequence of a
       --  subprogram (RM 13.8(3)).
@@ -1803,6 +2089,9 @@ package body Sem_Ch13 is
             --  that the back-end can compute and back-annotate properly the
             --  size and alignment of types that may include this record.
 
+            --  This seems dubious, this destroys the source tree in a manner
+            --  not detectable by ASIS ???
+
             if Operating_Mode = Check_Semantics
               and then ASIS_Mode
             then
@@ -1829,17 +2118,10 @@ package body Sem_Ch13 is
       --  Clear any existing component clauses for the type (this happens
       --  with derived types, where we are now overriding the original)
 
-      Fent := First_Entity (Rectype);
-
-      Comp := Fent;
+      Comp := First_Component_Or_Discriminant (Rectype);
       while Present (Comp) loop
-         if Ekind (Comp) = E_Component
-           or else Ekind (Comp) = E_Discriminant
-         then
-            Set_Component_Clause (Comp, Empty);
-         end if;
-
-         Next_Entity (Comp);
+         Set_Component_Clause (Comp, Empty);
+         Next_Component_Or_Discriminant (Comp);
       end loop;
 
       --  All done if no component clauses
@@ -1850,9 +2132,11 @@ package body Sem_Ch13 is
          return;
       end if;
 
-      --  If a tag is present, then create a component clause that places
-      --  it at the start of the record (otherwise gigi may place it after
-      --  other fields that have rep clauses).
+      --  If a tag is present, then create a component clause that places it
+      --  at the start of the record (otherwise gigi may place it after other
+      --  fields that have rep clauses).
+
+      Fent := First_Entity (Rectype);
 
       if Nkind (Fent) = N_Defining_Identifier
         and then Chars (Fent) = Name_uTag
@@ -2276,15 +2560,10 @@ package body Sem_Ch13 is
       then
          --  Nothing to do if at least one component with no component clause
 
-         Comp := First_Entity (Rectype);
+         Comp := First_Component_Or_Discriminant (Rectype);
          while Present (Comp) loop
-            if Ekind (Comp) = E_Component
-              or else Ekind (Comp) = E_Discriminant
-            then
-               exit when No (Component_Clause (Comp));
-            end if;
-
-            Next_Entity (Comp);
+            exit when No (Component_Clause (Comp));
+            Next_Component_Or_Discriminant (Comp);
          end loop;
 
          --  If we fall out of loop, all components have component clauses
@@ -2298,20 +2577,60 @@ package body Sem_Ch13 is
       --  Check missing components if Complete_Representation pragma appeared
 
       if Present (CR_Pragma) then
-         Comp := First_Entity (Rectype);
+         Comp := First_Component_Or_Discriminant (Rectype);
          while Present (Comp) loop
-            if Ekind (Comp) = E_Component
-                 or else
-               Ekind (Comp) = E_Discriminant
-            then
-               if No (Component_Clause (Comp)) then
-                  Error_Msg_NE
-                    ("missing component clause for &", CR_Pragma, Comp);
-               end if;
+            if No (Component_Clause (Comp)) then
+               Error_Msg_NE
+                 ("missing component clause for &", CR_Pragma, Comp);
             end if;
 
-            Next_Entity (Comp);
+            Next_Component_Or_Discriminant (Comp);
          end loop;
+
+         --  If no Complete_Representation pragma, warn if missing components
+
+      elsif Warn_On_Unrepped_Components
+        and then not Warnings_Off (Rectype)
+      then
+         declare
+            Num_Repped_Components   : Nat := 0;
+            Num_Unrepped_Components : Nat := 0;
+
+         begin
+            --  First count number of repped and unrepped components
+
+            Comp := First_Component_Or_Discriminant (Rectype);
+            while Present (Comp) loop
+               if Present (Component_Clause (Comp)) then
+                  Num_Repped_Components := Num_Repped_Components + 1;
+               else
+                  Num_Unrepped_Components := Num_Unrepped_Components + 1;
+               end if;
+
+               Next_Component_Or_Discriminant (Comp);
+            end loop;
+
+            --  We are only interested in the case where there is at least one
+            --  unrepped component, and at least half the components have rep
+            --  clauses. We figure that if less than half have them, then the
+            --  partial rep clause is really intentional.
+
+            if Num_Unrepped_Components > 0
+              and then Num_Unrepped_Components < Num_Repped_Components
+            then
+               Comp := First_Component_Or_Discriminant (Rectype);
+               while Present (Comp) loop
+                  if No (Component_Clause (Comp)) then
+                     Error_Msg_Sloc := Sloc (Comp);
+                     Error_Msg_NE
+                       ("?no component clause given for & declared #",
+                        N, Comp);
+                  end if;
+
+                  Next_Component_Or_Discriminant (Comp);
+               end loop;
+            end if;
+         end;
       end if;
    end Analyze_Record_Representation_Clause;
 
@@ -2630,7 +2949,7 @@ package body Sem_Ch13 is
             when N_Null =>
                return;
 
-            when N_Binary_Op | N_And_Then | N_Or_Else | N_In | N_Not_In =>
+            when N_Binary_Op | N_And_Then | N_Or_Else | N_Membership_Test =>
                Check_Expr_Constants (Left_Opnd (Nod));
                Check_Expr_Constants (Right_Opnd (Nod));
 
@@ -3116,89 +3435,15 @@ package body Sem_Ch13 is
       return S;
    end Minimum_Size;
 
-   -------------------------
-   -- New_Stream_Function --
-   -------------------------
+   ---------------------------
+   -- New_Stream_Subprogram --
+   ---------------------------
 
-   procedure New_Stream_Function
-     (N    : Node_Id;
-      Ent  : Entity_Id;
-      Subp : Entity_Id;
-      Nam  : TSS_Name_Type)
-   is
-      Loc       : constant Source_Ptr := Sloc (N);
-      Sname     : constant Name_Id    := Make_TSS_Name (Base_Type (Ent), Nam);
-      Subp_Id   : Entity_Id;
-      Subp_Decl : Node_Id;
-      F         : Entity_Id;
-      Etyp      : Entity_Id;
-
-      function Build_Spec return Node_Id;
-      --  Used for declaration and renaming declaration, so that this is
-      --  treated as a renaming_as_body.
-
-      ----------------
-      -- Build_Spec --
-      ----------------
-
-      function Build_Spec return Node_Id is
-      begin
-         Subp_Id := Make_Defining_Identifier (Loc, Sname);
-
-         return
-           Make_Function_Specification (Loc,
-             Defining_Unit_Name => Subp_Id,
-             Parameter_Specifications =>
-               New_List (
-                 Make_Parameter_Specification (Loc,
-                   Defining_Identifier =>
-                     Make_Defining_Identifier (Loc, Name_S),
-                   Parameter_Type =>
-                     Make_Access_Definition (Loc,
-                       Subtype_Mark =>
-                         New_Reference_To (
-                           Designated_Type (Etype (F)), Loc)))),
-
-             Result_Definition =>
-               New_Reference_To (Etyp, Loc));
-      end Build_Spec;
-
-   --  Start of processing for New_Stream_Function
-
-   begin
-      F    := First_Formal (Subp);
-      Etyp := Etype (Subp);
-
-      if not Is_Tagged_Type (Ent) then
-         Subp_Decl :=
-           Make_Subprogram_Declaration (Loc,
-             Specification => Build_Spec);
-         Insert_Action (N, Subp_Decl);
-      end if;
-
-      Subp_Decl :=
-        Make_Subprogram_Renaming_Declaration (Loc,
-          Specification => Build_Spec,
-          Name => New_Reference_To (Subp, Loc));
-
-      if Is_Tagged_Type (Ent) then
-         Set_TSS (Base_Type (Ent), Subp_Id);
-      else
-         Insert_Action (N, Subp_Decl);
-         Copy_TSS (Subp_Id, Base_Type (Ent));
-      end if;
-   end New_Stream_Function;
-
-   --------------------------
-   -- New_Stream_Procedure --
-   --------------------------
-
-   procedure New_Stream_Procedure
+   procedure New_Stream_Subprogram
      (N     : Node_Id;
       Ent   : Entity_Id;
       Subp  : Entity_Id;
-      Nam   : TSS_Name_Type;
-      Out_P : Boolean := False)
+      Nam   : TSS_Name_Type)
    is
       Loc       : constant Source_Ptr := Sloc (N);
       Sname     : constant Name_Id    := Make_TSS_Name (Base_Type (Ent), Nam);
@@ -3206,6 +3451,14 @@ package body Sem_Ch13 is
       Subp_Decl : Node_Id;
       F         : Entity_Id;
       Etyp      : Entity_Id;
+
+      Defer_Declaration : constant Boolean :=
+                            Is_Tagged_Type (Ent) or else Is_Private_Type (Ent);
+      --  For a tagged type, there is a declaration for each stream attribute
+      --  at the freeze point, and we must generate only a completion of this
+      --  declaration. We do the same for private types, because the full view
+      --  might be tagged. Otherwise we generate a declaration at the point of
+      --  the attribute definition clause.
 
       function Build_Spec return Node_Id;
       --  Used for declaration and renaming declaration, so that this is
@@ -3216,56 +3469,101 @@ package body Sem_Ch13 is
       ----------------
 
       function Build_Spec return Node_Id is
+         Out_P   : constant Boolean := (Nam = TSS_Stream_Read);
+         Formals : List_Id;
+         Spec    : Node_Id;
+         T_Ref   : constant Node_Id := New_Reference_To (Etyp, Loc);
+
       begin
          Subp_Id := Make_Defining_Identifier (Loc, Sname);
 
-         return
-           Make_Procedure_Specification (Loc,
-             Defining_Unit_Name => Subp_Id,
-             Parameter_Specifications =>
-               New_List (
-                 Make_Parameter_Specification (Loc,
-                   Defining_Identifier =>
-                     Make_Defining_Identifier (Loc, Name_S),
-                   Parameter_Type =>
-                     Make_Access_Definition (Loc,
-                       Subtype_Mark =>
-                         New_Reference_To (
-                           Designated_Type (Etype (F)), Loc))),
+         --  S : access Root_Stream_Type'Class
 
-                 Make_Parameter_Specification (Loc,
-                   Defining_Identifier =>
-                     Make_Defining_Identifier (Loc, Name_V),
-                   Out_Present => Out_P,
-                   Parameter_Type =>
-                     New_Reference_To (Etyp, Loc))));
+         Formals := New_List (
+                      Make_Parameter_Specification (Loc,
+                        Defining_Identifier =>
+                          Make_Defining_Identifier (Loc, Name_S),
+                        Parameter_Type =>
+                          Make_Access_Definition (Loc,
+                            Subtype_Mark =>
+                              New_Reference_To (
+                                Designated_Type (Etype (F)), Loc))));
+
+         if Nam = TSS_Stream_Input then
+            Spec := Make_Function_Specification (Loc,
+                      Defining_Unit_Name       => Subp_Id,
+                      Parameter_Specifications => Formals,
+                      Result_Definition        => T_Ref);
+         else
+            --  V : [out] T
+
+            Append_To (Formals,
+              Make_Parameter_Specification (Loc,
+                Defining_Identifier => Make_Defining_Identifier (Loc, Name_V),
+                Out_Present         => Out_P,
+                Parameter_Type      => T_Ref));
+
+            Spec := Make_Procedure_Specification (Loc,
+                      Defining_Unit_Name       => Subp_Id,
+                      Parameter_Specifications => Formals);
+         end if;
+
+         return Spec;
       end Build_Spec;
 
-      --  Start of processing for New_Stream_Procedure
+   --  Start of processing for New_Stream_Subprogram
 
    begin
-      F        := First_Formal (Subp);
-      Etyp     := Etype (Next_Formal (F));
+      F := First_Formal (Subp);
 
-      if not Is_Tagged_Type (Ent) then
+      if Ekind (Subp) = E_Procedure then
+         Etyp := Etype (Next_Formal (F));
+      else
+         Etyp := Etype (Subp);
+      end if;
+
+      --  Prepare subprogram declaration and insert it as an action on the
+      --  clause node. The visibility for this entity is used to test for
+      --  visibility of the attribute definition clause (in the sense of
+      --  8.3(23) as amended by AI-195).
+
+      if not Defer_Declaration then
          Subp_Decl :=
            Make_Subprogram_Declaration (Loc,
              Specification => Build_Spec);
-         Insert_Action (N, Subp_Decl);
+
+      --  For a tagged type, there is always a visible declaration for each
+      --  stream TSS (it is a predefined primitive operation), and the
+      --  completion of this declaration occurs at the freeze point, which is
+      --  not always visible at places where the attribute definition clause is
+      --  visible. So, we create a dummy entity here for the purpose of
+      --  tracking the visibility of the attribute definition clause itself.
+
+      else
+         Subp_Id :=
+           Make_Defining_Identifier (Loc,
+             Chars => New_External_Name (Sname, 'V'));
+         Subp_Decl :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Subp_Id,
+             Object_Definition   => New_Occurrence_Of (Standard_Boolean, Loc));
       end if;
+
+      Insert_Action (N, Subp_Decl);
+      Set_Entity (N, Subp_Id);
 
       Subp_Decl :=
         Make_Subprogram_Renaming_Declaration (Loc,
           Specification => Build_Spec,
           Name => New_Reference_To (Subp, Loc));
 
-      if Is_Tagged_Type (Ent) then
+      if Defer_Declaration then
          Set_TSS (Base_Type (Ent), Subp_Id);
       else
          Insert_Action (N, Subp_Decl);
          Copy_TSS (Subp_Id, Base_Type (Ent));
       end if;
-   end New_Stream_Procedure;
+   end New_Stream_Subprogram;
 
    ------------------------
    -- Rep_Item_Too_Early --
@@ -3273,8 +3571,7 @@ package body Sem_Ch13 is
 
    function Rep_Item_Too_Early (T : Entity_Id; N : Node_Id) return Boolean is
    begin
-      --  Cannot apply rep items that are not operational items
-      --  to generic types
+      --  Cannot apply non-operational rep items to generic types
 
       if Is_Operational_Item (N) then
          return False;

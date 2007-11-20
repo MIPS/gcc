@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -71,14 +71,18 @@ package body Comperr is
    --------------------
 
    procedure Compiler_Abort
-     (X    : String;
-      Code : Integer := 0)
+     (X            : String;
+      Code         : Integer := 0;
+      Fallback_Loc : String := "")
    is
       --  The procedures below output a "bug box" with information about
       --  the cause of the compiler abort and about the preferred method
       --  of reporting bugs. The default is a bug box appropriate for
       --  the FSF version of GNAT, but there are specializations for
       --  the GNATPRO and Public releases by AdaCore.
+
+      XF : constant Positive := X'First;
+      --  Start index, usually 1, but we won't assume this
 
       procedure End_Line;
       --  Add blanks up to column 76, and then a final vertical bar
@@ -93,12 +97,14 @@ package body Comperr is
          Write_Eol;
       end End_Line;
 
-      Is_Public_Version : constant Boolean := Get_Gnat_Build_Type = Public;
-      Is_FSF_Version    : constant Boolean := Get_Gnat_Build_Type = FSF;
+      Is_GPL_Version : constant Boolean := Gnatvsn.Build_Type = GPL;
+      Is_FSF_Version : constant Boolean := Gnatvsn.Build_Type = FSF;
 
    --  Start of processing for Compiler_Abort
 
    begin
+      Cancel_Special_Output;
+
       --  Prevent recursion through Compiler_Abort, e.g. via SIGSEGV
 
       if Abort_In_Progress then
@@ -115,6 +121,7 @@ package body Comperr is
 
       if Serious_Errors_Detected /= 0 and then not Debug_Flag_K then
          Errout.Finalize;
+         Errout.Output_Messages;
 
          Set_Standard_Error;
          Write_Str ("compilation abandoned due to previous error");
@@ -173,16 +180,16 @@ package body Comperr is
                Last_Blank : Integer := 70;
 
             begin
-               for P in 40 .. 69 loop
-                  if X (P) = ' ' then
+               for P in 39 .. 68 loop
+                  if X (XF + P) = ' ' then
                      Last_Blank := P;
                   end if;
                end loop;
 
-               Write_Str (X (1 .. Last_Blank));
+               Write_Str (X (XF .. XF - 1 + Last_Blank));
                End_Line;
                Write_Str ("|    ");
-               Write_Str (X (Last_Blank + 1 .. X'Length));
+               Write_Str (X (XF + Last_Blank .. X'Last));
             end;
          else
             Write_Str (X);
@@ -208,10 +215,14 @@ package body Comperr is
 
          --  Output source location information
 
-         if Sloc (Current_Error_Node) <= Standard_Location
-           or else Sloc (Current_Error_Node) = No_Location
-         then
-            Write_Str ("| No source file position information available");
+         if Sloc (Current_Error_Node) <= No_Location then
+            if Fallback_Loc'Length > 0 then
+               Write_Str ("| Error detected around ");
+               Write_Str (Fallback_Loc);
+            else
+               Write_Str ("| No source file position information available");
+            end if;
+
             End_Line;
          else
             Write_Str ("| Error detected at ");
@@ -267,10 +278,20 @@ package body Comperr is
                      " http://gcc.gnu.org/bugs.html.");
                   End_Line;
 
-               elsif Is_Public_Version then
+               elsif Is_GPL_Version then
+
                   Write_Str
-                    ("| submit bug report by email " &
+                    ("| Please submit a bug report by email " &
                      "to report@adacore.com.");
+                  End_Line;
+
+                  Write_Str
+                    ("| GAP members can alternatively use GNAT Tracker:");
+                  End_Line;
+
+                  Write_Str
+                    ("| http://www.adacore.com/ " &
+                     "section 'send a report'.");
                   End_Line;
 
                   Write_Str
@@ -290,7 +311,12 @@ package body Comperr is
 
                   Write_Str
                     ("| alternatively submit a bug report by email " &
-                     "to report@adacore.com.");
+                     "to report@adacore.com,");
+                  End_Line;
+
+                  Write_Str
+                    ("| including your customer number #nnn " &
+                     "in the subject line.");
                   End_Line;
                end if;
 
@@ -298,13 +324,6 @@ package body Comperr is
                  ("| Use a subject line meaningful to you" &
                   " and us to track the bug.");
                End_Line;
-
-               if not (Is_Public_Version or Is_FSF_Version) then
-                  Write_Str
-                    ("| Include your customer number #nnn " &
-                     "in the subject line.");
-                  End_Line;
-               end if;
 
                Write_Str
                  ("| Include the entire contents of this bug " &

@@ -69,6 +69,13 @@ details.  */
 #define O_DSYNC O_SYNC
 #endif
 
+// Name of the Process implementation.
+#ifdef ECOS
+#define _Jv_platform_process ::java::lang::EcosProcess
+#else
+#define _Jv_platform_process ::java::lang::PosixProcess
+#endif
+
 // Separator for file name components.
 #define _Jv_platform_file_separator ((jchar) '/')
 // Separator for path components.
@@ -90,15 +97,6 @@ extern jlong _Jv_platform_gettimeofday ();
 extern jlong _Jv_platform_nanotime ();
 extern void _Jv_platform_initialize (void);
 extern void _Jv_platform_initProperties (java::util::Properties*);
-
-inline void
-_Jv_platform_close_on_exec (jint fd)
-{
-  // Ignore errors.
-  ::fcntl (fd, F_SETFD, FD_CLOEXEC);
-}
-
-#undef fcntl
 
 #ifdef JV_HASH_SYNCHRONIZATION
 #ifndef HAVE_USLEEP_DECL

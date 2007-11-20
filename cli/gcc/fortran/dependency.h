@@ -1,5 +1,6 @@
 /* Header for dependency analysis
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -22,6 +23,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 
 bool gfc_ref_needs_temporary_p (gfc_ref *);
+bool gfc_full_array_ref_p (gfc_ref *);
 gfc_expr *gfc_get_noncopying_intrinsic_argument (gfc_expr *);
 int gfc_check_fncall_dependency (gfc_expr *, sym_intent, gfc_symbol *,
 				 gfc_actual_arglist *);

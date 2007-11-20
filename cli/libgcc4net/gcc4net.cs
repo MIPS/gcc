@@ -24,7 +24,9 @@ Authors:
    Roberto Costa
 
 Contact information at STMicroelectronics:
-Roberto Costa <roberto.costa@st.com>   */
+Andrea C. Ornstein      <andrea.ornstein@st.com>
+Erven Rohou             <erven.rohou@st.com>
+*/
 
 using System;
 using System.Collections;
@@ -69,7 +71,7 @@ namespace gcc4net {
             return res;
         }
 
-	public unsafe static void Startup() {
+        public unsafe static void Startup() {
             Assembly assembly;
             MethodInfo initMethod = null;
 
@@ -89,7 +91,8 @@ namespace gcc4net {
                 initMethod.Invoke(null, null);
         }
 
-	public unsafe static void Shutdown(int status) {
+        public unsafe static void Shutdown(int status) {
+            Environment.Exit(status);
         }
 
     }
@@ -264,6 +267,51 @@ namespace gcc4net {
         public sealed class IsVolatile {
         }
     }
+
+    namespace JitCompilationHints {
+
+        [Serializable, AttributeUsage (AttributeTargets.Method)]
+        public unsafe sealed class JITMethodAttribute : Attribute {
+            public byte* frequencies;
+            public byte* probabilities;
+
+            public JITMethodAttribute (byte* frequencies, byte* probabilities) {
+                this.frequencies   = frequencies;
+                this.probabilities = probabilities;
+            }
+        }
+
+        [Serializable, AttributeUsage (AttributeTargets.Method)]
+        public sealed class BasicBlockFrequenciesAttribute : Attribute {
+            byte [] frequencies;
+
+            public BasicBlockFrequenciesAttribute (byte[] frequencies) {
+                this.frequencies = frequencies;
+            }
+
+            public byte [] Frequencies {
+                get {
+                    return frequencies;
+                }
+            }
+        }
+
+        [Serializable, AttributeUsage (AttributeTargets.Method)]
+        public sealed class BranchProbabilitiesAttribute : Attribute {
+            byte [] probabilities;
+
+            public BranchProbabilitiesAttribute (byte[] probabilities) {
+                this.probabilities = probabilities;
+            }
+
+            public byte [] Probabilities {
+                get {
+                    return probabilities;
+                }
+            }
+        }
+      }
+
 
     // ------------------------------------------------------------------
     // Complex types

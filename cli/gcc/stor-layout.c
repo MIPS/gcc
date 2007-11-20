@@ -1,13 +1,13 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -489,7 +488,8 @@ relayout_decl (tree decl)
 {
   DECL_SIZE (decl) = DECL_SIZE_UNIT (decl) = 0;
   DECL_MODE (decl) = VOIDmode;
-  DECL_ALIGN (decl) = 0;
+  if (!DECL_USER_ALIGN (decl))
+    DECL_ALIGN (decl) = 0;
   SET_DECL_RTL (decl, 0);
 
   layout_decl (decl, 0);
@@ -530,7 +530,15 @@ start_record_layout (tree t)
 #ifdef STRUCTURE_SIZE_BOUNDARY
   /* Packed structures don't need to have minimum size.  */
   if (! TYPE_PACKED (t))
-    rli->record_align = MAX (rli->record_align, (unsigned) STRUCTURE_SIZE_BOUNDARY);
+    {
+      unsigned tmp;
+
+      /* #pragma pack overrides STRUCTURE_SIZE_BOUNDARY.  */
+      tmp = (unsigned) STRUCTURE_SIZE_BOUNDARY;
+      if (maximum_field_alignment != 0)
+	tmp = MIN (tmp, maximum_field_alignment);
+      rli->record_align = MAX (rli->record_align, tmp);
+    }
 #endif
 
   rli->offset = size_zero_node;
@@ -1186,7 +1194,7 @@ place_field (record_layout_info rli, tree field)
   if (DECL_SIZE (field) == 0)
     /* Do nothing.  */;
   else if (TREE_CODE (DECL_SIZE (field)) != INTEGER_CST
-	   || TREE_CONSTANT_OVERFLOW (DECL_SIZE (field)))
+	   || TREE_OVERFLOW (DECL_SIZE (field)))
     {
       rli->offset
 	= size_binop (PLUS_EXPR, rli->offset,
@@ -1608,7 +1616,6 @@ layout_type (tree type)
     case VECTOR_TYPE:
       {
 	int nunits = TYPE_VECTOR_SUBPARTS (type);
-	tree nunits_tree = build_int_cst (NULL_TREE, nunits);
 	tree innertype = TREE_TYPE (type);
 
 	gcc_assert (!(nunits & (nunits - 1)));
@@ -1646,9 +1653,9 @@ layout_type (tree type)
         TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
 	TYPE_SIZE_UNIT (type) = int_const_binop (MULT_EXPR,
 					         TYPE_SIZE_UNIT (innertype),
-					         nunits_tree, 0);
+					         size_int (nunits), 0);
 	TYPE_SIZE (type) = int_const_binop (MULT_EXPR, TYPE_SIZE (innertype),
-					    nunits_tree, 0);
+					    bitsize_int (nunits), 0);
 
 	/* Always naturally align vectors.  This prevents ABI changes
 	   depending on whether or not native vector modes are supported.  */
@@ -1774,6 +1781,11 @@ layout_type (tree type)
 #else
 	TYPE_ALIGN (type) = MAX (TYPE_ALIGN (element), BITS_PER_UNIT);
 #endif
+	if (!TYPE_SIZE (element))
+	  /* We don't know the size of the underlying element type, so
+	     our alignment calculations will be wrong, forcing us to
+	     fall back on structural equality. */
+	  SET_TYPE_STRUCTURAL_EQUALITY (type);
 	TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (element);
 	TYPE_MODE (type) = BLKmode;
 	if (TYPE_SIZE (type) != 0
@@ -1795,8 +1807,7 @@ layout_type (tree type)
 
 	    if (TYPE_MODE (type) != BLKmode
 		&& STRICT_ALIGNMENT && TYPE_ALIGN (type) < BIGGEST_ALIGNMENT
-		&& TYPE_ALIGN (type) < GET_MODE_ALIGNMENT (TYPE_MODE (type))
-		&& TYPE_MODE (type) != BLKmode)
+		&& TYPE_ALIGN (type) < GET_MODE_ALIGNMENT (TYPE_MODE (type)))
 	      {
 		TYPE_NO_FORCE_BLK (type) = 1;
 		TYPE_MODE (type) = BLKmode;
@@ -1808,7 +1819,7 @@ layout_type (tree type)
 	    && TREE_CODE (TYPE_SIZE_UNIT (element)) == INTEGER_CST
 	    /* If TYPE_SIZE_UNIT overflowed, then it is certainly larger than
 	       TYPE_ALIGN_UNIT.  */
-	    && !TREE_CONSTANT_OVERFLOW (TYPE_SIZE_UNIT (element))
+	    && !TREE_OVERFLOW (TYPE_SIZE_UNIT (element))
 	    && !integer_zerop (TYPE_SIZE_UNIT (element))
 	    && compare_tree_int (TYPE_SIZE_UNIT (element),
 			  	 TYPE_ALIGN_UNIT (element)) < 0)
@@ -1933,7 +1944,8 @@ set_sizetype (tree type)
      calculating signed sizes / offsets in bits.  However, when
      cross-compiling from a 32 bit to a 64 bit host, we are limited to 64 bit
      precision.  */
-  int precision = MIN (oprecision + BITS_PER_UNIT_LOG + 1,
+  int precision = MIN (MIN (oprecision + BITS_PER_UNIT_LOG + 1,
+			    MAX_FIXED_MODE_SIZE),
 		       2 * HOST_BITS_PER_WIDE_INT);
   tree t;
 
@@ -1989,14 +2001,11 @@ set_sizetype (tree type)
 
       orig_max = TYPE_MAX_VALUE (sizetype);
 
-      /* Build a new node with the same values, but a different type.  */
-      new_max = build_int_cst_wide (sizetype,
-				    TREE_INT_CST_LOW (orig_max),
-				    TREE_INT_CST_HIGH (orig_max));
-
-      /* Now sign extend it using force_fit_type to ensure
-	 consistency.  */
-      new_max = force_fit_type (new_max, 0, 0, 0);
+      /* Build a new node with the same values, but a different type.
+	 Sign extend it to ensure consistency.  */
+      new_max = build_int_cst_wide_type (sizetype,
+					 TREE_INT_CST_LOW (orig_max),
+					 TREE_INT_CST_HIGH (orig_max));
       TYPE_MAX_VALUE (sizetype) = new_max;
     }
 }
@@ -2151,7 +2160,7 @@ get_best_mode (int bitsize, int bitpos, unsigned int align,
     return VOIDmode;
 
   if ((SLOW_BYTE_ACCESS && ! volatilep)
-      || (volatilep && !targetm.narrow_volatile_bitfield()))
+      || (volatilep && !targetm.narrow_volatile_bitfield ()))
     {
       enum machine_mode wide_mode = VOIDmode, tmode;
 

@@ -1,6 +1,6 @@
 // TR1 unordered_set -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,136 +27,41 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file 
+/** @file tr1/unordered_set
  *  This is a TR1 C++ Library header. 
  */
 
-#ifndef _TR1_UNORDERED_SET
-#define _TR1_UNORDERED_SET 1
+#ifndef _GLIBCXX_TR1_UNORDERED_SET
+#define _GLIBCXX_TR1_UNORDERED_SET 1
 
-#include <tr1/hashtable>
-#include <tr1/functional>
+#pragma GCC system_header
 
-namespace std
-{ 
-_GLIBCXX_BEGIN_NAMESPACE(tr1)
+#if defined(_GLIBCXX_INCLUDE_AS_CXX0X)
+#  error TR1 header cannot be included from C++0x header
+#endif
 
-  // XXX When we get typedef templates these class definitions
-  // will be unnecessary.
-  template<class Value,
-	   class Hash = hash<Value>,
-	   class Pred = std::equal_to<Value>,
-	   class Alloc = std::allocator<Value>,
-	   bool cache_hash_code = false>
-    class unordered_set
-    : public hashtable<Value, Value, Alloc,
-		       detail::identity<Value>, Pred,
-		       Hash, detail::mod_range_hashing,
-		       detail::default_ranged_hash,
-		       detail::prime_rehash_policy,
-		       cache_hash_code, true, true>
-    {
-      typedef hashtable<Value, Value, Alloc,
-			detail::identity<Value>, Pred,
-			Hash, detail::mod_range_hashing,
-			detail::default_ranged_hash,
-			detail::prime_rehash_policy,
-			cache_hash_code, true, true>
-        Base;
+#include <cmath>
+#include <string>
+#include <utility>
+#include <algorithm> // lower_bound
+#include <bits/allocator.h>
+#include <bits/stl_function.h> // equal_to, _Identity, _Select1st
+#include <tr1/type_traits>
+#include <tr1/functional_hash.h>
+#include <tr1/hashtable.h>
 
-    public:
-      typedef typename Base::size_type size_type;
-      typedef typename Base::hasher hasher;
-      typedef typename Base::key_equal key_equal;
-      typedef typename Base::allocator_type allocator_type;
-      
-      explicit
-      unordered_set(size_type n = 10,
-		    const hasher& hf = hasher(),
-		    const key_equal& eql = key_equal(),
-		    const allocator_type& a = allocator_type())
-      : Base(n, hf, detail::mod_range_hashing(),
-	     detail::default_ranged_hash(),
-	     eql, detail::identity<Value>(), a)
-      { }
+#if defined(_GLIBCXX_INCLUDE_AS_TR1)
+#  include <tr1_impl/unordered_set>
+#else
+#  define _GLIBCXX_INCLUDE_AS_TR1
+#  define _GLIBCXX_BEGIN_NAMESPACE_TR1 namespace tr1 {
+#  define _GLIBCXX_END_NAMESPACE_TR1 }
+#  define _GLIBCXX_TR1 tr1::
+#  include <tr1_impl/unordered_set>
+#  undef _GLIBCXX_TR1
+#  undef _GLIBCXX_END_NAMESPACE_TR1
+#  undef _GLIBCXX_BEGIN_NAMESPACE_TR1
+#  undef _GLIBCXX_INCLUDE_AS_TR1
+#endif
 
-      template<typename InputIterator>
-        unordered_set(InputIterator f, InputIterator l, 
-		      size_type n = 10,
-		      const hasher& hf = hasher(), 
-		      const key_equal& eql = key_equal(), 
-		      const allocator_type& a = allocator_type())
-	: Base(f, l, n, hf, detail::mod_range_hashing(),
-	       detail::default_ranged_hash(),
-	       eql, detail::identity<Value>(), a)
-        { }
-    };
-
-  template<class Value,
-	   class Hash = hash<Value>,
-	   class Pred = std::equal_to<Value>,
-	   class Alloc = std::allocator<Value>,
-	   bool cache_hash_code = false>
-    class unordered_multiset
-    : public hashtable <Value, Value, Alloc,
-			detail::identity<Value>, Pred,
-			Hash, detail::mod_range_hashing,
-			detail::default_ranged_hash,
-			detail::prime_rehash_policy,
-			cache_hash_code, true, false>
-    {
-      typedef hashtable<Value, Value, Alloc,
-			detail::identity<Value>, Pred,
-			Hash, detail::mod_range_hashing,
-			detail::default_ranged_hash,
-			detail::prime_rehash_policy,
-			cache_hash_code, true, false>
-        Base;
-
-    public:
-      typedef typename Base::size_type size_type;
-      typedef typename Base::hasher hasher;
-      typedef typename Base::key_equal key_equal;
-      typedef typename Base::allocator_type allocator_type;
-      
-      explicit
-      unordered_multiset(size_type n = 10,
-			 const hasher& hf = hasher(),
-			 const key_equal& eql = key_equal(),
-			 const allocator_type& a = allocator_type())
-      : Base(n, hf, detail::mod_range_hashing(),
-	     detail::default_ranged_hash(),
-	     eql, detail::identity<Value>(), a)
-      { }
-
-
-      template<typename InputIterator>
-        unordered_multiset(InputIterator f, InputIterator l, 
-			   typename Base::size_type n = 0,
-			   const hasher& hf = hasher(), 
-			   const key_equal& eql = key_equal(), 
-			   const allocator_type& a = allocator_type())
-	: Base(f, l, n, hf, detail::mod_range_hashing(),
-	       detail::default_ranged_hash(), eql,
-	       detail::identity<Value>(), a)
-        { }
-    };
-
-  template<class Value, class Hash, class Pred, class Alloc,
-	   bool cache_hash_code>
-    inline void
-    swap (unordered_set<Value, Hash, Pred, Alloc, cache_hash_code>& x,
-	  unordered_set<Value, Hash, Pred, Alloc, cache_hash_code>& y)
-    { x.swap(y); }
-
-  template<class Value, class Hash, class Pred, class Alloc,
-	   bool cache_hash_code>
-    inline void
-    swap(unordered_multiset<Value, Hash, Pred, Alloc, cache_hash_code>& x,
-	 unordered_multiset<Value, Hash, Pred, Alloc, cache_hash_code>& y)
-   { x.swap(y); }
-
-_GLIBCXX_END_NAMESPACE
-}
-
-#endif // _TR1_UNORDERED_SET
+#endif // _GLIBCXX_TR1_UNORDERED_SET

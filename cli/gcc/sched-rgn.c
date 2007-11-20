@@ -1,6 +1,7 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -8,7 +9,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -17,9 +18,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass implements list scheduling within basic blocks.  It is
    run twice: (1) after flow analysis, but before register allocation,
@@ -67,17 +67,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
-
-/* Define when we want to do count REG_DEAD notes before and after scheduling
-   for sanity checking.  We can't do that when conditional execution is used,
-   as REG_DEAD exist only for unconditional deaths.  */
-
-#if !defined (HAVE_conditional_execution) && defined (ENABLE_CHECKING)
-#define CHECK_DEAD_NOTES 1
-#else
-#define CHECK_DEAD_NOTES 0
-#endif
-
+#include "dbgcnt.h"
 
 #ifdef INSN_SCHEDULING
 /* Some accessor macros for h_i_d members only used within this file.  */
@@ -288,7 +278,6 @@ static bool sets_likely_spilled (rtx);
 static void sets_likely_spilled_1 (rtx, rtx, void *);
 static void add_branch_dependences (rtx, rtx);
 static void compute_block_backward_dependences (int);
-void debug_dependencies (void);
 
 static void init_regions (void);
 static void schedule_region (int);
@@ -321,8 +310,8 @@ is_cfg_nonregular (void)
     return 1;
 
   /* If we have exception handlers, then we consider the cfg not well
-     structured.  ?!?  We should be able to handle this now that flow.c
-     computes an accurate cfg for EH.  */
+     structured.  ?!?  We should be able to handle this now that we
+     compute an accurate cfg for EH.  */
   if (current_function_has_exception_handlers ())
     return 1;
 
@@ -1041,7 +1030,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
   max_hdr = xmalloc (last_basic_block * sizeof (*max_hdr));
 
   order = xmalloc (last_basic_block * sizeof (*order));
-  post_order_compute (order, false);
+  post_order_compute (order, false, false);
 
   for (i = nblocks - 1; i >= 0; i--)
     {
@@ -1501,6 +1490,8 @@ debug_candidates (int trg)
 
 /* Functions for speculative scheduling.  */
 
+static bitmap_head not_in_df;
+
 /* Return 0 if x is a set of a register alive in the beginning of one
    of the split-blocks of src, otherwise return 1.  */
 
@@ -1552,18 +1543,15 @@ check_live_1 (int src, rtx x)
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
+		  int t = bitmap_bit_p (&not_in_df, b->index);
 
 		  /* We can have split blocks, that were recently generated.
 		     such blocks are always outside current region.  */
-		  gcc_assert (glat_start[b->index]
-			      || CONTAINING_RGN (b->index)
-			      != CONTAINING_RGN (BB_TO_BLOCK (src)));
-		  if (!glat_start[b->index]
-		      || REGNO_REG_SET_P (glat_start[b->index],
-					  regno + j))
-		    {
-		      return 0;
-		    }
+		  gcc_assert (!t || (CONTAINING_RGN (b->index)
+				     != CONTAINING_RGN (BB_TO_BLOCK (src))));
+
+		  if (t || REGNO_REG_SET_P (df_get_live_in (b), regno + j))
+		    return 0;
 		}
 	    }
 	}
@@ -1573,15 +1561,13 @@ check_live_1 (int src, rtx x)
 	  for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
+	      int t = bitmap_bit_p (&not_in_df, b->index);
 
-	      gcc_assert (glat_start[b->index]
-			  || CONTAINING_RGN (b->index)
-			  != CONTAINING_RGN (BB_TO_BLOCK (src)));
-	      if (!glat_start[b->index]
-		  || REGNO_REG_SET_P (glat_start[b->index], regno))
-		{
-		  return 0;
-		}
+	      gcc_assert (!t || (CONTAINING_RGN (b->index)
+				 != CONTAINING_RGN (BB_TO_BLOCK (src))));
+
+	      if (t || REGNO_REG_SET_P (df_get_live_in (b), regno))
+		return 0;
 	    }
 	}
     }
@@ -1637,7 +1623,7 @@ update_live_1 (int src, rtx x)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-		  SET_REGNO_REG_SET (glat_start[b->index], regno + j);
+		  SET_REGNO_REG_SET (df_get_live_in (b), regno + j);
 		}
 	    }
 	}
@@ -1647,7 +1633,7 @@ update_live_1 (int src, rtx x)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
 
-	      SET_REGNO_REG_SET (glat_start[b->index], regno);
+	      SET_REGNO_REG_SET (df_get_live_in (b), regno);
 	    }
 	}
     }
@@ -1711,12 +1697,12 @@ update_live (rtx insn, int src)
 static void
 set_spec_fed (rtx load_insn)
 {
-  rtx link;
+  dep_link_t link;
 
-  for (link = INSN_DEPEND (load_insn); link; link = XEXP (link, 1))
-    if (GET_MODE (link) == VOIDmode)
-      FED_BY_SPEC_LOAD (XEXP (link, 0)) = 1;
-}				/* set_spec_fed */
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (load_insn))
+    if (DEP_LINK_KIND (link) == REG_DEP_TRUE)
+      FED_BY_SPEC_LOAD (DEP_LINK_CON (link)) = 1;
+}
 
 /* On the path from the insn to load_insn_bb, find a conditional
 branch depending on insn, that guards the speculative load.  */
@@ -1724,17 +1710,18 @@ branch depending on insn, that guards the speculative load.  */
 static int
 find_conditional_protection (rtx insn, int load_insn_bb)
 {
-  rtx link;
+  dep_link_t link;
 
   /* Iterate through DEF-USE forward dependences.  */
-  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
     {
-      rtx next = XEXP (link, 0);
+      rtx next = DEP_LINK_CON (link);
+
       if ((CONTAINING_RGN (BLOCK_NUM (next)) ==
 	   CONTAINING_RGN (BB_TO_BLOCK (load_insn_bb)))
 	  && IS_REACHABLE (INSN_BB (next), load_insn_bb)
 	  && load_insn_bb != INSN_BB (next)
-	  && GET_MODE (link) == VOIDmode
+	  && DEP_LINK_KIND (link) == REG_DEP_TRUE
 	  && (JUMP_P (next)
 	      || find_conditional_protection (next, load_insn_bb)))
 	return 1;
@@ -1753,20 +1740,20 @@ find_conditional_protection (rtx insn, int load_insn_bb)
    and if insn1 is on the path
    region-entry -> ... -> bb_trg -> ... load_insn.
 
-   Locate insn1 by climbing on LOG_LINKS from load_insn.
-   Locate the branch by following INSN_DEPEND from insn1.  */
+   Locate insn1 by climbing on INSN_BACK_DEPS from load_insn.
+   Locate the branch by following INSN_FORW_DEPS from insn1.  */
 
 static int
 is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 {
-  rtx link;
+  dep_link_t link;
 
-  for (link = LOG_LINKS (load_insn); link; link = XEXP (link, 1))
+  FOR_EACH_DEP_LINK (link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (link, 0);
+      rtx insn1 = DEP_LINK_PRO (link);
 
       /* Must be a DEF-USE dependence upon non-branch.  */
-      if (GET_MODE (link) != VOIDmode
+      if (DEP_LINK_KIND (link) != REG_DEP_TRUE
 	  || JUMP_P (insn1))
 	continue;
 
@@ -1809,28 +1796,27 @@ is_conditionally_protected (rtx load_insn, int bb_src, int bb_trg)
 static int
 is_pfree (rtx load_insn, int bb_src, int bb_trg)
 {
-  rtx back_link;
+  dep_link_t back_link;
   candidate *candp = candidate_table + bb_src;
 
   if (candp->split_bbs.nr_members != 1)
     /* Must have exactly one escape block.  */
     return 0;
 
-  for (back_link = LOG_LINKS (load_insn);
-       back_link; back_link = XEXP (back_link, 1))
+  FOR_EACH_DEP_LINK (back_link, INSN_BACK_DEPS (load_insn))
     {
-      rtx insn1 = XEXP (back_link, 0);
+      rtx insn1 = DEP_LINK_PRO (back_link);
 
-      if (GET_MODE (back_link) == VOIDmode)
+      if (DEP_LINK_KIND (back_link) == REG_DEP_TRUE)
 	{
 	  /* Found a DEF-USE dependence (insn1, load_insn).  */
-	  rtx fore_link;
+	  dep_link_t fore_link;
 
-	  for (fore_link = INSN_DEPEND (insn1);
-	       fore_link; fore_link = XEXP (fore_link, 1))
+	  FOR_EACH_DEP_LINK (fore_link, INSN_FORW_DEPS (insn1))
 	    {
-	      rtx insn2 = XEXP (fore_link, 0);
-	      if (GET_MODE (fore_link) == VOIDmode)
+	      rtx insn2 = DEP_LINK_CON (fore_link);
+
+	      if (DEP_LINK_KIND (fore_link) == REG_DEP_TRUE)
 		{
 		  /* Found a DEF-USE dependence (insn1, insn2).  */
 		  if (haifa_classify_insn (insn2) != PFREE_CANDIDATE)
@@ -1863,7 +1849,7 @@ is_prisky (rtx load_insn, int bb_src, int bb_trg)
   if (FED_BY_SPEC_LOAD (load_insn))
     return 1;
 
-  if (LOG_LINKS (load_insn) == NULL)
+  if (deps_list_empty_p (INSN_BACK_DEPS (load_insn)))
     /* Dependence may 'hide' out of the region.  */
     return 1;
 
@@ -1941,10 +1927,8 @@ static void extend_regions (void);
 static void add_block1 (basic_block, basic_block);
 static void fix_recovery_cfg (int, int, int);
 static basic_block advance_target_bb (basic_block, rtx);
-static void check_dead_notes1 (int, sbitmap);
-#ifdef ENABLE_CHECKING
-static int region_head_or_leaf_p (basic_block, int);
-#endif
+
+static void debug_rgn_dependencies (int);
 
 /* Return nonzero if there are more insns that should be scheduled.  */
 
@@ -1971,7 +1955,7 @@ init_ready_list (void)
 
   /* Print debugging information.  */
   if (sched_verbose >= 5)
-    debug_dependencies ();
+    debug_rgn_dependencies (target_bb);
 
   /* Prepare current target block info.  */
   if (current_nr_blocks > 1)
@@ -2089,7 +2073,7 @@ new_ready (rtx next, ds_t ts)
 	      && ((recog_memoized (next) >= 0
 		   && min_insn_conflict_delay (curr_state, next, next) 
                    > PARAM_VALUE (PARAM_MAX_SCHED_INSN_CONFLICT_DELAY))
-                  || RECOVERY_BLOCK (next)
+                  || IS_SPECULATION_CHECK_P (next)
 		  || !check_live (next, INSN_BB (next))
 		  || (not_ex_free = !is_exception_free (next, INSN_BB (next),
 							target_bb)))))
@@ -2210,13 +2194,7 @@ static struct sched_info region_sched_info =
   add_block1,
   advance_target_bb,
   fix_recovery_cfg,
-#ifdef ENABLE_CHECKING
-  region_head_or_leaf_p,
-#endif
-  SCHED_RGN | USE_GLAT
-#ifdef ENABLE_CHECKING
-  | DETACH_LIFE_INFO
-#endif
+  SCHED_RGN
 };
 
 /* Determine if PAT sets a CLASS_LIKELY_SPILLED_P register.  */
@@ -2284,7 +2262,9 @@ add_branch_dependences (rtx head, rtx tail)
     {
       if (!NOTE_P (insn))
 	{
-	  if (last != 0 && !find_insn_list (insn, LOG_LINKS (last)))
+	  if (last != 0
+	      && (find_link_by_pro_in_deps_list (INSN_BACK_DEPS (last), insn)
+		  == NULL))
 	    {
 	      if (! sched_insns_conditions_mutex_p (last, insn))
 		add_dependence (last, insn, REG_DEP_ANTI);
@@ -2461,7 +2441,10 @@ propagate_deps (int bb, struct deps *pred_deps)
 	= concat_INSN_LIST (pred_deps->last_pending_memory_flush,
 			    succ_deps->last_pending_memory_flush);
 
-      succ_deps->pending_lists_length += pred_deps->pending_lists_length;
+      succ_deps->pending_read_list_length
+	+= pred_deps->pending_read_list_length;
+      succ_deps->pending_write_list_length
+	+= pred_deps->pending_write_list_length;
       succ_deps->pending_flush_length += pred_deps->pending_flush_length;
 
       /* last_function_call is inherited by successor.  */
@@ -2544,80 +2527,83 @@ free_pending_lists (void)
     }
 }
 
-/* Print dependences for debugging, callable from debugger.  */
 
+/* Print dependences for debugging starting from FROM_BB.
+   Callable from debugger.  */
 void
-debug_dependencies (void)
+debug_rgn_dependencies (int from_bb)
 {
   int bb;
 
-  fprintf (sched_dump, ";;   --------------- forward dependences: ------------ \n");
-  for (bb = 0; bb < current_nr_blocks; bb++)
+  fprintf (sched_dump,
+	   ";;   --------------- forward dependences: ------------ \n");
+
+  for (bb = from_bb; bb < current_nr_blocks; bb++)
     {
       rtx head, tail;
-      rtx next_tail;
-      rtx insn;
 
       gcc_assert (EBB_FIRST_BB (bb) == EBB_LAST_BB (bb));
       get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
-      next_tail = NEXT_INSN (tail);
       fprintf (sched_dump, "\n;;   --- Region Dependences --- b %d bb %d \n",
 	       BB_TO_BLOCK (bb), bb);
 
-      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
-	       "insn", "code", "bb", "dep", "prio", "cost",
-	       "reservation");
-      fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
-	       "----", "----", "--", "---", "----", "----",
-	       "-----------");
-
-      for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
-	{
-	  rtx link;
-
-	  if (! INSN_P (insn))
-	    {
-	      int n;
-	      fprintf (sched_dump, ";;   %6d ", INSN_UID (insn));
-	      if (NOTE_P (insn))
-		{
-		  n = NOTE_LINE_NUMBER (insn);
-		  if (n < 0)
-		    fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
-		  else
-		    {
-		      expanded_location xloc;
-		      NOTE_EXPANDED_LOCATION (xloc, insn);
-		      fprintf (sched_dump, "line %d, file %s\n",
-			       xloc.line, xloc.file);
-		    }
-		}
-	      else
-		fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));
-	      continue;
-	    }
-
-	  fprintf (sched_dump,
-		   ";;   %s%5d%6d%6d%6d%6d%6d   ",
-		   (SCHED_GROUP_P (insn) ? "+" : " "),
-		   INSN_UID (insn),
-		   INSN_CODE (insn),
-		   INSN_BB (insn),
-		   INSN_DEP_COUNT (insn),
-		   INSN_PRIORITY (insn),
-		   insn_cost (insn, 0, 0));
-
-	  if (recog_memoized (insn) < 0)
-	    fprintf (sched_dump, "nothing");
-	  else
-	    print_reservation (sched_dump, insn);
-
-	  fprintf (sched_dump, "\t: ");
-	  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
-	    fprintf (sched_dump, "%d ", INSN_UID (XEXP (link, 0)));
-	  fprintf (sched_dump, "\n");
-	}
+      debug_dependencies (head, tail);
     }
+}
+
+/* Print dependencies information for instructions between HEAD and TAIL.
+   ??? This function would probably fit best in haifa-sched.c.  */
+void debug_dependencies (rtx head, rtx tail)
+{
+  rtx insn;
+  rtx next_tail = NEXT_INSN (tail);
+
+  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+	   "insn", "code", "bb", "dep", "prio", "cost",
+	   "reservation");
+  fprintf (sched_dump, ";;   %7s%6s%6s%6s%6s%6s%14s\n",
+	   "----", "----", "--", "---", "----", "----",
+	   "-----------");
+
+  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
+    {
+      dep_link_t link;
+
+      if (! INSN_P (insn))
+	{
+	  int n;
+	  fprintf (sched_dump, ";;   %6d ", INSN_UID (insn));
+	  if (NOTE_P (insn))
+	    {
+	      n = NOTE_KIND (insn);
+	      fprintf (sched_dump, "%s\n", GET_NOTE_INSN_NAME (n));
+	    }
+	  else
+	    fprintf (sched_dump, " {%s}\n", GET_RTX_NAME (GET_CODE (insn)));
+	  continue;
+	}
+
+      fprintf (sched_dump,
+	       ";;   %s%5d%6d%6d%6d%6d%6d   ",
+	       (SCHED_GROUP_P (insn) ? "+" : " "),
+	       INSN_UID (insn),
+	       INSN_CODE (insn),
+	       BLOCK_NUM (insn),
+	       INSN_DEP_COUNT (insn),
+	       INSN_PRIORITY (insn),
+	       insn_cost (insn));
+
+      if (recog_memoized (insn) < 0)
+	fprintf (sched_dump, "nothing");
+      else
+	print_reservation (sched_dump, insn);
+
+      fprintf (sched_dump, "\t: ");
+      FOR_EACH_DEP_LINK (link, INSN_FORW_DEPS (insn))
+	fprintf (sched_dump, "%d ", INSN_UID (DEP_LINK_CON (link)));
+      fprintf (sched_dump, "\n");
+    }
+
   fprintf (sched_dump, "\n");
 }
 
@@ -2672,11 +2658,11 @@ schedule_region (int rgn)
       for (bb = 0; bb < current_nr_blocks; bb++)
 	init_deps (bb_deps + bb);
 
-      /* Compute LOG_LINKS.  */
+      /* Compute backward dependencies.  */
       for (bb = 0; bb < current_nr_blocks; bb++)
         compute_block_backward_dependences (bb);
 
-      /* Compute INSN_DEPEND.  */
+      /* Compute forward dependencies.  */
       for (bb = current_nr_blocks - 1; bb >= 0; bb--)
         {
           rtx head, tail;
@@ -2768,7 +2754,6 @@ schedule_region (int rgn)
     {
       basic_block first_bb, last_bb, curr_bb;
       rtx head, tail;
-      int b = BB_TO_BLOCK (bb);
 
       first_bb = EBB_FIRST_BB (bb);
       last_bb = EBB_LAST_BB (bb);
@@ -2784,11 +2769,6 @@ schedule_region (int rgn)
       current_sched_info->prev_head = PREV_INSN (head);
       current_sched_info->next_tail = NEXT_INSN (tail);
 
-      if (write_symbols != NO_DEBUG)
-	{
-	  save_line_notes (b, head, tail);
-	  rm_line_notes (head, tail);
-	}
 
       /* rm_other_notes only removes notes which are _inside_ the
 	 block---that is, it won't remove notes before the first real insn
@@ -2823,9 +2803,16 @@ schedule_region (int rgn)
       current_sched_info->queue_must_finish_empty = current_nr_blocks == 1;
 
       curr_bb = first_bb;
-      schedule_block (&curr_bb, rgn_n_insns);
-      gcc_assert (EBB_FIRST_BB (bb) == first_bb);
-      sched_rgn_n_insns += sched_n_insns;
+      if (dbg_cnt (sched_block))
+        {
+          schedule_block (&curr_bb, rgn_n_insns);
+          gcc_assert (EBB_FIRST_BB (bb) == first_bb);
+          sched_rgn_n_insns += sched_n_insns;
+        }
+      else
+        {
+          sched_rgn_n_insns += rgn_n_insns;
+        }
 
       /* Clean up.  */
       if (current_nr_blocks > 1)
@@ -2839,17 +2826,6 @@ schedule_region (int rgn)
   /* Sanity check: verify that all region insns were scheduled.  */
   gcc_assert (sched_rgn_n_insns == rgn_n_insns);
 
-  /* Restore line notes.  */
-  if (write_symbols != NO_DEBUG)
-    {
-      for (bb = 0; bb < current_nr_blocks; bb++)
-	{
-	  rtx head, tail;
-
-	  get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
-	  restore_line_notes (head, tail);
-	}
-    }
 
   /* Done with this region.  */
 
@@ -2863,18 +2839,11 @@ schedule_region (int rgn)
     }
 }
 
-/* Indexed by region, holds the number of death notes found in that region.
-   Used for consistency checks.  */
-static int *deaths_in_region;
-
 /* Initialize data structures for region scheduling.  */
 
 static void
 init_regions (void)
 {
-  sbitmap blocks;
-  int rgn;
-
   nr_regions = 0;
   rgn_table = 0;
   rgn_bb_table = 0;
@@ -2902,25 +2871,11 @@ init_regions (void)
 	debug_regions ();
 
       /* For now.  This will move as more and more of haifa is converted
-	 to using the cfg code in flow.c.  */
+	 to using the cfg code.  */
       free_dominance_info (CDI_DOMINATORS);
     }
   RGN_BLOCKS (nr_regions) = RGN_BLOCKS (nr_regions - 1) +
     RGN_NR_BLOCKS (nr_regions - 1);
-
-
-  if (CHECK_DEAD_NOTES)
-    {
-      blocks = sbitmap_alloc (last_basic_block);
-      deaths_in_region = XNEWVEC (int, nr_regions);
-      /* Remove all death notes from the subroutine.  */
-      for (rgn = 0; rgn < nr_regions; rgn++)
-        check_dead_notes1 (rgn, blocks);
-
-      sbitmap_free (blocks);
-    }
-  else
-    count_or_remove_death_notes (NULL, 1);
 }
 
 /* The one entry point in this file.  */
@@ -2928,10 +2883,7 @@ init_regions (void)
 void
 schedule_insns (void)
 {
-  sbitmap large_region_blocks, blocks;
   int rgn;
-  int any_large_regions;
-  basic_block bb;
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
@@ -2945,7 +2897,15 @@ schedule_insns (void)
      invoked via sched_init.  */
   current_sched_info = &region_sched_info;
 
+  df_set_flags (DF_LR_RUN_DCE);
+  df_note_add_problem ();
+  df_analyze ();
+  regstat_compute_calls_crossed ();
+
   sched_init ();
+
+  bitmap_initialize (&not_in_df, 0);
+  bitmap_clear (&not_in_df);
 
   min_spec_prob = ((PARAM_VALUE (PARAM_MIN_SPEC_PROB) * REG_BR_PROB_BASE)
 		    / 100);
@@ -2958,96 +2918,14 @@ schedule_insns (void)
   
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
-    schedule_region (rgn);
+    if (dbg_cnt (sched_region))
+      schedule_region (rgn);
   
   free(ebb_head);
-
-  /* Update life analysis for the subroutine.  Do single block regions
-     first so that we can verify that live_at_start didn't change.  Then
-     do all other blocks.  */
-  /* ??? There is an outside possibility that update_life_info, or more
-     to the point propagate_block, could get called with nonzero flags
-     more than once for one basic block.  This would be kinda bad if it
-     were to happen, since REG_INFO would be accumulated twice for the
-     block, and we'd have twice the REG_DEAD notes.
-
-     I'm fairly certain that this _shouldn't_ happen, since I don't think
-     that live_at_start should change at region heads.  Not sure what the
-     best way to test for this kind of thing...  */
-
-  if (current_sched_info->flags & DETACH_LIFE_INFO)
-    /* this flag can be set either by the target or by ENABLE_CHECKING.  */
-    attach_life_info ();
-
-  allocate_reg_life_data ();
-
-  any_large_regions = 0;
-  large_region_blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (large_region_blocks);
-  FOR_EACH_BB (bb)
-    SET_BIT (large_region_blocks, bb->index);
-
-  blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (blocks);
-
-  /* Update life information.  For regions consisting of multiple blocks
-     we've possibly done interblock scheduling that affects global liveness.
-     For regions consisting of single blocks we need to do only local
-     liveness.  */
-  for (rgn = 0; rgn < nr_regions; rgn++)    
-    if (RGN_NR_BLOCKS (rgn) > 1
-	/* Or the only block of this region has been split.  */
-	|| RGN_HAS_REAL_EBB (rgn)
-	/* New blocks (e.g. recovery blocks) should be processed
-	   as parts of large regions.  */
-	|| !glat_start[rgn_bb_table[RGN_BLOCKS (rgn)]])
-      any_large_regions = 1;
-    else
-      {
-	SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-	RESET_BIT (large_region_blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-      }
-
-  /* Don't update reg info after reload, since that affects
-     regs_ever_live, which should not change after reload.  */
-  update_life_info (blocks, UPDATE_LIFE_LOCAL,
-		    (reload_completed ? PROP_DEATH_NOTES
-		     : (PROP_DEATH_NOTES | PROP_REG_INFO)));
-  if (any_large_regions)
-    {
-      update_life_info (large_region_blocks, UPDATE_LIFE_GLOBAL,
-			(reload_completed ? PROP_DEATH_NOTES
-			 : (PROP_DEATH_NOTES | PROP_REG_INFO)));
-
-#ifdef ENABLE_CHECKING
-      check_reg_live (true);
-#endif
-    }
-
-  if (CHECK_DEAD_NOTES)
-    {
-      /* Verify the counts of basic block notes in single basic block
-         regions.  */
-      for (rgn = 0; rgn < nr_regions; rgn++)
-	if (RGN_NR_BLOCKS (rgn) == 1)
-	  {
-	    sbitmap_zero (blocks);
-	    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-
-	    gcc_assert (deaths_in_region[rgn]
-			== count_or_remove_death_notes (blocks, 0));
-	  }
-      free (deaths_in_region);
-    }
-
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
   if (reload_completed)
-    reposition_prologue_and_epilogue_notes (get_insns ());
-
-  /* Delete redundant line notes.  */
-  if (write_symbols != NO_DEBUG)
-    rm_redundant_line_notes ();
+    reposition_prologue_and_epilogue_notes ();
 
   if (sched_verbose)
     {
@@ -3068,10 +2946,11 @@ schedule_insns (void)
   free (block_to_bb);
   free (containing_rgn);
 
-  sched_finish ();
+  regstat_free_calls_crossed ();
 
-  sbitmap_free (blocks);
-  sbitmap_free (large_region_blocks);
+  bitmap_clear (&not_in_df);
+
+  sched_finish ();
 }
 
 /* INSN has been added to/removed from current region.  */
@@ -3108,6 +2987,8 @@ add_block1 (basic_block bb, basic_block after)
 {
   extend_regions ();
 
+  bitmap_set_bit (&not_in_df, bb->index);
+
   if (after == 0 || after == EXIT_BLOCK_PTR)
     {
       int i;
@@ -3125,17 +3006,6 @@ add_block1 (basic_block bb, basic_block after)
       nr_regions++;
       
       RGN_BLOCKS (nr_regions) = i + 1;
-
-      if (CHECK_DEAD_NOTES)
-        {
-          sbitmap blocks = sbitmap_alloc (last_basic_block);
-          deaths_in_region = xrealloc (deaths_in_region, nr_regions *
-				       sizeof (*deaths_in_region));
-
-          check_dead_notes1 (nr_regions - 1, blocks);
-      
-          sbitmap_free (blocks);
-        }
     }
   else
     { 
@@ -3152,9 +3022,15 @@ add_block1 (basic_block bb, basic_block after)
 	 is _always_ valid for access.  */
 
       i = BLOCK_TO_BB (after->index) + 1;
-      for (pos = ebb_head[i]; rgn_bb_table[pos] != after->index; pos--);
+      pos = ebb_head[i] - 1;
+      /* Now POS is the index of the last block in the region.  */
+
+      /* Find index of basic block AFTER.  */
+      for (; rgn_bb_table[pos] != after->index; pos--);
+
       pos++;
       gcc_assert (pos > ebb_head[i - 1]);
+
       /* i - ebb right after "AFTER".  */
       /* ebb_head[i] - VALID.  */
 
@@ -3182,9 +3058,6 @@ add_block1 (basic_block bb, basic_block after)
 
       for (++i; i <= nr_regions; i++)
 	RGN_BLOCKS (i)++;
-
-      /* We don't need to call check_dead_notes1 () because this new block
-	 is just a split of the old.  We don't want to count anything twice.  */
     }
 }
 
@@ -3234,56 +3107,13 @@ advance_target_bb (basic_block bb, rtx insn)
   return bb->next_bb;
 }
 
-/* Count and remove death notes in region RGN, which consists of blocks
-   with indecies in BLOCKS.  */
-static void
-check_dead_notes1 (int rgn, sbitmap blocks)
-{
-  int b;
-
-  sbitmap_zero (blocks);
-  for (b = RGN_NR_BLOCKS (rgn) - 1; b >= 0; --b)
-    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn) + b]);
-
-  deaths_in_region[rgn] = count_or_remove_death_notes (blocks, 1);
-}
-
-#ifdef ENABLE_CHECKING
-/* Return non zero, if BB is head or leaf (depending of LEAF_P) block in
-   current region.  For more information please refer to
-   sched-int.h: struct sched_info: region_head_or_leaf_p.  */
-static int
-region_head_or_leaf_p (basic_block bb, int leaf_p)
-{
-  if (!leaf_p)    
-    return bb->index == rgn_bb_table[RGN_BLOCKS (CONTAINING_RGN (bb->index))];
-  else
-    {
-      int i;
-      edge e;
-      edge_iterator ei;
-      
-      i = CONTAINING_RGN (bb->index);
-
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest != EXIT_BLOCK_PTR
-            && CONTAINING_RGN (e->dest->index) == i
-	    /* except self-loop.  */
-	    && e->dest != bb)
-	  return 0;
-      
-      return 1;
-    }
-}
-#endif /* ENABLE_CHECKING  */
-
 #endif
 
 static bool
 gate_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  return flag_schedule_insns;
+  return flag_schedule_insns && dbg_cnt (sched_func);
 #else
   return 0;
 #endif
@@ -3294,9 +3124,6 @@ static unsigned int
 rest_of_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  /* Do control and data sched analysis,
-     and write some of the results to dump file.  */
-
   schedule_insns ();
 #endif
   return 0;
@@ -3306,7 +3133,8 @@ static bool
 gate_handle_sched2 (void)
 {
 #ifdef INSN_SCHEDULING
-  return optimize > 0 && flag_schedule_insns_after_reload;
+  return optimize > 0 && flag_schedule_insns_after_reload 
+    && dbg_cnt (sched2_func);
 #else
   return 0;
 #endif
@@ -3319,17 +3147,8 @@ rest_of_handle_sched2 (void)
 #ifdef INSN_SCHEDULING
   /* Do control and data sched analysis again,
      and write some more of the results to dump file.  */
-
-  split_all_insns (1);
-
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
-    {
-      schedule_ebbs ();
-      /* No liveness updating code yet, but it should be easy to do.
-         reg-stack recomputes the liveness when needed for now.  */
-      count_or_remove_death_notes (NULL, 1);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
-    }
+    schedule_ebbs ();
   else
     schedule_insns ();
 #endif
@@ -3349,7 +3168,9 @@ struct tree_opt_pass pass_sched =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
+  TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'S'                                   /* letter */
 };
@@ -3367,7 +3188,9 @@ struct tree_opt_pass pass_sched2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
+  TODO_df_finish |
   TODO_dump_func |
+  TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'R'                                   /* letter */
 };

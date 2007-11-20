@@ -6,11 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
---                                                                          --
--- This specification is derived from the Ada Reference Manual for use with --
--- GNAT. The copyright notice above, and the license provisions that follow --
--- apply solely to the  contents of the part following the private keyword. --
+--          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -966,7 +962,7 @@ package body Ada.Containers.Ordered_Maps is
       Container : out Map)
    is
       function Read_Node
-        (Stream : access Root_Stream_Type'Class) return Node_Access;
+        (Stream : not null access Root_Stream_Type'Class) return Node_Access;
       pragma Inline (Read_Node);
 
       procedure Read is
@@ -977,7 +973,7 @@ package body Ada.Containers.Ordered_Maps is
       ---------------
 
       function Read_Node
-        (Stream : access Root_Stream_Type'Class) return Node_Access
+        (Stream : not null access Root_Stream_Type'Class) return Node_Access
       is
          Node : Node_Access := new Node_Type;
       begin
@@ -1210,7 +1206,7 @@ package body Ada.Containers.Ordered_Maps is
       Container : Map)
    is
       procedure Write_Node
-        (Stream : access Root_Stream_Type'Class;
+        (Stream : not null access Root_Stream_Type'Class;
          Node   : Node_Access);
       pragma Inline (Write_Node);
 
@@ -1222,7 +1218,7 @@ package body Ada.Containers.Ordered_Maps is
       ----------------
 
       procedure Write_Node
-        (Stream : access Root_Stream_Type'Class;
+        (Stream : not null access Root_Stream_Type'Class;
          Node   : Node_Access)
       is
       begin

@@ -2,6 +2,8 @@
    taken in C code, don't use alternate calling convention for local
    functions on IA-32.  */
 /* { dg-do run { target i?86-*-* x86_64-*-* } } */
+/* The asm in this test uses an absolute address.  */
+/* { dg-require-effective-target nonpic } */
 /* { dg-options "-O2" } */
 
 extern void abort (void);
@@ -25,7 +27,13 @@ int (*fn) (int, int, int, int);
 void
 baz (void)
 {
+  /* Darwin loads 64-bit regions above the 4GB boundary so
+     we need to use this instead.  */
+#if defined (__LP64__) && defined (__MACH__)
+  __asm ("leaq foo(%%rip), %0" : "=r" (fn));
+#else
   __asm ("movl $foo, %k0" : "=r" (fn));
+#endif
   if (fn (2, 3, 4, 5) != 14)
     abort ();
 }

@@ -1,12 +1,12 @@
 /* Chains of recurrences.
-   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,20 +15,11 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_TREE_CHREC_H
 #define GCC_TREE_CHREC_H
-
-/* Accessors for the chains of recurrences.  */
-#define CHREC_VAR(NODE)           TREE_OPERAND (NODE, 0)
-#define CHREC_LEFT(NODE)          TREE_OPERAND (NODE, 1)
-#define CHREC_RIGHT(NODE)         TREE_OPERAND (NODE, 2)
-#define CHREC_VARIABLE(NODE)      TREE_INT_CST_LOW (CHREC_VAR (NODE))
-
-
 
 /* The following trees are unique elements.  Thus the comparison of another 
    element to these elements should be done on the pointer to these trees, 
@@ -44,8 +35,7 @@ extern GTY(()) tree chrec_known;
 static inline bool
 automatically_generated_chrec_p (tree chrec)
 {
-  return (chrec == chrec_not_analyzed_yet 
-	  || chrec == chrec_dont_know
+  return (chrec == chrec_dont_know
 	  || chrec == chrec_known);
 }
 
@@ -68,6 +58,7 @@ extern tree chrec_fold_plus (tree, tree, tree);
 extern tree chrec_fold_minus (tree, tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
 extern tree chrec_convert (tree, tree, tree);
+extern tree chrec_convert_rhs (tree, tree, tree);
 extern tree chrec_convert_aggressive (tree, tree);
 
 /* Operations.  */
@@ -88,32 +79,10 @@ extern bool chrec_contains_symbols (tree);
 extern bool chrec_contains_symbols_defined_in_loop (tree, unsigned);
 extern bool chrec_contains_undetermined (tree);
 extern bool tree_contains_chrecs (tree, int *);
-extern bool evolution_function_is_affine_multivariate_p (tree);
+extern bool evolution_function_is_affine_multivariate_p (tree, int);
 extern bool evolution_function_is_univariate_p (tree);
 extern unsigned nb_vars_in_chrec (tree);
-
-
-
-/* Build a polynomial chain of recurrence.  */
-
-static inline tree 
-build_polynomial_chrec (unsigned loop_num, 
-			tree left, 
-			tree right)
-{
-  if (left == chrec_dont_know
-      || right == chrec_dont_know)
-    return chrec_dont_know;
-
-  gcc_assert (TREE_TYPE (left) == TREE_TYPE (right));
-
-  return build3 (POLYNOMIAL_CHREC, TREE_TYPE (left), 
-		 build_int_cst (NULL_TREE, loop_num), left, right);
-}
-
-
-
-/* Observers.  */
+extern bool evolution_function_is_invariant_p (tree, int);
 
 /* Determines whether CHREC is equal to zero.  */
 
@@ -127,6 +96,52 @@ chrec_zerop (tree chrec)
     return integer_zerop (chrec);
   
   return false;
+}
+
+/* Determines whether CHREC is a loop invariant with respect to LOOP_NUM.  
+   Set the result in RES and return true when the property can be computed.  */
+
+static inline bool
+no_evolution_in_loop_p (tree chrec, unsigned loop_num, bool *res)
+{
+  tree scev;
+  
+  if (chrec == chrec_not_analyzed_yet
+      || chrec == chrec_dont_know
+      || chrec_contains_symbols_defined_in_loop (chrec, loop_num))
+    return false;
+
+  scev = hide_evolution_in_other_loops_than_loop (chrec, loop_num);
+  *res = !tree_is_chrec (scev);
+  return true;
+}
+
+/* Build a polynomial chain of recurrence.  */
+
+static inline tree 
+build_polynomial_chrec (unsigned loop_num, 
+			tree left, 
+			tree right)
+{
+  bool val;
+
+  if (left == chrec_dont_know
+      || right == chrec_dont_know)
+    return chrec_dont_know;
+
+  if (no_evolution_in_loop_p (left, loop_num, &val) && !val)
+    return chrec_dont_know;
+
+  if (POINTER_TYPE_P (TREE_TYPE (left)))
+    gcc_assert (sizetype == TREE_TYPE (right));
+  else
+    gcc_assert (TREE_TYPE (left) == TREE_TYPE (right));
+
+  if (chrec_zerop (right))
+    return left;
+
+  return build3 (POLYNOMIAL_CHREC, TREE_TYPE (left), 
+		 build_int_cst (NULL_TREE, loop_num), left, right);
 }
 
 /* Determines whether the expression CHREC is a constant.  */
@@ -148,7 +163,6 @@ evolution_function_is_constant_p (tree chrec)
     }
 }
 
-extern bool evolution_function_is_invariant_p (tree, int);
 /* Determine whether the given tree is an affine evolution function or not.  */
 
 static inline bool 
@@ -189,24 +203,6 @@ static inline bool
 tree_does_not_contain_chrecs (tree expr)
 {
   return !tree_contains_chrecs (expr, NULL);
-}
-
-/* Determines whether CHREC is a loop invariant with respect to LOOP_NUM.  
-   Set the result in RES and return true when the property can be computed.  */
-
-static inline bool
-no_evolution_in_loop_p (tree chrec, unsigned loop_num, bool *res)
-{
-  tree scev;
-  
-  if (chrec == chrec_not_analyzed_yet
-      || chrec == chrec_dont_know
-      || chrec_contains_symbols_defined_in_loop (chrec, loop_num))
-    return false;
-
-  scev = hide_evolution_in_other_loops_than_loop (chrec, loop_num);
-  *res = !tree_is_chrec (scev);
-  return true;
 }
 
 /* Returns the type of the chrec.  */

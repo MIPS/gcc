@@ -25,6 +25,9 @@
      Ricardo Fernandez Pascual <ricardof@um.es>
      Andrea C. Ornstein <andrea.ornstein@st.com>
 
+   Contact information at STMicroelectronics:
+     Andrea C. Ornstein <andrea.ornstein@st.com>
+     Erven Rohou        <erven.rohou@st.com>
 */
 
 

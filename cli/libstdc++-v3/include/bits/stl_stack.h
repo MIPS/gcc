@@ -1,6 +1,6 @@
 // Stack implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -59,26 +59,13 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _STACK_H
-#define _STACK_H 1
+#ifndef _STL_STACK_H
+#define _STL_STACK_H 1
 
 #include <bits/concept_check.h>
 #include <debug/debug.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
-
-  // Forward declarations of operators == and <, needed for friend
-  // declaration.
-  template<typename _Tp, typename _Sequence = deque<_Tp> >
-    class stack;
-
-  template<typename _Tp, typename _Seq>
-    inline bool
-    operator==(const stack<_Tp, _Seq>& __x, const stack<_Tp, _Seq>& __y);
-
-  template<typename _Tp, typename _Seq>
-    inline bool
-    operator<(const stack<_Tp, _Seq>& __x, const stack<_Tp, _Seq>& __y);
 
   /**
    *  @brief  A standard container giving FILO behavior.
@@ -107,7 +94,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  push, @c pop, and @c top, which are standard %stack/FILO
    *  operations.
   */
-  template<typename _Tp, typename _Sequence>
+  template<typename _Tp, typename _Sequence = deque<_Tp> >
     class stack
     {
       // concept requirements
@@ -271,4 +258,4 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 _GLIBCXX_END_NAMESPACE
 
-#endif /* _STACK_H */
+#endif /* _STL_STACK_H */

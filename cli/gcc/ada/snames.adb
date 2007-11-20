@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,7 +31,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Namet; use Namet;
 with Opt;   use Opt;
 with Table;
 
@@ -118,9 +117,11 @@ package body Snames is
      "put#" &
      "put_line#" &
      "to#" &
+     "exception_traces#" &
      "finalization#" &
      "finalization_root#" &
      "interfaces#" &
+     "most_recent_exception#" &
      "standard#" &
      "system#" &
      "text_io#" &
@@ -139,7 +140,7 @@ package body Snames is
      "partition#" &
      "partition_interface#" &
      "ras#" &
-     "call#" &
+     "_call#" &
      "rci_name#" &
      "receiver#" &
      "result#" &
@@ -178,6 +179,7 @@ package body Snames is
      "ada_2005#" &
      "assertion_policy#" &
      "c_pass_by_copy#" &
+     "compile_time_error#" &
      "compile_time_warning#" &
      "component_alignment#" &
      "convention_identifier#" &
@@ -186,7 +188,6 @@ package body Snames is
      "discard_names#" &
      "elaboration_checks#" &
      "eliminate#" &
-     "explicit_overriding#" &
      "extend_system#" &
      "extensions_allowed#" &
      "external_name_casing#" &
@@ -201,6 +202,7 @@ package body Snames is
      "normalize_scalars#" &
      "polling#" &
      "persistent_bss#" &
+     "priority_specific_dispatching#" &
      "profile#" &
      "profile_warnings#" &
      "propagate_exceptions#" &
@@ -221,6 +223,7 @@ package body Snames is
      "use_vads_size#" &
      "validity_checks#" &
      "warnings#" &
+     "wide_character_encoding#" &
      "abort_defer#" &
      "all_calls_remote#" &
      "annotate#" &
@@ -229,6 +232,7 @@ package body Snames is
      "atomic#" &
      "atomic_components#" &
      "attach_handler#" &
+     "cil_constructor#" &
      "comment#" &
      "common_object#" &
      "complete_representation#" &
@@ -280,16 +284,16 @@ package body Snames is
      "main#" &
      "main_storage#" &
      "memory_size#" &
+     "no_body#" &
      "no_return#" &
      "obsolescent#" &
      "optimize#" &
-     "optional_overriding#" &
      "pack#" &
      "page#" &
      "passive#" &
+     "preelaborable_initialization#" &
      "preelaborate#" &
      "preelaborate_05#" &
-     "priority#" &
      "psect_object#" &
      "pure#" &
      "pure_05#" &
@@ -300,6 +304,7 @@ package body Snames is
      "shared#" &
      "shared_passive#" &
      "source_reference#" &
+     "static_elaboration_desired#" &
      "stream_convert#" &
      "subtitle#" &
      "suppress_all#" &
@@ -309,18 +314,20 @@ package body Snames is
      "task_info#" &
      "task_name#" &
      "task_storage#" &
-     "thread_body#" &
      "time_slice#" &
      "title#" &
      "unchecked_union#" &
      "unimplemented_unit#" &
+     "universal_aliasing#" &
      "unreferenced#" &
+     "unreferenced_objects#" &
      "unreserve_all_interrupts#" &
      "volatile#" &
      "volatile_components#" &
      "weak_external#" &
      "ada#" &
      "assembler#" &
+     "cil#" &
      "cobol#" &
      "cpp#" &
      "fortran#" &
@@ -331,6 +338,7 @@ package body Snames is
      "asm#" &
      "assembly#" &
      "default#" &
+     "c_plus_plus#" &
      "dll#" &
      "win32#" &
      "as_is#" &
@@ -482,6 +490,7 @@ package body Snames is
      "pool_address#" &
      "pos#" &
      "position#" &
+     "priority#" &
      "range#" &
      "range_length#" &
      "round#" &
@@ -548,13 +557,18 @@ package body Snames is
      "storage_pool#" &
      "base#" &
      "class#" &
+     "stub_type#" &
      "ceiling_locking#" &
      "inheritance_locking#" &
      "fifo_queuing#" &
      "priority_queuing#" &
+     "edf_across_priorities#" &
      "fifo_within_priorities#" &
+     "non_preemptive_within_priorities#" &
+     "round_robin_within_priorities#" &
      "access_check#" &
      "accessibility_check#" &
+     "alignment_check#" &
      "discriminant_check#" &
      "division_check#" &
      "elaboration_check#" &
@@ -564,6 +578,7 @@ package body Snames is
      "range_check#" &
      "storage_check#" &
      "tag_check#" &
+     "validity_check#" &
      "all_checks#" &
      "abort#" &
      "abs#" &
@@ -655,10 +670,13 @@ package body Snames is
      "ada_roots#" &
      "archive_builder#" &
      "archive_indexer#" &
+     "archive_suffix#" &
      "binder#" &
      "binder_driver#" &
+     "binder_prefix#" &
      "body_suffix#" &
      "builder#" &
+     "builder_switches#" &
      "compiler#" &
      "compiler_driver#" &
      "compiler_kind#" &
@@ -675,6 +693,7 @@ package body Snames is
      "default_global_compiler_switches#" &
      "default_language#" &
      "default_linker#" &
+     "default_minimum_linker_options#" &
      "default_switches#" &
      "dependency_file_kind#" &
      "dependency_option#" &
@@ -686,6 +705,7 @@ package body Snames is
      "finder#" &
      "global_compiler_switches#" &
      "global_configuration_pragmas#" &
+     "global_config_file#" &
      "gnatls#" &
      "gnatstub#" &
      "implementation#" &
@@ -698,32 +718,50 @@ package body Snames is
      "language_processing#" &
      "languages#" &
      "library_ali_dir#" &
-     "library_dir#" &
      "library_auto_init#" &
+     "library_auto_init_supported#" &
+     "library_builder#" &
+     "library_dir#" &
      "library_gcc#" &
      "library_interface#" &
      "library_kind#" &
      "library_name#" &
+     "library_major_minor_id_supported#" &
      "library_options#" &
+     "library_partial_linker#" &
      "library_reference_symbol_file#" &
      "library_src_dir#" &
+     "library_support#" &
      "library_symbol_file#" &
      "library_symbol_policy#" &
      "library_version#" &
+     "library_version_options#" &
      "linker#" &
      "linker_executable_option#" &
      "linker_lib_dir_option#" &
      "linker_lib_name_option#" &
+     "local_config_file#" &
      "local_configuration_pragmas#" &
      "locally_removed_files#" &
      "mapping_file_switches#" &
+     "mapping_spec_suffix#" &
+     "mapping_body_suffix#" &
      "metrics#" &
+     "minimum_binder_options#" &
+     "minimum_compiler_options#" &
+     "minimum_linker_options#" &
      "naming#" &
+     "objects_path#" &
+     "objects_path_file#" &
      "object_dir#" &
      "pretty_printer#" &
      "project#" &
      "roots#" &
+     "run_path_option#" &
      "runtime_project#" &
+     "shared_library_minimum_options#" &
+     "shared_library_prefix#" &
+     "shared_library_suffix#" &
      "separate_suffix#" &
      "source_dirs#" &
      "source_files#" &
@@ -733,7 +771,11 @@ package body Snames is
      "specification#" &
      "specification_exceptions#" &
      "specification_suffix#" &
+     "stack#" &
      "switches#" &
+     "symbolic_link_supported#" &
+     "toolchain_description#" &
+     "toolchain_version#" &
      "unaligned_valid#" &
      "interface#" &
      "overriding#" &
@@ -830,6 +872,7 @@ package body Snames is
          when Name_Ada        => return Convention_Ada;
          when Name_Assembler  => return Convention_Assembler;
          when Name_C          => return Convention_C;
+         when Name_CIL        => return Convention_CIL;
          when Name_COBOL      => return Convention_COBOL;
          when Name_CPP        => return Convention_CPP;
          when Name_Fortran    => return Convention_Fortran;
@@ -852,6 +895,29 @@ package body Snames is
       end case;
    end Get_Convention_Id;
 
+   -------------------------
+   -- Get_Convention_Name --
+   -------------------------
+
+   function Get_Convention_Name (C : Convention_Id) return Name_Id is
+   begin
+      case C is
+         when Convention_Ada       => return Name_Ada;
+         when Convention_Assembler => return Name_Assembler;
+         when Convention_C         => return Name_C;
+         when Convention_CIL       => return Name_CIL;
+         when Convention_COBOL     => return Name_COBOL;
+         when Convention_CPP       => return Name_CPP;
+         when Convention_Entry     => return Name_Entry;
+         when Convention_Fortran   => return Name_Fortran;
+         when Convention_Intrinsic => return Name_Intrinsic;
+         when Convention_Java      => return Name_Java;
+         when Convention_Protected => return Name_Protected;
+         when Convention_Stdcall   => return Name_Stdcall;
+         when Convention_Stubbed   => return Name_Stubbed;
+      end case;
+   end Get_Convention_Name;
+
    ---------------------------
    -- Get_Locking_Policy_Id --
    ---------------------------
@@ -871,6 +937,8 @@ package body Snames is
          return Pragma_AST_Entry;
       elsif N = Name_Interface then
          return Pragma_Interface;
+      elsif N = Name_Priority then
+         return Pragma_Priority;
       elsif N = Name_Storage_Size then
          return Pragma_Storage_Size;
       elsif N = Name_Storage_Unit then
@@ -943,14 +1011,16 @@ package body Snames is
 
       Convention_Identifiers.Init;
 
-      Convention_Identifiers.Append ((Name_Asm,      Convention_Assembler));
-      Convention_Identifiers.Append ((Name_Assembly, Convention_Assembler));
+      Convention_Identifiers.Append ((Name_Asm,         Convention_Assembler));
+      Convention_Identifiers.Append ((Name_Assembly,    Convention_Assembler));
 
-      Convention_Identifiers.Append ((Name_Default,  Convention_C));
-      Convention_Identifiers.Append ((Name_External, Convention_C));
+      Convention_Identifiers.Append ((Name_Default,     Convention_C));
+      Convention_Identifiers.Append ((Name_External,    Convention_C));
 
-      Convention_Identifiers.Append ((Name_DLL,      Convention_Stdcall));
-      Convention_Identifiers.Append ((Name_Win32,    Convention_Stdcall));
+      Convention_Identifiers.Append ((Name_C_Plus_Plus, Convention_CPP));
+
+      Convention_Identifiers.Append ((Name_DLL,         Convention_Stdcall));
+      Convention_Identifiers.Append ((Name_Win32,       Convention_Stdcall));
    end Initialize;
 
    -----------------------
@@ -1057,6 +1127,7 @@ package body Snames is
       return N in First_Pragma_Name .. Last_Pragma_Name
         or else N = Name_AST_Entry
         or else N = Name_Interface
+        or else N = Name_Priority
         or else N = Name_Storage_Size
         or else N = Name_Storage_Unit;
    end Is_Pragma_Name;

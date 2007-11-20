@@ -1,6 +1,7 @@
 // ostream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+// 2006, 2007
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -42,7 +43,7 @@
 
 #pragma GCC system_header
 
-#include <locale>
+#include <cxxabi-forced.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
@@ -62,41 +63,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     }
 
   template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(__ostream_type& (*__pf)(__ostream_type&))
-    {
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // DR 60. What is a formatted input function?
-      // The inserters for manipulators are *not* formatted output functions.
-      return __pf(*this);
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(__ios_type& (*__pf)(__ios_type&))
-    {
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // DR 60. What is a formatted input function?
-      // The inserters for manipulators are *not* formatted output functions.
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(ios_base& (*__pf)(ios_base&))
-    {
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // DR 60. What is a formatted input function?
-      // The inserters for manipulators are *not* formatted output functions.
-      __pf(*this);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
     template<typename _ValueT>
       basic_ostream<_CharT, _Traits>&
       basic_ostream<_CharT, _Traits>::
@@ -111,6 +77,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		const __num_put_type& __np = __check_facet(this->_M_num_put);
 		if (__np.put(*this, *this, this->fill(), __v).failed())
 		  __err |= ios_base::badbit;
+	      }
+	    catch(__cxxabiv1::__forced_unwind&)
+	      {
+		this->_M_setstate(ios_base::badbit);		
+		__throw_exception_again;
 	      }
 	    catch(...)
 	      { this->_M_setstate(ios_base::badbit); }
@@ -162,6 +133,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (!__copy_streambufs(__sbin, this->rdbuf()))
 		__err |= ios_base::failbit;
 	    }
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);		
+	      __throw_exception_again;
+	    }
 	  catch(...)
 	    { this->_M_setstate(ios_base::failbit); }
 	}
@@ -193,7 +169,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (traits_type::eq_int_type(__put, traits_type::eof()))
 		__err |= ios_base::badbit;
 	    }
-	  catch (...)
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);		
+	      __throw_exception_again;
+	    }
+	  catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -218,7 +199,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  try
 	    { _M_write(__s, __n); }
-	  catch (...)
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);		
+	      __throw_exception_again;
+	    }
+	  catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	}
       return *this;
@@ -238,6 +224,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  if (this->rdbuf() && this->rdbuf()->pubsync() == -1)
 	    __err |= ios_base::badbit;
 	}
+      catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);		
+	  __throw_exception_again;
+	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
       if (__err)
@@ -255,6 +246,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  if (!this->fail())
 	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::out);
+	}
+      catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);		
+	  __throw_exception_again;
 	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
@@ -280,6 +276,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (__p == pos_type(off_type(-1)))
 		__err |= ios_base::failbit;
 	    }
+	}
+      catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);		
+	  __throw_exception_again;
 	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
@@ -308,6 +309,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		__err |= ios_base::failbit;
 	    }
 	}
+      catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);		
+	  __throw_exception_again;
+	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
       if (__err)
@@ -315,208 +321,39 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       return *this;
     }
 
-  // 27.6.2.5.4 Character inserters.
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    operator<<(basic_ostream<_CharT, _Traits>& __out, _CharT __c)
-    {
-      typedef basic_ostream<_CharT, _Traits> __ostream_type;
-      typename __ostream_type::sentry __cerb(__out);
-      if (__cerb)
-	{
-	  try
-	    {
-	      const streamsize __w = __out.width();
-	      streamsize __len = 1;
-	      _CharT* __cs = &__c;
-	      if (__w > __len)
-		{
-		  __cs = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT)
-							       * __w));
-		  __pad<_CharT, _Traits>::_S_pad(__out, __out.fill(), __cs,
-						 &__c, __w, __len, false);
-		  __len = __w;
-		}
-	      __out._M_write(__cs, __len);
-	      __out.width(0);
-	    }
-	  catch(...)
-	    { __out._M_setstate(ios_base::badbit); }
-	}
-      return __out;
-    }
-
-  // Specializations.
-  template <class _Traits>
-    basic_ostream<char, _Traits>&
-    operator<<(basic_ostream<char, _Traits>& __out, char __c)
-    {
-      typedef basic_ostream<char, _Traits> __ostream_type;
-      typename __ostream_type::sentry __cerb(__out);
-      if (__cerb)
-	{
-	  try
-	    {
-	      const streamsize __w = __out.width();
-	      streamsize __len = 1;
-	      char* __cs = &__c;
-	      if (__w > __len)
-		{
-		  __cs = static_cast<char*>(__builtin_alloca(__w));
-		  __pad<char, _Traits>::_S_pad(__out, __out.fill(), __cs,
-					       &__c, __w, __len, false);
-		  __len = __w;
-		}
-	      __out._M_write(__cs, __len);
-	      __out.width(0);
-	    }
-	  catch(...)
-	    { __out._M_setstate(ios_base::badbit); }
-	}
-      return __out;
-     }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    operator<<(basic_ostream<_CharT, _Traits>& __out, const _CharT* __s)
-    {
-      typedef basic_ostream<_CharT, _Traits> __ostream_type;
-      typename __ostream_type::sentry __cerb(__out);
-      if (__cerb && __s)
-	{
-	  try
-	    {
-	      const streamsize __w = __out.width();
-	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
-	      if (__w > __len)
-		{
-		  _CharT* __cs = (static_cast<
-				  _CharT*>(__builtin_alloca(sizeof(_CharT)
-							    * __w)));
-		  __pad<_CharT, _Traits>::_S_pad(__out, __out.fill(), __cs,
-						 __s, __w, __len, false);
-		  __s = __cs;
-		  __len = __w;
-		}
-	      __out._M_write(__s, __len);
-	      __out.width(0);
-	    }
-	  catch(...)
-	    { __out._M_setstate(ios_base::badbit); }
-	}
-      else if (!__s)
-	__out.setstate(ios_base::badbit);
-      return __out;
-    }
-
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __out, const char* __s)
     {
-      typedef basic_ostream<_CharT, _Traits> __ostream_type;
-      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-      // 167.  Improper use of traits_type::length()
-      // Note that this is only in 'Review' status.
-      typedef char_traits<char>		     __traits_type;
-      typename __ostream_type::sentry __cerb(__out);
-      if (__cerb && __s)
+      if (!__s)
+	__out.setstate(ios_base::badbit);
+      else
 	{
-	  _CharT* __ws = 0;
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 167.  Improper use of traits_type::length()
+	  const size_t __clen = char_traits<char>::length(__s);
 	  try
 	    {
-	      const size_t __clen = __traits_type::length(__s);
-	      __ws = new _CharT[__clen];
+	      struct __ptr_guard
+	      {
+		_CharT *__p;
+		__ptr_guard (_CharT *__ip): __p(__ip) { }
+		~__ptr_guard() { delete[] __p; }
+		_CharT* __get() { return __p; }
+	      } __pg (new _CharT[__clen]);
+
+	      _CharT *__ws = __pg.__get();
 	      for (size_t  __i = 0; __i < __clen; ++__i)
 		__ws[__i] = __out.widen(__s[__i]);
-	      _CharT* __str = __ws;
-	      
-	      const streamsize __w = __out.width();
-	      streamsize __len = static_cast<streamsize>(__clen);
-	      if (__w > __len)
-		{
-		  _CharT* __cs = (static_cast<
-				  _CharT*>(__builtin_alloca(sizeof(_CharT)
-							    * __w)));
-		  __pad<_CharT, _Traits>::_S_pad(__out, __out.fill(), __cs,
-						 __ws, __w, __len, false);
-		  __str = __cs;
-		  __len = __w;
-		}
-	      __out._M_write(__str, __len);
-	      __out.width(0);
-
-	      delete [] __ws;
+	      __ostream_insert(__out, __ws, __clen);
 	    }
-	  catch(...)
+	  catch(__cxxabiv1::__forced_unwind&)
 	    {
-	      delete [] __ws;
 	      __out._M_setstate(ios_base::badbit);
-	    }
-	}
-      else if (!__s)
-	__out.setstate(ios_base::badbit);
-      return __out;
-    }
-
-  // Partial specializations.
-  template<class _Traits>
-    basic_ostream<char, _Traits>&
-    operator<<(basic_ostream<char, _Traits>& __out, const char* __s)
-    {
-      typedef basic_ostream<char, _Traits> __ostream_type;
-      typename __ostream_type::sentry __cerb(__out);
-      if (__cerb && __s)
-	{
-	  try
-	    {
-	      const streamsize __w = __out.width();
-	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
-	      if (__w > __len)
-		{
-		  char* __cs = static_cast<char*>(__builtin_alloca(__w));
-		  __pad<char, _Traits>::_S_pad(__out, __out.fill(), __cs,
-						 __s, __w, __len, false);
-		  __s = __cs;
-		  __len = __w;
-		}
-	      __out._M_write(__s, __len);
-	      __out.width(0);
+	      __throw_exception_again;
 	    }
 	  catch(...)
 	    { __out._M_setstate(ios_base::badbit); }
-	}
-      else if (!__s)
-	__out.setstate(ios_base::badbit);
-      return __out;
-    }
-
-  // 21.3.7.9 basic_string::operator<<
-  template<typename _CharT, typename _Traits, typename _Alloc>
-    basic_ostream<_CharT, _Traits>&
-    operator<<(basic_ostream<_CharT, _Traits>& __out,
-	       const basic_string<_CharT, _Traits, _Alloc>& __str)
-    {
-      typedef basic_ostream<_CharT, _Traits> __ostream_type;
-      typename __ostream_type::sentry __cerb(__out);
-      if (__cerb)
-	{
-	  const streamsize __w = __out.width();
-	  streamsize __len = static_cast<streamsize>(__str.size());
-	  const _CharT* __s = __str.data();
-
-	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	  // 25. String operator<< uses width() value wrong
-	  if (__w > __len)
-	    {
-	      _CharT* __cs = (static_cast<
-			      _CharT*>(__builtin_alloca(sizeof(_CharT) * __w)));
-	      __pad<_CharT, _Traits>::_S_pad(__out, __out.fill(), __cs, __s,
-					     __w, __len, false);
-	      __s = __cs;
-	      __len = __w;
-	    }
-	  __out._M_write(__s, __len);
-	  __out.width(0);
 	}
       return __out;
     }
@@ -536,6 +373,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template ostream& operator<<(ostream&, const unsigned char*);
   extern template ostream& operator<<(ostream&, const signed char*);
 
+  extern template ostream& ostream::_M_insert(long);
+  extern template ostream& ostream::_M_insert(unsigned long);
+  extern template ostream& ostream::_M_insert(bool);
+#ifdef _GLIBCXX_USE_LONG_LONG
+  extern template ostream& ostream::_M_insert(long long);
+  extern template ostream& ostream::_M_insert(unsigned long long);
+#endif
+  extern template ostream& ostream::_M_insert(double);
+  extern template ostream& ostream::_M_insert(long double);
+  extern template ostream& ostream::_M_insert(const void*);
+
 #ifdef _GLIBCXX_USE_WCHAR_T
   extern template class basic_ostream<wchar_t>;
   extern template wostream& endl(wostream&);
@@ -545,6 +393,17 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   extern template wostream& operator<<(wostream&, char);
   extern template wostream& operator<<(wostream&, const wchar_t*);
   extern template wostream& operator<<(wostream&, const char*);
+
+  extern template wostream& wostream::_M_insert(long);
+  extern template wostream& wostream::_M_insert(unsigned long);
+  extern template wostream& wostream::_M_insert(bool);
+#ifdef _GLIBCXX_USE_LONG_LONG
+  extern template wostream& wostream::_M_insert(long long);
+  extern template wostream& wostream::_M_insert(unsigned long long);
+#endif
+  extern template wostream& wostream::_M_insert(double);
+  extern template wostream& wostream::_M_insert(long double);
+  extern template wostream& wostream::_M_insert(const void*);
 #endif
 #endif
 

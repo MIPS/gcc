@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,13 +26,13 @@
 
 with Ada.Unchecked_Deallocation;
 
-with GNAT.Case_Util; use GNAT.Case_Util;
+with System.Case_Util; use System.Case_Util;
 
-with Namet;    use Namet;
 with Osint;    use Osint;
 with Output;   use Output;
 with Prj.Com;
 with Snames;   use Snames;
+with Targparm; use Targparm;
 
 package body Prj.Util is
 
@@ -76,9 +76,9 @@ package body Prj.Util is
    function Executable_Of
      (Project  : Project_Id;
       In_Tree  : Project_Tree_Ref;
-      Main     : Name_Id;
+      Main     : File_Name_Type;
       Index    : Int;
-      Ada_Main : Boolean := True) return Name_Id
+      Ada_Main : Boolean := True) return File_Name_Type
    is
       pragma Assert (Project /= No_Project);
 
@@ -93,20 +93,13 @@ package body Prj.Util is
 
       Executable : Variable_Value :=
                      Prj.Util.Value_Of
-                       (Name                    => Main,
+                       (Name                    => Name_Id (Main),
                         Index                   => Index,
                         Attribute_Or_Array_Name => Name_Executable,
                         In_Package              => Builder_Package,
                         In_Tree                 => In_Tree);
 
-      Executable_Suffix : constant Variable_Value :=
-                            Prj.Util.Value_Of
-                              (Name                    => Main,
-                               Index                   => 0,
-                               Attribute_Or_Array_Name =>
-                                 Name_Executable_Suffix,
-                               In_Package              => Builder_Package,
-                               In_Tree                 => In_Tree);
+      Executable_Suffix : Variable_Value := Nil_Variable_Value;
 
       Body_Append : constant String := Get_Name_String
                                           (In_Tree.Projects.Table
@@ -120,6 +113,12 @@ package body Prj.Util is
 
    begin
       if Builder_Package /= No_Package then
+         Executable_Suffix := Prj.Util.Value_Of
+           (Variable_Name => Name_Executable_Suffix,
+            In_Variables  => In_Tree.Packages.Table
+              (Builder_Package).Decl.Attributes,
+            In_Tree       => In_Tree);
+
          if Executable = Nil_Variable_Value and Ada_Main then
             Get_Name_String (Main);
 
@@ -179,39 +178,22 @@ package body Prj.Util is
          if Executable /= Nil_Variable_Value
            and then Executable.Value /= Empty_Name
          then
+            --  Get the executable name. If Executable_Suffix is defined,
+            --  make sure that it will be the extension of the executable.
+
             declare
-               Exec_Suffix : String_Access := Get_Executable_Suffix;
-               Result      : Name_Id := Executable.Value;
+               Saved_EEOT : constant Name_Id := Executable_Extension_On_Target;
+               Result     : File_Name_Type;
 
             begin
-               if Exec_Suffix'Length /= 0 then
-                  Get_Name_String (Executable.Value);
-                  Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
-
-                  --  If the Executable does not end with the executable
-                  --  suffix, add it.
-
-                  if Name_Len <= Exec_Suffix'Length
-                    or else
-                      Name_Buffer
-                        (Name_Len - Exec_Suffix'Length + 1 .. Name_Len) /=
-                                                               Exec_Suffix.all
-                  then
-                     --  Get the original Executable to keep the correct
-                     --  case for systems where file names are case
-                     --  insensitive (Windows).
-
-                     Get_Name_String (Executable.Value);
-                     Name_Buffer
-                       (Name_Len + 1 .. Name_Len + Exec_Suffix'Length) :=
-                       Exec_Suffix.all;
-                     Name_Len := Name_Len + Exec_Suffix'Length;
-                     Result := Name_Find;
-                  end if;
-
-                  Free (Exec_Suffix);
+               if Executable_Suffix /= Nil_Variable_Value
+                 and then not Executable_Suffix.Default
+               then
+                  Executable_Extension_On_Target := Executable_Suffix.Value;
                end if;
 
+               Result := Executable_Name (File_Name_Type (Executable.Value));
+               Executable_Extension_On_Target := Saved_EEOT;
                return Result;
             end;
          end if;
@@ -365,7 +347,7 @@ package body Prj.Util is
       File_Name (1 .. Name'Length) := Name;
       File_Name (File_Name'Last) := ASCII.NUL;
       FD := Open_Read (Name => File_Name'Address,
-                            Fmode => GNAT.OS_Lib.Text);
+                       Fmode => GNAT.OS_Lib.Text);
       if FD = Invalid_FD then
          File := null;
       else

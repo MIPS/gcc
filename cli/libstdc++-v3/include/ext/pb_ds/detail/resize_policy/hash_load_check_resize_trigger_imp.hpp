@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -44,69 +44,66 @@
  * Contains a resize trigger implementation.
  */
 
-#define PB_DS_STATIC_ASSERT(UNIQUE, E) \
-  typedef detail::static_assert_dumclass<sizeof(detail::static_assert<(bool)(E)>)> UNIQUE##static_assert_type
-
 PB_DS_CLASS_T_DEC
 PB_DS_CLASS_C_DEC::
 hash_load_check_resize_trigger(float load_min, float load_max) 
 : m_load_min(load_min), m_load_max(load_max), m_next_shrink_size(0),
   m_next_grow_size(0), m_resize_needed(false)
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_find_search_start()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_find_search_collision()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_find_search_end()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_insert_search_start()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_insert_search_collision()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_insert_search_end()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_erase_search_start()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_erase_search_collision()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
 PB_DS_CLASS_C_DEC::
 notify_erase_search_end()
-{ PB_DS_DBG_ONLY(assert_valid();) }
+{ _GLIBCXX_DEBUG_ONLY(assert_valid();) }
 
 PB_DS_CLASS_T_DEC
 inline void
@@ -115,7 +112,7 @@ notify_inserted(size_type num_entries)
 {
   m_resize_needed = (num_entries >= m_next_grow_size);
   size_base::set_size(num_entries);
-  PB_DS_DBG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
 }
 
 PB_DS_CLASS_T_DEC
@@ -125,7 +122,7 @@ notify_erased(size_type num_entries)
 {
   size_base::set_size(num_entries);
   m_resize_needed = num_entries <= m_next_shrink_size;
-  PB_DS_DBG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
 }
 
 PB_DS_CLASS_T_DEC
@@ -133,7 +130,7 @@ inline bool
 PB_DS_CLASS_C_DEC::
 is_resize_needed() const
 {
-  PB_DS_DBG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
   return m_resize_needed;
 }
 
@@ -142,7 +139,7 @@ inline bool
 PB_DS_CLASS_C_DEC::
 is_grow_needed(size_type /*size*/, size_type num_entries) const
 {
-  PB_DS_DBG_ASSERT(m_resize_needed);
+  _GLIBCXX_DEBUG_ASSERT(m_resize_needed);
   return num_entries >= m_next_grow_size;
 }
 
@@ -168,7 +165,7 @@ notify_resized(size_type new_size)
     static_cast<unsigned long>(m_next_grow_size) << "    " << std::endl;
 #endif 
 
-  PB_DS_DBG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
 }
 
 PB_DS_CLASS_T_DEC
@@ -181,9 +178,9 @@ notify_externally_resized(size_type new_size)
   size_type new_shrink_size = size_type(m_load_min * new_size );
   if (new_grow_size >= m_next_grow_size)
     {
-      PB_DS_DBG_ASSERT(new_shrink_size > m_next_shrink_size);
+      _GLIBCXX_DEBUG_ASSERT(new_shrink_size > m_next_shrink_size);
       m_next_grow_size = new_grow_size;
-      PB_DS_DBG_ONLY(assert_valid();)
+      _GLIBCXX_DEBUG_ONLY(assert_valid();)
 
 #ifdef PB_DS_HT_MAP_RESIZE_TRACE_
 	std::cerr << "hlcrt::notify_externally_resized1 " <<
@@ -196,7 +193,7 @@ notify_externally_resized(size_type new_size)
       return;
     }
 
-  PB_DS_DBG_ASSERT(new_shrink_size <= m_next_shrink_size);
+  _GLIBCXX_DEBUG_ASSERT(new_shrink_size <= m_next_shrink_size);
   m_next_shrink_size = new_shrink_size;
 
 #ifdef PB_DS_HT_MAP_RESIZE_TRACE_
@@ -208,7 +205,7 @@ notify_externally_resized(size_type new_size)
     static_cast<unsigned long>(m_next_grow_size) << "    " << std::endl;
 #endif 
 
-  PB_DS_DBG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
 }
 
 PB_DS_CLASS_T_DEC
@@ -216,10 +213,10 @@ void
 PB_DS_CLASS_C_DEC::
 notify_cleared()
 {
-  PB_DS_DBG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
   size_base::set_size(0);
   m_resize_needed = (0 < m_next_shrink_size);
-  PB_DS_DBG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
 }
 
 PB_DS_CLASS_T_DEC
@@ -227,8 +224,8 @@ void
 PB_DS_CLASS_C_DEC::
 swap(PB_DS_CLASS_C_DEC& other)
 {
-  PB_DS_DBG_ONLY(assert_valid();)
-  PB_DS_DBG_ONLY(other.assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(other.assert_valid();)
     
   size_base::swap(other);
   std::swap(m_load_min, other.m_load_min);
@@ -237,8 +234,8 @@ swap(PB_DS_CLASS_C_DEC& other)
   std::swap(m_next_grow_size, other.m_next_grow_size);
   std::swap(m_next_shrink_size, other.m_next_shrink_size);
 
-  PB_DS_DBG_ONLY(assert_valid();)
-  PB_DS_DBG_ONLY(other.assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(assert_valid();)
+  _GLIBCXX_DEBUG_ONLY(other.assert_valid();)
 }
 
 PB_DS_CLASS_T_DEC
@@ -268,14 +265,14 @@ set_loads(std::pair<float, float> load_pair)
       m_load_max = load_pair.second;
       do_resize(static_cast<size_type>(size_base::get_size() / ((m_load_min + m_load_max) / 2)));
     }
-  catch (...)
+  catch(...)
     {
       m_load_min = old_load_min;
       m_load_max = old_load_max;
       m_next_shrink_size = old_next_shrink_size;
       m_next_grow_size = old_next_grow_size;
       m_resize_needed = old_resize_needed;
-      throw;
+      __throw_exception_again;
     }
 }
 
@@ -283,18 +280,16 @@ PB_DS_CLASS_T_DEC
 void
 PB_DS_CLASS_C_DEC::
 do_resize(size_type)
-{ abort(); }
+{ std::abort(); }
 
-#ifdef PB_DS_HASH_POLICY_DEBUG
+#ifdef _GLIBCXX_DEBUG
 PB_DS_CLASS_T_DEC
 void
 PB_DS_CLASS_C_DEC::
 assert_valid() const
 {
-  PB_DS_DBG_ASSERT(m_load_max > m_load_min);
-  PB_DS_DBG_ASSERT(m_next_grow_size >= m_next_shrink_size);
+  _GLIBCXX_DEBUG_ASSERT(m_load_max > m_load_min);
+  _GLIBCXX_DEBUG_ASSERT(m_next_grow_size >= m_next_shrink_size);
 }
 #endif 
-
-#undef PB_DS_STATIC_ASSERT
 

@@ -1,11 +1,12 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_LANG_HOOKS_H
 #define GCC_LANG_HOOKS_H
@@ -40,13 +40,8 @@ struct lang_hooks_for_tree_inlining
 			 void *, struct pointer_set_t*);
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
-  tree (*add_pending_fn_decls) (void *, tree);
   int (*auto_var_in_fn_p) (tree, tree);
-  int (*anon_aggr_type_p) (tree);
   bool (*var_mod_type_p) (tree, tree);
-  int (*start_inlining) (tree);
-  void (*end_inlining) (tree);
-  tree (*convert_parm_for_inlining) (tree, tree, tree, int);
 };
 
 struct lang_hooks_for_callgraph
@@ -107,17 +102,9 @@ struct lang_hooks_for_types
      integer type with at least that precision.  */
   tree (*type_for_size) (unsigned, int);
 
-  /* Given an integer type T, return a type like T but unsigned.
-     If T is unsigned, the value is T.  */
-  tree (*unsigned_type) (tree);
-
-  /* Given an integer type T, return a type like T but signed.
-     If T is signed, the value is T.  */
-  tree (*signed_type) (tree);
-
-  /* Return a type the same as TYPE except unsigned or signed
-     according to UNSIGNEDP.  */
-  tree (*signed_or_unsigned_type) (int, tree);
+  /* True if the type is an instantiation of a generic type,
+     e.g. C++ template implicit specializations.  */
+  bool (*generic_p) (tree);
 
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
@@ -183,9 +170,6 @@ struct lang_hooks_for_decls
   /* Obtain a list of globals and do final output on them at end
      of compilation */
   void (*final_write_globals) (void);
-
-  /* Do necessary preparations before assemble_variable can proceed.  */
-  void (*prepare_assemble_variable) (tree);
 
   /* True if this decl may be called via a sibcall.  */
   bool (*ok_for_sibcall) (tree);
@@ -315,15 +299,6 @@ struct lang_hooks
      1 if handled, 0 otherwise.  */
   int (*expand_decl) (tree);
 
-  /* Hook called by safe_from_p for language-specific tree codes.  It is
-     up to the language front-end to install a hook if it has any such
-     codes that safe_from_p needs to know about.  Since same_from_p will
-     recursively explore the TREE_OPERANDs of an expression, this hook
-     should not reexamine those pieces.  This routine may recursively
-     call safe_from_p; it should always pass `0' as the TOP_P
-     parameter.  */
-  int (*safe_from_p) (rtx, tree);
-
   /* Function to finish handling an incomplete decl at the end of
      compilation.  Default hook is does nothing.  */
   void (*finish_incomplete_decl) (tree);
@@ -346,10 +321,6 @@ struct lang_hooks
      Otherwise, set it to the ERROR_MARK_NODE to ensure that the
      assembler does not talk about it.  */
   void (*set_decl_assembler_name) (tree);
-
-  /* Return nonzero if fold-const is free to use bit-field
-     optimizations, for instance in fold_truthop().  */
-  bool (*can_use_bit_fields_p) (void);
 
   /* Nonzero if operations on types narrower than their mode should
      have their results reduced to the precision of the type.  */
@@ -443,17 +414,8 @@ struct lang_hooks
      KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
   tree (*fold_obj_type_ref) (tree, tree);
 
-  /* Return a definition for a builtin function named NAME and whose data type
-     is TYPE.  TYPE should be a function type with argument types.
-     FUNCTION_CODE tells later passes how to compile calls to this function.
-     See tree.h for its possible values.
-
-     If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-     the name to be called if we can't opencode the function.  If
-     ATTRS is nonzero, use that for the function's attribute list.  */
-  tree (*builtin_function) (const char *name, tree type, int function_code,
-			    enum built_in_class bt_class,
-			    const char *library_name, tree attrs);
+  /* Do language specific processing in the builtin function DECL  */
+  tree (*builtin_function) (tree decl);
 
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);
@@ -470,5 +432,9 @@ struct lang_hooks
 
 /* Each front end provides its own.  */
 extern const struct lang_hooks lang_hooks;
+extern tree add_builtin_function (const char *name, tree type,
+				  int function_code, enum built_in_class cl,
+				  const char *library_name,
+				  tree attrs);
 
 #endif /* GCC_LANG_HOOKS_H */

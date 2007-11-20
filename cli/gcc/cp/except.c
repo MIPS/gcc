@@ -99,7 +99,7 @@ cp_protect_cleanup_actions (void)
 
      When the destruction of an object during stack unwinding exits
      using an exception ... void terminate(); is called.  */
-  return build_call (terminate_node, NULL_TREE);
+  return build_call_n (terminate_node, 0);
 }
 
 static tree
@@ -426,8 +426,9 @@ expand_start_catch_block (tree decl)
 	 generic exception header.  */
       exp = build_exc_ptr ();
       exp = build1 (NOP_EXPR, build_pointer_type (type), exp);
-      exp = build2 (MINUS_EXPR, TREE_TYPE (exp), exp,
-		    TYPE_SIZE_UNIT (TREE_TYPE (exp)));
+      exp = build2 (POINTER_PLUS_EXPR, TREE_TYPE (exp), exp,
+		    fold_build1 (NEGATE_EXPR, sizetype,
+			 	 TYPE_SIZE_UNIT (TREE_TYPE (exp))));
       exp = build_indirect_ref (exp, NULL);
       initialize_handler_parm (decl, exp);
       return type;
@@ -458,7 +459,14 @@ expand_start_catch_block (tree decl)
   else
     {
       tree init = do_begin_catch ();
-      exp = create_temporary_var (ptr_type_node);
+      tree init_type = type;
+
+      /* Pointers are passed by values, everything else by reference.  */
+      if (!TYPE_PTR_P (type))
+	init_type = build_pointer_type (type);
+      if (init_type != TREE_TYPE (init))
+	init = build1 (NOP_EXPR, init_type, init);
+      exp = create_temporary_var (init_type);
       DECL_REGISTER (exp) = 1;
       cp_finish_decl (exp, init, /*init_const_expr=*/false,
 		      NULL_TREE, LOOKUP_ONLYCONVERTING);
@@ -598,7 +606,8 @@ build_throw (tree exp)
 
   if (processing_template_decl)
     {
-      current_function_returns_abnormally = 1;
+      if (cfun)
+	current_function_returns_abnormally = 1;
       return build_min (THROW_EXPR, void_type_node, exp);
     }
 
@@ -701,12 +710,25 @@ build_throw (tree exp)
       /* And initialize the exception object.  */
       if (CLASS_TYPE_P (temp_type))
 	{
+	  int flags = LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING;
+
+	  /* Under C++0x [12.8/16 class.copy], a thrown lvalue is sometimes
+	     treated as an rvalue for the purposes of overload resolution
+	     to favor move constructors over copy constructors.  */
+	  if (/* Must be a local, automatic variable.  */
+	      TREE_CODE (exp) == VAR_DECL
+	      && DECL_CONTEXT (exp) == current_function_decl
+	      && ! TREE_STATIC (exp)
+	      /* The variable must not have the `volatile' qualifier.  */
+	      && !(cp_type_quals (TREE_TYPE (exp)) & TYPE_QUAL_VOLATILE))
+	    flags = flags | LOOKUP_PREFER_RVALUE;
+
 	  /* Call the copy constructor.  */
 	  exp = (build_special_member_call
 		 (object, complete_ctor_identifier,
 		  build_tree_list (NULL_TREE, exp),
 		  TREE_TYPE (object),
-		  LOOKUP_NORMAL | LOOKUP_ONLYCONVERTING));
+		  flags));
 	  if (exp == error_mark_node)
 	    {
 	      error ("  in thrown expression");
