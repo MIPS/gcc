@@ -2090,7 +2090,20 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 	  DECL_EXTERNAL (decl) = declaration;
 	  TREE_STATIC (decl) = 1;
 	  TREE_USED (decl) = 1;
-	  TREE_ADDRESSABLE (decl) = 1;
+	  DECL_COMDAT (decl) = 1;
+
+	  if (TYPE_QUALS (type) & TYPE_QUAL_CONST)
+	    TREE_READONLY (decl) = 1;
+
+	  if (!TREE_PUBLIC (decl))
+	    {
+	      /* Need to ensure static variables between different files
+		 don't clash unexpectedly.  */
+	      lang_hooks.set_decl_assembler_name (decl);
+	      rest_of_decl_compilation (decl,
+					/*top_level=*/1,
+					/*at_end=*/0);
+	    }
 
 	  /* If there is an initializer, read it now.  */
 	  if (!declaration)
@@ -2597,9 +2610,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 
 	      /* Check to see if this builtin matches this function's
 		 DIE.  Use the builtin decl if so.  */
-	      if (name == DECL_NAME (candidate)
-		  || (DECL_ASSEMBLER_NAME (candidate)
-		      && name == DECL_ASSEMBLER_NAME (candidate)))
+	      if (name == DECL_NAME (candidate))
 		{
 		  result = candidate;
 
@@ -2637,8 +2648,11 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
              resolved from the bodies of functions.  */
           lto_cache_store_DIE (fd, die, result);
 
-	  /* Save it for later.  */
-	  VEC_safe_push (tree, gc, fd->unmaterialized_fndecls, result);
+	  /* We want to read in its body from the LTO data only if we
+	     haven't already done so.  FIXME: we will need to handle
+	     multiple conflicting definitions one day... */
+	  if (!DECL_STRUCT_FUNCTION (result))
+	    VEC_safe_push (tree, gc, fd->unmaterialized_fndecls, result);
         }
     }
 

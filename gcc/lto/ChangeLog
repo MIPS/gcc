@@ -1,3 +1,22 @@
+2007-11-21  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Don't
+	set TREE_ADDRESSABLE.  Do set DECL_COMDAT.  Set TREE_READONLY if
+	the type is a constant type.  Set the assembler name and inform
+	the rest of the compiler about the new decl if the decl is not
+	public.
+	(lto_read_subroutine_type_subprogram_DIE): Don't check for equivalency
+	of DECL_ASSEMBLER_NAME when determining if we have a builtin.  Don't
+	try to read in function bodies for functions that already have bodies.
+	* lto-symtab.c (lto_same_type_p): Check for unbounded array
+	equivalency.
+	(lto_symtab_merge_decl): Don't merge decls that aren't TREE_PUBLIC.
+	Check for whether we matched a builtin function type before calling
+	lto_same_type_p on the generated type.  Permit cases where the
+	declaration of an array is unbounded, but the definition is bounded.
+	Don't combine TREE_PUBLIC flags.  Copy over DECL_SIZE and
+	DECL_SIZE_UNIT if necessary.
+
 2007-11-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-read.c (input_expr_operand): Get types right 

@@ -95,6 +95,13 @@ lto_same_type_p (tree type_1, tree type_2)
 	      tree min_2 = TYPE_MIN_VALUE (index_2);
 	      tree max_1 = TYPE_MAX_VALUE (index_1);
 	      tree max_2 = TYPE_MAX_VALUE (index_2);
+	      /* If the array types both have unspecified bounds, then
+		 MAX_{1,2} will be NULL_TREE.  */
+	      if (min_1 && min_2 && !max_1 && !max_2)
+		return (integer_zerop (min_1)
+			&& integer_zerop (min_2));
+	      /* Otherwise, we need the bounds to be fully
+		 specified.  */
 	      if (!min_1 || !min_2 || !max_1 || !max_2)
 		return false;
 	      if (TREE_CODE (min_1) != INTEGER_CST
@@ -236,6 +243,9 @@ lto_symtab_merge_decl (tree new_decl)
 
   gcc_assert (TREE_CODE (new_decl) == VAR_DECL
 	      || TREE_CODE (new_decl) == FUNCTION_DECL);
+  /* Variables with internal linkage do not need to be merged.  */
+  if (!TREE_PUBLIC (new_decl))
+    return new_decl;
 
   /* Check that declarations reaching this function do not have
      properties inconsistent with having external linkage.  If any of
@@ -290,8 +300,12 @@ lto_symtab_merge_decl (tree new_decl)
         {
           tree candidate = match_builtin_function_types (TREE_TYPE (new_decl),
                                                          TREE_TYPE (old_decl));
-          merged_type =
-            lto_same_type_p (candidate, TREE_TYPE (new_decl)) ? candidate : NULL_TREE;
+	  /* We don't really have source location information at this
+	     point, so the above matching was a bit of a gamble.  If we
+	     lose, then CANDIDATE will be NULL, so test for that.  */
+	  if (candidate)
+	    merged_type =
+	      lto_same_type_p (candidate, TREE_TYPE (new_decl)) ? candidate : NULL_TREE;
         }
 
       if (!merged_type)
@@ -312,9 +326,21 @@ lto_symtab_merge_decl (tree new_decl)
       || !tree_int_cst_equal (DECL_SIZE_UNIT (old_decl),
 			      DECL_SIZE_UNIT (new_decl)))
     {
-      error ("size of %qD does not match original declaration", 
-	     new_decl);
-      return error_mark_node;
+      /* Permit cases where we are declaring arrays and at least one of
+	 the decls is external and one of the decls has a size whereas
+	 the other one does not.  */
+      if (!((DECL_EXTERNAL (old_decl) || DECL_EXTERNAL (new_decl))
+	    && ((DECL_SIZE (old_decl) == NULL_TREE
+		 && DECL_SIZE (new_decl) != NULL_TREE)
+		|| (DECL_SIZE (new_decl) == NULL_TREE
+		    && DECL_SIZE (old_decl) != NULL_TREE))
+	    && TREE_CODE (TREE_TYPE (old_decl)) == ARRAY_TYPE
+	    && TREE_CODE (TREE_TYPE (new_decl)) == ARRAY_TYPE))
+	{
+	  error ("size of %qD does not match original declaration", 
+		 new_decl);
+	  return error_mark_node;
+	}
     }
   if (DECL_ALIGN (old_decl) != DECL_ALIGN (new_decl))
     {
@@ -376,7 +402,6 @@ lto_symtab_merge_decl (tree new_decl)
   TREE_READONLY (old_decl) |= TREE_READONLY (new_decl);
   TREE_INVARIANT (old_decl) |= TREE_INVARIANT (new_decl);
   DECL_EXTERNAL (old_decl) &= DECL_EXTERNAL (new_decl);
-  TREE_PUBLIC (old_decl) &= TREE_PUBLIC (new_decl);
     
   DECL_WEAK (old_decl) &= DECL_WEAK (new_decl);
   DECL_PRESERVE_P (old_decl) |= DECL_PRESERVE_P (new_decl);
@@ -388,6 +413,11 @@ lto_symtab_merge_decl (tree new_decl)
 	{
 	  gcc_assert (!DECL_INITIAL (old_decl));
 	  DECL_INITIAL (old_decl) = DECL_INITIAL (new_decl);
+	}
+      if (!DECL_SIZE (old_decl))
+	{
+	  DECL_SIZE (old_decl) = DECL_SIZE (new_decl);
+	  DECL_SIZE_UNIT (old_decl) = DECL_SIZE_UNIT (new_decl);
 	}
     }
   if (TREE_CODE (new_decl) == FUNCTION_DECL)

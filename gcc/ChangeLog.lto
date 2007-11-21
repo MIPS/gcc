@@ -1,3 +1,13 @@
+2007-11-21  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* dwarf2out.c (gen_subprogram_die): Inhibit generation of labels
+	if we are being called for LTO's purposes.
+	(gen_variable_die): Don't generate multiple DIEs for and equate
+	the generated DIE with the decl for global variables.
+	(force_decl_die): Don't play games with DECL_EXTERNAL if we are
+	forcing a DIE for a global variable.
+	(lto_typedecl_ref): Remove assert.
+
 2007-11-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (output_expr_operand): Get types right 
