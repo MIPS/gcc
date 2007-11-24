@@ -1,3 +1,22 @@
+2007-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34030
+	* gcc.c-torture/compile/pr34030.c: New testcase.
+
+2007-11-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/out-of-bounds-1.c: New test.
+
+2007-11-02  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28062
+	* gcc.c-torture/compile/20071102-1.c: New test.
+
+2007-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33744
+	* g++.dg/template/arg6.C: New test.
+
 2007-09-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/format/c90-scanf-5.c: New test.
