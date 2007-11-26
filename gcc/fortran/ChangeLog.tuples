@@ -1,3 +1,8 @@
+2007-11-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* trans-expr.c (gfc_trans_string_copy): Use "void *" when building a
+	memset.
+
 2007-11-10  Aldy Hernandez  <aldyh@redhat.com>
 
 	* Make-lang.in (fortran-warn): Set to -Wno-format.
