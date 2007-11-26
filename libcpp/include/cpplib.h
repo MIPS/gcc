@@ -566,8 +566,9 @@ enum builtin_type
   BT_COUNTER			/* `__COUNTER__' */
 };
 
-#define CPP_HASHNODE(HNODE)	((cpp_hashnode *) (HNODE))
-#define HT_NODE(NODE)		((ht_identifier *) (NODE))
+#define CPP_HASHNODE(HNODE) \
+  ((cpp_hashnode *) ((char *) (HNODE) - (offsetof (cpp_hashnode, ident))))
+#define HT_NODE(NODE)		(&((NODE)->ident))
 #define NODE_LEN(NODE)		HT_LEN (&(NODE)->ident)
 #define NODE_NAME(NODE)		HT_STR (&(NODE)->ident)
 
@@ -606,7 +607,6 @@ union _cpp_hashnode_value GTY(())
 
 struct cpp_hashnode GTY(())
 {
-  struct ht_identifier ident;
   unsigned int is_directive : 1;
   unsigned int directive_index : 7;	/* If is_directive,
 					   then index into directive table.
@@ -616,6 +616,7 @@ struct cpp_hashnode GTY(())
   unsigned char flags;			/* CPP flags.  */
 
   union _cpp_hashnode_value GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
+  struct ht_identifier ident;
 };
 
 /* Call this first to get a handle to pass to other functions.

@@ -1,5 +1,5 @@
 /* Hash tables.
-   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2007 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -26,9 +26,9 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 typedef struct ht_identifier ht_identifier;
 struct ht_identifier GTY(())
 {
-  const unsigned char *str;
   unsigned int len;
   unsigned int hash_value;
+  const unsigned char str[1];
 };
 
 #define HT_LEN(NODE) ((NODE)->len)
@@ -47,7 +47,7 @@ struct ht
 
   hashnode *entries;
   /* Call back, allocate a node.  */
-  hashnode (*alloc_node) (hash_table *);
+  hashnode (*alloc_node) (hash_table *, size_t);
   /* Call back, allocate something that hangs off a node like a cpp_macro.  
      NULL means use the usual allocator.  */
   void * (*alloc_subobject) (size_t);

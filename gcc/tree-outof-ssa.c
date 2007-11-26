@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
 #include "toplev.h"
+#include "langhooks.h"
 
 
 /* Used to hold all the components required to do SSA PHI elimination.

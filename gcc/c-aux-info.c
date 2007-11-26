@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "c-tree.h"
 #include "toplev.h"
+#include "langhooks.h"
 
 enum formals_style_enum {
   ansi,

@@ -1461,23 +1461,25 @@ struct tree_vector GTY(())
 /* Define fields and accessors for some special-purpose tree nodes.  */
 
 #define IDENTIFIER_LENGTH(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->identifier.id.len)
+  (GCC_IDENT_TO_HT_IDENT (&(IDENTIFIER_NODE_CHECK (NODE)->identifier))->len)
 #define IDENTIFIER_POINTER(NODE) \
-  ((const char *) IDENTIFIER_NODE_CHECK (NODE)->identifier.id.str)
+  ((const char *) (GCC_IDENT_TO_HT_IDENT (&(IDENTIFIER_NODE_CHECK (NODE)->identifier))->str))
 #define IDENTIFIER_HASH_VALUE(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->identifier.id.hash_value)
+  (GCC_IDENT_TO_HT_IDENT (&(IDENTIFIER_NODE_CHECK (NODE)->identifier))->hash_value)
 
 /* Translate a hash table identifier pointer to a tree_identifier
    pointer, and vice versa.  */
 
 #define HT_IDENT_TO_GCC_IDENT(NODE) \
-  ((tree) ((char *) (NODE) - sizeof (struct tree_common)))
-#define GCC_IDENT_TO_HT_IDENT(NODE) (&((struct tree_identifier *) (NODE))->id)
+  ((tree) ((char *) (NODE) - lang_hooks.identifier_offset))
+#define GCC_IDENT_TO_HT_IDENT(NODE) \
+  ((struct ht_identifier *) ((char *) (NODE) + lang_hooks.identifier_offset))
 
 struct tree_identifier GTY(())
 {
   struct tree_common common;
-  struct ht_identifier id;
+  /* Note that every front end's tree_identifier must include an
+     ht_identifier structure at the end.  */
 };
 
 /* In a TREE_LIST node.  */
@@ -3943,6 +3945,7 @@ extern tree build_real_from_int_cst (tree, const_tree);
 extern tree build_complex (tree, tree, tree);
 extern tree build_one_cst (tree);
 extern tree build_string (int, const char *);
+extern tree build_identifier (size_t);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
 extern tree build_decl_stat (enum tree_code, tree, tree MEM_STAT_DECL);

@@ -162,7 +162,7 @@ extern void gt_pch_restore_stringpool (void);
 
 extern void gt_pch_p_S (void *, void *, gt_pointer_operator, void *);
 extern void gt_pch_n_S (const void *);
-extern void gt_ggc_m_S (void *);
+extern void gt_ggc_m_S (const void *);
 
 /* Initialize the string pool.  */
 extern void init_stringpool (void);

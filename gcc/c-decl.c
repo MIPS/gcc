@@ -241,11 +241,16 @@ struct lang_identifier GTY(())
   struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
   struct c_binding *tag_binding;    /* struct/union/enum tags */
   struct c_binding *label_binding;  /* labels */
+  struct cpp_hashnode node;
 };
 
 /* Validate c-lang.c's assumptions.  */
 extern char C_SIZEOF_STRUCT_LANG_IDENTIFIER_isnt_accurate
 [(sizeof(struct lang_identifier) == C_SIZEOF_STRUCT_LANG_IDENTIFIER) ? 1 : -1];
+
+extern char C_IDENTIFIER_OFFSET_isnt_accurate
+[(offsetof(struct lang_identifier, node.ident) == C_IDENTIFIER_OFFSET) ? 1 : -1];
+
 
 /* The resulting tree type.  */
 

@@ -180,14 +180,16 @@ enum c_tree_index
     CTI_MAX
 };
 
-#define C_RID_CODE(id)	(((struct c_common_identifier *) (id))->node.rid_code)
+#define C_RID_CODE(id) \
+  ((CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (id)))->rid_code)
 
 /* Identifier part common to the C front ends.  Inherits from
    tree_identifier, despite appearances.  */
 struct c_common_identifier GTY(())
 {
   struct tree_common common;
-  struct cpp_hashnode node;
+  /* Any C-based FE has to have a cpp_hashnode in here, at the very
+     end.  */
 };
 
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]

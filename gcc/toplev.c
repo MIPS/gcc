@@ -399,16 +399,26 @@ typedef const char *cchar_p;
 DEF_VEC_P(cchar_p);
 DEF_VEC_ALLOC_P(cchar_p,gc);
 
+/* This holds various strings so they are not collected while we
+   run.  */
+struct save_string_list GTY (())
+{
+  const char *str;
+  struct save_string_list *next;
+};
+
 /* The current compilation job.  */
 struct compilation_job GTY(())
 {
-  /* The command-line arguments to the compiler.  This is GC allocated
-     so that file names and the like are not deleted after the current
-     job has completed.  */
+  /* The command-line arguments to the compiler.  */
   VEC(cchar_p,gc) *cc1_arguments;
 
   /* The command-line arguments to the assembler.  */
   VEC(cchar_p,gc) *as_arguments;
+
+  /* This holds various strings so they are not collected while we
+     run.  */
+  struct save_string_list *strings;
 
   /* If not null, the executing assembler sub-process.  */
   struct pex_obj * GTY ((skip)) as_process;
@@ -2292,12 +2302,20 @@ wait_for_as (struct pex_obj *px, int *result)
 /* Copy an argument vector into a VEC, reallocating all the strings
    via the GC.  */
 static void
-copy_to_vec (VEC (cchar_p, gc) **out, char **args, int *n_args)
+copy_to_vec (VEC (cchar_p, gc) **out, struct save_string_list **strings,
+	     char **args, int *n_args)
 {
   int i;
   *out = NULL;
   for (i = 0; args[i]; ++i)
-    VEC_safe_push (cchar_p, gc, *out, ggc_strdup (args[i]));
+    {
+      const char *str = ggc_strdup (args[i]);
+      struct save_string_list *save = GGC_NEW (struct save_string_list);
+      save->str = str;
+      save->next = *strings;
+      *strings = save;
+      VEC_safe_push (cchar_p, gc, *out, str);
+    }
   VEC_safe_push (cchar_p, gc, *out, NULL);
   if (n_args)
     *n_args = i - 1;
@@ -2321,8 +2339,8 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
   sorrycount = 0;
 
   job = GGC_CNEW (struct compilation_job);
-  copy_to_vec (&job->as_arguments, as_argv, NULL);
-  copy_to_vec (&job->cc1_arguments, cc1_argv, &n);
+  copy_to_vec (&job->as_arguments, &job->strings, as_argv, NULL);
+  copy_to_vec (&job->cc1_arguments, &job->strings, cc1_argv, &n);
 
   decode_options (n, VEC_address (cchar_p, job->cc1_arguments));
   flag_unit_at_a_time = 1;

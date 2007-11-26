@@ -1,6 +1,6 @@
 /* Hash tables for the CPP library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2007 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -28,18 +28,19 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "cpplib.h"
 #include "internal.h"
 
-static cpp_hashnode *alloc_node (hash_table *);
+static hashnode alloc_node (hash_table *, size_t);
 
 /* Return an identifier node for hashtable.c.  Used by cpplib except
    when integrated with the C front ends.  */
-static cpp_hashnode *
-alloc_node (hash_table *table)
+static hashnode
+alloc_node (hash_table *table, size_t len)
 {
   cpp_hashnode *node;
+  size_t length = len + offsetof (cpp_hashnode, ident.str) + 1;
 
-  node = XOBNEW (&table->pfile->hash_ob, cpp_hashnode);
-  memset (node, 0, sizeof (cpp_hashnode));
-  return node;
+  node = (cpp_hashnode *) obstack_alloc (&table->pfile->hash_ob, length);
+  memset (node, 0, length);
+  return HT_NODE (node);
 }
 
 /* Set up the identifier hash table.  Use TABLE if non-null, otherwise
@@ -53,7 +54,7 @@ _cpp_init_hashtable (cpp_reader *pfile, hash_table *table)
     {
       pfile->our_hashtable = 1;
       table = ht_create (13);	/* 8K (=2^13) entries.  */
-      table->alloc_node = (hashnode (*) (hash_table *)) alloc_node;
+      table->alloc_node = alloc_node;
 
       _obstack_begin (&pfile->hash_ob, 0, 0,
 		      (void *(*) (long)) xmalloc,
@@ -107,12 +108,31 @@ cpp_defined (cpp_reader *pfile, const unsigned char *str, int len)
   return node && node->type == NT_MACRO;
 }
 
+/* Used to pass information from cpp_forall_identifiers through to the
+   user's callback.  */
+struct callback_info
+{
+  /* The user's callback.  */
+  cpp_cb cb;
+  /* The user's data.  */
+  void *v;
+};
+
+/* Handle mismatch between cpp_cb and ht_cb.  */
+static int
+cpp_ht_proxy (struct cpp_reader *reader, hashnode node, const void *ci)
+{
+  struct callback_info *info = (struct callback_info *) ci;
+  return (info->cb) (reader, CPP_HASHNODE (node), info->v);
+}
+
 /* For all nodes in the hashtable, callback CB with parameters PFILE,
    the node, and V.  */
 void
 cpp_forall_identifiers (cpp_reader *pfile, cpp_cb cb, void *v)
 {
-  /* We don't need a proxy since the hash table's identifier comes
-     first in cpp_hashnode.  */
-  ht_forall (pfile->hash_table, (ht_cb) cb, v);
+  struct callback_info info;
+  info.cb = cb;
+  info.v = v;
+  ht_forall (pfile->hash_table, cpp_ht_proxy, &info);
 }

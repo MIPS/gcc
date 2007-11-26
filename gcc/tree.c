@@ -488,6 +488,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
   tree t;
   enum tree_code_class type = TREE_CODE_CLASS (code);
   size_t length = tree_code_size (code);
+  gcc_assert (code != IDENTIFIER_NODE);
 #ifdef GATHER_STATISTICS
   tree_node_kind kind;
 
@@ -1196,6 +1197,27 @@ build_string (int len, const char *str)
   TREE_STRING_LENGTH (s) = len;
   memcpy (CONST_CAST (TREE_STRING_POINTER (s)), str, len);
   ((char *) CONST_CAST (TREE_STRING_POINTER (s)))[len] = '\0';
+
+  return s;
+}
+
+/* Return a new identifier node of the given size.  The caller will
+   fill in the characters.  */
+
+tree
+build_identifier (size_t size)
+{
+  tree s;
+
+#ifdef GATHER_STATISTICS
+  tree_node_counts[(int) id_kind]++;
+  tree_node_sizes[(int) id_kind] += size;
+#endif  
+
+  s = ggc_alloc_tree (size);
+
+  memset (s, 0, size);
+  TREE_SET_CODE (s, IDENTIFIER_NODE);
 
   return s;
 }

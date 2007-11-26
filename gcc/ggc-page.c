@@ -1271,6 +1271,43 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
   return result;
 }
 
+void
+gt_ggc_m_S (const void *p)
+{
+  page_entry *entry;
+  unsigned bit, word;
+  unsigned long mask;
+
+  if (!p || !ggc_allocated_p (p))
+    return;
+
+  /* Look up the page on which the object is alloced.  .  */
+  entry = lookup_page_table_entry (p);
+  gcc_assert (entry);
+
+  /* Calculate the index of the object on the page; this is its bit
+     position in the in_use_p bitmap.  Note that because a char* might
+     point to the middle of an object, we need special code here to
+     make sure P points to the start of an object.  */
+  p -= ((const char *) p - entry->page) % object_size_table[entry->order];
+  bit = OFFSET_TO_BIT (((const char *) p) - entry->page, entry->order);
+  word = bit / HOST_BITS_PER_LONG;
+  mask = (unsigned long) 1 << (bit % HOST_BITS_PER_LONG);
+
+  /* If the bit was previously set, skip it.  */
+  if (entry->in_use_p[word] & mask)
+    return;
+
+  /* Otherwise set it, and decrement the free object count.  */
+  entry->in_use_p[word] |= mask;
+  entry->num_free_objects -= 1;
+
+  if (GGC_DEBUG_LEVEL >= 4)
+    fprintf (G.debug_file, "Marking %p\n", p);
+
+  return;
+}
+
 /* If P is not marked, marks it and return false.  Otherwise return true.
    P must have been allocated by the GC allocator; it mustn't point to
    static objects, stack variables, or memory allocated with malloc.  */

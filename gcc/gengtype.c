@@ -1540,7 +1540,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "cfglayout.h", "except.h", "output.h", "cfgloop.h", NULL
+      "cfglayout.h", "except.h", "output.h", "cfgloop.h", "langhooks.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -2363,9 +2363,6 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
       break;
 
     case TYPE_STRING:
-      if (wtd->param_prefix == NULL)
-	break;
-
     case TYPE_STRUCT:
     case TYPE_UNION:
     case TYPE_LANG_STRUCT:

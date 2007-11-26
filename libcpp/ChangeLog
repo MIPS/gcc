@@ -1,3 +1,24 @@
+2007-11-26  Tom Tromey  <tromey@redhat.com>
+
+	* lex.c (lex_identifier): Use CPP_HASHNODE.
+	* traditional.c (lex_identifier): Use CPP_HASHNODE.
+	* identifiers.c (alloc_node): Use HT_NODE.  Fix types.  Update for
+	change to struct ht.
+	(_cpp_init_hashtable): Remove cast.
+	(struct callback_info): New struct.
+	(cpp_ht_proxy): New function.
+	(cpp_forall_identifiers): Use cpp_ht_proxy.
+	* include/symtab.h (ht_identifier): Put 'str' at the end.  Change
+	type for struct hack.
+	(struct ht) <alloc_node>: Add size_t argument.
+	* include/cpplib.h (CPP_HASHNODE): Redefine.
+	(HT_NODE): Likewise.
+	(cpp_hashnode): Put 'ident' at the end.
+	* Makefile.in (mostlyclean): Add TAGS.
+	(TAGS_SOURCES): New variable.
+	(TAGS): New target.
+	* symtab.c (ht_lookup_with_hash): Copy directly into HT_STR.
+
 2007-09-05  Tom Tromey  <tromey@redhat.com>
 
 	* files.c (_cpp_stack_file): Update.

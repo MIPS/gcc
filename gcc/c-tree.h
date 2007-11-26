@@ -28,7 +28,12 @@ along with GCC; see the file COPYING3.  If not see
 /* struct lang_identifier is private to c-decl.c, but langhooks.c needs to
    know how big it is.  This is sanity-checked in c-decl.c.  */
 #define C_SIZEOF_STRUCT_LANG_IDENTIFIER \
-  (sizeof (struct c_common_identifier) + 3 * sizeof (void *))
+  (sizeof (struct c_common_identifier) + 3 * sizeof (void *) \
+   + sizeof (struct cpp_hashnode))
+
+#define C_IDENTIFIER_OFFSET \
+  (sizeof (struct c_common_identifier) + 3 * sizeof (void *) \
+   + offsetof (struct cpp_hashnode, ident))
 
 /* Language-specific declaration information.  */
 

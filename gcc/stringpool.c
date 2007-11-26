@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "symtab.h"
 #include "cpplib.h"
+#include "langhooks.h"
 
 /* The "" allocated string.  */
 const char empty_string[] = "";
@@ -47,9 +48,8 @@ const char digit_vector[] = {
 };
 
 struct ht *ident_hash;
-static struct obstack string_stack;
 
-static hashnode alloc_node (hash_table *);
+static hashnode alloc_node (hash_table *, size_t);
 static int mark_ident (struct cpp_reader *, hashnode, const void *);
 
 static void *
@@ -66,14 +66,16 @@ init_stringpool (void)
   ident_hash = ht_create (14);
   ident_hash->alloc_node = alloc_node;
   ident_hash->alloc_subobject = stringpool_ggc_alloc;
-  gcc_obstack_init (&string_stack);
 }
 
 /* Allocate a hash node.  */
 static hashnode
-alloc_node (hash_table *table ATTRIBUTE_UNUSED)
+alloc_node (hash_table *table ATTRIBUTE_UNUSED, size_t length)
 {
-  return GCC_IDENT_TO_HT_IDENT (make_node (IDENTIFIER_NODE));
+  /* identifier_size includes 1 byte for the string, so we don't need
+     to add one for the \0.  */
+  size_t size = lang_hooks.identifier_size + length;
+  return GCC_IDENT_TO_HT_IDENT (build_identifier (size));
 }
 
 /* Allocate and return a string constant of length LENGTH, containing
@@ -85,6 +87,8 @@ alloc_node (hash_table *table ATTRIBUTE_UNUSED)
 const char *
 ggc_alloc_string (const char *contents, int length)
 {
+  char *result;
+
   if (length == -1)
     length = strlen (contents);
 
@@ -93,8 +97,9 @@ ggc_alloc_string (const char *contents, int length)
   if (length == 1 && ISDIGIT (contents[0]))
     return digit_string (contents[0] - '0');
 
-  obstack_grow0 (&string_stack, contents, length);
-  return XOBFINISH (&string_stack, const char *);
+  result = ggc_alloc (length + 1);
+  memcpy (result, contents, length + 1);
+  return (const char *) result;
 }
 
 /* Return an IDENTIFIER_NODE whose name is TEXT (a null-terminated string).
@@ -171,15 +176,6 @@ void
 ggc_mark_stringpool (void)
 {
   ht_forall (ident_hash, mark_ident, NULL);
-}
-
-/* Strings are _not_ GCed, but this routine exists so that a separate
-   roots table isn't needed for the few global variables that refer
-   to strings.  */
-
-void
-gt_ggc_m_S (void *x ATTRIBUTE_UNUSED)
-{
 }
 
 /* Pointer-walking routine for strings (not very interesting, since

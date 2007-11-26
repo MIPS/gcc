@@ -83,6 +83,7 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
+#define LANG_HOOKS_IDENTIFIER_OFFSET    offsetof (struct lang_identifier, id)
 #define LANG_HOOKS_INIT			hook_bool_void_false
 #define LANG_HOOKS_FINISH		lhd_do_nothing
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
@@ -240,6 +241,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_INITIALIZER { \
   LANG_HOOKS_NAME, \
   LANG_HOOKS_IDENTIFIER_SIZE, \
+  LANG_HOOKS_IDENTIFIER_OFFSET, \
   LANG_HOOKS_TREE_SIZE, \
   LANG_HOOKS_INIT_OPTIONS, \
   LANG_HOOKS_INITIALIZE_DIAGNOSTICS, \

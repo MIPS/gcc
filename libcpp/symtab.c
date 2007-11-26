@@ -1,5 +1,5 @@
 /* Hash tables.
-   Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2007 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -107,6 +107,7 @@ ht_lookup_with_hash (hash_table *table, const unsigned char *str,
   unsigned int index;
   size_t sizemask;
   hashnode node;
+  unsigned char *chars;
 
   sizemask = table->nslots - 1;
   index = hash & sizemask;
@@ -155,16 +156,16 @@ ht_lookup_with_hash (hash_table *table, const unsigned char *str,
   if (insert == HT_NO_INSERT)
     return NULL;
 
-  node = (*table->alloc_node) (table);
+  node = (*table->alloc_node) (table, len);
   table->entries[index] = node;
 
   HT_LEN (node) = (unsigned int) len;
   node->hash_value = hash;
-  if (insert == HT_ALLOC)
-    HT_STR (node) = (const unsigned char *) obstack_copy0 (&table->stack,
-                                                           str, len);
-  else
-    HT_STR (node) = str;
+
+  /* It is ok to cast away const here.  */
+  chars = (unsigned char *) HT_STR (node);
+  strncpy ((char *) chars, (char *) str, len);
+  chars[len] = '\0';
 
   if (++table->nelements * 4 >= table->nslots * 3)
     /* Must expand the string table.  */

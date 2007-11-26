@@ -222,6 +222,9 @@ struct lang_hooks
      identifier nodes long enough for the language-specific slots.  */
   size_t identifier_size;
 
+  /* Offset of the ht_identifier sub-structure in a lang_identifier.  */
+  size_t identifier_offset;
+
   /* Determines the size of any language-specific tcc_constant or
      tcc_exceptional nodes.  Since it is called from make_node, the
      only information available is the tree code.  Expected to die

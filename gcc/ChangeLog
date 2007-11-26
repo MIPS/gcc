@@ -1,3 +1,49 @@
+2007-11-26  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (check_hunk_binding): Comment out unused variable.
+	* langhooks-def.h (LANG_HOOKS_IDENTIFIER_OFFSET): New define.
+	(LANG_HOOKS_INITIALIZER): Use it.
+	* c-common.h (C_RID_CODE): Rewrote.
+	(struct c_common_identifier) <node>: Remove field.
+	* var-tracking.c: Include langhooks.h.
+	* tree-outof-ssa.c: Include langhooks.h.
+	* ggc-page.c (gt_ggc_m_S): New function.
+	* stringpool.c: Include langhooks.h.
+	(string_stack): Remove.
+	(init_stringpool): Update.
+	(alloc_node): Add length argument.  Use build_identifier.
+	(ggc_alloc_string): Use ggc_alloc.
+	(gt_ggc_m_S): Remove.
+	* c-pragma.c: Include langhooks.h.
+	* ggc.h (gt_ggc_m_S): Change argument type.
+	* print-rtl.c: Include langhooks.h.
+	* langhooks.h (struct lang_hooks) <identifier_offset>: New field.
+	* c-pretty-print.c: Include langhooks.h.
+	* c-decl.c (struct lang_identifier) <node>: New field.
+	(C_IDENTIFIER_OFFSET_isnt_accurate): New declaration.
+	* c-aux-info.c: Include langhooks.h.
+	* c-tree.h (C_SIZEOF_STRUCT_LANG_IDENTIFIER): Redefine.
+	(C_IDENTIFIER_OFFSET): New define.
+	* c-objc-common.h (LANG_HOOKS_IDENTIFIER_OFFSET): New define.
+	* toplev.c (struct save_string_list): New struct.
+	(struct compilation_job) <strings>: New field.
+	(copy_to_vec): Add 'strings' argument.
+	(server_callback): Update.
+	* tree.h (IDENTIFIER_LENGTH): Redefine.
+	(IDENTIFIER_POINTER): Likewise.
+	(IDENTIFIER_HASH_VALUE): Likewise.
+	(HT_IDENT_TO_GCC_IDENT): Likewise.
+	(GCC_IDENT_TO_HT_IDENT): Likewise.
+	(struct tree_identifier) <id>: Remove.
+	(build_identifier): Declare.
+	* tree.c (make_node_stat): Don't allow IDENTIFIER_NODEs.
+	(build_identifier): New function.
+	* c-lex.c: Include langhooks.h.
+	* gengtype.c (write_types_process_field): Arrange to mark
+	strings.
+	(open_base_files): Include langhooks.h.
+	* tree-complex.c: Include langhooks.h.
+
 2007-11-15  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (struct hunk_binding) <prereqs>: Changed type.

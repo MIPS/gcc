@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "debug.h"
 #include "target.h"
+#include "langhooks.h"
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;

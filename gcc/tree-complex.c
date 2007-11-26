@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "diagnostic.h"
+#include "langhooks.h"
 
 
 /* For each complex ssa name, a lattice value.  We're interested in finding

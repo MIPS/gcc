@@ -105,6 +105,7 @@
 #include "expr.h"
 #include "timevar.h"
 #include "tree-pass.h"
+#include "langhooks.h"
 
 /* Type of micro operation.  */
 enum micro_operation_type

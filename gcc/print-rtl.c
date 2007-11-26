@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "langhooks.h"
 #endif
 
 static FILE *outfile;

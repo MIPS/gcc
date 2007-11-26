@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-tree.h"
 #include "tree-iterator.h"
 #include "diagnostic.h"
+#include "langhooks.h"
 
 /* The pretty-printer code is primarily designed to closely follow
    (GNU) C and C++ grammars.  That is to be contrasted with spaghetti

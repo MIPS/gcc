@@ -895,9 +895,7 @@ c_parser_lookup_callback (tree name, tree result, bool is_tag)
   /* We might be using something declared in the current hunk -- don't
      register that fact.  Otherwise, record the name/value pair in our
      prerequisite list.  When evaluating prerequisites we look to make
-     sure that all listed names have the indicated value.  FIXME: we
-     also need to handle NULL values properly, since we may do a
-     "failing" lookup.  */
+     sure that all listed names have the indicated value.  */
   if (!result || (binding && binding != parser->current_hunk_binding))
     {
       htab_t prereqs = parser->current_hunk_binding->prereqs;
@@ -1932,7 +1930,7 @@ check_hunk_binding (void **valp, void *crhd)
 {
   struct hunk_binding *binding = (struct hunk_binding *) *valp;
   struct can_reuse_hunk_data *info = (struct can_reuse_hunk_data *) crhd;
-  c_parser *parser = info->parser;
+/*   c_parser *parser = info->parser; */
   struct parsed_hunk *hunk = info->hunk;
   struct parsed_hunk *binding_iter, *self_iter;
   bool ok;
