@@ -1,0 +1,7 @@
+2007-11-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	* java-gimplify.c (java_gimplify_expr): Make pre_p and post_p
+	sequences.
+	(java_gimplify_self_mod_expr): Same.                                    
+	* java-tree.h (java_gimplify_expr): Make pre_p and post_p               
+	sequences.

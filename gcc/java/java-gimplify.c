@@ -33,7 +33,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 static tree java_gimplify_block (tree);
 static enum gimplify_status java_gimplify_modify_expr (tree *);
-static enum gimplify_status java_gimplify_self_mod_expr (tree*, tree*, tree *);
+static enum gimplify_status java_gimplify_self_mod_expr (tree *, gimple_seq, gimple_seq);
 
 static void dump_java_tree (enum tree_dump_index, tree);
 
@@ -53,8 +53,8 @@ java_genericize (tree fndecl)
 /* Gimplify a Java tree.  */
 
 int
-java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
-		    tree *post_p ATTRIBUTE_UNUSED)
+java_gimplify_expr (tree *expr_p, gimple_seq pre_p ATTRIBUTE_UNUSED,
+		    gimple_seq post_p ATTRIBUTE_UNUSED)
 {
   enum tree_code code = TREE_CODE (*expr_p);
 
@@ -160,8 +160,8 @@ java_gimplify_modify_expr (tree *modify_expr_p)
     between the reading and the writing.  */
 
 static enum gimplify_status
-java_gimplify_self_mod_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED, 
-			     tree *post_p ATTRIBUTE_UNUSED)
+java_gimplify_self_mod_expr (tree *expr_p, gimple_seq pre_p ATTRIBUTE_UNUSED, 
+			     gimple_seq post_p ATTRIBUTE_UNUSED)
 {
   tree lhs = TREE_OPERAND (*expr_p, 0);
 
@@ -180,7 +180,7 @@ java_gimplify_block (tree java_block)
 {
   tree decls = BLOCK_VARS (java_block);
   tree body = BLOCK_EXPR_BODY (java_block);
-  tree outer = gimple_current_bind_expr ();
+  gimple outer = gimple_current_bind_expr ();
   tree block;
 
   /* Don't bother with empty blocks.  */
@@ -199,10 +199,10 @@ java_gimplify_block (tree java_block)
      routines generate info for the variables in that block.  */
   TREE_USED (block) = 1;
 
-  if (outer != NULL_TREE)
+  if (outer != NULL)
     {
-      outer = BIND_EXPR_BLOCK (outer);
-      BLOCK_SUBBLOCKS (outer) = chainon (BLOCK_SUBBLOCKS (outer), block);
+      tree b = gimple_bind_block (outer);
+      BLOCK_SUBBLOCKS (b) = chainon (BLOCK_SUBBLOCKS (b), block);
     }
   BLOCK_EXPR_BODY (java_block) = NULL_TREE;
 

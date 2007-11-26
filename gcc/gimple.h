@@ -1429,7 +1429,7 @@ gimple_bind_set_body (gimple gs, const_gimple_seq seq)
 
 
 /* Return the TREE_BLOCK node associated with GIMPLE_BIND statement
-   GS.  */
+   GS.  This is analogous to the BIND_EXPR_BLOCK field in trees.  */
 
 static inline tree
 gimple_bind_block (const_gimple gs)
