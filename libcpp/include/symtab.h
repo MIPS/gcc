@@ -86,6 +86,13 @@ extern hashnode ht_lookup_with_hash (hash_table *, const unsigned char *,
 typedef int (*ht_cb) (struct cpp_reader *, hashnode, const void *);
 extern void ht_forall (hash_table *, ht_cb, const void *);
 
+/* A predicate function used when removing entries from a table.
+   Returns zero if the entry should be removed.  */
+typedef int (*ht_rehash_fn) (hashnode);
+
+/* Remove entries from the table.  */
+extern void ht_remove_identifiers (hash_table *, ht_rehash_fn);
+
 /* Restore the hash table.  */
 extern void ht_load (hash_table *ht, hashnode *entries,
 		     unsigned int nslots, unsigned int nelements, bool own);

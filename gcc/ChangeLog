@@ -1,3 +1,20 @@
+2007-11-27  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (c_parse_init_once): New function.
+	(c_parse_init): Remove once-only code.
+	* ggc-page.c: Include langhooks.h
+	(gt_ggc_m_S): Mark containing objects as trees.
+	* ggc-common.c (ggc_mark_roots): Call ggc_mark_stringpool twice.
+	(ggc_protect_identifiers): New global.
+	* ggc.h (ggc_protect_identifiers): Declare.
+	(ggc_mark_stringpool): Update.
+	* c-tree.h (c_parse_init_once): Declare.
+	* c-decl.c (c_init_decl_processing): Use c_parse_init_once.
+	* toplev.c (compile_file): Set and reset ggc_protect_identifiers.
+	* stringpool.c (check_ident): New function.
+	(ggc_mark_stringpool): Add 'marking' argument.  Remove elements
+	from identifier table if requested.
+
 2007-11-26  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (check_hunk_binding): Comment out unused variable.

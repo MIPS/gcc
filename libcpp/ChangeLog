@@ -1,3 +1,11 @@
+2007-11-27  Tom Tromey  <tromey@redhat.com>
+
+	* include/symtab.h (ht_rehash_fn): Declare.
+	(ht_remove_identifiers): Declare.
+	* symtab.c (ht_rehash): Rename from ht_expand.  Add arguments.
+	(ht_lookup_with_hash): Update.
+	(ht_remove_identifiers): New function.
+
 2007-11-26  Tom Tromey  <tromey@redhat.com>
 
 	* lex.c (lex_identifier): Use CPP_HASHNODE.

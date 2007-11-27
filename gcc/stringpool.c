@@ -168,14 +168,24 @@ mark_ident (struct cpp_reader *pfile ATTRIBUTE_UNUSED, hashnode h,
   return 1;
 }
 
+/* Decide whether an identifier should be removed.  */
+static int
+check_ident (hashnode h)
+{
+  return ggc_marked_p (HT_IDENT_TO_GCC_IDENT (h));
+}
+
 /* Mark the trees hanging off the identifier node for GGC.  These are
    handled specially (not using gengtype) because of the special
    treatment for strings.  */
 
 void
-ggc_mark_stringpool (void)
+ggc_mark_stringpool (bool marking)
 {
-  ht_forall (ident_hash, mark_ident, NULL);
+  if (marking)
+    ht_forall (ident_hash, mark_ident, NULL);
+  else
+    ht_remove_identifiers (ident_hash, check_ident);
 }
 
 /* Pointer-walking routine for strings (not very interesting, since

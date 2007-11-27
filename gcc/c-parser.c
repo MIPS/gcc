@@ -187,6 +187,15 @@ static void create_hunk_binding_map (void);
    hunk prerequisite.  */
 static GTY (()) tree hunk_binding_sentinel;
 
+void
+c_parse_init_once (void)
+{
+  create_hunk_binding_map ();
+
+  /* Any new tree value is ok here.  */
+  hunk_binding_sentinel = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
+}
+
 /* Initialization routine for this file.  */
 
 void
@@ -215,11 +224,6 @@ c_parse_init (void)
       C_IS_RESERVED_WORD (id) = 1;
       ridpointers [(int) reswords[i].rid] = id;
     }
-
-  create_hunk_binding_map ();
-
-  /* Any new tree value is ok here.  */
-  hunk_binding_sentinel = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
 }
 
 /* The C lexer intermediates between the lexer in cpplib and c-lex.c

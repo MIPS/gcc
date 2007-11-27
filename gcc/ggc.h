@@ -146,7 +146,7 @@ extern int ggc_set_mark	(const void *);
 extern int ggc_marked_p	(const void *);
 
 /* Mark the entries in the string pool.  */
-extern void ggc_mark_stringpool	(void);
+extern void ggc_mark_stringpool	(bool);
 
 /* Call ggc_set_mark on all the roots.  */
 
@@ -250,6 +250,9 @@ extern void ggc_collection_completed (void);
 
 /* When set, ggc_collect will do collection.  */
 extern bool ggc_force_collect;
+
+/* When true, protect the contents of the identifier hash table.  */
+extern bool ggc_protect_identifiers;
 
 /* The internal primitive.  */
 extern void *ggc_alloc_stat (size_t MEM_STAT_DECL);

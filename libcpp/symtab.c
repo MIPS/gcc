@@ -31,7 +31,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    delete members from the table has been removed.  */
 
 static unsigned int calc_hash (const unsigned char *, size_t);
-static void ht_expand (hash_table *);
+static void ht_rehash (hash_table *, hashnode *, unsigned int, ht_rehash_fn);
 static double approx_sqrt (double);
 
 /* Calculate the hash of the string STR of length LEN.  */
@@ -168,30 +168,38 @@ ht_lookup_with_hash (hash_table *table, const unsigned char *str,
   chars[len] = '\0';
 
   if (++table->nelements * 4 >= table->nslots * 3)
-    /* Must expand the string table.  */
-    ht_expand (table);
+    {
+      /* Must expand the string table.  */
+      unsigned int size = table->nslots * 2;
+      hashnode *nentries = XCNEWVEC (hashnode, size);
+      ht_rehash (table, nentries, size, NULL);
+    }
 
   return node;
 }
 
-/* Double the size of a hash table, re-hashing existing entries.  */
+/* Re-hash existing entries into a new array, with a new size.  If
+   PREDICATE is non-null, it is called for each entry; if it returns
+   false, the entry is not added to the new array.  */
 
 static void
-ht_expand (hash_table *table)
+ht_rehash (hash_table *table, hashnode *nentries, unsigned int size,
+	   ht_rehash_fn predicate)
 {
-  hashnode *nentries, *p, *limit;
-  unsigned int size, sizemask;
+  hashnode *p, *limit;
+  unsigned int sizemask;
+  unsigned int nelements = 0;
 
-  size = table->nslots * 2;
-  nentries = XCNEWVEC (hashnode, size);
   sizemask = size - 1;
 
   p = table->entries;
   limit = p + table->nslots;
   do
-    if (*p)
+    if (*p && (! predicate || (*predicate) (*p)))
       {
 	unsigned int index, hash, hash2;
+
+	++nelements;
 
 	hash = (*p)->hash_value;
 	index = hash & sizemask;
@@ -214,6 +222,18 @@ ht_expand (hash_table *table)
   table->entries_owned = true;
   table->entries = nentries;
   table->nslots = size;
+  table->nelements = nelements;
+}
+
+/* Bulk-remove entries from an identifier table according to the given
+   PREDICATE.  */
+void
+ht_remove_identifiers (hash_table *table, ht_rehash_fn predicate)
+{
+  hashnode *nentries = XCNEWVEC (hashnode, table->nslots);
+  if (! predicate)
+    abort ();
+  ht_rehash (table, nentries, table->nslots, predicate);
 }
 
 /* For all nodes in TABLE, callback CB with parameters TABLE->PFILE,

@@ -63,6 +63,9 @@ along with GCC; see the file COPYING3.  If not see
 /* When set, ggc_collect will do collection.  */
 bool ggc_force_collect;
 
+/* When true, protect the contents of the identifier hash table.  */
+bool ggc_protect_identifiers;
+
 /* Statistics about the allocation.  */
 static ggc_statistics *ggc_stats;
 
@@ -139,7 +142,8 @@ ggc_mark_roots (void)
 	      (*rti->cb)(*(void **)((char *)rti->base + rti->stride * i));
     }
 
-  ggc_mark_stringpool ();
+  if (ggc_protect_identifiers)
+    ggc_mark_stringpool (true);
 
   /* Now scan all hash tables that have objects which are to be deleted if
      they are not already marked.  */
@@ -166,6 +170,9 @@ ggc_mark_roots (void)
 		ggc_set_mark ((*cti->base)->entries);
 	      }
     }
+
+  if (! ggc_protect_identifiers)
+    ggc_mark_stringpool (false);
 }
 
 /* Allocate a block of memory, then clear it.  */

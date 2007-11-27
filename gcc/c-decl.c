@@ -3001,12 +3001,9 @@ c_init_decl_processing (void)
 
   /* Initialize reserved words for parser.  */
   if (!did_it)
-    {
-      /* FIXME: should redo this but also reset things which were
-	 previously reserved words.  Must look at the canonical
-	 spelling issue; see comment there.  */
-      c_parse_init ();
-    }
+    c_parse_init_once ();
+
+  c_parse_init ();
 
   current_function_decl = 0;
   all_translation_units = NULL_TREE;

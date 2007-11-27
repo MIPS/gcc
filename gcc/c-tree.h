@@ -447,6 +447,7 @@ struct c_enum_contents
 
 /* in c-parser.c */
 extern void c_parse_init (void);
+extern void c_parse_init_once (void);
 extern void c_parser_bind_callback (tree, tree);
 extern void c_parser_note_smash (tree, tree);
 extern bool object_in_current_hunk_p (tree);

@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "params.h"
 #include "tree-flow.h"
+#include "langhooks.h"
 #ifdef ENABLE_VALGRIND_CHECKING
 # ifdef HAVE_VALGRIND_MEMCHECK_H
 #  include <valgrind/memcheck.h>
@@ -1277,6 +1278,7 @@ gt_ggc_m_S (const void *p)
   page_entry *entry;
   unsigned bit, word;
   unsigned long mask;
+  unsigned long offset;
 
   if (!p || !ggc_allocated_p (p))
     return;
@@ -1289,7 +1291,21 @@ gt_ggc_m_S (const void *p)
      position in the in_use_p bitmap.  Note that because a char* might
      point to the middle of an object, we need special code here to
      make sure P points to the start of an object.  */
-  p -= ((const char *) p - entry->page) % object_size_table[entry->order];
+  offset = ((const char *) p - entry->page) % object_size_table[entry->order];
+  if (offset)
+    {
+      /* Here we've seen a char* which does not point to the beginning
+	 of an allocated object.  We assume it either points to the
+	 middle of an IDENTIFIER_NODE, or to the middle of a
+	 STRING_CST.  */
+      gcc_assert (offset == (lang_hooks.identifier_offset
+			     + offsetof (struct ht_identifier, str))
+		  || offset == offsetof (struct tree_string, str));
+      p = ((const char *) p) - offset;
+      gt_ggc_mx_lang_tree_node (p);
+      return;
+    }
+
   bit = OFFSET_TO_BIT (((const char *) p) - entry->page, entry->order);
   word = bit / HOST_BITS_PER_LONG;
   mask = (unsigned long) 1 << (bit % HOST_BITS_PER_LONG);
