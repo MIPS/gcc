@@ -272,8 +272,7 @@ static inline struct gomp_thread *gomp_thread (void)
 
 /* Here's how to access the current copy of the ICVs.  */
 
-static inline struct gomp_task_icv *
-gomp_icv(void)
+static inline struct gomp_task_icv *gomp_icv(void)
 {
   struct gomp_task *task = gomp_thread()->task;
   if (task)
@@ -342,6 +341,12 @@ extern unsigned gomp_resolve_num_threads (unsigned);
 
 extern void gomp_init_num_threads (void);
 extern unsigned gomp_dynamic_max_threads (void);
+
+/* task.c */
+
+extern struct gomp_task *gomp_new_task (struct gomp_task *,
+					struct gomp_task_icv *);
+extern void gomp_end_task (void);
 
 /* team.c */
 

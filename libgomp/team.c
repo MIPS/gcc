@@ -56,9 +56,10 @@ pthread_key_t gomp_tls_key;
 
 struct gomp_thread_start_data
 {
-  struct gomp_team_state ts;
   void (*fn) (void *);
   void *fn_data;
+  struct gomp_team_state ts;
+  struct gomp_task *task;
   bool nested;
 };
 
@@ -87,6 +88,7 @@ gomp_thread_start (void *xdata)
   local_fn = data->fn;
   local_data = data->fn_data;
   thr->ts = data->ts;
+  thr->task = data->task;
 
   thr->ts.team->ordered_release[thr->ts.team_id] = &thr->release;
 
@@ -106,6 +108,7 @@ gomp_thread_start (void *xdata)
 	  struct gomp_team *team;
 
 	  local_fn (local_data);
+	  gomp_end_task ();
 
 	  /* Clear out the team and function data.  This is a debugging
 	     signal that we're in fact back in the dock.  */
@@ -182,12 +185,16 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   struct gomp_thread_start_data *start_data;
   struct gomp_thread *thr, *nthr;
   struct gomp_team *team;
+  struct gomp_task *task;
+  struct gomp_task_icv *icv;
   bool nested;
   unsigned i, n, old_threads_used = 0;
   pthread_attr_t thread_attr, *attr;
 
   thr = gomp_thread ();
   nested = thr->ts.team != NULL;
+  task = thr->task;
+  icv = task ? &task->icv : &gomp_global_icv;
 
   team = new_team (nthreads, work_share);
 
@@ -202,6 +209,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   ++thr->ts.level;
   thr->ts.work_share_generation = 0;
   thr->ts.static_trip = 0;
+  thr->task = gomp_new_task (task, icv);
 
   if (nthreads == 1)
     return;
@@ -248,6 +256,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	  nthr->ts.level = team->prev_ts.level + 1;
 	  nthr->ts.work_share_generation = 0;
 	  nthr->ts.static_trip = 0;
+	  nthr->task = gomp_new_task (task, icv);
 	  nthr->fn = fn;
 	  nthr->data = data;
 	  team->ordered_release[i] = &nthr->release;
@@ -289,14 +298,15 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       pthread_t pt;
       int err;
 
+      start_data->fn = fn;
+      start_data->fn_data = data;
       start_data->ts.team = team;
       start_data->ts.work_share = work_share;
       start_data->ts.team_id = i;
       start_data->ts.level = team->prev_ts.level + 1;
       start_data->ts.work_share_generation = 0;
       start_data->ts.static_trip = 0;
-      start_data->fn = fn;
-      start_data->fn_data = data;
+      start_data->task = gomp_new_task (task, icv);
       start_data->nested = nested;
 
       if (gomp_cpu_affinity != NULL)

@@ -130,3 +130,9 @@ GOMP_1.0 {
 	GOMP_single_copy_start;
 	GOMP_single_start;
 };
+
+GOMP_2.0 {
+  global:
+	GOMP_task;
+	GOMP_taskwait;
+} GOMP_1.0;

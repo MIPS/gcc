@@ -93,6 +93,11 @@ extern void GOMP_ordered_end (void);
 extern void GOMP_parallel_start (void (*) (void *), void *, unsigned);
 extern void GOMP_parallel_end (void);
 
+/* team.c */
+
+extern void GOMP_task (void (*) (void *), void *, bool, bool);
+extern void GOMP_taskwait (void);
+
 /* sections.c */
 
 extern unsigned GOMP_sections_start (unsigned);

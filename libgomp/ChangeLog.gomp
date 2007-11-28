@@ -1,5 +1,17 @@
 2007-11-28  Richard Henderson  <rth@redhat.com>
 
+	* task.c: New file.
+	* Makefile.am (libgomp_la_SOURCES): Add task.c.
+	* Makefile.in: Regenerate.
+	* libgomp_g.h (GOMP_task, GOMP_taskwait): Add.
+	* libgomp.map (GOMP_task, GOMP_taskwait): Add.
+	* team.c (struct gomp_thread_start_data): Add task.
+	(gomp_thread_start): Initialize and finalize the thread task.
+	(gomp_team_start): Create tasks for each member thread.
+	* libgomp.h (gomp_new_task, gomp_end_task): New.
+
+2007-11-28  Richard Henderson  <rth@redhat.com>
+
 	* parallel.c (gomp_resolve_num_threads): Update to the OMP3 algorithm.
 
 2007-11-28  Richard Henderson  <rth@redhat.com>
