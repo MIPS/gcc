@@ -1,5 +1,9 @@
 2007-11-28  Richard Henderson  <rth@redhat.com>
 
+	* parallel.c (gomp_resolve_num_threads): Update to the OMP3 algorithm.
+
+2007-11-28  Richard Henderson  <rth@redhat.com>
+
 	* libgomp.h (struct gomp_task_icv, gomp_global_icv): New.
 	(gomp_thread_limit_var, gomp_max_active_levels_var): New.
 	(struct gomp_task): New.

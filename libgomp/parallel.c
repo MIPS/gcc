@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -31,7 +31,7 @@
 
 
 /* Determine the number of threads to be launched for a PARALLEL construct.
-   This algorithm is explicitly described in OpenMP 2.5 section 2.4.1.
+   This algorithm is explicitly described in OpenMP 3.0 section 2.4.1.
    SPECIFIED is a combination of the NUM_THREADS clause and the IF clause.
    If the IF clause is false, SPECIFIED is forced to 1.  When NUM_THREADS
    is not present, SPECIFIED is 0.  */
@@ -39,33 +39,46 @@
 unsigned
 gomp_resolve_num_threads (unsigned specified)
 {
+  struct gomp_thread *thread = gomp_thread();
   struct gomp_task_icv *icv;
+  unsigned threads_requested, max_num_threads;
+  unsigned threads_busy, max_threads_remaining;
   
-  /* Early exit for false IF condition or degenerate NUM_THREADS.  */
-  if (specified == 1)
-    return 1;
-
   icv = gomp_icv();
 
-  /* If this is a nested region, and nested regions are disabled, force
-     this team to use only one thread.  */
-  if (gomp_thread()->ts.team && !icv->nest_var)
+  if (specified == 1)
+    return 1;
+  else if (thread->ts.level >= 1 && !icv->nest_var)
+    return 1;
+  else if (thread->ts.level >= gomp_max_active_levels_var)
     return 1;
 
   /* If NUM_THREADS not specified, use nthreads_var.  */
   if (specified == 0)
-    specified = icv->nthreads_var;
+    threads_requested = icv->nthreads_var;
+  else
+    threads_requested = specified;
+
+  /* ??? FIXME: We probably need a global variable that contains this
+     value; walking the entire team tree doesn't sound like a Good Idea.  */
+  threads_busy = 1;
+
+  max_threads_remaining = gomp_thread_limit_var - threads_busy + 1;
+  if (threads_requested <= max_threads_remaining)
+    max_num_threads = threads_requested;
+  else
+    max_num_threads = max_threads_remaining;
 
   /* If dynamic threads are enabled, bound the number of threads
      that we launch.  */
   if (icv->dyn_var)
     {
       unsigned dyn = gomp_dynamic_max_threads ();
-      if (dyn < specified)
+      if (dyn < max_num_threads)
 	return dyn;
     }
 
-  return specified;
+  return max_num_threads;
 }
 
 void
@@ -97,9 +110,9 @@ omp_get_thread_num (void)
   return gomp_thread ()->ts.team_id;
 }
 
-/* This wasn't right for OpenMP 2.5.  Active region used to be
-   one where IF clause doesn't evaluate to false, starting with
-   3.0 it is one with more than one thread in the team.  */
+/* This wasn't right for OpenMP 2.5.  Active region used to be non-zero
+   when the IF clause doesn't evaluate to false, starting with OpenMP 3.0
+   it is non-zero with more than one thread in the team.  */
 
 int
 omp_in_parallel (void)
