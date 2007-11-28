@@ -205,6 +205,35 @@ struct gomp_team
   gomp_sem_t *ordered_release[];
 };
 
+/* These are the OpenMP 3.0 Internal Control Variables described in
+   section 2.3.1.  Those described as having one copy per task are
+   stored within the structure; those described as having one copy
+   for the whole program are (naturally) global variables.  */
+
+struct gomp_task_icv
+{
+  unsigned long nthreads_var;
+  enum gomp_schedule_type run_sched_var;
+  int run_sched_modifier;
+  bool dyn_var;
+  bool nest_var;
+};
+
+extern struct gomp_task_icv gomp_global_icv;
+extern unsigned long gomp_thread_limit_var;
+extern unsigned long gomp_max_active_levels_var;
+extern bool gomp_active_wait_policy;
+
+/* This structure describes a "task" to be run by a thread.  At present
+   we implement only synchronous tasks, i.e. no tasks are deferred or
+   untied.  As such, all we need is the state of the ICVs.  */
+
+struct gomp_task
+{
+  struct gomp_task *prev;
+  struct gomp_task_icv icv;
+};
+
 /* This structure contains all data that is private to libgomp and is
    allocated per thread.  */
 
@@ -217,6 +246,9 @@ struct gomp_thread
   /* This is the current team state for this thread.  The ts.team member
      is NULL only if the thread is idle.  */
   struct gomp_team_state ts;
+
+  /* This is the task that the thread is currently executing.  */
+  struct gomp_task *task;
 
   /* This semaphore is used for ordered loops.  */
   gomp_sem_t release;
@@ -238,14 +270,17 @@ static inline struct gomp_thread *gomp_thread (void)
 }
 #endif
 
-/* These are the OpenMP 2.5 internal control variables described in
-   section 2.3.  At least those that correspond to environment variables.  */
+/* Here's how to access the current copy of the ICVs.  */
 
-extern unsigned long gomp_nthreads_var;
-extern bool gomp_dyn_var;
-extern bool gomp_nest_var;
-extern enum gomp_schedule_type gomp_run_sched_var;
-extern unsigned long gomp_run_sched_chunk;
+static inline struct gomp_task_icv *
+gomp_icv(void)
+{
+  struct gomp_task *task = gomp_thread()->task;
+  if (task)
+    return &task->icv;
+  else
+    return &gomp_global_icv;
+}
 
 /* The attributes to be used during thread creation.  */
 extern pthread_attr_t gomp_thread_attr;

@@ -124,16 +124,17 @@ bool
 GOMP_loop_runtime_start (long start, long end, long incr,
 			 long *istart, long *iend)
 {
-  switch (gomp_run_sched_var)
+  struct gomp_task_icv *icv = gomp_icv();
+  switch (icv->run_sched_var)
     {
     case GFS_STATIC:
-      return gomp_loop_static_start (start, end, incr, gomp_run_sched_chunk,
+      return gomp_loop_static_start (start, end, incr, icv->run_sched_modifier,
 				     istart, iend);
     case GFS_DYNAMIC:
-      return gomp_loop_dynamic_start (start, end, incr, gomp_run_sched_chunk,
+      return gomp_loop_dynamic_start (start, end, incr, icv->run_sched_modifier,
 				      istart, iend);
     case GFS_GUIDED:
-      return gomp_loop_guided_start (start, end, incr, gomp_run_sched_chunk,
+      return gomp_loop_guided_start (start, end, incr, icv->run_sched_modifier,
 				     istart, iend);
     default:
       abort ();
@@ -202,19 +203,20 @@ bool
 GOMP_loop_ordered_runtime_start (long start, long end, long incr,
 				 long *istart, long *iend)
 {
-  switch (gomp_run_sched_var)
+  struct gomp_task_icv *icv = gomp_icv();
+  switch (icv->run_sched_var)
     {
     case GFS_STATIC:
       return gomp_loop_ordered_static_start (start, end, incr,
-					     gomp_run_sched_chunk,
+					     icv->run_sched_modifier,
 					     istart, iend);
     case GFS_DYNAMIC:
       return gomp_loop_ordered_dynamic_start (start, end, incr,
-					      gomp_run_sched_chunk,
+					      icv->run_sched_modifier,
 					      istart, iend);
     case GFS_GUIDED:
       return gomp_loop_ordered_guided_start (start, end, incr,
-					     gomp_run_sched_chunk,
+					     icv->run_sched_modifier,
 					     istart, iend);
     default:
       abort ();
@@ -415,8 +417,9 @@ GOMP_parallel_loop_runtime_start (void (*fn) (void *), void *data,
 				  unsigned num_threads, long start, long end,
 				  long incr)
 {
+  struct gomp_task_icv *icv = gomp_icv();
   gomp_parallel_loop_start (fn, data, num_threads, start, end, incr,
-			    gomp_run_sched_var, gomp_run_sched_chunk);
+			    icv->run_sched_var, icv->run_sched_modifier);
 }
 
 /* The GOMP_loop_end* routines are called after the thread is told that

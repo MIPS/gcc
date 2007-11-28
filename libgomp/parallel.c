@@ -39,22 +39,26 @@
 unsigned
 gomp_resolve_num_threads (unsigned specified)
 {
+  struct gomp_task_icv *icv;
+  
   /* Early exit for false IF condition or degenerate NUM_THREADS.  */
   if (specified == 1)
     return 1;
 
+  icv = gomp_icv();
+
   /* If this is a nested region, and nested regions are disabled, force
      this team to use only one thread.  */
-  if (gomp_thread()->ts.team && !gomp_nest_var)
+  if (gomp_thread()->ts.team && !icv->nest_var)
     return 1;
 
   /* If NUM_THREADS not specified, use nthreads_var.  */
   if (specified == 0)
-    specified = gomp_nthreads_var;
+    specified = icv->nthreads_var;
 
   /* If dynamic threads are enabled, bound the number of threads
      that we launch.  */
-  if (gomp_dyn_var)
+  if (icv->dyn_var)
     {
       unsigned dyn = gomp_dynamic_max_threads ();
       if (dyn < specified)
@@ -85,15 +89,6 @@ omp_get_num_threads (void)
 {
   struct gomp_team *team = gomp_thread ()->ts.team;
   return team ? team->nthreads : 1;
-}
-
-/* ??? Does this function need to disregard dyn_var?  I don't see
-   how else one could get a useable "maximum".  */
-
-int
-omp_get_max_threads (void)
-{
-  return gomp_resolve_num_threads (0);
 }
 
 int
@@ -169,7 +164,6 @@ omp_get_active_level (void)
 }
 
 ialias (omp_get_num_threads)
-ialias (omp_get_max_threads)
 ialias (omp_get_thread_num)
 ialias (omp_in_parallel)
 ialias (omp_get_level)

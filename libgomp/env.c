@@ -37,11 +37,14 @@
 #include <errno.h>
 
 
-unsigned long gomp_nthreads_var = 1;
-bool gomp_dyn_var = false;
-bool gomp_nest_var = false;
-enum gomp_schedule_type gomp_run_sched_var = GFS_DYNAMIC;
-unsigned long gomp_run_sched_chunk = 1;
+struct gomp_task_icv gomp_global_icv = {
+  .nthreads_var = 1,
+  .run_sched_var = GFS_DYNAMIC,
+  .run_sched_modifier = 1,
+  .dyn_var = false,
+  .nest_var = false
+};
+
 unsigned short *gomp_cpu_affinity;
 bool gomp_active_wait_policy = false;
 size_t gomp_cpu_affinity_len;
@@ -64,22 +67,22 @@ parse_schedule (void)
     ++env;
   if (strncasecmp (env, "static", 6) == 0)
     {
-      gomp_run_sched_var = GFS_STATIC;
+      gomp_global_icv.run_sched_var = GFS_STATIC;
       env += 6;
     }
   else if (strncasecmp (env, "dynamic", 7) == 0)
     {
-      gomp_run_sched_var = GFS_DYNAMIC;
+      gomp_global_icv.run_sched_var = GFS_DYNAMIC;
       env += 7;
     }
   else if (strncasecmp (env, "guided", 6) == 0)
     {
-      gomp_run_sched_var = GFS_GUIDED;
+      gomp_global_icv.run_sched_var = GFS_GUIDED;
       env += 6;
     }
   else if (strncasecmp (env, "auto", 4) == 0)
     {
-      gomp_run_sched_var = GFS_AUTO;
+      gomp_global_icv.run_sched_var = GFS_AUTO;
       env += 4;
     }
   else
@@ -106,7 +109,10 @@ parse_schedule (void)
   if (*end != '\0')
     goto invalid;
 
-  gomp_run_sched_chunk = value;
+  if ((int)value != value)
+    goto invalid;
+
+  gomp_global_icv.run_sched_modifier = value;
   return;
 
  unknown:
@@ -380,12 +386,12 @@ initialize_env (void)
   omp_check_defines ();
 
   parse_schedule ();
-  parse_boolean ("OMP_DYNAMIC", &gomp_dyn_var);
-  parse_boolean ("OMP_NESTED", &gomp_nest_var);
+  parse_boolean ("OMP_DYNAMIC", &gomp_global_icv.dyn_var);
+  parse_boolean ("OMP_NESTED", &gomp_global_icv.nest_var);
   parse_wait_policy ();
   parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var);
   parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var);
-  if (!parse_unsigned_long ("OMP_NUM_THREADS", &gomp_nthreads_var))
+  if (!parse_unsigned_long ("OMP_NUM_THREADS", &gomp_global_icv.nthreads_var))
     gomp_init_num_threads ();
   if (parse_affinity ())
     gomp_init_affinity ();
@@ -424,36 +430,42 @@ initialize_env (void)
 void
 omp_set_num_threads (int n)
 {
-  gomp_nthreads_var = (n > 0 ? n : 1);
+  struct gomp_task_icv *icv = gomp_icv();
+  icv->nthreads_var = (n > 0 ? n : 1);
 }
 
 void
 omp_set_dynamic (int val)
 {
-  gomp_dyn_var = val;
+  struct gomp_task_icv *icv = gomp_icv();
+  icv->dyn_var = val;
 }
 
 int
 omp_get_dynamic (void)
 {
-  return gomp_dyn_var;
+  struct gomp_task_icv *icv = gomp_icv();
+  return icv->dyn_var;
 }
 
 void
 omp_set_nested (int val)
 {
-  gomp_nest_var = val;
+  struct gomp_task_icv *icv = gomp_icv();
+  icv->nest_var = val;
 }
 
 int
 omp_get_nested (void)
 {
-  return gomp_nest_var;
+  struct gomp_task_icv *icv = gomp_icv();
+  return icv->nest_var;
 }
 
 void
 omp_set_schedule (omp_sched_t kind, int modifier)
 {
+  struct gomp_task_icv *icv = gomp_icv();
   switch (kind)
     {
     case omp_sched_static:
@@ -461,23 +473,31 @@ omp_set_schedule (omp_sched_t kind, int modifier)
     case omp_sched_guided:
       if (modifier < 1)
 	modifier = 1;
-      gomp_run_sched_chunk = modifier;
+      icv->run_sched_modifier = modifier;
       break;
     case omp_sched_auto:
       break;
     default:
       return;
     }
-  gomp_run_sched_var = kind;
+  icv->run_sched_var = kind;
 }
 
 int
 omp_get_schedule (omp_sched_t *kind, int *modifier)
 {
-  *kind = gomp_run_sched_var;
-  *modifier = gomp_run_sched_chunk;
+  struct gomp_task_icv *icv = gomp_icv();
+  *kind = icv->run_sched_var;
+  *modifier = icv->run_sched_modifier;
   /* FIXME: What is this supposed to return?  */
   return 0;
+}
+
+int
+omp_get_max_threads (void)
+{
+  struct gomp_task_icv *icv = gomp_icv();
+  return icv->nthreads_var;
 }
 
 int
@@ -506,6 +526,7 @@ ialias (omp_get_dynamic)
 ialias (omp_get_nested)
 ialias (omp_set_schedule)
 ialias (omp_get_schedule)
+ialias (omp_get_max_threads)
 ialias (omp_get_thread_limit)
 ialias (omp_set_max_active_levels)
 ialias (omp_get_max_active_levels)

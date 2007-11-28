@@ -1,3 +1,30 @@
+2007-11-28  Richard Henderson  <rth@redhat.com>
+
+	* libgomp.h (struct gomp_task_icv, gomp_global_icv): New.
+	(gomp_thread_limit_var, gomp_max_active_levels_var): New.
+	(struct gomp_task): New.
+	(struct gomp_thread): Add task member.
+	(gomp_nthreads_var, gomp_dyn_var, gomp_nest_var,
+	gomp_run_sched_var, gomp_run_sched_chunk): Remove.
+	(gomp_icv): New.
+	* env.c (gomp_nthreads_var, gomp_dyn_var, gomp_nest_var,
+	gomp_run_sched_var, gomp_run_sched_chunk): Remove.
+	(gomp_global_icv): New.
+	(parse_schedule, initialize_env): Use it.
+	(omp_set_num_threads): Use gomp_icv.
+	(omp_set_dynamic, omp_get_dynamic, omp_set_nested, omp_get_nested,
+	omp_set_schedule, omp_get_schedule): Likewise.
+	(omp_get_max_threads): Move from parallel.c; only use nthreads_var.
+	* sections.c (GOMP_parallel_sections_start): Use gomp_icv.
+	* loop.c (GOMP_loop_runtime_start): Likewise.
+	(GOMP_loop_ordered_runtime_start): Likewise.
+	* parallel.c (gomp_resolve_num_threads): Likewise.
+	(omp_get_max_threads): Move to env.c.
+	* config/linux/proc.c (gomp_init_num_threads): Use gomp_global_icv.
+	(get_num_procs, gomp_dynamic_max_threads): Use gomp_icv.
+	* config/posix/proc.c, config/mingw32/proc.c: Similarly.
+	* omp_lib.f90.in: Change some tabs to spaces to prevent warnings.
+
 2007-10-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (gomp_schedule_type): Reorder enum to match

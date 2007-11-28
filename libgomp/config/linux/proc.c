@@ -78,14 +78,14 @@ gomp_init_num_threads (void)
   if (pthread_getaffinity_np (pthread_self (), sizeof (cpuset), &cpuset) == 0)
     {
       /* Count only the CPUs this process can use.  */
-      gomp_nthreads_var = cpuset_popcount (&cpuset);
-      if (gomp_nthreads_var == 0)
-	gomp_nthreads_var = 1;
+      gomp_global_icv.nthreads_var = cpuset_popcount (&cpuset);
+      if (gomp_global_icv.nthreads_var == 0)
+	gomp_global_icv.nthreads_var = 1;
       return;
     }
 #endif
 #ifdef _SC_NPROCESSORS_ONLN
-  gomp_nthreads_var = sysconf (_SC_NPROCESSORS_ONLN);
+  gomp_global_icv.nthreads_var = sysconf (_SC_NPROCESSORS_ONLN);
 #endif
 }
 
@@ -132,7 +132,7 @@ get_num_procs (void)
 #ifdef _SC_NPROCESSORS_ONLN
   return sysconf (_SC_NPROCESSORS_ONLN);
 #else
-  return gomp_nthreads_var;
+  return gomp_icv()->nthreads_var;
 #endif
 }
 
@@ -146,11 +146,11 @@ get_num_procs (void)
 unsigned
 gomp_dynamic_max_threads (void)
 {
-  unsigned n_onln, loadavg;
+  unsigned n_onln, loadavg, nthreads_var = gomp_icv()->nthreads_var;
 
   n_onln = get_num_procs ();
-  if (n_onln > gomp_nthreads_var)
-    n_onln = gomp_nthreads_var;
+  if (n_onln > nthreads_var)
+    n_onln = nthreads_var;
 
   loadavg = 0;
 #ifdef HAVE_GETLOADAVG
