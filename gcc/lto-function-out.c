@@ -1287,6 +1287,12 @@ output_expr_operand (struct output_block *ob, tree expr)
 
     case STRING_CST:
       {
+	/* Most STRING_CSTs have a type when they get here.  The ones
+	   in the string operands of asms do not.  Put something there
+	   so that all STRING_CSTs can be handled uniformly.  */
+	if (!TREE_TYPE (expr))
+	  TREE_TYPE (expr) = void_type_node;
+
 	output_record_start (ob, expr, expr, LTO_string_cst);
 	output_string (ob, ob->main_stream, 
 		       TREE_STRING_POINTER (expr),
