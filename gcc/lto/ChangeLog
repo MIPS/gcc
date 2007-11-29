@@ -1,3 +1,26 @@
+2007-11-28  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Set
+	DECL_SOURCE_LOCATION for debugging purposes.
+	(lto_read_member_DIE): Set DECL_SOURCE_LOCATION.  If we have read a
+	bitfield, use the type specified by the DIE for TREE_TYPE and defer
+	laying out the decl until later.
+	(lto_read_subroutine_type_subprogram_DIE): Compare the function's
+	name with DECL_ASSEMBLER_NAME.  Set DECL_SOURCE_LOCATION and
+	TREE_ADDRESSABLE.
+	* lto-read.c (input_expr_operand): Set TREE_ADDRESSABLE on the
+	operand of an ADDR_EXPR.
+	* lto-lang.c (enum lto_builtin_type): New enum.
+	(builtin_type): New typedef.
+	(builtin_types, string_type_node, const_string_type_node,
+	wint_type_node, intmax_type_node, uintmax_type_node,
+	signed_size_type_node): New variables.
+	(def_fn_type, builtin_type_for_size, lto_define_builtins,
+	lto_build_c_type_nodes): New functions.
+	(lto_init): Initialize builtin types.
+	(lto_set_decl_assembler_name): Let the target machine mangle the
+	name if the decl is TREE_PUBLIC, otherwise uniquify it.
+
 2007-11-21  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Don't

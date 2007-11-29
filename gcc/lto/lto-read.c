@@ -1145,7 +1145,22 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
      with the flags to the point that we just have to call this here
      to get it right.  */
   if (code == ADDR_EXPR)
-    recompute_tree_invariant_for_addr_expr (result);
+    {
+      tree x;
+
+      /* Following tree-cfg.c:verify_expr: skip any references and
+	 ensure that any variable used as a prefix is marked
+	 addressable.  */
+      for (x = TREE_OPERAND (result, 0);
+	   handled_component_p (x);
+	   x = TREE_OPERAND (x, 0))
+	;
+
+      if (TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == PARM_DECL)
+	TREE_ADDRESSABLE (x) = 1;
+
+      recompute_tree_invariant_for_addr_expr (result);
+    }
   return result;
 }
 

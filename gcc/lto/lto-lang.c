@@ -53,6 +53,163 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
+/* Builtin types.  */
+
+enum lto_builtin_type
+{
+#define DEF_PRIMITIVE_TYPE(NAME, VALUE) NAME,
+#define DEF_FUNCTION_TYPE_0(NAME, RETURN) NAME,
+#define DEF_FUNCTION_TYPE_1(NAME, RETURN, ARG1) NAME,
+#define DEF_FUNCTION_TYPE_2(NAME, RETURN, ARG1, ARG2) NAME,
+#define DEF_FUNCTION_TYPE_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
+#define DEF_FUNCTION_TYPE_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
+#define DEF_FUNCTION_TYPE_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) NAME,
+#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) NAME,
+#define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
+#define DEF_FUNCTION_TYPE_VAR_1(NAME, RETURN, ARG1) NAME,
+#define DEF_FUNCTION_TYPE_VAR_2(NAME, RETURN, ARG1, ARG2) NAME,
+#define DEF_FUNCTION_TYPE_VAR_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
+#define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
+#define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG6) \
+  NAME,
+#define DEF_POINTER_TYPE(NAME, TYPE) NAME,
+#include "builtin-types.def"
+#undef DEF_PRIMITIVE_TYPE
+#undef DEF_FUNCTION_TYPE_0
+#undef DEF_FUNCTION_TYPE_1
+#undef DEF_FUNCTION_TYPE_2
+#undef DEF_FUNCTION_TYPE_3
+#undef DEF_FUNCTION_TYPE_4
+#undef DEF_FUNCTION_TYPE_5
+#undef DEF_FUNCTION_TYPE_6
+#undef DEF_FUNCTION_TYPE_7
+#undef DEF_FUNCTION_TYPE_VAR_0
+#undef DEF_FUNCTION_TYPE_VAR_1
+#undef DEF_FUNCTION_TYPE_VAR_2
+#undef DEF_FUNCTION_TYPE_VAR_3
+#undef DEF_FUNCTION_TYPE_VAR_4
+#undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_POINTER_TYPE
+  BT_LAST
+};
+
+typedef enum lto_builtin_type builtin_type;
+
+static GTY(()) tree builtin_types[(int) BT_LAST + 1];
+
+/* FIXME: eventually these should be stuck into an array or merged with
+   c_global_trees.  */
+static GTY(()) tree string_type_node;
+static GTY(()) tree const_string_type_node;
+static GTY(()) tree wint_type_node;
+static GTY(()) tree intmax_type_node;
+static GTY(()) tree uintmax_type_node;
+static GTY(()) tree signed_size_type_node;
+
+/* Cribbed from c-common.c.  */
+
+static void
+def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
+{
+  tree args = NULL, t;
+  va_list list;
+  int i;
+
+  va_start (list, n);
+  for (i = 0; i < n; ++i)
+    {
+      builtin_type a = va_arg (list, builtin_type);
+      t = builtin_types[a];
+      if (t == error_mark_node)
+	goto egress;
+      args = tree_cons (NULL_TREE, t, args);
+    }
+  va_end (list);
+
+  args = nreverse (args);
+  if (!var)
+    args = chainon (args, void_list_node);
+
+  t = builtin_types[ret];
+  if (t == error_mark_node)
+    goto egress;
+  t = build_function_type (t, args);
+
+ egress:
+  builtin_types[def] = t;
+}
+
+/* Used to help initialize the builtin-types.def table.  When a type of
+   the correct size doesn't exist, use error_mark_node instead of NULL.
+   The later results in segfaults even when a decl using the type doesn't
+   get invoked.  */
+
+static tree
+builtin_type_for_size (int size, bool unsignedp)
+{
+  tree type = lang_hooks.types.type_for_size (size, unsignedp);
+  return type ? type : error_mark_node;
+}
+
+static void
+lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
+		     tree va_list_arg_type_node ATTRIBUTE_UNUSED)
+{
+#define DEF_PRIMITIVE_TYPE(ENUM, VALUE) \
+  builtin_types[ENUM] = VALUE;
+#define DEF_FUNCTION_TYPE_0(ENUM, RETURN) \
+  def_fn_type (ENUM, RETURN, 0, 0);
+#define DEF_FUNCTION_TYPE_1(ENUM, RETURN, ARG1) \
+  def_fn_type (ENUM, RETURN, 0, 1, ARG1);
+#define DEF_FUNCTION_TYPE_2(ENUM, RETURN, ARG1, ARG2) \
+  def_fn_type (ENUM, RETURN, 0, 2, ARG1, ARG2);
+#define DEF_FUNCTION_TYPE_3(ENUM, RETURN, ARG1, ARG2, ARG3) \
+  def_fn_type (ENUM, RETURN, 0, 3, ARG1, ARG2, ARG3);
+#define DEF_FUNCTION_TYPE_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4) \
+  def_fn_type (ENUM, RETURN, 0, 4, ARG1, ARG2, ARG3, ARG4);
+#define DEF_FUNCTION_TYPE_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5)	\
+  def_fn_type (ENUM, RETURN, 0, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
+#define DEF_FUNCTION_TYPE_6(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6)					\
+  def_fn_type (ENUM, RETURN, 0, 6, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
+#define DEF_FUNCTION_TYPE_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7)					\
+  def_fn_type (ENUM, RETURN, 0, 7, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7);
+#define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN) \
+  def_fn_type (ENUM, RETURN, 1, 0);
+#define DEF_FUNCTION_TYPE_VAR_1(ENUM, RETURN, ARG1) \
+  def_fn_type (ENUM, RETURN, 1, 1, ARG1);
+#define DEF_FUNCTION_TYPE_VAR_2(ENUM, RETURN, ARG1, ARG2) \
+  def_fn_type (ENUM, RETURN, 1, 2, ARG1, ARG2);
+#define DEF_FUNCTION_TYPE_VAR_3(ENUM, RETURN, ARG1, ARG2, ARG3) \
+  def_fn_type (ENUM, RETURN, 1, 3, ARG1, ARG2, ARG3);
+#define DEF_FUNCTION_TYPE_VAR_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4) \
+  def_fn_type (ENUM, RETURN, 1, 4, ARG1, ARG2, ARG3, ARG4);
+#define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
+  def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
+#define DEF_POINTER_TYPE(ENUM, TYPE) \
+  builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
+
+#include "builtin-types.def"
+
+#undef DEF_PRIMITIVE_TYPE
+#undef DEF_FUNCTION_TYPE_1
+#undef DEF_FUNCTION_TYPE_2
+#undef DEF_FUNCTION_TYPE_3
+#undef DEF_FUNCTION_TYPE_4
+#undef DEF_FUNCTION_TYPE_5
+#undef DEF_FUNCTION_TYPE_6
+#undef DEF_FUNCTION_TYPE_VAR_0
+#undef DEF_FUNCTION_TYPE_VAR_1
+#undef DEF_FUNCTION_TYPE_VAR_2
+#undef DEF_FUNCTION_TYPE_VAR_3
+#undef DEF_FUNCTION_TYPE_VAR_4
+#undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_POINTER_TYPE
+  builtin_types[(int) BT_LAST] = NULL_TREE;
+}
+
 /* This variable keeps a table for types for each precision so that we only 
    allocate each of them once. Signed and unsigned types are kept separate.  */
 static GTY(()) tree signed_and_unsigned_types[MAX_BITS_PER_WORD + 1][2];
@@ -180,13 +337,23 @@ lto_insert_block (tree block ATTRIBUTE_UNUSED)
 static void
 lto_set_decl_assembler_name (tree decl)
 {
-  /* This is lhd_set_decl_assembler_name without performing name
-     mangling.  */
-  const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
-  char *label;
+  /* This is almost the same as lhd_set_decl_assembler_name, except that
+     we need to uniquify file-scope names, even if they are not
+     TREE_PUBLIC, to avoid conflicts between individual files.  */
+  tree id;
 
-  ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
-  SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
+  if (TREE_PUBLIC (decl))
+    id = targetm.mangle_decl_assembler_name (decl, DECL_NAME (decl));
+  else
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
+      char *label;
+
+      ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
+      id = get_identifier (label);
+    }
+
+  SET_DECL_ASSEMBLER_NAME (decl, id);
 }
 
 static tree
@@ -233,6 +400,38 @@ lto_register_builtin_type (tree type, const char *name)
   registered_builtin_types = tree_cons (0, type, registered_builtin_types);
 }
 
+/* Build nodes that would have be created by the C front-end; necessary
+   for including builtin-types.def and ultimately builtins.def.  */
+
+static void
+lto_build_c_type_nodes (void)
+{
+  gcc_assert (void_type_node);
+
+  void_list_node = build_tree_list (NULL_TREE, void_type_node);
+  string_type_node = build_pointer_type (char_type_node);
+  const_string_type_node
+    = build_pointer_type (build_qualified_type (char_type_node, TYPE_QUAL_CONST));
+
+  if (strcmp (SIZE_TYPE, "unsigned int") == 0)
+    {
+      intmax_type_node = integer_type_node;
+      uintmax_type_node = unsigned_type_node;
+      signed_size_type_node = integer_type_node;
+    }
+  else if (strcmp (SIZE_TYPE, "long unsigned int") == 0)
+    {
+      intmax_type_node = long_integer_type_node;
+      uintmax_type_node = long_unsigned_type_node;
+      signed_size_type_node = long_integer_type_node;
+    }
+  else
+    gcc_unreachable ();
+
+  wint_type_node = unsigned_type_node;
+  pid_type_node = integer_type_node;
+}
+
 /* Perform LTO-specific initialization.  */
 
 static bool
@@ -260,6 +459,20 @@ lto_init (void)
     gcc_unreachable();
   /* Create other basic types.  */
   build_common_tree_nodes_2 (/*short_double=*/false);
+  lto_build_c_type_nodes ();
+  gcc_assert (va_list_type_node);
+
+  if (TREE_CODE (va_list_type_node) == ARRAY_TYPE)
+    {
+      tree x = build_pointer_type (TREE_TYPE (va_list_type_node));
+      lto_define_builtins (x, x);
+    }
+  else
+    {
+      lto_define_builtins (va_list_type_node,
+			   build_reference_type (va_list_type_node));
+    }
+
   targetm.init_builtins ();
   build_common_builtin_nodes ();
 
