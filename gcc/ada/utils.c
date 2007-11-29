@@ -43,6 +43,7 @@
 #include "tree-gimple.h"
 #include "tree-dump.h"
 #include "pointer-set.h"
+#include "langhooks.h"
 
 #include "ada.h"
 #include "types.h"

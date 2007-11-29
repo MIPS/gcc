@@ -1,3 +1,8 @@
+2007-11-29  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (struct lang_identifier): Add comment for 'node'
+	field.
+
 2007-11-28  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_translation_unit): Handle a wrong guess by

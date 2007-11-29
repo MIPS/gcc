@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "tm_p.h"
 #include "timevar.h"
+#include "langhooks.h"
 
 static int interface_strcmp (const char *);
 static void init_cp_pragma (void);

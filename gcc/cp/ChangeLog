@@ -1,3 +1,23 @@
+2007-11-29  Tom Tromey  <tromey@redhat.com>
+
+	* parser.c: Include langhooks.h.
+	* decl2.c: Include langhooks.h.
+	* lex.c: Include langhooks.h.
+	* name-lookup.c: Include langhooks.h.
+	* semantics.c: Include langhooks.h.
+	* pt.c: Include langhooks.h.
+	* cp-lang.c (LANG_HOOKS_IDENTIFIER_OFFSET): New define.
+	* cxx-pretty-print.c: Include langhooks.h.
+	* cp-tree.h (struct lang_identifier) <node>: New field.
+	* mangle.c: Include langhooks.h.
+	* tree.c: Include langhooks.h.
+	* error.c: Include langhooks.h.
+	* except.c: Include langhooks.h.
+	* method.c: Include langhooks.h.
+	* repo.c: Include langhooks.h.
+	* class.c: Include langhooks.h.
+	* typeck.c: Include langhooks.h.
+
 2007-08-21  Tom Tromey  <tromey@redhat.com>
 
 	* parser.c (cp_lexer_get_preprocessor_token): Update.  Added

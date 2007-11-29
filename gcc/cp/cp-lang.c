@@ -55,6 +55,10 @@ static const char * cxx_dwarf_name (tree t, int verbosity);
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS cp_init_ts
 
+#undef LANG_HOOKS_IDENTIFIER_OFFSET
+#define LANG_HOOKS_IDENTIFIER_OFFSET \
+  offsetof (struct lang_identifier, node.ident)
+
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

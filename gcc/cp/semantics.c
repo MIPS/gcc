@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "vec.h"
 #include "target.h"
+#include "langhooks.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or

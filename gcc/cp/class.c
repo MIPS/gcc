@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "cgraph.h"
 #include "tree-dump.h"
+#include "langhooks.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */

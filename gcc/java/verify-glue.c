@@ -35,6 +35,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-tree.h"
 #include "java-except.h"
 #include "toplev.h"
+#include "langhooks.h"
 
 void *
 vfy_alloc (size_t bytes)

@@ -37,6 +37,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "except.h"
 #include "java-except.h"
 #include "toplev.h"
+#include "langhooks.h"
 
 static void expand_start_java_handler (struct eh_range *);
 static struct eh_range *find_handler_in_range (int, struct eh_range *,

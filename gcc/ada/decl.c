@@ -36,6 +36,7 @@
 #include "obstack.h"
 #include "target.h"
 #include "expr.h"
+#include "langhooks.h"
 
 #include "ada.h"
 #include "types.h"

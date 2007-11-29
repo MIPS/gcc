@@ -1,3 +1,9 @@
+2007-11-29  Tom Tromey  <tromey@redhat.com>
+
+	* trans-decl.c: Include langhooks.h.
+	* iresolve.c: Include langhooks.h.
+	* f95-lang.c (struct lang_identifier) <id>: New field.
+
 2007-08-19  Roger Sayle  <roger@eyesopen.com>
 
 	* match.c (intrinsic_operators): Make static.

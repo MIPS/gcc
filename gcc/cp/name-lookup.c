@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "debug.h"
 #include "c-pragma.h"
+#include "langhooks.h"
 
 /* The bindings for a particular name in a particular scope.  */
 

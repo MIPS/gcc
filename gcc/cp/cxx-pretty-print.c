@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cxx-pretty-print.h"
 #include "cp-tree.h"
 #include "toplev.h"
+#include "langhooks.h"
 
 static void pp_cxx_unqualified_id (cxx_pretty_printer *, tree);
 static void pp_cxx_nested_name_specifier (cxx_pretty_printer *, tree);

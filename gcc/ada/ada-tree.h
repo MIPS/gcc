@@ -33,12 +33,21 @@ enum gnat_tree_code {
 };
 #undef DEFTREECODE
 
+struct lang_identifier GTY(())
+{
+  struct tree_identifier common;
+
+  /* The identifier allocation code requires this field to be last.  */
+  struct ht_identifier id;
+};
+
 /* Ada uses the lang_decl and lang_type fields to hold a tree.  */
 union lang_tree_node
-  GTY((desc ("0"),
+  GTY((desc ("TREE_CODE (&%h.t) == IDENTIFIER_NODE"),
        chain_next ("(union lang_tree_node *)GENERIC_NEXT (&%h.t)")))
 {
   union tree_node GTY((tag ("0"))) t;
+  struct lang_identifier GTY((tag ("1"))) identifier;
 };
 struct lang_decl GTY(()) {tree t; };
 struct lang_type GTY(()) {tree t; };

@@ -1,3 +1,16 @@
+2007-11-29  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (struct lang_identifier) <id>: New field.
+	* expr.c: Include langhooks.h.
+	* mangle.c: Include langhooks.h.
+	* verify-glue.c: Include langhooks.h.
+	* except.c: Include langhooks.h.
+	* resource.c: Include langhooks.h.
+	* constants.c: Include langhooks.h.
+	* jcf-parse.c: Include langhooks.h.
+	* class.c: Include langhooks.h.
+	* typeck.c: Include langhooks.h.
+
 2007-08-20  Richard Guenther  <rguenther@suse.de>
 
 	* lang.c (java_tree_inlining_walk_subtrees): Remove.

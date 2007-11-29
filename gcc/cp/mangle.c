@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "varray.h"
 #include "flags.h"
 #include "target.h"
+#include "langhooks.h"
 
 /* Debugging support.  */
 

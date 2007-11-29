@@ -1,3 +1,13 @@
+2007-11-29  Tom Tromey  <tromey@redhat.com>
+
+	* utils2.c: Include langhooks.h.
+	* decl.c: Include langhooks.h.
+	* misc.c (LANG_HOOKS_IDENTIFIER_SIZE): Remove.
+	* utils.c: Include langhooks.h.
+	* ada-tree.h (struct lang_identifier): New struct.
+	(union lang_tree_node) <identifier>: New field.
+	* trans.c: Include langhooks.h.
+
 2007-08-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* misc.c (gnat_type_max_size): Constify.

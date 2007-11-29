@@ -208,6 +208,9 @@ struct lang_identifier GTY(())
   cxx_binding *bindings;
   tree class_template_info;
   tree label_value;
+  /* This must be last, as we use the struct hack to store the
+     identifier characters at the end of the object.  */
+  struct cpp_hashnode node;
 };
 
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a

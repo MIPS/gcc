@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "c-common.h"
 #include "params.h"
+#include "langhooks.h"
 
 static tree pfn_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, const char *, tree, int);

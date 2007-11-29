@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "c-common.h"
+#include "langhooks.h"
 
 
 /* The lexer.  */

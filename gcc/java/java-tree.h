@@ -653,6 +653,9 @@ struct lang_identifier GTY(())
   /* If non-NULL:  An ADDR_REF to a VAR_DECL that contains
    * the Utf8Const representation of the identifier.  */
   tree utf8_ref;
+
+  /* The identifier allocation code requires this field to be last.  */
+  struct ht_identifier id;
 };
 
 /* The resulting tree type.  */

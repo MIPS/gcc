@@ -55,6 +55,9 @@ struct lang_identifier
 GTY(())
 {
   struct tree_identifier common;
+
+  /* The identifier allocation code requires this field to be last.  */
+  struct ht_identifier id;
 };
 
 /* The resulting tree type.  */

@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gfortran.h"
 #include "intrinsic.h"
+#include "langhooks.h"
 
 /* Given printf-like arguments, return a stable version of the result string. 
 

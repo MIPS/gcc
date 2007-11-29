@@ -42,6 +42,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "expr.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
+#include "langhooks.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY

@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-pass.h"
 #include "diagnostic.h"
+#include "langhooks.h"
 
 /* Various flags to control the mangling process.  */
 

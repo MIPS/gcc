@@ -36,6 +36,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "langhooks-def.h"
+#include "langhooks.h"
 
 static void mangle_class_field (tree);
 static void mangle_vtable (tree);

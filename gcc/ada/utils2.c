@@ -46,6 +46,7 @@
 #include "einfo.h"
 #include "ada-tree.h"
 #include "gigi.h"
+#include "langhooks.h"
 
 static tree find_common_type (tree, tree);
 static bool contains_save_expr_p (tree);

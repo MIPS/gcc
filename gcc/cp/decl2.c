@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "tree-dump.h"
 #include "intl.h"
+#include "langhooks.h"
 
 extern cpp_reader *parse_in;
 

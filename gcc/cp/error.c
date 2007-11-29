@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "langhooks-def.h"
 #include "cxx-pretty-print.h"
+#include "langhooks.h"
 
 #define pp_separate_with_comma(PP) pp_cxx_separate_with (PP, ',')
 

@@ -30,6 +30,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-tree.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 static void set_constant_entry (CPool *, int, int, jword);
 static int find_tree_constant (CPool *, int, tree);

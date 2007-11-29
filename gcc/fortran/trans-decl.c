@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-const.h"
 /* Only for gfc_trans_code.  Shouldn't need to include this.  */
 #include "trans-stmt.h"
+#include "langhooks.h"
 
 #define MAX_LABEL_VALUE 99999
 

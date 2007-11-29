@@ -44,6 +44,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "ggc.h"
 #include "tree-gimple.h"
 #include "target.h"
+#include "langhooks.h"
 
 static void flush_quick_stack (void);
 static void push_value (tree);

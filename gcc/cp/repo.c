@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "diagnostic.h"
 #include "flags.h"
+#include "langhooks.h"
 
 static char *extract_string (char **);
 static const char *get_base_filename (const char *);

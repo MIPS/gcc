@@ -109,8 +109,6 @@ static tree gnat_type_max_size		(const_tree);
 
 #undef  LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME			"GNU Ada"
-#undef  LANG_HOOKS_IDENTIFIER_SIZE
-#define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct tree_identifier)
 #undef  LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT			gnat_init
 #undef  LANG_HOOKS_INIT_OPTIONS

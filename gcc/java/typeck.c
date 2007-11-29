@@ -37,6 +37,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "convert.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 static tree convert_ieee_real_to_integer (tree, tree);
 static tree parse_signature_type (const unsigned char **,

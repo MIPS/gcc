@@ -56,6 +56,7 @@
 #include "einfo.h"
 #include "ada-tree.h"
 #include "gigi.h"
+#include "langhooks.h"
 
 /* Let code below know whether we are targetting VMS without need of
    intrusive preprocessor directives.  */

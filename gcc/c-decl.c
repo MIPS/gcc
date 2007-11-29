@@ -241,6 +241,9 @@ struct lang_identifier GTY(())
   struct c_binding *symbol_binding; /* vars, funcs, constants, typedefs */
   struct c_binding *tag_binding;    /* struct/union/enum tags */
   struct c_binding *label_binding;  /* labels */
+
+  /* This must be last, as we use the struct hack to store the
+     identifier characters at the end of the object.  */
   struct cpp_hashnode node;
 };
 

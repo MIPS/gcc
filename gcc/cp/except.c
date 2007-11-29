@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-iterator.h"
 #include "target.h"
+#include "langhooks.h"
 
 static void push_eh_cleanup (tree);
 static tree prepare_eh_type (tree);
