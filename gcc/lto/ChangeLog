@@ -1,3 +1,11 @@
+2007-11-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-lang.c (enum built_in_attribute): New enum.
+	(flag_no_builtin, flag_no_nonansi_builtin, flag_isoc94, flag_isoc99,
+	built_in_attributes): New variables.
+	(def_builtin_1): New function.
+	(lto_define_builtins): #define DEF_BUILTIN and include builtins.def.
+
 2007-11-28  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Set

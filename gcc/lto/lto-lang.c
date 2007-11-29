@@ -53,6 +53,24 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
+/* Handle C and C++ default attributes.  */
+
+enum built_in_attribute
+{
+#define DEF_ATTR_NULL_TREE(ENUM) ENUM,
+#define DEF_ATTR_INT(ENUM, VALUE) ENUM,
+#define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+  ATTR_LAST
+};
+
+static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
+
 /* Builtin types.  */
 
 enum lto_builtin_type
@@ -107,6 +125,13 @@ static GTY(()) tree intmax_type_node;
 static GTY(()) tree uintmax_type_node;
 static GTY(()) tree signed_size_type_node;
 
+/* Dummy flags that we need to include builtins.def.  These need to go
+   away somehow FIXME.  */
+int flag_no_builtin;
+int flag_no_nonansi_builtin;
+int flag_isoc94;
+int flag_isoc99;
+
 /* Cribbed from c-common.c.  */
 
 static void
@@ -150,6 +175,36 @@ builtin_type_for_size (int size, bool unsignedp)
 {
   tree type = lang_hooks.types.type_for_size (size, unsignedp);
   return type ? type : error_mark_node;
+}
+
+/* Support for DEF_BUILTIN.  */
+
+static void
+def_builtin_1 (enum built_in_function fncode, const char *name,
+	       enum built_in_class fnclass, tree fntype, tree libtype,
+	       bool both_p, bool fallback_p, bool nonansi_p,
+	       tree fnattrs, bool implicit_p)
+{
+  tree decl;
+  const char *libname;
+
+  if (fntype == error_mark_node)
+    return;
+
+  libname = name + strlen ("__builtin_");
+  decl = add_builtin_function (name, fntype, fncode, fnclass,
+			       (fallback_p ? libname : NULL),
+			       fnattrs);
+
+  if (both_p
+      && !flag_no_builtin
+      && !(nonansi_p && flag_no_nonansi_builtin))
+    add_builtin_function (libname, libtype, fncode, fnclass,
+			  NULL, fnattrs);
+
+  built_in_decls[(int) fncode] = decl;
+  if (implicit_p)
+    implicit_built_in_decls[(int) fncode] = decl;
 }
 
 static void
@@ -208,6 +263,16 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
 #undef DEF_FUNCTION_TYPE_VAR_5
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
+
+#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P,	\
+		    NONANSI_P, ATTRS, IMPLICIT, COND)				\
+    if (NAME && COND)								\
+      def_builtin_1 (ENUM, NAME, CLASS, builtin_types[(int) TYPE],		\
+		     builtin_types[(int) LIBTYPE], BOTH_P, FALLBACK_P,		\
+		     NONANSI_P, built_in_attributes[(int) ATTRS], IMPLICIT);
+#include "builtins.def"
+#undef DEF_BUILTIN
+
 }
 
 /* This variable keeps a table for types for each precision so that we only 
