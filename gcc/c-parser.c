@@ -2138,9 +2138,13 @@ c_parser_translation_unit (c_parser *parser)
 		      start_new_parsed_hunk (parser, 1,
 					     parser->buffer[isolani.start_token].location);
 		      c_parser_external_declaration (parser);
-		      finish_current_hunk (parser, &isolani, &isolani,
-					   parser->current_hset);
-		      gcc_assert (parser->next_token == isolani.next_token + 1);
+		      /* FIXME: c_parser_find_decl_boundary might have
+			 guessed incorrectly -- it is known to fail
+			 for K&R function definitions.  In this case
+			 we can't add the parsed hunk.  */
+		      if (parser->next_token == isolani.next_token + 1)
+			finish_current_hunk (parser, &isolani, &isolani,
+					     parser->current_hset);
 		    }
 		  /* Defensiveness.  */
 		  parser->current_hset = NULL;
@@ -2170,11 +2174,13 @@ c_parser_translation_unit (c_parser *parser)
 	      /* Couldn't reuse, so parse and save this hunk.  */
 	      start_new_parsed_hunk (parser, 20,
 				     parser->buffer[parser->prev_hunk->start_token].location);
+
+	      /* Only set this if we just started a new hunk.  */
+	      parsed_any = true;
 	    }
 
 	  c_parser_external_declaration (parser);
 	  obstack_free (&parser_obstack, obstack_position);
-	  parsed_any = true;
 	}
       while (c_parser_next_token_is_not (parser, CPP_EOF));
     }

@@ -3261,7 +3261,7 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
 	oprintf (f, "sizeof (%s)", v->name);
 	end_root_field (f, v, false);
 	start_root_field (f, v, "cb");
-	oprintf (f, "&gt_ggc_m_S");
+	oprintf (f, "(gt_pointer_walker) &gt_ggc_m_S");
 	end_root_field (f, v, false);
 	start_root_field (f, v, "pchw");
 	oprintf (f, "(gt_pointer_walker) &gt_pch_n_S");

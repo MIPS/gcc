@@ -5732,10 +5732,11 @@ lookup_type_die (tree type)
 static inline void
 equate_type_number_to_die (tree type, dw_die_ref type_die)
 {
+  void **slot;
   struct type_die_entry *entry = GGC_NEW (struct type_die_entry);
   entry->type = type;
   entry->die = type_die;
-  void **slot = htab_find_slot (type_die_table, entry, INSERT);
+  slot = htab_find_slot (type_die_table, entry, INSERT);
   *slot = entry;
 }
 

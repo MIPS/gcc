@@ -102,9 +102,10 @@ server_start (char *program)
     default:
       {
 	/* Parent.  */
+	int r;
 	char x;
 	close (fds[1]);
-	int r = read (fds[0], &x, 1);
+	r = read (fds[0], &x, 1);
 	if (r == -1)
 	  error ("server failed to start: %s", xstrerror (errno));
 	close (fds[0]);

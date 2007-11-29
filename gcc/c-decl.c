@@ -6956,6 +6956,7 @@ store_parm_decls (void)
 /* Emit diagnostics that require gimple input for detection.  Operate on
    FNDECL and all its nested functions.  */
 
+#if 0
 static void
 c_gimple_diagnostics_recursively (tree fndecl)
 {
@@ -6973,6 +6974,7 @@ c_gimple_diagnostics_recursively (tree fndecl)
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
     c_gimple_diagnostics_recursively (cgn->decl);
 }
+#endif
 
 /* Finish up a function declaration and compile that function
    all the way to assembler language output.  The free the storage

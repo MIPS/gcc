@@ -1,3 +1,17 @@
+2007-11-28  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (c_parser_translation_unit): Handle a wrong guess by
+	c_parser_find_decl_boundary.  Only set parsed_any if a new hunk
+	was started.
+	* server.c (server_start): Move declaration to start of function.
+	* ggc-page.c (gt_ggc_m_S): Cast argument to
+	gt_ggc_mx_lang_tree_node.
+	* c-decl.c (c_gimple_diagnostics_recursively): Comment out.
+	* c-format.c (handle_format_attribute): Copy format_types_orig.
+	* gengtype.c (write_root): Cast gt_ggc_m_S to gt_pointer_walker.
+	* dwarf2out.c (equate_type_number_to_die): Move declaration to
+	start of function.
+
 2007-11-27  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parse_init_once): New function.

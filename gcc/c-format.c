@@ -2895,7 +2895,7 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	 format_type data is allocated dynamically and is modifiable.  */
       if (!dynamic_format_types)
 	format_types = dynamic_format_types = (format_kind_info *)
-	  obdup_mem (dynamic_format_types, sizeof (format_types_orig));
+	  obdup_mem (format_types_orig, sizeof (format_types_orig));
 
       /* If this is format __asm_fprintf__, we have to initialize
 	 GCC's notion of HOST_WIDE_INT for checking %wd.  */

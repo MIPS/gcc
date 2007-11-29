@@ -1302,7 +1302,7 @@ gt_ggc_m_S (const void *p)
 			     + offsetof (struct ht_identifier, str))
 		  || offset == offsetof (struct tree_string, str));
       p = ((const char *) p) - offset;
-      gt_ggc_mx_lang_tree_node (p);
+      gt_ggc_mx_lang_tree_node ((void *) p);
       return;
     }
 
