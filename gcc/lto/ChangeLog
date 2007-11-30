@@ -1,3 +1,7 @@
+2007-11-30  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_materialize_function): Add FIXME.
+
 2007-11-29  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-lang.c (enum built_in_attribute): New enum.
