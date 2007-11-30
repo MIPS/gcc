@@ -1,5 +1,5 @@
 /* Map logical line numbers to (source file, line number) pairs.
-   Copyright (C) 2001, 2003, 2004
+   Copyright (C) 2001, 2003, 2004, 2007
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -86,7 +86,8 @@ linemap_free (struct line_maps *set)
 
 const struct line_map *
 linemap_add (struct line_maps *set, enum lc_reason reason,
-	     unsigned int sysp, const char *to_file, unsigned int to_line)
+	     unsigned int sysp, unsigned int user_owned,
+	     const char *to_file, unsigned int to_line)
 {
   struct line_map *map;
   source_location start_location = set->highest_location + 1;
@@ -141,6 +142,7 @@ linemap_add (struct line_maps *set, enum lc_reason reason,
       if (error || to_file == NULL)
 	{
 	  to_file = from->to_file;
+	  user_owned = from->user_owned;
 	  to_line = SOURCE_LINE (from, from[1].start_location);
 	  sysp = from->sysp;
 	}
@@ -148,6 +150,7 @@ linemap_add (struct line_maps *set, enum lc_reason reason,
 
   map->reason = reason;
   map->sysp = sysp;
+  map->user_owned = user_owned;
   map->start_location = start_location;
   map->to_file = to_file;
   map->to_line = to_line;
@@ -219,7 +222,8 @@ linemap_line_start (struct line_maps *set, unsigned int to_line,
 	  || last_line != map->to_line
 	  || SOURCE_COLUMN (map, highest) >= (1U << column_bits))
 	map = (struct line_map*) linemap_add (set, LC_RENAME, map->sysp,
-				      map->to_file, to_line);
+					      map->user_owned,
+					      map->to_file, to_line);
       map->column_bits = column_bits;
       r = map->start_location + ((to_line - map->to_line) << column_bits);
     }

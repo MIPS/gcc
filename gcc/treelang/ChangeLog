@@ -1,3 +1,8 @@
+2007-11-30  Tom Tromey  <tromey@redhat.com>
+
+	* tree1.c (treelang_init): Update.
+	(treelang_parse_file): Update.
+
 2007-11-29  Tom Tromey  <tromey@redhat.com>
 
 	* treetree.c (struct lang_identifier) <id>: New field.

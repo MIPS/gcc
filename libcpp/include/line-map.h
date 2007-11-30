@@ -118,14 +118,15 @@ extern source_location linemap_line_start
    The text pointed to by TO_FILE must have a lifetime
    at least as long as the final call to lookup_line ().  An empty
    TO_FILE means standard input.  If reason is LC_LEAVE, and
-   TO_FILE is NULL, then TO_FILE, TO_LINE and SYSP are given their
-   natural values considering the file we are returning to.
+   TO_FILE is NULL, then TO_FILE, TO_LINE, SYSP, and USER_OWNED are
+   given their natural values considering the file we are returning
+   to.
 
    A call to this function can relocate the previous set of
    maps, so any stored line_map pointers should not be used.  */
 extern const struct line_map *linemap_add
   (struct line_maps *, enum lc_reason, unsigned int sysp,
-   const char *to_file, unsigned int to_line);
+   unsigned int user_owned, const char *to_file, unsigned int to_line);
 
 /* Given a logical line, returns the map from which the corresponding
    (source file, line) pair can be deduced.  */

@@ -1,3 +1,11 @@
+2007-11-30  Tom Tromey  <tromey@redhat.com>
+
+	* include/line-map.h (linemap_add): Update.
+	* directives.c (_cpp_do_file_change): Update.
+	* line-map.c (linemap_add): Add user_owned argument.  Inherit
+	user_owned when leaving.
+	(linemap_line_start): Update.
+
 2007-11-27  Tom Tromey  <tromey@redhat.com>
 
 	* include/symtab.h (ht_rehash_fn): Declare.

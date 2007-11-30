@@ -1,3 +1,11 @@
+2007-11-30  Tom Tromey  <tromey@redhat.com>
+
+	* lang.c (java_post_options): Update.
+	* jcf-parse.c (give_name_to_class): Update.
+	(jcf_parse): Update.
+	(duplicate_class_warning): Update.
+	(java_parse_file): Update.
+
 2007-11-29  Tom Tromey  <tromey@redhat.com>
 
 	* java-tree.h (struct lang_identifier) <id>: New field.

@@ -1170,7 +1170,7 @@ get_file (const char *name, enum lc_reason reason ATTRIBUTE_UNUSED)
     f->inclusion_line = current_file->line;
 
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, reason, false, f->filename, 1);
+  linemap_add (&line_table, reason, false, false, f->filename, 1);
 #endif
 
   return f;
@@ -1537,7 +1537,7 @@ load_file (const char *filename, bool initial)
 
   current_file = current_file->up;
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_LEAVE, 0, NULL, 0);
+  linemap_add (&line_table, LC_LEAVE, 0, 0, NULL, 0);
 #endif
   return SUCCESS;
 }

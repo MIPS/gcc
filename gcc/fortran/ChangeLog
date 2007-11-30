@@ -1,3 +1,9 @@
+2007-11-30  Tom Tromey  <tromey@redhat.com>
+
+	* scanner.c (get_file): Update.
+	(load_file): Update.
+	* f95-lang.c (gfc_init): Update
+
 2007-11-29  Tom Tromey  <tromey@redhat.com>
 
 	* trans-decl.c: Include langhooks.h.

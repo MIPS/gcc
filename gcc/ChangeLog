@@ -1,3 +1,7 @@
+2007-11-30  Tom Tromey  <tromey@redhat.com>
+
+	* c-opts.c (finish_options): Update.
+
 2007-11-29  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (struct lang_identifier): Add comment for 'node'

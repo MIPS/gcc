@@ -982,14 +982,9 @@ _cpp_do_file_change (cpp_reader *pfile, enum lc_reason reason,
 		     unsigned int sysp, unsigned int user_owned)
 {
   const struct line_map *map = linemap_add (pfile->line_table, reason, sysp,
-					    to_file, file_line);
+					    user_owned, to_file, file_line);
   if (map != NULL)
-    {
-      /* FIXME */
-      struct line_map *m2 = (struct line_map *) map;
-      m2->user_owned = user_owned;
-      linemap_line_start (pfile->line_table, map->to_line, 127);
-    }
+    linemap_line_start (pfile->line_table, map->to_line, 127);
 
   if (pfile->cb.file_change)
     pfile->cb.file_change (pfile, map);

@@ -141,7 +141,7 @@ treelang_init (void)
 #ifndef USE_MAPPED_LOCATION
   input_filename = main_input_filename;
 #else
-  linemap_add (&line_table, LC_ENTER, false, main_input_filename, 1);
+  linemap_add (&line_table, LC_ENTER, false, false, main_input_filename, 1);
 #endif
 
   /* This error will not happen from GCC as it will always create a
@@ -165,7 +165,7 @@ treelang_init (void)
     }
 
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 1);
+  linemap_add (&line_table, LC_RENAME, false, false, "<built-in>", 1);
   linemap_line_start (&line_table, 0, 1);
 #endif
 
@@ -190,7 +190,7 @@ treelang_parse_file (int debug_flag ATTRIBUTE_UNUSED)
 {
 #ifdef USE_MAPPED_LOCATION
   source_location s;
-  linemap_add (&line_table, LC_RENAME, false, main_input_filename, 1);
+  linemap_add (&line_table, LC_RENAME, false, false, main_input_filename, 1);
   s = linemap_line_start (&line_table, 1, 80);
   input_location = s;
 #else
@@ -201,7 +201,7 @@ treelang_parse_file (int debug_flag ATTRIBUTE_UNUSED)
   yyparse ();
   cgraph_finalize_compilation_unit ();
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
+  linemap_add (&line_table, LC_LEAVE, false, false, NULL, 0);
 #endif
   cgraph_optimize ();
 }

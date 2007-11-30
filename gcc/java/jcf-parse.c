@@ -1210,7 +1210,7 @@ give_name_to_class (JCF *jcf, int i)
       {
       tree source_name = identifier_subst (class_name, "", '.', '/', ".java");
       const char *sfname = IDENTIFIER_POINTER (source_name);
-      linemap_add (&line_table, LC_ENTER, false, sfname, 0);
+      linemap_add (&line_table, LC_ENTER, false, false, sfname, 0);
       input_location = linemap_line_start (&line_table, 0, 1);
       file_start_location = input_location;
       DECL_SOURCE_LOCATION (TYPE_NAME (this_class)) = input_location;
@@ -1498,7 +1498,7 @@ jcf_parse (JCF* jcf)
     annotation_write_byte (JV_DONE_ATTR);
 
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
+  linemap_add (&line_table, LC_LEAVE, false, false, NULL, 0);
 #endif
 
   /* The fields of class_type_node are already in correct order. */
@@ -1533,7 +1533,7 @@ duplicate_class_warning (const char *filename)
 {
   location_t warn_loc;
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_RENAME, 0, filename, 0);
+  linemap_add (&line_table, LC_RENAME, 0, 0, filename, 0);
   warn_loc = linemap_line_start (&line_table, 0, 1);
 #else
   warn_loc.file = filename;
@@ -1927,7 +1927,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  main_jcf->read_state = finput;
 	  main_jcf->filbuf = jcf_filbuf_from_stdio;
 #ifdef USE_MAPPED_LOCATION
-	  linemap_add (&line_table, LC_ENTER, false, filename, 0);
+	  linemap_add (&line_table, LC_ENTER, false, false, filename, 0);
 	  input_location = linemap_line_start (&line_table, 0, 1);
 #endif
 	  if (open_in_zip (main_jcf, filename, NULL, 0) <  0)
@@ -1936,7 +1936,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  /* Register all the classes defined there.  */
 	  process_zip_dir (main_jcf->read_state);
 #ifdef USE_MAPPED_LOCATION
-	  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
+	  linemap_add (&line_table, LC_LEAVE, false, false, NULL, 0);
 #endif
 	  parse_zip_file_entries ();
 	}
@@ -1951,7 +1951,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	  java_parser_context_restore_global ();
 	  java_pop_parser_context (1);
 #ifdef USE_MAPPED_LOCATION
-	  linemap_add (&line_table, LC_LEAVE, false, NULL, 0);
+	  linemap_add (&line_table, LC_LEAVE, false, false, NULL, 0);
 #endif
 #endif
 	}

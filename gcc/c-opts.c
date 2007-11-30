@@ -1519,7 +1519,7 @@ finish_options (void)
       size_t i;
 
       cb_file_change (parse_in,
-		      linemap_add (&line_table, LC_RENAME, 0,
+		      linemap_add (&line_table, LC_RENAME, 0, 0,
 				   _("<built-in>"), 0));
 
       cpp_init_builtins (parse_in, flag_hosted);
@@ -1537,7 +1537,7 @@ finish_options (void)
       cpp_opts->warn_dollars = (cpp_opts->pedantic && !cpp_opts->c99);
 
       cb_file_change (parse_in,
-		      linemap_add (&line_table, LC_RENAME, 0,
+		      linemap_add (&line_table, LC_RENAME, 0, 0,
 				   _("<command-line>"), 0));
 
       for (i = 0; i < deferred_count; i++)
