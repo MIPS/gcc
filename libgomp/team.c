@@ -343,6 +343,7 @@ gomp_team_end (void)
 
   gomp_barrier_wait (&team->barrier);
 
+  gomp_end_task ();
   thr->ts = team->prev_ts;
 
   free_team (team);

@@ -27,8 +27,7 @@ main (void)
   }
   if (err)
     abort ();
-/* FIXME XXX
   if (omp_get_max_threads () != 4)
-    abort (); */
+    abort ();
   return 0;
 }

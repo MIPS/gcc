@@ -1,3 +1,8 @@
+2007-11-30  Richard Henderson  <rth@redhat.com>
+
+	* team.c (gomp_team_end): Use gomp_end_task.
+	* testsuite/libgomp.c/icv-1.c: Enable failing test.
+
 2007-11-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/task-1.c: New test.
