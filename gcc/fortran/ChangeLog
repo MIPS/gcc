@@ -1,7 +1,121 @@
+2007-11-26  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/34203
+	* options.c:  Change default behavior of backslash processing.
+	* invoke.texi: Update documentation.
+
+2007-11-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33152
+	* decl.c (add_init_expr_to_sym): Remove error message.
+	* resolve.c (check_data_variable): Add new check for a data variable
+	that has an array spec, but no ref and issue an error.
+	* match.c (gfc_match_common): Remove error message.
+
+2007-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34079
+	* trans-types.c (gfc_return_by_reference,
+	gfc_get_function_type): Do not return result of
+	character-returning bind(C) functions as argument.
+	* trans-expr.c (gfc_conv_function_call): Ditto.
+
+2007-11-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34175
+	* gfortran.texi: Document default forms assumed for various file
+	extensions.
+
+2007-11-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33499
+	* decl.c (get_proc_name): If ENTRY statement occurs before type
+	specification, set the symbol untyped and ensure that it is in
+	the procedure namespace.
+
+2007-11-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33541
+	* module.c (find_symtree_for_symbol): Move to new location.
+	(find_symbol): New function.
+	(load_generic_interfaces): Rework completely so that symtrees
+	have the local name and symbols have the use name.  Renamed
+	generic interfaces exclude the use of the interface without an
+	ONLY clause (11.3.2).
+	(read_module): Implement 11.3.2 in the same way as for generic
+	interfaces.
+
+2007-11-23 Christopher D. Rickett <crickett@lanl.gov>
+
+	* trans-common.c (build_common_decl): Fix the alignment for
+	BIND(C) common blocks.
+
+2007-11-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34209
+	* iresolve.c (gfc_resolve_nearest): If sign variable kind does not match
+	kind of input variable, convert it to match.
+
+	PR fortran/33317
+	* trans.h: Modify prototype for gfc_conv_missing_dummy.
+	* trans-expr.c (gfc_conv_missing_dummy): Modify to pass an integer kind
+	parameter in.  Set the type of the dummy to the kind given.
+	(gfc_conv_function_call): Pass representation.length to
+	gfc_conv_missing_dummy.
+	* iresolve.c (gfc_resolve_cshift): Determine the correct kind to use and
+	if appropriate set representation.length to this kind value.
+	(gfc_resolve_eoshift): Likewise.
+	* check.c (gfc_check_cshift): Enable dim_check to allow DIM as an
+	optional argument. (gfc_check_eoshift): Likewise.
+	* trans_intrinsic.c (gfc_conv_intrinsic_function_args): Update call to
+	gfc_conv_missing_dummy.
+
+2007-11-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34187
+	* module.c (load_needed): Ensure binding_label is not lost.
+
+	* decl.c (set_binding_label,gfc_match_bind_c): Replace
+	strncpy by strcpy.
+
+2007-11-23  Tobias Burnus  <burnus@net-b.de>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/34192
+	* simplify.c (gfc_simplify_nearest): Fix NEAREST for
+	subnormal numbers.
+
 2007-11-23  Aldy Hernandez  <aldyh@redhat.com>
 
 	* trans-expr.c (gfc_trans_string_copy): Use "void *" when building a
 	memset.
+		
+2007-11-22  Tobias Burnus  <burnus@net-b.de>
+
+	* primary.c (gfc_match_structure_constructor): Allow
+	constructor for types without components.
+
+2007-11-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34079
+	* trans-expr.c (gfc_conv_function_call): Do not append
+	string length arguments when calling bind(c) procedures.
+	* trans-decl.c (create_function_arglist): Do not append
+	string length arguments when declaring bind(c) procedures.
+
+2007-11-21  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/34083
+	* resolve.c (resolve_structure_cons): Also check for zero rank.
+
+2007-11-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33317
+	* trans-expr.c (gfc_conv_missing_dummy): Revert.
+	* iresolve.c (gfc_resolve_cshift): Revert.
+	(gfc_resolve_eoshift): Likewise.
+	* check.c (gfc_check_cshift): Revert.
+	(gfc_check_eoshift): Likewise.
 
 2007-11-19  Tobias Burnus  <burnus@net-b.de>
 

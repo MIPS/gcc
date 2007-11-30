@@ -1444,7 +1444,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq pre_p)
 	    {
 	      /* Discard empty ranges.  */
 	      tree high = CASE_HIGH (elt);
-	      if (high && INT_CST_LT (high, low))
+	      if (high && tree_int_cst_lt (high, low))
 	        remove_element = TRUE;
 	    }
 	  else

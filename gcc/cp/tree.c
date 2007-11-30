@@ -529,9 +529,9 @@ build_cplus_array_type_1 (tree elt_type, tree index_type)
   if (elt_type == error_mark_node || index_type == error_mark_node)
     return error_mark_node;
 
-  if (dependent_type_p (elt_type)
-      || (index_type
-	  && value_dependent_expression_p (TYPE_MAX_VALUE (index_type))))
+  if (processing_template_decl
+      && (dependent_type_p (elt_type)
+	  || (index_type && !TREE_CONSTANT (TYPE_MAX_VALUE (index_type)))))
     {
       void **e;
       cplus_array_info cai;
@@ -570,7 +570,7 @@ build_cplus_array_type_1 (tree elt_type, tree index_type)
 	    TYPE_CANONICAL (t)
 		= build_cplus_array_type 
 		   (TYPE_CANONICAL (elt_type),
-		    index_type? TYPE_CANONICAL (index_type) : index_type);
+		    index_type ? TYPE_CANONICAL (index_type) : index_type);
 	  else
 	    TYPE_CANONICAL (t) = t;
 	}
@@ -2526,10 +2526,18 @@ decl_linkage (tree decl)
   /* Members of the anonymous namespace also have TREE_PUBLIC unset, but
      are considered to have external linkage for language purposes.  DECLs
      really meant to have internal linkage have DECL_THIS_STATIC set.  */
-  if (TREE_CODE (decl) == TYPE_DECL
-      || ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
-	  && !DECL_THIS_STATIC (decl)))
+  if (TREE_CODE (decl) == TYPE_DECL)
     return lk_external;
+  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      if (!DECL_THIS_STATIC (decl))
+	return lk_external;
+
+      /* Static data members and static member functions from classes
+	 in anonymous namespace also don't have TREE_PUBLIC set.  */
+      if (DECL_CLASS_CONTEXT (decl))
+	return lk_external;
+    }
 
   /* Everything else has internal linkage.  */
   return lk_internal;

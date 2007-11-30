@@ -1253,7 +1253,7 @@ create_loop_fn (void)
   TREE_USED (t) = 1;
   DECL_ARGUMENTS (decl) = t;
 
-  allocate_struct_function (decl);
+  allocate_struct_function (decl, false);
 
   /* The call to allocate_struct_function clobbers CFUN, so we need to restore
      it.  */

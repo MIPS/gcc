@@ -715,9 +715,7 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 
       if (*result == NULL)
 	rc = gfc_get_symbol (name, NULL, result);
-      else if (gfc_get_symbol (name, NULL, &sym) == 0
-		 && sym
-		 && sym->ts.type != BT_UNKNOWN
+      else if (!gfc_get_symbol (name, NULL, &sym) && sym
 		 && (*result)->ts.type == BT_UNKNOWN
 		 && sym->attr.flavor == FL_UNKNOWN)
 	/* Pick up the typespec for the entry, if declared in the function
@@ -726,13 +724,24 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	   is set to point to the module symbol and a unique symtree
 	   to the local version.  This latter ensures a correct clearing
 	   of the symbols.  */
-	  {
+	{
+	  /* If the ENTRY proceeds its specification, we need to ensure
+	     that this does not raise a "has no IMPLICIT type" error.  */
+	  if (sym->ts.type == BT_UNKNOWN)
+		sym->attr.untyped = 1;
+
 	    (*result)->ts = sym->ts;
-	    gfc_find_sym_tree (name, gfc_current_ns, 0, &st);
-	    st->n.sym = *result;
-	    st = gfc_get_unique_symtree (gfc_current_ns);
-	    st->n.sym = sym;
-	  }
+
+	  /* Put the symbol in the procedure namespace so that, should
+	     the ENTRY preceed its specification, the specification
+	     can be applied.  */
+	  (*result)->ns = gfc_current_ns;
+
+	  gfc_find_sym_tree (name, gfc_current_ns, 0, &st);
+	  st->n.sym = *result;
+	  st = gfc_get_unique_symtree (gfc_current_ns);
+	  st->n.sym = sym;
+	}
     }
   else
     rc = gfc_get_symbol (name, gfc_current_ns->parent, result);
@@ -1163,15 +1172,6 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
       && *initp != NULL)
     {
       gfc_error ("Initializer not allowed for PARAMETER '%s' at %C",
-		 sym->name);
-      return FAILURE;
-    }
-
-  if (attr.in_common
-      && !attr.data
-      && *initp != NULL)
-    {
-      gfc_error ("Initializer not allowed for COMMON variable '%s' at %C",
 		 sym->name);
       return FAILURE;
     }
@@ -3126,15 +3126,14 @@ set_binding_label (char *dest_label, const char *sym_name, int num_idents)
   if (curr_binding_label[0] != '\0')
     {
       /* Binding label given; store in temp holder til have sym.  */
-      strncpy (dest_label, curr_binding_label,
-               strlen (curr_binding_label) + 1);
+      strcpy (dest_label, curr_binding_label);
     }
   else
     {
       /* No binding label given, and the NAME= specifier did not exist,
          which means there was no NAME="".  */
       if (sym_name != NULL && has_name_equals == 0)
-        strncpy (dest_label, sym_name, strlen (sym_name) + 1);
+        strcpy (dest_label, sym_name);
     }
    
   return SUCCESS;
@@ -4736,12 +4735,10 @@ gfc_match_bind_c (gfc_symbol *sym)
     {
       if (sym != NULL)
       {
-	strncpy (sym->binding_label, binding_label,
-		 strlen (binding_label)+1);
+	strcpy (sym->binding_label, binding_label);
       }
       else
-	strncpy (curr_binding_label, binding_label,
-		 strlen (binding_label) + 1);
+	strcpy (curr_binding_label, binding_label);
     }
   else
     {

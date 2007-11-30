@@ -1,3 +1,13 @@
+2007-11-30  Diego Novillo  <dnovillo@google.com>
+
+	Merge with mainline @130470
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge
+	string.
+	* configure: Regenerate.
+	* tree-inline.c (copy_decl_no_change,
+	copy_decl_for_dup_finish): Re-enable.
+
 2007-11-26  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple.h (gimple_bind_block): Update comment.
