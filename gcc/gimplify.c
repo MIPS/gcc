@@ -66,6 +66,14 @@ enum gimplify_omp_var_data
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LOCAL)
 };
 
+enum omp_region_type
+{
+  ORT_WORKSHARE = 0,
+  ORT_TASK = 1,
+  ORT_PARALLEL = 2,
+  ORT_COMBINED_PARALLEL = 3
+};
+
 struct gimplify_omp_ctx
 {
   struct gimplify_omp_ctx *outer_context;
@@ -73,8 +81,7 @@ struct gimplify_omp_ctx
   struct pointer_set_t *privatized_types;
   location_t location;
   enum omp_clause_default_kind default_kind;
-  bool is_parallel;
-  bool is_combined_parallel;
+  enum omp_region_type region_type;
 };
 
 struct gimplify_ctx
@@ -269,7 +276,7 @@ splay_tree_compare_decl_uid (splay_tree_key xa, splay_tree_key xb)
 /* Create a new omp construct that deals with variable remapping.  */
 
 static struct gimplify_omp_ctx *
-new_omp_context (bool is_parallel, bool is_combined_parallel)
+new_omp_context (enum omp_region_type region_type)
 {
   struct gimplify_omp_ctx *c;
 
@@ -278,8 +285,7 @@ new_omp_context (bool is_parallel, bool is_combined_parallel)
   c->variables = splay_tree_new (splay_tree_compare_decl_uid, 0, 0);
   c->privatized_types = pointer_set_create ();
   c->location = input_location;
-  c->is_parallel = is_parallel;
-  c->is_combined_parallel = is_combined_parallel;
+  c->region_type = region_type;
   c->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
 
   return c;
@@ -746,7 +752,7 @@ gimple_add_tmp_var (tree tmp)
       if (gimplify_omp_ctxp)
 	{
 	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
-	  while (ctx && !ctx->is_parallel)
+	  while (ctx && ctx->region_type == ORT_WORKSHARE)
 	    ctx = ctx->outer_context;
 	  if (ctx)
 	    omp_add_variable (ctx, tmp, GOVD_LOCAL | GOVD_SEEN);
@@ -4532,7 +4538,7 @@ omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 	  else
 	    return;
 	}
-      else if (ctx->is_parallel)
+      else if (ctx->region_type != ORT_WORKSHARE)
 	omp_add_variable (ctx, decl, GOVD_FIRSTPRIVATE);
 
       ctx = ctx->outer_context;
@@ -4726,7 +4732,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
     {
       enum omp_clause_default_kind default_kind, kind;
 
-      if (!ctx->is_parallel)
+      if (ctx->region_type == ORT_WORKSHARE)
 	goto do_outer;
 
       /* ??? Some compiler-generated variables (like SAVE_EXPRs) could be
@@ -4806,7 +4812,7 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
 	}
       else if ((n->value & GOVD_EXPLICIT) != 0
 	       && (ctx == gimplify_omp_ctxp
-		   || (ctx->is_combined_parallel
+		   || (ctx->region_type == ORT_COMBINED_PARALLEL
 		       && gimplify_omp_ctxp->outer_context == ctx)))
 	{
 	  if ((n->value & GOVD_FIRSTPRIVATE) != 0)
@@ -4819,7 +4825,7 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl)
       return true;
     }
 
-  if (ctx->is_parallel)
+  if (ctx->region_type != ORT_WORKSHARE)
     return false;
   else if (ctx->outer_context)
     return omp_is_private (ctx->outer_context, decl);
@@ -4848,7 +4854,7 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl)
       if (n != NULL)
 	return (n->value & GOVD_SHARED) == 0;
     }
-  while (!ctx->is_parallel);
+  while (ctx->region_type == ORT_WORKSHARE);
   return false;
 }
 
@@ -4856,13 +4862,13 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl)
    and previous omp contexts.  */
 
 static void
-gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
-			   bool in_combined_parallel)
+gimplify_scan_omp_clauses (tree *list_p, tree *pre_p,
+			   enum omp_region_type region_type)
 {
   struct gimplify_omp_ctx *ctx, *outer_ctx;
   tree c;
 
-  ctx = new_omp_context (in_parallel, in_combined_parallel);
+  ctx = new_omp_context (region_type);
   outer_ctx = ctx->outer_context;
 
   while ((c = *list_p) != NULL)
@@ -4934,7 +4940,7 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p, bool in_parallel,
 	  if (outer_ctx)
 	    omp_notice_variable (outer_ctx, decl, true);
 	  if (check_non_private
-	      && !in_parallel
+	      && region_type == ORT_WORKSHARE
 	      && omp_check_private (ctx, decl))
 	    {
 	      error ("%s variable %qs is private in outer context",
@@ -5126,8 +5132,10 @@ gimplify_omp_parallel (tree *expr_p, tree *pre_p)
 {
   tree expr = *expr_p;
 
-  gimplify_scan_omp_clauses (&OMP_PARALLEL_CLAUSES (expr), pre_p, true,
-			     OMP_PARALLEL_COMBINED (expr));
+  gimplify_scan_omp_clauses (&OMP_PARALLEL_CLAUSES (expr), pre_p,
+			     OMP_PARALLEL_COMBINED (expr)
+			     ? ORT_COMBINED_PARALLEL
+			     : ORT_PARALLEL);
 
   push_gimplify_context ();
 
@@ -5143,6 +5151,32 @@ gimplify_omp_parallel (tree *expr_p, tree *pre_p)
   return GS_ALL_DONE;
 }
 
+/* Gimplify the contents of an OMP_TASK statement.  This involves
+   gimplification of the body, as well as scanning the body for used
+   variables.  We need to do this scan now, because variable-sized
+   decls will be decomposed during gimplification.  */
+
+static enum gimplify_status
+gimplify_omp_task (tree *expr_p, tree *pre_p)
+{
+  tree expr = *expr_p;
+
+  gimplify_scan_omp_clauses (&OMP_TASK_CLAUSES (expr), pre_p, ORT_TASK);
+
+  push_gimplify_context ();
+
+  gimplify_stmt (&OMP_TASK_BODY (expr));
+
+  if (TREE_CODE (OMP_TASK_BODY (expr)) == BIND_EXPR)
+    pop_gimplify_context (OMP_TASK_BODY (expr));
+  else
+    pop_gimplify_context (NULL_TREE);
+
+  gimplify_adjust_omp_clauses (&OMP_TASK_CLAUSES (expr));
+
+  return GS_ALL_DONE;
+}
+
 /* Gimplify the gross structure of an OMP_FOR statement.  */
 
 static enum gimplify_status
@@ -5154,7 +5188,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 
   for_stmt = *expr_p;
 
-  gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, false, false);
+  gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p,
+			     ORT_WORKSHARE);
 
   t = OMP_FOR_INIT (for_stmt);
   gcc_assert (TREE_CODE (t) == MODIFY_EXPR
@@ -5270,7 +5305,7 @@ gimplify_omp_workshare (tree *expr_p, tree *pre_p)
 {
   tree stmt = *expr_p;
 
-  gimplify_scan_omp_clauses (&OMP_CLAUSES (stmt), pre_p, false, false);
+  gimplify_scan_omp_clauses (&OMP_CLAUSES (stmt), pre_p, ORT_WORKSHARE);
   gimplify_to_stmt_list (&OMP_BODY (stmt));
   gimplify_adjust_omp_clauses (&OMP_CLAUSES (stmt));
 
@@ -5839,6 +5874,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case OMP_PARALLEL:
 	  ret = gimplify_omp_parallel (expr_p, pre_p);
+	  break;
+
+	case OMP_TASK:
+	  ret = gimplify_omp_task (expr_p, pre_p);
 	  break;
 
 	case OMP_FOR:

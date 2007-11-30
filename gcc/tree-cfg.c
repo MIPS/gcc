@@ -505,6 +505,7 @@ make_edges (void)
 	      break;
 
 	    case OMP_PARALLEL:
+	    case OMP_TASK:
 	    case OMP_FOR:
 	    case OMP_SINGLE:
 	    case OMP_MASTER:

@@ -1,0 +1,4 @@
+2007-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_VOID_OMPFN_PTR_BOOL_BOOL): New.
+

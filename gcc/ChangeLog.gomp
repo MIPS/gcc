@@ -1,3 +1,44 @@
+2007-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtin-types.def (BT_FN_VOID_OMPFN_PTR_BOOL_BOOL): New.
+	* omp-builtins.def (BUILT_IN_GOMP_TASK): New builtin.
+	* gimplify.c (omp_region_type): New enum.
+	(struct gimplify_omp_ctx): Remove is_parallel and is_combined_parallel
+	fields, add region_type.
+	(new_omp_context): Take region_type as argument instead of is_parallel
+	and is_combined_parallel.
+	(gimple_add_tmp_var, omp_firstprivatize_variable, omp_notice_variable,
+	omp_is_private, omp_check_private): Adjust ctx->is_parallel and
+	ctx->is_combined_parallel checks.
+	(gimplify_scan_omp_clauses): Take region_type as last argument instead
+	of in_parallel and in_combined_parallel.
+	(gimplify_omp_parallel, gimplify_omp_for, gimplify_omp_workshare): Adjust
+	callers.
+	(gimplify_omp_task): New function.
+	(gimplify_expr): Handle OMP_TASK.
+	* tree-inline.c (estimate_num_insns_1): Handle OMP_TASK.
+	* tree.h (OMP_TASKREG_CHECK, OMP_TASKREG_BODY, OMP_TASKREG_CLAUSES,
+	OMP_TASKREG_FN, OMP_TASKREG_DATA_ARG): Define.
+	* omp-low.c (parallel_nesting_level): Rename to...
+	(taskreg_nesting_level): ... this.
+	(is_taskreg_ctx): New function.
+	(build_outer_var_ref, omp_copy_decl, scan_sharing_clauses,
+	scan_sharing_clauses): Use is_taskreg_ctx instead of is_parallel_ctx.
+	(scan_omp_parallel, execute_lower_omp): Rename parallel_nesting_level to
+	taskreg_nesting_level.
+	(scan_omp_1): Likewise.  Handle OMP_TASK.
+	(scan_omp_task): New function.
+	(expand_task_call): New function.
+	(expand_omp_parallel): Rename to...
+	(expand_omp_taskreg): ... this.  Use OMP_TASKREG_* macros where needed.
+	Call omp_task_call for OMP_TASK regions.
+	(expand_omp): Adjust caller, handle OMP_TASK.
+	(lower_omp_parallel): Rename to...
+	(lower_omp_taskreg): ... this.  Use OMP_TASKREG_* macros where needed.
+	(lower_omp_1): Adjust caller, handle OMP_TASK.
+	(diagnose_sb_1, diagnose_sb_2): Handle OMP_TASK.
+	* tree-cfg.c (make_edges): Handle OMP_TASK.
+
 2007-11-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_collapse): Include correct

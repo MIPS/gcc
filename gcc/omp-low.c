@@ -108,7 +108,7 @@ struct omp_for_data
 
 
 static splay_tree all_contexts;
-static int parallel_nesting_level;
+static int taskreg_nesting_level;
 struct omp_region *root_omp_region;
 
 static void scan_omp (tree *, omp_context *);
@@ -134,6 +134,16 @@ static inline bool
 is_parallel_ctx (omp_context *ctx)
 {
   return TREE_CODE (ctx->stmt) == OMP_PARALLEL;
+}
+
+
+/* Return true if CTX is for an omp parallel or omp task.  */
+
+static inline bool
+is_taskreg_ctx (omp_context *ctx)
+{
+  return TREE_CODE (ctx->stmt) == OMP_PARALLEL
+	 || TREE_CODE (ctx->stmt) == OMP_TASK;
 }
 
 
@@ -593,7 +603,7 @@ build_outer_var_ref (tree var, omp_context *ctx)
       x = build_outer_var_ref (x, ctx);
       x = build_fold_indirect_ref (x);
     }
-  else if (is_parallel_ctx (ctx))
+  else if (is_taskreg_ctx (ctx))
     {
       bool by_ref = use_pointer_for_field (var, false);
       x = build_receiver_ref (var, by_ref, ctx);
@@ -711,7 +721,7 @@ omp_copy_decl (tree var, copy_body_data *cb)
       return new_var;
     }
 
-  while (!is_parallel_ctx (ctx))
+  while (!is_taskreg_ctx (ctx))
     {
       ctx = ctx->outer;
       if (ctx == NULL)
@@ -962,7 +972,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_SHARED:
-	  gcc_assert (is_parallel_ctx (ctx));
+	  gcc_assert (is_taskreg_ctx (ctx));
 	  decl = OMP_CLAUSE_DECL (c);
 	  gcc_assert (!is_variable_sized (decl));
 	  by_ref = use_pointer_for_field (decl, true);
@@ -996,7 +1006,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	do_private:
 	  if (is_variable_sized (decl))
 	    break;
-	  else if (is_parallel_ctx (ctx)
+	  else if (is_taskreg_ctx (ctx)
 		   && ! is_global_var (maybe_lookup_decl_in_outer_ctx (decl,
 								       ctx)))
 	    {
@@ -1188,7 +1198,7 @@ scan_omp_parallel (tree *stmt_p, omp_context *outer_ctx)
     }
 
   ctx = new_omp_context (*stmt_p, outer_ctx);
-  if (parallel_nesting_level > 1)
+  if (taskreg_nesting_level > 1)
     ctx->is_nested = true;
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
   ctx->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
@@ -1201,6 +1211,46 @@ scan_omp_parallel (tree *stmt_p, omp_context *outer_ctx)
 
   scan_sharing_clauses (OMP_PARALLEL_CLAUSES (*stmt_p), ctx);
   scan_omp (&OMP_PARALLEL_BODY (*stmt_p), ctx);
+
+  if (TYPE_FIELDS (ctx->record_type) == NULL)
+    ctx->record_type = ctx->receiver_decl = NULL;
+  else
+    {
+      layout_type (ctx->record_type);
+      fixup_child_record_type (ctx);
+    }
+}
+
+/* Scan an OpenMP task directive.  */
+
+static void
+scan_omp_task (tree *stmt_p, omp_context *outer_ctx)
+{
+  omp_context *ctx;
+  tree name;
+
+  /* Ignore task directives with empty bodies.  */
+  if (optimize > 0
+      && empty_body_p (OMP_TASK_BODY (*stmt_p)))
+    {
+      *stmt_p = build_empty_stmt ();
+      return;
+    }
+
+  ctx = new_omp_context (*stmt_p, outer_ctx);
+  if (taskreg_nesting_level > 1)
+    ctx->is_nested = true;
+  ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
+  ctx->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
+  ctx->record_type = lang_hooks.types.make_type (RECORD_TYPE);
+  name = create_tmp_var_name (".omp_data_s");
+  name = build_decl (TYPE_DECL, name, ctx->record_type);
+  TYPE_NAME (ctx->record_type) = name;
+  create_omp_child_function (ctx);
+  OMP_TASK_FN (*stmt_p) = ctx->cb.dst_fn;
+
+  scan_sharing_clauses (OMP_TASK_CLAUSES (*stmt_p), ctx);
+  scan_omp (&OMP_TASK_BODY (*stmt_p), ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
     ctx->record_type = ctx->receiver_decl = NULL;
@@ -1370,9 +1420,15 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (t))
     {
     case OMP_PARALLEL:
-      parallel_nesting_level++;
+      taskreg_nesting_level++;
       scan_omp_parallel (tp, ctx);
-      parallel_nesting_level--;
+      taskreg_nesting_level--;
+      break;
+
+    case OMP_TASK:
+      taskreg_nesting_level++;
+      scan_omp_task (tp, ctx);
+      taskreg_nesting_level--;
       break;
 
     case OMP_FOR:
@@ -2328,6 +2384,42 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 }
 
 
+/* Build the function call to GOMP_task to actually
+   generate the task operation.  BB is the block where to insert the code.  */
+
+static void
+expand_task_call (basic_block bb, tree entry_stmt)
+{
+  tree t, t1, t2, untied, cond, c, clauses;
+  block_stmt_iterator si;
+
+  clauses = OMP_TASK_CLAUSES (entry_stmt);
+
+  c = find_omp_clause (clauses, OMP_CLAUSE_IF);
+  if (c)
+    cond = gimple_boolify (OMP_CLAUSE_IF_EXPR (c));
+  else
+    cond = boolean_true_node;
+
+  c = find_omp_clause (clauses, OMP_CLAUSE_UNTIED);
+  untied = c ? boolean_true_node : boolean_false_node;
+
+  si = bsi_last (bb);
+  t = OMP_TASK_DATA_ARG (entry_stmt);
+  if (t == NULL)
+    t1 = null_pointer_node;
+  else
+    t1 = build_fold_addr_expr (t);
+  t2 = build_fold_addr_expr (OMP_TASK_FN (entry_stmt));
+
+  t = build_call_expr (built_in_decls[BUILT_IN_GOMP_TASK], 4, t2, t1,
+		       cond, untied);
+
+  force_gimple_operand_bsi (&si, t, true, NULL_TREE,
+			    false, BSI_CONTINUE_LINKING);
+}
+
+
 /* If exceptions are enabled, wrap *STMT_P in a MUST_NOT_THROW catch
    handler.  This prevents programs from violating the structured
    block semantics with throws.  */
@@ -2437,10 +2529,10 @@ remove_exit_barriers (struct omp_region *region)
     }
 }
 
-/* Expand the OpenMP parallel directive starting at REGION.  */
+/* Expand the OpenMP parallel or task directive starting at REGION.  */
 
 static void
-expand_omp_parallel (struct omp_region *region)
+expand_omp_taskreg (struct omp_region *region)
 {
   basic_block entry_bb, exit_bb, new_bb;
   struct function *child_cfun;
@@ -2450,7 +2542,7 @@ expand_omp_parallel (struct omp_region *region)
   edge e;
 
   entry_stmt = last_stmt (region->entry);
-  child_fn = OMP_PARALLEL_FN (entry_stmt);
+  child_fn = OMP_TASKREG_FN (entry_stmt);
   child_cfun = DECL_STRUCT_FUNCTION (child_fn);
 
   entry_bb = region->entry;
@@ -2472,7 +2564,8 @@ expand_omp_parallel (struct omp_region *region)
       entry_succ_e = single_succ_edge (entry_bb);
 
       si = bsi_last (entry_bb);
-      gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_PARALLEL);
+      gcc_assert (TREE_CODE (bsi_stmt (si)) == OMP_PARALLEL
+		  || TREE_CODE (bsi_stmt (si)) == OMP_TASK);
       bsi_remove (&si, true);
 
       new_bb = entry_bb;
@@ -2498,7 +2591,7 @@ expand_omp_parallel (struct omp_region *region)
 	 a function call that has been inlined, the original PARM_DECL
 	 .OMP_DATA_I may have been converted into a different local
 	 variable.  In which case, we need to keep the assignment.  */
-      if (OMP_PARALLEL_DATA_ARG (entry_stmt))
+      if (OMP_TASKREG_DATA_ARG (entry_stmt))
 	{
 	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  block_stmt_iterator si;
@@ -2517,7 +2610,7 @@ expand_omp_parallel (struct omp_region *region)
 	      STRIP_NOPS (arg);
 	      if (TREE_CODE (arg) == ADDR_EXPR
 		  && TREE_OPERAND (arg, 0)
-		     == OMP_PARALLEL_DATA_ARG (entry_stmt))
+		     == OMP_TASKREG_DATA_ARG (entry_stmt))
 		{
 		  parcopy_stmt = stmt;
 		  break;
@@ -2556,11 +2649,12 @@ expand_omp_parallel (struct omp_region *region)
       for (t = DECL_ARGUMENTS (child_fn); t; t = TREE_CHAIN (t))
 	DECL_CONTEXT (t) = child_fn;
 
-      /* Split ENTRY_BB at OMP_PARALLEL so that it can be moved to the
-	 child function.  */
+      /* Split ENTRY_BB at OMP_PARALLEL or OMP_TASK, so that it can be
+	 moved to the child function.  */
       si = bsi_last (entry_bb);
       t = bsi_stmt (si);
-      gcc_assert (t && TREE_CODE (t) == OMP_PARALLEL);
+      gcc_assert (t && (TREE_CODE (t) == OMP_PARALLEL
+			|| TREE_CODE (t) == OMP_TASK));
       bsi_remove (&si, true);
       e = split_block (entry_bb, t);
       entry_bb = e->dest;
@@ -2604,7 +2698,10 @@ expand_omp_parallel (struct omp_region *region)
     }
   
   /* Emit a library call to launch the children threads.  */
-  expand_parallel_call (region, new_bb, entry_stmt, ws_args);
+  if (TREE_CODE (entry_stmt) == OMP_PARALLEL)
+    expand_parallel_call (region, new_bb, entry_stmt, ws_args);
+  else
+    expand_task_call (new_bb, entry_stmt);
   update_ssa (TODO_update_ssa_only_virtuals);
 }
 
@@ -3912,7 +4009,11 @@ expand_omp (struct omp_region *region)
       switch (region->type)
 	{
 	case OMP_PARALLEL:
-	  expand_omp_parallel (region);
+	  expand_omp_taskreg (region);
+	  break;
+
+	case OMP_TASK:
+	  expand_omp_taskreg (region);
 	  break;
 
 	case OMP_FOR:
@@ -4704,11 +4805,11 @@ check_combined_parallel (tree *tp, int *walk_subtrees, void *data)
   return NULL;
 }
 
-/* Lower the OpenMP parallel directive in *STMT_P.  CTX holds context
+/* Lower the OpenMP parallel or task directive in *STMT_P.  CTX holds context
    information for the directive.  */
 
 static void
-lower_omp_parallel (tree *stmt_p, omp_context *ctx)
+lower_omp_taskreg (tree *stmt_p, omp_context *ctx)
 {
   tree clauses, par_bind, par_body, new_body, bind;
   tree olist, ilist, par_olist, par_ilist;
@@ -4716,11 +4817,11 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
 
   stmt = *stmt_p;
 
-  clauses = OMP_PARALLEL_CLAUSES (stmt);
-  par_bind = OMP_PARALLEL_BODY (stmt);
+  clauses = OMP_TASKREG_CLAUSES (stmt);
+  par_bind = OMP_TASKREG_BODY (stmt);
   par_body = BIND_EXPR_BODY (par_bind);
   child_fn = ctx->cb.dst_fn;
-  if (!OMP_PARALLEL_COMBINED (stmt))
+  if (TREE_CODE (stmt) == OMP_PARALLEL && !OMP_PARALLEL_COMBINED (stmt))
     {
       struct walk_stmt_info wi;
       int ws_num = 0;
@@ -4740,7 +4841,8 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
   par_ilist = NULL_TREE;
   lower_rec_input_clauses (clauses, &par_ilist, &par_olist, ctx);
   lower_omp (&par_body, ctx);
-  lower_reduction_clauses (clauses, &par_olist, ctx);
+  if (TREE_CODE (stmt) == OMP_PARALLEL)
+    lower_reduction_clauses (clauses, &par_olist, ctx);
 
   /* Declare all the variables created by mapping and the variables
      declared in the scope of the parallel body.  */
@@ -4750,7 +4852,7 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
   if (ctx->record_type)
     {
       ctx->sender_decl = create_tmp_var (ctx->record_type, ".omp_data_o");
-      OMP_PARALLEL_DATA_ARG (stmt) = ctx->sender_decl;
+      OMP_TASKREG_DATA_ARG (stmt) = ctx->sender_decl;
     }
 
   olist = NULL_TREE;
@@ -4759,7 +4861,7 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
   lower_send_shared_vars (&ilist, &olist, ctx);
 
   /* Once all the expansions are done, sequence all the different
-     fragments inside OMP_PARALLEL_BODY.  */
+     fragments inside OMP_TASKREG_BODY.  */
   bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
   append_to_statement_list (ilist, &BIND_EXPR_BODY (bind));
 
@@ -4780,7 +4882,7 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
   maybe_catch_exception (&new_body);
   t = make_node (OMP_RETURN);
   append_to_statement_list (t, &new_body);
-  OMP_PARALLEL_BODY (stmt) = new_body;
+  OMP_TASKREG_BODY (stmt) = new_body;
 
   append_to_statement_list (stmt, &BIND_EXPR_BODY (bind));
   append_to_statement_list (olist, &BIND_EXPR_BODY (bind));
@@ -4868,8 +4970,9 @@ lower_omp_1 (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (*tp))
     {
     case OMP_PARALLEL:
+    case OMP_TASK:
       ctx = maybe_lookup_ctx (t);
-      lower_omp_parallel (tp, ctx);
+      lower_omp_taskreg (tp, ctx);
       break;
 
     case OMP_FOR:
@@ -4979,7 +5082,7 @@ execute_lower_omp (void)
 				 delete_omp_context);
 
   scan_omp (&DECL_SAVED_TREE (current_function_decl), NULL);
-  gcc_assert (parallel_nesting_level == 0);
+  gcc_assert (taskreg_nesting_level == 0);
 
   if (all_contexts->root)
     lower_omp (&DECL_SAVED_TREE (current_function_decl), NULL);
@@ -5074,6 +5177,7 @@ diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (t))
     {
     case OMP_PARALLEL:
+    case OMP_TASK:
     case OMP_SECTIONS:
     case OMP_SINGLE:
       walk_tree (&OMP_CLAUSES (t), diagnose_sb_1, wi, NULL);
@@ -5128,6 +5232,7 @@ diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
   switch (TREE_CODE (t))
     {
     case OMP_PARALLEL:
+    case OMP_TASK:
     case OMP_SECTIONS:
     case OMP_SINGLE:
       walk_tree (&OMP_CLAUSES (t), diagnose_sb_2, wi, NULL);
