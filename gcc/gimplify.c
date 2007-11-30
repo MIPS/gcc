@@ -286,7 +286,10 @@ new_omp_context (enum omp_region_type region_type)
   c->privatized_types = pointer_set_create ();
   c->location = input_location;
   c->region_type = region_type;
-  c->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
+  if (region_type != ORT_TASK)
+    c->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
+  else
+    c->default_kind = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
 
   return c;
 }
@@ -4731,6 +4734,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   if (n == NULL)
     {
       enum omp_clause_default_kind default_kind, kind;
+      struct gimplify_omp_ctx *octx;
 
       if (ctx->region_type == ORT_WORKSHARE)
 	goto do_outer;
@@ -4755,6 +4759,36 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	  break;
 	case OMP_CLAUSE_DEFAULT_PRIVATE:
 	  flags |= GOVD_PRIVATE;
+	  break;
+	case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
+	  /* decl will be either GOVD_FIRSTPRIVATE or GOVD_SHARED.  */
+	  gcc_assert (ctx->region_type == ORT_TASK);
+	  if (ctx->outer_context)
+	    omp_notice_variable (ctx->outer_context, decl, in_code);
+	  for (octx = ctx->outer_context; octx; octx = octx->outer_context)
+	    {
+	      splay_tree_node n2;
+
+	      n2 = splay_tree_lookup (octx->variables, (splay_tree_key) decl);
+	      if (n2 && (n2->value & GOVD_DATA_SHARE_CLASS) != GOVD_SHARED)
+		{
+		  flags |= GOVD_FIRSTPRIVATE;
+		  break;
+		}
+	      if ((octx->region_type & ORT_PARALLEL) != 0)
+		break;
+	    }
+	  if (flags & GOVD_FIRSTPRIVATE)
+	    break;
+	  if (octx == NULL
+	      && (TREE_CODE (decl) == PARM_DECL
+		  || (!is_global_var (decl)
+		      && DECL_CONTEXT (decl) == current_function_decl)))
+	    {
+	      flags |= GOVD_FIRSTPRIVATE;
+	      break;
+	    }
+	  flags |= GOVD_SHARED;
 	  break;
 	default:
 	  gcc_unreachable ();

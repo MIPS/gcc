@@ -1,5 +1,7 @@
 2007-11-30  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.c/task-1.c: New test.
+
 	* testsuite/libgomp.c/icv-1.c: New test.
 
 2007-11-28  Richard Henderson  <rth@redhat.com>

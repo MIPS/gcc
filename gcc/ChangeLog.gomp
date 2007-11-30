@@ -1,5 +1,10 @@
 2007-11-30  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (new_omp_context): Set default_kind to
+	OMP_CLAUSE_DEFAULT_UNSPECIFIED for OMP_TASK regions.
+	(omp_notice_variable): Handle vars that are supposed
+	to be implicitly determined firstprivate for task regions.
+
 	* builtin-types.def (BT_FN_VOID_OMPFN_PTR_BOOL_BOOL): New.
 	* omp-builtins.def (BUILT_IN_GOMP_TASK): New builtin.
 	* gimplify.c (omp_region_type): New enum.
