@@ -735,6 +735,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case SSA_NAME:
       result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
+      add_referenced_var (SSA_NAME_VAR (result));
       break;
 
     case CONST_DECL:
@@ -834,6 +835,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case RESULT_DECL:
       result = build0 (code, type);
+      add_referenced_var (result);
       break;
 
     case COMPONENT_REF:
@@ -960,7 +962,10 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
             if (tag)
               op0 = input_expr_operand (ib, data_in, fn, tag);
             else
-              op0 = DECL_RESULT (current_function_decl);
+	      {
+		op0 = DECL_RESULT (current_function_decl);
+		add_referenced_var (op0);
+	      }
 
             result = build1 (code, type, op0);
 
@@ -1161,6 +1166,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
       recompute_tree_invariant_for_addr_expr (result);
     }
+  else if (MTAG_P (result))
+    add_referenced_var (result);
   return result;
 }
 
@@ -1430,6 +1437,7 @@ input_cfg (struct input_block *ib, struct function *fn)
   int index;
 
   init_flow (fn);
+  init_ssa_operands ();
 
   LTO_DEBUG_TOKEN ("lastbb");
   bb_count = input_uleb128 (ib);
@@ -1565,7 +1573,6 @@ input_ssa_names (struct input_block *ib, struct data_in *data_in, struct functio
   unsigned int i;
   int size = input_uleb128 (ib);
 
-  init_tree_ssa (fn);
   init_ssanames (fn, size);
   i = input_uleb128 (ib);
 
@@ -1584,6 +1591,8 @@ input_ssa_names (struct input_block *ib, struct data_in *data_in, struct functio
 
       flags = input_tree_flags (ib, 0, true);
       process_tree_flags (ssa_name, flags);
+      if (SSA_NAME_IS_DEFAULT_DEF (ssa_name))
+	set_default_def (SSA_NAME_VAR (ssa_name), ssa_name);
       i = input_uleb128 (ib);
     } 
 }
@@ -1889,7 +1898,8 @@ lto_read_body (lto_info_fd *fd,
   if (in_function)
     {
       struct function *fn = DECL_STRUCT_FUNCTION (t);
-      cfun = fn;
+      push_cfun (fn);
+      init_tree_ssa (fn);
       data_in.num_named_labels = header->num_named_labels;
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -1918,11 +1928,29 @@ lto_read_body (lto_info_fd *fd,
 #endif
       input_cfg (&ib_cfg, fn);
 
+      /* Ensure that all our variables have annotations attached to them
+	 so building SSA doesn't choke.  */
+      {
+	int i;
+
+	for (i = 0; i < header->num_var_decls; i++)
+	  add_referenced_var (data_in.var_decls[i]);
+	for (i =0; i < header->num_local_decls; i++)
+	  add_referenced_var (data_in.local_decls[i]);
+      }
+
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_main;
 #endif
       /* Set up the struct function.  */
       input_function (t, &data_in, &ib_main);
+
+      /* We should now be in SSA.  */
+      cfun->gimple_df->in_ssa_p = true;
+      /* Fill in properties we know hold for the rebuilt CFG.  */
+      cfun->curr_properties = PROP_ssa | PROP_alias;
+
+      pop_cfun ();
     }
   else 
     {

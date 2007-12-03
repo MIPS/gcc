@@ -538,12 +538,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
     }
-  NEXT_PASS (pass_early_lto_passes);
-    {
-      struct tree_opt_pass **p = &pass_early_lto_passes.sub;
-      NEXT_PASS (pass_referenced_vars);
-      NEXT_PASS (pass_rebuild_ssa_for_lto);
-    }
   NEXT_PASS (pass_ipa_lto_out);
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);

@@ -1,3 +1,15 @@
+2007-12-03  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-into-ssa.c (rebuild_ssa_for_lto): Remove.
+	(pass_rebuild_ssa_for_lto): Remove.
+	* tree-optimize.c (gate_early_lto_passes): Remove.
+	(pass_early_lto_passes): Remove.
+	* passes.c (init_optimization_passes): Remove pass_early_lto_passes
+	and its sub-passes.
+	* tree-pass.h (pass_early_lto_passes, pass_rebuild_ssa_for_lto):
+	Remove.
+	* lto-tree-flags.def (VAR_DECL): Add volatile_flag.
+
 2007-11-30  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-tree-flags.def (RESULT_DECL): Add gimple_reg_flag.

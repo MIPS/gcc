@@ -2094,6 +2094,8 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 
 	  if (TYPE_QUALS (type) & TYPE_QUAL_CONST)
 	    TREE_READONLY (decl) = 1;
+	  if (TYPE_QUALS (type) & TYPE_QUAL_VOLATILE)
+	    TREE_THIS_VOLATILE (decl) = 1;
 
 	  if (!TREE_PUBLIC (decl))
 	    {
@@ -2415,21 +2417,7 @@ lto_materialize_function (lto_info_fd *fd,
                             /*top_level=*/1,
                             /*at_end=*/0);
   if (body)
-    {
-      /* cgraph expects this to be called once for each function.  */
-      /* FIXME: eventually, reading LTO files should rebuild SSA
-	 perfectly so that things like the extra referenced_vars pass
-	 and rebuild_ssa_for_lto can go away.  Before that happens, this
-	 call needs to be moved earlier in the materialization
-	 process--probably to lto-read.c:input_cfg or before.  We could
-	 move it there now, but the current state means that we would do
-	 useless work while reading in LTO files--building SSA operands
-	 once while reading and then rebuilding again during
-	 rebuild_ssa_for_lto.  */
-      init_ssa_operands ();
-
-      cgraph_finalize_function (decl, /*nested=*/false);
-    }
+    cgraph_finalize_function (decl, /*nested=*/false);
 }
 
 static tree

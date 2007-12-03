@@ -64,6 +64,7 @@
       ADD_CLASS_EXPR_FLAG (private_flag)
       ADD_CLASS_EXPR_FLAG (protected_flag)
       ADD_CLASS_EXPR_FLAG (side_effects_flag)
+      ADD_CLASS_EXPR_FLAG (volatile_flag)
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (unsigned_flag)

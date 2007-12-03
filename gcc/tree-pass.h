@@ -354,9 +354,6 @@ extern struct tree_opt_pass pass_free_datastructures;
 extern struct tree_opt_pass pass_init_datastructures;
 extern struct tree_opt_pass pass_fixup_cfg;
 
-extern struct tree_opt_pass pass_early_lto_passes;
-extern struct tree_opt_pass pass_rebuild_ssa_for_lto;
-
 extern struct tree_opt_pass pass_init_function;
 extern struct tree_opt_pass pass_jump;
 extern struct tree_opt_pass pass_rtl_eh;

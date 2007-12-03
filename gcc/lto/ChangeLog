@@ -1,3 +1,19 @@
+2007-12-03  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Set
+	TREE_THIS_VOLATILE if the associated type is a volatile type.
+	(lto_materialize_function): Remove call to init_ssa_operands.
+	* lto-read.c (input_expr_operand): Add SSA_NAME_VAR as a referenced
+	variable when reading an SSA_NAME.  Do the same when reading a
+	RESULT_DECL, a RETURN_EXPR, or an MTAG.
+	(input_cfg): Call init_ssa_operands.
+	(input_ssa_names): Set the default def of an SSA_NAME if necessary.
+	Move call to init_tree_ssa...
+	(lto_read_body): ...here.  Use push_cfun and pop_cfun.  Call
+	add_referenced_var on any variables referenced from the body of the
+	function.  Inform the rest of the compiler we are in SSA form and
+	inform later passes about the current properties.
+
 2007-11-30  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_materialize_function): Add FIXME.

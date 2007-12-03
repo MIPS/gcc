@@ -139,35 +139,6 @@ struct tree_opt_pass pass_all_early_optimizations =
   0					/* letter */
 };
 
-
-/* Control the early passes that are run if this is the lto front end.
-   This cannot be in the lto front end because that must be linked
-   separately.  */
-
-static bool
-gate_early_lto_passes (void)
-{
-	  /* Don't bother doing anything if the program has errors.  */
-  return (!errorcount && !sorrycount && in_lto_p);
-}
-
-struct tree_opt_pass pass_early_lto_passes =
-{
-  "early_lto_passes",    		/* name */
-  gate_early_lto_passes,		/* gate */
-  NULL,					/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0,		                        /* todo_flags_finish */
-  0					/* letter */
-};
-
 /* Pass: cleanup the CFG just before expanding trees to RTL.
    This is just a round of label cleanups and case node grouping
    because after the tree optimizers have run such cleanups may
