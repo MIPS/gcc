@@ -14457,6 +14457,13 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   seen_decls = htab_create_ggc (20, htab_hash_pointer, htab_eq_pointer, NULL);
 }
 
+void
+dwarf2out_ensure_output_file_set (FILE *out)
+{
+  gcc_assert (!dw_asm_out_file);
+  dw_asm_out_file = out;
+}
+
 /* Set the output file and prepare for writing.  */
 static void
 dwarf2out_set_output_file (FILE *out)

@@ -303,9 +303,6 @@ gfc_be_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   gfc_parse_file ();
   gfc_generate_constructors ();
 
-  cgraph_finalize_compilation_unit ();
-  cgraph_optimize ();
-
   /* Tell the frontent about any errors.  */
   gfc_get_errors (&warnings, &errors);
   errorcount += errors;

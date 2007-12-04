@@ -2070,6 +2070,12 @@ staticp (tree arg)
       else
 	return false;
 
+      /* FIXME: this is needed for the decl-non-smashing code in the C
+	 FE.  But we should find a different way of handling this
+	 case.  */
+    case VIEW_CONVERT_EXPR:
+      return staticp (TREE_OPERAND (arg, 0));
+
     default:
       if ((unsigned int) TREE_CODE (arg)
 	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE)

@@ -1,3 +1,20 @@
+2007-12-04  Tom Tromey  <tromey@redhat.com>
+
+	* c-gimplify.c (c_genericize): Don't dump generic function.
+	* tree-optimize.c (tree_lowering_passes): Dump generic function.
+	* gimplify.c (gimplify_function_tree): Exit early if function
+	already gimplified.
+	* tree.c (staticp): Handle VIEW_CONVERT_EXPR.
+	* debug.h: (dwarf2out_ensure_output_file_set): Declare.
+	* dwarf2out.c (dwarf2out_ensure_output_file_set): New function.
+	* toplev.c (compile_file): Don't call
+	cgraph_finalize_compilation_unit.
+	(lang_dependent_init): Call dwarf2out_ensure_output_file_set.
+	(compile_file): Likewise.
+	* langhooks.c (write_global_declarations): Call
+	cgraph_finalize_compilation_unit and cgraph_optimize.
+	Include cgraph.h.
+
 2007-11-30  Tom Tromey  <tromey@redhat.com>
 
 	* c-opts.c (finish_options): Update.

@@ -2154,8 +2154,6 @@ gnat_gimplify_function (tree fndecl)
   struct cgraph_node *cgn;
 
   dump_function (TDI_original, fndecl);
-  gimplify_function_tree (fndecl);
-  dump_function (TDI_generic, fndecl);
 
   /* Convert all nested functions to GIMPLE now.  We do things in this order
      so that items like VLA sizes are expanded properly in the context of the

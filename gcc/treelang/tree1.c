@@ -199,11 +199,9 @@ treelang_parse_file (int debug_flag ATTRIBUTE_UNUSED)
 
   treelang_debug ();
   yyparse ();
-  cgraph_finalize_compilation_unit ();
 #ifdef USE_MAPPED_LOCATION
   linemap_add (&line_table, LC_LEAVE, false, false, NULL, 0);
 #endif
-  cgraph_optimize ();
 }
 
 /* Allocate SIZE bytes and clear them.  Not to be used for strings

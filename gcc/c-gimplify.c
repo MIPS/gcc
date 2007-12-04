@@ -101,9 +101,6 @@ c_genericize (tree fndecl)
       dump_end (TDI_original, dump_orig);
     }
 
-  /* Dump the genericized tree IR.  */
-  dump_function (TDI_generic, fndecl);
-
   /* Genericize all nested functions now.  We do things in this order so
      that items like VLA sizes are expanded properly in the context of
      the correct function.  */

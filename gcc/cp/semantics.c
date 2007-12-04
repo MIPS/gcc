@@ -3184,6 +3184,11 @@ expand_or_defer_fn (tree fn)
       return;
     }
 
+  /* FIXME: we don't want this here -- we want to delay gimplification
+     until tree_lowering_passes.  However, replacing the
+     AGGR_INIT_EXPRs requires gimple.  */
+  gimplify_function_tree (fn);
+
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
   cp_walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
 				   simplify_aggr_init_exprs_r,

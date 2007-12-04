@@ -1,3 +1,10 @@
+2007-12-04  Tom Tromey  <tromey@redhat.com>
+
+	* treetree.c (tree_code_create_function_wrapup): Don't call
+	gimplify_function_tree.
+	* tree1.c (treelang_parse_file): Don't call cgraph_optimize or
+	cgraph_finalize_compilation_unit.
+
 2007-11-30  Tom Tromey  <tromey@redhat.com>
 
 	* tree1.c (treelang_init): Update.

@@ -470,10 +470,6 @@ tree_code_create_function_wrapup (location_t loc)
   /* Dump the original tree to a file.  */
   dump_function (TDI_original, fn_decl);
 
-  /* Convert current function to GIMPLE for the middle end.  */
-  gimplify_function_tree (fn_decl);
-  dump_function (TDI_generic, fn_decl);
-
   /* We are not inside of any scope now.  */
   current_function_decl = NULL_TREE;
   cfun = NULL;

@@ -1,3 +1,10 @@
+2007-12-04  Tom Tromey  <tromey@redhat.com>
+
+	* utils.c (gnat_gimplify_function): Don't call
+	gimplify_function_tree.
+	* misc.c (gnat_parse_file): Don't call
+	cgraph_finalize_compilation_unit.
+
 2007-11-29  Tom Tromey  <tromey@redhat.com>
 
 	* utils2.c: Include langhooks.h.

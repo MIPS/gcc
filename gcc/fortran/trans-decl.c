@@ -1543,6 +1543,7 @@ gfc_gimplify_function (tree fndecl)
 {
   struct cgraph_node *cgn;
 
+#if 0
   gimplify_function_tree (fndecl);
   dump_function (TDI_generic, fndecl);
 
@@ -1550,6 +1551,7 @@ gfc_gimplify_function (tree fndecl)
   /* ??? Could be done as part of resolve_labels.  */
   if (flag_openmp)
     diagnose_omp_structured_block_errors (fndecl);
+#endif
 
   /* Convert all nested functions to GIMPLE now.  We do things in this order
      so that items like VLA sizes are expanded properly in the context of the

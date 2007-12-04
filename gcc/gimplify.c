@@ -6465,10 +6465,14 @@ void
 gimplify_function_tree (tree fndecl)
 {
   tree oldfn, parm, ret;
+  struct function *fun;
 
+  fun = DECL_STRUCT_FUNCTION (fndecl);
+  if (fun && fun->gimplified)
+    return;
   oldfn = current_function_decl;
   current_function_decl = fndecl;
-  cfun = DECL_STRUCT_FUNCTION (fndecl);
+  cfun = fun;
   if (cfun == NULL)
     allocate_struct_function (fndecl);
 

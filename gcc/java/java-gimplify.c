@@ -43,11 +43,6 @@ void
 java_genericize (tree fndecl)
 {
   dump_java_tree (TDI_original, fndecl);
-
-  /* Genericize with the gimplifier.  */
-  gimplify_function_tree (fndecl);
-
-  dump_function (TDI_generic, fndecl);
 }
 
 /* Gimplify a Java tree.  */

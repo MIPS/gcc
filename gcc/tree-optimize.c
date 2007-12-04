@@ -355,7 +355,10 @@ tree_lowering_passes (tree fn)
   current_function_decl = fn;
   push_cfun (DECL_STRUCT_FUNCTION (fn));
   tree_register_cfg_hooks ();
+
   gimplify_function_tree (fn);
+  dump_function (TDI_generic, fn);
+
   bitmap_obstack_initialize (NULL);
   execute_pass_list (all_lowering_passes);
   if (optimize && cgraph_global_info_ready)

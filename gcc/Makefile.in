@@ -873,7 +873,7 @@ LDEXP_LIB = @LDEXP_LIB@
 
 # Likewise, for use in the tools that must run on this machine
 # even if we are cross-building GCC.
-BUILD_LIBS = $(BUILD_LIBIBERTY)
+BUILD_LIBS = $(BUILD_LIBIBERTY) -lpthread
 
 BUILD_RTL = build/rtl.o build/read-rtl.o build/ggc-none.o build/vec.o \
 	    build/min-insn-modes.o build/gensupport.o build/print-rtl.o

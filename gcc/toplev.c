@@ -1122,10 +1122,18 @@ compile_file (void)
       init_asm_output (main_input_filename);
     }
   if (flag_unit_at_a_time)
-    (*debug_hooks->set_output_file) (asm_out_file);
+    {
+      (*debug_hooks->set_output_file) (asm_out_file);
+      /* FIXME: this is lame.  */
+#if defined (DWARF2_UNWIND_INFO) || defined (TARGET_UNWIND_INFO)
+      if (write_symbols != DWARF2_DEBUG
+	  && write_symbols != VMS_AND_DWARF2_DEBUG)
+	dwarf2out_ensure_output_file_set (asm_out_file);
+#endif
+    }
 
-  cgraph_finalize_compilation_unit ();
-
+  /* This must also call cgraph_finalize_compilation_unit and
+     cgraph_optimize.  */
   lang_hooks.decls.final_write_globals ();
 
   if (errorcount || sorrycount)
@@ -2151,7 +2159,15 @@ lang_dependent_init (const char *name)
   (*debug_hooks->init) (name);
   dw2_initialize ();
   if (!flag_unit_at_a_time)
-    (*debug_hooks->set_output_file) (asm_out_file);
+    {
+      (*debug_hooks->set_output_file) (asm_out_file);
+      /* FIXME: this is lame.  */
+#if defined (DWARF2_UNWIND_INFO) || defined (TARGET_UNWIND_INFO)
+      if (write_symbols != DWARF2_DEBUG
+	  && write_symbols != VMS_AND_DWARF2_DEBUG)
+	dwarf2out_ensure_output_file_set (asm_out_file);
+#endif
+    }
 
   timevar_pop (TV_SYMOUT);
 
