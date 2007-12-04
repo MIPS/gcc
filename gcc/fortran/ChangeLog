@@ -1,5 +1,11 @@
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
+	* trans-decl.c (gfc_gimplify_function): Remove.
+	(build_entry_thunks): Update.
+	(gfc_generate_function_code): Update.
+
+2007-12-04  Tom Tromey  <tromey@redhat.com>
+
 	* trans-decl.c (gfc_gimplify_function): Don't call
 	gimplify_function_tree.
 	* f95-lang.c (gfc_be_parse_file): Don't call cgraph_optimize or

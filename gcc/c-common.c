@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "real.h"
 #include "cgraph.h"
 #include "target-def.h"
+#include "tree-pass.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -6433,7 +6434,7 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
    ignored and attribute((warn_unused_result)) is set.  This is done before
    inlining, so we don't have to worry about that.  */
 
-void
+static void
 c_warn_unused_result (tree *top_p)
 {
   tree t = *top_p;
@@ -6501,6 +6502,30 @@ c_warn_unused_result (tree *top_p)
       break;
     }
 }
+
+static unsigned int
+run_warn_unused_result (void)
+{
+  c_warn_unused_result (&DECL_SAVED_TREE (current_function_decl));
+  return 0;
+}
+
+struct tree_opt_pass c_warn_unused_result_pass =
+{
+  "cunusedresult",			/* name */
+  NULL,					/* gate */
+  run_warn_unused_result,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_any,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
 
 /* Convert a character from the host to the target execution character
    set.  cpplib handles this, mostly.  */

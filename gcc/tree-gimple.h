@@ -135,7 +135,6 @@ extern void omp_firstprivatize_variable (struct gimplify_omp_ctx *, tree);
 extern tree gimple_boolify (tree);
 
 /* In omp-low.c.  */
-extern void diagnose_omp_structured_block_errors (tree);
 extern tree omp_reduction_init (tree, tree);
 
 /* In tree-nested.c.  */

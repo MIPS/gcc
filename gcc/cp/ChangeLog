@@ -1,5 +1,10 @@
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
+	* cp-objcp-common.h (LANG_HOOKS_POST_GIMPLIFY_PASS): New macro.
+	* decl.c (finish_function): Remove comment.
+
+2007-12-04  Tom Tromey  <tromey@redhat.com>
+
 	* semantics.c (expand_or_defer_fn): Call gimplify_function_tree.
 	* decl.c (finish_function): Don't call c_warn_unused_result.
 

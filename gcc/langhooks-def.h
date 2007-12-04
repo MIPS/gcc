@@ -160,6 +160,7 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 
 /* Hooks for tree gimplification.  */
 #define LANG_HOOKS_GIMPLIFY_EXPR lhd_gimplify_expr
+#define LANG_HOOKS_POST_GIMPLIFY_PASS NULL
 #define LANG_HOOKS_FOLD_OBJ_TYPE_REF NULL
 
 /* Tree dump hooks.  */
@@ -285,6 +286,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
+  LANG_HOOKS_POST_GIMPLIFY_PASS, \
   LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
   LANG_HOOKS_BUILTIN_FUNCTION, \
   LANG_HOOKS_INIT_TS,          \

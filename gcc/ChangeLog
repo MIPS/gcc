@@ -1,5 +1,29 @@
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
+	* c-decl.c (c_gimple_diagnostics_recursively): Remove.
+	(finish_function): Remove comment.
+	* c-common.h (c_warn_unused_result_pass): Declare.
+	(c_warn_unused_result): Delete declaration.
+	* c-common.c (c_warn_unused_result): Now static.
+	(run_warn_unused_result): New function.
+	(c_warn_unused_result_pass): New global.
+	Include tree-pass.h.
+	* c-objc-common.h (LANG_HOOKS_POST_GIMPLIFY_PASS): New macro.
+	* langhooks-def.h (LANG_HOOKS_POST_GIMPLIFY_PASS): New macro.
+	(LANG_HOOKS_INITIALIZER): Use it.
+	* langhooks.h (struct lang_hooks) <post_gimplify_pass>: New
+	field.
+	* tree-gimple.h (diagnose_omp_structured_block_errors): Remove
+	declaration.
+	* omp-low.c (diagnose_omp_structured_block_errors): Change return
+	type.  Make static.  Don't set current_function_decl.
+	(pass_diagnose_omp_blocks): New global.
+	* tree-pass.h (pass_diagnose_omp_blocks): Declare.
+	* passes.c (init_optimization_passes) <all_lowering_passes>: Run
+	pass_diagnose_omp_blocks, lang_hooks.post_gimplify_pass.
+
+2007-12-04  Tom Tromey  <tromey@redhat.com>
+
 	* c-gimplify.c (c_genericize): Don't dump generic function.
 	* tree-optimize.c (tree_lowering_passes): Dump generic function.
 	* gimplify.c (gimplify_function_tree): Exit early if function

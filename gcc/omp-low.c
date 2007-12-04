@@ -4571,30 +4571,44 @@ diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-void
-diagnose_omp_structured_block_errors (tree fndecl)
+static unsigned int
+diagnose_omp_structured_block_errors (void)
 {
-  tree save_current = current_function_decl;
   struct walk_stmt_info wi;
-
-  current_function_decl = fndecl;
 
   all_labels = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
   memset (&wi, 0, sizeof (wi));
   wi.callback = diagnose_sb_1;
-  walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
+  walk_stmts (&wi, &DECL_SAVED_TREE (current_function_decl));
 
   memset (&wi, 0, sizeof (wi));
   wi.callback = diagnose_sb_2;
   wi.want_locations = true;
   wi.want_return_expr = true;
-  walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
+  walk_stmts (&wi, &DECL_SAVED_TREE (current_function_decl));
 
   splay_tree_delete (all_labels);
   all_labels = NULL;
 
-  current_function_decl = save_current;
+  return 0;
 }
+
+struct tree_opt_pass pass_diagnose_omp_blocks = 
+{
+  "diagnoseompblocks",			/* name */
+  gate_lower_omp,			/* gate */
+  diagnose_omp_structured_block_errors,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_any,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
 
 #include "gt-omp-low.h"

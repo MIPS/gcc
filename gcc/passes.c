@@ -477,6 +477,9 @@ init_optimization_passes (void)
     backend might produce already lowered functions that are not processed
     by these passes.  */
   p = &all_lowering_passes;
+  if (lang_hooks.post_gimplify_pass)
+    NEXT_PASS (*lang_hooks.post_gimplify_pass);
+  NEXT_PASS (pass_diagnose_omp_blocks);
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);

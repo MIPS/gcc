@@ -884,8 +884,6 @@ extern void dump_time_statistics (void);
 
 extern bool c_dump_tree (void *, tree);
 
-extern void c_warn_unused_result (tree *);
-
 extern void verify_sequence_points (tree);
 
 extern tree fold_offsetof (tree, tree);
@@ -1029,5 +1027,7 @@ extern tree c_omp_remap_decl (tree, bool);
 #ifndef GCC_DIAG_STYLE
 #define GCC_DIAG_STYLE __gcc_cdiag__
 #endif
+
+extern struct tree_opt_pass c_warn_unused_result_pass;
 
 #endif /* ! GCC_C_COMMON_H */
