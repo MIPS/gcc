@@ -1,5 +1,13 @@
 2007-12-05  Diego Novillo  <dnovillo@google.com>
 
+	http://gcc.gnu.org/ml/gcc-patches/2007-12/msg00221.html
+
+	* gimple.c (walk_gimple_asm): Guard against WI being
+	NULL.
+	(walk_gimple_stmt): Likewise.
+
+2007-12-05  Diego Novillo  <dnovillo@google.com>
+
 	http://gcc.gnu.org/ml/gcc-patches/2007-12/msg00216.html
 
 	* tree.h (gimple_unreachable_1): Declare.

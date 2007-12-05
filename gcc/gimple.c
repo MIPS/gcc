@@ -47,6 +47,7 @@ const char *const gimple_code_name[] = {
 static GTY(()) VEC(gimple_seq,gc) *gimple_bodies_vec;
 static struct pointer_map_t *gimple_bodies_map;
 
+
 /* Gimple tuple constructors.
    Note: Any constructor taking a ``gimple_seq'' as a parameter, can
    be passed a NULL to start with an empty sequence.  */
@@ -972,7 +973,9 @@ walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
   noutputs = gimple_asm_noutputs (stmt);
   oconstraints = (const char **) alloca ((noutputs) * sizeof (const char *));
 
-  wi->is_lhs = true;
+  if (wi)
+    wi->is_lhs = true;
+
   for (i = 0; i < noutputs; i++)
     {
       tree op = gimple_asm_output_op (stmt, i);
@@ -980,7 +983,8 @@ walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
       oconstraints[i] = constraint;
       parse_output_constraint (&constraint, i, 0, 0, &allows_mem, &allows_reg,
 	                       &is_inout);
-      wi->val_only = (allows_reg || !allows_mem);
+      if (wi)
+	wi->val_only = (allows_reg || !allows_mem);
       ret = walk_tree (&TREE_VALUE (op), callback_op, wi, NULL);
       if (ret)
 	return ret;
@@ -992,17 +996,22 @@ walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
       constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
       parse_input_constraint (&constraint, 0, 0, noutputs, 0,
 			      oconstraints, &allows_mem, &allows_reg);
-      wi->val_only = (allows_reg || !allows_mem);
+      if (wi)
+	wi->val_only = (allows_reg || !allows_mem);
 
       /* Although input "m" is not really a LHS, we need a lvalue.  */
-      wi->is_lhs = !wi->val_only;
+      if (wi)
+	wi->is_lhs = !wi->val_only;
       ret = walk_tree (&TREE_VALUE (op), callback_op, wi, NULL);
       if (ret)
 	return ret;
     }
 
-  wi->is_lhs = false;
-  wi->val_only = true;
+  if (wi)
+    {
+      wi->is_lhs = false;
+      wi->val_only = true;
+    }
 
   return NULL_TREE;
 }
@@ -1035,6 +1044,7 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
   size_t i;
   enum gimple_statement_structure_enum gss;
   tree ret;
+  struct pointer_set_t *pset = (wi) ? wi->pset : NULL;
 
   if (wi && wi->want_locations && !gimple_locus_empty_p (stmt))
     input_location = gimple_locus (stmt);
@@ -1059,8 +1069,8 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 
 	for (i = 1; i < gimple_num_ops (stmt); i++)
 	  {
-	    ret = walk_tree (gimple_op_ptr (stmt, 1), callback_op, wi,
-			     wi->pset);
+	    ret = walk_tree (gimple_op_ptr (stmt, i), callback_op, wi,
+			     pset);
 	    if (ret)
 	      return ret;
 	  }
@@ -1073,7 +1083,7 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 	    wi->is_lhs = true;
 	  }
 
-	ret = walk_tree (gimple_op_ptr (stmt, 0), callback_op, wi, wi->pset);
+	ret = walk_tree (gimple_op_ptr (stmt, 0), callback_op, wi, pset);
 	if (ret)
 	  return ret;
 
@@ -1086,14 +1096,14 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 
       case GIMPLE_CATCH:
 	ret = walk_tree (gimple_catch_types_ptr (stmt), callback_op, wi,
-			 wi->pset);
+			 pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_EH_FILTER:
 	ret = walk_tree (gimple_eh_filter_types_ptr (stmt), callback_op, wi,
-	                 wi->pset);
+	                 pset);
 	if (ret)
 	  return ret;
 	break;
@@ -1106,59 +1116,59 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 
       case GIMPLE_OMP_CRITICAL:
 	ret = walk_tree (gimple_omp_critical_name_ptr (stmt), callback_op, wi,
-	                 wi->pset);
+	                 pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_OMP_FOR:
 	ret = walk_tree (gimple_omp_for_clauses_ptr (stmt), callback_op, wi,
-			 wi->pset);
+			 pset);
 	if (ret)
 	  return ret;
 	ret = walk_tree (gimple_omp_for_index_ptr (stmt), callback_op, wi,
-			 wi->pset);
+			 pset);
 	if (ret)
 	  return ret;
 	ret = walk_tree (gimple_omp_for_initial_ptr (stmt), callback_op, wi,
-			 wi->pset);
+			 pset);
 	if (ret)
 	  return ret;
 	ret = walk_tree (gimple_omp_for_final_ptr (stmt), callback_op, wi,
-			 wi->pset);
+			 pset);
 	if (ret)
 	  return ret;
 	ret = walk_tree (gimple_omp_for_incr_ptr (stmt), callback_op, wi,
-			 wi->pset);
+			 pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_OMP_PARALLEL:
 	ret = walk_tree (gimple_omp_parallel_clauses_ptr (stmt), callback_op,
-	                 wi, wi->pset);
+	                 wi, pset);
 	if (ret)
 	  return ret;
 	ret = walk_tree (gimple_omp_parallel_child_fn_ptr (stmt), callback_op,
-	                 wi, wi->pset);
+	                 wi, pset);
 	if (ret)
 	  return ret;
 	ret = walk_tree (gimple_omp_parallel_data_arg_ptr (stmt), callback_op,
-	                 wi, wi->pset);
+	                 wi, pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_OMP_SECTIONS:
 	ret = walk_tree (gimple_omp_sections_clauses_ptr (stmt), callback_op,
-	                 wi, wi->pset);
+	                 wi, pset);
 	if (ret)
 	  return ret;
 	break;
 
       case GIMPLE_OMP_SINGLE:
 	ret = walk_tree (gimple_omp_single_clauses_ptr (stmt), callback_op, wi,
-	                 wi->pset);
+	                 pset);
 	if (ret)
 	  return ret;
 	break;
@@ -1175,7 +1185,7 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 	  for (i = 0; i < gimple_num_ops (stmt); i++)
 	    {
 	      ret = walk_tree (gimple_op_ptr (stmt, i), callback_op, wi,
-			       wi->pset);
+			       pset);
 	      if (ret)
 		return ret;
 	    }
