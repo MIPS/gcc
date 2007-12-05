@@ -165,7 +165,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations ATTRIBUTE_UNUS
 	}
     }
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

@@ -147,7 +147,7 @@ tree_ssa_phiopt (void)
 #if 0
   return tree_ssa_phiopt_worker (false);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -181,7 +181,7 @@ tree_ssa_cs_elim (void)
 #if 0
   return tree_ssa_phiopt_worker (true);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

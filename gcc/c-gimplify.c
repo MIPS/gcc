@@ -129,7 +129,7 @@ add_block_to_enclosing (tree block ATTRIBUTE_UNUSED)
   enclosing = BIND_EXPR_BLOCK (enclosing);
   BLOCK_SUBBLOCKS (enclosing) = chainon (BLOCK_SUBBLOCKS (enclosing), block);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

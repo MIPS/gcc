@@ -605,7 +605,7 @@ find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, VEC (edge, h
 	  return NULL;
     }
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   if (dump_file)

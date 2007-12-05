@@ -1739,7 +1739,7 @@ lower_eh_constructs (void)
   collect_eh_region_array ();
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2278,7 +2278,7 @@ tree_can_throw_external (tree stmt ATTRIBUTE_UNUSED)
   else
     return can_throw_external_1 (region_nr, is_resx);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2314,7 +2314,7 @@ maybe_clean_or_replace_eh_stmt (gimple old_stmt ATTRIBUTE_UNUSED, gimple new_stm
 
   return false;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2390,7 +2390,7 @@ optimize_double_finally (tree one, tree two)
 #if 0
       tsi_link_before (&i, unsave_expr_now (b), TSI_SAME_STMT);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 }

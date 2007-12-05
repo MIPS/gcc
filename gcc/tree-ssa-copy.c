@@ -180,7 +180,7 @@ may_propagate_copy (tree dest ATTRIBUTE_UNUSED, tree orig ATTRIBUTE_UNUSED)
   /* Anything else is OK.  */
   return true;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -341,7 +341,7 @@ propagate_value (use_operand_p op_p ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED)
 #if 0
   replace_exp_1 (op_p, val, true);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -1068,7 +1068,7 @@ execute_copy_prop (void)
   fini_copy_prop ();
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

@@ -365,7 +365,7 @@ tree_ssa_dominator_optimize (void)
   VEC_free (tree_p, heap, stmts_to_rescan);
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2546,7 +2546,7 @@ eliminate_degenerate_phis (void)
   BITMAP_FREE (interesting_names1);
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

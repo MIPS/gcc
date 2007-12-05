@@ -6668,7 +6668,7 @@ c_gimple_diagnostics_recursively (tree fndecl)
 #if 0
     diagnose_omp_structured_block_errors (fndecl);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   /* Finalize all nested functions now.  */

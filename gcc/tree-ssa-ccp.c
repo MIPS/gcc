@@ -2163,7 +2163,8 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 
       t = maybe_fold_stmt_addition (expr);
 #else
-      gcc_unreachable ();
+      t = NULL;
+      gimple_unreachable ();
 #endif
       break;
 
@@ -2214,7 +2215,8 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	    }
         }
 #else
-      gcc_unreachable ();
+      t = NULL;
+      gimple_unreachable ();
 #endif
       return NULL_TREE;
 
@@ -2695,7 +2697,7 @@ fold_stmt_inplace (gimple stmt)
 #if 0
   changed |= set_rhs (&stmt, new_rhs);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   return changed;

@@ -1438,7 +1438,7 @@ gcc_loop_to_lambda_loop (struct loop *loop ATTRIBUTE_UNUSED, int depth ATTRIBUTE
   LL_UPPER_BOUND (lloop) = ubound;
   return lloop;
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
 }
 
@@ -1891,7 +1891,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
     }
   VEC_free (tree, heap, new_ivs);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2051,7 +2051,7 @@ perfect_nest_p (struct loop *loop ATTRIBUTE_UNUSED)
 
   return perfect_nest_p (loop->inner);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2367,7 +2367,7 @@ can_convert_to_perfect_nest (struct loop *loop ATTRIBUTE_UNUSED)
   free (bbs);
   return false;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2602,7 +2602,7 @@ perfect_nestify (struct loop *loop ATTRIBUTE_UNUSED,
   htab_delete (replacements);
   return perfect_nest_p (loop);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

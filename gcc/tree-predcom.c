@@ -2619,6 +2619,6 @@ tree_predictive_commoning (void)
 
   return ret;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }

@@ -273,7 +273,7 @@ remap_decl (tree decl, copy_body_data *id)
 	      if (TREE_CODE (map) == SSA_NAME)
 	        set_default_def (t, map);
 #else
-	      gcc_unreachable ();
+	      gimple_unreachable ();
 #endif
 	    }
 	  add_referenced_var (t);
@@ -586,7 +586,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
       return NULL;
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 
@@ -611,7 +611,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 #if 0
     copy_statement_list (tp);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   else if (TREE_CODE (*tp) == SAVE_EXPR)
     remap_save_expr (tp, id->decl_map, walk_subtrees);

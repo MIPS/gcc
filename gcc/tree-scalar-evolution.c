@@ -2864,7 +2864,7 @@ scev_const_prop (void)
     }
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

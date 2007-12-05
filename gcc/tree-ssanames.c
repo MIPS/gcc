@@ -298,7 +298,7 @@ release_defs (gimple stmt)
     if (TREE_CODE (def) == SSA_NAME)
       release_ssa_name (def);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

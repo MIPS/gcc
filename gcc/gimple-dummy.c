@@ -114,3 +114,31 @@ DUMMY_FN (replace_exp);
 DUMMY_FN (remove_iv);
 DUMMY_FN (omp_reduction_init);
 DUMMY_FN (diagnose_omp_structured_block_errors);
+
+
+/* Note that we should mark gimple_unreachable_1 with
+   ATTRIBUTE_NORETURN.  But the function will sometimes return, so we
+   need to turn off the return warning in the Makefiles for now.
+
+   We also manually declare flag_gimple_conversion to avoid having to
+   pull in many standard header files.  The whole setup here is a
+   giant hack, so this needs to be as self-contained as possible.  */
+extern void gimple_unreachable_1 (const char *, int, const char *);
+extern int flag_gimple_conversion;
+
+void
+gimple_unreachable_1 (const char *file, int line, const char *fn)
+{
+  if (flag_gimple_conversion == 0)
+    return;
+
+  fprintf (stderr, "%s:%s(%d): GIMPLE conversion ", file, fn, line);
+
+  if (flag_gimple_conversion == 1)
+    fprintf (stderr, "warning: Executing unconverted code\n");
+  else
+    {
+      fprintf (stderr, "error: Executing unconverted code\n");
+      gcc_unreachable ();
+    }
+}

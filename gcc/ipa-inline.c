@@ -1543,7 +1543,7 @@ compute_inline_parameters (void)
   node->local.self_insns = estimate_num_insns (current_function_decl,
 					       &eni_inlining_weights);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   if (node->local.inlinable && !node->local.disregard_inline_limits)
     node->local.disregard_inline_limits

@@ -1762,7 +1762,7 @@ parallelize_loops (void)
   htab_delete (reduction_list);
   return changed;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

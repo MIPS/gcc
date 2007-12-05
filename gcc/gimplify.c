@@ -4961,7 +4961,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq pre_p, bool in_parallel,
 	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_MERGE (c), pre_p);
 	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_MERGE (c));
 #else
-	      gcc_unreachable ();
+	      gimple_unreachable ();
 #endif
 	      gimplify_omp_ctxp = outer_ctx;
 	    }
@@ -5183,7 +5183,7 @@ gimplify_omp_parallel (tree *expr_p, gimple_seq pre_p)
   else
     pop_gimplify_context (NULL);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   gimplify_adjust_omp_clauses (&OMP_PARALLEL_CLAUSES (expr));
@@ -5456,7 +5456,7 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq pre_p)
 #if 0
    append_to_statement_list (load, pre_p);
 #else
-   gcc_unreachable ();
+   gimple_unreachable ();
 #endif
    if (gimplify_expr (&rhs, pre_p, NULL, is_gimple_val, fb_rvalue)
        != GS_ALL_DONE)

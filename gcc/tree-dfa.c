@@ -100,7 +100,7 @@ find_referenced_vars (void)
 
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -242,7 +242,7 @@ make_rename_temp (tree type, const char *prefix)
 #if 0
       mark_sym_for_renaming (t);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 
@@ -593,7 +593,8 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
 	}
     }
 #else
-  gcc_unreachable ();
+  memset (dfa_stats_p, 0, sizeof (*dfa_stats_p));
+  gimple_unreachable ();
 #endif
 }
 
@@ -857,7 +858,7 @@ mark_symbols_for_renaming (gimple stmt ATTRIBUTE_UNUSED)
     if (DECL_P (op))
       mark_sym_for_renaming (op);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -878,7 +879,7 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
 #if 0
       mark_sym_for_renaming (t);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 

@@ -225,7 +225,7 @@ tree_nrv (void)
   var_ann (found)->used = 0;
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -325,7 +325,7 @@ execute_return_slot_opt (void)
     }
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

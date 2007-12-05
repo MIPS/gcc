@@ -575,7 +575,7 @@ find_references_in_function (void)
       walk_tree (bsi_stmt_ptr (i), find_references_in_tree_helper,
 		 (void *) *bsi_stmt_ptr (i), NULL);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -952,7 +952,7 @@ dsa_named_for (tree ptr ATTRIBUTE_UNUSED)
 	}
     }
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

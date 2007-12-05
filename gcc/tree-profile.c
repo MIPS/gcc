@@ -183,7 +183,7 @@ tree_gen_edge_profiler (int edgeno ATTRIBUTE_UNUSED, edge e ATTRIBUTE_UNUSED)
   bsi_insert_on_edge (e, stmt2);
   bsi_insert_on_edge (e, stmt3);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -226,7 +226,7 @@ tree_gen_interval_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag
 			  ref_ptr, val, start, steps);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -251,7 +251,7 @@ tree_gen_pow2_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATT
   call = build_call_expr (tree_pow2_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -276,7 +276,7 @@ tree_gen_one_value_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned ta
   call = build_call_expr (tree_one_value_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -316,7 +316,7 @@ tree_gen_ic_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTRI
   bsi_insert_before (&bsi, stmt2, BSI_SAME_STMT);
   bsi_insert_before (&bsi, stmt3, BSI_SAME_STMT);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -365,7 +365,7 @@ tree_gen_ic_func_profiler (void)
       bsi_insert_after (&bsi, stmt1, BSI_NEW_STMT);
     }
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -408,7 +408,7 @@ tree_gen_average_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag 
   call = build_call_expr (tree_average_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -433,7 +433,7 @@ tree_gen_ior_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTR
   call = build_call_expr (tree_ior_profiler_fn, 2, ref_ptr, val);
   bsi_insert_before (&bsi, call, BSI_SAME_STMT);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -450,7 +450,7 @@ do_tree_profiling (void)
 #if 0
       tree_register_profile_hooks ();
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
       gimple_register_value_prof_hooks ();
       return true;
@@ -469,7 +469,7 @@ tree_profiling (void)
 #if 0
   branch_prob ();
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   if (! flag_branch_probabilities 

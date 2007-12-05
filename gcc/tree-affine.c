@@ -623,7 +623,7 @@ tree_to_aff_combination_expand (tree expr ATTRIBUTE_UNUSED, tree type ATTRIBUTE_
     }
   aff_combination_add (comb, &to_add);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

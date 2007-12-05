@@ -1122,7 +1122,7 @@ gimple_ic (gimple stmt, gimple call, struct cgraph_node *direct_call,
 #if 0
       add_stmt_to_eh_region (stmt1, region);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
       make_eh_edges (stmt1);
     }
@@ -1287,7 +1287,7 @@ gimple_stringop_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
 #if 0
     add_stmt_to_eh_region (stmt1, region);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   bb2end = stmt1;
   label2 = gimple_build_label (label_decl2);

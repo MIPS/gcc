@@ -878,7 +878,7 @@ expand_builtin_nonlocal_goto (tree exp)
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   t_label = CALL_EXPR_ARG (exp, 0);
@@ -996,7 +996,7 @@ expand_builtin_prefetch (tree exp)
   if (!validate_arglist (exp, POINTER_TYPE, 0))
     return;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg0 = CALL_EXPR_ARG (exp, 0);
@@ -1844,7 +1844,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -2022,7 +2022,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, op1_type, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg0 = CALL_EXPR_ARG (exp, 0);
@@ -2121,7 +2121,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -2233,7 +2233,7 @@ expand_builtin_interclass_mathfn (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -2376,7 +2376,7 @@ expand_builtin_sincos (tree exp)
  			 POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -2428,7 +2428,7 @@ expand_builtin_cexpi (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -2548,7 +2548,7 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     gcc_unreachable ();
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -2683,7 +2683,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
      gcc_unreachable ();
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
  
   arg = CALL_EXPR_ARG (exp, 0);
@@ -2959,7 +2959,7 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
   if (! validate_arglist (exp, REAL_TYPE, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg0 = CALL_EXPR_ARG (exp, 0);
@@ -3094,7 +3094,7 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
   if (! validate_arglist (exp, REAL_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg0 = CALL_EXPR_ARG (exp, 0);
@@ -3158,7 +3158,7 @@ expand_builtin_strlen (tree exp, rtx target,
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       rtx pat;
@@ -3269,7 +3269,7 @@ expand_builtin_strstr (tree exp, rtx target, enum machine_mode mode)
 #if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree type = TREE_TYPE (exp);
@@ -3292,7 +3292,7 @@ expand_builtin_strchr (tree exp, rtx target, enum machine_mode mode)
 #if 0
   if (validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree type = TREE_TYPE (exp);
@@ -3317,7 +3317,7 @@ expand_builtin_strrchr (tree exp, rtx target, enum machine_mode mode)
 #if 0
   if (validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree type = TREE_TYPE (exp);
@@ -3340,7 +3340,7 @@ expand_builtin_strpbrk (tree exp, rtx target, enum machine_mode mode)
 #if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree type = TREE_TYPE (exp);
@@ -3386,7 +3386,7 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
@@ -3427,7 +3427,7 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 #if 0
       stringop_block_profile (exp, &expected_align, &expected_size);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
       if (expected_align < dest_align)
 	expected_align = dest_align;
@@ -3489,7 +3489,7 @@ expand_builtin_mempcpy(tree exp, rtx target, enum machine_mode mode)
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
@@ -3606,7 +3606,7 @@ expand_builtin_memmove (tree exp, rtx target, enum machine_mode mode, int ignore
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
@@ -3661,7 +3661,7 @@ expand_builtin_bcopy (tree exp, int ignore)
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   src = CALL_EXPR_ARG (exp, 0);
@@ -3756,7 +3756,7 @@ expand_builtin_strcpy (tree fndecl, tree exp, rtx target, enum machine_mode mode
 #if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
    {
      tree dest = CALL_EXPR_ARG (exp, 0);
@@ -3798,7 +3798,7 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   dst = CALL_EXPR_ARG (exp, 0);
@@ -3896,7 +3896,7 @@ expand_builtin_strncpy (tree exp, rtx target, enum machine_mode mode)
   if (validate_arglist (exp,
  			POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
@@ -4007,7 +4007,7 @@ expand_builtin_memset (tree exp, rtx target, enum machine_mode mode)
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       tree dest = CALL_EXPR_ARG (exp, 0);
@@ -4045,7 +4045,7 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
 #if 0
   stringop_block_profile (orig_exp, &expected_align, &expected_size);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   if (expected_align < dest_align)
     expected_align = dest_align;
@@ -4161,7 +4161,7 @@ expand_builtin_bzero (tree exp)
   if (!validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   dest = CALL_EXPR_ARG (exp, 0);
@@ -4189,7 +4189,7 @@ expand_builtin_memchr (tree exp, rtx target, enum machine_mode mode)
   if (validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE,
 			INTEGER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree type = TREE_TYPE (exp);
@@ -4217,7 +4217,7 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       tree result = fold_builtin_memcmp (CALL_EXPR_ARG (exp, 0),
@@ -4331,7 +4331,7 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       tree result = fold_builtin_strcmp (CALL_EXPR_ARG (exp, 0),
@@ -4486,7 +4486,7 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       tree result = fold_builtin_strncmp (CALL_EXPR_ARG (exp, 0),
@@ -4617,7 +4617,7 @@ expand_builtin_strcat (tree fndecl, tree exp, rtx target, enum machine_mode mode
     return NULL_RTX;
   else
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
     {
       tree dst = CALL_EXPR_ARG (exp, 0);
@@ -4678,7 +4678,7 @@ expand_builtin_strncat (tree exp, rtx target, enum machine_mode mode)
   if (validate_arglist (exp,
  			POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree result = fold_builtin_strncat (CALL_EXPR_ARG (exp, 0),
@@ -4701,7 +4701,7 @@ expand_builtin_strspn (tree exp, rtx target, enum machine_mode mode)
 #if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree result = fold_builtin_strspn (CALL_EXPR_ARG (exp, 0),
@@ -4723,7 +4723,7 @@ expand_builtin_strcspn (tree exp, rtx target, enum machine_mode mode)
 #if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree result = fold_builtin_strcspn (CALL_EXPR_ARG (exp, 0),
@@ -5248,7 +5248,7 @@ expand_builtin_alloca (tree exp, rtx target)
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   /* Compute the argument.  */
@@ -5276,7 +5276,7 @@ expand_builtin_bswap (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -5306,7 +5306,7 @@ expand_builtin_unop (enum machine_mode target_mode, tree exp, rtx target,
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   /* Compute the argument.  */
@@ -5332,7 +5332,7 @@ expand_builtin_fputs (tree exp, rtx target, bool unlocked)
 #if 0
   if (validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
     {
       tree result = fold_builtin_fputs (CALL_EXPR_ARG (exp, 0),
@@ -5360,9 +5360,14 @@ expand_builtin_expect (tree exp, rtx target)
   c = CALL_EXPR_ARG (exp, 1);
 
   target = expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
+  /* FIXME tuples.  */
+#if 0
   /* When guessing was done, the hints should be already stripped away.  */
   gcc_assert (!flag_guess_branch_prob
 	      || optimize == 0 || errorcount || sorrycount);
+#else
+  gimple_unreachable ();
+#endif
   return target;
 }
 
@@ -5396,7 +5401,7 @@ expand_builtin_fabs (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -5421,7 +5426,7 @@ expand_builtin_copysign (tree exp, rtx target, rtx subtarget)
   if (!validate_arglist (exp, REAL_TYPE, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -5855,7 +5860,7 @@ expand_builtin_init_trampoline (tree exp)
 			 POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   t_tramp = CALL_EXPR_ARG (exp, 0);
@@ -5890,7 +5895,7 @@ expand_builtin_adjust_trampoline (tree exp)
   if (!validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   tramp = expand_normal (CALL_EXPR_ARG (exp, 0));
@@ -5927,7 +5932,7 @@ expand_builtin_signbit (tree exp, rtx target)
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   arg = CALL_EXPR_ARG (exp, 0);
@@ -6492,7 +6497,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return const0_rtx;
       else
 #else
-	gcc_unreachable ();
+	gimple_unreachable ();
 #endif
 	{
 	  rtx ops[3];
@@ -6514,7 +6519,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	expand_builtin_return (expand_normal (CALL_EXPR_ARG (exp, 0)));
       return const0_rtx;
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
 
     case BUILT_IN_SAVEREGS:
@@ -6791,7 +6796,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  return const0_rtx;
 	}
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
       break;
 
@@ -6810,7 +6815,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  return const0_rtx;
 	}
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
       break;
 
@@ -6827,7 +6832,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  return const0_rtx;
 	}
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
       break;
 
@@ -6853,7 +6858,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  return const0_rtx;
 	}
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
       break;
 
@@ -6877,7 +6882,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  return const0_rtx;
 	}
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
       break;
 
@@ -11813,7 +11818,7 @@ expand_builtin_object_size (tree exp)
       return const0_rtx;
     }
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   ost = CALL_EXPR_ARG (exp, 1);
@@ -11855,7 +11860,7 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 			 INTEGER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   dest = CALL_EXPR_ARG (exp, 0);

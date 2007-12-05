@@ -1492,7 +1492,7 @@ tree_estimate_probability (void)
     profile_status = PROFILE_GUESSED;
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

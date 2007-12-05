@@ -755,7 +755,7 @@ execute_simple_dse (void)
   BITMAP_FREE (variables_loaded);
   return todo;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

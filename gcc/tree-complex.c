@@ -1528,7 +1528,7 @@ tree_lower_complex (void)
   VEC_free (complex_lattice_t, heap, complex_lattice_values);
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -1574,7 +1574,7 @@ tree_lower_complex_O0 (void)
     }
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

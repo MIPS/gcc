@@ -5647,7 +5647,7 @@ ipa_pta_execute (void)
   delete_points_to_sets ();
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

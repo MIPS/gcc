@@ -483,7 +483,7 @@ make_edges (void)
 #if 0
 	      make_eh_edges (last);
 #else
-	      gcc_unreachable ();
+	      gimple_unreachable ();
 #endif
 	      fallthru = false;
 	      break;
@@ -519,9 +519,9 @@ make_edges (void)
 	      /* FIXME tuples.  */
 #if 0
 	      cur_region = new_omp_region (bb, code, cur_region);
-	      fallthru = true;
 #else
-	      gcc_unreachable ();
+	      fallthru = true;
+	      gimple_unreachable ();
 #endif
 	      break;
 
@@ -531,7 +531,8 @@ make_edges (void)
 	      cur_region = new_omp_region (bb, code, cur_region);
 	      fallthru = true;
 #else
-	      gcc_unreachable ();
+	      fallthru = true;
+	      gimple_unreachable ();
 #endif
 	      break;
 
@@ -540,7 +541,8 @@ make_edges (void)
 #if 0
 	      fallthru = false;
 #else
-	      gcc_unreachable ();
+	      fallthru = false;
+	      gimple_unreachable ();
 #endif
 	      break;
 
@@ -560,7 +562,8 @@ make_edges (void)
 	      fallthru = cur_region->type != OMP_SECTION;
 	      cur_region = cur_region->outer;
 #else
-	      gcc_unreachable ();
+	      fallthru = true;
+	      gimple_unreachable ();
 #endif
 	      break;
 
@@ -608,7 +611,8 @@ make_edges (void)
 		  gcc_unreachable ();
 		}
 #else
-	      gcc_unreachable ();
+	      fallthru = true;
+	      gimple_unreachable ();
 #endif
 	      break;
 
@@ -1969,7 +1973,7 @@ remove_useless_stmts (void)
   while (data.repeat);
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2802,7 +2806,7 @@ gsi_commit_one_edge_insert (edge e, basic_block *new_bb)
       else
 	gsi_insert_before (gsi, stmt, GSI_NEW_STMT);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 }
@@ -2818,7 +2822,7 @@ gsi_insert_on_edge (edge e ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED)
 #if 0
   append_to_statement_list (stmt, &PENDING_STMT (e));
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2842,7 +2846,7 @@ gsi_insert_on_edge_immediate (edge e ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSE
 
   return new_bb;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -4534,7 +4538,7 @@ gimple_block_label (basic_block bb ATTRIBUTE_UNUSED)
   gsi_insert_before (&s, stmt, GSI_NEW_STMT);
   return label;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -4905,7 +4909,7 @@ add_phi_args_after_copy_edge (edge e_copy ATTRIBUTE_UNUSED)
       add_phi_arg (phi_copy, def, e_copy);
     }
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -5025,7 +5029,7 @@ gimple_duplicate_sese_region (edge entry, edge exit,
 #if 0
   gcc_assert (!need_ssa_update_p ());
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   /* Record blocks outside the region that are dominated by something
@@ -5101,7 +5105,7 @@ gimple_duplicate_sese_region (edge entry, edge exit,
   /* Update the SSA web.  */
   update_ssa (TODO_update_ssa);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   if (free_region_copy)
@@ -5282,7 +5286,7 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
   free_original_copy_tables ();
   return true;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -5910,7 +5914,7 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
 
   return bb;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -6348,7 +6352,7 @@ gimple_purge_dead_abnormal_call_edges (basic_block bb ATTRIBUTE_UNUSED)
 
   return changed;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -6723,7 +6727,7 @@ gimplify_val (gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED, tree type ATTRIBUTE_UN
 
   return t;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

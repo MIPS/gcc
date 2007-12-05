@@ -946,7 +946,7 @@ op_iter_next_use (ssa_op_iter *ptr)
 #if 0
       return PHI_ARG_DEF_PTR (ptr->phi_stmt, (ptr->phi_i)++);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
   ptr->done = true;

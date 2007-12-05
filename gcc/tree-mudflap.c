@@ -476,7 +476,7 @@ mf_decl_cache_locals (void)
 #if 0
   insert_edge_copies (g, ENTRY_BLOCK_PTR);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   g = gimple_build_assign (mf_cache_mask_decl_l, mf_cache_mask_decl);
@@ -485,7 +485,7 @@ mf_decl_cache_locals (void)
 #if 0
   insert_edge_copies (g, ENTRY_BLOCK_PTR);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   gsi_commit_edge_inserts ();
@@ -570,7 +570,7 @@ mf_build_check_statement_for (tree base, tree limit,
   /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   head = tsi_start (t);
   tsi = tsi_last (t);
@@ -584,7 +584,7 @@ mf_build_check_statement_for (tree base, tree limit,
   /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
@@ -606,7 +606,7 @@ mf_build_check_statement_for (tree base, tree limit,
   /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
@@ -656,7 +656,7 @@ mf_build_check_statement_for (tree base, tree limit,
   /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
@@ -683,7 +683,7 @@ mf_build_check_statement_for (tree base, tree limit,
 #if 0
     bsi_insert_after (&bsi, tsi_stmt (tsi), BSI_CONTINUE_LINKING);
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
 
   /*  Now build up the body of the cache-miss handling:
@@ -703,7 +703,7 @@ mf_build_check_statement_for (tree base, tree limit,
   /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   head = tsi_start (t);
   tsi = tsi_last (t);
@@ -726,7 +726,7 @@ mf_build_check_statement_for (tree base, tree limit,
 #if 0
     bsi_insert_after (&bsi, tsi_stmt (tsi), BSI_CONTINUE_LINKING);
 #else
-    gcc_unreachable ();
+    gimple_unreachable ();
 #endif
 
   *instr_bsi = bsi_start (join_bb);
@@ -991,7 +991,7 @@ mf_xform_derefs (void)
     }
   while (bb && bb->index <= saved_last_basic_block);
 #else
-	  gcc_unreachable ();
+	  gimple_unreachable ();
 #endif
 }
 

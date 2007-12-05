@@ -393,7 +393,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 						   REG_NOTES (call_insn));
       note_current_region_may_contain_throw ();
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 
@@ -2270,7 +2270,7 @@ expand_call (tree exp, rtx target, int ignore)
       || dbg_cnt (tail_call) == false)
     try_tail_call = 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   /*  Rest of purposes for tail call optimizations to fail.  */

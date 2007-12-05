@@ -186,7 +186,7 @@ execute_cleanup_cfg_post_optimizing (void)
 #if 0
   cleanup_tree_cfg ();
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
   cleanup_dead_labels ();
   group_case_labels ();
@@ -324,7 +324,7 @@ execute_fixup_cfg (void)
 
   return todo;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

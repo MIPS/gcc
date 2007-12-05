@@ -1151,7 +1151,7 @@ main_tree_if_conversion (void)
     }
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

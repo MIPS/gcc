@@ -944,7 +944,7 @@ replace_uses_in (tree stmt ATTRIBUTE_UNUSED, bool *replaced_addresses_p ATTRIBUT
 
   return replaced;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -1085,7 +1085,7 @@ replace_vuses_in (tree stmt ATTRIBUTE_UNUSED, bool *replaced_addresses_p ATTRIBU
 
   return replaced;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

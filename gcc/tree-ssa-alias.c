@@ -1180,7 +1180,7 @@ find_partition_for (mem_sym_stats_t mp_p)
   mark_sym_for_renaming (mp_p->var);
   mark_sym_for_renaming (mpt);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   return mpt;
@@ -1435,14 +1435,14 @@ build_mp_info (struct mem_ref_stats_d *mem_ref_stats,
 #if 0
 	  mark_sym_for_renaming (old_mpt);
 #else
-	  gcc_unreachable ();
+	  gimple_unreachable ();
 #endif
 	  set_memory_partition (var, NULL_TREE);
 	  /* FIXME tuples.  */
 #if 0
 	  mark_sym_for_renaming (var);
 #else
-	  gcc_unreachable ();
+	  gimple_unreachable ();
 #endif
 	}
 
@@ -1883,14 +1883,14 @@ compute_may_aliases (void)
   if (need_ssa_update_p ())
     update_ssa (TODO_update_ssa);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   timevar_pop (TV_TREE_MAY_ALIAS);
   
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -3493,7 +3493,7 @@ dump_points_to_info (FILE *file ATTRIBUTE_UNUSED)
 
   fprintf (file, "\n");
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -4240,7 +4240,7 @@ create_structure_vars (void)
 
   return TODO_rebuild_alias;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

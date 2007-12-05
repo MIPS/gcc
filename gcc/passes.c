@@ -253,7 +253,7 @@ finish_optimization_passes (void)
       if (dump_file)
 	dump_end (pass_profile.static_pass_number, dump_file);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 
@@ -978,7 +978,7 @@ execute_function_todo (void *data)
       update_ssa (update_flags);
       cfun->last_verified &= ~TODO_verify_ssa;
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
   

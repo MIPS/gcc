@@ -560,7 +560,7 @@ analyze_function (struct cgraph_node *fn)
 		goto end;
 	    }
 #else
-	  gcc_unreachable ();
+	  gimple_unreachable ();
 #endif
 	}
 

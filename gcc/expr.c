@@ -7066,7 +7066,7 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
       if (rn >= 0)
 	last = get_last_insn ();
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 

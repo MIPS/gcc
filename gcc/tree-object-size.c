@@ -1066,7 +1066,7 @@ compute_object_sizes (void)
   fini_object_sizes ();
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

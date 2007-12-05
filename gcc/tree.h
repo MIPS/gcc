@@ -5344,4 +5344,9 @@ more_const_call_expr_args_p (const const_call_expr_arg_iterator *iter)
   for ((arg) = first_const_call_expr_arg ((call), &(iter)); (arg);	\
        (arg) = next_const_call_expr_arg (&(iter)))
 
+/* FIXME tuples.  Do not merge.  This is only a hack to discover
+   unconverted code.  */
+extern void gimple_unreachable_1 (const char *, int, const char *);
+#define gimple_unreachable() gimple_unreachable_1 (__FILE__, __LINE__, __FUNCTION__)
+
 #endif  /* GCC_TREE_H  */

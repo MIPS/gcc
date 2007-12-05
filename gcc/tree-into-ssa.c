@@ -429,7 +429,7 @@ compute_global_livein (bitmap livein ATTRIBUTE_UNUSED, bitmap def_blocks ATTRIBU
 
   free (worklist);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2324,7 +2324,7 @@ rewrite_into_ssa (void)
   timevar_pop (TV_TREE_SSA_OTHER);
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2801,7 +2801,7 @@ create_new_def_for (tree old_name ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED, 
 
   return new_name;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2820,7 +2820,7 @@ register_new_name_mapping (tree new ATTRIBUTE_UNUSED, tree old ATTRIBUTE_UNUSED)
 
   add_new_name_mapping (new, old);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -2835,7 +2835,7 @@ mark_sym_for_renaming (tree sym)
   if (need_to_initialize_update_ssa_p)
     init_update_ssa ();
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   /* FIXME.  Why do we need this?  */
@@ -2878,7 +2878,7 @@ mark_set_for_renaming (bitmap set)
   if (need_to_initialize_update_ssa_p)
     init_update_ssa ();
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   EXECUTE_IF_SET_IN_BITMAP (set, 0, i, bi)
@@ -2916,7 +2916,7 @@ name_registered_for_update_p (tree n ATTRIBUTE_UNUSED)
          || is_old_name (n)
 	 || symbol_marked_for_renaming (SSA_NAME_VAR (n));
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -3429,6 +3429,6 @@ done:
 
   timevar_pop (TV_TREE_SSA_INCREMENTAL);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }

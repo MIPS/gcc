@@ -1708,7 +1708,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	if (stmt_references_memory_p (node) && (flags & TDF_MEMSYMS))
 	  dump_symbols (buffer, gimple_stored_syms (node), flags);
 #else
-	gcc_unreachable ();
+	gimple_unreachable ();
 #endif
       }
       break;
@@ -2887,6 +2887,6 @@ dump_vops (pretty_printer *buffer ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED, 
       vdefs = vdefs->next;
     }
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }

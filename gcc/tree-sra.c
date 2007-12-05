@@ -1990,7 +1990,7 @@ decide_instantiations (void)
 #if 0
   mark_set_for_renaming (sra_candidates);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 
   if (dump_file)
@@ -2020,7 +2020,7 @@ mark_all_v_defs_1 (tree stmt)
 #if 0
       mark_sym_for_renaming (sym);
 #else
-      gcc_unreachable ();
+      gimple_unreachable ();
 #endif
     }
 }
@@ -3651,7 +3651,7 @@ tree_sra (void)
   obstack_free (&sra_obstack, NULL);
   return todoflags;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
@@ -3668,7 +3668,7 @@ tree_sra_early (void)
 
   return ret & ~TODO_rebuild_alias;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

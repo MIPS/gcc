@@ -3988,6 +3988,8 @@ execute_pre (bool do_fre ATTRIBUTE_UNUSED)
     }
 
   fini_pre ();
+#else
+  gimple_unreachable ();
 #endif
 }
 

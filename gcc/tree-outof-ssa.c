@@ -1309,7 +1309,7 @@ rewrite_out_of_ssa (void)
   cfun->gimple_df->in_ssa_p = false;
   return 0;
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

@@ -265,7 +265,7 @@ nested_in_vect_loop_p (struct loop *loop ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_U
   return (loop->inner 
           && (loop->inner == (gimple_bb (stmt))->loop_father));
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 

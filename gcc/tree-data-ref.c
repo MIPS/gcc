@@ -4275,7 +4275,7 @@ tree_check_data_deps (void)
   FOR_EACH_LOOP (li, loop_nest, 0)
     analyze_all_data_dependences (loop_nest);
 #else
-  gcc_unreachable ();
+  gimple_unreachable ();
 #endif
 }
 
