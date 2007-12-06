@@ -3253,7 +3253,13 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 	  /* If this DIE refers to a type, cache the value so that future
 	     references to the type can be processed quickly.  */
 	  if (val && TYPE_P (val))
-	    lto_cache_store_DIE (fd, die, val);
+	    {
+	      /* In the absence of a better solution, say that we alias
+		 everything FIXME.  */
+	      TYPE_ALIAS_SET (val) = 0;
+
+	      lto_cache_store_DIE (fd, die, val);
+	    }
 
           context->skip_non_parameters = saved_skip_non_parameters;
 	}
