@@ -210,11 +210,11 @@ gfc_conv_intrinsic_function_args (gfc_se *se, gfc_expr *expr,
 
       /* If an optional argument is itself an optional dummy argument,
 	 check its presence and substitute a null if absent.  */
-      if (e->expr_type ==EXPR_VARIABLE
+      if (e->expr_type == EXPR_VARIABLE
 	    && e->symtree->n.sym->attr.optional
 	    && formal
 	    && formal->optional)
-	gfc_conv_missing_dummy (&argse, e, formal->ts);
+	gfc_conv_missing_dummy (&argse, e, formal->ts, 0);
 
       gfc_add_block_to_block (&se->pre, &argse.pre);
       gfc_add_block_to_block (&se->post, &argse.post);

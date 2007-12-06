@@ -2081,13 +2081,14 @@ struct tree_block GTY(())
   unsigned abstract_flag : 1;
   unsigned block_num : 30;
 
+  location_t locus;
+
   tree vars;
   tree subblocks;
   tree supercontext;
   tree abstract_origin;
   tree fragment_origin;
   tree fragment_chain;
-  location_t locus;
 };
 
 /* Define fields and accessors for nodes representing data types.  */
@@ -2578,6 +2579,10 @@ struct tree_memory_tag GTY(())
   /* True if this tag has global scope.  */
   unsigned int is_global : 1;
 
+  /* True if this tag is the first field of an aggregate type that
+     can be used to find adjacent SFTs belonging to the same aggregate.  */
+  unsigned int base_for_components : 1;
+
   /* True if this tag should not be grouped into a memory partition.  */
   unsigned int unpartitionable : 1;
 };
@@ -2600,23 +2605,17 @@ struct tree_struct_field_tag GTY(())
 
   /* Alias set for a DECL_NONADDRESSABLE_P field.  Otherwise -1.  */
   alias_set_type alias_set;
-
-  /* Nesting level for this subvariable.  This indicates how many
-     structures are wrapping this field.  Fields at the top level have
-     a nesting level of 0.  */
-  unsigned int nesting_level;
 };
-
 #define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.parent_var)
 #define SFT_OFFSET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.offset)
 #define SFT_SIZE(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.size)
 #define SFT_NONADDRESSABLE_P(NODE) \
   (STRUCT_FIELD_TAG_CHECK (NODE)->sft.alias_set != -1)
 #define SFT_ALIAS_SET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.alias_set)
-#define SFT_NESTING_LEVEL(NODE) \
-  (STRUCT_FIELD_TAG_CHECK (NODE)->sft.nesting_level)
 #define SFT_UNPARTITIONABLE_P(NODE) \
   (STRUCT_FIELD_TAG_CHECK (NODE)->sft.common.unpartitionable)
+#define SFT_BASE_FOR_COMPONENTS_P(NODE) \
+  (STRUCT_FIELD_TAG_CHECK (NODE)->sft.common.base_for_components)
 
 /* Memory Partition Tags (MPTs) group memory symbols under one
    common name for the purposes of placing memory PHI nodes.  */
@@ -4297,7 +4296,6 @@ typedef struct record_layout_info_s
   int packed_maybe_necessary;
 } *record_layout_info;
 
-extern void set_lang_adjust_rli (void (*) (record_layout_info));
 extern record_layout_info start_record_layout (tree);
 extern tree bit_from_pos (tree, tree);
 extern tree byte_from_pos (tree, tree);
@@ -4959,7 +4957,7 @@ extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
 extern void expand_dummy_function_end (void);
 extern unsigned int init_function_for_compilation (void);
-extern void allocate_struct_function (tree);
+extern void allocate_struct_function (tree, bool);
 extern void push_struct_function (tree fndecl);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (const_tree);

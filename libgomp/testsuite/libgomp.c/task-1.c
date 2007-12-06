@@ -34,9 +34,7 @@ f2 (void)
       v1 = 7;
       #pragma omp task
 	{
-	  if (0 && ++v1 != 8)	/* FIXME - this is broken ATM.  */
-	    err = 1;
-	  if (++v2 != 3 || ++v3 != 4 || ++v4 != 5 || ++v5 != 6)
+	  if (++v1 != 8 || ++v2 != 3 || ++v3 != 4 || ++v4 != 5 || ++v5 != 6)
 	    err = 1;
 	}
       #pragma omp taskwait

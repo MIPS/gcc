@@ -1782,7 +1782,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 		       || f->sym->as->type == AS_DEFERRED);
 
       if (f->sym->ts.type == BT_CHARACTER && a->expr->ts.type == BT_CHARACTER
-	  && a->expr->rank == 0
+	  && a->expr->rank == 0 && !ranks_must_agree
 	  && f->sym->as && f->sym->as->type != AS_ASSUMED_SHAPE)
 	{
 	  if (where && (gfc_option.allow_std & GFC_STD_F2003) == 0)
@@ -2704,6 +2704,52 @@ gfc_add_interface (gfc_symbol *new)
   *head = intr;
 
   return SUCCESS;
+}
+
+
+gfc_interface *
+gfc_current_interface_head (void)
+{
+  switch (current_interface.type)
+    {
+      case INTERFACE_INTRINSIC_OP:
+	return current_interface.ns->operator[current_interface.op];
+	break;
+
+      case INTERFACE_GENERIC:
+	return current_interface.sym->generic;
+	break;
+
+      case INTERFACE_USER_OP:
+	return current_interface.uop->operator;
+	break;
+
+      default:
+	gcc_unreachable ();
+    }
+}
+
+
+void
+gfc_set_current_interface_head (gfc_interface *i)
+{
+  switch (current_interface.type)
+    {
+      case INTERFACE_INTRINSIC_OP:
+	current_interface.ns->operator[current_interface.op] = i;
+	break;
+
+      case INTERFACE_GENERIC:
+	current_interface.sym->generic = i;
+	break;
+
+      case INTERFACE_USER_OP:
+	current_interface.uop->operator = i;
+	break;
+
+      default:
+	gcc_unreachable ();
+    }
 }
 
 

@@ -2665,7 +2665,8 @@ try_replace_reg (rtx from, rtx to, rtx insn)
      with our replacement.  */
   if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
     set_unique_reg_note (insn, REG_EQUAL,
-			 simplify_replace_rtx (XEXP (note, 0), from, to));
+			 simplify_replace_rtx (XEXP (note, 0), from,
+			 copy_rtx (to)));
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -4613,18 +4614,16 @@ add_label_notes (rtx x, rtx insn)
 	 We no longer ignore such label references (see LABEL_REF handling in
 	 mark_jump_label for additional information).  */
 
-	if (reg_mentioned_p (XEXP (x, 0), insn))
-	  {
-	    /* There's no reason for current users to emit jump-insns
-	       with such a LABEL_REF, so we don't have to handle
-	       REG_LABEL_TARGET notes.  */
-	    gcc_assert (!JUMP_P (insn));
-	    REG_NOTES (insn)
-	      = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, XEXP (x, 0),
-				   REG_NOTES (insn));
-	    if (LABEL_P (XEXP (x, 0)))
-	      LABEL_NUSES (XEXP (x, 0))++;
-	  }
+      /* There's no reason for current users to emit jump-insns with
+	 such a LABEL_REF, so we don't have to handle REG_LABEL_TARGET
+	 notes.  */
+      gcc_assert (!JUMP_P (insn));
+      REG_NOTES (insn)
+	= gen_rtx_INSN_LIST (REG_LABEL_OPERAND, XEXP (x, 0),
+			     REG_NOTES (insn));
+      if (LABEL_P (XEXP (x, 0)))
+	LABEL_NUSES (XEXP (x, 0))++;
+
       return;
     }
 

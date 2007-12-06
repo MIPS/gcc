@@ -1846,6 +1846,20 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 	{
 	  result = build_nt_call_list (fn, args);
 	  KOENIG_LOOKUP_P (result) = koenig_p;
+	  if (cfun)
+	    {
+	      do
+		{
+		  tree fndecl = OVL_CURRENT (fn);
+		  if (TREE_CODE (fndecl) != FUNCTION_DECL
+		      || !TREE_THIS_VOLATILE (fndecl))
+		    break;
+		  fn = OVL_NEXT (fn);
+		}
+	      while (fn);
+	      if (!fn)
+		current_function_returns_abnormally = 1;
+	    }
 	  return result;
 	}
       if (!BASELINK_P (fn)
@@ -4052,6 +4066,15 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
   if (!expr || error_operand_p (expr))
     return error_mark_node;
 
+  if (TYPE_P (expr)
+      || TREE_CODE (expr) == TYPE_DECL
+      || (TREE_CODE (expr) == BIT_NOT_EXPR
+	  && TYPE_P (TREE_OPERAND (expr, 0))))
+    {
+      error ("argument to decltype must be an expression");
+      return error_mark_node;
+    }
+
   if (type_dependent_expression_p (expr))
     {
       type = make_aggr_type (DECLTYPE_TYPE);
@@ -4141,7 +4164,8 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
           break;
 
         default:
-          gcc_assert (TYPE_P (expr) || DECL_P (expr));
+	  gcc_assert (TYPE_P (expr) || DECL_P (expr)
+		      || TREE_CODE (expr) == SCOPE_REF);
           error ("argument to decltype must be an expression");
           return error_mark_node;
         }

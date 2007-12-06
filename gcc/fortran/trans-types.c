@@ -672,7 +672,7 @@ c_size_t_size (void)
 void
 gfc_init_types (void)
 {
-  char name_buf[16];
+  char name_buf[18];
   int index;
   tree type;
   unsigned n;
@@ -687,7 +687,7 @@ gfc_init_types (void)
     {
       type = gfc_build_int_type (&gfc_integer_kinds[index]);
       gfc_integer_types[index] = type;
-      snprintf (name_buf, sizeof(name_buf), "int%d",
+      snprintf (name_buf, sizeof(name_buf), "integer(kind=%d)",
 		gfc_integer_kinds[index].kind);
       PUSH_TYPE (name_buf, type);
     }
@@ -696,7 +696,7 @@ gfc_init_types (void)
     {
       type = gfc_build_logical_type (&gfc_logical_kinds[index]);
       gfc_logical_types[index] = type;
-      snprintf (name_buf, sizeof(name_buf), "logical%d",
+      snprintf (name_buf, sizeof(name_buf), "logical(kind=%d)",
 		gfc_logical_kinds[index].kind);
       PUSH_TYPE (name_buf, type);
     }
@@ -705,20 +705,20 @@ gfc_init_types (void)
     {
       type = gfc_build_real_type (&gfc_real_kinds[index]);
       gfc_real_types[index] = type;
-      snprintf (name_buf, sizeof(name_buf), "real%d",
+      snprintf (name_buf, sizeof(name_buf), "real(kind=%d)",
 		gfc_real_kinds[index].kind);
       PUSH_TYPE (name_buf, type);
 
       type = gfc_build_complex_type (type);
       gfc_complex_types[index] = type;
-      snprintf (name_buf, sizeof(name_buf), "complex%d",
+      snprintf (name_buf, sizeof(name_buf), "complex(kind=%d)",
 		gfc_real_kinds[index].kind);
       PUSH_TYPE (name_buf, type);
     }
 
   gfc_character1_type_node = build_type_variant (unsigned_char_type_node, 
 						 0, 0);
-  PUSH_TYPE ("char", gfc_character1_type_node);
+  PUSH_TYPE ("character(kind=1)", gfc_character1_type_node);
 
   PUSH_TYPE ("byte", unsigned_char_type_node);
   PUSH_TYPE ("void", void_type_node);
@@ -1853,7 +1853,7 @@ gfc_return_by_reference (gfc_symbol * sym)
   if (sym->attr.dimension)
     return 1;
 
-  if (sym->ts.type == BT_CHARACTER)
+  if (sym->ts.type == BT_CHARACTER && !sym->attr.is_bind_c)
     return 1;
 
   /* Possibly return complex numbers by reference for g77 compatibility.
@@ -1942,17 +1942,17 @@ gfc_get_function_type (gfc_symbol * sym)
       typelist = gfc_chainon_list (typelist, gfc_array_index_type);
     }
 
+  if (sym->result)
+    arg = sym->result;
+  else
+    arg = sym;
+
+  if (arg->ts.type == BT_CHARACTER)
+    gfc_conv_const_charlen (arg->ts.cl);
+
   /* Some functions we use an extra parameter for the return value.  */
   if (gfc_return_by_reference (sym))
     {
-      if (sym->result)
-	arg = sym->result;
-      else
-	arg = sym;
-
-      if (arg->ts.type == BT_CHARACTER)
-	gfc_conv_const_charlen (arg->ts.cl);
-
       type = gfc_sym_type (arg);
       if (arg->ts.type == BT_COMPLEX
 	  || arg->attr.dimension

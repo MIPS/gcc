@@ -1578,12 +1578,10 @@ lookup_decl_in_outer_ctx (tree decl, omp_context *ctx)
   tree t;
   omp_context *up;
 
-  gcc_assert (ctx->is_nested);
-
   for (up = ctx->outer, t = NULL; up && t == NULL; up = up->outer)
     t = maybe_lookup_decl (decl, up);
 
-  gcc_assert (t || is_global_var (decl));
+  gcc_assert (!ctx->is_nested || t || is_global_var (decl));
 
   return t ? t : decl;
 }
@@ -1598,9 +1596,8 @@ maybe_lookup_decl_in_outer_ctx (tree decl, omp_context *ctx)
   tree t = NULL;
   omp_context *up;
 
-  if (ctx->is_nested)
-    for (up = ctx->outer, t = NULL; up && t == NULL; up = up->outer)
-      t = maybe_lookup_decl (decl, up);
+  for (up = ctx->outer, t = NULL; up && t == NULL; up = up->outer)
+    t = maybe_lookup_decl (decl, up);
 
   return t ? t : decl;
 }
@@ -2072,7 +2069,7 @@ lower_copyprivate_clauses (tree clauses, tree *slist, tree *rlist,
       by_ref = use_pointer_for_field (var, false);
 
       ref = build_sender_ref (var, ctx);
-      x = (ctx->is_nested) ? lookup_decl_in_outer_ctx (var, ctx) : var;
+      x = lookup_decl_in_outer_ctx (var, ctx);
       x = by_ref ? build_fold_addr_expr (x) : x;
       x = build_gimple_modify_stmt (ref, x);
       gimplify_and_add (x, slist);
@@ -2113,9 +2110,8 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 	  continue;
 	}
 
-      var = val = OMP_CLAUSE_DECL (c);
-      if (ctx->is_nested)
-	var = lookup_decl_in_outer_ctx (val, ctx);
+      val = OMP_CLAUSE_DECL (c);
+      var = lookup_decl_in_outer_ctx (val, ctx);
 
       if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_COPYIN
 	  && is_global_var (var))
@@ -2187,13 +2183,10 @@ lower_send_shared_vars (tree *ilist, tree *olist, omp_context *ctx)
       if (!nvar || !DECL_HAS_VALUE_EXPR_P (nvar))
 	continue;
 
-      var = ovar;
-
       /* If CTX is a nested parallel directive.  Find the immediately
 	 enclosing parallel or workshare construct that contains a
 	 mapping for OVAR.  */
-      if (ctx->is_nested)
-	var = lookup_decl_in_outer_ctx (ovar, ctx);
+      var = lookup_decl_in_outer_ctx (ovar, ctx);
 
       if (use_pointer_for_field (ovar, true))
 	{
@@ -2529,6 +2522,72 @@ remove_exit_barriers (struct omp_region *region)
     }
 }
 
+/* Optimize omp_get_thread_num () and omp_get_num_threads ()
+   calls.  These can't be declared as const functions, but
+   within one parallel body they are constant, so they can be
+   transformed there into __builtin_omp_get_{thread_num,num_threads} ()
+   which are declared const.  Similarly for task body, except
+   that in untied task omp_get_thread_num () can change at any task
+   scheduling point.  */
+
+static void
+optimize_omp_library_calls (tree entry_stmt)
+{
+  basic_block bb;
+  block_stmt_iterator bsi;
+  tree thr_num_id
+    = DECL_ASSEMBLER_NAME (built_in_decls [BUILT_IN_OMP_GET_THREAD_NUM]);
+  tree num_thr_id
+    = DECL_ASSEMBLER_NAME (built_in_decls [BUILT_IN_OMP_GET_NUM_THREADS]);
+  bool untied_task = (TREE_CODE (entry_stmt) == OMP_TASK
+		      && find_omp_clause (OMP_TASK_CLAUSES (entry_stmt),
+					  OMP_CLAUSE_UNTIED) != NULL);
+
+  FOR_EACH_BB (bb)
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	tree stmt = bsi_stmt (bsi);
+	tree call = get_call_expr_in (stmt);
+	tree decl;
+
+	if (call
+	    && (decl = get_callee_fndecl (call))
+	    && DECL_EXTERNAL (decl)
+	    && TREE_PUBLIC (decl)
+	    && DECL_INITIAL (decl) == NULL)
+	  {
+	    tree built_in;
+
+	    if (DECL_NAME (decl) == thr_num_id)
+	      {
+		/* In #pragma omp task untied omp_get_thread_num () can change
+		   during the execution of the task region.  */
+		if (untied_task)
+		  continue;
+		built_in = built_in_decls [BUILT_IN_OMP_GET_THREAD_NUM];
+	      }
+	    else if (DECL_NAME (decl) == num_thr_id)
+	      built_in = built_in_decls [BUILT_IN_OMP_GET_NUM_THREADS];
+	    else
+	      continue;
+
+	    if (DECL_ASSEMBLER_NAME (decl) != DECL_ASSEMBLER_NAME (built_in)
+		|| call_expr_nargs (call) != 0)
+	      continue;
+
+	    if (flag_exceptions && !TREE_NOTHROW (decl))
+	      continue;
+
+	    if (TREE_CODE (TREE_TYPE (decl)) != FUNCTION_TYPE
+		|| TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (decl)))
+		   != TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (built_in))))
+	      continue;
+
+	    CALL_EXPR_FN (call) = build_fold_addr_expr (built_in);
+	  }
+      }
+}
+
 /* Expand the OpenMP parallel or task directive starting at REGION.  */
 
 static void
@@ -2693,6 +2752,8 @@ expand_omp_taskreg (struct omp_region *region)
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
+      if (optimize)
+	optimize_omp_library_calls (entry_stmt);
       rebuild_cgraph_edges ();
       pop_cfun ();
     }

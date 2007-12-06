@@ -1,27 +1,792 @@
+2007-12-06  Martin Michlmayr <tbm@cyrius.com>
+	    Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/34005
+	* gcc.dg/vect/pr34005.c: New test.
+
+2007-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34336
+	* g++.dg/template/new8.C: New test.
+
+2007-12-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34333
+	* gfortran.dg/boz_7.f90: New.
+	* gfortran.dg/int_1.f90: Disable -pedantic option.
+	* gfortran.dg/boz_1.f90: Ditto.
+	* gfortran.dg/boz_3.f90: Ditto.
+	* gfortran.dg/pr16433.f: Accomodate for new BOZ warning.
+	* gfortran.dg/ibits.f90: Ditto.
+	* gfortran.dg/unf_io_convert_1.f90: Ditto.
+	* gfortran.dg/unf_io_convert_2.f90: Ditto.
+
+2007-12-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34335
+	* gfortran.dg/used_types_19.f90: New test.
+
+2007-12-06  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gfortran.dg/nan_2.f90: Add -mieee for sh.
+	* gfortran.dg/nearest_2.f90: Likewise.
+	* gfortran.dg/nearest_3.f90: Likewise.
+
+2007-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/34337
+	* gcc.c-torture/execute/20071205-1.c: New test.
+
+2007-12-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gfortran.dg/module_nan.f90: Add -mieee for sh.
+	* gfortran.dg/real_const_3.f90: Likewise.
+
+2007-12-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34138
+	* gcc.c-torture/compile/pr34138.c: New testcase.
+
+2007-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/33739
+	* gfortran.dg/debug_2.f: New test.
+
+2007-12-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/elab1.ads: New test.
+
+2007-12-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/34312
+	* gcc.target/i386/pr34312.c: New test.
+
+2007-12-05  Tobias Burnus  <bU    gcc/stmt.c
+
+	PR fortran/34333
+	* gfortran.dg/nan_2.f90: New.
+
+2007-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34271
+	* g++.dg/cpp0x/decltype9.C: New test.
+	* g++.dg/cpp0x/decltype10.C: New test.
+
+2007-12-05  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/21489
+	* gnat.dg/rm_6_4_1_13.adb: New test.
+
+2007-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/34134
+	* gcc.c-torture/compile/20071117-1.c: New test.
+
+2007-12-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/34101
+	* g++.dg/cpp0x/variadic-ttp.C: New.
+
+2007-12-04  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+	
+	* gcc.dg/parse-decl-after-if.c: New.
+	* gcc.dg/20031223-1.c: Adjust.
+	
+2007-12-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/33509
+	* g++.dg/cpp0x/variadic-throw.C: New.
+
+2007-12-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/33091
+	* g++.dg/cpp0x/variadic-unify.C: New.
+
+2007-12-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34334
+	PR middle-end/34222
+	* gcc.c-torture/compile/pr34334.c: New testcase.
+	* g++.dg/torture/pr34222.C: New testcase.
+
+2007-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20071202-1.c: New test.
+	* gcc.dg/tree-ssa/pr34146-2.c: New test.
+
+2007-12-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34318
+	* gfortran.dg/module_nan.f90: New.
+
+2007-12-04  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (get_compiler_messages): Replace with...
+	(check_compile): ...this new procedure.  Handle TYPE == executable.
+	Use comments in the source to determine the correct extension.
+	Return a pair containing the compiler output and the output filename.
+	Don't delete the file here.
+	(check_no_compiler_messages_nocache): New procedure.
+	(check_no_compiler_messages): Use it.
+	(check_no_messages_and_pattern_nocache): New procedure.
+	(check_no_messages_and_pattern): Use it.
+	(check_runtime_nocache, check_runtime): New procedures.
+	(check_effective_target_tls): Use check_no_compiler_messages.
+	(check_effective_target_tls_native): Use check_no_messages_and_pattern.
+	(check_effective_target_tls_runtime): Use check_runtime.
+	(check_effective_target_fstack_protector): Likewise.
+	(check_iconv_available): Use check_runtime_nocache.
+	(check_effective_target_fortran_large_real): Use
+	check_no_compiler_messages.
+	(check_effective_target_fortran_large_int): Likewise.
+	(check_effective_target_static_libgfortran): Likewise.
+	(check_750cl_hw_available): Use check_cached_effective_target
+	and check_runtime_nocache.
+	(check_vmx_hw_available): Likewise.
+	(check_effective_target_broken_cplxf_arg): Likewise.
+	(check_alpha_max_hw_available): Use check_runtime.
+	(check_function_available): Use check_no_compiler_messages.
+	(check_cxa_atexit_available): Use check_cached_effective_target
+	and check_runtime_nocache.
+	(check_effective_target_dfp_nocache): Use
+	check_no_compiler_messages_nocache.
+	(check_effective_target_dfprt_nocache): Use check_runtime_nocache.
+	(check_effective_target_dfp): Use check_cached_effective_target.
+	(check_effective_target_dfprt): Likewise.
+	(check_effective_target_arm_neon_hw): Use check_runtime.
+	(check_effective_target_ultrasparc_hw): Likewise.
+	(check_effective_target_c99_runtime): Use
+	check_no_compiler_messages_nocache.
+
+2007-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/29749
+	* gcc.dg/fold-rotate-1.c: New test.
+
+	PR tree-optimization/33453
+	* gcc.c-torture/compile/20071203-1.c: New test.
+
+2007-12-03  Robert Dewar <dewar@adacore.com>
+	    Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/34287
+	* gnat.dg/check_elaboration_code.adb: New test.
+	* gnat.dg/bug_elaboration_code.ads, bug_elaboration_code.adb:
+	New support files.
+
+2007-12-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/34061
+	* g++.dg/cpp0x/pr34061.C: New.
+
+2007-12-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/34273
+	* g++.dg/other/error21.C: New.
+
+2007-12-02  Revital Eres  <eres@il.ibm.com>
+
+	* gcc.dg/sms-4.c: New testcase.
+
+2007-12-02  Vladimir Yanovsky  <yanov@il.ibm.com>
+	    Revital Eres  <eres@il.ibm.com>
+
+	* gcc.dg/sms-3.c: New testcase.
+
+2007-12-01  Ollie Wild  <aaw@google.com>
+
+	PR c++/8171
+	* g++.dg/conversion/ptrmem9.C: New test.
+
+2007-11-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/34291
+	* gfortran.dg/namelist_41.f90: New test.
+
+2007-11-30  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/32868:
+	* gcc.dg/cpp/pr32868.c: New file.
+
+2007-11-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34248
+	* gfortran.dg/result_in_spec_3.f90: Add dg-option -std=gnu.
+
+2007-11-30  Martin Michlmayr <tbm@cyrius.com>
+
+	PR rtl-optimization/34171
+	* gcc.dg/pr34171.c: New testcase.
+
+2007-11-30  Zdenek Dvorak  <ook@ucw.cz>
+
+	* gcc.dg/tree-ssa/pr34244.c: Fixed.
+
+2007-11-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34133
+	* gfortran.dg/bind_c_usage_9.f03: Fixes; add -std=f2003.
+	* gfortran.dg/bind_c_usage_11.f03: New.
+	* gfortran.dg/bind_c_usage_12.f03: New.
+
+2007-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34275
+	* g++.dg/other/error20.C: New test.
+
+2007-11-29  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/34230
+	* gfortran.dg/real_const_3.f90: Fix up for new range-check handling.
+
+2007-11-29  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/34244
+	* gcc.dg/tree-ssa/pr34244.c: New test.
+
+2007-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33434
+	* gcc.dg/pr33434-1.c: New test.
+	* gcc.dg/pr33434-2.c: New test.
+	* gcc.dg/pr33434-3.c: New test.
+	* gcc.dg/pr33434-4.c: New test.
+
+	PR c++/34270
+	* g++.dg/template/cond7.C: New test.
+
+	PR c++/34267
+	PR c++/34268
+	* g++.dg/cpp0x/decltype7.C: New test.
+	* g++.dg/cpp0x/decltype8.C: New test.
+
+2007-11-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34248
+	* gfortran.dg/result_in_spec_3.f90: New.
+
+2007-11-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34262
+	* gfortran.dg/mvbits_3.f90: New.
+
+2007-11-28  Bob Wilson  <bob.wilson@acm.org>
+	
+	* lib/target-supports.exp (check_effective_target_mips_soft_float):
+	Delete.
+	(check_effective_target_hard_float): New.
+	* gcc.dg/var-expand1.c: Skip for targets without FPU instructions.
+	* gcc.dg/pr30957-1.c: Likewise.
+	
+2007-11-28  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/15804
+	* gnat.dg/specs/variant_part.ads: New test.
+
+	PR ada/17318
+	* gnat.dg/specs/attribute_parsing.ads: New test.
+
+	PR ada/32792
+	* gnat.dg/specs/integer_value.ads: New test.
+
+	PR ada/22559
+	* gnat.dg/specs/delta_small.ads: New test.
+
+2007-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/34140
+	* gcc.c-torture/compile/20071128-1.c: New test.
+
+2007-11-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32928
+	* gfortran.dg/data_array_1.f90
+	* gfortran.dg/data_array_2.f90
+	* gfortran.dg/data_array_3.f90
+	* gfortran.dg/data_array_4.f90
+
+2007-11-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34227
+	* gfortran.dg/blockdata_5.f90: New test.
+	* gfortran.dg/blockdata_6.f90: New test.
+
+2007-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/34016
+	* gcc.dg/pr34016.c: New test.
+
+2007-11-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/29389
+	* gfortran.dg/stfunc_6.f90: New test.
+
+	PR fortran/33850
+	* gfortran.dg/assign_10.f90: New test.
+
+2007-11-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33541
+	* gfortran.dg/use_11.f90: New test.
+
+	PR fortran/34231
+	* gfortran.dg/generic_15.f90: New test.
+
+2007-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/34225
+	* gcc.dg/pr34225.c: New test.
+
+2007-11-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34241
+	* g++.dg/torture/pr34241.C: New testcase.
+
+2007-11-27  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/builtins-error.c: New testcase.
+
+2007-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34213
+	* g++.dg/ext/visibility/anon8.C: New test.
+
+2007-11-13  Michael Meissner  <michael.meissner@amd.com>
+
+	PR target/34077
+	* gcc.target/i386/pr34077.c: New testcase.
+
+2007-11-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34203
+	* gfortran.dg/backslash_3.f: Add -fbackslash option.
+	* gfortran.dg/init_flag_1.f90: Add -fbackslash option.
+	* gfortran.dg/backslash_1.f90: Remove no longer needed
+	-fno-backslash option.
+
+2007-11-26  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/23722
+	* gcc.dg/cpp/19990413-1.c: Update.
+	* gcc.dg/parse-else-error.c: New.
+	* gcc.dg/parse-else-error-2.c: New.
+	* gcc.dg/parse-else-error-3.c: New.
+	* gcc.dg/parse-else-error-4.c: New.
+
+2007-11-26  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR c++/34081
+	* g++.dg/template/dependent-expr6.C: New testcase.
+
+2007-11-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/34215
+	* gcc.target/i386/pr34215.c: New test.
+
+2007-11-26  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	PR target/34174
+	* gcc.dg/torture/pr34174-1.c: New.
+
+2007-11-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34233
+	* gcc.dg/pr34233.c: New testcase.
+
+2007-11-26  Steven Bosscher  <stevenb.gcc@gmail.com>
+	    Revital Eres  <eres@il.ibm.com>
+
+	PR rtl-optimization/34085
+	* gcc.dg/tree-prof (bb-reorg.c): New test.
+
+2007-11-26  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (check_effective_target_mips_soft_float):
+	Return true for MIPS16 targets.
+
+2007-11-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33152
+	* gfortran.dg/blockdata_4.f90: New test.
+
+2007-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34079
+	* gfortran.dg/bind_c_usage_10_c.c: Fix comment.
+	* gfortran.dg/bind_c_usage_16.f03: New.
+	* gfortran.dg/bind_c_usage_16_c.c: New.
+
+2007-11-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/size_clause1.ads: New test.
+	* gnat.dg/specs/size_clause2.ads: Likewise.
+	* gnat.dg/specs/size_clause3.ads: Likewise.
+
+2007-11-25  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33499
+	* gfortran.dg/entry_16.f90: New test.
+
+2007-11-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34192
+	* gfortran.dg/nearest_2.f90: Add INF/NAN tests.
+
+2007-11-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33541
+	* gfortran.dg/nested_modules_1.f90: Change the reference to
+	FOO, forbidden by the standard, to a reference to W.
+	* gfortran.dg/use_only_1.f90: New test.
+
+2007-11-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34209
+	* gfortran.dg/nearest_3.f90: New test.
+
+2007-11-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33317
+	* gfortran.dg/optional_dim_2.f90: New test.
+
+2007-11-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34187
+	* gfortran.dg/bind_c_usage_15.f90: New.
+
+2007-11-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34192
+	* gfortran.dg/nearest_2.f90: New.
+
+
+2007-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30293
+	PR c++/30294
+	* g++.dg/ext/java-2.C: New test.
+
+2007-11-23  Mark Mitchell  <mark@codesourcery.com>
+	    Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+	
+	PR c++/5310
+	* g++.dg/warn/pr5310.C: New.
+	* g++.dg/warn/pr33160.C: New.
+	
+2007-11-23  Richard Guenther  <rguenther@suse.de>
+	    Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/34176
+	* gcc.c-torture/execute/pr34176.c: New testcase.
+
+2007-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34198
+	* gcc.dg/Wconversion-5.c: New test.
+	* g++.dg/Wconversion3.C: New test.
+
+2007-11-23  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/alias-17.c: New testcase.
+
+2007-11-22  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/14050
+	* gcc.dg/c99-arraydecl-1.c: Don't expect errors for static or type
+	qualifiers in abstract declarator.
+
+2007-11-22  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/derived_constructor_comps_3.f90: New.
+
+2007-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34094
+	* g++.dg/ext/visibility/anon7.C: New test.
+
+2007-11-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34079
+	* gfortran.dg/bind_c_usage_10.f03: Remove .mod file afterwards.
+	* gfortran.dg/bind_c_usage_13.f03: New.
+	* gfortran.dg/bind_c_usage_14.f03: New.
+
+2007-11-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/33848
+	* gcc.dg/torture/pr33848.c: New test.
+
+2007-11-21  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/34083
+	* gfortran.dg/derived_constructor_comps_2.f90: Add check.
+
+2007-11-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34154
+	* testsuite/gcc.c-torture/execute/pr34154.c: New testcase.
+
+2007-11-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/tree-ssa/20030714-1.c: Cleanup dom3 dump file.
+
+2007-11-20  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32770
+	* gfortran.dg/record_marker_1.f90:  Explicitly set kinds
+	so test passes with -frecord-marker=8.
+	* gfortran.dg/integer_exponentiation_1.f90:  Likewise.
+	* gfortran.dg/integer_exponentiation_2.f90:  Likewise.
+	* gfortran.dg/integer_exponentiation_3.F90:  Likewise.
+	* gfortran.dg/integer_exponentiation_5.F90:  Likewise.
+	* gfortrand.dg/modulo_1.f90:  Likewise.
+
+2007-11-20  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/target-supports.exp (check_effective_target_mips_soft_float):
+	New procedure.
+	* gcc.dg/var-expand1.c: Skip for mips_soft_float.
+	* gcc.dg/pr30957-1.c: Likewise.
+
+2007-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34089
+	* g++.dg/template/crash74.C: New test.
+
+2007-11-20  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/execute/20071120-1.c: New testcase.
+
+2007-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/34146
+	* gcc.dg/tree-ssa/pr34146.c: New test.
+
+	PR testsuite/33978
+	* gcc.dg/tree-ssa/pr33723.c: Adjust scan pattern to make it less
+	dependent on target settings like move_by_pieces etc.
+
+	PR c++/28879
+	* g++.dg/template/vla2.C: New test.
+
+	PR c++/33962
+	* g++.dg/overload/template3.C: New test.
+
+2007-11-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33317
+	* gfortran.dg/optional_dim_2.f90: Remove test.
+
+2007-11-19  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.dg/dfp/ddmode-ice.c: New test.
+
+2007-11-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR tree-optimization/34036
+	* gcc.dg/tree-ssa/pr23109.c: Pass -ftrapping-math and expect warning.
+
+2007-11-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34
+	* gcc.c-torture/execute/pr34099-2.c: New testcase.
+
+2007-11-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34079
+	* gfortran.dg/bind_c_usage_10_c.c: New.
+	* gfortran.dg/bind_c_usage_10.f03: New.
+
+2007-11-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/pr33007.c: Expect new warning.
+	* gcc.dg/tree-ssa/recip-5.c: Likewise.
+	* g++.dg/opt/pr34036.C: New test.
+
+2007-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/30988
+	* g++.dg/warn/noreturn-4.C: New test.
+	* g++.dg/warn/noreturn-5.C: New test.
+	* g++.dg/warn/noreturn-6.C: New test.
+	* g++.dg/warn/noreturn-7.C: New test.
+
+2007-11-18  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32770
+	* gfortran.fortran-torture/execute/equiv_5.f:  Set kind on
+	integers so tests works with -fdefault-integer-8.
+	* gfortran.fortran-torture/execute/elemental.f90:  Use default
+	integers so test passes with -fdefault-integer-8.
+	* gfortran.fortran-torture/execute/der_io.f90:  Increase
+	buffer length so test passes with -fdefault-integer-8.
+	* gfortran.dg/bounds_check_8.f90:  Likewise.
+	* gfortran.dg/arrayio_derived_1.f90:  LIkewise.
+	* gfortran.dg/equiv_7.f90:  Set kind so test passes
+	with -fdefault-integer-8.
+	* gfortran.dg/g77/20030326-1.f:  Set kind explicitly to
+	provoke overflow.
+
+2007-11-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/33317
+	* gfortran.dg/optional_dim_2.f90: New test.
+	
+	PR fortran/34139
+	* gfortran.dg/subref_array_pointer_2.f90: Update test condition.
+	
+2007-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/34132
+	* gcc.c-torture/compile/20071118-1.c: New test.
+
+2007-11-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31608
+	* gfortran.dg/char_cast_2.f90: New test based on achar_4.f90.
+
+2007-11-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34137
+	* gfortran.dg/entry_14.f90: New.
+	* gfortran.dg/entry_15.f90: New.
+
+2007-11-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34127
+	* gcc.c-torture/compile/pr34127.c: New testcase.
+
+2007-11-18  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.target/powerpc/altivec-23.c: Do not use a typedef name as a
+	type specifier, as they are not permitted according to the AltiVec
+	Programming Interface Manual.
+
+2007-11-17  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34133
+	* gfortran.dg/bind_c_usage_9.f03: New.
+	* gfortran.dg/interface_abstract_1.f90: Fix testcase.
+
+2007-11-17  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/25252
+	* interface.c (gfc_current_interface_head,
+	gfc_set_current_interface_head): New functions.
+	* decl.c (gfc_match_modproc): Move check for syntax error earlier.
+	On syntax error, restore previous state of the interface.
+	* gfortran.h (gfc_current_interface_head,
+	gfc_set_current_interface_head): New prototypes.
+
+2007-11-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34130
+	* gcc.c-torture/execute/pr34130.c: New testcase.
+
+2007-11-17  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/34108
+	* gfortran.dg/fmt_label_1.f90: New test.
+
+2007-11-16  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33957
+	* gfortran.dg/initialization_15.f90 : New test.
+
+2007-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34030
+	* gcc.c-torture/compile/pr34030.c: New testcase.
+
+2007-11-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34008
+	* gfortran.dg/interface_assignment_3.f90.
+
+2007-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33870
+	* gcc.dg/torture/pr33870.c: New testcase.
+
+2007-11-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/33986
+	* gfortran.dg/allocatable_function_3.f90.
+
+2007-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34113
+	* gcc.c-torture/compile/pr34113.c: New testcase.
+
+2007-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34099
+	* g++.dg/torture/pr3499.C: New testcase.
+	* gcc.c-torture/execute/pr34099.c: Likewise.
+
+2007-11-16  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/release_unc_maxalign.adb: New test.
+
+2007-11-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34100
+	* g++.dg/template/crash73.C: New test.
+
+2007-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/23848
+	* gcc.dg/tree-ssa/pr23848-1.c: New test.
+	* gcc.dg/tree-ssa/pr23848-2.c: New test.
+	* gcc.dg/tree-ssa/pr23848-3.c: New test.
+	* gcc.dg/tree-ssa/pr23848-4.c: New test.
+
+2007-11-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/33917
+	* gfortran.dg/proc_decl_11.f90: New.
+
+2007-11-15  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.target/spu/compare-dp.c: New test.
+
+2007-11-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/pr33923.c: New test.
+
+2007-11-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/34088
+	* gcc.dg/pr34088.c: New test.
+
+2007-11-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20071114-1.c: New test.
+
 2007-11-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/31608
-	*gfortran.dg/char_cast_1.f90: Modify regex in scan-tree-dump-times
+	* gfortran.dg/char_cast_1.f90: Modify regex in scan-tree-dump-times
 	to match known variations in symbol format. Document in comments.
 
 2007-11-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/33985
-	*gfortran.dg/streamio_12.f90: New test to avoid future regression.
+	* gfortran.dg/streamio_12.f90: New test to avoid future regression.
 
 2007-11-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
-	*gfortran.dg/list_read_7.f90: Fix test so that test file is deleted when
-	done.
+	* gfortran.dg/list_read_7.f90: Fix test so that test file is deleted
+	when done.
 
 2007-11-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/33162
-	*gfortran.dg/proc_decl_1.f90: Update.
-	*gfortran.dg/proc_decl_7.f90: New test.
-	*gfortran.dg/proc_decl_8.f90: New test.
-	*gfortran.dg/proc_decl_9.f90: New test.
-	*gfortran.dg/proc_decl_10.f90: New test.
+	* gfortran.dg/proc_decl_1.f90: Update.
+	* gfortran.dg/proc_decl_7.f90: New test.
+	* gfortran.dg/proc_decl_8.f90: New test.
+	* gfortran.dg/proc_decl_9.f90: New test.
+	* gfortran.dg/proc_decl_10.f90: New test.
 
 2007-11-13  Paul Thomas  <pault@gcc.gnu.org>
 
@@ -589,7 +1354,7 @@
 	* gcc.dg/vect/costmodel/i386/costmodel-vect-31.c: Likewise.
 	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-31.c: Likewise.
 
-	* gcc.dg/vect/vect-31.c: Removed alignment checks.        
+	* gcc.dg/vect/vect-31.c: Removed alignment checks.
 	* gcc.dg/vect/vect-34.c: Likewise.
 	* gcc.dg/vect/vect-36.c: Likewise.
 	* gcc.dg/vect/vect-64.c: Likewise.
@@ -600,8 +1365,8 @@
 	* gcc.dg/vect/vect-77.c: Likewise.
 	* gcc.dg/vect/vect-78.c: Likewise.
 
-	* gcc.dg/vect/no-section-anchors-vect-31.c: New test, Like the
-	original testcase (without no-section-anchors prefix) but with global arrays.       
+	* gcc.dg/vect/no-section-anchors-vect-31.c: New test, like the original
+	testcase (without no-section-anchors prefix) but with global arrays.
 	* gcc.dg/vect/no-section-anchors-vect-34.c: Likewise.
 	* gcc.dg/vect/no-section-anchors-vect-36.c: Likewsie.
 	* gcc.dg/vect/no-section-anchors-vect-64.c: Likewise.
@@ -611,8 +1376,8 @@
 	* gcc.dg/vect/vect-77-global.c: Likewise.
 	* gcc.dg/vect/vect-78-global.c: Likewise.
 
-	* gcc.dg/vect/vect-77-alignchecks.c: New test. Like the
-	original testcase (without no-section-anchors prefix) but fix alignment checks 
+	* gcc.dg/vect/vect-77-alignchecks.c: New test. Like the original
+	testcase (without no-section-anchors prefix) but fix alignment checks
 	to also consider unaligned_stack targets.
 	* gcc.dg/vect/vect-78-alignchecks.c: Likewise.
 
