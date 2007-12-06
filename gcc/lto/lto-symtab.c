@@ -308,6 +308,28 @@ lto_symtab_merge_decl (tree new_decl)
 	      lto_same_type_p (candidate, TREE_TYPE (new_decl)) ? candidate : NULL_TREE;
         }
 
+      if (!merged_type
+	  && TREE_CODE (new_decl) == FUNCTION_DECL
+	  && lto_same_type_p (TREE_TYPE (TREE_TYPE (old_decl)),
+			      TREE_TYPE (TREE_TYPE (new_decl)))
+	  /* We want either of the types to have argument types,
+	     but not both.  */
+	  && ((TYPE_ARG_TYPES (TREE_TYPE (old_decl)) != NULL)
+	      ^ (TYPE_ARG_TYPES (TREE_TYPE (new_decl)) != NULL)))
+	{
+	  /* The situation here is that (in C) somebody was smart enough
+	     to use proper declarations in a header file, but the actual
+	     definition of the function uses non-ANSI-style argument
+	     lists.  One of the decls will then have a complete function
+	     type, whereas the other will only have a result type.
+	     Assume that the more complete type is the right one and
+	     don't complain.  */
+	  if (TYPE_ARG_TYPES (TREE_TYPE (old_decl)))
+	    merged_type = TREE_TYPE (old_decl);
+	  else
+	    merged_type = TREE_TYPE (new_decl);
+	}
+
       if (!merged_type)
 	{
 	  error ("type of %qD does not match original declaration",

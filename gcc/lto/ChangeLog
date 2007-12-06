@@ -1,3 +1,8 @@
+2007-12-06  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-symtab.c (lto_symtab_merge_decl): Handle FUNCTION_DECLs without
+	argument type information.
+
 2007-12-03  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_variable_formal_parameter_constant_DIE): Set
