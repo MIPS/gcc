@@ -1,5 +1,9 @@
 2007-12-06  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_form): Add DW_cl_address for DW_AT_const_value.
+
+2007-12-06  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto-read.c (input_expr_operand): Don't check for MTAGs.
 	(lto_read_body): Don't declare PROP_alias.
 

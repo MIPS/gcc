@@ -702,7 +702,7 @@ lto_read_form (lto_info_fd *info_fd,
     DW_cl_block | DW_cl_loclistptr, /* string_length */
     DW_cl_reference, /* common_reference */
     DW_cl_string, /* comp_dir */
-    DW_cl_block | DW_cl_constant | DW_cl_string, /* const_value */
+    DW_cl_block | DW_cl_constant | DW_cl_string | DW_cl_address, /* const_value */
     DW_cl_reference, /* containing_type */
     DW_cl_reference, /* default_value */
     DW_cl_error, /* padding */
