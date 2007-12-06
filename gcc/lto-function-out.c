@@ -2011,24 +2011,43 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 #endif
 }
 
+/* Write the references for the objects in V to section SEC in the
+   assembly file.  Use REF_FN to compute the reference.  */
+
+static void
+write_references (VEC(tree,heap) *v, section *sec,
+		  void (*ref_fn) (tree, lto_out_ref *))
+{
+  int index;
+  tree t;
+  lto_out_ref out_ref = {0, NULL, NULL};
+
+  for (index = 0; VEC_iterate(tree, v, index, t); index++)
+    {
+      ref_fn (t, &out_ref);
+      /* We always call switch_to_section as the act of creating a
+	 handle we can reference may have dumped some bits into the
+	 assembly.  */
+      switch_to_section (sec);
+      dw2_asm_output_data (8, out_ref.section, " ");
+      dw2_asm_output_delta (8, out_ref.label, out_ref.base_label, " ");
+    }
+}
 
 /* Create the header in the file using OB for t.  */
 
 static void
 produce_asm (struct output_block *ob, tree t, bool is_function)
 {
-  int index;
-  tree decl;
-  tree type;
   const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));
   const char *section_name = concat (LTO_SECTION_NAME_PREFIX, name, NULL);
+  section *section = get_section (section_name, SECTION_DEBUG, t);
   struct lto_header header;
-  lto_out_ref out_ref = {0, NULL, NULL};
 
   memset (&header, 0, sizeof (struct lto_header)); 
 
   /* The entire header is stream computed here.  */
-  switch_to_section (get_section (section_name, SECTION_DEBUG, t));
+  switch_to_section (section);
   
   /* Write the header which says how to decode the pieces of the
      t.  */
@@ -2081,49 +2100,19 @@ produce_asm (struct output_block *ob, tree t, bool is_function)
 		   sizeof (struct lto_header));
 
   /* Write the global field references.  */
-  for (index = 0; VEC_iterate(tree, ob->field_decls, index, decl); index++)
-    {
-      lto_field_ref (decl, &out_ref);
-      dw2_asm_output_data (8, out_ref.section, " ");
-      dw2_asm_output_delta (8, out_ref.label,
-			    out_ref.base_label, " ");
-    }
+  write_references (ob->field_decls, section, lto_field_ref);
 
   /* Write the global function references.  */
-  for (index = 0; VEC_iterate(tree, ob->fn_decls, index, decl); index++)
-    {
-      lto_fn_ref (decl, &out_ref);
-      dw2_asm_output_data (8, out_ref.section, " ");
-      dw2_asm_output_delta (8, out_ref.label,
-			    out_ref.base_label, " ");
-    }
+  write_references (ob->fn_decls, section, lto_fn_ref);
 
   /* Write the global var references.  */
-  for (index = 0; VEC_iterate(tree, ob->var_decls, index, decl); index++)
-    {
-      lto_var_ref (decl, &out_ref);
-      dw2_asm_output_data (8, out_ref.section, " ");
-      dw2_asm_output_delta (8, out_ref.label,
-			    out_ref.base_label, " ");
-    }
+  write_references (ob->var_decls, section, lto_var_ref);
 
   /* Write the global type_decl references.  */
-  for (index = 0; VEC_iterate(tree, ob->type_decls, index, decl); index++)
-    {
-      lto_typedecl_ref (decl, &out_ref);
-      dw2_asm_output_data (8, out_ref.section, " ");
-      dw2_asm_output_delta (8, out_ref.label,
-			    out_ref.base_label, " ");
-    }
+  write_references (ob->type_decls, section, lto_typedecl_ref);
 
   /* Write the global type references.  */
-  for (index = 0; VEC_iterate(tree, ob->types, index, type); index++)
-    {
-      lto_type_ref (type, &out_ref);
-      dw2_asm_output_data (8, out_ref.section, " ");
-      dw2_asm_output_delta (8, out_ref.label,
-			    out_ref.base_label, " ");
-    }
+  write_references (ob->types, section, lto_type_ref);
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */

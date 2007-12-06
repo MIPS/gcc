@@ -1,3 +1,8 @@
+2007-12-06  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-function-out.c (write_references): New function.
+	(produce_asm): Call it.
+
 2007-12-03  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* tree-into-ssa.c (rebuild_ssa_for_lto): Remove.
