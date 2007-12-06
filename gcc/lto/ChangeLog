@@ -1,5 +1,10 @@
 2007-12-06  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto-read.c (input_expr_operand): Don't check for MTAGs.
+	(lto_read_body): Don't declare PROP_alias.
+
+2007-12-06  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto-symtab.c (lto_symtab_merge_decl): Handle FUNCTION_DECLs without
 	argument type information.
 

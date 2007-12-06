@@ -1166,8 +1166,6 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
       recompute_tree_invariant_for_addr_expr (result);
     }
-  else if (MTAG_P (result))
-    add_referenced_var (result);
   return result;
 }
 
@@ -1948,7 +1946,7 @@ lto_read_body (lto_info_fd *fd,
       /* We should now be in SSA.  */
       cfun->gimple_df->in_ssa_p = true;
       /* Fill in properties we know hold for the rebuilt CFG.  */
-      cfun->curr_properties = PROP_ssa | PROP_alias;
+      cfun->curr_properties = PROP_ssa;
 
       pop_cfun ();
     }
