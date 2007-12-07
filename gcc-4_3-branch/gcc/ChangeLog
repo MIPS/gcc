@@ -1,3 +1,7 @@
+2006-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* crtstuff.c (__dso_handle): Make __dso_handle const.
+
 2005-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/ia64/ia64.h (FRAME_GROWS_DOWNWARD): Define to 1 if
