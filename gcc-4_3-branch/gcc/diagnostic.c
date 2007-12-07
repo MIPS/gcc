@@ -251,7 +251,7 @@ diagnostic_action_after_output (diagnostic_context *context,
 	real_abort ();
 
       fnotice (stderr, "compilation terminated.\n");
-      exit (FATAL_EXIT_CODE);
+      exit (ICE_EXIT_CODE);
 
     default:
       gcc_unreachable ();
