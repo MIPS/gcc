@@ -13498,10 +13498,10 @@ force_die_for_context (tree context)
   gcc_unreachable ();
 }
 
-/* Returns the DIE for block.  A DIE will always be returned.  */
+/* Returns the containing DECL for block.  A DECL will always be returned.  */
 
-static dw_die_ref
-force_block_die (tree block)
+static tree
+containing_decl_for_block (tree block)
 {
   tree context = block;
 
@@ -13518,7 +13518,15 @@ force_block_die (tree block)
 
   gcc_assert (context);
 
-  return force_decl_die (context);
+  return context;
+}
+
+/* Returns the DIE for block.  A DIE will always be returned.  */
+
+static dw_die_ref
+force_block_die (tree block)
+{
+  return force_decl_die (containing_decl_for_block (block));
 }
 
 /* Returns the DIE for decl.  A DIE will always be returned.  */
@@ -14928,6 +14936,9 @@ dwarf2out_finish (const char *filename)
 		context = DECL_CONTEXT (node->created_for);
 	      else if (TYPE_P (node->created_for))
 		context = TYPE_CONTEXT (node->created_for);
+
+	      if (TREE_CODE (context) == BLOCK)
+		context = containing_decl_for_block (context);
 
 	      gcc_assert (context
 			  && (TREE_CODE (context) == FUNCTION_DECL
