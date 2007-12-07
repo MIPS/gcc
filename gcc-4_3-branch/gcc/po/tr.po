@@ -8407,7 +8407,7 @@ msgstr "İsim '%s' %C'de işlev ismidir"
 #: fortran/parse.c:1958
 #, no-c-format
 msgid "%s statement must appear in a MODULE"
-msgstr "%S deyimi bir MODULE'de görünmemeli"
+msgstr "%s deyimi bir MODULE'de görünmemeli"
 
 #: fortran/parse.c:1965
 #, no-c-format

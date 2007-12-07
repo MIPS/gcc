@@ -9903,7 +9903,7 @@ msgstr "PROCEDURE-attribut i konflikt med NAMELIST-attribut i \"%s\" vid %L"
 #: fortran/resolve.c:7504
 #, fuzzy, no-c-format
 msgid "Parameter array '%s' at %L cannot be automatic or of deferred shape"
-msgstr "Parametervektor \"%S\" vid %L kan inte ha automatisk eller antagen form"
+msgstr "Parametervektor \"%s\" vid %L kan inte ha automatisk eller antagen form"
 
 #: fortran/resolve.c:7515
 #, no-c-format
