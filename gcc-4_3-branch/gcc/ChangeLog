@@ -1,3 +1,7 @@
+2004-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (define__GNUC__): Also define __GNUC_RH_RELEASE__.
+
 2006-05-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* crtstuff.c (__dso_handle): Make __dso_handle const.

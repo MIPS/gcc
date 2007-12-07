@@ -377,13 +377,13 @@ define__GNUC__ (void)
 {
   /* The format of the version string, enforced below, is
      ([^0-9]*-)?[0-9]+[.][0-9]+([.][0-9]+)?([- ].*)?  */
-  const char *q, *v = version_string;
+  const char *q, *v = version_string, *vstart, *vend;
 
   while (*v && !ISDIGIT (*v))
     v++;
   gcc_assert (*v && (v <= version_string || v[-1] == '-'));
 
-  q = v;
+  vstart = q = v;
   while (ISDIGIT (*v))
     v++;
   builtin_define_with_value_n ("__GNUC__", q, v - q);
@@ -409,6 +409,27 @@ define__GNUC__ (void)
     builtin_define_with_value_n ("__GNUC_PATCHLEVEL__", "0", 1);
 
   gcc_assert (!*v || *v == ' ' || *v == '-');
+
+  vend = v;
+  v = strchr (v, '(');
+  if (v != NULL && strncmp (v + 1, "Red Hat ", 8) == 0)
+    {
+      v += 9;
+      if (strncmp (v, "Linux ", 6) == 0)
+	v += 6;
+
+      gcc_assert (strncmp (v, vstart, vend - vstart) == 0);
+      gcc_assert (v[vend - vstart] == '-');
+
+      v += vend - vstart + 1;
+      q = v;
+      gcc_assert (ISDIGIT (*v));
+      while (ISDIGIT (*v))
+	v++;
+      builtin_define_with_value_n ("__GNUC_RH_RELEASE__", q, v - q);
+
+      gcc_assert (!*v || *v == ')' || *v == '.');
+    }
 }
 
 /* Define macros used by <stdint.h>.  Currently only defines limits
