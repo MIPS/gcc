@@ -746,7 +746,6 @@ static void rs6000_file_start (void);
 static int rs6000_elf_reloc_rw_mask (void);
 static void rs6000_elf_asm_out_constructor (rtx, int);
 static void rs6000_elf_asm_out_destructor (rtx, int);
-static void rs6000_elf_end_indicate_exec_stack (void) ATTRIBUTE_UNUSED;
 static void rs6000_elf_asm_init_sections (void);
 static section *rs6000_elf_select_rtx_section (enum machine_mode, rtx,
 					       unsigned HOST_WIDE_INT);
@@ -20329,6 +20328,15 @@ rs6000_elf_asm_out_destructor (rtx symbol, int priority)
     assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 }
 
+#ifdef HAVE_LD_OVERLAPPING_OPD
+/* If the linker supports overlapping .opd entries and we know this function
+   doesn't ever use r11 passed to it, we can overlap the fd_aux function
+   descriptor field with next function descriptor's fd_func field.  */
+# define OVERLAPPING_OPD (cfun->static_chain_decl == NULL)
+#else
+# define OVERLAPPING_OPD 0
+#endif
+
 void
 rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
 {
@@ -20338,7 +20346,8 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
       ASM_OUTPUT_LABEL (file, name);
       fputs (DOUBLE_INT_ASM_OP, file);
       rs6000_output_function_entry (file, name);
-      fputs (",.TOC.@tocbase,0\n\t.previous\n", file);
+      fprintf (file, ",.TOC.@tocbase%s\n\t.previous\n",
+	       OVERLAPPING_OPD ? "" : ",0");
       if (DOT_SYMBOLS)
 	{
 	  fputs ("\t.size\t", file);
@@ -20403,13 +20412,6 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
       fprintf (file, "\t.previous\n");
     }
   ASM_OUTPUT_LABEL (file, name);
-}
-
-static void
-rs6000_elf_end_indicate_exec_stack (void)
-{
-  if (TARGET_32BIT)
-    file_end_indicate_exec_stack ();
 }
 #endif
 

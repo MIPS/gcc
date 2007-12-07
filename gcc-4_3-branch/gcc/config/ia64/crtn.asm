@@ -54,3 +54,7 @@
 	br.ret.sptk.many b0
 
 # end of crtn.asm
+
+#ifdef __linux__
+.section .note.GNU-stack; .previous
+#endif
