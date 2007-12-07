@@ -1,3 +1,8 @@
+2005-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.host (slow_pthread_self): Set to empty unconditionally
+	on Linux targets.
+
 2007-12-06  David Daney  <ddaney@avtrex.com>
 
 	* interpret.cc: Replace ffi_raw with INTERP_FFI_RAW_TYPE throughout.
