@@ -1,3 +1,16 @@
+2006-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/linux.h (LINK_SPEC): Add --hash-style=gnu.
+	* config/i386/linux64.h (LINK_SPEC): Likewise.
+	* config/rs6000/sysv4.h (LINK_OS_LINUX_SPEC): Likewise.
+	* config/rs6000/linux64.h (LINK_OS_LINUX_SPEC): Likewise.
+	* config/s390/linux.h (LINK_SPEC): Likewise.
+	* config/ia64/linux.h (LINK_SPEC): Likewise.
+	* config/sparc/linux.h (LINK_SPEC): Likewise.
+	* config/sparc/linux64.h (LINK_SPEC): Likewise.
+	* config/alpha/linux-elf.h (LINK_SPEC): Likewise.
+	* config/arm/linux-elf.h (LINK_SPEC): Likewise.
+
 2004-10-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-cppbuiltin.c (define__GNUC__): Also define __GNUC_RH_RELEASE__.

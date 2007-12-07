@@ -132,7 +132,7 @@ along with GCC; see the file COPYING3.  If not see
 
 
 #undef  LINK_SPEC
-#define LINK_SPEC "-m elf32_sparc -Y P,/usr/lib %{shared:-shared} \
+#define LINK_SPEC "-m elf32_sparc --hash-style=gnu -Y P,/usr/lib %{shared:-shared} \
   %{!mno-relax:%{!r:-relax}} \
   %{!shared: \
     %{!ibcs: \

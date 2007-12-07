@@ -176,7 +176,7 @@ along with GCC; see the file COPYING3.  If not see
         %{static:-static}}} \
 "
 
-#define LINK_ARCH64_SPEC "-m elf64_sparc -Y P,/usr/lib64 %{shared:-shared} \
+#define LINK_ARCH64_SPEC "-m elf64_sparc --hash-style=gnu -Y P,/usr/lib64 %{shared:-shared} \
   %{!shared: \
     %{!ibcs: \
       %{!static: \
@@ -198,6 +198,7 @@ along with GCC; see the file COPYING3.  If not see
 #define LINK_SPEC "\
 %(link_arch) \
 %{mlittle-endian:-EL} \
+--hash-style=gnu \
 %{!mno-relax:%{!r:-relax}} \
 "
 
@@ -257,7 +258,7 @@ along with GCC; see the file COPYING3.  If not see
 #else /* !SPARC_BI_ARCH */
 
 #undef LINK_SPEC
-#define LINK_SPEC "-m elf64_sparc -Y P,/usr/lib64 %{shared:-shared} \
+#define LINK_SPEC "-m elf64_sparc --hash-style=gnu -Y P,/usr/lib64 %{shared:-shared} \
   %{!shared: \
     %{!ibcs: \
       %{!static: \
