@@ -29,7 +29,7 @@
 
 @include gcc-common.texi
 
-@dircategory Software development
+@dircategory GNU Ada Tools
 @direntry
 * gnat-style: (gnat-style).      GNAT Coding Style
 @end direntry

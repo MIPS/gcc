@@ -1318,7 +1318,7 @@ ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
   LIBRARY_VERSION := $(LIB_VERSION)
 endif
 
-ifeq ($(strip $(filter-out powerpc% linux%,$(arch) $(osys))),)
+ifeq ($(strip $(filter-out powerpc% ppc% linux%,$(arch) $(osys))),)
   LIBGNAT_TARGET_PAIRS = \
   a-intnam.ads<a-intnam-linux.ads \
   g-soccon.ads<g-soccon-linux-ppc.ads \
@@ -1880,13 +1880,13 @@ gnatlib-shared-default:
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib
 	$(RM) rts/libgna*$(soext)
-	cd rts; ../../xgcc -B../../ -shared $(GNATLIBCFLAGS) \
+	cd rts; ../../xgcc -B../../ -shared -Wl,-z,nodlopen $(GNATLIBCFLAGS) \
 		$(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
 		$(SO_OPTS)libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(MISCLIB) -lm
-	cd rts; ../../xgcc -B../../ -shared $(GNATLIBCFLAGS) \
+	cd rts; ../../xgcc -B../../ -shared -Wl,-z,nodlopen $(GNATLIBCFLAGS) \
 		$(TARGET_LIBGCC2_CFLAGS) \
 		-o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
 		$(GNATRTL_TASKING_OBJS) \
