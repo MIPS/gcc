@@ -1921,6 +1921,17 @@ output_cfg (struct output_block *ob, struct function *fn)
 
   LTO_DEBUG_TOKEN ("bbindex");
   output_sleb128 (ob, -1);
+
+  bb = ENTRY_BLOCK_PTR;
+  while (bb->next_bb)
+    {
+      LTO_DEBUG_TOKEN ("bbchain");
+      output_sleb128 (ob, bb->next_bb->index);
+      bb = bb->next_bb;
+    }
+  LTO_DEBUG_TOKEN ("bbchain");
+  output_sleb128 (ob, -1);
+
   ob->main_stream = tmp_stream;
 }
 

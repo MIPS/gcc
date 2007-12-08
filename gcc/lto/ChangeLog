@@ -1,3 +1,9 @@
+2007-12-07  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-read.c (input_cfg): Call init_empty_tree_cfg_for_function.
+	Grow the basic_block_info and label_to_block_map vectors if
+	necessary.  Read in the block chain.
+
 2007-12-06  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_DIE): Set TYPE_ALIAS_SET where necessary.

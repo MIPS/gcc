@@ -1,5 +1,12 @@
 2007-12-07  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* tree-flow.h (init_empty_tree_cfg_for_function): Declare.
+	* tree-cfg.c (init_empty_tree_cfg_for_function): Define.
+	(init_empty_tree_cfg): Call it.
+	* lto_function-out.c (output_cfg): Write out the block chain.
+
+2007-12-07  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* dwarf2out.c (containing_decl_for_block): New function.
 	(force_block_die): Call it.
 	(dwarf2out_finish): Call it if we have a BLOCK for our context.

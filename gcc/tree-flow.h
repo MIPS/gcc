@@ -780,6 +780,7 @@ extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
 extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
 extern void init_empty_tree_cfg (void);
+extern void init_empty_tree_cfg_for_function (struct function *);
 extern void fold_cond_expr_cond (void);
 extern void make_abnormal_goto_edges (basic_block, bool);
 extern void replace_uses_by (tree, tree);

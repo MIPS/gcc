@@ -1434,36 +1434,21 @@ input_cfg (struct input_block *ib, struct function *fn)
   unsigned int i;
   int index;
 
-  init_flow (fn);
+  init_empty_tree_cfg_for_function (fn);
   init_ssa_operands ();
 
   LTO_DEBUG_TOKEN ("lastbb");
   bb_count = input_uleb128 (ib);
 
-  profile_status_for_function (fn) = PROFILE_ABSENT;
-  n_basic_blocks_for_function (fn) = NUM_FIXED_BLOCKS;
   last_basic_block_for_function (fn) = bb_count;
-  basic_block_info_for_function (fn)
-    = VEC_alloc (basic_block, gc, bb_count);
-  VEC_safe_grow (basic_block, gc,
-                 basic_block_info_for_function (fn), bb_count);
-  memset (VEC_address (basic_block, 
-		       basic_block_info_for_function (fn)), 
-	  0, sizeof (basic_block) * bb_count);
-
-  /* Build a mapping of labels to their associated blocks.  */
-  label_to_block_map_for_function (fn)
-    = VEC_alloc (basic_block, gc, bb_count);
-  VEC_safe_grow (basic_block, gc, 
-		 label_to_block_map_for_function (fn), bb_count);
-  memset (VEC_address (basic_block, 
-		       label_to_block_map_for_function (fn)),
-	  0, sizeof (basic_block) * bb_count);
-
-  SET_BASIC_BLOCK_FOR_FUNCTION (fn, ENTRY_BLOCK, 
-				ENTRY_BLOCK_PTR_FOR_FUNCTION (fn));
-  SET_BASIC_BLOCK_FOR_FUNCTION (fn, EXIT_BLOCK, 
-		   EXIT_BLOCK_PTR_FOR_FUNCTION (fn));
+  if (bb_count > VEC_length (basic_block,
+			     basic_block_info_for_function (fn)))
+    VEC_safe_grow_cleared (basic_block, gc,
+			   basic_block_info_for_function (fn), bb_count);
+  if (bb_count > VEC_length (basic_block,
+			     label_to_block_map_for_function (fn)))
+    VEC_safe_grow_cleared (basic_block, gc, 
+			   label_to_block_map_for_function (fn), bb_count);
 
   LTO_DEBUG_TOKEN ("bbindex");
   index = input_sleb128 (ib);
@@ -1501,19 +1486,17 @@ input_cfg (struct input_block *ib, struct function *fn)
     }
 
   p_bb = ENTRY_BLOCK_PTR_FOR_FUNCTION(fn);
-  for (i = NUM_FIXED_BLOCKS; i < bb_count; i++)
+  LTO_DEBUG_TOKEN ("bbchain");
+  index = input_sleb128 (ib);
+  while (index != -1)
     {
-      basic_block bb = BASIC_BLOCK_FOR_FUNCTION (fn, i);
-      if (bb)
-	{
-	  bb->prev_bb = p_bb;
-	  p_bb->next_bb = bb;
-	  p_bb = bb;
-	}
+      basic_block bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
+      bb->prev_bb = p_bb;
+      p_bb->next_bb = bb;
+      p_bb = bb;
+      LTO_DEBUG_TOKEN ("bbchain");
+      index = input_sleb128 (ib);
     }
-
-  p_bb->next_bb = EXIT_BLOCK_PTR_FOR_FUNCTION(fn);
-  EXIT_BLOCK_PTR_FOR_FUNCTION(fn)->prev_bb = p_bb;
 }
 
 
