@@ -5144,11 +5144,6 @@ AT_string_form (dw_attr_ref a)
   if (node->form)
     return node->form;
 
-  /* FIXME!!! This is a temp hack to not use the string table because
-     the current lto code does not do this yet.  */
-  if (flag_generate_lto)
-    return node->form = DW_FORM_string;
-
   len = strlen (node->str) + 1;
 
   /* If the string is shorter or equal to the size of the reference, it is

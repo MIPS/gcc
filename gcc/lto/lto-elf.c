@@ -386,7 +386,8 @@ lto_elf_file_open (const char *filename)
       error ("could not locate ELF string table: %s", elf_errmsg (0));
       goto fail;
     }
-  /* Find the .debug_info and .debug_abbrev sections.  */
+
+  /* Find the .debug_info, .debug_abbrev, and .debug_str sections.  */
   data = lto_elf_find_section_data (elf_file, ".debug_info");
   if (!data)
     {
@@ -408,6 +409,16 @@ lto_elf_file_open (const char *filename)
   fd = (lto_fd *) &result->debug_abbrev;
   fd->start = (const char *) data->d_buf;
   fd->end = fd->start + data->d_size;
+
+  /* The string table may not be present if no references
+     were made to it.  */
+  data = lto_elf_find_section_data (elf_file, ".debug_str");
+  if (data)
+    {
+      fd = (lto_fd *) &result->debug_str;
+      fd->start = (const char *) data->d_buf;
+      fd->end = fd->start + data->d_size;
+    }
 
   /* Read the ELF symbol table.  */
   lto_elf_read_symtab (elf_file);

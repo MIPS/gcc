@@ -144,6 +144,18 @@ typedef struct lto_abbrev_fd_struct GTY(())
 }
 lto_abbrev_fd;
 
+/* A file descriptor for reading from a DWARF string table section.  */
+typedef struct lto_str_fd_struct GTY(())
+{
+  /* The base object.  */
+  lto_fd base;
+  /* The size of the strings vector.  */
+  size_t strings_size;
+  /* The strings, zero-terminated and possibly sharing tails.  */
+  const char * GTY((length ("%h.strings_size"), skip)) strings;
+}
+lto_str_fd;
+
 /* The virtual function table for an lto_file.  */
 typedef struct lto_file_vtable_struct GTY(())
 {
@@ -175,6 +187,10 @@ typedef struct lto_file_struct GTY(())
   lto_info_fd debug_info;
   /* The contents of the .debug_abbrev section.  */
   lto_abbrev_fd debug_abbrev;
+  /* The contents of the .debug_str section.
+     This section need not be present, in which case
+     we treat it as if it were present but empty.  */
+  lto_str_fd debug_str;
 }
 lto_file;
 

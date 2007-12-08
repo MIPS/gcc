@@ -1,3 +1,22 @@
+2007-12-07  Bill Maddox  <maddox@google.com>
+
+	* lto.c (lto_str_fd_init): New function.
+	(lto_str_fd_close): New function.
+	(lto_file_init): Call lto_str_fd_init.
+	(lto_file_close): Call lto_str_fd_close.
+	(lto_str_read): New function. Read debug string table.
+	(lto_str_lookup): New function. Get string for debug
+	string table offset.
+	(lto_read_form): Recognize DW_FORM_strp.
+	(lto_file_read): Invoke lto_str_read.
+
+	* lto-elf.c (lto_elf_file_open): Read raw section data
+	for the .debug_str section, if present.
+
+	* lto.h (struct lto_str_fd_struct): New struct.
+	(struct lto_file_struct): Added new field DEBUG_STR
+	to hold the file descriptor for the debug string table.
+	
 2007-12-07  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-read.c (input_cfg): Call init_empty_tree_cfg_for_function.

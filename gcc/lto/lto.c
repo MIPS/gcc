@@ -210,6 +210,16 @@ lto_abbrev_fd_init (lto_abbrev_fd *fd, const char *name, lto_file *file)
   fd->abbrevs = NULL;
 }
 
+/* Initialize FD, a newly allocated file descriptor for a DWARF2
+   string table section.  NAME and FILE are as for lto_fd_init.  */
+static void
+lto_str_fd_init (lto_str_fd *fd, const char *name, lto_file *file)
+{
+  lto_fd_init ((lto_fd *) fd, name, file);
+  fd->strings_size = 0;
+  fd->strings = NULL;
+}
+
 /* Close FD.  */
 static void
 lto_info_fd_close (lto_info_fd *fd)
@@ -237,6 +247,14 @@ lto_abbrev_fd_close (lto_abbrev_fd *fd)
   XDELETEVEC (fd->abbrevs);
 }
 
+/* Close FD.  */
+static void
+lto_str_fd_close (lto_str_fd *fd ATTRIBUTE_UNUSED)
+{
+  /* Nothing to do.  We do not own the FD->STRINGS array,
+     and must not free it here.  */
+}
+
 /* Initialize FILE, an LTO file object for FILENAME.  */
 void
 lto_file_init (lto_file *file, 
@@ -247,6 +265,7 @@ lto_file_init (lto_file *file,
   file->filename = filename;
   lto_info_fd_init (&file->debug_info, ".debug_info", file);
   lto_abbrev_fd_init (&file->debug_abbrev, ".debug_abbrev", file);
+  lto_str_fd_init (&file->debug_str, ".debug_str", file);
 }
 
 /* Close FILE.  */
@@ -255,6 +274,7 @@ lto_file_close (lto_file *file)
 {
   lto_info_fd_close (&file->debug_info);
   lto_abbrev_fd_close (&file->debug_abbrev);
+  lto_str_fd_close (&file->debug_str);
   ggc_free (file);
 }
 
@@ -557,6 +577,31 @@ lto_abbrev_lookup (lto_abbrev_fd *abbrev_fd, uint64_t abbrev)
   return result;
 }
 
+/* Read the DWARF2 string table from STR_FD, placing it in
+   STR_FD->STRINGS.  There is almost nothing to do here, as
+   the raw section contents are used without modification.  */
+static void
+lto_str_read (lto_str_fd *str_fd)
+{
+  /* We should only read the string table once.  */
+  gcc_assert (!str_fd->strings);
+  /* START and END may be NULL if the string table is not present.  */
+  str_fd->strings = str_fd->base.start;
+  str_fd->strings_size = str_fd->base.end - str_fd->base.start;
+  /* The string table must be zero-terminated if non-empty.  */
+  if (str_fd->strings_size != 0 && *(str_fd->base.end - 1) != '\0')
+    lto_file_corrupt_error ((lto_fd *)str_fd);
+}
+
+/* Return the string table entry with offset OFFSET.  */
+static const char *
+lto_str_lookup (lto_str_fd *str_fd, uint64_t offset)
+{
+  if (offset >= str_fd->strings_size)
+    lto_file_corrupt_error ((lto_fd *)str_fd);
+  return str_fd->strings + offset;
+}
+
 /* Read a section offset from FD.  In 32-bit DWARF, this is a 32-bit
    value; in 64-bit DWARF, it is a 64-bit value.  Therefore, the value
    returned is always a 64-bit value.  */
@@ -829,12 +874,11 @@ lto_read_form (lto_info_fd *info_fd,
       break;
 
     case DW_FORM_strp:
-      /* Temporary hack:  we don't need the string data, but we do need
-     it not to crash if it sees one.  So just skip past the offset
-     and return an empty string.  */
-      out->cl = DW_cl_string;
-      fd->dwarf64 ? lto_read_uword (fd) : lto_read_udword (fd);
-      out->u.string = "";
+      {
+        uint64_t offset = fd->dwarf64 ? lto_read_udword (fd) : lto_read_uword (fd);
+        out->cl = DW_cl_string;
+        out->u.string = lto_str_lookup (&info_fd->base.file->debug_str, offset);
+      }
       break;
 
     case DW_FORM_data1:
@@ -3419,6 +3463,8 @@ lto_file_read (lto_file *file)
   /* The descriptor for the .debug_info section.  */
   lto_fd *fd;
 
+  /* Read the string table.  */
+  lto_str_read (&file->debug_str);
   /* Read the abbreviation entries.  */
   lto_abbrev_read (&file->debug_abbrev);
   /* Read the compilation units.  */
