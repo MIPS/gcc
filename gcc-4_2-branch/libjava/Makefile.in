@@ -79,8 +79,7 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 @XLIB_AWT_TRUE@am__append_17 = $(xlib_nat_headers)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/libltdl/acinclude.m4 \
-	$(top_srcdir)/../config/acx.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/depstand.m4 \
 	$(top_srcdir)/../config/enable.m4 \
 	$(top_srcdir)/../config/gxx-include-dir.m4 \
@@ -718,7 +717,6 @@ USING_WIN32_THREADS_TRUE = @USING_WIN32_THREADS_TRUE@
 VERSION = @VERSION@
 XLIB_AWT_FALSE = @XLIB_AWT_FALSE@
 XLIB_AWT_TRUE = @XLIB_AWT_TRUE@
-XMKMF = @XMKMF@
 X_AWT_FALSE = @X_AWT_FALSE@
 X_AWT_TRUE = @X_AWT_TRUE@
 X_CFLAGS = @X_CFLAGS@
@@ -730,9 +728,14 @@ ZIP = @ZIP@
 ZLIBS = @ZLIBS@
 ZLIBSPEC = @ZLIBSPEC@
 ZLIBTESTSPEC = @ZLIBTESTSPEC@
+ac_ct_AR = @ac_ct_AR@
+ac_ct_AS = @ac_ct_AS@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_GCJ = @ac_ct_GCJ@
+ac_ct_LD = @ac_ct_LD@
+ac_ct_RANLIB = @ac_ct_RANLIB@
+ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__fastdepCXX_FALSE = @am__fastdepCXX_FALSE@
@@ -753,11 +756,9 @@ build_os = @build_os@
 build_subdir = @build_subdir@
 build_vendor = @build_vendor@
 datadir = @datadir@
-datarootdir = @datarootdir@
 dbexecdir = @dbexecdir@
-docdir = @docdir@
-dvidir = @dvidir@
 exec_prefix = @exec_prefix@
+extra_gij_ldflags = @extra_gij_ldflags@
 extra_ldflags = @extra_ldflags@
 extra_ldflags_libjava = @extra_ldflags_libjava@ $(am__append_5)
 gxx_include_dir = @gxx_include_dir@
@@ -769,24 +770,20 @@ host_exeext = @host_exeext@
 host_os = @host_os@
 host_subdir = @host_subdir@
 host_vendor = @host_vendor@
-htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
 libstdcxx_incdir = @libstdcxx_incdir@
-localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 mkinstalldirs = @mkinstalldirs@
 multi_basedir = @multi_basedir@
 oldincludedir = @oldincludedir@
-pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
-psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 subdirs = @subdirs@
@@ -804,7 +801,7 @@ toolexecdir = @toolexecdir@
 toolexeclibdir = @toolexeclibdir@
 toolexecmainlibdir = @toolexecmainlibdir@
 AUTOMAKE_OPTIONS = foreign subdir-objects
-ACLOCAL_AMFLAGS = -I . -I .. -I ../config -I libltdl
+ACLOCAL_AMFLAGS = -I . -I .. -I ../config
 
 # May be used by various substitution variables.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
@@ -7966,7 +7963,8 @@ gc_analyze_LDADD = -L$(here)/.libs libgcj-tools.la libgcj.la
 gc_analyze_DEPENDENCIES = libgcj-tools.la libgcj.la libgcj.spec
 gij_SOURCES = 
 gij_LDFLAGS = -rpath $(dbexecdir) -rpath $(toolexeclibdir) \
-	-shared-libgcc $(THREADLDFLAGS) $(extra_ldflags)
+	-shared-libgcc $(THREADLDFLAGS) $(extra_ldflags) \
+	$(extra_gij_ldflags) 
 
 gij_LINK = $(GCJLINK)
 gij_LDADD = -L$(here)/.libs libgij.la
@@ -9764,7 +9762,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkdir_p) $(distdir)/. $(distdir)/.. $(distdir)/../config $(distdir)/libltdl $(distdir)/scripts
+	$(mkdir_p) $(distdir)/. $(distdir)/.. $(distdir)/../config $(distdir)/scripts
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
