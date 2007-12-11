@@ -182,6 +182,8 @@ cleanup:
 #define OMP_CLAUSE_SCHEDULE	(1 << 9)
 #define OMP_CLAUSE_DEFAULT	(1 << 10)
 #define OMP_CLAUSE_ORDERED	(1 << 11)
+#define OMP_CLAUSE_COLLAPSE	(1 << 12)
+#define OMP_CLAUSE_UNTIED	(1 << 13)
 
 /* Match OpenMP directive clauses. MASK is a bitmask of
    clauses that are allowed for a particular directive.  */
@@ -335,6 +337,8 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	    c->default_sharing = OMP_DEFAULT_PRIVATE;
 	  else if (gfc_match ("default ( none )") == MATCH_YES)
 	    c->default_sharing = OMP_DEFAULT_NONE;
+	  else if (gfc_match ("default ( firstprivate )") == MATCH_YES)
+	    c->default_sharing = OMP_DEFAULT_FIRSTPRIVATE;
 	  if (c->default_sharing != OMP_DEFAULT_UNKNOWN)
 	    continue;
 	}
@@ -351,10 +355,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	    c->sched_kind = OMP_SCHED_GUIDED;
 	  else if (gfc_match ("runtime") == MATCH_YES)
 	    c->sched_kind = OMP_SCHED_RUNTIME;
+	  else if (gfc_match ("auto") == MATCH_YES)
+	    c->sched_kind = OMP_SCHED_AUTO;
 	  if (c->sched_kind != OMP_SCHED_NONE)
 	    {
 	      match m = MATCH_NO;
-	      if (c->sched_kind != OMP_SCHED_RUNTIME)
+	      if (c->sched_kind != OMP_SCHED_RUNTIME
+		  && c->sched_kind != OMP_SCHED_AUTO)
 		m = gfc_match (" , %e )", &c->chunk_size);
 	      if (m != MATCH_YES)
 		m = gfc_match_char (')');
@@ -371,6 +378,36 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	{
 	  c->ordered = needs_space = true;
 	  continue;
+	}
+      if ((mask & OMP_CLAUSE_UNTIED) && !c->untied
+	  && gfc_match ("untied") == MATCH_YES)
+	{
+	  c->untied = needs_space = true;
+	  continue;
+	}
+      if ((mask & OMP_CLAUSE_COLLAPSE) && !c->collapse)
+	{
+	  gfc_expr *cexpr = NULL;
+	  match m = gfc_match ("collapse ( %e )", &cexpr);
+
+	  if (m == MATCH_YES)
+	    {
+	      int collapse;
+	      const char *p = gfc_extract_int (cexpr, &collapse);
+	      if (p)
+		{
+		  gfc_error (p);
+                  collapse = 1;
+		}
+	      else if (collapse <= 0)
+		{
+		  gfc_error ("COLLAPSE clause argument not constant positive integer at %C");
+		  collapse = 1;
+		}
+              c->collapse = collapse;
+	      gfc_free_expr (cexpr);
+	      continue;
+	    }
 	}
 
       break;
@@ -393,10 +430,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 #define OMP_DO_CLAUSES \
   (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION			\
-   | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED)
+   | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED | OMP_CLAUSE_COLLAPSE)
 #define OMP_SECTIONS_CLAUSES \
   (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION)
+#define OMP_TASK_CLAUSES \
+  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
+   | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_UNTIED)
 
 match
 gfc_match_omp_parallel (void)
@@ -406,6 +446,29 @@ gfc_match_omp_parallel (void)
     return MATCH_ERROR;
   new_st.op = EXEC_OMP_PARALLEL;
   new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_omp_task (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OMP_TASK_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+  new_st.op = EXEC_OMP_TASK;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_omp_taskwait (void)
+{
+  if (gfc_match_omp_eos () != MATCH_YES)
+    return MATCH_ERROR;
+  new_st.op = EXEC_OMP_TASKWAIT;
+  new_st.ext.omp_clauses = NULL;
   return MATCH_YES;
 }
 

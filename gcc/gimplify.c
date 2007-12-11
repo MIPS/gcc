@@ -4825,6 +4825,9 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	case OMP_CLAUSE_DEFAULT_PRIVATE:
 	  flags |= GOVD_PRIVATE;
 	  break;
+	case OMP_CLAUSE_DEFAULT_FIRSTPRIVATE:
+	  flags |= GOVD_FIRSTPRIVATE;
+	  break;
 	case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
 	  /* decl will be either GOVD_FIRSTPRIVATE or GOVD_SHARED.  */
 	  gcc_assert (ctx->region_type == ORT_TASK);

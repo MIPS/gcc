@@ -847,6 +847,8 @@ gfc_show_omp_node (int level, gfc_code *c)
     case EXEC_OMP_PARALLEL_WORKSHARE: name = "PARALLEL WORKSHARE"; break;
     case EXEC_OMP_SECTIONS: name = "SECTIONS"; break;
     case EXEC_OMP_SINGLE: name = "SINGLE"; break;
+    case EXEC_OMP_TASK: name = "TASK"; break;
+    case EXEC_OMP_TASKWAIT: name = "TASKWAIT"; break;
     case EXEC_OMP_WORKSHARE: name = "WORKSHARE"; break;
     default:
       gcc_unreachable ();
@@ -862,6 +864,7 @@ gfc_show_omp_node (int level, gfc_code *c)
     case EXEC_OMP_SINGLE:
     case EXEC_OMP_WORKSHARE:
     case EXEC_OMP_PARALLEL_WORKSHARE:
+    case EXEC_OMP_TASK:
       omp_clauses = c->ext.omp_clauses;
       break;
     case EXEC_OMP_CRITICAL:
@@ -877,6 +880,7 @@ gfc_show_omp_node (int level, gfc_code *c)
 	}
       return;
     case EXEC_OMP_BARRIER:
+    case EXEC_OMP_TASKWAIT:
       return;
     default:
       break;
@@ -906,6 +910,7 @@ gfc_show_omp_node (int level, gfc_code *c)
 	    case OMP_SCHED_DYNAMIC: type = "DYNAMIC"; break;
 	    case OMP_SCHED_GUIDED: type = "GUIDED"; break;
 	    case OMP_SCHED_RUNTIME: type = "RUNTIME"; break;
+	    case OMP_SCHED_AUTO: type = "AUTO"; break;
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -925,7 +930,7 @@ gfc_show_omp_node (int level, gfc_code *c)
 	    case OMP_DEFAULT_NONE: type = "NONE"; break;
 	    case OMP_DEFAULT_PRIVATE: type = "PRIVATE"; break;
 	    case OMP_DEFAULT_SHARED: type = "SHARED"; break;
-	    case OMP_SCHED_RUNTIME: type = "RUNTIME"; break;
+	    case OMP_DEFAULT_FIRSTPRIVATE: type = "FIRSTPRIVATE"; break;
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -933,6 +938,10 @@ gfc_show_omp_node (int level, gfc_code *c)
 	}
       if (omp_clauses->ordered)
 	gfc_status (" ORDERED");
+      if (omp_clauses->untied)
+	gfc_status (" UNTIED");
+      if (omp_clauses->collapse)
+	gfc_status (" COLLAPSE(%d)", omp_clauses->collapse);
       for (list_type = 0; list_type < OMP_LIST_NUM; list_type++)
 	if (omp_clauses->lists[list_type] != NULL
 	    && list_type != OMP_LIST_COPYPRIVATE)
@@ -1695,6 +1704,8 @@ gfc_show_code_node (int level, gfc_code *c)
     case EXEC_OMP_PARALLEL_WORKSHARE:
     case EXEC_OMP_SECTIONS:
     case EXEC_OMP_SINGLE:
+    case EXEC_OMP_TASK:
+    case EXEC_OMP_TASKWAIT:
     case EXEC_OMP_WORKSHARE:
       gfc_show_omp_node (level, c);
       break;

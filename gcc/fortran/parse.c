@@ -366,6 +366,7 @@ decode_omp_directive (void)
       match ("end parallel", gfc_match_omp_eos, ST_OMP_END_PARALLEL);
       match ("end sections", gfc_match_omp_end_nowait, ST_OMP_END_SECTIONS);
       match ("end single", gfc_match_omp_end_single, ST_OMP_END_SINGLE);
+      match ("end task", gfc_match_omp_eos, ST_OMP_END_TASK);
       match ("end workshare", gfc_match_omp_end_nowait,
 	     ST_OMP_END_WORKSHARE);
       break;
@@ -392,6 +393,8 @@ decode_omp_directive (void)
       match ("single", gfc_match_omp_single, ST_OMP_SINGLE);
       break;
     case 't':
+      match ("task", gfc_match_omp_task, ST_OMP_TASK);
+      match ("taskwait", gfc_match_omp_taskwait, ST_OMP_TASKWAIT);
       match ("threadprivate", gfc_match_omp_threadprivate,
 	     ST_OMP_THREADPRIVATE);
     case 'w':
@@ -709,7 +712,7 @@ next_statement (void)
   case ST_POINTER_ASSIGNMENT: case ST_EXIT: case ST_CYCLE: \
   case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: \
   case ST_LABEL_ASSIGNMENT: case ST_FLUSH: case ST_OMP_FLUSH: \
-  case ST_OMP_BARRIER
+  case ST_OMP_BARRIER: case ST_OMP_TASKWAIT
 
 /* Statements that mark other executable statements.  */
 
@@ -718,7 +721,8 @@ next_statement (void)
   case ST_OMP_PARALLEL_SECTIONS: case ST_OMP_SECTIONS: case ST_OMP_ORDERED: \
   case ST_OMP_CRITICAL: case ST_OMP_MASTER: case ST_OMP_SINGLE: \
   case ST_OMP_DO: case ST_OMP_PARALLEL_DO: case ST_OMP_ATOMIC: \
-  case ST_OMP_WORKSHARE: case ST_OMP_PARALLEL_WORKSHARE
+  case ST_OMP_WORKSHARE: case ST_OMP_PARALLEL_WORKSHARE: \
+  case ST_OMP_TASK
 
 /* Declaration statements */
 
@@ -1187,6 +1191,9 @@ gfc_ascii_statement (gfc_statement st)
     case ST_OMP_END_SINGLE:
       p = "!$OMP END SINGLE";
       break;
+    case ST_OMP_END_TASK:
+      p = "!$OMP END TASK";
+      break;
     case ST_OMP_END_WORKSHARE:
       p = "!$OMP END WORKSHARE";
       break;
@@ -1219,6 +1226,12 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_OMP_SINGLE:
       p = "!$OMP SINGLE";
+      break;
+    case ST_OMP_TASK:
+      p = "!$OMP TASK";
+      break;
+    case ST_OMP_TASKWAIT:
+      p = "!$OMP TASKWAIT";
       break;
     case ST_OMP_THREADPRIVATE:
       p = "!$OMP THREADPRIVATE";
@@ -2596,6 +2609,9 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
     case ST_OMP_SINGLE:
       omp_end_st = ST_OMP_END_SINGLE;
       break;
+    case ST_OMP_TASK:
+      omp_end_st = ST_OMP_END_TASK;
+      break;
     case ST_OMP_WORKSHARE:
       omp_end_st = ST_OMP_END_WORKSHARE;
       break;
@@ -2806,6 +2822,7 @@ parse_executable (gfc_statement st)
 	case ST_OMP_CRITICAL:
 	case ST_OMP_MASTER:
 	case ST_OMP_SINGLE:
+	case ST_OMP_TASK:
 	  parse_omp_structured_block (st, false);
 	  break;
 

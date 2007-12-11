@@ -639,6 +639,9 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	case OMP_SCHED_RUNTIME:
 	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_RUNTIME;
 	  break;
+	case OMP_SCHED_AUTO:
+	  OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_AUTO;
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -659,6 +662,9 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	case OMP_DEFAULT_PRIVATE:
 	  OMP_CLAUSE_DEFAULT_KIND (c) = OMP_CLAUSE_DEFAULT_PRIVATE;
 	  break;
+	case OMP_DEFAULT_FIRSTPRIVATE:
+	  OMP_CLAUSE_DEFAULT_KIND (c) = OMP_CLAUSE_DEFAULT_FIRSTPRIVATE;
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -674,6 +680,19 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
   if (clauses->ordered)
     {
       c = build_omp_clause (OMP_CLAUSE_ORDERED);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
+
+  if (clauses->untied)
+    {
+      c = build_omp_clause (OMP_CLAUSE_UNTIED);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
+
+  if (clauses->collapse)
+    {
+      c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
+      OMP_CLAUSE_COLLAPSE_EXPR (c) = build_int_cst (NULL, clauses->collapse);
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
@@ -1107,9 +1126,11 @@ gfc_trans_omp_parallel_do (gfc_code *code)
       do_clauses.sched_kind = parallel_clauses.sched_kind;
       do_clauses.chunk_size = parallel_clauses.chunk_size;
       do_clauses.ordered = parallel_clauses.ordered;
+      do_clauses.collapse = parallel_clauses.collapse;
       parallel_clauses.sched_kind = OMP_SCHED_NONE;
       parallel_clauses.chunk_size = NULL;
       parallel_clauses.ordered = false;
+      parallel_clauses.collapse = 0;
       omp_clauses = gfc_trans_omp_clauses (&block, &parallel_clauses,
 					   code->loc);
     }
@@ -1221,6 +1242,28 @@ gfc_trans_omp_single (gfc_code *code, gfc_omp_clauses *clauses)
 }
 
 static tree
+gfc_trans_omp_task (gfc_code *code)
+{
+  stmtblock_t block;
+  tree stmt, omp_clauses;
+
+  gfc_start_block (&block);
+  omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
+				       code->loc);
+  stmt = gfc_trans_omp_code (code->block->next, true);
+  stmt = build4_v (OMP_TASK, stmt, omp_clauses, NULL, NULL);
+  gfc_add_expr_to_block (&block, stmt);
+  return gfc_finish_block (&block);
+}
+
+static tree
+gfc_trans_omp_taskwait (void)
+{
+  tree decl = built_in_decls [BUILT_IN_GOMP_TASKWAIT];
+  return build_call_expr (decl, 0);
+}
+
+static tree
 gfc_trans_omp_workshare (gfc_code *code, gfc_omp_clauses *clauses)
 {
   /* XXX */
@@ -1258,6 +1301,10 @@ gfc_trans_omp_directive (gfc_code *code)
       return gfc_trans_omp_sections (code, code->ext.omp_clauses);
     case EXEC_OMP_SINGLE:
       return gfc_trans_omp_single (code, code->ext.omp_clauses);
+    case EXEC_OMP_TASK:
+      return gfc_trans_omp_task (code);
+    case EXEC_OMP_TASKWAIT:
+      return gfc_trans_omp_taskwait ();
     case EXEC_OMP_WORKSHARE:
       return gfc_trans_omp_workshare (code, code->ext.omp_clauses);
     default:
