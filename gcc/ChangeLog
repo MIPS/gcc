@@ -1,3 +1,21 @@
+2007-12-11  Tom Tromey  <tromey@redhat.com>
+
+	* c-typeck.c (require_complete_type): Now static.
+	(build_function_call): Cast function type.
+	(comptypes_internal): Use smashed type variant.
+	(build_indirect_ref): Convert pointer type, not type of
+	dereference.
+	(really_start_incremental_init): Use smashed type variant.
+	* c-tree.h (require_complete_type): Remove declaration.
+	(C_SMASHED_TYPE_VARIANT): Rewrote.
+	(C_SMASHED_VARIANT): Remove.
+	* c-decl.c (grokdeclarator): Remove unused variable.
+	(start_struct): Fix condition.
+	(start_enum): Likewise.
+	(declspecs_add_type): Use smashed variant of a typedef.
+	(duplicate_decls): Use smashed type variant.
+	(pushdecl): Likewise.
+
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (c_gimple_diagnostics_recursively): Remove.

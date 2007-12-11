@@ -2121,7 +2121,8 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 	  /* FIXME: we shouldn't need a copy -- we should just modify
 	     NEWDECL.  */
 	  tree copy = copy_node (olddecl);
-	  merge_decls (newdecl, copy, newtype, oldtype);
+	  merge_decls (newdecl, copy, newtype,
+		       C_SMASHED_TYPE_VARIANT (oldtype));
 	  /* FIXME: this triggers building libgcc.  */
 /* 	  gcc_assert (binding->decl == olddecl); */
 	  binding->decl = copy;
@@ -2338,6 +2339,7 @@ pushdecl (tree x)
 		thistype = composite_type (vistype, type);
 	      else
 		thistype = TREE_TYPE (b_use->decl);
+	      thistype = C_SMASHED_TYPE_VARIANT (thistype);
 	      b_use->type = TREE_TYPE (b_use->decl);
 	      if (TREE_CODE (b_use->decl) == FUNCTION_DECL
 		  && DECL_BUILT_IN (b_use->decl))
@@ -4265,7 +4267,6 @@ grokdeclarator (const struct c_declarator *declarator,
   int volatilep;
   int type_quals = TYPE_UNQUALIFIED;
   const char *name, *orig_name;
-  tree typedef_type = 0;
   bool funcdef_flag = false;
   bool funcdef_syntax = false;
   int size_varies = 0;
@@ -4339,7 +4340,6 @@ grokdeclarator (const struct c_declarator *declarator,
       type = integer_type_node;
     }
 
-  typedef_type = type;
   size_varies = C_TYPE_VARIABLE_SIZE (type);
 
   /* Diagnose defaulting to "int".  */
@@ -5656,10 +5656,12 @@ start_struct (enum tree_code code, tree name)
 	}
     }
 
-  /* Otherwise create a forward-reference just so the tag is in scope.  */
-
-  if (ref == NULL_TREE || (TREE_CODE (ref) != code
-			   && !object_in_current_hunk_p (ref)))
+  /* Otherwise create a forward-reference just so the tag is in scope.
+     Also make a reference if we found the wrong type of object, or if
+     the one we found is in a different hunk and thus should not be
+     smashed.  */
+  if (ref == NULL_TREE || TREE_CODE (ref) != code
+      || !object_in_current_hunk_p (ref))
     {
       tree newval = make_node (code);
       pushtag (name, newval);
@@ -6110,8 +6112,8 @@ start_enum (struct c_enum_contents *the_enum, tree name)
 	}
     }
 
-  if (enumtype == 0 || (TREE_CODE (enumtype) != ENUMERAL_TYPE
-			&& !object_in_current_hunk_p (enumtype)))
+  if (enumtype == 0 || TREE_CODE (enumtype) != ENUMERAL_TYPE
+      || !object_in_current_hunk_p (enumtype))
     {
       tree newval = make_node (ENUMERAL_TYPE);
       pushtag (name, newval);
@@ -7803,7 +7805,7 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	; /* Allow the type to default to int to avoid cascading errors.  */
       else
 	{
-	  specs->type = TREE_TYPE (type);
+	  specs->type = C_SMASHED_TYPE_VARIANT (TREE_TYPE (type));
 	  specs->decl_attr = DECL_ATTRIBUTES (type);
 	  specs->typedef_p = true;
 	  specs->explicit_signed_p = C_TYPEDEF_EXPLICITLY_SIGNED (type);

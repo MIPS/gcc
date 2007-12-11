@@ -140,7 +140,7 @@ static void free_all_tagged_tu_seen_up_to (const struct tagged_tu_seen_cache *);
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)  */
 
-tree
+static tree
 require_complete_type (tree value)
 {
   tree type = TREE_TYPE (value);
@@ -793,6 +793,9 @@ comptypes_internal (tree type1, tree type2)
   if (t1 == t2 || !t1 || !t2
       || TREE_CODE (t1) == ERROR_MARK || TREE_CODE (t2) == ERROR_MARK)
     return 1;
+
+  t1 = C_SMASHED_TYPE_VARIANT (t1);
+  t2 = C_SMASHED_TYPE_VARIANT (t2);
 
   /* If either type is the internal version of sizetype, return the
      language version.  */
@@ -1906,16 +1909,18 @@ build_indirect_ref (tree ptr, const char *errorstring)
       else
 	{
 	  tree t = TREE_TYPE (type);
-	  tree ref, t2;
+	  tree ref, t2 = C_SMASHED_TYPE_VARIANT (t);
 
-	  ref = build1 (INDIRECT_REF, t, pointer);
-
-	  t2 = C_SMASHED_TYPE_VARIANT (t);
 	  if (t != t2)
 	    {
-	      ref = build1 (VIEW_CONVERT_EXPR, t2, ref);
+	      int sf = TREE_SIDE_EFFECTS (pointer);
+	      pointer = build1 (VIEW_CONVERT_EXPR, build_pointer_type (t2),
+				pointer);
+	      TREE_SIDE_EFFECTS (pointer) = sf;
 	      t = t2;
 	    }
+
+	  ref = build1 (INDIRECT_REF, t, pointer);
 
 	  if (!COMPLETE_OR_VOID_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
 	    {
@@ -2348,6 +2353,17 @@ build_function_call (tree function, tree params)
 
 	  return build2 (COMPOUND_EXPR, return_type, trap, rhs);
 	}
+    }
+
+  if (C_SMASHED_TYPE_VARIANT (TREE_TYPE (fntype)) != TREE_TYPE (fntype))
+    {
+      /* The function returns a type that was later completed.  Cast
+	 the function to the smashed type.  */
+      tree copy = copy_node (fntype);
+      TREE_TYPE (copy) = C_SMASHED_TYPE_VARIANT (TREE_TYPE (copy));
+      function = build1 (VIEW_CONVERT_EXPR, build_pointer_type (copy),
+			 function);
+      fntype = copy;
     }
 
   /* Convert the parameters to the types declared in the
@@ -5068,6 +5084,7 @@ really_start_incremental_init (tree type)
 
   if (type == 0)
     type = TREE_TYPE (constructor_decl);
+  type = C_SMASHED_TYPE_VARIANT (type);
 
   if (targetm.vector_opaque_p (type))
     error ("opaque vector types cannot be initialized");

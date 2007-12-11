@@ -457,15 +457,13 @@ extern void c_parser_lookup_callback (tree, tree, bool);
 /* True if this decl or type has been smashed.  */
 #define C_SMASHED_P(T) TREE_LANG_FLAG_5 (T)
 
-/* Return the smashed decl or type corresponding to ARG.  If ARG is
-   not smashed, return ARG.  */
-#define C_SMASHED_VARIANT(ARG) \
-  (((ARG) && C_SMASHED_P (ARG)) ? c_parser_find_binding (ARG) : (ARG))
-
 /* Return the smashed variant of TYPE.  This will look up the
    canonical type if it exists.  FIXME: better comment here.  */
-#define C_SMASHED_TYPE_VARIANT(TYPE) \
-  C_SMASHED_VARIANT ((TYPE_CANONICAL (TYPE)) ? (TYPE_CANONICAL (TYPE)) : (TYPE))
+#define C_SMASHED_TYPE_VARIANT(TYPE)					\
+  (C_SMASHED_P (TYPE_MAIN_VARIANT (TYPE))				\
+   ? build_qualified_type (c_parser_find_binding (TYPE_MAIN_VARIANT (TYPE)), \
+			   TYPE_QUALS (TYPE))				\
+   : TYPE)
 
 /* in c-aux-info.c */
 extern void gen_aux_info_record (tree, int, int, int);
@@ -570,7 +568,6 @@ extern struct c_switch *c_switch_stack;
 extern struct c_label_context_se *label_context_stack_se;
 extern struct c_label_context_vm *label_context_stack_vm;
 
-extern tree require_complete_type (tree);
 extern int same_translation_unit_p (tree, tree);
 extern int comptypes (tree, tree);
 extern bool c_vla_type_p (const_tree);
