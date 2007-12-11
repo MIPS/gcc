@@ -27,11 +27,12 @@ extern bool server_start_back_end (void);
 
 /* Functions for the client to use.  */
 extern bool client_connect (const char *);
+extern bool client_send_directory (void);
 extern bool client_send_command (const char **);
 extern void client_wait (void);
 extern void client_kill_server (const char *);
 
 /* The main loop calls this when a command is read.  */
-extern void server_callback (int, char **, char **);
+extern void server_callback (int, char *, char **, char **);
 
 #endif /* GCC_SERVER_H */

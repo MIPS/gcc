@@ -2950,6 +2950,8 @@ execute (void)
   /* Maybe we should warn the user if the connection fails?  */
   if (use_server && client_connect (commands[0].argv[0]))
     {
+      if (!client_send_directory ())
+	fatal ("couldn't send working directory to server");
       for (i = 0; i < n_commands; ++i)
 	{
 	  if (!client_send_command (commands[i].argv))
@@ -8006,6 +8008,7 @@ print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
 
 void
 server_callback (int ARG_UNUSED (fd),
+		 char * ARG_UNUSED (dir),
 		 char ** ARG_UNUSED (cc1_argv),
 		 char ** ARG_UNUSED (as_argv))
 {

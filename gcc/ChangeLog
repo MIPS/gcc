@@ -1,5 +1,18 @@
 2007-12-11  Tom Tromey  <tromey@redhat.com>
 
+	* gcc.c (execute): Call client_send_directory.
+	(server_callback): Add argument.
+	* server.c (client_send_directory): New function.
+	(request_and_response): Handle '.' request.
+	* server.h (client_send_directory): Declare.
+	(server_callback): Add argument.
+	* toplev.c (get_src_pwd): Ensure src_pwd is allocated.  Use
+	getcwd.
+	(clear_src_pwd): New function.
+	(server_callback): Call it.  Add argument.  Set directory.
+
+2007-12-11  Tom Tromey  <tromey@redhat.com>
+
 	* c-typeck.c (require_complete_type): Now static.
 	(build_function_call): Cast function type.
 	(comptypes_internal): Use smashed type variant.

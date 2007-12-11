@@ -143,6 +143,7 @@ open_socket (const char *progname)
 static bool
 request_and_response (int reqfd)
 {
+  char *dir = NULL;
   char **argvs[2];
   int count = 0;
 
@@ -175,18 +176,37 @@ request_and_response (int reqfd)
 
 	  argvs[count++] = argv;
 	}
+      else if (cmd == '.')
+	{
+	  /* Set working directory.  */
+	  int len;
+
+	  if (dir)
+	    {
+	      fprintf (stderr, "DIE!\n");
+	      break;
+	    }
+	  if (read (reqfd, &len, sizeof (len)) != sizeof (len))
+	    break;
+	  dir = (char *) xmalloc (len + 1);
+	  if (read (reqfd, dir, len) != len)
+	    break;
+	  dir[len] = '\0';
+	}
       else if (cmd == 'D')
 	{
 	  /* Done with requests, compile away.  */
-	  if (count != 2)
+	  if (count != 2 || !dir)
 	    {
 	      fprintf (stderr, "DIE 2!\n");
 	      count = 0;	/* And leak memory while we're at it.  */
 	      continue;
 	    }
-	  server_callback (reqfd, argvs[0], argvs[1]);
+	  server_callback (reqfd, dir, argvs[0], argvs[1]);
+	  free (dir);
 	  freeargv (argvs[0]);
 	  freeargv (argvs[1]);
+	  dir = NULL;
 	  count = 0;
 	  break;
 	}
@@ -298,6 +318,28 @@ client_connect (const char *progname)
     return false;
 
   return true;
+}
+
+/* Send the current working directory to the server.  'client_connect'
+   must already have been called successfully.  Returns true on
+   success, false on failure.  */
+bool
+client_send_directory (void)
+{
+  char *dir = getcwd (NULL, 0);
+  char cmd = '.';
+  int len = strlen (dir);
+  bool result;
+
+  gcc_assert (connection_fd >= 0);
+
+  if (write (connection_fd, &cmd, sizeof (cmd)) != sizeof (cmd)
+      || write (connection_fd, &len, sizeof (len)) != sizeof (len))
+    result = false;
+  else
+    result = (write (connection_fd, dir, len) == len);
+  free (dir);
+  return result;
 }
 
 /* Send a command to the server.  'client_connect' must already have

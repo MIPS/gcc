@@ -463,12 +463,22 @@ get_src_pwd (void)
 {
   if (! src_pwd)
     {
-      src_pwd = getpwd ();
+      src_pwd = getcwd (NULL, 0);
       if (!src_pwd)
-	src_pwd = ".";
+	src_pwd = xstrdup (".");
     }
 
    return src_pwd;
+}
+
+static void
+clear_src_pwd (void)
+{
+  if (src_pwd)
+    {
+      free (src_pwd);
+      src_pwd = NULL;
+    }
 }
 
 /* Called when the start of a function definition is parsed,
@@ -2342,7 +2352,7 @@ copy_to_vec (VEC (cchar_p, gc) **out, struct save_string_list **strings,
 }
 
 void
-server_callback (int fd, char **cc1_argv, char **as_argv)
+server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
 {
   int n;
 
@@ -2364,6 +2374,9 @@ server_callback (int fd, char **cc1_argv, char **as_argv)
 
   decode_options (n, VEC_address (cchar_p, job->cc1_arguments));
   flag_unit_at_a_time = 1;
+
+  clear_src_pwd ();
+  chdir (dir);
 
   init_local_tick ();
   do_compile ();
