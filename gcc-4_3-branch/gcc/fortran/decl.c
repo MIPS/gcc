@@ -1394,6 +1394,24 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
     c->dimension = 1;
   *as = NULL;
 
+  /* Should this ever get more complicated, combine with similar section
+     in add_init_expr_to_sym into a separate function.  */
+  if (c->ts.type == BT_CHARACTER && !c->pointer && c->initializer)
+    {
+      int len = mpz_get_si (c->ts.cl->length->value.integer);
+
+      if (c->initializer->expr_type == EXPR_CONSTANT)
+	gfc_set_constant_character_len (len, c->initializer, false);
+      else if (mpz_cmp (c->ts.cl->length->value.integer,
+			c->initializer->ts.cl->length->value.integer))
+	{
+	  gfc_constructor *ctor = c->initializer->value.constructor;
+	  for (;ctor ; ctor = ctor->next)
+	    if (ctor->expr->expr_type == EXPR_CONSTANT)
+	      gfc_set_constant_character_len (len, ctor->expr, true);
+	}
+    }
+
   /* Check array components.  */
   if (!c->dimension)
     {
@@ -3635,7 +3653,7 @@ cleanup:
 static match
 match_prefix (gfc_typespec *ts)
 {
-  int seen_type;
+  bool seen_type;
 
   gfc_clear_attr (&current_attr);
   seen_type = 0;
@@ -4316,16 +4334,18 @@ static bool
 add_global_entry (const char *name, int sub)
 {
   gfc_gsymbol *s;
+  unsigned int type;
 
   s = gfc_get_gsymbol(name);
+  type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
 
   if (s->defined
       || (s->type != GSYM_UNKNOWN
-	  && s->type != (sub ? GSYM_SUBROUTINE : GSYM_FUNCTION)))
+	  && s->type != type))
     gfc_global_used(s, NULL);
   else
     {
-      s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
+      s->type = type;
       s->where = gfc_current_locus;
       s->defined = 1;
       return true;
