@@ -1969,7 +1969,7 @@ check_hunk_binding (void **valp, void *crhd)
       self_iter = self_iter->next;
     }
 
-  if (binding == NULL)
+  if (binding_iter)
     return true;
 
   info->binding = binding;

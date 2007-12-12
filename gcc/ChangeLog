@@ -1,3 +1,8 @@
+2007-12-12  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (check_hunk_binding): Fix multi-hunk failure check.
+	* c-tree.h (C_IS_RESERVED_WORD): Update documentation.
+
 2007-12-11  Tom Tromey  <tromey@redhat.com>
 
 	* gcc.c (execute): Call client_send_directory.
