@@ -1,3 +1,8 @@
+2007-12-12  Victor Kaplansky  <victork@il.ibm.com>
+
+        Clean up some directory and file renames leaved from previous merge
+	from main trunk.
+
 2007-11-14  Victor Kaplansky  <victork@il.ibm.com>
 
         Merged revisions up to 130138 from
