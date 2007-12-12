@@ -1,3 +1,9 @@
+2007-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (gcjsubdir): Remove -$libgcj_soversion suffix.
+	(dbexecdir): Fix up /lib/../lib canonicalization.
+	* configure: Rebuilt.
+
 2007-12-08  Andreas Tobler  <a.tobler@schweiz.org>
 
 	* configure.host: Add bits for i?86-*-darwin9 and x86_64-*-darwin9.

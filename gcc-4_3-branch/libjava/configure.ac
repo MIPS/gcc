@@ -1394,15 +1394,15 @@ AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
 
 # Determine where the standard .db file and GNU Classpath JNI
 # libraries are found.
-gcjsubdir=gcj-$gcjversion-$libgcj_soversion
+#gcjsubdir=gcj-$gcjversion-$libgcj_soversion
+gcjsubdir=gcj-$gcjversion
 multi_os_directory=`$CC -print-multi-os-directory`
 case $multi_os_directory in
   .)
    dbexecdir='$(libdir)/'$gcjsubdir # Avoid /.
    ;;
   ../lib*)
-   dbexecdir='$(subst /lib/../lib,/lib,$(libdir)/'$multi_os_directory'/gcj-$(gcc_version))'
-   ac_configure_args="$ac_configure_args --with-native-libdir=\$\(libdir\)/$multi_os_directory/gcj-`cat $srcdir/../gcc/BASE-VER`"
+   dbexecdir='$(subst /lib/../lib,/lib,$(libdir)/'$multi_os_directory/$gcjsubdir')'
    ;;
   *)
    dbexecdir='$(libdir)/'$multi_os_directory/$gcjsubdir
