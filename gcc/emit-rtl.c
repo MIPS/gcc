@@ -3192,17 +3192,23 @@ mark_label_nuses (rtx x)
 }
 
 
+/* Copy to CSET the varmap table from the ORIG_SET.  */
+
 static void
 move_xbitmap (rtx x, const_rtx cset, void *data)
 {
   rtx orig_set = (rtx)data;
   rtx set = (rtx)cset;
+
   if (GET_CODE (set) == CLOBBER)
     return;
+
   if (!reg_overlap_mentioned_p (x, SET_DEST (orig_set)))
     return;
+
   if (XBITMAP (set, 2))
     return;
+
   XBITMAP (set, 2) = XBITMAP (orig_set, 2);
 }
 

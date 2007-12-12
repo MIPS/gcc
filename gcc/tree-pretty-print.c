@@ -434,6 +434,7 @@ dump_symbols (pretty_printer *buffer, bitmap syms, int flags)
     }
 }
 
+/* Prints the associated varmaps for an ssa_name NAME.  */
 
 static void
 print_varmap (pretty_printer *buffer, tree name, int spc, int flags)
@@ -461,6 +462,8 @@ print_varmap (pretty_printer *buffer, tree name, int spc, int flags)
     }
   pp_character (buffer, '}');
 }
+
+/* Prints the associated varmaps for an expression EXPR.  */
 
 static void
 print_expr_varmap (pretty_printer *buffer, tree expr, int spc, int flags)

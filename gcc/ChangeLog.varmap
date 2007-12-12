@@ -1,3 +1,12 @@
+2007-12-12  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-pretty-print.c (print_varmap, print_expr_varmap): Document.
+	* print-rtl.c (print_rtx): Fix typo.
+	* emit-rtl.c (move_xbitmap): Document.
+	* tree-ssanames.c (ssa_varmap_lookup, ssa_varmap_set,
+	ssa_varmap_replace): Document.
+	(ssa_varmap_release): Fix typo.
+
 2007-11-13  Richard Guenther  <rguenther@suse.de>
 
 	* rtl.h (set_reg_decl): Declare.

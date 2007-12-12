@@ -317,6 +317,8 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }
 
+/* Returns the varmap table associated with SSA_NAME NAME.  */
+
 bitmap
 ssa_varmap_lookup (tree name)
 {
@@ -331,6 +333,8 @@ ssa_varmap_lookup (tree name)
     return NULL;
   return (*loc)->map;
 }
+
+/* Associate to SSA_NAME NAME the varmap table MAP.  */
 
 static void
 ssa_varmap_set (tree name, bitmap map)
@@ -349,6 +353,8 @@ ssa_varmap_set (tree name, bitmap map)
     }
   (*loc)->map = map;
 }
+
+/* Replaces the varmap table associated to SSA_NAME NAME with MAP.  */
 
 static void
 ssa_varmap_replace (tree name, bitmap map)
@@ -369,7 +375,7 @@ ssa_varmap_replace (tree name, bitmap map)
   bitmap_copy ((*loc)->map, map);
 }
 
-/* Releases the variable mapping information for SSA_NAME var.  */
+/* Releases the variable mapping information for SSA_NAME VAR.  */
 
 static void
 ssa_varmap_release (tree var)

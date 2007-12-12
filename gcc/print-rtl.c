@@ -532,7 +532,7 @@ print_rtx (const_rtx in_rtx)
 	    fputs (" }", outfile);
 	  }
 	else if (GET_CODE (in_rtx) == SET)
-	  /* Do not print {null} for non-existant SET var bitmaps.  */ ;
+	  /* Do not print {null} for non-existent SET var bitmaps.  */ ;
 	else if (XBITMAP (in_rtx, i) == NULL)
 	  fputs (" {null}", outfile);
 	else
