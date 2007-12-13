@@ -240,6 +240,7 @@ lto_symtab_merge_decl (tree new_decl)
   tree old_decl;
   tree name;
   tree merged_type = NULL_TREE;
+  tree merged_result = NULL_TREE;
 
   gcc_assert (TREE_CODE (new_decl) == VAR_DECL
 	      || TREE_CODE (new_decl) == FUNCTION_DECL);
@@ -295,39 +296,65 @@ lto_symtab_merge_decl (tree new_decl)
       if (TREE_CODE (new_decl) == VAR_DECL)
 	merged_type = lto_merge_types (TREE_TYPE (old_decl),
 				       TREE_TYPE (new_decl));
-      else if (TREE_CODE (new_decl) == FUNCTION_DECL
-               && (DECL_IS_BUILTIN (old_decl) || DECL_IS_BUILTIN (new_decl)))
-        {
-          tree candidate = match_builtin_function_types (TREE_TYPE (new_decl),
-                                                         TREE_TYPE (old_decl));
-	  /* We don't really have source location information at this
-	     point, so the above matching was a bit of a gamble.  If we
-	     lose, then CANDIDATE will be NULL, so test for that.  */
-	  if (candidate)
-	    merged_type =
-	      lto_same_type_p (candidate, TREE_TYPE (new_decl)) ? candidate : NULL_TREE;
-        }
-
-      if (!merged_type
-	  && TREE_CODE (new_decl) == FUNCTION_DECL
-	  && lto_same_type_p (TREE_TYPE (TREE_TYPE (old_decl)),
-			      TREE_TYPE (TREE_TYPE (new_decl)))
-	  /* We want either of the types to have argument types,
-	     but not both.  */
-	  && ((TYPE_ARG_TYPES (TREE_TYPE (old_decl)) != NULL)
-	      ^ (TYPE_ARG_TYPES (TREE_TYPE (new_decl)) != NULL)))
+      else if (TREE_CODE (new_decl) == FUNCTION_DECL)
 	{
-	  /* The situation here is that (in C) somebody was smart enough
-	     to use proper declarations in a header file, but the actual
-	     definition of the function uses non-ANSI-style argument
-	     lists.  One of the decls will then have a complete function
-	     type, whereas the other will only have a result type.
-	     Assume that the more complete type is the right one and
-	     don't complain.  */
-	  if (TYPE_ARG_TYPES (TREE_TYPE (old_decl)))
-	    merged_type = TREE_TYPE (old_decl);
-	  else
-	    merged_type = TREE_TYPE (new_decl);
+	  if (DECL_IS_BUILTIN (old_decl) || DECL_IS_BUILTIN (new_decl))
+	    {
+	      tree candidate = match_builtin_function_types (TREE_TYPE (new_decl),
+							     TREE_TYPE (old_decl));
+	      /* We don't really have source location information at this
+		 point, so the above matching was a bit of a gamble.  */
+	      if (candidate)
+		merged_type = candidate;
+	    }
+
+	  if (!merged_type
+	      /* We want either of the types to have argument types,
+		 but not both.  */
+	      && ((TYPE_ARG_TYPES (TREE_TYPE (old_decl)) != NULL)
+		  ^ (TYPE_ARG_TYPES (TREE_TYPE (new_decl)) != NULL)))
+	    {
+	      /* The situation here is that (in C) somebody was smart
+		 enough to use proper declarations in a header file, but
+		 the actual definition of the function uses
+		 non-ANSI-style argument lists.  Or we have a situation
+		 where declarations weren't used anywhere and we're
+		 merging the actual definition with a use.  One of the
+		 decls will then have a complete function type, whereas
+		 the other will only have a result type.  Assume that
+		 the more complete type is the right one and don't
+		 complain.  */
+	      if (TYPE_ARG_TYPES (TREE_TYPE (old_decl)))
+		{
+		  merged_type = TREE_TYPE (old_decl);
+		  merged_result = DECL_RESULT (old_decl);
+		}
+	      else
+		{
+		  merged_type = TREE_TYPE (new_decl);
+		  merged_result = DECL_RESULT (new_decl);
+		}
+	    }
+
+	  /* If we don't have a merged type yet...sigh.  The linker
+	     wouldn't complain if the types were mismatched, so we
+	     probably shouldn't either.  Just use the type from
+	     whichever decl appears to be associated with the
+	     definition.  If for some odd reason neither decl is, the
+	     older one wins.  */
+	  if (!merged_type)
+	    {
+	      if (!DECL_EXTERNAL (new_decl))
+		{
+		  merged_type = TREE_TYPE (new_decl);
+		  merged_result = DECL_RESULT (new_decl);
+		}
+	      else
+		{
+		  merged_type = TREE_TYPE (old_decl);
+		  merged_result = DECL_RESULT (old_decl);
+		}
+	    }
 	}
 
       if (!merged_type)
@@ -372,9 +399,21 @@ lto_symtab_merge_decl (tree new_decl)
     }
   if (DECL_MODE (old_decl) != DECL_MODE (new_decl))
     {
-      error ("machine mode of %qD does not match original declaration",
-	     new_decl);
-      return error_mark_node;
+      /* We can arrive here when we are merging 'extern char foo[]' and
+	 'char foo[SMALLNUM]'; the former is probably BLKmode and the
+	 latter is not.  In such a case, we should have merged the types
+	 already; detect it and don't complain.  */
+      if (TREE_CODE (old_decl) == VAR_DECL
+	  && TREE_CODE (TREE_TYPE (old_decl)) == ARRAY_TYPE
+	  && TREE_CODE (TREE_TYPE (new_decl)) == ARRAY_TYPE
+	  && merged_type)
+	;
+      else
+	{
+	  error ("machine mode of %qD does not match original declaration",
+		 new_decl);
+	  return error_mark_node;
+	}
     }
   if (!lto_compatible_attributes_p (old_decl,
 				    DECL_ATTRIBUTES (old_decl),
@@ -427,10 +466,18 @@ lto_symtab_merge_decl (tree new_decl)
     
   DECL_WEAK (old_decl) &= DECL_WEAK (new_decl);
   DECL_PRESERVE_P (old_decl) |= DECL_PRESERVE_P (new_decl);
+  if (merged_type)
+    {
+      TREE_TYPE (old_decl) = merged_type;
+      DECL_MODE (old_decl) = TYPE_MODE (merged_type);
+      if (merged_result)
+	{
+	  DECL_RESULT (old_decl) = merged_result;
+	  DECL_CONTEXT (DECL_RESULT (old_decl)) = old_decl;
+	}
+    }
   if (TREE_CODE (new_decl) == VAR_DECL)
     {
-      if (merged_type)
-	TREE_TYPE (old_decl) = merged_type;
       if (DECL_INITIAL (new_decl))
 	{
 	  gcc_assert (!DECL_INITIAL (old_decl));

@@ -1,5 +1,19 @@
 2007-12-13  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_array_type_DIE): Return the cached DIE if we've
+	already read the DIE.
+	(lto_get_body): New function, split out from...
+	(lto_materialize_function): ...here.  Call it.
+	(lto_read_subroutine_type_subprogram_DIE): Call lto_get_body to
+	determine DECL_EXTERNAL.
+	* lto-symtab.c (lto_symtab_merge_decl): Merge the DECL_RESULTs of
+	FUNCTION_DECLs when necessary.  Use the type of the actual
+	function definition if we are unable to easily merge types.  Ignore
+	spurious DECL_MODE mismatches on VAR_DECLs.  Merge DECL_MODEs when
+	necessary.
+
+2007-12-13  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto-lang.c (LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS): Define.
 
 2007-12-12  Bill Maddox  <maddox@google.com>

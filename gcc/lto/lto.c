@@ -1530,6 +1530,12 @@ lto_read_array_type_DIE (lto_info_fd *fd,
     }
   LTO_END_READ_ATTRS ();
 
+  {
+    tree type = lto_cache_lookup_DIE (fd, die, false);
+
+    if (type) return type;
+  }
+
   /* The DW_AT_type attribute is required.  */
   if (!type)
     lto_file_corrupt_error ((lto_fd *)fd);
@@ -2384,6 +2390,21 @@ lto_read_abbrev (lto_info_fd *fd)
   return abbrev;
 }
 
+/* Return a pointer to the data for DECL if possible, NULL otherwise.  */
+
+static const void *
+lto_get_body (lto_info_fd *fd,
+	      lto_context *context ATTRIBUTE_UNUSED,
+	      tree decl)
+{
+  lto_file *file;
+  const char *name;
+
+  file = fd->base.file;
+  name = IDENTIFIER_POINTER (DECL_NAME (decl));
+  return file->vtable->map_fn_body (file, name);
+}
+
 /* Read the function body for DECL out of FD if possible.  */
 
 static void
@@ -2391,13 +2412,9 @@ lto_materialize_function (lto_info_fd *fd,
                           lto_context *context,
                           tree decl)
 {
-  lto_file *file;
-  const void *body;
-  const char *name;
-
-  file = fd->base.file;
-  name = IDENTIFIER_POINTER (DECL_NAME (decl));
-  body = file->vtable->map_fn_body (file, name);
+  lto_file *file = fd->base.file;
+  const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
+  const void *body = lto_get_body (fd, context, decl);
 
   if (body)
     {
@@ -2638,6 +2655,23 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 #if 0
       DECL_SOURCE_LOCATION (result) = { input_filename, line };
 #endif
+
+      /* We need to have a reliable way to determine whether this
+	 function decl is associated with a definition so that the
+	 merging heuristics work properly.  The best way to do that is
+	 to look for the function's body.  */
+      {
+	const void *body = lto_get_body (fd, context, result);
+	const char *name = IDENTIFIER_POINTER (DECL_NAME (result));
+
+	if (body)
+	  {
+	    DECL_EXTERNAL (result) = 0;
+	    fd->base.file->vtable->unmap_fn_body (fd->base.file, name, body);
+	  }
+	else
+	  DECL_EXTERNAL (result) = 1;
+      }
 
       /* If the function has already been declared, merge the
 	 declarations.  */
