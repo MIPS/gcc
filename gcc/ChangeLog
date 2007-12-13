@@ -1,8 +1,3 @@
-2007-12-07  Bill Maddox  <maddox@google.com>
-
-	* dwarf2out.c (AT_string_form): Remove code to suppress
-	the use of the DWARF string table.
-
 2007-11-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/34063

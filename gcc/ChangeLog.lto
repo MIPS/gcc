@@ -1,3 +1,16 @@
+2007-12-12  Bill Maddox  <maddox@google.com>
+
+	Revert
+	2007-12-07  Bill Maddox  <maddox@google.com>
+
+	* dwarf2out.c (AT_string_form): Remove code to suppress
+	the use of the DWARF string table.
+
+2007-12-07  Bill Maddox  <maddox@google.com>
+
+	* dwarf2out.c (AT_string_form): Remove code to suppress
+	the use of the DWARF string table.
+
 2007-12-07  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* tree-flow.h (init_empty_tree_cfg_for_function): Declare.
