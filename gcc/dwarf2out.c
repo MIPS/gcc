@@ -15114,6 +15114,17 @@ dwarf2out_finish (const char *filename)
     htab_traverse (debug_str_hash, output_indirect_string, NULL);
 }
 
+/* Mark DIE and all its children used.  */
+static void
+mark_die_used (dw_die_ref die)
+{
+  dw_die_ref c;
+
+  die->die_perennial_p = 1;
+  /* Mark children.  */
+  FOR_EACH_CHILD (die, c, mark_die_used (c));
+}
+
 /* Initialize REF as a reference to DIE.  SCOPE is the lexical scope
    containing the entity being referenced.  */
 static void
@@ -15127,7 +15138,7 @@ lto_init_ref (lto_out_ref *ref,
   assign_symbol_name (die);
   gcc_assert (die->die_symbol);
   /* Make sure the DIE is actually emitted.  */
-  die->die_perennial_p = 1;
+  mark_die_used (die);
   /* At present, we use only one DWARF section.  When we begin using
      multiple sections, SCOPE will be used to figure out the section
      and corresponding BASE_LABEL.  */

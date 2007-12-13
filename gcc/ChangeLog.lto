@@ -1,5 +1,10 @@
 2007-12-13  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* dwarf2out.c (mark_die_used): New function.
+	(lto_init_ref): Call it.
+
+2007-12-13  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* langhooks.h (struct lang_hooks) Add comment for
 	reduce_bit_field_operations.
 
