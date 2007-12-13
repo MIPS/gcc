@@ -1,3 +1,7 @@
+2007-12-13  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-lang.c (LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS): Define.
+
 2007-12-12  Bill Maddox  <maddox@google.com>
 
 	Revert
