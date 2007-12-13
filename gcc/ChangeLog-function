@@ -1,5 +1,8 @@
 2007-12-13  Michael Meissner  <michael.meissner@amd.com>
 
-	Function specific optimization branch created from revision 130896
+	* REVISION: New file, "function-specific-branch" to mark this
+	branch.
+
+Function specific optimization branch created from revision 130896
 
 
