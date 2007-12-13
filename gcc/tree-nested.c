@@ -1912,6 +1912,16 @@ free_nesting_tree (struct nesting_info *root)
   while (root);
 }
 
+/* Gimplify a function and all its nested functions.  */
+static void
+gimplify_all_functions (struct cgraph_node *root)
+{
+  struct cgraph_node *iter;
+  gimplify_function_tree (root->decl);
+  for (iter = root->nested; iter; iter = iter->next_nested)
+    gimplify_all_functions (iter);
+}
+
 /* Main entry point for this pass.  Process FNDECL and all of its nested
    subroutines and turn them into something less tightly bound.  */
 
@@ -1925,6 +1935,8 @@ lower_nested_functions (tree fndecl)
   cgn = cgraph_node (fndecl);
   if (!cgn->nested)
     return;
+
+  gimplify_all_functions (cgn);
 
   bitmap_obstack_initialize (&nesting_info_bitmap_obstack);
   root = create_nesting_tree (cgn);

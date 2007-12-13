@@ -1,3 +1,12 @@
+2007-12-13  Tom Tromey  <tromey@redhat.com>
+
+	* tree-nested.c (gimplify_all_functions): New function.
+	(lower_nested_functions): Call it.
+	* cgraphunit.c (cgraph_lower_function): Call
+	lower_nested_functions here...
+	(cgraph_finalize_function): ... not here.
+	(cgraph_analyze_function): Restore current_function_decl.
+
 2007-12-12  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (check_hunk_binding): Fix multi-hunk failure check.

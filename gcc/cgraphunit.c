@@ -527,6 +527,11 @@ cgraph_lower_function (struct cgraph_node *node)
 {
   if (node->lowered)
     return;
+
+  if (node->nested)
+    lower_nested_functions (node->decl);
+  gcc_assert (!node->nested);
+
   tree_lowering_passes (node->decl);
   node->lowered = true;
 }
@@ -550,9 +555,6 @@ cgraph_finalize_function (tree decl, bool nested)
   node->local.finalized = true;
   node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
   record_cdtor_fn (node->decl);
-  if (node->nested)
-    lower_nested_functions (decl);
-  gcc_assert (!node->nested);
 
   /* If not unit at a time, then we need to create the call graph
      now, so that called functions can be queued and emitted now.  */
@@ -777,6 +779,7 @@ cgraph_output_pending_asms (void)
 void
 cgraph_analyze_function (struct cgraph_node *node)
 {
+  tree save = current_function_decl;
   tree decl = node->decl;
 
   current_function_decl = decl;
@@ -795,7 +798,7 @@ cgraph_analyze_function (struct cgraph_node *node)
     }
 
   pop_cfun ();
-  current_function_decl = NULL;
+  current_function_decl = save;
 }
 
 /* Look for externally_visible and used attributes and mark cgraph nodes
