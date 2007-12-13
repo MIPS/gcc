@@ -834,7 +834,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       
 
     case RESULT_DECL:
-      result = build0 (code, type);
+      result = DECL_RESULT (current_function_decl);
       add_referenced_var (result);
       break;
 

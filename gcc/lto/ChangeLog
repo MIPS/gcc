@@ -1,5 +1,10 @@
 2007-12-13  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto-read.c (input_expr_operand): Use DECL_RESULT when reading a
+	RESULT_DECL.
+
+2007-12-13  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto.c (lto_read_array_type_DIE): Return the cached DIE if we've
 	already read the DIE.
 	(lto_get_body): New function, split out from...
