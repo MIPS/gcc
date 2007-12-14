@@ -2113,7 +2113,8 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 	 since we do not want to smash any generally visible (and
 	 reusable) decl.  FIXME: should make just one duplicate for
 	 both scopes.  */
-      if ((B_IN_FILE_SCOPE (binding) || B_IN_EXTERNAL_SCOPE (binding))
+      if (binding
+	  && (B_IN_FILE_SCOPE (binding) || B_IN_EXTERNAL_SCOPE (binding))
 	  && !object_in_current_hunk_p (olddecl))
 	{
 	  /* Modify a copy of OLDDECL and install that in the
@@ -2461,7 +2462,7 @@ pushdecl (tree x)
 	}
       else if (TREE_PUBLIC (x))
 	{
-	  if (visdecl && !b && duplicate_decls (x, visdecl, b))
+	  if (visdecl && !b && duplicate_decls (x, visdecl, NULL))
 	    {
 	      /* An external declaration at block scope referring to a
 		 visible entity with internal linkage.  The composite

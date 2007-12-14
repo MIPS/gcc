@@ -1,5 +1,10 @@
 2007-12-14  Tom Tromey  <tromey@redhat.com>
 
+	* c-decl.c (pushdecl): Pass NULL directly to duplicate_decls.
+	(duplicate_decls): Check for non-NULL binding.
+
+2007-12-14  Tom Tromey  <tromey@redhat.com>
+
 	* c-common.c (c_type_hash): Handle VLAs.
 
 2007-12-13  Tom Tromey  <tromey@redhat.com>
