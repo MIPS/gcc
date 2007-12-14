@@ -2956,9 +2956,21 @@ lookup_name (tree name)
   struct c_binding *b = I_SYMBOL_BINDING (name);
   if (b && !b->invisible)
     {
+      tree result = b->decl;
       if (B_IN_FILE_SCOPE (b))
-	c_parser_lookup_callback (name, b->decl, false);
-      return b->decl;
+	{
+	  c_parser_lookup_callback (name, result, false);
+	  /* We should only need to handle smashed types for
+	     file-scope things.  */
+	  if (TREE_TYPE (result) != error_mark_node
+	      && TREE_CODE (result) == VAR_DECL)
+	    {
+	      tree newtype = C_SMASHED_TYPE_VARIANT (TREE_TYPE (result));
+	      if (newtype != TREE_TYPE (result))
+		result = build1 (VIEW_CONVERT_EXPR, newtype, result);
+	    }
+	}
+      return result;
     }
   c_parser_lookup_callback (name, NULL_TREE, false);
   return 0;

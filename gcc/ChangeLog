@@ -1,5 +1,9 @@
 2007-12-14  Tom Tromey  <tromey@redhat.com>
 
+	* c-decl.c (lookup_name): Wrap variables in a VIEW_CONVERT_EXPR.
+
+2007-12-14  Tom Tromey  <tromey@redhat.com>
+
 	* c-common.h (c_set_cpp_error_callback): Declare.
 	* c-lex.c (c_cpp_error): New function, renamed and moved from
 	cp_cpp_error.
