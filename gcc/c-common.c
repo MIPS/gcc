@@ -3035,7 +3035,11 @@ c_type_hash (const void *p)
     }
   for (; t2; t2 = TREE_CHAIN (t2))
     i++;
-  size = TREE_INT_CST_LOW (TYPE_SIZE (t));
+  /* We might have a VLA here.  */
+  if (TREE_CODE (TYPE_SIZE (t)) != INTEGER_CST)
+    size = 0;
+  else
+    size = TREE_INT_CST_LOW (TYPE_SIZE (t));
   return ((size << 24) | (i << shift));
 }
 

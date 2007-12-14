@@ -1,3 +1,7 @@
+2007-12-14  Tom Tromey  <tromey@redhat.com>
+
+	* c-common.c (c_type_hash): Handle VLAs.
+
 2007-12-13  Tom Tromey  <tromey@redhat.com>
 
 	* tree-nested.c (gimplify_all_functions): New function.
