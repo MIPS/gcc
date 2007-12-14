@@ -1,3 +1,33 @@
+2007-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34438
+	* resolve.c (resolve_symbol): Do not emit public-variable-
+	of-private-derived-type error for non-module variables.
+
+2007-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34398
+	* expr.c (gfc_check_assign): Add range checks for assignments of BOZs.
+	* resolve.c (resolve_ordinary_assign): Ditto.
+	* arith.c (gfc_range_check): Fix return value for complex numbers.
+
+2007-12-14  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/34324
+	* module.c (parse_atom): Fixed parsing of modules files whose
+	lines are terminated by CRLF.
+
+2007-12-13  Anton Korobeynikov  <asl@math.spbu.ru>
+
+	* trans-decl.c (gfc_build_builtin_function_decls): Correct decl
+	construction for select_string() and internal_unpack()
+
+2007-12-13  Duncan Sands  <baldrick@free.fr>
+	    Anton Korobeynikov  <asl@math.spbu.ru>
+
+	* trans-expr.c (gfc_conv_structure): Make sure record constructors
+	for static variables are marked constant.
+
 2007-12-12  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/34254

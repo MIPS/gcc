@@ -5921,12 +5921,29 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
   /* Handle the case of a BOZ literal on the RHS.  */
   if (rhs->is_boz && lhs->ts.type != BT_INTEGER)
     {
+      int rc;
       if (gfc_option.warn_surprising)
 	gfc_warning ("BOZ literal at %L is bitwise transferred "
 		     "non-integer symbol '%s'", &code->loc,
 		     lhs->symtree->n.sym->name);
 
       gfc_convert_boz (rhs, &lhs->ts);
+      if ((rc = gfc_range_check (rhs)) != ARITH_OK)
+	{
+	  if (rc == ARITH_UNDERFLOW)
+	    gfc_error ("Arithmetic underflow of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rhs->where);
+	  else if (rc == ARITH_OVERFLOW)
+	    gfc_error ("Arithmetic overflow of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rhs->where);
+	  else if (rc == ARITH_NAN)
+	    gfc_error ("Arithmetic NaN of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rhs->where);
+	  return false;
+	}
     }
 
 
@@ -7831,10 +7848,11 @@ resolve_symbol (gfc_symbol *sym)
      See 4.4.1 (F95) and 4.5.1.1 (F2003); and related interpretation
      161 in 95-006r3.  */
   if (sym->ts.type == BT_DERIVED
+      && sym->ns->proc_name && sym->ns->proc_name->attr.flavor == FL_MODULE
+      && !sym->ts.derived->attr.use_assoc
       && gfc_check_access (sym->attr.access, sym->ns->default_access)
       && !gfc_check_access (sym->ts.derived->attr.access,
 			    sym->ts.derived->ns->default_access)
-      && !sym->ts.derived->attr.use_assoc
       && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: PUBLIC %s '%s' at %L "
 		         "of PRIVATE derived type '%s'",
 			 (sym->attr.flavor == FL_PARAMETER) ? "parameter"

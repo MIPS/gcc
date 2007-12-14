@@ -1,4 +1,73 @@
-2007-11-26  Olga Golovanevsky  <olga@il.ibm.com>
+2007-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/29978
+	* gcc.target/i386/pr29978.c: New test.
+
+2007-12-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-12.c (dg-options): Use -msse4
+	instead of -msse4.1.
+	* gcc.target/i386/sse-12.c (dg-options): Ditto.
+	* g++.dg/other/i386-2.C (dg-options): Ditto.
+
+2007-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34438
+	* gfortran.dg/private_type_10.f90: New.
+
+2007-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34398
+	* gfortran.dg/nan_4.f90: New.
+
+2007-12-14  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34462
+	* gcc.c-torture/compile/20071214-1.c: New testcase.
+
+2007-12-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-14.c (test_1, test_2, test_2x, test_4): New
+	macros to test macroized SSE intrinsics.  Use new macros to test
+	macroized SSE intrinsics from ammintrin.h, smmintrin.h, tmmintrin.h,
+	emmintrin.h, xmmintrin.h and bmmintrin.h
+	* gcc.target/i386/sse-13.c (__builtin_ia32_pcmp?str*128): Redefine
+	to test with immediate operand.
+
+2007-12-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/34091
+	* gcc.c-torture/compile/pr34091.c: New test.
+
+2007-12-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/uninit-13.c: UnXFAIL.
+	* gcc.dg/complex-5.c: New testcase.
+
+2007-12-13  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* gcc.dg/struct/struct-reorg.exp: Replace 
+	 DEFAULT_CFLAGS by STRUCT_REORG_CFLAFS. 
+	
+2007-12-13  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34370
+	PR libfortran/34323
+	PR libfortran/34405
+	* gfortran.dg/advance_6.f90:  New test case.
+	* gfortran.dg/direct_io_7.f90:  New test case.
+	* gfortran.dg/streamio_13.f90:  New test case.
+
+2007-12-13  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/cpp0x/__func__.C: New.
+
+2007-12-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/34435
+	* g++.dg/other/pr34435.C: New testcase.
+
+2007-12-13  Olga Golovanevsky  <olga@il.ibm.com>
 
 	* gcc.dg/struct: New directory with tests 
 	for struct-reorg optimizaion.
