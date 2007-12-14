@@ -1138,7 +1138,10 @@ c_parser_update_checksum (struct md5_ctx *current_hash, c_token *token)
     case CPP_NUMBER:
     case CPP_CHAR:
     case CPP_WCHAR:
-      update_numeric_checksum (current_hash, token->value);
+      /* In some cases we can see a numeric token whose value is an
+	 error mark.  */
+      if (TREE_CODE (token->value) != ERROR_MARK)
+	update_numeric_checksum (current_hash, token->value);
       break;
 
     default:

@@ -1,5 +1,9 @@
 2007-12-14  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_update_checksum): Handle ERROR_MARK.
+
+2007-12-14  Tom Tromey  <tromey@redhat.com>
+
 	* c-decl.c (pushdecl): Pass NULL directly to duplicate_decls.
 	(duplicate_decls): Check for non-NULL binding.
 
