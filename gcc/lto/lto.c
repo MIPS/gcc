@@ -2793,10 +2793,15 @@ lto_read_pointer_reference_type_DIE (lto_info_fd *fd,
 				     lto_context *context)
 {
   tree pointed_to = NULL_TREE;
+  tree name = NULL_TREE;
   tree type;
 
   LTO_BEGIN_READ_ATTRS ()
     {
+    case DW_AT_name:
+      name = lto_get_identifier (&attr_data);
+      break;
+
     case DW_AT_type:
       pointed_to = lto_read_referenced_type_DIE (fd, 
 						 context, 
@@ -2828,6 +2833,16 @@ lto_read_pointer_reference_type_DIE (lto_info_fd *fd,
       break;
     default:
       gcc_unreachable ();
+    }
+
+  /* If pointer/reference has a name, build a typedef. */
+  if (name != NULL_TREE)
+    {
+      tree named_type = build_variant_type_copy (type);
+      tree decl = build_decl (TYPE_DECL, name, named_type);
+      TYPE_NAME (named_type) = decl;
+      DECL_ORIGINAL_TYPE (decl) = type;
+      type = named_type;
     }
 
   lto_read_child_DIEs (fd, abbrev, context);
