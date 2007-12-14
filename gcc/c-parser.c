@@ -417,6 +417,8 @@ c_parser_lex_string (c_parser *parser, size_t offset, bool translate)
   location_t second_str_loc;
   c_token *tok = &parser->buffer[offset];
 
+  /* Set the location for cpp diagnostics.  */
+  c_parser_set_source_position_from_token (tok);
   gcc_assert (c_parser_is_string_literal (tok));
   do
     {
@@ -1228,6 +1230,8 @@ c_parser_lex_all (c_parser *parser, c_token *token)
       token = &buffer[pos];
       ++pos;
     }
+
+  c_set_cpp_error_callback (parse_in);
 
   parser->buffer = buffer;
   parser->buffer_length = pos + 1;

@@ -841,6 +841,8 @@ extern void init_c_lex (void);
 
 extern void c_cpp_builtins (cpp_reader *);
 
+extern void c_set_cpp_error_callback (cpp_reader *);
+
 /* State used by functions in c-lex.c.  This is passed to the lexer
    via the user-data field in the cpp_reader's callback structure.  */
 struct c_lex_state

@@ -877,3 +877,52 @@ lex_charconst (const cpp_token *token)
 
   return value;
 }
+
+
+
+/* Callback from cpp_error for PFILE to print diagnostics arising from
+   interpreting strings.  The diagnostic is of type LEVEL; MSG is the
+   translated message and AP the arguments.  */
+
+static void
+c_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level,
+	     const char *msg, va_list *ap)
+  ATTRIBUTE_GCC_CDIAG(3,0);
+
+static void
+c_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level,
+	     const char *msg, va_list *ap)
+{
+  diagnostic_info diagnostic;
+  diagnostic_t dlevel;
+  switch (level)
+    {
+    case CPP_DL_WARNING:
+    case CPP_DL_WARNING_SYSHDR:
+      dlevel = DK_WARNING;
+      break;
+    case CPP_DL_PEDWARN:
+      dlevel = pedantic_error_kind ();
+      break;
+    case CPP_DL_ERROR:
+      dlevel = DK_ERROR;
+      break;
+    case CPP_DL_ICE:
+      dlevel = DK_ICE;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  diagnostic_set_info_translated (&diagnostic, msg, ap,
+				  input_location, dlevel);
+  report_diagnostic (&diagnostic);
+}
+
+/* Set the diagnostic callback for PFILE to the input_location-based
+   callback.  */
+void
+c_set_cpp_error_callback (cpp_reader *pfile)
+{
+  cpp_get_options (pfile)->client_diagnostic = true;
+  cpp_get_callbacks (pfile)->error = c_cpp_error;
+}

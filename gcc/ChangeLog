@@ -1,5 +1,15 @@
 2007-12-14  Tom Tromey  <tromey@redhat.com>
 
+	* c-common.h (c_set_cpp_error_callback): Declare.
+	* c-lex.c (c_cpp_error): New function, renamed and moved from
+	cp_cpp_error.
+	(c_set_cpp_error_callback): New function.
+	* c-parser.c (c_parser_lex_string): Set location from first string
+	token.
+	(c_parser_lex_all): Call c_set_cpp_error_callback.
+
+2007-12-14  Tom Tromey  <tromey@redhat.com>
+
 	* c-parser.c (c_parser_update_checksum): Handle ERROR_MARK.
 
 2007-12-14  Tom Tromey  <tromey@redhat.com>

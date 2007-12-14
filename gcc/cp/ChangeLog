@@ -1,3 +1,9 @@
+2007-12-14  Tom Tromey  <tromey@redhat.com>
+
+	* parser.c (cp_lexer_new_main): Call c_set_cpp_error_callback.
+	* cp-tree.h (cp_cpp_error): Remove declaration.
+	* error.c (cp_cpp_error): Remove.
+
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
 	* cp-objcp-common.h (LANG_HOOKS_POST_GIMPLIFY_PASS): New macro.
