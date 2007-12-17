@@ -5534,17 +5534,15 @@ allocator (@acronym{IRA}) for the register allocation.
 @item -fira-algorithm=@var{algorithm}
 Use specified algorithm for the integrated register allocator.  The
 @var{algorithm} argument should be one of @code{regional}, @code{CB},
-@code{mixed} or @code{priority}.  The second algorithm specifies
-Chaitin-Briggs coloring, the fourth one specifies Chow's priority
-based coloring, the first one which is the default specifies regional
-coloring based on Chaitin-Briggs coloring, and the third one specifies
-a mix of Chaitin-Briggs and regional algorithms where loops with small
-register pressure are ignored.  The first algorithm is the best for
-the generated code quality especially for machines with small or
-moderate size register set, the second one is faster and generates
-decent code and the smallest size code, the priority-based one is the
-fastest one, and the mixed algorithm can give the best result in some
-cases.
+or @code{mixed}.  The second algorithm specifies Chaitin-Briggs
+coloring, the first one specifies regional coloring based on
+Chaitin-Briggs coloring, and the third one which is the default
+specifies a mix of Chaitin-Briggs and regional algorithms where loops
+with small register pressure are ignored.  The first algorithm can
+give best result for machines with small size and irregular register
+set, the second one is faster and generates decent code and the
+smallest size code, and the mixed algorithm usually give the best
+results in most cases and for most architectures.
 
 @item -fira-coalescing
 @opindex fira-coalescing

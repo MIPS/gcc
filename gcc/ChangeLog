@@ -1,5 +1,22 @@
 2007-12-17  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* doc/invoke.texi (fira-algoirthm): Remove prioirity coloring.
+	Make mixed the default.
+
+	* flags.h (ira_algorithm): Remove IRA_ALGORITHM_PRIORITY.
+
+	* ira-color.c (priority_coloring):  Remove.
+	(do_coloring): Don't call priority_coloring.
+
+	* opts.c (common_handle_option): Remove priority coloring option.
+
+	* toplev.c (flag_ira_algorithm): Assign IRA_ALGORITHM_MIXED.
+	
+	* ira-build.c (check_and_add_conflicts, ira_flattening): Increase
+	threshold for internal_flag_ira_verbose.
+	
+2007-12-17  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* common.opt (fira-assign-after-call-split, fira-biased-coloring,
 	fira-split-around-calls): Remove.
 	(fdump-simple-rtl, fira-verbose): New options.

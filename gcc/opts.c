@@ -1730,8 +1730,6 @@ common_handle_option (size_t scode, const char *arg, int value,
 	flag_ira_algorithm = IRA_ALGORITHM_CB;
       else if (!strcmp (arg, "mixed"))
 	flag_ira_algorithm = IRA_ALGORITHM_MIXED;
-      else if (!strcmp (arg, "priority"))
-	flag_ira_algorithm = IRA_ALGORITHM_PRIORITY;
       else
 	warning (0, "unknown ira algorithm \"%s\"", arg);
       break;

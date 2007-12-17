@@ -69,7 +69,6 @@ static void print_loop_title (loop_tree_node_t);
 static void color_pass (loop_tree_node_t);
 static int allocno_priority_compare_func (const void *, const void *);
 static void finish_allocno_priorities (void);
-static void priority_coloring (void);
 static void start_allocno_priorities (allocno_t *, int);
 static void do_coloring (void);
 
@@ -1413,58 +1412,6 @@ finish_allocno_priorities (void)
   ira_free (allocno_priorities);
 }
 
-/* The function implements Chow's prioity-based coloring.  */
-static void
-priority_coloring (void)
-{
-  int i, hard_regs_num;
-  allocno_t a;
-
-  processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
-  memcpy (sorted_allocnos, allocnos, allocnos_num * sizeof (allocno_t));
-  for (i = 0; i < allocnos_num; i++)
-    {
-      bitmap_set_bit (coloring_allocno_bitmap, i);
-      a = allocnos [i];
-      hard_regs_num = class_hard_regs_num [ALLOCNO_COVER_CLASS (a)];
-      if (hard_regs_num == 0)
-	continue;
-      memcpy (ALLOCNO_UPDATED_HARD_REG_COSTS (a),
-	      ALLOCNO_HARD_REG_COSTS (a), sizeof (int) * hard_regs_num);
-      memcpy (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a),
-	      ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-	      sizeof (int) * hard_regs_num);
-    }
-  bitmap_copy (consideration_allocno_bitmap, coloring_allocno_bitmap);
-  start_allocno_priorities (sorted_allocnos, allocnos_num);
-  qsort (sorted_allocnos, allocnos_num, sizeof (allocno_t),
-	 allocno_priority_compare_func);
-  finish_allocno_priorities ();
-  for (i = 0; i < allocnos_num; i++)
-    {
-      a = sorted_allocnos [i];
-      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
-	{
-	  fprintf (ira_dump_file, "      ");
-	  print_expanded_allocno (a);
-	  fprintf (ira_dump_file, "  -- ");
-	}
-      if (assign_hard_reg (a, FALSE))
-	{
-	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
-	    fprintf (ira_dump_file, "assign reg %d\n",
-		     ALLOCNO_HARD_REGNO (a));
-	}
-      else
-	{
-	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
-	    fprintf (ira_dump_file, "spill\n");
-	}
-      ALLOCNO_IN_GRAPH_P (a) = TRUE;
-    }
-  ira_free_bitmap (processed_coalesced_allocno_bitmap);
-}
-
 /* The function initialized common data for cloring and calls
    functions to do Chaitin-Briggs, regional, and Chow's priority-based
    coloring.  */
@@ -1474,15 +1421,10 @@ do_coloring (void)
   coloring_allocno_bitmap = ira_allocate_bitmap ();
   consideration_allocno_bitmap = ira_allocate_bitmap ();
 
-  if (flag_ira_algorithm == IRA_ALGORITHM_PRIORITY)
-    priority_coloring ();
-  else
-    {
-      if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
-	fprintf (ira_dump_file, "\n**** Allocnos coloring:\n\n");
-      
-      traverse_loop_tree (FALSE, ira_loop_tree_root, color_pass, NULL);
-    }
+  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+    fprintf (ira_dump_file, "\n**** Allocnos coloring:\n\n");
+  
+  traverse_loop_tree (FALSE, ira_loop_tree_root, color_pass, NULL);
 
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     print_disposition (ira_dump_file);

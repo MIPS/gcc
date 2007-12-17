@@ -306,7 +306,7 @@ enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
 /* Set the default algorithm for the integrated register allocator.  */
 
-enum ira_algorithm flag_ira_algorithm = IRA_ALGORITHM_REGIONAL;
+enum ira_algorithm flag_ira_algorithm = IRA_ALGORITHM_MIXED;
 
 /* Set the default value for -fira-verbose.  */
 

@@ -1419,7 +1419,7 @@ check_and_add_conflicts (allocno_t a, allocno_t *conflict_vec)
 	  ira_assert (allocno_conflict_index (a, conflict_a) < 0);
 	  add_to_allocno_conflict_vec (conflict_a, a);
 	  add_to_allocno_conflict_vec (a, conflict_a);
-	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file,
 		     "      Add underlying conflict a%dr%d-a%dr%d\n",
 		     ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
@@ -1529,7 +1529,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	    }
 	  if (REGNO (ALLOCNO_REG (a)) == REGNO (ALLOCNO_REG (father_a)))
 	    {
-	      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 		{
 		  fprintf (ira_dump_file,
 			   "      Moving ranges of a%dr%d to a%dr%d: ",
@@ -1588,7 +1588,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 		 a parent) or a child of grandparent.  */
 	      for (first = a;;)
 		{
-		  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+		  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 		    {
 		      fprintf
 			(ira_dump_file,
@@ -1636,7 +1636,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
       if (ALLOCNO_CAP_MEMBER (cp->first) != NULL
 	  || ALLOCNO_CAP_MEMBER (cp->second) != NULL)
 	{
-	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf
 	      (ira_dump_file, "      Remove cp%d:%c%dr%d-%c%dr%d\n",
 	       cp->num, ALLOCNO_CAP_MEMBER (cp->first) != NULL ? 'c' : 'a',
@@ -1671,7 +1671,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
       else
 	{
 	  cp->loop_tree_node = NULL;
-	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "      Remove cp%d:a%dr%d-a%dr%d\n",
 		     cp->num, ALLOCNO_NUM (cp->first),
 		     REGNO (ALLOCNO_REG (cp->first)), ALLOCNO_NUM (cp->second),
@@ -1733,7 +1733,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
       if (ALLOCNO_LOOP_TREE_NODE (a) != ira_loop_tree_root
 	  || ALLOCNO_CAP_MEMBER (a) != NULL)
 	{
-	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "      Remove a%dr%d\n",
 		     ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)));
 	  finish_allocno (a);
@@ -1750,7 +1750,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	    allocno_vec [k++] = conflict_a;
 	  else
 	    {
-	      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 		fprintf (ira_dump_file,
 			 "      Remove conflict a%dr%d - a%dr%d\n",
 			 ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
@@ -1766,7 +1766,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	  free++;
 	  continue;
 	}
-      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	fprintf (ira_dump_file, "      Enumerate a%dr%d to a%d\n",
 		 ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)), free);
       ALLOCNO_NUM (a) = free;
@@ -1795,7 +1795,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	  free++;
 	  continue;
 	}
-      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	fprintf (ira_dump_file,
 		 "      Enumerate cp%d to cp%d\n", cp->num, free);
       cp->num = free;
@@ -1824,7 +1824,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 		{
 		  if (allocno_conflict_index (a, conflict_a) < 0)
 		    {
-		      if (internal_flag_ira_verbose > 3
+		      if (internal_flag_ira_verbose > 4
 			  && ira_dump_file != NULL)
 			fprintf
 			  (ira_dump_file,
@@ -1836,7 +1836,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 		    }
 		  if (allocno_conflict_index (conflict_a, a) < 0)
 		    {
-		      if (internal_flag_ira_verbose > 3
+		      if (internal_flag_ira_verbose > 4
 			  && ira_dump_file != NULL)
 			fprintf
 			  (ira_dump_file,

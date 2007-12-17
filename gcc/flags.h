@@ -225,8 +225,7 @@ extern int flag_dump_rtl_in_asm;
 enum ira_algorithm {
   IRA_ALGORITHM_REGIONAL,
   IRA_ALGORITHM_CB,
-  IRA_ALGORITHM_MIXED,
-  IRA_ALGORITHM_PRIORITY
+  IRA_ALGORITHM_MIXED
 };
 
 extern enum ira_algorithm flag_ira_algorithm;
