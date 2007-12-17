@@ -55,7 +55,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
      Graph Coloring Register Allocation.
 
    o David Callahan, Brian Koblenz.  Register allocation via
-     hierarchical graph coloring
+     hierarchical graph coloring.
 
    o Keith Cooper, Anshuman Dasgupta, Jason Eckhardt. Revisiting Graph
      Coloring Register Allocation: A Study of the Chaitin-Briggs and
@@ -109,13 +109,14 @@ static void print_class_cover (FILE *);
 static void find_reg_class_closure (void);
 static void setup_reg_class_nregs (void);
 static void setup_prohibited_class_mode_regs (void);
+static void setup_prohibited_mode_move_regs (void);
 static int insn_contains_asm_1 (rtx *, void *);
 static int insn_contains_asm (rtx);
 static void compute_regs_asm_clobbered (char *);
 static void setup_eliminable_regset (void);
 static void find_reg_equiv_invariant_const (void);
-static void setup_reg_renumber (int, int);
-static int setup_allocno_assignment_from_reg_renumber (void);
+static void setup_reg_renumber (void);
+static void setup_allocno_assignment_flags (void);
 static void calculate_allocation_cost (void);
 #ifdef ENABLE_IRA_CHECKING
 static void check_allocation (void);
@@ -130,8 +131,14 @@ static void expand_reg_info (int);
 static bool gate_ira (void);
 static unsigned int rest_of_handle_ira (void);
 
+/* The flag value used internally.  */
+int internal_flag_ira_verbose;
+
 /* Dump file for IRA.  */
 FILE *ira_dump_file;
+
+/* Pools for allocnos, copies, allocno live ranges.  */
+alloc_pool allocno_pool, copy_pool, allocno_live_range_pool;
 
 /* The number of elements in the following array.  */
 int spilled_reg_stack_slots_num;
@@ -365,7 +372,7 @@ setup_alloc_regs (int use_hard_frame_p)
 
 /* Define the following macro if allocation through malloc if
    preferable.  */
-/*#define IRA_NO_OBSTACK*/
+#define IRA_NO_OBSTACK
 
 #ifndef IRA_NO_OBSTACK
 /* Obstack used for storing all dynamic data (except bitmaps) of the
@@ -386,6 +393,20 @@ ira_allocate (size_t len)
   res = obstack_alloc (&ira_obstack, len);
 #else
   res = xmalloc (len);
+#endif
+  return res;
+}
+
+/* The function reallocates memory PTR of size LEN for IRA data.  */
+void *
+ira_reallocate (void *ptr, size_t len)
+{
+  void *res;
+
+#ifndef IRA_NO_OBSTACK
+  res = obstack_alloc (&ira_obstack, len);
+#else
+  res = xrealloc (ptr, len);
 #endif
   return res;
 }
@@ -462,7 +483,9 @@ print_disposition (FILE *f)
   fprintf (f, "Disposition:");
   max_regno = max_reg_num ();
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
-    for (a = regno_allocno_map [i]; a != NULL; a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
+    for (a = regno_allocno_map [i];
+	 a != NULL;
+	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
       {
 	if (n % 4 == 0)
 	  fprintf (f, "\n");
@@ -543,9 +566,13 @@ enum reg_class reg_class_cover [N_REG_CLASSES];
 /* The value is number of elements in the subsequent array.  */
 int important_classes_num;
 
-/* The array containing classes which are subclasses of a cover
-   class.  */
+/* The array containing classes which are subclasses of cover
+   classes.  */
 enum reg_class important_classes [N_REG_CLASSES];
+
+/* The array containing order numbers of important classes (they are
+   subclasses of cover classes).  */
+enum reg_class important_class_nums [N_REG_CLASSES];
 
 #ifdef IRA_COVER_CLASSES
 
@@ -578,7 +605,10 @@ setup_cover_classes (void)
 	for (j = 0; j < reg_class_cover_size; j++)
 	  if (hard_reg_set_subset_p (reg_class_contents [cl],
 				     reg_class_contents [reg_class_cover [j]]))
-	    important_classes [important_classes_num++] = cl;
+	    {
+	      important_class_nums [cl] = important_classes_num;
+	      important_classes [important_classes_num++] = cl;
+	    }
     }
 }
 #endif
@@ -775,6 +805,60 @@ init_ira_once (void)
   setup_reg_class_nregs ();
   setup_prohibited_class_mode_regs ();
   init_ira_costs_once ();
+}
+
+/* Function called once at the end of compiler work.  */
+void
+finish_ira_once (void)
+{
+  finish_ira_costs_once ();
+}
+
+
+
+/* Array whose values are hard regset of hard registers for which
+   move of the hard register in given mode into itself is
+   prohibited.  */
+HARD_REG_SET prohibited_mode_move_regs [NUM_MACHINE_MODES];
+
+/* Flag of that the above array has been initialized.  */
+static int prohibited_mode_move_regs_initialized_p = FALSE;
+
+/* The function setting up PROHIBITED_MODE_MOVE_REGS.  */
+static void
+setup_prohibited_mode_move_regs (void)
+{
+  int i, j;
+  rtx test_reg1, test_reg2, move_pat, move_insn;
+
+  if (prohibited_mode_move_regs_initialized_p)
+    return;
+  prohibited_mode_move_regs_initialized_p = TRUE;
+  test_reg1 = gen_rtx_REG (VOIDmode, 0);
+  test_reg2 = gen_rtx_REG (VOIDmode, 0);
+  move_pat = gen_rtx_SET (VOIDmode, test_reg1, test_reg2);
+  move_insn = gen_rtx_INSN (VOIDmode, 0, 0, 0, 0, 0, move_pat, -1, 0);
+  for (i = 0; i < NUM_MACHINE_MODES; i++)
+    {
+      SET_HARD_REG_SET (prohibited_mode_move_regs [i]);
+      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
+	{
+	  if (! HARD_REGNO_MODE_OK (j, i))
+	    continue;
+	  SET_REGNO (test_reg1, j);
+	  PUT_MODE (test_reg1, i);
+	  SET_REGNO (test_reg2, j);
+	  PUT_MODE (test_reg2, i);
+	  INSN_CODE (move_insn) = -1;
+	  recog_memoized (move_insn);
+	  if (INSN_CODE (move_insn) < 0)
+	    continue;
+	  extract_insn (move_insn);
+	  if (! constrain_operands (1))
+	    continue;
+	  CLEAR_HARD_REG_BIT (prohibited_mode_move_regs [i], j);
+	}
+    }
 }
 
 
@@ -974,12 +1058,9 @@ find_reg_equiv_invariant_const (void)
 
 
 /* The function sets up REG_RENUMBER and CALLER_SAVE_NEEDED used by
-   reload from the allocation found by IRA.  If AFTER_EMIT_P, the
-   function is called after emitting the move insns, otherwise if
-   AFTER_CALL_P, the function is called right after splitting allocnos
-   around calls.  */
+   reload from the allocation found by IRA.  */
 static void
-setup_reg_renumber (int after_emit_p, int after_call_p)
+setup_reg_renumber (void)
 {
   int i, regno, hard_regno;
   allocno_t a;
@@ -988,52 +1069,50 @@ setup_reg_renumber (int after_emit_p, int after_call_p)
   for (i = 0; i < allocnos_num; i++)
     {
       a = allocnos [i];
-      if (ALLOCNO_CAP_MEMBER (a) != NULL)
-	/* It is a cap. */
-	continue;
+      /* There are no caps at this point.  */
+      ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
       if (! ALLOCNO_ASSIGNED_P (a))
 	ALLOCNO_ASSIGNED_P (a) = TRUE;
       ira_assert (ALLOCNO_ASSIGNED_P (a));
       hard_regno = ALLOCNO_HARD_REGNO (a);
-      regno = after_emit_p ? (int) REGNO (ALLOCNO_REG (a)) : ALLOCNO_REGNO (a);
+      regno = (int) REGNO (ALLOCNO_REG (a));
       reg_renumber [regno] = (hard_regno < 0 ? -1 : hard_regno);
       if (hard_regno >= 0 && ALLOCNO_CALLS_CROSSED_NUM (a) != 0
 	  && ! hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
 				      call_used_reg_set))
 	{
-	  ira_assert
-	    ((! after_call_p && flag_caller_saves)
-	     || (flag_caller_saves && ! flag_ira_split_around_calls)
-	     || reg_equiv_const [regno] || reg_equiv_invariant_p [regno]);
+	  ira_assert (flag_caller_saves || reg_equiv_const [regno]
+		      || reg_equiv_invariant_p [regno]);
 	  caller_save_needed = 1;
 	}
     }
 }
 
-/* The function sets up allocno assignment from reg_renumber.  If the
-   cover class of a allocno does not correspond to the hard register,
-   return TRUE and mark the allocno as unassigned.  */
-static int
-setup_allocno_assignment_from_reg_renumber (void)
+/* The function sets up allocno assignment flags for further
+   allocation improvements.  */
+static void
+setup_allocno_assignment_flags (void)
 {
   int i, hard_regno;
   allocno_t a;
-  int result = FALSE;
 
   for (i = 0; i < allocnos_num; i++)
     {
       a = allocnos [i];
-      hard_regno = ALLOCNO_HARD_REGNO (a) = reg_renumber [ALLOCNO_REGNO (a)];
-      ira_assert (! ALLOCNO_ASSIGNED_P (a));
-      if (hard_regno >= 0
-	  && hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
-				    reg_class_contents
-				    [ALLOCNO_COVER_CLASS (a)]))
-	result = TRUE;
-      else
-	ALLOCNO_ASSIGNED_P (a) = TRUE;
+      hard_regno = ALLOCNO_HARD_REGNO (a);
+      /* Don't assign hard registers to allocnos which are destination
+	 of removed store at the end of loop.  It has a few sense to
+	 keep the same value in different hard registers.  It is also
+	 impossible to assign hard registers correctly to such
+	 allocnos because the cost info and info about intersected
+	 calls are incorrect for them.  */
+      ALLOCNO_ASSIGNED_P (a) = (hard_regno >= 0
+				|| ALLOCNO_MEM_OPTIMIZED_DEST_P (a));
+      ira_assert (hard_regno < 0
+		  || ! hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
+					      reg_class_contents
+					      [ALLOCNO_COVER_CLASS (a)]));
     }
-  return result;
 }
 
 /* The function evaluates overall allocation cost and costs for using
@@ -1056,7 +1135,7 @@ calculate_allocation_cost (void)
 			reg_class_contents [ALLOCNO_COVER_CLASS (a)])); 
       if (hard_regno < 0)
 	{
-	  cost = ALLOCNO_MEMORY_COST (a);
+	  cost = ALLOCNO_UPDATED_MEMORY_COST (a);
 	  mem_cost += cost;
 	}
       else
@@ -1069,7 +1148,7 @@ calculate_allocation_cost (void)
       overall_cost += cost;
     }
 
-  if (ira_dump_file != NULL)
+  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     {
       fprintf (ira_dump_file,
 	       "+++Costs: overall %d, reg %d, mem %d, ld %d, st %d, move %d\n",
@@ -1189,9 +1268,11 @@ print_redundant_copies (void)
 	else
 	  {
 	    next_cp = cp->next_second_allocno_copy;
-	    if (ira_dump_file != NULL && cp->move_insn != NULL_RTX
+	    if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL
+		&& cp->move_insn != NULL_RTX
 		&& ALLOCNO_HARD_REGNO (cp->first) == hard_regno)
-	      fprintf (ira_dump_file, "move %d(freq %d):%d\n",
+	      fprintf (ira_dump_file,
+		       "        Redundant move %d(freq %d):%d\n",
 		       INSN_UID (cp->move_insn), cp->freq, hard_regno);
 	  }
     }
@@ -1235,24 +1316,27 @@ expand_reg_info (int old_size)
 
 
 
-/* The value of max_regn_num () correspondingly before the allocator
-   and before splitting allocnos around calls.  */
-int ira_max_regno_before;
-int ira_max_regno_call_before;
-
-/* Flags for each regno (existing before the splitting allocnos around
-   calls) about that the corresponding register crossed a call.  */
-char *original_regno_call_crossed_p;
 
 /* This is the main entry of IRA.  */
 void
 ira (FILE *f)
 {
-  int i, overall_cost_before, loops_p, allocated_size;
+  int overall_cost_before, loops_p, allocated_reg_info_size;
+  int max_regno_before_ira, max_point_before_emit;
   int rebuild_p;
-  allocno_t a;
 
-  ira_dump_file = f;
+  if (flag_ira_verbose < 10)
+    {
+      internal_flag_ira_verbose = flag_ira_verbose;
+      ira_dump_file = f;
+    }
+  else
+    {
+      internal_flag_ira_verbose = flag_ira_verbose - 10;
+      ira_dump_file = stderr;
+    }
+
+  setup_prohibited_mode_move_regs ();
 
   df_note_add_problem ();
 
@@ -1266,6 +1350,11 @@ ira (FILE *f)
 
   df_clear_flags (DF_NO_INSN_RESCAN);
 
+  allocno_pool = create_alloc_pool ("allocnos", sizeof (struct allocno), 100);
+  copy_pool = create_alloc_pool ("copies", sizeof (struct allocno_copy), 100);
+  allocno_live_range_pool
+    = create_alloc_pool ("allocno live ranges",
+			 sizeof (struct allocno_live_range), 100);
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
   rebuild_p = update_equiv_regs ();
@@ -1277,11 +1366,11 @@ ira (FILE *f)
 #endif
   bitmap_obstack_initialize (&ira_bitmap_obstack);
 
-  ira_max_regno_call_before = ira_max_regno_before = max_reg_num ();
-  reg_equiv_invariant_p = ira_allocate (max_reg_num () * sizeof (int));
-  memset (reg_equiv_invariant_p, 0, max_reg_num () * sizeof (int));
-  reg_equiv_const = ira_allocate (max_reg_num () * sizeof (rtx));
-  memset (reg_equiv_const, 0, max_reg_num () * sizeof (rtx));
+  max_regno = max_reg_num ();
+  reg_equiv_invariant_p = ira_allocate (max_regno * sizeof (int));
+  memset (reg_equiv_invariant_p, 0, max_regno * sizeof (int));
+  reg_equiv_const = ira_allocate (max_regno * sizeof (rtx));
+  memset (reg_equiv_const, 0, max_regno * sizeof (rtx));
   find_reg_equiv_invariant_const ();
   if (rebuild_p)
     {
@@ -1290,7 +1379,7 @@ ira (FILE *f)
       purge_all_dead_edges ();
       timevar_pop (TV_JUMP);
     }
-  allocated_size = max_reg_num ();
+  max_regno_before_ira = allocated_reg_info_size = max_reg_num ();
   allocate_reg_info ();
   setup_eliminable_regset ();
 
@@ -1300,60 +1389,41 @@ ira (FILE *f)
   overall_cost = reg_cost = mem_cost = 0;
   load_cost = store_cost = shuffle_cost = 0;
   move_loops_num = additional_jumps_num = 0;
+  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+    fprintf (ira_dump_file, "Building IRA IR\n");
   loops_p = ira_build (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
 		       || flag_ira_algorithm == IRA_ALGORITHM_MIXED);
   ira_color ();
 
-  ira_emit ();
+  max_point_before_emit = max_point;
+
+  ira_emit (loops_p);
 
   max_regno = max_reg_num ();
   
-  expand_reg_info (allocated_size);
-  allocated_size = max_regno;
- 
-  setup_reg_renumber (TRUE, FALSE);
-
   if (loops_p)
     {
-      /* Even if new registers are not created rebuild IRA internal
-	 representation to use correct regno allocno map.  */
-      ira_destroy ();
-      ira_build (FALSE);
-      if (setup_allocno_assignment_from_reg_renumber ())
-	{
-	  reassign_conflict_allocnos (max_regno, FALSE);
-	  setup_reg_renumber (FALSE, FALSE);
-	}
+      expand_reg_info (allocated_reg_info_size);
+      allocated_reg_info_size = max_regno;
+ 
+      if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+	fprintf (ira_dump_file, "Flattening IR\n");
+      ira_flattening (max_regno_before_ira, max_point_before_emit);
+      /* New insns were generated: add notes and recaclulate live
+	 info.  */
+      df_analyze ();
+      {
+	basic_block bb;
+
+	FOR_ALL_BB (bb)
+	  bb->loop_father = NULL;
+	current_loops = NULL;
+      }
+      setup_allocno_assignment_flags ();
+      reassign_conflict_allocnos (max_regno, FALSE);
     }
 
-  original_regno_call_crossed_p = ira_allocate (max_regno * sizeof (char));
-
-  for (i = 0; i < allocnos_num; i++)
-    {
-      a = allocnos [i];
-      ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
-      original_regno_call_crossed_p [ALLOCNO_REGNO (a)]
-	= ALLOCNO_CALLS_CROSSED_NUM (a) != 0;
-    }
-  ira_max_regno_call_before = max_reg_num ();
-  if (flag_caller_saves && flag_ira_split_around_calls)
-    {
-      if (split_around_calls ())
-	{
-	  ira_destroy ();
-	  max_regno = max_reg_num ();
-	  expand_reg_info (allocated_size);
-	  allocated_size = max_regno;
-	  for (i = ira_max_regno_call_before; i < max_regno; i++)
-	    reg_renumber [i] = -1;
-	  ira_build (FALSE);
-	  setup_allocno_assignment_from_reg_renumber ();
-	  reassign_conflict_allocnos ((flag_ira_assign_after_call_split
-				      ? ira_max_regno_call_before
-				      : max_reg_num ()), TRUE);
-  	  setup_reg_renumber (FALSE, TRUE);
-	}
-    }
+  setup_reg_renumber ();
 
   calculate_allocation_cost ();
 
@@ -1363,8 +1433,7 @@ ira (FILE *f)
 
   setup_preferred_alternate_classes ();
 
-  max_regno = max_reg_num ();
-  delete_trivially_dead_insns (get_insns (), max_regno);
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
   max_regno = max_reg_num ();
   
   /* Determine if the current function is a leaf before running IRA
@@ -1401,7 +1470,8 @@ ira (FILE *f)
 
   ira_free (spilled_reg_stack_slots);
 
-  if (ira_dump_file != NULL && overall_cost_before != overall_cost)
+  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL
+      && overall_cost_before != overall_cost)
     fprintf (ira_dump_file, "+++Overall after reload %d\n", overall_cost);
 
   ira_destroy ();
@@ -1411,10 +1481,13 @@ ira (FILE *f)
   regstat_free_ri ();
   regstat_free_n_sets_and_refs ();
 
-  ira_free (original_regno_call_crossed_p);
   ira_free (reg_equiv_invariant_p);
   ira_free (reg_equiv_const);
   
+  free_alloc_pool (allocno_live_range_pool);
+  free_alloc_pool (copy_pool);
+  free_alloc_pool (allocno_pool);
+
   bitmap_obstack_release (&ira_bitmap_obstack);
 #ifndef IRA_NO_OBSTACK
   obstack_free (&ira_obstack, NULL);

@@ -1,3 +1,257 @@
+2007-12-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (fira-assign-after-call-split, fira-biased-coloring,
+	fira-split-around-calls): Remove.
+	(fdump-simple-rtl, fira-verbose): New options.
+	(fira, fira-coalesce): Initiate by 0.
+
+	* opts.c (common_handle_option):  Process flag_ira_verbose.
+
+	* flags.h (flag_ira_verbose): New external definition.
+
+	* toplev.h (flag_ira_assign_after_call_split,
+	flag_ira_biased_coloring, flag_ira_split_around_calls):  Remove.
+
+	* toplev.c (flag_ira_verbose): New external declaration.
+	(finalize): Call finish_ira_once.
+
+	* print-rtl.c (flag_simple):  Rename to flag_dump_simple_rtl.
+
+	* doc/invoke.texi (-fno-ira-assign-after-call-split,
+	-fira-biased-coloring, -fno-ira-split-around-calls):  Remove.
+	(-fdump-simple-rtl, -fira-verbose): New options.
+
+	* caller-save.c (insert_restore, insert_save): Use
+	adjust_address_nv instead of adjust_address.  Check the mode by
+	reg_save_code.
+
+	* ira-call.c: Remove file.
+
+	* ira-lives.c: New file.
+
+	* Makefile.in (ira-live.o): Add
+	(ira-call.o): Remove.
+	(IRA_INT_H): Add alloc-pool.h.
+
+	* ira.h (finish_ira_once): New external definition.
+
+	* ira-int.h (internal_flag_ira_verbose, alloc_pool allocno_pool,
+	copy_pool, allocno_live_range_pool, ira_loop_tree_height,
+	max_point, start_point_ranges, finish_point_ranges,
+	prohibited_mode_move_regs, important_class_nums,
+	ira_curr_regno_allocno_map, allocno_set_words): New external
+	definitions.
+	(loop_tree_node_t, allocno_live_range_t): New typedefs.  Use them
+	everywhere.
+	(ira_loop_tree_node): Rename to loop_tree_node.
+	(loop_tree_node): New member level.
+	(allocno_live_range): New structure.
+	(allocno): New members nrefs, live_ranges,
+	total_conflict_hard_regs, conflict_allocnos_num,
+	total_conflict_allocnos_num, mem_optimized_dest,
+	mem_optimized_dest_p, total_no_stack_reg_p.  Remove members
+	conflict_allocno_vec_active_size and original_memory_cost.  Rename
+	member curr_hard_reg_costs to updated_hard_reg_costs.
+	(ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM,
+	ALLOCNO_TOTAL_CONFLICT_HARD_REGS, ALLOCNO_CONFLICT_ALLOCNOS_NUM,
+	ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM, ALLOCNO_NREFS,
+	ALLOCNO_MEM_OPTIMIZED_DEST, ALLOCNO_MEM_OPTIMIZED_DEST_P,
+	ALLOCNO_TOTAL_NO_STACK_REG_P, ALLOCNO_LIVE_RANGES): New access
+	macros.
+	(ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE,
+	ALLOCNO_ORIGINAL_MEMORY_COST): Remove.
+	(ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS): Rename to
+	ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS.
+	(allocno_copy): New member loop_tree_node.
+	(INT_BITS, INT_TYPE, EXECUTE_IF_SET_IN_ALLOCNO_SET): Move from
+	ira-conflicts.c.
+	(SET_ALLOCNO_SET_BIT, CLEAR_ALLOCNO_SET_BIT,
+	TEST_ALLOCNO_SET_BIT): New macros.
+	(ira_reallocate, allocno_conflict_index, add_allocno_conflict,
+	create_allocno_live_range, finish_allocno_live_range,
+	add_allocno_copy_to_list, swap_allocno_copy_ends_if_necessary,
+	remove_allocno_copy_from_list, add_allocno_copy, ira_flattening,
+	finish_ira_costs_once, rebuild_start_finish_chains,
+	print_live_range_list, debug_live_range_list,
+	debug_allocno_live_ranges, debug_live_ranges,
+	create_allocno_live_ranges, finish_allocno_live_ranges,
+	allocno_conflict_p, loop_edge_freq): New external function
+	definitions.
+	(hard_reg_in_set_p, original_regno_call_crossed_p,
+	ira_max_regno_before, ira_max_regno_call_before): Remove.
+	(traverse_loop_tree): Add new parameter type.
+	(create_copy): Ditto.
+	(debug_conflicts, ira_emit, add_allocno_copy): Add parameter.
+	(debug_ira_call_data, split_around_calls, get_around_calls_regno):
+	Remove.
+	
+	* ira.c (setup_prohibited_mode_move_regs): New function.
+	(internal_flag_ira_verbose, allocno_pool, copy_pool,
+	allocno_live_range_pool, important_class_nums): New external
+	variables.
+	(IRA_NO_OBSTACK): Uncomment it.
+	(ira_reallocate): New function.
+	(setup_cover_classes): Set up important_class_nums.
+	(finish_ira_once): New function.
+	(prohibited_mode_move_regs,
+	prohibited_mode_move_regs_initialized_p): New global variables.
+	(setup_prohibited_mode_move_regs): New function.
+	(setup_reg_renumber): Remove parameters.
+	(setup_allocno_assignment_from_reg_renumber): Rename to
+	setup_allocno_assignment_flags.  Set up ALLOCNO_ASSIGNED_P.
+	(calculate_allocation_cost): Use ALLOCNO_UPDATED_MEMORY_COST.
+	(ira_max_regno_before, ira_max_regno_call_before): Remove.
+	(ira): Set up internal_flag_ira_verbose.  Call
+	setup_prohibited_mode_move_regs.  Create and destroy allocno,
+	copy, and live range pools.  Remove original_regno_call_crossed_p.
+	Report major passes.  Use argument for ira_emit.  Call
+	ira_flattening and df_analyze.  Remove live range splitting around
+	calls.
+	
+	* ira-build.c (setup_loop_tree_level, rebuild_regno_allocno_maps,
+	expand_calls, compress_calls, allocno_conflict_index,
+	add_to_allocno_conflict_vec, propagate_info_to_cap,
+	copy_allocno_live_range, copy_allocno_live_range_list,
+	finish_allocno, finish_copy,
+	propagate_info_to_loop_tree_node_caps, merge_ranges,
+	common_loop_tree_node_dominator, check_and_add_conflicts,
+	add_conflict_with_underlying_allocnos, ira_flattening): New
+	functions.
+	(check_coalesced_allocnos): Remove.
+	(ira_loop_tree_height): New external variable.
+	(form_loop_tree): Call setup_loop_tree_level.
+	(initiate_calls): Allocate a bit more.  (create_allocno): Use
+	pool_alloc.  Set up ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM,
+	ALLOCNO_TOTAL_CONFLICT_HARD_REGS, ALLOCNO_NREFS,
+	ALLOCNO_TOTAL_NO_STACK_REG_P, ALLOCNO_MEM_OPTIMIZED_DEST,
+	ALLOCNO_MEM_OPTIMIZED_DEST_P, ALLOCNO_UPDATED_MEMORY_COST, and
+	ALLOCNO_LIVE_RANGES.  Rename
+	ALLOCNO_CONFLICT_ALLOCNO_VEC_ACTIVE_SIZE,
+	ALLOCNO_CURR_HARD_REG_COSTS, and
+	ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS to
+	ALLOCNO_CONFLICT_ALLOCNOS_NUM, ALLOCNO_UPDATED_HARD_REG_COSTS, and
+	ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS.
+	(add_allocno_conflict): Make it external.  Use
+	add_to_allocno_conflict_vec.
+	(create_cap_allocno): Move part of code to propagate_info_to_cap.
+	(finish_allocnos): Use finish_allocno.
+	(add_allocno_copy_to_list, remove_allocno_copy_from_list,
+	swap_allocno_copy_ends_if_necessary, add_allocno_copy): Move from
+	ira-conflicts.c.  Make them external.
+	(create_copy): Use pool_alloc.  Add parameter loop_tree_node.
+	(finish_copies): Use finish_copy.
+	(ira_curr_regno_allocno_map): New external variable.
+	(traverse_loop_tree): Add parameter bb_first_p.
+	(create_insn_allocnos): Update ALLOCNO_NREFS.
+	(create_loop_tree_node_allocnos): Traverse loop tree nodes with
+	BBs first.  Update ALLOCNO_NREFS.
+	(create_loop_tree_node_caps): Move part of code to
+	propagate_info_to_loop_tree_node_cap.
+	(regno_top_level_allocno_map): New global variable.
+	(ira_build): Create caps before build conflicts.  Call
+	create_allocno_live_ranges.  Propagate info to caps.  Report
+	statistics.
+	(ira_destroy): Call finish_allocno_live_ranges.
+
+	* ira-conflicts.c (set_allocno_live, clear_allocno_live,
+	record_regno_conflict, mark_reg_store, mark_reg_clobber,
+	mark_reg_conflicts, mark_reg_death): Remove.
+	(add_insn_allocno_copies, add_copies): New functions.
+	(add_allocno_copy_to_list, remove_allocno_copy_from_list,
+	swap_allocno_copy_ends_if_necessary, add_allocno_copy): Remove.
+	(add_allocno_copies): Rename to add_insn_allocno_copies.  Use
+	ira_curr_regno_allocno_map and add_insn_allocno_copies.
+	(single_reg_class, single_reg_operand_class,
+	process_single_reg_class_operands, process_bb_node_for_conflicts):
+	Remove.
+	(INT_BITS, INT_TYPE, EXECUTE_IF_SET_IN_ALLOCNO_SET): Move to
+	ira-int.h.
+	(allocnos_live_bitmap, SET_ALLOCNO_CONFLICT_ROW,
+	CLEAR_ALLOCNO_CONFLICT_ROW, TEST_ALLOCNO_CONFLICT_ROW): Remove.
+	(SET_ALLOCNO_LIVE, CLEAR_ALLOCNO_LIVE, TEST_ALLOCNO_LIVE):
+	Use {SET, CLEAR, TEST}_ALLOCNO_SET_BIT.
+	(allocno_row_words, hard_regs_live, curr_bb_node,
+	curr_regno_allocno_map, curr_reg_pressure): Remove.
+	(CONFLICTP): Rename to CONFLICT_P.
+	(regs_set): Remove.
+	(propagate_allocno_info): Use ALLOCNO_TOTAL_CONFLICT_HARD_REGS.
+	Set up ALLOCNO_CALLS_CROSSED_START.
+	(allocno_conflict_p): New function.
+	(allocno_reg_conflict_p): Use allocno_conflict_p.
+	(build_allocno_conflict_vects): Divide original and propagated
+	conflicts.
+	(print_hard_reg_set): New function.
+	(print_conflicts): Use print_hard_reg_set.  Set up mark for the
+	start of propagated conflicts.
+	(debug_conflicts): Add parameter.
+	(ira_build_conflicts): Call add_copies.  Set up
+	ALLOCNO_TOTAL_CONFLICT_HARD_REGS.
+
+	* ira-costs.c (struct costs): Make cost allocated dynamically.
+	(struct_costs_size, temp_cots, op_costs, this_op_costs): New
+	variables.
+	(costs): Rename to total_costs.
+	(COSTS_OF_ALLOCNO): New macro.
+	(curr_regno_allocno_map): Remove.  Use ira_curr_regno_allocno_map
+	instead.
+	(record_reg_classes): Check NO_REGS in allocno_pref.
+	(record_address_regs): Use COSTS_OF_ALLOCNO.
+	(scan_one_insn): Ditto.
+	(print_costs): Ditto.
+	(find_allocno_class_costs): Ditto.  Pass additional argument to
+	traverse_loop_tree.  Set up NO_REGS if memory is cheaper.
+	(setup_allocno_cover_class_and_costs): Use
+	ALLOCNO_UPDATED_MEMORY_COST instead of
+	ALLOCNO_ORIGINAL_MEMORY_COST, ALLOCNO_UPDATED_HARD_REG_COSTS
+	instead of ALLOCNO_CURR_HARD_REG_COSTS, and
+	ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS instead of
+	ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS.  Pass additional argument to
+	traverse_loop_tree.
+	(init_ira_costs_once): Allocate init_cost, op_costs,
+	this_op_costs, temp_costs.
+	(finish_ira_costs_once): New function.
+	
+	* ira-color.c: Use ALLOCNO_UPDATED_MEMORY_COST instead of
+	ALLOCNO_ORIGINAL_MEMORY_COST, ALLOCNO_UPDATED_HARD_REG_COSTS
+	instead of ALLOCNO_CURR_HARD_REG_COSTS, and
+	ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS instead of
+	ALLOCNO_CURR_CONFLICT_HARD_REG_COSTS.  Use
+	ALLOCNO_TOTAL_CONFLICT_HARD_REGS instead of
+	ALLOCNO_CONFLICT_HARD_REGS.
+	(processed_allocno_bitmap): Rename into
+	processed_coalesced_allocno_bitmap.
+	(allocno_cost_compare_func): Use ALLOCNO_UPDATED_MEMORY_COST
+	instead of ALLOCNO_MEMORY_COST.
+	(assign_hard_reg): Remove biased coloring.
+	(add_allocno_to_ordered_bucket): Check cover class first.
+	(loop_edge_freq): Make it external.
+	(setup_allocno_left_conflicts_num): Check that conflicting
+	allocnos of one class.
+	(allocno_conflict_p): Rename to coalesced_allocno_conflict_p.
+	(color_pass): Check pressure in the loop (not in subloops) for
+	mixed algorithm.
+	(allocno_priorities): New variable.
+	(start_allocno_priorities, finish_allocno_priorities): New
+	functions.
+	(allocno_priority_compare_func): Use allocno_priorities.
+	(priority_coloring): Call start_allocno_priorities and
+	finish_allocno_priorities.
+	(do_coloring): Pass additional argument to traverse_loop_tree.
+	
+	* ira-emit.c (struct move): Add member insn.
+	(create_move): Initialize member insn.
+	(generate_edge_moves): Set up ALLOCNO_MEM_OPTIMIZED_DEST and
+	ALLOCNO_MEM_OPTIMIZED_DEST_P.
+	(change_loop): Check prohibited_mode_move_regs.
+	(curr_jump_map, can_move_through_p): Remove.
+	(unify_moves): Don't move through jump.
+	(modify_move_list): Set up attributes for new allocno used for
+	breaking dependency loops.
+	(emit_move_list): Set up insn codes.
+	(update_costs, add_range_and_copies_from_move_list,
+	add_ranges_and_copies): New functions.
+	(ira_emit): Add a parameter.  Call add_ranges_and_copies.
+	
 2007-10-09  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* toplev.h (flag_ira_coalesce): New external variable.

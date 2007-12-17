@@ -54,6 +54,7 @@ extern rtx *reg_equiv_address;
 extern rtx *reg_equiv_mem;
 
 extern void init_ira_once (void);
+extern void finish_ira_once (void);
 extern rtx ira_eliminate_regs (rtx, enum machine_mode);
 
 extern void ira (FILE *);

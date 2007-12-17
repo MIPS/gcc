@@ -433,6 +433,10 @@ fdump-noaddr
 Common Report Var(flag_dump_noaddr)
 Suppress output of addresses in debugging dumps
 
+fdump-simple-rtl
+Common Report Var(flag_dump_simple_rtl) Init(0)
+Switch on dumping simple RTL code
+
 fdump-unnumbered
 Common Report Var(flag_dump_unnumbered) VarExists
 Suppress output of instruction numbers, line number notes and addresses in debugging dumps
@@ -613,23 +617,15 @@ Perform matrix layout flattening and transposing based
 on profiling information.
 
 fira
-Common Report Var(flag_ira)
+Common Report Var(flag_ira) Init(0)
 Use integrated register allocator.
 
 fira-algorithm=
 Common Joined RejectNegative
 -fira-algorithm=[regional|CB|mixed|priority] Set the used IRA algorithm
 
-fira-assign-after-call-split
-Common Report Var(flag_ira_assign_after_call_split) Init(1)
-Assign hard regs to pseudos after splitting pseudo live range arround calls.
-
-fira-biased-coloring
-Common Report Var(flag_ira_biased_coloring)
-Use biased coloring for the integrated register allocator.
-
 fira-coalesce
-Common Report Var(flag_ira_coalesce)
+Common Report Var(flag_ira_coalesce) Init(0)
 Do optimistic coalescing.
 
 fira-ipra
@@ -652,9 +648,9 @@ fira-share-spill-slots
 Common Report Var(flag_ira_share_spill_slots) Init(1)
 Share stack slots for spilled pseudo-registers.
 
-fira-split-around-calls
-Common Report Var(flag_ira_split_around_calls) Init(1)
-Split pseudo live range arround calls.
+fira-verbose=
+Common RejectNegative Joined UInteger
+-fira-verbose=<number> Control IRA's level of diagnostic messages.
 
 fivopts
 Common Report Var(flag_ivopts) Init(1) Optimization

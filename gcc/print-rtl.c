@@ -60,8 +60,10 @@ const char *print_rtx_head = "";
    This must be defined here so that programs like gencodes can be linked.  */
 int flag_dump_unnumbered = 0;
 
+#ifdef GENERATOR_FILE
 /* Nonzero means use simplified format without flags, modes, etc.  */
-int flag_simple = 0;
+int flag_dump_simple_rtl = 0;
+#endif
 
 /* Nonzero if we are dumping graphical description.  */
 int dump_for_graph;
@@ -136,7 +138,7 @@ print_rtx (const_rtx in_rtx)
 
   if (sawclose)
     {
-      if (flag_simple)
+      if (flag_dump_simple_rtl)
 	fputc (' ', outfile);
       else
 	fprintf (outfile, "\n%s%*s", print_rtx_head, indent * 2, "");
@@ -170,12 +172,12 @@ print_rtx (const_rtx in_rtx)
   else
     {
       /* Print name of expression code.  */
-      if (flag_simple && GET_CODE (in_rtx) == CONST_INT)
+      if (flag_dump_simple_rtl && GET_CODE (in_rtx) == CONST_INT)
 	fputc ('(', outfile);
       else
 	fprintf (outfile, "(%s", GET_RTX_NAME (GET_CODE (in_rtx)));
 
-      if (! flag_simple)
+      if (! flag_dump_simple_rtl)
 	{
 	  if (RTX_FLAG (in_rtx, in_struct))
 	    fputs ("/s", outfile);
@@ -376,10 +378,10 @@ print_rtx (const_rtx in_rtx)
 	break;
 
       case 'w':
-	if (! flag_simple)
+	if (! flag_dump_simple_rtl)
 	  fprintf (outfile, " ");
 	fprintf (outfile, HOST_WIDE_INT_PRINT_DEC, XWINT (in_rtx, i));
-	if (! flag_simple)
+	if (! flag_dump_simple_rtl)
 	  fprintf (outfile, " [" HOST_WIDE_INT_PRINT_HEX "]",
 		   XWINT (in_rtx, i));
 	break;
@@ -766,7 +768,9 @@ print_rtl_single (FILE *outf, const_rtx x)
 void
 print_simple_rtl (FILE *outf, const_rtx x)
 {
-  flag_simple = 1;
+  int save = flag_dump_simple_rtl;
+
+  flag_dump_simple_rtl = 1;
   print_rtl (outf, x);
-  flag_simple = 0;
+  flag_dump_simple_rtl = save;
 }

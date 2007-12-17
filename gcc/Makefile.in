@@ -833,7 +833,7 @@ TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H) omega.h graphds.h
 VARRAY_H = varray.h $(MACHMODE_H) $(SYSTEM_H) coretypes.h $(TM_H)
 TREE_INLINE_H = tree-inline.h $(VARRAY_H) pointer-set.h
 REAL_H = real.h $(MACHMODE_H)
-IRA_INT_H = ira.h ira-int.h $(CFGLOOP_H)
+IRA_INT_H = ira.h ira-int.h $(CFGLOOP_H) alloc-pool.h
 DBGCNT_H = dbgcnt.h dbgcnt.def
 EBIMAP_H = ebitmap.h sbitmap.h
 
@@ -1068,11 +1068,11 @@ OBJS-common = \
 	intl.o \
 	ira.o \
 	ira-build.o \
-	ira-call.o \
 	ira-costs.o \
 	ira-conflicts.o \
 	ira-color.o \
 	ira-emit.o \
+	ira-lives.o \
 	jump.o \
 	lambda-code.o \
 	lambda-mat.o \
@@ -2760,10 +2760,6 @@ ira-build.o: ira-build.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) \
    insn-config.h $(RECOG_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) \
    $(PARAMS_H) $(DF_H) $(IRA_INT_H)
-ira-call.o: ira-call.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-   $(TARGET_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) errors.h \
-   $(BASIC_BLOCK_H) $(TM_P_H) \
-   $(IRA_INT_H)
 ira-costs.o: ira-costs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) insn-config.h $(RECOG_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) errors.h \
@@ -2781,6 +2777,10 @@ ira-emit.o: ira-emit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) \
    $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) $(PARAMS_H) \
    $(IRA_INT_H)
+ira-lives.o: ira-lives.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(TARGET_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) \
+   insn-config.h $(RECOG_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) $(PARAMS_H) \
+   $(DF_H) $(IRA_INT_H)
 ira.o: ira.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TARGET_H) $(TM_H) $(RTL_H) $(RECOG_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) $(OBSTACK_H) \

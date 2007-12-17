@@ -1736,6 +1736,10 @@ common_handle_option (size_t scode, const char *arg, int value,
 	warning (0, "unknown ira algorithm \"%s\"", arg);
       break;
 
+    case OPT_fira_verbose_:
+      flag_ira_verbose = value;
+      break;
+
     case OPT_ftracer:
       flag_tracer_set = true;
       break;

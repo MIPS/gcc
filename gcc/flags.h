@@ -231,6 +231,8 @@ enum ira_algorithm {
 
 extern enum ira_algorithm flag_ira_algorithm;
 
+extern unsigned int flag_ira_verbose;
+
 
 /* Other basic status info about current function.  */
 

@@ -308,6 +308,10 @@ enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
 enum ira_algorithm flag_ira_algorithm = IRA_ALGORITHM_REGIONAL;
 
+/* Set the default value for -fira-verbose.  */
+
+unsigned int flag_ira_verbose = 5;
+
 /* Nonzero means change certain warnings into errors.
    Usually these are warnings about failure to conform to some standard.  */
 
@@ -2197,6 +2201,8 @@ finalize (void)
     }
 
   finish_optimization_passes ();
+
+  finish_ira_once ();
 
   if (mem_report)
     dump_memory_report (true);
