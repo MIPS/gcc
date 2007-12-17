@@ -1,3 +1,13 @@
+2007-12-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto_read.c (data_in.unexpanded_indexes): New array.
+	(input_local_var): Added code to read in unexpanded_var_list
+	indexes for variables.  Only read in DECL_CHAIN field for
+	parameters.
+	(input_local_vars): Added code to rebuild unexpanded_var_list in
+	order using unexpanded_indexes.
+	(input_function): Added code to set DECL_CONTEXT for functions.
+
 2007-12-13  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (lto_read_pointer_reference_type_DIE): Handle optional name

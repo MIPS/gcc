@@ -257,7 +257,14 @@ struct output_block
      we have seen so far and the indexes assigned to them.  */
   htab_t local_decl_hash_table;
   unsigned int next_local_decl_index;
+  /* The local_decls_index and the local_decls_index_d are the indexes
+     in the local var stream and the local var debugging stream where
+     a particular local var is located.  This allows the local vars to
+     be read in random order.  */ 
   VEC(int,heap) *local_decls_index;
+  /* Index in unexpanded_vars_list so that list can be reconstructed
+     properly.  */
+  VEC(int,heap) *unexpanded_local_decls_index;
 #ifdef LTO_STREAM_DEBUGGING
   VEC(int,heap) *local_decls_index_d;
 #endif
@@ -437,7 +444,10 @@ destroy_output_block (struct output_block * ob, bool is_function)
   if (is_function)
     {
       VEC_free (int, heap, ob->local_decls_index);
+      VEC_free (int, heap, ob->unexpanded_local_decls_index);
+#ifdef LTO_STREAM_DEBUGGING
       VEC_free (int, heap, ob->local_decls_index_d);
+#endif
       VEC_free (tree, heap, ob->named_labels);
     }
   VEC_free (tree, heap, ob->local_decls);
@@ -748,11 +758,14 @@ output_integer (struct output_block *ob, tree t)
 /* Lookup NAME in TABLE.  If NAME is not found, create a new entry in
    TABLE for NAME with NEXT_INDEX and increment NEXT_INDEX.  Then
    print the index to OBS.  True is returned if NAME was added to the
-   table.  */
+   table.  The resulting index is store in THIS_INDEX.
+
+   If OBS is NULL, the only action is to add NAME to the table. */
 
 static bool
 output_decl_index (struct output_stream * obs, htab_t table,
-		   unsigned int *next_index, tree name)
+		   unsigned int *next_index, tree name, 
+		   unsigned int *this_index)
 {
   void **slot;
   struct decl_slot d_slot;
@@ -766,14 +779,18 @@ output_decl_index (struct output_stream * obs, htab_t table,
 
       new_slot->t = name;
       new_slot->slot_num = index;
+      *this_index = index;
       *slot = new_slot;
-      output_uleb128_stream (obs, index);
+      if (obs)
+	output_uleb128_stream (obs, index);
       return true;
     }
   else
     {
       struct decl_slot *old_slot = (struct decl_slot *)*slot;
-      output_uleb128_stream (obs, old_slot->slot_num);
+      *this_index = old_slot->slot_num;
+      if (obs)
+	output_uleb128_stream (obs, old_slot->slot_num);
       return false;
     }
 }
@@ -960,34 +977,40 @@ static void
 output_type_ref (struct output_block *ob, tree node)
 {
   bool new;
+  unsigned int index;
 
   LTO_DEBUG_TOKEN ("type");
   new = output_decl_index (ob->main_stream, ob->type_hash_table,
-			   &ob->next_type_index, node);
+			   &ob->next_type_index, node, &index);
 
   if (new)
     VEC_safe_push (tree, heap, ob->types, node);
 }
 
 
-/* Look up NAME in the type table and write the uleb128 index for it
-   to OB.  */
+/* Look up NAME in the type table and if WRITE, write the uleb128
+   index for it to OB.  */
 
-static void
-output_local_decl_ref (struct output_block *ob, tree name)
+static unsigned int
+output_local_decl_ref (struct output_block *ob, tree name, bool write)
 {
-  bool new = output_decl_index (ob->main_stream, ob->local_decl_hash_table,
-				&ob->next_local_decl_index, name);
+  unsigned int index;
+  bool new = output_decl_index (write ? ob->main_stream : NULL, 
+				ob->local_decl_hash_table,
+				&ob->next_local_decl_index, 
+				name, &index);
   /* Push the new local var or param onto a vector for later
      processing.  */
   if (new)
     {
       VEC_safe_push (tree, heap, ob->local_decls, name);
       VEC_safe_push (int, heap, ob->local_decls_index, 0);
+      VEC_safe_push (int, heap, ob->unexpanded_local_decls_index, -1);
 #ifdef LTO_STREAM_DEBUGGING
       VEC_safe_push (int, heap, ob->local_decls_index_d, 0);
 #endif
     }
+  return index;
 }
 
 /* Look up LABEL in the label table and write the uleb128 index for it.  */
@@ -1372,11 +1395,12 @@ output_expr_operand (struct output_block *ob, tree expr)
 
     case FIELD_DECL:
       {
+	unsigned int index;
 	bool new;
 	output_record_start (ob, NULL, NULL, tag);
 	
 	new = output_decl_index (ob->main_stream, ob->field_decl_hash_table,
-				 &ob->next_field_decl_index, expr);
+				 &ob->next_field_decl_index, expr, &index);
 	if (new)
 	  VEC_safe_push (tree, heap, ob->field_decls, expr);
       }
@@ -1384,11 +1408,12 @@ output_expr_operand (struct output_block *ob, tree expr)
 
     case FUNCTION_DECL:
       {
+	unsigned int index;
 	bool new;
 	output_record_start (ob, NULL, NULL, tag);
 	
 	new = output_decl_index (ob->main_stream, ob->fn_decl_hash_table,
-				 &ob->next_fn_decl_index, expr);
+				 &ob->next_fn_decl_index, expr, &index);
 	if (new)
 	  VEC_safe_push (tree, heap, ob->fn_decls, expr);
       }
@@ -1397,28 +1422,32 @@ output_expr_operand (struct output_block *ob, tree expr)
     case VAR_DECL:
       if (DECL_CONTEXT (expr) == NULL_TREE)
 	{
+	  /* Static or extern VAR_DECLs.  */
+	  unsigned int index;
 	  bool new;
 	  output_record_start (ob, NULL, NULL, LTO_var_decl1);
 
 	  new = output_decl_index (ob->main_stream, ob->var_decl_hash_table,
-				   &ob->next_var_decl_index, expr);
+				   &ob->next_var_decl_index, expr, &index);
 	  if (new)
 	    VEC_safe_push (tree, heap, ob->var_decls, expr);
 	}
       else
 	{
+	  /* Local VAR_DECLs.  */
 	  output_record_start (ob, NULL, NULL, LTO_var_decl0);
-	  output_local_decl_ref (ob, expr);
+	  output_local_decl_ref (ob, expr, true);
 	}
       break;
 
     case TYPE_DECL:
       {
+	unsigned int index;
 	bool new;
 	output_record_start (ob, NULL, NULL, tag);
 	
 	new = output_decl_index (ob->main_stream, ob->type_decl_hash_table,
-				 &ob->next_type_decl_index, expr);
+				 &ob->next_type_decl_index, expr, &index);
 	if (new)
 	  VEC_safe_push (tree, heap, ob->type_decls, expr);
       }
@@ -1427,7 +1456,7 @@ output_expr_operand (struct output_block *ob, tree expr)
     case PARM_DECL:
       gcc_assert (!DECL_RTL_SET_P (expr));
       output_record_start (ob, NULL, NULL, tag);
-      output_local_decl_ref (ob, expr);
+      output_local_decl_ref (ob, expr, true);
       break;
 
     case LABEL_DECL:
@@ -1695,117 +1724,141 @@ output_expr_operand (struct output_block *ob, tree expr)
   LTO_DEBUG_UNDENT ();
 }
 
+/* Output the local var INDEX to OB.  */
+
+static void
+output_local_var (struct output_block *ob, int index)
+{
+  tree decl = VEC_index (tree, ob->local_decls, index);
+  unsigned int variant = 0;
+  bool is_var = (TREE_CODE (decl) == VAR_DECL);
+  bool needs_backing_var
+    = (DECL_DEBUG_EXPR_IS_FROM (decl) && DECL_DEBUG_EXPR (decl));
+  
+  /* This will either be a local var decl or a parm decl. */
+  unsigned int tag;
+  
+  gcc_assert (DECL_SIZE (decl));
+  variant |= DECL_ATTRIBUTES (decl)      != NULL_TREE ? 0x01 : 0;
+  variant |= DECL_SIZE_UNIT (decl)       != NULL_TREE ? 0x02 : 0;
+  variant |= needs_backing_var                        ? 0x04 : 0;
+  variant |= DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE ? 0x08 : 0;
+  
+  tag = (is_var
+	 ? LTO_local_var_decl_body0
+	 : LTO_parm_decl_body0)
+    + variant;
+  
+  VEC_replace (int, ob->local_decls_index, index, ob->main_stream->total_size);
+#ifdef LTO_STREAM_DEBUGGING
+  VEC_replace (int, ob->local_decls_index_d, index, ob->debug_decl_stream->total_size);
+#endif
+  output_record_start (ob, NULL, NULL, tag);
+  
+  /* Put out the name if there is one.  */
+  if (DECL_NAME (decl))
+    {
+      tree name = DECL_NAME (decl);
+      output_string (ob, ob->main_stream, 
+		     IDENTIFIER_POINTER (name), 
+		     IDENTIFIER_LENGTH (name));
+    }
+  else
+    output_zero (ob);
+  
+  output_type_ref (ob, TREE_TYPE (decl));
+  
+  if (is_var)
+    {
+      LTO_DEBUG_INDENT_TOKEN ("init");
+      if (DECL_INITIAL (decl))
+	output_expr_operand (ob, DECL_INITIAL (decl));
+      else
+	output_zero (ob);
+      /* Index in unexpanded_vars_list.  */
+      LTO_DEBUG_INDENT_TOKEN ("unexpanded index");
+      output_sleb128 (ob, VEC_index (int, ob->unexpanded_local_decls_index, index));
+    }
+  else
+    {
+      output_type_ref (ob, DECL_ARG_TYPE (decl));
+      /* The chain is only necessary for parm_decls.  */
+      LTO_DEBUG_TOKEN ("chain");
+      if (TREE_CHAIN (decl))
+	output_expr_operand (ob, TREE_CHAIN (decl));
+      else
+	output_zero (ob);
+    }
+
+  clear_line_info (ob);
+  output_tree_flags (ob, 0, decl, true);
+
+  LTO_DEBUG_TOKEN ("context");
+  if (DECL_CONTEXT (decl))
+    output_expr_operand (ob, DECL_CONTEXT (decl));
+  else 
+    output_zero (ob);
+  
+  LTO_DEBUG_TOKEN ("align");
+  output_uleb128 (ob, DECL_ALIGN (decl));
+  
+  /* Put out the subtrees.  */
+  LTO_DEBUG_TOKEN ("size");
+  output_expr_operand (ob, DECL_SIZE (decl));
+  if (DECL_ATTRIBUTES (decl)!= NULL_TREE)
+    {
+      LTO_DEBUG_TOKEN ("attributes");
+      output_expr_operand (ob, DECL_ATTRIBUTES (decl));
+    }
+  if (DECL_SIZE_UNIT (decl) != NULL_TREE)
+    output_expr_operand (ob, DECL_SIZE_UNIT (decl));
+  if (needs_backing_var)
+    output_expr_operand (ob, DECL_DEBUG_EXPR (decl));
+  if (DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE)
+    output_expr_operand (ob, DECL_ABSTRACT_ORIGIN (decl));
+  
+  LTO_DEBUG_UNDENT();
+}
+
 
 /* Output the local var_decls and parm_decls to OB.  */
 
 static void
-output_local_vars (struct output_block *ob)
+output_local_vars (struct output_block *ob, struct function *fn)
 {
   unsigned int index = 0;
+  tree t;
+  int i = 0;
+  struct output_stream *tmp_stream = ob->main_stream;
+  ob->main_stream = ob->local_decl_stream;
 
   /* We have found MOST of the local vars by scanning the function.
-     However, many local vars have other local vars inside them.  So
-     this function uses the same mechanism that the function is output
-     in order to put out these local_vars.
+     However, many local vars have other local vars inside them.
+     Other local vars can be found by walking the unexpanded vars
+     list.  */
 
-     The easiest way to get all of this stuff generated is to play
+  for (t = fn->unexpanded_var_list; t; t = TREE_CHAIN (t))
+    {
+      tree lv = TREE_VALUE (t);
+      int j;
+
+      j = output_local_decl_ref (ob, lv, false);
+      /* Just for the fun of it, some of the locals are in the
+	 unexpanded_var_list more than once.  */
+      if (VEC_index (int, ob->unexpanded_local_decls_index, j) == -1)
+	VEC_replace (int, ob->unexpanded_local_decls_index, j, i++);
+    }
+
+  /* The easiest way to get all of this stuff generated is to play
      pointer games with the streams and reuse the code for putting out
      the function bodies for putting out the local decls.  It needs to
      go into a separate stream because the LTO reader will want to
      process the local variables first, rather than have to back patch
      them.
   */
-  struct output_stream *tmp_stream = ob->main_stream;
-  ob->main_stream = ob->local_decl_stream;
 
   while (index < VEC_length (tree, ob->local_decls))
-    {
-      tree decl = VEC_index (tree, ob->local_decls, index);
-      unsigned int variant = 0;
-      bool is_var = (TREE_CODE (decl) == VAR_DECL);
-      bool needs_backing_var
-	= (DECL_DEBUG_EXPR_IS_FROM (decl) && DECL_DEBUG_EXPR (decl));
-
-      /* This will either be a local var decl or a parm decl. */
-      unsigned int tag;
-
-      gcc_assert (DECL_SIZE (decl));
-      variant |= DECL_ATTRIBUTES (decl)      != NULL_TREE ? 0x01 : 0;
-      variant |= DECL_SIZE_UNIT (decl)       != NULL_TREE ? 0x02 : 0;
-      variant |= needs_backing_var                        ? 0x04 : 0;
-      variant |= DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE ? 0x08 : 0;
-
-      tag = (is_var
-	     ? LTO_local_var_decl_body0
-	     : LTO_parm_decl_body0)
-	+ variant;
-
-      VEC_replace (int, ob->local_decls_index, index, ob->main_stream->total_size);
-#ifdef LTO_STREAM_DEBUGGING
-      VEC_replace (int, ob->local_decls_index_d, index, ob->debug_decl_stream->total_size);
-#endif
-      index++;
-      output_record_start (ob, NULL, NULL, tag);
-
-      /* Put out the name if there is one.  */
-      if (DECL_NAME (decl))
-	{
-	  tree name = DECL_NAME (decl);
-	  output_string (ob, ob->main_stream, 
-			 IDENTIFIER_POINTER (name), 
-			 IDENTIFIER_LENGTH (name));
-	}
-      else
-	output_zero (ob);
-
-      output_type_ref (ob, TREE_TYPE (decl));
-
-      if (is_var)
-	{
-	  LTO_DEBUG_INDENT_TOKEN ("init");
-	  if (DECL_INITIAL (decl))
-	    output_expr_operand (ob, DECL_INITIAL (decl));
-	  else
-	    output_zero (ob);
-	}
-      else
-	output_type_ref (ob, DECL_ARG_TYPE (decl));
-
-      clear_line_info (ob);
-      output_tree_flags (ob, 0, decl, true);
-
-      LTO_DEBUG_TOKEN ("chain");
-      if (TREE_CHAIN (decl))
-	output_expr_operand (ob, TREE_CHAIN (decl));
-      else
-	output_zero (ob);
-
-      LTO_DEBUG_TOKEN ("context");
-      if (DECL_CONTEXT (decl))
-	output_expr_operand (ob, DECL_CONTEXT (decl));
-      else 
-	output_zero (ob);
-
-      LTO_DEBUG_TOKEN ("align");
-      output_uleb128 (ob, DECL_ALIGN (decl));
-
-      /* Put out the subtrees.  */
-      LTO_DEBUG_TOKEN ("size");
-      output_expr_operand (ob, DECL_SIZE (decl));
-      if (DECL_ATTRIBUTES (decl)!= NULL_TREE)
-	{
-	  LTO_DEBUG_TOKEN ("attributes");
-	  output_expr_operand (ob, DECL_ATTRIBUTES (decl));
-	}
-      if (DECL_SIZE_UNIT (decl) != NULL_TREE)
-	output_expr_operand (ob, DECL_SIZE_UNIT (decl));
-      if (needs_backing_var)
-	output_expr_operand (ob, DECL_DEBUG_EXPR (decl));
-      if (DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE)
-	output_expr_operand (ob, DECL_ABSTRACT_ORIGIN (decl));
-
-      LTO_DEBUG_UNDENT();
-    }
+    output_local_var (ob, index++);
 
   ob->main_stream = tmp_stream;
 }
@@ -2293,13 +2346,19 @@ output_function (tree function)
   /* Output any exception-handling regions.  */
   output_eh_regions (ob, fn);
 
-  /* Output the argument array.  */
+  /* Output the head of the arguments list.  */
   LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
   if (DECL_ARGUMENTS (function))
     output_expr_operand (ob, DECL_ARGUMENTS (function));
   else
     output_zero (ob);
     
+  LTO_DEBUG_INDENT_TOKEN ("decl_context");
+  if (DECL_CONTEXT (function))
+    output_expr_operand (ob, DECL_CONTEXT (function));
+  else
+    output_zero (ob);
+
   /* Output the code for the function.  */
   FOR_ALL_BB_FN (bb, fn)
     output_bb (ob, bb, fn);
@@ -2315,7 +2374,7 @@ output_function (tree function)
   output_cfg (ob, fn);
 
   LTO_SET_DEBUGGING_STREAM (debug_decl_stream, decl_data);
-  output_local_vars (ob);
+  output_local_vars (ob, fn);
 
   LTO_SET_DEBUGGING_STREAM (debug_decl_index_stream, decl_index_data);
   output_local_vars_index (ob);

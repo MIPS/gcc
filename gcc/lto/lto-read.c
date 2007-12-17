@@ -67,6 +67,7 @@ struct data_in
   tree *type_decls;         /* The type_decls.  */
   tree *types;              /* All of the types.  */
   int *local_decls_index;   /* The offsets to decode the local_decls.  */
+  int *unexpanded_indexes;  /* A table to reconstruct the unexpanded_vars_list.  */
 #ifdef LTO_STREAM_DEBUGGING
   int *local_decls_index_d; /* The offsets to decode the local_decls debug info.  */
 #endif
@@ -1265,7 +1266,7 @@ input_local_vars_index (struct input_block *ib, struct data_in *data_in,
 }
 
 
-/* Input local var I from IB.  */
+/* Input local var I for FN from IB.  */
 
 static tree
 input_local_var (struct input_block *ib, struct data_in *data_in, 
@@ -1311,24 +1312,34 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
   
   if (is_var)
     {
+      int index;
+
       LTO_DEBUG_INDENT_TOKEN ("init");
       tag = input_record_start (ib);
       if (tag)
 	DECL_INITIAL (result) = input_expr_operand (ib, data_in, fn, tag);
+
+      LTO_DEBUG_INDENT_TOKEN ("unexpanded index");
+      index = input_sleb128 (ib);
+      if (index != -1)
+	data_in->unexpanded_indexes[index] = i;
     }
   else
-    DECL_ARG_TYPE (result) = input_type_ref (data_in, ib);
+    {
+      DECL_ARG_TYPE (result) = input_type_ref (data_in, ib);
+      LTO_DEBUG_TOKEN ("chain");
+      tag = input_record_start (ib);
+      if (tag)
+	TREE_CHAIN (result) = input_expr_operand (ib, data_in, fn, tag);
+      else 
+	TREE_CHAIN (result) = NULL_TREE;
+    }
+
 
   flags = input_tree_flags (ib, 0, true);
   if (input_line_info (ib, data_in, flags))
     set_line_info (data_in, result);
 
-  LTO_DEBUG_TOKEN ("chain");
-  tag = input_record_start (ib);
-  if (tag)
-    TREE_CHAIN (result) = input_expr_operand (ib, data_in, fn, tag);
-  else 
-    TREE_CHAIN (result) = NULL_TREE;
 
   LTO_DEBUG_TOKEN ("context");
   context = input_expr_operand (ib, data_in, fn, input_record_start (ib));
@@ -1362,11 +1373,6 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
   process_tree_flags (result, flags);
   LTO_DEBUG_UNDENT();
 
-  /* Record the variable.  */
-  if (is_var)
-    fn->unexpanded_var_list = tree_cons (NULL_TREE, result,
-					 fn->unexpanded_var_list);
-
   return result;
 }
 
@@ -1378,10 +1384,14 @@ static void
 input_local_vars (struct input_block *ib, struct data_in *data_in, 
 		  struct function *fn, unsigned int count)
 {
-  unsigned int i;
-
+  int i;
+  
+  data_in->unexpanded_indexes = xcalloc (count, sizeof (int));
   data_in->local_decls = xcalloc (count, sizeof (tree*));
-  for (i = 0; i < count; i++)
+
+  memset (data_in->unexpanded_indexes, -1, count * sizeof (int));
+
+  for (i = 0; i < (int)count; i++)
     /* Some local decls may have already been read in if they are used
        as part of a previous local_decl.  */
     if (!data_in->local_decls[i])
@@ -1393,6 +1403,18 @@ input_local_vars (struct input_block *ib, struct data_in *data_in,
 	ib->p = data_in->local_decls_index[i];
 	input_local_var (ib, data_in, fn, i);
       }
+
+  /* Recreate the unexpanded_var_list.  */
+  fn->unexpanded_var_list = NULL;
+  for (i = count - 1; i >= 0; i--)
+    if (data_in->unexpanded_indexes[i] != -1)
+      fn->unexpanded_var_list 
+	= tree_cons (NULL_TREE, 
+		     data_in->local_decls[data_in->unexpanded_indexes[i]],
+		     fn->unexpanded_var_list);
+
+  free (data_in->unexpanded_indexes);
+  data_in->unexpanded_indexes = NULL;
 }
 
 
@@ -1647,6 +1669,11 @@ input_function (tree fn_decl, struct data_in *data_in,
   tag = input_record_start (ib);
   if (tag)
     DECL_ARGUMENTS (fn_decl) = input_expr_operand (ib, data_in, fn, tag); 
+
+  LTO_DEBUG_INDENT_TOKEN ("decl_context");
+  tag = input_record_start (ib);
+  if (tag)
+    DECL_CONTEXT (fn_decl) = input_expr_operand (ib, data_in, fn, tag); 
 
   tag = input_record_start (ib);
   while (tag)
