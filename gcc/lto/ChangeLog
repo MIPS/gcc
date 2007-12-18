@@ -1,5 +1,11 @@
 2007-12-18  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto.c (lto_read_DIE): Call lto_read_only_for_child_DIEs instead.
+	(lto_file_read): Reset the members of 'context' every time we read
+	a toplevel DIE, with special attention to last_param_type.
+
+2007-12-18  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto.c (lto_read_subroutine_type_subprogram_DIE): Initialize
 	'declaration'.  Set the assembler name for non-public functions.
 

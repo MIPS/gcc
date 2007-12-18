@@ -3328,12 +3328,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 		   "supported by link-time optimization", abbrev->tag);
 
 	  /* Skip over this DIE, but attempt to read its children.  */
-	  LTO_BEGIN_READ_ATTRS_UNCHECKED ()
-	    {
-	    }
-	  LTO_END_READ_ATTRS ();
-	  /* Read children.  */ 
-	  lto_read_child_DIEs (fd, abbrev, context);
+	  lto_read_only_for_child_DIEs (fd, die, abbrev, context);
 	}
 
       context->skip_all = saved_skip_all;
@@ -3493,17 +3488,38 @@ lto_file_read (lto_file *file)
       /* Set up the context.  */
       lto_set_cu_context (&context, &file->debug_info, unit);
       fd->cur = context.cu_start + unit->cu_header_length;
-      context.scope = NULL_TREE;
-      context.parentdata = NULL_TREE;
-      context.last_parm_type = NULL;
-      context.varargs_p = false;
-      context.skip_all = false;
-      context.skip_non_parameters = false;
-      context.skip_parameters = false;
 
       /* Read DIEs.  */
       while (fd->cur < context.cu_end)
-	lto_read_DIE (&file->debug_info, &context, NULL);
+	{
+	  tree last_parm_type = NULL_TREE;
+
+	  /* Reinitialize everything for a toplevel DIE.  */
+	  context.scope = NULL_TREE;
+	  context.parentdata = NULL_TREE;
+	  /* Initialize this specially so reading a formal parameter DIE
+	     won't fall over.  We shouldn't normally see such DIEs at
+	     the toplevel in the first place, but if the following
+	     scenario occurs:
+
+	     1. Read a subprogram DIE for X;
+	     2. Read a formal parameter DIE for X's parameter(s) as
+	     children of X;
+	     3. Attempt to read X's DIE again, but we retrieve the cached
+	     version we read in step 1;
+
+	     Then we will attempt to read the formal parameter DIEs for
+	     X's parameter(s) as "toplevel" DIEs, as they haven't been
+	     skipped properly by step 3.  It's harmless, but we need to
+	     be prepared for such a situation.  */
+	  context.last_parm_type = &last_parm_type;
+	  context.varargs_p = false;
+	  context.skip_all = false;
+	  context.skip_non_parameters = false;
+	  context.skip_parameters = false;
+
+	  lto_read_DIE (&file->debug_info, &context, NULL);
+	}
 
       /* Read in function bodies now that we have the full DWARF tree
          available.  */
