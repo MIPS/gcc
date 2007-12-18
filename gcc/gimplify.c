@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "pointer-set.h"
 #include "splay-tree.h"
+#include "server.h"
 
 
 enum gimplify_omp_var_data
@@ -6466,6 +6467,8 @@ gimplify_function_tree (tree fndecl)
 {
   tree oldfn, parm, ret;
   struct function *fun;
+
+  server_assert_code_generation ();
 
   fun = DECL_STRUCT_FUNCTION (fndecl);
   if (fun && fun->gimplified)

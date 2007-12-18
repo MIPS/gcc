@@ -894,7 +894,8 @@ c_parser_lookup_callback (tree name, tree result, bool is_tag)
      requires many changes.  */
   c_parser *parser = the_parser;
 
-  if (!parser || !parser->current_hunk_binding)
+  if (!parser || !parser->current_hunk_binding
+      || (result && TREE_CODE (result) == ERROR_MARK))
     return;
   binding = result ? find_hunk_binding (result) : NULL;
 

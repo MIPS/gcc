@@ -2958,18 +2958,7 @@ lookup_name (tree name)
     {
       tree result = b->decl;
       if (B_IN_FILE_SCOPE (b))
-	{
-	  c_parser_lookup_callback (name, result, false);
-	  /* We should only need to handle smashed types for
-	     file-scope things.  */
-	  if (TREE_TYPE (result) != error_mark_node
-	      && TREE_CODE (result) == VAR_DECL)
-	    {
-	      tree newtype = C_SMASHED_TYPE_VARIANT (TREE_TYPE (result));
-	      if (newtype != TREE_TYPE (result))
-		result = build1 (VIEW_CONVERT_EXPR, newtype, result);
-	    }
-	}
+	c_parser_lookup_callback (name, result, false);
       return result;
     }
   c_parser_lookup_callback (name, NULL_TREE, false);
@@ -4173,6 +4162,9 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
     {
       struct lang_type *lt = TYPE_LANG_SPECIFIC (*type);
       if (!lt
+	  /* We might have a TYPE_LANG_SPECIFIC but still not have set
+	     the enum min and max.  */
+	  || (!lt->enum_min && !lt->enum_max)
 	  || w < min_precision (lt->enum_min, TYPE_UNSIGNED (*type))
 	  || w < min_precision (lt->enum_max, TYPE_UNSIGNED (*type)))
 	warning (0, "%qs is narrower than values of its type", name);

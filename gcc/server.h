@@ -35,4 +35,8 @@ extern void client_kill_server (const char *);
 /* The main loop calls this when a command is read.  */
 extern void server_callback (int, char *, char **, char **);
 
+/* Ensure that we are either running standalone, or in the
+   code-generation subprocess.  */
+extern void server_assert_code_generation (void);
+
 #endif /* GCC_SERVER_H */

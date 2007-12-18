@@ -1,3 +1,24 @@
+2007-12-17  Tom Tromey  <tromey@redhat.com>
+
+	* gimplify.c (gimplify_function_tree): Use
+	server_assert_code_generation.
+	* server.h (server_assert_code_generation): Declare.
+	* server.c (enum server_state): New.
+	(current_server_state): New global.
+	(server_main_loop): Set it.
+	(server_start_back_end): Likewise.
+	(server_assert_code_generation): New function.
+	* c-pretty-print.c (pp_c_expression): Handle VIEW_CONVERT_EXPR.
+	(pp_c_cast_expression): Likewise.
+	* c-typeck.c (really_start_incremental_init): Handle error mark
+	nodes.
+	(build_external_ref): Wrap variables in VIEW_CONVERT_EXPR.
+	* c-parser.c (c_parser_lookup_callback): Handle error mark nodes.
+	* c-decl.c (check_bitfield_type_and_width): Handle enum type
+	without a min and max.
+	(lookup_name): Revert earlier patch; don't wrap with
+	VIEW_CONVERT_EXPR.
+
 2007-12-14  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (lookup_name): Wrap variables in a VIEW_CONVERT_EXPR.

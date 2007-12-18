@@ -28,6 +28,22 @@ along with GCC; see the file COPYING3.  If not see
 #include <sys/socket.h>
 #include <sys/un.h>
 
+/* Possible server-related states that the compiler can be in.  */
+enum server_state
+{
+  /* Not running as a server.  */
+  SERVER_NONE,
+  /* Running as a server, in the server itself.  */
+  SERVER_SERVER,
+  /* Running as a server, in the forked code-generation subprocess.  */
+  SERVER_CODEGEN
+};
+
+/* The server state.  It is useful to keep this for internal checking,
+   but it seems better not to export it as a global to the rest of the
+   compiler.  */
+static enum server_state current_server_state = SERVER_NONE;
+
 /* The name of the server socket we're using.  */
 static char *server_socket_name;
 
@@ -237,6 +253,8 @@ server_main_loop (const char *progname, int fd)
   char reply = 't';
   bool result = true;
 
+  current_server_state = SERVER_SERVER;
+
   if (sockfd < 0)
     {
       error ("couldn't create server socket: %s", xstrerror (errno));
@@ -287,6 +305,7 @@ server_start_back_end (void)
   else if (child == 0)
     {
       /* Child process.  */
+      current_server_state = SERVER_CODEGEN;
       return false;
     }
 
@@ -413,4 +432,15 @@ client_kill_server (const char *progname)
       return;
     }
   send_command_and_wait ('K');
+}
+
+/* Assert that either this compiler is running standalone, or that the
+   compiler has forked and we are in the code generation subprocess.
+   This can be used to decide when it is ok to destructively rewrite
+   front end trees.  */
+void
+server_assert_code_generation (void)
+{
+  gcc_assert (current_server_state == SERVER_NONE
+	      || current_server_state == SERVER_CODEGEN);
 }

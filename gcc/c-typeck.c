@@ -2160,6 +2160,15 @@ build_external_ref (tree id, int fun, location_t loc)
     pedwarn ("%H%qD is static but used in inline function %qD "
 	     "which is not static", &loc, ref, current_function_decl);
 
+  /* Functions are handled when building a function call.  FIXME: but
+     is that right?  What about pointer-to-fn?  */
+  if (TREE_CODE (ref) != FUNCTION_DECL)
+    {
+      tree smashtype = C_SMASHED_TYPE_VARIANT (TREE_TYPE (ref));
+      if (smashtype != TREE_TYPE (ref))
+	ref = build1 (VIEW_CONVERT_EXPR, smashtype, ref);
+    }
+
   return ref;
 }
 
@@ -5084,7 +5093,8 @@ really_start_incremental_init (tree type)
 
   if (type == 0)
     type = TREE_TYPE (constructor_decl);
-  type = C_SMASHED_TYPE_VARIANT (type);
+  if (TREE_CODE (type) != ERROR_MARK)
+    type = C_SMASHED_TYPE_VARIANT (type);
 
   if (targetm.vector_opaque_p (type))
     error ("opaque vector types cannot be initialized");
