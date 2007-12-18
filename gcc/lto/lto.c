@@ -2465,6 +2465,7 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
   prototyped = false;
   name = NULL_TREE;
   external = false;
+  declaration = false;
   saved_scope = NULL_TREE;
 
   if (abbrev->tag == DW_TAG_subroutine_type)
@@ -2672,6 +2673,11 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	else
 	  DECL_EXTERNAL (result) = 1;
       }
+
+      if (!TREE_PUBLIC (result))
+	/* Need to ensure static entities between different files
+	   don't clash unexpectedly.  */
+	lang_hooks.set_decl_assembler_name (result);
 
       /* If the function has already been declared, merge the
 	 declarations.  */
