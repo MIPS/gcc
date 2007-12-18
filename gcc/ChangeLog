@@ -1,5 +1,10 @@
 2007-12-17  Tom Tromey  <tromey@redhat.com>
 
+	* c-decl.c (c_write_global_declarations): Return early if making a
+	PCH file.
+
+2007-12-17  Tom Tromey  <tromey@redhat.com>
+
 	* gimplify.c (gimplify_function_tree): Use
 	server_assert_code_generation.
 	* server.h (server_assert_code_generation): Declare.

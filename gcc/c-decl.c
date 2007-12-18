@@ -8176,8 +8176,10 @@ c_write_global_declarations (void)
   tree t;
 
   /* Don't waste time on further processing if -fsyntax-only or we've
-     encountered errors.  */
-  if (flag_syntax_only || errorcount || sorrycount || cpp_errors (parse_in))
+     encountered errors.  If we are generating a PCH file, then we
+     don't want to do this either.  */
+  if (flag_syntax_only || errorcount || sorrycount || cpp_errors (parse_in)
+      || pch_file)
     return;
 
   /* Process all file scopes in this compilation, and the external_scope,
