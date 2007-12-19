@@ -19237,7 +19237,9 @@ cp_parser_omp_clause_name (cp_parser *parser)
       switch (p[0])
 	{
 	case 'c':
-	  if (!strcmp ("copyin", p))
+	  if (!strcmp ("collapse", p))
+	    result = PRAGMA_OMP_CLAUSE_COLLAPSE;
+	  else if (!strcmp ("copyin", p))
 	    result = PRAGMA_OMP_CLAUSE_COPYIN;
 	  else if (!strcmp ("copyprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_COPYPRIVATE;
@@ -19269,6 +19271,10 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_SCHEDULE;
 	  else if (!strcmp ("shared", p))
 	    result = PRAGMA_OMP_CLAUSE_SHARED;
+	  break;
+	case 'u':
+	  if (!strcmp ("untied", p))
+	    result = PRAGMA_OMP_CLAUSE_UNTIED;
 	  break;
 	}
     }
@@ -19370,6 +19376,46 @@ cp_parser_omp_var_list (cp_parser *parser, enum omp_clause_code kind, tree list)
   if (cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
     return cp_parser_omp_var_list_no_open (parser, kind, list);
   return list;
+}
+
+/* OpenMP 3.0:
+   collapse ( constant-expression ) */
+
+static tree
+cp_parser_omp_clause_collapse (cp_parser *parser, tree list)
+{
+  tree c, num;
+  location_t loc;
+  HOST_WIDE_INT n;
+
+  loc = cp_lexer_peek_token (parser->lexer)->location;
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+    return list;
+
+  num = cp_parser_constant_expression (parser, false, NULL);
+
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+    cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
+					   /*or_comma=*/false,
+					   /*consume_paren=*/true);
+
+  if (num == error_mark_node)
+    return list;
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (num))
+      || !host_integerp (num, 0)
+      || (n = tree_low_cst (num, 0)) <= 0
+      || (int) n != n)
+    {
+      error ("%Hcollapse argument needs positive constant integer expression", &loc);
+      return list;
+    }
+
+  check_no_duplicate_clause (list, OMP_CLAUSE_COLLAPSE, "collapse");
+  c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
+  OMP_CLAUSE_CHAIN (c) = list;
+  OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
+
+  return c;
 }
 
 /* OpenMP 2.5:
@@ -19582,7 +19628,7 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
    schedule ( schedule-kind , expression )
 
    schedule-kind:
-     static | dynamic | guided | runtime  */
+     static | dynamic | guided | runtime | auto  */
 
 static tree
 cp_parser_omp_clause_schedule (cp_parser *parser, tree list)
@@ -19625,6 +19671,8 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list)
     }
   else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_STATIC))
     OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_STATIC;
+  else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
+    OMP_CLAUSE_SCHEDULE_KIND (c) = OMP_CLAUSE_SCHEDULE_AUTO;
   else
     goto invalid_kind;
   cp_lexer_consume_token (parser->lexer);
@@ -19639,6 +19687,9 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list)
 	goto resync_fail;
       else if (OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_RUNTIME)
 	error ("schedule %<runtime%> does not take "
+	       "a %<chunk_size%> parameter");
+      else if (OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_AUTO)
+	error ("schedule %<auto%> does not take "
 	       "a %<chunk_size%> parameter");
       else
 	OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
@@ -19662,6 +19713,21 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list)
   return list;
 }
 
+/* OpenMP 3.0:
+   untied */
+
+static tree
+cp_parser_omp_clause_untied (cp_parser *parser ATTRIBUTE_UNUSED, tree list)
+{
+  tree c;
+
+  check_no_duplicate_clause (list, OMP_CLAUSE_UNTIED, "untied");
+
+  c = build_omp_clause (OMP_CLAUSE_UNTIED);
+  OMP_CLAUSE_CHAIN (c) = list;
+  return c;
+}
+
 /* Parse all OpenMP clauses.  The set clauses allowed by the directive
    is a bitmask in MASK.  Return the list of clauses found; the result
    of clause default goes in *pdefault.  */
@@ -19680,6 +19746,10 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 
       switch (c_kind)
 	{
+	case PRAGMA_OMP_CLAUSE_COLLAPSE:
+	  clauses = cp_parser_omp_clause_collapse (parser, clauses);
+	  c_name = "collapse";
+	  break;
 	case PRAGMA_OMP_CLAUSE_COPYIN:
 	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_COPYIN, clauses);
 	  c_name = "copyin";
@@ -19736,6 +19806,10 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_SHARED,
 					    clauses);
 	  c_name = "shared";
+	  break;
+	case PRAGMA_OMP_CLAUSE_UNTIED:
+	  clauses = cp_parser_omp_clause_untied (parser, clauses);
+	  c_name = "nowait";
 	  break;
 	default:
 	  cp_parser_error (parser, "expected %<#pragma omp%> clause");
@@ -20056,7 +20130,8 @@ cp_parser_omp_for_loop (cp_parser *parser)
 	| (1u << PRAGMA_OMP_CLAUSE_REDUCTION)		\
 	| (1u << PRAGMA_OMP_CLAUSE_ORDERED)		\
 	| (1u << PRAGMA_OMP_CLAUSE_SCHEDULE)		\
-	| (1u << PRAGMA_OMP_CLAUSE_NOWAIT))
+	| (1u << PRAGMA_OMP_CLAUSE_NOWAIT)		\
+	| (1u << PRAGMA_OMP_CLAUSE_COLLAPSE))
 
 static tree
 cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok)
@@ -20317,6 +20392,43 @@ cp_parser_omp_single (cp_parser *parser, cp_token *pragma_tok)
   return add_stmt (stmt);
 }
 
+/* OpenMP 3.0:
+   # pragma omp task task-clause[optseq] new-line
+     structured-block  */
+
+#define OMP_TASK_CLAUSE_MASK				\
+	( (1u << PRAGMA_OMP_CLAUSE_IF)			\
+	| (1u << PRAGMA_OMP_CLAUSE_UNTIED)		\
+	| (1u << PRAGMA_OMP_CLAUSE_DEFAULT)		\
+	| (1u << PRAGMA_OMP_CLAUSE_PRIVATE)		\
+	| (1u << PRAGMA_OMP_CLAUSE_FIRSTPRIVATE)	\
+	| (1u << PRAGMA_OMP_CLAUSE_SHARED))
+
+static tree
+cp_parser_omp_task (cp_parser *parser, cp_token *pragma_tok)
+{
+  tree clauses, block;
+  unsigned int save;
+
+  clauses = cp_parser_omp_all_clauses (parser, OMP_TASK_CLAUSE_MASK,
+				       "#pragma omp task", pragma_tok);
+  block = begin_omp_task ();
+  save = cp_parser_begin_omp_structured_block (parser);
+  cp_parser_statement (parser, NULL_TREE, false, NULL);
+  cp_parser_end_omp_structured_block (parser, save);
+  return finish_omp_task (clauses, block);
+}
+
+/* OpenMP 3.0:
+   # pragma omp taskwait new-line  */
+
+static void
+cp_parser_omp_taskwait (cp_parser *parser, cp_token *pragma_tok)
+{
+  cp_parser_require_pragma_eol (parser, pragma_tok);
+  finish_omp_taskwait ();
+}
+
 /* OpenMP 2.5:
    # pragma omp threadprivate (variable-list) */
 
@@ -20363,6 +20475,9 @@ cp_parser_omp_construct (cp_parser *parser, cp_token *pragma_tok)
       break;
     case PRAGMA_OMP_SINGLE:
       stmt = cp_parser_omp_single (parser, pragma_tok);
+      break;
+    case PRAGMA_OMP_TASK:
+      stmt = cp_parser_omp_task (parser, pragma_tok);
       break;
     default:
       gcc_unreachable ();
@@ -20471,6 +20586,21 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 	}
       break;
 
+    case PRAGMA_OMP_TASKWAIT:
+      switch (context)
+	{
+	case pragma_compound:
+	  cp_parser_omp_taskwait (parser, pragma_tok);
+	  return false;
+	case pragma_stmt:
+	  error ("%<#pragma omp taskwait%> may only be "
+		 "used in compound statements");
+	  break;
+	default:
+	  goto bad_stmt;
+	}
+      break;
+
     case PRAGMA_OMP_THREADPRIVATE:
       cp_parser_omp_threadprivate (parser, pragma_tok);
       return false;
@@ -20483,6 +20613,7 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
     case PRAGMA_OMP_PARALLEL:
     case PRAGMA_OMP_SECTIONS:
     case PRAGMA_OMP_SINGLE:
+    case PRAGMA_OMP_TASK:
       if (context == pragma_external)
 	goto bad_stmt;
       cp_parser_omp_construct (parser, pragma_tok);

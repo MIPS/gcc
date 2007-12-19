@@ -1,3 +1,12 @@
+2007-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/task-1.c (f3): New function.
+	(main): Call it, also test from within parallel region.
+	* testsuite/libgomp.c/collapse-1.c: New test.
+	* testsuite/libgomp.c++/task-1.C: New test.
+	* testsuite/libgomp.c++/collapse-1.C: New test.
+	* testsuite/libgomp.fortran/collapse1.f90: New test.
+
 2007-12-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/task1.f90: New test.

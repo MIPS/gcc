@@ -1,4 +1,4 @@
-extern void abort (void);
+extern "C" void abort ();
 
 int a = 18;
 
@@ -64,7 +64,7 @@ f3 (int i, int j, int k)
 }
 
 int
-main (void)
+main ()
 {
   f1 (8, 26, 0);
   f2 ();
@@ -80,5 +80,4 @@ main (void)
 	f3 (8, 26, 0);
       }
   }
-  return 0;
 }

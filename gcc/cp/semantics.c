@@ -3451,6 +3451,8 @@ finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
+	case OMP_CLAUSE_UNTIED:
+	case OMP_CLAUSE_COLLAPSE:
 	  break;
 
 	default:
@@ -3802,6 +3804,28 @@ finish_omp_parallel (tree clauses, tree body)
   return add_stmt (stmt);
 }
 
+tree
+begin_omp_task (void)
+{
+  keep_next_level (true);
+  return begin_omp_structured_block ();
+}
+
+tree
+finish_omp_task (tree clauses, tree body)
+{
+  tree stmt;
+
+  body = finish_omp_structured_block (body);
+
+  stmt = make_node (OMP_TASK);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_TASK_CLAUSES (stmt) = clauses;
+  OMP_TASK_BODY (stmt) = body;
+
+  return add_stmt (stmt);
+}
+
 /* Build and validate an OMP_FOR statement.  CLAUSES, BODY, COND, INCR
    are directly for their associated operands in the statement.  DECL
    and INIT are a combo; if DECL is NULL then INIT ought to be a
@@ -3968,6 +3992,14 @@ void
 finish_omp_flush (void)
 {
   tree fn = built_in_decls[BUILT_IN_SYNCHRONIZE];
+  tree stmt = finish_call_expr (fn, NULL, false, false);
+  finish_expr_stmt (stmt);
+}
+
+void
+finish_omp_taskwait (void)
+{
+  tree fn = built_in_decls[BUILT_IN_GOMP_TASKWAIT];
   tree stmt = finish_call_expr (fn, NULL, false, false);
   finish_expr_stmt (stmt);
 }

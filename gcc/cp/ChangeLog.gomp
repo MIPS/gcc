@@ -1,0 +1,21 @@
+2007-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (begin_omp_task, finish_omp_task, finish_omp_taskwait):
+	New prototypes.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE_UNTIED and
+	OMP_CLAUSE_COLLAPSE.
+	(begin_omp_task, finish_omp_task, finish_omp_taskwait): New
+	functions.
+	* parser.c (cp_parser_omp_clause_name): Handle collapse and untied
+	clauses.
+	(cp_parser_omp_clause_collapse, cp_parser_omp_clause_untied): New
+	functions.
+	(cp_parser_omp_clause_schedule): Handle auto schedule.
+	(cp_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_COLLAPSE
+	and PRAGMA_OMP_CLAUSE_UNTIED.
+	(OMP_FOR_CLAUSE_MASK): Add PRAGMA_OMP_CLAUSE_COLLAPSE.
+	(OMP_TASK_CLAUSE_MASK): Define.
+	(cp_parser_omp_task, cp_parser_omp_taskwait): New functions.
+	(cp_parser_omp_construct): Handle PRAGMA_OMP_TASK.
+	(cp_parser_pragma): Handle PRAGMA_OMP_TASK and
+	PRAGMA_OMP_TASKWAIT.
