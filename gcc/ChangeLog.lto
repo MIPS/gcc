@@ -1,3 +1,9 @@
+2007-12-18  Doug Kwan  <dougkwan@google.com>
+
+        * real.c (real_to_decimal, real_to_hexadecimal): Distinguish
+        QNaN & SNaN.
+        (real_from_string): Handle NaNs and Inf as approriate.
+
 2007-12-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-out.c (output_block.unexpanded_local_decls_index): New vector.
