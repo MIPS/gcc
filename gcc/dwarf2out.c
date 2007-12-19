@@ -8469,12 +8469,14 @@ base_type_die (tree type)
       break;
 
       /* Dwarf2 doesn't know anything about complex ints, so use
-	 a user defined type for it.  */
+	 user defined types for it.  */
     case COMPLEX_TYPE:
       if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
 	encoding = DW_ATE_complex_float;
       else
-	encoding = DW_ATE_lo_user;
+	encoding = (TYPE_UNSIGNED (type)
+		    ? DW_ATE_GNU_complex_unsigned
+		    : DW_ATE_GNU_complex_signed);
       break;
 
     case BOOLEAN_TYPE:

@@ -1,3 +1,7 @@
+2007-12-19  Doug Kwan  <dougkwan@google.com>
+
+	* lto.c (lto_read_base_type_DIE): Handle complex integer types.
+
 2007-12-18  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_DIE): Call lto_read_only_for_child_DIEs instead.

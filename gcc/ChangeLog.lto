@@ -1,3 +1,12 @@
+2007-12-19  Doug Kwan  <dougkwan@google.com>
+
+        * dwarf2out.c (base_type_de): Use DW_ATE_GNU_complex_unsigned
+        and DW_ATE_GNU_complex_signed as appropriate instead of using
+        DW_ATE_lo_user.
+
+        * dwarf2.h (DW_ATE_GNU_complex_signed, DW_ATE_GNU_complex_unsigned):
+        New encoding formats.
+
 2007-12-18  Doug Kwan  <dougkwan@google.com>
 
         * real.c (real_to_decimal, real_to_hexadecimal): Distinguish

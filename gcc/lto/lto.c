@@ -3071,6 +3071,15 @@ lto_read_base_type_DIE (lto_info_fd *fd,
       }
       break;
 
+    case DW_ATE_GNU_complex_signed:
+    case DW_ATE_GNU_complex_unsigned:
+      {
+	bool unsigned_p = encoding == DW_ATE_GNU_complex_unsigned;
+	tree base = make_bitfield_integer_type (bits / 2, unsigned_p);
+	type = build_complex_type (base);
+      }
+      break;
+
     case DW_ATE_decimal_float:
     case DW_ATE_lo_user:  
     default:
