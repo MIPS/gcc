@@ -1,5 +1,9 @@
 2007-12-20  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_update_checksum): Fix logic.
+
+2007-12-20  Tom Tromey  <tromey@redhat.com>
+
 	* dwarf2out.c (macro_obstack): New global.
 	(struct macro_entry): New.
 	(first_macro_entry, last_macro_entry): New globals.
