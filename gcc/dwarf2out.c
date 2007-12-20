@@ -138,6 +138,34 @@ dwarf2out_do_frame (void)
 #define PTR_SIZE (POINTER_SIZE / BITS_PER_UNIT)
 #endif
 
+/* This is used when allocating entries for file enter/exit and macro
+   information.  */
+static struct obstack macro_obstack;
+
+/* An entry on the macro obstack takes this form.  */
+struct macro_entry
+{
+  /* The type of this entry.  */
+  enum dwarf_macinfo_record_type kind;
+
+  /* The line number.  */
+  unsigned int lineno;
+
+  /* The next entry.  */
+  struct macro_entry *next;
+
+  /* Associated string data, allocated using the struct hack.  */
+  char str[1];
+};
+
+/* The first macro entry, or NULL if no macro entry has been allocated
+   yet.  */
+static struct macro_entry *first_macro_entry;
+
+/* The most recently added macro entry, used to find the tail of the
+   list.  */
+static struct macro_entry *last_macro_entry;
+
 /* Array of RTXes referenced by the debugging information, which therefore
    must be kept around forever.  */
 static GTY(()) VEC(rtx,gc) *used_rtx_array;
@@ -14244,6 +14272,95 @@ dwarf2out_source_line (unsigned int line, const char *filename)
     }
 }
 
+/* Add a new macro entry to the list.  */
+static void
+add_macro_entry (enum dwarf_macinfo_record_type kind, unsigned int lineno,
+		 const char *str)
+{
+  struct macro_entry *mac;
+  int len;
+
+  if (! first_macro_entry)
+    {
+      gcc_assert (! last_macro_entry);
+      gcc_obstack_init (&macro_obstack);
+    }
+
+  len = str ? strlen (str) : 0;
+  mac = (struct macro_entry *) obstack_alloc (&macro_obstack,
+					      sizeof (struct macro_entry)
+					      + len);
+  mac->kind = kind;
+  mac->lineno = lineno;
+  mac->next = NULL;
+  if (str)
+    strcpy (mac->str, str);
+
+  if (! first_macro_entry)
+    first_macro_entry = mac;
+  if (last_macro_entry)
+    last_macro_entry->next = mac;
+  last_macro_entry = mac;
+}
+
+/* Emit all the macro entries.  */
+static void
+emit_macro_entries (void)
+{
+  struct macro_entry *mac;
+
+  if (! first_macro_entry)
+    return;
+
+  gcc_assert (last_macro_entry);
+  gcc_assert (debug_info_level >= DINFO_LEVEL_VERBOSE);
+
+  switch_to_section (debug_macinfo_section);
+
+  for (mac = first_macro_entry; mac; mac = mac->next)
+    {
+      switch (mac->kind)
+	{
+	case DW_MACINFO_start_file:
+	  {
+	    int file_num = maybe_emit_file (lookup_filename (mac->str));
+
+	    dw2_asm_output_data (1, DW_MACINFO_start_file, "Start new file");
+	    dw2_asm_output_data_uleb128 (mac->lineno,
+					 "Included from line number %d",
+					 mac->lineno);
+	    dw2_asm_output_data_uleb128 (file_num, "file %s", mac->str);
+	  }
+	  break;
+
+	case DW_MACINFO_end_file:
+	  dw2_asm_output_data (1, DW_MACINFO_end_file, "End file");
+	  break;
+
+	case DW_MACINFO_define:
+	  dw2_asm_output_data (1, DW_MACINFO_define, "Define macro");
+	  dw2_asm_output_data_uleb128 (mac->lineno, "At line number %d",
+				       mac->lineno);
+	  dw2_asm_output_nstring (mac->str, -1, "The macro");
+	  break;
+
+	case DW_MACINFO_undef:
+	  dw2_asm_output_data (1, DW_MACINFO_undef, "Undefine macro");
+	  dw2_asm_output_data_uleb128 (mac->lineno, "At line number %d",
+				       mac->lineno);
+	  dw2_asm_output_nstring (mac->str, -1, "The macro");
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  obstack_free (&macro_obstack, NULL);
+  first_macro_entry = NULL;
+  last_macro_entry = NULL;
+}
+
 /* Record the beginning of a new source file.  */
 
 static void
@@ -14259,16 +14376,7 @@ dwarf2out_start_source_file (unsigned int lineno, const char *filename)
     }
 
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
-    {
-      int file_num = maybe_emit_file (lookup_filename (filename));
-
-      switch_to_section (debug_macinfo_section);
-      dw2_asm_output_data (1, DW_MACINFO_start_file, "Start new file");
-      dw2_asm_output_data_uleb128 (lineno, "Included from line number %d",
-				   lineno);
-
-      dw2_asm_output_data_uleb128 (file_num, "file %s", filename);
-    }
+    add_macro_entry (DW_MACINFO_start_file, lineno, filename);
 }
 
 /* Record the end of a source file.  */
@@ -14281,10 +14389,7 @@ dwarf2out_end_source_file (unsigned int lineno ATTRIBUTE_UNUSED)
     new_die (DW_TAG_GNU_EINCL, comp_unit_die, NULL);
 
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
-    {
-      switch_to_section (debug_macinfo_section);
-      dw2_asm_output_data (1, DW_MACINFO_end_file, "End file");
-    }
+    add_macro_entry (DW_MACINFO_end_file, 0, NULL);
 }
 
 /* Called from debug_define in toplev.c.  The `buffer' parameter contains
@@ -14292,16 +14397,10 @@ dwarf2out_end_source_file (unsigned int lineno ATTRIBUTE_UNUSED)
    initial whitespace, #, whitespace, directive-name, whitespace part.  */
 
 static void
-dwarf2out_define (unsigned int lineno ATTRIBUTE_UNUSED,
-		  const char *buffer ATTRIBUTE_UNUSED)
+dwarf2out_define (unsigned int lineno, const char *buffer)
 {
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
-    {
-      switch_to_section (debug_macinfo_section);
-      dw2_asm_output_data (1, DW_MACINFO_define, "Define macro");
-      dw2_asm_output_data_uleb128 (lineno, "At line number %d", lineno);
-      dw2_asm_output_nstring (buffer, -1, "The macro");
-    }
+    add_macro_entry (DW_MACINFO_define, lineno, buffer);
 }
 
 /* Called from debug_undef in toplev.c.  The `buffer' parameter contains
@@ -14309,16 +14408,10 @@ dwarf2out_define (unsigned int lineno ATTRIBUTE_UNUSED,
    initial whitespace, #, whitespace, directive-name, whitespace part.  */
 
 static void
-dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
-		 const char *buffer ATTRIBUTE_UNUSED)
+dwarf2out_undef (unsigned int lineno, const char *buffer)
 {
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
-    {
-      switch_to_section (debug_macinfo_section);
-      dw2_asm_output_data (1, DW_MACINFO_undef, "Undefine macro");
-      dw2_asm_output_data_uleb128 (lineno, "At line number %d", lineno);
-      dw2_asm_output_nstring (buffer, -1, "The macro");
-    }
+    add_macro_entry (DW_MACINFO_undef, lineno, buffer);
 }
 
 /* Set up for Dwarf output at the start of compilation.  */
@@ -14356,6 +14449,15 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   text_section_used = false;
   cold_text_section_used = false;
   cold_text_section = NULL;
+
+  /* FIXME: should have a cleanup function in the server so this can
+     be free while the server is quiescent.  */
+  if (first_macro_entry)
+    {
+      obstack_free (&macro_obstack, NULL);
+      first_macro_entry = NULL;
+      last_emitted_file = NULL;
+    }
 
   /* Allocate the file_table.  */
   file_table = htab_create_ggc (50, file_table_hash,
@@ -14804,6 +14906,9 @@ dwarf2out_finish (const char *filename)
 {
   limbo_die_node *node, *next_node;
   dw_die_ref die = 0;
+
+  /* Emit the macro information.  */
+  emit_macro_entries ();
 
   /* Add the name for the main input file now.  We delayed this from
      dwarf2out_init to avoid complications with PCH.  */

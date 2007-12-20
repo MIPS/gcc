@@ -1,5 +1,19 @@
 2007-12-20  Tom Tromey  <tromey@redhat.com>
 
+	* dwarf2out.c (macro_obstack): New global.
+	(struct macro_entry): New.
+	(first_macro_entry, last_macro_entry): New globals.
+	(add_macro_entry): New function.
+	(emit_macro_entries): Likewise.
+	(dwarf2out_start_source_file): Use add_macro_entry.
+	(dwarf2out_end_source_file): Likewise.
+	(dwarf2out_define): Likewise.
+	(dwarf2out_undef): Likewise.
+	(dwarf2out_init): Clear macro_obstack if needed.
+	(dwarf2out_finish): Call emit_macro_entries.
+
+2007-12-20  Tom Tromey  <tromey@redhat.com>
+
 	* toplev.c (clear_src_pwd): Add cast.
 	* c-parser.c (c_parser_lookup_callback): Check against
 	error_mark_node.
