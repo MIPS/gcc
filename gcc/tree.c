@@ -489,6 +489,9 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
   enum tree_code_class type = TREE_CODE_CLASS (code);
   size_t length = tree_code_size (code);
   gcc_assert (code != IDENTIFIER_NODE);
+  /* There can only be one error node.  */
+  gcc_assert (code != ERROR_MARK || !error_mark_node);
+
 #ifdef GATHER_STATISTICS
   tree_node_kind kind;
 
@@ -570,10 +573,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
   tree_node_sizes[(int) kind] += length;
 #endif
 
-  if (code == IDENTIFIER_NODE)
-    t = ggc_alloc_zone_pass_stat (length, &tree_id_zone);
-  else
-    t = ggc_alloc_zone_pass_stat (length, &tree_zone);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 

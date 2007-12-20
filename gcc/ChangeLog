@@ -1,3 +1,15 @@
+2007-12-20  Tom Tromey  <tromey@redhat.com>
+
+	* toplev.c (clear_src_pwd): Add cast.
+	* c-parser.c (c_parser_lookup_callback): Check against
+	error_mark_node.
+	(c_parser_update_checksum): Likewise.
+	(c_parser_bind_callback): Likewise.
+	* c-typeck.c (really_start_incremental_init): Check against
+	error_mark_node.
+	* tree.c (make_node_stat): Only allow one error mark.  Remove dead
+	code.
+
 2007-12-17  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (c_write_global_declarations): Return early if making a

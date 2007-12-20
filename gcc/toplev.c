@@ -476,7 +476,7 @@ clear_src_pwd (void)
 {
   if (src_pwd)
     {
-      free (src_pwd);
+      free ((char *) src_pwd);
       src_pwd = NULL;
     }
 }

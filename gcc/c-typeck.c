@@ -5093,7 +5093,7 @@ really_start_incremental_init (tree type)
 
   if (type == 0)
     type = TREE_TYPE (constructor_decl);
-  if (TREE_CODE (type) != ERROR_MARK)
+  if (type != error_mark_node)
     type = C_SMASHED_TYPE_VARIANT (type);
 
   if (targetm.vector_opaque_p (type))

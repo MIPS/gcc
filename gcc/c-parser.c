@@ -805,8 +805,7 @@ c_parser_bind_callback (tree name, tree decl)
      requires many changes.  */
   c_parser *parser = the_parser;
 
-  if (!parser || !parser->current_hunk_binding
-      || TREE_CODE (decl) == ERROR_MARK)
+  if (!parser || !parser->current_hunk_binding || decl == error_mark_node)
     return;
 
   key.name = name;
@@ -894,8 +893,7 @@ c_parser_lookup_callback (tree name, tree result, bool is_tag)
      requires many changes.  */
   c_parser *parser = the_parser;
 
-  if (!parser || !parser->current_hunk_binding
-      || (result && TREE_CODE (result) == ERROR_MARK))
+  if (!parser || !parser->current_hunk_binding || result == error_mark_node)
     return;
   binding = result ? find_hunk_binding (result) : NULL;
 
@@ -1143,7 +1141,7 @@ c_parser_update_checksum (struct md5_ctx *current_hash, c_token *token)
     case CPP_WCHAR:
       /* In some cases we can see a numeric token whose value is an
 	 error mark.  */
-      if (TREE_CODE (token->value) != ERROR_MARK)
+      if (token->value == error_mark_node)
 	update_numeric_checksum (current_hash, token->value);
       break;
 
