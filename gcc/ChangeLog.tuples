@@ -1,3 +1,8 @@
+2007-12-20  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.in (builtins.o-warn, expr.o-warn): Add
+	-Wno-error.
+
 2007-12-05  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2007-12/msg00221.html
