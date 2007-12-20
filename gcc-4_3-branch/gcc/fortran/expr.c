@@ -2202,7 +2202,18 @@ check_init_expr (gfc_expr *e)
 
       if (e->symtree->n.sym->attr.flavor == FL_PARAMETER)
 	{
-	  t = simplify_parameter_variable (e, 0);
+	  /* A PARAMETER shall not be used to define itself, i.e.
+		REAL, PARAMETER :: x = transfer(0, x)
+	     is invalid.  */
+	  if (!e->symtree->n.sym->value)
+	    {
+	      gfc_error("PARAMETER '%s' is used at %L before its definition "
+			"is complete", e->symtree->n.sym->name, &e->where);
+	      t = FAILURE;
+	    }
+	  else
+	    t = simplify_parameter_variable (e, 0);
+
 	  break;
 	}
 
@@ -2230,6 +2241,12 @@ check_init_expr (gfc_expr *e)
 	      case AS_DEFERRED:
 		gfc_error ("Deferred array '%s' at %L is not permitted "
 			   "in an initialization expression",
+			   e->symtree->n.sym->name, &e->where);
+		break;
+
+	      case AS_EXPLICIT:
+		gfc_error ("Array '%s' at %L is a variable, which does "
+			   "not reduce to a constant expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
 
@@ -2755,11 +2772,29 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
   /* Handle the case of a BOZ literal on the RHS.  */
   if (rvalue->is_boz && lvalue->ts.type != BT_INTEGER)
     {
+      int rc;
       if (gfc_option.warn_surprising)
         gfc_warning ("BOZ literal at %L is bitwise transferred "
                      "non-integer symbol '%s'", &rvalue->where,
                      lvalue->symtree->n.sym->name);
-      gfc_convert_boz (rvalue, &lvalue->ts);
+      if (!gfc_convert_boz (rvalue, &lvalue->ts))
+	return FAILURE;
+      if ((rc = gfc_range_check (rvalue)) != ARITH_OK)
+	{
+	  if (rc == ARITH_UNDERFLOW)
+	    gfc_error ("Arithmetic underflow of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rvalue->where);
+	  else if (rc == ARITH_OVERFLOW)
+	    gfc_error ("Arithmetic overflow of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rvalue->where);
+	  else if (rc == ARITH_NAN)
+	    gfc_error ("Arithmetic NaN of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rvalue->where);
+	  return FAILURE;
+	}
     }
 
   if (gfc_compare_types (&lvalue->ts, &rvalue->ts))

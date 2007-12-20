@@ -1,3 +1,123 @@
+2007-12-17  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/locale_classes.h (has_facet, use_facet): Simplify
+	RTTI checks.
+
+2007-12-17  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* docs/html/test.html: Fix paths and notes on running subset of tests.
+	* docs/html/ext/parallel_mode.html: Fix markup typos.
+	* docs/html/ext/pb_ds/index.html: Likewise.
+
+2007-12-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/global_templates/
+	standard_facet_hierarchies.cc: Fix for generic locale model.
+
+2007-12-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* ChangeLog: Fix my email address in previous two entries.
+
+2007-12-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* testsuite/20_util/shared_ptr/thread/default_weaktoshared.cc: Add
+	required dg-option for cygwin and darwin targets.
+	* testsuite/20_util/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.
+
+2007-12-15  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/tr1_impl/boost_shared_ptr.h: Add support for allocators,
+	aliasing, make_shared and rvalue-references. Move __shared_count
+	and _Sp_counted_* classes to new headers.
+	* include/tr1_impl/boost_sp_counted_base.h: New.
+	* include/bits/boost_sp_shared_count.h: New.
+	* include/tr1/boost_sp_shared_count.h: New.
+	* include/std/memory, include/tr1/memory: Include new headers.
+	* include/Makefile.am: Adjust.
+	* include/Makefile.in: Regenerate.
+	* docs/html/documentation.html: Link to shared_ptr notes.
+	* docs/html/20_util/shared_ptr.html: New.
+	* docs/html/17_intro/c++0x_status.html: Update shared_ptr status.
+	* testsuite/20_util/shared_ptr/cons/alias.cc: New.
+	* testsuite/20_util/shared_ptr/cons/alloc.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/move.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/move.cc: Likewise.
+	* testsuite/20_util/shared_ptr/creation/alloc.cc: Likewise.
+	* testsuite/20_util/shared_ptr/creation/make.cc: Likewise.
+	* testsuite/20_util/shared_ptr/creation/dr402.cc: Likewise.
+	* testsuite/20_util/shared_ptr/modifiers/reset_alloc.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/assign.cc: Duplicate tr1 test.
+	* testsuite/20_util/shared_ptr/assign/auto_ptr.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/auto_ptr_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/auto_ptr_rvalue_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/dr541.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/shared_ptr.cc: Likewise.
+	* testsuite/20_util/shared_ptr/assign/shared_ptr_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/casts/1.cc: Likewise.
+	* testsuite/20_util/shared_ptr/comparison/cmp.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/auto_ptr.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/auto_ptr_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/copy.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/default.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/pointer.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/weak_ptr.cc: Likewise.
+	* testsuite/20_util/shared_ptr/cons/weak_ptr_expired.cc: Likewise.
+	* testsuite/20_util/shared_ptr/dest/dest.cc: Likewise.
+	* testsuite/20_util/shared_ptr/misc/24595.cc: Likewise.
+	* testsuite/20_util/shared_ptr/misc/io.cc: Likewise.
+	* testsuite/20_util/shared_ptr/misc/swap.cc: Likewise.
+	* testsuite/20_util/shared_ptr/modifiers/24805.cc: Likewise.
+	* testsuite/20_util/shared_ptr/modifiers/reset.cc: Likewise.
+	* testsuite/20_util/shared_ptr/modifiers/reset_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/modifiers/swap.cc: Likewise.
+	* testsuite/20_util/shared_ptr/modifiers/swap_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/observers/bool_conv.cc: Likewise.
+	* testsuite/20_util/shared_ptr/observers/get.cc: Likewise.
+	* testsuite/20_util/shared_ptr/observers/unique.cc: Likewise.
+	* testsuite/20_util/shared_ptr/observers/use_count.cc: Likewise.
+	* testsuite/20_util/shared_ptr/thread/default_weaktoshared.cc:
+	Likewise.
+	* testsuite/20_util/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.
+	* testsuite/20_util/shared_ptr/requirements/explicit_instantiation/
+	1.cc: Likewise.
+	* testsuite/20_util/shared_ptr/requirements/explicit_instantiation/
+	2.cc: Likewise.
+	* testsuite/20_util/shared_ptr/requirements/explicit_instantiation.cc:
+	Remove.
+	* testsuite/20_util/weak_ptr/lock/1.cc: Duplicate tr1 test.
+	* testsuite/20_util/weak_ptr/requirements/explicit_instantiation/1.cc:
+	Likewise.
+	* testsuite/20_util/weak_ptr/requirements/explicit_instantiation/2.cc:
+	Likewise.
+	* testsuite/20_util/weak_ptr/requirements/explicit_instantiation.cc:
+	Remove.
+
+2007-12-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	* configure.host (try_cpu settings): Set try_cpu=cris for crisv32.
+	* config/cpu/cris/atomicity.h (__exchange_and_add)
+	[__CRIS_arch_version >= 32]: Add support for CRIS v32.
+
+2007-12-15  Benjamin Kosnik  <bkoz@redhat.com>
+	    Paolo Carlini  <pcarlini@suse.de>
+	
+	* include/parallel/partial_sum.h: Include new. Fix for DR 402.	
+	* include/parallel/multiway_merge.h:Fix for DR 402.
+	* include/parallel/losertree.h: Same.
+	* include/parallel/quicksort.h: Same.
+	* include/parallel/random_shuffle.h: Same.
+	* include/parallel/multiway_mergesort.h: Same.
+	
+2007-12-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/30127
+	PR libstdc++/34449
+	* include/bits/locale_classes.h (use_facet): Check facet hierarchy.
+	(has_facet): Same.
+	* testsuite/22_locale/global_templates/user_facet_hierarchies.cc: New.
+	* testsuite/22_locale/global_templates/
+	standard_facet_hierarchies.cc: New.
+	
 2007-12-11  Benjamin Kosnik  <bkoz@redhat.com>
 
 	PR libstdc++/34015

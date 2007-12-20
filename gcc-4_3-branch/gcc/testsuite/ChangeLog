@@ -1,3 +1,299 @@
+2007-12-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34459
+	* gcc.c-torture/execute/20071219-1.c: New test.
+
+2007-12-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34530
+	* gfortran.dg/namelist_44.f90: New.
+
+2007-12-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34482
+	* gfortran.dg/boz_8.f90: Add error-check check.
+	* gfortran.dg/boz_9.f90: Shorten BOZ where needed, replace
+	stop by call abort.
+
+2007-12-19  Zdenek Dvorak  <ook@ucw.cz>
+
+	* gcc.dg/gomp/combined-1.c: New test.
+
+2007-12-19  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/34355
+	* g++.dg/tree-ssa/pr34355.C: New test.
+
+2007-12-19  Revital Eres  <eres@il.ibm.com>
+
+	 * gcc.dg/sms-5.c: New testcase.
+
+2007-12-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34325
+	* gfortran.dg/missing_parens_1.f90: New.
+	* gfortran.dg/missing_parens_1.f90: New.
+	
+2007-12-19  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/34495
+	* gfortran.dg/transfer_simplify_2.f90: Fixed invalid initialization
+	expressions.
+	* gfortran.dg/transfer_simplify_7.f90: New test.
+
+2007-12-18  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/pr32912-3.c: Compile with -w.
+
+	* gcc.dg/torture/builtin-modf-1.c: Remove -funsafe-math-optimizations.
+
+2007-12-18  Douglas Gregor  <doug.gregor@gmail.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+	
+	PR c++/32565
+	PR c++/33943
+	PR c++/33965
+	* g++.dg/cpp0x/variadic86.C: New.
+	* g++.dg/cpp0x/variadic87.C: New.
+	* g++.dg/cpp0x/variadic84.C: New.
+	* g++.dg/cpp0x/variadic85.C: New.
+	* g++.dg/template/ttp25.C: New.
+
+2007-12-18  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/34123
+	* gcc.dg/tree-ssa/pr34123.c: New test.
+
+2007-12-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/34456
+	* gcc.c-torture/execute/pr34456.c: New test.
+
+2007-12-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34488
+	* g++.dg/parse/friend7.C: New test.
+
+	PR rtl-optimization/34490
+	* gcc.c-torture/execute/20071216-1.c: New test.
+
+2007-12-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-4.c: Remove XFAIL.
+
+2007-12-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/tree-ssa/gen-vect-2.c: Change verbosity level to 4.	
+	* gcc.dg/tree-ssa/gen-vect-32.c: Likewise
+	* gcc.dg/tree-ssa/gen-vect-25.c: Likewise
+	* gcc.dg/tree-ssa/gen-vect-26.c: Likewise
+	* gcc.dg/tree-ssa/gen-vect-28.c: Likewise
+
+2007-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/34506
+	* gcc.dg/gomp/clause-2.c: New test.
+	* g++.dg/gomp/clause-4.C: New test.
+
+2007-12-17  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/initialization_16.f90: Update as FLOAT/SNGL are
+	part of Fortran 77/95/2003.
+
+2007-12-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/34445
+	* gfortran.dg/vect/cost-model-pr34445.f: New test.
+	* gfortran.dg/vect/cost-model-pr34445a.f: New test.
+
+2007-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34427
+	* gfortran.dg/namelist_42.f90: Update.
+	* gfortran.dg/namelist_43.f90: New.
+	
+2007-12-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34495
+	* gfortran.dg/initialization_16.f90: New.
+
+2007-12-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/34305
+	* gfortran.dg/real_dimension_1.f:  New test case.
+
+2007-12-16  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* gcc.dg/torture/pr24257.c: Remove -O from options.
+
+2007-12-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34246
+	* gfortran.dg/bind_c_usage_16.f03: Extend test.
+
+2007-12-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31213
+	PR fortran/33888
+	PR fortran/33998
+	* gfortran.dg/mapping_1.f90: New test.
+	* gfortran.dg/mapping_2.f90: New test.
+	* gfortran.dg/mapping_3.f90: New test.
+
+2007-12-16  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/34415
+	* gcc.c-torture/execute/pr34415.c: New test.
+
+2007-12-16  Danny Smith <dannysmith@users.sourceforge.net>
+
+	* gcc.target/i386/fastcall-1.c: (f4): Change return type to
+	void. 
+
+2007-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/34003
+	* gcc.dg/pr34003-1.c: New test.
+	* gcc.dg/pr34003-2.c: New.
+
+2007-12-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.target/cris/peep2-xsrand.c, gcc.target/cris/asmreg-1.c,
+	gcc.target/cris/peep2-andu1.c, gcc.target/cris/peep2-xsrand2.c,
+	gcc.target/cris/20011127-1.c: Drop redundant target-specifier.
+	* gcc.target/cris/peep2-andu2.c: Ditto.  Make dg-do assemble and
+	add -save-temps.
+	* gcc.target/cris/torture/cris-torture.exp,
+	gcc.target/cris/cris.exp: Run for crisv32-*-* too.
+	* gcc.target/cris/builtin_ctz_v3.c,
+	gcc.target/cris/builtin_ctz_v8.c,
+	gcc.target/cris/builtin_clz_v0.c,
+	gcc.target/cris/builtin_clz_v3.c,
+	gcc.target/cris/builtin_bswap_v3.c,
+	gcc.target/cris/builtin_bswap_v8.c, gcc.dg/sibcall-4.c,
+	gcc.dg/pr19340.c, gcc.dg/20020919-1.c, gcc.dg/pr31866.c,
+	gcc.dg/torture/cris-asm-mof-1.c, gcc.dg/torture/cris-volatile-1.c,
+	gcc.dg/weak/typeof-2.c, gcc.dg/tree-ssa/loop-1.c,
+	gcc.dg/tree-ssa/20040204-1.c, gcc.dg/sibcall-3.c,
+	lib/target-supports.exp: Adjust for crisv32-*-*.
+
+2007-12-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/debug/const-3.c: New.
+
+2007-12-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* g++.dg/other/datasec1.C: Require named section support.
+
+2007-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/29978
+	* gcc.target/i386/pr29978.c: New test.
+
+2007-12-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-12.c (dg-options): Use -msse4
+	instead of -msse4.1.
+	* gcc.target/i386/sse-12.c (dg-options): Ditto.
+	* g++.dg/other/i386-2.C (dg-options): Ditto.
+
+2007-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34438
+	* gfortran.dg/private_type_10.f90: New.
+
+2007-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34398
+	* gfortran.dg/nan_4.f90: New.
+
+2007-12-14  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34462
+	* gcc.c-torture/compile/20071214-1.c: New testcase.
+
+2007-12-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-14.c (test_1, test_2, test_2x, test_4): New
+	macros to test macroized SSE intrinsics.  Use new macros to test
+	macroized SSE intrinsics from ammintrin.h, smmintrin.h, tmmintrin.h,
+	emmintrin.h, xmmintrin.h and bmmintrin.h
+	* gcc.target/i386/sse-13.c (__builtin_ia32_pcmp?str*128): Redefine
+	to test with immediate operand.
+
+2007-12-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/34091
+	* gcc.c-torture/compile/pr34091.c: New test.
+
+2007-12-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/uninit-13.c: UnXFAIL.
+	* gcc.dg/complex-5.c: New testcase.
+
+2007-12-13  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* gcc.dg/struct/struct-reorg.exp: Replace 
+	 DEFAULT_CFLAGS by STRUCT_REORG_CFLAFS. 
+	
+2007-12-13  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34370
+	PR libfortran/34323
+	PR libfortran/34405
+	* gfortran.dg/advance_6.f90:  New test case.
+	* gfortran.dg/direct_io_7.f90:  New test case.
+	* gfortran.dg/streamio_13.f90:  New test case.
+
+2007-12-13  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/cpp0x/__func__.C: New.
+
+2007-12-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/34435
+	* g++.dg/other/pr34435.C: New testcase.
+
+2007-12-13  Olga Golovanevsky  <olga@il.ibm.com>
+
+	* gcc.dg/struct: New directory with tests 
+	for struct-reorg optimizaion.
+	* gcc.dg/struct/struct-reorg.exp: New script.
+	* gcc.dg/struct/wo_prof_array_through_pointer.c: New test.
+	* gcc.dg/struct/wo_prof_malloc_size_var.c: Likewise.
+	* gcc.dg/struct/wo_prof_mult_field_peeling.c: Likewise.
+	* gcc.dg/struct/wo_prof_escape_arg_to_local.c: Likewise.
+	* gcc.dg/struct/wo_prof_escape_return.c: Likewise.
+	* gcc.dg/struct/wo_prof_escape_str_init.c: Likewise.
+	* gcc.dg/struct/wo_prof_escape_substr_array.c: Likewise.
+	* gcc.dg/struct/wo_prof_escape_substr_pointer.c: Likewise.
+	* gcc.dg/struct/wo_prof_escape_substr_value.c: Likewise.
+	* gcc.dg/struct/wo_prof_global_array.c: Likewise.
+	* gcc.dg/struct/wo_prof_global_var.c: Likewise.
+	* gcc.dg/struct/wo_prof_local_array.c: Likewise.
+	* gcc.dg/struct/wo_prof_local_var.c: Likewise.
+	* gcc.dg/struct/wo_prof_two_strs.c: Likewise.
+	* gcc.dg/struct/wo_prof_single_str_global.c: Likewise.
+	* gcc.dg/struct/wo_prof_single_str_local.c: Likewise.
+	* gcc.dg/struct/wo_prof_single_str_pointer.c: Likewise.
+	* gcc.dg/struct/w_prof_two_strs.c: Likewise.
+	* gcc.dg/struct/w_prof_global_array.c: Likewise.
+	* gcc.dg/struct/w_prof_global_var.c: Likewise.
+	* gcc.dg/struct/w_prof_local_array.c: Likewise.
+	* gcc.dg/struct/w_prof_local_var.c: Likewise.
+	* gcc.dg/struct/w_prof_single_str_global.c: Likewise.
+	* gcc.dg/struct/w_ratio_cold_str.c: Likewise.
+
+2007-12-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34427
+	* gfortran.dg/namelist_42.f90: New.
+
+2007-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34254
+	* gfortran.dg/function_kinds_3.f90: New.
+
 2007-12-12  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* gcc.target/s390/20071212-1.c: New testcase.

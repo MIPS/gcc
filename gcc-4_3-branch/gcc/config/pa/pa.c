@@ -694,6 +694,10 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       tmp_reg = ((reload_in_progress || reload_completed)
 		 ? reg : gen_reg_rtx (Pmode));
 
+      /* Force function labels into memory.  */
+      if (function_label_operand (orig, mode))
+	orig = force_const_mem (mode, orig);
+
       emit_move_insn (tmp_reg,
 		      gen_rtx_PLUS (word_mode, pic_offset_table_rtx,
 				    gen_rtx_HIGH (word_mode, orig)));
@@ -7834,6 +7838,12 @@ hppa_encode_label (rtx sym)
 static void
 pa_encode_section_info (tree decl, rtx rtl, int first)
 {
+  int old_referenced = 0;
+
+  if (!first && MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)
+    old_referenced
+      = SYMBOL_REF_FLAGS (XEXP (rtl, 0)) & SYMBOL_FLAG_REFERENCED;
+
   default_encode_section_info (decl, rtl, first);
 
   if (first && TEXT_SPACE_P (decl))
@@ -7842,6 +7852,8 @@ pa_encode_section_info (tree decl, rtx rtl, int first)
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	hppa_encode_label (XEXP (rtl, 0));
     }
+  else if (old_referenced)
+    SYMBOL_REF_FLAGS (XEXP (rtl, 0)) |= old_referenced;
 }
 
 /* This is sort of inverse to pa_encode_section_info.  */

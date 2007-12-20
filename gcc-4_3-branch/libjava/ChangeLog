@@ -1,3 +1,9 @@
+2007-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/Makefile.am (compile-tests): Build
+	libjava.jvmti/interp/*.h with -jni rather than -cni.
+	* testsuite/Makefile.in: Rebuilt.
+
 2007-12-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.ac (gcjsubdir): Remove -$libgcj_soversion suffix.

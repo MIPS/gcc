@@ -1,3 +1,152 @@
+2007-12-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34482
+	* gfortran.texi (BOZ): Document behavior for complex
+	numbers.
+	* target-memory.h (gfc_convert_boz): Update prototype.
+	* target-memory.c (gfc_convert_boz): Add error check
+	and convert BOZ to smallest possible bit size.
+	* resolve.c (resolve_ordinary_assign): Check return value.
+	* expr.c (gfc_check_assign): Ditto.
+	* simplify.c (simplify_cmplx, gfc_simplify_dble,
+	gfc_simplify_float, gfc_simplify_real): Ditto.
+
+2007-12-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34325
+	* match.h: New function declaration.
+	* match.c (gfc_match_parens): New function to look for mismatched
+	parenthesis. (gfc_match_if): Use new function to catch missing '('.
+
+2007-12-19  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/34495
+	* expr.c (check_init_expr): Check whether variables with flavor
+	FL_PARAMETER do have a value assigned. Added error messages where
+	appropriate.
+	* simplify.c (gfc_simplify_transfer): Added check if the MOLD
+	argument is a constant if working with initialization
+	expressions.
+
+2007-12-17  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.c (add_functions): Undo change; mark float and
+	sngl as STD_F77.
+	* intrinsic.texi (FLOAT, SNGL): Change standard to F77 and later.
+	* gfortran.texi (BOZ): Make note about FLOAT etc. clearer.
+
+2007-12-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34495
+	* intrinsic.c (add_functions): Mark float and sngl as STD_GNU.
+	(gfc_intrinsic_func_interface): Reject REAL, DBLE and CMPLX
+	in initialization expressions for -std=f95.
+
+2007-12-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/34305
+	* resolve.c (compare_bound):  If either of the types of
+	the arguments isn't INTEGER, return CMP_UNKNOWN.
+
+2007-12-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34246
+	* trans-types.c (gfc_init_types): Change build_type_variant
+	to build_qualified_type.
+	(gfc_sym_type): Return gfc_character1_type_node for
+	character-returning bind(C) functions.
+	* trans-expr.c (gfc_conv_function_call): Do not set
+	se->string_length for character-returning bind(c) functions.
+	(gfc_trans_string_copy,gfc_trans_scalar_assign):
+	Support also single characters.
+
+2007-12-16  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* errors.c (gfc_notify_std): As originally stated but improperly
+	changed, disregard warnings_are_errors for deciding which buffer
+	to use for warnings.
+
+2007-12-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31213
+	PR fortran/33888
+	PR fortran/33998
+	* trans-array.c (gfc_trans_array_constructor_value): If the
+	iterator variable does not have a backend_decl, use a local
+	temporary.
+	(get_elemental_fcn_charlen): New function to map the character
+	length of an elemental function onto its actual arglist.
+	(gfc_conv_expr_descriptor): Call the above so that the size of
+	the temporary can be evaluated.
+	* trans-expr.c : Include arith.h and change prototype of
+	gfc_apply_interface_mapping_to_expr to return void.  Change all
+	references to gfc_apply_interface_mapping_to_expr accordingly.
+	(gfc_free_interface_mapping): Free the 'expr' field.
+	(gfc_add_interface_mapping): Add an argument for the actual
+	argument expression. This is copied to the 'expr' field of the
+	mapping.  Only stabilize the backend_decl if the se is present.
+	Copy the character length expression and only add it's backend
+	declaration if se is present.  Return without working on the
+	backend declaration for the new symbol if se is not present.
+	(gfc_map_intrinsic_function) : To simplify intrinsics 'len',
+	'size', 'ubound' and 'lbound' and then to map the result.
+	(gfc_map_fcn_formal_to_actual): Performs the formal to actual
+	mapping for the case of a function found in a specification
+	expression in the interface being mapped.
+	(gfc_apply_interface_mapping_to_ref): Remove seen_result and
+	all its references. Remove the inline simplification of LEN
+	and call gfc_map_intrinsic_function instead.  Change the
+	order of mapping of the actual arguments and simplifying
+	intrinsic functions.  Finally, if a function maps to an
+	actual argument, call gfc_map_fcn_formal_to_actual.
+	(gfc_conv_function_call): Add 'e' to the call to
+	gfc_add_interface_mapping.
+	* dump-parse-tree.c (gfc_show_symbol_n): New function for
+	diagnostic purposes.
+	* gfortran.h : Add prototype for gfc_show_symbol_n.
+	* trans.h : Add 'expr' field to gfc_add_interface_mapping.
+	Add 'expr' to prototype for gfc_show_symbol_n.
+	* resolve.c (resolve_generic_f0): Set specific function as
+	referenced.
+
+2007-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34438
+	* resolve.c (resolve_symbol): Do not emit public-variable-
+	of-private-derived-type error for non-module variables.
+
+2007-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34398
+	* expr.c (gfc_check_assign): Add range checks for assignments of BOZs.
+	* resolve.c (resolve_ordinary_assign): Ditto.
+	* arith.c (gfc_range_check): Fix return value for complex numbers.
+
+2007-12-14  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/34324
+	* module.c (parse_atom): Fixed parsing of modules files whose
+	lines are terminated by CRLF.
+
+2007-12-13  Anton Korobeynikov  <asl@math.spbu.ru>
+
+	* trans-decl.c (gfc_build_builtin_function_decls): Correct decl
+	construction for select_string() and internal_unpack()
+
+2007-12-13  Duncan Sands  <baldrick@free.fr>
+	    Anton Korobeynikov  <asl@math.spbu.ru>
+
+	* trans-expr.c (gfc_conv_structure): Make sure record constructors
+	for static variables are marked constant.
+
+2007-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34254
+	* decl.c (match_char_kind): Support use-associated/imported
+	kind parameters.
+	(gfc_match_kind_spec): Support als BT_CHARACTER, when
+	re-scanning kind spec.
+
 2007-12-11  Aldy Hernandez  <aldyh@redhat.com>
 
 	* decl.c (add_global_entry): Make type unsigned.

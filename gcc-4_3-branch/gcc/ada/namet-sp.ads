@@ -1,21 +1,21 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                  GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                --
+--                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
---                        S Y S T E M . V X W O R K S                       --
+--                             N A M E T - S P                              --
 --                                                                          --
---                                   S p e c                                --
+--                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 1998-2005 Free Software Foundation, Inc.        --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
--- GNARL is free software; you can  redistribute it  and/or modify it under --
+-- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
 -- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
+-- Public License  distributed with GNAT;  see file COPYING.  If not, write --
 -- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
 -- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
@@ -26,32 +26,22 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University.       --
--- Extensive contributions were provided by Ada Core Technologies, Inc.     --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the Alpha VxWorks version of this package.
+--  This child package contains a spell checker for Name_Id values. It is
+--  separated off as a child package, because of the extra dependencies,
+--  in particular on GNAT.UTF_32_ Spelling_Checker. There are a number of
+--  packages that use Namet that do not need the spell checking feature,
+--  and this separation helps in dealing with older versions of GNAT.
 
-with Interfaces.C;
+package Namet.Sp is
 
-package System.VxWorks is
-   pragma Preelaborate;
+   function Is_Bad_Spelling_Of (Found, Expect : Name_Id) return Boolean;
+   --  Compares two identifier names from the names table, and returns True if
+   --  Found is a plausible misspelling of Expect. This function properly deals
+   --  with wide and wide wide character encodings in the input names.
 
-   package IC renames Interfaces.C;
-
-   --  Floating point context record. Alpha version
-
-   FP_NUM_DREGS : constant := 32;
-   type Fpx_Array is array (1 .. FP_NUM_DREGS) of IC.double;
-
-   type FP_CONTEXT is record
-      fpx   : Fpx_Array;
-      fpcsr : IC.long;
-   end record;
-   pragma Convention (C, FP_CONTEXT);
-
-   Num_HW_Interrupts : constant := 256;
-   --  Number of entries in hardware interrupt vector table.
-
-end System.VxWorks;
+end Namet.Sp;

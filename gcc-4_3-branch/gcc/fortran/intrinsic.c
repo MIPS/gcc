@@ -3388,6 +3388,14 @@ gfc_intrinsic_func_interface (gfc_expr *expr, int error_flag)
   if (check_intrinsic_standard (name, isym->standard, &expr->where) == FAILURE)
     return MATCH_ERROR;
 
+  if ((isym->id == GFC_ISYM_REAL || isym->id == GFC_ISYM_DBLE
+       || isym->id == GFC_ISYM_CMPLX)
+      && gfc_init_expr
+      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Function '%s' "
+			 "as initialization expression at %L", name,
+			 &expr->where) == FAILURE)
+    return MATCH_ERROR;
+
   gfc_current_intrinsic_where = &expr->where;
 
   /* Bypass the generic list for min and max.  */

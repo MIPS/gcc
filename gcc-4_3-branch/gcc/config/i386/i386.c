@@ -12093,16 +12093,28 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 
 	/* Otherwise, if we are doing less-than or greater-or-equal-than,
 	   op1 is a constant and the low word is zero, then we can just
-	   examine the high word.  */
+	   examine the high word.  Similarly for low word -1 and
+	   less-or-equal-than or greater-than.  */
 
-	if (CONST_INT_P (hi[1]) && lo[1] == const0_rtx)
+	if (CONST_INT_P (hi[1]))
 	  switch (code)
 	    {
 	    case LT: case LTU: case GE: case GEU:
-	      ix86_compare_op0 = hi[0];
-	      ix86_compare_op1 = hi[1];
-	      ix86_expand_branch (code, label);
-	      return;
+	      if (lo[1] == const0_rtx)
+		{
+		  ix86_compare_op0 = hi[0];
+		  ix86_compare_op1 = hi[1];
+		  ix86_expand_branch (code, label);
+		  return;
+		}
+	    case LE: case LEU: case GT: case GTU:
+	      if (lo[1] == constm1_rtx)
+		{
+		  ix86_compare_op0 = hi[0];
+		  ix86_compare_op1 = hi[1];
+		  ix86_expand_branch (code, label);
+		  return;
+		}
 	    default:
 	      break;
 	    }
@@ -22236,7 +22248,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total)
 	    nbits = 7;
 
 	  /* Compute costs correctly for widening multiplication.  */
-	  if ((GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op1) == ZERO_EXTEND)
+	  if ((GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
 	      && GET_MODE_SIZE (GET_MODE (XEXP (op0, 0))) * 2
 	         == GET_MODE_SIZE (mode))
 	    {

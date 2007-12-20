@@ -3470,8 +3470,9 @@ fold_indirect_ref_rhs (tree t)
   return NULL_TREE;
 }
 
-/* Subroutine of gimplify_modify_expr to do simplifications of MODIFY_EXPRs
-   based on the code of the RHS.  We loop for as long as something changes.  */
+/* Subroutine of gimplify_modify_expr to do simplifications of
+   MODIFY_EXPRs based on the code of the RHS.  We loop for as long as
+   something changes.  */
 
 static enum gimplify_status
 gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
@@ -3482,6 +3483,18 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
   while (ret != GS_UNHANDLED)
     switch (TREE_CODE (*from_p))
       {
+      case VAR_DECL:
+	/* If we're assigning from a constant constructor, move the
+	   constructor expression to the RHS of the MODIFY_EXPR.  */
+	if (DECL_INITIAL (*from_p)
+	    && TYPE_READONLY (TREE_TYPE (*from_p))
+	    && TREE_CODE (DECL_INITIAL (*from_p)) == CONSTRUCTOR)
+	  {
+	    *from_p = DECL_INITIAL (*from_p);
+	    ret = GS_OK;
+	  }
+	ret = GS_UNHANDLED;
+	break;
       case INDIRECT_REF:
 	{
 	  /* If we have code like 
@@ -3715,7 +3728,15 @@ tree_to_gimple_tuple (tree *tp)
 
 /* Promote partial stores to COMPLEX variables to total stores.  *EXPR_P is
    a MODIFY_EXPR with a lhs of a REAL/IMAGPART_EXPR of a variable with
-   DECL_GIMPLE_REG_P set.  */
+   DECL_GIMPLE_REG_P set.
+
+   IMPORTANT NOTE: This promotion is performed by introducing a load of the
+   other, unmodified part of the complex object just before the total store.
+   As a consequence, if the object is still uninitialized, an undefined value
+   will be loaded into a register, which may result in a spurious exception
+   if the register is floating-point and the value happens to be a signaling
+   NaN for example.  Then the fully-fledged complex operations lowering pass
+   followed by a DCE pass are necessary in order to fix things up.  */
 
 static enum gimplify_status
 gimplify_modify_expr_complex_part (tree *expr_p, tree *pre_p, bool want_value)
@@ -6449,7 +6470,7 @@ gimplify_function_tree (tree fndecl)
 
   ret = DECL_RESULT (fndecl);
   if ((TREE_CODE (TREE_TYPE (ret)) == COMPLEX_TYPE
-	   || TREE_CODE (TREE_TYPE (ret)) == VECTOR_TYPE)
+       || TREE_CODE (TREE_TYPE (ret)) == VECTOR_TYPE)
       && !needs_to_live_in_memory (ret))
     DECL_GIMPLE_REG_P (ret) = 1;
 
