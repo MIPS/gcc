@@ -1,3 +1,9 @@
+2007-12-21  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (lookup_tag): Only record anti-dependency at file
+	scope.
+	(pushdecl): Do nothing if no external scope available.
+
 2007-12-20  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_update_checksum): Fix logic.

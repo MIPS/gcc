@@ -2267,6 +2267,13 @@ pushdecl (tree x)
   struct c_binding *b;
   bool nested = false;
 
+  /* If there is no scope, do nothing.  This is here to handle calls
+     to the pushdecl langhook from the middle-end, after we've popped
+     all the scopes and stopped parsing.  FIXME: these calls should go
+     away.  */
+  if (external_scope == NULL)
+    return x;
+
   /* Functions need the lang_decl data.  */
   if (TREE_CODE (x) == FUNCTION_DECL && !DECL_LANG_SPECIFIC (x))
     DECL_LANG_SPECIFIC (x) = GGC_CNEW (struct lang_decl);
@@ -2893,7 +2900,10 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only)
 
   if (thislevel_only && !thislevel)
     {
-      c_parser_lookup_callback (name, NULL_TREE, true);
+      /* In this case, only record an anti-dependency if we are in
+	 file-scope.  */
+      if (current_scope == file_scope)
+	c_parser_lookup_callback (name, NULL_TREE, true);
       return 0;
     }
 
