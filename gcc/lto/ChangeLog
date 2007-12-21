@@ -1,3 +1,10 @@
+2007-12-21  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-read.c (input_real): Use a separate null-terminated buffer
+	for calling real_from_string.
+	(input_expr_operand): If we take the address of a FUNCTION_DECL,
+	tell cgraph that it's needed.
+
 2007-12-19  Doug Kwan  <dougkwan@google.com>
 
 	* lto.c (lto_read_base_type_DIE): Handle complex integer types.

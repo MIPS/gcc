@@ -266,11 +266,16 @@ input_real (struct input_block *ib, struct data_in *data_in, tree type)
   unsigned int len;
   const char * str;
   REAL_VALUE_TYPE value;
+  static char buffer[1000];
 
   LTO_DEBUG_TOKEN ("real");
   loc = input_uleb128 (ib);
   str = input_string_internal (data_in, loc, &len);
-  real_from_string (&value, str);
+  /* Copy over to make sure real_from_string doesn't see peculiar
+     trailing characters in the exponent.  */
+  memcpy (buffer, str, len);
+  buffer[len] = '\0';
+  real_from_string (&value, buffer);
   return build_real (type, value);
 }
 
@@ -1164,6 +1169,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
       if (TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == PARM_DECL)
 	TREE_ADDRESSABLE (x) = 1;
+      else if (TREE_CODE (x) == FUNCTION_DECL)
+	cgraph_mark_needed_node (cgraph_node (x));
 
       recompute_tree_invariant_for_addr_expr (result);
     }
