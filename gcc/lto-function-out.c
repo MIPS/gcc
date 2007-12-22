@@ -1420,7 +1420,7 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case VAR_DECL:
-      if (DECL_CONTEXT (expr) == NULL_TREE)
+      if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
 	{
 	  /* Static or extern VAR_DECLs.  */
 	  unsigned int index;
@@ -1830,6 +1830,8 @@ output_local_vars (struct output_block *ob, struct function *fn)
   tree t;
   int i = 0;
   struct output_stream *tmp_stream = ob->main_stream;
+  bitmap local_statics = BITMAP_ALLOC (NULL);
+
   ob->main_stream = ob->local_decl_stream;
 
   /* We have found MOST of the local vars by scanning the function.
@@ -1837,26 +1839,58 @@ output_local_vars (struct output_block *ob, struct function *fn)
      Other local vars can be found by walking the unexpanded vars
      list.  */
 
+  /* Need to put out the local statics first, to avoid the pointer
+     games used for the regular locals.  */
+  LTO_DEBUG_TOKEN ("local statics");
   for (t = fn->unexpanded_var_list; t; t = TREE_CHAIN (t))
     {
       tree lv = TREE_VALUE (t);
-      int j;
 
-      j = output_local_decl_ref (ob, lv, false);
-      /* Just for the fun of it, some of the locals are in the
-	 unexpanded_var_list more than once.  */
-      if (VEC_index (int, ob->unexpanded_local_decls_index, j) == -1)
-	VEC_replace (int, ob->unexpanded_local_decls_index, j, i++);
+      if (TREE_STATIC (lv))
+	{
+	  /* Do not put the static in the chain more than once, even
+	     if it was in the chain more than once to start.  */
+	  if (!bitmap_bit_p (local_statics, DECL_UID (lv)))
+	    {
+	      bitmap_set_bit (local_statics, DECL_UID (lv));
+	      output_expr_operand (ob, lv);
+	      if (DECL_CONTEXT (lv) == fn->decl)
+		{
+		  output_uleb128 (ob, 1); /* Restore context.  */
+		  if (DECL_INITIAL (lv))
+		    output_expr_operand (ob, DECL_INITIAL (lv));
+		  else 
+		    output_zero (ob); /* DECL_INITIAL.  */
+		}
+	      else 
+		{
+		  output_zero (ob); /* Restore context.  */
+		  output_zero (ob); /* DECL_INITIAL.  */
+		}
+	    }
+	}
+      else
+	{
+	  int j = output_local_decl_ref (ob, lv, false);
+	  /* Just for the fun of it, some of the locals are in the
+	     unexpanded_var_list more than once.  */
+	  if (VEC_index (int, ob->unexpanded_local_decls_index, j) == -1)
+	    VEC_replace (int, ob->unexpanded_local_decls_index, j, i++);
+	}
     }
+
+
+  /* End of statics.  */
+  output_zero (ob);
+  BITMAP_FREE (local_statics);
 
   /* The easiest way to get all of this stuff generated is to play
      pointer games with the streams and reuse the code for putting out
      the function bodies for putting out the local decls.  It needs to
      go into a separate stream because the LTO reader will want to
      process the local variables first, rather than have to back patch
-     them.
-  */
-
+     them.  */
+  LTO_DEBUG_TOKEN ("local vars");
   while (index < VEC_length (tree, ob->local_decls))
     output_local_var (ob, index++);
 
@@ -2389,6 +2423,7 @@ output_function (tree function)
   destroy_output_block (ob, true);
 
   current_function_decl = NULL;
+
   pop_cfun ();
 }
 

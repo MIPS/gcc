@@ -1,3 +1,10 @@
+2007-12-22  Nathan Froyd  <froydnj@codesourcery.com>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c (input_expr_operand): Fixed uninitialize var warning.
+	(input_local_vars): Read in DECL_INITIAL and context for local
+	statics that need to be put in unexpanded_vars_list.
+
 2007-12-21  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-read.c (input_real): Use a separate null-terminated buffer

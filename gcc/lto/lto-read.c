@@ -774,6 +774,10 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  result = data_in->local_decls [lv_index];
 	  if (result == NULL)
 	    {
+	      /* Create a context to read the local variable so that
+		 it does not disturb the position of the code that is
+		 calling for the local variable.  This allows locals
+		 to refer to other locals.  */
 	      struct input_block lib;
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -788,7 +792,6 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	      lto_debug_context.indent = 0;
 	      lto_debug_context.current_data = &debug;
 #endif
-
 	      lib.data = ib->data;
 	      lib.len = ib->len;
 	      lib.p = data_in->local_decls_index[lv_index];
@@ -1043,7 +1046,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  {
 	    tree value;
 	    tree purpose;
-	    tree next;
+	    tree next = NULL;
 	    tree elt;
 	    enum LTO_tags tag = input_record_start (ib);
 
@@ -1392,12 +1395,40 @@ input_local_vars (struct input_block *ib, struct data_in *data_in,
 		  struct function *fn, unsigned int count)
 {
   int i;
-  
+  unsigned int tag;
+
   data_in->unexpanded_indexes = xcalloc (count, sizeof (int));
   data_in->local_decls = xcalloc (count, sizeof (tree*));
 
   memset (data_in->unexpanded_indexes, -1, count * sizeof (int));
 
+  /* Recreate the unexpanded_var_list.  Put the statics at the end.*/
+  fn->unexpanded_var_list = NULL;
+  LTO_DEBUG_TOKEN ("local statics");
+  tag = input_record_start (ib);
+  
+  while (tag)
+    {
+      tree var = input_expr_operand (ib, data_in, fn, tag);
+      fn->unexpanded_var_list 
+	= tree_cons (NULL_TREE, var, fn->unexpanded_var_list);
+
+      if (input_uleb128 (ib))
+	DECL_CONTEXT (var) = fn->decl;
+	
+      /* DECL_INITIAL.  */
+      tag = input_record_start (ib);
+      if (tag)
+	DECL_INITIAL (var) = input_expr_operand (ib, data_in, fn, tag);
+
+      /* Statics never have external visibility.  */
+      DECL_EXTERNAL (var) = 0;
+
+      /* Next static.  */
+      tag = input_record_start (ib);
+    }
+
+  LTO_DEBUG_TOKEN ("local vars");
   for (i = 0; i < (int)count; i++)
     /* Some local decls may have already been read in if they are used
        as part of a previous local_decl.  */
@@ -1411,8 +1442,7 @@ input_local_vars (struct input_block *ib, struct data_in *data_in,
 	input_local_var (ib, data_in, fn, i);
       }
 
-  /* Recreate the unexpanded_var_list.  */
-  fn->unexpanded_var_list = NULL;
+  /* Add the regular locals in the proper order.  */
   for (i = count - 1; i >= 0; i--)
     if (data_in->unexpanded_indexes[i] != -1)
       fn->unexpanded_var_list 

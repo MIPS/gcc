@@ -13538,6 +13538,7 @@ force_decl_die (tree decl)
 {
   dw_die_ref decl_die;
   unsigned saved_external_flag;
+  unsigned saved_ignored_flag;
   tree save_fn = NULL_TREE;
   decl_die = lookup_decl_die (decl);
   if (!decl_die)
@@ -13571,11 +13572,21 @@ force_decl_die (tree decl)
 	    }
 	  else
 	    {
-	      /* Set external flag to force declaration die. Restore it after
-		 gen_decl_die() call.  */
+	      /* Set external flag to force declaration die, thereby
+		 associating the decl with the generated die.  Unset the
+		 ignored flag if we are running from LTO and are thereby
+		 forcing everything we can.  Restore these flags after
+		 the gen_decl_die() call.  */
 	      saved_external_flag = DECL_EXTERNAL (decl);
+	      if (dwarf2_called_from_lto_p)
+		{
+		  saved_ignored_flag = DECL_IGNORED_P (decl);
+		  DECL_IGNORED_P (decl) = 0;
+		}
 	      DECL_EXTERNAL (decl) = 1;
 	      gen_decl_die (decl, context_die);
+	      if (dwarf2_called_from_lto_p)
+		DECL_IGNORED_P (decl) = saved_ignored_flag;
 	      DECL_EXTERNAL (decl) = saved_external_flag;
 	    }
 	  break;
@@ -13592,6 +13603,11 @@ force_decl_die (tree decl)
       if (!decl_die)
 	decl_die = lookup_decl_die (decl);
       gcc_assert (decl_die);
+      /* The LTO reading code checks the DW_AT_declaration attribute to
+	 decide whether to read the initializer for a variable.  So if
+	 this variable has an initial value, remove that attribute.  */
+      if (TREE_CODE (decl) == VAR_DECL && DECL_INITIAL (decl))
+	remove_AT (decl_die, DW_AT_declaration);
     }
 
   return decl_die;
