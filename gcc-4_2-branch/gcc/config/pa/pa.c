@@ -878,7 +878,7 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       int mask;
 
       mask = (GET_MODE_CLASS (mode) == MODE_FLOAT
-	      ? (TARGET_PA_20 ? 0x3fff : 0x1f) : 0x3fff);
+	      ? (INT14_OK_STRICT ? 0x3fff : 0x1f) : 0x3fff);
 
       /* Choose which way to round the offset.  Round up if we
 	 are >= halfway to the next boundary.  */
@@ -7779,6 +7779,12 @@ hppa_encode_label (rtx sym)
 static void
 pa_encode_section_info (tree decl, rtx rtl, int first)
 {
+  int old_referenced = 0;
+
+  if (!first && MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)
+    old_referenced
+      = SYMBOL_REF_FLAGS (XEXP (rtl, 0)) & SYMBOL_FLAG_REFERENCED;
+
   default_encode_section_info (decl, rtl, first);
 
   if (first && TEXT_SPACE_P (decl))
@@ -7787,6 +7793,8 @@ pa_encode_section_info (tree decl, rtx rtl, int first)
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	hppa_encode_label (XEXP (rtl, 0));
     }
+  else if (old_referenced)
+    SYMBOL_REF_FLAGS (XEXP (rtl, 0)) |= old_referenced;
 }
 
 /* This is sort of inverse to pa_encode_section_info.  */
