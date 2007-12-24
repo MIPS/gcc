@@ -1857,16 +1857,15 @@ output_local_vars (struct output_block *ob, struct function *fn)
 	      if (DECL_CONTEXT (lv) == fn->decl)
 		{
 		  output_uleb128 (ob, 1); /* Restore context.  */
-		  if (DECL_INITIAL (lv))
-		    output_expr_operand (ob, DECL_INITIAL (lv));
-		  else 
-		    output_zero (ob); /* DECL_INITIAL.  */
 		}
-	      else 
+	      else
 		{
-		  output_zero (ob); /* Restore context.  */
-		  output_zero (ob); /* DECL_INITIAL.  */
+		  output_zero (ob); /* Restore context. */
 		}
+	      if (DECL_INITIAL (lv))
+		output_expr_operand (ob, DECL_INITIAL (lv));
+	      else 
+		output_zero (ob); /* DECL_INITIAL.  */
 	    }
 	}
       else

@@ -1,3 +1,9 @@
+2007-12-24  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-function-out.c (output_local_vars): Output DECL_INITIAL
+	regardless of whether we are outputting the function in which
+	it was defined.
+
 2007-12-22  Nathan Froyd  <froydnj@codesourcery.com>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 
