@@ -1,3 +1,8 @@
+2007-12-24  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_read_structure_union_class_type_DIE): Set TYPE_MODE
+	and TYPE_ALIGN on UNION_TYPEs as soon as possible.
+
 2007-12-22  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-lang.c (lto_types_compatible_p): New function.

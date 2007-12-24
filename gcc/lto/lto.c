@@ -1698,6 +1698,17 @@ lto_read_structure_union_class_type_DIE (lto_info_fd *fd,
     {
       TYPE_SIZE (type) = bitsize_int (size * BITS_PER_UNIT);
       TYPE_SIZE_UNIT (type) = size_int (size);
+
+      /* Since we already know the size, go ahead and set TYPE_MODE and
+	 TYPE_ALIGN on the type, so future uses of this type come out
+	 sane.  There are special rules for RECORD_TYPE as regards
+	 TYPE_MODE, so just do this for UNION_TYPE.  */
+      if (TREE_CODE (type) == UNION_TYPE)
+	{
+	  compute_record_mode (type);
+
+	  TYPE_ALIGN (type) = GET_MODE_ALIGNMENT (TYPE_MODE (type));
+	}
     }
 
   /* Store this entry so that cases like:
