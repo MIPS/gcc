@@ -439,8 +439,6 @@ find_single_block_region (bool ebbs_p)
         RGN_BLOCKS (nr_regions) = i;
         RGN_DONT_CALC_DEPS (nr_regions) = 0;
         RGN_HAS_REAL_EBB (nr_regions) = 0;
-	RGN_HAS_RENAMING_P (nr_regions) = 0;
-	RGN_WAS_PIPELINED_P (nr_regions) = 0;
 
         for (bb = ebb_start; ; bb = bb->next_bb)
           {
@@ -466,11 +464,6 @@ find_single_block_region (bool ebbs_p)
               break;
           }
 
-	if (RGN_NR_BLOCKS (nr_regions) == 1)
-	  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
-	else
-	  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 1;
-
         ebb_start = bb;
         nr_regions++;
       }
@@ -483,9 +476,6 @@ find_single_block_region (bool ebbs_p)
         RGN_BLOCKS (nr_regions) = nr_regions;
         RGN_DONT_CALC_DEPS (nr_regions) = 0;
         RGN_HAS_REAL_EBB (nr_regions) = 0;
-	RGN_HAS_RENAMING_P (nr_regions) = 0;
-	RGN_WAS_PIPELINED_P (nr_regions) = 0;
-	RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
 
         CONTAINING_RGN (bb->index) = nr_regions;
         BLOCK_TO_BB (bb->index) = 0;
@@ -938,12 +928,6 @@ haifa_find_rgns (void)
 		  RGN_BLOCKS (nr_regions) = idx++;
                   RGN_DONT_CALC_DEPS (nr_regions) = 0;
 		  RGN_HAS_REAL_EBB (nr_regions) = 0;
-		  RGN_HAS_RENAMING_P (nr_regions) = 0;
-		  RGN_WAS_PIPELINED_P (nr_regions) = 0;
-		  if (num_bbs == 1)
-		    RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
-		  else
-		    RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 1;
 		  CONTAINING_RGN (bb->index) = nr_regions;
 		  BLOCK_TO_BB (bb->index) = count = 0;
 
@@ -1015,9 +999,6 @@ haifa_find_rgns (void)
 	RGN_BLOCKS (nr_regions) = idx++;
         RGN_DONT_CALC_DEPS (nr_regions) = 0;
 	RGN_HAS_REAL_EBB (nr_regions) = 0;
-	RGN_HAS_RENAMING_P (nr_regions) = 0;
-	RGN_WAS_PIPELINED_P (nr_regions) = 0;
-	RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
 	CONTAINING_RGN (bb->index) = nr_regions++;
 	BLOCK_TO_BB (bb->index) = 0;
       }
@@ -1265,8 +1246,6 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 	      RGN_BLOCKS (nr_regions) = idx++;
 	      RGN_DONT_CALC_DEPS (nr_regions) = 0;
 	      RGN_HAS_REAL_EBB (nr_regions) = 0;
-	      RGN_HAS_RENAMING_P (nr_regions) = 0;
-	      RGN_WAS_PIPELINED_P (nr_regions) = 0;
 	      CONTAINING_RGN (bbn) = nr_regions;
 	      BLOCK_TO_BB (bbn) = 0;
 
@@ -1293,7 +1272,6 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 		   processed in the below cycle.  */
 		{
 		  RGN_NR_BLOCKS (nr_regions) = 1;
-		  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
 		  nr_regions++;
 		}          
 
@@ -1323,9 +1301,6 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 			  RGN_NR_BLOCKS (nr_regions) = 1;
 			  RGN_DONT_CALC_DEPS (nr_regions) = 0;
 			  RGN_HAS_REAL_EBB (nr_regions) = 0;
-			  RGN_HAS_RENAMING_P (nr_regions) = 0;
-			  RGN_WAS_PIPELINED_P (nr_regions) = 0;
-			  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
 			  nr_regions++;
 			}
 
@@ -1340,10 +1315,6 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 	      if (!large)
 		{
 		  RGN_NR_BLOCKS (nr_regions) = num_bbs;
-		  if (num_bbs == 1)
-		    RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
-		  else
-		    RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 1;
 		  nr_regions++;
 		}
 	    }
@@ -3265,9 +3236,6 @@ rgn_make_new_region_out_of_new_block (basic_block bb)
   RGN_NR_BLOCKS (nr_regions) = 1;
   RGN_HAS_REAL_EBB (nr_regions) = 0;
   RGN_DONT_CALC_DEPS (nr_regions) = 0;
-  RGN_HAS_RENAMING_P (nr_regions) = 0;
-  RGN_WAS_PIPELINED_P (nr_regions) = 0;
-  RGN_NEEDS_GLOBAL_LIVE_UPDATE (nr_regions) = 0;
   CONTAINING_RGN (bb->index) = nr_regions;
   BLOCK_TO_BB (bb->index) = 0;
 

@@ -1,3 +1,76 @@
+2007-12-26  Andrey Belevantsev  <abel@ispras.ru>
+
+	Compute availability of target registers on the fly.
+	Limit renaming to the best instructions.
+	
+	* sel-sched.c (max_insns_to_rename): New variable.
+	(struct reg_rename): New structure that incapsulates the data
+	about hard registers available for renaming.
+	(expr_dest_reg, rhs_dest_regno): Kill.
+	(vinsn_writes_one_of_regs_p): Also check VINSN_REG_CLOBBERS.
+	(mark_unavailable_hard_regs): Use struct reg_rename instead of
+	separate hard reg sets.
+	(choose_best_reg_1): Ditto.  Also check all hard_regno_nregs
+	registers, not only the first one.
+	(choose_best_reg, choose_best_pseudo_reg): Ditto.
+	(verify_target_availability): New.
+	(find_used_regs): Use it for checking that EXPR_TARGET_AVAILABLE
+	bit is consistent with find_used_regs_info.  Also check for 
+	VINSN_REG_CLOBBERS.  Use struct reg_rename.
+	(apply_spec_to_expr): Properly compute EXPR_TARGET_AVAILABLE
+	for speculative insns.
+	(moveup_rhs): Fix formatting.  Mark the target register of separate
+	instructions having dependencies in LHS as unavailable.
+	(moveup_set_rhs): Use merge_with_other_exprs when an expression 
+	was changed.
+	(compute_av_set): Add comment.  Compute other successors and 
+	calculate whether target registers of expressions are available.
+	Use av_set_union_and_live and mark_unavailable_targets.
+	(propagate_lv_set): Handle INSN_REG_CLOBBERS too.
+	(compute_live): Export.
+	(find_used_regs_1): Use struct reg_rename.  Handle INSN_REG_CLOBBERS.
+	(find_used_regs): Ditto.
+	(fill_vec_av_set): Calculate statistics about target availability
+	of expressions.  Sort the vector before filtering out expressions.
+	Use target_available information for all expressions.  Try to rename
+	only max_insns_to_rename expressions.
+	(find_best_expr): Record whether an instruction was renamed.  
+	(generate_bookkeeping_insn, remove_insns_that_need_bookkeeping): Tidy.
+	(fill_insns): Tidy.  Use expr_dest_regno.  Set target availability
+	flag for the newly emitted insn to true.
+	(sel_global_init): Set max_insns_to_rename.
+	* sel-sched-ir.c (vinsn_delete): Also handle VINSN_REG_CLOBBERS.
+	(init_expr): Add target_available, was_renamed parameters.  
+	Update all callers.
+	(merge_expr_data): New parameter JOIN_POINT_P.  Compute target 
+	availability also using this parameter.  Handle EXPR_WAS_RENAMED.
+	(merge_expr): Ditto.  Properly change vinsns of speculative exprs.
+	(set_unavailable_target_for_expr, expr_dest_reg, expr_dest_regno,
+	mark_unavailable_targets, av_set_add_nocopy, av_set_lookup_and_remove,
+	merge_with_other_exprs, av_set_union_and_live): New.
+	(av_set_lookup_other_equiv_rhs): New parameter laterp.
+	(deps_init_id_start_insn, deps_init_id_note_reg_clobber): Handle
+	IDATA_REG_CLOBBERS.
+	(cfg_succs_other): New.
+	(sel_split_edge): New variable other_bb.  Assert that there is no more
+	than two blocks added during splitting.  Put the correct lv set on the
+	other bb.
+	* sel-sched-ir.h (struct _expr): New fields target_available, 
+	was_renamed.
+	(EXPR_TARGET_AVAILABLE, EXPR_WAS_RENAMED): New accessor macros.
+	(_list_remove_nofree, _list_iter_remove_nofree): New.
+	(struct idata_def): New field reg_clobbers.
+	(IDATA_REG_CLOBBERS, VINSN_REG_CLOBBERS, INSN_REG_CLOBBERS): New 
+	accessor macros.
+	(cfg_succs_other, av_set_union_and_live, merge_with_other_exprs, 
+	expr_dest_regno, expr_dest_reg. max_insns_to_rename): Export.
+	* sel-sched-dump.c (dump_expr_1): Handle EXPR_TARGET_AVAILABLE.
+	* sched-rgn.h (struct region): Kill has_renaming_p, was_pipelined_p,
+	needs_global_live_update fields.  Kill all uses.
+	(RGN_HAS_RENAMING_P, RGN_WAS_PIPELINED_P, 
+	RGN_NEEDS_GLOBAL_LIVE_UPDATE): Kill accessor macros.  Kill all uses.
+	* params.def (PARAM_SELSCHED_INSNS_TO_RENAME): New.
+
 2007-12-26  Dmitry Zhurikhin  <zhur@ispras.ru>
 
 	* haifa-sched.c (sched_init): Add initialization of new spec_info 

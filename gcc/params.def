@@ -595,6 +595,11 @@ DEFPARAM(PARAM_SELSCHED_MAX_SCHED_TIMES,
          "Maximum number of times that an insn could be scheduled",
          2, 0, 0)
 
+DEFPARAM(PARAM_SELSCHED_INSNS_TO_RENAME,
+         "selsched-insns-to-rename",
+         "Maximum number of instructions in the ready list that are considered eligible for renaming",
+         2, 0, 0)
+
 /* Minimal distance (in CPU cycles) between store and load targeting same
    memory locations.  */
 

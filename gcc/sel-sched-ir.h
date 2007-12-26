@@ -123,9 +123,17 @@ struct _expr
      instead.  */
   VEC(unsigned, heap) *changed_on_insns;
 
+  /* True (1) when original target (register or memory) of this instruction 
+     is available for scheduling, false otherwise.  -1 means we're not sure;
+     please run find_used_regs to clarify.  */
+  char target_available;
+
   /* True when the expression was substituted.  Used for statistical 
      purposes.  */
-  bool was_substituted;
+  BOOL_BITFIELD was_substituted : 1;
+
+  /* True when the expression was renamed.  */
+  BOOL_BITFIELD was_renamed : 1;
 };
 
 typedef struct _expr expr_def;
@@ -151,7 +159,9 @@ typedef expr_t rhs_t;
 #define EXPR_SPEC_DONE_DS(EXPR) ((EXPR)->spec_done_ds)
 #define EXPR_SPEC_TO_CHECK_DS(EXPR) ((EXPR)->spec_to_check_ds)
 #define EXPR_CHANGED_ON_INSNS(EXPR) ((EXPR)->changed_on_insns)
+#define EXPR_TARGET_AVAILABLE(EXPR) ((EXPR)->target_available)
 #define EXPR_WAS_SUBSTITUTED(EXPR) ((EXPR)->was_substituted)
+#define EXPR_WAS_RENAMED(EXPR) ((EXPR)->was_renamed)
 
 /* Obsolete. */
 #define RHS_VINSN(RHS) ((RHS)->vinsn)
@@ -329,6 +339,14 @@ _list_add (_list_t *lp)
 }
 
 static inline void
+_list_remove_nofree (_list_t *lp)
+{
+  _list_t n = *lp;
+
+  *lp = _LIST_NEXT (n);
+}
+
+static inline void
 _list_remove (_list_t *lp)
 {
   _list_t n = *lp;
@@ -375,6 +393,14 @@ _list_iter_remove (_list_iterator *ip)
 {
   gcc_assert (!ip->removed_p && ip->can_remove_p);
   _list_remove (ip->lp);
+  ip->removed_p = true;
+}
+
+static inline void
+_list_iter_remove_nofree (_list_iterator *ip)
+{
+  gcc_assert (!ip->removed_p && ip->can_remove_p);
+  _list_remove_nofree (ip->lp);
   ip->removed_p = true;
 }
 
@@ -521,6 +547,8 @@ struct idata_def
      for the best.  */
   regset reg_sets;
 
+  regset reg_clobbers;
+
   regset reg_uses;
 
   /* I hope that our renaming infrastructure handles this.  */
@@ -532,6 +560,7 @@ struct idata_def
 #define IDATA_RHS(ID) ((ID)->rhs)
 #define IDATA_REG_SETS(ID) ((ID)->reg_sets)
 #define IDATA_REG_USES(ID) ((ID)->reg_uses)
+#define IDATA_REG_CLOBBERS(ID) ((ID)->reg_clobbers)
 
 /* Type to represent all needed info to emit an insn.
    This is a virtual equivalent of the insn.
@@ -580,6 +609,7 @@ struct vinsn_def
 #define VINSN_RHS(VI) (IDATA_RHS (VINSN_ID (VI)))
 #define VINSN_REG_SETS(VI) (IDATA_REG_SETS (VINSN_ID (VI)))
 #define VINSN_REG_USES(VI) (IDATA_REG_USES (VINSN_ID (VI)))
+#define VINSN_REG_CLOBBERS(VI) (IDATA_REG_CLOBBERS (VINSN_ID (VI)))
 
 #define VINSN_COUNT(VI) ((VI)->count)
 
@@ -664,6 +694,7 @@ extern sel_insn_data_def insn_sid (insn_t);
 #define INSN_LHS(INSN) (VINSN_LHS (INSN_VINSN (INSN)))
 #define INSN_RHS(INSN) (VINSN_RHS (INSN_VINSN (INSN)))
 #define INSN_REG_SETS(INSN) (VINSN_REG_SETS (INSN_VINSN (INSN)))
+#define INSN_REG_CLOBBERS(INSN) (VINSN_REG_CLOBBERS (INSN_VINSN (INSN)))
 #define INSN_REG_USES(INSN) (VINSN_REG_USES (INSN_VINSN (INSN)))
 #define INSN_SCHED_TIMES(INSN) (EXPR_SCHED_TIMES (INSN_EXPR (INSN)))
 #define INSN_SEQNO(INSN) (SID (INSN)->seqno)
@@ -852,6 +883,7 @@ extern bool enable_moveup_set_path_p;
 extern bool enable_schedule_as_rhs_p;
 extern bool pipelining_p;
 extern bool bookkeeping_p;
+extern int max_insns_to_rename;  
 extern bool preheader_removed;
 
 /* Functions that are used in sel-sched.c.  */
@@ -907,20 +939,24 @@ extern insn_t sel_gen_insn_from_expr_after (expr_t, int, insn_t);
 extern bool vinsns_correlate_as_rhses_p (vinsn_t, vinsn_t);
 extern void copy_expr (expr_t, expr_t);
 extern void copy_expr_onside (expr_t, expr_t);
-extern void merge_expr_data (expr_t, expr_t);
-extern void merge_expr (expr_t, expr_t);
+extern void merge_expr_data (expr_t, expr_t, bool);
+extern void merge_expr (expr_t, expr_t, bool);
 extern void clear_expr (expr_t);
+extern unsigned expr_dest_regno (expr_t);
+extern rtx expr_dest_reg (expr_t); 
 extern int find_in_hash_vect (VEC(unsigned, heap) *, unsigned);
 extern void insert_in_hash_vect (VEC(unsigned, heap) **, unsigned);
+extern void mark_unavailable_targets (av_set_t, av_set_t, regset);
 
 /* Av set functions.  */
 extern void av_set_add (av_set_t *, rhs_t);
 extern void av_set_iter_remove (av_set_iterator *);
 extern rhs_t av_set_lookup (av_set_t, vinsn_t);
-extern rhs_t av_set_lookup_other_equiv_rhs (av_set_t, vinsn_t);
+extern expr_t merge_with_other_exprs (av_set_t *, av_set_iterator *, expr_t);
 extern bool av_set_is_in_p (av_set_t, vinsn_t);
 extern av_set_t av_set_copy (av_set_t);
 extern void av_set_union_and_clear (av_set_t *, av_set_t *);
+extern void av_set_union_and_live (av_set_t *, av_set_t *, regset, regset);
 extern void av_set_clear (av_set_t *);
 extern void av_set_leave_one (av_set_t *);
 extern rhs_t av_set_element (av_set_t, int);
@@ -932,6 +968,8 @@ extern void sel_save_haifa_priorities (void);
 
 extern void sel_init_global_and_expr (bb_vec_t);
 extern void sel_finish_global_and_expr (void);
+
+extern regset compute_live (insn_t);
 
 /* Dependence analysis functions.  */
 extern void sel_clear_has_dependence (void);
@@ -977,6 +1015,7 @@ extern bool sel_insn_has_single_succ_p (insn_t, int);
 extern void cfg_succs_1 (insn_t, int, insn_t **, int *);
 extern void cfg_succs_2 (insn_t, int, insn_t **, int **, int *);
 extern void cfg_succs (insn_t, insn_t **, int **, int *);
+extern void cfg_succs_other (insn_t, int, insn_t *, int, int, insn_t **, int *);
 extern insn_t cfg_succ_1 (insn_t, int);
 extern insn_t cfg_succ (insn_t);
 extern int overall_prob_of_succs (insn_t);

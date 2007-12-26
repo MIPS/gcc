@@ -86,6 +86,9 @@ bool bookkeeping_p;
 /* True if we should make an aditional pass to set somewhat correct
    sched cycles.  */
 bool reset_sched_cycles_p;
+
+/* Maximum number of insns that are eligible for renaming.  */
+int max_insns_to_rename;
 
 
 /* Definitions of local types and macros.  */
@@ -153,6 +156,17 @@ struct hard_regs_data
 #endif
 };
 
+/* Holds the results of computation of available for renaming and
+   unavailable hard registers.  */
+struct reg_rename
+{
+  /* These are unavailable due to calls crossing, globalness, etc.  */
+  HARD_REG_SET unavailable_hard_regs;
+
+  /* These are *available* for renaming.  */
+  HARD_REG_SET available_for_renaming;
+};
+
 /* A global structure that contains the needed information about harg 
    regs.  */
 static struct hard_regs_data sel_hrd;
@@ -211,9 +225,8 @@ static int stat_substitutions_total;
 static bool rtx_search (rtx, rtx);
 static int sel_rank_for_schedule (const void *, const void *);
 static bool equal_after_moveup_path_p (rhs_t, ilist_t, rhs_t);
-static regset compute_live (insn_t);
 static basic_block generate_bookkeeping_insn (rhs_t, insn_t, edge, edge);
-static bool find_used_regs (insn_t, av_set_t, regset, HARD_REG_SET *, 
+static bool find_used_regs (insn_t, av_set_t, regset, struct reg_rename *, 
                             def_list_t *);
 static bool move_op (insn_t, av_set_t, ilist_t, edge, edge, expr_t);
 static void sel_sched_region_1 (void);
@@ -687,28 +700,6 @@ replace_dest_with_reg_in_rhs (rhs_t rhs, rtx new_reg)
   change_vinsn_in_expr (rhs, vinsn);
 }
 
-/* Return a destination register, if any, of EXPR.  */
-static rtx
-expr_dest_reg (expr_t expr)
-{
-  rtx dest = VINSN_LHS (RHS_VINSN (expr));
-
-  if (dest != NULL_RTX && REG_P (dest))
-    return dest;
-
-  return NULL_RTX;
-}
-
-/* Returns the REGNO of the R's destination.  */
-static unsigned
-rhs_dest_regno (rhs_t r)
-{
-  rtx dest = expr_dest_reg (r);
-
-  gcc_assert (dest != NULL_RTX);
-  return REGNO (dest);
-}
-
 /* Returns whether VI writes one of the REGS.  */
 static bool
 vinsn_writes_one_of_regs_p (vinsn_t vi, regset used_regs, 
@@ -718,6 +709,15 @@ vinsn_writes_one_of_regs_p (vinsn_t vi, regset used_regs,
   reg_set_iterator rsi;
 
   EXECUTE_IF_SET_IN_REG_SET (VINSN_REG_SETS (vi), 0, regno, rsi)
+    {
+      if (REGNO_REG_SET_P (used_regs, regno))
+        return true;
+      if (HARD_REGISTER_NUM_P (regno)
+          && TEST_HARD_REG_BIT (unavailable_hard_regs, regno))
+	return true;
+    }
+
+  EXECUTE_IF_SET_IN_REG_SET (VINSN_REG_CLOBBERS (vi), 0, regno, rsi)
     {
       if (REGNO_REG_SET_P (used_regs, regno))
         return true;
@@ -917,7 +917,7 @@ init_hard_regs_data (void)
 #endif
 } 
 
-/* Mark hardware regs in UNAVAILABLE_HARD_REGS that are not suitable 
+/* Mark hardware regs in REG_RENAME_P that are not suitable 
    for renaming rhs in INSN due to hardware restrictions (register class,
    modes compatibility etc).  This doesn't affect original insn's dest reg,
    if it isn't in USED_REGS.  DEF is a definition insn of rhs for which the
@@ -926,17 +926,16 @@ init_hard_regs_data (void)
    unavailable_hard_regs as well.  */
 
 static void
-mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
+mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
                             regset used_regs ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   enum reg_class cl = NO_REGS;
   rtx orig_dest;
   int cur_reg, regno;
-  HARD_REG_SET hard_regs_ok;
 
   gcc_assert (GET_CODE (PATTERN (def->orig_insn)) == SET);
-  gcc_assert (unavailable_hard_regs);
+  gcc_assert (reg_rename_p);
 
   orig_dest = SET_DEST (PATTERN (def->orig_insn));
   
@@ -953,7 +952,7 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
 
   mode = GET_MODE (orig_dest);
 
-  /* Stop when mode is not supported for renaming.  Also Can't proceed 
+  /* Stop when mode is not supported for renaming.  Also can't proceed 
      if the original register is one of the fixed_regs, global_regs or 
      frame pointer.  */
   if (fixed_regs[regno] 
@@ -965,10 +964,11 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
 #endif
       )
     {
-      SET_HARD_REG_SET (*unavailable_hard_regs);
+      SET_HARD_REG_SET (reg_rename_p->unavailable_hard_regs);
 
       /* Give a chance for original register, if it isn't in used_regs.  */
-      CLEAR_HARD_REG_BIT (*unavailable_hard_regs, regno);
+      if (!def->crosses_call)
+        CLEAR_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs, regno);
 
       return;
     }
@@ -981,11 +981,12 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
       int i;
 
       for (i = hard_regno_nregs[FRAME_POINTER_REGNUM][Pmode]; i--;)
-	SET_HARD_REG_BIT (*unavailable_hard_regs, FRAME_POINTER_REGNUM + i);
+	SET_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs, 
+                          FRAME_POINTER_REGNUM + i);
 
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
       for (i = hard_regno_nregs[HARD_FRAME_POINTER_REGNUM][Pmode]; i--;)
-	SET_HARD_REG_BIT (*unavailable_hard_regs, 
+	SET_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs, 
                           HARD_FRAME_POINTER_REGNUM + i);
 #endif
     }
@@ -999,13 +1000,15 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
      The HARD_REGNO_RENAME_OK covers other cases in condition below.  */
   if (IN_RANGE (REGNO (orig_dest), FIRST_STACK_REG, LAST_STACK_REG)
       && REGNO_REG_SET_P (used_regs, FIRST_STACK_REG)) 
-    IOR_HARD_REG_SET (*unavailable_hard_regs, sel_hrd.stack_regs);
+    IOR_HARD_REG_SET (reg_rename_p->unavailable_hard_regs, 
+                      sel_hrd.stack_regs);
 #endif    
 
   /* If there's a call on this path, make regs from call_used_reg_set 
      unavailable.  */
   if (def->crosses_call)
-    IOR_HARD_REG_SET (*unavailable_hard_regs, call_used_reg_set);
+    IOR_HARD_REG_SET (reg_rename_p->unavailable_hard_regs, 
+                      call_used_reg_set);
 
   /* Stop here before reload: we need FRAME_REGS, STACK_REGS, and crosses_call, 
      but not register classes.  */
@@ -1016,19 +1019,19 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
      register class.  */
   cl = get_reg_class (def->orig_insn);
   gcc_assert (cl != NO_REGS);
-  IOR_COMPL_HARD_REG_SET (*unavailable_hard_regs, reg_class_contents[cl]);
-
-  if (!sel_hrd.regs_for_mode_ok[mode])
-    init_regs_for_mode (mode);
+  COPY_HARD_REG_SET (reg_rename_p->available_for_renaming,
+                     reg_class_contents[cl]);
 
   /* Leave only registers available for this mode.  */
-  CLEAR_HARD_REG_SET (hard_regs_ok);
-  IOR_HARD_REG_SET (hard_regs_ok, sel_hrd.regs_for_mode[mode]);
+  if (!sel_hrd.regs_for_mode_ok[mode])
+    init_regs_for_mode (mode);
+  AND_HARD_REG_SET (reg_rename_p->available_for_renaming, 
+                    sel_hrd.regs_for_mode[mode]);
 
   /* Exclude registers that are partially call clobbered.  */
   if (def->crosses_call
       && ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
-    AND_COMPL_HARD_REG_SET (hard_regs_ok, 
+    AND_COMPL_HARD_REG_SET (reg_rename_p->available_for_renaming, 
                             sel_hrd.regs_for_call_clobbered[mode]);
 
   /* Leave only those that are ok to rename.  */
@@ -1037,7 +1040,8 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
       int nregs;
       int i;
 
-      if (!TEST_HARD_REG_BIT (hard_regs_ok, cur_reg))
+      if (!TEST_HARD_REG_BIT (reg_rename_p->available_for_renaming, 
+                              cur_reg))
         continue;
       
       nregs = hard_regno_nregs[cur_reg][mode];
@@ -1048,16 +1052,16 @@ mark_unavailable_hard_regs (def_t def, HARD_REG_SET *unavailable_hard_regs,
           break;
 
       if (i >= 0) 
-        CLEAR_HARD_REG_BIT (hard_regs_ok, cur_reg);
+        CLEAR_HARD_REG_BIT (reg_rename_p->available_for_renaming, 
+                            cur_reg);
     }
 
+  AND_COMPL_HARD_REG_SET (reg_rename_p->available_for_renaming, 
+                          reg_rename_p->unavailable_hard_regs);
   /* Regno is always ok from the renaming part of view, but it really
      could be in *unavailable_hard_regs already, so set it here instead
      of there.  */
-  SET_HARD_REG_BIT (hard_regs_ok, regno);
-
-  /* Exclude all hard regs but HARD_REGS_OK.  */
-  IOR_COMPL_HARD_REG_SET (*unavailable_hard_regs, hard_regs_ok);
+  SET_HARD_REG_BIT (reg_rename_p->available_for_renaming, regno);
 }
 
 /* reg_rename_tick[REG1] > reg_rename_tick[REG2] if REG1 was chosen as the
@@ -1092,19 +1096,21 @@ static int reg_rename_tick[FIRST_PSEUDO_REGISTER];
 
    If no register satisfies the above conditions, NULL_RTX is returned.  */
 static rtx
-choose_best_reg_1 (HARD_REG_SET unavailable, def_list_t original_insns,
-		   bool *is_orig_reg_p_ptr)
+choose_best_reg_1 (HARD_REG_SET hard_regs_used, 
+                   struct reg_rename *reg_rename_p, 
+                   def_list_t original_insns, bool *is_orig_reg_p_ptr)
 {
   int best_new_reg;
   int cur_reg;
   enum machine_mode mode = VOIDmode;
-  def_list_iterator i;
+  unsigned regno, i, n;
+  def_list_iterator di;
   def_t def;
 
   /* If original register is available, return it.  */
   *is_orig_reg_p_ptr = true;
 
-  FOR_EACH_DEF (def, i, original_insns)
+  FOR_EACH_DEF (def, di, original_insns)
     {
       rtx orig_dest = SET_DEST (PATTERN (def->orig_insn));
 
@@ -1118,26 +1124,35 @@ choose_best_reg_1 (HARD_REG_SET unavailable, def_list_t original_insns,
         mode = GET_MODE (orig_dest);
       gcc_assert (mode == GET_MODE (orig_dest));
 
-      if (!TEST_HARD_REG_BIT (unavailable, REGNO (orig_dest)))
+      regno = REGNO (orig_dest);
+      for (i = 0, n = hard_regno_nregs[regno][mode]; i < n; i++)
+        if (TEST_HARD_REG_BIT (hard_regs_used, regno + i))
+          break;
+
+      /* All hard registers are available.  */
+      if (i == n)
         {
           gcc_assert (mode != VOIDmode);
-
+          
           /* Hard registers should not be shared.  */
-	  return gen_rtx_REG (mode, REGNO (orig_dest));
+          return gen_rtx_REG (mode, regno);
         }
     }
-
+  
   *is_orig_reg_p_ptr = false;
 
   best_new_reg = -1;
-
+  
   /* Among all available regs choose the register that was 
      allocated earliest.  */
   for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
-    if (!TEST_HARD_REG_BIT (unavailable, cur_reg))
+    if (TEST_HARD_REG_BIT (reg_rename_p->available_for_renaming, 
+                           cur_reg)
+        && !TEST_HARD_REG_BIT (hard_regs_used, cur_reg))
       {
-	if (best_new_reg < 0
-	    ||reg_rename_tick[cur_reg] < reg_rename_tick[best_new_reg])
+        /* All hard registers are available.  */
+        if (best_new_reg < 0
+            || reg_rename_tick[cur_reg] < reg_rename_tick[best_new_reg])
 	  best_new_reg = cur_reg;
       }
 
@@ -1154,11 +1169,11 @@ choose_best_reg_1 (HARD_REG_SET unavailable, def_list_t original_insns,
 /* A wrapper around choose_best_reg_1 () to verify that we make correct
    assumptions about available registers in the function.  */
 static rtx
-choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns,
-		 bool *is_orig_reg_p_ptr)
+choose_best_reg (HARD_REG_SET hard_regs_used, struct reg_rename *reg_rename_p, 
+                 def_list_t original_insns, bool *is_orig_reg_p_ptr)
 {
-  rtx best_reg = choose_best_reg_1 (unavailable, original_insns,
-				    is_orig_reg_p_ptr);
+  rtx best_reg = choose_best_reg_1 (hard_regs_used, reg_rename_p, 
+                                    original_insns, is_orig_reg_p_ptr);
 
   gcc_assert (best_reg == NULL_RTX
 	      || TEST_HARD_REG_BIT (sel_hrd.regs_ever_used, REGNO (best_reg)));
@@ -1175,7 +1190,7 @@ choose_best_reg (HARD_REG_SET unavailable, def_list_t original_insns,
    not rely on this.  */
 static rtx
 choose_best_pseudo_reg (regset used_regs, 
-                        HARD_REG_SET unavailable_hard_regs, 
+                        struct reg_rename *reg_rename_p, 
                         def_list_t original_insns, bool *is_orig_reg_p_ptr)
 {
   def_list_iterator i;
@@ -1211,7 +1226,8 @@ choose_best_pseudo_reg (regset used_regs,
               
               /* For hard registers, we have to check hardware imposed 
                  limitations (frame/stack registers, calls crossed).  */
-              if (!TEST_HARD_REG_BIT (unavailable_hard_regs, orig_regno))
+              if (!TEST_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs, 
+                                      orig_regno))
                 return gen_rtx_REG (mode, orig_regno);
               
               bad_hard_regs = true;
@@ -1234,6 +1250,41 @@ choose_best_pseudo_reg (regset used_regs,
   return gen_reg_rtx (mode);
 }
 
+/* True when target of EXPR is available due to TARGET_AVAILABLE,
+   USED_REGS and UNAVAILABLE_HARD_REGS.  */
+static void
+verify_target_availability (expr_t expr, regset used_regs, 
+                            HARD_REG_SET unavailable_hard_regs)
+{
+  unsigned n, i, regno;
+  enum machine_mode mode;
+  bool target_available, live_available, hard_available;
+
+  if (!REG_P (EXPR_LHS (expr)) || EXPR_TARGET_AVAILABLE (expr) < 0)
+    return;
+  
+  regno = expr_dest_regno (expr);
+  mode = GET_MODE (EXPR_LHS (expr));
+  target_available = EXPR_TARGET_AVAILABLE (expr) == 1;
+  n = reload_completed ? hard_regno_nregs[regno][mode] : 1;
+
+  live_available = hard_available = true;
+  for (i = 0; i < n; i++)
+    {
+      if (bitmap_bit_p (used_regs, regno + i))
+        live_available = false;
+      if (TEST_HARD_REG_BIT  (unavailable_hard_regs, regno + i))
+        hard_available = false;
+    }
+
+  /* When target is not available, it may be due to hard register 
+     restrictions, e.g. crosses calls, so we check hard_available too.  */
+  if (target_available)
+    gcc_assert (live_available);
+  else
+    gcc_assert (!live_available || !hard_available);
+}
+
 /* Returns best register for given rhs, or NULL_RTX, if no register can be
    chosen.  The latter could happen when:
      - RHS_SCHEDULE_AS_RHS is true but we were unable to find suitable
@@ -1243,10 +1294,12 @@ choose_best_pseudo_reg (regset used_regs,
 static bool
 find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 {
+  static struct reg_rename reg_rename_data;
+
   av_set_iterator i2;
   rhs_t rhs_orig;
   regset used_regs;
-  HARD_REG_SET hard_regs_used, unavailable_hard_regs;
+  HARD_REG_SET hard_regs_used;
   rtx best_reg = NULL_RTX;
   blist_t bnds1 = bnds;
   def_list_t original_insns = NULL;
@@ -1256,11 +1309,12 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
   *is_orig_reg_p = false;
 
   /* Don't bother to do anything if this insn doesn't set any registers.  */
-  if (bitmap_empty_p (VINSN_REG_SETS (EXPR_VINSN (rhs))))
+  if (bitmap_empty_p (VINSN_REG_SETS (EXPR_VINSN (rhs)))
+      && bitmap_empty_p (VINSN_REG_CLOBBERS (EXPR_VINSN (rhs))))
     return true;
 
   used_regs = get_clear_regset_from_pool ();
-  CLEAR_HARD_REG_SET (unavailable_hard_regs);
+  CLEAR_HARD_REG_SET (reg_rename_data.unavailable_hard_regs);
 
   /* Collect unavailable registers from all boundaries into USED_REGS.  */
   do
@@ -1285,27 +1339,11 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 
       /* Compute used regs and OR it into the USED_REGS.  */
       res = find_used_regs (BND_TO (bnd), orig_ops, used_regs, 
-                            &unavailable_hard_regs, &original_insns);
+                            &reg_rename_data, &original_insns);
 
+      /* FIXME: the assert is true until we'd have several boundaries.  */
+      gcc_assert (res);
       av_set_clear (&orig_ops);
-
-      if (res)
-	{
-          if (false)
-            /* FIXME: conditionalize dumping of regsets.  */
-	    {
-	      dump_hard_reg_set ("unavailable hard regs: ",
-				 unavailable_hard_regs);
-	      print ("unavailable regs (live issues): ");
-	      dump_used_regs (used_regs);
-	    }
-	}
-      else
-	{
-	  gcc_unreachable ();
-	  print ("Unable to find original op with find_used_regs.");
-	  break;
-	}
     }
   while ((bnds1 = BLIST_NEXT (bnds1)));
 
@@ -1323,19 +1361,29 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 
       if (EXPR_SEPARABLE_P (rhs))
 	{
+          /* Check that we have computed availability of a target register
+             correctly.  */
+          verify_target_availability (rhs, used_regs, 
+                                      reg_rename_data.unavailable_hard_regs);
+
           /* Turn everything in hard regs after reload.  */
           if (reload_completed)
             {
               REG_SET_TO_HARD_REG_SET (hard_regs_used, used_regs);
+
               /* Join hard registers unavailable due to register class 
                  restrictions and live range intersection.  */
-              IOR_HARD_REG_SET (hard_regs_used, unavailable_hard_regs);
-              best_reg = choose_best_reg (hard_regs_used, original_insns,
+              IOR_HARD_REG_SET (hard_regs_used, 
+                                reg_rename_data.unavailable_hard_regs);
+
+              best_reg = choose_best_reg (hard_regs_used, 
+                                          &reg_rename_data, 
+                                          original_insns,
 					  is_orig_reg_p);
             }
           else
             best_reg = choose_best_pseudo_reg (used_regs, 
-                                               unavailable_hard_regs, 
+                                               &reg_rename_data, 
                                                original_insns,
 					       is_orig_reg_p);
 
@@ -1371,13 +1419,12 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 		
 	      if (reg_ok)
 		{
-		  RGN_HAS_RENAMING_P (CONTAINING_RGN (BB_TO_BLOCK (0))) = 1;
-
 		  /* Make sure that RHS has the right destination
 		     register.  */
-		  if (rhs_dest_regno (rhs) != REGNO (best_reg))
+		  if (expr_dest_regno (rhs) != REGNO (best_reg))
 		    {
 		      replace_dest_with_reg_in_rhs (rhs, best_reg);
+                      EXPR_WAS_RENAMED (rhs) = 1;
 
 		      /* The resulting insn should be valid.  */
 		      if (!insn_rtx_valid (RHS_INSN (rhs)))
@@ -1392,12 +1439,17 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 	{
 	  /* If !RHS_SCHEDULE_AS_RHS (RHS), just make sure INSN doesn't set
 	     any of the HARD_REGS_USED set.  */
-	  if (vinsn_writes_one_of_regs_p (RHS_VINSN (rhs), used_regs,
-                                          unavailable_hard_regs))
-	    reg_ok = false;
+	  if (vinsn_writes_one_of_regs_p 
+              (RHS_VINSN (rhs), used_regs,
+               reg_rename_data.unavailable_hard_regs))
+            {
+              reg_ok = false;
+              gcc_assert (EXPR_TARGET_AVAILABLE (rhs) <= 0);
+            }
 	  else
 	    {
 	      gcc_assert (reg_ok);
+              gcc_assert (EXPR_TARGET_AVAILABLE (rhs) != 0);
 	      best_reg = NULL_RTX;
 	    }
 	}
@@ -1447,6 +1499,7 @@ can_overcome_dep_p (ds_t ds)
 }
 
 static bool speculate_expr (expr_t, ds_t);
+static ds_t get_spec_check_type_for_insn (insn_t, expr_t);
 
 /* Get a speculation check instruction.
    C_RHS is a speculative expression,
@@ -1552,6 +1605,13 @@ apply_spec_to_expr (expr_t expr, ds_t ds)
 
 	change_vinsn_in_expr (expr, spec_vinsn);
 	EXPR_SPEC_DONE_DS (expr) = ds;
+
+        /* Do not allow clobbering the address register of speculative 
+           insns.  */
+        if (res == 1
+            && bitmap_bit_p (VINSN_REG_USES (EXPR_VINSN (expr)), 
+                             expr_dest_regno (expr)))
+          EXPR_TARGET_AVAILABLE (expr) = false;
 
 	return true;
       }
@@ -1707,7 +1767,7 @@ moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
 {
   vinsn_t vi = RHS_VINSN (insn_to_move_up);
   insn_t insn = VINSN_INSN (vi);
- ds_t *has_dep_p;
+  ds_t *has_dep_p;
   ds_t full_ds;
 
   full_ds = has_dependence_p (insn_to_move_up, through_insn, &has_dep_p);
@@ -1827,9 +1887,9 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
     }
   else
     {
+      /* We can move UNIQUE insn up only as a whole and unchanged, 
+         so it shouldn't have any dependencies.  */
       if (VINSN_UNIQUE_P (vi))
-	/* We can move UNIQUE insn up only as a whole and unchanged, 
-	   so it shouldn't have any dependencies.  */
 	return MOVEUP_RHS_NULL;
     }
 
@@ -1847,8 +1907,16 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
     /* We have some dependency that cannot be discarded.  */
     return MOVEUP_RHS_NULL;
 
-  if (has_dep_p[DEPS_IN_LHS] && !EXPR_SEPARABLE_P (insn_to_move_up))
-    return MOVEUP_RHS_NULL;
+  if (has_dep_p[DEPS_IN_LHS])
+    { 
+      /* Only separable insns can be moved up with the new register.
+         Anyways, we should mark that the original register is 
+         unavailable.  */
+      if (!EXPR_SEPARABLE_P (insn_to_move_up))
+        return MOVEUP_RHS_NULL;
+
+      EXPR_TARGET_AVAILABLE (insn_to_move_up) = false;
+    }
 
   /* At this point we have either separable insns, that will be lifted
      up only as RHSes, or non-separable insns with no dependency in lhs.
@@ -1918,7 +1986,6 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
   return MOVEUP_RHS_CHANGED;
 }
 
-
 /* Moves an av set AVP up through INSN, performing necessary 
    transformations.  */
 static void
@@ -1972,28 +2039,10 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
           /* Mark that this insn changed this expr.  */
           insert_in_hash_vect (&EXPR_CHANGED_ON_INSNS (rhs), 
                                VINSN_HASH (INSN_VINSN (insn)));
+          rhs = merge_with_other_exprs (avp, &i, rhs);
 
-	  {
-	    rhs_t rhs2 = av_set_lookup_other_equiv_rhs (*avp, RHS_VINSN (rhs));
-
-	    /* If the resulting insn after substitution is already in av_set,
-	       remove it.  */
-	    if (rhs2 != NULL)
-	      {
-                EXPR_USEFULNESS (rhs2) = 0;
-		merge_expr (rhs2, rhs);
-                /* Fix usefulness as it should be now REG_BR_PROB_BASE.  */
-                EXPR_USEFULNESS (rhs2) = REG_BR_PROB_BASE;
-
-		av_set_iter_remove (&i);
-		print (" and removed.");
-
-		rhs = rhs2;
-	      }
-
-	    print (" result: ");
-	    dump_rhs (rhs);
-	  }
+          print (" result: ");
+          dump_rhs (rhs);
 	  break;
 	case MOVEUP_RHS_SAME:
           /* Cache that there is a no dependence.  */
@@ -2112,8 +2161,8 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
 {
   av_set_t av1;
   av_set_t rhs_in_all_succ_branches;
-  int succs_n, real_succs_n;
-  insn_t *succs;
+  int succs_n, real_succs_n, other_succs_n;
+  insn_t *succs, *other_succs;
   int *probs;
   int succ, all_prob;
 
@@ -2164,6 +2213,8 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
       return NULL;
     }
 
+  /* Find different kind of successors needed for correct computing of 
+     SPEC and TARGET_AVAILABLE attributes.  */
   cfg_succs (insn, &succs, &probs, &succs_n);
 
   /* Sometimes there are weird cases when sum of probabilities of outgoing 
@@ -2173,6 +2224,8 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
   /* If there are successors that lead out of the region, then all rhses from
      the below av_sets should be speculative.  */
   real_succs_n = cfg_succs_n (insn, SUCCS_ALL);
+  cfg_succs_other (insn, SUCCS_NORMAL, succs, succs_n, real_succs_n,
+                   &other_succs, &other_succs_n);
 
   /* Debug output.  */
   line_start ();
@@ -2228,9 +2281,39 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
             }
 	}
 
-      /* Union the av_sets.  */
-      av_set_union_and_clear (&av1, &succ_set);
+      /* Union the av_sets.  Check liveness restrictions on target registers
+         in special case of two successors.  */
+      if (succs_n == 2 && succ == 1)
+        {
+          basic_block bb0 = BLOCK_FOR_INSN (succs[0]);
+          basic_block bb1 = BLOCK_FOR_INSN (succs[1]);
+
+          gcc_assert (BB_LV_SET_VALID_P (bb0) && BB_LV_SET_VALID_P (bb1));
+          av_set_union_and_live (&av1, &succ_set, 
+                                 BB_LV_SET (bb0),
+                                 BB_LV_SET (bb1));
+        }
+      else
+        av_set_union_and_clear (&av1, &succ_set);
     }
+
+  /* Check liveness restrictions via hard way when there are more than 
+     two successors.  */
+  if (succs_n > 2)
+    for (succ = 0; succ < succs_n; succ++)
+      {
+        basic_block succ_bb = BLOCK_FOR_INSN (succs[succ]);
+        
+        gcc_assert (BB_LV_SET_VALID_P (succ_bb));
+        mark_unavailable_targets (av1, BB_AV_SET (succ_bb), 
+                                  BB_LV_SET (succ_bb));
+      }
+  
+  /* Finally, check liveness restrictions on paths leaving the region.  */ 
+  if (other_succs_n > 0)
+    for (succ = 0; succ < other_succs_n; succ++)
+      mark_unavailable_targets 
+        (av1, NULL, BB_LV_SET (BLOCK_FOR_INSN (other_succs[succ])));
 
   if (real_succs_n > 1)
     {
@@ -2294,7 +2377,9 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
       av_set_clear (&BB_AV_SET (bb));
 
       print ("Save av(%d) in bb header", INSN_UID (insn));
-
+#if 0
+      mark_unavailable_targets (av1, BB_LV_SET (bb));
+#endif
       BB_AV_SET (bb) = unique_p ? av_set_copy (av1) : av1;
       BB_AV_LEVEL (bb) = global_level;
     }
@@ -2324,8 +2409,11 @@ propagate_lv_set (regset lv, insn_t insn)
 
   /* LV1 = LV1 \ { DEST (insn) }  */
   if (GET_CODE (PATTERN (insn)) != COND_EXEC) 
-    /* May-defs should not kill other sets.  */
-    AND_COMPL_REG_SET (lv, INSN_REG_SETS (insn));
+    {
+      /* May-defs should not kill other sets.  */
+      AND_COMPL_REG_SET (lv, INSN_REG_SETS (insn));
+      AND_COMPL_REG_SET (lv, INSN_REG_CLOBBERS (insn));
+    }
 
   /* LV1 = LV1 U { SOURCES (insn) } */
   /* FIXME: Should we consider the whole register clobbered in the cases of
@@ -2354,7 +2442,7 @@ compute_live_after_bb (basic_block bb)
 
 /* Compute the set of all live registers at the point before INSN and save
    it at INSN if INSN is bb header.  */
-static regset
+regset
 compute_live (insn_t insn)
 {
   if (sel_bb_head_p (insn) && !ignore_first)
@@ -2495,25 +2583,22 @@ get_spec_check_type_for_insn (insn_t insn, expr_t expr)
    All the original operations found during the traversal are saved in the
    ORIGINAL_INSNS list.
 
-   UNAVAILABLE_HARD_REGS denotes the set of hardware registers that
+   REG_RENAME_P denotes the set of hardware registers that
    can not be used with renaming due to the register class restrictions,
    mode restrictions and other (the register we'll choose should be 
    compatible class with the original uses, shouldn't be in call_used_regs,
    should be HARD_REGNO_RENAME_OK etc).
-   This parameter can have NULL value.  It should happen if we compute
-   used registers before reload, and thus don't have information about hard
-   registers.  
 
    CROSSES_CALL is true, if there is a call insn on the path from INSN to 
-   original insn. In this case CALL_USED_REG_SET will be added to the 
-   UNAVAILABLE_HARD_REGS at the point original operation is found.   
+   original insn. In this case CALL_USED_REG_SET will be added to 
+   unavailable hard regs at the point original operation is found.   
 
    Actually we need a complement set to the one computed by this routine,
    but it's more natural to have the inverted set.  */
 
 static int
 find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path, 
-		  regset used_regs, HARD_REG_SET *unavailable_hard_regs,
+		  regset used_regs, struct reg_rename *reg_rename_p,
 		  bool crosses_call, def_list_t *original_insns)
 {
   rhs_t rhs;
@@ -2610,6 +2695,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
       compute_live_below_insn (insn, tmp);
 
       AND_COMPL_REG_SET (tmp, INSN_REG_SETS (insn));
+      AND_COMPL_REG_SET (tmp, INSN_REG_CLOBBERS (insn));
       IOR_REG_SET (used_regs, tmp);
 
       return_regset_to_pool (tmp);
@@ -2670,7 +2756,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 	    }
 
 	  b = find_used_regs_1 (succ, orig_ops, path,
-			      used_regs, unavailable_hard_regs, crosses_call,
+			      used_regs, reg_rename_p, crosses_call,
 			      original_insns);
 
 	  if (b == 0)
@@ -2780,7 +2866,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 
 /* Find the set of registers that are unavailable for storing rhses 
    while moving ORIG_OPS up on the path starting from INSN due to
-   liveness (USED_REGS) or hardware restrictions (UNAVAILABLE_HARD_REGS).
+   liveness (USED_REGS) or hardware restrictions (REG_RENAME_P).
 
    All the original operations found during the traversal are saved in the
    ORIGINAL_INSNS list.
@@ -2791,7 +2877,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 
 static bool
 find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
-		HARD_REG_SET *unavailable_hard_regs, 
+		struct reg_rename  *reg_rename_p, 
 		def_list_t *original_insns)
 {
   def_list_iterator i;
@@ -2799,7 +2885,7 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
   int res;
 
   res = find_used_regs_1 (insn, orig_ops, NULL, used_regs,
-			  unavailable_hard_regs, false, original_insns);
+			  reg_rename_p, false, original_insns);
 
   if (res == -1)
     return false;
@@ -2807,17 +2893,15 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
   gcc_assert (res == 1);
   gcc_assert (original_insns && *original_insns);
 
-  /* Mark hardware regs in UNAVAILABLE_HARD_REGS that are not suitable 
+  /* Mark hardware regs in REG_RENAME_P that are not suitable 
      for renaming rhs in INSN due to hardware restrictions (register class,
-     modes compatibility etc).  This doesn't affect original insn's dest regs.
-     Registers that are in used_regs are always marked also in
-     unavailable_hard_regs.  */
+     modes compatibility etc).  */
   FOR_EACH_DEF (def, i, *original_insns)
     {
       vinsn_t vinsn = INSN_VINSN (def->orig_insn);
 
       if (VINSN_SEPARABLE_P (vinsn))
-	mark_unavailable_hard_regs (def, unavailable_hard_regs, used_regs);
+	mark_unavailable_hard_regs (def, reg_rename_p, used_regs);
 
       if (def->needs_spec_check_p)
 	/* Do not allow clobbering of ld.[sa] address.  */
@@ -3136,6 +3220,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
   av_set_iterator si;
   rhs_t rhs;
   int sched_next_worked = 0, stalled, n;
+  int succ, fail, sepsucc, sepfail;
   deps_t dc = BND_DC (BLIST_BND (bnds));
   bool av_contain_end_of_loop_p;
 
@@ -3156,16 +3241,52 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
   FOR_EACH_RHS (rhs, si, av)
     VEC_safe_push (rhs_t, heap, vec_av_set, rhs);
 
+  if (sched_verbose >= 1)
+    {
+      int avail, unavail, dont_know, savail, sunavail, sdont_know;
+      
+      avail = unavail = dont_know = 0;
+      savail = sunavail = sdont_know = 0;
+      for (n = 0; VEC_iterate (rhs_t, vec_av_set, n, rhs); n++)
+        if (EXPR_SEPARABLE_P (rhs))
+          switch (EXPR_TARGET_AVAILABLE (rhs))
+            {
+            case 0: unavail++; break;
+            case 1: avail++; break;
+            case -1: dont_know++; break;
+              
+            default: gcc_unreachable ();
+            }
+        else
+          switch (EXPR_TARGET_AVAILABLE (rhs))
+            {
+            case 0: sunavail++; break;
+            case 1: savail++; break;
+            case -1: sdont_know++; break;
+              
+            default: gcc_unreachable ();
+            }
+
+      print ("target-stats: %d %d %d %d %d %d\n", avail, unavail, 
+             dont_know, savail, sunavail, sdont_know);
+    }
+
+  /* Sort the vector.  */
+  qsort (VEC_address (rhs_t, vec_av_set), VEC_length (rhs_t, vec_av_set),
+         sizeof (rhs_t), sel_rank_for_schedule);
+
   /* Filter out inappropriate expressions.  */
+  succ = fail = sepsucc = sepfail = 0;
   for (n = 0, stalled = 0; VEC_iterate (rhs_t, vec_av_set, n, rhs); )
     {
       insn_t insn = EXPR_INSN_RTX (rhs);
+      char target_available;
       bool is_orig_reg_p = true;
 
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
         {
-          VEC_unordered_remove (rhs_t, vec_av_set, n);
+          VEC_ordered_remove (rhs_t, vec_av_set, n);
           continue;
         }
 
@@ -3175,14 +3296,38 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
         sched_next_worked++;
 
       dump_insn_1 (insn, DUMP_INSN_UID);
-
+      
       /* Check all liveness requirements and try renaming.  
          FIXME: try to minimize calls to this.  */
-      if (! find_best_reg_for_rhs (rhs, bnds, &is_orig_reg_p))
+      target_available = EXPR_TARGET_AVAILABLE (rhs);
+
+      if (target_available == true)
+        /* Do nothing -- we can use an existing register.  */
+        succ++;
+      else if (/* Non-separable instruction will never 
+                  get another register. */
+               (target_available == false
+                && !EXPR_SEPARABLE_P (rhs))
+               /* Don't try to find a register for low-priority expression.  */
+               || (max_insns_to_rename >= 0
+                   && n > max_insns_to_rename))
         {
-          VEC_unordered_remove (rhs_t, vec_av_set, n);
-          print ("- no reg; ");
+          succ++;
+          VEC_ordered_remove (rhs_t, vec_av_set, n);
+          print ("- no register; ");
           continue;
+        }
+      else
+        {
+          fail++;
+          if (/* Either we don't know the answer, or the register is 
+                 not available in separable RHS.  Do it the hard way.  */
+              ! find_best_reg_for_rhs (rhs, bnds, &is_orig_reg_p))
+            {
+              VEC_ordered_remove (rhs_t, vec_av_set, n);
+              print ("- no register; ");
+              continue;
+            }
         }
 
       if (av_contain_end_of_loop_p
@@ -3199,13 +3344,16 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
           /* We need to know whether we do need to stall for any insns.  */
           stalled++;
           print ("- not ready yet; ");
-          VEC_unordered_remove (rhs_t, vec_av_set, n);
+          VEC_ordered_remove (rhs_t, vec_av_set, n);
 	  continue;
 	}
 
       print ("; ");
       n++;
     }
+
+  if (sched_verbose >= 1)
+    print ("successes: %d %d\n", succ, fail);
 
   if (VEC_empty (rhs_t, vec_av_set))
     {
@@ -3223,10 +3371,6 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
       return false;
     }
 
-  /* Sort the vector.  */
-  qsort (VEC_address (rhs_t, vec_av_set), VEC_length (rhs_t, vec_av_set),
-         sizeof (rhs_t), sel_rank_for_schedule);
-
   line_start ();
   print ("Sorted av set (%d): ", VEC_length (rhs_t, vec_av_set));
 
@@ -3236,7 +3380,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
 
   print ("\nreally_ready: %d stalled: %d \n", 
          VEC_length (rhs_t, vec_av_set), stalled);
-
+  
   /* Clear SCHED_NEXT.  */
   if (FENCE_SCHED_NEXT (fence))
     {
@@ -3624,14 +3768,21 @@ find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence)
       privileged_n = calculate_privileged_insns ();
       can_issue = choose_best_insn (fence, privileged_n, &index);
       if (can_issue)
-        best = find_expr_for_ready (index, true);
+        {
+          best = find_expr_for_ready (index, true);
+          if (EXPR_WAS_RENAMED (best))
+            {
+              print ("renamed: %d %d\n", index, ready.n_ready);
+              EXPR_WAS_RENAMED (best) = 0;
+            }
+        }
       else
         need_stall = 1;
     }
 
   if (best != NULL)
-    can_issue_more = invoke_aftermath_hooks (fence, EXPR_INSN_RTX (best), 
-                                             can_issue_more);
+      can_issue_more = invoke_aftermath_hooks (fence, EXPR_INSN_RTX (best),
+                                               can_issue_more);
 
   return best;
 }
@@ -3881,7 +4032,6 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     new_vinsn = create_vinsn_from_insn_rtx (new_insn_rtx);
     copy_expr_onside (new_expr, c_rhs);
     change_vinsn_in_expr (new_expr, new_vinsn);
-
     new_insn = gen_insn_from_expr_after (new_expr, new_seqno, place_to_insert);
 
     /* When inserting bookkeeping insn in new block, av sets should be
@@ -3949,8 +4099,8 @@ remove_insns_that_need_bookkeeping (fence_t fence, av_set_t *av_ptr)
 	  && (EXPR_SPEC (rhs)
 	      || !EXPR_ORIG_BB_INDEX (rhs)
 	      || !dominated_by_p (CDI_DOMINATORS,
-				  BLOCK_FOR_INSN (FENCE_INSN (fence)),
-				  BASIC_BLOCK (EXPR_ORIG_BB_INDEX (rhs)))))
+				  BASIC_BLOCK (EXPR_ORIG_BB_INDEX (rhs)),
+				  BLOCK_FOR_INSN (FENCE_INSN (fence)))))
 	{
 	  line_start ();
 	  print ("Removed expr that would need bookkeeping (but disabled or"
@@ -4131,12 +4281,14 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
               /* Assert that this can only happen with unscheduled code.  */
               gcc_assert (INSN_SCHED_TIMES (new_bnd_to) == 0);
             }
-
 	  BND_TO (bnd) = new_bnd_to;
-	  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (PREV_INSN (new_bnd_to)));
 
 	  av_set_clear (&BND_AV (bnd));
 	  BND_AV (bnd) = compute_av_set (BND_TO (bnd), NULL, 0, true);
+#if 0          
+          mark_unavailable_targets 
+            (BND_AV (bnd), BB_LV_SET (BLOCK_FOR_INSN (BND_TO (bnd))));
+#endif
 
 	  av_set_clear (&BND_AV1 (bnd));
 	  BND_AV1 (bnd) = av_set_copy (BND_AV (bnd));
@@ -4150,7 +4302,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
       while ((bnds1 = BLIST_NEXT (bnds1)));
 
       remove_insns_that_need_bookkeeping (fence, &av_vliw);
-
+      
       sel_dump_cfg ("after-compute_av");
 
       /* If debug parameters tell us to ignore this attempt to move an insn,
@@ -4259,7 +4411,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
                      to move_op except when renaming happened.  Put the 
                      correct register in RHS then.  */
                   if (EXPR_SEPARABLE_P (rhs) && REG_P (EXPR_LHS (rhs))
-                      && rhs_dest_regno (rhs) != rhs_dest_regno (rhs_vliw))
+                      && expr_dest_regno (rhs) != expr_dest_regno (rhs_vliw))
 		    {
 		      replace_dest_with_reg_in_rhs (rhs, EXPR_LHS (rhs_vliw));
 		      stat_renamed_scheduled++;
@@ -4425,7 +4577,9 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	    clear_expr (c_rhs);
 
 	    ++INSN_SCHED_TIMES (insn);
+            EXPR_TARGET_AVAILABLE (INSN_EXPR (insn)) = true;
             EXPR_ORIG_SCHED_CYCLE (INSN_EXPR (insn)) = fence->cycle;
+
 	    if (INSN_NOP_P (place_to_insert))
 	      /* Return the nop generated for preserving of data sets back
 		 into pool.  */
@@ -4889,7 +5043,8 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
                   int use = MAX (EXPR_USEFULNESS (c_rhs), EXPR_USEFULNESS (x));
 
                   gcc_assert (EXPR_USEFULNESS (c_rhs) == EXPR_USEFULNESS (x));
-                  merge_expr_data (c_rhs, x);
+                  merge_expr_data (c_rhs, x, true);
+
                   EXPR_USEFULNESS (c_rhs) = use;
                   if (EXPR_SCHED_TIMES (x) == 0)
                     EXPR_SCHED_TIMES (c_rhs) = old_times;
@@ -5108,8 +5263,6 @@ add_region_head (void)
       can_add_real_insns_p = false;
       new_region_head = sel_create_basic_block_before (region_head);
       can_add_real_insns_p = true;
-
-      RGN_WAS_PIPELINED_P (CONTAINING_RGN (BB_TO_BLOCK (0))) = 1;
 
       return true;
     }
@@ -6000,6 +6153,7 @@ sel_global_init (void)
      FIXME: move this in opts.c.  */
   if (!flag_sel_sched_pipelining)
     flag_sel_sched_pipelining_outer_loops = 0;
+  max_insns_to_rename = PARAM_VALUE (PARAM_SELSCHED_INSNS_TO_RENAME);
 
   calculate_dominance_info (CDI_DOMINATORS);
 
