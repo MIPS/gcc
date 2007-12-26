@@ -1,3 +1,28 @@
+2007-12-26  Alexander Monakov  <amonakov@ispras.ru>
+
+        * sel-sched.c (create_speculation_check): Always create a recovery
+        block when original instruction was speculative.  Make check
+        instruction non-speculative irregardless of which speculation types it
+        checks.  Use attributes of original instruction when creating a load
+        in the recovery block.
+        (selective_scheduling_run): Do not try to print liveness information
+        in before-init and after-finish dumps.
+        * config/ia64/ia64.opt (msched-max-memory-insns,
+        msched-max-memory-insns-hard-limit): New target flags.
+        * config/ia64/ia64.c (mem_ops_in_group, current_cycle): New variables.
+        (ia64_sched_init): Initialize them.
+        (is_load_p, record_memory_reference): New functions.
+        (ia64_dfa_sched_reorder): Lower priority of loads when limit is
+        reached.
+        (ia64_variable_issue): Note if a load or a store is issued.
+        (ia64_first_cycle_multipass_dfa_lookahead_guard_spec): Require a cycle
+        advance if maximal number of loads or stores was issued on current cycle.
+        (ia64_dfa_new_cycle): Update current_cycle and mem_ops_in_group.
+        (struct _ia64_sched_context): New members.
+        (ia64_init_sched_context): Initialize them.
+        (ia64_set_sched_context): Copy them.
+        * config/ia64/itanium2.md: Remove strange bypass.
+
 2007-10-02  Andrey Belevantsev  <abel@ispras.ru>
 
 	* sel-sched-ir.c (sched_lists_pool): New global variable.

@@ -1462,8 +1462,10 @@ create_speculation_check (expr_t c_rhs, ds_t check_ds, insn_t orig_insn)
 
   sel_dump_cfg ("before-gen-spec-check");
 
-  /* Create a recovery block if target is going to emit branchy check.  */
-  if (targetm.sched.needs_block_p (check_ds))
+  /* Create a recovery block if target is going to emit branchy check, or if
+     ORIG_INSN was speculative already.  */
+  if (targetm.sched.needs_block_p (check_ds)
+      || EXPR_SPEC_DONE_DS (INSN_EXPR (orig_insn)) != 0)
     {
       recovery_block = sel_create_recovery_block (orig_insn);
       label = BB_HEAD (recovery_block);
@@ -1487,7 +1489,7 @@ create_speculation_check (expr_t c_rhs, ds_t check_ds, insn_t orig_insn)
 				      INSN_SEQNO (orig_insn), orig_insn);
 
   /* Make check to be non-speculative.  */
-  EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) &= ~check_ds;
+  EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) = 0;
   INSN_SPEC_CHECKED_DS (insn) = check_ds;
 
   if (recovery_block != NULL)
@@ -1499,7 +1501,8 @@ create_speculation_check (expr_t c_rhs, ds_t check_ds, insn_t orig_insn)
 
       twin_rtx = copy_rtx (PATTERN (EXPR_INSN_RTX (c_rhs)));
       twin_rtx = create_insn_rtx_from_pattern (twin_rtx, NULL_RTX);
-      twin = sel_gen_recovery_insn_from_rtx_after (twin_rtx, INSN_EXPR (insn),
+      twin = sel_gen_recovery_insn_from_rtx_after (twin_rtx,
+						   INSN_EXPR (orig_insn),
 						   INSN_SEQNO (insn),
 						   bb_note (recovery_block));
     }
@@ -5871,8 +5874,7 @@ selective_scheduling_run (void)
   setup_dump_cfg_params (false);
 
   sel_dump_cfg_1 ("before-init",
-		  (SEL_DUMP_CFG_BB_INSNS | SEL_DUMP_CFG_FUNCTION_NAME
-		   | SEL_DUMP_CFG_BB_LIVE));
+		  (SEL_DUMP_CFG_BB_INSNS | SEL_DUMP_CFG_FUNCTION_NAME));
 
   sel_global_init ();
 
@@ -5903,8 +5905,7 @@ selective_scheduling_run (void)
   sel_global_finish ();
 
   sel_dump_cfg_1 ("after-finish",
-		  (SEL_DUMP_CFG_BB_INSNS | SEL_DUMP_CFG_FUNCTION_NAME
-		   | SEL_DUMP_CFG_BB_LIVE));
+		  (SEL_DUMP_CFG_BB_INSNS | SEL_DUMP_CFG_FUNCTION_NAME));
 
   sched_verbose_param = old_sched_verbose_param;
 }

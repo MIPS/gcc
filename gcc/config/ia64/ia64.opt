@@ -152,6 +152,14 @@ msched-fp-mem-deps-zero-cost
 Target Report Var(mflag_sched_fp_mem_deps_zero_cost) Init(1)
 Assume that floating-point stores and loads are not likely to cause conflict when placed into one instruction group
 
+msched-max-memory-insns=
+Target RejectNegative Joined UInteger Var(ia64_max_memory_insns) Init(1)
+Limit on number of memory insns per instruction group. Frequently useful to prevent cache bank conflicts. Default value is 1
+
+msched-max-memory-insns-hard-limit
+Target Report Var(mflag_sched_mem_insns_hard_limit) Init(0)
+Disallow more than `msched-max-memory-insns' in instruction group. Otherwise, limit is `soft' (prefer non-memory operations when limit is reached)
+
 msel-sched-renaming
 Target Report Var(mflag_sel_sched_renaming) Init(1)
 Do register renaming in selective scheduling

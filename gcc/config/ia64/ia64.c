@@ -6276,6 +6276,12 @@ static int *add_cycles;
 /* The following variable value is number of data speculations in progress.  */
 static int pending_data_specs = 0;
 
+/* Number of memory references on current and three future processor cycles.  */
+static char mem_ops_in_group[4];
+
+/* Number of current processor cycle (from scheduler's point of view).  */
+static int current_cycle;
+
 static rtx ia64_single_set (rtx);
 static void ia64_emit_insn_before (rtx, rtx);
 
@@ -6449,6 +6455,9 @@ ia64_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 #endif
   last_scheduled_insn = NULL_RTX;
   init_insn_group_barriers ();
+
+  current_cycle = 0;
+  memset (mem_ops_in_group, 0, sizeof (mem_ops_in_group));
 }
 
 /* We're beginning a scheduling pass.  Check assertion.  */
@@ -6469,12 +6478,46 @@ ia64_sched_finish_global (FILE *dump ATTRIBUTE_UNUSED,
   gcc_assert (pending_data_specs == 0);
 }
 
+/* Return TRUE if INSN is a load (either normal or speculative, but not a
+   speculation check), FALSE otherwise.  */
+static bool
+is_load_p (rtx insn)
+{
+  enum attr_itanium_class insn_class = ia64_safe_itanium_class (insn);
+
+  return
+   ((insn_class == ITANIUM_CLASS_LD || insn_class == ITANIUM_CLASS_FLD)
+    && get_attr_check_load (insn) == CHECK_LOAD_NO);
+}
+
+/* If INSN is a memory reference, memoize it in MEM_OPS_IN_GROUP global array
+   (taking account for 3-cycle cache reference postponing for stores: Intel
+   Itanium 2 Reference Manual for Software Development and Optimization,
+   6.7.3.1).  */
+static void
+record_memory_reference (rtx insn)
+{
+  enum attr_itanium_class insn_class = ia64_safe_itanium_class (insn);
+
+  switch (insn_class) {
+    case ITANIUM_CLASS_FLD:
+    case ITANIUM_CLASS_LD:
+      mem_ops_in_group[current_cycle % 4]++;
+      break;
+    case ITANIUM_CLASS_STF:
+    case ITANIUM_CLASS_ST:
+      mem_ops_in_group[(current_cycle + 3) % 4]++;
+      break;
+    default:;
+  }
+}
+
 /* We are about to being issuing insns for this clock cycle.
    Override the default sort algorithm to better slot instructions.  */
 
 static int
 ia64_dfa_sched_reorder (FILE *dump, int sched_verbose, rtx *ready,
-			int *pn_ready, int clock_var ATTRIBUTE_UNUSED,
+			int *pn_ready, int clock_var,
 			int reorder_type)
 {
   int n_asms;
@@ -6554,6 +6597,27 @@ ia64_dfa_sched_reorder (FILE *dump, int sched_verbose, rtx *ready,
       ready += deleted;
     }
 
+  current_cycle = clock_var;
+  if (reload_completed && mem_ops_in_group[clock_var % 4] >= ia64_max_memory_insns)
+    {
+      int moved = 0;
+
+      insnp = e_ready;
+      /* Move down loads/stores, preserving relative order.  */
+      while (insnp-- > ready + moved)
+	while (insnp >= ready + moved)
+	  {
+	    rtx insn = *insnp;
+	    if (! is_load_p (insn))
+	      break;
+	    memmove (ready + 1, ready, (insnp - ready) * sizeof (rtx));
+	    *ready = insn;
+	    moved++;
+	  }
+      n_ready -= moved;
+      ready += moved;
+    }
+
   return 1;
 }
 
@@ -6612,6 +6676,8 @@ ia64_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
 	init_insn_group_barriers ();
       stops_p [INSN_UID (insn)] = stop_before_p;
       stop_before_p = 0;
+
+      record_memory_reference (insn);
     }
   return 1;
 }
@@ -6625,7 +6691,10 @@ ia64_first_cycle_multipass_dfa_lookahead_guard (rtx insn)
   gcc_assert (insn && INSN_P (insn));
   return ((!reload_completed
 	   || !safe_group_barrier_needed (insn))
-	  && ia64_first_cycle_multipass_dfa_lookahead_guard_spec (insn));
+         && ia64_first_cycle_multipass_dfa_lookahead_guard_spec (insn)
+         && (!mflag_sched_mem_insns_hard_limit
+             || !is_load_p (insn)
+             || mem_ops_in_group[current_cycle % 4] < ia64_max_memory_insns));
 }
 
 /* We are choosing insn from the ready queue.  Return nonzero if INSN
@@ -6701,6 +6770,8 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
 		 last_clock == clock ? " + cycle advance" : "");
 
       stop_before_p = 1;
+      current_cycle = clock;
+      mem_ops_in_group[current_cycle % 4] = 0;
 
       if (last_clock == clock)
 	{
@@ -6800,6 +6871,9 @@ struct _ia64_sched_context
   struct reg_write_state rws_sum[NUM_REGS];
   struct reg_write_state rws_insn[NUM_REGS];
   int first_instruction;
+  int pending_data_specs;
+  int current_cycle;
+  char mem_ops_in_group[4];
 };
 typedef struct _ia64_sched_context *ia64_sched_context_t;
 
@@ -6825,6 +6899,9 @@ ia64_init_sched_context (void *_sc, bool clean_p)
       memset (sc->rws_sum, 0, sizeof (rws_sum));
       memset (sc->rws_insn, 0, sizeof (rws_insn));
       sc->first_instruction = 1;
+      sc->pending_data_specs = 0;
+      sc->current_cycle = 0;
+      memset (sc->mem_ops_in_group, 0, sizeof (mem_ops_in_group));
     }
   else
     {
@@ -6833,6 +6910,9 @@ ia64_init_sched_context (void *_sc, bool clean_p)
       memcpy (sc->rws_sum, rws_sum, sizeof (rws_sum));
       memcpy (sc->rws_insn, rws_insn, sizeof (rws_insn));
       sc->first_instruction = first_instruction;
+      sc->pending_data_specs = pending_data_specs;
+      sc->current_cycle = current_cycle;
+      memcpy (sc->mem_ops_in_group, mem_ops_in_group, sizeof (mem_ops_in_group));
     }
 }
 
@@ -6849,6 +6929,9 @@ ia64_set_sched_context (void *_sc)
   memcpy (rws_sum, sc->rws_sum, sizeof (rws_sum));
   memcpy (rws_insn, sc->rws_insn, sizeof (rws_insn));
   first_instruction = sc->first_instruction;
+  pending_data_specs = sc->pending_data_specs;
+  current_cycle = sc->current_cycle;
+  memcpy (mem_ops_in_group, sc->mem_ops_in_group, sizeof (mem_ops_in_group));
 }
 
 /* Clears the data in the _SC scheduling context.  */
