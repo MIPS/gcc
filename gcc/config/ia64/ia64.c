@@ -6048,11 +6048,14 @@ group_barrier_needed (rtx insn)
       if (! need_barrier)
 	need_barrier = rws_access_regno (REG_VOLATILE, flags, 0);
 
-      /* Force a barrier before a speculative check.  This is used to allow 
-         more instructions to move through the check and to minimize 
-         delaying of other instructions in case this checks stalls.  */
-      if (ia64_spec_check_p (insn))
-	need_barrier = 1;
+      if (mflag_stop_bit_before_check)
+        {
+          /* Force a barrier before a speculative check.  This is used to allow
+             more instructions to move through the check and to minimize
+             delaying of other instructions in case this checks stalls.  */
+          if (ia64_spec_check_p (insn))
+            need_barrier = 1;
+        }
 
       break;
 

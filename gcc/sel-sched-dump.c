@@ -358,6 +358,14 @@ dump_expr_1 (expr_t expr, int flags)
 	print ("spec:%d;", spec);
     }
 
+  if (flags & DUMP_EXPR_USEFULNESS)
+    {
+      int use = EXPR_USEFULNESS (expr);
+
+      if (use != REG_BR_PROB_BASE)
+        print ("use:%d;", use);
+    }
+
   if (flags & DUMP_EXPR_PRIORITY)
     print ("prio:%d;", EXPR_PRIORITY (expr));
 

@@ -1,3 +1,79 @@
+2007-12-26  Dmitry Zhurikhin  <zhur@ispras.ru>
+
+	* haifa-sched.c (sched_init): Add initialization of new spec_info 
+        field: control_weakness_cutoff.
+	(try_ready): Change weakness_cutoff for data_weakness_cutoff.
+	* sel-sched.c (find_best_reg_for_rhs): New parameter - pointer 
+	to bool, showing if best reg for rhs is an original reg.
+	Update all callers.
+	(moveup_set_rhs): Add computation of usefullness of rhses in av sets. 
+	(compute_av_set): Same.
+	(end_of_loop_p): New.
+	(can_overcome_dep_p): Change weakness_cutoff for data_weakness_cutoff. 
+	(process_spec_exprs): Same. 
+	(check_stalling_p): New.
+	(fill_vec_av_set): Remove from av set at the end of the loop insns 
+	that will always cause stall at the beginning of 
+	the next iteration if pipelined.
+	(generate_bookkeeping_insn): Change return from void to basic_block
+        where bookkeeping has been generated.
+	Also add correction of some av sets.
+	(fill_insns): When creating new floating bb header move data sets from
+	the new basic block created above back to the old one.
+	(move_op): Always assert that all bb headers that move_op passes has
+        valid data sets.  Also correct data sets for bookkeeping
+        block and remove unneeded jumps created by bookkeeping.
+	(split_edges_incoming_to_rgn): Remove.
+	(sel_region_init): Correctly initialize MARK_LOOP_FOR_PIPELINING.
+	Also do not split edges coming into region, because
+        generate_bookkeeping_code can correctly handle it.
+	(sel_sched_region_1): Add cleanup of preheader block of pipelined loop
+        if it is empty after pipelining.
+	(sel_global_finish): Rearrange initialization routines so that if we
+        cannot pipeline loop preheaders are not created.
+	* sel-sched-ir.c (preheader_removed): New variable.
+	(merge_fences): New.
+	(new_fences_add): Use merge_fences. 
+	(init_expr): Add handling of new expr fields: usefullness and 
+        orig_sched_cycle.
+	(copy_expr): Same.
+	(merge_expr_data): Same. 
+	(merge_expr): Same.
+	(init_global_and_expr_for_insn): Same.
+	(init_insn): Same.
+	(av_set_split_usefulness): New.
+	(free_lv_sets): Assert that empty basic blocks have empty lv_sets.
+	(free_av_set): Make non-static.
+	(exchange_av_sets): Same. 
+	(copy_data_sets): New.
+	(cfg_succs_2): New.
+	(cfg_succs): Add computation of probabilities of succs.
+	(overall_prob_of_succs): New.
+	(sel_num_cfg_preds_gt_1): Remove wrong assert. 
+	(jump_destination): New.
+	(jump_to_back_edge_p): New.
+	(path_contains_back_edge_p): New.
+	(path_contains_switch_of_sched_times_p): New.
+	(is_ineligible_successor): Consider insns scheduled on other fences as
+        ineligible successors even if pipelining. 
+	(sel_remove_empty_bb): Assert removing only empty bbs and after
+        removing empty block remove unused jump in prev_bb if it exists.
+	(considered_for_pipelining_p): Do initialization of pipelining of 
+        outer loops only if pipelining current region.
+	(sel_find_rgns): Move pipeline_outer_loops_init here from 
+         sel_global_init.
+	(sel_is_loop_preheader): Return false if preheader was removed.
+	(jump_leads_only_to_bb_p): New.
+	(sel_remove_loop_preheader): Do not create empty regions from empty
+        preheader block - just remove it. 
+	* sel-sched-ir.h (struct _expr): New fields usefullness and 
+	orig_sched_cycle.  Also access macros for them. 
+	* sel-sched-dump.c (dump_expr_1): Add dump for expr_usefullness.
+	* passes.c (init_optimization_passes): Move pass_compute_alignments 
+	below of pass_machine_reorg.
+	* config/ia64/ia64.opt (mstop-bit-before-check): New flag.
+	* config/ia64/ia64.c (group_barrier_needed): Use new flag.
+
 2007-12-26  Alexander Monakov  <amonakov@ispras.ru>
 
         * sel-sched.c (create_speculation_check): Always create a recovery

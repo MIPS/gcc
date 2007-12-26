@@ -2810,8 +2810,13 @@ sched_init (void)
       targetm.sched.set_sched_flags (spec_info);
 
       if (spec_info->mask != 0)
-	spec_info->weakness_cutoff =
-	  (PARAM_VALUE (PARAM_SCHED_SPEC_PROB_CUTOFF) * MAX_DEP_WEAK) / 100;
+        {
+          spec_info->data_weakness_cutoff =
+            (PARAM_VALUE (PARAM_SCHED_SPEC_PROB_CUTOFF) * MAX_DEP_WEAK) / 100;
+          spec_info->control_weakness_cutoff =
+            (PARAM_VALUE (PARAM_SCHED_SPEC_PROB_CUTOFF)
+             * REG_BR_PROB_BASE) / 100;
+        }
       else
 	/* So we won't read anything accidentally.  */
 	spec_info = NULL;
@@ -3132,7 +3137,7 @@ try_ready (rtx next)
 		*ts = ds_merge (*ts, ds);
 	    }
 
-	  if (dep_weak (*ts) < spec_info->weakness_cutoff)
+	  if (dep_weak (*ts) < spec_info->data_weakness_cutoff)
 	    /* Too few points.  */
 	    *ts = (*ts & ~SPECULATIVE) | HARD_DEP;
 	}

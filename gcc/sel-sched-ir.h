@@ -91,6 +91,10 @@ struct _expr
      control on scheduling.  */
   int spec;
 
+  /* Degree of speculativeness too.  Shows the chance of the result of 
+     instruction to be actually used if it is moved to the current point.  */
+  int usefulness;
+
   /* A priority of this expression.  */
   int priority;
 
@@ -108,6 +112,10 @@ struct _expr
   /* SPEC_TO_CHECK_DS hold speculation types that should be checked
      (used only during move_op ()).  */
   ds_t spec_to_check_ds;
+
+  /* Cycle on which original insn was scheduled.  Zero when it has not yet 
+     been scheduled or more than one originator.  */
+  int orig_sched_cycle;
 
   /* A vector of insn's hashes on which this expr was changed when 
      moving up.  We can't use bitmap here, because the recorded insn
@@ -135,9 +143,11 @@ typedef expr_t rhs_t;
 #define EXPR_SEPARABLE_P(EXPR) (VINSN_SEPARABLE_P (EXPR_VINSN (EXPR)))
 
 #define EXPR_SPEC(EXPR) ((EXPR)->spec)
+#define EXPR_USEFULNESS(EXPR) ((EXPR)->usefulness)
 #define EXPR_PRIORITY(EXPR) ((EXPR)->priority)
 #define EXPR_SCHED_TIMES(EXPR) ((EXPR)->sched_times)
 #define EXPR_ORIG_BB_INDEX(EXPR) ((EXPR)->orig_bb_index)
+#define EXPR_ORIG_SCHED_CYCLE(EXPR) ((EXPR)->orig_sched_cycle)
 #define EXPR_SPEC_DONE_DS(EXPR) ((EXPR)->spec_done_ds)
 #define EXPR_SPEC_TO_CHECK_DS(EXPR) ((EXPR)->spec_to_check_ds)
 #define EXPR_CHANGED_ON_INSNS(EXPR) ((EXPR)->changed_on_insns)
@@ -707,7 +717,9 @@ extern rtx exit_insn;
 #define LOOP_PREHEADER_BLOCKS(LOOP) ((size_t)((LOOP)->aux) == 1 \
                                      ? NULL \
                                      : ((VEC(basic_block, heap) *) (LOOP)->aux))
-#define SET_LOOP_PREHEADER_BLOCKS(LOOP,BLOCKS) ((LOOP)->aux = BLOCKS)
+#define SET_LOOP_PREHEADER_BLOCKS(LOOP,BLOCKS) ((LOOP)->aux = \
+                                                  BLOCKS != NULL \
+                                                    ? BLOCKS : (LOOP)->aux)
 
 /* When false, only notes may be added.  */
 extern bool can_add_real_insns_p;
@@ -840,6 +852,7 @@ extern bool enable_moveup_set_path_p;
 extern bool enable_schedule_as_rhs_p;
 extern bool pipelining_p;
 extern bool bookkeeping_p;
+extern bool preheader_removed;
 
 /* Functions that are used in sel-sched.c.  */
 
@@ -912,6 +925,7 @@ extern void av_set_clear (av_set_t *);
 extern void av_set_leave_one (av_set_t *);
 extern rhs_t av_set_element (av_set_t, int);
 extern void av_set_substract_cond_branches (av_set_t *);
+extern void av_set_split_usefulness (av_set_t *, int, int);
 extern void av_set_intersect (av_set_t *, av_set_t);
 
 extern void sel_save_haifa_priorities (void);
@@ -941,6 +955,8 @@ extern void sel_remove_insn (insn_t);
 extern int vinsn_dfa_cost (vinsn_t, fence_t);
 extern bool bb_header_p (insn_t);
 extern void sel_init_invalid_data_sets (insn_t);
+extern bool insn_at_boundary_p (insn_t);
+extern bool jump_leads_only_to_bb_p (insn_t, basic_block);
 
 /* Basic block and CFG functions.  */
 
@@ -959,9 +975,11 @@ extern void sel_finish_bbs (void);
 extern int cfg_succs_n (insn_t, int);
 extern bool sel_insn_has_single_succ_p (insn_t, int);
 extern void cfg_succs_1 (insn_t, int, insn_t **, int *);
-extern void cfg_succs (insn_t, insn_t **, int *);
+extern void cfg_succs_2 (insn_t, int, insn_t **, int **, int *);
+extern void cfg_succs (insn_t, insn_t **, int **, int *);
 extern insn_t cfg_succ_1 (insn_t, int);
 extern insn_t cfg_succ (insn_t);
+extern int overall_prob_of_succs (insn_t);
 extern bool sel_num_cfg_preds_gt_1 (insn_t);
 
 extern bool is_ineligible_successor (insn_t, ilist_t);
@@ -989,6 +1007,9 @@ extern void make_region_from_loop_preheader (VEC(basic_block, heap) **);
 extern void sel_add_loop_preheader (void);
 extern bool sel_is_loop_preheader_p (basic_block);
 extern void clear_outdated_rtx_info (basic_block);
+extern void free_data_sets (basic_block);
+extern void exchange_data_sets (basic_block, basic_block);
+extern void copy_data_sets (basic_block, basic_block);
 
 extern void sel_register_cfg_hooks (void);
 extern void sel_unregister_cfg_hooks (void);
@@ -1147,10 +1168,6 @@ get_all_loop_exits (basic_block bb)
 		i--;
 		continue;
 	      }
-	  }
-	else
-	  {
-	    gcc_assert (!inner_loop_header_p (e->dest));
 	  }
     }
 

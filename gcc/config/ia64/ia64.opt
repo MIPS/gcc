@@ -180,4 +180,8 @@ msel-sched-dont-check-control-spec
 Target Report Var(mflag_sel_sched_dont_check_control_spec) Init(0)
 Don't generate checks for control speculation in selective scheduling
 
+mstop-bit-before-check
+Target Report Var(mflag_stop_bit_before_check) Init(0)
+Force a barrier before a speculative check
+
 ; This comment is to ensure we retain the blank line above.

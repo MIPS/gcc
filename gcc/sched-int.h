@@ -604,7 +604,11 @@ struct spec_info_def
 
   /* Minimal cumulative weakness of speculative instruction's
      dependencies, so that insn will be scheduled.  */
-  dw_t weakness_cutoff;
+  dw_t data_weakness_cutoff;
+
+  /* Minimal usefulness of speculative instruction to be considered for
+     scheduling.  */
+  int control_weakness_cutoff;
 
   /* Flags from the enum SPEC_SCHED_FLAGS.  */
   int flags;

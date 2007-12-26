@@ -51,6 +51,7 @@
 #include "vec.h"
 #include "langhooks.h"
 #include "rtlhooks-def.h"
+#include "output.h"
 
 #ifdef INSN_SCHEDULING
 #include "sel-sched-ir.h"
@@ -211,7 +212,7 @@ static bool rtx_search (rtx, rtx);
 static int sel_rank_for_schedule (const void *, const void *);
 static bool equal_after_moveup_path_p (rhs_t, ilist_t, rhs_t);
 static regset compute_live (insn_t);
-static void generate_bookkeeping_insn (rhs_t, insn_t, edge, edge);
+static basic_block generate_bookkeeping_insn (rhs_t, insn_t, edge, edge);
 static bool find_used_regs (insn_t, av_set_t, regset, HARD_REG_SET *, 
                             def_list_t *);
 static bool move_op (insn_t, av_set_t, ilist_t, edge, edge, expr_t);
@@ -290,7 +291,6 @@ extract_new_fences_from (fence_t fence, flist_tail_t new_fences,
 	      bool b = in_same_ebb_p (insn, succ)
                        || (!flag_sel_sched_reset_tc_on_join
                            && in_fallthru_bb_p (insn, succ));
-
 
 	      print ("%d[%d] (state %s); ", INSN_UID (succ),
 		     BLOCK_NUM (succ), b ? "continue" : "reset");
@@ -1241,7 +1241,7 @@ choose_best_pseudo_reg (regset used_regs,
      - RHS_SCHEDULE_AS_RHS is false but the insn sets/clobbers one of
        the registers that are used on the moving path.  */
 static bool
-find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
+find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 {
   av_set_iterator i2;
   rhs_t rhs_orig;
@@ -1252,7 +1252,8 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
   def_list_t original_insns = NULL;
   int res = 0;
   bool reg_ok = true;
-  bool is_orig_reg_p = false;
+
+  *is_orig_reg_p = false;
 
   /* Don't bother to do anything if this insn doesn't set any registers.  */
   if (bitmap_empty_p (VINSN_REG_SETS (EXPR_VINSN (rhs))))
@@ -1330,15 +1331,15 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds)
                  restrictions and live range intersection.  */
               IOR_HARD_REG_SET (hard_regs_used, unavailable_hard_regs);
               best_reg = choose_best_reg (hard_regs_used, original_insns,
-					  &is_orig_reg_p);
+					  is_orig_reg_p);
             }
           else
             best_reg = choose_best_pseudo_reg (used_regs, 
                                                unavailable_hard_regs, 
                                                original_insns,
-					       &is_orig_reg_p);
+					       is_orig_reg_p);
 
-	  if (!is_orig_reg_p && sel_vinsn_cost (EXPR_VINSN (rhs)) < 2)
+	  if (!*is_orig_reg_p && sel_vinsn_cost (EXPR_VINSN (rhs)) < 2)
 	    best_reg = NULL_RTX;
 
 	  if (best_reg != NULL_RTX)
@@ -1439,7 +1440,7 @@ can_overcome_dep_p (ds_t ds)
       return false;
   }
 
-  if (ds_weak (ds) < spec_info->weakness_cutoff)
+  if (ds_weak (ds) < spec_info->data_weakness_cutoff)
     return false;
 
   return true;
@@ -1979,7 +1980,10 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 	       remove it.  */
 	    if (rhs2 != NULL)
 	      {
+                EXPR_USEFULNESS (rhs2) = 0;
 		merge_expr (rhs2, rhs);
+                /* Fix usefulness as it should be now REG_BR_PROB_BASE.  */
+                EXPR_USEFULNESS (rhs2) = REG_BR_PROB_BASE;
 
 		av_set_iter_remove (&i);
 		print (" and removed.");
@@ -2110,7 +2114,8 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
   av_set_t rhs_in_all_succ_branches;
   int succs_n, real_succs_n;
   insn_t *succs;
-  int succ;
+  int *probs;
+  int succ, all_prob;
 
   line_start ();
   print ("compute_av_set");
@@ -2159,7 +2164,11 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
       return NULL;
     }
 
-  cfg_succs (insn, &succs, &succs_n);
+  cfg_succs (insn, &succs, &probs, &succs_n);
+
+  /* Sometimes there are weird cases when sum of probabilities of outgoing 
+     edges is greater than REG_BR_PROB_BASE.  */
+  all_prob = overall_prob_of_succs (insn);
 
   /* If there are successors that lead out of the region, then all rhses from
      the below av_sets should be speculative.  */
@@ -2170,6 +2179,12 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
   print ("successors (%d): ", INSN_UID (insn));
   dump_insn_array (succs, succs_n);
   line_finish ();
+  if (succs_n != real_succs_n)
+    {
+      line_start ();
+      print ("real successors num: %d", real_succs_n);
+      line_finish ();
+    }
 
   /* Add insn to to the tail of current path.  */
   ilist_add (&p, insn);
@@ -2189,6 +2204,7 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
 
       /* We will edit SUCC_SET and RHS_SPEC field of its elements.  */
       succ_set = compute_av_set (succs[succ], p, ws + 1, true);
+      av_set_split_usefulness (&succ_set, probs[succ], all_prob);
 
       if (real_succs_n > 1)
 	{
@@ -2237,6 +2253,7 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
     }
   
   free (succs);
+  free (probs);
   ilist_remove (&p);
 
   line_start ();
@@ -2910,6 +2927,66 @@ sel_rank_for_schedule (const void *x, const void *y)
   return INSN_UID (tmp_insn) - INSN_UID (tmp2_insn);
 }
 
+/* Check if av-set AV_PTR contains RHS corresponding to a jump that ends 
+   the loop.  */
+static bool
+end_of_loop_p (av_set_t av)
+{
+  /*basic_block loop_begin;*/
+  rhs_t rhs;
+  av_set_iterator si;
+
+  /*loop_begin = sel_is_loop_preheader_p (EBB_FIRST_BB (0)) ? EBB_FIRST_BB (1)
+                                                          : EBB_FIRST_BB (0);
+  gcc_assert (sel_is_loop_preheader_p (EBB_FIRST_BB (0)));*/
+  FOR_EACH_RHS_1 (rhs, si, &av)
+    {
+      insn_t insn = EXPR_INSN_RTX (rhs);
+
+      /* Jumps must return to the first basic block of the region.  */
+      if (JUMP_P (insn)
+          && JUMP_LABEL (insn)
+          && BLOCK_FOR_INSN (JUMP_LABEL (insn)) == EBB_FIRST_BB (1))
+        return true;
+    }
+
+  return false;
+}
+
+/* While pipelining and scheduling end of loop, checks if instruction RHS
+   will be stalled at the beginning of loop if scheduled now.
+   Example:
+
+   ORIGINAL_LOOP:
+         load f8=[r1];
+         ...
+         <scheduling fence here>
+         if (cc0) jump ORIGINAL_LOOP
+         ...
+
+   MODIFIED_LOOP:
+         check.spec f8;
+         ...
+         load.spec f8=[r1]
+         if (cc0) jump MODIFIED_LOOP
+         ...
+
+  Imagine, when scheduling original loop we can pipeline load from the 
+  beginning of loop.  But is we do so, load's result will not be ready when 
+  executing check operation and execution will stall.  This can happen with
+  speculation instructions (which leave checks in the original place of moved
+  instruction) or renamed instructions (which leave renaming instruction in the
+  original place of moved instruction).  */
+static bool
+check_stalling_p (rhs_t rhs, bool is_orig_reg_p)
+{
+  if (EXPR_ORIG_SCHED_CYCLE (rhs) != 0
+      && (!is_orig_reg_p || EXPR_SPEC_DONE_DS (rhs) != 0)
+      && EXPR_ORIG_SCHED_CYCLE (rhs) <= insn_cost (EXPR_INSN_RTX (rhs)))
+    return true;
+  return false;
+}
+
 /* Filter out expressions that are pipelined too much.  */
 static void
 process_pipelined_exprs (av_set_t *av_ptr)
@@ -2949,7 +3026,8 @@ process_spec_exprs (av_set_t *av_ptr)
 
       /* The probability of a success is too low - don't speculate.  */
       if ((ds & SPECULATIVE)
-          && ds_weak (ds) < spec_info->weakness_cutoff)
+          && (ds_weak (ds) < spec_info->data_weakness_cutoff
+              || EXPR_USEFULNESS (rhs) < spec_info->control_weakness_cutoff))
         {
           av_set_iter_remove (&si);
           continue;
@@ -2996,6 +3074,7 @@ process_use_exprs (av_set_t *av_ptr, blist_t bnds)
   av_set_iterator si;
   bool uses_present_p = false;
   bool try_uses_p = true;
+  bool is_orig_reg = false;
 
   FOR_EACH_RHS_1 (rhs, si, av_ptr)
     {
@@ -3006,7 +3085,7 @@ process_use_exprs (av_set_t *av_ptr, blist_t bnds)
              do so because it will do good only.  */
           if (EXPR_SCHED_TIMES (rhs) <= 0)
             {
-              if (find_best_reg_for_rhs (rhs, bnds))
+              if (find_best_reg_for_rhs (rhs, bnds, &is_orig_reg))
                 return rhs;
 
               av_set_iter_remove (&si);
@@ -3038,7 +3117,7 @@ process_use_exprs (av_set_t *av_ptr, blist_t bnds)
             {
               gcc_assert (INSN_CODE (EXPR_INSN_RTX (rhs)) < 0);
 
-              if (find_best_reg_for_rhs (rhs, bnds))
+              if (find_best_reg_for_rhs (rhs, bnds, &is_orig_reg))
                 return rhs;
 
               av_set_iter_remove (&si);
@@ -3058,6 +3137,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
   rhs_t rhs;
   int sched_next_worked = 0, stalled, n;
   deps_t dc = BND_DC (BLIST_BND (bnds));
+  bool av_contain_end_of_loop_p;
 
   /* Bail out early when the ready list contained only USEs/CLOBBERs that are
      already scheduled.  */
@@ -3068,6 +3148,9 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
   if (VEC_length (rhs_t, vec_av_set) > 0)
     VEC_block_remove (rhs_t, vec_av_set, 0, VEC_length (rhs_t, vec_av_set));
 
+  /* We are interested in knowing if it is a loop end if pipelining is on.  */
+  av_contain_end_of_loop_p = pipelining_p && end_of_loop_p (av);
+
   /* Turn the set into a vector for sorting.  */
   gcc_assert (VEC_empty (rhs_t, vec_av_set));
   FOR_EACH_RHS (rhs, si, av)
@@ -3077,6 +3160,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
   for (n = 0, stalled = 0; VEC_iterate (rhs_t, vec_av_set, n, rhs); )
     {
       insn_t insn = EXPR_INSN_RTX (rhs);
+      bool is_orig_reg_p = true;
 
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
@@ -3094,10 +3178,18 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
 
       /* Check all liveness requirements and try renaming.  
          FIXME: try to minimize calls to this.  */
-      if (! find_best_reg_for_rhs (rhs, bnds))
+      if (! find_best_reg_for_rhs (rhs, bnds, &is_orig_reg_p))
         {
           VEC_unordered_remove (rhs_t, vec_av_set, n);
           print ("- no reg; ");
+          continue;
+        }
+
+      if (av_contain_end_of_loop_p
+          && check_stalling_p (rhs, is_orig_reg_p))
+        {
+          VEC_unordered_remove (rhs_t, vec_av_set, n);
+          print ("- will cause stall; ");
           continue;
         }
 
@@ -3213,7 +3305,7 @@ fill_ready_list (av_set_t *av_ptr, blist_t bnds, fence_t fence)
       ready.n_ready = 0;
       return NULL;
     }
-  
+
   /* Build the final ready list.  */
   convert_vec_av_set_to_ready ();
 
@@ -3595,7 +3687,7 @@ gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
    the upper bb, redirecting all other paths to the lower bb and returns the
    newly created bb, which is the lower bb. 
    All scheduler data is initialized for the newly created insn.  */
-static void
+static basic_block
 generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 {
   basic_block src, bb = e2->dest;
@@ -3606,6 +3698,8 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
   basic_block empty_bb = e1->dest;
   int new_seqno = INSN_SEQNO (join_point);
   basic_block other_block = NULL;
+  bool need_to_exchange_data_sets = false;
+  insn_t new_insn;
 
   /* Find a basic block that can hold bookkeeping.  If it can be found, do not
      create new basic block, but insert bookkeeping there.  */
@@ -3662,7 +3756,9 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 
   /* Explore, if we can insert bookkeeping into OTHER_BLOCK in case edge
      OTHER_BLOCK -> BB is fallthrough, meaning there is no jump there.  */
-  if (EDGE_COUNT (bb->preds) == 2 && other_block)
+  if (EDGE_COUNT (bb->preds) == 2
+      && other_block
+      && in_current_region_p (other_block))
     {
       /* SRC is the block, in which we possibly can insert bookkeeping insn
          without creating new basic block.  It is the other (than E2->SRC)
@@ -3671,7 +3767,6 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 
       /* Instruction, after which we would try to insert bookkeeping insn.  */
       src_end = BB_END (src);
-      gcc_assert (in_current_region_p (src));
 
       if (INSN_P (src_end))
 	{
@@ -3704,7 +3799,9 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
 
       /* Explore, if we can insert bookkeeping into OTHER_BLOCK in case edge
          OTHER_BLOCK -> BB is not fallthrough, meaning there is jump there.  */
-      if (other_block && EDGE_COUNT (other_block->succs) == 1
+      if (other_block
+          && in_current_region_p (other_block)
+          && EDGE_COUNT (other_block->succs) == 1
           && (e1->flags & EDGE_FALLTHRU))
         {
           insn_t src_begin;
@@ -3717,10 +3814,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
               INSN_SCHED_TIMES (src_end) > 0
               /* This is a floating bb header.  */
               || (src_end == src_begin
-                  && EDGE_COUNT (other_block->preds) == 1
-                  && INSN_P (BB_END (EDGE_I (other_block->preds, 0)->src))
-                  && INSN_SCHED_TIMES (BB_END (EDGE_I (other_block->preds, 
-                                                       0)->src)) > 0))
+                  && IN_CURRENT_FENCE_P (src_end)))
             new_bb = NULL;
           else
             {
@@ -3779,7 +3873,9 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     rtx new_insn_rtx;
     vinsn_t new_vinsn;
     expr_def _new_expr, *new_expr = &_new_expr;
-    insn_t new_insn;
+
+    need_to_exchange_data_sets
+      = sel_bb_empty_p (BLOCK_FOR_INSN (place_to_insert));
 
     new_insn_rtx = create_copy_of_insn_rtx (EXPR_INSN_RTX (c_rhs));
     new_vinsn = create_vinsn_from_insn_rtx (new_insn_rtx);
@@ -3787,7 +3883,35 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     change_vinsn_in_expr (new_expr, new_vinsn);
 
     new_insn = gen_insn_from_expr_after (new_expr, new_seqno, place_to_insert);
-    INSN_SCHED_TIMES (new_insn) = 0;
+
+    /* When inserting bookkeeping insn in new block, av sets should be
+       following: old basic block (that now holds bookkeeping) data sets are
+       the same as was before generation of bookkeeping, and new basic block
+       (that now hold all other insns of old basic block) data sets are
+       invalid.  So exchange data sets for these basic blocks as sel_split_block
+       mistakenly exchanges them in this case.  Cannot do it earlier because
+       when single instruction is added to new basic block it should hold NULL
+       lv_set.  */
+    if (need_to_exchange_data_sets)
+      exchange_data_sets (BLOCK_FOR_INSN (new_insn),
+                          BLOCK_FOR_INSN (join_point));
+
+    /* Not obvoius.  Set sched times of bookkeeping to sched times of join
+       point if join point is not header of loop while pipelining (in this
+       case set it to zero).  This is done to correctly handle inserting of
+       bookkeeping in already scheduled code: when bookkeeping is inserted in
+       code not yet scheduled (including preheader when pipelining) it will
+       recieve zero sched times (as join point is not scheduled)
+       and when bookkeeping is inserted in scheduled code there will not be a
+       gap of sched times in scheduled code, so is_ineligible_successor_p of
+       path going through bookkeeping will not say that join point is
+       ineligible.  */
+    INSN_SCHED_TIMES (new_insn) =
+      (pipelining_p
+       && ((flag_sel_sched_pipelining_outer_loops
+           && join_point == NEXT_INSN (bb_note (EBB_FIRST_BB (1))))
+	   || (join_point == NEXT_INSN (bb_note (EBB_FIRST_BB (0))))))
+        ? 0 : INSN_SCHED_TIMES (join_point);
 
     clear_expr (new_expr);
 
@@ -3800,6 +3924,7 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
   }
 
   stat_bookkeeping_copies++;
+  return BLOCK_FOR_INSN (new_insn);
 }
 
 /* Remove from AV_PTR all insns that may need bookkeeping when scheduling 
@@ -4227,6 +4352,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
 		  /* Split block to generate a new floating bb header.  */
 		  bb = sched_split_block (bb, place_to_insert);
+                  copy_data_sets (bb, prev_bb);
 		}
 	      else
 		{
@@ -4299,7 +4425,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	    clear_expr (c_rhs);
 
 	    ++INSN_SCHED_TIMES (insn);
-
+            EXPR_ORIG_SCHED_CYCLE (INSN_EXPR (insn)) = fence->cycle;
 	    if (INSN_NOP_P (place_to_insert))
 	      /* Return the nop generated for preserving of data sets back
 		 into pool.  */
@@ -4392,6 +4518,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  /* Check that the recent movement didn't destroyed loop
 	     structure.  */
 	  gcc_assert (!flag_sel_sched_pipelining_outer_loops
+                      || !pipelining_p
 		      || current_loop_nest == NULL
 		      || loop_latch_edge (current_loop_nest));
         }
@@ -4415,7 +4542,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	 as this will bring two boundaries and, hence, necessity to handle
 	 information for two or more blocks concurrently.  */
       if (insn == BB_END (BLOCK_FOR_INSN (insn)))
-	  break;
+        break;
 
       /* !!! This is a possible perfomance regression as we schedule one
 	 instruction at a time because of floating bb headers.  We need to
@@ -4501,6 +4628,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
   bool c_rhs_inited_p;
   rtx dest;
   bool generated_nop_p = false;
+  basic_block book_block = NULL;
   
   line_start ();
   print ("move_op(");
@@ -4520,6 +4648,9 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
     }
 
   orig_ops = av_set_copy (orig_ops);
+
+  if (sel_bb_head_p (insn))
+    gcc_assert (AV_SET_VALID_P (insn));
 
   /* If we've found valid av set, then filter the orig_ops set.  */
   if (AV_SET_VALID_P (insn))
@@ -4669,6 +4800,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	     operation is not only excessive, but it may not be supported 
 	     on certain platforms, e.g. "mov si, si" is invalid on i386.  */
 	  sel_remove_insn (insn);
+
 	  insn = x;
 	}
       }
@@ -4754,8 +4886,11 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
                      SCHED_TIMES to the maximum instead of minimum in the 
                      below function.  */
                   int old_times = EXPR_SCHED_TIMES (c_rhs);
+                  int use = MAX (EXPR_USEFULNESS (c_rhs), EXPR_USEFULNESS (x));
 
+                  gcc_assert (EXPR_USEFULNESS (c_rhs) == EXPR_USEFULNESS (x));
                   merge_expr_data (c_rhs, x);
+                  EXPR_USEFULNESS (c_rhs) = use;
                   if (EXPR_SCHED_TIMES (x) == 0)
                     EXPR_SCHED_TIMES (c_rhs) = old_times;
                 }
@@ -4780,7 +4915,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
   if (e1 && sel_num_cfg_preds_gt_1 (insn))
     {
       /* INSN is a joint point, insert bookkeeping code here.  */
-      generate_bookkeeping_insn (c_rhs, insn, e1, e2);
+      book_block = generate_bookkeeping_insn (c_rhs, insn, e1, e2);
       gcc_assert (sel_bb_head_p (insn));
     }
 
@@ -4789,10 +4924,97 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
   else
     gcc_assert (AV_LEVEL (insn) == INSN_WS_LEVEL (insn));
 
+  /* If bookkeeping code was inserted - we need to update av sets of basic
+     block, that recieved bookkeeping.  This should have minor impact on 
+     performance as valid av set is found in next basic block.  
+     In fact, after generation of bookkeeping insn, bookkeeping block does not
+     contain valid av set.  This happens because we are not following
+     Moon algorithm in every detail because of effectiveness.  The one
+     point in this implementatin affects av sets of bookkeeping block is
+     not considering instructions of simple moving (i.e. "r1 := r2") as
+     rhs-able instructions.  Consider example:
+
+     bookkeeping block           scheduling fence
+                   \              /
+                    \    join    /
+                      ----------
+                      |        |
+                      ----------
+                    /            \
+                   /              \
+              r1 := r2          r1 := r3
+
+     Imagine, we try to schedule insn "r1 := r3" on the current 
+     scheduling fence.  Also, note that av set of bookkeeping block
+     contain both insns "r1 := r2" and "r1 := r3".  When the insn has
+     been scheduled, CFG is as following:
+
+            r1 := r3               r1 := r3
+     bookkeeping block           scheduling fence
+                   \              /
+                    \    join    /
+                      ----------
+                      |        |
+                      ----------
+                    /            \
+                   /              \
+              r1 := r2
+
+     Here, insn "r1 := r3" was scheduled at the current scheduling point
+     and bookkeeping code was generated at the bookeeping block.  This
+     way insn "r1 := r2" is no longer available as a whole instruction
+     (but only as rhs) ahead of insn "r1 := r3" in bookkeeping block.
+     This situation is handled by calling update_data_sets.  */
+
+  if (book_block)
+    update_data_sets (sel_bb_head (book_block));
+
   /* If INSN was previously marked for deletion, it's time to do it.  */
   if (generated_nop_p)
     {
+      basic_block xbb = BLOCK_FOR_INSN (insn);
+
       gcc_assert (INSN_NOP_P (insn));
+
+      /* Check if there is a unnecessary jump after insn left.  */
+      if (jump_leads_only_to_bb_p (BB_END (xbb), xbb->next_bb))
+        {
+          sel_remove_insn (BB_END (xbb));
+          tidy_fallthru_edge (EDGE_SUCC (xbb, 0));
+        }
+
+      /* Check if there is an unnecessary jump in previous basic block leading
+         to next basic block left after removing INSN from stream.  
+         If it is so, remove that jump and redirect edge to current basic block
+         (where there was INSN before deletion).  This way when NOP will be 
+         deleted several instructions later with its basic block we will not 
+         get a jump to next instruction, which can be harmful.  */
+      if (/* INSN (nop) is the only insn in its bb.  */
+          NEXT_INSN (bb_note (xbb)) == BB_END (xbb)
+          /* Flow goes fallthru from current block to the next.  */
+          && EDGE_COUNT (xbb->succs) == 1
+          && (EDGE_SUCC (xbb, 0)->flags & EDGE_FALLTHRU)
+          /* And unconditional jump in previous basic block leads to
+             next basic block of XBB and this jump can be safely removed.  */
+          && in_current_region_p (xbb->prev_bb)
+          && jump_leads_only_to_bb_p (BB_END (xbb->prev_bb), xbb->next_bb)
+          /* Also this jump is not at the scheduling boundary.  */
+          && !IN_CURRENT_FENCE_P (BB_END (xbb->prev_bb)))
+        {
+          /* Clear data structures of jump - jump itself will be removed
+             by sel_redirect_edge_and_branch.  */
+          clear_expr (INSN_EXPR (BB_END (xbb->prev_bb)));
+          sel_redirect_edge_and_branch (EDGE_SUCC (xbb->prev_bb, 0), xbb);
+          gcc_assert (EDGE_SUCC (xbb->prev_bb, 0)->flags & EDGE_FALLTHRU);
+          /* It can turn out that after removing unused jump, basic block
+             that contained that jump, becomes empty too.  In such case
+             remove it too.  */
+          if (sel_bb_empty_p (xbb->prev_bb))
+            {
+              free_data_sets (xbb->prev_bb);
+              sel_remove_empty_bb (xbb->prev_bb, false, true);
+            }
+        }
 
       return_nop_to_pool (insn);
     }
@@ -4893,61 +5115,6 @@ add_region_head (void)
     }
 }
 
-/* Split all edges incoming to current region, but not those that 
-   come to loop header, and not those that come to preheader.  */
-static void
-split_edges_incoming_to_rgn (void)
-{
-  int i;
-  int cur_rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
-  edge e;
-  VEC(edge, heap) *edges_to_split = NULL;
-
-  if (!current_loop_nest)
-    return;
-
-  for (i = 0; i < RGN_NR_BLOCKS (cur_rgn); i++)
-    {
-      edge_iterator ei;
-      basic_block bb;
-      bool has_preds_in_rgn;
-
-      bb = BASIC_BLOCK (BB_TO_BLOCK (i));
-
-      /* Skip header, preheaders, and single pred blocks.  */
-      if (bb == current_loop_nest->header)
-        continue;
-      if ((unsigned) bb->loop_depth < loop_depth (current_loop_nest))
-        continue;
-      if (EDGE_COUNT (bb->preds) < 2)
-        continue;
-
-      /* Skip also blocks that don't have preds in the region.  */
-      has_preds_in_rgn = false;
-      FOR_EACH_EDGE (e, ei, bb->preds)
-        if (in_current_region_p (e->src))
-          {
-            has_preds_in_rgn = true;
-            break;
-          }
-      if (!has_preds_in_rgn)
-        continue;
-
-      /* Record all edges we need to split.  */
-      FOR_EACH_EDGE (e, ei, bb->preds)
-        if (!in_current_region_p (e->src))
-          VEC_safe_push (edge, heap, edges_to_split, e);
-    }
-  
-  for (i = 0; VEC_iterate (edge, edges_to_split, i, e); i++)
-    /* Some of edges could be already redirected by previous splits.
-       So check this again before calling sel_split_edge.  */
-    if (!in_current_region_p (e->src))
-      sel_split_edge (e);
-
-  VEC_free (edge, heap, edges_to_split);
-}
-
 /* Init scheduling data for RGN.  Returns true when this region should not 
    be scheduled.  */
 static bool
@@ -4970,14 +5137,20 @@ sel_region_init (int rgn)
   if (flag_sel_sched_pipelining_outer_loops)
     {
       current_loop_nest = get_loop_nest_for_rgn (rgn);
-  
+
       if (current_loop_nest 
 	  && LOOP_PREHEADER_BLOCKS (current_loop_nest))
         {
           sel_add_loop_preheader ();
-          
+
           /* Check that we're starting with a valid information.  */
           gcc_assert (loop_latch_edge (current_loop_nest));
+        }
+
+      if (current_loop_nest)
+        {
+          gcc_assert (LOOP_MARKED_FOR_PIPELINING_P (current_loop_nest));
+          MARK_LOOP_FOR_PIPELINING (current_loop_nest);
         }
     }
 
@@ -5051,12 +5224,7 @@ sel_region_init (int rgn)
 	 already created with loop optimizer, so if current region
 	 has a corresponding loop nest, we should pipeline it.  */
       if (flag_sel_sched_pipelining_outer_loops)
-	{
-	  pipelining_p = (current_loop_nest != NULL);
-
-	  if (pipelining_p)
-	    split_edges_incoming_to_rgn ();
-	}
+	pipelining_p = (current_loop_nest != NULL);
       else
 	pipelining_p = add_region_head ();
     }
@@ -5640,19 +5808,67 @@ sel_sched_region_1 (void)
                     }
                 }
             }
-	}
+        }
       else
         {
-          basic_block loop_entry;
+          basic_block loop_entry, loop_preheader = EBB_FIRST_BB (0);
 
           /* Schedule region pre-header first, if not pipelining 
              outer loops.  */
           bb = EBB_FIRST_BB (0);
           head = sel_bb_head (bb);
+          loop_entry = EBB_FIRST_BB (1);
           
-          if (sel_is_loop_preheader_p (bb))          
-            /* Don't leave old flags on insns in bb.  */
-            clear_outdated_rtx_info (bb);
+          /* Don't leave old flags on insns in loop preheader.  */
+          if (sel_is_loop_preheader_p (loop_preheader))          
+            {
+              basic_block prev_bb = loop_preheader->prev_bb;
+
+              /* If...  */
+              if (/* Preheader is empty;  */
+                  sel_bb_empty_p (loop_preheader)
+                  /* Block before preheader is in current region and
+                     contains only unconditional jump to header.  */
+                  && in_current_region_p (prev_bb)
+                  && NEXT_INSN (bb_note (prev_bb)) == BB_END (prev_bb)
+                  && jump_leads_only_to_bb_p (BB_END (prev_bb), 
+                                              loop_preheader->next_bb))
+                {
+                  /* Then remove empty preheader and unnecessary jump from
+                     previous block of preheader (usually latch).  */
+
+                  if (current_loop_nest->latch == prev_bb)
+                    current_loop_nest->latch = NULL;
+
+                  /* Remove latch!  */
+                  clear_expr (INSN_EXPR (BB_END (prev_bb)));
+                  sel_redirect_edge_and_branch (EDGE_SUCC (prev_bb, 0),
+                                                loop_preheader);
+
+                  /* Correct wrong moving of header to BB.  */
+                  if (current_loop_nest->header == loop_preheader)
+                    current_loop_nest->header = loop_preheader->next_bb;
+
+                  gcc_assert (EDGE_SUCC (prev_bb, 0)->flags & EDGE_FALLTHRU);
+
+                  /* Empty basic blocks should not have av and lv sets.  */
+                  free_data_sets (prev_bb);
+
+                  gcc_assert (BB_LV_SET (loop_preheader) == NULL
+                              && BB_AV_SET (loop_preheader) == NULL);
+                  gcc_assert (sel_bb_empty_p (loop_preheader)
+                              && sel_bb_empty_p (prev_bb));
+
+                  sel_remove_empty_bb (prev_bb, false, true);
+                  sel_remove_empty_bb (loop_preheader, false, true);
+                  preheader_removed = true;
+                  loop_preheader = NULL;
+                }
+
+              /* If BB was not deleted.  */
+              if (loop_preheader)
+                clear_outdated_rtx_info (loop_preheader);
+            }
           else if (head != NULL_RTX)
             {
               gcc_assert (INSN_SCHED_CYCLE (head) == 0);
@@ -5673,10 +5889,6 @@ sel_sched_region_1 (void)
             }
 
           /* Reschedule pipelined code without pipelining.  */
-          loop_entry = EBB_FIRST_BB (1);
-	  /* Please note that loop_header (not preheader) might not be in
-	     the current region.  Hence it is possible for loop_entry to have
-	     arbitrary number of predecessors.  */
 
           for (i = BLOCK_TO_BB (loop_entry->index); i < current_nr_blocks; i++)
             {
@@ -5696,16 +5908,16 @@ sel_sched_region_1 (void)
                    insn = NEXT_INSN (insn))
                 {
                   gcc_assert (INSN_P (insn));
-		  INSN_AFTER_STALL_P (insn) = 0;
+                  INSN_AFTER_STALL_P (insn) = 0;
                   INSN_SCHED_CYCLE (insn) = 0;
 
-		  /* ??? Should we reset those counters which reside in
-		     INSN_EXPR field (e.g. SPEC and SCHED_TIMES)?  */
-		  /* For now we do need to zero SCHED_TIMES because we don't
-		     want to skip dependencies from any instruction.  This
-		     will be a subject to consider when we implement better
-		     dependency tracking.  */
-		  INSN_SCHED_TIMES (insn) = 0;
+                  /* ??? Should we reset those counters which reside in
+                     INSN_EXPR field (e.g. SPEC and SCHED_TIMES)?  */
+                  /* For now we do need to zero SCHED_TIMES because we don't
+                     want to skip dependencies from any instruction.  This
+                     will be a subject to consider when we implement better
+                     dependency tracking.  */
+                  INSN_SCHED_TIMES (insn) = 0;
                 }
             }
 
@@ -5717,7 +5929,10 @@ sel_sched_region_1 (void)
 
           gcc_assert (fences == NULL);
 
-          init_fences (BB_END (EBB_FIRST_BB (0)));
+          if (loop_preheader)
+            init_fences (BB_END (loop_preheader));
+          else
+            init_fences (bb_note (loop_entry));
 
           sel_sched_region_2 (data);
         }
@@ -5732,6 +5947,8 @@ sel_sched_region (int rgn)
 {
   if (sel_region_init (rgn))
     return;
+
+  gcc_assert (preheader_removed == false);
 
   sel_dump_cfg ("after-region-init");
 
@@ -5764,6 +5981,7 @@ sel_sched_region (int rgn)
   }
 
   sel_region_finish ();
+  preheader_removed = false;
   
   sel_dump_cfg_1 ("after-region-finish",
 		  SEL_DUMP_CFG_CURRENT_REGION | SEL_DUMP_CFG_LV_SET
@@ -5787,13 +6005,13 @@ sel_global_init (void)
 
   init_sched_pools ();
 
-  if (flag_sel_sched_pipelining_outer_loops)
-    pipeline_outer_loops_init ();
-
   setup_sched_dump_to_stderr ();
 
   /* Setup the infos for sched_init.  */
   sel_setup_sched_infos ();
+
+  sched_rgn_init (flag_sel_sched_single_block_regions != 0,
+                  flag_sel_sched_ebb_regions != 0);
 
   sched_init ();
 
@@ -5809,9 +6027,6 @@ sel_global_init (void)
 
     VEC_free (basic_block, heap, bbs);
   }
-
-  sched_rgn_init (flag_sel_sched_single_block_regions != 0,
-                  flag_sel_sched_ebb_regions != 0);
 
   sched_extend_target ();
   sched_deps_init (true);
@@ -5845,7 +6060,7 @@ sel_global_finish (void)
 
   free_sel_dump_data ();
 
-  if (flag_sel_sched_pipelining_outer_loops)
+  if (flag_sel_sched_pipelining_outer_loops && current_loops)
     pipeline_outer_loops_finish ();
 
   free_sched_pools ();
