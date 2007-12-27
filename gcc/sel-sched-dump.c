@@ -32,6 +32,7 @@
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "params.h"
+#include "output.h"
 #include "basic-block.h"
 #include "cselib.h"
 #include "sel-sched-ir.h"
@@ -185,8 +186,13 @@ print_marker_to_log (void)
 }
 
 void
-setup_sched_dump_to_stderr (void)
+setup_sched_dumps (void)
 {
+  sched_verbose = sched_verbose_param;
+  if (sched_verbose_param == 0 && dump_file)
+    sched_verbose = 1;
+  sched_dump = ((sched_verbose_param >= 10 || !dump_file)
+		? stderr : dump_file);
   sched_dump1 = stderr;
 }
  

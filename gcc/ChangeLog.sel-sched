@@ -1,3 +1,24 @@
+2007-12-27  Andrey Belevantsev  <abel@ispras.ru>
+
+        Cache that an expression can be moved up only as RHS.
+
+	* sel-sched.c (enum MOVEUP_RHS_CODE): New value MOVEUP_RHS_AS_RHS.
+	(moveup_rhs): Return it when an expression can be moved up as
+        a RHS only.  Return MOVEUP_RHS_CHANGED only when expression
+        was really changed.
+	(moveup_set_rhs): Use fourth bit in INSN_ANALYZED_DEPS /
+        INSN_FOUND_DEPS bitmaps for caching MOVEUP_RHS_AS_RHS results.
+        Set EXPR_TARGET_AVAILABLE to false when moveup_rhs returns
+	MOVEUP_RHS_AS_RHS.  Assert that when MOVEUP_RHS_CHANGED,
+	expression's UID has been really changed.
+	(fill_vec_av_set): Properly handle max_insns_to_rename.
+	(sel_global_init): Use setup_sched_dumps.
+
+	* sel-sched-dump.c (setup_sched_dump_to_stderr): Rename to
+        setup_sched_dumps.  When sched_verbose_param >= 10, print to
+        stderr. 
+	* sel-sched-dump.h (setup_sched_dumps): Export. 
+        
 2007-12-26  Andrey Belevantsev  <abel@ispras.ru>
 
 	Compute availability of target registers on the fly.

@@ -94,7 +94,8 @@ int max_insns_to_rename;
 /* Definitions of local types and macros.  */
 
 /* Represents possible outcomes of moving an expression through an insn.  */
-enum MOVEUP_RHS_CODE { MOVEUP_RHS_SAME, MOVEUP_RHS_NULL, MOVEUP_RHS_CHANGED };
+enum MOVEUP_RHS_CODE { MOVEUP_RHS_SAME, MOVEUP_RHS_AS_RHS, 
+                       MOVEUP_RHS_NULL, MOVEUP_RHS_CHANGED };
 
 /* The container to be passed into rtx search & replace functions.  */
 struct rtx_search_arg
@@ -1826,6 +1827,8 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 {
   vinsn_t vi = RHS_VINSN (insn_to_move_up);
   insn_t insn = VINSN_INSN (vi);
+  bool was_changed = false;
+  bool as_rhs = false;
   ds_t *has_dep_p;
   ds_t full_ds;
 
@@ -1899,6 +1902,7 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 	/* Speculation was successful.  */
 	{
 	  full_ds = 0;
+          was_changed = true;
 	  sel_clear_has_dependence ();
 	}
     }
@@ -1916,11 +1920,12 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
         return MOVEUP_RHS_NULL;
 
       EXPR_TARGET_AVAILABLE (insn_to_move_up) = false;
+      as_rhs = true;
     }
 
   /* At this point we have either separable insns, that will be lifted
      up only as RHSes, or non-separable insns with no dependency in lhs.
-     If dependency is in RHS, then try perform substitution and move up
+     If dependency is in RHS, then try to perform substitution and move up
      substituted RHS:
 
       Ex. 1:				  Ex.2
@@ -1943,8 +1948,11 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
       if (can_overcome_dep_p (*rhs_dsp))
 	{
 	  if (speculate_expr (insn_to_move_up, *rhs_dsp))
-            /* Speculation was successful.  */
-            *rhs_dsp = 0;
+            {
+              /* Speculation was successful.  */
+              *rhs_dsp = 0;
+              was_changed = true;
+            }
 	  else
 	    return MOVEUP_RHS_NULL;
 	}
@@ -1970,7 +1978,8 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 	      line_finish ();
 	      return MOVEUP_RHS_NULL;
 	    }
-
+          
+          was_changed = true;
 	  line_finish ();
 	}
       else
@@ -1983,7 +1992,11 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
   if (CANT_MOVE_TRAPPING (insn_to_move_up, through_insn))
     return MOVEUP_RHS_NULL;
 
-  return MOVEUP_RHS_CHANGED;
+  return (was_changed 
+          ? MOVEUP_RHS_CHANGED 
+          : (as_rhs 
+             ? MOVEUP_RHS_AS_RHS
+             : MOVEUP_RHS_SAME));
 }
 
 /* Moves an av set AVP up through INSN, performing necessary 
@@ -2015,6 +2028,14 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
             }
           else
             print (" - unchanged (cached)");
+          
+          line_finish ();
+          continue;
+        }
+      else if (bitmap_bit_p (INSN_FOUND_DEPS (insn), rhs_uid))
+        {
+          EXPR_TARGET_AVAILABLE (rhs) = false;
+          print (" - unchanged (as RHS, cached)");
 
           line_finish ();
           continue;
@@ -2024,18 +2045,17 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 	{
 	case MOVEUP_RHS_NULL:
           /* Cache that there is a hard dependence.  */
-          if (!unique_p)
-            {
-              bitmap_set_bit (INSN_ANALYZED_DEPS (insn), rhs_uid);
-              bitmap_set_bit (INSN_FOUND_DEPS (insn), rhs_uid);
-            }
+          bitmap_set_bit (INSN_ANALYZED_DEPS (insn), rhs_uid);
+          bitmap_set_bit (INSN_FOUND_DEPS (insn), rhs_uid);
 
 	  av_set_iter_remove (&i);
+
 	  print (" - removed");
 	  break;
 	case MOVEUP_RHS_CHANGED:
 	  print (" - changed");
-          
+          gcc_assert (INSN_UID (EXPR_INSN_RTX (rhs)) != rhs_uid);
+
           /* Mark that this insn changed this expr.  */
           insert_in_hash_vect (&EXPR_CHANGED_ON_INSNS (rhs), 
                                VINSN_HASH (INSN_VINSN (insn)));
@@ -2046,13 +2066,19 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 	  break;
 	case MOVEUP_RHS_SAME:
           /* Cache that there is a no dependence.  */
-          if (!unique_p)
-            {
-              bitmap_set_bit (INSN_ANALYZED_DEPS (insn), rhs_uid);
-              bitmap_clear_bit (INSN_FOUND_DEPS (insn), rhs_uid);
-            }
+          bitmap_set_bit (INSN_ANALYZED_DEPS (insn), rhs_uid);
+          bitmap_clear_bit (INSN_FOUND_DEPS (insn), rhs_uid);
 
 	  print (" - unchanged");
+	  break;
+        case MOVEUP_RHS_AS_RHS:
+          /* Only an LHS dependence was found.  Cache that there is 
+             no dependence, but the target register is not available.  */
+          gcc_assert (!unique_p);
+          bitmap_clear_bit (INSN_ANALYZED_DEPS (insn), rhs_uid);
+          bitmap_set_bit (INSN_FOUND_DEPS (insn), rhs_uid);
+
+	  print (" - unchanged (as RHS)");
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -3309,8 +3335,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
                (target_available == false
                 && !EXPR_SEPARABLE_P (rhs))
                /* Don't try to find a register for low-priority expression.  */
-               || (max_insns_to_rename >= 0
-                   && n > max_insns_to_rename))
+               || n >= max_insns_to_rename)
         {
           succ++;
           VEC_ordered_remove (rhs_t, vec_av_set, n);
@@ -6159,7 +6184,7 @@ sel_global_init (void)
 
   init_sched_pools ();
 
-  setup_sched_dump_to_stderr ();
+  setup_sched_dumps ();
 
   /* Setup the infos for sched_init.  */
   sel_setup_sched_infos ();

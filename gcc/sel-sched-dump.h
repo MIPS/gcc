@@ -183,7 +183,7 @@ extern bool new_line;
 /* Functions from sel-sched-dump.c.  */
 extern const char * sel_print_insn (rtx, int);
 extern void free_sel_dump_data (void);
-extern void setup_sched_dump_to_stderr (void);
+extern void setup_sched_dumps (void);
 
 extern void block_start (void);
 extern void block_finish (void);
