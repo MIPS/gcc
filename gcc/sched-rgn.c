@@ -2913,7 +2913,7 @@ sched_rgn_init (bool single_blocks_p, bool ebbs_p)
       || !flag_schedule_interblock
       || is_cfg_nonregular ())
     {
-      find_single_block_region (ebbs_p);
+      find_single_block_region (SEL_SCHED_P ? true : ebbs_p);
     }
   else
     {

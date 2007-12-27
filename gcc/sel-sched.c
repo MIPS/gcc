@@ -2960,6 +2960,7 @@ sel_rank_for_schedule (const void *x, const void *y)
     {
       if (VINSN_UNIQUE_P (tmp_vinsn) && VINSN_UNIQUE_P (tmp2_vinsn)) 
         return SCHED_GROUP_P (tmp2_insn) ? 1 : -1;
+
       /* Now uniqueness means SCHED_GROUP_P is set, because schedule groups
          cannot be cloned.  */
       if (VINSN_UNIQUE_P (tmp2_vinsn))
@@ -3312,7 +3313,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
         {
-          VEC_ordered_remove (rhs_t, vec_av_set, n);
+          VEC_unordered_remove (rhs_t, vec_av_set, n);
           continue;
         }
 
@@ -3328,8 +3329,11 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
       target_available = EXPR_TARGET_AVAILABLE (rhs);
 
       if (target_available == true)
-        /* Do nothing -- we can use an existing register.  */
-        succ++;
+	{
+          /* Do nothing -- we can use an existing register.  */
+          succ++;
+	  is_orig_reg_p = EXPR_SEPARABLE_P (rhs);
+        }
       else if (/* Non-separable instruction will never 
                   get another register. */
                (target_available == false
@@ -3338,7 +3342,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
                || n >= max_insns_to_rename)
         {
           succ++;
-          VEC_ordered_remove (rhs_t, vec_av_set, n);
+          VEC_unordered_remove (rhs_t, vec_av_set, n);
           print ("- no register; ");
           continue;
         }
@@ -3349,7 +3353,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
                  not available in separable RHS.  Do it the hard way.  */
               ! find_best_reg_for_rhs (rhs, bnds, &is_orig_reg_p))
             {
-              VEC_ordered_remove (rhs_t, vec_av_set, n);
+              VEC_unordered_remove (rhs_t, vec_av_set, n);
               print ("- no register; ");
               continue;
             }
@@ -3369,11 +3373,11 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
           /* We need to know whether we do need to stall for any insns.  */
           stalled++;
           print ("- not ready yet; ");
-          VEC_ordered_remove (rhs_t, vec_av_set, n);
+          VEC_unordered_remove (rhs_t, vec_av_set, n);
 	  continue;
 	}
 
-      print ("; ");
+      print (" - ok; ");
       n++;
     }
 
@@ -3395,6 +3399,10 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
       
       return false;
     }
+
+  /* Sort the vector.  */
+  qsort (VEC_address (rhs_t, vec_av_set), VEC_length (rhs_t, vec_av_set),
+         sizeof (rhs_t), sel_rank_for_schedule);
 
   line_start ();
   print ("Sorted av set (%d): ", VEC_length (rhs_t, vec_av_set));

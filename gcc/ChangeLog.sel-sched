@@ -1,5 +1,14 @@
 2007-12-27  Andrey Belevantsev  <abel@ispras.ru>
 
+        * sel-sched.c (sel_rank_for_schedule): Tidy.
+        (fill_vec_av_set): Use VEC_unordered_remove instead of ordered.
+        Properly calculate is_orig_reg_p.  Add the final qsort call
+        after filtering out the av set.
+        * sched-rgn.c (sched_rgn_init): With selective scheduling,
+        always try to compute ebb regions instead of single block reagions.
+
+2007-12-27  Andrey Belevantsev  <abel@ispras.ru>
+
         Cache that an expression can be moved up only as RHS.
 
 	* sel-sched.c (enum MOVEUP_RHS_CODE): New value MOVEUP_RHS_AS_RHS.
