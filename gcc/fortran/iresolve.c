@@ -62,13 +62,23 @@ gfc_get_string (const char *format, ...)
 static void
 check_charlen_present (gfc_expr *source)
 {
-  if (source->expr_type == EXPR_CONSTANT && source->ts.cl == NULL)
+  if (source->ts.cl == NULL)
     {
       source->ts.cl = gfc_get_charlen ();
       source->ts.cl->next = gfc_current_ns->cl_list;
       gfc_current_ns->cl_list = source->ts.cl;
+    }
+
+  if (source->expr_type == EXPR_CONSTANT)
+    {
       source->ts.cl->length = gfc_int_expr (source->value.character.length);
       source->rank = 0;
+    }
+  else if (source->expr_type == EXPR_ARRAY)
+    {
+      source->ts.cl->length =
+	gfc_int_expr (source->value.constructor->expr->value.character.length);
+      source->rank = 1;
     }
 }
 
@@ -77,33 +87,33 @@ check_charlen_present (gfc_expr *source)
 static void
 resolve_mask_arg (gfc_expr *mask)
 {
-  int newkind;
 
-  /* The mask can be kind 4 or 8 for the array case.
-     For the scalar case, coerce it to kind=4 unconditionally
-     (because this is the only kind we have a library function
-     for).  */
-
-  newkind = 0;
+  gfc_typespec ts;
 
   if (mask->rank == 0)
     {
+      /* For the scalar case, coerce the mask to kind=4 unconditionally
+	 (because this is the only kind we have a library function
+	 for).  */
+
       if (mask->ts.kind != 4)
-	newkind = 4;
+	{
+	  ts.type = BT_LOGICAL;
+	  ts.kind = 4;
+	  gfc_convert_type (mask, &ts, 2);
+	}
     }
   else
     {
-      if (mask->ts.kind < 4)
-	newkind = gfc_default_logical_kind;
-    }
-
-  if (newkind)
-    {
-      gfc_typespec ts;
-
-      ts.type = BT_LOGICAL;
-      ts.kind = newkind;
-      gfc_convert_type (mask, &ts, 2);
+      /* In the library, we access the mask with a GFC_LOGICAL_1
+	 argument.  No need to waste memory if we are about to create
+	 a temporary array.  */
+      if (mask->expr_type == EXPR_OP)
+	{
+	  ts.type = BT_LOGICAL;
+	  ts.kind = 1;
+	  gfc_convert_type (mask, &ts, 2);
+	}
     }
 }
 
@@ -132,8 +142,9 @@ gfc_resolve_access (gfc_expr *f, gfc_expr *name ATTRIBUTE_UNUSED,
 }
 
 
-void
-gfc_resolve_achar (gfc_expr *f, gfc_expr *x, gfc_expr *kind)
+static void
+gfc_resolve_char_achar (gfc_expr *f, gfc_expr *x, gfc_expr *kind,
+			const char *name)
 {
   f->ts.type = BT_CHARACTER;
   f->ts.kind = (kind == NULL)
@@ -143,9 +154,16 @@ gfc_resolve_achar (gfc_expr *f, gfc_expr *x, gfc_expr *kind)
   gfc_current_ns->cl_list = f->ts.cl;
   f->ts.cl->length = gfc_int_expr (1);
 
-  f->value.function.name = gfc_get_string ("__achar_%d_%c%d", f->ts.kind,
+  f->value.function.name = gfc_get_string (name, f->ts.kind,
 					   gfc_type_letter (x->ts.type),
 					   x->ts.kind);
+}
+
+
+void
+gfc_resolve_achar (gfc_expr *f, gfc_expr *x, gfc_expr *kind)
+{
+  gfc_resolve_char_achar (f, x, kind, "__achar_%d_%c%d");
 }
 
 
@@ -379,12 +397,7 @@ gfc_resolve_ceiling (gfc_expr *f, gfc_expr *a, gfc_expr *kind)
 void
 gfc_resolve_char (gfc_expr *f, gfc_expr *a, gfc_expr *kind)
 {
-  f->ts.type = BT_CHARACTER;
-  f->ts.kind = (kind == NULL)
-	     ? gfc_default_character_kind : mpz_get_si (kind->value.integer);
-  f->value.function.name
-    = gfc_get_string ("__char_%d_%c%d", f->ts.kind,
-		      gfc_type_letter (a->ts.type), a->ts.kind);
+  gfc_resolve_char_achar (f, a, kind, "__char_%d_%c%d");
 }
 
 
@@ -548,6 +561,9 @@ gfc_resolve_cshift (gfc_expr *f, gfc_expr *array, gfc_expr *shift,
 {
   int n;
 
+  if (array->ts.type == BT_CHARACTER && array->ref)
+    gfc_resolve_substring_charlen (array);
+
   f->ts = array->ts;
   f->rank = array->rank;
   f->shape = gfc_copy_shape (array->shape, array->rank);
@@ -668,6 +684,9 @@ gfc_resolve_eoshift (gfc_expr *f, gfc_expr *array, gfc_expr *shift,
 {
   int n;
 
+  if (array->ts.type == BT_CHARACTER && array->ref)
+    gfc_resolve_substring_charlen (array);
+
   f->ts = array->ts;
   f->rank = array->rank;
   f->shape = gfc_copy_shape (array->shape, array->rank);
@@ -767,6 +786,15 @@ gfc_resolve_g77_math1 (gfc_expr *f, gfc_expr *x)
 {
   f->ts = x->ts;
   f->value.function.name = gfc_get_string ("<intrinsic>");
+}
+
+
+void
+gfc_resolve_gamma (gfc_expr *f, gfc_expr *x)
+{
+  f->ts = x->ts;
+  f->value.function.name
+    = gfc_get_string ("__gamma_%d", x->ts.kind);
 }
 
 
@@ -1128,6 +1156,15 @@ gfc_resolve_len_trim (gfc_expr *f, gfc_expr *string, gfc_expr *kind)
 
 
 void
+gfc_resolve_lgamma (gfc_expr *f, gfc_expr *x)
+{
+  f->ts = x->ts;
+  f->value.function.name
+    = gfc_get_string ("__lgamma_%d", x->ts.kind);
+}
+
+
+void
 gfc_resolve_link (gfc_expr *f, gfc_expr *p1 ATTRIBUTE_UNUSED,
 		  gfc_expr *p2 ATTRIBUTE_UNUSED)
 {
@@ -1378,6 +1415,12 @@ gfc_resolve_merge (gfc_expr *f, gfc_expr *tsource,
 		   gfc_expr *fsource ATTRIBUTE_UNUSED,
 		   gfc_expr *mask ATTRIBUTE_UNUSED)
 {
+  if (tsource->ts.type == BT_CHARACTER && tsource->ref)
+    gfc_resolve_substring_charlen (tsource);
+
+  if (fsource->ts.type == BT_CHARACTER && fsource->ref)
+    gfc_resolve_substring_charlen (fsource);
+
   if (tsource->ts.type == BT_CHARACTER)
     check_charlen_present (tsource);
 
@@ -1586,6 +1629,9 @@ void
 gfc_resolve_pack (gfc_expr *f, gfc_expr *array, gfc_expr *mask,
 		  gfc_expr *vector ATTRIBUTE_UNUSED)
 {
+  if (array->ts.type == BT_CHARACTER && array->ref)
+    gfc_resolve_substring_charlen (array);
+
   f->ts = array->ts;
   f->rank = 1;
 
@@ -1688,6 +1734,9 @@ gfc_resolve_reshape (gfc_expr *f, gfc_expr *source, gfc_expr *shape,
   mpz_t rank;
   int kind;
   int i;
+
+  if (source->ts.type == BT_CHARACTER && source->ref)
+    gfc_resolve_substring_charlen (source);
 
   f->ts = source->ts;
 
@@ -1980,6 +2029,9 @@ void
 gfc_resolve_spread (gfc_expr *f, gfc_expr *source, gfc_expr *dim,
 		    gfc_expr *ncopies)
 {
+  if (source->ts.type == BT_CHARACTER && source->ref)
+    gfc_resolve_substring_charlen (source);
+
   if (source->ts.type == BT_CHARACTER)
     check_charlen_present (source);
 
@@ -2231,6 +2283,9 @@ gfc_resolve_transfer (gfc_expr *f, gfc_expr *source ATTRIBUTE_UNUSED,
   /* TODO: Make this do something meaningful.  */
   static char transfer0[] = "__transfer0", transfer1[] = "__transfer1";
 
+  if (mold->ts.type == BT_CHARACTER && !mold->ts.cl->length)
+    mold->ts.cl->length = gfc_int_expr (mold->value.character.length);
+
   f->ts = mold->ts;
 
   if (size == NULL && mold->rank == 0)
@@ -2254,6 +2309,10 @@ gfc_resolve_transfer (gfc_expr *f, gfc_expr *source ATTRIBUTE_UNUSED,
 void
 gfc_resolve_transpose (gfc_expr *f, gfc_expr *matrix)
 {
+
+  if (matrix->ts.type == BT_CHARACTER && matrix->ref)
+    gfc_resolve_substring_charlen (matrix);
+
   f->ts = matrix->ts;
   f->rank = 2;
   if (matrix->shape)
@@ -2380,6 +2439,9 @@ void
 gfc_resolve_unpack (gfc_expr *f, gfc_expr *vector, gfc_expr *mask,
 		    gfc_expr *field ATTRIBUTE_UNUSED)
 {
+  if (vector->ts.type == BT_CHARACTER && vector->ref)
+    gfc_resolve_substring_charlen (vector);
+
   f->ts = vector->ts;
   f->rank = mask->rank;
   resolve_mask_arg (mask);
@@ -2671,9 +2733,18 @@ void
 gfc_resolve_getarg (gfc_code *c)
 {
   const char *name;
-  int kind;
-  kind = gfc_default_integer_kind;
-  name = gfc_get_string (PREFIX ("getarg_i%d"), kind);
+
+  if (c->ext.actual->expr->ts.kind != gfc_default_integer_kind)
+    {
+      gfc_typespec ts;
+
+      ts.type = BT_INTEGER;
+      ts.kind = gfc_default_integer_kind;
+
+      gfc_convert_type (c->ext.actual->expr, &ts, 2);
+    }
+
+  name = gfc_get_string (PREFIX ("getarg_i%d"), gfc_default_integer_kind);
   c->resolved_sym = gfc_get_intrinsic_sub_symbol (name);
 }
 

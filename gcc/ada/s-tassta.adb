@@ -749,7 +749,9 @@ package body System.Tasking.Stages is
 
    procedure Finalize_Global_Tasks is
       Self_ID : constant Task_Id := STPO.Self;
+
       Ignore  : Boolean;
+      pragma Unreferenced (Ignore);
 
    begin
       if Self_ID.Deferral_Level = 0 then
@@ -943,7 +945,6 @@ package body System.Tasking.Stages is
    --  an at-end handler that the compiler generates.
 
    procedure Task_Wrapper (Self_ID : Task_Id) is
-      use type System.Parameters.Size_Type;
       use type SSE.Storage_Offset;
       use System.Standard_Library;
       use System.Stack_Usage;

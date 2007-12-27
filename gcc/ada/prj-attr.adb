@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -75,11 +74,13 @@ package body Prj.Attr is
    "SVobject_dir#" &
    "SVexec_dir#" &
    "LVsource_dirs#" &
+   "LVexcluded_source_dirs#" &
 
    --  Source files
 
    "LVsource_files#" &
    "LVlocally_removed_files#" &
+   "LVexcluded_source_files#" &
    "SVsource_list_file#" &
 
    --  Libraries
@@ -126,6 +127,7 @@ package body Prj.Attr is
    "SVlibrary_auto_init_supported#" &
    "LVshared_library_minimum_switches#" &
    "LVlibrary_version_switches#" &
+   "Saruntime_library_dir#" &
 
    --  package Naming
 
@@ -155,6 +157,7 @@ package body Prj.Attr is
    --  Configuration - Compiling
 
    "Sadriver#" &
+   "Larequired_switches#" &
    "Lapic_option#" &
 
    --  Configuration - Mapping files
@@ -207,6 +210,7 @@ package body Prj.Attr is
    --  Configuration - Binding
 
    "Sadriver#" &
+   "Larequired_switches#" &
    "Saprefix#" &
    "Saobjects_path#" &
    "Saobjects_path_file#" &

@@ -36,6 +36,7 @@
 --  other GNAT tools. The comments indicate which options are used by which
 --  programs (GNAT, GNATBIND, GNATLINK, GNATMAKE, GPRMAKE, etc).
 
+with Debug;
 with Hostparm; use Hostparm;
 with Types;    use Types;
 
@@ -252,8 +253,8 @@ package Opt is
    --  GNATMAKE, GNATCLEAN, GPRMAKE
    --  GNATMAKE, GPRMAKE: set to True to skip bind and link steps (except when
    --                     Bind_Only is True).
-   --  GNATCLEAN: set to True to only the files produced by the compiler are to
-   --             be deleted, but not the library files or executable files.
+   --  GNATCLEAN: set to True to delete only the files produced by the compiler
+   --             but not the library files or the executable files.
 
    Config_File : Boolean := True;
    --  GNAT
@@ -601,6 +602,13 @@ package Opt is
    --  then elaboration flag checks are to be generated in the binder
    --  generated file.
 
+   Inspector_Mode : Boolean renames Debug.Debug_Flag_Dot_II;
+   --  GNAT
+   --  True if compiling in inspector mode (-gnatd.I switch).
+   --  Only relevant when VM_Target /= None. The compiler will attempt to
+   --  generate code even in case of unsupported construct, so that the byte
+   --  code can be used by static analysis tools.
+
    Follow_Links : Boolean := False;
    --  GNATMAKE
    --  Set to True (-eL) to process the project files in trusted mode
@@ -630,6 +638,11 @@ package Opt is
    --  GNATCMD
    --  When True the temporary files created by the GNAT driver are not
    --  deleted. Set by switch -dn or qualifier /KEEP_TEMPORARY_FILES.
+
+   Leap_Seconds_Support : Boolean := False;
+   --  GNATBIND
+   --  Set to True to enable leap seconds support in Ada.Calendar and its
+   --  children.
 
    Link_Only : Boolean := False;
    --  GNATMAKE, GPRMAKE
@@ -1181,8 +1194,13 @@ package Opt is
    Warn_On_Modified_Unread : Boolean := False;
    --  GNAT
    --  Set to True to generate warnings if a variable is assigned but is never
-   --  read. The default is that this warning is suppressed. Also controls
-   --  warnings about assignments whose value is never read.
+   --  read. The default is that this warning is suppressed.
+
+   Warn_On_Out_Parameter_Unread : Boolean := False;
+   --  GNAT
+   --  Set to True to generate warnings if a variable is modified by being
+   --  passed as to an IN OUT or OUT formal, but the resulting value is never
+   --  read. The default is that this warning is suppressed.
 
    Warn_On_No_Value_Assigned : Boolean := True;
    --  GNAT
@@ -1446,7 +1464,8 @@ package Opt is
    --  They are set by Tree_Read procedure, so they represent the version
    --  number (and the version string) of the compiler which has created the
    --  tree, and they are supposed to be compared with the corresponding values
-   --  from the Gnatvsn package which is a part of ASIS implementation.
+   --  from the Tree_IO and Gnatvsn packages which also are a part of ASIS
+   --  implementation.
 
    Tree_Version_String : String_Access;
    --  Used to store the compiler version string read from a tree file to check
@@ -1459,7 +1478,7 @@ package Opt is
 
    Tree_ASIS_Version_Number : Int;
    --  Used to store the ASIS version number read from a tree file to check if
-   --  it is the same as stored in the ASIS version number in Gnatvsn.
+   --  it is the same as stored in the ASIS version number in Tree_IO.
 
 private
 

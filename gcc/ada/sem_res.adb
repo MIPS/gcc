@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -37,6 +36,7 @@ with Exp_Ch6;  use Exp_Ch6;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
+with Fname;    use Fname;
 with Freeze;   use Freeze;
 with Itypes;   use Itypes;
 with Lib;      use Lib;
@@ -115,6 +115,10 @@ package body Sem_Res is
    --  init proc. This is because we do not create transient scopes for the
    --  initialization of individual components within the init proc itself.
    --  Could be optimized away perhaps?
+
+   function Is_Definite_Access_Type (E : Entity_Id) return Boolean;
+   --  Determine whether E is an access type declared by an access
+   --  declaration, and not an (anonymous) allocator type.
 
    function Is_Predefined_Op (Nam : Entity_Id) return Boolean;
    --  Utility to check whether the name in the call is a predefined
@@ -989,6 +993,18 @@ package body Sem_Res is
       end if;
    end Check_Parameterless_Call;
 
+   -----------------------------
+   -- Is_Definite_Access_Type --
+   -----------------------------
+
+   function Is_Definite_Access_Type (E : Entity_Id) return Boolean is
+      Btyp : constant Entity_Id := Base_Type (E);
+   begin
+      return Ekind (Btyp) = E_Access_Type
+        or else (Ekind (Btyp) = E_Access_Subprogram_Type
+                  and then Comes_From_Source (Btyp));
+   end Is_Definite_Access_Type;
+
    ----------------------
    -- Is_Predefined_Op --
    ----------------------
@@ -1024,10 +1040,6 @@ package body Sem_Res is
 
       type Kind_Test is access function (E : Entity_Id) return Boolean;
 
-      function Is_Definite_Access_Type (E : Entity_Id) return Boolean;
-      --  Determine whether E is an access type declared by an access decla-
-      --  ration, and  not an (anonymous) allocator type.
-
       function Operand_Type_In_Scope (S : Entity_Id) return Boolean;
       --  If the operand is not universal, and the operator is given by a
       --  expanded name,  verify that the operand has an interpretation with
@@ -1036,18 +1048,6 @@ package body Sem_Res is
       function Type_In_P (Test : Kind_Test) return Entity_Id;
       --  Find a type of the given class in the package Pack that contains
       --  the operator.
-
-      -----------------------------
-      -- Is_Definite_Access_Type --
-      -----------------------------
-
-      function Is_Definite_Access_Type (E : Entity_Id) return Boolean is
-         Btyp : constant Entity_Id := Base_Type (E);
-      begin
-         return Ekind (Btyp) = E_Access_Type
-           or else (Ekind (Btyp) = E_Access_Subprogram_Type
-                     and then Comes_From_Source (Btyp));
-      end Is_Definite_Access_Type;
 
       ---------------------------
       -- Operand_Type_In_Scope --
@@ -1546,16 +1546,21 @@ package body Sem_Res is
    -------------
 
    procedure Resolve (N : Node_Id; Typ : Entity_Id) is
-      I         : Interp_Index;
-      I1        : Interp_Index := 0; -- prevent junk warning
-      It        : Interp;
-      It1       : Interp;
-      Found     : Boolean   := False;
-      Seen      : Entity_Id := Empty; -- prevent junk warning
+      Ambiguous : Boolean   := False;
       Ctx_Type  : Entity_Id := Typ;
       Expr_Type : Entity_Id := Empty; -- prevent junk warning
       Err_Type  : Entity_Id := Empty;
-      Ambiguous : Boolean   := False;
+      Found     : Boolean   := False;
+      From_Lib  : Boolean;
+      I         : Interp_Index;
+      I1        : Interp_Index := 0;  -- prevent junk warning
+      It        : Interp;
+      It1       : Interp;
+      Seen      : Entity_Id := Empty; -- prevent junk warning
+
+      function Comes_From_Predefined_Lib_Unit (Nod : Node_Id) return Boolean;
+      --  Determine whether a node comes from a predefined library unit or
+      --  Standard.
 
       procedure Patch_Up_Value (N : Node_Id; Typ : Entity_Id);
       --  Try and fix up a literal so that it matches its expected type. New
@@ -1563,6 +1568,18 @@ package body Sem_Res is
 
       procedure Resolution_Failed;
       --  Called when attempt at resolving current expression fails
+
+      ------------------------------------
+      -- Comes_From_Predefined_Lib_Unit --
+      -------------------------------------
+
+      function Comes_From_Predefined_Lib_Unit (Nod : Node_Id) return Boolean is
+      begin
+         return
+           Sloc (Nod) = Standard_Location
+             or else Is_Predefined_File_Name (Unit_File_Name (
+                       Get_Source_Unit (Sloc (Nod))));
+      end Comes_From_Predefined_Lib_Unit;
 
       --------------------
       -- Patch_Up_Value --
@@ -1659,6 +1676,8 @@ package body Sem_Res is
          Error_Msg_N
            ("prefix must statically denote a non-remote subprogram", N);
       end if;
+
+      From_Lib := Comes_From_Predefined_Lib_Unit (N);
 
       --  If the context is a Remote_Access_To_Subprogram, access attributes
       --  must be resolved with the corresponding fat pointer. There is no need
@@ -1817,6 +1836,16 @@ package body Sem_Res is
                --  some more obscure cases are handled in Disambiguate.
 
                else
+                  --  If the current statement is part of a predefined library
+                  --  unit, then all interpretations which come from user level
+                  --  packages should not be considered.
+
+                  if From_Lib
+                    and then not Comes_From_Predefined_Lib_Unit (It.Nam)
+                  then
+                     goto Continue;
+                  end if;
+
                   Error_Msg_Sloc := Sloc (Seen);
                   It1 := Disambiguate (N, I1, I, Typ);
 
@@ -2539,6 +2568,7 @@ package body Sem_Res is
       A_Typ  : Entity_Id;
       F_Typ  : Entity_Id;
       Prev   : Node_Id := Empty;
+      Orig_A : Node_Id;
 
       procedure Check_Prefixed_Call;
       --  If the original node is an overloaded call in prefix notation,
@@ -2814,6 +2844,8 @@ package body Sem_Res is
             return;
          end if;
 
+         --  Case where actual is present
+
          if Present (A)
            and then (Nkind (Parent (A)) /= N_Parameter_Association
                        or else
@@ -3011,10 +3043,44 @@ package body Sem_Res is
                end if;
             end if;
 
-            if Ekind (F) /= E_In_Parameter
-              and then not Is_OK_Variable_For_Out_Formal (A)
-            then
-               Error_Msg_NE ("actual for& must be a variable", A, F);
+            --  For IN parameter, this is where we generate a reference after
+            --  resolution is complete.
+
+            if Ekind (F) = E_In_Parameter then
+               Orig_A := Original_Node (A);
+
+               if Is_Entity_Name (Orig_A)
+                 and then Present (Entity (Orig_A))
+               then
+                  Generate_Reference (Entity (Orig_A), Orig_A);
+               end if;
+
+            --  Case of OUT or IN OUT parameter
+
+            else
+               --  Validate the form of the actual. Note that the call to
+               --  Is_OK_Variable_For_Out_Formal generates the required
+               --  reference in this case.
+
+               if not Is_OK_Variable_For_Out_Formal (A) then
+                  Error_Msg_NE ("actual for& must be a variable", A, F);
+               end if;
+
+               --  For an Out parameter, check for useless assignment. Note
+               --  that we can't set Last_Assignment this early, because we
+               --  may kill current values in Resolve_Call, and that call
+               --  would clobber the Last_Assignment field.
+
+               if Ekind (F) = E_Out_Parameter then
+                  if Warn_On_Out_Parameter_Unread
+                    and then Is_Entity_Name (A)
+                    and then Present (Entity (A))
+                  then
+                     Warn_On_Useless_Assignment (Entity (A), Sloc (A));
+                  end if;
+               end if;
+
+               --  What's the following about???
 
                if Is_Entity_Name (A) then
                   Kill_Checks (Entity (A));
@@ -4302,7 +4368,6 @@ package body Sem_Res is
       elsif not (Is_Type (Entity (Subp))) then
          Nam := Entity (Subp);
          Set_Entity_With_Style_Check (Subp, Nam);
-         Generate_Reference (Nam, Subp);
 
       --  Otherwise we must have the case of an overloaded call
 
@@ -4315,7 +4380,6 @@ package body Sem_Res is
             if Covers (Typ, It.Typ) then
                Nam := It.Nam;
                Set_Entity_With_Style_Check (Subp, Nam);
-               Generate_Reference (Nam, Subp);
                exit;
             end if;
 
@@ -4349,7 +4413,7 @@ package body Sem_Res is
                     Make_Raise_Program_Error (Loc,
                       Reason => PE_Current_Task_In_Entry_Body));
                   Set_Etype (N, Rtype);
-                  exit;
+                  return;
                end if;
             end loop;
          end;
@@ -4715,6 +4779,7 @@ package body Sem_Res is
 
          --  Avoid validation, since it is a static function call
 
+         Generate_Reference (Nam, Subp);
          return;
       end if;
 
@@ -4744,6 +4809,37 @@ package body Sem_Res is
          Kill_Current_Values;
       end if;
 
+      --  If we are warning about unread out parameters, this is the place to
+      --  set Last_Assignment for out parameters. We have to do this after the
+      --  above call to Kill_Current_Values (since that call clears the
+      --  Last_Assignment field of all local variables).
+
+      if Warn_On_Out_Parameter_Unread
+        and then Comes_From_Source (N)
+        and then In_Extended_Main_Source_Unit (N)
+      then
+         declare
+            F : Entity_Id;
+            A : Node_Id;
+
+         begin
+            F := First_Formal (Nam);
+            A := First_Actual (N);
+            while Present (F) and then Present (A) loop
+               if Ekind (F) = E_Out_Parameter
+                 and then Is_Entity_Name (A)
+                 and then Present (Entity (A))
+                 and then Safe_To_Capture_Value (N, Entity (A))
+               then
+                  Set_Last_Assignment (Entity (A), A);
+               end if;
+
+               Next_Formal (F);
+               Next_Actual (A);
+            end loop;
+         end;
+      end if;
+
       --  If the subprogram is a primitive operation, check whether or not
       --  it is a correct dispatching call.
 
@@ -4759,9 +4855,22 @@ package body Sem_Res is
          Error_Msg_NE ("cannot call abstract subprogram &!", N, Nam);
       end if;
 
+      --  If this is a dispatching call, generate the appropriate reference,
+      --  for better source navigation in GPS.
+
+      if Is_Overloadable (Nam)
+        and then Present (Controlling_Argument (N))
+      then
+         Generate_Reference (Nam, Subp, 'R');
+      else
+         Generate_Reference (Nam, Subp);
+      end if;
+
       if Is_Intrinsic_Subprogram (Nam) then
          Check_Intrinsic_Call (N);
       end if;
+
+      --  All done, evaluate call and deal with elaboration issues
 
       Eval_Call (N);
       Check_Elab_Call (N);
@@ -6335,6 +6444,22 @@ package body Sem_Res is
    --  Start of processing for Resolve_Op_Concat
 
    begin
+      --  The parser folds an enormous sequence of concatenations of string
+      --  literals into "" & "...", where the Is_Folded_In_Parser flag is set
+      --  in the right. If the expression resolves to a predefined "&"
+      --  operator, all is well. Otherwise, the parser's folding is wrong, so
+      --  we give an error. See P_Simple_Expression in Par.Ch4.
+
+      if Nkind (Op2) = N_String_Literal
+        and then Is_Folded_In_Parser (Op2)
+        and then Ekind (Entity (N)) = E_Function
+      then
+         pragma Assert (Nkind (Op1) = N_String_Literal  --  should be ""
+               and then String_Length (Strval (Op1)) = 0);
+         Error_Msg_N ("too many user-defined concatenations", N);
+         return;
+      end if;
+
       Set_Etype (N, Btyp);
 
       if Is_Limited_Composite (Btyp) then
@@ -7536,10 +7661,15 @@ package body Sem_Res is
          end if;
 
          if Is_Entity_Name (Orig_N)
-           and then Etype (Entity (Orig_N)) = Orig_T
+           and then
+             (Etype (Entity (Orig_N)) = Orig_T
+                or else
+                  (Ekind (Entity (Orig_N)) = E_Loop_Parameter
+                     and then Covers (Orig_T, Etype (Entity (Orig_N)))))
          then
+            Error_Msg_Node_2 := Orig_T;
             Error_Msg_NE
-              ("?useless conversion, & has this type!", N, Entity (Orig_N));
+              ("?redundant conversion, & is of type &!", N, Entity (Orig_N));
          end if;
       end if;
 
@@ -8627,7 +8757,8 @@ package body Sem_Res is
             return Valid_Array_Conversion;
          end if;
 
-      --  Anonymous access types where target references an interface
+      --  Ada 2005 (AI-251): Anonymous access types where target references an
+      --  interface type.
 
       elsif (Ekind (Target_Type) = E_General_Access_Type
               or else
@@ -8757,9 +8888,14 @@ package body Sem_Res is
                     ("\?Program_Error will be raised at run time", Operand);
 
                else
-                  Error_Msg_N
-                    ("cannot convert local pointer to non-local access type",
-                     Operand);
+                  --  Avoid generation of spurious error message
+
+                  if not Error_Posted (N) then
+                     Error_Msg_N
+                      ("cannot convert local pointer to non-local access type",
+                       Operand);
+                  end if;
+
                   return False;
                end if;
 
@@ -8965,9 +9101,11 @@ package body Sem_Res is
               N);
          return True;
 
-      --  Tagged types
+      --  If both are tagged types, check legality of view conversions
 
-      elsif Is_Tagged_Type (Target_Type) then
+      elsif Is_Tagged_Type (Target_Type)
+        and then Is_Tagged_Type (Opnd_Type)
+      then
          return Valid_Tagged_Conversion (Target_Type, Opnd_Type);
 
       --  Types derived from the same root type are convertible

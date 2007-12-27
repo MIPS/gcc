@@ -310,7 +310,7 @@ static struct ready_list *readyp = &ready;
 /* Scheduling clock.  */
 static int clock_var;
 
-static int may_trap_exp (rtx, int);
+static int may_trap_exp (const_rtx, int);
 
 /* Nonzero iff the address is comprised from at most 1 register.  */
 #define CONST_BASED_ADDRESS_P(x)			\
@@ -324,7 +324,7 @@ static int may_trap_exp (rtx, int);
    as found by analyzing insn's expression.  */
 
 static int
-may_trap_exp (rtx x, int is_store)
+may_trap_exp (const_rtx x, int is_store)
 {
   enum rtx_code code;
 
@@ -387,8 +387,9 @@ may_trap_exp (rtx x, int is_store)
     }
 }
 
-/* Classifies insn for the purpose of verifying that it can be
-   moved speculatively, by examining it's patterns, returning:
+/* Classifies rtx X of an insn for the purpose of verifying that X can be
+   executed speculatively (and consequently the insn can be moved
+   speculatively), by examining X, returning:
    TRAP_RISKY: store, or risky non-load insn (e.g. division by variable).
    TRAP_FREE: non-load insn.
    IFREE: load from a globally safe location.
@@ -397,19 +398,19 @@ may_trap_exp (rtx x, int is_store)
    being either PFREE or PRISKY.  */
 
 static int
-haifa_classify_insn_1 (rtx pat)
+haifa_classify_rtx (const_rtx x)
 {
   int tmp_class = TRAP_FREE;
   int insn_class = TRAP_FREE;
   enum rtx_code code;
 
-  if (GET_CODE (pat) == PARALLEL)
+  if (GET_CODE (x) == PARALLEL)
     {
-      int i, len = XVECLEN (pat, 0);
+      int i, len = XVECLEN (x, 0);
 
       for (i = len - 1; i >= 0; i--)
 	{
-	  tmp_class = haifa_classify_insn_1 (XVECEXP (pat, 0, i));
+	  tmp_class = haifa_classify_rtx (XVECEXP (x, 0, i));
 	  insn_class = WORST_CLASS (insn_class, tmp_class);
 	  if (insn_class == TRAP_RISKY || insn_class == IRISKY)
 	    break;
@@ -417,29 +418,29 @@ haifa_classify_insn_1 (rtx pat)
     }
   else
     {
-      code = GET_CODE (pat);
+      code = GET_CODE (x);
       switch (code)
 	{
 	case CLOBBER:
 	  /* Test if it is a 'store'.  */
-	  tmp_class = may_trap_exp (XEXP (pat, 0), 1);
+	  tmp_class = may_trap_exp (XEXP (x, 0), 1);
 	  break;
 	case SET:
 	  /* Test if it is a store.  */
-	  tmp_class = may_trap_exp (SET_DEST (pat), 1);
+	  tmp_class = may_trap_exp (SET_DEST (x), 1);
 	  if (tmp_class == TRAP_RISKY)
 	    break;
 	  /* Test if it is a load.  */
 	  tmp_class =
 	    WORST_CLASS (tmp_class,
-			 may_trap_exp (SET_SRC (pat), 0));
+			 may_trap_exp (SET_SRC (x), 0));
 	  break;
 	case COND_EXEC:
-	  tmp_class = haifa_classify_insn_1 (COND_EXEC_CODE (pat));
+	  tmp_class = haifa_classify_rtx (COND_EXEC_CODE (x));
 	  if (tmp_class == TRAP_RISKY)
 	    break;
 	  tmp_class = WORST_CLASS (tmp_class,
-				   may_trap_exp (COND_EXEC_TEST (pat), 0));
+				   may_trap_exp (COND_EXEC_TEST (x), 0));
 	  break;
 	case TRAP_IF:
 	  tmp_class = TRAP_RISKY;
@@ -453,9 +454,9 @@ haifa_classify_insn_1 (rtx pat)
 }
 
 int
-haifa_classify_insn (rtx insn)
+haifa_classify_insn (const_rtx insn)
 {
-  return haifa_classify_insn_1 (PATTERN (insn));
+  return haifa_classify_rtx (PATTERN (insn));
 }
 
 /* A typedef for rtx vector.  */
@@ -468,6 +469,8 @@ static int rank_for_schedule (const void *, const void *);
 static void swap_sort (rtx *, int);
 static void queue_insn (rtx, int);
 static int schedule_insn (rtx);
+static int find_set_reg_weight (const_rtx);
+static void find_insn_reg_weight (const_rtx);
 static void adjust_priority (rtx);
 static void advance_one_cycle (void);
 static void extend_h_i_d (void);
@@ -532,7 +535,6 @@ static void add_jump_dependencies (rtx, rtx);
 #ifdef ENABLE_CHECKING
 static int has_edge_p (VEC(edge,gc) *, int);
 static void check_cfg (rtx, rtx);
-static void check_sched_flags (void);
 #endif
 
 #endif /* INSN_SCHEDULING */
@@ -1128,6 +1130,9 @@ adjust_priority (rtx prev)
 void
 advance_state (state_t state)
 {
+  if (targetm.sched.dfa_pre_advance_cycle)
+    targetm.sched.dfa_pre_advance_cycle ();
+
   if (targetm.sched.dfa_pre_cycle_insn)
     state_transition (state,
 		      targetm.sched.dfa_pre_cycle_insn ());
@@ -1137,6 +1142,9 @@ advance_state (state_t state)
   if (targetm.sched.dfa_post_cycle_insn)
     state_transition (state,
 		      targetm.sched.dfa_post_cycle_insn ());
+
+  if (targetm.sched.dfa_post_advance_cycle)
+    targetm.sched.dfa_post_advance_cycle ();
 }
 
 /* Advance time on one cycle.  */
@@ -1382,7 +1390,7 @@ get_ebb_head_tail (basic_block beg, basic_block end, rtx *headp, rtx *tailp)
 /* Return nonzero if there are no real insns in the range [ HEAD, TAIL ].  */
 
 int
-no_real_insns_p (rtx head, rtx tail)
+no_real_insns_p (const_rtx head, const_rtx tail)
 {
   while (head != NEXT_INSN (tail))
     {
@@ -1491,7 +1499,7 @@ restore_other_notes (rtx head, basic_block head_bb)
    If the destination register is already used by the source,
    a new register is not needed.  */
 static int
-find_set_reg_weight (rtx x)
+find_set_reg_weight (const_rtx x)
 {
   if (GET_CODE (x) == CLOBBER
       && register_operand (SET_DEST (x), VOIDmode))
@@ -1513,7 +1521,7 @@ find_set_reg_weight (rtx x)
 
 /* Calculate INSN_REG_WEIGHT for INSN.  */
 static void
-find_insn_reg_weight (rtx insn)
+find_insn_reg_weight (const_rtx insn)
 {
   int reg_weight = 0;
   rtx x;
@@ -1656,6 +1664,12 @@ ok_for_early_queue_removal (rtx insn)
 	  for ( ; prev_insn; prev_insn = PREV_INSN (prev_insn))
 	    {
 	      int cost;
+
+	      if (prev_insn == current_sched_info->prev_head)
+		{
+		  prev_insn = NULL;
+		  break;
+		}
 
 	      if (!NOTE_P (prev_insn))
 		{
@@ -2821,9 +2835,6 @@ sched_init (void)
 	/* So we won't read anything accidentally.  */
 	spec_info = NULL;
 
-#ifdef ENABLE_CHECKING
-      check_sched_flags ();
-#endif
     }
   else
     /* So we won't read anything accidentally.  */
@@ -2865,7 +2876,7 @@ sched_init (void)
   if (common_sched_info->sched_pass_id == SCHED_SMS_PASS)
     {
       df_rd_add_problem ();
-      df_chain_add_problem (DF_DU_CHAIN);
+      df_chain_add_problem (DF_DU_CHAIN + DF_UD_CHAIN);
     }
 
   df_analyze ();
@@ -3110,7 +3121,7 @@ try_ready (rtx next)
   else
     {
       /* One of the NEXT's dependencies has been resolved.
-	 Recalcute NEXT's status.  */
+	 Recalculate NEXT's status.  */
 
       *ts &= ~SPECULATIVE & ~HARD_DEP;
 
@@ -3469,8 +3480,17 @@ process_insn_forw_deps_be_in_spec (rtx insn, rtx twin, ds_t fs)
 		     due to backend decision.  Hence we can't let the
 		     probability of the speculative dep to decrease.  */
 		  ds_weak (ds) <= ds_weak (fs))
-		/* Transform it to be in speculative.  */
-		ds = (ds & ~BEGIN_SPEC) | fs;
+		{
+		  ds_t new_ds;
+
+		  new_ds = (ds & ~BEGIN_SPEC) | fs;
+		  
+		  if (/* consumer can 'be in speculative'.  */
+		      sched_insn_is_legitimate_for_speculation_p (consumer,
+								  new_ds))
+		    /* Transform it to be in speculative.  */
+		    ds = new_ds;
+		}
 	    }
 	  else
 	    /* Mark the dep as 'be in speculative'.  */
@@ -4063,7 +4083,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
       DONE_SPEC (insn) = ts & BEGIN_SPEC;
       CHECK_SPEC (check) = ts & BEGIN_SPEC;
 
-      /* Luckyness of future speculations solely depends upon initial
+      /* Luckiness of future speculations solely depends upon initial
 	 BEGIN speculation.  */
       if (ts & BEGIN_DATA)
 	fs = set_dep_weak (fs, BE_IN_DATA, get_dep_weak (ts, BEGIN_DATA));
@@ -4232,7 +4252,7 @@ haifa_change_pattern (rtx insn, rtx new_pat)
 
 /* Return true if INSN can potentially be speculated with type DS.  */
 bool
-sched_insn_is_legitimate_for_speculation_p (rtx insn, ds_t ds)
+sched_insn_is_legitimate_for_speculation_p (const_rtx insn, ds_t ds)
 {
   if (HAS_INTERNAL_DEP (insn))
     return false;
@@ -4243,7 +4263,7 @@ sched_insn_is_legitimate_for_speculation_p (rtx insn, ds_t ds)
   if (SCHED_GROUP_P (insn))
     return false;
 
-  if (IS_SPECULATION_CHECK_P (insn))
+  if (IS_SPECULATION_CHECK_P ((rtx) insn))
     return false;
 
   if (side_effects_p (PATTERN (insn)))
@@ -4689,6 +4709,7 @@ check_cfg (rtx head, rtx tail)
   gcc_assert (bb == 0);
 }
 
+#if 0
 /* Perform a few consistency checks of flags in different data structures.  */
 static void
 check_sched_flags (void)
@@ -4703,6 +4724,7 @@ check_sched_flags (void)
 		&& spec_info
 		&& spec_info->mask);
 }
+#endif
 #endif /* ENABLE_CHECKING */
 
 const struct sched_scan_info_def *sched_scan_info;

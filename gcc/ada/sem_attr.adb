@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -708,23 +707,42 @@ package body Sem_Attr is
             end;
          end if;
 
-         --  Special cases when prefix is entity name
+         --  Special cases when we can find a prefix that is an entity name
 
-         if Is_Entity_Name (P) then
+         declare
+            PP  : Node_Id;
+            Ent : Entity_Id;
 
-            --  If we have an access to an object, and the attribute comes from
-            --  source, then set the object as potentially source modified. We
-            --  do this because the resulting access pointer can be used to
-            --  modify the variable, and we might not detect this, leading to
-            --  some junk warnings.
+         begin
+            PP := P;
+            loop
+               if Is_Entity_Name (PP) then
+                  Ent := Entity (PP);
 
-            Set_Never_Set_In_Source (Entity (P), False);
+                  --  If we have an access to an object, and the attribute
+                  --  comes from source, then set the object as potentially
+                  --  source modified. We do this because the resulting access
+                  --  pointer can be used to modify the variable, and we might
+                  --  not detect this, leading to some junk warnings.
 
-            --  Mark entity as address taken, and kill current values
+                  Set_Never_Set_In_Source (Ent, False);
 
-            Set_Address_Taken (Entity (P));
-            Kill_Current_Values (Entity (P));
-         end if;
+                  --  Mark entity as address taken, and kill current values
+
+                  Set_Address_Taken (Ent);
+                  Kill_Current_Values (Ent);
+                  exit;
+
+               elsif Nkind (PP) = N_Selected_Component
+                 or else Nkind (PP) = N_Indexed_Component
+               then
+                  PP := Prefix (PP);
+
+               else
+                  exit;
+               end if;
+            end loop;
+         end;
 
          --  Check for aliased view unless unrestricted case. We allow a
          --  nonaliased prefix when within an instance because the prefix may
@@ -1823,10 +1841,9 @@ package body Sem_Attr is
          --  entry wrappers, the attributes Count, Caller and AST_Entry require
          --  a context check
 
-         if Ada_Version >= Ada_05
-           and then (Aname = Name_Count
-                      or else Aname = Name_Caller
-                      or else Aname = Name_AST_Entry)
+         if Aname = Name_Count
+           or else Aname = Name_Caller
+           or else Aname = Name_AST_Entry
          then
             declare
                Count : Natural := 0;
@@ -7886,6 +7903,10 @@ package body Sem_Attr is
          when Attribute_Partition_ID =>
             Process_Partition_Id (N);
             return;
+
+         ------------------
+         -- Pool_Address --
+         ------------------
 
          when Attribute_Pool_Address =>
             Resolve (P);

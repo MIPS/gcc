@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -741,9 +740,27 @@ package body Sem_Disp is
                         Set_DT_Position (Subp, DT_Position (Old_Subp));
 
                         if not Restriction_Active (No_Dispatching_Calls) then
-                           Register_Primitive (Sloc (Subp_Body),
-                             Prim    => Subp,
-                             Ins_Nod => Subp_Body);
+                           if Building_Static_DT (Tagged_Type) then
+
+                              --  If the static dispatch table has not been
+                              --  built then there is nothing else to do now;
+                              --  otherwise we notify that we cannot build the
+                              --  static dispatch table.
+
+                              if Has_Dispatch_Table (Tagged_Type) then
+                                 Error_Msg_N
+                                   ("overriding of& is too late for building" &
+                                    " static dispatch tables!", Subp);
+                                 Error_Msg_N
+                                   ("\spec should appear immediately after" &
+                                    " the type!", Subp);
+                              end if;
+
+                           else
+                              Register_Primitive (Sloc (Subp_Body),
+                                Prim    => Subp,
+                                Ins_Nod => Subp_Body);
+                           end if;
                         end if;
                      end if;
                   end if;
@@ -790,6 +807,7 @@ package body Sem_Disp is
 
       if Present (Old_Subp) then
          Check_Subtype_Conformant (Subp, Old_Subp);
+
          if (Chars (Subp) = Name_Initialize
            or else Chars (Subp) = Name_Adjust
            or else Chars (Subp) = Name_Finalize)
@@ -1114,9 +1132,21 @@ package body Sem_Disp is
          return Find_Controlling_Arg (Expression (Orig_Node));
       end if;
 
-      --  Dispatching on result case
+      --  Dispatching on result case. If expansion is disabled, the node still
+      --  has the structure of a function call. However, if the function name
+      --  is an operator and the call was given in infix form, the original
+      --  node has no controlling result and we must examine the current node.
 
-      if Nkind (Orig_Node) = N_Function_Call
+      if Nkind (N) = N_Function_Call
+        and then Present (Controlling_Argument (N))
+        and then Has_Controlling_Result (Entity (Name (N)))
+      then
+         return Controlling_Argument (N);
+
+      --  If expansion is enabled, the call may have been transformed into
+      --  an indirect call, and we need to recover the original node.
+
+      elsif Nkind (Orig_Node) = N_Function_Call
         and then Present (Controlling_Argument (Orig_Node))
         and then Has_Controlling_Result (Entity (Name (Orig_Node)))
       then
@@ -1333,8 +1363,10 @@ package body Sem_Disp is
       then
          --  Ada 2005 (AI-251): Update the attribute alias of all the aliased
          --  entities of the overridden primitive to reference New_Op, and also
-         --  propagate them the new value of the attribute
-         --  Is_Abstract_Subprogram.
+         --  propagate the proper value of Is_Abstract_Subprogram. Verify
+         --  that the new operation is subtype conformant with the interface
+         --  operations that it implements (for operations inherited from the
+         --  parent itself, this check is made when building the derived type).
 
          Elmt := First_Elmt (Primitive_Operations (Tagged_Type));
          while Present (Elmt) loop
@@ -1351,6 +1383,7 @@ package body Sem_Disp is
               and then Alias (Prim) = Prev_Op
             then
                Set_Alias (Prim, New_Op);
+               Check_Subtype_Conformant (New_Op, Prim);
                Set_Is_Abstract_Subprogram
                  (Prim, Is_Abstract_Subprogram (New_Op));
 

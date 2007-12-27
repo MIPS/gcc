@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -574,22 +573,31 @@ package body Sem_Ch5 is
          Analyze_And_Resolve (Rhs, T1);
       end if;
 
-      --  Ada 2005 (AI-231)
+      --  Ada 2005 (AI-231): Assignment to not null variable
 
       if Ada_Version >= Ada_05
         and then Can_Never_Be_Null (T1)
         and then not Assignment_OK (Lhs)
       then
+         --  Case where we know the right hand side is null
+
          if Known_Null (Rhs) then
             Apply_Compile_Time_Constraint_Error
               (N   => Rhs,
                Msg => "(Ada 2005) null not allowed in null-excluding objects?",
                Reason => CE_Null_Not_Allowed);
+
+            --  We still mark this as a possible modification, that's necessary
+            --  to reset Is_True_Constant, and desirable for xref purposes.
+
+            Note_Possible_Modification (Lhs);
             return;
 
+         --  If we know the right hand side is non-null, then we convert to the
+         --  target type, since we don't need a run time check in that case.
+
          elsif not Can_Never_Be_Null (T2) then
-            Rewrite (Rhs,
-              Convert_To (T1, Relocate_Node (Rhs)));
+            Rewrite (Rhs, Convert_To (T1, Relocate_Node (Rhs)));
             Analyze_And_Resolve (Rhs, T1);
          end if;
       end if;
@@ -699,8 +707,11 @@ package body Sem_Ch5 is
                --  generate bogus warnings when an assignment is rewritten as
                --  another assignment, and gets tied up with itself.
 
+               --  Note: we don't use Record_Last_Assignment here, because we
+               --  have lots of other stuff to do under control of this test.
+
                if Warn_On_Modified_Unread
-                 and then Ekind (Ent) = E_Variable
+                 and then Is_Assignable (Ent)
                  and then Comes_From_Source (N)
                  and then In_Extended_Main_Source_Unit (Ent)
                then
@@ -876,6 +887,10 @@ package body Sem_Ch5 is
       Dont_Care      : Boolean;
       Others_Present : Boolean;
 
+      pragma Warnings (Off, Last_Choice);
+      pragma Warnings (Off, Dont_Care);
+      --  Don't care about assigned values
+
       Statements_Analyzed : Boolean := False;
       --  Set True if at least some statement sequences get analyzed.
       --  If False on exit, means we had a serious error that prevented
@@ -973,6 +988,7 @@ package body Sem_Ch5 is
       --  a call to Number_Of_Choices to get the right number of entries.
 
       Case_Table : Choice_Table_Type (1 .. Number_Of_Choices (N));
+      pragma Warnings (Off, Case_Table);
 
    --  Start of processing for Analyze_Case_Statement
 
@@ -1163,6 +1179,7 @@ package body Sem_Ch5 is
 
    begin
       Check_Unreachable_Code (N);
+      Kill_Current_Values (Last_Assignment_Only => True);
 
       Analyze (Label);
       Label_Ent := Entity (Label);
@@ -1762,6 +1779,8 @@ package body Sem_Ch5 is
                         Hlo : Uint;
                         Hhi : Uint;
                         HOK : Boolean;
+
+                        pragma Warnings (Off, Hlo);
 
                      begin
                         Determine_Range (L, LOK, Llo, Lhi);

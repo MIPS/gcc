@@ -70,6 +70,9 @@ gfc_expr gfc_bad_expr;
 static gfc_expr *
 range_check (gfc_expr *result, const char *name)
 {
+  if (result == NULL)
+    return &gfc_bad_expr;
+
   switch (gfc_range_check (result))
     {
       case ARITH_OK:
@@ -1183,6 +1186,24 @@ gfc_simplify_fraction (gfc_expr *x)
 
 
 gfc_expr *
+gfc_simplify_gamma (gfc_expr *x)
+{
+  gfc_expr *result;
+
+  if (x->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
+
+  gfc_set_model_kind (x->ts.kind);
+
+  mpfr_gamma (result->value.real, x->value.real, GFC_RND_MODE);
+
+  return range_check (result, "GAMMA");
+}
+
+
+gfc_expr *
 gfc_simplify_huge (gfc_expr *e)
 {
   gfc_expr *result;
@@ -2210,6 +2231,28 @@ gfc_simplify_len_trim (gfc_expr *e, gfc_expr *kind)
 
   mpz_set_si (result->value.integer, lentrim);
   return range_check (result, "LEN_TRIM");
+}
+
+gfc_expr *
+gfc_simplify_lgamma (gfc_expr *x __attribute__((unused)))
+{
+#if MPFR_VERSION >= MPFR_VERSION_NUM(2,3,0)
+  gfc_expr *result;
+  int sg;
+
+  if (x->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
+
+  gfc_set_model_kind (x->ts.kind);
+
+  mpfr_lgamma (result->value.real, &sg, x->value.real, GFC_RND_MODE);
+
+  return range_check (result, "LGAMMA");
+#else
+  return NULL;
+#endif
 }
 
 
@@ -3611,7 +3654,7 @@ gfc_simplify_size (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
   mpz_t size;
   gfc_expr *result;
   int d;
-  int k = get_kind (BT_INTEGER, kind, "SCAN", gfc_default_integer_kind);
+  int k = get_kind (BT_INTEGER, kind, "SIZE", gfc_default_integer_kind);
 
   if (k == -1)
     return &gfc_bad_expr;
@@ -3968,6 +4011,9 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
 	|| !gfc_is_constant_expr (size))
     return NULL;
 
+  if (source->expr_type == EXPR_FUNCTION)
+    return NULL;
+
   /* Calculate the size of the source.  */
   if (source->expr_type == EXPR_ARRAY
       && gfc_array_size (source, &tmp) == FAILURE)
@@ -4018,6 +4064,11 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
       result->rank = 0;
       result_size = result_elt_size;
     }
+
+  if (gfc_option.warn_surprising && source_size < result_size)
+    gfc_warning("Intrinsic TRANSFER at %L has partly undefined result: "
+		"source size %ld < result size %ld", &source->where,
+		(long) source_size, (long) result_size);
 
   /* Allocate the buffer to store the binary version of the source.  */
   buffer_size = MAX (source_size, result_size);

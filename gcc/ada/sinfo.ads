@@ -475,17 +475,6 @@ package Sinfo is
    --    refers to a node or is posted on its source location, and has the
    --    effect of inhibiting further messages involving this same node.
 
-   --  Local_Raise_Statements (Elist1)
-   --    This field is present in exception handler nodes. It is set to
-   --    No_Elist in the normal case. If there is at least one raise statement
-   --    which can potentially be handled as a local raise, then this field
-   --    points to a list of raise nodes, which are calls to a routine to raise
-   --    an exception. These are raise nodes which can be optimized into gotos
-   --    if the handler turns out to meet the conditions which permit this
-   --    transformation. Note that this does NOT include instances of the
-   --    N_Raise_xxx_Error nodes since the transformation of these nodes is
-   --    handled by the back end (using the N_Push/N_Pop mechanism).
-
    --  Has_Dynamic_Length_Check (Flag10-Sem)
    --    This flag is present on all nodes. It is set to indicate that one of
    --    the routines in unit Checks has generated a length check action which
@@ -572,6 +561,11 @@ package Sinfo is
    --    unconstrained packed array types, and for N_Explicit_Dereference when
    --    the designated type is an unconstrained packed array and the
    --    dereference is the prefix of a 'Size attribute reference.
+
+   --  Address_Warning_Posted (Flag18-Sem)
+   --    Present in N_Attribute_Definition nodes. Set to indicate that we have
+   --    posted a warning for the address clause regarding size or alignment
+   --    issues. Used to inhibit multiple redundant messages.
 
    --  Aggregate_Bounds (Node3-Sem)
    --    Present in array N_Aggregate nodes. If the aggregate contains
@@ -1167,6 +1161,11 @@ package Sinfo is
    --    of an entry barrier from a protected entry body. It is used for the
    --    circuitry checking for incorrect use of Current_Task.
 
+   --  Is_Expanded_Build_In_Place_Call (Flag11-Sem)
+   --    This flag is set in an N_Function_Call node to indicate that the extra
+   --    actuals to support a build-in-place style of call have been added to
+   --    the call.
+
    --  Is_In_Discriminant_Check (Flag11-Sem)
    --    This flag is present in a selected component, and is used to indicate
    --    that the reference occurs within a discriminant check. The
@@ -1201,11 +1200,6 @@ package Sinfo is
    --    the exponentiation and the multiply/divide node. If this set of
    --    conditions holds, and the flag is set, then the division or
    --    multiplication can be (and is) converted to a shift.
-
-   --  Is_Overloaded (Flag5-Sem)
-   --    A flag present in all expression nodes. Used temporarily during
-   --    overloading determination. The setting of this flag is not relevant
-   --    once overloading analysis is complete.
 
    --  Is_Protected_Subprogram_Body (Flag7-Sem)
    --    A flag set in a Subprogram_Body block to indicate that it is the
@@ -1286,6 +1280,17 @@ package Sinfo is
    --    unit (which might in any case need to use it for some other purpose as
    --    described above). Instead for a child unit, implicit with's are
    --    generated for all parents.
+
+   --  Local_Raise_Statements (Elist1)
+   --    This field is present in exception handler nodes. It is set to
+   --    No_Elist in the normal case. If there is at least one raise statement
+   --    which can potentially be handled as a local raise, then this field
+   --    points to a list of raise nodes, which are calls to a routine to raise
+   --    an exception. These are raise nodes which can be optimized into gotos
+   --    if the handler turns out to meet the conditions which permit this
+   --    transformation. Note that this does NOT include instances of the
+   --    N_Raise_xxx_Error nodes since the transformation of these nodes is
+   --    handled by the back end (using the N_Push/N_Pop mechanism).
 
    --  Loop_Actions (List2-Sem)
    --    A list present in Component_Association nodes in array aggregates.
@@ -1820,11 +1825,19 @@ package Sinfo is
 
       --  A STRING_ELEMENT is either a pair of quotation marks ("), or a
       --  single GRAPHIC_CHARACTER other than a quotation mark.
+      --
+      --  Is_Folded_In_Parser is True if the parser created this literal by
+      --  folding a sequence of "&" operators. For example, if the source code
+      --  says "aaa" & "bbb" & "ccc", and this produces "aaabbbccc", the flag
+      --  is set. This flag is needed because the parser doesn't know about
+      --  visibility, so the folded result might be wrong, and semantic
+      --  analysis needs to check for that.
 
       --  N_String_Literal
       --  Sloc points to literal
       --  Strval (Str3) contains Id of string value
       --  Has_Wide_Character (Flag11-Sem)
+      --  Is_Folded_In_Parser (Flag4)
       --  plus fields for expression
 
       ------------------
@@ -3659,10 +3672,10 @@ package Sinfo is
       --  N_Allocator
       --  Sloc points to NEW
       --  Expression (Node3) subtype indication or qualified expression
-      --  Null_Exclusion_Present (Flag11)
       --  Storage_Pool (Node1-Sem)
       --  Procedure_To_Call (Node2-Sem)
       --  Coextensions (Elist4-Sem)
+      --  Null_Exclusion_Present (Flag11)
       --  No_Initialization (Flag13-Sem)
       --  Is_Static_Coextension (Flag14-Sem)
       --  Do_Storage_Check (Flag17-Sem)
@@ -4292,6 +4305,7 @@ package Sinfo is
       --   actual parameter part)
       --  First_Named_Actual (Node4-Sem)
       --  Controlling_Argument (Node1-Sem) (set to Empty if not dispatching)
+      --  Is_Expanded_Build_In_Place_Call (Flag11-Sem)
       --  Do_Tag_Check (Flag13-Sem)
       --  No_Elaboration_Check (Flag14-Sem)
       --  Parameter_List_Truncated (Flag17-Sem)
@@ -6111,6 +6125,7 @@ package Sinfo is
       --  Next_Rep_Item (Node5-Sem)
       --  From_At_Mod (Flag4-Sem)
       --  Check_Address_Alignment (Flag11-Sem)
+      --  Address_Warning_Posted (Flag18-Sem)
 
       ---------------------------------------------
       -- 13.4  Enumeration representation clause --
@@ -7423,6 +7438,9 @@ package Sinfo is
    function Actual_Designated_Subtype
      (N : Node_Id) return Node_Id;    -- Node4
 
+   function Address_Warning_Posted
+     (N : Node_Id) return Boolean;    -- Flag18
+
    function Aggregate_Bounds
      (N : Node_Id) return Node_Id;    -- Node3
 
@@ -7870,6 +7888,12 @@ package Sinfo is
    function Is_Entry_Barrier_Function
      (N : Node_Id) return Boolean;    -- Flag8
 
+   function Is_Expanded_Build_In_Place_Call
+     (N : Node_Id) return Boolean;    -- Flag11
+
+   function Is_Folded_In_Parser
+     (N : Node_Id) return Boolean;    -- Flag4
+
    function Is_In_Discriminant_Check
      (N : Node_Id) return Boolean;    -- Flag11
 
@@ -8280,6 +8304,9 @@ package Sinfo is
 
    procedure Set_Actual_Designated_Subtype
      (N : Node_Id; Val : Node_Id);            -- Node4
+
+   procedure Set_Address_Warning_Posted
+     (N : Node_Id; Val : Boolean := True);    -- Flag18
 
    procedure Set_Aggregate_Bounds
      (N : Node_Id; Val : Node_Id);            -- Node3
@@ -8724,6 +8751,12 @@ package Sinfo is
 
    procedure Set_Is_Entry_Barrier_Function
      (N : Node_Id; Val : Boolean := True);    -- Flag8
+
+   procedure Set_Is_Expanded_Build_In_Place_Call
+     (N : Node_Id; Val : Boolean := True);    -- Flag11
+
+   procedure Set_Is_Folded_In_Parser
+     (N : Node_Id; Val : Boolean := True);    -- Flag4
 
    procedure Set_Is_In_Discriminant_Check
      (N : Node_Id; Val : Boolean := True);    -- Flag11
@@ -10668,6 +10701,7 @@ package Sinfo is
    pragma Inline (Activation_Chain_Entity);
    pragma Inline (Acts_As_Spec);
    pragma Inline (Actual_Designated_Subtype);
+   pragma Inline (Address_Warning_Posted);
    pragma Inline (Aggregate_Bounds);
    pragma Inline (Aliased_Present);
    pragma Inline (All_Others);
@@ -10817,6 +10851,8 @@ package Sinfo is
    pragma Inline (Is_Controlling_Actual);
    pragma Inline (Is_Dynamic_Coextension);
    pragma Inline (Is_Entry_Barrier_Function);
+   pragma Inline (Is_Expanded_Build_In_Place_Call);
+   pragma Inline (Is_Folded_In_Parser);
    pragma Inline (Is_In_Discriminant_Check);
    pragma Inline (Is_Machine_Number);
    pragma Inline (Is_Null_Loop);
@@ -10951,6 +10987,7 @@ package Sinfo is
    pragma Inline (Set_Activation_Chain_Entity);
    pragma Inline (Set_Acts_As_Spec);
    pragma Inline (Set_Actual_Designated_Subtype);
+   pragma Inline (Set_Address_Warning_Posted);
    pragma Inline (Set_Aggregate_Bounds);
    pragma Inline (Set_Aliased_Present);
    pragma Inline (Set_All_Others);
@@ -11098,6 +11135,8 @@ package Sinfo is
    pragma Inline (Set_Is_Controlling_Actual);
    pragma Inline (Set_Is_Dynamic_Coextension);
    pragma Inline (Set_Is_Entry_Barrier_Function);
+   pragma Inline (Set_Is_Expanded_Build_In_Place_Call);
+   pragma Inline (Set_Is_Folded_In_Parser);
    pragma Inline (Set_Is_In_Discriminant_Check);
    pragma Inline (Set_Is_Machine_Number);
    pragma Inline (Set_Is_Null_Loop);

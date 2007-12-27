@@ -1468,6 +1468,9 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 /* Flag to enable / disable ia64 speculation.  */
 static bool sel_speculation_p = true;
 
+static bool speculate_expr (expr_t, ds_t);
+static ds_t get_spec_check_type_for_insn (insn_t, expr_t);
+
 /* Return true if dependence described by DS can be overcomed.  */
 static bool
 can_overcome_dep_p (ds_t ds)
@@ -1498,9 +1501,6 @@ can_overcome_dep_p (ds_t ds)
 
   return true;
 }
-
-static bool speculate_expr (expr_t, ds_t);
-static ds_t get_spec_check_type_for_insn (insn_t, expr_t);
 
 /* Get a speculation check instruction.
    C_RHS is a speculative expression,
@@ -1634,6 +1634,12 @@ speculate_expr (expr_t expr, ds_t ds)
   ds_t target_ds = (ds & SPECULATIVE);
   ds_t current_ds = EXPR_SPEC_DONE_DS (expr);
   ds_t combined_ds = ds_full_merge (current_ds, target_ds, NULL_RTX, NULL_RTX);
+
+  /* ??? Do not allow both kind of speculations when pipelining.  */
+  if (pipelining_p
+      && (combined_ds & DATA_SPEC)
+      && (combined_ds & CONTROL_SPEC))
+    return false;
 
   if (apply_spec_to_expr (expr, combined_ds))
     /* We already have all necessary speculations.  */
@@ -1947,7 +1953,7 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 
       if (can_overcome_dep_p (*rhs_dsp))
 	{
-	  if (speculate_expr (insn_to_move_up, *rhs_dsp))
+          if (speculate_expr (insn_to_move_up, *rhs_dsp))
             {
               /* Speculation was successful.  */
               *rhs_dsp = 0;
@@ -3339,7 +3345,9 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
                (target_available == false
                 && !EXPR_SEPARABLE_P (rhs))
                /* Don't try to find a register for low-priority expression.  */
-               || n >= max_insns_to_rename)
+               || n >= max_insns_to_rename
+               /* ??? FIXME: Don't try to rename data speculation.  */
+               || (EXPR_SPEC_DONE_DS (rhs) & BEGIN_DATA))
         {
           succ++;
           VEC_unordered_remove (rhs_t, vec_av_set, n);

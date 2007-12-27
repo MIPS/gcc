@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -97,8 +96,8 @@ package body Sem_Ch6 is
    --  Common processing for simple_ and extended_return_statements
 
    procedure Analyze_Function_Return (N : Node_Id);
-   --  Subsidiary to Analyze_Return_Statement.
-   --  Called when the return statement applies to a [generic] function.
+   --  Subsidiary to Analyze_Return_Statement. Called when the return statement
+   --  applies to a [generic] function.
 
    procedure Analyze_Return_Type (N : Node_Id);
    --  Subsidiary to Process_Formals: analyze subtype mark in function
@@ -336,6 +335,7 @@ package body Sem_Ch6 is
          End_Scope;
       end if;
 
+      Kill_Current_Values (Last_Assignment_Only => True);
       Check_Unreachable_Code (N);
    end Analyze_Return_Statement;
 
@@ -1962,6 +1962,36 @@ package body Sem_Ch6 is
 
       Check_Anonymous_Return;
 
+      --  Set the Protected_Formal field of each extra formal of the protected
+      --  subprogram to reference the corresponding extra formal of the
+      --  subprogram that implements it. For regular formals this occurs when
+      --  the protected subprogram's declaration is expanded, but the extra
+      --  formals don't get created until the subprogram is frozen. We need to
+      --  do this before analyzing the protected subprogram's body so that any
+      --  references to the original subprogram's extra formals will be changed
+      --  refer to the implementing subprogram's formals (see Expand_Formal).
+
+      if Present (Spec_Id)
+        and then Is_Protected_Type (Scope (Spec_Id))
+        and then Present (Protected_Body_Subprogram (Spec_Id))
+      then
+         declare
+            Impl_Subp       : constant Entity_Id :=
+                                Protected_Body_Subprogram (Spec_Id);
+            Prot_Ext_Formal : Entity_Id := Extra_Formals (Spec_Id);
+            Impl_Ext_Formal : Entity_Id := Extra_Formals (Impl_Subp);
+         begin
+            while Present (Prot_Ext_Formal) loop
+               pragma Assert (Present (Impl_Ext_Formal));
+
+               Set_Protected_Formal (Prot_Ext_Formal, Impl_Ext_Formal);
+
+               Next_Formal_With_Extras (Prot_Ext_Formal);
+               Next_Formal_With_Extras (Impl_Ext_Formal);
+            end loop;
+         end;
+      end if;
+
       --  Now we can go on to analyze the body
 
       HSS := Handled_Statement_Sequence (N);
@@ -2946,16 +2976,34 @@ package body Sem_Ch6 is
                     ("not type conformant with declaration#!", Enode);
 
                when Mode_Conformant =>
-                  Error_Msg_N
-                    ("not mode conformant with declaration#!", Enode);
+                  if Nkind (Parent (Old_Id)) = N_Full_Type_Declaration then
+                     Error_Msg_N
+                       ("not mode conformant with operation inherited#!",
+                         Enode);
+                  else
+                     Error_Msg_N
+                       ("not mode conformant with declaration#!", Enode);
+                  end if;
 
                when Subtype_Conformant =>
-                  Error_Msg_N
-                    ("not subtype conformant with declaration#!", Enode);
+                  if Nkind (Parent (Old_Id)) = N_Full_Type_Declaration then
+                     Error_Msg_N
+                       ("not subtype conformant with operation inherited#!",
+                         Enode);
+                  else
+                     Error_Msg_N
+                       ("not subtype conformant with declaration#!", Enode);
+                  end if;
 
                when Fully_Conformant =>
-                  Error_Msg_N
-                    ("not fully conformant with declaration#!", Enode);
+                  if Nkind (Parent (Old_Id)) = N_Full_Type_Declaration then
+                     Error_Msg_N
+                       ("not fully conformant with operation inherited#!",
+                         Enode);
+                  else
+                     Error_Msg_N
+                       ("not fully conformant with declaration#!", Enode);
+                  end if;
             end case;
 
             Error_Msg_NE (Msg, Enode, N);
@@ -3732,6 +3780,7 @@ package body Sem_Ch6 is
       Err_Loc : Node_Id := Empty)
    is
       Result : Boolean;
+      pragma Warnings (Off, Result);
    begin
       Check_Conformance
         (New_Id, Old_Id, Fully_Conformant, True, Result, Err_Loc);
@@ -3748,7 +3797,7 @@ package body Sem_Ch6 is
       Get_Inst : Boolean := False)
    is
       Result : Boolean;
-
+      pragma Warnings (Off, Result);
    begin
       Check_Conformance
         (New_Id, Old_Id, Mode_Conformant, True, Result, Err_Loc, Get_Inst);
@@ -4337,6 +4386,7 @@ package body Sem_Ch6 is
       Err_Loc : Node_Id := Empty)
    is
       Result : Boolean;
+      pragma Warnings (Off, Result);
    begin
       Check_Conformance
         (New_Id, Old_Id, Subtype_Conformant, True, Result, Err_Loc);
@@ -4352,6 +4402,7 @@ package body Sem_Ch6 is
       Err_Loc : Node_Id := Empty)
    is
       Result : Boolean;
+      pragma Warnings (Off, Result);
    begin
       Check_Conformance
         (New_Id, Old_Id, Type_Conformant, True, Result, Err_Loc);
@@ -4728,6 +4779,17 @@ package body Sem_Ch6 is
          return;
       end if;
 
+      --  If the subprogram is a predefined dispatching subprogram then don't
+      --  generate any extra constrained or accessibility level formals. In
+      --  general we suppress these for internal subprograms (by not calling
+      --  Freeze_Subprogram and Create_Extra_Formals at all), but internally
+      --  generated stream attributes do get passed through because extra
+      --  build-in-place formals are needed in some cases (limited 'Input).
+
+      if Is_Predefined_Dispatching_Operation (E) then
+         goto Test_For_BIP_Extras;
+      end if;
+
       Formal := First_Formal (E);
       while Present (Formal) loop
 
@@ -4817,6 +4879,8 @@ package body Sem_Ch6 is
 
          Next_Formal (Formal);
       end loop;
+
+      <<Test_For_BIP_Extras>>
 
       --  Ada 2005 (AI-318-02): In the case of build-in-place functions, add
       --  appropriate extra formals. See type Exp_Ch6.BIP_Formal_Kind.
@@ -5061,6 +5125,36 @@ package body Sem_Ch6 is
                   --  flag is set when analyzing the stub.
 
                   return E;
+
+               --  If E is an internal function with a controlling result
+               --  that was created for an operation inherited by a null
+               --  extension, it may be overridden by a body without a previous
+               --  spec (one more reason why these should be shunned). In that
+               --  case remove the generated body, because the current one is
+               --  the explicit overriding.
+
+               elsif Ekind (E) = E_Function
+                 and then Ada_Version >= Ada_05
+                 and then not Comes_From_Source (E)
+                 and then Has_Controlling_Result (E)
+                 and then Is_Null_Extension (Etype (E))
+                 and then Comes_From_Source (Spec)
+               then
+                  Set_Has_Completion (E, False);
+
+                  if Expander_Active then
+                     Remove
+                       (Unit_Declaration_Node
+                         (Corresponding_Body (Unit_Declaration_Node (E))));
+                     return E;
+
+                  --  If expansion is disabled, the wrapper function has not
+                  --  been generated, and this is the standard case of a late
+                  --  body overriding an inherited operation.
+
+                  else
+                     return Empty;
+                  end if;
 
                --  If body already exists, this is an error unless the
                --  previous declaration is the implicit declaration of
@@ -6971,7 +7065,6 @@ package body Sem_Ch6 is
 
          Next (Param_Spec);
       end loop;
-
    end Process_Formals;
 
    ----------------------------

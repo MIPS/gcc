@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1065,7 +1064,7 @@ package body Exp_Util is
       --  itype, so that gigi can elaborate it on the proper objstack.
 
       if Is_Itype (Typ)
-        and then  Scope (Typ) = Current_Scope
+        and then Scope (Typ) = Current_Scope
       then
          IR := Make_Itype_Reference (Sloc (N));
          Set_Itype (IR, Typ);
@@ -2476,6 +2475,7 @@ package body Exp_Util is
                N_Private_Extension_Declaration          |
                N_Private_Type_Declaration               |
                N_Procedure_Instantiation                |
+               N_Protected_Body                         |
                N_Protected_Body_Stub                    |
                N_Protected_Type_Declaration             |
                N_Single_Task_Declaration                |
@@ -2748,7 +2748,6 @@ package body Exp_Util is
                N_Pop_Storage_Error_Label                |
                N_Pragma_Argument_Association            |
                N_Procedure_Specification                |
-               N_Protected_Body                         |
                N_Protected_Definition                   |
                N_Push_Constraint_Error_Label            |
                N_Push_Program_Error_Label               |
@@ -3403,10 +3402,8 @@ package body Exp_Util is
            or else Nkind (N) = N_Subprogram_Body
            or else Nkind (N) = N_Package_Body
          then
-            Kill_Dead_Code
-              (Declarations (N), False);
-            Kill_Dead_Code
-              (Statements (Handled_Statement_Sequence (N)));
+            Kill_Dead_Code (Declarations (N), False);
+            Kill_Dead_Code (Statements (Handled_Statement_Sequence (N)));
 
             if Nkind (N) = N_Subprogram_Body then
                Set_Is_Eliminated (Defining_Entity (N));
@@ -3415,6 +3412,10 @@ package body Exp_Util is
          elsif Nkind (N) = N_Package_Declaration then
             Kill_Dead_Code (Visible_Declarations (Specification (N)));
             Kill_Dead_Code (Private_Declarations (Specification (N)));
+
+            --  ??? After this point, Delete_Tree has been called on all
+            --  declarations in Specification (N), so references to
+            --  entities therein look suspicious.
 
             declare
                E : Entity_Id := First_Entity (Defining_Entity (N));

@@ -95,15 +95,14 @@ static void gnat_print_decl		(FILE *, tree, int);
 static void gnat_print_type		(FILE *, tree, int);
 static const char *gnat_printable_name	(tree, int);
 static const char *gnat_dwarf_name	(tree, int);
-static tree gnat_eh_runtime_type	(tree);
+static tree gnat_return_tree		(tree);
 static int gnat_eh_type_covers		(tree, tree);
 static void gnat_parse_file		(int);
 static rtx gnat_expand_expr		(tree, rtx, enum machine_mode, int,
 					 rtx *);
-static void gnat_expand_body		(tree);
 static void internal_error_function	(const char *, va_list *);
 static void gnat_adjust_rli		(record_layout_info);
-static tree gnat_type_max_size		(tree);
+static tree gnat_type_max_size		(const_tree);
 
 /* Definitions for our language-specific hooks.  */
 
@@ -126,7 +125,7 @@ static tree gnat_type_max_size		(tree);
 #undef  LANG_HOOKS_GETDECLS
 #define LANG_HOOKS_GETDECLS		lhd_return_null_tree_v
 #undef  LANG_HOOKS_PUSHDECL
-#define LANG_HOOKS_PUSHDECL		lhd_return_tree
+#define LANG_HOOKS_PUSHDECL		gnat_return_tree
 #undef  LANG_HOOKS_WRITE_GLOBALS
 #define LANG_HOOKS_WRITE_GLOBALS      gnat_write_global_declarations
 #undef  LANG_HOOKS_FINISH_INCOMPLETE_DECL
@@ -149,8 +148,6 @@ static tree gnat_type_max_size		(tree);
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	gnat_printable_name
 #undef  LANG_HOOKS_DWARF_NAME
 #define LANG_HOOKS_DWARF_NAME		gnat_dwarf_name
-#undef  LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
-#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gnat_expand_body
 #undef  LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR	gnat_gimplify_expr
 #undef  LANG_HOOKS_TYPE_FOR_MODE
@@ -267,9 +264,6 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
 
   switch (code)
     {
-    default:
-      abort ();
-
     case OPT_I:
       q = xmalloc (sizeof("-I") + strlen (arg));
       strcpy (q, "-I");
@@ -332,6 +326,9 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argv[gnat_argc] = xstrdup (arg);
       gnat_argc++;
       break;
+
+    default:
+      gcc_unreachable ();
     }
 
   return 1;
@@ -467,7 +464,7 @@ gnat_init (void)
 static void
 gnat_finish_incomplete_decl (tree dont_care ATTRIBUTE_UNUSED)
 {
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Compute the alignment of the largest mode that can be used for copying
@@ -515,7 +512,7 @@ gnat_init_gcc_eh (void)
 					     ? "__gnat_eh_personality_sj"
 					     : "__gnat_eh_personality");
   lang_eh_type_covers = gnat_eh_type_covers;
-  lang_eh_runtime_type = gnat_eh_runtime_type;
+  lang_eh_runtime_type = gnat_return_tree;
   default_init_unwind_resume_libfunc ();
 
   /* Turn on -fexceptions and -fnon-call-exceptions. The first one triggers
@@ -672,18 +669,10 @@ gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode,
       /* ... fall through ... */
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return expand_expr_real (new, target, tmode, modifier, alt_rtl);
-}
-
-/* Generate the RTL for the body of GNU_DECL.  */
-
-static void
-gnat_expand_body (tree gnu_decl)
-{
-  tree_rest_of_compilation (gnu_decl);
 }
 
 /* Adjusts the RLI used to layout a record after all the fields have been
@@ -714,15 +703,13 @@ gnat_adjust_rli (record_layout_info rli ATTRIBUTE_UNUSED)
     rli->record_align = record_align;
 #endif
 }
-
-/* These routines are used in conjunction with GCC exception handling.  */
 
-/* Map compile-time to run-time tree for GCC exception handling scheme.  */
+/* Do nothing (return the tree node passed).  */
 
 static tree
-gnat_eh_runtime_type (tree type)
+gnat_return_tree (tree t)
 {
-  return type;
+  return t;
 }
 
 /* Return true if type A catches type B. Callback for flow analysis from
@@ -767,7 +754,7 @@ gnat_get_alias_set (tree type)
    as a constant when possible.  */
 
 static tree
-gnat_type_max_size (tree gnu_type)
+gnat_type_max_size (const_tree gnu_type)
 {
   /* First see what we can get from TYPE_SIZE_UNIT, which might not
      be constant even for simple expressions if it has already been
@@ -929,7 +916,7 @@ fp_prec_to_size (int prec)
     if (GET_MODE_PRECISION (mode) == prec)
       return GET_MODE_BITSIZE (mode);
 
-  abort ();
+  gcc_unreachable ();
 }
 
 int
@@ -942,5 +929,5 @@ fp_size_to_prec (int size)
     if (GET_MODE_BITSIZE (mode) == size)
       return GET_MODE_PRECISION (mode);
 
-  abort ();
+  gcc_unreachable ();
 }

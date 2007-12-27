@@ -94,6 +94,7 @@ struct machine_function GTY(())
   int accesses_prev_frame;
   bool need_a7_copy;
   bool vararg_a7;
+  rtx vararg_a7_copy;
   rtx set_frame_ptr_insn;
 };
 
@@ -130,7 +131,7 @@ static rtx gen_float_relational (enum rtx_code, rtx, rtx);
 static rtx gen_conditional_move (rtx);
 static rtx fixup_subreg_mem (rtx);
 static struct machine_function * xtensa_init_machine_status (void);
-static bool xtensa_return_in_msb (tree);
+static bool xtensa_return_in_msb (const_tree);
 static void printx (FILE *, signed int);
 static void xtensa_function_epilogue (FILE *, HOST_WIDE_INT);
 static rtx xtensa_builtin_saveregs (void);
@@ -140,7 +141,7 @@ static section *xtensa_select_rtx_section (enum machine_mode, rtx,
 					   unsigned HOST_WIDE_INT);
 static bool xtensa_rtx_costs (rtx, int, int, int *);
 static tree xtensa_build_builtin_va_list (void);
-static bool xtensa_return_in_memory (tree, tree);
+static bool xtensa_return_in_memory (const_tree, const_tree);
 static tree xtensa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 static void xtensa_init_builtins (void);
 static tree xtensa_fold_builtin (tree, tree, bool);
@@ -179,16 +180,16 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 #define TARGET_BUILD_BUILTIN_VA_LIST xtensa_build_builtin_va_list
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY xtensa_return_in_memory
 #undef TARGET_SPLIT_COMPLEX_ARG
-#define TARGET_SPLIT_COMPLEX_ARG hook_bool_tree_true
+#define TARGET_SPLIT_COMPLEX_ARG hook_bool_const_tree_true
 #undef TARGET_MUST_PASS_IN_STACK
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 
@@ -1004,7 +1005,7 @@ xtensa_copy_incoming_a7 (rtx opnd)
   /* Copy a7 to a new pseudo at the function entry.  Use gen_raw_REG to
      create the REG for a7 so that hard_frame_pointer_rtx is not used.  */
 
-  push_to_sequence (entry_insns);
+  start_sequence ();
   tmp = gen_reg_rtx (mode);
 
   switch (mode)
@@ -1038,10 +1039,11 @@ xtensa_copy_incoming_a7 (rtx opnd)
 
   if (cfun->machine->vararg_a7)
     {
-      /* This is called from within builtin_savereg, so we're already
-	 inside a start_sequence that will be placed at the start of
-	 the function.  */
-      emit_insn (entry_insns);
+      /* This is called from within builtin_saveregs, which will insert the
+	 saveregs code at the function entry, ahead of anything placed at
+	 the function entry now.  Instead, save the sequence to be inserted
+	 at the beginning of the saveregs code.  */
+      cfun->machine->vararg_a7_copy = entry_insns;
     }
   else
     {
@@ -1050,6 +1052,8 @@ xtensa_copy_incoming_a7 (rtx opnd)
 	 chain current, so the code is placed at the start of the
 	 function.  */
       push_topmost_sequence ();
+      /* Do not use entry_of_function() here.  This is called from within
+	 expand_function_start, when the CFG still holds GIMPLE.  */
       emit_insn_after (entry_insns, get_insns ());
       pop_topmost_sequence ();
     }
@@ -1179,9 +1183,6 @@ xtensa_expand_nonlocal_goto (rtx *operands)
 
   if (GET_CODE (containing_fp) != REG)
     containing_fp = force_reg (Pmode, containing_fp);
-
-  goto_handler = copy_rtx (goto_handler);
-  validate_replace_rtx (virtual_stack_vars_rtx, containing_fp, goto_handler);
 
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__xtensa_nonlocal_goto"),
 		     0, VOIDmode, 2,
@@ -1842,7 +1843,7 @@ function_arg_boundary (enum machine_mode mode, tree type)
 
 
 static bool
-xtensa_return_in_msb (tree valtype)
+xtensa_return_in_msb (const_tree valtype)
 {
   return (TARGET_BIG_ENDIAN
 	  && AGGREGATE_TYPE_P (valtype)
@@ -2301,27 +2302,28 @@ xtensa_expand_prologue (void)
 {
   HOST_WIDE_INT total_size;
   rtx size_rtx;
+  rtx insn, note_rtx;
 
   total_size = compute_frame_size (get_frame_size ());
   size_rtx = GEN_INT (total_size);
 
   if (total_size < (1 << (12+3)))
-    emit_insn (gen_entry (size_rtx, size_rtx));
+    insn = emit_insn (gen_entry (size_rtx));
   else
     {
       /* Use a8 as a temporary since a0-a7 may be live.  */
       rtx tmp_reg = gen_rtx_REG (Pmode, A8_REG);
-      emit_insn (gen_entry (size_rtx, GEN_INT (MIN_FRAME_SIZE)));
+      emit_insn (gen_entry (GEN_INT (MIN_FRAME_SIZE)));
       emit_move_insn (tmp_reg, GEN_INT (total_size - MIN_FRAME_SIZE));
       emit_insn (gen_subsi3 (tmp_reg, stack_pointer_rtx, tmp_reg));
-      emit_move_insn (stack_pointer_rtx, tmp_reg);
+      insn = emit_insn (gen_movsi (stack_pointer_rtx, tmp_reg));
     }
 
   if (frame_pointer_needed)
     {
       if (cfun->machine->set_frame_ptr_insn)
 	{
-	  rtx first, insn;
+	  rtx first;
 
 	  push_topmost_sequence ();
 	  first = get_insns ();
@@ -2343,8 +2345,20 @@ xtensa_expand_prologue (void)
 	    }
 	}
       else
-	emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
+	insn = emit_insn (gen_movsi (hard_frame_pointer_rtx,
+				     stack_pointer_rtx));
     }
+
+  /* Create a note to describe the CFA.  Because this is only used to set
+     DW_AT_frame_base for debug info, don't bother tracking changes through
+     each instruction in the prologue.  It just takes up space.  */
+  note_rtx = gen_rtx_SET (VOIDmode, (frame_pointer_needed
+				     ? hard_frame_pointer_rtx
+				     : stack_pointer_rtx),
+			  plus_constant (stack_pointer_rtx, -total_size));
+  RTX_FRAME_RELATED_P (insn) = 1;
+  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+					note_rtx, REG_NOTES (insn));
 }
 
 
@@ -2454,6 +2468,8 @@ xtensa_builtin_saveregs (void)
 		       adjust_address (gp_regs, BLKmode,
 				       arg_words * UNITS_PER_WORD),
 		       gp_left);
+  gcc_assert (cfun->machine->vararg_a7_copy != 0);
+  emit_insn_before (cfun->machine->vararg_a7_copy, get_insns ());
 
   return XEXP (gp_regs, 0);
 }
@@ -3100,7 +3116,7 @@ xtensa_rtx_costs (rtx x, int code, int outer_code, int *total)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-xtensa_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+xtensa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   return ((unsigned HOST_WIDE_INT) int_size_in_bytes (type)
 	  > 4 * UNITS_PER_WORD);

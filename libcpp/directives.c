@@ -698,7 +698,11 @@ parse_include (cpp_reader *pfile, int *pangle_brackets,
       return NULL;
     }
 
-  if (buf == NULL || CPP_OPTION (pfile, discard_comments))
+  if (pfile->directive == &dtable[T_PRAGMA])
+    {
+      /* This pragma allows extra tokens after the file name.  */
+    }
+  else if (buf == NULL || CPP_OPTION (pfile, discard_comments))
     check_eol (pfile);
   else
     {
@@ -1463,15 +1467,24 @@ static const cpp_token *
 get__Pragma_string (cpp_reader *pfile)
 {
   const cpp_token *string;
+  const cpp_token *paren;
 
-  if (get_token_no_padding (pfile)->type != CPP_OPEN_PAREN)
+  paren = get_token_no_padding (pfile);
+  if (paren->type == CPP_EOF)
+    _cpp_backup_tokens (pfile, 1);
+  if (paren->type != CPP_OPEN_PAREN)
     return NULL;
 
   string = get_token_no_padding (pfile);
+  if (string->type == CPP_EOF)
+    _cpp_backup_tokens (pfile, 1);
   if (string->type != CPP_STRING && string->type != CPP_WSTRING)
     return NULL;
 
-  if (get_token_no_padding (pfile)->type != CPP_CLOSE_PAREN)
+  paren = get_token_no_padding (pfile);
+  if (paren->type == CPP_EOF)
+    _cpp_backup_tokens (pfile, 1);
+  if (paren->type != CPP_CLOSE_PAREN)
     return NULL;
 
   return string;
@@ -1591,18 +1604,21 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in)
   _cpp_push_token_context (pfile, NULL, toks, count);
 }
 
-/* Handle the _Pragma operator.  */
-void
+/* Handle the _Pragma operator.  Return 0 on error, 1 if ok.  */
+int
 _cpp_do__Pragma (cpp_reader *pfile)
 {
   const cpp_token *string = get__Pragma_string (pfile);
   pfile->directive_result.type = CPP_PADDING;
 
   if (string)
-    destringize_and_run (pfile, &string->val.str);
-  else
-    cpp_error (pfile, CPP_DL_ERROR,
-	       "_Pragma takes a parenthesized string literal");
+    {
+      destringize_and_run (pfile, &string->val.str);
+      return 1;
+    }
+  cpp_error (pfile, CPP_DL_ERROR,
+	     "_Pragma takes a parenthesized string literal");
+  return 0;
 }
 
 /* Handle #ifdef.  */

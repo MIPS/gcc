@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -146,7 +145,8 @@ package body Prj.Util is
    begin
       if Builder_Package /= No_Package then
          if Get_Mode = Multi_Language then
-            Executable_Suffix_Name := In_Tree.Config.Executable_Suffix;
+            Executable_Suffix_Name :=
+              In_Tree.Projects.Table (Project).Config.Executable_Suffix;
 
          else
             Executable_Suffix := Prj.Util.Value_Of
@@ -284,7 +284,8 @@ package body Prj.Util is
             Result     : File_Name_Type;
 
          begin
-            Executable_Extension_On_Target := In_Tree.Config.Executable_Suffix;
+            Executable_Extension_On_Target :=
+              In_Tree.Projects.Table (Project).Config.Executable_Suffix;
             Result := Executable_Name (Name_Find);
             Executable_Extension_On_Target := Saved_EEOT;
             return Result;
@@ -523,9 +524,10 @@ package body Prj.Util is
       In_Tree                : Project_Tree_Ref;
       Force_Lower_Case_Index : Boolean := False) return Variable_Value
    is
-      Current    : Array_Element_Id;
-      Element    : Array_Element;
-      Real_Index : Name_Id;
+      Current      : Array_Element_Id;
+      Element      : Array_Element;
+      Real_Index_1 : Name_Id;
+      Real_Index_2 : Name_Id;
 
    begin
       Current := In_Array;
@@ -536,18 +538,25 @@ package body Prj.Util is
 
       Element := In_Tree.Array_Elements.Table (Current);
 
-      Real_Index := Index;
+      Real_Index_1 := Index;
 
       if not Element.Index_Case_Sensitive or Force_Lower_Case_Index then
          Get_Name_String (Index);
          To_Lower (Name_Buffer (1 .. Name_Len));
-         Real_Index := Name_Find;
+         Real_Index_1 := Name_Find;
       end if;
 
       while Current /= No_Array_Element loop
          Element := In_Tree.Array_Elements.Table (Current);
+         Real_Index_2 := Element.Index;
 
-         if Real_Index = Element.Index and then
+         if not Element.Index_Case_Sensitive or Force_Lower_Case_Index then
+            Get_Name_String (Element.Index);
+            To_Lower (Name_Buffer (1 .. Name_Len));
+            Real_Index_2 := Name_Find;
+         end if;
+
+         if Real_Index_1 = Real_Index_2 and then
            Src_Index = Element.Src_Index
          then
             return Element.Value;

@@ -106,7 +106,6 @@ package body Einfo is
 
    --    Corresponding_Equality          Node13
    --    Component_Clause                Node13
-   --    Debug_Renaming_Link             Node13
    --    Elaboration_Entity              Node13
    --    Extra_Accessibility             Node13
    --    RM_Size                         Uint13
@@ -175,7 +174,6 @@ package body Einfo is
    --    Directly_Designated_Type        Node20
    --    Discriminant_Checking_Func      Node20
    --    Discriminant_Default_Value      Node20
-   --    Last_Assignment                 Node20
    --    Last_Entity                     Node20
    --    Register_Exception_Call         Node20
    --    Scalar_Range                    Node20
@@ -214,9 +212,12 @@ package body Einfo is
    --    Abstract_Interface_Alias        Node25
    --    Abstract_Interfaces             Elist25
    --    Current_Use_Clause              Node25
+   --    Debug_Renaming_Link             Node25
    --    DT_Offset_To_Top_Func           Node25
    --    Task_Body_Procedure             Node25
 
+   --    Dispatch_Table_Wrapper          Node26
+   --    Last_Assignment                 Node26
    --    Overridden_Operation            Node26
    --    Package_Instantiation           Node26
    --    Related_Interface               Node26
@@ -480,9 +481,10 @@ package body Einfo is
 
    --    Has_Pragma_Preelab_Init         Flag221
    --    Used_As_Generic_Actual          Flag222
-   --    (unused)                        Flag223
-   --    (unused)                        Flag224
-   --    (unused)                        Flag225
+   --    Is_Descendent_Of_Address        Flag223
+   --    Is_Raised                       Flag224
+   --    Is_Thunk                        Flag225
+   --
    --    (unused)                        Flag226
    --    (unused)                        Flag227
    --    (unused)                        Flag228
@@ -552,7 +554,7 @@ package body Einfo is
          (Ekind (Id) = E_Constant
            or else Ekind (Id) = E_Variable
            or else Ekind (Id) = E_Generic_In_Out_Parameter
-           or else Ekind (Id) in  E_In_Parameter .. E_In_Out_Parameter);
+           or else Is_Formal (Id));
       return Node17 (Id);
    end Actual_Subtype;
 
@@ -741,7 +743,7 @@ package body Einfo is
 
    function Debug_Renaming_Link (Id : E) return E is
    begin
-      return Node13 (Id);
+      return Node25 (Id);
    end Debug_Renaming_Link;
 
    function Default_Expr_Function (Id : E) return E is
@@ -841,6 +843,12 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Discriminant);
       return Uint15 (Id);
    end Discriminant_Number;
+
+   function Dispatch_Table_Wrapper (Id : E) return E is
+   begin
+      pragma Assert (Is_Tagged_Type (Id));
+      return Node26 (Implementation_Base_Type (Id));
+   end Dispatch_Table_Wrapper;
 
    function DT_Entry_Count (Id : E) return U is
    begin
@@ -1634,6 +1642,12 @@ package body Einfo is
       return Flag176 (Id);
    end Is_Discrim_SO_Function;
 
+   function Is_Descendent_Of_Address (Id : E) return B is
+   begin
+      pragma Assert (Is_Type (Id));
+      return Flag223 (Id);
+   end Is_Descendent_Of_Address;
+
    function Is_Dispatching_Operation (Id : E) return B is
    begin
       pragma Assert (Nkind (Id) in N_Entity);
@@ -1894,6 +1908,12 @@ package body Einfo is
       return Flag189 (Id);
    end Is_Pure_Unit_Access_Type;
 
+   function Is_Raised (Id : E) return B is
+   begin
+      pragma Assert (Ekind (Id) = E_Exception);
+      return Flag224 (Id);
+   end Is_Raised;
+
    function Is_Remote_Call_Interface (Id : E) return B is
    begin
       return Flag62 (Id);
@@ -1946,6 +1966,12 @@ package body Einfo is
       pragma Assert (Is_Interface (Id));
       return Flag200 (Id);
    end Is_Task_Interface;
+
+   function Is_Thunk (Id : E) return B is
+   begin
+      pragma Assert (Is_Subprogram (Id));
+      return Flag225 (Id);
+   end Is_Thunk;
 
    function Is_True_Constant (Id : E) return B is
    begin
@@ -2025,8 +2051,8 @@ package body Einfo is
 
    function Last_Assignment (Id : E) return N is
    begin
-      pragma Assert (Ekind (Id) = E_Variable);
-      return Node20 (Id);
+      pragma Assert (Is_Assignable (Id));
+      return Node26 (Id);
    end Last_Assignment;
 
    function Last_Entity (Id : E) return E is
@@ -2582,6 +2608,11 @@ package body Einfo is
       return Ekind (Id) in Array_Kind;
    end Is_Array_Type;
 
+   function Is_Assignable                       (Id : E) return B is
+   begin
+      return Ekind (Id) in Assignable_Kind;
+   end Is_Assignable;
+
    function Is_Class_Wide_Type                  (Id : E) return B is
    begin
       return Ekind (Id) in Class_Wide_Kind;
@@ -2829,7 +2860,7 @@ package body Einfo is
          (Ekind (Id) = E_Constant
            or else Ekind (Id) = E_Variable
            or else Ekind (Id) = E_Generic_In_Out_Parameter
-           or else Ekind (Id) in  E_In_Parameter .. E_In_Out_Parameter);
+           or else Is_Formal (Id));
       Set_Node17 (Id, V);
    end Set_Actual_Subtype;
 
@@ -2997,7 +3028,7 @@ package body Einfo is
 
    procedure Set_Debug_Renaming_Link (Id : E; V : E) is
    begin
-      Set_Node13 (Id, V);
+      Set_Node25 (Id, V);
    end Set_Debug_Renaming_Link;
 
    procedure Set_Default_Expr_Function (Id : E; V : E) is
@@ -3103,6 +3134,12 @@ package body Einfo is
    begin
       Set_Uint15 (Id, V);
    end Set_Discriminant_Number;
+
+   procedure Set_Dispatch_Table_Wrapper (Id : E; V : E) is
+   begin
+      pragma Assert (Is_Tagged_Type (Id) and then Id = Base_Type (Id));
+      Set_Node26 (Id, V);
+   end Set_Dispatch_Table_Wrapper;
 
    procedure Set_DT_Entry_Count (Id : E; V : U) is
    begin
@@ -3913,6 +3950,12 @@ package body Einfo is
       Set_Flag74 (Id, V);
    end Set_Is_CPP_Class;
 
+   procedure Set_Is_Descendent_Of_Address (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Type (Id));
+      Set_Flag223 (Id, V);
+   end Set_Is_Descendent_Of_Address;
+
    procedure Set_Is_Discrim_SO_Function (Id : E; V : B := True) is
    begin
       Set_Flag176 (Id, V);
@@ -4195,6 +4238,12 @@ package body Einfo is
       Set_Flag189 (Id, V);
    end Set_Is_Pure_Unit_Access_Type;
 
+   procedure Set_Is_Raised (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Exception);
+      Set_Flag224 (Id, V);
+   end Set_Is_Raised;
+
    procedure Set_Is_Remote_Call_Interface (Id : E; V : B := True) is
    begin
       Set_Flag62 (Id, V);
@@ -4253,6 +4302,11 @@ package body Einfo is
       pragma Assert (Is_Interface (Id));
       Set_Flag200 (Id, V);
    end Set_Is_Task_Interface;
+
+   procedure Set_Is_Thunk (Id : E; V : B := True) is
+   begin
+      Set_Flag225 (Id, V);
+   end Set_Is_Thunk;
 
    procedure Set_Is_True_Constant (Id : E; V : B := True) is
    begin
@@ -4329,8 +4383,8 @@ package body Einfo is
 
    procedure Set_Last_Assignment (Id : E; V : N) is
    begin
-      pragma Assert (Ekind (Id) = E_Variable);
-      Set_Node20 (Id, V);
+      pragma Assert (Is_Assignable (Id));
+      Set_Node26 (Id, V);
    end Set_Last_Assignment;
 
    procedure Set_Last_Entity (Id : E; V : E) is
@@ -5440,11 +5494,29 @@ package body Einfo is
 
       --  Normal case, search enclosing scopes
 
+      --  Note: the test for Present (S) should not be required, it is a
+      --  defence against an ill-formed tree.
+
       S := Scope (Id);
-      while S /= Standard_Standard
-        and then not Is_Dynamic_Scope (S)
       loop
-         S := Scope (S);
+         --  If we somehow got an empty value for Scope, the tree must be
+         --  malformed. Rather than blow up we return Standard in this case.
+
+         if No (S) then
+            return Standard_Standard;
+
+         --  Quit if we get to standard or a dynamic scope
+
+         elsif S = Standard_Standard
+           or else Is_Dynamic_Scope (S)
+         then
+            return S;
+
+         --  Otherwise keep climbing
+
+         else
+            S := Scope (S);
+         end if;
       end loop;
 
       return S;
@@ -7168,6 +7240,7 @@ package body Einfo is
       W ("Is_Constructor",                  Flag76  (Id));
       W ("Is_Controlled",                   Flag42  (Id));
       W ("Is_Controlling_Formal",           Flag97  (Id));
+      W ("Is_Descendent_Of_Address",        Flag223 (Id));
       W ("Is_Discrim_SO_Function",          Flag176 (Id));
       W ("Is_Dispatching_Operation",        Flag6   (Id));
       W ("Is_Eliminated",                   Flag124 (Id));
@@ -7215,6 +7288,7 @@ package body Einfo is
       W ("Is_Public",                       Flag10  (Id));
       W ("Is_Pure",                         Flag44  (Id));
       W ("Is_Pure_Unit_Access_Type",        Flag189 (Id));
+      W ("Is_Raised",                       Flag224 (Id));
       W ("Is_Remote_Call_Interface",        Flag62  (Id));
       W ("Is_Remote_Types",                 Flag61  (Id));
       W ("Is_Renaming_Of_Object",           Flag112 (Id));
@@ -7225,6 +7299,7 @@ package body Einfo is
       W ("Is_Tag",                          Flag78  (Id));
       W ("Is_Tagged_Type",                  Flag55  (Id));
       W ("Is_Task_Interface",               Flag200 (Id));
+      W ("Is_Thunk",                        Flag225 (Id));
       W ("Is_True_Constant",                Flag163 (Id));
       W ("Is_Unchecked_Union",              Flag117 (Id));
       W ("Is_Unsigned_Type",                Flag144 (Id));
@@ -7603,9 +7678,6 @@ package body Einfo is
          when E_Component                                  |
               E_Discriminant                               =>
             Write_Str ("Component_Clause");
-
-         when E_Enumeration_Literal                        =>
-            Write_Str ("Debug_Renaming_Link");
 
          when E_Function                                   =>
             if not Comes_From_Source (Id)
@@ -7989,9 +8061,6 @@ package body Einfo is
          when E_Exception                                  =>
             Write_Str ("Register_Exception_Call");
 
-         when E_Variable                                   =>
-            Write_Str ("Last_Assignment");
-
          when others                                       =>
             Write_Str ("Field20??");
       end case;
@@ -8149,7 +8218,7 @@ package body Einfo is
             if Is_Generic_Instance (Id) then
                Write_Str ("Generic_Renamings");
             else
-               Write_Str ("Limited Views");
+               Write_Str ("Limited_View");
             end if;
 
          --  What about Privals_Chain for protected operations ???
@@ -8198,6 +8267,9 @@ package body Einfo is
          when Task_Kind                                    =>
             Write_Str ("Task_Body_Procedure");
 
+         when E_Variable                                   =>
+            Write_Str ("Debug_Renaming_Link");
+
          when others                                       =>
             Write_Str ("Field25??");
       end case;
@@ -8226,6 +8298,15 @@ package body Einfo is
             else
                Write_Str ("Static_Initialization");
             end if;
+
+         when E_Record_Type                                |
+              E_Record_Type_With_Private                   =>
+            Write_Str ("Dispatch_Table_Wrapper");
+
+         when E_In_Out_Parameter                               |
+              E_Out_Parameter                           |
+              E_Variable                                   =>
+            Write_Str ("Last_Assignment");
 
          when others                                       =>
             Write_Str ("Field26??");

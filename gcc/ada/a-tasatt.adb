@@ -196,7 +196,7 @@
 
 --    type Node;
 --    type Node_Access is access all Node;
---    type Node_Access;
+--    type Wrapper;
 --    type Access_Wrapper is access all Wrapper;
 --    type Node is record
 --       Next    : Node_Access;
@@ -264,8 +264,6 @@ package body Ada.Task_Attributes is
        System.Tasking,
        System.Tasking.Task_Attributes,
        Ada.Exceptions;
-
-   use type System.Tasking.Access_Address;
 
    package POP renames System.Task_Primitives.Operations;
 

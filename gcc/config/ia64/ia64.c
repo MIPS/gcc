@@ -171,7 +171,7 @@ static void ia64_dependencies_evaluation_hook (rtx, rtx);
 static void ia64_init_dfa_pre_cycle_insn (void);
 static rtx ia64_dfa_pre_cycle_insn (void);
 static int ia64_first_cycle_multipass_dfa_lookahead_guard (rtx);
-static bool ia64_first_cycle_multipass_dfa_lookahead_guard_spec (rtx);
+static bool ia64_first_cycle_multipass_dfa_lookahead_guard_spec (const_rtx);
 static int ia64_dfa_new_cycle (FILE *, int, rtx, int, int, int *);
 static void ia64_h_i_d_extended (void);
 static void * ia64_alloc_sched_context (void);
@@ -204,14 +204,15 @@ static rtx gen_movdi_x (rtx, rtx, rtx);
 static rtx gen_fr_spill_x (rtx, rtx, rtx);
 static rtx gen_fr_restore_x (rtx, rtx, rtx);
 
-static enum machine_mode hfa_element_mode (tree, bool);
+static enum machine_mode hfa_element_mode (const_tree, bool);
 static void ia64_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static int ia64_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				   tree, bool);
 static bool ia64_function_ok_for_sibcall (tree, tree);
-static bool ia64_return_in_memory (tree, tree);
+static bool ia64_return_in_memory (const_tree, const_tree);
 static bool ia64_rtx_costs (rtx, int, int, int *);
+static int ia64_unspec_may_trap_p (const_rtx, unsigned);
 static void fix_range (const char *);
 static bool ia64_handle_option (size_t, const char *, int);
 static struct machine_function * ia64_init_machine_status (void);
@@ -220,7 +221,7 @@ static void emit_all_insn_group_barriers (FILE *);
 static void final_emit_insn_group_barriers (FILE *);
 static void emit_predicate_relation_info (void);
 static void ia64_reorg (void);
-static bool ia64_in_small_data_p (tree);
+static bool ia64_in_small_data_p (const_tree);
 static void process_epilogue (FILE *, rtx, bool, bool);
 static int process_set (FILE *, rtx, rtx, bool, bool);
 
@@ -288,10 +289,10 @@ static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 static bool ia64_vector_mode_supported_p (enum machine_mode mode);
 static bool ia64_cannot_force_const_mem (rtx);
-static const char *ia64_mangle_type (tree);
-static const char *ia64_invalid_conversion (tree, tree);
-static const char *ia64_invalid_unary_op (int, tree);
-static const char *ia64_invalid_binary_op (int, tree, tree);
+static const char *ia64_mangle_type (const_tree);
+static const char *ia64_invalid_conversion (const_tree, const_tree);
+static const char *ia64_invalid_unary_op (int, const_tree);
+static const char *ia64_invalid_binary_op (int, const_tree, const_tree);
 static enum machine_mode ia64_c_mode_for_suffix (char);
 
 /* Table of valid machine attributes.  */
@@ -430,7 +431,7 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK ia64_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START ia64_file_start
@@ -442,6 +443,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_RTX_COSTS ia64_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST hook_int_rtx_0
+
+#undef TARGET_UNSPEC_MAY_TRAP_P
+#define TARGET_UNSPEC_MAY_TRAP_P ia64_unspec_may_trap_p
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG ia64_reorg
@@ -2241,7 +2245,8 @@ find_gr_spill (enum ia64_frame_regs r, int try_locals)
   if (emitted_frame_related_regs[r] != 0)
     {
       regno = emitted_frame_related_regs[r];
-      if (regno >= LOC_REG (0) && regno < LOC_REG (80 - frame_pointer_needed))
+      if (regno >= LOC_REG (0) && regno < LOC_REG (80 - frame_pointer_needed)
+	  && current_frame_info.n_local_regs < regno - LOC_REG (0) + 1)
         current_frame_info.n_local_regs = regno - LOC_REG (0) + 1;
       else if (current_function_is_leaf 
                && regno >= GR_REG (1) && regno <= GR_REG (31))
@@ -2273,11 +2278,12 @@ find_gr_spill (enum ia64_frame_regs r, int try_locals)
       /* If there is a frame pointer, then we can't use loc79, because
 	 that is HARD_FRAME_POINTER_REGNUM.  In particular, see the
 	 reg_name switching code in ia64_expand_prologue.  */
-      if (regno < (80 - frame_pointer_needed))
-	{
-	  current_frame_info.n_local_regs = regno + 1;
-	  return LOC_REG (0) + regno;
-	}
+      while (regno < (80 - frame_pointer_needed))
+	if (! is_emitted (LOC_REG (regno++)))
+	  {
+	    current_frame_info.n_local_regs = regno;
+	    return LOC_REG (regno - 1);
+	  }
     }
 
   /* Failed to find a general register to spill to.  Must use stack.  */
@@ -2349,6 +2355,8 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   int spilled_gr_p = 0;
   int spilled_fr_p = 0;
   unsigned int regno;
+  int min_regno;
+  int max_regno;
   int i;
 
   if (current_frame_info.initialized)
@@ -2524,16 +2532,27 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
      
      If we have already emitted code for any of those registers,
      then it's already too late to change.  */
-  if (current_frame_info.r[reg_fp] != 0
-      && current_frame_info.r[reg_save_b0] == current_frame_info.r[reg_fp] + 1
-      && current_frame_info.r[reg_save_ar_pfs] == current_frame_info.r[reg_fp] + 2
-      && emitted_frame_related_regs[reg_save_b0] == 0
-      && emitted_frame_related_regs[reg_save_ar_pfs] == 0
-      && emitted_frame_related_regs[reg_fp] == 0)
+  min_regno = MIN (current_frame_info.r[reg_fp],
+		   MIN (current_frame_info.r[reg_save_b0],
+			current_frame_info.r[reg_save_ar_pfs]));
+  max_regno = MAX (current_frame_info.r[reg_fp],
+		   MAX (current_frame_info.r[reg_save_b0],
+			current_frame_info.r[reg_save_ar_pfs]));
+  if (min_regno > 0
+      && min_regno + 2 == max_regno
+      && (current_frame_info.r[reg_fp] == min_regno + 1
+	  || current_frame_info.r[reg_save_b0] == min_regno + 1
+	  || current_frame_info.r[reg_save_ar_pfs] == min_regno + 1)
+      && (emitted_frame_related_regs[reg_save_b0] == 0
+	  || emitted_frame_related_regs[reg_save_b0] == min_regno)
+      && (emitted_frame_related_regs[reg_save_ar_pfs] == 0
+	  || emitted_frame_related_regs[reg_save_ar_pfs] == min_regno + 1)
+      && (emitted_frame_related_regs[reg_fp] == 0
+	  || emitted_frame_related_regs[reg_fp] == min_regno + 2))
     {
-      current_frame_info.r[reg_save_b0] = current_frame_info.r[reg_fp];
-      current_frame_info.r[reg_save_ar_pfs] = current_frame_info.r[reg_fp] + 1;
-      current_frame_info.r[reg_fp] = current_frame_info.r[reg_fp] + 2;
+      current_frame_info.r[reg_save_b0] = min_regno;
+      current_frame_info.r[reg_save_ar_pfs] = min_regno + 1;
+      current_frame_info.r[reg_fp] = min_regno + 2;
     }
 
   /* See if we need to store the predicate register block.  */
@@ -3471,7 +3490,9 @@ ia64_expand_epilogue (int sibcall_p)
 
   finish_spill_pointers ();
 
-  if (current_frame_info.total_size || cfun->machine->ia64_eh_epilogue_sp)
+  if (current_frame_info.total_size
+      || cfun->machine->ia64_eh_epilogue_sp
+      || frame_pointer_needed)
     {
       /* ??? At this point we must generate a magic insn that appears to
          modify the spill iterators, the stack pointer, and the frame
@@ -3904,7 +3925,7 @@ ia64_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    aggregates are excluded because our parallels crash the middle-end.  */
 
 static enum machine_mode
-hfa_element_mode (tree type, bool nested)
+hfa_element_mode (const_tree type, bool nested)
 {
   enum machine_mode element_mode = VOIDmode;
   enum machine_mode mode;
@@ -4380,7 +4401,7 @@ ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
    in a register.  */
 
 static bool
-ia64_return_in_memory (tree valtype, tree fntype ATTRIBUTE_UNUSED)
+ia64_return_in_memory (const_tree valtype, const_tree fntype ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   enum machine_mode hfa_mode;
@@ -4416,7 +4437,7 @@ ia64_return_in_memory (tree valtype, tree fntype ATTRIBUTE_UNUSED)
 /* Return rtx for register that holds the function return value.  */
 
 rtx
-ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+ia64_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   enum machine_mode hfa_mode;
@@ -5090,6 +5111,29 @@ ia64_secondary_reload_class (enum reg_class class,
 }
 
 
+/* Implement targetm.unspec_may_trap_p hook.  */
+static int
+ia64_unspec_may_trap_p (const_rtx x, unsigned flags)
+{
+  if (GET_CODE (x) == UNSPEC)
+    {
+      switch (XINT (x, 1))
+	{
+	case UNSPEC_LDA:
+	case UNSPEC_LDS:
+	case UNSPEC_LDSA:
+	case UNSPEC_LDCCLR:
+	case UNSPEC_CHKACLR:
+	case UNSPEC_CHKS:
+	  /* These unspecs are just wrappers.  */
+	  return may_trap_p_1 (XVECEXP (x, 0, 0), flags);
+	}
+    }
+
+  return default_unspec_may_trap_p (x, flags);
+}
+
+
 /* Parse the -mfixed-range= option string.  */
 
 static void
@@ -5306,20 +5350,62 @@ ia64_safe_type (rtx insn)
    If a predicate register is written by an AND.ORCM we set WRITTEN_BY_AND
    to true; if it was written by an OR.ANDCM we set WRITTEN_BY_OR to true.  */
 
+#if GCC_VERSION >= 4000
+#define RWS_FIELD_TYPE __extension__ unsigned short
+#else
+#define RWS_FIELD_TYPE unsigned int
+#endif
 struct reg_write_state
 {
-  unsigned int write_count : 2;
-  unsigned int first_pred : 16;
-  unsigned int written_by_fp : 1;
-  unsigned int written_by_and : 1;
-  unsigned int written_by_or : 1;
+  RWS_FIELD_TYPE write_count : 2;
+  RWS_FIELD_TYPE first_pred : 10;
+  RWS_FIELD_TYPE written_by_fp : 1;
+  RWS_FIELD_TYPE written_by_and : 1;
+  RWS_FIELD_TYPE written_by_or : 1;
 };
 
 /* Cumulative info for the current instruction group.  */
 struct reg_write_state rws_sum[NUM_REGS];
-/* Info for the current instruction.  This gets copied to rws_sum after a
-   stop bit is emitted.  */
-struct reg_write_state rws_insn[NUM_REGS];
+#ifdef ENABLE_CHECKING
+/* Bitmap whether a register has been written in the current insn.  */
+HARD_REG_ELT_TYPE rws_insn[(NUM_REGS + HOST_BITS_PER_WIDEST_FAST_INT - 1)
+			   / HOST_BITS_PER_WIDEST_FAST_INT];
+
+static inline void
+rws_insn_set (int regno)
+{
+  gcc_assert (!TEST_HARD_REG_BIT (rws_insn, regno));
+  SET_HARD_REG_BIT (rws_insn, regno);
+}
+
+static inline int
+rws_insn_test (int regno)
+{
+  return TEST_HARD_REG_BIT (rws_insn, regno);
+}
+#else
+/* When not checking, track just REG_AR_CFM and REG_VOLATILE.  */
+unsigned char rws_insn[2];
+
+static inline void
+rws_insn_set (int regno)
+{
+  if (regno == REG_AR_CFM)
+    rws_insn[0] = 1;
+  else if (regno == REG_VOLATILE)
+    rws_insn[1] = 1;
+}
+
+static inline int
+rws_insn_test (int regno)
+{
+  if (regno == REG_AR_CFM)
+    return rws_insn[0];
+  if (regno == REG_VOLATILE)
+    return rws_insn[1];
+  return 0;
+}
+#endif
 
 /* Indicates whether this is the first instruction after a stop bit,
    in which case we don't need another stop bit.  Without this,
@@ -5338,7 +5424,7 @@ struct reg_flags
   unsigned int is_sibcall : 1;	/* Is this a sibling or normal call?  */
 };
 
-static void rws_update (struct reg_write_state *, int, struct reg_flags, int);
+static void rws_update (int, struct reg_flags, int);
 static int rws_access_regno (int, struct reg_flags, int);
 static int rws_access_reg (rtx, struct reg_flags, int);
 static void update_set_flags (rtx, struct reg_flags *);
@@ -5347,26 +5433,27 @@ static int rtx_needs_barrier (rtx, struct reg_flags, int);
 static void init_insn_group_barriers (void);
 static int group_barrier_needed (rtx);
 static int safe_group_barrier_needed (rtx);
+static int in_safe_group_barrier;
 
 /* Update *RWS for REGNO, which is being written by the current instruction,
    with predicate PRED, and associated register flags in FLAGS.  */
 
 static void
-rws_update (struct reg_write_state *rws, int regno, struct reg_flags flags, int pred)
+rws_update (int regno, struct reg_flags flags, int pred)
 {
   if (pred)
-    rws[regno].write_count++;
+    rws_sum[regno].write_count++;
   else
-    rws[regno].write_count = 2;
-  rws[regno].written_by_fp |= flags.is_fp;
+    rws_sum[regno].write_count = 2;
+  rws_sum[regno].written_by_fp |= flags.is_fp;
   /* ??? Not tracking and/or across differing predicates.  */
-  rws[regno].written_by_and = flags.is_and;
-  rws[regno].written_by_or = flags.is_or;
-  rws[regno].first_pred = pred;
+  rws_sum[regno].written_by_and = flags.is_and;
+  rws_sum[regno].written_by_or = flags.is_or;
+  rws_sum[regno].first_pred = pred;
 }
 
 /* Handle an access to register REGNO of type FLAGS using predicate register
-   PRED.  Update rws_insn and rws_sum arrays.  Return 1 if this access creates
+   PRED.  Update rws_sum array.  Return 1 if this access creates
    a dependency with an earlier instruction in the same group.  */
 
 static int
@@ -5383,18 +5470,15 @@ rws_access_regno (int regno, struct reg_flags flags, int pred)
     {
       int write_count;
 
-      /* One insn writes same reg multiple times?  */
-      gcc_assert (!rws_insn[regno].write_count);
-
-      /* Update info for current instruction.  */
-      rws_update (rws_insn, regno, flags, pred);
+      rws_insn_set (regno);
       write_count = rws_sum[regno].write_count;
 
       switch (write_count)
 	{
 	case 0:
 	  /* The register has not been written yet.  */
-	  rws_update (rws_sum, regno, flags, pred);
+	  if (!in_safe_group_barrier)
+	    rws_update (regno, flags, pred);
 	  break;
 
 	case 1:
@@ -5408,7 +5492,8 @@ rws_access_regno (int regno, struct reg_flags flags, int pred)
 	    ;
 	  else if ((rws_sum[regno].first_pred ^ 1) != pred)
 	    need_barrier = 1;
-	  rws_update (rws_sum, regno, flags, pred);
+	  if (!in_safe_group_barrier)
+	    rws_update (regno, flags, pred);
 	  break;
 
 	case 2:
@@ -5420,8 +5505,11 @@ rws_access_regno (int regno, struct reg_flags flags, int pred)
 	    ;
 	  else
 	    need_barrier = 1;
-	  rws_sum[regno].written_by_and = flags.is_and;
-	  rws_sum[regno].written_by_or = flags.is_or;
+	  if (!in_safe_group_barrier)
+	    {
+	      rws_sum[regno].written_by_and = flags.is_and;
+	      rws_sum[regno].written_by_or = flags.is_or;
+	    }
 	  break;
 
 	default:
@@ -5633,7 +5721,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 
       /* Avoid multiple register writes, in case this is a pattern with
 	 multiple CALL rtx.  This avoids a failure in rws_access_reg.  */
-      if (! flags.is_sibcall && ! rws_insn[REG_AR_CFM].write_count)
+      if (! flags.is_sibcall && ! rws_insn_test (REG_AR_CFM))
 	{
 	  new_flags.is_write = 1;
 	  need_barrier |= rws_access_regno (REG_RP, new_flags, pred);
@@ -5675,7 +5763,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	{
 	  /* Avoid writing the register multiple times if we have multiple
 	     asm outputs.  This avoids a failure in rws_access_reg.  */
-	  if (! rws_insn[REG_VOLATILE].write_count)
+	  if (! rws_insn_test (REG_VOLATILE))
 	    {
 	      new_flags.is_write = 1;
 	      rws_access_regno (REG_VOLATILE, new_flags, pred);
@@ -6080,17 +6168,16 @@ group_barrier_needed (rtx insn)
 static int
 safe_group_barrier_needed (rtx insn)
 {
-  struct reg_write_state rws_saved[NUM_REGS];
   int saved_first_instruction;
   int t;
 
-  memcpy (rws_saved, rws_sum, NUM_REGS * sizeof *rws_saved);
   saved_first_instruction = first_instruction;
+  in_safe_group_barrier = 1;
 
   t = group_barrier_needed (insn);
 
-  memcpy (rws_sum, rws_saved, NUM_REGS * sizeof *rws_saved);
   first_instruction = saved_first_instruction;
+  in_safe_group_barrier = 0;
 
   return t;
 }
@@ -6704,7 +6791,7 @@ ia64_first_cycle_multipass_dfa_lookahead_guard (rtx insn)
    can be chosen.  */
 
 static bool
-ia64_first_cycle_multipass_dfa_lookahead_guard_spec (rtx insn)
+ia64_first_cycle_multipass_dfa_lookahead_guard_spec (const_rtx insn)
 {
   gcc_assert (insn  && INSN_P (insn));
   /* Size of ALAT is 32.  As far as we perform conservative data speculation,
@@ -7782,7 +7869,8 @@ static htab_t bundle_state_table;
 static unsigned
 bundle_state_hash (const void *bundle_state)
 {
-  const struct bundle_state *state = (struct bundle_state *) bundle_state;
+  const struct bundle_state *const state
+    = (const struct bundle_state *) bundle_state;
   unsigned result, i;
 
   for (result = i = 0; i < dfa_state_size; i++)
@@ -7796,8 +7884,10 @@ bundle_state_hash (const void *bundle_state)
 static int
 bundle_state_eq_p (const void *bundle_state_1, const void *bundle_state_2)
 {
-  const struct bundle_state * state1 = (struct bundle_state *) bundle_state_1;
-  const struct bundle_state * state2 = (struct bundle_state *) bundle_state_2;
+  const struct bundle_state *const state1
+    = (const struct bundle_state *) bundle_state_1;
+  const struct bundle_state *const state2
+    = (const struct bundle_state *) bundle_state_2;
 
   return (state1->insn_num == state2->insn_num
 	  && memcmp (state1->dfa_state, state2->dfa_state,
@@ -9246,7 +9336,7 @@ ia64_eh_uses (int regno)
    types which can't go in sdata/sbss.  */
 
 static bool
-ia64_in_small_data_p (tree exp)
+ia64_in_small_data_p (const_tree exp)
 {
   if (TARGET_NO_SDATA)
     return false;
@@ -9770,7 +9860,7 @@ ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
    most significant bits of the stack slot.  */
 
 enum direction
-ia64_hpux_function_arg_padding (enum machine_mode mode, tree type)
+ia64_hpux_function_arg_padding (enum machine_mode mode, const_tree type)
 {
    /* Exception to normal case for structures/unions/etc.  */
 
@@ -10300,7 +10390,7 @@ ia64_profile_hook (int labelno)
 /* Return the mangling of TYPE if it is an extended fundamental type.  */
 
 static const char *
-ia64_mangle_type (tree type)
+ia64_mangle_type (const_tree type)
 {
   type = TYPE_MAIN_VARIANT (type);
 
@@ -10325,7 +10415,7 @@ ia64_mangle_type (tree type)
 /* Return the diagnostic message string if conversion from FROMTYPE to
    TOTYPE is not allowed, NULL otherwise.  */
 static const char *
-ia64_invalid_conversion (tree fromtype, tree totype)
+ia64_invalid_conversion (const_tree fromtype, const_tree totype)
 {
   /* Reject nontrivial conversion to or from __fpreg.  */
   if (TYPE_MODE (fromtype) == RFmode
@@ -10341,7 +10431,7 @@ ia64_invalid_conversion (tree fromtype, tree totype)
 /* Return the diagnostic message string if the unary operation OP is
    not permitted on TYPE, NULL otherwise.  */
 static const char *
-ia64_invalid_unary_op (int op, tree type)
+ia64_invalid_unary_op (int op, const_tree type)
 {
   /* Reject operations on __fpreg other than unary + or &.  */
   if (TYPE_MODE (type) == RFmode
@@ -10354,7 +10444,7 @@ ia64_invalid_unary_op (int op, tree type)
 /* Return the diagnostic message string if the binary operation OP is
    not permitted on TYPE1 and TYPE2, NULL otherwise.  */
 static const char *
-ia64_invalid_binary_op (int op ATTRIBUTE_UNUSED, tree type1, tree type2)
+ia64_invalid_binary_op (int op ATTRIBUTE_UNUSED, const_tree type1, const_tree type2)
 {
   /* Reject operations on __fpreg.  */
   if (TYPE_MODE (type1) == RFmode || TYPE_MODE (type2) == RFmode)

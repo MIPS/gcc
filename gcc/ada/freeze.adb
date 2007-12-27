@@ -1,4 +1,4 @@
-------------------------------------------------------------------------------
+-----------------------------------------------------------------------------
 --                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
@@ -1449,9 +1449,11 @@ package body Freeze is
       procedure Freeze_Record_Type (Rec : Entity_Id) is
          Comp : Entity_Id;
          IR   : Node_Id;
-         Junk : Boolean;
          ADC  : Node_Id;
          Prev : Entity_Id;
+
+         Junk : Boolean;
+         pragma Warnings (Off, Junk);
 
          Unplaced_Component : Boolean := False;
          --  Set True if we find at least one component with no component
@@ -1460,6 +1462,11 @@ package body Freeze is
          Placed_Component : Boolean := False;
          --  Set True if we find at least one component with a component
          --  clause (used to warn about useless Bit_Order pragmas).
+
+         function Check_Allocator (N : Node_Id) return Node_Id;
+         --  If N is an allocator, possibly wrapped in one or more level of
+         --  qualified expression(s), return the inner allocator node, else
+         --  return Empty.
 
          procedure Check_Itype (Typ : Entity_Id);
          --  If the component subtype is an access to a constrained subtype of
@@ -1470,6 +1477,25 @@ package body Freeze is
          --  subprogram type to frozen as well, to prevent an out-of-scope
          --  freeze node at some eventual point of call. Protected operations
          --  are handled elsewhere.
+
+         ---------------------
+         -- Check_Allocator --
+         ---------------------
+
+         function Check_Allocator (N : Node_Id) return Node_Id is
+            Inner : Node_Id;
+         begin
+            Inner := N;
+            loop
+               if Nkind (Inner) = N_Allocator then
+                  return Inner;
+               elsif Nkind (Inner) = N_Qualified_Expression then
+                  Inner := Expression (Inner);
+               else
+                  return Empty;
+               end if;
+            end loop;
+         end Check_Allocator;
 
          -----------------
          -- Check_Itype --
@@ -1819,35 +1845,40 @@ package body Freeze is
             elsif Is_Access_Type (Etype (Comp))
               and then Present (Parent (Comp))
               and then Present (Expression (Parent (Comp)))
-              and then Nkind (Expression (Parent (Comp))) = N_Allocator
             then
                declare
-                  Alloc : constant Node_Id := Expression (Parent (Comp));
+                  Alloc : constant Node_Id :=
+                            Check_Allocator (Expression (Parent (Comp)));
 
                begin
-                  --  If component is pointer to a classwide type, freeze
-                  --  the specific type in the expression being allocated.
-                  --  The expression may be a subtype indication, in which
-                  --  case freeze the subtype mark.
+                  if Present (Alloc) then
 
-                  if Is_Class_Wide_Type (Designated_Type (Etype (Comp))) then
-                     if Is_Entity_Name (Expression (Alloc)) then
-                        Freeze_And_Append
-                          (Entity (Expression (Alloc)), Loc, Result);
-                     elsif
-                       Nkind (Expression (Alloc)) = N_Subtype_Indication
+                     --  If component is pointer to a classwide type, freeze
+                     --  the specific type in the expression being allocated.
+                     --  The expression may be a subtype indication, in which
+                     --  case freeze the subtype mark.
+
+                     if Is_Class_Wide_Type
+                          (Designated_Type (Etype (Comp)))
                      then
+                        if Is_Entity_Name (Expression (Alloc)) then
+                           Freeze_And_Append
+                             (Entity (Expression (Alloc)), Loc, Result);
+                        elsif
+                          Nkind (Expression (Alloc)) = N_Subtype_Indication
+                        then
+                           Freeze_And_Append
+                            (Entity (Subtype_Mark (Expression (Alloc))),
+                              Loc, Result);
+                        end if;
+
+                     elsif Is_Itype (Designated_Type (Etype (Comp))) then
+                        Check_Itype (Etype (Comp));
+
+                     else
                         Freeze_And_Append
-                         (Entity (Subtype_Mark (Expression (Alloc))),
-                           Loc, Result);
+                          (Designated_Type (Etype (Comp)), Loc, Result);
                      end if;
-
-                  elsif Is_Itype (Designated_Type (Etype (Comp))) then
-                     Check_Itype (Etype (Comp));
-
-                  else
-                     Freeze_And_Append
-                       (Designated_Type (Etype (Comp)), Loc, Result);
                   end if;
                end;
 
@@ -2061,11 +2092,12 @@ package body Freeze is
       --  The two-pass elaboration mechanism in gigi guarantees that E will
       --  be frozen before the inner call is elaborated. We exclude constants
       --  from this test, because deferred constants may be frozen early, and
-      --  must be diagnosed (see e.g. 1522-005). If the enclosing subprogram
-      --  comes from source, or is a generic instance, then the freeze point
-      --  is the one mandated by the language. and we freze the entity.
-      --  A subprogram that is a child unit body that acts as a spec does not
-      --  have a spec that comes from source, but can only come from source.
+      --  must be diagnosed (e.g. in the case of a deferred constant being used
+      --  in a default expression). If the enclosing subprogram comes from
+      --  source, or is a generic instance, then the freeze point is the one
+      --  mandated by the language, and we freeze the entity. A subprogram that
+      --  is a child unit body that acts as a spec does not have a spec that
+      --  comes from source, but can only come from source.
 
       elsif In_Open_Scopes (Scope (Test_E))
         and then Scope (Test_E) /= Current_Scope
@@ -2380,7 +2412,15 @@ package body Freeze is
                Freeze_And_Append (Alias (E), Loc, Result);
             end if;
 
-            if not Is_Internal (E) then
+            --  We don't freeze internal subprograms, because we don't normally
+            --  want addition of extra formals or mechanism setting to happen
+            --  for those. However we do pass through predefined dispatching
+            --  cases, since extra formals may be needed in some cases, such as
+            --  for the stream 'Input function (build-in-place formals).
+
+            if not Is_Internal (E)
+              or else Is_Predefined_Dispatching_Operation (E)
+            then
                Freeze_Subprogram (E);
             end if;
 
@@ -2504,15 +2544,13 @@ package body Freeze is
       --  Case of a type or subtype being frozen
 
       else
-         --  Check preelaborable initialization for full type completing a
-         --  private type for which pragma Preelaborable_Initialization given.
-
-         if Must_Have_Preelab_Init (E)
-           and then not Has_Preelaborable_Initialization (E)
-         then
-            Error_Msg_N
-              ("full view of & does not have preelaborable initialization", E);
-         end if;
+         --  We used to check here that a full type must have preelaborable
+         --  initialization if it completes a private type specified with
+         --  pragma Preelaborable_Intialization, but that missed cases where
+         --  the types occur within a generic package, since the freezing
+         --  that occurs within a containing scope generally skips traversal
+         --  of a generic unit's declarations (those will be frozen within
+         --  instances). This check was moved to Analyze_Package_Specification.
 
          --  The type may be defined in a generic unit. This can occur when
          --  freezing a generic function that returns the type (which is
@@ -2863,8 +2901,10 @@ package body Freeze is
                  and then Known_RM_Size (E)
                then
                   declare
+                     SizC : constant Node_Id := Size_Clause (E);
+
                      Discard : Boolean;
-                     SizC    : constant Node_Id := Size_Clause (E);
+                     pragma Warnings (Off, Discard);
 
                   begin
                      --  It is not clear if it is possible to have no size
@@ -4660,18 +4700,6 @@ package body Freeze is
 
    begin
       Ensure_Type_Is_SA (Etype (E));
-
-      --  Reset True_Constant flag, since something strange is going on with
-      --  the scoping here, and our simple value tracing may not be sufficient
-      --  for this indication to be reliable. We kill the Constant_Value
-      --  and Last_Assignment indications for the same reason.
-
-      Set_Is_True_Constant (E, False);
-      Set_Current_Value    (E, Empty);
-
-      if Ekind (E) = E_Variable then
-         Set_Last_Assignment  (E, Empty);
-      end if;
 
    exception
       when Cannot_Be_Static =>

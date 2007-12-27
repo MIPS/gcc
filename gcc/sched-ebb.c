@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 
 
+#ifdef INSN_SCHEDULING
 
 /* The number of insns to be scheduled in total.  */
 static int rgn_n_insns;
@@ -62,7 +63,7 @@ static basic_block last_bb;
 static void init_ready_list (void);
 static void begin_schedule_ready (rtx, rtx);
 static int schedule_more_p (void);
-static const char *ebb_print_insn (rtx, int);
+static const char *ebb_print_insn (const_rtx, int);
 static int rank (rtx, rtx);
 static int ebb_contributes_to_priority (rtx, rtx);
 static basic_block earliest_block_with_similiar_load (basic_block, rtx);
@@ -196,7 +197,7 @@ begin_schedule_ready (rtx insn, rtx last)
    to be formatted so that multiple output lines will line up nicely.  */
 
 static const char *
-ebb_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
+ebb_print_insn (const_rtx insn, int aligned ATTRIBUTE_UNUSED)
 {
   static char tmp[80];
 
@@ -701,3 +702,5 @@ ebb_fix_recovery_cfg (int bbi ATTRIBUTE_UNUSED, int jump_bbi,
   if (jump_bb_nexti == last_bb->index)
     last_bb = BASIC_BLOCK (jump_bbi);
 }
+
+#endif /* INSN_SCHEDULING */

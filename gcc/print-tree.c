@@ -92,7 +92,7 @@ print_node_brief (FILE *file, const char *prefix, const_tree node, int indent)
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
       else if (TREE_CODE (node) == LABEL_DECL
 	       && LABEL_DECL_UID (node) != -1)
-	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+	fprintf (file, " L.%d", (int) LABEL_DECL_UID (node));
       else
 	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
 		 DECL_UID (node));
@@ -250,7 +250,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fprintf (file, " %s", IDENTIFIER_POINTER (DECL_NAME (node)));
       else if (TREE_CODE (node) == LABEL_DECL
 	       && LABEL_DECL_UID (node) != -1)
-	fprintf (file, " L." HOST_WIDE_INT_PRINT_DEC, LABEL_DECL_UID (node));
+	fprintf (file, " L.%d", (int) LABEL_DECL_UID (node));
       else
 	fprintf (file, " %c.%u", TREE_CODE (node) == CONST_DECL ? 'C' : 'D',
 		 DECL_UID (node));
@@ -443,6 +443,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       xloc = expand_location (DECL_SOURCE_LOCATION (node));
       fprintf (file, " file %s line %d", xloc.file, xloc.line);
+#ifdef USE_MAPPED_LOCATION
+      fprintf (file, " col %d", xloc.column);
+#endif
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{	  
@@ -932,6 +935,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       expanded_location xloc = expand_location (EXPR_LOCATION (node));
       indent_to (file, indent+4);
       fprintf (file, "%s:%d", xloc.file, xloc.line);
+#ifdef USE_MAPPED_LOCATION
+      fprintf (file, ":%d", xloc.column);
+#endif
     }
 
   fprintf (file, ">");

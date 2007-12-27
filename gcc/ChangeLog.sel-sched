@@ -1,5 +1,17 @@
 2007-12-27  Andrey Belevantsev  <abel@ispras.ru>
 
+	Merge with trunk r.130104.
+
+	* sel-sched-dump.c (sel_print_insn): Constify the first parameter.
+	* sel-sched-dump.h (sel_print_insn): Likewise.
+	* sel-sched-ir.c (sel_rtx_equal_p): Fix formatting.
+	(av_set_split_usefulness): Avoid division by zero.
+	* sel-sched.c (speculate_expr): Avoid combined data and control
+	speculation when pipelining.
+	(fill_vec_av_set): Do not try to rename data speculative insns.
+
+2007-12-27  Andrey Belevantsev  <abel@ispras.ru>
+
         * sel-sched.c (sel_rank_for_schedule): Tidy.
         (fill_vec_av_set): Use VEC_unordered_remove instead of ordered.
         Properly calculate is_orig_reg_p.  Add the final qsort call

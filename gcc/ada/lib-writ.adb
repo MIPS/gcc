@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -70,24 +69,25 @@ package body Lib.Writ is
    begin
       Units.Increment_Last;
       Units.Table (Units.Last) :=
-        (Unit_File_Name  => File_Name (S),
-         Unit_Name       => No_Unit_Name,
-         Expected_Unit   => No_Unit_Name,
-         Source_Index    => S,
-         Cunit           => Empty,
-         Cunit_Entity    => Empty,
-         Dependency_Num  => 0,
-         Dynamic_Elab    => False,
-         Fatal_Error     => False,
-         Generate_Code   => False,
-         Has_RACW        => False,
-         Ident_String    => Empty,
-         Loading         => False,
-         Main_Priority   => -1,
-         Munit_Index     => 0,
-         Serial_Number   => 0,
-         Version         => 0,
-         Error_Location  => No_Location);
+        (Unit_File_Name   => File_Name (S),
+         Unit_Name        => No_Unit_Name,
+         Expected_Unit    => No_Unit_Name,
+         Source_Index     => S,
+         Cunit            => Empty,
+         Cunit_Entity     => Empty,
+         Dependency_Num   => 0,
+         Dynamic_Elab     => False,
+         Fatal_Error      => False,
+         Generate_Code    => False,
+         Has_RACW         => False,
+         Is_Compiler_Unit => False,
+         Ident_String     => Empty,
+         Loading          => False,
+         Main_Priority    => -1,
+         Munit_Index      => 0,
+         Serial_Number    => 0,
+         Version          => 0,
+         Error_Location   => No_Location);
    end Add_Preprocessing_Dependency;
 
    ------------------------------
@@ -123,24 +123,25 @@ package body Lib.Writ is
 
       Units.Increment_Last;
       Units.Table (Units.Last) := (
-        Unit_File_Name  => System_Fname,
-        Unit_Name       => System_Uname,
-        Expected_Unit   => System_Uname,
-        Source_Index    => System_Source_File_Index,
-        Cunit           => Empty,
-        Cunit_Entity    => Empty,
-        Dependency_Num  => 0,
-        Dynamic_Elab    => False,
-        Fatal_Error     => False,
-        Generate_Code   => False,
-        Has_RACW        => False,
-        Ident_String    => Empty,
-        Loading         => False,
-        Main_Priority   => -1,
-        Munit_Index     => 0,
-        Serial_Number   => 0,
-        Version         => 0,
-        Error_Location  => No_Location);
+        Unit_File_Name   => System_Fname,
+        Unit_Name        => System_Uname,
+        Expected_Unit    => System_Uname,
+        Source_Index     => System_Source_File_Index,
+        Cunit            => Empty,
+        Cunit_Entity     => Empty,
+        Dependency_Num   => 0,
+        Dynamic_Elab     => False,
+        Fatal_Error      => False,
+        Generate_Code    => False,
+        Has_RACW         => False,
+        Is_Compiler_Unit => False,
+        Ident_String     => Empty,
+        Loading          => False,
+        Main_Priority    => -1,
+        Munit_Index      => 0,
+        Serial_Number    => 0,
+        Version          => 0,
+        Error_Location   => No_Location);
 
       --  Parse system.ads so that the checksum is set right
       --  Style checks are not applied.

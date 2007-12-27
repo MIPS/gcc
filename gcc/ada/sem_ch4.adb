@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -355,11 +354,15 @@ package body Sem_Ch4 is
          Set_Etype (Acc_Type, Acc_Type);
          Init_Size_Align (Acc_Type);
          Find_Type (Subtype_Mark (E));
-         Type_Id := Entity (Subtype_Mark (E));
-         Check_Fully_Declared (Type_Id, N);
+
+         --  Analyze the qualified expression, and apply the name resolution
+         --  rule given in  4.7 (3).
+
+         Analyze (E);
+         Type_Id := Etype (E);
          Set_Directly_Designated_Type (Acc_Type, Type_Id);
 
-         Analyze_And_Resolve (Expression (E), Type_Id);
+         Resolve (Expression (E), Type_Id);
 
          if Is_Limited_Type (Type_Id)
            and then Comes_From_Source (N)
@@ -374,11 +377,12 @@ package body Sem_Ch4 is
          --  A qualified expression requires an exact match of the type,
          --  class-wide matching is not allowed.
 
-         if Is_Class_Wide_Type (Type_Id)
-           and then Base_Type (Etype (Expression (E))) /= Base_Type (Type_Id)
-         then
-            Wrong_Type (Expression (E), Type_Id);
-         end if;
+         --  if Is_Class_Wide_Type (Type_Id)
+         --    and then Base_Type
+         --       (Etype (Expression (E))) /= Base_Type (Type_Id)
+         --  then
+         --     Wrong_Type (Expression (E), Type_Id);
+         --  end if;
 
          Check_Non_Static_Context (Expression (E));
 
@@ -420,8 +424,8 @@ package body Sem_Ch4 is
                   then
                      Error_Msg_N ("constraint not allowed here", E);
 
-                     if Nkind (Constraint (E))
-                       = N_Index_Or_Discriminant_Constraint
+                     if Nkind (Constraint (E)) =
+                       N_Index_Or_Discriminant_Constraint
                      then
                         Error_Msg_N
                           ("\if qualified expression was meant, " &
@@ -495,7 +499,7 @@ package body Sem_Ch4 is
 
             --  Check for missing initialization. Skip this check if we already
             --  had errors on analyzing the allocator, since in that case these
-            --  are probably cascaded errors
+            --  are probably cascaded errors.
 
             if Is_Indefinite_Subtype (Type_Id)
               and then Serious_Errors_Detected = Sav_Errs
@@ -504,8 +508,44 @@ package body Sem_Ch4 is
                   Error_Msg_N
                     ("initialization required in class-wide allocation", N);
                else
-                  Error_Msg_N
-                    ("initialization required in unconstrained allocation", N);
+                  if Ada_Version < Ada_05
+                    and then Is_Limited_Type (Type_Id)
+                  then
+                     Error_Msg_N ("unconstrained allocation not allowed", N);
+
+                     if Is_Array_Type (Type_Id) then
+                        Error_Msg_N
+                          ("\constraint with array bounds required", N);
+
+                     elsif Has_Unknown_Discriminants (Type_Id) then
+                        null;
+
+                     else pragma Assert (Has_Discriminants (Type_Id));
+                        Error_Msg_N
+                          ("\constraint with discriminant values required", N);
+                     end if;
+
+                  --  Limited Ada 2005 and general non-limited case
+
+                  else
+                     Error_Msg_N
+                       ("uninitialized unconstrained allocation not allowed",
+                        N);
+
+                     if Is_Array_Type (Type_Id) then
+                        Error_Msg_N
+                          ("\qualified expression or constraint with " &
+                           "array bounds required", N);
+
+                     elsif Has_Unknown_Discriminants (Type_Id) then
+                        Error_Msg_N ("\qualified expression required", N);
+
+                     else pragma Assert (Has_Discriminants (Type_Id));
+                        Error_Msg_N
+                          ("\qualified expression or constraint with " &
+                           "discriminant values required", N);
+                     end if;
+                  end if;
                end if;
             end if;
          end;
@@ -925,6 +965,8 @@ package body Sem_Ch4 is
       --  Check for not-yet-implemented cases of AI-318. We only need to check
       --  for inherently limited types, because other limited types will be
       --  returned by copy, which works just fine.
+      --  If the context is an attribute reference 'Class, this is really a
+      --  type conversion, which is illegal, and will be caught elsewhere.
 
       if Ada_Version >= Ada_05
         and then not Debug_Flag_Dot_L
@@ -932,7 +974,9 @@ package body Sem_Ch4 is
         and then (Nkind (Parent (N)) = N_Selected_Component
                    or else Nkind (Parent (N)) = N_Indexed_Component
                    or else Nkind (Parent (N)) = N_Slice
-                   or else Nkind (Parent (N)) = N_Attribute_Reference)
+                   or else
+                    (Nkind (Parent (N)) = N_Attribute_Reference
+                       and then Attribute_Name (Parent (N)) /= Name_Class))
       then
          Error_Msg_N ("(Ada 2005) limited function call in this context" &
                       " is not yet implemented", N);
@@ -1005,10 +1049,10 @@ package body Sem_Ch4 is
       Analyze_Expression (L);
       Analyze_Expression (R);
 
-      --  If the entity is present, the  node appears in an instance,
-      --  and denotes a predefined concatenation operation. The resulting
-      --  type is obtained from the arguments when possible. If the arguments
-      --  are aggregates, the array type and the concatenation type must be
+      --  If the entity is present, the node appears in an instance, and
+      --  denotes a predefined concatenation operation. The resulting type is
+      --  obtained from the arguments when possible. If the arguments are
+      --  aggregates, the array type and the concatenation type must be
       --  visible.
 
       if Present (Op_Id) then
@@ -2001,6 +2045,19 @@ package body Sem_Ch4 is
       Subp_Type  : constant Entity_Id := Etype (Nam);
       Norm_OK    : Boolean;
 
+      function Operator_Hidden_By (Fun : Entity_Id) return Boolean;
+      --  There may be a user-defined operator that hides the current
+      --  interpretation. We must check for this independently of the
+      --  analysis of the call with the user-defined operation, because
+      --  the parameter names may be wrong and yet the hiding takes place.
+      --  This fixes a problem with ACATS test B34014O.
+      --
+      --  When the type Address is a visible integer type, and the DEC
+      --  system extension is visible, the predefined operator may be
+      --  hidden as well, by one of the address operations in auxdec.
+      --  Finally, The abstract operations on address do not hide the
+      --  predefined operator (this is the purpose of making them abstract).
+
       procedure Indicate_Name_And_Type;
       --  If candidate interpretation matches, indicate name and type of
       --  result on call node.
@@ -2040,17 +2097,60 @@ package body Sem_Ch4 is
          end if;
       end Indicate_Name_And_Type;
 
+      ------------------------
+      -- Operator_Hidden_By --
+      ------------------------
+
+      function Operator_Hidden_By (Fun : Entity_Id) return Boolean is
+         Act1  : constant Node_Id   := First_Actual (N);
+         Act2  : constant Node_Id   := Next_Actual (Act1);
+         Form1 : constant Entity_Id := First_Formal (Fun);
+         Form2 : constant Entity_Id := Next_Formal (Form1);
+
+      begin
+         if Ekind (Fun) /= E_Function
+           or else Is_Abstract_Subprogram (Fun)
+         then
+            return False;
+
+         elsif not Has_Compatible_Type (Act1, Etype (Form1)) then
+            return False;
+
+         elsif Present (Form2) then
+            if
+              No (Act2) or else not Has_Compatible_Type (Act2, Etype (Form2))
+            then
+               return False;
+            end if;
+
+         elsif Present (Act2) then
+            return False;
+         end if;
+
+         --  Now we know that the arity of the operator matches the function,
+         --  and the function call is a valid interpretation. The function
+         --  hides the operator if it has the right signature, or if one of
+         --  its operands is a non-abstract operation on Address when this is
+         --  a visible integer type.
+
+         return Hides_Op (Fun, Nam)
+           or else Is_Descendent_Of_Address (Etype (Form1))
+           or else
+             (Present (Form2)
+               and then Is_Descendent_Of_Address (Etype (Form2)));
+      end Operator_Hidden_By;
+
    --  Start of processing for Analyze_One_Call
 
    begin
       Success := False;
 
-      --  If the subprogram has no formals, or if all the formals have
-      --  defaults, and the return type is an array type, the node may
-      --  denote an indexing of the result of a parameterless call.
-      --  In Ada 2005, the subprogram may have one non-defaulted formal,
-      --  and the call may have been written in prefix notation, so that
-      --  the rebuilt parameter list has more than one actual.
+      --  If the subprogram has no formals or if all the formals have defaults,
+      --  and the return type is an array type, the node may denote an indexing
+      --  of the result of a parameterless call. In Ada 2005, the subprogram
+      --  may have one non-defaulted formal, and the call may have been written
+      --  in prefix notation, so that the rebuilt parameter list has more than
+      --  one actual.
 
       if Present (Actuals)
         and then
@@ -2131,11 +2231,7 @@ package body Sem_Ch4 is
 
          if Etype (N) /= Prev_T then
 
-            --  There may be a user-defined operator that hides the
-            --  current interpretation. We must check for this independently
-            --  of the analysis of the call with the user-defined operation,
-            --  because the parameter names may be wrong and yet the hiding
-            --  takes place. Fixes b34014o.
+            --  Check that operator is not hidden by a function interpretation
 
             if Is_Overloaded (Name (N)) then
                declare
@@ -2145,16 +2241,7 @@ package body Sem_Ch4 is
                begin
                   Get_First_Interp (Name (N), I, It);
                   while Present (It.Nam) loop
-                     if Ekind (It.Nam) /= E_Operator
-                        and then Hides_Op (It.Nam, Nam)
-                        and then
-                          Has_Compatible_Type
-                            (First_Actual (N), Etype (First_Formal (It.Nam)))
-                        and then (No (Next_Actual (First_Actual (N)))
-                           or else Has_Compatible_Type
-                            (Next_Actual (First_Actual (N)),
-                             Etype (Next_Formal (First_Formal (It.Nam)))))
-                     then
+                     if Operator_Hidden_By (It.Nam) then
                         Set_Etype (N, Prev_T);
                         return;
                      end if;
@@ -2196,7 +2283,21 @@ package body Sem_Ch4 is
             if Nkind (Parent (Actual)) /= N_Parameter_Association
               or else Chars (Selector_Name (Parent (Actual))) = Chars (Formal)
             then
-               if Has_Compatible_Type (Actual, Etype (Formal)) then
+               --  The actual can be compatible with the formal, but we must
+               --  also check that the context is not an address type that is
+               --  visibly an integer type, as is the case in VMS_64. In this
+               --  case the use of literals is illegal, except in the body of
+               --  descendents of system, where arithmetic operations on
+               --  address are of course used.
+
+               if Has_Compatible_Type (Actual, Etype (Formal))
+                 and then
+                  (Etype (Actual) /= Universal_Integer
+                    or else not Is_Descendent_Of_Address (Etype (Formal))
+                    or else
+                      Is_Predefined_File_Name
+                        (Unit_File_Name (Get_Source_Unit (N))))
+               then
                   Next_Actual (Actual);
                   Next_Formal (Formal);
 
@@ -2464,19 +2565,54 @@ package body Sem_Ch4 is
 
    procedure Analyze_Qualified_Expression (N : Node_Id) is
       Mark : constant Entity_Id := Subtype_Mark (N);
+      Expr : constant Node_Id   := Expression (N);
+      I    : Interp_Index;
+      It   : Interp;
       T    : Entity_Id;
 
    begin
+      Analyze_Expression (Expr);
+
       Set_Etype (N, Any_Type);
       Find_Type (Mark);
       T := Entity (Mark);
+      Set_Etype (N, T);
 
       if T = Any_Type then
          return;
       end if;
 
       Check_Fully_Declared (T, N);
-      Analyze_Expression (Expression (N));
+
+      --  If expected type is class-wide, check for exact match before
+      --  expansion, because if the expression is a dispatching call it
+      --  may be rewritten as explicit dereference with class-wide result.
+      --  If expression is overloaded, retain only interpretations that
+      --  will yield exact matches.
+
+      if Is_Class_Wide_Type (T) then
+         if not Is_Overloaded (Expr) then
+            if  Base_Type (Etype (Expr)) /= Base_Type (T) then
+               if Nkind (Expr) = N_Aggregate then
+                  Error_Msg_N ("type of aggregate cannot be class-wide", Expr);
+               else
+                  Wrong_Type (Expr, T);
+               end if;
+            end if;
+
+         else
+            Get_First_Interp (Expr, I, It);
+
+            while Present (It.Nam) loop
+               if Base_Type (It.Typ) /= Base_Type (T) then
+                  Remove_Interp (I);
+               end if;
+
+               Get_Next_Interp (I, It);
+            end loop;
+         end if;
+      end if;
+
       Set_Etype  (N, T);
    end Analyze_Qualified_Expression;
 
@@ -2889,9 +3025,12 @@ package body Sem_Ch4 is
             end if;
 
             --  If the prefix is a private extension, check only the visible
-            --  components of the partial view.
+            --  components of the partial view. This must include the tag,
+            --  wich can appear in expanded code in a tag check.
 
-            if Ekind (Type_To_Use) = E_Record_Type_With_Private then
+            if Ekind (Type_To_Use) = E_Record_Type_With_Private
+              and then  Chars (Selector_Name (N)) /= Name_uTag
+            then
                exit when Comp = Last_Entity (Type_To_Use);
             end if;
 
@@ -3805,10 +3944,12 @@ package body Sem_Ch4 is
       Actual           : Node_Id;
       X                : Interp_Index;
       It               : Interp;
-      Success          : Boolean;
       Err_Mode         : Boolean;
       New_Nam          : Node_Id;
       Void_Interp_Seen : Boolean := False;
+
+      Success : Boolean;
+      pragma Warnings (Off, Boolean);
 
    begin
       if Ada_Version >= Ada_05 then
@@ -4855,7 +4996,7 @@ package body Sem_Ch4 is
                   exit;
 
                --  In Ada 2005, this operation does not participate in Overload
-               --  resolution. If the operation is defined in in a predefined
+               --  resolution. If the operation is defined in a predefined
                --  unit, it is one of the operations declared abstract in some
                --  variants of System, and it must be removed as well.
 
@@ -5045,9 +5186,11 @@ package body Sem_Ch4 is
       Nam : Entity_Id;
       Typ : Entity_Id) return Boolean
    is
-      Actual  : Node_Id;
-      Formal  : Entity_Id;
+      Actual : Node_Id;
+      Formal : Entity_Id;
+
       Call_OK : Boolean;
+      pragma Warnings (Off, Call_OK);
 
    begin
       Normalize_Actuals (N, Designated_Type (Typ), False, Call_OK);
@@ -5902,11 +6045,13 @@ package body Sem_Ch4 is
                                              (Alias (Prim_Op)), Corr_Type))
                  or else
 
-               --  Do not consider hidden primitives unless they belong to a
-               --  generic private type with a tagged parent.
+               --  Do not consider hidden primitives unless the type is
+               --  in an open scope or we are within an instance, where
+               --  visibility is known to be correct.
 
                   (Is_Hidden (Prim_Op)
-                     and then not Is_Immediately_Visible (Obj_Type))
+                     and then not Is_Immediately_Visible (Obj_Type)
+                     and then not In_Instance)
                then
                   goto Continue;
                end if;

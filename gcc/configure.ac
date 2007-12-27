@@ -525,7 +525,7 @@ AC_SUBST(valgrind_command)
 
 AC_ARG_ENABLE(mapped-location,
 [  --enable-mapped-location   location_t is fileline integer cookie],,
-enable_mapped_location=no)
+enable_mapped_location=yes)
 
 if test "$enable_mapped_location" = yes ; then
   AC_DEFINE(USE_MAPPED_LOCATION, 1,
@@ -641,6 +641,28 @@ AC_DEFINE_UNQUOTED(ENABLE_DECIMAL_BID_FORMAT, $bid,
 [Define to 1 to specify that we are using the BID decimal floating
 point format instead of DPD])
 
+# Enable C extension for fixed-point arithmetic.
+AC_ARG_ENABLE(fixed-point,
+[  --enable-fixed-point    enable fixed-point arithmetic extension to C],
+[
+],
+[
+  case $target in
+    mips*-*-*)
+      enable_fixed_point=yes
+      ;;
+    *)
+      AC_MSG_WARN(fixed-point is not supported for this target, ignored)
+      enable_fixed_point=no
+      ;;
+  esac
+])
+AC_SUBST(enable_fixed_point)
+
+fixedpoint=`if test $enable_fixed_point = yes; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(ENABLE_FIXED_POINT, $fixedpoint,
+[Define to 1 to enable fixed-point arithmetic extension to C.])
+
 # Enable threads
 # Pass with no value to take the default
 # Pass with a value to specify a thread package
@@ -747,6 +769,9 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
+ACX_PKGVERSION([GCC])
+ACX_BUGURL([http://gcc.gnu.org/bugs.html])
+
 # Sanity check enable_languages in case someone does not run the toplevel
 # configure # script.
 AC_ARG_ENABLE(languages,
@@ -816,7 +841,7 @@ AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 # that we can use it.
 ACX_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[4-9]*])
+  [4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
@@ -1317,7 +1342,7 @@ case ${enable_threads} in
     target_thread_file='single'
     ;;
   aix | dce | gnat | irix | posix | posix95 | rtems | \
-  single | solaris | vxworks | win32 )
+  single | solaris | vxworks | win32 | mipssde)
     target_thread_file=${enable_threads}
     ;;
   *)
@@ -2041,9 +2066,7 @@ else
   if echo "$ld_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
@@ -2108,9 +2131,16 @@ L2:],
   as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
   if echo "$as_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
-    as_ver=`echo $as_ver | sed -e 's/GNU assembler \([0-9.][0-9.]*\).*/\1/'`
-    as_major=`echo $as_ver | sed 's/\..*//'`
-    as_minor=`echo $as_ver | sed 's/[^.]*\.\([0-9]*\).*/\1/'`
+    as_vers=`echo $as_ver | sed -n \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
+	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+    as_major=`expr "$as_vers" : '\([0-9]*\)'`
+    as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
 changequote([,])dnl
     if test $as_major -eq 2 && test $as_minor -lt 11
     then :
@@ -3068,6 +3098,12 @@ if test x"$insn" != x; then
    fi],
   [AC_DEFINE(HAVE_AS_GSTABS_DEBUG_FLAG, 1,
 [Define if your assembler supports the --gstabs option.])])
+
+ gcc_GAS_CHECK_FEATURE([--debug-prefix-map option],
+  gcc_cv_as_debug_prefix_map_flag,
+  [2,18,0], [--debug-prefix-map /a=/b], [$insn],,
+  [AC_DEFINE(HAVE_AS_DEBUG_PREFIX_MAP, 1,
+[Define if your assembler supports the --debug-prefix-map option.])])
 fi
 
 AC_CACHE_CHECK([assembler for tolerance to line number 0],

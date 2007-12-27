@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -77,6 +76,10 @@ package body Make is
    --  Every program depends on this package, that must then be checked,
    --  especially when -f and -a are used.
 
+   procedure Kill (Pid : Process_Id; Sig_Num : Integer; Close : Integer);
+   pragma Import (C, Kill, "__gnat_kill");
+   --  Called by Sigint_Intercepted to kill all spawned compilation processes
+
    type Sigint_Handler is access procedure;
 
    procedure Install_Int_Handler (Handler : Sigint_Handler);
@@ -86,6 +89,28 @@ package body Make is
    procedure Sigint_Intercepted;
    --  Called when the program is interrupted by Ctrl-C to delete the
    --  temporary mapping files and configuration pragmas files.
+
+   No_Mapping_File : constant Natural := 0;
+
+   type Compilation_Data is record
+      Pid              : Process_Id;
+      Full_Source_File : File_Name_Type;
+      Lib_File         : File_Name_Type;
+      Source_Unit      : Unit_Name_Type;
+      Mapping_File     : Natural := No_Mapping_File;
+      Project          : Project_Id := No_Project;
+      Syntax_Only      : Boolean := False;
+      Output_Is_Object : Boolean := True;
+   end record;
+   --  Data recorded for each compilation process spawned
+
+   type Comp_Data_Arr is array (Positive range <>) of Compilation_Data;
+   type Comp_Data_Ptr is access Comp_Data_Arr;
+   Running_Compile : Comp_Data_Ptr;
+   --  Used to save information about outstanding compilations
+
+   Outstanding_Compiles : Natural := 0;
+   --  Current number of outstanding compiles
 
    -------------------------
    -- Note on terminology --
@@ -392,8 +417,6 @@ package body Make is
 
    Shared_String           : aliased String := "-shared";
    Force_Elab_Flags_String : aliased String := "-F";
-   Version_Switch          : constant String := "--version";
-   Help_Switch             : constant String := "--help";
 
    No_Shared_Switch : aliased Argument_List := (1 .. 0 => null);
    Shared_Switch    : aliased Argument_List := (1 => Shared_String'Access);
@@ -508,9 +531,6 @@ package body Make is
    -------------------
    -- Misc Routines --
    -------------------
-
-   procedure Display_Version;
-   --  Display version when switch --version is used
 
    procedure List_Depend;
    --  Prints to standard output the list of object dependencies. This list
@@ -2372,7 +2392,8 @@ package body Make is
                                    new String'(Name_Buffer (1 .. Name_Len));
                                  Test_If_Relative_Path
                                    (New_Args (Last_New),
-                                    Parent => Data.Dir_Path);
+                                    Parent => Data.Dir_Path,
+                                    Including_Non_Switch => False);
                               end if;
 
                               Current := Element.Next;
@@ -2399,7 +2420,9 @@ package body Make is
 
                      begin
                         Test_If_Relative_Path
-                          (New_Args (1), Parent => Data.Dir_Path);
+                          (New_Args (1),
+                           Parent               => Data.Dir_Path,
+                           Including_Non_Switch => False);
                         Add_Arguments
                           (Configuration_Pragmas_Switch (Arguments_Project) &
                            New_Args & The_Saved_Gcc_Switches.all);
@@ -2445,25 +2468,6 @@ package body Make is
       Initialize_ALI_Data   : Boolean  := True;
       Max_Process           : Positive := 1)
    is
-      No_Mapping_File : constant Natural := 0;
-
-      type Compilation_Data is record
-         Pid              : Process_Id;
-         Full_Source_File : File_Name_Type;
-         Lib_File         : File_Name_Type;
-         Source_Unit      : Unit_Name_Type;
-         Mapping_File     : Natural := No_Mapping_File;
-         Project          : Project_Id := No_Project;
-         Syntax_Only      : Boolean := False;
-         Output_Is_Object : Boolean := True;
-      end record;
-
-      Running_Compile : array (1 .. Max_Process) of Compilation_Data;
-      --  Used to save information about outstanding compilations
-
-      Outstanding_Compiles : Natural := 0;
-      --  Current number of outstanding compiles
-
       Source_Unit : Unit_Name_Type;
       --  Current source unit
 
@@ -3153,6 +3157,9 @@ package body Make is
    begin
       pragma Assert (Args'First = 1);
 
+      Outstanding_Compiles := 0;
+      Running_Compile := new Comp_Data_Arr (1 .. Max_Process);
+
       --  Package and Queue initializations
 
       Good_ALI.Init;
@@ -3559,15 +3566,22 @@ package body Make is
                               if Uid /= Prj.No_Unit_Index then
                                  Udata := Project_Tree.Units.Table (Uid);
 
-                                 if Udata.File_Names (Body_Part).Name /=
-                                                                     No_File
+                                 if
+                                    Udata.File_Names (Body_Part).Name /=
+                                                                       No_File
+                                   and then
+                                     Udata.File_Names (Body_Part).Path /= Slash
                                  then
                                     Sfile := Udata.File_Names (Body_Part).Name;
                                     Source_Index :=
                                       Udata.File_Names (Body_Part).Index;
 
-                                 elsif Udata.File_Names (Specification).Name /=
-                                                                     No_File
+                                 elsif
+                                    Udata.File_Names (Specification).Name /=
+                                                                        No_File
+                                   and then
+                                    Udata.File_Names (Specification).Path /=
+                                                                          Slash
                                  then
                                     Sfile :=
                                       Udata.File_Names (Specification).Name;
@@ -3933,6 +3947,7 @@ package body Make is
 
    procedure Delete_Mapping_Files is
       Success : Boolean;
+      pragma Warnings (Off, Success);
    begin
       if not Debug.Debug_Flag_N then
          if The_Mapping_File_Names /= null then
@@ -3954,6 +3969,8 @@ package body Make is
 
    procedure Delete_Temp_Config_Files is
       Success : Boolean;
+      pragma Warnings (Off, Success);
+
    begin
       if (not Debug.Debug_Flag_N) and Main_Project /= No_Project then
          for Project in Project_Table.First ..
@@ -4059,26 +4076,6 @@ package body Make is
    begin
       Display_Executed_Programs := Display;
    end Display_Commands;
-
-   ---------------------
-   -- Display_Version --
-   ---------------------
-
-   procedure Display_Version is
-   begin
-      Write_Str ("GNATMAKE ");
-      Write_Str (Gnatvsn.Gnat_Version_String);
-      Write_Eol;
-
-      Write_Str ("Copyright (C) 1995-");
-      Write_Str (Gnatvsn.Current_Year);
-      Write_Str (", Free Software Foundation, Inc.");
-      Write_Eol;
-
-      Write_Str (Gnatvsn.Gnat_Free_Software);
-      Write_Eol;
-      Write_Eol;
-   end Display_Version;
 
    -------------
    -- Empty_Q --
@@ -4209,6 +4206,7 @@ package body Make is
       --  The path name of the mapping file
 
       Discard : Boolean;
+      pragma Warnings (Off, Discard);
 
       procedure Check_Mains;
       --  Check that the main subprograms do exist and that they all
@@ -4818,14 +4816,7 @@ package body Make is
 
       if Verbose_Mode then
          Write_Eol;
-         Write_Str ("GNATMAKE ");
-         Write_Str (Gnatvsn.Gnat_Version_String);
-         Write_Eol;
-         Write_Str
-           ("Copyright 1995-" &
-            Current_Year &
-            ", Free Software Foundation, Inc.");
-         Write_Eol;
+         Display_Version ("GNATMAKE ", "1995");
       end if;
 
       if Main_Project /= No_Project
@@ -4898,7 +4889,6 @@ package body Make is
          Main_Index := Current_File_Index;
       end if;
 
-      Add_Switch ("-I-", Binder, And_Save => True);
       Add_Switch ("-I-", Compiler, And_Save => True);
 
       if Main_Project = No_Project then
@@ -4911,10 +4901,6 @@ package body Make is
                Compiler, Append_Switch => False,
                And_Save => False);
 
-            Add_Switch ("-aO" & Normalized_CWD,
-                        Binder,
-                        Append_Switch => False,
-                        And_Save => False);
          end if;
 
       else
@@ -4927,6 +4913,7 @@ package body Make is
          --  projects.
 
          Look_In_Primary_Dir := False;
+         Add_Switch ("-I-", Binder, And_Save => True);
       end if;
 
       --  If the user wants a program without a main subprogram, add the
@@ -5315,12 +5302,16 @@ package body Make is
 
             for J in 1 .. Gcc_Switches.Last loop
                Test_If_Relative_Path
-                 (Gcc_Switches.Table (J), Parent => Dir_Path);
+                 (Gcc_Switches.Table (J),
+                  Parent => Dir_Path,
+                  Including_Non_Switch => False);
             end loop;
 
             for J in 1 .. Saved_Gcc_Switches.Last loop
                Test_If_Relative_Path
-                 (Saved_Gcc_Switches.Table (J), Parent => Current_Work_Dir);
+                 (Saved_Gcc_Switches.Table (J),
+                  Parent => Current_Work_Dir,
+                  Including_Non_Switch => False);
             end loop;
          end;
       end if;
@@ -5423,6 +5414,15 @@ package body Make is
                                      (Project_Tree.Projects) => 0);
 
       Bad_Compilation.Init;
+
+      --  If project files are used, create the mapping of all the sources,
+      --  so that the correct paths will be found. Otherwise, if there is
+      --  a file which is not a source with the same name in a source directory
+      --  this file may be incorrectly found.
+
+      if Main_Project /= No_Project then
+         Prj.Env.Create_Mapping (Project_Tree);
+      end if;
 
       Current_Main_Index := Main_Index;
 
@@ -6663,49 +6663,16 @@ package body Make is
 
       --  Scan the switches and arguments
 
-      declare
-         Args                   : Argument_List (1 .. Argument_Count);
-         Version_Switch_Present : Boolean := False;
-         Help_Switch_Present    : Boolean := False;
+      --  First, scan to detect --version and/or --help
 
-      begin
-         --  First, scan to detect --version and/or --help
+      Check_Version_And_Help ("GNATMAKE", "1995", Makeusg'Access);
 
-         for Next_Arg in 1 .. Argument_Count loop
-            Args (Next_Arg) := new String'(Argument (Next_Arg));
+      --  Scan again the switch and arguments, now that we are sure that
+      --  they do not include --version or --help.
 
-            if Args (Next_Arg).all = Version_Switch then
-               Version_Switch_Present := True;
-            elsif Args (Next_Arg).all = Help_Switch then
-               Help_Switch_Present := True;
-            end if;
-         end loop;
-
-         --  If --version was used, display version and exit
-
-         if Version_Switch_Present then
-            Set_Standard_Output;
-            Display_Version;
-            Exit_Program (E_Success);
-         end if;
-
-         --  If --help was used, display help and exit
-
-         if Help_Switch_Present then
-            Set_Standard_Output;
-            Makeusg;
-            Write_Eol;
-            Write_Line ("Report bugs to report@adacore.com");
-            Exit_Program (E_Success);
-         end if;
-
-         --  Scan again the switch and arguments, now that we are sure that
-         --  they do not include --version or --help.
-
-         Scan_Args : for Next_Arg in Args'Range loop
-            Scan_Make_Arg (Args (Next_Arg).all, And_Save => True);
-         end loop Scan_Args;
-      end;
+      Scan_Args : for Next_Arg in 1 .. Argument_Count loop
+         Scan_Make_Arg (Argument (Next_Arg), And_Save => True);
+      end loop Scan_Args;
 
       if Commands_To_Stdout then
          Set_Standard_Output;
@@ -7114,8 +7081,10 @@ package body Make is
                                  Get_Name_String (Source_File);
             Saved_Verbosity  : constant Verbosity := Current_Verbosity;
             Project          : Project_Id         := No_Project;
-            Path_Name        : Path_Name_Type     := No_Path;
             Data             : Project_Data;
+
+            Path_Name : Path_Name_Type := No_Path;
+            pragma Warnings (Off, Path_Name);
 
          begin
             --  Call Get_Reference to know the ultimate extending project of
@@ -7434,10 +7403,18 @@ package body Make is
    ------------------------
 
    procedure Sigint_Intercepted is
+      SIGINT  : constant := 2;
    begin
       Set_Standard_Error;
       Write_Line ("*** Interrupted ***");
       Delete_All_Temp_Files;
+
+      --  Send SIGINT to all oustanding compilation processes spawned
+
+      for J in 1 .. Outstanding_Compiles loop
+         Kill (Running_Compile (J).Pid, SIGINT, 1);
+      end loop;
+
       OS_Exit (1);
    end Sigint_Intercepted;
 

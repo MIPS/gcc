@@ -175,7 +175,8 @@ syntax:
 }
 
 
-/* Match one of the five forms of an interface statement.  */
+/* Match one of the five F95 forms of an interface statement.  The
+   matcher for the abstract interface follows.  */
 
 match
 gfc_match_interface (void)
@@ -232,10 +233,37 @@ gfc_match_interface (void)
       break;
 
     case INTERFACE_NAMELESS:
+    case INTERFACE_ABSTRACT:
       break;
     }
 
   return MATCH_YES;
+}
+
+
+
+/* Match a F2003 abstract interface.  */
+
+match
+gfc_match_abstract_interface (void)
+{
+  match m;
+
+  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ABSTRACT INTERFACE at %C")
+		      == FAILURE)
+    return MATCH_ERROR;
+
+  m = gfc_match_eos ();
+
+  if (m != MATCH_YES)
+    {
+      gfc_error ("Syntax error in ABSTRACT INTERFACE statement at %C");
+      return MATCH_ERROR;
+    }
+
+  current_interface.type = INTERFACE_ABSTRACT;
+
+  return m;
 }
 
 
@@ -270,7 +298,8 @@ gfc_match_end_interface (void)
   switch (current_interface.type)
     {
     case INTERFACE_NAMELESS:
-      if (type != current_interface.type)
+    case INTERFACE_ABSTRACT:
+      if (type != INTERFACE_NAMELESS)
 	{
 	  gfc_error ("Expected a nameless interface at %C");
 	  m = MATCH_ERROR;
@@ -439,6 +468,7 @@ compare_type_rank (gfc_symbol *s1, gfc_symbol *s2)
 
 
 static int compare_interfaces (gfc_symbol *, gfc_symbol *, int);
+static int compare_intr_interfaces (gfc_symbol *, gfc_symbol *);
 
 /* Given two symbols that are formal arguments, compare their types
    and rank and their formal interfaces if they are both dummy
@@ -913,7 +943,7 @@ compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
   gfc_formal_arglist *f1, *f2;
 
   if (s1->attr.function != s2->attr.function
-      && s1->attr.subroutine != s2->attr.subroutine)
+      || s1->attr.subroutine != s2->attr.subroutine)
     return 0;		/* Disagreement between function/subroutine.  */
 
   f1 = s1->formal;
@@ -944,6 +974,56 @@ compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, int generic_flag)
 }
 
 
+static int
+compare_intr_interfaces (gfc_symbol *s1, gfc_symbol *s2)
+{
+  static gfc_formal_arglist *f, *f1;
+  static gfc_intrinsic_arg *fi, *f2;
+  gfc_intrinsic_sym *isym;
+
+  if (s1->attr.function != s2->attr.function
+      || s1->attr.subroutine != s2->attr.subroutine)
+    return 0;		/* Disagreement between function/subroutine.  */
+
+  isym = gfc_find_function (s2->name);
+  
+  /* This should already have been checked in
+     resolve.c (resolve_actual_arglist).  */
+  gcc_assert (isym);
+
+  f1 = s1->formal;
+  f2 = isym->formal;
+
+  /* Special case.  */
+  if (f1 == NULL && f2 == NULL)
+    return 1;
+  
+  /* First scan through the formal argument list and check the intrinsic.  */
+  fi = f2;
+  for (f = f1; f; f = f->next)
+    {
+      if (fi == NULL)
+	return 0;
+      if ((fi->ts.type != f->sym->ts.type) || (fi->ts.kind != f->sym->ts.kind))
+	return 0;
+      fi = fi->next;
+    }
+
+  /* Now scan through the intrinsic argument list and check the formal.  */
+  f = f1;
+  for (fi = f2; fi; fi = fi->next)
+    {
+      if (f == NULL)
+	return 0;
+      if ((fi->ts.type != f->sym->ts.type) || (fi->ts.kind != f->sym->ts.kind))
+	return 0;
+      f = f->next;
+    }
+
+  return 1;
+}
+
+
 /* Given a pointer to an interface pointer, remove duplicate
    interfaces and make sure that all symbols are either functions or
    subroutines.  Returns nonzero if something goes wrong.  */
@@ -957,11 +1037,16 @@ check_interface0 (gfc_interface *p, const char *interface_name)
   /* Make sure all symbols in the interface have been defined as
      functions or subroutines.  */
   for (; p; p = p->next)
-    if (!p->sym->attr.function && !p->sym->attr.subroutine)
+    if ((!p->sym->attr.function && !p->sym->attr.subroutine)
+	|| !p->sym->attr.if_source)
       {
-	gfc_error ("Procedure '%s' in %s at %L is neither function nor "
-		   "subroutine", p->sym->name, interface_name,
-		   &p->sym->declared_at);
+	if (p->sym->attr.external)
+	  gfc_error ("Procedure '%s' in %s at %L has no explicit interface",
+		     p->sym->name, interface_name, &p->sym->declared_at);
+	else
+	  gfc_error ("Procedure '%s' in %s at %L is neither function nor "
+		     "subroutine", p->sym->name, interface_name,
+		     &p->sym->declared_at);
 	return 1;
       }
   p = psave;
@@ -1052,11 +1137,12 @@ check_sym_interfaces (gfc_symbol *sym)
 
       for (p = sym->generic; p; p = p->next)
 	{
-	  if (!p->sym->attr.use_assoc && p->sym->attr.mod_proc
-	      && p->sym->attr.if_source != IFSRC_DECL)
+	  if (p->sym->attr.mod_proc
+	      && (p->sym->attr.if_source != IFSRC_DECL
+		  || p->sym->attr.procedure))
 	    {
-	      gfc_error ("MODULE PROCEDURE '%s' at %L does not come "
-			 "from a module", p->sym->name, &p->where);
+	      gfc_error ("'%s' at %L is not a module procedure",
+			 p->sym->name, &p->where);
 	      return;
 	    }
 	}
@@ -1290,7 +1376,10 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 	  || actual->symtree->n.sym->attr.external)
 	return 1;		/* Assume match.  */
 
-      return compare_interfaces (formal, actual->symtree->n.sym, 0);
+      if (actual->symtree->n.sym->attr.intrinsic)
+	return compare_intr_interfaces (formal, actual->symtree->n.sym);
+      else
+	return compare_interfaces (formal, actual->symtree->n.sym, 0);
     }
 
   if ((actual->expr_type != EXPR_NULL || actual->ts.type != BT_UNKNOWN)
@@ -2449,6 +2538,7 @@ gfc_add_interface (gfc_symbol *new)
   switch (current_interface.type)
     {
     case INTERFACE_NAMELESS:
+    case INTERFACE_ABSTRACT:
       return SUCCESS;
 
     case INTERFACE_INTRINSIC_OP:

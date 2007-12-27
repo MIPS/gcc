@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -537,11 +536,11 @@ package body Exp_Ch6 is
       --  function to have a flag or a Uint attribute to identify it. ???
 
       loop
+         pragma Assert (Present (Extra_Formal));
          exit when
            Chars (Extra_Formal) =
              New_External_Name (Chars (Func), BIP_Formal_Suffix (Kind));
          Next_Formal_With_Extras (Extra_Formal);
-         pragma Assert (Present (Extra_Formal));
       end loop;
 
       return Extra_Formal;
@@ -1680,25 +1679,8 @@ package body Exp_Ch6 is
 
    procedure Expand_Call (N : Node_Id) is
       Loc           : constant Source_Ptr := Sloc (N);
-      Remote        : constant Boolean    := Is_Remote_Call (N);
-      Subp          : Entity_Id;
-      Orig_Subp     : Entity_Id := Empty;
-      Parent_Subp   : Entity_Id;
-      Parent_Formal : Entity_Id;
-      Actual        : Node_Id;
-      Formal        : Entity_Id;
-      Prev          : Node_Id := Empty;
-
-      Prev_Orig : Node_Id;
-      --  Original node for an actual, which may have been rewritten. If the
-      --  actual is a function call that has been transformed from a selected
-      --  component, the original node is unanalyzed. Otherwise, it carries
-      --  semantic information used to generate additional actuals.
-
-      Scop          : Entity_Id;
       Extra_Actuals : List_Id := No_List;
-
-      CW_Interface_Formals_Present : Boolean := False;
+      Prev          : Node_Id := Empty;
 
       procedure Add_Actual_Parameter (Insert_Param : Node_Id);
       --  Adds one entry to the end of the actual parameter list. Used for
@@ -1879,6 +1861,26 @@ package body Exp_Ch6 is
          raise Program_Error;
       end Inherited_From_Formal;
 
+      --  Local variables
+
+      Remote        : constant Boolean := Is_Remote_Call (N);
+      Actual        : Node_Id;
+      Formal        : Entity_Id;
+      Orig_Subp     : Entity_Id := Empty;
+      Param_Count   : Natural := 0;
+      Parent_Formal : Entity_Id;
+      Parent_Subp   : Entity_Id;
+      Scop          : Entity_Id;
+      Subp          : Entity_Id;
+
+      Prev_Orig     : Node_Id;
+      --  Original node for an actual, which may have been rewritten. If the
+      --  actual is a function call that has been transformed from a selected
+      --  component, the original node is unanalyzed. Otherwise, it carries
+      --  semantic information used to generate additional actuals.
+
+      CW_Interface_Formals_Present : Boolean := False;
+
    --  Start of processing for Expand_Call
 
    begin
@@ -1999,8 +2001,9 @@ package body Exp_Ch6 is
       --  We also generate any required range checks for actuals as we go
       --  through the loop, since this is a convenient place to do this.
 
-      Formal := First_Formal (Subp);
-      Actual := First_Actual (N);
+      Formal      := First_Formal (Subp);
+      Actual      := First_Actual (N);
+      Param_Count := 1;
       while Present (Formal) loop
 
          --  Generate range check if required (not activated yet ???)
@@ -2137,7 +2140,35 @@ package body Exp_Ch6 is
                Prev_Orig := Prev;
             end if;
 
-            if Is_Entity_Name (Prev_Orig) then
+            --  Ada 2005 (AI-251): Thunks must propagate the extra actuals
+            --  of accessibility levels.
+
+            if Ekind (Current_Scope) in Subprogram_Kind
+              and then Is_Thunk (Current_Scope)
+            then
+               declare
+                  Parm_Ent : Entity_Id;
+
+               begin
+                  if Is_Controlling_Actual (Actual) then
+
+                     --  Find the corresponding actual of the thunk
+
+                     Parm_Ent := First_Entity (Current_Scope);
+                     for J in 2 .. Param_Count loop
+                        Next_Entity (Parm_Ent);
+                     end loop;
+
+                  else pragma Assert (Is_Entity_Name (Actual));
+                     Parm_Ent := Entity (Actual);
+                  end if;
+
+                  Add_Extra_Actual
+                    (New_Occurrence_Of (Extra_Accessibility (Parm_Ent), Loc),
+                     Extra_Accessibility (Formal));
+               end;
+
+            elsif Is_Entity_Name (Prev_Orig) then
 
                --  When passing an access parameter, or a renaming of an access
                --  parameter, as the actual to another access parameter we need
@@ -2192,11 +2223,12 @@ package body Exp_Ch6 is
                      Extra_Accessibility (Formal));
                end if;
 
+            --  All cases other than thunks
+
             else
                case Nkind (Prev_Orig) is
 
                   when N_Attribute_Reference =>
-
                      case Get_Attribute_Id (Attribute_Name (Prev_Orig)) is
 
                         --  For X'Access, pass on the level of the prefix X
@@ -2380,8 +2412,30 @@ package body Exp_Ch6 is
 
          if Ekind (Formal) /= E_In_Parameter
            and then Is_Entity_Name (Actual)
+           and then Present (Entity (Actual))
          then
-            Kill_Current_Values (Entity (Actual));
+            declare
+               Ent : constant Entity_Id := Entity (Actual);
+               Sav : Node_Id;
+
+            begin
+               --  For an OUT parameter that is an assignable entity, we do not
+               --  want to clobber the Last_Assignment field, since if it is
+               --  set, it was precisely because it is indeed an OUT parameter!
+
+               if Ekind (Formal) = E_Out_Parameter
+                 and then Is_Assignable (Ent)
+               then
+                  Sav := Last_Assignment (Ent);
+                  Kill_Current_Values (Ent);
+                  Set_Last_Assignment (Ent, Sav);
+
+                  --  For all other cases, just kill the current values
+
+               else
+                  Kill_Current_Values (Ent);
+               end if;
+            end;
          end if;
 
          --  If the formal is class wide and the actual is an aggregate, force
@@ -2412,6 +2466,7 @@ package body Exp_Ch6 is
 
          <<Skip_Extra_Actual_Generation>>
 
+         Param_Count := Param_Count + 1;
          Next_Actual (Actual);
          Next_Formal (Formal);
       end loop;
@@ -4551,6 +4606,8 @@ package body Exp_Ch6 is
             --  The protected subprogram is declared outside of the protected
             --  body. Given that the body has frozen all entities so far, we
             --  analyze the subprogram and perform freezing actions explicitly.
+            --  including the generation of an explicit freeze node, to ensure
+            --  that gigi has the proper order of elaboration.
             --  If the body is a subunit, the insertion point is before the
             --  stub in the parent.
 
@@ -4562,10 +4619,11 @@ package body Exp_Ch6 is
 
             Insert_Before (Prot_Bod, Prot_Decl);
             Prot_Id := Defining_Unit_Name (Specification (Prot_Decl));
+            Set_Has_Delayed_Freeze (Prot_Id);
 
             Push_Scope (Scope (Scop));
             Analyze (Prot_Decl);
-            Create_Extra_Formals (Prot_Id);
+            Insert_Actions (N, Freeze_Entity (Prot_Id, Loc));
             Set_Protected_Body_Subprogram (Subp, Prot_Id);
             Pop_Scope;
          end if;
@@ -4820,7 +4878,12 @@ package body Exp_Ch6 is
       Function_Id : Entity_Id;
 
    begin
-      if Nkind (Exp_Node) = N_Qualified_Expression then
+      --  Step past qualification or unchecked conversion (the latter can occur
+      --  in cases of calls to 'Input).
+
+      if Nkind (Exp_Node) = N_Qualified_Expression
+        or else Nkind (Exp_Node) = N_Unchecked_Type_Conversion
+      then
          Exp_Node := Expression (N);
       end if;
 
@@ -5022,9 +5085,26 @@ package body Exp_Ch6 is
       Return_Obj_Access : Entity_Id;
 
    begin
-      if Nkind (Func_Call) = N_Qualified_Expression then
+      --  Step past qualification or unchecked conversion (the latter can occur
+      --  in cases of calls to 'Input).
+
+      if Nkind (Func_Call) = N_Qualified_Expression
+        or else Nkind (Func_Call) = N_Unchecked_Type_Conversion
+      then
          Func_Call := Expression (Func_Call);
       end if;
+
+      --  If the call has already been processed to add build-in-place actuals
+      --  then return. This should not normally occur in an allocator context,
+      --  but we add the protection as a defensive measure.
+
+      if Is_Expanded_Build_In_Place_Call (Func_Call) then
+         return;
+      end if;
+
+      --  Mark the call as processed as a build-in-place call
+
+      Set_Is_Expanded_Build_In_Place_Call (Func_Call);
 
       Loc := Sloc (Function_Call);
 
@@ -5158,9 +5238,28 @@ package body Exp_Ch6 is
       Return_Obj_Decl : Entity_Id;
 
    begin
-      if Nkind (Func_Call) = N_Qualified_Expression then
+      --  Step past qualification or unchecked conversion (the latter can occur
+      --  in cases of calls to 'Input).
+
+      if Nkind (Func_Call) = N_Qualified_Expression
+        or else Nkind (Func_Call) = N_Unchecked_Type_Conversion
+      then
          Func_Call := Expression (Func_Call);
       end if;
+
+      --  If the call has already been processed to add build-in-place actuals
+      --  then return. One place this can occur is for calls to build-in-place
+      --  functions that occur within a call to a protected operation, where
+      --  due to rewriting and expansion of the protected call there can be
+      --  more than one call to Expand_Actuals for the same set of actuals.
+
+      if Is_Expanded_Build_In_Place_Call (Func_Call) then
+         return;
+      end if;
+
+      --  Mark the call as processed as a build-in-place call
+
+      Set_Is_Expanded_Build_In_Place_Call (Func_Call);
 
       Loc := Sloc (Function_Call);
 
@@ -5267,9 +5366,26 @@ package body Exp_Ch6 is
       New_Expr        : Node_Id;
 
    begin
-      if Nkind (Func_Call) = N_Qualified_Expression then
+      --  Step past qualification or unchecked conversion (the latter can occur
+      --  in cases of calls to 'Input).
+
+      if Nkind (Func_Call) = N_Qualified_Expression
+        or else Nkind (Func_Call) = N_Unchecked_Type_Conversion
+      then
          Func_Call := Expression (Func_Call);
       end if;
+
+      --  If the call has already been processed to add build-in-place actuals
+      --  then return. This should not normally occur in an assignment context,
+      --  but we add the protection as a defensive measure.
+
+      if Is_Expanded_Build_In_Place_Call (Func_Call) then
+         return;
+      end if;
+
+      --  Mark the call as processed as a build-in-place call
+
+      Set_Is_Expanded_Build_In_Place_Call (Func_Call);
 
       Loc := Sloc (Function_Call);
 
@@ -5372,9 +5488,26 @@ package body Exp_Ch6 is
       Pass_Caller_Acc : Boolean := False;
 
    begin
-      if Nkind (Func_Call) = N_Qualified_Expression then
+      --  Step past qualification or unchecked conversion (the latter can occur
+      --  in cases of calls to 'Input).
+
+      if Nkind (Func_Call) = N_Qualified_Expression
+        or else Nkind (Func_Call) = N_Unchecked_Type_Conversion
+      then
          Func_Call := Expression (Func_Call);
       end if;
+
+      --  If the call has already been processed to add build-in-place actuals
+      --  then return. This should not normally occur in an object declaration,
+      --  but we add the protection as a defensive measure.
+
+      if Is_Expanded_Build_In_Place_Call (Func_Call) then
+         return;
+      end if;
+
+      --  Mark the call as processed as a build-in-place call
+
+      Set_Is_Expanded_Build_In_Place_Call (Func_Call);
 
       Loc := Sloc (Function_Call);
 
@@ -5574,10 +5707,26 @@ package body Exp_Ch6 is
          --  ensure the correct replacement of the object declaration by the
          --  object renaming declaration to avoid homograph conflicts (since
          --  the object declaration's defining identifier was already entered
-         --  in current scope).
+         --  in current scope). The Next_Entity links of the two entities also
+         --  have to be swapped since the entities are part of the return
+         --  scope's entity list and the list structure would otherwise be
+         --  corrupted.
 
-         Set_Chars (Defining_Identifier (Object_Decl), Chars (Obj_Def_Id));
-         Exchange_Entities (Defining_Identifier (Object_Decl), Obj_Def_Id);
+         declare
+            Renaming_Def_Id  : constant Entity_Id :=
+                                 Defining_Identifier (Object_Decl);
+            Next_Entity_Temp : constant Entity_Id :=
+                                 Next_Entity (Renaming_Def_Id);
+         begin
+            Set_Chars (Renaming_Def_Id, Chars (Obj_Def_Id));
+
+            --  Swap next entity links in preparation for exchanging entities
+
+            Set_Next_Entity (Renaming_Def_Id, Next_Entity (Obj_Def_Id));
+            Set_Next_Entity (Obj_Def_Id, Next_Entity_Temp);
+
+            Exchange_Entities (Renaming_Def_Id, Obj_Def_Id);
+         end;
       end if;
 
       --  If the object entity has a class-wide Etype, then we need to change

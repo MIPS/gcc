@@ -990,18 +990,16 @@ sel_rtx_equal_p (rtx x, rtx y)
     return 0;
 
   /* Support ia64 speculation.  */
-  {
-    if (GET_CODE (x) == UNSPEC
-	&& (targetm.sched.skip_rtx_p == NULL
-	    || targetm.sched.skip_rtx_p (x)))
-      return sel_rtx_equal_p (XVECEXP (x, 0, 0), y);
-
-    if (GET_CODE (y) == UNSPEC
-	&& (targetm.sched.skip_rtx_p == NULL
-	    || targetm.sched.skip_rtx_p (y)))
-      return sel_rtx_equal_p (x, XVECEXP (y, 0, 0));
-  }
-
+  if (GET_CODE (x) == UNSPEC
+      && (targetm.sched.skip_rtx_p == NULL
+          || targetm.sched.skip_rtx_p (x)))
+    return sel_rtx_equal_p (XVECEXP (x, 0, 0), y);
+  
+  if (GET_CODE (y) == UNSPEC
+      && (targetm.sched.skip_rtx_p == NULL
+          || targetm.sched.skip_rtx_p (y)))
+    return sel_rtx_equal_p (x, XVECEXP (y, 0, 0));
+  
   code = GET_CODE (x);
   /* Rtx's of different codes cannot be equal.  */
   if (code != GET_CODE (y))
@@ -2198,7 +2196,9 @@ av_set_split_usefulness (av_set_t *avp, int prob, int all_prob)
   expr_t expr;
 
   FOR_EACH_RHS_1 (expr, i, avp)
-    EXPR_USEFULNESS (expr) = (EXPR_USEFULNESS (expr) * prob) / all_prob;
+    EXPR_USEFULNESS (expr) = (all_prob 
+                              ? (EXPR_USEFULNESS (expr) * prob) / all_prob
+                              : 0);
 }
 
 /* Leave in AVP only those expressions, which are present in AV,

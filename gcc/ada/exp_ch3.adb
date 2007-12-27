@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -632,7 +631,16 @@ package body Exp_Ch3 is
    --  Start of processing for Build_Array_Init_Proc
 
    begin
-      if Suppress_Init_Proc (A_Type) or else Is_Value_Type (Comp_Type) then
+      --  Nothing to generate in the following cases:
+
+      --    1. Initialization is suppressed for the type
+      --    2. The type is a value type, in the CIL sense.
+      --    3. An initialization already exists for the base type
+
+      if Suppress_Init_Proc (A_Type)
+        or else Is_Value_Type (Comp_Type)
+        or else Present (Base_Init_Proc (A_Type))
+      then
          return;
       end if;
 
@@ -2105,6 +2113,8 @@ package body Exp_Ch3 is
          Iface_Elmt       : Elmt_Id;
          Comp_Elmt        : Elmt_Id;
 
+         pragma Warnings (Off, Ifaces_Tag_List);
+
       --  Start of processing for Build_Offset_To_Top_Functions
 
       begin
@@ -2118,8 +2128,8 @@ package body Exp_Ch3 is
             return;
          end if;
 
-         Collect_Interfaces_Info (Rec_Type,
-           Ifaces_List, Ifaces_Comp_List, Ifaces_Tag_List);
+         Collect_Interfaces_Info
+           (Rec_Type, Ifaces_List, Ifaces_Comp_List, Ifaces_Tag_List);
 
          --  For each interface type with secondary dispatch table we generate
          --  the Offset_To_Top_Functions (required to displace the pointer in
@@ -2296,15 +2306,15 @@ package body Exp_Ch3 is
             --  the parent. In that case we insert the tag initialization
             --  after the calls to initialize the parent.
 
-            if not Is_CPP_Class (Etype (Rec_Type)) then
+            if not Is_CPP_Class (Root_Type (Rec_Type)) then
                Prepend_To (Body_Stmts,
                  Make_If_Statement (Loc,
                    Condition => New_Occurrence_Of (Set_Tag, Loc),
                    Then_Statements => Init_Tags_List));
 
-            --  CPP_Class: In this case the dispatch table of the parent was
-            --  built in the C++ side and we copy the table of the parent to
-            --  initialize the new dispatch table.
+            --  CPP_Class derivation: In this case the dispatch table of the
+            --  parent was built in the C++ side and we copy the table of the
+            --  parent to initialize the new dispatch table.
 
             else
                declare
@@ -3091,8 +3101,70 @@ package body Exp_Ch3 is
             Set_Debug_Info_Off (Proc_Id);
          end if;
 
-         Set_Static_Initialization
-           (Proc_Id, Build_Equivalent_Record_Aggregate (Rec_Type));
+         declare
+            Agg : constant Node_Id :=
+                    Build_Equivalent_Record_Aggregate (Rec_Type);
+
+            procedure Collect_Itypes (Comp : Node_Id);
+            --  Generate references to itypes in the aggregate, because
+            --  the first use of the aggregate may be in a nested scope.
+
+            --------------------
+            -- Collect_Itypes --
+            --------------------
+
+            procedure Collect_Itypes (Comp : Node_Id) is
+               Ref      : Node_Id;
+               Sub_Aggr : Node_Id;
+               Typ      : Entity_Id;
+
+            begin
+               if Is_Array_Type (Etype (Comp))
+                 and then Is_Itype (Etype (Comp))
+               then
+                  Typ := Etype (Comp);
+                  Ref := Make_Itype_Reference (Loc);
+                  Set_Itype (Ref, Typ);
+                  Append_Freeze_Action (Rec_Type, Ref);
+
+                  Ref := Make_Itype_Reference (Loc);
+                  Set_Itype (Ref, Etype (First_Index (Typ)));
+                  Append_Freeze_Action (Rec_Type, Ref);
+
+                  Sub_Aggr := First (Expressions (Comp));
+
+                  --  Recurse on nested arrays
+
+                  while Present (Sub_Aggr) loop
+                     Collect_Itypes (Sub_Aggr);
+                     Next (Sub_Aggr);
+                  end loop;
+               end if;
+            end Collect_Itypes;
+
+         begin
+            --  If there is a static initialization aggregate for the type,
+            --  generate itype references for the types of its (sub)components,
+            --  to prevent out-of-scope errors in the resulting tree.
+            --  The aggregate may have been rewritten as a Raise node, in which
+            --  case there are no relevant itypes.
+
+            if Present (Agg)
+              and then Nkind (Agg) = N_Aggregate
+            then
+               Set_Static_Initialization (Proc_Id, Agg);
+
+               declare
+                  Comp  : Node_Id;
+               begin
+                  Comp := First (Component_Associations (Agg));
+                  while Present (Comp) loop
+                     Collect_Itypes (Expression (Comp));
+                     Next (Comp);
+                  end loop;
+               end;
+            end if;
+         end;
       end if;
    end Build_Record_Init_Proc;
 
@@ -3979,6 +4051,12 @@ package body Exp_Ch3 is
       New_Ref  : Node_Id;
       BIP_Call : Boolean := False;
 
+      Init_After : Node_Id := N;
+      --  Node after which the init proc call is to be inserted. This is
+      --  normally N, except for the case of a shared passive variable, in
+      --  which case the init proc call must be inserted only after the bodies
+      --  of the shared variable procedures have been seen.
+
    begin
       --  Don't do anything for deferred constants. All proper actions will
       --  be expanded during the full declaration.
@@ -4017,7 +4095,7 @@ package body Exp_Ch3 is
       --  Make shared memory routines for shared passive variable
 
       if Is_Shared_Passive (Def_Id) then
-         Make_Shared_Var_Procs (N);
+         Init_After := Make_Shared_Var_Procs (N);
       end if;
 
       --  If tasks being declared, make sure we have an activation chain
@@ -4065,7 +4143,7 @@ package body Exp_Ch3 is
          elsif not Abort_Allowed
            or else not Comes_From_Source (N)
          then
-            Insert_Actions_After (N,
+            Insert_Actions_After (Init_After,
               Make_Init_Call (
                 Ref         => New_Occurrence_Of (Def_Id, Loc),
                 Typ         => Base_Type (Typ),
@@ -4106,7 +4184,7 @@ package body Exp_Ch3 is
                Prepend_To (L, Build_Runtime_Call (Loc, RE_Abort_Defer));
                Set_At_End_Proc (Handled_Statement_Sequence (Blk),
                  New_Occurrence_Of (RTE (RE_Abort_Undefer_Direct), Loc));
-               Insert_Actions_After (N, New_List (Blk));
+               Insert_Actions_After (Init_After, New_List (Blk));
                Expand_At_End_Handler
                  (Handled_Statement_Sequence (Blk), Entity (Identifier (Blk)));
             end;
@@ -4158,7 +4236,7 @@ package body Exp_Ch3 is
                else
                   Initialization_Warning (Id_Ref);
 
-                  Insert_Actions_After (N,
+                  Insert_Actions_After (Init_After,
                     Build_Initialization_Call (Loc, Id_Ref, Typ));
                end if;
             end;
@@ -4379,7 +4457,7 @@ package body Exp_Ch3 is
               and then not Is_Limited_Type (Typ)
               and then not BIP_Call
             then
-               Insert_Actions_After (N,
+               Insert_Actions_After (Init_After,
                  Make_Adjust_Call (
                    Ref          => New_Reference_To (Def_Id, Loc),
                    Typ          => Base_Type (Typ),
@@ -4413,7 +4491,7 @@ package body Exp_Ch3 is
 
                Set_Assignment_OK (New_Ref);
 
-               Insert_After (N,
+               Insert_After (Init_After,
                  Make_Assignment_Statement (Loc,
                    Name => New_Ref,
                    Expression =>
@@ -4482,8 +4560,7 @@ package body Exp_Ch3 is
                Set_No_Initialization (N);
                Set_Assignment_OK (Name (Stat));
                Set_No_Ctrl_Actions (Stat);
-               Insert_After (N, Stat);
-               Analyze (Stat);
+               Insert_After_And_Analyze (Init_After, Stat);
             end;
          end if;
       end if;
@@ -4855,11 +4932,14 @@ package body Exp_Ch3 is
 
       --  For packed case, default initialization, except if the component type
       --  is itself a packed structure with an initialization procedure, or
-      --  initialize/normalize scalars active, and we have a base type.
+      --  initialize/normalize scalars active, and we have a base type, or the
+      --  type is public, because in that case a client might specify
+      --  Normalize_Scalars and there better be a public Init_Proc for it.
 
       elsif (Present (Init_Proc (Component_Type (Base)))
                and then No (Base_Init_Proc (Base)))
         or else (Init_Or_Norm_Scalars and then Base = Typ)
+        or else Is_Public (Typ)
       then
          Build_Array_Init_Proc (Base, N);
       end if;
@@ -6779,9 +6859,9 @@ package body Exp_Ch3 is
       Formal      : Entity_Id;
       Par_Formal  : Entity_Id;
       Formal_Node : Node_Id;
-      Func_Spec   : Node_Id;
-      Func_Decl   : Node_Id;
       Func_Body   : Node_Id;
+      Func_Decl   : Node_Id;
+      Func_Spec   : Node_Id;
       Return_Stmt : Node_Id;
 
    begin
@@ -7251,12 +7331,13 @@ package body Exp_Ch3 is
               TSS_Stream_Write,
               TSS_Stream_Input,
               TSS_Stream_Output);
+
       begin
          for Op in Stream_Op_TSS_Names'Range loop
             if Stream_Operation_OK (Tag_Typ, Stream_Op_TSS_Names (Op)) then
                Append_To (Res,
-                  Predef_Stream_Attr_Spec (Loc, Tag_Typ,
-                    Stream_Op_TSS_Names (Op)));
+                 Predef_Stream_Attr_Spec (Loc, Tag_Typ,
+                  Stream_Op_TSS_Names (Op)));
             end if;
          end loop;
       end;
@@ -7623,14 +7704,12 @@ package body Exp_Ch3 is
       if For_Body then
          return Make_Subprogram_Body (Loc, Spec, Empty_List, Empty);
 
-      --  For the case of Input/Output attributes applied to an abstract type,
-      --  generate abstract specifications. These will never be called, but we
-      --  need the slots allocated in the dispatching table so that attributes
+      --  For the case of an Input attribute predefined for an abstract type,
+      --  generate an abstract specification. This will never be called, but we
+      --  need the slot allocated in the dispatching table so that attributes
       --  typ'Class'Input and typ'Class'Output will work properly.
 
-      elsif (Is_TSS (Name, TSS_Stream_Input)
-              or else
-             Is_TSS (Name, TSS_Stream_Output))
+      elsif Is_TSS (Name, TSS_Stream_Input)
         and then Is_Abstract_Type (Tag_Typ)
       then
          return Make_Abstract_Subprogram_Declaration (Loc, Spec);
@@ -7684,6 +7763,8 @@ package body Exp_Ch3 is
       Eq_Needed : Boolean;
       Eq_Name   : Name_Id;
       Ent       : Entity_Id;
+
+      pragma Warnings (Off, Ent);
 
    begin
       --  See if we have a predefined "=" operator
@@ -7773,25 +7854,24 @@ package body Exp_Ch3 is
          Append_To (Res, Decl);
       end if;
 
-      --  Skip bodies of _Input and _Output for the abstract case, since the
-      --  corresponding specs are abstract (see Predef_Spec_Or_Body).
+      --  Skip body of _Input for the abstract case, since the corresponding
+      --  spec is abstract (see Predef_Spec_Or_Body).
 
-      if not Is_Abstract_Type (Tag_Typ) then
-         if Stream_Operation_OK (Tag_Typ, TSS_Stream_Input)
-           and then No (TSS (Tag_Typ, TSS_Stream_Input))
-         then
-            Build_Record_Or_Elementary_Input_Function
-              (Loc, Tag_Typ, Decl, Ent);
-            Append_To (Res, Decl);
-         end if;
+      if not Is_Abstract_Type (Tag_Typ)
+        and then Stream_Operation_OK (Tag_Typ, TSS_Stream_Input)
+        and then No (TSS (Tag_Typ, TSS_Stream_Input))
+      then
+         Build_Record_Or_Elementary_Input_Function
+           (Loc, Tag_Typ, Decl, Ent);
+         Append_To (Res, Decl);
+      end if;
 
-         if Stream_Operation_OK (Tag_Typ, TSS_Stream_Output)
-           and then No (TSS (Tag_Typ, TSS_Stream_Output))
-         then
-            Build_Record_Or_Elementary_Output_Procedure
-              (Loc, Tag_Typ, Decl, Ent);
-            Append_To (Res, Decl);
-         end if;
+      if Stream_Operation_OK (Tag_Typ, TSS_Stream_Output)
+        and then No (TSS (Tag_Typ, TSS_Stream_Output))
+      then
+         Build_Record_Or_Elementary_Output_Procedure
+           (Loc, Tag_Typ, Decl, Ent);
+         Append_To (Res, Decl);
       end if;
 
       --  Ada 2005: Generate bodies for the following primitive operations for
@@ -8026,33 +8106,86 @@ package body Exp_Ch3 is
      (Typ       : Entity_Id;
       Operation : TSS_Name_Type) return Boolean
    is
-      Has_Inheritable_Stream_Attribute : Boolean := False;
+      Has_Predefined_Or_Specified_Stream_Attribute : Boolean := False;
 
    begin
+      --  Special case of a limited type extension: a default implementation
+      --  of the stream attributes Read or Write exists if that attribute
+      --  has been specified or is available for an ancestor type; a default
+      --  implementation of the attribute Output (resp. Input) exists if the
+      --  attribute has been specified or Write (resp. Read) is available for
+      --  an ancestor type. The last condition only applies under Ada 2005.
+
       if Is_Limited_Type (Typ)
         and then Is_Tagged_Type (Typ)
-        and then Is_Derived_Type (Typ)
       then
-         --  Special case of a limited type extension: a default implementation
-         --  of the stream attributes Read and Write exists if the attribute
-         --  has been specified for an ancestor type.
+         if Operation = TSS_Stream_Read then
+            Has_Predefined_Or_Specified_Stream_Attribute :=
+              Has_Specified_Stream_Read (Typ);
 
-         Has_Inheritable_Stream_Attribute :=
-           Present (Find_Inherited_TSS (Base_Type (Etype (Typ)), Operation));
+         elsif Operation = TSS_Stream_Write then
+            Has_Predefined_Or_Specified_Stream_Attribute :=
+              Has_Specified_Stream_Write (Typ);
+
+         elsif Operation = TSS_Stream_Input then
+            Has_Predefined_Or_Specified_Stream_Attribute :=
+              Has_Specified_Stream_Input (Typ)
+                or else
+                  (Ada_Version >= Ada_05
+                    and then Stream_Operation_OK (Typ, TSS_Stream_Read));
+
+         elsif Operation = TSS_Stream_Output then
+            Has_Predefined_Or_Specified_Stream_Attribute :=
+              Has_Specified_Stream_Output (Typ)
+                or else
+                  (Ada_Version >= Ada_05
+                    and then Stream_Operation_OK (Typ, TSS_Stream_Write));
+         end if;
+
+         --  Case of inherited TSS_Stream_Read or TSS_Stream_Write
+
+         if not Has_Predefined_Or_Specified_Stream_Attribute
+           and then Is_Derived_Type (Typ)
+           and then (Operation = TSS_Stream_Read
+                      or else Operation = TSS_Stream_Write)
+         then
+            Has_Predefined_Or_Specified_Stream_Attribute :=
+              Present
+                (Find_Inherited_TSS (Base_Type (Etype (Typ)), Operation));
+         end if;
       end if;
 
-      return
-        not (Is_Limited_Type (Typ)
-               and then not Has_Inheritable_Stream_Attribute)
-          and then not Has_Unknown_Discriminants (Typ)
-          and then not (Is_Interface (Typ)
-                         and then (Is_Task_Interface (Typ)
-                                   or else Is_Protected_Interface (Typ)
-                                   or else Is_Synchronized_Interface (Typ)))
-          and then not Restriction_Active (No_Streams)
-          and then not Restriction_Active (No_Dispatch)
-          and then not No_Run_Time_Mode
-          and then RTE_Available (RE_Tag)
-          and then RTE_Available (RE_Root_Stream_Type);
+      --  If the type is not limited, or else is limited but the attribute is
+      --  explicitly specified or is predefined for the type, then return True,
+      --  unless other conditions prevail, such as restrictions prohibiting
+      --  streams or dispatching operations.
+
+      --  We exclude the Input operation from being a predefined subprogram in
+      --  the case where the associated type is an abstract extension, because
+      --  the attribute is not callable in that case, per 13.13.2(49/2). Also,
+      --  we don't want an abstract version created because types derived from
+      --  the abstract type may not even have Input available (for example if
+      --  derived from a private view of the abstract type that doesn't have
+      --  a visible Input), but a VM such as .NET or the Java VM can treat the
+      --  operation as inherited anyway, and we don't want an abstract function
+      --  to be (implicitly) inherited in that case because it can lead to a VM
+      --  exception.
+
+      return (not Is_Limited_Type (Typ)
+               or else Has_Predefined_Or_Specified_Stream_Attribute)
+        and then (Operation /= TSS_Stream_Input
+                   or else not Is_Abstract_Type (Typ)
+                   or else not Is_Derived_Type (Typ))
+        and then not Has_Unknown_Discriminants (Typ)
+        and then not (Is_Interface (Typ)
+                       and then (Is_Task_Interface (Typ)
+                                  or else Is_Protected_Interface (Typ)
+                                  or else Is_Synchronized_Interface (Typ)))
+        and then not Restriction_Active (No_Streams)
+        and then not Restriction_Active (No_Dispatch)
+        and then not No_Run_Time_Mode
+        and then RTE_Available (RE_Tag)
+        and then RTE_Available (RE_Root_Stream_Type);
    end Stream_Operation_OK;
+
 end Exp_Ch3;

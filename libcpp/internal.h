@@ -339,6 +339,14 @@ struct cpp_reader
   /* Token generated while handling a directive, if any. */
   cpp_token directive_result;
 
+  /* When expanding a macro at top-level, this is the location of the
+     macro invocation.  */
+  source_location invocation_location;
+
+  /* True if this call to cpp_get_token should consider setting
+     invocation_location.  */
+  bool set_invocation_location;
+
   /* Search paths for include files.  */
   struct cpp_dir *quote_include;	/* "" */
   struct cpp_dir *bracket_include;	/* <> */
@@ -568,7 +576,7 @@ extern int _cpp_handle_directive (cpp_reader *, int);
 extern void _cpp_define_builtin (cpp_reader *, const char *);
 extern char ** _cpp_save_pragma_names (cpp_reader *);
 extern void _cpp_restore_pragma_names (cpp_reader *, char **);
-extern void _cpp_do__Pragma (cpp_reader *);
+extern int _cpp_do__Pragma (cpp_reader *);
 extern void _cpp_init_directives (cpp_reader *);
 extern void _cpp_init_internal_pragmas (cpp_reader *);
 extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,

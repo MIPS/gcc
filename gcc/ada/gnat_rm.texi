@@ -4957,7 +4957,7 @@ a generic unit that can be instantiated with either enumeration types
 or integer types.  Note that if @code{Enum_Rep} is used on a modular
 type whose upper bound exceeds the upper bound of the largest signed
 integer type, and the argument is a variable, so that the universal
-integer calculation is done at run-time, then the call to @code{Enum_Rep}
+integer calculation is done at run time, then the call to @code{Enum_Rep}
 may raise @code{Constraint_Error}.
 
 @node Epsilon
@@ -7780,11 +7780,13 @@ of composite objects and the Max/Min attributes.
 @findex No_Implicit_Dynamic_Code
 This restriction prevents the compiler from building ``trampolines''.
 This is a structure that is built on the stack and contains dynamic
-code to be executed at run time. A trampoline is needed to indirectly
-address a nested subprogram (that is a subprogram that is not at the
-library level). The restriction prevents the use of any of the
-attributes @code{Address}, @code{Access} or @code{Unrestricted_Access}
-being applied to a subprogram that is not at the library level.
+code to be executed at run time. On some targets, a trampoline is
+built for the following features: @code{Access},
+@code{Unrestricted_Access}, or @code{Address} of a nested subprogram;
+nested task bodies; primitive operations of nested tagged types.
+Trampolines do not work on machines that prevent execution of stack
+data. For example, on windows systems, enabling DEP (data execution
+protection) will cause trampolines to raise an exception.
 
 @item No_Implicit_Loops
 @findex No_Implicit_Loops
@@ -10550,6 +10552,11 @@ run-time check fails, then @code{Program_Error} is raised.  This run-time
 check is suppressed if range checks are suppressed, or if the special GNAT
 check Alignment_Check is suppressed, or if
 @code{pragma Restrictions (No_Elaboration_Code)} is in effect.
+
+Finally, GNAT does not permit overlaying of objects of controlled types or
+composite types containing a controlled component. In most cases, the compiler
+can detect an attempt at such overlays and will generate a warning at compile
+time and a Program_Error exception at run time.
 
 @findex Export
 An address clause cannot be given for an exported object.  More
@@ -13661,11 +13668,10 @@ between tasks is very rarely expected.
 @cindex Threads, foreign
 
 @noindent
-Provides facilities for creating and destroying threads with explicit calls.
-These threads are known to the GNAT run-time system.  These subprograms are
-exported C-convention procedures intended to be called from foreign code.
-By using these primitives rather than directly calling operating systems
-routines, compatibility with the Ada tasking run-time is provided.
+Provides facilities for dealing with foreign threads which need to be known
+by the GNAT run-time system. Consult the documentation of this package for
+further details if your program has threads that are created by a non-Ada
+environment which then accesses Ada code.
 
 @node GNAT.Traceback (g-traceb.ads)
 @section @code{GNAT.Traceback} (@file{g-traceb.ads})
@@ -13869,7 +13875,7 @@ with @code{GLADE}.
 @cindex Run-time restrictions access
 
 @noindent
-This package provides facilities for accessing at run-time
+This package provides facilities for accessing at run time
 the status of restrictions specified at compile time for
 the partition. Information is available both with regard
 to actual restrictions specified, and with regard to
@@ -15040,6 +15046,15 @@ If not specified, executables are placed in the object directory.
 Expression must be a list of path names. The attribute
 defines the directories in which the source files for the project are to be
 found. If not specified, source files are found in the project directory.
+If a string in the list ends with "/**", then the directory that precedes
+"/**" and all of its subdirectories (recursively) are included in the list
+of source directories.
+
+@item  Excluded_Source_Dirs
+Expression must be a list of strings. Each entry designates a directory that
+is not to be included in the list of source directories of the project.
+This is normally used when there are strings ending with "/**" in the value
+of attribute Source_Dirs.
 
 @item  Source_Files
 Expression must be a list of file names. The attribute
@@ -15047,6 +15062,16 @@ defines the individual files, in the project directory, which are to be used
 as sources for the project. File names are path_names that contain no directory
 information. If the project has no sources the attribute must be declared
 explicitly with an empty list.
+
+@item  Excluded_Source_Files (Locally_Removed_Files)
+Expression must be a list of strings that are legal file names.
+Each file name must designate a source that would normally be a source file
+in the source directories of the project or, if the project file is an
+extending project file, inherited by the current project file. It cannot
+designate an immediate source that is not inherited. Each of the source files
+in the list are not considered to be sources of the project file: they are not
+inherited. Attribute Locally_Removed_Files is obsolescent, attribute
+Excluded_Source_Files is preferred.
 
 @item  Source_List_File
 Expression must a single path name. The attribute
@@ -15182,13 +15207,6 @@ language of the main program.
 Expression must be a string list. Each string designates
 a programming language that is known to GNAT. The strings are case-insensitive.
 
-@item  Locally_Removed_Files
-This attribute is legal only in a project file that extends another.
-Expression must be a list of strings that are legal file names.
-Each file name must designate a source that would normally be inherited
-by the current project file. It cannot designate an immediate source that is
-not inherited. Each of the source files in the list are not considered to
-be sources of the project file: they are not inherited.
 @end table
 
 @node Attribute References

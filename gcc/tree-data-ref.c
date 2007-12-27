@@ -489,7 +489,7 @@ dump_ddrs (FILE *file, VEC (ddr_p, heap) *ddrs)
 /* Expresses EXP as VAR + OFF, where off is a constant.  The type of OFF
    will be ssizetype.  */
 
-static void
+void
 split_constant_offset (tree exp, tree *var, tree *off)
 {
   tree type = TREE_TYPE (exp), otype;
@@ -560,7 +560,27 @@ split_constant_offset (tree exp, tree *var, tree *off)
 				fold_convert (TREE_TYPE (base), poffset));
 	  }
 
-	*var = fold_convert (type, base);
+	var0 = fold_convert (type, base);
+
+	/* If variable length types are involved, punt, otherwise casts
+	   might be converted into ARRAY_REFs in gimplify_conversion.
+	   To compute that ARRAY_REF's element size TYPE_SIZE_UNIT, which
+	   possibly no longer appears in current GIMPLE, might resurface.
+	   This perhaps could run
+	   if (TREE_CODE (var0) == NOP_EXPR
+	       || TREE_CODE (var0) == CONVERT_EXPR)
+	     {
+	       gimplify_conversion (&var0);
+	       // Attempt to fill in any within var0 found ARRAY_REF's
+	       // element size from corresponding op embedded ARRAY_REF,
+	       // if unsuccessful, just punt.
+	     }  */
+	while (POINTER_TYPE_P (type))
+	  type = TREE_TYPE (type);
+	if (int_size_in_bytes (type) < 0)
+	  break;
+
+	*var = var0;
 	*off = off0;
 	return;
       }
@@ -574,7 +594,8 @@ split_constant_offset (tree exp, tree *var, tree *off)
 
 	    if (!TREE_SIDE_EFFECTS (def_stmt_rhs) 
 		&& EXPR_P (def_stmt_rhs)
-		&& !REFERENCE_CLASS_P (def_stmt_rhs))
+		&& !REFERENCE_CLASS_P (def_stmt_rhs)
+		&& !get_call_expr_in (def_stmt_rhs))
 	      {
 		split_constant_offset (def_stmt_rhs, &var0, &off0);
 		var0 = fold_convert (type, var0);
@@ -1229,6 +1250,9 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_B (res) = b;
   DDR_LOOP_NEST (res) = NULL;
   DDR_REVERSED_P (res) = false;
+  DDR_SUBSCRIPTS (res) = NULL;
+  DDR_DIR_VECTS (res) = NULL;
+  DDR_DIST_VECTS (res) = NULL;
 
   if (a == NULL || b == NULL)
     {
@@ -1268,8 +1292,6 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_SUBSCRIPTS (res) = VEC_alloc (subscript_p, heap, DR_NUM_DIMENSIONS (a));
   DDR_LOOP_NEST (res) = loop_nest;
   DDR_INNER_LOOP (res) = 0;
-  DDR_DIR_VECTS (res) = NULL;
-  DDR_DIST_VECTS (res) = NULL;
 
   for (i = 0; i < DR_NUM_DIMENSIONS (a); i++)
     {
@@ -1333,6 +1355,7 @@ finalize_ddr_dependent (struct data_dependence_relation *ddr,
 
   DDR_ARE_DEPENDENT (ddr) = chrec;  
   free_subscripts (DDR_SUBSCRIPTS (ddr));
+  DDR_SUBSCRIPTS (ddr) = NULL;
 }
 
 /* The dependence relation DDR cannot be represented by a distance
@@ -1816,9 +1839,15 @@ compute_overlap_steps_for_affine_univar (int niter, int step_a, int step_b,
       step_overlaps_a = step_b / gcd_steps_a_b;
       step_overlaps_b = step_a / gcd_steps_a_b;
 
-      tau2 = FLOOR_DIV (niter, step_overlaps_a);
-      tau2 = MIN (tau2, FLOOR_DIV (niter, step_overlaps_b));
-      last_conflict = tau2;
+      if (niter > 0)
+	{
+	  tau2 = FLOOR_DIV (niter, step_overlaps_a);
+	  tau2 = MIN (tau2, FLOOR_DIV (niter, step_overlaps_b));
+	  last_conflict = tau2;
+	  *last_conflicts = build_int_cst (NULL_TREE, last_conflict);
+	}
+      else
+	*last_conflicts = chrec_dont_know;
 
       *overlaps_a = affine_fn_univar (integer_zero_node, dim, 
 				      build_int_cst (NULL_TREE,
@@ -1826,7 +1855,6 @@ compute_overlap_steps_for_affine_univar (int niter, int step_a, int step_b,
       *overlaps_b = affine_fn_univar (integer_zero_node, dim, 
 				      build_int_cst (NULL_TREE, 
 						     step_overlaps_b));
-      *last_conflicts = build_int_cst (NULL_TREE, last_conflict);
     }
 
   else
@@ -1982,7 +2010,6 @@ analyze_subscript_affine_affine (tree chrec_a,
 {
   unsigned nb_vars_a, nb_vars_b, dim;
   HOST_WIDE_INT init_a, init_b, gamma, gcd_alpha_beta;
-  HOST_WIDE_INT tau1, tau2;
   lambda_matrix A, U, S;
 
   if (eq_evolutions_p (chrec_a, chrec_b))
@@ -2040,18 +2067,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 						   false);
 	  niter_b = estimated_loop_iterations_int (get_chrec_loop (chrec_b),
 						   false);
-	  if (niter_a < 0 || niter_b < 0)
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "affine-affine test failed: missing iteration counts.\n");
-	      *overlaps_a = conflict_fn_not_known ();
-	      *overlaps_b = conflict_fn_not_known ();
-	      *last_conflicts = chrec_dont_know;
-	      goto end_analyze_subs_aa;
-	    }
-
 	  niter = MIN (niter_a, niter_b);
-
 	  step_a = int_cst_value (CHREC_RIGHT (chrec_a));
 	  step_b = int_cst_value (CHREC_RIGHT (chrec_b));
 
@@ -2135,31 +2151,7 @@ analyze_subscript_affine_affine (tree chrec_a,
 	 
 	     | x0 = i0 + i1 * t, 
 	     | y0 = j0 + j1 * t.  */
-      
-	  HOST_WIDE_INT i0, j0, i1, j1;
-
-	  /* X0 and Y0 are the first iterations for which there is a
-	     dependence.  X0, Y0 are two solutions of the Diophantine
-	     equation: chrec_a (X0) = chrec_b (Y0).  */
-	  HOST_WIDE_INT x0, y0;
-	  HOST_WIDE_INT niter, niter_a, niter_b;
-
-	  niter_a = estimated_loop_iterations_int (get_chrec_loop (chrec_a),
-						   false);
-	  niter_b = estimated_loop_iterations_int (get_chrec_loop (chrec_b),
-						   false);
-
-	  if (niter_a < 0 || niter_b < 0)
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "affine-affine test failed: missing iteration counts.\n");
-	      *overlaps_a = conflict_fn_not_known ();
-	      *overlaps_b = conflict_fn_not_known ();
-	      *last_conflicts = chrec_dont_know;
-	      goto end_analyze_subs_aa;
-	    }
-
-	  niter = MIN (niter_a, niter_b);
+      	  HOST_WIDE_INT i0, j0, i1, j1;
 
 	  i0 = U[0][0] * gamma / gcd_alpha_beta;
 	  j0 = U[0][1] * gamma / gcd_alpha_beta;
@@ -2176,80 +2168,72 @@ analyze_subscript_affine_affine (tree chrec_a,
 	      *overlaps_a = conflict_fn_no_dependence ();
 	      *overlaps_b = conflict_fn_no_dependence ();
 	      *last_conflicts = integer_zero_node;
+	      goto end_analyze_subs_aa;
 	    }
 
-	  else 
+	  if (i1 > 0 && j1 > 0)
 	    {
-	      if (i1 > 0)
+	      HOST_WIDE_INT niter_a = estimated_loop_iterations_int
+		(get_chrec_loop (chrec_a), false);
+	      HOST_WIDE_INT niter_b = estimated_loop_iterations_int
+		(get_chrec_loop (chrec_b), false);
+	      HOST_WIDE_INT niter = MIN (niter_a, niter_b);
+
+	      /* (X0, Y0) is a solution of the Diophantine equation:
+		 "chrec_a (X0) = chrec_b (Y0)".  */
+	      HOST_WIDE_INT tau1 = MAX (CEIL (-i0, i1),
+					CEIL (-j0, j1));
+	      HOST_WIDE_INT x0 = i1 * tau1 + i0;
+	      HOST_WIDE_INT y0 = j1 * tau1 + j0;
+
+	      /* (X1, Y1) is the smallest positive solution of the eq
+		 "chrec_a (X1) = chrec_b (Y1)", i.e. this is where the
+		 first conflict occurs.  */
+	      HOST_WIDE_INT min_multiple = MIN (x0 / i1, y0 / j1);
+	      HOST_WIDE_INT x1 = x0 - i1 * min_multiple;
+	      HOST_WIDE_INT y1 = y0 - j1 * min_multiple;
+
+	      if (niter > 0)
 		{
-		  tau1 = CEIL (-i0, i1);
-		  tau2 = FLOOR_DIV (niter - i0, i1);
+		  HOST_WIDE_INT tau2 = MIN (FLOOR_DIV (niter - i0, i1),
+					    FLOOR_DIV (niter - j0, j1));
+		  HOST_WIDE_INT last_conflict = tau2 - (x1 - i0)/i1;
 
-		  if (j1 > 0)
+		  /* If the overlap occurs outside of the bounds of the
+		     loop, there is no dependence.  */
+		  if (x1 > niter || y1 > niter)
 		    {
-		      int last_conflict, min_multiple;
-		      tau1 = MAX (tau1, CEIL (-j0, j1));
-		      tau2 = MIN (tau2, FLOOR_DIV (niter - j0, j1));
-
-		      x0 = i1 * tau1 + i0;
-		      y0 = j1 * tau1 + j0;
-
-		      /* At this point (x0, y0) is one of the
-			 solutions to the Diophantine equation.  The
-			 next step has to compute the smallest
-			 positive solution: the first conflicts.  */
-		      min_multiple = MIN (x0 / i1, y0 / j1);
-		      x0 -= i1 * min_multiple;
-		      y0 -= j1 * min_multiple;
-
-		      tau1 = (x0 - i0)/i1;
-		      last_conflict = tau2 - tau1;
-
-		      /* If the overlap occurs outside of the bounds of the
-			 loop, there is no dependence.  */
-		      if (x0 > niter || y0  > niter)
-			{
-			  *overlaps_a = conflict_fn_no_dependence ();
-			  *overlaps_b = conflict_fn_no_dependence ();
-			  *last_conflicts = integer_zero_node;
-			}
-		      else
-			{
-			  *overlaps_a
-			    = conflict_fn (1,
-				affine_fn_univar (build_int_cst (NULL_TREE, x0),
-						  1,
-						  build_int_cst (NULL_TREE, i1)));
-			  *overlaps_b
-			    = conflict_fn (1,
-				affine_fn_univar (build_int_cst (NULL_TREE, y0),
-						  1,
-						  build_int_cst (NULL_TREE, j1)));
-			  *last_conflicts = build_int_cst (NULL_TREE, last_conflict);
-			}
+		      *overlaps_a = conflict_fn_no_dependence ();
+		      *overlaps_b = conflict_fn_no_dependence ();
+		      *last_conflicts = integer_zero_node;
+		      goto end_analyze_subs_aa;
 		    }
 		  else
-		    {
-		      /* FIXME: For the moment, the upper bound of the
-			 iteration domain for j is not checked.  */
-		      if (dump_file && (dump_flags & TDF_DETAILS))
-			fprintf (dump_file, "affine-affine test failed: unimplemented.\n");
-		      *overlaps_a = conflict_fn_not_known ();
-		      *overlaps_b = conflict_fn_not_known ();
-		      *last_conflicts = chrec_dont_know;
-		    }
+		    *last_conflicts = build_int_cst (NULL_TREE, last_conflict);
 		}
-	  
 	      else
-		{
-		  /* FIXME: For the moment, the upper bound of the
-		     iteration domain for i is not checked.  */
-		  if (dump_file && (dump_flags & TDF_DETAILS))
-		    fprintf (dump_file, "affine-affine test failed: unimplemented.\n");
-		  *overlaps_a = conflict_fn_not_known ();
-		  *overlaps_b = conflict_fn_not_known ();
-		  *last_conflicts = chrec_dont_know;
-		}
+		*last_conflicts = chrec_dont_know;
+
+	      *overlaps_a
+		= conflict_fn (1,
+			       affine_fn_univar (build_int_cst (NULL_TREE, x1),
+						 1,
+						 build_int_cst (NULL_TREE, i1)));
+	      *overlaps_b
+		= conflict_fn (1,
+			       affine_fn_univar (build_int_cst (NULL_TREE, y1),
+						 1,
+						 build_int_cst (NULL_TREE, j1)));
+	    }
+	  else
+	    {
+	      /* FIXME: For the moment, the upper bound of the
+		 iteration domain for i and j is not checked.  */
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "affine-affine test failed: unimplemented.\n");
+	      *overlaps_a = conflict_fn_not_known ();
+	      *overlaps_b = conflict_fn_not_known ();
+	      *last_conflicts = chrec_dont_know;
 	    }
 	}
       else
@@ -2261,7 +2245,6 @@ analyze_subscript_affine_affine (tree chrec_a,
 	  *last_conflicts = chrec_dont_know;
 	}
     }
-
   else
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2961,7 +2944,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
   lambda_vector dist_v;
 
   if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE)
-    return true;
+    return false;
 
   if (same_access_functions (ddr))
     {
@@ -3013,11 +2996,13 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
       if (!lambda_vector_lexico_pos (dist_v, DDR_NB_LOOPS (ddr)))
 	{
 	  lambda_vector save_v = lambda_vector_new (DDR_NB_LOOPS (ddr));
-	  subscript_dependence_tester_1 (ddr, DDR_B (ddr), DDR_A (ddr),
-					 loop_nest);
+	  if (!subscript_dependence_tester_1 (ddr, DDR_B (ddr), DDR_A (ddr),
+					      loop_nest))
+	    return false;
 	  compute_subscript_distance (ddr);
-	  build_classic_dist_vector_1 (ddr, DDR_B (ddr), DDR_A (ddr),
-				       save_v, &init_b, &index_carry);
+	  if (!build_classic_dist_vector_1 (ddr, DDR_B (ddr), DDR_A (ddr),
+					    save_v, &init_b, &index_carry))
+	    return false;
 	  save_dist_v (ddr, save_v);
 	  DDR_REVERSED_P (ddr) = true;
 
@@ -3047,21 +3032,26 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	{
 	  lambda_vector save_v = lambda_vector_new (DDR_NB_LOOPS (ddr));
 	  lambda_vector_copy (dist_v, save_v, DDR_NB_LOOPS (ddr));
-	  save_dist_v (ddr, save_v);
 
 	  if (DDR_NB_LOOPS (ddr) > 1)
 	    {
 	      lambda_vector opposite_v = lambda_vector_new (DDR_NB_LOOPS (ddr));
 
-	      subscript_dependence_tester_1 (ddr, DDR_B (ddr), DDR_A (ddr),
-					     loop_nest);
+	      if (!subscript_dependence_tester_1 (ddr, DDR_B (ddr),
+						  DDR_A (ddr), loop_nest))
+		return false;
 	      compute_subscript_distance (ddr);
-	      build_classic_dist_vector_1 (ddr, DDR_B (ddr), DDR_A (ddr),
-					   opposite_v, &init_b, &index_carry);
+	      if (!build_classic_dist_vector_1 (ddr, DDR_B (ddr), DDR_A (ddr),
+						opposite_v, &init_b,
+						&index_carry))
+		return false;
 
+	      save_dist_v (ddr, save_v);
 	      add_outer_distances (ddr, dist_v, index_carry);
 	      add_outer_distances (ddr, opposite_v, index_carry);
 	    }
+	  else
+	    save_dist_v (ddr, save_v);
 	}
     }
   else
@@ -3943,7 +3933,7 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
       op1 = &GIMPLE_STMT_OPERAND (stmt, 1);
 		
       if (DECL_P (*op1)
-	  || REFERENCE_CLASS_P (*op1))
+	  || (REFERENCE_CLASS_P (*op1) && get_base_address (*op1)))
 	{
 	  ref = VEC_safe_push (data_ref_loc, heap, *references, NULL);
 	  ref->pos = op1;
@@ -3951,7 +3941,7 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 	}
 
       if (DECL_P (*op0)
-	  || REFERENCE_CLASS_P (*op0))
+	  || (REFERENCE_CLASS_P (*op0) && get_base_address (*op0)))
 	{
 	  ref = VEC_safe_push (data_ref_loc, heap, *references, NULL);
 	  ref->pos = op0;
@@ -3968,7 +3958,7 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 	  op0 = &CALL_EXPR_ARG (call, i);
 
 	  if (DECL_P (*op0)
-	      || REFERENCE_CLASS_P (*op0))
+	      || (REFERENCE_CLASS_P (*op0) && get_base_address (*op0)))
 	    {
 	      ref = VEC_safe_push (data_ref_loc, heap, *references, NULL);
 	      ref->pos = op0;
@@ -4288,8 +4278,12 @@ free_dependence_relation (struct data_dependence_relation *ddr)
   if (ddr == NULL)
     return;
 
-  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE && DDR_SUBSCRIPTS (ddr))
+  if (DDR_SUBSCRIPTS (ddr))
     free_subscripts (DDR_SUBSCRIPTS (ddr));
+  if (DDR_DIST_VECTS (ddr))
+    VEC_free (lambda_vector, heap, DDR_DIST_VECTS (ddr));
+  if (DDR_DIR_VECTS (ddr))
+    VEC_free (lambda_vector, heap, DDR_DIR_VECTS (ddr));
 
   free (ddr);
 }

@@ -22,11 +22,12 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SCHED_INT_H
 #define GCC_SCHED_INT_H
 
-#include "basic-block.h"
+#ifdef INSN_SCHEDULING
 
 /* For state_t.  */
 #include "insn-attr.h"
 #include "df.h"
+#include "basic-block.h"
 
 /* For VEC (int, heap).  */
 #include "vecprim.h"
@@ -150,18 +151,17 @@ extern void sched_insns_finish (void);
 
 extern void *xrecalloc (void *, size_t, size_t, size_t);
 extern rtx bb_note (basic_block);
-extern void get_ebb_head_tail (basic_block, basic_block, rtx *, rtx *);
 
 extern void move_insn (rtx, rtx, rtx);
 extern void reemit_notes (rtx);
 
 /* Functions in sched-vis.c.  */
-extern void print_insn (char *, rtx, int);
-extern void print_pattern (char *, rtx, int);
-extern void print_value (char *, rtx, int);
+extern void print_insn (char *, const_rtx, int);
+extern void print_pattern (char *, const_rtx, int);
+extern void print_value (char *, const_rtx, int);
 
 /* Functions in haifa-sched.c.  */
-extern int haifa_classify_insn (rtx);
+extern int haifa_classify_insn (const_rtx);
 
 /* Functions in sel-sched-ir.c.  */
 extern void sel_find_rgns (void);
@@ -551,7 +551,7 @@ struct haifa_sched_info
      necessary to identify this insn in an output.  It's valid to use a
      static buffer for this.  The ALIGNED parameter should cause the string
      to be formatted so that multiple output lines will line up nicely.  */
-  const char *(*print_insn) (rtx, int);
+  const char *(*print_insn) (const_rtx, int);
   /* Return nonzero if an insn should be included in priority
      calculations.  */
   int (*contributes_to_priority) (rtx, rtx);
@@ -966,7 +966,9 @@ enum INSN_TRAP_CLASS
 extern void debug_ds (ds_t);
 
 /* Functions in haifa-sched.c.  */
-extern int no_real_insns_p (rtx, rtx);
+extern int haifa_classify_insn (const_rtx);
+extern void get_ebb_head_tail (basic_block, basic_block, rtx *, rtx *);
+extern int no_real_insns_p (const_rtx, const_rtx);
 
 extern int insn_cost (rtx);
 extern int dep_cost_1 (dep_t, dw_t);
@@ -988,7 +990,7 @@ extern void sched_extend_ready_list (int);
 extern void sched_finish_ready_list (void);
 extern void sched_change_pattern (rtx, rtx);
 extern int sched_speculate_insn (rtx, ds_t, rtx *);
-extern bool sched_insn_is_legitimate_for_speculation_p (rtx, ds_t);
+extern bool sched_insn_is_legitimate_for_speculation_p (const_rtx, ds_t);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern rtx bb_note (basic_block);
@@ -1036,7 +1038,7 @@ extern void haifa_sched_finish (void);
 /* A type to hold above flags.  */
 typedef int sd_list_types_def;
 
-extern void sd_next_list (rtx, sd_list_types_def *, deps_list_t *, bool *);
+extern void sd_next_list (const_rtx, sd_list_types_def *, deps_list_t *, bool *);
 
 /* Iterator to walk through, resolve and delete dependencies.  */
 struct _sd_iterator
@@ -1051,7 +1053,7 @@ struct _sd_iterator
      simply a pointer to the next element to allow easy deletion from the
      list.  When a dep is being removed from the list the iterator
      will automatically advance because the value in *linkp will start
-     reffering to the next element.  */
+     referring to the next element.  */
   dep_link_t *linkp;
 
   /* True if the current list is a resolved one.  */
@@ -1134,8 +1136,8 @@ sd_iterator_next (sd_iterator_def *it_ptr)
        sd_iterator_cond (&(ITER), &(DEP));			\
        sd_iterator_next (&(ITER)))
 
-extern int sd_lists_size (rtx, sd_list_types_def);
-extern bool sd_lists_empty_p (rtx, sd_list_types_def);
+extern int sd_lists_size (const_rtx, sd_list_types_def);
+extern bool sd_lists_empty_p (const_rtx, sd_list_types_def);
 extern void sd_init_insn (rtx);
 extern void sd_finish_insn (rtx);
 extern dep_t sd_find_dep_between (rtx, rtx, bool);
@@ -1145,5 +1147,7 @@ extern void sd_resolve_dep (sd_iterator_def);
 extern void sd_copy_back_deps (rtx, rtx, bool);
 extern void sd_delete_dep (sd_iterator_def);
 extern void sd_debug_lists (rtx, sd_list_types_def);
+
+#endif /* INSN_SCHEDULING */
 
 #endif /* GCC_SCHED_INT_H */

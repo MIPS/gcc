@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -512,6 +511,53 @@ package body Exp_Ch9 is
          elsif Ekind (Prev) = E_Entry_Family then
             S :=
               Etype (Discrete_Subtype_Definition (Declaration_Node (Prev)));
+
+            --  The need for the following full view retrieval stems from
+            --  this complex case of nested generics and tasking:
+
+            --     generic
+            --        type Formal_Index is range <>;
+            --        ...
+            --     package Outer is
+            --        type Index is private;
+            --        generic
+            --           ...
+            --        package Inner is
+            --           procedure P;
+            --        end Inner;
+            --     private
+            --        type Index is new Formal_Index range 1 .. 10;
+            --     end Outer;
+
+            --     package body Outer is
+            --        task type T is
+            --           entry Fam (Index);  --  (2)
+            --           entry E;
+            --        end T;
+            --        package body Inner is  --  (3)
+            --           procedure P is
+            --           begin
+            --              T.E;             --  (1)
+            --           end P;
+            --       end Inner;
+            --       ...
+
+            --  We are currently building the index expression for the entry
+            --  call "T.E" (1). Part of the expansion must mention the range
+            --  of the discrete type "Index" (2) of entry family "Fam".
+            --  However only the private view of type "Index" is available to
+            --  the inner generic (3) because there was no prior mention of
+            --  the type inside "Inner". This visibility requirement is
+            --  implicit and cannot be detected during the construction of
+            --  the generic trees and needs special handling.
+
+            if In_Instance_Body
+              and then Is_Private_Type (S)
+              and then Present (Full_View (S))
+            then
+               S := Full_View (S);
+            end if;
+
             Lo := Type_Low_Bound  (S);
             Hi := Type_High_Bound (S);
 
@@ -2084,12 +2130,10 @@ package body Exp_Ch9 is
       if Debug_Generated_Code then
          Han_Loc := End_Loc;
 
-      --  Otherwise we propagate the original source location to allow the
-      --  correct generation of errors in case of restrictions applied to
-      --  the expanded code.
+      --  Otherwise the inserted code should not be visible to the debugger
 
       else
-         Han_Loc := Sloc (N);
+         Han_Loc := No_Location;
       end if;
 
       Edef :=
@@ -11231,7 +11275,7 @@ package body Exp_Ch9 is
       --  required value is obtained by taking the address of the task body
       --  procedure and converting it (with an unchecked conversion) to the
       --  type required by the task kernel. For further details, see the
-      --  description of Expand_Task_Body
+      --  description of Expand_N_Task_Body
 
       Append_To (Args,
         Unchecked_Convert_To (RTE (RE_Task_Procedure_Access),

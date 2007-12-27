@@ -29,11 +29,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "real.h"
+#include "insn-attr.h"
 #include "sched-int.h"
 #include "tree-pass.h"
 
 static char *safe_concat (char *, char *, const char *);
-static void print_exp (char *, rtx, int);
 
 #define BUF_LEN 2048
 
@@ -61,7 +61,7 @@ safe_concat (char *buf, char *cur, const char *str)
    may be stored in objects representing values.  */
 
 static void
-print_exp (char *buf, rtx x, int verbose)
+print_exp (char *buf, const_rtx x, int verbose)
 {
   char tmp[BUF_LEN];
   const char *st[4];
@@ -424,7 +424,7 @@ print_exp (char *buf, rtx x, int verbose)
    registers, labels, symbols and memory accesses.  */
 
 void
-print_value (char *buf, rtx x, int verbose)
+print_value (char *buf, const_rtx x, int verbose)
 {
   char t[BUF_LEN];
   char *cur = buf;
@@ -443,6 +443,10 @@ print_value (char *buf, rtx x, int verbose)
 		 "<" HOST_WIDE_INT_PRINT_HEX "," HOST_WIDE_INT_PRINT_HEX ">",
 		 (unsigned HOST_WIDE_INT) CONST_DOUBLE_LOW (x),
 		 (unsigned HOST_WIDE_INT) CONST_DOUBLE_HIGH (x));
+      cur = safe_concat (buf, cur, t);
+      break;
+    case CONST_FIXED:
+      fixed_to_decimal (t, CONST_FIXED_VALUE (x), sizeof (t));
       cur = safe_concat (buf, cur, t);
       break;
     case CONST_STRING:
@@ -526,7 +530,7 @@ print_value (char *buf, rtx x, int verbose)
 /* The next step in insn detalization, its pattern recognition.  */
 
 void
-print_pattern (char *buf, rtx x, int verbose)
+print_pattern (char *buf, const_rtx x, int verbose)
 {
   char t1[BUF_LEN], t2[BUF_LEN], t3[BUF_LEN];
 
@@ -636,10 +640,10 @@ print_pattern (char *buf, rtx x, int verbose)
    depends now on sched.c inner variables ...)  */
 
 void
-print_insn (char *buf, rtx x, int verbose)
+print_insn (char *buf, const_rtx x, int verbose)
 {
   char t[BUF_LEN];
-  rtx insn = x;
+  const_rtx insn = x;
 
   switch (GET_CODE (x))
     {

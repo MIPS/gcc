@@ -269,6 +269,9 @@ Ben Elliston for his work to move the Objective-C runtime into its
 own subdirectory and for his work on autoconf.
 
 @item
+Revital Eres for work on the PowerPC 750CL port.
+
+@item
 Marc Espie for OpenBSD support.
 
 @item
@@ -514,7 +517,15 @@ patches.
 Robert Lipe for OpenServer support, new testsuites, testing, etc.
 
 @item
+Chen Liqin for various S+core related fixes/improvement, and for
+maintaining the S+core port.
+
+@item
 Weiwen Liu for testing and various bug fixes.
+
+@item
+Manuel L@'opez-Ib@'a@~nez for improving @option{-Wconversion} and
+many other diagnostics fixes and improvements.
 
 @item
 Dave Love for his ongoing work with the Fortran front end and

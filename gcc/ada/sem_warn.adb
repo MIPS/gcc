@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1120,8 +1119,9 @@ package body Sem_Warn is
                            or else
                         (Check_Unreferenced_Formals and then Is_Formal (E1))
                            or else
-                        (Warn_On_Modified_Unread
-                          and then Referenced_As_LHS_Check_Spec (E1)))
+                        ((Warn_On_Modified_Unread
+                             or Warn_On_Out_Parameter_Unread)
+                           and then Referenced_As_LHS_Check_Spec (E1)))
 
                --  Labels, and enumeration literals, and exceptions. The
                --  warnings are also placed on local packages that cannot be
@@ -1141,14 +1141,21 @@ package body Sem_Warn is
                          Ekind (E1) = E_Named_Real
                            or else
                          Is_Overloadable (E1)
+
+                           --  Package case, if the main unit is a package
+                           --  spec or generic package spec, then there may
+                           --  be a corresponding body that references this
+                           --  package in some other file. Otherwise we can
+                           --  be sure that there is no other reference.
+
                            or else
                              (Ekind (E1) = E_Package
-                               and then
-                                (Ekind (E) = E_Function
-                                  or else Ekind (E) = E_Package_Body
-                                  or else Ekind (E) = E_Procedure
-                                  or else Ekind (E) = E_Subprogram_Body
-                                  or else Ekind (E) = E_Block)))
+                                and then
+                                  Ekind (Cunit_Entity (Current_Sem_Unit)) /=
+                                                          E_Package
+                                and then
+                                  Ekind (Cunit_Entity (Current_Sem_Unit)) /=
+                                                          E_Generic_Package))
 
                --  Exclude instantiations, since there is no reason why every
                --  entity in an instantiation should be referenced.
@@ -2523,6 +2530,12 @@ package body Sem_Warn is
          when 'C' =>
             Warn_On_Unrepped_Components         := False;
 
+         when 'o' =>
+            Warn_On_Out_Parameter_Unread        := True;
+
+         when 'O' =>
+            Warn_On_Out_Parameter_Unread        := False;
+
          when 'r' =>
             Warn_On_Object_Renames_Function     := True;
 
@@ -2591,6 +2604,7 @@ package body Sem_Warn is
             Warn_On_No_Value_Assigned           := False;
             Warn_On_Non_Local_Exception         := False;
             Warn_On_Obsolescent_Feature         := False;
+            Warn_On_Out_Parameter_Unread        := False;
             Warn_On_Questionable_Missing_Parens := False;
             Warn_On_Redundant_Constructs        := False;
             Warn_On_Object_Renames_Function     := False;
@@ -3250,6 +3264,7 @@ package body Sem_Warn is
       Body_E : Entity_Id := Empty)
    is
       E : Entity_Id := Spec_E;
+
    begin
       if not Referenced_Check_Spec (E) and then not Warnings_Off (E) then
          case Ekind (E) is
@@ -3263,7 +3278,7 @@ package body Sem_Warn is
                  and then No (Address_Clause (E))
                  and then not Is_Volatile (E)
                then
-                  if Warn_On_Modified_Unread
+                  if (Warn_On_Modified_Unread or Warn_On_Out_Parameter_Unread)
                     and then not Is_Imported (E)
                     and then not Is_Return_Object (E)
 
@@ -3419,7 +3434,7 @@ package body Sem_Warn is
       --  last assignment field set, with warnings enabled, and which is
       --  not imported or exported.
 
-      if Ekind (Ent) = E_Variable
+      if Is_Assignable (Ent)
         and then not Is_Return_Object (Ent)
         and then Present (Last_Assignment (Ent))
         and then not Warnings_Off (Ent)
@@ -3445,16 +3460,29 @@ package body Sem_Warn is
             elsif Nkind (P) = N_Subprogram_Body
               or else Nkind (P) = N_Package_Body
             then
+               --  Case of assigned value never referenced
+
                if Loc = No_Location then
-                  Error_Msg_NE
-                    ("?useless assignment to&, value never referenced!",
-                     Last_Assignment (Ent), Ent);
+
+                  --  Don't give this for OUT and IN OUT formals, since
+                  --  clearly caller may reference the assigned value.
+
+                  if Ekind (Ent) = E_Variable then
+                     Error_Msg_NE
+                       ("?useless assignment to&, value never referenced!",
+                        Last_Assignment (Ent), Ent);
+                  end if;
+
+               --  Case of assigned value overwritten
+
                else
                   Error_Msg_Sloc := Loc;
                   Error_Msg_NE
                     ("?useless assignment to&, value overwritten #!",
                      Last_Assignment (Ent), Ent);
                end if;
+
+               --  Clear last assignment indication and we are done
 
                Set_Last_Assignment (Ent, Empty);
                return;

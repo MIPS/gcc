@@ -176,8 +176,10 @@ package body System.Task_Primitives.Operations is
       pragma Unreferenced (signo);
 
       Self_ID : constant Task_Id := Self;
-      Result  : int;
       Old_Set : aliased sigset_t;
+
+      Result : int;
+      pragma Warnings (Off, Result);
 
    begin
       --  It is not safe to raise an exception when using ZCX and the GCC
@@ -1310,6 +1312,19 @@ package body System.Task_Primitives.Operations is
 
       Dummy := Int_Unlock;
    end Stop_All_Tasks;
+
+   ---------------
+   -- Stop_Task --
+   ---------------
+
+   function Stop_Task (T : ST.Task_Id) return Boolean is
+   begin
+      if T.Common.LL.Thread /= 0 then
+         return Task_Stop (T.Common.LL.Thread) = 0;
+      else
+         return True;
+      end if;
+   end Stop_Task;
 
    -------------------
    -- Continue_Task --

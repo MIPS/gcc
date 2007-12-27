@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -388,7 +387,7 @@ package body Exp_Ch5 is
          --       File.Storage := Contents;
          --    end Write_All;
 
-         --  We expand to a loop in either of these two cases.
+         --  We expand to a loop in either of these two cases
 
          --  Question for future thought. Another potentially more efficient
          --  approach would be to create the actual subtype, and then do an
@@ -637,11 +636,18 @@ package body Exp_Ch5 is
          --  gigi handle it.
 
          if not Loop_Required then
+
+            --  Assume gigi can handle it if Forwards_OK is set
+
             if Forwards_OK (N) then
                return;
-            else
-               null;
-               --  Here is where a memmove would be appropriate ???
+
+            --  If Forwards_OK is not set, the back end will need something
+            --  like memmove to handle the move. For now, this processing is
+            --  activated using the .s debug flag (-gnatd.s).
+
+            elsif Debug_Flag_Dot_S then
+               return;
             end if;
          end if;
 
@@ -1412,7 +1418,6 @@ package body Exp_Ch5 is
             Call           : Node_Id;
             Conctyp        : Entity_Id;
             Ent            : Entity_Id;
-            Object_Parm    : Node_Id;
             Subprg         : Entity_Id;
             RT_Subprg_Name : Node_Id;
 
@@ -1428,7 +1433,7 @@ package body Exp_Ch5 is
             end loop;
 
             --  The attribute Priority applied to protected objects has been
-            --  previously expanded into calls to the Get_Ceiling run-time
+            --  previously expanded into a call to the Get_Ceiling run-time
             --  subprogram.
 
             if Nkind (Ent) = N_Function_Call
@@ -1452,18 +1457,6 @@ package body Exp_Ch5 is
                   Subprg := Scope (Subprg);
                end loop;
 
-               Object_Parm :=
-                 Make_Attribute_Reference (Loc,
-                   Prefix =>
-                     Make_Selected_Component (Loc,
-                       Prefix => New_Reference_To
-                                   (First_Entity
-                                     (Protected_Body_Subprogram (Subprg)),
-                                    Loc),
-                     Selector_Name =>
-                       Make_Identifier (Loc, Name_uObject)),
-                   Attribute_Name => Name_Unchecked_Access);
-
                --  Select the appropriate run-time call
 
                if Number_Entries (Conctyp) = 0 then
@@ -1477,9 +1470,9 @@ package body Exp_Ch5 is
                Call :=
                  Make_Procedure_Call_Statement (Loc,
                    Name => RT_Subprg_Name,
-                   Parameter_Associations =>
-                     New_List (Object_Parm,
-                               Relocate_Node (Expression (N))));
+                   Parameter_Associations => New_List (
+                     New_Copy_Tree (First (Parameter_Associations (Ent))),
+                     Relocate_Node (Expression (N))));
 
                Rewrite (N, Call);
                Analyze (N);
@@ -1616,16 +1609,16 @@ package body Exp_Ch5 is
             --  We do not need to reanalyze that assignment, and we do not need
             --  to worry about references to the temporary, but we do need to
             --  make sure that the temporary is not marked as a true constant
-            --  since we now have a generate assignment to it!
+            --  since we now have a generated assignment to it!
 
             Set_Is_True_Constant (Tnn, False);
          end;
       end if;
 
-      --  When we have the appropriate type of aggregate in the
-      --  expression (it has been determined during analysis of the
-      --  aggregate by setting the delay flag), let's perform in place
-      --  assignment and thus avoid creating a temporay.
+      --  When we have the appropriate type of aggregate in the expression (it
+      --  has been determined during analysis of the aggregate by setting the
+      --  delay flag), let's perform in place assignment and thus avoid
+      --  creating a temporary.
 
       if Is_Delayed_Aggregate (Rhs) then
          Convert_Aggr_In_Assignment (N);
@@ -1762,8 +1755,10 @@ package body Exp_Ch5 is
          Make_Build_In_Place_Call_In_Assignment (N, Rhs);
 
       elsif Is_Tagged_Type (Typ) and then Is_Value_Type (Etype (Lhs)) then
+
          --  Nothing to do for valuetypes
          --  ??? Set_Scope_Is_Transient (False);
+
          return;
 
       elsif Is_Tagged_Type (Typ)
@@ -2059,9 +2054,8 @@ package body Exp_Ch5 is
             elsif Is_Entity_Name (Lhs)
               and then Is_Known_Valid (Entity (Lhs))
             then
-               --  Note that the Ensure_Valid call is ignored if the
-               --  Validity_Checking mode is set to none so we do not
-               --  need to worry about that case here.
+               --  Note: If Validity_Checking mode is set to none, we ignore
+               --  the Ensure_Valid call so don't worry about that case here.
 
                Ensure_Valid (Rhs);
 
@@ -2484,10 +2478,17 @@ package body Exp_Ch5 is
         or else Is_Composite_Type (Etype (Parent_Function))
         or else No (Exp)
       then
-         Statements := New_List;
+         if No (Handled_Stm_Seq) then
+            Statements := New_List;
 
-         if Present (Handled_Stm_Seq) then
-            Append_To (Statements, Handled_Stm_Seq);
+         --  If the extended return has a handled statement sequence, then wrap
+         --  it in a block and use the block as the first statement.
+
+         else
+            Statements :=
+              New_List (Make_Block_Statement (Loc,
+                          Declarations => New_List,
+                          Handled_Statement_Sequence => Handled_Stm_Seq));
          end if;
 
          --  If control gets past the above Statements, we have successfully

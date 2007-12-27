@@ -183,6 +183,7 @@ package body Snames is
      "check_name#" &
      "compile_time_error#" &
      "compile_time_warning#" &
+     "compiler_unit#" &
      "component_alignment#" &
      "convention_identifier#" &
      "debug_policy#" &
@@ -695,6 +696,8 @@ package body Snames is
      "dependency_file_kind#" &
      "dependency_switches#" &
      "driver#" &
+     "excluded_source_dirs#" &
+     "excluded_source_files#" &
      "exec_dir#" &
      "executable#" &
      "executable_suffix#" &
@@ -708,7 +711,7 @@ package body Snames is
      "implementation#" &
      "implementation_exceptions#" &
      "implementation_suffix#" &
-     "include_option#" &
+     "include_switches#" &
      "include_path#" &
      "include_path_file#" &
      "language_kind#" &
@@ -773,6 +776,7 @@ package body Snames is
      "symbolic_link_supported#" &
      "toolchain_description#" &
      "toolchain_version#" &
+     "runtime_library_dir#" &
      "unaligned_valid#" &
      "interface#" &
      "overriding#" &

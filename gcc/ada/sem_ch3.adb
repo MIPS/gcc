@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -35,6 +34,7 @@ with Exp_Ch3;  use Exp_Ch3;
 with Exp_Dist; use Exp_Dist;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
+with Fname;    use Fname;
 with Freeze;   use Freeze;
 with Itypes;   use Itypes;
 with Layout;   use Layout;
@@ -3380,8 +3380,9 @@ package body Sem_Ch3 is
 
       T := Etype (Id);
 
-      Set_Is_Immediately_Visible (Id, True);
-      Set_Depends_On_Private     (Id, Has_Private_Component (T));
+      Set_Is_Immediately_Visible   (Id, True);
+      Set_Depends_On_Private       (Id, Has_Private_Component (T));
+      Set_Is_Descendent_Of_Address (Id, Is_Descendent_Of_Address (T));
 
       if Is_Interface (T) then
          Set_Is_Interface (Id);
@@ -3783,6 +3784,15 @@ package body Sem_Ch3 is
          Generate_Definition (Def_Id);
       end if;
 
+      if Chars (Scope (Def_Id)) =  Name_System
+        and then Chars (Def_Id) = Name_Address
+        and then Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (N)))
+      then
+         Set_Is_Descendent_Of_Address (Def_Id);
+         Set_Is_Descendent_Of_Address (Base_Type (Def_Id));
+         Set_Is_Descendent_Of_Address (Prev);
+      end if;
+
       Check_Eliminated (Def_Id);
    end Analyze_Type_Declaration;
 
@@ -3844,6 +3854,12 @@ package body Sem_Ch3 is
       Last_Choice    : Nat;
       Dont_Care      : Boolean;
       Others_Present : Boolean := False;
+
+      pragma Warnings (Off, Case_Table);
+      pragma Warnings (Off, Last_Choice);
+      pragma Warnings (Off, Dont_Care);
+      pragma Warnings (Off, Others_Present);
+      --  We don't care about the assigned values of any of these
 
    --  Start of processing for Analyze_Variant_Part
 
@@ -4148,9 +4164,9 @@ package body Sem_Ch3 is
          end;
       end if;
 
-      --  Create a concatenation operator for the new type. Internal
-      --  array types created for packed entities do not need such, they
-      --  are compatible with the user-defined type.
+      --  Create a concatenation operator for the new type. Internal array
+      --  types created for packed entities do not need such, they are
+      --  compatible with the user-defined type.
 
       if Number_Dimensions (T) = 1
          and then not Is_Packed_Array_Type (T)
@@ -4158,9 +4174,9 @@ package body Sem_Ch3 is
          New_Concatenation_Op (T);
       end if;
 
-      --  In the case of an unconstrained array the parser has already
-      --  verified that all the indices are unconstrained but we still
-      --  need to make sure that the element type is constrained.
+      --  In the case of an unconstrained array the parser has already verified
+      --  that all the indices are unconstrained but we still need to make sure
+      --  that the element type is constrained.
 
       if Is_Indefinite_Subtype (Element_Type) then
          Error_Msg_N
@@ -4180,7 +4196,7 @@ package body Sem_Ch3 is
    ------------------------------------------------------
 
    function Replace_Anonymous_Access_To_Protected_Subprogram
-     (N      : Node_Id) return Entity_Id
+     (N : Node_Id) return Entity_Id
    is
       Loc : constant Source_Ptr := Sloc (N);
 
@@ -4311,9 +4327,9 @@ package body Sem_Ch3 is
       Subt            : Entity_Id;
 
    begin
-      --  Set the designated type so it is available in case this is
-      --  an access to a self-referential type, e.g. a standard list
-      --  type with a next pointer. Will be reset after subtype is built.
+      --  Set the designated type so it is available in case this is an access
+      --  to a self-referential type, e.g. a standard list type with a next
+      --  pointer. Will be reset after subtype is built.
 
       Set_Directly_Designated_Type
         (Derived_Type, Designated_Type (Parent_Type));
@@ -4370,8 +4386,8 @@ package body Sem_Ch3 is
          Set_Can_Never_Be_Null (Derived_Type);
       end if;
 
-      --  Note: we do not copy the Storage_Size_Variable, since
-      --  we always go to the root type for this information.
+      --  Note: we do not copy the Storage_Size_Variable, since we always go to
+      --  the root type for this information.
 
       --  Apply range checks to discriminants for derived record case
       --  ??? THIS CODE SHOULD NOT BE HERE REALLY.
@@ -4411,8 +4427,8 @@ package body Sem_Ch3 is
       New_Indic     : Node_Id;
 
       procedure Make_Implicit_Base;
-      --  If the parent subtype is constrained, the derived type is a
-      --  subtype of an implicit base type derived from the parent base.
+      --  If the parent subtype is constrained, the derived type is a subtype
+      --  of an implicit base type derived from the parent base.
 
       ------------------------
       -- Make_Implicit_Base --
@@ -4562,6 +4578,14 @@ package body Sem_Ch3 is
         (Derived_Type, Has_Discriminants         (Parent_Type));
       Set_Corresponding_Record_Type
         (Derived_Type, Corresponding_Record_Type (Parent_Type));
+
+      --  Is_Constrained is set according the parent subtype, but is set to
+      --  False if the derived type is declared with new discriminants.
+
+      Set_Is_Constrained
+        (Derived_Type,
+         (Is_Constrained (Parent_Type) or else Constraint_Present)
+           and then not Present (Discriminant_Specifications (N)));
 
       if Constraint_Present then
          if not Has_Discriminants (Parent_Type) then
@@ -4720,13 +4744,12 @@ package body Sem_Ch3 is
             Analyze (High_Bound (Range_Expression (Constraint (Indic))));
          end if;
 
-         --  Introduce an implicit base type for the derived type even
-         --  if there is no constraint attached to it, since this seems
-         --  closer to the Ada semantics. Build a full type declaration
-         --  tree for the derived type using the implicit base type as
-         --  the defining identifier. The build a subtype declaration
-         --  tree which applies the constraint (if any) have it replace
-         --  the derived type declaration.
+         --  Introduce an implicit base type for the derived type even if there
+         --  is no constraint attached to it, since this seems closer to the
+         --  Ada semantics. Build a full type declaration tree for the derived
+         --  type using the implicit base type as the defining identifier. The
+         --  build a subtype declaration tree which applies the constraint (if
+         --  any) have it replace the derived type declaration.
 
          Literal := First_Literal (Parent_Type);
          Literals_List := New_List;
@@ -4762,10 +4785,10 @@ package body Sem_Ch3 is
            Make_Defining_Identifier (Sloc (Derived_Type),
              New_External_Name (Chars (Derived_Type), 'B'));
 
-         --  Indicate the proper nature of the derived type. This must
-         --  be done before analysis of the literals, to recognize cases
-         --  when a literal may be hidden by a previous explicit function
-         --  definition (cf. c83031a).
+         --  Indicate the proper nature of the derived type. This must be done
+         --  before analysis of the literals, to recognize cases when a literal
+         --  may be hidden by a previous explicit function definition (cf.
+         --  c83031a).
 
          Set_Ekind (Derived_Type, E_Enumeration_Subtype);
          Set_Etype (Derived_Type, Implicit_Base);
@@ -4796,9 +4819,9 @@ package body Sem_Ch3 is
                                                            (Parent_Type));
          Set_Has_Delayed_Freeze (Implicit_Base);
 
-         --  Process the subtype indication including a validation check
-         --  on the constraint, if any. If a constraint is given, its bounds
-         --  must be implicitly converted to the new type.
+         --  Process the subtype indication including a validation check on the
+         --  constraint, if any. If a constraint is given, its bounds must be
+         --  implicitly converted to the new type.
 
          if Nkind (Indic) = N_Subtype_Indication then
             declare
@@ -4813,9 +4836,9 @@ package body Sem_Ch3 is
                           (Low_Bound  (R), Parent_Type, Implicit_Base);
 
                else
-                  --  Constraint is a Range attribute. Replace with the
-                  --  explicit mention of the bounds of the prefix, which must
-                  --  be a subtype.
+                  --  Constraint is a Range attribute. Replace with explicit
+                  --  mention of the bounds of the prefix, which must be a
+                  --  subtype.
 
                   Analyze (Prefix (R));
                   Hi :=
@@ -4872,8 +4895,8 @@ package body Sem_Ch3 is
 
          Analyze (N);
 
-         --  If pragma Discard_Names applies on the first subtype of the
-         --  parent type, then it must be applied on this subtype as well.
+         --  If pragma Discard_Names applies on the first subtype of the parent
+         --  type, then it must be applied on this subtype as well.
 
          if Einfo.Discard_Names (First_Subtype (Parent_Type)) then
             Set_Discard_Names (Derived_Type);
@@ -4979,6 +5002,11 @@ package body Sem_Ch3 is
             Set_Includes_Infinities (Scalar_Range (Derived_Type));
          end if;
       end if;
+
+      Set_Is_Descendent_Of_Address (Derived_Type,
+        Is_Descendent_Of_Address (Parent_Type));
+      Set_Is_Descendent_Of_Address (Implicit_Base,
+        Is_Descendent_Of_Address (Parent_Type));
 
       --  Set remaining type-specific fields, depending on numeric type
 
@@ -5916,15 +5944,15 @@ package body Sem_Ch3 is
       Last_Discrim : Entity_Id;
       Constrs      : Elist_Id;
 
-      Discs        : Elist_Id := New_Elmt_List;
+      Discs : Elist_Id := New_Elmt_List;
       --  An empty Discs list means that there were no constraints in the
       --  subtype indication or that there was an error processing it.
 
-      Assoc_List         : Elist_Id;
-      New_Discrs         : Elist_Id;
-      New_Base           : Entity_Id;
-      New_Decl           : Node_Id;
-      New_Indic          : Node_Id;
+      Assoc_List : Elist_Id;
+      New_Discrs : Elist_Id;
+      New_Base   : Entity_Id;
+      New_Decl   : Node_Id;
+      New_Indic  : Node_Id;
 
       Is_Tagged          : constant Boolean := Is_Tagged_Type (Parent_Type);
       Discriminant_Specs : constant Boolean :=
@@ -5932,11 +5960,11 @@ package body Sem_Ch3 is
       Private_Extension  : constant Boolean :=
                              (Nkind (N) = N_Private_Extension_Declaration);
 
-      Constraint_Present     : Boolean;
-      Inherit_Discrims       : Boolean := False;
-      Save_Etype             : Entity_Id;
-      Save_Discr_Constr      : Elist_Id;
-      Save_Next_Entity       : Entity_Id;
+      Constraint_Present : Boolean;
+      Inherit_Discrims   : Boolean := False;
+      Save_Etype         : Entity_Id;
+      Save_Discr_Constr  : Elist_Id;
+      Save_Next_Entity   : Entity_Id;
 
    begin
       if Ekind (Parent_Type) = E_Record_Type_With_Private
@@ -5982,7 +6010,7 @@ package body Sem_Ch3 is
       else
          Type_Def := Type_Definition (N);
 
-         --  Ekind (Parent_Base) in not necessarily E_Record_Type since
+         --  Ekind (Parent_Base) is not necessarily E_Record_Type since
          --  Parent_Base can be a private type or private extension. However,
          --  for tagged types with an extension the newly added fields are
          --  visible and hence the Derived_Type is always an E_Record_Type.
@@ -6527,13 +6555,13 @@ package body Sem_Ch3 is
       --  Fields inherited from the Parent_Type
 
       Set_Discard_Names
-        (Derived_Type, Einfo.Discard_Names      (Parent_Type));
+        (Derived_Type, Einfo.Discard_Names  (Parent_Type));
       Set_Has_Specified_Layout
-        (Derived_Type, Has_Specified_Layout     (Parent_Type));
+        (Derived_Type, Has_Specified_Layout (Parent_Type));
       Set_Is_Limited_Composite
-        (Derived_Type, Is_Limited_Composite     (Parent_Type));
+        (Derived_Type, Is_Limited_Composite (Parent_Type));
       Set_Is_Private_Composite
-        (Derived_Type, Is_Private_Composite     (Parent_Type));
+        (Derived_Type, Is_Private_Composite (Parent_Type));
 
       --  Fields inherited from the Parent_Base
 
@@ -6544,9 +6572,16 @@ package body Sem_Ch3 is
       Set_Has_Primitive_Operations
         (Derived_Type, Has_Primitive_Operations (Parent_Base));
 
+      --  For non-private case, we also inherit Has_Complex_Representation
+
+      if Ekind (Derived_Type) = E_Record_Type then
+         Set_Has_Complex_Representation
+           (Derived_Type, Has_Complex_Representation (Parent_Base));
+      end if;
+
       --  Direct controlled types do not inherit Finalize_Storage_Only flag
 
-      if not Is_Controlled  (Parent_Type) then
+      if not Is_Controlled (Parent_Type) then
          Set_Finalize_Storage_Only
            (Derived_Type, Finalize_Storage_Only (Parent_Type));
       end if;
@@ -6608,7 +6643,27 @@ package body Sem_Ch3 is
          if Ada_Version >= Ada_05 then
             declare
                Ifaces_List : Elist_Id;
+
             begin
+               --  Checks rules 3.9.4 (13/2 and 14/2)
+
+               if Comes_From_Source (Derived_Type)
+                 and then not Is_Private_Type (Derived_Type)
+                 and then Is_Interface (Parent_Type)
+                 and then not Is_Interface (Derived_Type)
+               then
+                  if Is_Task_Interface (Parent_Type) then
+                     Error_Msg_N
+                       ("(Ada 2005) task type required (RM 3.9.4 (13.2))",
+                        Derived_Type);
+
+                  elsif Is_Protected_Interface (Parent_Type) then
+                     Error_Msg_N
+                       ("(Ada 2005) protected type required (RM 3.9.4 (14.2))",
+                        Derived_Type);
+                  end if;
+               end if;
+
                --  Check ARM rules 3.9.4 (15/2), 9.1 (9.d/2) and 9.4 (11.d/2)
 
                Check_Abstract_Interfaces (N, Type_Def);
@@ -6820,16 +6875,16 @@ package body Sem_Ch3 is
    begin
       --  Set common attributes
 
-      Set_Scope          (Derived_Type, Current_Scope);
+      Set_Scope         (Derived_Type, Current_Scope);
 
-      Set_Ekind          (Derived_Type, Ekind     (Parent_Base));
-      Set_Etype          (Derived_Type,            Parent_Base);
-      Set_Has_Task       (Derived_Type, Has_Task  (Parent_Base));
+      Set_Ekind         (Derived_Type, Ekind    (Parent_Base));
+      Set_Etype         (Derived_Type,           Parent_Base);
+      Set_Has_Task      (Derived_Type, Has_Task (Parent_Base));
 
-      Set_Size_Info      (Derived_Type,                 Parent_Type);
-      Set_RM_Size        (Derived_Type, RM_Size        (Parent_Type));
-      Set_Convention     (Derived_Type, Convention     (Parent_Type));
-      Set_Is_Controlled  (Derived_Type, Is_Controlled  (Parent_Type));
+      Set_Size_Info     (Derived_Type,                Parent_Type);
+      Set_RM_Size       (Derived_Type, RM_Size       (Parent_Type));
+      Set_Convention    (Derived_Type, Convention    (Parent_Type));
+      Set_Is_Controlled (Derived_Type, Is_Controlled (Parent_Type));
 
       --  The derived type inherits the representation clauses of the parent.
       --  However, for a private type that is completed by a derivation, there
@@ -8263,16 +8318,35 @@ package body Sem_Ch3 is
         and then not In_Inlined_Body
       then
          if not OK_For_Limited_Init (Exp) then
-            --  In GNAT mode, this is just a warning, to allow it to be
-            --  evilly turned off. Otherwise it is a real error.
+
+            --  In GNAT mode, this is just a warning, to allow it to be evilly
+            --  turned off. Otherwise it is a real error.
 
             if GNAT_Mode then
                Error_Msg_N
-                 ("cannot initialize entities of limited type?", Exp);
-            else
+                 ("?cannot initialize entities of limited type!", Exp);
+
+            elsif Ada_Version < Ada_05 then
                Error_Msg_N
                  ("cannot initialize entities of limited type", Exp);
                Explain_Limited_Type (T, Exp);
+
+            else
+               --  Specialize error message according to kind of illegal
+               --  initial expression.
+
+               if Nkind (Exp) = N_Type_Conversion
+                 and then Nkind (Expression (Exp)) = N_Function_Call
+               then
+                  Error_Msg_N
+                    ("illegal context for call"
+                      & " to function with limited result", Exp);
+
+               else
+                  Error_Msg_N
+                    ("initialization of limited object requires agggregate "
+                      & "or function call",  Exp);
+               end if;
             end if;
          end if;
       end if;
@@ -11580,15 +11654,15 @@ package body Sem_Ch3 is
                end if;
 
             else
-
                --  If the generic parent type is present, the derived type
                --  is an instance of a formal derived type, and within the
                --  instance its operations are those of the actual. We derive
                --  from the formal type but make the inherited operations
                --  aliases of the corresponding operations of the actual.
 
-               if Is_Interface (Parent_Type) then
-
+               if Is_Interface (Parent_Type)
+                 and then Root_Type (Derived_Type) /= Parent_Type
+               then
                   --  Find the corresponding operation in the generic actual.
                   --  Given that the actual is not a direct descendant of the
                   --  parent, as in Ada 95, the primitives are not necessarily
@@ -11596,8 +11670,12 @@ package body Sem_Ch3 is
                   --  primitive operations of the actual to find the one that
                   --  implements the interface operation.
 
-                  Act_Elmt := First_Elmt (Act_List);
+                  --  Note that if the parent type is the direct ancestor of
+                  --  the derived type, then even if it is an interface the
+                  --  operations are inherited from the primary dispatch table
+                  --  and are in the proper order.
 
+                  Act_Elmt := First_Elmt (Act_List);
                   while Present (Act_Elmt) loop
                      exit when
                        Abstract_Interface_Alias (Node (Act_Elmt)) = Subp;
@@ -11642,9 +11720,9 @@ package body Sem_Ch3 is
    --------------------------------
 
    procedure Derived_Standard_Character
-     (N             : Node_Id;
-      Parent_Type   : Entity_Id;
-      Derived_Type  : Entity_Id)
+     (N            : Node_Id;
+      Parent_Type  : Entity_Id;
+      Derived_Type : Entity_Id)
    is
       Loc           : constant Source_Ptr := Sloc (N);
       Def           : constant Node_Id    := Type_Definition (N);
@@ -14191,35 +14269,40 @@ package body Sem_Ch3 is
 
    function OK_For_Limited_Init_In_05 (Exp : Node_Id) return Boolean is
    begin
-      --  ???Expand_N_Extended_Return_Statement generates code that would
-      --  violate the rules in some cases. Once we have build-in-place
-      --  function returns working, we can probably remove the following
-      --  check.
 
-      if not Comes_From_Source (Exp) then
-         return True;
-      end if;
-
-      --  Ada 2005 (AI-287, AI-318): Relax the strictness of the front-end in
-      --  case of limited aggregates (including extension aggregates),
-      --  and function calls. The function call may have been give in prefixed
+      --  Ada 2005 (AI-287, AI-318): Relax the strictness of the front end in
+      --  case of limited aggregates (including extension aggregates), and
+      --  function calls. The function call may have been give in prefixed
       --  notation, in which case the original node is an indexed component.
 
       case Nkind (Original_Node (Exp)) is
          when N_Aggregate | N_Extension_Aggregate | N_Function_Call | N_Op =>
             return True;
 
+         when N_Qualified_Expression =>
+            return
+              OK_For_Limited_Init_In_05 (Expression (Original_Node (Exp)));
+
          --  Ada 2005 (AI-251): If a class-wide interface object is initialized
-         --  with a function call, the expander has rewriten the call into an
+         --  with a function call, the expander has rewritten the call into an
          --  N_Type_Conversion node to force displacement of the pointer to
          --  reference the component containing the secondary dispatch table.
+         --  Otherwise a type conversion is not a legal context.
 
-         when N_Qualified_Expression | N_Type_Conversion =>
-            return OK_For_Limited_Init_In_05
-                     (Expression (Original_Node (Exp)));
+         when N_Type_Conversion =>
+            return not Comes_From_Source (Exp)
+              and then
+                OK_For_Limited_Init_In_05 (Expression (Original_Node (Exp)));
 
          when N_Indexed_Component | N_Selected_Component  =>
             return Nkind (Exp) = N_Function_Call;
+
+         --  A use of 'Input is a function call, hence allowed. Normally the
+         --  attribute will be changed to a call, but the attribute by itself
+         --  can occur with -gnatc.
+
+         when N_Attribute_Reference =>
+            return Attribute_Name (Original_Node (Exp)) = Name_Input;
 
          when others =>
             return False;

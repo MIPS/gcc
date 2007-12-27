@@ -27,8 +27,6 @@ along with libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
-
 #include "libgfortran.h"
 
 #ifdef HAVE_SIGNAL_H
@@ -110,8 +108,8 @@ set_options (int num, int options[])
 
   /* If backtrace is required, we set signal handlers on most common
      signals.  */
-#if defined(HAVE_SIGNAL_H) && (defined(SIGSEGV) || defined(SIGBUS) \
-			       || defined(SIGILL) || defined(SIGFPE))
+#if defined(HAVE_SIGNAL) && (defined(SIGSEGV) || defined(SIGBUS) \
+			     || defined(SIGILL) || defined(SIGFPE))
   if (compile_options.backtrace)
     {
 #if defined(SIGSEGV)

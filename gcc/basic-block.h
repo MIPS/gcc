@@ -830,8 +830,8 @@ extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 extern bool maybe_hot_bb_p (const_basic_block);
 extern bool probably_cold_bb_p (const_basic_block);
 extern bool probably_never_executed_bb_p (const_basic_block);
-extern bool tree_predicted_by_p (basic_block, enum br_predictor);
-extern bool rtl_predicted_by_p (basic_block, enum br_predictor);
+extern bool tree_predicted_by_p (const_basic_block, enum br_predictor);
+extern bool rtl_predicted_by_p (const_basic_block, enum br_predictor);
 extern void tree_predict_edge (edge, enum br_predictor, int);
 extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
@@ -1130,6 +1130,21 @@ bb_has_eh_pred (basic_block bb)
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       if (e->flags & EDGE_EH)
+	return true;
+    }
+  return false;
+}
+
+/* Return true when one of the predecessor edges of BB is marked with EDGE_ABNORMAL.  */
+static inline bool
+bb_has_abnormal_pred (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & EDGE_ABNORMAL)
 	return true;
     }
   return false;

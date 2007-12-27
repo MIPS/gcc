@@ -162,7 +162,7 @@ struct sched_deps_info_def
 
 extern struct sched_deps_info_def *sched_deps_info;
 
-extern bool sched_insns_conditions_mutex_p (rtx, rtx);
+extern bool sched_insns_conditions_mutex_p (const_rtx, const_rtx);
 extern void add_dependence (rtx, rtx, enum reg_note);
 extern void deps_analyze_insn (struct deps *, rtx);
 extern void sched_analyze (struct deps *, rtx, rtx);

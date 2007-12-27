@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -2181,6 +2180,7 @@ package body Sem_Ch8 is
    ----------------------
 
    procedure Analyze_Use_Type (N : Node_Id) is
+      E  : Entity_Id;
       Id : Entity_Id;
 
    begin
@@ -2195,16 +2195,17 @@ package body Sem_Ch8 is
       Id := First (Subtype_Marks (N));
       while Present (Id) loop
          Find_Type (Id);
+         E := Entity (Id);
 
-         if Entity (Id) /= Any_Type then
+         if E /= Any_Type then
             Use_One_Type (Id);
 
             if Nkind (Parent (N)) = N_Compilation_Unit then
                if Nkind (Id) = N_Identifier then
                   Error_Msg_N ("type is not directly visible", Id);
 
-               elsif Is_Child_Unit (Scope (Entity (Id)))
-                 and then Scope (Entity (Id)) /= System_Aux_Id
+               elsif Is_Child_Unit (Scope (E))
+                 and then Scope (E) /= System_Aux_Id
                then
                   Check_In_Previous_With_Clause (N, Prefix (Id));
                end if;
@@ -2224,6 +2225,13 @@ package body Sem_Ch8 is
 
    begin
       if In_Open_Scopes (Pack) then
+         if Warn_On_Redundant_Constructs
+           and then Pack = Current_Scope
+         then
+            Error_Msg_NE
+              ("& is already use-visible within itself?", Pack_Name, Pack);
+         end if;
+
          return False;
 
       elsif In_Use (Pack) then
@@ -2845,7 +2853,7 @@ package body Sem_Ch8 is
                while Present (Id) loop
 
                   --  Preserve use-visibility of operators that are primitive
-                  --  operators of a type that is use_visible through an active
+                  --  operators of a type that is use-visible through an active
                   --  use_type clause.
 
                   if Nkind (Id) = N_Defining_Operator_Symbol
@@ -3006,6 +3014,15 @@ package body Sem_Ch8 is
       --  entity requires special handling because it may be use-visible
       --  but hides directly visible entities defined outside the instance.
 
+      function Is_Actual_Parameter return Boolean;
+      --  This function checks if the node N is an identifier that is an actual
+      --  parameter of a procedure call. If so it returns True, otherwise it
+      --  return False. The reason for this check is that at this stage we do
+      --  not know what procedure is being called if the procedure might be
+      --  overloaded, so it is premature to go setting referenced flags or
+      --  making calls to Generate_Reference. We will wait till Resolve_Actuals
+      --  for that processing
+
       function Known_But_Invisible (E : Entity_Id) return Boolean;
       --  This function determines whether the entity E (which is not
       --  visible) can reasonably be considered to be known to the writer
@@ -3084,6 +3101,23 @@ package body Sem_Ch8 is
             return False;
          end if;
       end From_Actual_Package;
+
+      -------------------------
+      -- Is_Actual_Parameter --
+      -------------------------
+
+      function Is_Actual_Parameter return Boolean is
+      begin
+         return
+           Nkind (N) = N_Identifier
+             and then
+               (Nkind (Parent (N)) = N_Procedure_Call_Statement
+                  or else
+                    (Nkind (Parent (N)) = N_Parameter_Association
+                       and then N = Explicit_Actual_Parameter (Parent (N))
+                       and then Nkind (Parent (Parent (N))) =
+                                          N_Procedure_Call_Statement));
+      end Is_Actual_Parameter;
 
       -------------------------
       -- Known_But_Invisible --
@@ -3829,7 +3863,9 @@ package body Sem_Ch8 is
             --  If no homonyms were visible, the entity is unambiguous
 
             if not Is_Overloaded (N) then
-               Generate_Reference (E, N);
+               if not Is_Actual_Parameter then
+                  Generate_Reference (E, N);
+               end if;
             end if;
 
          --  Case of non-overloadable entity, set the entity providing that
@@ -3848,10 +3884,11 @@ package body Sem_Ch8 is
             if Nkind (Parent (N)) = N_Label then
                declare
                   R : constant Boolean := Referenced (E);
-
                begin
-                  Generate_Reference (E, N);
-                  Set_Referenced (E, R);
+                  if not Is_Actual_Parameter then
+                     Generate_Reference (E, N);
+                     Set_Referenced (E, R);
+                  end if;
                end;
 
             --  Normal case, not a label: generate reference
@@ -3862,9 +3899,15 @@ package body Sem_Ch8 is
             --    determine whether this reference modifies the denoted object
             --    (because implicit derefences cannot be identified prior to
             --    full type resolution).
+            --
+            --  ??? The Is_Actual_Parameter routine takes care of one of these
+            --    cases but there are others probably
 
             else
-               Generate_Reference (E, N);
+               if not Is_Actual_Parameter then
+                  Generate_Reference (E, N);
+               end if;
+
                Check_Nested_Access (E);
             end if;
 
@@ -5862,9 +5905,9 @@ package body Sem_Ch8 is
 
       if Present (Redundant) then
          Error_Msg_Sloc := Sloc (Prev_Use);
-         Error_Msg_NE (
-           "& is already use_visible through declaration #?",
-              Redundant, Pack_Name);
+         Error_Msg_NE
+           ("& is already use-visible through previous use clause #?",
+            Redundant, Pack_Name);
       end if;
    end Note_Redundant_Use;
 
@@ -6597,9 +6640,38 @@ package body Sem_Ch8 is
    ------------------
 
    procedure Use_One_Type (Id : Node_Id) is
-      T       : Entity_Id;
-      Op_List : Elist_Id;
-      Elmt    : Elmt_Id;
+      Elmt          : Elmt_Id;
+      Is_Known_Used : Boolean;
+      Op_List       : Elist_Id;
+      T             : Entity_Id;
+
+      function Spec_Reloaded_For_Body return Boolean;
+      --  Determine whether the compilation unit is a package body and the use
+      --  type clause is in the spec of the same package. Even though the spec
+      --  was analyzed first, its context is reloaded when analysing the body.
+
+      ----------------------------
+      -- Spec_Reloaded_For_Body --
+      ----------------------------
+
+      function Spec_Reloaded_For_Body return Boolean is
+      begin
+         if Nkind (Unit (Cunit (Current_Sem_Unit))) = N_Package_Body then
+            declare
+               Spec : constant Node_Id :=
+                        Parent (List_Containing (Parent (Id)));
+            begin
+               return
+                 Nkind (Spec) = N_Package_Specification
+                   and then Corresponding_Body (Parent (Spec)) =
+                              Cunit_Entity (Current_Sem_Unit);
+            end;
+         end if;
+
+         return False;
+      end Spec_Reloaded_For_Body;
+
+   --  Start of processing for Use_One_Type;
 
    begin
       --  It is the type determined by the subtype mark (8.4(8)) whose
@@ -6607,11 +6679,17 @@ package body Sem_Ch8 is
 
       T := Base_Type (Entity (Id));
 
-      Set_Redundant_Use
-        (Id,
-           In_Use (T)
-             or else Is_Potentially_Use_Visible (T)
-             or else In_Use (Scope (T)));
+      --  Either the type itself is used, the package where it is declared
+      --  is in use or the entity is declared in the current package, thus
+      --  use-visible.
+
+      Is_Known_Used :=
+        In_Use (T)
+          or else In_Use (Scope (T))
+          or else Scope (T) = Current_Scope;
+
+      Set_Redundant_Use (Id,
+        Is_Known_Used or else Is_Potentially_Use_Visible (T));
 
       if In_Open_Scopes (Scope (T)) then
          null;
@@ -6640,6 +6718,47 @@ package body Sem_Ch8 is
 
             Next_Elmt (Elmt);
          end loop;
+      end if;
+
+      --  If warning on redundant constructs, check for unnecessary WITH
+
+      if Warn_On_Redundant_Constructs
+        and then Is_Known_Used
+
+         --                     with P;         with P; use P;
+         --    package P is     package X is    package body X is
+         --       type T ...       use P.T;
+
+         --  The compilation unit is the body of X. GNAT first compiles the
+         --  spec of X, then procedes to the body. At that point P is marked
+         --  as use visible. The analysis then reinstalls the spec along with
+         --  its context. The use clause P.T is now recognized as redundant,
+         --  but in the wrong context. Do not emit a warning in such cases.
+
+        and then not Spec_Reloaded_For_Body
+      then
+         --  The type already has a use clause
+
+         if In_Use (T) then
+            Error_Msg_NE
+              ("& is already use-visible through previous use type clause?",
+               Id, Id);
+
+         --  The package where T is declared is already used
+
+         elsif In_Use (Scope (T)) then
+            Error_Msg_Sloc := Sloc (Current_Use_Clause (Scope (T)));
+            Error_Msg_NE
+              ("& is already use-visible through package use clause #?",
+               Id, Id);
+
+         --  The current scope is the package where T is declared
+
+         else
+            Error_Msg_Node_2 := Scope (T);
+            Error_Msg_NE
+              ("& is already use-visible inside package &?", Id, Id);
+         end if;
       end if;
    end Use_One_Type;
 
