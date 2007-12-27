@@ -1198,32 +1198,34 @@ lto_cache_lookup_DIE (lto_info_fd *fd, lto_die_ptr die, bool skip)
 
 /* Some DIEs (notably those for DW_TAG_subrange_type and
    DW_TAG_enumeration_type) may include either or both of base type and 
-   byte size attributes; the byte size is supposed modify the base
+   byte size attributes; the byte size is supposed to modify the base
    type.  Put them together and return the resulting type.
    Additionally enforce the restriction that the base type must be
    a complete integral type.
    If neither attribute is specified, then return integer_type as the default.
 */
 
+#define lto_find_integral_type(base,byte,got) lto_find_integral_type_1 (base, byte, got, false)
+
 static tree
-lto_find_integral_type (tree base_type, int byte_size, bool got_byte_size)
+lto_find_integral_type_1 (tree base_type, int byte_size, bool got_byte_size, bool unsignedp)
 {
   int nbits = byte_size * BITS_PER_UNIT;
 
   if (! base_type)
     {
       if (! got_byte_size)
-	base_type = integer_type_node;
+	base_type = unsignedp ? unsigned_type_node : integer_type_node;
       else if (nbits == INT_TYPE_SIZE)
-	base_type = integer_type_node;
+	base_type = unsignedp ? unsigned_type_node : integer_type_node;
       else if (nbits == CHAR_TYPE_SIZE)
-	base_type = char_type_node;
+	base_type = unsignedp ? unsigned_char_type_node : char_type_node;
       else if (nbits == SHORT_TYPE_SIZE)
-	base_type = short_integer_type_node;
+	base_type = unsignedp ? short_unsigned_type_node : short_integer_type_node;
       else if (nbits == LONG_TYPE_SIZE)
-	base_type = long_integer_type_node;
+	base_type = unsignedp ? long_unsigned_type_node : long_integer_type_node;
       else if (nbits == LONG_LONG_TYPE_SIZE)
-	base_type = long_long_integer_type_node;
+	base_type = unsignedp ? long_long_unsigned_type_node : long_long_integer_type_node;
       else
 	lto_abi_mismatch_error ();
     }
@@ -1833,6 +1835,7 @@ lto_read_enumeration_type_DIE (lto_info_fd *fd,
   bool got_byte_size = false;
   tree enumlist = NULL_TREE;
   tree parentdata;
+  bool use_unsigned = true;
 
   LTO_BEGIN_READ_ATTRS ()
     {
@@ -1862,20 +1865,10 @@ lto_read_enumeration_type_DIE (lto_info_fd *fd,
     }
   LTO_END_READ_ATTRS ();
 
-  /* Reconcile base type and byte size attributes.  */
-  base = lto_find_integral_type (base, byte_size, got_byte_size);
-
-  /* Build the (empty) enumeration type and fill in some attributes
-     copied from the base type.  */
+  /* Build the (empty) enumeration type.  */
   type = make_node (ENUMERAL_TYPE);
   if (name)
     TYPE_NAME (type) = name;
-  TYPE_MIN_VALUE (type) = TYPE_MIN_VALUE (base);
-  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (base);
-  TYPE_UNSIGNED (type) = TYPE_UNSIGNED (base);
-  TYPE_SIZE (type) = 0;
-  TYPE_PRECISION (type) = TYPE_PRECISION (base);
-  layout_type (type);
 
   /* Process the enumerators.  */
   parentdata = context->parentdata;
@@ -1896,10 +1889,26 @@ lto_read_enumeration_type_DIE (lto_info_fd *fd,
 	  || ! TREE_PURPOSE (pair)
 	  || TREE_CODE (TREE_PURPOSE (pair)) != IDENTIFIER_NODE)
 	lto_abi_mismatch_error ();
+      /* Determine whether to use an unsigned type as the base.  */
+      if (INT_CST_LT (TREE_VALUE (pair), integer_zero_node))
+	use_unsigned = false;
       /* Link the enumerators together.  */
       TREE_CHAIN (pair) = enumlist;
       enumlist = pair;
     }
+
+  /* Reconcile base type and byte size attributes.  */
+  base = lto_find_integral_type_1 (base, byte_size, got_byte_size,
+				   use_unsigned);
+
+  /* Fill in various bits from the base type.  */
+  TYPE_MIN_VALUE (type) = TYPE_MIN_VALUE (base);
+  TYPE_MAX_VALUE (type) = TYPE_MAX_VALUE (base);
+  TYPE_UNSIGNED (type) = TYPE_UNSIGNED (base);
+  TYPE_SIZE (type) = 0;
+  TYPE_PRECISION (type) = TYPE_PRECISION (base);
+  layout_type (type);
+
   TYPE_VALUES (type) = enumlist;
   TYPE_STUB_DECL (type) = build_decl (TYPE_DECL, NULL_TREE, type);
 

@@ -1,3 +1,13 @@
+2007-12-27  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto.c (lto_find_integral_type): Define as a macro.  Rename the
+	original function to...
+	(lto_find_integral_type_1): ...this.  Consult UNSIGNEDP if we
+	don't have a base type.
+	(lto_read_enumeration_type_DIE): Examine the values of the
+	enumeration to determine whether we can use an unsigned type for
+	the base type of the enumeration.
+
 2007-12-24  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_read_structure_union_class_type_DIE): Set TYPE_MODE
