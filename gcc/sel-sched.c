@@ -226,10 +226,11 @@ static int stat_substitutions_total;
 static bool rtx_search (rtx, rtx);
 static int sel_rank_for_schedule (const void *, const void *);
 static bool equal_after_moveup_path_p (rhs_t, ilist_t, rhs_t);
+static rtx get_dest_from_orig_ops (av_set_t);
 static basic_block generate_bookkeeping_insn (rhs_t, insn_t, edge, edge);
 static bool find_used_regs (insn_t, av_set_t, regset, struct reg_rename *, 
                             def_list_t *);
-static bool move_op (insn_t, av_set_t, ilist_t, edge, edge, expr_t);
+static bool move_op (insn_t, av_set_t, ilist_t, edge, edge, rtx, expr_t);
 static void sel_sched_region_1 (void);
 static void sel_sched_region_2 (sel_sched_region_2_data_t);
 
@@ -517,7 +518,7 @@ rtx_search (rtx what, rtx where)
 /* if INSN is a copy x:=y and if there is an rhs r in AV that uses y, 
    it adds all variants of r to AV derived by replacing one or more
    occurrences of y by x.  */
-static void
+ATTRIBUTE_UNUSED static void
 un_substitute (rhs_t rhs, rtx insn, av_set_t *new_set_ptr)
 {
   rtx pat, src_reg, dst_reg;
@@ -1468,7 +1469,7 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 /* Flag to enable / disable ia64 speculation.  */
 static bool sel_speculation_p = true;
 
-static bool speculate_expr (expr_t, ds_t);
+static int speculate_expr (expr_t, ds_t);
 static ds_t get_spec_check_type_for_insn (insn_t, expr_t);
 
 /* Return true if dependence described by DS can be overcomed.  */
@@ -1579,14 +1580,20 @@ create_speculation_check (expr_t c_rhs, ds_t check_ds, insn_t orig_insn)
   return insn;
 }
 
-/* Try to transform EXPR to data speculative version.  Return true on
-   success.  */
-static bool
-apply_spec_to_expr (expr_t expr, ds_t ds)
+/* Try to make EXPR speculative.  Return true when EXPR's pattern 
+   had to be changed. */
+static int
+speculate_expr (expr_t expr, ds_t ds)
 {
   int res;
   rtx orig_insn_rtx;
   rtx spec_pat;
+  ds_t target_ds, current_ds;
+
+  /* Obtain the status we need to put on EXPR.   */
+  target_ds = (ds & SPECULATIVE);
+  current_ds = EXPR_SPEC_DONE_DS (expr);
+  ds = ds_full_merge (current_ds, target_ds, NULL_RTX, NULL_RTX);
 
   orig_insn_rtx = EXPR_INSN_RTX (expr);
 
@@ -1595,10 +1602,9 @@ apply_spec_to_expr (expr_t expr, ds_t ds)
   switch (res)
     {
     case 0:
-      spec_pat = copy_rtx (PATTERN (orig_insn_rtx));
-
-      /* FALLTHRU */
-
+      EXPR_SPEC_DONE_DS (expr) = ds;
+      return 0;
+      
     case 1:
       {
 	rtx spec_insn_rtx = create_insn_rtx_from_pattern (spec_pat, NULL_RTX);
@@ -1609,43 +1615,20 @@ apply_spec_to_expr (expr_t expr, ds_t ds)
 
         /* Do not allow clobbering the address register of speculative 
            insns.  */
-        if (res == 1
-            && bitmap_bit_p (VINSN_REG_USES (EXPR_VINSN (expr)), 
-                             expr_dest_regno (expr)))
+        if (bitmap_bit_p (VINSN_REG_USES (EXPR_VINSN (expr)), 
+                          expr_dest_regno (expr)))
           EXPR_TARGET_AVAILABLE (expr) = false;
 
-	return true;
+	return 1;
       }
 
     case -1:
-      return false;
+      return -1;
 
     default:
       gcc_unreachable ();
-      return false;
+      return -1;
     }
-}
-
-/* Try to make EXPR speculative and on success remove from DSP those
-   dependencies that were overcame.  Return true on success.  */
-static bool
-speculate_expr (expr_t expr, ds_t ds)
-{
-  ds_t target_ds = (ds & SPECULATIVE);
-  ds_t current_ds = EXPR_SPEC_DONE_DS (expr);
-  ds_t combined_ds = ds_full_merge (current_ds, target_ds, NULL_RTX, NULL_RTX);
-
-  /* ??? Do not allow both kind of speculations when pipelining.  */
-  if (pipelining_p
-      && (combined_ds & DATA_SPEC)
-      && (combined_ds & CONTROL_SPEC))
-    return false;
-
-  if (apply_spec_to_expr (expr, combined_ds))
-    /* We already have all necessary speculations.  */
-    return true;
-
-  return false;
 }
 
 /* Return true if there is a speculative dependence between INSN and EXPR.  */
@@ -1672,7 +1655,7 @@ has_spec_dependence_p (expr_t expr, insn_t insn)
 
 /* Record speculations that EXPR should perform in order to be moved through
    INSN.  */
-static void
+ATTRIBUTE_UNUSED static void
 un_speculate (expr_t expr, insn_t insn)
 {
   ds_t expr_spec_done_ds;
@@ -1724,7 +1707,6 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
 {
   av_set_iterator av_iter;
   rhs_t rhs;
-  unsigned hash;
   av_set_t new_set = NULL;
 
   /* First, kill any RHS that uses registers set by an insn.  This is 
@@ -1743,21 +1725,64 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
         av_set_iter_remove (&av_iter);
       }
 
-  hash = VINSN_HASH (INSN_VINSN (insn));
   /* FIXME: we need to determine whether RHS was changed on this insn 
      just once.  */
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
-      if (find_in_hash_vect (EXPR_CHANGED_ON_INSNS (rhs), hash) >= 0)
-        un_speculate (rhs, insn);
+      int index = find_in_history_vect (EXPR_HISTORY_OF_CHANGES (rhs),
+                                        insn, EXPR_VINSN (rhs), true);
+
+      if (index >= 0 && VEC_index (expr_history_def, 
+                                   EXPR_HISTORY_OF_CHANGES (rhs),
+                                   index)->type == TRANS_SPECULATION)
+        {
+          ds_t old_ds, new_ds;
+
+          old_ds = VEC_index (expr_history_def, 
+                              EXPR_HISTORY_OF_CHANGES (rhs),
+                              index)->spec_ds;
+          new_ds = EXPR_SPEC_DONE_DS (rhs);
+          gcc_assert (spec_info && sel_speculation_p
+                      && new_ds 
+                      && (old_ds & SPECULATIVE) != (new_ds & SPECULATIVE));
+
+          old_ds &= SPECULATIVE;
+          new_ds &= SPECULATIVE;
+          new_ds &= ~old_ds;
+          
+          EXPR_SPEC_TO_CHECK_DS (rhs) |= new_ds;
+        }
     }
 
   new_set = NULL;
 
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
-      if (find_in_hash_vect (EXPR_CHANGED_ON_INSNS (rhs), hash) >= 0)
-        un_substitute (rhs, insn, &new_set);
+      int index = find_in_history_vect (EXPR_HISTORY_OF_CHANGES (rhs),
+                                        insn, EXPR_VINSN (rhs), true);
+
+      if (index >= 0 && VEC_index (expr_history_def, 
+                                   EXPR_HISTORY_OF_CHANGES (rhs),
+                                   index)->type == TRANS_SUBSTITUTION)
+        {
+          expr_def _tmp_rhs, *tmp_rhs = &_tmp_rhs;
+          vinsn_t new_vi;
+          
+
+          new_vi = VEC_index (expr_history_def, 
+                              EXPR_HISTORY_OF_CHANGES (rhs),
+                              index)->old_expr_vinsn;
+          
+          gcc_assert (VINSN_SEPARABLE_P (new_vi) 
+                      == EXPR_SEPARABLE_P (rhs));
+      
+          copy_expr (tmp_rhs, rhs);
+          change_vinsn_in_expr (tmp_rhs, new_vi);
+      
+          av_set_add (&new_set, tmp_rhs);
+          clear_expr (tmp_rhs);
+        }
+
     }
   
   av_set_union_and_clear (av_ptr, &new_set);
@@ -1823,13 +1848,15 @@ moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
    && !sel_insn_is_speculation_check (through_insn))
 
 /* Modifies INSN_TO_MOVE_UP so it can be moved through the THROUGH_INSN,
-   performing necessary transformations.  When INSIDE_INSN_GROUP, 
+   performing necessary transformations.  Record the type of transformation 
+   made in PTRANS_TYPE, when it is not NULL.  When INSIDE_INSN_GROUP, 
    permit all dependencies except true ones, and try to remove those
    too via forward substitution.  All cases when a non-eliminable 
    non-zero cost dependency exists inside an insn group will be fixed 
    in tick_check_p instead.  */
 static enum MOVEUP_RHS_CODE
-moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
+moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group,
+            enum local_trans_type *ptrans_type)
 {
   vinsn_t vi = RHS_VINSN (insn_to_move_up);
   insn_t insn = VINSN_INSN (vi);
@@ -1904,11 +1931,16 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 
   if (full_ds != 0 && can_overcome_dep_p (full_ds))
     {
-      if (speculate_expr (insn_to_move_up, full_ds))
-	/* Speculation was successful.  */
+      int res;
+
+      res = speculate_expr (insn_to_move_up, full_ds);
+      if (res >= 0)
 	{
-	  full_ds = 0;
-          was_changed = true;
+          /* Speculation was successful.  */
+          full_ds = 0;
+          was_changed = (res == 1);
+          if (ptrans_type)
+            *ptrans_type = TRANS_SPECULATION;
 	  sel_clear_has_dependence ();
 	}
     }
@@ -1953,11 +1985,16 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 
       if (can_overcome_dep_p (*rhs_dsp))
 	{
-          if (speculate_expr (insn_to_move_up, *rhs_dsp))
+          int res;
+          
+          res = speculate_expr (insn_to_move_up, *rhs_dsp);
+          if (res >= 0)
             {
               /* Speculation was successful.  */
               *rhs_dsp = 0;
-              was_changed = true;
+              was_changed = (res == 1);
+              if (ptrans_type)
+                *ptrans_type = TRANS_SPECULATION;
             }
 	  else
 	    return MOVEUP_RHS_NULL;
@@ -1966,27 +2003,17 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group)
 	       && insn_eligible_for_subst_p (through_insn))
 	{
 	  /* Substitute in vinsn.  */
-	  line_start ();
-	  print ("Substituting in moveup_rhs:\nBefore: ");
-	  sel_print_rtl (insn);
-	  print ("Moving through: ");
-	  sel_print_rtl (through_insn);
-	  print ("After: ");
-
 	  if (substitute_reg_in_rhs (insn_to_move_up, through_insn))
-	    {
-	      EXPR_WAS_SUBSTITUTED (insn_to_move_up) = true;
-	      sel_print_rtl (EXPR_INSN_RTX (insn_to_move_up));
-	    }
+            EXPR_WAS_SUBSTITUTED (insn_to_move_up) = true;
 	  else
-	    {
-	      print ("Can't move up due to architecture constraints.\n");
-	      line_finish ();
-	      return MOVEUP_RHS_NULL;
-	    }
+            return MOVEUP_RHS_NULL;
           
+          /* ??? We cannot perform substitution AND speculation on the same
+             insn.  */
+          gcc_assert (!was_changed);
           was_changed = true;
-	  line_finish ();
+          if (ptrans_type)
+            *ptrans_type = TRANS_SUBSTITUTION;
 	}
       else
 	return MOVEUP_RHS_NULL;
@@ -2018,8 +2045,11 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 
   FOR_EACH_RHS_1 (rhs, i, avp)    
     { 
-      int rhs_uid = INSN_UID (EXPR_INSN_RTX (rhs));
-      bool unique_p = VINSN_UNIQUE_P (RHS_VINSN (rhs));
+      vinsn_t expr_old_vinsn = EXPR_VINSN (rhs);
+      ds_t expr_old_spec_ds = EXPR_SPEC_DONE_DS (rhs);
+      int rhs_uid = INSN_UID (VINSN_INSN (expr_old_vinsn));
+      bool unique_p = VINSN_UNIQUE_P (expr_old_vinsn);
+      enum local_trans_type trans_type;
 
       line_start ();
       dump_rhs (rhs);
@@ -2046,8 +2076,11 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
           line_finish ();
           continue;
         }
-      
-      switch (moveup_rhs (rhs, insn, inside_insn_group))
+
+      /* ??? Invent something better than this.  We can't allow old_vinsn 
+         to go, we need it for the history vector.  */
+      vinsn_attach (expr_old_vinsn);
+      switch (moveup_rhs (rhs, insn, inside_insn_group, &trans_type))
 	{
 	case MOVEUP_RHS_NULL:
           /* Cache that there is a hard dependence.  */
@@ -2063,8 +2096,10 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
           gcc_assert (INSN_UID (EXPR_INSN_RTX (rhs)) != rhs_uid);
 
           /* Mark that this insn changed this expr.  */
-          insert_in_hash_vect (&EXPR_CHANGED_ON_INSNS (rhs), 
-                               VINSN_HASH (INSN_VINSN (insn)));
+          insert_in_history_vect (&EXPR_HISTORY_OF_CHANGES (rhs), 
+                                  INSN_UID (insn), trans_type, 
+                                  expr_old_vinsn, EXPR_VINSN (rhs), 
+                                  expr_old_spec_ds);
           rhs = merge_with_other_exprs (avp, &i, rhs);
 
           print (" result: ");
@@ -2090,6 +2125,7 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 	  gcc_unreachable ();
 	}
 
+      vinsn_detach (expr_old_vinsn);
       line_finish ();
     }
 
@@ -2138,7 +2174,8 @@ equal_after_moveup_path_p_1 (rhs_t rhs, ilist_t path)
     res = true;
 
   if (res)
-    res = (moveup_rhs (rhs, ILIST_INSN (path), true) != MOVEUP_RHS_NULL);
+    res = (moveup_rhs (rhs, ILIST_INSN (path), true, NULL) 
+           != MOVEUP_RHS_NULL);
 
   return res;
 }
@@ -3831,6 +3868,11 @@ find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence)
 
 /* Functions that implement the core of the scheduler.  */
 
+/* These bitmaps record original instructions scheduled on the current 
+   iteration and bookkeeping copies created by them.  */ 
+static bitmap current_originators = NULL;
+static bitmap current_copies = NULL;
+
 /* Emit an instruction from EXPR with SEQNO after PLACE_TO_INSERT.  */
 static insn_t
 gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
@@ -4075,6 +4117,10 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     change_vinsn_in_expr (new_expr, new_vinsn);
     new_insn = gen_insn_from_expr_after (new_expr, new_seqno, place_to_insert);
 
+    INSN_SCHED_TIMES (new_insn) = 0;
+    bitmap_set_bit (current_copies, INSN_UID (new_insn));
+    clear_expr (new_expr);
+
     /* When inserting bookkeeping insn in new block, av sets should be
        following: old basic block (that now holds bookkeeping) data sets are
        the same as was before generation of bookkeeping, and new basic block
@@ -4086,25 +4132,6 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
     if (need_to_exchange_data_sets)
       exchange_data_sets (BLOCK_FOR_INSN (new_insn),
                           BLOCK_FOR_INSN (join_point));
-
-    /* Not obvoius.  Set sched times of bookkeeping to sched times of join
-       point if join point is not header of loop while pipelining (in this
-       case set it to zero).  This is done to correctly handle inserting of
-       bookkeeping in already scheduled code: when bookkeeping is inserted in
-       code not yet scheduled (including preheader when pipelining) it will
-       recieve zero sched times (as join point is not scheduled)
-       and when bookkeeping is inserted in scheduled code there will not be a
-       gap of sched times in scheduled code, so is_ineligible_successor_p of
-       path going through bookkeeping will not say that join point is
-       ineligible.  */
-    INSN_SCHED_TIMES (new_insn) =
-      (pipelining_p
-       && ((flag_sel_sched_pipelining_outer_loops
-           && join_point == NEXT_INSN (bb_note (EBB_FIRST_BB (1))))
-	   || (join_point == NEXT_INSN (bb_note (EBB_FIRST_BB (0))))))
-        ? 0 : INSN_SCHED_TIMES (join_point);
-
-    clear_expr (new_expr);
 
     gcc_assert ((src == NULL && BB_END (bb) == new_insn
 		 && sel_bb_head_p (new_insn))
@@ -4326,10 +4353,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
 	  av_set_clear (&BND_AV (bnd));
 	  BND_AV (bnd) = compute_av_set (BND_TO (bnd), NULL, 0, true);
-#if 0          
-          mark_unavailable_targets 
-            (BND_AV (bnd), BB_LV_SET (BLOCK_FOR_INSN (BND_TO (bnd))));
-#endif
 
 	  av_set_clear (&BND_AV1 (bnd));
 	  BND_AV1 (bnd) = av_set_copy (BND_AV (bnd));
@@ -4596,11 +4619,29 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 		 at before BND_TO (BND).  */
 	      n_bookkeeping_copies_before_moveop = stat_bookkeeping_copies;
 	      max_uid_before_move_op = get_max_uid ();
+              bitmap_clear (current_copies);
+              bitmap_clear (current_originators);
 
-	      b = move_op (BND_TO (bnd), rhs_seq, NULL, NULL, NULL, c_rhs);
+	      b = move_op (BND_TO (bnd), rhs_seq, NULL, NULL, NULL, 
+                           get_dest_from_orig_ops (rhs_seq), c_rhs);
 
 	      if (stat_bookkeeping_copies > n_bookkeeping_copies_before_moveop)
 		stat_insns_needed_bookkeeping++;
+
+              {
+                unsigned book_uid;
+                bitmap_iterator bi;
+                
+                EXECUTE_IF_SET_IN_BITMAP (current_copies, 0, book_uid, bi)
+                  {
+                    /* We allocate these bitmaps lazily.  */
+                    if (! INSN_ORIGINATORS_BY_UID (book_uid))
+                      INSN_ORIGINATORS_BY_UID (book_uid) = BITMAP_ALLOC (NULL);
+
+                    bitmap_copy (INSN_ORIGINATORS_BY_UID (book_uid), 
+                                 current_originators);
+                  }
+              }
 
 	      /* We should be able to find the expression we've chosen for 
 		 scheduling.  */
@@ -4817,11 +4858,10 @@ get_dest_from_orig_ops (av_set_t orig_ops)
    bookkeeping code in the join points.  Return the current rhs.  */
 static bool
 move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
-	 rhs_t c_rhs)
+         rtx dest, rhs_t c_rhs)
 {
   rhs_t rhs;
   bool c_rhs_inited_p;
-  rtx dest;
   bool generated_nop_p = false;
   basic_block book_block = NULL;
   
@@ -4872,8 +4912,6 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
       /*av_set_leave_one (&orig_ops);*/
     }
 
-  dest = get_dest_from_orig_ops (orig_ops);
-
   /* Look at the insn and decide if it could be an ancestor of currently 
      scheduling operation.  If it is so, then the insn "dest = op" could 
      either be replaced with "dest = reg", because REG now holds the result
@@ -4897,28 +4935,15 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 
       copy_expr_onside (c_rhs, INSN_EXPR (insn));
       c_rhs_inited_p = true;
-
-      /* When an insn we found is not equal to the insn from the orig_ops 
-         set, this means that we've found previously created bookeeping copy.
-         We cannot return original insn in C_RHS because it was already
-         scheduled, and using it would break an assert saying that 
-         insn should not be in stream.  We need to replace it in C_RHS with 
-         the exact insn that we found.
-
-	 Our infrastructure handles this such case with setting AV_LEVEL ()
-	 to -1 in generate_bookkeeping_insn ().
-
-	 But when there is identical instructions one of which dominates the
-	 other we have the same assert failing.  */
-      if (RHS_INSN (c_rhs) != insn)
-	{
-	  /* We now copy INSN_EXPR (insn) to C_RHS, hence the condition is
-	     always false.  */
-	  gcc_unreachable ();
-
-	  change_vinsn_in_expr (c_rhs, INSN_VINSN (insn));
-	}
       
+      /* This can be previously created bookkeeping copy; do not count 
+         these.  */
+      if (!bitmap_bit_p (current_copies, INSN_UID (insn)))
+        bitmap_set_bit (current_originators, INSN_UID (insn));
+      else
+        bitmap_clear_bit (current_copies, INSN_UID (insn));
+          
+
       /* For instructions we must immediately remove insn from the
 	 stream, so subsequent update_data_sets () won't include this
 	 insn into av_set.
@@ -5041,7 +5066,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 			  && succ_i.e2->dest == BLOCK_FOR_INSN (succ));
 	    }
 
-	  b = move_op (succ, orig_ops, path, succ_i.e1, succ_i.e2, x);
+	  b = move_op (succ, orig_ops, path, succ_i.e1, succ_i.e2, dest, x);
 
           if (b)
 	    {
@@ -5052,7 +5077,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
 	      dump_rhs (x);
 	      line_finish ();
 
-              res = moveup_rhs (x, insn, false);
+              res = moveup_rhs (x, insn, false, NULL);
               gcc_assert (res != MOVEUP_RHS_NULL);
 
 	      if (!c_rhs_inited_p)
@@ -5440,6 +5465,8 @@ sel_region_init (int rgn)
   bitmap_clear (forced_ebb_heads);
 
   setup_nop_vinsn ();
+  current_copies = BITMAP_ALLOC (NULL);
+  current_originators = BITMAP_ALLOC (NULL);
 
   return false;
 }
@@ -5456,9 +5483,11 @@ sel_region_finish (void)
 
   free_nop_pool ();
 
-  /* Free the sort vector.  */
+  /* Free the vectors.  */
   if (vec_av_set)
     VEC_free (rhs_t, heap, vec_av_set);
+  BITMAP_FREE (current_copies);
+  BITMAP_FREE (current_originators);
 
   /* If LV_SET of the region head should be updated, do it now because
      there will be no other chance.  */
@@ -5772,7 +5801,7 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 	  else if (max_f < seqno)
 	    max_f = seqno;
 	}
-
+      
       fences1 = fences;
       do
 	{

@@ -78,6 +78,39 @@ typedef _xlist_t ilist_t;
 #define ILIST_INSN(L) (_XLIST_X (L))
 #define ILIST_NEXT(L) (_XLIST_NEXT (L))
 
+/* This lists possible transformations that done locally, i.e. in 
+   moveup_expr.  */
+enum local_trans_type
+  {
+    TRANS_SUBSTITUTION,
+    TRANS_SPECULATION
+  };
+
+/* This struct is used to record the history of expression's 
+   transformations.  */
+struct expr_history_def_1
+{
+  /* UID of the insn.  */
+  unsigned uid;
+
+  /* How the expression looked like.  */
+  vinsn_t old_expr_vinsn;
+
+  /* How the expression looks after the transformation.  */
+  vinsn_t new_expr_vinsn;
+
+  /* And its speculative status.  */
+  ds_t spec_ds;
+
+  /* Type of the transformation.  */
+  enum local_trans_type type;
+};
+
+typedef struct expr_history_def_1 expr_history_def;
+
+DEF_VEC_O (expr_history_def);
+DEF_VEC_ALLOC_O (expr_history_def, heap);
+
 /* Right hand side information.  */
 struct _expr
 {
@@ -117,11 +150,8 @@ struct _expr
      been scheduled or more than one originator.  */
   int orig_sched_cycle;
 
-  /* A vector of insn's hashes on which this expr was changed when 
-     moving up.  We can't use bitmap here, because the recorded insn
-     could be scheduled, and its bookkeeping copies should be checked 
-     instead.  */
-  VEC(unsigned, heap) *changed_on_insns;
+  /* This vector contains the history of insn's transformations.  */
+  VEC(expr_history_def, heap) *history_of_changes;
 
   /* True (1) when original target (register or memory) of this instruction 
      is available for scheduling, false otherwise.  -1 means we're not sure;
@@ -158,7 +188,7 @@ typedef expr_t rhs_t;
 #define EXPR_ORIG_SCHED_CYCLE(EXPR) ((EXPR)->orig_sched_cycle)
 #define EXPR_SPEC_DONE_DS(EXPR) ((EXPR)->spec_done_ds)
 #define EXPR_SPEC_TO_CHECK_DS(EXPR) ((EXPR)->spec_to_check_ds)
-#define EXPR_CHANGED_ON_INSNS(EXPR) ((EXPR)->changed_on_insns)
+#define EXPR_HISTORY_OF_CHANGES(EXPR) ((EXPR)->history_of_changes)
 #define EXPR_TARGET_AVAILABLE(EXPR) ((EXPR)->target_available)
 #define EXPR_WAS_SUBSTITUTED(EXPR) ((EXPR)->was_substituted)
 #define EXPR_WAS_RENAMED(EXPR) ((EXPR)->was_renamed)
@@ -635,14 +665,18 @@ struct _sel_insn_data
 
   int seqno;
 
-  /* An INSN_LUID bit is set when deps analysis result is already known.  */
+  /* An INSN_UID bit is set when deps analysis result is already known.  */
   bitmap analyzed_deps;
 
-  /* An INSN_LUID bit is set when a hard dep was found, not set when 
+  /* An INSN_UID bit is set when a hard dep was found, not set when 
      no dependence is found.  This is meaningful only when the analyzed_deps
      bitmap has its bit set.  */
   bitmap found_deps;
 
+  /* An INSN_UID bit is set when this is a bookkeeping insn generated from 
+     a parent with this uid.  */
+  bitmap originators;
+  
   /* A context incapsulating this insn.  */
   struct deps deps_context;
 
@@ -678,6 +712,7 @@ extern VEC (sel_insn_data_def, heap) *s_i_d;
 
 /* Accessor macros for s_i_d.  */
 #define SID(INSN) (VEC_index (sel_insn_data_def, s_i_d,	INSN_LUID (INSN)))
+#define SID_BY_UID(UID) (VEC_index (sel_insn_data_def, s_i_d,	LUID_BY_UID (UID)))
 
 extern sel_insn_data_def insn_sid (insn_t);
 
@@ -686,6 +721,9 @@ extern sel_insn_data_def insn_sid (insn_t);
 #define INSN_ANALYZED_DEPS(INSN) (SID (INSN)->analyzed_deps)
 #define INSN_FOUND_DEPS(INSN) (SID (INSN)->found_deps) 
 #define INSN_DEPS_CONTEXT(INSN) (SID (INSN)->deps_context) 
+#define INSN_ORIGINATORS(INSN) (SID (INSN)->originators)
+#define INSN_ORIGINATORS_BY_UID(UID) (SID_BY_UID (UID)->originators)
+
 
 #define INSN_EXPR(INSN) (&SID (INSN)->_expr)
 #define INSN_VINSN(INSN) (RHS_VINSN (INSN_EXPR (INSN)))
@@ -934,6 +972,9 @@ extern int sel_vinsn_cost (vinsn_t);
 extern insn_t sel_gen_insn_from_rtx_after (rtx, expr_t, int, insn_t);
 extern insn_t sel_gen_recovery_insn_from_rtx_after (rtx, expr_t, int, insn_t);
 extern insn_t sel_gen_insn_from_expr_after (expr_t, int, insn_t);
+extern void vinsn_attach (vinsn_t);
+extern void vinsn_detach (vinsn_t);
+
 
 /* RHS functions.  */
 extern bool vinsns_correlate_as_rhses_p (vinsn_t, vinsn_t);
@@ -944,8 +985,11 @@ extern void merge_expr (expr_t, expr_t, bool);
 extern void clear_expr (expr_t);
 extern unsigned expr_dest_regno (expr_t);
 extern rtx expr_dest_reg (expr_t); 
-extern int find_in_hash_vect (VEC(unsigned, heap) *, unsigned);
-extern void insert_in_hash_vect (VEC(unsigned, heap) **, unsigned);
+extern int find_in_history_vect (VEC(expr_history_def, heap) *, 
+                                 rtx, vinsn_t, bool);
+extern void insert_in_history_vect (VEC(expr_history_def, heap) **, 
+                                    unsigned, enum local_trans_type, 
+                                    vinsn_t, vinsn_t, ds_t);
 extern void mark_unavailable_targets (av_set_t, av_set_t, regset);
 
 /* Av set functions.  */

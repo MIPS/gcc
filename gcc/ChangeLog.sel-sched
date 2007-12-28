@@ -1,3 +1,57 @@
+2007-12-28  Andrey Belevantsev  <abel@ispras.ru>
+
+	* config/ia64/ia64.c (ia64_speculate_insn): Use ds_get_speculation_types
+	when determining whether we need to change the pattern.
+	* sched-int.h (LUID_BY_UID): New accessor macro.
+	* sched-rgn.c (compute_block_dependences): Do not call add_branch_dependences
+	for selective scheduling.
+	(free_rgn_deps): Tidy.
+
+	* sel-sched-ir.c (vinsn_attach, vinsn_detach): Export.
+	(find_in_hash_vect{,_1}): Rename to find_in_history_vect{,_1}.  
+	Rewrite to use a history vector.
+	(insert_in_hash_vect): Likewise.  Rename to insert_in_history_vect.
+	(init_expr): Change CHANGED_ON parameter to be a history vector.
+	Update all callers.
+	(merge_expr_data): Update for history vectors.
+	(clear_expr): Likewise.
+	(free_first_time_insn_data): Handle INSN_ORIGINATORS.
+	(is_ineligible_successor): Do not check the path for back edges.
+	(bb_ends_ebb_p, clear_outdated_rtx_info): Tidy.
+
+	* sel-sched-ir.h (enum local_trans_type): New.
+	(struct expr_history_def_1, expr_history_def): New.
+	(struct _expr): Rename changed_on_insns vector to history_of_changes.
+	Make it of expr_history_def type.
+	(EXPR_CHANGED_ON_INSNS): Rename to EXPR_HISTORY_OF_CHANGES.
+	(struct _sel_insn_data): Fix comments.  New field originators.
+	(SID_BY_UID, INSN_ORIGINATORS, INSN_ORIGINATORS_BY_UID): New accessor 
+	macros.
+
+	* sel-sched.c (un_substitute): Mark as unused.
+	(apply_spec_to_expr): Inline to ... 
+	(speculate_expr): ... here.  Change return value to int. 
+	Do not copy a pattern when no changes were made.
+	(un_speculate): Mark as unused.
+	(undo_transformations): Perform unspeculation and unsubstitution
+	by looking into the history vector.
+	(moveup_rhs): Add PTRANS_TYPE parameter, adjust all callers.  Return 
+	the type of transformation being done.  Assert that we don't do 
+	speculation and substitution on the same insn.
+	(moveup_set_rhs): Record the performed transformation into the history
+	vector of an expression.
+	(current_copies, current_originators): New static variables.
+	(generate_bookkeeping_insn): Record the generated insn in 
+	current_copies.  Always set SCHED_TIMES of a bookkeeping insn to 0.
+	(fill_insns): Clear current_* bitmaps before move_op.
+	When some bookkeeping insns were generated, allocate INSN_ORIGINATORS
+	for them and set it to the copy of current_originators.
+	(move_op): Add dest parameter.  Pass it explicitly instead of 
+	calculating from original operations.  When an original insn was 
+	found, adjust current_copies and current_originators accordingly.
+	(sel_region_init): Initialize current_* bitmaps.
+	(sel_region_finish): Free them.
+
 2007-12-27  Andrey Belevantsev  <abel@ispras.ru>
 
 	Merge with trunk r.130104.

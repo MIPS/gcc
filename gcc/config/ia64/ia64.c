@@ -7519,7 +7519,7 @@ ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
 	   point operation that might trap.  */
 	return -1;
 
-      if (ia64_get_insn_spec_ds (insn) == ts)
+      if (ia64_get_insn_spec_ds (insn) == ds_get_speculation_types (ts))
 	res = 0;
       else
 	{

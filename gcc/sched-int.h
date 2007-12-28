@@ -129,6 +129,8 @@ extern regset *glat_start, *glat_end;
    structures should be indexed by luid.  */
 extern VEC (int, heap) *sched_luids;
 #define INSN_LUID(INSN) (VEC_index (int, sched_luids, INSN_UID (INSN)))
+#define LUID_BY_UID(UID) (VEC_index (int, sched_luids, UID))
+
 #define SET_INSN_LUID(INSN, LUID) \
 (VEC_replace (int, sched_luids, INSN_UID (INSN), (LUID)))
 

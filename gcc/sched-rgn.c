@@ -2615,7 +2615,9 @@ compute_block_dependences (int bb)
     }
 #endif  
 
-  add_branch_dependences (head, tail);
+  /* Selective scheduling handles control dependencies by itself.  */
+  if (!SEL_SCHED_P)
+    add_branch_dependences (head, tail);
 
   if (current_nr_blocks > 1)
     propagate_deps (bb, &tmp_deps);
@@ -2766,7 +2768,6 @@ void
 free_rgn_deps (void)
 {
   int bb;
-
 
   for (bb = 0; bb < current_nr_blocks; bb++)
     {

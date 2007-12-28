@@ -915,8 +915,10 @@ free_regset_pool (void)
    the data sets.  When update is finished, NOPs are deleted.  */
 
 static void set_insn_init (expr_t, vinsn_t, int);
+#if 0
 static void vinsn_attach (vinsn_t);
 static void vinsn_detach (vinsn_t);
+#endif
 
 /* A vinsn that is used to represent a nop.  This vinsn is shared among all
    nops sel-sched generates.  */
@@ -1376,7 +1378,7 @@ vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
 }
 
 /* Indicate that VI has become the part of an rtx object.  */
-static void
+void
 vinsn_attach (vinsn_t vi)
 {
   /* Assert that VI is not pending for deletion.  */
@@ -1417,7 +1419,7 @@ vinsn_delete (vinsn_t vi)
 
 /* Indicate that VI is no longer a part of some rtx object.  
    Remove VI if it is no longer needed.  */
-static void
+void
 vinsn_detach (vinsn_t vi)
 {
   gcc_assert (VINSN_COUNT (vi) > 0);
@@ -1555,10 +1557,11 @@ sel_gen_insn_from_expr_after (rhs_t expr, int seqno, insn_t after)
    when found.  Write to INDP the index on which the search has stopped,
    such that inserting HASH at INDP will retain VECT's sort order.  */
 static bool
-find_in_hash_vect_1 (VEC(unsigned, heap) *vect, unsigned hash, int *indp)
+find_in_history_vect_1 (VEC(expr_history_def, heap) *vect, 
+                        unsigned uid, vinsn_t new_vinsn, int *indp)
 {
-  unsigned *arr;
-  int i, j, len = VEC_length (unsigned, vect);
+  expr_history_def *arr;
+  int i, j, len = VEC_length (expr_history_def, vect);
 
   if (len == 0)
     {
@@ -1566,51 +1569,51 @@ find_in_hash_vect_1 (VEC(unsigned, heap) *vect, unsigned hash, int *indp)
       return false;
     }
 
-  arr = VEC_address (unsigned, vect);
+  arr = VEC_address (expr_history_def, vect);
   i = 0, j = len - 1;
 
   while (i <= j)
     {
-#if 0
-      int k = (i + j) / 2;
+      unsigned auid = arr[i].uid;
+      vinsn_t avinsn = arr[i].new_expr_vinsn; 
 
-      if (arr[k] == hash)
-        {
-          *indp = k;
-          return true;
-        }
-
-      if (arr[k] < hash)
-        i = k + 1;
-      else
-        j = k - 1;
-#else
-      unsigned ahash = arr[i];
-
-      if (ahash == hash)
+      if (auid == uid
+          && (avinsn == new_vinsn
+              || vinsns_correlate_as_rhses_p (avinsn, new_vinsn)))
         {
           *indp = i;
           return true;
         }
-      else if (ahash > hash)
+      else if (auid > uid)
         break;
       i++;
-#endif
     }
 
   *indp = i;
   return false;
 }
 
-/* Search for a hash value HASH in a sorted vector VECT.  Return 
-   the position found or -1, if no such value is in vector.  */
+/* Search for a uid of INSN a sorted vector VECT.  Return 
+   the position found or -1, if no such value is in vector.  
+   Search also for UIDs of insn's originators, if ORIGINATORS_P is true.  */
 int
-find_in_hash_vect (VEC(unsigned, heap) *vect, unsigned hash)
+find_in_history_vect (VEC(expr_history_def, heap) *vect, rtx insn, 
+                      vinsn_t new_vinsn, bool originators_p)
 {
   int ind;
 
-  if (find_in_hash_vect_1 (vect, hash, &ind))
+  if (find_in_history_vect_1 (vect, INSN_UID (insn), new_vinsn, &ind))
     return ind;
+
+  if (INSN_ORIGINATORS (insn) && originators_p)
+    {
+      unsigned uid;
+      bitmap_iterator bi;
+
+      EXECUTE_IF_SET_IN_BITMAP (INSN_ORIGINATORS (insn), 0, uid, bi)
+        if (find_in_history_vect_1 (vect, uid, new_vinsn, &ind))
+          return ind;
+    }
   
   return -1;
 }
@@ -1618,16 +1621,40 @@ find_in_hash_vect (VEC(unsigned, heap) *vect, unsigned hash)
 /* Insert HASH in a sorted vector pointed to by PVECT, if HASH is
    not there already.  */
 void
-insert_in_hash_vect (VEC (unsigned, heap) **pvect, unsigned hash)
+insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
+                        unsigned uid, enum local_trans_type type,
+                        vinsn_t old_expr_vinsn, vinsn_t new_expr_vinsn, 
+                        ds_t spec_ds)
 {
-  VEC(unsigned, heap) *vect = *pvect;
+  VEC(expr_history_def, heap) *vect = *pvect;
+  expr_history_def temp;
+  bool res;
   int ind;
 
-  if (! find_in_hash_vect_1 (vect, hash, &ind))
+  res = find_in_history_vect_1 (vect, uid, new_expr_vinsn, &ind);
+
+  if (res)
     {
-      VEC_safe_insert (unsigned, heap, vect, ind, hash);
-      *pvect = vect;
+      expr_history_def *phist = VEC_index (expr_history_def, vect, ind);
+
+      gcc_assert (phist->spec_ds == spec_ds 
+                  && (phist->old_expr_vinsn == old_expr_vinsn
+                      || (phist->new_expr_vinsn != new_expr_vinsn 
+                          && (vinsns_correlate_as_rhses_p 
+                              (phist->old_expr_vinsn, old_expr_vinsn)))));
+      return;
     }
+      
+  temp.uid = uid;
+  temp.old_expr_vinsn = old_expr_vinsn;
+  temp.new_expr_vinsn = new_expr_vinsn; 
+  temp.spec_ds = spec_ds;
+  temp.type = type;
+
+  vinsn_attach (old_expr_vinsn);
+  vinsn_attach (new_expr_vinsn);
+  VEC_safe_insert (expr_history_def, heap, vect, ind, &temp);
+  *pvect = vect;
 }
 
 /* Compare two vinsns as rhses if possible and as vinsns otherwise.  */
@@ -1661,7 +1688,7 @@ static void
 init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
 	   int sched_times, int orig_bb_index, ds_t spec_done_ds,
 	   ds_t spec_to_check_ds, int orig_sched_cycle,
-	   VEC(unsigned, heap) *changed_on, bool target_available, 
+	   VEC(expr_history_def, heap) *history, bool target_available, 
            bool was_substituted, bool was_renamed)
 {
   vinsn_attach (vi);
@@ -1676,10 +1703,10 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
   EXPR_SPEC_DONE_DS (expr) = spec_done_ds;
   EXPR_SPEC_TO_CHECK_DS (expr) = spec_to_check_ds;
 
-  if (changed_on)
-    EXPR_CHANGED_ON_INSNS (expr) = changed_on;
+  if (history)
+    EXPR_HISTORY_OF_CHANGES (expr) = history;
   else
-    EXPR_CHANGED_ON_INSNS (expr) = NULL;
+    EXPR_HISTORY_OF_CHANGES (expr) = NULL;
 
   EXPR_TARGET_AVAILABLE (expr) = target_available;
   EXPR_WAS_SUBSTITUTED (expr) = was_substituted;
@@ -1690,9 +1717,23 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
 void
 copy_expr (expr_t to, expr_t from)
 {
-  VEC(unsigned, heap) *temp;
+  VEC(expr_history_def, heap) *temp = NULL;
 
-  temp = VEC_copy (unsigned, heap, EXPR_CHANGED_ON_INSNS (from));
+  if (EXPR_HISTORY_OF_CHANGES (from))
+    {
+      unsigned i;
+      expr_history_def *phist;
+
+      temp = VEC_copy (expr_history_def, heap, EXPR_HISTORY_OF_CHANGES (from));
+      for (i = 0; 
+           VEC_iterate (expr_history_def, temp, i, phist);
+           i++)
+        {
+          vinsn_attach (phist->old_expr_vinsn);
+          vinsn_attach (phist->new_expr_vinsn);
+        }
+    }
+
   init_expr (to, EXPR_VINSN (from), EXPR_SPEC (from), 
              EXPR_USEFULNESS (from), EXPR_PRIORITY (from),
 	     EXPR_SCHED_TIMES (from), EXPR_ORIG_BB_INDEX (from),
@@ -1720,8 +1761,8 @@ void
 merge_expr_data (expr_t to, expr_t from, bool join_point_p)
 {
   int i;
-  unsigned hash;
-
+  expr_history_def *phist;
+  
   /* For now, we just set the spec of resulting rhs to be minimum of the specs
      of merged rhses.  */
   if (RHS_SPEC (to) > RHS_SPEC (from))
@@ -1788,9 +1829,13 @@ merge_expr_data (expr_t to, expr_t from, bool join_point_p)
   
   /* We keep this vector sorted.  */
   for (i = 0; 
-       VEC_iterate (unsigned, EXPR_CHANGED_ON_INSNS (from), i, hash);
+       VEC_iterate (expr_history_def, EXPR_HISTORY_OF_CHANGES (from), 
+                    i, phist);
        i++)
-    insert_in_hash_vect (&EXPR_CHANGED_ON_INSNS (to), hash);
+    insert_in_history_vect (&EXPR_HISTORY_OF_CHANGES (to), 
+                            phist->uid, phist->type, 
+                            phist->old_expr_vinsn, phist->new_expr_vinsn, 
+                            phist->spec_ds);
 
   EXPR_WAS_SUBSTITUTED (to) |= EXPR_WAS_SUBSTITUTED (from);
   EXPR_WAS_RENAMED (to) |= EXPR_WAS_RENAMED (to);
@@ -1821,9 +1866,27 @@ merge_expr (expr_t to, expr_t from, bool join_point_p)
 void
 clear_expr (rhs_t rhs)
 {
+ 
   vinsn_detach (RHS_VINSN (rhs));
   RHS_VINSN (rhs) = NULL;
-  VEC_free (unsigned, heap, EXPR_CHANGED_ON_INSNS (rhs));
+
+  if (EXPR_HISTORY_OF_CHANGES (rhs))
+    {
+      unsigned i;
+      expr_history_def *phist;
+
+      for (i = 0; 
+           VEC_iterate (expr_history_def, EXPR_HISTORY_OF_CHANGES (rhs), 
+                      i, phist);
+           i++)
+        {
+          vinsn_detach (phist->old_expr_vinsn);
+          vinsn_detach (phist->new_expr_vinsn);
+        }
+      
+      VEC_free (expr_history_def, heap, EXPR_HISTORY_OF_CHANGES (rhs));
+      EXPR_HISTORY_OF_CHANGES (rhs) = NULL;
+    }
 }
 
 /* For a given LV_SET, mark EXPR having unavailable target register.  */
@@ -2480,6 +2543,10 @@ free_first_time_insn_data (insn_t insn)
 
   BITMAP_FREE (INSN_ANALYZED_DEPS (insn));
   BITMAP_FREE (INSN_FOUND_DEPS (insn));
+
+  /* This is allocated only for bookkeeping insns.  */
+  if (INSN_ORIGINATORS (insn))
+    BITMAP_FREE (INSN_ORIGINATORS (insn));
   free_deps (&INSN_DEPS_CONTEXT (insn));
 }
 
@@ -4345,8 +4412,9 @@ is_ineligible_successor (insn_t insn, ilist_t p)
       /* An insn from another fence could also be 
 	 scheduled earlier even if this insn is not in 
 	 a fence list right now.  Check INSN_SCHED_CYCLE instead.  */
-      || ((!pipelining_p || !path_contains_back_edge_p (p))
-          && path_contains_switch_of_sched_times_p (insn, p)))
+      || (!pipelining_p
+          && INSN_SCHED_TIMES (insn) > 0))
+
     return true;
   else
     return false;
@@ -4364,7 +4432,7 @@ bb_ends_ebb_p (basic_block bb)
   if (next_bb == EXIT_BLOCK_PTR
       || bitmap_bit_p (forced_ebb_heads, next_bb->index)
       || (LABEL_P (BB_HEAD (next_bb))
-	  /* NB: LABEL_NUSES () is not maintained outside of jump.c .
+	  /* NB: LABEL_NUSES () is not maintained outside of jump.c.
 	     Work around that.  */
 	  && !single_pred_p (next_bb)))
     return true;
@@ -4449,7 +4517,6 @@ clear_outdated_rtx_info (basic_block bb)
 }
 
 typedef VEC(rtx, heap) *rtx_vec_t;
-
 static rtx_vec_t bb_note_pool;
 
 /* Add BB_NOTE to the pool of available basic block notes.  */
