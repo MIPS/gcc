@@ -1,5 +1,9 @@
 2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto-read.c (input_integer): Use the correct shift amount.
+
+2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto-lang.c (lto_pushdecl): Do nothing instead of aborting.
 	(LANG_HOOKS_NAME): Define.
 

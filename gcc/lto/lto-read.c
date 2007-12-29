@@ -318,7 +318,7 @@ input_integer (struct input_block *ib, tree type)
 		  high = -1;
 		}
 	      else if (shift < (2 * HOST_BITS_PER_WIDE_INT))
-		high |= - ((HOST_WIDE_INT)1 << shift);
+		high |= - ((HOST_WIDE_INT)1 << (shift - HOST_BITS_PER_WIDE_INT));
 	    }
 
 #ifdef LTO_STREAM_DEBUGGING
