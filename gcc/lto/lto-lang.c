@@ -424,7 +424,9 @@ lto_set_decl_assembler_name (tree decl)
 static tree
 lto_pushdecl (tree t ATTRIBUTE_UNUSED)
 {
-  gcc_unreachable ();
+  /* Do nothing, since we get all information from DWARF and LTO
+     sections.  */
+  return NULL_TREE;
 }
 
 static tree
@@ -573,6 +575,10 @@ lto_init (void)
   return true;
 }
 
+/* rs6000.c wants to look at this and we really only do C for the time
+   being.  */
+#undef LANG_HOOKS_NAME
+#define LANG_HOOKS_NAME "GNU C"
 #define LANG_HOOKS_MARK_ADDRESSABLE lto_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE lto_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE lto_type_for_size

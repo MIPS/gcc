@@ -1,3 +1,8 @@
+2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* lto-lang.c (lto_pushdecl): Do nothing instead of aborting.
+	(LANG_HOOKS_NAME): Define.
+
 2007-12-27  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto.c (lto_find_integral_type): Define as a macro.  Rename the
