@@ -2365,6 +2365,7 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
   int err;
   char *p, buf[1024];
   FILE *inf;
+  int found_lto = 0;
 
   if (which_pass == PASS_SECOND)
     return;
@@ -2440,6 +2441,9 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
 
       if (which_pass == PASS_LTOINFO)
         {
+          if (found_lto)
+            continue;
+
           /* Look for the LTO info marker symbol, and add filename to
              the LTO objects list if found.  */
           for (p = buf; (ch = *p) != '\0' && ch != '\n'; p++)
@@ -2449,17 +2453,11 @@ scan_prog_file (const char *prog_name, enum pass which_pass)
               {
                 add_lto_object (&lto_objects, prog_name);
 
-                /* No need to look any further.  Clean up and return.  */
-                if (debug)
-                  fprintf (stderr, "\n");
+                /* We need to read all the input, so we can't just
+                   return here.  But we can avoid useless work.  */
+                found_lto = 1;
 
-                do_wait (nm_file_name, pex);
-
-                signal (SIGINT,  int_handler);
-#ifdef SIGQUIT
-                signal (SIGQUIT, quit_handler);
-#endif
-                return;
+                break;
               }
         }
       else

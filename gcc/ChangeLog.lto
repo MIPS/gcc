@@ -1,3 +1,8 @@
+2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* collect2.c (scan_prog_file): Read all the output when reading
+	information for LTO.
+
 2007-12-24  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-function-out.c (output_local_vars): Output DECL_INITIAL
