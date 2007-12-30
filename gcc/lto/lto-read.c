@@ -765,8 +765,11 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
     case VAR_DECL:
     case PARM_DECL:
       if (tag == LTO_var_decl1)
-	/* Static or externs are here.  */
-	result = data_in->var_decls [input_uleb128 (ib)];
+        {
+          /* Static or externs are here.  */
+          result = data_in->var_decls [input_uleb128 (ib)];
+	  varpool_mark_needed_node (varpool_node (result));
+        }
       else 
 	{
 	  /* Locals are here.  */

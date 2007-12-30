@@ -1,5 +1,10 @@
 2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto-read.c (input_expr_operand): Mark static and external
+	VAR_DECLs as needed.
+
+2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
+
 	* lto-read.c (input_integer): Use the correct shift amount.
 
 2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
