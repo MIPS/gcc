@@ -1,3 +1,189 @@
+2007-11-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34030
+	* gcc.c-torture/compile/pr34030.c: New testcase.
+
+2007-11-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/out-of-bounds-1.c: New test.
+
+2007-11-02  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/28062
+	* gcc.c-torture/compile/20071102-1.c: New test.
+
+2007-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33744
+	* g++.dg/template/arg6.C: New test.
+
+2007-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/format/c90-scanf-5.c: New test.
+	* gcc.dg/format/c99-scanf-4.c: New test.
+	* gcc.dg/format/ext-7.c: New test.
+	* gcc.dg/format/ext-8.c: New test.
+
+2007-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/33423
+	* gcc.c-torture/compile/20070915-1.c: New test.
+
+2006-10-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27954
+	* gfortran.dg/error_recovery_2.f90: New test.
+
+2007-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/va-arg-pack-len-1.c: New test.
+	* g++.dg/ext/va-arg-pack-len-1.C: New test.
+
+2007-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ext/va-arg-pack-1.C: New test.
+	* g++.dg/ext/va-arg-pack-2.C: New test.
+
+2007-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/va-arg-pack-1.c: New test.
+	* gcc.dg/va-arg-pack-1.c: New test.
+	* gcc.dg/va-arg-pack-1a.c: New test.
+
+2007-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33289
+	* g++.dg/eh/builtin4.C: New test.
+
+2007-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/sync-2.c (AI_ALIGN): Define if not defined.
+	(AI): Add AI_ALIGN.
+	* gcc.dg/sync-3.c: New test.
+
+2007-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/inline-24.c: New test.
+	* g++.dg/opt/inline11.C: New test.
+
+2007-08-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/ext/gnu-inline-common.h: New.
+	* g++.dg/ext/gnu-inline-global-reject.C: New.
+	* g++.dg/ext/gnu-inline-global.C: New.
+	* g++.dg/ext/gnu-inline-namespace.C: New.
+	* g++.dg/ext/gnu-inline-anon-namespace.C: New.
+	* g++.dg/ext/gnu-inline-class.C: New.
+	* g++.dg/ext/gnu-inline-class-static.C: New.
+	* g++.dg/ext/gnu-inline-template-class.C: New.
+	* g++.dg/ext/gnu-inline-template-func.C: New.
+
+2007-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/assumed_charlen_sharing.f90: New test.
+
+2007-07-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/32678
+	* gfortran.dg/fmt_t_5.f90: New test.
+
+2007-09-06  David Daney  <ddaney@avtrex.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/33256
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set mips_forced_le.
+	(dg-mips-options): Skip -EB and -meb tests when $mips_forced_le.
+	* gcc.target/mips/pr33256.c: New test.
+
+2007-08-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32113
+	* g++.dg/template/crash70.C: New.
+
+2007-08-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/32912
+	* gcc.dg/pr32912-1.c: New test.
+	* gcc.dg/pr32912-2.c: New test.
+
+	PR c++/31941
+	* g++.dg/parse/crash37.C: New test.
+
+2007-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33142
+	* gcc.c-torture/execute/pr33142.c: New testcase.
+
+2007-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/32992
+	* g++.dg/opt/nrv14.C: New test.
+
+2007-08-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/32112
+	* g++.dg/template/error26.C: New.
+
+2007-08-10  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/17763
+	* g++.dg/other/error16.C: New.
+
+2007-08-01  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20070801-1.c: New testcase.
+
+2006-09-19  Paul Brook  <paul@codesourcery.com>
+
+	PR target/28516
+	* gcc.dg/nested-func-5.c: New test.
+
+2007-07-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/c99-math-double-1.c: Mark test variables as volatile.
+	Test negative numbers also.
+	* gcc.dg/c99-math-float-1.c: Likewise.
+	* gcc.dg/c99-math-long-double-1.c: Likewise.
+	* gcc.dg/c99-math.h: Check for FP exceptions.  Update for negative
+	test inputs.
+
+2007-07-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/c99-math-double-1.c, gcc.dg/c99-math-float-1.c,
+	c99-math-long-double-1.c, c99-math.h: Test subnormals.
+
+2007-07-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/32450
+	* gcc.dg/pr32450.c: New runtime test.
+
+2007-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/32468
+	* gcc.dg/gomp/pr32468-1.c: New test.
+
+	PR c++/31748
+	* g++.dg/gomp/pr31748.C: New test.
+
+2007-07-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/31966
+	PR tree-optimization/32533
+	* gcc.dg/tree-ssa/pr31966.c: New runtime test.
+	* gfortran.dg/pr32533.f90: Ditto.
+
+2007-07-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/c99-math.h: Fix typo.
+
+2007-06-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	* g++.dg/ext/interface4.C, g++.dg/ext/interface4.h: New.
+
+2007-06-28  Seongbae Park  <seongbae.park@gmail.com>
+
+	* gcc.target/arm/stack-corruption.c: New test.
+
 2006-12-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/debug/vartrack1.C: New test.

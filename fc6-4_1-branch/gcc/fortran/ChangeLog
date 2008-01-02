@@ -1,3 +1,40 @@
+2006-10-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/27954
+	* decl.c (gfc_free_data_all): New function to free all data structures
+	after errors in DATA statements and declarations.
+	(top_var_list): Use new function.(top_val_list): Use new function.
+	(gfc_match_data_decl): Use new function.
+
+2007-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (variable_decl): Don't share charlen structs if
+	length == NULL.
+	* trans-decl.c (create_function_arglist): Assert
+	f->sym->ts.cl->backend_decl is NULL instead of unsharing
+	charlen struct here.
+
+2007-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/22244
+	* Make-lang.in (fortran/trans-types.o): Depend on $(FLAGS_H).
+	* trans-types.c: Include flags.h.
+	(gfc_get_nodesc_array_type): Add TYPE_DECL TYPE_NAME with
+	correct bounds and dimensions for packed arrays.
+
+2007-05-15  Paul Brook  <paul@codesourcery.com>
+
+	PR target/30486
+	* trans-types.c (gfc_type_for_size): Handle signed TImode.
+
+2007-07-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/32550
+	* trans.h (GFC_POINTER_TYPE_P): Define.
+	* trans-types.c (gfc_sym_type): Set it for types on attr->sym.pointer.
+	* trans-openmp.c (gfc_omp_privatize_by_reference): Return false
+	if GFC_POINTER_TYPE_P is set on the type.
+
 2006-04-29  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR fortran/27351

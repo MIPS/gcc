@@ -1128,6 +1128,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       op1 = TREE_OPERAND (node, 1);
       if (op1)
 	dump_generic_node (buffer, op1, spc, flags, false);
+      if (CALL_EXPR_VA_ARG_PACK (node))
+	{
+	  if (op1)
+	    {
+	      pp_character (buffer, ',');
+	      pp_space (buffer);
+	    }
+	  pp_string (buffer, "__builtin_va_arg_pack ()");
+	}
       pp_character (buffer, ')');
 
       op1 = TREE_OPERAND (node, 2);
