@@ -1,3 +1,307 @@
+2008-01-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34093
+	PR middle-end/31976
+	* gcc.c-torture/compile/pr34093.c: New testcase.
+
+2008-01-01  Douglas Gregor  <doug.gregor@gmail.com>
+
+       * g++.dg/cpp0x/long_long.C: New.
+
+2008-01-01  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* gcc.target/spu/tag_manager.c : Include stdlib.h.
+	* gcc.target/spu/Wmain.c: Fix the line numbers for the
+	warning on the function main.
+
+2008-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/i386.exp (check_effective_target_sse5): Use __v8hi
+	rather than __v2di type.
+
+2007-12-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34558
+	* gfortran.dg/linked_list_1.f90: New test.
+
+2007-12-29  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* lib/objc.exp (objc_libgcc_s_path): Set objc_libgcc_s_path
+	instead of appending to it.
+
+2007-12-27  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/34591
+	* gcc.dg/vect/pr34591.c: New test.
+
+2007-12-27  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34594
+	* gfortran.dg/direct_io_8.f90:  New test case.
+
+2007-12-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/34281
+	* gcc.c-torture/execute/20071213-1.c: New test.
+
+2007-12-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/34560
+	* gfortran.dg/read_eof_5.f90: New test.
+
+2007-12-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34514
+	* gfortran.dg/initialization_17.f90: New.
+
+2007-12-25  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34566
+	* gfortran.dg/matmul_6.f90:  New test.
+
+2007-12-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34421
+	* gfortran.dg/entry_17.f90: New.
+
+2007-12-23  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/34536
+	* gfortran.dg/integer_exponentiation_2.f90: Fixed testcase.
+	* gfortran.dg/real_const_3.f90: Likewise.
+	* gfortran.dg/unary_operator.f90: New test.
+
+2007-12-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack2.adb: New test.
+
+2007-12-22  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/34559
+	* gfortran.dg/repeat_6.f90: New test.
+
+2007-12-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/34549
+	* cshift_shift_real_1.f90:  New test.
+
+2007-12-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34540
+	* gfortran.dg/shift-kind_2.f90: New test.
+
+2007-12-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/8835
+	* gcc.dg/pr8835-1.c: New.
+
+2007-12-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34438
+	* gfortran.dg/default_initialization_3.f90: New test.
+
+2007-12-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/mips.exp (setup_mips_tests): Fix _MIPS_SIM
+	conditions.
+	(dg-mips-options): Treat -march=24k* as a 32-bit option.
+
+2007-12-20  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	* gcc.dg/torture/builtin-modf-1.c: Pass "-funsafe-math-optimizations 
+	-fsigned-zeros -fno-associative-math" on powerpc-*-darwin*.
+
+2007-12-20  Jason Merrill  <jason@redhat.com>
+
+	* gcc.dg/overload/arg[14].C: Remove expected errors.
+
+2007-12-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34459
+	* gcc.c-torture/execute/20071219-1.c: New test.
+
+2007-12-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34530
+	* gfortran.dg/namelist_44.f90: New.
+
+2007-12-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34482
+	* gfortran.dg/boz_8.f90: Add error-check check.
+	* gfortran.dg/boz_9.f90: Shorten BOZ where needed, replace
+	stop by call abort.
+
+2007-12-19  Zdenek Dvorak  <ook@ucw.cz>
+
+	* gcc.dg/gomp/combined-1.c: New test.
+
+2007-12-19  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/34355
+	* g++.dg/tree-ssa/pr34355.C: New test.
+
+2007-12-19  Revital Eres  <eres@il.ibm.com>
+
+	 * gcc.dg/sms-5.c: New testcase.
+
+2007-12-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34325
+	* gfortran.dg/missing_parens_1.f90: New.
+	* gfortran.dg/missing_parens_1.f90: New.
+	
+2007-12-19  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/34495
+	* gfortran.dg/transfer_simplify_2.f90: Fixed invalid initialization
+	expressions.
+	* gfortran.dg/transfer_simplify_7.f90: New test.
+
+2007-12-18  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/pr32912-3.c: Compile with -w.
+
+	* gcc.dg/torture/builtin-modf-1.c: Remove -funsafe-math-optimizations.
+
+2007-12-18  Douglas Gregor  <doug.gregor@gmail.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+	
+	PR c++/32565
+	PR c++/33943
+	PR c++/33965
+	* g++.dg/cpp0x/variadic86.C: New.
+	* g++.dg/cpp0x/variadic87.C: New.
+	* g++.dg/cpp0x/variadic84.C: New.
+	* g++.dg/cpp0x/variadic85.C: New.
+	* g++.dg/template/ttp25.C: New.
+
+2007-12-18  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/34123
+	* gcc.dg/tree-ssa/pr34123.c: New test.
+
+2007-12-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/34456
+	* gcc.c-torture/execute/pr34456.c: New test.
+
+2007-12-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34488
+	* g++.dg/parse/friend7.C: New test.
+
+	PR rtl-optimization/34490
+	* gcc.c-torture/execute/20071216-1.c: New test.
+
+2007-12-17  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/torture/builtin-math-4.c: Remove XFAIL.
+
+2007-12-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/tree-ssa/gen-vect-2.c: Change verbosity level to 4.	
+	* gcc.dg/tree-ssa/gen-vect-32.c: Likewise
+	* gcc.dg/tree-ssa/gen-vect-25.c: Likewise
+	* gcc.dg/tree-ssa/gen-vect-26.c: Likewise
+	* gcc.dg/tree-ssa/gen-vect-28.c: Likewise
+
+2007-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/34506
+	* gcc.dg/gomp/clause-2.c: New test.
+	* g++.dg/gomp/clause-4.C: New test.
+
+2007-12-17  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/initialization_16.f90: Update as FLOAT/SNGL are
+	part of Fortran 77/95/2003.
+
+2007-12-17  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/34445
+	* gfortran.dg/vect/cost-model-pr34445.f: New test.
+	* gfortran.dg/vect/cost-model-pr34445a.f: New test.
+
+2007-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34427
+	* gfortran.dg/namelist_42.f90: Update.
+	* gfortran.dg/namelist_43.f90: New.
+	
+2007-12-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34495
+	* gfortran.dg/initialization_16.f90: New.
+
+2007-12-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/34305
+	* gfortran.dg/real_dimension_1.f:  New test case.
+
+2007-12-16  Rask Ingemann Lambertsen  <rask@sygehus.dk>
+
+	* gcc.dg/torture/pr24257.c: Remove -O from options.
+
+2007-12-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34246
+	* gfortran.dg/bind_c_usage_16.f03: Extend test.
+
+2007-12-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/31213
+	PR fortran/33888
+	PR fortran/33998
+	* gfortran.dg/mapping_1.f90: New test.
+	* gfortran.dg/mapping_2.f90: New test.
+	* gfortran.dg/mapping_3.f90: New test.
+
+2007-12-16  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/34415
+	* gcc.c-torture/execute/pr34415.c: New test.
+
+2007-12-16  Danny Smith <dannysmith@users.sourceforge.net>
+
+	* gcc.target/i386/fastcall-1.c: (f4): Change return type to
+	void. 
+
+2007-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/34003
+	* gcc.dg/pr34003-1.c: New test.
+	* gcc.dg/pr34003-2.c: New.
+
+2007-12-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.target/cris/peep2-xsrand.c, gcc.target/cris/asmreg-1.c,
+	gcc.target/cris/peep2-andu1.c, gcc.target/cris/peep2-xsrand2.c,
+	gcc.target/cris/20011127-1.c: Drop redundant target-specifier.
+	* gcc.target/cris/peep2-andu2.c: Ditto.  Make dg-do assemble and
+	add -save-temps.
+	* gcc.target/cris/torture/cris-torture.exp,
+	gcc.target/cris/cris.exp: Run for crisv32-*-* too.
+	* gcc.target/cris/builtin_ctz_v3.c,
+	gcc.target/cris/builtin_ctz_v8.c,
+	gcc.target/cris/builtin_clz_v0.c,
+	gcc.target/cris/builtin_clz_v3.c,
+	gcc.target/cris/builtin_bswap_v3.c,
+	gcc.target/cris/builtin_bswap_v8.c, gcc.dg/sibcall-4.c,
+	gcc.dg/pr19340.c, gcc.dg/20020919-1.c, gcc.dg/pr31866.c,
+	gcc.dg/torture/cris-asm-mof-1.c, gcc.dg/torture/cris-volatile-1.c,
+	gcc.dg/weak/typeof-2.c, gcc.dg/tree-ssa/loop-1.c,
+	gcc.dg/tree-ssa/20040204-1.c, gcc.dg/sibcall-3.c,
+	lib/target-supports.exp: Adjust for crisv32-*-*.
+
+2007-12-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/debug/const-3.c: New.
+
+2007-12-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* g++.dg/other/datasec1.C: Require named section support.
+
 2007-12-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/29978

@@ -1,7 +1,4 @@
-// { dg-options "-std=gnu++0x" }
-// { dg-do compile }
-
-// Copyright (C) 2007 Free Software Foundation
+// Copyright (C) 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -14,11 +11,23 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License
-// along with this library; see the file COPYING.  If not, write to
-// the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-// Boston, MA 02110-1301, USA.
+// You should have received a copy of the GNU General Public License along
+// with this library; see the file COPYING.  If not, write to the Free
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+// USA.
 
-#include <memory>
+#include <vector>
+#include <algorithm>
 
-template class std::weak_ptr<int>;
+// libstdc++/34095
+void test01()
+{
+  std::vector<std::vector<int> > v(20000);
+  std::sort(v.begin(), v.end()); 
+}
+
+int main()
+{
+  test01();
+  return 0;
+}

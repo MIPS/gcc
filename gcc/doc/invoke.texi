@@ -3230,7 +3230,7 @@ Only warns when the converted pointer is dereferenced.
 Does not warn about incomplete types.
 
 @item -Wstrict-overflow
-@item -Wstrict-overflow=@var{n}
+@itemx -Wstrict-overflow=@var{n}
 @opindex Wstrict-overflow
 This option is only active when @option{-fstrict-overflow} is active.
 It warns about cases where the compiler optimizes based on the
@@ -6175,6 +6175,7 @@ but this scheme may not be supported by future releases of GCC@.
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fno-toplevel-reorder
+@opindex fno-toplevel-reorder
 Do not reorder top-level functions, variables, and @code{asm}
 statements.  Output them in the same order that they appear in the
 input file.  When this option is used, unreferenced static variables

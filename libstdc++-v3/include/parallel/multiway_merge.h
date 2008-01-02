@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -800,7 +800,7 @@ template<
       {
         if (seqs_begin[pi].first != seqs_begin[pi].second)
           {
-            new(&(fe[nrs])) value_type(*(seqs_begin[pi].first));
+            ::new(&(fe[nrs])) value_type(*(seqs_begin[pi].first));
             source[nrs] = pi;
             ++nrs;
             total_length += _GLIBCXX_PARALLEL_LENGTH(seqs_begin[pi]);
@@ -936,7 +936,7 @@ template<
           }
       }
 
-    delete fe;  //Destructors already called.
+    ::operator delete(fe);  //Destructors already called.
     delete[] source;
 
     return target;
@@ -1582,7 +1582,7 @@ template<
                                 _GLIBCXX_PARALLEL_LENGTH(seqs_begin[s]) * (double(i + 1) /
                                 (num_samples + 1)) * (double(length)
                                 / total_length));
-                        new(&(samples[s * num_samples + i])) value_type(
+                        ::new(&(samples[s * num_samples + i])) value_type(
                             seqs_begin[s].first[sample_index]);
                       }
 
@@ -1622,7 +1622,7 @@ template<
                         else
                         pieces[slab][seq].second = _GLIBCXX_PARALLEL_LENGTH(seqs_begin[seq]);
                       }
-                    delete[] samples;
+		  ::operator delete(samples);
                 }
               else
                 {

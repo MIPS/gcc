@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -250,7 +250,7 @@ template<typename T, typename Comparator = std::less<T> >
     }
 
     inline ~LoserTree()
-    { delete[] losers; }
+    { ::operator delete(losers); }
 
     inline int
     get_min_source()
@@ -265,11 +265,11 @@ template<typename T, typename Comparator = std::less<T> >
         {
           // Construct all keys, so we can easily deconstruct them.
           for (unsigned int i = 0; i < (2 * k); ++i)
-            new(&(losers[i].key)) T(key);
+            ::new(&(losers[i].key)) T(key);
           first_insert = false;
         }
       else
-        new(&(losers[pos].key)) T(key);
+        ::new(&(losers[pos].key)) T(key);
 
       losers[pos].sup = sup;
       losers[pos].source = source;

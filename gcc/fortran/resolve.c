@@ -488,11 +488,28 @@ resolve_entries (gfc_namespace *ns)
 	      || (el->sym->result->attr.pointer
 		  != ns->entries->sym->result->attr.pointer))
 	    break;
-
 	  else if (as && fas && gfc_compare_array_spec (as, fas) == 0)
-	    gfc_error ("Procedure %s at %L has entries with mismatched "
+	    gfc_error ("Function %s at %L has entries with mismatched "
 		       "array specifications", ns->entries->sym->name,
 		       &ns->entries->sym->declared_at);
+	  /* The characteristics need to match and thus both need to have
+	     the same string length, i.e. both len=*, or both len=4.
+	     Having both len=<variable> is also possible, but difficult to
+	     check at compile time.  */
+	  else if (ts->type == BT_CHARACTER && ts->cl && fts->cl
+		   && (((ts->cl->length && !fts->cl->length)
+			||(!ts->cl->length && fts->cl->length))
+		       || (ts->cl->length
+			   && ts->cl->length->expr_type
+			      != fts->cl->length->expr_type)
+		       || (ts->cl->length
+			   && ts->cl->length->expr_type == EXPR_CONSTANT
+		           && mpz_cmp (ts->cl->length->value.integer,
+				       fts->cl->length->value.integer) != 0)))
+	    gfc_notify_std (GFC_STD_GNU, "Extension: Function %s at %L with "
+			    "entries returning variables of different "
+			    "string lengths", ns->entries->sym->name,
+			    &ns->entries->sym->declared_at);
 	}
 
       if (el == NULL)
@@ -1424,6 +1441,8 @@ resolve_generic_f0 (gfc_expr *expr, gfc_symbol *sym)
 	    expr->rank = s->as->rank;
 	  else if (s->result != NULL && s->result->as != NULL)
 	    expr->rank = s->result->as->rank;
+
+	  gfc_set_sym_referenced (expr->value.function.esym);
 
 	  return MATCH_YES;
 	}
@@ -3147,8 +3166,11 @@ compare_bound (gfc_expr *a, gfc_expr *b)
       || b == NULL || b->expr_type != EXPR_CONSTANT)
     return CMP_UNKNOWN;
 
+  /* If either of the types isn't INTEGER, we must have
+     raised an error earlier.  */
+
   if (a->ts.type != BT_INTEGER || b->ts.type != BT_INTEGER)
-    gfc_internal_error ("compare_bound(): Bad expression");
+    return CMP_UNKNOWN;
 
   i = mpz_cmp (a->value.integer, b->value.integer);
 
@@ -5927,7 +5949,8 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 		     "non-integer symbol '%s'", &code->loc,
 		     lhs->symtree->n.sym->name);
 
-      gfc_convert_boz (rhs, &lhs->ts);
+      if (!gfc_convert_boz (rhs, &lhs->ts))
+	return false;
       if ((rc = gfc_range_check (rhs)) != ARITH_OK)
 	{
 	  if (rc == ARITH_UNDERFLOW)

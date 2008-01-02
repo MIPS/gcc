@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -40,6 +40,7 @@
 #define _GLIBCXX_PARALLEL_PARTIAL_SUM_H 1
 
 #include <omp.h>
+#include <new>
 #include <bits/stl_algobase.h>
 #include <parallel/parallel.h>
 #include <parallel/numericfwd.h>
@@ -155,11 +156,11 @@ template<
             *result = *begin;
             parallel_partial_sum_basecase(begin + 1, begin + borders[1],
                           result + 1, bin_op, *begin);
-            new(&(sums[iam])) value_type(*(result + borders[1] - 1));
+            ::new(&(sums[iam])) value_type(*(result + borders[1] - 1));
           }
         else
           {
-            new(&(sums[iam])) value_type(
+            ::new(&(sums[iam])) value_type(
                                 std::accumulate(begin + borders[iam] + 1,
                                 begin + borders[iam + 1],
                                 *(begin + borders[iam]),
@@ -181,7 +182,7 @@ template<
                       sums[iam]);
       } //parallel
 
-    delete[] sums;
+    ::operator delete(sums);
     delete[] borders;
 
     return result + n;
