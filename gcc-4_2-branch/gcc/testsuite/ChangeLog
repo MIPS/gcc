@@ -1,3 +1,14 @@
+2007-12-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR c++/33640
+	* g++.dg/other/unused1.C: xfail scan for "class2" in assembler output.
+
+2007-12-25  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/34499
+	* g++.dg/ext/visibility/namespace2.C: Add missing argument to
+	dg-require-visibility statement.
+
 2007-12-19  Richard Sandiford  <rsandifo@nildram.co.uk>
 
 	PR rtl-optimization/34456
