@@ -1,5 +1,10 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* lower-subreg.c (adjust_decomposed_uses): Unshare concatn
+	that couldn't be simplified.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* common.opt (fdump-unnumbered-links): New.
 	* doc/invoke.texi (-fdump-unnumbered-links): Document it.
 	* print-rtl.c (flag_dump_unnumbered_links): New.

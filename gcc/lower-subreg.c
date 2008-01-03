@@ -551,6 +551,8 @@ adjust_decomposed_uses (rtx *px, void *data ATTRIBUTE_UNUSED)
 
       if (x)
 	*px = x;
+      else
+	x = copy_rtx (*px);
     }
 
   if (resolve_reg_p (x))
