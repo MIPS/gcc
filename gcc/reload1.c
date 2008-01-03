@@ -1208,6 +1208,36 @@ reload (rtx first, int global)
 	  else if (reg_equiv_mem[i])
 	    XEXP (reg_equiv_mem[i], 0) = addr;
 	}
+
+      /* We don't want complex addressing modes in debug insns
+	 if simpler ones will do, so delegitimize equivalences
+	 in debug insns.  */
+      if (MAY_HAVE_DEBUG_INSNS && reg_renumber[i] < 0)
+	{
+	  rtx reg = regno_reg_rtx[i];
+	  rtx equiv = 0;
+	  struct df_ref *use;
+
+	  if (reg_equiv_constant[i])
+	    equiv = reg_equiv_constant[i];
+	  else if (reg_equiv_invariant[i])
+	    equiv = reg_equiv_invariant[i];
+	  else if (reg && MEM_P (reg))
+	    {
+	      equiv = targetm.delegitimize_address (reg);
+	      if (equiv == reg)
+		equiv = 0;
+	    }
+	  else if (reg && REG_P (reg) && (int)REGNO (reg) != i)
+	    equiv = reg;
+
+	  if (equiv)
+	    for (use = DF_REG_USE_CHAIN (i); use;
+		 use = DF_REF_NEXT_REG (use))
+	      if (DEBUG_INSN_P (DF_REF_INSN (use))
+		  && *DF_REF_LOC (use) == reg)
+		*DF_REF_LOC (use) = copy_rtx (equiv);
+	}
     }
 
   /* We must set reload_completed now since the cleanup_subreg_operands call
