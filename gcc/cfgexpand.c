@@ -1631,8 +1631,7 @@ expand_debug_expr (tree exp)
     case FIXED_CST:
     case COMPLEX_CST:
     case STRING_CST:
-      op0 = expand_expr (exp, NULL_RTX, mode,
-			 EXPAND_INITIALIZER | EXPAND_CONST_ADDRESS);
+      op0 = expand_expr (exp, NULL_RTX, mode, EXPAND_INITIALIZER);
       if (op0 && GET_MODE (op0) == VOIDmode && mode != VOIDmode)
 	return op0 = gen_rtx_CONST (mode, op0);
       return op0;
@@ -1640,11 +1639,13 @@ expand_debug_expr (tree exp)
     case NOP_EXPR:
     case CONVERT_EXPR:
       {
-	enum machine_mode inner_mode
-	  = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+	enum machine_mode inner_mode = GET_MODE (op0);
 
-	if (mode == GET_MODE (op0))
+	if (mode == inner_mode)
 	  return op0;
+
+	if (inner_mode == VOIDmode)
+	  inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
 
 	if (CONSTANT_P (op0)
 	    || GET_MODE_BITSIZE (mode) <= GET_MODE_BITSIZE (GET_MODE (op0)))
