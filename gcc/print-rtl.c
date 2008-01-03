@@ -216,7 +216,10 @@ print_rtx (const_rtx in_rtx)
 #ifndef GENERATOR_FILE
 	  if (GET_CODE (in_rtx) == VAR_LOCATION)
 	    {
-	      print_mem_expr (outfile, PAT_VAR_LOCATION_DECL (in_rtx));
+	      if (TREE_CODE (PAT_VAR_LOCATION_DECL (in_rtx)) == STRING_CST)
+		fputs (" <debug string placeholder>", outfile);
+	      else
+		print_mem_expr (outfile, PAT_VAR_LOCATION_DECL (in_rtx));
 	      fputc (' ', outfile);
 	      print_rtx (PAT_VAR_LOCATION_LOC (in_rtx));
 	      if (PAT_VAR_LOCATION_STATUS (in_rtx)

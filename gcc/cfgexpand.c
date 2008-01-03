@@ -1544,6 +1544,58 @@ round_udiv_adjust (enum machine_mode mode, rtx mod, rtx op1)
      const1_rtx, const0_rtx);
 }
 
+/* for_each_rtx function that adjusts VAR_LOCATION placeholders for
+   debug string constants.  */
+
+static int
+adjust_debug_string_constant (rtx *x, void *nothing ATTRIBUTE_UNUSED)
+{
+  rtx rtstr, cst;
+  tree exp;
+
+  if (GET_CODE (*x) != VAR_LOCATION)
+    return 0;
+
+  exp = PAT_VAR_LOCATION_DECL (*x);
+  rtstr = PAT_VAR_LOCATION_LOC (*x);
+
+  gcc_assert (TREE_CODE (exp) == STRING_CST && GET_CODE (rtstr) == CONST_STRING
+	      && TREE_STRING_POINTER (exp) == XSTR (rtstr, 0));
+
+  cst = lookup_constant_def (exp);
+  if (cst && MEM_P (cst))
+    *x = XEXP (cst, 0);
+  else
+    *x = rtstr;
+
+  return -1;
+}
+
+/* Set to true when a debug string constant is expanded as a
+   VAR_LOCATION placeholder rather than as regular rtl.  */
+
+static bool debug_string_constants_p = false;
+
+/* Adjust any debug string constants expanded as VAR_LOCATION
+   placeholders (see how STRING_CST is handled in expand_debug_expr)
+   to regular rtx or debug-only CONST_STRINGs.  */
+
+static void
+adjust_debug_string_constants (void)
+{
+  rtx insn;
+
+  if (!debug_string_constants_p)
+    return;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (DEBUG_INSN_P (insn))
+      for_each_rtx (&INSN_VAR_LOCATION_LOC (insn),
+		    adjust_debug_string_constant, NULL);
+
+  debug_string_constants_p = false;
+}
+
 
 /* Return an RTX equivalent to the value of the tree expression
    EXP.  */
@@ -1626,14 +1678,24 @@ expand_debug_expr (tree exp)
 
       return DECL_RTL (exp);
 
+    case STRING_CST:
+      if (!lookup_constant_def (exp))
+	{
+	  op0 = gen_rtx_CONST_STRING (mode, TREE_STRING_POINTER (exp));
+	  op0 = gen_rtx_VAR_LOCATION (mode, exp, op0, 0);
+	  op0 = gen_rtx_MEM (mode, op0);
+	  debug_string_constants_p = true;
+	  return op0;
+	}
+      /* Fall through...  */
+
     case INTEGER_CST:
     case REAL_CST:
     case FIXED_CST:
     case COMPLEX_CST:
-    case STRING_CST:
       op0 = expand_expr (exp, NULL_RTX, mode, EXPAND_INITIALIZER);
       if (op0 && GET_MODE (op0) == VOIDmode && mode != VOIDmode)
-	return op0 = gen_rtx_CONST (mode, op0);
+	op0 = gen_rtx_CONST (mode, op0);
       return op0;
 
     case NOP_EXPR:
@@ -2561,6 +2623,8 @@ tree_expand_cfg (void)
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR, next_bb)
     bb = expand_gimple_basic_block (bb);
   pointer_map_destroy (lab_rtx_for_bb);
+
+  adjust_debug_string_constants ();
 
   construct_exit_block ();
   set_curr_insn_block (DECL_INITIAL (current_function_decl));

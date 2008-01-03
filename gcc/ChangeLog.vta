@@ -1,5 +1,15 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cfgexpand.c (adjust_debug_string_constant): New.
+	(debug_string_constants_p): New.
+	(adjust_debug_string_constants): New.
+	(expand_debug_expr): Don't expand STRING_CSTs unless we know
+	we're actually going to need them.
+	(tree_expand_cfg): Replace placeholders with a final decision.
+	* print-rtl.c (print_rtx): Recognize debug string placeholders.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* df-scan.c (df_uses_record): Reject auto-inc-dec in debug insns.
 
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
