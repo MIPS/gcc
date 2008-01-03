@@ -837,7 +837,8 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
 
       if (GET_MODE (reg) != GET_MODE (src))
 	{
-	  gcc_assert (GET_CODE (src) == CONST_INT);
+	  gcc_assert (GET_CODE (src) == CONST_INT
+		      || GET_CODE (src) == CONST_DOUBLE);
 	  src = gen_rtx_CONST (GET_MODE (reg), src);
 	}
     }
