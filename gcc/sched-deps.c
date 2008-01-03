@@ -1366,7 +1366,7 @@ fixup_sched_groups (rtx insn)
 
 	  if (pro == i)
 	    goto next_link;
-	} while (SCHED_GROUP_P (i));
+	} while (SCHED_GROUP_P (i) || DEBUG_INSN_P (i));
 
       if (! sched_insns_conditions_mutex_p (i, pro))
 	add_dependence (i, pro, DEP_TYPE (dep));
@@ -1376,6 +1376,8 @@ fixup_sched_groups (rtx insn)
   delete_all_dependences (insn);
 
   prev_nonnote = prev_nonnote_insn (insn);
+  while (DEBUG_INSN_P (prev_nonnote))
+    prev_nonnote = prev_nonnote_insn (prev_nonnote);
   if (BLOCK_FOR_INSN (insn) == BLOCK_FOR_INSN (prev_nonnote)
       && ! sched_insns_conditions_mutex_p (insn, prev_nonnote))
     add_dependence (insn, prev_nonnote, REG_DEP_ANTI);
@@ -2170,7 +2172,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
      current insn as being in a scheduling group and that it can not
      be moved into a different basic block.  */
 
-  if (deps->libcall_block_tail_insn)
+  if (deps->libcall_block_tail_insn && !DEBUG_INSN_P (insn))
     {
       SCHED_GROUP_P (insn) = 1;
       CANT_MOVE (insn) = 1;
@@ -2191,7 +2193,30 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
       int src_regno, dest_regno;
 
       if (set == NULL)
-	goto end_call_group;
+	{
+	  if (DEBUG_INSN_P (insn))
+	    /* We don't want to mark debug insns as part of the same
+	       sched group.  We know they really aren't, but if we use
+	       debug insns to tell that a call group is over, we'll
+	       get different code if debug insns are not there and
+	       instructions that follow seem like they should be part
+	       of the call group.
+
+	       Also, if we did, fixup_sched_groups() would move the
+	       deps of the debug insn to the call insn, modifying
+	       non-debug post-dependency counts of the debug insn
+	       dependencies and otherwise messing with the scheduling
+	       order.
+
+	       Instead, let such debug insns be scheduled freely, but
+	       keep the call group open in case there are insns that
+	       should be part of it afterwards.  Since we grant debug
+	       insns higher priority than even sched group insns, it
+	       will all turn out all right.  */
+	    goto debug_dont_end_call_group;
+	  else
+	    goto end_call_group;
+	}
 
       tmp = SET_DEST (set);
       if (GET_CODE (tmp) == SUBREG)
@@ -2234,6 +2259,9 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
   /* Fixup the dependencies in the sched group.  */
   if (SCHED_GROUP_P (insn))
     fixup_sched_groups (insn);
+
+ debug_dont_end_call_group:
+  ;
 
 #ifdef INSN_SCHEDULING
   if ((current_sched_info->flags & DO_SPECULATION)

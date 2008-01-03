@@ -1,5 +1,12 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* sched-deps.c (fixup_sched_groups): Skip debug insns while
+	searching back for the sched group leader.
+	(sched_analyze_insn): Don't mark debug insns as members of
+	sched groups, even if in a call group.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* auto-inc-dec.c (merge_in_block): Skip debug insns.  Fix
 	whitespace.
 
