@@ -1137,6 +1137,7 @@ sd_add_dep (dep_t dep, bool resolved_p)
   rtx insn = DEP_CON (dep);
 
   gcc_assert (INSN_P (insn) && INSN_P (elem) && insn != elem);
+  gcc_assert (!DEBUG_INSN_P (elem) || DEBUG_INSN_P (insn));
 
   if ((current_sched_info->flags & DO_SPECULATION)
       && !sched_insn_is_legitimate_for_speculation_p (insn, DEP_STATUS (dep)))
@@ -1520,7 +1521,7 @@ sched_analyze_reg (struct deps *deps, int regno, enum machine_mode mode,
 	 already cross one.  */
       if (REG_N_CALLS_CROSSED (regno) == 0)
 	{
-	  if (ref == USE)
+	  if (ref == USE && !DEBUG_INSN_P (insn))
 	    deps->sched_before_next_call
 	      = alloc_INSN_LIST (insn, deps->sched_before_next_call);
 	  else
@@ -1995,21 +1996,6 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
 	}
     }
 
-  if (DEBUG_INSN_P (insn))
-    {
-      rtx head = BB_HEAD (BLOCK_FOR_INSN (insn)), prev;
-
-      if (insn != head)
-	{
-	  for (prev = PREV_INSN (insn); prev != head; prev = PREV_INSN (prev))
-	    if (INSN_P (prev))
-	      {
-		add_dependence (insn, prev, REG_DEP_TRUE);
-		break;
-	      }
-	}
-    }
-
   /* If this instruction can throw an exception, then moving it changes
      where block boundaries fall.  This is mighty confusing elsewhere.
      Therefore, prevent such an instruction from being moved.  Same for
@@ -2072,13 +2058,37 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
     {
       if (DEBUG_INSN_P (insn))
 	{
+	  rtx prev = deps->last_debug_insn;
+
+	  deps->last_debug_insn = insn;
+
+	  if (prev)
+	    add_dependence (insn, prev, REG_DEP_ANTI);
+
+	  add_dependence_list (insn, deps->last_function_call, 1,
+			       REG_DEP_ANTI);
+	  add_dependence_list (insn, deps->last_pending_memory_flush, 1,
+			       REG_DEP_ANTI);
+
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_uses, 0, i, rsi)
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, 0, REG_DEP_TRUE);
-	      add_dependence_list (insn, reg_last->clobbers, 0, REG_DEP_TRUE);
+	      add_dependence_list (insn, reg_last->sets, 1, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->clobbers, 1, REG_DEP_ANTI);
 	    }
 	  CLEAR_REG_SET (reg_pending_uses);
+
+	  /* Quite often, a debug insn will refer to stuff in the
+	     previous instruction, but the reason we want this
+	     dependency here is to make sure the scheduler doesn't
+	     gratuitously move a debug insn ahead.  This could dirty
+	     DF flags and cause additional analysis that wouldn't have
+	     occurred in compilation without debug insns, and such
+	     additional analysis can modify the generated code.  */
+	  prev = PREV_INSN (insn);
+
+	  if (prev && INSN_P (prev) && !DEBUG_INSN_P (prev))
+	    add_dependence (insn, prev, REG_DEP_ANTI);
 	}
       /* If the current insn is conditional, we can't free any
 	 of the lists.  */
@@ -2527,6 +2537,7 @@ init_deps (struct deps *deps)
   deps->sched_before_next_call = 0;
   deps->in_post_call_group_p = not_post_call;
   deps->libcall_block_tail_insn = 0;
+  deps->last_debug_insn = 0;
 }
 
 /* Free insn lists found in DEPS.  */

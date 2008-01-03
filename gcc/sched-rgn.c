@@ -2303,14 +2303,9 @@ add_branch_dependences (rtx head, rtx tail)
       if (insn == head)
 	break;
 
-      insn = PREV_INSN (insn);
-      if (DEBUG_INSN_P (insn))
-	{
-	  if (last)
-	    add_dependence (last, insn, REG_DEP_ANTI);
-	  while (insn != head && DEBUG_INSN_P (insn))
-	    insn = PREV_INSN (insn);
-	}
+      do
+	insn = PREV_INSN (insn);
+      while (insn != head && DEBUG_INSN_P (insn));
     }
 
   /* Make sure these insns are scheduled last in their block.  */
@@ -2320,7 +2315,7 @@ add_branch_dependences (rtx head, rtx tail)
       {
 	insn = prev_nonnote_insn (insn);
 
-	if (INSN_REF_COUNT (insn) != 0)
+	if (INSN_REF_COUNT (insn) != 0 || DEBUG_INSN_P (insn))
 	  continue;
 
 	if (! sched_insns_conditions_mutex_p (last, insn))

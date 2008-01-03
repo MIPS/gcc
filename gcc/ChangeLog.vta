@@ -1,5 +1,16 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* sched-deps.c (sd_add_dep): Make sure no non-debug insns ever
+	depend on debug insns.
+	(sched_analyze_reg): Don't add debug insns to
+	sched_before_next_call list.
+	(sched_analyze_insn): Simplify deps of debug insns.
+	(init_deps): Initialize...
+	* sched-int.h (struct deps): ... new field last_debug_insn.
+	* sched-rgn.c (add_branch_dependences): Simplify.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* haifa-sched.c (struct ready_list): Add n_debug.
 	(queue_insn): Never queue debug insns.
 	(ready_add, ready_remove_first, ready_remove): Maintain n_debug.

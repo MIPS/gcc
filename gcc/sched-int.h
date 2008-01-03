@@ -311,6 +311,9 @@ struct deps
      with SCHED_GROUP_P to ensure libcalls are scheduled as a unit.  */
   rtx libcall_block_tail_insn;
 
+  /* The last debug insn we've seen.  */
+  rtx last_debug_insn;
+
   /* The maximum register number for the following arrays.  Before reload
      this is max_reg_num; after reload it is FIRST_PSEUDO_REGISTER.  */
   int max_reg;
