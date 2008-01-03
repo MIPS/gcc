@@ -3017,6 +3017,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
     case POST_INC:
     case PRE_MODIFY:
     case POST_MODIFY:
+      gcc_assert (!DEBUG_INSN_P (insn));
       /* Catch the def of the register being modified.  */
       df_ref_record (collection_rec, XEXP (x, 0), &XEXP (x, 0), bb, insn, 
 		     DF_REF_REG_DEF,
