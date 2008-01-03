@@ -171,6 +171,7 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 #define first_insn (cfun->emit->x_first_insn)
 #define last_insn (cfun->emit->x_last_insn)
 #define cur_insn_uid (cfun->emit->x_cur_insn_uid)
+#define cur_debug_insn_uid (cfun->emit->x_cur_debug_insn_uid)
 #define last_location (cfun->emit->x_last_location)
 #define first_label_num (cfun->emit->x_first_label_num)
 
@@ -2184,8 +2185,22 @@ set_new_first_and_last_insn (rtx first, rtx last)
   last_insn = last;
   cur_insn_uid = 0;
 
-  for (insn = first; insn; insn = NEXT_INSN (insn))
-    cur_insn_uid = MAX (cur_insn_uid, INSN_UID (insn));
+  if (flag_min_insn_uid)
+    {
+      cur_insn_uid = flag_min_insn_uid - 1;
+      cur_debug_insn_uid = 0;
+
+      for (insn = first; insn; insn = NEXT_INSN (insn))
+	if (INSN_UID (insn) < flag_min_insn_uid)
+	  cur_debug_insn_uid = MAX (cur_debug_insn_uid, INSN_UID (insn));
+	else
+	  cur_insn_uid = MAX (cur_insn_uid, INSN_UID (insn));
+
+      cur_debug_insn_uid++;
+    }
+  else
+    for (insn = first; insn; insn = NEXT_INSN (insn))
+      cur_insn_uid = MAX (cur_insn_uid, INSN_UID (insn));
 
   cur_insn_uid++;
 }
@@ -3466,7 +3481,9 @@ make_debug_insn_raw (rtx pattern)
   rtx insn;
 
   insn = rtx_alloc (DEBUG_INSN);
-  INSN_UID (insn) = cur_insn_uid++;
+  INSN_UID (insn) = cur_debug_insn_uid < flag_min_insn_uid
+    ? cur_debug_insn_uid++
+    : cur_insn_uid++;
 
   PATTERN (insn) = pattern;
   INSN_CODE (insn) = -1;
@@ -5296,7 +5313,11 @@ init_emit (void)
   f->emit = ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
   last_insn = NULL;
-  cur_insn_uid = 1;
+  if (flag_min_insn_uid)
+    cur_insn_uid = flag_min_insn_uid;
+  else
+    cur_insn_uid = 1;
+  cur_debug_insn_uid = 1;
   reg_rtx_no = LAST_VIRTUAL_REGISTER + 1;
   last_location = UNKNOWN_LOCATION;
   first_label_num = label_num;

@@ -299,10 +299,11 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -femit-class-debug-always @gol
--fmem-report -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
+-fmem-report -fmin-insn-uid=@var{uid} @gol
+-fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -ftest-coverage  -ftime-report -fvar-tracking @gol
--fvar-tracking-assigments -g  -g@var{level}  -gcoff -gdwarf-2 @gol
+-fvar-tracking-assigments  -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -fdebug-prefix-map=@var{old}=@var{new} @gol
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
@@ -4222,6 +4223,14 @@ pass when it finishes.
 @opindex fmem-report
 Makes the compiler print some statistics about permanent memory
 allocation when it finishes.
+
+@item -fmin-insn-uid=@var{uid}
+@opindex fmin-insn-uid
+Use uids starting at @var{uid} for non-debug insns created by
+@option{-fvar-tracking-assignments}.  The range below @var{uid} is
+reserved exclusively for debug insns, but debug insns may get
+(non-overlapping) uids above @var{uid} if the reserved range is
+exhausted.
 
 @item -fpre-ipa-mem-report
 @opindex fpre-ipa-mem-report

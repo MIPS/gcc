@@ -1,3 +1,13 @@
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* common.opt (fmin-insn-uid=): New.
+	* emit-rtl (cur_debug_insn_uid): New macro.
+	(set_new_first_and_last_insn): Set it.
+	(make_debug_insn_raw): Use it.
+	(init_emit): Initialize it.
+	* function.h (struct emit_status): Add x_cur_debug_insn_uid.
+	* doc/invoke.texi (-fmin-insn-uid=): Document it.
+
 2007-11-12  Alexandre Oliva  <aoliva@redhat.com>
 
 	* tree.c (type_hash_add): Don't violate strict aliasing rules.
