@@ -2165,11 +2165,95 @@ reg_subword_p (rtx x, rtx reg)
 	 && GET_MODE_CLASS (GET_MODE (x)) == MODE_INT;
 }
 
+#ifdef AUTO_INC_DEC
+/* Replace auto-increment addressing modes with explicit operations to
+   access the same addresses without modifying the corresponding
+   registers.  If AFTER holds, SRC is meant to be reused after the
+   side effect, otherwise it is to be reused before that.  */
+
+static rtx
+cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
+{
+  rtx x = src, new, old;
+  const RTX_CODE code = GET_CODE (x);
+  int i;
+  const char *fmt;
+
+  switch (code)
+    {
+    case MEM:
+      mem_mode = GET_MODE (x);
+      break;
+
+    case PRE_INC:
+    case PRE_DEC:
+    case POST_INC:
+    case POST_DEC:
+      gcc_assert (mem_mode != VOIDmode && mem_mode != BLKmode);
+      if (after == (code == PRE_INC || code == PRE_DEC))
+	x = XEXP (x, 0);
+      else
+	x = gen_rtx_PLUS (GET_MODE (x), XEXP (x, 0),
+			  GEN_INT ((code == PRE_INC || code == POST_INC)
+				   ? GET_MODE_SIZE (mem_mode)
+				   : -GET_MODE_SIZE (mem_mode)));
+      return cleanup_auto_inc_dec (x, after, mem_mode);
+
+    case PRE_MODIFY:
+    case POST_MODIFY:
+      if (after == (code == PRE_INC))
+	x = XEXP (x, 0);
+      else
+	x = XEXP (x, 1);
+      return cleanup_auto_inc_dec (x, after, mem_mode);
+
+    default:
+      break;
+    }
+
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    if (fmt[i] == 'e')
+      {
+	old = XEXP (x, i);
+	new = cleanup_auto_inc_dec (old, after, mem_mode);
+	if (old != new)
+	  {
+	    if (x == src)
+	      x = shallow_copy_rtx (x);
+	    XEXP (x, i) = new;
+	  }
+      }
+    else if (fmt[i] == 'E')
+      {
+	int j;
+	for (j = 0; j < XVECLEN (x, i); j++)
+	  {
+	    old = XVECEXP (x, i, j);
+	    new = cleanup_auto_inc_dec (old, after, mem_mode);
+	    if (old != new)
+	      {
+		if (x == src)
+		  x = shallow_copy_rtx (x);
+		XVECEXP (x, i, j) = new;
+	      }
+	  }
+      }
+
+  return x;
+}
+#endif
+
 /* Auxiliary data structure for propagate_for_debug_stmt.  */
 
 struct rtx_subst_pair
 {
   rtx from, to;
+  bool changed;
+#ifdef AUTO_INC_DEC
+  bool adjusted;
+  bool after;
+#endif
 };
 
 /* If *LOC is the same as FROM in the struct rtx_subst_pair passed as
@@ -2184,7 +2268,20 @@ propagate_for_debug_subst (rtx *loc, void *data)
 
   if (rtx_equal_p (x, from))
     {
-      *loc = copy_rtx (to);
+#ifdef AUTO_INC_DEC
+      if (!pair->adjusted)
+	{
+	  to = cleanup_auto_inc_dec (to, pair->after, VOIDmode);
+	  pair->adjusted = true;
+	  if (pair->to != to)
+	    *loc = pair->to = to;
+	  else
+	    *loc = copy_rtx (to);
+	}
+      else
+#endif
+	*loc = copy_rtx (to);
+      pair->changed = true;
       return -1;
     }
 
@@ -2203,6 +2300,12 @@ propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src, bool move)
 
   p.from = dest;
   p.to = src;
+  p.changed = false;
+
+#ifdef AUTO_INC_DEC
+  p.adjusted = false;
+  p.after = move;
+#endif
 
   next = NEXT_INSN (insn);
   while (next != last)
@@ -2213,6 +2316,9 @@ propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src, bool move)
 	{
 	  for_each_rtx (&INSN_VAR_LOCATION_LOC (insn),
 			propagate_for_debug_subst, &p);
+	  if (!p.changed)
+	    continue;
+	  p.changed = false;
 	  if (move_pos)
 	    {
 	      remove_insn (insn);

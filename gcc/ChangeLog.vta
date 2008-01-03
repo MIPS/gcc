@@ -1,5 +1,14 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* combine.c (cleanup_auto_inc_dec): New.
+	(struct rtx_subst_pair): Add new fields to track changes and
+	auto-inc-dec.
+	(propagate_for_debug_subst): Handle auto-inc-dec.
+	(propagate_for_debug): Initialize new fields.  Only move or
+	mark for rescan debug insns that have actually changed.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* sched-rgn.c (bb_insn_count): New.
 	(too_large, find_rgns): Use it.
 
