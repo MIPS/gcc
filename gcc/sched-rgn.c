@@ -423,6 +423,27 @@ find_single_block_region (void)
     }
 }
 
+/* Estimate the number of insns in a block, discounting debug insns.  */
+
+static int
+bb_insn_count (basic_block bb)
+{
+  int count;
+
+  count = INSN_LUID (BB_HEAD (bb)) - INSN_LUID (BB_END (bb));
+
+  if (MAY_HAVE_DEBUG_INSNS)
+    {
+      rtx insn;
+
+      FOR_BB_INSNS (bb, insn)
+	if (DEBUG_INSN_P (insn))
+	  count--;
+    }
+
+  return count;
+}
+
 /* Update number of blocks and the estimate for number of insns
    in the region.  Return true if the region is "too large" for interblock
    scheduling (compile time considerations).  */
@@ -431,8 +452,7 @@ static bool
 too_large (int block, int *num_bbs, int *num_insns)
 {
   (*num_bbs)++;
-  (*num_insns) += (INSN_LUID (BB_END (BASIC_BLOCK (block)))
-		   - INSN_LUID (BB_HEAD (BASIC_BLOCK (block))));
+  (*num_insns) += bb_insn_count (BASIC_BLOCK (block));
 
   return ((*num_bbs > PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS))
 	  || (*num_insns > PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS)));
@@ -741,8 +761,7 @@ find_rgns (void)
 
 	      /* Estimate # insns, and count # blocks in the region.  */
 	      num_bbs = 1;
-	      num_insns = (INSN_LUID (BB_END (bb))
-			   - INSN_LUID (BB_HEAD (bb)));
+	      num_insns = bb_insn_count (bb);
 
 	      /* Find all loop latches (blocks with back edges to the loop
 		 header) or all the leaf blocks in the cfg has no loops.

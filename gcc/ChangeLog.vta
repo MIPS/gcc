@@ -1,5 +1,10 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* sched-rgn.c (bb_insn_count): New.
+	(too_large, find_rgns): Use it.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* dce.c (mark_reg_dependencies): Skip debug insns.
 
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
