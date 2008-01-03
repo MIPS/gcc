@@ -1,3 +1,10 @@
+2008-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/33168
+	* decl.c (cp_finish_decl): Call make_rtl_for_nonlocal_decl already
+	with the final TREE_READONLY flag in place.  processing_template_decl
+	is known to be 0 in this part of function.
+
 2007-10-08  Ollie Wild  <aaw@google.com>
 
 	* typeck2.c (digest_init): Call cplus_expand_constant after
