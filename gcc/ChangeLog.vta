@@ -1,5 +1,9 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* rtlanal.c (reg_used_between_p): Skip debug insns.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* fwprop.c (forward_propagate_and_simplify): Handle modeless
 	CONST_DOUBLEs.
 

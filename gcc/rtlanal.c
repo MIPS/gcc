@@ -718,7 +718,7 @@ reg_used_between_p (const_rtx reg, const_rtx from_insn, const_rtx to_insn)
     return 0;
 
   for (insn = NEXT_INSN (from_insn); insn != to_insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
+    if (INSN_P (insn) && !DEBUG_INSN_P (insn)
 	&& (reg_overlap_mentioned_p (reg, PATTERN (insn))
 	   || (CALL_P (insn) && find_reg_fusage (insn, USE, reg))))
       return 1;
