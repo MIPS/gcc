@@ -1,5 +1,9 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* dce.c (mark_reg_dependencies): Skip debug insns.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* reload1.c (reload): Simplify addresses of pseudos allocated
 	to stack slots or found equivalent to constants in debug
 	insns.

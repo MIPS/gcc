@@ -425,6 +425,9 @@ mark_reg_dependencies (rtx insn)
   struct df_link *defs;
   struct df_ref **use_rec;
 
+  if (DEBUG_INSN_P (insn))
+    return;
+
   /* If this is part of a libcall, mark the entire libcall.  */
   if (find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX))
     mark_libcall (insn, false);
