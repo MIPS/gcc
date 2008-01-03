@@ -1,5 +1,13 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* config/rs6000/rs6000.c (is_microcoded_insn): Exclude debug insns.
+	(is_cracked_insn, is_branch_slot_insn): Likewise.
+	(is_nonpipeline_insn, insn_must_be_first_in_group): Likewise.
+	(insn_must_be_last_in_group): Likewise.
+	(force_new_group): Let debug insns through.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* haifa-sched.c (rank_for_schedule): Don't search back past
 	the block head for the last non-debug scheduled insn.
 

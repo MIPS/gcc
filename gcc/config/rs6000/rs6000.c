@@ -17940,7 +17940,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 static bool
 is_microcoded_insn (rtx insn)
 {
-  if (!insn || !INSN_P (insn)
+  if (!insn || !INSN_P (insn) || DEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -17968,7 +17968,7 @@ is_microcoded_insn (rtx insn)
 static bool
 is_cracked_insn (rtx insn)
 {
-  if (!insn || !INSN_P (insn)
+  if (!insn || !INSN_P (insn) || DEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -17996,7 +17996,7 @@ is_cracked_insn (rtx insn)
 static bool
 is_branch_slot_insn (rtx insn)
 {
-  if (!insn || !INSN_P (insn)
+  if (!insn || !INSN_P (insn) || DEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -18156,7 +18156,7 @@ static bool
 is_nonpipeline_insn (rtx insn)
 {
   enum attr_type type;
-  if (!insn || !INSN_P (insn)
+  if (!insn || !INSN_P (insn) || DEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -18721,8 +18721,8 @@ insn_must_be_first_in_group (rtx insn)
   enum attr_type type;
 
   if (!insn
-      || insn == NULL_RTX
       || GET_CODE (insn) == NOTE
+      || DEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -18817,8 +18817,8 @@ insn_must_be_last_in_group (rtx insn)
   enum attr_type type;
 
   if (!insn
-      || insn == NULL_RTX
       || GET_CODE (insn) == NOTE
+      || DEBUG_INSN_P (insn)
       || GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER)
     return false;
@@ -18927,7 +18927,7 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
   bool end = *group_end;
   int i;
 
-  if (next_insn == NULL_RTX)
+  if (next_insn == NULL_RTX || DEBUG_INSN_P (next_insn))
     return can_issue_more;
 
   if (rs6000_sched_insert_nops > sched_finish_regroup_exact)
