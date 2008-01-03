@@ -5231,6 +5231,8 @@ ia64_safe_itanium_class (rtx insn)
 {
   if (recog_memoized (insn) >= 0)
     return get_attr_itanium_class (insn);
+  else if (DEBUG_INSN_P (insn))
+    return ITANIUM_CLASS_IGNORE;
   else
     return ITANIUM_CLASS_UNKNOWN;
 }
@@ -5940,6 +5942,7 @@ group_barrier_needed (rtx insn)
   switch (GET_CODE (insn))
     {
     case NOTE:
+    case DEBUG_INSN:
       break;
 
     case BARRIER:
@@ -6564,6 +6567,9 @@ ia64_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
 	pending_data_specs--;
     }
 
+  if (DEBUG_INSN_P (insn))
+    return 1;
+
   last_scheduled_insn = insn;
   memcpy (prev_cycle_state, curr_state, dfa_state_size);
   if (reload_completed)
@@ -6621,6 +6627,9 @@ ia64_dfa_new_cycle (FILE *dump, int verbose, rtx insn, int last_clock,
   int setup_clocks_p = FALSE;
 
   gcc_assert (insn && INSN_P (insn));
+  if (DEBUG_INSN_P (insn))
+    return 0;
+
   if ((reload_completed && safe_group_barrier_needed (insn))
       || (last_scheduled_insn
 	  && (GET_CODE (last_scheduled_insn) == CALL_INSN
@@ -8289,6 +8298,21 @@ final_emit_insn_group_barriers (FILE *dump ATTRIBUTE_UNUSED)
 	    }
 	  else if (need_barrier_p || group_barrier_needed (insn))
 	    {
+	      if (DEBUG_INSN_P (insn))
+		{
+		  rtx next = NEXT_INSN (insn);
+
+		  while (next != current_sched_info->next_tail
+			 && DEBUG_INSN_P (next))
+		    next = NEXT_INSN (next);
+
+		  /* If everything after the barrier-needing insn is
+		     debug insns, we wouldn't emit the barrier if they
+		     weren't there.  */
+		  if (next == current_sched_info->next_tail)
+		    continue;
+		}
+
 	      if (TARGET_EARLY_STOP_BITS)
 		{
 		  rtx last;
