@@ -2201,7 +2201,7 @@ cleanup_auto_inc_dec (rtx src, bool after, enum machine_mode mem_mode)
 
     case PRE_MODIFY:
     case POST_MODIFY:
-      if (after == (code == PRE_INC))
+      if (after == (code == PRE_MODIFY))
 	x = XEXP (x, 0);
       else
 	x = XEXP (x, 1);
