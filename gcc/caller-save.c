@@ -700,10 +700,25 @@ replace_reg_with_saved_mem (rtx *loc,
       mem = copy_rtx (regno_save_mem[regno][nregs]);
 
       if (nregs == (unsigned int) hard_regno_nregs[regno][save_mode[regno]])
-	mem = adjust_address (mem, save_mode[regno], 0);
+	mem = adjust_address_nv (mem, save_mode[regno], 0);
 
       if (GET_MODE (mem) != mode)
-	mem = rtl_hooks.gen_lowpart_no_emit (mode, mem);
+	{
+	  /* This is gen_lowpart_if_possible(), but without validating
+	     the newly-formed address.  */
+	  int offset = 0;
+
+	  if (WORDS_BIG_ENDIAN)
+	    offset = (MAX (GET_MODE_SIZE (GET_MODE (mem)), UNITS_PER_WORD)
+		      - MAX (GET_MODE_SIZE (mode), UNITS_PER_WORD));
+	  if (BYTES_BIG_ENDIAN)
+	    /* Adjust the address so that the address-after-the-data is
+	       unchanged.  */
+	    offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (mode))
+		       - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (mem))));
+
+	  mem = adjust_address_nv (mem, mode, offset);
+	}
     }
   else
     {
