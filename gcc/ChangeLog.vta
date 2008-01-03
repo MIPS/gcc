@@ -1,5 +1,10 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-nested.c (finalize_nesting_tree_1): Declare the
+	frame_decl in the binding tree.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgexpand.c (adjust_debug_string_constant): New.
 	(debug_string_constants_p): New.
 	(adjust_debug_string_constants): New.
