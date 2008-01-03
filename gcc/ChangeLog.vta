@@ -1,5 +1,10 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* haifa-sched.c (rank_for_schedule): Don't search back past
+	the block head for the last non-debug scheduled insn.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* sched-deps.c (sd_add_dep): Make sure no non-debug insns ever
 	depend on debug insns.
 	(sched_analyze_reg): Don't add debug insns to
