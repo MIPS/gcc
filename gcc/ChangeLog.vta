@@ -1,5 +1,11 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* reload.c (find_equiv_reg): Don't count debug insns against
+	max-reload-search-insns when searching back for inheritance
+	opportunities.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* lower-subreg.c (adjust_decomposed_uses): Unshare concatn
 	that couldn't be simplified.
 
