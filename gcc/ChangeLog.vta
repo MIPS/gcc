@@ -1,5 +1,10 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* auto-inc-dec.c (merge_in_block): Skip debug insns.  Fix
+	whitespace.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgexpand.c (expand_debug_expr): Use just
 	EXPAND_INITIALIZERf for constants.  Get inner_mode for
 	conversions from the operand.
