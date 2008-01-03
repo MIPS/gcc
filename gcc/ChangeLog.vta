@@ -1,5 +1,20 @@
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
+	* haifa-sched.c (struct ready_list): Add n_debug.
+	(queue_insn): Never queue debug insns.
+	(ready_add, ready_remove_first, ready_remove): Maintain n_debug.
+	(queue_to_ready): Skip debug insns when looking for next insn.
+	Otherwise discount debug insns.
+	(choose_ready): Pick a debug insn if it's first.
+	(SCHED_DEBUG_INSNS_BEFORE_REORDER): New, enabled by default.
+	(schedule_block): Don't count debug insns against
+	MAX_SCHED_READY_INSNS.  Schedule debug insns before running
+	machine-specific reorder or reorder2 by default.  Always
+	accept more debug insns in a cycle.
+	(schedule_block): Check that n_debug was maintained properly.
+
+2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-nested.c (finalize_nesting_tree_1): Declare the
 	frame_decl in the binding tree.
 
