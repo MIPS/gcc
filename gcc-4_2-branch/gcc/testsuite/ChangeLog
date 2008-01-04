@@ -1,3 +1,31 @@
+2008-01-02  Volker Reichelt  <reichelt@netcologne.de>
+
+	Backport:
+	2007-10-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33494
+	* g++.dg/template/error35.C: New.
+
+	2007-11-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33495
+	* g++.dg/other/error19.C: New.
+
+	2007-09-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33493
+	* g++.dg/template/error31.C: New.
+
+	2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33462
+	* g++.dg/ext/va-arg1.C: New.
+
+	2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+ 
+	PR c++/33463
+	* g++.dg/rtti/typeid6.C: New.
+
 2007-12-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR c++/33640

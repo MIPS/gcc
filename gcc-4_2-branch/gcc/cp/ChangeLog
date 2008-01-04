@@ -1,3 +1,49 @@
+2008-01-02  Volker Reichelt  <reichelt@netcologne.de>
+
+	Backport:
+	2007-10-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33494
+	* cxx-pretty-print.c (pp_cxx_typeid_expression,
+	pp_cxx_delete_expression): Change to static linkage.
+	* cxx-pretty-print.h: Adjust declarations.
+	* error.c (dump_expr, case SCOPE_REF, TYPEID_EXPR, DELETE_EXPR,
+	VEC_DELETE_EXPR, MODOP_EXPR): Forward to pp_expression.
+
+	* cxx-pretty-print.c (pp_cxx_expression, case NON_DEPENDENT_EXPR):
+	Fix typo.
+
+	2007-11-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33495
+	* error.c (dump_expr): Deal specially with statements.
+
+	2007-09-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33493
+	* error.c (dump_expr): Deal with DELETE_EXPR and VEC_DELETE_EXPR.
+	* cxx-pretty-print.c (pp_cxx_delete_expression): Add missing
+	spaces in the formatting.
+	* cxx-pretty-print.h (pp_cxx_delete_expression): Declare.
+
+	2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33462
+	* cxx-pretty-print.c (pp_cxx_va_arg_expression): Add.
+	(pp_cxx_primary_expression): Use it.
+	* cxx-pretty-print.h (pp_cxx_va_arg_expression): Declare.
+	* error.c (dump_expr): Use it.
+
+	2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+ 
+	PR c++/33463
+	* cxx-pretty-print.c (pp_cxx_postfix_expression): Split
+	out case TYPEID_EXPR to...
+	(pp_cxx_typeid_expression): ... here; use pp_cxx_left_paren
+	and pp_cxx_right_paren.
+	* cxx-pretty-print.h (pp_cxx_typeid_expression): Declare.
+	* error.c (dump_expr): Use it.
+
 2007-12-10  Simon Martin  <simartin@users.sourceforge.net>
 
 	PR c++/34059
