@@ -747,6 +747,7 @@ finish_record_type (tree record_type, tree fieldlist, int rep_level,
 		    bool do_not_finalize)
 {
   enum tree_code code = TREE_CODE (record_type);
+  tree name = TYPE_NAME (record_type);
   tree ada_size = bitsize_zero_node;
   tree size = bitsize_zero_node;
   bool var_size = false;
@@ -754,9 +755,11 @@ finish_record_type (tree record_type, tree fieldlist, int rep_level,
   bool had_size_unit = TYPE_SIZE_UNIT (record_type) != 0;
   tree field;
 
+  if (name && TREE_CODE (name) == TYPE_DECL)
+    name = DECL_NAME (name);
+
   TYPE_FIELDS (record_type) = fieldlist;
-  TYPE_STUB_DECL (record_type)
-    = build_decl (TYPE_DECL, TYPE_NAME (record_type), record_type);
+  TYPE_STUB_DECL (record_type) = build_decl (TYPE_DECL, name, record_type);
 
   /* We don't need both the typedef name and the record name output in
      the debugging information, since they are the same.  */
@@ -1464,7 +1467,10 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
     TREE_ADDRESSABLE (var_decl) = 1;
 
   if (TREE_CODE (var_decl) != CONST_DECL)
-    rest_of_decl_compilation (var_decl, global_bindings_p (), 0);
+    {
+      if (global_bindings_p ())
+	rest_of_decl_compilation (var_decl, true, 0);
+    }
   else
     expand_decl (var_decl);
 
@@ -1578,11 +1584,24 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
     }
 
   DECL_PACKED (field_decl) = pos ? DECL_BIT_FIELD (field_decl) : packed;
-  DECL_ALIGN (field_decl)
-    = MAX (DECL_ALIGN (field_decl),
-	   DECL_BIT_FIELD (field_decl) ? 1
-	   : packed && TYPE_MODE (field_type) != BLKmode ? BITS_PER_UNIT
-	   : TYPE_ALIGN (field_type));
+
+  /* Bump the alignment if need be, either for bitfield/packing purposes or
+     to satisfy the type requirements if no such consideration applies.  When
+     we get the alignment from the type, indicate if this is from an explicit
+     user request, which prevents stor-layout from lowering it later on.  */
+  {
+    int bit_align
+      = (DECL_BIT_FIELD (field_decl) ? 1
+	 : packed && TYPE_MODE (field_type) != BLKmode ? BITS_PER_UNIT : 0);
+
+    if (bit_align > DECL_ALIGN (field_decl))
+      DECL_ALIGN (field_decl) = bit_align;
+    else if (!bit_align && TYPE_ALIGN (field_type) > DECL_ALIGN (field_decl))
+      {
+	DECL_ALIGN (field_decl) = TYPE_ALIGN (field_type);
+	DECL_USER_ALIGN (field_decl) = TYPE_USER_ALIGN (field_type);
+      }
+  }
 
   if (pos)
     {

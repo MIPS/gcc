@@ -158,6 +158,7 @@ static tree get_template_base (tree, tree, tree, tree);
 static tree try_class_unification (tree, tree, tree, tree);
 static int coerce_template_template_parms (tree, tree, tsubst_flags_t,
 					   tree, tree);
+static bool template_template_parm_bindings_ok_p (tree, tree);
 static int template_args_equal (tree, tree);
 static void tsubst_default_arguments (tree);
 static tree for_each_template_parm_r (tree *, int *, void *);
@@ -3186,7 +3187,7 @@ current_template_args (void)
 	    {
 	      t = TREE_VALUE (t);
 
-	      if (t != error_mark_node)
+	      if (!error_operand_p (t))
 		{
 		  if (TREE_CODE (t) == TYPE_DECL
 		      || TREE_CODE (t) == TEMPLATE_DECL)
@@ -4750,6 +4751,77 @@ coerce_template_template_parms (tree parm_parms,
   return 1;
 }
 
+/* Verifies that the deduced template arguments (in TARGS) for the
+   template template parameters (in TPARMS) represent valid bindings,
+   by comparing the template parameter list of each template argument
+   to the template parameter list of its corresponding template
+   template parameter, in accordance with DR150. This
+   routine can only be called after all template arguments have been
+   deduced. It will return TRUE if all of the template template
+   parameter bindings are okay, FALSE otherwise.  */
+bool 
+template_template_parm_bindings_ok_p (tree tparms, tree targs)
+{
+  int i, ntparms = TREE_VEC_LENGTH (tparms);
+
+  targs = INNERMOST_TEMPLATE_ARGS (targs);
+
+  for (i = 0; i < ntparms; ++i)
+    {
+      tree tparm = TREE_VALUE (TREE_VEC_ELT (tparms, i));
+      tree targ = TREE_VEC_ELT (targs, i);
+
+      if (TREE_CODE (tparm) == TEMPLATE_DECL && targ)
+	{
+	  tree packed_args = NULL_TREE;
+	  int idx, len = 1;
+
+	  if (ARGUMENT_PACK_P (targ))
+	    {
+	      /* Look inside the argument pack.  */
+	      packed_args = ARGUMENT_PACK_ARGS (targ);
+	      len = TREE_VEC_LENGTH (packed_args);
+	    }
+
+	  for (idx = 0; idx < len; ++idx)
+	    {
+	      tree targ_parms = NULL_TREE;
+
+	      if (packed_args)
+		/* Extract the next argument from the argument
+		   pack.  */
+		targ = TREE_VEC_ELT (packed_args, idx);
+
+	      if (PACK_EXPANSION_P (targ))
+		/* Look at the pattern of the pack expansion.  */
+		targ = PACK_EXPANSION_PATTERN (targ);
+
+	      /* Extract the template parameters from the template
+		 argument.  */
+	      if (TREE_CODE (targ) == TEMPLATE_DECL)
+		targ_parms = DECL_INNERMOST_TEMPLATE_PARMS (targ);
+	      else if (TREE_CODE (targ) == TEMPLATE_TEMPLATE_PARM)
+		targ_parms = DECL_INNERMOST_TEMPLATE_PARMS (TYPE_NAME (targ));
+
+	      /* Verify that we can coerce the template template
+		 parameters from the template argument to the template
+		 parameter.  This requires an exact match.  */
+	      if (targ_parms
+		  && !coerce_template_template_parms
+		       (DECL_INNERMOST_TEMPLATE_PARMS (tparm),
+			targ_parms,
+			tf_none,
+			tparm,
+			targs))
+		return false;
+	    }
+	}
+    }
+
+  /* Everything is okay.  */
+  return true;
+}
+
 /* Convert the indicated template ARG as necessary to match the
    indicated template PARM.  Returns the converted ARG, or
    error_mark_node if the conversion was unsuccessful.  Error and
@@ -5183,16 +5255,19 @@ coerce_template_parms (tree parms,
 
           if (arg && PACK_EXPANSION_P (arg))
             {
-              /* If ARG is a pack expansion, but PARM is not a
-                 template parameter pack (if it were, we would have
-                 handled it above), we're trying to expand into a
-                 fixed-length argument list.  */
-              if (TREE_CODE (arg) == EXPR_PACK_EXPANSION)
-                error ("cannot expand %<%E%> into a fixed-length "
-                       "argument list", arg);
-              else
-                error ("cannot expand %<%T%> into a fixed-length "
-                       "argument list", arg);
+	      if (complain & tf_error)
+		{
+		  /* If ARG is a pack expansion, but PARM is not a
+		     template parameter pack (if it were, we would have
+		     handled it above), we're trying to expand into a
+		     fixed-length argument list.  */
+		  if (TREE_CODE (arg) == EXPR_PACK_EXPANSION)
+		    error ("cannot expand %<%E%> into a fixed-length "
+			   "argument list", arg);
+		  else
+		    error ("cannot expand %<%T%> into a fixed-length "
+			   "argument list", arg);
+		}
 	      return error_mark_node;
             }
         }
@@ -7563,7 +7638,7 @@ tsubst_aggr_type (tree t,
       /* Else fall through.  */
     case ENUMERAL_TYPE:
     case UNION_TYPE:
-      if (TYPE_TEMPLATE_INFO (t))
+      if (TYPE_TEMPLATE_INFO (t) && uses_template_parms (t))
 	{
 	  tree argvec;
 	  tree context;
@@ -8653,7 +8728,24 @@ tsubst_exception_specification (tree fntype,
                 expanded_specs = tsubst_pack_expansion (TREE_VALUE (specs),
                                                        args, complain,
                                                        in_decl);
-                len = TREE_VEC_LENGTH (expanded_specs);
+
+		if (expanded_specs == error_mark_node)
+		  return error_mark_node;
+		else if (TREE_CODE (expanded_specs) == TREE_VEC)
+		  len = TREE_VEC_LENGTH (expanded_specs);
+		else
+		  {
+		    /* We're substituting into a member template, so
+		       we got a TYPE_PACK_EXPANSION back.  Add that
+		       expansion and move on.  */
+		    gcc_assert (TREE_CODE (expanded_specs) 
+				== TYPE_PACK_EXPANSION);
+		    new_specs = add_exception_specifier (new_specs,
+							 expanded_specs,
+							 complain);
+		    specs = TREE_CHAIN (specs);
+		    continue;
+		  }
               }
 
             for (i = 0; i < len; ++i)
@@ -11610,6 +11702,32 @@ fn_type_unification (tree fn,
         }
     }
 
+  /* Now that we have bindings for all of the template arguments,
+     ensure that the arguments deduced for the template template
+     parameters have compatible template parameter lists.  We cannot
+     check this property before we have deduced all template
+     arguments, because the template parameter types of a template
+     template parameter might depend on prior template parameters
+     deduced after the template template parameter.  The following
+     ill-formed example illustrates this issue:
+
+       template<typename T, template<T> class C> void f(C<5>, T);
+
+       template<int N> struct X {};
+
+       void g() {
+         f(X<5>(), 5l); // error: template argument deduction fails
+       }
+
+     The template parameter list of 'C' depends on the template type
+     parameter 'T', but 'C' is deduced to 'X' before 'T' is deduced to
+     'long'.  Thus, we can't check that 'C' cannot bind to 'X' at the
+     time that we deduce 'C'.  */
+  if (result == 0
+      && !template_template_parm_bindings_ok_p 
+           (DECL_INNERMOST_TEMPLATE_PARMS (fn), targs))
+    return 1;
+
   if (result == 0)
     /* All is well so far.  Now, check:
 
@@ -12464,6 +12582,16 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
     {
       tree old_pack = TREE_VALUE (pack);
       tree new_args = TREE_TYPE (pack);
+      int i, len = TREE_VEC_LENGTH (new_args);
+      bool nondeduced_p = false;
+
+      /* If NEW_ARGS contains any NULL_TREE entries, we didn't
+	 actually deduce anything.  */
+      for (i = 0; i < len && !nondeduced_p; ++i)
+	if (TREE_VEC_ELT (new_args, i) == NULL_TREE)
+	  nondeduced_p = true;
+      if (nondeduced_p)
+	continue;
 
       if (old_pack && ARGUMENT_PACK_INCOMPLETE_P (old_pack))
         {
@@ -12684,7 +12812,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	    tree argvec = INNERMOST_TEMPLATE_ARGS (TYPE_TI_ARGS (arg));
 	    tree argtmplvec
 	      = DECL_INNERMOST_TEMPLATE_PARMS (TYPE_TI_TEMPLATE (arg));
-	    int i;
+	    int i, len;
+            int parm_variadic_p = 0;
 
 	    /* The resolution to DR150 makes clear that default
 	       arguments for an N-argument may not be used to bind T
@@ -12726,7 +12855,21 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	       rather than the whole TREE_VEC since they can have
 	       different number of elements.  */
 
-	    for (i = 0; i < TREE_VEC_LENGTH (parmvec); ++i)
+            parmvec = expand_template_argument_pack (parmvec);
+            argvec = expand_template_argument_pack (argvec);
+
+            len = TREE_VEC_LENGTH (parmvec);
+
+            /* Check if the parameters end in a pack, making them
+               variadic.  */
+            if (len > 0
+                && PACK_EXPANSION_P (TREE_VEC_ELT (parmvec, len - 1)))
+              parm_variadic_p = 1;
+            
+            if (TREE_VEC_LENGTH (argvec) < len - parm_variadic_p)
+              return 1;
+
+             for (i = 0; i < len - parm_variadic_p; ++i)
 	      {
 		if (unify (tparms, targs,
 			   TREE_VEC_ELT (parmvec, i),
@@ -12734,6 +12877,14 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 			   UNIFY_ALLOW_NONE))
 		  return 1;
 	      }
+
+	    if (parm_variadic_p
+		&& unify_pack_expansion (tparms, targs,
+					 parmvec, argvec,
+					 UNIFY_ALLOW_NONE,
+					 /*call_args_p=*/false,
+					 /*subr=*/false))
+	      return 1;
 	  }
 	  arg = TYPE_TI_TEMPLATE (arg);
 
@@ -13156,10 +13307,22 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
         int argslen = TREE_VEC_LENGTH (packed_args);
         int parm_variadic_p = 0;
 
-        /* Check if the parameters end in a pack, making them variadic.  */
-        if (len > 0 
-	    && PACK_EXPANSION_P (TREE_VEC_ELT (packed_parms, len - 1)))
-          parm_variadic_p = 1;
+	for (i = 0; i < len; ++i)
+	  {
+	    if (PACK_EXPANSION_P (TREE_VEC_ELT (packed_parms, i)))
+	      {
+		if (i == len - 1)
+		  /* We can unify against something with a trailing
+		     parameter pack.  */
+		  parm_variadic_p = 1;
+		else
+		  /* Since there is something following the pack
+		     expansion, we cannot unify this template argument
+		     list.  */
+		  return 0;
+	      }
+	  }
+	  
 
         /* If we don't have enough arguments to satisfy the parameters
            (not counting the pack expression at the end), or we have
@@ -13742,6 +13905,14 @@ get_class_bindings (tree tparms, tree spec_args, tree args)
 	 arguments will always agree.  */
       || !comp_template_args (INNERMOST_TEMPLATE_ARGS (spec_args),
 			      INNERMOST_TEMPLATE_ARGS (args)))
+    return NULL_TREE;
+
+  /* Now that we have bindings for all of the template arguments,
+     ensure that the arguments deduced for the template template
+     parameters have compatible template parameter lists.  See the use
+     of template_template_parm_bindings_ok_p in fn_type_unification
+     for more information.  */
+  if (!template_template_parm_bindings_ok_p (tparms, deduced_args))
     return NULL_TREE;
 
   return deduced_args;
@@ -15284,12 +15455,17 @@ dependent_type_p_r (tree type)
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
       if (TYPE_DOMAIN (type)
-	  && ((value_dependent_expression_p
-	       (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
-	      || (type_dependent_expression_p
-		  (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))))
+	  && dependent_type_p (TYPE_DOMAIN (type)))
 	return true;
       return dependent_type_p (TREE_TYPE (type));
+    }
+  else if (TREE_CODE (type) == INTEGER_TYPE
+	   && !TREE_CONSTANT (TYPE_MAX_VALUE (type)))
+    {
+      /* If this is the TYPE_DOMAIN of an array type, consider it
+	 dependent.  */
+      return (value_dependent_expression_p (TYPE_MAX_VALUE (type))
+	      || type_dependent_expression_p (TYPE_MAX_VALUE (type)));
     }
 
   /* -- a template-id in which either the template name is a template

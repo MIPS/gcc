@@ -324,11 +324,12 @@ Objective-C and Objective-C++ Dialects}.
 -fcse-skip-blocks -fcx-limited-range -fdata-sections -fdce -fdce @gol
 -fdelayed-branch -fdelete-null-pointer-checks -fdse -fdse @gol
 -fearly-inlining -fexpensive-optimizations -ffast-math @gol
--ffinite-math-only -ffloat-store -fforce-addr -fforward-propagate @gol
+-ffinite-math-only -ffloat-store -fforward-propagate @gol
 -ffunction-sections -fgcse -fgcse-after-reload -fgcse-las -fgcse-lm @gol
 -fgcse-sm -fif-conversion -fif-conversion2 -finline-functions @gol
 -finline-functions-called-once -finline-limit=@var{n} @gol
--finline-small-functions -fipa-pta -fipa-pure-const -fipa-reference @gol
+-finline-small-functions -fipa-cp -fipa-marix-reorg -fipa-pta @gol 
+-fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -fmerge-all-constants -fmerge-constants -fmodulo-sched @gol
 -fmodulo-sched-allow-regmoves -fmove-loop-invariants -fmudflap @gol
@@ -3229,7 +3230,7 @@ Only warns when the converted pointer is dereferenced.
 Does not warn about incomplete types.
 
 @item -Wstrict-overflow
-@item -Wstrict-overflow=@var{n}
+@itemx -Wstrict-overflow=@var{n}
 @opindex Wstrict-overflow
 This option is only active when @option{-fstrict-overflow} is active.
 It warns about cases where the compiler optimizes based on the
@@ -5140,11 +5141,6 @@ function calls and pops them all at once.
 
 Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
-@item -fforce-addr
-@opindex fforce-addr
-Force memory address constants to be copied into registers before
-doing arithmetic on them.
-
 @item -fforward-propagate
 @opindex fforward-propagate
 Perform a forward propagation pass on RTL.  The pass tries to combine two
@@ -5711,9 +5707,46 @@ Discover which static variables do not escape cannot escape the
 compilation unit.
 Enabled by default at @option{-O} and higher.
 
+@item -fipa-struct-reorg
+@opindex fipa-struct-reorg
+Perform structure reorganization optimization, that change C-like structures 
+layout in order to better utilize spatial locality.  This transformation is 
+affective for programs containing arrays of structures.  Available in two 
+compilation modes: profile-based (enabled with @option{-fprofile-generate})
+or static (which uses built-in heuristics).  Require @option{-fipa-type-escape}
+to provide the safety of this transformation.  It works only in whole program
+mode, so it requires @option{-fwhole-program} and @option{-combine} to be
+enabled.  Structures considered @samp{cold} by this transformation are not
+affected (see @option{--param struct-reorg-cold-struct-ratio=@var{value}}).
+
+With this flag, the program debug info reflects a new structure layout.
+
 @item -fipa-pta
 @opindex fipa-pta
 Perform interprocedural pointer analysis.
+
+@item -fipa-cp
+@opindex fipa-cp
+Perform interprocedural constant propagation.
+This optimization analyzes the program to determine when values passed
+to functions are constants and then optimizes accordingly.  
+This optimization can substantially increase performance
+if the application has constants passed to functions, but
+because this optimization can create multiple copies of functions,
+it may significantly increase code size.
+
+@item -fipa-matrix-reorg
+@opindex fipa-matrix-reorg
+Perform matrix flattening and transposing.
+Matrix flattening tries to replace a m-dimensional matrix 
+with its equivalent n-dimensional matrix, where n < m.
+This reduces the level of indirection needed for accessing the elements
+of the matrix. The second optimization is matrix transposing that
+attemps to change the order of the matrix's dimensions in order to 
+improve cache locality.
+Both optimizations need fwhole-program flag. 
+Transposing is enabled only if profiling information is avaliable.
+
 
 @item -ftree-sink
 @opindex ftree-sink
@@ -6142,6 +6175,7 @@ but this scheme may not be supported by future releases of GCC@.
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fno-toplevel-reorder
+@opindex fno-toplevel-reorder
 Do not reorder top-level functions, variables, and @code{asm}
 statements.  Output them in the same order that they appear in the
 input file.  When this option is used, unreferenced static variables
@@ -6623,6 +6657,15 @@ the complete structure size.  We say that if the ratio of the number
 of bytes in instantiated fields to the number of bytes in the complete
 structure exceeds this parameter, then block copies are not used.  The
 default is 75.
+
+@item struct-reorg-cold-struct-ratio
+The threshold ratio (as a percentage) between a structure frequency
+and the frequency of the hottest structure in the program.  This parameter
+is used by struct-reorg optimization enabled by @option{-fipa-struct-reorg}.
+We say that if the ratio of a structure frequency, calculated by profiling, 
+to the hottest structure frequency in the program is less than this 
+parameter, then structure reorganization is not applied to this structure.
+The default is 10.
 
 @item max-crossjump-edges
 The maximum number of incoming edges to consider for crossjumping.
@@ -7139,6 +7182,12 @@ consuming all of the memory available on the host machine.  This
 parameter sets a limit on the length of the sets that are computed,
 which prevents the runaway behaviour.  Setting a value of 0 for
 this paramter will allow an unlimited set length.
+
+@item sccvn-max-scc-size
+Maximum size of a strongly connected component (SCC) during SCCVN
+processing.  If this limit is hit, SCCVN processing for the whole
+function will not be done and optimizations depending on it will
+be disabled.  The default maximum SCC size is 10000.
 
 @end table
 @end table

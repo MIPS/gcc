@@ -2378,7 +2378,7 @@ number_of_iterations_for_all_loops (VEC(tree,heap) **exit_conditions)
       fprintf (dump_file, "-----------------------------------------\n");
       fprintf (dump_file, ")\n\n");
       
-      print_loop_ir (dump_file);
+      print_loops (dump_file, 3);
     }
 }
 
@@ -2610,6 +2610,16 @@ scev_initialize (void)
     }
 }
 
+/* Clean the scalar evolution analysis cache, but preserve the cached
+   numbers of iterations for the loops.  */
+
+void
+scev_reset_except_niters (void)
+{
+  if (scalar_evolution_info)
+    htab_empty (scalar_evolution_info);
+}
+
 /* Cleans up the information cached by the scalar evolutions analysis.  */
 
 void
@@ -2621,7 +2631,8 @@ scev_reset (void)
   if (!scalar_evolution_info || !current_loops)
     return;
 
-  htab_empty (scalar_evolution_info);
+  scev_reset_except_niters ();
+
   FOR_EACH_LOOP (li, loop, 0)
     {
       loop->nb_iterations = NULL_TREE;

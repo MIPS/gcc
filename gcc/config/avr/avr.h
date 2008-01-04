@@ -734,7 +734,7 @@ extern int avr_case_values_threshold;
 /* A C string constant that tells the GCC driver program options to
    pass to `cc1plus'.  */
 
-#define ASM_SPEC "%{mmcu=avr25:-mmcu=avr2;\
+#define ASM_SPEC "%{mmcu=avr25:-mmcu=avr2;mmcu=avr35:-mmcu=avr3;\
 mmcu=*:-mmcu=%*}"
 
 #define LINK_SPEC " %{!mmcu*:-m avr2}\
@@ -759,7 +759,9 @@ mmcu=*:-mmcu=%*}"
   mmcu=attiny8*:-m avr2}\
 %{mmcu=atmega103|\
   mmcu=at43*|\
-  mmcu=at76*:-m avr3}\
+  mmcu=at76*|\
+  mmcu=at90usb82|\
+  mmcu=at90usb162:-m avr3}\
 %{mmcu=atmega8*|\
   mmcu=atmega48*|\
   mmcu=at90pwm1|\
@@ -775,7 +777,8 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90can*|\
   mmcu=at90pwm216|\
   mmcu=at90pwm316|\
-  mmcu=at90usb*|\
+  mmcu=at90usb64*|\
+  mmcu=at90usb128*|\
   mmcu=at94k:-m avr5}\
 %{mmcu=atmega324*|\
   mmcu=atmega325*|\
@@ -797,6 +800,7 @@ mmcu=*:-mmcu=%*}"
   mmcu=atmega169*|\
   mmcu=atmega8hva|\
   mmcu=atmega16hva|\
+  mmcu=atmega32hvb|\
   mmcu=attiny48|\
   mmcu=attiny88|\
   mmcu=at90can*|\
@@ -856,6 +860,8 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=at43usb320:crt43320.o%s} \
 %{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at76c711:crt76711.o%s} \
+%{mmcu=at90usb162|mmcu=avr35:crtusb162.o%s} \
+%{mmcu=at90usb82:crtusb82.o%s} \
 %{mmcu=atmega8|mmcu=avr4:crtm8.o%s} \
 %{mmcu=atmega48:crtm48.o%s} \
 %{mmcu=atmega48p:crtm48p.o%s} \
@@ -891,6 +897,7 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega329p:crtm329p.o%s} \
 %{mmcu=atmega3290:crtm3290.o%s} \
 %{mmcu=atmega3290p:crtm3290p.o%s} \
+%{mmcu=atmega32hvb:crtm32hvb.o%s} \
 %{mmcu=atmega406:crtm406.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
 %{mmcu=atmega640:crtm640.o%s} \
@@ -911,8 +918,6 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=at90can128:crtcan128.o%s} \
 %{mmcu=at90pwm216:crt90pwm216.o%s} \
 %{mmcu=at90pwm316:crt90pwm316.o%s} \
-%{mmcu=at90usb82:crtusb82.o%s} \
-%{mmcu=at90usb162:crtusb162.o%s} \
 %{mmcu=at90usb646:crtusb646.o%s} \
 %{mmcu=at90usb647:crtusb647.o%s} \
 %{mmcu=at90usb1286:crtusb1286.o%s} \

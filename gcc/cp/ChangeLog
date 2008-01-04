@@ -1,4 +1,175 @@
+2008-01-01  Douglas Gregor  <doug.gregor@gmail.com>
+
+       * parser.c (cp_parser_check_decl_spec): Don't warn about "long
+       long" in C++0x mode; change the warning to note that "long long"
+       is only unsupported in C++98 mode.
+
+2007-12-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34111
+	* call.c (standard_conversion): Derived-to-base is considered a
+	standard conversion.
+
+2007-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34513
+	* parser.c (cp_parser_omp_parallel): For non-combined parallel
+	call cp_parser_statement rather than
+	cp_parser_already_scoped_statement.
+
+2007-12-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34206
+	* pt.c (tsubst_aggr_type): Do nothing if the type already doesn't 
+	use template parms.
+	(dependent_type_p_r): Handle the domain of an array.
+
+2007-12-18  Douglas Gregor  <doug.gregor@gmail.com>
+            Jakub Jelinek  <jakub@redhat.com>
+	
+	PR c++/32565
+	PR c++/33943
+	PR c++/33965
+	* pt.c (template_template_parm_bindings_ok_p): New; verifies
+	bindings of template template parameters after all template
+	arguments have been deduced.
+	(coerce_template_parms): Don't complain when COMPLAIN doesn't
+	include tf_error.
+	(fn_type_unification): Use template_template_parm_bindings_ok_p. 
+	(unify): Deal with variadic, bound template template parameters. 
+	(get_class_bindings): Use template_template_parm_bindings_ok_p. 
+
+2007-12-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34488
+	* decl.c (grokdeclarator): Reject friend sfk_constructor
+	FUNCTION_TYPE.
+
+2007-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/34506
+	* parser.c (cp_parser_omp_all_clauses): Accept optional comma
+	in between clauses.
+
+2007-12-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/7081
+	* cp-lang.c (cp_classify_record): New.
+	(LANG_HOOKS_CLASSIFY_RECORD): Override.
+
+2007-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34238
+	* decl2.c (cp_write_global_declarations): Revert 2007-11-22 change.
+
+	PR c++/34364
+	* rtti.c (build_dynamic_cast): Call convert_from_reference even for
+	dynamic_cast in a template.
+
+2007-12-10  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/34059
+	* typeck.c (build_class_member_access_expr): Compute MEMBER_SCOPE from
+	MEMBER's BASELINK_ACCESS_BINFO instead of its BASELINK_BINFO.
+
+2007-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34395
+	* error.c (dump_type_prefix, dump_type_suffix): Handle
+	TYPE_PACK_EXPANSION.
+
+	PR c++/34394
+	* error.c (dump_expr): Handle ABS_EXPR.
+
+2007-12-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34178
+	PR c++/34340
+	* repo.c (repo_emit_p): Return 2 for DECL_INTEGRAL_CONSTANT_VAR_P
+	in class scope rather than DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P.
+	Return 2 also if DECL_EXPLICIT_INSTANTIATION.
+	* decl2.c (import_export_decl): Don't make VAR_DECLs import_p when
+	flag_use_repository and repo_emit_p returned 2.
+
+2007-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34336
+	* tree.c (stabilize_call, stabilize_init): Do nothing if
+	processing_template_decl.
+
+2007-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34271
+	* semantics.c (finish_decltype_type): For SCOPE_REF issue an
+	error instead of assertion failure.
+	* parser.c (cp_parser_decltype): If closing paren is not found,
+	return error_mark_node.
+
+2007-12-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+       PR c++/34101
+       * name-lookup.c (arg_assoc_template_arg): Recurse on argument
+       packs.
+       (arg_assoc_type): We don't need to handle TYPE_ARGUMENT_PACK here,
+       since arg_assoc_template_arg will deal with them (better).
+
+2007-12-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+       PR c++/33509
+       * pt.c (tsubst_exception_specification): Handle substitutions into
+       member templates, where tsubst_pack_expansion returns a
+       TYPE_PACK_EXPANSION.
+
+2007-12-04  Douglas Gregor  <doug.gregor@gmail.com>
+
+       PR c++/33091
+       * pt.c (unify_pack_expansion): If we didn't deduce any actual
+       bindings for the template parameter pack, don't try to keep the
+       empty deduced arguments.
+       (unify): If a parameter is a template-id whose template argument
+       list contains a pack expansion that is not at the end, then we
+       cannot unify against that template-id.
+
+2007-12-02  Paolo Carlini  <pcarlini@suse.de>
+
+        PR c++/34061
+        * pt.c (current_template_args): Use error_operand_p.
+
+2007-12-02  Paolo Carlini  <pcarlini@suse.de>
+
+        PR c++/34273
+        * error.c (dump_decl): Handle TREE_BINFO.
+
+2007-12-01  Ollie Wild  <aaw@google.com>
+
+	PR c++/8171
+	* typeck.c (build_binary_op): Add conversion of pointers to function
+	members appearing as operands to the equality operators.
+
+2007-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34275
+	* error.c (dump_expr): Handle OBJ_TYPE_REF.
+
+2007-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34270
+	* tree.c (lvalue_p_1) <case COND_EXPR>: Handle x ?: y
+	in templates.
+	* typeck.c (is_bitfield_expr_with_lowered_type) <case COND_EXPR>:
+	Likewise.
+
+	PR c++/34267
+	PR c++/34268
+	* parser.c (cp_parser_decltype): Don't call finish_id_expression
+	on ~type.
+	* semantics.c (finish_decltype_type): Issue error on types, TYPE_DECLs
+	and ~type early.
+
 2007-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/34181
+	* method.c (use_thunk): Don't inline the call in the thunk.
 
 	PR c++/34213
 	* tree.c (decl_linkage): Static data members and static member
@@ -13,7 +184,7 @@
 
 2007-11-25  Richard Guenther  <rguenther@suse.de>
 
-	decl.c (poplevel): Use BLOCK_CHAIN.
+	* decl.c (poplevel): Use BLOCK_CHAIN.
 
 2007-11-24  Ollie Wild  <aaw@google.com>
 

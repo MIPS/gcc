@@ -28,8 +28,13 @@ struct diagnostic_info;
 
 struct gimplify_omp_ctx;
 
+struct array_descr_info;
+
 /* A print hook for print_tree ().  */
 typedef void (*lang_print_tree_hook) (FILE *, tree, int indent);
+
+enum classify_record
+  { RECORD_IS_STRUCT, RECORD_IS_CLASS, RECORD_IS_INTERFACE };
 
 /* The following hooks are documented in langhooks.c.  Must not be
    NULL.  */
@@ -89,6 +94,11 @@ struct lang_hooks_for_types
      language-specific processing is required.  */
   tree (*make_type) (enum tree_code);
 
+  /* Return what kind of RECORD_TYPE this is, mainly for purposes of
+     debug information.  If not defined, record types are assumed to
+     be structures.  */
+  enum classify_record (*classify_record) (tree);
+
   /* Given MODE and UNSIGNEDP, return a suitable type-tree with that
      mode.  */
   tree (*type_for_mode) (enum machine_mode, int);
@@ -135,6 +145,10 @@ struct lang_hooks_for_types
      At present, this function is only called when both TYPE1 and TYPE2 are
      FUNCTION_TYPEs.  */
   bool (*type_hash_eq) (const_tree, const_tree);
+
+  /* Return TRUE if TYPE uses a hidden descriptor and fills in information
+     for the debugger about the array bounds, strides, etc.  */
+  bool (*get_array_descr_info) (const_tree, struct array_descr_info *);
 
   /* Nonzero if types that are identical are to be hashed so that only
      one copy is kept.  If a language requires unique types for each

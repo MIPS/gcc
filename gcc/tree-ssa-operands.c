@@ -481,11 +481,10 @@ ssa_operand_alloc (unsigned size)
         gimple_ssa_operands (cfun)->ssa_operand_mem_size
 	  = OP_SIZE_3 * sizeof (struct voptype_d);
 
-      /* Fail if there is not enough space.  If there are this many operands
-	 required, first make sure there isn't a different problem causing this
-	 many operands.  If the decision is that this is OK, then we can 
-	 specially allocate a buffer just for this request.  */
-      gcc_assert (size <= gimple_ssa_operands (cfun)->ssa_operand_mem_size);
+      /* We can reliably trigger the case that we need arbitrary many
+	 operands (see PR34093), so allocate a buffer just for this request.  */
+      if (size > gimple_ssa_operands (cfun)->ssa_operand_mem_size)
+	gimple_ssa_operands (cfun)->ssa_operand_mem_size = size;
 
       ptr = (struct ssa_operand_memory_d *) 
 	      ggc_alloc (sizeof (struct ssa_operand_memory_d) 
@@ -1669,8 +1668,18 @@ get_addr_dereference_operands (tree stmt, tree *addr, int flags, tree full_ref,
 	     to make sure to not prune virtual operands based on offset
 	     and size.  */
 	  if (v_ann->symbol_mem_tag)
-	    add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
-				 full_ref, 0, -1, false);
+	    {
+	      add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
+				   full_ref, 0, -1, false);
+	      /* Make sure we add the SMT itself.  */
+	      if (!(flags & opf_no_vops))
+		{
+		  if (flags & opf_def)
+		    append_vdef (v_ann->symbol_mem_tag);
+		  else
+		    append_vuse (v_ann->symbol_mem_tag);
+		}
+	    }
 
 	  /* Aliasing information is missing; mark statement as
 	     volatile so we won't optimize it out too actively.  */
@@ -2637,17 +2646,23 @@ copy_virtual_operands (tree dest, tree src)
    create an artificial stmt which looks like a load from the store, this can
    be used to eliminate redundant loads.  OLD_OPS are the operands from the 
    store stmt, and NEW_STMT is the new load which represents a load of the
-   values stored.  */
+   values stored.  If DELINK_IMM_USES_P is specified, the immediate
+   uses of this stmt will be de-linked.  */
 
 void
-create_ssa_artificial_load_stmt (tree new_stmt, tree old_stmt)
+create_ssa_artificial_load_stmt (tree new_stmt, tree old_stmt,
+				 bool delink_imm_uses_p)
 {
   tree op;
   ssa_op_iter iter;
   use_operand_p use_p;
   unsigned i;
+  stmt_ann_t ann;
 
-  get_stmt_ann (new_stmt);
+  /* Create the stmt annotation but make sure to not mark the stmt
+     as modified as we will build operands ourselves.  */
+  ann = get_stmt_ann (new_stmt);
+  ann->modified = 0;
 
   /* Process NEW_STMT looking for operands.  */
   start_ssa_stmt_operands ();
@@ -2657,13 +2672,17 @@ create_ssa_artificial_load_stmt (tree new_stmt, tree old_stmt)
     if (TREE_CODE (op) != SSA_NAME)
       var_ann (op)->in_vuse_list = false;
    
-  for (i = 0; VEC_iterate (tree, build_vuses, i, op); i++)
+  for (i = 0; VEC_iterate (tree, build_vdefs, i, op); i++)
     if (TREE_CODE (op) != SSA_NAME)
       var_ann (op)->in_vdef_list = false;
 
   /* Remove any virtual operands that were found.  */
   VEC_truncate (tree, build_vdefs, 0);
   VEC_truncate (tree, build_vuses, 0);
+
+  /* Clear the loads and stores bitmaps.  */
+  bitmap_clear (build_loads);
+  bitmap_clear (build_stores);
 
   /* For each VDEF on the original statement, we want to create a
      VUSE of the VDEF result operand on the new statement.  */
@@ -2673,8 +2692,9 @@ create_ssa_artificial_load_stmt (tree new_stmt, tree old_stmt)
   finalize_ssa_stmt_operands (new_stmt);
 
   /* All uses in this fake stmt must not be in the immediate use lists.  */
-  FOR_EACH_SSA_USE_OPERAND (use_p, new_stmt, iter, SSA_OP_ALL_USES)
-    delink_imm_use (use_p);
+  if (delink_imm_uses_p)
+    FOR_EACH_SSA_USE_OPERAND (use_p, new_stmt, iter, SSA_OP_ALL_USES)
+      delink_imm_use (use_p);
 }
 
 

@@ -5736,7 +5736,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	      else
 		{
 		  reloadnum
-		    = push_reload (x, NULL_RTX, loc, (rtx*) 0,
+		    = push_reload (x, x, loc, (rtx*) 0,
 				   context_reg_class,
 				   GET_MODE (x), GET_MODE (x), 0, 0,
 				   opnum, type);
@@ -6025,6 +6025,8 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 
 	      XEXP (tem, 0) = plus_constant (XEXP (tem, 0), offset);
 	      PUT_MODE (tem, GET_MODE (x));
+	      if (MEM_OFFSET (tem))
+		set_mem_offset (tem, plus_constant (MEM_OFFSET (tem), offset));
 
 	      /* If this was a paradoxical subreg that we replaced, the
 		 resulting memory must be sufficiently aligned to allow

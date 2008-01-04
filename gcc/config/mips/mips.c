@@ -4735,9 +4735,9 @@ mips_build_builtin_va_list (void)
     return ptr_type_node;
 }
 
-/* Implement EXPAND_BUILTIN_VA_START.  */
+/* Implement TARGET_EXPAND_BUILTIN_VA_START.  */
 
-void
+static void
 mips_va_start (tree valist, rtx nextarg)
 {
   if (EABI_FLOAT_VARARGS_P)
@@ -5611,12 +5611,12 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
       && const_call_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode))
     return false;
 
-  /* When -minterlink-mips16 is in effect, assume that external
-     functions could be MIPS16 ones unless an attribute explicitly
-     tells us otherwise.  */
+  /* When -minterlink-mips16 is in effect, assume that non-locally-binding
+     functions could be MIPS16 ones unless an attribute explicitly tells
+     us otherwise.  */
   if (TARGET_INTERLINK_MIPS16
       && decl
-      && DECL_EXTERNAL (decl)
+      && (DECL_EXTERNAL (decl) || !targetm.binds_local_p (decl))
       && !mips_nomips16_decl_p (decl)
       && const_call_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode))
     return false;
@@ -8281,8 +8281,9 @@ static GTY(()) rtx mips_gnu_local_gp;
 static void
 mips_emit_loadgp (void)
 {
-  rtx addr, offset, incoming_address, base, index;
+  rtx addr, offset, incoming_address, base, index, pic_reg;
 
+  pic_reg = pic_offset_table_rtx;
   switch (mips_current_loadgp_style ())
     {
     case LOADGP_ABSOLUTE:
@@ -8291,14 +8292,18 @@ mips_emit_loadgp (void)
 	  mips_gnu_local_gp = gen_rtx_SYMBOL_REF (Pmode, "__gnu_local_gp");
 	  SYMBOL_REF_FLAGS (mips_gnu_local_gp) |= SYMBOL_FLAG_LOCAL;
 	}
-      emit_insn (gen_loadgp_absolute (mips_gnu_local_gp));
+      emit_insn (Pmode == SImode
+		 ? gen_loadgp_absolute_si (pic_reg, mips_gnu_local_gp)
+		 : gen_loadgp_absolute_di (pic_reg, mips_gnu_local_gp));
       break;
 
     case LOADGP_NEWABI:
       addr = XEXP (DECL_RTL (current_function_decl), 0);
       offset = mips_unspec_address (addr, SYMBOL_GOTOFF_LOADGP);
       incoming_address = gen_rtx_REG (Pmode, PIC_FUNCTION_ADDR_REGNUM);
-      emit_insn (gen_loadgp_newabi (offset, incoming_address));
+      emit_insn (Pmode == SImode
+		 ? gen_loadgp_newabi_si (pic_reg, offset, incoming_address)
+		 : gen_loadgp_newabi_di (pic_reg, offset, incoming_address));
       if (!TARGET_EXPLICIT_RELOCS)
 	emit_insn (gen_loadgp_blockage ());
       break;
@@ -8306,7 +8311,9 @@ mips_emit_loadgp (void)
     case LOADGP_RTP:
       base = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (VXWORKS_GOTT_BASE));
       index = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (VXWORKS_GOTT_INDEX));
-      emit_insn (gen_loadgp_rtp (base, index));
+      emit_insn (Pmode == SImode
+		 ? gen_loadgp_rtp_si (pic_reg, base, index)
+		 : gen_loadgp_rtp_di (pic_reg, base, index));
       if (!TARGET_EXPLICIT_RELOCS)
 	emit_insn (gen_loadgp_blockage ());
       break;
@@ -12445,6 +12452,8 @@ mips_order_regs_for_local_alloc (void)
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST mips_build_builtin_va_list
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START mips_va_start
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR mips_gimplify_va_arg_expr
 

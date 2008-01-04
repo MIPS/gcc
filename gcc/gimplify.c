@@ -97,6 +97,7 @@ struct gimplify_ctx
   int conditions;
   bool save_stack;
   bool into_ssa;
+  bool allow_rhs_cond_expr;
 };
 
 static struct gimplify_ctx *gimplify_ctxp;
@@ -2616,6 +2617,60 @@ gimple_boolify (tree expr)
     }
 }
 
+/* Given a conditional expression *EXPR_P without side effects, gimplify
+   its operands.  New statements are inserted to PRE_P.  */
+
+static enum gimplify_status
+gimplify_pure_cond_expr (tree *expr_p, gimple_seq pre_p)
+{
+  tree expr = *expr_p, cond;
+  enum gimplify_status ret, tret;
+  enum tree_code code;
+
+  cond = gimple_boolify (COND_EXPR_COND (expr));
+
+  /* We need to handle && and || specially, as their gimplification
+     creates pure cond_expr, thus leading to an infinite cycle otherwise.  */
+  code = TREE_CODE (cond);
+  if (code == TRUTH_ANDIF_EXPR)
+    TREE_SET_CODE (cond, TRUTH_AND_EXPR);
+  else if (code == TRUTH_ORIF_EXPR)
+    TREE_SET_CODE (cond, TRUTH_OR_EXPR);
+  ret = gimplify_expr (&cond, pre_p, NULL, is_gimple_condexpr, fb_rvalue);
+  COND_EXPR_COND (*expr_p) = cond;
+
+  tret = gimplify_expr (&COND_EXPR_THEN (expr), pre_p, NULL,
+				   is_gimple_val, fb_rvalue);
+  ret = MIN (ret, tret);
+  tret = gimplify_expr (&COND_EXPR_ELSE (expr), pre_p, NULL,
+				   is_gimple_val, fb_rvalue);
+
+  return MIN (ret, tret);
+}
+
+/* Returns true if evaluating EXPR could trap.
+   EXPR is GENERIC, while tree_could_trap_p can be called
+   only on GIMPLE.  */
+
+static bool
+generic_expr_could_trap_p (tree expr)
+{
+  unsigned i, n;
+
+  if (!expr || is_gimple_val (expr))
+    return false;
+
+  if (!EXPR_P (expr) || tree_could_trap_p (expr))
+    return true;
+
+  n = TREE_OPERAND_LENGTH (expr);
+  for (i = 0; i < n; i++)
+    if (generic_expr_could_trap_p (TREE_OPERAND (expr, i)))
+      return true;
+
+  return false;
+}
+
 /*  Convert the conditional expression pointed to by EXPR_P '(p) ? a : b;'
     into
 
@@ -2650,7 +2705,19 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
       tree result;
 
       if ((fallback & fb_lvalue) == 0)
-	result = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+	{
+	  if (gimplify_ctxp->allow_rhs_cond_expr
+	      /* If either branch has side effects or could trap, it can't be
+		 evaluated unconditionally.  */
+	      && !TREE_SIDE_EFFECTS (TREE_OPERAND (*expr_p, 1))
+	      && !generic_expr_could_trap_p (TREE_OPERAND (*expr_p, 1))
+	      && !TREE_SIDE_EFFECTS (TREE_OPERAND (*expr_p, 2))
+	      && !generic_expr_could_trap_p (TREE_OPERAND (*expr_p, 2)))
+	    return gimplify_pure_cond_expr (expr_p, pre_p);
+
+	  result = tmp = create_tmp_var (TREE_TYPE (expr), "iftmp");
+	  ret = GS_ALL_DONE;
+	}
       else
 	{
 	  tree type = build_pointer_type (TREE_TYPE (expr));
@@ -2662,7 +2729,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
 	  if (TREE_TYPE (TREE_OPERAND (expr, 2)) != void_type_node)
 	    TREE_OPERAND (expr, 2) =
 	      build_fold_addr_expr (TREE_OPERAND (expr, 2));
-	  
+
 	  tmp = create_tmp_var (type, "iftmp");
 
 	  expr = build3 (COND_EXPR, void_type_node, TREE_OPERAND (expr, 0),
@@ -3511,8 +3578,9 @@ fold_indirect_ref_rhs (tree t)
   return NULL_TREE;
 }
 
-/* Subroutine of gimplify_modify_expr to do simplifications of MODIFY_EXPRs
-   based on the code of the RHS.  We loop for as long as something changes.  */
+/* Subroutine of gimplify_modify_expr to do simplifications of
+   MODIFY_EXPRs based on the code of the RHS.  We loop for as long as
+   something changes.  */
 
 static enum gimplify_status
 gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
@@ -3523,6 +3591,18 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
   while (ret != GS_UNHANDLED)
     switch (TREE_CODE (*from_p))
       {
+      case VAR_DECL:
+	/* If we're assigning from a constant constructor, move the
+	   constructor expression to the RHS of the MODIFY_EXPR.  */
+	if (DECL_INITIAL (*from_p)
+	    && TYPE_READONLY (TREE_TYPE (*from_p))
+	    && TREE_CODE (DECL_INITIAL (*from_p)) == CONSTRUCTOR)
+	  {
+	    *from_p = DECL_INITIAL (*from_p);
+	    ret = GS_OK;
+	  }
+	ret = GS_UNHANDLED;
+	break;
       case INDIRECT_REF:
 	{
 	  /* If we have code like 
@@ -3711,7 +3791,15 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 
 /* Promote partial stores to COMPLEX variables to total stores.  *EXPR_P is
    a MODIFY_EXPR with a lhs of a REAL/IMAGPART_EXPR of a variable with
-   DECL_GIMPLE_REG_P set.  */
+   DECL_GIMPLE_REG_P set.
+
+   IMPORTANT NOTE: This promotion is performed by introducing a load of the
+   other, unmodified part of the complex object just before the total store.
+   As a consequence, if the object is still uninitialized, an undefined value
+   will be loaded into a register, which may result in a spurious exception
+   if the register is floating-point and the value happens to be a signaling
+   NaN for example.  Then the fully-fledged complex operations lowering pass
+   followed by a DCE pass are necessary in order to fix things up.  */
 
 static enum gimplify_status
 gimplify_modify_expr_complex_part (tree *expr_p, gimple_seq pre_p,
@@ -6607,7 +6695,7 @@ gimplify_function_tree (tree fndecl)
 
   ret = DECL_RESULT (fndecl);
   if ((TREE_CODE (TREE_TYPE (ret)) == COMPLEX_TYPE
-	   || TREE_CODE (TREE_TYPE (ret)) == VECTOR_TYPE)
+       || TREE_CODE (TREE_TYPE (ret)) == VECTOR_TYPE)
       && !needs_to_live_in_memory (ret))
     DECL_GIMPLE_REG_P (ret) = 1;
 
@@ -6668,6 +6756,7 @@ force_gimple_operand (tree expr, gimple_seq stmts, bool simple, tree var)
 
   push_gimplify_context ();
   gimplify_ctxp->into_ssa = gimple_in_ssa_p (cfun);
+  gimplify_ctxp->allow_rhs_cond_expr = true;
 
   if (var)
     expr = build_gimple_modify_stmt (var, expr);

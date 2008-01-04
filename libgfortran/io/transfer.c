@@ -166,7 +166,14 @@ read_sf (st_parameter_dt *dtp, int *length, int no_error)
     {
       readlen = *length;
       q = salloc_r (dtp->u.p.current_unit->s, &readlen);
-      memcpy (p, q, readlen);
+      if (readlen < *length)
+	{
+	  generate_error (&dtp->common, LIBERROR_END, NULL);
+	  return NULL;
+	}
+	
+      if (q != NULL)
+        memcpy (p, q, readlen);
       goto done;
     }
 
@@ -272,8 +279,10 @@ read_block (st_parameter_dt *dtp, int *length)
 
   if (is_stream_io (dtp))
     {
-      if (sseek (dtp->u.p.current_unit->s,
-		 dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
+      if (dtp->u.p.current_unit->strm_pos - 1
+	  != file_position (dtp->u.p.current_unit->s)
+	  && sseek (dtp->u.p.current_unit->s,
+		    dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
 	{
 	  generate_error (&dtp->common, LIBERROR_END, NULL);
 	  return NULL;
@@ -357,8 +366,10 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 
   if (is_stream_io (dtp))
     {
-      if (sseek (dtp->u.p.current_unit->s,
-		 dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
+      if (dtp->u.p.current_unit->strm_pos - 1
+	  != file_position (dtp->u.p.current_unit->s)
+	  && sseek (dtp->u.p.current_unit->s,
+		    dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
 	{
 	  generate_error (&dtp->common, LIBERROR_END, NULL);
 	  return;
@@ -533,8 +544,10 @@ write_block (st_parameter_dt *dtp, int length)
 
   if (is_stream_io (dtp))
     {
-      if (sseek (dtp->u.p.current_unit->s,
-		 dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
+      if (dtp->u.p.current_unit->strm_pos - 1
+	  != file_position (dtp->u.p.current_unit->s)
+	  && sseek (dtp->u.p.current_unit->s,
+		    dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
 	{
 	  generate_error (&dtp->common, LIBERROR_OS, NULL);
 	  return NULL;
@@ -595,8 +608,10 @@ write_buf (st_parameter_dt *dtp, void *buf, size_t nbytes)
 
   if (is_stream_io (dtp))
     {
-      if (sseek (dtp->u.p.current_unit->s,
-		 dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
+      if (dtp->u.p.current_unit->strm_pos - 1
+	  != file_position (dtp->u.p.current_unit->s)
+	  && sseek (dtp->u.p.current_unit->s,
+		    dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
 	{
 	  generate_error (&dtp->common, LIBERROR_OS, NULL);
 	  return FAILURE;
@@ -1883,6 +1898,8 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 
   if (read_flag)
     {
+      dtp->u.p.current_unit->previous_nonadvancing_write = 0;
+
       if ((cf & IOPARM_EOR) != 0 && dtp->u.p.advance_status != ADVANCE_NO)
 	{
 	  generate_error (&dtp->common, LIBERROR_MISSING_OPTION,
@@ -2636,12 +2653,22 @@ finalize_transfer (st_parameter_dt *dtp)
       return;
     }
 
+  if (dtp->u.p.mode == WRITING)
+    dtp->u.p.current_unit->previous_nonadvancing_write
+      = dtp->u.p.advance_status == ADVANCE_NO;
+
   if (is_stream_io (dtp))
     {
-      if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED)
+      if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED
+	  && dtp->u.p.advance_status != ADVANCE_NO)
 	next_record (dtp, 1);
-      flush (dtp->u.p.current_unit->s);
-      sfree (dtp->u.p.current_unit->s);
+
+      if (dtp->u.p.current_unit->flags.form == FORM_UNFORMATTED
+	  && file_position (dtp->u.p.current_unit->s) >= dtp->rec)
+	{
+	  flush (dtp->u.p.current_unit->s);
+	  sfree (dtp->u.p.current_unit->s);
+	}
       return;
     }
 

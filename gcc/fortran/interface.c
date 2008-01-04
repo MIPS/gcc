@@ -407,7 +407,19 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
       if (dt1->dimension && gfc_compare_array_spec (dt1->as, dt2->as) == 0)
 	return 0;
 
-      if (gfc_compare_types (&dt1->ts, &dt2->ts) == 0)
+      /* Make sure that link lists do not put this function into an 
+	 endless recursive loop!  */
+      if (!(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.derived)
+	    && !(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.derived)
+	    && gfc_compare_types (&dt1->ts, &dt2->ts) == 0)
+	return 0;
+
+      else if ((dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.derived)
+		&& !(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.derived))
+	return 0;
+
+      else if (!(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.derived)
+		&& (dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.derived))
 	return 0;
 
       dt1 = dt1->next;
@@ -1642,8 +1654,8 @@ get_expr_storage_size (gfc_expr *e)
 	    if (ref->u.ar.as->lower[i] && ref->u.ar.as->upper[i]
 		&& ref->u.ar.as->lower[i]->expr_type == EXPR_CONSTANT
 		&& ref->u.ar.as->upper[i]->expr_type == EXPR_CONSTANT)
-	      elements *= mpz_get_ui (ref->u.ar.as->upper[i]->value.integer)
-			  - mpz_get_ui (ref->u.ar.as->lower[i]->value.integer)
+	      elements *= mpz_get_si (ref->u.ar.as->upper[i]->value.integer)
+			  - mpz_get_si (ref->u.ar.as->lower[i]->value.integer)
 			  + 1L;
 	    else
 	      return 0;
@@ -1782,7 +1794,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 		       || f->sym->as->type == AS_DEFERRED);
 
       if (f->sym->ts.type == BT_CHARACTER && a->expr->ts.type == BT_CHARACTER
-	  && a->expr->rank == 0
+	  && a->expr->rank == 0 && !ranks_must_agree
 	  && f->sym->as && f->sym->as->type != AS_ASSUMED_SHAPE)
 	{
 	  if (where && (gfc_option.allow_std & GFC_STD_F2003) == 0)

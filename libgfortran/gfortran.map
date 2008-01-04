@@ -58,6 +58,8 @@ GFORTRAN_1.0 {
     _gfortran_ctime;
     _gfortran_ctime_sub;
     _gfortran_date_and_time;
+    _gfortran_dtime;
+    _gfortran_dtime_sub;
     _gfortran_eoshift0_1;
     _gfortran_eoshift0_1_char;
     _gfortran_eoshift0_2;
@@ -1136,6 +1138,8 @@ GFORTRAN_C99_1.0 {
     j0f;
     j1f;
     jnf;
+    lgamma;
+    lgammaf;
     log10f;
     log10l;
     logf;
@@ -1150,6 +1154,8 @@ GFORTRAN_C99_1.0 {
     sqrtf;
     tanf;
     tanhf;
+    tgamma;
+    tgammaf;
     trunc;
     truncf;
     y0f;

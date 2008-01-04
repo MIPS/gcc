@@ -136,7 +136,7 @@ typedef struct pointer_info
       enum
       { UNUSED, NEEDED, USED }
       state;
-      int ns, referenced;
+      int ns, referenced, renamed;
       module_locus where;
       fixup_t *stfixup;
       gfc_symtree *symtree;
@@ -1116,7 +1116,7 @@ parse_atom (void)
     {
       c = module_char ();
     }
-  while (c == ' ' || c == '\n');
+  while (c == ' ' || c == '\r' || c == '\n');
 
   switch (c)
     {
@@ -2535,6 +2535,14 @@ mio_gmp_real (mpfr_t *real)
   else
     {
       p = mpfr_get_str (NULL, &exponent, 16, 0, *real, GFC_RND_MODE);
+
+      if (mpfr_nan_p (*real) || mpfr_inf_p (*real))
+	{
+	  write_atom (ATOM_STRING, p);
+	  gfc_free (p);
+	  return;
+	}
+
       atom_string = gfc_getmem (strlen (p) + 20);
 
       sprintf (atom_string, "0.%s@%ld", p, exponent);
@@ -3145,7 +3153,8 @@ find_symbol (gfc_symtree *st, const char *name,
 
   c = strcmp (name, st->n.sym->name);
   if (c == 0 && st->n.sym->module
-	     && strcmp (module, st->n.sym->module) == 0)
+	     && strcmp (module, st->n.sym->module) == 0
+	     && !check_unique_name (st->name))
     {
       if ((!generic && !st->n.sym->attr.generic)
 	     || (generic && st->n.sym->attr.generic))
@@ -3260,7 +3269,7 @@ load_generic_interfaces (void)
   char name[GFC_MAX_SYMBOL_LEN + 1], module[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   gfc_interface *generic = NULL;
-  int n, i;
+  int n, i, renamed;
 
   mio_lparen ();
 
@@ -3272,6 +3281,7 @@ load_generic_interfaces (void)
       mio_internal_string (module);
 
       n = number_use_names (name, false);
+      renamed = n ? 1 : 0;
       n = n ? n : 1;
 
       for (i = 1; i <= n; i++)
@@ -3300,7 +3310,9 @@ load_generic_interfaces (void)
 	    {
 	      /* Make symtree inaccessible by renaming if the symbol has
 		 been added by a USE statement without an ONLY(11.3.2).  */
-	      if (st && !st->n.sym->attr.use_only && only_flag
+	      if (st && only_flag
+		     && !st->n.sym->attr.use_only
+		     && !st->n.sym->attr.use_rename
 		     && strcmp (st->n.sym->module, module_name) == 0)
 		st->name = gfc_get_string ("hidden.%s", name);
 	      else if (st)
@@ -3342,6 +3354,7 @@ load_generic_interfaces (void)
 	    }
 
 	  sym->attr.use_only = only_flag;
+	  sym->attr.use_rename = renamed;
 
 	  if (i == 1)
 	    {
@@ -3523,6 +3536,8 @@ load_needed (pointer_info *p)
   sym->attr.use_assoc = 1;
   if (only_flag)
     sym->attr.use_only = 1;
+  if (p->u.rsym.renamed)
+    sym->attr.use_rename = 1;
 
   return 1;
 }
@@ -3666,6 +3681,8 @@ read_module (void)
       /* See how many use names there are.  If none, go through the start
 	 of the loop at least once.  */
       nuse = number_use_names (name, false);
+      info->u.rsym.renamed = nuse ? 1 : 0;
+
       if (nuse == 0)
 	nuse = 1;
 
@@ -3679,7 +3696,7 @@ read_module (void)
 
 	  /* Skip symtree nodes not in an ONLY clause, unless there
 	     is an existing symtree loaded from another USE statement.  */
-	  if (p == NULL && only_flag)
+	  if (p == NULL)
 	    {
 	      st = gfc_find_symtree (gfc_current_ns->sym_root, name);
 	      if (st != NULL)
@@ -3691,7 +3708,7 @@ read_module (void)
 	     this symbol, which is not in an ONLY clause, must not be
 	     added to the namespace(11.3.2).  Note that find_symbol
 	     only returns the first occurrence that it finds.  */
-	  if (!only_flag
+	  if (!only_flag && !info->u.rsym.renamed
 		&& strcmp (name, module_name) != 0
 		&& find_symbol (gfc_current_ns->sym_root, name,
 				module_name, 0))
@@ -3712,7 +3729,10 @@ read_module (void)
 
 	      /* Make symtree inaccessible by renaming if the symbol has
 		 been added by a USE statement without an ONLY(11.3.2).  */
-	      if (st && !st->n.sym->attr.use_only && only_flag
+	      if (st && only_flag
+		     && !st->n.sym->attr.use_only
+		     && !st->n.sym->attr.use_rename
+		     && st->n.sym->module
 		     && strcmp (st->n.sym->module, module_name) == 0)
 		st->name = gfc_get_string ("hidden.%s", name);
 

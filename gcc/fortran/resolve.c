@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "arith.h"  /* For gfc_compare_expr().  */
 #include "dependency.h"
 #include "data.h"
+#include "target-memory.h" /* for gfc_simplify_transfer */
 
 /* Types used in equivalence statements.  */
 
@@ -487,11 +488,28 @@ resolve_entries (gfc_namespace *ns)
 	      || (el->sym->result->attr.pointer
 		  != ns->entries->sym->result->attr.pointer))
 	    break;
-
 	  else if (as && fas && gfc_compare_array_spec (as, fas) == 0)
-	    gfc_error ("Procedure %s at %L has entries with mismatched "
+	    gfc_error ("Function %s at %L has entries with mismatched "
 		       "array specifications", ns->entries->sym->name,
 		       &ns->entries->sym->declared_at);
+	  /* The characteristics need to match and thus both need to have
+	     the same string length, i.e. both len=*, or both len=4.
+	     Having both len=<variable> is also possible, but difficult to
+	     check at compile time.  */
+	  else if (ts->type == BT_CHARACTER && ts->cl && fts->cl
+		   && (((ts->cl->length && !fts->cl->length)
+			||(!ts->cl->length && fts->cl->length))
+		       || (ts->cl->length
+			   && ts->cl->length->expr_type
+			      != fts->cl->length->expr_type)
+		       || (ts->cl->length
+			   && ts->cl->length->expr_type == EXPR_CONSTANT
+		           && mpz_cmp (ts->cl->length->value.integer,
+				       fts->cl->length->value.integer) != 0)))
+	    gfc_notify_std (GFC_STD_GNU, "Extension: Function %s at %L with "
+			    "entries returning variables of different "
+			    "string lengths", ns->entries->sym->name,
+			    &ns->entries->sym->declared_at);
 	}
 
       if (el == NULL)
@@ -1424,6 +1442,8 @@ resolve_generic_f0 (gfc_expr *expr, gfc_symbol *sym)
 	  else if (s->result != NULL && s->result->as != NULL)
 	    expr->rank = s->result->as->rank;
 
+	  gfc_set_sym_referenced (expr->value.function.esym);
+
 	  return MATCH_YES;
 	}
 
@@ -1665,6 +1685,8 @@ is_external_proc (gfc_symbol *sym)
 /* Figure out if a function reference is pure or not.  Also set the name
    of the function for a potential error message.  Return nonzero if the
    function is PURE, zero if not.  */
+static int
+pure_stmt_function (gfc_expr *, gfc_symbol *);
 
 static int
 pure_function (gfc_expr *e, const char **name)
@@ -1676,7 +1698,7 @@ pure_function (gfc_expr *e, const char **name)
   if (e->symtree != NULL
         && e->symtree->n.sym != NULL
         && e->symtree->n.sym->attr.proc == PROC_ST_FUNCTION)
-    return 1;
+    return pure_stmt_function (e, e->symtree->n.sym);
 
   if (e->value.function.esym)
     {
@@ -1697,6 +1719,31 @@ pure_function (gfc_expr *e, const char **name)
     }
 
   return pure;
+}
+
+
+static bool
+impure_stmt_fcn (gfc_expr *e, gfc_symbol *sym,
+		 int *f ATTRIBUTE_UNUSED)
+{
+  const char *name;
+
+  /* Don't bother recursing into other statement functions
+     since they will be checked individually for purity.  */
+  if (e->expr_type != EXPR_FUNCTION
+	|| !e->symtree
+	|| e->symtree->n.sym == sym
+	|| e->symtree->n.sym->attr.proc == PROC_ST_FUNCTION)
+    return false;
+
+  return pure_function (e, &name) ? false : true;
+}
+
+
+static int
+pure_stmt_function (gfc_expr *e, gfc_symbol *sym)
+{
+  return gfc_traverse_expr (e, sym, impure_stmt_fcn, 0) ? 0 : 1;
 }
 
 
@@ -3119,8 +3166,11 @@ compare_bound (gfc_expr *a, gfc_expr *b)
       || b == NULL || b->expr_type != EXPR_CONSTANT)
     return CMP_UNKNOWN;
 
+  /* If either of the types isn't INTEGER, we must have
+     raised an error earlier.  */
+
   if (a->ts.type != BT_INTEGER || b->ts.type != BT_INTEGER)
-    gfc_internal_error ("compare_bound(): Bad expression");
+    return CMP_UNKNOWN;
 
   i = mpz_cmp (a->value.integer, b->value.integer);
 
@@ -4369,8 +4419,9 @@ gfc_resolve_iterator (gfc_iterator *iter, bool real_ok)
 static bool
 forall_index (gfc_expr *expr, gfc_symbol *sym, int *f)
 {
-  gcc_assert (expr->expr_type == EXPR_VARIABLE);
-
+  if (expr->expr_type != EXPR_VARIABLE)
+    return false;
+  
   /* A scalar assignment  */
   if (!expr->ref || *f == 1)
     {
@@ -4552,85 +4603,20 @@ resolve_deallocate_expr (gfc_expr *e)
 }
 
 
-/* Returns true if the expression e contains a reference the symbol sym.  */
+/* Returns true if the expression e contains a reference to the symbol sym.  */
+static bool
+sym_in_expr (gfc_expr *e, gfc_symbol *sym, int *f ATTRIBUTE_UNUSED)
+{
+  if (e->expr_type == EXPR_VARIABLE && e->symtree->n.sym == sym)
+    return true;
+
+  return false;
+}
+
 static bool
 find_sym_in_expr (gfc_symbol *sym, gfc_expr *e)
 {
-  gfc_actual_arglist *arg;
-  gfc_ref *ref;
-  int i;
-  bool rv = false;
-
-  if (e == NULL)
-    return rv;
-
-  switch (e->expr_type)
-    {
-    case EXPR_FUNCTION:
-      for (arg = e->value.function.actual; arg; arg = arg->next)
-	rv = rv || find_sym_in_expr (sym, arg->expr);
-      break;
-
-    /* If the variable is not the same as the dependent, 'sym', and
-       it is not marked as being declared and it is in the same
-       namespace as 'sym', add it to the local declarations.  */
-    case EXPR_VARIABLE:
-      if (sym == e->symtree->n.sym)
-	return true;
-      break;
-
-    case EXPR_OP:
-      rv = rv || find_sym_in_expr (sym, e->value.op.op1);
-      rv = rv || find_sym_in_expr (sym, e->value.op.op2);
-      break;
-
-    default:
-      break;
-    }
-
-  if (e->ref)
-    {
-      for (ref = e->ref; ref; ref = ref->next)
-	{
-	  switch (ref->type)
-	    {
-	    case REF_ARRAY:
-	      for (i = 0; i < ref->u.ar.dimen; i++)
-		{
-		  rv = rv || find_sym_in_expr (sym, ref->u.ar.start[i]);
-		  rv = rv || find_sym_in_expr (sym, ref->u.ar.end[i]);
-		  rv = rv || find_sym_in_expr (sym, ref->u.ar.stride[i]);
-		}
-	      break;
-
-	    case REF_SUBSTRING:
-	      rv = rv || find_sym_in_expr (sym, ref->u.ss.start);
-	      rv = rv || find_sym_in_expr (sym, ref->u.ss.end);
-	      break;
-
-	    case REF_COMPONENT:
-	      if (ref->u.c.component->ts.type == BT_CHARACTER
-		  && ref->u.c.component->ts.cl->length->expr_type
-		     != EXPR_CONSTANT)
-		rv = rv
-		     || find_sym_in_expr (sym,
-					  ref->u.c.component->ts.cl->length);
-
-	      if (ref->u.c.component->as)
-		for (i = 0; i < ref->u.c.component->as->rank; i++)
-		  {
-		    rv = rv
-			 || find_sym_in_expr (sym,
-					      ref->u.c.component->as->lower[i]);
-		    rv = rv
-			 || find_sym_in_expr (sym,
-					      ref->u.c.component->as->upper[i]);
-		  }
-	      break;
-	    }
-	}
-    }
-  return rv;
+  return gfc_traverse_expr (e, sym, sym_in_expr, 0);
 }
 
 
@@ -4859,7 +4845,7 @@ compare_cases (const gfc_case *op1, const gfc_case *op2)
       retval = 0;
       /* op2 = (M:) or (M:N),  L < M  */
       if (op2->low != NULL
-	  && gfc_compare_expr (op1->high, op2->low) < 0)
+	  && gfc_compare_expr (op1->high, op2->low, INTRINSIC_LT) < 0)
 	retval = -1;
     }
   else if (op1->high == NULL) /* op1 = (K:)  */
@@ -4868,23 +4854,25 @@ compare_cases (const gfc_case *op1, const gfc_case *op2)
       retval = 0;
       /* op2 = (:N) or (M:N), K > N  */
       if (op2->high != NULL
-	  && gfc_compare_expr (op1->low, op2->high) > 0)
+	  && gfc_compare_expr (op1->low, op2->high, INTRINSIC_GT) > 0)
 	retval = 1;
     }
   else /* op1 = (K:L)  */
     {
       if (op2->low == NULL)       /* op2 = (:N), K > N  */
-	retval = (gfc_compare_expr (op1->low, op2->high) > 0) ? 1 : 0;
+	retval = (gfc_compare_expr (op1->low, op2->high, INTRINSIC_GT) > 0)
+		 ? 1 : 0;
       else if (op2->high == NULL) /* op2 = (M:), L < M  */
-	retval = (gfc_compare_expr (op1->high, op2->low) < 0) ? -1 : 0;
+	retval = (gfc_compare_expr (op1->high, op2->low, INTRINSIC_LT) < 0)
+		 ? -1 : 0;
       else			/* op2 = (M:N)  */
 	{
 	  retval =  0;
 	  /* L < M  */
-	  if (gfc_compare_expr (op1->high, op2->low) < 0)
+	  if (gfc_compare_expr (op1->high, op2->low, INTRINSIC_LT) < 0)
 	    retval =  -1;
 	  /* K > N  */
-	  else if (gfc_compare_expr (op1->low, op2->high) > 0)
+	  else if (gfc_compare_expr (op1->low, op2->high, INTRINSIC_GT) > 0)
 	    retval =  1;
 	}
     }
@@ -5159,7 +5147,7 @@ resolve_select (gfc_code *code)
 	      /* Unreachable case ranges are discarded, so ignore.  */
 	      if (cp->low != NULL && cp->high != NULL
 		  && cp->low != cp->high
-		  && gfc_compare_expr (cp->low, cp->high) > 0)
+		  && gfc_compare_expr (cp->low, cp->high, INTRINSIC_GT) > 0)
 		continue;
 
 	      /* FIXME: Should a warning be issued?  */
@@ -5247,7 +5235,7 @@ resolve_select (gfc_code *code)
 
 	  if (cp->low != NULL && cp->high != NULL
 	      && cp->low != cp->high
-	      && gfc_compare_expr (cp->low, cp->high) > 0)
+	      && gfc_compare_expr (cp->low, cp->high, INTRINSIC_GT) > 0)
 	    {
 	      if (gfc_option.warn_surprising)
 		gfc_warning ("Range specification at %L can never "
@@ -5920,7 +5908,6 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
   int n;
   gfc_ref *ref;
 
-
   if (gfc_extend_assign (code, ns) == SUCCESS)
     {
       lhs = code->ext.actual->expr;
@@ -5947,6 +5934,42 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
   lhs = code->expr;
   rhs = code->expr2;
 
+  if (rhs->is_boz
+      && gfc_notify_std (GFC_STD_GNU, "Extension: BOZ literal at %L outside "
+                         "a DATA statement and outside INT/REAL/DBLE/CMPLX",
+                         &code->loc) == FAILURE)
+    return false;
+
+  /* Handle the case of a BOZ literal on the RHS.  */
+  if (rhs->is_boz && lhs->ts.type != BT_INTEGER)
+    {
+      int rc;
+      if (gfc_option.warn_surprising)
+	gfc_warning ("BOZ literal at %L is bitwise transferred "
+		     "non-integer symbol '%s'", &code->loc,
+		     lhs->symtree->n.sym->name);
+
+      if (!gfc_convert_boz (rhs, &lhs->ts))
+	return false;
+      if ((rc = gfc_range_check (rhs)) != ARITH_OK)
+	{
+	  if (rc == ARITH_UNDERFLOW)
+	    gfc_error ("Arithmetic underflow of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rhs->where);
+	  else if (rc == ARITH_OVERFLOW)
+	    gfc_error ("Arithmetic overflow of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rhs->where);
+	  else if (rc == ARITH_NAN)
+	    gfc_error ("Arithmetic NaN of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rhs->where);
+	  return false;
+	}
+    }
+
+
   if (lhs->ts.type == BT_CHARACTER
 	&& gfc_option.warn_character_truncation)
     {
@@ -5970,14 +5993,16 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
     }
 
   /* Ensure that a vector index expression for the lvalue is evaluated
-     to a temporary.  */
+     to a temporary if the lvalue symbol is referenced in it.  */
   if (lhs->rank)
     {
       for (ref = lhs->ref; ref; ref= ref->next)
 	if (ref->type == REF_ARRAY)
 	  {
 	    for (n = 0; n < ref->u.ar.dimen; n++)
-	      if (ref->u.ar.dimen_type[n] == DIMEN_VECTOR)
+	      if (ref->u.ar.dimen_type[n] == DIMEN_VECTOR
+		    && find_sym_in_expr (lhs->symtree->n.sym,
+					 ref->u.ar.start[n]))
 		ref->u.ar.start[n]
 			= gfc_get_parentheses (ref->u.ar.start[n]);
 	  }
@@ -7846,10 +7871,11 @@ resolve_symbol (gfc_symbol *sym)
      See 4.4.1 (F95) and 4.5.1.1 (F2003); and related interpretation
      161 in 95-006r3.  */
   if (sym->ts.type == BT_DERIVED
+      && sym->ns->proc_name && sym->ns->proc_name->attr.flavor == FL_MODULE
+      && !sym->ts.derived->attr.use_assoc
       && gfc_check_access (sym->attr.access, sym->ns->default_access)
       && !gfc_check_access (sym->ts.derived->attr.access,
 			    sym->ts.derived->ns->default_access)
-      && !sym->ts.derived->attr.use_assoc
       && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: PUBLIC %s '%s' at %L "
 		         "of PRIVATE derived type '%s'",
 			 (sym->attr.flavor == FL_PARAMETER) ? "parameter"

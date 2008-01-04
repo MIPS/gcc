@@ -160,7 +160,9 @@ lvalue_p_1 (const_tree ref,
       break;
 
     case COND_EXPR:
-      op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1),
+      op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1)
+				    ? TREE_OPERAND (ref, 1)
+				    : TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues);
       op2_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 2),
 				    treat_class_rvalues_as_lvalues);
@@ -2600,8 +2602,11 @@ stabilize_call (tree call, tree *initp)
   int i;
   int nargs = call_expr_nargs (call);
 
-  if (call == error_mark_node)
-    return;
+  if (call == error_mark_node || processing_template_decl)
+    {
+      *initp = NULL_TREE;
+      return;
+    }
 
   gcc_assert (TREE_CODE (call) == CALL_EXPR);
 
@@ -2660,7 +2665,7 @@ stabilize_init (tree init, tree *initp)
 
   *initp = NULL_TREE;
 
-  if (t == error_mark_node)
+  if (t == error_mark_node || processing_template_decl)
     return true;
 
   if (TREE_CODE (t) == INIT_EXPR

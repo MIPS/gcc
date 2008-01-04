@@ -618,6 +618,7 @@ typedef struct
     protected:1,		/* Symbol has been marked as protected.  */
     use_assoc:1,		/* Symbol has been use-associated.  */
     use_only:1,			/* Symbol has been use-associated, with ONLY.  */
+    use_rename:1,		/* Symbol has been use-associated and renamed.  */
     imported:1;			/* Symbol has been associated by IMPORT.  */
 
   unsigned in_namelist:1, in_common:1, in_equivalence:1;
@@ -705,7 +706,7 @@ symbol_attribute;
 
 typedef struct gfc_file
 {
-  struct gfc_file *included_by, *next, *up;
+  struct gfc_file *next, *up;
   int inclusion_line, line;
   char *filename;
 } gfc_file;
@@ -1429,7 +1430,7 @@ typedef struct gfc_expr
 
   /* True if the expression is a call to a function that returns an array,
      and if we have decided not to allocate temporary data for that array.  */
-  unsigned int inline_noncopying_intrinsic : 1;
+  unsigned int inline_noncopying_intrinsic : 1, is_boz : 1;
 
   /* Used to quickly find a given constructor by its offset.  */
   splay_tree con_by_offset;
@@ -1937,6 +1938,9 @@ extern gfc_source_form gfc_current_form;
 extern const char *gfc_source_file;
 extern locus gfc_current_locus;
 
+void gfc_start_source_files (void);
+void gfc_end_source_files (void);
+
 /* misc.c */
 void *gfc_getmem (size_t) ATTRIBUTE_MALLOC;
 void gfc_free (void *);
@@ -2355,10 +2359,12 @@ void gfc_show_components (gfc_symbol *);
 void gfc_show_constructor (gfc_constructor *);
 void gfc_show_equiv (gfc_equiv *);
 void gfc_show_expr (gfc_expr *);
+void gfc_show_expr_n (const char *, gfc_expr *);
 void gfc_show_namelist (gfc_namelist *);
 void gfc_show_namespace (gfc_namespace *);
 void gfc_show_ref (gfc_ref *);
 void gfc_show_symbol (gfc_symbol *);
+void gfc_show_symbol_n (const char *, gfc_symbol *);
 void gfc_show_typespec (gfc_typespec *);
 
 /* parse.c */

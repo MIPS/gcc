@@ -1281,6 +1281,7 @@ c_common_parse_file (int set_yydebug)
       if (++i >= num_in_fnames)
 	break;
       cpp_undef_all (parse_in);
+      cpp_clear_file_cache (parse_in);
       this_input_filename
 	= cpp_read_main_file (parse_in, in_fnames[i]);
       /* If an input file is missing, abandon further compilation.
@@ -1428,7 +1429,11 @@ sanitize_cpp_opts (void)
   /* We want -Wno-long-long to override -pedantic -std=non-c99
      and/or -Wtraditional, whatever the ordering.  */
   cpp_opts->warn_long_long
-    = warn_long_long && ((!flag_isoc99 && pedantic) || warn_traditional);
+    = warn_long_long && ((pedantic
+			  && (c_dialect_cxx ()
+			      ? cxx_dialect == cxx98
+			      : !flag_isoc99))
+                         || warn_traditional);
 
   /* Similarly with -Wno-variadic-macros.  No check for c99 here, since
      this also turns off warnings about GCCs extension.  */

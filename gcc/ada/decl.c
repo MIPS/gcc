@@ -1795,7 +1795,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  }
 
 	/* If an alignment is specified, use it if valid.  But ignore it for
-	   types that represent the unpacked base type for packed arrays.  */
+	   types that represent the unpacked base type for packed arrays.  If
+	   the alignment was requested with an explicit user alignment clause,
+	   state so.  */
 	if (No (Packed_Array_Type (gnat_entity))
 	    && Known_Alignment (gnat_entity))
 	  {
@@ -1803,6 +1805,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    TYPE_ALIGN (tem)
 	      = validate_alignment (Alignment (gnat_entity), gnat_entity,
 				    TYPE_ALIGN (tem));
+	    if (Present (Alignment_Clause (gnat_entity)))
+	      TYPE_USER_ALIGN (tem) = 1;
 	  }
 
 	TYPE_CONVENTION_FORTRAN_P (tem)
@@ -2992,7 +2996,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	     : (IN (Ekind (gnat_desig_equiv), Incomplete_Or_Private_Kind)
 		? Full_View (gnat_desig_equiv) : Empty));
 	Entity_Id gnat_desig_full_direct
-	  = ((Present (gnat_desig_full_direct_first)
+	  = ((is_from_limited_with
+	      && Present (gnat_desig_full_direct_first)
 	      && IN (Ekind (gnat_desig_full_direct_first), Private_Kind))
 	     ? Full_View (gnat_desig_full_direct_first)
 	     : gnat_desig_full_direct_first);
@@ -5201,12 +5206,11 @@ make_packable_type (tree type)
   tree field_list = NULL_TREE;
   tree old_field;
 
-  /* Copy the name and flags from the old type to that of the new and set
-     the alignment to try for an integral type.  For QUAL_UNION_TYPE,
-     also copy the size.  */
+  /* Copy the name and flags from the old type to that of the new.  Note
+     that we rely on the pointer equality created here for TYPE_NAME at
+     the end of gnat_to_gnu.  For QUAL_UNION_TYPE, also copy the size.  */
   TYPE_NAME (new_type) = TYPE_NAME (type);
-  TYPE_JUSTIFIED_MODULAR_P (new_type)
-    = TYPE_JUSTIFIED_MODULAR_P (type);
+  TYPE_JUSTIFIED_MODULAR_P (new_type) = TYPE_JUSTIFIED_MODULAR_P (type);
   TYPE_CONTAINS_TEMPLATE_P (new_type) = TYPE_CONTAINS_TEMPLATE_P (type);
 
   if (TREE_CODE (type) == RECORD_TYPE)
@@ -5217,6 +5221,7 @@ make_packable_type (tree type)
       TYPE_SIZE_UNIT (new_type) = TYPE_SIZE_UNIT (type);
     }
 
+  /* Set the alignment to try for an integral type.  */
   TYPE_ALIGN (new_type) = ceil_alignment (tree_low_cst (TYPE_SIZE (type), 1));
   TYPE_USER_ALIGN (new_type) = 1;
 
@@ -5394,15 +5399,17 @@ maybe_pad_type (tree type, tree size, unsigned int align,
   /* Unless debugging information isn't being written for the input type,
      write a record that shows what we are a subtype of and also make a
      variable that indicates our size, if variable. */
-  if (TYPE_NAME (record) && AGGREGATE_TYPE_P (type)
+  if (TYPE_NAME (record)
+      && AGGREGATE_TYPE_P (type)
       && (TREE_CODE (TYPE_NAME (type)) != TYPE_DECL
 	  || !DECL_IGNORED_P (TYPE_NAME (type))))
     {
       tree marker = make_node (RECORD_TYPE);
-      tree name = (TREE_CODE (TYPE_NAME (record)) == TYPE_DECL
-		   ? DECL_NAME (TYPE_NAME (record))
-		   : TYPE_NAME (record));
+      tree name = TYPE_NAME (record);
       tree orig_name = TYPE_NAME (type);
+
+      if (TREE_CODE (name) == TYPE_DECL)
+	name = DECL_NAME (name);
 
       if (TREE_CODE (orig_name) == TYPE_DECL)
 	orig_name = DECL_NAME (orig_name);
@@ -5593,9 +5600,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 {
   tree gnu_field_id = get_entity_name (gnat_field);
   tree gnu_field_type = gnat_to_gnu_type (Etype (gnat_field));
-  tree gnu_pos = 0;
-  tree gnu_size = 0;
-  tree gnu_field;
+  tree gnu_field, gnu_size, gnu_pos;
   bool needs_strict_alignment
     = (Is_Aliased (gnat_field) || Strict_Alignment (Etype (gnat_field))
        || Treat_As_Volatile (gnat_field));
@@ -5607,18 +5612,17 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
   else
     packed = adjust_packed (gnu_field_type, gnu_record_type, packed);
 
-  /* For packed records, this is one of the few occasions on which we use
-     the official RM size for discrete or fixed-point components, instead
-     of the normal GNAT size stored in Esize. See description in Einfo:
-     "Handling of Type'Size Values" for further details.  */
-
-  if (packed == 1)
-    gnu_size = validate_size (RM_Size (Etype (gnat_field)), gnu_field_type,
-			      gnat_field, FIELD_DECL, false, true);
-
+  /* If a size is specified, use it.  Otherwise, if the record type is packed,
+     use the official RM size.  See "Handling of Type'Size Values" in Einfo
+     for further details.  */
   if (Known_Static_Esize (gnat_field))
     gnu_size = validate_size (Esize (gnat_field), gnu_field_type,
 			      gnat_field, FIELD_DECL, false, true);
+  else if (packed == 1)
+    gnu_size = validate_size (RM_Size (Etype (gnat_field)), gnu_field_type,
+			      gnat_field, FIELD_DECL, false, true);
+  else
+    gnu_size = NULL_TREE;
 
   /* If we have a specified size that's smaller than that of the field type,
      or a position is specified, and the field type is also a record that's
@@ -5650,8 +5654,8 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       && compare_tree_int (TYPE_SIZE (gnu_field_type), BIGGEST_ALIGNMENT) <= 0
       && (packed == 1
 	  || (gnu_size
-	      && tree_int_cst_lt (gnu_size, TYPE_SIZE (gnu_field_type)))
-	  || (Present (Component_Clause (gnat_field)) && gnu_size != 0)))
+	      && (tree_int_cst_lt (gnu_size, TYPE_SIZE (gnu_field_type))
+		  || Present (Component_Clause (gnat_field))))))
     {
       /* See what the alternate type and size would be.  */
       tree gnu_packable_type = make_packable_type (gnu_field_type);
@@ -5683,7 +5687,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 	{
 	  gnu_field_type = gnu_packable_type;
 
-	  if (gnu_size == 0)
+	  if (!gnu_size)
 	    gnu_size = rm_size (gnu_field_type);
 	}
     }
@@ -5791,6 +5795,9 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       gnu_size = TYPE_SIZE (gnu_field_type);
     }
 
+  else
+    gnu_pos = NULL_TREE;
+
   /* We need to make the size the maximum for the type if it is
      self-referential and an unconstrained type.  In that case, we can't
      pack the field since we can't make a copy to align it.  */
@@ -5803,11 +5810,8 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       packed = 0;
     }
 
-  /* If no size is specified (or if there was an error), don't specify a
-     position.  */
-  if (!gnu_size)
-    gnu_pos = NULL_TREE;
-  else
+  /* If a size is specified, adjust the field's type to it.  */
+  if (gnu_size)
     {
       /* If the field's type is justified modular, we would need to remove
 	 the wrapper to (better) meet the layout requirements.  However we
@@ -5827,6 +5831,10 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       gnu_field_type = maybe_pad_type (gnu_field_type, gnu_size, 0, gnat_field,
 				       "PAD", false, definition, true);
     }
+
+  /* Otherwise (or if there was an error), don't specify a position.  */
+  else
+    gnu_pos = NULL_TREE;
 
   gcc_assert (TREE_CODE (gnu_field_type) != RECORD_TYPE
 	      || !TYPE_CONTAINS_TEMPLATE_P (gnu_field_type));

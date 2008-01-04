@@ -751,7 +751,7 @@ do_SUBST_MODE (rtx *into, enum machine_mode newval)
   buf->kind = UNDO_MODE;
   buf->where.r = into;
   buf->old_contents.m = oldval;
-  PUT_MODE (*into, newval);
+  adjust_reg_mode (*into, newval);
 
   buf->next = undobuf.undos, undobuf.undos = buf;
 }
@@ -1694,7 +1694,7 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
 	 change whether the life span of some REGs crosses calls or not,
 	 and it is a pain to update that information.
 	 Exception: if source is a constant, moving it later can't hurt.
-	 Accept that special case, because it helps -fforce-addr a lot.  */
+	 Accept that as a special case.  */
       || (DF_INSN_LUID (insn) < last_call_luid && ! CONSTANT_P (src)))
     return 0;
 
@@ -2984,7 +2984,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 		{
 		  struct undo *buf;
 
-		  PUT_MODE (regno_reg_rtx[REGNO (i2dest)], old_mode);
+		  adjust_reg_mode (regno_reg_rtx[REGNO (i2dest)], old_mode);
 		  buf = undobuf.undos;
 		  undobuf.undos = buf->next;
 		  buf->next = undobuf.frees;
@@ -3826,7 +3826,7 @@ undo_all (void)
 	  *undo->where.i = undo->old_contents.i;
 	  break;
 	case UNDO_MODE:
-	  PUT_MODE (*undo->where.r, undo->old_contents.m);
+	  adjust_reg_mode (*undo->where.r, undo->old_contents.m);
 	  break;
 	default:
 	  gcc_unreachable ();

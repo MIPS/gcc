@@ -2147,8 +2147,9 @@ cp_parser_check_decl_spec (cp_decl_specifier_seq *decl_specs)
 	{
 	  if (count > 2)
 	    error ("%<long long long%> is too long for GCC");
-	  else if (pedantic && !in_system_header && warn_long_long)
-	    pedwarn ("ISO C++ does not support %<long long%>");
+	  else if (pedantic && !in_system_header && warn_long_long
+                   && cxx_dialect == cxx98)
+	    pedwarn ("ISO C++ 1998 does not support %<long long%>");
 	}
       else if (count > 1)
 	{
@@ -8512,10 +8513,12 @@ cp_parser_decltype (cp_parser *parser)
 				      /*check_dependency=*/true,
 				      /*ambiguous_decls=*/NULL);
 
-      if (expr 
+      if (expr
           && expr != error_mark_node
           && TREE_CODE (expr) != TEMPLATE_ID_EXPR
           && TREE_CODE (expr) != TYPE_DECL
+	  && (TREE_CODE (expr) != BIT_NOT_EXPR
+	      || !TYPE_P (TREE_OPERAND (expr, 0)))
           && cp_lexer_peek_token (parser->lexer)->type == CPP_CLOSE_PAREN)
         {
           /* Complete lookup of the id-expression.  */
@@ -8600,8 +8603,11 @@ cp_parser_decltype (cp_parser *parser)
   
   /* Parse to the closing `)'.  */
   if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
-    cp_parser_skip_to_closing_parenthesis (parser, true, false,
-					   /*consume_paren=*/true);
+    {
+      cp_parser_skip_to_closing_parenthesis (parser, true, false,
+					     /*consume_paren=*/true);
+      return error_mark_node;
+    }
 
   return finish_decltype_type (expr, id_expression_or_member_access_p);
 }
@@ -19666,12 +19672,19 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 			   const char *where, cp_token *pragma_tok)
 {
   tree clauses = NULL;
+  bool first = true;
 
   while (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL))
     {
-      pragma_omp_clause c_kind = cp_parser_omp_clause_name (parser);
+      pragma_omp_clause c_kind;
       const char *c_name;
       tree prev = clauses;
+
+      if (!first && cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	cp_lexer_consume_token (parser->lexer);
+
+      c_kind = cp_parser_omp_clause_name (parser);
+      first = false;
 
       switch (c_kind)
 	{
@@ -20259,7 +20272,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
   switch (p_kind)
     {
     case PRAGMA_OMP_PARALLEL:
-      cp_parser_already_scoped_statement (parser);
+      cp_parser_statement (parser, NULL_TREE, false, NULL);
       par_clause = clauses;
       break;
 

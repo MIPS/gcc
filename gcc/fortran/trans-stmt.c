@@ -1523,7 +1523,8 @@ static gfc_symtree *old_symtree;
 static bool
 forall_replace (gfc_expr *expr, gfc_symbol *sym, int *f)
 {
-  gcc_assert (expr->expr_type == EXPR_VARIABLE);
+  if (expr->expr_type != EXPR_VARIABLE)
+    return false;
 
   if (*f == 2)
     *f = 1;
@@ -1544,7 +1545,8 @@ forall_restore (gfc_expr *expr,
 		gfc_symbol *sym ATTRIBUTE_UNUSED,
 		int *f ATTRIBUTE_UNUSED)
 {
-  gcc_assert (expr->expr_type == EXPR_VARIABLE);
+  if (expr->expr_type != EXPR_VARIABLE)
+    return false;
 
   if (expr->symtree == new_symtree)
     expr->symtree = old_symtree;
@@ -2523,7 +2525,8 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
       /* Make a new descriptor.  */
       parmtype = gfc_get_element_type (TREE_TYPE (desc));
       parmtype = gfc_get_array_type_bounds (parmtype, loop.dimen,
-                                            loop.from, loop.to, 1);
+                                            loop.from, loop.to, 1,
+					    GFC_ARRAY_UNKNOWN);
 
       /* Allocate temporary for nested forall construct.  */
       tmp1 = allocate_temp_for_forall_nest (nested_forall_info, parmtype,

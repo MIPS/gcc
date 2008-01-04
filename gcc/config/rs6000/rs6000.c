@@ -899,6 +899,7 @@ static void rs6000_darwin_file_start (void);
 #endif
 
 static tree rs6000_build_builtin_va_list (void);
+static void rs6000_va_start (tree, rtx);
 static tree rs6000_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool rs6000_must_pass_in_stack (enum machine_mode, const_tree);
 static bool rs6000_scalar_mode_supported_p (enum machine_mode);
@@ -1158,6 +1159,9 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST rs6000_build_builtin_va_list
+
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START rs6000_va_start
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR rs6000_gimplify_va_arg
@@ -1842,6 +1846,11 @@ rs6000_override_options (const char *default_cpu)
     set_param_value ("l1-cache-line-size", rs6000_cost->cache_line_size);
   if (!PARAM_SET_P (PARAM_L2_CACHE_SIZE))
     set_param_value ("l2-cache-size", rs6000_cost->l2_cache_size);
+
+  /* If using typedef char *va_list, signal that __builtin_va_start (&ap, 0)
+     can be optimized to ap = __builtin_next_arg (0).  */
+  if (DEFAULT_ABI != ABI_V4)
+    targetm.expand_builtin_va_start = NULL;
 }
 
 /* Implement targetm.vectorize.builtin_mask_for_load.  */
@@ -6495,7 +6504,7 @@ rs6000_build_builtin_va_list (void)
 
 /* Implement va_start.  */
 
-void
+static void
 rs6000_va_start (tree valist, rtx nextarg)
 {
   HOST_WIDE_INT words, n_gpr, n_fpr;
@@ -15685,7 +15694,7 @@ rs6000_emit_prologue (void)
  
        if (spe_regs_addressable_via_sp)
          {
-           spe_save_area_ptr = sp_reg_rtx;
+           spe_save_area_ptr = frame_reg_rtx;
            spe_offset = info->spe_gp_save_offset + sp_offset;
          }
        else
@@ -15706,7 +15715,7 @@ rs6000_emit_prologue (void)
              }
  
            spe_save_area_ptr = gen_rtx_REG (Pmode, 11);
-           emit_insn (gen_addsi3 (spe_save_area_ptr, sp_reg_rtx,
+           emit_insn (gen_addsi3 (spe_save_area_ptr, frame_reg_rtx,
                                   GEN_INT (info->spe_gp_save_offset + sp_offset)));
  
            spe_offset = 0;
@@ -18373,6 +18382,11 @@ is_mem_ref (rtx pat)
   const char * fmt;
   int i, j;
   bool ret = false;
+
+  /* stack_tie does not produce any real memory traffic.  */
+  if (GET_CODE (pat) == UNSPEC
+      && XINT (pat, 1) == UNSPEC_TIE)
+    return false;
 
   if (GET_CODE (pat) == MEM)
     return true;
