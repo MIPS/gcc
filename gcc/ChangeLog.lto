@@ -1,3 +1,10 @@
+2008-01-07  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00263.html
+
+	* dwarf2out.c (force_decl_die): Initialize SAVED_IGNORED_FLAG.
+	* dwarf2.h (enum dwarf_type): Remove trailing comma.
+
 2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* collect2.c (scan_prog_file): Read all the output when reading

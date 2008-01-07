@@ -584,7 +584,7 @@ enum dwarf_type
     DW_ATE_HP_imaginary_float128 = 0x86,
     /* GNU extensions.  */
     DW_ATE_GNU_complex_signed    = 0x87, /* Complex signed int. */
-    DW_ATE_GNU_complex_unsigned  = 0x88, /* Complex unsigned int. */
+    DW_ATE_GNU_complex_unsigned  = 0x88  /* Complex unsigned int. */
   };
 
 #define	DW_ATE_lo_user 0x80

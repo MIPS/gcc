@@ -13538,7 +13538,7 @@ force_decl_die (tree decl)
 {
   dw_die_ref decl_die;
   unsigned saved_external_flag;
-  unsigned saved_ignored_flag;
+  unsigned saved_ignored_flag = 0;
   tree save_fn = NULL_TREE;
   decl_die = lookup_decl_die (decl);
   if (!decl_die)
