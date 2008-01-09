@@ -1,5 +1,12 @@
 2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
 
+	2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+	* Makefile.in (dse.o): Remove duplicate $(RECOG_H) dependency.
+	2007-10-30  Richard Guenther  <rguenther@suse.de>
+	* Makefile.in (dse.o): Add $(OPTABS_H) and $(RECOG_H) dependencies.
+
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
 	* regclass.c (scan_one_insn): Skip debug insns.
 	(reg_scan, init_subregs_of_mode): Likewise.
 
