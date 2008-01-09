@@ -1707,10 +1707,37 @@ expand_debug_expr (tree exp)
 	  return op0;
 
 	if (inner_mode == VOIDmode)
-	  inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+	  {
+	    inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+	    if (mode == inner_mode)
+	      return op0;
+	  }
 
-	if (CONSTANT_P (op0)
-	    || GET_MODE_BITSIZE (mode) <= GET_MODE_BITSIZE (GET_MODE (op0)))
+	if (FLOAT_MODE_P (mode) && FLOAT_MODE_P (inner_mode))
+	  {
+	    if (GET_MODE_BITSIZE (mode) == GET_MODE_BITSIZE (inner_mode))
+	      op0 = simplify_gen_subreg (mode, op0, inner_mode, 0);
+	    else if (GET_MODE_BITSIZE (mode) < GET_MODE_BITSIZE (inner_mode))
+	      op0 = simplify_gen_unary (FLOAT_TRUNCATE, mode, op0, inner_mode);
+	    else
+	      op0 = simplify_gen_unary (FLOAT_EXTEND, mode, op0, inner_mode);
+	  }
+	else if (FLOAT_MODE_P (mode))
+	  {
+	    if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))))
+	      op0 = simplify_gen_unary (UNSIGNED_FLOAT, mode, op0, inner_mode);
+	    else
+	      op0 = simplify_gen_unary (FLOAT, mode, op0, inner_mode);
+	  }
+	else if (FLOAT_MODE_P (inner_mode))
+	  {
+	    if (unsignedp)
+	      op0 = simplify_gen_unary (UNSIGNED_FIX, mode, op0, inner_mode);
+	    else
+	      op0 = simplify_gen_unary (FIX, mode, op0, inner_mode);
+	  }
+	else if (CONSTANT_P (op0)
+		 || GET_MODE_BITSIZE (mode) <= GET_MODE_BITSIZE (inner_mode))
 	  op0 = simplify_gen_subreg (mode, op0, inner_mode,
 				     subreg_lowpart_offset (mode,
 							    inner_mode));
