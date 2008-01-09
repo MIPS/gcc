@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1190,7 +1190,7 @@ scan_one_insn (rtx insn, int pass ATTRIBUTE_UNUSED)
   int i, j;
   struct costs op_costs[MAX_RECOG_OPERANDS];
 
-  if (!INSN_P (insn))
+  if (!INSN_P (insn) || DEBUG_INSN_P (insn))
     return insn;
 
   pat_code = GET_CODE (PATTERN (insn));
@@ -2307,7 +2307,7 @@ reg_scan (rtx f, unsigned int nregs ATTRIBUTE_UNUSED)
   timevar_push (TV_REG_SCAN);
 
   for (insn = f; insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
+    if (INSN_P (insn) && !DEBUG_INSN_P (insn))
       {
 	reg_scan_mark_refs (PATTERN (insn), insn);
 	if (REG_NOTES (insn))
@@ -2583,7 +2583,7 @@ init_subregs_of_mode (void)
 
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
-    if (INSN_P (insn))
+    if (INSN_P (insn) && !DEBUG_INSN_P (insn))
       find_subregs_of_mode (PATTERN (insn));
 
   return 0;
