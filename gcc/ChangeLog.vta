@@ -1,5 +1,10 @@
 2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-flow-inline.h (next_readonly_imm_use): Return
+	NULL_USE_OPERAND_P after the end.
+
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
 	* df-scan.c (struct df_collection_ref): Add alloc_ members.
 	(vec_SIZE_def, vec_SIZE_use, vec_SIZE_eq_use, vec_SIZE_mw): New.
 	(safe_alloca_vec, safe_grow_vec, safe_free_vec): New.
