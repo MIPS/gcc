@@ -1,5 +1,5 @@
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -81,13 +81,63 @@ struct df_collection_rec
 {
   struct df_ref ** def_vec;
   unsigned int next_def;
+  unsigned int alloc_def;
   struct df_ref ** use_vec;
   unsigned int next_use;
+  unsigned int alloc_use;
   struct df_ref ** eq_use_vec;
   unsigned int next_eq_use;
+  unsigned int alloc_eq_use;
   struct df_mw_hardreg **mw_vec;
   unsigned int next_mw;
+  unsigned int alloc_mw;
 };
+
+/* The following macros define the default sizes for the vectors above.  */
+
+#define vec_SIZE_def 256
+#define vec_SIZE_use 256
+#define vec_SIZE_eq_use 256
+#define vec_SIZE_mw 64
+
+/* Initialize the vector to a stack-allocated region.  PTR is a struct
+   container_rec*, and FLD is either def, use, eq_use or mw.  */
+
+#define safe_alloca_vec(ptr, fld)					\
+  ((ptr)->fld##_vec = alloca (sizeof (*(ptr)->fld##_vec)		\
+			      * ((ptr)->alloc_##fld = vec_SIZE_##fld)))
+
+/* Safely grow the vector, moving to a non-alloca area if we outgrow
+   the default size, and growing exponentially as needed.  The result
+   is an lvalue for the newly-added vector element.  */
+
+#define safe_grow_vec(ptr, fld)						\
+  (*(((ptr)->next_##fld < (ptr)->alloc_##fld				\
+      ? 0								\
+      : (ptr)->next_##fld <= vec_SIZE_##fld				\
+      ? ((ptr)->fld##_vec = memcpy (xmalloc				\
+				    (sizeof (*(ptr)->fld##_vec)		\
+				     * ((ptr)->alloc_##fld		\
+					= 2 * vec_SIZE_##fld)),		\
+				    (ptr)->fld##_vec,			\
+				    sizeof (*(ptr)->fld##_vec)		\
+				    * (ptr)->next_##fld))		\
+      : ((ptr)->fld##_vec = xrealloc ((ptr)->fld##_vec,		\
+					(sizeof (*(ptr)->fld##_vec)	\
+					 * (((ptr)->alloc_##fld		\
+					     *= 2)))))),		\
+     &(ptr)->fld##_vec[(ptr)->next_##fld++]))
+
+/* Release the vector storage, if we've used non-alloca memory.  */
+
+#define safe_free_vec(ptr, fld)						\
+  (((ptr)->alloc_##fld > vec_SIZE_##fld					\
+    ? free ((ptr)->fld##_vec), 0					\
+    : 0),								\
+   (ptr)->next_##fld = (ptr)->alloc_##fld = 0,				\
+   (ptr)->fld##_vec = 0)
+
+
 
 static struct df_ref * df_null_ref_rec[1];
 static struct df_mw_hardreg * df_null_mw_rec[1];
@@ -1081,10 +1131,6 @@ df_insn_rescan_1 (rtx insn, bool keepclean)
   struct df_insn_info *insn_info = NULL;
   basic_block bb = BLOCK_FOR_INSN (insn);
   struct df_collection_rec collection_rec;
-  collection_rec.def_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.use_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.eq_use_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.mw_vec = alloca (sizeof (struct df_mw_hardreg*) * 100);
 
   if ((!df) || (!INSN_P (insn)))
     return false;
@@ -1128,6 +1174,12 @@ df_insn_rescan_1 (rtx insn, bool keepclean)
   bitmap_clear_bit (df->insns_to_delete, uid);
   bitmap_clear_bit (df->insns_to_rescan, uid);
   bitmap_clear_bit (df->insns_to_notes_rescan, uid);
+
+  safe_alloca_vec (&collection_rec, def);
+  safe_alloca_vec (&collection_rec, use);
+  safe_alloca_vec (&collection_rec, eq_use);
+  safe_alloca_vec (&collection_rec, mw);
+
   if (insn_info)
     {
       bool the_same = df_insn_refs_verify (&collection_rec, bb, insn, false);
@@ -1135,8 +1187,13 @@ df_insn_rescan_1 (rtx insn, bool keepclean)
       if (the_same)
 	{
 	  df_free_collection_rec (&collection_rec);
+	  safe_free_vec (&collection_rec, def);
+	  safe_free_vec (&collection_rec, use);
+	  safe_free_vec (&collection_rec, eq_use);
+	  safe_free_vec (&collection_rec, mw);
 	  if (dump_file)
 	    fprintf (dump_file, "verify found no changes in insn with uid = %d.\n", uid);
+
 	  return false;
 	}
       if (dump_file)
@@ -1157,6 +1214,12 @@ df_insn_rescan_1 (rtx insn, bool keepclean)
   df_refs_add_to_chains (&collection_rec, bb, insn);
   if (!keepclean)
     df_set_bb_dirty (bb);
+
+  safe_free_vec (&collection_rec, def);
+  safe_free_vec (&collection_rec, use);
+  safe_free_vec (&collection_rec, eq_use);
+  safe_free_vec (&collection_rec, mw);
+
   return true;
 }
 
@@ -2064,8 +2127,9 @@ df_notes_rescan (rtx insn)
       unsigned int num_deleted;
 
       memset (&collection_rec, 0, sizeof (struct df_collection_rec));
-      collection_rec.eq_use_vec = alloca (sizeof (struct df_ref*) * 1000);
-      collection_rec.mw_vec = alloca (sizeof (struct df_mw_hardreg*) * 1000);
+
+      safe_alloca_vec (&collection_rec, eq_use);
+      safe_alloca_vec (&collection_rec, mw);
 
       num_deleted = df_mw_hardreg_chain_delete_eq_uses (insn_info);
       df_ref_chain_delete (insn_info->eq_uses);
@@ -2130,6 +2194,9 @@ df_notes_rescan (rtx insn)
       collection_rec.mw_vec = NULL;
       collection_rec.next_mw = 0;
       df_refs_add_to_chains (&collection_rec, bb, insn);
+
+      safe_free_vec (&collection_rec, eq_use);
+      safe_free_vec (&collection_rec, mw);
     }
   else
     df_insn_rescan (insn);
@@ -2628,11 +2695,11 @@ df_ref_create_structure (struct df_collection_rec *collection_rec,
   if (collection_rec)
     {
       if (DF_REF_TYPE (this_ref) == DF_REF_REG_DEF)
-	collection_rec->def_vec[collection_rec->next_def++] = this_ref;
+	safe_grow_vec (collection_rec, def) = this_ref;
       else if (DF_REF_FLAGS (this_ref) & DF_REF_IN_NOTE)
-	collection_rec->eq_use_vec[collection_rec->next_eq_use++] = this_ref;
+	safe_grow_vec (collection_rec, eq_use) = this_ref;
       else
-	collection_rec->use_vec[collection_rec->next_use++] = this_ref;
+	safe_grow_vec (collection_rec, use) = this_ref;
     }
 
   return this_ref;
@@ -2690,7 +2757,7 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	  hardreg->start_regno = regno;
 	  hardreg->end_regno = endregno - 1;
 	  hardreg->mw_order = df->ref_order++;
-	  collection_rec->mw_vec[collection_rec->next_mw++] = hardreg;
+	  safe_grow_vec (collection_rec, mw) = hardreg;
 	}
 
       for (i = regno; i < endregno; i++)
@@ -3363,13 +3430,14 @@ df_bb_refs_record (int bb_index, bool scan_insns)
   int luid = 0;
   struct df_scan_bb_info *bb_info;
   struct df_collection_rec collection_rec;
-  collection_rec.def_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.use_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.eq_use_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.mw_vec = alloca (sizeof (struct df_mw_hardreg*) * 100);
 
   if (!df)
     return;
+
+  safe_alloca_vec (&collection_rec, def);
+  safe_alloca_vec (&collection_rec, use);
+  safe_alloca_vec (&collection_rec, eq_use);
+  safe_alloca_vec (&collection_rec, mw);
 
   bb_info = df_scan_get_bb_info (bb_index);
 
@@ -3407,6 +3475,11 @@ df_bb_refs_record (int bb_index, bool scan_insns)
   /* Now that the block has been processed, set the block as dirty so
      lr and ur will get it processed.  */
   df_set_bb_dirty (bb);
+
+  safe_free_vec (&collection_rec, def);
+  safe_free_vec (&collection_rec, use);
+  safe_free_vec (&collection_rec, eq_use);
+  safe_free_vec (&collection_rec, mw);
 }
 
 
@@ -3653,12 +3726,14 @@ df_record_entry_block_defs (bitmap entry_block_defs)
 {
   struct df_collection_rec collection_rec;
   memset (&collection_rec, 0, sizeof (struct df_collection_rec));
-  collection_rec.def_vec = alloca (sizeof (struct df_ref*) * FIRST_PSEUDO_REGISTER);
+  safe_alloca_vec (&collection_rec, def);
 
   df_entry_block_defs_collect (&collection_rec, entry_block_defs);
 
   /* Process bb_refs chain */
   df_refs_add_to_chains (&collection_rec, BASIC_BLOCK (ENTRY_BLOCK), NULL);
+
+  safe_free_vec (&collection_rec, def);
 }
 
 
@@ -3824,12 +3899,14 @@ df_record_exit_block_uses (bitmap exit_block_uses)
 {
   struct df_collection_rec collection_rec;
   memset (&collection_rec, 0, sizeof (struct df_collection_rec));
-  collection_rec.use_vec = alloca (sizeof (struct df_ref*) * FIRST_PSEUDO_REGISTER);
+  safe_alloca_vec (&collection_rec, use);
 
   df_exit_block_uses_collect (&collection_rec, exit_block_uses);
 
   /* Process bb_refs chain */
   df_refs_add_to_chains (&collection_rec, BASIC_BLOCK (EXIT_BLOCK), NULL);
+
+  safe_free_vec (&collection_rec, use);
 }
 
 
@@ -4197,10 +4274,10 @@ df_bb_verify (basic_block bb)
   struct df_collection_rec collection_rec;
   
   memset (&collection_rec, 0, sizeof (struct df_collection_rec));
-  collection_rec.def_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.use_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.eq_use_vec = alloca (sizeof (struct df_ref*) * 1000);
-  collection_rec.mw_vec = alloca (sizeof (struct df_mw_hardreg*) * 100);
+  safe_alloca_vec (&collection_rec, def);
+  safe_alloca_vec (&collection_rec, use);
+  safe_alloca_vec (&collection_rec, eq_use);
+  safe_alloca_vec (&collection_rec, mw);
 
   gcc_assert (bb_info);
 
@@ -4219,6 +4296,11 @@ df_bb_verify (basic_block bb)
   df_refs_verify (collection_rec.use_vec, df_get_artificial_uses (bb->index), true);
   df_free_collection_rec (&collection_rec);
   
+  safe_free_vec (&collection_rec, def);
+  safe_free_vec (&collection_rec, use);
+  safe_free_vec (&collection_rec, eq_use);
+  safe_free_vec (&collection_rec, mw);
+
   return true;
 }
 
