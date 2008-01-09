@@ -1,5 +1,5 @@
 /* Inline functions for tree-flow.h
-   Copyright (C) 2001, 2003, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -1704,16 +1704,23 @@ lookup_subvars_for_var (const_tree var)
    NULL, if there are no subvariables.  */
 
 static inline subvar_t
-get_subvars_for_var (tree var)
+get_subvars_for_var (tree ssa_var)
 {
+  tree var = ssa_var;
+  var_ann_t ann;
   subvar_t subvars;
 
   gcc_assert (SSA_VAR_P (var));  
   
   if (TREE_CODE (var) == SSA_NAME)
-    subvars = *(lookup_subvars_for_var (SSA_NAME_VAR (var)));
+    var = SSA_NAME_VAR (var);
+
+  ann = var_ann (var);
+  if (!ann)
+    subvars = NULL;
   else
-    subvars = *(lookup_subvars_for_var (var));
+    subvars = ann->subvars;
+
   return subvars;
 }
 

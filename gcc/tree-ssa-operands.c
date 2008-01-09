@@ -1,5 +1,6 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -627,6 +628,8 @@ add_vop (tree stmt, tree op, int num, voptype_p prev)
 {
   voptype_p new_vop;
   int x;
+
+  gcc_assert (!IS_DEBUG_STMT (stmt));
 
   new_vop = alloc_vop (num);
   for (x = 0; x < num; x++)
@@ -1656,6 +1659,9 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
   if (TREE_THIS_VOLATILE (expr))
     s_ann->has_volatile_ops = true; 
 
+  if ((flags & opf_debug_use) != 0)
+    goto recurse;
+
   if (SSA_VAR_P (ptr))
     {
       struct ptr_info_def *pi = NULL;
@@ -1719,9 +1725,12 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
       gcc_unreachable ();
     }
 
+ recurse:
   /* If requested, add a USE operand for the base pointer.  */
   if (recurse_on_base)
-    get_expr_operands (stmt, pptr, opf_use);
+    get_expr_operands (stmt, pptr, opf_use
+		       | ((flags & opf_debug_use) != 0
+			  ? opf_debug_use | opf_no_vops : 0));
 }
 
 
@@ -2233,7 +2242,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case VAR_DEBUG_VALUE:
       if (VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
 	get_expr_operands (stmt, &VAR_DEBUG_VALUE_VALUE (stmt),
-			   opf_use | opf_debug_use);
+			   opf_use | opf_debug_use | opf_no_vops);
       return;
 
     case CONSTRUCTOR:
@@ -2390,7 +2399,7 @@ parse_ssa_operands (tree stmt)
     case VAR_DEBUG_VALUE:
       if (VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
 	get_expr_operands (stmt, &VAR_DEBUG_VALUE_VALUE (stmt),
-			   opf_use | opf_debug_use);
+			   opf_use | opf_debug_use | opf_no_vops);
       return;
 
     case COND_EXPR:

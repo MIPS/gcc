@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1775,6 +1775,12 @@ expand_debug_expr (tree exp)
 	int volatilep = 0;
 	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
 					&mode1, &unsignedp, &volatilep, true);
+
+	if (tem == exp)
+	  {
+	    gcc_assert (TREE_CODE (exp) == VIEW_CONVERT_EXPR);
+	    tem = TREE_OPERAND (exp, 0);
+	  }
 
 	op0 = expand_debug_expr (tem);
 

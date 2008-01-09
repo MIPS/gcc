@@ -721,6 +721,10 @@ set_rhs (tree *stmt_p, tree expr)
         GIMPLE_STMT_OPERAND (stmt, 1) = expr;
       break;
 
+    case VAR_DEBUG_VALUE:
+      VAR_DEBUG_VALUE_VALUE (stmt) = expr;
+      break;
+
     case COND_EXPR:
       if (!is_gimple_condexpr (expr))
         return false;

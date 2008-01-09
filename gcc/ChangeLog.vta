@@ -1,3 +1,20 @@
+2008-01-09  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-into-ssa.c (adjust_debug_stmts_for_var_def_move):
+	Propagate value from SSA defs.
+	(prepare_block_for_update): Do not skip debug insns.
+	* tree-ssa-operands.c (add_vop): Reject debug insns.
+	(get_indirect_ref_operands): Do no more than recursing for
+	debug insns.
+	(get_expr_operands): Don't add vops to debug insns.
+	(parse_ssa_operands): Likewise.
+	* tree-ssa-propagate.c (set_rhs): Handle debug insns.
+	* tree-flow-inline.h (get_subvars_for_var): Don't require
+	annotated vars.
+	* dwarf2out.c (mem_loc_descriptor): Handle MINUS.
+	* cfgexpand.c (expand_debug_expr): Avoid infinite recursion in
+	unsimplifyable conversions.
+
 2008-01-03  Alexandre Oliva  <aoliva@redhat.com>
 
 	* combine.c (cleanup_auto_inc_dec): Fix pasto, compare with

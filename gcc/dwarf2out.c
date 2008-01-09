@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from GCC.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -9198,6 +9198,10 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 
     /* If a pseudo-reg is optimized away, it is possible for it to
        be replaced with a MEM containing a multiply or shift.  */
+    case MINUS:
+      op = DW_OP_minus;
+      goto do_binop;
+
     case MULT:
       op = DW_OP_mul;
       goto do_binop;

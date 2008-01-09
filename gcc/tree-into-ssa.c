@@ -1,5 +1,5 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -1141,6 +1141,8 @@ adjust_debug_stmts_for_var_def_move (tree var,
   imm_use_iterator imm_iter;
   tree stmt;
   use_operand_p use_p;
+  tree value = NULL;
+  bool no_value = false;
 
   if (!MAY_HAVE_DEBUG_STMTS)
     return;
@@ -1182,8 +1184,38 @@ adjust_debug_stmts_for_var_def_move (tree var,
 	    }
 	}
 
-      FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
-	SET_USE (use_p, unshare_expr (SSA_NAME_VALUE (var)));
+      if (!value && !no_value)
+	{
+	  if (SSA_NAME_VALUE (var))
+	    value = SSA_NAME_VALUE (var);
+	  else
+	    {
+	      tree def_stmt = SSA_NAME_DEF_STMT (var);
+
+	      if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT)
+		{
+		  value = GIMPLE_STMT_OPERAND (def_stmt, 1);
+		  switch (TREE_CODE (value))
+		    {
+		    case CALL_EXPR:
+		      value = NULL;
+		      break;
+
+		    default:
+		      break;
+		    }
+		}
+	    }
+
+	  if (!value)
+	    no_value = true;
+	}
+
+      if (no_value)
+	VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
+      else
+	FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+	  SET_USE (use_p, unshare_expr (value));
 
       update_stmt (stmt);
     }
@@ -2696,9 +2728,6 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
       def_operand_p def_p;
       
       stmt = bsi_stmt (si);
-
-      if (IS_DEBUG_STMT (stmt))
-	continue;
 
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_ALL_USES)
 	{
