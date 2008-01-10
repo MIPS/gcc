@@ -1322,7 +1322,21 @@ tree_merge_blocks (basic_block a, basic_block b)
 	}
       else
         {
-          replace_uses_by (def, use);
+	  /* If we deal with a PHI for virtual operands, we can simply
+	     propagate these without fussing with folding or updating
+	     the stmt.  */
+	  if (!is_gimple_reg (def))
+	    {
+	      imm_use_iterator iter;
+	      use_operand_p use_p;
+	      tree stmt;
+
+	      FOR_EACH_IMM_USE_STMT (stmt, iter, def)
+		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+		  SET_USE (use_p, use);
+	    }
+	  else
+            replace_uses_by (def, use);
           remove_phi_node (phi, NULL, true);
         }
     }
@@ -3218,6 +3232,11 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    error ("address taken, but ADDRESSABLE bit not set");
 	    return x;
 	  }
+
+	/* Stop recursing and verifying invariant ADDR_EXPRs, they tend
+	   to become arbitrary complicated.  */
+	if (is_gimple_min_invariant (t))
+	  *walk_subtrees = 0;
 	break;
       }
 
