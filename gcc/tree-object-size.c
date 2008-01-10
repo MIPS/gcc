@@ -764,6 +764,8 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
       }
       break;
 
+      /* FIXME tuples.  */
+#if 0
     case PHI_NODE:
       {
 	int i;
@@ -783,6 +785,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
 	  }
 	break;
       }
+#endif
     default:
       gcc_unreachable ();
     }
@@ -879,6 +882,8 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 	  gcc_unreachable ();
 	break;
       }
+    /* FIXME tuples.  */
+#if 0
     case PHI_NODE:
       {
 	int i;
@@ -892,6 +897,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 	  }
 	break;
       }
+#endif
     default:
       gcc_unreachable ();
     }

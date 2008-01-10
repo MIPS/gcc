@@ -27,8 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "tree-pass.h"
 
-/* FIXME tuples.  */
-#if 0
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
    were threaded through PHI nodes.  
@@ -118,12 +116,7 @@ make_ssa_name (tree var, gimple stmt)
   tree t;
   use_operand_p imm;
 
-  gcc_assert (DECL_P (var)
-	      || TREE_CODE (var) == INDIRECT_REF);
-
-  gcc_assert (!stmt
-	      || EXPR_P (stmt) || GIMPLE_STMT_P (stmt)
-	      || TREE_CODE (stmt) == PHI_NODE);
+  gcc_assert (DECL_P (var));
 
   /* If our free list has an element, then use it.  */
   if (FREE_SSANAMES (cfun))
@@ -159,7 +152,9 @@ make_ssa_name (tree var, gimple stmt)
   imm->use = NULL;
   imm->prev = imm;
   imm->next = imm;
-  imm->stmt = t;
+  /* FIXME tuples.  See alternate ways of marking the root of an imm
+     use list in tree-ssa.c:verify_use.  */
+  imm->stmt = (gimple) t;
 
   return t;
 }
@@ -217,7 +212,9 @@ release_ssa_name (tree var)
 
       imm->prev = imm;
       imm->next = imm;
-      imm->stmt = var;
+      /* FIXME tuples.  See alternate ways of marking the root of an
+	 imm use list in tree-ssa.c:verify_use.  */
+      imm->stmt = (gimple) var;
       /* First put back the right tree node so that the tree checking
 	 macros do not complain.  */
       TREE_SET_CODE (var, SSA_NAME);
@@ -241,7 +238,7 @@ release_ssa_name (tree var)
 /* Creates a duplicate of a ssa name NAME defined in statement STMT.  */
 
 tree
-duplicate_ssa_name (tree name, tree stmt)
+duplicate_ssa_name (tree name, gimple stmt)
 {
   tree new_name = make_ssa_name (SSA_NAME_VAR (name), stmt);
   struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
@@ -285,8 +282,6 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
 void
 release_defs (gimple stmt)
 {
-  /* FIXME tuples.  */
-#if 0
   tree def;
   ssa_op_iter iter;
 
@@ -297,9 +292,6 @@ release_defs (gimple stmt)
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)
       release_ssa_name (def);
-#else
-  gimple_unreachable ();
-#endif
 }
 
 
@@ -367,4 +359,3 @@ struct tree_opt_pass pass_release_ssa_names =
   0					/* letter */
   ,0					/* works_with_tuples_p */
 };
-#endif

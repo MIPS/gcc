@@ -535,6 +535,8 @@ typedef struct _stmt_vec_info {
 #define TARG_VEC_STORE_COST          1
 #endif
 
+/* FIXME tuples.  */
+#if 0
 static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
 static inline stmt_vec_info vinfo_for_stmt (tree stmt);
 
@@ -566,6 +568,7 @@ is_pattern_stmt_p (stmt_vec_info stmt_info)
 
   return false;
 }
+#endif
 
 static inline bool
 is_loop_header_bb_p (basic_block bb)

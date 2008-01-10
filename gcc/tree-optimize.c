@@ -103,7 +103,7 @@ struct tree_opt_pass pass_early_local_passes =
   0,					/* todo_flags_start */
   TODO_remove_functions,		/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };
 
 static unsigned int
@@ -139,7 +139,7 @@ struct tree_opt_pass pass_all_early_optimizations =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };
 
 /* Pass: cleanup the CFG just before expanding trees to RTL.
@@ -362,7 +362,7 @@ struct tree_opt_pass pass_init_datastructures =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };
 
 void

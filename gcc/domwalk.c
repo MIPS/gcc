@@ -167,8 +167,8 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 	    {
 	      bool recycled;
 
-	      /* First get some local data, reusing any local data pointer we may
-	         have saved.  */
+	      /* First get some local data, reusing any local data
+		 pointer we may have saved.  */
 	      if (VEC_length (void_p, walk_data->free_block_data) > 0)
 		{
 		  bd = VEC_pop (void_p, walk_data->free_block_data);

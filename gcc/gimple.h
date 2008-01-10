@@ -84,23 +84,12 @@ extern void gimple_range_check_failed (const_gimple, const char *, int,    \
 #define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)	(void)0
 #endif
 
-/* Bit flags used in various GIMPLE statements.  Common flags for all
-   statements must have unique values, but specific flags may have
-   overlapping values.  */
+/* Specific flags for individual GIMPLE statements.  These flags are
+   always stored in gimple_statement_base.subcode and they may only be
+   defined for statement codes that do not use sub-codes.
 
-/* Common flags for every GIMPLE statement.  Stored in
-   gimple_statement_base.flags.  There can only be up to 8 flags.  */
-static const unsigned int GF_NO_WARNING			= 1 << 0;
-
-
-/* Specific flags for individual GIMPLE statements.  Depending on the
-   statement, these flags may be stored in gimple_statement_base.subcode,
-   gimple_statement_base.flags or inside special bitfields of the
-   statement.
-   
-   See the individual getter/setter predicates for details, and be
-   careful when using gimple_statement_base.flags not to overlap the
-   value of common flags above.
+   Values for the masks can overlap as long as the overlapping values
+   are never used in the same statement class.
 
    Keep this list sorted.  */
 static const unsigned int GF_ASM_VOLATILE		= 1 << 0;
@@ -110,6 +99,12 @@ static const unsigned int GF_OMP_PARALLEL_COMBINED	= 1 << 0;
 static const unsigned int GF_OMP_RETURN_NOWAIT		= 1 << 0;
 static const unsigned int GF_OMP_SECTION_LAST		= 1 << 0;
 
+/* Masks for selecting a pass local flag (PLF) to work on.  These
+   masks are used by gimple_set_plf and gimple_plf.  */
+enum plf_mask {
+    GF_PLF_1	= 1 << 0,
+    GF_PLF_2	= 1 << 1
+};
 
 /* A sequence of gimple statements.  */
 struct gimple_sequence GTY(())
@@ -192,7 +187,7 @@ static inline gimple_seq
 bb_seq (const_basic_block bb)
 {
   gcc_assert (!(bb->flags & BB_RTL));
-  return bb->il.gimple->seq;
+  return (bb->il.gimple) ? bb->il.gimple->seq : NULL;
 }
 
 /* Sets the sequence of statements in BB to SEQ.  */
@@ -211,7 +206,25 @@ struct gimple_statement_base GTY(())
 {
   ENUM_BITFIELD(gimple_code) code : 16;
   unsigned int subcode : 8;
-  unsigned int flags : 8;
+
+  /* NOTE for future expansion.  It would be possible to have 32
+     additional bit flags.  This would avoid wasting the 32bit hole
+     left in this structure on 64bit hosts, but it would make this
+     structure grow an additional word on 32bit hosts.  */
+  unsigned int no_warning	: 1;
+  unsigned int visited		: 1;
+  unsigned int unused_1		: 1;
+  unsigned int unused_2		: 1;
+  unsigned int unused_3		: 1;
+  unsigned int unused_4		: 1;
+
+  /* Pass local flags.  These flags are free for any pass to use as
+     they see fit.  Passes should not assume that these flags contain
+     any useful value when the pass starts.  Any initial state that
+     the pass requires should be set on entry to the pass.  See
+     gimple_set_plf and gimple_plf for usage.  */
+  unsigned int plf		: 2;
+
   gimple next;
   gimple prev;
   struct basic_block_def *bb;
@@ -226,6 +239,7 @@ struct gimple_statement_with_ops GTY(())
 {
   struct gimple_statement_base gsbase;
   unsigned modified : 1;
+  bitmap addresses_taken;
 
   /* FIXME tuples.  OP should be amalgamated with DEF_OPS and USE_OPS.
      This duplication is unnecessary.  */
@@ -490,38 +504,6 @@ gimple_code (const_gimple g)
   return g->gsbase.code;
 }
 
-/* Return the set of flags for statement G.  */
-
-static inline unsigned int
-gimple_flags (const_gimple g)
-{
-  return g->gsbase.flags;
-}
-
-
-/* Set the flags for statement G to FLAGS.  */
-
-static inline void
-gimple_set_flags (gimple g, unsigned int flags)
-{
-  /* We only have 8 bits for flags.  Assert that we are not
-     overflowing them.  */
-  gcc_assert (flags < (1 << 8));
-  g->gsbase.flags = flags;
-}
-
-
-/* Add the flags set in FLAG to the set of flags for statement G.  */
-
-static inline void
-gimple_add_flag (gimple g, unsigned int flag)
-{
-  /* We only have 8 bits for flags.  Assert that we are not
-     overflowing them.  */
-  gcc_assert (flag < (1 << 8));
-  g->gsbase.flags |= flag;
-}
-
 
 /* Set SUBCODE to be the code of the expression computed by statement G.  */
 
@@ -643,7 +625,46 @@ gimple_has_mem_ops (const_gimple g)
 static inline bool
 gimple_no_warning_p (const_gimple stmt)
 {
-  return gimple_flags (stmt) & GF_NO_WARNING;
+  return stmt->gsbase.no_warning;
+}
+
+
+/* Set the visited status on statement STMT to VISITED_P.  */
+
+static inline void
+gimple_set_visited (gimple stmt, bool visited_p)
+{
+  stmt->gsbase.visited = (unsigned) visited_p;
+}
+
+
+/* Return the visited status for statement STMT.  */
+
+static inline bool
+gimple_visited_p (gimple stmt)
+{
+  return stmt->gsbase.visited;
+}
+
+
+/* Set pass local flag PLF on statement STMT to VAL_P.  */
+
+static inline void
+gimple_set_plf (gimple stmt, enum plf_mask plf, bool val_p)
+{
+  if (val_p)
+    stmt->gsbase.plf |= (unsigned int) plf;
+  else
+    stmt->gsbase.plf &= ~((unsigned int) plf);
+}
+
+
+/* Return the value of pass local flag PLF on statement STMT.  */
+
+static inline unsigned int
+gimple_plf (gimple stmt, enum plf_mask plf)
+{
+  return stmt->gsbase.plf & ((unsigned int) plf);
 }
 
 
@@ -779,18 +800,40 @@ gimple_set_modified (gimple g, bool modifiedp)
 }
 
 
+/* Return true if statement STMT contains volatile operands.  */
+
+static inline bool
+gimple_has_volatile_ops (gimple stmt)
+{
+  if (gimple_has_mem_ops (stmt))
+    return stmt->with_mem_ops.has_volatile_ops;
+  else
+    return false;
+}
+
+
+/* Set the HAS_VOLATILE_OPS flag to VOLATILEP.  */
+
+static inline void
+gimple_set_has_volatile_ops (gimple stmt, bool volatilep)
+{
+  if (gimple_has_mem_ops (stmt))
+    stmt->with_mem_ops.has_volatile_ops = (unsigned) volatilep;
+}
+
+
 /* Set the nowait flag on OMP_RETURN statement S.  */
 
 static inline void
 gimple_omp_return_set_nowait (gimple s)
 {
   GIMPLE_CHECK (s, OMP_RETURN);
-  gimple_set_subcode (s, GF_OMP_RETURN_NOWAIT);
+  s->gsbase.subcode |= GF_OMP_RETURN_NOWAIT;
 }
 
 
-/* Return true if statement G is a GIMPLE_OMP_RETURN and has the
-   GF_OMP_RETURN_NOWAIT flag set.  */
+/* Return true if OMP return statement G has the GF_OMP_RETURN_NOWAIT
+   flag set.  */
 
 static inline bool
 gimple_omp_return_nowait_p (const_gimple g)
@@ -800,8 +843,8 @@ gimple_omp_return_nowait_p (const_gimple g)
 }
 
 
-/* Return true if statement G is a GIMPLE_OMP_SECTION and has the
-   GF_OMP_SECTION_LAST flag set.  */
+/* Return true if OMP section statement G has the GF_OMP_SECTION_LAST
+   flag set.  */
 
 static inline bool
 gimple_omp_section_last_p (const_gimple g)
@@ -811,7 +854,7 @@ gimple_omp_section_last_p (const_gimple g)
 }
 
 
-/* Return true if statement G is a GIMPLE_OMP_PARALLEL and has the
+/* Return true if OMP parallel statement G has the
    GF_OMP_PARALLEL_COMBINED flag set.  */
 
 static inline bool
@@ -942,6 +985,42 @@ gimple_set_op (gimple gs, size_t i, tree op)
      accept slightly different sets of tree operands.  Each caller
      should perform its own validation.  */
   gs->with_ops.op[i] = op;
+}
+
+/* Return the set of symbols that have had their address taken by STMT.  */
+
+static inline bitmap
+gimple_addresses_taken (gimple stmt)
+{
+  gcc_assert (gimple_has_ops (stmt));
+  return stmt->with_ops.addresses_taken;
+}
+
+/* Set S to be the set of symbols that have had their address taken
+   by STMT.  If S is NULL or empty, the storage used by the bitmap is
+   freed up.  */
+
+static inline void
+gimple_set_addresses_taken (gimple stmt, bitmap s)
+{
+  gcc_assert (gimple_has_ops (stmt));
+  if (s == NULL || bitmap_empty_p (s))
+    BITMAP_FREE (stmt->with_ops.addresses_taken);
+  else
+    stmt->with_ops.addresses_taken = s;
+}
+
+/* Add symbol SYM to the set of symbols that have had their address taken
+   by STMT.  Allocate the ADDRESSES_TAKEN set if necessary.  */
+
+static inline void
+gimple_add_to_addresses_taken (gimple stmt, tree sym)
+{
+  gcc_assert (gimple_has_ops (stmt));
+  if (stmt->with_ops.addresses_taken == NULL)
+    stmt->with_ops.addresses_taken = BITMAP_GGC_ALLOC ();
+
+  bitmap_set_bit (stmt->with_ops.addresses_taken, DECL_UID (sym));
 }
 
 
@@ -1339,7 +1418,7 @@ gimple_cond_make_true (gimple gs)
 {
   gimple_set_subcode (gs, EQ_EXPR);
   gimple_cond_set_lhs (gs, boolean_true_node);
-  gimple_cond_set_lhs (gs, boolean_true_node);
+  gimple_cond_set_rhs (gs, boolean_true_node);
 }
 
 
@@ -1567,7 +1646,7 @@ static inline bool
 gimple_asm_volatile_p (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_ASM);
-  return gs->gsbase.subcode & GF_ASM_VOLATILE;
+  return gimple_subcode (gs) & GF_ASM_VOLATILE;
 }
 
 
@@ -1837,6 +1916,14 @@ gimple_phi_result (const_gimple gs)
   return gs->gimple_phi.result;
 }
 
+/* Return a pointer to the SSA name created by GIMPLE_PHI GS.  */
+
+static inline tree *
+gimple_phi_result_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_PHI);
+  return &gs->gimple_phi.result;
+}
 
 /* Set RESULT to be the SSA name created by GIMPLE_PHI GS.  */
 
@@ -1859,7 +1946,6 @@ gimple_phi_arg (gimple gs, size_t index)
   return &(gs->gimple_phi.args[index]);
 }
 
-
 /* Set PHIARG to be the argument corresponding to incoming edge INDEX
    for GIMPLE_PHI GS.  */
 
@@ -1870,7 +1956,6 @@ gimple_phi_set_arg (gimple gs, size_t index, struct phi_arg_d * phiarg)
   gcc_assert (index <= gs->gimple_phi.nargs);
   memcpy (gs->gimple_phi.args + index, phiarg, sizeof (struct phi_arg_d));
 }
-
 
 /* Return the region number for GIMPLE_RESX GS.  */
 
@@ -2589,6 +2674,33 @@ static inline gimple
 gsi_stmt (gimple_stmt_iterator *i)
 {
   return i->stmt;
+}
+
+
+/* Return a pointer to the current stmt.  */
+
+static inline gimple *
+gsi_stmt_ptr (gimple_stmt_iterator *i)
+{
+  return &i->stmt;
+}
+
+
+/* Return the basic block associated with this iterator.  */
+
+static inline basic_block
+gsi_bb (gimple_stmt_iterator *i)
+{
+  return i->bb;
+}
+
+
+/* Return the sequence associated with this iterator.  */
+
+static inline gimple_seq
+gsi_seq (gimple_stmt_iterator *i)
+{
+  return i->seq;
 }
 
 

@@ -872,8 +872,11 @@ is_cast_from_non_pointer (tree var, tree def_stmt, void *data)
   if (!def_stmt || !var)
     return false;
   
+  /* FIXME tuples.  */
+#if 0
   if (TREE_CODE (def_stmt) == PHI_NODE)
     return false;
+#endif
 
   if (SSA_NAME_IS_DEFAULT_DEF (var))
       return false;

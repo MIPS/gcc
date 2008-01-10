@@ -351,7 +351,7 @@ dump_dref (FILE *file, dref ref)
     }
   else
     {
-      if (TREE_CODE (ref->stmt) == PHI_NODE)
+      if (gimple_code (ref->stmt) == GIMPLE_PHI)
 	fprintf (file, "    looparound ref\n");
       else
 	fprintf (file, "    combination ref\n");
@@ -1219,12 +1219,12 @@ determine_roots (struct loop *loop,
    is in the lhs of STMT, false if it is in rhs.  */
 
 static void
-replace_ref_with (tree stmt, tree new, bool set, bool in_lhs)
+replace_ref_with (gimple stmt, tree new, bool set, bool in_lhs)
 {
   tree val, new_stmt;
   block_stmt_iterator bsi;
 
-  if (TREE_CODE (stmt) == PHI_NODE)
+  if (gimple_code (stmt) == GIMPLE_PHI)
     {
       gcc_assert (!in_lhs && !set);
 
@@ -1389,12 +1389,12 @@ get_init_expr (chain_p chain, unsigned index)
 /* Marks all virtual operands of statement STMT for renaming.  */
 
 void
-mark_virtual_ops_for_renaming (tree stmt)
+mark_virtual_ops_for_renaming (gimple stmt)
 {
   ssa_op_iter iter;
   tree var;
 
-  if (TREE_CODE (stmt) == PHI_NODE)
+  if (gimple_code (stmt) == GIMPLE_PI)
     {
       var = PHI_RESULT (stmt);
       if (is_gimple_reg (var))
@@ -1643,7 +1643,7 @@ single_nonlooparound_use (tree name)
     {
       stmt = USE_STMT (use);
 
-      if (TREE_CODE (stmt) == PHI_NODE)
+      if (gimple_code (stmt) == GIMPLE_PHI)
 	{
 	  /* Ignore uses in looparound phi nodes.  Uses in other phi nodes
 	     could not be processed anyway, so just fail for them.  */
@@ -1670,7 +1670,7 @@ remove_stmt (tree stmt)
 {
   tree next, name;
 
-  if (TREE_CODE (stmt) == PHI_NODE)
+  if (gimple_code (stmt) == GIMPLE_PHI)
     {
       name = PHI_RESULT (stmt);
       next = single_nonlooparound_use (name);
@@ -1808,7 +1808,7 @@ replace_phis_by_defined_names (VEC (chain_p, heap) *chains)
     for (j = 0; VEC_iterate (dref, chain->refs, j, a); j++)
       {
 	gcc_assert (TREE_CODE (a->stmt) != SSA_NAME);
-	if (TREE_CODE (a->stmt) == PHI_NODE)
+	if (gimple_code (a->stmt) == GIMPLE_PHI)
 	  a->stmt = PHI_RESULT (a->stmt);
       }
 }
@@ -1828,7 +1828,7 @@ replace_names_by_phis (VEC (chain_p, heap) *chains)
       if (TREE_CODE (a->stmt) == SSA_NAME)
 	{
 	  a->stmt = SSA_NAME_DEF_STMT (a->stmt);
-	  gcc_assert (TREE_CODE (a->stmt) == PHI_NODE);
+	  gcc_assert (gimple_code (a->stmt) == GIMPLE_PHI);
 	}
 }
 
@@ -1908,7 +1908,7 @@ base_names_in_chain_on (struct loop *loop, tree name, tree var)
       phi = NULL;
       FOR_EACH_IMM_USE_STMT (stmt, iter, name)
 	{
-	  if (TREE_CODE (stmt) == PHI_NODE
+	  if (gimple_code (stmt) == GIMPLE_PHI
 	      && flow_bb_inside_loop_p (loop, gimple_bb (stmt)))
 	    {
 	      phi = stmt;

@@ -274,7 +274,6 @@ is_gimple_stmt (tree t)
     case CHANGE_DYNAMIC_TYPE_EXPR:
     case ASM_EXPR:
     case RESX_EXPR:
-    case PHI_NODE:
     case STATEMENT_LIST:
     case OMP_PARALLEL:
     case OMP_FOR:

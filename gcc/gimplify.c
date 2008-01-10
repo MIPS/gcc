@@ -6352,7 +6352,6 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 		  && code != GOTO_EXPR
 		  && code != LABEL_EXPR
 		  && code != LOOP_EXPR
-		  && code != PHI_NODE
 		  && code != RESX_EXPR
 		  && code != SWITCH_EXPR
 		  && code != TRY_FINALLY_EXPR

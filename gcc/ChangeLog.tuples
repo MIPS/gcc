@@ -1,3 +1,110 @@
+2008-01-10  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00436.html
+
+	* tree-ssa-operands.h (PHI_RESULT_PTR): Call
+	gimple_phi_result_ptr.
+	(PHI_ARG_DEF_PTR): Call gimple_phi_arg_imm_use_ptr.
+	(free_ssa_operands): Remove.
+	(copy_virtual_operands, create_ssa_artificial_load_stmt,
+	add_to_addressable_set, discard_stmt_changes,
+	FOR_EACH_PHI_OR_STMT_USE, FOR_EACH_PHI_OR_STMT_DEF): Convert
+	to use 'gimple'.
+	* tree-into-ssa.c: Convert to use 'gimple'.
+	(rewrite_uses_p): New.  Use instead of REWRITE_THIS_STMT.
+	(set_rewrite_uses): New.  Use instead of REWRITE_THIS_STMT.
+	(register_defs_p): New.  Use instead of
+	REGISTER_DEFS_IN_THIS_STMT.
+	(set_register_defs): New.  Use instead of
+	REGISTER_DEFS_IN_THIS_STMT.
+	(REWRITE_THIS_STMT): Remove.
+	(REGISTER_DEFS_IN_THIS_STMT): Remove.
+	* tree-pretty-print.c (dump_vops): Remove.  Update all
+	users.
+	(dump_generic_node): Do not handle PHI_NODE.
+	* tree.c (tree_node_kind): Remove "phi_nodes" entry.
+	(tree_code_size): Do not handle PHI_NODE.
+	(tree_size): Likewise.
+	(make_node_stat): Likewise.
+	(tree_node_structure): Likewise.
+	(phi_node_elt_check_failed): Remove.
+	* tree.h (PHI_NODE_ELT_CHECK): Remove.
+	(PHI_RESULT_TREE): Remove.
+	(PHI_ARG_DEF_TREE): Remove.
+	(PHI_CHAIN): Remove.
+	(PHI_NUM_ARGS): Remove.
+	(PHI_ARG_CAPACITY): Remove.
+	(PHI_ARG_ELT): Remove.
+	(PHI_ARG_EDGE): Remove.
+	(PHI_BB): Remove.
+	(PHI_ARG_IMM_USE_NODE): Remove.
+	(struct tree_phi_node): Remove.
+	(union tree_node): Remove field 'phi'.
+	(release_phi_node): Change argument to gimple.
+	(duplicate_ssa_name): Change second argument to gimple.
+	(swap_tree_operands): Remove.
+	(enum tree_node_kind): Remove phi_kind entry.
+	* tree-phinodes.c: Convert to use gimple.
+	* tree-gimple.c (is_gimple_stmt): Do not handle PHI_NODE.
+	* cgraphunit.c (cgraph_process_new_functions): Call
+	gimple_unreachable to mark unconverted sections.
+	(verify_cgraph_node): Do not ICE if THIS_CFUN is NULL.
+	Convert statement verification to use gimple.
+	(cgraph_expand_function): Call gimple_unreachable to mark
+	unconverted sections.
+	* tree-ssa-propagate.c: Convert to use gimple.
+	(STMT_IN_SSA_EDGE_WORKLIST): Use flag GF_PLF_1 as marker.
+	(DONT_SIMULATE_AGAIN): Remove.  Use gimple_visited.
+	* gimple-dummy.c: Remove converted functions.
+	* tree-ssa-alias.c (may_be_aliased): Re-enable.
+	* tree-flow-inline.h (gimple_phi_arg_imm_use_ptr): Rename
+	from get_phi_arg_def_ptr.
+	(bsi_start, bsi_after_labels, bsi_last, bsi_end_p,
+	bsi_next, bsi_prev, bsi_stmt, bsi_stmt_ptr): Remove.
+	* tree.def (PHI_NODE): Remove.  Update most users.
+	* tree-dfa.c: Convert to use gimple.
+	* common.opt (fgimple-conversion): Default to 0.
+	* tree-ssa.c: Convert to use gimple.
+	* tree-optimize.c (pass_early_local_passes,
+	pass_all_early_optimization, pass_init_datastructures):
+	Enable.
+	* tree-flow.h (tree_ann_type): Remove STMT_ANN.  Update
+	all users.
+	(struct stmt_ann_d): Remove.  Update all users.
+	* Makefile.in (GIMPLE_H): Add tree-ssa-operands.h.
+	(tree-ssa-copy.o, tree-phi-nodes.o, tree-complex.o):
+	Re-enable.
+	* gimple.h (enum plf_mask): Define.
+	(GF_NO_WARNING): Remove
+	(bb_seq): Return NULL if BB->il.gimple is NULL.
+	(struct gimple_statement_base): Add bitfields no_warning,
+	visited, unused_1, unused_2, unused_3, unused_4 and plf.
+	(gimple_flags, gimple_set_flags, gimple_add_flag):
+	Remove.  Update all users.
+	(gimple_set_visited): New.
+	(gimple_visited_p): New.
+	(gimple_set_plf): New.
+	(gimple_plf): New.
+	(gimple_has_volatile_ops): New.
+	(gimple_set_has_volatile_ops): New.
+	(gimple_addresses_taken): New.
+	(gimple_set_addresses_taken): New.
+	(gimple_add_to_addresses_taken): New.
+	(gimple_phi_result_ptr): New.
+	(gsi_stmt_ptr): New.
+	(gsi_bb): New.
+	(gsi_seq): New.
+	* tree-cfg.c (execute_build_cfg): Do not call
+	gimple_set_body after building the CFG.
+	(pass_build_cfg): Do not require PROP_gimple_leh.
+	(gimplify_val): Convert to gimple.
+	* passes.c (init_optimization_passes): Disable all of
+	pass_all_early_optimizations.
+	* tree-ssanames.c: Convert to gimple.
+	* tree-ssa-operands.c: Convert to gimple.
+	(gimple_set_stored_syms): New.
+	(gimple_set_loaded_syms): New.
+
 2008-01-03  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline @131303

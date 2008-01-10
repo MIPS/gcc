@@ -762,17 +762,6 @@ enum tree_node_structure_enum {
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->vec.a[__i]; }))
 
-#define PHI_NODE_ELT_CHECK(T, I) __extension__				\
-(*({__typeof (T) const __t = (T);					\
-    const int __i = (I);						\
-    if (TREE_CODE (__t) != PHI_NODE)					\
-      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,  	\
-			 PHI_NODE, 0);					\
-    if (__i < 0 || __i >= __t->phi.capacity)				\
-      phi_node_elt_check_failed (__i, __t->phi.num_args,		\
-				 __FILE__, __LINE__, __FUNCTION__);	\
-    &__t->phi.a[__i]; }))
-
 #define OMP_CLAUSE_ELT_CHECK(T, I) __extension__			\
 (*({__typeof (T) const __t = (T);						\
     const int __i = (I);						\
@@ -912,7 +901,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
 #define GIMPLE_STMT_OPERAND_CHECK(T, I)		((T)->gstmt.operands[I])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
-#define PHI_NODE_ELT_CHECK(T, i)	((T)->phi.a[i])
 #define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->omp_clause.ops[i])
 #define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
@@ -953,7 +941,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (TREE_CODE_CLASS (TREE_CODE ((NODE))) == tcc_gimple_stmt)
 
 /* Nonzero if NODE is a GIMPLE tuple.  */
-#define GIMPLE_TUPLE_P(NODE) (GIMPLE_STMT_P (NODE) || TREE_CODE (NODE) == PHI_NODE)
+#define GIMPLE_TUPLE_P(NODE) GIMPLE_STMT_P (NODE)
 
 /* A GIMPLE tuple that has a ``locus'' field.  */
 #define GIMPLE_TUPLE_HAS_LOCUS_P(NODE) GIMPLE_STMT_P ((NODE))
@@ -979,8 +967,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* The TREE_CHAIN but it is able to handle tuples.  */
 #define GENERIC_NEXT(NODE)					\
-  (TREE_CODE (NODE) == PHI_NODE ? PHI_CHAIN (NODE) :		\
-     GIMPLE_STMT_P (NODE) ? NULL_TREE : TREE_CHAIN (NODE))
+  (GIMPLE_STMT_P (NODE) ? NULL_TREE : TREE_CHAIN (NODE))
 
 /* Given an expression as a tree, strip any NON_LVALUE_EXPRs and NOP_EXPRs
    that don't change the machine mode.  */
@@ -1910,51 +1897,12 @@ struct tree_ssa_name GTY(())
   struct ssa_use_operand_d imm_uses;
 };
 
-/* In a PHI_NODE node.  */
-
-/* These 2 macros should be considered off limits for use by developers.  If
-   you wish to access the use or def fields of a PHI_NODE in the SSA
-   optimizers, use the accessor macros found in tree-ssa-operands.h.
-   These two macros are to be used only by those accessor macros, and other
-   select places where we *absolutely* must take the address of the tree.  */
-
-#define PHI_RESULT_TREE(NODE)		PHI_NODE_CHECK (NODE)->phi.result
-#define PHI_ARG_DEF_TREE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).def
-
-/* PHI_NODEs for each basic block are chained together in a single linked
-   list.  The head of the list is linked from the block annotation, and
-   the link to the next PHI is in PHI_CHAIN.  */
-#define PHI_CHAIN(NODE)			PHI_NODE_CHECK (NODE)->phi.chain
-
-#define PHI_NUM_ARGS(NODE)		PHI_NODE_CHECK (NODE)->phi.num_args
-#define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
-#define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
-#define PHI_ARG_EDGE(NODE, I) 		(EDGE_PRED (PHI_BB ((NODE)), (I)))
-#define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
-#define PHI_ARG_IMM_USE_NODE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).imm_use
-
 struct phi_arg_d GTY(())
 {
   /* imm_use MUST be the first element in struct because we do some
      pointer arithmetic with it.  See phi_arg_index_from_use.  */
   struct ssa_use_operand_d imm_use;
   tree def;
-};
-
-struct tree_phi_node GTY(())
-{
-  struct tree_base common;
-  tree chain;
-  tree result;
-  int num_args;
-  int capacity;
-
-  /* Basic block holding this PHI node.  */
-  struct basic_block_def *bb;
-
-  /* Arguments of the PHI node.  These are maintained in the same
-     order as predecessor edge vector BB->PREDS.  */
-  struct phi_arg_d GTY ((length ("((tree)&%h)->phi.num_args"))) a[1];
 };
 
 
@@ -3438,7 +3386,6 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_vec GTY ((tag ("TS_VEC"))) vec;
   struct tree_exp GTY ((tag ("TS_EXP"))) exp;
   struct tree_ssa_name GTY ((tag ("TS_SSA_NAME"))) ssa_name;
-  struct tree_phi_node GTY ((tag ("TS_PHI_NODE"))) phi;
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
   struct tree_binfo GTY ((tag ("TS_BINFO"))) binfo;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
@@ -3844,8 +3791,8 @@ extern bool decl_assembler_name_equal (tree decl, tree asmname);
 extern size_t tree_size (const_tree);
 
 /* Compute the number of bytes occupied by a tree with code CODE.  This
-   function cannot be used for TREE_VEC or PHI_NODE codes, which are of
-   variable length.  */
+   function cannot be used for TREE_VEC codes, which are of variable
+   length.  */
 extern size_t tree_code_size (enum tree_code);
 
 /* Lowest level primitive for allocating a node.
@@ -3877,7 +3824,7 @@ extern tree make_tree_vec_stat (int MEM_STAT_DECL);
 
 extern void init_phinodes (void);
 extern void fini_phinodes (void);
-extern void release_phi_node (tree);
+extern void release_phi_node (gimple);
 #ifdef GATHER_STATISTICS
 extern void phinodes_print_statistics (void);
 #endif
@@ -3885,7 +3832,7 @@ extern void phinodes_print_statistics (void);
 extern void init_ssanames (void);
 extern void fini_ssanames (void);
 extern tree make_ssa_name (tree, gimple);
-extern tree duplicate_ssa_name (tree, tree);
+extern tree duplicate_ssa_name (tree, gimple);
 extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern void release_ssa_name (tree);
 extern void release_defs (gimple);
@@ -4816,7 +4763,6 @@ extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
 
 extern bool tree_swap_operands_p (const_tree, const_tree, bool);
-extern void swap_tree_operands (tree, tree *, tree *);
 extern enum tree_code swap_tree_comparison (enum tree_code);
 
 extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
@@ -5135,7 +5081,6 @@ typedef enum
   temp_list_kind,
   vec_kind,
   binfo_kind,
-  phi_kind,
   ssa_name_kind,
   constr_kind,
   x_kind,

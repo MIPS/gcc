@@ -3544,7 +3544,7 @@ debug_may_aliases_for (tree var)
 {
   dump_may_aliases_for (stderr, var);
 }
-
+#endif
 
 /* Return true if VAR may be aliased.  */
 
@@ -3583,6 +3583,8 @@ may_be_aliased (tree var)
   return true;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* The following is based on code in add_stmt_operand to ensure that the
    same defs/uses/vdefs/vuses will be found after replacing a reference
    to var (or ARRAY_REF to var) with an INDIRECT_REF to ptr whose value

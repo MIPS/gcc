@@ -184,8 +184,6 @@ may_propagate_copy (tree dest ATTRIBUTE_UNUSED, tree orig ATTRIBUTE_UNUSED)
 #endif
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Similarly, but we know that we're propagating into an ASM_EXPR.  */
 
 bool
@@ -203,8 +201,10 @@ may_propagate_copy_into_asm (tree dest)
    they both share the same memory tags.  */
 
 void
-merge_alias_info (tree orig_name, tree new_name)
+merge_alias_info (tree orig_name ATTRIBUTE_UNUSED, tree new_name ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree new_sym = SSA_NAME_VAR (new_name);
   tree orig_sym = SSA_NAME_VAR (orig_name);
   var_ann_t new_ann = var_ann (new_sym);
@@ -295,6 +295,9 @@ merge_alias_info (tree orig_name, tree new_name)
       struct ptr_info_def *new_ptr_info = get_ptr_info (new_name);
       memcpy (new_ptr_info, orig_ptr_info, sizeof (struct ptr_info_def));
     }
+#else
+  gimple_unreachable ();
+#endif
 }
 
 
@@ -304,9 +307,11 @@ merge_alias_info (tree orig_name, tree new_name)
    replacement is done to propagate a value or not.  */
 
 static void
-replace_exp_1 (use_operand_p op_p, tree val,
+replace_exp_1 (use_operand_p op_p ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED,
 	       bool for_propagation ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree op = USE_FROM_PTR (op_p);
 
 #if defined ENABLE_CHECKING
@@ -324,8 +329,10 @@ replace_exp_1 (use_operand_p op_p, tree val,
     }
   else
     SET_USE (op_p, unsave_expr_now (val));
-}
+#else
+  gimple_unreachable ();
 #endif
+}
 
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
@@ -335,14 +342,9 @@ replace_exp_1 (use_operand_p op_p, tree val,
    checks to ensure validity of the const/copy propagation.  */
 
 void
-propagate_value (use_operand_p op_p ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED)
+propagate_value (use_operand_p op_p, tree val)
 {
-  /* FIXME tuples.  */
-#if 0
   replace_exp_1 (op_p, val, true);
-#else
-  gimple_unreachable ();
-#endif
 }
 
 

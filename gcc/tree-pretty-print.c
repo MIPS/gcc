@@ -45,7 +45,6 @@ static void newline_and_indent (pretty_printer *, int);
 static void maybe_init_pretty_print (FILE *);
 static void print_struct_decl (pretty_printer *, const_tree, int, int);
 static void do_niy (pretty_printer *, const_tree);
-static void dump_vops (pretty_printer *, tree, int, int);
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)
@@ -424,17 +423,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     return spc;
 
   is_expr = EXPR_P (node) || GIMPLE_STMT_P (node);
-
-  /* We use has_stmt_ann because CALL_EXPR can be both an expression
-     and a statement, and we have no guarantee that it will have a
-     stmt_ann when it is used as an RHS expression.  stmt_ann will assert
-     if you call it on something with a non-stmt annotation attached.  */
-  if (TREE_CODE (node) != ERROR_MARK
-      && is_gimple_stmt (node)
-      && (flags & (TDF_VOPS|TDF_MEMSYMS))
-      && has_stmt_ann (node)
-      && TREE_CODE (node) != PHI_NODE)
-    dump_vops (buffer, node, spc, flags);
 
   if (is_stmt && (flags & TDF_STMTADDR))
     pp_printf (buffer, "<&%p> ", (void *)node);
@@ -1060,13 +1048,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       if (TREE_CODE (node) == GIMPLE_MODIFY_STMT
 	  && MOVE_NONTEMPORAL (node))
 	pp_string (buffer, "{nt}");
-      if (TREE_CODE (node) == GIMPLE_MODIFY_STMT)
-	{
-	stmt_ann_t ann;
-        if ((ann = stmt_ann (node))
-	    && ann->has_volatile_ops)
-	  pp_string (buffer, "{v}");
-        }
       pp_space (buffer);
       dump_generic_node (buffer, GENERIC_TREE_OPERAND (node, 1), spc, flags,
 	  		 false);
@@ -1684,33 +1665,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_character (buffer, '>');
       dump_generic_node (buffer, OBJ_TYPE_REF_TOKEN (node), spc, flags, false);
       pp_character (buffer, ')');
-      break;
-
-    case PHI_NODE:
-      {
-	int i;
-
-	dump_generic_node (buffer, PHI_RESULT (node), spc, flags, false);
-	pp_string (buffer, " = PHI <");
-	for (i = 0; i < PHI_NUM_ARGS (node); i++)
-	  {
-	    dump_generic_node (buffer, PHI_ARG_DEF (node, i), spc, flags, false);
-	    pp_string (buffer, "(");
-	    pp_decimal_int (buffer, PHI_ARG_EDGE (node, i)->src->index);
-	    pp_string (buffer, ")");
-	    if (i < PHI_NUM_ARGS (node) - 1)
-	      pp_string (buffer, ", ");
-	  }
-	pp_string (buffer, ">");
-
-	/* FIXME tuples.  */
-#if 0
-	if (stmt_references_memory_p (node) && (flags & TDF_MEMSYMS))
-	  dump_symbols (buffer, gimple_stored_syms (node), flags);
-#else
-	gimple_unreachable ();
-#endif
-      }
       break;
 
     case SSA_NAME:
@@ -2802,91 +2756,4 @@ newline_and_indent (pretty_printer *buffer, int spc)
 {
   pp_newline (buffer);
   INDENT (spc);
-}
-
-
-static void
-dump_vops (pretty_printer *buffer ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED, int spc ATTRIBUTE_UNUSED, int flags ATTRIBUTE_UNUSED)
-{
-  /* FIXME tuples.  */
-#if 0
-  struct voptype_d *vdefs;
-  struct voptype_d *vuses;
-  int i, n;
-
-  if (!ssa_operands_active () || !stmt_references_memory_p (stmt))
-    return;
-
-  /* Even if the statement doesn't have virtual operators yet, it may
-     contain symbol information (this happens before aliases have been
-     computed).  */
-  if ((flags & TDF_MEMSYMS)
-      && gimple_vuse_ops (stmt) == NULL
-      && gimple_vdef_ops (stmt) == NULL)
-    {
-      if (gimple_loaded_syms (stmt))
-	{
-	  pp_string (buffer, "# LOADS: ");
-	  dump_symbols (buffer, gimple_loaded_syms (stmt), flags);
-	  newline_and_indent (buffer, spc);
-	}
-
-      if (gimple_stored_syms (stmt))
-	{
-	  pp_string (buffer, "# STORES: ");
-	  dump_symbols (buffer, gimple_stored_syms (stmt), flags);
-	  newline_and_indent (buffer, spc);
-	}
-
-      return;
-    }
-
-  vuses = gimple_vuse_ops (stmt);
-  while (vuses)
-    {
-      pp_string (buffer, "# VUSE <");
-
-      n = VUSE_NUM (vuses);
-      for (i = 0; i < n; i++)
-	{
-	  dump_generic_node (buffer, VUSE_OP (vuses, i), spc + 2, flags, false);
-	  if (i < n - 1)
-	    pp_string (buffer, ", ");
-	}
-
-      pp_string (buffer, ">");
-
-      if (flags & TDF_MEMSYMS)
-	dump_symbols (buffer, gimple_loaded_syms (stmt), flags);
-
-      newline_and_indent (buffer, spc);
-      vuses = vuses->next;
-    }
-
-  vdefs = gimple_vdef_ops (stmt);
-  while (vdefs)
-    {
-      pp_string (buffer, "# ");
-      dump_generic_node (buffer, VDEF_RESULT (vdefs), spc + 2, flags, false);
-      pp_string (buffer, " = VDEF <");
-
-      n = VDEF_NUM (vdefs);
-      for (i = 0; i < n; i++)
-	{
-	  dump_generic_node (buffer, VDEF_OP (vdefs, i), spc + 2, flags, 0);
-	  if (i < n - 1)
-	    pp_string (buffer, ", ");
-	}
-
-      pp_string (buffer, ">");
-
-      if ((flags & TDF_MEMSYMS) && vdefs->next == NULL)
-	dump_symbols (buffer, gimple_stored_syms (stmt), flags);
-
-      newline_and_indent (buffer, spc);
-      vdefs = vdefs->next;
-    }
-#else
-  gimple_unreachable ();
-#endif
 }

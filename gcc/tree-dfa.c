@@ -1,5 +1,5 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -51,13 +51,12 @@ along with GCC; see the file COPYING3.  If not see
 /* Counters used to display DFA and SSA statistics.  */
 struct dfa_stats_d
 {
-  long num_stmt_anns;
   long num_var_anns;
   long num_defs;
   long num_uses;
   long num_phis;
   long num_phi_args;
-  int max_num_phi_args;
+  size_t max_num_phi_args;
   long num_vdefs;
   long num_vuses;
 };
@@ -65,10 +64,6 @@ struct dfa_stats_d
 
 /* Local functions.  */
 static void collect_dfa_stats (struct dfa_stats_d *);
-/* FIXME tuples.  */
-#if 0
-static tree collect_dfa_stats_r (tree *, int *, void *);
-#endif
 static tree find_vars_r (tree *, int *, void *);
 
 
@@ -86,22 +81,19 @@ static tree find_vars_r (tree *, int *, void *);
 static unsigned int
 find_referenced_vars (void)
 {
-  /* FIXME tuples.  */
-#if 0
   basic_block bb;
   gimple_stmt_iterator *si;
 
   FOR_EACH_BB (bb)
-    for (si = gsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+    for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (si))
       {
-	tree *stmt_p = bsi_stmt_ptr (si);
-	walk_tree (stmt_p, find_vars_r, NULL, NULL);
+	size_t i;
+	gimple stmt = gsi_stmt (si);
+	for (i = 0; i < gimple_num_ops (stmt); i++)
+	  walk_tree (gimple_op_ptr (stmt, i), find_vars_r, NULL, NULL);
       }
 
   return 0;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 struct tree_opt_pass pass_referenced_vars =
@@ -113,13 +105,13 @@ struct tree_opt_pass pass_referenced_vars =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_FIND_REFERENCED_VARS,		/* tv_id */
-  PROP_gimple_leh | PROP_cfg,		/* properties_required */
+  PROP_cfg,	/* FIXME tuples PROP_gimple_leh | PROP_cfg, */		/* properties_required */
   PROP_referenced_vars,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0				        /* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };
 
 
@@ -184,28 +176,6 @@ create_function_ann (tree t)
   return ann;
 }
 
-/* Create a new annotation for a statement node T.  */
-
-stmt_ann_t
-create_stmt_ann (tree t)
-{
-  stmt_ann_t ann;
-
-  gcc_assert (is_gimple_stmt (t));
-  gcc_assert (!t->base.ann || t->base.ann->common.type == STMT_ANN);
-
-  ann = GGC_CNEW (struct stmt_ann_d);
-
-  ann->common.type = STMT_ANN;
-
-  /* Since we just created the annotation, mark the statement modified.  */
-  ann->modified = true;
-
-  t->base.ann = (tree_ann_t) ann;
-
-  return ann;
-}
-
 /* Create a new annotation for a tree T.  */
 
 tree_ann_common_t
@@ -238,12 +208,7 @@ make_rename_temp (tree type, const char *prefix)
   if (gimple_referenced_vars (cfun))
     {
       add_referenced_var (t);
-      /* FIXME tuples */
-#if 0
       mark_sym_for_renaming (t);
-#else
-      gimple_unreachable ();
-#endif
     }
 
   return t;
@@ -367,6 +332,8 @@ dump_variable (FILE *file, tree var)
   /* FIXME tuples.  */
 #if 0
   dump_mem_sym_stats_for_var (file, var);
+#else
+  gimple_unreachable ();
 #endif
 
   if (is_call_clobbered (var))
@@ -490,11 +457,6 @@ dump_dfa_stats (FILE *file)
   fprintf (file, fmt_str_1, "Referenced variables", (unsigned long)num_referenced_vars,
 	   SCALE (size), LABEL (size));
 
-  size = dfa_stats.num_stmt_anns * sizeof (struct stmt_ann_d);
-  total += size;
-  fprintf (file, fmt_str_1, "Statements annotated", dfa_stats.num_stmt_anns,
-	   SCALE (size), LABEL (size));
-
   size = dfa_stats.num_var_anns * sizeof (struct var_ann_d);
   total += size;
   fprintf (file, fmt_str_1, "Variables annotated", dfa_stats.num_var_anns,
@@ -520,7 +482,7 @@ dump_dfa_stats (FILE *file)
   fprintf (file, fmt_str_1, "VDEF operands", dfa_stats.num_vdefs,
 	   SCALE (size), LABEL (size));
 
-  size = dfa_stats.num_phis * sizeof (struct tree_phi_node);
+  size = dfa_stats.num_phis * sizeof (struct gimple_statement_phi);
   total += size;
   fprintf (file, fmt_str_1, "PHI nodes", dfa_stats.num_phis,
 	   SCALE (size), LABEL (size));
@@ -560,82 +522,43 @@ debug_dfa_stats (void)
 static void
 collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples */
-#if 0
-  struct pointer_set_t *pset;
   basic_block bb;
-  block_stmt_iterator i;
+  referenced_var_iterator vi;
+  tree var;
 
   gcc_assert (dfa_stats_p);
 
   memset ((void *)dfa_stats_p, 0, sizeof (struct dfa_stats_d));
 
-  /* Walk all the trees in the function counting references.  Start at
-     basic block NUM_FIXED_BLOCKS, but don't stop at block boundaries.  */
-  pset = pointer_set_create ();
+  /* Count all the variable annotations.  */
+  FOR_EACH_REFERENCED_VAR (var, vi)
+    if (var_ann (var))
+      dfa_stats_p->num_var_anns++;
 
-  for (i = bsi_start (BASIC_BLOCK (NUM_FIXED_BLOCKS));
-       !bsi_end_p (i); bsi_next (&i))
-    walk_tree (bsi_stmt_ptr (i), collect_dfa_stats_r, (void *) dfa_stats_p,
-	       pset);
-
-  pointer_set_destroy (pset);
-
+  /* Walk all the statements in the function counting references.  */
   FOR_EACH_BB (bb)
     {
-      tree phi;
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+      gimple_stmt_iterator *si;
+
+      for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (si))
 	{
+	  gimple phi = gsi_stmt (si);
 	  dfa_stats_p->num_phis++;
-	  dfa_stats_p->num_phi_args += PHI_NUM_ARGS (phi);
-	  if (PHI_NUM_ARGS (phi) > dfa_stats_p->max_num_phi_args)
-	    dfa_stats_p->max_num_phi_args = PHI_NUM_ARGS (phi);
+	  dfa_stats_p->num_phi_args += gimple_phi_num_args (phi);
+	  if (gimple_phi_num_args (phi) > dfa_stats_p->max_num_phi_args)
+	    dfa_stats_p->max_num_phi_args = gimple_phi_num_args (phi);
 	}
-    }
-#else
-  memset (dfa_stats_p, 0, sizeof (*dfa_stats_p));
-  gimple_unreachable ();
-#endif
-}
 
-
-/* FIXME tuples */
-#if 0
-/* Callback for walk_tree to collect DFA statistics for a tree and its
-   children.  */
-
-static tree
-collect_dfa_stats_r (tree *tp, int *walk_subtrees, void *data)
-{
-  tree t = *tp;
-  struct dfa_stats_d *dfa_stats_p = (struct dfa_stats_d *)data;
-
-  if (t->base.ann)
-    {
-      switch (ann_type (t->base.ann))
+      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (si))
 	{
-	case STMT_ANN:
-	  {
-	    dfa_stats_p->num_stmt_anns++;
-	    dfa_stats_p->num_defs += NUM_SSA_OPERANDS (t, SSA_OP_DEF);
-	    dfa_stats_p->num_uses += NUM_SSA_OPERANDS (t, SSA_OP_USE);
-	    dfa_stats_p->num_vdefs += NUM_SSA_OPERANDS (t, SSA_OP_VDEF);
-	    dfa_stats_p->num_vuses += NUM_SSA_OPERANDS (t, SSA_OP_VUSE);
-	    break;
-	  }
-
-	case VAR_ANN:
-	  dfa_stats_p->num_var_anns++;
-	  break;
-
-	default:
-	  break;
+	  gimple stmt = gsi_stmt (si);
+	  dfa_stats_p->num_defs += NUM_SSA_OPERANDS (stmt, SSA_OP_DEF);
+	  dfa_stats_p->num_uses += NUM_SSA_OPERANDS (stmt, SSA_OP_USE);
+	  dfa_stats_p->num_vdefs += NUM_SSA_OPERANDS (stmt, SSA_OP_VDEF);
+	  dfa_stats_p->num_vuses += NUM_SSA_OPERANDS (stmt, SSA_OP_VUSE);
 	}
     }
-
-  return NULL;
 }
-#endif
 
 
 /*---------------------------------------------------------------------------
@@ -846,8 +769,6 @@ get_virtual_var (tree var)
 void
 mark_symbols_for_renaming (gimple stmt ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples  */
-#if 0
   tree op;
   ssa_op_iter iter;
 
@@ -857,9 +778,6 @@ mark_symbols_for_renaming (gimple stmt ATTRIBUTE_UNUSED)
   FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_OPERANDS)
     if (DECL_P (op))
       mark_sym_for_renaming (op);
-#else
-  gimple_unreachable ();
-#endif
 }
 
 
@@ -875,12 +793,7 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
   if (TREE_CODE (t) == VAR_DECL && !var_ann (t))
     {
       add_referenced_var (t);
-      /* FIXME tuples */
-#if 0
       mark_sym_for_renaming (t);
-#else
-      gimple_unreachable ();
-#endif
     }
 
   if (IS_TYPE_OR_DECL_P (t))

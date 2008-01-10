@@ -519,44 +519,35 @@ init_optimization_passes (void)
       NEXT_PASS (pass_cleanup_cfg);
       NEXT_PASS (pass_init_datastructures);
       NEXT_PASS (pass_expand_omp);
+/* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_all_early_optimizations);
 	{
 	  struct tree_opt_pass **p = &pass_all_early_optimizations.sub;
 	  NEXT_PASS (pass_referenced_vars);
 	  NEXT_PASS (pass_reset_cc_flags);
 	  NEXT_PASS (pass_build_ssa);
-	  /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_expand_omp_ssa);
 	  NEXT_PASS (pass_early_warn_uninitialized);
-#endif
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
 	  NEXT_PASS (pass_cleanup_cfg);
-	  /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
 	  NEXT_PASS (pass_update_address_taken);
 	  NEXT_PASS (pass_simple_dse);
-#endif
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
-	  /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_dce);
 	  NEXT_PASS (pass_update_address_taken);
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_tail_recursion);
-#endif
           NEXT_PASS (pass_profile);
-	  /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_release_ssa_names);
-#endif
 	}
+#endif
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
     }

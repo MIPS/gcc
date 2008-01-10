@@ -241,38 +241,6 @@ get_function_ann (tree var)
   return (ann) ? ann : create_function_ann (var);
 }
 
-/* Return true if T has a statement annotation attached to it.  */
-
-static inline bool
-has_stmt_ann (tree t)
-{
-#ifdef ENABLE_CHECKING
-  gcc_assert (is_gimple_stmt (t));
-#endif
-  return t->base.ann && t->base.ann->common.type == STMT_ANN;
-}
-
-/* Return the statement annotation for T, which must be a statement
-   node.  Return NULL if the statement annotation doesn't exist.  */
-static inline stmt_ann_t
-stmt_ann (tree t)
-{
-#ifdef ENABLE_CHECKING
-  gcc_assert (is_gimple_stmt (t));
-#endif
-  gcc_assert (!t->base.ann || t->base.ann->common.type == STMT_ANN);
-  return (stmt_ann_t) t->base.ann;
-}
-
-/* Return the statement annotation for T, which must be a statement
-   node.  Create the statement annotation if it doesn't exist.  */
-static inline stmt_ann_t
-get_stmt_ann (tree stmt)
-{
-  stmt_ann_t ann = stmt_ann (stmt);
-  return (ann) ? ann : create_stmt_ann (stmt);
-}
-
 /* Return the annotation type for annotation ANN.  */
 static inline enum tree_ann_type
 ann_type (tree_ann_t ann)
@@ -559,38 +527,29 @@ num_imm_uses (const_tree var)
   return num;
 }
 
-/* Return the tree pointer to by USE.  */ 
+/* Return the tree pointed-to by USE.  */ 
 static inline tree
 get_use_from_ptr (use_operand_p use)
 { 
   return *(use->use);
 } 
 
-/* Return the tree pointer to by DEF.  */
+/* Return the tree pointed-to by DEF.  */
 static inline tree
 get_def_from_ptr (def_operand_p def)
 {
   return *def;
 }
 
-/* Return a def_operand_p pointer for the result of PHI.  */
-static inline def_operand_p
-get_phi_result_ptr (tree phi)
-{
-  return &(PHI_RESULT_TREE (phi));
-}
+/* Return a use_operand_p pointer for argument I of PHI node GS.  */
 
-/* Return a use_operand_p pointer for argument I of phinode PHI.  */
 static inline use_operand_p
-get_phi_arg_def_ptr (tree phi, int i)
+gimple_phi_arg_imm_use_ptr (gimple gs, int i)
 {
-  return &(PHI_ARG_IMM_USE_NODE (phi,i));
+  return &gimple_phi_arg (gs, i)->imm_use;
 }
 
-
-/* Convenience functions for GIMPLE_PHI.  */
-
-/* Convenience function analogous to PHI_ARG_DEF.  */
+/* Return the tree operand for argument I of PHI node GS.  */
 
 static inline tree
 gimple_phi_arg_def (gimple gs, size_t index)
@@ -599,22 +558,20 @@ gimple_phi_arg_def (gimple gs, size_t index)
   return get_use_from_ptr (&pd->imm_use);
 }
 
-/* Convenience function analogous to PHI_ARG_EDGE.  */
+/* Return a pointer to the tree operand for argument I of PHI node GS.  */
+
+static inline tree *
+gimple_phi_arg_def_ptr (gimple gs, size_t index)
+{
+  return &gimple_phi_arg (gs, index)->def;
+}
+
+/* Return the edge associated with argument I of phi node GS.  */
 
 static inline edge
 gimple_phi_arg_edge (gimple gs, size_t i)
 {
   return EDGE_PRED (gimple_bb (gs), i);
-}
-
-
-/* Return the bitmap of addresses taken by STMT, or NULL if it takes
-   no addresses.  */
-static inline bitmap
-addresses_taken (tree stmt)
-{
-  stmt_ann_t ann = stmt_ann (stmt);
-  return ann ? ann->addresses_taken : NULL;
 }
 
 /* Return the PHI nodes for basic block BB, or NULL if there are no
@@ -709,93 +666,6 @@ phi_ssa_name_p (const_tree t)
   return false;
 }
 
-/*  -----------------------------------------------------------------------  */
-
-/* FIXME tuples.  bsi_* deprecated in favour of gsi_*  */
-#if 0
-/* Return a block_stmt_iterator that points to beginning of basic
-   block BB.  */
-static inline block_stmt_iterator
-bsi_start (basic_block bb)
-{
-  block_stmt_iterator bsi;
-  if (bb->index < NUM_FIXED_BLOCKS)
-    bsi.gsi = NULL;
-  else
-    bsi.gsi = gsi_start_bb (bb);
-  bsi.bb = bb;
-  return bsi;
-}
-
-/* Return a block statement iterator that points to the first non-label
-   statement in block BB.  */
-
-static inline block_stmt_iterator
-bsi_after_labels (basic_block bb)
-{
-  block_stmt_iterator bsi = bsi_start (bb);
-
-  while (!bsi_end_p (bsi) && gimple_code (bsi_stmt (bsi)) == GIMPLE_LABEL)
-    bsi_next (&bsi);
-
-  return bsi;
-}
-
-/* Return a block statement iterator that points to the end of basic
-   block BB.  */
-static inline block_stmt_iterator
-bsi_last (basic_block bb)
-{
-  block_stmt_iterator bsi;
-
-  if (bb->index < NUM_FIXED_BLOCKS)
-    bsi.gsi = NULL;
-  else
-    bsi.gsi = gsi_last (bb_seq (bb));
-  bsi.bb = bb;
-  return bsi;
-}
-
-/* Return true if block statement iterator I has reached the end of
-   the basic block.  */
-static inline bool
-bsi_end_p (block_stmt_iterator i)
-{
-  return gsi_end_p (i.gsi);
-}
-
-/* Modify block statement iterator I so that it is at the next
-   statement in the basic block.  */
-static inline void
-bsi_next (block_stmt_iterator *i)
-{
-  gsi_next (i->gsi);
-}
-
-/* Modify block statement iterator I so that it is at the previous
-   statement in the basic block.  */
-static inline void
-bsi_prev (block_stmt_iterator *i)
-{
-  gsi_prev (i->gsi);
-}
-
-/* Return the statement that block statement iterator I is currently
-   at.  */
-static inline gimple
-bsi_stmt (block_stmt_iterator i)
-{
-  return gsi_stmt (i.gsi);
-}
-
-/* Return a pointer to the statement that block statement iterator I
-   is currently at.  */
-static inline tree *
-bsi_stmt_ptr (block_stmt_iterator i ATTRIBUTE_UNUSED)
-{
-  return tsi_stmt_ptr (i.tsi);
-}
-#endif
 
 /* Returns the loop of the statement STMT.  */
 
@@ -1297,7 +1167,7 @@ compare_ssa_operands_equal (gimple stmt1, gimple stmt2, int flags)
 /* If there is a single DEF in the PHI node which matches FLAG, return it.
    Otherwise return NULL_DEF_OPERAND_P.  */
 static inline tree
-single_phi_def (tree stmt, int flags)
+single_phi_def (gimple stmt, int flags)
 {
   tree def = PHI_RESULT (stmt);
   if ((flags & SSA_OP_DEF) && is_gimple_reg (def)) 
@@ -1339,7 +1209,7 @@ op_iter_init_phiuse (ssa_op_iter *ptr, gimple phi, int flags)
 /* Start an iterator for a PHI definition.  */
 
 static inline def_operand_p
-op_iter_init_phidef (ssa_op_iter *ptr, tree phi, int flags)
+op_iter_init_phidef (ssa_op_iter *ptr, gimple phi, int flags)
 {
   tree phi_def = PHI_RESULT (phi);
   int comp;

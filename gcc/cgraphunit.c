@@ -466,7 +466,7 @@ cgraph_process_new_functions (void)
 	  node->local.self_insns = estimate_num_insns (fndecl,
 						       &eni_inlining_weights);
 #else
-	  gcc_unreachable ();
+	  gimple_unreachable ();
 #endif
 	  node->local.disregard_inline_limits
 	    |= DECL_DISREGARD_INLINE_LIMITS (fndecl);
@@ -747,6 +747,11 @@ verify_cgraph_node (struct cgraph_node *node)
       && !TREE_ASM_WRITTEN (node->decl)
       && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
     {
+      /* FIXME tuples.  Do not merge test for THIS_CFUN, it should
+	 always exist and be non-NULL.  */
+      if (this_cfun == NULL)
+	goto tuples_hack;
+
       if (this_cfun->cfg)
 	{
 	  /* The nodes we're interested in are never shared, so walk
@@ -758,12 +763,10 @@ verify_cgraph_node (struct cgraph_node *node)
 	    for (gsi = gsi_start_bb (this_block); !gsi_end_p (gsi);
 		 gsi_next (gsi))
 	      {
-		/* FIXME tuples.  */
-#if 0
-		tree stmt = gsi_stmt (gsi);
-		tree call = get_call_expr_in (stmt);
+		gimple stmt = gsi_stmt (gsi);
 		tree decl;
-		if (call && (decl = get_callee_fndecl (call)))
+		if (gimple_code (stmt) == GIMPLE_CALL
+		    && (decl = gimple_call_fndecl (stmt)))
 		  {
 		    struct cgraph_edge *e = cgraph_edge (node, stmt);
 		    if (e)
@@ -771,7 +774,7 @@ verify_cgraph_node (struct cgraph_node *node)
 			if (e->aux)
 			  {
 			    error ("shared call_stmt:");
-			    debug_generic_stmt (stmt);
+			    debug_gimple_stmt (stmt);
 			    error_found = true;
 			  }
 			if (e->callee->decl != cgraph_node (decl)->decl
@@ -787,13 +790,10 @@ verify_cgraph_node (struct cgraph_node *node)
 		    else
 		      {
 			error ("missing callgraph edge for call stmt:");
-			debug_generic_stmt (stmt);
+			debug_gimple_stmt (stmt);
 			error_found = true;
 		      }
 		  }
-#else
-		gcc_unreachable ();
-#endif
 	      }
 	  pointer_set_destroy (visited_nodes);
 	}
@@ -801,6 +801,8 @@ verify_cgraph_node (struct cgraph_node *node)
 	/* No CFG available?!  */
 	gcc_unreachable ();
 
+      /* FIXME tuples.  Remove.  */
+tuples_hack:
       for (e = node->callees; e; e = e->next_callee)
 	{
 	  if (!e->aux)
@@ -1164,11 +1166,13 @@ cgraph_expand_function (struct cgraph_node *node)
     lang_hooks.callgraph.emit_associated_thunks (decl);
   tree_rest_of_compilation (decl);
 
-  /* FIXME tuples.  Remove once RTL code is being emitted.  */
-#if 0
   /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
+  /* FIXME tuples.  */
+#if 0
   gcc_assert (TREE_ASM_WRITTEN (node->decl));
+#else
+  gimple_unreachable ();
 #endif
   current_function_decl = NULL;
   if (!cgraph_preserve_function_body_p (node->decl))

@@ -875,14 +875,6 @@ DEFTREECODE (ASM_EXPR, "asm_expr", tcc_statement, 4)
    nodes to implement SSA versioning.  */
 DEFTREECODE (SSA_NAME, "ssa_name", tcc_exceptional, 0)
 
-/* SSA PHI operator.  PHI_RESULT is the new SSA_NAME node created by
-   the PHI node.  PHI_ARG_LENGTH is the number of arguments.
-   PHI_ARG_ELT returns the Ith tuple <ssa_name, edge> from the
-   argument list.  Each tuple contains the incoming reaching
-   definition (SSA_NAME node) and the edge via which that definition
-   is coming through.  */
-DEFTREECODE (PHI_NODE, "phi_node", tcc_exceptional, 0)
-
 /* Used to represent a typed exception handler.  CATCH_TYPES is the type (or
    list of types) handled, and CATCH_BODY is the code for the handler.  */
 DEFTREECODE (CATCH_EXPR, "catch_expr", tcc_statement, 2)

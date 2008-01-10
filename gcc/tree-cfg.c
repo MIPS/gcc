@@ -211,7 +211,6 @@ static unsigned int
 execute_build_cfg (void)
 {
   build_gimple_cfg (gimple_body (current_function_decl));
-  gimple_set_body (current_function_decl, NULL);
   return 0;
 }
 
@@ -224,7 +223,7 @@ struct tree_opt_pass pass_build_cfg =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CFG,				/* tv_id */
-  0, /* FIXME tuples PROP_gimple_leh, *//* properties_required */
+  /* FIXME tuples PROP_gimple_leh */0, 			/* properties_required */
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
@@ -6765,31 +6764,30 @@ struct tree_opt_pass pass_split_crit_edges =
    EXP before the current statement in GSI.  */
 
 tree
-gimplify_val (gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED, tree type ATTRIBUTE_UNUSED, tree exp ATTRIBUTE_UNUSED)
+gimplify_val (gimple_stmt_iterator *gsi, tree type, tree exp)
 {
-  /* FIXME tuples  */
-#if 0
-  tree t, new_stmt, orig_stmt;
+  tree t;
+  gimple new_stmt, orig_stmt;
 
   if (is_gimple_val (exp))
     return exp;
 
-  t = make_rename_temp (type, NULL);
-  new_stmt = build_gimple_modify_stmt (t, exp);
+  gcc_assert (is_gimple_formal_tmp_rhs (exp));
 
-  orig_stmt = gsi_stmt (*gsi);
-  SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));
-  TREE_BLOCK (new_stmt) = TREE_BLOCK (orig_stmt);
+  t = make_rename_temp (type, NULL);
+  new_stmt = gimple_build_assign (t, exp);
+
+  orig_stmt = gsi_stmt (gsi);
+  gimple_set_locus (new_stmt, gimple_locus (orig_stmt));
+  gimple_set_block (new_stmt, gimple_block (orig_stmt));
 
   gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
   if (gimple_in_ssa_p (cfun))
     mark_symbols_for_renaming (new_stmt);
 
   return t;
-#else
-  gimple_unreachable ();
-#endif
 }
+
 
 /* Build a ternary operation and gimplify it.  Emit code before GSI.
    Return the gimple_val holding the result.  */

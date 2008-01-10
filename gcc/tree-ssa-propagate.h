@@ -22,10 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef _TREE_SSA_PROPAGATE_H
 #define _TREE_SSA_PROPAGATE_H 1
 
-/* Use the TREE_VISITED bitflag to mark statements and PHI nodes that
-   have been deemed varying and should not be simulated again.  */
-#define DONT_SIMULATE_AGAIN(T)	TREE_VISITED (T)
-
 /* Lattice values used for propagation purposes.  Specific instances
    of a propagation engine must return these values from the statement
    and PHI visit functions to direct the engine.  */
@@ -106,20 +102,20 @@ typedef struct value_range_d value_range_t;
 
 
 /* Call-back functions used by the value propagation engine.  */
-typedef enum ssa_prop_result (*ssa_prop_visit_stmt_fn) (tree, edge *, tree *);
-typedef enum ssa_prop_result (*ssa_prop_visit_phi_fn) (tree);
+typedef enum ssa_prop_result (*ssa_prop_visit_stmt_fn) (gimple, edge *, tree *);
+typedef enum ssa_prop_result (*ssa_prop_visit_phi_fn) (gimple);
 
 
 /* In tree-ssa-propagate.c  */
 void ssa_propagate (ssa_prop_visit_stmt_fn, ssa_prop_visit_phi_fn);
-tree get_rhs (tree);
-bool valid_gimple_expression_p (tree expr);
-bool set_rhs (tree *, tree);
-tree first_vdef (tree);
-bool stmt_makes_single_load (tree);
-bool stmt_makes_single_store (tree);
-prop_value_t *get_value_loaded_by (tree, prop_value_t *);
-bool replace_uses_in (tree, bool *, prop_value_t *);
+tree get_rhs (gimple);				/* FIXME tuples.  Depecrate.  */
+bool valid_gimple_expression_p (tree expr);	/* FIXME tuples.  Depecrate.  */
+bool set_rhs (gimple *, tree);			/* FIXME tuples.  Depecrate.  */
+tree first_vdef (gimple);
+bool stmt_makes_single_load (gimple);
+bool stmt_makes_single_store (gimple);
+prop_value_t *get_value_loaded_by (gimple, prop_value_t *);
+bool replace_uses_in (gimple, bool *, prop_value_t *);
 bool substitute_and_fold (prop_value_t *, bool);
 
 #endif /* _TREE_SSA_PROPAGATE_H  */

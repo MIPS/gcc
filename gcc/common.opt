@@ -502,7 +502,7 @@ Common Report Var(flag_function_sections)
 Place each function into its own section
 
 fgimple-conversion=
-Common Report Var(flag_gimple_conversion) Init(1) Optimization
+Common Report Var(flag_gimple_conversion) Init(0) Optimization
 If set to 1 give a warning when executing unconverted code.  If set to 2, emit an error when executing unconverted code
 
 fgcse

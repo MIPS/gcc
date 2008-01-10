@@ -179,11 +179,11 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define VDEF_NUM(OP)		VUSE_VECT_NUM_ELEM ((OP)->usev)
 #define VDEF_VECT(OP)		&((OP)->usev)
 
-#define PHI_RESULT_PTR(PHI)	get_phi_result_ptr (PHI)
+#define PHI_RESULT_PTR(PHI)	gimple_phi_result_ptr (PHI)
 #define PHI_RESULT(PHI)		DEF_FROM_PTR (PHI_RESULT_PTR (PHI))
 #define SET_PHI_RESULT(PHI, V)	SET_DEF (PHI_RESULT_PTR (PHI), (V))
 
-#define PHI_ARG_DEF_PTR(PHI, I)	get_phi_arg_def_ptr ((PHI), (I))
+#define PHI_ARG_DEF_PTR(PHI, I)	gimple_phi_arg_imm_use_ptr ((PHI), (I))
 #define PHI_ARG_DEF(PHI, I)	USE_FROM_PTR (PHI_ARG_DEF_PTR ((PHI), (I)))
 #define SET_PHI_ARG_DEF(PHI, I, V)					\
 				SET_USE (PHI_ARG_DEF_PTR ((PHI), (I)), (V))
@@ -196,13 +196,12 @@ typedef struct stmt_operands_d *stmt_operands_p;
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
-extern void free_ssa_operands (stmt_operands_p);
 extern void update_stmt_operands (gimple);
-extern void free_stmt_operands (tree);
+extern void free_stmt_operands (gimple);
 extern bool verify_imm_links (FILE *f, tree var);
 
-extern void copy_virtual_operands (tree, tree);
-extern void create_ssa_artificial_load_stmt (tree, tree, bool);
+extern void copy_virtual_operands (gimple, gimple);
+extern void create_ssa_artificial_load_stmt (gimple, gimple, bool);
 
 extern void dump_immediate_uses (FILE *file);
 extern void dump_immediate_uses_for (FILE *file, tree var);
@@ -213,10 +212,10 @@ extern void debug_decl_set (bitmap);
 
 extern bool ssa_operands_active (void);
 
-extern void add_to_addressable_set (tree, bitmap *);
+extern void add_to_addressable_set (gimple, tree);
 extern void push_stmt_changes (gimple *);
 extern void pop_stmt_changes (gimple *);
-extern void discard_stmt_changes (tree *);
+extern void discard_stmt_changes (gimple *);
 
 enum ssa_op_iter_type {
   ssa_op_iter_none = 0,
@@ -307,7 +306,7 @@ typedef struct ssa_operand_iterator_d
 /* This macro will execute a loop over a stmt, regardless of whether it is
    a real stmt or a PHI node, looking at the USE nodes matching FLAGS.  */
 #define FOR_EACH_PHI_OR_STMT_USE(USEVAR, STMT, ITER, FLAGS)	\
-  for ((USEVAR) = (TREE_CODE (STMT) == PHI_NODE 		\
+  for ((USEVAR) = (gimple_code (STMT) == GIMPLE_PHI 		\
 		   ? op_iter_init_phiuse (&(ITER), STMT, FLAGS)	\
 		   : op_iter_init_use (&(ITER), STMT, FLAGS));	\
        !op_iter_done (&(ITER));					\
@@ -316,7 +315,7 @@ typedef struct ssa_operand_iterator_d
 /* This macro will execute a loop over a stmt, regardless of whether it is
    a real stmt or a PHI node, looking at the DEF nodes matching FLAGS.  */
 #define FOR_EACH_PHI_OR_STMT_DEF(DEFVAR, STMT, ITER, FLAGS)	\
-  for ((DEFVAR) = (TREE_CODE (STMT) == PHI_NODE 		\
+  for ((DEFVAR) = (gimple_code (STMT) == GIMPLE_PHI 		\
 		   ? op_iter_init_phidef (&(ITER), STMT, FLAGS)	\
 		   : op_iter_init_def (&(ITER), STMT, FLAGS));	\
        !op_iter_done (&(ITER));					\

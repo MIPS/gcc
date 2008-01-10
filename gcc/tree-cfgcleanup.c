@@ -890,7 +890,7 @@ merge_phi_nodes (void)
 
 	      /* Get the single use of the result of this PHI node.  */
   	      if (!single_imm_use (result, &imm_use, &use_stmt)
-		  || gimple_code (use_stmt) != PHI_NODE
+		  || gimple_code (use_stmt) != GIMPLE_PHI
 		  || gimple_bb (use_stmt) != dest
 		  || gimple_phi_arg_def (use_stmt, dest_idx) != result)
 		break;

@@ -264,7 +264,7 @@ struct ptr_info_def GTY(())
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_base.ann
 ---------------------------------------------------------------------------*/
-enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, FUNCTION_ANN, STMT_ANN };
+enum tree_ann_type { TREE_ANN_COMMON, VAR_ANN, FUNCTION_ANN };
 
 struct tree_ann_common_d GTY(())
 {
@@ -481,48 +481,16 @@ typedef struct immediate_use_iterator_d
 
 
 
-struct stmt_ann_d GTY(())
-{
-  struct tree_ann_common_d common;
-
-  /* Basic block that contains this statement.  */
-  basic_block bb;
-
-  /* Operand cache for stmt.  */
-  struct stmt_operands_d GTY ((skip (""))) operands;
-
-  /* Set of variables that have had their address taken in the statement.  */
-  bitmap addresses_taken;
-
-  /* Unique identifier for this statement.  These ID's are to be created
-     by each pass on an as-needed basis in any order convenient for the
-     pass which needs statement UIDs.  */
-  unsigned int uid;
-
-  /* Nonzero if the statement references memory (at least one of its
-     expressions contains a non-register operand).  */
-  unsigned references_memory : 1;
-
-  /* Nonzero if the statement has been modified (meaning that the operands
-     need to be scanned again).  */
-  unsigned modified : 1;
-
-  /* Nonzero if the statement makes references to volatile storage.  */
-  unsigned has_volatile_ops : 1;
-};
-
 union tree_ann_d GTY((desc ("ann_type ((tree_ann_t)&%h)")))
 {
   struct tree_ann_common_d GTY((tag ("TREE_ANN_COMMON"))) common;
   struct var_ann_d GTY((tag ("VAR_ANN"))) vdecl;
   struct function_ann_d GTY((tag ("FUNCTION_ANN"))) fdecl;
-  struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
 };
 
 typedef union tree_ann_d *tree_ann_t;
 typedef struct var_ann_d *var_ann_t;
 typedef struct function_ann_d *function_ann_t;
-typedef struct stmt_ann_d *stmt_ann_t;
 typedef struct tree_ann_common_d *tree_ann_common_t;
 
 static inline tree_ann_common_t tree_common_ann (const_tree);
@@ -531,16 +499,12 @@ static inline var_ann_t var_ann (const_tree);
 static inline var_ann_t get_var_ann (tree);
 static inline function_ann_t function_ann (const_tree);
 static inline function_ann_t get_function_ann (tree);
-static inline stmt_ann_t stmt_ann (tree);
-static inline bool has_stmt_ann (tree);
-static inline stmt_ann_t get_stmt_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
 static inline bool noreturn_call_p (gimple);
 static inline void update_stmt (gimple);
 static inline bool stmt_modified_p (gimple);
 static inline bitmap may_aliases (const_tree);
 static inline int get_lineno (const_gimple);
-static inline bitmap addresses_taken (tree);
 
 /*---------------------------------------------------------------------------
                   Structure representing predictions in tree level.
@@ -763,7 +727,6 @@ extern const char *op_symbol_code (enum tree_code);
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
 extern function_ann_t create_function_ann (tree);
-extern stmt_ann_t create_stmt_ann (tree);
 extern tree_ann_common_t create_tree_common_ann (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
@@ -832,7 +795,7 @@ extern void debug_all_mem_sym_stats (void);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
-typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
+typedef bool (*walk_use_def_chains_fn) (tree, gimple, void *);
 
 /* In tree-ssa-alias-warnings.c  */
 extern void strict_aliasing_warning_backend (void);
@@ -878,14 +841,13 @@ extern bool ssa_undefined_value_p (tree);
 void update_ssa (unsigned);
 void delete_update_ssa (void);
 void register_new_name_mapping (tree, tree);
-tree create_new_def_for (tree, tree, def_operand_p);
+tree create_new_def_for (tree, gimple, def_operand_p);
 bool need_ssa_update_p (void);
 bool name_mappings_registered_p (void);
 bool name_registered_for_update_p (tree);
 bitmap ssa_names_to_replace (void);
 void release_ssa_name_after_update_ssa (tree);
 void compute_global_livein (bitmap, bitmap);
-tree duplicate_ssa_name (tree, tree);
 void mark_sym_for_renaming (tree);
 void mark_set_for_renaming (bitmap);
 tree get_current_def (tree);
@@ -1177,7 +1139,7 @@ unsigned int execute_fixup_cfg (void);
 
 #include "tree-flow-inline.h"
 
-void swap_tree_operands (tree, tree *, tree *);
+void swap_tree_operands (gimple, tree *, tree *);
 
 int least_common_multiple (int, int);
 

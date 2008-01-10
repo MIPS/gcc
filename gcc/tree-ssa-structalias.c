@@ -3339,26 +3339,6 @@ update_alias_info (tree stmt, struct alias_info *ai)
 
       op = USE_FROM_PTR (use_p);
 
-      /* If STMT is a PHI node, OP may be an ADDR_EXPR.  If so, add it
-	 to the set of addressable variables.  */
-      if (TREE_CODE (op) == ADDR_EXPR)
-	{
-	  bitmap addressable_vars = gimple_addressable_vars (cfun);
-
-	  gcc_assert (TREE_CODE (stmt) == PHI_NODE);
-	  gcc_assert (addressable_vars);
-
-	  /* PHI nodes don't have annotations for pinning the set
-	     of addresses taken, so we collect them here.
-
-	     FIXME, should we allow PHI nodes to have annotations
-	     so that they can be treated like regular statements?
-	     Currently, they are treated as second-class
-	     statements.  */
-	  add_to_addressable_set (TREE_OPERAND (op, 0), &addressable_vars);
-	  continue;
-	}
-
       /* Ignore constants (they may occur in PHI node arguments).  */
       if (TREE_CODE (op) != SSA_NAME)
 	continue;
