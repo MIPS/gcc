@@ -1,3 +1,7 @@
+2008-01-10  Andrey Belevantsev  <abel@ispras.ru>
+
+	Properly fixup a merge with trunk rev. 130104.   
+
 2007-12-28  Andrey Belevantsev  <abel@ispras.ru>
 
 	* config/ia64/ia64.c (ia64_speculate_insn): Use ds_get_speculation_types
