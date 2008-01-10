@@ -1,6 +1,6 @@
 /* Process declarations and variables for C compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2314,7 +2314,6 @@ pushdecl (tree x)
       tree type = TREE_TYPE (x);
       tree visdecl = b->decl;
       tree vistype = TREE_TYPE (visdecl);
-      tree savedecl;
       if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
 	  && COMPLETE_TYPE_P (TREE_TYPE (x)))
 	b->inner_comp = false;
@@ -2335,7 +2334,6 @@ pushdecl (tree x)
 		TREE_TYPE (b_use->decl) = b_use->type; /* FIXME!!! */
 	    }
 	}
-      savedecl = b_use->decl;
       if (duplicate_decls (x, b_use->decl, b_use))
 	{
 	  if (b_use != b)
@@ -2358,7 +2356,7 @@ pushdecl (tree x)
 	      TREE_TYPE (b_use->decl) = thistype; /* FIXME!!! */
 
 	      /* Also update the file scope copy.  */
-	      if (B_IN_FILE_SCOPE (b) && b->decl == savedecl)
+	      if (B_IN_FILE_SCOPE (b))
 		b->decl = b_use->decl;
 	    }
 	  return b_use->decl;

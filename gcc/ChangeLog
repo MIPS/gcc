@@ -1,3 +1,8 @@
+2008-01-09  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (pushdecl): Always override file scope copy after
+	smashing.
+
 2007-12-21  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (lookup_tag): Only record anti-dependency at file
