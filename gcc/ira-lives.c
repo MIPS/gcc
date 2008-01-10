@@ -49,7 +49,7 @@ static void mark_reg_conflicts (rtx);
 static void mark_reg_death (rtx);
 static enum reg_class single_reg_class (const char *, rtx op, rtx);
 static enum reg_class single_reg_operand_class (int);
-static void process_single_reg_class_operands (int);
+static void process_single_reg_class_operands (int, int);
 static void process_bb_node_lives (loop_tree_node_t);
 
 /* Program points are enumerated by number from range
@@ -483,11 +483,12 @@ single_reg_operand_class (int op_num)
 			   recog_data.operand [op_num], NULL_RTX);
 }
 
-/* The function processes input (if IN_P) or output operands to find
-   allocno which can use only one hard register and makes other
-   currently living reg allocnos conflicting with the hard register.  */
+/* The function processes input (if IN_P) or output operands of insn
+   with FREQ to find allocno which can use only one hard register and
+   makes other currently living reg allocnos conflicting with the hard
+   register.  */
 static void
-process_single_reg_class_operands (int in_p)
+process_single_reg_class_operands (int in_p, int freq)
 {
   int i, regno, px, cost;
   enum reg_class cl, cover_class;
@@ -525,9 +526,13 @@ process_single_reg_class_operands (int in_p)
 	      && (reg_class_size [cl]
 		  <= (unsigned) CLASS_MAX_NREGS (cl, mode)))
 	    {
-	      cost = (in_p
-		      ? register_move_cost [mode] [cover_class] [cl]
-		      : register_move_cost [mode] [cl] [cover_class]);
+	      /* ??? FREQ */
+	      cost = freq * (in_p
+			     ? register_move_cost [mode] [cover_class] [cl]
+			     : register_move_cost [mode] [cl] [cover_class]);
+	      allocate_and_set_costs
+		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a),
+		 class_hard_regs_num [cover_class], 0);
 	      ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
 		[class_hard_reg_index [cover_class] [class_hard_regs [cl] [0]]]
 		-= cost;
@@ -651,10 +656,15 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
       FOR_BB_INSNS (bb, insn)
 	{
 	  rtx link;
+	  int freq;
 	  
 	  if (! INSN_P (insn))
 	    continue;
 	  
+	  freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
+	  if (freq == 0)
+	    freq = 1;
+
 	  if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "   Insn %u(l%d): point = %d\n",
 		     INSN_UID (insn), loop_tree_node->father->loop->num,
@@ -668,7 +678,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	  note_stores (PATTERN (insn), mark_reg_clobber, NULL);
 	  
 	  extract_insn (insn);
-	  process_single_reg_class_operands (TRUE);
+	  process_single_reg_class_operands (TRUE, freq);
 	  
 	  /* Mark any allocnos dead after INSN as dead now.  */
 	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
@@ -684,12 +694,8 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	      IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
 	      EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, i,
 	        {
-		  int freq;
 		  allocno_t a = allocnos [i];
 		  
-		  freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
-		  if (freq == 0)
-		    freq = 1;
 		  ALLOCNO_CALL_FREQ (a) += freq;
 		  index = add_regno_call (ALLOCNO_REGNO (a), insn);
 		  if (ALLOCNO_CALLS_CROSSED_START (a) < 0)
@@ -750,7 +756,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 		    mark_reg_conflicts (reg);
 		}
 	  
-	  process_single_reg_class_operands (FALSE);
+	  process_single_reg_class_operands (FALSE, freq);
 	  
 	  /* Mark any allocnos set in INSN and then never used.  */
 	  while (! VEC_empty (rtx, regs_set))

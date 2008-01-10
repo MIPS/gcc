@@ -265,7 +265,9 @@ struct allocno
   /* TRUE if the allocno was a destination of removed move at the end
      of loop because the value is not changed in loop.  */
   unsigned int mem_optimized_dest_p : 1;
-
+  /* In the reload, we should not reassign a hard register to the
+     allocno got memory if the flag value is TRUE.  */
+  unsigned int dont_reassign_p : 1;
 #ifdef STACK_REGS
   /* Set to TRUE if allocno can't be allocated in the stack
      register.  */
@@ -329,6 +331,7 @@ struct allocno
 #define ALLOCNO_CALLS_CROSSED_NUM(A) ((A)->calls_crossed_num)
 #define ALLOCNO_MEM_OPTIMIZED_DEST(A) ((A)->mem_optimized_dest)
 #define ALLOCNO_MEM_OPTIMIZED_DEST_P(A) ((A)->mem_optimized_dest_p)
+#define ALLOCNO_DONT_REASSIGN_P(A) ((A)->dont_reassign_p)
 #ifdef STACK_REGS
 #define ALLOCNO_NO_STACK_REG_P(A) ((A)->no_stack_reg_p)
 #define ALLOCNO_TOTAL_NO_STACK_REG_P(A) ((A)->total_no_stack_reg_p)
@@ -493,15 +496,22 @@ extern HARD_REG_SET reg_mode_hard_regset
                     [FIRST_PSEUDO_REGISTER] [NUM_MACHINE_MODES];
 
 /* Array analog of macros MEMORY_MOVE_COST and REGISTER_MOVE_COST.  */
-extern int memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
-extern int register_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES]
-                              [N_REG_CLASSES];
+extern short memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
+extern move_table *register_move_cost [MAX_MACHINE_MODE];
 
-/* Register class subset relation.  */
+/* Similar to move_cost, but here we don't have to move if the first
+   index is a subset of the second (taking registers available for
+   allocation into account) so in that case the cost is zero.  */
+extern move_table *register_may_move_in_cost [MAX_MACHINE_MODE];
+
+/* Similar, but here we don't have to move if the first index is a
+   superset of the second (taking registers available for allocation
+   into account) so in that case the cost is zero.  */
+extern move_table *register_may_move_out_cost [MAX_MACHINE_MODE];
+
+/* Register class (strict) subset relation.  */
 extern int class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
-
-/* The biggest class inside of intersection of the two classes.  */
-extern enum reg_class reg_class_subintersect [N_REG_CLASSES] [N_REG_CLASSES];
+extern int strict_class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
 
 /* Hard registers which can be used for the allocation of given
    register class.  */
@@ -547,11 +557,18 @@ extern enum reg_class important_classes [N_REG_CLASSES];
 
 /* The array containing order numbers of important classes (they are
    subclasses of cover classes).  */
-extern enum reg_class important_class_nums [N_REG_CLASSES];
+extern int important_class_nums [N_REG_CLASSES];
 
 /* Map of register classes to corresponding cover class containing the
    given class.  */
 extern enum reg_class class_translate [N_REG_CLASSES];
+
+/* The biggest important class inside of intersection of the two
+   classes (taking only registers available for allocation).  */
+extern enum reg_class reg_class_intersect [N_REG_CLASSES] [N_REG_CLASSES];
+/* The biggest important class inside of union of the two classes
+   (taking only registers available for allocation).  */
+extern enum reg_class reg_class_union [N_REG_CLASSES] [N_REG_CLASSES];
 
 extern void set_non_alloc_regs (int);
 extern void *ira_allocate (size_t);
@@ -561,10 +578,10 @@ extern bitmap ira_allocate_bitmap (void);
 extern void ira_free_bitmap (bitmap);
 extern regset ira_allocate_regset (void);
 extern void ira_free_regset (regset);
-extern int hard_reg_not_in_set_p (int, enum machine_mode, HARD_REG_SET);
 extern void print_disposition (FILE *);
 extern void debug_disposition (void);
 extern void debug_class_cover (void);
+extern void init_register_move_cost (enum machine_mode);
 
 /* Regno invariant flags.  */
 extern int *reg_equiv_invariant_p;
@@ -586,7 +603,6 @@ extern void traverse_loop_tree (int, loop_tree_node_t,
 				void (*) (loop_tree_node_t));
 extern allocno_t create_allocno (int, int, loop_tree_node_t);
 extern void allocate_allocno_conflicts (allocno_t, int);
-extern int allocno_conflict_index (allocno_t, allocno_t);
 extern void add_allocno_conflict (allocno_t, allocno_t);
 extern void print_expanded_allocno (allocno_t);
 extern allocno_live_range_t create_allocno_live_range (allocno_t, int, int,
@@ -605,6 +621,7 @@ extern void ira_destroy (void);
 
 /* ira-costs.c */
 extern void init_ira_costs_once (void);
+extern void init_ira_costs (void);
 extern void finish_ira_costs_once (void);
 extern void ira_costs (void);
 extern void tune_allocno_costs_and_cover_classes (void);
@@ -635,3 +652,67 @@ extern void ira_color (void);
 
 /* ira-emit.c */
 extern void ira_emit (int);
+
+
+
+/* The function returns nonzero if hard registers starting with
+   HARD_REGNO and containing value of MODE are not in set
+   HARD_REGSET.  */
+static inline int
+hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
+		       HARD_REG_SET hard_regset)
+{
+  int i;
+
+  ira_assert (hard_regno >= 0);
+  for (i = hard_regno_nregs [hard_regno] [mode] - 1; i >= 0; i--)
+    if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
+      return FALSE;
+  return TRUE;
+}
+
+
+
+/* Allocate cost vector *VEC and initialize the elements by VAL if it
+   is necessary */
+static inline void
+allocate_and_set_costs (int **vec, int len, int val)
+{
+  int i, *reg_costs;
+
+  if (*vec != NULL)
+    return;
+  *vec = reg_costs = ira_allocate (sizeof (int) * len);
+  for (i = 0; i < len; i++)
+    reg_costs [i] = val;
+}
+
+/* Allocate cost vector *VEC and copy values of SRC into the vector if
+   it is necessary */
+static inline void
+allocate_and_copy_costs (int **vec, int len, int *src)
+{
+  if (*vec != NULL || src == NULL)
+    return;
+  *vec = ira_allocate (sizeof (int) * len);
+  memcpy (*vec, src, sizeof (int) * len);
+}
+
+/* Allocate cost vector *VEC and copy values of SRC into the vector or
+   initialize it by VAL (if SRC is null).  */
+static inline void
+allocate_and_set_or_copy_costs (int **vec, int len, int val, int *src)
+{
+  int i, *reg_costs;
+
+  if (*vec != NULL)
+    return;
+  *vec = reg_costs = ira_allocate (sizeof (int) * len);
+  if (src != NULL)
+    memcpy (reg_costs, src, sizeof (int) * len);
+  else
+    {
+      for (i = 0; i < len; i++)
+	reg_costs [i] = val;
+    }
+}

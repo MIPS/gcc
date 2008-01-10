@@ -1836,7 +1836,7 @@ reg_becomes_live (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *regs_set)
 	  regno++;
 	}
     }
-  else if (reg_renumber[regno] >= 0)
+  else if (reg_renumber[regno] >= 0 || flag_ira)
     {
       if (GET_CODE (setter) == CLOBBER)
 	CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
@@ -1864,7 +1864,7 @@ reg_dies (int regno, enum machine_mode mode, struct insn_chain *chain)
   else
     {
       CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
-      if (reg_renumber[regno] >= 0)
+      if (reg_renumber[regno] >= 0 || flag_ira)
 	SET_REGNO_REG_SET (&chain->dead_or_set, regno);
     }
 }
@@ -1879,7 +1879,6 @@ build_insn_chain (rtx first)
   basic_block b = ENTRY_BLOCK_PTR->next_bb;
 
   live_relevant_regs = ALLOC_REG_SET (&reg_obstack);
-
   for (; first; first = NEXT_INSN (first))
     {
       struct insn_chain *c;
@@ -1895,7 +1894,7 @@ build_insn_chain (rtx first)
 	    {
 	      if (i < FIRST_PSEUDO_REGISTER
 		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
-		  : reg_renumber[i] >= 0)
+		  : reg_renumber[i] >= 0 || flag_ira)
 		SET_REGNO_REG_SET (live_relevant_regs, i);
 	    }
 	}

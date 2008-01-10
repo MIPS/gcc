@@ -1,3 +1,175 @@
+2008-01-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* reload1.c (compute_use_by_pseudos): Permits spilled registers in
+	FROM.
+	(temp_pseudo_reg_arr): New variable.
+	(reload): Use instead temp_pseudo_reg_arr of pseudo_regs.  Move
+	freeing to the function end.  Don't clear spilled_pseudos for IRA.
+	Restore original insn chain for IRA.
+	(calculate_needs_all_insns): Call IRA's mark_memory_move_deletion.
+	(count_pseudo, count_spilled_pseudo): Check spilled pseudos.
+	(alter_reg): Set up spilled_pseudos.
+	(finish_spills): Set up pseudo_previous_regs only for spilled
+	pseudos.  Call reassign_pseudos once for all spilled pseudos,
+	pass more arguments.  Don't clear live_throughout and dead_or_set
+	for spilled pseudos.
+
+	* global.c (reg_becomes_live, build_insn_chain): Don't ignore
+	spilled pseudos for IRA.
+	
+	* caller-save.c (calculate_local_save_info,
+	save_call_clobbered_regs): Ignore spilled pseudos for IRA.
+	
+	* toplev.c (backend_init_target): Call init_ira.
+	(backend_init): Move call of init_ira_once before
+	backend_init_target.
+	
+	* ira.h (init_ira, sort_insn_chain, mark_memory_move_deletion):
+	New function prototypes.
+	(retry_ira_color): Rename to reassign_pseudos.  Change
+	signature.
+
+	* ira-int.h (allocno): New member dont_reassign_p.
+	(ALLOCNO_DONT_REASSIGN_P): New macro.
+	(memory_move_cost): Change element type.
+	(register_move_cost): Change type.
+	(register_may_move_in_cost, register_may_move_out_cost,
+	reg_class_intersect): New arrays.
+	(important_class_nums): Fix element type.
+	(hard_reg_not_in_set_p): Make it static inline.
+	(init_register_move_cost, init_ira_costs): New function
+	prototypes.
+	(allocno_conflict_index): Remove.
+	(allocate_and_set_costs, allocate_and_copy_costs,
+	allocate_and_set_or_copy_costs): New static inline functions.
+	
+	* ira-build.c (compress_allocno_conflict_vec,
+	compress_conflict_vecs): New functions.
+	(allocno_conflict_index): Remove.
+	(allocno_conflict_check, curr_allocno_conflict_check_tick): New
+	variables.
+	(propagate_info_to_cap): Use allocate_and_copy_costs.
+	(check_and_add_conflicts): Don't call allocno_conflict_index.
+	(ira_flattening): Add some assertions.  Check that cost vectors
+	have been allocated.  Don't call allocno_conflict_index.  Call
+	compress_conflict_vecs.
+
+	* ira.c (memory_move_cost, register_move_cost): Change types.
+	(register_may_move_in_cost, register_may_move_out_cost,
+	strict_class_subset_p): New variables.
+	(setup_class_subset_and_move_costs): Rename to
+	setup_class_subset_and_memory_move_costs.  Remove
+	register_move_cost setup.  Don't consider no_unit_alloc_regs.  Add
+	strict_class_subset_p setup.
+	(setup_reg_class_intersect): Rename to
+	setup_reg_class_intersect_union.  Don't consider
+	no_unit_alloc_regs.  Add reg_class_union setup.
+	(hard_reg_not_in_set_p): Move to ira-int.h.
+	(setup_reg_subclasses): Use no_unit_alloc_regs instead of
+	fixed_reg_set.  Don't consider no_unit_alloc_regs.
+	(important_class_nums): Fix element type.
+	(setup_cover_classes): Use no_unit_alloc_regs instead of
+	fixed_reg_set.  Don't consider no_unit_alloc_regs.
+	(setup_class_translate): Ditto.
+	(reg_class_union): New variable.
+	(init_register_move_cost, free_register_move_costs): New
+	functions.
+	(init_ira_once): Initialize register_move_cost,
+	register_may_move_in_cost, register_may_move_out_cost.  Move some
+	code to init_ira.
+	(init_ira): New function.  Move some code from init_ira_once.
+	Call free_register_move_costs and init_ira_costs.
+	(calculate_allocation_cost): Check allocation of allocno hard reg
+	cost vector.
+	(basic_block_order_nums): New variable.
+	(chain_freq_compare, chain_bb_compare, sort_insn_chain): New
+	functions.
+	(ira): Call sort_insn_chain.
+
+	* ira-color.c (allocno_coalesced_p): New variable.
+	(update_copy_costs): Use allocate_and_set_or_copy_costs.
+	(assign_hard_reg): Clear and use
+	processed_coalesced_allocno_bitmap only if allocno_coalesced_p.
+	Use allocate_and_copy_costs.  Use allocno cover class cost if the
+	hard register cost vector is not allocated.
+	(get_coalesced_allocnos_best_class_and_freq): Use
+	reg_class_intersect instead of reg_class_subintersect.
+	(add_allocno_to_ordered_bucket): Use strict_class_subset_p.
+	(push_allocno_to_stack): Clear and use
+	processed_coalesced_allocno_bitmap only if allocno_coalesced_p.
+	(setup_allocno_left_conflicts_num): Don't setup
+	ALLOCNO_UPDATED_HARD_REG_COSTS and
+	ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS.  Clear and use
+	processed_coalesced_allocno_bitmap only if allocno_coalesced_p.
+	(put_allocno_into_bucket): Don't setup
+	ALLOCNO_UPDATED_HARD_REG_COSTS and
+	ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS.
+	(coalesced_allocno_conflict_p): Clear and use
+	processed_coalesced_allocno_bitmap only if allocno_coalesced_p.
+	(coalesce_allocnos): Setup allocno_coalesced_p.
+	(color_allocnos): Add processing reg class NO_REGS.
+	(color_pass): Propagate assignment of spilled allocno not
+	mentioned in the subregion for the mixed algorithm.  Use
+	allocate_and_set_costs.
+	(move_spill_restore, mark_allocation_change): Check unallocated
+	hard reg cost vectors.
+	(setup_curr_costs): Don't setup ALLOCNO_UPDATED_HARD_REG_COSTS and
+	ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS.  Use
+	allocate_and_set_or_copy_costs.
+	(mark_memory_move_deletion, allocno_reload_assign,
+	pseudo_reg_compare, reassign_pseudos): New functions.
+	(retry_ira_color): Remove.
+	
+	* ira-conflicts.c (add_insn_allocno_copies): Use
+	allocate_and_set_costs.
+	(allocno_conflict_p): Simplify the code.
+	
+	* ira-costs.c: Rename reg_class_subunion to reg_class_union
+	everywhere.
+	(cost_classes, cost_classes_num, cost_class_nums,
+	max_struct_costs_size): New variables.
+	(copy_cost): Use init_register_move_cost instead of
+	init_move_cost.
+	(record_reg_classes): Ditto.  Use cost_classes and
+	cost_classes_num instead of important_classes and
+	important_classes_num.  Use register_may_move_{in,out}_cost
+	instead of may_move_{in,out}_cost.  Check reg class intersection
+	for alt_cost.
+	(record_address_regs): Use init_register_move_cost instead of
+	init_move_cost.  Use cost_classes and cost_classes_num instead of
+	important_classes and important_classes_num.  Use
+	register_may_move_in_cost instead of may_move_in_cost.
+	(scan_one_insn): Use cost_classes_num instead of
+	important_classes_num.
+	(print_costs): Use cost_classes and cost_classes_num instead of
+	important_classes and important_classes_num.
+	(find_allocno_class_costs): Initialize cost_classes and
+	cost_class_nums.  Use cost_classes and cost_classes_num instead of
+	important_classes and important_classes_num.
+	(process_bb_node_for_hard_reg_moves): Use allocate_and_set_costs.
+	(setup_allocno_cover_class_and_costs): Use cost_classes and
+	cost_classes_num instead of important_classes and
+	important_classes_num.
+	(init_ira_costs_once): Move some code to init_ira_costs.  Initiate
+	cost_classes.
+	(free_ira_costs: New function.  Move some code from
+	finish_ira_costs_once.
+	(init_ira_costs): New function.  Move some code from
+	init_ira_costs_once.  Use max_struct_costs_size instead of
+	struct_costs_size.  Call free_ira_costs.  Allocate cost_classes.
+	(finish_ira_costs_once): Move some code to finish_ira_costs.  Call
+	free_ira_costs.
+	(ira_costs): Use max_struct_costs_size instead of
+	struct_costs_size.  Use allocate_and_set_costs.
+
+	* ira-emit.c (modify_move_list): Remove allocation of hard reg
+	cost vectors.
+
+	* ira-lives.c (process_single_reg_class_operands): Add new
+	parameter freq.  Calculate costs basing on the frequency.
+	(process_bb_node_lives): Pass the frequency to
+	process_single_reg_class_operands.
+	
 2007-12-17  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/invoke.texi (fira-algoirthm): Remove prioirity coloring.

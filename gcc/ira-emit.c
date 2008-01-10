@@ -522,7 +522,7 @@ traverse_moves (struct move *move)
 static struct move *
 modify_move_list (struct move *list)
 {
-  int i, n, nregs, hard_regno, hard_regs_num;
+  int i, n, nregs, hard_regno;
   allocno_t to, from, new_allocno;
   struct move *move, *new_move, *set_move, *first, *last;
 
@@ -604,20 +604,6 @@ modify_move_list (struct move *list)
 		  = ALLOCNO_COVER_CLASS (set_move->to);
 		ALLOCNO_BEST_CLASS (new_allocno)
 		  = ALLOCNO_COVER_CLASS (new_allocno);
-		hard_regs_num
-		  = class_hard_regs_num [ALLOCNO_COVER_CLASS (new_allocno)];
-		ALLOCNO_HARD_REG_COSTS (new_allocno)
-		  = ira_allocate (hard_regs_num * sizeof (int));
-		memset (ALLOCNO_HARD_REG_COSTS (new_allocno), 0,
-			hard_regs_num * sizeof (int));
-		ALLOCNO_CONFLICT_HARD_REG_COSTS (new_allocno)
-		  = ira_allocate (hard_regs_num * sizeof (int));
-		memset (ALLOCNO_CONFLICT_HARD_REG_COSTS (new_allocno), 0,
-			hard_regs_num * sizeof (int));
-		ALLOCNO_UPDATED_HARD_REG_COSTS (new_allocno)
-		  = ira_allocate (hard_regs_num * sizeof (int));
-		ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (new_allocno)
-		  = ira_allocate (hard_regs_num * sizeof (int));
 		ALLOCNO_ASSIGNED_P (new_allocno) = TRUE;
 		ALLOCNO_HARD_REGNO (new_allocno) = -1;
 		ALLOCNO_REG (new_allocno)

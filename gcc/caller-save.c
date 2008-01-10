@@ -794,6 +794,8 @@ calculate_local_save_info (void)
 		  int nregs;
 		  enum machine_mode mode;
 		  
+		  if (flag_ira && r < 0)
+		    continue;
 		  gcc_assert (r >= 0);
 		  nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
 		  mode = HARD_REGNO_CALLER_SAVE_MODE
@@ -1250,6 +1252,8 @@ save_call_clobbered_regs (void)
 		  int nregs;
 		  enum machine_mode mode;
 
+		  if (flag_ira && r < 0)
+		    continue;
 		  gcc_assert (r >= 0);
 		  nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (regno)];
 		  mode = HARD_REGNO_CALLER_SAVE_MODE

@@ -54,12 +54,16 @@ extern rtx *reg_equiv_address;
 extern rtx *reg_equiv_mem;
 
 extern void init_ira_once (void);
+extern void init_ira (void);
 extern void finish_ira_once (void);
 extern rtx ira_eliminate_regs (rtx, enum machine_mode);
+extern void sort_insn_chain (int);
 
 extern void ira (FILE *);
 extern void mark_allocation_change (int);
-extern void retry_ira_color (int, HARD_REG_SET);
+extern void mark_memory_move_deletion (int, int);
+extern int reassign_pseudos (int *, int, HARD_REG_SET, HARD_REG_SET *,
+			     HARD_REG_SET *, bitmap);
 extern rtx reuse_stack_slot (int, unsigned int, unsigned int);
 extern void mark_new_stack_slot (rtx, int, unsigned int);
 extern void collect_pseudo_call_clobbered_regs (int, HARD_REG_SET *);

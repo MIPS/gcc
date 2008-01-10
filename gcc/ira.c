@@ -95,15 +95,15 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static void setup_inner_mode (void);
 static void setup_reg_mode_hard_regset (void);
-static void setup_class_subset_and_move_costs (void);
-static void setup_reg_class_intersect (void);
 static void setup_class_hard_regs (void);
 static void setup_available_class_regs (void);
 static void setup_alloc_regs (int);
+static void setup_class_subset_and_memory_move_costs (void);
 static void setup_reg_subclasses (void);
 #ifdef IRA_COVER_CLASSES
 static void setup_cover_classes (void);
 static void setup_class_translate (void);
+static void setup_reg_class_intersect_union (void);
 #endif
 static void print_class_cover (FILE *);
 static void find_reg_class_closure (void);
@@ -167,15 +167,26 @@ HARD_REG_SET reg_mode_hard_regset [FIRST_PSEUDO_REGISTER] [NUM_MACHINE_MODES];
 
 /* The following two variables are array analog of macros
    MEMORY_MOVE_COST and REGISTER_MOVE_COST.  */
-int memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
-int register_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [N_REG_CLASSES];
+short int memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
+move_table *register_move_cost [MAX_MACHINE_MODE];
+
+/* Similar to move_cost, but here we don't have to move if the first
+   index is a subset of the second (taking registers available for
+   allocation into account) so in that case the cost is zero.  */
+move_table *register_may_move_in_cost [MAX_MACHINE_MODE];
+
+/* Similar, but here we don't have to move if the first index is a
+   superset of the second (taking registers available for allocation
+   into account) so in that case the cost is zero.  */
+move_table *register_may_move_out_cost [MAX_MACHINE_MODE];
 
 /* Nonzero value of element of the following array means that the
    1st class is a subset of the 2nd class.  */
 int class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
 
-/* The biggest class inside of intersection of the two classes.  */
-enum reg_class reg_class_subintersect [N_REG_CLASSES] [N_REG_CLASSES];
+/* Nonzero value of element of the following array means that the
+   1st class is a strict subset of the 2nd class.  */
+int strict_class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
 
 /* Temporary hard reg set used for different calculation.  */
 static HARD_REG_SET temp_hard_regset;
@@ -219,62 +230,6 @@ setup_reg_mode_hard_regset (void)
 	    SET_HARD_REG_BIT (reg_mode_hard_regset [hard_regno] [m],
 			      hard_regno + i);
       }
-}
-
-
-
-/* The function sets up MEMORY_MOVE_COST, REGISTER_MOVE_COST and
-   CLASS_SUBSET_P.  */
-static void
-setup_class_subset_and_move_costs (void)
-{
-  int cl, cl2;
-  enum machine_mode mode;
-
-  for (cl = (int) N_REG_CLASSES - 1; cl >= 0; cl--)
-    {
-      for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
-	{
-	  memory_move_cost [mode] [cl] [0] = MEMORY_MOVE_COST (mode, cl, 0);
-	  memory_move_cost [mode] [cl] [1] = MEMORY_MOVE_COST (mode, cl, 1);
-	}
-
-      for (cl2 = (int) N_REG_CLASSES - 1; cl2 >= 0; cl2--)
-	{
-	  if (cl != NO_REGS && cl2 != NO_REGS)
-	    for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
-	      register_move_cost [mode] [cl] [cl2]
-		= REGISTER_MOVE_COST (mode, cl, cl2);
-	  class_subset_p [cl] [cl2]
-	    = hard_reg_set_subset_p (reg_class_contents[cl],
-				     reg_class_contents[cl2]);
-	}
-    }
-}
-
-/* The function sets up REG_CLASS_SUBINTERSECT.  */
-static void
-setup_reg_class_intersect (void)
-{
-  int cl1, cl2, cl3;
-  HARD_REG_SET temp_set;
-
-  for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
-    {
-      for (cl2 = 0; cl2 < N_REG_CLASSES; cl2++)
-	{
-	  reg_class_subintersect [cl1] [cl2] = NO_REGS;
-	  COPY_HARD_REG_SET (temp_set, reg_class_contents [cl1]);
-	  AND_HARD_REG_SET (temp_set, reg_class_contents [cl2]);
-	  for (cl3 = 0; cl3 < N_REG_CLASSES; cl3++)
-	    if (hard_reg_set_subset_p (reg_class_contents [cl3], temp_set)
-		&& ! hard_reg_set_subset_p (reg_class_contents [cl3],
-					    reg_class_contents
-					    [(int) reg_class_subintersect
-					     [cl1] [cl2]]))
-	      reg_class_subintersect [cl1] [cl2] = (enum reg_class) cl3;
-	}
-    }
 }
 
 
@@ -370,6 +325,41 @@ setup_alloc_regs (int use_hard_frame_p)
 
 
 
+/* The function sets up MEMORY_MOVE_COST, REGISTER_MOVE_COST and
+   CLASS_SUBSET_P and STRICT_CLASS_SUBSET_P.  */
+static void
+setup_class_subset_and_memory_move_costs (void)
+{
+  int cl, cl2;
+  enum machine_mode mode;
+  HARD_REG_SET temp_hard_regset2;
+
+  for (cl = (int) N_REG_CLASSES - 1; cl >= 0; cl--)
+    {
+      for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
+	{
+	  memory_move_cost [mode] [cl] [0] = MEMORY_MOVE_COST (mode, cl, 0);
+	  memory_move_cost [mode] [cl] [1] = MEMORY_MOVE_COST (mode, cl, 1);
+	}
+
+      for (cl2 = (int) N_REG_CLASSES - 1; cl2 >= 0; cl2--)
+	{
+	  COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
+	  AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+	  COPY_HARD_REG_SET (temp_hard_regset2, reg_class_contents [cl2]);
+	  AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
+	  class_subset_p [cl] [cl2]
+	    = hard_reg_set_subset_p (temp_hard_regset, temp_hard_regset2);
+	  strict_class_subset_p [cl] [cl2] = class_subset_p [cl] [cl2];
+	  if (class_subset_p [cl] [cl2]
+	      && hard_reg_set_equal_p (temp_hard_regset, temp_hard_regset2))
+	    strict_class_subset_p [cl] [cl2] = FALSE;
+	}
+    }
+}
+
+
+
 /* Define the following macro if allocation through malloc if
    preferable.  */
 #define IRA_NO_OBSTACK
@@ -453,24 +443,6 @@ ira_free_regset (regset r ATTRIBUTE_UNUSED)
 
 
 
-/* The function returns nonzero if hard registers starting with
-   HARD_REGNO and containing value of MODE are not in set
-   HARD_REGSET.  */
-int
-hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
-		       HARD_REG_SET hard_regset)
-{
-  int i;
-
-  ira_assert (hard_regno >= 0);
-  for (i = hard_regno_nregs [hard_regno] [mode] - 1; i >= 0; i--)
-    if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
-      return FALSE;
-  return TRUE;
-}
-
-
-
 /* The function outputs information about allocation of all allocnos
    into file F.  */
 void
@@ -514,8 +486,8 @@ debug_disposition (void)
 
 
 /* For each reg class, table listing all the classes contained in it
-   (excluding the class itself.  Fixed registers are excluded from the
-   consideration).  */
+   (excluding the class itself.  Non-allocatable registers are
+   excluded from the consideration).  */
 static enum reg_class alloc_reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
 
 /* The function initializes the tables of subclasses of each reg
@@ -524,6 +496,7 @@ static void
 setup_reg_subclasses (void)
 {
   int i, j;
+  HARD_REG_SET temp_hard_regset2;
 
   for (i = 0; i < N_REG_CLASSES; i++)
     for (j = 0; j < N_REG_CLASSES; j++)
@@ -535,7 +508,7 @@ setup_reg_subclasses (void)
 	continue;
 
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [i]);
-      AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
+      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
       if (hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
 	continue;
       for (j = 0; j < N_REG_CLASSES; j++)
@@ -543,8 +516,10 @@ setup_reg_subclasses (void)
 	  {
 	    enum reg_class *p;
 
-	    if (! hard_reg_set_subset_p (reg_class_contents [i],
-					 reg_class_contents [j]))
+	    COPY_HARD_REG_SET (temp_hard_regset2, reg_class_contents [j]);
+	    AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
+	    if (! hard_reg_set_subset_p (temp_hard_regset,
+					 temp_hard_regset2))
 	      continue;
 	    p = &alloc_reg_class_subclasses [j] [0];
 	    while (*p != LIM_REG_CLASSES) p++;
@@ -572,7 +547,7 @@ enum reg_class important_classes [N_REG_CLASSES];
 
 /* The array containing order numbers of important classes (they are
    subclasses of cover classes).  */
-enum reg_class important_class_nums [N_REG_CLASSES];
+int important_class_nums [N_REG_CLASSES];
 
 #ifdef IRA_COVER_CLASSES
 
@@ -584,6 +559,7 @@ setup_cover_classes (void)
   int i, j;
   enum reg_class cl;
   static enum reg_class classes [] = IRA_COVER_CLASSES;
+  HARD_REG_SET temp_hard_regset2;
 
   reg_class_cover_size = 0;
   for (i = 0; (cl = classes [i]) != LIM_REG_CLASSES; i++)
@@ -592,7 +568,7 @@ setup_cover_classes (void)
 	if (reg_classes_intersect_p (cl, classes [j]))
 	  gcc_unreachable ();
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
-      AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
+      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
       if (! hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
 	reg_class_cover [reg_class_cover_size++] = cl;
     }
@@ -600,15 +576,24 @@ setup_cover_classes (void)
   for (cl = 0; cl < N_REG_CLASSES; cl++)
     {
       COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
-      AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
+      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
       if (! hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
 	for (j = 0; j < reg_class_cover_size; j++)
-	  if (hard_reg_set_subset_p (reg_class_contents [cl],
-				     reg_class_contents [reg_class_cover [j]]))
-	    {
-	      important_class_nums [cl] = important_classes_num;
-	      important_classes [important_classes_num++] = cl;
-	    }
+	  {
+	    COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
+	    AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+	    COPY_HARD_REG_SET (temp_hard_regset2,
+			       reg_class_contents [reg_class_cover [j]]);
+	    AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
+	    if (cl == reg_class_cover [j]
+		|| (hard_reg_set_subset_p (temp_hard_regset, temp_hard_regset2)
+		    && ! hard_reg_set_equal_p (temp_hard_regset,
+					       temp_hard_regset2)))
+	      {
+		important_class_nums [cl] = important_classes_num;
+		important_classes [important_classes_num++] = cl;
+	      }
+	  }
     }
 }
 #endif
@@ -643,7 +628,7 @@ setup_class_translate (void)
 	  else
 	    {
 	      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
-	      AND_COMPL_HARD_REG_SET (temp_hard_regset, fixed_reg_set);
+	      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
 	      if (! hard_reg_set_subset_p (temp_hard_regset,
 					   zero_hard_reg_set))
 		gcc_unreachable ();
@@ -667,6 +652,7 @@ setup_class_translate (void)
 	  COPY_HARD_REG_SET (temp_hard_regset,
 			     reg_class_contents [cover_class]);
 	  AND_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl]);
+	  AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
 	  if (! hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
 	    {
 	      min_cost = INT_MAX;
@@ -687,6 +673,64 @@ setup_class_translate (void)
       class_translate [cl] = best_class;
     }
 }
+#endif
+
+/* The biggest important class inside of intersection of the two classes.  */
+enum reg_class reg_class_intersect [N_REG_CLASSES] [N_REG_CLASSES];
+/* The biggest important class inside of union of the two classes.  */
+enum reg_class reg_class_union [N_REG_CLASSES] [N_REG_CLASSES];
+
+#ifdef IRA_COVER_CLASSES
+
+/* The function sets up REG_CLASS_INTERSECT and REG_CLASS_UNION.  */
+static void
+setup_reg_class_intersect_union (void)
+{
+  int i, cl1, cl2, cl3;
+  HARD_REG_SET intersection_set, union_set, temp_set2;
+
+  for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
+    {
+      for (cl2 = 0; cl2 < N_REG_CLASSES; cl2++)
+	{
+	  reg_class_intersect [cl1] [cl2] = NO_REGS;
+	  reg_class_union [cl1] [cl2] = NO_REGS;
+	  COPY_HARD_REG_SET (intersection_set, reg_class_contents [cl1]);
+	  AND_HARD_REG_SET (intersection_set, reg_class_contents [cl2]);
+	  AND_COMPL_HARD_REG_SET (intersection_set, no_unit_alloc_regs);
+	  COPY_HARD_REG_SET (union_set, reg_class_contents [cl1]);
+	  IOR_HARD_REG_SET (union_set, reg_class_contents [cl2]);
+	  AND_COMPL_HARD_REG_SET (union_set, no_unit_alloc_regs);
+	  for (i = 0; i < important_classes_num; i++)
+	    {
+	      cl3 = important_classes [i];
+	      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl3]);
+	      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+	      if (hard_reg_set_subset_p (temp_hard_regset, intersection_set))
+		{
+		  COPY_HARD_REG_SET
+		    (temp_set2,
+		     reg_class_contents
+		     [(int) reg_class_intersect [cl1] [cl2]]);
+		  AND_COMPL_HARD_REG_SET (temp_set2, no_unit_alloc_regs);
+	 	  if (! hard_reg_set_subset_p (temp_hard_regset, temp_set2))
+		    reg_class_intersect [cl1] [cl2] = (enum reg_class) cl3;
+		}
+	      if (hard_reg_set_subset_p (temp_hard_regset, union_set))
+		{
+		  COPY_HARD_REG_SET
+		    (temp_set2,
+		     reg_class_contents
+		     [(int) reg_class_union [cl1] [cl2]]);
+		  AND_COMPL_HARD_REG_SET (temp_set2, no_unit_alloc_regs);
+	 	  if (! hard_reg_set_subset_p (temp_hard_regset, temp_set2))
+		    reg_class_union [cl1] [cl2] = (enum reg_class) cl3;
+		}
+	    }
+	}
+    }
+}
+
 #endif
 
 /* The function outputs all cover classes and the translation map into
@@ -723,6 +767,7 @@ find_reg_class_closure (void)
 #ifdef IRA_COVER_CLASSES
   setup_cover_classes ();
   setup_class_translate ();
+  setup_reg_class_intersect_union ();
 #endif
 }
 
@@ -785,6 +830,44 @@ setup_prohibited_class_mode_regs (void)
 
 
 
+/* The function allocates and initializes REGISTER_MOVE_COST,
+   REGISTER_MAY_MOVE_IN_COST, and REGISTER_MAY_MOVE_OUT_COST for MODE
+   if it is not done yet.  */
+void
+init_register_move_cost (enum machine_mode mode)
+{
+  int cl1, cl2;
+
+  ira_assert (register_move_cost [mode] == NULL
+	      && register_may_move_in_cost [mode] == NULL
+	      && register_may_move_out_cost [mode] == NULL);
+  if (move_cost [mode] == NULL)
+    init_move_cost (mode);
+  register_move_cost [mode] = move_cost [mode];
+  /* Don't use ira_allocate becuase the tables exist out of scope of a
+     IRA call.  */
+  register_may_move_in_cost [mode]
+    = (move_table *) xmalloc (sizeof (move_table) * N_REG_CLASSES);
+  memcpy (register_may_move_in_cost [mode], may_move_in_cost [mode],
+	  sizeof (move_table) * N_REG_CLASSES);
+  register_may_move_out_cost [mode]
+    = (move_table *) xmalloc (sizeof (move_table) * N_REG_CLASSES);
+  memcpy (register_may_move_out_cost [mode], may_move_out_cost [mode],
+	  sizeof (move_table) * N_REG_CLASSES);
+  for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
+    {
+      for (cl2 = 0; cl2 < N_REG_CLASSES; cl2++)
+	{
+	  if (class_subset_p [cl1] [cl2])
+	    register_may_move_in_cost [mode] [cl1] [cl2] = 0;
+	  if (class_subset_p [cl2] [cl1])
+	    register_may_move_out_cost [mode] [cl1] [cl2] = 0;
+	}
+    }
+}
+
+
+
 /* Hard regsets whose all bits are correspondingly zero or one.  */
 HARD_REG_SET zero_hard_reg_set;
 HARD_REG_SET one_hard_reg_set;
@@ -794,17 +877,52 @@ HARD_REG_SET one_hard_reg_set;
 void
 init_ira_once (void)
 {
+  enum machine_mode mode;
+
   CLEAR_HARD_REG_SET (zero_hard_reg_set);
   SET_HARD_REG_SET (one_hard_reg_set);
+  for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
+    {
+      register_move_cost [mode] = NULL;
+      register_may_move_in_cost [mode] = NULL;
+      register_may_move_out_cost [mode] = NULL;
+    }
   setup_inner_mode ();
+  init_ira_costs_once ();
+}
+
+/* The function frees register_move_cost, register_may_move_in_cost,
+   and register_may_move_out_cost for each mode.  */
+static void
+free_register_move_costs (void)
+{
+  enum machine_mode mode;
+
+  for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
+    {
+      if (register_may_move_in_cost [mode] != NULL)
+	free (register_may_move_in_cost [mode]);
+      if (register_may_move_out_cost [mode] != NULL)
+	free (register_may_move_out_cost [mode]);
+      register_move_cost [mode] = NULL;
+      register_may_move_in_cost [mode] = NULL;
+      register_may_move_out_cost [mode] = NULL;
+    }
+}
+
+/* The function called every time when register related information is
+   changed.  */
+void
+init_ira (void)
+{
+  free_register_move_costs ();
   setup_reg_mode_hard_regset ();
-  setup_class_subset_and_move_costs ();
-  setup_reg_class_intersect ();
   setup_alloc_regs (flag_omit_frame_pointer != 0);
+  setup_class_subset_and_memory_move_costs ();
   find_reg_class_closure ();
   setup_reg_class_nregs ();
   setup_prohibited_class_mode_regs ();
-  init_ira_costs_once ();
+  init_ira_costs ();
 }
 
 /* Function called once at the end of compiler work.  */
@@ -812,6 +930,7 @@ void
 finish_ira_once (void)
 {
   finish_ira_costs_once ();
+  free_register_move_costs ();
 }
 
 
@@ -1138,11 +1257,16 @@ calculate_allocation_cost (void)
 	  cost = ALLOCNO_UPDATED_MEMORY_COST (a);
 	  mem_cost += cost;
 	}
-      else
+      else if (ALLOCNO_HARD_REG_COSTS (a) != NULL)
 	{
 	  cost = (ALLOCNO_HARD_REG_COSTS (a)
 		  [class_hard_reg_index
 		   [ALLOCNO_COVER_CLASS (a)] [hard_regno]]);
+	  reg_cost += cost;
+	}
+      else
+	{
+	  cost = ALLOCNO_COVER_CLASS_COST (a);
 	  reg_cost += cost;
 	}
       overall_cost += cost;
@@ -1316,6 +1440,81 @@ expand_reg_info (int old_size)
 
 
 
+/* Map bb index -> order number in the BB chain.  */
+static int *basic_block_order_nums;
+
+/* The function is used to sort insn chain according insn execution
+   frequencies.  */
+static int
+chain_freq_compare (const void *v1p, const void *v2p)
+{
+  struct insn_chain *c1 = *(struct insn_chain **)v1p;
+  struct insn_chain *c2 = *(struct insn_chain **)v2p;
+  int diff;
+
+  diff = (BASIC_BLOCK (c2->block)->frequency
+	  - BASIC_BLOCK (c1->block)->frequency);
+  if (diff)
+    return diff;
+  return (char *) v1p - (char *) v2p;
+}
+
+/* The function is used to sort insn chain according insn original
+   order.  */
+static int
+chain_bb_compare (const void *v1p, const void *v2p)
+{
+  struct insn_chain *c1 = *(struct insn_chain **)v1p;
+  struct insn_chain *c2 = *(struct insn_chain **)v2p;
+  int diff;
+
+  diff = (basic_block_order_nums [c1->block]
+	  - basic_block_order_nums [c2->block]);
+  if (diff)
+    return diff;
+  return (char *) v1p - (char *) v2p;
+}
+
+/* The function sorts insn chain according insn frequencies (if
+   FREQ_P) or insn original order.  */
+void
+sort_insn_chain (int freq_p)
+{
+  struct insn_chain *chain, **chain_arr;
+  basic_block bb;
+  int i, n;
+  
+  for (n = 0, chain = reload_insn_chain; chain != 0; chain = chain->next)
+    n++;
+  if (n <= 1)
+    return;
+  chain_arr = ira_allocate (n * sizeof (struct insn_chain *));
+  basic_block_order_nums = ira_allocate (sizeof (int) * last_basic_block);
+  n = 0;
+  FOR_EACH_BB (bb)
+    {
+      basic_block_order_nums [bb->index] = n++;
+    }
+  for (n = 0, chain = reload_insn_chain; chain != 0; chain = chain->next)
+    chain_arr [n++] = chain;
+  qsort (chain_arr, n, sizeof (struct insn_chain *),
+	 freq_p ? chain_freq_compare : chain_bb_compare);
+  for (i = 1; i < n - 1; i++)
+    {
+      chain_arr [i]->next = chain_arr [i + 1];
+      chain_arr [i]->prev = chain_arr [i - 1];
+    }
+  chain_arr [i]->next = NULL;
+  chain_arr [i]->prev = chain_arr [i - 1];
+  reload_insn_chain = chain_arr [0];
+  reload_insn_chain->prev = NULL;
+  reload_insn_chain->next = chain_arr [1];
+  ira_free (basic_block_order_nums);
+  ira_free (chain_arr);
+}
+
+
+
 
 /* This is the main entry of IRA.  */
 void
@@ -1466,6 +1665,7 @@ ira (FILE *f)
 
   df_set_flags (DF_NO_INSN_RESCAN);
   build_insn_chain (get_insns ());
+  sort_insn_chain (TRUE);
   reload_completed = ! reload (get_insns (), 1);
 
   ira_free (spilled_reg_stack_slots);

@@ -2032,6 +2032,9 @@ backend_init_target (void)
      mode-dependent.  */
   init_regs ();
 
+  /* This invokes IRA to set up reg related data structures.  */
+  init_ira ();
+
   /* This depends on stack_pointer_rtx.  */
   init_fake_stack_mems ();
 
@@ -2075,8 +2078,8 @@ backend_init (void)
   init_varasm_once ();
 
   /* Initialize the target-specific back end pieces.  */
-  backend_init_target ();
   init_ira_once ();
+  backend_init_target ();
 }
 
 /* Initialize things that are both lang-dependent and target-dependent.

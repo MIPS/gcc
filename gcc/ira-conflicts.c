@@ -367,7 +367,7 @@ add_insn_allocno_copies (rtx insn)
   rtx set, operand, dup;
   const char *str;
   int commut_p, bound_p;
-  int i, j, freq, hard_regno, cost, index;
+  int i, j, freq, hard_regno, cost, index, hard_regs_num;
   copy_t cp;
   allocno_t a;
   enum reg_class class, cover_class;
@@ -412,6 +412,12 @@ add_insn_allocno_copies (rtx insn)
 	    cost = register_move_cost [mode] [cover_class] [class] * freq;
 	  else
 	    cost = register_move_cost [mode] [class] [cover_class] * freq;
+	  hard_regs_num = class_hard_regs_num [cover_class];
+	  allocate_and_set_costs
+	    (&ALLOCNO_HARD_REG_COSTS (a), hard_regs_num,
+	     ALLOCNO_COVER_CLASS_COST (a));
+	  allocate_and_set_costs
+	    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a), hard_regs_num, 0);
 	  ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
 	  ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
 	}
@@ -472,6 +478,13 @@ add_insn_allocno_copies (rtx insn)
 			  cost
 			    = register_move_cost [mode] [class] [cover_class];
 			cost *= freq;
+			hard_regs_num = class_hard_regs_num [cover_class];
+			allocate_and_set_costs
+			  (&ALLOCNO_HARD_REG_COSTS (a), hard_regs_num,
+			   ALLOCNO_COVER_CLASS_COST (a));
+			allocate_and_set_costs
+			  (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
+			   hard_regs_num, 0);
 			ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
 			ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
 			bound_p = TRUE;
@@ -531,6 +544,13 @@ add_insn_allocno_copies (rtx insn)
 			  cost
 			    = register_move_cost [mode] [class] [cover_class];
 			cost *= (freq < 8 ? 1 : freq / 8);
+			hard_regs_num = class_hard_regs_num [cover_class];
+			allocate_and_set_costs
+			  (&ALLOCNO_HARD_REG_COSTS (a), hard_regs_num,
+			   ALLOCNO_COVER_CLASS_COST (a));
+			allocate_and_set_costs
+			  (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
+			   hard_regs_num, 0);
 			ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
 			ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
 		      }
@@ -649,13 +669,12 @@ allocno_conflict_p (allocno_t a1, allocno_t a2)
   for (r1 = ALLOCNO_LIVE_RANGES (a1), r2 = ALLOCNO_LIVE_RANGES (a2);
        r1 != NULL && r2 != NULL;)
     {
-      if ((r2->start <= r1->start && r1->start <= r2->finish)
-	  || (r1->start <= r2->start && r2->start <= r1->finish))
-	return TRUE;
       if (r1->start > r2->finish)
 	r1 = r1->next;
-      else
+      else if (r2->start > r1->finish)
 	r2 = r2->next;
+      else
+	return TRUE;
     }
   return FALSE;
 }
