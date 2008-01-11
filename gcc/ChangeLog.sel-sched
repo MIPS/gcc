@@ -1,3 +1,111 @@
+2008-01-11  Dmitry Melnik  <dm@ispras.ru>
+        
+	Fix different scheduler issues that prevent it from working 
+	correctly before reload.
+    
+	* common.opt (fsel-insn-range): New flag for debugging.
+	* ia64.c (get_mode_no_for_insn): Change the condition that prevents use
+	of special hardware registers so it can now handle pseudos.
+	(get_spec_check_gen_function): Assert so that we won't reference array 
+	with a negative index.
+	(ia64_gen_spec_check): Ditto. 
+	* haifa-sched.c (after_recovery, adding_bb_to_current_region_p): 
+	New variables to handle correct insertion of the recovery code.
+	(init_before_recovery): Add new BEFORE_RECOVERY_PTR parameter.
+	(sched_extend_bb): Add the prototype.
+	(haifa_sched_init): Init new variable.
+	(init_before_recovery): Add new param.  Fix the handling of the case
+	when we insert a recovery code before the EXIT which has a predecessor
+	with a fallthrough edge to it.
+	(sched_create_recovery_block): Pass new parameter.
+	(create_check_block_twin): Change parameter.  
+	(haifa_init_insn): Do region specific insn initialization only if
+	the insn was added to the current region.
+	* opts.c (common_handle_option): Handle the fsel_insn_range option.
+	* rtl.h (sel_sched_fix_param): Declare.
+	* sched-deps.c (extend_deps_reg_info): Make sure REG_LAST vector is
+	extended correctly before reload.
+	(sched_analyze_reg): Permit move insn with pseudo even if it crosses
+	call.
+	(free_deps): Zero pointers explicitly after free.
+	* sched-int.h (sched_create_recovery_block): Add new parameter.
+	* sel-sched-dump.c (flag_insn_range): Insn range to perform selective
+	scheduling.
+	(block_for_insn, bb_av_set): New debug functions.
+	(in_range_p_1, in_range_p): Parses expression that determines insn 
+	range for selective scheduling.	
+	(sel_sched_fix_param): Handle fsel-insn-range param in scheduler.
+	(av_set_contains_insn_with_uid, av_set_for_bb_n): Debug functions.
+	* sel-sched-dump.h (flag_insn_range, block_for_insn, bb_av_set, 
+	in_range_p, av_set_contains_insn_with_uid, av_set_for_bb_n):
+	Declare.        
+	* sel-sched-ir.c (init_fences): Free unneeded successors.
+	(sel_hash_rtx): Handle PRE_INC etc. as it's done in original hash_rtx.
+	(sel_gen_insn_from_rtx_after): Add the assert that target reg is 
+	available.  Postpone the simplification of the insns until the end of 
+	the scheduling.
+	(av_set_add): Assert that we never insert NOPs into the av_sets.
+	(merge_with_other_exprs): Reset EXPR_TARGET_AVAILABLE to -1 if two
+	exprs have different target availability values.
+	(av_set_leave_one): Replace with av_set_leave_one_nonspec.  This 
+	function keeps all speculative insns, leaving only one non-speculative.
+	(init_first_time_insn_data): Do not init dependences on NOPs.
+	(sel_remove_insn): Do not clear data sets on the AFTER_RECOVERY basic
+	block.
+	(finish_insns): Free dependence contexts that may have left from 
+	insns that were removed during the scheduling.
+	(sel_rtl_insn_added): Init new insns only if they're added to the
+	current region.
+	(copy_lv_set_from): New function.
+	(is_ineligible_successor): Move to sel-sched.c.
+	(sel_init_only_bb): Add call to extend_regions.
+	(sel_create_recovery_block): Copy LV_SET to BEFORE_RECOVERY bb.
+	* sel-sched-ir.h (adding_bb_to_current_region_p, after_recovery, 
+	av_set_leave_one_nonspec): Declare.
+	(copy_insn_out_of_stream, copy_insn_and_insert_before, 
+	is_ineligible_successor): Remove unused declarations.
+	(_succ_iter_cond): Handle AFTER_RECOVERY the same way as EXIT.
+	* sel-sched.c (scheduled_something_on_previous_fence): New variable.
+	(vec_temp_moveop_nops): New vector to store temporary NOPs inserted 
+	in move_op to prevent removal of empty BBs.
+	(substitute_reg_in_rhs): Do not allow clobbering the address register 
+	of speculative insns.
+	(replace_in_vinsn_using_bitmask_1, replace_in_rtx_using_bitmask,
+	un_substitute): Remove.
+	(verify_target_availability): Assert target availability if only
+	something was scheduled on the previous fence.
+	(has_spec_dependence_p, un_speculate): Remove.
+	(undo_transformations): Use history to undo transformations.
+	(is_ineligible_successor): Move the function here.
+	(compute_av_set): Free SUCCS that are no longer needed.
+	(find_used_regs_1): Use av_set_leave_one_nonspec.
+	(expr_blocked_by_bookkeeping, vec_bk_blocked_exprs_clear): 
+	New functions.
+	(fill_vec_av_set): Recompute target availability or remove expr if the 
+	it's availability was invalidated by the insertion of bookkeeping 
+	earlier.
+	(remove_temp_moveop_nops): New function.  Removes the temporary NOPs
+	that might have been created during move_op.
+	(fill_insns): Handle only insns that satisfy the FLAG_INSN_RANGE
+	expression.  Call remove_temp_moveop_nops after the move_op.
+	Init EXPR_TARGET_AVAILABLE with TRUE by default. 
+	Init scheduled_something_on_previous_fence.
+	(update_and_record_unavailable_insns): New function.  Updates data sets 
+	for the bookkeeping block and records those expressions that become 
+	no longer available after inserting the bookkeeping.
+	(move_op): Use av_set_leave_one_nonspec.  Insert NOP in the bb if it's
+	becoming empty so it won't be removed and we'll be able to insert 
+	bookkeeping in it when coming later through another branch.  Call
+	update_and_record_unavailable_insns on the bookkeeping block to
+	record exprs that no longer can be scheduled above it.
+	(simplify_changed_insns): New function.  Handles insn simplification 
+        after the scheduling have completed.
+	(sel_region_finish): Use simplify_changed_insns.  Free vector
+	vec_bk_blocked_exprs.
+	(sel_sched_region_2): Init scheduled_something_on_previous_fence and
+	vec_bk_blocked_exprs.
+	(sel_global_init): Init after_recovery.
+
 2008-01-10  Andrey Belevantsev  <abel@ispras.ru>
 
 	Properly fixup a merge with trunk rev. 130104.   

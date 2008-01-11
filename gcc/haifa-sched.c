@@ -146,6 +146,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "vecprim.h"
 #include "dbgcnt.h"
+#include "cfgloop.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -226,6 +227,13 @@ static rtx *bb_header = 0;
 
 /* Basic block after which recovery blocks will be created.  */
 static basic_block before_recovery;
+
+/* Basic block just before the EXIT_BLOCK and after recovery, if we have
+   created it.  */
+basic_block after_recovery;
+
+/* FALSE if we add bb to another region, so we don't need to initialize it.  */
+bool adding_bb_to_current_region_p = true;
 
 /* Queues, etc.  */
 
@@ -519,7 +527,7 @@ static void generate_recovery_code (rtx);
 static void process_insn_forw_deps_be_in_spec (rtx, rtx, ds_t);
 static void begin_speculative_block (rtx);
 static void add_to_speculative_block (rtx);
-static void init_before_recovery (void);
+static void init_before_recovery (basic_block *);
 static void create_check_block_twin (rtx, bool);
 static void fix_recovery_deps (basic_block);
 static void haifa_change_pattern (rtx, rtx);
@@ -532,6 +540,7 @@ static void sched_remove_insn (rtx);
 static void clear_priorities (rtx, rtx_vec_t *);
 static void calc_priorities (rtx_vec_t);
 static void add_jump_dependencies (rtx, rtx);
+static void sched_extend_bb (void);
 #ifdef ENABLE_CHECKING
 static int has_edge_p (VEC(edge,gc) *, int);
 static void check_cfg (rtx, rtx);
@@ -2944,6 +2953,7 @@ haifa_sched_init (void)
 
   nr_begin_data = nr_begin_control = nr_be_in_data = nr_be_in_control = 0;
   before_recovery = 0;
+  after_recovery = 0;
 }
 
 /* Finish work with the data specific to the Haifa scheduler.  */
@@ -3741,7 +3751,7 @@ find_fallthru_edge (basic_block pred)
 
 /* Initialize BEFORE_RECOVERY variable.  */
 static void
-init_before_recovery (void)
+init_before_recovery (basic_block *before_recovery_ptr)
 {
   basic_block last;
   edge e;
@@ -3760,8 +3770,22 @@ init_before_recovery (void)
       basic_block single, empty;
       rtx x, label;
 
+      /* If the fallthrough edge to exit we've found is from the block we've 
+	 created before, don't do anything more.  */
+      if (last == after_recovery)
+	return;
+
+      adding_bb_to_current_region_p = false;
+
       single = sched_create_empty_bb (last);
       empty = sched_create_empty_bb (single);
+
+      /* Add new blocks to the root loop.  */
+      if (current_loops != NULL)
+	{
+	  add_bb_to_loop (single, VEC_index (loop_p, current_loops->larray, 0));
+	  add_bb_to_loop (empty, VEC_index (loop_p, current_loops->larray, 0));
+	}
 
       single->count = last->count;
       empty->count = last->count;
@@ -3785,8 +3809,14 @@ init_before_recovery (void)
 
       sched_init_only_bb (empty, NULL);
       sched_init_only_bb (single, NULL);
+      sched_extend_bb ();
 
+      adding_bb_to_current_region_p = true;
       before_recovery = single;
+      after_recovery = empty;
+
+      if (before_recovery_ptr)
+        *before_recovery_ptr = before_recovery;
 
       if (sched_verbose >= 2 && spec_info->dump)
         fprintf (spec_info->dump,
@@ -3799,7 +3829,7 @@ init_before_recovery (void)
 
 /* Returns new recovery block.  */
 basic_block
-sched_create_recovery_block (void)
+sched_create_recovery_block (basic_block *before_recovery_ptr)
 {
   rtx label;
   rtx barrier;
@@ -3808,7 +3838,7 @@ sched_create_recovery_block (void)
   haifa_recovery_bb_recently_added_p = true;
   haifa_recovery_bb_ever_added_p = true;
 
-  init_before_recovery ();
+  init_before_recovery (before_recovery_ptr);
 
   barrier = get_last_bb_insn (before_recovery);
   gcc_assert (BARRIER_P (barrier));
@@ -3826,8 +3856,6 @@ sched_create_recovery_block (void)
   if (sched_verbose && spec_info->dump)    
     fprintf (spec_info->dump, ";;\t\tGenerated recovery block rec%d\n",
              rec->index);
-
-  before_recovery = rec;
 
   return rec;
 }
@@ -3913,7 +3941,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
   /* Create recovery block.  */
   if (mutate_p || targetm.sched.needs_block_p (todo_spec))
     {
-      rec = sched_create_recovery_block ();
+      rec = sched_create_recovery_block (NULL);
       label = BB_HEAD (rec);
     }
   else
@@ -5013,7 +5041,8 @@ haifa_init_insn (rtx insn)
   sched_deps_init (false);
   haifa_init_h_i_d (NULL, NULL, NULL, insn);
 
-  sd_init_insn (insn);
+  if (adding_bb_to_current_region_p)
+    sd_init_insn (insn);
 }
 
 void (* sched_init_only_bb) (basic_block, basic_block);

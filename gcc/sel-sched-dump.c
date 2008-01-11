@@ -85,6 +85,11 @@ bool sched_dump_to_dot_p = false;
 /* Controls how insns from a fence list should be dumped.  */
 static int dump_flist_insn_flags = (DUMP_INSN_UID | DUMP_INSN_BBN
                                     | DUMP_INSN_SEQNO);
+
+/* Stores an expression according to which either insns will be scheduled 
+   using all features of the selective scheduling or the corresponding 
+   code motion will be skipped.  */
+const char *flag_insn_range = NULL;
 
 
 /* Core functions for pretty printing.  */
@@ -1125,6 +1130,19 @@ insn_uid (rtx insn)
   return INSN_UID (insn);
 }
 
+basic_block
+block_for_insn (rtx insn)
+{
+  return BLOCK_FOR_INSN (insn);
+}
+
+
+av_set_t
+bb_av_set (basic_block bb)
+{
+  return BB_AV_SET (bb);
+}
+
 rtx insn_pattern (rtx insn)
 {
   return PATTERN (insn);
@@ -1368,3 +1386,114 @@ debug_find_unreachable_blocks (void)
 
   return !(pre_order_num == n_basic_blocks - NUM_FIXED_BLOCKS);
 }
+
+/* Helper function for in_range_p.  */
+static int in_range_p_1 (int val, const char *expr, int i1, int i2, bool *err)
+{
+  int br = 0;
+  int i = -1, x;
+  char ops[] = "|&-";
+  char *p;
+  char c = 0;
+
+  if (i1 > i2)
+    *err = true;
+    
+  if (*err)
+    return 0;    
+  
+  for (p = ops; *p; p++) 
+    {
+      for (i = i2; i >= i1; i--) 
+	{
+	  c = expr[i];
+	  if (c == ')')
+	    br++;
+	  else if (c == '(')
+	    br--;
+	  
+	 if (!br && c == *p)
+	   goto l;
+	}    
+    }
+
+  l: if (br)
+    {
+      *err = 1;
+      return 0;
+    }
+
+  if (*p) {
+    if (c == '&')
+      return in_range_p_1 (val, expr, i1, i-1, err)
+               && in_range_p_1 (val, expr, i+1, i2, err);
+
+    if (c == '|')
+      return in_range_p_1 (val, expr, i1, i-1, err)
+             || in_range_p_1 (val, expr, i+1, i2, err);
+  }	      
+
+  if (expr[i1] == '(' && expr[i2] == ')')
+    return in_range_p_1 (val, expr, i1+1, i2-1, err);
+
+  if (expr[i1] == '!')
+    return !in_range_p_1 (val, expr, i1+1, i2, err);
+
+  if (*p && c == '-')
+      return (in_range_p_1 (val, expr, i1, i-1, err) <= val)
+              && val <= in_range_p_1 (val, expr, i+1, i2, err);
+      
+  sscanf (expr+i1, "%d%n", &x, &i);
+  if (i1 + i != i2 + 1)
+    {
+      *err = true;
+      return false;
+    }
+  else
+    return x;
+}
+
+
+/* Returns whether VAL is within the range given by the EXPR.  
+   E.g. "30-40&!32-34|33-33" will return true only for the following values:
+   30 31 33 35 36 37 38 39 40.  The expression may consist only from the
+   numbers, operators "-", "&", "|" and "!".  Ranges containing only the
+   single integer N should be written as "N-N", the expession should not 
+   contain any spaces.  If the expression is not valid, ERR is set to TRUE.  */
+
+bool in_range_p (int val, const char *expr, bool *err)
+{
+  return in_range_p_1 (val, expr, 0, strlen (expr) - 1, err);
+}
+
+/* sel_sched_fix_param() is called from toplev.c upon detection
+   of the -fsel-insn-range=EXPR option.  */
+void
+sel_sched_fix_param (const char *param, const char *val)
+{
+  if (!strcmp (param, "insn-range"))
+    flag_insn_range = val;
+  else
+    warning (0, "sel_sched_fix_param: unknown param: %s", param);
+}
+      
+/* Returns whther AV contains rhs which insn uid equals to INSN_UID.  */
+bool
+av_set_contains_insn_with_uid (av_set_t av, int insn_uid)
+{
+  av_set_iterator i;
+  rhs_t rhs;
+
+  FOR_EACH_RHS (rhs, i, av)
+    if (INSN_UID (EXPR_INSN_RTX (rhs)) == insn_uid)
+      return true;
+
+  return false;
+}
+
+av_set_t
+av_set_for_bb_n (int n)
+{
+  return BB_AV_SET (BASIC_BLOCK (n));
+}
+

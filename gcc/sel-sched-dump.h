@@ -133,6 +133,7 @@ enum _dump_insn
 		   | DUMP_INSN_PATTERN)
 };
 
+extern const char *flag_insn_range;
 extern void dump_insn_1 (insn_t, int);
 extern void dump_insn (insn_t);
 extern void debug_insn (insn_t);
@@ -214,6 +215,8 @@ extern void setup_dump_cfg_params (bool);
 
 /* Debug functions.  */
 extern int insn_uid (rtx);
+extern basic_block block_for_insn (rtx insn);
+extern av_set_t bb_av_set (basic_block bb);
 extern rtx insn_pattern (rtx);
 extern int insn_code (rtx);
 extern bool insn_is_set_p (rtx);
@@ -231,5 +234,8 @@ extern bool debug_find_insn_loop (void);
 extern bool debug_find_unreachable_blocks (void);
 extern void sel_debug_cfg (void);
 extern void mem_test (int);
+extern bool in_range_p (int, const char *, bool *);
+extern bool av_set_contains_insn_with_uid (av_set_t av, int insn_uid);
+extern av_set_t av_set_for_bb_n (int n);
 
 #endif

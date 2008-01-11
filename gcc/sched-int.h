@@ -208,7 +208,7 @@ extern basic_block sched_split_block_1 (basic_block, rtx);
 extern basic_block (* sched_create_empty_bb) (basic_block);
 extern basic_block sched_create_empty_bb_1 (basic_block);
 
-extern basic_block sched_create_recovery_block (void);
+extern basic_block sched_create_recovery_block (basic_block *);
 extern void sched_create_recovery_edges (basic_block, basic_block,
 					 basic_block);
 

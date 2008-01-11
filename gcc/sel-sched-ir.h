@@ -793,6 +793,8 @@ extern rtx exit_insn;
 /* When false, only notes may be added.  */
 extern bool can_add_real_insns_p;
 
+/* FALSE if we add bb to another region, so we don't need to initialize it.  */
+extern bool adding_bb_to_current_region_p;
 
 
 
@@ -921,6 +923,7 @@ extern bool enable_moveup_set_path_p;
 extern bool enable_schedule_as_rhs_p;
 extern bool pipelining_p;
 extern bool bookkeeping_p;
+extern basic_block after_recovery;
 extern int max_insns_to_rename;  
 extern bool preheader_removed;
 
@@ -1002,7 +1005,7 @@ extern av_set_t av_set_copy (av_set_t);
 extern void av_set_union_and_clear (av_set_t *, av_set_t *);
 extern void av_set_union_and_live (av_set_t *, av_set_t *, regset, regset);
 extern void av_set_clear (av_set_t *);
-extern void av_set_leave_one (av_set_t *);
+extern void av_set_leave_one_nonspec (av_set_t *);
 extern rhs_t av_set_element (av_set_t, int);
 extern void av_set_substract_cond_branches (av_set_t *);
 extern void av_set_split_usefulness (av_set_t *, int, int);
@@ -1031,8 +1034,6 @@ extern void sel_init_new_insns (void);
 extern void sel_finish_new_insns (void);
 
 extern bool bookkeeping_can_be_created_if_moved_through_p (insn_t);
-extern insn_t copy_insn_out_of_stream (vinsn_t);
-extern insn_t copy_insn_and_insert_before (insn_t, insn_t);
 extern void sel_remove_insn (insn_t);
 extern int vinsn_dfa_cost (vinsn_t, fence_t);
 extern bool bb_header_p (insn_t);
@@ -1064,8 +1065,6 @@ extern insn_t cfg_succ_1 (insn_t, int);
 extern insn_t cfg_succ (insn_t);
 extern int overall_prob_of_succs (insn_t);
 extern bool sel_num_cfg_preds_gt_1 (insn_t);
-
-extern bool is_ineligible_successor (insn_t, ilist_t);
 
 extern bool bb_ends_ebb_p (basic_block);
 extern bool in_same_ebb_p (insn_t, insn_t);
@@ -1398,7 +1397,7 @@ _succ_iter_cond (succ_iterator *ip, rtx *succp, rtx insn,
 	{
 	  basic_block bb = ip->e2->dest;
 
-	  if (bb == EXIT_BLOCK_PTR)
+	  if (bb == EXIT_BLOCK_PTR || bb == after_recovery)
 	    *succp = exit_insn;
 	  else
 	    {

@@ -2129,6 +2129,9 @@ extern void schedule_ebbs (void);
 /* In haifa-sched.c.  */
 extern void fix_sched_param (const char *, const char *);
 
+/* In sel-sched-dump.c.  */
+extern void sel_sched_fix_param (const char *param, const char *val);
+
 /* In print-rtl.c */
 extern const char *print_rtx_head;
 extern void debug_rtx (const_rtx);

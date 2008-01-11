@@ -946,6 +946,13 @@ fsel-sched-dump-cfg
 Common Report Var(flag_sel_sched_dump_cfg) Init(0)
 Dump CFG information during selective scheduling pass.
 
+fsel-insn-range
+Common
+
+fsel-insn-range=
+Common Joined RejectNegative
+fsel-insn-range=<number>  Expression that determines range of insns to handle with sel-sched
+
 fsel-sched-single-block-regions
 Common Report Var(flag_sel_sched_single_block_regions) Init(0)
 Run selective scheduling on single-block regions

@@ -596,6 +596,7 @@ init_fences (insn_t old_fence)
 		 1 /* cycle */, 0 /* cycle_issued_insns */, 
 		 1 /* starts_cycle_p */, 0 /* after_stall_p */);  
     }
+  free (succs);
 }
 
 /* Merges two fences (filling fields of OLD_FENCE with resulting values) by
@@ -1209,6 +1210,18 @@ sel_hash_rtx (rtx x, enum machine_mode mode)
 	}
       break;
 
+    case PRE_DEC:
+    case PRE_INC:
+    case POST_DEC:
+    case POST_INC:
+    case PRE_MODIFY:
+    case POST_MODIFY:
+    case PC:
+    case CC0:
+    case CALL:
+    case UNSPEC_VOLATILE:
+      return hash;
+    
     case UNSPEC:
       /* Skip UNSPECs when we are so told.  */
       if (targetm.sched.skip_rtx_p && targetm.sched.skip_rtx_p (x))
@@ -1493,6 +1506,8 @@ sel_gen_insn_from_rtx_after (rtx pattern, expr_t expr, int seqno, insn_t after)
 {
   insn_t new_insn;
 
+  gcc_assert (EXPR_TARGET_AVAILABLE (expr) == true);
+
   insn_init.what = INSN_INIT_WHAT_INSN;
 
   new_insn = emit_insn_after (pattern, after);
@@ -1534,12 +1549,10 @@ sel_gen_insn_from_expr_after (rhs_t expr, int seqno, insn_t after)
   gcc_assert (!INSN_IN_STREAM_P (insn));
 
   insn_init.what = INSN_INIT_WHAT_INSN;
-  add_insn_after (insn, after, BLOCK_FOR_INSN (insn));
+  add_insn_after (insn, after, BLOCK_FOR_INSN (insn));          
 
-  /* Do not simplify insn if it is not a final schedule.  */
-  if (!pipelining_p)
-    validate_simplify_insn (insn);
-
+  /* We simplify insns later, after scheduling region in 
+     simplify_changed_insns.  */
   insn_init.todo = INSN_INIT_TODO_SSID;
   set_insn_init (expr, EXPR_VINSN (expr), seqno);
 
@@ -1751,8 +1764,8 @@ copy_expr_onside (expr_t to, expr_t from)
   init_expr (to, EXPR_VINSN (from), EXPR_SPEC (from), EXPR_USEFULNESS (from),
 	     EXPR_PRIORITY (from), EXPR_SCHED_TIMES (from), 0,
 	     EXPR_SPEC_DONE_DS (from), EXPR_SPEC_TO_CHECK_DS (from), 0, NULL,
-	     EXPR_TARGET_AVAILABLE (from), EXPR_WAS_SUBSTITUTED (from), 
-             EXPR_WAS_RENAMED (from));
+	     EXPR_TARGET_AVAILABLE (from), EXPR_WAS_SUBSTITUTED (from),
+	     EXPR_WAS_RENAMED (from));
 }
 
 /* Merge bits of FROM rhs to TO rhs.  When JOIN_POINT_P is true,
@@ -1965,6 +1978,7 @@ mark_unavailable_targets (av_set_t join_set, av_set_t av_set, regset lv_set)
 void
 av_set_add (av_set_t *setp, expr_t expr)
 {
+  gcc_assert (!INSN_NOP_P (EXPR_INSN_RTX (expr)));
   _list_add (setp);
   copy_expr (_AV_SET_EXPR (*setp), expr);
 }
@@ -2071,17 +2085,11 @@ merge_with_other_exprs (av_set_t *avp, av_set_iterator *ip, expr_t expr)
 
   if (expr2 != NULL)
     {
-      /* Prefer the expression that comes earlier, as it will be the one
-         we will find.  */
-      if (later && EXPR_ORIG_BB_INDEX (expr) 
-          && EXPR_ORIG_BB_INDEX (expr) == EXPR_ORIG_BB_INDEX (expr2))
-        {
-          change_vinsn_in_expr (expr2, EXPR_VINSN (expr));
-          EXPR_TARGET_AVAILABLE (expr2) = EXPR_TARGET_AVAILABLE (expr);
-        }
-
+      /* Reset target availability on merge, since taking it only from one
+	 of the exprs would be controversial for different code.  */
+      EXPR_TARGET_AVAILABLE (expr2) = -1;
       EXPR_USEFULNESS (expr2) = 0;
-                
+
       merge_expr (expr2, expr, false);
       
       /* Fix usefulness as it should be now REG_BR_PROB_BASE.  */
@@ -2216,11 +2224,26 @@ av_set_clear (av_set_t *setp)
   gcc_assert (*setp == NULL);
 }
 
-/* Remove all the elements of SETP except for the first one.  */
+/* Leave only one non-speculative element in the SETP.  */
 void
-av_set_leave_one (av_set_t *setp)
+av_set_leave_one_nonspec (av_set_t *setp)
 {
-  av_set_clear (&_AV_SET_NEXT (*setp));
+  rhs_t rhs;
+  av_set_iterator i;
+  bool has_one_nonspec = false;
+
+  /* Keep all speculative exprs, and leave one non-speculative 
+     (the first one).  */
+  FOR_EACH_RHS_1 (rhs, i, setp)
+    {
+      if (!EXPR_SPEC_DONE_DS (rhs))
+	{
+  	  if (has_one_nonspec)
+	    av_set_iter_remove (&i);
+	  else
+	    has_one_nonspec = true;
+	}
+    }
 }
 
 /* Return the N'th element of the SET.  */
@@ -2529,10 +2552,13 @@ init_first_time_insn_data (insn_t insn)
   /* This should not be set if this is the first time we init data for
      insn.  */
   gcc_assert (first_time_insn_init (insn));
-
-  INSN_ANALYZED_DEPS (insn) = BITMAP_ALLOC (NULL);
-  INSN_FOUND_DEPS (insn) = BITMAP_ALLOC (NULL);
-  init_deps (&INSN_DEPS_CONTEXT (insn));
+  
+  if (!INSN_NOP_P (insn))
+    {
+      INSN_ANALYZED_DEPS (insn) = BITMAP_ALLOC (NULL);
+      INSN_FOUND_DEPS (insn) = BITMAP_ALLOC (NULL);
+      init_deps (&INSN_DEPS_CONTEXT (insn));
+    }
 }
 
 /* Free the same data as above for INSN.  */
@@ -3273,11 +3299,18 @@ sel_remove_insn (insn_t insn)
 
   clear_expr (INSN_EXPR (insn));
 
+  /* Empty bbs are not allowed to have LV_SETs.  Free them in any case.  */
   if (sel_bb_empty_p (bb))
+    free_data_sets (bb);
+
+  /* Keep empty bb only if this block immediately precedes EXIT and
+     has incoming non-fallthrough edge.  Otherwise remove it.  */
+  if (sel_bb_empty_p (bb) 
+      && !(single_succ_p (bb) && single_succ (bb) == EXIT_BLOCK_PTR
+	   && (!single_pred_p (bb) 
+	       || !(single_pred_edge (bb)->flags & EDGE_FALLTHRU))))
     /* Get rid of empty BB.  */
     {
-      free_data_sets (bb);
-
       if (single_succ_p (bb))
 	{
 	  basic_block succ_bb;
@@ -3472,6 +3505,21 @@ extend_insn (void)
 static void
 finish_insns (void)
 {
+  unsigned i;
+
+  /* Clear here all dependence contexts that may have left from insns that were
+     removed during the scheduling.  */
+  for (i = 0; i < VEC_length (sel_insn_data_def, s_i_d); i++)
+    {
+      sel_insn_data_def *sid_entry = VEC_index (sel_insn_data_def, s_i_d, i);
+      if (sid_entry->analyzed_deps)
+	{
+	  BITMAP_FREE (sid_entry->analyzed_deps);
+	  BITMAP_FREE (sid_entry->found_deps);
+	  free_deps (&sid_entry->deps_context);
+	}
+    }
+  
   VEC_free (sel_insn_data_def, heap, s_i_d);
   deps_finish_d_i_d ();
 }
@@ -3499,8 +3547,10 @@ sel_rtl_insn_added (insn_t insn)
 
   /* Initialize a bit later because something (e.g. CFG) is not
      consistent yet.  These insns will be initialized when
-     sel_init_new_insns () is called.  */
-  VEC_safe_push (rtx, heap, new_insns, insn);
+     sel_init_new_insns () is called.  For those insns we add into 
+     another region, they will be initialized in their own regions.  */
+  if (adding_bb_to_current_region_p)
+    VEC_safe_push (rtx, heap, new_insns, insn);
 }
 
 /* Save original RTL hooks here.  */
@@ -3711,6 +3761,15 @@ init_lv_set (basic_block bb)
   COPY_REG_SET (BB_LV_SET (bb), df_get_live_in (bb));
   BB_LV_SET_VALID_P (bb) = true;
 }
+
+static void
+copy_lv_set_from (basic_block bb, basic_block from_bb)
+{
+  gcc_assert (!BB_LV_SET_VALID_P (bb));
+  
+  COPY_REG_SET (BB_LV_SET (bb), BB_LV_SET (from_bb));
+  BB_LV_SET_VALID_P (bb) = true;
+}                
 
 /* Initialize lv set of all bb headers.  */
 void
@@ -4376,50 +4435,6 @@ path_contains_switch_of_sched_times_p (insn_t insn, ilist_t p)
   return false;
 }
 
-/* Returns true if INSN is not a downward continuation of the given path P in 
-   the current stage.  */
-bool
-is_ineligible_successor (insn_t insn, ilist_t p)
-{
-  insn_t prev_insn;
-
-  /* Check if insn is not deleted.  */
-  if (PREV_INSN (insn) && NEXT_INSN (PREV_INSN (insn)) != insn)
-    gcc_unreachable ();
-  else if (NEXT_INSN (insn) && PREV_INSN (NEXT_INSN (insn)) != insn)
-    gcc_unreachable ();
-
-  /* If it's the first insn visited, then the successor is ok.  */
-  if (!p)
-    return false;
-
-  prev_insn = ILIST_INSN (p);
-
-  if (/* a backward edge.  */
-      INSN_SEQNO (insn) < INSN_SEQNO (prev_insn)
-      /* is already visited.  */
-      || (INSN_SEQNO (insn) == INSN_SEQNO (prev_insn)
-	  && (ilist_is_in_p (p, insn)
-              /* We can reach another fence here and still seqno of insn 
-                 would be equal to seqno of prev_insn.  This is possible 
-                 when prev_insn is a previously created bookkeeping copy.
-                 In that case it'd get a seqno of insn.  Thus, check here
-                 whether insn is in current fence too.  */
-              || IN_CURRENT_FENCE_P (insn)))
-      /* Was already scheduled on this round.  */
-      || (INSN_SEQNO (insn) > INSN_SEQNO (prev_insn)
-	  && IN_CURRENT_FENCE_P (insn))
-      /* An insn from another fence could also be 
-	 scheduled earlier even if this insn is not in 
-	 a fence list right now.  Check INSN_SCHED_CYCLE instead.  */
-      || (!pipelining_p
-          && INSN_SCHED_TIMES (insn) > 0))
-
-    return true;
-  else
-    return false;
-}
-
 /* Returns true when BB should be the end of an ebb.  Adapted from the 
    code in sched-ebb.c.  */
 bool
@@ -5010,6 +5025,7 @@ sel_init_only_bb (basic_block bb, basic_block after)
 {
   gcc_assert (after == NULL);
 
+  extend_regions ();
   rgn_make_new_region_out_of_new_block (bb);
 }
 
@@ -5147,12 +5163,16 @@ sel_create_recovery_block (insn_t orig_insn)
   basic_block first_bb;
   basic_block second_bb;
   basic_block recovery_block;
+  basic_block before_recovery = NULL;
 
   first_bb = BLOCK_FOR_INSN (orig_insn);
   second_bb = sched_split_block (first_bb, orig_insn);
 
   can_add_real_insns_p = false;
-  recovery_block = sched_create_recovery_block ();
+  recovery_block = sched_create_recovery_block (&before_recovery);
+  if (before_recovery)
+    copy_lv_set_from (before_recovery, EXIT_BLOCK_PTR);
+
   can_add_real_insns_p = true;
   gcc_assert (sel_bb_empty_p (recovery_block));
 
@@ -5987,7 +6007,7 @@ sel_remove_loop_preheader (void)
                  jump in PREV_BB that leads to the next basic block NEXT_BB.  
                  If it is so - delete this jump and clear data sets of its 
                  basic block if it becomes empty.  */
-              if (next_bb->prev_bb == prev_bb
+	      if (next_bb->prev_bb == prev_bb
                   && prev_bb != ENTRY_BLOCK_PTR
                   && jump_leads_only_to_bb_p (BB_END (prev_bb), next_bb))
                 {

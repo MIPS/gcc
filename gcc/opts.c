@@ -837,7 +837,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_schedule_insns = 1;
       /* Turn off the sched2 pass in favor to selective scheduling.  */
       flag_schedule_insns_after_reload = 1;
-      flag_selective_scheduling = 0;		
+      flag_selective_scheduling = 0;
       flag_selective_scheduling2 = 1;
 #endif
       flag_regmove = 1;
@@ -1673,6 +1673,15 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_frandom_seed_:
       set_random_seed (arg);
+      break;
+
+    case OPT_fsel_insn_range:
+      if (value)
+	return 0;
+      break;
+
+    case OPT_fsel_insn_range_:
+      sel_sched_fix_param ("insn-range", arg);
       break;
 
     case OPT_fsched_verbose_:

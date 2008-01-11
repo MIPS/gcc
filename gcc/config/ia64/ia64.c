@@ -7284,8 +7284,9 @@ get_mode_no_for_insn (rtx insn)
     {
       if (!reload_completed)
 	{
+	  /* Do not speculate into regs like ar.lc.  */
 	  if (!REG_P (reg)
-	      || !(GR_REGNO_P (REGNO (reg)) || FP_REGNO_P (REGNO (reg))))
+	      || (AR_CCV_REGNUM <= REGNO (reg) && REGNO (reg) <= AR_EC_REGNUM))
 	    return -1;
 
 	  if (!MEM_P (mem))
@@ -7658,6 +7659,7 @@ get_spec_check_gen_function (ds_t ts, int mode_no,
   else
     gcc_unreachable ();
 
+  gcc_assert (mode_no >= 0);
   return gen_check[mode_no];
 }
 
@@ -7684,6 +7686,7 @@ ia64_gen_spec_check (rtx insn, rtx label, ds_t ds)
   int mode_no;
 
   mode_no = get_mode_no_for_insn (insn);
+  gcc_assert (mode_no >= 0);
 
   if (label)
     op1 = label;
