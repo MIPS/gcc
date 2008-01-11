@@ -40,6 +40,7 @@ enum sched_pass_id_t { SCHED_PASS_UNKNOWN, SCHED_RGN_PASS, SCHED_EBB_PASS,
 
 typedef VEC (basic_block, heap) *bb_vec_t;
 typedef VEC (rtx, heap) *insn_vec_t;
+typedef VEC(rtx, heap) *rtx_vec_t;
 
 struct sched_scan_info_def
 {

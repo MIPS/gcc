@@ -658,18 +658,19 @@ dump_flist (flist_t l)
     }
 }
 
-/* Dumps an insn array SUUCS with N elements.  */
+/* Dumps an insn vector SUCCS.  */
 void
-dump_insn_array (rtx *succs, int n)
+dump_insn_vector (rtx_vec_t succs)
 {
   if (print_block)
     {
       int i;
+      rtx succ;
 
       line_start ();
-      for (i = 0; i < n; i++)
-        if (succs[i])
-          dump_insn (succs[i]);
+      for (i = 0; VEC_iterate (rtx, succs, i, succ); i++)
+        if (succ)
+          dump_insn (succ);
         else
           print ("NULL ");
       line_finish ();
@@ -1200,12 +1201,12 @@ debug_blist (blist_t bnds)
   switch_dump ();
 }
 
-/* Dump an insn array SUCCS with N elements.  */
+/* Dump an insn vector SUCCS.  */
 void
-debug_insn_array (rtx *succs, int n)
+debug_insn_vector (rtx_vec_t succs)
 {
   switch_dump ();
-  dump_insn_array (succs, n);
+  dump_insn_vector (succs);
   switch_dump ();
 }
 

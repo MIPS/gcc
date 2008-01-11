@@ -1,4 +1,38 @@
 2008-01-11  Andrey Belevantsev  <abel@ispras.ru>
+
+	* haifa-sched.c (rtx_vec_t): Move to ... 
+	* sched-int.h: ... here.
+	* sel-sched-dump.c (dump_insn_array): Rename to 
+	dump_insn_vector.  Rewrite for using vector of insns.
+	(debug_insn_array): Likewise.
+	* sel-sched-dump.h: Export the above functions.
+	* sel-sched-ir.c (current_succs): New global variable.
+	(init_fences): Use FOR_EACH_SUCC* instead of cfg_succs*.
+	(get_seqno_of_a_pred): Likewise.
+	(insert_in_history_vect): Properly handle the situation of
+	merging different speculative statuses.
+	(av_set_split_usefulness): Use FOR_EACH_RHS.
+	(succs_info_pool): New variable.
+	(cfg_succs_n, cfg_succs_1, cfg_succs_2, cfg_succs, 
+	cfg_succs_other, cfg_succ_1, cfg_succ, overall_prob_of_succs): Kill.
+	(alloc_succs_info, free_succs_info, compute_succs_info): New.
+	(alloc_sched_pools, free_sched_pools): Move and rename from ...
+
+	* sel-sched-ir.h (init_sched_pools, free_sched_pools) ... here.
+	Update all callers.
+	(MAX_WS): Move from sel-sched.c.
+	(struct succs_info): New.
+	(succ_iterator): New fields flags, current_flags.
+	(_succ_iter_start, _succ_iter_cond, 
+	_eligible_successor_edge_p): Use them.  
+
+	* sel-sched.c (compute_av_set): Use *_succs_info functions instead of
+	cfg_succs*.  Stop when maximal lookahead is reached even 
+	on a bb header.
+	(fill_insns): Use FOR_EACH_SUCC* instead of cfg_succs*.
+	(sel_region_finish): Likewise.
+
+2008-01-11  Andrey Belevantsev  <abel@ispras.ru>
 	    Dmitry Zhurikhin  <zhur@ispras.ru>
 
 	* config/ia64/ia64.opt (msched-fp-mem-deps-zero-cost): Init to 0.

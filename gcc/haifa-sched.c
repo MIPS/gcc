@@ -467,9 +467,6 @@ haifa_classify_insn (const_rtx insn)
   return haifa_classify_rtx (PATTERN (insn));
 }
 
-/* A typedef for rtx vector.  */
-typedef VEC(rtx, heap) *rtx_vec_t;
-
 /* Forward declarations.  */
 
 static int priority (rtx);

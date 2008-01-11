@@ -68,6 +68,9 @@ VEC(sel_region_bb_info_def, heap) *sel_region_bb_info = NULL;
 /* A pool for allocating all lists.  */
 alloc_pool sched_lists_pool;
 
+/* This contains information about successors for compute_av_set.  */
+struct succs_info current_succs;
+
 /* Data structure to describe interaction with the generic scheduler utils.  */
 static struct common_sched_info_def sel_common_sched_info;
 
@@ -114,6 +117,9 @@ static struct
   int s;  
 } nop_pool = { NULL, 0, 0 };
 
+/* The pool for basic block notes.  */
+static rtx_vec_t bb_note_pool;
+
 /* A NOP pattern used to emit placeholder insns.  */
 rtx nop_pattern = NULL_RTX;
 /* A special instruction that resides in EXIT_BLOCK.
@@ -138,6 +144,7 @@ static void cfg_preds (basic_block, insn_t **, int *);
 static void sel_add_or_remove_bb (basic_block, int);
 static void move_bb_info (basic_block, basic_block);
 static void remove_empty_bb (basic_block, bool);
+static void sel_remove_loop_preheader (void);
 
 
 /* Various list functions.  */
@@ -578,19 +585,19 @@ fence_clear (fence_t f)
 void
 init_fences (insn_t old_fence)
 {
-  int succs_num;
-  insn_t *succs;
-  int i;
-
-  cfg_succs_1 (old_fence, SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS, 
-	       &succs, &succs_num);
-
-  gcc_assert (flag_sel_sched_pipelining_outer_loops
-	      || succs_num == 1);
-
-  for (i = 0; i < succs_num; i++)
+  insn_t succ;
+  succ_iterator si;
+  bool first = true;
+  
+  FOR_EACH_SUCC_1 (succ, si, old_fence, 
+                   SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
     {
-      flist_add (&fences, succs[i],
+      if (first)
+        first = false;
+      else
+        gcc_assert (flag_sel_sched_pipelining_outer_loops);
+
+      flist_add (&fences, succ,
 		 state_create (),
 		 create_deps_context () /* dc */,
 		 create_target_context (true) /* tc */,
@@ -598,7 +605,6 @@ init_fences (insn_t old_fence)
 		 1 /* cycle */, 0 /* cycle_issued_insns */, 
 		 1 /* starts_cycle_p */, 0 /* after_stall_p */);  
     }
-  free (succs);
 }
 
 /* Merges two fences (filling fields of OLD_FENCE with resulting values) by
@@ -1647,11 +1653,19 @@ insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
     {
       expr_history_def *phist = VEC_index (expr_history_def, vect, ind);
 
-      gcc_assert (phist->spec_ds == spec_ds 
-                  && (phist->old_expr_vinsn == old_expr_vinsn
-                      || (phist->new_expr_vinsn != new_expr_vinsn 
-                          && (vinsns_correlate_as_rhses_p 
-                              (phist->old_expr_vinsn, old_expr_vinsn)))));
+      /* When merging, either old vinsns are the *same* or, if not, both 
+         old and new vinsns are different pointers.  In the latter case, 
+         though, new vinsns should be equal.  */
+      gcc_assert (phist->old_expr_vinsn == old_expr_vinsn
+                  || (phist->new_expr_vinsn != new_expr_vinsn 
+                      && (vinsns_correlate_as_rhses_p 
+                          (phist->old_expr_vinsn, old_expr_vinsn))));
+
+      /* It is possible that speculation types of expressions that were 
+         propagated through different paths will be different here.  In this
+         case, merge the status to get the correct check later.  */
+      if (phist->spec_ds != spec_ds)
+        phist->spec_ds = ds_max_merge (phist->spec_ds, spec_ds);
       return;
     }
       
@@ -2346,12 +2360,12 @@ av_set_substract_cond_branches (av_set_t *avp)
 /* Multiplies usefulness attribute of each member of av-set *AVP by 
    value PROB / ALL_PROB.  */
 void
-av_set_split_usefulness (av_set_t *avp, int prob, int all_prob)
+av_set_split_usefulness (av_set_t av, int prob, int all_prob)
 {
   av_set_iterator i;
   expr_t expr;
 
-  FOR_EACH_RHS_1 (expr, i, avp)
+  FOR_EACH_RHS (expr, i, av)
     EXPR_USEFULNESS (expr) = (all_prob 
                               ? (EXPR_USEFULNESS (expr) * prob) / all_prob
                               : 0);
@@ -3475,17 +3489,24 @@ get_seqno_of_a_pred (insn_t insn)
 
       if (single_pred_p (bb)
 	  && !in_current_region_p (single_pred (bb)))
-	/* We can have preds outside a region when splitting edges
-	   for pipelining of an outer loop.  Use succ instead.  */
 	{
-	  insn_t succ;
-
+          /* We can have preds outside a region when splitting edges
+             for pipelining of an outer loop.  Use succ instead.  
+             There should be only one of them.  */
+	  insn_t succ = NULL;
+          succ_iterator si;
+          bool first = true;
+          
 	  gcc_assert (flag_sel_sched_pipelining_outer_loops
 		      && current_loop_nest);
+          FOR_EACH_SUCC_1 (succ, si, insn, 
+                           SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
+            {
+              gcc_assert (first);
+              first = false;
+            }
 
-	  succ = cfg_succ_1 (insn, (SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS));
 	  gcc_assert (succ != NULL);
-
 	  seqno = INSN_SEQNO (succ);
 	}
       else
@@ -4049,6 +4070,13 @@ get_av_level (insn_t insn)
    but hasn't been in sel_add_or_remove_bb () yet.  */
 static VEC (basic_block, heap) *last_added_blocks = NULL;
 
+/* A pool for allocating successor infos.  */
+static struct
+{
+  struct succs_info *stack;
+  int size, top, max_top;
+}  succs_info_pool;
+
 /* Functions to work with control-flow graph.  */
 
 /* Return basic block note of BB.  */
@@ -4182,8 +4210,6 @@ sel_restore_other_notes (void)
     }
 }
 
-static void sel_remove_loop_preheader (void);
-
 /* Free per-bb data structures.  */
 void
 sel_finish_bbs (void)
@@ -4195,20 +4221,6 @@ sel_finish_bbs (void)
     sel_remove_loop_preheader ();
 
   finish_region_bb_info ();
-}
-
-/* Return a number of INSN's successors honoring FLAGS.  */
-int
-cfg_succs_n (insn_t insn, int flags)
-{
-  int n = 0;
-  succ_iterator si;
-  insn_t succ;
-
-  FOR_EACH_SUCC_1 (succ, si, insn, flags)
-    n++;
-
-  return n;
 }
 
 /* Return true if INSN has a single successor of type FLAGS.  */
@@ -4230,156 +4242,88 @@ sel_insn_has_single_succ_p (insn_t insn, int flags)
   return true;
 }
 
-/* Return the successors of INSN in SUCCSP and their number in NP, 
-   honoring FLAGS.  Empty blocks are skipped.  */
-void
-cfg_succs_1 (insn_t insn, int flags, insn_t **succsp, int *np)
+/* Allocate successor's info.  */
+static struct succs_info *
+alloc_succs_info (void)
 {
-  int n;
-  succ_iterator si;
-  insn_t succ;
+  if (succs_info_pool.top == succs_info_pool.max_top)
+    {
+      int i;
+      
+      if (++succs_info_pool.max_top >= succs_info_pool.size)
+        gcc_unreachable ();
 
-  n = *np = cfg_succs_n (insn, flags);
+      i = ++succs_info_pool.top;
+      succs_info_pool.stack[i].succs_ok = VEC_alloc (rtx, heap, 10);
+      succs_info_pool.stack[i].succs_other = VEC_alloc (rtx, heap, 10);
+      succs_info_pool.stack[i].probs_ok = VEC_alloc (int, heap, 10);
+    }
+  else
+    succs_info_pool.top++;
 
-  *succsp = xmalloc (n * sizeof (**succsp));
+  return &succs_info_pool.stack[succs_info_pool.top];
+}
 
-  FOR_EACH_SUCC_1 (succ, si, insn, flags)
-    (*succsp)[--n] = succ;
+/* Free successor's info.  */
+void
+free_succs_info (struct succs_info * sinfo)
+{
+  gcc_assert (succs_info_pool.top >= 0 
+              && &succs_info_pool.stack[succs_info_pool.top] == sinfo);
+  succs_info_pool.top--;
+
+  /* Clear stale info.  */
+  VEC_block_remove (rtx, sinfo->succs_ok, 
+                    0, VEC_length (rtx, sinfo->succs_ok));
+  VEC_block_remove (rtx, sinfo->succs_other, 
+                    0, VEC_length (rtx, sinfo->succs_other));
+  VEC_block_remove (int, sinfo->probs_ok, 
+                    0, VEC_length (int, sinfo->probs_ok));
+  sinfo->all_prob = 0;
+  sinfo->succs_ok_n = 0;
+  sinfo->all_succs_n = 0;
 }
 
 /* Same as above, but fill PROBS vector with probabilities of corresponding
    successors depending on INSN.  */
-void
-cfg_succs_2 (insn_t insn, int flags, insn_t **succsp, int **probs, int *np)
+struct succs_info *
+compute_succs_info (insn_t insn, short flags)
 {
-  int n;
   succ_iterator si;
   insn_t succ;
+  struct succs_info *sinfo = alloc_succs_info ();
 
-  n = *np = cfg_succs_n (insn, flags);
-
-  *succsp = xmalloc (n * sizeof (**succsp));
-  *probs = xmalloc (n * sizeof (**probs));
-
-  FOR_EACH_SUCC_1 (succ, si, insn, flags)
-    {
-      (*succsp)[--n] = succ;
-      (*probs)[n] = si.bb_end ? si.e1->probability 
-                                /* FIXME: Improve calculation when skipping 
-                                          inner loop to exits.  */
-                              : REG_BR_PROB_BASE;
-    }
-}
-
-/* Find all successors of INSN and record them in SUCCSP and their number 
-   in NP.  Empty blocks are skipped, and only normal (forward in-region) 
-   edges are processed.  */
-void
-cfg_succs (insn_t insn, insn_t **succsp, int **probs, int *np)
-{
-  cfg_succs_2 (insn, SUCCS_NORMAL, succsp, probs, np);
-}
-
-/* Return the successors of INSN in SUCCSP and their number in NP, 
-   which do NOT satisfy FLAGS.  Empty blocks are skipped.  
-   If N_ALL is non-negative, assume it is the number of total 
-   successors. If N_OK is not negative, assume successors 
-   satisfying flags are also precomputed.  */
-void
-cfg_succs_other (insn_t insn, int flags, 
-                 insn_t *succsp_ok, int n_ok, int n_all, 
-                 insn_t **succsp, int *np)
-{
-  int i, no;
-  succ_iterator si;
-  insn_t succ;
-  bool free_ok = false;
-
-  if (n_ok < 0)
-    {
-      cfg_succs_1 (insn, flags, &succsp_ok, &n_ok);
-      free_ok = true;
-    }
-
-  if (n_all < 0)
-    n_all = cfg_succs_n (insn, SUCCS_ALL);
-
-  if (n_all == n_ok)
-    {
-      *np = 0;
-      if (free_ok)
-        free (succsp_ok);
-      return;
-    }
-
-  no = *np = n_all - n_ok;
-  *succsp = xmalloc (no * sizeof (**succsp));
-
+  /* Traverse *all* successors and decide what to do with each.  */
   FOR_EACH_SUCC_1 (succ, si, insn, SUCCS_ALL)
     {
-      for (i = 0; i < n_ok; i++)
-        if (succsp_ok[i] == succ)
-          break;
+      /* FIXME: this doesn't work for skipping to loop exits, as we don't
+         perform code motion through inner loops.  */
+      short current_flags = si.current_flags & ~SUCCS_SKIP_TO_LOOP_EXITS;
 
-      if (i == n_ok)
-        (*succsp)[--no] = succ;
-    }
-
-  gcc_assert (no == 0);
-  if (free_ok)
-    free (succsp_ok);
-}
-
-/* Return the only successor of INSN, honoring FLAGS.  */
-insn_t
-cfg_succ_1 (insn_t insn, int flags)
-{
-  insn_t succ;
-  succ_iterator si;
-  bool b = true;
-
-  FOR_EACH_SUCC_1 (succ, si, insn, flags)
-    {
-      gcc_assert (b);
-      b = false;
-    }
-
-  return succ;
-}
-
-/* Return the only successor of INSN.  Only normal edges are processed.  */
-insn_t
-cfg_succ (insn_t insn)
-{
-  return cfg_succ_1 (insn, SUCCS_NORMAL);
-}
-
-/* Returns sum of all probabilities of successors of INSN (even ineligible).  
-   FIXME: Correct calculations when skipping inner loops while pipelining of
-          outer loops.  */
-int
-overall_prob_of_succs (insn_t insn)
-{
-  insn_t succ;
-  succ_iterator si;
-  int prob = 0;
-  bool b = false;
-  
-  FOR_EACH_SUCC_1 (succ, si, insn, SUCCS_ALL)
-    {
-      /* Check if it is not an end of basic block that we have only 
-         one successor.  */
-      gcc_assert (!b);
-      if (!si.bb_end)
+      if (current_flags & flags)
         {
-          prob = REG_BR_PROB_BASE;
-          b = true;
+          VEC_safe_push (rtx, heap, sinfo->succs_ok, succ);
+          VEC_safe_push (int, heap, sinfo->probs_ok,
+                         /* FIXME: Improve calculation when skipping 
+                            inner loop to exits.  */
+                         (si.bb_end 
+                          ? si.e1->probability 
+                          : REG_BR_PROB_BASE));
+          sinfo->succs_ok_n++;
         }
       else
-        prob += si.e1->probability;
+        VEC_safe_push (rtx, heap, sinfo->succs_other, succ);
+
+      /* Compute all_prob.  */
+      if (!si.bb_end)
+        sinfo->all_prob = REG_BR_PROB_BASE;
+      else
+        sinfo->all_prob += si.e1->probability;
+
+      sinfo->all_succs_n++;
     }
 
-  return prob;
+  return sinfo;
 }
 
 /* Return the predecessors of BB in PREDS and their number in N. 
@@ -4613,9 +4557,6 @@ clear_outdated_rtx_info (basic_block bb)
       SCHED_GROUP_P (insn) = 0;
 }
 
-typedef VEC(rtx, heap) *rtx_vec_t;
-static rtx_vec_t bb_note_pool;
-
 /* Add BB_NOTE to the pool of available basic block notes.  */
 static void
 return_bb_to_pool (basic_block bb)
@@ -4653,6 +4594,40 @@ free_bb_note_pool (void)
 {
   VEC_free (rtx, heap, bb_note_pool);
 }
+
+/* Setup scheduler pool and successor structure.  */
+void
+alloc_sched_pools (void)
+{
+  int succs_size;
+
+  succs_size = MAX_WS + 1;
+  succs_info_pool.stack = xcalloc (succs_size, sizeof (struct succs_info)); 
+  succs_info_pool.size = succs_size;
+  succs_info_pool.top = -1;
+  succs_info_pool.max_top = -1;
+
+  sched_lists_pool = create_alloc_pool ("sel-sched-lists", 
+                                        sizeof (struct _list_node), 500);
+}
+
+/* Free the pools.  */
+void
+free_sched_pools (void)
+{
+  int i;
+  
+  free_alloc_pool (sched_lists_pool);
+  gcc_assert (succs_info_pool.top == -1);
+  for (i = 0; i < succs_info_pool.max_top; i++)
+    {
+      VEC_free (rtx, heap, succs_info_pool.stack[i].succs_ok);
+      VEC_free (rtx, heap, succs_info_pool.stack[i].succs_other);
+      VEC_free (int, heap, succs_info_pool.stack[i].probs_ok);
+    }
+  free (succs_info_pool.stack);
+}
+
 
 /* Returns a position in RGN where BB can be inserted retaining 
    topological order.  */
@@ -5379,7 +5354,6 @@ sel_unregister_cfg_hooks (void)
 
   set_cfg_hooks (orig_cfg_hooks);
 }
-
 
 
 /* Emit an insn rtx based on PATTERN.  */

@@ -66,11 +66,6 @@
    selective scheduling and software pipelining. 
    ACM TOPLAS, Vol 19, No. 6, pages 853--898, Nov. 1997.  */
 
-/* Software lookahead window size.
-   According to the results in Nakatani and Ebcioglu [1993], window size of 16 
-   is enough to extract most ILP in integer code.  */
-#define MAX_WS (PARAM_VALUE (PARAM_SELSCHED_MAX_LOOKAHEAD))
-
 /* True when moveup_set_path functionality should be used.  */
 bool enable_moveup_set_path_p;
 
@@ -2084,12 +2079,11 @@ is_ineligible_successor (insn_t insn, ilist_t p)
 static av_set_t
 compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
 {
-  av_set_t av1;
-  av_set_t rhs_in_all_succ_branches;
-  int succs_n, real_succs_n, other_succs_n;
-  insn_t *succs, *other_succs;
-  int *probs;
-  int succ, all_prob;
+  av_set_t av1 = NULL;
+  av_set_t rhs_in_all_succ_branches = NULL;
+  struct succs_info *sinfo;
+  int is;
+  insn_t succ, zero_succ = NULL;
 
   line_start ();
   print ("compute_av_set");
@@ -2127,92 +2121,84 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
   /* If the window size exceeds at insn during the first computation of 
      av(group), leave a window boundary mark at insn, so further 
      update_data_sets calls do not compute past insn.  */
-  if (ws > MAX_WS && !sel_bb_head_p (insn))
+  if (ws > MAX_WS)
     {
       print ("Max software lookahead window size reached");
-      
-      /* We can reach max lookahead size at bb_header, so clean av_set 
-	 first.  */
-      INSN_WS_LEVEL (insn) = global_level;
-      block_finish ();
-      return NULL;
+
+      if (!sel_bb_head_p (insn))      
+        {
+          /* We can reach max lookahead size at bb_header, so clean av_set
+             first.  */
+          INSN_WS_LEVEL (insn) = global_level;
+          block_finish ();
+          return NULL;
+        }
+          
+      /* Otherwise, it seems like we can't have empty av sets in basic 
+         blocks, so include this insn in this set, but do not try to 
+         continue the search.  */
+      goto skip_successors;
     }
 
   /* Find different kind of successors needed for correct computing of 
      SPEC and TARGET_AVAILABLE attributes.  */
-  cfg_succs (insn, &succs, &probs, &succs_n);
-
-  /* Sometimes there are weird cases when sum of probabilities of outgoing 
-     edges is greater than REG_BR_PROB_BASE.  */
-  all_prob = overall_prob_of_succs (insn);
-
-  /* If there are successors that lead out of the region, then all rhses from
-     the below av_sets should be speculative.  */
-  real_succs_n = cfg_succs_n (insn, SUCCS_ALL);
-  cfg_succs_other (insn, SUCCS_NORMAL, succs, succs_n, real_succs_n,
-                   &other_succs, &other_succs_n);
+  sinfo = compute_succs_info (insn, SUCCS_NORMAL);
 
   /* Debug output.  */
   line_start ();
   print ("successors (%d): ", INSN_UID (insn));
-  dump_insn_array (succs, succs_n);
+  dump_insn_vector (sinfo->succs_ok);
   line_finish ();
-  if (succs_n != real_succs_n)
+  if (sinfo->succs_ok_n != sinfo->all_succs_n)
     {
       line_start ();
-      print ("real successors num: %d", real_succs_n);
+      print ("real successors num: %d", sinfo->all_succs_n);
       line_finish ();
     }
 
   /* Add insn to to the tail of current path.  */
   ilist_add (&p, insn);
-  /* If there are any successors.  */
-  /* Create empty av_set and make union of successors' av_sets or add rhs
-     for current instruction to it later.  */
-  /* TODO: optimize - do copy_shallow instead of union for 
-     num_successors == 1.  */
-  /* FIXME: avoid recursion here wherever possible, e.g.
-     when num_successors == 1.  */
-  av1 = NULL;
-  rhs_in_all_succ_branches = NULL;
-
-  for (succ = 0; succ < succs_n; succ++)
+  for (is = 0; VEC_iterate (rtx, sinfo->succs_ok, is, succ); is++)
     {
       av_set_t succ_set;
 
       /* We will edit SUCC_SET and RHS_SPEC field of its elements.  */
-      succ_set = compute_av_set (succs[succ], p, ws + 1, true);
+      succ_set = compute_av_set (succ, p, ws + 1, true);
 
-      av_set_split_usefulness (&succ_set, probs[succ], all_prob);
+      av_set_split_usefulness (succ_set, 
+                               VEC_index (int, sinfo->probs_ok, is), 
+                               sinfo->all_prob);
 
-      if (real_succs_n > 1)
+      if (sinfo->all_succs_n > 1 
+          && sinfo->all_succs_n == sinfo->succs_ok_n)
 	{
-          /* Consider successors not from the current region.  */
-          if (real_succs_n == succs_n)
+          /* Find RHS'es that came from *all* successors and save them 
+             into rhs_in_all_succ_branches.  This set will be used later
+             for calculating speculation attributes of RHS'es.  */
+          if (is == 0)
             {
-              /* Find RHS'es that came from *all* successors and save them 
-                 into rhs_in_all_succ_branches.  This set will be used later
-                 for calculating speculation attributes of RHS'es.  */
-              if (succ == 0)
-                rhs_in_all_succ_branches = av_set_copy (succ_set);
-              else
-                {
-                  av_set_iterator i;
-                  rhs_t rhs;
-  
-                  FOR_EACH_RHS_1 (rhs, i, &rhs_in_all_succ_branches)
-                    if (!av_set_is_in_p (succ_set, RHS_VINSN (rhs)))
-                      av_set_iter_remove (&i);
-                }
+              rhs_in_all_succ_branches = av_set_copy (succ_set);
+
+              /* Remember the first successor for later. */
+              zero_succ = succ;
+            }
+          else
+            {
+              av_set_iterator i;
+              rhs_t rhs;
+              
+              FOR_EACH_RHS_1 (rhs, i, &rhs_in_all_succ_branches)
+                if (!av_set_is_in_p (succ_set, RHS_VINSN (rhs)))
+                  av_set_iter_remove (&i);
             }
 	}
 
       /* Union the av_sets.  Check liveness restrictions on target registers
          in special case of two successors.  */
-      if (succs_n == 2 && succ == 1)
+      if (sinfo->succs_ok_n == 2 && is == 1)
         {
-          basic_block bb0 = BLOCK_FOR_INSN (succs[0]);
-          basic_block bb1 = BLOCK_FOR_INSN (succs[1]);
+          basic_block bb0 = BLOCK_FOR_INSN (zero_succ);
+          basic_block bb1 = BLOCK_FOR_INSN (succ);
 
           gcc_assert (BB_LV_SET_VALID_P (bb0) && BB_LV_SET_VALID_P (bb1));
           av_set_union_and_live (&av1, &succ_set, 
@@ -2225,10 +2211,10 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
 
   /* Check liveness restrictions via hard way when there are more than 
      two successors.  */
-  if (succs_n > 2)
-    for (succ = 0; succ < succs_n; succ++)
+  if (sinfo->succs_ok_n > 2)
+    for (is = 0; VEC_iterate (rtx, sinfo->succs_ok, is, succ); is++)
       {
-        basic_block succ_bb = BLOCK_FOR_INSN (succs[succ]);
+        basic_block succ_bb = BLOCK_FOR_INSN (succ);
         
         gcc_assert (BB_LV_SET_VALID_P (succ_bb));
         mark_unavailable_targets (av1, BB_AV_SET (succ_bb), 
@@ -2236,15 +2222,12 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
       }
   
   /* Finally, check liveness restrictions on paths leaving the region.  */ 
-  if (other_succs_n > 0)
-    {
-      for (succ = 0; succ < other_succs_n; succ++)
-	mark_unavailable_targets 
-	  (av1, NULL, BB_LV_SET (BLOCK_FOR_INSN (other_succs[succ])));
-      free (other_succs);
-    }
+  if (sinfo->all_succs_n > sinfo->succs_ok_n)
+    for (is = 0; VEC_iterate (rtx, sinfo->succs_other, is, succ); is++)
+      mark_unavailable_targets 
+        (av1, NULL, BB_LV_SET (BLOCK_FOR_INSN (succ)));
 
-  if (real_succs_n > 1)
+  if (sinfo->all_succs_n > 1)
     {
       av_set_iterator i;
       rhs_t rhs;
@@ -2264,15 +2247,16 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
       av_set_substract_cond_branches (&av1);
     }
   
-  free (succs);
-  free (probs);
   ilist_remove (&p);
+  free_succs_info (sinfo);
 
   line_start ();
   print ("av_succs (%d): ", INSN_UID (insn));
   dump_av_set (av1);
   line_finish ();
 
+ skip_successors:
+  
   /* Then, compute av1 above insn.  */
   if (!INSN_NOP_P (insn))
     {
@@ -2306,9 +2290,6 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
       av_set_clear (&BB_AV_SET (bb));
 
       print ("Save av(%d) in bb header", INSN_UID (insn));
-#if 0
-      mark_unavailable_targets (av1, BB_LV_SET (bb));
-#endif
       BB_AV_SET (bb) = unique_p ? av_set_copy (av1) : av1;
       BB_AV_LEVEL (bb) = global_level;
     }
@@ -4379,8 +4360,9 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  av_set_t rhs_seq = NULL;
 	  rhs_t rhs;
 	  av_set_iterator i;
-	  insn_t *succs;
-	  int succs_n;
+          succ_iterator si;
+          insn_t succ;
+
 	  insn_t place_to_insert;
 	  int n_bookkeeping_copies_before_moveop;
 	  bool asm_p;
@@ -4438,9 +4420,9 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	       basic block, where INSN will be added.  */
 	    place_to_insert = PREV_INSN (BND_TO (bnd));
 
-	  /* In case of scheduling a jump skipping some other instructions -
-	     prepare CFG.  After this, jump is at the boundary and can be scheduled
-         as usual insn by MOVE_OP.  */
+	  /* In case of scheduling a jump skipping some other instructions,
+	     prepare CFG.  After this, jump is at the boundary and can be 
+             scheduled as usual insn by MOVE_OP.  */
 	  if (vinsn_cond_branch_p (RHS_VINSN (av_set_element (rhs_seq, 0))))
 	    {
 	      insn = RHS_INSN (av_set_element (rhs_seq, 0));
@@ -4449,6 +4431,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	      if (insn != BND_TO (bnd) && !sel_insn_is_speculation_check (insn))
             move_cond_jump (insn, bnd);
 	    }
+
 	  /* Actually move chosen insn.  */
 	  {
 	    expr_def _c_rhs, *c_rhs = &_c_rhs;
@@ -4544,6 +4527,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
 	      /* Marker is useful to bind .dot dumps and the log.  */
 	      print_marker_to_log ();
+
 	      /* Make a move.  This call will remove the original operation,
 		 insert all necessary bookkeeping instructions and update the
 		 data sets.  After that all we have to do is add the operation
@@ -4606,13 +4590,15 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  /* Advance the DFA.  */
 	  if (recog_memoized (insn) >= 0)
 	    {
+              int res;
+              
 	      gcc_assert (!INSN_ASM_P (insn));
 	      asm_p = false;
 
               memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
 
-	      succs_n = state_transition (FENCE_STATE (fence), insn);
-	      gcc_assert (succs_n < 0);
+	      res = state_transition (FENCE_STATE (fence), insn);
+	      gcc_assert (res < 0);
 
               if (memcmp (temp_state, FENCE_STATE (fence), dfa_state_size))
                 {
@@ -4666,19 +4652,15 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	  line_finish ();
 
 	  /* Add new boundaries.  */
-	  cfg_succs_1 (insn, SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS, 
-		       &succs, &succs_n);
-	  while (succs_n--)
+          FOR_EACH_SUCC_1 (succ, si, insn, 
+                           SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
 	    {
-	      insn_t succ = succs[succs_n];
 	      ilist_t ptr = ilist_copy (BND_PTR (bnd));
 
 	      ilist_add (&ptr, insn);
-
 	      blist_add (bnds_tailp, succ, ptr, FENCE_DC (fence));
 	      bnds_tailp = &BLIST_NEXT (*bnds_tailp);
 	    }
-	  free (succs);
 
 	  bnds_tail1 = *bnds_tailp1;
 	  blist_remove (bndsp);
@@ -5540,27 +5522,17 @@ sel_region_finish (void)
   /* If LV_SET of the region head should be updated, do it now because
      there will be no other chance.  */
   {
-    insn_t *succs;
-    int succs_num;
-    int i;
+    succ_iterator si;
+    insn_t insn;
 
-    cfg_succs_1 (bb_note (EBB_FIRST_BB (0)),
-		 SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS,
-		 &succs, &succs_num);
-
-    gcc_assert (flag_sel_sched_pipelining_outer_loops
-		|| succs_num == 1);
-
-    for (i = 0; i < succs_num; i++)
+    FOR_EACH_SUCC_1 (insn, si, bb_note (EBB_FIRST_BB (0)),
+                     SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
       {
-	insn_t insn = succs[i];
 	basic_block bb = BLOCK_FOR_INSN (insn);
 
 	if (!BB_LV_SET_VALID_P (bb))
 	  compute_live (insn);
       }
-
-    free (succs);
   }
 
   /* Emulate the Haifa scheduler for bundling.  */
@@ -6279,7 +6251,7 @@ sel_global_init (void)
 
   calculate_dominance_info (CDI_DOMINATORS);
 
-  init_sched_pools ();
+  alloc_sched_pools ();
 
   setup_sched_dumps ();
 
