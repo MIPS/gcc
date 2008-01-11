@@ -227,6 +227,15 @@ DEF_VEC_P(insn_t);
 DEF_VEC_ALLOC_P(insn_t,heap);
 static VEC(insn_t, heap) *vec_temp_moveop_nops = NULL;
 
+/* These bitmaps record original instructions scheduled on the current 
+   iteration and bookkeeping copies created by them.  */ 
+static bitmap current_originators = NULL;
+static bitmap current_copies = NULL;
+
+/* This bitmap marks the blocks visited by find_used_regs so we don't
+   visit them afterwards.  */
+static bitmap fur_visited_blocks = NULL;
+
 /* This shows how many times the scheduler was run.  */
 static int sel_sched_region_run = 0;
 
@@ -2515,7 +2524,9 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
   bool is_orig_op = false;
   regset tmp;
   int res;
-  
+  int bb_num = BLOCK_FOR_INSN (insn)->index;
+  bool av_set_valid_p = AV_SET_VALID_P (insn);
+
   line_start ();
   print ("find_used_regs_1(");
   dump_insn (insn);
@@ -2535,10 +2546,32 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
       return 0;
     }
 
+  if (av_set_valid_p
+      && bitmap_bit_p (fur_visited_blocks, bb_num))
+    {
+      /* We have already found an original operation on this way, do not
+	 go any further and just return TRUE here.  If we don't stop here,
+	 function can have exponential behaviour even on the small code 
+	 with many different paths (e.g. with data speculation and
+	 recovery blocks.  */
+      print ("already visited in this find_used_regs_1");
+      block_finish ();
+
+      /* If we have found something below this block, there should be at
+	 least one insn in original_insns.  */
+      gcc_assert (*original_insns);
+
+      /* Adjust CROSSES_CALL, since we may have come to this block along
+	 different path.  */
+      DEF_LIST_DEF (*original_insns)->crosses_call |= crosses_call;
+
+      return 1;
+    }
+
   orig_ops = av_set_copy (orig_ops);
 
   /* If we've found valid av set, then filter the orig_ops set.  */
-  if (AV_SET_VALID_P (insn))
+  if (av_set_valid_p)
     {
       line_start ();
       print ("av");
@@ -2651,6 +2684,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 	 return.  */
       if (!orig_ops)
 	{
+	  print ("undo_transformations() has cleared the orig_ops.");
 	  block_finish ();
 	  return 0;
 	}
@@ -2775,6 +2809,10 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
        ORIG_OPS.  */
     res = 0;
 
+  if (res == 1 && av_set_valid_p)
+    bitmap_set_bit (fur_visited_blocks, bb_num);
+
+  print ("return val=%d", res);
   block_finish ();
   return res;
 }
@@ -2798,15 +2836,27 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
   def_list_iterator i;
   def_t def;
   int res;
+  bool needs_spec_check_p = false;
+  expr_t expr;
+  av_set_iterator expr_iter;
+
+  /* We haven't visited any blocks yet.  */
+  bitmap_clear (fur_visited_blocks);
 
   res = find_used_regs_1 (insn, orig_ops, NULL, used_regs,
 			  reg_rename_p, false, original_insns);
-
   if (res == -1)
     return false;
-
   gcc_assert (res == 1);
   gcc_assert (original_insns && *original_insns);
+
+  /* ??? We calculate whether an expression needs a check when computing
+     av sets.  This information is not as precise as it could be due to
+     merging this bit in merge_expr.  We can do better in find_used_regs,
+     but we want to avoid multiple traversals of the same code motion 
+     paths.  */
+  FOR_EACH_RHS (expr, expr_iter, orig_ops)
+    needs_spec_check_p |= EXPR_NEEDS_SPEC_CHECK_P (expr);
 
   /* Mark hardware regs in REG_RENAME_P that are not suitable 
      for renaming rhs in INSN due to hardware restrictions (register class,
@@ -2818,8 +2868,9 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
       if (VINSN_SEPARABLE_P (vinsn))
 	mark_unavailable_hard_regs (def, reg_rename_p, used_regs);
 
-      if (def->needs_spec_check_p)
-	/* Do not allow clobbering of ld.[sa] address.  */
+      /* Do not allow clobbering of ld.[sa] address in case some of the 
+         original operations need a check.  */
+      if (needs_spec_check_p)
 	IOR_REG_SET (used_regs, VINSN_REG_USES (vinsn));
     }
 
@@ -3754,10 +3805,6 @@ find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence)
 
 /* Functions that implement the core of the scheduler.  */
 
-/* These bitmaps record original instructions scheduled on the current 
-   iteration and bookkeeping copies created by them.  */ 
-static bitmap current_originators = NULL;
-static bitmap current_copies = NULL;
 
 /* Emit an instruction from EXPR with SEQNO and VINSN after 
    PLACE_TO_INSERT.  */
@@ -4428,8 +4475,9 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	      insn = RHS_INSN (av_set_element (rhs_seq, 0));
 
 	      /* Speculative jumps are not handled.  */
-	      if (insn != BND_TO (bnd) && !sel_insn_is_speculation_check (insn))
-            move_cond_jump (insn, bnd);
+	      if (insn != BND_TO (bnd) 
+                  && !sel_insn_is_speculation_check (insn))
+                move_cond_jump (insn, bnd);
 	    }
 
 	  /* Actually move chosen insn.  */
@@ -5470,6 +5518,7 @@ sel_region_init (int rgn)
   setup_nop_vinsn ();
   current_copies = BITMAP_ALLOC (NULL);
   current_originators = BITMAP_ALLOC (NULL);
+  fur_visited_blocks = BITMAP_ALLOC (NULL);
 
   return false;
 }
@@ -5515,6 +5564,7 @@ sel_region_finish (void)
     VEC_free (rhs_t, heap, vec_av_set);
   BITMAP_FREE (current_copies);
   BITMAP_FREE (current_originators);
+  BITMAP_FREE (fur_visited_blocks);
 
   if (vec_bk_blocked_exprs)
     VEC_free (unsigned, heap, vec_bk_blocked_exprs);

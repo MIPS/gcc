@@ -1713,7 +1713,7 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
 	   int sched_times, int orig_bb_index, ds_t spec_done_ds,
 	   ds_t spec_to_check_ds, int orig_sched_cycle,
 	   VEC(expr_history_def, heap) *history, bool target_available, 
-           bool was_substituted, bool was_renamed)
+           bool was_substituted, bool was_renamed, bool needs_spec_check_p)
 {
   vinsn_attach (vi);
 
@@ -1735,6 +1735,7 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
   EXPR_TARGET_AVAILABLE (expr) = target_available;
   EXPR_WAS_SUBSTITUTED (expr) = was_substituted;
   EXPR_WAS_RENAMED (expr) = was_renamed;
+  EXPR_NEEDS_SPEC_CHECK_P (expr) = needs_spec_check_p;
 }
 
 /* Make a copy of the rhs FROM into the rhs TO.  */
@@ -1764,7 +1765,7 @@ copy_expr (expr_t to, expr_t from)
 	     EXPR_SPEC_DONE_DS (from), EXPR_SPEC_TO_CHECK_DS (from), 
 	     EXPR_ORIG_SCHED_CYCLE (from), temp,
              EXPR_TARGET_AVAILABLE (from), EXPR_WAS_SUBSTITUTED (from), 
-             EXPR_WAS_RENAMED (from));
+             EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from));
 }
 
 /* Same, but the final expr will not ever be in av sets, so don't copy 
@@ -1776,7 +1777,7 @@ copy_expr_onside (expr_t to, expr_t from)
 	     EXPR_PRIORITY (from), EXPR_SCHED_TIMES (from), 0,
 	     EXPR_SPEC_DONE_DS (from), EXPR_SPEC_TO_CHECK_DS (from), 0, NULL,
 	     EXPR_TARGET_AVAILABLE (from), EXPR_WAS_SUBSTITUTED (from),
-	     EXPR_WAS_RENAMED (from));
+	     EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from));
 }
 
 /* Merge bits of FROM rhs to TO rhs.  When JOIN_POINT_P is true,
@@ -1819,20 +1820,6 @@ merge_expr_data (expr_t to, expr_t from, bool join_point_p)
             /* Do nothing -- everything is done in 
                merge_with_other_exprs.  */
             ;
-#if 0
-          else if (dominated_by_p (CDI_DOMINATORS, 
-                                   BASIC_BLOCK (toind),
-                                   BASIC_BLOCK (fromind)))
-            {
-              change_vinsn_in_expr (to, EXPR_VINSN (from));
-              EXPR_TARGET_AVAILABLE (to) = EXPR_TARGET_AVAILABLE (from);
-            }
-          else if (dominated_by_p (CDI_DOMINATORS, 
-                                   BASIC_BLOCK (fromind),
-                                   BASIC_BLOCK (toind)))
-            /* Do nothing.  */
-            ;
-#endif
           else
             EXPR_TARGET_AVAILABLE (to) = -1;
         }
@@ -1867,6 +1854,7 @@ merge_expr_data (expr_t to, expr_t from, bool join_point_p)
     
     EXPR_SPEC_DONE_DS (to) = ds_max_merge (old_to_ds, old_from_ds);
     EXPR_SPEC_TO_CHECK_DS (to) |= EXPR_SPEC_TO_CHECK_DS (from);
+    EXPR_NEEDS_SPEC_CHECK_P (to) |= EXPR_NEEDS_SPEC_CHECK_P (from);
 
     /* When merging e.g. control & data speculative exprs, or a control
        speculative with a control&data speculative one, we really have 
@@ -2001,6 +1989,7 @@ speculate_expr (expr_t expr, ds_t ds)
 
 	change_vinsn_in_expr (expr, spec_vinsn);
 	EXPR_SPEC_DONE_DS (expr) = ds;
+        EXPR_NEEDS_SPEC_CHECK_P (expr) = true;
 
         /* Do not allow clobbering the address register of speculative 
            insns.  */
@@ -2740,7 +2729,7 @@ init_global_and_expr_for_insn (insn_t insn)
     /* Initialize INSN's expr.  */
     init_expr (INSN_EXPR (insn), vinsn_create (insn, force_unique_p), 0,
 	       REG_BR_PROB_BASE, INSN_PRIORITY (insn), 0, BLOCK_NUM (insn),
-	       spec_done_ds, 0, 0, NULL, true, false, false);
+	       spec_done_ds, 0, 0, NULL, true, false, false, false);
   }
 
   init_first_time_insn_data (insn);
@@ -3737,7 +3726,8 @@ static void
 init_simplejump (insn_t insn)
 {
   init_expr (INSN_EXPR (insn), vinsn_create (insn, false), 0,
-	     REG_BR_PROB_BASE, 0, 0, 0, 0, 0, 0, NULL, true, false, false);
+	     REG_BR_PROB_BASE, 0, 0, 0, 0, 0, 0, NULL, true, false, false, 
+	     false);
 
   INSN_SEQNO (insn) = get_seqno_of_a_pred (insn);
 

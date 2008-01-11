@@ -157,6 +157,10 @@ struct _expr
      please run find_used_regs to clarify.  */
   char target_available;
 
+  /* True when this expression needs a speculation check to be scheduled.  
+     This is used during find_used_regs.  */
+  BOOL_BITFIELD needs_spec_check_p : 1;
+
   /* True when the expression was substituted.  Used for statistical 
      purposes.  */
   BOOL_BITFIELD was_substituted : 1;
@@ -189,6 +193,7 @@ typedef expr_t rhs_t;
 #define EXPR_SPEC_TO_CHECK_DS(EXPR) ((EXPR)->spec_to_check_ds)
 #define EXPR_HISTORY_OF_CHANGES(EXPR) ((EXPR)->history_of_changes)
 #define EXPR_TARGET_AVAILABLE(EXPR) ((EXPR)->target_available)
+#define EXPR_NEEDS_SPEC_CHECK_P(EXPR) ((EXPR)->needs_spec_check_p)
 #define EXPR_WAS_SUBSTITUTED(EXPR) ((EXPR)->was_substituted)
 #define EXPR_WAS_RENAMED(EXPR) ((EXPR)->was_renamed)
 

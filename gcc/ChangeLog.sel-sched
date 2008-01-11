@@ -1,3 +1,32 @@
+2008-01-11  Dmitry Melnik  <dm@ispras.ru>
+
+	Speedup find_used_regs by restricting it from visiting same blocks
+	on different paths.
+
+	* sel-sched-ir.c (init_expr): New parameter needs_spec_check_p.
+	We now store it with the expression instead of computing in place.
+	Init EXPR_NEEDS_SPEC_CHECK_P with the param.
+	(copy_expr, copy_expr_onside): Pass the new param.
+	(merge_expr_data): Merge EXPR_SPEC_DONE_DS.
+	(speculate_expr): Init EXPR_NEEDS_SPEC_CHECK_P here.
+	(init_global_and_expr_for_insn): Pass the new param.
+	(init_simplejump): Ditto.
+	* sel-sched-ir.c (struct _expr): New field needs_spec_check_p.
+	(EXPR_NEEDS_SPEC_CHECK_P): New access macro.
+	* sel-sched.c (current_originators, current_copies): These bitmaps 
+	record original instructions scheduled on the current iteration and 
+	bookkeeping copies created by them.
+	(fur_visited_blocks): This bitmap marks the blocks visited by 
+	find_used_regs so we don't visit them afterwards.
+	(find_used_regs_1): Do not go past fur_visited_blocks.  Record blocks
+	we visit in this bitmap.
+	(find_used_regs): Clear fur_visited_blocks here.  Compute whether
+	expr needs speculation based upon EXPR_NEEDS_SPEC_CHECK_P.  Do not 
+	allow clobbering of ld.[sa] address in case some of the  original 
+	operations need a check.
+	(sel_region_init): Allocate fur_visited_blocks.
+	(sel_region_finish): Free fur_visited_blocks.
+
 2008-01-11  Andrey Belevantsev  <abel@ispras.ru>
 
 	* haifa-sched.c (rtx_vec_t): Move to ... 
