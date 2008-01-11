@@ -1,5 +1,11 @@
 2008-01-10  Diego Novillo  <dnovillo@google.com>
 
+	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00444.html
+
+	* Makefile.in (tree-complex.o): Remove gt-tree-vect-generic.h
+
+2008-01-10  Diego Novillo  <dnovillo@google.com>
+
 	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00436.html
 
 	* tree-ssa-operands.h (PHI_RESULT_PTR): Call
