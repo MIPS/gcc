@@ -1,3 +1,26 @@
+2008-01-11  Andrey Belevantsev  <abel@ispras.ru>
+	    Dmitry Zhurikhin  <zhur@ispras.ru>
+
+	* config/ia64/ia64.opt (msched-fp-mem-deps-zero-cost): Init to 0.
+	(msel-sched-data-spec): Init to 1.
+	* params.def (PARAM_SELSCHED_MAX_LOOKAHEAD): Default to 40.
+
+	* sel-sched-ir.c (sel_gen_insn_from_rtx_after): Add vinsn parameter.
+	(merge_expr_data): Properly merge speculative expressions with 
+	different speculation types.
+	(speculate_expr): Move from sel-sched.c.
+	(set_insn_init): Return the expression we've been initializing.
+	Set speculative status to be as weak as possible.
+	* sel-sched-ir.h (speculate_expr): Export.
+	* sel-sched.c (create_speculation_check): Tidy.
+	(undo_transformations): Add comment.
+	(moveup_rhs): Avoid moving control flow insns through joins.
+	(gen_insn_from_expr_after): Rename to emit_insn_from_expr_after.
+	Tidy.
+	(generate_bookkeeping_insn, fill_insns): Use it.  Tidy.
+	(update_and_record_unavailable_insns): Fix assert.
+	(init_seqno_1, sel_region_init): Tidy.
+
 2008-01-11  Dmitry Melnik  <dm@ispras.ru>
         
 	Fix different scheduler issues that prevent it from working 

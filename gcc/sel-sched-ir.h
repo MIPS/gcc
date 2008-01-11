@@ -974,7 +974,7 @@ extern void recompute_vinsn_lhs_rhs (vinsn_t);
 extern int sel_vinsn_cost (vinsn_t);
 extern insn_t sel_gen_insn_from_rtx_after (rtx, expr_t, int, insn_t);
 extern insn_t sel_gen_recovery_insn_from_rtx_after (rtx, expr_t, int, insn_t);
-extern insn_t sel_gen_insn_from_expr_after (expr_t, int, insn_t);
+extern insn_t sel_gen_insn_from_expr_after (expr_t, vinsn_t, int, insn_t);
 extern void vinsn_attach (vinsn_t);
 extern void vinsn_detach (vinsn_t);
 
@@ -994,6 +994,7 @@ extern void insert_in_history_vect (VEC(expr_history_def, heap) **,
                                     unsigned, enum local_trans_type, 
                                     vinsn_t, vinsn_t, ds_t);
 extern void mark_unavailable_targets (av_set_t, av_set_t, regset);
+extern int speculate_expr (expr_t, ds_t);
 
 /* Av set functions.  */
 extern void av_set_add (av_set_t *, rhs_t);

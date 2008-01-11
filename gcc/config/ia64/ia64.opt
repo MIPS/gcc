@@ -149,7 +149,7 @@ Target Report Var(mflag_sched_stop_bits_after_every_cycle) Init(1)
 Place a stop bit after every cycle when scheduling
 
 msched-fp-mem-deps-zero-cost
-Target Report Var(mflag_sched_fp_mem_deps_zero_cost) Init(1)
+Target Report Var(mflag_sched_fp_mem_deps_zero_cost) Init(0)
 Assume that floating-point stores and loads are not likely to cause conflict when placed into one instruction group
 
 msched-max-memory-insns=
@@ -169,7 +169,7 @@ Target Report Var(mflag_sel_sched_substitution) Init(1)
 Perform substitution in selective scheduling
 
 msel-sched-data-spec
-Target Report Var(mflag_sel_sched_data_spec) Init(0)
+Target Report Var(mflag_sel_sched_data_spec) Init(1)
 Perform data speculation in selective scheduling
 
 msel-sched-control-spec

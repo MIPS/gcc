@@ -131,6 +131,8 @@ static void fence_init (fence_t, insn_t, state_t, deps_t, void *,
 static void fence_clear (fence_t);
 
 static void deps_init_id (idata_t, insn_t, bool);
+static expr_t set_insn_init (expr_t, vinsn_t, int);
+
 static void cfg_preds (basic_block, insn_t **, int *);
 
 static void sel_add_or_remove_bb (basic_block, int);
@@ -915,12 +917,6 @@ free_regset_pool (void)
    placeholders of the insns being scheduled to allow correct update of 
    the data sets.  When update is finished, NOPs are deleted.  */
 
-static void set_insn_init (expr_t, vinsn_t, int);
-#if 0
-static void vinsn_attach (vinsn_t);
-static void vinsn_detach (vinsn_t);
-#endif
-
 /* A vinsn that is used to represent a nop.  This vinsn is shared among all
    nops sel-sched generates.  */
 static vinsn_t nop_vinsn = NULL;
@@ -1540,27 +1536,28 @@ sel_gen_recovery_insn_from_rtx_after (rtx pattern, expr_t expr, int seqno,
   return insn;
 }
 
-/* Emit new insn after AFTER based on EXPR and SEQNO.  */
+/* Emit new insn after AFTER based on EXPR and SEQNO.  If VINSN is not NULL,
+   take it as a new vinsn instead of EXPR's vinsn.  
+   We simplify insns later, after scheduling region in 
+   simplify_changed_insns.  */
 insn_t
-sel_gen_insn_from_expr_after (rhs_t expr, int seqno, insn_t after)
+sel_gen_insn_from_expr_after (rhs_t expr, vinsn_t vinsn, int seqno, 
+                              insn_t after)
 {
-  insn_t insn = RHS_INSN (expr);
-
-  gcc_assert (!INSN_IN_STREAM_P (insn));
-
+  expr_t emit_expr;
+  insn_t insn;
+  
   insn_init.what = INSN_INIT_WHAT_INSN;
-  add_insn_after (insn, after, BLOCK_FOR_INSN (insn));          
-
-  /* We simplify insns later, after scheduling region in 
-     simplify_changed_insns.  */
   insn_init.todo = INSN_INIT_TODO_SSID;
-  set_insn_init (expr, EXPR_VINSN (expr), seqno);
+
+  emit_expr = set_insn_init (expr, vinsn ? vinsn : EXPR_VINSN (expr), 
+                             seqno);
+  insn = EXPR_INSN_RTX (emit_expr);
+  add_insn_after (insn, after, BLOCK_FOR_INSN (insn));          
 
   if (INSN_LUID (insn) == 0)
     insn_init.todo |= INSN_INIT_TODO_LUID;
-
   sel_init_new_insns ();
-
   return insn;
 }
 
@@ -1835,11 +1832,6 @@ merge_expr_data (expr_t to, expr_t from, bool join_point_p)
   EXPR_ORIG_SCHED_CYCLE (to) = MIN (EXPR_ORIG_SCHED_CYCLE (to), 
                                     EXPR_ORIG_SCHED_CYCLE (from));
 
-  EXPR_SPEC_DONE_DS (to) = ds_max_merge (EXPR_SPEC_DONE_DS (to),
-					 EXPR_SPEC_DONE_DS (from));
-
-  EXPR_SPEC_TO_CHECK_DS (to) |= EXPR_SPEC_TO_CHECK_DS (from);
-  
   /* We keep this vector sorted.  */
   for (i = 0; 
        VEC_iterate (expr_history_def, EXPR_HISTORY_OF_CHANGES (from), 
@@ -1852,6 +1844,33 @@ merge_expr_data (expr_t to, expr_t from, bool join_point_p)
 
   EXPR_WAS_SUBSTITUTED (to) |= EXPR_WAS_SUBSTITUTED (from);
   EXPR_WAS_RENAMED (to) |= EXPR_WAS_RENAMED (to);
+
+  {
+    ds_t old_to_ds, old_from_ds;
+
+    old_to_ds = EXPR_SPEC_DONE_DS (to);
+    old_from_ds = EXPR_SPEC_DONE_DS (from);
+    
+    EXPR_SPEC_DONE_DS (to) = ds_max_merge (old_to_ds, old_from_ds);
+    EXPR_SPEC_TO_CHECK_DS (to) |= EXPR_SPEC_TO_CHECK_DS (from);
+
+    /* When merging e.g. control & data speculative exprs, or a control
+       speculative with a control&data speculative one, we really have 
+       to change vinsn too.  */
+    if ((old_to_ds & SPECULATIVE) && (old_from_ds & SPECULATIVE))
+      {
+        old_to_ds = ds_get_speculation_types (old_to_ds);
+        old_from_ds = ds_get_speculation_types (old_from_ds);
+        
+        if (old_to_ds != old_from_ds)
+          {
+            int res;
+
+            res = speculate_expr (to, EXPR_SPEC_DONE_DS (to));
+            gcc_assert (res >= 0);
+          }
+      }
+  }
 }
 
 /* Merge bits of FROM rhs to TO rhs.  Vinsns in the rhses should correlate.  */
@@ -1933,6 +1952,57 @@ set_unavailable_target_for_expr (expr_t expr, regset lv_set)
             break;
           }
 
+    }
+}
+
+/* Try to make EXPR speculative.  Return true when EXPR's pattern 
+   had to be changed. */
+int
+speculate_expr (expr_t expr, ds_t ds)
+{
+  int res;
+  rtx orig_insn_rtx;
+  rtx spec_pat;
+  ds_t target_ds, current_ds;
+
+  /* Obtain the status we need to put on EXPR.   */
+  target_ds = (ds & SPECULATIVE);
+  current_ds = EXPR_SPEC_DONE_DS (expr);
+  ds = ds_full_merge (current_ds, target_ds, NULL_RTX, NULL_RTX);
+
+  orig_insn_rtx = EXPR_INSN_RTX (expr);
+
+  res = sched_speculate_insn (orig_insn_rtx, ds, &spec_pat);
+
+  switch (res)
+    {
+    case 0:
+      EXPR_SPEC_DONE_DS (expr) = ds;
+      return 0;
+      
+    case 1:
+      {
+	rtx spec_insn_rtx = create_insn_rtx_from_pattern (spec_pat, NULL_RTX);
+	vinsn_t spec_vinsn = create_vinsn_from_insn_rtx (spec_insn_rtx);
+
+	change_vinsn_in_expr (expr, spec_vinsn);
+	EXPR_SPEC_DONE_DS (expr) = ds;
+
+        /* Do not allow clobbering the address register of speculative 
+           insns.  */
+        if (bitmap_bit_p (VINSN_REG_USES (EXPR_VINSN (expr)), 
+                          expr_dest_regno (expr)))
+          EXPR_TARGET_AVAILABLE (expr) = false;
+
+	return 1;
+      }
+
+    case -1:
+      return -1;
+
+    default:
+      gcc_unreachable ();
+      return -1;
     }
 }
 
@@ -3582,12 +3652,13 @@ static sel_insn_data_t insn_init_ssid = &_insn_init_ssid;
 static bool insn_init_create_new_vinsn_p;
 
 /* Set all necessary data for initialization of the new insn[s].  */
-static void
+static expr_t
 set_insn_init (expr_t expr, vinsn_t vi, int seqno)
 {
   expr_t x = &insn_init_ssid->_expr;
+  ds_t ds_x;
 
-  copy_expr (x, expr);
+  copy_expr_onside (x, expr);
 
   if (vi != NULL)
     {
@@ -3598,6 +3669,17 @@ set_insn_init (expr_t expr, vinsn_t vi, int seqno)
     insn_init_create_new_vinsn_p = true;
 
   insn_init_ssid->seqno = seqno;
+  
+  /* ??? If this expression is speculative, make its dependence
+     as weak as possible.  We can filter this expression later
+     in process_spec_exprs, because we do not distinguish
+     between the status we got during compute_av_set and the
+     existing status.  To be fixed.  */
+  ds_x = EXPR_SPEC_DONE_DS (x);
+  if (ds_x)
+    EXPR_SPEC_DONE_DS (x) = ds_get_max_dep_weak (ds_x);
+
+  return x;
 }
 
 /* Init data for INSN.  */

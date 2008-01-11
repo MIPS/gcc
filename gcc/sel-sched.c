@@ -1377,8 +1377,6 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 
 /* Flag to enable / disable ia64 speculation.  */
 static bool sel_speculation_p = true;
-
-static int speculate_expr (expr_t, ds_t);
 static ds_t get_spec_check_type_for_insn (insn_t, expr_t);
 
 /* Return true if dependence described by DS can be overcomed.  */
@@ -1457,9 +1455,9 @@ create_speculation_check (expr_t c_rhs, ds_t check_ds, insn_t orig_insn)
   EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) = 0;
   INSN_SPEC_CHECKED_DS (insn) = check_ds;
 
+  /* Emit copy of original insn (though with replaced target register,
+     if needed) to the recovery block.  */
   if (recovery_block != NULL)
-    /* Emit copy of original insn (though with replaced target register,
-       if needed) to the recovery block.  */
     {
       rtx twin_rtx;
       insn_t twin;
@@ -1479,65 +1477,12 @@ create_speculation_check (expr_t c_rhs, ds_t check_ds, insn_t orig_insn)
      In case of control speculation we must convert C_RHS to control
      speculative mode, because failing to do so will bring us an exception
      thrown by the non-control-speculative load.  */
-  {
-    check_ds = ds_get_max_dep_weak (check_ds);
-    speculate_expr (c_rhs, check_ds);
-  }
-
+  check_ds = ds_get_max_dep_weak (check_ds);
+  speculate_expr (c_rhs, check_ds);
+    
   sel_dump_cfg ("after-gen-spec-check");
 
   return insn;
-}
-
-/* Try to make EXPR speculative.  Return true when EXPR's pattern 
-   had to be changed. */
-static int
-speculate_expr (expr_t expr, ds_t ds)
-{
-  int res;
-  rtx orig_insn_rtx;
-  rtx spec_pat;
-  ds_t target_ds, current_ds;
-
-  /* Obtain the status we need to put on EXPR.   */
-  target_ds = (ds & SPECULATIVE);
-  current_ds = EXPR_SPEC_DONE_DS (expr);
-  ds = ds_full_merge (current_ds, target_ds, NULL_RTX, NULL_RTX);
-
-  orig_insn_rtx = EXPR_INSN_RTX (expr);
-
-  res = sched_speculate_insn (orig_insn_rtx, ds, &spec_pat);
-
-  switch (res)
-    {
-    case 0:
-      EXPR_SPEC_DONE_DS (expr) = ds;
-      return 0;
-      
-    case 1:
-      {
-	rtx spec_insn_rtx = create_insn_rtx_from_pattern (spec_pat, NULL_RTX);
-	vinsn_t spec_vinsn = create_vinsn_from_insn_rtx (spec_insn_rtx);
-
-	change_vinsn_in_expr (expr, spec_vinsn);
-	EXPR_SPEC_DONE_DS (expr) = ds;
-
-        /* Do not allow clobbering the address register of speculative 
-           insns.  */
-        if (bitmap_bit_p (VINSN_REG_USES (EXPR_VINSN (expr)), 
-                          expr_dest_regno (expr)))
-          EXPR_TARGET_AVAILABLE (expr) = false;
-
-	return 1;
-      }
-
-    case -1:
-      return -1;
-
-    default:
-      gcc_unreachable ();
-      return -1;
-    }
 }
 
 /* True when INSN is a "regN = regN" copy.  */
@@ -1614,7 +1559,9 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
                             && new_ds 
                             && ((old_ds & SPECULATIVE) 
                                 != (new_ds & SPECULATIVE)));
-                
+
+                /* Compute the difference between old and new speculative
+                   statuses: that's what we need to check.  */
                 old_ds &= SPECULATIVE;
                 new_ds &= SPECULATIVE;
                 new_ds &= ~old_ds;
@@ -1745,7 +1692,11 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group,
           if (control_flow_insn_p (through_insn)
               || sel_insn_is_speculation_check (insn))
             return MOVEUP_RHS_NULL;
-            
+
+          /* Don't move jumps through CFG joins.  */
+          if (bookkeeping_can_be_created_if_moved_through_p (through_insn))
+            return MOVEUP_RHS_NULL;
+
           /* The jump should have a clear fallthru block, and 
              this block should be in the current region.  */
           if ((fallthru_bb = fallthru_bb_of_jump (insn)) == NULL
@@ -3827,9 +3778,11 @@ find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence)
 static bitmap current_originators = NULL;
 static bitmap current_copies = NULL;
 
-/* Emit an instruction from EXPR with SEQNO after PLACE_TO_INSERT.  */
+/* Emit an instruction from EXPR with SEQNO and VINSN after 
+   PLACE_TO_INSERT.  */
 static insn_t
-gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
+emit_insn_from_expr_after (expr_t expr, vinsn_t vinsn, int seqno, 
+                           insn_t place_to_insert)
 {
   /* This assert fails when we have identical instructions
      one of which dominates the other.  In this case move_op ()
@@ -3857,13 +3810,8 @@ gen_insn_from_expr_after (expr_t expr, int seqno, insn_t place_to_insert)
       }
   }
 
-  {
-    insn_t new_insn;
-
-    new_insn = sel_gen_insn_from_expr_after (expr, seqno, place_to_insert);
-
-    return new_insn;
-  }
+  return sel_gen_insn_from_expr_after (expr, vinsn, seqno, 
+                                       place_to_insert);
 }
 
 /* Generate a bookkeeping copy of "REG = CUR_RHS" insn at JOIN_POINT on the 
@@ -4060,20 +4008,17 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
   {
     rtx new_insn_rtx;
     vinsn_t new_vinsn;
-    expr_def _new_expr, *new_expr = &_new_expr;
 
     need_to_exchange_data_sets
       = sel_bb_empty_p (BLOCK_FOR_INSN (place_to_insert));
 
     new_insn_rtx = create_copy_of_insn_rtx (EXPR_INSN_RTX (c_rhs));
     new_vinsn = create_vinsn_from_insn_rtx (new_insn_rtx);
-    copy_expr_onside (new_expr, c_rhs);
-    change_vinsn_in_expr (new_expr, new_vinsn);
-    new_insn = gen_insn_from_expr_after (new_expr, new_seqno, place_to_insert);
+    new_insn = emit_insn_from_expr_after (c_rhs, new_vinsn, 
+                                          new_seqno, place_to_insert);
 
     INSN_SCHED_TIMES (new_insn) = 0;
     bitmap_set_bit (current_copies, INSN_UID (new_insn));
-    clear_expr (new_expr);
 
     /* When inserting bookkeeping insn in new block, av sets should be
        following: old basic block (that now holds bookkeeping) data sets are
@@ -4642,7 +4587,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	    }
 
 	    /* Add the instruction.  */
-	    insn = gen_insn_from_expr_after (c_rhs, seqno, place_to_insert);
+	    insn = emit_insn_from_expr_after (c_rhs, NULL, seqno, 
+                                              place_to_insert);
 	    clear_expr (c_rhs);
 
 	    ++INSN_SCHED_TIMES (insn);
@@ -4769,7 +4715,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
       if (insn == BB_END (BLOCK_FOR_INSN (insn)))
         break;
 
-      /* !!! This is a possible perfomance regression as we schedule one
+      /* ??? This is a possible perfomance regression as we schedule one
 	 instruction at a time because of floating bb headers.  We need to
 	 change the above condition to control_flow_insn_p (insn) or completely
 	 remove it at all.  */
@@ -4856,16 +4802,16 @@ update_and_record_unavailable_insns (basic_block book_block)
   if (AV_SET_VALID_P (sel_bb_head (book_block)))
     {
       old_av_set = av_set_copy (BB_AV_SET (book_block));
-    
       update_data_sets (sel_bb_head (book_block));
-    
     
       /* Traverse all the expressions in the old av_set and check whether
 	 CUR_RHS is in new AV_SET.  */
       FOR_EACH_RHS (cur_rhs, i, old_av_set)
 	if (!av_set_lookup (BB_AV_SET (book_block), EXPR_VINSN (cur_rhs)))
 	  {
-	    gcc_assert (!VINSN_SEPARABLE_P (EXPR_VINSN (cur_rhs)));
+            /* Unfortunately, the below code could be also fired up on
+               separable insns.  
+               gcc_assert (!VINSN_SEPARABLE_P (EXPR_VINSN (cur_rhs)));  */
 	    VEC_safe_push (unsigned, heap, vec_bk_blocked_exprs, 
 			   VINSN_HASH (EXPR_VINSN (cur_rhs)));
 	  }
@@ -5336,7 +5282,6 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs)
   insn_t succ_insn;
   succ_iterator si;
 
-
   SET_BIT (visited_bbs, bbi);
 
   FOR_EACH_SUCC_1 (succ_insn, si, BB_END (bb), 
@@ -5483,9 +5428,9 @@ sel_region_init (int rgn)
 
   /* Setup flags that might affect initialization.  */
   {
-    /* We don't need the semantics of moveup_set_path, because filtering of 
-       dependencies inside a sched group is handled by tick_check_p and 
-       the target.  */
+    /* We need the semantics of moveup_set_path only for substituting 
+       inside an insn troup, otherwise filtering of dependencies in 
+       an insn group is handled by tick_check_p and the target.  */
     enable_moveup_set_path_p 
       = flag_sel_sched_substitute_inside_insn_group != 0;
 
