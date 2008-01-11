@@ -231,7 +231,7 @@ make_phi_node (tree var, int len)
       imm->use = gimple_phi_arg_def_ptr (phi, i);
       imm->prev = NULL;
       imm->next = NULL;
-      imm->stmt = phi;
+      imm->loc.stmt = phi;
     }
 
   return phi;
@@ -300,7 +300,7 @@ resize_phi_node (gimple *phi, size_t len)
       imm->use = gimple_phi_arg_def_ptr (new_phi, i);
       imm->prev = NULL;
       imm->next = NULL;
-      imm->stmt = new_phi;
+      imm->loc.stmt = new_phi;
     }
 
   *phi = new_phi;

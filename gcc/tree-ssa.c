@@ -393,26 +393,9 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
     }
   else
     {
-      /* FIXME tuples.  Change how the cyclic list in immediate uses
-	 is maintained.  Right now, the root node of the immediate use
-	 list is identified as a node with the field USE set to NULL
-	 and the field STMT set to the SSA name associated with this
-	 node.
-
-	 Since the field STMT is now of type 'gimple', it can no
-	 longer hold an arbitrary tree node.  To workaround this
-	 problem, we are forcing a type cast from the SSA_NAME tree
-	 node to type 'gimple'.  This is used as a marker, so there is
-	 no risk in dereferencing this field.
-
-	 However, this is an ugly hack.  One alternate approach would
-	 be to reverse the roles of these markers.  The markers for a
-	 root node would be field STMT set to NULL and field USE set
-	 to the address of the SSA_NAME for this immediate use (ie,
-	 &ssa_name[SSA_NAME_VERSION (var)]).  */
       tree listvar;
       if (use_p->prev->use == NULL)
-	listvar = (tree) use_p->prev->stmt;
+	listvar = use_p->prev->loc.ssa_name;
       else
 	listvar = USE_FROM_PTR (use_p->prev);
       if (listvar != ssa_name)

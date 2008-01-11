@@ -399,7 +399,7 @@ link_imm_use_stmt (ssa_use_operand_t *linknode, tree def, gimple stmt)
     link_imm_use (linknode, def);
   else
     link_imm_use (linknode, NULL);
-  linknode->stmt = stmt;
+  linknode->loc.stmt = stmt;
 }
 
 /* Relink a new node in place of an old node in the list.  */
@@ -429,7 +429,7 @@ relink_imm_use_stmt (ssa_use_operand_t *linknode, ssa_use_operand_t *old,
     relink_imm_use (linknode, old);
   else
     link_imm_use (linknode, NULL);
-  linknode->stmt = stmt;
+  linknode->loc.stmt = stmt;
 }
 
 
@@ -505,7 +505,7 @@ single_imm_use (const_tree var, use_operand_p *use_p, gimple *stmt)
   if (ptr != ptr->next && ptr == ptr->next->next)
     {
       *use_p = ptr->next;
-      *stmt = ptr->next->stmt;
+      *stmt = ptr->next->loc.stmt;
       return true;
     }
   *use_p = NULL_USE_OPERAND_P;
@@ -1330,7 +1330,7 @@ first_imm_use_stmt (imm_use_iterator *imm, tree var)
      stmt and use, which indicates a marker node.  */
   imm->iter_node.prev = NULL_USE_OPERAND_P;
   imm->iter_node.next = NULL_USE_OPERAND_P;
-  imm->iter_node.stmt = NULL;
+  imm->iter_node.loc.stmt = NULL;
   imm->iter_node.use = NULL_USE_OPERAND_P;
 
   if (end_imm_use_stmt_p (imm))

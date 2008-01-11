@@ -152,9 +152,7 @@ make_ssa_name (tree var, gimple stmt)
   imm->use = NULL;
   imm->prev = imm;
   imm->next = imm;
-  /* FIXME tuples.  See alternate ways of marking the root of an imm
-     use list in tree-ssa.c:verify_use.  */
-  imm->stmt = (gimple) t;
+  imm->loc.ssa_name = t;
 
   return t;
 }
@@ -212,9 +210,8 @@ release_ssa_name (tree var)
 
       imm->prev = imm;
       imm->next = imm;
-      /* FIXME tuples.  See alternate ways of marking the root of an
-	 imm use list in tree-ssa.c:verify_use.  */
-      imm->stmt = (gimple) var;
+      imm->loc.ssa_name = var;
+
       /* First put back the right tree node so that the tree checking
 	 macros do not complain.  */
       TREE_SET_CODE (var, SSA_NAME);

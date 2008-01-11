@@ -1,3 +1,15 @@
+2008-01-11  Andrew MacLeod  <amacleod@redhat.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00493.html
+
+	* tree.h (struct ssa_use_operand_d): Replace field STMT
+	with a union field LOC containing the fields STMT and
+	SSA_NAME.
+	Update all users.
+	* tree-flow.h (struct immediate_use_iterator_d): Document
+	how immediate use iteration works.
+
 2008-01-10  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00444.html

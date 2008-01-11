@@ -422,6 +422,42 @@ struct function_ann_d GTY(())
 #endif
 };
 
+
+/* Immediate use lists are used to directly access all uses for an SSA
+   name and get pointers to the statement for each use. 
+
+   The structure ssa_use_operand_d consists of PREV and NEXT pointers
+   to maintain the list.  A USE pointer, which points to address where
+   the use is located and a LOC pointer which can point to the
+   statement where the use is located, or, in the case of the root
+   node, it points to the SSA name itself.
+
+   The list is anchored by an occurrence of ssa_operand_d *in* the
+   ssa_name node itself (named 'imm_uses').  This node is uniquely
+   identified by having a NULL USE pointer. and the LOC pointer
+   pointing back to the ssa_name node itself.  This node forms the
+   base for a circular list, and initially this is the only node in
+   the list.
+
+   Fast iteration allows each use to be examined, but does not allow
+   any modifications to the uses or stmts.
+
+   Normal iteration allows insertion, deletion, and modification. the
+   iterator manages this by inserting a marker node into the list
+   immediately before the node currently being examined in the list.
+   this marker node is uniquely identified by having null stmt *and* a
+   null use pointer.  
+
+   When iterating to the next use, the iteration routines check to see
+   if the node after the marker has changed. if it has, then the node
+   following the marker is now the next one to be visited. if not, the
+   marker node is moved past that node in the list (visualize it as
+   bumping the marker node through the list).  this continues until
+   the marker node is moved to the original anchor position. the
+   marker node is then removed from the list.
+
+   If iteration is halted early, the marker node must be removed from
+   the list before continuing.  */
 typedef struct immediate_use_iterator_d
 {
   /* This is the current use the iterator is processing.  */

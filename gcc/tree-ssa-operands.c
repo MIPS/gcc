@@ -572,8 +572,8 @@ static inline void
 set_virtual_use_link (use_operand_p ptr, gimple stmt)
 {
   /*  fold_stmt may have changed the stmt pointers.  */
-  if (ptr->stmt != stmt)
-    ptr->stmt = stmt;
+  if (ptr->loc.stmt != stmt)
+    ptr->loc.stmt = stmt;
 
   /* If this use isn't in a list, add it to the correct list.  */
   if (!ptr->prev)
@@ -2783,10 +2783,10 @@ verify_imm_links (FILE *f, tree var)
   return false;
 
  error:
-  if (ptr->stmt && stmt_modified_p (ptr->stmt))
+  if (ptr->loc.stmt && stmt_modified_p (ptr->loc.stmt))
     {
-      fprintf (f, " STMT MODIFIED. - <%p> ", (void *)ptr->stmt);
-      print_gimple_stmt (f, ptr->stmt, 0, TDF_SLIM);
+      fprintf (f, " STMT MODIFIED. - <%p> ", (void *)ptr->loc.stmt);
+      print_gimple_stmt (f, ptr->loc.stmt, 0, TDF_SLIM);
     }
   fprintf (f, " IMM ERROR : (use_p : tree - %p:%p)", (void *)ptr, 
 	   (void *)ptr->use);
@@ -2818,7 +2818,7 @@ dump_immediate_uses_for (FILE *file, tree var)
 
   FOR_EACH_IMM_USE_FAST (use_p, iter, var)
     {
-      if (use_p->stmt == NULL && use_p->use == NULL)
+      if (use_p->loc.stmt == NULL && use_p->use == NULL)
         fprintf (file, "***end of stmt iterator marker***\n");
       else
 	if (!is_gimple_reg (USE_FROM_PTR (use_p)))

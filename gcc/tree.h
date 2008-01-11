@@ -1863,7 +1863,12 @@ typedef struct ssa_use_operand_d GTY(())
 {
   struct ssa_use_operand_d* GTY((skip(""))) prev;
   struct ssa_use_operand_d* GTY((skip(""))) next;
-  gimple GTY((skip(""))) stmt;
+  /* Immediate uses for a given SSA name are maintained as a cyclic
+     list.  To recognize the root of this list, the location field
+     needs to point to the original SSA name.  Since statements and
+     SSA names are of different data types, we need this union.  See
+     the explanation in struct immediate_use_iterator_d.  */
+  union { gimple stmt; tree ssa_name; } GTY((skip(""))) loc;
   tree *GTY((skip(""))) use;
 } ssa_use_operand_t;
 

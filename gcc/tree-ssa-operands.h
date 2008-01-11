@@ -157,7 +157,7 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define SET_USE(USE, V)		set_ssa_use_from_ptr (USE, V)
 #define SET_DEF(DEF, V)		((*(DEF)) = (V))
 
-#define USE_STMT(USE)		(USE)->stmt
+#define USE_STMT(USE)		(USE)->loc.stmt
 
 #define USE_OP_PTR(OP)		(&((OP)->use_ptr))
 #define USE_OP(OP)		(USE_FROM_PTR (USE_OP_PTR (OP)))
