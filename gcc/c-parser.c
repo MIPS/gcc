@@ -1,6 +1,6 @@
 /* Parser for C and Objective-C.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -254,8 +254,8 @@ typedef enum c_id_kind {
   C_ID_NONE
 } c_id_kind;
 
-/* A single C token after string literal concatenation and conversion
-   of preprocessing tokens to tokens.  */
+/* A single C token after conversion of preprocessing tokens to
+   tokens.  */
 typedef struct c_token GTY (())
 {
   /* The kind of token.  */

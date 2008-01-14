@@ -13,7 +13,7 @@ const char x510[] = HUN HUN HUN HUN HUN TEN; /* { dg-warning "greater than" } */
 
 /* C99's minimum-maximum is 4095.  */
 const char x4096[] =
-  THO THO THO THO     /* 4000 */
+  THO THO THO THO     /* 4000 */  /* { dg-warning "greater than" } */
   TEN TEN TEN TEN TEN /* 4050 */
   TEN TEN TEN TEN     /* 4090 */
-  "123456";  /* { dg-warning "greater than" } */
+  "123456";

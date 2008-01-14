@@ -1,3 +1,7 @@
+2008-01-14  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c: Fix comment.
+
 2008-01-09  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (pushdecl): Always override file scope copy after
