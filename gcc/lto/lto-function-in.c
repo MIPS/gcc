@@ -1,7 +1,7 @@
 /* Read the gimple representation of a function and it's local
    variables from the memory mapped representation of a a .o file.
 
-   Copyright 2006 Free Software Foundation, Inc.
+   Copyright 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -51,6 +51,7 @@ Boston, MA 02110-1301, USA.  */
 #include "output.h"
 #include "lto-tags.h"
 #include "lto.h"
+#include "lto-section-in.h"
 #include <ctype.h>
 #include "cpplib.h"
 
@@ -124,107 +125,15 @@ eq_string_slot_node (const void *p1, const void *p2)
 /* The table to hold the file_names.  */
 static htab_t file_name_hash_table;
 
-struct input_block 
-{
-  const char *data;
-  unsigned int p;
-  unsigned int len;
-};
-
-
-#ifdef LTO_STREAM_DEBUGGING
-static struct lto_debug_context lto_debug_context;
-static void debug_out_fun (struct lto_debug_context *, char);
-static void dump_debug_stream (struct input_block *, char, char);
-#endif
-
 static tree
-input_expr_operand (struct input_block *, struct data_in *, struct function *, 
+input_expr_operand (struct lto_input_block *, struct data_in *, struct function *, 
                     enum LTO_tags);
 static tree
-input_local_var (struct input_block *, struct data_in *, struct function *, unsigned int i);
+input_local_var (struct lto_input_block *, struct data_in *, struct function *, unsigned int i);
 
 
 /* Return the next character of input from IB.  Abort if you
    overrun.  */
-
-static unsigned char 
-input_1_unsigned (struct input_block *ib)
-{
-  gcc_assert (ib->p < ib->len);
-  return (ib->data[ib->p++]);
-}
-
-
-/* Read an ULEB128 Number of IB.  */
-
-static unsigned HOST_WIDE_INT 
-input_uleb128 (struct input_block *ib)
-{
-  unsigned HOST_WIDE_INT result = 0;
-  int shift = 0;
-  unsigned HOST_WIDE_INT byte;
-
-  while (true)
-    {
-      byte = input_1_unsigned (ib);
-      result |= (byte & 0x7f) << shift;
-      shift += 7;
-      if ((byte & 0x80) == 0)
-	{
-	  LTO_DEBUG_WIDE ("U", result);
-	  return result;
-	}
-    }
-}
-
-/* HOST_WIDEST_INT version of input_uleb128.  IB is as in input_uleb128.  */
-
-static unsigned HOST_WIDEST_INT 
-input_widest_uint_uleb128 (struct input_block *ib)
-{
-  unsigned HOST_WIDEST_INT result = 0;
-  int shift = 0;
-  unsigned HOST_WIDEST_INT byte;
-
-  while (true)
-    {
-      byte = input_1_unsigned (ib);
-      result |= (byte & 0x7f) << shift;
-      shift += 7;
-      if ((byte & 0x80) == 0)
-	{
-	  LTO_DEBUG_WIDE ("U", result);
-	  return result;
-	}
-    }
-}
-
-/* Read an SLEB128 Number of IB.  */
-
-static HOST_WIDE_INT 
-input_sleb128 (struct input_block *ib)
-{
-  HOST_WIDE_INT result = 0;
-  int shift = 0;
-  unsigned HOST_WIDE_INT byte;
-
-  while (true)
-    {
-      byte = input_1_unsigned (ib);
-      result |= (byte & 0x7f) << shift;
-      shift += 7;
-      if ((byte & 0x80) == 0)
-	{
-	  if ((shift < HOST_BITS_PER_WIDE_INT) && (byte & 0x40))
-	    result |= - ((HOST_WIDE_INT)1 << shift);
-
-	  LTO_DEBUG_WIDE ("S", result);
-	  return result;
-	}
-    }
-}
-
 
 /* Read the string at LOC from the string table in DATA_IN.  */
 
@@ -232,9 +141,9 @@ static const char *
 input_string_internal (struct data_in *data_in, unsigned int loc, 
 		       unsigned int *rlen)
 {
-  struct input_block str_tab 
+  struct lto_input_block str_tab 
     = {data_in->strings, loc, data_in->strings_len};
-  unsigned int len = input_uleb128 (&str_tab);
+  unsigned int len = lto_input_uleb128 (&str_tab);
   const char * result;
 
   *rlen = len;
@@ -260,7 +169,7 @@ input_string (struct data_in *data_in, unsigned int loc)
 /* Input a real constant of TYPE at LOC.  */
 
 static tree
-input_real (struct input_block *ib, struct data_in *data_in, tree type)
+input_real (struct lto_input_block *ib, struct data_in *data_in, tree type)
 {
   unsigned int loc;
   unsigned int len;
@@ -269,7 +178,7 @@ input_real (struct input_block *ib, struct data_in *data_in, tree type)
   static char buffer[1000];
 
   LTO_DEBUG_TOKEN ("real");
-  loc = input_uleb128 (ib);
+  loc = lto_input_uleb128 (ib);
   str = input_string_internal (data_in, loc, &len);
   /* Copy over to make sure real_from_string doesn't see peculiar
      trailing characters in the exponent.  */
@@ -280,67 +189,12 @@ input_real (struct input_block *ib, struct data_in *data_in, tree type)
 }
 
 
-/* Input the next integer constant of TYPE in IB.  */
-
-static tree
-input_integer (struct input_block *ib, tree type)
-{
-  HOST_WIDE_INT low = 0;
-  HOST_WIDE_INT high = 0;
-  int shift = 0;
-  unsigned HOST_WIDE_INT byte;
-
-  while (true)
-    {
-      byte = input_1_unsigned (ib);
-      if (shift < HOST_BITS_PER_WIDE_INT - 7)
-	/* Working on the low part.  */
-	low |= (byte & 0x7f) << shift;
-      else if (shift >= HOST_BITS_PER_WIDE_INT)
-	/* Working on the high part.  */
-	high |= (byte & 0x7f) << (shift - HOST_BITS_PER_WIDE_INT);
-      else
-	{
-	  /* Working on the transition between the low and high parts.  */
-	  low |= (byte & 0x7f) << shift;
-	  high |= (byte & 0x7f) >> (HOST_BITS_PER_WIDE_INT - shift);
-	}
-
-      shift += 7;
-      if ((byte & 0x80) == 0)
-	{
-	  if (byte & 0x40)
-	    {
-	      /* The number is negative.  */
-	      if (shift < HOST_BITS_PER_WIDE_INT)
-		{
-		  low |= - ((HOST_WIDE_INT)1 << shift);
-		  high = -1;
-		}
-	      else if (shift < (2 * HOST_BITS_PER_WIDE_INT))
-		high |= - ((HOST_WIDE_INT)1 << (shift - HOST_BITS_PER_WIDE_INT));
-	    }
-
-#ifdef LTO_STREAM_DEBUGGING
-	  /* Have to match the quick out in the lto writer.  */
-	  if (((high == -1) && (low < 0))
-	      || ((high == 0) && (low >= 0)))
-	    LTO_DEBUG_WIDE ("S", low);
-	  else 
-	    LTO_DEBUG_INTEGER ("SS", high, low);
-#endif	  
-	  return build_int_cst_wide (type, low, high);
-	}
-    }
-}
-
-
 /* Return the next tag in the input block IB.  */
 
 static enum LTO_tags
-input_record_start (struct input_block *ib)
+input_record_start (struct lto_input_block *ib)
 {
-  enum LTO_tags tag = input_1_unsigned (ib);
+  enum LTO_tags tag = lto_input_1_unsigned (ib);
 
 #ifdef LTO_STREAM_DEBUGGING
   if (tag)
@@ -355,9 +209,9 @@ input_record_start (struct input_block *ib)
 /* Get the label referenced by the next token in IB.  */
 
 static tree 
-get_label_decl (struct data_in *data_in, struct input_block *ib)
+get_label_decl (struct data_in *data_in, struct lto_input_block *ib)
 {
-  int index = input_sleb128 (ib);
+  int index = lto_input_sleb128 (ib);
   if (index >= 0)
     return data_in->labels[index];
   else
@@ -368,12 +222,12 @@ get_label_decl (struct data_in *data_in, struct input_block *ib)
 /* Get the type referenced by the next token in IB.  */
 
 static tree
-input_type_ref (struct data_in *data_in, struct input_block *ib)
+input_type_ref (struct data_in *data_in, struct lto_input_block *ib)
 {
   int index;
 
   LTO_DEBUG_TOKEN ("type");
-  index = input_uleb128 (ib);
+  index = lto_input_uleb128 (ib);
   return data_in->types[index];
 }
 
@@ -384,14 +238,14 @@ input_type_ref (struct data_in *data_in, struct input_block *ib)
 /* Read the tree flags for CODE from IB.  */
 
 static lto_flags_type
-input_tree_flags (struct input_block *ib, enum tree_code code, bool force)
+input_tree_flags (struct lto_input_block *ib, enum tree_code code, bool force)
 {
   lto_flags_type flags;
 
   if (force || TEST_BIT (lto_flags_needed_for, code))
     {
       LTO_DEBUG_TOKEN ("flags");
-      flags = input_widest_uint_uleb128 (ib);
+      flags = lto_input_widest_uint_uleb128 (ib);
       LTO_DEBUG_TREE_FLAGS (code, flags);
     }
   else
@@ -501,7 +355,7 @@ canon_file_name (const char *string)
    fields in DATA_IN.  */
 
 static bool
-input_line_info (struct input_block *ib, struct data_in *data_in, 
+input_line_info (struct lto_input_block *ib, struct data_in *data_in, 
 		 lto_flags_type flags)
 {
 #ifdef USE_MAPPED_LOCATION  
@@ -513,12 +367,12 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
 
       LTO_DEBUG_TOKEN ("file");
       data_in->current_file 
-	= canon_file_name (input_string_internal (data_in, input_uleb128 (ib), &len));
+	= canon_file_name (input_string_internal (data_in, lto_input_uleb128 (ib), &len));
     }
   if (flags & LTO_SOURCE_LINE)
     {
       LTO_DEBUG_TOKEN ("line");
-      data_in->current_line = input_uleb128 (ib);
+      data_in->current_line = lto_input_uleb128 (ib);
 
       if (!(flags & LTO_SOURCE_FILE))
 	linemap_line_start (line_table, data_in->current_line, 80);
@@ -529,7 +383,7 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
   if (flags & LTO_SOURCE_COL)
     {
       LTO_DEBUG_TOKEN ("col");
-      data_in->current_col = input_uleb128 (ib);
+      data_in->current_col = lto_input_uleb128 (ib);
     }
 #else
   if (flags & LTO_SOURCE_FILE)
@@ -537,12 +391,12 @@ input_line_info (struct input_block *ib, struct data_in *data_in,
       unsigned int len;
       LTO_DEBUG_TOKEN ("file");
       data_in->current_file 
-	= input_string_internal (data_in, input_uleb128 (ib), &len);
+	= input_string_internal (data_in, lto_input_uleb128 (ib), &len);
     }
   if (flags & LTO_SOURCE_LINE)
     {
       LTO_DEBUG_TOKEN ("line");
-      data_in->current_line = input_uleb128 (ib);
+      data_in->current_line = lto_input_uleb128 (ib);
     }
 #endif
   return (flags & LTO_SOURCE_HAS_LOC) != 0;
@@ -594,7 +448,7 @@ clear_line_info (struct data_in *data_in)
    read.  */
 
 static tree
-input_expr_operand (struct input_block *ib, struct data_in *data_in, 
+input_expr_operand (struct lto_input_block *ib, struct data_in *data_in, 
 		    struct function *fn, enum LTO_tags tag)
 {
   enum tree_code code = tag_to_expr[tag];
@@ -627,14 +481,14 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	  }
 	else
 	  {
-	    TREE_REALPART (result) = input_integer (ib, elt_type);
-	    TREE_IMAGPART (result) = input_integer (ib, elt_type);
+	    TREE_REALPART (result) = lto_input_integer (ib, elt_type);
+	    TREE_IMAGPART (result) = lto_input_integer (ib, elt_type);
 	  }
       }
       break;
 
     case INTEGER_CST:
-      result = input_integer (ib, type);
+      result = lto_input_integer (ib, type);
       break;
 
     case REAL_CST:
@@ -642,14 +496,14 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       break;
 
     case STRING_CST:
-      result = input_string (data_in, input_uleb128 (ib));
+      result = input_string (data_in, lto_input_uleb128 (ib));
       TREE_TYPE (result) = type;
       break;
 
     case IDENTIFIER_NODE:
       {
 	unsigned int len;
-	const char * ptr = input_string_internal (data_in, input_uleb128 (ib), &len);
+	const char * ptr = input_string_internal (data_in, lto_input_uleb128 (ib), &len);
 	result = get_identifier_with_length (ptr, len);
       }
       break;
@@ -657,7 +511,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
     case VECTOR_CST:
       {
 	tree chain = NULL_TREE;
-	int len = input_uleb128 (ib);
+	int len = lto_input_uleb128 (ib);
 	tree elt_type = input_type_ref (data_in, ib);
 
 	if (len && tag == LTO_vector_cst1)
@@ -677,12 +531,12 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	else
 	  {
 	    int i;
-	    tree last = build_tree_list (NULL_TREE, input_integer (ib, elt_type));
+	    tree last = build_tree_list (NULL_TREE, lto_input_integer (ib, elt_type));
 	    chain = last; 
 	    for (i = 1; i < len; i++)
 	      {
 		tree t 
-		  = build_tree_list (NULL_TREE, input_integer (ib, elt_type));
+		  = build_tree_list (NULL_TREE, lto_input_integer (ib, elt_type));
 		TREE_CHAIN (last) = t;
 		last = t;
 	      }
@@ -713,7 +567,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
     case CONSTRUCTOR:
       {
 	VEC(constructor_elt,gc) *vec = NULL;
-	unsigned int len = input_uleb128 (ib);
+	unsigned int len = lto_input_uleb128 (ib);
 	
 	if (len)
 	  {
@@ -740,7 +594,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       break;
 
     case SSA_NAME:
-      result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
+      result = VEC_index (tree, SSANAMES (fn), lto_input_uleb128 (ib));
       add_referenced_var (SSA_NAME_VAR (result));
       break;
 
@@ -749,16 +603,16 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       break;
 
     case FIELD_DECL:
-      result = data_in->field_decls [input_uleb128 (ib)];
+      result = data_in->field_decls [lto_input_uleb128 (ib)];
       break;
 
     case FUNCTION_DECL:
-      result = data_in->fn_decls [input_uleb128 (ib)];
+      result = data_in->fn_decls [lto_input_uleb128 (ib)];
       gcc_assert (result);
       break;
 
     case TYPE_DECL:
-      result = data_in->type_decls [input_uleb128 (ib)];
+      result = data_in->type_decls [lto_input_uleb128 (ib)];
       gcc_assert (result);
       break;
 
@@ -767,13 +621,13 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       if (tag == LTO_var_decl1)
         {
           /* Static or externs are here.  */
-          result = data_in->var_decls [input_uleb128 (ib)];
+          result = data_in->var_decls [lto_input_uleb128 (ib)];
 	  varpool_mark_needed_node (varpool_node (result));
         }
       else 
 	{
 	  /* Locals are here.  */
-	  int lv_index = input_uleb128 (ib);
+	  int lv_index = lto_input_uleb128 (ib);
 	  result = data_in->local_decls [lv_index];
 	  if (result == NULL)
 	    {
@@ -781,11 +635,11 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 		 it does not disturb the position of the code that is
 		 calling for the local variable.  This allows locals
 		 to refer to other locals.  */
-	      struct input_block lib;
+	      struct lto_input_block lib;
 
 #ifdef LTO_STREAM_DEBUGGING
-	      struct input_block *current = lto_debug_context.current_data;
-	      struct input_block debug;
+	      struct lto_input_block *current = lto_debug_context.current_data;
+	      struct lto_input_block debug;
 	      int current_indent = lto_debug_context.indent;
 
 	      debug.data = current->data;
@@ -867,7 +721,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
     case CALL_EXPR:
       {
 	unsigned int i;
-	unsigned int count = input_uleb128 (ib);
+	unsigned int count = lto_input_uleb128 (ib);
 	tree op1;
 	tree op2 = NULL_TREE;
 
@@ -898,8 +752,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 	tree op2;
 	if (tag == LTO_bit_field_ref1)
 	  {
-	    op1 = build_int_cst_wide (sizetype, input_uleb128 (ib), 0);
-	    op2 = build_int_cst_wide (bitsizetype, input_uleb128 (ib), 0);
+	    op1 = build_int_cst_wide (sizetype, lto_input_uleb128 (ib), 0);
+	    op2 = build_int_cst_wide (bitsizetype, lto_input_uleb128 (ib), 0);
 	    op0 = input_expr_operand (ib, data_in, fn,
 				      input_record_start (ib));
 	  }
@@ -931,7 +785,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case ASM_EXPR:
       {
-	tree str = input_string (data_in, input_uleb128 (ib));
+	tree str = input_string (data_in, lto_input_uleb128 (ib));
 	tree ins = NULL_TREE;
 	tree outs = NULL_TREE;
 	tree clobbers = NULL_TREE;
@@ -956,7 +810,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
       break;
 
     case RESX_EXPR:
-      result = build1 (code, void_type_node, input_integer (ib, NULL_TREE));
+      result = build1 (code, void_type_node, lto_input_integer (ib, NULL_TREE));
       break;
 
     case RETURN_EXPR:
@@ -1005,8 +859,8 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case RANGE_EXPR:
       {
-	tree op0 = input_integer (ib, input_type_ref (data_in, ib));
-	tree op1 = input_integer (ib, input_type_ref (data_in, ib));
+	tree op0 = lto_input_integer (ib, input_type_ref (data_in, ib));
+	tree op1 = lto_input_integer (ib, input_type_ref (data_in, ib));
 	result = build2 (RANGE_EXPR, sizetype, op0, op1);
       }
       break;
@@ -1026,7 +880,7 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case SWITCH_EXPR:
       {
-	unsigned int len = input_uleb128 (ib);
+	unsigned int len = lto_input_uleb128 (ib);
 	unsigned int i;
 	tree op0 = input_expr_operand (ib, data_in, fn, 
 				       input_record_start (ib));
@@ -1042,14 +896,14 @@ input_expr_operand (struct input_block *ib, struct data_in *data_in,
 
     case TREE_LIST:
       {
-	unsigned int count = input_uleb128 (ib);
+	unsigned int count = lto_input_uleb128 (ib);
+	tree next = NULL;
 
 	result = NULL_TREE;
 	while (count--)
 	  {
 	    tree value;
 	    tree purpose;
-	    tree next = NULL;
 	    tree elt;
 	    enum LTO_tags tag = input_record_start (ib);
 
@@ -1230,7 +1084,7 @@ input_globals (struct lto_header * header,
    labels from DATA segment SIZE bytes long using DATA_IN.  */
 
 static void 
-input_labels (struct input_block *ib, struct data_in *data_in, 
+input_labels (struct lto_input_block *ib, struct data_in *data_in, 
 	      unsigned int named_count, unsigned int unnamed_count)
 {
   unsigned int i;
@@ -1243,7 +1097,7 @@ input_labels (struct input_block *ib, struct data_in *data_in,
   data_in->labels = xcalloc (named_count + unnamed_count, sizeof (tree*));
   for (i = 0; i < named_count; i++)
     {
-      unsigned int name_index = input_uleb128 (ib);
+      unsigned int name_index = lto_input_uleb128 (ib);
       unsigned int len;
       const char *s = input_string_internal (data_in, name_index, &len);
       tree name = get_identifier_with_length (s, len);
@@ -1260,7 +1114,7 @@ input_labels (struct input_block *ib, struct data_in *data_in,
 
 
 static void
-input_local_vars_index (struct input_block *ib, struct data_in *data_in, 
+input_local_vars_index (struct lto_input_block *ib, struct data_in *data_in, 
 			unsigned int count)
 {
   unsigned int i;
@@ -1271,9 +1125,9 @@ input_local_vars_index (struct input_block *ib, struct data_in *data_in,
 
   for (i = 0; i < count; i++)
     {
-      data_in->local_decls_index[i] = input_uleb128 (ib); 
+      data_in->local_decls_index[i] = lto_input_uleb128 (ib); 
 #ifdef LTO_STREAM_DEBUGGING
-      data_in->local_decls_index_d[i] = input_uleb128 (ib); 
+      data_in->local_decls_index_d[i] = lto_input_uleb128 (ib); 
 #endif
     }
 }
@@ -1282,7 +1136,7 @@ input_local_vars_index (struct input_block *ib, struct data_in *data_in,
 /* Input local var I for FN from IB.  */
 
 static tree
-input_local_var (struct input_block *ib, struct data_in *data_in, 
+input_local_var (struct lto_input_block *ib, struct data_in *data_in, 
 		 struct function *fn, unsigned int i)
 {
   enum LTO_tags tag;
@@ -1303,7 +1157,7 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
   variant = tag & 0xF;
   is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
   
-  name_index = input_uleb128 (ib);
+  name_index = lto_input_uleb128 (ib);
   if (name_index)
     {
       unsigned int len;
@@ -1333,7 +1187,7 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
 	DECL_INITIAL (result) = input_expr_operand (ib, data_in, fn, tag);
 
       LTO_DEBUG_INDENT_TOKEN ("unexpanded index");
-      index = input_sleb128 (ib);
+      index = lto_input_sleb128 (ib);
       if (index != -1)
 	data_in->unexpanded_indexes[index] = i;
     }
@@ -1362,7 +1216,7 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
     DECL_CONTEXT (result) = context;
   
   LTO_DEBUG_TOKEN ("align");
-  DECL_ALIGN (result) = input_uleb128 (ib);
+  DECL_ALIGN (result) = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("size");
   DECL_SIZE (result) = input_expr_operand (ib, data_in, fn, input_record_start (ib));
 
@@ -1394,7 +1248,7 @@ input_local_var (struct input_block *ib, struct data_in *data_in,
    bytes long using DATA_IN.  */
 
 static void 
-input_local_vars (struct input_block *ib, struct data_in *data_in, 
+input_local_vars (struct lto_input_block *ib, struct data_in *data_in, 
 		  struct function *fn, unsigned int count)
 {
   int i;
@@ -1416,7 +1270,7 @@ input_local_vars (struct input_block *ib, struct data_in *data_in,
       fn->unexpanded_var_list 
 	= tree_cons (NULL_TREE, var, fn->unexpanded_var_list);
 
-      if (input_uleb128 (ib))
+      if (lto_input_uleb128 (ib))
 	DECL_CONTEXT (var) = fn->decl;
 	
       /* DECL_INITIAL.  */
@@ -1438,7 +1292,7 @@ input_local_vars (struct input_block *ib, struct data_in *data_in,
     if (!data_in->local_decls[i])
       {
 #ifdef LTO_STREAM_DEBUGGING
-	((struct input_block *)lto_debug_context.current_data)->p 
+	((struct lto_input_block *)lto_debug_context.current_data)->p 
 	  = data_in->local_decls_index_d[i]; 
 #endif
 	ib->p = data_in->local_decls_index[i];
@@ -1461,12 +1315,12 @@ input_local_vars (struct input_block *ib, struct data_in *data_in,
 /* Read the exception table.  */
 
 static void
-input_eh_regions (struct input_block *ib, 
+input_eh_regions (struct lto_input_block *ib, 
 		  struct function *fn ATTRIBUTE_UNUSED, 
 		  struct data_in *data_in ATTRIBUTE_UNUSED)
 {
   /* Not ready to read exception records yet.  */
-  input_uleb128 (ib);
+  lto_input_uleb128 (ib);
 }
 
 
@@ -1489,7 +1343,7 @@ make_new_block (struct function *fn, unsigned int index)
 /* Set up the cfg for THIS_FUN.  */
 
 static void 
-input_cfg (struct input_block *ib, struct function *fn)
+input_cfg (struct lto_input_block *ib, struct function *fn)
 {
   unsigned int bb_count;
   basic_block p_bb;
@@ -1500,7 +1354,7 @@ input_cfg (struct input_block *ib, struct function *fn)
   init_ssa_operands ();
 
   LTO_DEBUG_TOKEN ("lastbb");
-  bb_count = input_uleb128 (ib);
+  bb_count = lto_input_uleb128 (ib);
 
   last_basic_block_for_function (fn) = bb_count;
   if (bb_count > VEC_length (basic_block,
@@ -1513,7 +1367,7 @@ input_cfg (struct input_block *ib, struct function *fn)
 			   label_to_block_map_for_function (fn), bb_count);
 
   LTO_DEBUG_TOKEN ("bbindex");
-  index = input_sleb128 (ib);
+  index = lto_input_sleb128 (ib);
   while (index != -1)
     {
       basic_block bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
@@ -1523,7 +1377,7 @@ input_cfg (struct input_block *ib, struct function *fn)
 	bb = make_new_block (fn, index);
 
       LTO_DEBUG_TOKEN ("edgecount");
-      edge_count = input_uleb128 (ib);
+      edge_count = lto_input_uleb128 (ib);
 
       /* Connect up the cfg.  */
       for (i = 0; i < edge_count; i++)
@@ -1533,9 +1387,9 @@ input_cfg (struct input_block *ib, struct function *fn)
 	  basic_block dest;
 
 	  LTO_DEBUG_TOKEN ("dest");
-	  dest_index = input_uleb128 (ib);
+	  dest_index = lto_input_uleb128 (ib);
 	  LTO_DEBUG_TOKEN ("eflags");
-	  edge_flags = input_uleb128 (ib);
+	  edge_flags = lto_input_uleb128 (ib);
 	  dest = BASIC_BLOCK_FOR_FUNCTION (fn, dest_index);
 
 	  if (dest == NULL) 
@@ -1544,12 +1398,12 @@ input_cfg (struct input_block *ib, struct function *fn)
 	}
 
       LTO_DEBUG_TOKEN ("bbindex");
-      index = input_sleb128 (ib);
+      index = lto_input_sleb128 (ib);
     }
 
   p_bb = ENTRY_BLOCK_PTR_FOR_FUNCTION(fn);
   LTO_DEBUG_TOKEN ("bbchain");
-  index = input_sleb128 (ib);
+  index = lto_input_sleb128 (ib);
   while (index != -1)
     {
       basic_block bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
@@ -1557,7 +1411,7 @@ input_cfg (struct input_block *ib, struct function *fn)
       p_bb->next_bb = bb;
       p_bb = bb;
       LTO_DEBUG_TOKEN ("bbchain");
-      index = input_sleb128 (ib);
+      index = lto_input_sleb128 (ib);
     }
 }
 
@@ -1565,12 +1419,12 @@ input_cfg (struct input_block *ib, struct function *fn)
 /* Input the next phi function for BB.  */
 
 static tree
-input_phi (struct input_block *ib, basic_block bb, 
+input_phi (struct lto_input_block *ib, basic_block bb, 
 	   struct data_in *data_in, struct function *fn)
 {
   lto_flags_type flags = input_tree_flags (ib, PHI_NODE, false);
 
-  tree phi_result = VEC_index (tree, SSANAMES (fn), input_uleb128 (ib));
+  tree phi_result = VEC_index (tree, SSANAMES (fn), lto_input_uleb128 (ib));
   int len = EDGE_COUNT (bb->preds);
   int i;
   tree result = create_phi_node (phi_result, bb);
@@ -1583,7 +1437,7 @@ input_phi (struct input_block *ib, basic_block bb,
   for (i = 0; i < len; i++)
     {
       tree def = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-      int src_index = input_uleb128 (ib);
+      int src_index = lto_input_uleb128 (ib);
       basic_block sbb = BASIC_BLOCK_FOR_FUNCTION (fn, src_index);
       
       edge e = NULL;
@@ -1611,13 +1465,13 @@ input_phi (struct input_block *ib, basic_block bb,
 /* Read in the ssa_names array from IB.  */
 
 static void
-input_ssa_names (struct input_block *ib, struct data_in *data_in, struct function *fn)
+input_ssa_names (struct lto_input_block *ib, struct data_in *data_in, struct function *fn)
 {
   unsigned int i;
-  int size = input_uleb128 (ib);
+  int size = lto_input_uleb128 (ib);
 
   init_ssanames (fn, size);
-  i = input_uleb128 (ib);
+  i = lto_input_uleb128 (ib);
 
   while (i)
     {
@@ -1636,7 +1490,7 @@ input_ssa_names (struct input_block *ib, struct data_in *data_in, struct functio
       process_tree_flags (ssa_name, flags);
       if (SSA_NAME_IS_DEFAULT_DEF (ssa_name))
 	set_default_def (SSA_NAME_VAR (ssa_name), ssa_name);
-      i = input_uleb128 (ib);
+      i = lto_input_uleb128 (ib);
     } 
 }
 
@@ -1644,15 +1498,16 @@ input_ssa_names (struct input_block *ib, struct data_in *data_in, struct functio
 /* Read in the next basic block.  */
 
 static void
-input_bb (struct input_block *ib, enum LTO_tags tag, 
+input_bb (struct lto_input_block *ib, enum LTO_tags tag, 
 	  struct data_in *data_in, struct function *fn)
 {
   unsigned int index;
   basic_block bb;
   block_stmt_iterator bsi;
+  unsigned int stmt_num;
 
   LTO_DEBUG_TOKEN ("bbindex");
-  index = input_uleb128 (ib);
+  index = lto_input_uleb128 (ib);
   bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
 
   /* LTO_bb1 has stmts, LTO_bb0 does not.  */
@@ -1664,23 +1519,27 @@ input_bb (struct input_block *ib, enum LTO_tags tag,
 
   bsi = bsi_start (bb);
   LTO_DEBUG_INDENT_TOKEN ("stmt");
-  tag = input_record_start (ib);
-  while (tag)
+  stmt_num = lto_input_uleb128 (ib);
+  while (stmt_num)
     {
-      tree stmt = input_expr_operand (ib, data_in, fn, tag);
+      tree stmt;
+
+      tag = input_record_start (ib);
+      stmt = input_expr_operand (ib, data_in, fn, tag);
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       LTO_DEBUG_INDENT_TOKEN ("stmt");
-      tag = input_record_start (ib);
+      stmt_num = lto_input_uleb128 (ib);
       /* FIXME, add code to handle the exception.  */
     }
 
-  LTO_DEBUG_INDENT_TOKEN ("phi");
-  tag = input_record_start (ib);
-  while (tag)
+  LTO_DEBUG_INDENT_TOKEN ("phi");  
+  stmt_num = lto_input_uleb128 (ib);
+  while (stmt_num)
     {
+      tag = input_record_start (ib);
       input_phi (ib, bb, data_in, fn);
       LTO_DEBUG_INDENT_TOKEN ("phi");
-      tag = input_record_start (ib);
+      stmt_num = lto_input_uleb128 (ib);
     }
 
   LTO_DEBUG_UNDENT();
@@ -1691,7 +1550,7 @@ input_bb (struct input_block *ib, enum LTO_tags tag,
 
 static void
 input_function (tree fn_decl, struct data_in *data_in, 
-		struct input_block *ib)
+		struct lto_input_block *ib)
 {
   struct function *fn = DECL_STRUCT_FUNCTION (fn_decl);
   enum LTO_tags tag = input_record_start (ib);
@@ -1730,7 +1589,7 @@ input_function (tree fn_decl, struct data_in *data_in,
 
 static void
 input_constructor (tree var, struct data_in *data_in, 
-		   struct input_block *ib)
+		   struct lto_input_block *ib)
 {
   enum LTO_tags tag;
 
@@ -1893,20 +1752,20 @@ lto_read_body (lto_info_fd *fd,
   int32_t debug_cfg_offset = debug_ssa_names_offset + header->debug_ssa_names_size;
   int32_t debug_main_offset = debug_cfg_offset + header->debug_cfg_size;
 
-  struct input_block debug_decl_index 
+  struct lto_input_block debug_decl_index 
     = {data + debug_decl_index_offset, 0, header->debug_decl_index_size};
-  struct input_block debug_decl 
+  struct lto_input_block debug_decl 
     = {data + debug_decl_offset, 0, header->debug_decl_size};
-  struct input_block debug_label 
+  struct lto_input_block debug_label 
     = {data + debug_label_offset, 0, header->debug_label_size};
-  struct input_block debug_ssa_names 
+  struct lto_input_block debug_ssa_names 
     = {data + debug_ssa_names_offset, 0, header->debug_ssa_names_size};
-  struct input_block debug_cfg 
+  struct lto_input_block debug_cfg 
     = {data + debug_cfg_offset, 0, header->debug_cfg_size};
-  struct input_block debug_main 
+  struct lto_input_block debug_main 
     = {data + debug_main_offset, 0, header->debug_main_size};
 
-  lto_debug_context.out = debug_out_fun;
+  lto_debug_context.out = lto_debug_in_fun;
   lto_debug_context.indent = 0;
 #endif
 
@@ -1916,17 +1775,17 @@ lto_read_body (lto_info_fd *fd,
   lto_ref *in_type_decls  = (lto_ref*)(data + type_decls_offset);
   lto_ref *in_types       = (lto_ref*)(data + types_offset);
 
-  struct input_block ib_named_labels 
+  struct lto_input_block ib_named_labels 
     = {data + named_label_offset, 0, header->named_label_size};
-  struct input_block ib_ssa_names 
+  struct lto_input_block ib_ssa_names 
     = {data + ssa_names_offset, 0, header->ssa_names_size};
-  struct input_block ib_cfg 
+  struct lto_input_block ib_cfg 
     = {data + cfg_offset, 0, header->cfg_size};
-  struct input_block ib_local_decls_index 
+  struct lto_input_block ib_local_decls_index 
     = {data + local_decls_index_offset, 0, header->local_decls_index_size};
-  struct input_block ib_local_decls 
+  struct lto_input_block ib_local_decls 
     = {data + local_decls_offset, 0, header->local_decls_size};
-  struct input_block ib_main 
+  struct lto_input_block ib_main 
     = {data + main_offset, 0, header->main_size};
 
   memset (&data_in, 0, sizeof (struct data_in));
@@ -2047,81 +1906,3 @@ lto_read_var_init (lto_info_fd *fd,
   lto_read_body (fd, context, var_decl, data, false);
 }
 
-/* Dump the debug STREAM, and two characters B and C.  */
-
-static void 
-dump_debug_stream (struct input_block *stream, char b, char c)
-{
-  unsigned int i = 0;
-  bool new_line = true;
-  int chars = 0;
-  int hit_pos = -1;
-  fprintf (stderr, 
-	   "stream failure: looking for a '%c'[0x%x] in the debug stream.\nHowever the data translated into a '%c'[0x%x]at position%d\n\n",
-	   c, c, b, b, stream->p);
-  
-  while (i < stream->len)
-    {
-      char x;
-      
-      if (new_line)
-	{
-	  if (hit_pos >= 0)
-	    {
-	      int j;
-	      fprintf (stderr, "             ");
-	      for (j=0; j<hit_pos; j++)
-		fputc (' ', stderr);
-	      fprintf (stderr, "^\n             ");
-	      for (j=0; j<hit_pos; j++)
-		fputc (' ', stderr);
-	      fprintf (stderr, "|\n");
-	      hit_pos = -1;
-	    }
-	  
-	  fprintf (stderr, "%6d   -->>", i);
-	  new_line = false;
-	  chars = 0;
-	}
-      
-      x = stream->data[i++];
-      if (x == '\n')
-	{
-	  fprintf (stderr, "<<--\n");
-	  new_line = true;
-	}
-      else 
-	fputc (x, stderr);
-      
-      if (i == stream->p)
-	hit_pos = chars;
-      chars++;
-    }
-}
-
-
-#ifdef LTO_STREAM_DEBUGGING
-
-/* The low level output routine to for a single character.  Unlike the
-   version on the writing side, this does interesting processing.
-
-   This call checks that the debugging information generated by
-   lto-function-out matches the debugging information generated by the
-   reader. Each character is checked and a call to abort is generated
-   when the first mismatch is found.  
-  */
-
-static void
-debug_out_fun (struct lto_debug_context *context, char c)
-{
-  struct input_block *stream = (struct input_block *)context->current_data;
-  char b = input_1_unsigned (stream);
-
-  if (b != c)
-    {
-      dump_debug_stream (stream, b, c);
-      gcc_unreachable ();
-    }
-}
- 
-#endif

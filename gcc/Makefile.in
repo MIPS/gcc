@@ -1087,6 +1087,7 @@ OBJS-common = \
 	loop-unswitch.o \
 	lower-subreg.o \
 	lto-function-out.o \
+	lto-section-out.o \
 	lto-stream-debug.o \
 	mode-switching.o \
 	modulo-sched.o \
@@ -1966,8 +1967,13 @@ lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
-   except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def \
-   lto-tree-tags.def output.h dwarf2asm.h dwarf2out.h 
+   except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def lto-tree-tags.def \
+   lto-tags.h lto-section-out.h output.h dwarf2asm.h dwarf2out.h 
+lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
+   $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
+   tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
+   except.h debug.h $(TIMEVAR_H) lto-section-out.h output.h dwarf2asm.h dwarf2out.h 
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) toplev.h $(TREE_INLINE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) \
    langhooks.h $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) $(DIAGNOSTIC_H) intl.h \

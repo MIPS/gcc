@@ -526,6 +526,8 @@ struct lto_debug_context
   void * main_data;
 };
 
+extern struct lto_debug_context lto_debug_context;
+
 /* The VAR_DECL tree code has more than 32 bits in flags.  On some hosts,
    HOST_WIDE_INT is not wide enough.  */
 typedef unsigned HOST_WIDEST_INT 	lto_flags_type;

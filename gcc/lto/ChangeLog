@@ -1,3 +1,27 @@
+2008-01-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-read.c: Renamed to lto-function-in.c.
+	(input_1_unsigned): Moved to lto-section-in.c and renamed
+	lto_input_1_unsigned.
+	(input_uleb128): Moved to lto-section-in.c and renamed
+	lto_input_uleb128.
+	(input_widest_uint_uleb128): Moved to lto-section-in.c and renamed
+	lto_input_widest_uint_uleb128.
+	(input_sleb128): Moved to lto-section-in.c and renamed
+	lto_input_sleb128.
+	(input_integer): Moved to lto-section-in.c and renamed
+	lto_input_integer.
+	(debug_in_fun): Moved to lto-section-in.c and renamed
+	lto_debug_in_fun.
+	(input_block): Moved to lto-section-in.h and renamed
+	lto_input_block.
+	(input_expr_operand): Fixed to allow lists with more than one
+	element.
+	* lto-section-in.h: New file.
+	* lto-section-in.c: New file with changes from above.
+	* Make-lang.in (lto-read.o): Renamed lto-function-in.c.
+	(lto-section-in.o): New rule.
+	
 2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-read.c (input_expr_operand): Mark static and external

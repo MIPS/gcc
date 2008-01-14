@@ -1,3 +1,36 @@
+<<<<<<< .mine
+2008-01-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* lto-function-out (lto_debug_context, output_stream,
+	LTO_SET_DEBUGGING_STREAM): Moved to lto_section_out.h.
+	(debug_out_fun): Renamed lto_debug_out_fun and moved to
+	lto_section_out.c.
+	(write_stream): Renamed lto_write_stream and moved to
+	lto_section_out.c.
+	(output_1_stream): Renamed lto_output_1_stream and moved to
+	lto_section_out.c.
+	(output_uleb128_stream): Renamed lto_output_uleb128 and moved to
+	lto_section_out.c.
+	(output_widest_uint_uleb128_stream): Renamed
+	lto_output_widest_uint_uleb128_stream and moved to
+	lto_section_out.c.
+	(output_sleb128_stream): Renamed lto_output_sleb128_stream and
+	moved to lto_section_out.c.
+	(output_string, output_decl_index, output_record_start,
+	output_constructor, output_expr_operand, output_local_vars,
+	output_local_vars_index, output_ssa_names, output_bb, produce_asm,
+	output_function, output_constructor_or_init): Renamed all calls as above.
+	(output_integer): Guts moved to lto_output_integer_stream.
+	(output_expr_operand, output_local_var, output_cfg, output_phi,
+	output_bb, output_function): 
+        Added stmt_num parameter.
+	* lto-tags.h (lto_debug_context): Added.
+	* lto-section-out.c: New file that contains functions moved and
+	renamed from lto-function-out.
+	* lto-section-out.h: New file that contains declarations in
+	lto-section-out.c. 
+	* Makefile.in (lto-section-out.o): New rule.
+	
+=======
 2008-01-07  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00263.html
@@ -5,6 +38,7 @@
 	* dwarf2out.c (force_decl_die): Initialize SAVED_IGNORED_FLAG.
 	* dwarf2.h (enum dwarf_type): Remove trailing comma.
 
+>>>>>>> .r131525
 2007-12-29  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* collect2.c (scan_prog_file): Read all the output when reading
