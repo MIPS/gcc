@@ -1,5 +1,10 @@
 2008-01-14  Tom Tromey  <tromey@redhat.com>
 
+	* c-decl.c (c_write_global_declarations): Call
+	cgraph_finalize_compilation_unit.
+
+2008-01-14  Tom Tromey  <tromey@redhat.com>
+
 	* c-parser.c: Fix comment.
 
 2008-01-09  Tom Tromey  <tromey@redhat.com>

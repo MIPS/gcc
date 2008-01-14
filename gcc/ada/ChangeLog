@@ -1,3 +1,8 @@
+2008-01-14  Tom Tromey  <tromey@redhat.com>
+
+	* utils.c (gnat_write_global_declarations): Call
+	cgraph_finalize_compilation_unit.
+
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
 	* utils.c (gnat_gimplify_function): Don't call

@@ -8199,6 +8199,7 @@ c_write_global_declarations (void)
   
   /* We're done parsing; proceed to optimize and emit assembly.
      FIXME: shouldn't be the front end's responsibility to call this.  */
+  cgraph_finalize_compilation_unit ();
   cgraph_optimize ();
 
   /* After cgraph has had a chance to emit everything that's going to
