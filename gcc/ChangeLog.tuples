@@ -1,3 +1,7 @@
+2008-01-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-dfa.c (dump_dfa_stats): Add %z modifier to size_t argument.
+
 2008-01-11  Andrew MacLeod  <amacleod@redhat.com>
 	    Diego Novillo  <dnovillo@google.com>
 
