@@ -1,5 +1,10 @@
 2008-01-14  Tom Tromey  <tromey@redhat.com>
 
+	* gcc.dg/Woverlength-strings-pedantic-c99.c: Move warning
+	location.
+
+2008-01-14  Tom Tromey  <tromey@redhat.com>
+
 	* gcc.dg/Woverlength-strings-pedantic-c89.c: Move warning
 	location.
 
