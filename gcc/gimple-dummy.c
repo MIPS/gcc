@@ -69,7 +69,6 @@ DUMMY_FN (multiply_by_cost);
 DUMMY_FN (nowrap_type_p);
 DUMMY_FN (optimize_inline_calls);
 DUMMY_FN (remove_empty_loops);
-DUMMY_FN (remove_unused_locals);
 DUMMY_FN (rewrite_into_loop_closed_ssa);
 DUMMY_FN (scev_const_prop);
 DUMMY_FN (scev_finalize);

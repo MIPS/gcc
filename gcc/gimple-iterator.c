@@ -278,7 +278,7 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
 
   /* FIXME tuples.  Enable after converting tree-ssa-operands.c.  */
 #if 0
-  mark_stmt_modified (stmt);
+  gimple_set_modified (stmt, true);
   update_modified_stmts (stmt);
 #endif
 }

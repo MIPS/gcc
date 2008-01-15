@@ -798,7 +798,7 @@ verify_ssa (bool check_modified_stmt)
 	  gimple stmt = gsi_stmt (gsi);
 	  use_operand_p use_p;
 
-	  if (check_modified_stmt && stmt_modified_p (stmt))
+	  if (check_modified_stmt && gimple_modified_p (stmt))
 	    {
 	      error ("stmt (%p) marked modified after optimization pass: ",
 		     (void *)stmt);
@@ -997,7 +997,10 @@ delete_tree_ssa (void)
       release_ssa_name (var);
     }
 
-  /* Remove annotations from every tree in the function.  */
+  /* FIXME.  This may not be necessary.  We will release all this
+     memory en masse in free_ssa_operands.  This clearing used to be
+     necessary to avoid problems with the inliner, but it may not be
+     needed anymore.  */
   FOR_EACH_BB (bb)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
@@ -1019,7 +1022,7 @@ delete_tree_ssa (void)
 	      BITMAP_FREE (stmt->with_mem_ops.loads);
 	    }
 
-	  mark_stmt_modified (stmt);
+	  gimple_set_modified (stmt, true);
 	}
       set_phi_nodes (bb, NULL);
     }
@@ -1036,7 +1039,8 @@ delete_tree_ssa (void)
 
   fini_ssanames ();
   fini_phinodes ();
-  /* we no longer maintain the SSA operand cache at this point.  */
+
+  /* We no longer maintain the SSA operand cache at this point.  */
   if (ssa_operands_active ())
     fini_ssa_operands ();
 

@@ -428,6 +428,7 @@ fini_ssa_operands (void)
 
   if (!n_initialized)
     bitmap_obstack_release (&operands_bitmap_obstack);
+
   if (dump_file && (dump_flags & TDF_STATS))
     {
       fprintf (dump_file, "Original clobbered vars:           %d\n",
@@ -769,7 +770,7 @@ gimple_set_stored_syms (gimple stmt, bitmap syms)
 {
   gcc_assert (gimple_has_mem_ops (stmt));
 
-  if (syms == NULL || bitmap_empty_p (syms))
+  if (syms == NULL)
     BITMAP_FREE (stmt->with_mem_ops.stores);
   else
     {
@@ -789,7 +790,7 @@ gimple_set_loaded_syms (gimple stmt, bitmap syms)
 {
   gcc_assert (gimple_has_mem_ops (stmt));
 
-  if (syms == NULL || bitmap_empty_p (syms))
+  if (syms == NULL)
     BITMAP_FREE (stmt->with_mem_ops.loads);
   else
     {
@@ -1079,8 +1080,11 @@ finalize_ssa_stmt_operands (gimple stmt)
 {
   finalize_ssa_defs (stmt);
   finalize_ssa_uses (stmt);
-  finalize_ssa_vdefs (stmt);
-  finalize_ssa_vuses (stmt);
+  if (gimple_has_mem_ops (stmt))
+    {
+      finalize_ssa_vdefs (stmt);
+      finalize_ssa_vuses (stmt);
+    }
   cleanup_build_arrays ();
 }
 
@@ -1748,7 +1752,7 @@ get_tmr_operands (gimple stmt, tree expr, int flags)
   get_expr_operands (stmt, &TMR_INDEX (expr), opf_use);
 
   if (TMR_SYMBOL (expr))
-    add_to_addressable_set (stmt, TMR_SYMBOL (expr));
+    gimple_add_to_addresses_taken (stmt, TMR_SYMBOL (expr));
 
   tag = TMR_TAG (expr);
   if (!tag)
@@ -1978,7 +1982,7 @@ get_asm_expr_operands (gimple stmt)
 	{
 	  tree t = get_base_address (TREE_VALUE (link));
 	  if (t && DECL_P (t))
-	    add_to_addressable_set (stmt, t);
+	    gimple_add_to_addresses_taken (stmt, t);
 	}
 
       get_expr_operands (stmt, &TREE_VALUE (link), opf_def);
@@ -1998,7 +2002,7 @@ get_asm_expr_operands (gimple stmt)
 	{
 	  tree t = get_base_address (TREE_VALUE (link));
 	  if (t && DECL_P (t))
-	    add_to_addressable_set (stmt, t);
+	    gimple_add_to_addresses_taken (stmt, t);
 	}
 
       get_expr_operands (stmt, &TREE_VALUE (link), 0);
@@ -2087,7 +2091,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	 reference to it, but the fact that the statement takes its
 	 address will be of interest to some passes (e.g. alias
 	 resolution).  */
-      add_to_addressable_set (stmt, TREE_OPERAND (expr, 0));
+      gimple_add_to_addresses_taken (stmt, TREE_OPERAND (expr, 0));
 
       /* If the address is invariant, there may be no interesting
 	 variable references inside.  */
@@ -2333,7 +2337,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	  {
 	    get_expr_operands (stmt, gimple_omp_parallel_data_arg_ptr (stmt),
 			       opf_use);
-	    add_to_addressable_set (stmt, gimple_omp_parallel_data_arg (stmt));
+	    gimple_add_to_addresses_taken (stmt, gimple_omp_parallel_data_arg (stmt));
 	  }
 
 	c = find_omp_clause (clauses, OMP_CLAUSE_IF);
@@ -2379,6 +2383,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
     case FILTER_EXPR:
     case LABEL_DECL:
     case CONST_DECL:
+    case CASE_LABEL_EXPR:
     case OMP_SINGLE:
     case OMP_MASTER:
     case OMP_ORDERED:
@@ -2502,6 +2507,14 @@ free_stmt_operands (gimple stmt)
 	}
       gimple_set_vdef_ops (stmt, NULL);
     }
+
+  BITMAP_FREE (stmt->with_ops.addresses_taken);
+
+  if (gimple_has_mem_ops (stmt))
+    {
+      gimple_set_stored_syms (stmt, NULL);
+      gimple_set_loaded_syms (stmt, NULL);
+    }
 }
 
 
@@ -2517,9 +2530,9 @@ update_stmt_operands (gimple stmt)
 
   timevar_push (TV_TREE_OPS);
 
-  gcc_assert (gimple_modified (stmt));
+  gcc_assert (gimple_modified_p (stmt));
   build_ssa_operands (stmt);
-  gimple_set_modified (stmt, true);
+  gimple_set_modified (stmt, false);
 
   timevar_pop (TV_TREE_OPS);
 }
@@ -2677,14 +2690,13 @@ swap_tree_operands (gimple stmt, tree *exp0, tree *exp1)
 
 
 /* Add the base address of REF to the set of addresses taken by STMT.
-   This is a wrapper around gimple_add_to_addresses_taken.  REF may be
-   a single variable whose address has been taken or any other valid
-   GIMPLE memory reference (structure reference, array, etc).  If the
-   base address of REF is a decl that has sub-variables, also add all
-   of its sub-variables.  */
+   REF may be a single variable whose address has been taken or any
+   other valid GIMPLE memory reference (structure reference, array,
+   etc).  If the base address of REF is a decl that has sub-variables,
+   also add all of its sub-variables.  */
 
 void
-add_to_addressable_set (gimple stmt, tree ref)
+gimple_add_to_addresses_taken (gimple stmt, tree ref)
 {
   tree var;
   subvar_t svars;
@@ -2700,7 +2712,7 @@ add_to_addressable_set (gimple stmt, tree ref)
       bitmap b;
 
       if (gimple_addresses_taken (stmt) == NULL)
-	gimple_set_addresses_taken (stmt, BITMAP_GGC_ALLOC ());
+	stmt->with_ops.addresses_taken = BITMAP_ALLOC (&operands_bitmap_obstack);
 
       b = gimple_addresses_taken (stmt);
 
@@ -2783,7 +2795,7 @@ verify_imm_links (FILE *f, tree var)
   return false;
 
  error:
-  if (ptr->loc.stmt && stmt_modified_p (ptr->loc.stmt))
+  if (ptr->loc.stmt && gimple_modified_p (ptr->loc.stmt))
     {
       fprintf (f, " STMT MODIFIED. - <%p> ", (void *)ptr->loc.stmt);
       print_gimple_stmt (f, ptr->loc.stmt, 0, TDF_SLIM);

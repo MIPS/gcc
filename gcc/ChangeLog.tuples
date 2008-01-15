@@ -1,3 +1,56 @@
+2008-01-15  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00674.html
+
+	* tree-into-ssa.c (mark_def_sites): Force operand scan.
+	* gimple.def (GIMPLE_ASSIGN): Move into section of
+	statements with memory operands.
+	* gimple-dummy.c (remove_unused_locals): Remove.
+	* tree-flow-inline.h (noreturn_call_p,
+	mark_stmt_modified, update_stmt, update_stmt_if_modified,
+	stmt_modified_p): Remove.
+	* tree-ssa-live.c: Convert to tuples.
+	* gimple.c (gimple_set_modified): Replace
+	mark_stmt_modified.  Update all callers.
+	(gimple_remove): Call free_stmt_operands.
+	* gimple.h: Include tree-ssa-operands.h
+	Move extern function declarations earlier in the file.
+	(GIMPLE_CHECK2): Remove.
+	(GIMPLE_RANGE_CHECK): Remove.
+	(struct gimple_statement_with_ops): Fix GTY markers.
+	(struct gimple_statement_with_memory_ops): Likewise.
+	(gimple_modified_p): Replace stmt_modifed_p.  Update all
+	users.
+	(update_stmt): Move from tree-flow-inline.h.  Update all
+	users.
+	(update_stmt_if_modified): Likewise.
+	(gimple_has_ops): Use range GIMPLE_COND ... GIMPLE_RETURN
+	(gimple_has_mem_ops): Use range GIMPLE_ASSIGN ... GIMPLE_RETURN
+	(gimple_num_ops): Call gimple_has_ops.
+	(gimple_ops): Likewise.
+	(gimple_op): Likewise.
+	(gimple_op_ptr): Likewise.
+	(gimple_set_op): Likewise.
+	(gimple_set_addresses_taken): Remove.  Update all users.
+	(gimple_add_to_addresses_taken): Likewise.
+	(gimple_call_noreturn_p): Replace noreturn_call_p.
+	Update all users.
+	(gimple_phi_arg): Assert that INDEX is smaller than
+	CAPACITY.
+	* passes.c (init_optimization_passes): Enable
+	pass_referenced_vars, pass_reset_cc_flags and pass_build_ssa.
+	* tree-ssa-operands.c (gimple_set_stored_syms): Do not
+	free the STORES field if SYMS is empty.
+	(gimple_set_loaded_syms): Likewise.
+	(finalize_ssa_stmt_operands): Only call
+	finalize_ssa_vdefs and finalize_ssa_vuses if STMT has
+	memory operands.
+	(get_expr_operands): Handle CASE_LABEL_EXPR.
+	(free_stmt_operands): Free bitmaps ADDRESSES_TAKEN,
+	STORES and LOADS.
+	(gimple_add_to_addresses_taken): Rename from
+	add_to_addressable_set.
+
 2008-01-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-dfa.c (dump_dfa_stats): Add %z modifier to size_t argument.

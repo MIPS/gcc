@@ -273,69 +273,6 @@ get_lineno (const_gimple stmt)
   return LOCATION_LINE (loc);
 }
 
-/* Return true if T is a noreturn call.  */
-static inline bool
-noreturn_call_p (gimple t)
-{
-  if (gimple_code (t) != GIMPLE_CALL)
-    return false;
-  return (gimple_call_flags (t) & ECF_NORETURN) != 0;
-}
-
-/* Mark statement T as modified.  */
-static inline void
-mark_stmt_modified (gimple t)
-{
-  if (gimple_code (t) == GIMPLE_PHI)
-    return;
-
-  if (noreturn_call_p (t) && cfun->gimple_df)
-    VEC_safe_push (gimple, gc, MODIFIED_NORETURN_CALLS (cfun), t);
-  gimple_set_modified (t, true);
-}
-
-/* Mark statement T as modified, and update it.  */
-static inline void
-update_stmt (gimple t)
-{
-  /* Not needed, since GIMPLE_PHI's do not have ops.
-  if (gimple_code (t) == GIMPLE_PHI)
-    return;
-  */
-
-  if (gimple_has_ops (t))
-    {
-      mark_stmt_modified (t);
-      update_stmt_operands (t);
-    }
-}
-
-static inline void
-update_stmt_if_modified (gimple t)
-{
-  if (stmt_modified_p (t))
-    update_stmt_operands (t);
-}
-
-/* Return true if T is marked as modified, false otherwise.  */
-static inline bool
-stmt_modified_p (gimple t)
-{
-  return gimple_modified (t);
-
-  /* FIXME tuples:
-
-     We previously had the code below, but we no longer have
-     annotations per se, so we must now initialize the modify flag in
-     the operand scanner to true.  */
-#if 0
-  /* Note that if the statement doesn't yet have an annotation, we consider it
-     modified.  This will force the next call to update_stmt_operands to scan 
-     the statement.  */
-  return ann ? ann->modified : true;
-#endif
-}
-
 /* Delink an immediate_uses node from its chain.  */
 static inline void
 delink_imm_use (ssa_use_operand_t *linknode)

@@ -212,7 +212,6 @@ extern void debug_decl_set (bitmap);
 
 extern bool ssa_operands_active (void);
 
-extern void add_to_addressable_set (gimple, tree);
 extern void push_stmt_changes (gimple *);
 extern void pop_stmt_changes (gimple *);
 extern void discard_stmt_changes (gimple *);

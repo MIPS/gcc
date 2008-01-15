@@ -29,6 +29,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "tree-ssa-operands.h"
 
 DEF_VEC_P(gimple);
 DEF_VEC_ALLOC_P(gimple,heap);
@@ -61,27 +62,8 @@ extern void gimple_range_check_failed (const_gimple, const char *, int,    \
       gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
 	  		   (CODE), 0);					\
   } while (0)
-
-#define GIMPLE_CHECK2(GS, CODE1, CODE2)					\
-  do {									\
-    const_gimple __gs = (GS);						\
-    if (gimple_code (__gs) != (CODE1)					\
-	|| gimple_subcode (__gs) != (CODE2))				\
-      gimple_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,	\
-	  		   (CODE1), (CODE2));				\
-  } while (0)
-
-#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)				\
-  do {									\
-    const_gimple __gs = (GS);						\
-    if (gimple_code (__gs) < (CODE1) || gimple_code (__gs) > (CODE2))	\
-      gimple_range_check_failed (__gs, __FILE__, __LINE__, __FUNCTION__,\
-		                 (CODE1), (CODE2));			\
-  } while (0)
 #else  /* not ENABLE_GIMPLE_CHECKING  */
 #define GIMPLE_CHECK(GS, CODE)			(void)0
-#define GIMPLE_CHECK2(GS, C1, C2)		(void)0
-#define GIMPLE_RANGE_CHECK(GS, CODE1, CODE2)	(void)0
 #endif
 
 /* Specific flags for individual GIMPLE statements.  These flags are
@@ -239,12 +221,12 @@ struct gimple_statement_with_ops GTY(())
 {
   struct gimple_statement_base gsbase;
   unsigned modified : 1;
-  bitmap addresses_taken;
+  bitmap GTY((skip (""))) addresses_taken;
 
   /* FIXME tuples.  OP should be amalgamated with DEF_OPS and USE_OPS.
      This duplication is unnecessary.  */
-  struct def_optype_d GTY((skip)) *def_ops;
-  struct use_optype_d GTY((skip)) *use_ops;
+  struct def_optype_d GTY((skip (""))) *def_ops;
+  struct use_optype_d GTY((skip (""))) *use_ops;
 
   /* FIXME tuples.  For many tuples, the number of operands can
      be deduced from the code.  */
@@ -259,10 +241,10 @@ struct gimple_statement_with_memory_ops GTY(())
 {
   struct gimple_statement_with_ops with_ops;
   unsigned has_volatile_ops : 1;
-  struct voptype_d GTY((skip)) *vdef_ops;
-  struct voptype_d GTY((skip)) *vuse_ops;
-  bitmap stores;
-  bitmap loads;
+  struct voptype_d GTY((skip (""))) *vdef_ops;
+  struct voptype_d GTY((skip (""))) *vuse_ops;
+  bitmap GTY((skip (""))) stores;
+  bitmap GTY((skip (""))) loads;
 };
 
 
@@ -478,6 +460,64 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
   struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE"))) gimple_omp_single;
 };
 
+/* In gimple.c.  */
+gimple gimple_build_return (tree);
+gimple gimple_build_assign (tree, tree);
+gimple gimple_build_assign_with_ops (enum tree_code, tree, tree, tree);
+gimple gimple_build_call_vec (tree, VEC(tree, gc) *);
+gimple gimple_build_call (tree, size_t, ...);
+gimple gimple_build_cond (enum tree_code, tree, tree, tree, tree);
+void gimple_cond_invert (gimple);
+gimple gimple_build_label (tree label);
+gimple gimple_build_goto (tree dest);
+gimple gimple_build_nop (void);
+gimple gimple_build_bind (tree, gimple_seq);
+gimple gimple_build_asm (const char *, size_t, size_t, size_t, ...);
+gimple gimple_build_asm_vec (const char *, VEC(tree,gc) *, VEC(tree,gc) *,
+                             VEC(tree,gc) *);
+gimple gimple_build_catch (tree, gimple_seq);
+gimple gimple_build_eh_filter (tree, gimple_seq);
+gimple gimple_build_try (gimple_seq, gimple_seq, unsigned int);
+gimple gimple_build_wce (gimple_seq);
+gimple gimple_build_resx (int);
+gimple gimple_build_switch (size_t, tree, tree, ...);
+gimple gimple_build_switch_vec (tree, tree, VEC(tree,heap) *);
+gimple gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
+gimple gimple_build_omp_for (gimple_seq, tree, tree, tree, tree, tree,
+                             gimple_seq, enum tree_code);
+gimple gimple_build_omp_critical (gimple_seq, tree);
+gimple gimple_build_omp_section (gimple_seq);
+gimple gimple_build_omp_continue (gimple_seq);
+gimple gimple_build_omp_master (gimple_seq);
+gimple gimple_build_omp_return (bool);
+gimple gimple_build_omp_ordered (gimple_seq);
+gimple gimple_build_omp_sections (gimple_seq, tree);
+gimple gimple_build_omp_single (gimple_seq, tree);
+enum gimple_statement_structure_enum gimple_statement_structure (gimple);
+void gimple_seq_add (gimple_seq, gimple);
+enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
+void sort_case_labels (VEC(tree,heap) *);
+void gimple_set_body (tree, gimple_seq);
+gimple_seq gimple_body (tree);
+void gimple_seq_append (gimple_seq, gimple_seq);
+int gimple_call_flags (gimple);
+bool gimple_assign_copy_p (gimple);
+void gimple_remove (gimple, gimple_seq, bool);
+gimple_seq gimple_seq_reverse (gimple_seq);
+void gimple_set_bb (gimple, struct basic_block_def *);
+tree gimple_fold (const_gimple);
+void gimple_assign_set_rhs_from_tree (gimple, tree);
+void gimple_assign_set_rhs_with_ops (gimple, enum tree_code, tree, tree);
+gimple gimple_copy (gimple);
+bool is_gimple_operand (const_tree);
+void gimple_set_modified (gimple, bool);
+
+/* In builtins.c  */
+extern bool validate_arglist (const_gimple, ...);
+
+/* In tree-ssa-operands.c  */
+extern void gimple_add_to_addresses_taken (gimple, tree);
+
 /* Set PREV to be the previous statement to G.  */
 
 static inline void
@@ -602,24 +642,6 @@ gimple_locus_empty_p (const_gimple g)
 }
 
 
-/* Return true if GIMPLE statement G has register or memory operands.  */
-
-static inline bool
-gimple_has_ops (const_gimple g)
-{
-  return gimple_code (g) >= GIMPLE_ASSIGN && gimple_code (g) <= GIMPLE_RETURN;
-}
-
-
-/* Return true if GIMPLE statement G has memory operands.  */
-
-static inline bool
-gimple_has_mem_ops (const_gimple g)
-{
-  return gimple_code (g) >= GIMPLE_ASM && gimple_code (g) <= GIMPLE_RETURN;
-}
-
-
 /* Return true if no warnings should be emitted for statement STMT.  */
 
 static inline bool
@@ -665,6 +687,24 @@ static inline unsigned int
 gimple_plf (gimple stmt, enum plf_mask plf)
 {
   return stmt->gsbase.plf & ((unsigned int) plf);
+}
+
+
+/* Return true if GIMPLE statement G has register or memory operands.  */
+
+static inline bool
+gimple_has_ops (const_gimple g)
+{
+  return gimple_code (g) >= GIMPLE_COND && gimple_code (g) <= GIMPLE_RETURN;
+}
+
+
+/* Return true if GIMPLE statement G has memory operands.  */
+
+static inline bool
+gimple_has_mem_ops (const_gimple g)
+{
+  return gimple_code (g) >= GIMPLE_ASSIGN && gimple_code (g) <= GIMPLE_RETURN;
 }
 
 
@@ -780,25 +820,32 @@ gimple_stored_syms (const_gimple g)
    been set.  */
 
 static inline bool
-gimple_modified (const_gimple g)
+gimple_modified_p (const_gimple g)
 {
-  if (gimple_has_ops (g))
-    return (bool) g->with_ops.modified;
-  else
-    return false;
+  return (gimple_has_ops (g)) ? (bool) g->with_ops.modified : false;
 }
 
 
-/* Set the MODIFIED flag to MODIFIEDP, iff the gimple statement G has
-   a MODIFIED field.  */
+/* Mark statement S as modified, and update it.  */
 
 static inline void
-gimple_set_modified (gimple g, bool modifiedp)
+update_stmt (gimple s)
 {
-  if (gimple_has_ops (g))
-    g->with_ops.modified = (unsigned) modifiedp;
+  if (gimple_has_ops (s))
+    {
+      gimple_set_modified (s, true);
+      update_stmt_operands (s);
+    }
 }
 
+/* Update statement T if it has been optimized.  */
+
+static inline void
+update_stmt_if_modified (gimple s)
+{
+  if (gimple_modified_p (s))
+    update_stmt_operands (s);
+}
 
 /* Return true if statement STMT contains volatile operands.  */
 
@@ -864,92 +911,34 @@ gimple_omp_parallel_combined_p (const_gimple g)
   return gimple_subcode (g) & GF_OMP_PARALLEL_COMBINED;
 }
 
-
-/* In gimple.c.  */
-gimple gimple_build_return (tree);
-gimple gimple_build_assign (tree, tree);
-gimple gimple_build_assign_with_ops (enum tree_code, tree, tree, tree);
-gimple gimple_build_call_vec (tree, VEC(tree, gc) *);
-gimple gimple_build_call (tree, size_t, ...);
-gimple gimple_build_cond (enum tree_code, tree, tree, tree, tree);
-void gimple_cond_invert (gimple);
-gimple gimple_build_label (tree label);
-gimple gimple_build_goto (tree dest);
-gimple gimple_build_nop (void);
-gimple gimple_build_bind (tree, gimple_seq);
-gimple gimple_build_asm (const char *, size_t, size_t, size_t, ...);
-gimple gimple_build_asm_vec (const char *, VEC(tree,gc) *, VEC(tree,gc) *,
-                             VEC(tree,gc) *);
-gimple gimple_build_catch (tree, gimple_seq);
-gimple gimple_build_eh_filter (tree, gimple_seq);
-gimple gimple_build_try (gimple_seq, gimple_seq, unsigned int);
-gimple gimple_build_wce (gimple_seq);
-gimple gimple_build_resx (int);
-gimple gimple_build_switch (size_t, tree, tree, ...);
-gimple gimple_build_switch_vec (tree, tree, VEC(tree,heap) *);
-gimple gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
-gimple gimple_build_omp_for (gimple_seq, tree, tree, tree, tree, tree,
-                             gimple_seq, enum tree_code);
-gimple gimple_build_omp_critical (gimple_seq, tree);
-gimple gimple_build_omp_section (gimple_seq);
-gimple gimple_build_omp_continue (gimple_seq);
-gimple gimple_build_omp_master (gimple_seq);
-gimple gimple_build_omp_return (bool);
-gimple gimple_build_omp_ordered (gimple_seq);
-gimple gimple_build_omp_sections (gimple_seq, tree);
-gimple gimple_build_omp_single (gimple_seq, tree);
-enum gimple_statement_structure_enum gimple_statement_structure (gimple);
-void gimple_seq_add (gimple_seq, gimple);
-enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
-void sort_case_labels (VEC(tree,heap) *);
-void gimple_set_body (tree, gimple_seq);
-gimple_seq gimple_body (tree);
-void gimple_seq_append (gimple_seq, gimple_seq);
-int gimple_call_flags (gimple);
-bool gimple_assign_copy_p (gimple);
-void gimple_remove (gimple, gimple_seq, bool);
-gimple_seq gimple_seq_reverse (gimple_seq);
-void gimple_set_bb (gimple, struct basic_block_def *);
-tree gimple_fold (const_gimple);
-void gimple_assign_set_rhs_from_tree (gimple, tree);
-void gimple_assign_set_rhs_with_ops (gimple, enum tree_code, tree, tree);
-gimple gimple_copy (gimple);
-bool is_gimple_operand (const_tree);
-
-/* In builtins.c  */
-extern bool validate_arglist (const_gimple, ...);
-
 extern const char *const gimple_code_name[];
 
 
-/* Return the number of operands for statement GS.  */
+/* Return the number of operands for statement GS.  FIXME, every
+   GIMPLE statement should know how to reply to this.  */
 
 static inline size_t
 gimple_num_ops (const_gimple gs)
 {
-  if (gimple_code (gs) >= GIMPLE_ASSIGN && gimple_code (gs) <= GIMPLE_RETURN)
-    return gs->with_ops.num_ops;
-  else
-    return 0;
+  return (gimple_has_ops (gs)) ? gs->with_ops.num_ops : 0;
 }
+
 
 /* Return the array of operands for statement GS.  */
 
 static inline tree *
 gimple_ops (const_gimple gs)
 {
-  if (gimple_code (gs) >= GIMPLE_ASSIGN && gimple_code (gs) <= GIMPLE_RETURN)
-    return gs->with_ops.op;
-  else
-    return NULL;
+  return (gimple_has_ops (gs)) ? gs->with_ops.op : NULL;
 }
+
 
 /* Return operand I for statement GS.  */
 
 static inline tree
 gimple_op (const_gimple gs, size_t i)
 {
-  if (gimple_code (gs) >= GIMPLE_ASSIGN && gimple_code (gs) <= GIMPLE_RETURN)
+  if (gimple_has_ops (gs))
     {
       gcc_assert (i < gs->with_ops.num_ops);
       return gs->with_ops.op[i];
@@ -963,7 +952,7 @@ gimple_op (const_gimple gs, size_t i)
 static inline tree *
 gimple_op_ptr (const_gimple gs, size_t i)
 {
-  if (gimple_code (gs) >= GIMPLE_ASSIGN && gimple_code (gs) <= GIMPLE_RETURN)
+  if (gimple_has_ops (gs))
     {
       gcc_assert (i < gs->with_ops.num_ops);
       return &gs->with_ops.op[i];
@@ -977,8 +966,7 @@ gimple_op_ptr (const_gimple gs, size_t i)
 static inline void
 gimple_set_op (gimple gs, size_t i, tree op)
 {
-  GIMPLE_RANGE_CHECK (gs, GIMPLE_ASSIGN, GIMPLE_RETURN);
-  gcc_assert (i < gs->with_ops.num_ops);
+  gcc_assert (gimple_has_ops (gs) && i < gs->with_ops.num_ops);
 
   /* Note.  It may be tempting to assert that OP matches
      is_gimple_operand, but that would be wrong.  Different tuples
@@ -994,33 +982,6 @@ gimple_addresses_taken (gimple stmt)
 {
   gcc_assert (gimple_has_ops (stmt));
   return stmt->with_ops.addresses_taken;
-}
-
-/* Set S to be the set of symbols that have had their address taken
-   by STMT.  If S is NULL or empty, the storage used by the bitmap is
-   freed up.  */
-
-static inline void
-gimple_set_addresses_taken (gimple stmt, bitmap s)
-{
-  gcc_assert (gimple_has_ops (stmt));
-  if (s == NULL || bitmap_empty_p (s))
-    BITMAP_FREE (stmt->with_ops.addresses_taken);
-  else
-    stmt->with_ops.addresses_taken = s;
-}
-
-/* Add symbol SYM to the set of symbols that have had their address taken
-   by STMT.  Allocate the ADDRESSES_TAKEN set if necessary.  */
-
-static inline void
-gimple_add_to_addresses_taken (gimple stmt, tree sym)
-{
-  gcc_assert (gimple_has_ops (stmt));
-  if (stmt->with_ops.addresses_taken == NULL)
-    stmt->with_ops.addresses_taken = BITMAP_GGC_ALLOC ();
-
-  bitmap_set_bit (stmt->with_ops.addresses_taken, DECL_UID (sym));
 }
 
 
@@ -1288,6 +1249,16 @@ gimple_call_cannot_inline_p (gimple s)
   return (gimple_subcode (s) & GF_CALL_CANNOT_INLINE) != 0;
 }
 
+
+/* Return true if S is a noreturn call.  */
+
+static inline bool
+gimple_call_noreturn_p (gimple s)
+{
+  if (gimple_code (s) != GIMPLE_CALL)
+    return false;
+  return (gimple_call_flags (s) & ECF_NORETURN) != 0;
+}
 
 /* Return the code of the predicate computed by conditional statement GS.  */
 
@@ -1942,7 +1913,7 @@ static inline struct phi_arg_d *
 gimple_phi_arg (gimple gs, size_t index)
 {
   GIMPLE_CHECK (gs, GIMPLE_PHI);
-  gcc_assert (index <= gs->gimple_phi.nargs);
+  gcc_assert (index <= gs->gimple_phi.capacity);
   return &(gs->gimple_phi.args[index]);
 }
 

@@ -28,29 +28,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Error marker.  This is used in similar ways as ERROR_MARK in tree.def.  */
 DEFGSCODE(GIMPLE_ERROR_MARK, "gimple_error_mark")
 
-/* IMPORTANT.  Do not rearrange the codes between GIMPLE_ASSIGN and
-   GIMPLE_RETURN.  The ordering is exposed by GIMPLE_RANGE_CHECK calls.
+/* IMPORTANT.  Do not rearrange the codes between GIMPLE_COND and
+   GIMPLE_RETURN.  The ordering is exposed by gimple_has_ops calls.
    These are all the GIMPLE statements with register operands.  */
-
-/* GIMPLE_ASSIGN <SUBCODE, LHS, RHS1[, RHS2]> represents the assignment
-   statement
-
-   LHS = RHS1 SUBCODE RHS2.
-
-   SUBCODE is the tree code for the expression computed by the RHS of the
-   assignment.  It must be one of the tree codes accepted by
-   get_gimple_rhs_class.
-
-   LHS is the operand on the LHS of the assignment.  It must be a tree node
-   accepted by is_gimple_operand.
-
-   RHS1 is the first operand on the RHS of the assignment. It must be a tree
-   node accepted by is_gimple_operand.
-
-   RHS2 is the second operand on the RHS of the assignemnt. It must be a tree
-   node accepted by is_gimple_operand.  This argument exists only if SUBCODE is
-   of class GIMPLE_BINARY_RHS.  */
-DEFGSCODE(GIMPLE_ASSIGN, "gimple_assign")
 
 /* GIMPLE_COND <COND_CODE, OP1, OP2, TRUE_LABEL, FALSE_LABEL>
    represents the conditional jump:
@@ -93,9 +73,29 @@ DEFGSCODE(GIMPLE_LABEL, "gimple_label")
 DEFGSCODE(GIMPLE_SWITCH, "gimple_switch")
 
 
-/* IMPORTANT.  Do not rearrange the codes between GIMPLE_ASM and
+/* IMPORTANT.  Do not rearrange the codes between GIMPLE_ASSIGN and
    GIMPLE_RETURN.  It's exposed by GIMPLE_RANGE_CHECK calls. These are
    all the GIMPLE statements with memory and register operands.  */
+
+/* GIMPLE_ASSIGN <SUBCODE, LHS, RHS1[, RHS2]> represents the assignment
+   statement
+
+   LHS = RHS1 SUBCODE RHS2.
+
+   SUBCODE is the tree code for the expression computed by the RHS of the
+   assignment.  It must be one of the tree codes accepted by
+   get_gimple_rhs_class.
+
+   LHS is the operand on the LHS of the assignment.  It must be a tree node
+   accepted by is_gimple_operand.
+
+   RHS1 is the first operand on the RHS of the assignment. It must be a tree
+   node accepted by is_gimple_operand.
+
+   RHS2 is the second operand on the RHS of the assignemnt. It must be a tree
+   node accepted by is_gimple_operand.  This argument exists only if SUBCODE is
+   of class GIMPLE_BINARY_RHS.  */
+DEFGSCODE(GIMPLE_ASSIGN, "gimple_assign")
 
 /* GIMPLE_ASM <STRING, I1, ..., IN, O1, ... OM, C1, ..., CP>
    represents inline assembly statements.

@@ -500,7 +500,7 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
   else
     *p_rhs = gimplify_build1 (bsi, VIEW_CONVERT_EXPR, TREE_TYPE (lhs), rhs);
 
-  mark_stmt_modified (bsi_stmt (*bsi));
+  gimple_set_modified (bsi_stmt (*bsi), true);
 }
 
 /* Use this to lower vector operations introduced by the vectorizer,

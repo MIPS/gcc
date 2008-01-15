@@ -536,9 +536,7 @@ static inline var_ann_t get_var_ann (tree);
 static inline function_ann_t function_ann (const_tree);
 static inline function_ann_t get_function_ann (tree);
 static inline enum tree_ann_type ann_type (tree_ann_t);
-static inline bool noreturn_call_p (gimple);
 static inline void update_stmt (gimple);
-static inline bool stmt_modified_p (gimple);
 static inline bitmap may_aliases (const_tree);
 static inline int get_lineno (const_gimple);
 

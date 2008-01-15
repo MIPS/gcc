@@ -1556,7 +1556,7 @@ eliminate_redundant_computations (tree stmt)
 	cached_lhs = fold_convert (TREE_TYPE (*expr_p), cached_lhs);
 
       propagate_tree_value (expr_p, cached_lhs);
-      mark_stmt_modified (stmt);
+      gimple_set_modified (stmt, true);
     }
   return retval;
 }
@@ -1740,7 +1740,7 @@ cprop_operand (tree stmt, use_operand_p op_p)
       /* And note that we modified this statement.  This is now
 	 safe, even if we changed virtual operands since we will
 	 rescan the statement and rewrite its operands again.  */
-      mark_stmt_modified (stmt);
+      gimple_set_modified (stmt, true);
     }
   return may_have_exposed_new_symbols;
 }

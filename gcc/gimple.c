@@ -1380,7 +1380,8 @@ gimple_remove (gimple stmt, gimple_seq seq, bool remove_eh_info)
 
   gimple_set_bb (stmt, NULL);
   delink_stmt_imm_use (stmt);
-  mark_stmt_modified (stmt);
+  free_stmt_operands (stmt);
+  gimple_set_modified (stmt, true);
   if (remove_eh_info)
     {
       remove_stmt_from_eh_region (stmt);
@@ -1594,4 +1595,19 @@ gimple_copy (gimple stmt)
   return copy;
 }
 
+
+/* Set the MODIFIED flag to MODIFIEDP, iff the gimple statement G has
+   a MODIFIED field.  */
+
+void
+gimple_set_modified (gimple s, bool modifiedp)
+{
+  if (gimple_has_ops (s))
+    {
+      s->with_ops.modified = (unsigned) modifiedp;
+
+      if (modifiedp && gimple_call_noreturn_p (s) && cfun->gimple_df)
+	VEC_safe_push (gimple, gc, MODIFIED_NORETURN_CALLS (cfun), s);
+    }
+}
 #include "gt-gimple.h"

@@ -202,7 +202,7 @@ cleanup_control_flow_bb (basic_block bb)
 
   /* Check for indirect calls that have been turned into
      noreturn calls.  */
-  else if (noreturn_call_p (stmt) && remove_fallthru_edge (bb->succs))
+  else if (gimple_call_noreturn_p (stmt) && remove_fallthru_edge (bb->succs))
     retval = true;
 
   return retval;
@@ -483,7 +483,7 @@ split_bbs_on_noreturn_calls (void)
 	bb = gimple_bb (stmt);
 	if (bb == NULL
 	    || last_stmt (bb) == stmt
-	    || !noreturn_call_p (stmt))
+	    || !gimple_call_noreturn_p (stmt))
 	  continue;
 
 	changed = true;

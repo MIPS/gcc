@@ -4299,5 +4299,5 @@ struct tree_opt_pass pass_reset_cc_flags =
   0,			 /* todo_flags_start */
   0,         	         /* todo_flags_finish */
   0			 /* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };

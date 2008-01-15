@@ -470,7 +470,7 @@ initialize_flags_in_bb (basic_block bb)
       /* We are going to use the operand cache API, such as
 	 SET_USE, SET_DEF, and FOR_EACH_IMM_USE_FAST.  The operand
 	 cache for each statement should be up-to-date.  */
-      gcc_assert (!stmt_modified_p (stmt));
+      gcc_assert (!gimple_modified_p (stmt));
       set_rewrite_uses (stmt, false);
       set_register_defs (stmt, false);
     }
@@ -769,8 +769,10 @@ mark_def_sites (struct dom_walk_data *walk_data, basic_block bb,
   use_operand_p use_p;
   ssa_op_iter iter;
 
+  /* Since this is the first time that we rewrite the program into SSA
+     form, force an operand scan on every statement.  */
   stmt = gsi_stmt (gsi);
-  update_stmt_if_modified (stmt);
+  update_stmt (stmt);
 
   gd = (struct mark_def_sites_global_data *) walk_data->global_data;
   kills = gd->kills;
