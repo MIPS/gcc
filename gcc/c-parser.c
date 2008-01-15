@@ -1136,6 +1136,11 @@ c_parser_update_checksum (struct md5_ctx *current_hash, c_token *token)
 			 current_hash);
       break;
 
+    case CPP_KEYWORD:
+      type = token->keyword;
+      md5_process_bytes (&type, sizeof (type), current_hash);
+      break;
+
     case CPP_NUMBER:
     case CPP_CHAR:
     case CPP_WCHAR:
