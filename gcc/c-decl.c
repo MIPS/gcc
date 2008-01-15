@@ -2998,7 +2998,8 @@ lookup_name_in_scope (tree name, struct c_scope *scope)
 	  c_parser_lookup_callback (name, b->decl, false);
 	return b->decl;
       }
-  c_parser_lookup_callback (name, NULL_TREE, false);
+  if (scope->depth == 1)
+    c_parser_lookup_callback (name, NULL_TREE, false);
   return 0;
 }
 
