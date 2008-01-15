@@ -2107,15 +2107,12 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
       return false;
     }
 
-  if (need_merge)
+  /* Objects in any non-local scope have to be duplicated here, since
+     we do not want to smash any generally visible (and reusable)
+     decl.  FIXME: should make just one duplicate for both scopes.  */
+  if (binding && (B_IN_FILE_SCOPE (binding) || B_IN_EXTERNAL_SCOPE (binding)))
     {
-      /* Objects in any non-local scope have to be duplicated here,
-	 since we do not want to smash any generally visible (and
-	 reusable) decl.  FIXME: should make just one duplicate for
-	 both scopes.  */
-      if (binding
-	  && (B_IN_FILE_SCOPE (binding) || B_IN_EXTERNAL_SCOPE (binding))
-	  && !object_in_current_hunk_p (olddecl))
+      if (need_merge && !object_in_current_hunk_p (olddecl))
 	{
 	  /* Modify a copy of OLDDECL and install that in the
 	     bindings.  */
@@ -2125,14 +2122,15 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 	  merge_decls (newdecl, copy, newtype,
 		       C_SMASHED_TYPE_VARIANT (oldtype));
 	  /* FIXME: this triggers building libgcc.  */
-/* 	  gcc_assert (binding->decl == olddecl); */
+	  /* 	  gcc_assert (binding->decl == olddecl); */
 	  binding->decl = copy;
 	  c_parser_bind_callback (DECL_NAME (copy), copy);
 	  c_parser_note_smash (olddecl, copy);
 	}
-      else
-	merge_decls (newdecl, olddecl, newtype, oldtype);
     }
+  else
+    merge_decls (newdecl, olddecl, newtype, oldtype);
+
   return true;
 }
 

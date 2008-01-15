@@ -1,5 +1,9 @@
 2008-01-15  Tom Tromey  <tromey@redhat.com>
 
+	* c-decl.c (duplicate_decls): Merge non-top-level declarations.
+
+2008-01-15  Tom Tromey  <tromey@redhat.com>
+
 	* c-parser.c (c_parser_update_checksum): Include keyword value.
 
 2008-01-14  Tom Tromey  <tromey@redhat.com>
