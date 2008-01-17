@@ -1,0 +1,8 @@
+2008-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libffi/34612
+	* src/x86/sysv.S (ffi_closure_SYSV): Pop 4 byte from stack when
+	returning struct.
+
+	* testsuite/libffi.call/call.exp: Add "-O2 -fomit-frame-pointer"
+	tests.
