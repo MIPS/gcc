@@ -1,5 +1,9 @@
 2008-01-18  Tom Tromey  <tromey@redhat.com>
 
+	* c-decl.c (c_write_global_declarations_2): Fix typo.
+
+2008-01-18  Tom Tromey  <tromey@redhat.com>
+
 	* toplev.c (wait_for_as): Remove comment.
 	(finalize): Return bool.
 	(do_compile): Update.

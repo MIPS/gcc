@@ -8133,8 +8133,8 @@ c_write_global_declarations_1 (tree globals)
     check_global_declaration_1 (decl);
 }
 
-/* A subroutine of c_write_global_declarations Emit debug information for each
-   of the declarations in GLOBALS.  */
+/* A subroutine of c_write_global_declarations.  Emit debug
+   information for each of the declarations in GLOBALS.  */
 
 static void
 c_write_global_declarations_2 (tree globals)
