@@ -121,7 +121,11 @@ server_start (char *program)
   int fds[2];
 
   /* Make a pipe so we can tell when the server is ready.  */
-  pipe (fds);			/* FIXME: error checking */
+  if (pipe (fds) == -1)
+    {
+      error ("failed to make pipe: %s", xstrerror (errno));
+      exit (FATAL_EXIT_CODE);
+    }
 
   switch (fork ())
     {
@@ -206,6 +210,10 @@ request_and_response (int reqfd)
   char *dir = NULL;
   char **argvs[2];
   int count = 0;
+  int err_fd = -1;
+
+  argvs[0] = NULL;
+  argvs[1] = NULL;
 
   while (true)
     {
@@ -227,14 +235,14 @@ request_and_response (int reqfd)
 
 	  argv = buildargv (buffer);
 	  free (buffer);
-	  /* FIXME: obviously this is pretty lame.  */
 	  if (count >= 2)
 	    {
-	      fprintf (stderr, "DIE!\n");
-	      continue;
+	      /* We do nothing here, but will fail when the eventual
+		 'D' command arrives.  */
+	      freeargv (argv);
 	    }
-
-	  argvs[count++] = argv;
+	  else
+	    argvs[count++] = argv;
 	}
       else if (cmd == '.')
 	{
@@ -242,10 +250,7 @@ request_and_response (int reqfd)
 	  int len;
 
 	  if (dir)
-	    {
-	      fprintf (stderr, "DIE!\n");
-	      break;
-	    }
+	    free (dir);
 	  if (read (reqfd, &len, sizeof (len)) != sizeof (len))
 	    break;
 	  dir = (char *) xmalloc (len + 1);
@@ -256,18 +261,33 @@ request_and_response (int reqfd)
       else if (cmd == 'D')
 	{
 	  /* Done with requests, compile away.  */
-	  if (count != 2 || !dir)
+	  bool ok;
+	  int result;
+
+	  if (count != 2 || !dir || err_fd == -1)
 	    {
-	      fprintf (stderr, "DIE 2!\n");
-	      count = 0;	/* And leak memory while we're at it.  */
-	      continue;
+	      /* Fail.  */
+	      ok = false;
 	    }
-	  server_callback (reqfd, dir, argvs[0], argvs[1]);
+	  else
+	    ok = server_callback (err_fd, dir, argvs[0], argvs[1]);
+
 	  free (dir);
 	  freeargv (argvs[0]);
 	  freeargv (argvs[1]);
 	  dir = NULL;
+	  argvs[0] = NULL;
+	  argvs[1] = NULL;
 	  count = 0;
+	  if (err_fd != -1)
+	    close (err_fd);
+	  err_fd = -1;
+
+	  /* Tell the client the result.  */
+	  result = ! ok;
+	  /* There's nothing sensible to do about an error here.  */
+	  write (reqfd, &result, sizeof (result));
+
 	  break;
 	}
       else if (cmd == 'K')
@@ -275,6 +295,34 @@ request_and_response (int reqfd)
 	  /* Kill server.  In the single-threaded server, it is ok to
 	     simply tell the main loop to exit.  */
 	  return false;
+	}
+      else if (cmd == 'F')
+	{
+	  /* Receive the client's stderr fd.  */
+	  struct msghdr msg;
+	  char space[CMSG_SPACE (sizeof (int))];
+	  char iovbuffer[1];
+	  struct iovec vec;
+
+	  memset (&msg, 0, sizeof (msg));
+	  msg.msg_control = space;
+	  msg.msg_controllen = sizeof (space);
+
+	  /* We have to receive at least one message byte along with
+	     the file descriptor.  */
+	  vec.iov_base = iovbuffer;
+	  vec.iov_len = 1;
+	  msg.msg_iov = &vec;
+	  msg.msg_iovlen = 1;
+
+	  if (recvmsg (reqfd, &msg, 0) >= 0)
+	    {
+	      struct cmsghdr *cmsg = CMSG_FIRSTHDR (&msg);
+	      if (cmsg && cmsg->cmsg_len == CMSG_LEN (sizeof (int))
+		  && cmsg->cmsg_level == SOL_SOCKET
+		  && cmsg->cmsg_type == SCM_RIGHTS)
+		err_fd = *(int *) CMSG_DATA (cmsg);
+	    }
 	}
       else
 	{
@@ -336,15 +384,16 @@ server_main_loop (const char *progname, int fd)
    false in the child.  Will print a message and return true if there
    is an error.  The parent waits for the child to exit.  */
 bool
-server_start_back_end (void)
+server_start_back_end (bool *status)
 {
   pid_t child;
-  int status;
+  int result;
 
   child = fork ();
   if (child == -1)
     {
       error ("fork of server failed: %s", xstrerror (errno));
+      *status = false;
       return true;
     }
   else if (child == 0)
@@ -355,8 +404,8 @@ server_start_back_end (void)
     }
 
   /* Parent.  */
-  waitpid (child, &status, 0);
-  /* FIXME: handle STATUS somehow.  */
+  waitpid (child, &result, 0);
+  *status = WIFEXITED (result) && ! WEXITSTATUS (result);
   return true;
 }
 
@@ -432,38 +481,76 @@ client_send_command (const char **argv)
   return result;
 }
 
-/* Helper for client_wait and client_kill_server.  Send a
-   single-letter command to the server and pipe the server's output to
-   our stderr.  */
-static void
-send_command_and_wait (char cmd)
+/* Send a file descriptor to the server.  Return false on error, true
+   on success.  */
+static bool
+send_fd (int fd)
 {
   gcc_assert (connection_fd >= 0);
+  char cmd = 'F';
+  struct msghdr msg;
+  struct cmsghdr *cmsg;
+  char space[CMSG_SPACE (sizeof (int))];
+  int *fdptr;
+  char iovbuffer[1];
+  struct iovec vec;
 
   if (write (connection_fd, &cmd, 1) != 1)
-    return;
+    return false;
+  
+  memset (&msg, 0, sizeof (msg));
+  msg.msg_control = space;
+  msg.msg_controllen = sizeof (space);
+  cmsg = CMSG_FIRSTHDR (&msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_RIGHTS;
+  cmsg->cmsg_len = CMSG_LEN (sizeof (int));
 
-  while (true)
-    {
-      int len;
-      char buffer[100];
+  /* We have to send at least one message byte along with the file
+     descriptor.  */
+  iovbuffer[0] = '!';
+  vec.iov_base = iovbuffer;
+  vec.iov_len = 1;
+  msg.msg_iov = &vec;
+  msg.msg_iovlen = 1;
 
-      len = read (connection_fd, buffer, 100);
-      if (len <= 0)
-	break;
-      fwrite (buffer, 1, len, stderr);
-    }
+  fdptr = (int *) CMSG_DATA (cmsg);
+  fdptr[0] = fd;
+  msg.msg_controllen = cmsg->cmsg_len;
+
+  return sendmsg (connection_fd, &msg, 0) >= 0;
+}
+
+/* Helper for client_wait and client_kill_server.  Send a
+   single-letter command to the server and arrange for the server's
+   output to go to our stderr.  Returns true on success, false on
+   failure.  */
+static bool
+send_command_and_wait (char cmd)
+{
+  int status;
+  gcc_assert (connection_fd >= 0);
+
+  if (! send_fd (fileno (stderr)))
+    return false;
+
+  if (write (connection_fd, &cmd, 1) != 1)
+    return false;
+
+  if (read (connection_fd, &status, sizeof (status)) != sizeof (status))
+    return false;
+  return status ? false : true;
 }
 
 /* Called by the client after submitting all its jobs.  This waits for
-   the server to complete the tasks.  It reads from the server
-   connection and prints errors to stderr.  Both 'client_connect' and
+   the server to complete the tasks.  Both 'client_connect' and
    'client_send_command' must have been successfully called before
-   calling this.  */
-void
+   calling this.  Returns true if everything went successfully, false
+   on failure.  */
+bool
 client_wait (void)
 {
-  send_command_and_wait ('D');
+  return send_command_and_wait ('D');
 }
 
 /* Request that the server exit.  PROGNAME is the path name of the

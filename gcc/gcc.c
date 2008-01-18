@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -2950,6 +2950,7 @@ execute (void)
   /* Maybe we should warn the user if the connection fails?  */
   if (use_server && client_connect (commands[0].argv[0]))
     {
+      bool result;
       if (!client_send_directory ())
 	fatal ("couldn't send working directory to server");
       for (i = 0; i < n_commands; ++i)
@@ -2957,9 +2958,9 @@ execute (void)
 	  if (!client_send_command (commands[i].argv))
 	    fatal ("couldn't send command to server: %s", commands[i].argv[0]);
 	}
-      client_wait ();
+      result = client_wait ();
       execution_count++;
-      return 0;
+      return result ? 0 : -1;
     }
 
 #ifdef ENABLE_VALGRIND_CHECKING
@@ -8006,7 +8007,7 @@ print_asm_header_spec_function (int arg ATTRIBUTE_UNUSED,
 
 
 
-void
+bool
 server_callback (int ARG_UNUSED (fd),
 		 char * ARG_UNUSED (dir),
 		 char ** ARG_UNUSED (cc1_argv),

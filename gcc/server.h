@@ -23,17 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 /* Functions for the server to use.  */
 extern void server_start (char *);
 extern int server_main_loop (const char *progname, int);
-extern bool server_start_back_end (void);
+extern bool server_start_back_end (bool *);
 
 /* Functions for the client to use.  */
 extern bool client_connect (const char *);
 extern bool client_send_directory (void);
 extern bool client_send_command (const char **);
-extern void client_wait (void);
+extern bool client_wait (void);
 extern void client_kill_server (const char *);
 
-/* The main loop calls this when a command is read.  */
-extern void server_callback (int, char *, char **, char **);
+/* The main loop calls this when a command is read.  Return true on
+   success, false on failure.  */
+extern bool server_callback (int, char *, char **, char **);
 
 /* Ensure that we are either running standalone, or in the
    code-generation subprocess.  */

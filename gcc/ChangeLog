@@ -1,5 +1,24 @@
 2008-01-18  Tom Tromey  <tromey@redhat.com>
 
+	* toplev.c (wait_for_as): Remove comment.
+	(finalize): Return bool.
+	(do_compile): Update.
+	(compile_file): Update.
+	(server_back_end_status): New global.
+	(start_as): Remove comment.
+	* gcc.c (execute): Use client_wait result.
+	* server.c (client_wait): Return bool.
+	(send_command_and_wait): Likewise.
+	(send_fd): New function.
+	(request_and_response): Handle 'F' request.  Clean up error
+	handling.
+	(server_start_back_end): Add 'status' argument.
+	* server.h (client_wait): Update.
+	(server_callback): Change return type.
+	(server_start_back_end): Update.
+
+2008-01-18  Tom Tromey  <tromey@redhat.com>
+
 	* toplev.c (toplev_main): Return result of server_main_loop.
 	* server.h (server_main_loop): Update.
 	* server.c (server_directory): New global.

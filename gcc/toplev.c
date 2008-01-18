@@ -107,7 +107,7 @@ static void process_options (void);
 static void backend_init (void);
 static int lang_dependent_init (const char *);
 static void init_asm_output (const char *);
-static void finalize (void);
+static bool finalize (void);
 
 static void crash_signal (int) ATTRIBUTE_NORETURN;
 static void setup_core_dumping (void);
@@ -123,6 +123,10 @@ static bool no_backend;
 
 /* True if we're running as a server.  */
 static bool server_mode;
+
+/* The result of the server code-generator.  This is true if the back
+   end succeeded, false if it failed.  */
+static bool server_back_end_status;
 
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
@@ -1120,7 +1124,7 @@ compile_file (void)
 	 of unclaimed garbage.  */
       ggc_collect ();
 
-      if (server_start_back_end ())
+      if (server_start_back_end (&server_back_end_status))
 	return false;
 
       job->as_process = start_as ((char **) VEC_address (cchar_p,
@@ -2197,11 +2201,14 @@ dump_memory_report (bool final)
   dump_ggc_loc_statistics (final);
 }
 
-/* Clean up: close opened files, etc.  */
+/* Clean up: close opened files, etc.  Return true on success, false
+   on failure.  */
 
-static void
+static bool
 finalize (void)
 {
+  bool result = true;
+
   /* Close the dump files.  */
   if (flag_gen_aux_info)
     {
@@ -2231,10 +2238,12 @@ finalize (void)
 
   if (job && job->as_process)
     {
-      int result;
-      wait_for_as (job->as_process, &result);
-      /* FIXME: handle error */
+      int status;
+      wait_for_as (job->as_process, &status);
       job->as_process = NULL;
+
+      if (! WIFEXITED (status) || WEXITSTATUS (status))
+	result = false;
     }
 
   finish_optimization_passes ();
@@ -2244,6 +2253,8 @@ finalize (void)
 
   /* Language-specific end of compilation actions.  */
   lang_hooks.finish ();
+
+  return result;
 }
 
 /* Initialize the compiler, and compile the input file.  */
@@ -2262,6 +2273,7 @@ do_compile (void)
   if (!errorcount)
     {
       bool should_exit = false;
+      bool ok;
 
       /* This must be run always, because it is needed to compute the FP
 	 predefined macros, such as __LDBL_MAX__, for targets using non
@@ -2276,13 +2288,13 @@ do_compile (void)
       if (lang_dependent_init (main_input_filename))
 	should_exit = compile_file ();
 
-      finalize ();
+      ok = finalize ();
 
       if (should_exit && server_mode)
 	{
 	  /* We forked in compile_file, and this is the child process.
 	     The compile is done, so exit.  */
-	  exit (0);
+	  exit (ok ? SUCCESS_EXIT_CODE : FATAL_EXIT_CODE);
 	}
     }
 
@@ -2310,7 +2322,6 @@ start_as (char **as_argv)
 			NULL, NULL, &pxerr);
       if (errstr)
 	{
-	  /* FIXME.  */
 	  error ("failed to exec as: %s", errstr);
 	  pex_free (px);
 	  px = NULL;
@@ -2323,8 +2334,6 @@ start_as (char **as_argv)
 static void
 wait_for_as (struct pex_obj *px, int *result)
 {
-  /* FIXME: send a single byte back to the client for status?
-     FIXME: this function should return an error indication.  */
   pex_get_status (px, 1, result);
   pex_free (px);
 }
@@ -2351,7 +2360,7 @@ copy_to_vec (VEC (cchar_p, gc) **out, struct save_string_list **strings,
     *n_args = i - 1;
 }
 
-void
+bool
 server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
 {
   int n;
@@ -2367,6 +2376,7 @@ server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
      file on error.  */
   errorcount = 0;
   sorrycount = 0;
+  server_back_end_status = true;
 
   job = GGC_CNEW (struct compilation_job);
   copy_to_vec (&job->as_arguments, &job->strings, as_argv, NULL);
@@ -2396,6 +2406,8 @@ server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
      properly.  The server loop will take care of the fd we were
      passed.  */
   close (2);
+
+  return server_back_end_status && ! (errorcount || sorrycount);
 }
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
