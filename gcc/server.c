@@ -1,5 +1,5 @@
 /* Shared code for GCC server
-   Copyright (C) 2007
+   Copyright (C) 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -28,6 +28,9 @@ along with GCC; see the file COPYING3.  If not see
 #include <sys/socket.h>
 #include <sys/un.h>
 
+/* From libiberty, but not in any header.  */
+extern char *choose_tmpdir (void);
+
 /* Possible server-related states that the compiler can be in.  */
 enum server_state
 {
@@ -47,28 +50,66 @@ static enum server_state current_server_state = SERVER_NONE;
 /* The name of the server socket we're using.  */
 static char *server_socket_name;
 
+/* The name of the server directory.  Only set in the server.  We
+   delete this when the server exits.  */
+static char *server_directory;
+
 /* The file descriptor of our connection to the server.  */
 static int connection_fd = -1;
 
 /* Return the name of the server socket.  The value is cached in
    'server_socket_name'.  PROGNAME is the path name of the server
-   executable and is used to construct the socket name.  */
+   executable and is used to construct the socket name.  If SERVER is
+   true, this will try to make the server directory.  */
 static char *
-get_socket_name (const char *progname)
+get_socket_name (const char *progname, bool server)
 {
   if (!server_socket_name)
     {
       const char *basename;
+      char *dir = choose_tmpdir ();
+      char uidstr[20];
+
+      if (dir == NULL)
+	{
+	  error ("could not find temporary directory");
+	  exit (FATAL_EXIT_CODE);
+	}
 
       basename = strrchr (progname, '/');
       if (basename == NULL)
 	basename = progname;
 
-      /* FIXME: put in subdir and use UID.  */
-      server_socket_name = concat ("/tmp/", ".", basename, "-server", NULL);
+      sprintf (uidstr, "%d", (int) getuid ());
+      dir = concat (dir, "/", ".gcc-", uidstr, NULL);
+
+      if (server)
+	{
+	  if (mkdir (dir, S_IRWXU))
+	    {
+	      error ("could not make directory %s: %s", dir, xstrerror (errno));
+	      exit (FATAL_EXIT_CODE);
+	    }
+	  server_directory = xstrdup (dir);
+	}
+
+      server_socket_name = reconcat (dir, dir, "/", basename, "-server", NULL);
     }
 
   return server_socket_name;
+}
+
+/* If SOCKET is not -1, close the server socket.  Unlink the server
+   socket and its directory as well.  */
+static void
+server_cleanup (int socket)
+{
+  if (socket != -1)
+    close (socket);
+  if (server_socket_name)
+    unlink (server_socket_name);
+  if (server_directory)
+    rmdir (server_directory);
 }
 
 /* Start a compile server.  PROGRAM is the full path name of the
@@ -123,7 +164,10 @@ server_start (char *program)
 	close (fds[1]);
 	r = read (fds[0], &x, 1);
 	if (r == -1)
-	  error ("server failed to start: %s", xstrerror (errno));
+	  {
+	    error ("server failed to start: %s", xstrerror (errno));
+	    exit (FATAL_EXIT_CODE);
+	  }
 	close (fds[0]);
       }
     }
@@ -136,7 +180,7 @@ open_socket (const char *progname)
 {
   struct sockaddr_un address;
   int sockfd, save_mask;
-  char *sname = get_socket_name (progname);
+  char *sname = get_socket_name (progname, true);
 
   sockfd = socket (AF_UNIX, SOCK_STREAM, 0);
   if (sockfd < 0)
@@ -246,22 +290,23 @@ request_and_response (int reqfd)
    path to the server executable.  FD is the completion file
    descriptor, used to notify the gcc driver when the server is ready
    to accept connections.  */
-void
+int
 server_main_loop (const char *progname, int fd)
 {
   int sockfd = open_socket (progname);
   char reply = 't';
   bool result = true;
+  int code = SUCCESS_EXIT_CODE;
 
   current_server_state = SERVER_SERVER;
 
   if (sockfd < 0)
     {
       error ("couldn't create server socket: %s", xstrerror (errno));
-      /* FIXME: unlink the socket if it exists.  */
-      /* Simply exiting is ok -- GCC will detect that the socket has
-	 been closed.  */
-      exit (FATAL_EXIT_CODE);
+      server_cleanup (sockfd);
+      /* Simply exiting is ok -- the client will detect that the
+	 socket has been closed.  */
+      return FATAL_EXIT_CODE;
     }
 
   write (fd, &reply, 1);
@@ -276,15 +321,15 @@ server_main_loop (const char *progname, int fd)
       if (reqfd < 0)
 	{
 	  error ("error while accepting: %s", xstrerror (errno));
+	  code = FATAL_EXIT_CODE;
 	  break;
 	}
       result = request_and_response (reqfd);
       close (reqfd);
     }
 
-  close (sockfd);
-  if (server_socket_name)
-    unlink (server_socket_name);
+  server_cleanup (sockfd);
+  return code;
 }
 
 /* Fork to let the back end do its work.  Returns true in the parent,
@@ -321,7 +366,7 @@ server_start_back_end (void)
 bool
 client_connect (const char *progname)
 {
-  char *sname = get_socket_name (progname);
+  char *sname = get_socket_name (progname, false);
   struct sockaddr_un address;
 
   connection_fd = socket (AF_UNIX, SOCK_STREAM, 0);

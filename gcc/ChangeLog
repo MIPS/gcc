@@ -1,3 +1,16 @@
+2008-01-18  Tom Tromey  <tromey@redhat.com>
+
+	* toplev.c (toplev_main): Return result of server_main_loop.
+	* server.h (server_main_loop): Update.
+	* server.c (server_directory): New global.
+	(get_socket_name): Added 'server' argument.  Make directory in
+	temp directory.  Use choose_tmpdir.
+	(open_socket): Update.
+	(client_connect): Update.
+	(server_start): Exit if server startup failed.
+	(server_main_loop): Return int.  Call server_cleanup.
+	(server_cleanup): New function.
+
 2008-01-15  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (duplicate_decls): Merge non-top-level declarations.

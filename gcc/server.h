@@ -1,5 +1,5 @@
 /* Declarations for shared server code
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Functions for the server to use.  */
 extern void server_start (char *);
-extern void server_main_loop (const char *progname, int);
+extern int server_main_loop (const char *progname, int);
 extern bool server_start_back_end (void);
 
 /* Functions for the client to use.  */
