@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 extern void server_start (char *);
 extern int server_main_loop (const char *progname, int);
 extern bool server_start_back_end (bool *);
+extern bool server_interrupted_p (void);
 
 /* Functions for the client to use.  */
 extern bool client_connect (const char *);

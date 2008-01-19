@@ -57,6 +57,12 @@ static char *server_directory;
 /* The file descriptor of our connection to the server.  */
 static int connection_fd = -1;
 
+/* On the client, the process id of the server.  */
+static pid_t server_pid;
+
+/* True if interrupted.  Both the client and the server use this.  */
+static volatile sig_atomic_t interrupted;
+
 /* Return the name of the server socket.  The value is cached in
    'server_socket_name'.  PROGNAME is the path name of the server
    executable and is used to construct the socket name.  If SERVER is
@@ -333,6 +339,13 @@ request_and_response (int reqfd)
   return true;
 }
 
+/* On server, the SIGINT handler.  */
+static void
+server_sigint_handler (int ARG_UNUSED (num))
+{
+  interrupted = 1;
+}
+
 /* Main loop of the server.  Creates a server socket and listens to
    it, accepting requests and acting on them.  PROGNAME is the full
    path to the server executable.  FD is the completion file
@@ -345,6 +358,10 @@ server_main_loop (const char *progname, int fd)
   char reply = 't';
   bool result = true;
   int code = SUCCESS_EXIT_CODE;
+  pid_t self = getpid ();
+
+  setsid ();
+  signal (SIGINT, server_sigint_handler);
 
   current_server_state = SERVER_SERVER;
 
@@ -372,8 +389,12 @@ server_main_loop (const char *progname, int fd)
 	  code = FATAL_EXIT_CODE;
 	  break;
 	}
-      result = request_and_response (reqfd);
+
+      if (write (reqfd, &self, sizeof (self)) == sizeof (self))
+	result = request_and_response (reqfd);
       close (reqfd);
+
+      interrupted = 0;
     }
 
   server_cleanup (sockfd);
@@ -382,23 +403,39 @@ server_main_loop (const char *progname, int fd)
 
 /* Fork to let the back end do its work.  Returns true in the parent,
    false in the child.  Will print a message and return true if there
-   is an error.  The parent waits for the child to exit.  */
+   is an error.  The parent waits for the child to exit.  This can
+   also return true, with a false *STATUS, if the server was
+   interrupted.  */
 bool
 server_start_back_end (bool *status)
 {
   pid_t child;
   int result;
+  sigset_t block_int;
+
+  /* Avoid races by blocking SIGINT for a bit.  */
+  sigemptyset (&block_int);
+  sigaddset (&block_int, SIGINT);
+  sigprocmask (SIG_BLOCK, &block_int, NULL);
+
+  if (interrupted)
+    {
+      *status = false;
+      goto done;
+    }
 
   child = fork ();
   if (child == -1)
     {
       error ("fork of server failed: %s", xstrerror (errno));
       *status = false;
-      return true;
+      goto done;
     }
   else if (child == 0)
     {
       /* Child process.  */
+      sigprocmask (SIG_UNBLOCK, &block_int, NULL);
+      signal (SIGINT, SIG_DFL);
       current_server_state = SERVER_CODEGEN;
       return false;
     }
@@ -406,7 +443,31 @@ server_start_back_end (bool *status)
   /* Parent.  */
   waitpid (child, &result, 0);
   *status = WIFEXITED (result) && ! WEXITSTATUS (result);
+
+ done:
+  /* It is ok to leave SIGINT blocked for the duration of the
+     subprocess, because we will get the correct value in *STATUS
+     anyway.  */
+  sigprocmask (SIG_UNBLOCK, &block_int, NULL);
+
   return true;
+}
+
+/* Return true if the server has received a SIGINT, false otherwise.  */
+bool
+server_interrupted_p (void)
+{
+  return interrupted;
+}
+
+/* Called in response to a SIGINT, while connected to the server.  */
+static void
+client_sigint_handler (int num)
+{
+  gcc_assert (server_pid);
+  interrupted = 1;
+  /* Probably not ok to do this here.  */
+  kill (- server_pid, num);
 }
 
 /* Make a connection to a running server.  PROGNAME is the name of the
@@ -429,6 +490,12 @@ client_connect (const char *progname)
   if (connect (connection_fd, (struct sockaddr *) &address,
 	       SUN_LEN (&address)) < 0)
     return false;
+
+  if (read (connection_fd, &server_pid, sizeof (server_pid))
+      != sizeof (server_pid))
+    return false;
+
+  signal (SIGINT, client_sigint_handler);
 
   return true;
 }
@@ -539,6 +606,12 @@ send_command_and_wait (char cmd)
 
   if (read (connection_fd, &status, sizeof (status)) != sizeof (status))
     return false;
+
+  /* Make sure we exit with the correct status when interrupted.  */
+  signal (SIGINT, SIG_DFL);
+  if (interrupted)
+    raise (SIGINT);
+
   return status ? false : true;
 }
 

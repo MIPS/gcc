@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "md5.h"
+#include "server.h"
 
 
 /* The reserved keyword table.  */
@@ -2084,6 +2085,14 @@ c_parser_translation_unit (c_parser *parser)
 	  /* It is a bit friendlier for debugging to copy this into a
 	     local.  */
 	  size_t next_token = parser->next_token;
+
+	  if (server_interrupted_p ())
+	    {
+	      /* It might be nice to directly add this to diagnostic.h
+		 without having to emit an explicit error message.  */
+	      error ("Interrupted");
+	      break;
+	    }
 
 	  ggc_collect ();
 

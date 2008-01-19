@@ -1,5 +1,22 @@
 2008-01-18  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_translation_unit): Check for interrupt.
+	Include server.h.
+	* server.h (server_interrupted_p): Declare.
+	* server.c (server_pid): New global.
+	(client_interrupted): Likewise.
+	(client_connect): Set server_pid.
+	(server_main_loop): Send process id.
+	(client_sigint_handler): New function.
+	(client_connect): Set SIGINT handler.
+	(send_command_and_wait): Remove SIGINT handler.
+	(server_start_back_end): Likewise.
+	(server_main_loop): Reset 'interrupted'.  Handle SIGINT.
+	(server_interrupted_p): New function.
+	(server_sigint_handler): Likewise.
+
+2008-01-18  Tom Tromey  <tromey@redhat.com>
+
 	* c-decl.c (c_write_global_declarations_2): Fix typo.
 
 2008-01-18  Tom Tromey  <tromey@redhat.com>
