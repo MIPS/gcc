@@ -1,0 +1,263 @@
+2008-01-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34861
+	* resolve.c (resolve_entries): Do not do an array bounds check
+	if the result symbols are the same.
+
+	PR fortran/34854
+	* module.c (read_module) : Hide the symtree of the previous
+	version of the symbol if this symbol is renamed.
+
+2008-01-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34784
+	* array.c (gfc_check_constructor_type): Clear the expression ts
+	so that the checking starts from the deepest level of array
+	constructor.
+	* primary.c (match_varspec): If an unknown type is changed to
+	default character and the attempt to match a substring fails,
+	change it back to unknown.
+
+	PR fortran/34785
+	* trans-array.c (gfc_add_loop_ss_code) : If ss->string_length is
+	NULL for an array constructor, use the cl.length expression to
+	build it.
+	(gfc_conv_array_parameter): Change call to gfc_evaluate_now to
+	a tree assignment.
+
+2008-01-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/34817
+	PR fortran/34838
+	* iresolve.c (gfc_resolve_all):  Remove conversion of mask
+	argument to kind=1 by removing call to resolve_mask_arg().
+	(gfc_resolve_any):  Likewise.
+
+2008-01-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34760
+	* primary.c (match_variable): Handle FL_UNKNOWN without
+	uneducated guessing.
+	(match_variable): Improve error message.
+
+2008-01-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32616
+	* interface.c (get_expr_storage_size): Return storage size
+	for array element designators.
+	(compare_actual_formal): Reject unequal string sizes for
+	assumed-shape dummy arguments. And fix error message for
+	array-sections with vector subscripts.
+
+2008-01-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34556
+	* simplify.c (is_constant_array_expr): New static function that returns
+	true if the given expression is an array and is constant.
+	(gfc_simplify_reshape): Use new function.
+
+2008-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/33375
+	* symbol.c (free_common_tree): Renamed to ...
+	(gfc_free_common_tree): This.  Remove static.
+	(gfc_free_namespace): Updated.
+
+	* gfortran.h (gfc_free_common_tree): New.
+
+	* match.c (gfc_match_common): Call gfc_free_common_tree () with
+	gfc_current_ns->common_root and set gfc_current_ns->common_root
+	to NULL on syntax error.
+
+2008-01-18  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR fortran/34686
+	* trans-expr.c (gfc_conv_function_call): Use proper
+	type for returned character pointers.
+
+2008-01-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34429
+	PR fortran/34431
+	PR fortran/34471
+	* decl.c : Remove gfc_function_kind_locus and
+	gfc_function_type_locus. Add gfc_matching_function.
+	(match_char_length): If matching a function and the length
+	does not match, return MATCH_YES and try again later.
+	(gfc_match_kind_spec): The same.
+	(match_char_kind): The same.
+	(gfc_match_type_spec): The same for numeric and derived types.
+	(match_prefix): Rename as gfc_match_prefix.
+	(gfc_match_function_decl): Except for function valued character
+	lengths, defer applying kind, type and charlen info until the
+	end of specification block.
+	gfortran.h (gfc_statement): Add ST_GET_FCN_CHARACTERISTICS.
+	parse.c (decode_specification_statement): New function.
+	(decode_statement): Call it when a function has kind = -1. Set
+	and reset gfc_matching function, as function statement is being
+	matched.
+	(match_deferred_characteristics): Simplify with a single call
+	to gfc_match_prefix. Do appropriate error handling. In any
+	case, make sure that kind = -1 is reset or corrected.
+	(parse_spec): Call above on seeing ST_GET_FCN_CHARACTERISTICS.
+	Throw an error if kind = -1 after last specification statement.
+	parse.h : Prototype for gfc_match_prefix.
+
+2008-01-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34796
+	* interface.c (compare_parameter): Allow AS_DEFERRED array
+	elements and reject attr.pointer array elemenents.
+	(get_expr_storage_size): Return storage size of elements of
+	assumed-shape and pointer arrays.
+
+2008-01-15  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Initialize GOMP builtins
+	for flag_tree_parallelize_loops.
+
+2008-01-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34671
+	* iresolve.c (gfc_resolve_all):  Call resolve_mask_arg.
+	(gfc_resolve_any):  Likewise.
+	(gfc_resolve_count):  Likewise.  Don't append kind of
+	argument to function name.
+
+2008-01-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34665
+	* resolve.c (resolve_actual_arglist): For expressions,
+	also check for assume-sized arrays.
+	* interface.c (compare_parameter): Move F2003 character checks
+	here, print error messages here, reject elements of
+	assumed-shape array as argument to dummy arrays.
+	(compare_actual_formal): Update for the changes above.
+
+2008-01-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34763
+	* decl.c (contained_procedure): Only check directly preceeding state.
+
+2008-01-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34759
+	* check.c (gfc_check_shape): Accept array ranges of
+	assumed-size arrays.
+
+2008-01-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34432
+	* match.c (gfc_match_name): Don't error if leading character is a '(',
+	just return MATCH_NO.
+
+2008-01-11  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34722
+	* trans-io.c (create_dummy_iostat): Commit the symbol.
+
+2008-01-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34537
+	* simplify.c (gfc_simplify_transfer): Return NULL if the size
+	of the element is unavailable and only assign character length
+	to the result, if 'mold' is constant.
+
+2008-01-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34396
+	* trans-array.c (gfc_trans_array_ctor_element):  Use gfc_trans_string_copy
+	to assign strings and perform bounds checks on the string length.
+	(get_array_ctor_strlen): Remove bounds checking.
+	(gfc_trans_array_constructor): Initialize string length checking.
+	* trans-array.h : Add prototype for gfc_trans_string_copy.
+
+2008-01-08  Richard Guenther  <rguenther@suse.de>
+
+	PR fortran/34706
+	PR tree-optimization/34683
+	* trans-types.c (gfc_get_array_type_bounds): Use an array type
+	with known size for accesses if that is known.
+
+2008-01-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34476
+	* expr.c (find_array_element): Check that the array bounds are
+	constant before using them.  Use lower, as well as upper bound.
+	(check_restricted): Allow implied index variable.
+
+2008-01-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34681
+	* trans_array.c (gfc_trans_deferred_array): Do not null the
+	data pointer on entering scope, nor deallocate it on leaving
+	scope, if the symbol has the 'save' attribute.
+
+	PR fortran/34704
+	* trans_decl.c (gfc_finish_var_decl): Derived types with
+	allocatable components and an initializer must be TREE_STATIC.
+
+2008-01-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34672
+	* module.c (write_generic): Rewrite completely.
+	(write_module): Change call to write_generic.
+
+2008-01-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34659
+	* scanner.c (load_line): Do not count ' ' as printable when checking for
+	continuations.
+
+2008-01-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34545
+	* module.c (load_needed): If the namespace has no proc_name
+	give it the module symbol.
+
+2008-01-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34387
+	* trans-expr.c (gfc_conv_missing_dummy): Use a temporary to type convert
+	the dummy variable expression, test for NULL, and pass the variable
+	address to the called function.
+
+2007-01-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34658
+	* match.c (gfc_match_common): Remove blank common in
+	DATA BLOCK warning.
+	* resolve.c (resolve_common_vars): New function.
+	(resolve_common_blocks): Move checks to resolve_common_vars
+	and invoke that function.
+	(resolve_types): Call resolve_common_vars for blank commons.
+
+2008-01-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34655
+	* resolve.c (resolve_equivalence_derived): Reject derived types with
+	default initialization if equivalenced with COMMON variable.
+
+2008-01-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34654
+	* io.c (check_io_constraints): Disallow unformatted I/O for
+	internal units.
+
+2008-01-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34660
+	* resolve.c (resolve_formal_arglist): Reject dummy procedure in
+	ELEMENTAL functions.
+
+2008-01-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34662
+	* interface.c (compare_actual_formal): Reject parameter
+	actual to intent(out) dummy.
+
+2008-01-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34557
+	* primary.c (match_varspec): Gobble whitespace before
+	checking for '('.

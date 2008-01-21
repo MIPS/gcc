@@ -201,6 +201,7 @@ extern void free_stmt_operands (gimple);
 extern bool verify_imm_links (FILE *f, tree var);
 
 extern void copy_virtual_operands (gimple, gimple);
+extern int operand_build_cmp (const void *, const void *);
 extern void create_ssa_artificial_load_stmt (gimple, gimple, bool);
 
 extern void dump_immediate_uses (FILE *file);

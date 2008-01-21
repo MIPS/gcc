@@ -154,18 +154,24 @@ gfc_conv_missing_dummy (gfc_se * se, gfc_expr * arg, gfc_typespec ts, int kind)
 
   present = gfc_conv_expr_present (arg->symtree->n.sym);
 
-  tmp = build3 (COND_EXPR, TREE_TYPE (se->expr), present, se->expr,
-		  fold_convert (TREE_TYPE (se->expr), integer_zero_node));
-  tmp = gfc_evaluate_now (tmp, &se->pre);
-
   if (kind > 0)
     {
+      /* Create a temporary and convert it to the correct type.  */
       tmp = gfc_get_int_type (kind);
-      tmp = fold_convert (tmp, se->expr);
-      tmp = gfc_evaluate_now (tmp, &se->pre); 
+      tmp = fold_convert (tmp, build_fold_indirect_ref (se->expr));
+    
+      /* Test for a NULL value.  */
+      tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present, tmp, integer_one_node);
+      tmp = gfc_evaluate_now (tmp, &se->pre);
+      se->expr = build_fold_addr_expr (tmp);
     }
-
-  se->expr = tmp;
+  else
+    {
+      tmp = build3 (COND_EXPR, TREE_TYPE (se->expr), present, se->expr,
+		    fold_convert (TREE_TYPE (se->expr), integer_zero_node));
+      tmp = gfc_evaluate_now (tmp, &se->pre);
+      se->expr = tmp;
+    }
 
   if (ts.type == BT_CHARACTER)
     {
@@ -2654,13 +2660,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	     character pointers.  */
 	  if (sym->attr.pointer || sym->attr.allocatable)
 	    {
-	      /* Build char[0:len-1] * pstr.  */
-	      tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node, len,
-				 build_int_cst (gfc_charlen_type_node, 1));
-	      tmp = build_range_type (gfc_array_index_type,
-				      gfc_index_zero_node, tmp);
-	      tmp = build_array_type (gfc_character1_type_node, tmp);
-	      var = gfc_create_var (build_pointer_type (tmp), "pstr");
+	      var = gfc_create_var (type, "pstr");
 
 	      /* Provide an address expression for the function arguments.  */
 	      var = build_fold_addr_expr (var);
@@ -2797,7 +2797,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
 /* Generate code to copy a string.  */
 
-static void
+void
 gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
 		       tree slength, tree src)
 {

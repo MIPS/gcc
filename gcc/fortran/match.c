@@ -496,7 +496,7 @@ gfc_match_name (char *buffer)
   c = gfc_next_char ();
   if (!(ISALPHA (c) || (c == '_' && gfc_option.flag_allow_leading_underscore)))
     {
-      if (gfc_error_flag_test() == 0)
+      if (gfc_error_flag_test() == 0 && c != '(')
 	gfc_error ("Invalid character in name at %C");
       gfc_current_locus = old_loc;
       return MATCH_NO;
@@ -2784,11 +2784,6 @@ gfc_match_common (void)
 
       if (name[0] == '\0')
 	{
-	  if (gfc_current_ns->is_block_data)
-	    {
-	      gfc_warning ("BLOCK DATA unit cannot contain blank COMMON "
-			   "at %C");
-	    }
 	  t = &gfc_current_ns->blank_common;
 	  if (t->head == NULL)
 	    t->where = gfc_current_locus;
@@ -2956,6 +2951,8 @@ done:
   return MATCH_YES;
 
 syntax:
+  gfc_free_common_tree (gfc_current_ns->common_root);
+  gfc_current_ns->common_root = NULL;
   gfc_syntax_error (ST_COMMON);
 
 cleanup:

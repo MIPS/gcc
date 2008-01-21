@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+@c 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
 @c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -11,8 +11,8 @@
 
 @c man begin COPYRIGHT
 Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-2007 Free Software Foundation, Inc.
+1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -236,7 +236,7 @@ Objective-C and Objective-C++ Dialects}.
 -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-extra-args -Wformat-nonliteral @gol
--Wformat-security  -Wformat-y2k @gol
+-Wformat-security  -Wformat-y2k -Wignored-qualifiers @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
 -Wimport  -Wno-import  -Winit-self  -Winline @gol
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
@@ -304,7 +304,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftest-coverage  -ftime-report -fvar-tracking @gol
 -g  -g@var{level}  -gcoff -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
--fdebug-prefix-map=@var{old}=@var{new} @gol
+-fno-merge-debug-strings -fdebug-prefix-map=@var{old}=@var{new} @gol
 -femit-struct-debug-baseonly -femit-struct-debug-reduced @gol
 -femit-struct-debug-detailed@r{[}=@var{spec-list}@r{]} @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -1519,7 +1519,9 @@ freestanding and hosted environments.
 Enable handling of OpenMP directives @code{#pragma omp} in C/C++ and
 @code{!$omp} in Fortran.  When @option{-fopenmp} is specified, the
 compiler generates parallel code according to the OpenMP Application
-Program Interface v2.5 @w{@uref{http://www.openmp.org/}}.
+Program Interface v2.5 @w{@uref{http://www.openmp.org/}}.  This option
+implies @option{-pthread}, and thus is only supported on targets that
+have support for @option{-pthread}.
 
 @item -fms-extensions
 @opindex fms-extensions
@@ -2675,6 +2677,7 @@ name is still supported, but the newer name is more descriptive.)
 
 @gccoptlist{-Wclobbered  @gol
 -Wempty-body  @gol
+-Wignored-qualifiers @gol
 -Wmissing-field-initializers  @gol
 -Wmissing-parameter-type @r{(C only)}  @gol
 -Wold-style-declaration @r{(C only)}  @gol
@@ -2864,6 +2867,19 @@ enabled by default and it is made into an error by
 Same as @option{-Wimplicit-int} and @option{-Wimplicit-function-declaration}.
 This warning is enabled by @option{-Wall}.
 
+@item -Wignored-qualifiers
+@opindex Wignored-qualifiers
+@opindex Wno-ignored-qualifiers
+Warn if the return type of a function has a type qualifier
+such as @code{const}.  For ISO C such a type qualifier has no effect,
+since the value returned by a function is not an lvalue.
+For C++, the warning is only emitted for scalar types or @code{void}.
+ISO C prohibits qualified @code{void} return types on function
+definitions, so such return types always receive a warning
+even without this option.
+
+This warning is also enabled by @option{-Wextra}.
+
 @item -Wmain
 @opindex Wmain
 Warn if the type of @samp{main} is suspicious.  @samp{main} should be a
@@ -2995,14 +3011,6 @@ return-value in a function whose return-type is not @code{void}
 (falling off the end of the function body is considered returning
 without a value), and about a @code{return} statement with a
 expression in a function whose return-type is @code{void}.
-
-Also warn if the return type of a function has a type qualifier
-such as @code{const}.  For ISO C such a type qualifier has no effect,
-since the value returned by a function is not an lvalue.
-For C++, the warning is only emitted for scalar types or @code{void}.
-ISO C prohibits qualified @code{void} return types on function
-definitions, so such return types always receive a warning
-even without this option.
 
 For C++, a function without return type always produces a diagnostic
 message, even when @option{-Wno-return-type} is specified.  The only
@@ -4153,6 +4161,15 @@ You may need to experiment to determine the best settings for your application.
 The default is @samp{-femit-struct-debug-detailed=all}.
 
 This option works only with DWARF 2.
+
+@item -fno-merge-debug-strings
+@opindex fmerge-debug-strings
+@opindex fno-merge-debug-strings
+Direct the linker to merge together strings which are identical in
+different object files.  This is not supported by all assemblers or
+linker.  This decreases the size of the debug information in the
+output file at the cost of increasing link processing time.  This is
+on by default.
 
 @item -fdebug-prefix-map=@var{old}=@var{new}
 @opindex fdebug-prefix-map
@@ -5835,7 +5852,9 @@ Parallelize loops, i.e., split their iteration space to run in n threads.
 This is only possible for loops whose iterations are independent
 and can be arbitrarily reordered.  The optimization is only
 profitable on multiprocessor machines, for loops that are CPU-intensive,
-rather than constrained e.g. by memory bandwidth.
+rather than constrained e.g. by memory bandwidth.  This option
+implies @option{-pthread}, and thus is only supported on targets
+that have support for @option{-pthread}.
 
 @item -ftree-sra
 @opindex ftree-sra
@@ -6800,7 +6819,7 @@ For functions declared inline @option{--param max-inline-recursive-depth} is
 taken into account.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-recursive-depth-auto} is used.  The
-default value is 450.
+default value is 8.
 
 @item min-inline-recursive-probability
 Recursive inlining is profitable only for function having deep recursion
@@ -10647,9 +10666,14 @@ or @code{remainder} built-in functions: see @ref{Other Builtins} for details.
 @item -mrecip
 @opindex mrecip
 This option will enable GCC to use RCPSS and RSQRTSS instructions (and their
-vectorized variants RCPPS and RSQRTPS) instead of DIVSS and SQRTSS (and their
-vectorized variants).  These instructions will be generated only when
-@option{-funsafe-math-optimizations} is enabled.
+vectorized variants RCPPS and RSQRTPS) with an additional Newton-Rhapson step
+to increase precision instead of DIVSS and SQRTSS (and their vectorized
+variants) for single precision floating point arguments.  These instructions
+are generated only when @option{-funsafe-math-optimizations} is enabled
+together with @option{-finite-math-only} and @option{-fno-trapping-math}.
+Note that while the throughput of the sequence is higher than the throughput
+of the non-reciprocal instruction, the precision of the sequence can be
+decreased by up to 2 ulp (i.e. the inverse of 1.0 equals 0.99999994).
 
 @item -mveclibabi=@var{type}
 @opindex mveclibabi

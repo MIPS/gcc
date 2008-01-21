@@ -1006,7 +1006,7 @@ set_reg_attrs_for_decl_rtl (tree t, rtx x)
   if (REG_P (x))
     REG_ATTRS (x)
       = get_reg_attrs (t, byte_lowpart_offset (GET_MODE (x),
-					       TYPE_MODE (TREE_TYPE (t))));
+					       DECL_MODE (t)));
   if (GET_CODE (x) == CONCAT)
     {
       if (REG_P (XEXP (x, 0)))
@@ -3137,7 +3137,7 @@ try_split (rtx pat, rtx trial, int last)
   rtx before = PREV_INSN (trial);
   rtx after = NEXT_INSN (trial);
   int has_barrier = 0;
-  rtx tem, note_retval;
+  rtx tem, note_retval, note_libcall;
   rtx note, seq;
   int probability;
   rtx insn_last, insn;
@@ -3283,6 +3283,18 @@ try_split (rtx pat, rtx trial, int last)
 
 	  note_retval = find_reg_note (XEXP (note, 0), REG_RETVAL, NULL);
 	  XEXP (note_retval, 0) = insn_last;
+	  break;
+
+	case REG_RETVAL:
+	  /* Relink the insns with REG_LIBCALL note and with REG_RETVAL note
+	     after split.  */
+	  REG_NOTES (insn_last) 
+	    = gen_rtx_INSN_LIST (REG_RETVAL,
+				 XEXP (note, 0),
+				 REG_NOTES (insn_last)); 
+
+	  note_libcall = find_reg_note (XEXP (note, 0), REG_LIBCALL, NULL);
+	  XEXP (note_libcall, 0) = insn_last;
 	  break;
 
 	default:

@@ -1,6 +1,7 @@
 /* Subroutines used for code generation on IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -700,7 +701,7 @@ struct processor_costs k8_cost = {
      to limit number of prefetches at all, as their execution also takes some
      time).  */
   100,					/* number of parallel prefetches */
-  5,					/* Branch cost */
+  3,					/* Branch cost */
   COSTS_N_INSNS (4),			/* cost of FADD and FSUB insns.  */
   COSTS_N_INSNS (4),			/* cost of FMUL instruction.  */
   COSTS_N_INSNS (19),			/* cost of FDIV instruction.  */
@@ -724,8 +725,8 @@ struct processor_costs k8_cost = {
   2,                                    /* vec_align_load_cost.  */
   3,                                    /* vec_unalign_load_cost.  */
   3,                                    /* vec_store_cost.  */
-  6,                                    /* cond_taken_branch_cost.  */
-  1,                                    /* cond_not_taken_branch_cost.  */
+  3,                                    /* cond_taken_branch_cost.  */
+  2,                                    /* cond_not_taken_branch_cost.  */
 };
 
 struct processor_costs amdfam10_cost = {
@@ -786,7 +787,7 @@ struct processor_costs amdfam10_cost = {
      to limit number of prefetches at all, as their execution also takes some
      time).  */
   100,					/* number of parallel prefetches */
-  5,					/* Branch cost */
+  2,					/* Branch cost */
   COSTS_N_INSNS (4),			/* cost of FADD and FSUB insns.  */
   COSTS_N_INSNS (4),			/* cost of FMUL instruction.  */
   COSTS_N_INSNS (19),			/* cost of FDIV instruction.  */
@@ -811,7 +812,7 @@ struct processor_costs amdfam10_cost = {
   2,                                    /* vec_align_load_cost.  */
   2,                                    /* vec_unalign_load_cost.  */
   2,                                    /* vec_store_cost.  */
-  6,                                    /* cond_taken_branch_cost.  */
+  2,                                    /* cond_taken_branch_cost.  */
   1,                                    /* cond_not_taken_branch_cost.  */
 };
 
@@ -11016,7 +11017,6 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
 				rtx operands[])
 {
   rtx mask, set, use, clob, dst, src;
-  bool matching_memory;
   bool use_sse = false;
   bool vector_mode = VECTOR_MODE_P (mode);
   enum machine_mode elt_mode = mode;
@@ -11041,19 +11041,6 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
   dst = operands[0];
   src = operands[1];
 
-  /* If the destination is memory, and we don't have matching source
-     operands or we're using the x87, do things in registers.  */
-  matching_memory = false;
-  if (MEM_P (dst))
-    {
-      if (use_sse && rtx_equal_p (dst, src))
-	matching_memory = true;
-      else
-	dst = gen_reg_rtx (mode);
-    }
-  if (MEM_P (src) && !matching_memory)
-    src = force_reg (mode, src);
-
   if (vector_mode)
     {
       set = gen_rtx_fmt_ee (code == NEG ? XOR : AND, mode, src, mask);
@@ -11074,9 +11061,6 @@ ix86_expand_fp_absneg_operator (enum rtx_code code, enum machine_mode mode,
       else
 	emit_insn (set);
     }
-
-  if (dst != operands[0])
-    emit_move_insn (operands[0], dst);
 }
 
 /* Expand a copysign operation.  Special case operand 0 being a constant.  */
@@ -24183,7 +24167,7 @@ void ix86_emit_swdivsf (rtx res, rtx a, rtx b, enum machine_mode mode)
 
   /* a / b = a * rcp(b) * (2.0 - b * rcp(b)) */
 
-  /* x0 = 1./b estimate */
+  /* x0 = rcp(b) estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, b),
 					  UNSPEC_RCP)));
@@ -24207,7 +24191,8 @@ void ix86_emit_swdivsf (rtx res, rtx a, rtx b, enum machine_mode mode)
 void ix86_emit_swsqrtsf (rtx res, rtx a, enum machine_mode mode,
 			 bool recip)
 {
-  rtx x0, e0, e1, e2, e3, three, half, zero, mask;
+  rtx x0, e0, e1, e2, e3, mthree, mhalf;
+  REAL_VALUE_TYPE r;
 
   x0 = gen_reg_rtx (mode);
   e0 = gen_reg_rtx (mode);
@@ -24215,42 +24200,41 @@ void ix86_emit_swsqrtsf (rtx res, rtx a, enum machine_mode mode,
   e2 = gen_reg_rtx (mode);
   e3 = gen_reg_rtx (mode);
 
-  three = CONST_DOUBLE_FROM_REAL_VALUE (dconst3, SFmode);
-  half = CONST_DOUBLE_FROM_REAL_VALUE (dconsthalf, SFmode);
+  real_arithmetic (&r, NEGATE_EXPR, &dconst3, NULL);
+  mthree = CONST_DOUBLE_FROM_REAL_VALUE (r, SFmode);
 
-  mask = gen_reg_rtx (mode);
+  real_arithmetic (&r, NEGATE_EXPR, &dconsthalf, NULL);
+  mhalf = CONST_DOUBLE_FROM_REAL_VALUE (r, SFmode);
 
   if (VECTOR_MODE_P (mode))
     {
-      three = ix86_build_const_vector (SFmode, true, three);
-      half = ix86_build_const_vector (SFmode, true, half);
+      mthree = ix86_build_const_vector (SFmode, true, mthree);
+      mhalf = ix86_build_const_vector (SFmode, true, mhalf);
     }
 
-  three = force_reg (mode, three);
-  half = force_reg (mode, half);
+  /* sqrt(a)  = -0.5 * a * rsqrtss(a) * (a * rsqrtss(a) * rsqrtss(a) - 3.0)
+     rsqrt(a) = -0.5     * rsqrtss(a) * (a * rsqrtss(a) * rsqrtss(a) - 3.0) */
 
-  zero = force_reg (mode, CONST0_RTX(mode));
-
-  /* sqrt(a) = 0.5 * a * rsqrtss(a) * (3.0 - a * rsqrtss(a) * rsqrtss(a))
-     1.0 / sqrt(a) = 0.5 * rsqrtss(a) * (3.0 - a * rsqrtss(a) * rsqrtss(a)) */
-
-  /* Compare a to zero.  */
-  emit_insn (gen_rtx_SET (VOIDmode, mask,
-			  gen_rtx_NE (mode, a, zero)));
-
-  /* x0 = 1./sqrt(a) estimate */
+  /* x0 = rsqrt(a) estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, a),
 					  UNSPEC_RSQRT)));
-  /* Filter out infinity.  */
-  if (VECTOR_MODE_P (mode))
-    emit_insn (gen_rtx_SET (VOIDmode, gen_lowpart (V4SFmode, x0),
-			    gen_rtx_AND (mode,
-					 gen_lowpart (V4SFmode, x0),
-					 gen_lowpart (V4SFmode, mask))));
-  else
-    emit_insn (gen_rtx_SET (VOIDmode, x0,
-			    gen_rtx_AND (mode, x0, mask)));
+
+  /* If (a == 0.0) Filter out infinity to prevent NaN for sqrt(0.0).  */
+  if (!recip)
+    {
+      rtx zero, mask;
+
+      zero = gen_reg_rtx (mode);
+      mask = gen_reg_rtx (mode);
+
+      zero = force_reg (mode, CONST0_RTX(mode));
+      emit_insn (gen_rtx_SET (VOIDmode, mask,
+			      gen_rtx_NE (mode, zero, a)));
+
+      emit_insn (gen_rtx_SET (VOIDmode, x0,
+			      gen_rtx_AND (mode, x0, mask)));
+    }
 
   /* e0 = x0 * a */
   emit_insn (gen_rtx_SET (VOIDmode, e0,
@@ -24258,17 +24242,21 @@ void ix86_emit_swsqrtsf (rtx res, rtx a, enum machine_mode mode,
   /* e1 = e0 * x0 */
   emit_insn (gen_rtx_SET (VOIDmode, e1,
 			  gen_rtx_MULT (mode, e0, x0)));
-  /* e2 = 3. - e1 */
+
+  /* e2 = e1 - 3. */
+  mthree = force_reg (mode, mthree);
   emit_insn (gen_rtx_SET (VOIDmode, e2,
-			  gen_rtx_MINUS (mode, three, e1)));
+			  gen_rtx_PLUS (mode, e1, mthree)));
+
+  mhalf = force_reg (mode, mhalf);
   if (recip)
-    /* e3 = .5 * x0 */
+    /* e3 = -.5 * x0 */
     emit_insn (gen_rtx_SET (VOIDmode, e3,
-			    gen_rtx_MULT (mode, half, x0)));
+			    gen_rtx_MULT (mode, x0, mhalf)));
   else
-    /* e3 = .5 * e0 */
+    /* e3 = -.5 * e0 */
     emit_insn (gen_rtx_SET (VOIDmode, e3,
-			    gen_rtx_MULT (mode, half, e0)));
+			    gen_rtx_MULT (mode, e0, mhalf)));
   /* ret = e2 * e3 */
   emit_insn (gen_rtx_SET (VOIDmode, res,
 			  gen_rtx_MULT (mode, e2, e3)));

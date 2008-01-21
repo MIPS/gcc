@@ -225,6 +225,14 @@ resolve_formal_arglist (gfc_symbol *proc)
 			 &sym->declared_at);
 	      continue;
 	    }
+
+	  if (sym->attr.flavor == FL_PROCEDURE)
+	    {
+	      gfc_error ("Dummy procedure '%s' not allowed in elemental "
+			 "procedure '%s' at %L", sym->name, proc->name,
+			 &sym->declared_at);
+	      continue;
+	    }
 	}
 
       /* Each dummy shall be specified to be scalar.  */
@@ -488,7 +496,8 @@ resolve_entries (gfc_namespace *ns)
 	      || (el->sym->result->attr.pointer
 		  != ns->entries->sym->result->attr.pointer))
 	    break;
-	  else if (as && fas && gfc_compare_array_spec (as, fas) == 0)
+	  else if (as && fas && ns->entries->sym->result != el->sym->result
+		      && gfc_compare_array_spec (as, fas) == 0)
 	    gfc_error ("Function %s at %L has entries with mismatched "
 		       "array specifications", ns->entries->sym->name,
 		       &ns->entries->sym->declared_at);
@@ -638,23 +647,27 @@ has_default_initializer (gfc_symbol *der)
   return c != NULL;
 }
 
-
-/* Resolve common blocks.  */
+/* Resolve common variables.  */
 static void
-resolve_common_blocks (gfc_symtree *common_root)
+resolve_common_vars (gfc_symbol *sym, bool named_common)
 {
-  gfc_symbol *sym, *csym;
+  gfc_symbol *csym = sym;
 
-  if (common_root == NULL)
-    return;
-
-  if (common_root->left)
-    resolve_common_blocks (common_root->left);
-  if (common_root->right)
-    resolve_common_blocks (common_root->right);
-
-  for (csym = common_root->n.common->head; csym; csym = csym->common_next)
+  for (; csym; csym = csym->common_next)
     {
+      if (csym->value || csym->attr.data)
+	{
+	  if (!csym->ns->is_block_data)
+	    gfc_notify_std (GFC_STD_GNU, "Variable '%s' at %L is in COMMON "
+			    "but only in BLOCK DATA initialization is "
+			    "allowed", csym->name, &csym->declared_at);
+	  else if (!named_common)
+	    gfc_notify_std (GFC_STD_GNU, "Initialized variable '%s' at %L is "
+			    "in a blank COMMON but initialization is only "
+			    "allowed in named common blocks", csym->name,
+			    &csym->declared_at);
+	}
+
       if (csym->ts.type != BT_DERIVED)
 	continue;
 
@@ -672,6 +685,23 @@ resolve_common_blocks (gfc_symtree *common_root)
 		       "may not have default initializer", csym->name,
 		       &csym->declared_at);
     }
+}
+
+/* Resolve common blocks.  */
+static void
+resolve_common_blocks (gfc_symtree *common_root)
+{
+  gfc_symbol *sym;
+
+  if (common_root == NULL)
+    return;
+
+  if (common_root->left)
+    resolve_common_blocks (common_root->left);
+  if (common_root->right)
+    resolve_common_blocks (common_root->right);
+
+  resolve_common_vars (common_root->n.common->head, true);
 
   gfc_find_symbol (common_root->name, gfc_current_ns, 0, &sym);
   if (sym == NULL)
@@ -984,6 +1014,7 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
   gfc_symbol *sym;
   gfc_symtree *parent_st;
   gfc_expr *e;
+  int save_need_full_assumed_size;
 
   for (; arg; arg = arg->next)
     {
@@ -1012,8 +1043,12 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 
       if (e->ts.type != BT_PROCEDURE)
 	{
+	  save_need_full_assumed_size = need_full_assumed_size;
+	  if (e->expr_type != FL_VARIABLE)
+	    need_full_assumed_size = 0;
 	  if (gfc_resolve_expr (e) != SUCCESS)
 	    return FAILURE;
+	  need_full_assumed_size = save_need_full_assumed_size;
 	  goto argument_list;
 	}
 
@@ -1152,8 +1187,12 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 	 primary.c (match_actual_arg). If above code determines that it
 	 is a  variable instead, it needs to be resolved as it was not
 	 done at the beginning of this function.  */
+      save_need_full_assumed_size = need_full_assumed_size;
+      if (e->expr_type != FL_VARIABLE)
+	need_full_assumed_size = 0;
       if (gfc_resolve_expr (e) != SUCCESS)
 	return FAILURE;
+      need_full_assumed_size = save_need_full_assumed_size;
 
     argument_list:
       /* Check argument list functions %VAL, %LOC and %REF.  There is
@@ -8526,6 +8565,14 @@ resolve_equivalence_derived (gfc_symbol *derived, gfc_symbol *sym, gfc_expr *e)
       return FAILURE;
     }
 
+  if (sym->attr.in_common && has_default_initializer (sym->ts.derived))
+    {
+      gfc_error ("Derived type variable '%s' at %L with default "
+		 "initialization cannot be in EQUIVALENCE with a variable "
+		 "in COMMON", sym->name, &e->where);
+      return FAILURE;
+    }
+
   for (; c ; c = c->next)
     {
       d = c->ts.derived;
@@ -8923,6 +8970,7 @@ resolve_types (gfc_namespace *ns)
 
   resolve_entries (ns);
 
+  resolve_common_vars (ns->blank_common.head, false);
   resolve_common_blocks (ns->common_root);
 
   resolve_contained_functions (ns);

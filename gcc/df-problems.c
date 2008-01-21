@@ -245,6 +245,8 @@ df_rd_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_rd_bb_info *bb_info = (struct df_rd_bb_info *) vbb_info;
   if (bb_info)
     {
+      if (bb_info->expanded_lr_out)
+	BITMAP_FREE (bb_info->expanded_lr_out);
       BITMAP_FREE (bb_info->kill);
       BITMAP_FREE (bb_info->sparse_kill);
       BITMAP_FREE (bb_info->gen);
@@ -298,6 +300,8 @@ df_rd_alloc (bitmap all_blocks)
       struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
       if (bb_info)
 	{ 
+	  if (bb_info->expanded_lr_out)
+	    bitmap_clear (bb_info->expanded_lr_out);
 	  bitmap_clear (bb_info->kill);
 	  bitmap_clear (bb_info->sparse_kill);
 	  bitmap_clear (bb_info->gen);
@@ -306,6 +310,10 @@ df_rd_alloc (bitmap all_blocks)
 	{ 
 	  bb_info = (struct df_rd_bb_info *) pool_alloc (df_rd->block_pool);
 	  df_rd_set_bb_info (bb_index, bb_info);
+	  if (df->changeable_flags & DF_RD_NO_TRIM)
+	    bb_info->expanded_lr_out = NULL;
+	  else
+	    bb_info->expanded_lr_out = BITMAP_ALLOC (&problem_data->rd_bitmaps);
 	  bb_info->kill = BITMAP_ALLOC (&problem_data->rd_bitmaps);
 	  bb_info->sparse_kill = BITMAP_ALLOC (&problem_data->rd_bitmaps);
 	  bb_info->gen = BITMAP_ALLOC (&problem_data->rd_bitmaps);
@@ -320,56 +328,53 @@ df_rd_alloc (bitmap all_blocks)
 /* Process a list of DEFs for df_rd_bb_local_compute.  */
 
 static void
-df_rd_bb_local_compute_process_def (struct df_rd_bb_info *bb_info, 
+df_rd_bb_local_compute_process_def (struct df_rd_bb_info *bb_info,
 				    struct df_ref **def_rec,
 				    enum df_ref_flags top_flag)
 {
-  while (*def_rec)
+  for (; *def_rec; def_rec++)
     {
       struct df_ref *def = *def_rec;
-      if (top_flag == (DF_REF_FLAGS (def) & DF_REF_AT_TOP))
+      unsigned int regno = DF_REF_REGNO (def);
+
+      /* This makes sure we do the artificial defs in the right order
+	 since they are all in the same list.  */
+      if (top_flag != (DF_REF_FLAGS (def) & DF_REF_AT_TOP))
+	continue;
+
+      /* Skip over the hard regs if we do not care about them.  */
+      if ((df->changeable_flags & DF_NO_HARD_REGS) && 
+	  (regno < FIRST_PSEUDO_REGISTER))
+	continue;
+
+      /* Only the last def(s) for a regno in the block has any
+	 effect.  */ 
+      if (bitmap_bit_p (seen_in_block, regno))
+	continue;
+
+      /* The first def for regno in insn gets to knock out the
+	 defs from other instructions.  */
+      if ((!bitmap_bit_p (seen_in_insn, regno))
+	  /* If the def is to only part of the reg, it does
+	     not kill the other defs that reach here.  */
+	  && (!(DF_REF_FLAGS (def) & 
+		(DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))))
 	{
-	  unsigned int regno = DF_REF_REGNO (def);
 	  unsigned int begin = DF_DEFS_BEGIN (regno);
 	  unsigned int n_defs = DF_DEFS_COUNT (regno);
-	  
-	  if ((!(df->changeable_flags & DF_NO_HARD_REGS))
-	      || (regno >= FIRST_PSEUDO_REGISTER))
-	    {
-	      /* Only the last def(s) for a regno in the block has any
-		 effect.  */ 
-	      if (!bitmap_bit_p (seen_in_block, regno))
-		{
-		  /* The first def for regno in insn gets to knock out the
-		     defs from other instructions.  */
-		  if ((!bitmap_bit_p (seen_in_insn, regno))
-		      /* If the def is to only part of the reg, it does
-			 not kill the other defs that reach here.  */
-		      && (!(DF_REF_FLAGS (def) & 
-			    (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))))
-		    {
-		      if (n_defs > DF_SPARSE_THRESHOLD)
-			{
-			  bitmap_set_bit (bb_info->sparse_kill, regno);
-			  bitmap_clear_range(bb_info->gen, begin, n_defs);
-			}
-		      else
-			{
-			  bitmap_set_range (bb_info->kill, begin, n_defs);
-			  bitmap_clear_range (bb_info->gen, begin, n_defs);
-			}
-		    }
-		  
-		  bitmap_set_bit (seen_in_insn, regno);
-		  /* All defs for regno in the instruction may be put into
-		     the gen set.  */
-		  if (!(DF_REF_FLAGS (def) 
-			& (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
-		    bitmap_set_bit (bb_info->gen, DF_REF_ID (def));
-		}
-	    }
+	  if (n_defs > DF_SPARSE_THRESHOLD)
+	    bitmap_set_bit (bb_info->sparse_kill, regno);
+	  else
+	    bitmap_set_range (bb_info->kill, begin, n_defs);
+	  bitmap_clear_range(bb_info->gen, begin, n_defs);
 	}
-      def_rec++;
+      
+      bitmap_set_bit (seen_in_insn, regno);
+      /* All defs for regno in the instruction may be put into
+	 the gen set.  */
+      if (!(DF_REF_FLAGS (def) 
+	    & (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
+	bitmap_set_bit (bb_info->gen, DF_REF_ID (def));
     }
 }
 
@@ -380,14 +385,28 @@ df_rd_bb_local_compute (unsigned int bb_index)
 {
   basic_block bb = BASIC_BLOCK (bb_index);
   struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
+  struct df_lr_bb_info *lr_bb_info = df_lr_get_bb_info (bb_index);
   rtx insn;
 
   bitmap_clear (seen_in_block);
   bitmap_clear (seen_in_insn);
 
+  if (!(df->changeable_flags & DF_RD_NO_TRIM))
+    {
+      unsigned int regno;
+      bitmap_iterator bi;
+      int first_reg = (df->changeable_flags & DF_NO_HARD_REGS) ? FIRST_PSEUDO_REGISTER : 0;
+      EXECUTE_IF_SET_IN_BITMAP (lr_bb_info->out, first_reg, regno, bi)
+	{
+	  unsigned int begin = DF_DEFS_BEGIN (regno);
+	  unsigned int n_defs = DF_DEFS_COUNT (regno);
+	  bitmap_set_range (bb_info->expanded_lr_out, begin, n_defs);
+	}
+    }
+
   /* Artificials are only hard regs.  */
   if (!(df->changeable_flags & DF_NO_HARD_REGS))
-    df_rd_bb_local_compute_process_def (bb_info, 
+    df_rd_bb_local_compute_process_def (bb_info,
 					df_get_artificial_defs (bb_index),
 					0);
 
@@ -482,7 +501,13 @@ df_rd_confluence_n (edge e)
   bitmap op1 = df_rd_get_bb_info (e->dest->index)->in;
   bitmap op2 = df_rd_get_bb_info (e->src->index)->out;
 
-  if (e->flags & EDGE_EH)
+  if (e->flags & EDGE_FAKE) 
+    return;
+
+  /* If we are trimming the solution, the invalidated_by_call code in
+     the lr problem makes this unnecessary.  However, if we do not
+     trim, we must take this into account.  */
+  if ((df->changeable_flags & DF_RD_NO_TRIM) && e->flags & EDGE_EH)
     {
       struct df_rd_problem_data *problem_data
 	= (struct df_rd_problem_data *) df_rd->problem_data;
@@ -490,7 +515,7 @@ df_rd_confluence_n (edge e)
       bitmap dense_invalidated = problem_data->dense_invalidated_by_call;
       bitmap_iterator bi;
       unsigned int regno;
-      bitmap tmp = BITMAP_ALLOC (&df_bitmap_obstack);
+      bitmap tmp = BITMAP_ALLOC (&problem_data->rd_bitmaps);
 
       bitmap_copy (tmp, op2);
       bitmap_and_compl_into (tmp, dense_invalidated);
@@ -522,13 +547,13 @@ df_rd_transfer_function (int bb_index)
   bitmap gen = bb_info->gen;
   bitmap kill = bb_info->kill;
   bitmap sparse_kill = bb_info->sparse_kill;
+  bool changed = false;
 
-  if (bitmap_empty_p (sparse_kill))
-    return  bitmap_ior_and_compl (out, gen, in, kill);
+  if ((df->changeable_flags & DF_RD_NO_TRIM) && bitmap_empty_p (sparse_kill))
+    changed = bitmap_ior_and_compl (out, gen, in, kill);
   else 
     {
       struct df_rd_problem_data *problem_data;
-      bool changed = false;
       bitmap tmp;
 
       /* Note that TMP is _not_ a temporary bitmap if we end up replacing
@@ -545,6 +570,8 @@ df_rd_transfer_function (int bb_index)
 	}
       bitmap_and_compl_into (tmp, kill);
       bitmap_ior_into (tmp, gen);
+      if (!(df->changeable_flags & DF_RD_NO_TRIM))
+	bitmap_and_into (tmp, bb_info->expanded_lr_out);
       changed = !bitmap_equal_p (tmp, out);
       if (changed)
 	{
@@ -552,9 +579,10 @@ df_rd_transfer_function (int bb_index)
 	  bb_info->out = tmp;
 	}
       else 
-	  BITMAP_FREE (tmp);
-      return changed;
+	BITMAP_FREE (tmp);
     }
+
+  return changed;
 }
 
 
@@ -574,6 +602,8 @@ df_rd_free (void)
 	  struct df_rd_bb_info *bb_info = df_rd_get_bb_info (i);
 	  if (bb_info)
 	    {
+	      if (bb_info->expanded_lr_out)
+		BITMAP_FREE (bb_info->expanded_lr_out);
 	      BITMAP_FREE (bb_info->kill);
 	      BITMAP_FREE (bb_info->sparse_kill);
 	      BITMAP_FREE (bb_info->gen);
@@ -1015,7 +1045,7 @@ df_lr_transfer_function (int bb_index)
 /* Run the fast dce as a side effect of building LR.  */
 
 static void
-df_lr_local_finalize (bitmap all_blocks ATTRIBUTE_UNUSED)
+df_lr_finalize (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   if (df->changeable_flags & DF_LR_RUN_DCE)
     {
@@ -1161,7 +1191,7 @@ df_lr_verify_solution_end (void)
 
   if (df_lr->solutions_dirty)
     /* Do not check if the solution is still dirty.  See the comment
-       in df_lr_local_finalize for details.  */
+       in df_lr_finalize for details.  */
     df_lr->solutions_dirty = false;
   else
     FOR_ALL_BB (bb)
@@ -1204,7 +1234,7 @@ static struct df_problem problem_LR =
   df_lr_confluence_0,         /* Confluence operator 0.  */ 
   df_lr_confluence_n,         /* Confluence operator n.  */ 
   df_lr_transfer_function,    /* Transfer function.  */
-  df_lr_local_finalize,       /* Finalize function.  */
+  df_lr_finalize,             /* Finalize function.  */
   df_lr_free,                 /* Free all of the problem information.  */
   NULL,                       /* Remove this problem from the stack of dataflow problems.  */
   NULL,                       /* Debugging.  */
@@ -1329,6 +1359,10 @@ struct df_live_problem_data
   bitmap *out;
 };
 
+/* Scratch var used by transfer functions.  This is used to implement
+   an optimization to reduce the amount of space used to compute the
+   combined lr and live analysis.  */
+static bitmap df_live_scratch;
 
 /* Set basic block info.  */
 
@@ -1372,6 +1406,8 @@ df_live_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   if (!df_live->block_pool)
     df_live->block_pool = create_alloc_pool ("df_live_block pool", 
 					   sizeof (struct df_live_bb_info), 100);
+  if (!df_live_scratch)
+    df_live_scratch = BITMAP_ALLOC (NULL);
 
   df_grow_bb_info (df_live);
 
@@ -1407,7 +1443,7 @@ df_live_reset (bitmap all_blocks)
 
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
-      struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb_index);
+      struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
       gcc_assert (bb_info);
       bitmap_clear (bb_info->in);
       bitmap_clear (bb_info->out);
@@ -1425,13 +1461,6 @@ df_live_bb_local_compute (unsigned int bb_index)
   rtx insn;
   struct df_ref **def_rec;
   int luid = 0;
-
-  for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
-    {
-      struct df_ref *def = *def_rec;
-      if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-	bitmap_set_bit (bb_info->gen, DF_REF_REGNO (def));
-    }
 
   FOR_BB_INSNS (bb, insn)
     {
@@ -1473,8 +1502,7 @@ df_live_bb_local_compute (unsigned int bb_index)
   for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
     {
       struct df_ref *def = *def_rec;
-      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_set_bit (bb_info->gen, DF_REF_REGNO (def));
+      bitmap_set_bit (bb_info->gen, DF_REF_REGNO (def));
     }
 }
 
@@ -1510,8 +1538,11 @@ df_live_init (bitmap all_blocks)
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
       struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
+      struct df_lr_bb_info *bb_lr_info = df_lr_get_bb_info (bb_index);
 
-      bitmap_copy (bb_info->out, bb_info->gen);
+      /* No register may reach a location where it is not used.  Thus
+	 we trim the rr result to the places where it is used.  */
+      bitmap_and (bb_info->out, bb_info->gen, bb_lr_info->out);
       bitmap_clear (bb_info->in);
     }
 }
@@ -1537,19 +1568,29 @@ static bool
 df_live_transfer_function (int bb_index)
 {
   struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
+  struct df_lr_bb_info *bb_lr_info = df_lr_get_bb_info (bb_index);
   bitmap in = bb_info->in;
   bitmap out = bb_info->out;
   bitmap gen = bb_info->gen;
   bitmap kill = bb_info->kill;
 
-  return bitmap_ior_and_compl (out, gen, in, kill);
+  /* We need to use a scratch set here so that the value returned from
+     this function invocation properly reflects if the sets changed in
+     a significant way; i.e. not just because the lr set was anded
+     in.  */
+  bitmap_and (df_live_scratch, gen, bb_lr_info->out);
+  /* No register may reach a location where it is not used.  Thus
+     we trim the rr result to the places where it is used.  */
+  bitmap_and_into (in, bb_lr_info->in);
+
+  return bitmap_ior_and_compl (out, df_live_scratch, in, kill);
 }
 
 
 /* And the LR info with the must-initialized registers, to produce the LIVE info.  */
 
 static void
-df_live_local_finalize (bitmap all_blocks)
+df_live_finalize (bitmap all_blocks)
 {
 
   if (df_live->solutions_dirty)
@@ -1597,6 +1638,9 @@ df_live_free (void)
       free_alloc_pool (df_live->block_pool);
       df_live->block_info_size = 0;
       free (df_live->block_info);
+
+      if (df_live_scratch)
+	BITMAP_FREE (df_live_scratch);
     }
   BITMAP_FREE (df_live->out_of_date_transfer_functions);
   free (df_live);
@@ -1737,7 +1781,7 @@ static struct df_problem problem_LIVE =
   NULL,                         /* Confluence operator 0.  */ 
   df_live_confluence_n,         /* Confluence operator n.  */ 
   df_live_transfer_function,    /* Transfer function.  */
-  df_live_local_finalize,       /* Finalize function.  */
+  df_live_finalize,             /* Finalize function.  */
   df_live_free,                 /* Free all of the problem information.  */
   df_live_free,                 /* Remove this problem from the stack of dataflow problems.  */
   NULL,                         /* Debugging.  */

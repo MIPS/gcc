@@ -1064,7 +1064,7 @@ c_common_post_options (const char **pfilename)
   /* -Wextra implies -Wtype-limits, -Wclobbered, 
      -Wempty-body, -Wsign-compare, 
      -Wmissing-field-initializers, -Wmissing-parameter-type
-     -Wold-style-declaration, and -Woverride-init, 
+     -Wold-style-declaration, -Woverride-init and -Wignored-qualifiers
      but not if explicitly overridden.  */
   if (warn_type_limits == -1)
     warn_type_limits = extra_warnings;
@@ -1082,6 +1082,8 @@ c_common_post_options (const char **pfilename)
     warn_old_style_declaration = extra_warnings;
   if (warn_override_init == -1)
     warn_override_init = extra_warnings;
+  if (warn_ignored_qualifiers == -1)
+    warn_ignored_qualifiers = extra_warnings;
 
   /* -Wpointer_sign is disabled by default, but it is enabled if any
      of -Wall or -pedantic are given.  */
@@ -1100,7 +1102,14 @@ c_common_post_options (const char **pfilename)
       if (!flag_permissive)
 	{
 	  flag_pedantic_errors = 1;
-	  cpp_opts->pedantic_errors = 1;
+	  /* FIXME: For consistency pedantic_errors should have the
+	     same value in the front-end and in CPP. However, this
+	     will break existing applications. The right fix is
+	     disentagle flag_permissive from flag_pedantic_errors,
+	     create a new diagnostic function permerror that is
+	     controlled by flag_permissive and convert most C++
+	     pedwarns to this new function.
+	  cpp_opts->pedantic_errors = 1;  */
 	}
       if (!flag_no_inline)
 	{

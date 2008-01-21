@@ -1697,7 +1697,6 @@ remove_iv (tree iv_stmt ATTRIBUTE_UNUSED)
 }
 #endif
 
-
 /* Transform a lambda loopnest NEW_LOOPNEST, which had TRANSFORM applied to
    it, back into gcc code.  This changes the
    loops, their induction variables, and their bodies, so that they
@@ -1723,6 +1722,7 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
 #if 0
   struct loop *temp;
   size_t i = 0;
+  int j;
   size_t depth = 0;
   VEC(tree,heap) *new_ivs = NULL;
   tree oldiv;
@@ -1862,8 +1862,6 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
 	  tree newiv, stmts;
 	  lambda_body_vector lbv, newlbv;
 
-	  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
-
 	  /* Compute the new expression for the induction
 	     variable.  */
 	  depth = VEC_length (tree, new_ivs);
@@ -1875,7 +1873,8 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
 
 	  newiv = lbv_to_gcc_expression (newlbv, TREE_TYPE (oldiv),
 					 new_ivs, &stmts);
-	  if (stmts)
+
+	  if (stmts && TREE_CODE (stmt) != PHI_NODE)
 	    {
 	      bsi = bsi_for_stmt (stmt);
 	      bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
@@ -1883,6 +1882,12 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest ATTRIBUTE_UNUSED,
 
 	  FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
 	    propagate_value (use_p, newiv);
+
+	  if (stmts && TREE_CODE (stmt) == PHI_NODE)
+	    for (j = 0; j < PHI_NUM_ARGS (stmt); j++)
+	      if (PHI_ARG_DEF (stmt, j) == newiv)
+		bsi_insert_on_edge (PHI_ARG_EDGE (stmt, j), stmts);
+
 	  update_stmt (stmt);
 	}
 
@@ -2656,11 +2661,16 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
   gcc_assert (LTM_COLSIZE (trans) == nb_loops
 	      && LTM_ROWSIZE (trans) == nb_loops);
 
-  /* When there is an unknown relation in the dependence_relations, we
-     know that it is no worth looking at this loop nest: give up.  */
+  /* When there are no dependences, the transformation is correct.  */
+  if (VEC_length (ddr_p, dependence_relations) == 0)
+    return true;
+
   ddr = VEC_index (ddr_p, dependence_relations, 0);
   if (ddr == NULL)
     return true;
+
+  /* When there is an unknown relation in the dependence_relations, we
+     know that it is no worth looking at this loop nest: give up.  */
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     return false;
 

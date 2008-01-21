@@ -3,8 +3,8 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+		 2008 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -508,7 +508,8 @@ finish_cond (tree *cond_p, tree expr)
       if (TREE_CODE (cond) == DECL_EXPR)
 	expr = cond;
 
-      check_for_bare_parameter_packs (&expr);
+      if (check_for_bare_parameter_packs (&expr))
+        *cond_p = error_mark_node;
     }
   *cond_p = expr;
 }
@@ -618,7 +619,8 @@ finish_expr_stmt (tree expr)
       else if (!type_dependent_expression_p (expr))
 	convert_to_void (build_non_dependent_expr (expr), "statement");
 
-      check_for_bare_parameter_packs (&expr);
+      if (check_for_bare_parameter_packs (&expr))
+        expr = error_mark_node;
 
       /* Simplification of inner statement expressions, compound exprs,
 	 etc can result in us already having an EXPR_STMT.  */
@@ -875,7 +877,8 @@ finish_for_expr (tree expr, tree for_stmt)
   else if (!type_dependent_expression_p (expr))
     convert_to_void (build_non_dependent_expr (expr), "3rd expression in for");
   expr = maybe_cleanup_point_expr_void (expr);
-  check_for_bare_parameter_packs (&expr);
+  if (check_for_bare_parameter_packs (&expr))
+    expr = error_mark_node;
   FOR_EXPR (for_stmt) = expr;
 }
 
@@ -971,7 +974,8 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	    cond = index;
 	}
     }
-  check_for_bare_parameter_packs (&cond);
+  if (check_for_bare_parameter_packs (&cond))
+    cond = error_mark_node;
   finish_cond (&SWITCH_STMT_COND (switch_stmt), cond);
   SWITCH_STMT_TYPE (switch_stmt) = orig_type;
   add_stmt (switch_stmt);
@@ -1388,8 +1392,9 @@ finish_mem_initializers (tree mem_inits)
              any parameter packs in the TREE_VALUE have already been
              bound as part of the TREE_PURPOSE.  See
              make_pack_expansion for more information.  */
-          if (TREE_CODE (TREE_PURPOSE (mem)) != TYPE_PACK_EXPANSION)
-            check_for_bare_parameter_packs (&TREE_VALUE (mem));
+          if (TREE_CODE (TREE_PURPOSE (mem)) != TYPE_PACK_EXPANSION
+              && check_for_bare_parameter_packs (&TREE_VALUE (mem)))
+            TREE_VALUE (mem) = error_mark_node;
         }
 
       add_stmt (build_min_nt (CTOR_INITIALIZER, mem_inits));
@@ -2191,6 +2196,10 @@ finish_template_template_parm (tree aggr, tree identifier)
 
   gcc_assert (DECL_TEMPLATE_PARMS (tmpl));
 
+  check_default_tmpl_args (decl, DECL_TEMPLATE_PARMS (tmpl), 
+			   /*is_primary=*/true, /*is_partial=*/false,
+			   /*is_friend=*/0);
+
   return finish_template_type_parm (aggr, tmpl);
 }
 
@@ -2321,7 +2330,12 @@ finish_member_declaration (tree decl)
 
   /* Check for bare parameter packs in the member variable declaration.  */
   if (TREE_CODE (decl) == FIELD_DECL)
-    check_for_bare_parameter_packs (&TREE_TYPE (decl));
+    {
+      if (check_for_bare_parameter_packs (&TREE_TYPE (decl)))
+        TREE_TYPE (decl) = error_mark_node;
+      if (check_for_bare_parameter_packs (&DECL_ATTRIBUTES (decl)))
+        DECL_ATTRIBUTES (decl) = NULL_TREE;
+    }
 
   /* [dcl.link]
 
@@ -3893,15 +3907,17 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       pre_body = NULL;
     }
 
-  init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
+  if (!processing_template_decl)
+    init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
   init = build_modify_expr (decl, NOP_EXPR, init);
   if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
     {
       int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
       tree t = TREE_OPERAND (cond, n);
 
-      TREE_OPERAND (cond, n)
-	= fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+      if (!processing_template_decl)
+	TREE_OPERAND (cond, n)
+	  = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
     }
   omp_for = c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
   if (omp_for != NULL
@@ -3912,9 +3928,10 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       tree t = TREE_OPERAND (OMP_FOR_INCR (omp_for), 1);
       int n = TREE_SIDE_EFFECTS (TREE_OPERAND (t, 1)) != 0;
 
-      TREE_OPERAND (t, n)
-	= fold_build_cleanup_point_expr (TREE_TYPE (TREE_OPERAND (t, n)),
-					 TREE_OPERAND (t, n));
+      if (!processing_template_decl)
+	TREE_OPERAND (t, n)
+	  = fold_build_cleanup_point_expr (TREE_TYPE (TREE_OPERAND (t, n)),
+					   TREE_OPERAND (t, n));
     }
   return omp_for;
 }

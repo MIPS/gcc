@@ -951,18 +951,25 @@ gfc_put_offset_into_var (stmtblock_t * pblock, tree * poffset,
 
 
 /* Assign an element of an array constructor.  */
+static bool first_len;
+static tree first_len_val; 
 
 static void
 gfc_trans_array_ctor_element (stmtblock_t * pblock, tree desc,
 			      tree offset, gfc_se * se, gfc_expr * expr)
 {
   tree tmp;
+  tree esize;
 
   gfc_conv_expr (se, expr);
 
   /* Store the value.  */
   tmp = build_fold_indirect_ref (gfc_conv_descriptor_data_get (desc));
   tmp = gfc_build_array_ref (tmp, offset, NULL);
+
+  esize = size_in_bytes (gfc_get_element_type (TREE_TYPE (desc)));
+  esize = fold_convert (gfc_charlen_type_node, esize);
+
   if (expr->ts.type == BT_CHARACTER)
     {
       gfc_conv_string_parameter (se);
@@ -978,9 +985,30 @@ gfc_trans_array_ctor_element (stmtblock_t * pblock, tree desc,
 	  tmp = gfc_build_addr_expr (pchar_type_node, tmp);
 	  /* We know the temporary and the value will be the same length,
 	     so can use memcpy.  */
-	  tmp = build_call_expr (built_in_decls[BUILT_IN_MEMCPY], 3,
-				 tmp, se->expr, se->string_length);
-	  gfc_add_expr_to_block (&se->pre, tmp);
+	  gfc_trans_string_copy (&se->pre, esize, tmp,
+				 se->string_length,
+				 se->expr);
+	}
+      if (flag_bounds_check)
+	{
+	  if (first_len)
+	    {
+	      gfc_add_modify_expr (&se->pre, first_len_val,
+				   se->string_length);
+	      first_len = false;
+	    }
+	  else
+	    {
+	      /* Verify that all constructor elements are of the same
+		 length.  */
+	      tree cond = fold_build2 (NE_EXPR, boolean_type_node,
+				       first_len_val, se->string_length);
+	      gfc_trans_runtime_check
+		(cond, &se->pre, &expr->where,
+		 "Different CHARACTER lengths (%ld/%ld) in array constructor",
+		 fold_convert (long_integer_type_node, first_len_val),
+		 fold_convert (long_integer_type_node, se->string_length));
+	    }
 	}
     }
   else
@@ -1425,7 +1453,6 @@ bool
 get_array_ctor_strlen (stmtblock_t *block, gfc_constructor * c, tree * len)
 {
   bool is_const;
-  tree first_len = NULL_TREE;
   
   is_const = TRUE;
 
@@ -1459,23 +1486,6 @@ get_array_ctor_strlen (stmtblock_t *block, gfc_constructor * c, tree * len)
 	  is_const = false;
 	  get_array_ctor_all_strlen (block, c->expr, len);
 	  break;
-	}
-      if (flag_bounds_check)
-	{
-	  if (!first_len)
-	    first_len = *len;
-	  else
-	    {
-	      /* Verify that all constructor elements are of the same
-		 length.  */
-	      tree cond = fold_build2 (NE_EXPR, boolean_type_node,
-				       first_len, *len);
-	      gfc_trans_runtime_check
-		(cond, block, &c->expr->where,
-		 "Different CHARACTER lengths (%ld/%ld) in array constructor",
-		 fold_convert (long_integer_type_node, first_len),
-		 fold_convert (long_integer_type_node, *len));
-	    }
 	}
     }
 
@@ -1659,6 +1669,12 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
   tree desc;
   tree type;
   bool dynamic;
+
+  if (flag_bounds_check && ss->expr->ts.type == BT_CHARACTER)
+    {  
+      first_len_val = gfc_create_var (gfc_charlen_type_node, "len");
+      first_len = true;
+    }
 
   ss->data.info.dimen = loop->dimen;
 
@@ -1890,6 +1906,18 @@ gfc_add_loop_ss_code (gfc_loopinfo * loop, gfc_ss * ss, bool subscript)
 	  break;
 
 	case GFC_SS_CONSTRUCTOR:
+	  if (ss->expr->ts.type == BT_CHARACTER
+		&& ss->string_length == NULL
+		&& ss->expr->ts.cl
+		&& ss->expr->ts.cl->length)
+	    {
+	      gfc_init_se (&se, NULL);
+	      gfc_conv_expr_type (&se, ss->expr->ts.cl->length,
+				  gfc_charlen_type_node);
+	      ss->string_length = se.expr;
+	      gfc_add_block_to_block (&loop->pre, &se.pre);
+	      gfc_add_block_to_block (&loop->post, &se.post);
+	    }
 	  gfc_trans_array_constructor (loop, ss);
 	  break;
 
@@ -5026,7 +5054,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
     {
       get_array_ctor_strlen (&se->pre, expr->value.constructor, &tmp);
       expr->ts.cl->backend_decl = tmp;
-      se->string_length = gfc_evaluate_now (tmp, &se->pre);
+      se->string_length = tmp;
     }
 
   /* Is this the result of the enclosing procedure?  */
@@ -5527,7 +5555,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
     }
   
   /* NULLIFY the data pointer.  */
-  if (GFC_DESCRIPTOR_TYPE_P (type))
+  if (GFC_DESCRIPTOR_TYPE_P (type) && !sym->attr.save)
     gfc_conv_descriptor_data_set (&fnblock, descriptor, null_pointer_node);
 
   gfc_add_expr_to_block (&fnblock, body);
@@ -5545,7 +5573,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
       gfc_add_expr_to_block (&fnblock, tmp);
     }
 
-  if (sym->attr.allocatable)
+  if (sym->attr.allocatable && !sym->attr.save)
     {
       tmp = gfc_trans_dealloc_allocated (sym->backend_decl);
       gfc_add_expr_to_block (&fnblock, tmp);

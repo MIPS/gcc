@@ -1,3 +1,11 @@
+2008-01-21  Diego Novillo  <dnovillo@google.com>
+
+	Merge with mainline @131695
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge
+	string.
+	* configure: Regenerate.
+
 2008-01-15  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg00674.html

@@ -1,5 +1,5 @@
 ;; GCC machine description for SSE instructions
-;; Copyright (C) 2005, 2006, 2007
+;; Copyright (C) 2005, 2006, 2007, 2008
 ;; Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
@@ -378,13 +378,13 @@
 
 (define_expand "negv4sf2"
   [(set (match_operand:V4SF 0 "register_operand" "")
-	(neg:V4SF (match_operand:V4SF 1 "nonimmediate_operand" "")))]
+	(neg:V4SF (match_operand:V4SF 1 "register_operand" "")))]
   "TARGET_SSE"
   "ix86_expand_fp_absneg_operator (NEG, V4SFmode, operands); DONE;")
 
 (define_expand "absv4sf2"
   [(set (match_operand:V4SF 0 "register_operand" "")
-	(abs:V4SF (match_operand:V4SF 1 "nonimmediate_operand" "")))]
+	(abs:V4SF (match_operand:V4SF 1 "register_operand" "")))]
   "TARGET_SSE"
   "ix86_expand_fp_absneg_operator (ABS, V4SFmode, operands); DONE;")
 
@@ -536,15 +536,10 @@
   [(set (match_operand:V4SF 0 "register_operand" "")
 	(unspec:V4SF
 	  [(match_operand:V4SF 1 "nonimmediate_operand" "")] UNSPEC_RSQRT))]
-  "TARGET_SSE"
+  "TARGET_SSE_MATH"
 {
-  if (TARGET_SSE_MATH && TARGET_RECIP && !optimize_size
-      && flag_finite_math_only && !flag_trapping_math
-      && flag_unsafe_math_optimizations)
-    {
-      ix86_emit_swsqrtsf (operands[0], operands[1], V4SFmode, 1);
-      DONE;
-    }
+  ix86_emit_swsqrtsf (operands[0], operands[1], V4SFmode, 1);
+  DONE;
 })
 
 (define_insn "sse_rsqrtv4sf2"
@@ -569,7 +564,7 @@
    (set_attr "mode" "SF")])
 
 (define_expand "sqrtv4sf2"
-  [(set (match_operand:V4SF 0 "register_operand" "=")
+  [(set (match_operand:V4SF 0 "register_operand" "")
 	(sqrt:V4SF (match_operand:V4SF 1 "nonimmediate_operand" "")))]
   "TARGET_SSE"
 {
@@ -2148,13 +2143,13 @@
 
 (define_expand "negv2df2"
   [(set (match_operand:V2DF 0 "register_operand" "")
-	(neg:V2DF (match_operand:V2DF 1 "nonimmediate_operand" "")))]
+	(neg:V2DF (match_operand:V2DF 1 "register_operand" "")))]
   "TARGET_SSE2"
   "ix86_expand_fp_absneg_operator (NEG, V2DFmode, operands); DONE;")
 
 (define_expand "absv2df2"
   [(set (match_operand:V2DF 0 "register_operand" "")
-	(abs:V2DF (match_operand:V2DF 1 "nonimmediate_operand" "")))]
+	(abs:V2DF (match_operand:V2DF 1 "register_operand" "")))]
   "TARGET_SSE2"
   "ix86_expand_fp_absneg_operator (ABS, V2DFmode, operands); DONE;")
 
