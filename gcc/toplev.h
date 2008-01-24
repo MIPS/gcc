@@ -1,5 +1,5 @@
 /* toplev.h - Various declarations for functions found in toplev.c
-   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -189,6 +189,11 @@ exact_log2 (unsigned HOST_WIDE_INT x)
 
 extern const char *get_src_pwd	       (void);
 extern bool set_src_pwd		       (const char *);
+
+/* Return the object file name as used by 'as'.  Will return NULL if
+   not running as a server, or if there is no known object file name.
+   If a value is returned, it has been allocated by the GC.  */
+extern const char *get_asm_object_file_name (void);
 
 /* Functions used to manipulate the random seed.  */
 

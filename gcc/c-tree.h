@@ -1,6 +1,6 @@
 /* Definitions for C parsing and type checking.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -453,6 +453,10 @@ extern void c_parser_note_smash (tree, tree);
 extern bool object_in_current_hunk_p (tree);
 extern tree c_parser_find_binding (tree);
 extern void c_parser_lookup_callback (tree, tree, bool);
+extern void c_parse_file_wrapper (int);
+
+/* Only for use by the GC.  */
+extern int c_parser_mark_hunk_set (const void *);
 
 /* True if this decl or type has been smashed.  */
 #define C_SMASHED_P(T) TREE_LANG_FLAG_5 (T)

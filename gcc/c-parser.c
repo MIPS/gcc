@@ -793,7 +793,36 @@ eq_hunk_set (const void *a, const void *b)
 
 /* Map a hunk signature to its bindings.  This is a true global,
    shared by all parsers.  */
-static GTY ((param_is (struct hunk_set))) htab_t global_hunk_map;
+static GTY ((if_marked ("c_parser_mark_hunk_set"), param_is (struct hunk_set)))
+     htab_t global_hunk_map;
+
+/* "Mark" a hunk_binding as found in a hunk_set.  This is the leaf of
+   the global_hunk_map marking functions.  If the hunk_binding is
+   already marked, we keep it; otherwise, we remove it.  */
+static int
+mark_one_hunk_binding (void **slot, void *r)
+{
+  int *found_any = (int *) r;
+  if (ggc_marked_p (*slot))
+    *found_any = 1;
+  else
+    *slot = NULL;
+  return 1;
+}
+
+/* Mark an entry in the global_hunk_map.  Non-static because GGC
+   machinery needs access to this.  A hunk set in the global hunk map
+   does not "own" the hunk_bindings to which it refers.  Instead, the
+   hunk_binding is owned by the jobs which used it.  */
+int
+c_parser_mark_hunk_set (const void *p)
+{
+  /* Have to cast away const.  */
+  struct hunk_set *hs = (struct hunk_set *) p;
+  int found_any = 0;
+  htab_traverse_noresize (hs->bindings, mark_one_hunk_binding, &found_any);
+  return found_any;
+}
 
 /* This is called when making a file-scope binding.  It registers the
    new binding in the current hunk binding map.  */
@@ -991,6 +1020,13 @@ finish_current_hunk (c_parser *parser,
     }
 
   slot = (struct hunk_binding **) htab_find_slot (hset->bindings,
+						  parser->current_hunk_binding,
+						  INSERT);
+  gcc_assert (!*slot);
+  *slot = parser->current_hunk_binding;
+
+  /* Also note this hunk in used_hunks, for long-term storage.  */
+  slot = (struct hunk_binding **) htab_find_slot (parser->used_hunks,
 						  parser->current_hunk_binding,
 						  INSERT);
   gcc_assert (!*slot);
@@ -8952,6 +8988,110 @@ c_parser_omp_threadprivate (c_parser *parser)
 }
 
 
+
+/* Link an object file to the hunks used when parsing the
+   corresponding source.  We use object file names and not source file
+   names because it is not uncommon to compile a source file multiple
+   times in a project.
+   
+   This data structure is the key to how declarations are retained in
+   the compile server.  When a file is recompiled, we save its old
+   hunks, run the job, install the resulting hunks, and finally remove
+   the old values.  This lets us maximize sharing across compilations
+   while not preserving declarations which are unlikely to be
+   reused.  */
+struct c_compile_job GTY (())
+{
+  /* The object file.  */
+  const char *object_file_name;
+
+  /* All the hunks used by this compilation.  */
+  htab_t GTY ((param_is (struct hunk_binding))) hunks;
+};
+
+/* Hash function for a struct c_compile_job.  */
+static hashval_t
+hash_c_compile_job (const void *cj)
+{
+  const struct c_compile_job *job = (const struct c_compile_job *) cj;
+  return htab_hash_string (job->object_file_name);
+}
+
+/* Equality function for a struct c_compile_job.  */
+static int
+eq_c_compile_job (const void *a, const void *b)
+{
+  const struct c_compile_job *job_a = (const struct c_compile_job *) a;
+  const struct c_compile_job *job_b = (const struct c_compile_job *) b;
+  return ! strcmp (job_a->object_file_name, job_b->object_file_name);
+}
+
+/* All the compile jobs held by the server.  Eventually we want to
+   move this to toplev.c.  */
+static GTY ((param_is (struct c_compile_job))) htab_t all_compile_jobs;
+
+/* The old values of the current compilation.  We keep a handle on
+   this when re-running a compilation because it is very likely that
+   the new job will share hunks with the old one, and we don't want to
+   collect the old hunks too early.  */
+static GTY (()) struct c_compile_job *old_job;
+
+/* The job currently being compiled.  */
+static GTY (()) struct c_compile_job *working_job;
+
+/* This is a wrapper for c_common_parse_file which handles allocation
+   of hunk-related data structures.  This is done as a wrapper rather
+   than being part of c_parse_file so that we can share decls even in
+   --combine mode.  */
+void
+c_parse_file_wrapper (int set_yydebug)
+{
+  void **slot;
+
+  gcc_assert (! working_job);
+
+  if (! all_compile_jobs)
+    all_compile_jobs = htab_create_ggc (20, hash_c_compile_job,
+					eq_c_compile_job, NULL);
+ 
+  working_job = GGC_NEW (struct c_compile_job);
+  working_job->object_file_name = get_asm_object_file_name ();
+  working_job->hunks = htab_create_ggc (20, htab_hash_pointer, htab_eq_pointer,
+					NULL);
+
+  slot = htab_find_slot (all_compile_jobs, working_job, INSERT);
+  /* Save the old job while we work.  */
+  if (*slot)
+    old_job = (struct c_compile_job *) *slot;
+  *slot = working_job;
+
+  c_common_parse_file (set_yydebug);
+  old_job = NULL;
+  working_job = NULL;  
+}
+
+/* Insert a single hunk_binding into the working job's hash set.  */
+static int
+insert_single_binding (void **slot, void * ARG_UNUSED (user_data))
+{
+  struct hunk_binding *binding = (struct hunk_binding *) *slot;
+  slot = htab_find_slot (working_job->hunks, binding, INSERT);
+  *slot = binding;
+  return 1;
+}
+
+/* Update the working job by copying all the items from USED into the
+   job's hunk set.  Note that we do not simply save USED, because with
+   --combine we may run multiple parses, and we want to preserve the
+   union of all the used hunks.  */
+static void
+copy_used_hunks (htab_t used)
+{
+  gcc_assert (working_job);
+  htab_traverse_noresize (used, insert_single_binding, NULL);
+}
+
+
 /* Parse a single source file.  */
 
 void
@@ -8980,6 +9120,10 @@ c_parse_file (void)
 
   c_parser_lex_all (the_parser, &token);
   c_parser_translation_unit (the_parser);
+
+  /* Preserve the hunks created or used during this compilation.  */
+  copy_used_hunks (the_parser->used_hunks);
+
   the_parser = NULL;
 }
 

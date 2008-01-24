@@ -1,3 +1,27 @@
+2008-01-23  Tom Tromey  <tromey@redhat.com>
+
+	* c-lang.c (LANG_HOOKS_PARSE_FILE): Redefine.
+	* toplev.h (get_asm_object_file_name): Declare.
+	* c-tree.h (c_parser_mark_hunk_set): Declare.
+	(c_parse_file_wrapper): Declare.
+	* c-parser.c (global_hunk_map): Use 'if_marked'.
+	(mark_one_hunk_binding): New function.
+	(c_parser_mark_hunk_set): Likewise.
+	(finish_current_hunk): Update used_hunks.
+	(struct c_compile_job): New struct.
+	(hash_c_compile_job): New function.
+	(eq_c_compile_job): Likewise.
+	(all_compile_jobs): New global.
+	(old_job, working_job): Likewise.
+	(c_parse_file_wrapper): New function.
+	(insert_single_binding): Likewise.
+	(copy_used_hunks): Likewise.
+	(c_parse_file): Call copy_used_hunks.
+	* toplev.c (server_asm_object_file_name): New global.
+	(parse_as_command_line): New function.
+	(server_callback): Call it.
+	(get_asm_object_file_name): New function.
+
 2008-01-18  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_translation_unit): Check for interrupt.

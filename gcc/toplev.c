@@ -399,6 +399,11 @@ const char *dump_file_name;
    late.  */
 static FILE *server_asm_out_file;
 
+/* On the server we use the name of the resulting object file as a key
+   to hold references to some objects.  This may be NULL if there is
+   no known object file, for instance with -fsyntax-only.  */
+static GTY (()) const char *server_asm_object_file_name;
+
 typedef const char *cchar_p;
 DEF_VEC_P(cchar_p);
 DEF_VEC_ALLOC_P(cchar_p,gc);
@@ -483,6 +488,12 @@ clear_src_pwd (void)
       free ((char *) src_pwd);
       src_pwd = NULL;
     }
+}
+
+const char *
+get_asm_object_file_name (void)
+{
+  return server_asm_object_file_name;
 }
 
 /* Called when the start of a function definition is parsed,
@@ -2360,6 +2371,70 @@ copy_to_vec (VEC (cchar_p, gc) **out, struct save_string_list **strings,
     *n_args = i - 1;
 }
 
+/* Parse the 'as' command line, and compute the resulting object file
+   name.  */
+static void
+parse_as_command_line (char *dir, char **as_argv)
+{
+  char **p;
+  char *work;
+  char *out, *in;
+
+  server_asm_object_file_name = NULL;
+  if (! as_argv)
+    return;
+
+  for (p = as_argv; *p; ++p)
+    {
+      if (! strcmp (*p, "-o"))
+	{
+	  ++p;
+	  break;
+	}
+    }
+  if (! *p)
+    return;
+
+  if (IS_ABSOLUTE_PATH (*p))
+    work = xstrdup (*p);
+  else
+    {
+      char ds[2];
+      ds[0] = DIR_SEPARATOR;
+      ds[1] = '\0';
+      work = concat (dir, ds, *p, NULL);
+    }
+
+  /* Normalize by nuking '/./' and '//' components.  Ordinarily gcc
+     will be invoked the same way each time, but this provides a
+     little extra leak protection.  */
+  in = out = work;
+  while (*in)
+    {
+      if (IS_DIR_SEPARATOR (*in))
+	{
+	  char *save;
+	  do
+	    {
+	      save = in;
+	      /* Remove './'.  */
+	      while (in[1] == '.' && IS_DIR_SEPARATOR (in[2]))
+		in += 2;
+	      /* Remove extra '/'s.  */
+	      while (IS_DIR_SEPARATOR (in[1]))
+		++in;
+	    }
+	  while (save != in);
+	}
+      *out++ = *in++;
+    }
+  /* Copy the \0.  */
+  *out = *in;
+
+  server_asm_object_file_name = ggc_strdup (work);
+  free (work);
+}
+
 bool
 server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
 {
@@ -2387,6 +2462,8 @@ server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
 
   clear_src_pwd ();
   chdir (dir);
+
+  parse_as_command_line (dir, as_argv);
 
   init_local_tick ();
   do_compile ();
