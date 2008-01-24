@@ -9049,6 +9049,7 @@ c_parse_file_wrapper (int set_yydebug)
   void **slot;
 
   gcc_assert (! working_job);
+  gcc_assert (! old_job);
 
   if (! all_compile_jobs)
     all_compile_jobs = htab_create_ggc (20, hash_c_compile_job,
@@ -9059,11 +9060,15 @@ c_parse_file_wrapper (int set_yydebug)
   working_job->hunks = htab_create_ggc (20, htab_hash_pointer, htab_eq_pointer,
 					NULL);
 
-  slot = htab_find_slot (all_compile_jobs, working_job, INSERT);
-  /* Save the old job while we work.  */
-  if (*slot)
-    old_job = (struct c_compile_job *) *slot;
-  *slot = working_job;
+  /* If the job has no name, don't try to save it.  */
+  if (working_job->object_file_name)
+    {
+      slot = htab_find_slot (all_compile_jobs, working_job, INSERT);
+      /* Save the old job while we work.  */
+      if (*slot)
+	old_job = (struct c_compile_job *) *slot;
+      *slot = working_job;
+    }
 
   c_common_parse_file (set_yydebug);
   old_job = NULL;

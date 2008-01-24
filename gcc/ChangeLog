@@ -1,5 +1,9 @@
 2008-01-23  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parse_file_wrapper): Only save jobs with names.
+
+2008-01-23  Tom Tromey  <tromey@redhat.com>
+
 	* c-lang.c (LANG_HOOKS_PARSE_FILE): Redefine.
 	* toplev.h (get_asm_object_file_name): Declare.
 	* c-tree.h (c_parser_mark_hunk_set): Declare.
