@@ -1,0 +1,4 @@
+2008-01-24  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* c-common.c (rid): Add concepts keyword identifiers RID_AXIOM,
+	RID_CONCEPT, RID_CONCEPT_MAP, RID_LATE_CHECK, and RID_REQUIRES.
