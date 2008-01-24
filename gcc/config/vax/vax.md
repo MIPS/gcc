@@ -1,12 +1,12 @@
 ;; Machine description for GNU compiler, VAX Version
 ;; Copyright (C) 1987, 1988, 1991, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
-;; 2002, 2004, 2005 Free Software Foundation, Inc.
+;; 2002, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 ;; This file is part of GCC.
 
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 
 ;; GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 ;;- Instruction patterns.  When multiple patterns apply,
@@ -43,11 +42,11 @@
 
 ;; Integer modes supported on VAX, with a mapping from machine mode
 ;; to mnemonic suffix.  DImode is always a special case.
-(define_mode_macro VAXint [QI HI SI])
+(define_mode_iterator VAXint [QI HI SI])
 (define_mode_attr  isfx [(QI "b") (HI "w") (SI "l")])
 
 ;; Similar for float modes supported on VAX.
-(define_mode_macro VAXfp [SF DF])
+(define_mode_iterator VAXfp [SF DF])
 (define_mode_attr  fsfx [(SF "f") (DF "%#")])
 
 ;; Some output patterns want integer immediates with a prefix...
@@ -1013,7 +1012,7 @@
   "jbr %l0")
 
 ;; Conditional jumps
-(define_code_macro any_cond [eq ne gt lt gtu ltu ge le geu leu])
+(define_code_iterator any_cond [eq ne gt lt gtu ltu ge le geu leu])
 
 (define_insn "b<code>"
   [(set (pc)

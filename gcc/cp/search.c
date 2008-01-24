@@ -1,14 +1,14 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -17,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* High-level class interface.  */
 
@@ -34,6 +33,7 @@ Boston, MA 02110-1301, USA.  */
 #include "rtl.h"
 #include "output.h"
 #include "toplev.h"
+#include "target.h"
 
 static int is_subobject_of_p (tree, tree);
 static tree dfs_lookup_base (tree, void *);
@@ -1200,6 +1200,9 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
 
   const char *errstr = 0;
 
+  if (name == error_mark_node)
+    return NULL_TREE;
+
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
 
   if (TREE_CODE (xbasetype) == TREE_BINFO)
@@ -1895,6 +1898,15 @@ check_final_overrider (tree overrider, tree basefn)
     {
       error ("looser throw specifier for %q+#F", overrider);
       error ("  overriding %q+#F", basefn);
+      DECL_INVALID_OVERRIDER_P (overrider) = 1;
+      return 0;
+    }
+
+  /* Check for conflicting type attributes.  */
+  if (!targetm.comp_type_attributes (over_type, base_type))
+    {
+      error ("conflicting type attributes specified for %q+#D", overrider);
+      error ("  overriding %q+#D", basefn);
       DECL_INVALID_OVERRIDER_P (overrider) = 1;
       return 0;
     }

@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -298,7 +297,7 @@ process_assignment (tree ass, tree stmt, block_stmt_iterator call, tree *m,
   /* Accumulator optimizations will reverse the order of operations.
      We can only do that for floating-point types if we're assuming
      that addition and multiplication are associative.  */
-  if (!flag_unsafe_math_optimizations)
+  if (!flag_associative_math)
     if (FLOAT_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
       return false;
 
@@ -415,7 +414,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       /* If the statement has virtual or volatile operands, fail.  */
       ann = stmt_ann (stmt);
       if (!ZERO_SSA_OPERANDS (stmt, (SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS))
-	  || ann->has_volatile_ops)
+	  || ann->has_volatile_ops
+	  || (!gimple_aliases_computed_p (cfun) && ann->references_memory))
 	return;
     }
 

@@ -1,8 +1,8 @@
-# Copyright (C) 2003, 2006 Free Software Foundation, Inc.
+# Copyright (C) 2003, 2006, 2007 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 # 
 # This program is distributed in the hope that it will be useful,
@@ -11,8 +11,8 @@
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 # Please email any bugs, comments, and/or additions to this file to
 # the author.
@@ -41,8 +41,9 @@ if ![info exists TORTURE_OPTIONS] {
     } elseif { [istarget "i?86-*-*"] || [istarget "x86_64-*-*"] } {
 	lappend vectorizer_options "-msse2"
 	set test_tree_vectorize 1
-    } elseif { [istarget "mipsisa64*-*-*"]
-	       && [check_effective_target_mpaired_single] } {
+    } elseif { [istarget "mips*-*-*"]
+	       && [check_effective_target_mpaired_single]
+	       && [check_effective_target_nomips16] } {
 	lappend vectorizer_options "-mpaired-single"
 	set test_tree_vectorize 1
     } elseif [istarget "sparc*-*-*"] {
@@ -347,6 +348,7 @@ proc search_for_re { file pattern } {
 proc fortran-torture { args } {
     global srcdir subdir
     global compiler_conditional_xfail_data
+    global TORTURE_OPTIONS
 
     set src [lindex $args 0]
     if { [llength $args] > 1 } {
@@ -371,7 +373,7 @@ proc fortran-torture { args } {
     }
    
     # loop through all the options
-    set option_list [list { "-O" } ]
+    set option_list $TORTURE_OPTIONS
     foreach option $option_list {
 
 	# torture_compile_xfail is set by the .x script (if present)

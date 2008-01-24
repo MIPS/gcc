@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -19,10 +19,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.
-*/
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -433,7 +431,7 @@ static struct df_problem problem_SCAN =
   df_scan_start_block,        /* Debugging start block.  */
   NULL,                       /* Debugging end block.  */
   NULL,                       /* Incremental solution verify start.  */
-  NULL,                       /* Incremental solution verfiy end.  */
+  NULL,                       /* Incremental solution verify end.  */
   NULL,                       /* Dependent problem.  */
   TV_DF_SCAN,                 /* Timing variable.  */
   false                       /* Reset blocks on dropping out of blocks_to_analyze.  */
@@ -2006,6 +2004,10 @@ df_notes_rescan (rtx insn)
   if (df->changeable_flags & DF_NO_INSN_RESCAN)
     return;
 
+  /* Do nothing if the insn hasn't been emitted yet.  */
+  if (!BLOCK_FOR_INSN (insn))
+    return;
+
   df_grow_bb_info (df_scan);
   df_grow_reg_info ();
 
@@ -2148,8 +2150,8 @@ df_ref_equal_p (struct df_ref *ref1, struct df_ref *ref2)
 static int
 df_ref_compare (const void *r1, const void *r2)
 {
-  const struct df_ref *ref1 = *(struct df_ref **)r1;
-  const struct df_ref *ref2 = *(struct df_ref **)r2;
+  const struct df_ref *const ref1 = *(const struct df_ref *const*)r1;
+  const struct df_ref *const ref2 = *(const struct df_ref *const*)r2;
 
   if (ref1 == ref2)
     return 0;
@@ -2265,8 +2267,8 @@ df_mw_equal_p (struct df_mw_hardreg *mw1, struct df_mw_hardreg *mw2)
 static int
 df_mw_compare (const void *m1, const void *m2)
 {
-  const struct df_mw_hardreg *mw1 = *(struct df_mw_hardreg **)m1;
-  const struct df_mw_hardreg *mw2 = *(struct df_mw_hardreg **)m2;
+  const struct df_mw_hardreg *const mw1 = *(const struct df_mw_hardreg *const*)m1;
+  const struct df_mw_hardreg *const mw2 = *(const struct df_mw_hardreg *const*)m2;
 
   if (mw1 == mw2)
     return 0;
@@ -2627,7 +2629,6 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	       enum df_ref_type ref_type, 
 	       enum df_ref_flags ref_flags) 
 {
-  rtx oldreg = reg;
   unsigned int regno;
 
   gcc_assert (REG_P (reg) || GET_CODE (reg) == SUBREG);
@@ -2658,7 +2659,7 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	{
 	  /* Sets to a subreg of a multiword register are partial. 
 	     Sets to a non-subreg of a multiword register are not.  */
-	  if (GET_CODE (oldreg) == SUBREG)
+	  if (GET_CODE (reg) == SUBREG)
 	    ref_flags |= DF_REF_PARTIAL;
 	  ref_flags |= DF_REF_MW_HARDREG;
 
@@ -2666,7 +2667,6 @@ df_ref_record (struct df_collection_rec *collection_rec,
 	  hardreg->type = ref_type;
 	  hardreg->flags = ref_flags;
 	  hardreg->mw_reg = reg;
-	  hardreg->loc = loc;
 	  hardreg->start_regno = regno;
 	  hardreg->end_regno = endregno - 1;
 	  hardreg->mw_order = df->ref_order++;
@@ -2752,17 +2752,37 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
 	 || GET_CODE (dst) == ZERO_EXTRACT)
     {
       flags |= DF_REF_READ_WRITE | DF_REF_PARTIAL;
+      if (GET_CODE (dst) == ZERO_EXTRACT)
+	flags |= DF_REF_EXTRACT;
+      else
+	flags |= DF_REF_STRICT_LOWER_PART;
+
       loc = &XEXP (dst, 0);
       dst = *loc;
     }
 
-  if (df_read_modify_subreg_p (dst))
-    flags |= DF_REF_READ_WRITE | DF_REF_PARTIAL;
+  /* At this point if we do not have a reg or a subreg, just return.  */
+  if (REG_P (dst))
+    {
+      df_ref_record (collection_rec, 
+		     dst, loc, bb, insn, DF_REF_REG_DEF, flags);
 
-  if (REG_P (dst)
-      || (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))))
-    df_ref_record (collection_rec, 
-                   dst, loc, bb, insn, DF_REF_REG_DEF, flags);
+      /* We want to keep sp alive everywhere - by making all
+	 writes to sp also use of sp. */
+      if (REGNO (dst) == STACK_POINTER_REGNUM)
+	df_ref_record (collection_rec,
+		       dst, NULL, bb, insn, DF_REF_REG_USE, flags);
+    }
+  else if (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst)))
+    {
+      if (df_read_modify_subreg_p (dst))
+	flags |= DF_REF_READ_WRITE | DF_REF_PARTIAL;
+
+      flags |= DF_REF_SUBREG;
+
+      df_ref_record (collection_rec, 
+		     dst, loc, bb, insn, DF_REF_REG_DEF, flags);
+    }
 }
 
 
@@ -2819,6 +2839,7 @@ df_uses_record (struct df_collection_rec *collection_rec,
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case PC:
     case CC0:
@@ -2873,7 +2894,8 @@ df_uses_record (struct df_collection_rec *collection_rec,
 	      if (df_read_modify_subreg_p (dst))
 		{
 		  df_uses_record (collection_rec, &SUBREG_REG (dst), 
-				  DF_REF_REG_USE, bb, insn, flags | DF_REF_READ_WRITE);
+				  DF_REF_REG_USE, bb, insn, 
+				  flags | DF_REF_READ_WRITE | DF_REF_SUBREG);
 		  break;
 		}
 	      /* Fall through.  */
@@ -2895,13 +2917,15 @@ df_uses_record (struct df_collection_rec *collection_rec,
 		dst = XEXP (dst, 0);
 		df_uses_record (collection_rec, 
 				(GET_CODE (dst) == SUBREG) ? &SUBREG_REG (dst) : temp, 
-				DF_REF_REG_USE, bb, insn, DF_REF_READ_WRITE);
+				DF_REF_REG_USE, bb, insn, 
+				DF_REF_READ_WRITE | DF_REF_STRICT_LOWER_PART);
 	      }
 	      break;
 	    case ZERO_EXTRACT:
 	    case SIGN_EXTRACT:
 	      df_uses_record (collection_rec, &XEXP (dst, 0), 
-			      DF_REF_REG_USE, bb, insn, DF_REF_READ_WRITE);
+			      DF_REF_REG_USE, bb, insn, 
+			      DF_REF_READ_WRITE | DF_REF_EXTRACT);
 	      df_uses_record (collection_rec, &XEXP (dst, 1), 
 			      DF_REF_REG_USE, bb, insn, flags);
 	      df_uses_record (collection_rec, &XEXP (dst, 2), 
@@ -3085,18 +3109,22 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
      so they are recorded as used.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (global_regs[i])
-      df_ref_record (collection_rec, regno_reg_rtx[i],
-		     NULL, bb, insn, DF_REF_REG_USE, flags);
+      {
+	df_ref_record (collection_rec, regno_reg_rtx[i],
+		       NULL, bb, insn, DF_REF_REG_USE, flags);
+	df_ref_record (collection_rec, regno_reg_rtx[i],
+		       NULL, bb, insn, DF_REF_REG_DEF, flags);
+      }
 
   is_sibling_call = SIBLING_CALL_P (insn);
   EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
     {
-      if ((!bitmap_bit_p (defs_generated, ui))
+      if (!global_regs[ui]
+	  && (!bitmap_bit_p (defs_generated, ui))
 	  && (!is_sibling_call
 	      || !bitmap_bit_p (df->exit_block_uses, ui)
 	      || refers_to_regno_p (ui, ui+1, 
 				    current_function_return_rtx, NULL)))
-
         df_ref_record (collection_rec, regno_reg_rtx[ui], 
 		       NULL, bb, insn, DF_REF_REG_DEF, DF_REF_MAY_CLOBBER | flags);
     }
@@ -3173,23 +3201,6 @@ df_insn_refs_collect (struct df_collection_rec* collection_rec,
   df_canonize_collection_rec (collection_rec);
 }
 
-/* Return true if any pred of BB is an eh.  */
-
-bool
-df_has_eh_preds (basic_block bb)
-{
-  edge e;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (e->flags & EDGE_EH)
-	return true;
-    }
-  return false;
-}
-
-
 /* Recompute the luids for the insns in BB.  */
 
 void
@@ -3254,7 +3265,7 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
     }
 
 #ifdef EH_RETURN_DATA_REGNO
-  if (df_has_eh_preds (bb))
+  if (bb_has_eh_pred (bb))
     {
       unsigned int i;
       /* Mark the registers that will contain data for the handler.  */
@@ -3271,7 +3282,7 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
 
 
 #ifdef EH_USES
-  if (df_has_eh_preds (bb))
+  if (bb_has_eh_pred (bb))
     {
       unsigned int i;
       /* This code is putting in an artificial ref for the use at the
@@ -3303,7 +3314,7 @@ df_bb_refs_collect (struct df_collection_rec *collection_rec, basic_block bb)
     {
       bitmap_iterator bi;
       unsigned int regno;
-      bitmap au = df_has_eh_preds (bb) 
+      bitmap au = bb_has_eh_pred (bb) 
 	? df->eh_block_artificial_uses 
 	: df->regular_block_artificial_uses;
 
@@ -3370,7 +3381,7 @@ df_bb_refs_record (int bb_index, bool scan_insns)
   df_refs_add_to_chains (&collection_rec, bb, NULL);
 
   /* Now that the block has been processed, set the block as dirty so
-     lr and ur will get it processed.  */
+     LR and LIVE will get it processed.  */
   df_set_bb_dirty (bb);
 }
 
@@ -3426,7 +3437,7 @@ df_get_eh_block_artificial_uses (bitmap eh_block_artificial_uses)
 {
   bitmap_clear (eh_block_artificial_uses);
 
-  /* The following code (down thru the arg_pointer seting APPEARS
+  /* The following code (down thru the arg_pointer setting APPEARS
      to be necessary because there is nothing that actually
      describes what the exception handling code may actually need
      to keep alive.  */
@@ -3474,8 +3485,6 @@ df_mark_reg (rtx reg, void *vset)
 }
 
 
-
-
 /* Set the bit for regs that are considered being defined at the entry. */
 
 static void
@@ -3521,11 +3530,11 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
       bitmap_set_bit (entry_block_defs, STATIC_CHAIN_REGNUM);
 #endif
 #endif
-      
-      r = targetm.calls.struct_value_rtx (current_function_decl, true);
-      if (r && REG_P (r))
-	bitmap_set_bit (entry_block_defs, REGNO (r));
     }
+
+  r = targetm.calls.struct_value_rtx (current_function_decl, true);
+  if (r && REG_P (r))
+    bitmap_set_bit (entry_block_defs, REGNO (r));
 
   if ((!reload_completed) || frame_pointer_needed)
     {
@@ -3629,7 +3638,7 @@ df_record_entry_block_defs (bitmap entry_block_defs)
 }
 
 
-/* Update the defs in the entry bolck.  */
+/* Update the defs in the entry block.  */
 
 void
 df_update_entry_block_defs (void)
@@ -3773,7 +3782,7 @@ df_exit_block_uses_collect (struct df_collection_rec *collection_rec, bitmap exi
      I do not know why.  */
   if (reload_completed 
       && !bitmap_bit_p (exit_block_uses, ARG_POINTER_REGNUM)
-      && df_has_eh_preds (EXIT_BLOCK_PTR)
+      && bb_has_eh_pred (EXIT_BLOCK_PTR)
       && fixed_regs[ARG_POINTER_REGNUM])
     df_ref_record (collection_rec, regno_reg_rtx[ARG_POINTER_REGNUM], NULL,
 		   EXIT_BLOCK_PTR, NULL, DF_REF_REG_USE, 0);
@@ -4261,12 +4270,6 @@ df_scan_verify (void)
   bitmap eh_block_artificial_uses;
 
   if (!df)
-    return;
-
-  /* This is a hack, but a necessary one.  If you do not do this,
-     insn_attrtab can never be compiled in a bootstrap.  This
-     verification is just too expensive.  */
-  if (n_basic_blocks > 250)
     return;
 
   /* Verification is a 4 step process. */

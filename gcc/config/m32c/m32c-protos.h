@@ -1,5 +1,5 @@
 /* Target Prototypes for R8C/M16C/M32C
-   Copyright (C) 2005
+   Copyright (C) 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Red Hat.
 
@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #define MM enum machine_mode
 #define UINT unsigned int
@@ -51,7 +50,7 @@ void m32c_unpend_compare (void);
 #if defined(RTX_CODE) && defined(TREE_CODE)
 
 rtx  m32c_function_arg (CUMULATIVE_ARGS *, MM, tree, int);
-rtx  m32c_function_value (tree, tree);
+rtx  m32c_function_value (const_tree, const_tree);
 
 #endif
 
@@ -111,7 +110,7 @@ int  m32c_split_psi_p (rtx *);
 void m32c_function_arg_advance (CUMULATIVE_ARGS *, MM, tree, int);
 tree m32c_gimplify_va_arg_expr (tree, tree, tree *, tree *);
 void m32c_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree, int);
-bool m32c_promote_function_return (tree);
+bool m32c_promote_function_return (const_tree);
 int  m32c_special_page_vector_p (tree);
 
 #endif

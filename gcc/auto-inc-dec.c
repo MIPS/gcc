@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -551,7 +550,10 @@ attempt_change (rtx new_addr, rtx inc_reg)
   switch (inc_insn.form)
     {
     case FORM_PRE_ADD:
-      mov_insn = insert_move_insn_before (mem_insn.insn, 
+      /* Replace the addition with a move.  Do it at the location of
+	 the addition since the operand of the addition may change
+	 before the memory reference.  */
+      mov_insn = insert_move_insn_before (inc_insn.insn, 
 					  inc_insn.reg_res, inc_insn.reg0);
       move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
@@ -674,7 +676,7 @@ try_merge (void)
     }
 
   /* Look to see if the inc register is dead after the memory
-     reference.  If it is do not do the combination.  */
+     reference.  If it is, do not do the combination.  */
   if (find_regno_note (last_insn, REG_DEAD, REGNO (inc_reg)))
     {
       if (dump_file)
@@ -1276,7 +1278,7 @@ find_inc (bool first_try)
 	 next add or inc, not the next insn that used the
 	 reg.  Because we are going to increment the reg
 	 in this form, we need to make sure that there
-	 were no interveining uses of reg.  */
+	 were no intervening uses of reg.  */
       if (inc_insn.insn != other_insn)
 	return false;
     }

@@ -5,7 +5,7 @@
 ;;
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@
 ;; License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 
 ;; The letters I, J, K, L, M, N, O, P in a register constraint string
@@ -40,6 +39,7 @@
 ;; S is for stores with pre {inc,dec}rement
 ;; T is for indirect of a pointer.
 ;; U is for loads with post increment.
+;; W is used for an immediate value of 0.
 ;;
 ;; Register constraints
 
@@ -104,13 +104,13 @@
 
 ;; Extra constraints
 (define_constraint "Q"
-  "A symbolic addresse loadable when ld24."
+  "A symbolic address loadable when ld24."
   (ior (and (match_test "TARGET_ADDR24")
 	    (match_test "GET_CODE (op) == LABEL_REF"))
        (match_test "addr24_operand (op, VOIDmode)")))
 
 (define_constraint "R"
-  "A symbolic addresse loadable with ld24 can't be used."
+  "A symbolic address loadable with ld24 can't be used."
   (ior (and (match_test "TARGET_ADDR32")
 	    (match_test "GET_CODE (op) == LABEL_REF"))
        (match_test "addr32_operand (op, VOIDmode)")))
@@ -129,3 +129,9 @@
   "A load with post increment."
   (and (match_code "mem")
        (match_test "LOAD_POSTINC_P (GET_MODE (op), XEXP (op, 0))")))
+
+(define_constraint "W"
+  "zero immediate."
+  (and (match_code "const_int")
+       (match_test "ival == 0")))
+

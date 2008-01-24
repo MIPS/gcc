@@ -1,12 +1,12 @@
 /* __builtin_object_size (ptr, object_size_type) computation
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -42,10 +41,10 @@ struct object_size_info
 
 static unsigned HOST_WIDE_INT unknown[4] = { -1, -1, 0, 0 };
 
-static tree compute_object_offset (tree, tree);
-static unsigned HOST_WIDE_INT addr_object_size (tree, int);
-static unsigned HOST_WIDE_INT alloc_object_size (tree, int);
-static tree pass_through_call (tree);
+static tree compute_object_offset (const_tree, const_tree);
+static unsigned HOST_WIDE_INT addr_object_size (const_tree, int);
+static unsigned HOST_WIDE_INT alloc_object_size (const_tree, int);
+static tree pass_through_call (const_tree);
 static void collect_object_sizes_for (struct object_size_info *, tree);
 static void expr_object_size (struct object_size_info *, tree, tree);
 static bool merge_object_sizes (struct object_size_info *, tree, tree,
@@ -89,7 +88,7 @@ init_offset_limit (void)
    if unknown.  */
 
 static tree
-compute_object_offset (tree expr, tree var)
+compute_object_offset (const_tree expr, const_tree var)
 {
   enum tree_code code = PLUS_EXPR;
   tree base, off, t;
@@ -153,7 +152,7 @@ compute_object_offset (tree expr, tree var)
    If unknown, return unknown[object_size_type].  */
 
 static unsigned HOST_WIDE_INT
-addr_object_size (tree ptr, int object_size_type)
+addr_object_size (const_tree ptr, int object_size_type)
 {
   tree pt_var;
 
@@ -227,7 +226,7 @@ addr_object_size (tree ptr, int object_size_type)
    unknown[object_size_type].  */
 
 static unsigned HOST_WIDE_INT
-alloc_object_size (tree call, int object_size_type)
+alloc_object_size (const_tree call, int object_size_type)
 {
   tree callee, bytes = NULL_TREE;
   tree alloc_size;
@@ -288,7 +287,7 @@ alloc_object_size (tree call, int object_size_type)
    Otherwise return NULL.  */
 
 static tree
-pass_through_call (tree call)
+pass_through_call (const_tree call)
 {
   tree callee = get_callee_fndecl (call);
 

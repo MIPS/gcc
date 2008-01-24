@@ -1,12 +1,12 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -310,10 +309,10 @@ redirect_edge_and_branch (edge e, basic_block dest)
 
   ret = cfg_hooks->redirect_edge_and_branch (e, dest);
 
-  /* If RET != E, then the edge E was removed since RET already lead to the
-     same destination.  */
-  if (ret != NULL && current_loops != NULL)
-    rescan_loop_exit (e, false, ret != e);
+  /* If RET != E, then either the redirection failed, or the edge E
+     was removed since RET already lead to the same destination.  */
+  if (current_loops != NULL && ret == e)
+    rescan_loop_exit (e, false, false);
 
   return ret;
 }
@@ -322,7 +321,7 @@ redirect_edge_and_branch (edge e, basic_block dest)
    to the destination of the other edge going from its source.  */
 
 bool
-can_remove_branch_p (edge e)
+can_remove_branch_p (const_edge e)
 {
   if (!cfg_hooks->can_remove_branch_p)
     internal_error ("%s does not support can_remove_branch_p",
@@ -350,14 +349,22 @@ remove_branch (edge e)
   other = EDGE_SUCC (src, EDGE_SUCC (src, 0) == e);
   irr = other->flags & EDGE_IRREDUCIBLE_LOOP;
 
-  if (current_loops != NULL)
-    rescan_loop_exit (e, false, true);
-
   e = redirect_edge_and_branch (e, other->dest);
   gcc_assert (e != NULL);
 
   e->flags &= ~EDGE_IRREDUCIBLE_LOOP;
   e->flags |= irr;
+}
+
+/* Removes edge E from cfg.  Unlike remove_branch, it does not update IL.  */
+
+void
+remove_edge (edge e)
+{
+  if (current_loops != NULL)
+    rescan_loop_exit (e, false, true);
+
+  remove_edge_raw (e);
 }
 
 /* Redirect the edge E to basic block DEST even if it requires creating
@@ -424,7 +431,11 @@ split_block (basic_block bb, void *i)
     }
 
   if (current_loops != NULL)
-    add_bb_to_loop (new_bb, bb->loop_father);
+    {
+      add_bb_to_loop (new_bb, bb->loop_father);
+      if (bb->loop_father->latch == bb)
+	bb->loop_father->latch = new_bb;
+    }
 
   return make_single_succ_edge (bb, new_bb, EDGE_FALLTHRU);
 }
@@ -627,7 +638,7 @@ predict_edge (edge e, enum br_predictor predictor, int probability)
 }
 
 bool
-predicted_by_p (basic_block bb, enum br_predictor predictor)
+predicted_by_p (const_basic_block bb, enum br_predictor predictor)
 {
   if (!cfg_hooks->predict_edge)
     internal_error ("%s does not support predicted_by_p", cfg_hooks->name);
@@ -657,11 +668,7 @@ merge_blocks (basic_block a, basic_block b)
      whole lot of them and hope the caller knows what they're doing.  */
 
   while (EDGE_COUNT (a->succs) != 0)
-    {
-      if (current_loops != NULL)
-	rescan_loop_exit (EDGE_SUCC (a, 0), false, true);
-      remove_edge (EDGE_SUCC (a, 0));
-    }
+    remove_edge (EDGE_SUCC (a, 0));
 
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_EDGE (e, ei, b->succs)
@@ -832,21 +839,13 @@ tidy_fallthru_edges (void)
 /* Returns true if we can duplicate basic block BB.  */
 
 bool
-can_duplicate_block_p (basic_block bb)
+can_duplicate_block_p (const_basic_block bb)
 {
-  edge e;
-
   if (!cfg_hooks->can_duplicate_block_p)
     internal_error ("%s does not support can_duplicate_block_p",
 		    cfg_hooks->name);
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR)
-    return false;
-
-  /* Duplicating fallthru block to exit would require adding a jump
-     and splitting the real last BB.  */
-  e = find_edge (bb, EXIT_BLOCK_PTR);
-  if (e && (e->flags & EDGE_FALLTHRU))
     return false;
 
   return cfg_hooks->can_duplicate_block_p (bb);
@@ -950,7 +949,7 @@ block_ends_with_call_p (basic_block bb)
 /* Return 1 if BB ends with a conditional branch, 0 otherwise.  */
 
 bool
-block_ends_with_condjump_p (basic_block bb)
+block_ends_with_condjump_p (const_basic_block bb)
 {
   if (!cfg_hooks->block_ends_with_condjump_p)
     internal_error ("%s does not support block_ends_with_condjump_p",

@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -70,15 +69,15 @@ static void set_block_abstract_flags (tree, int);
 /* Return false if the function FNDECL cannot be inlined on account of its
    attributes, true otherwise.  */
 bool
-function_attribute_inlinable_p (tree fndecl)
+function_attribute_inlinable_p (const_tree fndecl)
 {
   if (targetm.attribute_table)
     {
-      tree a;
+      const_tree a;
 
       for (a = DECL_ATTRIBUTES (fndecl); a; a = TREE_CHAIN (a))
 	{
-	  tree name = TREE_PURPOSE (a);
+	  const_tree name = TREE_PURPOSE (a);
 	  int i;
 
 	  for (i = 0; targetm.attribute_table[i].name != NULL; i++)

@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* dependency.c -- Expression dependency analysis code.  */
 /* There's probably quite a bit of duplication in this file.  We currently
@@ -658,8 +657,7 @@ gfc_check_dependency (gfc_expr *expr1, gfc_expr *expr2, bool identical)
 
       /* Identical and disjoint ranges return 0,
 	 overlapping ranges return 1.  */
-      /* Return zero if we refer to the same full arrays.  */
-      if (expr1->ref->type == REF_ARRAY && expr2->ref->type == REF_ARRAY)
+      if (expr1->ref && expr2->ref)
 	return gfc_dep_resolver (expr1->ref, expr2->ref);
 
       return 1;
@@ -1198,8 +1196,9 @@ gfc_dep_resolver (gfc_ref *lref, gfc_ref *rref)
 	  break;
 	  
 	case REF_SUBSTRING:
-	  /* Substring overlaps are handled by the string assignment code.  */
-	  return 0;
+	  /* Substring overlaps are handled by the string assignment code
+	     if there is not an underlying dependency.  */
+	  return (fin_dep == GFC_DEP_OVERLAP) ? 1 : 0;
 	
 	case REF_ARRAY:
 	  if (lref->u.ar.dimen != rref->u.ar.dimen)

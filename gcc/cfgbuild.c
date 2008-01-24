@@ -1,12 +1,12 @@
 /* Control flow graph building code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* find_basic_blocks divides the current function's rtl into basic
    blocks and constructs the CFG.  The blocks are recorded in the
@@ -46,7 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "timevar.h"
 
-static int count_basic_blocks (rtx);
+static int count_basic_blocks (const_rtx);
 static void find_basic_blocks_1 (rtx);
 static void make_edges (basic_block, basic_block, int);
 static void make_label_edge (sbitmap, basic_block, rtx, int);
@@ -57,7 +56,7 @@ static void compute_outgoing_frequencies (basic_block);
    block.  */
 
 bool
-inside_basic_block_p (rtx insn)
+inside_basic_block_p (const_rtx insn)
 {
   switch (GET_CODE (insn))
     {
@@ -89,7 +88,7 @@ inside_basic_block_p (rtx insn)
    the basic block.  */
 
 bool
-control_flow_insn_p (rtx insn)
+control_flow_insn_p (const_rtx insn)
 {
   rtx note;
 
@@ -141,11 +140,11 @@ control_flow_insn_p (rtx insn)
 /* Count the basic blocks of the function.  */
 
 static int
-count_basic_blocks (rtx f)
+count_basic_blocks (const_rtx f)
 {
   int count = NUM_FIXED_BLOCKS;
   bool saw_insn = false;
-  rtx insn;
+  const_rtx insn;
 
   for (insn = f; insn; insn = NEXT_INSN (insn))
     {

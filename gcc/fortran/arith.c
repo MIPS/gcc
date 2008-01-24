@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Since target arithmetic must be done on the host, there has to
    be some way of evaluating arithmetic expressions as the host
@@ -227,8 +226,7 @@ gfc_arith_init_1 (void)
       mpfr_neg (b, b, GFC_RND_MODE);
 
       /* a = min(a, b)  */
-      if (mpfr_cmp (a, b) > 0)
-	mpfr_set (a, b, GFC_RND_MODE);
+      mpfr_min (a, a, b, GFC_RND_MODE);
 
       mpfr_trunc (a, a);
       gfc_mpfr_to_mpz (r, a);
@@ -349,14 +347,27 @@ gfc_check_real_range (mpfr_t p, int kind)
   else if (mpfr_cmp (q, gfc_real_kinds[i].huge) > 0)
     {
       if (gfc_option.flag_range_check == 0)
-	retval = ARITH_OK;
+	{
+	  mpfr_set_inf (p, mpfr_sgn (p));
+	  retval = ARITH_OK;
+	}
       else
 	retval = ARITH_OVERFLOW;
     }
   else if (mpfr_cmp (q, gfc_real_kinds[i].subnormal) < 0)
     {
       if (gfc_option.flag_range_check == 0)
-	retval = ARITH_OK;
+	{
+	  if (mpfr_sgn (p) < 0)
+	    {
+	      mpfr_set_ui (p, 0, GFC_RND_MODE);
+	      mpfr_set_si (q, -1, GFC_RND_MODE);
+	      mpfr_copysign (p, p, q, GFC_RND_MODE);
+	    }
+	  else
+	    mpfr_set_ui (p, 0, GFC_RND_MODE);
+	  retval = ARITH_OK;
+	}
       else
 	retval = ARITH_UNDERFLOW;
     }
@@ -521,6 +532,7 @@ arith
 gfc_range_check (gfc_expr *e)
 {
   arith rc;
+  arith rc2;
 
   switch (e->ts.type)
     {
@@ -547,13 +559,16 @@ gfc_range_check (gfc_expr *e)
       if (rc == ARITH_NAN)
 	mpfr_set_nan (e->value.complex.r);
 
-      rc = gfc_check_real_range (e->value.complex.i, e->ts.kind);
+      rc2 = gfc_check_real_range (e->value.complex.i, e->ts.kind);
       if (rc == ARITH_UNDERFLOW)
 	mpfr_set_ui (e->value.complex.i, 0, GFC_RND_MODE);
       if (rc == ARITH_OVERFLOW)
 	mpfr_set_inf (e->value.complex.i, mpfr_sgn (e->value.complex.i));
       if (rc == ARITH_NAN)
 	mpfr_set_nan (e->value.complex.i);
+
+      if (rc == ARITH_OK)
+	rc = rc2;
       break;
 
     default:
@@ -1103,12 +1118,43 @@ gfc_arith_concat (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
   return ARITH_OK;
 }
 
+/* Comparison between real values; returns 0 if (op1 .op. op2) is true.
+   This function mimics mpr_cmp but takes NaN into account.  */
+
+static int
+compare_real (gfc_expr *op1, gfc_expr *op2, gfc_intrinsic_op op)
+{
+  int rc;
+  switch (op)
+    {
+      case INTRINSIC_EQ:
+	rc = mpfr_equal_p (op1->value.real, op2->value.real) ? 0 : 1;
+	break;
+      case INTRINSIC_GT:
+	rc = mpfr_greater_p (op1->value.real, op2->value.real) ? 1 : -1;
+	break;
+      case INTRINSIC_GE:
+	rc = mpfr_greaterequal_p (op1->value.real, op2->value.real) ? 1 : -1;
+	break;
+      case INTRINSIC_LT:
+	rc = mpfr_less_p (op1->value.real, op2->value.real) ? -1 : 1;
+	break;
+      case INTRINSIC_LE:
+	rc = mpfr_lessequal_p (op1->value.real, op2->value.real) ? -1 : 1;
+	break;
+      default:
+	gfc_internal_error ("compare_real(): Bad operator");
+    }
+
+  return rc;
+}
 
 /* Comparison operators.  Assumes that the two expression nodes
-   contain two constants of the same type.  */
+   contain two constants of the same type. The op argument is
+   needed to handle NaN correctly.  */
 
 int
-gfc_compare_expr (gfc_expr *op1, gfc_expr *op2)
+gfc_compare_expr (gfc_expr *op1, gfc_expr *op2, gfc_intrinsic_op op)
 {
   int rc;
 
@@ -1119,7 +1165,7 @@ gfc_compare_expr (gfc_expr *op1, gfc_expr *op2)
       break;
 
     case BT_REAL:
-      rc = mpfr_cmp (op1->value.real, op2->value.real);
+      rc = compare_real (op1, op2, op);
       break;
 
     case BT_CHARACTER:
@@ -1145,8 +1191,8 @@ gfc_compare_expr (gfc_expr *op1, gfc_expr *op2)
 static int
 compare_complex (gfc_expr *op1, gfc_expr *op2)
 {
-  return (mpfr_cmp (op1->value.complex.r, op2->value.complex.r) == 0
-	  && mpfr_cmp (op1->value.complex.i, op2->value.complex.i) == 0);
+  return (mpfr_equal_p (op1->value.complex.r, op2->value.complex.r)
+	  && mpfr_equal_p (op1->value.complex.i, op2->value.complex.i));
 }
 
 
@@ -1194,7 +1240,7 @@ gfc_arith_eq (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 				&op1->where);
   result->value.logical = (op1->ts.type == BT_COMPLEX)
 			? compare_complex (op1, op2)
-			: (gfc_compare_expr (op1, op2) == 0);
+			: (gfc_compare_expr (op1, op2, INTRINSIC_EQ) == 0);
 
   *resultp = result;
   return ARITH_OK;
@@ -1210,7 +1256,7 @@ gfc_arith_ne (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 				&op1->where);
   result->value.logical = (op1->ts.type == BT_COMPLEX)
 			? !compare_complex (op1, op2)
-			: (gfc_compare_expr (op1, op2) != 0);
+			: (gfc_compare_expr (op1, op2, INTRINSIC_EQ) != 0);
 
   *resultp = result;
   return ARITH_OK;
@@ -1224,7 +1270,7 @@ gfc_arith_gt (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 
   result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
-  result->value.logical = (gfc_compare_expr (op1, op2) > 0);
+  result->value.logical = (gfc_compare_expr (op1, op2, INTRINSIC_GT) > 0);
   *resultp = result;
 
   return ARITH_OK;
@@ -1238,7 +1284,7 @@ gfc_arith_ge (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 
   result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
-  result->value.logical = (gfc_compare_expr (op1, op2) >= 0);
+  result->value.logical = (gfc_compare_expr (op1, op2, INTRINSIC_GE) >= 0);
   *resultp = result;
 
   return ARITH_OK;
@@ -1252,7 +1298,7 @@ gfc_arith_lt (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 
   result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
-  result->value.logical = (gfc_compare_expr (op1, op2) < 0);
+  result->value.logical = (gfc_compare_expr (op1, op2, INTRINSIC_LT) < 0);
   *resultp = result;
 
   return ARITH_OK;
@@ -1266,7 +1312,7 @@ gfc_arith_le (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 
   result = gfc_constant_result (BT_LOGICAL, gfc_default_logical_kind,
 				&op1->where);
-  result->value.logical = (gfc_compare_expr (op1, op2) <= 0);
+  result->value.logical = (gfc_compare_expr (op1, op2, INTRINSIC_LE) <= 0);
   *resultp = result;
 
   return ARITH_OK;
@@ -1289,7 +1335,8 @@ reduce_unary (arith (*eval) (gfc_expr *, gfc_expr **), gfc_expr *op,
 
   for (c = head; c; c = c->next)
     {
-      rc = eval (c->expr, &r);
+      rc = reduce_unary (eval, c->expr, &r);
+
       if (rc != ARITH_OK)
 	break;
 
@@ -1329,7 +1376,11 @@ reduce_binary_ac (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 
   for (c = head; c; c = c->next)
     {
-      rc = eval (c->expr, op2, &r);
+      if (c->expr->expr_type == EXPR_CONSTANT)
+        rc = eval (c->expr, op2, &r);
+      else
+	rc = reduce_binary_ac (eval, c->expr, op2, &r);
+
       if (rc != ARITH_OK)
 	break;
 
@@ -1369,7 +1420,11 @@ reduce_binary_ca (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 
   for (c = head; c; c = c->next)
     {
-      rc = eval (op1, c->expr, &r);
+      if (c->expr->expr_type == EXPR_CONSTANT)
+	rc = eval (op1, c->expr, &r);
+      else
+	rc = reduce_binary_ca (eval, op1, c->expr, &r);
+
       if (rc != ARITH_OK)
 	break;
 
@@ -1396,6 +1451,11 @@ reduce_binary_ca (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 }
 
 
+/* We need a forward declaration of reduce_binary.  */
+static arith reduce_binary (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
+			    gfc_expr *op1, gfc_expr *op2, gfc_expr **result);
+
+
 static arith
 reduce_binary_aa (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 		  gfc_expr *op1, gfc_expr *op2, gfc_expr **result)
@@ -1409,7 +1469,7 @@ reduce_binary_aa (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
   rc = ARITH_OK;
   d = op2->value.constructor;
 
-  if (gfc_check_conformance ("Elemental binary operation", op1, op2)
+  if (gfc_check_conformance ("elemental binary operation", op1, op2)
       != SUCCESS)
     rc = ARITH_INCOMMENSURATE;
   else
@@ -1422,7 +1482,7 @@ reduce_binary_aa (arith (*eval) (gfc_expr *, gfc_expr *, gfc_expr **),
 	      break;
 	    }
 
-	  rc = eval (c->expr, d->expr, &r);
+	  rc = reduce_binary (eval, c->expr, d->expr, &r);
 	  if (rc != ARITH_OK)
 	    break;
 
@@ -1539,9 +1599,13 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
     /* Additional restrictions for ordering relations.  */
     case INTRINSIC_GE:
+    case INTRINSIC_GE_OS:
     case INTRINSIC_LT:
+    case INTRINSIC_LT_OS:
     case INTRINSIC_LE:
+    case INTRINSIC_LE_OS:
     case INTRINSIC_GT:
+    case INTRINSIC_GT_OS:
       if (op1->ts.type == BT_COMPLEX || op2->ts.type == BT_COMPLEX)
 	{
 	  temp.ts.type = BT_LOGICAL;
@@ -1551,7 +1615,9 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
     /* Fall through  */
     case INTRINSIC_EQ:
+    case INTRINSIC_EQ_OS:
     case INTRINSIC_NE:
+    case INTRINSIC_NE_OS:
       if (op1->ts.type == BT_CHARACTER && op2->ts.type == BT_CHARACTER)
 	{
 	  unary = 0;
@@ -1584,7 +1650,10 @@ eval_intrinsic (gfc_intrinsic_op operator,
 
       if (operator == INTRINSIC_EQ || operator == INTRINSIC_NE
 	  || operator == INTRINSIC_GE || operator == INTRINSIC_GT
-	  || operator == INTRINSIC_LE || operator == INTRINSIC_LT)
+	  || operator == INTRINSIC_LE || operator == INTRINSIC_LT
+	  || operator == INTRINSIC_EQ_OS || operator == INTRINSIC_NE_OS
+	  || operator == INTRINSIC_GE_OS || operator == INTRINSIC_GT_OS
+	  || operator == INTRINSIC_LE_OS || operator == INTRINSIC_LT_OS)
 	{
 	  temp.ts.type = BT_LOGICAL;
 	  temp.ts.kind = gfc_default_logical_kind;
@@ -1668,11 +1737,17 @@ eval_type_intrinsic0 (gfc_intrinsic_op operator, gfc_expr *op)
   switch (operator)
     {
     case INTRINSIC_GE:
+    case INTRINSIC_GE_OS:
     case INTRINSIC_LT:
+    case INTRINSIC_LT_OS:
     case INTRINSIC_LE:
+    case INTRINSIC_LE_OS:
     case INTRINSIC_GT:
+    case INTRINSIC_GT_OS:
     case INTRINSIC_EQ:
+    case INTRINSIC_EQ_OS:
     case INTRINSIC_NE:
+    case INTRINSIC_NE_OS:
       op->ts.type = BT_LOGICAL;
       op->ts.kind = gfc_default_logical_kind;
       break;
@@ -1765,6 +1840,9 @@ eval_intrinsic_f3 (gfc_intrinsic_op operator,
 gfc_expr *
 gfc_parentheses (gfc_expr *op)
 {
+  if (gfc_is_constant_expr (op))
+    return op;
+
   return eval_intrinsic_f2 (INTRINSIC_PARENTHESES, gfc_arith_identity,
 			    op, NULL);
 }
@@ -1861,44 +1939,44 @@ gfc_neqv (gfc_expr *op1, gfc_expr *op2)
 
 
 gfc_expr *
-gfc_eq (gfc_expr *op1, gfc_expr *op2)
+gfc_eq (gfc_expr *op1, gfc_expr *op2, gfc_intrinsic_op op)
 {
-  return eval_intrinsic_f3 (INTRINSIC_EQ, gfc_arith_eq, op1, op2);
+  return eval_intrinsic_f3 (op, gfc_arith_eq, op1, op2);
 }
 
 
 gfc_expr *
-gfc_ne (gfc_expr *op1, gfc_expr *op2)
+gfc_ne (gfc_expr *op1, gfc_expr *op2, gfc_intrinsic_op op)
 {
-  return eval_intrinsic_f3 (INTRINSIC_NE, gfc_arith_ne, op1, op2);
+  return eval_intrinsic_f3 (op, gfc_arith_ne, op1, op2);
 }
 
 
 gfc_expr *
-gfc_gt (gfc_expr *op1, gfc_expr *op2)
+gfc_gt (gfc_expr *op1, gfc_expr *op2, gfc_intrinsic_op op)
 {
-  return eval_intrinsic_f3 (INTRINSIC_GT, gfc_arith_gt, op1, op2);
+  return eval_intrinsic_f3 (op, gfc_arith_gt, op1, op2);
 }
 
 
 gfc_expr *
-gfc_ge (gfc_expr *op1, gfc_expr *op2)
+gfc_ge (gfc_expr *op1, gfc_expr *op2, gfc_intrinsic_op op)
 {
-  return eval_intrinsic_f3 (INTRINSIC_GE, gfc_arith_ge, op1, op2);
+  return eval_intrinsic_f3 (op, gfc_arith_ge, op1, op2);
 }
 
 
 gfc_expr *
-gfc_lt (gfc_expr *op1, gfc_expr *op2)
+gfc_lt (gfc_expr *op1, gfc_expr *op2, gfc_intrinsic_op op)
 {
-  return eval_intrinsic_f3 (INTRINSIC_LT, gfc_arith_lt, op1, op2);
+  return eval_intrinsic_f3 (op, gfc_arith_lt, op1, op2);
 }
 
 
 gfc_expr *
-gfc_le (gfc_expr *op1, gfc_expr *op2)
+gfc_le (gfc_expr *op1, gfc_expr *op2, gfc_intrinsic_op op)
 {
-  return eval_intrinsic_f3 (INTRINSIC_LE, gfc_arith_le, op1, op2);
+  return eval_intrinsic_f3 (op, gfc_arith_le, op1, op2);
 }
 
 
@@ -1967,7 +2045,8 @@ arith_error (arith rc, gfc_typespec *from, gfc_typespec *to, locus *where)
 		 gfc_typename (from), gfc_typename (to), where);
       break;
     case ARITH_OVERFLOW:
-      gfc_error ("Arithmetic overflow converting %s to %s at %L",
+      gfc_error ("Arithmetic overflow converting %s to %s at %L. This check "
+		 "can be disabled with the option -fno-range-check",
 		 gfc_typename (from), gfc_typename (to), where);
       break;
     case ARITH_UNDERFLOW:

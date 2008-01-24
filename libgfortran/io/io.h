@@ -31,9 +31,9 @@ Boston, MA 02110-1301, USA.  */
 
 /* IO library include.  */
 
-#include <setjmp.h>
 #include "libgfortran.h"
 
+#include <setjmp.h>
 #include <gthr.h>
 
 /* Basic types used in data transfers.  */
@@ -54,7 +54,7 @@ typedef struct stream
   try (*sfree) (struct stream *);
   try (*close) (struct stream *);
   try (*seek) (struct stream *, gfc_offset);
-  try (*truncate) (struct stream *);
+  try (*trunc) (struct stream *);
   int (*read) (struct stream *, void *, size_t *);
   int (*write) (struct stream *, const void *, size_t *);
   try (*set) (struct stream *, int, size_t);
@@ -74,7 +74,7 @@ stream;
 #define salloc_w_at(s, len, where) ((s)->alloc_w_at)(s, len, where)
 
 #define sseek(s, pos) ((s)->seek)(s, pos)
-#define struncate(s) ((s)->truncate)(s)
+#define struncate(s) ((s)->trunc)(s)
 #define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
 
@@ -451,7 +451,8 @@ typedef struct gfc_unit
   struct gfc_unit *left, *right;
   int priority;
 
-  int read_bad, current_record, saved_pos;
+  int read_bad, current_record, saved_pos, previous_nonadvancing_write;
+
   enum
   { NO_ENDFILE, AT_ENDFILE, AFTER_ENDFILE }
   endfile;
@@ -568,7 +569,7 @@ internal_proto(compare_files);
 extern stream *open_external (st_parameter_open *, unit_flags *);
 internal_proto(open_external);
 
-extern stream *open_internal (char *, int);
+extern stream *open_internal (char *, int, gfc_offset);
 internal_proto(open_internal);
 
 extern stream *input_stream (void);
@@ -692,6 +693,9 @@ internal_proto(unlock_unit);
 extern void update_position (gfc_unit *);
 internal_proto(update_position);
 
+extern void finish_last_advance_record (gfc_unit *u);
+internal_proto (finish_last_advance_record);
+
 /* open.c */
 
 extern gfc_unit *new_unit (st_parameter_open *, gfc_unit *, unit_flags *);
@@ -730,10 +734,12 @@ internal_proto(read_sf);
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);
 
-extern gfc_offset next_array_record (st_parameter_dt *, array_loop_spec *);
+extern gfc_offset next_array_record (st_parameter_dt *, array_loop_spec *,
+				     int*);
 internal_proto(next_array_record);
 
-extern gfc_offset init_loop_spec (gfc_array_char *, array_loop_spec *);
+extern gfc_offset init_loop_spec (gfc_array_char *, array_loop_spec *,
+				  gfc_offset *);
 internal_proto(init_loop_spec);
 
 extern void next_record (st_parameter_dt *, int);

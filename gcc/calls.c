@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -144,7 +143,7 @@ static void load_register_parameters (struct arg_data *, int, rtx *, int,
 				      int, int *);
 static rtx emit_library_call_value_1 (int, rtx, rtx, enum libcall_type,
 				      enum machine_mode, int, va_list);
-static int special_function_p (tree, int);
+static int special_function_p (const_tree, int);
 static int check_sibcall_argument_overlap_1 (rtx);
 static int check_sibcall_argument_overlap (rtx, struct arg_data *, int);
 
@@ -470,7 +469,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
    space from the stack such as alloca.  */
 
 static int
-special_function_p (tree fndecl, int flags)
+special_function_p (const_tree fndecl, int flags)
 {
   if (fndecl && DECL_NAME (fndecl)
       && IDENTIFIER_LENGTH (DECL_NAME (fndecl)) <= 17
@@ -544,14 +543,14 @@ special_function_p (tree fndecl, int flags)
 /* Return nonzero when FNDECL represents a call to setjmp.  */
 
 int
-setjmp_call_p (tree fndecl)
+setjmp_call_p (const_tree fndecl)
 {
   return special_function_p (fndecl, 0) & ECF_RETURNS_TWICE;
 }
 
 /* Return true when exp contains alloca call.  */
 bool
-alloca_call_p (tree exp)
+alloca_call_p (const_tree exp)
 {
   if (TREE_CODE (exp) == CALL_EXPR
       && TREE_CODE (CALL_EXPR_FN (exp)) == ADDR_EXPR
@@ -565,10 +564,10 @@ alloca_call_p (tree exp)
 /* Detect flags (function attributes) from the function decl or type node.  */
 
 int
-flags_from_decl_or_type (tree exp)
+flags_from_decl_or_type (const_tree exp)
 {
   int flags = 0;
-  tree type = exp;
+  const_tree type = exp;
 
   if (DECL_P (exp))
     {
@@ -617,7 +616,7 @@ flags_from_decl_or_type (tree exp)
 /* Detect flags from a CALL_EXPR.  */
 
 int
-call_expr_flags (tree t)
+call_expr_flags (const_tree t)
 {
   int flags;
   tree decl = get_callee_fndecl (t);
@@ -1857,6 +1856,31 @@ shift_return_value (enum machine_mode mode, bool left_p, rtx value)
   return true;
 }
 
+/* If X is a likely-spilled register value, copy it to a pseudo
+   register and return that register.  Return X otherwise.  */
+
+static rtx
+avoid_likely_spilled_reg (rtx x)
+{
+  rtx new;
+
+  if (REG_P (x)
+      && HARD_REGISTER_P (x)
+      && CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (REGNO (x))))
+    {
+      /* Make sure that we generate a REG rather than a CONCAT.
+	 Moves into CONCATs can need nontrivial instructions,
+	 and the whole point of this function is to avoid
+	 using the hard register directly in such a situation.  */
+      generating_concat_p = 0;
+      new = gen_reg_rtx (GET_MODE (x));
+      generating_concat_p = 1;
+      emit_move_insn (new, x);
+      return new;
+    }
+  return x;
+}
+
 /* Generate all the code for a CALL_EXPR exp
    and return an rtx for its value.
    Store the value in TARGET (specified as an rtx) if convenient.
@@ -2954,11 +2978,8 @@ expand_call (tree exp, rtx target, int ignore)
 
 	  /* We have to copy a return value in a CLASS_LIKELY_SPILLED hard
 	     reg to a plain register.  */
-	  if (REG_P (valreg)
-	      && HARD_REGISTER_P (valreg)
-	      && CLASS_LIKELY_SPILLED_P (REGNO_REG_CLASS (REGNO (valreg)))
-	      && !(REG_P (target) && !HARD_REGISTER_P (target)))
-	    valreg = copy_to_reg (valreg);
+	  if (!REG_P (target) || HARD_REGISTER_P (target))
+	    valreg = avoid_likely_spilled_reg (valreg);
 
 	  /* If TARGET is a MEM in the argument area, and we have
 	     saved part of the argument area, then we can't store
@@ -3003,7 +3024,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  sibcall_failure = 1;
 	}
       else
-	target = copy_to_reg (valreg);
+	target = copy_to_reg (avoid_likely_spilled_reg (valreg));
 
       if (targetm.calls.promote_function_return(funtype))
 	{
@@ -4326,6 +4347,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
 	      /* expand_call should ensure this.  */
 	      gcc_assert (!arg->locate.offset.var
+			  && arg->locate.size.var == 0
 			  && GET_CODE (size_rtx) == CONST_INT);
 
 	      if (arg->locate.offset.constant > i)
@@ -4335,7 +4357,21 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		}
 	      else if (arg->locate.offset.constant < i)
 		{
-		  if (i < arg->locate.offset.constant + INTVAL (size_rtx))
+		  /* Use arg->locate.size.constant instead of size_rtx
+		     because we only care about the part of the argument
+		     on the stack.  */
+		  if (i < (arg->locate.offset.constant
+			   + arg->locate.size.constant))
+		    sibcall_failure = 1;
+		}
+	      else
+		{
+		  /* Even though they appear to be at the same location,
+		     if part of the outgoing argument is in registers,
+		     they aren't really at the same location.  Check for
+		     this by making sure that the incoming size is the
+		     same as the outgoing size.  */
+		  if (arg->locate.size.constant != INTVAL (size_rtx))
 		    sibcall_failure = 1;
 		}
 	    }
@@ -4390,7 +4426,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
 bool
 must_pass_in_stack_var_size (enum machine_mode mode ATTRIBUTE_UNUSED,
-			     tree type)
+			     const_tree type)
 {
   if (!type)
     return false;
@@ -4412,7 +4448,7 @@ must_pass_in_stack_var_size (enum machine_mode mode ATTRIBUTE_UNUSED,
 /* ??? Should be able to merge these two by examining BLOCK_REG_PADDING.  */
 
 bool
-must_pass_in_stack_var_size_or_pad (enum machine_mode mode, tree type)
+must_pass_in_stack_var_size_or_pad (enum machine_mode mode, const_tree type)
 {
   if (!type)
     return false;

@@ -6108,7 +6108,7 @@ lt_cv_deplibs_check_method='unknown'
 # whether `pass_all' will *always* work, you probably want this one.
 
 case $host_os in
-aix4* | aix5*)
+aix[4-9]*)
   lt_cv_deplibs_check_method=pass_all
   ;;
 
@@ -8153,7 +8153,7 @@ echo $ECHO_N "checking whether the $compiler linker ($LD) supports shared librar
 
     # See if GNU ld supports shared libraries.
     case $host_os in
-    aix3* | aix4* | aix5*)
+    aix[3-9]*)
       # On AIX/PPC, the GNU linker is very broken
       if test "$host_cpu" != ia64; then
 	ld_shlibs=no
@@ -8387,7 +8387,7 @@ _LT_EOF
       fi
       ;;
 
-    aix4* | aix5*)
+    aix[4-9]*)
       if test "$host_cpu" = ia64; then
 	# On IA64, the linker does run time linking by default, so we don't
 	# have to do anything special.
@@ -8407,7 +8407,7 @@ _LT_EOF
 	# Test if we are trying to use run time linking or normal
 	# AIX style linking. If -brtl is somewhere in LDFLAGS, we
 	# need to do runtime linking.
-	case $host_os in aix4.[23]|aix4.[23].*|aix5*)
+	case $host_os in aix4.[23]|aix4.[23].*|aix[5-9]*)
 	  for ld_flag in $LDFLAGS; do
 	  if (test $ld_flag = "-brtl" || test $ld_flag = "-Wl,-brtl"); then
 	    aix_use_runtimelinking=yes
@@ -9467,7 +9467,7 @@ aix3*)
   soname_spec='${libname}${release}${shared_ext}$major'
   ;;
 
-aix4* | aix5*)
+aix[4-9]*)
   version_type=linux
   need_lib_prefix=no
   need_version=no
@@ -11085,7 +11085,7 @@ echo $ECHO_N "checking whether to build shared libraries... $ECHO_C" >&6
     fi
     ;;
 
-  aix4* | aix5*)
+  aix[4-9]*)
     if test "$host_cpu" != ia64 && test "$aix_use_runtimelinking" = no ; then
       test "$enable_shared" = yes && enable_static=no
     fi
@@ -12024,7 +12024,7 @@ fi;
 
   echo "$as_me:$LINENO: checking whether the target supports thread-local storage" >&5
 echo $ECHO_N "checking whether the target supports thread-local storage... $ECHO_C" >&6
-if test "${have_tls+set}" = set; then
+if test "${gcc_cv_have_tls+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
@@ -12054,12 +12054,12 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
@@ -12128,14 +12128,14 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: program exited with status $ac_status" >&5
 echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -12143,12 +12143,12 @@ else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_tls=yes
+gcc_cv_have_tls=yes
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
       LDFLAGS="$chktls_save_LDFLAGS"
-      if test $have_tls = yes; then
+      if test $gcc_cv_have_tls = yes; then
 						chktls_save_CFLAGS="$CFLAGS"
 	thread_CFLAGS=failed
 	for flag in '' '-pthread' '-lpthread'; do
@@ -12256,14 +12256,14 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_tls=yes
+  gcc_cv_have_tls=yes
 else
   echo "$as_me: program exited with status $ac_status" >&5
 echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -12276,14 +12276,14 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-have_tls=no
+gcc_cv_have_tls=no
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
 fi
-echo "$as_me:$LINENO: result: $have_tls" >&5
-echo "${ECHO_T}$have_tls" >&6
-  if test "$enable_tls $have_tls" = "yes yes"; then
+echo "$as_me:$LINENO: result: $gcc_cv_have_tls" >&5
+echo "${ECHO_T}$gcc_cv_have_tls" >&6
+  if test "$enable_tls $gcc_cv_have_tls" = "yes yes"; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_TLS 1

@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -184,7 +183,7 @@ create_alloc_pool (const char *name, size_t size, size_t num)
 
 /* Free all memory allocated for the given memory pool.  */
 void
-free_alloc_pool (alloc_pool pool)
+empty_alloc_pool (alloc_pool pool)
 {
   alloc_pool_list block, next_block;
 #ifdef GATHER_STATISTICS
@@ -202,6 +201,22 @@ free_alloc_pool (alloc_pool pool)
       desc->current -= pool->block_size;
 #endif
     }
+
+  pool->returned_free_list = NULL;
+  pool->virgin_free_list = NULL;
+  pool->virgin_elts_remaining = 0;
+  pool->elts_allocated = 0;
+  pool->elts_free = 0;
+  pool->blocks_allocated = 0;
+  pool->block_list = NULL;
+}
+
+/* Free all memory allocated for the given memory pool and the pool itself.  */
+void
+free_alloc_pool (alloc_pool pool)
+{
+  /* First empty the pool.  */
+  empty_alloc_pool (pool);
 #ifdef ENABLE_CHECKING
   memset (pool, 0xaf, sizeof (*pool));
 #endif

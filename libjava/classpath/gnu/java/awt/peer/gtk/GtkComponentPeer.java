@@ -76,7 +76,6 @@ import java.awt.image.VolatileImage;
 import java.awt.peer.ComponentPeer;
 import java.awt.peer.ContainerPeer;
 import java.awt.peer.LightweightPeer;
-import java.awt.peer.WindowPeer;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -251,10 +250,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   public Point getLocationOnScreen () 
   { 
     int point[] = new int[2];
-    if( this instanceof WindowPeer )
-      gtkWindowGetLocationOnScreen (point);
-    else
-      gtkWidgetGetLocationOnScreen (point);
+    gtkWidgetGetLocationOnScreen (point);
     return new Point (point[0], point[1]);
   }
 
@@ -616,11 +612,18 @@ public class GtkComponentPeer extends GtkGenericPeer
     setVisible (true);
   }
 
-  protected void postMouseEvent(int id, long when, int mods, int x, int y, 
+  protected void postMouseEvent(int id, long when, int mods, int x, int y,
                                 int clickCount, boolean popupTrigger) 
   {
-    q().postEvent(new MouseEvent(awtComponent, id, when, mods, x, y, 
-                                 clickCount, popupTrigger));
+    // It is important to do the getLocationOnScreen() here, instead
+    // of using the old MouseEvent constructors, because
+    // Component.getLocationOnScreen() locks on the AWT lock, which can
+    // trigger a deadlock. You don't want this.
+    Point locOnScreen = getLocationOnScreen();
+    q().postEvent(new MouseEvent(awtComponent, id, when, mods, x, y,
+                                 locOnScreen.x + x, locOnScreen.y + y,
+                                 clickCount, popupTrigger,
+                                 MouseEvent.NOBUTTON));
   }
 
   /**
@@ -899,4 +902,14 @@ public class GtkComponentPeer extends GtkGenericPeer
     // FIXME: implement
  
   }
+
+  public boolean requestFocus(Component lightweightChild, boolean temporary,
+                              boolean focusedWindowChangeAllowed,
+                              long time, sun.awt.CausedFocusEvent.Cause cause)
+  {
+    // TODO: Implement this properly and remove the other requestFocus()
+    // methods.
+    return true;
+  }
+
 }

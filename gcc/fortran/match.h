@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #ifndef GFC_MATCH_H
@@ -47,7 +46,6 @@ match gfc_match_st_label (gfc_st_label **);
 match gfc_match_label (void);
 match gfc_match_small_int (int *);
 match gfc_match_small_int_expr (int *, gfc_expr **);
-int gfc_match_strings (mstring *);
 match gfc_match_name (char *);
 match gfc_match_name_C (char *buffer);
 match gfc_match_symbol (gfc_symbol **, int);
@@ -56,6 +54,7 @@ match gfc_match_intrinsic_op (gfc_intrinsic_op *);
 match gfc_match_char (char);
 match gfc_match (const char *, ...);
 match gfc_match_iterator (gfc_iterator *, int);
+match gfc_match_parens (void);
 
 /* Statement matchers.  */
 match gfc_match_program (void);
@@ -129,12 +128,14 @@ match gfc_match_omp_end_single (void);
 
 match gfc_match_data (void);
 match gfc_match_null (gfc_expr **);
-match gfc_match_kind_spec (gfc_typespec *);
+match gfc_match_kind_spec (gfc_typespec *, bool);
 match gfc_match_old_kind_spec (gfc_typespec *);
+match gfc_match_type_spec (gfc_typespec *, int);
 
 match gfc_match_end (gfc_statement *);
 match gfc_match_data_decl (void);
 match gfc_match_formal_arglist (gfc_symbol *, int, int);
+match gfc_match_procedure (void);
 match gfc_match_function_decl (void);
 match gfc_match_entry (void);
 match gfc_match_subroutine (void);
@@ -175,7 +176,7 @@ try set_verify_bind_c_com_block (gfc_common_head *, int);
 try get_bind_c_idents (void);
 match gfc_match_bind_c_stmt (void);
 match gfc_match_suffix (gfc_symbol *, gfc_symbol **);
-match gfc_match_bind_c (gfc_symbol *);
+match gfc_match_bind_c (gfc_symbol *, bool);
 match gfc_get_type_attr_spec (symbol_attribute *);
 
 /* primary.c.  */
@@ -196,6 +197,7 @@ match gfc_match_array_ref (gfc_array_ref *, gfc_array_spec *, int);
 match gfc_match_array_constructor (gfc_expr **);
 
 /* interface.c.  */
+match gfc_match_abstract_interface (void);
 match gfc_match_generic_spec (interface_type *, char *, gfc_intrinsic_op *);
 match gfc_match_interface (void);
 match gfc_match_end_interface (void);

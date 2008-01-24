@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -94,7 +93,7 @@ static sbitmap *comp;
 static struct seginfo * new_seginfo (int, rtx, int, HARD_REG_SET);
 static void add_seginfo (struct bb_info *, struct seginfo *);
 static void reg_dies (rtx, HARD_REG_SET *);
-static void reg_becomes_live (rtx, rtx, void *);
+static void reg_becomes_live (rtx, const_rtx, void *);
 static void make_preds_opaque (basic_block, int);
 
 
@@ -177,7 +176,7 @@ reg_dies (rtx reg, HARD_REG_SET *live)
    This is called via note_stores.  */
 
 static void
-reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *live)
+reg_becomes_live (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *live)
 {
   int regno;
 
@@ -246,21 +245,48 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 
 		if (INSN_P (return_copy))
 		  {
-		    if (GET_CODE (PATTERN (return_copy)) == USE
-			&& GET_CODE (XEXP (PATTERN (return_copy), 0)) == REG
-			&& (FUNCTION_VALUE_REGNO_P
-			    (REGNO (XEXP (PATTERN (return_copy), 0)))))
+		    /* When using SJLJ exceptions, the call to the
+		       unregister function is inserted between the
+		       clobber of the return value and the copy.
+		       We do not want to split the block before this
+		       or any other call; if we have not found the
+		       copy yet, the copy must have been deleted.  */
+		    if (CALL_P (return_copy))
 		      {
-			maybe_builtin_apply = 1;
+			short_block = 1;
+			break;
+		      }
+		    return_copy_pat = PATTERN (return_copy);
+		    switch (GET_CODE (return_copy_pat))
+		      {
+		      case USE:
+			/* Skip __builtin_apply pattern.  */
+			if (GET_CODE (XEXP (return_copy_pat, 0)) == REG
+			    && (FUNCTION_VALUE_REGNO_P
+				(REGNO (XEXP (return_copy_pat, 0)))))
+			  {
+			    maybe_builtin_apply = 1;
+			    last_insn = return_copy;
+			    continue;
+			  }
+			break;
+
+		      case ASM_OPERANDS:
+			/* Skip barrier insns.  */
+			if (!MEM_VOLATILE_P (return_copy_pat))
+			  break;
+
+			/* Fall through.  */
+
+		      case ASM_INPUT:
+		      case UNSPEC_VOLATILE:
 			last_insn = return_copy;
 			continue;
+
+		      default:
+			break;
 		      }
-		    if (GET_CODE (PATTERN (return_copy)) == ASM_INPUT
-			&& strcmp (XSTR (PATTERN (return_copy), 0), "") == 0)
-		      {
-			last_insn = return_copy;
-			continue;
-		      }
+
 		    /* If the return register is not (in its entirety)
 		       likely spilled, the return copy might be
 		       partially or completely optimized away.  */
@@ -724,9 +750,7 @@ static unsigned int
 rest_of_handle_mode_switching (void)
 {
 #ifdef OPTIMIZE_MODE_SWITCHING
-  no_new_pseudos = 0;
   optimize_mode_switching ();
-  no_new_pseudos = 1;
 #endif /* OPTIMIZE_MODE_SWITCHING */
   return 0;
 }
@@ -745,7 +769,7 @@ struct tree_opt_pass pass_mode_switching =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };

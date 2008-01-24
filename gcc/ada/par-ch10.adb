@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -181,7 +180,7 @@ package body Ch10 is
          Item := P_Pragma;
 
          if Item = Error
-           or else Chars (Item) > Last_Configuration_Pragma_Name
+           or else not Is_Configuration_Pragma_Name (Chars (Item))
          then
             Restore_Scan_State (Scan_State);
             exit;
@@ -244,7 +243,9 @@ package body Ch10 is
       if Token = Tok_Private then
          Private_Sloc := Token_Ptr;
          Set_Keyword_Casing (Current_Source_File, Determine_Token_Casing);
-         if Style_Check then Style.Check_Indentation; end if;
+         if Style_Check then
+            Style.Check_Indentation;
+         end if;
 
          Save_Scan_State (Scan_State); -- at PRIVATE
          Scan; -- past PRIVATE
@@ -320,7 +321,9 @@ package body Ch10 is
       --  it hasn't already been done on seeing a WITH or PRIVATE.
 
       Set_Keyword_Casing (Current_Source_File, Determine_Token_Casing);
-      if Style_Check then Style.Check_Indentation; end if;
+      if Style_Check then
+         Style.Check_Indentation;
+      end if;
 
       --  Remaining processing depends on particular type of compilation unit
 
@@ -584,19 +587,17 @@ package body Ch10 is
       while Token = Tok_Pragma loop
          Save_Scan_State (Scan_State);
 
-         --  If we are in syntax scan mode allowing multiple units, then
-         --  start the next unit if we encounter a configuration pragma,
-         --  or a source reference pragma. We take care not to actually
-         --  scan the pragma in this case since we don't want it to take
-         --  effect for the current unit.
+         --  If we are in syntax scan mode allowing multiple units, then start
+         --  the next unit if we encounter a configuration pragma, or a source
+         --  reference pragma. We take care not to actually scan the pragma in
+         --  this case (we don't want it to take effect for the current unit).
 
          if Operating_Mode = Check_Syntax then
             Scan;  -- past Pragma
 
             if Token = Tok_Identifier
               and then
-                (Token_Name in
-                         First_Pragma_Name .. Last_Configuration_Pragma_Name
+                (Is_Configuration_Pragma_Name (Token_Name)
                    or else Token_Name = Name_Source_Reference)
             then
                Restore_Scan_State (Scan_State); -- to Pragma
@@ -807,7 +808,9 @@ package body Ch10 is
       --  Loop through context items
 
       loop
-         if Style_Check then Style.Check_Indentation; end if;
+         if Style_Check then
+            Style.Check_Indentation;
+         end if;
 
          --  Gather any pragmas appearing in the context clause
 
@@ -1017,9 +1020,9 @@ package body Ch10 is
       Body_Node := Error; -- in case no good body found
       Scan; -- past SEPARATE;
 
-      T_Left_Paren;
+      U_Left_Paren;
       Set_Name (Subunit_Node, P_Qualified_Simple_Name);
-      T_Right_Paren;
+      U_Right_Paren;
 
       if Token = Tok_Semicolon then
          Error_Msg_SC ("unexpected semicolon ignored");

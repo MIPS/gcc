@@ -1,6 +1,6 @@
 /* Definitions for CPP library.
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005
+   2004, 2005, 2007
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
@@ -440,6 +440,9 @@ struct cpp_options
 
   /* True means error callback should be used for diagnostics.  */
   bool client_diagnostic;
+
+  /* True disables tokenization outside of preprocessing directives. */
+  bool directives_only;
 };
 
 /* Callback for header lookup for HEADER, which is the name of a
@@ -620,6 +623,10 @@ struct cpp_hashnode GTY(())
 extern cpp_reader *cpp_create_reader (enum c_lang, struct ht *,
 				      struct line_maps *);
 
+/* Reset the cpp_reader's line_map.  This is only used after reading a
+   PCH file.  */
+extern void cpp_set_line_map (cpp_reader *, struct line_maps *);
+
 /* Call this to change the selected language standard (e.g. because of
    command line options).  */
 extern void cpp_set_lang (cpp_reader *, enum c_lang);
@@ -643,6 +650,10 @@ extern struct deps *cpp_get_deps (cpp_reader *);
    least one file change callback, and possibly a line change callback
    too.  If there was an error opening the file, it returns NULL.  */
 extern const char *cpp_read_main_file (cpp_reader *, const char *);
+
+/* Set up built-ins with special behavior.  Use cpp_init_builtins()
+   instead unless your know what you are doing.  */
+extern void cpp_init_special_builtins (cpp_reader *);
 
 /* Set up built-ins like __FILE__.  */
 extern void cpp_init_builtins (cpp_reader *, int);
@@ -680,6 +691,8 @@ extern void cpp_register_deferred_pragma (cpp_reader *, const char *,
 extern int cpp_avoid_paste (cpp_reader *, const cpp_token *,
 			    const cpp_token *);
 extern const cpp_token *cpp_get_token (cpp_reader *);
+extern const cpp_token *cpp_get_token_with_location (cpp_reader *,
+						     source_location *);
 extern const unsigned char *cpp_macro_definition (cpp_reader *,
 						  const cpp_hashnode *);
 extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
@@ -740,9 +753,10 @@ struct cpp_num
 #define CPP_N_FLOATING	0x0002
 
 #define CPP_N_WIDTH	0x00F0
-#define CPP_N_SMALL	0x0010	/* int, float.  */
-#define CPP_N_MEDIUM	0x0020	/* long, double.  */
-#define CPP_N_LARGE	0x0040	/* long long, long double.  */
+#define CPP_N_SMALL	0x0010	/* int, float, shrot _Fract/Accum  */
+#define CPP_N_MEDIUM	0x0020	/* long, double, long _Fract/_Accum.  */
+#define CPP_N_LARGE	0x0040	/* long long, long double,
+				   long long _Fract/Accum.  */
 
 #define CPP_N_WIDTH_MD	0xF0000	/* machine defined.  */
 #define CPP_N_MD_W	0x10000
@@ -757,6 +771,9 @@ struct cpp_num
 #define CPP_N_UNSIGNED	0x1000	/* Properties.  */
 #define CPP_N_IMAGINARY	0x2000
 #define CPP_N_DFLOAT	0x4000
+
+#define CPP_N_FRACT	0x100000 /* Fract types.  */
+#define CPP_N_ACCUM	0x200000 /* Accum types.  */
 
 /* Classify a CPP_NUMBER token.  The return value is a combination of
    the flags from the above sets.  */
@@ -836,6 +853,7 @@ extern unsigned char *cpp_quote_string (unsigned char *, const unsigned char *,
 
 /* In cppfiles.c */
 extern bool cpp_included (cpp_reader *, const char *);
+extern bool cpp_included_before (cpp_reader *, const char *, source_location);
 extern void cpp_make_system_header (cpp_reader *, int, int);
 extern bool cpp_push_include (cpp_reader *, const char *);
 extern void cpp_change_file (cpp_reader *, enum lc_reason, const char *);
@@ -844,6 +862,7 @@ extern cpp_dir *cpp_get_dir (struct _cpp_file *);
 extern cpp_buffer *cpp_get_buffer (cpp_reader *);
 extern struct _cpp_file *cpp_get_file (cpp_buffer *);
 extern cpp_buffer *cpp_get_prev (cpp_buffer *);
+extern void cpp_clear_file_cache (cpp_reader *);
 
 /* In cpppch.c */
 struct save_macro_data;

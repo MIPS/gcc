@@ -30,10 +30,12 @@
 // Benjamin Kosnik  <bkoz@redhat.com>
 
 #include "testsuite_abi.h"
+#include <cstdlib>
 #include <sstream>
 #include <fstream>
 #include <iostream>
-#include <cstdlib>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -61,8 +63,8 @@ symbol::init(string& data)
       n = data.find_first_of(delim);
       if (n != npos)
 	{
-	  string size(data.begin(), data.begin() + n);
-	  istringstream iss(size);
+	  string objectsize(data.begin(), data.begin() + n);
+	  istringstream iss(objectsize);
 	  int x;
 	  iss >> x;
 	  if (!iss.fail())

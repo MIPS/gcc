@@ -7,7 +7,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -16,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef ASM_APP_ON
 #define ASM_APP_ON  		""
@@ -165,22 +164,30 @@
   {"mvdx13", 40},				\
   {"mvdx14", 41},				\
   {"mvdx15", 42},				\
-  {"d0", 63},					\
+  {"d0", 63}, {"q0", 63},			\
   {"d1", 65},					\
-  {"d2", 67},					\
+  {"d2", 67}, {"q1", 67},			\
   {"d3", 69},					\
-  {"d4", 71},					\
+  {"d4", 71}, {"q2", 71},			\
   {"d5", 73},					\
-  {"d6", 75},					\
+  {"d6", 75}, {"q3", 75},			\
   {"d7", 77},					\
-  {"d8", 79},					\
+  {"d8", 79}, {"q4", 79},			\
   {"d9", 81},					\
-  {"d10", 83},					\
+  {"d10", 83}, {"q5", 83},			\
   {"d11", 85},					\
-  {"d12", 87},					\
+  {"d12", 87}, {"q6", 87},			\
   {"d13", 89},					\
-  {"d14", 91},					\
+  {"d14", 91}, {"q7", 91},			\
   {"d15", 93},					\
+  {"q8", 95},					\
+  {"q9", 99},					\
+  {"q10", 103},					\
+  {"q11", 107},					\
+  {"q12", 111},					\
+  {"q13", 115},					\
+  {"q14", 119},					\
+  {"q15", 123}					\
 }
 #endif
 

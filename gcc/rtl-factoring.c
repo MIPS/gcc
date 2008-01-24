@@ -5,7 +5,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -238,6 +237,7 @@ typedef struct hash_bucket_def
   /* List of sequence candidates.  */
   htab_t seq_candidates;
 } *p_hash_bucket;
+typedef const struct hash_bucket_def *const_p_hash_bucket;
 
 /* Contains the last insn of the sequence, and its index value.  */
 typedef struct hash_elem_def
@@ -251,6 +251,7 @@ typedef struct hash_elem_def
   /* The cached length of the insn.  */
   int length;
 } *p_hash_elem;
+typedef const struct hash_elem_def *const_p_hash_elem;
 
 /* The list of same sequence candidates.  */
 static htab_t hash_buckets;
@@ -937,7 +938,7 @@ determine_seq_blocks (void)
 /* Builds a symbol_ref for LABEL.  */
 
 static rtx
-gen_symbol_ref_rtx_for_label (rtx label)
+gen_symbol_ref_rtx_for_label (const_rtx label)
 {
   char name[20];
   rtx sym;
@@ -1205,7 +1206,7 @@ dump_best_pattern_seq (int iter)
 static unsigned int
 htab_hash_bucket (const void *p)
 {
-  p_hash_bucket bucket = (p_hash_bucket) p;
+  const_p_hash_bucket bucket = (const_p_hash_bucket) p;
   return bucket->hash;
 }
 
@@ -1235,7 +1236,7 @@ htab_del_bucket (void *p)
 static unsigned int
 htab_hash_elem (const void *p)
 {
-  p_hash_elem elem = (p_hash_elem) p;
+  const_p_hash_elem elem = (const_p_hash_elem) p;
   return htab_hash_pointer (elem->insn);
 }
 
@@ -1427,7 +1428,7 @@ struct tree_opt_pass pass_rtl_seqabstr = {
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'Q'                                   /* letter */

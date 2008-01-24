@@ -32,10 +32,10 @@ Boston, MA 02110-1301, USA.  */
 /* Implement the functions and subroutines provided by the intrinsic
    iso_c_binding module.  */
 
-#include <stdlib.h>
-
 #include "libgfortran.h"
 #include "iso_c_binding.h"
+
+#include <stdlib.h>
 
 
 /* Set the fields of a Fortran pointer descriptor to point to the
@@ -109,7 +109,28 @@ ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void *c_ptr_in,
         {
           /* Lower bound is 1, as specified by the draft.  */
           f_ptr_out->dim[i].lbound = 1;
-          f_ptr_out->dim[i].ubound = ((int *) (shape->data))[i];
+          /* Have to allow for the SHAPE array to be any valid kind for
+             an INTEGER type.  */
+#ifdef HAVE_GFC_INTEGER_1
+	  if (GFC_DESCRIPTOR_SIZE (shape) == 1)
+	    f_ptr_out->dim[i].ubound = ((GFC_INTEGER_1 *) (shape->data))[i];
+#endif
+#ifdef HAVE_GFC_INTEGER_2
+	  if (GFC_DESCRIPTOR_SIZE (shape) == 2)
+	    f_ptr_out->dim[i].ubound = ((GFC_INTEGER_2 *) (shape->data))[i];
+#endif
+#ifdef HAVE_GFC_INTEGER_4
+	  if (GFC_DESCRIPTOR_SIZE (shape) == 4)
+	    f_ptr_out->dim[i].ubound = ((GFC_INTEGER_4 *) (shape->data))[i];
+#endif
+#ifdef HAVE_GFC_INTEGER_8
+	  if (GFC_DESCRIPTOR_SIZE (shape) == 8)
+	    f_ptr_out->dim[i].ubound = ((GFC_INTEGER_8 *) (shape->data))[i];
+#endif
+#ifdef HAVE_GFC_INTEGER_16
+	  if (GFC_DESCRIPTOR_SIZE (shape) == 16)
+	    f_ptr_out->dim[i].ubound = ((GFC_INTEGER_16 *) (shape->data))[i];
+#endif		
         }
 
       /* Set the offset and strides.
@@ -172,78 +193,3 @@ ISO_C_BINDING_PREFIX (c_f_procpointer) (void *c_ptr_in,
 }
 
 
-/* Test if the given c_ptr is associated or not.  This function is
-   called if the user only supplied one c_ptr parameter to the
-   c_associated function.  The second argument is optional, and the
-   Fortran compiler will resolve the function to this version if only
-   one arg was given.  Associated here simply means whether or not the
-   c_ptr is NULL or not.  */
-
-GFC_LOGICAL_4
-ISO_C_BINDING_PREFIX (c_associated_1) (void *c_ptr_in_1)
-{
-  if (c_ptr_in_1 != NULL)
-    return 1;
-  else
-    return 0;
-}
-
-
-/* Test if the two c_ptr arguments are associated with one another.
-   This version of the c_associated function is called if the user
-   supplied two c_ptr args in the Fortran source.  According to the
-   draft standard (J3/04-007), if c_ptr_in_1 is NULL, the two pointers
-   are NOT associated.  If c_ptr_in_1 is non-NULL and it is not equal
-   to c_ptr_in_2, then either c_ptr_in_2 is NULL or is associated with
-   another address; either way, the two pointers are not associated
-   with each other then.  */
-
-GFC_LOGICAL_4
-ISO_C_BINDING_PREFIX (c_associated_2) (void *c_ptr_in_1, void *c_ptr_in_2)
-{
-  /* Since we have the second arg, if it doesn't equal the first,
-     return false; true otherwise.  However, if the first one is null,
-     then return false; otherwise compare the two ptrs for equality.  */
-  if (c_ptr_in_1 == NULL)
-    return 0;
-  else if (c_ptr_in_1 != c_ptr_in_2)
-    return 0;
-  else
-    return 1;
-}
-
-
-/* Return the C address of the given Fortran allocatable object.  */
-
-void *
-ISO_C_BINDING_PREFIX (c_loc) (void *f90_obj)
-{
-  if (f90_obj == NULL)
-    {
-      runtime_error ("C_LOC: Attempt to get C address for Fortran object"
-                     " that has not been allocated or associated");
-      abort ();
-    }
-   
-  /* The "C" address should be the address of the object in Fortran.  */
-  return f90_obj;
-}
-
-
-/*  Return the C address of the given Fortran procedure.  This
-    routine is expected to return a derived type of type C_FUNPTR,
-    which represents the C address of the given Fortran object.  */
-
-void *
-ISO_C_BINDING_PREFIX (c_funloc) (void *f90_obj)
-{
-  if (f90_obj == NULL)
-    {
-      runtime_error ("C_LOC: Attempt to get C address for Fortran object"
-                     " that has not been allocated or associated");
-      abort ();
-    }
-
-  /* The "C" address should be the address of the object in Fortran.  */
-  return f90_obj;
-}

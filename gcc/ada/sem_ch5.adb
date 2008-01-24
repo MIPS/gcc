@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -221,9 +220,7 @@ package body Sem_Ch5 is
          --  If assignment operand is a component reference, then we get the
          --  actual subtype of the component for the unconstrained case.
 
-         elsif
-           (Nkind (Opnd) = N_Selected_Component
-             or else Nkind (Opnd) = N_Explicit_Dereference)
+         elsif Nkind_In (Opnd, N_Selected_Component, N_Explicit_Dereference)
            and then not Is_Unchecked_Union (Opnd_Type)
          then
             Decl := Build_Actual_Subtype_Of_Component (Opnd_Type, Opnd);
@@ -250,7 +247,8 @@ package body Sem_Ch5 is
    --  Start of processing for Analyze_Assignment
 
    begin
-      Mark_Static_Coextensions (Rhs);
+      Mark_Coextensions (N, Rhs);
+
       Analyze (Rhs);
       Analyze (Lhs);
 
@@ -573,22 +571,31 @@ package body Sem_Ch5 is
          Analyze_And_Resolve (Rhs, T1);
       end if;
 
-      --  Ada 2005 (AI-231)
+      --  Ada 2005 (AI-231): Assignment to not null variable
 
       if Ada_Version >= Ada_05
         and then Can_Never_Be_Null (T1)
         and then not Assignment_OK (Lhs)
       then
-         if Nkind (Rhs) = N_Null then
+         --  Case where we know the right hand side is null
+
+         if Known_Null (Rhs) then
             Apply_Compile_Time_Constraint_Error
               (N   => Rhs,
-               Msg => "(Ada 2005) NULL not allowed in null-excluding objects?",
+               Msg => "(Ada 2005) null not allowed in null-excluding objects?",
                Reason => CE_Null_Not_Allowed);
+
+            --  We still mark this as a possible modification, that's necessary
+            --  to reset Is_True_Constant, and desirable for xref purposes.
+
+            Note_Possible_Modification (Lhs);
             return;
 
+         --  If we know the right hand side is non-null, then we convert to the
+         --  target type, since we don't need a run time check in that case.
+
          elsif not Can_Never_Be_Null (T2) then
-            Rewrite (Rhs,
-              Convert_To (T1, Relocate_Node (Rhs)));
+            Rewrite (Rhs, Convert_To (T1, Relocate_Node (Rhs)));
             Analyze_And_Resolve (Rhs, T1);
          end if;
       end if;
@@ -640,11 +647,9 @@ package body Sem_Ch5 is
 
          and then Comes_From_Source (N)
 
-         --  Where the entity is the same on both sides
+         --  Where the object is the same on both sides
 
-         and then Is_Entity_Name (Lhs)
-         and then Is_Entity_Name (Original_Node (Rhs))
-         and then Entity (Lhs) = Entity (Original_Node (Rhs))
+         and then Same_Object (Lhs, Original_Node (Rhs))
 
          --  But exclude the case where the right side was an operation
          --  that got rewritten (e.g. JUNK + K, where K was known to be
@@ -654,8 +659,13 @@ package body Sem_Ch5 is
 
         and then Nkind (Original_Node (Rhs)) not in N_Op
       then
-         Error_Msg_NE
-           ("?useless assignment of & to itself", N, Entity (Lhs));
+         if Nkind (Lhs) in N_Has_Entity then
+            Error_Msg_NE
+              ("?useless assignment of & to itself!", N, Entity (Lhs));
+         else
+            Error_Msg_N
+              ("?useless assignment of object to itself!", N);
+         end if;
       end if;
 
       --  Check for non-allowed composite assignment
@@ -671,6 +681,17 @@ package body Sem_Ch5 is
 
       if not In_Subprogram_Or_Concurrent_Unit then
          Check_Elab_Assign (Lhs);
+      end if;
+
+      --  Set Referenced_As_LHS if appropriate. We only set this flag if the
+      --  assignment is a source assignment in the extended main source unit.
+      --  We are not interested in any reference information outside this
+      --  context, or in compiler generated assignment statements.
+
+      if Comes_From_Source (N)
+        and then In_Extended_Main_Source_Unit (Lhs)
+      then
+         Set_Referenced_Modified (Lhs, Out_Param => False);
       end if;
 
       --  Final step. If left side is an entity, then we may be able to
@@ -695,12 +716,15 @@ package body Sem_Ch5 is
                --  generate bogus warnings when an assignment is rewritten as
                --  another assignment, and gets tied up with itself.
 
+               --  Note: we don't use Record_Last_Assignment here, because we
+               --  have lots of other stuff to do under control of this test.
+
                if Warn_On_Modified_Unread
-                 and then Ekind (Ent) = E_Variable
+                 and then Is_Assignable (Ent)
                  and then Comes_From_Source (N)
                  and then In_Extended_Main_Source_Unit (Ent)
                then
-                  Warn_On_Useless_Assignment (Ent, Sloc (N));
+                  Warn_On_Useless_Assignment (Ent, N);
                   Set_Last_Assignment (Ent, Lhs);
                end if;
 
@@ -872,6 +896,10 @@ package body Sem_Ch5 is
       Dont_Care      : Boolean;
       Others_Present : Boolean;
 
+      pragma Warnings (Off, Last_Choice);
+      pragma Warnings (Off, Dont_Care);
+      --  Don't care about assigned values
+
       Statements_Analyzed : Boolean := False;
       --  Set True if at least some statement sequences get analyzed.
       --  If False on exit, means we had a serious error that prevented
@@ -969,6 +997,7 @@ package body Sem_Ch5 is
       --  a call to Number_Of_Choices to get the right number of entries.
 
       Case_Table : Choice_Table_Type (1 .. Number_Of_Choices (N));
+      pragma Warnings (Off, Case_Table);
 
    --  Start of processing for Analyze_Case_Statement
 
@@ -1071,7 +1100,6 @@ package body Sem_Ch5 is
 
          begin
             Alt := First (Alternatives (N));
-
             while Present (Alt) loop
                if Alt /= Chosen then
                   Remove_Warning_Messages (Statements (Alt));
@@ -1160,6 +1188,7 @@ package body Sem_Ch5 is
 
    begin
       Check_Unreachable_Code (N);
+      Kill_Current_Values (Last_Assignment_Only => True);
 
       Analyze (Label);
       Label_Ent := Entity (Label);
@@ -1341,7 +1370,6 @@ package body Sem_Ch5 is
 
             if Present (Elsif_Parts (N)) then
                E := First (Elsif_Parts (N));
-
                while Present (E) loop
                   Remove_Warning_Messages (Then_Statements (E));
                   Next (E);
@@ -1439,8 +1467,8 @@ package body Sem_Ch5 is
             if Analyzed (Original_Bound) then
                return Original_Bound;
 
-            elsif Nkind (Analyzed_Bound) = N_Integer_Literal
-              or else Nkind (Analyzed_Bound) = N_Character_Literal
+            elsif Nkind_In (Analyzed_Bound, N_Integer_Literal,
+                                            N_Character_Literal)
               or else Is_Entity_Name (Analyzed_Bound)
             then
                Analyze_And_Resolve (Original_Bound, Typ);
@@ -1761,6 +1789,8 @@ package body Sem_Ch5 is
                         Hhi : Uint;
                         HOK : Boolean;
 
+                        pragma Warnings (Off, Hlo);
+
                      begin
                         Determine_Range (L, LOK, Llo, Lhi);
                         Determine_Range (H, HOK, Hlo, Hhi);
@@ -2035,7 +2065,7 @@ package body Sem_Ch5 is
                --  the Ada RM annoyingly requires a useless return here!
 
                if Nkind (Original_Node (N)) /= N_Raise_Statement
-                 or else Nkind (Nxt) /= N_Return_Statement
+                 or else Nkind (Nxt) /= N_Simple_Return_Statement
                then
                   --  The rather strange shenanigans with the warning message
                   --  here reflects the fact that Kill_Dead_Code is very good
@@ -2077,7 +2107,7 @@ package body Sem_Ch5 is
 
                   --  Now issue the warning
 
-                  Error_Msg ("?unreachable code", Error_Loc);
+                  Error_Msg ("?unreachable code!", Error_Loc);
                end if;
 
             --  If the unconditional transfer of control instruction is

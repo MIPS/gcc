@@ -6,7 +6,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* Things to do:
 - longlong.h?
@@ -1006,32 +1005,32 @@ L2:     .word STATIC
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) 				\
+#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)				\
   do										\
     {										\
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 0)),		\
-		      GEN_INT							\
-		      (TARGET_LITTLE_ENDIAN ? 0x017e8e17 : 0x178e7e01));	\
+		      gen_int_mode (TARGET_LITTLE_ENDIAN ?			\
+				    0x017e8e17 : 0x178e7e01, SImode));		\
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 4)),		\
-		      GEN_INT							\
-		      (TARGET_LITTLE_ENDIAN ? 0x0c00ae86 : 0x86ae000c));	\
+		      gen_int_mode (TARGET_LITTLE_ENDIAN ?			\
+				    0x0c00ae86 : 0x86ae000c, SImode));		\
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 8)),		\
-		      GEN_INT							\
-		      (TARGET_LITTLE_ENDIAN ? 0xe627871e : 0x1e8727e6));	\
+		      gen_int_mode (TARGET_LITTLE_ENDIAN ?			\
+				    0xe627871e : 0x1e8727e6, SImode));		\
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 12)),		\
-		      GEN_INT							\
-		      (TARGET_LITTLE_ENDIAN ? 0xc616c626 : 0x26c61fc6));	\
+		      gen_int_mode (TARGET_LITTLE_ENDIAN ?			\
+				    0xc616c626 : 0x26c61fc6, SImode));		\
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 16)),		\
 		      (CXT));							\
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 20)),		\
 		      (FNADDR));						\
       if (m32r_cache_flush_trap >= 0)						\
 	emit_insn (gen_flush_icache (validize_mem (gen_rtx_MEM (SImode, TRAMP)),\
-				     GEN_INT (m32r_cache_flush_trap) ));	\
+				     gen_int_mode (m32r_cache_flush_trap, SImode))); \
       else if (m32r_cache_flush_func && m32r_cache_flush_func[0])		\
-	emit_library_call (m32r_function_symbol (m32r_cache_flush_func), 	\
+	emit_library_call (m32r_function_symbol (m32r_cache_flush_func),	\
 			   0, VOIDmode, 3, TRAMP, Pmode,			\
-			   GEN_INT (TRAMPOLINE_SIZE), SImode,			\
+			   gen_int_mode (TRAMPOLINE_SIZE, SImode), SImode,	\
 			   GEN_INT (3), SImode);				\
     }										\
   while (0)

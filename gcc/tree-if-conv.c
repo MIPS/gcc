@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass implements tree level if-conversion transformation of loops.
    Initial goal is to help vectorizer vectorize loops with conditions.
@@ -190,8 +189,14 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
       if (single_succ_p (bb))
 	{
 	  basic_block bb_n = single_succ (bb);
-	  if (cond != NULL_TREE)
-	    add_to_predicate_list (bb_n, cond);
+
+	  /* Successor bb inherits predicate of its predecessor. If there
+	     is no predicate in predecessor bb, then consider successor bb
+	     as always executed.  */
+	  if (cond == NULL_TREE)
+	    cond = boolean_true_node;
+
+	  add_to_predicate_list (bb_n, cond);
 	}
     }
 
@@ -297,7 +302,8 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
    and it belongs to basic block BB.
    PHI is not if-convertible
    - if it has more than 2 arguments.
-   - Virtual PHI is immediately used in another PHI node.  */
+   - Virtual PHI is immediately used in another PHI node.
+   - Virtual PHI on BB other than header.  */
 
 static bool
 if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
@@ -319,6 +325,13 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
     {
       imm_use_iterator imm_iter;
       use_operand_p use_p;
+
+      if (bb != loop->header)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Virtual phi not on loop header.\n");
+	  return false;
+	}
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, PHI_RESULT (phi))
 	{
 	  if (TREE_CODE (USE_STMT (use_p)) == PHI_NODE)
@@ -637,17 +650,12 @@ add_to_dst_predicate_list (struct loop * loop, edge e,
     {
       tree tmp;
       tree tmp_stmt = NULL_TREE;
-      tree tmp_stmts1 = NULL_TREE;
-      tree tmp_stmts2 = NULL_TREE;
-      prev_cond = force_gimple_operand (unshare_expr (prev_cond),
-					&tmp_stmts1, true, NULL);
-      if (tmp_stmts1)
-        bsi_insert_before (bsi, tmp_stmts1, BSI_SAME_STMT);
 
-      cond = force_gimple_operand (unshare_expr (cond),
-				   &tmp_stmts2, true, NULL);
-      if (tmp_stmts2)
-        bsi_insert_before (bsi, tmp_stmts2, BSI_SAME_STMT);
+      prev_cond = force_gimple_operand_bsi (bsi, unshare_expr (prev_cond),
+					    true, NULL, true, BSI_SAME_STMT);
+
+      cond = force_gimple_operand_bsi (bsi, unshare_expr (cond),
+				       true, NULL, true, BSI_SAME_STMT);
 
       /* Add the condition to aux field of the edge.  In case edge
 	 destination is a PHI node, this condition will be ANDed with
@@ -667,7 +675,7 @@ add_to_dst_predicate_list (struct loop * loop, edge e,
 
 /* During if-conversion aux field from basic block structure is used to hold
    predicate list. Clean each basic block's predicate list for the given LOOP.
-   Also clean aux field of succesor edges, used to hold true and false
+   Also clean aux field of successor edges, used to hold true and false
    condition from conditional expression.  */
 
 static void
@@ -698,7 +706,7 @@ find_phi_replacement_condition (struct loop *loop,
                                 block_stmt_iterator *bsi)
 {
   edge first_edge, second_edge;
-  tree tmp_cond, new_stmts;
+  tree tmp_cond;
 
   gcc_assert (EDGE_COUNT (bb->preds) == 2);
   first_edge = EDGE_PRED (bb, 0);
@@ -730,6 +738,8 @@ find_phi_replacement_condition (struct loop *loop,
 
   /* Select condition that is not TRUTH_NOT_EXPR.  */
   tmp_cond = (first_edge->src)->aux;
+  gcc_assert (tmp_cond);
+
   if (TREE_CODE (tmp_cond) == TRUTH_NOT_EXPR)
     {
       edge tmp_edge;
@@ -751,12 +761,12 @@ find_phi_replacement_condition (struct loop *loop,
 	 AND it with the incoming bb predicate.  */
       if (second_edge->aux)
 	*cond = build2 (TRUTH_AND_EXPR, boolean_type_node,
-			*cond, first_edge->aux);
+			*cond, second_edge->aux);
 
       if (TREE_CODE (*cond) == TRUTH_NOT_EXPR)
 	/* We can be smart here and choose inverted
 	   condition without switching bbs.  */
-	  *cond = invert_truthvalue (*cond);
+	*cond = invert_truthvalue (*cond);
       else
 	/* Select non loop header bb.  */
 	first_edge = second_edge;
@@ -775,11 +785,12 @@ find_phi_replacement_condition (struct loop *loop,
 
   /* Create temp. for the condition. Vectorizer prefers to have gimple
      value as condition. Various targets use different means to communicate
-     condition in vector compare operation. Using gimple value allows compiler
-     to emit vector compare and select RTL without exposing compare's result.  */
-  *cond = force_gimple_operand (*cond, &new_stmts, false, NULL_TREE);
-  if (new_stmts)
-    bsi_insert_before (bsi, new_stmts, BSI_SAME_STMT);
+     condition in vector compare operation. Using gimple value allows
+     compiler to emit vector compare and select RTL without exposing
+     compare's result.  */
+  *cond = force_gimple_operand_bsi (bsi, unshare_expr (*cond),
+				    false, NULL_TREE,
+				    true, BSI_SAME_STMT);
   if (!is_gimple_reg (*cond) && !is_gimple_condexpr (*cond))
     {
       tree new_stmt;
@@ -870,7 +881,7 @@ process_phi_nodes (struct loop *loop)
   /* Replace phi nodes with cond. modify expr.  */
   for (i = 1; i < orig_loop_num_nodes; i++)
     {
-      tree phi, cond;
+      tree phi, cond = NULL_TREE;
       block_stmt_iterator bsi;
       basic_block true_bb = NULL;
       bb = ifc_bbs[i];
@@ -990,7 +1001,7 @@ combine_blocks (struct loop *loop)
       /* Update stmt list.  */
       last = tsi_last (bb_stmt_list (merge_target_bb));
       tsi_link_after (&last, bb_stmt_list (bb), TSI_NEW_STMT);
-      set_bb_stmt_list (bb, NULL);
+      set_bb_stmt_list (bb, alloc_stmt_list());
 
       delete_basic_block (bb);
     }

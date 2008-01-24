@@ -1,11 +1,11 @@
 /* Array prefetching.
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -167,9 +166,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define HAVE_prefetch 0
 #endif
 
-#define L1_CACHE_SIZE_BYTES ((unsigned) (L1_CACHE_SIZE * L1_CACHE_LINE_SIZE))
-/* TODO:  Add parameter to specify L2 cache size.  */
-#define L2_CACHE_SIZE_BYTES (8 * L1_CACHE_SIZE_BYTES)
+#define L1_CACHE_SIZE_BYTES ((unsigned) (L1_CACHE_SIZE * 1024))
+#define L2_CACHE_SIZE_BYTES ((unsigned) (L2_CACHE_SIZE * 1024))
 
 /* We consider a memory access nontemporal if it is not reused sooner than
    after L2_CACHE_SIZE_BYTES of memory are accessed.  However, we ignore
@@ -883,7 +881,8 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
   n_prefetches = ((unroll_factor + ref->prefetch_mod - 1)
 		  / ref->prefetch_mod);
   addr_base = build_fold_addr_expr_with_type (ref->mem, ptr_type_node);
-  addr_base = force_gimple_operand_bsi (&bsi, unshare_expr (addr_base), true, NULL);
+  addr_base = force_gimple_operand_bsi (&bsi, unshare_expr (addr_base),
+					true, NULL, true, BSI_SAME_STMT);
   write_p = ref->write_p ? integer_one_node : integer_zero_node;
   local = build_int_cst (integer_type_node, nontemporal ? 0 : 3);
 
@@ -893,7 +892,8 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
       delta = (ahead + ap * ref->prefetch_mod) * ref->group->step;
       addr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node,
 			  addr_base, size_int (delta));
-      addr = force_gimple_operand_bsi (&bsi, unshare_expr (addr), true, NULL);
+      addr = force_gimple_operand_bsi (&bsi, unshare_expr (addr), true, NULL,
+				       true, BSI_SAME_STMT);
 
       /* Create the prefetch instruction.  */
       prefetch = build_call_expr (built_in_decls[BUILT_IN_PREFETCH],
@@ -940,7 +940,7 @@ nontemporal_store_p (struct mem_ref *ref)
   if (mode == BLKmode)
     return false;
 
-  code = storent_optab->handlers[mode].insn_code;
+  code = optab_handler (storent_optab, mode)->insn_code;
   return code != CODE_FOR_nothing;
 }
 
@@ -1548,10 +1548,10 @@ tree_ssa_prefetch_arrays (void)
 	       SIMULTANEOUS_PREFETCHES);
       fprintf (dump_file, "    prefetch latency: %d\n", PREFETCH_LATENCY);
       fprintf (dump_file, "    prefetch block size: %d\n", PREFETCH_BLOCK);
-      fprintf (dump_file, "    L1 cache size: %d lines, %d bytes\n",
-	       L1_CACHE_SIZE, L1_CACHE_SIZE_BYTES);
+      fprintf (dump_file, "    L1 cache size: %d lines, %d kB\n",
+	       L1_CACHE_SIZE_BYTES / L1_CACHE_LINE_SIZE, L1_CACHE_SIZE);
       fprintf (dump_file, "    L1 cache line size: %d\n", L1_CACHE_LINE_SIZE);
-      fprintf (dump_file, "    L2 cache size: %d bytes\n", L2_CACHE_SIZE_BYTES);
+      fprintf (dump_file, "    L2 cache size: %d kB\n", L2_CACHE_SIZE);
       fprintf (dump_file, "\n");
     }
 

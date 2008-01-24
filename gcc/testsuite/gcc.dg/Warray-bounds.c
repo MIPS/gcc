@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-xfail-if "PR 31500" { hppa*-*-* && { ! hppa*64*-*-* } } } */
 /* { dg-options "-O2 -Warray-bounds" } */
 
 int a[10];
@@ -57,14 +56,13 @@ int* f(void) {
     g(&a[8]);
     g(&a[9]);
     g(&a[10]);
-    g(&a[11]);             /* { dg-warning "array subscript" } */
+    g(&a[11]);             /* { dg-warning "array subscript" "" { xfail *-*-* } } */
     g(&a[-30]+10);             /* { dg-warning "array subscript" } */
     g(&a[-30]+30);
 
     g(&b[10]);
     g(&c.c[10]);
-    g(&a[11]);             /* { dg-warning "array subscript" } */
-    g(&b[11]);             /* { dg-warning "array subscript" } */
+    g(&b[11]);             /* { dg-warning "array subscript" "" { xfail *-*-* } } */
     g(&c.c[11]);           /* { dg-warning "array subscript" } */
 
     g(&a[0]);
@@ -91,5 +89,5 @@ int* f(void) {
              a[i] = 1;       /* { dg-warning "array subscript" } */
 
     return a;
-} /* { dg-excess-errors "PR 31500" { xfail { hppa*-*-* && { ! hppa*64*-*-* } } } } */
+}
 

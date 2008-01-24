@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -19,9 +19,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* Build tables of static constructors and destructors and run ld.  */
@@ -128,6 +127,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifdef LDD_SUFFIX
 #define SCAN_LIBRARIES
+#endif
+
+#ifndef SHLIB_SUFFIX
+#define SHLIB_SUFFIX ".so"
 #endif
 
 #ifdef USE_COLLECT2
@@ -488,8 +491,18 @@ dump_file (const char *name, FILE *to)
 	      diff = strlen (word) - strlen (result);
 	      while (diff > 0 && c == ' ')
 		--diff, putc (' ', to);
-	      while (diff < 0 && c == ' ')
-		++diff, c = getc (stream);
+	      if (diff < 0 && c == ' ')
+		{
+		  while (diff < 0 && c == ' ')
+		    ++diff, c = getc (stream);
+		  if (!ISSPACE (c))
+		    {
+		      /* Make sure we output at least one space, or
+			 the demangled symbol name will run into
+			 whatever text follows.  */
+		      putc (' ', to);
+		    }
+		}
 
 	      free (result);
 	    }
@@ -737,6 +750,7 @@ prefix_from_string (const char *p, struct path_prefix *pprefix)
       else
 	endp++;
     }
+  free (nstore);
 }
 
 /* Main program.  */
@@ -1858,9 +1872,9 @@ write_c_file_stat (FILE *stream, const char *name ATTRIBUTE_UNUSED)
 	}
       else
 	{
-	  if (strncmp (q, ".so", 3) == 0)
+	  if (strncmp (q, SHLIB_SUFFIX, strlen (SHLIB_SUFFIX)) == 0)
 	    {
-	      q += 3;
+	      q += strlen (SHLIB_SUFFIX);
 	      break;
 	    }
 	  else

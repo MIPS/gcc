@@ -5,7 +5,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_register_constraint "a" "ADDR_REGS"
   "Address register.")
@@ -105,3 +104,51 @@
 (define_constraint "W"
   "Used for const_call_operands."
   (match_operand 0 "const_call_operand"))
+
+(define_constraint "Cs"
+  "symbol_ref or const."
+  (match_code "symbol_ref,const"))
+
+(define_constraint "Ci"
+  "const_int."
+  (and (match_code "const_int")
+       (match_test "true")))
+
+(define_constraint "C0"
+  "const_int 0."
+  (and (match_code "const_int")
+       (match_test "ival == 0")))
+
+(define_constraint "Cj"
+  "Range of signed numbers that don't fit in 16 bits."
+  (and (match_code "const_int")
+       (match_test "ival < -0x8000 || ival > 0x7FFF")))
+
+(define_constraint "CQ"
+  "Integers valid for mvq."
+  (and (match_code "const_int")
+       (match_test "m68k_const_method (ival) == MOVQ")))
+
+(define_constraint "CW"
+  "Integers valid for a moveq followed by a swap."
+  (and (match_code "const_int")
+       (match_test "m68k_const_method (ival) == SWAP")))
+
+(define_constraint "CZ"
+  "Integers valid for mvz."
+  (and (match_code "const_int")
+       (match_test "m68k_const_method (ival) == MVZ")))
+
+(define_constraint "CS"
+  "Integers valid for mvs."
+  (and (match_code "const_int")
+       (match_test "m68k_const_method (ival) == MVS")))
+
+(define_constraint "Ap"
+  "push_operand."
+  (match_operand 0 "push_operand"))
+
+(define_constraint "Ac"
+  "Non-register operands allowed in clr."
+  (and (match_operand 0 "movsi_const0_operand")
+       (match_test "!REG_P (op)")))

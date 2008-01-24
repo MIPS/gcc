@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -918,8 +917,9 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 
       /* And then we can compute iv0->base - diff, and compare it with
 	 iv1->base.  */      
-      mbzl = fold_build2 (MINUS_EXPR, type1, iv0->base, diff);
-      mbzr = iv1->base;
+      mbzl = fold_build2 (MINUS_EXPR, type1, 
+			  fold_convert (type1, iv0->base), diff);
+      mbzr = fold_convert (type1, iv1->base);
     }
   else
     {
@@ -934,8 +934,9 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 				    iv1->base, bound);
 	}
 
-      mbzl = iv0->base;
-      mbzr = fold_build2 (MINUS_EXPR, type1, iv1->base, diff);
+      mbzl = fold_convert (type1, iv0->base);
+      mbzr = fold_build2 (MINUS_EXPR, type1,
+			  fold_convert (type1, iv1->base), diff);
     }
 
   if (!integer_nonzerop (assumption))
@@ -1672,7 +1673,7 @@ simplify_using_outer_evolutions (struct loop *loop, tree expr)
 /* Returns true if EXIT is the only possible exit from LOOP.  */
 
 static bool
-loop_only_exit_p (struct loop *loop, edge exit)
+loop_only_exit_p (const struct loop *loop, const_edge exit)
 {
   basic_block *body;
   block_stmt_iterator bsi;
@@ -2170,7 +2171,7 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
    be nonnegative.  */
  
 static double_int
-derive_constant_upper_bound (tree val)
+derive_constant_upper_bound (const_tree val)
 {
   tree type = TREE_TYPE (val);
   tree op0, op1, subtype, maxt;
@@ -2968,8 +2969,7 @@ scev_probably_wraps_p (tree base, tree step,
      2032, 2040, 0, 8, ..., but the code is still legal.  */
 
   if (chrec_contains_undetermined (base)
-      || chrec_contains_undetermined (step)
-      || TREE_CODE (step) != INTEGER_CST)
+      || chrec_contains_undetermined (step))
     return true;
 
   if (integer_zerop (step))
@@ -2979,6 +2979,11 @@ scev_probably_wraps_p (tree base, tree step,
      wrap, we are done.  */
   if (use_overflow_semantics && nowrap_type_p (type))
     return false;
+
+  /* To be able to use estimates on number of iterations of the loop,
+     we must have an upper bound on the absolute value of the step.  */
+  if (TREE_CODE (step) != INTEGER_CST)
+    return true;
 
   /* Don't issue signed overflow warnings.  */
   fold_defer_overflow_warnings ();

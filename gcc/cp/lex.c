@@ -1,13 +1,14 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file is the lexical analyzer for GNU C++.  */
@@ -197,6 +197,7 @@ static const struct resword reswords[] =
   { "__complex__",	RID_COMPLEX,	0 },
   { "__const",		RID_CONST,	0 },
   { "__const__",	RID_CONST,	0 },
+  { "__decltype",       RID_DECLTYPE,   0 },
   { "__extension__",	RID_EXTENSION,	0 },
   { "__func__",		RID_C99_FUNCTION_NAME,	0 },
   { "__has_nothrow_assign", RID_HAS_NOTHROW_ASSIGN, 0 },
@@ -235,18 +236,16 @@ static const struct resword reswords[] =
   { "__volatile__",	RID_VOLATILE,	0 },
   { "asm",		RID_ASM,	D_ASM },
   { "auto",		RID_AUTO,	0 },
-  { "axiom",            RID_AXIOM,      D_CXX0X },
   { "bool",		RID_BOOL,	0 },
   { "break",		RID_BREAK,	0 },
   { "case",		RID_CASE,	0 },
   { "catch",		RID_CATCH,	0 },
   { "char",		RID_CHAR,	0 },
   { "class",		RID_CLASS,	0 },
-  { "concept",          RID_CONCEPT,    D_CXX0X },
-  { "concept_map",      RID_CONCEPT_MAP, D_CXX0X },
   { "const",		RID_CONST,	0 },
   { "const_cast",	RID_CONSTCAST,	0 },
   { "continue",		RID_CONTINUE,	0 },
+  { "decltype",         RID_DECLTYPE,   D_CXX0X },
   { "default",		RID_DEFAULT,	0 },
   { "delete",		RID_DELETE,	0 },
   { "do",		RID_DO,		0 },
@@ -265,7 +264,6 @@ static const struct resword reswords[] =
   { "if",		RID_IF,		0 },
   { "inline",		RID_INLINE,	0 },
   { "int",		RID_INT,	0 },
-  { "late_check",       RID_LATE_CHECK, D_CXX0X },
   { "long",		RID_LONG,	0 },
   { "mutable",		RID_MUTABLE,	0 },
   { "namespace",	RID_NAMESPACE,	0 },
@@ -276,7 +274,6 @@ static const struct resword reswords[] =
   { "public",		RID_PUBLIC,	0 },
   { "register",		RID_REGISTER,	0 },
   { "reinterpret_cast",	RID_REINTCAST,	0 },
-  { "requires",         RID_REQUIRES,   D_CXX0X },
   { "return",		RID_RETURN,	0 },
   { "short",		RID_SHORT,	0 },
   { "signed",		RID_SIGNED,	0 },
@@ -575,14 +572,14 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
   else
     {
       filename = ggc_strdup (TREE_STRING_POINTER (fname));
-#if 0
+#ifdef USE_MAPPED_LOCATION
       /* We currently cannot give this diagnostic, as we reach this point
 	 only after cpplib has scanned the entire translation unit, so
 	 cpp_included always returns true.  A plausible fix is to compare
 	 the current source-location cookie with the first source-location
 	 cookie (if any) of the filename, but this requires completing the
 	 --enable-mapped-location project first.  See PR 17577.  */
-      if (cpp_included (parse_in, filename))
+      if (cpp_included_before (parse_in, filename, input_location))
 	warning (0, "#pragma implementation for %qs appears after "
 		 "file is included", filename);
 #endif
@@ -851,4 +848,19 @@ make_aggr_type (enum tree_code code)
     SET_IS_AGGR_TYPE (t, 1);
 
   return t;
+}
+
+/* Returns true if we are currently in the main source file, or in a
+   template instantiation started from the main source file.  */
+
+bool
+in_main_input_context (void)
+{
+  struct tinst_level *tl = outermost_tinst_level();
+
+  if (tl)
+    return strcmp (main_input_filename,
+                  LOCATION_FILE (tl->locus)) == 0;
+  else
+    return strcmp (main_input_filename, input_filename) == 0;
 }

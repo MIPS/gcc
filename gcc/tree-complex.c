@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -97,6 +96,8 @@ some_nonzerop (tree t)
 
   if (TREE_CODE (t) == REAL_CST)
     zerop = REAL_VALUES_IDENTICAL (TREE_REAL_CST (t), dconst0);
+  else if (TREE_CODE (t) == FIXED_CST)
+    zerop = fixed_zerop (t);
   else if (TREE_CODE (t) == INTEGER_CST)
     zerop = integer_zerop (t);
 
@@ -242,6 +243,17 @@ init_dont_simulate_again (void)
 	      case NEGATE_EXPR:
 	      case CONJ_EXPR:
 		if (TREE_CODE (TREE_TYPE (rhs)) == COMPLEX_TYPE)
+		  saw_a_complex_op = true;
+		break;
+
+	      case REALPART_EXPR:
+	      case IMAGPART_EXPR:
+		/* The total store transformation performed during
+		   gimplification creates such uninitialized loads
+		   and we need to lower the statement to be able
+		   to fix things up.  */
+		if (TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+		    && ssa_undefined_value_p (TREE_OPERAND (rhs, 0)))
 		  saw_a_complex_op = true;
 		break;
 

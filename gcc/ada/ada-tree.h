@@ -10,14 +10,13 @@
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
- * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * for  more details.  You should have received a copy of the GNU General   *
+ * Public License along with GCC; see the file COPYING3.  If not see        *
+ * <http://www.gnu.org/licenses/>.                                          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -37,7 +36,6 @@ enum gnat_tree_code {
 union lang_tree_node
   GTY((desc ("0"),
        chain_next ("(union lang_tree_node *)GENERIC_NEXT (&%h.t)")))
-
 {
   union tree_node GTY((tag ("0"))) t;
 };
@@ -138,11 +136,6 @@ struct lang_type GTY(()) {tree t; };
 #define TYPE_RETURNS_BY_REF_P(NODE) \
   TYPE_LANG_FLAG_4 (FUNCTION_TYPE_CHECK (NODE))
 
-/* For FUNCTION_TYPEs, nonzero if function returns by being passed a pointer
-   to a place to store its result.  */
-#define TYPE_RETURNS_BY_TARGET_PTR_P(NODE) \
-  TYPE_LANG_FLAG_5 (FUNCTION_TYPE_CHECK (NODE))
-
 /* For VOID_TYPE, ENUMERAL_TYPE, UNION_TYPE, and RECORD_TYPE, nonzero if this
    is a dummy type, made to correspond to a private or incomplete type.  */
 #define TYPE_DUMMY_P(NODE) TYPE_LANG_FLAG_4 (NODE)
@@ -152,6 +145,11 @@ struct lang_type GTY(()) {tree t; };
   ((TREE_CODE (NODE) == VOID_TYPE || TREE_CODE (NODE) == RECORD_TYPE	\
     || TREE_CODE (NODE) == UNION_TYPE || TREE_CODE (NODE) == ENUMERAL_TYPE) \
    && TYPE_DUMMY_P (NODE))
+
+/* For FUNCTION_TYPEs, nonzero if function returns by being passed a pointer
+   to a place to store its result.  */
+#define TYPE_RETURNS_BY_TARGET_PTR_P(NODE) \
+  TYPE_LANG_FLAG_5 (FUNCTION_TYPE_CHECK (NODE))
 
 /* For an INTEGER_TYPE, nonzero if TYPE_ACTUAL_BOUNDS is present.  */
 #define TYPE_HAS_ACTUAL_BOUNDS_P(NODE) \

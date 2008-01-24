@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This file contains various simple utilities to analyze the CFG.  */
 #include "config.h"
@@ -54,13 +53,13 @@ static void flow_dfs_compute_reverse_add_bb (depth_first_search_ds,
 static basic_block flow_dfs_compute_reverse_execute (depth_first_search_ds,
 						     basic_block);
 static void flow_dfs_compute_reverse_finish (depth_first_search_ds);
-static bool flow_active_insn_p (rtx);
+static bool flow_active_insn_p (const_rtx);
 
 /* Like active_insn_p, except keep the return value clobber around
    even after reload.  */
 
 static bool
-flow_active_insn_p (rtx insn)
+flow_active_insn_p (const_rtx insn)
 {
   if (active_insn_p (insn))
     return true;
@@ -82,7 +81,7 @@ flow_active_insn_p (rtx insn)
    its single destination.  */
 
 bool
-forwarder_block_p (basic_block bb)
+forwarder_block_p (const_basic_block bb)
 {
   rtx insn;
 
@@ -519,7 +518,7 @@ find_edge_index (struct edge_list *edge_list, basic_block pred, basic_block succ
 /* Dump the list of basic blocks in the bitmap NODES.  */
 
 void
-flow_nodes_print (const char *str, const sbitmap nodes, FILE *file)
+flow_nodes_print (const char *str, const_sbitmap nodes, FILE *file)
 {
   unsigned int node = 0;
   sbitmap_iterator sbi;
@@ -1148,8 +1147,8 @@ flow_dfs_compute_reverse_finish (depth_first_search_ds data)
    found and their list in RSLT.  RSLT can contain at most RSLT_MAX items.  */
 int
 dfs_enumerate_from (basic_block bb, int reverse,
-		    bool (*predicate) (basic_block, void *),
-		    basic_block *rslt, int rslt_max, void *data)
+		    bool (*predicate) (const_basic_block, const void *),
+		    basic_block *rslt, int rslt_max, const void *data)
 {
   basic_block *st, lbb;
   int sp = 0, tv = 0;

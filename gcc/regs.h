@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_REGS_H
 #define GCC_REGS_H
@@ -116,6 +115,7 @@ struct reg_info_t
   int deaths;			/* # of times (REG n) dies */
   int live_length;		/* # of instructions (REG n) is live */
   int calls_crossed;		/* # of calls (REG n) is live across */
+  int freq_calls_crossed;	/* # estimated frequency (REG n) crosses call */
   int throw_calls_crossed;	/* # of calls that may throw (REG n) is live across */
   int basic_block;		/* # of basic blocks (REG n) is used in */
 };
@@ -173,6 +173,7 @@ extern size_t reg_info_p_size;
 /* Indexed by N, gives number of CALL_INSNS across which (REG n) is live.  */
 
 #define REG_N_CALLS_CROSSED(N)  (reg_info_p[N].calls_crossed)
+#define REG_FREQ_CALLS_CROSSED(N)  (reg_info_p[N].freq_calls_crossed)
 
 /* Indexed by N, gives number of CALL_INSNS that may throw, across which
    (REG n) is live.  */

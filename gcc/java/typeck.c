@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -764,9 +763,7 @@ find_method_in_interfaces (tree searched_class, int flags, tree method_name,
       tree method;
 	  
       /* If the superinterface hasn't been loaded yet, do so now.  */
-      if (CLASS_FROM_SOURCE_P (iclass))
-	safe_layout_class (iclass);
-      else if (!CLASS_LOADED_P (iclass))
+      if (!CLASS_LOADED_P (iclass))
 	load_class (iclass, 1);
 	  
       /* First, we look in ICLASS.  If that doesn't work we'll

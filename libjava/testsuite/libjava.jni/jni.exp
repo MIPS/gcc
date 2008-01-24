@@ -29,9 +29,13 @@ proc gcj_jni_compile_c_to_so {file {options {}}} {
   set name [file rootname $filename]
   set soname lib${name}.${so_extension}
 
+  if { [istarget "*arm-*eabi*"] } {
+      lappend options "additional_flags=-fexceptions"
+  }
+
   lappend options "additional_flags=${so_flag} -fPIC"
   # Find the generated header.
-  lappend options "additional_flags=-I. -I.. -I$srcdir/$subdir"
+  lappend options "additional_flags=-I. -I.. -I$srcdir/$subdir -fdollars-in-identifiers"
 
   # Ensure that the generated header has correct prototypes.
   set cfile [file rootname $file].c
@@ -219,7 +223,7 @@ proc gcj_jni_invocation_compile_c_to_binary {file {options {}}} {
   lappend options "additional_flags=-I. -I.. -I$srcdir/$subdir"
 
   # Find jni.h and jni_md.h.
-  lappend options "additional_flags=-I$srcdir/../include -I$srcdir/../classpath/include"
+  lappend options "additional_flags=-I$srcdir/../include -I$srcdir/../classpath/include -fdollars-in-identifiers"
 
   # Append C++ options
   lappend options "additional_flags=$options_cxx"
@@ -237,6 +241,14 @@ proc gcj_jni_invocation_compile_c_to_binary {file {options {}}} {
 }
 
 proc gcj_jni_get_cxxflags_invocation {} {
+  global LIBJAVA
+  if [info exists LIBJAVA] {
+      set libjava $LIBJAVA;
+  } else {
+      set libjava [libjava_find_lib libjava gcj]
+  }
+  set cxxflags "$libjava -ljvm"
+
   # Darwin needs -liconv linked, otherwise we get some unresolved.
   # If you're building the compiler with --prefix set to a place
   # where it's not yet installed, then the linker won't be able to
@@ -245,15 +257,7 @@ proc gcj_jni_get_cxxflags_invocation {} {
   # to just make the linker find libgcc using -L options.
   # Similar logic applies to libgcj.
   if { [istarget "*-*-darwin*"] } {
-      set cxxflags "-L../.libs -shared-libgcc -ljvm -lgcj -liconv"
-  } else {
-      global LIBJAVA
-      if [info exists LIBJAVA] {
-	  set libjava $LIBJAVA;
-      } else {
-	  set libjava [libjava_find_lib libjava gcj]
-      }
-      set cxxflags "$libjava -ljvm"
+    lappend cxxflags -shared-libgcc -lgcj -liconv
   }
 
   if { [istarget "*-*-solaris*"] } {

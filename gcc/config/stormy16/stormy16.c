@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -59,7 +58,7 @@ static void xstormy16_init_builtins (void);
 static rtx xstormy16_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static bool xstormy16_rtx_costs (rtx, int, int, int *);
 static int xstormy16_address_cost (rtx);
-static bool xstormy16_return_in_memory (tree, tree);
+static bool xstormy16_return_in_memory (const_tree, const_tree);
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
@@ -1353,7 +1352,7 @@ xstormy16_build_builtin_va_list (void)
    is stdarg.h instead of varargs.h.  VALIST is the tree of the va_list
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  */
-void
+static void
 xstormy16_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 {
   tree f_base, f_count;
@@ -1516,7 +1515,7 @@ xstormy16_initialize_trampoline (rtx addr, rtx fnaddr, rtx static_chain)
 /* Worker function for FUNCTION_VALUE.  */
 
 rtx
-xstormy16_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
+xstormy16_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode;
   mode = TYPE_MODE (valtype);
@@ -2638,9 +2637,9 @@ xstormy16_reorg (void)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-xstormy16_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+xstormy16_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  HOST_WIDE_INT size = int_size_in_bytes (type);
+  const HOST_WIDE_INT size = int_size_in_bytes (type);
   return (size == -1 || size > UNITS_PER_WORD * NUM_ARGUMENT_REGISTERS);
 }
 
@@ -2667,15 +2666,17 @@ xstormy16_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST xstormy16_build_builtin_va_list
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START xstormy16_expand_builtin_va_start
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR xstormy16_expand_builtin_va_arg
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_true
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY xstormy16_return_in_memory

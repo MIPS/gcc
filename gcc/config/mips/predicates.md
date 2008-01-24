@@ -1,11 +1,11 @@
 ;; Predicate definitions for MIPS.
-;; Copyright (C) 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2007 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
 ;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
+;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
 ;; GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 (define_predicate "const_uns_arith_operand"
   (and (match_code "const_int")
@@ -97,12 +96,12 @@
 {
   enum mips_symbol_type symbol_type;
 
-  if (!mips_symbolic_constant_p (op, &symbol_type))
+  if (!mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &symbol_type))
     return false;
 
   switch (symbol_type)
     {
-    case SYMBOL_GENERAL:
+    case SYMBOL_ABSOLUTE:
       /* We can only use direct calls for TARGET_ABSOLUTE_ABICALLS if we
 	 are sure that the target function does not need $25 to be live
 	 on entry.  This is true for any locally-defined function because
@@ -116,7 +115,7 @@
       /* If -mlong-calls or if this function has an explicit long_call
 	 attribute, we must use register addressing.  The
 	 SYMBOL_FLAG_LONG_CALL bit is set by mips_encode_section_info.  */
-      return !SYMBOL_REF_LONG_CALL_P (op);
+      return !(GET_CODE (op) == SYMBOL_REF && SYMBOL_REF_LONG_CALL_P (op));
 
     case SYMBOL_GOT_DISP:
       /* Without explicit relocs, there is no special syntax for
@@ -153,16 +152,6 @@
   /* Otherwise check whether the constant can be loaded in a single
      instruction.  */
   return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op);
-})
-
-;; A legitimate symbolic operand that takes more than one instruction
-;; to load.
-(define_predicate "splittable_symbolic_operand"
-  (match_code "const,symbol_ref,label_ref")
-{
-  enum mips_symbol_type symbol_type;
-  return (mips_symbolic_constant_p (op, &symbol_type)
-	  && mips_split_p[symbol_type]);
 })
 
 (define_predicate "move_operand"
@@ -212,7 +201,7 @@
     case LABEL_REF:
       if (CONST_GP_P (op))
 	return true;
-      return (mips_symbolic_constant_p (op, &symbol_type)
+      return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
 	      && !mips_split_p[symbol_type]);
 
     default:
@@ -227,28 +216,39 @@
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return mips_symbolic_constant_p (op, &type);
+  return mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type);
 })
 
-(define_predicate "general_symbolic_operand"
+(define_predicate "absolute_symbolic_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return mips_symbolic_constant_p (op, &type) && type == SYMBOL_GENERAL;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_ABSOLUTE);
+})
+
+(define_predicate "force_to_mem_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type symbol_type;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
+	  && symbol_type == SYMBOL_FORCE_TO_MEM);
 })
 
 (define_predicate "got_disp_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return mips_symbolic_constant_p (op, &type) && type == SYMBOL_GOT_DISP;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GOT_DISP);
 })
 
 (define_predicate "got_page_ofst_operand"
   (match_code "const,symbol_ref,label_ref")
 {
   enum mips_symbol_type type;
-  return mips_symbolic_constant_p (op, &type) && type == SYMBOL_GOT_PAGE_OFST;
+  return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_GOT_PAGE_OFST);
 })
 
 (define_predicate "symbol_ref_operand"

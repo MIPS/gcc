@@ -6,7 +6,7 @@
 
 ;; GCC is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published
-;; by the Free Software Foundation; either version 2, or (at your
+;; by the Free Software Foundation; either version 3, or (at your
 ;; option) any later version.
 
 ;; GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +15,8 @@
 ;; License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-;; Boston, MA 02110-1301, USA.
+;; along with GCC; see the file COPYING3.  If not see
+;; <http://www.gnu.org/licenses/>.
 
 ;; The following register constraints have been used:
 ;; - in ARM/Thumb-2 state: f, t, v, w, x, y, z
@@ -30,10 +29,10 @@
 ;; in Thumb-1 state: I, J, K, L, M, N, O
 
 ;; The following multi-letter normal constraints have been used:
-;; in ARM/Thumb-2 state: Da, Db, Dc, Dv
+;; in ARM/Thumb-2 state: Da, Db, Dc, Dn, Dl, DL, Dv
 
 ;; The following memory constraints have been used:
-;; in ARM/Thumb-2 state: Q, Uv, Uy
+;; in ARM/Thumb-2 state: Q, Ut, Uv, Uy, Un, Us
 ;; in ARM state: Uq
 
 
@@ -164,12 +163,43 @@
       (match_test "TARGET_32BIT && arm_const_double_inline_cost (op) == 4
 		   && !(optimize_size || arm_ld_sched)")))
 
+(define_constraint "Dn"
+ "@internal
+  In ARM/Thumb-2 state a const_vector which can be loaded with a Neon vmov
+  immediate instruction."
+ (and (match_code "const_vector")
+      (match_test "TARGET_32BIT
+		   && imm_for_neon_mov_operand (op, GET_MODE (op))")))
+
+(define_constraint "Dl"
+ "@internal
+  In ARM/Thumb-2 state a const_vector which can be used with a Neon vorr or
+  vbic instruction."
+ (and (match_code "const_vector")
+      (match_test "TARGET_32BIT
+		   && imm_for_neon_logic_operand (op, GET_MODE (op))")))
+
+(define_constraint "DL"
+ "@internal
+  In ARM/Thumb-2 state a const_vector which can be used with a Neon vorn or
+  vand instruction."
+ (and (match_code "const_vector")
+      (match_test "TARGET_32BIT
+		   && imm_for_neon_inv_logic_operand (op, GET_MODE (op))")))
+
 (define_constraint "Dv"
  "@internal
   In ARM/Thumb-2 state a const_double which can be used with a VFP fconsts
   or fconstd instruction."
  (and (match_code "const_double")
       (match_test "TARGET_32BIT && vfp3_const_double_rtx (op)")))
+
+(define_memory_constraint "Ut"
+ "@internal
+  In ARM/Thumb-2 state an address valid for loading/storing opaque structure
+  types wider than TImode."
+ (and (match_code "mem")
+      (match_test "TARGET_32BIT && neon_struct_mem_operand (op)")))
 
 (define_memory_constraint "Uv"
  "@internal
@@ -182,6 +212,20 @@
   In ARM/Thumb-2 state a valid iWMMX load/store address."
  (and (match_code "mem")
       (match_test "TARGET_32BIT && arm_coproc_mem_operand (op, TRUE)")))
+
+(define_memory_constraint "Un"
+ "@internal
+  In ARM/Thumb-2 state a valid address for Neon element and structure
+  load/store instructions."
+ (and (match_code "mem")
+      (match_test "TARGET_32BIT && neon_vector_mem_operand (op, FALSE)")))
+
+(define_memory_constraint "Us"
+ "@internal
+  In ARM/Thumb-2 state a valid address for non-offset loads/stores of
+  quad-word values in four ARM registers."
+ (and (match_code "mem")
+      (match_test "TARGET_32BIT && neon_vector_mem_operand (op, TRUE)")))
 
 (define_memory_constraint "Uq"
  "@internal

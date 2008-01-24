@@ -1,12 +1,12 @@
 /* Code sinking for trees
-   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -434,6 +433,7 @@ sink_code_in_bb (basic_block bb)
   block_stmt_iterator bsi;
   edge_iterator ei;
   edge e;
+  bool last = true;
   
   /* If this block doesn't dominate anything, there can't be any place to sink
      the statements to.  */
@@ -455,6 +455,7 @@ sink_code_in_bb (basic_block bb)
 	{
 	  if (!bsi_end_p (bsi))
 	    bsi_prev (&bsi);
+	  last = false;
 	  continue;
 	}      
       if (dump_file)
@@ -473,6 +474,19 @@ sink_code_in_bb (basic_block bb)
 	bsi_move_before (&bsi, &tobsi);
 
       sink_stats.sunk++;
+
+      /* If we've just removed the last statement of the BB, the
+	 bsi_end_p() test below would fail, but bsi_prev() would have
+	 succeeded, and we want it to succeed.  So we keep track of
+	 whether we're at the last statement and pick up the new last
+	 statement.  */
+      if (last)
+	{
+	  bsi = bsi_last (bb);
+	  continue;
+	}
+
+      last = false;
       if (!bsi_end_p (bsi))
 	bsi_prev (&bsi);
       

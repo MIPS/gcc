@@ -5,7 +5,7 @@
 
 #GCC is free software; you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
-#the Free Software Foundation; either version 2, or (at your option)
+#the Free Software Foundation; either version 3, or (at your option)
 #any later version.
 
 #GCC is distributed in the hope that it will be useful,
@@ -14,14 +14,13 @@
 #GNU General Public License for more details.
 
 #You should have received a copy of the GNU General Public License
-#along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-#Boston, MA 02110-1301, USA.
+#along with GCC; see the file COPYING3.  If not see
+#<http://www.gnu.org/licenses/>.
 
 # This makefile fragment is included in the ada Makefile (both Unix
 # and NT and VMS versions).
 
-# It's purpose is to allow the separate maintainence of the list of
+# Its purpose is to allow the separate maintainence of the list of
 # GNATRTL objects, which frequently changes.
 
 # Objects needed only for tasking
@@ -76,6 +75,7 @@ GNATRTL_TASKING_OBJS= \
 
 # Objects needed for non-tasking.
 GNATRTL_NONTASKING_OBJS= \
+  a-assert$(objext) \
   a-calari$(objext) \
   a-caldel$(objext) \
   a-calend$(objext) \
@@ -158,6 +158,7 @@ GNATRTL_NONTASKING_OBJS= \
   a-ngcefu$(objext) \
   a-ngcoty$(objext) \
   a-ngelfu$(objext) \
+  a-ngrear$(objext) \
   a-nlcefu$(objext) \
   a-nlcoty$(objext) \
   a-nlelfu$(objext) \
@@ -303,6 +304,7 @@ GNATRTL_NONTASKING_OBJS= \
   a-zzunio$(objext) \
   ada$(objext) \
   calendar$(objext) \
+  directio$(objext) \
   g-allein$(objext) \
   g-alleve$(objext) \
   g-altcon$(objext) \
@@ -315,6 +317,7 @@ GNATRTL_NONTASKING_OBJS= \
   g-bubsor$(objext) \
   g-busora$(objext) \
   g-busorg$(objext) \
+  g-byorma$(objext) \
   g-bytswa$(objext) \
   g-calend$(objext) \
   g-casuti$(objext) \
@@ -329,10 +332,14 @@ GNATRTL_NONTASKING_OBJS= \
   g-curexc$(objext) \
   g-debuti$(objext) \
   g-debpoo$(objext) \
+  g-decstr$(objext) \
+  g-deutst$(objext) \
   g-diopit$(objext) \
   g-dirope$(objext) \
   g-dyntab$(objext) \
   g-dynhta$(objext) \
+  g-encstr$(objext) \
+  g-enutst$(objext) \
   g-except$(objext) \
   g-excact$(objext) \
   g-exctra$(objext) \
@@ -350,6 +357,7 @@ GNATRTL_NONTASKING_OBJS= \
   g-moreex$(objext) \
   g-os_lib$(objext) \
   g-pehage$(objext) \
+  g-rannum$(objext) \
   g-regexp$(objext) \
   g-regpat$(objext) \
   g-sestin$(objext) \
@@ -360,6 +368,7 @@ GNATRTL_NONTASKING_OBJS= \
   g-soliop$(objext) \
   g-souinf$(objext) \
   g-speche$(objext) \
+  g-spchge$(objext) \
   g-spipat$(objext) \
   g-spitbo$(objext) \
   g-sptabo$(objext) \
@@ -372,7 +381,10 @@ GNATRTL_NONTASKING_OBJS= \
   g-tasloc$(objext) \
   g-traceb$(objext) \
   g-utf_32$(objext) \
+  g-u3spch$(objext) \
+  g-wispch$(objext) \
   g-wistsp$(objext) \
+  g-zspche$(objext) \
   g-zstspl$(objext) \
   gnat$(objext) \
   i-c$(objext) \
@@ -437,6 +449,7 @@ GNATRTL_NONTASKING_OBJS= \
   s-fvagfl$(objext) \
   s-geveop$(objext) \
   s-htable$(objext) \
+  s-imenne$(objext) \
   s-imgbiu$(objext) \
   s-imgboo$(objext) \
   s-imgcha$(objext) \
@@ -523,6 +536,7 @@ GNATRTL_NONTASKING_OBJS= \
   s-poosiz$(objext) \
   s-powtab$(objext) \
   s-purexc$(objext) \
+  s-rannum$(objext) \
   s-regexp$(objext) \
   s-regpat$(objext) \
   s-restri$(objext) \
@@ -584,5 +598,9 @@ GNATRTL_NONTASKING_OBJS= \
   s-wwdcha$(objext) \
   s-wwdenu$(objext) \
   s-wwdwch$(objext) \
+  sequenio$(objext) \
   system$(objext) \
-  text_io$(objext) $(EXTRA_GNATRTL_NONTASKING_OBJS)
+  text_io$(objext) \
+  unchconv$(objext) \
+  unchdeal$(objext) \
+  $(EXTRA_GNATRTL_NONTASKING_OBJS)

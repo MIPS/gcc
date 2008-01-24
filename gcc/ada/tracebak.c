@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                     Copyright (C) 2000-2006, AdaCore                     *
+ *                     Copyright (C) 2000-2007, AdaCore                     *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -57,6 +57,8 @@
 #else
 #include "config.h"
 #include "system.h"
+/* We don't want fancy_abort here.  */
+#undef abort
 #endif
 
 extern int __gnat_backtrace (void **, int, void *, void *, int);
@@ -97,7 +99,12 @@ extern void (*Unlock_Task) (void);
 
 #include "tb-alvms.c"
 
+#elif defined (__ia64__) && defined (__VMS__)
+
+#include "tb-ivms.c"
+
 #else
+
 /* No target specific implementation.  */
 
 /*----------------------------------------------------------------*
@@ -301,7 +308,6 @@ struct layout
   void *return_address;
 };
 
-#define LOWEST_ADDR 0
 #define FRAME_LEVEL 1
 /* builtin_frame_address (1) is expected to work on this target, and (0) might
    return the soft stack pointer, which does not designate a location where a
@@ -311,7 +317,6 @@ struct layout
 #define PC_ADJUST -2
 #define STOP_FRAME(CURRENT, TOP_STACK) \
   (IS_BAD_PTR((long)(CURRENT)->return_address) \
-   || (unsigned int)(CURRENT)->return_address < LOWEST_ADDR \
    || (CURRENT)->return_address == 0|| (CURRENT)->next == 0  \
    || (void *) (CURRENT) < (TOP_STACK))
 

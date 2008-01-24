@@ -1,11 +1,11 @@
 /* longlong.h -- definitions for mixed size 32/64 bit arithmetic.
    Copyright (C) 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2004,
-   2005  Free Software Foundation, Inc.
+   2005, 2007  Free Software Foundation, Inc.
 
    This definition file is free software; you can redistribute it
    and/or modify it under the terms of the GNU General Public
    License as published by the Free Software Foundation; either
-   version 2, or (at your option) any later version.
+   version 3, or (at your option) any later version.
 
    This definition file is distributed in the hope that it will be
    useful, but WITHOUT ANY WARRANTY; without even the implied
@@ -13,9 +13,8 @@
    See the GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with this program; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 /* You have to define the following before including this file:
 
@@ -227,6 +226,13 @@ UDItype __umulsidi3 (USItype, USItype);
 #define UDIV_TIME 100
 #endif /* __arm__ */
 
+#if defined (__CRIS__) && __CRIS_arch_version >= 3
+#define count_leading_zeros(COUNT, X) ((COUNT) = __builtin_clz (X))
+#if __CRIS_arch_version >= 8
+#define count_trailing_zeros(COUNT, X) ((COUNT) = __builtin_ctz (X))
+#endif
+#endif /* __CRIS__ */
+
 #if defined (__hppa) && W_TYPE_SIZE == 32
 #define add_ssaaaa(sh, sl, ah, al, bh, bl) \
   __asm__ ("add %4,%5,%1\n\taddc %2,%3,%0"				\
@@ -313,7 +319,7 @@ UDItype __umulsidi3 (USItype, USItype);
 
 #if (defined (__i386__) || defined (__i486__)) && W_TYPE_SIZE == 32
 #define add_ssaaaa(sh, sl, ah, al, bh, bl) \
-  __asm__ ("addl %5,%1\n\tadcl %3,%0"					\
+  __asm__ ("add{l} {%5,%1|%1,%5}\n\tadc{l} {%3,%0|%0,%3}"		\
 	   : "=r" ((USItype) (sh)),					\
 	     "=&r" ((USItype) (sl))					\
 	   : "%0" ((USItype) (ah)),					\
@@ -321,7 +327,7 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "%1" ((USItype) (al)),					\
 	     "g" ((USItype) (bl)))
 #define sub_ddmmss(sh, sl, ah, al, bh, bl) \
-  __asm__ ("subl %5,%1\n\tsbbl %3,%0"					\
+  __asm__ ("sub{l} {%5,%1|%1,%5}\n\tsbb{l} {%3,%0|%0,%3}"		\
 	   : "=r" ((USItype) (sh)),					\
 	     "=&r" ((USItype) (sl))					\
 	   : "0" ((USItype) (ah)),					\
@@ -329,13 +335,13 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "1" ((USItype) (al)),					\
 	     "g" ((USItype) (bl)))
 #define umul_ppmm(w1, w0, u, v) \
-  __asm__ ("mull %3"							\
+  __asm__ ("mul{l} %3"							\
 	   : "=a" ((USItype) (w0)),					\
 	     "=d" ((USItype) (w1))					\
 	   : "%0" ((USItype) (u)),					\
 	     "rm" ((USItype) (v)))
 #define udiv_qrnnd(q, r, n1, n0, dv) \
-  __asm__ ("divl %4"							\
+  __asm__ ("div{l} %4"							\
 	   : "=a" ((USItype) (q)),					\
 	     "=d" ((USItype) (r))					\
 	   : "0" ((USItype) (n0)),					\
@@ -349,7 +355,7 @@ UDItype __umulsidi3 (USItype, USItype);
 
 #if (defined (__x86_64__) || defined (__i386__)) && W_TYPE_SIZE == 64
 #define add_ssaaaa(sh, sl, ah, al, bh, bl) \
-  __asm__ ("addq %5,%1\n\tadcq %3,%0"					\
+  __asm__ ("add{q} {%5,%1|%1,%5}\n\tadc{q} {%3,%0|%0,%3}"		\
 	   : "=r" ((UDItype) (sh)),					\
 	     "=&r" ((UDItype) (sl))					\
 	   : "%0" ((UDItype) (ah)),					\
@@ -357,7 +363,7 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "%1" ((UDItype) (al)),					\
 	     "rme" ((UDItype) (bl)))
 #define sub_ddmmss(sh, sl, ah, al, bh, bl) \
-  __asm__ ("subq %5,%1\n\tsbbq %3,%0"					\
+  __asm__ ("sub{q} {%5,%1|%1,%5}\n\tsbb{q} {%3,%0|%0,%3}"		\
 	   : "=r" ((UDItype) (sh)),					\
 	     "=&r" ((UDItype) (sl))					\
 	   : "0" ((UDItype) (ah)),					\
@@ -365,13 +371,13 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "1" ((UDItype) (al)),					\
 	     "rme" ((UDItype) (bl)))
 #define umul_ppmm(w1, w0, u, v) \
-  __asm__ ("mulq %3"							\
+  __asm__ ("mul{q} %3"							\
 	   : "=a" ((UDItype) (w0)),					\
 	     "=d" ((UDItype) (w1))					\
 	   : "%0" ((UDItype) (u)),					\
 	     "rm" ((UDItype) (v)))
 #define udiv_qrnnd(q, r, n1, n0, dv) \
-  __asm__ ("divq %4"							\
+  __asm__ ("div{q} %4"							\
 	   : "=a" ((UDItype) (q)),					\
 	     "=d" ((UDItype) (r))					\
 	   : "0" ((UDItype) (n0)),					\
@@ -625,6 +631,11 @@ UDItype __umulsidi3 (USItype, USItype);
 	     "d" ((USItype) (v)))
 #define UMUL_TIME 10
 #define UDIV_TIME 100
+
+#if (__mips == 32 || __mips == 64) && ! __mips16
+#define count_leading_zeros(COUNT,X)	((COUNT) = __builtin_clz (X))
+#define COUNT_LEADING_ZEROS_0 32
+#endif
 #endif /* __mips__ */
 
 #if defined (__ns32000__) && W_TYPE_SIZE == 32

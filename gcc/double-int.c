@@ -1,11 +1,11 @@
 /* Operations with long integers.
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -113,7 +112,7 @@ double_int_sext (double_int cst, unsigned prec)
    is unsigned.  */
 
 double_int
-tree_to_double_int (tree cst)
+tree_to_double_int (const_tree cst)
 {
   /* We do not need to call double_int_restrict here to ensure the semantics as
      described, as this is the default one for trees.  */
@@ -305,7 +304,7 @@ double_int_to_tree (tree type, double_int cst)
    to be the same as the signedness of TYPE.  */
 
 bool
-double_int_fits_to_tree_p (tree type, double_int cst)
+double_int_fits_to_tree_p (const_tree type, double_int cst)
 {
   double_int ext = double_int_ext (cst,
 				   TYPE_PRECISION (type),
@@ -363,9 +362,9 @@ double_int_scmp (double_int a, double_int b)
     return -1;
   if (a.high > b.high)
     return 1;
-  if ((HOST_WIDE_INT) a.low < (HOST_WIDE_INT) b.low)
+  if (a.low < b.low)
     return -1;
-  if ((HOST_WIDE_INT) a.low > (HOST_WIDE_INT) b.low)
+  if (a.low > b.low)
     return 1;
 
   return 0;
@@ -443,7 +442,7 @@ mpz_set_double_int (mpz_t result, double_int val, bool uns)
    appropriate minimum or maximum TYPE bound.  */
 
 double_int
-mpz_get_double_int (tree type, mpz_t val, bool wrap)
+mpz_get_double_int (const_tree type, mpz_t val, bool wrap)
 {
   unsigned HOST_WIDE_INT *vp;
   size_t count, numb;

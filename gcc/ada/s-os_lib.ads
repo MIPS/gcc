@@ -50,6 +50,10 @@
 --  be used by other predefined packages. User access to this package is via
 --  a renaming of this package in GNAT.OS_Lib (file g-os_lib.ads).
 
+pragma Warnings (Off);
+pragma Compiler_Unit;
+pragma Warnings (On);
+
 with System;
 with System.Strings;
 
@@ -503,6 +507,7 @@ package System.OS_Lib is
    --  directories listed in the environment Path. If the Exec_Name doesn't
    --  have the executable suffix, it will be appended before the search.
    --  Otherwise works like Locate_Regular_File below.
+   --  If the executable is not found, null is returned.
    --
    --  Note that this function allocates some memory for the returned value.
    --  This memory needs to be deallocated after use.
@@ -650,9 +655,9 @@ package System.OS_Lib is
    --  (notably Unix systems) a simple file name may also work (if the
    --  executable can be located in the path).
    --
-   --  "Spawn" should not be used in tasking applications. Why not??? More
-   --  documentation would be helpful here ??? Is it really tasking programs,
-   --  or tasking activity that cause trouble ???
+   --  "Spawn" should be avoided in tasking applications, since there are
+   --  subtle interactions between creating a process and signals/locks
+   --  that can cause troubles.
    --
    --  Note: Arguments in Args that contain spaces and/or quotes such as
    --  "--GCC=gcc -v" or "--GCC=""gcc -v""" are not portable across all
@@ -814,12 +819,24 @@ package System.OS_Lib is
    --  changes made by Setenv calls. This procedure is not available on VMS.
 
    procedure OS_Exit (Status : Integer);
-   pragma Import (C, OS_Exit, "__gnat_os_exit");
    pragma No_Return (OS_Exit);
+
    --  Exit to OS with given status code (program is terminated). Note that
    --  this is abrupt termination. All tasks are immediately terminated. There
    --  are no finalization or other Ada-specific cleanup actions performed. On
-   --  systems with atexit handlers (such as Unix and Windows) are performed.
+   --  systems with atexit handlers (such as Unix and Windows), atexit handlers
+   --  are called.
+
+   type OS_Exit_Subprogram is access procedure (Status : Integer);
+
+   procedure OS_Exit_Default (Status : Integer);
+   pragma No_Return (OS_Exit_Default);
+   --  Default implementation of procedure OS_Exit
+
+   OS_Exit_Ptr : OS_Exit_Subprogram := OS_Exit_Default'Access;
+   --  OS_Exit is implemented through this access value. It it then possible to
+   --  change the implementation of OS_Exit by redirecting OS_Exit_Ptr to an
+   --  other implementation.
 
    procedure OS_Abort;
    pragma Import (C, OS_Abort, "abort");

@@ -1,13 +1,14 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -590,7 +590,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 }
 
 static inline bool
-is_invisiref_parm (tree t)
+is_invisiref_parm (const_tree t)
 {
   return ((TREE_CODE (t) == PARM_DECL || TREE_CODE (t) == RESULT_DECL)
 	  && DECL_BY_REFERENCE (t));
@@ -746,7 +746,7 @@ cp_genericize (tree fndecl)
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */
   p_set = pointer_set_create ();
-  walk_tree (&DECL_SAVED_TREE (fndecl), cp_genericize_r, p_set, NULL);
+  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_genericize_r, p_set, NULL);
   pointer_set_destroy (p_set);
 
   /* Do everything else.  */
@@ -928,7 +928,7 @@ cxx_omp_clause_dtor (tree clause, tree decl)
    than the DECL itself.  */
 
 bool
-cxx_omp_privatize_by_reference (tree decl)
+cxx_omp_privatize_by_reference (const_tree decl)
 {
   return is_invisiref_parm (decl);
 }

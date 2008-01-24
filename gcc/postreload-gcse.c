@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -178,10 +177,10 @@ static void free_mem (void);
 static bool oprs_unchanged_p (rtx, rtx, bool);
 static void record_last_reg_set_info (rtx, int);
 static void record_last_mem_set_info (rtx);
-static void record_last_set_info (rtx, rtx, void *);
+static void record_last_set_info (rtx, const_rtx, void *);
 static void record_opr_changes (rtx);
 
-static void find_mem_conflicts (rtx, rtx, void *);
+static void find_mem_conflicts (rtx, const_rtx, void *);
 static int load_killed_in_block_p (int, rtx, bool);
 static void reset_opr_set_tables (void);
 
@@ -297,7 +296,7 @@ hash_expr (rtx x, int *do_not_record_p)
 static hashval_t
 hash_expr_for_htab (const void *expp)
 {
-  struct expr *exp = (struct expr *) expp;
+  const struct expr *const exp = (const struct expr *) expp;
   return exp->hash;
 }
 
@@ -307,8 +306,8 @@ hash_expr_for_htab (const void *expp)
 static int
 expr_equiv_p (const void *exp1p, const void *exp2p)
 {
-  struct expr *exp1 = (struct expr *) exp1p;
-  struct expr *exp2 = (struct expr *) exp2p;
+  const struct expr *const exp1 = (const struct expr *) exp1p;
+  const struct expr *const exp2 = (const struct expr *) exp2p;
   int equiv_p = exp_equiv_p (exp1->expr, exp2->expr, 0, true);
   
   gcc_assert (!equiv_p || exp1->hash == exp2->hash);
@@ -523,6 +522,7 @@ oprs_unchanged_p (rtx x, rtx insn, bool after_insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_FIXED:
     case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -572,7 +572,7 @@ static int mems_conflict_p;
    to a nonzero value.  */
 
 static void
-find_mem_conflicts (rtx dest, rtx setter ATTRIBUTE_UNUSED,
+find_mem_conflicts (rtx dest, const_rtx setter ATTRIBUTE_UNUSED,
 		    void *data)
 {
   rtx mem_op = (rtx) data;
@@ -672,7 +672,7 @@ record_last_mem_set_info (rtx insn)
    the SET is taking place.  */
 
 static void
-record_last_set_info (rtx dest, rtx setter ATTRIBUTE_UNUSED, void *data)
+record_last_set_info (rtx dest, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
   rtx last_set_insn = (rtx) data;
 
@@ -1322,8 +1322,8 @@ struct tree_opt_pass pass_gcse2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func |
-  TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing
+  | TODO_verify_flow | TODO_ggc_collect,/* todo_flags_finish */
   'J'                                   /* letter */
 };
 

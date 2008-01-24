@@ -1,8 +1,8 @@
-# Copyright (C) 1997, 2004 Free Software Foundation, Inc.
+# Copyright (C) 1997, 2004, 2007 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 # 
 # This program is distributed in the hope that it will be useful,
@@ -11,8 +11,8 @@
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 # GCC testsuite that uses the `dg.exp' driver.
 
@@ -62,6 +62,21 @@ proc check_effective_target_sse4a { } {
 	    return (__m128i) __builtin_ia32_insertq ((__v2di)__X, (__v2di)__Y);
 	}
     } "-O2 -msse4a" ]
+}
+
+# Return 1 if sse5 instructions can be compiled.
+proc check_effective_target_sse5 { } {
+    return [check_no_compiler_messages sse5 object {
+	typedef long long __m128i __attribute__ ((__vector_size__ (16)));
+	typedef short __v8hi __attribute__ ((__vector_size__ (16)));
+
+	__m128i _mm_maccs_epi16(__m128i __A, __m128i __B, __m128i __C)
+	{
+	    return (__m128i) __builtin_ia32_pmacssww ((__v8hi)__A,
+						      (__v8hi)__B,
+						      (__v8hi)__C);
+	}
+    } "-O2 -msse5" ]
 }
 
 # If a testcase doesn't have special options, use these.

@@ -1,5 +1,5 @@
 /* Declarations of various C99 functions 
-   Copyright (C) 2004, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -198,6 +198,43 @@ extern double round(double);
 #ifndef HAVE_ROUNDF
 #define HAVE_ROUNDF 1
 extern float roundf(float);
+#endif
+
+#if !defined(HAVE_ROUNDL)
+#define HAVE_ROUNDL 1
+extern long double roundl(long double);
+#endif
+
+
+
+#if !defined(HAVE_LROUNDF) && defined(HAVE_ROUNDF)
+#define HAVE_LROUNDF 1
+long int lroundf (float);
+#endif
+
+#if !defined(HAVE_LROUND) && defined(HAVE_ROUND)
+#define HAVE_LROUND 1
+long int lround (double);
+#endif
+
+#if !defined(HAVE_LROUNDL) && defined(HAVE_ROUNDL)
+#define HAVE_LROUNDL 1
+long int lroundl (long double);
+#endif
+
+#if !defined(HAVE_LLROUNDF) && defined(HAVE_ROUNDF)
+#define HAVE_LLROUNDF 1
+long long int llroundf (float);
+#endif
+
+#if !defined(HAVE_LLROUND) && defined(HAVE_ROUND)
+#define HAVE_LLROUND 1
+long long int llround (double);
+#endif
+
+#if !defined(HAVE_LLROUNDL) && defined(HAVE_ROUNDL)
+#define HAVE_LLROUNDL 1
+long long int llroundl (long double);
 #endif
 
 /* Wrappers for systems without the various C99 single precision Bessel
@@ -462,6 +499,28 @@ extern double complex ctan (double complex);
 #if !defined(HAVE_CTANL) && defined(HAVE_TANL) && defined(HAVE_TANHL)
 #define HAVE_CTANL 1
 extern long double complex ctanl (long double complex);
+#endif
+
+
+/* Gamma-related prototypes.  */
+#if !defined(HAVE_TGAMMA)
+#define HAVE_TGAMMA 1
+extern double tgamma (double);
+#endif
+
+#if !defined(HAVE_LGAMMA)
+#define HAVE_LGAMMA 1
+extern double lgamma (double);
+#endif
+
+#if defined(HAVE_TGAMMA) && !defined(HAVE_TGAMMAF)
+#define HAVE_TGAMMAF 1
+extern float tgammaf (float);
+#endif
+
+#if defined(HAVE_LGAMMA) && !defined(HAVE_LGAMMAF)
+#define HAVE_LGAMMAF 1
+extern float lgammaf (float);
 #endif
 
 
