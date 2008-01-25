@@ -1,0 +1,5 @@
+2008-01-25  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/concepts/refine-errors1.C: New.
+	* g++.dg/concepts/parse1.C: New.
+	* g++.dg/concepts/parse2.C: New.

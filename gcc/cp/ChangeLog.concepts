@@ -1,3 +1,32 @@
+2008-01-25  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* decl.c (tag_name): concept_type -> "concept"
+	(xref_tag): concepts are stored as RECORD_TYPE nodes.
+	* pt.c (lookup_template_class): When creating a new type for a
+	concept, mark it as a concept-id.
+	* concept.c (begin_concept_definition): New.
+	(check_refinement): New.
+	(xref_refinements): New.
+	(finish_concept_definition): New.
+	* parser.c (cp_parser_declaration): Parse concepts.
+	(cp_parser_concept_definition): New.
+	(cp_parser_refinement_clause): New.
+	(cp_parser_refinement_specifier): New.
+	(cp_parser_concept_body): New, stub.
+	* config-lang.in (gtfiles): Add cp/concept.c.
+	* Make-lang.in (cp/concept.o): New, add to front end.
+	* cp-tree.h (enum concept_kind): New.
+	(CLASSTYPE_USE_CONCEPT): New.
+	(CONCEPT_P): New.
+	(IMPLICIT_CONCEPT_P): New.
+	(EXPLICIT_CONCEPT_P): New.
+	(struct lang_type_class): Add use_concept field; update dummy
+	bits.
+	(enum tag_types): Add concept_type tag.
+	(begin_concept_definition): Declare.
+	(xref_refinements): Declare.
+	(finish_concept_definition): Declare.
+
 2008-01-24  Douglas Gregor  <doug.gregor@gmail.com>
 
-	* cp/lex.c (reswords): Add concepts keywords as reserved words.
+	* lex.c (reswords): Add concepts keywords as reserved words.

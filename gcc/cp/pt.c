@@ -5845,6 +5845,12 @@ lookup_template_class (tree d1,
 	= TREE_PROTECTED (TYPE_STUB_DECL (template_type));
       DECL_IN_SYSTEM_HEADER (type_decl)
 	= DECL_IN_SYSTEM_HEADER (template);
+
+      if (CONCEPT_P (template_type))
+        /* If the template we are referring to is a concept, then the
+           new type is a concept-id.  */
+        CLASSTYPE_USE_CONCEPT (t) = ck_concept_id;
+
       if (CLASSTYPE_VISIBILITY_SPECIFIED (template_type))
 	{
 	  DECL_VISIBILITY_SPECIFIED (type_decl) = 1;

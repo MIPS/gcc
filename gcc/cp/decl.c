@@ -10062,6 +10062,8 @@ tag_name (enum tag_types code)
       return "enum";
     case typename_type:
       return "typename";
+    case concept_type:
+      return "concept";
     default:
       gcc_unreachable ();
     }
@@ -10258,6 +10260,7 @@ xref_tag (enum tag_types tag_code, tree name,
     {
     case record_type:
     case class_type:
+    case concept_type:
       code = RECORD_TYPE;
       break;
     case union_type:

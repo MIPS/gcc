@@ -1710,6 +1710,8 @@ static void cp_parser_static_assert
   (cp_parser *, bool);
 static tree cp_parser_decltype
   (cp_parser *);
+static void cp_parser_concept_definition
+  (cp_parser *);
 
 /* Declarators [gram.dcl.decl] */
 
@@ -1820,6 +1822,12 @@ static tree cp_parser_template_argument
 static void cp_parser_explicit_instantiation
   (cp_parser *);
 static void cp_parser_explicit_specialization
+  (cp_parser *);
+static tree cp_parser_refinement_clause
+  (cp_parser *);
+static tree cp_parser_refinement_specifier 
+  (cp_parser *);
+static void cp_parser_concept_body
   (cp_parser *);
 
 /* Exception handling [gram.exception] */
@@ -7652,6 +7660,11 @@ cp_parser_declaration_seq_opt (cp_parser* parser)
      linkage-specification
      namespace-definition
 
+   C++0x:
+
+   declaration:
+     concept-definition
+
    GNU extension:
 
    declaration:
@@ -7735,6 +7748,11 @@ cp_parser_declaration (cp_parser* parser)
 	       || token2.type == CPP_OPEN_BRACE
 	       || token2.keyword == RID_ATTRIBUTE))
     cp_parser_namespace_definition (parser);
+  /* If the next token is `concept', or we have the sequence `auto
+     concept', then we are defining a concept. */
+  else if (token1.keyword == RID_CONCEPT
+           || (token1.keyword == RID_AUTO && token2.keyword == RID_CONCEPT))
+    cp_parser_concept_definition (parser);
   /* Objective-C++ declaration/definition.  */
   else if (c_dialect_objc () && OBJC_IS_AT_KEYWORD (token1.keyword))
     cp_parser_objc_declaration (parser);
@@ -8613,6 +8631,135 @@ cp_parser_decltype (cp_parser *parser)
     }
 
   return finish_decltype_type (expr, id_expression_or_member_access_p);
+}
+
+/* Parse a concept definition.
+
+   concept-definition:
+     auto [opt] concept identifier < template-parameter-list > 
+        refinement-clause [opt] concept-body ; [opt]  */
+
+static void 
+cp_parser_concept_definition (cp_parser *parser)
+{
+  bool implicit_p = false;
+  tree concept_name = NULL_TREE;
+  tree concept_parms = NULL_TREE;
+  cp_token *token;
+  tree the_concept = NULL_TREE;
+  unsigned saved_num_template_parameter_lists;
+
+  /* Look for the (optional) `auto' keyword.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AUTO))
+    {
+      cp_lexer_consume_token (parser->lexer);
+
+      /* This is an implicit concept.  */
+      implicit_p = true;
+    }
+
+  /* Look for the `concept' keyword.  */
+  if (!cp_parser_require_keyword (parser, RID_CONCEPT, "`concept'"))
+    return;
+
+  /* Concepts shall only be defined at namespace scope.  */
+  if (!at_namespace_scope_p ())
+    error ("concepts can only be defined in a namespace or global scope");
+
+  /* Get the name of the concept.  */
+  concept_name = cp_parser_identifier (parser);
+  
+  /* Get the `<' that starts the template parameter list.  */
+  cp_parser_require (parser, CPP_LESS, "`<'");
+      
+  /* Get the template parameter list.  */
+  concept_parms = cp_parser_template_parameter_list (parser);
+
+  /* Look for the `>'.  */
+  cp_parser_skip_to_end_of_template_parameter_list (parser);
+
+  /* We just parsed a template parameter list.  */
+  ++parser->num_template_parameter_lists;
+
+  /* Declare and start defining this concept.  */
+  the_concept = begin_concept_definition (concept_name, implicit_p);
+
+  /* Peek at the next token.  */
+  token = cp_lexer_peek_token (parser->lexer);
+
+  /* If it's a `:', parse refinements.  */
+  if (token->type == CPP_COLON) 
+    {
+      /* Parse the refinement clause.  */
+      tree refinements = cp_parser_refinement_clause (parser);
+
+      /* Attach the refinements to the concept.  */
+      if (the_concept != error_mark_node && refinements != error_mark_node)
+        xref_refinements (the_concept, refinements);
+
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+    }
+
+  /* Remember that we are defining one more class (actually a
+     concept).  */
+  ++parser->num_classes_being_defined;
+
+  /* Inside the concept, surrounding template-parameter-lists do not
+     apply.  */
+  saved_num_template_parameter_lists
+    = parser->num_template_parameter_lists;
+  parser->num_template_parameter_lists = 0;
+
+  /* Find the '{' that starts the concept definition.  */
+  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
+    {
+      /* Skip over any junk before the `{'.  */
+      while (token->type != CPP_OPEN_BRACE 
+             && token->type != CPP_CLOSE_BRACE
+             && token->type != CPP_EOF)
+        {
+          cp_lexer_consume_token (parser->lexer);
+          token = cp_lexer_peek_token (parser->lexer);
+        }
+
+      if (token->type == CPP_OPEN_BRACE)
+        /* Consume the starting `{'.  */
+        cp_lexer_consume_token (parser->lexer);
+      else
+        the_concept = error_mark_node;
+    }
+
+  if (the_concept == error_mark_node)
+    /* If the concept is already broken, skip the entire body.  */
+    cp_parser_skip_to_closing_brace (parser);
+  else
+    /* Parse the concept body.  */
+    cp_parser_concept_body (parser);
+
+  /* Get the '}' that finishes the concept body. */
+  cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+
+  /* If the next token is an `;', consume it. */
+  token = cp_lexer_peek_token (parser->lexer);
+  if (token->type == CPP_SEMICOLON)
+    cp_lexer_consume_token (parser->lexer);
+
+  /* Finish the concept definition.  */
+  if (the_concept != error_mark_node)
+    the_concept = finish_concept_definition (the_concept);
+
+  /* Restore number of template parameter lists. */
+  parser->num_template_parameter_lists = saved_num_template_parameter_lists;
+
+  /* We are no longer inside a class or concept.  */
+  --parser->num_classes_being_defined;
+
+  /* We are done with this template parameter list.  */
+  --parser->num_template_parameter_lists;
+
+  /* Finish up the template declaration.  */
+  finish_template_decl (concept_parms);
 }
 
 /* Special member functions [gram.special] */
@@ -10513,6 +10660,110 @@ cp_parser_explicit_specialization (cp_parser* parser)
     pop_lang_context ();
   /* We're done with this parameter list.  */
   --parser->num_template_parameter_lists;
+}
+
+/* Parses a refinement clause.  Returns a TREE_LIST of refined
+   concepts, in which each TREE_VALUE contains the name of a concept
+   instance.
+
+   refinement-clause:
+     : refinement-specifier-list
+
+   refinement-specifier-list:
+     refinement-specifier , refinement-specifier-list
+     refinement-specifier  */
+
+static tree 
+cp_parser_refinement_clause (cp_parser *parser)
+{
+  tree refinements = NULL_TREE;
+
+  /* Parse the `:' that starts the refinement clause.  */
+  if (!cp_parser_require (parser, CPP_COLON, "`:'"))
+    return NULL_TREE;
+
+  while (true) 
+    {
+      tree concept_id;
+      cp_token *token;
+
+      /* Get the refinement-specifier. */
+      concept_id = cp_parser_refinement_specifier (parser);
+
+      if (concept_id != error_mark_node)
+        /* Add the refinement-specifier to the list of
+           refinements.  */
+        refinements = tree_cons (NULL_TREE, concept_id, refinements);
+
+      /* Peek at the next token.  */
+      token = cp_lexer_peek_token (parser->lexer);
+      
+      /* If it's not a `,', we're done.  */
+      if (token->type != CPP_COMMA)
+        break;
+      
+      /* Consume the `,'.  */
+      cp_lexer_consume_token (parser->lexer);
+    }
+
+  return nreverse (refinements);
+}
+
+/* Parse a refinement-specifier. 
+
+   refinement-specifier:
+     :: [opt] nested-name-specifier [opt] concept-id  */
+static tree 
+cp_parser_refinement_specifier (cp_parser *parser)
+{
+  tree concept_id;
+
+  /* Look for the optional `::' operator.  */
+  cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false);
+
+  /* Look for the optional nested-name-specifier.  */
+  cp_parser_nested_name_specifier_opt (parser,
+                                       /*typename_keyword_p=*/false,
+                                       /*check_dependency_p=*/true,
+                                       /*type_p=*/true,
+                                       /*is_declaration=*/false);
+
+  /* A concept-id is just a template-id that may only refer to a
+     concept. */
+  concept_id = cp_parser_template_id (parser, 
+                                      /*template_keyword_p=*/false,
+                                      /*check_dependency_p=*/true,
+                                      /*is_declaration=*/false);
+
+  if (TREE_CODE (concept_id) == TYPE_DECL)
+    {
+      /* Retrieve the RECORD_TYPE itself.  */
+      concept_id = TREE_TYPE (concept_id);
+
+      if (TREE_CODE (concept_id) != RECORD_TYPE
+          || !CLASSTYPE_USE_CONCEPT (concept_id))
+        {
+          /* Refinements can only refer to concepts.  */
+          error ("refinement specifier %<%T%> does not refer to a concept",
+                 concept_id);
+          return error_mark_node;
+        }
+
+      /* Ensure that there are no "bare" parameter packs within this
+         refinement specifier.  */
+      if (check_for_bare_parameter_packs (&concept_id))
+        return error_mark_node;
+      
+      return concept_id;
+    }
+
+  return error_mark_node;  
+}
+
+static void
+cp_parser_concept_body (cp_parser *parser)
+{
+  /* TODO */(void)parser;
 }
 
 /* Parse a type-specifier.

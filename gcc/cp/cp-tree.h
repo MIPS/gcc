@@ -1058,6 +1058,61 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define CLASSTYPE_VISIBILITY_SPECIFIED(TYPE)	\
 	DECL_VISIBILITY_SPECIFIED (TYPE_NAME (TYPE))
 
+/* Indicates whether a RECORD_TYPE is actually a concept or concept
+   map and, if so, what kind of concept or concept map it is.  The
+   order of these enumerators does matter: ck_not_a_concept must have
+   the value 0, and the various constants must be in order for the
+   various CONCEPT*_P macros to work properly.  */
+enum concept_kind {
+  /* This type is not a concept or a concept map.  */
+  ck_not_a_concept = 0,
+  
+  /* This type is a normal (explicit) concept.  */
+  ck_explicit_concept,
+  
+  /* This type is an auto (implicit) concept.  */
+  ck_implicit_concept,
+  
+  /* This type is a concept map.  */
+  ck_concept_map,
+  
+  /* This type is a concept map that was implicitly generated, e.g.,
+     for a refinement or when matching an implicit concept.  */
+  ck_implicit_concept_map,
+   
+  /* This type is naming a concept-id; at this point, there is no
+     concept map associated with it.  */
+  ck_concept_id,
+
+  /* This type is a concept instance, which was synthesized from a
+     concept requirement in a constrained templates.  It is a stand-in
+     for the concept map that will be available at instantiation
+     time.  */
+  ck_concept_instance
+};
+
+/* Indicates whether or not this class is actually a concept or
+   concept map.  The value itself is of type concept_kind, which
+   describes what kind of concept or concept map this RECORD_TYPE
+   structure actually is. Will be zero (ck_not_a_concept) to indicate
+   that this is a "normal" RECORD_TYPE.  */
+#define CLASSTYPE_USE_CONCEPT(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->use_concept)
+
+/* Determines whether NODE is a concept.  */
+#define CONCEPT_P(NODE) \
+  (IMPLICIT_CONCEPT_P (NODE) || EXPLICIT_CONCEPT_P (NODE))
+
+/* Determines whether NODE is an implicit concept.  */
+#define IMPLICIT_CONCEPT_P(NODE)                                \
+  (TREE_CODE (NODE) == RECORD_TYPE                              \
+   && CLASSTYPE_USE_CONCEPT (NODE) == ck_implicit_concept)
+
+/* Determines whether NODE is an explicit concept.  */
+#define EXPLICIT_CONCEPT_P(NODE)                                \
+  (TREE_CODE (NODE) == RECORD_TYPE                              \
+   && CLASSTYPE_USE_CONCEPT (NODE) == ck_explicit_concept)
+
 typedef struct tree_pair_s GTY (())
 {
   tree purpose;
@@ -1142,6 +1197,7 @@ struct lang_type_class GTY(())
   unsigned has_complex_assign_ref : 1;
   unsigned non_aggregate : 1;
   unsigned has_complex_dflt : 1;
+  ENUM_BITFIELD(concept_kind) use_concept : 3;
 
   /* When adding a flag here, consider whether or not it ought to
      apply to a template instance if it applies to the template.  If
@@ -1150,7 +1206,7 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 11;
+  unsigned dummy : 8;
 
   tree primary_base;
   VEC(tree_pair_s,gc) *vcall_indices;
@@ -3392,7 +3448,8 @@ enum tag_types {
   class_type,    /* "class" types.  */
   union_type,    /* "union" types.  */
   enum_type,     /* "enum" types.  */
-  typename_type  /* "typename" types.  */
+  typename_type, /* "typename" types.  */
+  concept_type   /* concepts.  */
 };
 
 /* The various kinds of lvalues we distinguish.  */
@@ -4157,6 +4214,11 @@ extern void determine_key_method		(tree);
 extern void check_for_override			(tree, tree);
 extern void push_class_stack			(void);
 extern void pop_class_stack			(void);
+
+/* in concept.c */
+extern tree begin_concept_definition            (tree, bool);
+extern void xref_refinements                    (tree, tree);
+extern tree finish_concept_definition           (tree);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree);
