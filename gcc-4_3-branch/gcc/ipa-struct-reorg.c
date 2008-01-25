@@ -187,7 +187,7 @@ typedef struct func_alloc_sites *fallocs_t;
 typedef const struct func_alloc_sites *const_fallocs_t;
 
 /* All allocation sites in the program.  */
-htab_t alloc_sites;
+htab_t alloc_sites = NULL;
 
 /* New global variables. Generated once for whole program.  */
 htab_t new_global_vars;
@@ -623,7 +623,12 @@ gen_size (tree num, tree type, tree *res)
     add_referenced_var (*res);
 
   if (exact_log2 (struct_size_int) == -1)
-    new_stmt = build_gimple_modify_stmt (num, struct_size);
+    {
+      tree size = build_int_cst (TREE_TYPE (num), struct_size_int);
+      new_stmt = build_gimple_modify_stmt (*res, build2 (MULT_EXPR,
+							 TREE_TYPE (num),
+							 num, size));
+    }
   else
     {
       tree C = build_int_cst (TREE_TYPE (num), exact_log2 (struct_size_int));
@@ -1246,12 +1251,15 @@ create_new_stmts_for_cond_expr (tree stmt)
   s0 = (str0 != length) ? true : false;
   s1 = (str1 != length) ? true : false;
 
-  gcc_assert ((!s0 && s1) || (!s1 && s0));
+  gcc_assert (s0 || s1);
+  /* For now we allow only comparison with 0 or NULL.  */
+  gcc_assert (integer_zerop (arg0) || integer_zerop (arg1));
   
-  str = s0 ? VEC_index (structure, structures, str0): 
-    VEC_index (structure, structures, str1);
-  arg = s0 ? arg0 : arg1;
-  pos = s0 ? 0 : 1;
+  str = integer_zerop (arg0) ?
+    VEC_index (structure, structures, str1): 
+    VEC_index (structure, structures, str0);
+  arg = integer_zerop (arg0) ? arg1 : arg0;
+  pos = integer_zerop (arg0) ? 1 : 0;
   
   for (i = 0; VEC_iterate (tree, str->new_types, i, type); i++)
     {
@@ -1730,7 +1738,7 @@ create_new_malloc (tree malloc_stmt, tree new_type, tree *new_stmts, tree num)
   append_to_statement_list (new_stmt, new_stmts);
 
   /* Generate new call for malloc.  */
-  malloc_res = create_tmp_var (integer_type_node, NULL);
+  malloc_res = create_tmp_var (ptr_type_node, NULL);
 
   if (malloc_res)
     add_referenced_var (malloc_res);
@@ -2339,6 +2347,41 @@ dump_access_sites (htab_t accs)
     htab_traverse (accs, dump_acc, NULL);
 }
 
+/* This function is a callback for alloc_sites hashtable 
+   traversal. SLOT is a pointer to fallocs_t. This function
+   removes all allocations of the structure defined by DATA.  */
+
+static int
+remove_str_allocs_in_func (void **slot, void *data)
+{
+  fallocs_t fallocs = *(fallocs_t *) slot;
+  unsigned i = 0;
+  alloc_site_t *call;
+
+  while (VEC_iterate (alloc_site_t, fallocs->allocs, i, call))
+    {
+      if (call->str == (d_str) data)
+	VEC_ordered_remove (alloc_site_t, fallocs->allocs, i);
+      else
+	i++;
+    }
+
+  return 1;
+}
+
+/* This function remove all entries corresponding to the STR structure
+   from alloc_sites hashtable.   */
+
+static void
+remove_str_allocs (d_str str)
+{
+  if (!str)
+    return;
+
+  if (alloc_sites)
+    htab_traverse (alloc_sites, remove_str_allocs_in_func, str);
+}
+
 /* This function removes the structure with index I from structures vector.  */
 
 static void 
@@ -2349,7 +2392,11 @@ remove_structure (unsigned i)
   if (i >= VEC_length (structure, structures))
     return;
 
-  str = VEC_index (structure, structures, i);  
+  str = VEC_index (structure, structures, i);
+  
+  /* Before removing the structure str, we have to remove its
+     allocations from alloc_sites hashtable.  */
+  remove_str_allocs (str);
   free_data_struct (str);
   VEC_ordered_remove (structure, structures, i);
 }
@@ -2383,8 +2430,12 @@ is_safe_cond_expr (tree cond_stmt)
 
   s0 = (str0 != length) ? true : false;
   s1 = (str1 != length) ? true : false;
+  
+  if (!s0 && !s1)
+    return false;
 
-  if (!((!s0 && s1) || (!s1 && s0)))
+  /* For now we allow only comparison with 0 or NULL.  */
+  if (!integer_zerop (arg0) && !integer_zerop (arg1))
     return false;
 
   return true;
@@ -3069,26 +3120,24 @@ dump_accs (d_str str)
 }
 
 /* This function checks whether an access statement, pointed by SLOT,
-   is a condition we are capable to transform. If not, it removes
-   the structure with index, represented by DATA, from the vector
-   of structures.  */
+   is a condition we are capable to transform.  It returns false if not,
+   setting bool *DATA to false.  */
  
 static int
 safe_cond_expr_check (void **slot, void *data)
 {
   struct access_site *acc = *(struct access_site **) slot;
 
-  if (TREE_CODE (acc->stmt) == COND_EXPR)
+  if (TREE_CODE (acc->stmt) == COND_EXPR
+      && !is_safe_cond_expr (acc->stmt))
     {
-      if (!is_safe_cond_expr (acc->stmt))
+      if (dump_file)
 	{
-	  if (dump_file)
-	    {
-	      fprintf (dump_file, "\nUnsafe conditional statement ");
-	      print_generic_stmt (dump_file, acc->stmt, 0);
-	    }
-	  remove_structure (*(unsigned *) data);
+	  fprintf (dump_file, "\nUnsafe conditional statement ");
+	  print_generic_stmt (dump_file, acc->stmt, 0);
 	}
+      *(bool *) data = false;
+      return 0;
     }
   return 1;
 }
@@ -3542,9 +3591,18 @@ check_cond_exprs (void)
   d_str str;
   unsigned i;
 
-  for (i = 0; VEC_iterate (structure, structures, i, str); i++)
-    if (str->accs)
-      htab_traverse (str->accs, safe_cond_expr_check, &i);
+  i = 0;
+  while (VEC_iterate (structure, structures, i, str))
+    {
+      bool safe_p = true;
+
+      if (str->accs)
+	htab_traverse (str->accs, safe_cond_expr_check, &safe_p);
+      if (!safe_p)
+	remove_structure (i);
+      else
+	i++;
+    }
 }
 
 /* We exclude from non-field accesses of the structure 
@@ -3854,7 +3912,8 @@ exclude_cold_structs (void)
     sum_counts (str, &hotest);
 
   /* Remove cold structures from structures vector.  */
-  for (i = 0; VEC_iterate (structure, structures, i, str); i++)
+  i = 0;
+  while (VEC_iterate (structure, structures, i, str))
     if (str->count * 100 < (hotest * STRUCT_REORG_COLD_STRUCT_RATIO))
       {
 	if (dump_file)
@@ -3865,6 +3924,8 @@ exclude_cold_structs (void)
 	  }
 	remove_structure (i);
       }
+    else
+      i++;
 }
 
 /* This function decomposes original structure into substructures, 

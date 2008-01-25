@@ -1,3 +1,7 @@
+2008-01-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure: Regenerate.
+
 2005-02-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* ia64_save_regs_in_stack.s: Moved to...

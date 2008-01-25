@@ -724,7 +724,7 @@ proper position among the other output files.  */
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
-    %{fopenmp:%:include(libgomp.spec)%(link_gomp)} %(mflib)\
+    %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)} %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
@@ -873,7 +873,7 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 /* Adding -fopenmp should imply pthreads.  This is particularly important
    for targets that use different start files and suchlike.  */
 #ifndef GOMP_SELF_SPECS
-#define GOMP_SELF_SPECS "%{fopenmp: -pthread}"
+#define GOMP_SELF_SPECS "%{fopenmp|ftree-parallelize-loops=*: -pthread}"
 #endif
 
 static const char *const driver_self_specs[] = {
@@ -3098,24 +3098,22 @@ See %s for instructions.",
    If a switch uses following arguments, then the `part1' field
    is the switch itself and the `args' field
    is a null-terminated vector containing the following arguments.
-   The `live_cond' field is:
-   0 when initialized
-   1 if the switch is true in a conditional spec,
-   -1 if false (overridden by a later switch)
-   -2 if this switch should be ignored (used in %<S)
+   Bits in the `live_cond' field are:
+   SWITCH_LIVE to indicate this switch is true in a conditional spec.
+   SWITCH_FALSE to indicate this switch is overridden by a later switch.
+   SWITCH_IGNORE to indicate this switch should be ignored (used in %<S).
    The `validated' field is nonzero if any spec has looked at this switch;
    if it remains zero at the end of the run, it must be meaningless.  */
 
-#define SWITCH_OK       0
-#define SWITCH_FALSE   -1
-#define SWITCH_IGNORE  -2
-#define SWITCH_LIVE     1
+#define SWITCH_LIVE    0x1
+#define SWITCH_FALSE   0x2
+#define SWITCH_IGNORE  0x4
 
 struct switchstr
 {
   const char *part1;
   const char **args;
-  int live_cond;
+  unsigned int live_cond;
   unsigned char validated;
   unsigned char ordering;
 };
@@ -4135,7 +4133,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	     -e0 or -e1 down into the linker.  */
 	  switches[n_switches].part1 = &argv[i][0];
 	  switches[n_switches].args = 0;
-	  switches[n_switches].live_cond = SWITCH_OK;
+	  switches[n_switches].live_cond = 0;
 	  switches[n_switches].validated = 0;
 	  n_switches++;
 	}
@@ -4246,7 +4244,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  else
 	    switches[n_switches].args = 0;
 
-	  switches[n_switches].live_cond = SWITCH_OK;
+	  switches[n_switches].live_cond = 0;
 	  switches[n_switches].validated = 0;
 	  switches[n_switches].ordering = 0;
 	  /* These are always valid, since gcc.c itself understands the
@@ -4327,7 +4325,7 @@ set_collect_gcc_options (void)
       first_time = FALSE;
 
       /* Ignore elided switches.  */
-      if (switches[i].live_cond == SWITCH_IGNORE)
+      if ((switches[i].live_cond & SWITCH_IGNORE) != 0)
 	continue;
 
       obstack_grow (&collect_obstack, "'-", 2);
@@ -4555,7 +4553,7 @@ do_self_spec (const char *spec)
 	  sw = &switches[i + first];
 	  sw->part1 = &argbuf[i][1];
 	  sw->args = 0;
-	  sw->live_cond = SWITCH_OK;
+	  sw->live_cond = 0;
 	  sw->validated = 0;
 	  sw->ordering = 0;
 	}
@@ -5305,7 +5303,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		if (!strncmp (switches[i].part1, p, len - have_wildcard)
 		    && (have_wildcard || switches[i].part1[len] == '\0'))
 		  {
-		    switches[i].live_cond = SWITCH_IGNORE;
+		    switches[i].live_cond |= SWITCH_IGNORE;
 		    switches[i].validated = 1;
 		  }
 
@@ -5923,7 +5921,8 @@ check_live_switch (int switchnum, int prefix_length)
   /* If we already processed this switch and determined if it was
      live or not, return our past determination.  */
   if (switches[switchnum].live_cond != 0)
-    return switches[switchnum].live_cond > 0;
+    return ((switches[switchnum].live_cond & SWITCH_LIVE) != 0
+	    && (switches[switchnum].live_cond & SWITCH_FALSE) == 0);
 
   /* Now search for duplicate in a manner that depends on the name.  */
   switch (*name)
@@ -5970,7 +5969,7 @@ check_live_switch (int switchnum, int prefix_length)
     }
 
   /* Otherwise the switch is live.  */
-  switches[switchnum].live_cond = SWITCH_LIVE;
+  switches[switchnum].live_cond |= SWITCH_LIVE;
   return 1;
 }
 
@@ -5985,7 +5984,7 @@ check_live_switch (int switchnum, int prefix_length)
 static void
 give_switch (int switchnum, int omit_first_word)
 {
-  if (switches[switchnum].live_cond == SWITCH_IGNORE)
+  if ((switches[switchnum].live_cond & SWITCH_IGNORE) != 0)
     return;
 
   if (!omit_first_word)
@@ -7369,7 +7368,7 @@ used_arg (const char *p, int len)
       mswitches
 	= XNEWVEC (struct mswitchstr, n_mdswitches + (n_switches ? n_switches : 1));
       for (i = 0; i < n_switches; i++)
-	if (switches[i].live_cond != SWITCH_IGNORE)
+	if ((switches[i].live_cond & SWITCH_IGNORE) == 0)
 	  {
 	    int xlen = strlen (switches[i].part1);
 	    for (j = 0; j < cnt; j++)

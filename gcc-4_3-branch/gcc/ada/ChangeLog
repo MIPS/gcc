@@ -1,3 +1,57 @@
+2008-01-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (components_to_record): Do not reuse the empty union type
+	if there is a representation clause on the record.
+	* trans.c (addressable_p): Return true for INTEGER_CST.
+
+2008-01-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* trans.c (gnat_to_gnu) <N_Free_Statement>: Use POINTER_PLUS_EXPR
+	in pointer arithmetics.
+	* utils2.c (build_allocator): Likewise.
+
+2008-01-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* utils.c (build_function_stub): Properly build the call expression.
+
+2008-01-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (gnat_to_gnu_entity) <object>: Process renamings
+	before converting the expression to the type of the object.
+	* trans.c (maybe_stabilize_reference) <CONSTRUCTOR>: New case.
+	Stabilize constructors for special wrapping types.
+
+2008-01-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* trans.c (call_to_gnu):Invoke the addressable_p predicate only
+	when necessary.  Merge some conditional statements.  Update comments.
+	Rename unchecked_convert_p local variable to suppress_type_conversion.
+	Do not suppress conversions in the In case.
+	(addressable_p) <VIEW_CONVERT_EXPR>: Do not take alignment issues
+	into account on non strict-alignment platforms.
+
+2008-01-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* utils.c (aggregate_type_contains_array_p): New predicate.
+	(create_field_decl): In a packed record, force byte alignment
+	for fields without specified position that contain an array.
+
+2008-01-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* utils.c (unchecked_convert): Fold the VIEW_CONVERT_EXPR expression.
+
+2008-01-10  John David Anglin  <dave.anglin.@nrc-cnrc.gc.ca>
+
+	PR ada/34466
+	* s-osinte-linux-hppa.ads (SC_NPROCESSORS_ONLN): New constant for
+	sysconf call.
+	(bit_field): New packed boolean type used by cpu_set_t.
+	(cpu_set_t): New type corresponding to the C type with
+	the same name. Note that on the Ada side we use a bit
+	field array for the affinity mask. There is not need
+	for the C macro for setting individual bit.
+	(pthread_setaffinity_np): New imported routine.
+
 2008-01-03  Tero Koskinen <tero.koskinen@iki.fi>
 
 	PR ada/34647
