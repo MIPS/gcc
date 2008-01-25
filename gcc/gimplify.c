@@ -178,7 +178,9 @@ push_gimplify_context (void)
 
 /* Tear down a context for the gimplifier.  If BODY is non-null, then
    put the temporaries into the outer BIND_EXPR.  Otherwise, put them
-   in the unexpanded_var_list.  */
+   in the unexpanded_var_list.
+
+   BODY is not a sequence, but the first tuple in a sequence.  */
 
 void
 pop_gimplify_context (gimple body)
@@ -349,6 +351,23 @@ void
 gimplify_and_add (tree t, gimple_seq seq)
 {
   gimplify_stmt (&t, seq);
+}
+
+/* Gimplify statement T, and return the first tuple in the sequence of
+   generated tuples for this statement.  Return NULL if gimplifying T
+   produced no tuples.  */
+
+static gimple
+gimplify_and_return_first (tree t, gimple_seq seq)
+{
+  gimple last = gimple_seq_last (seq);
+
+  gimplify_and_add (t, seq);
+
+  if (last)
+    return gimple_next (last);
+  else
+    return gimple_seq_first (seq);
 }
 
 /* Strip off a legitimate source ending from the input string NAME of
@@ -5061,7 +5080,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq pre_p, bool in_parallel,
 
   while ((c = *list_p) != NULL)
     {
-      enum gimplify_status gs;
       bool remove = false;
       bool notice_outer = true;
       const char *check_non_private = NULL;
@@ -5107,14 +5125,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq pre_p, bool in_parallel,
 	      push_gimplify_context ();
 	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_INIT (c), pre_p);
 	      /* FIXME tuples.  */
-#if 0
 	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_INIT (c));
 	      push_gimplify_context ();
 	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_MERGE (c), pre_p);
 	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_MERGE (c));
-#else
-	      gimple_unreachable ();
-#endif
 	      gimplify_omp_ctxp = outer_ctx;
 	    }
 	  if (notice_outer)
@@ -5149,10 +5163,9 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq pre_p, bool in_parallel,
 
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_NUM_THREADS:
-	  gs = gimplify_expr (&OMP_CLAUSE_OPERAND (c, 0), pre_p, NULL,
-			      is_gimple_val, fb_rvalue);
-	  if (gs == GS_ERROR)
-	    remove = true;
+	  if (gimplify_expr (&OMP_CLAUSE_OPERAND (c, 0), pre_p, NULL,
+			     is_gimple_val, fb_rvalue) == GS_ERROR)
+	      remove = true;
 	  break;
 
 	case OMP_CLAUSE_NOWAIT:
@@ -5316,31 +5329,35 @@ gimplify_adjust_omp_clauses (tree *list_p)
    variables.  We need to do this scan now, because variable-sized
    decls will be decomposed during gimplification.  */
 
-static enum gimplify_status
+static void
 gimplify_omp_parallel (tree *expr_p, gimple_seq pre_p)
 {
   tree expr = *expr_p;
+  gimple g;
+  struct gimple_sequence body;
 
   gimplify_scan_omp_clauses (&OMP_PARALLEL_CLAUSES (expr), pre_p,
 			     true, OMP_PARALLEL_COMBINED (expr));
 
   push_gimplify_context ();
 
-  gimplify_stmt (&OMP_PARALLEL_BODY (expr), pre_p);
-
-  /* FIXME tuples.  */
-#if 0
-  if (TREE_CODE (OMP_PARALLEL_BODY (expr)) == BIND_EXPR)
-    pop_gimplify_context (OMP_PARALLEL_BODY (expr));
+  gimple_seq_init (&body);
+  g = gimplify_and_return_first (OMP_PARALLEL_BODY (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
   else
     pop_gimplify_context (NULL);
-#else
-  gimple_unreachable ();
-#endif
 
   gimplify_adjust_omp_clauses (&OMP_PARALLEL_CLAUSES (expr));
 
-  return GS_ALL_DONE;
+  g = gimple_build_omp_parallel (&body,
+				 OMP_PARALLEL_CLAUSES (expr),
+				 OMP_PARALLEL_FN (expr),
+				 OMP_PARALLEL_DATA_ARG (expr));
+  if (OMP_PARALLEL_COMBINED (expr))
+    gimple_set_subcode (g, GF_OMP_PARALLEL_COMBINED);
+  gimple_seq_add (pre_p, g);
+  *expr_p = NULL_TREE;
 }
 
 /* Gimplify the gross structure of an OMP_FOR statement.  */
@@ -5485,7 +5502,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
 /* Gimplify the gross structure of other OpenMP worksharing constructs.
    In particular, OMP_SECTIONS and OMP_SINGLE.  */
 
-static enum gimplify_status
+static void
 gimplify_omp_workshare (tree *expr_p, gimple_seq pre_p)
 {
   tree stmt = *expr_p;
@@ -5497,8 +5514,6 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq pre_p)
   gimplify_to_stmt_list (&OMP_BODY (stmt));
 #endif
   gimplify_adjust_omp_clauses (&OMP_CLAUSES (stmt));
-
-  return GS_ALL_DONE;
 }
 
 /* A subroutine of gimplify_omp_atomic.  The front end is supposed to have
@@ -6170,7 +6185,8 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	  break;
 
 	case OMP_PARALLEL:
-	  ret = gimplify_omp_parallel (expr_p, pre_p);
+	  gimplify_omp_parallel (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
 	  break;
 
 	case OMP_FOR:
@@ -6179,7 +6195,8 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 
 	case OMP_SECTIONS:
 	case OMP_SINGLE:
-	  ret = gimplify_omp_workshare (expr_p, pre_p);
+	  gimplify_omp_workshare (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
 	  break;
 
 	case OMP_SECTION:
@@ -6197,6 +6214,10 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	case OMP_CONTINUE:
         case OMP_ATOMIC_LOAD:
         case OMP_ATOMIC_STORE:
+	  /* We don't need to handle these, as they are merely markers
+	     which are generated en route after gimplification, thus
+	     they should be generated as tuples not trees.  */
+	  gcc_unreachable ();
 
 	  ret = GS_ALL_DONE;
 	  break;

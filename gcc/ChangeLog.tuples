@@ -1,3 +1,17 @@
+2008-01-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple-pretty-print.c (dump_gimple_stmt): Handle
+	GIMPLE_OMP_PARALLEL.
+	* gimplify.c (pop_gimplify_context): Add comment.
+	(gimplify_and_return_first): New.
+	(gimplify_scan_omp_clauses): Remove unused 'gs'.
+	Remove #if 0.
+	(gimplify_omp_parallel): Convert to tuples.
+	(gimplify_omp_workshare): Remove redundant retval.
+	(gimplify_expr): Adapt to lack of retval for gimplify_omp_variable and
+	gimplify_omp_workshare.
+	Abort on OMP_ATOMIC_{LOAD,STORE} case.
+
 2008-01-21  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline @131695

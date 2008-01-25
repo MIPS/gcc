@@ -571,6 +571,11 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_phi (buffer, gs, spc, flags);
       break;
 
+    case GIMPLE_OMP_PARALLEL:
+      pp_string (buffer, "#pragma omp parallel");
+      dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
+      break;
+
     default:
       GIMPLE_NIY;
     }
