@@ -1,6 +1,34 @@
 2008-01-25  Richard Guenther  <rguenther@suse.de>
 
 	PR c++/33887
+	* decl.c (record_builtin_java_type): Make __java_boolean
+	a variant of bool.
+	* typeck.c (structural_comptypes): Move TYPE_FOR_JAVA check
+	after TYPE_MAIN_VARIANT check.
+
+2008-01-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27177
+	* class.c (build_base_path): Don't mess with virtual access if
+	skip_evaluation.
+	* call.c (standard_conversion): Don't check whether source type
+	is complete.
+
+	* decl2.c (is_late_template_attribute): Don't defer attribute
+	visibility just because the type is dependent.
+
+2008-01-25  Jason Merrill  <jason@redhat.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/31780
+	* call.c (standard_conversion): Allow conversion from integer/real
+	to complex.
+	(compare_ics): Such a conversion is worse than a normal arithmetic
+	conversion.
+	
+2008-01-25  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/33887
 	* cp-lang.c (LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS): Define
 	to true.
 

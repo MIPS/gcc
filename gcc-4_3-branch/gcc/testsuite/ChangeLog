@@ -1,3 +1,24 @@
+2008-01-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/34876
+	* gfortran.dg/direct_io_9.f: New test.
+
+2008-01-25  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/34661
+	* gfortran.dg/where_operator_assign_4.f90: New test.
+
+2008-01-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/builtin-inf-1.c, gcc.dg/compare6.c, gcc.dg/sibcall-3.c,
+	gcc.dg/sibcall-4.c, gcc.dg/torture/builtin-attr-1.c: Don't handle
+	c4x-*-* targets.
+
+2008-01-25  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/32244
+	* gcc.c-torture/execute/pr32244-1.c: New testcase.
+
 2008-01-25  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/34966
