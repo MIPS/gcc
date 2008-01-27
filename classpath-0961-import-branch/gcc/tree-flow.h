@@ -40,6 +40,25 @@ typedef struct basic_block_def *basic_block;
 #endif
 struct static_var_ann_d;
 
+/* The reasons a variable may escape a function.  */
+enum escape_type 
+{
+  NO_ESCAPE = 0,			/* Doesn't escape.  */
+  ESCAPE_STORED_IN_GLOBAL = 1 << 0,
+  ESCAPE_TO_ASM = 1 << 1,		/* Passed by address to an assembly
+					   statement.  */
+  ESCAPE_TO_CALL = 1 << 2,		/* Escapes to a function call.  */
+  ESCAPE_BAD_CAST = 1 << 3,		/* Cast from pointer to integer */
+  ESCAPE_TO_RETURN = 1 << 4,		/* Returned from function.  */
+  ESCAPE_TO_PURE_CONST = 1 << 5,	/* Escapes to a pure or constant
+					   function call.  */
+  ESCAPE_IS_GLOBAL = 1 << 6,		/* Is a global variable.  */
+  ESCAPE_IS_PARM = 1 << 7,		/* Is an incoming function argument.  */
+  ESCAPE_UNKNOWN = 1 << 8		/* We believe it escapes for
+					   some reason not enumerated
+					   above.  */
+};
+
 /* Memory reference statistics for individual memory symbols,
    collected during alias analysis.  */
 struct mem_sym_stats_d GTY(())
@@ -228,6 +247,9 @@ struct ptr_info_def GTY(())
   /* Nonzero if this pointer points to NULL.  */
   unsigned int pt_null : 1;
 
+  /* Mask of reasons this pointer's value escapes the function  */
+  ENUM_BITFIELD (escape_type) escape_mask : 9;
+
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
 
@@ -236,9 +258,6 @@ struct ptr_info_def GTY(())
      pointer will be represented by this memory tag, instead of the type
      tag computed by TBAA.  */
   tree name_mem_tag;
-
-  /* Mask of reasons this pointer's value escapes the function  */
-  unsigned int escape_mask;
 };
 
 
@@ -308,18 +327,7 @@ enum noalias_state {
 };
 
 
-struct subvar;
-typedef struct subvar *subvar_t;
-
-/* This structure represents a fake sub-variable for a structure field.  */
-struct subvar GTY(())
-{
-  /* Fake variable.  */
-  tree var;
-
-  /* Next subvar for this structure.  */
-  subvar_t next;
-};
+typedef VEC(tree,gc) *subvar_t;
 
 struct var_ann_d GTY(())
 {
@@ -354,12 +362,16 @@ struct var_ann_d GTY(())
   unsigned is_heapvar : 1;
 
   /* True if the variable is call clobbered.  */
-  unsigned int call_clobbered : 1;
+  unsigned call_clobbered : 1;
 
   /* This field describes several "no alias" attributes that some
      symbols are known to have.  See the enum's definition for more
      information on each attribute.  */
   ENUM_BITFIELD (noalias_state) noalias_state : 2;
+
+  /* Mask of values saying the reasons why this variable has escaped
+     the function.  */
+  ENUM_BITFIELD (escape_type) escape_mask : 9;
 
   /* Memory partition tag assigned to this symbol.  */
   tree mpt;
@@ -384,13 +396,9 @@ struct var_ann_d GTY(())
      current version of this variable (an SSA_NAME).  */
   tree current_def;
 
-  /* If this variable is a structure, this fields holds a list of
-     symbols representing each of the fields of the structure.  */
-  subvar_t subvars;
-
-  /* Mask of values saying the reasons why this variable has escaped
-     the function.  */
-  unsigned int escape_mask;
+  /* If this variable is a structure, this fields holds an array
+     of symbols representing each of the fields of the structure.  */
+  VEC(tree,gc) *subvars;
 };
 
 /* Container for variable annotation used by hashtable for annotations for
@@ -733,9 +741,13 @@ extern basic_block debug_tree_bb_n (int);
 extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
+extern void dot_cfg (void);
 extern void debug_cfg_stats (void);
-extern void debug_loop_ir (void);
-extern void print_loop_ir (FILE *);
+extern void debug_loops (int);
+extern void debug_loop (struct loop *, int);
+extern void debug_loop_num (unsigned, int);
+extern void print_loops (FILE *, int);
+extern void print_loops_bb (FILE *, basic_block, int, int);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern tree first_stmt (basic_block);
@@ -810,7 +822,6 @@ extern void find_new_referenced_vars (tree *);
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
-extern struct mem_sym_stats_d *mem_sym_stats (struct function *, tree);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -856,6 +867,7 @@ extern void dump_mem_ref_stats (FILE *);
 extern void debug_mem_ref_stats (void);
 extern void debug_memory_partitions (void);
 extern void debug_mem_sym_stats (tree var);
+extern void dump_mem_sym_stats_for_var (FILE *, tree);
 extern void debug_all_mem_sym_stats (void);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
@@ -876,6 +888,7 @@ extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
+extern bool ssa_undefined_value_p (tree);
 
 /* In tree-into-ssa.c  */
 void update_ssa (unsigned);
@@ -1000,7 +1013,6 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 basic_block split_loop_exit_edge (edge);
-unsigned force_expr_to_var_cost (tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
@@ -1043,25 +1055,6 @@ enum move_pos
   };
 extern enum move_pos movement_possibility (tree);
 char *get_lsm_tmp_name (tree, unsigned);
-
-/* The reasons a variable may escape a function.  */
-enum escape_type 
-{
-  NO_ESCAPE = 0,			/* Doesn't escape.  */
-  ESCAPE_STORED_IN_GLOBAL = 1 << 1,
-  ESCAPE_TO_ASM = 1 << 2,		/* Passed by address to an assembly
-					   statement.  */
-  ESCAPE_TO_CALL = 1 << 3,		/* Escapes to a function call.  */
-  ESCAPE_BAD_CAST = 1 << 4,		/* Cast from pointer to integer */
-  ESCAPE_TO_RETURN = 1 << 5,		/* Returned from function.  */
-  ESCAPE_TO_PURE_CONST = 1 << 6,	/* Escapes to a pure or constant
-					   function call.  */
-  ESCAPE_IS_GLOBAL = 1 << 7,		/* Is a global variable.  */
-  ESCAPE_IS_PARM = 1 << 8,		/* Is an incoming function argument.  */
-  ESCAPE_UNKNOWN = 1 << 9		/* We believe it escapes for
-					   some reason not enumerated
-					   above.  */
-};
 
 /* In tree-flow-inline.h  */
 static inline bool is_call_clobbered (const_tree);
@@ -1131,6 +1124,7 @@ extern void register_jump_thread (edge, edge);
 tree force_gimple_operand (tree, tree *, bool, tree);
 tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree,
 			       bool, enum bsi_iterator_update);
+tree gimple_fold_indirect_ref (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
@@ -1154,18 +1148,30 @@ rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
 
-/* This structure is simply used during pushing fields onto the fieldstack
-   to track the offset of the field, since bitpos_of_field gives it relative
-   to its immediate containing type, and we want it relative to the ultimate
-   containing object.  */
+/* This structure is used during pushing fields onto the fieldstack
+   to track the offset of the field, since bitpos_of_field gives it
+   relative to its immediate containing type, and we want it relative
+   to the ultimate containing object.  */
 
 struct fieldoff
 {
+  /* Type of the field.  */
   tree type;
+
+  /* Size, in bits, of the field.  */
   tree size;
+
+  /* Field.  */
   tree decl;
+
+  /* Offset from the base of the base containing object to this field.  */
   HOST_WIDE_INT offset;  
+
+  /* Alias set for the field.  */
   alias_set_type alias_set;
+
+  /* True, if this offset can be a base for further component accesses.  */
+  unsigned base_for_components : 1;
 };
 typedef struct fieldoff fieldoff_s;
 

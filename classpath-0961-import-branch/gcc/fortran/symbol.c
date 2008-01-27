@@ -2582,6 +2582,33 @@ gfc_undo_symbols (void)
       if (p->new)
 	{
 	  /* Symbol was new.  */
+	  if (p->attr.in_common && p->common_block->head)
+	    {
+	      /* If the symbol was added to any common block, it
+		 needs to be removed to stop the resolver looking
+		 for a (possibly) dead symbol.  */
+
+	      if (p->common_block->head == p)
+	        p->common_block->head = p->common_next;
+	      else
+		{
+		  gfc_symbol *cparent, *csym;
+
+		  cparent = p->common_block->head;
+		  csym = cparent->common_next;
+
+		  while (csym != p)
+		    {
+		      cparent = csym;
+		      csym = csym->common_next;
+		    }
+
+		  gcc_assert(cparent->common_next == p);
+
+		  cparent->common_next = csym->common_next;
+		}
+	    }
+
 	  delete_symtree (&p->ns->sym_root, p->name);
 
 	  p->refs--;
@@ -2927,13 +2954,12 @@ clear_sym_mark (gfc_symtree *st)
 void
 gfc_traverse_symtree (gfc_symtree *st, void (*func) (gfc_symtree *))
 {
-  if (st != NULL)
-    {
-      (*func) (st);
+  if (!st)
+    return;
 
-      gfc_traverse_symtree (st->left, func);
-      gfc_traverse_symtree (st->right, func);
-    }
+  gfc_traverse_symtree (st->left, func);
+  (*func) (st);
+  gfc_traverse_symtree (st->right, func);
 }
 
 
@@ -2946,11 +2972,12 @@ traverse_ns (gfc_symtree *st, void (*func) (gfc_symbol *))
   if (st == NULL)
     return;
 
+  traverse_ns (st->left, func);
+
   if (st->n.sym->mark == 0)
     (*func) (st->n.sym);
   st->n.sym->mark = 1;
 
-  traverse_ns (st->left, func);
   traverse_ns (st->right, func);
 }
 
@@ -3810,6 +3837,8 @@ generate_isocbinding_symbol (const char *mod_name, iso_c_binding_symbol s,
 	tmp_sym->value->value.character.string[0]
 	  = (char) c_interop_kinds_table[s].value;
 	tmp_sym->value->value.character.string[1] = '\0';
+	tmp_sym->ts.cl = gfc_get_charlen ();
+	tmp_sym->ts.cl->length = gfc_int_expr (1);
 
 	/* May not need this in both attr and ts, but do need in
 	   attr for writing module file.  */

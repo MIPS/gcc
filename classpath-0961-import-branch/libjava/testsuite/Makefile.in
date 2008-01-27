@@ -200,6 +200,8 @@ SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+SUPPRESS_LIBGCJ_BC_FALSE = @SUPPRESS_LIBGCJ_BC_FALSE@
+SUPPRESS_LIBGCJ_BC_TRUE = @SUPPRESS_LIBGCJ_BC_TRUE@
 SYSDEP_SOURCES = @SYSDEP_SOURCES@
 SYSTEMSPEC = @SYSTEMSPEC@
 SYS_ZLIBS = @SYS_ZLIBS@
@@ -278,6 +280,7 @@ build_vendor = @build_vendor@
 datadir = @datadir@
 dbexecdir = @dbexecdir@
 exec_prefix = @exec_prefix@
+extra_gij_ldflags = @extra_gij_ldflags@
 extra_ldflags = @extra_ldflags@
 extra_ldflags_libjava = @extra_ldflags_libjava@
 gxx_include_dir = @gxx_include_dir@
@@ -555,7 +558,7 @@ compile-tests:
 @JAVA_MAINTAINER_MODE_TRUE@	      testdep="libjava.loader/MyLoader.java";; \
 @JAVA_MAINTAINER_MODE_TRUE@	    libjava.jni/register2.java) \
 @JAVA_MAINTAINER_MODE_TRUE@	      ;; \
-@JAVA_MAINTAINER_MODE_TRUE@	    libjava.jni/*.java) \
+@JAVA_MAINTAINER_MODE_TRUE@	    libjava.jni/*.java|libjava.jvmti/interp/*.java) \
 @JAVA_MAINTAINER_MODE_TRUE@	      genheader=-jni;; \
 @JAVA_MAINTAINER_MODE_TRUE@	    libjava.jvmti/*.java|libjava.cni/*.java) \
 @JAVA_MAINTAINER_MODE_TRUE@	      genheader=-cni;; \

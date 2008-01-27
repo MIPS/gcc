@@ -1,6 +1,6 @@
 // Iterators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -668,6 +668,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       _Iterator _M_current;
 
     public:
+      typedef _Iterator					     iterator_type;
       typedef typename iterator_traits<_Iterator>::iterator_category
                                                              iterator_category;
       typedef typename iterator_traits<_Iterator>::value_type  value_type;
@@ -675,8 +676,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
                                                              difference_type;
       typedef typename iterator_traits<_Iterator>::reference reference;
       typedef typename iterator_traits<_Iterator>::pointer   pointer;
-
-      typedef _Iterator _Iterator_type;
 
       __normal_iterator() : _M_current(_Iterator()) { }
 
@@ -861,14 +860,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // 24.4.3  Move iterators
   /**
-   *  @if maint
    *  Class template move_iterator is an iterator adapter with the same
    *  behavior as the underlying iterator except that its dereference
    *  operator implicitly converts the value returned by the underlying
    *  iterator's dereference operator to an rvalue reference.  Some
    *  generic algorithms can be called with move iterators to replace
    *  copying with moving.
-   *  @endif
    */
   template<typename _Iterator>
     class move_iterator
@@ -880,7 +877,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typedef _Iterator                                        iterator_type;
       typedef typename iterator_traits<_Iterator>::difference_type
                                                                difference_type;
-      typedef typename iterator_traits<_Iterator>::pointer     pointer;
+      // NB: DR 680.
+      typedef _Iterator                                        pointer;
       typedef typename iterator_traits<_Iterator>::value_type  value_type;
       typedef typename iterator_traits<_Iterator>::iterator_category
                                                                iterator_category;
@@ -1022,6 +1020,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
 _GLIBCXX_END_NAMESPACE
 
+#define _GLIBCXX_MAKE_MOVE_ITERATOR(_Iter) std::make_move_iterator(_Iter)
+#else
+#define _GLIBCXX_MAKE_MOVE_ITERATOR(_Iter) (_Iter)
 #endif // __GXX_EXPERIMENTAL_CXX0X__
 
 #endif

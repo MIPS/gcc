@@ -104,6 +104,68 @@ gfc_op2string (gfc_intrinsic_op op)
 
 /******************** Generic matching subroutines ************************/
 
+/* This function scans the current statement counting the opened and closed
+   parenthesis to make sure they are balanced.  */
+
+match
+gfc_match_parens (void)
+{
+  locus old_loc, where;
+  int c, count, instring;
+  char quote;
+
+  old_loc = gfc_current_locus;
+  count = 0;
+  instring = 0;
+  quote = ' ';
+
+  for (;;)
+    {
+      c = gfc_next_char_literal (instring);
+      if (c == '\n')
+	break;
+      if (quote == ' ' && ((c == '\'') || (c == '"')))
+	{
+	  quote = (char) c;
+	  instring = 1;
+	  continue;
+	}
+      if (quote != ' ' && c == quote)
+	{
+	  quote = ' ';
+	  instring = 0;
+	  continue;
+	}
+
+      if (c == '(' && quote == ' ')
+	{
+	  count++;
+	  where = gfc_current_locus;
+	}
+      if (c == ')' && quote == ' ')
+	{
+	  count--;
+	  where = gfc_current_locus;
+	}
+    }
+
+  gfc_current_locus = old_loc;
+
+  if (count > 0)
+    {
+      gfc_error ("Missing ')' in statement before %L", &where);
+      return MATCH_ERROR;
+    }
+  if (count < 0)
+    {
+      gfc_error ("Missing '(' in statement before %L", &where);
+      return MATCH_ERROR;
+    }
+
+  return MATCH_YES;
+}
+
+
 /* See if the next character is a special character that has
    escaped by a \ via the -fbackslash option.  */
 
@@ -434,7 +496,7 @@ gfc_match_name (char *buffer)
   c = gfc_next_char ();
   if (!(ISALPHA (c) || (c == '_' && gfc_option.flag_allow_leading_underscore)))
     {
-      if (gfc_error_flag_test() == 0)
+      if (gfc_error_flag_test() == 0 && c != '(')
 	gfc_error ("Invalid character in name at %C");
       gfc_current_locus = old_loc;
       return MATCH_NO;
@@ -1321,7 +1383,7 @@ gfc_match_if (gfc_statement *if_type)
 {
   gfc_expr *expr;
   gfc_st_label *l1, *l2, *l3;
-  locus old_loc;
+  locus old_loc, old_loc2;
   gfc_code *p;
   match m, n;
 
@@ -1334,6 +1396,14 @@ gfc_match_if (gfc_statement *if_type)
   m = gfc_match (" if ( %e", &expr);
   if (m != MATCH_YES)
     return m;
+
+  old_loc2 = gfc_current_locus;
+  gfc_current_locus = old_loc;
+  
+  if (gfc_match_parens () == MATCH_ERROR)
+    return MATCH_ERROR;
+
+  gfc_current_locus = old_loc2;
 
   if (gfc_match_char (')') != MATCH_YES)
     {
@@ -1386,7 +1456,7 @@ gfc_match_if (gfc_statement *if_type)
 
   if (n == MATCH_YES)
     {
-      gfc_error ("Block label is not appropriate IF statement at %C");
+      gfc_error ("Block label is not appropriate for IF statement at %C");
       gfc_free_expr (expr);
       return MATCH_ERROR;
     }
@@ -2714,11 +2784,6 @@ gfc_match_common (void)
 
       if (name[0] == '\0')
 	{
-	  if (gfc_current_ns->is_block_data)
-	    {
-	      gfc_warning ("BLOCK DATA unit cannot contain blank COMMON "
-			   "at %C");
-	    }
 	  t = &gfc_current_ns->blank_common;
 	  if (t->head == NULL)
 	    t->where = gfc_current_locus;
@@ -2783,19 +2848,14 @@ gfc_match_common (void)
 	      goto cleanup;
 	    }
 
-	  if (gfc_add_in_common (&sym->attr, sym->name, NULL) == FAILURE) 
-	    goto cleanup;
-
-	  if (sym->value != NULL && sym->value->expr_type != EXPR_NULL
-	      && (name[0] == '\0' || !sym->attr.data))
+	  if (((sym->value != NULL && sym->value->expr_type != EXPR_NULL)
+	       || sym->attr.data) && gfc_current_state () != COMP_BLOCK_DATA)
 	    {
-	      if (name[0] == '\0')
-		gfc_error ("Previously initialized symbol '%s' in "
-			   "blank COMMON block at %C", sym->name);
-	      else
-		gfc_error ("Previously initialized symbol '%s' in "
-			   "COMMON block '%s' at %C", sym->name, name);
-	      goto cleanup;
+	      if (gfc_notify_std (GFC_STD_GNU, "Initialized symbol '%s' at %C "
+					       "can only be COMMON in "
+					       "BLOCK DATA", sym->name)
+		  == FAILURE)
+		goto cleanup;
 	    }
 
 	  if (gfc_add_in_common (&sym->attr, sym->name, NULL) == FAILURE)
@@ -3224,13 +3284,12 @@ cleanup:
    12.5.4 requires that any variable of function that is implicitly typed
    shall have that type confirmed by any subsequent type declaration.  The
    implicit typing is conveniently done here.  */
+static bool
+recursive_stmt_fcn (gfc_expr *, gfc_symbol *);
 
 static bool
-recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
+check_stmt_fcn (gfc_expr *e, gfc_symbol *sym, int *f ATTRIBUTE_UNUSED)
 {
-  gfc_actual_arglist *arg;
-  gfc_ref *ref;
-  int i;
 
   if (e == NULL)
     return false;
@@ -3238,12 +3297,6 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
   switch (e->expr_type)
     {
     case EXPR_FUNCTION:
-      for (arg = e->value.function.actual; arg; arg = arg->next)
-	{
-	  if (sym->name == arg->name || recursive_stmt_fcn (arg->expr, sym))
-	    return true;
-	}
-
       if (e->symtree == NULL)
 	return false;
 
@@ -3270,46 +3323,18 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 	gfc_set_default_type (e->symtree->n.sym, 0, NULL);
       break;
 
-    case EXPR_OP:
-      if (recursive_stmt_fcn (e->value.op.op1, sym)
-	  || recursive_stmt_fcn (e->value.op.op2, sym))
-	return true;
-      break;
-
     default:
       break;
     }
 
-  /* Component references do not need to be checked.  */
-  if (e->ref)
-    {
-      for (ref = e->ref; ref; ref = ref->next)
-	{
-	  switch (ref->type)
-	    {
-	    case REF_ARRAY:
-	      for (i = 0; i < ref->u.ar.dimen; i++)
-		{
-		  if (recursive_stmt_fcn (ref->u.ar.start[i], sym)
-		      || recursive_stmt_fcn (ref->u.ar.end[i], sym)
-		      || recursive_stmt_fcn (ref->u.ar.stride[i], sym))
-		    return true;
-		}
-	      break;
-
-	    case REF_SUBSTRING:
-	      if (recursive_stmt_fcn (ref->u.ss.start, sym)
-		  || recursive_stmt_fcn (ref->u.ss.end, sym))
-		return true;
-
-	      break;
-
-	    default:
-	      break;
-	    }
-	}
-    }
   return false;
+}
+
+
+static bool
+recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
+{
+  return gfc_traverse_expr (e, sym, check_stmt_fcn, 0);
 }
 
 

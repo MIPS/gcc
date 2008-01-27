@@ -613,6 +613,8 @@ dump_reg_info (FILE *file)
 	fprintf (file, "; crosses 1 call");
       else if (REG_N_CALLS_CROSSED (i))
 	fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
+      if (REG_FREQ_CALLS_CROSSED (i))
+	fprintf (file, "; crosses call with %d frequency", REG_FREQ_CALLS_CROSSED (i));
       if (regno_reg_rtx[i] != NULL
 	  && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
 	fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
@@ -881,7 +883,9 @@ dump_cfg_bb_info (FILE *file, basic_block bb)
   bool first = true;
   static const char * const bb_bitnames[] =
     {
-      "dirty", "new", "reachable", "visited", "irreducible_loop", "superblock"
+      "new", "reachable", "irreducible_loop", "superblock",
+      "nosched", "hot", "cold", "dup", "xlabel", "rtl",
+      "fwdr", "nothrd"
     };
   const unsigned n_bitnames = sizeof (bb_bitnames) / sizeof (char *);
   edge e;
@@ -988,9 +992,15 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
 
       FOR_EACH_EDGE (c, ei, bb->succs)
 	{
-	  c->probability = RDIV (c->probability * scale, 65536);
-	  if (c->probability > REG_BR_PROB_BASE)
+	  /* Protect from overflow due to additional scaling.  */
+	  if (c->probability > prob)
 	    c->probability = REG_BR_PROB_BASE;
+	  else
+	    {
+	      c->probability = RDIV (c->probability * scale, 65536);
+	      if (c->probability > REG_BR_PROB_BASE)
+		c->probability = REG_BR_PROB_BASE;
+	    }
 	}
     }
 

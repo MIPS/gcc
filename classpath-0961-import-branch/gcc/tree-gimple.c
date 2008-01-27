@@ -61,6 +61,7 @@ is_gimple_formal_tmp_rhs (tree t)
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
+    case COND_EXPR:
     case ADDR_EXPR:
     case CALL_EXPR:
     case CONSTRUCTOR:
@@ -240,6 +241,8 @@ is_gimple_stmt (tree t)
     case OMP_CRITICAL:
     case OMP_RETURN:
     case OMP_CONTINUE:
+    case OMP_ATOMIC_LOAD:
+    case OMP_ATOMIC_STORE:
       /* These are always void.  */
       return true;
 
@@ -282,7 +285,13 @@ is_gimple_id (tree t)
 bool
 is_gimple_reg_type (tree type)
 {
-  return !AGGREGATE_TYPE_P (type);
+  /* In addition to aggregate types, we also exclude complex types if not
+     optimizing because they can be subject to partial stores in GNU C by
+     means of the __real__ and __imag__ operators and we cannot promote
+     them to total stores (see gimplify_modify_expr_complex_part).  */
+  return !(AGGREGATE_TYPE_P (type)
+	   || (TREE_CODE (type) == COMPLEX_TYPE && !optimize));
+
 }
 
 /* Return true if T is a non-aggregate register variable.  */
@@ -325,8 +334,8 @@ is_gimple_reg (tree t)
   if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
     return false;
 
-  /* Complex values must have been put into ssa form.  That is, no 
-     assignments to the individual components.  */
+  /* Complex and vector values must have been put into SSA-like form.
+     That is, no assignments to the individual components.  */
   if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
       || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
     return DECL_GIMPLE_REG_P (t);
