@@ -1,7 +1,7 @@
 /* Declarations and definitions of codes relating to the
    encoding of gimple into the object files.
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
    This file is part of GCC.
@@ -26,9 +26,7 @@
 
 #include "tree.h"
 #include "sbitmap.h"
-
-#define LTO_major_version 0
-#define LTO_minor_version 3
+#include "lto-header.h"
 
 /* This file is one header in a collection of files that write the
    gimple intermediate code for a function into the assembly stream
@@ -64,10 +62,9 @@
 
 /* The is the first part of the record for a function or constructor
    in the .o file.  */
-struct lto_header
+struct lto_function_header
 {
-  int16_t major_version;          /* LTO_major_version. */
-  int16_t minor_version;          /* LTO_minor_version. */
+  struct lto_header lto_header;   /* The header for all types of sections. */
   int32_t num_field_decls;        /* Number of FIELD_DECLS.  */
   int32_t num_fn_decls;           /* Number of FUNCTION_DECLS.  */
   int32_t num_var_decls;          /* Number of non local VAR_DECLS.  */
@@ -466,17 +463,11 @@ enum LTO_tags {
       variant |= needs_backing_var                   ? 0x04 : 0;
       variant |= ABSTRACT_ORIGIN (decl) != NULL_TREE ? 0x08 : 0;
 
-   These next two tags must have their last hex digit be 0. 
-*/
-
+   These next two tags must have their last hex digit be 0. */
   LTO_local_var_decl_body0 = 0x0C0,
   LTO_parm_decl_body0      = 0x0D0,
   LTO_last_tag             = 0x0E0
 };
-
-/* The string that is prepended on the DECL_ASSEMBLER_NAME to make the 
-   section name for the function.  */
-#define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
 
 /* This bitmap is indexed by gimple type codes and contains a 1 if the 
    tree type needs to have the type written.  */

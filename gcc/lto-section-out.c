@@ -51,6 +51,33 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-section-out.h"
 #include <ctype.h>
 
+/* Get a section for writing of a particular type or name.  The NAME
+   field is only used if SECTION_TYPE is lto_function_body or
+   lto_static_initializer.  */
+section *
+lto_get_section (enum lto_section_type section_type, const char * name)
+{
+  char *section_name;
+  section *section;
+
+  switch (section_type)
+    {
+    case lto_function_body:
+    case lto_static_initializer:
+      section_name = concat (LTO_SECTION_NAME_PREFIX, name, NULL);
+      break;
+
+    case lto_cgraph:
+      section_name = concat (LTO_SECTION_NAME_PREFIX, ".cgraph", NULL);
+      break;
+    }
+
+  section = get_section (section_name, SECTION_DEBUG, NULL);
+  free (section_name);
+  return section;
+}
+
+
 /* Write all of the chars in OBS to the assembler.  Recycle the blocks
    in obs as this is being done.  */
 

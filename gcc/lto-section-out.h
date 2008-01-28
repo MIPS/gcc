@@ -67,6 +67,7 @@ do { \
 #endif
 
 
+section *lto_get_section (enum lto_section_type, const char *);
 void lto_write_stream (struct lto_output_stream *);
 void lto_output_1_stream (struct lto_output_stream *, char);
 void lto_output_uleb128_stream (struct lto_output_stream *, unsigned HOST_WIDE_INT);

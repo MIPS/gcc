@@ -194,6 +194,9 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_call
   struct cgraph_edge *prev_callee;
   struct cgraph_edge *next_callee;
   tree call_stmt;
+  /* The stmt_uid of this call stmt.  This is used by LTO to recover
+     the call_stmt when the function is serialized in.  */
+  unsigned int lto_stmt_uid;
   PTR GTY ((skip (""))) aux;
   /* When NULL, inline this call.  When non-NULL, points to the explanation
      why function was not inlined.  */

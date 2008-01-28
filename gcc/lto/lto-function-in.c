@@ -1042,7 +1042,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
    table.  */
 
 static void
-input_globals (struct lto_header * header,
+input_globals (struct lto_function_header * header,
 	      lto_info_fd *fd,
 	      lto_context *context,	
 	      struct data_in *data_in, 
@@ -1504,7 +1504,6 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   unsigned int index;
   basic_block bb;
   block_stmt_iterator bsi;
-  unsigned int stmt_num;
 
   LTO_DEBUG_TOKEN ("bbindex");
   index = lto_input_uleb128 (ib);
@@ -1519,27 +1518,23 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
 
   bsi = bsi_start (bb);
   LTO_DEBUG_INDENT_TOKEN ("stmt");
-  stmt_num = lto_input_uleb128 (ib);
-  while (stmt_num)
+  tag = input_record_start (ib);
+  while (tag)
     {
-      tree stmt;
-
-      tag = input_record_start (ib);
-      stmt = input_expr_operand (ib, data_in, fn, tag);
+      tree stmt = input_expr_operand (ib, data_in, fn, tag);
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       LTO_DEBUG_INDENT_TOKEN ("stmt");
-      stmt_num = lto_input_uleb128 (ib);
-      /* FIXME, add code to handle the exception.  */
+      tag = input_record_start (ib);
+    /* FIXME, add code to handle the exception.  */
     }
 
   LTO_DEBUG_INDENT_TOKEN ("phi");  
-  stmt_num = lto_input_uleb128 (ib);
-  while (stmt_num)
+  tag = input_record_start (ib);
+  while (tag)
     {
-      tag = input_record_start (ib);
       input_phi (ib, bb, data_in, fn);
       LTO_DEBUG_INDENT_TOKEN ("phi");
-      stmt_num = lto_input_uleb128 (ib);
+      tag = input_record_start (ib);
     }
 
   LTO_DEBUG_UNDENT();
@@ -1580,6 +1575,8 @@ input_function (tree fn_decl, struct data_in *data_in,
       input_bb (ib, tag, data_in, fn);
       tag = input_record_start (ib);
     }
+
+  renumber_gimple_stmt_uids ();
 
   LTO_DEBUG_UNDENT();
 }
@@ -1709,22 +1706,22 @@ lto_static_init_local (void)
 }
 
 
-/* Read the body form DATA for tree T and fill it in.
-   FD and CONTEXT are magic cookies used to resolve global decls and
-   types.  IN_FUNCTION should be true if DATA describes the
-   body of a function, or false otherwise.  */
+/* Read the body form DATA for tree T and fill it in.  FD and CONTEXT
+   are magic cookies used to resolve global decls and types.
+   SECTION_TYPE is either lto_function_body or
+   lto_static_initializer.  */
 static void 
 lto_read_body (lto_info_fd *fd,
 	       lto_context *context,
 	       tree t,
 	       const void *data,
-	       bool in_function)
+	       enum lto_section_type section_type)
 {
-  struct lto_header * header 
-    = (struct lto_header *) data;
+  struct lto_function_header * header 
+    = (struct lto_function_header *) data;
   struct data_in data_in;
 
-  int32_t fields_offset = sizeof (struct lto_header); 
+  int32_t fields_offset = sizeof (struct lto_function_header); 
   int32_t fns_offset 
     = fields_offset + (header->num_field_decls * sizeof (lto_ref));
   int32_t vars_offset 
@@ -1795,14 +1792,14 @@ lto_read_body (lto_info_fd *fd,
   lto_static_init_local ();
 
   /* No upward compatibility here.  */
-  gcc_assert (header->major_version == LTO_major_version);
-  gcc_assert (header->minor_version == LTO_minor_version);
+  gcc_assert (header->lto_header.major_version == LTO_major_version);
+  gcc_assert (header->lto_header.minor_version == LTO_minor_version);
 
   input_globals (header, fd, context, &data_in, 
 		 in_field_decls, in_fn_decls, 
 		 in_var_decls, in_type_decls, in_types);
 
-  if (in_function)
+  if (section_type == lto_function_body)
     {
       struct function *fn = DECL_STRUCT_FUNCTION (t);
       push_cfun (fn);
@@ -1873,7 +1870,7 @@ lto_read_body (lto_info_fd *fd,
   free (data_in.var_decls);
   free (data_in.type_decls);
   free (data_in.types);
-  if (in_function)
+  if (section_type == lto_function_body)
     {
       free (data_in.labels);
       free (data_in.local_decls_index);
@@ -1891,7 +1888,7 @@ lto_read_function_body (lto_info_fd *fd,
 			const void *data)
 {
   current_function_decl = fn_decl;
-  lto_read_body (fd, context, fn_decl, data, true);
+  lto_read_body (fd, context, fn_decl, data, lto_function_body);
 }
 
 
@@ -1903,6 +1900,6 @@ lto_read_var_init (lto_info_fd *fd,
 		   tree var_decl,
 		   const void *data)
 {
-  lto_read_body (fd, context, var_decl, data, false);
+  lto_read_body (fd, context, var_decl, data, lto_static_initializer);
 }
 

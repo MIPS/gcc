@@ -3521,7 +3521,7 @@ compute_avail (void)
 	  stmt = bsi_stmt (bsi);
 	  ann = stmt_ann (stmt);
 
-	  ann->uid = stmt_uid++;
+	  set_gimple_stmt_uid (stmt, stmt_uid++);
 
 	  /* For regular value numbering, we are only interested in
 	     assignments of the form X_i = EXPR, where EXPR represents

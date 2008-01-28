@@ -491,9 +491,11 @@ struct stmt_ann_d GTY(())
   /* Set of variables that have had their address taken in the statement.  */
   bitmap addresses_taken;
 
-  /* Unique identifier for this statement.  These ID's are to be created
-     by each pass on an as-needed basis in any order convenient for the
-     pass which needs statement UIDs.  */
+  /* Unique identifier for this statement.  These ID's are to be
+     created by each pass on an as-needed basis in any order
+     convenient for the pass which needs statement UIDs.  This field
+     should only be accessed thru set_gimple_stmt_uid and
+     gimple_stmt_uid functions.  */
   unsigned int uid;
 
   /* Nonzero if the statement references memory (at least one of its
@@ -802,6 +804,7 @@ extern const char *op_symbol_code (enum tree_code);
 extern var_ann_t create_var_ann (tree);
 extern function_ann_t create_function_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
+extern void renumber_gimple_stmt_uids (void);
 extern tree_ann_common_t create_tree_common_ann (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);

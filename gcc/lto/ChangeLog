@@ -1,3 +1,13 @@
+2008-01-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto-function-in.c (input_globals.c): Changed input type to
+	lto_function_header.
+	(input_bb): Removed code to deserialize the stmt number.
+	(input_function): Renumber all stmts after they are input.
+	(lto_read_body, lto_read_function_body, lto_read_var_init):
+	Changed to used new header format and enum section_type.
+	*lto-lang.c (success): Removed. 
+	
 2008-01-28  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* lto-elf.c (lto_elf_lookup_sym): Remove unused function.

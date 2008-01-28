@@ -462,7 +462,6 @@ lto_types_compatible_p (tree type1, tree type2)
     {
       /* Check structural equality.  */
       tree f1, f2;
-      int success = 1;
 
       for (f1 = TYPE_FIELDS (type1), f2 = TYPE_FIELDS (type2);
 	   f1 && f2;

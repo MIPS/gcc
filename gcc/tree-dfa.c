@@ -209,9 +209,35 @@ create_stmt_ann (tree t)
   /* Since we just created the annotation, mark the statement modified.  */
   ann->modified = true;
 
+  ann->uid = inc_gimple_stmt_max_uid (cfun);
   t->base.ann = (tree_ann_t) ann;
 
   return ann;
+}
+
+/* Renumber all of the gimple stmt uids.  */
+
+void 
+renumber_gimple_stmt_uids (void)
+{
+  basic_block bb;
+
+  set_gimple_stmt_max_uid (cfun, 0);
+  FOR_ALL_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  /* If the stmt has an annotation, then overwrite it, if not,
+	     the process of getting it will set the number
+	     properly.  */
+	  if (has_stmt_ann (stmt))
+	    set_gimple_stmt_uid (stmt, inc_gimple_stmt_max_uid (cfun));
+	  else
+	    get_stmt_ann (stmt);
+	}
+    }
 }
 
 /* Create a new annotation for a tree T.  */

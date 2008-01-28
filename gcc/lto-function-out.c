@@ -291,7 +291,7 @@ struct output_block
 
 /* The output stream that contains the abbrev table for all of the
    functions in this compilation unit.  */
-static void output_expr_operand (struct output_block *, tree, unsigned int);
+static void output_expr_operand (struct output_block *, tree);
 
 /* Clear the line info stored in DATA_IN.  */
 
@@ -1019,7 +1019,7 @@ output_constructor (struct output_block *ob, tree ctor)
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), idx, purpose, value)
     {
       if (purpose)
-	output_expr_operand (ob, purpose, 0);
+	output_expr_operand (ob, purpose);
       else 
 	output_zero (ob);
 
@@ -1029,14 +1029,14 @@ output_constructor (struct output_block *ob, tree ctor)
 	  LTO_DEBUG_UNDENT ();
 	}
       else 
-	output_expr_operand (ob, value, 0);
+	output_expr_operand (ob, value);
     }
 }
 
 /* Output EXPR to the main stream in OB.  */
 
 static void
-output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
+output_expr_operand (struct output_block *ob, tree expr)
 {
   enum tree_code code;
   enum tree_code_class class;
@@ -1144,9 +1144,9 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 			     LTO_case_label_expr0 + variant);
 
 	if (CASE_LOW (expr) != NULL_TREE)
-	  output_expr_operand (ob, CASE_LOW (expr), stmt_num);
+	  output_expr_operand (ob, CASE_LOW (expr));
 	if (CASE_HIGH (expr) != NULL_TREE)
-	  output_expr_operand (ob, CASE_HIGH (expr), stmt_num);
+	  output_expr_operand (ob, CASE_HIGH (expr));
 	output_label_ref (ob, CASE_LABEL (expr));
       }
       break;
@@ -1244,14 +1244,14 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
       if (TREE_OPERAND (expr, 1))
 	{
 	  output_record_start (ob, expr, expr, LTO_cond_expr0);
-	  output_expr_operand (ob, TREE_OPERAND (expr, 0), stmt_num);
-	  output_expr_operand (ob, TREE_OPERAND (expr, 1), stmt_num);
-	  output_expr_operand (ob, TREE_OPERAND (expr, 2), stmt_num);
+	  output_expr_operand (ob, TREE_OPERAND (expr, 0));
+	  output_expr_operand (ob, TREE_OPERAND (expr, 1));
+	  output_expr_operand (ob, TREE_OPERAND (expr, 2));
 	}
       else 
 	{
 	  output_record_start (ob, expr, expr, LTO_cond_expr1);
-	  output_expr_operand (ob, TREE_OPERAND (expr, 0), stmt_num);
+	  output_expr_operand (ob, TREE_OPERAND (expr, 0));
 	}
       break;
 
@@ -1261,8 +1261,8 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 
     case COMPONENT_REF:
       output_record_start (ob, expr, expr, tag);
-      output_expr_operand (ob, TREE_OPERAND (expr, 0), stmt_num);
-      output_expr_operand (ob, TREE_OPERAND (expr, 1), stmt_num);
+      output_expr_operand (ob, TREE_OPERAND (expr, 0));
+      output_expr_operand (ob, TREE_OPERAND (expr, 1));
       /* Ignore 3 because it can be recomputed.  */
       break;
 
@@ -1276,16 +1276,16 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 	  {
 	    output_record_start (ob, expr, expr, LTO_call_expr1);
 	    output_uleb128 (ob, count);
-	    output_expr_operand (ob, TREE_OPERAND (expr, 2), stmt_num);
+	    output_expr_operand (ob, TREE_OPERAND (expr, 2));
 	  }
 	else
 	  {
 	    output_record_start (ob, expr, expr, LTO_call_expr0);
 	    output_uleb128 (ob, count);
 	  }
-	output_expr_operand (ob, TREE_OPERAND (expr, 1), stmt_num);
+	output_expr_operand (ob, TREE_OPERAND (expr, 1));
 	for (i = 3; i < count; i++)
-	  output_expr_operand (ob, TREE_OPERAND (expr, i), stmt_num);
+	  output_expr_operand (ob, TREE_OPERAND (expr, i));
       }
       break;
 
@@ -1300,15 +1300,15 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 				 LTO_bit_field_ref1);
 	    output_uleb128 (ob, TREE_INT_CST_LOW (op1));
 	    output_uleb128 (ob, TREE_INT_CST_LOW (op2));
-	    output_expr_operand (ob, TREE_OPERAND (expr, 0), stmt_num);
+	    output_expr_operand (ob, TREE_OPERAND (expr, 0));
 	  }
 	else
 	  {
 	    output_record_start (ob, expr, expr,
 				 LTO_bit_field_ref0);
-	    output_expr_operand (ob, TREE_OPERAND (expr, 0), stmt_num);
-	    output_expr_operand (ob, op1, stmt_num);
-	    output_expr_operand (ob, op2, stmt_num);
+	    output_expr_operand (ob, TREE_OPERAND (expr, 0));
+	    output_expr_operand (ob, op1);
+	    output_expr_operand (ob, op2);
 	  }
       }
       break;
@@ -1318,8 +1318,8 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
       /* Ignore operands 2 and 3 for ARRAY_REF and ARRAY_RANGE REF
 	 because they can be recomputed.  */
       output_record_start (ob, expr, expr, tag);
-      output_expr_operand (ob, TREE_OPERAND (expr, 0), stmt_num);
-      output_expr_operand (ob, TREE_OPERAND (expr, 1), stmt_num);
+      output_expr_operand (ob, TREE_OPERAND (expr, 0));
+      output_expr_operand (ob, TREE_OPERAND (expr, 1));
       break;
 
 
@@ -1331,17 +1331,17 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 		       TREE_STRING_POINTER (string_cst),
 		       TREE_STRING_LENGTH (string_cst));
 	if (ASM_INPUTS (expr))
-	  output_expr_operand (ob, ASM_INPUTS (expr), stmt_num);
+	  output_expr_operand (ob, ASM_INPUTS (expr));
 	else 
 	  output_zero (ob);
 
 	if (ASM_OUTPUTS (expr))
-	  output_expr_operand (ob, ASM_OUTPUTS (expr), stmt_num);
+	  output_expr_operand (ob, ASM_OUTPUTS (expr));
 	else 
 	  output_zero (ob);
 
 	if (ASM_CLOBBERS (expr))
-	  output_expr_operand (ob, ASM_CLOBBERS (expr), stmt_num);
+	  output_expr_operand (ob, ASM_CLOBBERS (expr));
 	else 
 	  output_zero (ob);
       }
@@ -1377,8 +1377,8 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 	    /* Form return a = b;  */
 	    output_record_start (ob, expr, expr,
 				 LTO_return_expr2);
-	    output_expr_operand (ob, TREE_OPERAND (t, 0), stmt_num);
-	    output_expr_operand (ob, TREE_OPERAND (t, 1), stmt_num);
+	    output_expr_operand (ob, TREE_OPERAND (t, 0));
+	    output_expr_operand (ob, TREE_OPERAND (t, 1));
 	  }
 	else
 	  {
@@ -1393,15 +1393,15 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
             if (t == DECL_RESULT (current_function_decl))
               output_zero (ob);
             else
-              output_expr_operand (ob, t, stmt_num);
+              output_expr_operand (ob, t);
 	  }
       }
       break;
 
     case GIMPLE_MODIFY_STMT:
       output_record_start (ob, expr, NULL, tag);
-      output_expr_operand (ob, GIMPLE_STMT_OPERAND (expr, 0), stmt_num);
-      output_expr_operand (ob, GIMPLE_STMT_OPERAND (expr, 1), stmt_num);
+      output_expr_operand (ob, GIMPLE_STMT_OPERAND (expr, 0));
+      output_expr_operand (ob, GIMPLE_STMT_OPERAND (expr, 1));
       break;
 
     case SWITCH_EXPR:
@@ -1411,11 +1411,11 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 	size_t i;
 	output_record_start (ob, expr, expr, tag);
 	output_uleb128 (ob, len);
-	output_expr_operand (ob, TREE_OPERAND (expr, 0), stmt_num);
+	output_expr_operand (ob, TREE_OPERAND (expr, 0));
 	gcc_assert (TREE_OPERAND (expr, 1) == NULL);
 
 	for (i = 0; i < len; ++i)
-	  output_expr_operand (ob, TREE_VEC_ELT (label_vec, i), stmt_num);
+	  output_expr_operand (ob, TREE_VEC_ELT (label_vec, i));
       }
       break;
 
@@ -1433,12 +1433,12 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 	for (tl = expr; tl; tl = TREE_CHAIN (tl))
 	  {
 	    if (TREE_VALUE (tl) != NULL_TREE)
-	      output_expr_operand (ob, TREE_VALUE (tl), stmt_num);
+	      output_expr_operand (ob, TREE_VALUE (tl));
 	    else
 	      output_zero (ob);
 	    
 	    if (TREE_PURPOSE (tl))
-	      output_expr_operand (ob, TREE_PURPOSE (tl), stmt_num);
+	      output_expr_operand (ob, TREE_PURPOSE (tl));
 	    else
 	      output_zero (ob);
 	  }
@@ -1459,7 +1459,7 @@ output_expr_operand (struct output_block *ob, tree expr, unsigned int stmt_num)
 #undef SET_NAME
 	output_record_start (ob, expr, expr, tag);
 	for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expr)); i++)
-	  output_expr_operand (ob, TREE_OPERAND (expr, i), stmt_num);
+	  output_expr_operand (ob, TREE_OPERAND (expr, i));
 	break;
       }
 
@@ -1543,7 +1543,7 @@ output_local_var (struct output_block *ob, int index)
     {
       LTO_DEBUG_INDENT_TOKEN ("init");
       if (DECL_INITIAL (decl))
-	output_expr_operand (ob, DECL_INITIAL (decl), 0);
+	output_expr_operand (ob, DECL_INITIAL (decl));
       else
 	output_zero (ob);
       /* Index in unexpanded_vars_list.  */
@@ -1556,7 +1556,7 @@ output_local_var (struct output_block *ob, int index)
       /* The chain is only necessary for parm_decls.  */
       LTO_DEBUG_TOKEN ("chain");
       if (TREE_CHAIN (decl))
-	output_expr_operand (ob, TREE_CHAIN (decl), 0);
+	output_expr_operand (ob, TREE_CHAIN (decl));
       else
 	output_zero (ob);
     }
@@ -1566,7 +1566,7 @@ output_local_var (struct output_block *ob, int index)
 
   LTO_DEBUG_TOKEN ("context");
   if (DECL_CONTEXT (decl))
-    output_expr_operand (ob, DECL_CONTEXT (decl), 0);
+    output_expr_operand (ob, DECL_CONTEXT (decl));
   else 
     output_zero (ob);
   
@@ -1575,18 +1575,18 @@ output_local_var (struct output_block *ob, int index)
   
   /* Put out the subtrees.  */
   LTO_DEBUG_TOKEN ("size");
-  output_expr_operand (ob, DECL_SIZE (decl), 0);
+  output_expr_operand (ob, DECL_SIZE (decl));
   if (DECL_ATTRIBUTES (decl)!= NULL_TREE)
     {
       LTO_DEBUG_TOKEN ("attributes");
-      output_expr_operand (ob, DECL_ATTRIBUTES (decl), 0);
+      output_expr_operand (ob, DECL_ATTRIBUTES (decl));
     }
   if (DECL_SIZE_UNIT (decl) != NULL_TREE)
-    output_expr_operand (ob, DECL_SIZE_UNIT (decl), 0);
+    output_expr_operand (ob, DECL_SIZE_UNIT (decl));
   if (needs_backing_var)
-    output_expr_operand (ob, DECL_DEBUG_EXPR (decl), 0);
+    output_expr_operand (ob, DECL_DEBUG_EXPR (decl));
   if (DECL_ABSTRACT_ORIGIN (decl) != NULL_TREE)
-    output_expr_operand (ob, DECL_ABSTRACT_ORIGIN (decl), 0);
+    output_expr_operand (ob, DECL_ABSTRACT_ORIGIN (decl));
   
   LTO_DEBUG_UNDENT();
 }
@@ -1624,7 +1624,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
 	  if (!bitmap_bit_p (local_statics, DECL_UID (lv)))
 	    {
 	      bitmap_set_bit (local_statics, DECL_UID (lv));
-	      output_expr_operand (ob, lv, 0);
+	      output_expr_operand (ob, lv);
 	      if (DECL_CONTEXT (lv) == fn->decl)
 		{
 		  output_uleb128 (ob, 1); /* Restore context.  */
@@ -1634,7 +1634,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
 		  output_zero (ob); /* Restore context. */
 		}
 	      if (DECL_INITIAL (lv))
-		output_expr_operand (ob, DECL_INITIAL (lv), 0);
+		output_expr_operand (ob, DECL_INITIAL (lv));
 	      else 
 		output_zero (ob); /* DECL_INITIAL.  */
 	    }
@@ -1732,7 +1732,7 @@ output_ssa_names (struct output_block *ob, struct function *fn)
 	continue;
 
       output_uleb128 (ob, i);
-      output_expr_operand (ob, SSA_NAME_VAR (ptr), 0);
+      output_expr_operand (ob, SSA_NAME_VAR (ptr));
       /* Use code 0 to force flags to be output.  */
       output_tree_flags (ob, 0, ptr, false);
     }
@@ -1796,7 +1796,7 @@ output_cfg (struct output_block *ob, struct function *fn)
 /* Output a phi function to the main stream in OB.  */
 
 static void
-output_phi (struct output_block *ob, tree expr, unsigned int stmt_num)
+output_phi (struct output_block *ob, tree expr)
 {
   int len = PHI_NUM_ARGS (expr);
   int i;
@@ -1806,7 +1806,7 @@ output_phi (struct output_block *ob, tree expr, unsigned int stmt_num)
 
   for (i = 0; i < len; i++)
     {
-      output_expr_operand (ob, PHI_ARG_DEF (expr, i), stmt_num);
+      output_expr_operand (ob, PHI_ARG_DEF (expr, i));
       output_uleb128 (ob, PHI_ARG_EDGE (expr, i)->src->index);
     }
   LTO_DEBUG_UNDENT ();
@@ -1815,9 +1815,8 @@ output_phi (struct output_block *ob, tree expr, unsigned int stmt_num)
 
 /* Output a basic block BB to the main stream in OB for this FN.  */
 
-static int
-output_bb (struct output_block *ob, basic_block bb, 
-	   struct function *fn, int stmt_num)
+static void
+output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 {
   block_stmt_iterator bsi = bsi_start (bb);
 
@@ -1840,9 +1839,7 @@ output_bb (struct output_block *ob, basic_block bb,
 	  tree stmt = bsi_stmt (bsi);
 	
 	  LTO_DEBUG_INDENT_TOKEN ("stmt");
-	  output_uleb128 (ob, stmt_num);
-
-	  output_expr_operand (ob, stmt, stmt_num);
+	  output_expr_operand (ob, stmt);
 	
 	  /* We only need to set the region number of the tree that
 	     could throw if the region number is different from the
@@ -1860,7 +1857,6 @@ output_bb (struct output_block *ob, basic_block bb,
 		  last_eh_region_seen = region;
 		}
 	    }
-	  stmt_num++;
 	}
 
       LTO_DEBUG_INDENT_TOKEN ("stmt");
@@ -1869,9 +1865,7 @@ output_bb (struct output_block *ob, basic_block bb,
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  LTO_DEBUG_INDENT_TOKEN ("phi");
-	  output_uleb128 (ob, stmt_num);
-	  output_phi (ob, phi, stmt_num);
-	  stmt_num++;
+	  output_phi (ob, phi);
 	}
 
       LTO_DEBUG_INDENT_TOKEN ("phi");
@@ -1883,7 +1877,6 @@ output_bb (struct output_block *ob, basic_block bb,
 #ifdef LTO_STREAM_DEBUGGING
   gcc_assert (lto_debug_context.indent == 1);
 #endif
-  return stmt_num;
 }
 
 /* Write the references for the objects in V to section SEC in the
@@ -1912,29 +1905,29 @@ write_references (VEC(tree,heap) *v, section *sec,
 /* Create the header in the file using OB for t.  */
 
 static void
-produce_asm (struct output_block *ob, tree t, bool is_function)
+produce_asm (struct output_block *ob, tree t, enum lto_section_type section_type)
 {
   const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));
-  const char *section_name = concat (LTO_SECTION_NAME_PREFIX, name, NULL);
-  section *section = get_section (section_name, SECTION_DEBUG, t);
-  struct lto_header header;
+  struct lto_function_header header;
+  section *section = lto_get_section (section_type, name);
 
-  memset (&header, 0, sizeof (struct lto_header)); 
+  memset (&header, 0, sizeof (struct lto_function_header)); 
 
   /* The entire header is stream computed here.  */
   switch_to_section (section);
   
   /* Write the header which says how to decode the pieces of the
      t.  */
-  header.major_version = LTO_major_version;
-  header.minor_version = LTO_minor_version;
+  header.lto_header.major_version = LTO_major_version;
+  header.lto_header.minor_version = LTO_minor_version;
+  header.lto_header.section_type = section_type;
   
   header.num_field_decls = VEC_length (tree, ob->field_decls);
   header.num_fn_decls = VEC_length (tree, ob->fn_decls);
   header.num_var_decls = VEC_length (tree, ob->var_decls);
   header.num_type_decls = VEC_length (tree, ob->type_decls);
   header.num_types = VEC_length (tree, ob->types);
-  if (is_function)
+  if (section_type == lto_function_body)
     {
       header.num_local_decls = VEC_length (tree, ob->local_decls);
       header.num_named_labels = ob->next_named_label_index;
@@ -1942,7 +1935,7 @@ produce_asm (struct output_block *ob, tree t, bool is_function)
     }
   header.compressed_size = 0;
   
-  if (is_function)
+  if (section_type == lto_function_body)
     {
       header.named_label_size = ob->named_label_stream->total_size;
       header.ssa_names_size = ob->ssa_names_stream->total_size;
@@ -1953,7 +1946,7 @@ produce_asm (struct output_block *ob, tree t, bool is_function)
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
 #ifdef LTO_STREAM_DEBUGGING
-  if (is_function)
+  if (section_type == lto_function_body)
     {
       header.debug_decl_index_size = ob->debug_decl_index_stream->total_size;
       header.debug_decl_size = ob->debug_decl_stream->total_size;
@@ -1972,7 +1965,7 @@ produce_asm (struct output_block *ob, tree t, bool is_function)
 #endif
 
   assemble_string ((const char *)&header, 
-		   sizeof (struct lto_header));
+		   sizeof (struct lto_function_header));
 
   /* Write the global field references.  */
   write_references (ob->field_decls, section, lto_field_ref);
@@ -1991,7 +1984,7 @@ produce_asm (struct output_block *ob, tree t, bool is_function)
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
-  if (is_function)
+  if (section_type == lto_function_body)
     {
       lto_write_stream (ob->named_label_stream);
       lto_write_stream (ob->ssa_names_stream);
@@ -2002,7 +1995,7 @@ produce_asm (struct output_block *ob, tree t, bool is_function)
   lto_write_stream (ob->main_stream);
   lto_write_stream (ob->string_stream);
 #ifdef LTO_STREAM_DEBUGGING
-  if (is_function)
+  if (section_type == lto_function_body)
     {
       lto_write_stream (ob->debug_decl_index_stream);
       lto_write_stream (ob->debug_decl_stream);
@@ -2129,12 +2122,12 @@ generate_early_dwarf_information (tree function)
 /* Output FN.  */
 
 static void
-output_function (tree function)
+output_function (struct cgraph_node* node)
 {
+  tree function = node->decl;
   struct function *fn = DECL_STRUCT_FUNCTION (function);
   basic_block bb;
   struct output_block *ob = create_output_block (true);
-  unsigned int stmt_num = 1;
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
@@ -2161,19 +2154,25 @@ output_function (tree function)
   /* Output the head of the arguments list.  */
   LTO_DEBUG_INDENT_TOKEN ("decl_arguments");
   if (DECL_ARGUMENTS (function))
-    output_expr_operand (ob, DECL_ARGUMENTS (function), 0);
+    output_expr_operand (ob, DECL_ARGUMENTS (function));
   else
     output_zero (ob);
     
   LTO_DEBUG_INDENT_TOKEN ("decl_context");
   if (DECL_CONTEXT (function))
-    output_expr_operand (ob, DECL_CONTEXT (function), 0);
+    output_expr_operand (ob, DECL_CONTEXT (function));
   else
     output_zero (ob);
 
+  /* We will renumber the statements.  The code that does this uses
+     the same ordering that we use for serializing them so we can use
+     the same code on the other end and not have to write out the
+     statement numbers.  */
+  renumber_gimple_stmt_uids ();
+
   /* Output the code for the function.  */
   FOR_ALL_BB_FN (bb, fn)
-    stmt_num = output_bb (ob, bb, fn, stmt_num);
+    output_bb (ob, bb, fn);
 
   /* The terminator for this function.  */
   output_zero (ob);
@@ -2196,7 +2195,7 @@ output_function (tree function)
 
   /* Create a file to hold the pickled output of this function.  This
      is a temp standin until we start writing sections.  */
-  produce_asm (ob, function, true);
+  produce_asm (ob, function, lto_function_body);
 
   destroy_output_block (ob, true);
 
@@ -2220,15 +2219,12 @@ output_constructor_or_init (tree var)
   lto_output_1_stream (ob->string_stream, 0);
 
   LTO_DEBUG_INDENT_TOKEN ("init");
-  output_expr_operand (ob, DECL_INITIAL (var), 0);
+  output_expr_operand (ob, DECL_INITIAL (var));
 
   /* The terminator for the constructor.  */
   output_zero (ob);
 
-  /* Create a file to hold the pickled output of this function.  This
-     is a temp standin until we start writing sections.  */
-  produce_asm (ob, var, false);
-
+  produce_asm (ob, var, lto_static_initializer);
   destroy_output_block (ob, false);
 }
 
@@ -2252,7 +2248,7 @@ lto_output (void)
      ones of them.  */
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed && cgraph_is_master_clone (node, false))
-      output_function (node->decl);
+      output_function (node);
 
   /* Process the global static vars that have initializers or
      constructors.  */

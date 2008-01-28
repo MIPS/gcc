@@ -1,3 +1,35 @@
+2008-01-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* cgraph.h (cgraph_edge.lto_stmt_uid): New field.
+	* lto-function-out.c (output_constructor, output_expr_operand,
+	output_phi, output_bb, output_function): Removal of code to thread
+	the stmt_number thru the code.
+	(produce_asm): Moved code to create dwarf_sections to
+	lto_section_out.c.  Encapsulated section type independent code
+	into separate header structure.  Changed to use enum section_type.
+	(output_function, output_constructor_or_init): Added call to
+	renumber_gimple_stmt_uids and to pass section type to produce_asm.
+	(lto_output): Pass cgraph node rather than decl to
+	output_function.
+	* tree-ssa-dse (max_stmt_uid): Removed.
+	(get_stmt_uid, dse_possible_dead_store_p, dse_optimize_stmt, 
+	tree_ssa_dse): Encapsulate all uses of stmt_ann->uid.
+	* tree-ssa-sccvn.c (compare_ops, init_scc_vn): Ditto.
+	* lto-header.h: New
+	* function.h (cfun.last_stmt_uid): New field.
+	* lto-tags.h (lto_header): Renamed to lto_function_header and
+	moved shared fields to lto_header in lto-header.h.
+	(LTO_SECTION_NAME_PREFIX): Moved to lto-header.h.
+	* tree-flow-inline.h (set_gimple_stmt_uid, gimple_stmt_uid,
+	gimple_stmt_max_uid, set_gimple_stmt_max_uid, 
+	inc_gimple_stmt_max_uid): New functions.
+	* tree-dfa.c (renumber_gimple_stmt_uids): New function.
+	(create_stmt_ann): Initialize the ann->uid field.
+	* tree-ssa-pre.c (compute_avail): Encapsulate the stmt_ann->uid
+	with new calls.
+	* tree-flow.h (renumber_gimple_stmt_uids): New function.
+	* lto-section-out.c (lto_get_section): New function.
+	* lto-section-out.h (lto_get_section): New function.
+	
 2008-01-14  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* lto-function-out (lto_debug_context, output_stream,
 	LTO_SET_DEBUGGING_STREAM): Moved to lto_section_out.h.
