@@ -1,5 +1,8 @@
 2008-01-28  Nathan Froyd  <froydnj@codesourcery.com>
 
+	* lto-elf.c (lto_elf_lookup_sym): Remove unused function.
+	(lto_elf_free_sym): Likewise.
+
 	* lto-elf.c (lto_elf_read_var_init): Remove unused function.
 	(lto_elf_build_init): Likewise.
 
