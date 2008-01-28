@@ -1,5 +1,5 @@
 @c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,
-@c 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -1288,9 +1288,7 @@ mode, otherwise @var{mode} is VOIDmode.  @var{mode} is provided in the
 case where structures of one field would require the structure's mode to
 retain the field's mode.
 
-Normally, this is not needed.  See the file @file{c4x.h} for an example
-of how to use this macro to prevent a structure having a floating point
-field from being accessed in an integer mode.
+Normally, this is not needed.
 @end defmac
 
 @defmac ROUND_TYPE_ALIGN (@var{type}, @var{computed}, @var{specified})
@@ -1351,7 +1349,7 @@ targets.
 
 @defmac TARGET_FLOAT_FORMAT
 A code distinguishing the floating point format of the target machine.
-There are four defined values:
+There are two defined values:
 
 @ftable @code
 @item IEEE_FLOAT_FORMAT
@@ -1361,9 +1359,6 @@ need to define @code{TARGET_FLOAT_FORMAT} when the format is IEEE@.
 @item VAX_FLOAT_FORMAT
 This code indicates the ``F float'' (for @code{float}) and ``D float''
 or ``G float'' formats (for @code{double}) used on the VAX and PDP-11@.
-
-@item C4X_FLOAT_FORMAT
-This code indicates the format used on the TMS320C3x/C4x.
 @end ftable
 
 If your target uses a floating point format other than these, you must
@@ -1505,6 +1500,20 @@ Returns true if the target supports decimal floating point.
 
 @deftypefn {Target Hook} {bool} TARGET_FIXED_POINT_SUPPORTED_P (void)
 Returns true if the target supports fixed-point arithmetic.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_EXPAND_TO_RTL_HOOK (void)
+This hook is called just before expansion into rtl, allowing the target
+to perform additional initializations or analysis before the expansion.
+For example, the rs6000 port uses it to allocate a scratch stack slot
+for use in copying SDmode values between memory and floating point
+registers whenever the function being expanded has any SDmode
+usage.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_INSTANTIATE_DECLS (void)
+This hook allows the backend to perform additional instantiations on rtl
+that are not actually in any insns yet, but will be later.
 @end deftypefn
 
 @deftypefn {Target Hook} {const char *} TARGET_MANGLE_TYPE (tree @var{type})
@@ -2079,7 +2088,9 @@ consecutive registers are needed for a given mode.
 @defmac HARD_REGNO_NREGS (@var{regno}, @var{mode})
 A C expression for the number of consecutive hard registers, starting
 at register number @var{regno}, required to hold a value of mode
-@var{mode}.
+@var{mode}.  This macro must never return zero, even if a register
+cannot hold the requested mode - indicate that with HARD_REGNO_MODE_OK
+and/or CANNOT_CHANGE_MODE_CLASS instead.
 
 On a machine where all registers are exactly one word, a suitable
 definition of this macro is
@@ -2614,9 +2625,9 @@ of the scratch register(s).
 In some cases, both an intermediate and a scratch register are required.
 
 For input reloads, this target hook is called with nonzero @var{in_p},
-and @var{x} is an rtx that needs to be copied to a register in of class
+and @var{x} is an rtx that needs to be copied to a register of class
 @var{reload_class} in @var{reload_mode}.  For output reloads, this target
-hook is called with zero @var{in_p}, and a register of class @var{reload_mode}
+hook is called with zero @var{in_p}, and a register of class @var{reload_class}
 needs to be copied to rtx @var{x} in @var{reload_mode}.
 
 If copying a register of @var{reload_class} from/to @var{x} requires
@@ -7931,6 +7942,14 @@ code must advance @var{ptr} to the beginning of the filename on that
 line.  Otherwise, it must set @var{ptr} to @code{NULL}.
 @end defmac
 
+@defmac SHLIB_SUFFIX
+Define this macro to a C string constant containing the default shared
+library extension of the target (e.g., @samp{".so"}).  @command{collect2}
+strips version information after this suffix when generating global
+constructor and destructor names.  This define is only needed on targets
+that use @command{collect2} to process constructors and destructors.
+@end defmac
+
 @node Instruction Output
 @subsection Output of Assembler Instructions
 
@@ -9796,9 +9815,6 @@ a token of type @code{CPP_EOF}.  Macro expansion occurs on the
 arguments of pragmas registered with
 @code{c_register_pragma_with_expansion} but not on the arguments of
 pragmas registered with @code{c_register_pragma}.
-
-For an example use of this routine, see @file{c4x.h} and the callback
-routines defined in @file{c4x-c.c}.
 
 Note that the use of @code{pragma_lex} is specific to the C and C++
 compilers.  It will not work in the Java or Fortran compilers, or any

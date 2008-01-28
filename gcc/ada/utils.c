@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -747,6 +747,7 @@ finish_record_type (tree record_type, tree fieldlist, int rep_level,
 		    bool do_not_finalize)
 {
   enum tree_code code = TREE_CODE (record_type);
+  tree name = TYPE_NAME (record_type);
   tree ada_size = bitsize_zero_node;
   tree size = bitsize_zero_node;
   bool var_size = false;
@@ -754,9 +755,11 @@ finish_record_type (tree record_type, tree fieldlist, int rep_level,
   bool had_size_unit = TYPE_SIZE_UNIT (record_type) != 0;
   tree field;
 
+  if (name && TREE_CODE (name) == TYPE_DECL)
+    name = DECL_NAME (name);
+
   TYPE_FIELDS (record_type) = fieldlist;
-  TYPE_STUB_DECL (record_type)
-    = build_decl (TYPE_DECL, TYPE_NAME (record_type), record_type);
+  TYPE_STUB_DECL (record_type) = build_decl (TYPE_DECL, name, record_type);
 
   /* We don't need both the typedef name and the record name output in
      the debugging information, since they are the same.  */
@@ -1464,7 +1467,10 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
     TREE_ADDRESSABLE (var_decl) = 1;
 
   if (TREE_CODE (var_decl) != CONST_DECL)
-    rest_of_decl_compilation (var_decl, global_bindings_p (), 0);
+    {
+      if (global_bindings_p ())
+	rest_of_decl_compilation (var_decl, true, 0);
+    }
   else
     expand_decl (var_decl);
 
@@ -1503,6 +1509,33 @@ create_true_var_decl (tree var_name, tree asm_name, tree type, tree var_init,
 			    attr_list, gnat_node);
 }
 
+/* Return true if TYPE, an aggregate type, contains (or is) an array.  */
+
+static bool
+aggregate_type_contains_array_p (tree type)
+{
+  switch (TREE_CODE (type))
+    {
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      {
+	tree field;
+	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+	  if (AGGREGATE_TYPE_P (TREE_TYPE (field))
+	      && aggregate_type_contains_array_p (TREE_TYPE (field)))
+	    return true;
+	return false;
+      }
+
+    case ARRAY_TYPE:
+      return true;
+    
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Returns a FIELD_DECL node. FIELD_NAME the field name, FIELD_TYPE is its
    type, and RECORD_TYPE is the type of the parent.  PACKED is nonzero if
    this field is in a record type with a "pragma pack".  If SIZE is nonzero
@@ -1521,8 +1554,15 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
   TREE_READONLY (field_decl) = TYPE_READONLY (field_type);
 
   /* If FIELD_TYPE is BLKmode, we must ensure this is aligned to at least a
-     byte boundary since GCC cannot handle less-aligned BLKmode bitfields.  */
-  if (packed && TYPE_MODE (field_type) == BLKmode)
+     byte boundary since GCC cannot handle less-aligned BLKmode bitfields.
+     Likewise for an aggregate without specified position that contains an
+     array, because in this case slices of variable length of this array
+     must be handled by GCC and variable-sized objects need to be aligned
+     to at least a byte boundary.  */
+  if (packed && (TYPE_MODE (field_type) == BLKmode
+		 || (!pos
+		     && AGGREGATE_TYPE_P (field_type)
+		     && aggregate_type_contains_array_p (field_type))))
     DECL_ALIGN (field_decl) = BITS_PER_UNIT;
 
   /* If a size is specified, use it.  Otherwise, if the record type is packed
@@ -1578,11 +1618,24 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
     }
 
   DECL_PACKED (field_decl) = pos ? DECL_BIT_FIELD (field_decl) : packed;
-  DECL_ALIGN (field_decl)
-    = MAX (DECL_ALIGN (field_decl),
-	   DECL_BIT_FIELD (field_decl) ? 1
-	   : packed && TYPE_MODE (field_type) != BLKmode ? BITS_PER_UNIT
-	   : TYPE_ALIGN (field_type));
+
+  /* Bump the alignment if need be, either for bitfield/packing purposes or
+     to satisfy the type requirements if no such consideration applies.  When
+     we get the alignment from the type, indicate if this is from an explicit
+     user request, which prevents stor-layout from lowering it later on.  */
+  {
+    int bit_align
+      = (DECL_BIT_FIELD (field_decl) ? 1
+	 : packed && TYPE_MODE (field_type) != BLKmode ? BITS_PER_UNIT : 0);
+
+    if (bit_align > DECL_ALIGN (field_decl))
+      DECL_ALIGN (field_decl) = bit_align;
+    else if (!bit_align && TYPE_ALIGN (field_type) > DECL_ALIGN (field_decl))
+      {
+	DECL_ALIGN (field_decl) = TYPE_ALIGN (field_type);
+	DECL_USER_ALIGN (field_decl) = TYPE_USER_ALIGN (field_type);
+      }
+  }
 
   if (pos)
     {
@@ -1630,7 +1683,7 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
 
 /* Returns a PARM_DECL node. PARAM_NAME is the name of the parameter,
    PARAM_TYPE is its type.  READONLY is true if the parameter is
-   readonly (either an IN parameter or an address of a pass-by-ref
+   readonly (either an In parameter or an address of a pass-by-ref
    parameter). */
 
 tree
@@ -2969,9 +3022,9 @@ build_function_stub (tree gnu_subprog, Entity_Id gnat_subprog)
   /* Invoke the internal subprogram.  */
   gnu_subprog_addr = build1 (ADDR_EXPR, build_pointer_type (gnu_subprog_type),
 			     gnu_subprog);
-  gnu_subprog_call = build3 (CALL_EXPR, TREE_TYPE (gnu_subprog_type),
-			     gnu_subprog_addr, nreverse (gnu_param_list),
-			     NULL_TREE);
+  gnu_subprog_call = build_call_list (TREE_TYPE (gnu_subprog_type),
+				      gnu_subprog_addr,
+				      nreverse (gnu_param_list));
 
   /* Propagate the return value, if any.  */
   if (VOID_TYPE_P (TREE_TYPE (gnu_subprog_type)))
@@ -3823,8 +3876,8 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 
       expr = convert (rtype, expr);
       if (type != rtype)
-	expr = build1 (final_unchecked ? VIEW_CONVERT_EXPR : NOP_EXPR,
-		       type, expr);
+	expr = fold_build1 (final_unchecked ? VIEW_CONVERT_EXPR : NOP_EXPR,
+			    type, expr);
     }
 
   /* If we are converting TO an integral type whose precision is not the
@@ -3875,13 +3928,8 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
   else
     {
       expr = maybe_unconstrained_array (expr);
-
-      /* There's no point in doing two unchecked conversions in a row.  */
-      if (TREE_CODE (expr) == VIEW_CONVERT_EXPR)
-	expr = TREE_OPERAND (expr, 0);
-
       etype = TREE_TYPE (expr);
-      expr = build1 (VIEW_CONVERT_EXPR, type, expr);
+      expr = fold_build1 (VIEW_CONVERT_EXPR, type, expr);
     }
 
   /* If the result is an integral type whose size is not equal to

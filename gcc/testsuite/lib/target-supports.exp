@@ -421,6 +421,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget strongarm*-*-elf]
 	     || [istarget xscale*-*-elf]
 	     || [istarget cris-*-*]
+	     || [istarget crisv32-*-*]
 	     || [istarget fido-*-elf]
 	     || [istarget h8300-*-*]
 	     || [istarget m32c-*-elf]
@@ -481,7 +482,7 @@ proc check_effective_target_tls {} {
 # This won't change for different subtargets so cache the result.
 
 proc check_effective_target_tls_native {} {
-    return [check_no_messages_and_pattern tls_native "!emultls" assembly {
+    return [check_no_messages_and_pattern tls_native "!emutls" assembly {
 	__thread int i;
 	int f (void) { return i; }
 	void g (int j) { i = j; }
@@ -506,6 +507,15 @@ proc check_effective_target_fopenmp {} {
     return [check_no_compiler_messages fopenmp object {
 	void foo (void) { }
     } "-fopenmp"]
+}
+
+# Return 1 if compilation with -pthread is error-free for trivial
+# code, 0 otherwise.
+
+proc check_effective_target_pthread {} {
+    return [check_no_compiler_messages pthread object {
+	void foo (void) { }
+    } "-pthread"]
 }
 
 # Return 1 if the target supports -fstack-protector
@@ -1194,6 +1204,12 @@ proc check_effective_target_powerpc_altivec_ok { } {
     } else {
 	return 0
     }
+}
+
+# Return 1 if this is a PowerPC target that supports SPU.
+
+proc check_effective_target_powerpc_spu { } {
+    return [istarget powerpc*-*-linux*]
 }
 
 # Return 1 if this is a PowerPC target with SPE enabled.

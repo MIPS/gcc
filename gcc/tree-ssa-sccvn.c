@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "langhooks.h"
 #include "cfgloop.h"
+#include "params.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-sccvn.h"
 
@@ -124,10 +125,10 @@ typedef struct vn_tables_s
 typedef struct vn_binary_op_s
 {
   enum tree_code opcode;
+  hashval_t hashcode;
   tree type;
   tree op0;
   tree op1;
-  hashval_t hashcode;
   tree result;
 } *vn_binary_op_t;
 typedef const struct vn_binary_op_s *const_vn_binary_op_t;
@@ -139,9 +140,9 @@ typedef const struct vn_binary_op_s *const_vn_binary_op_t;
 typedef struct vn_unary_op_s
 {
   enum tree_code opcode;
+  hashval_t hashcode;
   tree type;
   tree op0;
-  hashval_t hashcode;
   tree result;
 } *vn_unary_op_t;
 typedef const struct vn_unary_op_s *const_vn_unary_op_t;
@@ -279,6 +280,24 @@ VN_INFO_GET (tree name)
 }
 
 
+/* Free a phi operation structure VP.  */
+
+static void
+free_phi (void *vp)
+{
+  vn_phi_t phi = vp;
+  VEC_free (tree, heap, phi->phiargs);
+}
+
+/* Free a reference operation structure VP.  */
+
+static void
+free_reference (void *vp)
+{
+  vn_reference_t vr = vp;
+  VEC_free (vn_reference_op_s, heap, vr->operands);
+}
+
 /* Compare two reference operands P1 and P2 for equality.  return true if
    they are equal, and false otherwise.  */
 
@@ -388,11 +407,11 @@ vuses_to_vec (tree stmt, VEC (tree, gc) **result)
   if (!stmt)
     return;
 
-  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VIRTUAL_USES)
-    VEC_safe_push (tree, gc, *result, vuse);
+  VEC_reserve_exact (tree, gc, *result,
+		     num_ssa_operands (stmt, SSA_OP_VIRTUAL_USES));
 
-  if (VEC_length (tree, *result) > 1)
-    sort_vuses (*result);
+  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VIRTUAL_USES)
+    VEC_quick_push (tree, *result, vuse);
 }
 
 
@@ -420,11 +439,10 @@ vdefs_to_vec (tree stmt, VEC (tree, gc) **result)
   if (!stmt)
     return;
 
-  FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-    VEC_safe_push (tree, gc, *result, vdef);
+  *result = VEC_alloc (tree, gc, num_ssa_operands (stmt, SSA_OP_VIRTUAL_DEFS));
 
-  if (VEC_length (tree, *result) > 1)
-    sort_vuses (*result);
+  FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, iter, SSA_OP_VIRTUAL_DEFS)
+    VEC_quick_push (tree, *result, vdef);
 }
 
 /* Copy the names of vdef results in STMT into a vector, and return
@@ -534,6 +552,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	case COMPLEX_CST:
 	case VECTOR_CST:
 	case REAL_CST:
+	case CONSTRUCTOR:
 	case VALUE_HANDLE:
 	case VAR_DECL:
 	case PARM_DECL:
@@ -691,6 +710,9 @@ vn_reference_insert (tree op, tree result, VEC (tree, gc) *vuses)
      the other lookup functions, you cannot gcc_assert (!*slot)
      here.  */
 
+  /* But free the old slot in case of a collision.  */
+  if (*slot)
+    free_reference (*slot);
 
   *slot = vr1;
 }
@@ -1588,7 +1610,8 @@ visit_use (tree use)
 	  changed = visit_phi (stmt);
 	}
       else if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
-	       || (ann && ann->has_volatile_ops))
+	       || (ann && ann->has_volatile_ops)
+	       || tree_could_throw_p (stmt))
 	{
 	  changed = defs_to_varying (stmt);
 	}
@@ -1837,9 +1860,11 @@ process_scc (VEC (tree, heap) *scc)
 /* Depth first search on NAME to discover and process SCC's in the SSA
    graph.
    Execution of this algorithm relies on the fact that the SCC's are
-   popped off the stack in topological order.  */
+   popped off the stack in topological order.
+   Returns true if successful, false if we stopped processing SCC's due
+   to ressource constraints.  */
 
-static void
+static bool
 DFS (tree name)
 {
   ssa_op_iter iter;
@@ -1870,7 +1895,8 @@ DFS (tree name)
 
 	  if (! (VN_INFO (use)->visited))
 	    {
-	      DFS (use);
+	      if (!DFS (use))
+		return false;
 	      VN_INFO (name)->low = MIN (VN_INFO (name)->low,
 					 VN_INFO (use)->low);
 	    }
@@ -1899,6 +1925,17 @@ DFS (tree name)
 	  VEC_safe_push (tree, heap, scc, x);
 	} while (x != name);
 
+      /* Bail out of SCCVN in case a SCC turns out to be incredibly large.  */
+      if (VEC_length (tree, scc)
+	    > (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "WARNING: Giving up with SCCVN due to "
+		     "SCC size %u exceeding %u\n", VEC_length (tree, scc),
+		     (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE));
+	  return false;
+	}
+
       if (VEC_length (tree, scc) > 1)
 	sort_scc (scc);
 
@@ -1909,23 +1946,8 @@ DFS (tree name)
 
       VEC_free (tree, heap, scc);
     }
-}
 
-static void
-free_phi (void *vp)
-{
-  vn_phi_t phi = vp;
-  VEC_free (tree, heap, phi->phiargs);
-}
-
-
-/* Free a reference operation structure VP.  */
-
-static void
-free_reference (void *vp)
-{
-  vn_reference_t vr = vp;
-  VEC_free (vn_reference_op_s, heap, vr->operands);
+  return true;
 }
 
 /* Allocate a value number table.  */
@@ -2074,7 +2096,10 @@ free_scc_vn (void)
     }
 }
 
-void
+/* Do SCCVN.  Returns true if it finished, false if we bailed out
+   due to ressource constraints.  */
+
+bool
 run_scc_vn (void)
 {
   size_t i;
@@ -2100,7 +2125,11 @@ run_scc_vn (void)
       if (name
 	  && VN_INFO (name)->visited == false
 	  && !has_zero_uses (name))
-	DFS (name);
+	if (!DFS (name))
+	  {
+	    free_scc_vn ();
+	    return false;
+	  }
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2123,4 +2152,6 @@ run_scc_vn (void)
 	    }
 	}
     }
+
+  return true;
 }

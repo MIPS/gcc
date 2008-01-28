@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
+#include "target-memory.h" /* for gfc_convert_boz */
 
 /* Get a new expr node.  */
 
@@ -962,6 +963,8 @@ simplify_intrinsic_op (gfc_expr *p, int type)
 static try
 simplify_constructor (gfc_constructor *c, int type)
 {
+  gfc_expr *p;
+
   for (; c; c = c->next)
     {
       if (c->iterator
@@ -970,8 +973,21 @@ simplify_constructor (gfc_constructor *c, int type)
 	      || gfc_simplify_expr (c->iterator->step, type) == FAILURE))
 	return FAILURE;
 
-      if (c->expr && gfc_simplify_expr (c->expr, type) == FAILURE)
-	return FAILURE;
+      if (c->expr)
+	{
+	  /* Try and simplify a copy.  Replace the original if successful
+	     but keep going through the constructor at all costs.  Not
+	     doing so can make a dog's dinner of complicated things.  */
+	  p = gfc_copy_expr (c->expr);
+
+	  if (gfc_simplify_expr (p, type) == FAILURE)
+	    {
+	      gfc_free_expr (p);
+	      continue;
+	    }
+
+	  gfc_replace_expr (c->expr, p);
+	}
     }
 
   return SUCCESS;
@@ -1008,14 +1024,17 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 	  cons = NULL;
 	  goto depart;
 	}
-
-      /* Check the bounds.  */
-      if (ar->as->upper[i]
-	  && (mpz_cmp (e->value.integer, ar->as->upper[i]->value.integer) > 0
-	      || mpz_cmp (e->value.integer,
-			  ar->as->lower[i]->value.integer) < 0))
+        /* Check the bounds.  */
+      if ((ar->as->upper[i]
+	     && ar->as->upper[i]->expr_type == EXPR_CONSTANT
+	     && mpz_cmp (e->value.integer,
+			 ar->as->upper[i]->value.integer) > 0)
+		||
+	  (ar->as->lower[i]->expr_type == EXPR_CONSTANT
+	     && mpz_cmp (e->value.integer,
+			 ar->as->lower[i]->value.integer) < 0))
 	{
-	  gfc_error ("index in dimension %d is out of bounds "
+	  gfc_error ("Index in dimension %d is out of bounds "
 		     "at %L", i + 1, &ar->c_where[i]);
 	  cons = NULL;
 	  t = FAILURE;
@@ -2090,7 +2109,8 @@ check_elemental (gfc_expr *e)
       || !e->value.function.isym->elemental)
     return MATCH_NO;
 
-  if ((e->ts.type != BT_INTEGER || e->ts.type != BT_CHARACTER)
+  if (e->ts.type != BT_INTEGER
+      && e->ts.type != BT_CHARACTER
       && gfc_notify_std (GFC_STD_F2003, "Extension: Evaluation of "
 			"nonstandard initialization expression at %L",
 			&e->where) == FAILURE)
@@ -2186,7 +2206,18 @@ check_init_expr (gfc_expr *e)
 
       if (e->symtree->n.sym->attr.flavor == FL_PARAMETER)
 	{
-	  t = simplify_parameter_variable (e, 0);
+	  /* A PARAMETER shall not be used to define itself, i.e.
+		REAL, PARAMETER :: x = transfer(0, x)
+	     is invalid.  */
+	  if (!e->symtree->n.sym->value)
+	    {
+	      gfc_error("PARAMETER '%s' is used at %L before its definition "
+			"is complete", e->symtree->n.sym->name, &e->where);
+	      t = FAILURE;
+	    }
+	  else
+	    t = simplify_parameter_variable (e, 0);
+
 	  break;
 	}
 
@@ -2214,6 +2245,12 @@ check_init_expr (gfc_expr *e)
 	      case AS_DEFERRED:
 		gfc_error ("Deferred array '%s' at %L is not permitted "
 			   "in an initialization expression",
+			   e->symtree->n.sym->name, &e->where);
+		break;
+
+	      case AS_EXPLICIT:
+		gfc_error ("Array '%s' at %L is a variable, which does "
+			   "not reduce to a constant expression",
 			   e->symtree->n.sym->name, &e->where);
 		break;
 
@@ -2463,6 +2500,7 @@ check_restricted (gfc_expr *e)
       if (sym->attr.in_common
 	  || sym->attr.use_assoc
 	  || sym->attr.dummy
+	  || sym->attr.implied_index
 	  || sym->ns != gfc_current_ns
 	  || (sym->ns->proc_name != NULL
 	      && sym->ns->proc_name->attr.flavor == FL_MODULE)
@@ -2722,6 +2760,47 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
   if (lvalue->rank != 0 && rvalue->rank != 0
       && gfc_check_conformance ("array assignment", lvalue, rvalue) != SUCCESS)
     return FAILURE;
+
+  if (rvalue->is_boz && lvalue->ts.type != BT_INTEGER
+      && lvalue->symtree->n.sym->attr.data
+      && gfc_notify_std (GFC_STD_GNU, "Extension: BOZ literal at %L used to "
+                         "initialize non-integer variable '%s'",
+			 &rvalue->where, lvalue->symtree->n.sym->name)
+	 == FAILURE)
+    return FAILURE;
+  else if (rvalue->is_boz && !lvalue->symtree->n.sym->attr.data
+      && gfc_notify_std (GFC_STD_GNU, "Extension: BOZ literal at %L outside "
+			 "a DATA statement and outside INT/REAL/DBLE/CMPLX",
+			 &rvalue->where) == FAILURE)
+    return FAILURE;
+
+  /* Handle the case of a BOZ literal on the RHS.  */
+  if (rvalue->is_boz && lvalue->ts.type != BT_INTEGER)
+    {
+      int rc;
+      if (gfc_option.warn_surprising)
+        gfc_warning ("BOZ literal at %L is bitwise transferred "
+                     "non-integer symbol '%s'", &rvalue->where,
+                     lvalue->symtree->n.sym->name);
+      if (!gfc_convert_boz (rvalue, &lvalue->ts))
+	return FAILURE;
+      if ((rc = gfc_range_check (rvalue)) != ARITH_OK)
+	{
+	  if (rc == ARITH_UNDERFLOW)
+	    gfc_error ("Arithmetic underflow of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rvalue->where);
+	  else if (rc == ARITH_OVERFLOW)
+	    gfc_error ("Arithmetic overflow of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rvalue->where);
+	  else if (rc == ARITH_NAN)
+	    gfc_error ("Arithmetic NaN of bit-wise transferred BOZ at %L"
+		       ". This check can be disabled with the option "
+		       "-fno-range-check", &rvalue->where);
+	  return FAILURE;
+	}
+    }
 
   if (gfc_compare_types (&lvalue->ts, &rvalue->ts))
     return SUCCESS;

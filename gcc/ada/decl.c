@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -495,7 +495,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
     case E_Out_Parameter:
     case E_Variable:
 
-      /* Simple variables, loop variables, OUT parameters, and exceptions.  */
+      /* Simple variables, loop variables, Out parameters, and exceptions.  */
     object:
       {
 	bool used_by_ref = false;
@@ -740,23 +740,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 					   (TYPE_QUALS (gnu_type)
 					    | TYPE_QUAL_VOLATILE));
 
-	/* Convert the expression to the type of the object except in the
-	   case where the object's type is unconstrained or the object's type
-	   is a padded record whose field is of self-referential size.  In
-	   the former case, converting will generate unnecessary evaluations
-	   of the CONSTRUCTOR to compute the size and in the latter case, we
-	   want to only copy the actual data.  */
-	if (gnu_expr
-	    && TREE_CODE (gnu_type) != UNCONSTRAINED_ARRAY_TYPE
-	    && !CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_type))
-	    && !(TREE_CODE (gnu_type) == RECORD_TYPE
-		 && TYPE_IS_PADDING_P (gnu_type)
-		 && (CONTAINS_PLACEHOLDER_P
-		     (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS (gnu_type)))))))
-	  gnu_expr = convert (gnu_type, gnu_expr);
-
 	/* If this is a renaming, avoid as much as possible to create a new
-	   object.  However, in several cases, creating it is required.  */
+	   object.  However, in several cases, creating it is required.
+	   This processing needs to be applied to the raw expression so
+	   as to make it more likely to rename the underlying object.  */
 	if (Present (Renamed_Object (gnat_entity)))
 	  {
 	    bool create_normal_object = false;
@@ -905,7 +892,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   the object.  If there is an initializer, it will have already
 	   been converted to the right type, but we need to create the
 	   template if there is no initializer.  */
-	else if (definition && TREE_CODE (gnu_type) == RECORD_TYPE
+	else if (definition
+		 && TREE_CODE (gnu_type) == RECORD_TYPE
 		 && (TYPE_CONTAINS_TEMPLATE_P (gnu_type)
 		     /* Beware that padding might have been introduced
 			via maybe_pad_type above.  */
@@ -931,6 +919,21 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				NULL_TREE),
 		NULL_TREE));
 	  }
+
+	/* Convert the expression to the type of the object except in the
+	   case where the object's type is unconstrained or the object's type
+	   is a padded record whose field is of self-referential size.  In
+	   the former case, converting will generate unnecessary evaluations
+	   of the CONSTRUCTOR to compute the size and in the latter case, we
+	   want to only copy the actual data.  */
+	if (gnu_expr
+	    && TREE_CODE (gnu_type) != UNCONSTRAINED_ARRAY_TYPE
+	    && !CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_type))
+	    && !(TREE_CODE (gnu_type) == RECORD_TYPE
+		 && TYPE_IS_PADDING_P (gnu_type)
+		 && (CONTAINS_PLACEHOLDER_P
+		     (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS (gnu_type)))))))
+	  gnu_expr = convert (gnu_type, gnu_expr);
 
 	/* If this is a pointer and it does not have an initializing
 	   expression, initialize it to NULL, unless the object is
@@ -1795,7 +1798,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  }
 
 	/* If an alignment is specified, use it if valid.  But ignore it for
-	   types that represent the unpacked base type for packed arrays.  */
+	   types that represent the unpacked base type for packed arrays.  If
+	   the alignment was requested with an explicit user alignment clause,
+	   state so.  */
 	if (No (Packed_Array_Type (gnat_entity))
 	    && Known_Alignment (gnat_entity))
 	  {
@@ -1803,6 +1808,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    TYPE_ALIGN (tem)
 	      = validate_alignment (Alignment (gnat_entity), gnat_entity,
 				    TYPE_ALIGN (tem));
+	    if (Present (Alignment_Clause (gnat_entity)))
+	      TYPE_USER_ALIGN (tem) = 1;
 	  }
 
 	TYPE_CONVENTION_FORTRAN_P (tem)
@@ -2992,7 +2999,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	     : (IN (Ekind (gnat_desig_equiv), Incomplete_Or_Private_Kind)
 		? Full_View (gnat_desig_equiv) : Empty));
 	Entity_Id gnat_desig_full_direct
-	  = ((Present (gnat_desig_full_direct_first)
+	  = ((is_from_limited_with
+	      && Present (gnat_desig_full_direct_first)
 	      && IN (Ekind (gnat_desig_full_direct_first), Private_Kind))
 	     ? Full_View (gnat_desig_full_direct_first)
 	     : gnat_desig_full_direct_first);
@@ -3390,7 +3398,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
        Each parameter is first checked by calling must_pass_by_ref on its
        type to determine if it is passed by reference.  For parameters which
-       are copied in, if they are Ada IN OUT or OUT parameters, their return
+       are copied in, if they are Ada In Out or Out parameters, their return
        value becomes part of a record which becomes the return type of the
        function (C function - note that this applies only to Ada procedures
        so there is no Ada return type). Additional code to store back the
@@ -3401,7 +3409,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
        equivalent source rewritings that follow:
 
 						struct temp {int a,b};
-       procedure P (A,B: IN OUT ...) is		temp P (int A,B)
+       procedure P (A,B: In Out ...) is		temp P (int A,B)
        begin					{
 	 ..					  ..
        end P;					  return {A,B};
@@ -3433,7 +3441,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   parameters.  */
 	tree gnu_field_list = NULL_TREE;
 	/* Non-null for subprograms containing parameters passed by copy-in
-	   copy-out (Ada IN OUT or OUT parameters not passed by reference),
+	   copy-out (Ada In Out or Out parameters not passed by reference),
 	   in which case it is the list of nodes used to specify the values of
 	   the in out/out parameters that are returned as a record upon
 	   procedure return.  The TREE_PURPOSE of an element of this list is
@@ -4540,7 +4548,7 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
 
   /* If we must pass or were requested to pass by reference, do so.
      If we were requested to pass by copy, do so.
-     Otherwise, for foreign conventions, pass IN OUT or OUT parameters
+     Otherwise, for foreign conventions, pass In Out or Out parameters
      or aggregates by reference.  For COBOL and Fortran, pass all
      integer and FP types that way too.  For Convention Ada, use
      the standard Ada default.  */
@@ -4561,22 +4569,22 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
       by_ref = true;
     }
 
-  /* Pass IN OUT or OUT parameters using copy-in copy-out mechanism.  */
+  /* Pass In Out or Out parameters using copy-in copy-out mechanism.  */
   else if (!in_param)
     *cico = true;
 
   if (mech == By_Copy && (by_ref || by_component_ptr))
     post_error ("?cannot pass & by copy", gnat_param);
 
-  /* If this is an OUT parameter that isn't passed by reference and isn't
+  /* If this is an Out parameter that isn't passed by reference and isn't
      a pointer or aggregate, we don't make a PARM_DECL for it.  Instead,
      it will be a VAR_DECL created when we process the procedure, so just
      return its type.  For the special parameter of a valued procedure,
      never pass it in.
 
      An exception is made to cover the RM-6.4.1 rule requiring "by copy"
-     OUT parameters with discriminants or implicit initial values to be
-     handled like IN OUT parameters.  These type are normally built as
+     Out parameters with discriminants or implicit initial values to be
+     handled like In Out parameters.  These type are normally built as
      aggregates, hence passed by reference, except for some packed arrays
      which end up encoded in special integer types.
 
@@ -5198,19 +5206,14 @@ static tree
 make_packable_type (tree type)
 {
   tree new_type = make_node (TREE_CODE (type));
-  tree name = TYPE_NAME (type);
   tree field_list = NULL_TREE;
   tree old_field;
 
-  if (name && TREE_CODE (name) == TYPE_DECL)
-    name = DECL_NAME (name);
-
-  /* Copy the name and flags from the old type to that of the new and set
-     the alignment to try for an integral type.  For QUAL_UNION_TYPE,
-     also copy the size.  */
-  TYPE_NAME (new_type) = name;
-  TYPE_JUSTIFIED_MODULAR_P (new_type)
-    = TYPE_JUSTIFIED_MODULAR_P (type);
+  /* Copy the name and flags from the old type to that of the new.  Note
+     that we rely on the pointer equality created here for TYPE_NAME at
+     the end of gnat_to_gnu.  For QUAL_UNION_TYPE, also copy the size.  */
+  TYPE_NAME (new_type) = TYPE_NAME (type);
+  TYPE_JUSTIFIED_MODULAR_P (new_type) = TYPE_JUSTIFIED_MODULAR_P (type);
   TYPE_CONTAINS_TEMPLATE_P (new_type) = TYPE_CONTAINS_TEMPLATE_P (type);
 
   if (TREE_CODE (type) == RECORD_TYPE)
@@ -5221,6 +5224,7 @@ make_packable_type (tree type)
       TYPE_SIZE_UNIT (new_type) = TYPE_SIZE_UNIT (type);
     }
 
+  /* Set the alignment to try for an integral type.  */
   TYPE_ALIGN (new_type) = ceil_alignment (tree_low_cst (TYPE_SIZE (type), 1));
   TYPE_USER_ALIGN (new_type) = 1;
 
@@ -5599,9 +5603,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 {
   tree gnu_field_id = get_entity_name (gnat_field);
   tree gnu_field_type = gnat_to_gnu_type (Etype (gnat_field));
-  tree gnu_pos = 0;
-  tree gnu_size = 0;
-  tree gnu_field;
+  tree gnu_field, gnu_size, gnu_pos;
   bool needs_strict_alignment
     = (Is_Aliased (gnat_field) || Strict_Alignment (Etype (gnat_field))
        || Treat_As_Volatile (gnat_field));
@@ -5613,18 +5615,17 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
   else
     packed = adjust_packed (gnu_field_type, gnu_record_type, packed);
 
-  /* For packed records, this is one of the few occasions on which we use
-     the official RM size for discrete or fixed-point components, instead
-     of the normal GNAT size stored in Esize. See description in Einfo:
-     "Handling of Type'Size Values" for further details.  */
-
-  if (packed == 1)
-    gnu_size = validate_size (RM_Size (Etype (gnat_field)), gnu_field_type,
-			      gnat_field, FIELD_DECL, false, true);
-
+  /* If a size is specified, use it.  Otherwise, if the record type is packed,
+     use the official RM size.  See "Handling of Type'Size Values" in Einfo
+     for further details.  */
   if (Known_Static_Esize (gnat_field))
     gnu_size = validate_size (Esize (gnat_field), gnu_field_type,
 			      gnat_field, FIELD_DECL, false, true);
+  else if (packed == 1)
+    gnu_size = validate_size (RM_Size (Etype (gnat_field)), gnu_field_type,
+			      gnat_field, FIELD_DECL, false, true);
+  else
+    gnu_size = NULL_TREE;
 
   /* If we have a specified size that's smaller than that of the field type,
      or a position is specified, and the field type is also a record that's
@@ -5656,8 +5657,8 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       && compare_tree_int (TYPE_SIZE (gnu_field_type), BIGGEST_ALIGNMENT) <= 0
       && (packed == 1
 	  || (gnu_size
-	      && tree_int_cst_lt (gnu_size, TYPE_SIZE (gnu_field_type)))
-	  || (Present (Component_Clause (gnat_field)) && gnu_size != 0)))
+	      && (tree_int_cst_lt (gnu_size, TYPE_SIZE (gnu_field_type))
+		  || Present (Component_Clause (gnat_field))))))
     {
       /* See what the alternate type and size would be.  */
       tree gnu_packable_type = make_packable_type (gnu_field_type);
@@ -5689,7 +5690,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 	{
 	  gnu_field_type = gnu_packable_type;
 
-	  if (gnu_size == 0)
+	  if (!gnu_size)
 	    gnu_size = rm_size (gnu_field_type);
 	}
     }
@@ -5797,6 +5798,9 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       gnu_size = TYPE_SIZE (gnu_field_type);
     }
 
+  else
+    gnu_pos = NULL_TREE;
+
   /* We need to make the size the maximum for the type if it is
      self-referential and an unconstrained type.  In that case, we can't
      pack the field since we can't make a copy to align it.  */
@@ -5809,11 +5813,8 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       packed = 0;
     }
 
-  /* If no size is specified (or if there was an error), don't specify a
-     position.  */
-  if (!gnu_size)
-    gnu_pos = NULL_TREE;
-  else
+  /* If a size is specified, adjust the field's type to it.  */
+  if (gnu_size)
     {
       /* If the field's type is justified modular, we would need to remove
 	 the wrapper to (better) meet the layout requirements.  However we
@@ -5833,6 +5834,10 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
       gnu_field_type = maybe_pad_type (gnu_field_type, gnu_size, 0, gnat_field,
 				       "PAD", false, definition, true);
     }
+
+  /* Otherwise (or if there was an error), don't specify a position.  */
+  else
+    gnu_pos = NULL_TREE;
 
   gcc_assert (TREE_CODE (gnu_field_type) != RECORD_TYPE
 	      || !TYPE_CONTAINS_TEMPLATE_P (gnu_field_type));
@@ -6002,11 +6007,15 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
       gnu_union_name = concat_id_with_name (gnu_name,
 					    IDENTIFIER_POINTER (gnu_var_name));
 
-      if (!gnu_field_list && TREE_CODE (gnu_record_type) == UNION_TYPE)
+      /* Reuse an enclosing union if all fields are in the variant part
+	 and there is no representation clause on the record, to match
+	 the layout of C unions.  There is an associated check below.  */
+      if (!gnu_field_list
+	  && TREE_CODE (gnu_record_type) == UNION_TYPE
+	  && !TYPE_PACKED (gnu_record_type))
 	gnu_union_type = gnu_record_type;
       else
 	{
-
 	  gnu_union_type
 	    = make_node (unchecked_union ? UNION_TYPE : QUAL_UNION_TYPE);
 
@@ -6057,8 +6066,9 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
 	  Set_Present_Expr (variant, annotate_value (gnu_qual));
 
 	  /* If this is an Unchecked_Union and we have exactly one field,
-	     use that field here.  */
-	  if (unchecked_union && TYPE_FIELDS (gnu_variant_type)
+	     use this field directly to match the layout of C unions.  */
+	  if (unchecked_union
+	      && TYPE_FIELDS (gnu_variant_type)
 	      && !TREE_CHAIN (TYPE_FIELDS (gnu_variant_type)))
 	    gnu_field = TYPE_FIELDS (gnu_variant_type);
 	  else
@@ -6111,7 +6121,9 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
 	     return.  */
 	  if (gnu_union_type == gnu_record_type)
 	    {
-	      gcc_assert (!gnu_field_list && unchecked_union);
+	      gcc_assert (unchecked_union
+			  && !gnu_field_list
+			  && !gnu_our_rep_list);
 	      return;
 	    }
 

@@ -853,6 +853,9 @@ gfc_check_cshift (gfc_expr *array, gfc_expr *shift, gfc_expr *dim)
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
+  if (type_check (shift, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
   if (array->rank == 1)
     {
       if (scalar_check (shift, 1) == FAILURE)
@@ -2391,7 +2394,7 @@ gfc_check_shape (gfc_expr *source)
 
   ar = gfc_find_array_ref (source);
 
-  if (ar->as && ar->as->type == AS_ASSUMED_SIZE)
+  if (ar->as && ar->as->type == AS_ASSUMED_SIZE && ar->type == AR_FULL)
     {
       gfc_error ("'source' argument of 'shape' intrinsic at %L must not be "
 		 "an assumed size array", &source->where);
@@ -3227,7 +3230,7 @@ gfc_check_ctime_sub (gfc_expr *time, gfc_expr *result)
 
 
 try
-gfc_check_etime (gfc_expr *x)
+gfc_check_dtime_etime (gfc_expr *x)
 {
   if (array_check (x, 0) == FAILURE)
     return FAILURE;
@@ -3249,7 +3252,7 @@ gfc_check_etime (gfc_expr *x)
 
 
 try
-gfc_check_etime_sub (gfc_expr *values, gfc_expr *time)
+gfc_check_dtime_etime_sub (gfc_expr *values, gfc_expr *time)
 {
   if (array_check (values, 0) == FAILURE)
     return FAILURE;

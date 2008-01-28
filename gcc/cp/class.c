@@ -293,6 +293,11 @@ build_base_path (enum tree_code code,
   /* Do we need to look in the vtable for the real offset?  */
   virtual_access = (v_binfo && fixed_type_p <= 0);
 
+  /* Don't bother with the calculations inside sizeof; they'll ICE if the
+     source type is incomplete and the pointer value doesn't matter.  */
+  if (skip_evaluation)
+    return build_nop (build_pointer_type (target_type), expr);
+
   /* Do we need to check for a null pointer?  */
   if (want_pointer && !nonnull)
     {
@@ -4795,14 +4800,18 @@ layout_class_type (tree t, tree *virtuals_p)
 	 must be converted to the type given the bitfield here.  */
       if (DECL_C_BIT_FIELD (field))
 	{
-	  tree ftype;
 	  unsigned HOST_WIDE_INT width;
-	  ftype = TREE_TYPE (field);
+	  tree ftype = TREE_TYPE (field);
 	  width = tree_low_cst (DECL_SIZE (field), /*unsignedp=*/1);
 	  if (width != TYPE_PRECISION (ftype))
-	    TREE_TYPE (field)
-	      = c_build_bitfield_integer_type (width,
-					       TYPE_UNSIGNED (ftype));
+	    {
+	      TREE_TYPE (field)
+		= c_build_bitfield_integer_type (width,
+						 TYPE_UNSIGNED (ftype));
+	      TREE_TYPE (field)
+		= cp_build_qualified_type (TREE_TYPE (field),
+					   TYPE_QUALS (ftype));
+	    }
 	}
 
       /* If we needed additional padding after this field, add it

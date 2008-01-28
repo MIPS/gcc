@@ -741,9 +741,13 @@ extern basic_block debug_tree_bb_n (int);
 extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
+extern void dot_cfg (void);
 extern void debug_cfg_stats (void);
-extern void debug_loop_ir (void);
-extern void print_loop_ir (FILE *);
+extern void debug_loops (int);
+extern void debug_loop (struct loop *, int);
+extern void debug_loop_num (unsigned, int);
+extern void print_loops (FILE *, int);
+extern void print_loops_bb (FILE *, basic_block, int, int);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern tree first_stmt (basic_block);
@@ -884,6 +888,7 @@ extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
+extern bool ssa_undefined_value_p (tree);
 
 /* In tree-into-ssa.c  */
 void update_ssa (unsigned);
@@ -1008,7 +1013,6 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 basic_block split_loop_exit_edge (edge);
-unsigned force_expr_to_var_cost (tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
@@ -1120,6 +1124,7 @@ extern void register_jump_thread (edge, edge);
 tree force_gimple_operand (tree, tree *, bool, tree);
 tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree,
 			       bool, enum bsi_iterator_update);
+tree gimple_fold_indirect_ref (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);

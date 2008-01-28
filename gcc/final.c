@@ -1777,7 +1777,13 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 	  in_cold_section_p = !in_cold_section_p;
-	  (*debug_hooks->switch_text_section) ();
+#ifdef DWARF2_UNWIND_INFO
+	  if (dwarf2out_do_frame ())
+	    dwarf2out_switch_text_section ();
+	  else
+#endif
+	    (*debug_hooks->switch_text_section) ();
+
 	  switch_to_section (current_function_section ());
 	  break;
 
@@ -2763,8 +2769,15 @@ alter_subreg (rtx *xp)
       else if (REG_P (y))
 	{
 	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
-	  unsigned int regno = subreg_regno (x);
-	  *xp = gen_rtx_REG_offset (y, GET_MODE (x), regno, SUBREG_BYTE (x));
+	  unsigned int regno;
+	  HOST_WIDE_INT offset;
+
+	  regno = subreg_regno (x);
+	  if (subreg_lowpart_p (x))
+	    offset = byte_lowpart_offset (GET_MODE (x), GET_MODE (y));
+	  else
+	    offset = SUBREG_BYTE (x);
+	  *xp = gen_rtx_REG_offset (y, GET_MODE (x), regno, offset);
 	}
     }
 
@@ -3480,6 +3493,7 @@ output_addr_const (FILE *file, rtx x)
     case ZERO_EXTEND:
     case SIGN_EXTEND:
     case SUBREG:
+    case TRUNCATE:
       output_addr_const (file, XEXP (x, 0));
       break;
 

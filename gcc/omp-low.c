@@ -3,7 +3,7 @@
    marshalling to implement data sharing and copying clauses.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -539,6 +539,7 @@ copy_var_decl (tree var, tree name, tree type)
   DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (var);
   DECL_IGNORED_P (copy) = DECL_IGNORED_P (var);
   DECL_CONTEXT (copy) = DECL_CONTEXT (var);
+  DECL_SOURCE_LOCATION (copy) = DECL_SOURCE_LOCATION (var);
   TREE_USED (copy) = 1;
   DECL_SEEN_IN_BIND_EXPR_P (copy) = 1;
 
@@ -2603,6 +2604,9 @@ expand_omp_taskreg (struct omp_region *region)
   entry_stmt = last_stmt (region->entry);
   child_fn = OMP_TASKREG_FN (entry_stmt);
   child_cfun = DECL_STRUCT_FUNCTION (child_fn);
+  /* If this function has been already instrumented, make sure
+     the child function isn't instrumented again.  */
+  child_cfun->after_tree_profile = cfun->after_tree_profile;
 
   entry_bb = region->entry;
   exit_bb = region->exit;
@@ -2755,6 +2759,24 @@ expand_omp_taskreg (struct omp_region *region)
       if (optimize)
 	optimize_omp_library_calls (entry_stmt);
       rebuild_cgraph_edges ();
+
+      /* Some EH regions might become dead, see PR34608.  If
+	 pass_cleanup_cfg isn't the first pass to happen with the
+	 new child, these dead EH edges might cause problems.
+	 Clean them up now.  */
+      if (flag_exceptions)
+	{
+	  basic_block bb;
+	  tree save_current = current_function_decl;
+	  bool changed = false;
+
+	  current_function_decl = child_fn;
+	  FOR_EACH_BB (bb)
+	    changed |= tree_purge_dead_eh_edges (bb);
+	  if (changed)
+	    cleanup_tree_cfg ();
+	  current_function_decl = save_current;
+	}
       pop_cfun ();
     }
   
@@ -3430,6 +3452,16 @@ expand_omp_for (struct omp_region *region)
   extract_omp_for_data (last_stmt (region->entry), &fd);
   region->sched_kind = fd.sched_kind;
 
+  gcc_assert (EDGE_COUNT (region->entry->succs) == 2);
+  BRANCH_EDGE (region->entry)->flags &= ~EDGE_ABNORMAL;
+  FALLTHRU_EDGE (region->entry)->flags &= ~EDGE_ABNORMAL;
+  if (region->cont)
+    {
+      gcc_assert (EDGE_COUNT (region->cont->succs) == 2);
+      BRANCH_EDGE (region->cont)->flags &= ~EDGE_ABNORMAL;
+      FALLTHRU_EDGE (region->cont)->flags &= ~EDGE_ABNORMAL;
+    }
+
   if (fd.sched_kind == OMP_CLAUSE_SCHEDULE_STATIC
       && !fd.have_ordered
       && region->cont != NULL)
@@ -4064,6 +4096,11 @@ expand_omp (struct omp_region *region)
 {
   while (region)
     {
+      /* First, determine whether this is a combined parallel+workshare
+       	 region.  */
+      if (region->type == OMP_PARALLEL)
+	determine_parallel_type (region);
+
       if (region->inner)
 	expand_omp (region->inner);
 
@@ -4144,11 +4181,6 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	  region = parent;
 	  region->exit = bb;
 	  parent = parent->outer;
-
-	  /* If REGION is a parallel region, determine whether it is
-	     a combined parallel+workshare region.  */
-	  if (region->type == OMP_PARALLEL)
-	    determine_parallel_type (region);
 	}
       else if (code == OMP_ATOMIC_STORE)
 	{

@@ -7336,13 +7336,21 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
 			  const char *where)
 {
   tree clauses = NULL;
+  bool first = true;
 
   while (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
     {
-      location_t here = c_parser_peek_token (parser)->location;
-      const pragma_omp_clause c_kind = c_parser_omp_clause_name (parser);
+      location_t here;
+      pragma_omp_clause c_kind;
       const char *c_name;
       tree prev = clauses;
+
+      if (!first && c_parser_next_token_is (parser, CPP_COMMA))
+	c_parser_consume_token (parser);
+
+      first = false;
+      here = c_parser_peek_token (parser)->location;
+      c_kind = c_parser_omp_clause_name (parser);
 
       switch (c_kind)
 	{
@@ -7626,6 +7634,8 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses)
       decl = check_for_loop_decls ();
       if (decl == NULL)
 	goto error_init;
+      if (DECL_INITIAL (decl) == error_mark_node)
+	decl = error_mark_node;
       init = decl;
     }
   else if (c_parser_next_token_is (parser, CPP_NAME)
@@ -7676,7 +7686,7 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses)
   c_break_label = save_break;
   c_cont_label = save_cont;
 
-  /* Only bother calling c_finish_omp_for if we havn't already generated
+  /* Only bother calling c_finish_omp_for if we haven't already generated
      an error from the initialization parsing.  */
   if (decl != NULL && decl != error_mark_node && init != error_mark_node)
     {

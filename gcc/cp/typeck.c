@@ -962,8 +962,6 @@ structural_comptypes (tree t1, tree t2, int strict)
   if (TREE_CODE (t1) != ARRAY_TYPE
       && TYPE_QUALS (t1) != TYPE_QUALS (t2))
     return false;
-  if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
-    return false;
 
   /* Allow for two different type nodes which have essentially the same
      definition.  Note that we already checked for equality of the type
@@ -972,6 +970,9 @@ structural_comptypes (tree t1, tree t2, int strict)
   if (TREE_CODE (t1) != ARRAY_TYPE
       && TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return true;
+
+  if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
+    return false;
 
   /* Compare the types.  Break out if they could be the same.  */
   switch (TREE_CODE (t1))
@@ -1445,6 +1446,13 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
 	return DECL_BIT_FIELD_TYPE (field);
       }
 
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (exp, 0)))
+	  == TYPE_MAIN_VARIANT (TREE_TYPE (exp)))
+	return is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 0));
+      /* Fallthrough.  */
+
     default:
       return NULL_TREE;
     }
@@ -1800,7 +1808,7 @@ build_class_member_access_expr (tree object, tree member,
 	warn_deprecated_use (member);
     }
   else
-    member_scope = BINFO_TYPE (BASELINK_BINFO (member));
+    member_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (member));
   /* If MEMBER is from an anonymous aggregate, MEMBER_SCOPE will
      presently be the anonymous union.  Go outwards until we find a
      type related to OBJECT_TYPE.  */
@@ -3057,10 +3065,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
      Also implies COMMON.  */
   int short_compare = 0;
 
-  /* Nonzero if this is a right-shift operation, which can be computed on the
-     original short and then promoted if the operand is a promoted short.  */
-  int short_shift = 0;
-
   /* Nonzero means set RESULT_TYPE to the common type of the args.  */
   int common = 0;
 
@@ -3262,8 +3266,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		warning (0, "right shift count is negative");
 	      else
 		{
-		  if (! integer_zerop (op1))
-		    short_shift = 1;
 		  if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		    warning (0, "right shift count >= width of type");
 		}
@@ -3676,45 +3678,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		       (unsigned0, TREE_TYPE (arg0)),
 		       int_fits_type_p (arg1, type)))
 	    result_type = type;
-	}
-
-      /* Shifts can be shortened if shifting right.  */
-
-      if (short_shift)
-	{
-	  int unsigned_arg;
-	  tree arg0 = get_narrower (op0, &unsigned_arg);
-
-	  final_type = result_type;
-
-	  if (arg0 == op0 && final_type == TREE_TYPE (op0))
-	    unsigned_arg = TYPE_UNSIGNED (TREE_TYPE (op0));
-
-	  if (TYPE_PRECISION (TREE_TYPE (arg0)) < TYPE_PRECISION (result_type)
-	      /* We can shorten only if the shift count is less than the
-		 number of bits in the smaller type size.  */
-	      && compare_tree_int (op1, TYPE_PRECISION (TREE_TYPE (arg0))) < 0
-	      /* If arg is sign-extended and then unsigned-shifted,
-		 we can simulate this with a signed shift in arg's type
-		 only if the extended result is at least twice as wide
-		 as the arg.  Otherwise, the shift could use up all the
-		 ones made by sign-extension and bring in zeros.
-		 We can't optimize that case at all, but in most machines
-		 it never happens because available widths are 2**N.  */
-	      && (!TYPE_UNSIGNED (final_type)
-		  || unsigned_arg
-		  || (((unsigned) 2 * TYPE_PRECISION (TREE_TYPE (arg0)))
-		      <= TYPE_PRECISION (result_type))))
-	    {
-	      /* Do an unsigned shift if the operand was zero-extended.  */
-	      result_type
-		= c_common_signed_or_unsigned_type (unsigned_arg,
-						    TREE_TYPE (arg0));
-	      /* Convert value-to-be-shifted to that type.  */
-	      if (TREE_TYPE (op0) != result_type)
-		op0 = cp_convert (result_type, op0);
-	      converted = 1;
-	    }
 	}
 
       /* Comparison operations are shortened too but differently.
@@ -6642,7 +6605,8 @@ check_return_expr (tree retval, bool *no_warning)
   if (processing_template_decl)
     {
       current_function_returns_value = 1;
-      check_for_bare_parameter_packs (&retval);
+      if (check_for_bare_parameter_packs (&retval))
+        retval = error_mark_node;
       return retval;
     }
 

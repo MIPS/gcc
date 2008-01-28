@@ -155,6 +155,12 @@ if USING_GCC
 AM_CFLAGS += $(WARNINGS)
 endif
 
+if SUPPRESS_LIBGCJ_BC
+LIBGCJ_BC_FLAGS =
+else
+LIBGCJ_BC_FLAGS = -findirect-dispatch -fno-indirect-classes
+endif
+
 ## Extra CFLAGS used for JNI C sources shared with GNU Classpath.
 PEDANTIC_CFLAGS = -ansi -pedantic -Wall -Wno-long-long
 
@@ -675,7 +681,8 @@ gij_SOURCES =
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.
 gij_LDFLAGS = -rpath $(dbexecdir) -rpath $(toolexeclibdir) \
-	-shared-libgcc $(THREADLDFLAGS) $(extra_ldflags)
+	-shared-libgcc $(THREADLDFLAGS) $(extra_ldflags) \
+	$(extra_gij_ldflags) 
 gij_LINK = $(GCJLINK)
 ## See jv_convert_LDADD.
 gij_LDADD = -L$(here)/.libs libgij.la

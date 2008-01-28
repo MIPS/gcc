@@ -116,6 +116,7 @@
 %{mcpu=970: -mpower4 -maltivec} \
 %{mcpu=G5: -mpower4 -maltivec} \
 %{mcpu=8540: -me500} \
+%{mcpu=8548: -me500} \
 %{maltivec: -maltivec} \
 -many"
 
@@ -621,7 +622,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
-	|| (MODE) == DDmode || (MODE) == TDmode				\
+	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
 	|| (MODE) == DImode)						\
        && (ALIGN) < 32))
 
@@ -1172,6 +1173,13 @@ enum reg_class
 			   || (CLASS1) == ALTIVEC_REGS			\
 			   || (CLASS2) == ALTIVEC_REGS))
 
+/* For cpus that cannot load/store SDmode values from the 64-bit
+   FP registers without using a full 64-bit load/store, we need
+   to allocate a full 64-bit stack slot for them.  */
+
+#define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
+  rs6000_secondary_memory_needed_rtx (MODE)
+
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
@@ -1497,10 +1505,6 @@ typedef struct rs6000_args
 
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE) \
   function_arg_boundary (MODE, TYPE)
-
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  rs6000_va_start (valist, nextarg)
 
 #define PAD_VARARGS_DOWN \
    (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == downward)

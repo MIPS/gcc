@@ -985,17 +985,25 @@ is_late_template_attribute (tree attr, tree decl)
   tree name = TREE_PURPOSE (attr);
   tree args = TREE_VALUE (attr);
   const struct attribute_spec *spec = lookup_attribute_spec (name);
+  tree arg;
 
   if (!spec)
     /* Unknown attribute.  */
     return false;
 
-  if (is_attribute_p ("aligned", name)
-      && args
-      && value_dependent_expression_p (TREE_VALUE (args)))
-    /* Can't apply this until we know the desired alignment.  */
-    return true;
-  else if (TREE_CODE (decl) == TYPE_DECL || spec->type_required)
+  /* If any of the arguments are dependent expressions, we can't evaluate
+     the attribute until instantiation time.  */
+  for (arg = args; arg; arg = TREE_CHAIN (arg))
+    {
+      tree t = TREE_VALUE (arg);
+      if (value_dependent_expression_p (t)
+	  || type_dependent_expression_p (t))
+	return true;
+    }
+
+  if (TREE_CODE (decl) == TYPE_DECL
+      || TYPE_P (decl)
+      || spec->type_required)
     {
       tree type = TYPE_P (decl) ? decl : TREE_TYPE (decl);
 
@@ -1005,6 +1013,13 @@ is_late_template_attribute (tree attr, tree decl)
       if (code == TEMPLATE_TYPE_PARM
 	  || code == BOUND_TEMPLATE_TEMPLATE_PARM
 	  || code == TYPENAME_TYPE)
+	return true;
+      /* Also defer most attributes on dependent types.  This is not
+	 necessary in all cases, but is the better default.  */
+      else if (dependent_type_p (type)
+	       /* But attribute visibility specifically works on
+		  templates.  */
+	       && !is_attribute_p ("visibility", name))
 	return true;
       else
 	return false;
@@ -2230,7 +2245,8 @@ import_export_decl (tree decl)
     {
       /* DECL is an implicit instantiation of a function or static
 	 data member.  */
-      if (flag_implicit_templates
+      if ((flag_implicit_templates
+	   && !flag_use_repository)
 	  || (flag_implicit_inline_templates
 	      && TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_DECLARED_INLINE_P (decl)))
@@ -3365,21 +3381,7 @@ cp_write_global_declarations (void)
 	  /* If this static data member is needed, provide it to the
 	     back end.  */
 	  if (DECL_NOT_REALLY_EXTERN (decl) && decl_needed_p (decl))
-	    {
-	      /* Error on
-		 namespace { struct A { static int i; }; }
-		 int foo () { return A::i; }
-		 without A::i definition (which can't be defined in
-		 a different CU because of the anonymous namespace).
-		 Don't do this if DECL_INITIAL is set, because for
-		 namespace { struct A { static const int i = 4; } };
-		 decl_needed_p won't reliably detect whether it was
-		 really needed.  */
-	      if (DECL_IN_AGGR_P (decl) && DECL_INITIAL (decl) == NULL_TREE)
-		error ("%Jstatic data member %qD used, but not defined",
-		       decl, decl);
-	      DECL_EXTERNAL (decl) = 0;
-	    }
+	    DECL_EXTERNAL (decl) = 0;
 	}
       if (VEC_length (tree, pending_statics) != 0
 	  && wrapup_global_declarations (VEC_address (tree, pending_statics),

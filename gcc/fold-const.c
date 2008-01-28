@@ -2122,8 +2122,22 @@ fold_convert_const_int_from_int (tree type, const_tree arg1)
   t = force_fit_type_double (type, TREE_INT_CST_LOW (arg1),
 			     TREE_INT_CST_HIGH (arg1),
 		             /* Don't set the overflow when
-		      		converting a pointer  */
-			     !POINTER_TYPE_P (TREE_TYPE (arg1)),
+		      		converting from a pointer,  */
+			     !POINTER_TYPE_P (TREE_TYPE (arg1))
+			     /* or to a sizetype with same signedness
+				and the precision is unchanged.
+				???  sizetype is always sign-extended,
+				but its signedness depends on the
+				frontend.  Thus we see spurious overflows
+				here if we do not check this.  */
+			     && !((TYPE_PRECISION (TREE_TYPE (arg1))
+				   == TYPE_PRECISION (type))
+				  && (TYPE_UNSIGNED (TREE_TYPE (arg1))
+				      == TYPE_UNSIGNED (type))
+				  && ((TREE_CODE (TREE_TYPE (arg1)) == INTEGER_TYPE
+				       && TYPE_IS_SIZETYPE (TREE_TYPE (arg1)))
+				      || (TREE_CODE (type) == INTEGER_TYPE
+					  && TYPE_IS_SIZETYPE (type)))),
 			     (TREE_INT_CST_HIGH (arg1) < 0
 		 	      && (TYPE_UNSIGNED (type)
 				  < TYPE_UNSIGNED (TREE_TYPE (arg1))))
@@ -8247,7 +8261,12 @@ fold_unary (enum tree_code code, tree type, tree op0)
     case VIEW_CONVERT_EXPR:
       if (TREE_TYPE (op0) == type)
 	return op0;
-      if (TREE_CODE (op0) == VIEW_CONVERT_EXPR)
+      if (TREE_CODE (op0) == VIEW_CONVERT_EXPR
+	  || (TREE_CODE (op0) == NOP_EXPR
+	      && INTEGRAL_TYPE_P (TREE_TYPE (op0))
+	      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (op0, 0)))
+	      && TYPE_PRECISION (TREE_TYPE (op0))
+		 == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))))
 	return fold_build1 (VIEW_CONVERT_EXPR, type, TREE_OPERAND (op0, 0));
       return fold_view_convert_expr (type, op0);
 
