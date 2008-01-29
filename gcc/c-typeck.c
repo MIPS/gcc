@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -2066,12 +2066,21 @@ build_array_ref (tree array, tree index)
   else
     {
       tree ar = default_conversion (array);
+      tree t2;
 
       if (ar == error_mark_node)
 	return ar;
 
       gcc_assert (TREE_CODE (TREE_TYPE (ar)) == POINTER_TYPE);
       gcc_assert (TREE_CODE (TREE_TYPE (TREE_TYPE (ar))) != FUNCTION_TYPE);
+
+      t2 = C_SMASHED_TYPE_VARIANT (TREE_TYPE (TREE_TYPE (ar)));
+      if (t2 != TREE_TYPE (TREE_TYPE (ar)))
+	{
+	  int sf = TREE_SIDE_EFFECTS (ar);
+	  ar = build1 (VIEW_CONVERT_EXPR, build_pointer_type (t2), ar);
+	  TREE_SIDE_EFFECTS (ar) = sf;
+	}
 
       return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, index, 0),
 				 "array indexing");
