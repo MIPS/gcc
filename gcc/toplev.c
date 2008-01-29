@@ -2439,12 +2439,14 @@ bool
 server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
 {
   int n;
+  int saved_stderr;
 
   /* For now, work single-threaded and just stomp on global state as
      needed.  */
 
   /* The diagnostic machinery doesn't need this, but pex does.  Also
      GCC itself seems to write to stderr a lot ... */
+  saved_stderr = dup (2);
   dup2 (fd, 2);
 
   /* FIXME: make a new global_dc.  Arrange to unlink assembler output
@@ -2479,10 +2481,11 @@ server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
 
   ggc_collect ();
 
-  /* Make sure to close dup'd stderr, so that client will terminate
-     properly.  The server loop will take care of the fd we were
-     passed.  */
-  close (2);
+  /* Make sure to close dup'd stderr (by overwriting it), so that
+     client will terminate properly.  The server loop will take care
+     of the fd we were passed.  */
+  dup2 (saved_stderr, 2);
+  close (saved_stderr);
 
   return server_back_end_status && ! (errorcount || sorrycount);
 }
