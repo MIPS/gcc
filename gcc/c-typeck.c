@@ -2746,7 +2746,7 @@ pointer_diff (tree op0, tree op1)
 {
   tree restype = ptrdiff_type_node;
 
-  tree target_type = TREE_TYPE (TREE_TYPE (op0));
+  tree target_type = C_SMASHED_TYPE_VARIANT (TREE_TYPE (TREE_TYPE (op0)));
   tree con0, con1, lit0, lit1;
   tree orig_op1 = op1;
 
@@ -2810,7 +2810,7 @@ pointer_diff (tree op0, tree op1)
   op0 = build_binary_op (MINUS_EXPR, convert (restype, op0),
 			 convert (restype, op1), 0);
   /* This generates an error if op1 is pointer to incomplete type.  */
-  if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (TREE_TYPE (orig_op1))))
+  if (!COMPLETE_OR_VOID_TYPE_P (C_SMASHED_TYPE_VARIANT (TREE_TYPE (TREE_TYPE (orig_op1)))))
     error ("arithmetic on pointer to an incomplete type");
 
   /* This generates an error if op0 is pointer to incomplete type.  */
@@ -7772,6 +7772,21 @@ push_cleanup (tree ARG_UNUSED (decl), tree cleanup, bool eh_only)
   STATEMENT_LIST_STMT_EXPR (list) = stmt_expr;
 }
 
+/* Like pointer_int_sum, but may wrap in a VIEW_CONVERT_EXPR if
+   needed.  */
+static tree
+wrap_pointer_int_sum (enum tree_code code, tree ptrop, tree intop)
+{
+  tree t2 = C_SMASHED_TYPE_VARIANT (TREE_TYPE (TREE_TYPE (ptrop)));
+  if (t2 != TREE_TYPE (TREE_TYPE (ptrop)))
+    {
+      int sf = TREE_SIDE_EFFECTS (ptrop);
+      ptrop = build1 (VIEW_CONVERT_EXPR, build_pointer_type (t2), ptrop);
+      TREE_SIDE_EFFECTS (ptrop) = sf;
+    }
+  return pointer_int_sum (code, ptrop, intop);
+}
+
 /* Build a binary-operation expression without default conversions.
    CODE is the kind of expression to build.
    This function differs from `build' in several ways:
@@ -7884,9 +7899,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case PLUS_EXPR:
       /* Handle the pointer + int case.  */
       if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
-	return pointer_int_sum (PLUS_EXPR, op0, op1);
+	return wrap_pointer_int_sum (PLUS_EXPR, op0, op1);
       else if (code1 == POINTER_TYPE && code0 == INTEGER_TYPE)
-	return pointer_int_sum (PLUS_EXPR, op1, op0);
+	return wrap_pointer_int_sum (PLUS_EXPR, op1, op0);
       else
 	common = 1;
       break;
@@ -7899,7 +7914,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	return pointer_diff (op0, op1);
       /* Handle pointer minus int.  Just like pointer plus int.  */
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
-	return pointer_int_sum (MINUS_EXPR, op0, op1);
+	return wrap_pointer_int_sum (MINUS_EXPR, op0, op1);
       else
 	common = 1;
       break;

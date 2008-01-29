@@ -1,5 +1,12 @@
 2008-01-28  Tom Tromey  <tromey@redhat.com>
 
+	* c-typeck.c (wrap_pointer_int_sum): New function.
+	(pointer_diff): Use C_SMASHED_TYPE_VARIANT.
+	(wrap_pointer_int_sum): New function.
+	(build_binary_op): Use it.
+
+2008-01-28  Tom Tromey  <tromey@redhat.com>
+
 	* toplev.c (server_callback): Save and restore stderr.
 
 2008-01-28  Tom Tromey  <tromey@redhat.com>
