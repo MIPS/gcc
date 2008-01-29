@@ -105,6 +105,17 @@ get_socket_name (const char *progname, bool server)
   return server_socket_name;
 }
 
+/* If we computed a socket name, forget about it now.  */
+static void
+forget_socket_name (void)
+{
+  if (server_socket_name)
+    {
+      free (server_socket_name);
+      server_socket_name = NULL;
+    }
+}
+
 /* If SOCKET is not -1, close the server socket.  Unlink the server
    socket and its directory as well.  */
 static void
@@ -611,6 +622,10 @@ send_command_and_wait (char cmd)
   signal (SIGINT, SIG_DFL);
   if (interrupted)
     raise (SIGINT);
+
+  close (connection_fd);
+  connection_fd = -1;
+  forget_socket_name ();
 
   return status ? false : true;
 }

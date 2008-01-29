@@ -1,3 +1,8 @@
+2008-01-29  Tom Tromey  <tromey@redhat.com>
+
+	* server.c (forget_socket_name): New function.
+	(send_command_and_wait): Close connection.
+
 2008-01-28  Tom Tromey  <tromey@redhat.com>
 
 	* c-typeck.c (wrap_pointer_int_sum): New function.
