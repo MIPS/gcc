@@ -1,5 +1,10 @@
 2008-01-30  Rafael Espindola  <espindola@google.com>
 
+	* gimplify.c (gimplify_scan_omp_clauses) Comment out
+	pop_gimplify_context calls
+
+2008-01-30  Rafael Espindola  <espindola@google.com>
+
 	* gimple.h (gsi_after_labels): Add.
 
 2008-01-30  Rafael Espindola  <espindola@google.com>

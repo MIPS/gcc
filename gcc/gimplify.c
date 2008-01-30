@@ -5114,10 +5114,14 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq pre_p, bool in_parallel,
 	      push_gimplify_context ();
 	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_INIT (c), pre_p);
 	      /* FIXME tuples.  */
+#if 0
 	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_INIT (c));
 	      push_gimplify_context ();
 	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_MERGE (c), pre_p);
 	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_MERGE (c));
+#else
+              gimple_unreachable ();
+#endif
 	      gimplify_omp_ctxp = outer_ctx;
 	    }
 	  if (notice_outer)
