@@ -1322,6 +1322,7 @@ expand_complex_comparison (gimple_stmt_iterator **gsi, tree ar, tree ai,
   switch (gimple_code (stmt))
     {
     case GIMPLE_RETURN:
+      type = TREE_TYPE (gimple_return_retval (stmt));
       gimple_return_set_retval (stmt, fold_convert (type, cc));
       break;
 
@@ -1438,6 +1439,8 @@ expand_complex_operations_1 (gimple_stmt_iterator **gsi)
       br = extract_component (gsi, bc, 0, true);
       bi = extract_component (gsi, bc, 1, true);
     }
+  else
+    br = bi = NULL_TREE;
 
   if (gimple_in_ssa_p (cfun))
     {

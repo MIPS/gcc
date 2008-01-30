@@ -1,3 +1,18 @@
+2008-01-30  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg01461.html
+
+	* tree-into-ssa.c (compute_global_livein): Initialize
+	PHI with call to gsi_stmt.
+	(rewrite_update_init_block): Likewise.
+	* tree-complex.c (expand_complex_comparison): Initialize
+	TYPE.
+	(expand_complex_operations_1): Initialize BR and BI.
+	* ebitmap.h (ebitmap_iter_init): Initialize OURN.
+	* Makefile.in (dse.o-warn, ebitmap.o-warn,
+	lower-subreg.o-warn, tree-chrec.o-warn, varasm.o-warn):
+	New.
+
 2008-01-30  Rafael Espindola  <espindola@google.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses) Comment out

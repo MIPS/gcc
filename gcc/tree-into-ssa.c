@@ -454,11 +454,12 @@ compute_global_livein (bitmap livein ATTRIBUTE_UNUSED, bitmap def_blocks ATTRIBU
 static void
 initialize_flags_in_bb (basic_block bb)
 {
-  gimple phi, stmt;
+  gimple stmt;
   gimple_stmt_iterator *gsi;
 
   for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
     {
+      gimple phi = gsi_stmt (gsi);
       set_rewrite_uses (phi, false);
       set_register_defs (phi, false);
     }
@@ -1825,7 +1826,6 @@ rewrite_update_init_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 {
   edge e;
   edge_iterator ei;
-  gimple phi;
   bool is_abnormal_phi;
   gimple_stmt_iterator *gsi;
 
@@ -1857,6 +1857,7 @@ rewrite_update_init_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
     {
       tree lhs, lhs_sym;
+      gimple phi = gsi_stmt (gsi);
 
       if (!register_defs_p (phi))
 	continue;
