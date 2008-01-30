@@ -53,9 +53,7 @@ is_gimple_operand (const_tree op)
 enum gimple_rhs_class
 get_gimple_rhs_class (enum tree_code code)
 {
-  enum tree_code_class class = TREE_CODE_CLASS (code);
-  
-  switch (class)
+  switch (TREE_CODE_CLASS (code))
     {
     case tcc_unary:
       return GIMPLE_UNARY_RHS;
@@ -92,6 +90,7 @@ get_gimple_rhs_class (enum tree_code code)
     case ADDR_EXPR:
     case WITH_SIZE_EXPR:
     case EXC_PTR_EXPR:
+    case SSA_NAME:
       return GIMPLE_SINGLE_RHS;
 
     default:

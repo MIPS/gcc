@@ -22,6 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef _TREE_SSA_PROPAGATE_H
 #define _TREE_SSA_PROPAGATE_H 1
 
+/* If SIM_P is true, statement S will be simulated again.  */
+
+static inline void
+prop_set_simulate_again (gimple s, bool visit_p)
+{
+  gimple_set_visited (s, visit_p);
+}
+
+/* Return true if statement T should be simulated again.  */
+
+static inline bool
+prop_simulate_again_p (gimple s)
+{
+  return gimple_visited_p (s);
+}
+
 /* Lattice values used for propagation purposes.  Specific instances
    of a propagation engine must return these values from the statement
    and PHI visit functions to direct the engine.  */

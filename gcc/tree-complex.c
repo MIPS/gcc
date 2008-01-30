@@ -34,8 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 
 
-/* FIXME tuples.  */
-#if 0
 /* For each complex ssa name, a lattice value.  We're interested in finding
    out whether a complex number is degenerate in some way, having only real
    or only complex parts.  */
@@ -175,96 +173,72 @@ init_parameter_lattice_values (void)
       }
 }
 
-/* Initialize DONT_SIMULATE_AGAIN for each stmt and phi.  Return false if
-   we found no statements we want to simulate, and thus there's nothing for
-   the entire pass to do.  */
+/* Initialize simulation state for each statement.  Return false if we
+   found no statements we want to simulate, and thus there's nothing
+   for the entire pass to do.  */
 
 static bool
 init_dont_simulate_again (void)
 {
   basic_block bb;
-  block_stmt_iterator bsi;
-  tree phi;
+  gimple_stmt_iterator *gsi;
+  gimple phi;
   bool saw_a_complex_op = false;
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	DONT_SIMULATE_AGAIN (phi) = !is_complex_reg (PHI_RESULT (phi));
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
 	{
-	  tree orig_stmt, stmt, rhs = NULL;
-	  bool dsa;
+	  phi = gsi_stmt (gsi);
+	  prop_set_simulate_again (phi,
+				   is_complex_reg (gimple_phi_result (phi)));
+	}
 
-	  orig_stmt = stmt = bsi_stmt (bsi);
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+	{
+	  gimple stmt;
+	  tree op0, op1;
+	  bool sim_again_p;
+
+	  stmt = gsi_stmt (gsi);
+	  op0 = op1 = NULL_TREE;
 
 	  /* Most control-altering statements must be initially 
 	     simulated, else we won't cover the entire cfg.  */
-	  dsa = !stmt_ends_bb_p (stmt);
+	  sim_again_p = stmt_ends_bb_p (stmt);
 
-	  switch (TREE_CODE (stmt))
+	  switch (gimple_code (stmt))
 	    {
-	    case RETURN_EXPR:
+	    case GIMPLE_RETURN:
 	      /* We don't care what the lattice value of <retval> is,
-		 since it's never used as an input to another computation.  */
-	      dsa = true;
-	      stmt = TREE_OPERAND (stmt, 0);
-	      if (!stmt || TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
-		break;
-	      /* FALLTHRU */
-
-	    case GIMPLE_MODIFY_STMT:
-	      dsa = !is_complex_reg (GIMPLE_STMT_OPERAND (stmt, 0));
-	      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+		 since it's never used as an input to another
+		 computation.  */
+	      op0 = gimple_return_retval (stmt);
 	      break;
 
-	    case COND_EXPR:
-	      rhs = TREE_OPERAND (stmt, 0);
+	    case GIMPLE_ASSIGN:
+	      op0 = gimple_assign_rhs1 (stmt);
+	      if (gimple_num_ops (stmt) > 2)
+		op1 = gimple_assign_rhs2 (stmt);
+	      break;
+
+	    case GIMPLE_COND:
+	      op0 = gimple_cond_lhs (stmt);
+	      op1 = gimple_cond_rhs (stmt);
 	      break;
 
 	    default:
 	      break;
 	    }
 
-	  if (rhs)
-	    switch (TREE_CODE (rhs))
-	      {
-	      case EQ_EXPR:
-	      case NE_EXPR:
-		rhs = TREE_OPERAND (rhs, 0);
-		/* FALLTHRU */
+	  if ((op0 && is_complex_reg (op0))
+	      || (op1 && is_complex_reg (op1)))
+	    {
+	      sim_again_p = true;
+	      saw_a_complex_op = true;
+	    }
 
-	      case PLUS_EXPR:
-	      case MINUS_EXPR:
-	      case MULT_EXPR:
-	      case TRUNC_DIV_EXPR:
-	      case CEIL_DIV_EXPR:
-	      case FLOOR_DIV_EXPR:
-	      case ROUND_DIV_EXPR:
-	      case RDIV_EXPR:
-	      case NEGATE_EXPR:
-	      case CONJ_EXPR:
-		if (TREE_CODE (TREE_TYPE (rhs)) == COMPLEX_TYPE)
-		  saw_a_complex_op = true;
-		break;
-
-	      case REALPART_EXPR:
-	      case IMAGPART_EXPR:
-		/* The total store transformation performed during
-		   gimplification creates such uninitialized loads
-		   and we need to lower the statement to be able
-		   to fix things up.  */
-		if (TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-		    && ssa_undefined_value_p (TREE_OPERAND (rhs, 0)))
-		  saw_a_complex_op = true;
-		break;
-
-	      default:
-		break;
-	      }
-
-	  DONT_SIMULATE_AGAIN (orig_stmt) = dsa;
+	  prop_set_simulate_again (stmt, sim_again_p);
 	}
     }
 
@@ -275,18 +249,17 @@ init_dont_simulate_again (void)
 /* Evaluate statement STMT against the complex lattice defined above.  */
 
 static enum ssa_prop_result
-complex_visit_stmt (tree stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
+complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
 		    tree *result_p)
 {
   complex_lattice_t new_l, old_l, op1_l, op2_l;
   unsigned int ver;
-  tree lhs, rhs;
+  tree lhs;
 
-  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+  if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return SSA_PROP_VARYING;
 
-  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+  lhs = gimple_assign_lhs (stmt);
 
   /* These conditions should be satisfied due to the initial filter
      set up in init_dont_simulate_again.  */
@@ -297,18 +270,18 @@ complex_visit_stmt (tree stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
   ver = SSA_NAME_VERSION (lhs);
   old_l = VEC_index (complex_lattice_t, complex_lattice_values, ver);
 
-  switch (TREE_CODE (rhs))
+  switch (gimple_subcode (stmt))
     {
     case SSA_NAME:
     case COMPLEX_EXPR:
     case COMPLEX_CST:
-      new_l = find_lattice_value (rhs);
+      new_l = find_lattice_value (gimple_assign_rhs1 (stmt));
       break;
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      op1_l = find_lattice_value (TREE_OPERAND (rhs, 0));
-      op2_l = find_lattice_value (TREE_OPERAND (rhs, 1));
+      op1_l = find_lattice_value (gimple_assign_rhs1 (stmt));
+      op2_l = find_lattice_value (gimple_assign_rhs2 (stmt));
 
       /* We've set up the lattice values such that IOR neatly
 	 models addition.  */
@@ -321,8 +294,8 @@ complex_visit_stmt (tree stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
-      op1_l = find_lattice_value (TREE_OPERAND (rhs, 0));
-      op2_l = find_lattice_value (TREE_OPERAND (rhs, 1));
+      op1_l = find_lattice_value (gimple_assign_rhs1 (stmt));
+      op2_l = find_lattice_value (gimple_assign_rhs2 (stmt));
 
       /* Obviously, if either varies, so does the result.  */
       if (op1_l == VARYING || op2_l == VARYING)
@@ -348,7 +321,7 @@ complex_visit_stmt (tree stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
 
     case NEGATE_EXPR:
     case CONJ_EXPR:
-      new_l = find_lattice_value (TREE_OPERAND (rhs, 0));
+      new_l = find_lattice_value (gimple_assign_rhs1 (stmt));
       break;
 
     default:
@@ -367,14 +340,14 @@ complex_visit_stmt (tree stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
 /* Evaluate a PHI node against the complex lattice defined above.  */
 
 static enum ssa_prop_result
-complex_visit_phi (tree phi)
+complex_visit_phi (gimple phi)
 {
   complex_lattice_t new_l, old_l;
   unsigned int ver;
   tree lhs;
   int i;
 
-  lhs = PHI_RESULT (phi);
+  lhs = gimple_phi_result (phi);
 
   /* This condition should be satisfied due to the initial filter
      set up in init_dont_simulate_again.  */
@@ -382,8 +355,8 @@ complex_visit_phi (tree phi)
 
   /* We've set up the lattice values such that IOR neatly models PHI meet.  */
   new_l = UNINITIALIZED;
-  for (i = PHI_NUM_ARGS (phi) - 1; i >= 0; --i)
-    new_l |= find_lattice_value (PHI_ARG_DEF (phi, i));
+  for (i = gimple_phi_num_args (phi) - 1; i >= 0; --i)
+    new_l |= find_lattice_value (gimple_phi_arg_def (phi, i));
 
   ver = SSA_NAME_VERSION (lhs);
   old_l = VEC_index (complex_lattice_t, complex_lattice_values, ver);
@@ -479,7 +452,7 @@ get_component_ssa_name (tree ssa_name, bool imag_p)
       SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ret)
 	= SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ssa_name);
       if (TREE_CODE (SSA_NAME_VAR (ssa_name)) == VAR_DECL
-	  && IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name)))
+	  && gimple_nop_p (SSA_NAME_DEF_STMT (ssa_name)))
 	{
 	  SSA_NAME_DEF_STMT (ret) = SSA_NAME_DEF_STMT (ssa_name);
 	  set_default_def (SSA_NAME_VAR (ret), ret);
@@ -491,15 +464,17 @@ get_component_ssa_name (tree ssa_name, bool imag_p)
   return ret;
 }
 
-/* Set a value for a complex component of SSA_NAME, return a STMT_LIST of
-   stuff that needs doing.  */
+/* Set a value for a complex component of SSA_NAME, return a
+   GIMPLE_SEQ of stuff that needs doing.  */
 
-static tree
+static gimple_seq
 set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
 {
   complex_lattice_t lattice = find_lattice_value (ssa_name);
   size_t ssa_name_index;
-  tree comp, list, last;
+  tree comp;
+  gimple last;
+  gimple_seq list;
 
   /* We know the value must be zero, else there's a bug in our lattice
      analysis.  But the value may well be a variable known to contain
@@ -546,9 +521,10 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
     comp = get_component_ssa_name (ssa_name, imag_p);
   
   /* Do all the work to assign VALUE to COMP.  */
-  value = force_gimple_operand (value, &list, false, NULL);
-  last = build_gimple_modify_stmt (comp, value);
-  append_to_statement_list (last, &list);
+  list = gimple_seq_alloc ();
+  value = force_gimple_operand (value, list, false, NULL);
+  last =  gimple_build_assign (comp, value);
+  gimple_seq_add (list, last);
 
   gcc_assert (SSA_NAME_DEF_STMT (comp) == NULL);
   SSA_NAME_DEF_STMT (comp) = last;
@@ -558,10 +534,10 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
 
 /* Extract the real or imaginary part of a complex variable or constant.
    Make sure that it's a proper gimple_val and gimplify it if not.
-   Emit any new code before BSI.  */
+   Emit any new code before gsi.  */
 
 static tree
-extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p,
+extract_component (gimple_stmt_iterator **gsi, tree t, bool imagpart_p,
 		   bool gimple_p)
 {
   switch (TREE_CODE (t))
@@ -570,7 +546,7 @@ extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p,
       return imagpart_p ? TREE_IMAGPART (t) : TREE_REALPART (t);
 
     case COMPLEX_EXPR:
-      return TREE_OPERAND (t, imagpart_p);
+      gcc_unreachable ();
 
     case VAR_DECL:
     case RESULT_DECL:
@@ -585,7 +561,7 @@ extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p,
 		    inner_type, unshare_expr (t));
 
 	if (gimple_p)
-	  t = gimplify_val (bsi, inner_type, t);
+	  t = gimplify_val (*gsi, inner_type, t);
 
 	return t;
       }
@@ -601,52 +577,52 @@ extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p,
 /* Update the complex components of the ssa name on the lhs of STMT.  */
 
 static void
-update_complex_components (block_stmt_iterator *bsi, tree stmt, tree r, tree i)
+update_complex_components (gimple_stmt_iterator **gsi, gimple stmt, tree r,
+			   tree i)
 {
-  tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-  tree list;
+  tree lhs = gimple_assign_lhs (stmt);
+  gimple_seq list;
 
   list = set_component_ssa_name (lhs, false, r);
   if (list)
-    bsi_insert_after (bsi, list, BSI_CONTINUE_LINKING);
+    gsi_insert_seq_after (*gsi, list, GSI_CONTINUE_LINKING);
 
   list = set_component_ssa_name (lhs, true, i);
   if (list)
-    bsi_insert_after (bsi, list, BSI_CONTINUE_LINKING);
+    gsi_insert_seq_after (*gsi, list, GSI_CONTINUE_LINKING);
 }
 
 static void
 update_complex_components_on_edge (edge e, tree lhs, tree r, tree i)
 {
-  tree list;
+  gimple_seq list;
 
   list = set_component_ssa_name (lhs, false, r);
   if (list)
-    bsi_insert_on_edge (e, list);
+    gsi_insert_seq_on_edge (e, list);
 
   list = set_component_ssa_name (lhs, true, i);
   if (list)
-    bsi_insert_on_edge (e, list);
+    gsi_insert_seq_on_edge (e, list);
 }
+
 
 /* Update an assignment to a complex variable in place.  */
 
 static void
-update_complex_assignment (block_stmt_iterator *bsi, tree r, tree i)
+update_complex_assignment (gimple_stmt_iterator **gsi, tree r, tree i)
 {
-  tree stmt, mod;
-  tree type;
+  gimple stmt;
 
-  mod = stmt = bsi_stmt (*bsi);
-  if (TREE_CODE (stmt) == RETURN_EXPR)
-    mod = TREE_OPERAND (mod, 0);
-  else if (gimple_in_ssa_p (cfun))
-    update_complex_components (bsi, stmt, r, i);
+  stmt = gsi_stmt (*gsi);
+
+  if (gimple_in_ssa_p (cfun))
+    update_complex_components (gsi, stmt, r, i);
   
-  type = TREE_TYPE (GIMPLE_STMT_OPERAND (mod, 1));
-  GIMPLE_STMT_OPERAND (mod, 1) = build2 (COMPLEX_EXPR, type, r, i);
+  gimple_assign_set_rhs_with_ops (stmt, COMPLEX_EXPR, r, i);
   update_stmt (stmt);
 }
+
 
 /* Generate code at the entry point of the function to initialize the
    component variables for a complex parameter.  */
@@ -682,49 +658,54 @@ update_parameter_components (void)
 static void
 update_phi_components (basic_block bb)
 {
-  tree phi;
+  gimple_stmt_iterator *gsi;
 
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-    if (is_complex_reg (PHI_RESULT (phi)))
-      {
-	tree lr, li, pr = NULL, pi = NULL;
-	unsigned int i, n;
+  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+    {
+      gimple phi = gsi_stmt (gsi);
 
-	lr = get_component_ssa_name (PHI_RESULT (phi), false);
-	if (TREE_CODE (lr) == SSA_NAME)
-	  {
-	    pr = create_phi_node (lr, bb);
-	    SSA_NAME_DEF_STMT (lr) = pr;
-	  }
+      if (is_complex_reg (gimple_phi_result (phi)))
+	{
+	  tree lr, li;
+	  gimple pr = NULL, pi = NULL;
+	  unsigned int i, n;
 
-	li = get_component_ssa_name (PHI_RESULT (phi), true);
-	if (TREE_CODE (li) == SSA_NAME)
-	  {
-	    pi = create_phi_node (li, bb);
-	    SSA_NAME_DEF_STMT (li) = pi;
-	  }
-	
-	for (i = 0, n = PHI_NUM_ARGS (phi); i < n; ++i)
-	  {
-	    tree comp, arg = PHI_ARG_DEF (phi, i);
-	    if (pr)
-	      {
-		comp = extract_component (NULL, arg, false, false);
-		SET_PHI_ARG_DEF (pr, i, comp);
-	      }
-	    if (pi)
-	      {
-		comp = extract_component (NULL, arg, true, false);
-		SET_PHI_ARG_DEF (pi, i, comp);
-	      }
-	  }
-      }
+	  lr = get_component_ssa_name (gimple_phi_result (phi), false);
+	  if (TREE_CODE (lr) == SSA_NAME)
+	    {
+	      pr = create_phi_node (lr, bb);
+	      SSA_NAME_DEF_STMT (lr) = pr;
+	    }
+
+	  li = get_component_ssa_name (gimple_phi_result (phi), true);
+	  if (TREE_CODE (li) == SSA_NAME)
+	    {
+	      pi = create_phi_node (li, bb);
+	      SSA_NAME_DEF_STMT (li) = pi;
+	    }
+
+	  for (i = 0, n = gimple_phi_num_args (phi); i < n; ++i)
+	    {
+	      tree comp, arg = gimple_phi_arg_def (phi, i);
+	      if (pr)
+		{
+		  comp = extract_component (NULL, arg, false, false);
+		  SET_PHI_ARG_DEF (pr, i, comp);
+		}
+	      if (pi)
+		{
+		  comp = extract_component (NULL, arg, true, false);
+		  SET_PHI_ARG_DEF (pi, i, comp);
+		}
+	    }
+	}
+    }
 }
 
 /* Mark each virtual op in STMT for ssa update.  */
 
 static void
-update_all_vops (tree stmt)
+update_all_vops (gimple stmt)
 {
   ssa_op_iter iter;
   tree sym;
@@ -737,18 +718,35 @@ update_all_vops (tree stmt)
     }
 }
 
+
 /* Expand a complex move to scalars.  */
 
 static void
-expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
-		     tree lhs, tree rhs)
+expand_complex_move (gimple_stmt_iterator **gsi, tree type)
 {
   tree inner_type = TREE_TYPE (type);
-  tree r, i;
+  tree r, i, lhs, rhs;
+  gimple stmt = gsi_stmt (*gsi);
+
+  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+    {
+      lhs = gimple_assign_lhs (stmt);
+      if (gimple_num_ops (stmt) == 2)
+	rhs = gimple_assign_rhs1 (stmt);
+      else
+	rhs = NULL_TREE;
+    }
+  else if (gimple_code (stmt) == GIMPLE_CALL)
+    {
+      lhs = gimple_call_lhs (stmt);
+      rhs = NULL_TREE;
+    }
+  else
+    gcc_unreachable ();
 
   if (TREE_CODE (lhs) == SSA_NAME)
     {
-      if (is_ctrl_altering_stmt (bsi_stmt (*bsi)))
+      if (is_ctrl_altering_stmt (stmt))
 	{
 	  edge_iterator ei;
 	  edge e;
@@ -756,7 +754,7 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
 	  /* The value is not assigned on the exception edges, so we need not
 	     concern ourselves there.  We do need to update on the fallthru
 	     edge.  Find it.  */
-	  FOR_EACH_EDGE (e, ei, bsi->bb->succs)
+	  FOR_EACH_EDGE (e, ei, gsi_bb (*gsi)->succs)
 	    if (e->flags & EDGE_FALLTHRU)
 	      goto found_fallthru;
 	  gcc_unreachable ();
@@ -766,46 +764,55 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
 	  update_complex_components_on_edge (e, lhs, r, i);
 	}
-      else if (TREE_CODE (rhs) == CALL_EXPR || TREE_SIDE_EFFECTS (rhs))
+      else if (gimple_code (stmt) == GIMPLE_CALL)
 	{
 	  r = build1 (REALPART_EXPR, inner_type, lhs);
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
-	  update_complex_components (bsi, stmt, r, i);
+	  update_complex_components (gsi, stmt, r, i);
 	}
       else
 	{
-	  update_all_vops (bsi_stmt (*bsi));
-	  r = extract_component (bsi, rhs, 0, true);
-	  i = extract_component (bsi, rhs, 1, true);
-	  update_complex_assignment (bsi, r, i);
+	  update_all_vops (stmt);
+	  if (gimple_subcode (stmt) != COMPLEX_EXPR)
+	    {
+	      r = extract_component (gsi, rhs, 0, true);
+	      i = extract_component (gsi, rhs, 1, true);
+	    }
+	  else
+	    {
+	      r = gimple_assign_rhs1 (stmt);
+	      i = gimple_assign_rhs2 (stmt);
+	    }
+	  update_complex_assignment (gsi, r, i);
 	}
     }
-  else if (TREE_CODE (rhs) == SSA_NAME && !TREE_SIDE_EFFECTS (lhs))
+  else if (rhs && TREE_CODE (rhs) == SSA_NAME && !TREE_SIDE_EFFECTS (lhs))
     {
       tree x;
+      gimple t;
 
-      r = extract_component (bsi, rhs, 0, false);
-      i = extract_component (bsi, rhs, 1, false);
+      r = extract_component (gsi, rhs, 0, false);
+      i = extract_component (gsi, rhs, 1, false);
 
       x = build1 (REALPART_EXPR, inner_type, unshare_expr (lhs));
-      x = build_gimple_modify_stmt (x, r);
-      bsi_insert_before (bsi, x, BSI_SAME_STMT);
+      t = gimple_build_assign (x, r);
+      gsi_insert_before (*gsi, t, GSI_SAME_STMT);
 
-      if (stmt == bsi_stmt (*bsi))
+      if (stmt == gsi_stmt (*gsi))
 	{
 	  x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
-	  GIMPLE_STMT_OPERAND (stmt, 0) = x;
-	  GIMPLE_STMT_OPERAND (stmt, 1) = i;
+	  gimple_assign_set_lhs (stmt, x);
+	  gimple_assign_set_rhs1 (stmt, i);
 	}
       else
 	{
 	  x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
-	  x = build_gimple_modify_stmt (x, i);
-	  bsi_insert_before (bsi, x, BSI_SAME_STMT);
+	  t = gimple_build_assign (x, i);
+	  gsi_insert_before (*gsi, t, GSI_SAME_STMT);
 
-	  stmt = bsi_stmt (*bsi);
-	  gcc_assert (TREE_CODE (stmt) == RETURN_EXPR);
-	  GIMPLE_STMT_OPERAND (stmt, 0) = lhs;
+	  stmt = gsi_stmt (*gsi);
+	  gcc_assert (gimple_code (stmt) == GIMPLE_RETURN);
+	  gimple_return_set_retval (stmt, lhs);
 	}
 
       update_all_vops (stmt);
@@ -819,7 +826,7 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
 */
 
 static void
-expand_complex_addition (block_stmt_iterator *bsi, tree inner_type,
+expand_complex_addition (gimple_stmt_iterator *gsi, tree inner_type,
 			 tree ar, tree ai, tree br, tree bi,
 			 enum tree_code code,
 			 complex_lattice_t al, complex_lattice_t bl)
@@ -829,21 +836,21 @@ expand_complex_addition (block_stmt_iterator *bsi, tree inner_type,
   switch (PAIR (al, bl))
     {
     case PAIR (ONLY_REAL, ONLY_REAL):
-      rr = gimplify_build2 (bsi, code, inner_type, ar, br);
+      rr = gimplify_build2 (gsi, code, inner_type, ar, br);
       ri = ai;
       break;
 
     case PAIR (ONLY_REAL, ONLY_IMAG):
       rr = ar;
       if (code == MINUS_EXPR)
-	ri = gimplify_build2 (bsi, MINUS_EXPR, inner_type, ai, bi);
+	ri = gimplify_build2 (gsi, MINUS_EXPR, inner_type, ai, bi);
       else
 	ri = bi;
       break;
 
     case PAIR (ONLY_IMAG, ONLY_REAL):
       if (code == MINUS_EXPR)
-	rr = gimplify_build2 (bsi, MINUS_EXPR, inner_type, ar, br);
+	rr = gimplify_build2 (gsi, MINUS_EXPR, inner_type, ar, br);
       else
 	rr = br;
       ri = ai;
@@ -851,23 +858,23 @@ expand_complex_addition (block_stmt_iterator *bsi, tree inner_type,
 
     case PAIR (ONLY_IMAG, ONLY_IMAG):
       rr = ar;
-      ri = gimplify_build2 (bsi, code, inner_type, ai, bi);
+      ri = gimplify_build2 (gsi, code, inner_type, ai, bi);
       break;
 
     case PAIR (VARYING, ONLY_REAL):
-      rr = gimplify_build2 (bsi, code, inner_type, ar, br);
+      rr = gimplify_build2 (gsi, code, inner_type, ar, br);
       ri = ai;
       break;
 
     case PAIR (VARYING, ONLY_IMAG):
       rr = ar;
-      ri = gimplify_build2 (bsi, code, inner_type, ai, bi);
+      ri = gimplify_build2 (gsi, code, inner_type, ai, bi);
       break;
 
     case PAIR (ONLY_REAL, VARYING):
       if (code == MINUS_EXPR)
 	goto general;
-      rr = gimplify_build2 (bsi, code, inner_type, ar, br);
+      rr = gimplify_build2 (gsi, code, inner_type, ar, br);
       ri = bi;
       break;
 
@@ -875,38 +882,41 @@ expand_complex_addition (block_stmt_iterator *bsi, tree inner_type,
       if (code == MINUS_EXPR)
 	goto general;
       rr = br;
-      ri = gimplify_build2 (bsi, code, inner_type, ai, bi);
+      ri = gimplify_build2 (gsi, code, inner_type, ai, bi);
       break;
 
     case PAIR (VARYING, VARYING):
     general:
-      rr = gimplify_build2 (bsi, code, inner_type, ar, br);
-      ri = gimplify_build2 (bsi, code, inner_type, ai, bi);
+      rr = gimplify_build2 (gsi, code, inner_type, ar, br);
+      ri = gimplify_build2 (gsi, code, inner_type, ai, bi);
       break;
 
     default:
       gcc_unreachable ();
     }
 
-  update_complex_assignment (bsi, rr, ri);
+  update_complex_assignment (&gsi, rr, ri);
 }
 
 /* Expand a complex multiplication or division to a libcall to the c99
    compliant routines.  */
 
 static void
-expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
+expand_complex_libcall (gimple_stmt_iterator **gsi, tree ar, tree ai,
 			tree br, tree bi, enum tree_code code)
 {
   enum machine_mode mode;
   enum built_in_function bcode;
-  tree fn, stmt, type;
+  tree fn, type, lhs;
+  gimple stmt;
 
-  stmt = bsi_stmt (*bsi);
-  type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 1));
+  stmt = gsi_stmt (*gsi);
+  lhs = gimple_assign_lhs (stmt);
+  type = TREE_TYPE (lhs);
 
   mode = TYPE_MODE (type);
   gcc_assert (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT);
+
   if (code == MULT_EXPR)
     bcode = BUILT_IN_COMPLEX_MUL_MIN + mode - MIN_MODE_COMPLEX_FLOAT;
   else if (code == RDIV_EXPR)
@@ -915,14 +925,15 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
     gcc_unreachable ();
   fn = built_in_decls[bcode];
 
-  GIMPLE_STMT_OPERAND (stmt, 1) = build_call_expr (fn, 4, ar, ai, br, bi);
+  stmt = gimple_build_call (fn, 4, ar, ai, br, bi);
+  gimple_call_set_lhs (stmt, lhs);
   update_stmt (stmt);
+  gsi_replace (*gsi, stmt, true);
 
   if (gimple_in_ssa_p (cfun))
     {
-      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
       type = TREE_TYPE (type);
-      update_complex_components (bsi, stmt,
+      update_complex_components (gsi, stmt,
 				 build1 (REALPART_EXPR, type, lhs),
 				 build1 (IMAGPART_EXPR, type, lhs));
     }
@@ -933,7 +944,7 @@ expand_complex_libcall (block_stmt_iterator *bsi, tree ar, tree ai,
 */
 
 static void
-expand_complex_multiplication (block_stmt_iterator *bsi, tree inner_type,
+expand_complex_multiplication (gimple_stmt_iterator **gsi, tree inner_type,
 			       tree ar, tree ai, tree br, tree bi,
 			       complex_lattice_t al, complex_lattice_t bl)
 {
@@ -950,7 +961,7 @@ expand_complex_multiplication (block_stmt_iterator *bsi, tree inner_type,
   switch (PAIR (al, bl))
     {
     case PAIR (ONLY_REAL, ONLY_REAL):
-      rr = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, br);
+      rr = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, br);
       ri = ai;
       break;
 
@@ -960,49 +971,49 @@ expand_complex_multiplication (block_stmt_iterator *bsi, tree inner_type,
 	  && REAL_VALUES_IDENTICAL (TREE_REAL_CST (ai), dconst1))
 	ri = br;
       else
-	ri = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, br);
+	ri = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, br);
       break;
 
     case PAIR (ONLY_IMAG, ONLY_IMAG):
-      rr = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, bi);
-      rr = gimplify_build1 (bsi, NEGATE_EXPR, inner_type, rr);
+      rr = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, bi);
+      rr = gimplify_build1 (*gsi, NEGATE_EXPR, inner_type, rr);
       ri = ar;
       break;
 
     case PAIR (VARYING, ONLY_REAL):
-      rr = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, br);
-      ri = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, br);
+      rr = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, br);
+      ri = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, br);
       break;
 
     case PAIR (VARYING, ONLY_IMAG):
-      rr = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, bi);
-      rr = gimplify_build1 (bsi, NEGATE_EXPR, inner_type, rr);
-      ri = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, bi);
+      rr = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, bi);
+      rr = gimplify_build1 (*gsi, NEGATE_EXPR, inner_type, rr);
+      ri = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, bi);
       break;
 
     case PAIR (VARYING, VARYING):
       if (flag_complex_method == 2 && SCALAR_FLOAT_TYPE_P (inner_type))
 	{
-	  expand_complex_libcall (bsi, ar, ai, br, bi, MULT_EXPR);
+	  expand_complex_libcall (gsi, ar, ai, br, bi, MULT_EXPR);
 	  return;
 	}
       else
 	{
 	  tree t1, t2, t3, t4;
 
-	  t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, br);
-	  t2 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, bi);
-	  t3 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, bi);
+	  t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, br);
+	  t2 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, bi);
+	  t3 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, bi);
 
 	  /* Avoid expanding redundant multiplication for the common
 	     case of squaring a complex number.  */
 	  if (ar == br && ai == bi)
 	    t4 = t3;
 	  else
-	    t4 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, br);
+	    t4 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, br);
 
-	  rr = gimplify_build2 (bsi, MINUS_EXPR, inner_type, t1, t2);
-	  ri = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t3, t4);
+	  rr = gimplify_build2 (*gsi, MINUS_EXPR, inner_type, t1, t2);
+	  ri = gimplify_build2 (*gsi, PLUS_EXPR, inner_type, t3, t4);
 	}
       break;
 
@@ -1010,7 +1021,7 @@ expand_complex_multiplication (block_stmt_iterator *bsi, tree inner_type,
       gcc_unreachable ();
     }
 
-  update_complex_assignment (bsi, rr, ri);
+  update_complex_assignment (gsi, rr, ri);
 }
 
 /* Expand complex division to scalars, straightforward algorithm.
@@ -1019,43 +1030,44 @@ expand_complex_multiplication (block_stmt_iterator *bsi, tree inner_type,
 */
 
 static void
-expand_complex_div_straight (block_stmt_iterator *bsi, tree inner_type,
+expand_complex_div_straight (gimple_stmt_iterator **gsi, tree inner_type,
 			     tree ar, tree ai, tree br, tree bi,
 			     enum tree_code code)
 {
   tree rr, ri, div, t1, t2, t3;
 
-  t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, br, br);
-  t2 = gimplify_build2 (bsi, MULT_EXPR, inner_type, bi, bi);
-  div = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, t2);
+  t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, br, br);
+  t2 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, bi, bi);
+  div = gimplify_build2 (*gsi, PLUS_EXPR, inner_type, t1, t2);
 
-  t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, br);
-  t2 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, bi);
-  t3 = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, t2);
-  rr = gimplify_build2 (bsi, code, inner_type, t3, div);
+  t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, br);
+  t2 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, bi);
+  t3 = gimplify_build2 (*gsi, PLUS_EXPR, inner_type, t1, t2);
+  rr = gimplify_build2 (*gsi, code, inner_type, t3, div);
 
-  t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, br);
-  t2 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, bi);
-  t3 = gimplify_build2 (bsi, MINUS_EXPR, inner_type, t1, t2);
-  ri = gimplify_build2 (bsi, code, inner_type, t3, div);
+  t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, br);
+  t2 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, bi);
+  t3 = gimplify_build2 (*gsi, MINUS_EXPR, inner_type, t1, t2);
+  ri = gimplify_build2 (*gsi, code, inner_type, t3, div);
 
-  update_complex_assignment (bsi, rr, ri);
+  update_complex_assignment (gsi, rr, ri);
 }
 
 /* Expand complex division to scalars, modified algorithm to minimize
    overflow with wide input ranges.  */
 
 static void
-expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
+expand_complex_div_wide (gimple_stmt_iterator **gsi, tree inner_type,
 			 tree ar, tree ai, tree br, tree bi,
 			 enum tree_code code)
 {
   tree rr, ri, ratio, div, t1, t2, tr, ti, cond;
   basic_block bb_cond, bb_true, bb_false, bb_join;
+  gimple stmt;
 
   /* Examine |br| < |bi|, and branch.  */
-  t1 = gimplify_build1 (bsi, ABS_EXPR, inner_type, br);
-  t2 = gimplify_build1 (bsi, ABS_EXPR, inner_type, bi);
+  t1 = gimplify_build1 (*gsi, ABS_EXPR, inner_type, br);
+  t2 = gimplify_build1 (*gsi, ABS_EXPR, inner_type, bi);
   cond = fold_build2 (LT_EXPR, boolean_type_node, t1, t2);
   STRIP_NOPS (cond);
 
@@ -1064,12 +1076,13 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
   if (!TREE_CONSTANT (cond))
     {
       edge e;
+      gimple stmt;
 
-      cond = build3 (COND_EXPR, void_type_node, cond, NULL_TREE, NULL_TREE);
-      bsi_insert_before (bsi, cond, BSI_SAME_STMT);
+      stmt = gimple_build_cond_from_tree (cond, NULL_TREE, NULL_TREE);
+      gsi_insert_before (*gsi, stmt, GSI_SAME_STMT);
 
       /* Split the original block, and create the TRUE and FALSE blocks.  */
-      e = split_block (bsi->bb, cond);
+      e = split_block ((*gsi)->bb, cond);
       bb_cond = e->src;
       bb_join = e->dest;
       bb_true = create_empty_bb (bb_cond);
@@ -1105,31 +1118,31 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
     {
       if (bb_true)
 	{
-	  *bsi = bsi_last (bb_true);
-	  bsi_insert_after (bsi, build_empty_stmt (), BSI_NEW_STMT);
+	  *gsi = gsi_last_bb (bb_true);
+	  gsi_insert_after (*gsi, gimple_build_nop (), GSI_NEW_STMT);
 	}
 
-      ratio = gimplify_build2 (bsi, code, inner_type, br, bi);
+      ratio = gimplify_build2 (*gsi, code, inner_type, br, bi);
 
-      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, br, ratio);
-      div = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, bi);
+      t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, br, ratio);
+      div = gimplify_build2 (*gsi, PLUS_EXPR, inner_type, t1, bi);
 
-      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, ratio);
-      tr = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, ai);
+      t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, ratio);
+      tr = gimplify_build2 (*gsi, PLUS_EXPR, inner_type, t1, ai);
 
-      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, ratio);
-      ti = gimplify_build2 (bsi, MINUS_EXPR, inner_type, t1, ar);
+      t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, ratio);
+      ti = gimplify_build2 (*gsi, MINUS_EXPR, inner_type, t1, ar);
 
-      tr = gimplify_build2 (bsi, code, inner_type, tr, div);
-      ti = gimplify_build2 (bsi, code, inner_type, ti, div);
+      tr = gimplify_build2 (*gsi, code, inner_type, tr, div);
+      ti = gimplify_build2 (*gsi, code, inner_type, ti, div);
 
      if (bb_true)
        {
-	 t1 = build_gimple_modify_stmt (rr, tr);
-	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 t1 = build_gimple_modify_stmt (ri, ti);
-	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 bsi_remove (bsi, true);
+	 stmt = gimple_build_assign (rr, tr);
+	 gsi_insert_before (*gsi, stmt, GSI_SAME_STMT);
+	 stmt = gimple_build_assign (ri, ti);
+	 gsi_insert_before (*gsi, stmt, GSI_SAME_STMT);
+	 gsi_remove (*gsi, true);
        }
     }
 
@@ -1144,46 +1157,46 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
     {
       if (bb_false)
 	{
-	  *bsi = bsi_last (bb_false);
-	  bsi_insert_after (bsi, build_empty_stmt (), BSI_NEW_STMT);
+	  *gsi = gsi_last_bb (bb_false);
+	  gsi_insert_after (*gsi, gimple_build_nop (), GSI_NEW_STMT);
 	}
 
-      ratio = gimplify_build2 (bsi, code, inner_type, bi, br);
+      ratio = gimplify_build2 (*gsi, code, inner_type, bi, br);
 
-      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, bi, ratio);
-      div = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, br);
+      t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, bi, ratio);
+      div = gimplify_build2 (*gsi, PLUS_EXPR, inner_type, t1, br);
 
-      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ai, ratio);
-      tr = gimplify_build2 (bsi, PLUS_EXPR, inner_type, t1, ar);
+      t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ai, ratio);
+      tr = gimplify_build2 (*gsi, PLUS_EXPR, inner_type, t1, ar);
 
-      t1 = gimplify_build2 (bsi, MULT_EXPR, inner_type, ar, ratio);
-      ti = gimplify_build2 (bsi, MINUS_EXPR, inner_type, ai, t1);
+      t1 = gimplify_build2 (*gsi, MULT_EXPR, inner_type, ar, ratio);
+      ti = gimplify_build2 (*gsi, MINUS_EXPR, inner_type, ai, t1);
 
-      tr = gimplify_build2 (bsi, code, inner_type, tr, div);
-      ti = gimplify_build2 (bsi, code, inner_type, ti, div);
+      tr = gimplify_build2 (*gsi, code, inner_type, tr, div);
+      ti = gimplify_build2 (*gsi, code, inner_type, ti, div);
 
      if (bb_false)
        {
-	 t1 = build_gimple_modify_stmt (rr, tr);
-	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 t1 = build_gimple_modify_stmt (ri, ti);
-	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 bsi_remove (bsi, true);
+	 stmt = gimple_build_assign (rr, tr);
+	 gsi_insert_before (*gsi, stmt, GSI_SAME_STMT);
+	 stmt = gimple_build_assign (ri, ti);
+	 gsi_insert_before (*gsi, stmt, GSI_SAME_STMT);
+	 gsi_remove (*gsi, true);
        }
     }
 
   if (bb_join)
-    *bsi = bsi_start (bb_join);
+    *gsi = gsi_start_bb (bb_join);
   else
     rr = tr, ri = ti;
 
-  update_complex_assignment (bsi, rr, ri);
+  update_complex_assignment (gsi, rr, ri);
 }
 
 /* Expand complex division to scalars.  */
 
 static void
-expand_complex_division (block_stmt_iterator *bsi, tree inner_type,
+expand_complex_division (gimple_stmt_iterator **gsi, tree inner_type,
 			 tree ar, tree ai, tree br, tree bi,
 			 enum tree_code code,
 			 complex_lattice_t al, complex_lattice_t bl)
@@ -1193,35 +1206,35 @@ expand_complex_division (block_stmt_iterator *bsi, tree inner_type,
   switch (PAIR (al, bl))
     {
     case PAIR (ONLY_REAL, ONLY_REAL):
-      rr = gimplify_build2 (bsi, code, inner_type, ar, br);
+      rr = gimplify_build2 (*gsi, code, inner_type, ar, br);
       ri = ai;
       break;
 
     case PAIR (ONLY_REAL, ONLY_IMAG):
       rr = ai;
-      ri = gimplify_build2 (bsi, code, inner_type, ar, bi);
-      ri = gimplify_build1 (bsi, NEGATE_EXPR, inner_type, ri);
+      ri = gimplify_build2 (*gsi, code, inner_type, ar, bi);
+      ri = gimplify_build1 (*gsi, NEGATE_EXPR, inner_type, ri);
       break;
 
     case PAIR (ONLY_IMAG, ONLY_REAL):
       rr = ar;
-      ri = gimplify_build2 (bsi, code, inner_type, ai, br);
+      ri = gimplify_build2 (*gsi, code, inner_type, ai, br);
       break;
 
     case PAIR (ONLY_IMAG, ONLY_IMAG):
-      rr = gimplify_build2 (bsi, code, inner_type, ai, bi);
+      rr = gimplify_build2 (*gsi, code, inner_type, ai, bi);
       ri = ar;
       break;
 
     case PAIR (VARYING, ONLY_REAL):
-      rr = gimplify_build2 (bsi, code, inner_type, ar, br);
-      ri = gimplify_build2 (bsi, code, inner_type, ai, br);
+      rr = gimplify_build2 (*gsi, code, inner_type, ar, br);
+      ri = gimplify_build2 (*gsi, code, inner_type, ai, br);
       break;
 
     case PAIR (VARYING, ONLY_IMAG):
-      rr = gimplify_build2 (bsi, code, inner_type, ai, bi);
-      ri = gimplify_build2 (bsi, code, inner_type, ar, bi);
-      ri = gimplify_build1 (bsi, NEGATE_EXPR, inner_type, ri);
+      rr = gimplify_build2 (*gsi, code, inner_type, ai, bi);
+      ri = gimplify_build2 (*gsi, code, inner_type, ar, bi);
+      ri = gimplify_build1 (*gsi, NEGATE_EXPR, inner_type, ri);
 
     case PAIR (ONLY_REAL, VARYING):
     case PAIR (ONLY_IMAG, VARYING):
@@ -1230,20 +1243,20 @@ expand_complex_division (block_stmt_iterator *bsi, tree inner_type,
 	{
 	case 0:
 	  /* straightforward implementation of complex divide acceptable.  */
-	  expand_complex_div_straight (bsi, inner_type, ar, ai, br, bi, code);
+	  expand_complex_div_straight (gsi, inner_type, ar, ai, br, bi, code);
 	  break;
 
 	case 2:
 	  if (SCALAR_FLOAT_TYPE_P (inner_type))
 	    {
-	      expand_complex_libcall (bsi, ar, ai, br, bi, code);
+	      expand_complex_libcall (gsi, ar, ai, br, bi, code);
 	      break;
 	    }
 	  /* FALLTHRU */
 
 	case 1:
 	  /* wide ranges of inputs must work for complex divide.  */
-	  expand_complex_div_wide (bsi, inner_type, ar, ai, br, bi, code);
+	  expand_complex_div_wide (gsi, inner_type, ar, ai, br, bi, code);
 	  break;
 
 	default:
@@ -1255,7 +1268,7 @@ expand_complex_division (block_stmt_iterator *bsi, tree inner_type,
       gcc_unreachable ();
     }
 
-  update_complex_assignment (bsi, rr, ri);
+  update_complex_assignment (gsi, rr, ri);
 }
 
 /* Expand complex negation to scalars:
@@ -1263,15 +1276,15 @@ expand_complex_division (block_stmt_iterator *bsi, tree inner_type,
 */
 
 static void
-expand_complex_negation (block_stmt_iterator *bsi, tree inner_type,
+expand_complex_negation (gimple_stmt_iterator **gsi, tree inner_type,
 			 tree ar, tree ai)
 {
   tree rr, ri;
 
-  rr = gimplify_build1 (bsi, NEGATE_EXPR, inner_type, ar);
-  ri = gimplify_build1 (bsi, NEGATE_EXPR, inner_type, ai);
+  rr = gimplify_build1 (*gsi, NEGATE_EXPR, inner_type, ar);
+  ri = gimplify_build1 (*gsi, NEGATE_EXPR, inner_type, ai);
 
-  update_complex_assignment (bsi, rr, ri);
+  update_complex_assignment (gsi, rr, ri);
 }
 
 /* Expand complex conjugate to scalars:
@@ -1279,44 +1292,48 @@ expand_complex_negation (block_stmt_iterator *bsi, tree inner_type,
 */
 
 static void
-expand_complex_conjugate (block_stmt_iterator *bsi, tree inner_type,
+expand_complex_conjugate (gimple_stmt_iterator **gsi, tree inner_type,
 			  tree ar, tree ai)
 {
   tree ri;
 
-  ri = gimplify_build1 (bsi, NEGATE_EXPR, inner_type, ai);
+  ri = gimplify_build1 (*gsi, NEGATE_EXPR, inner_type, ai);
 
-  update_complex_assignment (bsi, ar, ri);
+  update_complex_assignment (gsi, ar, ri);
 }
 
 /* Expand complex comparison (EQ or NE only).  */
 
 static void
-expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
+expand_complex_comparison (gimple_stmt_iterator **gsi, tree ar, tree ai,
 			   tree br, tree bi, enum tree_code code)
 {
-  tree cr, ci, cc, stmt, expr, type;
+  tree cr, ci, cc, type;
+  gimple stmt;
 
-  cr = gimplify_build2 (bsi, code, boolean_type_node, ar, br);
-  ci = gimplify_build2 (bsi, code, boolean_type_node, ai, bi);
-  cc = gimplify_build2 (bsi,
+  cr = gimplify_build2 (*gsi, code, boolean_type_node, ar, br);
+  ci = gimplify_build2 (*gsi, code, boolean_type_node, ai, bi);
+  cc = gimplify_build2 (*gsi,
 			(code == EQ_EXPR ? TRUTH_AND_EXPR : TRUTH_OR_EXPR),
 			boolean_type_node, cr, ci);
 
-  stmt = expr = bsi_stmt (*bsi);
+  stmt = gsi_stmt (*gsi);
 
-  switch (TREE_CODE (stmt))
+  switch (gimple_code (stmt))
     {
-    case RETURN_EXPR:
-      expr = TREE_OPERAND (stmt, 0);
-      /* FALLTHRU */
-    case GIMPLE_MODIFY_STMT:
-      type = TREE_TYPE (GIMPLE_STMT_OPERAND (expr, 1));
-      GIMPLE_STMT_OPERAND (expr, 1) = fold_convert (type, cc);
+    case GIMPLE_RETURN:
+      gimple_return_set_retval (stmt, fold_convert (type, cc));
       break;
-    case COND_EXPR:
-      TREE_OPERAND (stmt, 0) = cc;
+
+    case GIMPLE_ASSIGN:
+      type = TREE_TYPE (gimple_assign_lhs (stmt));
+      gimple_assign_set_rhs_from_tree (stmt, fold_convert (type, cc));
       break;
+
+    case GIMPLE_COND:
+      gimple_cond_set_lhs (stmt, cc);
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -1324,41 +1341,24 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
   update_stmt (stmt);
 }
 
+
 /* Process one statement.  If we identify a complex operation, expand it.  */
 
 static void
-expand_complex_operations_1 (block_stmt_iterator *bsi)
+expand_complex_operations_1 (gimple_stmt_iterator **gsi)
 {
-  tree stmt = bsi_stmt (*bsi);
-  tree rhs, type, inner_type;
+  gimple stmt = gsi_stmt (*gsi);
+  tree type, inner_type;
   tree ac, ar, ai, bc, br, bi;
   complex_lattice_t al, bl;
   enum tree_code code;
 
-  switch (TREE_CODE (stmt))
-    {
-    case RETURN_EXPR:
-      stmt = TREE_OPERAND (stmt, 0);
-      if (!stmt)
-	return;
-      if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
-	return;
-      /* FALLTHRU */
+  if (gimple_code (stmt) != GIMPLE_ASSIGN
+      && gimple_code (stmt) != GIMPLE_COND)
+    return;
 
-    case GIMPLE_MODIFY_STMT:
-      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-      break;
-
-    case COND_EXPR:
-      rhs = TREE_OPERAND (stmt, 0);
-      break;
-
-    default:
-      return;
-    }
-
-  type = TREE_TYPE (rhs);
-  code = TREE_CODE (rhs);
+  type = TREE_TYPE (gimple_op (stmt, 0));
+  code = gimple_subcode (stmt);
 
   /* Initial filter for operations we handle.  */
   switch (code)
@@ -1380,7 +1380,9 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
     case EQ_EXPR:
     case NE_EXPR:
-      inner_type = TREE_TYPE (TREE_OPERAND (rhs, 1));
+      /* Note, both GIMPLE_ASSIGN and GIMPLE_COND may have an EQ_EXPR
+	 subocde, so we need to access the operands using gimple_op.  */
+      inner_type = TREE_TYPE (gimple_op (stmt, 1));
       if (TREE_CODE (inner_type) != COMPLEX_TYPE)
 	return;
       break;
@@ -1389,23 +1391,24 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
       {
 	tree lhs, rhs;
 
-	/* COND_EXPR may also fallthru here, but we do not need to do anything
-	   with it.  */
-	if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+	/* GIMPLE_COND may also fallthru here, but we do not need to
+	   do anything with it.  */
+	if (gimple_code (stmt) != GIMPLE_ASSIGN)
 	  return;
 
-	lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-	rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+	lhs = gimple_assign_lhs (stmt);
 
 	if (TREE_CODE (type) == COMPLEX_TYPE)
-	  expand_complex_move (bsi, stmt, type, lhs, rhs);
-	else if ((TREE_CODE (rhs) == REALPART_EXPR
-		  || TREE_CODE (rhs) == IMAGPART_EXPR)
-		 && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
+	  expand_complex_move (gsi, type);
+	else if ((gimple_subcode (stmt) == REALPART_EXPR
+		  || gimple_subcode (stmt) == IMAGPART_EXPR)
+		 && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME)
 	  {
-	    GENERIC_TREE_OPERAND (stmt, 1)
-	      = extract_component (bsi, TREE_OPERAND (rhs, 0),
-				   TREE_CODE (rhs) == IMAGPART_EXPR, false);
+	    rhs = gimple_assign_rhs1 (stmt);
+	    rhs = extract_component (gsi, gimple_assign_rhs1 (stmt),
+		                     gimple_subcode (stmt) == IMAGPART_EXPR,
+				     false);
+	    gimple_assign_set_rhs_from_tree (stmt, rhs);
 	    update_stmt (stmt);
 	  }
       }
@@ -1414,22 +1417,26 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
   /* Extract the components of the two complex values.  Make sure and
      handle the common case of the same value used twice specially.  */
-  ac = TREE_OPERAND (rhs, 0);
-  ar = extract_component (bsi, ac, 0, true);
-  ai = extract_component (bsi, ac, 1, true);
-
-  if (TREE_CODE_CLASS (code) == tcc_unary)
-    bc = br = bi = NULL;
+  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+    {
+      ac = gimple_assign_rhs1 (stmt);
+      bc = (gimple_num_ops (stmt) > 2) ? gimple_assign_rhs2 (stmt) : NULL;
+    }
   else
     {
-      bc = TREE_OPERAND (rhs, 1);
-      if (ac == bc)
-	br = ar, bi = ai;
-      else
-	{
-	  br = extract_component (bsi, bc, 0, true);
-	  bi = extract_component (bsi, bc, 1, true);
-	}
+      ac = gimple_cond_lhs (stmt);
+      bc = gimple_cond_rhs (stmt);
+    }
+
+  ar = extract_component (gsi, ac, false, true);
+  ai = extract_component (gsi, ac, true, true);
+
+  if (ac == bc)
+    br = ar, bi = ai;
+  else if (bc)
+    {
+      br = extract_component (gsi, bc, 0, true);
+      bi = extract_component (gsi, bc, 1, true);
     }
 
   if (gimple_in_ssa_p (cfun))
@@ -1456,11 +1463,11 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
     {
     case PLUS_EXPR:
     case MINUS_EXPR:
-      expand_complex_addition (bsi, inner_type, ar, ai, br, bi, code, al, bl);
+      expand_complex_addition (*gsi, inner_type, ar, ai, br, bi, code, al, bl);
       break;
 
     case MULT_EXPR:
-      expand_complex_multiplication (bsi, inner_type, ar, ai, br, bi, al, bl);
+      expand_complex_multiplication (gsi, inner_type, ar, ai, br, bi, al, bl);
       break;
 
     case TRUNC_DIV_EXPR:
@@ -1468,20 +1475,20 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
     case RDIV_EXPR:
-      expand_complex_division (bsi, inner_type, ar, ai, br, bi, code, al, bl);
+      expand_complex_division (gsi, inner_type, ar, ai, br, bi, code, al, bl);
       break;
       
     case NEGATE_EXPR:
-      expand_complex_negation (bsi, inner_type, ar, ai);
+      expand_complex_negation (gsi, inner_type, ar, ai);
       break;
 
     case CONJ_EXPR:
-      expand_complex_conjugate (bsi, inner_type, ar, ai);
+      expand_complex_conjugate (gsi, inner_type, ar, ai);
       break;
 
     case EQ_EXPR:
     case NE_EXPR:
-      expand_complex_comparison (bsi, ar, ai, br, bi, code);
+      expand_complex_comparison (gsi, ar, ai, br, bi, code);
       break;
 
     default:
@@ -1489,17 +1496,14 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
     }
 }
 
-#endif
 
 /* Entry point for complex operation lowering during optimization.  */
 
 static unsigned int
 tree_lower_complex (void)
 {
-  /* FIXME tuples  */
-#if 0
   int old_last_basic_block;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator *gsi;
   basic_block bb;
 
   if (!init_dont_simulate_again ())
@@ -1527,20 +1531,18 @@ tree_lower_complex (void)
     {
       if (bb->index >= old_last_basic_block)
 	continue;
+
       update_phi_components (bb);
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	expand_complex_operations_1 (&bsi);
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+	expand_complex_operations_1 (&gsi);
     }
 
-  bsi_commit_edge_inserts ();
+  gsi_commit_edge_inserts ();
 
   htab_delete (complex_variable_components);
   VEC_free (tree, heap, complex_ssa_name_components);
   VEC_free (complex_lattice_t, heap, complex_lattice_values);
   return 0;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 struct tree_opt_pass pass_lower_complex = 
@@ -1570,23 +1572,18 @@ struct tree_opt_pass pass_lower_complex =
 static unsigned int
 tree_lower_complex_O0 (void)
 {
-  /* FIXME tuples  */
-#if 0
   int old_last_basic_block = last_basic_block;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator *gsi;
   basic_block bb;
 
   FOR_EACH_BB (bb)
     {
       if (bb->index >= old_last_basic_block)
 	continue;
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	expand_complex_operations_1 (&bsi);
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+	expand_complex_operations_1 (&gsi);
     }
   return 0;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 static bool
@@ -1613,5 +1610,5 @@ struct tree_opt_pass pass_lower_complex_O0 =
   TODO_dump_func | TODO_ggc_collect
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };

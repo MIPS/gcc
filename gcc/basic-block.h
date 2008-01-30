@@ -122,7 +122,7 @@ struct edge_def GTY(())
 
   /* Instructions queued on the edge.  */
   union edge_def_insns {
-    tree GTY ((tag ("true"))) t;
+    gimple_seq GTY ((tag ("true"))) g;
     rtx GTY ((tag ("false"))) r;
   } GTY ((desc ("current_ir_type () == IR_GIMPLE"))) insns;
 

@@ -1,3 +1,54 @@
+2008-01-29  Rafael Espindola  <espindola@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg01434.html
+
+	* gimple.c (gimple_assign_set_rhs_with_ops): Fix
+	allocation of operand vector.
+
+2008-01-29  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg01434.html
+
+	* tree-into-ssa.c (prepare_block_for_update): Initialize
+	PHI.
+	* tree.c (build_gimple_modify_stmt): Fix documentation.
+
+	* tree-complex.c: Convert to tuples.
+	(pass_lower_complex_O0): Re-enable.
+
+	* ipa-cp.c (constant_val_insert): Disable.
+	* tree-gimple.c (get_gimple_rhs_class): Handle SSA_NAME.
+
+	* tree-ssa-propagate.c: Fix documentation to refer to
+	prop_simulate_again_p.
+	(add_ssa_edge): Call prop_simulate_again_p.
+	(simulate_stmt): Likewise.
+	(simulate_block): Fix loop iterating over PHI nodes.
+	* tree-ssa-propagate.h (prop_set_simulate_again): New.
+	(prop_simulate_again_p): New.
+	* gimple-iterator.c (gsi_insert_seq_after): Re-write to
+	avoid use of gimple_stmt_iterator.
+	(gimple_find_edge_insert_loc): Move from tree-cfg.c.
+	Re-enable.
+	(gsi_commit_edge_inserts): Likewise.
+	(gsi_commit_one_edge_insert): Likewise.
+	(gsi_insert_on_edge): Likewise.
+	(gsi_insert_on_edge_immediate): Likewise.
+	(gsi_insert_seq_on_edge): New.
+	* gimplify.c (gimplify_cond_expr): Call
+	gimple_cond_get_ops_from_tree.
+	* tree-optimize.c (pass_all_optimizations): Enable.
+	* gimple.c (gimple_cond_get_ops_from_tree): New.
+	(gimple_build_cond_from_tree): New.
+	* basic-block.h (struct edge_def): Replace field
+	edge_def_insns.t with gimple_seq edge_def_insns.g.
+	Update all users.
+	* gimple.h (gimple_stmt_iterator):
+	* tree-cfg.c (change_bb_for_stmt):
+	* passes.c (init_optimization_passes): Move #if0 around
+	to disable passes in groups instead of individually.
+	(execute_function_todo): Re-enable call to update_ssa.
+
 2008-01-25  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple-pretty-print.c (dump_gimple_stmt): Handle

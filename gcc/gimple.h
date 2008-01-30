@@ -511,6 +511,8 @@ void gimple_assign_set_rhs_with_ops (gimple, enum tree_code, tree, tree);
 gimple gimple_copy (gimple);
 bool is_gimple_operand (const_tree);
 void gimple_set_modified (gimple, bool);
+void gimple_cond_get_ops_from_tree (tree, enum tree_code *, tree *, tree *);
+gimple gimple_build_cond_from_tree (tree, tree, tree);
 
 /* In builtins.c  */
 extern bool validate_arglist (const_gimple, ...);
@@ -2726,6 +2728,11 @@ gimple_stmt_iterator *gsi_for_stmt (gimple);
 void gsi_move_after (gimple_stmt_iterator *, gimple_stmt_iterator *);
 void gsi_move_before (gimple_stmt_iterator *, gimple_stmt_iterator *);
 void gsi_move_to_bb_end (gimple_stmt_iterator *, struct basic_block_def *);
+void gsi_insert_on_edge (edge, gimple);
+void gsi_insert_seq_on_edge (edge, gimple_seq);
+basic_block gsi_insert_on_edge_immediate (edge, gimple);
+void gsi_commit_one_edge_insert (edge, basic_block *);
+void gsi_commit_edge_inserts (void);
 
 
 /* Callback for walk_gimple_stmt.  Called for every statement found

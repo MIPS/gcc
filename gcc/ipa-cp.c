@@ -439,8 +439,10 @@ ipcp_method_cval_init (struct cgraph_node *mt)
    PARM1 is the lhs of the assignment and
    VAL is the rhs. */
 static void
-constant_val_insert (tree parm1, tree val)
+constant_val_insert (tree parm1 ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   tree init_stmt = NULL;
   edge e_step;
 
@@ -451,6 +453,9 @@ constant_val_insert (tree parm1, tree val)
       e_step = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun));
       gsi_insert_on_edge_immediate (e_step, init_stmt);
     }
+#else
+  gimple_unreachable ();
+#endif
 }
 
 /* build INTEGER_CST tree with type TREE_TYPE and 

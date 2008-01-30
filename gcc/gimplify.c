@@ -2821,19 +2821,8 @@ gimplify_cond_expr (tree *expr_p, gimple_seq pre_p, fallback_t fallback)
   label_true = create_artificial_label ();
   label_false = create_artificial_label ();
 
-  arm1 = arm2 = NULL_TREE;
-  pred_code = TREE_CODE (TREE_OPERAND (expr, 0));
-  if (TREE_CODE_CLASS (pred_code) != tcc_comparison)
-    {
-      pred_code = NE_EXPR;
-      arm1 = TREE_OPERAND (expr, 0);
-      arm2 = fold_convert (TREE_TYPE (arm1), integer_zero_node);
-    }
-  else
-    {
-      arm1 = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
-      arm2 = TREE_OPERAND (TREE_OPERAND (expr, 0), 1);
-    }
+  gimple_cond_get_ops_from_tree (COND_EXPR_COND (expr), &pred_code, &arm1,
+				 &arm2);
 
   gimple_cond = gimple_build_cond (pred_code, arm1, arm2, label_true,
                                    label_false);

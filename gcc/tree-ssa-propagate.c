@@ -95,9 +95,9 @@
    5- Simulation terminates when all three work lists are drained.
 
    Before calling ssa_propagate, it is important to clear
-   gimple_visited_p for all the statements in the program that should
-   be simulated.  This initialization allows an implementation to
-   specify which statements should never be simulated.
+   prop_simulate_again_p for all the statements in the program that
+   should be simulated.  This initialization allows an implementation
+   to specify which statements should never be simulated.
 
    It is also important to compute def-use information before calling
    ssa_propagate.
@@ -261,7 +261,7 @@ add_ssa_edge (tree var, bool is_varying)
     {
       gimple use_stmt = USE_STMT (use_p);
 
-      if (!gimple_visited_p (use_stmt)
+      if (prop_simulate_again_p (use_stmt)
 	  && !gimple_plf (use_stmt, STMT_IN_SSA_EDGE_WORKLIST))
 	{
 	  gimple_set_plf (use_stmt, STMT_IN_SSA_EDGE_WORKLIST, true);
@@ -312,7 +312,7 @@ simulate_stmt (gimple stmt)
 
   /* Don't bother visiting statements that are already
      considered varying by the propagator.  */
-  if (gimple_visited_p (stmt))
+  if (!prop_simulate_again_p (stmt))
     return;
 
   if (gimple_code (stmt) == GIMPLE_PHI)
@@ -325,7 +325,7 @@ simulate_stmt (gimple stmt)
 
   if (val == SSA_PROP_VARYING)
     {
-      gimple_set_visited (stmt, true);
+      prop_set_simulate_again (stmt, false);
 
       /* If the statement produced a new varying value, add the SSA
 	 edges coming out of OUTPUT_NAME.  */
@@ -417,7 +417,7 @@ simulate_block (basic_block block)
 
   /* Always simulate PHI nodes, even if we have simulated this block
      before.  */
-  for (gsi = gsi_start (phi_nodes (block)); !gsi_end_p (gsi); gsi_next (gsi));
+  for (gsi = gsi_start (phi_nodes (block)); !gsi_end_p (gsi); gsi_next (gsi))
     simulate_stmt (gsi_stmt (gsi));
 
   /* If this is the first time we've simulated this block, then we

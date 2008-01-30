@@ -682,7 +682,7 @@ tree copy_var_decl (tree, tree, tree);
 /* In tree-cfg.c  */
 
 /* Location to track pending stmt for edge insertion.  */
-#define PENDING_STMT(e)	((e)->insns.t)
+#define PENDING_STMT(e)	((e)->insns.g)
 
 extern void delete_tree_cfg_annotations (void);
 extern bool stmt_ends_bb_p (gimple);
@@ -713,10 +713,6 @@ extern gimple last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
 #define label_to_block(t) (label_to_block_fn (cfun, t))
-extern void gsi_insert_on_edge (edge, tree);
-extern basic_block gsi_insert_on_edge_immediate (edge, tree);
-extern void gsi_commit_one_edge_insert (edge, basic_block *);
-extern void gsi_commit_edge_inserts (void);
 extern void notice_special_calls (tree);
 extern void clear_special_calls (void);
 extern void verify_stmts (void);

@@ -3141,7 +3141,7 @@ tree
 build_gimple_modify_stmt_stat (tree arg0, tree arg1 MEM_STAT_DECL)
 {
   /* FIXME tuples.  Deprecate this.  There should not be any calls to this
-     routine.  Use build_gimple_assign instead.  */
+     routine.  Use gimple_build_assign instead.  */
   tree t;
 
   t = make_node_stat (GIMPLE_MODIFY_STMT PASS_MEM_STAT);

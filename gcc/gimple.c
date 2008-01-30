@@ -364,6 +364,42 @@ gimple_build_cond (enum tree_code pred_code, tree lhs, tree rhs,
 }
 
 
+/* Extract operands for a GIMPLE_COND statement out of COND_EXPR tree COND.  */
+
+void
+gimple_cond_get_ops_from_tree (tree cond, enum tree_code *code_p,
+                               tree *lhs_p, tree *rhs_p)
+{
+  gcc_assert (TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison
+	      || is_gimple_min_invariant (cond)
+	      || SSA_VAR_P (cond));
+
+  extract_ops_from_tree (cond, code_p, lhs_p, rhs_p);
+
+  /* Canonicalize conditionals of the form 'if (VAL)'  */
+  if (TREE_CODE_CLASS (*code_p) != tcc_comparison)
+    {
+      *code_p = NE_EXPR;
+      gcc_assert (*lhs_p && *rhs_p == NULL_TREE);
+      *rhs_p = fold_convert (TREE_TYPE (*lhs_p), integer_zero_node);
+    }
+}
+
+
+/* Build a GIMPLE_COND statement from the conditional expression tree
+   COND.  T_LABEL and F_LABEL are as in gimple_build_cond.  */
+
+gimple
+gimple_build_cond_from_tree (tree cond, tree t_label, tree f_label)
+{
+  enum tree_code code;
+  tree lhs, rhs;
+
+  gimple_cond_get_ops_from_tree (cond, &code, &lhs, &rhs);
+  return gimple_build_cond (code, lhs, rhs, t_label, f_label);
+}
+
+
 /* Build a GIMPLE_LABEL statement for LABEL.  */
 
 gimple
@@ -1531,12 +1567,12 @@ gimple_fold (const_gimple stmt)
 /* Modify the RHS of assignment STMT using the operands in the
    expression tree EXPR.
 
-   NOTE.  While this function is useful to convert an existing tree
-   expression into the flat representation used for the RHS of a
-   GIMPLE assignment, try to use it only when there is no easier
-   alternative.
-   
-   If you find yourself building a tree and then calling this
+   This function is useful to convert an existing tree expression into
+   the flat representation used for the RHS of a GIMPLE assignment.
+   It will reallocate memory as needed to expand or shrink the number
+   of operand slots needed to represent EXPR.
+
+   NOTE: If you find yourself building a tree and then calling this
    function, you are most certainly doing it the slow way.  It is much
    better to build a new assignment or to use the function
    gimple_assign_set_rhs_with_ops, which does not require an
@@ -1566,7 +1602,7 @@ gimple_assign_set_rhs_with_ops (gimple stmt, enum tree_code code, tree op1,
   if (get_gimple_rhs_num_ops (gimple_assign_subcode (stmt)) != num_ops)
     {
       tree lhs = gimple_assign_lhs (stmt);
-      gimple_alloc_ops (stmt, num_ops);
+      gimple_alloc_ops (stmt, num_ops + 1);
       gimple_assign_set_lhs (stmt, lhs);
     }
 

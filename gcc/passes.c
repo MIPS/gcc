@@ -578,30 +578,23 @@ init_optimization_passes (void)
   NEXT_PASS (pass_all_optimizations);
     {
       struct tree_opt_pass **p = &pass_all_optimizations.sub;
-      NEXT_PASS (pass_create_structure_vars);
-      NEXT_PASS (pass_return_slot);
       /* FIXME tuples.  */
 #if 0
+      NEXT_PASS (pass_create_structure_vars);
+      NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_rename_ssa_copies);
 
       /* Initial scalar cleanups.  */
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_phiprop);
-#endif
       NEXT_PASS (pass_fre);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_forwprop);
-#endif
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_merge_phi);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_cselim);
-#endif
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
@@ -609,8 +602,6 @@ init_optimization_passes (void)
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_recursion);
@@ -618,11 +609,10 @@ init_optimization_passes (void)
       NEXT_PASS (pass_stdarg);
 #endif
       NEXT_PASS (pass_lower_complex);
-      NEXT_PASS (pass_sra);
       /* FIXME tuples.  */
 #if 0
+      NEXT_PASS (pass_sra);
       NEXT_PASS (pass_rename_ssa_copies);
-#endif
       NEXT_PASS (pass_dominator);
 
       /* The only const/copy propagation opportunities left after
@@ -632,40 +622,25 @@ init_optimization_passes (void)
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
 
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_dse);
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
-#endif
       NEXT_PASS (pass_object_sizes);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_store_ccp);
       NEXT_PASS (pass_copy_prop);
-#endif
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_cse_sincos);
-#endif
       NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_pre);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_sink_code);
-#endif
       NEXT_PASS (pass_tree_loop);
 	{
 	  struct tree_opt_pass **p = &pass_tree_loop.sub;
 	  NEXT_PASS (pass_tree_loop_init);
 	  NEXT_PASS (pass_copy_prop);
-	  /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_dce_loop);
-#endif
 	  NEXT_PASS (pass_lim);
 	  NEXT_PASS (pass_predcom);
 	  NEXT_PASS (pass_tree_unswitch);
@@ -678,12 +653,9 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_if_conversion);
 	  NEXT_PASS (pass_vectorize);
 	    {
-	      /* FIXME tuples.  */
-#if 0
 	      struct tree_opt_pass **p = &pass_vectorize.sub;
 	      NEXT_PASS (pass_lower_vector_ssa);
 	      NEXT_PASS (pass_dce_loop);
-#endif
 	    }
 	  NEXT_PASS (pass_complete_unroll);
 	  NEXT_PASS (pass_parallelize_loops);
@@ -691,13 +663,10 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_iv_optimize);
 	  NEXT_PASS (pass_tree_loop_done);
 	}
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_cse_reciprocals);
       NEXT_PASS (pass_convert_to_rsqrt);
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_vrp);
-#endif
       NEXT_PASS (pass_dominator);
       
       /* The only const/copy propagation opportunities left after
@@ -707,10 +676,7 @@ init_optimization_passes (void)
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
 
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_cd_dce);
-#endif
       NEXT_PASS (pass_tracer);
 
       /* FIXME: If DCE is not run before checking for uninitialized uses,
@@ -722,8 +688,6 @@ init_optimization_passes (void)
 	 account for the predicates protecting the set and the use of each
 	 variable.  Using a representation like Gated Single Assignment
 	 may help.  */
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_late_warn_uninitialized);
       NEXT_PASS (pass_dse);
       NEXT_PASS (pass_forwprop);
@@ -731,7 +695,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_tail_calls);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_uncprop);
-#endif
       NEXT_PASS (pass_del_ssa);
       NEXT_PASS (pass_nrv);
       NEXT_PASS (pass_mark_used_blocks);
@@ -841,6 +804,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_final);
 	}
       NEXT_PASS (pass_df_finish);
+#endif
     }
   NEXT_PASS (pass_clean_state);
   *p = NULL;
@@ -963,14 +927,9 @@ execute_function_todo (void *data)
 
   if (flags & TODO_update_ssa_any)
     {
-      /* FIXME tuples */
-#if 0
       unsigned update_flags = flags & TODO_update_ssa_any;
       update_ssa (update_flags);
       cfun->last_verified &= ~TODO_verify_ssa;
-#else
-      gimple_unreachable ();
-#endif
     }
   
   if (flags & TODO_rebuild_alias)

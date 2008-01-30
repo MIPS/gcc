@@ -2442,7 +2442,6 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 {
   basic_block son;
   gimple_stmt_iterator *si;
-  gimple phi;
   edge e;
   edge_iterator ei;
 
@@ -2452,6 +2451,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
      the symbols that we are interested in.  */
   for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (si))
     {
+      gimple phi = gsi_stmt (si);
       tree lhs_sym, lhs = gimple_phi_result (phi);
 
       lhs_sym = DECL_P (lhs) ? lhs : SSA_NAME_VAR (lhs);
