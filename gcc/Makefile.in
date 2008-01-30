@@ -2609,8 +2609,8 @@ tree-sra.o : tree-sra.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
     bitmap.h $(GGC_H) hard-reg-set.h $(OBSTACK_H) $(PARAMS_H) $(TARGET_H)
 tree-complex.o : tree-complex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(TM_H) $(RTL_H) $(REAL_H) $(FLAGS_H) $(TREE_FLOW_H) $(TREE_GIMPLE_H) \
-    tree-iterator.h tree-pass.h tree-ssa-propagate.h $(DIAGNOSTIC_H)
-#     gt-tree-vect-generic.h 
+    tree-iterator.h tree-pass.h tree-ssa-propagate.h $(DIAGNOSTIC_H) \
+    gt-tree-vect-generic.h
 tree-vect-generic.o : tree-vect-generic.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     $(TM_H) $(TREE_FLOW_H) $(TREE_GIMPLE_H) tree-iterator.h tree-pass.h \
     $(FLAGS_H) $(OPTABS_H) $(RTL_H) $(MACHMODE_H) $(EXPR_H) \
@@ -3115,7 +3115,6 @@ s-constrs-h: $(MD_DEPS) build/genpreds$(build_exeext)
 # $(srcdir)/ipa-reference.h 
 # $(srcdir)/omp-low.c 
 # $(srcdir)/ipa-reference.c
-# $(srcdir)/tree-vect-generic.c 
 GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(CPP_ID_DATA_H) $(host_xm_file_list) \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
@@ -3129,6 +3128,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
   $(srcdir)/ipa-prop.c $(srcdir)/ipa-cp.c $(srcdir)/ipa-inline.c $(srcdir)/matrix-reorg.c \
   $(srcdir)/dbxout.c $(srcdir)/ipa-struct-reorg.c $(srcdir)/dwarf2out.c $(srcdir)/dwarf2asm.c \
+  $(srcdir)/tree-vect-generic.c \
   $(srcdir)/dojump.c \
   $(srcdir)/emit-rtl.c $(srcdir)/except.c $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/function.c $(srcdir)/except.h \

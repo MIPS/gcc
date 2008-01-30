@@ -491,10 +491,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_lower_complex_O0);
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_lower_vector);
-#endif
   NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_build_cgraph_edges);
   NEXT_PASS (pass_inline_parameters);

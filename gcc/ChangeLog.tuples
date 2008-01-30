@@ -1,3 +1,31 @@
+2008-01-30  Rafael Espindola  <espindola@google.com>
+
+	* Makefile.in (tree-complex.o): Uncomment gt-tree-vect-generic.h.
+	(GTFILES): Add tree-vect-generic.c.
+	* passes.c (init_optimization_passes): Enable pass_lower_vector.
+	* tree-vect-generic.c: uncomment all the file.
+	(elem_op_func): Use gimple_stmt_iterator instead of
+	block_stmt_iterator.
+	(tree_vec_extract): Likewise. Rename bsi to gsi.
+	(do_unop): Likewise.
+	(do_binop): Likewise.
+	(do_plus_minus): Likewise.
+	(do_negate): Likewise.
+	(expand_vector_piecewise): Likewise.
+	(expand_vector_parallel): Likewise.
+	(expand_vector_addition): Likewise.
+	(expand_vector_operation): Likewise. Remove "tree rhs" param. Add
+	"gimple assign" param. Use gimple_assign_rhs1|2 instead of
+	TREE_OPERAND.
+	(expand_vector_operations_1): Use gimple_stmt_iterator instead of
+	block_stmt_iterator. Rename bsi to gsi. Use gsi_stmt instead of
+	bsi_stmt. Use gimple_assign_* instead of GIMPLE_STMT_OPERAND. Use
+	gimple_assign_set_rhs_from_tree instead of setting *p_rhs.
+	(gate_expand_vector_operations): Use gimple_stmt_iterator instead
+	of block_stmt_iterator. Use gsi_* instead of bsi_*
+	(pass_lower_vector): flip works_with_tuples_p
+	(pass_lower_vector_ssa) flip works_with_tuples_
+
 2008-01-29  Rafael Espindola  <espindola@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-01/msg01434.html
