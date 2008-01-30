@@ -2649,6 +2649,19 @@ gsi_stmt (gimple_stmt_iterator *i)
   return i->stmt;
 }
 
+/* Return a block statement iterator that points to the first non-label
+   statement in block BB.  */
+
+static inline gimple_stmt_iterator *
+gsi_after_labels (basic_block bb)
+{
+  gimple_stmt_iterator *gsi = gsi_start_bb (bb);
+
+  while (!gsi_end_p (gsi) && gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL)
+    gsi_next (gsi);
+
+  return gsi;
+}
 
 /* Return a pointer to the current stmt.  */
 
