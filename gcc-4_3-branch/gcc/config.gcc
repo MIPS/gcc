@@ -197,6 +197,30 @@ md_file=
 case ${target} in
    crx-*		\
  | mt-*			\
+ | strongarm*-*		\
+ | ep9312*-*		\
+ | xscale*-*		\
+ | parisc*-*		\
+ | m680[012]0-*		\
+ | *-*-beos*		\
+ | *-*-kaos*		\
+ | *-*-linux*aout*	\
+ | *-*-linux*libc1*	\
+ | *-*-solaris2.[0-6]	\
+ | *-*-solaris2.[0-6].*	\
+ | *-*-sysv*		\
+ | *-*-windiss*		\
+ | alpha*-*-unicosmk*	\
+ | cris-*-aout		\
+ | hppa1.1-*-pro*	\
+ | hppa1.1-*-osf*	\
+ | hppa1.1-*-bsd*	\
+ | i[34567]86-sequent-ptx4*	\
+ | i[34567]86-*-sco3.2v5*	\
+ | i[34567]86-*-uwin*	\
+ | powerpc-*-chorusos*	\
+ | vax-*-bsd*		\
+ | vax-*-ultrix*	\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -2072,8 +2096,16 @@ rs6000-ibm-aix5.2.* | powerpc-ibm-aix5.2.*)
 	thread_file='aix'
 	extra_headers=
 	;;
-rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
+rs6000-ibm-aix5.3.* | powerpc-ibm-aix5.3.*)
 	tm_file="${tm_file} rs6000/aix.h rs6000/aix53.h rs6000/xcoff.h"
+	tmake_file=rs6000/t-aix52
+	extra_options="${extra_options} rs6000/aix64.opt"
+	use_collect2=yes
+	thread_file='aix'
+	extra_headers=altivec.h
+	;;
+rs6000-ibm-aix[6789].* | powerpc-ibm-aix[6789].*)
+	tm_file="${tm_file} rs6000/aix.h rs6000/aix61.h rs6000/xcoff.h"
 	tmake_file=rs6000/t-aix52
 	extra_options="${extra_options} rs6000/aix64.opt"
 	use_collect2=yes

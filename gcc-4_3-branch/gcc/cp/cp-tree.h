@@ -1655,11 +1655,11 @@ struct lang_decl GTY(())
       {
 	/* In an overloaded operator, this is the value of
 	   DECL_OVERLOADED_OPERATOR_P.  */
-	ENUM_BITFIELD (tree_code) operator_code : 8;
+	ENUM_BITFIELD (tree_code) operator_code : 16;
 
 	unsigned u3sel : 1;
 	unsigned pending_inline_p : 1;
-	unsigned spare : 22;
+	unsigned spare : 14;
 
 	/* For a non-thunk function decl, this is a tree list of
 	   friendly classes. For a thunk function decl, it is the
@@ -4435,7 +4435,7 @@ extern int comp_template_parms			(const_tree, const_tree);
 extern bool uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (const_tree);
 extern tree make_pack_expansion                 (tree);
-extern bool check_for_bare_parameter_packs      (tree*);
+extern bool check_for_bare_parameter_packs      (tree);
 extern tree get_template_info			(tree);
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);

@@ -1,3 +1,159 @@
+2008-01-30  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.target/s390/tf_to_di-1.c: New testcase.
+
+2008-01-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34975
+	* gfortran.dg/use_only_3.f90: New test.
+	* gfortran.dg/use_only_3.inc: Modules for new test.
+
+	PR fortran/34429
+	* gfortran.dg/function_charlen_2.f90: New test.
+
+2008-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/34969
+	* gcc.dg/pr34969.c: New test.
+
+	PR c/35017
+	* gcc.dg/inline-25.c: New test.
+	* gcc.dg/inline-26.c: New test.
+	* gcc.dg/inline-27.c: New test.
+
+2008-01-29  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35006
+	* gcc.c-torture/compile/pr35006.c: New testcase.
+
+2008-01-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/34055
+	PR c++/34103
+	PR c++/34219
+	PR c++/34606
+	PR c++/34753
+	PR c++/34754
+	PR c++/34755
+	PR c++/34919
+	PR c++/34961
+	* g++.dg/cpp0x/vt-34219-2.C: New.
+	* g++.dg/cpp0x/pr32126.C: Tweak expected error messages.
+	* g++.dg/cpp0x/vt-34961.C: New.
+	* g++.dg/cpp0x/vt-34055.C: Tweak error messages; add new test
+	cases from the re-opened PR.
+	* g++.dg/cpp0x/vt-34753.C: New.
+	* g++.dg/cpp0x/vt-34919.C: New.
+	* g++.dg/cpp0x/vt-34754.C: New.
+	* g++.dg/cpp0x/vt-34606.C: New.
+	* g++.dg/cpp0x/vt-34219.C: New.
+	* g++.dg/cpp0x/pr32125.C: Tweak expected error messages.
+	* g++.dg/cpp0x/vt-34755.C: New.
+	* g++.dg/cpp0x/pr31438.C: Ditto.
+	* g++.dg/cpp0x/variadic81.C: Ditto.
+
+2008-01-29  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* g++.dg/torture/pr34641.C: Put the dg-do first.
+
+2008-01-29  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/lazy-binding-1.c: Skip for mips16.
+
+2008-01-28  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* g++.old-deja/g++.pt/incomplete1.C: Fix typo in comment.
+
+2008-01-28  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR 31535
+	* gcc.target/powerpc/spe-small-data-1.c: New test.
+	* gcc.target/powerpc/spe-small-data-2.c: New test.
+
+2008-01-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/34980
+	* gfortran.dg/shape_3.f90:  New test.
+
+2008-01-28  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.target/s390/20020926-1.c: Remove -m31.
+
+2008-01-28  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.target/s390/20020926-1.c: Disable for s390x.
+
+2008-01-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34994
+	* gfortran.dg/missing_optional_dummy_5.f90: Fix matching regular
+	expression.
+
+2008-01-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34990
+	* gfortran.dg/array_constructor_22.f90: New test.
+
+2008-01-26  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	PR middle-end/34688
+	* gcc.c-torture/compile/pr34688: New test.
+
+2008-01-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34848
+	* gfortran.dg/missing_optional_dummy_5.f90: New.
+
+2008-01-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/tree-ssa/20070302-1.c (baz): Mark with attribute
+	noinline.  XFAIL test.
+
+2008-01-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/31610
+	* gfortran.dg/array_3.f90: New test.
+
+2008-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/pr34966.c (atan): Only use asm
+	on i?86/x86_64.
+
+	PR c++/34965
+	* gcc.dg/pr34965.c: New test.
+	* g++.dg/other/error24.C: New test.
+
+2008-01-26  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfofortran/34887
+	* gfortran.dg/x_slash_2.f:  New test.
+
+2008-01-26  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/34235
+	* g++.dg/torture/pr34235.C: New testcase.
+
+2008-01-26  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* g++.dg/tree-ssa/ivopts-1.C: XFAIL for MIPS too.
+
+2008-01-26  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/34981
+	* gcc.target/mips/lazy-binding-1.c: New test.
+	* gcc.target/mips/mips.exp (setup_mips_tests): Set
+	mips_forced_no_abicalls and mips_forced_no_shared.
+	(dg-mips-options): Avoid using -mabicalls with an implicit -mabi=eabi.
+	Avoid using small data with -mabicalls.  Don't make -G0 force
+	-mn-abicalls.  Skip -mabicalls and -mshared tests if the multilib
+	forces the opposite option.
+
+2008-01-26  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/34970
+	* gcc.target/i386/fastcall-1.c: Scan for correct label.
+	Use -std=gnu89 switch.
+
 2008-01-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/34876
