@@ -269,7 +269,7 @@ struct tree_opt_pass pass_free_cfg_annotations =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
+  ,1					/* works_with_tuples_p */
 };
 
 /* Pass: fixup_cfg.  IPA passes, compilation of earlier functions or inlining

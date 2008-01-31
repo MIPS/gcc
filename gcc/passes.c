@@ -700,7 +700,11 @@ init_optimization_passes (void)
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_mudflap_2);
+#endif
+
   NEXT_PASS (pass_free_cfg_annotations);
+
+#if 0
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
     {
