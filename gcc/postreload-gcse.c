@@ -1325,6 +1325,5 @@ struct tree_opt_pass pass_gcse2 =
   TODO_dump_func | TODO_verify_rtl_sharing
   | TODO_verify_flow | TODO_ggc_collect,/* todo_flags_finish */
   'J'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 

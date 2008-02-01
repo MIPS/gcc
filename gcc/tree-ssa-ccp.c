@@ -1489,7 +1489,6 @@ struct tree_opt_pass pass_ccp =
   TODO_dump_func | TODO_verify_ssa
   | TODO_verify_stmts | TODO_ggc_collect,/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -1526,7 +1525,6 @@ struct tree_opt_pass pass_store_ccp =
   TODO_dump_func | TODO_verify_ssa
   | TODO_verify_stmts | TODO_ggc_collect,/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Given a constant value VAL for bitfield FIELD, and a destination
@@ -3047,6 +3045,5 @@ struct tree_opt_pass pass_fold_builtins =
     | TODO_verify_ssa
     | TODO_update_ssa,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 #endif

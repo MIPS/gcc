@@ -936,5 +936,4 @@ struct tree_opt_pass pass_merge_phi =
   TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
   | TODO_verify_ssa,
   0				/* letter */
-  ,0					/* works_with_tuples_p */
 };

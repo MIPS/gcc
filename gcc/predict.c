@@ -1982,5 +1982,4 @@ struct tree_opt_pass pass_profile =
   0,					/* todo_flags_start */
   TODO_ggc_collect | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };

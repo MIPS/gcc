@@ -516,7 +516,6 @@ struct tree_opt_pass pass_tree_profile =
   0,					/* todo_flags_start */
   TODO_verify_stmts | TODO_dump_func,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 struct profile_hooks tree_profile_hooks =

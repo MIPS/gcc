@@ -3217,7 +3217,6 @@ struct tree_opt_pass pass_stack_regs =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Convert register usage from flat register file usage to a stack
@@ -3249,5 +3248,4 @@ struct tree_opt_pass pass_stack_regs_run =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'k'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };

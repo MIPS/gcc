@@ -1561,7 +1561,6 @@ struct tree_opt_pass pass_early_warn_uninitialized =
   0,					/* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0				        /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_late_warn_uninitialized =
@@ -1579,7 +1578,6 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,					/* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0				        /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Compute TREE_ADDRESSABLE for local variables.  */
@@ -1676,6 +1674,5 @@ struct tree_opt_pass pass_update_address_taken =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_update_ssa,                      /* todo_flags_finish */
-  0,				        /* letter */
-  1					/* works_with_tuples_p */
+  0				        /* letter */
 };

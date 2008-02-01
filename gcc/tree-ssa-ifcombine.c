@@ -624,6 +624,5 @@ struct tree_opt_pass pass_tree_ifcombine = {
   | TODO_update_ssa
   | TODO_verify_ssa,		/* todo_flags_finish */
   0				/* letter */
-  ,0					/* works_with_tuples_p */
 };
 #endif

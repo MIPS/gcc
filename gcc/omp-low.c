@@ -4215,7 +4215,6 @@ struct tree_opt_pass pass_expand_omp_ssa =
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
-  , 0					/* works_with_tuples_p */
 };
 
 /* OMP expansion -- the default pass, run before creation of SSA form.  */
@@ -4242,7 +4241,6 @@ struct tree_opt_pass pass_expand_omp =
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* FIXME tuples.  */
@@ -5136,7 +5134,6 @@ struct tree_opt_pass pass_lower_omp =
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 /* FIXME tuples  */
 #if 0

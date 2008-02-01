@@ -354,5 +354,4 @@ struct tree_opt_pass pass_release_ssa_names =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };

@@ -772,5 +772,4 @@ struct tree_opt_pass pass_mode_switching =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
-  ,0					/* works_with_tuples_p */
 };

@@ -70,7 +70,6 @@ struct tree_opt_pass pass_tree_loop =
   TODO_ggc_collect,			/* todo_flags_start */
   TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Loop optimizer initialization.  */
@@ -101,7 +100,6 @@ struct tree_opt_pass pass_tree_loop_init =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Loop invariant motion pass.  */
@@ -137,7 +135,6 @@ struct tree_opt_pass pass_lim =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Loop unswitching pass.  */
@@ -173,7 +170,6 @@ struct tree_opt_pass pass_tree_unswitch =
   TODO_ggc_collect | TODO_dump_func
     | TODO_verify_loops,		/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Predictive commoning.  */
@@ -210,7 +206,6 @@ struct tree_opt_pass pass_predcom =
   TODO_dump_func | TODO_verify_loops
     | TODO_update_ssa_only_virtuals,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Loop autovectorization.  */
@@ -243,7 +238,6 @@ struct tree_opt_pass pass_vectorize =
   TODO_dump_func | TODO_update_ssa
     | TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Loop nest optimizations.  */
@@ -281,7 +275,6 @@ struct tree_opt_pass pass_linear_transform =
     | TODO_update_ssa_only_virtuals
     | TODO_ggc_collect,			/* todo_flags_finish */
   0				        /* letter */	
-  ,0					/* works_with_tuples_p */
 };
 
 /* Check the correctness of the data dependence analyzers.  */
@@ -317,7 +310,6 @@ struct tree_opt_pass pass_check_data_deps =
   0,					/* todo_flags_start */
   TODO_dump_func,                	/* todo_flags_finish */
   0				        /* letter */	
-  ,0					/* works_with_tuples_p */
 };
 
 /* Canonical induction variable creation pass.  */
@@ -352,7 +344,6 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Propagation of constants using scev.  */
@@ -380,7 +371,6 @@ struct tree_opt_pass pass_scev_cprop =
     | TODO_update_ssa_only_virtuals,
 					/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Remove empty loops.  */
@@ -410,7 +400,6 @@ struct tree_opt_pass pass_empty_loop =
   TODO_dump_func | TODO_verify_loops 
     | TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Record bounds on numbers of iterations of loops.  */
@@ -441,7 +430,6 @@ struct tree_opt_pass pass_record_bounds =
   0,					/* todo_flags_start */
   0,			              	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Complete unrolling of loops.  */
@@ -479,7 +467,6 @@ struct tree_opt_pass pass_complete_unroll =
   TODO_dump_func | TODO_verify_loops
     | TODO_ggc_collect,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Parallelization.  */
@@ -516,7 +503,6 @@ struct tree_opt_pass pass_parallelize_loops =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0				        /* letter */	
-  ,0					/* works_with_tuples_p */
 };
 
 /* Prefetching.  */
@@ -551,7 +537,6 @@ struct tree_opt_pass pass_loop_prefetch =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Induction variable optimizations.  */
@@ -588,7 +573,6 @@ struct tree_opt_pass pass_iv_optimize =
   TODO_dump_func | TODO_verify_loops
   | TODO_update_ssa | TODO_ggc_collect,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Loop optimizer finalization.  */
@@ -617,5 +601,4 @@ struct tree_opt_pass pass_tree_loop_done =
   0,					/* todo_flags_start */
   TODO_cleanup_cfg | TODO_dump_func,	/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };

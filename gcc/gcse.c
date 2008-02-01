@@ -6699,7 +6699,6 @@ struct tree_opt_pass pass_jump_bypass =
   TODO_dump_func |
   TODO_ggc_collect | TODO_verify_flow,  /* todo_flags_finish */
   'G'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -6769,7 +6768,6 @@ struct tree_opt_pass pass_gcse =
   TODO_dump_func |
   TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
   'G'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 

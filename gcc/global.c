@@ -1821,6 +1821,5 @@ struct tree_opt_pass pass_global_alloc =
   TODO_dump_func | TODO_verify_rtl_sharing
   | TODO_ggc_collect,                   /* todo_flags_finish */
   'g'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 

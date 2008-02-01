@@ -387,6 +387,5 @@ struct tree_opt_pass pass_web =
   TODO_df_finish | TODO_verify_rtl_sharing | 
   TODO_dump_func,                       /* todo_flags_finish */
   'Z'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 

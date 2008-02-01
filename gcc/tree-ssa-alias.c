@@ -4267,7 +4267,6 @@ struct tree_opt_pass pass_create_structure_vars =
   0,			 /* todo_flags_start */
   TODO_dump_func,	 /* todo_flags_finish */
   0			 /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Reset the call_clobbered flags on our referenced vars.  In
@@ -4299,5 +4298,4 @@ struct tree_opt_pass pass_reset_cc_flags =
   0,			 /* todo_flags_start */
   0,         	         /* todo_flags_finish */
   0			 /* letter */
-  ,1					/* works_with_tuples_p */
 };

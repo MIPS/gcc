@@ -3304,7 +3304,6 @@ struct tree_opt_pass pass_rtl_dse1 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_rtl_dse2 =
@@ -3324,5 +3323,4 @@ struct tree_opt_pass pass_rtl_dse2 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'w'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };

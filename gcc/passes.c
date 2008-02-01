@@ -304,7 +304,6 @@ struct tree_opt_pass pass_rest_of_compilation =
   0,                                    /* todo_flags_start */
   TODO_ggc_collect,                     /* todo_flags_finish */
   0                                     /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 static bool
@@ -328,7 +327,6 @@ struct tree_opt_pass pass_postreload =
   0,                                    /* todo_flags_start */
   TODO_ggc_collect | TODO_verify_rtl_sharing, /* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -487,20 +485,28 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
+  /* FIXME tuples.  */
+#if 0
   NEXT_PASS (pass_refactor_eh);
   NEXT_PASS (pass_lower_eh);
+#endif
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_build_cgraph_edges);
+  /* FIXME tuples.  */
+#if 0
   NEXT_PASS (pass_inline_parameters);
+#endif
   *p = NULL;
 
   /* Interprocedural optimization passes. 
      All these passes are ignored in -fno-unit-at-a-time
      except for subpasses of early_local_passes.  */
   p = &all_ipa_passes;
+  /* FIXME tuples.  */
+#if 0
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
   NEXT_PASS (pass_ipa_early_inline);
     {
@@ -509,6 +515,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_inline_parameters);
       NEXT_PASS (pass_rebuild_cgraph_edges);
     }
+#endif
   NEXT_PASS (pass_early_local_passes);
     {
       struct tree_opt_pass **p = &pass_early_local_passes.sub;
@@ -546,32 +553,32 @@ init_optimization_passes (void)
 #endif
 	}
       NEXT_PASS (pass_rebuild_cgraph_edges);
+      /* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_inline_parameters);
+#endif
     }
   /* FIXME tuples.  */
 #if 0
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
-#endif
   NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_inline);
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_ipa_reference);
-#endif
   NEXT_PASS (pass_ipa_pure_const); 
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_ipa_type_escape);
-#endif
   NEXT_PASS (pass_ipa_pta);
   NEXT_PASS (pass_ipa_struct_reorg);  
+#endif
   *p = NULL;
 
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
+  /* FIXME tuples.  */
+#if 0
   NEXT_PASS (pass_apply_inline);
+#endif
   NEXT_PASS (pass_all_optimizations);
     {
       struct tree_opt_pass **p = &pass_all_optimizations.sub;
@@ -698,15 +705,16 @@ init_optimization_passes (void)
       NEXT_PASS (pass_nrv);
       NEXT_PASS (pass_mark_used_blocks);
       NEXT_PASS (pass_cleanup_cfg_post_optimizing);
+#endif
     }
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_free_datastructures);
+  /* FIXME tuples.  */
+#if 0
   NEXT_PASS (pass_mudflap_2);
 #endif
 
   NEXT_PASS (pass_free_cfg_annotations);
-
-#if 0
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_rest_of_compilation);
     {
@@ -807,7 +815,6 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_final);
 	}
       NEXT_PASS (pass_df_finish);
-#endif
     }
   NEXT_PASS (pass_clean_state);
   *p = NULL;
@@ -1097,11 +1104,6 @@ execute_one_pass (struct tree_opt_pass *pass)
   unsigned int todo_after = 0;
 
   current_pass = pass;
-
-  /* Imagine there are no trees... it's easy if you try.  Eventually,
-     everything'll be tuples, and the world will be as one.  */
-  if (!pass->works_with_tuples_p)
-    return false;
 
   /* See if we're supposed to run this pass.  */
   if (pass->gate && !pass->gate ())

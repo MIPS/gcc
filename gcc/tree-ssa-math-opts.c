@@ -573,7 +573,6 @@ struct tree_opt_pass pass_cse_reciprocals =
   TODO_dump_func | TODO_update_ssa | TODO_verify_ssa
     | TODO_verify_stmts,                /* todo_flags_finish */
   0				        /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Records an occurrence at statement USE_STMT in the vector of trees
@@ -779,7 +778,6 @@ struct tree_opt_pass pass_cse_sincos =
   TODO_dump_func | TODO_update_ssa | TODO_verify_ssa
     | TODO_verify_stmts,                /* todo_flags_finish */
   0				        /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Find all expressions in the form of sqrt(a/b) and
@@ -872,6 +870,5 @@ struct tree_opt_pass pass_convert_to_rsqrt =
   TODO_dump_func | TODO_update_ssa | TODO_verify_ssa
     | TODO_verify_stmts,                /* todo_flags_finish */
   0				        /* letter */
-  ,0					/* works_with_tuples_p */
 };
 #endif

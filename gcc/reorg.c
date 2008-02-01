@@ -4082,7 +4082,6 @@ struct tree_opt_pass pass_delay_slots =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'd'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Machine dependent reorg pass.  */
@@ -4116,5 +4115,4 @@ struct tree_opt_pass pass_machine_reorg =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'M'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };

@@ -13046,6 +13046,5 @@ struct tree_opt_pass pass_combine =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'c'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 

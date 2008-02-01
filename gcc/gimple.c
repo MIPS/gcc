@@ -983,7 +983,8 @@ walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
   for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
     {
       tree ret;
-      wi->gsi = gsi;
+      if (wi)
+	wi->gsi = gsi;
       ret = walk_gimple_stmt (gsi_stmt (gsi), callback_stmt, callback_op, wi);
       if (ret)
 	return ret;

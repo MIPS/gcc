@@ -6182,6 +6182,5 @@ struct tree_opt_pass pass_vrp =
     | TODO_dump_func
     | TODO_update_ssa,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 #endif

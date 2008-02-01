@@ -2648,6 +2648,5 @@ struct tree_opt_pass pass_local_alloc =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'l'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 

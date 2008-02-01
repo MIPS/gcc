@@ -768,7 +768,6 @@ struct tree_opt_pass pass_df_initialize_opt =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   'z'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -794,7 +793,6 @@ struct tree_opt_pass pass_df_initialize_no_opt =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   'z'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -842,7 +840,6 @@ struct tree_opt_pass pass_df_finish =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   'z'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 

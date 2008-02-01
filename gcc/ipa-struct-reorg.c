@@ -4001,5 +4001,4 @@ struct tree_opt_pass pass_ipa_struct_reorg =
   TODO_verify_ssa,		  /* todo_flags_start */
   TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
   0					/* letter */
-  ,0
 };

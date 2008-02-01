@@ -1074,7 +1074,6 @@ struct tree_opt_pass pass_regclass_init =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   'k'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -2688,7 +2687,6 @@ struct tree_opt_pass pass_subregs_of_mode_init =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_subregs_of_mode_finish =
@@ -2706,7 +2704,6 @@ struct tree_opt_pass pass_subregs_of_mode_finish =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 

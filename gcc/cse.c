@@ -6997,7 +6997,6 @@ struct tree_opt_pass pass_cse =
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
   's'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -7059,6 +7058,5 @@ struct tree_opt_pass pass_cse2 =
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
   't'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 

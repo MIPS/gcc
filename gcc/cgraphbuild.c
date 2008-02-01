@@ -189,7 +189,6 @@ struct tree_opt_pass pass_build_cgraph_edges =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
-  ,1					/* works_with_tuples_p */
 };
 
 /* Record references to functions and other variables present in the
@@ -258,5 +257,4 @@ struct tree_opt_pass pass_rebuild_cgraph_edges =
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
   0					/* letter */
-  ,1					/* works_with_tuples_p */
 };

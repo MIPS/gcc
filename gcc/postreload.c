@@ -1601,6 +1601,5 @@ struct tree_opt_pass pass_postreload_cse =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,                       /* todo_flags_finish */
   'o'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 

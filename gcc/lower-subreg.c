@@ -1442,7 +1442,6 @@ struct tree_opt_pass pass_lower_subreg =
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
   'u'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_lower_subreg2 =
@@ -1463,5 +1462,4 @@ struct tree_opt_pass pass_lower_subreg2 =
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
   'U'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };

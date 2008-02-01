@@ -1432,5 +1432,4 @@ struct tree_opt_pass pass_rtl_seqabstr = {
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'Q'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };

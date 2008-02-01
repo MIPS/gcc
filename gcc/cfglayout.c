@@ -372,7 +372,6 @@ struct tree_opt_pass pass_into_cfg_layout_mode =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_outof_cfg_layout_mode =
@@ -390,7 +389,6 @@ struct tree_opt_pass pass_outof_cfg_layout_mode =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 /* Return sope resulting from combination of S1 and S2.  */

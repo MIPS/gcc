@@ -292,5 +292,4 @@ struct tree_opt_pass pass_ipa_function_and_variable_visibility =
   0,					/* todo_flags_start */
   TODO_remove_functions | TODO_dump_cgraph,/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };

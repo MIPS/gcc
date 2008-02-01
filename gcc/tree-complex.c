@@ -1566,7 +1566,6 @@ struct tree_opt_pass pass_lower_complex =
     | TODO_update_ssa
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -1613,5 +1612,4 @@ struct tree_opt_pass pass_lower_complex_O0 =
   TODO_dump_func | TODO_ggc_collect
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */
-  ,1					/* works_with_tuples_p */
 };

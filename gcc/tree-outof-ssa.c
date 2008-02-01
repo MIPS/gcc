@@ -1500,5 +1500,4 @@ struct tree_opt_pass pass_del_ssa =
   | TODO_ggc_collect
   | TODO_remove_unused_locals,		/* todo_flags_finish */
   0					/* letter */
-  ,1					/* works_with_tuples_p */
 };

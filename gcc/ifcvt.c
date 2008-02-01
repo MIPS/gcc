@@ -4144,7 +4144,6 @@ struct tree_opt_pass pass_rtl_ifcvt =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,                       /* todo_flags_finish */
   'C'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 static bool
@@ -4180,7 +4179,6 @@ struct tree_opt_pass pass_if_after_combine =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'C'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -4215,5 +4213,4 @@ struct tree_opt_pass pass_if_after_reload =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'E'                                   /* letter */
-  ,0					/* works_with_tuples_p */
 };

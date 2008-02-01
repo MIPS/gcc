@@ -1,3 +1,26 @@
+2008-02-01  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00032.html
+
+	* tree-pas.h (struct tree_opt_pass): Remove field
+	WORKS_WITH_TUPLES_P.  Adjust all users.
+	* opts.c (decode_options): Force -O0.
+	* cfgexpand.c (gimple_to_tree): Handle GIMPLE_RETURN,
+	GIMPLE_ASM, GIMPLE_CALL and GIMPLE_SWITCH.
+	Show unrecognized tuple when failing.
+	(expand_gimple_basic_block): Do not use
+	gimple_stmt_iterator to go through the statements in BB.
+	Handle GIMPLE_CALL instead of CALL_EXPR.
+	(gimple_expand_cfg): Rename from tree_expand_cfg.  Update
+	all users.
+	Remove PROP_gimple_leh.
+	* gimple.c (walk_gimple_seq): Guard against WI == NULL.
+	* tree-cfg.c (execute_warn_function_return): Move #if 0
+	markers.
+	* passes.c (init_optimization_passes): Adjust #if 0
+	markers to execute pass_expand.
+	Guard more passes under #if 0.
+
 2008-02-01  Rafael Espindola  <espindola@google.com>
 
 	* passes.c (init_optimization_passes): Enable pass_del_ssa.

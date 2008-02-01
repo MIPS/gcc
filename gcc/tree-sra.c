@@ -3679,7 +3679,6 @@ struct tree_opt_pass pass_sra_early =
   | TODO_ggc_collect
   | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 struct tree_opt_pass pass_sra =
@@ -3700,5 +3699,4 @@ struct tree_opt_pass pass_sra =
   | TODO_ggc_collect
   | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
-  ,0					/* works_with_tuples_p */
 };

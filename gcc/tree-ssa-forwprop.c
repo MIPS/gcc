@@ -1061,7 +1061,6 @@ struct tree_opt_pass pass_forwprop = {
   | TODO_update_ssa
   | TODO_verify_ssa,		/* todo_flags_finish */
   0				/* letter */
-  ,0					/* works_with_tuples_p */
 };
 
 
@@ -1361,6 +1360,5 @@ struct tree_opt_pass pass_phiprop = {
   | TODO_update_ssa
   | TODO_verify_ssa,		/* todo_flags_finish */
   0				/* letter */
-  ,0					/* works_with_tuples_p */
 };
 #endif

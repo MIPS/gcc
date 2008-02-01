@@ -93,11 +93,116 @@ gimple_to_tree (gimple stmt)
     case GIMPLE_LABEL:
       return build1 (LABEL_EXPR, void_type_node, gimple_label_label (stmt));
 
-    case GIMPLE_SWITCH:
-    case GIMPLE_ASM:
-    case GIMPLE_CALL:
     case GIMPLE_RETURN:
+      return build1 (RETURN_EXPR, void_type_node, gimple_return_retval (stmt));
+
+    case GIMPLE_ASM:
+      {
+	size_t i, n;
+	tree out, in, cl, t;
+	const char *s;
+
+	out = NULL_TREE;
+	n = gimple_asm_noutputs (stmt);
+	if (n > 0)
+	  {
+	    t = out = gimple_asm_output_op (stmt, 0);
+	    for (i = 1; i < n; i++)
+	      {
+		TREE_CHAIN (t) = gimple_asm_output_op (stmt, i);
+		t = gimple_asm_output_op (stmt, i);
+	      }
+	  }
+
+	in = NULL_TREE;
+	n = gimple_asm_ninputs (stmt);
+	if (n > 0)
+	  {
+	    t = in = gimple_asm_input_op (stmt, 0);
+	    for (i = 1; i < n; i++)
+	      {
+		TREE_CHAIN (t) = gimple_asm_input_op (stmt, i);
+		t = gimple_asm_input_op (stmt, i);
+	      }
+	  }
+
+	cl = NULL_TREE;
+	n = gimple_asm_nclobbers (stmt);
+	if (n > 0)
+	  {
+	    t = cl = gimple_asm_clobber_op (stmt, 0);
+	    for (i = 1; i < n; i++)
+	      {
+		TREE_CHAIN (t) = gimple_asm_clobber_op (stmt, i);
+		t = gimple_asm_clobber_op (stmt, i);
+	      }
+	  }
+
+	s = gimple_asm_string (stmt);
+	t = build4 (ASM_EXPR, void_type_node, build_string (strlen (s), s),
+	            out, in, cl);
+	return t;
+      }
+
+    case GIMPLE_CALL:
+      {
+	size_t i;
+        tree fn, t;
+        
+	t = build_vl_exp (CALL_EXPR, gimple_call_nargs (stmt) + 3);
+
+        fn = gimple_call_fn (stmt);
+        if (TREE_CODE (fn) == FUNCTION_DECL)
+          {
+            CALL_EXPR_FN (t) = build1 (ADDR_EXPR,
+                                       build_pointer_type (TREE_TYPE (fn)),
+                                       fn);
+            TREE_TYPE (t) = TREE_TYPE (TREE_TYPE (fn));
+          }
+        else
+          {
+            CALL_EXPR_FN (t) = fn;
+            TREE_TYPE (t) = TREE_TYPE (fn);
+          }
+
+	CALL_EXPR_STATIC_CHAIN (t) = gimple_call_chain (stmt);
+
+	for (i = 0; i < gimple_call_nargs (stmt); i++)
+	  CALL_EXPR_ARG (t, i) = gimple_call_arg (stmt, i);
+
+	if (!(gimple_call_flags (stmt) & (ECF_CONST | ECF_PURE)))
+	  TREE_SIDE_EFFECTS (t) = 1;
+
+        /* If the call has a LHS then create a MODIFY_EXPR to hold it.  */
+        if (gimple_call_lhs (stmt))
+          t = build_gimple_modify_stmt (gimple_call_lhs (stmt), t);
+	
+	return t;
+      }
+
+    case GIMPLE_SWITCH:
+      {
+	tree t, label_vec;
+	size_t i;
+
+	label_vec = make_tree_vec (gimple_switch_num_labels (stmt));
+
+	for (i = 1; i < gimple_switch_num_labels (stmt); i++)
+	  TREE_VEC_ELT (label_vec, i - 1) = gimple_switch_label (stmt, i);
+
+	/* The default case in a SWITCH_EXPR must be at the end of
+	   the label vector.  */
+	TREE_VEC_ELT (label_vec, i - 1) = gimple_switch_label (stmt, 0);
+
+	t = build3 (SWITCH_EXPR, void_type_node, gimple_switch_index (stmt),
+		    NULL, label_vec);
+
+	return t;
+      }
+	
     default:
+      error ("Unrecognized GIMPLE statement during RTL expansion");
+      print_gimple_stmt (stderr, stmt, 4, 0);
       gcc_unreachable ();
     }
 }
@@ -1540,6 +1645,7 @@ static basic_block
 expand_gimple_basic_block (basic_block bb)
 {
   gimple_stmt_iterator *gsi;
+  gimple_seq stmts;
   gimple stmt = NULL;
   rtx note, last;
   edge e;
@@ -1550,13 +1656,18 @@ expand_gimple_basic_block (basic_block bb)
     fprintf (dump_file, "\n;; Generating RTL for gimple basic block %d\n",
 	     bb->index);
 
+  /* Note that since we are now transitioning from GIMPLE to RTL, we
+     cannot use the gsi_*_bb() routines because they expect the basic
+     block to be in GIMPLE, instead of RTL.  Therefore, we need to
+     access the BB sequence directly.  */
+  stmts = bb_seq (bb);
   bb->il.gimple = NULL;
   init_rtl_bb_info (bb);
   bb->flags |= BB_RTL;
 
   /* Remove the RETURN_EXPR if we may fall though to the exit
      instead.  */
-  gsi = gsi_last_bb (bb);
+  gsi = gsi_last (stmts);
   if (!gsi_end_p (gsi)
       && gimple_code (gsi_stmt (gsi)) == GIMPLE_RETURN)
     {
@@ -1573,7 +1684,7 @@ expand_gimple_basic_block (basic_block bb)
 	}
     }
 
-  gsi = gsi_start_bb (bb);
+  gsi = gsi_start (stmts);
   if (!gsi_end_p (gsi))
     {
       stmt = gsi_stmt (gsi);
@@ -1641,9 +1752,7 @@ expand_gimple_basic_block (basic_block bb)
 	}
       else
 	{
-	  tree call = gimple_call_fn (stmt);
-
-	  if (call && CALL_EXPR_TAILCALL (call))
+	  if (gimple_code (stmt) == GIMPLE_CALL && gimple_call_tail_p (stmt))
 	    {
 	      bool can_fallthru;
 	      new_bb = expand_gimple_tailcall (bb, stmt, &can_fallthru);
@@ -1901,7 +2010,7 @@ discover_nonconstant_array_refs (void)
    the expansion.  */
 
 static unsigned int
-tree_expand_cfg (void)
+gimple_expand_cfg (void)
 {
   basic_block bb, init_block;
   sbitmap blocks;
@@ -2043,17 +2152,16 @@ struct tree_opt_pass pass_expand =
 {
   "expand",				/* name */
   NULL,                                 /* gate */
-  tree_expand_cfg,			/* execute */
+  gimple_expand_cfg,			/* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   TV_EXPAND,				/* tv_id */
   /* ??? If TER is enabled, we actually receive GENERIC.  */
-  PROP_gimple_leh | PROP_cfg,           /* properties_required */
+  /* FIXME tuples PROP_gimple_leh |*/ PROP_cfg,           /* properties_required */
   PROP_rtl,                             /* properties_provided */
   PROP_trees,				/* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'r'					/* letter */
-  ,0					/* works_with_tuples_p */
 };
