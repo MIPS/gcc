@@ -1,3 +1,8 @@
+2008-02-01  Rafael Espindola  <espindola@google.com>
+
+	* tree-ssa-operands.c (free_stmt_operands): Only free
+	with_ops.addresses_taken if stmt has ops.
+
 2008-01-31  Rafael Espindola  <espindola@google.com>
 
 	* tree-optimize.c (pass_free_cfg_annotations): Flip

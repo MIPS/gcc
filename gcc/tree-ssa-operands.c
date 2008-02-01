@@ -2508,7 +2508,8 @@ free_stmt_operands (gimple stmt)
       gimple_set_vdef_ops (stmt, NULL);
     }
 
-  BITMAP_FREE (stmt->with_ops.addresses_taken);
+  if (gimple_has_ops (stmt))
+    BITMAP_FREE (stmt->with_ops.addresses_taken);
 
   if (gimple_has_mem_ops (stmt))
     {
