@@ -1,5 +1,31 @@
 2008-02-01  Rafael Espindola  <espindola@google.com>
 
+	* passes.c (init_optimization_passes): Enable pass_del_ssa.
+
+	* tree-outof-ssa.c (insert_copy_on_edge): Port to tuples.
+	(eliminate_build): Likewise.
+	(eliminate_virtual_phis): Likewise.
+	(rewrite_trees): Likewise. Remove stmt_ann_t ann.
+	(stmt_list): Changed from tree to gimple_seq.
+	(identical_copies_p): Port to tuples.
+	(identical_stmt_lists_p): Likewise.
+	(init_analyze_edges_for_bb): Likewise.
+	(fini_analyze_edges_for_bb): Likewise.
+	(process_single_block_loop_latch): Likewise.
+	(analyze_edges_for_bb): LIkewise.
+	(remove_ssa_form): Likewise.
+	(insert_backedge_copies):
+	(rewrite_out_of_ssa):Likewise.
+	(pass_del_ssa): flip works_with_tuples_p. Don't require PROP_alias.
+
+	* tree-ssa-coalesce.c (build_ssa_conflict_graph): Port to tuples.
+	(abnormal_corrupt): Port to tuples.
+	(fail_abnormal_edge_coalesce): Port to tuples.
+	(create_outofssa_var_map):Port to tuples.
+	(coalesce_partitions): Port to tuples.
+
+2008-02-01  Rafael Espindola  <espindola@google.com>
+
 	* tree-ssa-operands.c (free_stmt_operands): Only free
 	with_ops.addresses_taken if stmt has ops.
 
