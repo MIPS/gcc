@@ -76,7 +76,7 @@
 
 2008-01-30  Rafael Espindola  <espindola@google.com>
 
-	* gimplify.c (gimplify_scan_omp_clauses) Comment out
+	* gimplify.c (gimplify_scan_omp_clauses): Comment out
 	pop_gimplify_context calls
 
 2008-01-30  Rafael Espindola  <espindola@google.com>
