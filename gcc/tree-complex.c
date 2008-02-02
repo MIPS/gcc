@@ -1333,6 +1333,7 @@ expand_complex_comparison (gimple_stmt_iterator **gsi, tree ar, tree ai,
 
     case GIMPLE_COND:
       gimple_cond_set_lhs (stmt, cc);
+      gimple_cond_set_rhs (stmt, boolean_true_node);
       break;
 
     default:

@@ -1,5 +1,15 @@
 2008-02-01  Diego Novillo  <dnovillo@google.com>
 
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00036.html
+
+	* tree-complex.c (expand_complex_comparison): Set the RHS
+	of the new comparison to boolean_true_node.
+	* gimplify.c (gimplify_call_expr): Fix creation of new
+	GIMPLE_CALL.  Create the vector of arguments in the same
+	order as the original expression.
+
+2008-02-01  Diego Novillo  <dnovillo@google.com>
+
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00032.html
 
 	* tree-pas.h (struct tree_opt_pass): Remove field

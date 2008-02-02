@@ -2298,18 +2298,24 @@ gimplify_call_expr (tree *expr_p, gimple_seq pre_p, bool want_value)
     }
 
   /* Finally, gimplify the function arguments.  */
-  for (i = (PUSH_ARGS_REVERSED ? nargs - 1 : 0);
-       PUSH_ARGS_REVERSED ? i >= 0 : i < nargs;
-       PUSH_ARGS_REVERSED ? i-- : i++)
+  if (nargs > 0)
     {
-      enum gimplify_status t;
+      args = VEC_alloc (tree, gc, nargs);
+      VEC_safe_grow (tree, gc, args, nargs);
 
-      t = gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p);
+    for (i = (PUSH_ARGS_REVERSED ? nargs - 1 : 0);
+	PUSH_ARGS_REVERSED ? i >= 0 : i < nargs;
+	PUSH_ARGS_REVERSED ? i-- : i++)
+      {
+	enum gimplify_status t;
 
-      if (t == GS_ERROR)
-	ret = GS_ERROR;
+	t = gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p);
 
-      VEC_safe_push (tree, gc, args, CALL_EXPR_ARG (*expr_p, i));
+	if (t == GS_ERROR)
+	  ret = GS_ERROR;
+
+	VEC_replace (tree, args, i, CALL_EXPR_ARG (*expr_p, i));
+      }
     }
 
   /* Try this again in case gimplification exposed something.  */
