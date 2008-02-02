@@ -1,3 +1,15 @@
+2008-02-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree.h (OMP_CLAUSE_REDUCTION_GIMPLE_INIT): New.
+	(OMP_CLAUSE_REDUCTION_GIMPLE_MERGE): New.
+	(struct tree_omp_clause): Add gimple_reduction_{init,merge} fields.
+	* gimplify.c (gimplify_scan_omp_clauses): Gimplify reduction
+	init/merge fields into separate sequences.
+	(gimplify_and_add): Use gimplify_expr directly.
+	* omp-low.c (lower_rec_input_clauses): Extract reduction info from
+	gimple tuples in structure.
+	(lower_reduction_clauses): Same.
+
 2008-02-01  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00036.html

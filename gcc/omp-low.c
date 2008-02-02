@@ -1814,7 +1814,9 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	    case OMP_CLAUSE_REDUCTION:
 	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 		{
-		  gimplify_and_add (OMP_CLAUSE_REDUCTION_INIT (c), ilist);
+		  gimple_seq_append (ilist,
+		      		     OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c));
+
 		  OMP_CLAUSE_REDUCTION_INIT (c) = NULL;
 		}
 	      else
@@ -1977,7 +1979,7 @@ lower_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	    ref = build_fold_addr_expr (ref);
 	  SET_DECL_VALUE_EXPR (placeholder, ref);
 	  DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
-	  gimplify_and_add (OMP_CLAUSE_REDUCTION_MERGE (c), &sub_list);
+	  gimple_seq_append (&sub_list, OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c));
 	  OMP_CLAUSE_REDUCTION_MERGE (c) = NULL;
 	  OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = NULL;
 	}

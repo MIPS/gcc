@@ -1776,6 +1776,10 @@ struct tree_constructor GTY(())
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 1)
 #define OMP_CLAUSE_REDUCTION_MERGE(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 2)
+#define OMP_CLAUSE_REDUCTION_GIMPLE_INIT(NODE) \
+  (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
+#define OMP_CLAUSE_REDUCTION_GIMPLE_MERGE(NODE) \
+  (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_merge
 #define OMP_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 3)
 
@@ -1933,6 +1937,12 @@ struct tree_omp_clause GTY(())
     enum omp_clause_schedule_kind schedule_kind;
     enum tree_code                reduction_code;
   } GTY ((skip)) subcode;
+
+  /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's
+     usage.  */
+  gimple_seq gimple_reduction_init;
+  gimple_seq gimple_reduction_merge;
+
   tree GTY ((length ("omp_clause_num_ops[OMP_CLAUSE_CODE ((tree)&%h)]"))) ops[1];
 };
 

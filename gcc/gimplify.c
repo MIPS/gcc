@@ -350,7 +350,7 @@ append_to_statement_list_force (tree t, tree *list_p)
 void
 gimplify_and_add (tree t, gimple_seq seq)
 {
-  gimplify_stmt (&t, seq);
+  gimplify_expr (&t, seq, NULL, is_gimple_stmt, fb_none);
 }
 
 /* Gimplify statement T, and return the first tuple in the sequence of
@@ -5118,16 +5118,20 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq pre_p, bool in_parallel,
 				GOVD_LOCAL | GOVD_SEEN);
 	      gimplify_omp_ctxp = ctx;
 	      push_gimplify_context ();
-	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_INIT (c), pre_p);
-	      /* FIXME tuples.  */
-#if 0
-	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_INIT (c));
+
+	      OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c) = gimple_seq_alloc ();
+	      OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c) = gimple_seq_alloc ();
+
+	      gimplify_and_add (OMP_CLAUSE_REDUCTION_INIT (c),
+		  		OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c));
+	      pop_gimplify_context
+		(gimple_seq_first (OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c)));
 	      push_gimplify_context ();
-	      gimplify_stmt (&OMP_CLAUSE_REDUCTION_MERGE (c), pre_p);
-	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_MERGE (c));
-#else
-              gimple_unreachable ();
-#endif
+	      gimplify_and_add (OMP_CLAUSE_REDUCTION_MERGE (c),
+		  		OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c));
+	      pop_gimplify_context 
+		(gimple_seq_first (OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c)));
+
 	      gimplify_omp_ctxp = outer_ctx;
 	    }
 	  if (notice_outer)
