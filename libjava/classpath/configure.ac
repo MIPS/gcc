@@ -6,7 +6,7 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.96.1],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.97-pre],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
@@ -368,6 +368,7 @@ if test "x${COMPILE_JNI}" = xyes; then
   dnl On that system, sys/ioctl.h will not include sys/filio.h unless
   dnl BSD_COMP is defined; just including sys/filio.h is simpler.
   dnl Check for crt_externs.h on Darwin.
+  dnl Check for netinet/in_systm.h, netinet/ip.h and net/if.h for Windows CE.
   AC_CHECK_HEADERS([unistd.h sys/types.h sys/config.h sys/ioctl.h \
 		    asm/ioctls.h \
 		    inttypes.h stdint.h utime.h sys/utime.h sys/filio.h \
@@ -378,7 +379,8 @@ if test "x${COMPILE_JNI}" = xyes; then
 		    sys/mman.h \
 		    magic.h \
                     sys/event.h sys/epoll.h \
-		    ifaddrs.h])
+		    ifaddrs.h \
+		    netinet/in_systm.h netinet/ip.h net/if.h])
 
   AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
   AC_EGREP_HEADER(uint32_t, inttypes.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
@@ -394,6 +396,7 @@ if test "x${COMPILE_JNI}" = xyes; then
 		  gethostbyname_r localtime_r \
 		  strerror_r \
                   fcntl \
+		  statvfs \  
 		  mmap munmap mincore msync madvise getpagesize sysconf \
 		  lstat readlink \
  		  inet_aton inet_addr inet_pton \
@@ -534,7 +537,7 @@ if test "x${COMPILE_JNI}" = xyes; then
     dnl compiled in
     USE_GCONF_PREFS_PEER=$enable_default_preferences_peer
     if test "$USE_GCONF_PREFS_PEER" = ""; then
-   	DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory
+      DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory
     fi
   fi
 
@@ -562,6 +565,10 @@ if test "x${COMPILE_JNI}" = xyes; then
 
 	GST_PLUGIN_LDFLAGS='-module -avoid-version -Wno-unused-parameter -no-undefined'
 	AC_SUBST(GST_PLUGIN_LDFLAGS)
+
+    PKG_CHECK_MODULES(GDK, gdk-2.0 >= 2.8)
+    AC_SUBST(GDK_CFLAGS)
+    AC_SUBST(GDK_LIBS)
 	
 	dnl set the gstreamer based file reader, writer and mixer
 	GSTREAMER_FILE_READER=gnu.javax.sound.sampled.gstreamer.io.GstAudioFileReader

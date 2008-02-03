@@ -275,7 +275,7 @@ AC_DEFUN([CLASSPATH_WITH_GLIBJ],
 		FASTJAR=${withval}
 		AC_MSG_RESULT([${FASTJAR}])
 	      ],
-	      [AC_PATH_PROG(FASTJAR, fastjar)])
+	      [AC_PATH_PROGS([FASTJAR], [fastjar gjar jar])])
 dnl We disable ZIP by default if we find fastjar.
   if test x"${FASTJAR}" != x; then
     ZIP=""
@@ -457,13 +457,12 @@ AC_DEFUN([CLASSPATH_CHECK_JAVAC],
   fi
   dnl Test the given javac
   AC_MSG_CHECKING([if javac is 1.5-capable])
-  cat > conftest.java << EOF
-public class conftest {
-public static void main(String[] args) {
-java.util.List<String> l;
-}}
+  cat > Colour.java << EOF
+public enum Colour {
+RED, ORANGE, YELLOW, GREEN, BLUE, INDIGO, VIOLET;
+}
 EOF
-  $JAVAC -sourcepath '' conftest.java 
+  $JAVAC -sourcepath '' Colour.java 
   javac_result=$?
   if test "x$javac_result" = "x0"; then
     AC_MSG_RESULT([yes])
@@ -471,7 +470,7 @@ EOF
     AC_MSG_WARN([1.5 capable javac required])
   fi
   AC_MSG_CHECKING([whether javac supports -J])
-  $JAVAC -J-Xmx512M -sourcepath '' conftest.java
+  $JAVAC -J-Xmx512M -sourcepath '' Colour.java
   javac_result=$?
   if test "x$javac_result" = "x0"; then
     AC_MSG_RESULT([yes])
@@ -479,4 +478,5 @@ EOF
   else
     AC_MSG_RESULT([javac doesn't support -J])
   fi
+  rm -f Colour.java
 ])
