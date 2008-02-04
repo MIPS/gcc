@@ -5370,120 +5370,131 @@ gimplify_omp_task (tree *expr_p, tree *pre_p)
 static enum gimplify_status
 gimplify_omp_for (tree *expr_p, tree *pre_p)
 {
-  tree for_stmt, decl, var, t;
+  tree for_stmt, decl, var, t, bodylist;
   enum gimplify_status ret = GS_OK;
   tree body, init_decl = NULL_TREE;
+  int i;
 
   for_stmt = *expr_p;
 
   gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p,
 			     ORT_WORKSHARE);
 
-  t = OMP_FOR_INIT (for_stmt);
-  gcc_assert (TREE_CODE (t) == MODIFY_EXPR
-	      || TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-  decl = GENERIC_TREE_OPERAND (t, 0);
-  gcc_assert (DECL_P (decl));
-  gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl)));
-
-  /* Make sure the iteration variable is private.  */
-  if (omp_is_private (gimplify_omp_ctxp, decl))
-    omp_notice_variable (gimplify_omp_ctxp, decl, true);
-  else
-    omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
-
-  /* If DECL is not a gimple register, create a temporary variable to act as an
-     iteration counter.  This is valid, since DECL cannot be modified in the
-     body of the loop.  */
-  if (!is_gimple_reg (decl))
-    {
-      var = create_tmp_var (TREE_TYPE (decl), get_name (decl));
-      GENERIC_TREE_OPERAND (t, 0) = var;
-
-      init_decl = build_gimple_modify_stmt (decl, var);
-      omp_add_variable (gimplify_omp_ctxp, var, GOVD_PRIVATE | GOVD_SEEN);
-    }
-  else
-    var = decl;
-
   /* If OMP_FOR is re-gimplified, ensure all variables in pre-body
      are noticed.  */
   gimplify_stmt (&OMP_FOR_PRE_BODY (for_stmt));
 
-  ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
-			&OMP_FOR_PRE_BODY (for_stmt),
-			NULL, is_gimple_val, fb_rvalue);
+  bodylist = alloc_stmt_list ();
 
-  tree_to_gimple_tuple (&OMP_FOR_INIT (for_stmt));
-
-  t = OMP_FOR_COND (for_stmt);
-  gcc_assert (COMPARISON_CLASS_P (t));
-  gcc_assert (GENERIC_TREE_OPERAND (t, 0) == decl);
-  TREE_OPERAND (t, 0) = var;
-
-  ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
-			&OMP_FOR_PRE_BODY (for_stmt),
-			NULL, is_gimple_val, fb_rvalue);
-
-  tree_to_gimple_tuple (&OMP_FOR_INCR (for_stmt));
-  t = OMP_FOR_INCR (for_stmt);
-  switch (TREE_CODE (t))
+  gcc_assert (TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt))
+	      == TREE_VEC_LENGTH (OMP_FOR_COND (for_stmt)));
+  gcc_assert (TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt))
+	      == TREE_VEC_LENGTH (OMP_FOR_INCR (for_stmt)));
+  for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
     {
-    case PREINCREMENT_EXPR:
-    case POSTINCREMENT_EXPR:
-      t = build_int_cst (TREE_TYPE (decl), 1);
-      t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
-      t = build_gimple_modify_stmt (var, t);
-      OMP_FOR_INCR (for_stmt) = t;
-      break;
+      t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
+      gcc_assert (TREE_CODE (t) == MODIFY_EXPR
+		  || TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+      decl = GENERIC_TREE_OPERAND (t, 0);
+      gcc_assert (DECL_P (decl));
+      gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl)));
 
-    case PREDECREMENT_EXPR:
-    case POSTDECREMENT_EXPR:
-      t = build_int_cst (TREE_TYPE (decl), -1);
-      t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
-      t = build_gimple_modify_stmt (var, t);
-      OMP_FOR_INCR (for_stmt) = t;
-      break;
-      
-    case GIMPLE_MODIFY_STMT:
-      gcc_assert (GIMPLE_STMT_OPERAND (t, 0) == decl);
-      GIMPLE_STMT_OPERAND (t, 0) = var;
+      /* Make sure the iteration variable is private.  */
+      if (omp_is_private (gimplify_omp_ctxp, decl))
+	omp_notice_variable (gimplify_omp_ctxp, decl, true);
+      else
+	omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
-      t = GIMPLE_STMT_OPERAND (t, 1);
+      /* If DECL is not a gimple register, create a temporary variable to act
+	 as an iteration counter.  This is valid, since DECL cannot be
+	 modified in the body of the loop.  */
+      if (!is_gimple_reg (decl))
+	{
+	  var = create_tmp_var (TREE_TYPE (decl), get_name (decl));
+	  GENERIC_TREE_OPERAND (t, 0) = var;
+
+	  init_decl = build_gimple_modify_stmt (decl, var);
+	  omp_add_variable (gimplify_omp_ctxp, var, GOVD_PRIVATE | GOVD_SEEN);
+	}
+      else
+	var = decl;
+
+      ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
+			    &OMP_FOR_PRE_BODY (for_stmt),
+			    NULL, is_gimple_val, fb_rvalue);
+
+      tree_to_gimple_tuple (&TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i));
+
+      t = TREE_VEC_ELT (OMP_FOR_COND (for_stmt), i);
+      gcc_assert (COMPARISON_CLASS_P (t));
+      gcc_assert (GENERIC_TREE_OPERAND (t, 0) == decl);
+      TREE_OPERAND (t, 0) = var;
+
+      ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
+			    &OMP_FOR_PRE_BODY (for_stmt),
+			    NULL, is_gimple_val, fb_rvalue);
+
+      tree_to_gimple_tuple (&TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i));
+      t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
       switch (TREE_CODE (t))
 	{
-	case PLUS_EXPR:
-	  if (TREE_OPERAND (t, 1) == decl)
+	case PREINCREMENT_EXPR:
+	case POSTINCREMENT_EXPR:
+	  t = build_int_cst (TREE_TYPE (decl), 1);
+	  t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
+	  t = build_gimple_modify_stmt (var, t);
+	  TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i) = t;
+	  break;
+
+	case PREDECREMENT_EXPR:
+	case POSTDECREMENT_EXPR:
+	  t = build_int_cst (TREE_TYPE (decl), -1);
+	  t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
+	  t = build_gimple_modify_stmt (var, t);
+	  TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i) = t;
+	  break;
+
+	case GIMPLE_MODIFY_STMT:
+	  gcc_assert (GIMPLE_STMT_OPERAND (t, 0) == decl);
+	  GIMPLE_STMT_OPERAND (t, 0) = var;
+
+	  t = GIMPLE_STMT_OPERAND (t, 1);
+	  switch (TREE_CODE (t))
 	    {
-	      TREE_OPERAND (t, 1) = TREE_OPERAND (t, 0);
+	    case PLUS_EXPR:
+	      if (TREE_OPERAND (t, 1) == decl)
+		{
+		  TREE_OPERAND (t, 1) = TREE_OPERAND (t, 0);
+		  TREE_OPERAND (t, 0) = var;
+		  break;
+		}
+
+	      /* Fallthru.  */
+	    case MINUS_EXPR:
+	      gcc_assert (TREE_OPERAND (t, 0) == decl);
 	      TREE_OPERAND (t, 0) = var;
 	      break;
+	    default:
+	      gcc_unreachable ();
 	    }
 
-	  /* Fallthru.  */
-	case MINUS_EXPR:
-	  gcc_assert (TREE_OPERAND (t, 0) == decl);
-	  TREE_OPERAND (t, 0) = var;
+	  ret |= gimplify_expr (&TREE_OPERAND (t, 1),
+				&OMP_FOR_PRE_BODY (for_stmt),
+				NULL, is_gimple_val, fb_rvalue);
 	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
 
-      ret |= gimplify_expr (&TREE_OPERAND (t, 1), &OMP_FOR_PRE_BODY (for_stmt),
-			    NULL, is_gimple_val, fb_rvalue);
-      break;
-
-    default:
-      gcc_unreachable ();
+      if (init_decl)
+	append_to_statement_list (init_decl, &bodylist);
     }
 
   body = OMP_FOR_BODY (for_stmt);
   gimplify_to_stmt_list (&body);
-  t = alloc_stmt_list ();
-  if (init_decl)
-    append_to_statement_list (init_decl, &t);
-  append_to_statement_list (body, &t);
-  OMP_FOR_BODY (for_stmt) = t;
+  append_to_statement_list (body, &bodylist);
+  OMP_FOR_BODY (for_stmt) = bodylist;
   gimplify_adjust_omp_clauses (&OMP_FOR_CLAUSES (for_stmt));
 
   return ret == GS_ALL_DONE ? GS_ALL_DONE : GS_ERROR;

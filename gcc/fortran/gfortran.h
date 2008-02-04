@@ -1972,6 +1972,7 @@ bool gfc_post_options (const char **);
 
 /* iresolve.c */
 const char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
+bool gfc_find_sym_in_expr (gfc_symbol *, gfc_expr *);
 
 /* error.c */
 

@@ -672,6 +672,7 @@ walk_omp_for (walk_tree_fn callback, struct nesting_info *info, tree for_stmt)
 {
   struct walk_stmt_info wi;
   tree t, list = NULL, empty;
+  int i;
 
   walk_body (callback, info, &OMP_FOR_PRE_BODY (for_stmt));
 
@@ -682,36 +683,39 @@ walk_omp_for (walk_tree_fn callback, struct nesting_info *info, tree for_stmt)
   wi.info = info;
   wi.tsi = tsi_last (list);
 
-  t = OMP_FOR_INIT (for_stmt);
-  gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
-  wi.val_only = false;
-  walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
-  wi.val_only = true;
-  wi.is_lhs = false;
-  walk_tree (&GIMPLE_STMT_OPERAND (t, 1), callback, &wi, NULL);
+  for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
+    {
+      t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
+      gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+      SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+      wi.val_only = false;
+      walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
+      wi.val_only = true;
+      wi.is_lhs = false;
+      walk_tree (&GIMPLE_STMT_OPERAND (t, 1), callback, &wi, NULL);
 
-  t = OMP_FOR_COND (for_stmt);
-  gcc_assert (COMPARISON_CLASS_P (t));
-  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
-  wi.val_only = false;
-  walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
-  wi.val_only = true;
-  wi.is_lhs = false;
-  walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
+      t = TREE_VEC_ELT (OMP_FOR_COND (for_stmt), i);
+      gcc_assert (COMPARISON_CLASS_P (t));
+      SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+      wi.val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
+      wi.val_only = true;
+      wi.is_lhs = false;
+      walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
 
-  t = OMP_FOR_INCR (for_stmt);
-  gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
-  wi.val_only = false;
-  walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
-  t = GIMPLE_STMT_OPERAND (t, 1);
-  gcc_assert (BINARY_CLASS_P (t));
-  wi.val_only = false;
-  walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
-  wi.val_only = true;
-  wi.is_lhs = false;
-  walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
+      t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
+      gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+      SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+      wi.val_only = false;
+      walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
+      t = GIMPLE_STMT_OPERAND (t, 1);
+      gcc_assert (BINARY_CLASS_P (t));
+      wi.val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
+      wi.val_only = true;
+      wi.is_lhs = false;
+      walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
+    }
 
   /* Remove empty statement added above from the end of statement list.  */
   tsi_delink (&wi.tsi);
@@ -1199,6 +1203,8 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_UNTIED:
 	  break;
 
 	default:
@@ -1496,6 +1502,8 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_UNTIED:
 	  break;
 
 	default:

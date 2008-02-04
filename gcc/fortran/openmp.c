@@ -1275,15 +1275,34 @@ struct omp_context
   struct pointer_set_t *private_iterators;
   struct omp_context *previous;
 } *omp_current_ctx;
-gfc_code *omp_current_do_code;
-
+static gfc_code *omp_current_do_code;
+static int omp_current_do_collapse;
 
 void
 gfc_resolve_omp_do_blocks (gfc_code *code, gfc_namespace *ns)
 {
   if (code->block->next && code->block->next->op == EXEC_DO)
-    omp_current_do_code = code->block->next;
+    {
+      int i;
+      gfc_code *c;
+
+      omp_current_do_code = code->block->next;
+      omp_current_do_collapse = code->ext.omp_clauses->collapse;
+      for (i = 1, c = omp_current_do_code; i < omp_current_do_collapse; i++)
+	{
+	  c = c->block;
+	  if (c->op != EXEC_DO || c->next == NULL)
+	    break;
+	  c = c->next;
+	  if (c->op != EXEC_DO)
+	    break;
+	}
+      if (i < omp_current_do_collapse || omp_current_do_collapse <= 0)
+	omp_current_do_collapse = 1;
+    }
   gfc_resolve_blocks (code->block, ns);
+  omp_current_do_collapse = 0;
+  omp_current_do_code = NULL;
 }
 
 
@@ -1323,6 +1342,8 @@ void
 gfc_resolve_do_iterator (gfc_code *code, gfc_symbol *sym)
 {
   struct omp_context *ctx;
+  int i = omp_current_do_collapse;
+  gfc_code *c = omp_current_do_code;
 
   if (sym->attr.threadprivate)
     return;
@@ -1330,8 +1351,14 @@ gfc_resolve_do_iterator (gfc_code *code, gfc_symbol *sym)
   /* !$omp do and !$omp parallel do iteration variable is predetermined
      private just in the !$omp do resp. !$omp parallel do construct,
      with no implications for the outer parallel constructs.  */
-  if (code == omp_current_do_code)
-    return;
+
+  while (i-- >= 1)
+    {
+      if (code == c)
+	return;
+
+      c = c->block->next;
+    }
 
   for (ctx = omp_current_ctx; ctx; ctx = ctx->previous)
     {
@@ -1355,8 +1382,8 @@ gfc_resolve_do_iterator (gfc_code *code, gfc_symbol *sym)
 static void
 resolve_omp_do (gfc_code *code)
 {
-  gfc_code *do_code;
-  int list;
+  gfc_code *do_code, *c;
+  int list, i, collapse;
   gfc_namelist *n;
   gfc_symbol *dovar;
 
@@ -1364,11 +1391,17 @@ resolve_omp_do (gfc_code *code)
     resolve_omp_clauses (code);
 
   do_code = code->block->next;
-  if (do_code->op == EXEC_DO_WHILE)
-    gfc_error ("!$OMP DO cannot be a DO WHILE or DO without loop control "
-	       "at %L", &do_code->loc);
-  else
+  collapse = code->ext.omp_clauses->collapse;
+  if (collapse <= 0)
+    collapse = 1;
+  for (i = 1; i <= collapse; i++)
     {
+      if (do_code->op == EXEC_DO_WHILE)
+	{
+	  gfc_error ("!$OMP DO cannot be a DO WHILE or DO without loop control "
+		     "at %L", &do_code->loc);
+	  break;
+	}
       gcc_assert (do_code->op == EXEC_DO);
       if (do_code->ext.iterator->var->ts.type != BT_INTEGER)
 	gfc_error ("!$OMP DO iteration variable must be of type integer at %L",
@@ -1388,6 +1421,53 @@ resolve_omp_do (gfc_code *code)
 			     &do_code->loc);
 		  break;
 		}
+      if (i > 1)
+	{
+	  gfc_code *do_code2 = code->block->next;
+	  int j;
+
+	  for (j = 1; j < i; j++)
+	    {
+	      gfc_symbol *ivar = do_code2->ext.iterator->var->symtree->n.sym;
+	      if (dovar == ivar
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->start)
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->end)
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->step))
+		{
+		  gfc_error ("!$OMP DO collapsed loops don't form rectangular iteration space at %L",
+			     &do_code->loc);
+		  break;
+		}
+	      if (j < i)
+		break;
+	      do_code2 = do_code2->block->next;
+	    }
+	}
+      if (i == collapse)
+	break;
+      for (c = do_code->next; c; c = c->next)
+	if (c->op != EXEC_NOP && c->op != EXEC_CONTINUE)
+	  {
+	    gfc_error ("collapsed !$OMP DO loops not perfectly nested at %L",
+		       &c->loc);
+	    break;
+	  }
+      if (c)
+	break;
+      do_code = do_code->block;
+      if (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE)
+	{
+	  gfc_error ("not enough DO loops for collapsed !$OMP DO at %L",
+		     &code->loc);
+	  break;
+	}
+      do_code = do_code->next;
+      if (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE)
+	{
+	  gfc_error ("not enough DO loops for collapsed !$OMP DO at %L",
+		     &code->loc);
+	  break;
+	}
     }
 }
 

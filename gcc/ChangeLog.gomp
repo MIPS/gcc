@@ -1,3 +1,53 @@
+2008-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_COLLAPSE_ITERVAR,
+	OMP_CLAUSE_COLLAPSE_COUNT): Define.
+	* tree.c (omp_clause_num_ops): Change OMP_CLAUSE_COLLAPSE
+	to 3 ops from 1 op.
+	(walk_tree_1): Handle the 2 extra ops in OMP_CLAUSE_COLLAPSE.
+	* tree-pretty-print.c (dump_generic_node): Handle collapsed
+	OMP_FOR loops.
+	* tree-parloops.c (create_parallel_loop): Create 1 entry
+	vectors for OMP_FOR_{INIT,COND,INCR}.
+	* gimplify.c (gimplify_omp_for): Handle collapsed OMP_FOR
+	loops, adjust for OMP_FOR_{INIT,COND,INCR} changes.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+	* c-omp.c (c_finish_omp_for): Create 1 entry vectors for
+	OMP_FOR_{INIT,COND,INCR}.
+	* tree-nested.c (walk_omp_for): Adjust for OMP_FOR_{INIT,COND,INCR}
+	changes.
+	(convert_nonlocal_omp_clauses, convert_local_omp_clauses): Handle
+	OMP_CLAUSE_COLLAPSE and OMP_CLAUSE_UNTIED.
+	* c-parser.c (c_parser_omp_clause_collapse): Clear
+	OMP_CLAUSE_COLLAPSE_ITERVAR and OMP_CLAUSE_COLLAPSE_COUNT.
+	* omp-low.c (struct omp_for_data_loop): New type.
+	(struct omp_for_data): Remove v, n1, n2, step, cond_code fields.
+	Add loop, loops, collapse fields.
+	(extract_omp_for_data): Add loops argument.  Extract data for
+	collapsed OMP_FOR loops.
+	(workshare_safe_to_combine_p): Don't combine collapse > 1 loops
+	unless all bounds and steps are constant.  Adjust extract_omp_for_data
+	caller.
+	(get_ws_args_for): Adjust extract_omp_for_data caller.
+	(scan_omp_for): Handle collapsed OMP_FOR
+	loops, adjust for OMP_FOR_{INIT,COND,INCR} changes.
+	(expand_omp_for_generic): Handle collapsed OMP_FOR loops.  Adjust
+	for struct omp_for_data changes.  If libgomp function doesn't return
+	boolean_type_node, add comparison of the return value with 0.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk): Adjust
+	for struct omp_for_data changes.
+	(expand_omp_for): Allocate loops array, pass it to
+	extract_omp_for_data.  For collapse > 1 loops use always
+	expand_omp_for_generic.
+	(lower_omp_single_simple): If libgomp function doesn't return
+	boolean_type_node, add comparison of the return value with 0.
+	(lower_omp_for_lastprivate): Adjust for struct omp_for_data changes.
+	(lower_omp_for): Handle collapsed OMP_FOR loops, adjust for
+	OMP_FOR_{INIT,COND,INCR} changes, adjust extract_omp_for_data
+	caller.
+	(diagnose_sb_1, diagnose_sb_2): Handle collapsed OMP_FOR
+	loops, adjust for OMP_FOR_{INIT,COND,INCR} changes.
+
 2007-12-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (enum omp_clause_default_kind): Add

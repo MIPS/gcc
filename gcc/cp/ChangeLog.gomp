@@ -1,3 +1,10 @@
+2008-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* pt.c (tsubst_expr): Adjust for OMP_FOR_{INIT,COND,INCR} changes.
+	* semantics.c (finish_omp_for): Likewise.
+	* parser.c (cp_parser_omp_clause_collapse): Clear
+	OMP_CLAUSE_COLLAPSE_ITERVAR and OMP_CLAUSE_COLLAPSE_COUNT.
+
 2007-12-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-tree.h (begin_omp_task, finish_omp_task, finish_omp_taskwait):

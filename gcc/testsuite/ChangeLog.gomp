@@ -1,0 +1,4 @@
+2008-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/collapse1.f90: New test.
+

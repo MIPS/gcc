@@ -1,3 +1,21 @@
+2008-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (omp_current_do_code): Made static.
+	(omp_current_do_collapse): New variable.
+	(gfc_resolve_omp_do_blocks): Compute omp_current_do_collapse,
+	clear omp_current_do_code and omp_current_do_collapse on return.
+	(gfc_resolve_do_iterator): Handle collapsed do loops.
+	(resolve_omp_do): Likewise, diagnose errorneous collapsed do loops.
+	* trans-openmp.c (gfc_trans_omp_clauses): Clear
+	OMP_CLAUSE_COLLAPSE_ITERVAR and OMP_CLAUSE_COLLAPSE_COUNT.
+	(gfc_trans_omp_do): Handle collapsed do loops.
+	* gfortran.h (gfc_find_sym_in_expr): New prototype.
+	* resolve.c (find_sym_in_expr): Rename to...
+	(gfc_find_sym_in_expr): ... this.  No longer static.
+	(resolve_allocate_expr, resolve_ordinary_assign): Adjust caller.
+	* types.def (BT_BOOL): Use integer type with BOOL_TYPE_SIZE rather
+	than boolean_type_node.
+
 2007-12-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.h (gfc_statement): Add ST_OMP_TASK, ST_OMP_END_TASK

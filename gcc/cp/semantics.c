@@ -3907,9 +3907,12 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       init = build2 (MODIFY_EXPR, void_type_node, decl, init);
 
       TREE_TYPE (stmt) = void_type_node;
-      OMP_FOR_INIT (stmt) = init;
-      OMP_FOR_COND (stmt) = cond;
-      OMP_FOR_INCR (stmt) = incr;
+      OMP_FOR_INIT (stmt) = make_tree_vec (1);
+      TREE_VEC_ELT (OMP_FOR_INIT (stmt), 0) = init;
+      OMP_FOR_COND (stmt) = make_tree_vec (1);
+      TREE_VEC_ELT (OMP_FOR_COND (stmt), 0) = cond;
+      OMP_FOR_INCR (stmt) = make_tree_vec (1);
+      TREE_VEC_ELT (OMP_FOR_INCR (stmt), 0) = incr;
       OMP_FOR_BODY (stmt) = body;
       OMP_FOR_PRE_BODY (stmt) = pre_body;
 
@@ -3946,11 +3949,11 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
   if (decl != error_mark_node && init != error_mark_node)
     omp_for = c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
   if (omp_for != NULL
-      && TREE_CODE (OMP_FOR_INCR (omp_for)) == MODIFY_EXPR
-      && TREE_SIDE_EFFECTS (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1))
-      && BINARY_CLASS_P (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1)))
+      && TREE_CODE (TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0)) == MODIFY_EXPR
+      && TREE_SIDE_EFFECTS (TREE_OPERAND (TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0), 1))
+      && BINARY_CLASS_P (TREE_OPERAND (TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0), 1)))
     {
-      tree t = TREE_OPERAND (OMP_FOR_INCR (omp_for), 1);
+      tree t = TREE_OPERAND (TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0), 1);
       int n = TREE_SIDE_EFFECTS (TREE_OPERAND (t, 1)) != 0;
 
       if (!processing_template_decl)

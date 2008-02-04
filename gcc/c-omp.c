@@ -384,9 +384,12 @@ c_finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       tree t = make_node (OMP_FOR);
 
       TREE_TYPE (t) = void_type_node;
-      OMP_FOR_INIT (t) = init;
-      OMP_FOR_COND (t) = cond;
-      OMP_FOR_INCR (t) = incr;
+      OMP_FOR_INIT (t) = make_tree_vec (1);
+      TREE_VEC_ELT (OMP_FOR_INIT (t), 0) = init;
+      OMP_FOR_COND (t) = make_tree_vec (1);
+      TREE_VEC_ELT (OMP_FOR_COND (t), 0) = cond;
+      OMP_FOR_INCR (t) = make_tree_vec (1);
+      TREE_VEC_ELT (OMP_FOR_INCR (t), 0) = incr;
       OMP_FOR_BODY (t) = body;
       OMP_FOR_PRE_BODY (t) = pre_body;
 

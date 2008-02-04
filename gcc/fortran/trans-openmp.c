@@ -693,6 +693,8 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
     {
       c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
       OMP_CLAUSE_COLLAPSE_EXPR (c) = build_int_cst (NULL, clauses->collapse);
+      OMP_CLAUSE_COLLAPSE_ITERVAR (c) = NULL;
+      OMP_CLAUSE_COLLAPSE_COUNT (c) = NULL;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
@@ -919,12 +921,20 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
   tree count = NULL_TREE, cycle_label, tmp, omp_clauses;
   stmtblock_t block;
   stmtblock_t body;
-  int simple = 0;
-  bool dovar_found = false;
   gfc_omp_clauses *clauses = code->ext.omp_clauses;
+  gfc_code *outermost;
+  int i, collapse = clauses->collapse;
+  tree dovar_init = NULL_TREE;
 
-  code = code->block->next;
+  if (collapse <= 0)
+    collapse = 1;
+
+  outermost = code = code->block->next;
   gcc_assert (code->op == EXEC_DO);
+
+  init = make_tree_vec (collapse);
+  cond = make_tree_vec (collapse);
+  incr = make_tree_vec (collapse);
 
   if (pblock == NULL)
     {
@@ -933,107 +943,126 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
     }
 
   omp_clauses = gfc_trans_omp_clauses (pblock, do_clauses, code->loc);
-  if (clauses)
+
+  for (i = 0; i < collapse; i++)
     {
-      gfc_namelist *n;
-      for (n = clauses->lists[OMP_LIST_LASTPRIVATE]; n != NULL; n = n->next)
-	if (code->ext.iterator->var->symtree->n.sym == n->sym)
-	  break;
-      if (n == NULL)
-	for (n = clauses->lists[OMP_LIST_PRIVATE]; n != NULL; n = n->next)
-	  if (code->ext.iterator->var->symtree->n.sym == n->sym)
-	    break;
-      if (n != NULL)
-	dovar_found = true;
-    }
+      int simple = 0;
+      bool dovar_found = false;
 
-  /* Evaluate all the expressions in the iterator.  */
-  gfc_init_se (&se, NULL);
-  gfc_conv_expr_lhs (&se, code->ext.iterator->var);
-  gfc_add_block_to_block (pblock, &se.pre);
-  dovar = se.expr;
-  type = TREE_TYPE (dovar);
-  gcc_assert (TREE_CODE (type) == INTEGER_TYPE);
-
-  gfc_init_se (&se, NULL);
-  gfc_conv_expr_val (&se, code->ext.iterator->start);
-  gfc_add_block_to_block (pblock, &se.pre);
-  from = gfc_evaluate_now (se.expr, pblock);
-
-  gfc_init_se (&se, NULL);
-  gfc_conv_expr_val (&se, code->ext.iterator->end);
-  gfc_add_block_to_block (pblock, &se.pre);
-  to = gfc_evaluate_now (se.expr, pblock);
-
-  gfc_init_se (&se, NULL);
-  gfc_conv_expr_val (&se, code->ext.iterator->step);
-  gfc_add_block_to_block (pblock, &se.pre);
-  step = gfc_evaluate_now (se.expr, pblock);
-
-  /* Special case simple loops.  */
-  if (integer_onep (step))
-    simple = 1;
-  else if (tree_int_cst_equal (step, integer_minus_one_node))
-    simple = -1;
-
-  /* Loop body.  */
-  if (simple)
-    {
-      init = build2_v (GIMPLE_MODIFY_STMT, dovar, from);
-      cond = build2 (simple > 0 ? LE_EXPR : GE_EXPR, boolean_type_node,
-		     dovar, to);
-      incr = fold_build2 (PLUS_EXPR, type, dovar, step);
-      incr = fold_build2 (GIMPLE_MODIFY_STMT, type, dovar, incr);
-      if (pblock != &block)
+      if (clauses)
 	{
-	  pushlevel (0);
-	  gfc_start_block (&block);
+	  gfc_namelist *n;
+	  for (n = clauses->lists[OMP_LIST_LASTPRIVATE]; n != NULL;
+	       n = n->next)
+	    if (code->ext.iterator->var->symtree->n.sym == n->sym)
+	      break;
+	  if (n == NULL)
+	    for (n = clauses->lists[OMP_LIST_PRIVATE]; n != NULL; n = n->next)
+	      if (code->ext.iterator->var->symtree->n.sym == n->sym)
+		break;
+	  if (n != NULL)
+	    dovar_found = true;
 	}
-      gfc_start_block (&body);
-    }
-  else
-    {
-      /* STEP is not 1 or -1.  Use:
-	 for (count = 0; count < (to + step - from) / step; count++)
-	   {
-	     dovar = from + count * step;
-	     body;
-	   cycle_label:;
-	   }  */
-      tmp = fold_build2 (MINUS_EXPR, type, step, from);
-      tmp = fold_build2 (PLUS_EXPR, type, to, tmp);
-      tmp = fold_build2 (TRUNC_DIV_EXPR, type, tmp, step);
-      tmp = gfc_evaluate_now (tmp, pblock);
-      count = gfc_create_var (type, "count");
-      init = build2_v (GIMPLE_MODIFY_STMT, count, build_int_cst (type, 0));
-      cond = build2 (LT_EXPR, boolean_type_node, count, tmp);
-      incr = fold_build2 (PLUS_EXPR, type, count, build_int_cst (type, 1));
-      incr = fold_build2 (GIMPLE_MODIFY_STMT, type, count, incr);
 
-      if (pblock != &block)
+      /* Evaluate all the expressions in the iterator.  */
+      gfc_init_se (&se, NULL);
+      gfc_conv_expr_lhs (&se, code->ext.iterator->var);
+      gfc_add_block_to_block (pblock, &se.pre);
+      dovar = se.expr;
+      type = TREE_TYPE (dovar);
+      gcc_assert (TREE_CODE (type) == INTEGER_TYPE);
+
+      gfc_init_se (&se, NULL);
+      gfc_conv_expr_val (&se, code->ext.iterator->start);
+      gfc_add_block_to_block (pblock, &se.pre);
+      from = gfc_evaluate_now (se.expr, pblock);
+
+      gfc_init_se (&se, NULL);
+      gfc_conv_expr_val (&se, code->ext.iterator->end);
+      gfc_add_block_to_block (pblock, &se.pre);
+      to = gfc_evaluate_now (se.expr, pblock);
+
+      gfc_init_se (&se, NULL);
+      gfc_conv_expr_val (&se, code->ext.iterator->step);
+      gfc_add_block_to_block (pblock, &se.pre);
+      step = gfc_evaluate_now (se.expr, pblock);
+
+      /* Special case simple loops.  */
+      if (integer_onep (step))
+	simple = 1;
+      else if (tree_int_cst_equal (step, integer_minus_one_node))
+	simple = -1;
+
+      /* Loop body.  */
+      if (simple)
 	{
-	  pushlevel (0);
-	  gfc_start_block (&block);
+	  TREE_VEC_ELT (init, i) = build2_v (GIMPLE_MODIFY_STMT, dovar, from);
+	  TREE_VEC_ELT (cond, i) = build2 (simple > 0 ? LE_EXPR : GE_EXPR,
+					   boolean_type_node, dovar, to);
+	  TREE_VEC_ELT (incr, i) = fold_build2 (PLUS_EXPR, type, dovar, step);
+	  TREE_VEC_ELT (incr, i) = fold_build2 (GIMPLE_MODIFY_STMT, type, dovar,
+						TREE_VEC_ELT (incr, i));
 	}
-      gfc_start_block (&body);
+      else
+	{
+	  /* STEP is not 1 or -1.  Use:
+	     for (count = 0; count < (to + step - from) / step; count++)
+	       {
+		 dovar = from + count * step;
+		 body;
+	       cycle_label:;
+	       }  */
+	  tmp = fold_build2 (MINUS_EXPR, type, step, from);
+	  tmp = fold_build2 (PLUS_EXPR, type, to, tmp);
+	  tmp = fold_build2 (TRUNC_DIV_EXPR, type, tmp, step);
+	  tmp = gfc_evaluate_now (tmp, pblock);
+	  count = gfc_create_var (type, "count");
+	  TREE_VEC_ELT (init, i) = build2_v (GIMPLE_MODIFY_STMT, count,
+					     build_int_cst (type, 0));
+	  TREE_VEC_ELT (cond, i) = build2 (LT_EXPR, boolean_type_node,
+					   count, tmp);
+	  TREE_VEC_ELT (incr, i) = fold_build2 (PLUS_EXPR, type, count,
+						build_int_cst (type, 1));
+	  TREE_VEC_ELT (incr, i) = fold_build2 (GIMPLE_MODIFY_STMT, type,
+						count, TREE_VEC_ELT (incr, i));
 
-      /* Initialize DOVAR.  */
-      tmp = fold_build2 (MULT_EXPR, type, count, step);
-      tmp = build2 (PLUS_EXPR, type, from, tmp);
-      gfc_add_modify_stmt (&body, dovar, tmp);
+	  /* Initialize DOVAR.  */
+	  tmp = fold_build2 (MULT_EXPR, type, count, step);
+	  tmp = build2 (PLUS_EXPR, type, from, tmp);
+	  dovar_init = tree_cons (dovar, tmp, dovar_init);
+	}
+
+      if (!dovar_found)
+	{
+	  tmp = build_omp_clause (OMP_CLAUSE_PRIVATE);
+	  OMP_CLAUSE_DECL (tmp) = dovar;
+	  omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
+	}
+      if (!simple)
+	{
+	  tmp = build_omp_clause (OMP_CLAUSE_PRIVATE);
+	  OMP_CLAUSE_DECL (tmp) = count;
+	  omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
+	}
+
+      if (i + 1 < collapse)
+	code = code->block->next;
     }
 
-  if (!dovar_found)
+  if (pblock != &block)
     {
-      tmp = build_omp_clause (OMP_CLAUSE_PRIVATE);
-      OMP_CLAUSE_DECL (tmp) = dovar;
-      omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
+      pushlevel (0);
+      gfc_start_block (&block);
     }
-  if (!simple)
+
+  gfc_start_block (&body);
+
+  dovar_init = nreverse (dovar_init);
+  while (dovar_init)
     {
-      tmp = build_omp_clause (OMP_CLAUSE_PRIVATE);
-      OMP_CLAUSE_DECL (tmp) = count;
-      omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
+      gfc_add_modify_stmt (&body, TREE_PURPOSE (dovar_init),
+			   TREE_VALUE (dovar_init));
+      dovar_init = TREE_CHAIN (dovar_init);
     }
 
   /* Cycle statement is implemented with a goto.  Exit statement must not be

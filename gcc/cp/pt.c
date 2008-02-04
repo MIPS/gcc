@@ -10525,12 +10525,12 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
 	clauses = tsubst_omp_clauses (OMP_FOR_CLAUSES (t),
 				      args, complain, in_decl);
-	init = OMP_FOR_INIT (t);
+	init = TREE_VEC_ELT (OMP_FOR_INIT (t), 0);
 	gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
 	decl = RECUR (TREE_OPERAND (init, 0));
 	init = RECUR (TREE_OPERAND (init, 1));
-	cond = RECUR (OMP_FOR_COND (t));
-	incr = RECUR (OMP_FOR_INCR (t));
+	cond = RECUR (TREE_VEC_ELT (OMP_FOR_COND (t), 0));
+	incr = RECUR (TREE_VEC_ELT (OMP_FOR_INCR (t), 0));
 
 	stmt = begin_omp_structured_block ();
 

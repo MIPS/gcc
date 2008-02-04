@@ -19479,6 +19479,8 @@ cp_parser_omp_clause_collapse (cp_parser *parser, tree list)
   c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
+  OMP_CLAUSE_COLLAPSE_ITERVAR (c) = NULL;
+  OMP_CLAUSE_COLLAPSE_COUNT (c) = NULL;
 
   return c;
 }
