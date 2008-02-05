@@ -387,7 +387,7 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 /* Dump the list of OpenMP clauses.  BUFFER, SPC and FLAGS are as in
    dump_generic_node.  */
 
-static void
+void
 dump_omp_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
 {
   if (clause == NULL)

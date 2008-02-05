@@ -5370,10 +5370,11 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
 {
   tree for_stmt, decl, var, t;
   enum gimplify_status ret = GS_OK;
-#if 0
-  /* FIXME tuples.  */
-  tree body, init_decl = NULL_TREE;
-#endif
+  gimple init_decl = NULL;
+  /* Operands for gimple_statement_omp_for.  */
+  enum tree_code for_predicate;
+  tree for_index, for_initial, for_final, for_incr;
+  struct gimple_sequence for_body, for_pre_body;
 
   for_stmt = *expr_p;
 
@@ -5392,8 +5393,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
   else
     omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
-#if 0
-/* FIXME tuples */
   /* If DECL is not a gimple register, create a temporary variable to act as an
      iteration counter.  This is valid, since DECL cannot be modified in the
      body of the loop.  */
@@ -5402,35 +5401,35 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
       var = create_tmp_var (TREE_TYPE (decl), get_name (decl));
       GENERIC_TREE_OPERAND (t, 0) = var;
 
-      init_decl = build_gimple_modify_stmt (decl, var);
+      init_decl = gimple_build_assign (decl, var);
       omp_add_variable (gimplify_omp_ctxp, var, GOVD_PRIVATE | GOVD_SEEN);
     }
   else
     var = decl;
 
+  /* Handle OMP_FOR_INIT.  */
+  gimple_seq_init (&for_pre_body);
+  gcc_assert (OMP_FOR_PRE_BODY (for_stmt) == NULL_TREE);
   ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
-			&OMP_FOR_PRE_BODY (for_stmt), NULL,
-			false, is_gimple_val, fb_rvalue);
-#endif
-  
+      			&for_pre_body, NULL,
+			is_gimple_val, fb_rvalue);
+  if (ret == GS_ERROR)
+    return ret;
+  for_index = var;
+  for_initial = GENERIC_TREE_OPERAND (t, 1);
 
-  /* FIXME tuples.  Handle OMP_FOR_INIT.  */
-  gcc_unreachable ();
-
+  /* Handle OMP_FOR_COND.  */
   t = OMP_FOR_COND (for_stmt);
   gcc_assert (COMPARISON_CLASS_P (t));
   gcc_assert (GENERIC_TREE_OPERAND (t, 0) == decl);
-  TREE_OPERAND (t, 0) = var;
+  for_predicate = TREE_CODE (t);
 
-#if 0
-/* FIXME tuples */
-  ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
-			&OMP_FOR_PRE_BODY (for_stmt), NULL, false,
+  for_final = GENERIC_TREE_OPERAND (t, 1);
+  ret |= gimplify_expr (&for_final,
+      			&for_pre_body, NULL,
 			is_gimple_val, fb_rvalue);
-#endif
 
-  /* FIXME tuples.  Handle OMP_FOR_INCR.  */
-  gcc_unreachable ();
+  /* Handle OMP_FOR_INCR.  */
   t = OMP_FOR_INCR (for_stmt);
   switch (TREE_CODE (t))
     {
@@ -5439,7 +5438,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
       t = build_int_cst (TREE_TYPE (decl), 1);
       t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
       t = build_gimple_modify_stmt (var, t);
-      OMP_FOR_INCR (for_stmt) = t;
+      for_incr = t;
       break;
 
     case PREDECREMENT_EXPR:
@@ -5447,7 +5446,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
       t = build_int_cst (TREE_TYPE (decl), -1);
       t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
       t = build_gimple_modify_stmt (var, t);
-      OMP_FOR_INCR (for_stmt) = t;
+      for_incr = t;
       break;
       
     case GIMPLE_MODIFY_STMT:
@@ -5473,33 +5472,26 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
 	default:
 	  gcc_unreachable ();
 	}
+      for_incr = OMP_FOR_INCR (for_stmt);
 
-#if 0
-/* FIXME tuples */
-      ret |= gimplify_expr (&TREE_OPERAND (t, 1),
-			    &OMP_FOR_PRE_BODY (for_stmt), NULL, false,
-			    is_gimple_val, fb_rvalue);
-#endif
       break;
 
     default:
       gcc_unreachable ();
     }
 
-#if 0
-  /* FIXME tuples.  Need to gimplify into a sequence using
-     gimplify_stmt and create the GIMPLE OMP_FOR with that sequence.  */
-  body = OMP_FOR_BODY (for_stmt);
-  gimplify_to_stmt_list (&body);
-  t = alloc_stmt_list ();
+  gimple_seq_init (&for_body);
   if (init_decl)
-    append_to_statement_list (init_decl, &t);
-  append_to_statement_list (body, &t);
-  OMP_FOR_BODY (for_stmt) = t;
-#endif
+    gimple_seq_add (&for_body, init_decl);
+  gimplify_and_add (OMP_FOR_BODY (for_stmt), &for_body);
+
   gimplify_adjust_omp_clauses (&OMP_FOR_CLAUSES (for_stmt));
 
-  return ret == GS_ALL_DONE ? GS_ALL_DONE : GS_ERROR;
+  gimple_seq_add
+    (pre_p, gimple_build_omp_for (&for_body, OMP_FOR_CLAUSES (for_stmt),
+				  for_index, for_initial, for_final, for_incr,
+				  &for_pre_body, for_predicate));
+  return GS_ALL_DONE;
 }
 
 /* Gimplify the gross structure of other OpenMP worksharing constructs.
@@ -5509,13 +5501,19 @@ static void
 gimplify_omp_workshare (tree *expr_p, gimple_seq pre_p)
 {
   tree stmt = *expr_p;
+  struct gimple_sequence body;
 
   gimplify_scan_omp_clauses (&OMP_CLAUSES (stmt), pre_p, false, false);
-#if 0
-  /* FIXME tuples.  Need to gimplify into a sequence using
-     gimplify_stmt and create the GIMPLE OMP_FOR with that sequence.  */
-  gimplify_to_stmt_list (&OMP_BODY (stmt));
-#endif
+
+  gimple_seq_init (&body);
+  gimplify_and_add (OMP_BODY (stmt), &body);
+  if (TREE_CODE (stmt) == OMP_SECTIONS)
+    gimple_build_omp_sections (&body, OMP_CLAUSES (stmt));
+  else if (TREE_CODE (stmt) == OMP_SINGLE)
+    gimple_build_omp_single (&body, OMP_CLAUSES (stmt));
+  else
+    gcc_unreachable ();
+
   gimplify_adjust_omp_clauses (&OMP_CLAUSES (stmt));
 }
 
@@ -6206,8 +6204,34 @@ gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p,
 	case OMP_MASTER:
 	case OMP_ORDERED:
 	case OMP_CRITICAL:
-	  gimplify_stmt (&OMP_BODY (*expr_p), pre_p);
-	  break;
+	  {
+	    struct gimple_sequence body;
+	    gimple g;
+
+	    gimple_seq_init (&body);
+	    gimplify_and_add (OMP_BODY (*expr_p), &body);
+	    switch (TREE_CODE (*expr_p))
+	      {
+	      case OMP_SECTION:
+	        g = gimple_build_omp_section (&body);
+	        break;
+	      case OMP_MASTER:
+	        g = gimple_build_omp_master (&body);
+		break;
+	      case OMP_ORDERED:
+		g = gimple_build_omp_ordered (&body);
+		break;
+	      case OMP_CRITICAL:
+		g = gimple_build_omp_critical (&body,
+		    			       OMP_CRITICAL_NAME (*expr_p));
+		break;
+	      default:
+		gcc_unreachable ();
+	      }
+	    gimple_seq_add (pre_p, g);
+	    ret = GS_ALL_DONE;
+	    break;
+	  }
 
 	case OMP_ATOMIC:
 	  ret = gimplify_omp_atomic (expr_p, pre_p);

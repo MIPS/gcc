@@ -403,6 +403,48 @@ dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_character (buffer, '}');
 }
 
+/* Dump a GIMPLE_OMP_FOR tuple on the pretty_printer BUFFER.  */
+static void
+dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  pp_string (buffer, "#pragma omp for");
+  dump_omp_clauses (buffer, gimple_omp_for_clauses (gs), spc, flags);
+  newline_and_indent (buffer, spc);
+  pp_string (buffer, "for (");
+  dump_generic_node (buffer, gimple_omp_for_index (gs), spc, flags, false);
+  pp_string (buffer, " = ");
+  dump_generic_node (buffer, gimple_omp_for_initial (gs), spc, flags, false);
+  pp_string (buffer, "; ");
+
+  dump_generic_node (buffer, gimple_omp_for_index (gs), spc, flags, false);
+  pp_space (buffer);
+  switch (gimple_omp_for_cond (gs))
+    {
+    case LT_EXPR:
+      pp_character (buffer, '<');
+      break;
+    case GT_EXPR:
+      pp_character (buffer, '>');
+      break;
+    case LE_EXPR:
+      pp_string (buffer, "<=");
+      break;
+    case GE_EXPR:
+      pp_string (buffer, ">=");
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  pp_space (buffer);
+  dump_generic_node (buffer, gimple_omp_for_final (gs), spc, flags, false);
+  pp_string (buffer, "; ");
+
+  dump_generic_node (buffer, gimple_omp_for_incr (gs), spc, flags, false);
+  pp_character (buffer, ')');
+  newline_and_indent (buffer, spc + 2);
+  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
+}
+
 /* Dump a GIMPLE_ASM tuple on the pretty_printer BUFFER, SPC spaces of
    indent.  FLAGS specifies details to show in the dump (see TDF_* in
    tree.h).  */
@@ -573,7 +615,13 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_OMP_PARALLEL:
       pp_string (buffer, "#pragma omp parallel");
+      dump_omp_clauses (buffer, gimple_omp_parallel_clauses (gs), spc, flags);
+      newline_and_indent (buffer, spc);
       dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
+      break;
+
+    case GIMPLE_OMP_FOR:
+      dump_gimple_omp_for (buffer, gs, spc, flags);
       break;
 
     default:

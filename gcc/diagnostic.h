@@ -220,6 +220,7 @@ extern void print_generic_stmt_indented (FILE *, tree, int, int);
 extern void print_generic_expr (FILE *, tree, int);
 extern void print_generic_decl (FILE *, tree, int);
 extern void debug_c_tree (tree);
+extern void dump_omp_clauses (pretty_printer *, tree, int, int);
 
 /* In gimple-pretty-print.c  */
 extern void debug_generic_expr (tree);

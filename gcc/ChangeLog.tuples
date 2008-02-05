@@ -1,3 +1,15 @@
+2008-02-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple-pretty-print.c (dump_gimple_stmt): Print clauses for
+	GIMPLE_OMP_PARALLEL.
+	Handle GIMPLE_OMP_FOR.
+	(dump_gimple_omp_for): New.
+	* tree-pretty-print.c (dump_omp_clauses): Remove static.
+	* diagnostic.h (dump_omp_clauses): Add prototype.
+	* gimplify.c (gimplify_omp_for): Convert to tuples and enable.
+	(gimplify_omp_workshare): Same.
+	(gimplify_expr) [OMP_MASTER, OMP_ORDERED, OMP_CRITICAL]: Same.
+
 2008-02-04  Oleg Ryjkov <olegr@google.com>
 
 	* tree-gimple.c (get_gimple_rhs_class): Handle
