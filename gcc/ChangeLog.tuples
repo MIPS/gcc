@@ -1,3 +1,20 @@
+2008-02-04  Oleg Ryjkov <olegr@google.com>
+
+	* tree-gimple.c (get_gimple_rhs_class): Handle
+	FILTER_EXPR.
+	* tree-eh.c (union treemple): Declare.
+	Convert to tuples.
+	* except.c:
+	* except.h (lang_protect_cleanup_actions): Change return
+	type to 'gimple'.  Update all users.
+	* tree-inline.c (count_insns_seq): New.
+	* tree-inline.h (count_insns_seq): Declare.
+	* gimple.c (gimple_seq_deep_copy): New.
+	* gimple.h (gimple_seq_deep_copy): Declare.
+	(gimple_singleton_p): New.
+	* passes.c (init_optimization_passes): Enable
+	pass_lower_eh.
+
 2008-02-02  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree.h (OMP_CLAUSE_REDUCTION_GIMPLE_INIT): New.

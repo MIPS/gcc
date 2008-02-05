@@ -153,7 +153,6 @@ gimple_seq_copy (gimple_seq dest, const_gimple_seq src)
   gimple_seq_set_last (dest, gimple_seq_last (src));
 }
 
-
 /* Return true if GIMPLE sequence S is empty.  */
 
 static inline bool
@@ -500,6 +499,7 @@ void sort_case_labels (VEC(tree,heap) *);
 void gimple_set_body (tree, gimple_seq);
 gimple_seq gimple_body (tree);
 void gimple_seq_append (gimple_seq, gimple_seq);
+gimple_seq gimple_seq_deep_copy (const_gimple_seq);
 int gimple_call_flags (gimple);
 bool gimple_assign_copy_p (gimple);
 void gimple_remove (gimple, gimple_seq, bool);
@@ -643,6 +643,13 @@ gimple_locus_empty_p (const_gimple g)
 #endif
 }
 
+/* Determine whether SEQ is a singleton. */
+
+static inline bool
+gimple_seq_singleton_p (gimple_seq seq)
+{
+  return gimple_seq_first (seq) == gimple_seq_last (seq);
+}
 
 /* Return true if no warnings should be emitted for statement STMT.  */
 

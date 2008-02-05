@@ -2587,6 +2587,19 @@ init_inline_once (void)
   eni_time_weights.omp_cost = 40;
 }
 
+/* Estimate the number of instructions in a gimple_seq. */
+
+int
+count_insns_seq (gimple_seq seq, eni_weights *weights)
+{
+  gimple_stmt_iterator *gsi;
+  int n = 0;
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
+    n += estimate_num_insns (gsi_stmt (gsi), weights);
+
+  return n;
+}
+
 /* FIXME tuples.  */
 #if 0
 /* Install new lexical TREE_BLOCK underneath 'current_block'.  */

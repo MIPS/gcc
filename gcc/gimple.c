@@ -969,6 +969,24 @@ gimple_seq_append (gimple_seq dst, gimple_seq src)
 }
 
 
+/* Perform a deep copy of sequence SRC and return the result.  */
+
+gimple_seq
+gimple_seq_deep_copy (const_gimple_seq src)
+{
+  gimple_stmt_iterator *gsi;
+  gimple_seq new = gimple_seq_alloc ();
+  gimple stmt;
+
+  for (gsi = gsi_start ( (struct gimple_sequence *) src); !gsi_end_p (gsi); gsi_next(gsi))
+    {
+      stmt = gimple_copy (gsi_stmt (gsi));
+      gimple_seq_add (new, stmt);
+    }
+  return new;
+}
+
+
 /* Walk all the statements in the sequence SEQ calling walk_gimple_stmt
    on each one.  WI is as in walk_gimple_stmt.  If walk_gimple_stmt
    returns non-NULL, the walk is stopped and the value returned.

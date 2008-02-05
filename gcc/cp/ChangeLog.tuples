@@ -1,3 +1,9 @@
+2008-02-04  Oleg Ryjkov <olegr@google.com>
+
+	* except.c: Include gimple.h
+	(cp_protect_cleanup_actions): Convert to tuples.
+	* Make-lang.in (cp/except.o): Add dependency on gimple.h
+
 2007-11-10  Aldy Hernandez  <aldyh@redhat.com>
 
 	* cp-gimplify.c (gimplify_cp_loop): Call tree_annotate_all_with_locus

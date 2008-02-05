@@ -115,7 +115,7 @@ extern int eh_region_outermost (struct function *, int, int);
    during stack unwinding is required to result in a call to
    `std::terminate', so the C++ version of this function returns a
    CALL_EXPR for `std::terminate'.  */
-extern tree (*lang_protect_cleanup_actions) (void);
+extern gimple (*lang_protect_cleanup_actions) (void);
 
 /* Return true if type A catches type B.  */
 extern int (*lang_eh_type_covers) (tree a, tree b);

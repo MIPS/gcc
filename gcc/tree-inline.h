@@ -145,6 +145,7 @@ void clone_body (tree, tree, void *);
 void save_body (tree, tree *, tree *);
 int estimate_move_cost (tree type);
 int estimate_num_insns (gimple, eni_weights *);
+int count_insns_seq (gimple_seq, eni_weights *);
 bool tree_versionable_function_p (tree);
 void tree_function_versioning (tree, tree, varray_type, bool);
 

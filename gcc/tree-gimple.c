@@ -91,6 +91,7 @@ get_gimple_rhs_class (enum tree_code code)
     case WITH_SIZE_EXPR:
     case EXC_PTR_EXPR:
     case SSA_NAME:
+    case FILTER_EXPR:
       return GIMPLE_SINGLE_RHS;
 
     default:

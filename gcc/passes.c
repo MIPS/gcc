@@ -488,8 +488,8 @@ init_optimization_passes (void)
   /* FIXME tuples.  */
 #if 0
   NEXT_PASS (pass_refactor_eh);
-  NEXT_PASS (pass_lower_eh);
 #endif
+  NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_lower_vector);
