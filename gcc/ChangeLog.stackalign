@@ -1,5 +1,10 @@
 2008-02-06  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386-modes.def: Use 8 byte alignment on DI for
+	TARGET_ALIGN_DOUBLE.
+
+2008-02-06  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386-modes.def: Use 4 byte alignment on DI for
 	32bit host.
 
