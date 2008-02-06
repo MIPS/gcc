@@ -1,0 +1,5 @@
+2008-02-06  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/34921
+	* gcc.c-torture/execute/nest-align-1.c: New test case.
