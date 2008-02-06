@@ -314,11 +314,11 @@ eliminate_build (elim_graph g, basic_block B)
 {
   tree T0, Ti;
   int p0, pi;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   clear_elim_graph (g);
   
-  for (gsi = gsi_start (phi_nodes (B)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (phi_nodes (B)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
 
@@ -613,11 +613,11 @@ static void
 eliminate_virtual_phis (void)
 {
   basic_block bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
         {
 	  gimple phi = gsi_stmt (gsi);
 	  if (!is_gimple_reg (SSA_NAME_VAR (gimple_phi_result (phi))))
@@ -658,7 +658,7 @@ rewrite_trees (var_map map, tree *values)
 {
   elim_graph g;
   basic_block bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   edge e;
   gimple_seq phi;
   bool changed;
@@ -669,7 +669,7 @@ rewrite_trees (var_map map, tree *values)
      create incorrect code.  */
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  tree T0 = var_to_partition_to_var (map, gimple_phi_result (phi));
@@ -755,13 +755,13 @@ rewrite_trees (var_map map, tree *values)
 
 	  /* Remove any stmts marked for removal.  */
 	  if (remove)
-	    gsi_remove (gsi, true);
+	    gsi_remove (&gsi, true);
 	  else
 	    {
 	      if (changed)
 		if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
 		  gimple_purge_dead_eh_edges (bb);
-	      gsi_next (gsi);
+	      gsi_next (&gsi);
 	    }
 	}
 
@@ -826,11 +826,11 @@ identical_stmt_lists_p (const_edge e1, const_edge e2)
 {
   gimple_seq t1 = PENDING_STMT (e1);
   gimple_seq t2 = PENDING_STMT (e2);
-  gimple_stmt_iterator *gsi1, *gsi2;
+  gimple_stmt_iterator gsi1, gsi2;
 
   for (gsi1 = gsi_start (t1), gsi2 = gsi_start (t2);
        !gsi_end_p (gsi1) && !gsi_end_p (gsi2); 
-       gsi_next (gsi1), gsi_next (gsi2))
+       gsi_next (&gsi1), gsi_next (&gsi2))
     {
       if (!identical_copies_p (gsi_stmt (gsi1), gsi_stmt (gsi2)))
         break;
@@ -896,8 +896,8 @@ process_single_block_loop_latch (edge single_edge)
   basic_block b_exit, b_pheader, b_loop = single_edge->src;
   edge_iterator ei;
   edge e;
-  gimple_stmt_iterator *gsi, *gsi_exit;
-  gimple_stmt_iterator *tsi;
+  gimple_stmt_iterator gsi, gsi_exit;
+  gimple_stmt_iterator tsi;
   tree expr;
   gimple stmt;
   unsigned int count = 0;
@@ -945,7 +945,7 @@ process_single_block_loop_latch (edge single_edge)
   expr = build2 (gimple_cond_code (stmt), boolean_type_node,
                  gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
   /* Iterate over the insns on the latch and count them.  */
-  for (tsi = gsi_start (stmts); !gsi_end_p (tsi); gsi_next (tsi))
+  for (tsi = gsi_start (stmts); !gsi_end_p (tsi); gsi_next (&tsi))
     {
       gimple stmt1 = gsi_stmt (tsi);
       tree var;
@@ -992,7 +992,7 @@ process_single_block_loop_latch (edge single_edge)
      var = tmp_var;
      ... 
    */
-  for (tsi = gsi_start (stmts); !gsi_end_p (tsi); gsi_next (tsi))
+  for (tsi = gsi_start (stmts); !gsi_end_p (tsi); gsi_next (&tsi))
     {
       gimple stmt1 = gsi_stmt (tsi);
       tree var, tmp_var;
@@ -1004,14 +1004,14 @@ process_single_block_loop_latch (edge single_edge)
       tmp_var = create_temp (var);
       copy = gimple_build_assign (tmp_var, var);
       set_is_used (tmp_var);
-      gsi_insert_before (gsi, copy, GSI_SAME_STMT);
+      gsi_insert_before (&gsi, copy, GSI_SAME_STMT);
       copy = gimple_build_assign (var, tmp_var);
-      gsi_insert_before (gsi_exit, copy, GSI_SAME_STMT);
+      gsi_insert_before (&gsi_exit, copy, GSI_SAME_STMT);
     }
 
   PENDING_STMT (single_edge) = 0;
   /* Insert the new stmts to the loop body.  */
-  gsi_insert_seq_before (gsi, stmts, GSI_NEW_STMT);
+  gsi_insert_seq_before (&gsi, stmts, GSI_NEW_STMT);
 
   if (dump_file)
     fprintf (dump_file,
@@ -1032,7 +1032,7 @@ analyze_edges_for_bb (basic_block bb)
   int count;
   unsigned int x;
   bool have_opportunity;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   gimple stmt;
   edge single_edge = NULL;
   bool is_label;
@@ -1072,11 +1072,12 @@ analyze_edges_for_bb (basic_block bb)
 	      if (!gsi_end_p (gsi))
 	        {
 		  stmt = gsi_stmt (gsi);
-		  gsi_next (gsi);
+		  gsi_next (&gsi);
 		  gcc_assert (stmt != NULL);
 		  is_label = (gimple_code (stmt) == GIMPLE_LABEL);
 		  /* Punt if it has non-label stmts, or isn't local.  */
-		  if (!is_label || DECL_NONLOCAL (gimple_label_label (stmt)) 
+		  if (!is_label
+		      || DECL_NONLOCAL (gimple_label_label (stmt)) 
 		      || !gsi_end_p (gsi))
 		    {
 		      gsi_commit_one_edge_insert (e, NULL);
@@ -1164,7 +1165,7 @@ analyze_edges_for_bb (basic_block bb)
     if (bitmap_bit_p (leader_has_match, x))
       {
 	edge new_edge;
-	gimple_stmt_iterator *gsi;
+	gimple_stmt_iterator gsi;
 	gimple_seq curr_stmt_list;
 
 	leader_match = leader;
@@ -1197,7 +1198,7 @@ analyze_edges_for_bb (basic_block bb)
 	  }
 
 	gsi = gsi_last_bb (leader->dest);
-	gsi_insert_seq_after (gsi, curr_stmt_list, GSI_NEW_STMT);
+	gsi_insert_seq_after (&gsi, curr_stmt_list, GSI_NEW_STMT);
 
 	leader_match = NULL;
 	/* We should never get a new block now.  */
@@ -1294,7 +1295,7 @@ remove_ssa_form (bool perform_ter)
   gimple phi;
   tree *values = NULL;
   var_map map;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   map = coalesce_ssa_name ();
 
@@ -1343,7 +1344,7 @@ remove_ssa_form (bool perform_ter)
 	  phi = gsi_stmt (gsi);
 
           /* Update iterator before removing phi */
-          gsi_next (gsi);
+          gsi_next (&gsi);
 
 	  remove_phi_node (phi, true);
 	}
@@ -1369,11 +1370,11 @@ static void
 insert_backedge_copies (void)
 {
   basic_block bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  tree result = gimple_phi_result (phi);
@@ -1399,7 +1400,7 @@ insert_backedge_copies (void)
 		{
 		  tree name;
 		  gimple stmt, last = NULL;
-		  gimple_stmt_iterator *gsi2;
+		  gimple_stmt_iterator gsi2;
 
 		  gsi2 = gsi_last_bb (gimple_phi_arg_edge (phi, i)->src);
 		  if (!gsi_end_p (gsi2))
@@ -1432,9 +1433,9 @@ insert_backedge_copies (void)
 		  /* Insert the new statement into the block and update
 		     the PHI node.  */
 		  if (last && stmt_ends_bb_p (last))
-		    gsi_insert_before (gsi2, stmt, GSI_NEW_STMT);
+		    gsi_insert_before (&gsi2, stmt, GSI_NEW_STMT);
 		  else
-		    gsi_insert_after (gsi2, stmt, GSI_NEW_STMT);
+		    gsi_insert_after (&gsi2, stmt, GSI_NEW_STMT);
 		  SET_PHI_ARG_DEF (phi, i, name);
 		}
 	    }

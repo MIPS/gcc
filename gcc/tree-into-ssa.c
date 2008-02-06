@@ -455,16 +455,16 @@ static void
 initialize_flags_in_bb (basic_block bb)
 {
   gimple stmt;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
       set_rewrite_uses (phi, false);
       set_register_defs (phi, false);
     }
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gsi_stmt (gsi);
 
@@ -761,7 +761,7 @@ add_new_name_mapping (tree new, tree old)
 
 static void
 mark_def_sites (struct dom_walk_data *walk_data, basic_block bb,
-		gimple_stmt_iterator *gsi)
+		gimple_stmt_iterator gsi)
 {
   struct mark_def_sites_global_data *gd;
   bitmap kills;
@@ -1332,7 +1332,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			  basic_block bb)
 {
   gimple phi;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
@@ -1343,7 +1343,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
      node introduces a new version for the associated variable.  */
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       phi = gsi_stmt (gsi);
       tree result = gimple_phi_result (phi);
@@ -1385,7 +1385,7 @@ get_reaching_def (tree var)
 
 static void
 rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-	      basic_block bb ATTRIBUTE_UNUSED, gimple_stmt_iterator *si)
+	      basic_block bb ATTRIBUTE_UNUSED, gimple_stmt_iterator si)
 {
   gimple stmt;
   use_operand_p use_p;
@@ -1443,10 +1443,10 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       gimple phi;
-      gimple_stmt_iterator *gsi;
+      gimple_stmt_iterator gsi;
 
       for (gsi = gsi_start (phi_nodes (e->dest)); !gsi_end_p (gsi);
-	   gsi_next (gsi))
+	   gsi_next (&gsi))
 	{
 	  tree currdef;
 	  phi = gsi_stmt (gsi);
@@ -1827,7 +1827,7 @@ rewrite_update_init_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   edge e;
   edge_iterator ei;
   bool is_abnormal_phi;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRegistering new PHI nodes in block #%d\n\n",
@@ -1854,7 +1854,7 @@ rewrite_update_init_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
      register it as a new definition for its corresponding name.  Also
      register definitions for names whose underlying symbols are
      marked for renaming.  */
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       tree lhs, lhs_sym;
       gimple phi = gsi_stmt (gsi);
@@ -1982,7 +1982,7 @@ maybe_register_def (def_operand_p def_p, gimple stmt)
 static void
 rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 		     basic_block bb ATTRIBUTE_UNUSED,
-		     gimple_stmt_iterator *si)
+		     gimple_stmt_iterator si)
 {
   gimple stmt;
   use_operand_p use_p;
@@ -2441,7 +2441,7 @@ static void
 prepare_block_for_update (basic_block bb, bool insert_phi_p)
 {
   basic_block son;
-  gimple_stmt_iterator *si;
+  gimple_stmt_iterator si;
   edge e;
   edge_iterator ei;
 
@@ -2449,7 +2449,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
   /* Process PHI nodes marking interesting those that define or use
      the symbols that we are interested in.  */
-  for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (si))
+  for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (&si))
     {
       gimple phi = gsi_stmt (si);
       tree lhs_sym, lhs = gimple_phi_result (phi);
@@ -2473,7 +2473,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
     }
 
   /* Process the statements.  */
-  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (si))
+  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
     {
       gimple stmt;
       ssa_op_iter i;

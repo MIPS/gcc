@@ -143,7 +143,7 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 {
   void *bd = NULL;
   basic_block dest;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   bool is_interesting;
   basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks * 2);
   int sp = 0;
@@ -199,11 +199,11 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 	    {
 	      if (walk_data->walk_stmts_backward)
 		for (gsi = gsi_last (bb_seq (bb)); !gsi_end_p (gsi);
-		     gsi_prev (gsi))
+		     gsi_prev (&gsi))
 		  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb,
 								gsi);
 	      else
-		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 		  (*walk_data->before_dom_children_walk_stmts) (walk_data, bb,
 								gsi);
 	    }
@@ -240,11 +240,11 @@ walk_dominator_tree (struct dom_walk_data *walk_data, basic_block bb)
 	    {
 	      if (walk_data->walk_stmts_backward)
 		for (gsi = gsi_last (bb_seq (bb)); !gsi_end_p (gsi);
-		     gsi_prev (gsi))
+		     gsi_prev (&gsi))
 		  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb,
 							       gsi);
 	      else
-		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+		for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 		  (*walk_data->after_dom_children_walk_stmts) (walk_data, bb,
 							       gsi);
 	    }

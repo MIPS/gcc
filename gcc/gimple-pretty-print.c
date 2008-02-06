@@ -107,9 +107,9 @@ print_gimple_stmt (FILE *file, gimple g, int spc, int flags)
 static void
 dump_gimple_seq (pretty_printer *buffer, gimple_seq seq, int spc, int flags)
 {
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
 
-  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (i))
+  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
     {
       gimple gs = gsi_stmt (i);
       INDENT (spc);
@@ -664,9 +664,9 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 
       if (flags & TDF_LINENO)
 	{
-	  gimple_stmt_iterator *gsi;
+	  gimple_stmt_iterator gsi;
 
-	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    if (get_lineno (gsi_stmt (gsi)) != -1)
 	      {
 		pp_string (buffer, ", starting at line ");
@@ -741,9 +741,9 @@ dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
 static void
 dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
 
-  for (i = gsi_start (phi_nodes (bb)); !gsi_end_p (i); gsi_next (i))
+  for (i = gsi_start (phi_nodes (bb)); !gsi_end_p (i); gsi_next (&i))
     {
       gimple phi = gsi_stmt (i);
       if (is_gimple_reg (gimple_phi_result (phi)) || (flags & TDF_VOPS))
@@ -839,7 +839,7 @@ static void
 gimple_dump_bb_buff (pretty_printer *buffer, basic_block bb, int indent,
 		     int flags)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   gimple stmt;
   int label_indent = indent - 2;
 
@@ -849,7 +849,7 @@ gimple_dump_bb_buff (pretty_printer *buffer, basic_block bb, int indent,
   dump_bb_header (buffer, bb, indent, flags);
   dump_phi_nodes (buffer, bb, indent, flags);
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       int curr_indent;
 

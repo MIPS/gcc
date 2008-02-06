@@ -825,12 +825,12 @@ tree_annotate_one_with_locus (tree t, location_t locus)
 void
 annotate_all_with_locus (gimple_seq stmt_p, location_t locus)
 {
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
 
   if (gimple_seq_empty_p (stmt_p))
     return;
 
-  for (i = gsi_start (stmt_p); !gsi_end_p (i); gsi_next (i))
+  for (i = gsi_start (stmt_p); !gsi_end_p (i); gsi_next (&i))
     {
       gimple gs = gsi_stmt (i);
       annotate_one_with_locus (gs, locus);
@@ -4508,7 +4508,7 @@ gimplify_asm_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
 static enum gimplify_status
 gimplify_cleanup_point_expr (tree *expr_p, gimple_seq pre_p)
 {
-  gimple_stmt_iterator *iter;
+  gimple_stmt_iterator iter;
   struct gimple_sequence body_sequence;
 
   tree temp = voidify_wrapper_expr (*expr_p, NULL);
@@ -4535,9 +4535,9 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq pre_p)
 	{
 	  if (gsi_one_before_end_p (iter))
 	    {
-	      gsi_link_seq_before (iter, gimple_wce_cleanup (wce),
+	      gsi_link_seq_before (&iter, gimple_wce_cleanup (wce),
 		  		   GSI_SAME_STMT);
-	      gsi_remove (iter, true);
+	      gsi_remove (&iter, true);
 	      break;
 	    }
 	  else
@@ -4555,12 +4555,12 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq pre_p)
 
 	      try = gimple_build_try (seq, gimple_wce_cleanup (wce), kind);
 
-	      gsi_replace (iter, try, GSI_SAME_STMT);
+	      gsi_replace (&iter, try, GSI_SAME_STMT);
 	      iter = gsi_start (seq);
 	    }
 	}
       else
-	gsi_next (iter);
+	gsi_next (&iter);
     }
 
   gimple_seq_append (pre_p, &body_sequence);
@@ -6915,10 +6915,10 @@ force_gimple_operand_gsi (gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED, tree expr,
     {
       if (gimple_in_ssa_p (cfun))
 	{
-	  gimple_stmt_iterator *gsi;
+	  gimple_stmt_iterator i;
 
-	  for (gsi = gsi_start (&stmts); !gsi_end_p (gsi); gsi_next (gsi))
-	    mark_symbols_for_renaming (gsi_stmt (gsi));
+	  for (i = gsi_start (&stmts); !gsi_end_p (i); gsi_next (&i))
+	    mark_symbols_for_renaming (gsi_stmt (i));
 	}
 
       if (before)

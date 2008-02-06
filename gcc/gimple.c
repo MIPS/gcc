@@ -972,17 +972,18 @@ gimple_seq_append (gimple_seq dst, gimple_seq src)
 /* Perform a deep copy of sequence SRC and return the result.  */
 
 gimple_seq
-gimple_seq_deep_copy (const_gimple_seq src)
+gimple_seq_deep_copy (gimple_seq src)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   gimple_seq new = gimple_seq_alloc ();
   gimple stmt;
 
-  for (gsi = gsi_start ( (struct gimple_sequence *) src); !gsi_end_p (gsi); gsi_next(gsi))
+  for (gsi = gsi_start (src); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gimple_copy (gsi_stmt (gsi));
       gimple_seq_add (new, stmt);
     }
+
   return new;
 }
 
@@ -996,9 +997,9 @@ tree
 walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
 		 walk_tree_fn callback_op, struct walk_stmt_info *wi)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       tree ret;
       if (wi)

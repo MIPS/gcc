@@ -93,7 +93,7 @@ lower_function_body (void)
   struct lower_data data;
   gimple_seq body = gimple_body (current_function_decl);
   gimple_seq lowered_body;
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
   gimple bind;
   tree t;
   gimple x;
@@ -114,7 +114,7 @@ lower_function_body (void)
   lowered_body = gimple_seq_alloc ();
   gimple_seq_add (lowered_body, bind);
   i = gsi_start (lowered_body);
-  lower_gimple_bind (i, &data);
+  lower_gimple_bind (&i, &data);
 
   /* Once the old body has been lowered, replace it with the new
      lowered sequence.  */
@@ -132,7 +132,7 @@ lower_function_body (void)
     {
       x = gimple_build_return (NULL);
       gimple_set_locus (x, cfun->function_end_locus);
-      gsi_link_after (i, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
     }
 
   /* If we lowered any return statements, emit the representative
@@ -150,13 +150,13 @@ lower_function_body (void)
 		      		data.return_statements) - 1);
 
       x = gimple_build_label (t.label);
-      gsi_link_after (i, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
 
       /* Remove the line number from the representative return statement.
 	 It now fills in for many such returns.  Failure to remove this
 	 will result in incorrect results for coverage analysis.  */
       gimple_set_locus (t.stmt, UNKNOWN_LOCATION);
-      gsi_link_after (i, t.stmt, GSI_CONTINUE_LINKING);
+      gsi_link_after (&i, t.stmt, GSI_CONTINUE_LINKING);
     }
 
   /* If the function calls __builtin_setjmp, we need to emit the computed
@@ -171,7 +171,7 @@ lower_function_body (void)
       DECL_NONLOCAL (disp_label) = 1;
       current_function_has_nonlocal_label = 1;
       x = gimple_build_label (disp_label);
-      gsi_link_after (i, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
 
       /* Build 'DISP_VAR = __builtin_setjmp_dispatcher (DISP_LABEL);'
 	 and insert.  */
@@ -182,9 +182,9 @@ lower_function_body (void)
       gimple_call_set_lhs (x, disp_var);
 
       /* Build 'goto DISP_VAR;' and insert.  */
-      gsi_link_after (i, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
       x = gimple_build_goto (disp_var);
-      gsi_link_after (i, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
     }
 
   gcc_assert (data.block == DECL_INITIAL (current_function_decl));
@@ -228,10 +228,10 @@ struct tree_opt_pass pass_lower_cf =
 static void
 lower_sequence (gimple_seq seq, struct lower_data *data)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   for (gsi = gsi_start (seq); !gsi_end_p (gsi); )
-    lower_stmt (gsi, data);
+    lower_stmt (&gsi, data);
 }
 
 
@@ -261,7 +261,7 @@ lower_omp_directive (gimple_stmt_iterator *gsi, struct lower_data *data)
 static void
 lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
-  gimple stmt = gsi_stmt (gsi);
+  gimple stmt = gsi_stmt (*gsi);
 
   gimple_set_block (stmt, data->block);
 
@@ -345,7 +345,7 @@ static void
 lower_gimple_bind (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
   tree old_block = data->block;
-  gimple stmt = gsi_stmt (gsi);
+  gimple stmt = gsi_stmt (*gsi);
   tree new_block = gimple_bind_block (stmt);
 
   if (new_block)
@@ -447,7 +447,7 @@ try_catch_may_fallthru (const_tree stmt)
 static bool
 gimple_try_catch_may_fallthru (gimple stmt)
 {
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
 
   /* We don't handle GIMPLE_TRY_FINALLY.  */
   gcc_assert (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH);
@@ -464,7 +464,7 @@ gimple_try_catch_may_fallthru (gimple stmt)
       /* We expect to see a sequence of GIMPLE_CATCH stmts, each with a
 	 catch expression and a body.  The whole try/catch may fall
 	 through iff any of the catch bodies falls through.  */
-      for (; !gsi_end_p (i); gsi_next (i))
+      for (; !gsi_end_p (i); gsi_next (&i))
 	{
 	  if (gimple_seq_may_fallthru (gimple_catch_handler (gsi_stmt (i))))
 	    return true;
@@ -646,7 +646,7 @@ gimple_seq_may_fallthru (gimple_seq seq)
 static void
 lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
-  gimple stmt = gsi_stmt (gsi);
+  gimple stmt = gsi_stmt (*gsi);
   gimple t;
   int i;
   return_statements_t tmp_rs;
@@ -730,7 +730,7 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
 static void
 lower_builtin_setjmp (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (gsi);
+  gimple stmt = gsi_stmt (*gsi);
   tree cont_label = create_artificial_label ();
   tree next_label = create_artificial_label ();
   tree dest, t, arg;

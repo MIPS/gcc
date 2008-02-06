@@ -27,11 +27,12 @@ Boston, MA 02110-1301, USA.  */
 #include "gimple.h"
 #include "tree-flow.h"
 
-/* Links a sequence of statements before the current statement.  */
+/* Links the sequence of statements SEQ before the statement pointed
+   by iterator I.  MODE indicates what to do with the iterator after
+   insertion (see enum gsi_iterator_update).  */
 
 void
-gsi_link_seq_before (gimple_stmt_iterator *i,
-    		     gimple_seq seq,
+gsi_link_seq_before (gimple_stmt_iterator *i, gimple_seq seq,
     		     enum gsi_iterator_update mode)
 {
   gimple head, tail, cur;
@@ -88,11 +89,11 @@ gsi_link_seq_before (gimple_stmt_iterator *i,
 }
 
 
-/* Links one gimple statement before the current statement.  */
+/* Links statement G before the statement pointed-to by iterator I.
+   Updates iterator I according to MODE.  */
 
 void
-gsi_link_before (gimple_stmt_iterator *i,
-    		 gimple g,
+gsi_link_before (gimple_stmt_iterator *i, gimple g,
 		 enum gsi_iterator_update mode)
 {
   struct gimple_sequence tseq;
@@ -180,20 +181,21 @@ gsi_link_after (gimple_stmt_iterator *i, gimple g,
 
 
 /* Move all statements in the sequence after I to a new sequence.  Return this
-   new sequence.  I itself is unchanged.  */
+   new sequence.  */
 
 gimple_seq
-gsi_split_seq_after (const gimple_stmt_iterator *i)
+gsi_split_seq_after (gimple_stmt_iterator i)
 {
   gimple cur, next;
   gimple_seq old_seq, new_seq;
 
-  cur = i->stmt;
+  cur = i.stmt;
+
   /* How can we possibly split after the end, or before the beginning?  */
   gcc_assert (cur);
   next = gimple_next (cur);
 
-  old_seq = i->seq;
+  old_seq = i.seq;
   new_seq = gimple_seq_alloc ();
 
   gimple_seq_set_first (new_seq, next);
@@ -206,8 +208,8 @@ gsi_split_seq_after (const gimple_stmt_iterator *i)
 }
 
 
-/* Move all statements in the sequence before I to a new sequence.  Return this
-   new sequence.  I is set to the head of the new list.  */
+/* Move all statements in the sequence before I to a new sequence.
+   Return this new sequence.  I is set to the head of the new list.  */
 
 gimple_seq
 gsi_split_seq_before (gimple_stmt_iterator *i)
@@ -248,7 +250,7 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
 #if 0
   int eh_region;
 #endif
-  gimple orig_stmt = gsi_stmt (gsi);
+  gimple orig_stmt = gsi_stmt (*gsi);
 
   if (stmt == orig_stmt)
     return;
@@ -319,9 +321,9 @@ void
 gsi_insert_seq_before (gimple_stmt_iterator *i, gimple_seq seq,
 		       enum gsi_iterator_update m)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
     gsi_insert_before (i, gsi_stmt (gsi), m);
 }
 
@@ -362,12 +364,12 @@ gsi_insert_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
 
 /* Finds iterator for STMT.  */
 
-gimple_stmt_iterator *
+gimple_stmt_iterator
 gsi_for_stmt (gimple stmt)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start_bb (gimple_bb (stmt)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start_bb (gimple_bb (stmt)); !gsi_end_p (gsi); gsi_next (&gsi))
     if (gsi_stmt (gsi) == stmt)
       return gsi;
 
@@ -380,7 +382,7 @@ gsi_for_stmt (gimple stmt)
 void
 gsi_move_after (gimple_stmt_iterator *from, gimple_stmt_iterator *to)
 {
-  gimple stmt = gsi_stmt (from);
+  gimple stmt = gsi_stmt (*from);
   gsi_remove (from, false);
 
   /* We must have GSI_NEW_STMT here, as gsi_move_after is sometimes used to
@@ -394,7 +396,7 @@ gsi_move_after (gimple_stmt_iterator *from, gimple_stmt_iterator *to)
 void
 gsi_move_before (gimple_stmt_iterator *from, gimple_stmt_iterator *to)
 {
-  gimple stmt = gsi_stmt (from);
+  gimple stmt = gsi_stmt (*from);
   gsi_remove (from, false);
 
   /* For consistency with gsi_move_after, it might be better to have
@@ -409,13 +411,13 @@ gsi_move_before (gimple_stmt_iterator *from, gimple_stmt_iterator *to)
 void
 gsi_move_to_bb_end (gimple_stmt_iterator *from, basic_block bb)
 {
-  gimple_stmt_iterator *last = gsi_last (bb_seq (bb));
+  gimple_stmt_iterator last = gsi_last (bb_seq (bb));
 
   /* Have to check gsi_end_p because it could be an empty block.  */
   if (!gsi_end_p (last) && is_ctrl_stmt (gsi_stmt (last)))
-    gsi_move_before (from, last);
+    gsi_move_before (from, &last);
   else
-    gsi_move_after (from, last);
+    gsi_move_after (from, &last);
 }
 
 
@@ -438,9 +440,9 @@ gsi_insert_on_edge (edge e, gimple stmt)
 void
 gsi_insert_seq_on_edge (edge e, gimple_seq seq)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
     gsi_insert_on_edge (e, gsi_stmt (gsi));
 }
 
@@ -456,7 +458,7 @@ gsi_insert_seq_on_edge (edge e, gimple_seq seq)
    has to be created, it is stored in *NEW_BB.  */
 
 static bool
-gimple_find_edge_insert_loc (edge e, gimple_stmt_iterator **gsi,
+gimple_find_edge_insert_loc (edge e, gimple_stmt_iterator *gsi,
 			     basic_block *new_bb)
 {
   basic_block dest, src;
@@ -484,7 +486,7 @@ restart:
       tmp = gsi_stmt (*gsi);
       while (gimple_code (tmp) == GIMPLE_LABEL)
 	{
-	  gsi_next (*gsi);
+	  gsi_next (gsi);
 	  if (gsi_end_p (*gsi))
 	    break;
 	  tmp = gsi_stmt (*gsi);
@@ -517,7 +519,7 @@ restart:
 
       if (gimple_code (tmp) == GIMPLE_RETURN)
         {
-	  gsi_prev (*gsi);
+	  gsi_prev (gsi);
 	  return true;
         }
     }
@@ -537,15 +539,15 @@ restart:
 basic_block
 gsi_insert_on_edge_immediate (edge e, gimple stmt)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   basic_block new_bb = NULL;
 
   gcc_assert (!PENDING_STMT (e));
 
   if (gimple_find_edge_insert_loc (e, &gsi, &new_bb))
-    gsi_insert_after (gsi, stmt, GSI_NEW_STMT);
+    gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
   else
-    gsi_insert_before (gsi, stmt, GSI_NEW_STMT);
+    gsi_insert_before (&gsi, stmt, GSI_NEW_STMT);
 
   return new_bb;
 }

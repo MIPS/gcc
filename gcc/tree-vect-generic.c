@@ -389,7 +389,7 @@ type_for_widest_vector_mode (enum machine_mode inner_mode, optab op, int satp)
 static void
 expand_vector_operations_1 (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (gsi);
+  gimple stmt = gsi_stmt (*gsi);
   tree lhs, rhs1, rhs2 = NULL, type, compute_type;
   enum tree_code code;
   enum machine_mode compute_mode;
@@ -488,12 +488,13 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
     new_rhs = gimplify_build1 (gsi, VIEW_CONVERT_EXPR, TREE_TYPE (lhs),
                                new_rhs);
 
-  /* FIXME: we should avoid using gimple_assign_set_rhs_from_tree. One
-     way to do it is change expand_vector_operation and its callees to return
-     a tree_code, RHS1 and RHS2 instead of a tree. */
+  /* FIXME tuples.  We should avoid using
+     gimple_assign_set_rhs_from_tree. One way to do it is change
+     expand_vector_operation and its callees to return a tree_code,
+     RHS1 and RHS2 instead of a tree. */
   gimple_assign_set_rhs_from_tree (stmt, new_rhs);
 
-  gimple_set_modified (gsi_stmt (gsi), true);
+  gimple_set_modified (gsi_stmt (*gsi), true);
 }
 
 /* Use this to lower vector operations introduced by the vectorizer,
@@ -508,14 +509,14 @@ gate_expand_vector_operations (void)
 static unsigned int
 expand_vector_operations (void)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   basic_block bb;
 
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  expand_vector_operations_1 (gsi);
+	  expand_vector_operations_1 (&gsi);
 	  update_stmt_if_modified (gsi_stmt (gsi));
 	}
     }

@@ -240,9 +240,9 @@ collect_finally_tree (gimple stmt, gimple region);
 static void
 collect_finally_tree_1 (gimple_seq seq, gimple region)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
     collect_finally_tree (gsi_stmt (gsi), region);
 }
 
@@ -471,7 +471,8 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
 static void replace_goto_queue_stmt_list (gimple_seq, struct leh_tf_state *);
 
 static void
-replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf, gimple_stmt_iterator *gsi)
+replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
+		      gimple_stmt_iterator *gsi)
 {
   gimple_seq seq;
   switch (gimple_code (stmt))
@@ -516,10 +517,10 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf, gimple_stmt_iterator
 static void
 replace_goto_queue_stmt_list (gimple_seq seq, struct leh_tf_state *tf)
 {
-  gimple_stmt_iterator *gsi = gsi_start (seq);
+  gimple_stmt_iterator gsi = gsi_start (seq);
 
   while (!gsi_end_p (gsi))
-    replace_goto_queue_1 (gsi_stmt (gsi), tf, gsi);
+    replace_goto_queue_1 (gsi_stmt (gsi), tf, &gsi);
 }
 
 /* Replace all goto queue members.  */
@@ -842,7 +843,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
 			       struct leh_tf_state *tf)
 {
   gimple protect_cleanup_actions;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   bool finally_may_fallthru;
   gimple_seq finally;
   gimple x;
@@ -899,23 +900,23 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
       gsi = gsi_start (finally);
       tmp = build0 (EXC_PTR_EXPR, ptr_type_node);
       x = gimple_build_assign (save_eptr, tmp);
-      gsi_link_before (gsi, x, GSI_CONTINUE_LINKING);
+      gsi_link_before (&gsi, x, GSI_CONTINUE_LINKING);
 
       tmp = build0 (FILTER_EXPR, integer_type_node);
       x = gimple_build_assign (save_filt, tmp);
-      gsi_link_before (gsi, x, GSI_CONTINUE_LINKING);
+      gsi_link_before (&gsi, x, GSI_CONTINUE_LINKING);
 
       gsi = gsi_last (finally);
       tmp = build0 (EXC_PTR_EXPR, ptr_type_node);
       x = gimple_build_assign (tmp, save_eptr);
-      gsi_link_after (gsi, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
 
       tmp = build0 (FILTER_EXPR, integer_type_node);
       x = gimple_build_assign (tmp, save_filt);
-      gsi_link_after (gsi, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
 
       x = gimple_build_resx (get_eh_region_number (tf->region));
-      gsi_link_after (gsi, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
     }
 
   /* Wrap the block with protect_cleanup_actions as the action.  */
@@ -945,7 +946,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
       tree tmp;
       tmp = lower_try_finally_fallthru_label (tf);
       x = gimple_build_goto (tmp);
-      gsi_link_after (gsi, x, GSI_CONTINUE_LINKING);
+      gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
 
       if (this_state)
         maybe_record_in_goto_queue (this_state, x);
@@ -954,8 +955,8 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
     }
 
   x = gimple_build_label (tf->eh_label);
-  gsi_link_after (gsi, x, GSI_CONTINUE_LINKING);
-  gsi_link_seq_after (gsi, finally, GSI_CONTINUE_LINKING);
+  gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
+  gsi_link_seq_after (&gsi, finally, GSI_CONTINUE_LINKING);
 
   /* Having now been handled, EH isn't to be considered with
      the rest of the outgoing edges.  */
@@ -1524,7 +1525,7 @@ lower_catch (struct leh_state *state, gimple tp)
 {
   struct eh_region *try_region;
   struct leh_state this_state;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   tree out_label;
 
   try_region = gen_eh_region_try (state->cur_region);
@@ -1558,7 +1559,7 @@ lower_catch (struct leh_state *state, gimple tp)
       set_eh_region_tree_label (catch_region, eh_label);
 
       x = gimple_build_label (eh_label);
-      gsi_link_before (gsi, x, GSI_SAME_STMT);
+      gsi_link_before (&gsi, x, GSI_SAME_STMT);
 
       if (gimple_seq_may_fallthru (gimple_catch_handler (catch)))
 	{
@@ -1569,8 +1570,8 @@ lower_catch (struct leh_state *state, gimple tp)
 	  gimple_seq_add (gimple_catch_handler (catch), x);
 	}
 
-      gsi_link_seq_before (gsi, gimple_catch_handler (catch), GSI_SAME_STMT);
-      gsi_remove (gsi, false);
+      gsi_link_seq_before (&gsi, gimple_catch_handler (catch), GSI_SAME_STMT);
+      gsi_remove (&gsi, false);
     }
 
   return frob_into_branch_around (tp, NULL, out_label);
@@ -1695,7 +1696,7 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
 {
   gimple_seq replace;
   gimple x;
-  gimple stmt = gsi_stmt (gsi);
+  gimple stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
     {
@@ -1760,9 +1761,9 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
 static void
 lower_eh_constructs_1 (struct leh_state *state, gimple_seq seq)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   for (gsi = gsi_start (seq); !gsi_end_p (gsi);)
-    lower_eh_constructs_2 (state, gsi);
+    lower_eh_constructs_2 (state, &gsi);
 }
 
 static unsigned int

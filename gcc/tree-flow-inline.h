@@ -532,12 +532,12 @@ phi_nodes (const_basic_block bb)
 static inline void
 set_phi_nodes (basic_block bb, gimple_seq seq)
 {
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
 
   gcc_assert (!(bb->flags & BB_RTL));
   bb->il.gimple->phi_nodes = seq;
   if (seq)
-    for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (i))
+    for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
       gimple_set_bb (gsi_stmt (i), bb);
 }
 

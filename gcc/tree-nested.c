@@ -362,7 +362,7 @@ init_tmp_var_with_call (struct nesting_info *info, gimple_stmt_iterator *gsi,
   t = create_tmp_var_for (info, TREE_TYPE (TREE_TYPE (gimple_call_fn (call))),
                           NULL);
   gimple_call_set_lhs (call, t);
-  gimple_set_locus (call, gimple_locus (gsi_stmt (gsi)));
+  gimple_set_locus (call, gimple_locus (gsi_stmt (*gsi)));
   gsi_link_before (gsi, call, GSI_SAME_STMT);
 
   return t;
@@ -380,7 +380,7 @@ init_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (t, exp);
-  gimple_set_locus (stmt, gimple_locus (gsi_stmt (gsi)));
+  gimple_set_locus (stmt, gimple_locus (gsi_stmt (*gsi)));
   gsi_link_before (gsi, stmt, GSI_SAME_STMT);
 
   return t;
@@ -410,7 +410,7 @@ save_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (exp, t);
-  gimple_set_locus (stmt, gimple_locus (gsi_stmt (gsi)));
+  gimple_set_locus (stmt, gimple_locus (gsi_stmt (*gsi)));
   gsi_link_after (gsi, stmt, GSI_SAME_STMT);
 
   return t;
@@ -817,10 +817,10 @@ convert_nonlocal_reference_op (tree *tp, int *walk_subtrees, void *data)
 	      for (i = info->outer; i->context != target_context; i = i->outer)
 		continue;
 	      x = lookup_field_for_decl (i, t, INSERT);
-	      x = get_frame_field (info, target_context, x, wi->gsi);
+	      x = get_frame_field (info, target_context, x, &wi->gsi);
 	      if (use_pointer_in_frame (t))
 		{
-		  x = init_tmp_var (info, x, wi->gsi);
+		  x = init_tmp_var (info, x, &wi->gsi);
 		  x = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (x)), x);
 		}
 	    }
@@ -828,9 +828,9 @@ convert_nonlocal_reference_op (tree *tp, int *walk_subtrees, void *data)
 	  if (wi->val_only)
 	    {
 	      if (wi->is_lhs)
-		x = save_tmp_var (info, x, wi->gsi);
+		x = save_tmp_var (info, x, &wi->gsi);
 	      else
-		x = init_tmp_var (info, x, wi->gsi);
+		x = init_tmp_var (info, x, &wi->gsi);
 	    }
 
 	  *tp = x;
@@ -871,7 +871,7 @@ convert_nonlocal_reference_op (tree *tp, int *walk_subtrees, void *data)
 	       where we only accept variables (and min_invariant, presumably),
 	       then compute the address into a temporary.  */
 	    if (save_val_only)
-	      *tp = gsi_gimplify_val (wi->info, t, wi->gsi);
+	      *tp = gsi_gimplify_val (wi->info, t, &wi->gsi);
 	  }
       }
       break;
@@ -1165,14 +1165,14 @@ convert_local_reference_op (tree *tp, int *walk_subtrees, void *data)
 
 	  x = get_local_debug_decl (info, t, field);
 	  if (!bitmap_bit_p (info->suppress_expansion, DECL_UID (t)))
-	    x = get_frame_field (info, info->context, field, wi->gsi);
+	    x = get_frame_field (info, info->context, field, &wi->gsi);
 
 	  if (wi->val_only)
 	    {
 	      if (wi->is_lhs)
-		x = save_tmp_var (info, x, wi->gsi);
+		x = save_tmp_var (info, x, &wi->gsi);
 	      else
-		x = init_tmp_var (info, x, wi->gsi);
+		x = init_tmp_var (info, x, &wi->gsi);
 	    }
 
 	  *tp = x;
@@ -1203,7 +1203,7 @@ convert_local_reference_op (tree *tp, int *walk_subtrees, void *data)
 	  /* If we are in a context where we only accept values, then
 	     compute the address into a temporary.  */
 	  if (save_val_only)
-	    *tp = gsi_gimplify_val (wi->info, t, wi->gsi);
+	    *tp = gsi_gimplify_val (wi->info, t, &wi->gsi);
 	}
       break;
 
@@ -1451,12 +1451,12 @@ convert_nl_goto_reference (gimple stmt, void *data)
   
   /* Build: __builtin_nl_goto(new_label, &chain->nl_goto_field).  */
   field = get_nl_goto_field (i);
-  x = get_frame_field (info, target_context, field, wi->gsi);
+  x = get_frame_field (info, target_context, field, &wi->gsi);
   x = build_addr (x, target_context);
-  x = gsi_gimplify_val (info, x, wi->gsi);
+  x = gsi_gimplify_val (info, x, &wi->gsi);
   call = gimple_build_call (implicit_built_in_decls[BUILT_IN_NONLOCAL_GOTO], 2,
 			    build_addr (new_label, target_context), x);
-  gsi_replace (wi->gsi, call, false);
+  gsi_replace (&wi->gsi, call, false);
 
   /* We have handled all of STMT's operands, no need to keep going.  */
   return true;
@@ -1475,7 +1475,7 @@ convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree t = *tp, label, new_label;
-  gimple_stmt_iterator *tmp_gsi;
+  gimple_stmt_iterator tmp_gsi;
   void **slot;
   gimple stmt;
 
@@ -1491,16 +1491,16 @@ convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
   /* If there's any possibility that the previous statement falls through,
      then we must branch around the new non-local label.  */
   tmp_gsi = wi->gsi;
-  gsi_prev (tmp_gsi);
+  gsi_prev (&tmp_gsi);
   if (gsi_end_p (tmp_gsi) || gimple_stmt_may_fallthru (gsi_stmt (tmp_gsi)))
     {
       gimple stmt = gimple_build_goto (label);
-      gsi_link_before (wi->gsi, stmt, GSI_SAME_STMT);
+      gsi_link_before (&wi->gsi, stmt, GSI_SAME_STMT);
     }
 
   new_label = (tree) *slot;
   stmt = gimple_build_label (new_label);
-  gsi_link_before (wi->gsi, stmt, GSI_SAME_STMT);
+  gsi_link_before (&wi->gsi, stmt, GSI_SAME_STMT);
 
   return NULL_TREE;
 }
@@ -1549,19 +1549,19 @@ convert_tramp_reference_op (tree *tp, int *walk_subtrees, void *data)
       x = lookup_tramp_for_decl (i, decl, INSERT);
 
       /* Compute the address of the field holding the trampoline.  */
-      x = get_frame_field (info, target_context, x, wi->gsi);
+      x = get_frame_field (info, target_context, x, &wi->gsi);
       x = build_addr (x, target_context);
-      x = gsi_gimplify_val (info, x, wi->gsi);
+      x = gsi_gimplify_val (info, x, &wi->gsi);
 
       /* Do machine-specific ugliness.  Normally this will involve
 	 computing extra alignment, but it can really be anything.  */
       builtin = implicit_built_in_decls[BUILT_IN_ADJUST_TRAMPOLINE];
       call = gimple_build_call (builtin, 1, x);
-      x = init_tmp_var_with_call (info, wi->gsi, call);
+      x = init_tmp_var_with_call (info, &wi->gsi, call);
 
       /* Cast back to the proper function type.  */
       x = build1 (NOP_EXPR, TREE_TYPE (t), x);
-      x = init_tmp_var (info, x, wi->gsi);
+      x = init_tmp_var (info, x, &wi->gsi);
 
       *tp = x;
       break;
@@ -1632,7 +1632,7 @@ convert_gimple_call (gimple stmt, void *data)
       if (target_context && !DECL_NO_STATIC_CHAIN (decl))
 	{
 	  gimple_call_set_chain (stmt, get_static_chain (info, target_context,
-							 wi->gsi));
+							 &wi->gsi));
 	  info->static_chain_added |= (1 << (info->context != target_context));
 	}
       break;

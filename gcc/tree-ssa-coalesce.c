@@ -840,12 +840,12 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator *gsi;
+      gimple_stmt_iterator gsi;
 
       /* Start with live on exit temporaries.  */
       live_track_init (live, live_on_exit (liveinfo, bb));
 
-      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (gsi))
+      for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
         {
 	  tree var;
 	  gimple stmt = gsi_stmt (gsi);
@@ -880,7 +880,7 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 	 There must be a conflict recorded between the result of the PHI and 
 	 any variables that are live.  Otherwise the out-of-ssa translation 
 	 may create incorrect code.  */
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  tree result = PHI_RESULT (phi);
@@ -960,7 +960,7 @@ fail_abnormal_edge_coalesce (int x, int y)
 static var_map
 create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   basic_block bb;
   tree var;
   gimple stmt;
@@ -984,7 +984,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
     {
       tree arg;
 
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  size_t i;
@@ -1026,7 +1026,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 	    bitmap_set_bit (used_in_copy, ver);
 	}
 
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         {
 	  stmt = gsi_stmt (gsi);
 
@@ -1270,9 +1270,9 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
-	    gimple_stmt_iterator *gsi;
+	    gimple_stmt_iterator gsi;
 	    for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi);
-		 gsi_next (gsi))
+		 gsi_next (&gsi))
 	      {
 		gimple phi = gsi_stmt (gsi);
 		tree res = PHI_RESULT (phi);

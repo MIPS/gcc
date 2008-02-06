@@ -1414,7 +1414,7 @@ static struct pointer_map_t *lab_rtx_for_bb;
 static rtx
 label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   tree lab;
   gimple lab_stmt;
   void **elt;
@@ -1428,7 +1428,7 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 
   /* Find the tree label if it is present.  */
      
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       lab_stmt = gsi_stmt (gsi);
       if (gimple_code (lab_stmt) != GIMPLE_LABEL)
@@ -1644,7 +1644,7 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
 static basic_block
 expand_gimple_basic_block (basic_block bb)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   gimple_seq stmts;
   gimple stmt = NULL;
   rtx note, last;
@@ -1679,7 +1679,7 @@ expand_gimple_basic_block (basic_block bb)
       if (bb->next_bb == EXIT_BLOCK_PTR
 	  && !gimple_return_retval (ret_stmt))
 	{
-	  gsi_remove (gsi, false);
+	  gsi_remove (&gsi, false);
 	  single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
 	}
     }
@@ -1703,7 +1703,7 @@ expand_gimple_basic_block (basic_block bb)
 	  tree stmt_tree = gimple_to_tree (stmt);
 	  expand_expr_stmt (stmt_tree);
 	  ggc_free (stmt_tree);
-	  gsi_next (gsi);
+	  gsi_next (&gsi);
 	}
 
       if (elt)
@@ -1737,7 +1737,7 @@ expand_gimple_basic_block (basic_block bb)
 	ei_next (&ei);
     }
 
-  for (; !gsi_end_p (gsi); gsi_next (gsi))
+  for (; !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple stmt = gsi_stmt (gsi);
       basic_block new_bb;
@@ -1992,10 +1992,10 @@ static void
 discover_nonconstant_array_refs (void)
 {
   basic_block bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   FOR_EACH_BB (bb)
-    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       walk_gimple_stmt (gsi_stmt (gsi), NULL, discover_nonconstant_array_refs_r,
                         NULL);
 }

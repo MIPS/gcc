@@ -589,15 +589,15 @@ remove_unused_locals (void)
   /* Walk the CFG marking all referenced symbols.  */
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator *gsi;
+      gimple_stmt_iterator gsi;
       size_t i;
 
       /* Walk the statements.  */
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	for (i = 0; i < gimple_num_ops (gsi_stmt (gsi)); i++)
 	  mark_all_vars_used (gimple_op_ptr (gsi_stmt (gsi), i), NULL);
 
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
         {
           use_operand_p arg_p;
           ssa_op_iter i;
@@ -900,11 +900,11 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
   /* Set all the live-on-exit bits for uses in PHIs.  */
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator *gsi;
+      gimple_stmt_iterator gsi;
       size_t i;
 
       /* Mark the PHI arguments which are live on exit to the pred block.  */
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)
@@ -1140,10 +1140,10 @@ verify_live_on_entry (tree_live_info_p live)
 		   if it occurs in a PHI argument of the block.  */
 		size_t z;
 		bool ok = false;
-		gimple_stmt_iterator *gsi;
+		gimple_stmt_iterator gsi;
 		for (gsi = gsi_start (phi_nodes (e->dest));
 		     !gsi_end_p (gsi) && !ok;
-		     gsi_next (gsi))
+		     gsi_next (&gsi))
 		  {
 		    gimple phi = gsi_stmt (gsi);
 		    for (z = 0; z < gimple_phi_num_args (phi); z++)

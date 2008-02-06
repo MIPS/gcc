@@ -1,3 +1,29 @@
+2008-02-05  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00161.html
+
+	* gimple-iterator.c (gsi_split_seq_after): Change
+	argument type to gimple_stmt_iterator.  Update all users.
+	(gsi_for_stmt): Return gimple_stmt_iterator.  Update all users.
+	(gimple_find_edge_insert_loc): Change GSI argument to
+	gimple_stmt_iterator.  Update all users.
+	* gimple.c (gimple_seq_deep_copy): Change argument to gimple_seq.
+	Update all users.
+	* gimple.h (gsi_alloc): Remove.  Update all users.
+	(gsi_start): Return gimple_stmt_iterator.  Update all users.
+	(gsi_start_bb): Likewise.
+	(gsi_last): Likewise.
+	(gsi_last_bb): Likewise.
+	(gsi_end_p): Change argument to gimple_stmt_iterator.
+	Update all users.
+	(gsi_one_before_end_p): Likewise.
+	(gsi_stmt): Likewise.
+	(gsi_bb): Likewise.
+	(gsi_seq): Likewise.
+	(gsi_split_seq_after): Likewise.
+	(gsi_for_stmt): Likewise.
+	(gsi_after_labels): Return gimple_stmt_iterator.  Update all users.
+
 2008-02-05  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple-pretty-print.c (dump_gimple_stmt): Print clauses for

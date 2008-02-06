@@ -6684,9 +6684,9 @@ void
 c_warn_unused_result (gimple_seq seq)
 {
   tree fdecl, ftype;
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
 
-  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (i))
+  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
     {
       gimple g = gsi_stmt (i);
 

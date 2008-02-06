@@ -113,7 +113,7 @@ build_cgraph_edges (void)
   basic_block bb;
   struct cgraph_node *node = cgraph_node (current_function_decl);
   struct pointer_set_t *visited_nodes = pointer_set_create ();
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   tree step;
   int entry_freq = ENTRY_BLOCK_PTR->frequency;
 
@@ -123,7 +123,7 @@ build_cgraph_edges (void)
   /* Create the callgraph edges and record the nodes referenced by the function.
      body.  */
   FOR_EACH_BB (bb)
-    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	gimple stmt = gsi_stmt (gsi);
 	tree decl;
@@ -210,7 +210,7 @@ rebuild_cgraph_edges (void)
 {
   basic_block bb;
   struct cgraph_node *node = cgraph_node (current_function_decl);
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   int entry_freq = ENTRY_BLOCK_PTR->frequency;
 
   if (!entry_freq)
@@ -221,7 +221,7 @@ rebuild_cgraph_edges (void)
   node->count = ENTRY_BLOCK_PTR->count;
 
   FOR_EACH_BB (bb)
-    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	gimple stmt = gsi_stmt (gsi);
 	tree decl;

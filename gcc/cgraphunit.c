@@ -663,7 +663,7 @@ verify_cgraph_node (struct cgraph_node *node)
   struct cgraph_node *main_clone;
   struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
   basic_block this_block;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   bool error_found = false;
 
   if (errorcount || sorrycount)
@@ -761,7 +761,7 @@ verify_cgraph_node (struct cgraph_node *node)
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
 	    for (gsi = gsi_start_bb (this_block); !gsi_end_p (gsi);
-		 gsi_next (gsi))
+		 gsi_next (&gsi))
 	      {
 		gimple stmt = gsi_stmt (gsi);
 		tree decl;

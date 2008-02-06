@@ -171,13 +171,13 @@ redirect_edge_var_map_destroy (void)
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   gimple phi;
 
   redirect_edge_var_map_clear (e);
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (gsi = gsi_start (phi_nodes (e->dest)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (phi_nodes (e->dest)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       phi = gsi_stmt (gsi);
       tree def = gimple_phi_arg_def (phi, e->dest_idx);
@@ -204,7 +204,7 @@ flush_pending_stmts (edge e)
   edge_var_map_vector v;
   edge_var_map *vm;
   int i;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   v = redirect_edge_var_map_vector (e);
   if (!v)
@@ -212,7 +212,7 @@ flush_pending_stmts (edge e)
 
   for (gsi = gsi_start (phi_nodes (e->dest)), i = 0;
        !gsi_end_p (gsi) && VEC_iterate (edge_var_map, v, i, vm);
-       gsi_next (gsi), i++)
+       gsi_next (&gsi), i++)
     {
       phi = gsi_stmt (gsi);
       tree def = redirect_edge_var_map_def (vm);
@@ -768,7 +768,7 @@ verify_ssa (bool check_modified_stmt)
       edge e;
       gimple phi;
       edge_iterator ei;
-      gimple_stmt_iterator *gsi;
+      gimple_stmt_iterator gsi;
 
       /* Make sure that all edges have a clear 'aux' field.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -782,7 +782,7 @@ verify_ssa (bool check_modified_stmt)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  phi = gsi_stmt (gsi);
 	  if (verify_phi_args (phi, bb, definition_block))
@@ -793,7 +793,7 @@ verify_ssa (bool check_modified_stmt)
 	}
 
       /* Now verify all the uses and vuses in every statement of the block.  */
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  use_operand_p use_p;
@@ -981,7 +981,7 @@ delete_tree_ssa (void)
 {
   size_t i;
   basic_block bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   referenced_var_iterator rvi;
   tree var;
 
@@ -1003,7 +1003,7 @@ delete_tree_ssa (void)
      needed anymore.  */
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
 
@@ -1506,11 +1506,11 @@ warn_uninitialized_phi (gimple phi)
 static unsigned int
 execute_early_warn_uninitialized (void)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	gimple context = gsi_stmt (gsi);
 	struct walk_stmt_info wi;
@@ -1526,7 +1526,7 @@ static unsigned int
 execute_late_warn_uninitialized (void)
 {
   basic_block bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   /* Re-do the plain uninitialized variable check, as optimization may have
      straightened control flow.  Do this first so that we don't accidentally
@@ -1534,7 +1534,7 @@ execute_late_warn_uninitialized (void)
   execute_early_warn_uninitialized ();
 
   FOR_EACH_BB (bb)
-    for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+    for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
       warn_uninitialized_phi (gsi_stmt (gsi));
 
   return 0;
@@ -1587,7 +1587,7 @@ execute_update_addresses_taken (void)
 {
   tree var;
   referenced_var_iterator rvi;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   basic_block bb;
   bitmap addresses_taken = BITMAP_ALLOC (NULL);
   bitmap vars_updated = BITMAP_ALLOC (NULL);
@@ -1597,14 +1597,14 @@ execute_update_addresses_taken (void)
      the function body.  */
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  bitmap taken = gimple_addresses_taken (gsi_stmt (gsi));
 	  if (taken)
 	    bitmap_ior_into (addresses_taken, taken);
 	}
 
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  size_t i;
 	  gimple phi = gsi_stmt (gsi);
@@ -1645,7 +1645,7 @@ execute_update_addresses_taken (void)
      variables.  */
   if (update_vops)
     FOR_EACH_BB (bb)
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
 

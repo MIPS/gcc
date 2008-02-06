@@ -406,7 +406,7 @@ process_ssa_edge_worklist (VEC(gimple,gc) **worklist)
 static void
 simulate_block (basic_block block)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   /* There is nothing to do for the exit block.  */
   if (block == EXIT_BLOCK_PTR)
@@ -417,14 +417,14 @@ simulate_block (basic_block block)
 
   /* Always simulate PHI nodes, even if we have simulated this block
      before.  */
-  for (gsi = gsi_start (phi_nodes (block)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (phi_nodes (block)); !gsi_end_p (gsi); gsi_next (&gsi))
     simulate_stmt (gsi_stmt (gsi));
 
   /* If this is the first time we've simulated this block, then we
      must simulate each of its statements.  */
   if (!TEST_BIT (executable_blocks, block->index))
     {
-      gimple_stmt_iterator *j;
+      gimple_stmt_iterator j;
       unsigned int normal_edge_count;
       edge e, normal_edge;
       edge_iterator ei;
@@ -432,7 +432,7 @@ simulate_block (basic_block block)
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
 
-      for (j = gsi_start_bb (block); !gsi_end_p (j); gsi_next (j))
+      for (j = gsi_start_bb (block); !gsi_end_p (j); gsi_next (&j))
 	{
 	  gimple stmt = gsi_stmt (j);
 
@@ -508,9 +508,9 @@ ssa_prop_init (void)
      (including the edges coming out of ENTRY_BLOCK_PTR).  */
   FOR_ALL_BB (bb)
     {
-      gimple_stmt_iterator *si;
+      gimple_stmt_iterator si;
 
-      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (si))
+      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	gimple_set_plf (gsi_stmt (si), STMT_IN_SSA_EDGE_WORKLIST, false);
 
       FOR_EACH_EDGE (e, ei, bb->succs)
@@ -1233,14 +1233,14 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
   /* Substitute values in every statement of every basic block.  */
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator *i;
+      gimple_stmt_iterator i;
 
       /* Propagate known values into PHI nodes.  */
       if (prop_value)
-	for (i = gsi_start (phi_nodes (bb)); !gsi_end_p (i); gsi_next (i))
+	for (i = gsi_start (phi_nodes (bb)); !gsi_end_p (i); gsi_next (&i))
 	  replace_phi_args_in (gsi_stmt (i), prop_value);
 
-      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (i))
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
 	{
           bool replaced_address, did_replace;
 	  gimple prev_stmt = NULL;
@@ -1254,7 +1254,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	    continue;
 
 	  /* Record the state of the statement before replacements.  */
-	  push_stmt_changes (gsi_stmt_ptr (i));
+	  push_stmt_changes (gsi_stmt_ptr (&i));
 
 	  /* Replace the statement with its folded version and mark it
 	     folded.  */
@@ -1288,7 +1288,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      gimple old_stmt = stmt;
 	      tree rhs;
 
-	      fold_stmt (gsi_stmt_ptr (i));
+	      fold_stmt (gsi_stmt_ptr (&i));
 	      stmt = gsi_stmt (i);
 
               /* If we cleaned up EH information from the statement,
@@ -1310,13 +1310,13 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 		}
 
 	      /* Determine what needs to be done to update the SSA form.  */
-	      pop_stmt_changes (gsi_stmt_ptr (i));
+	      pop_stmt_changes (gsi_stmt_ptr (&i));
 	      something_changed = true;
 	    }
 	  else
 	    {
 	      /* The statement was not modified, discard the change buffer.  */
-	      discard_stmt_changes (gsi_stmt_ptr (i));
+	      discard_stmt_changes (gsi_stmt_ptr (&i));
 	    }
 
 	  /* Some statements may be simplified using ranges.  For

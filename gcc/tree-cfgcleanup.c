@@ -78,7 +78,7 @@ remove_fallthru_edge (VEC(edge,gc) *ev)
    at block BB.  */
 
 static bool
-cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator *gsi)
+cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
 {
   edge taken_edge;
   bool retval = false;
@@ -130,7 +130,7 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator *gsi)
     taken_edge = single_succ_edge (bb);
 
   bitmap_set_bit (cfgcleanup_altered_bbs, bb->index);
-  gsi_remove (gsi, true);
+  gsi_remove (&gsi, true);
   taken_edge->flags = EDGE_FALLTHRU;
 
   return retval;
@@ -142,7 +142,7 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator *gsi)
 static bool
 cleanup_control_flow_bb (basic_block bb)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   bool retval = false;
   gimple stmt;
 
@@ -196,7 +196,7 @@ cleanup_control_flow_bb (basic_block bb)
 
       /* Remove the GOTO_EXPR as it is not needed.  The CFG has all the
 	 relevant information we need.  */
-      gsi_remove (gsi, true);
+      gsi_remove (&gsi, true);
       retval = true;
     }
 
@@ -218,7 +218,7 @@ cleanup_control_flow_bb (basic_block bb)
 static bool
 tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 {
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   edge_iterator ei;
   edge e, succ;
   basic_block dest;
@@ -242,7 +242,7 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 
   /* Now walk through the statements backward.  We can ignore labels,
      anything else means this is not a forwarder block.  */
-  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (gsi))
+  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
     {
       gimple stmt = gsi_stmt (gsi);
 
@@ -316,9 +316,9 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
 {
   int n1 = e1->dest_idx;
   int n2 = e2->dest_idx;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (phi_nodes (dest)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (phi_nodes (dest)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
       tree val1 = gimple_phi_arg_def (phi, n1);
@@ -343,7 +343,7 @@ remove_forwarder_block (basic_block bb)
   basic_block dest = succ->dest;
   gimple label;
   edge_iterator ei;
-  gimple_stmt_iterator *gsi, *gsi_to;
+  gimple_stmt_iterator gsi, gsi_to;
   bool seen_abnormal_edge = false;
 
   /* We check for infinite loops already in tree_forwarder_block_p.
@@ -416,7 +416,7 @@ remove_forwarder_block (basic_block bb)
 	     here before.  */
 	  for (gsi = gsi_start (phi_nodes (dest));
 	       !gsi_end_p (gsi);
-	       gsi_next (gsi))
+	       gsi_next (&gsi))
 	    {
 	      gimple phi = gsi_stmt (gsi);
 	      add_phi_arg (phi, gimple_phi_arg_def (phi, succ->dest_idx), s);
@@ -433,8 +433,8 @@ remove_forwarder_block (basic_block bb)
 	{
 	  label = gsi_stmt (gsi);
 	  gcc_assert (gimple_code (label) == GIMPLE_LABEL);
-	  gsi_remove (gsi, false);
-	  gsi_insert_before (gsi_to, label, GSI_CONTINUE_LINKING);
+	  gsi_remove (&gsi, false);
+	  gsi_insert_before (&gsi_to, label, GSI_CONTINUE_LINKING);
 	}
     }
 
@@ -724,7 +724,7 @@ remove_forwarder_block_with_phi (basic_block bb)
   while (EDGE_COUNT (bb->preds) > 0)
     {
       edge e = EDGE_PRED (bb, 0), s;
-      gimple_stmt_iterator *gsi;
+      gimple_stmt_iterator gsi;
 
       s = find_edge (e->src, dest);
       if (s)
@@ -752,7 +752,9 @@ remove_forwarder_block_with_phi (basic_block bb)
 
       /* Add to the PHI nodes at DEST each PHI argument removed at the
 	 destination of E.  */
-      for (gsi = gsi_start (phi_nodes (dest)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (dest));
+	   !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  tree def = gimple_phi_arg_def (phi, succ->dest_idx);
@@ -867,7 +869,7 @@ merge_phi_nodes (void)
 	}
       else
 	{
-	  gimple_stmt_iterator *gsi;
+	  gimple_stmt_iterator gsi;
 	  unsigned int dest_idx = single_succ_edge (bb)->dest_idx;
 
 	  /* BB dominates DEST.  There may be many users of the PHI
@@ -876,7 +878,7 @@ merge_phi_nodes (void)
 	     only by a PHI in DEST, then we can trivially merge the
 	     PHI nodes from BB into DEST.  */
 	  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi);
-	       gsi_next (gsi))
+	       gsi_next (&gsi))
 	    {
 	      gimple phi = gsi_stmt (gsi);
 	      tree result = gimple_phi_result (phi);

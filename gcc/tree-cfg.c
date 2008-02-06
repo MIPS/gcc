@@ -251,11 +251,12 @@ factor_computed_gotos (void)
 
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator *gsi = gsi_last (bb_seq (bb));
+      gimple_stmt_iterator gsi = gsi_last_bb (bb);
       gimple last;
 
       if (gsi_end_p (gsi))
 	continue;
+
       last = gsi_stmt (gsi);
 
       /* Ignore the computed goto we create when we factor the original
@@ -274,7 +275,7 @@ factor_computed_gotos (void)
 	  if (!factored_computed_goto)
 	    {
 	      basic_block new_bb = create_empty_bb (bb);
-	      gimple_stmt_iterator *new_gsi = gsi_start_bb (new_bb);
+	      gimple_stmt_iterator new_gsi = gsi_start_bb (new_bb);
 
 	      /* Create the destination of the factored goto.  Each original
 		 computed goto will put its desired destination into this
@@ -287,17 +288,17 @@ factor_computed_gotos (void)
 	      factored_label_decl = create_artificial_label ();
 	      factored_computed_goto_label
 		= gimple_build_label (factored_label_decl);
-	      gsi_insert_after (new_gsi, factored_computed_goto_label,
+	      gsi_insert_after (&new_gsi, factored_computed_goto_label,
 				GSI_NEW_STMT);
 
 	      /* Build our new computed goto.  */
 	      factored_computed_goto = gimple_build_goto (var);
-	      gsi_insert_after (new_gsi, factored_computed_goto, GSI_NEW_STMT);
+	      gsi_insert_after (&new_gsi, factored_computed_goto, GSI_NEW_STMT);
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
 	  assignment = gimple_build_assign (var, gimple_goto_dest (last));
-	  gsi_insert_before (gsi, assignment, GSI_SAME_STMT);
+	  gsi_insert_before (&gsi, assignment, GSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
 	  gimple_goto_set_dest (last, factored_label_decl);
@@ -311,7 +312,7 @@ factor_computed_gotos (void)
 static void
 make_blocks (gimple_seq seq)
 {
-  gimple_stmt_iterator *i = gsi_start (seq);
+  gimple_stmt_iterator i = gsi_start (seq);
   gimple stmt = NULL;
   bool start_new_block = true;
   bool first_stmt_of_seq = true;
@@ -330,7 +331,7 @@ make_blocks (gimple_seq seq)
       if (start_new_block || stmt_starts_bb_p (stmt, prev_stmt))
 	{
 	  if (!first_stmt_of_seq)
-	    seq = gsi_split_seq_before (i);
+	    seq = gsi_split_seq_before (&i);
 	  bb = create_basic_block (seq, NULL, bb);
 	  start_new_block = false;
 	}
@@ -347,7 +348,7 @@ make_blocks (gimple_seq seq)
       if (stmt_ends_bb_p (stmt))
 	start_new_block = true;
 
-      gsi_next (i);
+      gsi_next (&i);
       first_stmt_of_seq = false;
     }
 }
@@ -802,11 +803,11 @@ label_to_block_fn (struct function *ifun, tree dest)
      and undefined variable warnings quite right.  */
   if ((errorcount || sorrycount) && uid < 0)
     {
-      gimple_stmt_iterator *gsi = gsi_start_bb (BASIC_BLOCK (NUM_FIXED_BLOCKS));
+      gimple_stmt_iterator gsi = gsi_start_bb (BASIC_BLOCK (NUM_FIXED_BLOCKS));
       gimple stmt;
 
       stmt = gimple_build_label (dest);
-      gsi_insert_before (gsi, stmt, GSI_NEW_STMT);
+      gsi_insert_before (&gsi, stmt, GSI_NEW_STMT);
       uid = LABEL_DECL_UID (dest);
     }
   if (VEC_length (basic_block, ifun->cfg->x_label_to_block_map)
@@ -822,10 +823,10 @@ void
 make_abnormal_goto_edges (basic_block bb, bool for_call)
 {
   basic_block target_bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   FOR_EACH_BB (target_bb)
-    for (gsi = gsi_start_bb (target_bb); !gsi_end_p (gsi); gsi_next (gsi))
+    for (gsi = gsi_start_bb (target_bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	gimple label_stmt = gsi_stmt (gsi);
 	tree target;
@@ -851,7 +852,7 @@ make_abnormal_goto_edges (basic_block bb, bool for_call)
 static void
 make_goto_expr_edges (basic_block bb)
 {
-  gimple_stmt_iterator *last = gsi_last (bb_seq (bb));
+  gimple_stmt_iterator last = gsi_last_bb (bb);
   gimple goto_t = gsi_stmt (last);
 
   /* A simple GOTO creates normal edges.  */
@@ -860,7 +861,7 @@ make_goto_expr_edges (basic_block bb)
       tree dest = gimple_goto_dest (goto_t);
       edge e = make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
       e->goto_locus = gimple_locus (goto_t);
-      gsi_remove (last, true);
+      gsi_remove (&last, true);
       return;
     }
 
@@ -948,9 +949,9 @@ cleanup_dead_labels (void)
      label if there is one, or otherwise just the first label we see.  */
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator *i;
+      gimple_stmt_iterator i;
 
-      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (i))
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
 	{
 	  tree label;
 	  gimple stmt = gsi_stmt (i);
@@ -1041,7 +1042,7 @@ cleanup_dead_labels (void)
      address taken are preserved.  */
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator *i;
+      gimple_stmt_iterator i;
       tree label_for_this_bb = label_for_bb[bb->index].label;
 
       if (!label_for_this_bb)
@@ -1065,9 +1066,9 @@ cleanup_dead_labels (void)
 	      || !DECL_ARTIFICIAL (label)
 	      || DECL_NONLOCAL (label)
 	      || FORCED_LABEL (label))
-	    gsi_next (i);
+	    gsi_next (&i);
 	  else
-	    gsi_remove (i, true);
+	    gsi_remove (&i, true);
 	}
     }
 
@@ -1174,7 +1175,7 @@ static bool
 gimple_can_merge_blocks_p (basic_block a, basic_block b)
 {
   gimple stmt;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   gimple_seq phis;
 
   if (!single_succ_p (a))
@@ -1211,12 +1212,12 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   phis = phi_nodes (b);
   if (!gimple_seq_empty_p (phis))
     {
-      gimple_stmt_iterator *i;
+      gimple_stmt_iterator i;
 
       if (name_mappings_registered_p ())
 	return false;
 
-      for (i = gsi_start (phis); gsi_end_p (i); gsi_next (i))
+      for (i = gsi_start (phis); gsi_end_p (i); gsi_next (&i))
 	{
 	  gimple phi = gsi_stmt (i);
 
@@ -1228,7 +1229,7 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
     }
 
   /* Do not remove user labels.  */
-  for (gsi = gsi_start_bb (b); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start_bb (b); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gsi_stmt (gsi);
       if (gimple_code (stmt) != GIMPLE_LABEL)
@@ -1320,7 +1321,7 @@ replace_uses_by (tree name, tree val)
 static void
 gimple_merge_blocks (basic_block a, basic_block b)
 {
-  gimple_stmt_iterator *last, *gsi;
+  gimple_stmt_iterator last, gsi;
   gimple_seq phis = phi_nodes (b);
 
   if (dump_file)
@@ -1328,8 +1329,8 @@ gimple_merge_blocks (basic_block a, basic_block b)
 
   /* Remove all single-valued PHI nodes from block B of the form
      V_i = PHI <V_j> by propagating V_j to all the uses of V_i.  */
-  gsi = gsi_last (bb_seq (a));
-  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (gsi))
+  gsi = gsi_last_bb (a);
+  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
       tree def = gimple_phi_result (phi), use = gimple_phi_arg_def (phi, 0);
@@ -1354,7 +1355,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	     predecessor of B, therefore results of the phi nodes cannot
 	     appear as arguments of the phi nodes.  */
 	  copy = gimple_build_assign (def, use);
-	  gsi_insert_after (gsi, copy, GSI_NEW_STMT);
+	  gsi_insert_after (&gsi, copy, GSI_NEW_STMT);
 	  SSA_NAME_DEF_STMT (def) = copy;
           remove_phi_node (phi, false);
 	}
@@ -1392,7 +1393,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	{
 	  gimple label = gsi_stmt (gsi);
 
-	  gsi_remove (gsi, false);
+	  gsi_remove (&gsi, false);
 
 	  /* Now that we can thread computed gotos, we might have
 	     a situation where we have a forced label in block B
@@ -1402,20 +1403,20 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	     label.  Instead we move the label to the start of block A.  */
 	  if (FORCED_LABEL (gimple_label_label (label)))
 	    {
-	      gimple_stmt_iterator *dest_gsi = gsi_start_bb (a);
-	      gsi_insert_before (dest_gsi, label, GSI_NEW_STMT);
+	      gimple_stmt_iterator dest_gsi = gsi_start_bb (a);
+	      gsi_insert_before (&dest_gsi, label, GSI_NEW_STMT);
 	    }
 	}
       else
 	{
 	  change_bb_for_stmt (gsi_stmt (gsi), a);
-	  gsi_next (gsi);
+	  gsi_next (&gsi);
 	}
     }
 
   /* Merge the sequences.  */
-  last = gsi_last (bb_seq (a));
-  gsi_link_seq_after (last, bb_seq (b), GSI_NEW_STMT);
+  last = gsi_last_bb (a);
+  gsi_link_seq_after (&last, bb_seq (b), GSI_NEW_STMT);
   set_bb_seq (b, NULL);
 
   if (cfgcleanup_altered_bbs)
@@ -2042,7 +2043,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
 static void
 remove_bb (basic_block bb)
 {
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
 #ifdef USE_MAPPED_LOCATION
   source_location loc = UNKNOWN_LOCATION;
 #else
@@ -2081,7 +2082,7 @@ remove_bb (basic_block bb)
 		  || DECL_NONLOCAL (gimple_label_label (stmt))))
 	    {
 	      basic_block new_bb;
-	      gimple_stmt_iterator *new_gsi;
+	      gimple_stmt_iterator new_gsi;
 
 	      /* A non-reachable non-local label may still be referenced.
 		 But it no longer needs to carry the extra semantics of
@@ -2094,8 +2095,8 @@ remove_bb (basic_block bb)
 
 	      new_bb = bb->prev_bb;
 	      new_gsi = gsi_start_bb (new_bb);
-	      gsi_remove (i, false);
-	      gsi_insert_before (new_gsi, stmt, GSI_NEW_STMT);
+	      gsi_remove (&i, false);
+	      gsi_insert_before (&new_gsi, stmt, GSI_NEW_STMT);
 	    }
 	  else
 	    {
@@ -2106,7 +2107,7 @@ remove_bb (basic_block bb)
 	      if (gimple_in_ssa_p (cfun))
 		release_defs (stmt);
 
-	      gsi_remove (i, true);
+	      gsi_remove (&i, true);
 	    }
 
 	  /* Don't warn for removed gotos.  Gotos are often removed due to
@@ -2631,7 +2632,7 @@ delete_tree_cfg_annotations (void)
 gimple
 first_stmt (basic_block bb)
 {
-  gimple_stmt_iterator *i = gsi_start_bb (bb);
+  gimple_stmt_iterator i = gsi_start_bb (bb);
   return !gsi_end_p (i) ? gsi_stmt (i) : NULL;
 }
 
@@ -2640,7 +2641,7 @@ first_stmt (basic_block bb)
 gimple
 last_stmt (basic_block bb)
 {
-  gimple_stmt_iterator *b = gsi_last (bb_seq (bb));
+  gimple_stmt_iterator b = gsi_last_bb (bb);
   return !gsi_end_p (b) ? gsi_stmt (b) : NULL;
 }
 
@@ -2651,14 +2652,14 @@ last_stmt (basic_block bb)
 gimple
 last_and_only_stmt (basic_block bb)
 {
-  gimple_stmt_iterator *i = gsi_last (bb_seq (bb));
+  gimple_stmt_iterator i = gsi_last_bb (bb);
   gimple last, prev;
 
   if (gsi_end_p (i))
     return NULL;
 
   last = gsi_stmt (i);
-  gsi_prev (i);
+  gsi_prev (&i);
   if (gsi_end_p (i))
     return last;
 
@@ -2700,7 +2701,7 @@ reinstall_phi_args (edge new_edge, edge old_edge)
   edge_var_map_vector v;
   edge_var_map *vm;
   int i;
-  gimple_stmt_iterator *phis;
+  gimple_stmt_iterator phis;
   
   v = redirect_edge_var_map_vector (old_edge);
   if (!v)
@@ -2708,7 +2709,7 @@ reinstall_phi_args (edge new_edge, edge old_edge)
   
   for (i = 0, phis = gsi_start (phi_nodes (new_edge->dest));
        VEC_iterate (edge_var_map, v, i, vm) && !gsi_end_p (phis);
-       i++, gsi_next (phis))
+       i++, gsi_next (&phis))
     {
       gimple phi = gsi_stmt (phis);
       tree result = redirect_edge_var_map_result (vm);
@@ -3694,10 +3695,10 @@ verify_types_in_gimple_stmt (gimple stmt)
 static bool
 verify_types_in_gimple_seq_2 (gimple_seq stmts)
 {
-  gimple_stmt_iterator* ittr;
+  gimple_stmt_iterator ittr;
   bool err = false;
 
-  for (ittr = gsi_start (stmts); !gsi_end_p (ittr); gsi_next (ittr))
+  for (ittr = gsi_start (stmts); !gsi_end_p (ittr); gsi_next (&ittr))
     {
       gimple stmt = gsi_stmt (ittr);
 
@@ -3890,7 +3891,7 @@ void
 verify_stmts (void)
 {
   basic_block bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   bool err = false;
   struct pointer_set_t *visited, *visited_stmts;
   tree addr;
@@ -3908,7 +3909,7 @@ verify_stmts (void)
       gimple phi;
       size_t i;
 
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  phi = gsi_stmt (gsi);
 	  pointer_set_insert (visited_stmts, phi);
@@ -3980,7 +3981,7 @@ verify_stmts (void)
 	      err |= true;
 	    }
 
-	  gsi_next (gsi);
+	  gsi_next (&gsi);
 	  err |= verify_stmt (stmt, gsi_end_p (gsi));
 	  addr = walk_gimple_stmt (stmt, NULL, verify_node_sharing, &wi);
 	  if (addr)
@@ -4016,7 +4017,7 @@ gimple_verify_flow_info (void)
 {
   int err = 0;
   basic_block bb;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   gimple stmt;
   edge e;
   edge_iterator ei;
@@ -4047,7 +4048,7 @@ gimple_verify_flow_info (void)
       stmt = NULL;
 
       /* Skip labels on the start of basic block.  */
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  tree label;
 	  gimple prev_stmt = stmt;
@@ -4088,7 +4089,7 @@ gimple_verify_flow_info (void)
 	}
 
       /* Verify that body of basic block BB is free of control flow.  */
-      for (; !gsi_end_p (gsi); gsi_next (gsi))
+      for (; !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
 
@@ -4111,7 +4112,7 @@ gimple_verify_flow_info (void)
 	    }
 	}
 
-      gsi = gsi_last (bb_seq (bb));
+      gsi = gsi_last_bb (bb);
       if (gsi_end_p (gsi))
 	continue;
 
@@ -4314,7 +4315,7 @@ gimple_make_forwarder_block (edge fallthru)
   edge_iterator ei;
   basic_block dummy, bb;
   tree var;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
 
   dummy = fallthru->src;
   bb = fallthru->dest;
@@ -4324,7 +4325,7 @@ gimple_make_forwarder_block (edge fallthru)
 
   /* If we redirected a branch we must create new PHI nodes at the
      start of BB.  */
-  for (gsi = gsi_start (phi_nodes (dummy)); !gsi_end_p (gsi); gsi_next (gsi))
+  for (gsi = gsi_start (phi_nodes (dummy)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi, new_phi;
       
@@ -6620,7 +6621,7 @@ gimplify_val (gimple_stmt_iterator *gsi, tree type, tree exp)
   t = make_rename_temp (type, NULL);
   new_stmt = gimple_build_assign (t, exp);
 
-  orig_stmt = gsi_stmt (gsi);
+  orig_stmt = gsi_stmt (*gsi);
   gimple_set_locus (new_stmt, gimple_locus (orig_stmt));
   gimple_set_block (new_stmt, gimple_block (orig_stmt));
 

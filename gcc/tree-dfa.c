@@ -82,10 +82,10 @@ static unsigned int
 find_referenced_vars (void)
 {
   basic_block bb;
-  gimple_stmt_iterator *si;
+  gimple_stmt_iterator si;
 
   FOR_EACH_BB (bb)
-    for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (si))
+    for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
       {
 	size_t i;
 	gimple stmt = gsi_stmt (si);
@@ -537,9 +537,9 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
   /* Walk all the statements in the function counting references.  */
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator *si;
+      gimple_stmt_iterator si;
 
-      for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (si))
+      for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (&si))
 	{
 	  gimple phi = gsi_stmt (si);
 	  dfa_stats_p->num_phis++;
@@ -548,7 +548,7 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
 	    dfa_stats_p->max_num_phi_args = gimple_phi_num_args (phi);
 	}
 
-      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (si))
+      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	{
 	  gimple stmt = gsi_stmt (si);
 	  dfa_stats_p->num_defs += NUM_SSA_OPERANDS (stmt, SSA_OP_DEF);
