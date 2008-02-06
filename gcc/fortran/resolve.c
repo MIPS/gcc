@@ -496,7 +496,8 @@ resolve_entries (gfc_namespace *ns)
 	      || (el->sym->result->attr.pointer
 		  != ns->entries->sym->result->attr.pointer))
 	    break;
-	  else if (as && fas && gfc_compare_array_spec (as, fas) == 0)
+	  else if (as && fas && ns->entries->sym->result != el->sym->result
+		      && gfc_compare_array_spec (as, fas) == 0)
 	    gfc_error ("Function %s at %L has entries with mismatched "
 		       "array specifications", ns->entries->sym->name,
 		       &ns->entries->sym->declared_at);
@@ -5655,6 +5656,9 @@ resolve_where (gfc_code *code, gfc_expr *mask)
   
 	    case EXEC_ASSIGN_CALL:
 	      resolve_call (cnext);
+	      if (!cnext->resolved_sym->attr.elemental)
+		gfc_error("Non-ELEMETAL user-defined assignment in WHERE at %L",
+			  &cnext->ext.actual->expr->where);
 	      break;
 
 	    /* WHERE or WHERE construct is part of a where-body-construct */
@@ -5737,6 +5741,9 @@ gfc_resolve_where_code_in_forall (gfc_code *code, int nvar,
 	    /* WHERE operator assignment statement */
 	    case EXEC_ASSIGN_CALL:
 	      resolve_call (cnext);
+	      if (!cnext->resolved_sym->attr.elemental)
+		gfc_error("Non-ELEMETAL user-defined assignment in WHERE at %L",
+			  &cnext->ext.actual->expr->where);
 	      break;
 
 	    /* WHERE or WHERE construct is part of a where-body-construct */

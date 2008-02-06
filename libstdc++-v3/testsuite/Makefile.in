@@ -302,9 +302,6 @@ compile_script = ${glibcxx_srcdir}/scripts/check_compile
 # XXX Need to add dependency on libtestc++.a
 check_performance_script = ${glibcxx_srcdir}/scripts/check_performance
 
-# Generates the plots and graphs for performance testing.
-doc_performance_script = ${glibcxx_srcdir}/scripts/make_graphs.py
-
 # Runs the testsuite in parallel mode.
 libgomp_dir = ${glibcxx_builddir}/../libgomp
 libgomp_flags = -B${glibcxx_builddir}/../libgomp \
@@ -562,12 +559,6 @@ check-compile: testsuite_files ${compile_script}
 check-performance: testsuite_files_performance ${performance_script}
 	-@(chmod + ${check_performance_script}; \
 	  ${check_performance_script} ${glibcxx_srcdir} ${glibcxx_builddir})
-doc-performance:
-	-@(chmod + ${doc_performance_script}; \
-	${doc_performance_script} ${glibcxx_srcdir} \
-	${glibcxx_builddir}/testsuite \
-	${glibcxx_srcdir}/testsuite/data/make_graph_htmls.xml \
-	${glibcxx_srcdir}/testsuite/data/make_graph_test_infos.xml local g++)
 
 check-parallel: site.exp
 	-@(if test ! -d $${libgomp_dir}; then \

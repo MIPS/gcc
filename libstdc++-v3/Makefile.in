@@ -84,7 +84,7 @@ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	uninstall-recursive
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = include libsupc++ libmath src po testsuite
+DIST_SUBDIRS = include libsupc++ libmath doc src po testsuite
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -305,7 +305,7 @@ WARN_CXXFLAGS = \
 
 # -I/-D flags to pass when compiling.
 AM_CPPFLAGS = $(GLIBCXX_INCLUDES)
-@GLIBCXX_HOSTED_TRUE@hosted_source = libmath src po testsuite
+@GLIBCXX_HOSTED_TRUE@hosted_source = libmath doc src po testsuite
 SUBDIRS = include libsupc++ $(hosted_source)
 ACLOCAL_AMFLAGS = -I . -I .. -I ../config
 
@@ -784,45 +784,16 @@ uninstall-info: uninstall-info-recursive
 	uninstall uninstall-am uninstall-info-am
 
 
-# These rules are messy, but are hella worth it.
-doxygen:
-	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
-	  builddir=`${PWD_COMMAND}`; \
-	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
-	            --host_alias=${host_alias} \
-	            --mode=user $${srcdir} $${builddir})
-
-doxygen-maint:
-	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
-	  builddir=`${PWD_COMMAND}`; \
-	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
-	            --host_alias=${host_alias} \
-	            --mode=maint $${srcdir} $${builddir})
-
-doxygen-man:
-	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
-	  builddir=`${PWD_COMMAND}`; \
-	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
-	            --host_alias=${host_alias} \
-	            --mode=man $${srcdir} $${builddir})
-
-.PHONY: doxygen doxygen-maint doxygen-man
-
 # Handy forwarding targets.
 check-%:
 	cd testsuite && $(MAKE) $@
 
+doc-%:
+	cd doc && $(MAKE) $@
+
 # All the machinations with string instantiations messes up the
 # automake-generated TAGS rule. Make a simple one here.
 TAGS: tags-recursive $(LISP)
-
-# Installation of distribution html documentation not yet supported
-# TODO: Write custom install-html rule.
-.PHONY: install-html install-pdf
-install-html:
-
-# No install-pdf support in automake yet
-install-pdf:
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

@@ -409,6 +409,7 @@ tree
 remap_type (tree type, copy_body_data *id)
 {
   tree *node;
+  tree tmp;
 
   if (type == NULL)
     return type;
@@ -425,7 +426,11 @@ remap_type (tree type, copy_body_data *id)
       return type;
     }
 
-  return remap_type_1 (type, id);
+  id->remapping_type_depth++;
+  tmp = remap_type_1 (type, id);
+  id->remapping_type_depth--;
+
+  return tmp;
 }
 
 static tree
@@ -723,9 +728,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 tweak some special cases.  */
       copy_tree_r (tp, walk_subtrees, NULL);
 
-      /* Global variables we didn't seen yet needs to go into referenced
-	 vars.  */
-      if (gimple_in_ssa_p (cfun) && TREE_CODE (*tp) == VAR_DECL)
+      /* Global variables we haven't seen yet needs to go into referenced
+	 vars.  If not referenced from types only.  */
+      if (gimple_in_ssa_p (cfun) && TREE_CODE (*tp) == VAR_DECL
+	  && id->remapping_type_depth == 0)
 	add_referenced_var (*tp);
        
       /* If EXPR has block defined, map it to newly constructed block.
@@ -1444,7 +1450,16 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
   if (value
       && value != error_mark_node
       && !useless_type_conversion_p (TREE_TYPE (p), TREE_TYPE (value)))
-    rhs = fold_build1 (NOP_EXPR, TREE_TYPE (p), value);
+    {
+      if (fold_convertible_p (TREE_TYPE (p), value))
+	rhs = fold_build1 (NOP_EXPR, TREE_TYPE (p), value);
+      else
+	/* ???  For valid (GIMPLE) programs we should not end up here.
+	   Still if something has gone wrong and we end up with truly
+	   mismatched types here, fall back to using a VIEW_CONVERT_EXPR
+	   to not leak invalid GIMPLE to the following passes.  */
+	rhs = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (p), value);
+    }
 
   /* If the parameter is never assigned to, has no SSA_NAMEs created,
      we may not need to create a new variable here at all.  Instead, we may
@@ -2567,7 +2582,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 {
   copy_body_data *id;
   tree t;
-  tree use_retvar;
+  tree retvar, use_retvar;
   tree fn;
   struct pointer_map_t *st;
   tree return_slot;
@@ -2769,9 +2784,27 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   else
     modify_dest = NULL;
 
+  /* If we are inlining a call to the C++ operator new, we don't want
+     to use type based alias analysis on the return value.  Otherwise
+     we may get confused if the compiler sees that the inlined new
+     function returns a pointer which was just deleted.  See bug
+     33407.  */
+  if (DECL_IS_OPERATOR_NEW (fn))
+    {
+      return_slot = NULL;
+      modify_dest = NULL;
+    }
+
   /* Declare the return variable for the function.  */
-  declare_return_variable (id, return_slot,
-			   modify_dest, &use_retvar);
+  retvar = declare_return_variable (id, return_slot,
+				    modify_dest, &use_retvar);
+
+  if (DECL_IS_OPERATOR_NEW (fn))
+    {
+      gcc_assert (TREE_CODE (retvar) == VAR_DECL
+		  && POINTER_TYPE_P (TREE_TYPE (retvar)));
+      DECL_NO_TBAA_P (retvar) = 1;
+    }
 
   /* This is it.  Duplicate the callee body.  Assume callee is
      pre-gimplified.  Note that we must not alter the caller
@@ -2909,11 +2942,17 @@ fold_marked_statements (int first, struct pointer_set_t *statements)
 	  if (pointer_set_contains (statements, bsi_stmt (bsi)))
 	    {
 	      tree old_stmt = bsi_stmt (bsi);
+	      tree old_call = get_call_expr_in (old_stmt);
+
 	      if (fold_stmt (bsi_stmt_ptr (bsi)))
 		{
 		  update_stmt (bsi_stmt (bsi));
-		  if (maybe_clean_or_replace_eh_stmt (old_stmt, bsi_stmt (bsi)))
-		     tree_purge_dead_eh_edges (BASIC_BLOCK (first));
+		  if (old_call)
+		    cgraph_update_edges_for_call_stmt (old_stmt, old_call,
+						       bsi_stmt (bsi));
+		  if (maybe_clean_or_replace_eh_stmt (old_stmt,
+						      bsi_stmt (bsi)))
+		    tree_purge_dead_eh_edges (BASIC_BLOCK (first));
 		}
 	    }
       }

@@ -2066,11 +2066,7 @@ else
   if echo "$ld_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
     ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
     ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
     ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
@@ -2132,13 +2128,7 @@ L2:],
   if echo "$as_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
     as_vers=`echo $as_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
     as_major=`expr "$as_vers" : '\([0-9]*\)'`
     as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
 changequote([,])dnl
@@ -3408,8 +3398,14 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
 	     && $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+([1-9][0-9]|[4-9])' \
 	     $glibc_header_dir/features.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
+	elif $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__UCLIBC__[ 	]+1' \
+	     $glibc_header_dir/features.h > /dev/null && \
+	     test -f $glibc_header_dir/bits/uClibc_config.h && \
+	     $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__UCLIBC_HAS_SSP__[ 	]+1' \
+	     $glibc_header_dir/bits/uClibc_config.h > /dev/null; then
+	  gcc_cv_libc_provides_ssp=yes
 	fi
-        fi
+      fi
 	;;
        *-*-darwin*)
 	 AC_CHECK_FUNC(__stack_chk_fail,[gcc_cv_libc_provides_ssp=yes],

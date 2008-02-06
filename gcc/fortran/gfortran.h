@@ -223,7 +223,7 @@ typedef enum
   ST_OMP_PARALLEL, ST_OMP_PARALLEL_DO, ST_OMP_PARALLEL_SECTIONS,
   ST_OMP_PARALLEL_WORKSHARE, ST_OMP_SECTIONS, ST_OMP_SECTION, ST_OMP_SINGLE,
   ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE, ST_PROCEDURE,
-  ST_NONE
+  ST_GET_FCN_CHARACTERISTICS, ST_NONE
 }
 gfc_statement;
 
@@ -2113,6 +2113,7 @@ gfc_expr * gfc_lval_expr_from_sym (gfc_symbol *);
 gfc_namespace *gfc_get_namespace (gfc_namespace *, int);
 gfc_symtree *gfc_new_symtree (gfc_symtree **, const char *);
 gfc_symtree *gfc_find_symtree (gfc_symtree *, const char *);
+void gfc_delete_symtree (gfc_symtree **, const char *);
 gfc_symtree *gfc_get_unique_symtree (gfc_namespace *);
 gfc_user_op *gfc_get_uop (const char *);
 gfc_user_op *gfc_find_uop (const char *, gfc_namespace *);
