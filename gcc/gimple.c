@@ -94,6 +94,8 @@ gss_for_code (enum gimple_code code)
     case GIMPLE_OMP_PARALLEL:		return GSS_OMP_PARALLEL;
     case GIMPLE_OMP_SECTIONS:		return GSS_OMP_SECTIONS;
     case GIMPLE_OMP_SINGLE:		return GSS_OMP_SINGLE;
+    case GIMPLE_OMP_ATOMIC_LOAD:	return GSS_OMP_ATOMIC_LOAD;
+    case GIMPLE_OMP_ATOMIC_STORE:	return GSS_OMP_ATOMIC_STORE;
     default:				gcc_unreachable ();
     }
 }
@@ -144,6 +146,10 @@ gimple_size (enum gimple_code code)
       return sizeof (struct gimple_statement_omp_sections);
     case GIMPLE_OMP_SINGLE:
       return sizeof (struct gimple_statement_omp_single);
+    case GIMPLE_OMP_ATOMIC_LOAD:
+      return sizeof (struct gimple_statement_omp_atomic_load);
+    case GIMPLE_OMP_ATOMIC_STORE:
+      return sizeof (struct gimple_statement_omp_atomic_store);
     case GIMPLE_WITH_CLEANUP_EXPR:
       return sizeof (struct gimple_statement_wce);
     default:
@@ -858,6 +864,29 @@ gimple_build_omp_single (gimple_seq body, tree clauses)
     gimple_omp_set_body (p, body);
   gimple_omp_single_set_clauses (p, clauses);
 
+  return p;
+}
+
+/* Build a GIMPLE_OMP_ATOMIC_LOAD statement.  */
+
+gimple
+gimple_build_omp_atomic_load (tree lhs, tree rhs)
+{
+  gimple p = gimple_alloc (GIMPLE_OMP_ATOMIC_LOAD);
+  gimple_omp_atomic_load_set_lhs (p, lhs);
+  gimple_omp_atomic_load_set_rhs (p, rhs);
+  return p;
+}
+
+/* Build a GIMPLE_OMP_ATOMIC_STORE statement.
+
+   VAL is the value we are storing.  */
+
+gimple
+gimple_build_omp_atomic_store (tree val)
+{
+  gimple p = gimple_alloc (GIMPLE_OMP_ATOMIC_STORE);
+  gimple_omp_atomic_store_set_val (p, val);
   return p;
 }
 

@@ -1,3 +1,27 @@
+2008-02-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.def: Add GIMPLE_OMP_ATOMIC_{LOAD,STORE} entires.
+	* gsstruct.def: Add GSS_OMP_ATOMIC_{LOAD,STORE} entries.
+	* gimple-pretty-print.c (dump_gimple_stmt): Add case for
+	GIMPLE_OMP_ATOMIC_{LOAD,STORE}.
+	* gimplify.c (gimplify_omp_atomic): Enable and convert to tuples.
+	* tree.def: Add FIXME notes.
+	* gimple.c (gss_for_code): Add cases for
+	GIMPLE_OMP_ATOMIC_{LOAD,STORE}.
+	(gimple_size): Same.
+	(gimple_build_omp_atomic_load): New.
+	(gimple_build_omp_atomic_store): New.
+	* gimple.h (struct gimple_statement_omp_atomic_{load,store}): New.
+	(union gimple_statement_d): Add gimple_omp_atomic_{load,store}.
+	(gimple_omp_atomic_store_set_val): New.
+	(gimple_omp_atomic_store_val): New.
+	(gimple_omp_atomic_load_set_lhs): New.
+	(gimple_omp_atomic_load_lhs): New.
+	(gimple_omp_atomic_load_set_rhs): New.
+	(gimple_omp_atomic_load_rhs): New.
+	* tree-cfg.c (verify_types_in_gimple_seq_2): Add cases for
+	GIMPLE_OMP_ATOMIC_{LOAD,STORE}.
+
 2008-02-05  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00161.html

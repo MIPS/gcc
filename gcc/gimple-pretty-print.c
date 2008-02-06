@@ -620,6 +620,26 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
       break;
 
+    case GIMPLE_OMP_ATOMIC_LOAD:
+      pp_string (buffer, "#pragma omp atomic_load");
+      newline_and_indent (buffer, spc + 2);
+      dump_generic_node (buffer, gimple_omp_atomic_load_lhs (gs),
+	  		 spc, flags, false);
+      pp_space (buffer);
+      pp_character (buffer, '=');
+      pp_space (buffer);
+      pp_character (buffer, '*');
+      dump_generic_node (buffer, gimple_omp_atomic_load_rhs (gs),
+	  		 spc, flags, false);
+      break;
+
+    case GIMPLE_OMP_ATOMIC_STORE:
+      pp_string (buffer, "#pragma omp atomic_store (");
+      dump_generic_node (buffer, gimple_omp_atomic_store_val (gs),
+	  		 spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
     case GIMPLE_OMP_FOR:
       dump_gimple_omp_for (buffer, gs, spc, flags);
       break;

@@ -5609,7 +5609,7 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq pre_p)
   tree addr = TREE_OPERAND (*expr_p, 0);
   tree rhs = TREE_OPERAND (*expr_p, 1);
   tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
-  tree tmp_load, load, store;
+  tree tmp_load;
 
    tmp_load = create_tmp_var (type, NULL);
    if (goa_stabilize_expr (&rhs, pre_p, addr, tmp_load) < 0)
@@ -5619,21 +5619,16 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq pre_p)
        != GS_ALL_DONE)
      return GS_ERROR;
 
-   load = build2 (OMP_ATOMIC_LOAD, void_type_node, tmp_load, addr);
-   /* FIXME tuples.  */
-#if 0
-   append_to_statement_list (load, pre_p);
-#else
-   gimple_unreachable ();
-#endif
+   gimple_seq_add (pre_p,
+		   gimple_build_omp_atomic_load (tmp_load, addr));
    if (gimplify_expr (&rhs, pre_p, NULL, is_gimple_val, fb_rvalue)
        != GS_ALL_DONE)
      return GS_ERROR;
-   store = build1 (OMP_ATOMIC_STORE, void_type_node, rhs);
-   *expr_p = store;
+   gimple_seq_add (pre_p,
+       		   gimple_build_omp_atomic_store (rhs));
+   *expr_p = NULL;
 
    return GS_ALL_DONE;
-
 }
 
 

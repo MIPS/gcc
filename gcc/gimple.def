@@ -175,6 +175,18 @@ DEFGSCODE(GIMPLE_TRY, "gimple_try")
 /* GIMPLE_NOP represents the "do nothing" statement.  */
 DEFGSCODE(GIMPLE_NOP, "gimple_nop")
 
+/* Tuples used for lowering of OMP_ATOMIC.  Although the form of the OMP_ATOMIC
+   expression is very simple (just in form mem op= expr), various implicit
+   conversions may cause the expression to become more complex, so that it does
+   not fit the gimple grammar very well.  To overcome this problem, OMP_ATOMIC
+   is rewritten as a sequence of two codes in gimplification:
+
+   GIMPLE_OMP_LOAD (tmp, mem)
+   val = some computations involving tmp;
+   GIMPLE_OMP_STORE (val).  */
+DEFGSCODE(GIMPLE_OMP_ATOMIC_LOAD, "gimple_omp_atomic_load")
+DEFGSCODE(GIMPLE_OMP_ATOMIC_STORE, "gimple_omp_atomic_store")
+
 /* GIMPLE_OMP_CONTINUE marks the location of the loop or sections
    iteration in partially lowered OpenMP code.  */
 DEFGSCODE(GIMPLE_OMP_CONTINUE, "gimple_omp_continue")

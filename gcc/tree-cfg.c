@@ -3731,6 +3731,8 @@ verify_types_in_gimple_seq_2 (gimple_seq stmts)
           case GIMPLE_OMP_PARALLEL:
           case GIMPLE_OMP_SECTIONS:
           case GIMPLE_OMP_SINGLE:
+	  case GIMPLE_OMP_ATOMIC_STORE:
+	  case GIMPLE_OMP_ATOMIC_LOAD:
             break;
 
 	  /* Tuples that do not have trees.  */

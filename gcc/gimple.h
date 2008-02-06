@@ -427,6 +427,25 @@ struct gimple_statement_omp_single GTY(())
   tree clauses;
 };
 
+/* GIMPLE_OMP_ATOMIC_LOAD.  
+   Note: This is based on gimple_statement_base, not g_s_omp, because g_s_omp
+   contains a sequence, which we don't need here.  */
+
+struct gimple_statement_omp_atomic_load GTY(())
+{
+  struct gimple_statement_base gsbase;
+  tree rhs, lhs;
+};
+
+/* GIMPLE_OMP_ATOMIC_STORE.
+   See note on GIMPLE_OMP_ATOMIC_LOAD.  */
+
+struct gimple_statement_omp_atomic_store GTY(())
+{
+  struct gimple_statement_base gsbase;
+  tree val;
+};
+
 enum gimple_statement_structure_enum {
 #define DEFGSSTRUCT(SYM, STRING)	SYM,
 #include "gsstruct.def"
@@ -457,6 +476,8 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
   struct gimple_statement_omp_parallel GTY ((tag ("GSS_OMP_PARALLEL"))) gimple_omp_parallel;
   struct gimple_statement_omp_sections GTY ((tag ("GSS_OMP_SECTIONS"))) gimple_omp_sections;
   struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE"))) gimple_omp_single;
+  struct gimple_statement_omp_atomic_load GTY ((tag ("GSS_OMP_ATOMIC_LOAD"))) gimple_omp_atomic_load;
+  struct gimple_statement_omp_atomic_store GTY ((tag ("GSS_OMP_ATOMIC_STORE"))) gimple_omp_atomic_store;
 };
 
 /* In gimple.c.  */
@@ -492,6 +513,8 @@ gimple gimple_build_omp_return (bool);
 gimple gimple_build_omp_ordered (gimple_seq);
 gimple gimple_build_omp_sections (gimple_seq, tree);
 gimple gimple_build_omp_single (gimple_seq, tree);
+gimple gimple_build_omp_atomic_load (tree, tree);
+gimple gimple_build_omp_atomic_store (tree);
 enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 void gimple_seq_add (gimple_seq, gimple);
 enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
@@ -2427,6 +2450,66 @@ gimple_omp_for_cond (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
   return gimple_subcode (gs);
+}
+
+
+/* Set the value being stored in an atomic store.  */
+
+static inline void
+gimple_omp_atomic_store_set_val (gimple g, tree val)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_STORE);
+  g->gimple_omp_atomic_store.val = val;
+}
+
+
+/* Return the value being stored in an atomic store.  */
+
+static inline tree
+gimple_omp_atomic_store_val (const_gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_STORE);
+  return g->gimple_omp_atomic_store.val;
+}
+
+
+/* Set the LHS of an atomic load.  */
+
+static inline void
+gimple_omp_atomic_load_set_lhs (gimple g, tree lhs)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_LOAD);
+  g->gimple_omp_atomic_load.lhs = lhs;
+}
+
+
+/* Get the LHS of an atomic load.  */
+
+static inline tree
+gimple_omp_atomic_load_lhs (const_gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_LOAD);
+  return g->gimple_omp_atomic_load.lhs;
+}
+
+
+/* Set the RHS of an atomic set.  */
+
+static inline void
+gimple_omp_atomic_load_set_rhs (gimple g, tree rhs)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_LOAD);
+  g->gimple_omp_atomic_load.rhs = rhs;
+}
+
+
+/* Get the RHS of an atomic set.  */
+
+static inline tree
+gimple_omp_atomic_load_rhs (const_gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_LOAD);
+  return g->gimple_omp_atomic_load.rhs;
 }
 
 

@@ -1035,9 +1035,11 @@ DEFTREECODE (OMP_ORDERED, "omp_ordered", tcc_statement, 1)
    Operand 1: OMP_CRITICAL_NAME: Identifier for critical section.  */
 DEFTREECODE (OMP_CRITICAL, "omp_critical", tcc_statement, 2)
 
+/* FIXME tuples: Remove; should only exist as tuple.  */
 /* Return from an OpenMP directive.  */
 DEFTREECODE (OMP_RETURN, "omp_return", tcc_statement, 0)
 
+/* FIXME tuples: Remove; should only exist as tuple.  */
 /* OpenMP - An intermediate tree code to mark the location of the
    loop or sections iteration in the partially lowered code.
    The arguments are definition and use of the control variable.  */
@@ -1051,6 +1053,7 @@ DEFTREECODE (OMP_CONTINUE, "omp_continue", tcc_statement, 2)
 	build_fold_indirect_ref of the address.  */
 DEFTREECODE (OMP_ATOMIC, "omp_atomic", tcc_statement, 2)
 
+/* FIXME tuples: Remove; should only exists as tuples.  */
 /* Codes used for lowering of OMP_ATOMIC.  Although the form of the OMP_ATOMIC
    statement is very simple (just in form mem op= expr), various implicit
    conversions may cause the expression become more complex, so that it does
