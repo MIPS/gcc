@@ -1,3 +1,88 @@
+2008-02-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-01-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34825
+	* tree-ssa-math-opts.c (is_division_by): Do not recognize
+	x / x as division to handle.
+
+2008-02-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/include/texinfo.tex: Update to version 2008-02-04.16.
+
+2008-02-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33631
+	* expr.c (count_type_elements): Give for unions instead of
+	guessing.
+
+2008-02-04  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/fixdfdi.h (__fixunstfdi, __fixtfdi): Rearrange
+	the overflow check to make it easier to read.
+	(__fixtfdi): Change the type of the ll member in union
+	long_double to UDItype_x.
+
+2008-02-02  Richard Henderson  <rth@redhat.com>
+
+        PR c/34993
+        * tree.c (build_type_attribute_qual_variant): Skip TYPE_DOMAIN
+        for unbounded arrays.
+
+2008-02-02  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/34981
+	* config/mips/mips-protos.h (mips_expand_call): Return an rtx.
+	(build_mips16_call_stub): Likewise.
+	* config/mips/mips.h (FIRST_PSEUDO_REGISTER): Rename FAKE_CALL_REGNO
+	to GOT_VERSION_REGNUM.
+	(CALL_REALLY_USED_REGISTERS): Set the GOT_VERSION_REGNUM entry to 0.
+	(EPILOGUE_USES): Include GOT_VERSION_REGNUM if TARGET_ABICALLS.
+	* config/mips/mips.c (mips_emit_call_insn): New function.
+	(mips_call_tls_get_addr): Call mips_expand_call directly.
+	(mips_expand_call): Update the call to build_mips16_call_stub
+	and remove a redundant condition.  Assert that MIPS16 stubs do not
+	use lazy binding.  Use mips_emit_call_insn and return the call insn.
+	(override_options): Allow SImode for GOT_VERSION_REGNUM.
+	(build_mips16_call_stub): Use mips_emit_call_insn rather than
+	emit_call_insn.  Return the call insn or null.
+	(mips_avoid_hazard): Remove hazard_set handling.
+	(mips_extra_live_on_entry): Include GOT_VERSION_REGNUM if
+	TARGET_ABICALLS.
+	* config/mips/mips.md (UNSPEC_EH_RECEIVER): Rename to...
+	(UNSPEC_RESTORE_GP): ...this.
+	(UNSPEC_SET_GOT_VERSION, UNSPEC_UPDATE_GOT_VERSION): New constants.
+	(FAKE_CALL_REGNO): Rename to...
+	(GOT_VERSION_REGNUM): ...this.
+	(type): Add "ghost" value.  Add an associated insn reservation.
+	(hazard_set): Remove.
+	(exception_receiver): Rename to...
+	(restore_gp): ...this and update the unspec identifier accordingly.
+	(exception_receiver, nonlocal_got_receiver): New expanders.
+	(load_call<mode>): Use GOT_VERSION_REGNUM.  Don't set
+	FAKE_CALL_REGNO.  Remove hazard_set attribute.
+	(set_got_version, update_got_version): New patterns.
+
+2008-02-02  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/31388
+	PR target/34900
+	* config/mips/mips.md (load_const_gp_<mode>): New insns.
+	* config/mips/mips.c (gen_load_const_gp): New function.
+	(mips_split_symbol): Avoid using or creating the MIPS16 GP
+	pseudo register if no_new_pseudos.
+	(mips16_gp_pseudo_reg): Use gen_load_const_gp.
+
+2008-02-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2007-08-02  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR middle-end/25445
+	* varasm.c (default_binds_local_p_1): Consult flag_whole_program
+	if we are compiling with -fPIC.
+
 2008-02-01  Release Manager
 
 	* GCC 4.2.3 released.
@@ -45,6 +130,23 @@
 	functions from being marked as pure or const.
 	* ipa-utils (searchc): Fixed comment.
 	
+2008-01-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/34931
+	Backport:
+	2007-01-25  Steve Ellcey  <sje@cup.hp.com>
+
+	PR other/30182
+	* config/pa/pa.c (pa_init_builtins): Set asm names for finite routines.
+	* config/ia64/ia64.c (ia64_init_builtins):  Ditto.
+
+	2007-01-26  Steve Ellcey  <sje@cup.hp.com>
+
+	PR other/30182
+	* config/pa/pa.h (TARGET_HPUX_11): New.
+	* config/pa/pa-hpux11.h (TARGET_HPUX_11): New.
+	* config/pa/pa.c (pa_init_builtins): Use TARGET_HPUX_11.
+
 2008-01-24  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/34953
