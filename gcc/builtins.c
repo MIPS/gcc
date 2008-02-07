@@ -11062,7 +11062,7 @@ validate_arglist (const_gimple call, ...)
 	case VOID_TYPE:
 	  /* This signifies an endlink, if no arguments remain, return
 	     true, otherwise return false.  */
-	  res = (i == gimple_call_nargs (call));
+	  res = (i == gimple_call_num_args (call));
 	  goto end;
 	default:
 	  /* If no parameters remain or the parameter's code does not

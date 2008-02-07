@@ -281,10 +281,10 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
   dump_generic_node (buffer, gimple_call_fn (gs), spc, flags, false);
   pp_string (buffer, " (");
 
-  for (i = 0; i < gimple_call_nargs (gs); i++)
+  for (i = 0; i < gimple_call_num_args (gs); i++)
     {
       dump_generic_node (buffer, gimple_call_arg (gs, i), 0, flags, false);
-      if (i < gimple_call_nargs (gs) - 1)
+      if (i < gimple_call_num_args (gs) - 1)
 	pp_string (buffer, ", ");
     }
 

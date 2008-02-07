@@ -1200,7 +1200,7 @@ gimple_call_set_chain (gimple gs, tree chain)
 /* Return the number of arguments used by call statement GS.  */
 
 static inline size_t
-gimple_call_nargs (const_gimple gs)
+gimple_call_num_args (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_CALL);
   gcc_assert (gs->with_ops.num_ops >= 3);

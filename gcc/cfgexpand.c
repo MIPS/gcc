@@ -149,7 +149,7 @@ gimple_to_tree (gimple stmt)
 	size_t i;
         tree fn, t;
         
-	t = build_vl_exp (CALL_EXPR, gimple_call_nargs (stmt) + 3);
+	t = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
 
         fn = gimple_call_fn (stmt);
         if (TREE_CODE (fn) == FUNCTION_DECL)
@@ -167,7 +167,7 @@ gimple_to_tree (gimple stmt)
 
 	CALL_EXPR_STATIC_CHAIN (t) = gimple_call_chain (stmt);
 
-	for (i = 0; i < gimple_call_nargs (stmt); i++)
+	for (i = 0; i < gimple_call_num_args (stmt); i++)
 	  CALL_EXPR_ARG (t, i) = gimple_call_arg (stmt, i);
 
 	if (!(gimple_call_flags (stmt) & (ECF_CONST | ECF_PURE)))

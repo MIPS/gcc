@@ -1,3 +1,8 @@
+2008-02-07  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.h (gimple_call_num_args): Rename from
+	gimple_call_nargs.  Update all users.
+
 2008-02-07  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimplify.c: Remove various FIXMEs that have been resolved.

@@ -1592,7 +1592,7 @@ convert_tramp_reference_stmt (gimple stmt, void *data)
       /* Only walk call arguments, lest we generate trampolines for
 	 direct calls.  */
       {
-	unsigned long i, nargs = gimple_call_nargs (stmt);
+	unsigned long i, nargs = gimple_call_num_args (stmt);
 	for (i = 0; i < nargs; i++)
 	  walk_tree (gimple_call_arg_ptr (stmt, i), convert_tramp_reference_op,
 		     wi, NULL);

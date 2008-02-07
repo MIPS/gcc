@@ -132,7 +132,7 @@ build_cgraph_edges (void)
 	    && (decl = gimple_call_fndecl (stmt)))
 	  {
 	    size_t i;
-	    size_t n = gimple_call_nargs (stmt);
+	    size_t n = gimple_call_num_args (stmt);
 	    int freq = (!bb->frequency && !entry_freq ? CGRAPH_FREQ_BASE
 			: bb->frequency * CGRAPH_FREQ_BASE / entry_freq);
 	    if (freq > CGRAPH_FREQ_MAX)

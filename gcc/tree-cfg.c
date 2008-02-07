@@ -3205,7 +3205,7 @@ verify_types_in_gimple_call (gimple stmt)
   if (gimple_call_chain (stmt))
     failed |= verify_types_in_gimple_op (gimple_call_chain (stmt));
 
-  for (i = 0; i < gimple_call_nargs (stmt); i++)
+  for (i = 0; i < gimple_call_num_args (stmt); i++)
     failed |= verify_types_in_gimple_op (gimple_call_arg (stmt,i));
 
   return failed;
