@@ -1957,14 +1957,6 @@ gimplify_compound_lval (tree *expr_p, gimple_seq pre_p,
       recalculate_side_effects (t);
     }
 
-
-  /* FIXME tuples.  Is this needed at all?  We've already gimplified
-     P.  */
-#if 0
-  tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval, fallback);
-  ret = MIN (ret, tret);
-#endif
-
   /* If the outermost expression is a COMPONENT_REF, canonicalize its type.  */
   if ((fallback & fb_rvalue) && TREE_CODE (*expr_p) == COMPONENT_REF)
     {
@@ -4619,7 +4611,6 @@ gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq pre_p)
       gimple ftrue = gimple_build_assign (flag, boolean_true_node);
 
       cleanup = build3 (COND_EXPR, void_type_node, flag, cleanup, NULL);
-      /* FIXME tuples: aldy-- is the above working?  */
       gimplify_stmt (&cleanup, &cleanup_stmts);
       wce = gimple_build_wce (&cleanup_stmts);
 

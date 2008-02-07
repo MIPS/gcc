@@ -1,3 +1,7 @@
+2008-02-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimplify.c: Remove various FIXMEs that have been resolved.
+
 2008-02-06  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple.def: Add GIMPLE_OMP_ATOMIC_{LOAD,STORE} entires.
