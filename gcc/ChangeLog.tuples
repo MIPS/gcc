@@ -6,6 +6,7 @@
 	TREE_SIDE_EFFECTS.
 	* gimple.c (gimple_has_side_effects): New.
 	* gimple.h (gimple_has_side_effects): Declare.
+	* tree-cfg.c (stmt_can_make_abnormal_goto): Call.
 
 2008-02-07  Diego Novillo  <dnovillo@google.com>
 
