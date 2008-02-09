@@ -2565,8 +2565,8 @@ stmt_can_make_abnormal_goto (gimple t)
   if (computed_goto_p (t))
     return true;
   if (gimple_code (t) == GIMPLE_CALL)
-    return /* FIXME tuples: TREE_SIDE_EFFECTS (t) && */
-      current_function_has_nonlocal_label;
+    return gimple_has_side_effects (t)
+	   && current_function_has_nonlocal_label;
   return false;
 }
 

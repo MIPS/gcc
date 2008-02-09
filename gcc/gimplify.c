@@ -2330,14 +2330,6 @@ gimplify_call_expr (tree *expr_p, gimple_seq pre_p, bool want_value)
       return GS_ERROR;
     }
 
-  /* If the function is "const" or "pure", then clear
-     TREE_SIDE_EFFECTS on its decl.  This allows us to eliminate
-     redundant or useless calls to "const" functions.  */
-  /* FIXME tuples.  Must handle TREE_SIDE_EFFECTS on GIMPLE_CALL too.  */
-  if (TREE_CODE (*expr_p) == CALL_EXPR
-      && (call_expr_flags (*expr_p) & (ECF_CONST | ECF_PURE)))
-    TREE_SIDE_EFFECTS (*expr_p) = 0;
-
   /* Now add the GIMPLE call to PRE_P.  If WANT_VALUE is set, we need
      to create the appropriate temporary for the call's LHS.  */
   call = gimple_build_call_vec (fndecl ? fndecl : CALL_EXPR_FN (*expr_p), args);

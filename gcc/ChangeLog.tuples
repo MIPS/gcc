@@ -1,3 +1,12 @@
+2008-02-08  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00273.html
+	
+	* gimplify.c (gimplify_call_expr): Remove code to set
+	TREE_SIDE_EFFECTS.
+	* gimple.c (gimple_has_side_effects): New.
+	* gimple.h (gimple_has_side_effects): Declare.
+
 2008-02-07  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.h (gimple_call_num_args): Rename from

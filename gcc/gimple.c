@@ -1695,4 +1695,29 @@ gimple_set_modified (gimple s, bool modifiedp)
 	VEC_safe_push (gimple, gc, MODIFIED_NORETURN_CALLS (cfun), s);
     }
 }
+
+
+/* Return true if statement S has side-effects.  We consider a
+   statement to have side effects if:
+
+   - It is a GIMPLE_CALL not marked with ECF_PURE or ECF_CONST.
+   - Any of its operands are marked TREE_THIS_VOLATILE or TREE_SIDE_EFFECTS.  */
+
+bool
+gimple_has_side_effects (gimple s)
+{
+  if (gimple_code (s) == GIMPLE_CALL)
+    return !(gimple_call_flags (s) & (ECF_CONST | ECF_PURE));
+  else
+    {
+      size_t i;
+      for (i = 0; i < gimple_num_ops (s); i++)
+	if (TREE_THIS_VOLATILE (gimple_op (s, i))
+	    || TREE_SIDE_EFFECTS (gimple_op (s, i)))
+	  return true;
+    }
+
+  return false;
+}
+
 #include "gt-gimple.h"
