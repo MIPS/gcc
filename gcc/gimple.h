@@ -427,6 +427,15 @@ struct gimple_statement_omp_single GTY(())
   tree clauses;
 };
 
+
+/* GIMPLE_CHANGE_DYNAMIC_TYPE  */
+
+struct gimple_statement_change_dynamic_type GTY(())
+{
+  struct gimple_statement_with_ops with_ops;
+  tree type;
+};
+
 /* GIMPLE_OMP_ATOMIC_LOAD.  
    Note: This is based on gimple_statement_base, not g_s_omp, because g_s_omp
    contains a sequence, which we don't need here.  */
@@ -476,6 +485,7 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
   struct gimple_statement_omp_parallel GTY ((tag ("GSS_OMP_PARALLEL"))) gimple_omp_parallel;
   struct gimple_statement_omp_sections GTY ((tag ("GSS_OMP_SECTIONS"))) gimple_omp_sections;
   struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE"))) gimple_omp_single;
+  struct gimple_statement_change_dynamic_type GTY ((tag ("GSS_CHANGE_DYNAMIC_TYPE"))) gimple_change_dynamic_type;
   struct gimple_statement_omp_atomic_load GTY ((tag ("GSS_OMP_ATOMIC_LOAD"))) gimple_omp_atomic_load;
   struct gimple_statement_omp_atomic_store GTY ((tag ("GSS_OMP_ATOMIC_STORE"))) gimple_omp_atomic_store;
 };
@@ -513,6 +523,7 @@ gimple gimple_build_omp_return (bool);
 gimple gimple_build_omp_ordered (gimple_seq);
 gimple gimple_build_omp_sections (gimple_seq, tree);
 gimple gimple_build_omp_single (gimple_seq, tree);
+gimple gimple_build_cdt (tree, tree);
 gimple gimple_build_omp_atomic_load (tree, tree);
 gimple gimple_build_omp_atomic_store (tree);
 enum gimple_statement_structure_enum gimple_statement_structure (gimple);
@@ -1013,8 +1024,7 @@ gimple_set_op (gimple gs, size_t i, tree op)
 static inline bitmap
 gimple_addresses_taken (gimple stmt)
 {
-  gcc_assert (gimple_has_ops (stmt));
-  return stmt->with_ops.addresses_taken;
+  return gimple_has_ops (stmt) ? stmt->with_ops.addresses_taken : NULL;
 }
 
 
@@ -1039,6 +1049,16 @@ gimple_assign_lhs (const_gimple gs)
 }
 
 
+/* Return a pointer to the LHS of assignment statement GS.  */
+
+static inline tree *
+gimple_assign_lhs_ptr (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+  return gimple_op_ptr (gs, 0);
+}
+
+
 /* Set LHS to be the LHS operand of assignment statement GS.  */
 
 static inline void
@@ -1060,6 +1080,16 @@ gimple_assign_rhs1 (const_gimple gs)
 }
 
 
+/* Return a pointer to the first operand on the RHS of assignment
+   statement GS.  */
+
+static inline tree *
+gimple_assign_rhs1_ptr (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+  return gimple_op_ptr (gs, 1);
+}
+
 /* Set RHS to be the first operand on the RHS of assignment statement GS.  */
 
 static inline void
@@ -1079,6 +1109,16 @@ gimple_assign_rhs2 (const_gimple gs)
   return gimple_op (gs, 2);
 }
 
+/* Return a pointer to the second operand on the RHS of assignment
+   statement GS.  */
+
+static inline tree *
+gimple_assign_rhs2_ptr (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+  return gimple_op_ptr (gs, 2);
+}
+
 
 /* Set RHS to be the second operand on the RHS of assignment statement GS.  */
 
@@ -1088,6 +1128,18 @@ gimple_assign_set_rhs2 (gimple gs, tree rhs)
   GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
   gcc_assert (is_gimple_operand (rhs));
   gimple_set_op (gs, 2, rhs);
+}
+
+
+/* Return true if S is an type-cast assignment.  */
+
+static inline bool
+gimple_assign_cast_p (gimple s)
+{
+  return gimple_code (s) == GIMPLE_ASSIGN
+         && (gimple_subcode (s) == NOP_EXPR
+             || gimple_subcode (s) == CONVERT_EXPR
+             || gimple_subcode (s) == FIX_TRUNC_EXPR);
 }
 
 
@@ -2579,6 +2631,66 @@ gimple_expr_type (const_gimple stmt)
     return void_type_node;
 }
 
+/* Return the new type set by GIMPLE_CHANGE_DYNAMIC_TYPE statement GS.  */
+
+static inline tree
+gimple_cdt_new_type (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CHANGE_DYNAMIC_TYPE);
+  return gs->gimple_change_dynamic_type.type;
+}
+
+/* Return a pointer to the new type set by GIMPLE_CHANGE_DYNAMIC_TYPE
+   statement GS.  */
+
+static inline tree *
+gimple_cdt_new_type_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CHANGE_DYNAMIC_TYPE);
+  return &gs->gimple_change_dynamic_type.type;
+}
+
+/* Set NEW_TYPE to be the type returned by GIMPLE_CHANGE_DYNAMIC_TYPE
+   statement GS.  */
+
+static inline void
+gimple_cdt_set_new_type (gimple gs, tree new_type)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CHANGE_DYNAMIC_TYPE);
+  gs->gimple_change_dynamic_type.type = new_type;
+}
+
+
+/* Return the location affected by GIMPLE_CHANGE_DYNAMIC_TYPE statement GS.  */
+
+static inline tree
+gimple_cdt_location (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CHANGE_DYNAMIC_TYPE);
+  return gimple_op (gs, 0);
+}
+
+
+/* Return a pointer to the location affected by GIMPLE_CHANGE_DYNAMIC_TYPE
+   statement GS.  */
+
+static inline tree *
+gimple_cdt_location_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CHANGE_DYNAMIC_TYPE);
+  return gimple_op_ptr (gs, 0);
+}
+
+
+/* Set PTR to be the location affected by GIMPLE_CHANGE_DYNAMIC_TYPE
+   statement GS.  */
+
+static inline void
+gimple_cdt_set_location (gimple gs, tree ptr)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CHANGE_DYNAMIC_TYPE);
+  gimple_set_op (gs, 0, ptr);
+}
 
 /* Iterator object for GIMPLE statement sequences.  */
 
@@ -2641,7 +2753,7 @@ gsi_last (gimple_seq seq)
 }
 
 
-/* Return a new iterator pointing to the first statement in basic block BB.  */
+/* Return a new iterator pointing to the last statement in basic block BB.  */
 
 static inline gimple_stmt_iterator
 gsi_last_bb (basic_block bb)

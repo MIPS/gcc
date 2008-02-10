@@ -2291,8 +2291,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       }
 
     case CHANGE_DYNAMIC_TYPE_EXPR:
-      get_expr_operands (stmt, &CHANGE_DYNAMIC_TYPE_LOCATION (expr), opf_use);
-      return;
+      gcc_unreachable ();
 
     case OMP_FOR:
       {

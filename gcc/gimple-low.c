@@ -296,7 +296,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_GOTO:
     case GIMPLE_LABEL:
     case GIMPLE_SWITCH:
-    /*FIXME tuples: case CHANGE_DYNAMIC_TYPE_EXPR:*/
+    case GIMPLE_CHANGE_DYNAMIC_TYPE:
     case GIMPLE_OMP_FOR:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SECTION:

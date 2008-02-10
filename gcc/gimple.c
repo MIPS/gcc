@@ -94,6 +94,7 @@ gss_for_code (enum gimple_code code)
     case GIMPLE_OMP_PARALLEL:		return GSS_OMP_PARALLEL;
     case GIMPLE_OMP_SECTIONS:		return GSS_OMP_SECTIONS;
     case GIMPLE_OMP_SINGLE:		return GSS_OMP_SINGLE;
+    case GIMPLE_CHANGE_DYNAMIC_TYPE:	return GSS_CHANGE_DYNAMIC_TYPE;
     case GIMPLE_OMP_ATOMIC_LOAD:	return GSS_OMP_ATOMIC_LOAD;
     case GIMPLE_OMP_ATOMIC_STORE:	return GSS_OMP_ATOMIC_STORE;
     default:				gcc_unreachable ();
@@ -152,6 +153,8 @@ gimple_size (enum gimple_code code)
       return sizeof (struct gimple_statement_omp_atomic_store);
     case GIMPLE_WITH_CLEANUP_EXPR:
       return sizeof (struct gimple_statement_wce);
+    case GIMPLE_CHANGE_DYNAMIC_TYPE:
+      return sizeof (struct gimple_statement_change_dynamic_type);
     default:
       break;
     }
@@ -181,6 +184,7 @@ gimple_alloc_ops (gimple stmt, size_t num_ops)
 {
   stmt->with_ops.op = ggc_alloc_cleared (sizeof (tree) * num_ops);
   stmt->with_ops.num_ops = num_ops;
+  stmt->with_ops.modified = 1;
 }
 
 
@@ -522,7 +526,7 @@ gimple_build_asm (const char *string, size_t ninputs, size_t noutputs,
   size_t i;
   va_list ap;
   
-  p = gimple_build_asm_1(string, ninputs, noutputs, nclobbers);
+  p = gimple_build_asm_1 (string, ninputs, noutputs, nclobbers);
   
   va_start (ap, nclobbers);
 
@@ -867,6 +871,21 @@ gimple_build_omp_single (gimple_seq body, tree clauses)
   return p;
 }
 
+
+/* Build a GIMPLE_CHANGE_DYNAMIC_TYPE statement.  TYPE is the new type
+   for the location PTR.  */
+
+gimple
+gimple_build_cdt (tree type, tree ptr)
+{
+  gimple p = gimple_build_with_ops (GIMPLE_CHANGE_DYNAMIC_TYPE, 0, 1);
+  gimple_cdt_set_new_type (p, type);
+  gimple_cdt_set_location (p, ptr);
+
+  return p;
+}
+
+
 /* Build a GIMPLE_OMP_ATOMIC_LOAD statement.  */
 
 gimple
@@ -1179,6 +1198,30 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 	  }
 	break;
 
+      case GIMPLE_CALL:
+	if (wi)
+	  wi->is_lhs = false;
+
+	for (i = 0; i < gimple_call_num_args (stmt); i++)
+	  {
+	    ret = walk_tree (gimple_call_arg_ptr (stmt, i), callback_op, wi,
+			     pset);
+	    if (ret)
+	      return ret;
+	  }
+
+	if (wi)
+	  wi->is_lhs = true;
+
+	ret = walk_tree (gimple_call_lhs_ptr (stmt), callback_op, wi, pset);
+
+	if (ret)
+	  return ret;
+
+	if (wi)
+	  wi->is_lhs = false;
+	break;
+
       case GIMPLE_CATCH:
 	ret = walk_tree (gimple_catch_types_ptr (stmt), callback_op, wi,
 			 pset);
@@ -1189,6 +1232,16 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
       case GIMPLE_EH_FILTER:
 	ret = walk_tree (gimple_eh_filter_types_ptr (stmt), callback_op, wi,
 	                 pset);
+	if (ret)
+	  return ret;
+	break;
+
+      case GIMPLE_CHANGE_DYNAMIC_TYPE:
+	ret = walk_tree (gimple_cdt_location_ptr (stmt), callback_op, wi, pset);
+	if (ret)
+	  return ret;
+
+	ret = walk_tree (gimple_cdt_new_type_ptr (stmt), callback_op, wi, pset);
 	if (ret)
 	  return ret;
 	break;
