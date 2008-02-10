@@ -839,7 +839,8 @@ TREE_INLINE_H = tree-inline.h $(VARRAY_H) pointer-set.h
 REAL_H = real.h $(MACHMODE_H)
 DBGCNT_H = dbgcnt.h dbgcnt.def
 EBIMAP_H = ebitmap.h sbitmap.h
-LTO_TAGS_H = lto-tags.h tree.h sbitmap.h
+LTO_TAGS_H = lto-tags.h tree.h sbitmap.h lto-header.h
+LTO_SECTION_H = lto-section.h lto-header.h
 TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
 
 #
@@ -1962,18 +1963,19 @@ double-int.o: double-int.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 
 lto-stream-debug.o : lto-stream-debug.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    toplev.h $(FLAGS_H) $(PARAMS_H) input.h debug.h $(LTO_TAGS_H) \
-   lto-tree-flags.def lto-tree-tags.def $(TREE_H)
+   lto-header.h lto-tree-flags.def lto-tree-tags.def $(TREE_H)
 lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
    except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def lto-tree-tags.def \
-   lto-tags.h lto-section-out.h output.h dwarf2asm.h dwarf2out.h 
+   lto-tags.h lto-header.h lto-section-out.h output.h dwarf2asm.h dwarf2out.h 
 lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
-   except.h debug.h $(TIMEVAR_H) lto-section-out.h output.h dwarf2asm.h dwarf2out.h 
+   except.h debug.h $(TIMEVAR_H) lto-header.h lto-section-out.h output.h \
+   dwarf2asm.h dwarf2out.h 
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) toplev.h $(TREE_INLINE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) \
    langhooks.h $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) $(DIAGNOSTIC_H) intl.h \

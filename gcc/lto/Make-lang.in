@@ -28,7 +28,7 @@ LTO_EXE = lto1$(exeext)
 # The LTO-specific object files inclued in $(LTO_EXE).
 LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o lto/lto-function-in.o \
 	lto/lto-section-in.o lto/lto-symtab.o attribs.o
-LTO_H = lto/lto.h $(HASHTAB_H) $(TREE_H)
+LTO_H = lto/lto.h lto-header.h lto/lto-section-in.h $(HASHTAB_H) $(TREE_H)
 
 ########################################################################
 # Rules
@@ -91,12 +91,12 @@ lto/lto-function-in.o: lto/lto-function-in.c $(CONFIG_H) $(SYSTEM_H) \
 	$(PARAMS_H) input.h $(VARRAY_H) $(HASHTAB_H) langhooks.h \
 	$(BASIC_BLOCK_H) tree-iterator.h tree-pass.h tree-flow.h \
 	$(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
-	except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def \
+	except.h debug.h $(TIMEVAR_H) lto/lto.h $(LTO_TAGS_H) lto-tree-flags.def \
 	lto-tree-tags.def lto/lto-section-in.h output.h dwarf2asm.h dwarf2out.h
 lto/lto-section-in.o: lto/lto-section-in.c $(CONFIG_H) $(SYSTEM_H) \
 	coretypes.h $(TM_H) toplev.h $(LTO_H) $(EXPR_H) $(FLAGS_H) \
 	$(PARAMS_H) input.h $(VARRAY_H) $(HASHTAB_H) langhooks.h \
 	$(BASIC_BLOCK_H) tree-iterator.h tree-pass.h tree-flow.h \
 	$(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
-	except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def \
-	lto-tree-tags.def lto/lto-section-in.h  output.h dwarf2asm.h dwarf2out.h
+	except.h debug.h $(TIMEVAR_H) lto-tree-flags.def \
+	lto-tree-tags.def lto/lto.h lto/lto-section-in.h  output.h dwarf2asm.h dwarf2out.h

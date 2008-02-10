@@ -47,35 +47,102 @@ along with GCC; see the file COPYING3.  If not see
 #include "dwarf2asm.h"
 #include "dwarf2out.h"
 #include "output.h"
-#include "lto-tags.h"
+#include "lto-section.h"
 #include "lto-section-out.h"
 #include <ctype.h>
 
-/* Get a section for writing of a particular type or name.  The NAME
-   field is only used if SECTION_TYPE is lto_function_body or
+
+/* Returns a hash code for P.  */
+
+hashval_t
+lto_hash_decl_slot_node (const void *p)
+{
+  const struct lto_decl_slot *ds = (const struct lto_decl_slot *) p;
+  return (hashval_t) DECL_UID (ds->t);
+}
+
+
+/* Returns nonzero if P1 and P2 are equal.  */
+
+int
+lto_eq_decl_slot_node (const void *p1, const void *p2)
+{
+  const struct lto_decl_slot *ds1 =
+    (const struct lto_decl_slot *) p1;
+  const struct lto_decl_slot *ds2 =
+    (const struct lto_decl_slot *) p2;
+
+  return DECL_UID (ds1->t) == DECL_UID (ds2->t);
+}
+
+
+/* Returns a hash code for P.  */
+
+hashval_t
+lto_hash_type_slot_node (const void *p)
+{
+  const struct lto_decl_slot *ds = (const struct lto_decl_slot *) p;
+  return (hashval_t) TYPE_UID (ds->t);
+}
+
+
+/* Returns nonzero if P1 and P2 are equal.  */
+
+int
+lto_eq_type_slot_node (const void *p1, const void *p2)
+{
+  const struct lto_decl_slot *ds1 =
+    (const struct lto_decl_slot *) p1;
+  const struct lto_decl_slot *ds2 =
+    (const struct lto_decl_slot *) p2;
+
+  return TYPE_UID (ds1->t) == TYPE_UID (ds2->t);
+}
+
+
+/* Get a section name for a particular type or name.  The NAME field
+   is only used if SECTION_TYPE is LTO_section_function_body or
+   lto_static_initializer.  For all others it is ignored.  The callee
+   of this function is responcible to free the returned name.  */
+const char *
+lto_get_section_name (enum lto_section_type section_type, const char * name)
+{
+  switch (section_type)
+    {
+    case LTO_section_function_body:
+      return concat (LTO_SECTION_NAME_PREFIX, name, NULL);
+
+    case LTO_section_static_initializer:
+      return concat (LTO_SECTION_NAME_PREFIX, ".statics", NULL);
+
+    case LTO_section_decls:
+      return concat (LTO_SECTION_NAME_PREFIX, ".decls", NULL);
+
+    case LTO_section_cgraph:
+      return concat (LTO_SECTION_NAME_PREFIX, ".cgraph", NULL);
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+
+/* Get a section for particular type or name.  The NAME field is only
+   used if SECTION_TYPE is LTO_section_function_body or
    lto_static_initializer.  */
 section *
 lto_get_section (enum lto_section_type section_type, const char * name)
 {
-  char *section_name;
-  section *section;
-
-  switch (section_type)
-    {
-    case lto_function_body:
-    case lto_static_initializer:
-      section_name = concat (LTO_SECTION_NAME_PREFIX, name, NULL);
-      break;
-
-    case lto_cgraph:
-      section_name = concat (LTO_SECTION_NAME_PREFIX, ".cgraph", NULL);
-      break;
-    }
-
-  section = get_section (section_name, SECTION_DEBUG, NULL);
-  free (section_name);
+  const char *section_name = lto_get_section_name (section_type, name);
+  section *section = get_section (section_name, SECTION_DEBUG, NULL);
+  free ((char *)section_name);
   return section;
 }
+
+
+/*****************************************************************************/
+/* Output routines shared by all of the serialization passes.                */
+/*****************************************************************************/
 
 
 /* Write all of the chars in OBS to the assembler.  Recycle the blocks
@@ -273,6 +340,192 @@ lto_output_integer_stream (struct lto_output_stream *obs, tree t)
     }
   while (more);
 }
+
+
+/* Lookup NAME in TABLE.  If NAME is not found, create a new entry in
+   TABLE for NAME with NEXT_INDEX and increment NEXT_INDEX.  Then
+   print the index to OBS.  True is returned if NAME was added to the
+   table.  The resulting index is store in THIS_INDEX.
+
+   If OBS is NULL, the only action is to add NAME to the table. */
+
+bool
+lto_output_decl_index (struct lto_output_stream * obs, htab_t table,
+		       unsigned int *next_index, tree name, 
+		       unsigned int *this_index)
+{
+  void **slot;
+  struct lto_decl_slot d_slot;
+  d_slot.t = name;
+
+  slot = htab_find_slot (table, &d_slot, INSERT);
+  if (*slot == NULL)
+    {
+      struct lto_decl_slot *new_slot = xmalloc (sizeof (struct lto_decl_slot));
+      int index = (*next_index)++;
+
+      new_slot->t = name;
+      new_slot->slot_num = index;
+      *this_index = index;
+      *slot = new_slot;
+      if (obs)
+	lto_output_uleb128_stream (obs, index);
+      return true;
+    }
+  else
+    {
+      struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
+      *this_index = old_slot->slot_num;
+      if (obs)
+	lto_output_uleb128_stream (obs, old_slot->slot_num);
+      return false;
+    }
+}
+
+
+/*****************************************************************************/
+/*  This part is used to store all of the global decls and types that are    */
+/*  serialized out in this file so that a table for this file can be built   */
+/*  that allows the decls and types to be reconnected to the code or the     */
+/*  ipa summary information.                                                 */ 
+/*****************************************************************************/
+static struct lto_out_decl_state *out_state;
+
+struct lto_out_decl_state *
+lto_get_out_decl_state (void)
+{
+  if (!out_state)
+    {
+      out_state = xcalloc (1, sizeof (struct lto_out_decl_state));
+
+      out_state->field_decl_hash_table
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+      out_state->fn_decl_hash_table
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+      out_state->type_hash_table
+	= htab_create (37, lto_hash_type_slot_node, lto_eq_type_slot_node, free);
+      out_state->type_decl_hash_table
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+      out_state->var_decl_hash_table
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+    }
+  return out_state;
+}
+
+/* Write the references for the objects in V to section SEC in the
+   assembly file.  Use REF_FN to compute the reference.  */
+
+static void
+write_references (VEC(tree,heap) *v, section *sec,
+		  void (*ref_fn) (tree, lto_out_ref *))
+{
+  int index;
+  tree t;
+  lto_out_ref out_ref = {0, NULL, NULL};
+
+  for (index = 0; VEC_iterate(tree, v, index, t); index++)
+    {
+      ref_fn (t, &out_ref);
+      /* We always call switch_to_section as the act of creating a
+	 handle we can reference may have dumped some bits into the
+	 assembly.  */
+      switch_to_section (sec);
+      dw2_asm_output_data (8, out_ref.section, " ");
+      dw2_asm_output_delta (8, out_ref.label, out_ref.base_label, " ");
+    }
+}
+
+/* This pass is run after all of the functions are serialized and all
+   of the ipa passes have written their serialized forms.  This pass
+   cases the vector of all of the global decls and types used from
+   this file to be written in to a section that can then be read in to
+   recover these on other side.  */
+static unsigned int
+produce_asm_for_decls (void)
+{
+  struct lto_decl_header header;
+  section *section = lto_get_section (LTO_section_decls, NULL);
+  struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
+
+  memset (&header, 0, sizeof (struct lto_decl_header)); 
+
+  /* The entire header is stream computed here.  */
+  switch_to_section (section);
+  
+  header.lto_header.major_version = LTO_major_version;
+  header.lto_header.minor_version = LTO_minor_version;
+  header.lto_header.section_type = LTO_section_decls;
+
+  header.num_field_decls = VEC_length (tree, out_state->field_decls);
+  header.num_fn_decls = VEC_length (tree, out_state->fn_decls);
+  header.num_var_decls = VEC_length (tree, out_state->var_decls);
+  header.num_type_decls = VEC_length (tree, out_state->type_decls);
+  header.num_types = VEC_length (tree, out_state->types);
+
+  assemble_string ((const char *)&header, 
+		   sizeof (struct lto_decl_header));
+
+  /* Write the global field references.  */
+  write_references (out_state->field_decls, section, lto_field_ref);
+
+  /* Write the global function references.  */
+  write_references (out_state->fn_decls, section, lto_fn_ref);
+
+  /* Write the global var references.  */
+  write_references (out_state->var_decls, section, lto_var_ref);
+
+  /* Write the global type_decl references.  */
+  write_references (out_state->type_decls, section, lto_typedecl_ref);
+
+  /* Write the global type references.  */
+  write_references (out_state->types, section, lto_type_ref);
+
+  htab_delete (out_state->field_decl_hash_table);
+  htab_delete (out_state->fn_decl_hash_table);
+  htab_delete (out_state->var_decl_hash_table);
+  htab_delete (out_state->type_decl_hash_table);
+  htab_delete (out_state->type_hash_table);
+
+  VEC_free (tree, heap, out_state->field_decls);
+  VEC_free (tree, heap, out_state->fn_decls);
+  VEC_free (tree, heap, out_state->var_decls);
+  VEC_free (tree, heap, out_state->type_decls);
+  VEC_free (tree, heap, out_state->types);
+
+  free (out_state);
+
+  return 0;
+}
+
+
+/* Gate function for all lto streaming passes.  */
+bool
+gate_lto_out (void)
+{
+  return (flag_generate_lto
+	  /* Don't bother doing anything if the program has errors.  */
+	  && !(errorcount || sorrycount));
+}
+
+
+struct tree_opt_pass pass_ipa_lto_finish_out =
+{
+  "lto_decls_out",	                /* name */
+  gate_lto_out,			        /* gate */
+  produce_asm_for_decls,        	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_IPA_LTO_OUT,		        /* tv_id */
+  0,	                                /* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,            			/* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0					/* letter */
+};
+
+
 
 #ifdef LTO_STREAM_DEBUGGING
 

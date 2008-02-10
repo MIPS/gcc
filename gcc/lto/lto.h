@@ -28,6 +28,8 @@ Boston, MA 02110-1301, USA.  */
 #include "tree.h"
 #include "vec.h"
 #include <inttypes.h>
+#include "lto-header.h"
+#include "lto-section-in.h"
 
 /* Forward Declarations */
 
@@ -147,20 +149,15 @@ lto_abbrev_fd;
 /* The virtual function table for an lto_file.  */
 typedef struct lto_file_vtable_struct GTY(())
 {
-  /* Return the address of the function-body data for the function
-     named FN, or NULL if the data is not available.  */
-  const void *(*map_fn_body)(struct lto_file_struct *file, const char *fn);
+  /* Return the address of the data in an lto section.
+     LTO_SECTION_TYPE specifies the type of the section.  If this is a
+     function or static initializer use FN, Returns the pointer to the
+     data or NULL if the data is not available.  */
+  const void *(*map_section)(struct lto_file_struct *file, enum lto_section_type, const char *fn);
   /* DATA is the non-NULL address returned by a previous call to
-     MAP_FN_BODY, with the same value of FN.  Release any resources
+     MAP_SECTION, with the same value of FN.  Release any resources
      allocated by MAP_FN_BODY.  */
-  void (*unmap_fn_body)(struct lto_file_struct *file, const char *fn, const void *data);
-  /* Return the address of the variable-initializer data for the function
-     named VAR, or NULL if the data is not available.  */
-  const void *(*map_var_init)(struct lto_file_struct *file, const char *var);
-  /* DATA is the non-NULL address returned by a previous call to
-     MAP_VAR_INIT, with the same value of VAR.  Release any resources
-     allocated by MAP_VAR_INIT.  */
-  void (*unmap_var_init)(struct lto_file_struct *file, const char *var, const void *data);
+  void (*unmap_section)(struct lto_file_struct *file, const char *fn, const void *data);
 }
 lto_file_vtable;
 
@@ -243,35 +240,30 @@ extern lto_file *lto_elf_file_open (const char *filename);
 /* Close an ELF input file.  */
 extern void lto_elf_file_close (lto_file *file);
 
-/* lto-read.c */
+/* lto-function-in.c */
+
+struct lto_file_decl_data* lto_read_decls (lto_info_fd *, lto_context *, const void *data);
 
 /* FN is a FUNCTION_DECL.  DATA is the LTO data written out during
-   ordinary compilation, encoding the body of FN.  FD and CONTEXT may
-   be passed back to the lto_resolve__ref functions to retrieve
-   information about glogal entities.  Upon return, DECL_SAVED_TREE
-   for FN contains the reconstituted body of FN and DECL_INITIAL
-   contains the BLOCK tree for the function.  However, it is not this
-   function's responsibility to provide FN to the optimizers or
-   code-generators; that will be done by the caller.  */
+   ordinary compilation, encoding the body of FN.  FILE_DATA are the
+   tables holding all of the global types and decls used by FN.  Upon
+   return, DECL_SAVED_TREE for FN contains the reconstituted body of
+   FN and DECL_INITIAL contains the BLOCK tree for the function.
+   However, it is not this function's responsibility to provide FN to
+   the optimizers or code-generators; that will be done by the
+   caller.  */
 extern void
-lto_read_function_body (lto_info_fd *fd,
-			lto_context *context,
+lto_input_function_body (struct lto_file_decl_data* file_data,
 			tree fn,
 			const void *data);
 
-/* VAR is a VAR_DECL.  DATA is the LTO data written out during
-   ordinary compilation, encoding the initializer for VAR.  FD and
-   CONTEXT are as for lto_read_function_body.  Upon return,
-   DECL_INITIAL for VAR contains the reconsitituted initializer for
-   VAR.  However, it is not this function's responsibility to provide
-   VAR to the optimizers or code-generators; that will be done by the
-   caller.  */
+/* DATA is the LTO data written out during ordinary compilation,
+   encoding the initializers for the static and external vars.
+   FILE_DATA are the tables holding all of the global types and decls
+   used by FN.  */
 extern void
-lto_read_var_init (lto_info_fd *fd,
-		   lto_context *context,
-		   tree var,
-		   const void *data);
-
+lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
+				  const void *data);
 /* lto-symtab.c */
 
 /* The NEW_VAR (a VAR_DECL) has just been read.  If there is an

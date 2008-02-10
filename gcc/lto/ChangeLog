@@ -1,3 +1,40 @@
+2008-02-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto.c (lto_read_variable_formal_parameter_const): Remove code to
+	reconstruct static initializers.
+	(lto_get_body, lto_materialize_function): Add lto_section_type as
+	a parameter.
+	(lto_materialize_constructors_and_inits,
+	lto_materialize_file_data): New function.
+	(lto_materialize_function,
+	lto_read_subroutine_type_subprogram_DIE): Renamed unmap_fn_body to
+	unmap_section and map_fn_body to map_section.
+	(lto_set_cu_context): Process functions and static inits
+	differently.
+	* Make-lang.in (LTO_H, lto/lto-function-in.o,
+	lto/lto-section-in.o): Update dependencies.
+	* lto/lto-elf.c (lto_elf_map_optional_lto_section): Add
+	lto_section_type parameter.
+	(lto_elf_unmap_fn_body): Renamed to lto_elf_unmap_section.
+	* lto.h (lto_file_vtable_struct): Removed two of the fields and 
+	renamed the other two so that there is only one map function and
+	one unmap function and each takes a section type parameter.
+	(lto_read_function_body): Renamed to lto_input_function_body and
+	added file_data parameter.
+	(lto_read_var_init): Removed.
+	(lto_input_constructors_and_inits): New function.
+	* lto-section-in.c (lto_read_decls): New function.
+	* lto-function-in.c (data_in): Moved fields field_decls, fn_decls,
+	var_decls, type_decls, types to lto_file_decl_data.
+	(input_type_ref, input_expr_operand, lto_read_body): Get
+	field_decls, fn_decls, var_decls, type_decls, types from different
+	structure.
+	(input_globals, input_constructor, lto_read_var_init): Removed.
+	(input_constructors_or_inits): New function.
+	(lto_read_function_body, lto_input_constructors_and_inits):
+	Renamed to lto_input_function_body and takes file_data parameter.
+	* lto-section-in.h (lto_file_decl_data): New structure.
+	
 2008-01-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto-function-in.c (input_globals.c): Changed input type to

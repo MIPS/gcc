@@ -51,7 +51,6 @@ Boston, MA 02110-1301, USA.  */
 #include "output.h"
 #include "lto-tags.h"
 #include "lto.h"
-#include "lto-section-in.h"
 #include <ctype.h>
 #include "cpplib.h"
 
@@ -62,20 +61,31 @@ static int flags_length_for_code[NUM_TREE_CODES];
 
 struct data_in
 {
-  tree *field_decls;        /* The field decls.  */
-  tree *fn_decls;           /* The function decls.  */
-  tree *var_decls;          /* The global or static var_decls.  */
-  tree *type_decls;         /* The type_decls.  */
-  tree *types;              /* All of the types.  */
-  int *local_decls_index;   /* The offsets to decode the local_decls.  */
-  int *unexpanded_indexes;  /* A table to reconstruct the unexpanded_vars_list.  */
+  /* That global decls and types.  */
+  struct lto_file_decl_data* file_data;
+
+  /* The offsets to decode the local_decls.  */
+  int *local_decls_index;
+
+  /* A table to reconstruct the unexpanded_vars_list.  */
+  int *unexpanded_indexes;  
+
 #ifdef LTO_STREAM_DEBUGGING
-  int *local_decls_index_d; /* The offsets to decode the local_decls debug info.  */
+  /* The offsets to decode the local_decls debug info.  */
+  int *local_decls_index_d; 
 #endif
-  tree *local_decls;        /* The local var_decls and the parm_decls.  */
-  tree *labels;             /* All of the labels.  */
-  const char * strings;     /* The string table.  */
-  unsigned int strings_len; /* The length of the string table.  */
+
+  /* The local var_decls and the parm_decls.  */
+  tree *local_decls;
+
+  /* All of the labels.  */
+  tree *labels;
+
+  /* The string table.  */
+  const char * strings;
+  
+  /* The length of the string table.  */
+  unsigned int strings_len;
   /* Number of named labels.  Used to find the index of unnamed labels
      since they share space with the named labels.  */
   unsigned int num_named_labels;  
@@ -85,7 +95,6 @@ struct data_in
   int current_col;
 #endif
 };
-
 
 
 /* This hash table is used to hash the file names in the
@@ -228,7 +237,7 @@ input_type_ref (struct data_in *data_in, struct lto_input_block *ib)
 
   LTO_DEBUG_TOKEN ("type");
   index = lto_input_uleb128 (ib);
-  return data_in->types[index];
+  return data_in->file_data->types[index];
 }
 
 /* Set all of the FLAGS for NODE.  */
@@ -603,16 +612,16 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case FIELD_DECL:
-      result = data_in->field_decls [lto_input_uleb128 (ib)];
+      result = data_in->file_data->field_decls [lto_input_uleb128 (ib)];
       break;
 
     case FUNCTION_DECL:
-      result = data_in->fn_decls [lto_input_uleb128 (ib)];
+      result = data_in->file_data->fn_decls [lto_input_uleb128 (ib)];
       gcc_assert (result);
       break;
 
     case TYPE_DECL:
-      result = data_in->type_decls [lto_input_uleb128 (ib)];
+      result = data_in->file_data->type_decls [lto_input_uleb128 (ib)];
       gcc_assert (result);
       break;
 
@@ -621,7 +630,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       if (tag == LTO_var_decl1)
         {
           /* Static or externs are here.  */
-          result = data_in->var_decls [lto_input_uleb128 (ib)];
+          result = data_in->file_data->var_decls [lto_input_uleb128 (ib)];
 	  varpool_mark_needed_node (varpool_node (result));
         }
       else 
@@ -1035,48 +1044,6 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       recompute_tree_invariant_for_addr_expr (result);
     }
   return result;
-}
-
-
-/* Load in the global vars and all of the types from the main symbol
-   table.  */
-
-static void
-input_globals (struct lto_function_header * header,
-	      lto_info_fd *fd,
-	      lto_context *context,	
-	      struct data_in *data_in, 
-	      lto_ref in_field_decls[],
-	      lto_ref in_fn_decls[],
-	      lto_ref in_var_decls[],
-	      lto_ref in_type_decls[],
-	      lto_ref in_types[])
-{
-  int i;
-  data_in->field_decls = xcalloc (header->num_field_decls, sizeof (tree*));
-  data_in->fn_decls    = xcalloc (header->num_fn_decls, sizeof (tree*));
-  data_in->var_decls   = xcalloc (header->num_var_decls, sizeof (tree*));
-  data_in->type_decls  = xcalloc (header->num_type_decls, sizeof (tree*));
-  data_in->types       = xcalloc (header->num_types, sizeof (tree*));
-
-  for (i=0; i<header->num_field_decls; i++)
-    data_in->field_decls[i] 
-      = lto_resolve_field_ref (fd, context, &in_field_decls[i]);
-
-  for (i=0; i<header->num_fn_decls; i++)
-    data_in->fn_decls[i] 
-      = lto_resolve_fn_ref (fd, context, &in_fn_decls[i]);
-
-  for (i=0; i<header->num_var_decls; i++)
-    data_in->var_decls[i] 
-      = lto_resolve_var_ref (fd, context, &in_var_decls[i]);
-
-  for (i=0; i<header->num_type_decls; i++)
-    data_in->type_decls[i] 
-      = lto_resolve_typedecl_ref (fd, context, &in_type_decls[i]);
-
-  for (i=0; i<header->num_types; i++)
-    data_in->types[i] = lto_resolve_type_ref (fd, context, &in_types[i]);
 }
 
 
@@ -1582,18 +1549,25 @@ input_function (tree fn_decl, struct data_in *data_in,
 }
 
 
-/* Fill in the body of VAR.  */
+/* Fill in the initializers of the public statics.  */
 
 static void
-input_constructor (tree var, struct data_in *data_in, 
-		   struct lto_input_block *ib)
+input_constructors_or_inits (struct data_in *data_in, 
+			     struct lto_input_block *ib)
 {
   enum LTO_tags tag;
 
   clear_line_info (data_in);
-  LTO_DEBUG_INDENT_TOKEN ("init");
   tag = input_record_start (ib);
-  DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
+  while (tag)
+    {
+      tree var;
+      var = input_expr_operand (ib, data_in, NULL, tag);
+      LTO_DEBUG_TOKEN ("init");
+      tag = input_record_start (ib);
+      DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
+      tag = input_record_start (ib);
+    }
 }
 
 
@@ -1706,14 +1680,14 @@ lto_static_init_local (void)
 }
 
 
-/* Read the body form DATA for tree T and fill it in.  FD and CONTEXT
-   are magic cookies used to resolve global decls and types.
-   SECTION_TYPE is either lto_function_body or
-   lto_static_initializer.  */
+/* Read the body form DATA for tree T and fill it in.  File_data are
+   the global decls and types.  SECTION_TYPE is either
+   LTO_section_function_body or LTO_section_static_initializer.  IF
+   section type is LTO_section_function_body, FN must be the decl for
+   that function.  */
 static void 
-lto_read_body (lto_info_fd *fd,
-	       lto_context *context,
-	       tree t,
+lto_read_body (struct lto_file_decl_data* file_data,
+	       tree fn_decl,
 	       const void *data,
 	       enum lto_section_type section_type)
 {
@@ -1721,17 +1695,7 @@ lto_read_body (lto_info_fd *fd,
     = (struct lto_function_header *) data;
   struct data_in data_in;
 
-  int32_t fields_offset = sizeof (struct lto_function_header); 
-  int32_t fns_offset 
-    = fields_offset + (header->num_field_decls * sizeof (lto_ref));
-  int32_t vars_offset 
-    = fns_offset + (header->num_fn_decls * sizeof (lto_ref));
-  int32_t type_decls_offset 
-    = vars_offset + (header->num_var_decls * sizeof (lto_ref));
-  int32_t types_offset 
-    = type_decls_offset + (header->num_type_decls * sizeof (lto_ref));
-  int32_t named_label_offset 
-    = types_offset + (header->num_types * sizeof (lto_ref));
+  int32_t named_label_offset = sizeof (struct lto_function_header); 
   int32_t ssa_names_offset 
     = named_label_offset + header->named_label_size;
   int32_t cfg_offset 
@@ -1761,16 +1725,7 @@ lto_read_body (lto_info_fd *fd,
     = {data + debug_cfg_offset, 0, header->debug_cfg_size};
   struct lto_input_block debug_main 
     = {data + debug_main_offset, 0, header->debug_main_size};
-
-  lto_debug_context.out = lto_debug_in_fun;
-  lto_debug_context.indent = 0;
 #endif
-
-  lto_ref *in_field_decls = (lto_ref*)(data + fields_offset);
-  lto_ref *in_fn_decls    = (lto_ref*)(data + fns_offset);
-  lto_ref *in_var_decls   = (lto_ref*)(data + vars_offset);
-  lto_ref *in_type_decls  = (lto_ref*)(data + type_decls_offset);
-  lto_ref *in_types       = (lto_ref*)(data + types_offset);
 
   struct lto_input_block ib_named_labels 
     = {data + named_label_offset, 0, header->named_label_size};
@@ -1785,7 +1740,12 @@ lto_read_body (lto_info_fd *fd,
   struct lto_input_block ib_main 
     = {data + main_offset, 0, header->main_size};
 
+#ifdef LTO_STREAM_DEBUGGING
+  lto_debug_context.out = lto_debug_in_fun;
+  lto_debug_context.indent = 0;
+#endif
   memset (&data_in, 0, sizeof (struct data_in));
+  data_in.file_data          = file_data;
   data_in.strings            = data + string_offset;
   data_in.strings_len        = header->string_size;
 
@@ -1795,13 +1755,9 @@ lto_read_body (lto_info_fd *fd,
   gcc_assert (header->lto_header.major_version == LTO_major_version);
   gcc_assert (header->lto_header.minor_version == LTO_minor_version);
 
-  input_globals (header, fd, context, &data_in, 
-		 in_field_decls, in_fn_decls, 
-		 in_var_decls, in_type_decls, in_types);
-
-  if (section_type == lto_function_body)
+  if (section_type == LTO_section_function_body)
     {
-      struct function *fn = DECL_STRUCT_FUNCTION (t);
+      struct function *fn = DECL_STRUCT_FUNCTION (fn_decl);
       push_cfun (fn);
       init_tree_ssa (fn);
       data_in.num_named_labels = header->num_named_labels;
@@ -1835,19 +1791,20 @@ lto_read_body (lto_info_fd *fd,
       /* Ensure that all our variables have annotations attached to them
 	 so building SSA doesn't choke.  */
       {
-	int i;
+	unsigned int i;
+	int j;
 
-	for (i = 0; i < header->num_var_decls; i++)
-	  add_referenced_var (data_in.var_decls[i]);
-	for (i =0; i < header->num_local_decls; i++)
-	  add_referenced_var (data_in.local_decls[i]);
+	for (i = 0; i < file_data->num_var_decls; i++)
+	  add_referenced_var (file_data->var_decls[i]);
+	for (j = 0; j < header->num_local_decls; j++)
+	  add_referenced_var (data_in.local_decls[j]);
       }
 
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_main;
 #endif
       /* Set up the struct function.  */
-      input_function (t, &data_in, &ib_main);
+      input_function (fn_decl, &data_in, &ib_main);
 
       /* We should now be in SSA.  */
       cfun->gimple_df->in_ssa_p = true;
@@ -1861,16 +1818,11 @@ lto_read_body (lto_info_fd *fd,
 #ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_main;
 #endif
-      input_constructor (t, &data_in, &ib_main);
+      input_constructors_or_inits (&data_in, &ib_main);
     }
 
   clear_line_info (&data_in);
-  free (data_in.field_decls);
-  free (data_in.fn_decls);
-  free (data_in.var_decls);
-  free (data_in.type_decls);
-  free (data_in.types);
-  if (section_type == lto_function_body)
+  if (section_type == LTO_section_function_body)
     {
       free (data_in.labels);
       free (data_in.local_decls_index);
@@ -1879,27 +1831,24 @@ lto_read_body (lto_info_fd *fd,
 }
 
 
-/* Read in FN_DECL using DATA.  FD and CONTEXT are magic cookies.  */
+/* Read in FN_DECL using DATA.  File_data are the global decls and types.  */
 
 void 
-lto_read_function_body (lto_info_fd *fd,
-			lto_context *context,
-			tree fn_decl,
-			const void *data)
+lto_input_function_body (struct lto_file_decl_data* file_data,
+			 tree fn_decl,
+			 const void *data)
 {
   current_function_decl = fn_decl;
-  lto_read_body (fd, context, fn_decl, data, lto_function_body);
+  lto_read_body (file_data, fn_decl, data, LTO_section_function_body);
 }
 
 
-/* Read in VAR_DECL using DATA.  FD and CONTEXT are magic cookies.  */
+/* Read in VAR_DECL using DATA.  File_data are the global decls and types.  */
 
 void 
-lto_read_var_init (lto_info_fd *fd,
-		   lto_context *context,
-		   tree var_decl,
-		   const void *data)
+lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
+				  const void *data)
 {
-  lto_read_body (fd, context, var_decl, data, lto_static_initializer);
+  lto_read_body (file_data, NULL, data, LTO_section_static_initializer);
 }
 

@@ -2133,22 +2133,6 @@ lto_read_variable_formal_parameter_constant_DIE (lto_info_fd *fd,
 					/*at_end=*/0);
 	    }
 
-	  /* If there is an initializer, read it now.  */
-	  if (!declaration)
-	    {
-	      const void *init;
-	      lto_file *file;
-	      const char *name_str;
-
-	      name_str = IDENTIFIER_POINTER (asm_name);
-	      file = fd->base.file;
-	      init = file->vtable->map_var_init (file, name_str);
-	      if (init)
-		{
-		  lto_read_var_init (fd, context, decl, init);
-		  file->vtable->unmap_var_init (file, name_str, init);
-		}
-	    }
 	  /* If this variable has already been declared, merge the
 	     declarations.  */
 	  decl = lto_symtab_merge_var (decl);
@@ -2415,14 +2399,27 @@ lto_read_abbrev (lto_info_fd *fd)
 static const void *
 lto_get_body (lto_info_fd *fd,
 	      lto_context *context ATTRIBUTE_UNUSED,
-	      tree decl)
+	      enum lto_section_type section_type,
+	      const char *name)
 {
   lto_file *file;
-  const char *name;
 
   file = fd->base.file;
-  name = IDENTIFIER_POINTER (DECL_NAME (decl));
-  return file->vtable->map_fn_body (file, name);
+  return file->vtable->map_section (file, section_type, name);
+}
+
+/* Read the constructors and initsof  FD if possible.  */
+
+static void
+lto_materialize_constructors_and_inits (lto_info_fd *fd,
+					lto_context *context,
+					struct lto_file_decl_data * file_data)
+{
+  lto_file *file = fd->base.file;
+  const void *body = lto_get_body (fd, context, LTO_section_static_initializer, NULL);
+
+  lto_input_constructors_and_inits (file_data, body);
+  file->vtable->unmap_section (file, NULL, body);
 }
 
 /* Read the function body for DECL out of FD if possible.  */
@@ -2430,11 +2427,12 @@ lto_get_body (lto_info_fd *fd,
 static void
 lto_materialize_function (lto_info_fd *fd,
                           lto_context *context,
+			  struct lto_file_decl_data * file_data,
                           tree decl)
 {
   lto_file *file = fd->base.file;
   const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
-  const void *body = lto_get_body (fd, context, decl);
+  const void *body = lto_get_body (fd, context, LTO_section_function_body, name);
 
   if (body)
     {
@@ -2443,8 +2441,8 @@ lto_materialize_function (lto_info_fd *fd,
       DECL_EXTERNAL (decl) = 0;
 
       allocate_struct_function (decl);
-      lto_read_function_body (fd, context, decl, body);
-      file->vtable->unmap_fn_body (file, name, body);
+      lto_input_function_body (file_data, decl, body);
+      file->vtable->unmap_section (file, name, body);
     }
   else
     DECL_EXTERNAL (decl) = 1;
@@ -2455,6 +2453,20 @@ lto_materialize_function (lto_info_fd *fd,
                             /*at_end=*/0);
   if (body)
     cgraph_finalize_function (decl, /*nested=*/false);
+}
+
+/* Read the indirection tables for the global decls and types.  */
+
+static struct lto_file_decl_data *
+lto_materialize_file_data (lto_info_fd *fd,
+			   lto_context *context)
+{
+  lto_file *file = fd->base.file;
+  const void *body = lto_get_body (fd, context, LTO_section_decls, NULL);
+  struct lto_file_decl_data * file_data = lto_read_decls (fd, context, body);
+
+  file->vtable->unmap_section (file, NULL, body);
+  return file_data;
 }
 
 static tree
@@ -2682,13 +2694,13 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
 	 merging heuristics work properly.  The best way to do that is
 	 to look for the function's body.  */
       {
-	const void *body = lto_get_body (fd, context, result);
 	const char *name = IDENTIFIER_POINTER (DECL_NAME (result));
+	const void *body = lto_get_body (fd, context, LTO_section_function_body, name);
 
 	if (body)
 	  {
 	    DECL_EXTERNAL (result) = 0;
-	    fd->base.file->vtable->unmap_fn_body (fd->base.file, name, body);
+	    fd->base.file->vtable->unmap_section (fd->base.file, name, body);
 	  }
 	else
 	  DECL_EXTERNAL (result) = 1;
@@ -3494,6 +3506,7 @@ lto_set_cu_context (lto_context *context, lto_info_fd *fd,
 bool
 lto_file_read (lto_file *file)
 {
+  struct lto_file_decl_data* file_data;
   size_t i;
   /* The descriptor for the .debug_info section.  */
   lto_fd *fd;
@@ -3550,13 +3563,17 @@ lto_file_read (lto_file *file)
 	  lto_read_DIE (&file->debug_info, &context, NULL);
 	}
 
+      file_data = lto_materialize_file_data (&file->debug_info, &context);
+
+      lto_materialize_constructors_and_inits (&file->debug_info, &context, file_data);
+
       /* Read in function bodies now that we have the full DWARF tree
          available.  */
       for (j = 0;
            VEC_iterate (tree, file->debug_info.unmaterialized_fndecls,
                         j, decl);
            j++)
-        lto_materialize_function (&file->debug_info, &context, decl);
+        lto_materialize_function (&file->debug_info, &context, file_data, decl);
     }
 
   return true;

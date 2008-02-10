@@ -61,17 +61,17 @@ typedef struct lto_elf_file lto_elf_file;
 /* Forward Declarations */
 
 static const void *
-lto_elf_map_optional_lto_section (lto_file *file, const char *id);
+lto_elf_map_optional_lto_section (lto_file *file,
+ 				  enum lto_section_type section_type, 
+				  const char *id);
 
 static void
-lto_elf_unmap_fn_body (lto_file *file, const char *fn, const void *data);
+lto_elf_unmap_section (lto_file *file, const char *fn, const void *data);
 
 /* The vtable for ELF input files.  */
 static const lto_file_vtable lto_elf_file_vtable = {
   lto_elf_map_optional_lto_section,
-  lto_elf_unmap_fn_body,
-  lto_elf_map_optional_lto_section,
-  lto_elf_unmap_fn_body
+  lto_elf_unmap_section,
 };
 
 /* Return the section header for SECTION.  The return value is never
@@ -359,11 +359,12 @@ lto_elf_file_close (lto_file *file)
 
 static const void *
 lto_elf_map_optional_lto_section (lto_file *file,
+				  enum lto_section_type section_type, 
                                   const char *id)
 {
   /* Look in the ELF file to find the actual data, which should be
      in the section named LTO_SECTION_NAME_PREFIX || "the function name".  */
-  const char *name = concat (LTO_SECTION_NAME_PREFIX, id, NULL);
+  const char *name = lto_get_section_name (section_type, id);
   Elf_Data *data = lto_elf_find_section_data ((lto_elf_file *)file, name);
 
   free ((void *)name);
@@ -375,7 +376,7 @@ lto_elf_map_optional_lto_section (lto_file *file,
 }
 
 static void
-lto_elf_unmap_fn_body (lto_file *file ATTRIBUTE_UNUSED, 
+lto_elf_unmap_section (lto_file *file ATTRIBUTE_UNUSED, 
 		       const char *fn ATTRIBUTE_UNUSED, 
 		       const void *data ATTRIBUTE_UNUSED)
 {

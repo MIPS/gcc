@@ -65,11 +65,6 @@
 struct lto_function_header
 {
   struct lto_header lto_header;   /* The header for all types of sections. */
-  int32_t num_field_decls;        /* Number of FIELD_DECLS.  */
-  int32_t num_fn_decls;           /* Number of FUNCTION_DECLS.  */
-  int32_t num_var_decls;          /* Number of non local VAR_DECLS.  */
-  int32_t num_type_decls;         /* Number of TYPE_DECLs.  */
-  int32_t num_types;              /* Number of types.  */
   int32_t num_local_decls;        /* Number of local VAR_DECLS and PARM_DECLS.  */
   int32_t num_named_labels;       /* Number of labels with names.  */
   int32_t num_unnamed_labels;     /* Number of labels without names.  */
@@ -479,55 +474,6 @@ extern sbitmap lto_flags_needed_for;
 
 void lto_static_init (void);
 
-#define LTO_STREAM_DEBUGGING
-
-#ifdef LTO_STREAM_DEBUGGING
-#define LTO_DEBUG_INDENT(tag) \
-  lto_debug_indent (&lto_debug_context, tag)
-#define LTO_DEBUG_INDENT_TOKEN(value) \
-  lto_debug_indent_token (&lto_debug_context, value)
-#define LTO_DEBUG_INTEGER(tag,high,low) \
-  lto_debug_integer (&lto_debug_context, tag, high, low)
-#define LTO_DEBUG_STRING(value,len) \
-  lto_debug_string (&lto_debug_context, value, len)
-#define LTO_DEBUG_TOKEN(value) \
-  lto_debug_token (&lto_debug_context, value)
-#define LTO_DEBUG_TREE_FLAGS(code,value) \
-  lto_debug_tree_flags (&lto_debug_context, code, flags)
-#define LTO_DEBUG_UNDENT() \
-  lto_debug_undent (&lto_debug_context)
-#define LTO_DEBUG_WIDE(tag,value) \
-  lto_debug_wide (&lto_debug_context, tag, value)
-
-
-struct lto_debug_context;
-
-typedef void (*lto_debug_out) (struct lto_debug_context *context, char c);
-
-struct lto_debug_context
-{
-  lto_debug_out out;
-  int indent;
-  void * current_data;
-  void * decl_index_data;
-  void * decl_data;
-  void * label_data;
-  void * ssa_names_data;
-  void * cfg_data;
-  void * main_data;
-};
-
-extern struct lto_debug_context lto_debug_context;
-
-/* The VAR_DECL tree code has more than 32 bits in flags.  On some hosts,
-   HOST_WIDE_INT is not wide enough.  */
-typedef unsigned HOST_WIDEST_INT 	lto_flags_type;
-#define	BITS_PER_LTO_FLAGS_TYPE		HOST_BITS_PER_WIDEST_INT
-
-#if BITS_PER_LTO_FLAGS_TYPE <= 32
-#  error "Your host should support integer types wider than 32 bits."
-#endif
-
 /* The serialization plan is that when any of the current file, line,
    or col change (from the state last serialized), we write the
    changed entity and only that entity into the stream.  We also
@@ -545,27 +491,18 @@ typedef unsigned HOST_WIDEST_INT 	lto_flags_type;
 #define LTO_SOURCE_HAS_LOC 0x8
 #define LTO_SOURCE_LOC_BITS 4
 
+/* The VAR_DECL tree code has more than 32 bits in flags.  On some hosts,
+   HOST_WIDE_INT is not wide enough.  */
+typedef unsigned HOST_WIDEST_INT 	lto_flags_type;
+#define	BITS_PER_LTO_FLAGS_TYPE		HOST_BITS_PER_WIDEST_INT
+
+#if BITS_PER_LTO_FLAGS_TYPE <= 32
+#  error "Your host should support integer types wider than 32 bits."
+#endif
+
+#ifdef LTO_STREAM_DEBUGGING
 extern const char * LTO_tag_names[LTO_last_tag];
-
-extern void lto_debug_indent (struct lto_debug_context *, int);
-extern void lto_debug_indent_token (struct lto_debug_context *, const char *);
-extern void lto_debug_integer (struct lto_debug_context *, const char *, HOST_WIDE_INT, HOST_WIDE_INT);
-extern void lto_debug_string (struct lto_debug_context *, const char *, int);
-extern void lto_debug_token (struct lto_debug_context *, const char *);
 extern void lto_debug_tree_flags (struct lto_debug_context *, enum tree_code, lto_flags_type);
-extern void lto_debug_undent (struct lto_debug_context *);
-extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_INT);
-
-
-#else
-#define LTO_DEBUG_INDENT(tag) (void)0
-#define LTO_DEBUG_INDENT_TOKEN(value) (void)0
-#define LTO_DEBUG_INTEGER(tag,high,low) (void)0
-#define LTO_DEBUG_STRING(value,len) (void)0
-#define LTO_DEBUG_TOKEN(value) (void)0
-#define LTO_DEBUG_TREE_FLAGS(code, value) (void)0
-#define LTO_DEBUG_UNDENT() (void)0
-#define LTO_DEBUG_WIDE(tag,value) (void)0
 #endif
 
 #endif /* lto-tags.h */

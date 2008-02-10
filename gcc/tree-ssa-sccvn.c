@@ -1954,7 +1954,6 @@ init_scc_vn (void)
   size_t i;
   int j;
   int *rpo_numbers_temp;
-  basic_block bb;
 
   calculate_dominance_info (CDI_DOMINATORS);
   sccstack = NULL;

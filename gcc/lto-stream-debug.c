@@ -28,6 +28,7 @@ Boston, MA 02110-1301, USA.  */
 #include "params.h"
 #include "input.h"
 #include "debug.h"
+#include "lto-header.h"
 #include "lto-tags.h"
 #include <ctype.h>
 

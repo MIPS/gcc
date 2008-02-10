@@ -1,3 +1,67 @@
+2008-02-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h: (pass_ipa_lto_out): Renamed to pass_ipa_lto_gimple_out.
+	(pass_ipa_lto_finish_out): New pass.
+	* lto-function-out.c (decl_slot, hash_decl_slot_node, eq_decl_slot_node, 
+	hash_type_slot_node, eq_type_slot_node, output_decl_index): Moved to
+	lto-section-out.c, made public and and renamed to have "lto_"
+	prefix.
+	(eq_label_slot_node, hash_label_slot_node): Uses lto_decl_slot rather than
+	decl_slot.
+	(output_block): Deleted these fields: field_decl_hash_table,
+	next_field_decl_index, field_decls, fn_decl_hash_table,
+	next_fn_decl_index, fn_decls, var_decl_hash_table,
+	next_var_decl_index, var_decls, type_decl_hash_table,
+	next_type_decl_index, type_decls, type_hash_table,
+	next_type_index, types.
+	Added cgraph_node and current_stmt_id.
+	(create_output_block): Now takes lto_section_type.  Removed code 
+	to init hash tables moved to lto_section_out.c.
+	(destroy_output_block): Removed is_function parameter.
+	Removed code to destroy tables moved to lto_section_out.c 
+	(output_type_ref, output_local_decl_ref, output_label_ref, 
+	output_expr_operand): Modified to call functions moved to lto_section_out.
+	(output_bb): Properly set current_stmt_id.
+	(write_references): Moved to lto_section_out.c.
+	(produce_asm): tripped of all of the function that was moved
+	to lto_section_out.c.
+	(output_constructor_or_init): Renamed
+	output_constructors_and_inits and writes all initializers in a
+	single section rather than one per section.
+	(lto_output): Moved loop over all constructors to
+	output_constructors_and_inits.
+	(gate_lto_out): Moved to lto-section-out.c. 
+	* tree-ssa-sccvn.c (init_scc_vn): Removed unused bb var.
+	* lto-header.h (lto_section_type): Changed prefix of all
+	elements to "LTO_section".
+	(lto_get_section_name): New function.
+	(lto_get_section): Move from lto-section.h.
+	(LTO_STREAM_DEBUGGING, LTO_DEBUG_INDENT, LTO_DEBUG_INDENT_TOKEN, 
+	LTO_DEBUG_INTEGER, LTO_DEBUG_STRING, LTO_DEBUG_TOKEN, 
+	LTO_DEBUG_TREE_FLAGS, LTO_DEBUG_UNDENT, LTO_DEBUG_WIDE,
+	lto_debug_context, lto_debug_out): Moved from lto-tags.h.
+	* lto-section.h: New file.
+	* lto-tags.h (lto_function_header): Moved fields num_field_decls,
+	num_fn_decls, num_var_decls, num_type_decls, num_types. to
+	lto_decl_header in lto-section.h.
+	(LTO_STREAM_DEBUGGING, LTO_DEBUG_INDENT, LTO_DEBUG_INDENT_TOKEN, 
+	LTO_DEBUG_INTEGER, LTO_DEBUG_STRING, LTO_DEBUG_TOKEN, 
+	LTO_DEBUG_TREE_FLAGS, LTO_DEBUG_UNDENT, LTO_DEBUG_WIDE,
+	lto_debug_context, lto_debug_out): Moved to lto-tags.h.
+	* lto-stream-debug.c: Include lto-header.h.
+	* Makefile.in (LTO_TAGS_H, lto-stream-debug.o, lto-function-out.o,
+	lto-section-out.o): Updated dependencies.
+	(LTO_SECTION_H): New.
+	* passes.c: (pass_ipa_lto_out): Renamed to pass_ipa_lto_gimple_out.
+	(pass_ipa_lto_finish_out): New pass.
+	* lto-section-out.c (lto_hash_decl_slot_node, lto_eq_decl_slot_node, 
+	lto_hash_type_slot_node, lto_eq_type_slot_node,
+	lto_output_decl_index): Moved from lto-function-out.c and
+	renamed with "lto_" prefix.
+	(lto_get_section_name, lto_get_out_decl_state, produce_asm_for_decls): New function.
+	(write_references, gate_lto_out): Moved from lto-function-out.c.
+	* lto-section-out.h (lto_out_decl_state): New structure.
+
 2008-01-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* cgraph.h (cgraph_edge.lto_stmt_uid): New field.
 	* lto-function-out.c (output_constructor, output_expr_operand,

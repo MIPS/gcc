@@ -66,8 +66,54 @@ do { \
 #define LTO_CLEAR_DEBUGGING_STREAM(STREAM)  (void)0
 #endif
 
+struct lto_decl_slot {
+  tree t;
+  int slot_num;
+};
 
-section *lto_get_section (enum lto_section_type, const char *);
+
+/* The structure that holds all of the vectors of global types and
+   decls used in lto serialization for this file.  */
+
+struct lto_out_decl_state
+{
+  /* The hash table that contains the set of field_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t field_decl_hash_table;
+  unsigned int next_field_decl_index;
+  VEC(tree,heap) *field_decls;
+
+  /* The hash table that contains the set of function_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t fn_decl_hash_table;
+  unsigned int next_fn_decl_index;
+  VEC(tree,heap) *fn_decls;
+
+  /* The hash table that contains the set of var_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t var_decl_hash_table;
+  unsigned int next_var_decl_index;
+  VEC(tree,heap) *var_decls;
+
+  /* The hash table that contains the set of type_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t type_decl_hash_table;
+  unsigned int next_type_decl_index;
+  VEC(tree,heap) *type_decls;
+
+  /* The hash table that contains the set of type we have seen so far
+     and the indexes assigned to them.  */
+  htab_t type_hash_table;
+  unsigned int next_type_index;
+  VEC(tree,heap) *types;
+};
+
+hashval_t lto_hash_decl_slot_node (const void *);
+int lto_eq_decl_slot_node (const void *, const void *);
+hashval_t lto_hash_type_slot_node (const void *);
+int lto_eq_type_slot_node (const void *, const void *);
+
+struct lto_out_decl_state *lto_get_out_decl_state (void);
 void lto_write_stream (struct lto_output_stream *);
 void lto_output_1_stream (struct lto_output_stream *, char);
 void lto_output_uleb128_stream (struct lto_output_stream *, unsigned HOST_WIDE_INT);
@@ -75,5 +121,6 @@ void lto_output_widest_uint_uleb128_stream (struct lto_output_stream *,
 					    unsigned HOST_WIDEST_INT);
 void lto_output_sleb128_stream (struct lto_output_stream *, HOST_WIDE_INT);
 void lto_output_integer_stream (struct lto_output_stream *, tree);
-
+bool lto_output_decl_index (struct lto_output_stream *, htab_t, unsigned int *, tree, unsigned int *);
+bool gate_lto_out (void);
 #endif  /* GCC_LTO_SECTION_OUT_H  */

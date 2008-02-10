@@ -1,7 +1,7 @@
 /* Write the gimple representation of a function and it's local
    variables to a .o file.
 
-   Copyright 2006 Free Software Foundation, Inc.
+   Copyright 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -70,81 +70,28 @@ const char *LTO_tag_names[LTO_last_tag];
 static int last_eh_region_seen;
 static unsigned int expr_to_tag[NUM_TREE_CODES];
 
-struct decl_slot {
-  tree t;
-  int slot_num;
-};
-
-/* Returns a hash code for P.  */
-
-static hashval_t
-hash_decl_slot_node (const void *p)
-{
-  const struct decl_slot *ds = (const struct decl_slot *) p;
-  return (hashval_t) DECL_UID (ds->t);
-}
-
-
 /* Returns nonzero if P1 and P2 are equal.  */
 
 static int
-eq_decl_slot_node (const void *p1, const void *p2)
+eq_label_slot_node (const void *p1, const void *p2)
 {
-  const struct decl_slot *ds1 =
-    (const struct decl_slot *) p1;
-  const struct decl_slot *ds2 =
-    (const struct decl_slot *) p2;
+  const struct lto_decl_slot *ds1 =
+    (const struct lto_decl_slot *) p1;
+  const struct lto_decl_slot *ds2 =
+    (const struct lto_decl_slot *) p2;
 
-  return DECL_UID (ds1->t) == DECL_UID (ds2->t);
+  return LABEL_DECL_UID (ds1->t) == LABEL_DECL_UID (ds2->t);
 }
-
-
-/* Returns a hash code for P.  */
-
-static hashval_t
-hash_type_slot_node (const void *p)
-{
-  const struct decl_slot *ds = (const struct decl_slot *) p;
-  return (hashval_t) TYPE_UID (ds->t);
-}
-
-
-/* Returns nonzero if P1 and P2 are equal.  */
-
-static int
-eq_type_slot_node (const void *p1, const void *p2)
-{
-  const struct decl_slot *ds1 =
-    (const struct decl_slot *) p1;
-  const struct decl_slot *ds2 =
-    (const struct decl_slot *) p2;
-
-  return TYPE_UID (ds1->t) == TYPE_UID (ds2->t);
-}
-
 
 /* Returns a hash code for P.  */
 
 static hashval_t
 hash_label_slot_node (const void *p)
 {
-  const struct decl_slot *ds = (const struct decl_slot *) p;
+  const struct lto_decl_slot *ds = (const struct lto_decl_slot *) p;
   return (hashval_t) LABEL_DECL_UID (ds->t);
 }
 
-
-/* Returns nonzero if P1 and P2 are equal.  */
-
-static int
-eq_label_slot_node (const void *p1, const void *p2)
-{
-  const struct decl_slot *ds1 =
-    (const struct decl_slot *) p1;
-  const struct decl_slot *ds2 =
-    (const struct decl_slot *) p2;
-
-  return LABEL_DECL_UID (ds1->t) == LABEL_DECL_UID (ds2->t);
-}
 
 
 struct string_slot {
@@ -189,6 +136,9 @@ eq_string_slot_node (const void *p1, const void *p2)
 
 struct output_block
 {
+  enum lto_section_type section_type;
+  struct lto_out_decl_state *decl_state;
+
   /* The stream that the main tree codes are written to.  */
   struct lto_output_stream *main_stream;
   /* The stream that contains the indexes for the local name table.  */
@@ -243,40 +193,19 @@ struct output_block
 #endif
   VEC(tree,heap) *local_decls;
 
-  /* The hash table that contains the set of field_decls we have
-     seen so far and the indexes assigned to them.  */
-  htab_t field_decl_hash_table;
-  unsigned int next_field_decl_index;
-  VEC(tree,heap) *field_decls;
-
-  /* The hash table that contains the set of function_decls we have
-     seen so far and the indexes assigned to them.  */
-  htab_t fn_decl_hash_table;
-  unsigned int next_fn_decl_index;
-  VEC(tree,heap) *fn_decls;
-
-  /* The hash table that contains the set of var_decls we have
-     seen so far and the indexes assigned to them.  */
-  htab_t var_decl_hash_table;
-  unsigned int next_var_decl_index;
-  VEC(tree,heap) *var_decls;
-
-  /* The hash table that contains the set of type_decls we have
-     seen so far and the indexes assigned to them.  */
-  htab_t type_decl_hash_table;
-  unsigned int next_type_decl_index;
-  VEC(tree,heap) *type_decls;
-
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */
   htab_t string_hash_table;
   unsigned int next_string_index;
 
-  /* The hash table that contains the set of type we have seen so far
-     and the indexes assigned to them.  */
-  htab_t type_hash_table;
-  unsigned int next_type_index;
-  VEC(tree,heap) *types;
+
+  /* The current cgraph_node that we are currently serializing.  Null
+     if we are serializing something else.  */
+  struct cgraph_node *cgraph_node;
+
+  /* The current stmt_uid of the statement we are serializing.  -1 if
+     we are not serializing a statement.  */
+  int current_stmt_uid;
 
   /* These are the last file and line that were seen in the stream.
      If the current node differs from these, it needs to insert
@@ -306,17 +235,20 @@ clear_line_info (struct output_block *ob)
 }
 
 
-/* Create the output block and return it.  IS_FUNTION is true if this
-   is for a function and false for a constructor.  */
+/* Create the output block and return it.  SECTION_TYPE is LTO_section_function_body or
+lto_static_initializer.  */
 
 static struct output_block *
-create_output_block (bool is_function)
+create_output_block (enum lto_section_type section_type)
 {
   struct output_block *ob = xcalloc (1, sizeof (struct output_block));
 
+  ob->section_type = section_type;
   ob->main_stream = xcalloc (1, sizeof (struct lto_output_stream));
   ob->string_stream = xcalloc (1, sizeof (struct lto_output_stream));
-  if (is_function)
+  ob->decl_state = lto_get_out_decl_state ();
+
+  if (section_type == LTO_section_function_body)
     {
       ob->local_decl_index_stream = xcalloc (1, sizeof (struct lto_output_stream));
       ob->local_decl_stream = xcalloc (1, sizeof (struct lto_output_stream));
@@ -331,26 +263,16 @@ create_output_block (bool is_function)
 
   clear_line_info (ob);
 
-  if (is_function)
+  if (section_type == LTO_section_function_body)
     {
       ob->label_hash_table
 	= htab_create (37, hash_label_slot_node, eq_label_slot_node, free);
       ob->local_decl_hash_table
-	= htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
     }
 
-  ob->field_decl_hash_table
-    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
-  ob->fn_decl_hash_table
-    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
-  ob->var_decl_hash_table
-    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
-  ob->type_decl_hash_table
-    = htab_create (37, hash_decl_slot_node, eq_decl_slot_node, free);
   ob->string_hash_table
     = htab_create (37, hash_string_slot_node, eq_string_slot_node, free);
-  ob->type_hash_table
-    = htab_create (37, hash_type_slot_node, eq_type_slot_node, free);
 
   /* The unnamed labels must all be negative.  */
   ob->next_unnamed_label_index = -1;
@@ -358,27 +280,23 @@ create_output_block (bool is_function)
 }
 
 
-/* Destroy the output block OB.  IS_FUNTION is true if this is for a
-   function and false for a constructor.  */
+/* Destroy the output block OB.  */
 
 static void
-destroy_output_block (struct output_block * ob, bool is_function)
+destroy_output_block (struct output_block * ob)
 {
-  if (is_function)
+  enum lto_section_type section_type = ob->section_type;
+
+  if (section_type == LTO_section_function_body)
     {
       htab_delete (ob->label_hash_table);
       htab_delete (ob->local_decl_hash_table);
     }
-  htab_delete (ob->field_decl_hash_table);
-  htab_delete (ob->fn_decl_hash_table);
-  htab_delete (ob->var_decl_hash_table);
-  htab_delete (ob->type_decl_hash_table);
   htab_delete (ob->string_hash_table);
-  htab_delete (ob->type_hash_table);
 
   free (ob->main_stream);
   free (ob->string_stream);
-  if (is_function)
+  if (section_type == LTO_section_function_body)
     {
       free (ob->local_decl_index_stream);
       free (ob->local_decl_stream);
@@ -388,7 +306,7 @@ destroy_output_block (struct output_block * ob, bool is_function)
     }
 
   LTO_CLEAR_DEBUGGING_STREAM (debug_main_stream);
-  if (is_function)
+  if (section_type == LTO_section_function_body)
     {
       LTO_CLEAR_DEBUGGING_STREAM (debug_label_stream);
       LTO_CLEAR_DEBUGGING_STREAM (debug_ssa_names_stream);
@@ -397,7 +315,7 @@ destroy_output_block (struct output_block * ob, bool is_function)
       LTO_CLEAR_DEBUGGING_STREAM (debug_decl_index_stream);
     }
 
-  if (is_function)
+  if (section_type == LTO_section_function_body)
     {
       VEC_free (int, heap, ob->local_decls_index);
       VEC_free (int, heap, ob->unexpanded_local_decls_index);
@@ -407,10 +325,6 @@ destroy_output_block (struct output_block * ob, bool is_function)
       VEC_free (tree, heap, ob->named_labels);
     }
   VEC_free (tree, heap, ob->local_decls);
-  VEC_free (tree, heap, ob->field_decls);
-  VEC_free (tree, heap, ob->fn_decls);
-  VEC_free (tree, heap, ob->var_decls);
-  VEC_free (tree, heap, ob->types);
 
   free (ob);
 }
@@ -523,47 +437,6 @@ static void
 output_integer (struct output_block *ob, tree t)
 {
   lto_output_integer_stream (ob->main_stream, t);
-}
-
-
-/* Lookup NAME in TABLE.  If NAME is not found, create a new entry in
-   TABLE for NAME with NEXT_INDEX and increment NEXT_INDEX.  Then
-   print the index to OBS.  True is returned if NAME was added to the
-   table.  The resulting index is store in THIS_INDEX.
-
-   If OBS is NULL, the only action is to add NAME to the table. */
-
-static bool
-output_decl_index (struct lto_output_stream * obs, htab_t table,
-		   unsigned int *next_index, tree name, 
-		   unsigned int *this_index)
-{
-  void **slot;
-  struct decl_slot d_slot;
-  d_slot.t = name;
-
-  slot = htab_find_slot (table, &d_slot, INSERT);
-  if (*slot == NULL)
-    {
-      struct decl_slot *new_slot = xmalloc (sizeof (struct decl_slot));
-      int index = (*next_index)++;
-
-      new_slot->t = name;
-      new_slot->slot_num = index;
-      *this_index = index;
-      *slot = new_slot;
-      if (obs)
-	lto_output_uleb128_stream (obs, index);
-      return true;
-    }
-  else
-    {
-      struct decl_slot *old_slot = (struct decl_slot *)*slot;
-      *this_index = old_slot->slot_num;
-      if (obs)
-	lto_output_uleb128_stream (obs, old_slot->slot_num);
-      return false;
-    }
 }
 
 
@@ -751,11 +624,13 @@ output_type_ref (struct output_block *ob, tree node)
   unsigned int index;
 
   LTO_DEBUG_TOKEN ("type");
-  new = output_decl_index (ob->main_stream, ob->type_hash_table,
-			   &ob->next_type_index, node, &index);
+  new = lto_output_decl_index (ob->main_stream, 
+			       ob->decl_state->type_hash_table,
+			       &ob->decl_state->next_type_index, 
+			       node, &index);
 
   if (new)
-    VEC_safe_push (tree, heap, ob->types, node);
+    VEC_safe_push (tree, heap, ob->decl_state->types, node);
 }
 
 
@@ -766,10 +641,10 @@ static unsigned int
 output_local_decl_ref (struct output_block *ob, tree name, bool write)
 {
   unsigned int index;
-  bool new = output_decl_index (write ? ob->main_stream : NULL, 
-				ob->local_decl_hash_table,
-				&ob->next_local_decl_index, 
-				name, &index);
+  bool new = lto_output_decl_index (write ? ob->main_stream : NULL, 
+				    ob->local_decl_hash_table,
+				    &ob->next_local_decl_index, 
+				    name, &index);
   /* Push the new local var or param onto a vector for later
      processing.  */
   if (new)
@@ -790,13 +665,13 @@ static void
 output_label_ref (struct output_block *ob, tree label)
 {
   void **slot;
-  struct decl_slot d_slot;
+  struct lto_decl_slot d_slot;
   d_slot.t = label;
 
   slot = htab_find_slot (ob->label_hash_table, &d_slot, INSERT);
   if (*slot == NULL)
     {
-      struct decl_slot *new_slot = xmalloc (sizeof (struct decl_slot));
+      struct lto_decl_slot *new_slot = xmalloc (sizeof (struct lto_decl_slot));
 
       /* Named labels are given positive integers and unnamed labels are 
 	 given negative indexes.  */
@@ -813,7 +688,7 @@ output_label_ref (struct output_block *ob, tree label)
     }
   else
     {
-      struct decl_slot *old_slot = (struct decl_slot *)*slot;
+      struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
       output_sleb128 (ob, old_slot->slot_num);
     }
 }
@@ -1170,10 +1045,12 @@ output_expr_operand (struct output_block *ob, tree expr)
 	bool new;
 	output_record_start (ob, NULL, NULL, tag);
 	
-	new = output_decl_index (ob->main_stream, ob->field_decl_hash_table,
-				 &ob->next_field_decl_index, expr, &index);
+	new = lto_output_decl_index (ob->main_stream, 
+				     ob->decl_state->field_decl_hash_table,
+				     &ob->decl_state->next_field_decl_index, 
+				     expr, &index);
 	if (new)
-	  VEC_safe_push (tree, heap, ob->field_decls, expr);
+	  VEC_safe_push (tree, heap, ob->decl_state->field_decls, expr);
       }
       break;
 
@@ -1183,10 +1060,12 @@ output_expr_operand (struct output_block *ob, tree expr)
 	bool new;
 	output_record_start (ob, NULL, NULL, tag);
 	
-	new = output_decl_index (ob->main_stream, ob->fn_decl_hash_table,
-				 &ob->next_fn_decl_index, expr, &index);
+	new = lto_output_decl_index (ob->main_stream, 
+				     ob->decl_state->fn_decl_hash_table,
+				     &ob->decl_state->next_fn_decl_index, 
+				     expr, &index);
 	if (new)
-	  VEC_safe_push (tree, heap, ob->fn_decls, expr);
+	  VEC_safe_push (tree, heap, ob->decl_state->fn_decls, expr);
       }
       break;
 
@@ -1198,10 +1077,12 @@ output_expr_operand (struct output_block *ob, tree expr)
 	  bool new;
 	  output_record_start (ob, NULL, NULL, LTO_var_decl1);
 
-	  new = output_decl_index (ob->main_stream, ob->var_decl_hash_table,
-				   &ob->next_var_decl_index, expr, &index);
+	  new = lto_output_decl_index (ob->main_stream, 
+				       ob->decl_state->var_decl_hash_table,
+				       &ob->decl_state->next_var_decl_index, 
+				       expr, &index);
 	  if (new)
-	    VEC_safe_push (tree, heap, ob->var_decls, expr);
+	    VEC_safe_push (tree, heap, ob->decl_state->var_decls, expr);
 	}
       else
 	{
@@ -1217,10 +1098,12 @@ output_expr_operand (struct output_block *ob, tree expr)
 	bool new;
 	output_record_start (ob, NULL, NULL, tag);
 	
-	new = output_decl_index (ob->main_stream, ob->type_decl_hash_table,
-				 &ob->next_type_decl_index, expr, &index);
+	new = lto_output_decl_index (ob->main_stream, 
+				     ob->decl_state->type_decl_hash_table,
+				     &ob->decl_state->next_type_decl_index, 
+				     expr, &index);
 	if (new)
-	  VEC_safe_push (tree, heap, ob->type_decls, expr);
+	  VEC_safe_push (tree, heap, ob->decl_state->type_decls, expr);
       }
       break;
 
@@ -1270,6 +1153,17 @@ output_expr_operand (struct output_block *ob, tree expr)
       {
 	unsigned int count = TREE_INT_CST_LOW (TREE_OPERAND (expr, 0));
 	unsigned int i;
+        struct cgraph_edge *e = ob->cgraph_node->callees;
+
+
+	gcc_assert (ob->cgraph_node);
+	gcc_assert (ob->current_stmt_uid != -1);
+
+	while (e) 
+	  {
+	    e->lto_stmt_uid = ob->current_stmt_uid;
+	    e = e->next_callee;
+	  }
 
 	/* Operand 2 is the call chain.  */
 	if (TREE_OPERAND (expr, 2))
@@ -1837,7 +1731,9 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 	   !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
-	
+
+	  ob->current_stmt_uid = gimple_stmt_uid (stmt);
+
 	  LTO_DEBUG_INDENT_TOKEN ("stmt");
 	  output_expr_operand (ob, stmt);
 	
@@ -1862,6 +1758,8 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
       LTO_DEBUG_INDENT_TOKEN ("stmt");
       output_zero (ob);
 
+      ob->current_stmt_uid = -1;
+
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  LTO_DEBUG_INDENT_TOKEN ("phi");
@@ -1879,55 +1777,35 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 #endif
 }
 
-/* Write the references for the objects in V to section SEC in the
-   assembly file.  Use REF_FN to compute the reference.  */
+/* Create the header in the file using OB.  If the section type is for
+   a function, set FN to the decl for that function.  */
 
 static void
-write_references (VEC(tree,heap) *v, section *sec,
-		  void (*ref_fn) (tree, lto_out_ref *))
+produce_asm (struct output_block *ob, tree fn)
 {
-  int index;
-  tree t;
-  lto_out_ref out_ref = {0, NULL, NULL};
-
-  for (index = 0; VEC_iterate(tree, v, index, t); index++)
-    {
-      ref_fn (t, &out_ref);
-      /* We always call switch_to_section as the act of creating a
-	 handle we can reference may have dumped some bits into the
-	 assembly.  */
-      switch_to_section (sec);
-      dw2_asm_output_data (8, out_ref.section, " ");
-      dw2_asm_output_delta (8, out_ref.label, out_ref.base_label, " ");
-    }
-}
-
-/* Create the header in the file using OB for t.  */
-
-static void
-produce_asm (struct output_block *ob, tree t, enum lto_section_type section_type)
-{
-  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t));
+  enum lto_section_type section_type = ob->section_type;
   struct lto_function_header header;
-  section *section = lto_get_section (section_type, name);
+  section *section;
 
+  if (section_type == LTO_section_function_body)
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn));
+      section = lto_get_section (section_type, name);
+    }
+  else
+    section = lto_get_section (section_type, NULL);
+  
   memset (&header, 0, sizeof (struct lto_function_header)); 
 
   /* The entire header is stream computed here.  */
   switch_to_section (section);
   
-  /* Write the header which says how to decode the pieces of the
-     t.  */
+  /* Write the header.  */
   header.lto_header.major_version = LTO_major_version;
   header.lto_header.minor_version = LTO_minor_version;
   header.lto_header.section_type = section_type;
   
-  header.num_field_decls = VEC_length (tree, ob->field_decls);
-  header.num_fn_decls = VEC_length (tree, ob->fn_decls);
-  header.num_var_decls = VEC_length (tree, ob->var_decls);
-  header.num_type_decls = VEC_length (tree, ob->type_decls);
-  header.num_types = VEC_length (tree, ob->types);
-  if (section_type == lto_function_body)
+  if (section_type == LTO_section_function_body)
     {
       header.num_local_decls = VEC_length (tree, ob->local_decls);
       header.num_named_labels = ob->next_named_label_index;
@@ -1935,7 +1813,7 @@ produce_asm (struct output_block *ob, tree t, enum lto_section_type section_type
     }
   header.compressed_size = 0;
   
-  if (section_type == lto_function_body)
+  if (section_type == LTO_section_function_body)
     {
       header.named_label_size = ob->named_label_stream->total_size;
       header.ssa_names_size = ob->ssa_names_stream->total_size;
@@ -1946,7 +1824,7 @@ produce_asm (struct output_block *ob, tree t, enum lto_section_type section_type
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
 #ifdef LTO_STREAM_DEBUGGING
-  if (section_type == lto_function_body)
+  if (section_type == LTO_section_function_body)
     {
       header.debug_decl_index_size = ob->debug_decl_index_stream->total_size;
       header.debug_decl_size = ob->debug_decl_stream->total_size;
@@ -1967,24 +1845,9 @@ produce_asm (struct output_block *ob, tree t, enum lto_section_type section_type
   assemble_string ((const char *)&header, 
 		   sizeof (struct lto_function_header));
 
-  /* Write the global field references.  */
-  write_references (ob->field_decls, section, lto_field_ref);
-
-  /* Write the global function references.  */
-  write_references (ob->fn_decls, section, lto_fn_ref);
-
-  /* Write the global var references.  */
-  write_references (ob->var_decls, section, lto_var_ref);
-
-  /* Write the global type_decl references.  */
-  write_references (ob->type_decls, section, lto_typedecl_ref);
-
-  /* Write the global type references.  */
-  write_references (ob->types, section, lto_type_ref);
-
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
-  if (section_type == lto_function_body)
+  if (section_type == LTO_section_function_body)
     {
       lto_write_stream (ob->named_label_stream);
       lto_write_stream (ob->ssa_names_stream);
@@ -1995,7 +1858,7 @@ produce_asm (struct output_block *ob, tree t, enum lto_section_type section_type
   lto_write_stream (ob->main_stream);
   lto_write_stream (ob->string_stream);
 #ifdef LTO_STREAM_DEBUGGING
-  if (section_type == lto_function_body)
+  if (section_type == LTO_section_function_body)
     {
       lto_write_stream (ob->debug_decl_index_stream);
       lto_write_stream (ob->debug_decl_stream);
@@ -2127,10 +1990,12 @@ output_function (struct cgraph_node* node)
   tree function = node->decl;
   struct function *fn = DECL_STRUCT_FUNCTION (function);
   basic_block bb;
-  struct output_block *ob = create_output_block (true);
+  struct output_block *ob = create_output_block (LTO_section_function_body);
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
+  ob->cgraph_node = node;
+  ob->current_stmt_uid = -1;
 
   gcc_assert (!current_function_decl && !cfun);
 
@@ -2195,9 +2060,9 @@ output_function (struct cgraph_node* node)
 
   /* Create a file to hold the pickled output of this function.  This
      is a temp standin until we start writing sections.  */
-  produce_asm (ob, function, lto_function_body);
+  produce_asm (ob, function);
 
-  destroy_output_block (ob, true);
+  destroy_output_block (ob);
 
   current_function_decl = NULL;
 
@@ -2205,12 +2070,16 @@ output_function (struct cgraph_node* node)
 }
 
 
-/* Output constructor for VAR.  */
+/* Output constructor for static or external vars.  */
 
 static void
-output_constructor_or_init (tree var)
+output_constructors_and_inits (void)
 {
-  struct output_block *ob = create_output_block (false);
+  struct output_block *ob = create_output_block (LTO_section_static_initializer);
+  struct varpool_node *vnode;
+
+  ob->cgraph_node = NULL;
+  ob->current_stmt_uid = -1;
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
@@ -2218,14 +2087,24 @@ output_constructor_or_init (tree var)
   /* Make string 0 be a NULL string.  */
   lto_output_1_stream (ob->string_stream, 0);
 
-  LTO_DEBUG_INDENT_TOKEN ("init");
-  output_expr_operand (ob, DECL_INITIAL (var));
-
+  /* Process the global static vars that have initializers or
+     constructors.  */
+  FOR_EACH_STATIC_INITIALIZER (vnode)
+    {
+      tree var = vnode->decl;
+      if (DECL_CONTEXT (var) == NULL_TREE)
+	{
+	  output_expr_operand (ob, var);
+	  
+	  LTO_DEBUG_TOKEN ("init");
+	  output_expr_operand (ob, DECL_INITIAL (var));
+	}
+    }
   /* The terminator for the constructor.  */
   output_zero (ob);
-
-  produce_asm (ob, var, lto_static_initializer);
-  destroy_output_block (ob, false);
+      
+  produce_asm (ob, NULL);
+  destroy_output_block (ob);
 }
 
 
@@ -2235,8 +2114,6 @@ static unsigned int
 lto_output (void)
 {
   struct cgraph_node *node;
-  struct varpool_node *vnode;
-
   section *saved_section = in_section;
 
   lto_static_init_local ();
@@ -2250,11 +2127,7 @@ lto_output (void)
     if (node->analyzed && cgraph_is_master_clone (node, false))
       output_function (node);
 
-  /* Process the global static vars that have initializers or
-     constructors.  */
-  FOR_EACH_STATIC_INITIALIZER (vnode)
-    if (DECL_CONTEXT (vnode->decl) == NULL_TREE)
-      output_constructor_or_init (vnode->decl);
+  output_constructors_and_inits ();
 
   /* Put back the assembly section that was there before we started
      writing lto info.  */
@@ -2266,17 +2139,9 @@ lto_output (void)
   return 0;
 }
 
-static bool
-gate_lto_out (void)
+struct tree_opt_pass pass_ipa_lto_gimple_out =
 {
-  return (flag_generate_lto
-	  /* Don't bother doing anything if the program has errors.  */
-	  && !(errorcount || sorrycount));
-}
-
-struct tree_opt_pass pass_ipa_lto_out =
-{
-  "lto_function_out",	                /* name */
+  "lto_gimple_out",	                /* name */
   gate_lto_out,			        /* gate */
   lto_output,		        	/* execute */
   NULL,					/* sub */

@@ -28,6 +28,25 @@ struct lto_input_block
   unsigned int len;
 };
 
+
+/* One of these is allocated for each object file that being compiled
+   by lto.  This structure contains the tables that are needed for the
+   by the serialized functions and ipa passes to connect themselves to
+   the global types and decls as they are reconstituted.  */
+struct lto_file_decl_data
+{
+  tree *field_decls;            /* The field decls.  */
+  tree *fn_decls;               /* The function decls.  */
+  tree *var_decls;              /* The global or static var_decls.  */
+  tree *type_decls;             /* The type_decls.  */
+  tree *types;                  /* All of the types.  */
+  unsigned int num_field_decls; /* The number of field decls.  */
+  unsigned int num_fn_decls;    /* The number of function decls.  */
+  unsigned int num_var_decls;   /* The number of global or static var_decls.  */
+  unsigned int num_type_decls;  /* The number of type_decls.  */
+  unsigned int num_types;       /* All number of of the types.  */
+};
+
 unsigned char lto_input_1_unsigned (struct lto_input_block *);
 unsigned HOST_WIDE_INT lto_input_uleb128 (struct lto_input_block *);
 unsigned HOST_WIDEST_INT lto_input_widest_uint_uleb128 (struct lto_input_block *);
