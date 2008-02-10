@@ -49,8 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "alloc-pool.h"
 
-/* FIXME tuples.  */
-#if 0
 /* Broad overview of how aliasing works:
    
    First we compute points-to sets, which is done in
@@ -757,7 +755,7 @@ static void
 count_mem_refs (long *num_vuses_p, long *num_vdefs_p,
 		long *num_partitioned_p, long *num_unpartitioned_p)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   basic_block bb;
   long num_vdefs, num_vuses, num_partitioned, num_unpartitioned;
   referenced_var_iterator rvi;
@@ -767,9 +765,9 @@ count_mem_refs (long *num_vuses_p, long *num_vdefs_p,
 
   if (num_vuses_p || num_vdefs_p)
     FOR_EACH_BB (bb)
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  tree stmt = bsi_stmt (bsi);
+	  gimple stmt = gsi_stmt (gsi);
 	  if (stmt_references_memory_p (stmt))
 	    {
 	      num_vuses += NUM_SSA_OPERANDS (stmt, SSA_OP_VUSE);
@@ -1018,7 +1016,7 @@ debug_mp_info (VEC(mem_sym_stats_t,heap) *mp_info)
    recorded by this function, see compute_memory_partitions).  */
 
 void
-update_mem_sym_stats_from_stmt (tree var, tree stmt, long num_direct_reads,
+update_mem_sym_stats_from_stmt (tree var, gimple stmt, long num_direct_reads,
                                 long num_direct_writes)
 {
   mem_sym_stats_t stats;
@@ -1175,13 +1173,8 @@ find_partition_for (mem_sym_stats_t mp_p)
 
   mp_p->partitioned_p = true;
 
-  /* FIXME tuples.  */
-#if 0
   mark_sym_for_renaming (mp_p->var);
   mark_sym_for_renaming (mpt);
-#else
-  gimple_unreachable ();
-#endif
 
   return mpt;
 }
@@ -1431,19 +1424,9 @@ build_mp_info (struct mem_ref_stats_d *mem_ref_stats,
 	 marked for renaming.  */
       if ((old_mpt = memory_partition (var)) != NULL)
 	{
-	  /* FIXME tuples.  */
-#if 0
 	  mark_sym_for_renaming (old_mpt);
-#else
-	  gimple_unreachable ();
-#endif
 	  set_memory_partition (var, NULL_TREE);
-	  /* FIXME tuples.  */
-#if 0
 	  mark_sym_for_renaming (var);
-#else
-	  gimple_unreachable ();
-#endif
 	}
 
       sym_stats = get_mem_sym_stats_for (var);
@@ -1664,7 +1647,6 @@ done:
 
   timevar_pop (TV_MEMORY_PARTITIONING);
 }
-#endif
 
 /* Compute may-alias information for every variable referenced in function
    FNDECL.
@@ -1779,8 +1761,6 @@ done:
 unsigned int
 compute_may_aliases (void)
 {
-  /* FIXME tuples.  */
-#if 0
   struct alias_info *ai;
 
   timevar_push (TV_TREE_MAY_ALIAS);
@@ -1851,11 +1831,11 @@ compute_may_aliases (void)
 
   /* Populate all virtual operands and newly promoted register operands.  */
   {
-    block_stmt_iterator bsi;
+    gimple_stmt_iterator gsi;
     basic_block bb;
     FOR_EACH_BB (bb)
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	update_stmt_if_modified (bsi_stmt (bsi));
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	update_stmt_if_modified (gsi_stmt (gsi));
   }
 
   /* Debugging dumps.  */
@@ -1878,30 +1858,21 @@ compute_may_aliases (void)
   /* Deallocate memory used by aliasing data structures.  */
   delete_alias_info (ai);
 
-  /* FIXME tuples.  */
-#if 0
   if (need_ssa_update_p ())
     update_ssa (TODO_update_ssa);
-#else
-  gimple_unreachable ();
-#endif
 
   timevar_pop (TV_TREE_MAY_ALIAS);
   
   return 0;
-#else
-  gimple_unreachable ();
-#endif
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Data structure used to count the number of dereferences to PTR
    inside an expression.  */
 struct count_ptr_d
 {
   tree ptr;
-  unsigned count;
+  unsigned num_stores;
+  unsigned num_loads;
 };
 
 
@@ -1911,7 +1882,8 @@ struct count_ptr_d
 static tree
 count_ptr_derefs (tree *tp, int *walk_subtrees, void *data)
 {
-  struct count_ptr_d *count_p = (struct count_ptr_d *) data;
+  struct walk_stmt_info *wi_p = (struct walk_stmt_info *) data;
+  struct count_ptr_d *count_p = (struct count_ptr_d *) wi_p->info;
 
   /* Do not walk inside ADDR_EXPR nodes.  In the expression &ptr->fld,
      pointer 'ptr' is *not* dereferenced, it is simply used to compute
@@ -1923,7 +1895,12 @@ count_ptr_derefs (tree *tp, int *walk_subtrees, void *data)
     }
 
   if (INDIRECT_REF_P (*tp) && TREE_OPERAND (*tp, 0) == count_p->ptr)
-    count_p->count++;
+    {
+      if (wi_p->is_lhs)
+	count_p->num_stores++;
+      else
+	count_p->num_loads++;
+    }
 
   return NULL_TREE;
 }
@@ -1936,7 +1913,7 @@ count_ptr_derefs (tree *tp, int *walk_subtrees, void *data)
    stored in *NUM_STORES_P and *NUM_LOADS_P.  */
 
 void
-count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
+count_uses_and_derefs (tree ptr, gimple stmt, unsigned *num_uses_p,
 		       unsigned *num_loads_p, unsigned *num_stores_p)
 {
   ssa_op_iter i;
@@ -1958,59 +1935,24 @@ count_uses_and_derefs (tree ptr, tree stmt, unsigned *num_uses_p,
      find all the indirect and direct uses of x_1 inside.  The only
      shortcut we can take is the fact that GIMPLE only allows
      INDIRECT_REFs inside the expressions below.  */
-  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-      || (TREE_CODE (stmt) == RETURN_EXPR
-	  && TREE_CODE (TREE_OPERAND (stmt, 0)) == GIMPLE_MODIFY_STMT)
-      || TREE_CODE (stmt) == ASM_EXPR
-      || TREE_CODE (stmt) == CALL_EXPR)
+  if (gimple_code (stmt) == GIMPLE_ASSIGN
+      || gimple_code (stmt) == GIMPLE_RETURN
+      || gimple_code (stmt) == GIMPLE_ASM
+      || gimple_code (stmt) == GIMPLE_CALL)
     {
-      tree lhs, rhs;
+      struct walk_stmt_info wi;
+      struct count_ptr_d count;
 
-      if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
-	{
-	  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-	  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-	}
-      else if (TREE_CODE (stmt) == RETURN_EXPR)
-	{
-	  tree e = TREE_OPERAND (stmt, 0);
-	  lhs = GIMPLE_STMT_OPERAND (e, 0);
-	  rhs = GIMPLE_STMT_OPERAND (e, 1);
-	}
-      else if (TREE_CODE (stmt) == ASM_EXPR)
-	{
-	  lhs = ASM_OUTPUTS (stmt);
-	  rhs = ASM_INPUTS (stmt);
-	}
-      else
-	{
-	  lhs = NULL_TREE;
-	  rhs = stmt;
-	}
+      count.ptr = ptr;
+      count.num_stores = 0;
+      count.num_loads = 0;
 
-      if (lhs
-	  && (TREE_CODE (lhs) == TREE_LIST
-	      || EXPR_P (lhs)
-	      || GIMPLE_STMT_P (lhs)))
-	{
-	  struct count_ptr_d count;
-	  count.ptr = ptr;
-	  count.count = 0;
-	  walk_tree (&lhs, count_ptr_derefs, &count, NULL);
-	  *num_stores_p = count.count;
-	}
+      memset (&wi, 0, sizeof (wi));
+      wi.info = &count;
+      walk_gimple_stmt (stmt, NULL, count_ptr_derefs, &wi);
 
-      if (rhs
-	  && (TREE_CODE (rhs) == TREE_LIST
-	      || EXPR_P (rhs)
-	      || GIMPLE_STMT_P (rhs)))
-	{
-	  struct count_ptr_d count;
-	  count.ptr = ptr;
-	  count.count = 0;
-	  walk_tree (&rhs, count_ptr_derefs, &count, NULL);
-	  *num_loads_p = count.count;
-	}
+      *num_stores_p = count.num_stores;
+      *num_loads_p = count.num_loads;
     }
 
   gcc_assert (*num_uses_p >= *num_loads_p + *num_stores_p);
@@ -2920,7 +2862,7 @@ may_alias_p (tree ptr, alias_set_type mem_alias_set,
 	  /* The star count is -1 if the type at the end of the
 	     pointer_to chain is not a record or union type. */ 
 	  if ((!alias_set_only) && 
-	      ipa_type_escape_star_count_of_interesting_type (var_type) >= 0)
+	      0 /* FIXME tuples ipa_type_escape_star_count_of_interesting_type (var_type) >= 0*/)
 	    {
 	      int ptr_star_count = 0;
 	  
@@ -3027,21 +2969,20 @@ set_pt_anything (tree ptr)
    if none.  */
 
 enum escape_type
-is_escape_site (tree stmt)
+is_escape_site (gimple stmt)
 {
-  tree call = get_call_expr_in (stmt);
-  if (call != NULL_TREE)
+  if (gimple_code (stmt) == GIMPLE_CALL)
     {
-      if (!TREE_SIDE_EFFECTS (call))
+      if (!(gimple_call_flags (stmt) & (ECF_PURE | ECF_CONST)))
 	return ESCAPE_TO_PURE_CONST;
 
       return ESCAPE_TO_CALL;
     }
-  else if (TREE_CODE (stmt) == ASM_EXPR)
+  else if (gimple_code (stmt) == GIMPLE_ASM)
     return ESCAPE_TO_ASM;
-  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
     {
-      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+      tree lhs = gimple_assign_lhs (stmt);
 
       /* Get to the base of _REF nodes.  */
       if (TREE_CODE (lhs) != SSA_NAME)
@@ -3052,13 +2993,12 @@ is_escape_site (tree stmt)
       if (lhs == NULL_TREE)
 	return ESCAPE_UNKNOWN;
 
-      if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == NOP_EXPR
-	  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == CONVERT_EXPR
-	  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == VIEW_CONVERT_EXPR)
+      if (gimple_subcode (stmt) == NOP_EXPR
+	  || gimple_subcode (stmt) == CONVERT_EXPR
+	  || gimple_subcode (stmt) == VIEW_CONVERT_EXPR)
 	{
-	  tree from
-	    = TREE_TYPE (TREE_OPERAND (GIMPLE_STMT_OPERAND (stmt, 1), 0));
-	  tree to = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 1));
+	  tree from = TREE_TYPE (gimple_assign_rhs1 (stmt));
+	  tree to = TREE_TYPE (lhs);
 
 	  /* If the RHS is a conversion between a pointer and an integer, the
 	     pointer escapes since we can't track the integer.  */
@@ -3088,7 +3028,7 @@ is_escape_site (tree stmt)
 	 Applications (OOPSLA), pp. 1-19, 1999.  */
       return ESCAPE_STORED_IN_GLOBAL;
     }
-  else if (TREE_CODE (stmt) == RETURN_EXPR)
+  else if (gimple_code (stmt) == RETURN_EXPR)
     return ESCAPE_TO_RETURN;
 
   return NO_ESCAPE;
@@ -3386,7 +3326,6 @@ get_ptr_info (tree t)
 
   return pi;
 }
-#endif
 
 /* Dump points-to information for SSA_NAME PTR into FILE.  */
 
@@ -3443,10 +3382,8 @@ debug_points_to_info_for (tree var)
 void
 dump_points_to_info (FILE *file ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples.  */
-#if 0
   basic_block bb;
-  block_stmt_iterator si;
+  gimple_stmt_iterator si;
   ssa_op_iter iter;
   const char *fname =
     lang_hooks.decl_printable_name (current_function_decl, 2);
@@ -3471,18 +3408,17 @@ dump_points_to_info (FILE *file ATTRIBUTE_UNUSED)
   /* Dump points-to information for every pointer defined in the program.  */
   FOR_EACH_BB (bb)
     {
-      tree phi;
-
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+      for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (&si))
 	{
+	  gimple phi = gsi_stmt (si);
 	  tree ptr = PHI_RESULT (phi);
 	  if (POINTER_TYPE_P (TREE_TYPE (ptr)))
 	    dump_points_to_info_for (file, ptr);
 	}
 
-	for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
+	for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	  {
-	    tree stmt = bsi_stmt (si);
+	    gimple stmt = gsi_stmt (si);
 	    tree def;
 	    FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
 	      if (TREE_CODE (def) == SSA_NAME
@@ -3492,14 +3428,9 @@ dump_points_to_info (FILE *file ATTRIBUTE_UNUSED)
     }
 
   fprintf (file, "\n");
-#else
-  gimple_unreachable ();
-#endif
 }
 
 
-/* FIXME tuples.  */
-#if 0
 /* Dump points-to info pointed to by PTO into STDERR.  */
 
 void
@@ -3507,7 +3438,6 @@ debug_points_to_info (void)
 {
   dump_points_to_info (stderr);
 }
-#endif
 
 /* Dump to FILE the list of variables that may be aliasing VAR.  */
 
@@ -3535,8 +3465,6 @@ dump_may_aliases_for (FILE *file, tree var)
 }
 
 
-/* FIXME tuples.  */
-#if 0
 /* Dump to stderr the list of variables that may be aliasing VAR.  */
 
 void
@@ -3544,7 +3472,6 @@ debug_may_aliases_for (tree var)
 {
   dump_may_aliases_for (stderr, var);
 }
-#endif
 
 /* Return true if VAR may be aliased.  */
 
@@ -3583,8 +3510,6 @@ may_be_aliased (tree var)
   return true;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* The following is based on code in add_stmt_operand to ensure that the
    same defs/uses/vdefs/vuses will be found after replacing a reference
    to var (or ARRAY_REF to var) with an INDIRECT_REF to ptr whose value
@@ -4016,12 +3941,6 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
 {
   switch (TREE_CODE (*tp))
     {
-    case GIMPLE_MODIFY_STMT:
-      /* Recurse manually here to track whether the use is in the
-	 LHS of an assignment.  */
-      find_used_portions (&GIMPLE_STMT_OPERAND (*tp, 0), walk_subtrees, tp);
-      return find_used_portions (&GIMPLE_STMT_OPERAND (*tp, 1),
-	  			 walk_subtrees, NULL);
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case COMPONENT_REF:
@@ -4059,12 +3978,14 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
 	  }
       }
       break;
-      /* This is here to make sure we mark the entire base variable as used
-	 when you take its address.  Because our used portion analysis is
-	 simple, we aren't looking at casts or pointer arithmetic to see what
-	 happens when you take the address.  */
+
     case ADDR_EXPR:
       {
+	/* This is here to make sure we mark the entire base variable
+	   as used when you take its address.  Because our used
+	   portion analysis is simple, we aren't looking at casts or
+	   pointer arithmetic to see what happens when you take the
+	   address.  */
 	tree var = get_base_address (TREE_OPERAND (*tp, 0));
 
 	if (var 
@@ -4090,19 +4011,7 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
 	  }
       }
       break;
-    case CALL_EXPR:
-      {
-	int i;
-	int nargs = call_expr_nargs (*tp);
-	for (i = 0; i < nargs; i++)
-	  {
-	    tree *arg = &CALL_EXPR_ARG (*tp, i);
-	    if (TREE_CODE (*arg) != ADDR_EXPR)
-              find_used_portions (arg, walk_subtrees, NULL);
-	  }
-	*walk_subtrees = 0;
-	return NULL_TREE;
-      }
+
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
@@ -4132,17 +4041,15 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
       break;
       
     }
+
   return NULL_TREE;
 }
-#endif
 
 /* Create structure field variables for structures used in this function.  */
 
 static unsigned int
 create_structure_vars (void)
 {
-  /* FIXME tuples.  */
-#if 0
   basic_block bb;
   safe_referenced_var_iterator rvi;
   VEC (tree, heap) *varvec = NULL;
@@ -4153,13 +4060,15 @@ create_structure_vars (void)
   
   FOR_EACH_BB (bb)
     {
-      block_stmt_iterator bsi;
-      tree phi;
+      gimple_stmt_iterator gsi;
+      gimple phi;
       
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  use_operand_p use;
 	  ssa_op_iter iter;
+
+	  phi = gsi_stmt (gsi);
 
 	  FOR_EACH_PHI_ARG (use, phi, iter, SSA_OP_USE)
 	    {
@@ -4169,13 +4078,46 @@ create_structure_vars (void)
 	    }
 	}
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  walk_tree_without_duplicates (bsi_stmt_ptr (bsi), 
-					find_used_portions,
-					NULL);
+	  gimple stmt;
+	  size_t i, start;
+
+	  stmt = gsi_stmt (gsi);
+
+	  if (gimple_code (stmt) == GIMPLE_CALL)
+	    {
+	      walk_tree_without_duplicates (gimple_call_lhs_ptr (stmt),
+					    find_used_portions, stmt);
+
+	      /* When an address escapes, assume that the whole
+		 structure is used.  So, ignore ADDR_EXPR arguments.  */
+	      for (i = 0; i < gimple_call_num_args (stmt); i++)
+		{
+		  int walk_subtrees = 1;
+		  tree *arg = gimple_call_arg_ptr (stmt, i);
+		  if (TREE_CODE (*arg) != ADDR_EXPR)
+		    find_used_portions (arg, &walk_subtrees, 0);
+		}
+	    }
+	  else
+	    {
+	      start = 0;
+
+	      if (gimple_code (stmt) == GIMPLE_ASSIGN)
+		{
+		  walk_tree_without_duplicates (gimple_op_ptr (stmt, 0),
+						find_used_portions, stmt);
+		  start = 1;
+		}
+
+	      for (i = start; i < gimple_num_ops (stmt); i++)
+		walk_tree_without_duplicates (gimple_op_ptr (stmt, i), 
+					      find_used_portions, 0);
+	    }
 	}
     }
+
   FOR_EACH_REFERENCED_VAR_SAFE (var, varvec, rvi)
     {
       /* The C++ FE creates vars without DECL_SIZE set, for some reason.  */
@@ -4193,10 +4135,11 @@ create_structure_vars (void)
   if (gimple_in_ssa_p (cfun))
     FOR_EACH_BB (bb)
       {
-	block_stmt_iterator bsi;
-	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	gimple_stmt_iterator gsi;
+
+	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  {
-	    tree stmt = bsi_stmt (bsi);
+	    gimple stmt = gsi_stmt (gsi);
 	    bool update = false;
 	    unsigned int i;
 	    bitmap_iterator bi;
@@ -4223,8 +4166,8 @@ create_structure_vars (void)
 		    }
 		}
 
-	    if (stmt_ann (stmt)->addresses_taken && !update)
-	       EXECUTE_IF_SET_IN_BITMAP (stmt_ann (stmt)->addresses_taken,
+	    if (gimple_addresses_taken (stmt) && !update)
+	       EXECUTE_IF_SET_IN_BITMAP (gimple_addresses_taken (stmt),
 					 0, i, bi)
 		{
 		  tree sym = referenced_var_lookup (i);
@@ -4241,9 +4184,6 @@ create_structure_vars (void)
       }
 
   return TODO_rebuild_alias;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 static bool
@@ -4265,7 +4205,8 @@ struct tree_opt_pass pass_create_structure_vars =
   0,			 /* properties_provided */
   0,			 /* properties_destroyed */
   0,			 /* todo_flags_start */
-  TODO_dump_func,	 /* todo_flags_finish */
+  TODO_dump_func
+    | TODO_rebuild_alias,/* todo_flags_finish */
   0			 /* letter */
 };
 

@@ -775,16 +775,6 @@ decode_options (unsigned int argc, const char **argv)
 	}
     }
 
-  /* FIXME tuples.  Force optimization level to 0 until alias analysis
-     and complex lowering at O1+ is fully enabled.  */
-  if (flag_gimple_conversion == 0)
-    {
-      optimize = 0;
-      optimize_size = 0;
-    }
-  else
-    gimple_unreachable ();
-
   if (!optimize)
     {
       flag_merge_constants = 0;

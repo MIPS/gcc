@@ -1995,12 +1995,10 @@ stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(PARAMS_H) $(FLAGS_H) $(FUNCTION_H) $(EXPR_H) $(RTL_H) \
    $(GGC_H) $(TM_P_H) $(TARGET_H) langhooks.h $(REGS_H) gt-stor-layout.h \
    toplev.h
-# FIXME tuples.  Do not merge.
-# gt-tree-ssa-structalias.h 
 tree-ssa-structalias.o: tree-ssa-structalias.c tree-ssa-structalias.h \
    $(SYSTEM_H) $(CONFIG_H) $(GGC_H) $(TREE_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h $(CGRAPH_H) tree-pass.h $(TIMEVAR_H) \
-   $(PARAMS_H) $(ALIAS_H) pointer-set.h $(FUNCTION_H)
+   $(PARAMS_H) $(ALIAS_H) pointer-set.h $(FUNCTION_H) gt-tree-ssa-structalias.h 
 tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) output.h $(DIAGNOSTIC_H) \
    toplev.h $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
@@ -3115,8 +3113,6 @@ s-constrs-h: $(MD_DEPS) build/genpreds$(build_exeext)
 
 # FIXME tuples.  Do not merge.
 # $(srcdir)/tree-scalar-evolution.c 
-# $(srcdir)/tree-ssa-structalias.h 
-# $(srcdir)/tree-ssa-structalias.c 
 # $(srcdir)/ipa-reference.h 
 # $(srcdir)/omp-low.c 
 # $(srcdir)/ipa-reference.c
@@ -3156,6 +3152,8 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
   $(srcdir)/tree-ssa-propagate.c \
   $(srcdir)/tree-phinodes.c \
+  $(srcdir)/tree-ssa-structalias.h \
+  $(srcdir)/tree-ssa-structalias.c \
   @all_gtfiles@
 
 GTFILES_H = $(subst /,-, $(patsubst $(srcdir)/%,gt-%, $(patsubst %.c,%.h, \

@@ -582,9 +582,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_all_optimizations);
     {
       struct tree_opt_pass **p = &pass_all_optimizations.sub;
+      NEXT_PASS (pass_create_structure_vars);
       /* FIXME tuples.  */
 #if 0
-      NEXT_PASS (pass_create_structure_vars);
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_rename_ssa_copies);
 

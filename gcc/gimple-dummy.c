@@ -63,7 +63,6 @@ DUMMY_FN (ipa_node_create);
 DUMMY_FN (ipa_nodes_create);
 DUMMY_FN (ipa_nodes_free);
 DUMMY_FN (ipa_remove_method);
-DUMMY_FN (ipa_type_escape_field_does_not_clobber_p);
 DUMMY_FN (multiplier_allowed_in_address_p);
 DUMMY_FN (multiply_by_cost);
 DUMMY_FN (nowrap_type_p);

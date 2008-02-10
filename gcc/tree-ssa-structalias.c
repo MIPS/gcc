@@ -53,8 +53,6 @@
 #include "alias.h"
 #include "pointer-set.h"
 
-/* FIXME tuples.  */
-#if 0
 /* The idea behind this analyzer is to generate set constraints from the
    program, then solve the resulting constraints in order to generate the
    points-to sets.
@@ -2854,45 +2852,6 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
 	      return;
 	    }
 	    break;
-	  case CALL_EXPR:
-	    /* XXX: In interprocedural mode, if we didn't have the
-	       body, we would need to do *each pointer argument =
-	       &ANYTHING added.  */
-	    if (call_expr_flags (t) & (ECF_MALLOC | ECF_MAY_BE_ALLOCA))
-	      {
-		varinfo_t vi;
-		tree heapvar = heapvar_lookup (t);
-
-		if (heapvar == NULL)
-		  {
-		    heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
-		    DECL_EXTERNAL (heapvar) = 1;
-		    get_var_ann (heapvar)->is_heapvar = 1;
-		    if (gimple_referenced_vars (cfun))
-		      add_referenced_var (heapvar);
-		    heapvar_insert (t, heapvar);
-		  }
-
-		temp.var = create_variable_info_for (heapvar,
-						     alias_get_name (heapvar));
-
-		vi = get_varinfo (temp.var);
-		vi->is_artificial_var = 1;
-		vi->is_heap_var = 1;
-		temp.type = ADDRESSOF;
-		temp.offset = 0;
-		VEC_safe_push (ce_s, heap, *results, &temp);
-		return;
-	      }
-	    else
-	      {
-		temp.var = anything_id;
-		temp.type = SCALAR;
-		temp.offset = 0;
-		VEC_safe_push (ce_s, heap, *results, &temp);
-		return;
-	      }
-	    break;
 	  default:
 	    {
 	      temp.type = ADDRESSOF;
@@ -2963,12 +2922,6 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
       {
 	switch (TREE_CODE (t))
 	  {
-	  case PHI_NODE:
-	    {
-	      get_constraint_for (PHI_RESULT (t), results);
-	      return;
-	    }
-	    break;
 	  case SSA_NAME:
 	    {
 	      struct constraint_expr temp;
@@ -3284,7 +3237,7 @@ do_structure_copy (tree lhsop, tree rhsop)
    ADDRESSABLE_VARS.  */
 
 static void
-update_alias_info (tree stmt, struct alias_info *ai)
+update_alias_info (gimple stmt, struct alias_info *ai)
 {
   bitmap addr_taken;
   use_operand_p use_p;
@@ -3306,7 +3259,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
     mem_ref_stats->num_asm_sites++;
 
   /* Mark all the variables whose address are taken by the statement.  */
-  addr_taken = addresses_taken (stmt);
+  addr_taken = gimple_addresses_taken (stmt);
   if (addr_taken)
     {
       bitmap_ior_into (gimple_addressable_vars (cfun), addr_taken);
@@ -3365,7 +3318,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
 
       /* If STMT is a PHI node, then it will not have pointer
 	 dereferences and it will not be an escape point.  */
-      if (TREE_CODE (stmt) == PHI_NODE)
+      if (gimple_code (stmt) == GIMPLE_PHI)
 	continue;
 
       /* Determine whether OP is a dereferenced pointer, and if STMT
@@ -3393,13 +3346,13 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	 are not GIMPLE invariants), they can only appear on the RHS
 	 of an assignment and their base address is always an
 	 INDIRECT_REF expression.  */
-      if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	  && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ADDR_EXPR
-	  && !is_gimple_val (GIMPLE_STMT_OPERAND (stmt, 1)))
+      if (gimple_code (stmt) == GIMPLE_ASSIGN
+	  && gimple_subcode (stmt) == ADDR_EXPR
+	  && !is_gimple_val (gimple_assign_rhs1 (stmt)))
 	{
 	  /* If the RHS if of the form &PTR->FLD and PTR == OP, then
 	     this represents a potential dereference of PTR.  */
-	  tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+	  tree rhs = gimple_assign_rhs1 (stmt);
 	  tree base = get_base_address (TREE_OPERAND (rhs, 0));
 	  if (TREE_CODE (base) == INDIRECT_REF
 	      && TREE_OPERAND (base, 0) == op)
@@ -3442,7 +3395,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	  /* If the statement makes a function call, assume
 	     that pointer OP will be dereferenced in a store
 	     operation inside the called function.  */
-	  if (get_call_expr_in (stmt)
+	  if (gimple_code (stmt) == GIMPLE_CALL
 	      || stmt_escape_type == ESCAPE_STORED_IN_GLOBAL)
 	    {
 	      pointer_set_insert (ai->dereferenced_ptrs_store, var);
@@ -3451,7 +3404,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	}
     }
 
-  if (TREE_CODE (stmt) == PHI_NODE)
+  if (gimple_code (stmt) == GIMPLE_PHI)
     return;
 
   /* Mark stored variables in STMT as being written to and update the
@@ -3509,6 +3462,9 @@ update_alias_info (tree stmt, struct alias_info *ai)
 
 
 /* Handle pointer arithmetic EXPR when creating aliasing constraints.
+   EXPR is assumed to be an assignment with a pointer arithmetic
+   expression on the RHS.
+
    Expressions of the type PTR + CST can be handled in two ways:
 
    1- If the constraint for PTR is ADDRESSOF for a non-structure
@@ -3527,7 +3483,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
    separate constraint by the caller.  */
 
 static bool
-handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
+handle_ptr_arith (VEC (ce_s, heap) *lhsc, gimple expr)
 {
   tree op0, op1;
   struct constraint_expr *c, *c2;
@@ -3537,11 +3493,11 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
   unsigned int rhsoffset = 0;
   bool unknown_addend = false;
 
-  if (TREE_CODE (expr) != POINTER_PLUS_EXPR)
+  if (gimple_assign_subcode (expr) != POINTER_PLUS_EXPR)
     return false;
 
-  op0 = TREE_OPERAND (expr, 0);
-  op1 = TREE_OPERAND (expr, 1);
+  op0 = gimple_assign_rhs1 (expr);
+  op1 = gimple_assign_rhs2 (expr);
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (op0)));
 
   get_constraint_for (op0, &temp);
@@ -3605,18 +3561,18 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
    RHS.  */
 
 static void
-handle_rhs_call  (tree rhs)
+handle_rhs_call (gimple rhs)
 {
-  tree arg;
-  call_expr_arg_iterator iter;
+  size_t i;
   struct constraint_expr rhsc;
 
   rhsc.var = anything_id;
   rhsc.offset = 0;
   rhsc.type = ADDRESSOF;
 
-  FOR_EACH_CALL_EXPR_ARG (arg, iter, rhs)
+  for (i = 0; i < gimple_call_num_args (rhs); i++)
     {
+      tree arg = gimple_call_arg (rhs, i);
       VEC(ce_s, heap) *lhsc = NULL;
 
       /* Find those pointers being passed, and make sure they end up
@@ -3662,39 +3618,36 @@ handle_lhs_call (tree lhs)
    when building alias sets and computing alias grouping heuristics.  */
 
 static void
-find_func_aliases (tree origt)
+find_func_aliases (gimple origt)
 {
-  tree t = origt;
+  gimple t = origt;
   VEC(ce_s, heap) *lhsc = NULL;
   VEC(ce_s, heap) *rhsc = NULL;
   struct constraint_expr *c;
 
-  if (TREE_CODE (t) == RETURN_EXPR && TREE_OPERAND (t, 0))
-    t = TREE_OPERAND (t, 0);
-
   /* Now build constraints expressions.  */
-  if (TREE_CODE (t) == PHI_NODE)
+  if (gimple_code (t) == GIMPLE_PHI)
     {
-      gcc_assert (!AGGREGATE_TYPE_P (TREE_TYPE (PHI_RESULT (t))));
+      gcc_assert (!AGGREGATE_TYPE_P (TREE_TYPE (gimple_phi_result (t))));
 
       /* Only care about pointers and structures containing
 	 pointers.  */
-      if (could_have_pointers (PHI_RESULT (t)))
+      if (could_have_pointers (gimple_phi_result (t)))
 	{
-	  int i;
+	  size_t i;
 	  unsigned int j;
 
 	  /* For a phi node, assign all the arguments to
 	     the result.  */
-	  get_constraint_for (PHI_RESULT (t), &lhsc);
-	  for (i = 0; i < PHI_NUM_ARGS (t); i++)
+	  get_constraint_for (gimple_phi_result (t), &lhsc);
+	  for (i = 0; i < gimple_phi_num_args (t); i++)
 	    {
 	      tree rhstype;
 	      tree strippedrhs = PHI_ARG_DEF (t, i);
 
 	      STRIP_NOPS (strippedrhs);
 	      rhstype = TREE_TYPE (strippedrhs);
-	      get_constraint_for (PHI_ARG_DEF (t, i), &rhsc);
+	      get_constraint_for (gimple_phi_arg_def (t, i), &rhsc);
 
 	      for (j = 0; VEC_iterate (ce_s, lhsc, j, c); j++)
 		{
@@ -3709,130 +3662,151 @@ find_func_aliases (tree origt)
 	    }
 	}
     }
-  /* In IPA mode, we need to generate constraints to pass call
-     arguments through their calls.   There are two cases, either a
-     GIMPLE_MODIFY_STMT when we are returning a value, or just a plain
-     CALL_EXPR when we are not.
-
-     In non-ipa mode, we need to generate constraints for each
-     pointer passed by address.  */
-  else if (((TREE_CODE (t) == GIMPLE_MODIFY_STMT
-	     && TREE_CODE (GIMPLE_STMT_OPERAND (t, 1)) == CALL_EXPR
-	     && !(call_expr_flags (GIMPLE_STMT_OPERAND (t, 1))
-		  & (ECF_MALLOC | ECF_MAY_BE_ALLOCA)))
-	    || (TREE_CODE (t) == CALL_EXPR
-		&& !(call_expr_flags (t)
-		     & (ECF_MALLOC | ECF_MAY_BE_ALLOCA)))))
+  else if (gimple_code (t) == GIMPLE_CALL)
     {
-      if (!in_ipa_mode)
+      if (!(gimple_call_flags (t) & (ECF_MALLOC | ECF_MAY_BE_ALLOCA)))
 	{
-	  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
+	  /* In IPA mode, we need to generate constraints to pass call
+	     arguments through their calls.   There are two cases,
+	     either a GIMPLE_CALL returning a value, or just a plain
+	     GIMPLE_CALL when we are not.
+
+	     In non-ipa mode, we need to generate constraints for each
+	     pointer passed by address.  */
+	  if (!in_ipa_mode)
 	    {
-	      handle_rhs_call (GIMPLE_STMT_OPERAND (t, 1));
-	      if (POINTER_TYPE_P (TREE_TYPE (GIMPLE_STMT_OPERAND (t, 1))))
-		handle_lhs_call (GIMPLE_STMT_OPERAND (t, 0));
+	      if (gimple_call_lhs (t))
+		{
+		  handle_rhs_call (t);
+		  if (POINTER_TYPE_P (gimple_call_return_type (t)))
+		    handle_lhs_call (gimple_call_lhs (t));
+		}
+	      else
+		handle_rhs_call (t);
 	    }
 	  else
-	    handle_rhs_call (t);
+	    {
+	      tree lhsop;
+	      varinfo_t fi;
+	      int i = 1;
+	      size_t j;
+	      tree decl;
+
+	      lhsop = gimple_call_lhs (t);
+	      decl = gimple_call_fndecl (t);
+
+	      /* If we can directly resolve the function being called, do so.
+		 Otherwise, it must be some sort of indirect expression that
+		 we should still be able to handle.  */
+	      if (decl)
+		fi = get_vi_for_tree (decl);
+	      else
+		{
+		  decl = gimple_call_fn (t);
+		  fi = get_vi_for_tree (decl);
+		}
+
+	      /* Assign all the passed arguments to the appropriate incoming
+		 parameters of the function.  */
+	      for (j = 0; j < gimple_call_num_args (t); j++)
+		{
+		  struct constraint_expr lhs ;
+		  struct constraint_expr *rhsp;
+		  tree arg = gimple_call_arg (t, j);
+
+		  get_constraint_for (arg, &rhsc);
+		  if (TREE_CODE (decl) != FUNCTION_DECL)
+		    {
+		      lhs.type = DEREF;
+		      lhs.var = fi->id;
+		      lhs.offset = i;
+		    }
+		  else
+		    {
+		      lhs.type = SCALAR;
+		      lhs.var = first_vi_for_offset (fi, i)->id;
+		      lhs.offset = 0;
+		    }
+		  while (VEC_length (ce_s, rhsc) != 0)
+		    {
+		      rhsp = VEC_last (ce_s, rhsc);
+		      process_constraint (new_constraint (lhs, *rhsp));
+		      VEC_pop (ce_s, rhsc);
+		    }
+		  i++;
+		}
+
+	      /* If we are returning a value, assign it to the result.  */
+	      if (lhsop)
+		{
+		  struct constraint_expr rhs;
+		  struct constraint_expr *lhsp;
+		  unsigned int j = 0;
+
+		  get_constraint_for (lhsop, &lhsc);
+		  if (TREE_CODE (decl) != FUNCTION_DECL)
+		    {
+		      rhs.type = DEREF;
+		      rhs.var = fi->id;
+		      rhs.offset = i;
+		    }
+		  else
+		    {
+		      rhs.type = SCALAR;
+		      rhs.var = first_vi_for_offset (fi, i)->id;
+		      rhs.offset = 0;
+		    }
+		  for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
+		    process_constraint (new_constraint (*lhsp, rhs));
+		}
+	    }
 	}
       else
 	{
-	  tree lhsop;
-	  tree rhsop;
-	  tree arg;
-	  call_expr_arg_iterator iter;
-	  varinfo_t fi;
-	  int i = 1;
-	  tree decl;
-	  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
-	    {
-	      lhsop = GIMPLE_STMT_OPERAND (t, 0);
-	      rhsop = GIMPLE_STMT_OPERAND (t, 1);
-	    }
-	  else
-	    {
-	      lhsop = NULL;
-	      rhsop = t;
-	    }
-	  decl = get_callee_fndecl (rhsop);
+	  /* Handle calls to malloc().  */
+	  struct constraint_expr temp;
+	  unsigned int j;
+	  varinfo_t vi;
+	  struct constraint_expr *lhsp;
+	  tree heapvar = heapvar_lookup ((tree) t);
 
-	  /* If we can directly resolve the function being called, do so.
-	     Otherwise, it must be some sort of indirect expression that
-	     we should still be able to handle.  */
-	  if (decl)
+	  /* XXX: In interprocedural mode, if we didn't have the
+	     body, we would need to do *each pointer argument =
+	     &ANYTHING added.  */
+	  if (heapvar == NULL)
 	    {
-	      fi = get_vi_for_tree (decl);
-	    }
-	  else
-	    {
-	      decl = CALL_EXPR_FN (rhsop);
-	      fi = get_vi_for_tree (decl);
+	      heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
+	      DECL_EXTERNAL (heapvar) = 1;
+	      get_var_ann (heapvar)->is_heapvar = 1;
+	      if (gimple_referenced_vars (cfun))
+		add_referenced_var (heapvar);
+	      heapvar_insert ((tree) t, heapvar);
 	    }
 
-	  /* Assign all the passed arguments to the appropriate incoming
-	     parameters of the function.  */
+	  temp.var = create_variable_info_for (heapvar,
+					       alias_get_name (heapvar));
 
-	  FOR_EACH_CALL_EXPR_ARG (arg, iter, rhsop)
-	    {
-	      struct constraint_expr lhs ;
-	      struct constraint_expr *rhsp;
+	  vi = get_varinfo (temp.var);
+	  vi->is_artificial_var = 1;
+	  vi->is_heap_var = 1;
+	  temp.type = ADDRESSOF;
+	  temp.offset = 0;
+	  VEC_safe_push (ce_s, heap, rhsc, &temp);
 
-	      get_constraint_for (arg, &rhsc);
-	      if (TREE_CODE (decl) != FUNCTION_DECL)
-		{
-		  lhs.type = DEREF;
-		  lhs.var = fi->id;
-		  lhs.offset = i;
-		}
-	      else
-		{
-		  lhs.type = SCALAR;
-		  lhs.var = first_vi_for_offset (fi, i)->id;
-		  lhs.offset = 0;
-		}
-	      while (VEC_length (ce_s, rhsc) != 0)
-		{
-		  rhsp = VEC_last (ce_s, rhsc);
-		  process_constraint (new_constraint (lhs, *rhsp));
-		  VEC_pop (ce_s, rhsc);
-		}
-	      i++;
-	    }
-
-	  /* If we are returning a value, assign it to the result.  */
-	  if (lhsop)
-	    {
-	      struct constraint_expr rhs;
-	      struct constraint_expr *lhsp;
-	      unsigned int j = 0;
-
-	      get_constraint_for (lhsop, &lhsc);
-	      if (TREE_CODE (decl) != FUNCTION_DECL)
-		{
-		  rhs.type = DEREF;
-		  rhs.var = fi->id;
-		  rhs.offset = i;
-		}
-	      else
-		{
-		  rhs.type = SCALAR;
-		  rhs.var = first_vi_for_offset (fi, i)->id;
-		  rhs.offset = 0;
-		}
-	      for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
-		process_constraint (new_constraint (*lhsp, rhs));
-	    }
+	  for (j = 0; VEC_iterate (ce_s, lhsc, j, lhsp); j++)
+	    process_constraint (new_constraint (*lhsp, temp));
 	}
     }
-  /* Otherwise, just a regular assignment statement.  */
-  else if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
+  else if (gimple_code (t) == GIMPLE_ASSIGN)
     {
-      tree lhsop = GIMPLE_STMT_OPERAND (t, 0);
-      tree rhsop = GIMPLE_STMT_OPERAND (t, 1);
-      int i;
+      /* Otherwise, just a regular assignment statement.  */
+      tree lhsop = gimple_assign_lhs (t);
+      tree rhsop = (gimple_num_ops (t) == 2) ? gimple_assign_rhs1 (t) : NULL;
+      size_t i;
 
-      if ((AGGREGATE_TYPE_P (TREE_TYPE (lhsop))
-	   || TREE_CODE (TREE_TYPE (lhsop)) == COMPLEX_TYPE)
+      if (rhsop
+	  && (AGGREGATE_TYPE_P (TREE_TYPE (lhsop))
+	      || TREE_CODE (TREE_TYPE (lhsop)) == COMPLEX_TYPE)
 	  && (AGGREGATE_TYPE_P (TREE_TYPE (rhsop))
 	      || TREE_CODE (TREE_TYPE (lhsop)) == COMPLEX_TYPE))
 	{
@@ -3841,16 +3815,15 @@ find_func_aliases (tree origt)
       else
 	{
 	  /* Only care about operations with pointers, structures
-	     containing pointers, dereferences, and call expressions.  */
-	  if (could_have_pointers (lhsop)
-	      || TREE_CODE (rhsop) == CALL_EXPR)
+	     containing pointers and dereferences.  */
+	  if (could_have_pointers (lhsop))
 	    {
 	      get_constraint_for (lhsop, &lhsc);
-	      switch (TREE_CODE_CLASS (TREE_CODE (rhsop)))
+	      switch (TREE_CODE_CLASS (gimple_subcode (t)))
 		{
-		  /* RHS that consist of unary operations,
-		     exceptional types, or bare decls/constants, get
-		     handled directly by get_constraint_for.  */
+		  /* RHS that consist of unary operations, exceptional
+		     types, or bare decls/constants, get handled
+		     directly by get_constraint_for.  */
 		  case tcc_reference:
 		  case tcc_declaration:
 		  case tcc_constant:
@@ -3880,7 +3853,7 @@ find_func_aliases (tree origt)
 			   PTR + CST, we can simply use PTR's
 			   constraint because pointer arithmetic is
 			   not allowed to go out of bounds.  */
-			if (handle_ptr_arith (lhsc, rhsop))
+			if (handle_ptr_arith (lhsc, t))
 			  break;
 		      }
 		    /* FALLTHRU  */
@@ -3890,9 +3863,9 @@ find_func_aliases (tree origt)
 		     to process expressions other than simple operands
 		     (e.g. INDIRECT_REF, ADDR_EXPR, CALL_EXPR).  */
 		  default:
-		    for (i = 0; i < TREE_OPERAND_LENGTH (rhsop); i++)
+		    for (i = 1; i < gimple_num_ops (t); i++)
 		      {
-			tree op = TREE_OPERAND (rhsop, i);
+			tree op = gimple_op (t, i);
 			unsigned int j;
 
 			gcc_assert (VEC_length (ce_s, rhsc) == 0);
@@ -3912,11 +3885,11 @@ find_func_aliases (tree origt)
 	    }
 	}
     }
-  else if (TREE_CODE (t) == CHANGE_DYNAMIC_TYPE_EXPR)
+  else if (gimple_code (t) == GIMPLE_CHANGE_DYNAMIC_TYPE)
     {
       unsigned int j;
 
-      get_constraint_for (CHANGE_DYNAMIC_TYPE_LOCATION (t), &lhsc);
+      get_constraint_for (gimple_cdt_location (t), &lhsc);
       for (j = 0; VEC_iterate (ce_s, lhsc, j, c); ++j)
 	get_varinfo (c->var)->no_tbaa_pruning = true;
     }
@@ -5380,12 +5353,13 @@ compute_points_to_sets (struct alias_info *ai)
   /* Now walk all statements and derive aliases.  */
   FOR_EACH_BB (bb)
     {
-      block_stmt_iterator bsi;
-      tree phi;
+      gimple_stmt_iterator gsi;
 
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  if (is_gimple_reg (PHI_RESULT (phi)))
+	  gimple phi = gsi_stmt (gsi);
+
+	  if (is_gimple_reg (gimple_phi_result (phi)))
 	    {
 	      find_func_aliases (phi);
 
@@ -5397,9 +5371,9 @@ compute_points_to_sets (struct alias_info *ai)
 	    }
 	}
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
-	  tree stmt = bsi_stmt (bsi);
+	  gimple stmt = gsi_stmt (gsi);
 
 	  find_func_aliases (stmt);
 
@@ -5409,12 +5383,12 @@ compute_points_to_sets (struct alias_info *ai)
 	     sets.  */
 	  update_alias_info (stmt, ai);
 
-	  /* The information in CHANGE_DYNAMIC_TYPE_EXPR nodes has now
-	     been captured, and we can remove them.  */
-	  if (TREE_CODE (stmt) == CHANGE_DYNAMIC_TYPE_EXPR)
-	    bsi_remove (&bsi, true);
+	  /* The information in GIMPLE_CHANGE_DYNAMIC_TYPE statements
+	     has now been captured, and we can remove them.  */
+	  if (gimple_code (stmt) == GIMPLE_CHANGE_DYNAMIC_TYPE)
+	    gsi_remove (&gsi, true);
 	  else
-	    bsi_next (&bsi);
+	    gsi_next (&gsi);
 	}
     }
 
@@ -5511,7 +5485,6 @@ delete_points_to_sets (void)
   free_alloc_pool (constraint_pool);
   have_alias_info = false;
 }
-#endif
 
 /* Return true if we should execute IPA PTA.  */
 static bool
@@ -5527,8 +5500,6 @@ gate_ipa_pta (void)
 static unsigned int
 ipa_pta_execute (void)
 {
-  /* FIXME tuples.  */
-#if 0
   struct cgraph_node *node;
   struct scc_info *si;
 
@@ -5568,22 +5539,19 @@ ipa_pta_execute (void)
 
 	  FOR_EACH_BB_FN (bb, func)
 	    {
-	      block_stmt_iterator bsi;
-	      tree phi;
+	      gimple_stmt_iterator gsi;
 
-	      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi);
+		   gsi_next (&gsi))
 		{
-		  if (is_gimple_reg (PHI_RESULT (phi)))
-		    {
-		      find_func_aliases (phi);
-		    }
+		  gimple phi = gsi_stmt (gsi);
+
+		  if (is_gimple_reg (gimple_phi_result (phi)))
+		    find_func_aliases (phi);
 		}
 
-	      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-		{
-		  tree stmt = bsi_stmt (bsi);
-		  find_func_aliases (stmt);
-		}
+	      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+		find_func_aliases (gsi_stmt (gsi));
 	    }
 	  current_function_decl = old_func_decl;
 	  pop_cfun ();
@@ -5632,9 +5600,6 @@ ipa_pta_execute (void)
   delete_alias_heapvars ();
   delete_points_to_sets ();
   return 0;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 struct tree_opt_pass pass_ipa_pta =
@@ -5654,8 +5619,6 @@ struct tree_opt_pass pass_ipa_pta =
   0					/* letter */
 };
 
-/* FIXME tuples.  */
-#if 0
 /* Initialize the heapvar for statement mapping.  */
 void
 init_alias_heapvars (void)
@@ -5673,4 +5636,3 @@ delete_alias_heapvars (void)
 }
 
 #include "gt-tree-ssa-structalias.h"
-#endif
