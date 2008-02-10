@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -105,15 +104,36 @@ some_nonzerop (tree t)
   return !zerop;
 }
 
-/* Compute a lattice value from T.  It may be a gimple_val, or, as a 
-   special exception, a COMPLEX_EXPR.  */
+
+/* Compute a lattice value from the components of a complex type REAL
+   and IMAG.  */
+
+static complex_lattice_t
+find_lattice_value_parts (tree real, tree imag)
+{
+  int r, i;
+  complex_lattice_t ret;
+
+  r = some_nonzerop (real);
+  i = some_nonzerop (imag);
+  ret = r * ONLY_REAL + i * ONLY_IMAG;
+
+  /* ??? On occasion we could do better than mapping 0+0i to real, but we
+     certainly don't want to leave it UNINITIALIZED, which eventually gets
+     mapped to VARYING.  */
+  if (ret == UNINITIALIZED)
+    ret = ONLY_REAL;
+
+  return ret;
+}
+
+
+/* Compute a lattice value from gimple_val T.  */
 
 static complex_lattice_t
 find_lattice_value (tree t)
 {
   tree real, imag;
-  int r, i;
-  complex_lattice_t ret;
 
   switch (TREE_CODE (t))
     {
@@ -126,26 +146,11 @@ find_lattice_value (tree t)
       imag = TREE_IMAGPART (t);
       break;
 
-    case COMPLEX_EXPR:
-      real = TREE_OPERAND (t, 0);
-      imag = TREE_OPERAND (t, 1);
-      break;
-
     default:
       gcc_unreachable ();
     }
 
-  r = some_nonzerop (real);
-  i = some_nonzerop (imag);
-  ret = r*ONLY_REAL + i*ONLY_IMAG;
-
-  /* ??? On occasion we could do better than mapping 0+0i to real, but we
-     certainly don't want to leave it UNINITIALIZED, which eventually gets
-     mapped to VARYING.  */
-  if (ret == UNINITIALIZED)
-    ret = ONLY_REAL;
-
-  return ret;
+  return find_lattice_value_parts (real, imag);
 }
 
 /* Determine if LHS is something for which we're interested in seeing
@@ -209,14 +214,8 @@ init_dont_simulate_again (void)
 
 	  switch (gimple_code (stmt))
 	    {
-	    case GIMPLE_RETURN:
-	      /* We don't care what the lattice value of <retval> is,
-		 since it's never used as an input to another
-		 computation.  */
-	      op0 = gimple_return_retval (stmt);
-	      break;
-
 	    case GIMPLE_ASSIGN:
+	      sim_again_p = is_complex_reg (gimple_assign_lhs (stmt));
 	      op0 = gimple_assign_rhs1 (stmt);
 	      if (gimple_num_ops (stmt) > 2)
 		op1 = gimple_assign_rhs2 (stmt);
@@ -231,12 +230,44 @@ init_dont_simulate_again (void)
 	      break;
 	    }
 
-	  if ((op0 && is_complex_reg (op0))
-	      || (op1 && is_complex_reg (op1)))
-	    {
-	      sim_again_p = true;
-	      saw_a_complex_op = true;
-	    }
+	  if (op0 || op1)
+	    switch (gimple_subcode (stmt))
+	      {
+	      case EQ_EXPR:
+	      case NE_EXPR:
+	      case PLUS_EXPR:
+	      case MINUS_EXPR:
+	      case MULT_EXPR:
+	      case TRUNC_DIV_EXPR:
+	      case CEIL_DIV_EXPR:
+	      case FLOOR_DIV_EXPR:
+	      case ROUND_DIV_EXPR:
+	      case RDIV_EXPR:
+		if (TREE_CODE (TREE_TYPE (op0)) == COMPLEX_TYPE
+		    || TREE_CODE (TREE_TYPE (op1)) == COMPLEX_TYPE)
+		  saw_a_complex_op = true;
+		break;
+
+	      case NEGATE_EXPR:
+	      case CONJ_EXPR:
+		if (TREE_CODE (TREE_TYPE (op0)) == COMPLEX_TYPE)
+		  saw_a_complex_op = true;
+		break;
+
+	      case REALPART_EXPR:
+	      case IMAGPART_EXPR:
+		/* The total store transformation performed during
+		  gimplification creates such uninitialized loads
+		  and we need to lower the statement to be able
+		  to fix things up.  */
+		if (TREE_CODE (op0) == SSA_NAME
+		    && ssa_undefined_value_p (op0))
+		  saw_a_complex_op = true;
+		break;
+
+	      default:
+		break;
+	      }
 
 	  prop_set_simulate_again (stmt, sim_again_p);
 	}
@@ -273,9 +304,13 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
   switch (gimple_subcode (stmt))
     {
     case SSA_NAME:
-    case COMPLEX_EXPR:
     case COMPLEX_CST:
       new_l = find_lattice_value (gimple_assign_rhs1 (stmt));
+      break;
+
+    case COMPLEX_EXPR:
+      new_l = find_lattice_value_parts (gimple_assign_rhs1 (stmt),
+				        gimple_assign_rhs2 (stmt));
       break;
 
     case PLUS_EXPR:
@@ -1407,7 +1442,7 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 		 && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME)
 	  {
 	    rhs = gimple_assign_rhs1 (stmt);
-	    rhs = extract_component (gsi, gimple_assign_rhs1 (stmt),
+	    rhs = extract_component (gsi, TREE_OPERAND (rhs, 0),
 		                     gimple_subcode (stmt) == IMAGPART_EXPR,
 				     false);
 	    gimple_assign_set_rhs_from_tree (stmt, rhs);

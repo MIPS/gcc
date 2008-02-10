@@ -81,8 +81,6 @@ get_gimple_rhs_class (enum tree_code code)
     case TRUTH_NOT_EXPR:
       return GIMPLE_UNARY_RHS;
 
-    /* FIXME tuples.  We are not allowing CALL_EXPR on the RHS
-       anymore.  Watch out for random failures.  */
     case COND_EXPR:
     case CONSTRUCTOR:
     case OBJ_TYPE_REF:

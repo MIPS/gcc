@@ -1330,7 +1330,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
   /* Remove all single-valued PHI nodes from block B of the form
      V_i = PHI <V_j> by propagating V_j to all the uses of V_i.  */
   gsi = gsi_last_bb (a);
-  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start (phis); !gsi_end_p (gsi); )
     {
       gimple phi = gsi_stmt (gsi);
       tree def = gimple_phi_result (phi), use = gimple_phi_arg_def (phi, 0);
@@ -1357,7 +1357,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	  copy = gimple_build_assign (def, use);
 	  gsi_insert_after (&gsi, copy, GSI_NEW_STMT);
 	  SSA_NAME_DEF_STMT (def) = copy;
-          remove_phi_node (phi, false);
+          remove_phi_node (&gsi, false);
 	}
       else
         {
@@ -1376,7 +1376,8 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	    }
 	  else
             replace_uses_by (def, use);
-          remove_phi_node (phi, true);
+
+          remove_phi_node (&gsi, true);
         }
     }
 
@@ -2018,17 +2019,12 @@ struct tree_opt_pass pass_remove_useless_stmts =
 static void
 remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
 {
-  gimple phi;
+  gimple_stmt_iterator gsi;
 
   /* Since this block is no longer reachable, we can just delete all
      of its PHI nodes.  */
-  phi = gimple_seq_first (phi_nodes (bb));
-  while (phi)
-    {
-      gimple next = gimple_next (phi);
-      remove_phi_node (phi, true);
-      phi = next;
-    }
+  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); )
+    remove_phi_node (&gsi, true);
 
   set_phi_nodes (bb, NULL);
 

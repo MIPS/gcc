@@ -444,14 +444,16 @@ remove_phi_args (edge e)
 }
 
 
-/* Remove PHI node PHI from basic block BB.  If RELEASE_LHS_P is true,
-   the LHS of this PHI node is released into the free pool of SSA
-   names.  */
+/* Remove the PHI node pointed-to by iterator GSI from basic block BB.  After
+   removal, iterator GSI is updated to point to the next PHI node in the
+   sequence. If RELEASE_LHS_P is true, the LHS of this PHI node is released
+   into the free pool of SSA names.  */
 
 void
-remove_phi_node (gimple phi, bool release_lhs_p)
+remove_phi_node (gimple_stmt_iterator *gsi, bool release_lhs_p)
 {
-  gimple_remove (phi, phi_nodes (gimple_bb (phi)), false);
+  gimple phi = gsi_stmt (*gsi);
+  gsi_remove (gsi, false);
 
   /* If we are deleting the PHI node, then we should release the
      SSA_NAME node so that it can be reused.  */

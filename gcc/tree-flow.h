@@ -780,7 +780,7 @@ extern void reserve_phi_args_for_new_edge (basic_block);
 extern gimple create_phi_node (tree, basic_block);
 extern void add_phi_arg (gimple, tree, edge);
 extern void remove_phi_args (edge);
-extern void remove_phi_node (gimple, bool);
+extern void remove_phi_node (gimple_stmt_iterator *, bool);
 
 /* In gimple-low.c  */
 extern void record_vars_into (tree, tree);
@@ -802,7 +802,7 @@ extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void new_type_alias (tree, tree, tree);
-extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *,
+extern void count_uses_and_derefs (tree, gimple, unsigned *, unsigned *,
 				   unsigned *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);

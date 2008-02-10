@@ -617,7 +617,7 @@ eliminate_virtual_phis (void)
 
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); )
         {
 	  gimple phi = gsi_stmt (gsi);
 	  if (!is_gimple_reg (SSA_NAME_VAR (gimple_phi_result (phi))))
@@ -640,8 +640,10 @@ eliminate_virtual_phis (void)
 		    }
 		}
 #endif
-	      remove_phi_node (phi, true);
+	      remove_phi_node (&gsi, true);
 	    }
+          else
+            gsi_next (&gsi);
 	}
     }
 }
@@ -1292,7 +1294,6 @@ static void
 remove_ssa_form (bool perform_ter)
 {
   basic_block bb;
-  gimple phi;
   tree *values = NULL;
   var_map map;
   gimple_stmt_iterator gsi;
@@ -1338,17 +1339,8 @@ remove_ssa_form (bool perform_ter)
 
   /* Remove PHI nodes which have been translated back to real variables.  */
   FOR_EACH_BB (bb)
-    {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi);)
-	{
-	  phi = gsi_stmt (gsi);
-
-          /* Update iterator before removing phi */
-          gsi_next (&gsi);
-
-	  remove_phi_node (phi, true);
-	}
-    }
+    for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi);)
+      remove_phi_node (&gsi, true);
 
   /* If any copies were inserted on edges, analyze and insert them now.  */
   perform_edge_inserts ();
