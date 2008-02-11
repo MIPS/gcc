@@ -43,7 +43,6 @@ package body System.Interrupt_Management is
 
    procedure Initialize is
       use System.OS_Interface;
-      use type unsigned_long;
       Status : Cond_Value_Type;
 
    begin
@@ -60,7 +59,7 @@ package body System.Interrupt_Management is
 
       Sys_Crembx
         (Status => Status,
-         Prmflg => False,
+         Prmflg => 0,
          Chan   => Rcv_Interrupt_Chan,
          Maxmsg => Interrupt_ID'Size,
          Bufquo => Interrupt_Bufquo,

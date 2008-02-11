@@ -24,7 +24,7 @@ load_lib target-supports.exp
 set DEFAULT_VECTCFLAGS ""
 
 # These flags are used for all targets.
-lappend DEFAULT_VECTCFLAGS "-O2" "-ftree-vectorize" \
+lappend DEFAULT_VECTCFLAGS "-O2" "-ftree-vectorize" "-fno-vect-cost-model" \
   "-ftree-vectorizer-verbose=4" "-fdump-tree-vect-stats"
 
 # If the target system supports vector instructions, the default action
@@ -91,11 +91,23 @@ dg-init
 
 # Main loop.
 gfortran-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/vect-*.\[fF\]{,90,95,03} ]] $DEFAULT_VECTCFLAGS
-gfortran-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/pr-*.\[fF\]{,90,95,03} ]] $DEFAULT_VECTCFLAGS
+gfortran-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/pr*.\[fF\]{,90,95,03} ]] $DEFAULT_VECTCFLAGS
 
 #### Tests with special options
 global SAVED_DEFAULT_VECTCFLAGS
 set SAVED_DEFAULT_VECTCFLAGS $DEFAULT_VECTCFLAGS
+
+# -ffast-math tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-ffast-math"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/fast-math-*.\[fF\]{,90,95,03} ]]  \
+        "" $DEFAULT_VECTCFLAGS
+
+# -fvect-cost-model tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fvect-cost-model"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/cost-model-*.\[fF\]{,90,95,03} ]]  \
+        "" $DEFAULT_VECTCFLAGS
 
 # --param vect-max-version-for-alias-checks=0 tests
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS

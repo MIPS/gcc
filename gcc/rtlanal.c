@@ -1418,49 +1418,41 @@ reg_overlap_mentioned_p (const_rtx x, const_rtx in)
   If the item being stored in or clobbered is a SUBREG of a hard register,
   the SUBREG will be passed.  */
 
-#define NOTE_STORES_BODY(NOTE_STORES_FN) do { \
-  int i; \
-  if (GET_CODE (x) == COND_EXEC) \
-    x = COND_EXEC_CODE (x); \
-  if (GET_CODE (x) == SET || GET_CODE (x) == CLOBBER) \
-    { \
-      rtx dest = SET_DEST (x); \
-      while ((GET_CODE (dest) == SUBREG \
-	      && (!REG_P (SUBREG_REG (dest)) \
-		  || REGNO (SUBREG_REG (dest)) >= FIRST_PSEUDO_REGISTER)) \
-	     || GET_CODE (dest) == ZERO_EXTRACT \
-	     || GET_CODE (dest) == STRICT_LOW_PART) \
-	dest = XEXP (dest, 0); \
-      /* If we have a PARALLEL, SET_DEST is a list of EXPR_LIST expressions, \
-	 each of whose first operand is a register.  */ \
-      if (GET_CODE (dest) == PARALLEL) \
-	{ \
-	  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--) \
-	    if (XEXP (XVECEXP (dest, 0, i), 0) != 0) \
-	      (*fun) (XEXP (XVECEXP (dest, 0, i), 0), x, data); \
-	} \
-      else \
-	(*fun) (dest, x, data); \
-    } \
-  else if (GET_CODE (x) == PARALLEL) \
-    for (i = XVECLEN (x, 0) - 1; i >= 0; i--) \
-      NOTE_STORES_FN (XVECEXP (x, 0, i), fun, data); \
-} while (0)
-
 void
 note_stores (const_rtx x, void (*fun) (rtx, const_rtx, void *), void *data)
 {
-  NOTE_STORES_BODY(note_stores);
+  int i;
+
+  if (GET_CODE (x) == COND_EXEC)
+    x = COND_EXEC_CODE (x);
+
+  if (GET_CODE (x) == SET || GET_CODE (x) == CLOBBER)
+    {
+      rtx dest = SET_DEST (x);
+
+      while ((GET_CODE (dest) == SUBREG
+	      && (!REG_P (SUBREG_REG (dest))
+		  || REGNO (SUBREG_REG (dest)) >= FIRST_PSEUDO_REGISTER))
+	     || GET_CODE (dest) == ZERO_EXTRACT
+	     || GET_CODE (dest) == STRICT_LOW_PART)
+	dest = XEXP (dest, 0);
+
+      /* If we have a PARALLEL, SET_DEST is a list of EXPR_LIST expressions,
+	 each of whose first operand is a register.  */
+      if (GET_CODE (dest) == PARALLEL)
+	{
+	  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
+	    if (XEXP (XVECEXP (dest, 0, i), 0) != 0)
+	      (*fun) (XEXP (XVECEXP (dest, 0, i), 0), x, data);
+	}
+      else
+	(*fun) (dest, x, data);
+    }
+
+  else if (GET_CODE (x) == PARALLEL)
+    for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+      note_stores (XVECEXP (x, 0, i), fun, data);
 }
-
-void
-const_note_stores (const_rtx x, void (*fun) (const_rtx, const_rtx, const void *), const void *data)
-{
-  NOTE_STORES_BODY(const_note_stores);
-}
-
-#undef NOTE_STORES_BODY
-
 
 /* Like notes_stores, but call FUN for each expression that is being
    referenced in PBODY, a pointer to the PATTERN of an insn.  We only call
@@ -2196,7 +2188,7 @@ enum may_trap_p_flags
    cannot trap at its current location, but it might become trapping if moved
    elsewhere.  */
 
-static int
+int
 may_trap_p_1 (const_rtx x, unsigned flags)
 {
   int i;
@@ -2223,8 +2215,11 @@ may_trap_p_1 (const_rtx x, unsigned flags)
     case SCRATCH:
       return 0;
 
-    case ASM_INPUT:
+    case UNSPEC:
     case UNSPEC_VOLATILE:
+      return targetm.unspec_may_trap_p (x, flags);
+
+    case ASM_INPUT:
     case TRAP_IF:
       return 1;
 
@@ -2709,9 +2704,11 @@ computed_jump_p (const_rtx insn)
     {
       rtx pat = PATTERN (insn);
 
-      if (find_reg_note (insn, REG_LABEL, NULL_RTX))
+      /* If we have a JUMP_LABEL set, we're not a computed jump.  */
+      if (JUMP_LABEL (insn) != NULL)
 	return 0;
-      else if (GET_CODE (pat) == PARALLEL)
+
+      if (GET_CODE (pat) == PARALLEL)
 	{
 	  int len = XVECLEN (pat, 0);
 	  int has_use_labelref = 0;
@@ -3275,14 +3272,24 @@ subreg_regno (const_rtx x)
 unsigned int
 subreg_nregs (const_rtx x)
 {
+  return subreg_nregs_with_regno (REGNO (SUBREG_REG (x)), x);
+}
+
+/* Return the number of registers that a subreg REG with REGNO
+   expression refers to.  This is a copy of the rtlanal.c:subreg_nregs
+   changed so that the regno can be passed in. */
+
+unsigned int
+subreg_nregs_with_regno (unsigned int regno, const_rtx x)
+{
   struct subreg_info info;
   rtx subreg = SUBREG_REG (x);
-  int regno = REGNO (subreg);
 
   subreg_get_info (regno, GET_MODE (subreg), SUBREG_BYTE (x), GET_MODE (x),
 		   &info);
   return info.nregs;
 }
+
 
 struct parms_set_data
 {
@@ -3398,7 +3405,10 @@ keep_with_call_p (const_rtx insn)
 	 if we can break or not.  */
       if (SET_DEST (set) == stack_pointer_rtx)
 	{
-	  const_rtx i2 = const_next_nonnote_insn (insn);
+	  /* This CONST_CAST is okay because next_nonnote_insn just
+	     returns it's argument and we assign it to a const_rtx
+	     variable.  */
+	  const_rtx i2 = next_nonnote_insn (CONST_CAST_RTX(insn));
 	  if (i2 && keep_with_call_p (i2))
 	    return true;
 	}
@@ -3429,6 +3439,9 @@ label_is_jump_target_p (const_rtx label, const_rtx jump_insn)
 	if (XEXP (RTVEC_ELT (vec, i), 0) == label)
 	  return true;
     }
+
+  if (find_reg_note (jump_insn, REG_LABEL_TARGET, label))
+    return true;
 
   return false;
 }

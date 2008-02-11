@@ -316,8 +316,7 @@ tree gfc_conv_operator_assign (gfc_se *, gfc_se *, gfc_symbol *);
 int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
 			    tree);
 
-void gfc_conv_aliased_arg (gfc_se *, gfc_expr *, int, sym_intent);
-bool is_aliased_array (gfc_expr *);
+void gfc_conv_subref_array_arg (gfc_se *, gfc_expr *, int, sym_intent);
 
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
@@ -333,14 +332,14 @@ void gfc_conv_structure (gfc_se *, gfc_expr *, int);
 /* Return an expression which determines if a dummy parameter is present.  */
 tree gfc_conv_expr_present (gfc_symbol *);
 /* Convert a missing, dummy argument into a null or zero.  */
-void gfc_conv_missing_dummy (gfc_se *, gfc_expr *, gfc_typespec);
+void gfc_conv_missing_dummy (gfc_se *, gfc_expr *, gfc_typespec, int);
 
 /* Generate code to allocate a string temporary.  */
 tree gfc_conv_string_tmp (gfc_se *, tree, tree);
 /* Get the string length variable belonging to an expression.  */
 tree gfc_get_expr_charlen (gfc_expr *);
 /* Initialize a string length variable.  */
-void gfc_trans_init_string_length (gfc_charlen *, stmtblock_t *);
+void gfc_conv_string_length (gfc_charlen *, stmtblock_t *);
 /* Ensure type sizes can be gimplified.  */
 void gfc_trans_vla_type_sizes (gfc_symbol *, stmtblock_t *);
 
@@ -379,7 +378,7 @@ tree gfc_get_function_decl (gfc_symbol *);
 tree gfc_build_addr_expr (tree, tree);
 
 /* Build an ARRAY_REF.  */
-tree gfc_build_array_ref (tree, tree);
+tree gfc_build_array_ref (tree, tree, tree);
 
 /* Creates a label.  Decl is artificial if label_id == NULL_TREE.  */
 tree gfc_build_label_decl (tree);
@@ -484,6 +483,8 @@ tree poplevel (int, int, int);
 tree getdecls (void);
 tree gfc_truthvalue_conversion (tree);
 tree gfc_builtin_function (tree);
+struct array_descr_info;
+bool gfc_get_array_descr_info (const_tree, struct array_descr_info *);
 
 /* In trans-openmp.c */
 bool gfc_omp_privatize_by_reference (const_tree);
@@ -570,10 +571,19 @@ extern GTY(()) tree gfor_fndecl_sr_kind;
 
 /* G95-specific declaration information.  */
 
+enum gfc_array_kind
+{
+  GFC_ARRAY_UNKNOWN,
+  GFC_ARRAY_ASSUMED_SHAPE,
+  GFC_ARRAY_ALLOCATABLE,
+  GFC_ARRAY_POINTER
+};
+
 /* Array types only.  */
 struct lang_type		GTY(())
 {
   int rank;
+  enum gfc_array_kind akind;
   tree lbound[GFC_MAX_DIMENSIONS];
   tree ubound[GFC_MAX_DIMENSIONS];
   tree stride[GFC_MAX_DIMENSIONS];
@@ -593,11 +603,13 @@ struct lang_decl		GTY(())
      address of target label.  */
   tree stringlen;
   tree addr;
+  tree span;
 };
 
 
 #define GFC_DECL_ASSIGN_ADDR(node) DECL_LANG_SPECIFIC(node)->addr
 #define GFC_DECL_STRING_LEN(node) DECL_LANG_SPECIFIC(node)->stringlen
+#define GFC_DECL_SPAN(node) DECL_LANG_SPECIFIC(node)->span
 #define GFC_DECL_SAVED_DESCRIPTOR(node) \
   (DECL_LANG_SPECIFIC(node)->saved_descriptor)
 #define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_0(node)
@@ -606,6 +618,7 @@ struct lang_decl		GTY(())
 #define GFC_DECL_COMMON_OR_EQUIV(node) DECL_LANG_FLAG_3(node)
 #define GFC_DECL_CRAY_POINTEE(node) DECL_LANG_FLAG_4(node)
 #define GFC_DECL_RESULT(node) DECL_LANG_FLAG_5(node)
+#define GFC_DECL_SUBREF_ARRAY_P(node) DECL_LANG_FLAG_6(node)
 
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
@@ -624,15 +637,12 @@ struct lang_decl		GTY(())
 #define GFC_TYPE_ARRAY_RANK(node) (TYPE_LANG_SPECIFIC(node)->rank)
 #define GFC_TYPE_ARRAY_SIZE(node) (TYPE_LANG_SPECIFIC(node)->size)
 #define GFC_TYPE_ARRAY_OFFSET(node) (TYPE_LANG_SPECIFIC(node)->offset)
-/* Code should use gfc_get_dtype instead of accesig this directly.  It may
+#define GFC_TYPE_ARRAY_AKIND(node) (TYPE_LANG_SPECIFIC(node)->akind)
+/* Code should use gfc_get_dtype instead of accesing this directly.  It may
    not be known when the type is created.  */
 #define GFC_TYPE_ARRAY_DTYPE(node) (TYPE_LANG_SPECIFIC(node)->dtype)
 #define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
-
-/* I changed this from sorry(...) because it should not return.  */
-/* TODO: Remove gfc_todo_error before releasing version 1.0.  */
-#define gfc_todo_error(args...) fatal_error("gfc_todo: Not Implemented: " args)
 
 /* Build an expression with void type.  */
 #define build1_v(code, arg) build1(code, void_type_node, arg)
@@ -685,6 +695,7 @@ typedef struct gfc_interface_sym_mapping
   struct gfc_interface_sym_mapping *next;
   gfc_symbol *old;
   gfc_symtree *new;
+  gfc_expr *expr;
 }
 gfc_interface_sym_mapping;
 
@@ -706,7 +717,7 @@ gfc_interface_mapping;
 void gfc_init_interface_mapping (gfc_interface_mapping *);
 void gfc_free_interface_mapping (gfc_interface_mapping *);
 void gfc_add_interface_mapping (gfc_interface_mapping *,
-				gfc_symbol *, gfc_se *);
+				gfc_symbol *, gfc_se *, gfc_expr *);
 void gfc_finish_interface_mapping (gfc_interface_mapping *,
 				   stmtblock_t *, stmtblock_t *);
 void gfc_apply_interface_mapping (gfc_interface_mapping *,
@@ -714,9 +725,9 @@ void gfc_apply_interface_mapping (gfc_interface_mapping *,
 
 
 /* Standard error messages used in all the trans-*.c files.  */
-extern char gfc_msg_bounds[];
-extern char gfc_msg_fault[];
-extern char gfc_msg_wrong_return[];
+extern const char gfc_msg_bounds[];
+extern const char gfc_msg_fault[];
+extern const char gfc_msg_wrong_return[];
 
 
 #endif /* GFC_TRANS_H */

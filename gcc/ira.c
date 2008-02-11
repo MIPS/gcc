@@ -1539,12 +1539,11 @@ ira (FILE *f)
 
   df_note_add_problem ();
 
-  if (optimize > 1)
-    df_remove_problem (df_live);
-  /* Create a new version of df that has the special version of UR if
-     we are doing optimization.  */
-  if (optimize)
-    df_urec_add_problem ();
+  if (optimize == 1)
+    {
+      df_live_add_problem ();
+      df_live_set_all_dirty ();
+    }
   df_analyze ();
 
   df_clear_flags (DF_NO_INSN_RESCAN);
@@ -1581,9 +1580,6 @@ ira (FILE *f)
   max_regno_before_ira = allocated_reg_info_size = max_reg_num ();
   allocate_reg_info ();
   setup_eliminable_regset ();
-
-  if (optimize)
-    df_remove_problem (df_urec);
 
   overall_cost = reg_cost = mem_cost = 0;
   load_cost = store_cost = shuffle_cost = 0;
@@ -1664,7 +1660,7 @@ ira (FILE *f)
     = ira_allocate (max_regno * sizeof (struct spilled_reg_stack_slot));
 
   df_set_flags (DF_NO_INSN_RESCAN);
-  build_insn_chain (get_insns ());
+  build_insn_chain ();
   sort_insn_chain (TRUE);
   reload_completed = ! reload (get_insns (), 1);
 

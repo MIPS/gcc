@@ -88,6 +88,9 @@ typedef struct secondary_reload_info
 /* This is defined in sched-int.h .  */
 struct _dep;
 
+/* This is defined in ddg.h .  */
+struct ddg;
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -306,7 +309,7 @@ struct gcc_target
     /* The values of the following two members are pointers to
        functions used to simplify the automaton descriptions.
        dfa_pre_advance_cycle and dfa_post_advance_cycle are getting called
-       immediatelly before and after cycle is advanced.  */
+       immediately before and after cycle is advanced.  */
     void (* dfa_pre_advance_cycle) (void);
     void (* dfa_post_advance_cycle) (void);
 
@@ -397,6 +400,12 @@ struct gcc_target
        information about the speculation capabilities of the target.
        The parameter is a pointer to spec_info variable.  */
     void (* set_sched_flags) (struct spec_info_def *);
+
+    /* The following member value is a pointer to a function that provides
+       information about the target resource-based lower bound which is
+       used by the swing modulo scheduler.  The parameter is a pointer
+       to ddg variable.  */
+    int (* sms_res_mii) (struct ddg *);
   } sched;
 
   /* Functions relating to vectorization.  */
@@ -570,6 +579,11 @@ struct gcc_target
      this is an indirect call.  */
   bool (*function_ok_for_sibcall) (tree decl, tree exp);
 
+  /* Establish appropriate back-end context for processing the function
+     FNDECL.  The argument might be NULL to indicate processing at top
+     level, outside of any function scope.  */
+  void (*set_current_function) (tree fndecl);
+
   /* True if EXP should be placed in a "small data" section.  */
   bool (* in_small_data_p) (const_tree);
 
@@ -638,6 +652,10 @@ struct gcc_target
      value.  */
   rtx (* allocate_initial_value) (rtx x);
 
+  /* Return nonzero if evaluating UNSPEC[_VOLATILE] X might cause a trap.
+     FLAGS has the same meaning as in rtlanal.c: may_trap_p_1.  */
+  int (* unspec_may_trap_p) (const_rtx x, unsigned flags);
+
   /* Given a register, this hook should return a parallel of registers
      to represent where to find the register pieces.  Define this hook
      if the register and its mode are represented in Dwarf in
@@ -675,6 +693,9 @@ struct gcc_target
 
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
+
+  /* Expand the __builtin_va_start builtin.  */
+  void (* expand_builtin_va_start) (tree valist, rtx nextarg);
 
   /* Gimplifies a VA_ARG_EXPR.  */
   tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
@@ -827,6 +848,15 @@ struct gcc_target
   enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
 				      enum machine_mode,
 				      struct secondary_reload_info *);
+
+  /* This target hook allows the backend to perform additional
+     processing while initializing for variable expansion.  */
+  void (* expand_to_rtl_hook) (void);
+
+  /* This target hook allows the backend to perform additional
+     instantiations on rtx that are not actually in insns yet,
+     but will be later.  */
+  void (* instantiate_decls) (void);
 
   /* Functions specific to the C family of frontends.  */
   struct c {

@@ -442,10 +442,14 @@ redirect_edges (void **slot, void *data)
 	  remove_ctrl_stmt_and_useless_edges (local_info->bb,
 					      rd->outgoing_edge->dest);
 
-	  /* And fixup the flags on the single remaining edge.  */
+	  /* Fixup the flags on the single remaining edge.  */
 	  single_succ_edge (local_info->bb)->flags
 	    &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
 	  single_succ_edge (local_info->bb)->flags |= EDGE_FALLTHRU;
+
+	  /* And adjust count and frequency on BB.  */
+	  local_info->bb->count = e->count;
+	  local_info->bb->frequency = EDGE_FREQUENCY (e);
 	}
     }
 
@@ -461,26 +465,26 @@ redirect_edges (void **slot, void *data)
    is one, this is equivalent to a "forwarder" block.  */
 
 static bool
-redirection_block_p (const_basic_block bb)
+redirection_block_p (basic_block bb)
 {
-  const_block_stmt_iterator bsi;
+  block_stmt_iterator bsi;
 
   /* Advance to the first executable statement.  */
-  bsi = cbsi_start (bb);
-  while (!cbsi_end_p (bsi)
-          && (TREE_CODE (cbsi_stmt (bsi)) == LABEL_EXPR
-              || IS_EMPTY_STMT (cbsi_stmt (bsi))))
-    cbsi_next (&bsi);
+  bsi = bsi_start (bb);
+  while (!bsi_end_p (bsi)
+          && (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR
+              || IS_EMPTY_STMT (bsi_stmt (bsi))))
+    bsi_next (&bsi);
 
   /* Check if this is an empty block.  */
-  if (cbsi_end_p (bsi))
+  if (bsi_end_p (bsi))
     return true;
 
   /* Test that we've reached the terminating control statement.  */
-  return cbsi_stmt (bsi)
-	 && (TREE_CODE (cbsi_stmt (bsi)) == COND_EXPR
-	     || TREE_CODE (cbsi_stmt (bsi)) == GOTO_EXPR
-	     || TREE_CODE (cbsi_stmt (bsi)) == SWITCH_EXPR);
+  return bsi_stmt (bsi)
+	 && (TREE_CODE (bsi_stmt (bsi)) == COND_EXPR
+	     || TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
+	     || TREE_CODE (bsi_stmt (bsi)) == SWITCH_EXPR);
 }
 
 /* BB is a block which ends with a COND_EXPR or SWITCH_EXPR and when BB

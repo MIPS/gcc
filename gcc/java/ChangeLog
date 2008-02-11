@@ -1,3 +1,169 @@
+2008-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR other/35107
+	* Make-lang.in (jc1): Add $(GMPLIBS).
+
+2008-01-23  David Daney  <ddaney@avtrex.com>
+
+	* class.c (hide)  Rename to...
+	(java_hide_decl) ... this throughout, and make public.
+	* resource.c (Jr_count): Remove.
+	(compile_resource_data): Call java_mangle_resource_name to generate
+	decl name.  Make resource decl public and hidden.
+	* mangle.c (java_mangle_resource_name): New function.
+	* java-tree.h (java_hide_decl, java_mangle_resource_name): Declare
+	functions.
+
+2008-01-04  Andrew Haley  <aph@redhat.com>
+
+	PR java/17779
+	* jcf-parse.c (parse_zip_file_entries): Move decl to compile on
+	C90.
+
+2008-01-03  Andrew Haley  <aph@redhat.com>
+
+	PR java/17779
+	* jcf-parse.c (parse_zip_file_entries): Unset TYPE_ALIAS_SET if
+	we're about to re-layout the type.
+
+2007-12-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* lang.c (java_classify_record): Don't return
+	RECORD_IS_INTERFACE for now.
+
+2007-12-18  Andrew Haley  <aph@redhat.com>
+
+	PR java/27643
+	* jcf-parse.c (java_parse_file): Remove call to
+	java_mark_class_local.
+	(parse_class_file): Reinstate call to java_mark_class_local here.
+	* decl.c (java_mark_cni_decl_local): If the ASSEMBLER_NAME is
+	already set, call java_mangle_decl() and make_decl_rtl() to
+	rewrite its name as a hidden alias.
+
+2007-12-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/7081
+	* lang.c (java_classify_record): New.
+	(LANG_HOOKS_CLASSIFY_RECORD): Override.
+
+2007-11-26  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR 34081/C++
+	* decl.c (finish_method): Pass 'false' for the new
+	allocate_struct_function parameter.
+
+2007-11-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* expr.c (build_jni_stub): Use the computed jni func type for
+	variable meth.
+
+2007-11-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* class.c (JAVA_TREEHASHHASH_H): Use TYPE_UID.
+
+2007-11-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	* expr.c (type_assertion_hash): Hash type uids rather than
+	tree pointers.
+
+2007-11-17  David Daney  <ddaney@avtrex.com>
+	    Andrew Haley  <aph@redhat.com>
+
+	* constants.c (build_constants_constructor):  Use POINTER_SIZE
+	insead of BITS_PER_WORD in big-endian work around.
+
+2007-11-07  Tom Tromey  <tromey@redhat.com>
+
+	PR java/34019:
+	* gcj.texi (Input Options): Add missing noun.
+
+2007-11-02  Tom Tromey  <tromey@redhat.com>
+
+	PR java/33765:
+	* jcf-parse.c (java_parse_file): Ignore ZIPEMPTYMAGIC files.
+	* zipfile.h (ZIPEMPTYMAGIC): New define.
+
+2007-11-01  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java/jcf-dump.o): Depend on zipfile.h.
+	(java/jcf-parse.o): Depend on jcf-reader.c, zipfile.h, and jcf.h.
+	(java/jcf-io.o): Depend on zipfile.h.
+
+2007-10-17  Richard Guenther  <rguenther@suse.de>
+
+	* Make-lang.in (java/builtins.o): Add $(OPTABS_H) and $(EXPR_H)
+	dependencies.
+
+2007-10-03  Andrew Haley  <aph@redhat.com>
+
+	PR java/33639
+	* class.c (mangled_classname): Detect and replace illegal
+	characters in assembly language symbols.
+	(gen_indirect_dispatch_tables): Call mangled_classname() on
+	the type.
+
+2007-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* lang.c (java_print_error_function): Add third argument.
+
+2007-09-15  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (struct lang_decl_func) <function_decl_body>:
+	Remove.
+	<init_final>: Likewise.
+	* lang.c (java_dump_tree): Update.
+	* java-tree.h (DECL_FUNCTION_BODY): Remove.
+
+2007-09-11  Jan Hubicka <jh@suse.cz>
+
+	* decl.c (java_expand_body): Kill.
+	(LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION): Kill.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-parse.c (parse_class_file): Re-enter the current file.
+
+2007-09-07  Roman Zippel  <zippel@linux-m68k.org>
+
+	* boehm.c (mark_reference_fields): Move misaligned pointer check
+	after JREFERENCE_TYPE_P test
+
+2007-09-06  Roman Zippel  <zippel@linux-m68k.org>
+
+	* boehm.c (mark_reference_fields): Don't use bitmap as gc_descr
+	if pointer is misaligned.
+
+2007-09-06  Tom Tromey  <tromey@redhat.com>
+
+	* lang.c (java_post_options): Update.
+	* jcf-parse.c (set_source_filename): Update.
+	(give_name_to_class): Update.
+	(jcf_parse): Update.
+	(duplicate_class_warning): Update.
+	(parse_class_file): Update.
+	(java_parse_file): Update.
+	* expr.c (expand_byte_code): Update.
+
+2007-09-05  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* decl.c (finish_method): Use set_cfun.
+
+2007-09-04  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (java_init_decl_processing): Call "__cxa_end_cleanup"
+	when using the ARM EABI.
+
+2007-09-03  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Make-lang.in (jvspec.o): Remove SHLIB_MULTILIB.
+
+2007-09-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* jcf-parse.c (read_class, java_parse_file): Supply a TYPE for
+	CONST_CAST.
+	* jcf.h (JCF_FINISH): Likewise.
+
 2007-08-28  Tom Tromey  <tromey@redhat.com>
 
 	* Make-lang.in (java.tags): Don't tag '*.y' files.

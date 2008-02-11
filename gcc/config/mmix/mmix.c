@@ -319,6 +319,26 @@ mmix_conditional_register_usage (void)
 	reg_names[i]++;
 }
 
+/* INCOMING_REGNO and OUTGOING_REGNO worker function.
+   Those two macros must only be applied to function argument
+   registers.  FIXME: for their current use in gcc, it'd be better
+   with an explicit specific additional FUNCTION_INCOMING_ARG_REGNO_P
+   a'la FUNCTION_ARG / FUNCTION_INCOMING_ARG instead of forcing the
+   target to commit to a fixed mapping and for any unspecified
+   register use.  */
+
+int
+mmix_opposite_regno (int regno, int incoming)
+{
+  if (!mmix_function_arg_regno_p (regno, incoming))
+    return regno;
+
+  return
+    regno - (incoming
+	     ? MMIX_FIRST_INCOMING_ARG_REGNUM - MMIX_FIRST_ARG_REGNUM
+	     : MMIX_FIRST_ARG_REGNUM - MMIX_FIRST_INCOMING_ARG_REGNUM);
+}
+
 /* LOCAL_REGNO.
    All registers that are part of the register stack and that will be
    saved are local.  */
@@ -1138,14 +1158,10 @@ mmix_encode_section_info (tree decl, rtx rtl, int first)
 
       const char *str = XSTR (XEXP (rtl, 0), 0);
       int len = strlen (str);
-      char *newstr;
-
-      /* Why is the return type of ggc_alloc_string const?  */
-      newstr = (char *) CONST_CAST (ggc_alloc_string ("", len + 1));
-
+      char *newstr = alloca (len + 2);
+      newstr[0] = '@';
       strcpy (newstr + 1, str);
-      *newstr = '@';
-      XSTR (XEXP (rtl, 0), 0) = newstr;
+      XSTR (XEXP (rtl, 0), 0) = ggc_alloc_string (newstr, len + 1);
     }
 
   /* Set SYMBOL_REF_FLAG for things that we want to access with GETA.  We

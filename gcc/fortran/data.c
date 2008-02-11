@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "gfortran.h"
+#include "data.h"
 
 static void formalize_init_expr (gfc_expr *);
 
@@ -309,6 +310,29 @@ gfc_assign_data_value (gfc_expr *lvalue, gfc_expr *rvalue, mpz_t index)
 	    get_array_index (&ref->u.ar, &offset);
 	  else
 	    mpz_set (offset, index);
+
+	  /* Check the bounds.  */
+	  if (mpz_cmp_si (offset, 0) < 0)
+	    {
+	      gfc_error ("Data element below array lower bound at %L",
+			 &lvalue->where);
+	      return FAILURE;
+	    }
+	  else
+	    {
+	      mpz_t size;
+	      if (spec_size (ref->u.ar.as, &size) == SUCCESS)
+		{
+		  if (mpz_cmp (offset, size) >= 0)
+		  {
+		    mpz_clear (size);
+		    gfc_error ("Data element above array upper bound at %L",
+			       &lvalue->where);
+		    return FAILURE;
+		  }
+		  mpz_clear (size);
+		}
+	    }
 
 	  /* Splay tree containing offset and gfc_constructor.  */
 	  spt = expr->con_by_offset;
@@ -687,7 +711,7 @@ formalize_structure_cons (gfc_expr *expr)
   c = expr->value.constructor;
 
   /* Constructor is already formalized.  */
-  if (c->n.component == NULL)
+  if (!c || c->n.component == NULL)
     return;
 
   head = tail = NULL;

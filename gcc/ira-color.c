@@ -1834,14 +1834,14 @@ allocno_reload_assign (allocno_t a, HARD_REG_SET forbidden_regs)
      the hard register, and mark that register live.  */
   if (reg_renumber[regno] >= 0)
     {
-      if (internal_flag_ira_verbose > 3 && stderr != NULL)
-	fprintf (stderr, ": reassign to %d", reg_renumber[regno]);
+      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	fprintf (ira_dump_file, ": reassign to %d", reg_renumber[regno]);
       SET_REGNO (regno_reg_rtx[regno], reg_renumber[regno]);
       mark_home_live (regno);
     }
 
-  if (internal_flag_ira_verbose > 3 && stderr != NULL)
-    fprintf (stderr, "\n");
+  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+    fprintf (ira_dump_file, "\n");
 
   return reg_renumber[regno] >= 0;
 }

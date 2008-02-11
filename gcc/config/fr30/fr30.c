@@ -308,7 +308,7 @@ fr30_expand_prologue (void)
 		     G++ testsuite.  */
 		  if (! frame_pointer_needed
 		      && GET_CODE (part) == SET
-		      && REGNO (SET_DEST (part)) == HARD_FRAME_POINTER_REGNUM)
+		      && SET_DEST (part) == hard_frame_pointer_rtx)
 		    RTX_FRAME_RELATED_P (part) = 0;
 		  else
 		    RTX_FRAME_RELATED_P (part) = 1;
@@ -336,7 +336,8 @@ fr30_expand_prologue (void)
     ; /* Nothing to do.  */
   else if (current_frame_info.frame_size <= 512)
     {
-      insn = emit_insn (gen_add_to_stack (GEN_INT (- current_frame_info.frame_size)));
+      insn = emit_insn (gen_add_to_stack
+			 (GEN_INT (- (signed) current_frame_info.frame_size)));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
   else
@@ -827,47 +828,23 @@ fr30_move_double (rtx * operands)
 	{
 	  rtx addr = XEXP (src, 0);
 	  int dregno = REGNO (dest);
-	  rtx dest0;
-	  rtx dest1;
+	  rtx dest0 = operand_subword (dest, 0, TRUE, mode);;
+	  rtx dest1 = operand_subword (dest, 1, TRUE, mode);;
 	  rtx new_mem;
 	  
-	  /* If the high-address word is used in the address, we
-	     must load it last.  Otherwise, load it first.  */
-	  int reverse = (refers_to_regno_p (dregno, dregno + 1, addr, 0) != 0);
-
 	  gcc_assert (GET_CODE (addr) == REG);
 	  
-	  dest0 = operand_subword (dest, reverse, TRUE, mode);
-	  dest1 = operand_subword (dest, !reverse, TRUE, mode);
+	  /* Copy the address before clobbering it.  See PR 34174.  */
+	  emit_insn (gen_rtx_SET (SImode, dest1, addr));
+	  emit_insn (gen_rtx_SET (VOIDmode, dest0,
+				  adjust_address (src, SImode, 0)));
+	  emit_insn (gen_rtx_SET (SImode, dest1,
+				  plus_constant (dest1, UNITS_PER_WORD)));
 
-	  if (reverse)
-	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, dest1,
-				      adjust_address (src, SImode, 0)));
-	      emit_insn (gen_rtx_SET (SImode, dest0,
-				      gen_rtx_REG (SImode, REGNO (addr))));
-	      emit_insn (gen_rtx_SET (SImode, dest0,
-				      plus_constant (dest0, UNITS_PER_WORD)));
-
-	      new_mem = gen_rtx_MEM (SImode, dest0);
-	      MEM_COPY_ATTRIBUTES (new_mem, src);
+	  new_mem = gen_rtx_MEM (SImode, dest1);
+	  MEM_COPY_ATTRIBUTES (new_mem, src);
 	      
-	      emit_insn (gen_rtx_SET (VOIDmode, dest0, new_mem));
-	    }
-	  else
-	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, dest0,
-				      adjust_address (src, SImode, 0)));
-	      emit_insn (gen_rtx_SET (SImode, dest1,
-				      gen_rtx_REG (SImode, REGNO (addr))));
-	      emit_insn (gen_rtx_SET (SImode, dest1,
-				      plus_constant (dest1, UNITS_PER_WORD)));
-
-	      new_mem = gen_rtx_MEM (SImode, dest1);
-	      MEM_COPY_ATTRIBUTES (new_mem, src);
-	      
-	      emit_insn (gen_rtx_SET (VOIDmode, dest1, new_mem));
-	    }
+	  emit_insn (gen_rtx_SET (VOIDmode, dest1, new_mem));
 	}
       else if (src_code == CONST_INT || src_code == CONST_DOUBLE)
 	{

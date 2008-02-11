@@ -58,14 +58,6 @@ bool extra_warnings;
 bool warn_larger_than;
 HOST_WIDE_INT larger_than_size;
 
-/* Nonzero means warn about constructs which might not be
-   strict-aliasing safe.  */
-int warn_strict_aliasing;
-
-/* Nonzero means warn about optimizations which rely on undefined
-   signed overflow.  */
-int warn_strict_overflow;
-
 /* Hack for cooperation between set_Wunused and set_Wextra.  */
 static bool maybe_warn_unused_parameter;
 
@@ -353,6 +345,7 @@ static bool profile_arc_flag_set, flag_profile_values_set;
 static bool flag_unroll_loops_set, flag_tracer_set;
 static bool flag_value_profile_transformations_set;
 static bool flag_peel_loops_set, flag_branch_probabilities_set;
+static bool flag_inline_functions_set;
 
 /* Functions excluded from profiling.  */
 
@@ -821,6 +814,7 @@ decode_options (unsigned int argc, const char **argv)
 
   if (optimize >= 2)
     {
+      flag_inline_small_functions = 1;
       flag_thread_jumps = 1;
       flag_crossjumping = 1;
       flag_optimize_sibling_calls = 1;
@@ -828,7 +822,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_cse_follow_jumps = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
-      flag_ipa_type_escape = 1;
       flag_rerun_cse_after_loop = 1;
       flag_caller_saves = 1;
       flag_peephole2 = 1;
@@ -843,7 +836,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
       flag_tree_store_ccp = 1;
-      flag_tree_store_copy_prop = 1;
       flag_tree_vrp = 1;
 
       if (!optimize_size)
@@ -862,6 +854,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_inline_functions = 1;
       flag_unswitch_loops = 1;
       flag_gcse_after_reload = 1;
+      flag_tree_vectorize = 1;
 
       /* Allow even more virtual operators.  */
       set_param_value ("max-aliased-vops", 1000);
@@ -948,6 +941,16 @@ decode_options (unsigned int argc, const char **argv)
 
   if (flag_really_no_inline == 2)
     flag_really_no_inline = flag_no_inline;
+
+  /* Inlining of functions called just once will only work if we can look
+     at the complete translation unit.  */
+  if (flag_inline_functions_called_once && !flag_unit_at_a_time)
+    {
+      flag_inline_functions_called_once = 0;
+      warning (OPT_Wdisabled_optimization,
+	       "-funit-at-a-time is required for inlining of functions "
+	       "that are only called once");
+    }
 
   /* The optimization to partition hot and cold basic blocks into separate
      sections of the .o and executable files does not work (currently)
@@ -1567,6 +1570,10 @@ common_handle_option (size_t scode, const char *arg, int value,
       set_fast_math_flags (value);
       break;
 
+    case OPT_funsafe_math_optimizations:
+      set_unsafe_math_optimizations_flags (value);
+      break;
+
     case OPT_ffixed_:
       fix_register (arg, 1, 1);
       break;
@@ -1609,6 +1616,10 @@ common_handle_option (size_t scode, const char *arg, int value,
       profile_arc_flag_set = true;
       break;
 
+    case OPT_finline_functions:
+      flag_inline_functions_set = true;
+      break;
+
     case OPT_fprofile_use:
       if (!flag_branch_probabilities_set)
         flag_branch_probabilities = value;
@@ -1622,6 +1633,8 @@ common_handle_option (size_t scode, const char *arg, int value,
         flag_tracer = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+      if (!flag_inline_functions_set)
+        flag_inline_functions = value;
       break;
 
     case OPT_fprofile_generate:
@@ -1631,6 +1644,8 @@ common_handle_option (size_t scode, const char *arg, int value,
         flag_profile_values = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
+      if (!flag_inline_functions_set)
+        flag_inline_functions = value;
       break;
 
     case OPT_fprofile_values:
@@ -1787,6 +1802,8 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_floop_optimize:
     case OPT_frerun_loop_opt:
     case OPT_fstrength_reduce:
+    case OPT_ftree_store_copy_prop:
+    case OPT_fforce_addr:
       /* These are no-ops, preserved for backward compatibility.  */
       break;
 
@@ -1878,10 +1895,9 @@ set_Wstrict_aliasing (int onoff)
 void
 set_fast_math_flags (int set)
 {
-  flag_trapping_math = !set;
   flag_unsafe_math_optimizations = set;
+  set_unsafe_math_optimizations_flags (set);
   flag_finite_math_only = set;
-  flag_signed_zeros = !set;
   flag_errno_math = !set;
   if (set)
     {
@@ -1889,6 +1905,17 @@ set_fast_math_flags (int set)
       flag_rounding_math = 0;
       flag_cx_limited_range = 1;
     }
+}
+
+/* When -funsafe-math-optimizations is set the following 
+   flags are set as well.  */ 
+void
+set_unsafe_math_optimizations_flags (int set)
+{
+  flag_trapping_math = !set;
+  flag_signed_zeros = !set;
+  flag_associative_math = set;
+  flag_reciprocal_math = set;
 }
 
 /* Return true iff flags are set as if -ffast-math.  */

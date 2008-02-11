@@ -858,9 +858,9 @@ calculate_local_save_info (void)
 	  SET_HARD_REG_SET (bb_info->save_out);
 	  REG_SET_TO_HARD_REG_SET
 	    (bb_info->live_at_start,
-	     flag_ira ? DF_LR_TOP (bb) : DF_RA_LIVE_TOP (bb));
+	     flag_ira ? DF_LR_IN (bb) : DF_LIVE_IN (bb));
 	  EXECUTE_IF_SET_IN_REG_SET
-	    ((flag_ira ? DF_LR_TOP (bb) : DF_RA_LIVE_TOP (bb)),
+	    ((flag_ira ? DF_LR_IN (bb) : DF_LIVE_IN (bb)),
 	     FIRST_PSEUDO_REGISTER, regno, rsi)
 	    {
 	      int r = reg_renumber[regno];
@@ -1680,6 +1680,38 @@ insert_one_insn (struct insn_chain *chain, int before_p, int code, rtx pat)
 		SET_REGNO_REG_SET (&new->live_throughout, regno + i);
 	    }
 	}
+
+      /* If CHAIN->INSN is a call, then the registers which contain
+	 the arguments to the function are live in the new insn.  */
+      if (CALL_P (chain->insn))
+	{
+	  for (link = CALL_INSN_FUNCTION_USAGE (chain->insn);
+	       link != NULL_RTX;
+	       link = XEXP (link, 1))
+	    {
+	      rtx arg = XEXP (link, 0);
+
+	      if (GET_CODE (arg) == USE)
+		{
+		  rtx reg = XEXP (arg, 0);
+
+		  if (REG_P (reg))
+		    {
+		      int i, regno = REGNO (reg);
+
+		      /* Registers in CALL_INSN_FUNCTION_USAGE are always
+			 hard registers.  */
+		      gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+
+		      for (i = hard_regno_nregs[regno][GET_MODE (reg)] - 1;
+			   i >= 0; i--)
+			SET_REGNO_REG_SET (&new->live_throughout, regno + i);
+		    }
+		}
+	    }
+	  
+	}
+
       CLEAR_REG_SET (&new->dead_or_set);
       if (chain->insn == BB_HEAD (BASIC_BLOCK (chain->block)))
 	BB_HEAD (BASIC_BLOCK (chain->block)) = new->insn;

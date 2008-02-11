@@ -210,11 +210,11 @@ gfc_conv_intrinsic_function_args (gfc_se *se, gfc_expr *expr,
 
       /* If an optional argument is itself an optional dummy argument,
 	 check its presence and substitute a null if absent.  */
-      if (e->expr_type ==EXPR_VARIABLE
+      if (e->expr_type == EXPR_VARIABLE
 	    && e->symtree->n.sym->attr.optional
 	    && formal
 	    && formal->optional)
-	gfc_conv_missing_dummy (&argse, e, formal->ts);
+	gfc_conv_missing_dummy (&argse, e, formal->ts, 0);
 
       gfc_add_block_to_block (&se->pre, &argse.pre);
       gfc_add_block_to_block (&se->post, &argse.post);
@@ -393,14 +393,15 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, enum rounding_mode op)
 {
   tree type;
   tree itype;
-  tree arg;
+  tree arg[2];
   tree tmp;
   tree cond;
   mpfr_t huge;
-  int n;
+  int n, nargs;
   int kind;
 
   kind = expr->ts.kind;
+  nargs =  gfc_intrinsic_argument_list_length (expr);
 
   n = END_BUILTINS;
   /* We have builtin functions for some cases.  */
@@ -448,20 +449,20 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, enum rounding_mode op)
 
   /* Evaluate the argument.  */
   gcc_assert (expr->value.function.actual->expr);
-  gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
+  gfc_conv_intrinsic_function_args (se, expr, arg, nargs);
 
   /* Use a builtin function if one exists.  */
   if (n != END_BUILTINS)
     {
       tmp = built_in_decls[n];
-      se->expr = build_call_expr (tmp, 1, arg);
+      se->expr = build_call_expr (tmp, 1, arg[0]);
       return;
     }
 
   /* This code is probably redundant, but we'll keep it lying around just
      in case.  */
   type = gfc_typenode_for_spec (&expr->ts);
-  arg = gfc_evaluate_now (arg, &se->pre);
+  arg[0] = gfc_evaluate_now (arg[0], &se->pre);
 
   /* Test if the value is too large to handle sensibly.  */
   gfc_set_model_kind (kind);
@@ -469,17 +470,17 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, enum rounding_mode op)
   n = gfc_validate_kind (BT_INTEGER, kind, false);
   mpfr_set_z (huge, gfc_integer_kinds[n].huge, GFC_RND_MODE);
   tmp = gfc_conv_mpfr_to_tree (huge, kind);
-  cond = build2 (LT_EXPR, boolean_type_node, arg, tmp);
+  cond = build2 (LT_EXPR, boolean_type_node, arg[0], tmp);
 
   mpfr_neg (huge, huge, GFC_RND_MODE);
   tmp = gfc_conv_mpfr_to_tree (huge, kind);
-  tmp = build2 (GT_EXPR, boolean_type_node, arg, tmp);
+  tmp = build2 (GT_EXPR, boolean_type_node, arg[0], tmp);
   cond = build2 (TRUTH_AND_EXPR, boolean_type_node, cond, tmp);
   itype = gfc_get_int_type (kind);
 
-  tmp = build_fix_expr (&se->pre, arg, itype, op);
+  tmp = build_fix_expr (&se->pre, arg[0], itype, op);
   tmp = convert (type, tmp);
-  se->expr = build3 (COND_EXPR, type, cond, tmp, arg);
+  se->expr = build3 (COND_EXPR, type, cond, tmp, arg[0]);
   mpfr_clear (huge);
 }
 
@@ -2532,7 +2533,7 @@ gfc_conv_intrinsic_ishft (gfc_se * se, gfc_expr * expr)
   /* The Fortran standard allows shift widths <= BIT_SIZE(I), whereas
      gcc requires a shift width < BIT_SIZE(I), so we have to catch this
      special case.  */
-  num_bits = build_int_cst (TREE_TYPE (args[0]), TYPE_PRECISION (type));
+  num_bits = build_int_cst (TREE_TYPE (args[1]), TYPE_PRECISION (type));
   cond = fold_build2 (GE_EXPR, boolean_type_node, width, num_bits);
 
   se->expr = fold_build3 (COND_EXPR, type, cond,
@@ -2756,6 +2757,7 @@ gfc_conv_intrinsic_isnan (gfc_se * se, gfc_expr * expr)
 
   gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
   se->expr = build_call_expr (built_in_decls[BUILT_IN_ISNAN], 1, arg);
+  STRIP_TYPE_NOPS (se->expr);
   se->expr = fold_convert (gfc_typenode_for_spec (&expr->ts), se->expr);
 }
 
@@ -3928,11 +3930,11 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       break;
 
     case GFC_ISYM_IS_IOSTAT_END:
-      gfc_conv_has_intvalue (se, expr, -1);
+      gfc_conv_has_intvalue (se, expr, LIBERROR_END);
       break;
 
     case GFC_ISYM_IS_IOSTAT_EOR:
-      gfc_conv_has_intvalue (se, expr, -2);
+      gfc_conv_has_intvalue (se, expr, LIBERROR_EOR);
       break;
 
     case GFC_ISYM_ISNAN:
@@ -4095,6 +4097,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_ACCESS:
     case GFC_ISYM_CHDIR:
     case GFC_ISYM_CHMOD:
+    case GFC_ISYM_DTIME:
     case GFC_ISYM_ETIME:
     case GFC_ISYM_FGET:
     case GFC_ISYM_FGETC:
@@ -4268,10 +4271,9 @@ gfc_walk_intrinsic_function (gfc_ss * ss, gfc_expr * expr,
 
     default:
       /* This probably meant someone forgot to add an intrinsic to the above
-         list(s) when they implemented it, or something's gone horribly wrong.
-       */
-      gfc_todo_error ("Scalarization of non-elemental intrinsic: %s",
-		      expr->value.function.name);
+         list(s) when they implemented it, or something's gone horribly
+	 wrong.  */
+      gcc_unreachable ();
     }
 }
 

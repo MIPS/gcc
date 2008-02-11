@@ -27,9 +27,9 @@ namespace __gnu_test
 {
   struct test_category : public std::error_category
   { 
-    virtual std::posix_errno 
+    virtual std::posix_error::posix_errno 
     posix(int __v) const
-    { return std::posix_errno(__v); }
+    { return std::posix_error::posix_errno(__v); }
 
     virtual const std::string& 
     name() const 
@@ -50,7 +50,7 @@ int main()
   return 0;
 }
 
-// { dg-error "is private" "" { target *-*-* } 183 }
+// { dg-error "is private" "" { target *-*-* } 75 }
 // { dg-error "within this context" "" { target *-*-* } 29 }
 // { dg-error "first required here" "" { target *-*-* } 48 }
 // { dg-excess-errors "copy constructor" }

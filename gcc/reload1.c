@@ -549,7 +549,7 @@ compute_use_by_pseudos (HARD_REG_SET *to, regset from)
       if (r < 0)
 	{
 	  /* reload_combine uses the information from
-	     DF_RA_LIVE_IN (BASIC_BLOCK), which might still
+	     DF_LIVE_IN (BASIC_BLOCK), which might still
 	     contain registers that have not actually been allocated
 	     since they have an equivalence.  */
 	  gcc_assert (flag_ira || reload_completed);
@@ -761,9 +761,11 @@ reload (rtx first, int global)
   /* A function that has a nonlocal label that can reach the exit
      block via non-exceptional paths must save all call-saved
      registers.  */
-  if (current_function_calls_unwind_init
-      || (current_function_has_nonlocal_label
-	  && has_nonexceptional_receiver ()))
+  if (current_function_has_nonlocal_label
+      && has_nonexceptional_receiver ())
+    current_function_saves_all_registers = 1;
+
+  if (current_function_saves_all_registers)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	df_set_regs_ever_live (i, true);
@@ -1188,10 +1190,7 @@ reload (rtx first, int global)
 
   if (! frame_pointer_needed)
     FOR_EACH_BB (bb)
-      {
-	bitmap_clear_bit (df_get_live_in (bb), HARD_FRAME_POINTER_REGNUM);
-	bitmap_clear_bit (df_get_live_top (bb), HARD_FRAME_POINTER_REGNUM);
-      }
+      bitmap_clear_bit (df_get_live_in (bb), HARD_FRAME_POINTER_REGNUM);
 	
   /* Come here (with failure set nonzero) if we can't get enough spill
      regs.  */
@@ -1316,7 +1315,6 @@ reload (rtx first, int global)
 		|| REG_NOTE_KIND (*pnote) == REG_UNUSED
 		|| REG_NOTE_KIND (*pnote) == REG_INC
 		|| REG_NOTE_KIND (*pnote) == REG_RETVAL
-		|| REG_NOTE_KIND (*pnote) == REG_LIBCALL_ID
 		|| REG_NOTE_KIND (*pnote) == REG_LIBCALL)
 	      *pnote = XEXP (*pnote, 1);
 	    else
@@ -1577,8 +1575,8 @@ calculate_needs_all_insns (int global)
       chain->need_operand_change = 0;
 
       /* If this is a label, a JUMP_INSN, or has REG_NOTES (which might
-	 include REG_LABEL), we need to see what effects this has on the
-	 known offsets at labels.  */
+	 include REG_LABEL_OPERAND and REG_LABEL_TARGET), we need to see
+	 what effects this has on the known offsets at labels.  */
 
       if (LABEL_P (insn) || JUMP_P (insn)
 	  || (INSN_P (insn) && REG_NOTES (insn) != 0))
@@ -2364,10 +2362,11 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 
     case INSN:
     case CALL_INSN:
-      /* Any labels mentioned in REG_LABEL notes can be branched to indirectly
-	 and hence must have all eliminations at their initial offsets.  */
+      /* Any labels mentioned in REG_LABEL_OPERAND notes can be branched
+	 to indirectly and hence must have all eliminations at their
+	 initial offsets.  */
       for (tem = REG_NOTES (x); tem; tem = XEXP (tem, 1))
-	if (REG_NOTE_KIND (tem) == REG_LABEL)
+	if (REG_NOTE_KIND (tem) == REG_LABEL_OPERAND)
 	  set_label_offsets (XEXP (tem, 0), insn, 1);
       return;
 
@@ -8146,7 +8145,7 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
   else if (OBJECT_P (in) || GET_CODE (in) == SUBREG)
     {
       tem = emit_insn (gen_move_insn (out, in));
-      /* IN may contain a LABEL_REF, if so add a REG_LABEL note.  */
+      /* IN may contain a LABEL_REF, if so add a REG_LABEL_OPERAND note.  */
       mark_jump_label (in, tem, 0);
     }
 

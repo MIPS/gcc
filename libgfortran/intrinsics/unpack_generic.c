@@ -1,5 +1,5 @@
 /* Generic implementation of the UNPACK intrinsic
-   Copyright 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,11 +28,10 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include "libgfortran.h"
 
 static void
 unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
@@ -190,12 +189,12 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
 }
 
 extern void unpack1 (gfc_array_char *, const gfc_array_char *,
-		     const gfc_array_l4 *, const gfc_array_char *);
+		     const gfc_array_l1 *, const gfc_array_char *);
 export_proto(unpack1);
 
 void
 unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
-	 const gfc_array_l4 *mask, const gfc_array_char *field)
+	 const gfc_array_l1 *mask, const gfc_array_char *field)
 {
   unpack_internal (ret, vector, mask, field,
 		   GFC_DESCRIPTOR_SIZE (vector),
@@ -203,7 +202,7 @@ unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
 }
 
 extern void unpack1_char (gfc_array_char *, GFC_INTEGER_4,
-			  const gfc_array_char *, const gfc_array_l4 *,
+			  const gfc_array_char *, const gfc_array_l1 *,
 			  const gfc_array_char *, GFC_INTEGER_4,
 			  GFC_INTEGER_4);
 export_proto(unpack1_char);
@@ -211,7 +210,7 @@ export_proto(unpack1_char);
 void
 unpack1_char (gfc_array_char *ret,
 	      GFC_INTEGER_4 ret_length __attribute__((unused)),
-	      const gfc_array_char *vector, const gfc_array_l4 *mask,
+	      const gfc_array_char *vector, const gfc_array_l1 *mask,
 	      const gfc_array_char *field, GFC_INTEGER_4 vector_length,
 	      GFC_INTEGER_4 field_length)
 {
@@ -219,12 +218,12 @@ unpack1_char (gfc_array_char *ret,
 }
 
 extern void unpack0 (gfc_array_char *, const gfc_array_char *,
-		     const gfc_array_l4 *, char *);
+		     const gfc_array_l1 *, char *);
 export_proto(unpack0);
 
 void
 unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
-	 const gfc_array_l4 *mask, char *field)
+	 const gfc_array_l1 *mask, char *field)
 {
   gfc_array_char tmp;
 
@@ -235,14 +234,14 @@ unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
 }
 
 extern void unpack0_char (gfc_array_char *, GFC_INTEGER_4,
-			  const gfc_array_char *, const gfc_array_l4 *,
+			  const gfc_array_char *, const gfc_array_l1 *,
 			  char *, GFC_INTEGER_4, GFC_INTEGER_4);
 export_proto(unpack0_char);
 
 void
 unpack0_char (gfc_array_char *ret,
 	      GFC_INTEGER_4 ret_length __attribute__((unused)),
-	      const gfc_array_char *vector, const gfc_array_l4 *mask,
+	      const gfc_array_char *vector, const gfc_array_l1 *mask,
 	      char *field, GFC_INTEGER_4 vector_length,
 	      GFC_INTEGER_4 field_length __attribute__((unused)))
 {

@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -791,9 +790,8 @@ package body Prj.Dect is
       Declarations := Empty_Node;
 
       loop
-         --  We are always positioned at the token that precedes
-         --  the first token of the declarative element.
-         --  Scan past it
+         --  We are always positioned at the token that precedes the first
+         --  token of the declarative element. Scan past it.
 
          Scan (In_Tree);
 
@@ -803,8 +801,38 @@ package body Prj.Dect is
             when Tok_Identifier =>
 
                if In_Zone = In_Case_Construction then
-                  Error_Msg ("a variable cannot be declared here",
-                             Token_Ptr);
+
+                  --  Check if the variable has already been declared
+
+                  declare
+                     The_Variable : Project_Node_Id := Empty_Node;
+
+                  begin
+                     if Current_Package /= Empty_Node then
+                        The_Variable :=
+                          First_Variable_Of (Current_Package, In_Tree);
+                     elsif Current_Project /= Empty_Node then
+                        The_Variable :=
+                          First_Variable_Of (Current_Project, In_Tree);
+                     end if;
+
+                     while The_Variable /= Empty_Node
+                       and then Name_Of (The_Variable, In_Tree) /=
+                                Token_Name
+                     loop
+                        The_Variable := Next_Variable (The_Variable, In_Tree);
+                     end loop;
+
+                     --  It is an error to declare a variable in a case
+                     --  construction for the first time.
+
+                     if The_Variable = Empty_Node then
+                        Error_Msg
+                          ("a variable cannot be declared " &
+                           "for the first time here",
+                           Token_Ptr);
+                     end if;
+                  end;
                end if;
 
                Parse_Variable_Declaration
@@ -953,10 +981,7 @@ package body Prj.Dect is
 
          Current_Package := Package_Node_Id_Of (Token_Name);
 
-         if Current_Package  /= Empty_Package then
-            First_Attribute := First_Attribute_Of (Current_Package);
-
-         else
+         if Current_Package = Empty_Package then
             if not Quiet_Output then
                Error_Msg ("?""" &
                           Get_Name_String
@@ -973,6 +998,16 @@ package body Prj.Dect is
             --  Add the unknown package in the list of packages
 
             Add_Unknown_Package (Token_Name, Current_Package);
+
+         elsif Current_Package = Unknown_Package then
+
+            --  Set the package declaration to "ignored" so that it is not
+            --  processed by Prj.Proc.Process.
+
+            Set_Expression_Kind_Of (Package_Declaration, In_Tree, Ignored);
+
+         else
+            First_Attribute := First_Attribute_Of (Current_Package);
          end if;
 
          Set_Package_Id_Of

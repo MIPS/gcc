@@ -28,16 +28,12 @@ along with Libgfortran; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "io.h"
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "libgfortran.h"
-#include "io.h"
-
 #define star_fill(p, n) memset(p, '*', n)
 
 #include "write_float.def"
@@ -702,23 +698,23 @@ write_real (st_parameter_dt *dtp, const char *source, int length)
   switch (length)
     {
     case 4:
-      f.u.real.w = 14;
-      f.u.real.d = 7;
+      f.u.real.w = 15;
+      f.u.real.d = 8;
       f.u.real.e = 2;
       break;
     case 8:
-      f.u.real.w = 23;
-      f.u.real.d = 15;
+      f.u.real.w = 25;
+      f.u.real.d = 17;
       f.u.real.e = 3;
       break;
     case 10:
-      f.u.real.w = 28;
-      f.u.real.d = 19;
+      f.u.real.w = 29;
+      f.u.real.d = 20;
       f.u.real.e = 4;
       break;
     case 16:
-      f.u.real.w = 43;
-      f.u.real.d = 34;
+      f.u.real.w = 44;
+      f.u.real.d = 35;
       f.u.real.e = 4;
       break;
     default:
@@ -872,6 +868,7 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   size_t base_name_len;
   size_t base_var_name_len;
   size_t tot_len;
+  unit_delim tmp_delim;
 
   /* Write namelist variable names in upper case. If a derived type,
      nothing is output.  If a component, base and base_name are set.  */
@@ -988,11 +985,13 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
               break;
 
 	    case GFC_DTYPE_CHARACTER:
-	      if (dtp->u.p.nml_delim)
-		write_character (dtp, &dtp->u.p.nml_delim, 1);
+	      tmp_delim = dtp->u.p.current_unit->flags.delim;
+	      if (dtp->u.p.nml_delim == '"')
+		dtp->u.p.current_unit->flags.delim = DELIM_QUOTE;
+	      if (dtp->u.p.nml_delim == '\'')
+		dtp->u.p.current_unit->flags.delim = DELIM_APOSTROPHE;
 	      write_character (dtp, p, obj->string_length);
-	      if (dtp->u.p.nml_delim)
-		write_character (dtp, &dtp->u.p.nml_delim, 1);
+	      dtp->u.p.current_unit->flags.delim = tmp_delim;
               break;
 
 	    case GFC_DTYPE_REAL:
@@ -1134,7 +1133,6 @@ namelist_write (st_parameter_dt *dtp)
   /* Set the delimiter for namelist output.  */
 
   tmp_delim = dtp->u.p.current_unit->flags.delim;
-  dtp->u.p.current_unit->flags.delim = DELIM_NONE;
   switch (tmp_delim)
     {
     case (DELIM_QUOTE):
@@ -1150,10 +1148,12 @@ namelist_write (st_parameter_dt *dtp)
       break;
     }
 
+  /* Temporarily disable namelist delimters.  */
+  dtp->u.p.current_unit->flags.delim = DELIM_NONE;
+
   write_character (dtp, "&", 1);
 
   /* Write namelist name in upper case - f95 std.  */
-
   for (i = 0 ;i < dtp->namelist_name_len ;i++ )
     {
       c = toupper (dtp->namelist_name[i]);
@@ -1169,14 +1169,14 @@ namelist_write (st_parameter_dt *dtp)
 	  t1 = nml_write_obj (dtp, t2, dummy_offset, dummy, dummy_name);
 	}
     }
+
 #ifdef HAVE_CRLF
   write_character (dtp, "  /\r\n", 5);
 #else
   write_character (dtp, "  /\n", 4);
 #endif
 
-  /* Recover the original delimiter.  */
-
+  /* Restore the original delimiter.  */
   dtp->u.p.current_unit->flags.delim = tmp_delim;
 }
 

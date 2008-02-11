@@ -1075,7 +1075,10 @@ java_init_decl_processing (void)
   eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
                                              ? "__gcj_personality_sj0"
                                              : "__gcj_personality_v0");
-  default_init_unwind_resume_libfunc ();
+  if (targetm.arm_eabi_unwinder)
+    unwind_resume_libfunc = init_one_libfunc ("__cxa_end_cleanup");
+  else
+    default_init_unwind_resume_libfunc ();
 
   lang_eh_runtime_type = do_nothing;
 
@@ -1845,9 +1848,9 @@ finish_method (tree fndecl)
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
   if (DECL_STRUCT_FUNCTION (fndecl))
-    cfun = DECL_STRUCT_FUNCTION (fndecl);
+    set_cfun (DECL_STRUCT_FUNCTION (fndecl));
   else
-    allocate_struct_function (fndecl);
+    allocate_struct_function (fndecl, false);
 #ifdef USE_MAPPED_LOCATION
   cfun->function_end_locus = DECL_FUNCTION_LAST_LINE (fndecl);
 #else
@@ -1857,14 +1860,6 @@ finish_method (tree fndecl)
 
   /* Defer inlining and expansion to the cgraph optimizers.  */
   cgraph_finalize_function (fndecl, false);
-}
-
-/* Optimize and expand a function's entire body.  */
-
-void
-java_expand_body (tree fndecl)
-{
-  tree_rest_of_compilation (fndecl);
 }
 
 /* We pessimistically marked all methods and fields external until we
@@ -1895,18 +1890,27 @@ java_mark_decl_local (tree decl)
 static void
 java_mark_cni_decl_local (tree decl)
 {
-  /* Setting DECL_LOCAL_CNI_METHOD_P changes the behavior of the mangler.
-     We expect that we should not yet have referenced this decl in a 
-     context that requires it.  Check this invariant even if we don't have
-     support for hidden aliases.  */
-  gcc_assert (!DECL_ASSEMBLER_NAME_SET_P (decl));
-
 #if !defined(HAVE_GAS_HIDDEN) || !defined(ASM_OUTPUT_DEF)
   return;
 #endif
 
   DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
   DECL_LOCAL_CNI_METHOD_P (decl) = 1;
+
+  /* Setting DECL_LOCAL_CNI_METHOD_P changes the behavior of the
+     mangler.  We might have already referenced this native method and
+     therefore created its name, but even if we have it won't hurt.
+     We'll just go via its externally visible name, rather than its
+     hidden alias.  However, we must force things so that the correct
+     mangling is done.  */
+
+  if (DECL_ASSEMBLER_NAME_SET_P (decl))
+    java_mangle_decl (decl);
+  if (DECL_RTL_SET_P (decl))
+    {
+      SET_DECL_RTL (decl, 0);
+      make_decl_rtl (decl);
+    }
 }
 
 /* Use the preceding two functions and mark all members of the class.  */

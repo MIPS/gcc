@@ -320,7 +320,7 @@ struct tree_opt_pass pass_postreload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect,                     /* todo_flags_finish */
+  TODO_ggc_collect | TODO_verify_rtl_sharing, /* todo_flags_finish */
   0					/* letter */
 };
 
@@ -461,8 +461,7 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
        cgraph_expand_all_functions ()
            for each node N in the cgraph
 	       cgraph_expand_function (N)
-		   lang_hooks.callgraph.expand_function (DECL (N))
-		   	tree_rest_of_compilation (DECL (N))  -> all_passes
+		  tree_rest_of_compilation (DECL (N))  -> all_passes
 */
 
 void
@@ -481,6 +480,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
+  NEXT_PASS (pass_refactor_eh);
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_lower_complex_O0);
@@ -515,6 +515,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_referenced_vars);
 	  NEXT_PASS (pass_reset_cc_flags);
 	  NEXT_PASS (pass_build_ssa);
+	  NEXT_PASS (pass_expand_omp_ssa);
 	  NEXT_PASS (pass_early_warn_uninitialized);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
@@ -522,10 +523,14 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
+	  NEXT_PASS (pass_update_address_taken);
+	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_dce);
+	  NEXT_PASS (pass_update_address_taken);
+	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_tail_recursion);
           NEXT_PASS (pass_profile);
 	  NEXT_PASS (pass_release_ssa_names);
@@ -541,6 +546,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_pure_const); 
   NEXT_PASS (pass_ipa_type_escape);
   NEXT_PASS (pass_ipa_pta);
+  NEXT_PASS (pass_ipa_struct_reorg);  
   *p = NULL;
 
   /* These passes are run after IPA passes on every function that is being
@@ -551,6 +557,10 @@ init_optimization_passes (void)
     {
       struct tree_opt_pass **p = &pass_all_optimizations.sub;
       NEXT_PASS (pass_create_structure_vars);
+      /* ??? pass_build_alias is a dummy pass that ensures that we
+	 execute TODO_rebuild_alias at this point even if
+	 pass_create_structure_vars was disabled.  */
+      NEXT_PASS (pass_build_alias);
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_rename_ssa_copies);
 
@@ -564,6 +574,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dce);
+      NEXT_PASS (pass_cselim);
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
@@ -595,7 +606,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_object_sizes);
       NEXT_PASS (pass_store_ccp);
-      NEXT_PASS (pass_store_copy_prop);
+      NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_cse_sincos);
       NEXT_PASS (pass_split_crit_edges);
@@ -624,6 +635,7 @@ init_optimization_passes (void)
 	      NEXT_PASS (pass_dce_loop);
 	    }
 	  NEXT_PASS (pass_complete_unroll);
+	  NEXT_PASS (pass_parallelize_loops);
 	  NEXT_PASS (pass_loop_prefetch);
 	  NEXT_PASS (pass_iv_optimize);
 	  NEXT_PASS (pass_tree_loop_done);
@@ -642,6 +654,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phi_only_cprop);
 
       NEXT_PASS (pass_cd_dce);
+      NEXT_PASS (pass_tracer);
 
       /* FIXME: If DCE is not run before checking for uninitialized uses,
 	 we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
@@ -686,7 +699,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rtl_fwprop);
       NEXT_PASS (pass_gcse);
       NEXT_PASS (pass_rtl_ifcvt);
-      NEXT_PASS (pass_tracer);
       /* Perform loop optimizations.  It might be better to do them a bit
 	 sooner, but we want the profile feedback to work more
 	 efficiently.  */
@@ -960,6 +972,8 @@ execute_function_todo (void *data)
     verify_stmts ();
   if (flags & TODO_verify_loops)
     verify_loop_closed_ssa ();
+  if (flags & TODO_verify_rtl_sharing)
+    verify_rtl_sharing ();
 #endif
 
   cfun->last_verified = flags & TODO_verify_all;
@@ -1137,7 +1151,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Flush and close dump file.  */
   if (dump_file_name)
     {
-      free (CONST_CAST (dump_file_name));
+      free (CONST_CAST (char *, dump_file_name));
       dump_file_name = NULL;
     }
 

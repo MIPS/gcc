@@ -324,8 +324,12 @@ gfc_sym_mangled_function_id (gfc_symbol * sym)
       || (sym->module != NULL && (sym->attr.external
 	    || sym->attr.if_source == IFSRC_IFBODY)))
     {
-      if (strcmp (sym->name, "MAIN__") == 0
-	  || sym->attr.proc == PROC_INTRINSIC)
+      /* Main program is mangled into MAIN__.  */
+      if (sym->attr.is_main_program)
+	return get_identifier ("MAIN__");
+
+      /* Intrinsic procedures are never mangled.  */
+      if (sym->attr.proc == PROC_INTRINSIC)
 	return get_identifier (sym->name);
 
       if (gfc_option.flag_underscoring)
@@ -513,8 +517,18 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
       TREE_STATIC (decl) = 1;
     }
 
-  if ((sym->attr.save || sym->attr.data || sym->value)
-      && !sym->attr.use_assoc)
+  /* Derived types are a bit peculiar because of the possibility of
+     a default initializer; this must be applied each time the variable
+     comes into scope it therefore need not be static.  These variables
+     are SAVE_NONE but have an initializer.  Otherwise explicitly
+     intitialized variables are SAVE_IMPLICIT and explicitly saved are
+     SAVE_EXPLICIT.  */
+  if (!sym->attr.use_assoc
+	&& (sym->attr.save != SAVE_NONE || sym->attr.data
+	      || (sym->ts.type == BT_DERIVED
+		    && sym->ts.derived->attr.alloc_comp
+		    && sym->value)
+	      || (sym->value && sym->ns->proc_name->attr.is_main_program)))
     TREE_STATIC (decl) = 1;
 
   if (sym->attr.volatile_)
@@ -991,6 +1005,14 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 
   if (sym->ts.type == BT_DERIVED && sym->ts.derived->attr.alloc_comp)
     gfc_defer_symbol_init (sym);
+  /* This applies a derived type default initializer.  */
+  else if (sym->ts.type == BT_DERIVED
+	     && sym->attr.save == SAVE_NONE
+	     && !sym->attr.data
+	     && !sym->attr.allocatable
+	     && (sym->value && !sym->ns->proc_name->attr.is_main_program)
+	     && !sym->attr.use_assoc)
+    gfc_defer_symbol_init (sym);
 
   gfc_finish_var_decl (decl, sym);
 
@@ -1016,6 +1038,25 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  gcc_assert (!sym->value);
 	}
     }
+  else if (sym->attr.subref_array_pointer)
+    {
+      /* We need the span for these beasts.  */
+      gfc_allocate_lang_decl (decl);
+    }
+
+  if (sym->attr.subref_array_pointer)
+    {
+      tree span;
+      GFC_DECL_SUBREF_ARRAY_P (decl) = 1;
+      span = build_decl (VAR_DECL, create_tmp_var_name ("span"),
+			 gfc_array_index_type);
+      gfc_finish_var_decl (span, sym);
+      TREE_STATIC (span) = 1;
+      DECL_INITIAL (span) = build_int_cst (NULL_TREE, 0);
+
+      GFC_DECL_SPAN (decl) = span;
+    }
+
   sym->backend_decl = decl;
 
   if (sym->attr.assign)
@@ -1302,6 +1343,12 @@ build_function_decl (gfc_symbol * sym)
       TREE_SIDE_EFFECTS (fndecl) = 0;
     }
 
+  /* For -fwhole-program to work well, the main program needs to have the
+     "externally_visible" attribute.  */
+  if (attr.is_main_program)
+    DECL_ATTRIBUTES (fndecl)
+      = tree_cons (get_identifier("externally_visible"), NULL_TREE, NULL_TREE);
+
   /* Layout the function declaration and put it in the binding level
      of the current function.  */
   pushdecl (fndecl);
@@ -1506,8 +1553,10 @@ create_function_arglist (gfc_symbol * sym)
       typelist = TREE_CHAIN (typelist);
     }
 
-  /* Add the hidden string length parameters.  */
-  arglist = chainon (arglist, hidden_arglist);
+  /* Add the hidden string length parameters, unless the procedure
+     is bind(C).  */
+  if (!sym->attr.is_bind_c)
+    arglist = chainon (arglist, hidden_arglist);
 
   gcc_assert (hidden_typelist == NULL_TREE
               || TREE_VALUE (hidden_typelist) == void_type_node);
@@ -1727,7 +1776,7 @@ build_entry_thunks (gfc_namespace * ns)
       /* We're leaving the context of this function, so zap cfun.
 	 It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
 	 tree_rest_of_compilation.  */
-      cfun = NULL;
+      set_cfun (NULL);
 
       current_function_decl = NULL_TREE;
 
@@ -2022,7 +2071,7 @@ gfc_build_intrinsic_function_decls (void)
                                      gfc_charlen_type_node, pchar_type_node,
                                      gfc_logical4_type_node);
 
-  gfor_fndecl_string_trim = 
+  gfor_fndecl_string_trim =
     gfc_build_library_function_decl (get_identifier (PREFIX("string_trim")),
                                      void_type_node,
                                      4,
@@ -2083,7 +2132,7 @@ gfc_build_intrinsic_function_decls (void)
                                      pvoid_type_node);
 
   gfor_fndecl_sr_kind =
-    gfc_build_library_function_decl (get_identifier 
+    gfc_build_library_function_decl (get_identifier
 					(PREFIX("selected_real_kind")),
                                      gfc_int4_type_node,
                                      2, pvoid_type_node,
@@ -2294,7 +2343,9 @@ gfc_build_builtin_function_decls (void)
 
   gfor_fndecl_select_string =
     gfc_build_library_function_decl (get_identifier (PREFIX("select_string")),
-                                     integer_type_node, 0);
+				     integer_type_node, 4, pvoid_type_node,
+				     integer_type_node, pchar_type_node,
+				     integer_type_node);
 
   gfor_fndecl_runtime_error =
     gfc_build_library_function_decl (get_identifier (PREFIX("runtime_error")),
@@ -2348,7 +2399,7 @@ gfc_build_builtin_function_decls (void)
 
   gfor_fndecl_in_unpack = gfc_build_library_function_decl (
         get_identifier (PREFIX("internal_unpack")),
-        pvoid_type_node, 1, pvoid_type_node);
+        void_type_node, 2, pvoid_type_node, pvoid_type_node);
 
   gfor_fndecl_associated =
     gfc_build_library_function_decl (
@@ -2374,7 +2425,7 @@ gfc_trans_dummy_character (gfc_symbol *sym, gfc_charlen *cl, tree fnbody)
   gfc_start_block (&body);
 
   /* Evaluate the string length expression.  */
-  gfc_trans_init_string_length (cl, &body);
+  gfc_conv_string_length (cl, &body);
 
   gfc_trans_vla_type_sizes (sym, &body);
 
@@ -2398,7 +2449,7 @@ gfc_trans_auto_character_variable (gfc_symbol * sym, tree fnbody)
   gfc_start_block (&body);
 
   /* Evaluate the string length expression.  */
-  gfc_trans_init_string_length (sym->ts.cl, &body);
+  gfc_conv_string_length (sym->ts.cl, &body);
 
   gfc_trans_vla_type_sizes (sym, &body);
 
@@ -2539,6 +2590,54 @@ gfc_trans_vla_type_sizes (gfc_symbol *sym, stmtblock_t *body)
 }
 
 
+/* Initialize a derived type by building an lvalue from the symbol
+   and using trans_assignment to do the work.  */
+static tree
+init_default_dt (gfc_symbol * sym, tree body)
+{
+  stmtblock_t fnblock;
+  gfc_expr *e;
+  tree tmp;
+  tree present;
+
+  gfc_init_block (&fnblock);
+  gcc_assert (!sym->attr.allocatable);
+  gfc_set_sym_referenced (sym);
+  e = gfc_lval_expr_from_sym (sym);
+  tmp = gfc_trans_assignment (e, sym->value, false);
+  if (sym->attr.dummy)
+    {
+      present = gfc_conv_expr_present (sym);
+      tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present,
+		    tmp, build_empty_stmt ());
+    }
+  gfc_add_expr_to_block (&fnblock, tmp);
+  gfc_free_expr (e);
+  gfc_add_expr_to_block (&fnblock, body);
+  return gfc_finish_block (&fnblock);
+}
+
+
+/* Initialize INTENT(OUT) derived type dummies.  */
+static tree
+init_intent_out_dt (gfc_symbol * proc_sym, tree body)
+{
+  stmtblock_t fnblock;
+  gfc_formal_arglist *f;
+
+  gfc_init_block (&fnblock);
+  for (f = proc_sym->formal; f; f = f->next)
+    if (f->sym && f->sym->attr.intent == INTENT_OUT
+	  && f->sym->ts.type == BT_DERIVED
+	  && !f->sym->ts.derived->attr.alloc_comp
+	  && f->sym->value)
+      body = init_default_dt (f->sym, body);
+
+  gfc_add_expr_to_block (&fnblock, body);
+  return gfc_finish_block (&fnblock);
+}
+
+
 /* Generate function entry and exit code, and add it to the function body.
    This includes:
     Allocation and initialization of array variables.
@@ -2593,6 +2692,11 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 		    && proc_sym->ts.type == BT_COMPLEX);
     }
 
+  /* Initialize the INTENT(OUT) derived type dummy arguments.  This
+     should be done here so that the offsets and lbounds of arrays
+     are available.  */
+  fnbody = init_intent_out_dt (proc_sym, fnbody);
+
   for (sym = proc_sym->tlink; sym != proc_sym; sym = sym->tlink)
     {
       bool sym_has_alloc_comp = (sym->ts.type == BT_DERIVED)
@@ -2622,6 +2726,11 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 		      seen_trans_deferred_array = true;
 		      fnbody = gfc_trans_deferred_array (sym, fnbody);
 		    }
+		  else if (sym->ts.type == BT_DERIVED
+			     && sym->value
+			     && !sym->attr.data
+			     && sym->attr.save == SAVE_NONE)
+		    fnbody = init_default_dt (sym, fnbody);
 
 		  gfc_get_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
@@ -2677,6 +2786,11 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	  fnbody = gfc_trans_assign_aux_var (sym, fnbody);
 	  gfc_set_backend_locus (&loc);
 	}
+      else if (sym->ts.type == BT_DERIVED
+		 && sym->value
+		 && !sym->attr.data
+		 && sym->attr.save == SAVE_NONE)
+	fnbody = init_default_dt (sym, fnbody);
       else
 	gcc_unreachable ();
     }
@@ -2690,27 +2804,6 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	  gcc_assert (f->sym->ts.cl->backend_decl != NULL);
 	  if (TREE_CODE (f->sym->ts.cl->backend_decl) == PARM_DECL)
 	    gfc_trans_vla_type_sizes (f->sym, &body);
-	}
-
-      /* If an INTENT(OUT) dummy of derived type has a default
-	 initializer, it must be initialized here.  */
-      if (f->sym && f->sym->attr.intent == INTENT_OUT
-	    && f->sym->ts.type == BT_DERIVED
-	    && !f->sym->ts.derived->attr.alloc_comp
-	    && f->sym->value)
-	{
-	  gfc_expr *tmpe;
-	  tree tmp, present;
-	  gcc_assert (!f->sym->attr.allocatable);
-	  gfc_set_sym_referenced (f->sym);
-	  tmpe = gfc_lval_expr_from_sym (f->sym);
-	  tmp = gfc_trans_assignment (tmpe, f->sym->value, false);
-
-	  present = gfc_conv_expr_present (f->sym);
-	  tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present,
-			tmp, build_empty_stmt ());
-	  gfc_add_expr_to_block (&body, tmp);
-	  gfc_free_expr (tmpe);
 	}
     }
 
@@ -2745,9 +2838,11 @@ gfc_create_module_variable (gfc_symbol * sym)
       && sym->ts.type == BT_DERIVED)
     sym->backend_decl = gfc_typenode_for_spec (&(sym->ts));
 
-  /* Only output variables and array valued parameters.  */
+  /* Only output variables and array valued, or derived type,
+     parameters.  */
   if (sym->attr.flavor != FL_VARIABLE
-      && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
+	&& !(sym->attr.flavor == FL_PARAMETER
+	       && (sym->attr.dimension || sym->ts.type == BT_DERIVED)))
     return;
 
   /* Don't generate variables from other modules. Variables from
@@ -2838,80 +2933,26 @@ gfc_generate_contained_functions (gfc_namespace * parent)
 static void
 generate_local_decl (gfc_symbol *);
 
+/* Traverse expr, marking all EXPR_VARIABLE symbols referenced.  */
+
+static bool
+expr_decls (gfc_expr *e, gfc_symbol *sym,
+	    int *f ATTRIBUTE_UNUSED)
+{
+  if (e->expr_type != EXPR_VARIABLE
+	    || sym == e->symtree->n.sym
+	    || e->symtree->n.sym->mark
+	    || e->symtree->n.sym->ns != sym->ns)
+	return false;
+
+  generate_local_decl (e->symtree->n.sym);
+  return false;
+}
+
 static void
 generate_expr_decls (gfc_symbol *sym, gfc_expr *e)
 {
-  gfc_actual_arglist *arg;
-  gfc_ref *ref;
-  int i;
-
-  if (e == NULL)
-    return;
-
-  switch (e->expr_type)
-    {
-    case EXPR_FUNCTION:
-      for (arg = e->value.function.actual; arg; arg = arg->next)
-	generate_expr_decls (sym, arg->expr);
-      break;
-
-    /* If the variable is not the same as the dependent, 'sym', and
-       it is not marked as being declared and it is in the same
-       namespace as 'sym', add it to the local declarations.  */
-    case EXPR_VARIABLE:
-      if (sym == e->symtree->n.sym
-	    || e->symtree->n.sym->mark
-	    || e->symtree->n.sym->ns != sym->ns)
-	return;
-
-      generate_local_decl (e->symtree->n.sym);
-      break;
-
-    case EXPR_OP:
-      generate_expr_decls (sym, e->value.op.op1);
-      generate_expr_decls (sym, e->value.op.op2);
-      break;
-
-    default:
-      break;
-    }
-
-  if (e->ref)
-    {
-      for (ref = e->ref; ref; ref = ref->next)
-	{
-	  switch (ref->type)
-	    {
-	    case REF_ARRAY:
-	      for (i = 0; i < ref->u.ar.dimen; i++)
-		{
-		  generate_expr_decls (sym, ref->u.ar.start[i]);
-		  generate_expr_decls (sym, ref->u.ar.end[i]);
-		  generate_expr_decls (sym, ref->u.ar.stride[i]);
-		}
-	      break;
-
-	    case REF_SUBSTRING:
-	      generate_expr_decls (sym, ref->u.ss.start);
-	      generate_expr_decls (sym, ref->u.ss.end);
-	      break;
-
-	    case REF_COMPONENT:
-	      if (ref->u.c.component->ts.type == BT_CHARACTER
-		    && ref->u.c.component->ts.cl->length->expr_type
-						!= EXPR_CONSTANT)
-		generate_expr_decls (sym, ref->u.c.component->ts.cl->length);
-
-	      if (ref->u.c.component->as)
-	        for (i = 0; i < ref->u.c.component->as->rank; i++)
-		  {
-		    generate_expr_decls (sym, ref->u.c.component->as->lower[i]);
-		    generate_expr_decls (sym, ref->u.c.component->as->upper[i]);
-		  }
-	      break;
-	    }
-	}
-    }
+  gfc_traverse_expr (e, sym, expr_decls, 0);
 }
 
 
@@ -2923,7 +2964,9 @@ generate_dependency_declarations (gfc_symbol *sym)
   int i;
 
   if (sym->ts.type == BT_CHARACTER
-	&& sym->ts.cl->length->expr_type != EXPR_CONSTANT)
+      && sym->ts.cl
+      && sym->ts.cl->length
+      && sym->ts.cl->length->expr_type != EXPR_CONSTANT)
     generate_expr_decls (sym, sym->ts.cl->length);
 
   if (sym->as && sym->as->rank)
@@ -3046,7 +3089,7 @@ gfc_trans_entry_master_switch (gfc_entry_list * el)
       val = build_int_cst (gfc_array_index_type, el->id);
       tmp = build3_v (CASE_LABEL_EXPR, val, NULL_TREE, label);
       gfc_add_expr_to_block (&block, tmp);
-      
+
       /* And jump to the actual entry point.  */
       label = gfc_build_label_decl (NULL_TREE);
       tmp = build1_v (GOTO_EXPR, label);
@@ -3128,7 +3171,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   gfc_generate_contained_functions (ns);
 
   generate_local_vars (ns);
-  
+
   /* Keep the parent fake result declaration in module functions
      or external procedures.  */
   if ((ns->parent && ns->parent->proc_name->attr.flavor == FL_MODULE)
@@ -3212,7 +3255,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* If this is the main program and an -fconvert option was provided,
      add a call to set_convert.  */
 
-  if (sym->attr.is_main_program && gfc_option.convert != CONVERT_NATIVE)
+  if (sym->attr.is_main_program && gfc_option.convert != GFC_CONVERT_NATIVE)
     {
       tmp = build_call_expr (gfor_fndecl_set_convert, 1,
 			     build_int_cst (integer_type_node,
@@ -3341,7 +3384,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* We're leaving the context of this function, so zap cfun.
      It's still in DECL_STRUCT_FUNCTION, and we'll restore it in
      tree_rest_of_compilation.  */
-  cfun = NULL;
+  set_cfun (NULL);
 
   if (old_context)
     {

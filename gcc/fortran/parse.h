@@ -66,5 +66,6 @@ const char *gfc_ascii_statement (gfc_statement);
 match gfc_match_enum (void);
 match gfc_match_enumerator_def (void);
 void gfc_free_enum_history (void);
-
+extern bool gfc_matching_function;
+match gfc_match_prefix (gfc_typespec *);
 #endif  /* GFC_PARSE_H  */

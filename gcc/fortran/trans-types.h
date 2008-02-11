@@ -24,22 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GFC_BACKEND_H
 #define GFC_BACKEND_H
 
-#define GFC_DTYPE_RANK_MASK 0x07
-#define GFC_DTYPE_TYPE_SHIFT 3
-#define GFC_DTYPE_TYPE_MASK 0x38
-#define GFC_DTYPE_SIZE_SHIFT 6
-
-enum
-{
-  GFC_DTYPE_UNKNOWN = 0,
-  GFC_DTYPE_INTEGER,
-  GFC_DTYPE_LOGICAL,
-  GFC_DTYPE_REAL,
-  GFC_DTYPE_COMPLEX,
-  GFC_DTYPE_DERIVED,
-  GFC_DTYPE_CHARACTER
-};
-
 extern GTY(()) tree gfc_array_index_type;
 extern GTY(()) tree gfc_array_range_type;
 extern GTY(()) tree gfc_character1_type_node;
@@ -83,7 +67,8 @@ tree gfc_type_for_size (unsigned, int);
 tree gfc_type_for_mode (enum machine_mode, int);
 
 tree gfc_get_element_type (tree);
-tree gfc_get_array_type_bounds (tree, int, tree *, tree *, int);
+tree gfc_get_array_type_bounds (tree, int, tree *, tree *, int,
+				enum gfc_array_kind);
 tree gfc_get_nodesc_array_type (tree, gfc_array_spec *, gfc_packed);
 
 /* Add a field of given name and type to a UNION_TYPE or RECORD_TYPE.  */

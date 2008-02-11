@@ -44,6 +44,9 @@ with Interfaces.C;
 --  used for int
 --           size_t
 
+with System.Task_Info;
+--  used for Unspecified_Task_Info
+
 with System.Tasking.Debug;
 --  used for Known_Tasks
 
@@ -87,6 +90,7 @@ package body System.Task_Primitives.Operations is
    use System.Parameters;
    use System.OS_Primitives;
    use System.Storage_Elements;
+   use System.Task_Info;
 
    ----------------
    -- Local Data --
@@ -211,8 +215,8 @@ package body System.Task_Primitives.Operations is
          Result :=
            pthread_sigmask
              (SIG_UNBLOCK,
-              Unblocked_Signal_Mask'Unchecked_Access,
-              Old_Set'Unchecked_Access);
+              Unblocked_Signal_Mask'Access,
+              Old_Set'Access);
          pragma Assert (Result = 0);
 
          raise Standard'Abort_Signal;
@@ -764,6 +768,13 @@ package body System.Task_Primitives.Operations is
 
    procedure Enter_Task (Self_ID : Task_Id) is
    begin
+      if Self_ID.Common.Task_Info /= null
+        and then
+          Self_ID.Common.Task_Info.CPU_Affinity = No_CPU
+      then
+         raise Invalid_CPU_Number;
+      end if;
+
       Self_ID.Common.LL.Thread := pthread_self;
 
       Specific.Set (Self_ID);
@@ -910,6 +921,19 @@ package body System.Task_Primitives.Operations is
       pragma Assert (Result = 0 or else Result = EAGAIN);
 
       Succeeded := Result = 0;
+
+      --  Handle Task_Info
+
+      if T.Common.Task_Info /= null then
+         if T.Common.Task_Info.CPU_Affinity /= Task_Info.Any_CPU then
+            Result :=
+              pthread_setaffinity_np
+                (T.Common.LL.Thread,
+                 CPU_SETSIZE / 8,
+                 T.Common.Task_Info.CPU_Affinity'Access);
+            pragma Assert (Result = 0);
+         end if;
+      end if;
 
       Result := pthread_attr_destroy (Attributes'Access);
       pragma Assert (Result = 0);
@@ -1214,6 +1238,16 @@ package body System.Task_Primitives.Operations is
    begin
       null;
    end Stop_All_Tasks;
+
+   ---------------
+   -- Stop_Task --
+   ---------------
+
+   function Stop_Task (T : ST.Task_Id) return Boolean is
+      pragma Unreferenced (T);
+   begin
+      return False;
+   end Stop_Task;
 
    -------------------
    -- Continue_Task --

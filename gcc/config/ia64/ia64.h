@@ -900,12 +900,16 @@ enum reg_class
    : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XCmode) ? 2 \
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* In FP regs, we can't change FP values to integer values and vice versa,
+/* In BR regs, we can't change the DImode at all.
+   In FP regs, we can't change FP values to integer values and vice versa,
    but we can change e.g. DImode to SImode, and V2SFmode into DImode.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 		\
-  (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
-   ? reg_classes_intersect_p (CLASS, FR_REGS) : 0)
+  (reg_classes_intersect_p (CLASS, BR_REGS)			\
+   ? (FROM) != (TO)						\
+   : (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
+      ? reg_classes_intersect_p (CLASS, FR_REGS)		\
+      : 0))
 
 /* Basic Stack Layout */
 
@@ -948,18 +952,6 @@ enum reg_class
    or a `MEM' representing a location in the stack.  This enables DWARF2
    unwind info for C++ EH.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (VOIDmode, BR_REG (0))
-
-/* ??? This is not defined because of three problems.
-   1) dwarf2out.c assumes that DWARF_FRAME_RETURN_COLUMN fits in one byte.
-   The default value is FIRST_PSEUDO_REGISTER which doesn't.  This can be
-   worked around by setting PC_REGNUM to FR_REG (0) which is an otherwise
-   unused register number.
-   2) dwarf2out_frame_debug core dumps while processing prologue insns.  We
-   need to refine which insns have RTX_FRAME_RELATED_P set and which don't.
-   3) It isn't possible to turn off EH frame info by defining DWARF2_UNIND_INFO
-   to zero, despite what the documentation implies, because it is tested in
-   a few places with #ifdef instead of #if.  */
-#undef INCOMING_RETURN_ADDR_RTX
 
 /* A C expression whose value is an integer giving the offset, in bytes, from
    the value of the stack pointer register to the top of the stack frame at the

@@ -149,7 +149,11 @@ typedef struct mem_attrs GTY(())
 } mem_attrs;
 
 /* Structure used to describe the attributes of a REG in similar way as
-   mem_attrs does for MEM above.  */
+   mem_attrs does for MEM above.  Note that the OFFSET field is calculated
+   in the same way as for mem_attrs, rather than in the same way as a
+   SUBREG_BYTE.  For example, if a big-endian target stores a byte
+   object in the low part of a 4-byte register, the OFFSET field
+   will be -3 rather than 0.  */
 
 typedef struct reg_attrs GTY(())
 {
@@ -265,7 +269,8 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
      1 in a REG expression if corresponds to a variable declared by the user,
      0 for an internally generated temporary.
      1 in a SUBREG with a negative value.
-     1 in a LABEL_REF or in a REG_LABEL note for a non-local label.
+     1 in a LABEL_REF, REG_LABEL_TARGET or REG_LABEL_OPERAND note for a
+     non-local label.
      In a SYMBOL_REF, this flag is used for machine-specific purposes.  */
   unsigned int volatil : 1;
   /* 1 in a MEM referring to a field of an aggregate.
@@ -1062,6 +1067,7 @@ extern bool subreg_offset_representable_p (unsigned int, enum machine_mode,
 					   unsigned int, enum machine_mode);
 extern unsigned int subreg_regno (const_rtx);
 extern unsigned int subreg_nregs (const_rtx);
+extern unsigned int subreg_nregs_with_regno (unsigned int, const_rtx);
 extern unsigned HOST_WIDE_INT nonzero_bits (const_rtx, enum machine_mode);
 extern unsigned int num_sign_bit_copies (const_rtx, enum machine_mode);
 extern bool constant_pool_constant_p (rtx);
@@ -1208,8 +1214,8 @@ do {						\
    refer to part of a DECL.  */
 #define REG_EXPR(RTX) (REG_ATTRS (RTX) == 0 ? 0 : REG_ATTRS (RTX)->decl)
 
-/* For a MEM rtx, the offset from the start of MEM_DECL, if known, as a
-   RTX that is always a CONST_INT.  */
+/* For a REG rtx, the offset from the start of REG_EXPR, if known, as an
+   HOST_WIDE_INT.  */
 #define REG_OFFSET(RTX) (REG_ATTRS (RTX) == 0 ? 0 : REG_ATTRS (RTX)->offset)
 
 /* Copy the attributes that apply to memory locations from RHS to LHS.  */
@@ -1224,10 +1230,11 @@ do {						\
    MEM_ATTRS (LHS) = MEM_ATTRS (RHS))
 
 /* 1 if RTX is a label_ref for a nonlocal label.  */
-/* Likewise in an expr_list for a reg_label note.  */
+/* Likewise in an expr_list for a REG_LABEL_OPERAND or
+   REG_LABEL_TARGET note.  */
 #define LABEL_REF_NONLOCAL_P(RTX)					\
-  (RTL_FLAG_CHECK2("LABEL_REF_NONLOCAL_P", (RTX), LABEL_REF,		\
-		   REG_LABEL)->volatil)
+  (RTL_FLAG_CHECK3("LABEL_REF_NONLOCAL_P", (RTX), LABEL_REF,		\
+		   REG_LABEL_OPERAND, REG_LABEL_TARGET)->volatil)
 
 /* 1 if RTX is a code_label that should always be considered to be needed.  */
 #define LABEL_PRESERVE_P(RTX)						\
@@ -1473,9 +1480,10 @@ extern rtx copy_insn_1 (rtx);
 extern rtx copy_insn (rtx);
 extern rtx gen_int_mode (HOST_WIDE_INT, enum machine_mode);
 extern rtx emit_copy_of_insn_after (rtx, rtx);
-extern void set_reg_attrs_from_mem (rtx, rtx);
+extern void set_reg_attrs_from_value (rtx, rtx);
 extern void set_mem_attrs_from_reg (rtx, rtx);
 extern void set_reg_attrs_for_parm (rtx, rtx);
+extern void adjust_reg_mode (rtx, enum machine_mode);
 extern int mem_expr_equal_p (const_tree, const_tree);
 
 /* In rtl.c */
@@ -1519,6 +1527,7 @@ extern unsigned int subreg_lowpart_offset (enum machine_mode,
 					   enum machine_mode);
 extern unsigned int subreg_highpart_offset (enum machine_mode,
 					    enum machine_mode);
+extern int byte_lowpart_offset (enum machine_mode, enum machine_mode);
 extern rtx make_safe_from (rtx, rtx);
 extern rtx convert_memory_address (enum machine_mode, rtx);
 extern rtx get_insns (void);
@@ -1593,26 +1602,16 @@ extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx last_call_insn (void);
 extern rtx previous_insn (rtx);
-extern const_rtx const_previous_insn (const_rtx);
 extern rtx next_insn (rtx);
-extern const_rtx const_next_insn (const_rtx);
 extern rtx prev_nonnote_insn (rtx);
-extern const_rtx const_prev_nonnote_insn (const_rtx);
 extern rtx next_nonnote_insn (rtx);
-extern const_rtx const_next_nonnote_insn (const_rtx);
 extern rtx prev_real_insn (rtx);
-extern const_rtx const_prev_real_insn (const_rtx);
 extern rtx next_real_insn (rtx);
-extern const_rtx const_next_real_insn (const_rtx);
 extern rtx prev_active_insn (rtx);
-extern const_rtx const_prev_active_insn (const_rtx);
 extern rtx next_active_insn (rtx);
-extern const_rtx const_next_active_insn (const_rtx);
 extern int active_insn_p (const_rtx);
 extern rtx prev_label (rtx);
-extern const_rtx const_prev_label (const_rtx);
 extern rtx next_label (rtx);
-extern const_rtx const_next_label (const_rtx);
 extern rtx skip_consecutive_labels (rtx);
 extern rtx next_cc0_user (rtx);
 extern rtx prev_cc0_setter (rtx);
@@ -1731,7 +1730,6 @@ extern int refers_to_regno_p (unsigned int, unsigned int, const_rtx, rtx *);
 extern int reg_overlap_mentioned_p (const_rtx, const_rtx);
 extern const_rtx set_of (const_rtx, const_rtx);
 extern void note_stores (const_rtx, void (*) (rtx, const_rtx, void *), void *);
-extern void const_note_stores (const_rtx, void (*) (const_rtx, const_rtx, const void *), const void *);
 extern void note_uses (rtx *, void (*) (rtx *, void *), void *);
 extern int dead_or_set_p (const_rtx, const_rtx);
 extern int dead_or_set_regno_p (const_rtx, unsigned int);
@@ -1747,6 +1745,7 @@ extern void remove_reg_equal_equiv_notes (rtx);
 extern int side_effects_p (const_rtx);
 extern int volatile_refs_p (const_rtx);
 extern int volatile_insn_p (const_rtx);
+extern int may_trap_p_1 (const_rtx, unsigned);
 extern int may_trap_p (const_rtx);
 extern int may_trap_after_code_motion_p (const_rtx);
 extern int may_trap_or_fault_p (const_rtx);
@@ -2107,6 +2106,7 @@ extern void emit_insn_at_entry (rtx);
 extern void delete_insn_chain (rtx, rtx, bool);
 extern rtx unlink_insn_chain (rtx, rtx);
 extern rtx delete_insn_and_edges (rtx);
+extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
 extern rtx gen_frame_mem (enum machine_mode, rtx);
@@ -2124,6 +2124,7 @@ extern void dump_combine_total_stats (FILE *);
 extern void delete_dead_jumptables (void);
 
 /* In sched-vis.c.  */
+extern void print_insn (char *, rtx, int);
 extern void print_rtl_slim_with_bb (FILE *, rtx, int);
 extern void dump_insn_slim (FILE *f, rtx x);
 extern void debug_insn_slim (rtx x);
@@ -2191,7 +2192,7 @@ extern void dump_global_regs (FILE *);
 /* Yes, this ifdef is silly, but HARD_REG_SET is not always defined.  */
 extern void retry_global_alloc (int, HARD_REG_SET);
 #endif
-extern void build_insn_chain (rtx);
+extern void build_insn_chain (void);
 
 /* In regclass.c */
 extern int reg_classes_intersect_p (enum reg_class, enum reg_class);
@@ -2200,6 +2201,7 @@ extern void globalize_reg (int);
 extern void init_reg_modes_target (void);
 extern void init_regs (void);
 extern void init_fake_stack_mems (void);
+extern void save_register_info (void);
 extern void init_reg_sets (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
@@ -2287,8 +2289,6 @@ extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
 /* In cfgexpand.c */
 extern void add_reg_br_prob_note (rtx last, int probability);
-/* In tracer.c */
-extern void tracer (void);
 
 /* In var-tracking.c */
 extern unsigned int variable_tracking_main (void);

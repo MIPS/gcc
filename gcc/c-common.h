@@ -734,7 +734,6 @@ extern void c_register_builtin_type (tree, const char*);
 extern bool c_promoting_integer_type_p (const_tree);
 extern int self_promoting_args_p (const_tree);
 extern tree strip_array_types (tree);
-extern const_tree const_strip_array_types (const_tree);
 extern tree strip_pointer_operator (tree);
 extern tree strip_pointer_or_array_types (tree);
 extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
@@ -833,7 +832,6 @@ extern tree lookup_name (tree);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
-extern void c_expand_body (tree);
 
 extern tree c_staticp (tree);
 

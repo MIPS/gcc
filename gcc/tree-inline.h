@@ -56,6 +56,10 @@ typedef struct copy_body_data
   /* Current BLOCK.  */
   tree block;
 
+  /* CALL_EXPR if va arg parameter packs should be expanded or NULL
+     is not.  */
+  tree call_expr;
+
   /* Exception region the inlined call lie in.  */
   int eh_region;
   /* Take region number in the function being copied, add this value and
@@ -88,8 +92,17 @@ typedef struct copy_body_data
      duplicating BLOCK nodes.  */
   bool transform_lang_insert_block;
 
+  /* True if this statement will need to be regimplified.  */
+  bool regimplify;
+
+  /* > 0 if we are remapping a type currently.  */
+  int remapping_type_depth;
+
   /* Statements that might be possibly folded.  */
   struct pointer_set_t *statements_to_fold;
+
+  /* Entry basic block to currently copied body.  */
+  struct basic_block_def *entry_bb;
 } copy_body_data;
 
 /* Weights of constructions for estimate_num_insns.  */
@@ -99,11 +112,11 @@ typedef struct eni_weights_d
   /* Cost per call.  */
   unsigned call_cost;
 
+  /* Cost per call to a target specific builtin */
+  unsigned target_builtin_call_cost;
+
   /* Cost of "expensive" div and mod operations.  */
   unsigned div_mod_cost;
-
-  /* Cost of switch statement.  */
-  unsigned switch_cost;
 
   /* Cost for omp construct.  */
   unsigned omp_cost;
@@ -134,8 +147,6 @@ tree copy_tree_r (tree *, int *, void *);
 void clone_body (tree, tree, void *);
 void save_body (tree, tree *, tree *);
 int estimate_move_cost (tree type);
-void push_cfun (struct function *new_cfun);
-void pop_cfun (void);
 int estimate_num_insns (tree expr, eni_weights *);
 bool tree_versionable_function_p (tree);
 void tree_function_versioning (tree, tree, varray_type, bool);

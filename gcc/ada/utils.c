@@ -6,18 +6,17 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
- * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * for  more details.  You should have received a copy of the GNU General   *
+ * Public License along with GCC; see the file COPYING3.  If not see        *
+ * <http://www.gnu.org/licenses/>.                                          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -299,8 +298,8 @@ gnat_pushlevel ()
   if (free_block_chain)
     {
       newlevel->block = free_block_chain;
-      free_block_chain = TREE_CHAIN (free_block_chain);
-      TREE_CHAIN (newlevel->block) = NULL_TREE;
+      free_block_chain = BLOCK_CHAIN (free_block_chain);
+      BLOCK_CHAIN (newlevel->block) = NULL_TREE;
     }
   else
     newlevel->block = make_node (BLOCK);
@@ -366,12 +365,12 @@ gnat_poplevel ()
       BLOCK_SUBBLOCKS (level->chain->block)
 	= chainon (BLOCK_SUBBLOCKS (block),
 		   BLOCK_SUBBLOCKS (level->chain->block));
-      TREE_CHAIN (block) = free_block_chain;
+      BLOCK_CHAIN (block) = free_block_chain;
       free_block_chain = block;
     }
   else
     {
-      TREE_CHAIN (block) = BLOCK_SUBBLOCKS (level->chain->block);
+      BLOCK_CHAIN (block) = BLOCK_SUBBLOCKS (level->chain->block);
       BLOCK_SUBBLOCKS (level->chain->block) = block;
       TREE_USED (block) = 1;
       set_block_for_group (block);
@@ -479,8 +478,6 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 void
 gnat_init_decl_processing (void)
 {
-  input_line = 0;
-
   /* Make the binding_level structure for global names.  */
   current_function_decl = 0;
   current_binding_level = 0;
@@ -497,16 +494,6 @@ gnat_init_decl_processing (void)
   size_type_node = gnat_type_for_size (GET_MODE_BITSIZE (Pmode), 0);
   set_sizetype (size_type_node);
   build_common_tree_nodes_2 (0);
-
-  /* Give names and make TYPE_DECLs for common types.  */
-  create_type_decl (get_identifier (SIZE_TYPE), sizetype,
-		    NULL, false, true, Empty);
-  create_type_decl (get_identifier ("integer"), integer_type_node,
-		    NULL, false, true, Empty);
-  create_type_decl (get_identifier ("unsigned char"), char_type_node,
-		    NULL, false, true, Empty);
-  create_type_decl (get_identifier ("long integer"), long_integer_type_node,
-		    NULL, false, true, Empty);
 
   ptr_void_type_node = build_pointer_type (void_type_node);
 
@@ -760,6 +747,7 @@ finish_record_type (tree record_type, tree fieldlist, int rep_level,
 		    bool do_not_finalize)
 {
   enum tree_code code = TREE_CODE (record_type);
+  tree name = TYPE_NAME (record_type);
   tree ada_size = bitsize_zero_node;
   tree size = bitsize_zero_node;
   bool var_size = false;
@@ -767,9 +755,11 @@ finish_record_type (tree record_type, tree fieldlist, int rep_level,
   bool had_size_unit = TYPE_SIZE_UNIT (record_type) != 0;
   tree field;
 
+  if (name && TREE_CODE (name) == TYPE_DECL)
+    name = DECL_NAME (name);
+
   TYPE_FIELDS (record_type) = fieldlist;
-  TYPE_STUB_DECL (record_type)
-    = build_decl (TYPE_DECL, TYPE_NAME (record_type), record_type);
+  TYPE_STUB_DECL (record_type) = build_decl (TYPE_DECL, name, record_type);
 
   /* We don't need both the typedef name and the record name output in
      the debugging information, since they are the same.  */
@@ -1477,7 +1467,10 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
     TREE_ADDRESSABLE (var_decl) = 1;
 
   if (TREE_CODE (var_decl) != CONST_DECL)
-    rest_of_decl_compilation (var_decl, global_bindings_p (), 0);
+    {
+      if (global_bindings_p ())
+	rest_of_decl_compilation (var_decl, true, 0);
+    }
   else
     expand_decl (var_decl);
 
@@ -1516,6 +1509,33 @@ create_true_var_decl (tree var_name, tree asm_name, tree type, tree var_init,
 			    attr_list, gnat_node);
 }
 
+/* Return true if TYPE, an aggregate type, contains (or is) an array.  */
+
+static bool
+aggregate_type_contains_array_p (tree type)
+{
+  switch (TREE_CODE (type))
+    {
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      {
+	tree field;
+	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+	  if (AGGREGATE_TYPE_P (TREE_TYPE (field))
+	      && aggregate_type_contains_array_p (TREE_TYPE (field)))
+	    return true;
+	return false;
+      }
+
+    case ARRAY_TYPE:
+      return true;
+    
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Returns a FIELD_DECL node. FIELD_NAME the field name, FIELD_TYPE is its
    type, and RECORD_TYPE is the type of the parent.  PACKED is nonzero if
    this field is in a record type with a "pragma pack".  If SIZE is nonzero
@@ -1534,8 +1554,15 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
   TREE_READONLY (field_decl) = TYPE_READONLY (field_type);
 
   /* If FIELD_TYPE is BLKmode, we must ensure this is aligned to at least a
-     byte boundary since GCC cannot handle less-aligned BLKmode bitfields.  */
-  if (packed && TYPE_MODE (field_type) == BLKmode)
+     byte boundary since GCC cannot handle less-aligned BLKmode bitfields.
+     Likewise for an aggregate without specified position that contains an
+     array, because in this case slices of variable length of this array
+     must be handled by GCC and variable-sized objects need to be aligned
+     to at least a byte boundary.  */
+  if (packed && (TYPE_MODE (field_type) == BLKmode
+		 || (!pos
+		     && AGGREGATE_TYPE_P (field_type)
+		     && aggregate_type_contains_array_p (field_type))))
     DECL_ALIGN (field_decl) = BITS_PER_UNIT;
 
   /* If a size is specified, use it.  Otherwise, if the record type is packed
@@ -1591,11 +1618,24 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
     }
 
   DECL_PACKED (field_decl) = pos ? DECL_BIT_FIELD (field_decl) : packed;
-  DECL_ALIGN (field_decl)
-    = MAX (DECL_ALIGN (field_decl),
-	   DECL_BIT_FIELD (field_decl) ? 1
-	   : packed && TYPE_MODE (field_type) != BLKmode ? BITS_PER_UNIT
-	   : TYPE_ALIGN (field_type));
+
+  /* Bump the alignment if need be, either for bitfield/packing purposes or
+     to satisfy the type requirements if no such consideration applies.  When
+     we get the alignment from the type, indicate if this is from an explicit
+     user request, which prevents stor-layout from lowering it later on.  */
+  {
+    int bit_align
+      = (DECL_BIT_FIELD (field_decl) ? 1
+	 : packed && TYPE_MODE (field_type) != BLKmode ? BITS_PER_UNIT : 0);
+
+    if (bit_align > DECL_ALIGN (field_decl))
+      DECL_ALIGN (field_decl) = bit_align;
+    else if (!bit_align && TYPE_ALIGN (field_type) > DECL_ALIGN (field_decl))
+      {
+	DECL_ALIGN (field_decl) = TYPE_ALIGN (field_type);
+	DECL_USER_ALIGN (field_decl) = TYPE_USER_ALIGN (field_type);
+      }
+  }
 
   if (pos)
     {
@@ -1626,21 +1666,14 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
     }
 
   /* In addition to what our caller says, claim the field is addressable if we
-     know we might ever attempt to take its address, then mark the decl as
-     nonaddressable accordingly.
+     know that its type is not suitable.
 
      The field may also be "technically" nonaddressable, meaning that even if
      we attempt to take the field's address we will actually get the address
      of a copy.  This is the case for true bitfields, but the DECL_BIT_FIELD
      value we have at this point is not accurate enough, so we don't account
      for this here and let finish_record_type decide.  */
-
-  /* We will take the address in any argument passing sequence if the field
-     type is passed by reference, and we might need the address for any array
-     type, even if normally passed by-copy, to construct a fat pointer if the
-     field is used as an actual for an unconstrained formal.  */
-  if (TREE_CODE (field_type) == ARRAY_TYPE
-      || must_pass_by_ref (field_type) || default_pass_by_ref (field_type))
+  if (!type_for_nonaliased_component_p (field_type))
     addressable = 1;
 
   DECL_NONADDRESSABLE_P (field_decl) = !addressable;
@@ -1650,7 +1683,7 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
 
 /* Returns a PARM_DECL node. PARAM_NAME is the name of the parameter,
    PARAM_TYPE is its type.  READONLY is true if the parameter is
-   readonly (either an IN parameter or an address of a pass-by-ref
+   readonly (either an In parameter or an address of a pass-by-ref
    parameter). */
 
 tree
@@ -2120,7 +2153,7 @@ end_subprog_body (tree body)
   DECL_SAVED_TREE (fndecl) = body;
 
   current_function_decl = DECL_CONTEXT (fndecl);
-  cfun = NULL;
+  set_cfun (NULL);
 
   /* We cannot track the location of errors past this point.  */
   error_gnat_node = Empty;
@@ -2989,9 +3022,9 @@ build_function_stub (tree gnu_subprog, Entity_Id gnat_subprog)
   /* Invoke the internal subprogram.  */
   gnu_subprog_addr = build1 (ADDR_EXPR, build_pointer_type (gnu_subprog_type),
 			     gnu_subprog);
-  gnu_subprog_call = build3 (CALL_EXPR, TREE_TYPE (gnu_subprog_type),
-			     gnu_subprog_addr, nreverse (gnu_param_list),
-			     NULL_TREE);
+  gnu_subprog_call = build_call_list (TREE_TYPE (gnu_subprog_type),
+				      gnu_subprog_addr,
+				      nreverse (gnu_param_list));
 
   /* Propagate the return value, if any.  */
   if (VOID_TYPE_P (TREE_TYPE (gnu_subprog_type)))
@@ -3003,7 +3036,7 @@ build_function_stub (tree gnu_subprog, Entity_Id gnat_subprog)
 
   gnat_poplevel ();
 
-  allocate_struct_function (gnu_stub_decl);
+  allocate_struct_function (gnu_stub_decl, false);
   end_subprog_body (gnu_body);
 }
 
@@ -3816,7 +3849,7 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 	  TYPE_MAIN_VARIANT (rtype) = rtype;
 	}
 
-      /* We have another special case.  If we are unchecked converting subtype
+      /* We have another special case: if we are unchecked converting subtype
 	 into a base type, we need to ensure that VRP doesn't propagate range
 	 information since this conversion may be done precisely to validate
 	 that the object is within the range it is supposed to have.  */
@@ -3826,28 +3859,25 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 		   || TREE_CODE (etype) == ENUMERAL_TYPE
 		   || TREE_CODE (etype) == BOOLEAN_TYPE))
 	{
-	  /* ??? The pattern to be "preserved" by the middle-end and the
-	     optimizers is a VIEW_CONVERT_EXPR between a pair of different
-	     "base" types (integer types without TREE_TYPE).  But this may
-	     raise addressability/aliasing issues because VIEW_CONVERT_EXPR
-	     gets gimplified as an lvalue, thus causing the address of its
-	     operand to be taken if it is deemed addressable and not already
-	     in GIMPLE form.  */
+	  /* The optimization barrier is a VIEW_CONVERT_EXPR node; moreover,
+	     in order not to be deemed an useless type conversion, it must
+	     be from subtype to base type.
+
+	     ??? This may raise addressability and/or aliasing issues because
+	     VIEW_CONVERT_EXPR gets gimplified as an lvalue, thus causing the
+	     address of its operand to be taken if it is deemed addressable
+	     and not already in GIMPLE form.  */
 	  rtype = gnat_type_for_mode (TYPE_MODE (type), TYPE_UNSIGNED (type));
-
-	  if (rtype == type)
-	    {
-	      rtype = copy_type (rtype);
-	      TYPE_MAIN_VARIANT (rtype) = rtype;
-	    }
-
+	  rtype = copy_type (rtype);
+	  TYPE_MAIN_VARIANT (rtype) = rtype;
+	  TREE_TYPE (rtype) = type;
 	  final_unchecked = true;
 	}
 
       expr = convert (rtype, expr);
       if (type != rtype)
-	expr = build1 (final_unchecked ? VIEW_CONVERT_EXPR : NOP_EXPR,
-		       type, expr);
+	expr = fold_build1 (final_unchecked ? VIEW_CONVERT_EXPR : NOP_EXPR,
+			    type, expr);
     }
 
   /* If we are converting TO an integral type whose precision is not the
@@ -3898,13 +3928,8 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
   else
     {
       expr = maybe_unconstrained_array (expr);
-
-      /* There's no point in doing two unchecked conversions in a row.  */
-      if (TREE_CODE (expr) == VIEW_CONVERT_EXPR)
-	expr = TREE_OPERAND (expr, 0);
-
       etype = TREE_TYPE (expr);
-      expr = build1 (VIEW_CONVERT_EXPR, type, expr);
+      expr = fold_build1 (VIEW_CONVERT_EXPR, type, expr);
     }
 
   /* If the result is an integral type whose size is not equal to
@@ -4003,6 +4028,38 @@ tree_code_for_record_type (Entity_Id gnat_type)
       return RECORD_TYPE;
 
   return UNION_TYPE;
+}
+
+/* Return true if GNU_TYPE is suitable as the type of a non-aliased
+   component of an aggregate type.  */
+
+bool
+type_for_nonaliased_component_p (tree gnu_type)
+{
+  /* If the type is passed by reference, we may have pointers to the
+     component so it cannot be made non-aliased. */
+  if (must_pass_by_ref (gnu_type) || default_pass_by_ref (gnu_type))
+    return false;
+
+  /* We used to say that any component of aggregate type is aliased
+     because the front-end may take 'Reference of it.  The front-end
+     has been enhanced in the meantime so as to use a renaming instead
+     in most cases, but the back-end can probably take the address of
+     such a component too so we go for the conservative stance.
+
+     For instance, we might need the address of any array type, even
+     if normally passed by copy, to construct a fat pointer if the
+     component is used as an actual for an unconstrained formal.
+
+     Likewise for record types: even if a specific record subtype is
+     passed by copy, the parent type might be passed by ref (e.g. if
+     it's of variable size) and we might take the address of a child
+     component to pass to a parent formal.  We have no way to check
+     for such conditions here.  */
+  if (AGGREGATE_TYPE_P (gnu_type))
+    return false;
+
+  return true;
 }
 
 /* Perform final processing on global variables.  */

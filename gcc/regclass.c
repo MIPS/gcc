@@ -81,7 +81,7 @@ HARD_REG_SET fixed_reg_set;
 
 /* Data for initializing the above.  */
 
-static char initial_fixed_regs[] = FIXED_REGISTERS;
+static const char initial_fixed_regs[] = FIXED_REGISTERS;
 
 /* Indexed by hard register number, contains 1 for registers
    that are fixed use or are clobbered by function calls.
@@ -100,7 +100,7 @@ HARD_REG_SET losing_caller_save_reg_set;
 
 /* Data for initializing the above.  */
 
-static char initial_call_used_regs[] = CALL_USED_REGISTERS;
+static const char initial_call_used_regs[] = CALL_USED_REGISTERS;
 
 /* This is much like call_used_regs, except it doesn't have to
    be a superset of FIXED_REGISTERS. This vector indicates
@@ -108,8 +108,7 @@ static char initial_call_used_regs[] = CALL_USED_REGISTERS;
    regs_invalidated_by_call.  */
 
 #ifdef CALL_REALLY_USED_REGISTERS
-static char initial_call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
-char call_really_used_regs[FIRST_PSEUDO_REGISTER];
+char call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
 #endif
 
 #ifdef CALL_REALLY_USED_REGISTERS
@@ -193,11 +192,7 @@ enum reg_class reg_class_superunion[N_REG_CLASSES][N_REG_CLASSES];
 
 /* Array containing all of the register names.  */
 
-const char * reg_names[FIRST_PSEUDO_REGISTER];
-
-/* Data for initializing the above.  */
-
-const char * initial_reg_names[] = REGISTER_NAMES;
+const char * reg_names[] = REGISTER_NAMES;
 
 /* Array containing all of the register class names.  */
 
@@ -304,12 +299,14 @@ init_reg_sets (void)
 	  SET_HARD_REG_BIT (reg_class_contents[i], j);
     }
 
-  memset (global_regs, 0, sizeof global_regs);
+  /* Sanity check: make sure the target macros FIXED_REGISTERS and
+     CALL_USED_REGISTERS had the right number of initializers.  */
+  gcc_assert (sizeof fixed_regs == sizeof initial_fixed_regs);
+  gcc_assert (sizeof call_used_regs == sizeof initial_call_used_regs);
 
-  /* Processing of command-line options like -ffixed needs to know the
-     initial set of register names, so initialize that now.  */
-  gcc_assert (sizeof reg_names == sizeof initial_reg_names);
-  memcpy (reg_names, initial_reg_names, sizeof reg_names);
+  memcpy (fixed_regs, initial_fixed_regs, sizeof fixed_regs);
+  memcpy (call_used_regs, initial_call_used_regs, sizeof call_used_regs);
+  memset (global_regs, 0, sizeof global_regs);
 }
 
 /* Initialize may_move_cost and friends for mode M.  */
@@ -401,6 +398,58 @@ init_move_cost (enum machine_mode m)
 	}
 }
 
+/* We need to save copies of some of the register information which
+   can be munged by command-line switches so we can restore it during
+   subsequent back-end reinitialization.  */
+
+static char saved_fixed_regs[FIRST_PSEUDO_REGISTER];
+static char saved_call_used_regs[FIRST_PSEUDO_REGISTER];
+#ifdef CALL_REALLY_USED_REGISTERS
+static char saved_call_really_used_regs[FIRST_PSEUDO_REGISTER];
+#endif
+static const char *saved_reg_names[FIRST_PSEUDO_REGISTER];
+
+/* Save the register information.  */
+
+void
+save_register_info (void)
+{
+  /* Sanity check:  make sure the target macros FIXED_REGISTERS and
+     CALL_USED_REGISTERS had the right number of initializers.  */
+  gcc_assert (sizeof fixed_regs == sizeof saved_fixed_regs);
+  gcc_assert (sizeof call_used_regs == sizeof saved_call_used_regs);
+  memcpy (saved_fixed_regs, fixed_regs, sizeof fixed_regs);
+  memcpy (saved_call_used_regs, call_used_regs, sizeof call_used_regs);
+
+  /* Likewise for call_really_used_regs.  */
+#ifdef CALL_REALLY_USED_REGISTERS
+  gcc_assert (sizeof call_really_used_regs
+	      == sizeof saved_call_really_used_regs);
+  memcpy (saved_call_really_used_regs, call_really_used_regs,
+	  sizeof call_really_used_regs);
+#endif
+
+  /* And similarly for reg_names.  */
+  gcc_assert (sizeof reg_names == sizeof saved_reg_names);
+  memcpy (saved_reg_names, reg_names, sizeof reg_names);
+}
+
+/* Restore the register information.  */
+
+static void
+restore_register_info (void)
+{
+  memcpy (fixed_regs, saved_fixed_regs, sizeof fixed_regs);
+  memcpy (call_used_regs, saved_call_used_regs, sizeof call_used_regs);
+
+#ifdef CALL_REALLY_USED_REGISTERS
+  memcpy (call_really_used_regs, saved_call_really_used_regs,
+	  sizeof call_really_used_regs);
+#endif
+
+  memcpy (reg_names, saved_reg_names, sizeof reg_names);
+}
+
 /* After switches have been processed, which perhaps alter
    `fixed_regs' and `call_used_regs', convert them to HARD_REG_SETs.  */
 
@@ -410,25 +459,7 @@ init_reg_sets_1 (void)
   unsigned int i, j;
   unsigned int /* enum machine_mode */ m;
 
-  /* Sanity check:  make sure the target macros FIXED_REGISTERS and
-     CALL_USED_REGISTERS had the right number of initializers.  */
-  gcc_assert (sizeof fixed_regs == sizeof initial_fixed_regs);
-  gcc_assert (sizeof call_used_regs == sizeof initial_call_used_regs);
-
-  memcpy (fixed_regs, initial_fixed_regs, sizeof fixed_regs);
-  memcpy (call_used_regs, initial_call_used_regs, sizeof call_used_regs);
-
-  /* Likewise for call_really_used_regs.  */
-#ifdef CALL_REALLY_USED_REGISTERS
-  gcc_assert (sizeof call_really_used_regs
-	      == sizeof initial_call_really_used_regs);
-  memcpy (call_really_used_regs, initial_call_really_used_regs,
-	  sizeof call_really_used_regs);
-#endif
-
-  /* And similarly for reg_names.  */
-  gcc_assert (sizeof reg_names == sizeof initial_reg_names);
-  memcpy (reg_names, initial_reg_names, sizeof reg_names);
+  restore_register_info ();
 
 #ifdef REG_ALLOC_ORDER
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -844,11 +875,11 @@ fix_register (const char *name, int fixed, int call_used)
 	}
       else
 	{
-	  initial_fixed_regs[i] = fixed;
-	  initial_call_used_regs[i] = call_used;
+	  fixed_regs[i] = fixed;
+	  call_used_regs[i] = call_used;
 #ifdef CALL_REALLY_USED_REGISTERS
 	  if (fixed == 0)
-	    initial_call_really_used_regs[i] = call_used;
+	    call_really_used_regs[i] = call_used;
 #endif
 	}
     }
@@ -1250,7 +1281,7 @@ init_reg_autoinc (void)
 		     requires secondary reloads, disallow its class from
 		     being used in such addresses.  */
 
-		  if ((secondary_reload_class (1, base_class, m, r)
+		  if ((secondary_reload_class (0, base_class, m, r)
 		       || secondary_reload_class (1, base_class, m, r))
 		      && ! auto_inc_dec_reg_p (r, m))
 		    forbidden_inc_dec_class[i] = 1;
@@ -2444,10 +2475,7 @@ reg_scan_mark_refs (rtx x, rtx insn)
 		 || (GET_CODE (src) == SUBREG && subreg_lowpart_p (src)))
 	    src = XEXP (src, 0);
 
-	  if (REG_P (src))
-	    REG_ATTRS (dest) = REG_ATTRS (src);
-	  if (MEM_P (src))
-	    set_reg_attrs_from_mem (dest, src);
+	  set_reg_attrs_from_value (dest, src);
 	}
 
       /* ... fall through ...  */

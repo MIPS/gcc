@@ -380,12 +380,6 @@ static int max_uid;
 /* Number of cuids.  */
 static int max_cuid;
 
-/* Mapping of cuids to insns.  */
-static rtx *cuid_insn;
-
-/* Get insn from cuid.  */
-#define CUID_INSN(CUID) (cuid_insn[CUID])
-
 /* Maximum register number in function prior to doing gcse + 1.
    Registers created during this pass have regno >= max_gcse_regno.
    This is named with "gcse" to not collide with global of same name.  */
@@ -942,15 +936,7 @@ alloc_gcse_mem (void)
 	  uid_cuid[INSN_UID (insn)] = i;
       }
 
-  /* Create a table mapping cuids to insns.  */
-
   max_cuid = i;
-  cuid_insn = gcalloc (max_cuid + 1, sizeof (rtx));
-  i = 0;
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-      if (INSN_P (insn))
-	CUID_INSN (i++) = insn;
 
   /* Allocate vars to track sets of regs.  */
   reg_set_bitmap = BITMAP_ALLOC (NULL);
@@ -971,7 +957,6 @@ static void
 free_gcse_mem (void)
 {
   free (uid_cuid);
-  free (cuid_insn);
 
   BITMAP_FREE (reg_set_bitmap);
 
@@ -1760,8 +1745,9 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
 		  modified.  Here we want to search from INSN+1 on, but
 		  oprs_available_p searches from INSN on.  */
 	       && (insn == BB_END (BLOCK_FOR_INSN (insn))
-		   || ((tmp = next_nonnote_insn (insn)) != NULL_RTX
-		       && oprs_available_p (pat, tmp))))
+		   || (tmp = next_nonnote_insn (insn)) == NULL_RTX
+		   || BLOCK_FOR_INSN (tmp) != BLOCK_FOR_INSN (insn)
+		   || oprs_available_p (pat, tmp)))
 	insert_set_in_table (pat, insn, table);
     }
   /* In case of store we want to consider the memory value as available in
@@ -2682,7 +2668,8 @@ try_replace_reg (rtx from, rtx to, rtx insn)
      with our replacement.  */
   if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
     set_unique_reg_note (insn, REG_EQUAL,
-			 simplify_replace_rtx (XEXP (note, 0), from, to));
+			 simplify_replace_rtx (XEXP (note, 0), from,
+			 copy_rtx (to)));
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -2837,7 +2824,7 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
          to one computed by setcc.  */
       if (setcc && modified_in_p (new, setcc))
 	return 0;
-      if (! validate_change (jump, &SET_SRC (set), new, 0))
+      if (! validate_unshare_change (jump, &SET_SRC (set), new, 0))
 	{
 	  /* When (some) constants are not valid in a comparison, and there
 	     are two registers to be replaced by constants before the entire
@@ -2876,6 +2863,24 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
       fprintf (dump_file, "\n");
     }
   purge_dead_edges (bb);
+
+  /* If a conditional jump has been changed into unconditional jump, remove
+     the jump and make the edge fallthru - this is always called in
+     cfglayout mode.  */
+  if (new != pc_rtx && simplejump_p (jump))
+    {
+      edge e;
+      edge_iterator ei;
+
+      for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); ei_next (&ei))
+	if (e->dest != EXIT_BLOCK_PTR
+	    && BB_HEAD (e->dest) == JUMP_LABEL (jump))
+	  {
+	    e->flags |= EDGE_FALLTHRU;
+	    break;
+	  }
+      delete_insn (jump);
+    }
 
   return 1;
 }
@@ -4587,14 +4592,15 @@ one_pre_gcse_pass (int pass)
   return changed;
 }
 
-/* If X contains any LABEL_REF's, add REG_LABEL notes for them to INSN.
-   If notes are added to an insn which references a CODE_LABEL, the
-   LABEL_NUSES count is incremented.  We have to add REG_LABEL notes,
-   because the following loop optimization pass requires them.  */
+/* If X contains any LABEL_REF's, add REG_LABEL_OPERAND notes for them
+   to INSN.  If such notes are added to an insn which references a
+   CODE_LABEL, the LABEL_NUSES count is incremented.  We have to add
+   that note, because the following loop optimization pass requires
+   them.  */
 
 /* ??? If there was a jump optimization pass after gcse and before loop,
    then we would not need to do this here, because jump would add the
-   necessary REG_LABEL notes.  */
+   necessary REG_LABEL_OPERAND and REG_LABEL_TARGET notes.  */
 
 static void
 add_label_notes (rtx x, rtx insn)
@@ -4611,10 +4617,16 @@ add_label_notes (rtx x, rtx insn)
 	 We no longer ignore such label references (see LABEL_REF handling in
 	 mark_jump_label for additional information).  */
 
-      REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL, XEXP (x, 0),
-					    REG_NOTES (insn));
+      /* There's no reason for current users to emit jump-insns with
+	 such a LABEL_REF, so we don't have to handle REG_LABEL_TARGET
+	 notes.  */
+      gcc_assert (!JUMP_P (insn));
+      REG_NOTES (insn)
+	= gen_rtx_INSN_LIST (REG_LABEL_OPERAND, XEXP (x, 0),
+			     REG_NOTES (insn));
       if (LABEL_P (XEXP (x, 0)))
 	LABEL_NUSES (XEXP (x, 0))++;
+
       return;
     }
 
@@ -4747,10 +4759,14 @@ compute_code_hoist_vbeinout (void)
 	 the convergence.  */
       FOR_EACH_BB_REVERSE (bb)
 	{
-	  changed |= sbitmap_a_or_b_and_c_cg (hoist_vbein[bb->index], antloc[bb->index],
-					      hoist_vbeout[bb->index], transp[bb->index]);
 	  if (bb->next_bb != EXIT_BLOCK_PTR)
-	    sbitmap_intersection_of_succs (hoist_vbeout[bb->index], hoist_vbein, bb->index);
+	    sbitmap_intersection_of_succs (hoist_vbeout[bb->index],
+					   hoist_vbein, bb->index);
+
+	  changed |= sbitmap_a_or_b_and_c_cg (hoist_vbein[bb->index],
+					      antloc[bb->index],
+					      hoist_vbeout[bb->index],
+					      transp[bb->index]);
 	}
 
       passes++;
@@ -6732,13 +6748,15 @@ rest_of_handle_gcse (void)
 
   /* If gcse or cse altered any jumps, rerun jump optimizations to clean
      things up.  */
-  if (tem || tem2)
+  if (tem || tem2 == 2)
     {
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
       cleanup_cfg (0);
       timevar_pop (TV_JUMP);
     }
+  else if (tem2 == 1)
+    cleanup_cfg (0);
 
   flag_cse_skip_blocks = save_csb;
   flag_cse_follow_jumps = save_cfj;
@@ -6758,7 +6776,7 @@ struct tree_opt_pass pass_gcse =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
   'G'                                   /* letter */

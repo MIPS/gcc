@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -530,6 +530,7 @@ common_pointer_type (tree t1, tree t2)
   tree pointed_to_1, mv1;
   tree pointed_to_2, mv2;
   tree target;
+  unsigned target_quals;
 
   /* Save time if the two types are the same.  */
 
@@ -557,10 +558,15 @@ common_pointer_type (tree t1, tree t2)
   if (TREE_CODE (mv2) != ARRAY_TYPE)
     mv2 = TYPE_MAIN_VARIANT (pointed_to_2);
   target = composite_type (mv1, mv2);
-  t1 = build_pointer_type (c_build_qualified_type
-			   (target,
-			    TYPE_QUALS (pointed_to_1) |
-			    TYPE_QUALS (pointed_to_2)));
+
+  /* For function types do not merge const qualifiers, but drop them
+     if used inconsistently.  The middle-end uses these to mark const
+     and noreturn functions.  */
+  if (TREE_CODE (pointed_to_1) == FUNCTION_TYPE)
+    target_quals = TYPE_QUALS (pointed_to_1) & TYPE_QUALS (pointed_to_2);
+  else
+    target_quals = TYPE_QUALS (pointed_to_1) | TYPE_QUALS (pointed_to_2);
+  t1 = build_pointer_type (c_build_qualified_type (target, target_quals));
   return build_type_attribute_variant (t1, attributes);
 }
 
@@ -1113,7 +1119,7 @@ free_all_tagged_tu_seen_up_to (const struct tagged_tu_seen_cache *tu_til)
       const struct tagged_tu_seen_cache *const tu1
 	= (const struct tagged_tu_seen_cache *) tu;
       tu = tu1->next;
-      free (CONST_CAST (tu1));
+      free (CONST_CAST (struct tagged_tu_seen_cache *, tu1));
     }
   tagged_tu_seen_base = tu_til;
 }
@@ -1233,11 +1239,12 @@ tagged_types_tu_compatible_p (const_tree t1, const_tree t2)
 	  {
 	    int result;
 
-
-	    if (DECL_NAME (s1) == NULL
-		|| DECL_NAME (s1) != DECL_NAME (s2))
+	    if (DECL_NAME (s1) != DECL_NAME (s2))
 	      break;
 	    result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
+
+	    if (result != 1 && !DECL_NAME (s1))
+	      break;
 	    if (result == 0)
 	      {
 		tu->val = 0;
@@ -1264,28 +1271,31 @@ tagged_types_tu_compatible_p (const_tree t1, const_tree t2)
 	  {
 	    bool ok = false;
 
-	    if (DECL_NAME (s1) != NULL)
-	      for (s2 = TYPE_FIELDS (t2); s2; s2 = TREE_CHAIN (s2))
-		if (DECL_NAME (s1) == DECL_NAME (s2))
-		  {
-		    int result;
-		    result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
-		    if (result == 0)
-		      {
-			tu->val = 0;
-			return 0;
-		      }
-		    if (result == 2)
-		      needs_warning = true;
+	    for (s2 = TYPE_FIELDS (t2); s2; s2 = TREE_CHAIN (s2))
+	      if (DECL_NAME (s1) == DECL_NAME (s2))
+		{
+		  int result;
 
-		    if (TREE_CODE (s1) == FIELD_DECL
-			&& simple_cst_equal (DECL_FIELD_BIT_OFFSET (s1),
-					     DECL_FIELD_BIT_OFFSET (s2)) != 1)
-		      break;
+		  result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
 
-		    ok = true;
+		  if (result != 1 && !DECL_NAME (s1))
+		    continue;
+		  if (result == 0)
+		    {
+		      tu->val = 0;
+		      return 0;
+		    }
+		  if (result == 2)
+		    needs_warning = true;
+
+		  if (TREE_CODE (s1) == FIELD_DECL
+		      && simple_cst_equal (DECL_FIELD_BIT_OFFSET (s1),
+					   DECL_FIELD_BIT_OFFSET (s2)) != 1)
 		    break;
-		  }
+
+		  ok = true;
+		  break;
+		}
 	    if (!ok)
 	      {
 		tu->val = 0;
@@ -1770,14 +1780,19 @@ default_conversion (tree exp)
   if (TREE_NO_WARNING (orig_exp))
     TREE_NO_WARNING (exp) = 1;
 
-  if (INTEGRAL_TYPE_P (type))
-    return perform_integral_promotions (exp);
-
   if (code == VOID_TYPE)
     {
       error ("void value not ignored as it ought to be");
       return error_mark_node;
     }
+
+  exp = require_complete_type (exp);
+  if (exp == error_mark_node)
+    return error_mark_node;
+
+  if (INTEGRAL_TYPE_P (type))
+    return perform_integral_promotions (exp);
+
   return exp;
 }
 
@@ -2108,8 +2123,6 @@ build_array_ref (tree array, tree index)
 	}
 
       type = TREE_TYPE (TREE_TYPE (array));
-      if (TREE_CODE (type) != ARRAY_TYPE)
-	type = TYPE_MAIN_VARIANT (type);
       rval = build4 (ARRAY_REF, type, array, index, NULL_TREE, NULL_TREE);
       /* Array ref is const/volatile if the array elements are
 	 or if the array is.  */
@@ -2221,7 +2234,8 @@ build_external_ref (tree id, int fun, location_t loc)
 	   && DECL_EXTERNAL (current_function_decl)
 	   && VAR_OR_FUNCTION_DECL_P (ref)
 	   && (TREE_CODE (ref) != VAR_DECL || TREE_STATIC (ref))
-	   && ! TREE_PUBLIC (ref))
+	   && ! TREE_PUBLIC (ref)
+	   && DECL_CONTEXT (ref) != current_function_decl)
     pedwarn ("%H%qD is static but used in inline function %qD "
 	     "which is not static", &loc, ref, current_function_decl);
 
@@ -2871,11 +2885,15 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
   /* No default_conversion here.  It causes trouble for ADDR_EXPR.  */
   tree arg = xarg;
   tree argtype = 0;
-  enum tree_code typecode = TREE_CODE (TREE_TYPE (arg));
+  enum tree_code typecode;
   tree val;
   int noconvert = flag;
   const char *invalid_op_diag;
 
+  if (code != ADDR_EXPR)
+    arg = require_complete_type (arg);
+
+  typecode = TREE_CODE (TREE_TYPE (arg));
   if (typecode == ERROR_MARK)
     return error_mark_node;
   if (typecode == ENUMERAL_TYPE || typecode == BOOLEAN_TYPE)
@@ -3432,7 +3450,7 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
 			   && tree_expr_nonnegative_warnv_p (op2, &ovf)))
 		/* OK */;
 	      else
-		warning (0, "signed and unsigned type in conditional expression");
+		warning (OPT_Wsign_compare, "signed and unsigned type in conditional expression");
 	    }
 	}
     }
@@ -3527,7 +3545,7 @@ build_compound_expr (tree expr1, tree expr2)
   if (!TREE_SIDE_EFFECTS (expr1))
     {
       /* The left-hand operand of a comma expression is like an expression
-	 statement: with -Wextra or -Wunused, we should warn if it doesn't have
+	 statement: with -Wunused, we should warn if it doesn't have
 	 any side-effects, unless it was explicitly cast to (void).  */
       if (warn_unused_value)
 	{
@@ -3587,6 +3605,13 @@ build_c_cast (tree type, tree expr)
     {
       error ("cast specifies function type");
       return error_mark_node;
+    }
+
+  if (!VOID_TYPE_P (type))
+    {
+      value = require_complete_type (value);
+      if (value == error_mark_node)
+	return error_mark_node;
     }
 
   if (type == TYPE_MAIN_VARIANT (TREE_TYPE (value)))
@@ -3998,6 +4023,9 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       error ("void value not ignored as it ought to be");
       return error_mark_node;
     }
+  rhs = require_complete_type (rhs);
+  if (rhs == error_mark_node)
+    return error_mark_node;
   /* A type converts to a reference to it.
      This code doesn't fully support references, it's just for the
      special case of va_start and va_copy.  */
@@ -8480,7 +8508,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			    c_common_signed_type (result_type)))
 		    /* OK */;
 		  else
-		    warning (0, "comparison between signed and unsigned");
+		    warning (OPT_Wsign_compare, "comparison between signed and unsigned");
 		}
 
 	      /* Warn if two unsigned values are being compared in a size
@@ -8526,7 +8554,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			{
 			  mask = (~(HOST_WIDE_INT) 0) << bits;
 			  if ((mask & constant) != mask)
-			    warning (0, "comparison of promoted ~unsigned with constant");
+			    warning (OPT_Wsign_compare, "comparison of promoted ~unsigned with constant");
 			}
 		    }
 		  else if (unsignedp0 && unsignedp1
@@ -8534,7 +8562,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 			       < TYPE_PRECISION (result_type))
 			   && (TYPE_PRECISION (TREE_TYPE (primop1))
 			       < TYPE_PRECISION (result_type)))
-		    warning (0, "comparison of promoted ~unsigned with unsigned");
+		    warning (OPT_Wsign_compare, "comparison of promoted ~unsigned with unsigned");
 		}
 	    }
 	}
@@ -8878,4 +8906,69 @@ c_finish_omp_clauses (tree clauses)
 
   bitmap_obstack_release (NULL);
   return clauses;
+}
+
+/* Make a variant type in the proper way for C/C++, propagating qualifiers
+   down to the element type of an array.  */
+
+tree
+c_build_qualified_type (tree type, int type_quals)
+{
+  if (type == error_mark_node)
+    return type;
+
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      tree t;
+      tree element_type = c_build_qualified_type (TREE_TYPE (type),
+						  type_quals);
+
+      /* See if we already have an identically qualified type.  */
+      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	{
+	  if (TYPE_QUALS (strip_array_types (t)) == type_quals
+	      && TYPE_NAME (t) == TYPE_NAME (type)
+	      && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
+	      && attribute_list_equal (TYPE_ATTRIBUTES (t),
+				       TYPE_ATTRIBUTES (type)))
+	    break;
+	}
+      if (!t)
+	{
+          tree domain = TYPE_DOMAIN (type);
+
+	  t = build_variant_type_copy (type);
+	  TREE_TYPE (t) = element_type;
+
+          if (TYPE_STRUCTURAL_EQUALITY_P (element_type)
+              || (domain && TYPE_STRUCTURAL_EQUALITY_P (domain)))
+            SET_TYPE_STRUCTURAL_EQUALITY (t);
+          else if (TYPE_CANONICAL (element_type) != element_type
+                   || (domain && TYPE_CANONICAL (domain) != domain))
+            {
+              tree unqualified_canon 
+                = build_array_type (TYPE_CANONICAL (element_type),
+                                    domain? TYPE_CANONICAL (domain) 
+                                          : NULL_TREE);
+              TYPE_CANONICAL (t) 
+                = c_build_qualified_type (unqualified_canon, type_quals);
+            }
+          else
+            TYPE_CANONICAL (t) = t;
+	}
+      return t;
+    }
+
+  /* A restrict-qualified pointer type must be a pointer to object or
+     incomplete type.  Note that the use of POINTER_TYPE_P also allows
+     REFERENCE_TYPEs, which is appropriate for C++.  */
+  if ((type_quals & TYPE_QUAL_RESTRICT)
+      && (!POINTER_TYPE_P (type)
+	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (type))))
+    {
+      error ("invalid use of %<restrict%>");
+      type_quals &= ~TYPE_QUAL_RESTRICT;
+    }
+
+  return build_qualified_type (type, type_quals);
 }

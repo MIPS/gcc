@@ -98,7 +98,6 @@ int global_bindings_p (void);
 void insert_block (tree);
 static void gfc_clear_binding_stack (void);
 static void gfc_be_parse_file (int);
-static void gfc_expand_function (tree);
 static alias_set_type gfc_get_alias_set (tree);
 
 #undef LANG_HOOKS_NAME
@@ -112,7 +111,6 @@ static alias_set_type gfc_get_alias_set (tree);
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #undef LANG_HOOKS_TYPE_FOR_SIZE
-#undef LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION
 #undef LANG_HOOKS_CLEAR_BINDING_STACK
 #undef LANG_HOOKS_GET_ALIAS_SET
 #undef LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE
@@ -122,6 +120,7 @@ static alias_set_type gfc_get_alias_set (tree);
 #undef LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE
 #undef LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES
 #undef LANG_HOOKS_BUILTIN_FUNCTION
+#undef LANG_HOOKS_GET_ARRAY_DESCR_INFO
 
 /* Define lang hooks.  */
 #define LANG_HOOKS_NAME                 "GNU F95"
@@ -135,7 +134,6 @@ static alias_set_type gfc_get_alias_set (tree);
 #define LANG_HOOKS_MARK_ADDRESSABLE        gfc_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE           gfc_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE           gfc_type_for_size
-#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION gfc_expand_function
 #define LANG_HOOKS_CLEAR_BINDING_STACK     gfc_clear_binding_stack
 #define LANG_HOOKS_GET_ALIAS_SET	   gfc_get_alias_set
 #define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE	gfc_omp_privatize_by_reference
@@ -146,6 +144,7 @@ static alias_set_type gfc_get_alias_set (tree);
 #define LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES \
   gfc_omp_firstprivatize_type_sizes
 #define LANG_HOOKS_BUILTIN_FUNCTION          gfc_builtin_function
+#define LANG_HOOKS_GET_ARRAY_DESCR_INFO	     gfc_get_array_descr_info
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
@@ -193,45 +192,6 @@ static GTY(()) struct binding_level *free_binding_level;
    for the reserved type names and storage classes.
    It is indexed by a RID_... value.  */
 tree *ridpointers = NULL;
-
-/* language-specific flags.  */
-
-static void
-gfc_expand_function (tree fndecl)
-{
-  tree t;
-
-  if (DECL_INITIAL (fndecl)
-      && BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl)))
-    {
-      /* Local static equivalenced variables are never seen by
-	 check_global_declarations, so we need to output debug
-	 info by hand.  */
-
-      t = BLOCK_SUBBLOCKS (DECL_INITIAL (fndecl));
-      for (t = BLOCK_VARS (t); t; t = TREE_CHAIN (t))
-	if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t)
-	    && TREE_STATIC (t))
-	  {
-	    tree expr = DECL_VALUE_EXPR (t);
-
-	    if (TREE_CODE (expr) == COMPONENT_REF
-		&& TREE_CODE (TREE_OPERAND (expr, 0)) == VAR_DECL
-		&& TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0)))
-		   == UNION_TYPE
-		&& varpool_node (TREE_OPERAND (expr, 0))->needed
-		&& errorcount == 0 && sorrycount == 0)
-	      {
-		timevar_push (TV_SYMOUT);
-		(*debug_hooks->global_decl) (t);
-		timevar_pop (TV_SYMOUT);
-	      }
-	  }
-    }
-
-  tree_rest_of_compilation (fndecl);
-}
-
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
    or validate its data type for an `if' or `while' statement or ?..: exp.
@@ -316,8 +276,8 @@ static bool
 gfc_init (void)
 {
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (&line_table, LC_ENTER, false, gfc_source_file, 1);
-  linemap_add (&line_table, LC_RENAME, false, "<built-in>", 0);
+  linemap_add (line_table, LC_ENTER, false, gfc_source_file, 1);
+  linemap_add (line_table, LC_RENAME, false, "<built-in>", 0);
 #endif
 
   /* First initialize the backend.  */
@@ -1177,7 +1137,7 @@ gfc_init_builtin_functions (void)
 #include "../sync-builtins.def"
 #undef DEF_SYNC_BUILTIN
 
-  if (gfc_option.flag_openmp)
+  if (gfc_option.flag_openmp || flag_tree_parallelize_loops)
     {
 #undef DEF_GOMP_BUILTIN
 #define DEF_GOMP_BUILTIN(code, name, type, attr) \

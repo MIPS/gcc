@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -105,7 +104,13 @@ package Exp_Disp is
    --      of the cases. See Expand_N_Attribute_Reference in Exp_Attr and
    --      Expand_N_Abort_Statement in Exp_Ch9 for more information.
 
-   --      _Disp_Timed_Select (15) - used in the expansion of timed selects
+   --      _Disp_Requeue (15) - used in the expansion of dispatching requeue
+   --      statements. Null implementation is provided for protected, task
+   --      and synchronized interfaces. Protected and task types implementing
+   --      concurrent interfaces receive full bodies. See Expand_N_Requeue_
+   --      Statement in Exp_Ch9 for more information.
+
+   --      _Disp_Timed_Select (16) - used in the expansion of timed selects
    --      with dispatching triggers. Null implementation for limited
    --      interfaces, full body generation for types that implement limited
    --      interfaces, not generated for the rest of the cases. See Expand_N_
@@ -164,6 +169,10 @@ package Exp_Disp is
    --    Ada.Tags.Max_Predef_Prims         - indirect use
    --    Exp_Disp.Default_Prim_Op_Position - indirect use
    --    Exp_Disp.Set_All_DT_Position      - direct   use
+
+   function Building_Static_DT (Typ : Entity_Id) return Boolean;
+   pragma Inline (Building_Static_DT);
+   --  Returns true when building statically allocated dispatch tables
 
    procedure Build_Static_Dispatch_Tables (N : Node_Id);
    --  N is a library level package declaration or package body. Build the
@@ -255,10 +264,21 @@ package Exp_Disp is
    --  of type Typ used for retrieving the _task_id field of a task interface
    --  class-wide type.
 
+   function Make_Disp_Requeue_Body
+     (Typ : Entity_Id) return Node_Id;
+   --  Ada 2005 (AI05-0030): Generate the body of the primitive operation of
+   --  type Typ used for dispatching on requeue statements. Generate a body
+   --  containing a single null-statement if Typ is an interface type.
+
+   function Make_Disp_Requeue_Spec
+     (Typ : Entity_Id) return Node_Id;
+   --  Ada 2005 (AI05-0030): Generate the specification of the primitive
+   --  operation of type Typ used for dispatching requeue statements.
+
    function Make_Disp_Timed_Select_Body
      (Typ : Entity_Id) return Node_Id;
    --  Ada 2005 (AI-345): Generate the body of the primitive operation of type
-   --  Typ used for dispatching in timed selects. Generates a body containing
+   --  Typ used for dispatching in timed selects. Generate a body containing
    --  a single null-statement if Typ is an interface type.
 
    function Make_Disp_Timed_Select_Spec

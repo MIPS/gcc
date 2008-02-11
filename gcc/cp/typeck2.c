@@ -703,8 +703,23 @@ digest_init (tree type, tree init)
   /* Handle scalar types (including conversions) and references.  */
   if (TREE_CODE (type) != COMPLEX_TYPE
       && (SCALAR_TYPE_P (type) || code == REFERENCE_TYPE))
-    return convert_for_initialization (0, type, init, LOOKUP_NORMAL,
-				       "initialization", NULL_TREE, 0);
+    {
+      tree *exp;
+
+      init = convert_for_initialization (0, type, init, LOOKUP_NORMAL,
+					 "initialization", NULL_TREE, 0);
+      exp = &init;
+
+      /* Skip any conversions since we'll be outputting the underlying
+	 constant.  */
+      while (TREE_CODE (*exp) == NOP_EXPR || TREE_CODE (*exp) == CONVERT_EXPR
+	     || TREE_CODE (*exp) == NON_LVALUE_EXPR)
+	exp = &TREE_OPERAND (*exp, 0);
+
+      *exp = cplus_expand_constant (*exp);
+
+      return init;
+    }
 
   /* Come here only for aggregates: records, arrays, unions, complex numbers
      and vectors.  */
@@ -1295,6 +1310,8 @@ build_functional_cast (tree exp, tree parms)
 {
   /* This is either a call to a constructor,
      or a C cast in C++'s `functional' notation.  */
+
+  /* The type to which we are casting.  */
   tree type;
 
   if (exp == error_mark_node || parms == error_mark_node)
@@ -1335,20 +1352,31 @@ build_functional_cast (tree exp, tree parms)
   if (abstract_virtuals_error (NULL_TREE, type))
     return error_mark_node;
 
+  /* [expr.type.conv]
+
+     If the expression list is a single-expression, the type
+     conversion is equivalent (in definedness, and if defined in
+     meaning) to the corresponding cast expression.  */
   if (parms && TREE_CHAIN (parms) == NULL_TREE)
     return build_c_cast (type, TREE_VALUE (parms));
 
-  /* We need to zero-initialize POD types.  */
-  if (parms == NULL_TREE 
-      && !CLASSTYPE_NON_POD_P (type)
-      && TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
+  /* [expr.type.conv]
+
+     The expression T(), where T is a simple-type-specifier for a
+     non-array complete object type or the (possibly cv-qualified)
+     void type, creates an rvalue of the specified type, which is
+     value-initialized.  */
+
+  if (parms == NULL_TREE
+      /* If there's a user-defined constructor, value-initialization is
+	 just calling the constructor, so fall through.  */
+      && !TYPE_HAS_USER_CONSTRUCTOR (type))
     {
-      exp = build_zero_init (type, 
-			     /*nelts=*/NULL_TREE,
-			     /*static_storage_p=*/false);
+      exp = build_value_init (type);
       return get_target_expr (exp);
     }
 
+  /* Call the constructor.  */
   exp = build_special_member_call (NULL_TREE, complete_ctor_identifier, parms,
 				   type, LOOKUP_NORMAL);
 

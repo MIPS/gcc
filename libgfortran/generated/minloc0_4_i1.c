@@ -1,5 +1,5 @@
 /* Implementation of the MINLOC intrinsic
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,11 +28,10 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <limits.h>
-#include "libgfortran.h"
 
 
 #if defined (HAVE_GFC_INTEGER_1) && defined (HAVE_GFC_INTEGER_4)
@@ -70,11 +69,22 @@ minloc0_4_i1 (gfc_array_i4 * const restrict retarray,
     }
   else
     {
-      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
-	runtime_error ("rank of return array does not equal 1");
+      if (compile_options.bounds_check)
+	{
+	  int ret_rank;
+	  index_type ret_extent;
 
-      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
-        runtime_error ("dimension of return array incorrect");
+	  ret_rank = GFC_DESCRIPTOR_RANK (retarray);
+	  if (ret_rank != 1)
+	    runtime_error ("rank of return array in MINLOC intrinsic"
+			   " should be 1, is %ld", (long int) ret_rank);
+
+	  ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	  if (ret_extent != rank)
+	    runtime_error ("Incorrect extent in return value of"
+			   " MINLOC intrnisic: is %ld, should be %ld",
+			   (long int) ret_extent, (long int) rank);
+	}
     }
 
   dstride = retarray->dim[0].stride;
@@ -183,11 +193,41 @@ mminloc0_4_i1 (gfc_array_i4 * const restrict retarray,
     }
   else
     {
-      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
-	runtime_error ("rank of return array does not equal 1");
+      if (compile_options.bounds_check)
+	{
+	  int ret_rank, mask_rank;
+	  index_type ret_extent;
+	  int n;
+	  index_type array_extent, mask_extent;
 
-      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
-        runtime_error ("dimension of return array incorrect");
+	  ret_rank = GFC_DESCRIPTOR_RANK (retarray);
+	  if (ret_rank != 1)
+	    runtime_error ("rank of return array in MINLOC intrinsic"
+			   " should be 1, is %ld", (long int) ret_rank);
+
+	  ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	  if (ret_extent != rank)
+	    runtime_error ("Incorrect extent in return value of"
+			   " MINLOC intrnisic: is %ld, should be %ld",
+			   (long int) ret_extent, (long int) rank);
+	
+	  mask_rank = GFC_DESCRIPTOR_RANK (mask);
+	  if (rank != mask_rank)
+	    runtime_error ("rank of MASK argument in MINLOC intrnisic"
+	                   "should be %ld, is %ld", (long int) rank,
+			   (long int) mask_rank);
+
+	  for (n=0; n<rank; n++)
+	    {
+	      array_extent = array->dim[n].ubound + 1 - array->dim[n].lbound;
+	      mask_extent = mask->dim[n].ubound + 1 - mask->dim[n].lbound;
+	      if (array_extent != mask_extent)
+		runtime_error ("Incorrect extent in MASK argument of"
+			       " MINLOC intrinsic in dimension %ld:"
+			       " is %ld, should be %ld", (long int) n + 1,
+			       (long int) mask_extent, (long int) array_extent);
+	    }
+	}
     }
 
   mask_kind = GFC_DESCRIPTOR_SIZE (mask);
@@ -313,11 +353,20 @@ sminloc0_4_i1 (gfc_array_i4 * const restrict retarray,
     }
   else
     {
-      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
-	runtime_error ("rank of return array does not equal 1");
+      if (compile_options.bounds_check)
+	{
+	  int ret_rank;
+	  index_type ret_extent;
 
-      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
-        runtime_error ("dimension of return array incorrect");
+	  ret_rank = GFC_DESCRIPTOR_RANK (retarray);
+	  if (ret_rank != 1)
+	    runtime_error ("rank of return array in MINLOC intrinsic"
+			   " should be 1, is %ld", (long int) ret_rank);
+
+	  ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	    if (ret_extent != rank)
+	      runtime_error ("dimension of return array incorrect");
+	}
     }
 
   dstride = retarray->dim[0].stride;

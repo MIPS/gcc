@@ -5375,9 +5375,9 @@
 
 ;; Split the load of an address into a four-insn sequence on Unicos/Mk.
 ;; Always generate a REG_EQUAL note for the last instruction to facilitate
-;; optimizations. If the symbolic operand is a label_ref, generate REG_LABEL
-;; notes and update LABEL_NUSES because this is not done automatically.
-;; Labels may be incorrectly deleted if we don't do this.
+;; optimizations. If the symbolic operand is a label_ref, generate
+;; REG_LABEL_OPERAND notes and update LABEL_NUSES because this is not done
+;; automatically.  Labels may be incorrectly deleted if we don't do this.
 ;;
 ;; Describing what the individual instructions do correctly is too complicated
 ;; so use UNSPECs for each of the three parts of an address.
@@ -5401,11 +5401,11 @@
       rtx label;
 
       label = XEXP (operands[1], 0);
-      REG_NOTES (insn1) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+      REG_NOTES (insn1) = gen_rtx_EXPR_LIST (REG_LABEL_OPERAND, label,
 					     REG_NOTES (insn1));
-      REG_NOTES (insn2) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+      REG_NOTES (insn2) = gen_rtx_EXPR_LIST (REG_LABEL_OPERAND, label,
 					     REG_NOTES (insn2));
-      REG_NOTES (insn3) = gen_rtx_EXPR_LIST (REG_LABEL, label,
+      REG_NOTES (insn3) = gen_rtx_EXPR_LIST (REG_LABEL_OPERAND, label,
 					     REG_NOTES (insn3));
       LABEL_NUSES (label) += 3;
     }
@@ -5784,8 +5784,8 @@
       else
 	target = operands[0];
 
-      emit_insn (gen_movdi (gen_rtx_SUBREG (DImode, target, 0), out[0]));
-      emit_insn (gen_movdi (gen_rtx_SUBREG (DImode, target, 8), out[1]));
+      emit_insn (gen_movdi (operand_subword (target, 0, 0, TImode), out[0]));
+      emit_insn (gen_movdi (operand_subword (target, 1, 0, TImode), out[1]));
 
       if (target != operands[0])
 	emit_insn (gen_rtx_SET (VOIDmode, operands[0], target));

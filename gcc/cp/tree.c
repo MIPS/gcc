@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "target.h"
 #include "convert.h"
+#include "tree-flow.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -160,7 +161,9 @@ lvalue_p_1 (const_tree ref,
       break;
 
     case COND_EXPR:
-      op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1),
+      op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1)
+				    ? TREE_OPERAND (ref, 1)
+				    : TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues);
       op2_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 2),
 				    treat_class_rvalues_as_lvalues);
@@ -256,6 +259,13 @@ static tree
 build_target_expr (tree decl, tree value)
 {
   tree t;
+
+#ifdef ENABLE_CHECKING
+  gcc_assert (VOID_TYPE_P (TREE_TYPE (value))
+	      || TREE_TYPE (decl) == TREE_TYPE (value)
+	      || useless_type_conversion_p (TREE_TYPE (decl),
+					    TREE_TYPE (value)));
+#endif
 
   t = build4 (TARGET_EXPR, TREE_TYPE (decl), decl, value,
 	      cxx_maybe_build_cleanup (decl), NULL_TREE);
@@ -405,10 +415,12 @@ build_target_expr_with_type (tree init, tree type)
   if (TREE_CODE (init) == TARGET_EXPR)
     return init;
   else if (CLASS_TYPE_P (type) && !TYPE_HAS_TRIVIAL_INIT_REF (type)
+	   && !VOID_TYPE_P (TREE_TYPE (init))
 	   && TREE_CODE (init) != COND_EXPR
 	   && TREE_CODE (init) != CONSTRUCTOR
 	   && TREE_CODE (init) != VA_ARG_EXPR)
-    /* We need to build up a copy constructor call.  COND_EXPR is a special
+    /* We need to build up a copy constructor call.  A void initializer
+       means we're being called from bot_manip.  COND_EXPR is a special
        case because we already have copies on the arms and we don't want
        another one here.  A CONSTRUCTOR is aggregate initialization, which
        is handled separately.  A VA_ARG_EXPR is magic creation of an
@@ -512,18 +524,12 @@ cplus_array_compare (const void * k1, const void * k2)
   const_tree const t1 = (const_tree) k1;
   const cplus_array_info *const t2 = (const cplus_array_info*) k2;
 
-  if (!comptypes (TREE_TYPE (t1), t2->type, COMPARE_STRUCTURAL))
-    return 0;
-
-  if (!TYPE_DOMAIN (t1))
-    return !t2->domain;
-
-  if (!t2->domain)
-    return 0;
-
-  return comptypes (TYPE_DOMAIN (t1), t2->domain, COMPARE_STRUCTURAL);
+  return (TREE_TYPE (t1) == t2->type && TYPE_DOMAIN (t1) == t2->domain);
 }
 
+/* Hash table containing all of the C++ array types, including
+   dependent array types and array types whose element type is
+   cv-qualified.  */
 static GTY ((param_is (union tree_node))) htab_t cplus_array_htab;
 
 
@@ -535,14 +541,14 @@ build_cplus_array_type_1 (tree elt_type, tree index_type)
   if (elt_type == error_mark_node || index_type == error_mark_node)
     return error_mark_node;
 
-  if (dependent_type_p (elt_type)
-      || (index_type
-	  && value_dependent_expression_p (TYPE_MAX_VALUE (index_type))))
+  if (processing_template_decl
+      && (dependent_type_p (elt_type)
+	  || (index_type && !TREE_CONSTANT (TYPE_MAX_VALUE (index_type)))))
     {
       void **e;
       cplus_array_info cai;
       hashval_t hash;
-      
+
       if (cplus_array_htab == NULL)
 	cplus_array_htab = htab_create_ggc (61, &cplus_array_hash,
 					    &cplus_array_compare, NULL);
@@ -554,31 +560,31 @@ build_cplus_array_type_1 (tree elt_type, tree index_type)
 
       e = htab_find_slot_with_hash (cplus_array_htab, &cai, hash, INSERT); 
       if (*e)
-	/* We have found the type: we're done. */
+	/* We have found the type: we're done.  */
 	return (tree) *e;
       else
 	{
-	  /* Build a new array type. */
+	  /* Build a new array type.  */
 	  t = make_node (ARRAY_TYPE);
 	  TREE_TYPE (t) = elt_type;
 	  TYPE_DOMAIN (t) = index_type;
 
-	  /* Complete building the array type. */
+	  /* Store it in the hash table. */
+	  *e = t;
+
+	  /* Set the canonical type for this new node.  */
 	  if (TYPE_STRUCTURAL_EQUALITY_P (elt_type)
 	      || (index_type && TYPE_STRUCTURAL_EQUALITY_P (index_type)))
 	    SET_TYPE_STRUCTURAL_EQUALITY (t);
 	  else if (TYPE_CANONICAL (elt_type) != elt_type
 		   || (index_type 
 		       && TYPE_CANONICAL (index_type) != index_type))
-	    TYPE_CANONICAL (t) 
-	      = TYPE_CANONICAL 
-	          (build_cplus_array_type_1 (TYPE_CANONICAL (elt_type),
-					     index_type? 
-					       TYPE_CANONICAL (index_type)
-					       : index_type));
-
-	  /* Store it in the hash table. */
-	  *e = t;
+	    TYPE_CANONICAL (t)
+		= build_cplus_array_type 
+		   (TYPE_CANONICAL (elt_type),
+		    index_type ? TYPE_CANONICAL (index_type) : index_type);
+	  else
+	    TYPE_CANONICAL (t) = t;
 	}
     }
   else
@@ -655,6 +661,14 @@ cp_build_reference_type (tree to_type, bool rval)
 
 }
 
+/* Used by the C++ front end to build qualified array types.  However,
+   the C version of this function does not properly maintain canonical
+   types (which are not used in C).  */
+tree
+c_build_qualified_type (tree type, int type_quals)
+{
+  return cp_build_qualified_type (type, type_quals);
+}
 
 
 /* Make a variant of TYPE, qualified with the TYPE_QUALS.  Handles
@@ -712,61 +726,33 @@ cp_build_qualified_type_real (tree type,
 	  break;
 
       if (!t)
-	{
-	  tree domain = TYPE_DOMAIN (type);
+      {
+	t = build_cplus_array_type_1 (element_type, TYPE_DOMAIN (type));
 
-	  /* Make a new array type, just like the old one, but with the
-	     appropriately qualified element type.  */
-	  t = build_variant_type_copy (type);
-	  TREE_TYPE (t) = element_type;
+	if (TYPE_MAIN_VARIANT (t) != TYPE_MAIN_VARIANT (type))
+	  {
+	    /* Set the main variant of the newly-created ARRAY_TYPE
+	       (with cv-qualified element type) to the main variant of
+	       the unqualified ARRAY_TYPE we started with.  */
+	    tree last_variant = t;
+	    tree m = TYPE_MAIN_VARIANT (type);
 
-	  /* This is a new type. */
-	  TYPE_CANONICAL (t) = t;
+	    /* Find the last variant on the new ARRAY_TYPEs list of
+	       variants, setting the main variant of each of the other
+	       types to the main variant of our unqualified
+	       ARRAY_TYPE.  */
+	    while (TYPE_NEXT_VARIANT (last_variant))
+	      {
+		TYPE_MAIN_VARIANT (last_variant) = m;
+		last_variant = TYPE_NEXT_VARIANT (last_variant);
+	      }
 
-	  if (dependent_type_p (element_type)
-	      || (domain
-		  && value_dependent_expression_p (TYPE_MAX_VALUE (domain))))
-	    {
-	      /* The new dependent array type we just created might be
-		 equivalent to an existing dependent array type, so we
-		 need to keep track of this new array type with a
-		 lookup into CPLUS_ARRAY_HTAB. Note that we cannot
-		 directly call build_cplus_array_type (that would
-		 recurse) or build_cplus_array_type_1 (that would lose
-		 attributes). */
-	      void **e;
-	      cplus_array_info cai;
-	      hashval_t hash;
-
-	      if (cplus_array_htab == NULL)
-		cplus_array_htab = htab_create_ggc (61, &cplus_array_hash,
-						    &cplus_array_compare, 
-						    NULL);
-	  
-	      hash = (htab_hash_pointer (element_type)
-		      ^ htab_hash_pointer (domain));
-	      cai.type = element_type;
-	      cai.domain = domain;
-	  
-	      e = htab_find_slot_with_hash (cplus_array_htab, &cai, hash, 
-					    INSERT); 
-	      if (! *e)
-		/* Save this new type. */
-		*e = t;
-	    }
-
-	  if (TYPE_STRUCTURAL_EQUALITY_P (TREE_TYPE (t))
-		   || (TYPE_DOMAIN (t)
-		       && TYPE_STRUCTURAL_EQUALITY_P (TYPE_DOMAIN (t))))
-	    SET_TYPE_STRUCTURAL_EQUALITY (t);
-	  else
-	    TYPE_CANONICAL (t) 
-	      = TYPE_CANONICAL 
-	          (build_array_type (TYPE_CANONICAL (TREE_TYPE (t)),
-				     TYPE_DOMAIN (t)? 
-				       TYPE_CANONICAL (TYPE_DOMAIN(t))
-				       : TYPE_DOMAIN (t)));
-	}
+	    /* Splice in the newly-created variants.  */
+	    TYPE_NEXT_VARIANT (last_variant) = TYPE_NEXT_VARIANT (m);
+	    TYPE_NEXT_VARIANT (m) = t;
+	    TYPE_MAIN_VARIANT (last_variant) = m;
+	  }
+      }
 
       /* Even if we already had this variant, we update
 	 TYPE_NEEDS_CONSTRUCTING and TYPE_HAS_NONTRIVIAL_DESTRUCTOR in case
@@ -792,6 +778,13 @@ cp_build_qualified_type_real (tree type,
       t = TYPE_PTRMEMFUNC_FN_TYPE (type);
       t = cp_build_qualified_type_real (t, type_quals, complain);
       return build_ptrmemfunc_type (t);
+    }
+  else if (TREE_CODE (type) == TYPE_PACK_EXPANSION)
+    {
+      tree t = PACK_EXPANSION_PATTERN (type);
+
+      t = cp_build_qualified_type_real (t, type_quals, complain);
+      return make_pack_expansion (t);
     }
 
   /* A reference or method type shall not be cv qualified.
@@ -859,6 +852,9 @@ cp_build_qualified_type_real (tree type,
 tree
 canonical_type_variant (tree t)
 {
+  if (t == error_mark_node)
+    return error_mark_node;
+
   return cp_build_qualified_type (TYPE_MAIN_VARIANT (t), cp_type_quals (t));
 }
 
@@ -1175,7 +1171,7 @@ build_overload (tree decl, tree chain)
 const char *
 cxx_printable_name (tree decl, int v)
 {
-  static tree decl_ring[PRINT_RING_SIZE];
+  static unsigned int uid_ring[PRINT_RING_SIZE];
   static char *print_ring[PRINT_RING_SIZE];
   static int ring_counter;
   int i;
@@ -1188,7 +1184,7 @@ cxx_printable_name (tree decl, int v)
 
   /* See if this print name is lying around.  */
   for (i = 0; i < PRINT_RING_SIZE; i++)
-    if (decl_ring[i] == decl)
+    if (uid_ring[i] == DECL_UID (decl))
       /* yes, so return it.  */
       return print_ring[i];
 
@@ -1197,18 +1193,18 @@ cxx_printable_name (tree decl, int v)
 
   if (current_function_decl != NULL_TREE)
     {
-      if (decl_ring[ring_counter] == current_function_decl)
+      if (uid_ring[ring_counter] == DECL_UID (current_function_decl))
 	ring_counter += 1;
       if (ring_counter == PRINT_RING_SIZE)
 	ring_counter = 0;
-      gcc_assert (decl_ring[ring_counter] != current_function_decl);
+      gcc_assert (uid_ring[ring_counter] != DECL_UID (current_function_decl));
     }
 
   if (print_ring[ring_counter])
     free (print_ring[ring_counter]);
 
   print_ring[ring_counter] = xstrdup (lang_decl_name (decl, v));
-  decl_ring[ring_counter] = decl;
+  uid_ring[ring_counter] = DECL_UID (decl);
   return print_ring[ring_counter];
 }
 
@@ -1460,16 +1456,16 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
       tree u;
 
       if (TREE_CODE (TREE_OPERAND (t, 1)) == AGGR_INIT_EXPR)
-	u = build_cplus_new
-	  (TREE_TYPE (t), break_out_target_exprs (TREE_OPERAND (t, 1)));
+	u = build_cplus_new (TREE_TYPE (t), TREE_OPERAND (t, 1));
       else
-	u = build_target_expr_with_type
-	  (break_out_target_exprs (TREE_OPERAND (t, 1)), TREE_TYPE (t));
+	u = build_target_expr_with_type (TREE_OPERAND (t, 1), TREE_TYPE (t));
 
       /* Map the old variable to the new one.  */
       splay_tree_insert (target_remap,
 			 (splay_tree_key) TREE_OPERAND (t, 0),
 			 (splay_tree_value) TREE_OPERAND (u, 0));
+
+      TREE_OPERAND (u, 1) = break_out_target_exprs (TREE_OPERAND (u, 1));
 
       /* Replace the old expression with the new version.  */
       *tp = u;
@@ -2052,7 +2048,9 @@ is_dummy_object (const_tree ob)
 int
 pod_type_p (const_tree t)
 {
-  t = const_strip_array_types (t);
+  /* This CONST_CAST is okay because strip_array_types returns it's
+     argument unmodified and we assign it to a const_tree.  */
+  t = strip_array_types (CONST_CAST_TREE(t));
 
   if (t == error_mark_node)
     return 1;
@@ -2089,7 +2087,9 @@ class_tmpl_impl_spec_p (const_tree t)
 int
 zero_init_p (const_tree t)
 {
-  t = const_strip_array_types (t);
+  /* This CONST_CAST is okay because strip_array_types returns it's
+     argument unmodified and we assign it to a const_tree.  */
+  t = strip_array_types (CONST_CAST_TREE(t));
 
   if (t == error_mark_node)
     return 1;
@@ -2257,7 +2257,7 @@ make_ptrmem_cst (tree type, tree member)
 }
 
 /* Build a variant of TYPE that has the indicated ATTRIBUTES.  May
-   return an existing type of an appropriate type already exists.  */
+   return an existing type if an appropriate type already exists.  */
 
 tree
 cp_build_type_attribute_variant (tree type, tree attributes)
@@ -2275,6 +2275,20 @@ cp_build_type_attribute_variant (tree type, tree attributes)
   gcc_assert (!CLASS_TYPE_P (type) || new_type == type);
     
   return new_type;
+}
+
+/* Return TRUE if TYPE1 and TYPE2 are identical for type hashing purposes.
+   Called only after doing all language independent checks.  Only
+   to check TYPE_RAISES_EXCEPTIONS for FUNCTION_TYPE, the rest is already
+   compared in type_hash_eq.  */
+
+bool
+cxx_type_hash_eq (const_tree typea, const_tree typeb)
+{
+  gcc_assert (TREE_CODE (typea) == FUNCTION_TYPE);
+
+  return comp_except_specs (TYPE_RAISES_EXCEPTIONS (typea),
+			    TYPE_RAISES_EXCEPTIONS (typeb), 1);
 }
 
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
@@ -2330,6 +2344,13 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
     case OVERLOAD:
       WALK_SUBTREE (OVL_FUNCTION (*tp));
       WALK_SUBTREE (OVL_CHAIN (*tp));
+      *walk_subtrees_p = 0;
+      break;
+
+    case USING_DECL:
+      WALK_SUBTREE (DECL_NAME (*tp));
+      WALK_SUBTREE (USING_DECL_SCOPE (*tp));
+      WALK_SUBTREE (USING_DECL_DECLS (*tp));
       *walk_subtrees_p = 0;
       break;
 
@@ -2477,6 +2498,10 @@ decl_linkage (tree decl)
   if (!DECL_NAME (decl))
     return lk_none;
 
+  /* Fields have no linkage.  */
+  if (TREE_CODE (decl) == FIELD_DECL)
+    return lk_none;
+
   /* Things that are TREE_PUBLIC have external linkage.  */
   if (TREE_PUBLIC (decl))
     return lk_external;
@@ -2506,10 +2531,18 @@ decl_linkage (tree decl)
   /* Members of the anonymous namespace also have TREE_PUBLIC unset, but
      are considered to have external linkage for language purposes.  DECLs
      really meant to have internal linkage have DECL_THIS_STATIC set.  */
-  if (TREE_CODE (decl) == TYPE_DECL
-      || ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
-	  && !DECL_THIS_STATIC (decl)))
+  if (TREE_CODE (decl) == TYPE_DECL)
     return lk_external;
+  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      if (!DECL_THIS_STATIC (decl))
+	return lk_external;
+
+      /* Static data members and static member functions from classes
+	 in anonymous namespace also don't have TREE_PUBLIC set.  */
+      if (DECL_CLASS_CONTEXT (decl))
+	return lk_external;
+    }
 
   /* Everything else has internal linkage.  */
   return lk_internal;
@@ -2572,8 +2605,11 @@ stabilize_call (tree call, tree *initp)
   int i;
   int nargs = call_expr_nargs (call);
 
-  if (call == error_mark_node)
-    return;
+  if (call == error_mark_node || processing_template_decl)
+    {
+      *initp = NULL_TREE;
+      return;
+    }
 
   gcc_assert (TREE_CODE (call) == CALL_EXPR);
 
@@ -2632,7 +2668,7 @@ stabilize_init (tree init, tree *initp)
 
   *initp = NULL_TREE;
 
-  if (t == error_mark_node)
+  if (t == error_mark_node || processing_template_decl)
     return true;
 
   if (TREE_CODE (t) == INIT_EXPR

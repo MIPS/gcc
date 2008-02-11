@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hooks.h"
 
 struct diagnostic_context;
+struct diagnostic_info;
 
 /* Note to creators of new hooks:
 
@@ -40,7 +41,6 @@ extern void lhd_do_nothing_i (int);
 extern void lhd_do_nothing_f (struct function *);
 extern bool lhd_post_options (const char **);
 extern alias_set_type lhd_get_alias_set (tree);
-extern tree lhd_return_tree (tree);
 extern tree lhd_return_null_tree_v (void);
 extern tree lhd_return_null_tree (tree);
 extern tree lhd_return_null_const_tree (const_tree);
@@ -53,7 +53,7 @@ extern int lhd_types_compatible_p (tree, tree);
 extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 extern int lhd_expand_decl (tree);
 extern void lhd_print_error_function (struct diagnostic_context *,
-				      const char *);
+				      const char *, struct diagnostic_info *);
 extern void lhd_set_decl_assembler_name (tree);
 extern bool lhd_warn_unused_global_decl (const_tree);
 extern void lhd_incomplete_type_error (const_tree, const_tree);
@@ -69,7 +69,7 @@ extern tree lhd_builtin_function (tree decl);
 
 /* Declarations of default tree inlining hooks.  */
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
-extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
+extern tree lhd_callgraph_analyze_expr (tree *, int *);
 
 
 /* Declarations for tree gimplification hooks.  */
@@ -92,7 +92,6 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_MISSING_ARGUMENT	hook_bool_constcharptr_size_t_false
 #define LANG_HOOKS_POST_OPTIONS		lhd_post_options
 #define LANG_HOOKS_GET_ALIAS_SET	lhd_get_alias_set
-#define LANG_HOOKS_EXPAND_CONSTANT	lhd_return_tree
 #define LANG_HOOKS_EXPAND_EXPR		lhd_expand_expr
 #define LANG_HOOKS_EXPAND_DECL		lhd_expand_decl
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL lhd_do_nothing_t
@@ -138,11 +137,11 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 }
 
 #define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR lhd_callgraph_analyze_expr
-#define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION NULL
+#define LANG_HOOKS_CALLGRAPH_EMIT_ASSOCIATED_THUNKS NULL
 
 #define LANG_HOOKS_CALLGRAPH_INITIALIZER { \
   LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR, \
-  LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION, \
+  LANG_HOOKS_CALLGRAPH_EMIT_ASSOCIATED_THUNKS, \
 }
 
 #define LANG_HOOKS_FUNCTION_INITIALIZER {	\
@@ -173,6 +172,7 @@ extern tree lhd_make_node (enum tree_code);
 /* Types hooks.  There are no reasonable defaults for most of them,
    so we create a compile-time error instead.  */
 #define LANG_HOOKS_MAKE_TYPE lhd_make_node
+#define LANG_HOOKS_CLASSIFY_RECORD	NULL
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_GENERIC_TYPE_P	hook_bool_const_tree_false
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
@@ -180,10 +180,13 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_const_tree
 #define LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES \
   lhd_omp_firstprivatize_type_sizes
+#define LANG_HOOKS_TYPE_HASH_EQ		NULL
+#define LANG_HOOKS_GET_ARRAY_DESCR_INFO	NULL
 #define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
   LANG_HOOKS_MAKE_TYPE, \
+  LANG_HOOKS_CLASSIFY_RECORD, \
   LANG_HOOKS_TYPE_FOR_MODE, \
   LANG_HOOKS_TYPE_FOR_SIZE, \
   LANG_HOOKS_GENERIC_TYPE_P, \
@@ -192,6 +195,8 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
   LANG_HOOKS_TYPE_MAX_SIZE, \
   LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES, \
+  LANG_HOOKS_TYPE_HASH_EQ, \
+  LANG_HOOKS_GET_ARRAY_DESCR_INFO, \
   LANG_HOOKS_HASH_TYPES \
 }
 
@@ -247,7 +252,6 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_PARSE_FILE, \
   LANG_HOOKS_CLEAR_BINDING_STACK, \
   LANG_HOOKS_GET_ALIAS_SET, \
-  LANG_HOOKS_EXPAND_CONSTANT, \
   LANG_HOOKS_EXPAND_EXPR, \
   LANG_HOOKS_EXPAND_DECL, \
   LANG_HOOKS_FINISH_INCOMPLETE_DECL, \

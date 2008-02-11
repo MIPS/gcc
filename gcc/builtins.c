@@ -145,7 +145,7 @@ static rtx expand_builtin_sprintf (tree, rtx, enum machine_mode);
 static tree stabilize_va_list (tree, int);
 static rtx expand_builtin_expect (tree, rtx);
 static tree fold_builtin_constant_p (tree);
-static tree fold_builtin_expect (tree);
+static tree fold_builtin_expect (tree, tree);
 static tree fold_builtin_classify_type (tree);
 static tree fold_builtin_strlen (tree);
 static tree fold_builtin_inf (tree, int);
@@ -909,6 +909,20 @@ expand_builtin_nonlocal_goto (tree exp)
 	 not clear if really needed.  */
       emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
       emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+
+      /* If the architecture is using a GP register, we must
+	 conservatively assume that the target function makes use of it.
+	 The prologue of functions with nonlocal gotos must therefore
+	 initialize the GP register to the appropriate value, and we
+	 must then make sure that this value is live at the point
+	 of the jump.  (Note that this doesn't necessarily apply
+	 to targets with a nonlocal_goto pattern; they are free
+	 to implement it in their own way.  Note also that this is
+	 a no-op if the GP register is a global invariant.)  */
+      if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
+	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
+	emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+
       emit_indirect_jump (r_label);
     }
 
@@ -2938,7 +2952,9 @@ expand_builtin_pow (tree exp, rtx target, rtx subtarget)
 	      || n == 1))
 	{
 	  tree call_expr = build_call_expr (fn, 1, narg0);
-	  op = expand_builtin (call_expr, NULL_RTX, subtarget, mode, 0);
+	  /* Use expand_expr in case the newly built call expression
+	     was folded to a non-call.  */
+	  op = expand_expr (call_expr, subtarget, mode, EXPAND_NORMAL);
 	  if (n != 1)
 	    {
 	      op2 = expand_expr (narg0, subtarget, VOIDmode, EXPAND_NORMAL);
@@ -3060,7 +3076,7 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
   if (GET_MODE (op1) != mode2)
     op1 = convert_to_mode (mode2, op1, 0);
 
-  target = emit_library_call_value (optab_handler (powi_optab, mode)->libfunc,
+  target = emit_library_call_value (optab_libfunc (powi_optab, mode),
 				    target, LCT_CONST_MAKE_BLOCK, mode, 2,
 				    op0, mode, op1, mode2);
 
@@ -4700,11 +4716,10 @@ expand_builtin_va_start (tree exp)
   nextarg = expand_builtin_next_arg ();
   valist = stabilize_va_list (CALL_EXPR_ARG (exp, 0), 1);
 
-#ifdef EXPAND_BUILTIN_VA_START
-  EXPAND_BUILTIN_VA_START (valist, nextarg);
-#else
-  std_expand_builtin_va_start (valist, nextarg);
-#endif
+  if (targetm.expand_builtin_va_start)
+    targetm.expand_builtin_va_start (valist, nextarg);
+  else
+    std_expand_builtin_va_start (valist, nextarg);
 
   return const0_rtx;
 }
@@ -4873,7 +4888,7 @@ gimplify_va_arg_expr (tree *expr_p, tree *pre_p, tree *post_p)
       if (! gave_help)
 	{
 	  gave_help = true;
-	  warning (0, "(so you should pass %qT not %qT to %<va_arg%>)",
+	  inform ("(so you should pass %qT not %qT to %<va_arg%>)",
 		   promoted_type, type);
 	}
 
@@ -6270,6 +6285,18 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ARGS_INFO:
       return expand_builtin_args_info (exp);
 
+    case BUILT_IN_VA_ARG_PACK:
+      /* All valid uses of __builtin_va_arg_pack () are removed during
+	 inlining.  */
+      error ("%Kinvalid use of %<__builtin_va_arg_pack ()%>", exp);
+      return const0_rtx;
+
+    case BUILT_IN_VA_ARG_PACK_LEN:
+      /* All valid uses of __builtin_va_arg_pack_len () are removed during
+	 inlining.  */
+      error ("%Kinvalid use of %<__builtin_va_arg_pack_len ()%>", exp);
+      return const0_rtx;
+
       /* Return the address of the first anonymous stack arg.  */
     case BUILT_IN_NEXT_ARG:
       if (fold_builtin_next_arg (exp, false))
@@ -7054,21 +7081,80 @@ fold_builtin_constant_p (tree arg)
   return NULL_TREE;
 }
 
-/* Fold a call to __builtin_expect with argument ARG, if we expect that a
-   comparison against the argument will fold to a constant.  In practice,
-   this means a true constant or the address of a non-weak symbol.  */
+/* Create builtin_expect with PRED and EXPECTED as its arguments and
+   return it as a truthvalue.  */
 
 static tree
-fold_builtin_expect (tree arg)
+build_builtin_expect_predicate (tree pred, tree expected)
 {
-  tree inner;
+  tree fn, arg_types, pred_type, expected_type, call_expr, ret_type;
 
-  /* If the argument isn't invariant, then there's nothing we can do.  */
-  if (!TREE_INVARIANT (arg))
+  fn = built_in_decls[BUILT_IN_EXPECT];
+  arg_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
+  ret_type = TREE_TYPE (TREE_TYPE (fn));
+  pred_type = TREE_VALUE (arg_types);
+  expected_type = TREE_VALUE (TREE_CHAIN (arg_types));
+
+  pred = fold_convert (pred_type, pred);
+  expected = fold_convert (expected_type, expected);
+  call_expr = build_call_expr (fn, 2, pred, expected);
+
+  return build2 (NE_EXPR, TREE_TYPE (pred), call_expr,
+		 build_int_cst (ret_type, 0));
+}
+
+/* Fold a call to builtin_expect with arguments ARG0 and ARG1.  Return
+   NULL_TREE if no simplification is possible.  */
+
+static tree
+fold_builtin_expect (tree arg0, tree arg1)
+{
+  tree inner, fndecl;
+  enum tree_code code;
+
+  /* If this is a builtin_expect within a builtin_expect keep the
+     inner one.  See through a comparison against a constant.  It
+     might have been added to create a thruthvalue.  */
+  inner = arg0;
+  if (COMPARISON_CLASS_P (inner)
+      && TREE_CODE (TREE_OPERAND (inner, 1)) == INTEGER_CST)
+    inner = TREE_OPERAND (inner, 0);
+
+  if (TREE_CODE (inner) == CALL_EXPR
+      && (fndecl = get_callee_fndecl (inner))
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT)
+    return arg0;
+
+  /* Distribute the expected value over short-circuiting operators.
+     See through the cast from truthvalue_type_node to long.  */
+  inner = arg0;
+  while (TREE_CODE (inner) == NOP_EXPR
+	 && INTEGRAL_TYPE_P (TREE_TYPE (inner))
+	 && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (inner, 0))))
+    inner = TREE_OPERAND (inner, 0);
+
+  code = TREE_CODE (inner);
+  if (code == TRUTH_ANDIF_EXPR || code == TRUTH_ORIF_EXPR)
+    {
+      tree op0 = TREE_OPERAND (inner, 0);
+      tree op1 = TREE_OPERAND (inner, 1);
+
+      op0 = build_builtin_expect_predicate (op0, arg1);
+      op1 = build_builtin_expect_predicate (op1, arg1);
+      inner = build2 (code, TREE_TYPE (inner), op0, op1);
+
+      return fold_convert (TREE_TYPE (arg0), inner);
+    }
+
+  /* If the argument isn't invariant then there's nothing else we can do.  */
+  if (!TREE_INVARIANT (arg0))
     return NULL_TREE;
 
-  /* If we're looking at an address of a weak decl, then do not fold.  */
-  inner = arg;
+  /* If we expect that a comparison against the argument will fold to
+     a constant return the constant.  In practice, this means a true
+     constant or the address of a non-weak symbol.  */
+  inner = arg0;
   STRIP_NOPS (inner);
   if (TREE_CODE (inner) == ADDR_EXPR)
     {
@@ -7082,8 +7168,8 @@ fold_builtin_expect (tree arg)
 	return NULL_TREE;
     }
 
-  /* Otherwise, ARG already has the proper type for the return value.  */
-  return arg;
+  /* Otherwise, ARG0 already has the proper type for the return value.  */
+  return arg0;
 }
 
 /* Fold a call to __builtin_classify_type with argument ARG.  */
@@ -7734,13 +7820,13 @@ fold_builtin_cexp (tree arg0, tree type)
       icall = builtin_save_expr (icall);
       rcall = build_call_expr (rfn, 1, realp);
       rcall = builtin_save_expr (rcall);
-      return build2 (COMPLEX_EXPR, type,
-		     build2 (MULT_EXPR, rtype,
-			     rcall,
-			     build1 (REALPART_EXPR, rtype, icall)),
-		     build2 (MULT_EXPR, rtype,
-			     rcall,
-			     build1 (IMAGPART_EXPR, rtype, icall)));
+      return fold_build2 (COMPLEX_EXPR, type,
+			  fold_build2 (MULT_EXPR, rtype,
+				       rcall,
+			 	       fold_build1 (REALPART_EXPR, rtype, icall)),
+			  fold_build2 (MULT_EXPR, rtype,
+				       rcall,
+				       fold_build1 (IMAGPART_EXPR, rtype, icall)));
     }
 
   return NULL_TREE;
@@ -9990,6 +10076,15 @@ fold_builtin_1 (tree fndecl, tree arg0, bool ignore)
     case BUILT_IN_ISNAND128:
       return fold_builtin_classify (fndecl, arg0, BUILT_IN_ISNAN);
 
+    case BUILT_IN_ISNORMAL:
+      if (!validate_arg (arg0, REAL_TYPE))
+	{
+	  error ("non-floating-point argument to function %qs",
+		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+	  return error_mark_node;
+	}
+      break;
+
     case BUILT_IN_PRINTF:
     case BUILT_IN_PRINTF_UNLOCKED:
     case BUILT_IN_VPRINTF:
@@ -10110,7 +10205,7 @@ fold_builtin_2 (tree fndecl, tree arg0, tree arg1, bool ignore)
       return fold_builtin_strpbrk (arg0, arg1, type);
 
     case BUILT_IN_EXPECT:
-      return fold_builtin_expect (arg0);
+      return fold_builtin_expect (arg0, arg1);
 
     CASE_FLT_FN (BUILT_IN_POW):
       return fold_builtin_pow (fndecl, arg0, arg1, type);
@@ -10335,7 +10430,55 @@ fold_builtin_4 (tree fndecl, tree arg0, tree arg1, tree arg2, tree arg3,
 static tree
 fold_builtin_n (tree fndecl, tree *args, int nargs, bool ignore)
 {
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   tree ret = NULL_TREE;
+
+  /* Verify the number of arguments for type-generic and thus variadic
+     builtins.  */
+  switch (fcode)
+    {
+    case BUILT_IN_ISFINITE:
+    case BUILT_IN_ISINF:
+    case BUILT_IN_ISNAN:
+    case BUILT_IN_ISNORMAL:
+      if (nargs < 1)
+	{
+	  error ("too few arguments to function %qs",
+		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+	  return error_mark_node;
+	}
+      else if (nargs > 1)
+	{
+	  error ("too many arguments to function %qs",
+		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+	  return error_mark_node;
+	}
+      break;
+
+    case BUILT_IN_ISGREATER:
+    case BUILT_IN_ISGREATEREQUAL:
+    case BUILT_IN_ISLESS:
+    case BUILT_IN_ISLESSEQUAL:
+    case BUILT_IN_ISLESSGREATER:
+    case BUILT_IN_ISUNORDERED:
+      if (nargs < 2)
+	{
+	  error ("too few arguments to function %qs",
+		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+	  return error_mark_node;
+	}
+      else if (nargs > 2)
+	{
+	  error ("too many arguments to function %qs",
+		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+	  return error_mark_node;
+	}
+      break;
+
+    default:
+      break;
+    }
+
   switch (nargs)
     {
     case 0:
@@ -10413,14 +10556,32 @@ fold_call_expr (tree exp, bool ignore)
   tree fndecl = get_callee_fndecl (exp);
   if (fndecl
       && TREE_CODE (fndecl) == FUNCTION_DECL
-      && DECL_BUILT_IN (fndecl))
+      && DECL_BUILT_IN (fndecl)
+      /* If CALL_EXPR_VA_ARG_PACK is set, the arguments aren't finalized
+	 yet.  Defer folding until we see all the arguments
+	 (after inlining).  */
+      && !CALL_EXPR_VA_ARG_PACK (exp))
     {
+      int nargs = call_expr_nargs (exp);
+
+      /* Before gimplification CALL_EXPR_VA_ARG_PACK is not set, but
+	 instead last argument is __builtin_va_arg_pack ().  Defer folding
+	 even in that case, until arguments are finalized.  */
+      if (nargs && TREE_CODE (CALL_EXPR_ARG (exp, nargs - 1)) == CALL_EXPR)
+	{
+	  tree fndecl2 = get_callee_fndecl (CALL_EXPR_ARG (exp, nargs - 1));
+	  if (fndecl2
+	      && TREE_CODE (fndecl2) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (fndecl2) == BUILT_IN_NORMAL
+	      && DECL_FUNCTION_CODE (fndecl2) == BUILT_IN_VA_ARG_PACK)
+	    return NULL_TREE;
+	}
+
       /* FIXME: Don't use a list in this interface.  */
       if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
 	  return targetm.fold_builtin (fndecl, CALL_EXPR_ARGS (exp), ignore);
       else
 	{
-	  int nargs = call_expr_nargs (exp);
 	  if (nargs <= MAX_ARGS_TO_FOLD_BUILTIN)
 	    {
 	      tree *args = CALL_EXPR_ARGP (exp);
@@ -10506,6 +10667,17 @@ fold_builtin_call_array (tree type,
     if (TREE_CODE (fndecl) == FUNCTION_DECL
         && DECL_BUILT_IN (fndecl))
       {
+	/* If last argument is __builtin_va_arg_pack (), arguments to this
+	   function are not finalized yet.  Defer folding until they are.  */
+	if (n && TREE_CODE (argarray[n - 1]) == CALL_EXPR)
+	  {
+	    tree fndecl2 = get_callee_fndecl (argarray[n - 1]);
+	    if (fndecl2
+		&& TREE_CODE (fndecl2) == FUNCTION_DECL
+		&& DECL_BUILT_IN_CLASS (fndecl2) == BUILT_IN_NORMAL
+		&& DECL_FUNCTION_CODE (fndecl2) == BUILT_IN_VA_ARG_PACK)
+	      return build_call_array (type, fn, n, argarray);
+	  }
         if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
           {
             tree arglist = NULL_TREE;
@@ -11366,12 +11538,11 @@ expand_builtin_object_size (tree exp)
   tree ost;
   int object_size_type;
   tree fndecl = get_callee_fndecl (exp);
-  location_t locus = EXPR_LOCATION (exp);
 
   if (!validate_arglist (exp, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     {
-      error ("%Hfirst argument of %D must be a pointer, second integer constant",
-	     &locus, fndecl);
+      error ("%Kfirst argument of %D must be a pointer, second integer constant",
+	     exp, fndecl);
       expand_builtin_trap ();
       return const0_rtx;
     }
@@ -11383,8 +11554,8 @@ expand_builtin_object_size (tree exp)
       || tree_int_cst_sgn (ost) < 0
       || compare_tree_int (ost, 3) > 0)
     {
-      error ("%Hlast argument of %D is not integer constant between 0 and 3",
-	     &locus, fndecl);
+      error ("%Klast argument of %D is not integer constant between 0 and 3",
+	     exp, fndecl);
       expand_builtin_trap ();
       return const0_rtx;
     }
@@ -11427,9 +11598,8 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 
       if (! integer_all_onesp (size) && tree_int_cst_lt (size, len))
 	{
-	  location_t locus = EXPR_LOCATION (exp);
-	  warning (0, "%Hcall to %D will always overflow destination buffer",
-		   &locus, get_callee_fndecl (exp));
+	  warning (0, "%Kcall to %D will always overflow destination buffer",
+		   exp, get_callee_fndecl (exp));
 	  return NULL_RTX;
 	}
 
@@ -11458,6 +11628,13 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 	return NULL_RTX;
 
       fn = build_call_expr (fn, 3, dest, src, len);
+      STRIP_TYPE_NOPS (fn);
+      while (TREE_CODE (fn) == COMPOUND_EXPR)
+	{
+	  expand_expr (TREE_OPERAND (fn, 0), const0_rtx, VOIDmode,
+		       EXPAND_NORMAL);
+	  fn = TREE_OPERAND (fn, 1);
+	}
       if (TREE_CODE (fn) == CALL_EXPR)
 	CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
       return expand_expr (fn, target, mode, EXPAND_NORMAL);
@@ -11506,6 +11683,13 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 	      if (!fn)
 		return NULL_RTX;
 	      fn = build_call_expr (fn, 4, dest, src, len, size);
+	      STRIP_TYPE_NOPS (fn);
+	      while (TREE_CODE (fn) == COMPOUND_EXPR)
+		{
+		  expand_expr (TREE_OPERAND (fn, 0), const0_rtx, VOIDmode,
+			       EXPAND_NORMAL);
+		  fn = TREE_OPERAND (fn, 1);
+		}
 	      if (TREE_CODE (fn) == CALL_EXPR)
 		CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
 	      return expand_expr (fn, target, mode, EXPAND_NORMAL);
@@ -11522,7 +11706,6 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
 {
   int is_strlen = 0;
   tree len, size;
-  location_t locus;
 
   switch (fcode)
     {
@@ -11569,9 +11752,8 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
       src = c_strlen (src, 1);
       if (! src || ! host_integerp (src, 1))
 	{
-	  locus = EXPR_LOCATION (exp);
-	  warning (0, "%Hcall to %D might overflow destination buffer",
-		   &locus, get_callee_fndecl (exp));
+	  warning (0, "%Kcall to %D might overflow destination buffer",
+		   exp, get_callee_fndecl (exp));
 	  return;
 	}
       else if (tree_int_cst_lt (src, size))
@@ -11580,9 +11762,8 @@ maybe_emit_chk_warning (tree exp, enum built_in_function fcode)
   else if (! host_integerp (len, 1) || ! tree_int_cst_lt (size, len))
     return;
 
-  locus = EXPR_LOCATION (exp);
-  warning (0, "%Hcall to %D will always overflow destination buffer",
-	   &locus, get_callee_fndecl (exp));
+  warning (0, "%Kcall to %D will always overflow destination buffer",
+	   exp, get_callee_fndecl (exp));
 }
 
 /* Emit warning if a buffer overflow is detected at compile time
@@ -11640,9 +11821,8 @@ maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
 
   if (! tree_int_cst_lt (len, size))
     {
-      location_t locus = EXPR_LOCATION (exp);
-      warning (0, "%Hcall to %D will always overflow destination buffer",
-	       &locus, get_callee_fndecl (exp));
+      warning (0, "%Kcall to %D will always overflow destination buffer",
+	       exp, get_callee_fndecl (exp));
     }
 }
 

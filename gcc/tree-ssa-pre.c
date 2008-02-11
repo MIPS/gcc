@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "tree-ssa-sccvn.h"
+#include "params.h"
 
 /* TODO:
 
@@ -382,7 +383,6 @@ static void bitmap_set_copy (bitmap_set_t, bitmap_set_t);
 static bool bitmap_set_contains_value (bitmap_set_t, tree);
 static void bitmap_insert_into_set (bitmap_set_t, tree);
 static bitmap_set_t bitmap_set_new (void);
-static bool is_undefined_value (tree);
 static tree create_expression_by_pieces (basic_block, tree, tree);
 static tree find_or_generate_expression (basic_block, tree, tree);
 
@@ -1327,7 +1327,7 @@ phi_translate_1 (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 	    if (is_gimple_min_invariant (def))
 	      return def;
 
-	    if (is_undefined_value (def))
+	    if (TREE_CODE (def) == SSA_NAME && ssa_undefined_value_p (def))
 	      return NULL;
 
 	    val = get_value_handle (def);
@@ -1839,12 +1839,21 @@ compute_partial_antic_aux (basic_block block,
   bitmap_set_t PA_OUT;
   edge e;
   edge_iterator ei;
+  unsigned long max_pa = PARAM_VALUE (PARAM_MAX_PARTIAL_ANTIC_LENGTH);
 
   old_PA_IN = PA_OUT = NULL;
 
   /* If any edges from predecessors are abnormal, antic_in is empty,
      so do nothing.  */
   if (block_has_abnormal_pred_edge)
+    goto maybe_dump_sets;
+
+  /* If there are too many partially anticipatable values in the
+     block, phi_translate_set can take an exponential time: stop
+     before the translation starts.  */
+  if (max_pa
+      && single_succ_p (block)
+      && bitmap_count_bits (PA_IN (single_succ (block))->values) > max_pa)
     goto maybe_dump_sets;
 
   old_PA_IN = PA_IN (block);
@@ -2879,18 +2888,6 @@ insert (void)
 }
 
 
-/* Return true if VAR is an SSA variable with no defining statement in
-   this procedure, *AND* isn't a live-on-entry parameter.  */
-
-static bool
-is_undefined_value (tree expr)
-{
-  return (TREE_CODE (expr) == SSA_NAME
-	  && IS_EMPTY_STMT (SSA_NAME_DEF_STMT (expr))
-	  /* PARM_DECLs and hard registers are always defined.  */
-	  && TREE_CODE (SSA_NAME_VAR (expr)) != PARM_DECL);
-}
-
 /* Add OP to EXP_GEN (block), and possibly to the maximal set if it is
    not defined by a phi node.
    PHI nodes can't go in the maximal sets because they are not in
@@ -2902,7 +2899,7 @@ add_to_exp_gen (basic_block block, tree op)
 {
   if (!in_fre)
     {
-      if (TREE_CODE (op) == SSA_NAME && is_undefined_value (op))
+      if (TREE_CODE (op) == SSA_NAME && ssa_undefined_value_p (op))
 	return;
       bitmap_value_insert_into_set (EXP_GEN (block), op);
       if (TREE_CODE (op) != SSA_NAME
@@ -3174,7 +3171,7 @@ insert_fake_stores (void)
 
 	      lhs = make_ssa_name (storetemp, new_tree);
 	      GIMPLE_STMT_OPERAND (new_tree, 0) = lhs;
-	      create_ssa_artificial_load_stmt (new_tree, stmt);
+	      create_ssa_artificial_load_stmt (new_tree, stmt, false);
 
 	      NECESSARY (new_tree) = 0;
 	      VEC_safe_push (tree, heap, inserted_exprs, new_tree);
@@ -3405,7 +3402,7 @@ make_values_for_stmt (tree stmt, basic_block block)
 		       AVAIL_OUT (block));
 	}
       /* None of the rest of these can be PRE'd.  */
-      if (TREE_CODE (rhs) == SSA_NAME && !is_undefined_value (rhs))
+      if (TREE_CODE (rhs) == SSA_NAME && !ssa_undefined_value_p (rhs))
 	add_to_exp_gen (block, rhs);
       return true;
     }
@@ -3555,10 +3552,11 @@ compute_avail (void)
 	    }
 
 	  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	      && !ann->has_volatile_ops
-	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME
-	      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI
-		   (GIMPLE_STMT_OPERAND (stmt, 0)))
+		   && !ann->has_volatile_ops
+		   && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME
+		   && (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI
+		       (GIMPLE_STMT_OPERAND (stmt, 0)))
+		   && !tree_could_throw_p (stmt))
 	    {
 	      if (make_values_for_stmt (stmt, block))
 		continue;
@@ -3922,7 +3920,13 @@ execute_pre (bool do_fre)
     insert_fake_stores ();
 
   /* Collect and value number expressions computed in each basic block.  */
-  run_scc_vn ();
+  if (!run_scc_vn ())
+    {
+      if (!do_fre)
+	remove_dead_inserted_code ();
+      fini_pre ();
+      return;
+    }
   switch_to_PRE_table ();
   compute_avail ();
 

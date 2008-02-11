@@ -1,5 +1,5 @@
 /* Implementation of the MATMUL intrinsic
-   Copyright 2002, 2005, 2006 Free Software Foundation, Inc.
+   Copyright 2002, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,10 +28,10 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
+#include "libgfortran.h"
 #include <stdlib.h>
 #include <assert.h>
-#include "libgfortran.h"
+
 
 #if defined (HAVE_GFC_LOGICAL_4)
 
@@ -152,7 +152,7 @@ matmul_l4 (gfc_array_l4 * const restrict retarray,
     {
       astride = a->dim[1].stride * a_kind;
       count = a->dim[1].ubound + 1 - a->dim[1].lbound;
-      xstride = a->dim[0].stride;
+      xstride = a->dim[0].stride * a_kind;
       xcount = a->dim[0].ubound + 1 - a->dim[0].lbound;
     }
   if (GFC_DESCRIPTOR_RANK (b) == 1)
@@ -167,7 +167,7 @@ matmul_l4 (gfc_array_l4 * const restrict retarray,
     {
       bstride = b->dim[0].stride * b_kind;
       assert(count == b->dim[0].ubound + 1 - b->dim[0].lbound);
-      ystride = b->dim[1].stride;
+      ystride = b->dim[1].stride * b_kind;
       ycount = b->dim[1].ubound + 1 - b->dim[1].lbound;
     }
 

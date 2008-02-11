@@ -10,23 +10,23 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Csets;   use Csets;
-with Stylesw; use Stylesw;
-with Uintp;   use Uintp;
+with Csets;    use Csets;
+with Namet.Sp; use Namet.Sp;
+with Stylesw;  use Stylesw;
+with Uintp;    use Uintp;
 
 with GNAT.Spelling_Checker; use GNAT.Spelling_Checker;
 
@@ -61,7 +61,7 @@ package body Util is
       end if;
 
       for J in S'Range loop
-         S (J) := Fold_Lower (Tname (Integer (J) + 4));
+         S (J) := Fold_Lower (Tname (J + 4));
       end loop;
 
       Get_Name_String (Token_Name);
@@ -588,6 +588,21 @@ package body Util is
    end Merge_Identifier;
 
    -------------------
+   -- Next_Token_Is --
+   -------------------
+
+   function Next_Token_Is (Tok : Token_Type) return Boolean is
+      Scan_State : Saved_Scan_State;
+      Result     : Boolean;
+   begin
+      Save_Scan_State (Scan_State);
+      Scan;
+      Result := (Token = Tok);
+      Restore_Scan_State (Scan_State);
+      return Result;
+   end Next_Token_Is;
+
+   -------------------
    -- No_Constraint --
    -------------------
 
@@ -678,27 +693,15 @@ package body Util is
 
       --  Check for possible misspelling
 
-      Get_Name_String (Token_Name);
+      Error_Msg_Name_1 := First_Attribute_Name;
+      while Error_Msg_Name_1 <= Last_Attribute_Name loop
+         if Is_Bad_Spelling_Of (Token_Name, Error_Msg_Name_1) then
+            Error_Msg_N ("\possible misspelling of %", Token_Node);
+            exit;
+         end if;
 
-      declare
-         AN : constant String := Name_Buffer (1 .. Name_Len);
-
-      begin
-         Error_Msg_Name_1 := First_Attribute_Name;
-         while Error_Msg_Name_1 <= Last_Attribute_Name loop
-            Get_Name_String (Error_Msg_Name_1);
-
-            if Is_Bad_Spelling_Of
-                 (AN, Name_Buffer (1 .. Name_Len))
-            then
-               Error_Msg_N
-                 ("\possible misspelling of %", Token_Node);
-               exit;
-            end if;
-
-            Error_Msg_Name_1 := Error_Msg_Name_1 + 1;
-         end loop;
-      end;
+         Error_Msg_Name_1 := Error_Msg_Name_1 + 1;
+      end loop;
    end Signal_Bad_Attribute;
 
    -----------------------------

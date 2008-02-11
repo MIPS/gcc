@@ -1017,7 +1017,7 @@ DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 6)
 	      which of the sections to execute.  */
 DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_statement, 3)
 
-/* This tree immediatelly follows OMP_SECTIONS, and represents the switch
+/* This tree immediately follows OMP_SECTIONS, and represents the switch
    used to decide which branch is taken.  */
 DEFTREECODE (OMP_SECTIONS_SWITCH, "omp_sections_switch", tcc_statement, 0)
 
@@ -1058,6 +1058,18 @@ DEFTREECODE (OMP_CONTINUE, "omp_continue", tcc_statement, 2)
 	at the address is used in the expression, it should appear as if
 	build_fold_indirect_ref of the address.  */
 DEFTREECODE (OMP_ATOMIC, "omp_atomic", tcc_statement, 2)
+
+/* Codes used for lowering of OMP_ATOMIC.  Although the form of the OMP_ATOMIC
+   statement is very simple (just in form mem op= expr), various implicit
+   conversions may cause the expression become more complex, so that it does
+   not fit the gimple grammar very well.  To overcome this problem, OMP_ATOMIC
+   is rewritten as a sequence of two codes in gimplification:
+
+   OMP_LOAD (tmp, mem)
+   val = some computations involving tmp;
+   OMP_STORE (val)  */
+DEFTREECODE (OMP_ATOMIC_LOAD, "omp_atomic_load", tcc_statement, 2)
+DEFTREECODE (OMP_ATOMIC_STORE, "omp_atomic_store", tcc_statement, 1)
 
 /* OpenMP clauses.  */
 DEFTREECODE (OMP_CLAUSE, "omp_clause", tcc_exceptional, 0)

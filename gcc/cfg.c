@@ -534,9 +534,11 @@ dump_bb_info (basic_block bb, bool header, bool footer, int flags,
       fprintf (file, ", loop_depth %d, count ", bb->loop_depth);
       fprintf (file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
       fprintf (file, ", freq %i", bb->frequency);
-      if (maybe_hot_bb_p (bb))
+      /* Both maybe_hot_bb_p & probably_never_executed_bb_p functions
+	 crash without cfun. */ 
+      if (cfun && maybe_hot_bb_p (bb))
 	fprintf (file, ", maybe hot");
-      if (probably_never_executed_bb_p (bb))
+      if (cfun && probably_never_executed_bb_p (bb))
 	fprintf (file, ", probably never executed");
       fprintf (file, ".\n");
 
@@ -611,6 +613,8 @@ dump_reg_info (FILE *file)
 	fprintf (file, "; crosses 1 call");
       else if (REG_N_CALLS_CROSSED (i))
 	fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
+      if (REG_FREQ_CALLS_CROSSED (i))
+	fprintf (file, "; crosses call with %d frequency", REG_FREQ_CALLS_CROSSED (i));
       if (regno_reg_rtx[i] != NULL
 	  && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
 	fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));
@@ -646,7 +650,7 @@ dump_flow_info (FILE *file, int flags)
     dump_reg_info (file);
 
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
-  FOR_EACH_BB (bb)
+  FOR_ALL_BB (bb)
     {
       dump_bb_info (bb, true, true, flags, "", file);
       check_bb_profile (bb, file);
@@ -665,10 +669,10 @@ void
 dump_edge_info (FILE *file, edge e, int do_succ)
 {
   basic_block side = (do_succ ? e->dest : e->src);
-
-  if (side == ENTRY_BLOCK_PTR)
+  /* both ENTRY_BLOCK_PTR & EXIT_BLOCK_PTR depend upon cfun. */
+  if (cfun && side == ENTRY_BLOCK_PTR)
     fputs (" ENTRY", file);
-  else if (side == EXIT_BLOCK_PTR)
+  else if (cfun && side == EXIT_BLOCK_PTR)
     fputs (" EXIT", file);
   else
     fprintf (file, " %d", side->index);
@@ -879,7 +883,9 @@ dump_cfg_bb_info (FILE *file, basic_block bb)
   bool first = true;
   static const char * const bb_bitnames[] =
     {
-      "dirty", "new", "reachable", "visited", "irreducible_loop", "superblock"
+      "new", "reachable", "irreducible_loop", "superblock",
+      "nosched", "hot", "cold", "dup", "xlabel", "rtl",
+      "fwdr", "nothrd"
     };
   const unsigned n_bitnames = sizeof (bb_bitnames) / sizeof (char *);
   edge e;
@@ -986,9 +992,15 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
 
       FOR_EACH_EDGE (c, ei, bb->succs)
 	{
-	  c->probability = RDIV (c->probability * scale, 65536);
-	  if (c->probability > REG_BR_PROB_BASE)
+	  /* Protect from overflow due to additional scaling.  */
+	  if (c->probability > prob)
 	    c->probability = REG_BR_PROB_BASE;
+	  else
+	    {
+	      c->probability = RDIV (c->probability * scale, 65536);
+	      if (c->probability > REG_BR_PROB_BASE)
+		c->probability = REG_BR_PROB_BASE;
+	    }
 	}
     }
 

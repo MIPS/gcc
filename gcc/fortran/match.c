@@ -104,6 +104,68 @@ gfc_op2string (gfc_intrinsic_op op)
 
 /******************** Generic matching subroutines ************************/
 
+/* This function scans the current statement counting the opened and closed
+   parenthesis to make sure they are balanced.  */
+
+match
+gfc_match_parens (void)
+{
+  locus old_loc, where;
+  int c, count, instring;
+  char quote;
+
+  old_loc = gfc_current_locus;
+  count = 0;
+  instring = 0;
+  quote = ' ';
+
+  for (;;)
+    {
+      c = gfc_next_char_literal (instring);
+      if (c == '\n')
+	break;
+      if (quote == ' ' && ((c == '\'') || (c == '"')))
+	{
+	  quote = (char) c;
+	  instring = 1;
+	  continue;
+	}
+      if (quote != ' ' && c == quote)
+	{
+	  quote = ' ';
+	  instring = 0;
+	  continue;
+	}
+
+      if (c == '(' && quote == ' ')
+	{
+	  count++;
+	  where = gfc_current_locus;
+	}
+      if (c == ')' && quote == ' ')
+	{
+	  count--;
+	  where = gfc_current_locus;
+	}
+    }
+
+  gfc_current_locus = old_loc;
+
+  if (count > 0)
+    {
+      gfc_error ("Missing ')' in statement before %L", &where);
+      return MATCH_ERROR;
+    }
+  if (count < 0)
+    {
+      gfc_error ("Missing '(' in statement before %L", &where);
+      return MATCH_ERROR;
+    }
+
+  return MATCH_YES;
+}
+
+
 /* See if the next character is a special character that has
    escaped by a \ via the -fbackslash option.  */
 
@@ -417,90 +479,6 @@ gfc_match_label (void)
 }
 
 
-/* Try and match the input against an array of possibilities.  If one
-   potential matching string is a substring of another, the longest
-   match takes precedence.  Spaces in the target strings are optional
-   spaces that do not necessarily have to be found in the input
-   stream.  In fixed mode, spaces never appear.  If whitespace is
-   matched, it matches unlimited whitespace in the input.  For this
-   reason, the 'mp' member of the mstring structure is used to track
-   the progress of each potential match.
-
-   If there is no match we return the tag associated with the
-   terminating NULL mstring structure and leave the locus pointer
-   where it started.  If there is a match we return the tag member of
-   the matched mstring and leave the locus pointer after the matched
-   character.
-
-   A '%' character is a mandatory space.  */
-
-int
-gfc_match_strings (mstring *a)
-{
-  mstring *p, *best_match;
-  int no_match, c, possibles;
-  locus match_loc;
-
-  possibles = 0;
-
-  for (p = a; p->string != NULL; p++)
-    {
-      p->mp = p->string;
-      possibles++;
-    }
-
-  no_match = p->tag;
-
-  best_match = NULL;
-  match_loc = gfc_current_locus;
-
-  gfc_gobble_whitespace ();
-
-  while (possibles > 0)
-    {
-      c = gfc_next_char ();
-
-      /* Apply the next character to the current possibilities.  */
-      for (p = a; p->string != NULL; p++)
-	{
-	  if (p->mp == NULL)
-	    continue;
-
-	  if (*p->mp == ' ')
-	    {
-	      /* Space matches 1+ whitespace(s).  */
-	      if ((gfc_current_form == FORM_FREE) && gfc_is_whitespace (c))
-		continue;
-
-	      p->mp++;
-	    }
-
-	  if (*p->mp != c)
-	    {
-	      /* Match failed.  */
-	      p->mp = NULL;
-	      possibles--;
-	      continue;
-	    }
-
-	  p->mp++;
-	  if (*p->mp == '\0')
-	    {
-	      /* Found a match.  */
-	      match_loc = gfc_current_locus;
-	      best_match = p;
-	      possibles--;
-	      p->mp = NULL;
-	    }
-	}
-    }
-
-  gfc_current_locus = match_loc;
-
-  return (best_match == NULL) ? no_match : best_match->tag;
-}
-
-
 /* See if the current input looks like a name of some sort.  Modifies
    the passed buffer which must be GFC_MAX_SYMBOL_LEN+1 bytes long.
    Note that options.c restricts max_identifier_length to not more
@@ -518,7 +496,7 @@ gfc_match_name (char *buffer)
   c = gfc_next_char ();
   if (!(ISALPHA (c) || (c == '_' && gfc_option.flag_allow_leading_underscore)))
     {
-      if (gfc_error_flag_test() == 0)
+      if (gfc_error_flag_test() == 0 && c != '(')
 	gfc_error ("Invalid character in name at %C");
       gfc_current_locus = old_loc;
       return MATCH_NO;
@@ -1405,7 +1383,7 @@ gfc_match_if (gfc_statement *if_type)
 {
   gfc_expr *expr;
   gfc_st_label *l1, *l2, *l3;
-  locus old_loc;
+  locus old_loc, old_loc2;
   gfc_code *p;
   match m, n;
 
@@ -1418,6 +1396,14 @@ gfc_match_if (gfc_statement *if_type)
   m = gfc_match (" if ( %e", &expr);
   if (m != MATCH_YES)
     return m;
+
+  old_loc2 = gfc_current_locus;
+  gfc_current_locus = old_loc;
+  
+  if (gfc_match_parens () == MATCH_ERROR)
+    return MATCH_ERROR;
+
+  gfc_current_locus = old_loc2;
 
   if (gfc_match_char (')') != MATCH_YES)
     {
@@ -1470,7 +1456,7 @@ gfc_match_if (gfc_statement *if_type)
 
   if (n == MATCH_YES)
     {
-      gfc_error ("Block label is not appropriate IF statement at %C");
+      gfc_error ("Block label is not appropriate for IF statement at %C");
       gfc_free_expr (expr);
       return MATCH_ERROR;
     }
@@ -2249,62 +2235,7 @@ gfc_match_allocate (void)
     }
 
   if (stat != NULL)
-    {
-      bool is_variable;
-
-      if (stat->symtree->n.sym->attr.intent == INTENT_IN)
-	{
-	  gfc_error ("STAT variable '%s' of ALLOCATE statement at %C cannot "
-		     "be INTENT(IN)", stat->symtree->n.sym->name);
-	  goto cleanup;
-	}
-
-      if (gfc_pure (NULL) && gfc_impure_variable (stat->symtree->n.sym))
-	{
-	  gfc_error ("Illegal STAT variable in ALLOCATE statement at %C "
-		     "for a PURE procedure");
-	  goto cleanup;
-	}
-
-      is_variable = false;
-      if (stat->symtree->n.sym->attr.flavor == FL_VARIABLE)
-	is_variable = true;
-      else if (stat->symtree->n.sym->attr.function
-	  && stat->symtree->n.sym->result == stat->symtree->n.sym
-	  && (gfc_current_ns->proc_name == stat->symtree->n.sym
-	      || (gfc_current_ns->parent
-		  && gfc_current_ns->parent->proc_name
-		     == stat->symtree->n.sym)))
-	is_variable = true;
-      else if (gfc_current_ns->entries
-	       && stat->symtree->n.sym->result == stat->symtree->n.sym)
-	{
-	  gfc_entry_list *el;
-	  for (el = gfc_current_ns->entries; el; el = el->next)
-	    if (el->sym == stat->symtree->n.sym)
-	      {
-		is_variable = true;
-	      }
-	}
-      else if (gfc_current_ns->parent && gfc_current_ns->parent->entries
-	       && stat->symtree->n.sym->result == stat->symtree->n.sym)
-	{
-	  gfc_entry_list *el;
-	  for (el = gfc_current_ns->parent->entries; el; el = el->next)
-	    if (el->sym == stat->symtree->n.sym)
-	      {
-		is_variable = true;
-	      }
-	}
-
-      if (!is_variable)
-	{
-	  gfc_error ("STAT expression at %C must be a variable");
-	  goto cleanup;
-	}
-
-      gfc_check_do_variable(stat->symtree);
-    }
+    gfc_check_do_variable(stat->symtree);
 
   if (gfc_match (" )%t") != MATCH_YES)
     goto syntax;
@@ -2446,29 +2377,7 @@ gfc_match_deallocate (void)
     }
 
   if (stat != NULL)
-    {
-      if (stat->symtree->n.sym->attr.intent == INTENT_IN)
-	{
-	  gfc_error ("STAT variable '%s' of DEALLOCATE statement at %C "
-		     "cannot be INTENT(IN)", stat->symtree->n.sym->name);
-	  goto cleanup;
-	}
-
-      if (gfc_pure(NULL) && gfc_impure_variable (stat->symtree->n.sym))
-	{
-	  gfc_error ("Illegal STAT variable in DEALLOCATE statement at %C "
-		     "for a PURE procedure");
-	  goto cleanup;
-	}
-
-      if (stat->symtree->n.sym->attr.flavor != FL_VARIABLE)
-	{
-	  gfc_error ("STAT expression at %C must be a variable");
-	  goto cleanup;
-	}
-
-      gfc_check_do_variable(stat->symtree);
-    }
+    gfc_check_do_variable(stat->symtree);
 
   if (gfc_match (" )%t") != MATCH_YES)
     goto syntax;
@@ -2798,11 +2707,6 @@ gfc_match_common (void)
 
       if (name[0] == '\0')
 	{
-	  if (gfc_current_ns->is_block_data)
-	    {
-	      gfc_warning ("BLOCK DATA unit cannot contain blank COMMON "
-			   "at %C");
-	    }
 	  t = &gfc_current_ns->blank_common;
 	  if (t->head == NULL)
 	    t->where = gfc_current_locus;
@@ -2867,19 +2771,14 @@ gfc_match_common (void)
 	      goto cleanup;
 	    }
 
-	  if (gfc_add_in_common (&sym->attr, sym->name, NULL) == FAILURE) 
-	    goto cleanup;
-
-	  if (sym->value != NULL && sym->value->expr_type != EXPR_NULL
-	      && (name[0] == '\0' || !sym->attr.data))
+	  if (((sym->value != NULL && sym->value->expr_type != EXPR_NULL)
+	       || sym->attr.data) && gfc_current_state () != COMP_BLOCK_DATA)
 	    {
-	      if (name[0] == '\0')
-		gfc_error ("Previously initialized symbol '%s' in "
-			   "blank COMMON block at %C", sym->name);
-	      else
-		gfc_error ("Previously initialized symbol '%s' in "
-			   "COMMON block '%s' at %C", sym->name, name);
-	      goto cleanup;
+	      if (gfc_notify_std (GFC_STD_GNU, "Initialized symbol '%s' at %C "
+					       "can only be COMMON in "
+					       "BLOCK DATA", sym->name)
+		  == FAILURE)
+		goto cleanup;
 	    }
 
 	  if (gfc_add_in_common (&sym->attr, sym->name, NULL) == FAILURE)
@@ -3308,13 +3207,12 @@ cleanup:
    12.5.4 requires that any variable of function that is implicitly typed
    shall have that type confirmed by any subsequent type declaration.  The
    implicit typing is conveniently done here.  */
+static bool
+recursive_stmt_fcn (gfc_expr *, gfc_symbol *);
 
 static bool
-recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
+check_stmt_fcn (gfc_expr *e, gfc_symbol *sym, int *f ATTRIBUTE_UNUSED)
 {
-  gfc_actual_arglist *arg;
-  gfc_ref *ref;
-  int i;
 
   if (e == NULL)
     return false;
@@ -3322,12 +3220,6 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
   switch (e->expr_type)
     {
     case EXPR_FUNCTION:
-      for (arg = e->value.function.actual; arg; arg = arg->next)
-	{
-	  if (sym->name == arg->name || recursive_stmt_fcn (arg->expr, sym))
-	    return true;
-	}
-
       if (e->symtree == NULL)
 	return false;
 
@@ -3354,46 +3246,18 @@ recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
 	gfc_set_default_type (e->symtree->n.sym, 0, NULL);
       break;
 
-    case EXPR_OP:
-      if (recursive_stmt_fcn (e->value.op.op1, sym)
-	  || recursive_stmt_fcn (e->value.op.op2, sym))
-	return true;
-      break;
-
     default:
       break;
     }
 
-  /* Component references do not need to be checked.  */
-  if (e->ref)
-    {
-      for (ref = e->ref; ref; ref = ref->next)
-	{
-	  switch (ref->type)
-	    {
-	    case REF_ARRAY:
-	      for (i = 0; i < ref->u.ar.dimen; i++)
-		{
-		  if (recursive_stmt_fcn (ref->u.ar.start[i], sym)
-		      || recursive_stmt_fcn (ref->u.ar.end[i], sym)
-		      || recursive_stmt_fcn (ref->u.ar.stride[i], sym))
-		    return true;
-		}
-	      break;
-
-	    case REF_SUBSTRING:
-	      if (recursive_stmt_fcn (ref->u.ss.start, sym)
-		  || recursive_stmt_fcn (ref->u.ss.end, sym))
-		return true;
-
-	      break;
-
-	    default:
-	      break;
-	    }
-	}
-    }
   return false;
+}
+
+
+static bool
+recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
+{
+  return gfc_traverse_expr (e, sym, check_stmt_fcn, 0);
 }
 
 

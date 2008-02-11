@@ -208,10 +208,10 @@ package Lib is
    -- Special Handling of Subprogram Bodies --
    -------------------------------------------
 
-   --  A subprogram body (in an adb file) may stand for both a spec and a
-   --  body. A simple model (and one that was adopted through version 2.07),
-   --  is simply to assume that such an adb file acts as its own spec if no
-   --  ads file is present.
+   --  A subprogram body (in an adb file) may stand for both a spec and a body.
+   --  A simple model (and one that was adopted through version 2.07) is simply
+   --  to assume that such an adb file acts as its own spec if no ads file is
+   --  is present.
 
    --  However, this is not correct. RM 10.1.4(4) requires that such a body
    --  act as a spec unless a subprogram declaration of the same name is
@@ -325,6 +325,10 @@ package Lib is
    --      (RACW) object. This is used for controlling generation of the RA
    --      attribute in the ali file.
 
+   --    Is_Compiler_Unit
+   --      A Boolean flag, initially set False by default, set to True if a
+   --      pragma Compiler_Unit appears in the unit.
+
    --    Ident_String
    --      N_String_Literal node from a valid pragma Ident that applies to
    --      this unit. If no Ident pragma applies to the unit, then Empty.
@@ -377,6 +381,7 @@ package Lib is
    function Generate_Code    (U : Unit_Number_Type) return Boolean;
    function Ident_String     (U : Unit_Number_Type) return Node_Id;
    function Has_RACW         (U : Unit_Number_Type) return Boolean;
+   function Is_Compiler_Unit (U : Unit_Number_Type) return Boolean;
    function Loading          (U : Unit_Number_Type) return Boolean;
    function Main_Priority    (U : Unit_Number_Type) return Int;
    function Munit_Index      (U : Unit_Number_Type) return Nat;
@@ -385,17 +390,18 @@ package Lib is
    function Unit_Name        (U : Unit_Number_Type) return Unit_Name_Type;
    --  Get value of named field from given units table entry
 
-   procedure Set_Cunit          (U : Unit_Number_Type; N : Node_Id);
-   procedure Set_Cunit_Entity   (U : Unit_Number_Type; E : Entity_Id);
-   procedure Set_Dynamic_Elab   (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Error_Location (U : Unit_Number_Type; W : Source_Ptr);
-   procedure Set_Fatal_Error    (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Generate_Code  (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Has_RACW       (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Ident_String   (U : Unit_Number_Type; N : Node_Id);
-   procedure Set_Loading        (U : Unit_Number_Type; B : Boolean := True);
-   procedure Set_Main_Priority  (U : Unit_Number_Type; P : Int);
-   procedure Set_Unit_Name      (U : Unit_Number_Type; N : Unit_Name_Type);
+   procedure Set_Cunit            (U : Unit_Number_Type; N : Node_Id);
+   procedure Set_Cunit_Entity     (U : Unit_Number_Type; E : Entity_Id);
+   procedure Set_Dynamic_Elab     (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Error_Location   (U : Unit_Number_Type; W : Source_Ptr);
+   procedure Set_Fatal_Error      (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Generate_Code    (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Has_RACW         (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Is_Compiler_Unit (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Ident_String     (U : Unit_Number_Type; N : Node_Id);
+   procedure Set_Loading          (U : Unit_Number_Type; B : Boolean := True);
+   procedure Set_Main_Priority    (U : Unit_Number_Type; P : Int);
+   procedure Set_Unit_Name        (U : Unit_Number_Type; N : Unit_Name_Type);
    --  Set value of named field for given units table entry. Note that we
    --  do not have an entry for each possible field, since some of the fields
    --  can only be set by specialized interfaces (defined below).
@@ -503,10 +509,11 @@ package Lib is
    --  Same function as above but argument is a source pointer
 
    function Earlier_In_Extended_Unit (S1, S2 : Source_Ptr) return Boolean;
-   --  Given two Sloc values  for which In_Same_Extended_Unit is true,
-   --  determine if S1 appears before S2. Returns True if S1 appears before
-   --  S2, and False otherwise. The result is undefined if S1 and S2 are
-   --  not in the same extended unit.
+   --  Given two Sloc values for which In_Same_Extended_Unit is true, determine
+   --  if S1 appears before S2. Returns True if S1 appears before S2, and False
+   --  otherwise. The result is undefined if S1 and S2 are not in the same
+   --  extended unit. Note: this routine will not give reliable results if
+   --  called after Sprint has been called with -gnatD set.
 
    function Compilation_Switches_Last return Nat;
    --  Return the count of stored compilation switches
@@ -618,6 +625,7 @@ private
    pragma Inline (Fatal_Error);
    pragma Inline (Generate_Code);
    pragma Inline (Has_RACW);
+   pragma Inline (Is_Compiler_Unit);
    pragma Inline (Increment_Serial_Number);
    pragma Inline (Loading);
    pragma Inline (Main_Priority);
@@ -651,6 +659,7 @@ private
       Fatal_Error      : Boolean;
       Generate_Code    : Boolean;
       Has_RACW         : Boolean;
+      Is_Compiler_Unit : Boolean;
       Dynamic_Elab     : Boolean;
       Loading          : Boolean;
    end record;
@@ -677,10 +686,11 @@ private
       Generate_Code    at 53 range 0 ..  7;
       Has_RACW         at 54 range 0 ..  7;
       Dynamic_Elab     at 55 range 0 ..  7;
-      Loading          at 56 range 0 .. 31;
+      Is_Compiler_Unit at 56 range 0 .. 31;
+      Loading          at 60 range 0 .. 31;
    end record;
 
-   for Unit_Record'Size use 60 * 8;
+   for Unit_Record'Size use 64 * 8;
    --  This ensures that we did not leave out any fields
 
    package Units is new Table.Table (

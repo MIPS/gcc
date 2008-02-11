@@ -523,8 +523,8 @@ m32c_conditional_register_usage (void)
 /* Implements HARD_REGNO_NREGS.  This is complicated by the fact that
    different registers are different sizes from each other, *and* may
    be different sizes in different chip families.  */
-int
-m32c_hard_regno_nregs (int regno, enum machine_mode mode)
+static int
+m32c_hard_regno_nregs_1 (int regno, enum machine_mode mode)
 {
   if (regno == FLG_REGNO && mode == CCmode)
     return 1;
@@ -549,12 +549,19 @@ m32c_hard_regno_nregs (int regno, enum machine_mode mode)
   return 0;
 }
 
+int
+m32c_hard_regno_nregs (int regno, enum machine_mode mode)
+{
+  int rv = m32c_hard_regno_nregs_1 (regno, mode);
+  return rv ? rv : 1;
+}
+
 /* Implements HARD_REGNO_MODE_OK.  The above function does the work
    already; just test its return value.  */
 int
 m32c_hard_regno_ok (int regno, enum machine_mode mode)
 {
-  return m32c_hard_regno_nregs (regno, mode) != 0;
+  return m32c_hard_regno_nregs_1 (regno, mode) != 0;
 }
 
 /* Implements MODES_TIEABLE_P.  In general, modes aren't tieable since
@@ -1127,7 +1134,10 @@ m32c_eh_return_data_regno (int n)
     case 0:
       return A0_REGNO;
     case 1:
-      return A1_REGNO;
+      if (TARGET_A16)
+	return R3_REGNO;
+      else
+	return R1_REGNO;
     default:
       return INVALID_REGNUM;
     }
@@ -2990,7 +3000,7 @@ m32c_immd_dbl_mov (rtx * operands,
            && GET_CODE (XEXP (XEXP (XEXP (operands[0], 0), 0), 0)) == SYMBOL_REF
            && MEM_SCALAR_P (operands[0])
            && !MEM_IN_STRUCT_P (operands[0])
-           && !(XINT (XEXP (XEXP (XEXP (operands[0], 0), 0), 1), 0) %4)
+           && !(INTVAL (XEXP (XEXP (XEXP (operands[0], 0), 0), 1)) %4)
            && GET_CODE (XEXP (operands[2], 0)) == CONST
            && GET_CODE (XEXP (XEXP (operands[2], 0), 0)) == PLUS
            && GET_CODE (XEXP (XEXP (XEXP (operands[2], 0), 0), 0)) == SYMBOL_REF
@@ -3004,7 +3014,7 @@ m32c_immd_dbl_mov (rtx * operands,
            &&  GET_CODE (XEXP (XEXP (operands[0], 0), 1)) == CONST_INT
            &&  MEM_SCALAR_P (operands[0])
            &&  !MEM_IN_STRUCT_P (operands[0])
-           &&  !(XINT (XEXP (XEXP (operands[0], 0), 1), 0) %4)
+           &&  !(INTVAL (XEXP (XEXP (operands[0], 0), 1)) %4)
            &&  REGNO (XEXP (XEXP (operands[2], 0), 0)) == FB_REGNO 
            &&  GET_CODE (XEXP (XEXP (operands[2], 0), 1)) == CONST_INT
            &&  MEM_SCALAR_P (operands[2])
@@ -3033,8 +3043,8 @@ m32c_immd_dbl_mov (rtx * operands,
 	okflag = 0; 
       break; 
     case 3:
-      offset1 = XINT (XEXP (XEXP (operands[0], 0), 1), 0);
-      offset2 = XINT (XEXP (XEXP (operands[2], 0), 1), 0);
+      offset1 = INTVAL (XEXP (XEXP (operands[0], 0), 1));
+      offset2 = INTVAL (XEXP (XEXP (operands[2], 0), 1));
       offsetsign = offset1 >> ((sizeof (offset1) * 8) -1);
       if (((offset2-offset1) == 2) && offsetsign != 0)
 	okflag = 1;
@@ -3050,7 +3060,7 @@ m32c_immd_dbl_mov (rtx * operands,
       HOST_WIDE_INT val;
       operands[4] = gen_rtx_MEM (SImode, XEXP (operands[0], 0));
 
-      val = (XINT (operands[3], 0) << 16) + (XINT (operands[1], 0) & 0xFFFF);
+      val = (INTVAL (operands[3]) << 16) + (INTVAL (operands[1]) & 0xFFFF);
       operands[5] = gen_rtx_CONST_INT (VOIDmode, val);
      
       return true;

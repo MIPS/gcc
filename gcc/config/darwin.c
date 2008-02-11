@@ -1,6 +1,6 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007
+   2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -542,7 +542,8 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 			      gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
 				       gen_rtx_HIGH (Pmode, offset))));
 	  emit_insn (gen_rtx_SET (Pmode, reg,
-				  gen_rtx_LO_SUM (Pmode, hi_sum_reg, offset)));
+				  gen_rtx_LO_SUM (Pmode, hi_sum_reg,
+						  copy_rtx (offset))));
 
 	  orig = reg;
 #else
@@ -552,7 +553,8 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	  emit_insn (gen_rtx_SET (VOIDmode, reg,
 				  gen_rtx_HIGH (Pmode, offset)));
 	  emit_insn (gen_rtx_SET (VOIDmode, reg,
-				  gen_rtx_LO_SUM (Pmode, reg, offset)));
+				  gen_rtx_LO_SUM (Pmode, reg,
+						  copy_rtx (offset))));
 	  emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
 
 	  orig = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, reg);
@@ -714,7 +716,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      emit_insn (gen_macho_high (temp_reg, asym));
 	      mem = gen_const_mem (GET_MODE (orig),
-				   gen_rtx_LO_SUM (Pmode, temp_reg, asym));
+				   gen_rtx_LO_SUM (Pmode, temp_reg,
+						   copy_rtx (asym)));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 #else
 	      /* Some other CPU -- WriteMe! but right now there are no other
@@ -746,7 +749,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      mem = gen_const_mem (GET_MODE (orig),
 				  gen_rtx_LO_SUM (Pmode,
-						  hi_sum_reg, offset));
+						  hi_sum_reg,
+						  copy_rtx (offset)));
 	      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
 	      set_unique_reg_note (insn, REG_EQUAL, pic_ref);
 
@@ -762,7 +766,8 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 								   offset))));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				  gen_rtx_LO_SUM (Pmode, reg,
-					   gen_rtx_CONST (Pmode, offset))));
+					   gen_rtx_CONST (Pmode,
+						   	  copy_rtx (offset)))));
 	      pic_ref = gen_rtx_PLUS (Pmode,
 				      pic_offset_table_rtx, reg);
 #endif
@@ -822,13 +827,15 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 								    offset))));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				      gen_rtx_LO_SUM (Pmode,
-						      hi_sum_reg, offset)));
+						      hi_sum_reg,
+						      copy_rtx (offset))));
 	      pic_ref = reg;
 #else
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				      gen_rtx_HIGH (Pmode, offset)));
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
-				      gen_rtx_LO_SUM (Pmode, reg, offset)));
+				      gen_rtx_LO_SUM (Pmode, reg,
+						      copy_rtx (offset))));
 	      pic_ref = gen_rtx_PLUS (Pmode,
 				      pic_offset_table_rtx, reg);
 #endif
@@ -1129,6 +1136,8 @@ darwin_mergeable_string_section (tree exp,
       && TREE_CODE (exp) == STRING_CST
       && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
       && align <= 256
+      && (int_size_in_bytes (TREE_TYPE (exp))
+	  == TREE_STRING_LENGTH (exp))
       && ((size_t) TREE_STRING_LENGTH (exp)
 	  == strlen (TREE_STRING_POINTER (exp)) + 1))
     return darwin_sections[cstring_section];
@@ -1458,12 +1467,6 @@ darwin_handle_weak_import_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
-static void
-no_dead_strip (FILE *file, const char *lab)
-{
-  fprintf (file, ".no_dead_strip %s\n", lab);
-}
-
 /* Emit a label for an FDE, making it global and/or weak if appropriate.
    The third parameter is nonzero if this is for exception handling.
    The fourth parameter is nonzero if this is just a placeholder for an
@@ -1472,46 +1475,44 @@ no_dead_strip (FILE *file, const char *lab)
 void
 darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
 {
-  const char *base;
   char *lab;
-  bool need_quotes;
-
-  if (DECL_ASSEMBLER_NAME_SET_P (decl))
-    base = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  else
-    base = IDENTIFIER_POINTER (DECL_NAME (decl));
-
-  base = targetm.strip_name_encoding (base);
-  need_quotes = name_needs_quotes (base);
 
   if (! for_eh)
     return;
 
-  lab = concat (need_quotes ? "\"" : "", user_label_prefix, base, ".eh",
-		need_quotes ? "\"" : "", NULL);
+  lab = concat (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)), ".eh", NULL);
 
   if (TREE_PUBLIC (decl))
-    fprintf (file, "\t%s %s\n",
-	     (DECL_VISIBILITY (decl) != VISIBILITY_HIDDEN
-	      ? ".globl"
-	      : ".private_extern"),
-	     lab);
+    {
+      targetm.asm_out.globalize_label (file, lab);
+      if (DECL_VISIBILITY (decl) == VISIBILITY_HIDDEN)
+	{
+	  fputs ("\t.private_extern ", file);
+	  assemble_name (file, lab);
+	  fputc ('\n', file);
+	}
+    }
 
   if (DECL_WEAK (decl))
-    fprintf (file, "\t.weak_definition %s\n", lab);
+    {
+      fputs ("\t.weak_definition ", file);
+      assemble_name (file, lab);
+      fputc ('\n', file);
+    }
 
+  assemble_name (file, lab);
   if (empty)
     {
-      fprintf (file, "%s = 0\n", lab);
+      fputs (" = 0\n", file);
 
       /* Mark the absolute .eh and .eh1 style labels as needed to
 	 ensure that we don't dead code strip them and keep such
 	 labels from another instantiation point until we can fix this
 	 properly with group comdat support.  */
-      no_dead_strip (file, lab);
+      darwin_mark_decl_preserved (lab);
     }
   else
-    fprintf (file, "%s:\n", lab);
+    fputs (":\n", file);
 
   free (lab);
 }

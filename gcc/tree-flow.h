@@ -40,6 +40,25 @@ typedef struct basic_block_def *basic_block;
 #endif
 struct static_var_ann_d;
 
+/* The reasons a variable may escape a function.  */
+enum escape_type 
+{
+  NO_ESCAPE = 0,			/* Doesn't escape.  */
+  ESCAPE_STORED_IN_GLOBAL = 1 << 0,
+  ESCAPE_TO_ASM = 1 << 1,		/* Passed by address to an assembly
+					   statement.  */
+  ESCAPE_TO_CALL = 1 << 2,		/* Escapes to a function call.  */
+  ESCAPE_BAD_CAST = 1 << 3,		/* Cast from pointer to integer */
+  ESCAPE_TO_RETURN = 1 << 4,		/* Returned from function.  */
+  ESCAPE_TO_PURE_CONST = 1 << 5,	/* Escapes to a pure or constant
+					   function call.  */
+  ESCAPE_IS_GLOBAL = 1 << 6,		/* Is a global variable.  */
+  ESCAPE_IS_PARM = 1 << 7,		/* Is an incoming function argument.  */
+  ESCAPE_UNKNOWN = 1 << 8		/* We believe it escapes for
+					   some reason not enumerated
+					   above.  */
+};
+
 /* Memory reference statistics for individual memory symbols,
    collected during alias analysis.  */
 struct mem_sym_stats_d GTY(())
@@ -120,7 +139,7 @@ struct mem_ref_stats_d GTY(())
 struct gimple_df GTY(())
 {
   /* Array of all variables referenced in the function.  */
-  htab_t GTY((param_is (struct int_tree_map))) referenced_vars;
+  htab_t GTY((param_is (union tree_node))) referenced_vars;
 
   /* A list of all the noreturn calls passed to modify_stmt.
      cleanup_control_flow uses it to detect cases where a mid-block
@@ -159,7 +178,7 @@ struct gimple_df GTY(())
      means that the first reference to this variable in the function is a
      USE or a VUSE.  In those cases, the SSA renamer creates an SSA name
      for this variable with an empty defining statement.  */
-  htab_t GTY((param_is (struct int_tree_map))) default_defs;
+  htab_t GTY((param_is (union tree_node))) default_defs;
 
   /* 'true' after aliases have been computed (see compute_may_aliases).  */
   unsigned int aliases_computed_p : 1;
@@ -228,6 +247,9 @@ struct ptr_info_def GTY(())
   /* Nonzero if this pointer points to NULL.  */
   unsigned int pt_null : 1;
 
+  /* Mask of reasons this pointer's value escapes the function  */
+  ENUM_BITFIELD (escape_type) escape_mask : 9;
+
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
 
@@ -236,9 +258,6 @@ struct ptr_info_def GTY(())
      pointer will be represented by this memory tag, instead of the type
      tag computed by TBAA.  */
   tree name_mem_tag;
-
-  /* Mask of reasons this pointer's value escapes the function  */
-  unsigned int escape_mask;
 };
 
 
@@ -308,18 +327,7 @@ enum noalias_state {
 };
 
 
-struct subvar;
-typedef struct subvar *subvar_t;
-
-/* This structure represents a fake sub-variable for a structure field.  */
-struct subvar GTY(())
-{
-  /* Fake variable.  */
-  tree var;
-
-  /* Next subvar for this structure.  */
-  subvar_t next;
-};
+typedef VEC(tree,gc) *subvar_t;
 
 struct var_ann_d GTY(())
 {
@@ -354,12 +362,16 @@ struct var_ann_d GTY(())
   unsigned is_heapvar : 1;
 
   /* True if the variable is call clobbered.  */
-  unsigned int call_clobbered : 1;
+  unsigned call_clobbered : 1;
 
   /* This field describes several "no alias" attributes that some
      symbols are known to have.  See the enum's definition for more
      information on each attribute.  */
   ENUM_BITFIELD (noalias_state) noalias_state : 2;
+
+  /* Mask of values saying the reasons why this variable has escaped
+     the function.  */
+  ENUM_BITFIELD (escape_type) escape_mask : 9;
 
   /* Memory partition tag assigned to this symbol.  */
   tree mpt;
@@ -384,13 +396,9 @@ struct var_ann_d GTY(())
      current version of this variable (an SSA_NAME).  */
   tree current_def;
 
-  /* If this variable is a structure, this fields holds a list of
-     symbols representing each of the fields of the structure.  */
-  subvar_t subvars;
-
-  /* Mask of values saying the reasons why this variable has escaped
-     the function.  */
-  unsigned int escape_mask;
+  /* If this variable is a structure, this fields holds an array
+     of symbols representing each of the fields of the structure.  */
+  VEC(tree,gc) *subvars;
 };
 
 /* Container for variable annotation used by hashtable for annotations for
@@ -530,7 +538,7 @@ static inline bool noreturn_call_p (tree);
 static inline void update_stmt (tree);
 static inline bool stmt_modified_p (tree);
 static inline bitmap may_aliases (const_tree);
-static inline int get_lineno (tree);
+static inline int get_lineno (const_tree);
 static inline bitmap addresses_taken (tree);
 
 /*---------------------------------------------------------------------------
@@ -560,6 +568,9 @@ struct int_tree_map GTY(())
 
 extern unsigned int int_tree_map_hash (const void *);
 extern int int_tree_map_eq (const void *, const void *);
+
+extern unsigned int uid_decl_map_hash (const void *);
+extern int uid_decl_map_eq (const void *, const void *);
 
 typedef struct 
 {
@@ -624,15 +635,8 @@ typedef struct {
   basic_block bb;
 } block_stmt_iterator;
 
-typedef struct {
-  const_tree_stmt_iterator tsi;
-  const_basic_block bb;
-} const_block_stmt_iterator;
-
 static inline block_stmt_iterator bsi_start (basic_block);
-static inline const_block_stmt_iterator cbsi_start (const_basic_block);
 static inline block_stmt_iterator bsi_last (basic_block);
-static inline const_block_stmt_iterator cbsi_last (const_basic_block);
 static inline block_stmt_iterator bsi_after_labels (basic_block);
 block_stmt_iterator bsi_for_stmt (tree);
 static inline bool bsi_end_p (block_stmt_iterator);
@@ -711,6 +715,9 @@ extern struct omp_region *root_omp_region;
 extern struct omp_region *new_omp_region (basic_block, enum tree_code,
 					  struct omp_region *);
 extern void free_omp_regions (void);
+void omp_expand_local (basic_block);
+extern tree find_omp_clause (tree, enum tree_code);
+tree copy_var_decl (tree, tree, tree);
 
 /*---------------------------------------------------------------------------
 			      Function prototypes
@@ -734,15 +741,17 @@ extern basic_block debug_tree_bb_n (int);
 extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
+extern void dot_cfg (void);
 extern void debug_cfg_stats (void);
-extern void debug_loop_ir (void);
-extern void print_loop_ir (FILE *);
+extern void debug_loops (int);
+extern void debug_loop (struct loop *, int);
+extern void debug_loop_num (unsigned, int);
+extern void print_loops (FILE *, int);
+extern void print_loops_bb (FILE *, basic_block, int, int);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern tree first_stmt (basic_block);
-extern const_tree const_first_stmt (const_basic_block);
 extern tree last_stmt (basic_block);
-extern const_tree const_last_stmt (const_basic_block);
 extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
@@ -760,8 +769,10 @@ extern tree tree_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
+extern bool tree_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
+				      basic_block *);
 extern void add_phi_args_after_copy_bb (basic_block);
-extern void add_phi_args_after_copy (basic_block *, unsigned);
+extern void add_phi_args_after_copy (basic_block *, unsigned, edge);
 extern bool tree_purge_dead_abnormal_call_edges (basic_block);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (const_bitmap);
@@ -811,7 +822,6 @@ extern void find_new_referenced_vars (tree *);
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
-extern struct mem_sym_stats_d *mem_sym_stats (struct function *, tree);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -857,6 +867,7 @@ extern void dump_mem_ref_stats (FILE *);
 extern void debug_mem_ref_stats (void);
 extern void debug_memory_partitions (void);
 extern void debug_mem_sym_stats (tree var);
+extern void dump_mem_sym_stats_for_var (FILE *, tree);
 extern void debug_all_mem_sym_stats (void);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
@@ -877,6 +888,7 @@ extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
+extern bool ssa_undefined_value_p (tree);
 
 /* In tree-into-ssa.c  */
 void update_ssa (unsigned);
@@ -965,7 +977,7 @@ extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
 extern tree get_vectype_for_scalar_type (tree);
 
 /* In tree-ssa-phiopt.c */
-bool empty_block_p (const_basic_block);
+bool empty_block_p (basic_block);
 basic_block *blocks_in_phiopt_order (void);
 
 /* In tree-ssa-loop*.c  */
@@ -978,6 +990,7 @@ unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
 unsigned tree_predictive_commoning (void);
+bool parallelize_loops (void);
 
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
@@ -999,8 +1012,7 @@ void verify_loop_closed_ssa (void);
 bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
-void split_loop_exit_edge (edge);
-unsigned force_expr_to_var_cost (tree);
+basic_block split_loop_exit_edge (edge);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
@@ -1043,25 +1055,6 @@ enum move_pos
   };
 extern enum move_pos movement_possibility (tree);
 char *get_lsm_tmp_name (tree, unsigned);
-
-/* The reasons a variable may escape a function.  */
-enum escape_type 
-{
-  NO_ESCAPE = 0,			/* Doesn't escape.  */
-  ESCAPE_STORED_IN_GLOBAL = 1 << 1,
-  ESCAPE_TO_ASM = 1 << 2,		/* Passed by address to an assembly
-					   statement.  */
-  ESCAPE_TO_CALL = 1 << 3,		/* Escapes to a function call.  */
-  ESCAPE_BAD_CAST = 1 << 4,		/* Cast from pointer to integer */
-  ESCAPE_TO_RETURN = 1 << 5,		/* Returned from function.  */
-  ESCAPE_TO_PURE_CONST = 1 << 6,	/* Escapes to a pure or constant
-					   function call.  */
-  ESCAPE_IS_GLOBAL = 1 << 7,		/* Is a global variable.  */
-  ESCAPE_IS_PARM = 1 << 8,		/* Is an incoming function argument.  */
-  ESCAPE_UNKNOWN = 1 << 9		/* We believe it escapes for
-					   some reason not enumerated
-					   above.  */
-};
 
 /* In tree-flow-inline.h  */
 static inline bool is_call_clobbered (const_tree);
@@ -1131,6 +1124,7 @@ extern void register_jump_thread (edge, edge);
 tree force_gimple_operand (tree, tree *, bool, tree);
 tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree,
 			       bool, enum bsi_iterator_update);
+tree gimple_fold_indirect_ref (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
@@ -1154,18 +1148,30 @@ rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
 
-/* This structure is simply used during pushing fields onto the fieldstack
-   to track the offset of the field, since bitpos_of_field gives it relative
-   to its immediate containing type, and we want it relative to the ultimate
-   containing object.  */
+/* This structure is used during pushing fields onto the fieldstack
+   to track the offset of the field, since bitpos_of_field gives it
+   relative to its immediate containing type, and we want it relative
+   to the ultimate containing object.  */
 
 struct fieldoff
 {
+  /* Type of the field.  */
   tree type;
+
+  /* Size, in bits, of the field.  */
   tree size;
+
+  /* Field.  */
   tree decl;
+
+  /* Offset from the base of the base containing object to this field.  */
   HOST_WIDE_INT offset;  
+
+  /* Alias set for the field.  */
   alias_set_type alias_set;
+
+  /* True, if this offset can be a base for further component accesses.  */
+  unsigned base_for_components : 1;
 };
 typedef struct fieldoff fieldoff_s;
 
