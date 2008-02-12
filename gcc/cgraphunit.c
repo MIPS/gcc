@@ -579,8 +579,9 @@ cgraph_reset_node (struct cgraph_node *node)
   cgraph_node_remove_callees (node);
 
   /* We may need to re-queue the node for assembling in case
-     we already proceeded it and ignored as not needed.  */
-  if (node->reachable && !flag_unit_at_a_time)
+     we already proceeded it and ignored as not needed or got
+     a re-declaration in IMA mode.  */
+  if (node->reachable)
     {
       struct cgraph_node *n;
 
@@ -662,6 +663,7 @@ verify_cgraph_node (struct cgraph_node *node)
   struct cgraph_edge *e;
   struct cgraph_node *main_clone;
   struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
+  struct function *saved_cfun = cfun;
   basic_block this_block;
   gimple_stmt_iterator gsi;
   bool error_found = false;
@@ -670,6 +672,8 @@ verify_cgraph_node (struct cgraph_node *node)
     return;
 
   timevar_push (TV_CGRAPH_VERIFY);
+  /* debug_generic_stmt needs correct cfun */
+  set_cfun (this_cfun);
   for (e = node->callees; e; e = e->next_callee)
     if (e->aux)
       {
@@ -821,6 +825,7 @@ tuples_hack:
       dump_cgraph_node (stderr, node);
       internal_error ("verify_cgraph_node failed");
     }
+  set_cfun (saved_cfun);
   timevar_pop (TV_CGRAPH_VERIFY);
 }
 

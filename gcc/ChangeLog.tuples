@@ -1,3 +1,10 @@
+2008-02-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	Merge with mainline @132177
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-02-08  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00273.html

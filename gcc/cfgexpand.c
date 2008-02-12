@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-inline.h"
 #include "value-prof.h"
+#include "target.h"
 
 /* FIXME tuples.  THIS IS A HACK.  DO NOT USE.
 
@@ -2033,6 +2034,8 @@ gimple_expand_cfg (void)
 
   /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
   discover_nonconstant_array_refs ();
+
+  targetm.expand_to_rtl_hook ();
 
   /* Expand the variables recorded during gimple lowering.  */
   expand_used_vars ();

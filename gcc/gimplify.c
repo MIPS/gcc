@@ -3189,6 +3189,10 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 
       if (array_elt_type)
 	{
+	  /* Do not use bitsizetype for ARRAY_REF indices.  */
+	  if (TYPE_DOMAIN (TREE_TYPE (object)))
+	    purpose = fold_convert (TREE_TYPE (TYPE_DOMAIN (TREE_TYPE (object))),
+				    purpose);
 	  cref = build4 (ARRAY_REF, array_elt_type, unshare_expr (object),
 			 purpose, NULL_TREE, NULL_TREE);
 	}
@@ -4528,7 +4532,7 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq pre_p)
 	    {
 	      gimple try;
 	      gimple_seq seq;
-	      enum gimple_try_kind kind;
+	      enum gimple_try_flags kind;
 
 	      if (gimple_wce_cleanup_eh_only (wce))
 		kind = GIMPLE_TRY_CATCH;
@@ -5393,6 +5397,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq pre_p)
   /* Handle OMP_FOR_INIT.  */
   gimple_seq_init (&for_pre_body);
   gcc_assert (OMP_FOR_PRE_BODY (for_stmt) == NULL_TREE);
+
   ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
       			&for_pre_body, NULL,
 			is_gimple_val, fb_rvalue);

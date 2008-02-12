@@ -3691,8 +3691,9 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	  hashcode = type_hash_list (TYPE_ARG_TYPES (ntype), hashcode);
 	  break;
 	case ARRAY_TYPE:
-	  hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
-					    hashcode);
+	  if (TYPE_DOMAIN (ntype))
+	    hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
+					      hashcode);
 	  break;
 	case INTEGER_TYPE:
 	  hashcode = iterative_hash_object
@@ -3725,6 +3726,8 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 
       ttype = build_qualified_type (ntype, quals);
     }
+  else if (TYPE_QUALS (ttype) != quals)
+    ttype = build_qualified_type (ttype, quals);
 
   return ttype;
 }
@@ -4141,7 +4144,7 @@ set_type_quals (tree type, int type_quals)
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
 }
 
-/* Returns true iff cand is equivalent to base with type_quals.  */
+/* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
 
 bool
 check_qualified_type (const_tree cand, const_tree base, int type_quals)
@@ -7606,6 +7609,11 @@ reconstruct_complex_type (tree type, tree bottom)
 	    (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (type))),
 	     inner,
 	     TREE_CHAIN (TYPE_ARG_TYPES (type)));
+    }
+  else if (TREE_CODE (type) == OFFSET_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
     }
   else
     return bottom;

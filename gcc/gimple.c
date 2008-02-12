@@ -585,7 +585,7 @@ gimple_build_eh_filter (tree types, gimple_seq failure)
 
 gimple
 gimple_build_try (gimple_seq eval, gimple_seq cleanup,
-    		  enum gimple_try_kind kind)
+    		  enum gimple_try_flags kind)
 {
   gimple p;
 
@@ -1260,6 +1260,8 @@ walk_gimple_stmt (gimple stmt, walk_stmt_fn callback_stmt,
 	break;
 
       case GIMPLE_OMP_FOR:
+	/* FIXME tuples */
+	/* This may need adjusting because of Jakub's code.  */
 	ret = walk_tree (gimple_omp_for_clauses_ptr (stmt), callback_op, wi,
 			 pset);
 	if (ret)

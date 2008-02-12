@@ -334,10 +334,14 @@ struct gimple_statement_try GTY(())
   struct gimple_sequence cleanup;
 };
 
-/* Kind of GIMPLE_TRY statements.  Either try/catch or try/finally.  */
-enum gimple_try_kind {
-  GIMPLE_TRY_CATCH = 1,
-  GIMPLE_TRY_FINALLY = 2
+/* Kind of GIMPLE_TRY statements.  */
+enum gimple_try_flags {
+  GIMPLE_TRY_CATCH = 1 << 0,			/* A try/catch.  */
+  GIMPLE_TRY_FINALLY = 1 << 1,		/* A try/finally.  */
+  GIMPLE_TRY_KIND = GIMPLE_TRY_CATCH | GIMPLE_TRY_FINALLY,
+
+  /* Analogous to TRY_CATCH_IS_CLEANUP.  */
+  GIMPLE_TRY_CATCH_IS_CLEANUP = 1 << 2
 };
 
 /* GIMPLE_WITH_CLEANUP_EXPR */
@@ -1848,13 +1852,24 @@ gimple_eh_filter_set_must_not_throw (gimple gs, bool mntp)
 
 /* GIMPLE_TRY accessors. */
 
-/* Return the kind of try block represented by GIMPLE_TRY GS.  */
+/* Return the kind of try block represented by GIMPLE_TRY GS.  This is
+   either GIMPLE_TRY_CATCH or GIMPLE_TRY_FINALLY.  */
 
-static inline enum gimple_try_kind
+static inline enum gimple_try_flags
 gimple_try_kind (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_TRY);
-  return (enum gimple_try_kind) gimple_subcode (gs);
+  return (enum gimple_try_flags) (gimple_subcode (gs) & GIMPLE_TRY_KIND);
+}
+
+
+/* Return the GIMPLE_TRY_CATCH_IS_CLEANUP flag.  */
+
+static inline bool
+gimple_try_catch_is_cleanup (const_gimple gs)
+{
+  gcc_assert (gimple_try_kind (gs) == GIMPLE_TRY_CATCH);
+  return (bool) (gimple_subcode (gs) & GIMPLE_TRY_CATCH_IS_CLEANUP);
 }
 
 
@@ -1876,6 +1891,19 @@ gimple_try_cleanup (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_TRY);
   return &gs->gimple_try.cleanup;
+}
+
+
+/* Set the GIMPLE_TRY_CATCH_IS_CLEANUP flag.  */
+
+static inline void
+gimple_try_set_catch_is_cleanup (gimple g, bool catch_is_cleanup)
+{
+  gcc_assert (gimple_try_kind (g) == GIMPLE_TRY_CATCH);
+  if (catch_is_cleanup)
+    g->gsbase.subcode |= GIMPLE_TRY_CATCH_IS_CLEANUP;
+  else
+    g->gsbase.subcode &= ~GIMPLE_TRY_CATCH_IS_CLEANUP;
 }
 
 

@@ -989,7 +989,6 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, gimple_stmt_iterator *, bool,
 		tree *, tree *);
 basic_block split_loop_exit_edge (edge);
-unsigned force_expr_to_var_cost (tree);
 void standard_iv_increment_position (struct loop *, gimple_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);

@@ -1,8 +1,8 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-# Free Software Foundation, Inc.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+# 2007, 2008 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -656,7 +656,15 @@ AC_ARG_ENABLE(fixed-point,
 [
   case $target in
     mips*-*-*)
-      enable_fixed_point=yes
+      case $host in
+	mips*-sgi-irix*)
+	  AC_MSG_WARN(fixed-point is not supported on IRIX, ignored)
+	  enable_fixed_point=no
+	  ;;
+	*)
+	  enable_fixed_point=yes
+	  ;;
+      esac
       ;;
     *)
       AC_MSG_WARN(fixed-point is not supported for this target, ignored)
@@ -776,7 +784,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([gimple-tuples-branch merged with rev. 131695])
+ACX_PKGVERSION([gimple-tuples-branch merged with rev. 132177])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -2073,11 +2081,7 @@ else
   if echo "$ld_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
     ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
     ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
     ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
@@ -2139,13 +2143,7 @@ L2:],
   if echo "$as_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
     as_vers=`echo $as_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
     as_major=`expr "$as_vers" : '\([0-9]*\)'`
     as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
 changequote([,])dnl
@@ -3415,8 +3413,14 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
 	     && $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+([1-9][0-9]|[4-9])' \
 	     $glibc_header_dir/features.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
+	elif $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__UCLIBC__[ 	]+1' \
+	     $glibc_header_dir/features.h > /dev/null && \
+	     test -f $glibc_header_dir/bits/uClibc_config.h && \
+	     $EGREP '^@<:@ 	@:>@*#[ 	]*define[ 	]+__UCLIBC_HAS_SSP__[ 	]+1' \
+	     $glibc_header_dir/bits/uClibc_config.h > /dev/null; then
+	  gcc_cv_libc_provides_ssp=yes
 	fi
-        fi
+      fi
 	;;
        *-*-darwin*)
 	 AC_CHECK_FUNC(__stack_chk_fail,[gcc_cv_libc_provides_ssp=yes],

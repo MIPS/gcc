@@ -1,6 +1,6 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -3273,6 +3273,7 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
     {
       rtx insns;
       rtx value;
+      rtx eq_value;
       enum machine_mode outmode = mode;
 
       /* All of these functions return small values.  Thus we choose to
@@ -3292,8 +3293,12 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
       end_sequence ();
 
       target = gen_reg_rtx (outmode);
-      emit_libcall_block (insns, target, value,
-			  gen_rtx_fmt_e (unoptab->code, outmode, op0));
+      eq_value = gen_rtx_fmt_e (unoptab->code, mode, op0);
+      if (GET_MODE_SIZE (outmode) < GET_MODE_SIZE (mode))
+	eq_value = simplify_gen_unary (TRUNCATE, outmode, eq_value, mode);
+      else if (GET_MODE_SIZE (outmode) > GET_MODE_SIZE (mode))
+	eq_value = simplify_gen_unary (ZERO_EXTEND, outmode, eq_value, mode);
+      emit_libcall_block (insns, target, value, eq_value);
 
       return target;
     }
@@ -5139,10 +5144,8 @@ expand_float (rtx to, rtx from, int unsignedp)
       }
 
   /* Unsigned integer, and no way to convert directly.  Convert as signed,
-     then unconditionally adjust the result.  For decimal float values we
-     do this only if we have already determined that a signed conversion
-     provides sufficient accuracy.  */
-  if (unsignedp && (can_do_signed || !DECIMAL_FLOAT_MODE_P (GET_MODE (to))))
+     then unconditionally adjust the result.  */
+  if (unsignedp && can_do_signed)
     {
       rtx label = gen_label_rtx ();
       rtx temp;

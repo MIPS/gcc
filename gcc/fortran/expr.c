@@ -2109,7 +2109,8 @@ check_elemental (gfc_expr *e)
       || !e->value.function.isym->elemental)
     return MATCH_NO;
 
-  if ((e->ts.type != BT_INTEGER || e->ts.type != BT_CHARACTER)
+  if (e->ts.type != BT_INTEGER
+      && e->ts.type != BT_CHARACTER
       && gfc_notify_std (GFC_STD_F2003, "Extension: Evaluation of "
 			"nonstandard initialization expression at %L",
 			&e->where) == FAILURE)
@@ -2703,6 +2704,15 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 	  if (!sym->attr.entry && sym->name != gfc_current_ns->proc_name->name)
 	    bad_proc = true;
 	}
+
+      /* (iv) Host associated and not the function symbol or the
+	      parent result.  This picks up sibling references, which
+	      cannot be entries.  */
+      if (!sym->attr.entry
+	    && sym->ns == gfc_current_ns->parent
+	    && sym != gfc_current_ns->proc_name
+	    && sym != gfc_current_ns->parent->proc_name->result)
+	bad_proc = true;
 
       if (bad_proc)
 	{

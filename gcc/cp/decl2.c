@@ -985,17 +985,25 @@ is_late_template_attribute (tree attr, tree decl)
   tree name = TREE_PURPOSE (attr);
   tree args = TREE_VALUE (attr);
   const struct attribute_spec *spec = lookup_attribute_spec (name);
+  tree arg;
 
   if (!spec)
     /* Unknown attribute.  */
     return false;
 
-  if (is_attribute_p ("aligned", name)
-      && args
-      && value_dependent_expression_p (TREE_VALUE (args)))
-    /* Can't apply this until we know the desired alignment.  */
-    return true;
-  else if (TREE_CODE (decl) == TYPE_DECL || spec->type_required)
+  /* If any of the arguments are dependent expressions, we can't evaluate
+     the attribute until instantiation time.  */
+  for (arg = args; arg; arg = TREE_CHAIN (arg))
+    {
+      tree t = TREE_VALUE (arg);
+      if (value_dependent_expression_p (t)
+	  || type_dependent_expression_p (t))
+	return true;
+    }
+
+  if (TREE_CODE (decl) == TYPE_DECL
+      || TYPE_P (decl)
+      || spec->type_required)
     {
       tree type = TYPE_P (decl) ? decl : TREE_TYPE (decl);
 
@@ -1005,6 +1013,13 @@ is_late_template_attribute (tree attr, tree decl)
       if (code == TEMPLATE_TYPE_PARM
 	  || code == BOUND_TEMPLATE_TEMPLATE_PARM
 	  || code == TYPENAME_TYPE)
+	return true;
+      /* Also defer most attributes on dependent types.  This is not
+	 necessary in all cases, but is the better default.  */
+      else if (dependent_type_p (type)
+	       /* But attribute visibility specifically works on
+		  templates.  */
+	       && !is_attribute_p ("visibility", name))
 	return true;
       else
 	return false;
@@ -1053,6 +1068,7 @@ save_template_attributes (tree *attr_p, tree *decl_p)
 {
   tree late_attrs = splice_template_attributes (attr_p, *decl_p);
   tree *q;
+  tree old_attrs = NULL_TREE;
 
   if (!late_attrs)
     return;
@@ -1075,9 +1091,26 @@ save_template_attributes (tree *attr_p, tree *decl_p)
   else
     q = &TYPE_ATTRIBUTES (*decl_p);
 
-  if (*q)
-    q = &TREE_CHAIN (tree_last (*q));
+  old_attrs = *q;
+
+  /* Place the late attributes at the beginning of the attribute
+     list.  */
+  TREE_CHAIN (tree_last (late_attrs)) = *q;
   *q = late_attrs;
+
+  if (!DECL_P (*decl_p) && *decl_p == TYPE_MAIN_VARIANT (*decl_p))
+    {
+      /* We've added new attributes directly to the main variant, so
+	 now we need to update all of the other variants to include
+	 these new attributes.  */
+      tree variant;
+      for (variant = TYPE_NEXT_VARIANT (*decl_p); variant;
+	   variant = TYPE_NEXT_VARIANT (variant))
+	{
+	  gcc_assert (TYPE_ATTRIBUTES (variant) == old_attrs);
+	  TYPE_ATTRIBUTES (variant) = TYPE_ATTRIBUTES (*decl_p);
+	}
+    }
 }
 
 /* Like decl_attributes, but handle C++ complexity.  */
@@ -1092,6 +1125,9 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 
   if (processing_template_decl)
     {
+      if (check_for_bare_parameter_packs (attributes))
+	return;
+
       save_template_attributes (&attributes, decl);
       if (attributes == NULL_TREE)
 	return;
