@@ -2549,6 +2549,9 @@ copy_virtual_operands (gimple dest, gimple src)
   struct voptype_d vuse;
   struct voptype_d vdef;
 
+  if (!gimple_has_mem_ops (src))
+    return;
+
   gimple_set_vdef_ops (dest, NULL);
   gimple_set_vuse_ops (dest, NULL);
 

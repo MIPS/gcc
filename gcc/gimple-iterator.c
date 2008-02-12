@@ -582,19 +582,14 @@ gsi_commit_one_edge_insert (edge e, basic_block *new_bb)
 
   if (PENDING_STMT (e))
     {
-      /* FIXME tuples.  */
-#if 0
-      gimple_stmt_iterator *gsi;
-      gimple stmt = PENDING_STMT (e);
+      gimple_stmt_iterator gsi;
+      gimple_seq seq = PENDING_STMT (e);
 
-      PENDING_STMT (e) = NULL_TREE;
+      PENDING_STMT (e) = NULL;
 
       if (gimple_find_edge_insert_loc (e, &gsi, new_bb))
-	gsi_insert_after (gsi, stmt, GSI_NEW_STMT);
+	gsi_link_seq_after (&gsi, seq, GSI_NEW_STMT);
       else
-	gsi_insert_before (gsi, stmt, GSI_NEW_STMT);
-#else
-      gimple_unreachable ();
-#endif
+	gsi_link_seq_before (&gsi, seq, GSI_NEW_STMT);
     }
 }

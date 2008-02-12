@@ -1041,13 +1041,16 @@ range_includes_zero_p (value_range_t *vr)
   zero = build_int_cst (TREE_TYPE (vr->min), 0);
   return (value_inside_range (zero, vr) == 1);
 }
+#endif
 
 /* Return true if T, an SSA_NAME, is known to be nonnegative.  Return
    false otherwise or if no value range information is available.  */
 
 bool
-ssa_name_nonnegative_p (const_tree t)
+ssa_name_nonnegative_p (const_tree t ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   value_range_t *vr = get_value_range (t);
 
   if (!vr)
@@ -1062,14 +1065,20 @@ ssa_name_nonnegative_p (const_tree t)
       return (result == 0 || result == 1);
     }
   return false;
+#else
+  gimple_unreachable ();
+  return false;
+#endif
 }
 
 /* Return true if T, an SSA_NAME, is known to be nonzero.  Return
    false otherwise or if no value range information is available.  */
 
 bool
-ssa_name_nonzero_p (const_tree t)
+ssa_name_nonzero_p (const_tree t ATTRIBUTE_UNUSED)
 {
+  /* FIXME tuples.  */
+#if 0
   value_range_t *vr = get_value_range (t);
 
   if (!vr)
@@ -1084,9 +1093,15 @@ ssa_name_nonzero_p (const_tree t)
     return range_includes_zero_p (vr);
 
   return false;
+#else
+  gimple_unreachable ();
+  return false;
+#endif
 }
 
 
+/* FIXME tuples.  */
+#if 0
 /* Extract value range information from an ASSERT_EXPR EXPR and store
    it in *VR_P.  */
 

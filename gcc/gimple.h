@@ -698,6 +698,13 @@ gimple_no_warning_p (const_gimple stmt)
   return stmt->gsbase.no_warning;
 }
 
+/* Set the no_warning flag of STMT to NO_WARNING.  */
+
+static inline void
+gimple_set_no_warning (gimple stmt, bool no_warning)
+{
+  stmt->gsbase.no_warning = (unsigned) no_warning;
+}
 
 /* Set the visited status on statement STMT to VISITED_P.  */
 
@@ -1432,7 +1439,7 @@ static inline void
 gimple_cond_set_true_label (gimple gs, tree label)
 {
   GIMPLE_CHECK (gs, GIMPLE_COND);
-  gcc_assert (TREE_CODE (label) == LABEL_DECL);
+  gcc_assert (!label || TREE_CODE (label) == LABEL_DECL);
   gimple_set_op (gs, 2, label);
 }
 
@@ -1444,7 +1451,7 @@ static inline void
 gimple_cond_set_false_label (gimple gs, tree label)
 {
   GIMPLE_CHECK (gs, GIMPLE_COND);
-  gcc_assert (TREE_CODE (label) == LABEL_DECL);
+  gcc_assert (!label || TREE_CODE (label) == LABEL_DECL);
   gimple_set_op (gs, 3, label);
 }
 

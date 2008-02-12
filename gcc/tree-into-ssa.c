@@ -3176,7 +3176,7 @@ switch_virtuals_to_full_rewrite (void)
    TODO_update_ssa*.  */
 
 void
-update_ssa (unsigned update_flags ATTRIBUTE_UNUSED)
+update_ssa (unsigned update_flags)
 {
   basic_block bb, start_bb;
   bitmap_iterator bi;

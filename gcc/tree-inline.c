@@ -2184,8 +2184,6 @@ inlinable_function_p (tree fn)
 }
 #endif
 
-/* FIXME tuples.  */
-#if 0
 /* Estimate the cost of a memory move.  Use machine dependent
    word size and take possible memcpy call into account.  */
 
@@ -2203,152 +2201,13 @@ estimate_move_cost (tree type)
     return ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
 }
 
-/* Arguments for estimate_num_insns_1.  */
+/* Returns cost of operation CODE, according to WEIGHTS  */
 
-struct eni_data
+static int
+estimate_operator_cost (enum tree_code code, eni_weights *weights)
 {
-  /* Used to return the number of insns.  */
-  int count;
-
-  /* Weights of various constructs.  */
-  eni_weights *weights;
-};
-
-/* Used by estimate_num_insns.  Estimate number of instructions seen
-   by given statement.  */
-
-static tree
-estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
-{
-  struct eni_data *d = data;
-  tree x = *tp;
-  unsigned cost;
-
-  if (IS_TYPE_OR_DECL_P (x))
+  switch (code)
     {
-      *walk_subtrees = 0;
-      return NULL;
-    }
-  /* Assume that constants and references counts nothing.  These should
-     be majorized by amount of operations among them we count later
-     and are common target of CSE and similar optimizations.  */
-  else if (CONSTANT_CLASS_P (x) || REFERENCE_CLASS_P (x))
-    return NULL;
-
-  switch (TREE_CODE (x))
-    {
-    /* Containers have no cost.  */
-    case TREE_LIST:
-    case TREE_VEC:
-    case BLOCK:
-    case COMPONENT_REF:
-    case BIT_FIELD_REF:
-    case INDIRECT_REF:
-    case ALIGN_INDIRECT_REF:
-    case MISALIGNED_INDIRECT_REF:
-    case ARRAY_REF:
-    case ARRAY_RANGE_REF:
-    case OBJ_TYPE_REF:
-    case EXC_PTR_EXPR: /* ??? */
-    case FILTER_EXPR: /* ??? */
-    case COMPOUND_EXPR:
-    case BIND_EXPR:
-    case WITH_CLEANUP_EXPR:
-    case NOP_EXPR:
-    case CONVERT_EXPR:
-    case VIEW_CONVERT_EXPR:
-    case SAVE_EXPR:
-    case ADDR_EXPR:
-    case COMPLEX_EXPR:
-    case RANGE_EXPR:
-    case CASE_LABEL_EXPR:
-    case SSA_NAME:
-    case CATCH_EXPR:
-    case EH_FILTER_EXPR:
-    case STATEMENT_LIST:
-    case ERROR_MARK:
-    case NON_LVALUE_EXPR:
-    case FDESC_EXPR:
-    case VA_ARG_EXPR:
-    case TRY_CATCH_EXPR:
-    case TRY_FINALLY_EXPR:
-    case LABEL_EXPR:
-    case GOTO_EXPR:
-    case RETURN_EXPR:
-    case EXIT_EXPR:
-    case LOOP_EXPR:
-    case PHI_NODE:
-    case WITH_SIZE_EXPR:
-    case OMP_CLAUSE:
-    case OMP_RETURN:
-    case OMP_CONTINUE:
-    case OMP_SECTIONS_SWITCH:
-    case OMP_ATOMIC_STORE:
-      break;
-
-    /* We don't account constants for now.  Assume that the cost is amortized
-       by operations that do use them.  We may re-consider this decision once
-       we are able to optimize the tree before estimating its size and break
-       out static initializers.  */
-    case IDENTIFIER_NODE:
-    case INTEGER_CST:
-    case REAL_CST:
-    case FIXED_CST:
-    case COMPLEX_CST:
-    case VECTOR_CST:
-    case STRING_CST:
-      *walk_subtrees = 0;
-      return NULL;
-
-      /* CHANGE_DYNAMIC_TYPE_EXPR explicitly expands to nothing.  */
-    case CHANGE_DYNAMIC_TYPE_EXPR:
-      *walk_subtrees = 0;
-      return NULL;
-
-    /* Try to estimate the cost of assignments.  We have three cases to
-       deal with:
-	1) Simple assignments to registers;
-	2) Stores to things that must live in memory.  This includes
-	   "normal" stores to scalars, but also assignments of large
-	   structures, or constructors of big arrays;
-	3) TARGET_EXPRs.
-
-       Let us look at the first two cases, assuming we have "a = b + C":
-       <GIMPLE_MODIFY_STMT <var_decl "a">
-       			   <plus_expr <var_decl "b"> <constant C>>
-       If "a" is a GIMPLE register, the assignment to it is free on almost
-       any target, because "a" usually ends up in a real register.  Hence
-       the only cost of this expression comes from the PLUS_EXPR, and we
-       can ignore the GIMPLE_MODIFY_STMT.
-       If "a" is not a GIMPLE register, the assignment to "a" will most
-       likely be a real store, so the cost of the GIMPLE_MODIFY_STMT is the cost
-       of moving something into "a", which we compute using the function
-       estimate_move_cost.
-
-       The third case deals with TARGET_EXPRs, for which the semantics are
-       that a temporary is assigned, unless the TARGET_EXPR itself is being
-       assigned to something else.  In the latter case we do not need the
-       temporary.  E.g. in:
-       		<GIMPLE_MODIFY_STMT <var_decl "a"> <target_expr>>, the
-       GIMPLE_MODIFY_STMT is free.  */
-    case INIT_EXPR:
-    case GIMPLE_MODIFY_STMT:
-      /* Is the right and side a TARGET_EXPR?  */
-      if (TREE_CODE (GENERIC_TREE_OPERAND (x, 1)) == TARGET_EXPR)
-	break;
-      /* ... fall through ...  */
-
-    case TARGET_EXPR:
-      x = GENERIC_TREE_OPERAND (x, 0);
-      /* Is this an assignments to a register?  */
-      if (is_gimple_reg (x))
-	break;
-      /* Otherwise it's a store, so fall through to compute the move cost.  */
-
-    case CONSTRUCTOR:
-      d->count += estimate_move_cost (TREE_TYPE (x));
-      break;
-
     /* Assign cost of 1 to usual operations.
        ??? We may consider mapping RTL costs to this.  */
     case COND_EXPR:
@@ -2437,17 +2296,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case VEC_INTERLEAVE_LOW_EXPR:
 
     case RESX_EXPR:
-      d->count += 1;
-      break;
-
-    case SWITCH_EXPR:
-      /* Take into account cost of the switch + guess 2 conditional jumps for
-         each case label.  
-
-	 TODO: once the switch expansion logic is sufficiently separated, we can
-	 do better job on estimating cost of the switch.  */
-      d->count += TREE_VEC_LENGTH (SWITCH_LABELS (x)) * 2;
-      break;
+      return 1;
 
     /* Few special cases of expensive operations.  This is useful
        to avoid inlining on functions having too many of these.  */
@@ -2461,112 +2310,215 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case RDIV_EXPR:
-      d->count += d->weights->div_mod_cost;
+      return weights->div_mod_cost;
+
+    default:
+      /* We expect a copy assignment with no operator.  */
+      gcc_assert (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS);
+      return 0;
+    }
+}
+
+
+/* Estimate number of instructions that will be created by expanding
+   the statements in the statement sequence STMTS.
+   WEIGHTS contains weights attributed to various constructs.  */
+
+static
+int estimate_num_insns_seq (gimple_seq stmts, eni_weights *weights)
+{
+  int cost;
+  gimple_stmt_iterator gsi;
+
+  cost = 0;
+  for (gsi = gsi_start (stmts); !gsi_end_p (gsi); gsi_next (&gsi))
+    cost += estimate_num_insns (gsi_stmt (gsi), weights);
+
+  return cost;
+}
+
+
+/* Estimate number of instructions that will be created by expanding STMT.
+   WEIGHTS contains weights attributed to various constructs.  */
+
+int
+estimate_num_insns (gimple stmt, eni_weights *weights)
+{
+  unsigned cost, i;
+  enum gimple_code code = gimple_code (stmt);
+  tree lhs;
+
+  switch (code)
+    {
+    case GIMPLE_ASSIGN:
+      /* Try to estimate the cost of assignments.  We have three cases to
+	 deal with:
+	 1) Simple assignments to registers;
+	 2) Stores to things that must live in memory.  This includes
+	    "normal" stores to scalars, but also assignments of large
+	    structures, or constructors of big arrays;
+
+	 Let us look at the first two cases, assuming we have "a = b + C":
+	 <GIMPLE_ASSIGN <var_decl "a">
+	        <plus_expr <var_decl "b"> <constant C>>
+	 If "a" is a GIMPLE register, the assignment to it is free on almost
+	 any target, because "a" usually ends up in a real register.  Hence
+	 the only cost of this expression comes from the PLUS_EXPR, and we
+	 can ignore the GIMPLE_ASSIGN.
+	 If "a" is not a GIMPLE register, the assignment to "a" will most
+	 likely be a real store, so the cost of the GIMPLE_ASSIGN is the cost
+	 of moving something into "a", which we compute using the function
+	 estimate_move_cost.  */
+      lhs = gimple_assign_lhs (stmt);
+      if (is_gimple_reg (lhs))
+	cost = 0;
+      else
+	cost = estimate_move_cost (TREE_TYPE (lhs));
+
+      cost += estimate_operator_cost (gimple_assign_subcode (stmt), weights);
       break;
-    case CALL_EXPR:
+
+    case GIMPLE_COND:
+      cost = 1 + estimate_operator_cost (gimple_cond_code (stmt), weights);
+      break;
+
+    case GIMPLE_SWITCH:
+      /* Take into account cost of the switch + guess 2 conditional jumps for
+         each case label.  
+
+	 TODO: once the switch expansion logic is sufficiently separated, we can
+	 do better job on estimating cost of the switch.  */
+      cost = gimple_switch_num_labels (stmt) * 2;
+      break;
+
+    case GIMPLE_CALL:
       {
-	tree decl = get_callee_fndecl (x);
+	tree decl = gimple_call_fndecl (stmt);
 
 	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
-	  cost = d->weights->target_builtin_call_cost;
+	  cost = weights->target_builtin_call_cost;
 	else
-	  cost = d->weights->call_cost;
+	  cost = weights->call_cost;
 	
 	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
 	  switch (DECL_FUNCTION_CODE (decl))
 	    {
 	    case BUILT_IN_CONSTANT_P:
-	      *walk_subtrees = 0;
-	      return NULL_TREE;
+	      return 0;
 	    case BUILT_IN_EXPECT:
-	      return NULL_TREE;
+	      cost = 0;
+	      break;
+
 	    /* Prefetch instruction is not expensive.  */
 	    case BUILT_IN_PREFETCH:
-	      cost = 1;
+	      cost = weights->target_builtin_call_cost;
 	      break;
+
 	    default:
 	      break;
 	    }
 
-	/* Our cost must be kept in sync with cgraph_estimate_size_after_inlining
-	   that does use function declaration to figure out the arguments.  */
+	/* Our cost must be kept in sync with
+	   cgraph_estimate_size_after_inlining that does use function
+	   declaration to figure out the arguments.  */
 	if (!decl)
 	  {
-	    tree a;
-	    call_expr_arg_iterator iter;
-	    FOR_EACH_CALL_EXPR_ARG (a, iter, x)
-	      d->count += estimate_move_cost (TREE_TYPE (a));
+	    for (i = 0; i < gimple_call_num_args (stmt); i++)
+	      {
+		tree arg = gimple_call_arg (stmt, i);
+		cost += estimate_move_cost (TREE_TYPE (arg));
+	      }
 	  }
 	else
 	  {
 	    tree arg;
 	    for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
-	      d->count += estimate_move_cost (TREE_TYPE (arg));
+	      cost += estimate_move_cost (TREE_TYPE (arg));
 	  }
 
-	d->count += cost;
 	break;
       }
 
-    case OMP_PARALLEL:
-    case OMP_FOR:
-    case OMP_SECTIONS:
-    case OMP_SINGLE:
-    case OMP_SECTION:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_CRITICAL:
-    case OMP_ATOMIC:
-    case OMP_ATOMIC_LOAD:
-      /* OpenMP directives are generally very expensive.  */
-      d->count += d->weights->omp_cost;
-      break;
+    case GIMPLE_GOTO:
+    case GIMPLE_LABEL:
+    case GIMPLE_NOP:
+    case GIMPLE_PHI:
+    case GIMPLE_RETURN:
+      return 0;
+
+    case GIMPLE_ASM:
+    case GIMPLE_RESX:
+      return 1;
+
+    case GIMPLE_BIND:
+      return estimate_num_insns_seq (gimple_bind_body (stmt), weights);
+
+    case GIMPLE_EH_FILTER:
+      return estimate_num_insns_seq (gimple_eh_filter_failure (stmt), weights);
+
+    case GIMPLE_CATCH:
+      return estimate_num_insns_seq (gimple_catch_handler (stmt), weights);
+
+    case GIMPLE_TRY:
+      return (estimate_num_insns_seq (gimple_try_eval (stmt), weights)
+              + estimate_num_insns_seq (gimple_try_cleanup (stmt), weights));
+
+    /* OpenMP directives are generally very expensive.  */
+    case GIMPLE_OMP_RETURN:
+    case GIMPLE_OMP_SECTIONS_SWITCH:
+    case GIMPLE_OMP_ATOMIC_STORE:
+      return 0;
+
+    case GIMPLE_OMP_CONTINUE:
+      return estimate_num_insns_seq (gimple_omp_body (stmt), weights);
+
+    case GIMPLE_OMP_ATOMIC_LOAD:
+      return weights->omp_cost;
+
+    case GIMPLE_OMP_FOR:
+      return (weights->omp_cost
+              + estimate_num_insns_seq (gimple_omp_body (stmt), weights)
+              + estimate_num_insns_seq (gimple_omp_for_pre_body (stmt), weights));
+
+    case GIMPLE_OMP_PARALLEL:
+    case GIMPLE_OMP_CRITICAL:
+    case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SECTION:
+    case GIMPLE_OMP_SECTIONS:
+    case GIMPLE_OMP_SINGLE:
+      return (weights->omp_cost
+              + estimate_num_insns_seq (gimple_omp_body (stmt), weights));
 
     default:
       gcc_unreachable ();
     }
-  return NULL;
+
+  return cost;
 }
 
-/* Estimate number of instructions that will be created by expanding EXPR.
-   WEIGHTS contains weights attributed to various constructs.  */
+/* Estimate number of instructions that will be created by expanding
+   function FNDECL.  WEIGHTS contains weights attributed to various
+   constructs.  */
 
 int
-estimate_num_insns (tree expr, eni_weights *weights)
+estimate_num_insns_fn (tree fndecl, eni_weights *weights)
 {
-  struct pointer_set_t *visited_nodes;
+  struct function *my_function = DECL_STRUCT_FUNCTION (fndecl);
+  gimple_stmt_iterator bsi;
   basic_block bb;
-  block_stmt_iterator bsi;
-  struct function *my_function;
-  struct eni_data data;
+  int n = 0;
 
-  data.count = 0;
-  data.weights = weights;
-
-  /* If we're given an entire function, walk the CFG.  */
-  if (TREE_CODE (expr) == FUNCTION_DECL)
+  gcc_assert (my_function && my_function->cfg);
+  FOR_EACH_BB_FN (bb, my_function)
     {
-      my_function = DECL_STRUCT_FUNCTION (expr);
-      gcc_assert (my_function && my_function->cfg);
-      visited_nodes = pointer_set_create ();
-      FOR_EACH_BB_FN (bb, my_function)
-	{
-	  for (bsi = bsi_start (bb);
-	       !bsi_end_p (bsi);
-	       bsi_next (&bsi))
-	    {
-	      walk_tree (bsi_stmt_ptr (bsi), estimate_num_insns_1,
-			 &data, visited_nodes);
-	    }
-	}
-      pointer_set_destroy (visited_nodes);
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+	n += estimate_num_insns (gsi_stmt (bsi), weights);
     }
-  else
-    walk_tree_without_duplicates (&expr, estimate_num_insns_1, &data);
 
-  return data.count;
+  return n;
 }
-#endif
+
 
 /* Initializes weights used by estimate_num_insns.  */
 

@@ -332,10 +332,20 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
   pp_string (buffer, tree_code_name [gimple_cond_code (gs)]);
   pp_space (buffer);
   dump_generic_node (buffer, gimple_cond_rhs (gs), spc, flags, false);
-  pp_string (buffer, ") goto ");
-  dump_generic_node (buffer, gimple_cond_true_label (gs), spc, flags, false);
-  pp_string (buffer, " else goto ");
-  dump_generic_node (buffer, gimple_cond_false_label (gs), spc, flags, false);
+  pp_string (buffer, ")");
+  
+  if (gimple_cond_true_label (gs))
+    {
+      pp_string (buffer, " goto ");
+      dump_generic_node (buffer, gimple_cond_true_label (gs), spc, flags,
+			 false);
+    }
+  if (gimple_cond_false_label (gs))
+    {
+      pp_string (buffer, " else goto ");
+      dump_generic_node (buffer, gimple_cond_false_label (gs), spc, flags,
+			 false);
+    }
 }
 
 
@@ -934,6 +944,27 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
   gimple stmt;
 
   stmt = last_stmt (bb);
+
+  if (stmt && gimple_code (stmt) == GIMPLE_COND)
+    {
+      edge true_edge, false_edge;
+
+      /* When we are emitting the code or changing CFG, it is possible that
+	 the edges are not yet created.  When we are using debug_bb in such
+	 a situation, we do not want it to crash.  */
+      if (EDGE_COUNT (bb->succs) != 2)
+	return;
+      extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+
+      INDENT (indent + 2);
+      pp_cfg_jump (buffer, true_edge->dest);
+      newline_and_indent (buffer, indent);
+      pp_string (buffer, "else");
+      newline_and_indent (buffer, indent + 2);
+      pp_cfg_jump (buffer, false_edge->dest);
+      pp_newline (buffer);
+      return;
+    }
 
   /* If there is a fallthru edge, we may need to add an artificial
      goto to the dump.  */

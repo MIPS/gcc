@@ -91,11 +91,8 @@ static void make_edges (void);
 static void make_cond_expr_edges (basic_block);
 static void make_gimple_switch_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
-/* FIXME tuples.  */
-#if 0
 static edge gimple_redirect_edge_and_branch (edge, basic_block);
 static edge gimple_try_redirect_by_replacing_jump (edge, basic_block);
-#endif
 static unsigned int split_critical_edges (void);
 
 /* Various helpers.  */
@@ -671,6 +668,10 @@ make_cond_expr_edges (basic_block bb)
   e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
   if (e)
     e->goto_locus = gimple_locus (else_stmt);
+
+  /* We do not need the labels anymore.  */
+  gimple_cond_set_true_label (entry, NULL_TREE);
+  gimple_cond_set_false_label (entry, NULL_TREE);
 }
 
 
@@ -993,16 +994,13 @@ cleanup_dead_labels (void)
 	{
 	case GIMPLE_COND:
 	  {
-	    tree new_true_label, new_false_label;
+	    tree true_label = gimple_cond_true_label (stmt);
+	    tree false_label = gimple_cond_false_label (stmt);
 
-	    new_true_label = main_block_label (gimple_cond_true_label (stmt));
-	    new_false_label = main_block_label (gimple_cond_false_label (stmt));
-
-	    if (new_true_label)
-	      gimple_cond_set_true_label (stmt, new_true_label);
-
-	    if (new_false_label)
-	      gimple_cond_set_false_label (stmt, new_false_label);
+	    if (true_label)
+	      gimple_cond_set_true_label (stmt, main_block_label (true_label));
+	    if (false_label)
+	      gimple_cond_set_false_label (stmt, main_block_label (false_label));
 	    break;
 	  }
 
@@ -1321,7 +1319,7 @@ replace_uses_by (tree name, tree val)
 static void
 gimple_merge_blocks (basic_block a, basic_block b)
 {
-  gimple_stmt_iterator last, gsi;
+  gimple_stmt_iterator last, gsi, psi;
   gimple_seq phis = phi_nodes (b);
 
   if (dump_file)
@@ -1330,12 +1328,12 @@ gimple_merge_blocks (basic_block a, basic_block b)
   /* Remove all single-valued PHI nodes from block B of the form
      V_i = PHI <V_j> by propagating V_j to all the uses of V_i.  */
   gsi = gsi_last_bb (a);
-  for (gsi = gsi_start (phis); !gsi_end_p (gsi); )
+  for (psi = gsi_start (phis); !gsi_end_p (psi); )
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple phi = gsi_stmt (psi);
       tree def = gimple_phi_result (phi), use = gimple_phi_arg_def (phi, 0);
       gimple copy;
-      bool may_replace_uses = may_propagate_copy (def, use);
+      bool may_replace_uses = !is_gimple_reg (def) || may_propagate_copy (def, use);
 
       /* In case we maintain loop closed ssa form, do not propagate arguments
 	 of loop exit phi nodes.  */
@@ -1357,7 +1355,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	  copy = gimple_build_assign (def, use);
 	  gsi_insert_after (&gsi, copy, GSI_NEW_STMT);
 	  SSA_NAME_DEF_STMT (def) = copy;
-          remove_phi_node (&gsi, false);
+          remove_phi_node (&psi, false);
 	}
       else
         {
@@ -1377,7 +1375,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	  else
             replace_uses_by (def, use);
 
-          remove_phi_node (&gsi, true);
+          remove_phi_node (&psi, true);
         }
     }
 
@@ -4335,9 +4333,6 @@ gimple_make_forwarder_block (edge fallthru)
       add_phi_arg (new_phi, gimple_phi_result (phi), fallthru);
     }
 
-  /* Ensure that the PHI node chain is in the same order.  */
-  set_phi_nodes (bb, gimple_seq_reverse (phi_nodes (bb)));
-
   /* Add the arguments we have stored on edges.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
@@ -4355,18 +4350,17 @@ gimple_make_forwarder_block (edge fallthru)
 tree
 gimple_block_label (basic_block bb ATTRIBUTE_UNUSED)
 {
-/* FIXME tuples.  */
-#if 0
-  gimple_stmt_iterator i, s = gsi_start (bb);
+  gimple_stmt_iterator i, s = gsi_start_bb (bb);
   bool first = true;
-  tree label, stmt;
+  tree label;
+  gimple stmt;
 
   for (i = s; !gsi_end_p (i); first = false, gsi_next (&i))
     {
       stmt = gsi_stmt (i);
-      if (TREE_CODE (stmt) != LABEL_EXPR)
+      if (gimple_code (stmt) != GIMPLE_LABEL)
 	break;
-      label = LABEL_EXPR_LABEL (stmt);
+      label = gimple_label_label (stmt);
       if (!DECL_NONLOCAL (label))
 	{
 	  if (!first)
@@ -4376,17 +4370,12 @@ gimple_block_label (basic_block bb ATTRIBUTE_UNUSED)
     }
 
   label = create_artificial_label ();
-  stmt = build1 (LABEL_EXPR, void_type_node, label);
+  stmt = gimple_build_label (label);
   gsi_insert_before (&s, stmt, GSI_NEW_STMT);
   return label;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 
-/* FIXME tuples.  */
-#if 0
 /* Attempt to perform edge redirection by replacing a possibly complex
    jump instruction by a goto or by removing the jump completely.
    This can apply only if all edges now point to the same block.  The
@@ -4397,7 +4386,7 @@ static edge
 gimple_try_redirect_by_replacing_jump (edge e, basic_block target)
 {
   basic_block src = e->src;
-  gimple_stmt_iterator *i;
+  gimple_stmt_iterator i;
   gimple stmt;
 
   /* We can replace or remove a complex jump only when we have exactly
@@ -4408,15 +4397,15 @@ gimple_try_redirect_by_replacing_jump (edge e, basic_block target)
       || EDGE_SUCC (src, EDGE_SUCC (src, 0) == e)->dest != target)
     return NULL;
 
-  i = gsi_last (bb_seq (src));
+  i = gsi_last_bb (src);
   if (gsi_end_p (i))
     return NULL;
 
   stmt = gsi_stmt (i);
 
-  if (gimple_code (stmt) == GIMPLE_COND || gimple_code (stmt) == SWITCH_EXPR)
+  if (gimple_code (stmt) == GIMPLE_COND || gimple_code (stmt) == GIMPLE_SWITCH)
     {
-      gsi_remove (i, true);
+      gsi_remove (&i, true);
       e = ssa_redirect_edge (e, target);
       e->flags = EDGE_FALLTHRU;
       return e;
@@ -4433,7 +4422,7 @@ static edge
 gimple_redirect_edge_and_branch (edge e, basic_block dest)
 {
   basic_block bb = e->src;
-  gimple_stmt_iterator *gsi;
+  gimple_stmt_iterator gsi;
   edge ret;
   gimple stmt;
 
@@ -4447,7 +4436,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
   if (e->dest == dest)
     return NULL;
 
-  gsi = gsi_last (bb_seq (bb));
+  gsi = gsi_last_bb (bb);
   stmt = gsi_end_p (gsi) ? NULL : gsi_stmt (gsi);
 
   switch (stmt ? gimple_code (stmt) : ERROR_MARK)
@@ -4463,8 +4452,10 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 
     case GIMPLE_SWITCH:
       {
-        tree cases = get_cases_for_edge (e, stmt);
 	tree label = gimple_block_label (dest);
+/* FIXME tuples.  */
+#if 0
+        tree cases = get_cases_for_edge (e, stmt);
 
 	/* If we have a list of cases associated with E, then use it
 	   as it's a lot faster than walking the entire case vector.  */
@@ -4492,6 +4483,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 	      }
 	  }
 	else
+#endif
 	  {
 	    size_t i, n = gimple_switch_num_labels (stmt);
 
@@ -4507,7 +4499,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
       }
 
     case GIMPLE_RETURN:
-      gsi_remove (gsi, true);
+      gsi_remove (&gsi, true);
       e->flags |= EDGE_FALLTHRU;
       break;
 
@@ -4532,7 +4524,6 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 
   return e;
 }
-#endif
 
 /* Returns true if it is possible to remove edge E by redirecting
    it to the destination of the other edge from E->src.  */
@@ -4548,8 +4539,6 @@ gimple_can_remove_branch_p (const_edge e)
 
 /* Simple wrapper, as we can always redirect fallthru edges.  */
 
-/* FIXME tuples.  */
-#if 0
 static basic_block
 gimple_redirect_edge_and_branch_force (edge e, basic_block dest)
 {
@@ -4558,20 +4547,18 @@ gimple_redirect_edge_and_branch_force (edge e, basic_block dest)
 
   return NULL;
 }
-#endif
 
 
 /* Splits basic block BB after statement STMT (but at least after the
    labels).  If STMT is NULL, BB is split just after the labels.  */
 
-/* FIXME tuples.  */
-#if 0
 static basic_block
 gimple_split_block (basic_block bb, void *stmt)
 {
   gimple_stmt_iterator gsi;
-  gimple_stmt_iterator *gsi_tgt;
-  tree act, list;
+  gimple_stmt_iterator gsi_tgt;
+  gimple act;
+  gimple_seq list;
   basic_block new_bb;
   edge e;
   edge_iterator ei;
@@ -4588,10 +4575,10 @@ gimple_split_block (basic_block bb, void *stmt)
     stmt = NULL;
 
   /* Move everything from GSI to the new basic block.  */
-  for (gsi = gsi_start (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       act = gsi_stmt (gsi);
-      if (TREE_CODE (act) == LABEL_EXPR)
+      if (gimple_code (act) == GIMPLE_LABEL)
 	continue;
 
       if (!stmt)
@@ -4611,7 +4598,7 @@ gimple_split_block (basic_block bb, void *stmt)
      brings ugly quadratic memory consumption in the inliner.  
      (We are still quadratic since we need to update stmt BB pointers,
      sadly.)  */
-  list = gsi_split_seq_before (&gsi.gsi);
+  list = gsi_split_seq_before (&gsi);
   set_bb_seq (new_bb, list);
   for (gsi_tgt = gsi_start (list);
        !gsi_end_p (gsi_tgt); gsi_next (&gsi_tgt))
@@ -4619,7 +4606,6 @@ gimple_split_block (basic_block bb, void *stmt)
 
   return new_bb;
 }
-#endif
 
 
 /* Moves basic block BB after block AFTER.  */
@@ -4645,48 +4631,43 @@ gimple_can_duplicate_bb_p (const_basic_block bb ATTRIBUTE_UNUSED)
   return true;
 }
 
-
 /* Create a duplicate of the basic block BB.  NOTE: This does not
    preserve SSA form.  */
 
-/* FIXME tuples.  */
-#if 0
 static basic_block
 gimple_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   gimple_stmt_iterator gsi, gsi_tgt;
-  tree phi;
+  gimple_seq phis = phi_nodes (bb);
+  gimple phi, stmt, copy;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
 
   /* Copy the PHI nodes.  We ignore PHI node arguments here because
      the incoming edges have not been setup yet.  */
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      tree copy = create_phi_node (PHI_RESULT (phi), new_bb);
-      create_new_def_for (PHI_RESULT (copy), copy, PHI_RESULT_PTR (copy));
+      phi = gsi_stmt (gsi);
+      copy = create_phi_node (gimple_phi_result (phi), new_bb);
+      create_new_def_for (gimple_phi_result (copy), copy,
+			  gimple_phi_result_ptr (copy));
     }
 
-  /* Keep the chain of PHI nodes in the same order so that they can be
-     updated by ssa_redirect_edge.  */
-  set_phi_nodes (new_bb, phi_reverse (phi_nodes (new_bb)));
-
-  gsi_tgt = gsi_start (new_bb);
-  for (gsi = gsi_start (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  gsi_tgt = gsi_start_bb (new_bb);
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       def_operand_p def_p;
       ssa_op_iter op_iter;
-      tree stmt, copy;
       int region;
 
       stmt = gsi_stmt (gsi);
-      if (TREE_CODE (stmt) == LABEL_EXPR)
+      if (gimple_code (stmt) == GIMPLE_LABEL)
 	continue;
 
       /* Create a new copy of STMT and duplicate STMT's virtual
 	 operands.  */
-      copy = unshare_expr (stmt);
+      copy = gimple_copy (stmt);
       gsi_insert_after (&gsi_tgt, copy, GSI_NEW_STMT);
       copy_virtual_operands (copy, stmt);
       region = lookup_stmt_eh_region (stmt);
@@ -4702,7 +4683,6 @@ gimple_duplicate_bb (basic_block bb)
 
   return new_bb;
 }
-#endif
 
 /* Adds phi node arguments for edge E_COPY after basic block duplication.  */
 
@@ -4867,12 +4847,7 @@ gimple_duplicate_sese_region (edge entry, edge exit,
       free_region_copy = true;
     }
 
-  /* FIXME tuples */
-#if 0
   gcc_assert (!need_ssa_update_p ());
-#else
-  gimple_unreachable ();
-#endif
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
@@ -4942,13 +4917,8 @@ gimple_duplicate_sese_region (edge entry, edge exit,
   /* Add the other PHI node arguments.  */
   add_phi_args_after_copy (region_copy, n_region, NULL);
 
-  /* FIXME tuples.  */
-#if 0
   /* Update the SSA web.  */
   update_ssa (TODO_update_ssa);
-#else
-  gimple_unreachable ();
-#endif
 
   if (free_region_copy)
     free (region_copy);
@@ -6529,18 +6499,18 @@ struct cfg_hooks gimple_cfg_hooks = {
   gimple_verify_flow_info,
   gimple_dump_bb,		/* dump_bb  */
   create_bb,			/* create_basic_block  */
-  0 /* FIXME tuples gimple_redirect_edge_and_branch */,/* redirect_edge_and_branch  */
-  0 /* FIXME tuples gimple_redirect_edge_and_branch_force */,/* redirect_edge_and_branch_force  */
+  gimple_redirect_edge_and_branch, /* redirect_edge_and_branch  */
+  gimple_redirect_edge_and_branch_force, /* redirect_edge_and_branch_force  */
   gimple_can_remove_branch_p,	/* can_remove_branch_p  */
   remove_bb,			/* delete_basic_block  */
-  0 /* FIXME tuples gimple_split_block */,		/* split_block  */
+  gimple_split_block,		/* split_block  */
   gimple_move_block_after,	/* move_block_after  */
   gimple_can_merge_blocks_p,	/* can_merge_blocks_p  */
   gimple_merge_blocks,		/* merge_blocks  */
   gimple_predict_edge,		/* predict_edge  */
   gimple_predicted_by_p,		/* predicted_by_p  */
   gimple_can_duplicate_bb_p,	/* can_duplicate_block_p  */
-  0 /* FIXME tuples gimple_duplicate_bb */,		/* duplicate_block  */
+  gimple_duplicate_bb,		/* duplicate_block  */
   gimple_split_edge,		/* split_edge  */
   gimple_make_forwarder_block,	/* make_forward_block  */
   NULL,				/* tidy_fallthru_edge  */

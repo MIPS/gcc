@@ -461,13 +461,12 @@ cgraph_process_new_functions (void)
 	  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
 	  current_function_decl = fndecl;
 	  node->local.inlinable = tree_inlinable_function_p (fndecl);
+	  node->local.self_insns = estimate_num_insns_fn (fndecl,
+						&eni_inlining_weights);
+
 	  /* FIXME tuples.  */
-#if 0
-	  node->local.self_insns = estimate_num_insns (fndecl,
-						       &eni_inlining_weights);
-#else
 	  gimple_unreachable ();
-#endif
+
 	  node->local.disregard_inline_limits
 	    |= DECL_DISREGARD_INLINE_LIMITS (fndecl);
 	  /* Inlining characteristics are maintained by the

@@ -1725,11 +1725,18 @@ gimple_copy (gimple stmt)
   enum gimple_code code = gimple_code (stmt);
   size_t num_ops = gimple_num_ops (stmt);
   gimple copy = gimple_alloc (code);
+  unsigned i;
+
   memcpy (copy, stmt, gimple_size (code));
   if (num_ops > 0)
     {
       gimple_alloc_ops (copy, num_ops);
-      memcpy (gimple_ops (copy), gimple_ops (stmt), num_ops * sizeof (tree));
+      for (i = 0; i < num_ops; i++)
+	gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+
+      gimple_set_def_ops (copy, NULL);
+      gimple_set_use_ops (copy, NULL);
+      update_stmt (copy);
     }
 
   return copy;
