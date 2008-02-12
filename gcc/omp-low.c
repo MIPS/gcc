@@ -5072,7 +5072,8 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, tree *body_p,
   lower_lastprivate_clauses (clauses, cond, &stmts, ctx);
   if (stmts != NULL)
     {
-      append_to_statement_list (stmts, dlist);
+      append_to_statement_list (*dlist, &stmts);
+      *dlist = stmts;
 
       /* Optimize: v = 0; is usually cheaper than v = some_other_constant.  */
       vinit = fd->loop.n1;
@@ -5117,8 +5118,8 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
   /* The pre-body and input clauses go before the lowered OMP_FOR.  */
   ilist = NULL;
   dlist = NULL;
-  append_to_statement_list (OMP_FOR_PRE_BODY (stmt), body_p);
   lower_rec_input_clauses (OMP_FOR_CLAUSES (stmt), body_p, &dlist, ctx);
+  append_to_statement_list (OMP_FOR_PRE_BODY (stmt), body_p);
 
   /* Lower the header expressions.  At this point, we can assume that
      the header is of the form:

@@ -10528,11 +10528,132 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	init = TREE_VEC_ELT (OMP_FOR_INIT (t), 0);
 	gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
 	decl = RECUR (TREE_OPERAND (init, 0));
-	init = RECUR (TREE_OPERAND (init, 1));
-	cond = RECUR (TREE_VEC_ELT (OMP_FOR_COND (t), 0));
-	incr = RECUR (TREE_VEC_ELT (OMP_FOR_INCR (t), 0));
+	init = TREE_OPERAND (init, 1);
+	gcc_assert (!type_dependent_expression_p (decl));
+	if (!CLASS_TYPE_P (TREE_TYPE (decl)))
+	  {
+	    cond = RECUR (TREE_VEC_ELT (OMP_FOR_COND (t), 0));
+	    incr = TREE_VEC_ELT (OMP_FOR_INCR (t), 0);
+	    if (TREE_CODE (incr) == MODIFY_EXPR)
+	      incr = build_x_modify_expr (RECUR (TREE_OPERAND (incr, 0)),
+					  NOP_EXPR,
+					  RECUR (TREE_OPERAND (incr, 1)));
+	    else
+	      incr = RECUR (incr);
+	  }
+	else
+	  {
+	    if (init && TREE_CODE (init) != DECL_EXPR)
+	      {
+		tree c;
+		for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+		  {
+		    if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+			 || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
+			&& OMP_CLAUSE_DECL (c) == decl)
+		      break;
+		    else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+			     && OMP_CLAUSE_DECL (c) == decl)
+		      error ("iteration variable %qD should be firstprivate",
+			     decl);
+		    else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+			     && OMP_CLAUSE_DECL (c) == decl)
+		      error ("iteration variable %qD should be reduction",
+			     decl);
+		  }
+		if (c == NULL)
+		  {
+		    c = build_omp_clause (OMP_CLAUSE_PRIVATE);
+		    OMP_CLAUSE_DECL (c) = decl;
+		    OMP_CLAUSE_CHAIN (c) = clauses;
+		    clauses = c;
+		  }
+	      }
+	    cond = TREE_VEC_ELT (OMP_FOR_COND (t), 0);
+	    if (COMPARISON_CLASS_P (cond))
+	      cond = build2 (TREE_CODE (cond), boolean_type_node,
+			     RECUR (TREE_OPERAND (cond, 0)),
+			     RECUR (TREE_OPERAND (cond, 1)));
+	    else
+	      cond = RECUR (cond);
+	    incr = TREE_VEC_ELT (OMP_FOR_INCR (t), 0);
+	    switch (TREE_CODE (incr))
+	      {
+	      case PREINCREMENT_EXPR:
+	      case PREDECREMENT_EXPR:
+	      case POSTINCREMENT_EXPR:
+	      case POSTDECREMENT_EXPR:
+		incr = build2 (TREE_CODE (incr), TREE_TYPE (decl),
+			       RECUR (TREE_OPERAND (incr, 0)), NULL_TREE);
+		break;
+	      case MODIFY_EXPR:
+		if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
+		    || TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR)
+		  {
+		    tree rhs = TREE_OPERAND (incr, 1);
+		    incr = build2 (MODIFY_EXPR, TREE_TYPE (decl),
+				   RECUR (TREE_OPERAND (incr, 0)),
+				   build2 (TREE_CODE (rhs), TREE_TYPE (decl),
+					   RECUR (TREE_OPERAND (rhs, 0)),
+					   RECUR (TREE_OPERAND (rhs, 1))));
+		  }
+		else
+		  incr = RECUR (incr);
+		break;
+	      case MODOP_EXPR:
+		if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
+		    || TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR)
+		  {
+		    tree lhs = RECUR (TREE_OPERAND (incr, 0));
+		    incr = build2 (MODIFY_EXPR, TREE_TYPE (decl), lhs,
+				   build2 (TREE_CODE (TREE_OPERAND (incr, 1)),
+					   TREE_TYPE (decl), lhs,
+					   RECUR (TREE_OPERAND (incr, 2))));
+		  }
+		else if (TREE_CODE (TREE_OPERAND (incr, 1)) == NOP_EXPR
+			 && (TREE_CODE (TREE_OPERAND (incr, 2)) == PLUS_EXPR
+			     || (TREE_CODE (TREE_OPERAND (incr, 2))
+				 == MINUS_EXPR)))
+		  {
+		    tree rhs = TREE_OPERAND (incr, 2);
+		    incr = build2 (MODIFY_EXPR, TREE_TYPE (decl),
+				   RECUR (TREE_OPERAND (incr, 0)),
+				   build2 (TREE_CODE (rhs), TREE_TYPE (decl),
+					   RECUR (TREE_OPERAND (rhs, 0)),
+					   RECUR (TREE_OPERAND (rhs, 1))));
+		  }
+		else
+		  incr = RECUR (incr);
+		break;
+	      default:
+		incr = RECUR (incr);
+		break;
+	      }
+	  }
 
 	stmt = begin_omp_structured_block ();
+
+	if (init && TREE_CODE (init) == DECL_EXPR)
+	  {
+	    if (CLASS_TYPE_P (TREE_TYPE (init)))
+	      {
+		init = RECUR (init);
+		gcc_assert (init == decl);
+		init = NULL_TREE;
+	      }
+	    else
+	      {
+		tree decl_expr = init, orig_init;
+		orig_init = DECL_INITIAL (DECL_EXPR_DECL (decl_expr));
+		gcc_assert (orig_init != NULL);
+		init = RECUR (orig_init);
+		DECL_INITIAL (DECL_EXPR_DECL (decl_expr)) = NULL;
+		RECUR (decl_expr);
+		DECL_INITIAL (DECL_EXPR_DECL (decl_expr)) = orig_init;
+	      }
+	  }
+	else
+	  init = RECUR (init);
 
 	pre_body = push_stmt_list ();
 	RECUR (OMP_FOR_PRE_BODY (t));

@@ -1925,6 +1925,34 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
       data->last_goto = NULL;
       break;
 
+    case OMP_PARALLEL:
+    case OMP_TASK:
+      /* Make sure the outermost BIND_EXPR in OMP_BODY isn't removed
+	 as useless.  */
+      remove_useless_stmts_1 (&BIND_EXPR_BODY (OMP_TASKREG_BODY (*tp)), data);
+      data->last_goto = NULL;
+      break;
+
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+    case OMP_SECTION:
+    case OMP_MASTER :
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+      remove_useless_stmts_1 (&OMP_BODY (*tp), data);
+      data->last_goto = NULL;
+      break;
+
+    case OMP_FOR:
+      remove_useless_stmts_1 (&OMP_FOR_BODY (*tp), data);
+      data->last_goto = NULL;
+      if (OMP_FOR_PRE_BODY (*tp))
+	{
+	  remove_useless_stmts_1 (&OMP_FOR_PRE_BODY (*tp), data);
+	  data->last_goto = NULL;
+	}
+      break;
+    
     default:
       data->last_goto = NULL;
       break;

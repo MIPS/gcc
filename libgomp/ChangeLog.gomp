@@ -1,3 +1,12 @@
+2008-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/c++.exp: Add libstdc++-v3 build includes
+	to C++ testsuite default compiler options.
+	* testsuite/libgomp.c++/for-1.C: New test.
+	* testsuite/libgomp.c++/for-2.C: New test.
+	* testsuite/libgomp.c++/for-3.C: New test.
+	* testsuite/libgomp.c++/for-4.C: New test.
+
 2008-02-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/collapse2.f90: New test.

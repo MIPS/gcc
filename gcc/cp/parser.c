@@ -1613,7 +1613,7 @@ static tree cp_parser_delete_expression
 static tree cp_parser_cast_expression
   (cp_parser *, bool, bool);
 static tree cp_parser_binary_expression
-  (cp_parser *, bool);
+  (cp_parser *, bool, enum cp_parser_prec);
 static tree cp_parser_question_colon_clause
   (cp_parser *, tree);
 static tree cp_parser_assignment_expression
@@ -5963,14 +5963,15 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p)
  : binops_by_token[token->type].prec)
 
 static tree
-cp_parser_binary_expression (cp_parser* parser, bool cast_p)
+cp_parser_binary_expression (cp_parser* parser, bool cast_p,
+			     enum cp_parser_prec prec)
 {
   cp_parser_expression_stack stack;
   cp_parser_expression_stack_entry *sp = &stack[0];
   tree lhs, rhs;
   cp_token *token;
   enum tree_code tree_type, lhs_type, rhs_type;
-  enum cp_parser_prec prec = PREC_NOT_OPERATOR, new_prec, lookahead_prec;
+  enum cp_parser_prec new_prec, lookahead_prec;
   bool overloaded_p;
 
   /* Parse the first expression.  */
@@ -6146,7 +6147,7 @@ cp_parser_assignment_expression (cp_parser* parser, bool cast_p)
   else
     {
       /* Parse the binary expressions (logical-or-expression).  */
-      expr = cp_parser_binary_expression (parser, cast_p);
+      expr = cp_parser_binary_expression (parser, cast_p, PREC_NOT_OPERATOR);
       /* If the next token is a `?' then we're actually looking at a
 	 conditional-expression.  */
       if (cp_lexer_next_token_is (parser->lexer, CPP_QUERY))
@@ -20094,12 +20095,145 @@ cp_parser_omp_flush (cp_parser *parser, cp_token *pragma_tok)
   finish_omp_flush ();
 }
 
+/* Helper function, to parse omp for increment expression.  */
+
+static tree
+cp_parser_omp_for_cond (cp_parser *parser, tree decl)
+{
+  tree lhs = cp_parser_cast_expression (parser, false, false), rhs;
+  enum tree_code op;
+  cp_token *token;
+
+  if (lhs != decl)
+    {
+      cp_parser_skip_to_end_of_statement (parser);
+      return error_mark_node;
+    }
+
+  token = cp_lexer_peek_token (parser->lexer);
+  op = binops_by_token [token->type].tree_type;
+  switch (op)
+    {
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+      break;
+    default:
+      cp_parser_skip_to_end_of_statement (parser);
+      return error_mark_node;
+    }
+
+  cp_lexer_consume_token (parser->lexer);
+  rhs = cp_parser_binary_expression (parser, false,
+				     PREC_RELATIONAL_EXPRESSION);
+  if (rhs == error_mark_node
+      || cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
+    {
+      cp_parser_skip_to_end_of_statement (parser);
+      return error_mark_node;
+    }
+
+  return build2 (op, boolean_type_node, lhs, rhs);
+}
+
+/* Helper function, to parse omp for increment expression.  */
+
+static tree
+cp_parser_omp_for_incr (cp_parser *parser, tree decl)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  enum tree_code op;
+  tree lhs, rhs;
+  cp_id_kind idk;
+  bool decl_first;
+
+  if (token->type == CPP_PLUS_PLUS || token->type == CPP_MINUS_MINUS)
+    {
+      op = (token->type == CPP_PLUS_PLUS
+	    ? PREINCREMENT_EXPR : PREDECREMENT_EXPR);
+      cp_lexer_consume_token (parser->lexer);
+      lhs = cp_parser_cast_expression (parser, false, false);
+      if (lhs != decl)
+	return error_mark_node;
+      return build2 (op, TREE_TYPE (decl), decl, NULL_TREE);
+    }
+
+  lhs = cp_parser_primary_expression (parser, false, false, false, &idk);
+  if (lhs != decl)
+    return error_mark_node;
+
+  token = cp_lexer_peek_token (parser->lexer);
+  if (token->type == CPP_PLUS_PLUS || token->type == CPP_MINUS_MINUS)
+    {
+      op = (token->type == CPP_PLUS_PLUS
+	    ? POSTINCREMENT_EXPR : POSTDECREMENT_EXPR);
+      cp_lexer_consume_token (parser->lexer);
+      return build2 (op, TREE_TYPE (decl), decl, NULL_TREE);
+    }
+
+  op = cp_parser_assignment_operator_opt (parser);
+  if (op == ERROR_MARK)
+    return error_mark_node;
+
+  if (op != NOP_EXPR)
+    {
+      rhs = cp_parser_assignment_expression (parser, false);
+      rhs = build2 (op, TREE_TYPE (decl), decl, rhs);
+      return build2 (MODIFY_EXPR, TREE_TYPE (decl), decl, rhs);
+    }
+
+  lhs = cp_parser_binary_expression (parser, false,
+				     PREC_ADDITIVE_EXPRESSION);
+  token = cp_lexer_peek_token (parser->lexer);
+  decl_first = lhs == decl;
+  if (decl_first)
+    lhs = NULL_TREE;
+  if (token->type != CPP_PLUS
+      && token->type != CPP_MINUS)
+    return error_mark_node;
+
+  do
+    {
+      op = token->type == CPP_PLUS ? PLUS_EXPR : MINUS_EXPR;
+      cp_lexer_consume_token (parser->lexer);
+      rhs = cp_parser_binary_expression (parser, false,
+					 PREC_ADDITIVE_EXPRESSION);
+      token = cp_lexer_peek_token (parser->lexer);
+      if (token->type == CPP_PLUS || token->type == CPP_MINUS || decl_first)
+	{
+	  if (lhs == NULL_TREE)
+	    {
+	      if (op == PLUS_EXPR)
+		lhs = rhs;
+	      else
+		lhs = build_x_unary_op (NEGATE_EXPR, rhs);
+	    }
+	  else
+	    lhs = build_x_binary_op (op, lhs, ERROR_MARK, rhs, ERROR_MARK,
+				     NULL);
+	}
+    }
+  while (token->type == CPP_PLUS || token->type == CPP_MINUS);
+
+  if (!decl_first)
+    {
+      if (rhs != decl || op == MINUS_EXPR)
+	return error_mark_node;
+      rhs = build2 (op, TREE_TYPE (decl), lhs, decl);
+    }
+  else
+    rhs = build2 (PLUS_EXPR, TREE_TYPE (decl), decl, lhs);
+
+  return build2 (MODIFY_EXPR, TREE_TYPE (decl), decl, rhs);
+}
+
 /* Parse the restricted form of the for statment allowed by OpenMP.  */
 
 static tree
-cp_parser_omp_for_loop (cp_parser *parser)
+cp_parser_omp_for_loop (cp_parser *parser, tree clauses)
 {
-  tree init, cond, incr, body, decl, pre_body;
+  tree init, cond, incr, body, decl, pre_body, ret, for_block = NULL_TREE;
   location_t loc;
 
   if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
@@ -20136,7 +20270,8 @@ cp_parser_omp_for_loop (cp_parser *parser)
 	  attributes = cp_parser_attributes_opt (parser);
 	  asm_specification = cp_parser_asm_specification_opt (parser);
 
-	  cp_parser_require (parser, CPP_EQ, "`='");
+	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_EQ))
+	    cp_parser_require (parser, CPP_EQ, "`='");
 	  if (cp_parser_parse_definitely (parser))
 	    {
 	      tree pushed_scope;
@@ -20146,10 +20281,33 @@ cp_parser_omp_for_loop (cp_parser *parser)
 				 /*prefix_attributes=*/NULL_TREE,
 				 &pushed_scope);
 
-	      init = cp_parser_assignment_expression (parser, false);
+	      if (CLASS_TYPE_P (TREE_TYPE (decl))
+		  || type_dependent_expression_p (decl))
+		{
+		  bool is_parenthesized_init, is_non_constant_init;
 
-	      cp_finish_decl (decl, NULL_TREE, /*init_const_expr_p=*/false,
-			      asm_specification, LOOKUP_ONLYCONVERTING);
+		  init = cp_parser_initializer (parser, &is_parenthesized_init,
+						&is_non_constant_init);
+
+		  cp_finish_decl (decl, init, !is_non_constant_init,
+				  asm_specification, LOOKUP_ONLYCONVERTING);
+		  if (CLASS_TYPE_P (TREE_TYPE (decl)))
+		    {
+		      for_block = pre_body;
+		      init = NULL_TREE;
+		    }
+		  else
+		    init = pop_stmt_list (pre_body);
+		  pre_body = NULL_TREE;
+		}
+	      else
+		{
+		  cp_parser_require (parser, CPP_EQ, "`='");
+		  init = cp_parser_assignment_expression (parser, false);
+
+		  cp_finish_decl (decl, NULL_TREE, /*init_const_expr_p=*/false,
+				  asm_specification, LOOKUP_ONLYCONVERTING);
+		}
 
 	      if (pushed_scope)
 		pop_scope (pushed_scope);
@@ -20161,19 +20319,81 @@ cp_parser_omp_for_loop (cp_parser *parser)
       /* If parsing as an initialized declaration failed, try again as
 	 a simple expression.  */
       if (decl == NULL)
-	init = cp_parser_expression (parser, false);
+	{
+	  cp_id_kind idk;
+	  cp_parser_parse_tentatively (parser);
+	  decl = cp_parser_primary_expression (parser, false, false,
+					       false, &idk);
+	  if (!cp_parser_error_occurred (parser)
+	      && decl
+	      && DECL_P (decl)
+	      && CLASS_TYPE_P (TREE_TYPE (decl)))
+	    {
+	      tree rhs, c;
+
+	      cp_parser_parse_definitely (parser);
+	      cp_parser_require (parser, CPP_EQ, "`='");
+	      rhs = cp_parser_assignment_expression (parser, false);
+	      finish_expr_stmt (build_x_modify_expr (decl, NOP_EXPR, rhs));
+	      for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+		{
+		  if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+		       || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
+		      && OMP_CLAUSE_DECL (c) == decl)
+		    break;
+		  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+			   && OMP_CLAUSE_DECL (c) == decl)
+		    error ("iteration variable %qD should be firstprivate", decl);
+		  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+			   && OMP_CLAUSE_DECL (c) == decl)
+		    error ("iteration variable %qD should be reduction", decl);
+		}
+	      if (c == NULL)
+		{
+		  c = build_omp_clause (OMP_CLAUSE_PRIVATE);
+		  OMP_CLAUSE_DECL (c) = decl;
+		  OMP_CLAUSE_CHAIN (c) = clauses;
+		  clauses = c;
+		}
+	    }
+	  else
+	    {
+	      decl = NULL;
+	      cp_parser_abort_tentative_parse (parser);
+	      init = cp_parser_expression (parser, false);
+	    }
+	}
     }
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
-  pre_body = pop_stmt_list (pre_body);
+  if (pre_body)
+    pre_body = pop_stmt_list (pre_body);
 
   cond = NULL;
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
-    cond = cp_parser_condition (parser);
+    {
+      /* If decl is an iterator, preserve LHS and RHS of the relational
+	 expr until finish_omp_for.  */
+      if (decl
+	  && (type_dependent_expression_p (decl)
+	      || CLASS_TYPE_P (TREE_TYPE (decl))))
+	cond = cp_parser_omp_for_cond (parser, decl);
+      else
+	cond = cp_parser_condition (parser);
+    }
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
 
   incr = NULL;
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
-    incr = cp_parser_expression (parser, false);
+    {
+      /* If decl is an iterator, preserve the operator on decl
+	 until finish_omp_for.  */
+      if (decl
+	  && (type_dependent_expression_p (decl)
+	      || CLASS_TYPE_P (TREE_TYPE (decl))))
+	incr = cp_parser_omp_for_incr (parser, decl);
+      else
+	incr = cp_parser_expression (parser, false);
+    }
 
   if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
     cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
@@ -20190,7 +20410,14 @@ cp_parser_omp_for_loop (cp_parser *parser)
   cp_parser_statement (parser, NULL_TREE, false, NULL);
   body = pop_stmt_list (body);
 
-  return finish_omp_for (loc, decl, init, cond, incr, body, pre_body);
+  ret = finish_omp_for (loc, decl, init, cond, incr, body, pre_body);
+  if (ret)
+    OMP_FOR_CLAUSES (ret) = clauses;
+
+  if (for_block)
+    add_stmt (pop_stmt_list (for_block));
+
+  return ret;
 }
 
 /* OpenMP 2.5:
@@ -20219,9 +20446,7 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok)
   sb = begin_omp_structured_block ();
   save = cp_parser_begin_omp_structured_block (parser);
 
-  ret = cp_parser_omp_for_loop (parser);
-  if (ret)
-    OMP_FOR_CLAUSES (ret) = clauses;
+  ret = cp_parser_omp_for_loop (parser, clauses);
 
   cp_parser_end_omp_structured_block (parser, save);
   add_stmt (finish_omp_structured_block (sb));
@@ -20419,9 +20644,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
 
     case PRAGMA_OMP_PARALLEL_FOR:
       c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
-      stmt = cp_parser_omp_for_loop (parser);
-      if (stmt)
-	OMP_FOR_CLAUSES (stmt) = ws_clause;
+      cp_parser_omp_for_loop (parser, ws_clause);
       break;
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:

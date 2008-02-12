@@ -1,3 +1,11 @@
+2008-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_for_lastprivate): Add lastprivate clauses
+	to the beginning of dlist rather than end.
+	(lower_omp_for): Add rec input clauses before OMP_FOR_PRE_BODY,
+	not after it.
+	* tree-cfg.c (remove_useless_stmts_1): Handle OMP_* containers.
+
 2008-02-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (OMP_CLAUSE_COLLAPSE_ITERVAR,
