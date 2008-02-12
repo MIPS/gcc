@@ -2519,6 +2519,17 @@ Functions with this attribute will not be so instrumented.
 @cindex @code{noinline} function attribute
 This function attribute prevents a function from being considered for
 inlining.
+@c Don't enumerate the optimizations by name here; we try to be
+@c future-compatible with this mechanism.
+If the function does not have side-effects, there are optimizations
+other than inlining that causes function calls to be optimized away,
+although the function call is live.  To keep such calls from being
+optimized away, put
+@smallexample
+asm ("");
+@end smallexample
+(@pxref{Extended Asm}) in the called function, to serve as a special
+side-effect.
 
 @item nonnull (@var{arg-index}, @dots{})
 @cindex @code{nonnull} function attribute
@@ -6423,6 +6434,14 @@ if (__builtin_expect (ptr != NULL, 1))
 when testing pointer or floating-point values.
 @end deftypefn
 
+@deftypefn {Built-in Function} void __builtin_trap (void)
+This function causes the program to exit abnormally.  GCC implements
+this function by using a target-dependent mechanism (such as
+intentionally executing an illegal instruction) or by calling
+@code{abort}.  The mechanism used may vary from release to release so
+you should not rely on any particular implementation.
+@end deftypefn
+
 @deftypefn {Built-in Function} void __builtin___clear_cache (char *@var{begin}, char *@var{end})
 This function is used to flush the processor's instruction cache for
 the region of memory between @var{begin} inclusive and @var{end}
@@ -7398,12 +7417,12 @@ integers, these use @code{V4SI}.  Finally, some instructions operate on an
 entire vector register, interpreting it as a 128-bit integer, these use mode
 @code{TI}.
 
-In the 64-bit mode, x86-64 family of processors uses additional built-in
+In 64-bit mode, the x86-64 family of processors uses additional built-in
 functions for efficient use of @code{TF} (@code{__float128}) 128-bit
 floating point and @code{TC} 128-bit complex floating point values.
 
-The following floating point built-in functions are made available in the
-64-bit mode.  All of them implement the function that is part of the name.
+The following floating point built-in functions are available in 64-bit
+mode.  All of them implement the function that is part of the name.
 
 @smallexample
 __float128 __builtin_fabsq (__float128)

@@ -91,7 +91,7 @@ struct diagnostic_info;
 
    Usage of TYPE_LANG_FLAG_?:
    0: TYPE_DEPENDENT_P
-   1: TYPE_HAS_CONSTRUCTOR.
+   1: TYPE_HAS_USER_CONSTRUCTOR.
    2: Unused
    3: TYPE_FOR_JAVA.
    4: TYPE_HAS_NONTRIVIAL_DESTRUCTOR
@@ -281,7 +281,7 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, in the usual
    sense of `same'.  */
 #define same_type_p(TYPE1, TYPE2) \
-  comptypes ((TYPE1), (TYPE2), COMPARE_STRICT)
+  cp_comptypes ((TYPE1), (TYPE2), COMPARE_STRICT)
 
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, ignoring
    top-level qualifiers.  */
@@ -2709,7 +2709,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* Nonzero for a class type means that the class type has a
    user-declared constructor.  */
-#define TYPE_HAS_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
+#define TYPE_HAS_USER_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
 
 /* When appearing in an INDIRECT_REF, it means that the tree structure
    underneath is actually a call to a constructor.  This is needed
@@ -3744,7 +3744,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define WANT_VECTOR    32 /* vector types */
 #define WANT_ARITH	(WANT_INT | WANT_FLOAT | WANT_VECTOR)
 
-/* Used with comptypes, and related functions, to guide type
+/* Used with cp_comptypes, and related functions, to guide type
    comparison.  */
 
 #define COMPARE_STRICT	      0 /* Just check if the types are the
@@ -3780,7 +3780,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    is derived from TYPE1, or if TYPE2 is a pointer (reference) to a
    class derived from the type pointed to (referred to) by TYPE1.  */
 #define same_or_base_type_p(TYPE1, TYPE2) \
-  comptypes ((TYPE1), (TYPE2), COMPARE_BASE)
+  cp_comptypes ((TYPE1), (TYPE2), COMPARE_BASE)
 
 /* These macros are used to access a TEMPLATE_PARM_INDEX.  */
 #define TEMPLATE_PARM_INDEX_CAST(NODE) \
@@ -4346,6 +4346,7 @@ extern tree build_aggr_init			(tree, tree, int);
 extern int is_aggr_type				(tree, int);
 extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
+extern tree build_value_init			(tree);
 extern tree build_offset_ref			(tree, tree, bool);
 extern tree build_new				(tree, tree, tree, tree, int);
 extern tree build_vec_init			(tree, tree, tree, bool, int);
@@ -4763,7 +4764,7 @@ extern tree complete_type			(tree);
 extern tree complete_type_or_else		(tree, tree);
 extern int type_unknown_p			(const_tree);
 extern bool comp_except_specs			(const_tree, const_tree, bool);
-extern bool comptypes				(tree, tree, int);
+extern bool cp_comptypes			(tree, tree, int);
 extern bool compparms				(const_tree, const_tree);
 extern int comp_cv_qualification		(const_tree, const_tree);
 extern int comp_cv_qual_signature		(tree, tree);

@@ -465,8 +465,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
       /* B* bp; A& ar = (A&)bp; is valid, but it's probably not what they
 	 meant.  */
       if (TREE_CODE (intype) == POINTER_TYPE
-	  && (comptypes (TREE_TYPE (intype), type,
-			 COMPARE_BASE | COMPARE_DERIVED)))
+	  && (cp_comptypes (TREE_TYPE (intype), type,
+                            COMPARE_BASE | COMPARE_DERIVED)))
 	warning (0, "casting %qT to %qT does not dereference pointer",
 		 intype, reftype);
 
@@ -596,19 +596,15 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 
   e = integral_constant_value (e);
 
-  if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP)
-      /* Some internal structures (vtable_entry_type, sigtbl_ptr_type)
-	 don't go through finish_struct, so they don't have the synthesized
-	 constructors.  So don't force a temporary.  */
-      && TYPE_HAS_CONSTRUCTOR (type))
+  if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP))
     /* We need a new temporary; don't take this shortcut.  */;
-  else if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (e)))
+  else if (same_type_ignoring_top_level_qualifiers_p (type, TREE_TYPE (e)))
     {
       if (same_type_p (type, TREE_TYPE (e)))
 	/* The call to fold will not always remove the NOP_EXPR as
 	   might be expected, since if one of the types is a typedef;
 	   the comparison in fold is just equality of pointers, not a
-	   call to comptypes.  We don't call fold in this case because
+	   call to cp_comptypes.  We don't call fold in this case because
 	   that can result in infinite recursion; fold will call
 	   convert, which will call ocp_convert, etc.  */
 	return e;
@@ -619,10 +615,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
       else if (TREE_CODE (e) == TARGET_EXPR)
 	{
 	  /* Don't build a NOP_EXPR of class type.  Instead, change the
-	     type of the temporary.  Only allow this for cv-qual changes,
-	     though.  */
-	  gcc_assert (same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (e)),
-				   TYPE_MAIN_VARIANT (type)));
+	     type of the temporary.  */
 	  TREE_TYPE (e) = TREE_TYPE (TARGET_EXPR_SLOT (e)) = type;
 	  return e;
 	}

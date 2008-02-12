@@ -1,3 +1,134 @@
+2008-02-12  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR c++/29048
+	* semantics.c (finish_qualified_id_expr): Avoid duplicate access
+	check here, too.
+
+2008-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34862
+	* init.c (build_new_1): Don't create placement_expr before
+	constructing alloc_call.  Verify that the pointer is passed by
+	value to operator new.
+
+2008-02-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35097
+	* pt.c (tsubst): Don't look up a template typedef in an explicit
+	specialization.
+
+2008-02-11  Douglas Gregor  <doug.gregor@gmail.com>
+
+       PR c++/35113
+       * tree.c (cp_build_qualified_type_real): When building a
+       cv-qualified array type, build it as a unique type with
+       build_cplus_array_type_1 and then adopt the unqualified type's
+       main variant.
+	
+2008-02-11  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/35077
+	* decl.c (groktypename): Check grokdeclarator return.
+
+2008-02-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34094
+	* decl2.c (cp_write_global_declarations): Don't write out static 
+	data members with DECL_IN_AGGR_P set.
+
+2008-02-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35116
+	* tree.c (build_target_expr_with_type): Handle void initializer.
+	(bot_manip): Remap slot before recursing.
+
+2008-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR other/35107
+	* Make-lang.in (cc1plus-dummy, cc1plus): Add $(GMPLIBS).
+
+2008-02-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/35056
+	* tree.c: Include tree-flow.h.
+	(build_target_expr): Check type compatibility.
+	* Make-lang.in (cp/tree.o): Depend on $(TREE_FLOW_H).
+	* call.c (convert_like_real): Convert bitfield to expected type.
+
+2008-02-06  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/35049
+	PR c++/35096
+	* typeck.c (structural_comptypes): Call cp_comptypes.
+	(comptypes): New; called from the C/C++ common bits to perform
+	strict checks.
+	(cp_comptypes): Renamed from comptypes, which is already used,
+	with a different signature, by the C++ front end.
+	(build_reinterpret_cast_1): Call cp_comptypes.
+	(ptr_reasonably_similar): Ditto.
+	* decl.c (decls_match): Ditto.
+	* cvt.c (convert_to_reference): Ditto.
+	* cp-tree.h (same_type_p): Ditto.
+	(same_or_base_type_p): Ditto.
+	(comptypes): Rename to cp_comptypes.
+	* pt.c (canonical_type_parameter): Call cp_comptypes.
+
+2008-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33553
+	* pt.c (tsubst) <case INTEGER_TYPE>: Don't issue error if max is
+	value dependent expression.
+
+2008-02-05  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/35074
+	* decl2.c (save_template_attributes): When we're modifying the
+	TYPE_MAIN_VARIANT to add new attributes, be sure to also modify
+	all of the other variants to add those same attributes. Otherwise,
+	the main variant will be inconsistent with those other variants.
+	
+2008-02-04  Richard Guenther  <rguenther@suse.de>
+
+	PR java/35035
+	* decl.c (record_builtin_java_type): Make jboolean a
+	integer type again where its mode doesn't match that of bool.
+
+2008-02-02  Jason Merrill  <jason@redhat.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/33916
+	* init.c (build_value_init_1): New function.
+	(build_value_init): New function.
+	* typeck2.c (build_functional_cast): Call it.
+	* cp-gimplify.c (cp_gimplify_init_expr): Handle its output.
+
+	* cp-tree.h (TYPE_HAS_USER_CONSTRUCTOR): Rename from 
+	TYPE_HAS_CONSTRUCTOR.
+	* class.c (finish_struct_bits, maybe_warn_about_overly_private_class,
+	add_implicitly_declared_members): Adjust.
+	(check_field_decls): Adjust. Remove warnings about reference/const
+	in class without constructor.
+	(check_bases_and_members): Adjust.  Give those warnings here instead.
+	* decl.c (fixup_anonymous_aggr): Adjust.
+	(check_initializer): Adjust, clarify logic slightly.
+	(grok_special_member_properties): Adjust, only set if user-provided.
+	* rtti.c (create_tinfo_types): Don't set.
+	* cvt.c (ocp_convert): Remove exception for vtable_entry_type et al.
+	Use same_type_ignoring_top_level_qualifiers_p.
+	* pt.c (check_explicit_specialization): Adjust.
+	(instantiate_class_template): Adjust.
+
+2008-01-31  Douglas Gregor  <doug.gregor@gmail.com>
+           Jakub Jelinek  <jakub@redhat.com>
+
+       PR c++/34935
+       PR c++/34936
+       * typeck.c (structural_comptypes): Handle comparisons of
+       VOID_TYPE, BOOLEAN_TYPE, INTEGER_TYPE, FIXED_POINT_TYPE, and
+       REAL_TYPE nodes.
+       * mangle.c (write_builtin_type): Map down to the canonical type,
+       which will be one of the predefined type nodes.
+
 2008-01-29  Michael Meissner  <michael.meissner@amd.com>
 
 	PR 35004

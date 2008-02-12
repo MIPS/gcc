@@ -3254,7 +3254,7 @@ ix86_function_regparm (const_tree type, const_tree decl)
    indirectly or considering a libcall.  Otherwise return 0.  */
 
 static int
-ix86_function_sseregparm (const_tree type, const_tree decl)
+ix86_function_sseregparm (const_tree type, const_tree decl, bool warn)
 {
   gcc_assert (!TARGET_64BIT);
 
@@ -3265,12 +3265,15 @@ ix86_function_sseregparm (const_tree type, const_tree decl)
     {
       if (!TARGET_SSE)
 	{
-	  if (decl)
-	    error ("Calling %qD with attribute sseregparm without "
-		   "SSE/SSE2 enabled", decl);
-	  else
-	    error ("Calling %qT with attribute sseregparm without "
-		   "SSE/SSE2 enabled", type);
+	  if (warn)
+	    {
+	      if (decl)
+		error ("Calling %qD with attribute sseregparm without "
+		       "SSE/SSE2 enabled", decl);
+	      else
+		error ("Calling %qT with attribute sseregparm without "
+		       "SSE/SSE2 enabled", type);
+	    }
 	  return 0;
 	}
 
@@ -3432,6 +3435,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 		      rtx libname,	/* SYMBOL_REF of library name or 0 */
 		      tree fndecl)
 {
+  struct cgraph_local_info *i = fndecl ? cgraph_local_info (fndecl) : NULL;
   memset (cum, 0, sizeof (*cum));
 
   /* Set up the number of registers to use for passing arguments.  */
@@ -3442,6 +3446,15 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
     cum->mmx_nregs = MMX_REGPARM_MAX;
   cum->warn_sse = true;
   cum->warn_mmx = true;
+
+  /* Because type might mismatch in between caller and callee, we need to
+     use actual type of function for local calls.
+     FIXME: cgraph_analyze can be told to actually record if function uses
+     va_start so for local functions maybe_vaarg can be made aggressive
+     helping K&R code.
+     FIXME: once typesytem is fixed, we won't need this code anymore.  */
+  if (i && i->local)
+    fntype = TREE_TYPE (fndecl);
   cum->maybe_vaarg = (fntype
 		      ? (!prototype_p (fntype) || stdarg_p (fntype))
 		      : !libname);
@@ -3475,7 +3488,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 
       /* Set up the number of SSE registers used for passing SFmode
 	 and DFmode arguments.  Warn for mismatching ABI.  */
-      cum->float_in_sse = ix86_function_sseregparm (fntype, fndecl);
+      cum->float_in_sse = ix86_function_sseregparm (fntype, fndecl, true);
     }
 }
 
@@ -4600,7 +4613,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
      SSE math is enabled or for functions with sseregparm attribute.  */
   if ((fn || fntype) && (mode == SFmode || mode == DFmode))
     {
-      int sse_level = ix86_function_sseregparm (fntype, fn);
+      int sse_level = ix86_function_sseregparm (fntype, fn, false);
       if ((sse_level >= 1 && mode == SFmode)
 	  || (sse_level == 2 && mode == DFmode))
 	regno = FIRST_SSE_REG;

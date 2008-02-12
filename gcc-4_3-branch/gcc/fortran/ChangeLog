@@ -1,3 +1,59 @@
+2008-02-10  Daniel Franke  <franke.daniel@gmail.com>
+
+	fortran/PR35019
+	* lang.opt: Allow '-J<dir>' next to '-J <dir>', 
+	likewise '-I <dir>' and '-I<dir>'.
+
+2008-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR other/35107
+	* Make-lang.in (f951): Add $(GMPLIBS).
+
+2008-02-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35037
+	* trans-common.c (build_field): Mark fields as volatile when needed.
+
+2008-02-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/35093
+	* data.c (gfc_assign_data_value): Only free "size" if
+	it has not already been freed.
+
+2008-02-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34945
+	* array.c (match_array_element_spec): Remove check for negative
+	array size.
+	(gfc_resolve_array_spec): Add check for negative size.
+
+2008-02-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32315
+	* data.c (gfc_assign_data_value): Add bounds check for array
+	references.
+
+2008-02-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	* resolve.c (resolve_where): Fix typo.
+	(gfc_resolve_where_code_in_forall): Likewise.
+
+2008-02-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32760
+	* resolve.c (resolve_allocate_deallocate): New function.
+	(resolve_code): Call it for allocate and deallocate.
+	* match.c (gfc_match_allocate, gfc_match_deallocate) : Remove
+	the checking of the STAT tag and put in above new function.
+	* primary,c (match_variable): Do not fix flavor of host
+	associated symbols yet if the type is not known.
+
+2008-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34910
+	* expr.c (gfc_check_assign): It is an error to assign
+	to a sibling procedure.
+
 2008-01-30  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/34975
