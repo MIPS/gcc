@@ -1099,24 +1099,25 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_PARALLEL:
+    case OMP_TASK:
       save_suppress = info->suppress_expansion;
-      if (convert_nonlocal_omp_clauses (&OMP_PARALLEL_CLAUSES (t), wi))
+      if (convert_nonlocal_omp_clauses (&OMP_TASKREG_CLAUSES (t), wi))
 	{
 	  tree c, decl;
 	  decl = get_chain_decl (info);
 	  c = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
 	  OMP_CLAUSE_DECL (c) = decl;
-	  OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
-	  OMP_PARALLEL_CLAUSES (t) = c;
+	  OMP_CLAUSE_CHAIN (c) = OMP_TASKREG_CLAUSES (t);
+	  OMP_TASKREG_CLAUSES (t) = c;
 	}
 
       save_local_var_chain = info->new_local_var_chain;
       info->new_local_var_chain = NULL;
 
-      walk_body (convert_nonlocal_reference, info, &OMP_PARALLEL_BODY (t));
+      walk_body (convert_nonlocal_reference, info, &OMP_TASKREG_BODY (t));
 
       if (info->new_local_var_chain)
-	declare_vars (info->new_local_var_chain, OMP_PARALLEL_BODY (t), false);
+	declare_vars (info->new_local_var_chain, OMP_TASKREG_BODY (t), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
       break;
@@ -1393,24 +1394,25 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_PARALLEL:
+    case OMP_TASK:
       save_suppress = info->suppress_expansion;
-      if (convert_local_omp_clauses (&OMP_PARALLEL_CLAUSES (t), wi))
+      if (convert_local_omp_clauses (&OMP_TASKREG_CLAUSES (t), wi))
 	{
 	  tree c;
 	  (void) get_frame_type (info);
 	  c = build_omp_clause (OMP_CLAUSE_SHARED);
 	  OMP_CLAUSE_DECL (c) = info->frame_decl;
-	  OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
-	  OMP_PARALLEL_CLAUSES (t) = c;
+	  OMP_CLAUSE_CHAIN (c) = OMP_TASKREG_CLAUSES (t);
+	  OMP_TASKREG_CLAUSES (t) = c;
 	}
 
       save_local_var_chain = info->new_local_var_chain;
       info->new_local_var_chain = NULL;
 
-      walk_body (convert_local_reference, info, &OMP_PARALLEL_BODY (t));
+      walk_body (convert_local_reference, info, &OMP_TASKREG_BODY (t));
 
       if (info->new_local_var_chain)
-	declare_vars (info->new_local_var_chain, OMP_PARALLEL_BODY (t), false);
+	declare_vars (info->new_local_var_chain, OMP_TASKREG_BODY (t), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
       break;
@@ -1730,9 +1732,10 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_PARALLEL:
+    case OMP_TASK:
       save_static_chain_added = info->static_chain_added;
       info->static_chain_added = 0;
-      walk_body (convert_call_expr, info, &OMP_PARALLEL_BODY (t));
+      walk_body (convert_call_expr, info, &OMP_TASKREG_BODY (t));
       for (i = 0; i < 2; i++)
 	{
 	  tree c, decl;
@@ -1740,7 +1743,7 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 	    continue;
 	  decl = i ? get_chain_decl (info) : info->frame_decl;
 	  /* Don't add CHAIN.* or FRAME.* twice.  */
-	  for (c = OMP_PARALLEL_CLAUSES (t); c; c = OMP_CLAUSE_CHAIN (c))
+	  for (c = OMP_TASKREG_CLAUSES (t); c; c = OMP_CLAUSE_CHAIN (c))
 	    if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
 		 || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED)
 		&& OMP_CLAUSE_DECL (c) == decl)
@@ -1749,8 +1752,8 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 	    {
 	      c = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
 	      OMP_CLAUSE_DECL (c) = decl;
-	      OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
-	      OMP_PARALLEL_CLAUSES (t) = c;
+	      OMP_CLAUSE_CHAIN (c) = OMP_TASKREG_CLAUSES (t);
+	      OMP_TASKREG_CLAUSES (t) = c;
 	    }
 	}
       info->static_chain_added |= save_static_chain_added;

@@ -1,5 +1,9 @@
 2008-02-12  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-nested.c (conver_nonlocal_reference, convert_local_reference,
+	convert_call_expr): Handle OMP_TASK the same as OMP_PARALLEL.  Use
+	OMP_TASKREG_* macros rather than OMP_PARALLEL_*.
+
 	* omp-low.c (lower_omp_for_lastprivate): Add lastprivate clauses
 	to the beginning of dlist rather than end.
 	(lower_omp_for): Add rec input clauses before OMP_FOR_PRE_BODY,
