@@ -1917,37 +1917,27 @@ add_call_read_ops (gimple stmt, tree callee ATTRIBUTE_UNUSED)
 }
 
 
-/* A subroutine of get_expr_operands to handle CALL_EXPR.  */
+/* If STMT is a call that may clobber globals and other symbols that
+   escape, add them to the VDEF/VUSE lists for it.  */
 
 static void
-get_call_expr_operands (gimple stmt, tree expr)
+maybe_add_call_clobbered_vops (gimple stmt)
 {
-  int call_flags = call_expr_flags (expr);
-  int i, nargs;
+  int call_flags = gimple_call_flags (stmt);
 
   /* If aliases have been computed already, add VDEF or VUSE
      operands for all the symbols that have been found to be
      call-clobbered.  */
-  if (gimple_aliases_computed_p (cfun)
-      && !(call_flags & ECF_NOVOPS))
+  if (gimple_aliases_computed_p (cfun) && !(call_flags & ECF_NOVOPS))
     {
       /* A 'pure' or a 'const' function never call-clobbers anything. 
 	 A 'noreturn' function might, but since we don't return anyway 
 	 there is no point in recording that.  */ 
-      if (TREE_SIDE_EFFECTS (expr)
-	  && !(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
-	add_call_clobber_ops (stmt, get_callee_fndecl (expr));
+      if (!(call_flags & (ECF_PURE | ECF_CONST | ECF_NORETURN)))
+	add_call_clobber_ops (stmt, gimple_call_fndecl (stmt));
       else if (!(call_flags & ECF_CONST))
-	add_call_read_ops (stmt, get_callee_fndecl (expr));
+	add_call_read_ops (stmt, gimple_call_fndecl (stmt));
     }
-
-  /* Find uses in the called function.  */
-  get_expr_operands (stmt, &CALL_EXPR_FN (expr), opf_use);
-  nargs = call_expr_nargs (expr);
-  for (i = 0; i < nargs; i++)
-    get_expr_operands (stmt, &CALL_EXPR_ARG (expr, i), opf_use);
-
-  get_expr_operands (stmt, &CALL_EXPR_STATIC_CHAIN (expr), opf_use);
 }
 
 
@@ -2041,29 +2031,6 @@ get_asm_expr_operands (gimple stmt)
 	  break;
 	}
     }
-}
-
-
-/* Scan operands for the assignment expression EXPR in statement STMT.  */
-
-static void
-get_modify_stmt_operands (gimple stmt, tree expr)
-{
-  /* First get operands from the RHS.  */
-  get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (expr, 1), opf_use);
-
-  /* For the LHS, use a regular definition (opf_def) for GIMPLE
-     registers.  If the LHS is a store to memory, we will need
-     a preserving definition (VDEF).
-
-     Preserving definitions are those that modify a part of an
-     aggregate object for which no subvars have been computed (or the
-     reference does not correspond exactly to one of them). Stores
-     through a pointer are also represented with VDEF operators.
-
-     We used to distinguish between preserving and killing definitions.
-     We always emit preserving definitions now.  */
-  get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (expr, 0), opf_def);
 }
 
 
@@ -2231,21 +2198,6 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
-    case CALL_EXPR:
-      get_call_expr_operands (stmt, expr);
-      return;
-
-    case COND_EXPR:
-    case VEC_COND_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
-      return;
-
-    case GIMPLE_MODIFY_STMT:
-      get_modify_stmt_operands (stmt, expr);
-      return;
-
     case CONSTRUCTOR:
       {
 	/* General aggregate CONSTRUCTORs have been decomposed, but they
@@ -2321,9 +2273,14 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 
     case OMP_CONTINUE:
       {
+	/* FIXME tuples.  */
+#if 0
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_def);
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
 	return;
+#else
+	gimple_unreachable ();
+#endif
       }
 
     case OMP_PARALLEL:
@@ -2353,12 +2310,19 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 
     case OMP_SECTIONS:
       {
+	/* FIXME tuples.  */
+#if 0
 	get_expr_operands (stmt, &OMP_SECTIONS_CONTROL (expr), opf_def);
 	return;
+#else
+	gimple_unreachable ();
+#endif
       }
 
     case OMP_ATOMIC_LOAD:
       {
+	/* FIXME tuples.  */
+#if 0
 	tree *addr = &TREE_OPERAND (expr, 1);
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_def);
 
@@ -2368,28 +2332,26 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	  get_addr_dereference_operands (stmt, addr, opf_def,
 					 NULL_TREE, 0, -1, true);
 	return;
+#else
+	gimple_unreachable ();
+#endif
       }
 
     case OMP_ATOMIC_STORE:
       {
+	/* FIXME tuples.  */
+#if 0
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
 	return;
+#else
+	gimple_unreachable ();
+#endif
       }
 
-    case BLOCK:
     case FUNCTION_DECL:
-    case EXC_PTR_EXPR:
-    case FILTER_EXPR:
     case LABEL_DECL:
     case CONST_DECL:
     case CASE_LABEL_EXPR:
-    case OMP_SINGLE:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_CRITICAL:
-    case OMP_RETURN:
-    case OMP_SECTION:
-    case OMP_SECTIONS_SWITCH:
       /* Expressions that make no memory references.  */
       return;
 
@@ -2418,22 +2380,27 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 static void
 parse_ssa_operands (gimple stmt)
 {
-  size_t i, start = 0;
+  enum gimple_code code = gimple_code (stmt);
 
-  if (gimple_code (stmt) == GIMPLE_ASM)
+  if (code == GIMPLE_ASM)
+    get_asm_expr_operands (stmt);
+  else
     {
-      get_asm_expr_operands (stmt);
-      return;
-    }
+      size_t i, start = 0;
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
-    {
-      get_expr_operands (stmt, gimple_op_ptr (stmt, 0), opf_def);
-      start = 1;
-    }
+      if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
+	{
+	  get_expr_operands (stmt, gimple_op_ptr (stmt, 0), opf_def);
+	  start = 1;
+	}
 
-  for (i = start; i < gimple_num_ops (stmt); i++)
-    get_expr_operands (stmt, gimple_op_ptr (stmt, i), opf_use);
+      for (i = start; i < gimple_num_ops (stmt); i++)
+	get_expr_operands (stmt, gimple_op_ptr (stmt, i), opf_use);
+
+      /* Add call-clobbered operands, if needed.  */
+      if (code == GIMPLE_CALL)
+	maybe_add_call_clobbered_vops (stmt);
+    }
 }
 
 

@@ -1,3 +1,20 @@
+2008-02-13  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00455.html
+
+	* tree-complex.c (update_complex_components): Handle
+	GIMPLE_CALL and GIMPLE_ASSIGN.
+	(expand_complex_libcall): Set SSA_NAME_DEF_STMT on LHS.
+	* tree-ssa-operands.c (maybe_add_call_clobbered_vops):
+	Rename from get_call_expr_operands.  Update all users.
+	Convert to handle GIMPLE_CALL instead of CALL_EXPR.
+	(get_modify_stmt_operands): Remove.  Update all users.
+	(get_expr_operands): Do not handle CALL_EXPR, COND_EXPR,
+	VEC_COND_EXPR, GIMPLE_MODIFY_STMT, BLOCK, EXC_PTR_EXPR
+	and FILTER_EXPR.
+	(parse_ssa_operands): Call maybe_add_call_clobbered_vops
+	after parsing operands if STMT is a GIMPLE_CALL.
+
 2008-02-12  Zdenek Dvorak  <ook@ucw.cz>
 	    Bill Maddox  <maddox@google.com>
 

@@ -615,8 +615,15 @@ static void
 update_complex_components (gimple_stmt_iterator *gsi, gimple stmt, tree r,
 			   tree i)
 {
-  tree lhs = gimple_assign_lhs (stmt);
+  tree lhs;
   gimple_seq list;
+
+  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+    lhs = gimple_assign_lhs (stmt);
+  else if (gimple_code (stmt) == GIMPLE_CALL)
+    lhs = gimple_call_lhs (stmt);
+  else
+    gcc_unreachable ();
 
   list = set_component_ssa_name (lhs, false, r);
   if (list)
@@ -971,6 +978,7 @@ expand_complex_libcall (gimple_stmt_iterator *gsi, tree ar, tree ai,
       update_complex_components (gsi, stmt,
 				 build1 (REALPART_EXPR, type, lhs),
 				 build1 (IMAGPART_EXPR, type, lhs));
+      SSA_NAME_DEF_STMT (lhs) = stmt;
     }
 }
 
