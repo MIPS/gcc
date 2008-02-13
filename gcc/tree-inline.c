@@ -2236,12 +2236,15 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights)
 {
   switch (code)
     {
+    /* These are "free" conversions, or their presumed cost
+       is folded into other operations.  */
     case RANGE_EXPR:
     case CONVERT_EXPR:
     case COMPLEX_EXPR:
     case NOP_EXPR:
     case NON_LVALUE_EXPR:
       return 0;
+
     /* Assign cost of 1 to usual operations.
        ??? We may consider mapping RTL costs to this.  */
     case COND_EXPR:
@@ -2303,15 +2306,15 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights)
     case POSTDECREMENT_EXPR:
     case POSTINCREMENT_EXPR:
 
-    case ASM_EXPR:
-
     case REALIGN_LOAD_EXPR:
 
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
     case WIDEN_SUM_EXPR:
-    case DOT_PROD_EXPR: 
+    case WIDEN_MULT_EXPR:
+    case DOT_PROD_EXPR:
+
     case VEC_WIDEN_MULT_HI_EXPR:
     case VEC_WIDEN_MULT_LO_EXPR:
     case VEC_UNPACK_HI_EXPR:
@@ -2321,15 +2324,11 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights)
     case VEC_PACK_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
     case VEC_PACK_FIX_TRUNC_EXPR:
-
-    case WIDEN_MULT_EXPR:
-
     case VEC_EXTRACT_EVEN_EXPR:
     case VEC_EXTRACT_ODD_EXPR:
     case VEC_INTERLEAVE_HIGH_EXPR:
     case VEC_INTERLEAVE_LOW_EXPR:
 
-    case RESX_EXPR:
       return 1;
 
     /* Few special cases of expensive operations.  This is useful

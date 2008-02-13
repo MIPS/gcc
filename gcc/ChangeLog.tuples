@@ -1,3 +1,9 @@
+2008-02-13  Bill Maddox  <maddox@google.com>
+
+	* tree-inline.c (estimate_operator_cost): 
+	Removed operators superseded by tuplified statement forms.
+	Small cosmetic reordering of a few switch cases.
+
 2008-02-13  Oleg Ryjkov  <olegr@google.com>
 
 	* tree.h: New function declaration.
