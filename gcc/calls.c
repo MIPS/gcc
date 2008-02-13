@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "gimple.h"
 #include "flags.h"
 #include "expr.h"
 #include "optabs.h"
@@ -553,7 +554,21 @@ setjmp_call_p (const_tree fndecl)
   return special_function_p (fndecl, 0) & ECF_RETURNS_TWICE;
 }
 
+/* Return true when an expression stmt contains alloca call.  */
+bool
+gimple_alloca_call_p (const_gimple stmt)
+{
+  if (gimple_code (stmt) == GIMPLE_CALL
+      && TREE_CODE (gimple_call_fn (stmt)) == ADDR_EXPR
+      && (TREE_CODE (TREE_OPERAND (gimple_call_fn (stmt), 0)) == FUNCTION_DECL)
+      && (special_function_p (TREE_OPERAND (gimple_call_fn (stmt), 0), 0)
+          & ECF_MAY_BE_ALLOCA))
+    return true;
+  return false;
+}
+
 /* Return true when exp contains alloca call.  */
+
 bool
 alloca_call_p (const_tree exp)
 {

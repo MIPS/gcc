@@ -1,3 +1,18 @@
+2008-02-13  Oleg Ryjkov  <olegr@google.com>
+
+	* tree.h: New function declaration.
+	* gimple-dummy.c (tree_inlinable_function_p): Removed.
+	* ipa-inline.c (compute_inline_parameters): Removed
+	gcc_unreachable ().
+	* calls.c (gimple_alloca_call_p): New function.
+	* tree-inline.c (inline_forbidden_p_1): Split in two and removed.
+	(inline_forbidden_p_op, inline_forbidden_p_stmt): New functions.
+	(inline_forbidden_p): Tuplified.
+	(estimate_operator_cost): Added missing cases.
+	* passes.c (init_optimization_passes): Enabled pass_inline_parameters,
+	pass_ipa_function_and_variable_visibility, pass_ipa_early_inline,
+	pass_inline_parameters, pass_rebuild_cgraph_edges passes.
+
 2008-02-13  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00459.html

@@ -130,7 +130,10 @@ eni_weights eni_time_weights;
 
 static tree declare_return_variable (copy_body_data *, tree, tree, tree *);
 static tree copy_generic_body (copy_body_data *);
+#endif
 static bool inlinable_function_p (tree);
+/* FIXME tuples.  */
+#if 0
 static void remap_block (tree *, copy_body_data *);
 static tree remap_decls (tree, copy_body_data *);
 static void copy_bind_expr (tree *, int *, copy_body_data *);
@@ -1875,6 +1878,7 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
   *use_p = use;
   return var;
 }
+#endif
 
 /* Returns nonzero if a function can be inlined as a tree.  */
 
@@ -1886,122 +1890,19 @@ tree_inlinable_function_p (tree fn)
 
 static const char *inline_forbidden_reason;
 
+/* A callback for walk_gimple_seq to hadle tree operands. Returns NULL_TREE if
+   a function can be inlined, otherwise sets the reason why not and returns
+   a tree representing the offending statement. */
+
 static tree
-inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
-		      void *fnp)
+inline_forbidden_p_op (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
+                         void *fnp ATTRIBUTE_UNUSED)
 {
   tree node = *nodep;
-  tree fn = (tree) fnp;
   tree t;
 
-  switch (TREE_CODE (node))
+  if (TREE_CODE (node) == RECORD_TYPE || TREE_CODE (node) == UNION_TYPE)
     {
-    case CALL_EXPR:
-      /* Refuse to inline alloca call unless user explicitly forced so as
-	 this may change program's memory overhead drastically when the
-	 function using alloca is called in loop.  In GCC present in
-	 SPEC2000 inlining into schedule_block cause it to require 2GB of
-	 RAM instead of 256MB.  */
-      if (alloca_call_p (node)
-	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
-	{
-	  inline_forbidden_reason
-	    = G_("function %q+F can never be inlined because it uses "
-		 "alloca (override using the always_inline attribute)");
-	  return node;
-	}
-      t = get_callee_fndecl (node);
-      if (! t)
-	break;
-
-      /* We cannot inline functions that call setjmp.  */
-      if (setjmp_call_p (t))
-	{
-	  inline_forbidden_reason
-	    = G_("function %q+F can never be inlined because it uses setjmp");
-	  return node;
-	}
-
-      if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL)
-	switch (DECL_FUNCTION_CODE (t))
-	  {
-	    /* We cannot inline functions that take a variable number of
-	       arguments.  */
-	  case BUILT_IN_VA_START:
-	  case BUILT_IN_STDARG_START:
-	  case BUILT_IN_NEXT_ARG:
-	  case BUILT_IN_VA_END:
-	    inline_forbidden_reason
-	      = G_("function %q+F can never be inlined because it "
-		   "uses variable argument lists");
-	    return node;
-
-	  case BUILT_IN_LONGJMP:
-	    /* We can't inline functions that call __builtin_longjmp at
-	       all.  The non-local goto machinery really requires the
-	       destination be in a different function.  If we allow the
-	       function calling __builtin_longjmp to be inlined into the
-	       function calling __builtin_setjmp, Things will Go Awry.  */
-	    inline_forbidden_reason
-	      = G_("function %q+F can never be inlined because "
-		   "it uses setjmp-longjmp exception handling");
-	    return node;
-
-	  case BUILT_IN_NONLOCAL_GOTO:
-	    /* Similarly.  */
-	    inline_forbidden_reason
-	      = G_("function %q+F can never be inlined because "
-		   "it uses non-local goto");
-	    return node;
-
-	  case BUILT_IN_RETURN:
-	  case BUILT_IN_APPLY_ARGS:
-	    /* If a __builtin_apply_args caller would be inlined,
-	       it would be saving arguments of the function it has
-	       been inlined into.  Similarly __builtin_return would
-	       return from the function the inline has been inlined into.  */
-	    inline_forbidden_reason
-	      = G_("function %q+F can never be inlined because "
-		   "it uses __builtin_return or __builtin_apply_args");
-	    return node;
-
-	  default:
-	    break;
-	  }
-      break;
-
-    case GOTO_EXPR:
-      t = TREE_OPERAND (node, 0);
-
-      /* We will not inline a function which uses computed goto.  The
-	 addresses of its local labels, which may be tucked into
-	 global storage, are of course not constant across
-	 instantiations, which causes unexpected behavior.  */
-      if (TREE_CODE (t) != LABEL_DECL)
-	{
-	  inline_forbidden_reason
-	    = G_("function %q+F can never be inlined "
-		 "because it contains a computed goto");
-	  return node;
-	}
-      break;
-
-    case LABEL_EXPR:
-      t = TREE_OPERAND (node, 0);
-      if (DECL_NONLOCAL (t))
-	{
-	  /* We cannot inline a function that receives a non-local goto
-	     because we cannot remap the destination label used in the
-	     function that is performing the non-local goto.  */
-	  inline_forbidden_reason
-	    = G_("function %q+F can never be inlined "
-		 "because it receives a non-local goto");
-	  return node;
-	}
-      break;
-
-    case RECORD_TYPE:
-    case UNION_TYPE:
       /* We cannot inline a function of the form
 
 	   void F (int i) { struct S { int ar[i]; } s; }
@@ -2023,12 +1924,131 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 		   "because it uses variable sized variables");
 	    return node;
 	  }
+    }
+  return NULL_TREE;
+}
+
+/* A callback for walk_gimple_seq to handle statements. Returns true iff a
+   function can not be inlined. Also sets the reason why. */
+
+static bool
+inline_forbidden_p_stmt (gimple stmt, void *wip)
+{
+  struct walk_stmt_info wi = *(struct walk_stmt_info *) wip;
+  tree fn = (tree) wi.info;
+  tree t;
+
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_CALL:
+      /* Refuse to inline alloca call unless user explicitly forced so as
+	 this may change program's memory overhead drastically when the
+	 function using alloca is called in loop.  In GCC present in
+	 SPEC2000 inlining into schedule_block cause it to require 2GB of
+	 RAM instead of 256MB.  */
+      if (gimple_alloca_call_p (stmt)
+	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
+	{
+	  inline_forbidden_reason
+	    = G_("function %q+F can never be inlined because it uses "
+		 "alloca (override using the always_inline attribute)");
+	  return true;
+	}
+      t = gimple_call_fndecl (stmt);
+      if (! t)
+	break;
+
+      /* We cannot inline functions that call setjmp.  */
+      if (setjmp_call_p (t))
+	{
+	  inline_forbidden_reason
+	    = G_("function %q+F can never be inlined because it uses setjmp");
+	  return true;
+	}
+
+      if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL)
+	switch (DECL_FUNCTION_CODE (t))
+	  {
+	    /* We cannot inline functions that take a variable number of
+	       arguments.  */
+	  case BUILT_IN_VA_START:
+	  case BUILT_IN_STDARG_START:
+	  case BUILT_IN_NEXT_ARG:
+	  case BUILT_IN_VA_END:
+	    inline_forbidden_reason
+	      = G_("function %q+F can never be inlined because it "
+		   "uses variable argument lists");
+	    return true;
+
+	  case BUILT_IN_LONGJMP:
+	    /* We can't inline functions that call __builtin_longjmp at
+	       all.  The non-local goto machinery really requires the
+	       destination be in a different function.  If we allow the
+	       function calling __builtin_longjmp to be inlined into the
+	       function calling __builtin_setjmp, Things will Go Awry.  */
+	    inline_forbidden_reason
+	      = G_("function %q+F can never be inlined because "
+		   "it uses setjmp-longjmp exception handling");
+	    return true;
+
+	  case BUILT_IN_NONLOCAL_GOTO:
+	    /* Similarly.  */
+	    inline_forbidden_reason
+	      = G_("function %q+F can never be inlined because "
+		   "it uses non-local goto");
+	    return true;
+
+	  case BUILT_IN_RETURN:
+	  case BUILT_IN_APPLY_ARGS:
+	    /* If a __builtin_apply_args caller would be inlined,
+	       it would be saving arguments of the function it has
+	       been inlined into.  Similarly __builtin_return would
+	       return from the function the inline has been inlined into.  */
+	    inline_forbidden_reason
+	      = G_("function %q+F can never be inlined because "
+		   "it uses __builtin_return or __builtin_apply_args");
+	    return true;
+
+	  default:
+	    break;
+	  }
+      break;
+
+    case GIMPLE_GOTO:
+      t = gimple_goto_dest (stmt);
+
+      /* We will not inline a function which uses computed goto.  The
+	 addresses of its local labels, which may be tucked into
+	 global storage, are of course not constant across
+	 instantiations, which causes unexpected behavior.  */
+      if (TREE_CODE (t) != LABEL_DECL)
+	{
+	  inline_forbidden_reason
+	    = G_("function %q+F can never be inlined "
+		 "because it contains a computed goto");
+	  return true;
+	}
+      break;
+
+    case GIMPLE_LABEL:
+      t = gimple_label_label (stmt);
+      if (DECL_NONLOCAL (t))
+	{
+	  /* We cannot inline a function that receives a non-local goto
+	     because we cannot remap the destination label used in the
+	     function that is performing the non-local goto.  */
+	  inline_forbidden_reason
+	    = G_("function %q+F can never be inlined "
+		 "because it receives a non-local goto");
+	  return true;
+	}
+      break;
 
     default:
       break;
     }
 
-  return NULL_TREE;
+  return false;
 }
 
 static tree
@@ -2053,24 +2073,31 @@ inline_forbidden_p_2 (tree *nodep, int *walk_subtrees,
 }
 
 /* Return subexpression representing possible alloca call, if any.  */
-static tree
+
+static bool
 inline_forbidden_p (tree fndecl)
 {
   location_t saved_loc = input_location;
-  block_stmt_iterator bsi;
-  basic_block bb;
-  tree ret = NULL_TREE;
+  gimple_seq seq = gimple_body (fndecl);
+  bool ret = false;
   struct function *fun = DECL_STRUCT_FUNCTION (fndecl);
   tree step;
 
-  FOR_EACH_BB_FN (bb, fun)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	ret = walk_tree_without_duplicates (bsi_stmt_ptr (bsi),
-					    inline_forbidden_p_1, fndecl);
-	if (ret)
-	  goto egress;
-      }
+  {
+    struct walk_stmt_info wi;
+    struct pointer_set_t *visited_nodes = pointer_set_create ();
+
+    memset (&wi, 0, sizeof (wi));
+    wi.info = (void *) fndecl;
+    wi.pset = visited_nodes;
+    ret = walk_gimple_seq (seq,
+                           inline_forbidden_p_stmt,
+                           inline_forbidden_p_op,
+                           &wi) != NULL_TREE;
+    pointer_set_destroy (visited_nodes);
+    if (ret)
+      goto egress;
+  }
 
   for (step = fun->unexpanded_var_list; step; step = TREE_CHAIN (step))
     {
@@ -2078,11 +2105,13 @@ inline_forbidden_p (tree fndecl)
       if (TREE_CODE (decl) == VAR_DECL
 	  && TREE_STATIC (decl)
 	  && !DECL_EXTERNAL (decl)
-	  && DECL_INITIAL (decl))
-	ret = walk_tree_without_duplicates (&DECL_INITIAL (decl),
-					    inline_forbidden_p_2, fndecl);
-	if (ret)
+	  && DECL_INITIAL (decl)
+          && walk_tree_without_duplicates (&DECL_INITIAL (decl),
+				           inline_forbidden_p_2, fndecl))
+        {
+	  ret = true;
 	  goto egress;
+        }
     }
 
 egress:
@@ -2182,7 +2211,6 @@ inlinable_function_p (tree fn)
 
   return inlinable;
 }
-#endif
 
 /* Estimate the cost of a memory move.  Use machine dependent
    word size and take possible memcpy call into account.  */
@@ -2208,6 +2236,12 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights)
 {
   switch (code)
     {
+    case RANGE_EXPR:
+    case CONVERT_EXPR:
+    case COMPLEX_EXPR:
+    case NOP_EXPR:
+    case NON_LVALUE_EXPR:
+      return 0;
     /* Assign cost of 1 to usual operations.
        ??? We may consider mapping RTL costs to this.  */
     case COND_EXPR:

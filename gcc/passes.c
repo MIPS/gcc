@@ -495,18 +495,13 @@ init_optimization_passes (void)
   NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_build_cgraph_edges);
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_inline_parameters);
-#endif
   *p = NULL;
 
   /* Interprocedural optimization passes. 
      All these passes are ignored in -fno-unit-at-a-time
      except for subpasses of early_local_passes.  */
   p = &all_ipa_passes;
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
   NEXT_PASS (pass_ipa_early_inline);
     {
@@ -515,7 +510,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_inline_parameters);
       NEXT_PASS (pass_rebuild_cgraph_edges);
     }
-#endif
   NEXT_PASS (pass_early_local_passes);
     {
       struct tree_opt_pass **p = &pass_early_local_passes.sub;

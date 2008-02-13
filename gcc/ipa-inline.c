@@ -1537,10 +1537,6 @@ compute_inline_parameters (void)
   node->local.inlinable = tree_inlinable_function_p (current_function_decl);
   node->local.self_insns = estimate_num_insns_fn (current_function_decl,
 						  &eni_inlining_weights);
-
-  /* FIXME tuples.  */
-  gimple_unreachable ();
-
   if (node->local.inlinable && !node->local.disregard_inline_limits)
     node->local.disregard_inline_limits
       = DECL_DISREGARD_INLINE_LIMITS (current_function_decl);
