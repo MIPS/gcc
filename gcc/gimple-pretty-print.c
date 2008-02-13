@@ -688,7 +688,8 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, "] ");
     }
 
-  if (gimple_has_mem_ops (gs))
+  if ((flags & (TDF_VOPS|TDF_MEMSYMS))
+      && gimple_has_mem_ops (gs))
     dump_gimple_mem_ops (buffer, gs, spc, flags);
 
   switch (gimple_code (gs))

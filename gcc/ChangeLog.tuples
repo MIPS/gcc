@@ -1,5 +1,13 @@
 2008-02-13  Diego Novillo  <dnovillo@google.com>
 
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00459.html
+
+	* gimple.def (GIMPLE_TRY): Tidy comment.
+	* gimple-pretty-print.c (dump_gimple_stmt): Handle TDF_VOPS and
+	TDF_MEMSYMS.
+
+2008-02-13  Diego Novillo  <dnovillo@google.com>
+
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00455.html
 
 	* tree-complex.c (update_complex_components): Handle
