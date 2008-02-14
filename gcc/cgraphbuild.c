@@ -1,5 +1,5 @@
 /* Callgraph construction.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -59,7 +59,7 @@ record_reference (tree *tp, int *walk_subtrees, void *data)
 	     functions reachable unconditionally.  */
 	  tree decl = TREE_OPERAND (*tp, 0);
 	  if (TREE_CODE (decl) == FUNCTION_DECL)
-	    cgraph_mark_needed_node (cgraph_node (cgraph_canonical_decl (decl)));
+	    cgraph_mark_needed_node (cgraph_node (decl));
 	}
       break;
 

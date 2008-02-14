@@ -1,6 +1,6 @@
 /* Definitions for c-common.c.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,8 +33,8 @@ along with GCC; see the file COPYING3.  If not see
       STATEMENT_LIST_STMT_EXPR (in STATEMENT_LIST)
    2: unused
    3: STATEMENT_LIST_HAS_LABEL (in STATEMENT_LIST)
-   4: unused
-   5: C_SMASHED_P (in _TYPE or _DECL)
+   4: C_FIRST_DEFINITION_P (in _TYPE or _DECL)
+   5: C_SMASHED_P (in _TYPE, _DECL, or _EXPR)
 */
 
 /* Reserved identifiers.  This is the union of all the keywords for C,

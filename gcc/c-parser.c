@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "md5.h"
 #include "server.h"
+#include "pointer-set.h"
 
 
 /* The reserved keyword table.  */
@@ -326,9 +327,6 @@ typedef struct c_parser GTY(())
 
   /* The current hunk binding.  */
   struct hunk_binding *current_hunk_binding;
-
-  /* Map decls and types onto their smashed variants.  */
-  htab_t GTY ((param_is (struct smash_entry))) smash_map;
 
   /* FIXME: restructure parser main loop so this is not required.  */
   struct hunk_set *current_hset;
@@ -796,17 +794,28 @@ eq_hunk_set (const void *a, const void *b)
 static GTY ((if_marked ("c_parser_mark_hunk_set"), param_is (struct hunk_set)))
      htab_t global_hunk_map;
 
+/* Map decls and types onto their smashed variants.  */
+static GTY ((param_is (struct smash_entry))) htab_t global_smash_map;
+
+/* Used to pass information to mark_one_hunk_binding.  */
+struct mark_one_hunk_binding_info
+{
+  htab_t table;
+  int found_any;
+};
+
 /* "Mark" a hunk_binding as found in a hunk_set.  This is the leaf of
    the global_hunk_map marking functions.  If the hunk_binding is
    already marked, we keep it; otherwise, we remove it.  */
 static int
 mark_one_hunk_binding (void **slot, void *r)
 {
-  int *found_any = (int *) r;
+  struct mark_one_hunk_binding_info *info
+    = (struct mark_one_hunk_binding_info *) r;
   if (ggc_marked_p (*slot))
-    *found_any = 1;
+    info->found_any = 1;
   else
-    *slot = NULL;
+    htab_clear_slot (info->table, slot);
   return 1;
 }
 
@@ -819,9 +828,11 @@ c_parser_mark_hunk_set (const void *p)
 {
   /* Have to cast away const.  */
   struct hunk_set *hs = (struct hunk_set *) p;
-  int found_any = 0;
-  htab_traverse_noresize (hs->bindings, mark_one_hunk_binding, &found_any);
-  return found_any;
+  struct mark_one_hunk_binding_info info;
+  info.table = hs->bindings;
+  info.found_any = 0;
+  htab_traverse_noresize (hs->bindings, mark_one_hunk_binding, &info);
+  return info.found_any;
 }
 
 /* This is called when making a file-scope binding.  It registers the
@@ -1043,13 +1054,25 @@ create_hunk_binding_map (void)
 
 
 
+/* An entry in the smash map points to an object of this type.  */
+struct smash_value GTY (())
+{
+  /* The first definition, or NULL if no definition has been seen yet.
+     Of all the decls which are smashed together, this will be the
+     sole decl with C_FIRST_DEFINITION_P set.  */
+  tree definition;
+
+  /* The most recent smashed value.  */
+  tree value;
+};
+
 /* Map an object (a type or a decl) to a smashed copy.  */
 struct smash_entry GTY (())
 {
   /* The original object.  */
   tree key;
-  /* The smashed variant.  */
-  tree value;
+  /* The smash info.  */
+  struct smash_value *value;
 };
 
 /* Hash function for a struct smash_entry.  */
@@ -1076,17 +1099,86 @@ c_parser_find_binding (tree decl)
 {
   struct smash_entry **slot;
   struct smash_entry temp;
-  /* We'd like this to be an argument to this function, but that
-     requires many changes.  */
-  c_parser *parser = the_parser;
+
+  if (! global_smash_map)
+    return decl;
 
   temp.key = decl;
-  temp.value = NULL_TREE;
-  slot = (struct smash_entry **) htab_find_slot (parser->smash_map,
+  temp.value = NULL;
+  slot = (struct smash_entry **) htab_find_slot (global_smash_map,
 						 &temp, NO_INSERT);
   if (slot != NULL)
-    decl = (*slot)->value;
+    {
+      decl = (*slot)->value->value;
+      gcc_assert (decl);
+    }
+
   return decl;
+}
+
+/* Hash function for c_tree_map_entry.  */
+static hashval_t
+hash_c_tree_map_entry (const void *e)
+{
+  const struct c_tree_map_entry *entry = (const struct c_tree_map_entry *) e;
+  return htab_hash_pointer (entry->key);
+}
+
+/* Equality function for c_tree_map_entry.  */
+static int
+eq_c_tree_map_entry (const void *a, const void *b)
+{
+  const struct c_tree_map_entry *entrya = (const struct c_tree_map_entry *) a;
+  const struct c_tree_map_entry *entryb = (const struct c_tree_map_entry *) b;
+  return entrya->key == entryb->key;
+}
+
+static int
+copy_to_pointer_map (void **slot, void *user_data)
+{
+  struct smash_entry *entry = (struct smash_entry *) *slot;
+  htab_t map = (htab_t) user_data;
+  void **mapslot;
+  struct c_tree_map_entry *mapentry;
+
+  if (entry->value->definition)
+    {
+      /* The first time we see a canonical definition, smash it with
+	 the latest value.  */
+      entry->value->value = c_merge_decls (entry->value->value,
+					   entry->value->definition);
+      entry->value->definition = NULL_TREE;
+    }
+
+  mapentry = GGC_NEW (struct c_tree_map_entry);
+  mapentry->key = entry->key;
+  mapentry->value = entry->value->value;
+
+  mapslot = htab_find_slot (map, mapentry, INSERT);
+  gcc_assert (! *mapslot);
+  *mapslot = mapentry;
+  return 1;
+}
+
+htab_t
+c_parser_create_smash_map (void)
+{
+  htab_t result;
+
+  /* GLOBAL_SMASH_MAP might be null if we hit an error during
+     compilation.  */
+  if (! global_smash_map)
+    return NULL;
+
+  /* We could do this without allocating by rewriting the map in
+     place.  */
+  result = htab_create_ggc (htab_size (global_smash_map),
+			    hash_c_tree_map_entry,
+			    eq_c_tree_map_entry, NULL);
+  htab_traverse_noresize (global_smash_map, copy_to_pointer_map, result);
+  /* We don't need the smash map any more.  */
+  global_smash_map = NULL;
+  return result;
 }
 
 /* This is a callback that is called when a decl or type is smashed.
@@ -1096,23 +1188,65 @@ void
 c_parser_note_smash (tree from, tree to)
 {
   struct smash_entry **slot;
-  struct smash_entry *entry = GGC_NEW (struct smash_entry);
-  /* We'd like this to be an argument to this function, but that
-     requires many changes.  */
-  c_parser *parser = the_parser;
+  struct smash_entry temp, *entry;
+  struct smash_value *value;
 
-  entry->key = from;
-  entry->value = to;
-  slot = (struct smash_entry **) htab_find_slot (parser->smash_map,
+  /* First, insert an entry for FROM.  */
+  temp.key = from;
+  temp.value = NULL;
+  slot = (struct smash_entry **) htab_find_slot (global_smash_map,
+						 &temp, INSERT);
+  if (! *slot)
+    {
+      entry = GGC_NEW (struct smash_entry);
+      entry->key = from;
+      entry->value = GGC_CNEW (struct smash_value);
+      *slot = entry;
+    }
+
+  value = (*slot)->value;
+
+  /* We also insert an entry for TO.  This lets us keep tabs on the
+     definition, even if this is the last smash for this family of
+     decls.  */
+  entry = GGC_NEW (struct smash_entry);
+  entry->key = to;
+  entry->value = value;
+  slot = (struct smash_entry **) htab_find_slot (global_smash_map,
 						 entry, INSERT);
-  /* We might see multiple smashes for a given base decl.  We always
-     use the most recent value.  */
-  /*   gcc_assert (slot && !*slot); */
+  gcc_assert (slot && !*slot);
   *slot = entry;
-  C_SMASHED_P (from) = 1;
 
-  if (TREE_CODE (from) == FUNCTION_DECL && TREE_CODE (to) == FUNCTION_DECL)
-    cgraph_note_duplicate (from, to);
+  /* Always use the most recent decl as the smashed value, but only
+     use the first definition as the decl family's definition.  */
+  value->value = to;
+  if (C_FIRST_DEFINITION_P (from))
+    {
+      gcc_assert (! value->definition || value->definition == from);
+      value->definition = from;
+    }
+
+  /* Both FROM and TO can be definitions, if we see an inline function
+     or a tentative definition.  */
+  if (C_FIRST_DEFINITION_P (to))
+    {
+      if (! value->definition || (TREE_CODE (from) == TREE_CODE (to)
+				  && (TREE_CODE (from) == FUNCTION_DECL
+				      || TREE_CODE (to) == VAR_DECL)))
+	{
+	  value->definition = to;
+	  C_FIRST_DEFINITION_P (from) = 0;
+	}
+      else
+	{
+	  /* This can happen if a struct is redefined, but we will
+	     always have emitted an error.  */
+	  gcc_assert (errorcount);
+	}
+    }
+
+  C_SMASHED_P (from) = 1;
+  C_SMASHED_P (to) = 1;
 }
 
 /* Update a checksum for a numeric constant of some kind.  */
@@ -9120,8 +9254,8 @@ c_parse_file (void)
   the_parser = GGC_CNEW (c_parser);
   the_parser->used_hunks = htab_create_ggc (20, htab_hash_pointer,
 					    htab_eq_pointer, NULL);
-  the_parser->smash_map = htab_create_ggc (20, hash_smash_entry, eq_smash_entry,
-					   NULL);
+  global_smash_map = htab_create_ggc (20, hash_smash_entry, eq_smash_entry,
+				      NULL);
 
   c_parser_lex_all (the_parser, &token);
   c_parser_translation_unit (the_parser);

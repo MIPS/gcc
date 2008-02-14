@@ -2,7 +2,7 @@
    by the C-based front ends.  The structure of gimplified, or
    language-independent, trees is dictated by the grammar described in this
    file.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Lowering of expressions contributed by Sebastian Pop <s.pop@laposte.net>
    Re-written to support lowering of whole function trees, documentation
    and miscellaneous cleanups by Diego Novillo <dnovillo@redhat.com>
@@ -224,25 +224,19 @@ c_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	TREE_NO_WARNING (DECL_EXPR_DECL (*expr_p)) = 1;
       return GS_UNHANDLED;
 
-    case CALL_EXPR:
-      {
- 	tree callee = TREE_OPERAND (*expr_p, 1);
-	if (TREE_CODE (callee) == FUNCTION_DECL)
-	  TREE_OPERAND (*expr_p, 1) = cgraph_canonical_decl (callee);
-      }
-      return GS_UNHANDLED;
-
-    case FDESC_EXPR:
-    case ADDR_EXPR:
-      {
- 	tree decl = TREE_OPERAND (*expr_p, 0);
-	if (TREE_CODE (decl) == FUNCTION_DECL)
-	  TREE_OPERAND (*expr_p, 0) = cgraph_canonical_decl (decl);
-      }
-      return GS_UNHANDLED;
-
     case COMPOUND_LITERAL_EXPR:
       return gimplify_compound_literal_expr (expr_p, pre_p);
+
+    case VIEW_CONVERT_EXPR:
+      /* At this point we should have smashed all the types, so this
+	 conversion should be redundant.  */
+      if (C_SMASHED_P (*expr_p))
+	{
+	  gcc_assert (TREE_TYPE (*expr_p)
+		      == TREE_TYPE (TREE_OPERAND (*expr_p, 0)));
+	  *expr_p = TREE_OPERAND (*expr_p, 0);
+	}
+      return GS_UNHANDLED;
 
     default:
       return GS_UNHANDLED;

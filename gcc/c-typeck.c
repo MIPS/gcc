@@ -1809,7 +1809,10 @@ build_component_ref (tree datum, tree component)
     {
       type = C_SMASHED_TYPE_VARIANT (orig_type);
       if (type != orig_type)
-	datum = build1 (VIEW_CONVERT_EXPR, type, datum);
+	{
+	  datum = build1 (VIEW_CONVERT_EXPR, type, datum);
+	  C_SMASHED_P (datum) = 1;
+	}
     }
 
   if (!objc_is_public (datum, component))
@@ -1916,6 +1919,7 @@ build_indirect_ref (tree ptr, const char *errorstring)
 	      int sf = TREE_SIDE_EFFECTS (pointer);
 	      pointer = build1 (VIEW_CONVERT_EXPR, build_pointer_type (t2),
 				pointer);
+	      C_SMASHED_P (pointer) = 1;
 	      TREE_SIDE_EFFECTS (pointer) = sf;
 	      t = t2;
 	    }
@@ -2080,6 +2084,7 @@ build_array_ref (tree array, tree index)
 	  int sf = TREE_SIDE_EFFECTS (ar);
 	  ar = build1 (VIEW_CONVERT_EXPR, build_pointer_type (t2), ar);
 	  TREE_SIDE_EFFECTS (ar) = sf;
+	  C_SMASHED_P (ar) = 1;
 	}
 
       return build_indirect_ref (build_binary_op (PLUS_EXPR, ar, index, 0),
@@ -2175,7 +2180,10 @@ build_external_ref (tree id, int fun, location_t loc)
     {
       tree smashtype = C_SMASHED_TYPE_VARIANT (TREE_TYPE (ref));
       if (smashtype != TREE_TYPE (ref))
-	ref = build1 (VIEW_CONVERT_EXPR, smashtype, ref);
+	{
+	  ref = build1 (VIEW_CONVERT_EXPR, smashtype, ref);
+	  C_SMASHED_P (ref) = 1;
+	}
     }
 
   return ref;
@@ -2381,6 +2389,7 @@ build_function_call (tree function, tree params)
       TREE_TYPE (copy) = C_SMASHED_TYPE_VARIANT (TREE_TYPE (copy));
       function = build1 (VIEW_CONVERT_EXPR, build_pointer_type (copy),
 			 function);
+      C_SMASHED_P (function) = 1;
       fntype = copy;
     }
 
@@ -3183,6 +3192,11 @@ readonly_error (tree arg, enum lvalue_use use)
 {
   gcc_assert (use == lv_assign || use == lv_increment || use == lv_decrement
 	      || use == lv_asm);
+
+  /* Remove any type casts inserted due to decl smashing.  */
+  while (TREE_CODE (arg) == VIEW_CONVERT_EXPR)
+    arg = TREE_OPERAND (arg, 0);
+
   /* Using this macro rather than (for example) arrays of messages
      ensures that all the format strings are checked at compile
      time.  */
@@ -7783,6 +7797,7 @@ wrap_pointer_int_sum (enum tree_code code, tree ptrop, tree intop)
       int sf = TREE_SIDE_EFFECTS (ptrop);
       ptrop = build1 (VIEW_CONVERT_EXPR, build_pointer_type (t2), ptrop);
       TREE_SIDE_EFFECTS (ptrop) = sf;
+      C_SMASHED_P (ptrop) = 1;
     }
   return pointer_int_sum (code, ptrop, intop);
 }

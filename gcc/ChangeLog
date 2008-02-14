@@ -1,3 +1,71 @@
+2008-02-13  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c: Include pointer-set.h.
+	(c_parser) <smash_map>: Removed.
+	(global_smash_map): New global.
+	(struct mark_one_hunk_binding_info): Define.
+	(mark_one_hunk_binding): Change argument types.  Use
+	htab_clear_slot.
+	(c_parser_mark_hunk_set): Update.
+	(struct smash_value): Define.
+	(struct smash_entry) <value>: Change type.
+	(c_parser_find_binding): Update.
+	(hash_c_tree_map_entry): New function.
+	(eq_c_tree_map_entry): Likewise.
+	(copy_to_pointer_map): Likewise.
+	(c_parser_create_smash_map): Likewise.
+	(c_parser_note_smash): Track canonical definition.
+	(c_parse_file): Create global_smash_map.
+	* c-common.h: Update comment.
+	* c-gimplify.c (c_gimplify_expr) <CALL_EXPR, FDESC_EXPR,
+	ADDR_EXPR>: Remove cases.
+	<VIEW_CONVERT_EXPR>: Handle C_SMASHED_P.
+	* c-typeck.c (build_component_ref): Set C_SMASHED_P.
+	(build_indirect_ref): Likewise.
+	(build_array_ref): Likewise.
+	(build_external_ref): Likewise.
+	(build_function_call): Likewise.
+	(wrap_pointer_int_sum): Likewise.
+	(readonly_error): Remove VIEW_CONVERT_EXPRs.
+	* c-decl.c: Include server.h, pointer-set.h.
+	(c_decl_re_bind): Don't hand off decls.
+	(merge_decls): Don't call cgraph_finalize_function.
+	(duplicate_decls): Copy C_FIRST_DEFINITION_P.
+	(clone_underlying_type): Update comment.
+	(start_decl): Set C_FIRST_DEFINITION_P.
+	(finish_decl): Don't call rest_of_decl_compilation for file-scope
+	decls.
+	(finish_struct): Likewise.
+	(start_struct): Set C_FIRST_DEFINITION_P.
+	(start_enum): Likewise.
+	(finish_enum): Don't call rest_of_type_compilation for file-scope
+	type.
+	(start_function): Set C_FIRST_DEFINITION_P.
+	(finish_function): Don't call cgraph_finalize_function.
+	(c_merge_decls): New function.
+	(get_smashed_type): Likewise.
+	(c_smash_decls): Likewise.
+	(rewrite_types_and_globals): Likewise.
+	(hand_off_decls): Likewise.
+	(c_write_global_declarations_1): Change argument type.
+	(c_write_global_declarations_2): Likewise.
+	(lowering_smash_map): New global.
+	(c_write_global_declarations): Call c_smash_decls.
+	* c-tree.h (c_parser_create_smash_map, c_merge_decls): Declare.
+	(C_FIRST_DEFINITION_P): New macro.
+	(C_SMASHED_P): Likewise.
+	(struct c_tree_map_entry): Define.
+	* cgraphunit.c (cgraph_analyze_functions): Handle case where child
+	is also deleted.
+	* cgraph.h (cgraph_note_duplicate, cgraph_canonical_decl):
+	Remove.
+	* cgraph.c (duplicate_map): Remove.
+	(cgraph_reset): Update.
+	(cgraph_canonical_decl): Remove.
+	(cgraph_note_duplicate): Remove.
+	* cgraphbuild.c (record_reference): Don't call
+	cgraph_canonical_decl.
+
 2008-02-01  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in (TAGS): Also tag tree.def.

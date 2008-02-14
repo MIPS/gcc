@@ -455,10 +455,20 @@ extern tree c_parser_find_binding (tree);
 extern void c_parser_lookup_callback (tree, tree, bool);
 extern void c_parse_file_wrapper (int);
 
+extern htab_t c_parser_create_smash_map (void);
+
 /* Only for use by the GC.  */
 extern int c_parser_mark_hunk_set (const void *);
 
-/* True if this decl or type has been smashed.  */
+/* This flag is used to mark the first definition for a given name.
+   When re-smashing, we pick this definition as the canonical object;
+   this particular choice lets us avoid resetting the DECL_CONTEXT for
+   many things.  */
+#define C_FIRST_DEFINITION_P(OBJ) TREE_LANG_FLAG_4 (OBJ)
+
+/* True if this decl or type has been smashed.  On a
+   VIEW_CONVERT_EXPR, it means that the expression was introduced to
+   convert between smashed types.  */
 #define C_SMASHED_P(T) TREE_LANG_FLAG_5 (T)
 
 /* Return the smashed variant of TYPE.  This will look up the
@@ -468,6 +478,13 @@ extern int c_parser_mark_hunk_set (const void *);
    ? build_qualified_type (c_parser_find_binding (TYPE_MAIN_VARIANT (TYPE)), \
 			   TYPE_QUALS (TYPE))				\
    : TYPE)
+
+/* This is used when canonicalizing trees before lowering.  */
+struct c_tree_map_entry GTY (())
+{
+  tree key;
+  tree value;
+};
 
 /* in c-aux-info.c */
 extern void gen_aux_info_record (tree, int, int, int);
@@ -483,6 +500,7 @@ extern tree pop_scope (void);
 extern void insert_block (tree);
 
 extern void c_decl_re_bind (tree, tree);
+extern tree c_merge_decls (tree, tree);
 
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);

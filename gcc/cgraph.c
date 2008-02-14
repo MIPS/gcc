@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -131,11 +131,6 @@ static GTY(()) struct cgraph_asm_node *cgraph_asm_last_node;
    them, to support -fno-toplevel-reorder.  */
 int cgraph_order;
 
-/* A front end may decide not to smash duplicate declarations.  This
-   map records such duplicates so cgraph can always operate on the
-   canonical declaration from a group of duplicates.  */
-static struct pointer_map_t *duplicate_map;
-
 
 /* Reset this module in preparation for the next compilation unit.  */
 
@@ -155,11 +150,6 @@ cgraph_reset (void)
   cgraph_asm_nodes = NULL;
   cgraph_asm_last_node = NULL;
   cgraph_order = 0;
-  if (duplicate_map)
-    {
-      pointer_map_destroy (duplicate_map);
-      duplicate_map = NULL;
-    }
 }
 
 static hashval_t hash_node (const void *);
@@ -205,19 +195,6 @@ cgraph_create_node (void)
   return node;
 }
 
-/* Return the canonical decl.  */
-tree
-cgraph_canonical_decl (tree decl)
-{
-  if (duplicate_map)
-    {
-      void **slot;
-      while ((slot = pointer_map_contains (duplicate_map, decl)) != NULL)
-	decl = (tree) *slot;
-    }
-  return decl;
-}
-
 /* Return cgraph node assigned to DECL.  Create new one when needed.  */
 
 struct cgraph_node *
@@ -253,47 +230,6 @@ cgraph_node (tree decl)
       node->master_clone = node;
     }
   return node;
-}
-
-/* Tell cgraph that DUPLICATE is the same object as DECL.  */
-void
-cgraph_note_duplicate (tree decl, tree duplicate)
-{
-  void **slot;
-
-  decl = cgraph_canonical_decl (decl);
-
-  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
-	      && TREE_CODE (duplicate) == FUNCTION_DECL);
-  gcc_assert (decl != duplicate);
-
-  if (cgraph_hash)
-    {
-      struct cgraph_node key, **cg_slot;
-      key.decl = decl;
-      cg_slot = (struct cgraph_node **) htab_find_slot (cgraph_hash, &key,
-							NO_INSERT);
-      if (cg_slot && *cg_slot)
-	{
-	  /* We already saw a definition of the function, so reverse
-	     the duplication.  */
-	  tree tem;
-	  /* If unit-at-a-time, we should only see definitions here.
-	     If no-unit-at-a-time, we might see a declaration.  */
-	  gcc_assert (!flag_unit_at_a_time || DECL_INITIAL (decl));
-	  tem = duplicate;
-	  duplicate = decl;
-	  decl = tem;
-	}
-    }
-
-  if (!duplicate_map)
-    duplicate_map = pointer_map_create ();
-
-  /* Due to the way decl smashing works, the most recent decl is
-     always canonical.  */
-  slot = pointer_map_insert (duplicate_map, decl);
-  *slot = duplicate;
 }
 
 /* Insert already constructed node into hashtable.  */

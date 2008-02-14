@@ -1,5 +1,5 @@
 /* Callgraph based interprocedural optimizations.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -965,6 +965,11 @@ cgraph_analyze_functions (void)
     {
       tree decl = node->decl;
       next = node->next;
+
+      /* We can see DECL==null here when we delete a node and its
+	 children, and the nodes are ordered in a particular way.  */
+      if (decl == NULL_TREE)
+	continue;
 
       if (node->local.finalized && !DECL_SAVED_TREE (decl))
 	cgraph_reset_node (node);

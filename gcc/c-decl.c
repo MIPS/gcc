@@ -60,6 +60,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "langhooks-def.h"
 #include "pointer-set.h"
+#include "server.h"
+#include "pointer-set.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -552,29 +554,6 @@ c_decl_re_bind (tree name, tree decl)
 	  /*notify_ok=*/false);
 
   TREE_ASM_WRITTEN (decl) = 0;
-  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
-    {
-      /* Function has already been genericized, so just tell cgraph
-	 about it.  */
-      cgraph_finalize_function (decl, false);
-    }
-  else if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
-    {
-      /* FIXME: moral equivalent of decl smashing here.  */
-      if (DECL_INITIAL (decl) == NULL_TREE
-	  || DECL_INITIAL (decl) == error_mark_node)
-	/* Don't output anything
-	   when a tentative file-scope definition is seen.
-	   But at end of compilation, do output code for them.  */
-	DECL_DEFER_OUTPUT (decl) = 1;
-      rest_of_decl_compilation (decl, true, 0);
-    }
-  else if (TREE_CODE (decl) == TYPE_DECL)
-    rest_of_decl_compilation (decl, true, 0);
-  else if (TREE_CODE (decl) == RECORD_TYPE
-	   || TREE_CODE (decl) == UNION_TYPE
-	   || TREE_CODE (decl) == ENUMERAL_TYPE)
-    rest_of_type_compilation (decl, true);
 }
 
 static int
@@ -2077,13 +2056,6 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  || (TREE_CODE (olddecl) == VAR_DECL
 	      && TREE_STATIC (olddecl))))
     make_decl_rtl (olddecl);
-
-  /* If we changed a function from DECL_EXTERNAL to !DECL_EXTERNAL,
-     and the definition is coming from the old version, cgraph needs
-     to be called again.  */
-  if (extern_changed && !new_is_definition 
-      && TREE_CODE (olddecl) == FUNCTION_DECL && DECL_INITIAL (olddecl))
-    cgraph_finalize_function (olddecl, false);
 }
 
 /* Handle when a new declaration NEWDECL has the same name as an old
@@ -2123,6 +2095,7 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 		       C_SMASHED_TYPE_VARIANT (oldtype));
 	  /* FIXME: this triggers building libgcc.  */
 	  /* 	  gcc_assert (binding->decl == olddecl); */
+	  C_FIRST_DEFINITION_P (copy) = C_FIRST_DEFINITION_P (newdecl);
 	  binding->decl = copy;
 	  c_parser_bind_callback (DECL_NAME (copy), copy);
 	  c_parser_note_smash (olddecl, copy);
@@ -2223,11 +2196,7 @@ warn_if_shadowing (tree new_decl)
 
     Obviously, we don't want to generate a duplicate ..._TYPE node if
     the TYPE_DECL node that we are now processing really represents a
-    standard built-in type.
-
-    Since all standard types are effectively declared at line zero
-    in the source file, we can easily check to see if we are working
-    on a standard type by checking the current value of lineno.  */
+    standard built-in type.  */
 
 static void
 clone_underlying_type (tree x)
@@ -3629,6 +3598,11 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 
   /* Add this decl to the current scope.
      TEM may equal DECL or it may be a previous decl of the same name.  */
+
+  if (TREE_CODE (decl) == TYPE_DECL
+      || (TREE_CODE (decl) == VAR_DECL
+	  && (initialized || ! DECL_EXTERNAL (decl))))
+    C_FIRST_DEFINITION_P (decl) = 1;
   tem = pushdecl (decl);
 
   if (initialized && DECL_EXTERNAL (tem))
@@ -3850,13 +3824,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 
       if (DECL_FILE_SCOPE_P (decl))
 	{
-	  if (DECL_INITIAL (decl) == NULL_TREE
-	      || DECL_INITIAL (decl) == error_mark_node)
-	    /* Don't output anything
-	       when a tentative file-scope definition is seen.
-	       But at end of compilation, do output code for them.  */
-	    DECL_DEFER_OUTPUT (decl) = 1;
-	  rest_of_decl_compilation (decl, true, 0);
+	  /* Nothing.  */
 	}
       else
 	{
@@ -3921,7 +3889,8 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  && variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
 	add_stmt (build_stmt (DECL_EXPR, decl));
 
-      rest_of_decl_compilation (decl, DECL_FILE_SCOPE_P (decl), 0);
+      if (!DECL_FILE_SCOPE_P (decl))
+	rest_of_decl_compilation (decl, DECL_FILE_SCOPE_P (decl), 0);
     }
 
   /* At the end of a declaration, throw away any variable type sizes
@@ -4062,7 +4031,6 @@ build_compound_literal (tree type, tree init)
       DECL_ARTIFICIAL (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
       pushdecl (decl);
-      rest_of_decl_compilation (decl, 1, 0);
     }
 
   return complit;
@@ -5676,6 +5644,7 @@ start_struct (enum tree_code code, tree name)
       || !object_in_current_hunk_p (ref))
     {
       tree newval = make_node (code);
+      C_FIRST_DEFINITION_P (newval) = 1;
       pushtag (name, newval);
       if (ref)
 	c_parser_note_smash (ref, newval);
@@ -6061,15 +6030,18 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	  layout_decl (decl, 0);
 	  if (c_dialect_objc ())
 	    objc_check_decl (decl);
-	  rest_of_decl_compilation (decl, toplevel, 0);
 	  if (!toplevel)
-	    expand_decl (decl);
+	    {
+	      rest_of_decl_compilation (decl, toplevel, 0);
+	      expand_decl (decl);
+	    }
 	}
     }
   C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
 
   /* Finish debugging output for this type.  */
-  rest_of_type_compilation (t, toplevel);
+  if (!toplevel)
+    rest_of_type_compilation (t, toplevel);
 
   /* If we're inside a function proper, i.e. not file-scope and not still
      parsing parameters, then arrange for the size of a variable sized type
@@ -6128,6 +6100,7 @@ start_enum (struct c_enum_contents *the_enum, tree name)
       || !object_in_current_hunk_p (enumtype))
     {
       tree newval = make_node (ENUMERAL_TYPE);
+      C_FIRST_DEFINITION_P (newval) = 1;
       pushtag (name, newval);
       if (enumtype)
 	c_parser_note_smash (enumtype, newval);
@@ -6282,7 +6255,8 @@ finish_enum (tree enumtype, tree values, tree attributes)
     }
 
   /* Finish debugging output for this type.  */
-  rest_of_type_compilation (enumtype, toplevel);
+  if (!toplevel)
+    rest_of_type_compilation (enumtype, toplevel);
 
   return enumtype;
 }
@@ -6577,6 +6551,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* Record the decl so that the function name is defined.
      If we already have a decl for this name, note that we smashed it.  */
 
+  C_FIRST_DEFINITION_P (decl1) = 1;
   current_function_decl = pushdecl (decl1);
 
   push_scope ();
@@ -7087,8 +7062,6 @@ finish_function (void)
 	      c_expand_body (fndecl);
 	      return;
 	    }
-
-	  cgraph_finalize_function (fndecl, false);
 	}
       else
 	{
@@ -8092,18 +8065,364 @@ finish_declspecs (struct c_declspecs *specs)
   return specs;
 }
 
+/* Callback used when creating the final decl canonicalization map.
+   LATEST and DEFINITION are two variants of the same declaration.
+   DEFINITION, if not NULL, is the canonical definition of this
+   object.  LATEST is the most recent merged declaration.  If
+   DEFINITION is not NULL, this function will destructively merge
+   LATEST into DEFINITION and return DEFINITION.  Otherwise, it
+   returns LATEST.  */
+tree
+c_merge_decls (tree latest, tree definition)
+{
+  if (TREE_CODE_CLASS (TREE_CODE (latest)) == tcc_declaration)
+    {
+      if (definition && latest && latest != definition)
+	merge_decls (latest, definition, TREE_TYPE (latest),
+		     TREE_TYPE (definition));
+    }
+  return definition ? definition : latest;
+}
+
+/* Return the smashed version of TYPE.  MAP is the map used to track
+   smashing.  If the type is already in the map, return the smashed
+   copy.  Otherwise, compute the smashed variant and update the
+   map.  */
+static tree
+get_smashed_type (htab_t map, tree type)
+{
+  tree original_type;
+  void **slot;
+  struct c_tree_map_entry entry, *found;
+
+  if (type == error_mark_node)
+    return type;
+
+  gcc_assert (TREE_CODE_CLASS (TREE_CODE (type)) == tcc_type);
+
+  entry.key = type;
+  found = (struct c_tree_map_entry *) htab_find (map, &entry);
+  if (found)
+    return found->value;
+
+  original_type = type;
+  if (TYPE_MAIN_VARIANT (type) != type)
+    {
+      tree save = TYPE_MAIN_VARIANT (type);
+      type = get_smashed_type (map, save);
+      if (type == save)
+	type = original_type;
+      else
+	{
+	  type = build_qualified_type (type, TYPE_QUALS (original_type));
+	  /* If the original type was a typedef, preserve that too.  */
+	  if (TYPE_NAME (original_type)
+	      != TYPE_NAME (TYPE_MAIN_VARIANT (original_type)))
+	    {
+	      type = build_variant_type_copy (type);
+	      TYPE_NAME (type) = TYPE_NAME (original_type);
+	      /* FIXME: do we need to reset the TREE_TYPE of the
+		 TYPE_NAME here?  */
+	    }
+	}
+    }
+  else
+    {
+      switch (TREE_CODE (type))
+	{
+	case REFERENCE_TYPE:
+	case OFFSET_TYPE:
+	case BOOLEAN_TYPE:
+	case INTEGER_TYPE:
+	case REAL_TYPE:
+	case FIXED_POINT_TYPE:
+	case COMPLEX_TYPE:
+	case VECTOR_TYPE:
+	case VOID_TYPE:
+	case ENUMERAL_TYPE:
+	case UNION_TYPE:
+	case RECORD_TYPE:
+	  /* Nothing special.  */
+	  break;
+
+	case POINTER_TYPE:
+	  {
+	    tree subtype = get_smashed_type (map, TREE_TYPE (type));
+	    if (subtype != TREE_TYPE (type))
+	      type = build_pointer_type (subtype);
+	  }
+	  break;
+
+	case FUNCTION_TYPE:
+	  {
+	    tree rtype;
+	    tree arg, arglist = NULL_TREE;
+	    bool changed = false;
+
+	    rtype = get_smashed_type (map, TREE_TYPE (type));
+	    if (rtype != TREE_TYPE (type))
+	      changed = true;
+	    for (arg = TYPE_ARG_TYPES (type); arg; arg = TREE_CHAIN (arg))
+	      {
+		tree value = TREE_VALUE (arg);
+		if (value)
+		  {
+		    tree old = value;
+		    value = get_smashed_type (map, value);
+		    if (value != old)
+		      changed = true;
+		  }
+		arglist = tree_cons (NULL_TREE, value, arglist);
+	      }
+	    if (changed)
+	      {
+		arglist = nreverse (arglist);
+		type = build_function_type (rtype, arglist);
+	      }
+	  }
+	  break;
+
+	case ARRAY_TYPE:
+	  {
+	    tree index = NULL_TREE;
+	    if (TYPE_DOMAIN (type))
+	      index = get_smashed_type (map, TYPE_DOMAIN (type));
+	    tree elts = get_smashed_type (map, TREE_TYPE (type));
+	    if (index != TYPE_DOMAIN (type) || elts != TREE_TYPE (type))
+	      type = build_array_type (elts, index);
+	  }
+	  break;
+
+	case QUAL_UNION_TYPE:
+	case METHOD_TYPE:
+	case LANG_TYPE:
+	default:
+	  /* Should not be possible.  */
+	  gcc_unreachable ();
+	}
+    }
+
+  found = GGC_NEW (struct c_tree_map_entry);
+  found->key = original_type;
+  found->value = type;
+  slot = htab_find_slot (map, found, INSERT);
+  if (*slot)
+    {
+      found = (struct c_tree_map_entry *) *slot;
+      gcc_assert (found->value == type);
+    }
+  else
+    *slot = found;
+
+
+  if ((TREE_CODE (type) == UNION_TYPE || TREE_CODE (type) == RECORD_TYPE)
+      && type == TYPE_MAIN_VARIANT (type))
+    {
+      /* Canonicalize the type of each field.  We do this here, and
+	 not earlier, to avoid infinite recursion in some cases.  */
+      tree field;
+      for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
+	{
+	  gcc_assert (TREE_CODE (field) == FIELD_DECL);
+	  TREE_TYPE (field) = get_smashed_type (map, TREE_TYPE (field));
+	}
+    }
+
+  return type;
+}
+
+/* Re-smash decls and destructively remove non-canonical decls from
+   the chain.  */
+static void
+c_smash_decls (htab_t map, struct pointer_set_t *seen,
+	       VEC (tree, heap) **result, tree list)
+{
+  tree decl;
+  for (decl = list; decl; decl = TREE_CHAIN (decl))
+    {
+      tree canonical;
+      struct c_tree_map_entry entry;
+      void **slot;
+
+      if (! map)
+	{
+	  VEC_safe_push (tree, heap, *result, decl);
+	  continue;
+	}
+
+      /* This can happen with --combine.  FIXME: with combine we get
+	 the wrong result for file-scope variables.  */
+      if (pointer_set_contains (seen, decl))
+	continue;
+
+      /* The first time we see a decl, we insert its canonical copy
+	 into the result list.  If we've already seen the canonical
+	 copy, we simply skip it and move on.  */
+      entry.key = decl;
+      slot = htab_find_slot (map, &entry, NO_INSERT);
+      if (! slot)
+	{
+	  /* If the name was only seen once, then the decl won't
+	     appear in the map.  In this case it is canonical by
+	     itself.  */
+	  canonical = decl;
+	}
+      else
+	{
+	  struct c_tree_map_entry *ep = (struct c_tree_map_entry *) *slot;
+	  canonical = ep->value;
+	  if (pointer_set_contains (seen, canonical))
+	    continue;
+	}
+
+      gcc_assert (TREE_CODE_CLASS (TREE_CODE (canonical)) == tcc_declaration);
+
+      /* Handle typedefs specially.  We re-create the original logic
+	 here.  */
+      if (TREE_CODE (canonical) == TYPE_DECL && DECL_ORIGINAL_TYPE (canonical))
+	{
+	  tree save, type;
+	  gcc_assert (TREE_TYPE (canonical) != DECL_ORIGINAL_TYPE (canonical));
+	  /* First update DECL_ORIGINAL_TYPE.  */
+	  save = DECL_ORIGINAL_TYPE (canonical);
+	  DECL_ORIGINAL_TYPE (canonical)
+	    = get_smashed_type (map, DECL_ORIGINAL_TYPE (canonical));
+	  /* Now update TREE_TYPE.  */
+	  type = TREE_TYPE (canonical);
+	  entry.key = type;
+	  slot = htab_find_slot (map, &entry, INSERT);
+	  if (*slot)
+	    {
+	      TREE_TYPE (canonical)
+		= ((struct c_tree_map_entry *) *slot)->value;
+	      gcc_assert (TREE_TYPE (canonical)
+			  != DECL_ORIGINAL_TYPE (canonical));
+	    }
+	  else
+	    {
+	      struct c_tree_map_entry *nentry;
+
+	      /* If the original type did not change by smashing,
+		 we also don't need to change the TREE_TYPE.  */
+	      if (DECL_ORIGINAL_TYPE (canonical) != save)
+		{
+		  TREE_TYPE (canonical) = DECL_ORIGINAL_TYPE (canonical);
+		  DECL_ORIGINAL_TYPE (canonical) = NULL_TREE;
+		  clone_underlying_type (canonical);
+		}
+
+	      nentry = GGC_NEW (struct c_tree_map_entry);
+	      nentry->key = type;
+	      nentry->value = TREE_TYPE (canonical);
+	      *slot = nentry;
+	    }
+	}
+      else
+	TREE_TYPE (canonical) = get_smashed_type (map, TREE_TYPE (canonical));
+
+      pointer_set_insert (seen, canonical);
+      VEC_safe_push (tree, heap, *result, canonical);
+    }
+}
+
+static tree
+rewrite_types_and_globals (tree *nodep, int *subtrees, void *user_data)
+{
+  htab_t map = (htab_t) user_data;
+  struct c_tree_map_entry entry, *found;
+
+  entry.key = *nodep;
+  found = (struct c_tree_map_entry *) htab_find (map, &entry);
+  if (found)
+    {
+      *nodep = found->value;
+      *subtrees = 0;
+    }
+  else if (TREE_CODE (*nodep) == BLOCK)
+    {
+      /* Weirdly, walk_tree does not handle BLOCK itself.  */
+      walk_tree (&BLOCK_VARS (*nodep), rewrite_types_and_globals,
+		 map, NULL);
+      walk_tree (&BLOCK_CHAIN (*nodep), rewrite_types_and_globals,
+		 map, NULL);
+      walk_tree (&BLOCK_SUBBLOCKS (*nodep), rewrite_types_and_globals,
+		 map, NULL);
+    }
+  else if (TREE_CODE (*nodep) == BIND_EXPR)
+    {
+      /* Do nothing.  */
+    }
+  else if (TREE_TYPE (*nodep) && TREE_TYPE (*nodep) != error_mark_node)
+    TREE_TYPE (*nodep) = get_smashed_type (map, TREE_TYPE (*nodep));
+
+  return NULL_TREE;
+}
+
+static void
+hand_off_decls (htab_t map, VEC (tree, heap) *globals)
+{
+  int ix;
+  tree decl;
+  for (ix = 0; VEC_iterate (tree, globals, ix, decl); ++ix)
+    {
+      switch (TREE_CODE (decl))
+	{
+	case FUNCTION_DECL:
+	  {
+	    bool save = c_override_global_bindings_to_false;
+	    c_override_global_bindings_to_false = true;
+	    walk_tree (&DECL_INITIAL (decl), rewrite_types_and_globals,
+		       map, NULL);
+	    walk_tree (&DECL_SAVED_TREE (decl), rewrite_types_and_globals,
+		       map, NULL);
+	    c_override_global_bindings_to_false = save;
+	    if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
+	      cgraph_finalize_function (decl, false);
+	    else
+	      {
+		DECL_DEFER_OUTPUT (decl) = 1;
+		rest_of_decl_compilation (decl, true, 0);
+	      }
+	  }
+	  break;
+
+	case VAR_DECL:
+	  if (DECL_INITIAL (decl) == NULL_TREE
+	      || DECL_INITIAL (decl) == error_mark_node)
+	    /* Don't output anything
+	       when a tentative file-scope definition is seen.
+	       But at end of compilation, do output code for them.  */
+	    DECL_DEFER_OUTPUT (decl) = 1;
+	  rest_of_decl_compilation (decl, true, false);
+	  break;
+
+	case TYPE_DECL:
+	  rest_of_decl_compilation (decl, true, false);
+	  break;
+
+	case CONST_DECL:
+	  /* Nothing.  */
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+}
+
 /* A subroutine of c_write_global_declarations.  Perform final processing
    on one file scope's declarations (or the external scope's declarations),
    GLOBALS.  */
 
 static void
-c_write_global_declarations_1 (tree globals)
+c_write_global_declarations_1 (VEC (tree, heap) *globals)
 {
   tree decl;
   bool reconsider;
+  int ix;
 
   /* Process the decls in the order they were written.  */
-  for (decl = globals; decl; decl = TREE_CHAIN (decl))
+  for (ix = 0; VEC_iterate (tree, globals, ix, decl); ++ix)
     {
       /* Check for used but undefined static functions using the C
 	 standard's definition of "used", and set TREE_NO_WARNING so
@@ -8124,12 +8443,12 @@ c_write_global_declarations_1 (tree globals)
   do
     {
       reconsider = false;
-      for (decl = globals; decl; decl = TREE_CHAIN (decl))
+      for (ix = 0; VEC_iterate (tree, globals, ix, decl); ++ix)
 	reconsider |= wrapup_global_declaration_2 (decl);
     }
   while (reconsider);
 
-  for (decl = globals; decl; decl = TREE_CHAIN (decl))
+  for (ix = 0; VEC_iterate (tree, globals, ix, decl); ++ix)
     check_global_declaration_1 (decl);
 }
 
@@ -8137,11 +8456,12 @@ c_write_global_declarations_1 (tree globals)
    information for each of the declarations in GLOBALS.  */
 
 static void
-c_write_global_declarations_2 (tree globals)
+c_write_global_declarations_2 (VEC (tree, heap) *globals)
 {
   tree decl;
+  int ix;
 
-  for (decl = globals; decl ; decl = TREE_CHAIN (decl))
+  for (ix = 0; VEC_iterate (tree, globals, ix, decl); ++ix)
     debug_hooks->global_decl (decl);
 }
 
@@ -8177,24 +8497,55 @@ c_clear_binding_stack (void)
     }
 }
 
+/* This maps trees to their canonical (smashed) variants.  This must
+   be a global to protect it from the GC.  */
+static GTY ((param_is (struct c_tree_map_entry))) htab_t lowering_smash_map;
+
 void
 c_write_global_declarations (void)
 {
   tree t;
+  VEC (tree, heap) *all_decls = VEC_alloc (tree, heap, 128);
+  struct pointer_set_t *seen_decls = NULL;
+
+  if (! really_call_malloc (52))
+    abort ();
+
+  server_assert_code_generation ();
+
+  lowering_smash_map = c_parser_create_smash_map ();
+  if (lowering_smash_map)
+    seen_decls = pointer_set_create ();
+
+  /* Smash all the types and decls.  If we don't have a smash map,
+     just fill ALL_DECLS with all the decls on the lists.  */
+  for (t = all_translation_units; t; t = TREE_CHAIN (t))
+    c_smash_decls (lowering_smash_map, seen_decls, &all_decls,
+		   BLOCK_VARS (DECL_INITIAL (t)));
+  if (ext_block)
+    c_smash_decls (lowering_smash_map, seen_decls, &all_decls,
+		   BLOCK_VARS (ext_block));
+
+  /* Clean up.  */
+  if (seen_decls)
+    pointer_set_destroy (seen_decls);
+
+  hand_off_decls (lowering_smash_map, all_decls);
+  lowering_smash_map = NULL;
 
   /* Don't waste time on further processing if -fsyntax-only or we've
      encountered errors.  If we are generating a PCH file, then we
      don't want to do this either.  */
   if (flag_syntax_only || errorcount || sorrycount || cpp_errors (parse_in)
       || pch_file)
-    return;
+    {
+      VEC_free (tree, heap, all_decls);
+      return;
+    }
 
   /* Process all file scopes in this compilation, and the external_scope,
      through wrapup_global_declarations and check_global_declarations.  */
-  for (t = all_translation_units; t; t = TREE_CHAIN (t))
-    c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
-  c_write_global_declarations_1 (BLOCK_VARS (ext_block));
-
+  c_write_global_declarations_1 (all_decls);
   
   /* We're done parsing; proceed to optimize and emit assembly.
      FIXME: shouldn't be the front end's responsibility to call this.  */
@@ -8206,12 +8557,11 @@ c_write_global_declarations (void)
   if (errorcount == 0 && sorrycount == 0)
     {
       timevar_push (TV_SYMOUT);
-      for (t = all_translation_units; t; t = TREE_CHAIN (t))
-	c_write_global_declarations_2 (BLOCK_VARS (DECL_INITIAL (t)));
-      c_write_global_declarations_2 (BLOCK_VARS (ext_block));
+      c_write_global_declarations_2 (all_decls);
       timevar_pop (TV_SYMOUT);
     }
 
+  VEC_free (tree, heap, all_decls);
   ext_block = NULL;
 }
 

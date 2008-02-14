@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -288,8 +288,6 @@ extern GTY(()) int cgraph_order;
 
 /* In cgraph.c  */
 void cgraph_reset (void);
-void cgraph_note_duplicate (tree, tree);
-tree cgraph_canonical_decl (tree);
 void dump_cgraph (FILE *);
 void dump_cgraph_node (FILE *, struct cgraph_node *);
 void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
