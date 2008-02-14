@@ -1,3 +1,26 @@
+2008-02-13  Jakub Jelinek  <jakub@redhat.com>
+	    Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35138
+	* parser.c (cp_parser_pseudo_destructor_name): If next tokens
+	are not identifier :: ~, return before calling cp_parser_type_name.
+
+2008-02-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34962, c++/34937, c++/34939
+	* decl2.c (is_late_template_attribute): Always defer attributes 
+	vector_size and weak.
+
+	PR c++/34774
+	* pt.c (value_dependent_expression_p): Look into DECL_INITIAL
+	of enumerators, too.
+
+2008-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34824
+	* call.c (convert_like_real): Pass LOOKUP_ONLYCONVERTING to build_temp
+	if we're doing conversions to call a user-defined conversion function.
+
 2008-02-12  Steven Bosscher  <steven@gcc.gnu.org>
 
 	PR c++/29048

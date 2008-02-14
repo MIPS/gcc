@@ -1,3 +1,51 @@
+2008-02-14 Ralf Wildenhues <Ralf.Wildenhues@gmx.de>
+
+	* doc/extend.texi: Use @: or add comma where appropriate.
+	* doc/invoke.texi: Likewise.
+	* doc/tm.texi: Likewise.
+
+2008-02-14  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/34393
+	* config/rs6000/rs6000.md (restore_stack_block): Force operands[1]
+	to a reg.
+
+2008-02-14  Jesper Nilsson  <jesper.nilsson@axis.com>
+
+	* doc/md.texi (clz, ctz): Add reference.
+	* doc/rtl.texi (clz, ctz): Likewise.
+
+2008-02-13  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR other/35148
+	* Makefile.in (gcc-vers.texi): Use abs_srcdir for the value of
+	srcdir.
+
+2008-02-13  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (struct constant_pool): New field
+	emit_pool_after added.
+	(s390_mainpool_start): Set the emit_pool_after flag according
+	to the section switch notes.
+	(s390_mainpool_finish): Consider emit_pool_after when emitting
+	the literal pool at the end of the function.
+	(s390_chunkify_start): Force literal pool splits at section
+	switch notes.
+
+2008-02-13  Michael Matz  <matz@suse.de>
+
+	PR debug/35065
+	* var-tracking.c (clobber_variable_part): Correctly traverse the
+	list.
+
+2008-02-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 29673
+	* doc/invoke.texi (Debugging Options): Remove -fdump-tree-inlined.
+	Add -fdump-ipa-inline.
+	* tree-dump.c (dump_files): Remove tree-inlined dump.
+	* tree-pass.h (tree_dump_index): Remove TDI_inlined.
+	
 2008-02-12  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/35171
