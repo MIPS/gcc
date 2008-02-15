@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -530,6 +530,7 @@ common_pointer_type (tree t1, tree t2)
   tree pointed_to_1, mv1;
   tree pointed_to_2, mv2;
   tree target;
+  unsigned target_quals;
 
   /* Save time if the two types are the same.  */
 
@@ -557,10 +558,15 @@ common_pointer_type (tree t1, tree t2)
   if (TREE_CODE (mv2) != ARRAY_TYPE)
     mv2 = TYPE_MAIN_VARIANT (pointed_to_2);
   target = composite_type (mv1, mv2);
-  t1 = build_pointer_type (c_build_qualified_type
-			   (target,
-			    TYPE_QUALS (pointed_to_1) |
-			    TYPE_QUALS (pointed_to_2)));
+
+  /* For function types do not merge const qualifiers, but drop them
+     if used inconsistently.  The middle-end uses these to mark const
+     and noreturn functions.  */
+  if (TREE_CODE (pointed_to_1) == FUNCTION_TYPE)
+    target_quals = TYPE_QUALS (pointed_to_1) & TYPE_QUALS (pointed_to_2);
+  else
+    target_quals = TYPE_QUALS (pointed_to_1) | TYPE_QUALS (pointed_to_2);
+  t1 = build_pointer_type (c_build_qualified_type (target, target_quals));
   return build_type_attribute_variant (t1, attributes);
 }
 
@@ -1233,11 +1239,12 @@ tagged_types_tu_compatible_p (const_tree t1, const_tree t2)
 	  {
 	    int result;
 
-
-	    if (DECL_NAME (s1) == NULL
-		|| DECL_NAME (s1) != DECL_NAME (s2))
+	    if (DECL_NAME (s1) != DECL_NAME (s2))
 	      break;
 	    result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
+
+	    if (result != 1 && !DECL_NAME (s1))
+	      break;
 	    if (result == 0)
 	      {
 		tu->val = 0;
@@ -1264,28 +1271,31 @@ tagged_types_tu_compatible_p (const_tree t1, const_tree t2)
 	  {
 	    bool ok = false;
 
-	    if (DECL_NAME (s1) != NULL)
-	      for (s2 = TYPE_FIELDS (t2); s2; s2 = TREE_CHAIN (s2))
-		if (DECL_NAME (s1) == DECL_NAME (s2))
-		  {
-		    int result;
-		    result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
-		    if (result == 0)
-		      {
-			tu->val = 0;
-			return 0;
-		      }
-		    if (result == 2)
-		      needs_warning = true;
+	    for (s2 = TYPE_FIELDS (t2); s2; s2 = TREE_CHAIN (s2))
+	      if (DECL_NAME (s1) == DECL_NAME (s2))
+		{
+		  int result;
 
-		    if (TREE_CODE (s1) == FIELD_DECL
-			&& simple_cst_equal (DECL_FIELD_BIT_OFFSET (s1),
-					     DECL_FIELD_BIT_OFFSET (s2)) != 1)
-		      break;
+		  result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
 
-		    ok = true;
+		  if (result != 1 && !DECL_NAME (s1))
+		    continue;
+		  if (result == 0)
+		    {
+		      tu->val = 0;
+		      return 0;
+		    }
+		  if (result == 2)
+		    needs_warning = true;
+
+		  if (TREE_CODE (s1) == FIELD_DECL
+		      && simple_cst_equal (DECL_FIELD_BIT_OFFSET (s1),
+					   DECL_FIELD_BIT_OFFSET (s2)) != 1)
 		    break;
-		  }
+
+		  ok = true;
+		  break;
+		}
 	    if (!ok)
 	      {
 		tu->val = 0;
@@ -2224,7 +2234,8 @@ build_external_ref (tree id, int fun, location_t loc)
 	   && DECL_EXTERNAL (current_function_decl)
 	   && VAR_OR_FUNCTION_DECL_P (ref)
 	   && (TREE_CODE (ref) != VAR_DECL || TREE_STATIC (ref))
-	   && ! TREE_PUBLIC (ref))
+	   && ! TREE_PUBLIC (ref)
+	   && DECL_CONTEXT (ref) != current_function_decl)
     pedwarn ("%H%qD is static but used in inline function %qD "
 	     "which is not static", &loc, ref, current_function_decl);
 

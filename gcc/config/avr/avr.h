@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 
+   2008 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
 This file is part of GCC.
@@ -22,6 +22,36 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
+struct base_arch_s {
+  /* Assembler only.  */
+  int asm_only;
+
+  /* Core have 'MUL*' instructions.  */
+  int have_mul;
+
+  /* Core have 'CALL' and 'JMP' instructions.  */
+  int have_jmp_call;
+
+  /* Core have 'MOVW' and 'LPM Rx,Z' instructions.  */
+  int have_movw_lpmx;
+
+  /* Core have 'ELPM' instructions.  */
+  int have_elpm;
+
+  /* Core have 'ELPM Rx,Z' instructions.  */
+  int have_elpmx;
+
+  /* Core have 'EICALL' and 'EIJMP' instructions.  */
+  int have_eijmp_eicall;
+
+  /* Reserved. */
+  int reserved;
+  
+  const char *const macro;
+};
+
+extern const struct base_arch_s *avr_current_arch;
+
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
@@ -30,6 +60,12 @@ along with GCC; see the file COPYING3.  If not see
 	builtin_define (avr_base_arch_macro);	\
       if (avr_extra_arch_macro)			\
 	builtin_define (avr_extra_arch_macro);	\
+      if (avr_current_arch->have_elpm)		\
+	builtin_define ("__AVR_HAVE_RAMPZ__");	\
+      if (avr_current_arch->have_elpm)		\
+	builtin_define ("__AVR_HAVE_ELPM__");	\
+      if (avr_current_arch->have_elpmx)		\
+	builtin_define ("__AVR_HAVE_ELPMX__");	\
       if (avr_have_movw_lpmx_p)			\
 	builtin_define ("__AVR_HAVE_MOVW__");	\
       if (avr_have_movw_lpmx_p)			\
@@ -40,8 +76,10 @@ along with GCC; see the file COPYING3.  If not see
 	builtin_define ("__AVR_ENHANCED__");	\
       if (avr_have_mul_p)			\
 	builtin_define ("__AVR_HAVE_MUL__");	\
-      if (avr_mega_p)				\
+      if (avr_current_arch->have_jmp_call)	\
 	builtin_define ("__AVR_MEGA__");	\
+      if (avr_current_arch->have_jmp_call)	\
+	builtin_define ("__AVR_HAVE_JMP_CALL__"); \
       if (TARGET_NO_INTERRUPTS)			\
 	builtin_define ("__NO_INTERRUPTS__");	\
     }						\
@@ -61,6 +99,7 @@ extern GTY(()) section *progmem_section;
 #define AVR_HAVE_MUL (avr_have_mul_p)
 #define AVR_HAVE_MOVW (avr_have_movw_lpmx_p)
 #define AVR_HAVE_LPMX (avr_have_movw_lpmx_p)
+#define AVR_HAVE_RAMPZ (avr_current_arch->have_elpm)
 
 #define AVR_2_BYTE_PC 1
 #define AVR_3_BYTE_PC 0
@@ -734,15 +773,24 @@ extern int avr_case_values_threshold;
 /* A C string constant that tells the GCC driver program options to
    pass to `cc1plus'.  */
 
-#define ASM_SPEC "%{mmcu=avr25:-mmcu=avr2;\
+#define ASM_SPEC "%{mmcu=avr25:-mmcu=avr2;mmcu=avr35:-mmcu=avr3;mmcu=avr31:-mmcu=avr3;mmcu=avr51:-mmcu=avr5;\
 mmcu=*:-mmcu=%*}"
 
-#define LINK_SPEC " %{!mmcu*:-m avr2}\
+#define LINK_SPEC "\
+%{mrelax:--relax\
+         %{mpmem-wrap-around:%{mmcu=at90usb8*:--pmem-wrap-around=8k}\
+                             %{mmcu=atmega16*:--pmem-wrap-around=16k}\
+                             %{mmcu=atmega32*|\
+                               mmcu=at90can32*:--pmem-wrap-around=32k}\
+                             %{mmcu=atmega64*|\
+                               mmcu=at90can64*|\
+                               mmcu=at90usb64*:--pmem-wrap-around=64k}}}\
+%{!mmcu*: -m avr2}\
 %{mmcu=at90s1200|\
   mmcu=attiny11|\
   mmcu=attiny12|\
   mmcu=attiny15|\
-  mmcu=attiny28:-m avr1}\
+  mmcu=attiny28: -m avr1}\
 %{mmcu=attiny22|\
   mmcu=attiny26|\
   mmcu=at90s2*|\
@@ -756,17 +804,19 @@ mmcu=*:-mmcu=%*}"
   mmcu=attiny25|\
   mmcu=attiny261|\
   mmcu=attiny4*|\
-  mmcu=attiny8*:-m avr2}\
+  mmcu=attiny8*: -m avr2}\
 %{mmcu=atmega103|\
   mmcu=at43*|\
-  mmcu=at76*:-m avr3}\
+  mmcu=at76*|\
+  mmcu=at90usb82|\
+  mmcu=at90usb162: -m avr3}\
 %{mmcu=atmega8*|\
   mmcu=atmega48*|\
   mmcu=at90pwm1|\
   mmcu=at90pwm2|\
   mmcu=at90pwm2b|\
   mmcu=at90pwm3|\
-  mmcu=at90pwm3b:-m avr4}\
+  mmcu=at90pwm3b: -m avr4}\
 %{mmcu=atmega16*|\
   mmcu=atmega32*|\
   mmcu=atmega406|\
@@ -775,8 +825,9 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90can*|\
   mmcu=at90pwm216|\
   mmcu=at90pwm316|\
-  mmcu=at90usb*|\
-  mmcu=at94k:-m avr5}\
+  mmcu=at90usb64*|\
+  mmcu=at90usb128*|\
+  mmcu=at94k: -m avr5}\
 %{mmcu=atmega324*|\
   mmcu=atmega325*|\
   mmcu=atmega328p|\
@@ -789,6 +840,7 @@ mmcu=*:-mmcu=%*}"
   mmcu=atmega645*|\
   mmcu=atmega649*|\
   mmcu=atmega128|\
+  mmcu=atmega1284p|\
   mmcu=atmega162|\
   mmcu=atmega164*|\
   mmcu=atmega165*|\
@@ -796,7 +848,9 @@ mmcu=*:-mmcu=%*}"
   mmcu=atmega169*|\
   mmcu=atmega8hva|\
   mmcu=atmega16hva|\
+  mmcu=atmega32hvb|\
   mmcu=attiny48|\
+  mmcu=attiny88|\
   mmcu=at90can*|\
   mmcu=at90pwm*|\
   mmcu=at90usb*: -Tdata 0x800100}\
@@ -849,10 +903,13 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=attiny861:crttn861.o%s} \
 %{mmcu=attiny43u:crttn43u.o%s} \
 %{mmcu=attiny48:crttn48.o%s} \
-%{mmcu=atmega103|mmcu=avr3:crtm103.o%s} \
-%{mmcu=at43usb320:crt43320.o%s} \
+%{mmcu=attiny88:crttn88.o%s} \
+%{mmcu=at43usb320|mmcu=avr3:crt43320.o%s} \
 %{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at76c711:crt76711.o%s} \
+%{mmcu=atmega103|mmcu=avr31:crtm103.o%s} \
+%{mmcu=at90usb162|mmcu=avr35:crtusb162.o%s} \
+%{mmcu=at90usb82:crtusb82.o%s} \
 %{mmcu=atmega8|mmcu=avr4:crtm8.o%s} \
 %{mmcu=atmega48:crtm48.o%s} \
 %{mmcu=atmega48p:crtm48p.o%s} \
@@ -888,6 +945,7 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega329p:crtm329p.o%s} \
 %{mmcu=atmega3290:crtm3290.o%s} \
 %{mmcu=atmega3290p:crtm3290p.o%s} \
+%{mmcu=atmega32hvb:crtm32hvb.o%s} \
 %{mmcu=atmega406:crtm406.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
 %{mmcu=atmega640:crtm640.o%s} \
@@ -897,23 +955,22 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega6450:crtm6450.o%s} \
 %{mmcu=atmega649:crtm649.o%s} \
 %{mmcu=atmega6490:crtm6490.o%s} \
-%{mmcu=atmega128:crtm128.o%s} \
-%{mmcu=atmega1280:crtm1280.o%s} \
-%{mmcu=atmega1281:crtm1281.o%s} \
 %{mmcu=atmega8hva:crtm8hva.o%s} \
 %{mmcu=atmega16hva:crtm16hva.o%s} \
 %{mmcu=at90can32:crtcan32.o%s} \
 %{mmcu=at90can64:crtcan64.o%s} \
-%{mmcu=at90can128:crtcan128.o%s} \
 %{mmcu=at90pwm216:crt90pwm216.o%s} \
 %{mmcu=at90pwm316:crt90pwm316.o%s} \
-%{mmcu=at90usb82:crtusb82.o%s} \
-%{mmcu=at90usb162:crtusb162.o%s} \
 %{mmcu=at90usb646:crtusb646.o%s} \
 %{mmcu=at90usb647:crtusb647.o%s} \
+%{mmcu=at94k:crtat94k.o%s} \
+%{mmcu=atmega128|mmcu=avr51:crtm128.o%s} \
+%{mmcu=atmega1280:crtm1280.o%s} \
+%{mmcu=atmega1281:crtm1281.o%s} \
+%{mmcu=atmega1284p:crtm1284p.o%s} \
+%{mmcu=at90can128:crtcan128.o%s} \
 %{mmcu=at90usb1286:crtusb1286.o%s} \
-%{mmcu=at90usb1287:crtusb1287.o%s} \
-%{mmcu=at94k:crtat94k.o%s}"
+%{mmcu=at90usb1287:crtusb1287.o%s}"
 
 #define EXTRA_SPECS {"crt_binutils", CRT_BINUTILS_SPECS},
 

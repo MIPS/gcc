@@ -58,14 +58,6 @@ bool extra_warnings;
 bool warn_larger_than;
 HOST_WIDE_INT larger_than_size;
 
-/* Nonzero means warn about constructs which might not be
-   strict-aliasing safe.  */
-int warn_strict_aliasing;
-
-/* Nonzero means warn about optimizations which rely on undefined
-   signed overflow.  */
-int warn_strict_overflow;
-
 /* Hack for cooperation between set_Wunused and set_Wextra.  */
 static bool maybe_warn_unused_parameter;
 
@@ -950,6 +942,16 @@ decode_options (unsigned int argc, const char **argv)
   if (flag_really_no_inline == 2)
     flag_really_no_inline = flag_no_inline;
 
+  /* Inlining of functions called just once will only work if we can look
+     at the complete translation unit.  */
+  if (flag_inline_functions_called_once && !flag_unit_at_a_time)
+    {
+      flag_inline_functions_called_once = 0;
+      warning (OPT_Wdisabled_optimization,
+	       "-funit-at-a-time is required for inlining of functions "
+	       "that are only called once");
+    }
+
   /* The optimization to partition hot and cold basic blocks into separate
      sections of the .o and executable files does not work (currently)
      with exception handling.  This is because there is no support for
@@ -1777,6 +1779,8 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_floop_optimize:
     case OPT_frerun_loop_opt:
     case OPT_fstrength_reduce:
+    case OPT_ftree_store_copy_prop:
+    case OPT_fforce_addr:
       /* These are no-ops, preserved for backward compatibility.  */
       break;
 
@@ -1868,12 +1872,9 @@ set_Wstrict_aliasing (int onoff)
 void
 set_fast_math_flags (int set)
 {
-  flag_trapping_math = !set;
   flag_unsafe_math_optimizations = set;
-  flag_associative_math = set;
-  flag_reciprocal_math = set;
+  set_unsafe_math_optimizations_flags (set);
   flag_finite_math_only = set;
-  flag_signed_zeros = !set;
   flag_errno_math = !set;
   if (set)
     {
@@ -1888,8 +1889,10 @@ set_fast_math_flags (int set)
 void
 set_unsafe_math_optimizations_flags (int set)
 {
-  flag_reciprocal_math = set;
+  flag_trapping_math = !set;
+  flag_signed_zeros = !set;
   flag_associative_math = set;
+  flag_reciprocal_math = set;
 }
 
 /* Return true iff flags are set as if -ffast-math.  */

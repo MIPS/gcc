@@ -315,13 +315,6 @@ dim_check (gfc_expr *dim, int n, bool optional)
   if (dim == NULL)
     return SUCCESS;
 
-  if (dim == NULL)
-    {
-      gfc_error ("Missing DIM parameter in intrinsic '%s' at %L",
-		 gfc_current_intrinsic, gfc_current_intrinsic_where);
-      return FAILURE;
-    }
-
   if (type_check (dim, n, BT_INTEGER) == FAILURE)
     return FAILURE;
 
@@ -860,6 +853,9 @@ gfc_check_cshift (gfc_expr *array, gfc_expr *shift, gfc_expr *dim)
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
+  if (type_check (shift, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
   if (array->rank == 1)
     {
       if (scalar_check (shift, 1) == FAILURE)
@@ -870,8 +866,7 @@ gfc_check_cshift (gfc_expr *array, gfc_expr *shift, gfc_expr *dim)
       /* TODO: more requirements on shift parameter.  */
     }
 
-  /* FIXME (PR33317): Allow optional DIM=.  */
-  if (dim_check (dim, 2, false) == FAILURE)
+  if (dim_check (dim, 2, true) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -1040,8 +1035,7 @@ gfc_check_eoshift (gfc_expr *array, gfc_expr *shift, gfc_expr *boundary,
       /* TODO: more restrictions on boundary.  */
     }
 
-  /* FIXME (PR33317): Allow optional DIM=.  */
-  if (dim_check (dim, 4, false) == FAILURE)
+  if (dim_check (dim, 4, true) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -2400,7 +2394,7 @@ gfc_check_shape (gfc_expr *source)
 
   ar = gfc_find_array_ref (source);
 
-  if (ar->as && ar->as->type == AS_ASSUMED_SIZE)
+  if (ar->as && ar->as->type == AS_ASSUMED_SIZE && ar->type == AR_FULL)
     {
       gfc_error ("'source' argument of 'shape' intrinsic at %L must not be "
 		 "an assumed size array", &source->where);
@@ -3236,7 +3230,7 @@ gfc_check_ctime_sub (gfc_expr *time, gfc_expr *result)
 
 
 try
-gfc_check_etime (gfc_expr *x)
+gfc_check_dtime_etime (gfc_expr *x)
 {
   if (array_check (x, 0) == FAILURE)
     return FAILURE;
@@ -3258,7 +3252,7 @@ gfc_check_etime (gfc_expr *x)
 
 
 try
-gfc_check_etime_sub (gfc_expr *values, gfc_expr *time)
+gfc_check_dtime_etime_sub (gfc_expr *values, gfc_expr *time)
 {
   if (array_check (values, 0) == FAILURE)
     return FAILURE;

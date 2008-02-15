@@ -61,7 +61,7 @@
   mismatch
   next_permutation
   nth_element
-  parital_sort
+  partial_sort
   partial_sort_copy
   partition
   pop_heap
@@ -82,7 +82,7 @@
   rotate_copy
   search
   search_n
-  set_differernce
+  set_difference
   set_intersection
   set_symmetric_difference
   set_union
@@ -222,14 +222,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _FIter1, typename _FIter2>
     void 
     iter_swap(_FIter1, _FIter2);
-
-  // Specializations for char and unsigned char.
-  inline bool
-  lexicographical_compare(const unsigned char*, const unsigned char*, 
-			  const unsigned char*, const unsigned char*);
-
-  inline bool
-  lexicographical_compare(const char*, const char*, const char*, const char*);
 
   template<typename _FIter, typename _Tp>
     _FIter 

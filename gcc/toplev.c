@@ -1185,7 +1185,7 @@ print_version (FILE *file, const char *indent)
   static const char fmt2[] =
     N_("GMP version %s, MPFR version %s.\n");
   static const char fmt3[] =
-    N_("warning: %s header version %s differs from library version %s.\n");
+    N_("%s%swarning: %s header version %s differs from library version %s.\n");
   static const char fmt4[] =
     N_("%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n");
 #ifndef __VERSION__
@@ -1215,10 +1215,12 @@ print_version (FILE *file, const char *indent)
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
+	     indent, *indent != 0 ? " " : "",
 	     "GMP", GCC_GMP_STRINGIFY_VERSION, gmp_version);
   if (strcmp (MPFR_VERSION_STRING, mpfr_get_version ()))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
+	     indent, *indent != 0 ? " " : "",
 	     "MPFR", MPFR_VERSION_STRING, mpfr_get_version ());
   fprintf (file,
 	   file == stderr ? _(fmt4) : fmt4,
@@ -1988,6 +1990,13 @@ process_options (void)
   if (flag_signaling_nans)
     flag_trapping_math = 1;
 
+  /* We cannot reassociate if we want traps or signed zeros.  */
+  if (flag_associative_math && (flag_trapping_math || flag_signed_zeros))
+    {
+      warning (0, "-fassociative-math disabled; other options take precedence");
+      flag_associative_math = 0;
+    }
+
   /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
   if (flag_cx_limited_range)
     flag_complex_method = 0;
@@ -2009,7 +2018,7 @@ process_options (void)
   if (flag_unwind_tables && !ACCUMULATE_OUTGOING_ARGS
       && flag_omit_frame_pointer)
     {
-      warning (0, "unwind tables currently requires a frame pointer "
+      warning (0, "unwind tables currently require a frame pointer "
 	       "for correctness");
       flag_omit_frame_pointer = 0;
     }

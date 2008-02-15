@@ -514,6 +514,15 @@ AC_ARG_WITH(java-home,
 AM_CONDITIONAL(JAVA_HOME_SET, test ! -z "$JAVA_HOME")
 AC_SUBST(JAVA_HOME)
 
+suppress_libgcj_bc=no
+AC_ARG_ENABLE(libgcj-bc,
+  AS_HELP_STRING([--enable-libgcj-bc],
+                 [enable(default) or disable BC ABI for portions of libgcj]),
+  [if test "$enable_libgcj_bc" = "no"; then
+     suppress_libgcj_bc=yes
+   fi])
+AM_CONDITIONAL(SUPPRESS_LIBGCJ_BC, test "$suppress_libgcj_bc" = "yes")
+
 # What is the native OS API for MinGW?
 AC_ARG_WITH(win32-nlsapi,
   AS_HELP_STRING([--with-win32-nlsapi=ansi or unicows or unicode],
@@ -788,6 +797,9 @@ case "${host}" in
     # on Darwin -single_module speeds up loading of the dynamic libraries.
     extra_ldflags_libjava=-Wl,-single_module
     ;;
+*-*-darwin[[9]]*)
+    extra_gij_ldflags=-Wl,-allow_stack_execute
+    ;;
 arm*linux*eabi)
     # Some of the ARM unwinder code is actually in libstdc++.  We
     # could in principle replicate it in libgcj, but it's better to
@@ -798,6 +810,7 @@ arm*linux*eabi)
     ;;
 esac
 AC_SUBST(extra_ldflags_libjava)
+AC_SUBST(extra_gij_ldflags)
 AC_SUBST(extra_ldflags)
 AC_SUBST(LIBSTDCXXSPEC)
 
@@ -1546,7 +1559,7 @@ case "${host}" in
  m68*-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
- powerpc*-*-darwin*)
+ powerpc*-*-darwin* | i?86-*-darwin9* | x86_64-*-darwin9*)
     SIGNAL_HANDLER=include/darwin-signal.h
     ;;
  *)

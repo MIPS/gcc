@@ -728,8 +728,7 @@ build_dynamic_cast (tree type, tree expr)
     {
       expr = build_min (DYNAMIC_CAST_EXPR, type, expr);
       TREE_SIDE_EFFECTS (expr) = 1;
-
-      return expr;
+      return convert_from_reference (expr);
     }
 
   return convert_from_reference (build_dynamic_cast_1 (type, expr));
@@ -1319,7 +1318,6 @@ create_tinfo_types (void)
     ti->name = NULL_TREE;
     finish_builtin_struct (ti->type, "__type_info_pseudo",
 			   fields, NULL_TREE);
-    TYPE_HAS_CONSTRUCTOR (ti->type) = 1;
   }
 
   /* Fundamental type_info */
@@ -1358,7 +1356,6 @@ create_tinfo_types (void)
     ti->name = NULL_TREE;
     finish_builtin_struct (ti->type, "__base_class_type_info_pseudo",
 			   fields, NULL_TREE);
-    TYPE_HAS_CONSTRUCTOR (ti->type) = 1;
   }
 
   /* Pointer type_info. Adds two fields, qualification mask

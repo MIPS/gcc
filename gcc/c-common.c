@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1280,6 +1280,9 @@ conversion_warning (tree type, tree expr)
       else if (TREE_CODE (TREE_TYPE (expr)) == INTEGER_TYPE
                && TREE_CODE (type) == INTEGER_TYPE)
         {
+	  /* Don't warn about unsigned char y = 0xff, x = (int) y;  */
+	  expr = get_unwidened (expr, 0);
+
           /* Warn for integer types converted to smaller integer types.  */
           if (formal_prec < TYPE_PRECISION (TREE_TYPE (expr))) 
 	    give_warning = true;
@@ -3168,7 +3171,11 @@ c_type_hash (const void *p)
     }
   for (; t2; t2 = TREE_CHAIN (t2))
     i++;
-  size = TREE_INT_CST_LOW (TYPE_SIZE (t));
+  /* We might have a VLA here.  */
+  if (TREE_CODE (TYPE_SIZE (t)) != INTEGER_CST)
+    size = 0;
+  else
+    size = TREE_INT_CST_LOW (TYPE_SIZE (t));
   return ((size << 24) | (i << shift));
 }
 
@@ -5007,21 +5014,13 @@ handle_transparent_union_attribute (tree *node, tree name,
 				    tree ARG_UNUSED (args), int flags,
 				    bool *no_add_attrs)
 {
-  tree type = NULL;
+  tree type;
 
   *no_add_attrs = true;
 
-  if (DECL_P (*node))
-    {
-      if (TREE_CODE (*node) != TYPE_DECL)
-	goto ignored;
-      node = &TREE_TYPE (*node);
-      type = *node;
-    }
-  else if (TYPE_P (*node))
-    type = *node;
-  else
-    goto ignored;
+  if (TREE_CODE (*node) == TYPE_DECL)
+    node = &TREE_TYPE (*node);
+  type = *node;
 
   if (TREE_CODE (type) == UNION_TYPE)
     {
@@ -6032,15 +6031,16 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   while (POINTER_TYPE_P (type)
 	 || TREE_CODE (type) == FUNCTION_TYPE
 	 || TREE_CODE (type) == METHOD_TYPE
-	 || TREE_CODE (type) == ARRAY_TYPE)
+	 || TREE_CODE (type) == ARRAY_TYPE
+	 || TREE_CODE (type) == OFFSET_TYPE)
     type = TREE_TYPE (type);
 
   /* Get the mode of the type being modified.  */
   orig_mode = TYPE_MODE (type);
 
-  if (TREE_CODE (type) == RECORD_TYPE
-      || TREE_CODE (type) == UNION_TYPE
-      || TREE_CODE (type) == VECTOR_TYPE
+  if ((!INTEGRAL_TYPE_P (type)
+       && !SCALAR_FLOAT_TYPE_P (type)
+       && !FIXED_POINT_TYPE_P (type))
       || (!SCALAR_FLOAT_MODE_P (orig_mode)
 	  && GET_MODE_CLASS (orig_mode) != MODE_INT
 	  && !ALL_SCALAR_FIXED_POINT_MODE_P (orig_mode))
