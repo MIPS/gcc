@@ -2088,8 +2088,6 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 	{
 	  /* Modify a copy of OLDDECL and install that in the
 	     bindings.  */
-	  /* FIXME: we shouldn't need a copy -- we should just modify
-	     NEWDECL.  */
 	  tree copy = copy_node (olddecl);
 	  merge_decls (newdecl, copy, newtype,
 		       C_SMASHED_TYPE_VARIANT (oldtype));
@@ -2097,6 +2095,18 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 	  /* 	  gcc_assert (binding->decl == olddecl); */
 	  C_FIRST_DEFINITION_P (copy) = C_FIRST_DEFINITION_P (newdecl);
 	  binding->decl = copy;
+
+	  /* Need to call decl_attributes on the new decl, to ensure
+	     that on-the-side data structures know about the new
+	     tree.  */
+	  if (DECL_ATTRIBUTES (copy))
+	    {
+	      tree attrs = DECL_ATTRIBUTES (copy);
+	      DECL_ATTRIBUTES (copy) = NULL_TREE;
+	      attrs = decl_attributes (&copy, attrs, 0);
+	      gcc_assert (! attrs);
+	    }
+
 	  c_parser_bind_callback (DECL_NAME (copy), copy);
 	  c_parser_note_smash (olddecl, copy);
 	}
@@ -8184,10 +8194,10 @@ get_smashed_type (htab_t map, tree type)
 
 	case ARRAY_TYPE:
 	  {
-	    tree index = NULL_TREE;
+	    tree elts, index = NULL_TREE;
 	    if (TYPE_DOMAIN (type))
 	      index = get_smashed_type (map, TYPE_DOMAIN (type));
-	    tree elts = get_smashed_type (map, TREE_TYPE (type));
+	    elts = get_smashed_type (map, TREE_TYPE (type));
 	    if (index != TYPE_DOMAIN (type) || elts != TREE_TYPE (type))
 	      type = build_array_type (elts, index);
 	  }

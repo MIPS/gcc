@@ -1,3 +1,8 @@
+2008-02-15  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (get_smashed_type): Don't mix declaration with code.
+	(duplicate_decls): Apply attributes to new decl.
+
 2008-02-13  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c: Include pointer-set.h.
