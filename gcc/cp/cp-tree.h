@@ -1,6 +1,6 @@
 /* Definitions for C++ parsing and type checking.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -4663,7 +4663,7 @@ extern tree finish_omp_parallel			(tree, tree);
 extern tree begin_omp_task			(void);
 extern tree finish_omp_task			(tree, tree);
 extern tree finish_omp_for			(location_t, tree, tree,
-						 tree, tree, tree, tree);
+						 tree, tree, tree, tree, tree);
 extern void finish_omp_atomic			(enum tree_code, tree, tree);
 extern void finish_omp_barrier			(void);
 extern void finish_omp_flush			(void);

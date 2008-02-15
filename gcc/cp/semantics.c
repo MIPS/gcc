@@ -3849,9 +3849,10 @@ finish_omp_task (tree clauses, tree body)
 
 tree
 finish_omp_for (location_t locus, tree decl, tree init, tree cond,
-		tree incr, tree body, tree pre_body)
+		tree incr, tree body, tree pre_body, tree clauses)
 {
   tree omp_for = NULL, orig_incr = incr;
+  bool type_dep = false;
 
   if (decl == NULL)
     {
@@ -3880,16 +3881,42 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 	}
     }
 
-  if (type_dependent_expression_p (decl)
-      || (init && type_dependent_expression_p (init))
-      || (cond && type_dependent_expression_p (cond))
-      || (incr
-	  && ((TREE_CODE (incr) != MODOP_EXPR
-	       && type_dependent_expression_p (incr))
-	      || (TREE_CODE (incr) == MODOP_EXPR
-		  && (type_dependent_expression_p (TREE_OPERAND (incr, 0))
-		      || type_dependent_expression_p (TREE_OPERAND (incr,
-								    2)))))))
+  if (!processing_template_decl)
+    ;
+  else if (type_dependent_expression_p (decl))
+    type_dep = true;
+  else if (init && type_dependent_expression_p (init))
+    type_dep = true;
+  else if (cond)
+    {
+      if (type_dependent_expression_p (cond))
+	type_dep = true;
+      else if (COMPARISON_CLASS_P (cond))
+	type_dep = (type_dependent_expression_p (TREE_OPERAND (cond, 0))
+		    || type_dependent_expression_p (TREE_OPERAND (cond, 1)));
+    }
+  if (!type_dep && incr && processing_template_decl)
+    {
+      if (TREE_CODE (incr) == MODOP_EXPR)
+	type_dep = (type_dependent_expression_p (TREE_OPERAND (incr, 0))
+		    || type_dependent_expression_p (TREE_OPERAND (incr, 2)));
+      else if (type_dependent_expression_p (incr))
+	type_dep = true;
+      else if (TREE_CODE (incr) == MODIFY_EXPR)
+	{
+	  if (type_dependent_expression_p (TREE_OPERAND (incr, 0)))
+	    type_dep = true;
+	  else if (BINARY_CLASS_P (TREE_OPERAND (incr, 1)))
+	    {
+	      tree t = TREE_OPERAND (incr, 1);
+	      type_dep = (type_dependent_expression_p (TREE_OPERAND (t, 0))
+			  || type_dependent_expression_p (TREE_OPERAND (t,
+									1)));
+	    }
+	}
+    }
+
+  if (type_dep)
     {
       tree stmt;
 
@@ -3921,6 +3948,7 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       TREE_VEC_ELT (OMP_FOR_INCR (stmt), 0) = incr;
       OMP_FOR_BODY (stmt) = body;
       OMP_FOR_PRE_BODY (stmt) = pre_body;
+      OMP_FOR_CLAUSES (stmt) = clauses;
 
       SET_EXPR_LOCATION (stmt, locus);
       return add_stmt (stmt);
@@ -3942,8 +3970,8 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 
   if (CLASS_TYPE_P (TREE_TYPE (decl)))
     {
-      tree diff, iter = decl, iter_init, last;
-      tree orig_pre_body, orig_body;
+      tree diff, iter = decl, iter_init, iter_incr = NULL, last;
+      tree incr_var = NULL, orig_pre_body, orig_body, c;
 
       if (cond == NULL)
 	{
@@ -3999,8 +4027,12 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 	case POSTINCREMENT_EXPR:
 	case POSTDECREMENT_EXPR:
 	  if (TREE_OPERAND (incr, 0) != iter)
-	    incr = error_mark_node;
-	  else if (error_operand_p (build_x_unary_op (TREE_CODE (incr), iter)))
+	    {
+	      incr = error_mark_node;
+	      break;
+	    }
+	  iter_incr = build_x_unary_op (TREE_CODE (incr), iter);
+	  if (error_operand_p (iter_incr))
 	    return NULL;
 	  else if (TREE_CODE (incr) == PREINCREMENT_EXPR
 		   || TREE_CODE (incr) == POSTINCREMENT_EXPR)
@@ -4022,17 +4054,22 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 		    incr = error_mark_node;
 		  else
 		    {
-		      tree tem = build_x_modify_expr (iter, TREE_CODE (rhs),
-						      TREE_OPERAND (rhs, 1));
-		      if (error_operand_p (tem))
+		      iter_incr = build_x_modify_expr (iter, TREE_CODE (rhs),
+						       TREE_OPERAND (rhs, 1));
+		      if (error_operand_p (iter_incr))
 			return NULL;
+		      incr = TREE_OPERAND (rhs, 1);
+		      incr = cp_convert (TREE_TYPE (diff), incr);
 		      if (TREE_CODE (rhs) == MINUS_EXPR)
-			incr = fold_build1 (NEGATE_EXPR, TREE_TYPE (diff),
-					    fold_convert (TREE_TYPE (diff),
-							  TREE_OPERAND (rhs,
-									1)));
-		      else
-			incr = TREE_OPERAND (rhs, 1);
+			{
+			  incr = build1 (NEGATE_EXPR, TREE_TYPE (diff), incr);
+			  incr = fold_if_not_in_template (incr);
+			}
+		      if (TREE_CODE (incr) != INTEGER_CST
+			  && (TREE_CODE (incr) != NOP_EXPR
+			      || (TREE_CODE (TREE_OPERAND (incr, 0))
+				  != INTEGER_CST)))
+			iter_incr = NULL;
 		    }
 		}
 	      else if (TREE_OPERAND (rhs, 1) == iter)
@@ -4043,16 +4080,18 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 		    incr = error_mark_node;
 		  else
 		    {
-		      tree tem
+		      iter_incr
 			= build_x_binary_op (PLUS_EXPR, TREE_OPERAND (rhs, 0),
 					     ERROR_MARK, iter, ERROR_MARK,
 					     NULL);
-		      if (error_operand_p (tem))
+		      if (error_operand_p (iter_incr))
 			return NULL;
-		      tem = build_x_modify_expr (iter, NOP_EXPR, tem);
-		      if (error_operand_p (tem))
+		      iter_incr = build_x_modify_expr (iter, NOP_EXPR,
+						       iter_incr);
+		      if (error_operand_p (iter_incr))
 			return NULL;
 		      incr = TREE_OPERAND (rhs, 0);
+		      iter_incr = NULL;
 		    }
 		}
 	      else
@@ -4072,17 +4111,24 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 	  return NULL;
 	}
 
+      incr = cp_convert (TREE_TYPE (diff), incr);
+      for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+	    && OMP_CLAUSE_DECL (c) == iter)
+	  break;
+
       decl = create_temporary_var (TREE_TYPE (diff));
       pushdecl (decl);
       add_decl_expr (decl);
       last = create_temporary_var (TREE_TYPE (diff));
       pushdecl (last);
       add_decl_expr (last);
-      cond = cp_build_binary_op (TREE_CODE (cond), decl, diff);
-      incr = build_modify_expr (decl, PLUS_EXPR,
-				fold_convert (TREE_TYPE (diff), incr));
-      orig_incr = incr;
-
+      if (c && iter_incr == NULL)
+	{
+	  incr_var = create_temporary_var (TREE_TYPE (diff));
+	  pushdecl (incr_var);
+	  add_decl_expr (incr_var);
+	}
       gcc_assert (stmts_are_full_exprs_p ());
 
       orig_pre_body = pre_body;
@@ -4092,18 +4138,36 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       if (init != NULL)
 	finish_expr_stmt (build_x_modify_expr (iter, NOP_EXPR, init));
       init = build_int_cst (TREE_TYPE (diff), 0);
+      if (c && iter_incr == NULL)
+	{
+	  finish_expr_stmt (build_x_modify_expr (incr_var, NOP_EXPR, incr));
+	  incr = incr_var;
+	  iter_incr = build_x_modify_expr (iter, PLUS_EXPR, incr);
+	}
       finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, init));
       pre_body = pop_stmt_list (pre_body);
 
+      cond = cp_build_binary_op (TREE_CODE (cond), decl, diff);
+      incr = build_modify_expr (decl, PLUS_EXPR, incr);
+      orig_incr = incr;
+
       orig_body = body;
       body = push_stmt_list ();
-      iter_init = fold_build2 (MINUS_EXPR, TREE_TYPE (diff), decl, last);
+      iter_init = build2 (MINUS_EXPR, TREE_TYPE (diff), decl, last);
       iter_init = build_x_modify_expr (iter, PLUS_EXPR, iter_init);
       iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
       finish_expr_stmt (iter_init);
       finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, decl));
       add_stmt (orig_body);
       body = pop_stmt_list (body);
+
+      if (c)
+	{
+	  OMP_CLAUSE_LASTPRIVATE_STMT (c) = push_stmt_list ();
+	  finish_expr_stmt (iter_incr);
+	  OMP_CLAUSE_LASTPRIVATE_STMT (c)
+	    = pop_stmt_list (OMP_CLAUSE_LASTPRIVATE_STMT (c));
+	}
     }
 
   if (IS_EMPTY_STMT (pre_body))
@@ -4143,6 +4207,8 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       if (processing_template_decl)
 	TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0) = orig_incr;
     }
+  if (omp_for != NULL)
+    OMP_FOR_CLAUSES (omp_for) = clauses;
   return omp_for;
 }
 

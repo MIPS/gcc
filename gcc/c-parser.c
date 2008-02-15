@@ -1,6 +1,7 @@
 /* Parser for C and Objective-C.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -6955,8 +6956,6 @@ c_parser_omp_clause_collapse (c_parser *parser, tree list)
     }
   c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
   OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
-  OMP_CLAUSE_COLLAPSE_ITERVAR (c) = NULL;
-  OMP_CLAUSE_COLLAPSE_COUNT (c) = NULL;
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
 }
@@ -7608,7 +7607,7 @@ c_parser_omp_flush (c_parser *parser)
    so that we can push a new decl if necessary to make it private.  */
 
 static tree
-c_parser_omp_for_loop (c_parser *parser, tree clauses)
+c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
 {
   tree decl, cond, incr, save_break, save_cont, body, init, stmt, cl;
   location_t loc;
@@ -7694,7 +7693,34 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses)
     {
       stmt = c_finish_omp_for (loc, decl, init, cond, incr, body, NULL);
       if (stmt)
-	OMP_FOR_CLAUSES (stmt) = clauses;
+	{
+	  if (par_clauses != NULL)
+	    {
+	      tree *c;
+	      for (c = par_clauses; *c ; )
+		if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_FIRSTPRIVATE
+		    && OMP_CLAUSE_DECL (*c) == decl)
+		  {
+		    error ("%Hiteration variable %qD should not be firstprivate",
+			   &loc, decl);
+		    *c = OMP_CLAUSE_CHAIN (*c);
+		  }
+		else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_LASTPRIVATE
+			 && OMP_CLAUSE_DECL (*c) == decl)
+		  {
+		    /* Copy lastprivate (decl) clause to OMP_FOR_CLAUSES,
+		       change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
+		    tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
+		    OMP_CLAUSE_DECL (l) = decl;
+		    OMP_CLAUSE_CHAIN (l) = clauses;
+		    clauses = l;
+		    OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
+		  }
+		else
+		  c = &OMP_CLAUSE_CHAIN (*c);
+	    }
+	  OMP_FOR_CLAUSES (stmt) = clauses;
+	}
       return stmt;
     }
   return NULL;
@@ -7730,7 +7756,7 @@ c_parser_omp_for (c_parser *parser)
 				      "#pragma omp for");
 
   block = c_begin_compound_stmt (true);
-  ret = c_parser_omp_for_loop (parser, clauses);
+  ret = c_parser_omp_for_loop (parser, clauses, NULL);
   block = c_end_compound_stmt (block, true);
   add_stmt (block);
 
@@ -7935,7 +7961,7 @@ c_parser_omp_parallel (c_parser *parser)
     case PRAGMA_OMP_PARALLEL_FOR:
       block = c_begin_omp_parallel ();
       c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
-      c_parser_omp_for_loop (parser, ws_clause);
+      c_parser_omp_for_loop (parser, ws_clause, &par_clause);
       stmt = c_finish_omp_parallel (par_clause, block);
       OMP_PARALLEL_COMBINED (stmt) = 1;
       break;

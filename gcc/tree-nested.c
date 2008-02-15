@@ -1161,7 +1161,7 @@ static bool
 convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 {
   struct nesting_info *info = wi->info;
-  bool need_chain = false;
+  bool need_chain = false, need_stmts = false;
   tree clause, decl;
   int dummy;
   bitmap new_suppress;
@@ -1173,13 +1173,25 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
     {
       switch (OMP_CLAUSE_CODE (clause))
 	{
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  if (OMP_CLAUSE_LASTPRIVATE_STMT (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_LASTPRIVATE:
-	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_SHARED:
+	do_decl_clause:
 	  decl = OMP_CLAUSE_DECL (clause);
+	  if (TREE_CODE (decl) == VAR_DECL
+	      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+	    break;
 	  if (decl_function_context (decl) != info->context)
 	    {
 	      bitmap_set_bit (new_suppress, DECL_UID (decl));
@@ -1214,6 +1226,35 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
     }
 
   info->suppress_expansion = new_suppress;
+
+  if (need_stmts)
+    for (clause = *pclauses; clause ; clause = OMP_CLAUSE_CHAIN (clause))
+      switch (OMP_CLAUSE_CODE (clause))
+	{
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+	    {
+	      tree old_context
+		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
+	      walk_body (convert_nonlocal_reference, info,
+			 &OMP_CLAUSE_REDUCTION_INIT (clause));
+	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+		= info->context;
+	      walk_body (convert_nonlocal_reference, info,
+			 &OMP_CLAUSE_REDUCTION_MERGE (clause));
+	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+		= old_context;
+	    }
+	  break;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  walk_body (convert_nonlocal_reference, info,
+		     &OMP_CLAUSE_LASTPRIVATE_STMT (clause));
+	  break;
+
+	default:
+	  break;
+	}
 
   return need_chain;
 }
@@ -1456,7 +1497,7 @@ static bool
 convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 {
   struct nesting_info *info = wi->info;
-  bool need_frame = false;
+  bool need_frame = false, need_stmts = false;
   tree clause, decl;
   int dummy;
   bitmap new_suppress;
@@ -1468,13 +1509,25 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
     {
       switch (OMP_CLAUSE_CODE (clause))
 	{
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  if (OMP_CLAUSE_LASTPRIVATE_STMT (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_LASTPRIVATE:
-	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_SHARED:
+	do_decl_clause:
 	  decl = OMP_CLAUSE_DECL (clause);
+	  if (TREE_CODE (decl) == VAR_DECL
+	      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+	    break;
 	  if (decl_function_context (decl) == info->context
 	      && !use_pointer_in_frame (decl))
 	    {
@@ -1514,6 +1567,35 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
     }
 
   info->suppress_expansion = new_suppress;
+
+  if (need_stmts)
+    for (clause = *pclauses; clause ; clause = OMP_CLAUSE_CHAIN (clause))
+      switch (OMP_CLAUSE_CODE (clause))
+	{
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+	    {
+	      tree old_context
+		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
+	      walk_body (convert_local_reference, info,
+			 &OMP_CLAUSE_REDUCTION_INIT (clause));
+	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+		= info->context;
+	      walk_body (convert_local_reference, info,
+			 &OMP_CLAUSE_REDUCTION_MERGE (clause));
+	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+		= old_context;
+	    }
+	  break;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  walk_body (convert_local_reference, info,
+		     &OMP_CLAUSE_LASTPRIVATE_STMT (clause));
+	  break;
+
+	default:
+	  break;
+	}
 
   return need_frame;
 }

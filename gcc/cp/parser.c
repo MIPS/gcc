@@ -19480,8 +19480,6 @@ cp_parser_omp_clause_collapse (cp_parser *parser, tree list)
   c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
   OMP_CLAUSE_CHAIN (c) = list;
   OMP_CLAUSE_COLLAPSE_EXPR (c) = num;
-  OMP_CLAUSE_COLLAPSE_ITERVAR (c) = NULL;
-  OMP_CLAUSE_COLLAPSE_COUNT (c) = NULL;
 
   return c;
 }
@@ -20231,10 +20229,12 @@ cp_parser_omp_for_incr (cp_parser *parser, tree decl)
 /* Parse the restricted form of the for statment allowed by OpenMP.  */
 
 static tree
-cp_parser_omp_for_loop (cp_parser *parser, tree clauses)
+cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 {
   tree init, cond, incr, body, decl, pre_body, ret, for_block = NULL_TREE;
+  tree real_decl;
   location_t loc;
+  bool add_private_clause = false;
 
   if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
     {
@@ -20245,7 +20245,7 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses)
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
     return NULL;
 
-  init = decl = NULL;
+  init = decl = real_decl = NULL;
   pre_body = push_stmt_list ();
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
     {
@@ -20329,44 +20329,98 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses)
 	      && DECL_P (decl)
 	      && CLASS_TYPE_P (TREE_TYPE (decl)))
 	    {
-	      tree rhs, c;
+	      tree rhs;
 
 	      cp_parser_parse_definitely (parser);
 	      cp_parser_require (parser, CPP_EQ, "`='");
 	      rhs = cp_parser_assignment_expression (parser, false);
 	      finish_expr_stmt (build_x_modify_expr (decl, NOP_EXPR, rhs));
-	      for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
-		{
-		  if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
-		       || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
-		      && OMP_CLAUSE_DECL (c) == decl)
-		    break;
-		  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
-			   && OMP_CLAUSE_DECL (c) == decl)
-		    error ("iteration variable %qD should be firstprivate", decl);
-		  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
-			   && OMP_CLAUSE_DECL (c) == decl)
-		    error ("iteration variable %qD should be reduction", decl);
-		}
-	      if (c == NULL)
-		{
-		  c = build_omp_clause (OMP_CLAUSE_PRIVATE);
-		  OMP_CLAUSE_DECL (c) = decl;
-		  OMP_CLAUSE_CHAIN (c) = clauses;
-		  clauses = c;
-		}
+	      add_private_clause = true;
 	    }
 	  else
 	    {
 	      decl = NULL;
 	      cp_parser_abort_tentative_parse (parser);
 	      init = cp_parser_expression (parser, false);
+	      if (init)
+		{
+		  if (TREE_CODE (init) == MODIFY_EXPR
+		      || TREE_CODE (init) == MODOP_EXPR)
+		    real_decl = TREE_OPERAND (init, 0);
+		}
 	    }
 	}
     }
   cp_parser_require (parser, CPP_SEMICOLON, "`;'");
   if (pre_body)
     pre_body = pop_stmt_list (pre_body);
+
+  if (decl)
+    real_decl = decl;
+  if (par_clauses != NULL && real_decl != NULL_TREE)
+    {
+      tree *c;
+      for (c = par_clauses; *c ; )
+	if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_FIRSTPRIVATE
+	    && OMP_CLAUSE_DECL (*c) == real_decl)
+	  {
+	    error ("%Hiteration variable %qD should not be firstprivate",
+		   &loc, real_decl);
+	    *c = OMP_CLAUSE_CHAIN (*c);
+	  }
+	else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_LASTPRIVATE
+		 && OMP_CLAUSE_DECL (*c) == real_decl)
+	  {
+	    /* Add lastprivate (decl) clause to OMP_FOR_CLAUSES,
+	       change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
+	    tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
+	    OMP_CLAUSE_DECL (l) = real_decl;
+	    OMP_CLAUSE_CHAIN (l) = clauses;
+	    CP_OMP_CLAUSE_INFO (l) = CP_OMP_CLAUSE_INFO (*c);
+	    clauses = l;
+	    OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
+	    CP_OMP_CLAUSE_INFO (*c) = NULL;
+	    add_private_clause = false;
+	  }
+	else
+	  {
+	    if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_PRIVATE
+		&& OMP_CLAUSE_DECL (*c) == real_decl)
+	      add_private_clause = false;
+	    c = &OMP_CLAUSE_CHAIN (*c);
+	  }
+    }
+
+  if (add_private_clause)
+    {
+      tree c;
+      for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+	{
+	  if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+	       || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
+	      && OMP_CLAUSE_DECL (c) == decl)
+	    break;
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		   && OMP_CLAUSE_DECL (c) == decl)
+	    error ("%Hiteration variable %qD should not be firstprivate",
+		   &loc, decl);
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+		   && OMP_CLAUSE_DECL (c) == decl)
+	    error ("%Hiteration variable %qD should not be reduction",
+		   &loc, decl);
+	}
+      if (c == NULL)
+	{
+	  c = build_omp_clause (OMP_CLAUSE_PRIVATE);
+	  OMP_CLAUSE_DECL (c) = decl;
+	  c = finish_omp_clauses (c);
+	  if (c)
+	    {
+	      OMP_CLAUSE_CHAIN (c) = clauses;
+	      clauses = c;
+	    }
+	}
+    }
 
   cond = NULL;
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
@@ -20410,9 +20464,7 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses)
   cp_parser_statement (parser, NULL_TREE, false, NULL);
   body = pop_stmt_list (body);
 
-  ret = finish_omp_for (loc, decl, init, cond, incr, body, pre_body);
-  if (ret)
-    OMP_FOR_CLAUSES (ret) = clauses;
+  ret = finish_omp_for (loc, decl, init, cond, incr, body, pre_body, clauses);
 
   if (for_block)
     add_stmt (pop_stmt_list (for_block));
@@ -20446,7 +20498,7 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok)
   sb = begin_omp_structured_block ();
   save = cp_parser_begin_omp_structured_block (parser);
 
-  ret = cp_parser_omp_for_loop (parser, clauses);
+  ret = cp_parser_omp_for_loop (parser, clauses, NULL);
 
   cp_parser_end_omp_structured_block (parser, save);
   add_stmt (finish_omp_structured_block (sb));
@@ -20644,7 +20696,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
 
     case PRAGMA_OMP_PARALLEL_FOR:
       c_split_parallel_clauses (clauses, &par_clause, &ws_clause);
-      cp_parser_omp_for_loop (parser, ws_clause);
+      cp_parser_omp_for_loop (parser, ws_clause, &par_clause);
       break;
 
     case PRAGMA_OMP_PARALLEL_SECTIONS:

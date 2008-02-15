@@ -1150,6 +1150,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_LASTPRIVATE:
 	  /* Let the corresponding firstprivate clause create
 	     the variable.  */
+	  if (OMP_CLAUSE_LASTPRIVATE_STMT (c))
+	    scan_array_reductions = true;
 	  if (OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
 	    break;
 	  /* FALLTHRU */
@@ -1199,6 +1201,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  scan_omp (&OMP_CLAUSE_REDUCTION_INIT (c), ctx);
 	  scan_omp (&OMP_CLAUSE_REDUCTION_MERGE (c), ctx);
 	}
+      else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+	       && OMP_CLAUSE_LASTPRIVATE_STMT (c))
+	scan_omp (&OMP_CLAUSE_LASTPRIVATE_STMT (c), ctx);
 }
 
 /* Create a new name for omp child function.  Returns an identifier.  */
@@ -2007,9 +2012,10 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 
 static void
 lower_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
-			    omp_context *ctx)
+			   omp_context *ctx)
 {
   tree sub_list, x, c;
+  bool par_clauses = false;
 
   /* Early exit if there are no lastprivate clauses.  */
   clauses = find_omp_clause (clauses, OMP_CLAUSE_LASTPRIVATE);
@@ -2029,25 +2035,47 @@ lower_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
 				 OMP_CLAUSE_LASTPRIVATE);
       if (clauses == NULL)
 	return;
+      par_clauses = true;
     }
 
   sub_list = alloc_stmt_list ();
 
-  for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+  for (c = clauses; c ;)
     {
       tree var, new_var;
 
-      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_LASTPRIVATE)
-	continue;
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
+	{
+	  var = OMP_CLAUSE_DECL (c);
+	  new_var = lookup_decl (var, ctx);
 
-      var = OMP_CLAUSE_DECL (c);
-      new_var = lookup_decl (var, ctx);
+	  if (OMP_CLAUSE_LASTPRIVATE_STMT (c))
+	    gimplify_and_add (OMP_CLAUSE_LASTPRIVATE_STMT (c), &sub_list);
+	  OMP_CLAUSE_LASTPRIVATE_STMT (c) = NULL;
 
-      x = build_outer_var_ref (var, ctx);
-      if (is_reference (var))
-	new_var = build_fold_indirect_ref (new_var);
-      x = lang_hooks.decls.omp_clause_assign_op (c, x, new_var);
-      append_to_statement_list (x, &sub_list);
+	  x = build_outer_var_ref (var, ctx);
+	  if (is_reference (var))
+	    new_var = build_fold_indirect_ref (new_var);
+	  x = lang_hooks.decls.omp_clause_assign_op (c, x, new_var);
+	  append_to_statement_list (x, &sub_list);
+	}
+      c = OMP_CLAUSE_CHAIN (c);
+      if (c == NULL && !par_clauses)
+	{
+	  /* If this was a workshare clause, see if it had been combined
+	     with its parallel.  In that case, continue looking for the
+	     clauses also on the parallel statement itself.  */
+	  if (is_parallel_ctx (ctx))
+	    break;
+
+	  ctx = ctx->outer;
+	  if (ctx == NULL || !is_parallel_ctx (ctx))
+	    break;
+
+	  c = find_omp_clause (OMP_PARALLEL_CLAUSES (ctx->stmt),
+			       OMP_CLAUSE_LASTPRIVATE);
+	  par_clauses = true;
+	}
     }
 
   if (predicate)

@@ -5112,6 +5112,23 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p,
 	      pop_gimplify_context (OMP_CLAUSE_REDUCTION_MERGE (c));
 	      gimplify_omp_ctxp = outer_ctx;
 	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+		   && OMP_CLAUSE_LASTPRIVATE_STMT (c))
+	    {
+	      gimplify_omp_ctxp = ctx;
+	      push_gimplify_context ();
+	      if (TREE_CODE (OMP_CLAUSE_LASTPRIVATE_STMT (c)) != BIND_EXPR)
+		{
+		  tree bind = build3 (BIND_EXPR, void_type_node, NULL,
+				      NULL, NULL);
+		  TREE_SIDE_EFFECTS (bind) = 1;
+		  BIND_EXPR_BODY (bind) = OMP_CLAUSE_LASTPRIVATE_STMT (c);
+		  OMP_CLAUSE_LASTPRIVATE_STMT (c) = bind;
+		}
+	      gimplify_stmt (&OMP_CLAUSE_LASTPRIVATE_STMT (c));
+	      pop_gimplify_context (OMP_CLAUSE_LASTPRIVATE_STMT (c));
+	      gimplify_omp_ctxp = outer_ctx;
+	    }
 	  if (notice_outer)
 	    goto do_notice;
 	  break;
@@ -5489,6 +5506,28 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 
       if (init_decl)
 	append_to_statement_list (init_decl, &bodylist);
+
+      if (var != decl)
+	{
+	  tree c;
+	  for (c = OMP_FOR_CLAUSES (for_stmt); c ; c = OMP_CLAUSE_CHAIN (c))
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+	      && OMP_CLAUSE_DECL (c) == decl)
+	    {
+	      t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
+	      gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+	      gcc_assert (GIMPLE_STMT_OPERAND (t, 0) == var);
+	      t = GIMPLE_STMT_OPERAND (t, 1);
+	      gcc_assert (TREE_CODE (t) == PLUS_EXPR
+			  || TREE_CODE (t) == MINUS_EXPR);
+	      gcc_assert (TREE_OPERAND (t, 0) == var);
+	      gcc_assert (OMP_CLAUSE_LASTPRIVATE_STMT (c) == NULL);
+	      t = build2 (TREE_CODE (t), TREE_TYPE (decl), decl,
+			  TREE_OPERAND (t, 1));
+	      OMP_CLAUSE_LASTPRIVATE_STMT (c)
+		= build_gimple_modify_stmt (decl, t);
+	    }
+	}
     }
 
   body = OMP_FOR_BODY (for_stmt);

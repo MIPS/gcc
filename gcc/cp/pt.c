@@ -10136,10 +10136,19 @@ tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
 
       switch (OMP_CLAUSE_CODE (nc))
 	{
+	case OMP_CLAUSE_LASTPRIVATE:
+	  if (OMP_CLAUSE_LASTPRIVATE_STMT (oc))
+	    {
+	      OMP_CLAUSE_LASTPRIVATE_STMT (nc) = push_stmt_list ();
+	      tsubst_expr (OMP_CLAUSE_LASTPRIVATE_STMT (oc), args, complain,
+			   in_decl, /*integral_constant_expression_p=*/false);
+	      OMP_CLAUSE_LASTPRIVATE_STMT (nc)
+		= pop_stmt_list (OMP_CLAUSE_LASTPRIVATE_STMT (nc));
+	    }
+	  /* FALLTHRU */
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_LASTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:
@@ -10554,19 +10563,23 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		      break;
 		    else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
 			     && OMP_CLAUSE_DECL (c) == decl)
-		      error ("iteration variable %qD should be firstprivate",
+		      error ("iteration variable %qD should not be firstprivate",
 			     decl);
 		    else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 			     && OMP_CLAUSE_DECL (c) == decl)
-		      error ("iteration variable %qD should be reduction",
+		      error ("iteration variable %qD should not be reduction",
 			     decl);
 		  }
 		if (c == NULL)
 		  {
 		    c = build_omp_clause (OMP_CLAUSE_PRIVATE);
 		    OMP_CLAUSE_DECL (c) = decl;
-		    OMP_CLAUSE_CHAIN (c) = clauses;
-		    clauses = c;
+		    c = finish_omp_clauses (c);
+		    if (c)
+		      {
+			OMP_CLAUSE_CHAIN (c) = clauses;
+			clauses = c;
+		      }
 		  }
 	      }
 	    cond = TREE_VEC_ELT (OMP_FOR_COND (t), 0);
@@ -10664,9 +10677,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	body = pop_stmt_list (body);
 
 	t = finish_omp_for (EXPR_LOCATION (t), decl, init, cond, incr, body,
-			    pre_body);
-	if (t)
-	  OMP_FOR_CLAUSES (t) = clauses;
+			    pre_body, clauses);
 
 	add_stmt (finish_omp_structured_block (stmt));
       }

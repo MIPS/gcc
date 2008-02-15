@@ -1,5 +1,5 @@
 /* OpenMP directive translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -693,8 +693,6 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
     {
       c = build_omp_clause (OMP_CLAUSE_COLLAPSE);
       OMP_CLAUSE_COLLAPSE_EXPR (c) = build_int_cst (NULL, clauses->collapse);
-      OMP_CLAUSE_COLLAPSE_ITERVAR (c) = NULL;
-      OMP_CLAUSE_COLLAPSE_COUNT (c) = NULL;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
@@ -914,7 +912,7 @@ gfc_trans_omp_critical (gfc_code *code)
 
 static tree
 gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
-		  gfc_omp_clauses *do_clauses)
+		  gfc_omp_clauses *do_clauses, tree par_clauses)
 {
   gfc_se se;
   tree dovar, stmt, from, to, step, type, init, cond, incr;
@@ -947,7 +945,7 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
   for (i = 0; i < collapse; i++)
     {
       int simple = 0;
-      bool dovar_found = false;
+      int dovar_found = 0;
 
       if (clauses)
 	{
@@ -956,12 +954,14 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
 	       n = n->next)
 	    if (code->ext.iterator->var->symtree->n.sym == n->sym)
 	      break;
-	  if (n == NULL)
+	  if (n != NULL)
+	    dovar_found = 1;
+	  else if (n == NULL)
 	    for (n = clauses->lists[OMP_LIST_PRIVATE]; n != NULL; n = n->next)
 	      if (code->ext.iterator->var->symtree->n.sym == n->sym)
 		break;
 	  if (n != NULL)
-	    dovar_found = true;
+	    dovar_found++;
 	}
 
       /* Evaluate all the expressions in the iterator.  */
@@ -1037,6 +1037,46 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
 	  tmp = build_omp_clause (OMP_CLAUSE_PRIVATE);
 	  OMP_CLAUSE_DECL (tmp) = dovar;
 	  omp_clauses = gfc_trans_add_clause (tmp, omp_clauses);
+	}
+      else if (dovar_found == 2)
+	{
+	  tree c = NULL;
+
+	  tmp = NULL;
+	  if (!simple)
+	    {
+	      /* If dovar is lastprivate, but different counter is used,
+		 dovar += step needs to be added to
+		 OMP_CLAUSE_LASTPRIVATE_STMT, otherwise the copied dovar
+		 will have the value on entry of the last loop, rather
+		 than value after iterator increment.  */
+	      tmp = gfc_evaluate_now (step, pblock);
+	      tmp = fold_build2 (PLUS_EXPR, type, dovar, tmp);
+	      tmp = build2 (GIMPLE_MODIFY_STMT, type, dovar, tmp);
+	      for (c = omp_clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+		    && OMP_CLAUSE_DECL (c) == dovar)
+		  {
+		    OMP_CLAUSE_LASTPRIVATE_STMT (c) = tmp;
+		    break;
+		  }
+	    }
+	  if (c == NULL && par_clauses != NULL)
+	    {
+	      for (c = par_clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+		    && OMP_CLAUSE_DECL (c) == dovar)
+		  {
+		    tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
+		    OMP_CLAUSE_DECL (l) = dovar;
+		    OMP_CLAUSE_CHAIN (l) = omp_clauses;
+		    OMP_CLAUSE_LASTPRIVATE_STMT (l) = tmp;
+		    omp_clauses = l;
+		    OMP_CLAUSE_SET_CODE (c, OMP_CLAUSE_SHARED);
+		    break;
+		  }
+	    }
+	  gcc_assert (simple || c != NULL);
 	}
       if (!simple)
 	{
@@ -1168,7 +1208,7 @@ gfc_trans_omp_parallel_do (gfc_code *code)
     pblock = &block;
   else
     pushlevel (0);
-  stmt = gfc_trans_omp_do (code, pblock, &do_clauses);
+  stmt = gfc_trans_omp_do (code, pblock, &do_clauses, omp_clauses);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
@@ -1311,7 +1351,7 @@ gfc_trans_omp_directive (gfc_code *code)
     case EXEC_OMP_CRITICAL:
       return gfc_trans_omp_critical (code);
     case EXEC_OMP_DO:
-      return gfc_trans_omp_do (code, NULL, code->ext.omp_clauses);
+      return gfc_trans_omp_do (code, NULL, code->ext.omp_clauses, NULL);
     case EXEC_OMP_FLUSH:
       return gfc_trans_omp_flush ();
     case EXEC_OMP_MASTER:

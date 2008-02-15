@@ -1,3 +1,15 @@
+2008-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses): Don't clear
+	OMP_CLAUSE_COLLAPSE_ITERVAR and OMP_CLAUSE_COLLAPSE_COUNT.
+	(gfc_trans_omp_do): Add par_clauses argument.  If dovar is
+	present in lastprivate clause and do loop isn't simple,
+	set OMP_CLAUSE_LASTPRIVATE_STMT.  If dovar is present in
+	parallel's lastprivate clause, change it to shared and add
+	lastprivate clause to OMP_FOR_CLAUSES.
+	(gfc_trans_omp_parallel_do, gfc_trans_omp_directive): Adjust
+	gfc_trans_omp_do callers.
+
 2008-02-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* openmp.c (omp_current_do_code): Made static.

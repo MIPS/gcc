@@ -24,7 +24,7 @@ contains
           end do
         end do
       end do
-!   if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
+    if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
     if (m.ne.(600+40+18)) call abort
     do i = 1, 7
       do j = -3, 5
@@ -45,7 +45,7 @@ contains
     logical :: l
     l = .false.
     a(:, :, :) = 0
-    !$omp parallel do collapse (3) lastprivate (m) reduction (.or.:l)
+    !$omp parallel do collapse (3) lastprivate (i, j, k, m) reduction (.or.:l)
       do i = v1, v2
         do j = v3, v4
           do k = v5, v6
@@ -56,7 +56,7 @@ contains
           end do
         end do
       end do
-!   if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
+    if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
     if (m.ne.(600+40+18)) call abort
     do i = 1, 7
       do j = -3, 5
@@ -77,7 +77,7 @@ contains
     logical :: l
     l = .false.
     a(:, :, :) = 0
-    !$omp parallel do collapse (3) lastprivate (m) reduction (.or.:l)
+    !$omp parallel do collapse (3) lastprivate (i, j, k, m) reduction (.or.:l)
       do i = v1, v2, v7
         do j = v3, v4, v8
           do k = v5, v6, v9
@@ -88,7 +88,7 @@ contains
           end do
         end do
       end do
-!   if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
+    if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
     if (m.ne.(600+40+18)) call abort
     do i = 1, 7
       do j = -3, 5
@@ -120,7 +120,7 @@ contains
           end do
         end do
       end do
-!   if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
+    if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
     if (m.ne.(600+40+18)) call abort
     do i = 1, 7
       do j = -3, 5
@@ -141,7 +141,7 @@ contains
     logical :: l
     l = .false.
     a(:, :, :) = 0
-    !$omp parallel do collapse (3) lastprivate (m) reduction (.or.:l) &
+    !$omp parallel do collapse (3) lastprivate (i, j, k, m) reduction (.or.:l) &
     !$omp & schedule (guided)
       do i = v1, v2
         do j = v3, v4
@@ -153,7 +153,7 @@ contains
           end do
         end do
       end do
-!   if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
+    if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
     if (m.ne.(600+40+18)) call abort
     do i = 1, 7
       do j = -3, 5
@@ -174,7 +174,7 @@ contains
     logical :: l
     l = .false.
     a(:, :, :) = 0
-    !$omp parallel do collapse (3) lastprivate (m) reduction (.or.:l) &
+    !$omp parallel do collapse (3) lastprivate (i, j, k, m) reduction (.or.:l) &
     !$omp & schedule (dynamic)
       do i = v1, v2, v7
         do j = v3, v4, v8
@@ -186,7 +186,7 @@ contains
           end do
         end do
       end do
-!   if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
+    if (i.ne.7.or.j.ne.5.or.k.ne.19) call abort
     if (m.ne.(600+40+18)) call abort
     do i = 1, 7
       do j = -3, 5

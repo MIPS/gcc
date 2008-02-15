@@ -1,3 +1,32 @@
+2008-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_LASTPRIVATE_STMT): Define.
+	* tree.c (omp_clause_num_ops): Increase OMP_CLAUSE_LASTPRIVATE num_ops
+	to 2.
+	(walk_tree_1): Walk OMP_CLAUSE_LASTPRIVATE_STMT.
+	* omp-low.c (scan_sharing_clauses): Scan
+	OMP_CLAUSE_LASTPRIVATE_STMT.
+	(lower_lastprivate_clauses): Even if some lastprivate is found on a
+	work-sharing construct, continue looking for them on parent parallel
+	construct.
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	OMP_CLAUSE_LASTPRIVATE_STMT.
+	(gimplify_omp_for): If loop counter has been replaced and original
+	iterator is present in lastprivate clause, set
+	OMP_CLAUSE_LASTPRIVATE_STMT.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Handle OMP_CLAUSE_LASTPRIVATE_STMT,
+	OMP_CLAUSE_REDUCTION_INIT and OMP_CLAUSE_REDUCTION_MERGE.
+	Don't do about TREE_STATIC or DECL_EXTERNAL VAR_DECLs in
+	OMP_CLAUSE_DECL.
+	* c-parser.c (c_parser_omp_clause_collapse): Don't clear
+	OMP_CLAUSE_COLLAPSE_ITERVAR and OMP_CLAUSE_COLLAPSE_COUNT.
+	(c_parser_omp_for_loop): Add par_clauses argument.  If decl is
+	present in parallel's lastprivate clause, change it to shared
+	and add lastprivate clause for decl to OMP_FOR_CLAUSES.
+	(c_parser_omp_for, c_parser_omp_parallel): Adjust
+	c_parser_omp_for_loop callers.
+
 2008-02-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-nested.c (conver_nonlocal_reference, convert_local_reference,
