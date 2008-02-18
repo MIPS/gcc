@@ -1335,12 +1335,31 @@ Determine the language standard. @xref{Standards,,Language Standards
 Supported by GCC}, for details of these standard versions.  This option
 is currently only supported when compiling C or C++. 
 
+The compiler can accept several base standards, such as @samp{c89} or
+@samp{c++98}, and GNU dialects of those standards, such as
+@samp{gnu89} or @samp{gnu++98}.  By specifing a base standard, the
+compiler will accept all programs following that standard and those
+using GNU extensions that do not contradict it.  For example,
+@samp{-std=c89} turns off certain features of GCC that are
+incompatible with ISO C90, such as the @code{asm} and @code{typeof}
+keywords, but not other GNU extensions that do not have a meaning in
+ISO C90, such as omitting the middle term of a @code{?:}
+expression. On the other hand, by specifing a GNU dialect of a
+standard, all features the compiler support are enabled, even when
+those features change the meaning of the base standard and some
+strict-conforming programs may be rejected.  The particular standard
+is used by @option{-pedantic} to identify which features are GNU
+extensions given that version of the standard. For example
+@samp{-std=gnu89 -pedantic} would warn about C++ style @samp{//}
+comments, while @samp{-std=gnu99 -pedantic} would not.
+
 A value for this option must be provided; possible values are
 
 @table @samp
 @item c89
 @itemx iso9899:1990
-ISO C90 (same as @option{-ansi}).
+Support all ISO C90 programs (certain GNU extensions that conflict
+with ISO C90 are disabled). Same as @option{-ansi} for C code.
 
 @item iso9899:199409
 ISO C90 as modified in amendment 1.
@@ -1354,19 +1373,21 @@ ISO C99.  Note that this standard is not yet fully supported; see
 names @samp{c9x} and @samp{iso9899:199x} are deprecated.
 
 @item gnu89
-Default, ISO C90 plus GNU extensions (including some C99 features).
+GNU dialect of ISO C90 (including some C99 features). This
+is the default for C code.
 
 @item gnu99
 @itemx gnu9x
-ISO C99 plus GNU extensions.  When ISO C99 is fully implemented in GCC,
+GNU dialect of ISO C99.  When ISO C99 is fully implemented in GCC,
 this will become the default.  The name @samp{gnu9x} is deprecated.
 
 @item c++98
-The 1998 ISO C++ standard plus amendments.
+The 1998 ISO C++ standard plus amendments. Same as @option{-ansi} for
+C++ code.
 
 @item gnu++98
-The same as @option{-std=c++98} plus GNU extensions.  This is the
-default for C++ code.
+GNU dialect of @option{-std=c++98}.  This is the default for
+C++ code.
 
 @item c++0x
 The working draft of the upcoming ISO C++0x standard. This option
@@ -1376,20 +1397,9 @@ enabled by this flag may be removed from future versions of GCC if it is
 not part of the C++0x standard.
 
 @item gnu++0x
-The same as @option{-std=c++0x} plus GNU extensions. As with
-@option{-std=c++0x}, this option enables experimental features that may
-be removed in future versions of GCC.
+GNU dialect of @option{-std=c++0x}. This option enables
+experimental features that may be removed in future versions of GCC.
 @end table
-
-Even when this option is not specified, you can still use some of the
-features of newer standards in so far as they do not conflict with
-previous C standards.  For example, you may use @code{__restrict__} even
-when @option{-std=c99} is not specified.
-
-The @option{-std} options specifying some version of ISO C have the same
-effects as @option{-ansi}, except that features that were not in ISO C90
-but are in the specified version (for example, @samp{//} comments and
-the @code{inline} keyword in ISO C99) are not disabled.
 
 @item -fgnu89-inline
 @opindex fgnu89-inline
@@ -3810,7 +3820,7 @@ recommended form for most uses.
 Unfortunately, there are some characters which ISO C and ISO C++ allow
 in identifiers that when turned into NFC aren't allowable as
 identifiers.  That is, there's no way to use these symbols in portable
-ISO C or C++ and have all your identifiers in NFC.
+ISO C or C++ and have all your identifiers in NFC@.
 @option{-Wnormalized=id} suppresses the warning for these characters.
 It is hoped that future versions of the standards involved will correct
 this, which is why this option is not the default.
@@ -4821,7 +4831,7 @@ Dump each function after CCP@.  The file name is made by appending
 
 @item storeccp
 @opindex fdump-tree-storeccp
-Dump each function after STORE-CCP.  The file name is made by appending
+Dump each function after STORE-CCP@.  The file name is made by appending
 @file{.storeccp} to the source file name.
 
 @item pre
@@ -5002,7 +5012,7 @@ position in code.  Better debugging information is then generated
 (if the debugging information format supports this information).
 
 It is enabled by default when compiling with optimization (@option{-Os},
-@option{-O}, @option{-O2}, ...), debugging information (@option{-g}) and
+@option{-O}, @option{-O2}, @dots{}), debugging information (@option{-g}) and
 the debug info format supports it.
 
 @item -print-file-name=@var{library}
@@ -5253,7 +5263,7 @@ Disabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fforward-propagate
 @opindex fforward-propagate
-Perform a forward propagation pass on RTL.  The pass tries to combine two
+Perform a forward propagation pass on RTL@.  The pass tries to combine two
 instructions and checks if the result can be simplified.  If loop unrolling
 is active, two passes are performed and the second is scheduled after
 loop unrolling.
@@ -5589,12 +5599,12 @@ higher on architectures that support this.
 
 @item -fdce
 @opindex fdce
-Perform dead code elimination (DCE) on RTL.
+Perform dead code elimination (DCE) on RTL@.
 Enabled by default at @option{-O} and higher.
 
 @item -fdse
 @opindex fdse
-Perform dead store elimination (DSE) on RTL.
+Perform dead store elimination (DSE) on RTL@.
 Enabled by default at @option{-O} and higher.
 
 @item -fif-conversion
@@ -11175,7 +11185,7 @@ the M32C/80 series.
 @opindex msim
 Specifies that the program will be run on the simulator.  This causes
 an alternate runtime library to be linked in which supports, for
-example, file I/O.  You must not use this option when generating
+example, file I/O@.  You must not use this option when generating
 programs that will run on real hardware; you must provide your own
 runtime library for whatever I/O functions are needed.
 
@@ -11473,7 +11483,7 @@ CPU32 or CPU32+ core, including the 68330, 68331, 68332, 68333, 68334,
 
 @item -m5200
 @opindex m5200
-Generate output for a 520X ColdFire CPU.  This is the default
+Generate output for a 520X ColdFire CPU@.  This is the default
 when the compiler is configured for 520X-based systems.
 It is equivalent to @option{-mcpu=5206}, and is now deprecated
 in favor of that option.
@@ -11483,7 +11493,7 @@ the MCF5202, MCF5203, MCF5204 and MCF5206.
 
 @item -m5206e
 @opindex m5206e
-Generate output for a 5206e ColdFire CPU.  The option is now
+Generate output for a 5206e ColdFire CPU@.  The option is now
 deprecated in favor of the equivalent @option{-mcpu=5206e}.
 
 @item -m528x
@@ -11494,12 +11504,12 @@ The option is now deprecated in favor of the equivalent
 
 @item -m5307
 @opindex m5307
-Generate output for a ColdFire 5307 CPU.  The option is now deprecated
+Generate output for a ColdFire 5307 CPU@.  The option is now deprecated
 in favor of the equivalent @option{-mcpu=5307}.
 
 @item -m5407
 @opindex m5407
-Generate output for a ColdFire 5407 CPU.  The option is now deprecated
+Generate output for a ColdFire 5407 CPU@.  The option is now deprecated
 in favor of the equivalent @option{-mcpu=5407}.
 
 @item -mcfv4e
@@ -11532,7 +11542,7 @@ The option is equivalent to @option{-march=68020} @option{-mtune=68020-60}.
 @opindex mhard-float
 @opindex m68881
 Generate floating-point instructions.  This is the default for 68020
-and above, and for ColdFire devices that have an FPU.  It defines the
+and above, and for ColdFire devices that have an FPU@.  It defines the
 macro @samp{__HAVE_68881__} on M680x0 targets and @samp{__mcffpu__}
 on ColdFire targets.
 
@@ -12081,7 +12091,7 @@ configurations; see the installation documentation for details.
 @itemx -mno-dsp
 @opindex mdsp
 @opindex mno-dsp
-Use (do not use) revision 1 of the MIPS DSP ASE.
+Use (do not use) revision 1 of the MIPS DSP ASE@.
 @xref{MIPS DSP Built-in Functions}.  This option defines the
 preprocessor macro @samp{__mips_dsp}.  It also defines
 @samp{__mips_dsp_rev} to 1.
@@ -12090,7 +12100,7 @@ preprocessor macro @samp{__mips_dsp}.  It also defines
 @itemx -mno-dspr2
 @opindex mdspr2
 @opindex mno-dspr2
-Use (do not use) revision 2 of the MIPS DSP ASE.
+Use (do not use) revision 2 of the MIPS DSP ASE@.
 @xref{MIPS DSP Built-in Functions}.  This option defines the
 preprocessor macros @samp{__mips_dsp} and @samp{__mips_dspr2}.
 It also defines @samp{__mips_dsp_rev} to 2.
@@ -12168,7 +12178,7 @@ The default @option{-G} option depends on the configuration.
 @opindex mlocal-sdata
 @opindex mno-local-sdata
 Extend (do not extend) the @option{-G} behavior to local data too,
-such as to static variables in C.  @option{-mlocal-sdata} is the
+such as to static variables in C@.  @option{-mlocal-sdata} is the
 default for all configurations.
 
 If the linker complains that an application is using too much small data,
@@ -13089,7 +13099,7 @@ implies @option{-mno-powerpc64}.  GCC defaults to @option{-maix32}.
 @opindex mxl-compat
 @opindex mno-xl-compat
 Produce code that conforms more closely to IBM XL compiler semantics
-when using AIX-compatible ABI.  Pass floating-point arguments to
+when using AIX-compatible ABI@.  Pass floating-point arguments to
 prototyped functions beyond the register save area (RSA) on the stack
 in addition to argument FPRs.  Do not assume that most significant
 double in 128-bit long double value is properly rounded when comparing

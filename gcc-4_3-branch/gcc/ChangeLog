@@ -1,4 +1,164 @@
+2008-02-17 Ralf Wildenhues <Ralf.Wildenhues@gmx.de>
+
+	* doc/c-tree.texi: Use @dots{} and @enddots{} where appropriate.
+	* doc/cfg.texi: Likewise.
+	* doc/extend.texi: Likewise.
+	* doc/gty.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+	* doc/loop.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* doc/passes.texi: Likewise.
+	* doc/rtl.texi: Likewise.
+	* doc/sourcebuild.texi: Likewise.
+	* doc/tm.texi: Likewise.
+	* doc/tree-ssa.texi: Likewise.
+
+2008-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35227
+	* tree-complex.c (init_parameter_lattice_values): Handle parameters
+	without default definition.
+
+2008-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35231
+	* tree-vrp.c (register_edge_assert_for): Do not assume A == 0
+	if A | B != 1.
+
+2008-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+
+	2008-02-15  Uros Bizjak  <ubizjak@gmail.com>	
+	* config/i386/sfp-machine.h (CMPtype): Define as typedef using
+	libgcc_cmp_return mode.
+
+2008-02-16  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/28368
+	* doc/invoke.texi (-std): Clarify description of -std= and -ansi.
+
+2008-02-16  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config/m68k/t-rtems (M68K_MLIB_CPU): Add 5208, 5307, 5407, 5475
+	multilibs.
+
+2008-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/c-tree.texi: Use `@.' where appropriate.
+	* doc/extend.texi: Likewise.
+	* doc/install.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+	* doc/loop.texi: Likewise.
+	* doc/makefile.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* doc/passes.texi: Likewise.
+	* doc/standards.texi: Likewise.
+	* doc/tm.texi: Likewise.
+
+2008-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35196
+	* omp-low.c (expand_omp_for_generic): Don't initialize fd->v
+	in entry_bb.
+	(expand_omp_for_static_nochunk): Initialize fd->v in seq_start_bb
+	rather than in entry_bb.
+
+2008-02-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sfp-machine.h (CMPtype): Define as typedef using
+	libgcc_cmp_return mode.
+
+2008-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35130
+	* tree-nested.c (convert_call_expr): Put FRAME.* vars into
+	OMP_CLAUSE_SHARED rather than OMP_CLAUSE_FIRSTPRIVATE clause.
+
+2008-02-15  Richard Guenther  <rguenther@suse.de>
+	    Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/35164
+	* tree-flow.h (stmt_references_abnormal_ssa_name): Declare.
+	* tree-dfa.c (stmt_references_abnormal_ssa_name): New function.
+	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_vars):
+	Only propagate addresses which do not have abnormal SSA_NAMEs
+	in their operands.
+
+2008-02-15  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/35088
+	* config/m68k/m68k.h (DWARF_CIE_DATA_ALIGNMENT): Define.
+
+2008-02-15  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/35149
+	* ipa.c (cgraph_remove_unreachable_nodes): Clear local.inlinable flag.
+
+2008-02-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/34621
+	* function.c (pad_to_arg_alignment): Remove test for STACK_BOUNDARY
+	when calculating alignment_pad.
+
+2008-02-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (CLEAR_RATIO): Use MIN macro.
+	(WIDEST_HARDWARE_FP_SIZE): Use LONG_DOUBLE_TYPE_SIZE define.
+	* config/i386/darwin.h (PREFERRED_STACK_BOUNDARY): Use MAX macro
+	and STACK_BOUNDARY define.
+
+2008-02-14  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR preprocessor/35061
+	* c-pragma.c (handle_pragma_pop_macro): Check that
+	pushed_macro_table has been allocated.
+
+2008-02-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/35136
+	* gimplify.c (force_gimple_operand_bsi): Revert 2008-02-12 change.
+	(force_gimple_operand): Likewise.
+	* tree-ssa-loop-ivopts.c (may_be_nonaddressable_p): Add new cases
+	for TARGET_MEM_REF and CONVERT_EXPR/NON_LVALUE_EXPR/NOP_EXPR.
+	Also recurse on the operand for regular VIEW_CONVERT_EXPRs.
+	(find_interesting_uses_address): Check addressability and alignment
+	of the base expression only after substituting bases of IVs into it.
+
+2008-02-14  Michael Matz  <matz@suse.de>
+
+	PR target/34930
+	* function.c (instantiate_virtual_regs_in_insn): Reload address
+	before falling back to reloading the whole operand.
+
+2008-02-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_mainpool_start): Emit the pool
+	before the first section switch note.
+
 2008-02-14 Ralf Wildenhues <Ralf.Wildenhues@gmx.de>
+
+	* doc/bugreport.texi: Update copyright years.
+	* doc/c-tree.texi: Likewise.
+	* doc/cfg.texi: Likewise.
+	* doc/cpp.texi: Likewise.
+	* doc/cppinternals.texi: Likewise.
+	* doc/fragments.texi: Likewise.
+	* doc/frontends.texi: Likewise.
+	* doc/gcc.texi: Likewise.
+	* doc/gty.texi: Likewise.
+	* doc/hostconfig.texi: Likewise.
+	* doc/implement-c.texi: Likewise.
+	* doc/libgcc.texi: Likewise.
+	* doc/loop.texi: Likewise.
+	* doc/makefile.texi: Likewise.
+	* doc/options.texi: Likewise.
+	* doc/passes.texi: Likewise.
+	* doc/rtl.texi: Likewise.
+	* doc/sourcebuild.texi: Likewise.
+	* doc/standards.texi: Likewise.
+	* doc/tree-ssa.texi: Likewise.
+	* doc/trouble.texi: Likewise.
 
 	* doc/extend.texi: Use @: or add comma where appropriate.
 	* doc/invoke.texi: Likewise.

@@ -236,6 +236,8 @@ finish_member_template_decl (tree decl)
       tree type;
 
       type = TREE_TYPE (decl);
+      if (type == error_mark_node)
+	return error_mark_node;
       if (IS_AGGR_TYPE (type)
 	  && CLASSTYPE_TEMPLATE_INFO (type)
 	  && !CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
@@ -1561,12 +1563,9 @@ determine_specialization (tree template_id,
 	     no partial specializations of functions.  Therefore, if
 	     the type of DECL does not match FN, there is no
 	     match.  */
-	  if (tsk == tsk_template)
-	    {
-	      if (compparms (fn_arg_types, decl_arg_types))
-		candidates = tree_cons (NULL_TREE, fn, candidates);
-	      continue;
-	    }
+	  if (tsk == tsk_template
+	      && !compparms (fn_arg_types, decl_arg_types))
+	    continue;
 
 	  /* See whether this function might be a specialization of this
 	     template.  */
@@ -2448,13 +2447,6 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
     (struct find_parameter_pack_data*)data;
   bool parameter_pack_p = false;
 
-  /* Don't visit nodes twice.  */
-  if (pointer_set_contains (ppd->visited, *tp))
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-
   /* Identify whether this is a parameter pack or not.  */
   switch (TREE_CODE (t))
     {
@@ -2490,12 +2482,9 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
       *ppd->parameter_packs = tree_cons (NULL_TREE, t, *ppd->parameter_packs);
     }
 
-  /* Make sure we do not visit this node again.  */
-  pointer_set_insert (ppd->visited, *tp);
-
   if (TYPE_P (t))
     cp_walk_tree (&TYPE_CONTEXT (t), 
-		  &find_parameter_packs_r, ppd, NULL);
+		  &find_parameter_packs_r, ppd, ppd->visited);
 
   /* This switch statement will return immediately if we don't find a
      parameter pack.  */
@@ -2507,10 +2496,10 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       /* Check the template itself.  */
       cp_walk_tree (&TREE_TYPE (TYPE_TI_TEMPLATE (t)), 
-		    &find_parameter_packs_r, ppd, NULL);
+		    &find_parameter_packs_r, ppd, ppd->visited);
       /* Check the template arguments.  */
       cp_walk_tree (&TYPE_TI_ARGS (t), &find_parameter_packs_r, ppd, 
-		    NULL);
+		    ppd->visited);
       *walk_subtrees = 0;
       return NULL_TREE;
 
@@ -2530,19 +2519,19 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
     case ENUMERAL_TYPE:
       if (TYPE_TEMPLATE_INFO (t))
 	cp_walk_tree (&TREE_VALUE (TYPE_TEMPLATE_INFO (t)), 
-		      &find_parameter_packs_r, ppd, NULL);
+		      &find_parameter_packs_r, ppd, ppd->visited);
 
       *walk_subtrees = 0;
       return NULL_TREE;
 
     case TEMPLATE_DECL:
       cp_walk_tree (&TREE_TYPE (t),
-		    &find_parameter_packs_r, ppd, NULL);
+		    &find_parameter_packs_r, ppd, ppd->visited);
       return NULL_TREE;
  
     case TYPENAME_TYPE:
       cp_walk_tree (&TYPENAME_TYPE_FULLNAME (t), &find_parameter_packs_r,
-                   ppd, NULL);
+                   ppd, ppd->visited);
       *walk_subtrees = 0;
       return NULL_TREE;
       
@@ -2553,12 +2542,13 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
 
     case INTEGER_TYPE:
       cp_walk_tree (&TYPE_MAX_VALUE (t), &find_parameter_packs_r, 
-		    ppd, NULL);
+		    ppd, ppd->visited);
       *walk_subtrees = 0;
       return NULL_TREE;
 
     case IDENTIFIER_NODE:
-      cp_walk_tree (&TREE_TYPE (t), &find_parameter_packs_r, ppd, NULL);
+      cp_walk_tree (&TREE_TYPE (t), &find_parameter_packs_r, ppd, 
+		    ppd->visited);
       *walk_subtrees = 0;
       return NULL_TREE;
 
@@ -2577,7 +2567,7 @@ uses_parameter_packs (tree t)
   struct find_parameter_pack_data ppd;
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = pointer_set_create ();
-  cp_walk_tree (&t, &find_parameter_packs_r, &ppd, NULL);
+  cp_walk_tree (&t, &find_parameter_packs_r, &ppd, ppd.visited);
   pointer_set_destroy (ppd.visited);
   return parameter_packs != NULL_TREE;
 }
@@ -2628,7 +2618,7 @@ make_pack_expansion (tree arg)
       ppd.visited = pointer_set_create ();
       ppd.parameter_packs = &parameter_packs;
       cp_walk_tree (&TREE_PURPOSE (arg), &find_parameter_packs_r, 
-                    &ppd, NULL);
+                    &ppd, ppd.visited);
 
       if (parameter_packs == NULL_TREE)
         {
@@ -2646,7 +2636,7 @@ make_pack_expansion (tree arg)
               /* Determine which parameter packs will be expanded in this
                  argument.  */
               cp_walk_tree (&TREE_VALUE (value), &find_parameter_packs_r, 
-                            &ppd, NULL);
+                            &ppd, ppd.visited);
             }
         }
 
@@ -2684,7 +2674,7 @@ make_pack_expansion (tree arg)
   /* Determine which parameter packs will be expanded.  */
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = pointer_set_create ();
-  cp_walk_tree (&arg, &find_parameter_packs_r, &ppd, NULL);
+  cp_walk_tree (&arg, &find_parameter_packs_r, &ppd, ppd.visited);
   pointer_set_destroy (ppd.visited);
 
   /* Make sure we found some parameter packs.  */
@@ -2729,7 +2719,7 @@ check_for_bare_parameter_packs (tree t)
 
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = pointer_set_create ();
-  cp_walk_tree (&t, &find_parameter_packs_r, &ppd, NULL);
+  cp_walk_tree (&t, &find_parameter_packs_r, &ppd, ppd.visited);
   pointer_set_destroy (ppd.visited);
 
   if (parameter_packs) 
@@ -2755,13 +2745,6 @@ check_for_bare_parameter_packs (tree t)
 
           parameter_packs = TREE_CHAIN (parameter_packs);
         }
-
-      /* Clean up any references to these parameter packs within the
-	 tree.  */
-      ppd.parameter_packs = &parameter_packs;
-      ppd.visited = pointer_set_create ();
-      cp_walk_tree (&t, &find_parameter_packs_r, &ppd, NULL);
-      pointer_set_destroy (ppd.visited);
 
       return true;
     }
@@ -3890,7 +3873,10 @@ push_template_decl_real (tree decl, bool is_friend)
 	TYPE_RAISES_EXCEPTIONS (type) = NULL_TREE;
     }
   else if (check_for_bare_parameter_packs (TREE_TYPE (decl)))
-    return error_mark_node;
+    {
+      TREE_TYPE (decl) = error_mark_node;
+      return error_mark_node;
+    }
 
   if (is_partial)
     return process_partial_specialization (decl);
@@ -15193,37 +15179,49 @@ tsubst_initializer_list (tree t, tree argvec)
           PACK_EXPANSION_PARAMETER_PACKS (expr) =
             PACK_EXPANSION_PARAMETER_PACKS (TREE_PURPOSE (t));
 
-          /* Substitute parameter packs into each argument in the
-             TREE_LIST.  */
-          in_base_initializer = 1;
-          for (arg = TREE_VALUE (t); arg; arg = TREE_CHAIN (arg))
-            {
-              tree expanded_exprs;
+	  if (TREE_VALUE (t) == void_type_node)
+	    /* VOID_TYPE_NODE is used to indicate
+	       value-initialization.  */
+	    {
+	      for (i = 0; i < len; i++)
+		TREE_VEC_ELT (expanded_arguments, i) = void_type_node;
+	    }
+	  else
+	    {
+	      /* Substitute parameter packs into each argument in the
+		 TREE_LIST.  */
+	      in_base_initializer = 1;
+	      for (arg = TREE_VALUE (t); arg; arg = TREE_CHAIN (arg))
+		{
+		  tree expanded_exprs;
 
-              /* Expand the argument.  */
-              SET_PACK_EXPANSION_PATTERN (expr, TREE_VALUE (arg));
-              expanded_exprs = tsubst_pack_expansion (expr, argvec,
-                                                      tf_warning_or_error,
-                                                      NULL_TREE);
+		  /* Expand the argument.  */
+		  SET_PACK_EXPANSION_PATTERN (expr, TREE_VALUE (arg));
+		  expanded_exprs 
+		    = tsubst_pack_expansion (expr, argvec,
+					     tf_warning_or_error,
+					     NULL_TREE);
 
-              /* Prepend each of the expanded expressions to the
-                 corresponding TREE_LIST in EXPANDED_ARGUMENTS.  */
-              for (i = 0; i < len; i++)
-                {
-                  TREE_VEC_ELT (expanded_arguments, i) = 
-                    tree_cons (NULL_TREE, TREE_VEC_ELT (expanded_exprs, i),
-                               TREE_VEC_ELT (expanded_arguments, i));
-                }
-            }
-          in_base_initializer = 0;
+		  /* Prepend each of the expanded expressions to the
+		     corresponding TREE_LIST in EXPANDED_ARGUMENTS.  */
+		  for (i = 0; i < len; i++)
+		    {
+		      TREE_VEC_ELT (expanded_arguments, i) = 
+			tree_cons (NULL_TREE, 
+				   TREE_VEC_ELT (expanded_exprs, i),
+				   TREE_VEC_ELT (expanded_arguments, i));
+		    }
+		}
+	      in_base_initializer = 0;
 
-          /* Reverse all of the TREE_LISTs in EXPANDED_ARGUMENTS,
-             since we built them backwards.  */
-          for (i = 0; i < len; i++)
-            {
-              TREE_VEC_ELT (expanded_arguments, i) = 
-                nreverse (TREE_VEC_ELT (expanded_arguments, i));
-            }
+	      /* Reverse all of the TREE_LISTs in EXPANDED_ARGUMENTS,
+		 since we built them backwards.  */
+	      for (i = 0; i < len; i++)
+		{
+		  TREE_VEC_ELT (expanded_arguments, i) = 
+		    nreverse (TREE_VEC_ELT (expanded_arguments, i));
+		}
+	    }
         }
 
       for (i = 0; i < len; ++i)

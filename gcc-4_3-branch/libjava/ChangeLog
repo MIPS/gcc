@@ -1,3 +1,15 @@
+2008-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR libgcj/33085
+	* configure: Regenerate.
+
+2008-02-15  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR testsuite/35208
+	* testsuite/libjava.jvmti/interp/natgetstacktrace.cc
+	(Java_getstacktrace_natRunner): Increase the usleep time to a value
+	which prevents OS-X to get into a deadlock.
+
 2008-02-06  Andreas Tobler  <a.tobler@schweiz.org>
 
 	PR libgcj/30071

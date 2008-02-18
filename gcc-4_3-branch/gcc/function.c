@@ -1468,6 +1468,20 @@ instantiate_virtual_regs_in_insn (rtx insn)
 
 	    start_sequence ();
 	    x = replace_equiv_address (x, addr);
+	    /* It may happen that the address with the virtual reg
+	       was valid (e.g. based on the virtual stack reg, which might
+	       be acceptable to the predicates with all offsets), whereas
+	       the address now isn't anymore, for instance when the address
+	       is still offsetted, but the base reg isn't virtual-stack-reg
+	       anymore.  Below we would do a force_reg on the whole operand,
+	       but this insn might actually only accept memory.  Hence,
+	       before doing that last resort, try to reload the address into
+	       a register, so this operand stays a MEM.  */
+	    if (!safe_insn_predicate (insn_code, i, x))
+	      {
+		addr = force_reg (GET_MODE (addr), addr);
+		x = replace_equiv_address (x, addr);
+	      }
 	    seq = get_insns ();
 	    end_sequence ();
 	    if (seq)
@@ -3436,7 +3450,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
     sp_offset = 0;
 #endif
 
-  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+  if (boundary > PARM_BOUNDARY)
     {
       save_var = offset_ptr->var;
       save_constant = offset_ptr->constant;
@@ -3462,7 +3476,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 	  offset_ptr->var = size_binop (MINUS_EXPR, rounded, sp_offset_tree);
 	  /* ARGS_SIZE_TREE includes constant term.  */
 	  offset_ptr->constant = 0;
-	  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+	  if (boundary > PARM_BOUNDARY)
 	    alignment_pad->var = size_binop (MINUS_EXPR, offset_ptr->var,
 					     save_var);
 	}
@@ -3474,7 +3488,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 #else
 	    CEIL_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes);
 #endif
-	    if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+	    if (boundary > PARM_BOUNDARY)
 	      alignment_pad->constant = offset_ptr->constant - save_constant;
 	}
     }
