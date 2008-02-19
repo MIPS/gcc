@@ -603,7 +603,10 @@ c_hack_token (c_parser *parser, c_token *token, bool raw_string)
     case CPP_WSTRING:
     case CPP_OBJC_STRING:
       if (raw_string)
-	return false;
+	{
+	  timevar_pop (TV_LEX);
+	  return false;
+	}
       /* This can reset parser->next_token, and the caller is expected
 	 to know that.  */
       c_parser_lex_string (parser, parser->next_token,
