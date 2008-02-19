@@ -1,3 +1,9 @@
+2008-02-19  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00804.html
+
+	* fortran/Make-lang.in (fortran-warn): Remove.
+
 2007-11-22  Aldy Hernandez  <aldyh@redhat.com>
 
 	* trans-expr.c (gfc_trans_string_copy): Use "void *" when building a

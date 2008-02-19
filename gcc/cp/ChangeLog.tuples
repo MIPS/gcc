@@ -1,3 +1,11 @@
+2008-02-19  Diego Novillo  <dnovillo@google.com>
+	    Oleg Ryjkov  <olegr@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00804.html
+
+	* cp-gimplify.c (gimplify_for_stmt): Change gimple_seq
+	argument to gimple_seq *.  Update all users.
+	(gimplify_must_not_throw_expr): Likewise.
 2008-02-04  Oleg Ryjkov <olegr@google.com>
 
 	* except.c: Include gimple.h

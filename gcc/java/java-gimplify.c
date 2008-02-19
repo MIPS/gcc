@@ -33,7 +33,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 static tree java_gimplify_block (tree);
 static enum gimplify_status java_gimplify_modify_expr (tree *);
-static enum gimplify_status java_gimplify_self_mod_expr (tree *, gimple_seq, gimple_seq);
+static enum gimplify_status java_gimplify_self_mod_expr (tree *, gimple_seq *,
+							 gimple_seq *);
 
 static void dump_java_tree (enum tree_dump_index, tree);
 
@@ -159,8 +160,8 @@ java_gimplify_modify_expr (tree *modify_expr_p)
     between the reading and the writing.  */
 
 static enum gimplify_status
-java_gimplify_self_mod_expr (tree *expr_p, gimple_seq pre_p ATTRIBUTE_UNUSED, 
-			     gimple_seq post_p ATTRIBUTE_UNUSED)
+java_gimplify_self_mod_expr (tree *expr_p, gimple_seq *pre_p ATTRIBUTE_UNUSED, 
+			     gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   tree lhs = TREE_OPERAND (*expr_p, 0);
 

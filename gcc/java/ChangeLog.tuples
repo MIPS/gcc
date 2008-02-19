@@ -1,3 +1,10 @@
+2008-02-19  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00804.html
+
+	* java-gimplify.c (java_gimplify_self_mod_expr): Change
+	gimple_seq arguments to gimple_seq *.  Update all users.
+
 2007-11-26  Aldy Hernandez  <aldyh@redhat.com>
 
 	* java-gimplify.c (java_gimplify_expr): Make pre_p and post_p

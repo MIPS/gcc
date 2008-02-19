@@ -267,7 +267,7 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
    prequeue and hand off to gimplify_cp_loop.  */
 
 static void
-gimplify_for_stmt (tree *stmt_p, gimple_seq pre_p)
+gimplify_for_stmt (tree *stmt_p, gimple_seq *pre_p)
 {
   tree stmt = *stmt_p;
 
@@ -449,7 +449,7 @@ cp_gimplify_init_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 /* Gimplify a MUST_NOT_THROW_EXPR.  */
 
 static enum gimplify_status
-gimplify_must_not_throw_expr (tree *expr_p, gimple_seq pre_p)
+gimplify_must_not_throw_expr (tree *expr_p, gimple_seq *pre_p)
 {
   tree stmt = *expr_p;
   tree temp = voidify_wrapper_expr (stmt, NULL);
