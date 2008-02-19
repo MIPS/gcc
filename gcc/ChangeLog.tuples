@@ -1,3 +1,7 @@
+2008-02-19  Rafael Espindola  <espindola@google.com>
+
+	* tree-eh.c (collect_finally_tree): handle GIMPLE_SWITCH.
+
 2008-02-19  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple.h (gimple_cond_invert): Remove prototype.

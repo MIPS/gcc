@@ -249,8 +249,19 @@ collect_finally_tree_1 (gimple_seq seq, gimple region)
 static void
 collect_finally_tree (gimple stmt, gimple region)
 {
+  size_t i, n;
   switch (gimple_code (stmt))
     {
+    /* FIXME tuples: Why is GIMLE_SWITCH necessary? */
+    case GIMPLE_SWITCH:
+      n = gimple_switch_num_labels (stmt);
+      for (i = 0; i < n; i++)
+      {
+        tree lab = gimple_switch_label (stmt, i);
+        record_in_finally_tree ((treemple) lab, region);
+      }
+      break;
+
     case GIMPLE_LABEL:
       record_in_finally_tree ((treemple) gimple_label_label (stmt), region);
       break;
