@@ -1801,13 +1801,7 @@ expand_debug_expr (tree exp)
 	tree offset;
 	int volatilep = 0;
 	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-					&mode1, &unsignedp, &volatilep, true);
-
-	if (tem == exp)
-	  {
-	    gcc_assert (TREE_CODE (exp) == VIEW_CONVERT_EXPR);
-	    tem = TREE_OPERAND (exp, 0);
-	  }
+					&mode1, &unsignedp, &volatilep, false);
 
 	op0 = expand_debug_expr (tem);
 
