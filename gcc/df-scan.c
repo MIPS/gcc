@@ -1120,12 +1120,10 @@ df_free_collection_rec (struct df_collection_rec *collection_rec)
       pool_free (problem_data->mw_reg_pool, *mw);
 }
 
-/* Rescan INSN.  Return TRUE if the rescanning produced any changes.
-   If KEEPCLEAN is false, don't mark the basic block as dirty even if
-   there have been changes.  */
+/* Rescan INSN.  Return TRUE if the rescanning produced any changes.  */
 
-static bool
-df_insn_rescan_1 (rtx insn, bool keepclean)
+bool
+df_insn_rescan (rtx insn)
 {
   unsigned int uid = INSN_UID (insn);
   struct df_insn_info *insn_info = NULL;
@@ -1212,8 +1210,7 @@ df_insn_rescan_1 (rtx insn, bool keepclean)
     }
 
   df_refs_add_to_chains (&collection_rec, bb, insn);
-  if (!keepclean)
-    df_set_bb_dirty (bb);
+  df_set_bb_dirty (bb);
 
   safe_free_vec (&collection_rec, def);
   safe_free_vec (&collection_rec, use);
@@ -1223,22 +1220,60 @@ df_insn_rescan_1 (rtx insn, bool keepclean)
   return true;
 }
 
-/* Rescan INSN.  Return TRUE if the rescanning produced any changes.  */
-
-bool
-df_insn_rescan (rtx insn)
-{
-  return df_insn_rescan_1 (insn, false);
-}
-
 /* Same as df_insn_rescan, but don't mark the basic block as
    dirty.  */
 
 bool
 df_insn_rescan_debug_internal (rtx insn)
 {
+  unsigned int uid = INSN_UID (insn);
+  struct df_insn_info *insn_info;
+
   gcc_assert (DEBUG_INSN_P (insn));
-  return df_insn_rescan_1 (insn, true);
+  gcc_assert (VAR_LOC_UNKNOWN_P (INSN_VAR_LOCATION_LOC (insn)));
+
+  if (!df)
+    return false;
+
+  insn_info = DF_INSN_GET (insn);
+  if (!insn_info)
+    return false;
+
+  if (dump_file)
+    fprintf (dump_file, "deleting debug_insn with uid = %d.\n", uid);
+
+  bitmap_clear_bit (df->insns_to_delete, uid);
+  bitmap_clear_bit (df->insns_to_rescan, uid);
+  bitmap_clear_bit (df->insns_to_notes_rescan, uid);
+
+  if (!insn_info->defs)
+    return false;
+
+  if (insn_info->defs == df_null_ref_rec
+      && insn_info->uses == df_null_ref_rec
+      && insn_info->eq_uses == df_null_ref_rec
+      && insn_info->mw_hardregs == df_null_mw_rec)
+    return false;
+
+  df_mw_hardreg_chain_delete (insn_info->mw_hardregs);
+
+  if (df_chain)
+    {
+      df_ref_chain_delete_du_chain (insn_info->defs);
+      df_ref_chain_delete_du_chain (insn_info->uses);
+      df_ref_chain_delete_du_chain (insn_info->eq_uses);
+    }
+
+  df_ref_chain_delete (insn_info->defs);
+  df_ref_chain_delete (insn_info->uses);
+  df_ref_chain_delete (insn_info->eq_uses);
+
+  insn_info->defs = df_null_ref_rec;
+  insn_info->uses = df_null_ref_rec;
+  insn_info->eq_uses = df_null_ref_rec;
+  insn_info->mw_hardregs = df_null_mw_rec;
+
+  return true;
 }
 
 

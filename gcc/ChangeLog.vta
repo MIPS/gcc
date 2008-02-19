@@ -1,5 +1,11 @@
 2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
 
+	* df-scan.c (df_insn_rescan_1): Rename back to...
+	(df_insn_rescan): This.  Remove wrapper.
+	(df_insn_rescan_debug_internal): New implementation.
+
+2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgexpand.c (expand_debug_expr): Avoid VIEW_CONVERT_EXPR
 	infinite recursion more trivially.  Suggested by Eric Botcazou.
 
