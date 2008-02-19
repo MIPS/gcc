@@ -1,5 +1,21 @@
 2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
 
+	Merge from trunk right before the 4.3 branch.
+	* doc/invoke.texi: Re-add -ftree-coalesce-inlined-vars and
+	-ftree-coalesce-vars.
+	* gcse.c (alloc_gcse_mem): Remove reverse mapping CUID_INSNs.
+	* tree-ssa-live.c (remove_unused_locals): Add argument to
+	mark_all_vars_used.
+	* sched-deps.c (sched_analyze_insn): Move code that sets up deps
+	of debug insns along with move of unconditional case.
+	* tree-ssa-operands.c (get_addr_dereference_operands): Adjust for
+	renamed variable.
+	* var-tracking.c (use_type): Add modep argument.  Use track_loc_p.
+	(add_uses): Adjust.  Use var_lowpart.
+	(add_stores): Adjust.
+
+2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
 	* df-scan.c (df_insn_rescan_1): Rename back to...
 	(df_insn_rescan): This.  Remove wrapper.
 	(df_insn_rescan_debug_internal): New implementation.
@@ -486,7 +502,7 @@
 	(fixup_match_2): Likewise.
 	(regmove_optimize): Handle debug insns.
 	(fixup_match_1): Don't count debug insns.  Adjust them.
-	* gcse.c (allolc_gcse_mem): Don't allocate uid for debug isnsn.
+	* gcse.c (alloc_gcse_mem): Don't allocate uid for debug isnsn.
 	(bypass_conditional_jumps): Skip debug insns.
 	(compute_ld_motion_mems): Likewise.
 	* sched-deps.c (sched_analyze_2): Handle debug insns.

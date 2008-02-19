@@ -777,6 +777,24 @@ int_tree_map_hash (const void *item)
   return ((const struct int_tree_map *)item)->uid;
 }
 
+/* Return true if the DECL_UID in both trees are equal.  */
+
+int
+uid_decl_map_eq (const void *va, const void *vb)
+{
+  const_tree a = (const_tree) va;
+  const_tree b = (const_tree) vb;
+  return (a->decl_minimal.uid == b->decl_minimal.uid);
+}
+
+/* Hash a tree in a uid_decl_map.  */
+
+unsigned int
+uid_decl_map_hash (const void *item)
+{
+  return ((const_tree)item)->decl_minimal.uid;
+}
+
 /* Return true if the uid in both int tree maps are equal.  */
 
 static int
@@ -795,6 +813,24 @@ var_ann_hash (const void *item)
   return ((const struct static_var_ann_d *)item)->uid;
 }
 
+/* Return true if the DECL_UID in both trees are equal.  */
+
+static int
+uid_ssaname_map_eq (const void *va, const void *vb)
+{
+  const_tree a = (const_tree) va;
+  const_tree b = (const_tree) vb;
+  return (a->ssa_name.var->decl_minimal.uid == b->ssa_name.var->decl_minimal.uid);
+}
+
+/* Hash a tree in a uid_decl_map.  */
+
+static unsigned int
+uid_ssaname_map_hash (const void *item)
+{
+  return ((const_tree)item)->ssa_name.var->decl_minimal.uid;
+}
+
 
 /* Initialize global DFA and SSA structures.  */
 
@@ -802,10 +838,10 @@ void
 init_tree_ssa (void)
 {
   cfun->gimple_df = GGC_CNEW (struct gimple_df);
-  cfun->gimple_df->referenced_vars = htab_create_ggc (20, int_tree_map_hash, 
-				     		      int_tree_map_eq, NULL);
-  cfun->gimple_df->default_defs = htab_create_ggc (20, int_tree_map_hash, 
-				                   int_tree_map_eq, NULL);
+  cfun->gimple_df->referenced_vars = htab_create_ggc (20, uid_decl_map_hash, 
+				     		      uid_decl_map_eq, NULL);
+  cfun->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash, 
+				                   uid_ssaname_map_eq, NULL);
   cfun->gimple_df->var_anns = htab_create_ggc (20, var_ann_hash, 
 					       var_ann_eq, NULL);
   cfun->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
@@ -866,7 +902,8 @@ delete_tree_ssa (void)
   fini_ssanames ();
   fini_phinodes ();
   /* we no longer maintain the SSA operand cache at this point.  */
-  fini_ssa_operands ();
+  if (ssa_operands_active ())
+    fini_ssa_operands ();
 
   cfun->gimple_df->global_var = NULL_TREE;
   
@@ -1194,9 +1231,28 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
 }
 
 
+/* Return true if T, an SSA_NAME, has an undefined value.  */
+
+bool
+ssa_undefined_value_p (tree t)
+{
+  tree var = SSA_NAME_VAR (t);
+
+  /* Parameters get their initial value from the function entry.  */
+  if (TREE_CODE (var) == PARM_DECL)
+    return false;
+
+  /* Hard register variables get their initial value from the ether.  */
+  if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
+    return false;
+
+  /* The value is undefined iff its definition statement is empty.  */
+  return IS_EMPTY_STMT (SSA_NAME_DEF_STMT (t));
+}
+
 /* Emit warnings for uninitialized variables.  This is done in two passes.
 
-   The first pass notices real uses of SSA names with default definitions.
+   The first pass notices real uses of SSA names with undefined values.
    Such uses are unconditionally uninitialized, and we can be certain that
    such a use is a mistake.  This pass is run before most optimizations,
    so that we catch as many as we can.
@@ -1216,22 +1272,11 @@ static void
 warn_uninit (tree t, const char *gmsgid, void *data)
 {
   tree var = SSA_NAME_VAR (t);
-  tree def = SSA_NAME_DEF_STMT (t);
   tree context = (tree) data;
   location_t *locus;
   expanded_location xloc, floc;
 
-  /* Default uses (indicated by an empty definition statement),
-     are uninitialized.  */
-  if (!IS_EMPTY_STMT (def))
-    return;
-
-  /* Except for PARMs of course, which are always initialized.  */
-  if (TREE_CODE (var) == PARM_DECL)
-    return;
-
-  /* Hard register variables get their initial value from the ether.  */
-  if (TREE_CODE (var) == VAR_DECL && DECL_HARD_REGISTER (var))
+  if (!ssa_undefined_value_p (t))
     return;
 
   /* TREE_NO_WARNING either means we already warned, or the front end
@@ -1397,7 +1442,7 @@ execute_update_addresses_taken (void)
   basic_block bb;
   bitmap addresses_taken = BITMAP_ALLOC (NULL);
   bitmap vars_updated = BITMAP_ALLOC (NULL);
-  bool update_vops;
+  bool update_vops = false;
   tree phi;
 
   /* Collect into ADDRESSES_TAKEN all variables whose address is taken within

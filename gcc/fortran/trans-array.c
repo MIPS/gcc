@@ -588,9 +588,9 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
   for (dim = 0; dim < info->dimen; dim++)
     {
       n = loop->order[dim];
-      if (n < loop->temp_dim)
-	gcc_assert (integer_zerop (loop->from[n]));
-      else
+      /* TODO: Investigate why "if (n < loop->temp_dim)
+	 gcc_assert (integer_zerop (loop->from[n]));" fails here.  */
+      if (n >= loop->temp_dim)
 	{
 	  /* Callee allocated arrays may not have a known bound yet.  */
           if (loop->to[n])
@@ -608,7 +608,8 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
 
   /* Initialize the descriptor.  */
   type =
-    gfc_get_array_type_bounds (eltype, info->dimen, loop->from, loop->to, 1);
+    gfc_get_array_type_bounds (eltype, info->dimen, loop->from, loop->to, 1,
+			       GFC_ARRAY_UNKNOWN);
   desc = gfc_create_var (type, "atmp");
   GFC_DECL_PACKED_ARRAY (desc) = 1;
 
@@ -950,18 +951,25 @@ gfc_put_offset_into_var (stmtblock_t * pblock, tree * poffset,
 
 
 /* Assign an element of an array constructor.  */
+static bool first_len;
+static tree first_len_val; 
 
 static void
 gfc_trans_array_ctor_element (stmtblock_t * pblock, tree desc,
 			      tree offset, gfc_se * se, gfc_expr * expr)
 {
   tree tmp;
+  tree esize;
 
   gfc_conv_expr (se, expr);
 
   /* Store the value.  */
   tmp = build_fold_indirect_ref (gfc_conv_descriptor_data_get (desc));
   tmp = gfc_build_array_ref (tmp, offset, NULL);
+
+  esize = size_in_bytes (gfc_get_element_type (TREE_TYPE (desc)));
+  esize = fold_convert (gfc_charlen_type_node, esize);
+
   if (expr->ts.type == BT_CHARACTER)
     {
       gfc_conv_string_parameter (se);
@@ -977,9 +985,30 @@ gfc_trans_array_ctor_element (stmtblock_t * pblock, tree desc,
 	  tmp = gfc_build_addr_expr (pchar_type_node, tmp);
 	  /* We know the temporary and the value will be the same length,
 	     so can use memcpy.  */
-	  tmp = build_call_expr (built_in_decls[BUILT_IN_MEMCPY], 3,
-				 tmp, se->expr, se->string_length);
-	  gfc_add_expr_to_block (&se->pre, tmp);
+	  gfc_trans_string_copy (&se->pre, esize, tmp,
+				 se->string_length,
+				 se->expr);
+	}
+      if (flag_bounds_check)
+	{
+	  if (first_len)
+	    {
+	      gfc_add_modify_expr (&se->pre, first_len_val,
+				   se->string_length);
+	      first_len = false;
+	    }
+	  else
+	    {
+	      /* Verify that all constructor elements are of the same
+		 length.  */
+	      tree cond = fold_build2 (NE_EXPR, boolean_type_node,
+				       first_len_val, se->string_length);
+	      gfc_trans_runtime_check
+		(cond, &se->pre, &expr->where,
+		 "Different CHARACTER lengths (%ld/%ld) in array constructor",
+		 fold_convert (long_integer_type_node, first_len_val),
+		 fold_convert (long_integer_type_node, se->string_length));
+	    }
 	}
     }
   else
@@ -1224,10 +1253,21 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 
 	  loopbody = gfc_finish_block (&body);
 
-	  gfc_init_se (&se, NULL);
-	  gfc_conv_expr (&se, c->iterator->var);
-	  gfc_add_block_to_block (pblock, &se.pre);
-	  loopvar = se.expr;
+	  if (c->iterator->var->symtree->n.sym->backend_decl)
+	    {
+	      gfc_init_se (&se, NULL);
+	      gfc_conv_expr (&se, c->iterator->var);
+	      gfc_add_block_to_block (pblock, &se.pre);
+	      loopvar = se.expr;
+	    }
+	  else
+	    {
+	      /* If the iterator appears in a specification expression in
+		 an interface mapping, we need to make a temp for the loop
+		 variable because it is not declared locally.  */
+	      loopvar = gfc_typenode_for_spec (&c->iterator->var->ts);
+	      loopvar = gfc_create_var (loopvar, "loopvar");
+	    }
 
 	  /* Make a temporary, store the current value in that
 	     and return it, once the loop is done.  */
@@ -1340,7 +1380,7 @@ get_array_ctor_var_strlen (gfc_expr * expr, tree * len)
 
 	case REF_SUBSTRING:
 	  if (ref->u.ss.start->expr_type != EXPR_CONSTANT
-		|| ref->u.ss.start->expr_type != EXPR_CONSTANT)
+	      || ref->u.ss.end->expr_type != EXPR_CONSTANT)
 	    break;
 	  mpz_init_set_ui (char_len, 1);
 	  mpz_add (char_len, char_len, ref->u.ss.end->value.integer);
@@ -1630,6 +1670,12 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
   tree type;
   bool dynamic;
 
+  if (flag_bounds_check && ss->expr->ts.type == BT_CHARACTER)
+    {  
+      first_len_val = gfc_create_var (gfc_charlen_type_node, "len");
+      first_len = true;
+    }
+
   ss->data.info.dimen = loop->dimen;
 
   c = ss->expr->value.constructor;
@@ -1860,6 +1906,18 @@ gfc_add_loop_ss_code (gfc_loopinfo * loop, gfc_ss * ss, bool subscript)
 	  break;
 
 	case GFC_SS_CONSTRUCTOR:
+	  if (ss->expr->ts.type == BT_CHARACTER
+		&& ss->string_length == NULL
+		&& ss->expr->ts.cl
+		&& ss->expr->ts.cl->length)
+	    {
+	      gfc_init_se (&se, NULL);
+	      gfc_conv_expr_type (&se, ss->expr->ts.cl->length,
+				  gfc_charlen_type_node);
+	      ss->string_length = se.expr;
+	      gfc_add_block_to_block (&loop->pre, &se.pre);
+	      gfc_add_block_to_block (&loop->post, &se.post);
+	    }
 	  gfc_trans_array_constructor (loop, ss);
 	  break;
 
@@ -2091,11 +2149,11 @@ gfc_trans_array_bound_check (gfc_se * se, tree descriptor, tree index, int n,
   tmp = gfc_conv_array_lbound (descriptor, n);
   fault = fold_build2 (LT_EXPR, boolean_type_node, index, tmp);
   if (name)
-    asprintf (&msg, "%s for array '%s', lower bound of dimension %d exceeded",
-	      gfc_msg_fault, name, n+1);
+    asprintf (&msg, "%s for array '%s', lower bound of dimension %d exceeded"
+	      "(%%ld < %%ld)", gfc_msg_fault, name, n+1);
   else
-    asprintf (&msg, "%s, lower bound of dimension %d exceeded, %%ld is "
-	      "smaller than %%ld", gfc_msg_fault, n+1);
+    asprintf (&msg, "%s, lower bound of dimension %d exceeded (%%ld < %%ld)",
+	      gfc_msg_fault, n+1);
   gfc_trans_runtime_check (fault, &se->pre, where, msg,
 			   fold_convert (long_integer_type_node, index),
 			   fold_convert (long_integer_type_node, tmp));
@@ -2108,10 +2166,10 @@ gfc_trans_array_bound_check (gfc_se * se, tree descriptor, tree index, int n,
       fault = fold_build2 (GT_EXPR, boolean_type_node, index, tmp);
       if (name)
 	asprintf (&msg, "%s for array '%s', upper bound of dimension %d "
-			" exceeded", gfc_msg_fault, name, n+1);
+			" exceeded (%%ld > %%ld)", gfc_msg_fault, name, n+1);
       else
-	asprintf (&msg, "%s, upper bound of dimension %d exceeded, %%ld is "
-		  "larger than %%ld", gfc_msg_fault, n+1);
+	asprintf (&msg, "%s, upper bound of dimension %d exceeded (%%ld > %%ld)",
+		  gfc_msg_fault, n+1);
       gfc_trans_runtime_check (fault, &se->pre, where, msg,
 			       fold_convert (long_integer_type_node, index),
 			       fold_convert (long_integer_type_node, tmp));
@@ -2305,8 +2363,8 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
 	  cond = fold_build2 (LT_EXPR, boolean_type_node, 
 			      indexse.expr, tmp);
 	  asprintf (&msg, "%s for array '%s', "
-	            "lower bound of dimension %d exceeded, %%ld is smaller "
-		    "than %%ld", gfc_msg_fault, sym->name, n+1);
+	            "lower bound of dimension %d exceeded (%%ld < %%ld)",
+		    gfc_msg_fault, sym->name, n+1);
 	  gfc_trans_runtime_check (cond, &se->pre, where, msg,
 				   fold_convert (long_integer_type_node,
 						 indexse.expr),
@@ -2322,8 +2380,8 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
 	      cond = fold_build2 (GT_EXPR, boolean_type_node, 
 				  indexse.expr, tmp);
 	      asprintf (&msg, "%s for array '%s', "
-			"upper bound of dimension %d exceeded, %%ld is "
-			"greater than %%ld", gfc_msg_fault, sym->name, n+1);
+			"upper bound of dimension %d exceeded (%%ld > %%ld)",
+			gfc_msg_fault, sym->name, n+1);
 	      gfc_trans_runtime_check (cond, &se->pre, where, msg,
 				   fold_convert (long_integer_type_node,
 						 indexse.expr),
@@ -2870,7 +2928,7 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	      if (info->ref->u.ar.dimen_type[dim] != DIMEN_RANGE)
 		continue;
 
-	      if (n == info->ref->u.ar.dimen - 1
+	      if (dim == info->ref->u.ar.dimen - 1
 		  && (info->ref->u.ar.as->type == AS_ASSUMED_SIZE
 		      || info->ref->u.ar.as->cp_was_assumed))
 		check_upper = false;
@@ -2923,7 +2981,7 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
 				 non_zerosized, tmp);
 	      asprintf (&msg, "%s, lower bound of dimension %d of array '%s'"
-			" exceeded, %%ld is smaller than %%ld", gfc_msg_fault,
+			" exceeded (%%ld < %%ld)", gfc_msg_fault,
 			info->dim[n]+1, ss->expr->symtree->name);
 	      gfc_trans_runtime_check (tmp, &block, &ss->expr->where, msg,
 				       fold_convert (long_integer_type_node,
@@ -2939,9 +2997,8 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 		  tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
 				     non_zerosized, tmp);
 	          asprintf (&msg, "%s, upper bound of dimension %d of array "
-			    "'%s' exceeded, %%ld is greater than %%ld",
-			    gfc_msg_fault, info->dim[n]+1,
-			    ss->expr->symtree->name);
+			    "'%s' exceeded (%%ld > %%ld)", gfc_msg_fault,
+			    info->dim[n]+1, ss->expr->symtree->name);
 		  gfc_trans_runtime_check (tmp, &block, &ss->expr->where, msg,
 			fold_convert (long_integer_type_node, info->start[n]),
 			fold_convert (long_integer_type_node, ubound));
@@ -2962,7 +3019,7 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	      tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
 				 non_zerosized, tmp);
 	      asprintf (&msg, "%s, lower bound of dimension %d of array '%s'"
-			" exceeded, %%ld is smaller than %%ld", gfc_msg_fault,
+			" exceeded (%%ld < %%ld)", gfc_msg_fault,
 			info->dim[n]+1, ss->expr->symtree->name);
 	      gfc_trans_runtime_check (tmp, &block, &ss->expr->where, msg,
 				       fold_convert (long_integer_type_node,
@@ -2977,9 +3034,8 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 		  tmp = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
 				     non_zerosized, tmp);
 		  asprintf (&msg, "%s, upper bound of dimension %d of array "
-			    "'%s' exceeded, %%ld is greater than %%ld",
-			    gfc_msg_fault, info->dim[n]+1,
-			    ss->expr->symtree->name);
+			    "'%s' exceeded (%%ld > %%ld)", gfc_msg_fault,
+			    info->dim[n]+1, ss->expr->symtree->name);
 		  gfc_trans_runtime_check (tmp, &block, &ss->expr->where, msg,
 			fold_convert (long_integer_type_node, tmp2),
 			fold_convert (long_integer_type_node, ubound));
@@ -3360,6 +3416,13 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
   if (loop->temp_ss != NULL)
     {
       gcc_assert (loop->temp_ss->type == GFC_SS_TEMP);
+
+      /* Make absolutely sure that this is a complete type.  */
+      if (loop->temp_ss->string_length)
+	loop->temp_ss->data.temp.type
+		= gfc_get_character_type_len (gfc_default_character_kind,
+					      loop->temp_ss->string_length);
+
       tmp = loop->temp_ss->data.temp.type;
       len = loop->temp_ss->string_length;
       n = loop->temp_ss->data.temp.dimen;
@@ -4467,6 +4530,47 @@ gfc_get_dataptr_offset (stmtblock_t *block, tree parm, tree desc, tree offset,
 }
 
 
+/* gfc_conv_expr_descriptor needs the character length of elemental
+   functions before the function is called so that the size of the
+   temporary can be obtained.  The only way to do this is to convert
+   the expression, mapping onto the actual arguments.  */
+static void
+get_elemental_fcn_charlen (gfc_expr *expr, gfc_se *se)
+{
+  gfc_interface_mapping mapping;
+  gfc_formal_arglist *formal;
+  gfc_actual_arglist *arg;
+  gfc_se tse;
+
+  formal = expr->symtree->n.sym->formal;
+  arg = expr->value.function.actual;
+  gfc_init_interface_mapping (&mapping);
+
+  /* Set se = NULL in the calls to the interface mapping, to supress any
+     backend stuff.  */
+  for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
+    {
+      if (!arg->expr)
+	continue;
+      if (formal->sym)
+	gfc_add_interface_mapping (&mapping, formal->sym, NULL, arg->expr);
+    }
+
+  gfc_init_se (&tse, NULL);
+
+  /* Build the expression for the character length and convert it.  */
+  gfc_apply_interface_mapping (&mapping, &tse, expr->ts.cl->length);
+
+  gfc_add_block_to_block (&se->pre, &tse.pre);
+  gfc_add_block_to_block (&se->post, &tse.post);
+  tse.expr = fold_convert (gfc_charlen_type_node, tse.expr);
+  tse.expr = fold_build2 (MAX_EXPR, gfc_charlen_type_node, tse.expr,
+			  build_int_cst (gfc_charlen_type_node, 0));
+  expr->ts.cl->backend_decl = tse.expr;
+  gfc_free_interface_mapping (&mapping);
+}
+
+
 /* Convert an array for passing as an actual argument.  Expressions and
    vector subscripts are evaluated and stored in a temporary, which is then
    passed.  For whole arrays the descriptor is passed.  For array sections
@@ -4600,6 +4704,10 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	{
 	  /* Elemental function.  */
 	  need_tmp = 1;
+	  if (expr->ts.type == BT_CHARACTER
+		&& expr->ts.cl->length->expr_type != EXPR_CONSTANT)
+	    get_elemental_fcn_charlen (expr, se);
+
 	  info = NULL;
 	}
       else
@@ -4711,7 +4819,10 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
       gfc_add_block_to_block (&block, &rse.pre);
       gfc_add_block_to_block (&block, &lse.pre);
 
-      gfc_add_modify_expr (&block, lse.expr, rse.expr);
+      lse.string_length = rse.string_length;
+      tmp = gfc_trans_scalar_assign (&lse, &rse, expr->ts, true,
+				     expr->expr_type == EXPR_VARIABLE);
+      gfc_add_expr_to_block (&block, tmp);
 
       /* Finish the copying loops.  */
       gfc_trans_scalarizing_loops (&loop, &block);
@@ -4757,7 +4868,8 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	  /* Otherwise make a new one.  */
 	  parmtype = gfc_get_element_type (TREE_TYPE (desc));
 	  parmtype = gfc_get_array_type_bounds (parmtype, loop.dimen,
-						loop.from, loop.to, 0);
+						loop.from, loop.to, 0,
+						GFC_ARRAY_UNKNOWN);
 	  parm = gfc_create_var (parmtype, "parm");
 	}
 
@@ -4941,8 +5053,8 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
   if (expr->expr_type == EXPR_ARRAY && expr->ts.type == BT_CHARACTER)
     {
       get_array_ctor_strlen (&se->pre, expr->value.constructor, &tmp);
-      expr->ts.cl->backend_decl = gfc_evaluate_now (tmp, &se->pre);
-      se->string_length = expr->ts.cl->backend_decl;
+      expr->ts.cl->backend_decl = tmp;
+      se->string_length = tmp;
     }
 
   /* Is this the result of the enclosing procedure?  */
@@ -4972,7 +5084,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, gfc_ss * ss, int g77)
         }
       if (sym->attr.allocatable)
         {
-	  if (sym->attr.dummy)
+	  if (sym->attr.dummy || sym->attr.result)
 	    {
 	      gfc_conv_expr_descriptor (se, expr, ss);
 	      se->expr = gfc_conv_array_data (se->expr);
@@ -5443,7 +5555,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
     }
   
   /* NULLIFY the data pointer.  */
-  if (GFC_DESCRIPTOR_TYPE_P (type))
+  if (GFC_DESCRIPTOR_TYPE_P (type) && !sym->attr.save)
     gfc_conv_descriptor_data_set (&fnblock, descriptor, null_pointer_node);
 
   gfc_add_expr_to_block (&fnblock, body);
@@ -5461,7 +5573,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
       gfc_add_expr_to_block (&fnblock, tmp);
     }
 
-  if (sym->attr.allocatable)
+  if (sym->attr.allocatable && !sym->attr.save)
     {
       tmp = gfc_trans_dealloc_allocated (sym->backend_decl);
       gfc_add_expr_to_block (&fnblock, tmp);

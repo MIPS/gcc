@@ -1282,7 +1282,7 @@ init_reg_autoinc (void)
 		     requires secondary reloads, disallow its class from
 		     being used in such addresses.  */
 
-		  if ((secondary_reload_class (1, base_class, m, r)
+		  if ((secondary_reload_class (0, base_class, m, r)
 		       || secondary_reload_class (1, base_class, m, r))
 		      && ! auto_inc_dec_reg_p (r, m))
 		    forbidden_inc_dec_class[i] = 1;
@@ -2435,10 +2435,7 @@ reg_scan_mark_refs (rtx x, rtx insn)
 		 || (GET_CODE (src) == SUBREG && subreg_lowpart_p (src)))
 	    src = XEXP (src, 0);
 
-	  if (REG_P (src))
-	    REG_ATTRS (dest) = REG_ATTRS (src);
-	  if (MEM_P (src))
-	    set_reg_attrs_from_mem (dest, src);
+	  set_reg_attrs_from_value (dest, src);
 	}
 
       /* ... fall through ...  */

@@ -132,14 +132,14 @@ struct edge_def GTY(())
   /* Location of any goto implicit in the edge, during tree-ssa.  */
   source_locus goto_locus;
 
+  /* The index number corresponding to this edge in the edge vector
+     dest->preds.  */
+  unsigned int dest_idx;
+
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
-
-  /* The index number corresponding to this edge in the edge vector
-     dest->preds.  */
-  unsigned int dest_idx;
 };
 
 typedef struct edge_def *edge;
@@ -1117,7 +1117,7 @@ extern int struct_equiv_block_eq (int, struct equiv_info *);
 extern bool struct_equiv_init (int, struct equiv_info *);
 extern bool rtx_equiv_p (rtx *, rtx, int, struct equiv_info *);
 
-/* In cfgrtl.c */
+/* In cfgcleanup.c */
 extern bool condjump_equiv_p (struct equiv_info *, bool);
 
 /* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */

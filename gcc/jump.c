@@ -975,7 +975,7 @@ mark_jump_label (rtx x, rtx insn, int in_mem)
 		     (insn != NULL && x == PATTERN (insn) && JUMP_P (insn)));
 }
 
-/* Worker function for mark_jump_label.  IN_MEM is TRUE when X occurrs
+/* Worker function for mark_jump_label.  IN_MEM is TRUE when X occurs
    within a (MEM ...).  IS_TARGET is TRUE when X is to be treated as a
    jump-target; when the JUMP_LABEL field of INSN should be set or a
    REG_LABEL_TARGET note should be added, not a REG_LABEL_OPERAND
@@ -1051,6 +1051,9 @@ mark_jump_label_1 (rtx x, rtx insn, bool in_mem, bool is_target)
 	if (insn)
 	  {
 	    if (is_target
+		/* Do not change a previous setting of JUMP_LABEL.  If the
+		   JUMP_LABEL slot is occupied by a different label,
+		   create a note for this label.  */
 		&& (JUMP_LABEL (insn) == NULL || JUMP_LABEL (insn) == label))
 	      JUMP_LABEL (insn) = label;
 	    else

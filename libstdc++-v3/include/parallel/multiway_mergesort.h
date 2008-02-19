@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -44,13 +44,12 @@
 #include <bits/stl_algo.h>
 #include <parallel/parallel.h>
 #include <parallel/multiway_merge.h>
-#include <parallel/timing.h>
 
 namespace __gnu_parallel
 {
 
-  /** @brief Subsequence description. */
-  template<typename _DifferenceTp>
+/** @brief Subsequence description. */
+template<typename _DifferenceTp>
   struct Piece
   {
     typedef _DifferenceTp difference_type;
@@ -62,15 +61,18 @@ namespace __gnu_parallel
     difference_type end;
   };
 
-  /** @brief Data accessed by all threads.
-   *
-   *  PMWMS = parallel multiway mergesort */
-  template<typename RandomAccessIterator>
+/** @brief Data accessed by all threads.
+  *
+  *  PMWMS = parallel multiway mergesort */
+template<typename RandomAccessIterator>
   struct PMWMSSortingData
   {
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::value_type value_type;
     typedef typename traits_type::difference_type difference_type;
+
+    /** @brief Number of threads involved. */
+    thread_index_t num_threads;
 
     /** @brief Input begin. */
     RandomAccessIterator source;
@@ -106,65 +108,56 @@ namespace __gnu_parallel
 
     /** @brief Pieces of data to merge @c [thread][sequence] */
     std::vector<Piece<difference_type> >* pieces;
-  };
 
-  /** @brief Thread local data for PMWMS. */
-  template<typename RandomAccessIterator>
-  struct PMWMSSorterPU
-  {
-    /** @brief Total number of thread involved. */
-    thread_index_t num_threads;
-    /** @brief Number of owning thread. */
-    thread_index_t iam;
     /** @brief Stable sorting desired. */
     bool stable;
-    /** @brief Pointer to global data. */
-    PMWMSSortingData<RandomAccessIterator>* sd;
-  };
+};
 
-  /** 
-   *  @brief Select samples from a sequence.
-   *  @param d Pointer to thread-local data. Result will be placed in
-   *  @c d->ds->samples.
-   *  @param num_samples Number of samples to select. 
-   */
-  template<typename RandomAccessIterator, typename _DifferenceTp>
-  inline void 
-  determine_samples(PMWMSSorterPU<RandomAccessIterator>* d, 
-		    _DifferenceTp& num_samples)
+/**
+  *  @brief Select samples from a sequence.
+  *  @param sd Pointer to algorithm data. Result will be placed in
+  *  @c sd->samples.
+  *  @param num_samples Number of samples to select.
+  */
+template<typename RandomAccessIterator, typename _DifferenceTp>
+  void 
+  determine_samples(PMWMSSortingData<RandomAccessIterator>* sd,
+                    _DifferenceTp& num_samples)
   {
+    typedef std::iterator_traits<RandomAccessIterator> traits_type;
+    typedef typename traits_type::value_type value_type;
     typedef _DifferenceTp difference_type;
 
-    PMWMSSortingData<RandomAccessIterator>* sd = d->sd;
+    thread_index_t iam = omp_get_thread_num();
 
-    num_samples = Settings::sort_mwms_oversampling * d->num_threads - 1;
+    num_samples = _Settings::get().sort_mwms_oversampling * sd->num_threads - 1;
 
-    difference_type es[num_samples + 2];
-    equally_split(sd->starts[d->iam + 1] - sd->starts[d->iam], num_samples + 1, es);
+    difference_type* es = new difference_type[num_samples + 2];
 
-    for (difference_type i = 0; i < num_samples; i++)
-      sd->samples[d->iam * num_samples + i] = sd->source[sd->starts[d->iam] + es[i + 1]];
+    equally_split(sd->starts[iam + 1] - sd->starts[iam], 
+                  num_samples + 1, es);
+
+    for (difference_type i = 0; i < num_samples; ++i)
+      ::new(&(sd->samples[iam * num_samples + i]))
+	  value_type(sd->source[sd->starts[iam] + es[i + 1]]);
+
+    delete[] es;
   }
 
-  /** @brief PMWMS code executed by each thread.
-   *  @param d Pointer to thread-local data.
-   *  @param comp Comparator. 
-   */
-  template<typename RandomAccessIterator, typename Comparator>
-  inline void 
-  parallel_sort_mwms_pu(PMWMSSorterPU<RandomAccessIterator>* d, 
-			Comparator& comp)
+/** @brief PMWMS code executed by each thread.
+  *  @param sd Pointer to algorithm data.
+  *  @param comp Comparator.
+  */
+template<typename RandomAccessIterator, typename Comparator>
+  void 
+  parallel_sort_mwms_pu(PMWMSSortingData<RandomAccessIterator>* sd,
+                        Comparator& comp)
   {
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::value_type value_type;
     typedef typename traits_type::difference_type difference_type;
 
-    Timing<sequential_tag> t;
-
-    t.tic();
-
-    PMWMSSortingData<RandomAccessIterator>* sd = d->sd;
-    thread_index_t iam = d->iam;
+    thread_index_t iam = omp_get_thread_num();
 
     // Length of this thread's chunk, before merging.
     difference_type length_local = sd->starts[iam + 1] - sd->starts[iam];
@@ -178,169 +171,175 @@ namespace __gnu_parallel
     typedef value_type* SortingPlacesIterator;
 
     // Sort in temporary storage, leave space for sentinel.
-    sd->sorting_places[iam] = sd->temporaries[iam] = static_cast<value_type*>(::operator new(sizeof(value_type) *(length_local + 1)));
+    sd->sorting_places[iam] = sd->temporaries[iam] = 
+        static_cast<value_type*>(
+        ::operator new(sizeof(value_type) * (length_local + 1)));
 
     // Copy there.
-    std::uninitialized_copy(sd->source + sd->starts[iam], sd->source + sd->starts[iam] + length_local, sd->sorting_places[iam]);
+    std::uninitialized_copy(sd->source + sd->starts[iam],
+                            sd->source + sd->starts[iam] + length_local,
+                            sd->sorting_places[iam]);
 #endif
 
     // Sort locally.
-    if (d->stable)
-      __gnu_sequential::stable_sort(sd->sorting_places[iam], sd->sorting_places[iam] + length_local, comp);
+    if (sd->stable)
+      __gnu_sequential::stable_sort(sd->sorting_places[iam],
+                                    sd->sorting_places[iam] + length_local,
+                                    comp);
     else
-      __gnu_sequential::sort(sd->sorting_places[iam], sd->sorting_places[iam] + length_local, comp);
-
-#if _GLIBCXX_ASSERTIONS
-    _GLIBCXX_PARALLEL_ASSERT(is_sorted(sd->sorting_places[iam], sd->sorting_places[iam] + length_local, comp));
-#endif
+      __gnu_sequential::sort(sd->sorting_places[iam],
+                             sd->sorting_places[iam] + length_local,
+                             comp);
 
     // Invariant: locally sorted subsequence in sd->sorting_places[iam],
     // sd->sorting_places[iam] + length_local.
-    t.tic("local sort");
-
-    if (Settings::sort_splitting == Settings::SAMPLING)
+    const _Settings& __s = _Settings::get();
+    if (__s.sort_splitting == SAMPLING)
       {
-	difference_type num_samples;
-	determine_samples(d, num_samples);
+        difference_type num_samples;
+        determine_samples(sd, num_samples);
 
-#pragma omp barrier
+#       pragma omp barrier
 
-	t.tic("sample/wait");
+#       pragma omp single
+        __gnu_sequential::sort(sd->samples,
+                               sd->samples + (num_samples * sd->num_threads),
+                               comp);
 
-#pragma omp single
-	__gnu_sequential::sort(sd->samples, sd->samples + (num_samples * d->num_threads), comp);
+#       pragma omp barrier
 
-#pragma omp barrier
+        for (int s = 0; s < sd->num_threads; ++s)
+          {
+            // For each sequence.
+              if (num_samples * iam > 0)
+                sd->pieces[iam][s].begin = 
+                    std::lower_bound(sd->sorting_places[s],
+                        sd->sorting_places[s]
+                            + (sd->starts[s + 1] - sd->starts[s]),
+                        sd->samples[num_samples * iam],
+                        comp)
+                    - sd->sorting_places[s];
+            else
+              // Absolute beginning.
+              sd->pieces[iam][s].begin = 0;
 
-	for (int s = 0; s < d->num_threads; s++)
-	  {
-	    // For each sequence.
-	    if (num_samples * iam > 0)
-	      sd->pieces[iam][s].begin = std::lower_bound(sd->sorting_places[s],
-				 sd->sorting_places[s] + sd->starts[s + 1] - sd->starts[s],
-				 sd->samples[num_samples * iam],
-				 comp)
-		- sd->sorting_places[s];
-	    else
-	      // Absolute beginning.
-	      sd->pieces[iam][s].begin = 0;
-
-	    if ((num_samples * (iam + 1)) < (num_samples * d->num_threads))
-	      sd->pieces[iam][s].end = std::lower_bound(sd->sorting_places[s],
-							sd->sorting_places[s] + sd->starts[s + 1] - sd->starts[s], sd->samples[num_samples * (iam + 1)], comp)
-		- sd->sorting_places[s];
-	    else
-	      // Absolute end.
-	      sd->pieces[iam][s].end = sd->starts[s + 1] - sd->starts[s];
-	  }
-
+            if ((num_samples * (iam + 1)) < (num_samples * sd->num_threads))
+              sd->pieces[iam][s].end =
+                  std::lower_bound(sd->sorting_places[s],
+                          sd->sorting_places[s]
+                              + (sd->starts[s + 1] - sd->starts[s]),
+                          sd->samples[num_samples * (iam + 1)],
+                          comp)
+                  - sd->sorting_places[s];
+            else
+              // Absolute end.
+              sd->pieces[iam][s].end = sd->starts[s + 1] - sd->starts[s];
+            }
       }
-    else if (Settings::sort_splitting == Settings::EXACT)
+    else if (__s.sort_splitting == EXACT)
       {
-#pragma omp barrier
+#       pragma omp barrier
 
-	t.tic("wait");
+        std::vector<std::pair<SortingPlacesIterator, SortingPlacesIterator> >
+            seqs(sd->num_threads);
+        for (int s = 0; s < sd->num_threads; ++s)
+          seqs[s] = std::make_pair(sd->sorting_places[s],
+                                   sd->sorting_places[s]
+                                       + (sd->starts[s + 1] - sd->starts[s]));
 
-	std::vector<std::pair<SortingPlacesIterator, SortingPlacesIterator> > seqs(d->num_threads);
-	for (int s = 0; s < d->num_threads; s++)
-	  seqs[s] = std::make_pair(sd->sorting_places[s], sd->sorting_places[s] + sd->starts[s + 1] - sd->starts[s]);
+        std::vector<SortingPlacesIterator> offsets(sd->num_threads);
 
-	std::vector<SortingPlacesIterator> offsets(d->num_threads);
+        // if not last thread
+        if (iam < sd->num_threads - 1)
+          multiseq_partition(seqs.begin(), seqs.end(),
+                             sd->starts[iam + 1], offsets.begin(), comp);
 
-	// If not last thread.
-	if (iam < d->num_threads - 1)
-	  multiseq_partition(seqs.begin(), seqs.end(), sd->starts[iam + 1], offsets.begin(), comp);
+        for (int seq = 0; seq < sd->num_threads; ++seq)
+          {
+            // for each sequence
+            if (iam < (sd->num_threads - 1))
+              sd->pieces[iam][seq].end = offsets[seq] - seqs[seq].first;
+            else
+              // very end of this sequence
+              sd->pieces[iam][seq].end = (sd->starts[seq + 1]
+					  - sd->starts[seq]);
+          }
 
-	for (int seq = 0; seq < d->num_threads; seq++)
-	  {
-	    // For each sequence.
-	    if (iam < (d->num_threads - 1))
-	      sd->pieces[iam][seq].end = offsets[seq] - seqs[seq].first;
-	    else
-	      // Absolute end of this sequence.
-	      sd->pieces[iam][seq].end = sd->starts[seq + 1] - sd->starts[seq];
-	  }
+#       pragma omp barrier
 
-#pragma omp barrier
-
-	for (int seq = 0; seq < d->num_threads; seq++)
-	  {
-	    // For each sequence.
-	    if (iam > 0)
-	      sd->pieces[iam][seq].begin = sd->pieces[iam - 1][seq].end;
-	    else
-	      // Absolute beginning.
-	      sd->pieces[iam][seq].begin = 0;
-	  }
+        for (int seq = 0; seq < sd->num_threads; ++seq)
+          {
+            // For each sequence.
+            if (iam > 0)
+              sd->pieces[iam][seq].begin = sd->pieces[iam - 1][seq].end;
+            else
+              // Absolute beginning.
+              sd->pieces[iam][seq].begin = 0;
+          }
       }
-
-    t.tic("split");
 
     // Offset from target begin, length after merging.
     difference_type offset = 0, length_am = 0;
-    for (int s = 0; s < d->num_threads; s++)
+    for (int s = 0; s < sd->num_threads; ++s)
       {
-	length_am += sd->pieces[iam][s].end - sd->pieces[iam][s].begin;
-	offset += sd->pieces[iam][s].begin;
+        length_am += sd->pieces[iam][s].end - sd->pieces[iam][s].begin;
+        offset += sd->pieces[iam][s].begin;
       }
 
 #if _GLIBCXX_MULTIWAY_MERGESORT_COPY_LAST
     // Merge to temporary storage, uninitialized creation not possible
     // since there is no multiway_merge calling the placement new
     // instead of the assignment operator.
-    sd->merging_places[iam] = sd->temporaries[iam] = new value_type[length_am];
+    // XXX incorrect (de)construction
+    sd->merging_places[iam] = sd->temporaries[iam] =
+        static_cast<value_type*>(::operator new(sizeof(value_type)
+						* length_am));
 #else
     // Merge directly to target.
     sd->merging_places[iam] = sd->source + offset;
 #endif
-    std::vector<std::pair<SortingPlacesIterator, SortingPlacesIterator> > seqs(d->num_threads);
+    std::vector<std::pair<SortingPlacesIterator, SortingPlacesIterator> >
+        seqs(sd->num_threads);
 
-    for (int s = 0; s < d->num_threads; s++)
+    for (int s = 0; s < sd->num_threads; ++s)
       {
-	seqs[s] = std::make_pair(sd->sorting_places[s] + sd->pieces[iam][s].begin, sd->sorting_places[s] + sd->pieces[iam][s].end);
-
-#if _GLIBCXX_ASSERTIONS
-	_GLIBCXX_PARALLEL_ASSERT(is_sorted(seqs[s].first, seqs[s].second, comp));
-#endif
+        seqs[s] =
+	  std::make_pair(sd->sorting_places[s] + sd->pieces[iam][s].begin,
+			 sd->sorting_places[s] + sd->pieces[iam][s].end);
       }
 
-    multiway_merge(seqs.begin(), seqs.end(), sd->merging_places[iam], comp, length_am, d->stable, false, sequential_tag());
+    multiway_merge(seqs.begin(), seqs.end(), sd->merging_places[iam], comp,
+                   length_am, sd->stable, false, sequential_tag());
 
-    t.tic("merge");
-
-#if _GLIBCXX_ASSERTIONS
-    _GLIBCXX_PARALLEL_ASSERT(is_sorted(sd->merging_places[iam], sd->merging_places[iam] + length_am, comp));
-#endif
-
-#	pragma omp barrier
+#   pragma omp barrier
 
 #if _GLIBCXX_MULTIWAY_MERGESORT_COPY_LAST
     // Write back.
-    std::copy(sd->merging_places[iam], sd->merging_places[iam] + length_am, 
-	      sd->source + offset);
+    std::copy(sd->merging_places[iam],
+              sd->merging_places[iam] + length_am,
+              sd->source + offset);
 #endif
 
-    delete[] sd->temporaries[iam];
-
-    t.tic("copy back");
-
-    t.print();
+    ::operator delete(sd->temporaries[iam]);
   }
 
-  /** @brief PMWMS main call.
-   *  @param begin Begin iterator of sequence.
-   *  @param end End iterator of sequence.
-   *  @param comp Comparator.
-   *  @param n Length of sequence.
-   *  @param num_threads Number of threads to use.
-   *  @param stable Stable sorting.
-   */
-  template<typename RandomAccessIterator, typename Comparator>
-  inline void
-  parallel_sort_mwms(RandomAccessIterator begin, RandomAccessIterator end, Comparator comp, typename std::iterator_traits<RandomAccessIterator>::difference_type n, int num_threads, bool stable)
+/** @brief PMWMS main call.
+  *  @param begin Begin iterator of sequence.
+  *  @param end End iterator of sequence.
+  *  @param comp Comparator.
+  *  @param n Length of sequence.
+  *  @param num_threads Number of threads to use.
+  *  @param stable Stable sorting.
+  */
+template<typename RandomAccessIterator, typename Comparator>
+  void
+  parallel_sort_mwms(RandomAccessIterator begin, RandomAccessIterator end,
+                     Comparator comp, typename
+		     std::iterator_traits<RandomAccessIterator>::
+		     difference_type n, int num_threads, bool stable)
   {
     _GLIBCXX_CALL(n)
-      
+
     typedef std::iterator_traits<RandomAccessIterator> traits_type;
     typedef typename traits_type::value_type value_type;
     typedef typename traits_type::difference_type difference_type;
@@ -348,66 +347,77 @@ namespace __gnu_parallel
     if (n <= 1)
       return;
 
-    // At least one element per thread.
+    // at least one element per thread
     if (num_threads > n)
       num_threads = static_cast<thread_index_t>(n);
 
+    // shared variables
     PMWMSSortingData<RandomAccessIterator> sd;
+    difference_type* starts;
+    const _Settings& __s = _Settings::get();
 
-    sd.source = begin;
-    sd.temporaries = new value_type*[num_threads];
+#   pragma omp parallel num_threads(num_threads)
+      {
+        num_threads = omp_get_num_threads();  //no more threads than requested
+
+#       pragma omp single
+          {
+            sd.num_threads = num_threads;
+            sd.source = begin;
+            sd.temporaries = new value_type*[num_threads];
 
 #if _GLIBCXX_MULTIWAY_MERGESORT_COPY_LAST
-    sd.sorting_places = new RandomAccessIterator[num_threads];
-    sd.merging_places = new value_type*[num_threads];
+            sd.sorting_places = new RandomAccessIterator[num_threads];
+            sd.merging_places = new value_type*[num_threads];
 #else
-    sd.sorting_places = new value_type*[num_threads];
-    sd.merging_places = new RandomAccessIterator[num_threads];
+            sd.sorting_places = new value_type*[num_threads];
+            sd.merging_places = new RandomAccessIterator[num_threads];
 #endif
 
-    if (Settings::sort_splitting == Settings::SAMPLING)
-      sd.samples = new value_type[num_threads * (Settings::sort_mwms_oversampling * num_threads - 1)];
-    else
-      sd.samples = NULL;
+            if (__s.sort_splitting == SAMPLING)
+              {
+                unsigned int size = 
+                    (__s.sort_mwms_oversampling * num_threads - 1)
+                        * num_threads;
+                sd.samples = static_cast<value_type*>(
+		  ::operator new(size * sizeof(value_type)));
+              }
+            else
+              sd.samples = NULL;
 
-    sd.offsets = new difference_type[num_threads - 1];
-    sd.pieces = new std::vector<Piece<difference_type> >[num_threads];
-    for (int s = 0; s < num_threads; s++)
-      sd.pieces[s].resize(num_threads);
-    PMWMSSorterPU<RandomAccessIterator>* pus = new PMWMSSorterPU<RandomAccessIterator>[num_threads];
-    difference_type* starts = sd.starts = new difference_type[num_threads + 1];
+            sd.offsets = new difference_type[num_threads - 1];
+            sd.pieces = new std::vector<Piece<difference_type> >[num_threads];
+            for (int s = 0; s < num_threads; ++s)
+              sd.pieces[s].resize(num_threads);
+            starts = sd.starts = new difference_type[num_threads + 1];
+            sd.stable = stable;
 
-    difference_type chunk_length = n / num_threads, split = n % num_threads, start = 0;
-    for (int i = 0; i < num_threads; i++)
-      {
-	starts[i] = start;
-	start += (i < split) ? (chunk_length + 1) : chunk_length;
-	pus[i].num_threads = num_threads;
-	pus[i].iam = i;
-	pus[i].sd = &sd;
-	pus[i].stable = stable;
-      }
-    starts[num_threads] = start;
+            difference_type chunk_length = n / num_threads;
+            difference_type split = n % num_threads;
+            difference_type pos = 0;
+            for (int i = 0; i < num_threads; ++i)
+              {
+                starts[i] = pos;
+                pos += (i < split) ? (chunk_length + 1) : chunk_length;
+              }
+            starts[num_threads] = pos;
+          }
 
-    // Now sort in parallel.
-#pragma omp parallel num_threads(num_threads)
-    parallel_sort_mwms_pu(&(pus[omp_get_thread_num()]), comp);
+        // Now sort in parallel.
+        parallel_sort_mwms_pu(&sd, comp);
+      } //parallel
 
-    // XXX sd as RAII
     delete[] starts;
     delete[] sd.temporaries;
     delete[] sd.sorting_places;
     delete[] sd.merging_places;
 
-    if (Settings::sort_splitting == Settings::SAMPLING)
-      delete[] sd.samples;
+    if (__s.sort_splitting == SAMPLING)
+      ::operator delete(sd.samples);
 
     delete[] sd.offsets;
     delete[] sd.pieces;
-
-    delete[] pus;
   }
-
-}
+} //namespace __gnu_parallel
 
 #endif

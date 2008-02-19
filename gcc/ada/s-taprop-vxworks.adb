@@ -114,6 +114,14 @@ package body System.Task_Primitives.Operations is
    Foreign_Task_Elaborated : aliased Boolean := True;
    --  Used to identified fake tasks (i.e., non-Ada Threads)
 
+   type Set_Stack_Limit_Proc_Acc is access procedure;
+   pragma Convention (C, Set_Stack_Limit_Proc_Acc);
+
+   Set_Stack_Limit_Hook : Set_Stack_Limit_Proc_Acc;
+   pragma Import (C, Set_Stack_Limit_Hook, "__gnat_set_stack_limit_hook");
+   --  Procedure to be called when a task is created to set stack
+   --  limit.
+
    --------------------
    -- Local Packages --
    --------------------
@@ -176,8 +184,10 @@ package body System.Task_Primitives.Operations is
       pragma Unreferenced (signo);
 
       Self_ID : constant Task_Id := Self;
-      Result  : int;
       Old_Set : aliased sigset_t;
+
+      Result : int;
+      pragma Warnings (Off, Result);
 
    begin
       --  It is not safe to raise an exception when using ZCX and the GCC
@@ -198,8 +208,8 @@ package body System.Task_Primitives.Operations is
          Result :=
            pthread_sigmask
              (SIG_UNBLOCK,
-              Unblocked_Signal_Mask'Unchecked_Access,
-              Old_Set'Unchecked_Access);
+              Unblocked_Signal_Mask'Access,
+              Old_Set'Access);
          pragma Assert (Result = 0);
 
          raise Standard'Abort_Signal;
@@ -841,6 +851,11 @@ package body System.Task_Primitives.Operations is
       end loop;
 
       Unlock_RTS;
+
+      --  If stack checking is enabled set the stack limit for this task.
+      if Set_Stack_Limit_Hook /= null then
+         Set_Stack_Limit_Hook.all;
+      end if;
    end Enter_Task;
 
    --------------

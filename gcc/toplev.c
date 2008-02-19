@@ -852,7 +852,7 @@ check_global_declaration_1 (tree decl)
       if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	pedwarn ("%q+F used but never defined", decl);
       else
-	warning (0, "%q+F declared %<static%> but never defined", decl);
+	warning (OPT_Wunused_function, "%q+F declared %<static%> but never defined", decl);
       /* This symbol is effectively an "extern" declaration now.  */
       TREE_PUBLIC (decl) = 1;
       assemble_external (decl);
@@ -877,7 +877,10 @@ check_global_declaration_1 (tree decl)
       && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       /* Otherwise, ask the language.  */
       && lang_hooks.decls.warn_unused_global (decl))
-    warning (0, "%q+D defined but not used", decl);
+    warning ((TREE_CODE (decl) == FUNCTION_DECL) 
+	     ? OPT_Wunused_function 
+             : OPT_Wunused_variable, 
+	     "%q+D defined but not used", decl);
 }
 
 /* Issue appropriate warnings for the global declarations in VEC (of
@@ -1188,7 +1191,7 @@ print_version (FILE *file, const char *indent)
   static const char fmt2[] =
     N_("GMP version %s, MPFR version %s.\n");
   static const char fmt3[] =
-    N_("warning: %s header version %s differs from library version %s.\n");
+    N_("%s%swarning: %s header version %s differs from library version %s.\n");
   static const char fmt4[] =
     N_("%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n");
 #ifndef __VERSION__
@@ -1218,10 +1221,12 @@ print_version (FILE *file, const char *indent)
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
+	     indent, *indent != 0 ? " " : "",
 	     "GMP", GCC_GMP_STRINGIFY_VERSION, gmp_version);
   if (strcmp (MPFR_VERSION_STRING, mpfr_get_version ()))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
+	     indent, *indent != 0 ? " " : "",
 	     "MPFR", MPFR_VERSION_STRING, mpfr_get_version ());
   fprintf (file,
 	   file == stderr ? _(fmt4) : fmt4,
@@ -2005,6 +2010,13 @@ process_options (void)
   if (flag_signaling_nans)
     flag_trapping_math = 1;
 
+  /* We cannot reassociate if we want traps or signed zeros.  */
+  if (flag_associative_math && (flag_trapping_math || flag_signed_zeros))
+    {
+      warning (0, "-fassociative-math disabled; other options take precedence");
+      flag_associative_math = 0;
+    }
+
   /* With -fcx-limited-range, we do cheap and quick complex arithmetic.  */
   if (flag_cx_limited_range)
     flag_complex_method = 0;
@@ -2026,7 +2038,7 @@ process_options (void)
   if (flag_unwind_tables && !ACCUMULATE_OUTGOING_ARGS
       && flag_omit_frame_pointer)
     {
-      warning (0, "unwind tables currently requires a frame pointer "
+      warning (0, "unwind tables currently require a frame pointer "
 	       "for correctness");
       flag_omit_frame_pointer = 0;
     }
@@ -2172,7 +2184,7 @@ lang_dependent_init (const char *name)
 void
 target_reinit (void)
 {
-  /* Reinitialise RTL backend.  */
+  /* Reinitialize RTL backend.  */
   backend_init_target ();
 
   /* Reinitialize lang-dependent parts.  */

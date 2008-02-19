@@ -171,11 +171,14 @@ next_char (st_parameter_dt *dtp)
       /* Check for "end-of-record" condition.  */
       if (dtp->u.p.current_unit->bytes_left == 0)
 	{
+	  int finished;
+
 	  c = '\n';
-	  record = next_array_record (dtp, dtp->u.p.current_unit->ls);
+	  record = next_array_record (dtp, dtp->u.p.current_unit->ls,
+				      &finished);
 
 	  /* Check for "end-of-file" condition.  */      
-	  if (record == 0)
+	  if (finished)
 	    {
 	      dtp->u.p.at_eof = 1;
 	      goto done;
@@ -233,10 +236,15 @@ next_char (st_parameter_dt *dtp)
 	}
       if (length == 0)
 	{
-	  if (dtp->u.p.current_unit->endfile == AT_ENDFILE)
+	  if (dtp->u.p.advance_status == ADVANCE_NO)
+	    {
+	      if (dtp->u.p.current_unit->endfile == AT_ENDFILE)
+		longjmp (*dtp->u.p.eof_jump, 1);
+	      dtp->u.p.current_unit->endfile = AT_ENDFILE;
+	      c = '\n';
+	    }
+	  else
 	    longjmp (*dtp->u.p.eof_jump, 1);
-	  dtp->u.p.current_unit->endfile = AT_ENDFILE;
-	  c = '\n';
 	}
       else
 	c = *p;
@@ -275,6 +283,20 @@ eat_spaces (st_parameter_dt *dtp)
 }
 
 
+/* This function reads characters through to the end of the current line and
+   just ignores them.  */
+
+static void
+eat_line (st_parameter_dt *dtp)
+{
+  char c;
+  if (!is_internal_unit (dtp))
+    do
+      c = next_char (dtp);
+    while (c != '\n');
+}
+
+
 /* Skip over a separator.  Technically, we don't always eat the whole
    separator.  This is because if we've processed the last input item,
    then a separator is unnecessary.  Plus the fact that operating
@@ -307,15 +329,38 @@ eat_separator (st_parameter_dt *dtp)
       break;
 
     case '\r':
+      dtp->u.p.at_eol = 1;
       n = next_char(dtp);
       if (n == '\n')
-	dtp->u.p.at_eol = 1;
+	{
+	  if (dtp->u.p.namelist_mode)
+	    {
+	      do
+		c = next_char (dtp);
+	      while (c == '\n' || c == '\r' || c == ' ');
+	      unget_char (dtp, c);
+	    }
+	}
       else
 	unget_char (dtp, n);
       break;
 
     case '\n':
       dtp->u.p.at_eol = 1;
+      if (dtp->u.p.namelist_mode)
+	{
+	  do
+	    {
+	      c = next_char (dtp);
+	      if (c == '!')
+		{
+		  eat_line (dtp);
+		  c = next_char (dtp);
+		}
+	    }
+	  while (c == '\n' || c == '\r' || c == ' ');
+	  unget_char (dtp, c);
+	}
       break;
 
     case '!':
@@ -388,20 +433,6 @@ finish_separator (st_parameter_dt *dtp)
       unget_char (dtp, c);
       break;
     }
-}
-
-
-/* This function reads characters through to the end of the current line and
-   just ignores them.  */
-
-static void
-eat_line (st_parameter_dt *dtp)
-{
-  char c;
-  if (!is_internal_unit (dtp))
-    do
-      c = next_char (dtp);
-    while (c != '\n');
 }
 
 
@@ -896,7 +927,8 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
       if (dtp->u.p.namelist_mode)
 	{
 	  if (dtp->u.p.current_unit->flags.delim == DELIM_APOSTROPHE
-	      || dtp->u.p.current_unit->flags.delim == DELIM_QUOTE)
+	      || dtp->u.p.current_unit->flags.delim == DELIM_QUOTE
+	      || c == '&' || c == '$' || c == '/')
 	    {
 	      unget_char (dtp, c);
 	      return;
@@ -923,8 +955,9 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
 		      goto get_string;
 		    }
 		}
- 
+
 	      l_push_char (dtp, c);
+
 	      if (c == '=' || c == '(')
 		{
 		  dtp->u.p.item_count = 0;
@@ -936,6 +969,7 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
 
 	  /* The string is too long to be a valid object name so assume that it
 	     is a string to be read in as a value.  */
+	  dtp->u.p.item_count = 0;
 	  dtp->u.p.line_buffer_enabled = 1;
 	  goto get_string;
 	}
@@ -1075,7 +1109,12 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
     }
 
   if (!isdigit (c) && c != '.')
-    goto bad;
+    {
+      if (c == 'i' || c == 'I' || c == 'n' || c == 'N')
+	goto inf_nan;
+      else
+	goto bad;
+    }
 
   push_char (dtp, c);
 
@@ -1134,6 +1173,7 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
  exp2:
   if (!isdigit (c))
     goto bad;
+
   push_char (dtp, c);
 
   for (;;)
@@ -1162,6 +1202,41 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
   free_saved (dtp);
 
   return m;
+
+ inf_nan:
+  /* Match INF and Infinity.  */
+  if ((c == 'i' || c == 'I')
+      && ((c = next_char (dtp)) == 'n' || c == 'N')
+      && ((c = next_char (dtp)) == 'f' || c == 'F'))
+    {
+	c = next_char (dtp);
+	if ((c != 'i' && c != 'I')
+	    || ((c == 'i' || c == 'I')
+		&& ((c = next_char (dtp)) == 'n' || c == 'N')
+		&& ((c = next_char (dtp)) == 'i' || c == 'I')
+		&& ((c = next_char (dtp)) == 't' || c == 'T')
+		&& ((c = next_char (dtp)) == 'y' || c == 'Y')
+		&& (c = next_char (dtp))))
+	  {
+	     if (is_separator (c))
+	       unget_char (dtp, c);
+	     push_char (dtp, 'i');
+	     push_char (dtp, 'n');
+	     push_char (dtp, 'f');
+	     goto done;
+	  }
+    } /* Match NaN.  */
+  else if (((c = next_char (dtp)) == 'a' || c == 'A')
+	   && ((c = next_char (dtp)) == 'n' || c == 'N')
+	   && (c = next_char (dtp)))
+    {
+      if (is_separator (c))
+	unget_char (dtp, c);
+      push_char (dtp, 'n');
+      push_char (dtp, 'a');
+      push_char (dtp, 'n');
+      goto done;
+    }
 
  bad:
 
@@ -1266,6 +1341,7 @@ read_real (st_parameter_dt *dtp, int length)
 {
   char c, message[100];
   int seen_dp;
+  int is_inf;
 
   seen_dp = 0;
 
@@ -1289,6 +1365,12 @@ read_real (st_parameter_dt *dtp, int length)
       unget_char (dtp, c);		/* Single null.  */
       eat_separator (dtp);
       return;
+
+    case 'i':
+    case 'I':
+    case 'n':
+    case 'N':
+      goto inf_nan;
 
     default:
       goto bad_real;
@@ -1364,7 +1446,12 @@ read_real (st_parameter_dt *dtp, int length)
     }
 
   if (!isdigit (c) && c != '.')
-    goto bad_real;
+    {
+      if (c == 'i' || c == 'I' || c == 'n' || c == 'N')
+	goto inf_nan;
+      else
+	goto bad_real;
+    }
 
   if (c == '.')
     {
@@ -1460,6 +1547,107 @@ read_real (st_parameter_dt *dtp, int length)
   free_saved (dtp);
   dtp->u.p.saved_type = BT_REAL;
   return;
+
+ inf_nan:
+  l_push_char (dtp, c);
+  is_inf = 0;
+
+  /* Match INF and Infinity.  */
+  if (c == 'i' || c == 'I')
+    {
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (c != 'n' && c != 'N')
+	goto unwind;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (c != 'f' && c != 'F')
+	goto unwind;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (!is_separator (c))
+	{
+	  if (c != 'i' && c != 'I')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	  if (c != 'n' && c != 'N')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	  if (c != 'i' && c != 'I')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	  if (c != 't' && c != 'T')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	  if (c != 'y' && c != 'Y')
+	    goto unwind;
+	  c = next_char (dtp);
+	  l_push_char (dtp, c);
+	}
+	is_inf = 1;
+    } /* Match NaN.  */
+  else
+    {
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (c != 'a' && c != 'A')
+	goto unwind;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+      if (c != 'n' && c != 'N')
+	goto unwind;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+    }
+
+  if (!is_separator (c))
+    goto unwind;
+
+  if (dtp->u.p.namelist_mode)
+    {	
+      if (c == ' ' || c =='\n' || c == '\r')
+	{
+	  do
+	    c = next_char (dtp);
+	  while (c == ' ' || c =='\n' || c == '\r');
+
+	  l_push_char (dtp, c);
+
+	  if (c == '=')
+	    goto unwind;
+	}
+    }
+
+  if (is_inf)
+    {
+      push_char (dtp, 'i');
+      push_char (dtp, 'n');
+      push_char (dtp, 'f');
+    }
+  else
+    {
+      push_char (dtp, 'n');
+      push_char (dtp, 'a');
+      push_char (dtp, 'n');
+    }
+
+  dtp->u.p.item_count = 0;
+  dtp->u.p.line_buffer_enabled = 0;
+  free_line (dtp);
+  goto done;
+
+ unwind:
+  if (dtp->u.p.namelist_mode)
+    {
+      dtp->u.p.nml_read_error = 1;
+      dtp->u.p.line_buffer_enabled = 1;
+      dtp->u.p.item_count = 0;
+      return;
+    }
 
  bad_real:
 
@@ -1713,17 +1901,26 @@ calls:
 
 static try
 nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
-		     array_loop_spec *ls, int rank, char *parse_err_msg)
+		     array_loop_spec *ls, int rank, char *parse_err_msg,
+		     int *parsed_rank)
 {
   int dim;
   int indx;
   int neg;
   int null_flag;
-  int is_array_section;
+  int is_array_section, is_char;
   char c;
 
+  is_char = 0;
   is_array_section = 0;
   dtp->u.p.expanded_read = 0;
+
+  /* See if this is a character substring qualifier we are looking for.  */
+  if (rank == -1)
+    {
+      rank = 1;
+      is_char = 1;
+    }
 
   /* The next character in the stream should be the '('.  */
 
@@ -1770,8 +1967,10 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 		  if ((c==',' && dim == rank -1)
 		      || (c==')' && dim < rank -1))
 		    {
-		      sprintf (parse_err_msg,
-			       "Bad number of index fields");
+		      if (is_char)
+		        sprintf (parse_err_msg, "Bad substring qualifier");
+		      else
+			sprintf (parse_err_msg, "Bad number of index fields");
 		      goto err_ret;
 		    }
 		  break;
@@ -1786,21 +1985,38 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 		  break;
 
 		default:
-		  sprintf (parse_err_msg, "Bad character in index");
+		  if (is_char)
+		    sprintf (parse_err_msg,
+			     "Bad character in substring qualifier");
+		  else
+		    sprintf (parse_err_msg, "Bad character in index");
 		  goto err_ret;
 		}
 
 	      if ((c == ',' || c == ')') && indx == 0
 		  && dtp->u.p.saved_string == 0)
 		{
-		  sprintf (parse_err_msg, "Null index field");
+		  if (is_char)
+		    sprintf (parse_err_msg, "Null substring qualifier");
+		  else
+		    sprintf (parse_err_msg, "Null index field");
 		  goto err_ret;
 		}
 
 	      if ((c == ':' && indx == 1 && dtp->u.p.saved_string == 0)
 		  || (indx == 2 && dtp->u.p.saved_string == 0))
 		{
-		  sprintf(parse_err_msg, "Bad index triplet");
+		  if (is_char)
+		    sprintf (parse_err_msg, "Bad substring qualifier");
+		  else
+		    sprintf (parse_err_msg, "Bad index triplet");
+		  goto err_ret;
+		}
+
+	      if (is_char && !is_array_section)
+		{
+		  sprintf (parse_err_msg,
+			   "Missing colon in substring qualifier");
 		  goto err_ret;
 		}
 
@@ -1816,7 +2032,10 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 	      /* Now read the index.  */
 	      if (convert_integer (dtp, sizeof(ssize_t), neg))
 		{
-		  sprintf (parse_err_msg, "Bad integer in index");
+		  if (is_char)
+		    sprintf (parse_err_msg, "Bad integer substring qualifier");
+		  else
+		    sprintf (parse_err_msg, "Bad integer in index");
 		  goto err_ret;
 		}
 	      break;
@@ -1848,6 +2067,11 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 		  else
 		    dtp->u.p.expanded_read = 1;
 		}
+
+	      /* Check for non-zero rank.  */
+	      if (is_array_section == 1 && ls[dim].start != ls[dim].end)
+		*parsed_rank = 1;
+
 	      break;
 	    }
 	}
@@ -1858,9 +2082,13 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 	  || (ls[dim].end > (ssize_t)ad[dim].ubound)
 	  || (ls[dim].end < (ssize_t)ad[dim].lbound))
 	{
-	  sprintf (parse_err_msg, "Index %d out of range", dim + 1);
+	  if (is_char)
+	    sprintf (parse_err_msg, "Substring out of range");
+	  else
+	    sprintf (parse_err_msg, "Index %d out of range", dim + 1);
 	  goto err_ret;
 	}
+
       if (((ls[dim].end - ls[dim].start ) * ls[dim].step < 0)
 	  || (ls[dim].step == 0))
 	{
@@ -1995,7 +2223,6 @@ nml_query (st_parameter_dt *dtp, char c)
 
       else
 	{
-
 	  /* "&namelist_name\n"  */
 
 	  len = dtp->namelist_name_len;
@@ -2015,7 +2242,6 @@ nml_query (st_parameter_dt *dtp, char c)
 #endif
 	  for (nl = dtp->u.p.ionml; nl; nl = nl->next)
 	    {
-
 	      /* " var_name\n"  */
 
 	      len = strlen (nl->var_name);
@@ -2081,7 +2307,6 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	      namelist_info **pprev_nl, char *nml_err_msg,
 	      index_type clow, index_type chigh)
 {
-
   namelist_info * cmp;
   char * obj_name;
   int nml_carry;
@@ -2103,7 +2328,6 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
   len = nl->len;
   switch (nl->type)
   {
-
     case GFC_DTYPE_INTEGER:
     case GFC_DTYPE_LOGICAL:
       dlen = len;
@@ -2127,7 +2351,6 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 
   do
     {
-
       /* Update the pointer to the data, using the current index vector  */
 
       pdata = (void*)(nl->mem_pos + offset);
@@ -2333,10 +2556,11 @@ nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
   namelist_info * nl;
   namelist_info * first_nl = NULL;
   namelist_info * root_nl = NULL;
-  int dim;
+  int dim, parsed_rank;
   int component_flag;
   char parse_err_msg[30];
   index_type clow, chigh;
+  int non_zero_rank_count;
 
   /* Look for end of input or object name.  If '?' or '=?' are encountered
      in stdin, print the node names or the namelist to stdout.  */
@@ -2388,6 +2612,7 @@ nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
 
   nml_untouch_nodes (dtp);
   component_flag = 0;
+  non_zero_rank_count = 0;
 
   /* Get the object name - should '!' and '\n' be permitted separators?  */
 
@@ -2397,7 +2622,8 @@ get_name:
 
   do
     {
-      push_char (dtp, tolower(c));
+      if (!is_separator (c))
+	push_char (dtp, tolower(c));
       c = next_char (dtp);
     } while (!( c=='=' || c==' ' || c=='\t' || c =='(' || c =='%' ));
 
@@ -2456,16 +2682,23 @@ get_name:
 
   if (c == '(' && nl->var_rank)
     {
+      parsed_rank = 0;
       if (nml_parse_qualifier (dtp, nl->dim, nl->ls, nl->var_rank,
-			       parse_err_msg) == FAILURE)
+			       parse_err_msg, &parsed_rank) == FAILURE)
 	{
 	  sprintf (nml_err_msg, "%s for namelist variable %s",
 		      parse_err_msg, nl->var_name);
 	  goto nml_err_ret;
 	}
+
+      if (parsed_rank > 0)
+	non_zero_rank_count++;
+
       c = next_char (dtp);
       unget_char (dtp, c);
     }
+  else if (nl->var_rank > 0)
+    non_zero_rank_count++;
 
   /* Now parse a derived type component. The root namelist_info address
      is backed up, as is the previous component level.  The  component flag
@@ -2473,7 +2706,6 @@ get_name:
 
   if (c == '%')
     {
-
       if (nl->type != GFC_DTYPE_DERIVED)
 	{
 	  sprintf (nml_err_msg, "Attempt to get derived component for %s",
@@ -2488,7 +2720,6 @@ get_name:
       component_flag = 1;
       c = next_char (dtp);
       goto get_name;
-
     }
 
   /* Parse a character qualifier, if present.  chigh = 0 is a default
@@ -2502,7 +2733,8 @@ get_name:
       descriptor_dimension chd[1] = { {1, clow, nl->string_length} };
       array_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
 
-      if (nml_parse_qualifier (dtp, chd, ind, 1, parse_err_msg) == FAILURE)
+      if (nml_parse_qualifier (dtp, chd, ind, -1, parse_err_msg, &parsed_rank)
+	  == FAILURE)
 	{
 	  sprintf (nml_err_msg, "%s for namelist variable %s",
 		      parse_err_msg, nl->var_name);
@@ -2515,8 +2747,8 @@ get_name:
       if (ind[0].step != 1)
 	{
 	  sprintf (nml_err_msg,
-		      "Bad step in substring for namelist object %s",
-		      nl->var_name);
+		   "Step not allowed in substring qualifier"
+		   " for namelist object %s", nl->var_name);
 	  goto nml_err_ret;
 	}
 
@@ -2533,12 +2765,21 @@ get_name:
   if (component_flag)
     nl = first_nl;
 
-  /*make sure no extraneous qualifiers are there.*/
+  /* Make sure no extraneous qualifiers are there.  */
 
   if (c == '(')
     {
       sprintf (nml_err_msg, "Qualifier for a scalar or non-character"
 		  " namelist object %s", nl->var_name);
+      goto nml_err_ret;
+    }
+
+  /* Make sure there is no more than one non-zero rank object.  */
+  if (non_zero_rank_count > 1)
+    {
+      sprintf (nml_err_msg, "Multiple sub-objects with non-zero rank in"
+	       " namelist object %s", nl->var_name);
+      non_zero_rank_count = 0;
       goto nml_err_ret;
     }
 

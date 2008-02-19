@@ -534,14 +534,7 @@ package body Sem_Attr is
          if Is_Entity_Name (P)
            and then Is_Overloadable (Entity (P))
          then
-            --  Not allowed for nested subprograms if No_Implicit_Dynamic_Code
-            --  restriction set (since in general a trampoline is required).
-
-            if not Is_Library_Level_Entity (Entity (P)) then
-               Check_Restriction (No_Implicit_Dynamic_Code, P);
-            end if;
-
-            if Is_Always_Inlined (Entity (P)) then
+            if Has_Pragma_Inline_Always (Entity (P)) then
                Error_Attr_P
                  ("prefix of % attribute cannot be Inline_Always subprogram");
             end if;
@@ -1399,7 +1392,6 @@ package body Sem_Attr is
          then
             Error_Attr ("only allowed prefix for % attribute is Standard", P);
          end if;
-
       end Check_Standard_Prefix;
 
       ----------------------------
@@ -1841,10 +1833,9 @@ package body Sem_Attr is
          --  entry wrappers, the attributes Count, Caller and AST_Entry require
          --  a context check
 
-         if Ada_Version >= Ada_05
-           and then (Aname = Name_Count
-                      or else Aname = Name_Caller
-                      or else Aname = Name_AST_Entry)
+         if Aname = Name_Count
+           or else Aname = Name_Caller
+           or else Aname = Name_AST_Entry
          then
             declare
                Count : Natural := 0;
@@ -1922,10 +1913,6 @@ package body Sem_Attr is
 
             begin
                if Is_Subprogram (Ent) then
-                  if not Is_Library_Level_Entity (Ent) then
-                     Check_Restriction (No_Implicit_Dynamic_Code, P);
-                  end if;
-
                   Set_Address_Taken (Ent);
                   Kill_Current_Values (Ent);
 
@@ -1935,7 +1922,7 @@ package body Sem_Attr is
                   --  errors about implicit uses of Address in the dispatch
                   --  table initialization).
 
-                  if Is_Always_Inlined (Entity (P))
+                  if Has_Pragma_Inline_Always (Entity (P))
                     and then Comes_From_Source (P)
                   then
                      Error_Attr_P
@@ -2189,7 +2176,7 @@ package body Sem_Attr is
          Typ : Entity_Id;
 
       begin
-         Check_Either_E0_Or_E1;
+         Check_E0;
          Find_Type (P);
          Typ := Entity (P);
 
@@ -2208,37 +2195,9 @@ package body Sem_Attr is
          end if;
 
          Set_Etype (N, Base_Type (Entity (P)));
-
-         --  If we have an expression present, then really this is a conversion
-         --  and the tree must be reformed. Note that this is one of the cases
-         --  in which we do a replace rather than a rewrite, because the
-         --  original tree is junk.
-
-         if Present (E1) then
-            Replace (N,
-              Make_Type_Conversion (Loc,
-                Subtype_Mark =>
-                  Make_Attribute_Reference (Loc,
-                    Prefix => Prefix (N),
-                    Attribute_Name => Name_Base),
-                Expression => Relocate_Node (E1)));
-
-            --  E1 may be overloaded, and its interpretations preserved
-
-            Save_Interps (E1, Expression (N));
-            Analyze (N);
-
-         --  For other cases, set the proper type as the entity of the
-         --  attribute reference, and then rewrite the node to be an
-         --  occurrence of the referenced base type. This way, no one
-         --  else in the compiler has to worry about the base attribute.
-
-         else
-            Set_Entity (N, Base_Type (Entity (P)));
-            Rewrite (N,
-              New_Reference_To (Entity (N), Loc));
-            Analyze (N);
-         end if;
+         Set_Entity (N, Base_Type (Entity (P)));
+         Rewrite (N, New_Reference_To (Entity (N), Loc));
+         Analyze (N);
       end Base;
 
       ---------
@@ -2378,55 +2337,10 @@ package body Sem_Attr is
       -- Class --
       -----------
 
-      when Attribute_Class => Class : declare
-         P : constant Entity_Id := Prefix (N);
-
-      begin
+      when Attribute_Class =>
          Check_Restriction (No_Dispatch, N);
-         Check_Either_E0_Or_E1;
-
-         --  If we have an expression present, then really this is a conversion
-         --  and the tree must be reformed into a proper conversion. This is a
-         --  Replace rather than a Rewrite, because the original tree is junk.
-         --  If expression is overloaded, propagate interpretations to new one.
-
-         if Present (E1) then
-            Replace (N,
-              Make_Type_Conversion (Loc,
-                Subtype_Mark =>
-                  Make_Attribute_Reference (Loc,
-                    Prefix => P,
-                    Attribute_Name => Name_Class),
-                Expression => Relocate_Node (E1)));
-
-            Save_Interps (E1, Expression (N));
-
-            --  Ada 2005 (AI-251): In case of abstract interfaces we have to
-            --  analyze and resolve the type conversion to generate the code
-            --  that displaces the reference to the base of the object.
-
-            if Is_Interface (Etype (P))
-              or else Is_Interface (Etype (E1))
-            then
-               Analyze_And_Resolve (N, Etype (P));
-
-               --  However, the attribute is a name that occurs in a context
-               --  that imposes its own type. Leave the result unanalyzed,
-               --  so that type checking with the context type take place.
-               --  on the new conversion node, otherwise Resolve is a noop.
-
-               Set_Analyzed (N, False);
-
-            else
-               Analyze (N);
-            end if;
-
-         --  Otherwise we just need to find the proper type
-
-         else
-            Find_Type (N);
-         end if;
-      end Class;
+         Check_E0;
+         Find_Type (N);
 
       ------------------
       -- Code_Address --
@@ -2883,6 +2797,20 @@ package body Sem_Attr is
             Error_Attr_P ("prefix of % attribute must be tagged");
          end if;
 
+      ---------------
+      -- Fast_Math --
+      ---------------
+
+      when Attribute_Fast_Math =>
+         Check_E0;
+         Check_Standard_Prefix;
+
+         if Opt.Fast_Math then
+            Rewrite (N, New_Occurrence_Of (Standard_True, Loc));
+         else
+            Rewrite (N, New_Occurrence_Of (Standard_False, Loc));
+         end if;
+
       -----------
       -- First --
       -----------
@@ -3019,6 +2947,7 @@ package body Sem_Attr is
 
       when Attribute_Img => Img :
       begin
+         Check_E0;
          Set_Etype (N, Standard_String);
 
          if not Is_Scalar_Type (P_Type)
@@ -3048,6 +2977,15 @@ package body Sem_Attr is
          Check_E1;
          Check_Integer_Type;
          Resolve (E1, Any_Fixed);
+
+         --  Signal an error if argument type is not a specific fixed-point
+         --  subtype. An error has been signalled already if the argument
+         --  was not of a fixed-point type.
+
+         if Etype (E1) = Any_Fixed and then not Error_Posted (E1) then
+            Error_Attr ("argument of % must be of a fixed-point type", E1);
+         end if;
+
          Set_Etype (N, P_Base_Type);
 
       -----------
@@ -3933,6 +3871,9 @@ package body Sem_Attr is
          if Comes_From_Source (N) then
             Check_Not_Incomplete_Type;
          end if;
+
+         --  Set appropriate type
+
          Set_Etype (N, RTE (RE_Tag));
 
       -----------------
@@ -6978,6 +6919,7 @@ package body Sem_Attr is
            Attribute_Elab_Spec                |
            Attribute_Enabled                  |
            Attribute_External_Tag             |
+           Attribute_Fast_Math                |
            Attribute_First_Bit                |
            Attribute_Input                    |
            Attribute_Last_Bit                 |
@@ -7503,6 +7445,26 @@ package body Sem_Attr is
                end if;
             end if;
 
+            Des_Btyp := Designated_Type (Btyp);
+
+            if Ada_Version >= Ada_05
+              and then Is_Incomplete_Type (Des_Btyp)
+            then
+               --  Ada 2005 (AI-412): If the (sub)type is a limited view of an
+               --  imported entity, and the non-limited view is visible, make
+               --  use of it. If it is an incomplete subtype, use the base type
+               --  in any case.
+
+               if From_With_Type (Des_Btyp)
+                 and then Present (Non_Limited_View (Des_Btyp))
+               then
+                  Des_Btyp := Non_Limited_View (Des_Btyp);
+
+               elsif Ekind (Des_Btyp) = E_Incomplete_Subtype then
+                  Des_Btyp := Etype (Des_Btyp);
+               end if;
+            end if;
+
             if (Attr_Id = Attribute_Access
                   or else
                 Attr_Id = Attribute_Unchecked_Access)
@@ -7551,23 +7513,6 @@ package body Sem_Attr is
 
                if Is_Constr_Subt_For_U_Nominal (Nom_Subt) then
                   Nom_Subt := Base_Type (Nom_Subt);
-               end if;
-
-               Des_Btyp := Designated_Type (Btyp);
-
-               if Ekind (Des_Btyp) = E_Incomplete_Subtype then
-
-                  --  Ada 2005 (AI-412): Subtypes of incomplete types visible
-                  --  through a limited with clause or regular incomplete
-                  --  subtypes.
-
-                  if From_With_Type (Des_Btyp)
-                    and then Present (Non_Limited_View (Des_Btyp))
-                  then
-                     Des_Btyp := Non_Limited_View (Des_Btyp);
-                  else
-                     Des_Btyp := Etype (Des_Btyp);
-                  end if;
                end if;
 
                if Is_Tagged_Type (Designated_Type (Typ)) then
@@ -7632,16 +7577,20 @@ package body Sem_Attr is
                --  (because access values must be assumed to designate mutable
                --  objects when designated type does not impose a constraint).
 
-               elsif not Subtypes_Statically_Match (Des_Btyp, Nom_Subt)
+               elsif Subtypes_Statically_Match (Des_Btyp, Nom_Subt) then
+                  null;
+
+               elsif Has_Discriminants (Designated_Type (Typ))
+                 and then not Is_Constrained (Des_Btyp)
                  and then
-                   not (Has_Discriminants (Designated_Type (Typ))
-                          and then not Is_Constrained (Des_Btyp)
-                          and then
-                            (Ada_Version < Ada_05
-                              or else
-                                not Has_Constrained_Partial_View
-                                      (Designated_Type (Base_Type (Typ)))))
+                   (Ada_Version < Ada_05
+                     or else
+                       not Has_Constrained_Partial_View
+                             (Designated_Type (Base_Type (Typ))))
                then
+                  null;
+
+               else
                   Error_Msg_F
                     ("object subtype must statically match "
                      & "designated subtype", P);
@@ -7904,6 +7853,10 @@ package body Sem_Attr is
          when Attribute_Partition_ID =>
             Process_Partition_Id (N);
             return;
+
+         ------------------
+         -- Pool_Address --
+         ------------------
 
          when Attribute_Pool_Address =>
             Resolve (P);

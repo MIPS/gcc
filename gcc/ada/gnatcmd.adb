@@ -711,6 +711,7 @@ procedure GNATCmd is
 
    procedure Delete_Temp_Config_Files is
       Success : Boolean;
+      pragma Warnings (Off, Success);
 
    begin
       if not Keep_Temporary_Files then
@@ -2017,20 +2018,81 @@ begin
 
             for J in 1 .. First_Switches.Last loop
                if First_Switches.Table (J).all = "-cargs" then
-                  for K in J + 1 .. First_Switches.Last loop
-                     Add_To_Carg_Switches (First_Switches.Table (K));
-                  end loop;
-                  First_Switches.Set_Last (J - 1);
+                  declare
+                     K    : Positive;
+                     Last : Natural;
+
+                  begin
+                     --  Move the switches that are before -rules when the
+                     --  command is CHECK.
+
+                     K := J + 1;
+                     while K <= First_Switches.Last
+                       and then
+                        (The_Command /= Check
+                           or else First_Switches.Table (K).all /= "-rules")
+                     loop
+                        Add_To_Carg_Switches (First_Switches.Table (K));
+                        K := K + 1;
+                     end loop;
+
+                     if K > First_Switches.Last then
+                        First_Switches.Set_Last (J - 1);
+
+                     else
+                        Last := J - 1;
+                        while K <= First_Switches.Last loop
+                           Last := Last + 1;
+                           First_Switches.Table (Last) :=
+                             First_Switches.Table (K);
+                           K := K + 1;
+                        end loop;
+
+                        First_Switches.Set_Last (Last);
+                     end if;
+                  end;
+
                   exit;
                end if;
             end loop;
 
             for J in 1 .. Last_Switches.Last loop
                if Last_Switches.Table (J).all = "-cargs" then
-                  for K in J + 1 .. Last_Switches.Last loop
-                     Add_To_Carg_Switches (Last_Switches.Table (K));
-                  end loop;
-                  Last_Switches.Set_Last (J - 1);
+                  declare
+                     K    : Positive;
+                     Last : Natural;
+
+                  begin
+                     --  Move the switches that are before -rules when the
+                     --  command is CHECK.
+
+                     K := J + 1;
+                     while K <= Last_Switches.Last
+                       and then
+                        (The_Command /= Check
+                         or else
+                         Last_Switches.Table (K).all /= "-rules")
+                     loop
+                        Add_To_Carg_Switches (Last_Switches.Table (K));
+                        K := K + 1;
+                     end loop;
+
+                     if K > Last_Switches.Last then
+                        Last_Switches.Set_Last (J - 1);
+
+                     else
+                        Last := J - 1;
+                        while K <= Last_Switches.Last loop
+                           Last := Last + 1;
+                           Last_Switches.Table (Last) :=
+                             Last_Switches.Table (K);
+                           K := K + 1;
+                        end loop;
+
+                        Last_Switches.Set_Last (Last);
+                     end if;
+                  end;
+
                   exit;
                end if;
             end loop;
@@ -2085,8 +2147,8 @@ begin
 
          elsif The_Command = Stub then
             declare
-               Data : constant Prj.Project_Data :=
-                        Project_Tree.Projects.Table (Project);
+               Data       : constant Prj.Project_Data :=
+                              Project_Tree.Projects.Table (Project);
                File_Index : Integer := 0;
                Dir_Index  : Integer := 0;
                Last       : constant Integer := Last_Switches.Last;
@@ -2122,7 +2184,7 @@ begin
 
                         if Spec'Length > Name_Len
                           and then Spec (Last - Name_Len + 1 .. Last) =
-                          Name_Buffer (1 .. Name_Len)
+                                                  Name_Buffer (1 .. Name_Len)
                         then
                            Last := Last - Name_Len;
                            Get_Name_String
@@ -2147,7 +2209,7 @@ begin
                if File_Index /= 0 then
                   for Index in File_Index + 1 .. Last loop
                      if Last_Switches.Table (Index)
-                       (Last_Switches.Table (Index)'First) /= '-'
+                         (Last_Switches.Table (Index)'First) /= '-'
                      then
                         Dir_Index := Index;
                         exit;
@@ -2166,10 +2228,14 @@ begin
 
          --  For gnatmetric, the generated files should be put in the object
          --  directory. This must be the first switch, because it may be
-         --  overriden by a switch in package Metrics in the project file or by
-         --  a command line option.
+         --  overriden by a switch in package Metrics in the project file or
+         --  by a command line option. Note that we don't add the -d= switch
+         --  if there is no object directory available.
 
-         if The_Command = Metric then
+         if The_Command = Metric
+           and then
+             Project_Tree.Projects.Table (Project).Object_Directory /= No_Path
+         then
             First_Switches.Increment_Last;
             First_Switches.Table (2 .. First_Switches.Last) :=
               First_Switches.Table (1 .. First_Switches.Last - 1);
@@ -2186,7 +2252,7 @@ begin
 
          if The_Command = Check then
             declare
-               New_Last          : Natural;
+               New_Last : Natural;
                --  Set to rank of options preceding "-rules"
 
                In_Rules_Switches : Boolean;
@@ -2235,15 +2301,18 @@ begin
          if ASIS_Main /= null then
             Get_Closure;
 
-            --  On VMS, set up again the env var for source dirs file. This is
+            --  On VMS, set up the env var again for source dirs file. This is
             --  because the call to gnatmake has set this env var to another
             --  file that has now been deleted.
 
             if Hostparm.OpenVMS then
-               Setenv
-                 (Project_Include_Path_File,
-                  Prj.Env.Ada_Include_Path
-                    (Project, Project_Tree, Recursive => True));
+
+               --  First make sure that the recorded file names are empty
+
+               Prj.Env.Initialize;
+
+               Prj.Env.Set_Ada_Paths
+                 (Project, Project_Tree, Including_Libraries => False);
             end if;
 
          --  For gnat check, gnat pretty, gnat metric, gnat list, and gnat
@@ -2251,10 +2320,10 @@ begin
          --  with all the sources of the main project.
 
          elsif The_Command = Check  or else
-            The_Command = Pretty or else
-            The_Command = Metric or else
-            The_Command = List   or else
-            The_Command = Stack
+               The_Command = Pretty or else
+               The_Command = Metric or else
+               The_Command = List   or else
+               The_Command = Stack
          then
             Check_Files;
          end if;

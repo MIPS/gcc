@@ -84,6 +84,12 @@
 /* Define if ENOTRECOVERABLE exists. */
 #undef HAVE_ENOTRECOVERABLE
 
+/* Define if ENOTSUP exists. */
+#undef HAVE_ENOTSUP
+
+/* Define if EOVERFLOW exists. */
+#undef HAVE_EOVERFLOW
+
 /* Define if EOWNERDEAD exists. */
 #undef HAVE_EOWNERDEAD
 
@@ -143,6 +149,9 @@
 
 /* Define to 1 if you have the `frexpl' function. */
 #undef HAVE_FREXPL
+
+/* Define to 1 if you have the <gconf.h> header file. */
+#undef HAVE_GCONF_H
 
 /* Define to 1 if you have the <gconv.h> header file. */
 #undef HAVE_GCONV_H
@@ -228,6 +237,9 @@
 
 /* Only used in build directory testsuite_hooks.h. */
 #undef HAVE_LIMIT_VMEM
+
+/* Define if futex syscall is available. */
+#undef HAVE_LINUX_FUTEX
 
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H

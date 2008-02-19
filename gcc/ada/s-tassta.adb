@@ -614,7 +614,18 @@ package body System.Tasking.Stages is
            (Storage_Error'Identity, "Failed to initialize task");
       end if;
 
-      T.Master_of_Task := Master;
+      if Master = Foreign_Task_Level + 2 then
+
+         --  This should not happen, except when a foreign task creates non
+         --  library-level Ada tasks. In this case, we pretend the master is
+         --  a regular library level task, otherwise the run-time will get
+         --  confused when waiting for these tasks to terminate.
+
+         T.Master_of_Task := Library_Task_Level;
+      else
+         T.Master_of_Task := Master;
+      end if;
+
       T.Master_Within := T.Master_of_Task + 1;
 
       for L in T.Entry_Calls'Range loop
@@ -749,7 +760,9 @@ package body System.Tasking.Stages is
 
    procedure Finalize_Global_Tasks is
       Self_ID : constant Task_Id := STPO.Self;
+
       Ignore  : Boolean;
+      pragma Unreferenced (Ignore);
 
    begin
       if Self_ID.Deferral_Level = 0 then
@@ -1274,7 +1287,7 @@ package body System.Tasking.Stages is
       --  Check if the current task is an independent task If so, decrement
       --  the Independent_Task_Count value.
 
-      if Master_of_Task = 2 then
+      if Master_of_Task = Independent_Task_Level then
          if Single_Lock then
             Utilities.Independent_Task_Count :=
               Utilities.Independent_Task_Count - 1;
@@ -1770,7 +1783,7 @@ package body System.Tasking.Stages is
 
          if (T.Common.Parent /= null
               and then T.Common.Parent.Common.Parent /= null)
-           or else T.Master_of_Task > 3
+           or else T.Master_of_Task > Library_Task_Level
          then
             Initialization.Task_Lock (Self_ID);
 

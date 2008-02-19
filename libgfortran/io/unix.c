@@ -1078,7 +1078,7 @@ empty_internal_buffer(stream *strm)
 /* open_internal()-- Returns a stream structure from an internal file */
 
 stream *
-open_internal (char *base, int length)
+open_internal (char *base, int length, gfc_offset offset)
 {
   int_stream *s;
 
@@ -1086,7 +1086,7 @@ open_internal (char *base, int length)
   memset (s, '\0', sizeof (int_stream));
 
   s->buffer = base;
-  s->buffer_offset = 0;
+  s->buffer_offset = offset;
 
   s->logical_offset = 0;
   s->active = s->file_length = length;
@@ -1411,10 +1411,16 @@ input_stream (void)
 stream *
 output_stream (void)
 {
+  stream * s;
+
 #if defined(HAVE_CRLF) && defined(HAVE_SETMODE)
   setmode (STDOUT_FILENO, O_BINARY);
 #endif
-  return fd_to_stream (STDOUT_FILENO, PROT_WRITE);
+
+  s = fd_to_stream (STDOUT_FILENO, PROT_WRITE);
+  if (options.unbuffered_preconnected)
+    ((unix_stream *) s)->unbuffered = 1;
+  return s;
 }
 
 
@@ -1424,10 +1430,16 @@ output_stream (void)
 stream *
 error_stream (void)
 {
+  stream * s;
+
 #if defined(HAVE_CRLF) && defined(HAVE_SETMODE)
   setmode (STDERR_FILENO, O_BINARY);
 #endif
-  return fd_to_stream (STDERR_FILENO, PROT_WRITE);
+
+  s = fd_to_stream (STDERR_FILENO, PROT_WRITE);
+  if (options.unbuffered_preconnected)
+    ((unix_stream *) s)->unbuffered = 1;
+  return s;
 }
 
 
@@ -1794,7 +1806,7 @@ inquire_sequential (const char *string, int len)
 
   if (S_ISREG (statbuf.st_mode) ||
       S_ISCHR (statbuf.st_mode) || S_ISFIFO (statbuf.st_mode))
-    return yes;
+    return unknown;
 
   if (S_ISDIR (statbuf.st_mode) || S_ISBLK (statbuf.st_mode))
     return no;
@@ -1817,7 +1829,7 @@ inquire_direct (const char *string, int len)
     return unknown;
 
   if (S_ISREG (statbuf.st_mode) || S_ISBLK (statbuf.st_mode))
-    return yes;
+    return unknown;
 
   if (S_ISDIR (statbuf.st_mode) ||
       S_ISCHR (statbuf.st_mode) || S_ISFIFO (statbuf.st_mode))
@@ -1843,7 +1855,7 @@ inquire_formatted (const char *string, int len)
   if (S_ISREG (statbuf.st_mode) ||
       S_ISBLK (statbuf.st_mode) ||
       S_ISCHR (statbuf.st_mode) || S_ISFIFO (statbuf.st_mode))
-    return yes;
+    return unknown;
 
   if (S_ISDIR (statbuf.st_mode))
     return no;

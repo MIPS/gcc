@@ -1,6 +1,6 @@
 // Specific definitions for generic platforms  -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,13 +33,15 @@
  */
 
 #ifndef _GLIBCXX_ERROR_CONSTANTS
-#  define _GLIBCXX_ERROR_CONSTANTS 1
+#define _GLIBCXX_ERROR_CONSTANTS 1
 
 #include <bits/c++config.h>
 #include <cerrno>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
+namespace posix_error
+{
  enum posix_errno
     {
       address_family_not_supported = 		EAFNOSUPPORT,
@@ -88,6 +90,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 #ifdef _GLIBCXX_HAVE_ENOLINK
       no_link = 				ENOLINK,
 #endif
+
       no_lock_available = 			ENOLCK,
 
 #ifdef _GLIBCXX_HAVE_ENODATA
@@ -115,7 +118,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       not_connected = 				ENOTCONN,
       not_enough_memory = 			ENOMEM,
+
+#ifdef _GLIBCXX_HAVE_ENOTSUP
       not_supported = 				ENOTSUP,
+#endif
 
 #ifdef _GLIBCXX_HAVE_ECANCELED
       operation_canceled = 			ECANCELED,
@@ -125,18 +131,23 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       operation_not_permitted = 		EPERM,
       operation_not_supported = 		EOPNOTSUPP,
       operation_would_block = 			EWOULDBLOCK,
+
 #ifdef _GLIBCXX_HAVE_EOWNERDEAD
       owner_dead = 				EOWNERDEAD,
 #endif
+
       permission_denied = 			EACCES,
+
 #ifdef _GLIBCXX_HAVE_EPROTO
       protocol_error = 				EPROTO,
 #endif
+
       protocol_not_supported = 			EPROTONOSUPPORT,
       read_only_file_system = 			EROFS,
       resource_deadlock_would_occur = 		EDEADLK,
       resource_unavailable_try_again = 		EAGAIN,
       result_out_of_range = 			ERANGE,
+
 #ifdef _GLIBCXX_HAVE_ENOTRECOVERABLE
       state_not_recoverable = 			ENOTRECOVERABLE,
 #endif
@@ -151,10 +162,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       too_many_files_open = 			EMFILE,
       too_many_links = 				EMLINK,
       too_many_synbolic_link_levels = 		ELOOP,
+
+#ifdef _GLIBCXX_HAVE_EOVERFLOW
       value_too_large = 			EOVERFLOW,
+#endif
+
       wrong_protocol_type = 			EPROTOTYPE,
       no_posix_equivalent = 1L << 16
     };
+}
 
 _GLIBCXX_END_NAMESPACE
 

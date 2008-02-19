@@ -83,7 +83,7 @@ package body Exp_Ch4 is
      (N   : Node_Id;
       Op1 : Node_Id;
       Op2 : Node_Id);
-   --  If an boolean array assignment can be done in place, build call to
+   --  If a boolean array assignment can be done in place, build call to
    --  corresponding library procedure.
 
    procedure Displace_Allocator_Pointer (N : Node_Id);
@@ -382,6 +382,13 @@ package body Exp_Ch4 is
       PtrT      : Entity_Id;
 
    begin
+      --  Do nothing in case of VM targets: the virtual machine will handle
+      --  interfaces directly.
+
+      if VM_Target /= No_VM then
+         return;
+      end if;
+
       pragma Assert (Nkind (N) = N_Identifier
         and then Nkind (Orig_Node) = N_Allocator);
 
@@ -624,6 +631,7 @@ package body Exp_Ch4 is
 
             if Is_Class_Wide_Type (Etype (Exp))
               and then Is_Interface (Etype (Exp))
+              and then VM_Target = No_VM
             then
                Set_Expression
                  (Expression (N),
@@ -2816,8 +2824,8 @@ package body Exp_Ch4 is
          begin
             P := Parent (N);
             while Present (P) loop
-               if Nkind (P) = N_Extended_Return_Statement
-                 or else Nkind (P) = N_Simple_Return_Statement
+               if Nkind_In
+                   (P, N_Extended_Return_Statement, N_Simple_Return_Statement)
                then
                   return True;
 
@@ -3189,26 +3197,20 @@ package body Exp_Ch4 is
             Nod  := N;
             Temp := Make_Defining_Identifier (Loc, New_Internal_Name ('P'));
 
-            --  Construct argument list for the initialization routine call.
-            --  The CPP constructor needs the address directly
+            --  Construct argument list for the initialization routine call
 
-            if Is_CPP_Class (T) then
-               Arg1 := New_Reference_To (Temp, Loc);
-               Temp_Type := T;
+            Arg1 :=
+              Make_Explicit_Dereference (Loc,
+                Prefix => New_Reference_To (Temp, Loc));
+            Set_Assignment_OK (Arg1);
+            Temp_Type := PtrT;
 
-            else
-               Arg1 := Make_Explicit_Dereference (Loc,
-                         Prefix => New_Reference_To (Temp, Loc));
-               Set_Assignment_OK (Arg1);
-               Temp_Type := PtrT;
+            --  The initialization procedure expects a specific type. if the
+            --  context is access to class wide, indicate that the object being
+            --  allocated has the right specific type.
 
-               --  The initialization procedure expects a specific type. if
-               --  the context is access to class wide, indicate that the
-               --  object being allocated has the right specific type.
-
-               if Is_Class_Wide_Type (Dtyp) then
-                  Arg1 := Unchecked_Convert_To (T, Arg1);
-               end if;
+            if Is_Class_Wide_Type (Dtyp) then
+               Arg1 := Unchecked_Convert_To (T, Arg1);
             end if;
 
             --  If designated type is a concurrent type or if it is private
@@ -3288,8 +3290,8 @@ package body Exp_Ch4 is
                               New_Occurrence_Of
                                 (Entity (Nam), Sloc (Nam)), T);
 
-                     elsif (Nkind (Nam) = N_Indexed_Component
-                             or else Nkind (Nam) = N_Selected_Component)
+                     elsif Nkind_In
+                             (Nam, N_Indexed_Component, N_Selected_Component)
                        and then Is_Entity_Name (Prefix (Nam))
                      then
                         Decls :=
@@ -3405,11 +3407,6 @@ package body Exp_Ch4 is
                 Expression          => Nod);
 
             Set_Assignment_OK (Temp_Decl);
-
-            if Is_CPP_Class (T) then
-               Set_Aliased_Present (Temp_Decl);
-            end if;
-
             Insert_Action (N, Temp_Decl, Suppress => All_Checks);
 
             --  If the designated type is a task type or contains tasks,
@@ -3480,15 +3477,7 @@ package body Exp_Ch4 is
                end if;
             end if;
 
-            if Is_CPP_Class (T) then
-               Rewrite (N,
-                 Make_Attribute_Reference (Loc,
-                   Prefix => New_Reference_To (Temp, Loc),
-                   Attribute_Name => Name_Unchecked_Access));
-            else
-               Rewrite (N, New_Reference_To (Temp, Loc));
-            end if;
-
+            Rewrite (N, New_Reference_To (Temp, Loc));
             Analyze_And_Resolve (N, PtrT);
          end if;
       end;
@@ -4184,8 +4173,8 @@ package body Exp_Ch4 is
             if Nkind (Parnt) = N_Unchecked_Expression then
                null;
 
-            elsif Nkind (Parnt) = N_Object_Renaming_Declaration
-              or else Nkind (Parnt) = N_Procedure_Call_Statement
+            elsif Nkind_In (Parnt, N_Object_Renaming_Declaration,
+                                   N_Procedure_Call_Statement)
               or else (Nkind (Parnt) = N_Parameter_Association
                         and then
                           Nkind (Parent (Parnt)) =  N_Procedure_Call_Statement)
@@ -4225,8 +4214,7 @@ package body Exp_Ch4 is
             then
                return;
 
-            elsif (Nkind (Parnt) = N_Indexed_Component
-                    or else Nkind (Parnt) = N_Selected_Component)
+            elsif Nkind_In (Parnt, N_Indexed_Component, N_Selected_Component)
                and then Prefix (Parnt) = Child
             then
                null;
@@ -5125,10 +5113,13 @@ package body Exp_Ch4 is
 
       elsif Is_Array_Type (Typl) then
 
-         --  If we are doing full validity checking, then expand out array
-         --  comparisons to make sure that we check the array elements.
+         --  If we are doing full validity checking, and it is possible for the
+         --  array elements to be invalid then expand out array comparisons to
+         --  make sure that we check the array elements.
 
-         if Validity_Check_Operands then
+         if Validity_Check_Operands
+           and then not Is_Known_Valid (Component_Type (Typl))
+         then
             declare
                Save_Force_Validity_Checks : constant Boolean :=
                                               Force_Validity_Checks;
@@ -5828,6 +5819,8 @@ package body Exp_Ch4 is
       Rhi : Uint;
       ROK : Boolean;
 
+      pragma Warnings (Off, Lhi);
+
    begin
       Binary_Op_Validity_Checks (N);
 
@@ -6261,11 +6254,9 @@ package body Exp_Ch4 is
 
          --  Special case the negation of a binary operation
 
-         elsif (Nkind (Opnd) = N_Op_And
-                 or else Nkind (Opnd) = N_Op_Or
-                 or else Nkind (Opnd) = N_Op_Xor)
+         elsif Nkind_In (Opnd, N_Op_And, N_Op_Or, N_Op_Xor)
            and then Safe_In_Place_Array_Op
-             (Name (Parent (N)), Left_Opnd (Opnd), Right_Opnd (Opnd))
+                      (Name (Parent (N)), Left_Opnd (Opnd), Right_Opnd (Opnd))
          then
             Build_Boolean_Array_Proc_Call (Parent (N), Opnd, Empty);
             return;
@@ -6415,6 +6406,8 @@ package body Exp_Ch4 is
       Rlo : Uint;
       Rhi : Uint;
       ROK : Boolean;
+
+      pragma Warnings (Off, Lhi);
 
    begin
       Binary_Op_Validity_Checks (N);
@@ -6986,9 +6979,9 @@ package body Exp_Ch4 is
             --  expression, since these are additional cases that do can
             --  appear on procedure actuals.
 
-            elsif Nkind (Par) = N_Type_Conversion
-              or else Nkind (Par) = N_Parameter_Association
-              or else Nkind (Par) = N_Qualified_Expression
+            elsif Nkind_In (Par, N_Type_Conversion,
+                                 N_Parameter_Association,
+                                 N_Qualified_Expression)
             then
                Par := Parent (Par);
 
@@ -8290,10 +8283,7 @@ package body Exp_Ch4 is
       --  For identifiers and indexed components, it is sufficent to have a
       --  constrained Unchecked_Union nominal subtype.
 
-      if Nkind (N) = N_Identifier
-           or else
-         Nkind (N) = N_Indexed_Component
-      then
+      if Nkind_In (N, N_Identifier, N_Indexed_Component) then
          return Is_Unchecked_Union (Base_Type (Etype (N)))
                   and then
                 Is_Constrained (Etype (N));
@@ -8956,9 +8946,7 @@ package body Exp_Ch4 is
          elsif Is_Entity_Name (Op) then
             return Is_Unaliased (Op);
 
-         elsif Nkind (Op) = N_Indexed_Component
-           or else Nkind (Op) = N_Selected_Component
-         then
+         elsif Nkind_In (Op, N_Indexed_Component, N_Selected_Component) then
             return Is_Unaliased (Prefix (Op));
 
          elsif Nkind (Op) = N_Slice then

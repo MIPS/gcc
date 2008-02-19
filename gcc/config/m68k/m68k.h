@@ -29,10 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 # define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
 #endif
 
-/* Options 0 and 1 are the Motorola and MIT syntaxes,
-   respectively.  */
-#define ASSEMBLER_DIALECT	!MOTOROLA
-
 /* Handle --with-cpu default option from configure script.  */
 #define OPTION_DEFAULT_SPECS						\
   { "cpu",   "%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
@@ -319,6 +315,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #define STRICT_ALIGNMENT (TARGET_STRICT_ALIGNMENT)
 #define M68K_HONOR_TARGET_STRICT_ALIGNMENT 1
+
+#define DWARF_CIE_DATA_ALIGNMENT -2
 
 #define INT_TYPE_SIZE (TARGET_SHORT ? 16 : 32)
 
@@ -759,9 +757,7 @@ __transfer_from_trampoline ()					\
     }									\
   while (0)
 
-/* Don't call memory_address_noforce for the address to fetch
-   the switch offset.  This address is ok as it stands,
-   but memory_address_noforce would alter it.  */
+/* This address is OK as it stands.  */
 #define PIC_CASE_VECTOR_ADDRESS(index) index
 
 /* For the 68000, we handle X+REG by loading X into a register R and
@@ -975,11 +971,17 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%s%s%ld", LOCAL_LABEL_PREFIX, PREFIX, (long)(NUM))
 
-#define ASM_OUTPUT_REG_PUSH(FILE,REGNO)					  \
-  asm_fprintf (FILE, "\tmove%.l %s,{-(%Rsp)|%Rsp@-}\n", reg_names[REGNO])
+#define ASM_OUTPUT_REG_PUSH(FILE,REGNO)			\
+  asm_fprintf (FILE, (MOTOROLA				\
+		      ? "\tmove.l %s,-(%Rsp)\n"		\
+		      : "\tmovel %s,%Rsp@-\n"),		\
+	       reg_names[REGNO])
 
-#define ASM_OUTPUT_REG_POP(FILE,REGNO)					     \
-  asm_fprintf (FILE, "\tmove%.l {(%Rsp)+|%Rsp@+},%s\n", reg_names[REGNO])
+#define ASM_OUTPUT_REG_POP(FILE,REGNO)			\
+  asm_fprintf (FILE, (MOTOROLA				\
+		      ? "\tmove.l (%Rsp)+,%s\n"		\
+		      : "\tmovel %Rsp@+,%s\n"),		\
+	       reg_names[REGNO])
 
 /* The m68k does not use absolute case-vectors, but we must define this macro
    anyway.  */
@@ -1146,10 +1148,4 @@ extern M68K_CONST_METHOD m68k_const_method (HOST_WIDE_INT);
 
 extern void m68k_emit_move_double (rtx [2]);
 
-extern enum attr_cpu m68k_sched_cpu;
-
-extern enum attr_opx_type m68k_sched_attr_opx_type (rtx, int);
-extern enum attr_opy_type m68k_sched_attr_opy_type (rtx, int);
-extern int m68k_sched_attr_size (rtx);
-extern enum attr_op_mem m68k_sched_attr_op_mem (rtx);
-extern enum attr_type m68k_sched_branch_type (rtx);
+#define CPU_UNITS_QUERY 1

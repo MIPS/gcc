@@ -1315,7 +1315,10 @@ package body Checks is
       LOK : Boolean;
       Rlo : Uint;
       Rhi : Uint;
-      ROK : Boolean;
+      ROK   : Boolean;
+
+      pragma Warnings (Off, Lhi);
+      --  Don't actually use this value
 
    begin
       if Expander_Active
@@ -2357,7 +2360,6 @@ package body Checks is
          Analyze_And_Resolve (N, Typ);
          return;
       end if;
-
    end Apply_Universal_Integer_Attribute_Checks;
 
    -------------------------------
@@ -2498,19 +2500,44 @@ package body Checks is
          P := Parent (N);
          K := Nkind (P);
 
-         if K not in N_Subexpr then
+         --  Done if out of subexpression (note that we allow generated stuff
+         --  such as itype declarations in this context, to keep the loop going
+         --  since we may well have generated such stuff in complex situations.
+         --  Also done if no parent (probably an error condition, but no point
+         --  in behaving nasty if we find it!)
+
+         if No (P)
+           or else (K not in N_Subexpr and then Comes_From_Source (P))
+         then
             return True;
 
-         --  Or/Or Else case, left operand must be equality test
+         --  Or/Or Else case, where test is part of the right operand, or is
+         --  part of one of the actions associated with the right operand, and
+         --  the left operand is an equality test.
 
-         elsif K = N_Op_Or or else K = N_Or_Else then
+         elsif K = N_Op_Or then
             exit when N = Right_Opnd (P)
               and then Nkind (Left_Opnd (P)) = N_Op_Eq;
 
-         --  And/And then case, left operand must be inequality test
+         elsif K = N_Or_Else then
+            exit when (N = Right_Opnd (P)
+                        or else
+                          (Is_List_Member (N)
+                             and then List_Containing (N) = Actions (P)))
+              and then Nkind (Left_Opnd (P)) = N_Op_Eq;
 
-         elsif K = N_Op_And or else K = N_And_Then then
+         --  Similar test for the And/And then case, where the left operand
+         --  is an inequality test.
+
+         elsif K = N_Op_And then
             exit when N = Right_Opnd (P)
+              and then Nkind (Left_Opnd (P)) = N_Op_Ne;
+
+         elsif K = N_And_Then then
+            exit when (N = Right_Opnd (P)
+                        or else
+                          (Is_List_Member (N)
+                             and then List_Containing (N) = Actions (P)))
               and then Nkind (Left_Opnd (P)) = N_Op_Ne;
          end if;
 
@@ -2521,11 +2548,6 @@ package body Checks is
       --  appropriate test as its left operand. So test further.
 
       L := Left_Opnd (P);
-
-      if Nkind (L) = N_Op_Not then
-         L := Right_Opnd (L);
-      end if;
-
       R := Right_Opnd (L);
       L := Left_Opnd (L);
 
@@ -5201,7 +5223,10 @@ package body Checks is
 
       Num_Saved_Checks := 0;
 
-      for J in 1 .. Saved_Checks_TOS loop
+      --  Note: the Int'Min here avoids any possibility of J being out of
+      --  range when called from e.g. Conditional_Statements_Begin.
+
+      for J in 1 .. Int'Min (Saved_Checks_TOS, Saved_Checks_Stack'Last) loop
          Saved_Checks_Stack (J) := 0;
       end loop;
    end Kill_All_Checks;
@@ -5340,14 +5365,11 @@ package body Checks is
    -------------------
 
    procedure Remove_Checks (Expr : Node_Id) is
-      Discard : Traverse_Result;
-      pragma Warnings (Off, Discard);
-
       function Process (N : Node_Id) return Traverse_Result;
       --  Process a single node during the traversal
 
-      function Traverse is new Traverse_Func (Process);
-      --  The traversal function itself
+      procedure Traverse is new Traverse_Proc (Process);
+      --  The traversal procedure itself
 
       -------------
       -- Process --
@@ -5363,7 +5385,7 @@ package body Checks is
 
          case Nkind (N) is
             when N_And_Then =>
-               Discard := Traverse (Left_Opnd (N));
+               Traverse (Left_Opnd (N));
                return Skip;
 
             when N_Attribute_Reference =>
@@ -5399,7 +5421,7 @@ package body Checks is
                end case;
 
             when N_Or_Else =>
-               Discard := Traverse (Left_Opnd (N));
+               Traverse (Left_Opnd (N));
                return Skip;
 
             when N_Selected_Component =>
@@ -5420,7 +5442,7 @@ package body Checks is
    --  Start of processing for Remove_Checks
 
    begin
-      Discard := Traverse (Expr);
+      Traverse (Expr);
    end Remove_Checks;
 
    ----------------------------
@@ -6658,10 +6680,6 @@ package body Checks is
 
                   L_Index : Node_Id;
                   R_Index : Node_Id;
-                  L_Low   : Node_Id;
-                  L_High  : Node_Id;
-                  R_Low   : Node_Id;
-                  R_High  : Node_Id;
 
                begin
                   L_Index := First_Index (T_Typ);
@@ -6672,9 +6690,6 @@ package body Checks is
                                or else
                              Nkind (R_Index) = N_Raise_Constraint_Error)
                      then
-                        Get_Index_Bounds (L_Index, L_Low, L_High);
-                        Get_Index_Bounds (R_Index, R_Low, R_High);
-
                         --  Deal with compile time length check. Note that we
                         --  skip this in the access case, because the access
                         --  value may be null, so we cannot know statically.
@@ -6691,7 +6706,6 @@ package body Checks is
                               Evolve_Or_Else
                                 (Cond,
                                  Range_Equal_E_Cond (Exptyp, T_Typ, Indx));
-
                            else
                               Evolve_Or_Else
                                 (Cond, Range_E_Cond (Exptyp, T_Typ, Indx));

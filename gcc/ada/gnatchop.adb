@@ -428,8 +428,10 @@ procedure Gnatchop is
                   File.Table (Input).Name.all & ASCII.Nul;
       Length  : File_Offset;
       Buffer  : String_Access;
-      Success : Boolean;
       Result  : String_Access;
+
+      Success : Boolean;
+      pragma Warnings (Off, Success);
 
    begin
       FD := Open_Read (Name'Address, Binary);
@@ -1722,6 +1724,8 @@ procedure Gnatchop is
       end;
    end Write_Unit;
 
+      procedure Check_Version_And_Help is new Check_Version_And_Help_G (Usage);
+
 --  Start of processing for gnatchop
 
 begin
@@ -1761,7 +1765,7 @@ begin
 
    --  First, scan to detect --version and/or --help
 
-   Check_Version_And_Help ("GNATCHOP", "1998", Usage'Unrestricted_Access);
+   Check_Version_And_Help ("GNATCHOP", "1998");
 
    if not Scan_Arguments then
       Set_Exit_Status (Failure);

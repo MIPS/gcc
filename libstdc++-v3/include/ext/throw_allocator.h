@@ -60,6 +60,7 @@
 #include <utility>
 #include <tr1/random>
 #include <bits/functexcept.h>
+#include <bits/stl_move.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -231,6 +232,16 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       void
       construct(pointer __p, const T& val)
       { return std::allocator<value_type>().construct(__p, val); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename... _Args>
+        void
+        construct(pointer __p, _Args&&... __args)
+	{ 
+	  return std::allocator<value_type>().
+	    construct(__p, std::forward<_Args>(__args)...);
+	}
+#endif
 
       void
       destroy(pointer __p)
@@ -419,15 +430,17 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     char buf[40];
     const char tab('\t');
     s += "address: ";
-    sprintf(buf, "%p", ref.first);
+    __builtin_sprintf(buf, "%p", ref.first);
     s += buf;
     s += tab;
     s += "label: ";
-    sprintf(buf, "%u", ref.second.first);
+    unsigned long l = static_cast<unsigned long>(ref.second.first);
+    __builtin_sprintf(buf, "%lu", l);
     s += buf;
     s += tab;
     s += "size: ";
-    sprintf(buf, "%u", ref.second.second);
+    l = static_cast<unsigned long>(ref.second.second);
+    __builtin_sprintf(buf, "%lu", l);
     s += buf;
     s += '\n';
   }

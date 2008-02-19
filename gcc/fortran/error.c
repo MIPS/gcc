@@ -207,7 +207,7 @@ show_locus (locus *loc, int c1, int c2)
     {
       i = f->inclusion_line;
 
-      f = f->included_by;
+      f = f->up;
       if (f == NULL) break;
 
       error_printf ("    Included at %s:%d:", f->filename, i);
@@ -715,8 +715,7 @@ gfc_notify_std (int std, const char *nocmsgid, ...)
   if (gfc_suppress_error)
     return warning ? SUCCESS : FAILURE;
 
-  cur_error_buffer = (warning && !warnings_are_errors)
-		   ? &warning_buffer : &error_buffer;
+  cur_error_buffer = warning ? &warning_buffer : &error_buffer;
   cur_error_buffer->flag = 1;
   cur_error_buffer->index = 0;
 

@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "timevar.h"
 #include "df.h"
+#include "diagnostic.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -2115,6 +2116,7 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
   rtx src = NULL, dst = NULL;
   unsigned HOST_WIDE_INT bitsize = MIN (TYPE_ALIGN (type), BITS_PER_WORD);
   unsigned HOST_WIDE_INT bitpos, xbitpos, padding_correction = 0;
+  enum machine_mode copy_mode;
 
   if (tgtblk == 0)
     {
@@ -2148,11 +2150,23 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
     padding_correction
       = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD) * BITS_PER_UNIT));
 
-  /* Copy the structure BITSIZE bites at a time.
+  /* Copy the structure BITSIZE bits at a time.  If the target lives in
+     memory, take care of not reading/writing past its end by selecting
+     a copy mode suited to BITSIZE.  This should always be possible given
+     how it is computed.
 
      We could probably emit more efficient code for machines which do not use
      strict alignment, but it doesn't seem worth the effort at the current
      time.  */
+
+  copy_mode = word_mode;
+  if (MEM_P (tgtblk))
+    {
+      enum machine_mode mem_mode = mode_for_size (bitsize, MODE_INT, 1);
+      if (mem_mode != BLKmode)
+	copy_mode = mem_mode;
+    }
+
   for (bitpos = 0, xbitpos = padding_correction;
        bitpos < bytes * BITS_PER_UNIT;
        bitpos += bitsize, xbitpos += bitsize)
@@ -2171,11 +2185,11 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
 	dst = operand_subword (tgtblk, bitpos / BITS_PER_WORD, 1, BLKmode);
 
       /* Use xbitpos for the source extraction (right justified) and
-	 xbitpos for the destination store (left justified).  */
-      store_bit_field (dst, bitsize, bitpos % BITS_PER_WORD, word_mode,
+	 bitpos for the destination store (left justified).  */
+      store_bit_field (dst, bitsize, bitpos % BITS_PER_WORD, copy_mode,
 		       extract_bit_field (src, bitsize,
 					  xbitpos % BITS_PER_WORD, 1,
-					  NULL_RTX, word_mode, word_mode));
+					  NULL_RTX, copy_mode, copy_mode));
     }
 
   return tgtblk;
@@ -3390,16 +3404,12 @@ emit_move_insn (rtx x, rtx y)
   /* If X or Y are memory references, verify that their addresses are valid
      for the machine.  */
   if (MEM_P (x)
-      && ((! memory_address_p (GET_MODE (x), XEXP (x, 0))
-	   && ! push_operand (x, GET_MODE (x)))
-	  || (flag_force_addr
-	      && CONSTANT_ADDRESS_P (XEXP (x, 0)))))
+      && (! memory_address_p (GET_MODE (x), XEXP (x, 0))
+	  && ! push_operand (x, GET_MODE (x))))
     x = validize_mem (x);
 
   if (MEM_P (y)
-      && (! memory_address_p (GET_MODE (y), XEXP (y, 0))
-	  || (flag_force_addr
-	      && CONSTANT_ADDRESS_P (XEXP (y, 0)))))
+      && ! memory_address_p (GET_MODE (y), XEXP (y, 0)))
     y = validize_mem (y);
 
   gcc_assert (mode != BLKmode);
@@ -4965,14 +4975,7 @@ count_type_elements (const_tree type, bool allow_flexarr)
 
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      {
-	/* Ho hum.  How in the world do we guess here?  Clearly it isn't
-	   right to count the fields.  Guess based on the number of words.  */
-        HOST_WIDE_INT n = int_size_in_bytes (type);
-	if (n < 0)
-	  return -1;
-	return n / UNITS_PER_WORD;
-      }
+      return -1;
 
     case COMPLEX_TYPE:
       return 2;
@@ -7293,9 +7296,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (MEM_P (decl_rtl) && REG_P (XEXP (decl_rtl, 0)))
 	temp = validize_mem (decl_rtl);
 
-      /* If DECL_RTL is memory, we are in the normal case and either
-	 the address is not valid or it is not a register and -fforce-addr
-	 is specified, get the address into a register.  */
+      /* If DECL_RTL is memory, we are in the normal case and the
+	 address is not valid, get the address into a register.  */
 
       else if (MEM_P (decl_rtl) && modifier != EXPAND_INITIALIZER)
 	{
@@ -7304,8 +7306,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  decl_rtl = use_anchored_address (decl_rtl);
 	  if (modifier != EXPAND_CONST_ADDRESS
 	      && modifier != EXPAND_SUM
-	      && (!memory_address_p (DECL_MODE (exp), XEXP (decl_rtl, 0))
-		  || (flag_force_addr && !REG_P (XEXP (decl_rtl, 0)))))
+	      && !memory_address_p (DECL_MODE (exp), XEXP (decl_rtl, 0)))
 	    temp = replace_equiv_address (decl_rtl,
 					  copy_rtx (XEXP (decl_rtl, 0)));
 	}
@@ -7427,8 +7428,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (modifier != EXPAND_CONST_ADDRESS
 	  && modifier != EXPAND_INITIALIZER
 	  && modifier != EXPAND_SUM
-	  && (! memory_address_p (mode, XEXP (temp, 0))
-	      || flag_force_addr))
+	  && ! memory_address_p (mode, XEXP (temp, 0)))
 	return replace_equiv_address (temp,
 				      copy_rtx (XEXP (temp, 0)));
       return temp;
@@ -8913,8 +8913,11 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	target = 0;
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget,
 			 VOIDmode, EXPAND_NORMAL);
-      return expand_shift (code, mode, op0, TREE_OPERAND (exp, 1), target,
+      temp = expand_shift (code, mode, op0, TREE_OPERAND (exp, 1), target,
 			   unsignedp);
+      if (code == LSHIFT_EXPR)
+	temp = REDUCE_BIT_FIELD (temp);
+      return temp;
 
       /* Could determine the answer when only additive constants differ.  Also,
 	 the addition of one can be handled by changing the condition.  */
@@ -9363,6 +9366,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
 	goto binop;
       }
+
+    case OMP_ATOMIC_LOAD:
+    case OMP_ATOMIC_STORE:
+      /* OMP expansion is not run when there were errors, so these codes
+		  can get here.  */
+      gcc_assert (errorcount != 0);
+      return NULL_RTX;
 
     default:
       return lang_hooks.expand_expr (exp, original_target, tmode,
@@ -9966,10 +9976,6 @@ do_tablejump (rtx index, enum machine_mode mode, rtx range, rtx table_label,
     index = copy_to_mode_reg (Pmode, index);
 #endif
 
-  /* If flag_force_addr were to affect this address
-     it could interfere with the tricky assumptions made
-     about addresses that contain label-refs,
-     which may be valid only very near the tablejump itself.  */
   /* ??? The only correct use of CASE_VECTOR_MODE is the one inside the
      GET_MODE_SIZE, because this indicates how large insns are.  The other
      uses should all be Pmode, because they are addresses.  This code
@@ -9983,7 +9989,7 @@ do_tablejump (rtx index, enum machine_mode mode, rtx range, rtx table_label,
     index = PIC_CASE_VECTOR_ADDRESS (index);
   else
 #endif
-    index = memory_address_noforce (CASE_VECTOR_MODE, index);
+    index = memory_address (CASE_VECTOR_MODE, index);
   temp = gen_reg_rtx (CASE_VECTOR_MODE);
   vector = gen_const_mem (CASE_VECTOR_MODE, index);
   convert_move (temp, vector, 0);

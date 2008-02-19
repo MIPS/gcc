@@ -36,10 +36,12 @@ struct df_problem;
 struct df_link;
 
 /* Data flow problems.  All problems must have a unique id here.  */ 
+
 /* Scanning is not really a dataflow problem, but it is useful to have
    the basic block functions in the vector so that things get done in
-   a uniform manner.  The first four problems are always defined.  The
-   last 5 are optional and can be added or deleted at any time.  */
+   a uniform manner.  The last four problems can be added or deleted
+   at any time are always defined (though LIVE is always there at -O2
+   or higher); the others are always there.  */
 #define DF_SCAN  0 
 #define DF_LR    1      /* Live Registers backward. */
 #define DF_LIVE  2      /* Live Registers & Uninitialized Registers */
@@ -400,22 +402,23 @@ enum df_changeable_flags
 {
   /* Scanning flags.  */
   /* Flag to control the running of dce as a side effect of building LR.  */
-  DF_LR_RUN_DCE           =  1, /* Run DCE.  */
-  DF_NO_HARD_REGS         =  2, /* Skip hard registers in RD and CHAIN Building.  */
-  DF_EQ_NOTES             =  4, /* Build chains with uses present in EQUIV/EQUAL notes. */
-  DF_NO_REGS_EVER_LIVE    =  8, /* Do not compute the regs_ever_live.  */
+  DF_LR_RUN_DCE           = 1 << 0, /* Run DCE.  */
+  DF_NO_HARD_REGS         = 1 << 1, /* Skip hard registers in RD and CHAIN Building.  */
+
+  DF_EQ_NOTES             = 1 << 2, /* Build chains with uses present in EQUIV/EQUAL notes. */
+  DF_NO_REGS_EVER_LIVE    = 1 << 3, /* Do not compute the regs_ever_live.  */
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return immediately.  This is used by passes that know how to update
   the scanning them selves.  */
-  DF_NO_INSN_RESCAN       = 16,
+  DF_NO_INSN_RESCAN       = 1 << 4,
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return after marking the insn for later processing.  This allows all
   rescans to be batched.  */
-  DF_DEFER_INSN_RESCAN    = 32,
+  DF_DEFER_INSN_RESCAN    = 1 << 5,
 
-  DF_VERIFY_SCHEDULED     = 64
+  DF_VERIFY_SCHEDULED     = 1 << 6
 };
 
 /* Two of these structures are inline in df, one for the uses and one
@@ -557,9 +560,9 @@ struct df
 #define DF_LIVE_IN(BB) (DF_LIVE_BB_INFO(BB)->in) 
 #define DF_LIVE_OUT(BB) (DF_LIVE_BB_INFO(BB)->out) 
 
-/* These macros are currently used by only reg-stack since it is not
-   tolerant of uninitialized variables.  This intolerance should be
-   fixed because it causes other problems.  */ 
+/* These macros are used by passes that are not tolerant of
+   uninitialized variables.  This intolerance should eventually
+   be fixed.  */
 #define DF_LR_IN(BB) (DF_LR_BB_INFO(BB)->in) 
 #define DF_LR_OUT(BB) (DF_LR_BB_INFO(BB)->out) 
 
@@ -703,11 +706,10 @@ struct df_scan_bb_info
 
 
 /* Reaching definitions.  All bitmaps are indexed by the id field of
-   the ref except sparse_kill (see above).  */
+   the ref except sparse_kill which is indexed by regno.  */
 struct df_rd_bb_info 
 {
-  /* Local sets to describe the basic blocks.  See the note in the RU
-     datastructures for kill and sparse_kill.  */
+  /* Local sets to describe the basic blocks.   */
   bitmap kill;  
   bitmap sparse_kill;
   bitmap gen;   /* The set of defs generated in this block.  */

@@ -53,7 +53,6 @@ struct diagnostic_info;
       TYPENAME_IS_ENUM_P (in TYPENAME_TYPE)
       REFERENCE_REF_P (in INDIRECT_EXPR)
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
-      OMP_ATOMIC_DEPENDENT_P (in OMP_ATOMIC)
       OMP_FOR_GIMPLIFYING_P (in OMP_FOR)
       BASELINK_QUALIFIED_P (in BASELINK)
       TARGET_EXPR_IMPLICIT_P (in TARGET_EXPR)
@@ -92,7 +91,7 @@ struct diagnostic_info;
 
    Usage of TYPE_LANG_FLAG_?:
    0: TYPE_DEPENDENT_P
-   1: TYPE_HAS_CONSTRUCTOR.
+   1: TYPE_HAS_USER_CONSTRUCTOR.
    2: Unused
    3: TYPE_FOR_JAVA.
    4: TYPE_HAS_NONTRIVIAL_DESTRUCTOR
@@ -282,7 +281,7 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, in the usual
    sense of `same'.  */
 #define same_type_p(TYPE1, TYPE2) \
-  comptypes ((TYPE1), (TYPE2), COMPARE_STRICT)
+  cp_comptypes ((TYPE1), (TYPE2), COMPARE_STRICT)
 
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, ignoring
    top-level qualifiers.  */
@@ -1656,11 +1655,11 @@ struct lang_decl GTY(())
       {
 	/* In an overloaded operator, this is the value of
 	   DECL_OVERLOADED_OPERATOR_P.  */
-	ENUM_BITFIELD (tree_code) operator_code : 8;
+	ENUM_BITFIELD (tree_code) operator_code : 16;
 
 	unsigned u3sel : 1;
 	unsigned pending_inline_p : 1;
-	unsigned spare : 22;
+	unsigned spare : 14;
 
 	/* For a non-thunk function decl, this is a tree list of
 	   friendly classes. For a thunk function decl, it is the
@@ -2710,7 +2709,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* Nonzero for a class type means that the class type has a
    user-declared constructor.  */
-#define TYPE_HAS_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
+#define TYPE_HAS_USER_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
 
 /* When appearing in an INDIRECT_REF, it means that the tree structure
    underneath is actually a call to a constructor.  This is needed
@@ -3699,13 +3698,10 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define LOOKUP_PREFER_NAMESPACES (1 << 9)
 /* Accept types or namespaces.  */
 #define LOOKUP_PREFER_BOTH (LOOKUP_PREFER_TYPES | LOOKUP_PREFER_NAMESPACES)
-/* We are checking that a constructor can be called -- but we do not
-   actually plan to call it.  */
-#define LOOKUP_CONSTRUCTOR_CALLABLE (1 << 10)
 /* Return friend declarations and un-declared builtin functions.
    (Normally, these entities are registered in the symbol table, but
    not found by lookup.)  */
-#define LOOKUP_HIDDEN (LOOKUP_CONSTRUCTOR_CALLABLE << 1)
+#define LOOKUP_HIDDEN (LOOKUP_PREFER_NAMESPACES << 1)
 /* Prefer that the lvalue be treated as an rvalue.  */
 #define LOOKUP_PREFER_RVALUE (LOOKUP_HIDDEN << 1)
 
@@ -3748,7 +3744,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define WANT_VECTOR    32 /* vector types */
 #define WANT_ARITH	(WANT_INT | WANT_FLOAT | WANT_VECTOR)
 
-/* Used with comptypes, and related functions, to guide type
+/* Used with cp_comptypes, and related functions, to guide type
    comparison.  */
 
 #define COMPARE_STRICT	      0 /* Just check if the types are the
@@ -3784,7 +3780,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    is derived from TYPE1, or if TYPE2 is a pointer (reference) to a
    class derived from the type pointed to (referred to) by TYPE1.  */
 #define same_or_base_type_p(TYPE1, TYPE2) \
-  comptypes ((TYPE1), (TYPE2), COMPARE_BASE)
+  cp_comptypes ((TYPE1), (TYPE2), COMPARE_BASE)
 
 /* These macros are used to access a TEMPLATE_PARM_INDEX.  */
 #define TEMPLATE_PARM_INDEX_CAST(NODE) \
@@ -4161,6 +4157,7 @@ extern void determine_key_method		(tree);
 extern void check_for_override			(tree, tree);
 extern void push_class_stack			(void);
 extern void pop_class_stack			(void);
+extern bool type_has_user_nondefault_constructor (tree);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree);
@@ -4306,7 +4303,7 @@ extern tree cp_build_parm_decl			(tree, tree);
 extern tree get_guard				(tree);
 extern tree get_guard_cond			(tree);
 extern tree set_guard				(tree);
-extern tree cxx_callgraph_analyze_expr		(tree *, int *, tree);
+extern tree cxx_callgraph_analyze_expr		(tree *, int *);
 extern void mark_needed				(tree);
 extern bool decl_needed_p			(tree);
 extern void note_vague_linkage_fn		(tree);
@@ -4335,9 +4332,6 @@ extern void choose_personality_routine		(enum languages);
 extern tree eh_type_info			(tree);
 
 /* in expr.c */
-extern rtx cxx_expand_expr			(tree, rtx,
-						 enum machine_mode,
-						 int, rtx *);
 extern tree cplus_expand_constant		(tree);
 
 /* friend.c */
@@ -4353,6 +4347,7 @@ extern tree build_aggr_init			(tree, tree, int);
 extern int is_aggr_type				(tree, int);
 extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
+extern tree build_value_init			(tree);
 extern tree build_offset_ref			(tree, tree, bool);
 extern tree build_new				(tree, tree, tree, tree, int);
 extern tree build_vec_init			(tree, tree, tree, bool, int);
@@ -4443,6 +4438,7 @@ extern bool uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (const_tree);
 extern tree make_pack_expansion                 (tree);
 extern bool check_for_bare_parameter_packs      (tree);
+extern tree get_template_info			(tree);
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);
 extern bool is_specialization_of_friend		(tree, tree);
@@ -4769,7 +4765,7 @@ extern tree complete_type			(tree);
 extern tree complete_type_or_else		(tree, tree);
 extern int type_unknown_p			(const_tree);
 extern bool comp_except_specs			(const_tree, const_tree, bool);
-extern bool comptypes				(tree, tree, int);
+extern bool cp_comptypes			(tree, tree, int);
 extern bool compparms				(const_tree, const_tree);
 extern int comp_cv_qualification		(const_tree, const_tree);
 extern int comp_cv_qual_signature		(tree, tree);

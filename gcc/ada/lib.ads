@@ -208,10 +208,10 @@ package Lib is
    -- Special Handling of Subprogram Bodies --
    -------------------------------------------
 
-   --  A subprogram body (in an adb file) may stand for both a spec and a
-   --  body. A simple model (and one that was adopted through version 2.07),
-   --  is simply to assume that such an adb file acts as its own spec if no
-   --  ads file is present.
+   --  A subprogram body (in an adb file) may stand for both a spec and a body.
+   --  A simple model (and one that was adopted through version 2.07) is simply
+   --  to assume that such an adb file acts as its own spec if no ads file is
+   --  is present.
 
    --  However, this is not correct. RM 10.1.4(4) requires that such a body
    --  act as a spec unless a subprogram declaration of the same name is
@@ -509,10 +509,11 @@ package Lib is
    --  Same function as above but argument is a source pointer
 
    function Earlier_In_Extended_Unit (S1, S2 : Source_Ptr) return Boolean;
-   --  Given two Sloc values  for which In_Same_Extended_Unit is true,
-   --  determine if S1 appears before S2. Returns True if S1 appears before
-   --  S2, and False otherwise. The result is undefined if S1 and S2 are
-   --  not in the same extended unit.
+   --  Given two Sloc values for which In_Same_Extended_Unit is true, determine
+   --  if S1 appears before S2. Returns True if S1 appears before S2, and False
+   --  otherwise. The result is undefined if S1 and S2 are not in the same
+   --  extended unit. Note: this routine will not give reliable results if
+   --  called after Sprint has been called with -gnatD set.
 
    function Compilation_Switches_Last return Nat;
    --  Return the count of stored compilation switches

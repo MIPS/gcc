@@ -443,6 +443,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
       xloc = expand_location (DECL_SOURCE_LOCATION (node));
       fprintf (file, " file %s line %d", xloc.file, xloc.line);
+#ifdef USE_MAPPED_LOCATION
+      fprintf (file, " col %d", xloc.column);
+#endif
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{	  
@@ -848,6 +851,21 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      }
 	  break;
 
+	case CONSTRUCTOR:
+	  {
+	    unsigned HOST_WIDE_INT cnt;
+	    tree index, value;
+	    len = VEC_length (constructor_elt, CONSTRUCTOR_ELTS (node));
+	    fprintf (file, " lngt %d", len);
+	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (node),
+				      cnt, index, value)
+	      {
+		print_node (file, "idx", index, indent + 4);
+		print_node (file, "val", value, indent + 4);
+	      }
+	  }
+	  break;
+
     	case STATEMENT_LIST:
 	  dump_addr (file, " head ", node->stmt_list.head);
 	  dump_addr (file, " tail ", node->stmt_list.tail);
@@ -932,6 +950,9 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       expanded_location xloc = expand_location (EXPR_LOCATION (node));
       indent_to (file, indent+4);
       fprintf (file, "%s:%d", xloc.file, xloc.line);
+#ifdef USE_MAPPED_LOCATION
+      fprintf (file, ":%d", xloc.column);
+#endif
     }
 
   fprintf (file, ">");

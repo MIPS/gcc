@@ -49,7 +49,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
   # Keep these sync'd with the list in Makefile.am.  The first provides an
   # expandable list at autoconf time; the second provides an expandable list
   # (i.e., shell variable) at configure time.
-  m4_define([glibcxx_SUBDIRS],[include libmath libsupc++ src po testsuite])
+  m4_define([glibcxx_SUBDIRS],[include libmath libsupc++ src doc po testsuite])
   SUBDIRS='glibcxx_SUBDIRS'
 
   # These need to be absolute paths, yet at the same time need to
@@ -763,9 +763,13 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
   AC_LANG_SAVE
   AC_LANG_CPLUSPLUS
 
-  # Use -fno-exceptions so that the C driver can link these tests without
-  # hitting undefined references to personality routines.
+  # Use -std=c++98 because the default (-std=gnu++98) leaves __STRICT_ANSI__
+  # undefined and fake C99 facilities - like pre-standard snprintf - may be
+  # spuriously enabled.
+  # Long term, -std=c++0x could be even better, could manage to explicitely
+  # request C99 facilities to the underlying C headers.
   ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -std=c++98"
   ac_save_LIBS="$LIBS"
   ac_save_gcc_no_link="$gcc_no_link"
 
@@ -995,6 +999,11 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 
   AC_LANG_SAVE
   AC_LANG_CPLUSPLUS
+
+  # Use -std=c++98 because the default (-std=gnu++98) leaves __STRICT_ANSI__
+  # undefined and fake C99 facilities may be spuriously enabled.
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -std=c++98"
 
   # Check for the existence of <complex.h> complex math functions used
   # by tr1/complex.
@@ -1266,6 +1275,7 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
   # Check for the existence of the <stdbool.h> header.	
   AC_CHECK_HEADERS(stdbool.h)
 
+  CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
 ])
 
@@ -1409,6 +1419,26 @@ AC_DEFUN([GLIBCXX_CHECK_SYSTEM_ERROR], [
   AC_MSG_RESULT($ac_system_error_11)
   if test x"$ac_system_error_11" = x"yes"; then
     AC_DEFINE(HAVE_ECANCELED, 1, [Define if ECANCELED exists.])
+  fi
+
+  AC_MSG_CHECKING([for EOVERFLOW])
+  AC_CACHE_VAL(ac_system_error_12, [
+  AC_TRY_COMPILE([#include <errno.h>], [ int i = EOVERFLOW; ],
+             [ac_system_error_12=yes], [ac_system_error_12=no])
+  ])
+  AC_MSG_RESULT($ac_system_error_12)
+  if test x"$ac_system_error_12" = x"yes"; then
+    AC_DEFINE(HAVE_EOVERFLOW, 1, [Define if EOVERFLOW exists.])
+  fi
+
+  AC_MSG_CHECKING([for ENOTSUP])
+  AC_CACHE_VAL(ac_system_error_13, [
+  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENOTSUP; ],
+             [ac_system_error_13=yes], [ac_system_error_13=no])
+  ])
+  AC_MSG_RESULT($ac_system_error_13)
+  if test x"$ac_system_error_13" = x"yes"; then
+    AC_DEFINE(HAVE_ENOTSUP, 1, [Define if ENOTSUP exists.])
   fi
 ])
 
@@ -2527,8 +2557,6 @@ AC_DEFUN([GLIBCXX_ENABLE_THREADS], [
 # be used in projects which are not available under the GNU Public License
 # but which still want to provide support for the GNU gettext functionality.
 # Please note that the actual code is *not* freely available.
-
-# serial 1
 AC_DEFUN([AC_LC_MESSAGES], [
   AC_CHECK_HEADER(locale.h, [
     AC_CACHE_CHECK([for LC_MESSAGES], ac_cv_val_LC_MESSAGES,

@@ -43,7 +43,6 @@ struct scope_binding {
 
 static cxx_scope *innermost_nonclass_level (void);
 static cxx_binding *binding_for_name (cxx_scope *, tree);
-static tree lookup_name_innermost_nonclass_level (tree);
 static tree push_overloaded_decl (tree, int, bool);
 static bool lookup_using_namespace (tree, struct scope_binding *, tree,
 				    tree, int);
@@ -1730,12 +1729,15 @@ constructor_name (tree type)
   return name;
 }
 
-/* Returns TRUE if NAME is the name for the constructor for TYPE.  */
+/* Returns TRUE if NAME is the name for the constructor for TYPE,
+   which must be a class type.  */
 
 bool
 constructor_name_p (tree name, tree type)
 {
   tree ctor_name;
+
+  gcc_assert (IS_AGGR_TYPE (type));
 
   if (!name)
     return false;
@@ -2824,7 +2826,7 @@ do_class_using_decl (tree scope, tree name)
       error ("%<%T::%D%> names destructor", scope, name);
       return NULL_TREE;
     }
-  if (constructor_name_p (name, scope))
+  if (IS_AGGR_TYPE (scope) && constructor_name_p (name, scope))
     {
       error ("%<%T::%D%> names constructor", scope, name);
       return NULL_TREE;
@@ -4199,7 +4201,7 @@ lookup_type_scope (tree name, tag_scope scope)
 /* Similar to `lookup_name' but look only in the innermost non-class
    binding level.  */
 
-static tree
+tree
 lookup_name_innermost_nonclass_level (tree name)
 {
   struct cp_binding_level *b;
@@ -4477,6 +4479,17 @@ arg_assoc_template_arg (struct arg_lookup *k, tree arg)
       else
 	return arg_assoc_class (k, ctx);
     }
+  /* It's an argument pack; handle it recursively.  */
+  else if (ARGUMENT_PACK_P (arg))
+    {
+      tree args = ARGUMENT_PACK_ARGS (arg);
+      int i, len = TREE_VEC_LENGTH (args);
+      for (i = 0; i < len; ++i) 
+	if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, i)))
+	  return true;
+
+      return false;
+    }
   /* It's not a template template argument, but it is a type template
      argument.  */
   else if (TYPE_P (arg))
@@ -4612,15 +4625,6 @@ arg_assoc_type (struct arg_lookup *k, tree type)
       return false;
     case TYPE_PACK_EXPANSION:
       return arg_assoc_type (k, PACK_EXPANSION_PATTERN (type));
-    case TYPE_ARGUMENT_PACK:
-      {
-        tree args = ARGUMENT_PACK_ARGS (type);
-        int i, len = TREE_VEC_LENGTH (args);
-        for (i = 0; i < len; i++)
-          if (arg_assoc_type (k, TREE_VEC_ELT (args, i)))
-            return true;
-      }
-      break;
 
     default:
       gcc_unreachable ();

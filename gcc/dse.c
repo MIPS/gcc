@@ -284,12 +284,29 @@ struct insn_info
      contains a wild read, the use_rec will be null.  */
   bool wild_read;
 
-  /* This field is set for const function calls.  Const functions
-     cannot read memory, but they can read the stack because that is
-     where they may get their parms.  So having this set is less
-     severe than a wild read, it just means that all of the stores to
-     the stack are killed rather than all stores.  */
-  bool stack_read;
+  /* This field is only used for the processing of const functions.
+     These functions cannot read memory, but they can read the stack
+     because that is where they may get their parms.  We need to be
+     this conservative because, like the store motion pass, we don't
+     consider CALL_INSN_FUNCTION_USAGE when processing call insns.
+     Moreover, we need to distinguish two cases:
+     1. Before reload (register elimination), the stores related to
+	outgoing arguments are stack pointer based and thus deemed
+	of non-constant base in this pass.  This requires special
+	handling but also means that the frame pointer based stores
+	need not be killed upon encountering a const function call.
+     2. After reload, the stores related to outgoing arguments can be
+	either stack pointer or hard frame pointer based.  This means
+	that we have no other choice than also killing all the frame
+	pointer based stores upon encountering a const function call.
+     This field is set after reload for const function calls.  Having
+     this set is less severe than a wild read, it just means that all
+     the frame related stores are killed rather than all the stores.  */
+  bool frame_read;
+
+  /* This field is only used for the processing of const functions.
+     It is set if the insn may contain a stack pointer based store.  */
+  bool stack_pointer_based;
 
   /* This is true if any of the sets within the store contains a
      cselib base.  Such stores can only be deleted by the local
@@ -941,8 +958,9 @@ add_wild_read (bb_info_t bb_info)
 }
 
 
-/* Return true if X is a constant or one of the registers that behaves
-   as a constant over the life of a function.  */
+/* Return true if X is a constant or one of the registers that behave
+   as a constant over the life of a function.  This is equivalent to
+   !rtx_varies_p for memory addresses.  */
 
 static bool
 const_or_frame_p (rtx x)
@@ -1245,8 +1263,15 @@ record_store (rtx body, bb_info_t bb_info)
     }
   else
     {
-      store_info = pool_alloc (cse_store_info_pool);
+      rtx base_term = find_base_term (XEXP (mem, 0));
+      if (!base_term
+	  || (GET_CODE (base_term) == ADDRESS
+	      && GET_MODE (base_term) == Pmode
+	      && XEXP (base_term, 0) == stack_pointer_rtx))
+	insn_info->stack_pointer_based = true;
       insn_info->contains_cselib_groups = true;
+
+      store_info = pool_alloc (cse_store_info_pool);
       group_id = -1;
 
       if (dump_file)
@@ -1408,7 +1433,7 @@ find_shift_sequence (rtx read_reg,
      justify the value we want to read but is available in one insn on
      the machine.  */
 
-  for (; access_size < UNITS_PER_WORD; access_size *= 2)
+  for (; access_size <= UNITS_PER_WORD; access_size *= 2)
     {
       rtx target, new_reg, shift_seq, insn;
       enum machine_mode new_mode;
@@ -1422,7 +1447,7 @@ find_shift_sequence (rtx read_reg,
 	continue;
 
       new_mode = smallest_mode_for_size (access_size * BITS_PER_UNIT,
-					 GET_MODE_CLASS (read_mode));
+					 MODE_INT);
       new_reg = gen_reg_rtx (new_mode);
 
       start_sequence ();
@@ -1448,9 +1473,8 @@ find_shift_sequence (rtx read_reg,
 	 of the arguments and could be precomputed.  It may
 	 not be worth doing so.  We could precompute if
 	 worthwhile or at least cache the results.  The result
-	 technically depends on SHIFT, ACCESS_SIZE, and
-	 GET_MODE_CLASS (READ_MODE).  But in practice the
-	 answer will depend only on ACCESS_SIZE.  */
+	 technically depends on both SHIFT and ACCESS_SIZE,
+	 but in practice the answer will depend only on ACCESS_SIZE.  */
 
       if (cost > COSTS_N_INSNS (1))
 	continue;
@@ -1532,7 +1556,8 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
   if (!dbg_cnt (dse))
     return false;
 
-  if (GET_MODE_CLASS (read_mode) != GET_MODE_CLASS (store_mode))
+  if (GET_MODE_CLASS (read_mode) != MODE_INT
+      || GET_MODE_CLASS (store_mode) != MODE_INT)
     return false;
 
   /* To get here the read is within the boundaries of the write so
@@ -1555,7 +1580,7 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
      call to get rid of the read.  */
   if (shift)
     {
-      if (access_size > UNITS_PER_WORD || FLOAT_MODE_P (store_mode))
+      if (access_size > UNITS_PER_WORD)
 	return false;
 
       shift_seq = find_shift_sequence (read_reg, access_size, store_info,
@@ -1954,9 +1979,10 @@ scan_insn (bb_info_t bb_info, rtx insn)
   if (CALL_P (insn))
     {
       insn_info->cannot_delete = true;
+
       /* Const functions cannot do anything bad i.e. read memory,
-	 however, they can read their parameters which may have been
-	 pushed onto the stack.  */
+	 however, they can read their parameters which may have
+	 been pushed onto the stack.  */
       if (CONST_OR_PURE_CALL_P (insn) && !pure_call_p (insn))
 	{
 	  insn_info_t i_ptr = active_local_stores;
@@ -1965,17 +1991,36 @@ scan_insn (bb_info_t bb_info, rtx insn)
 	  if (dump_file)
 	    fprintf (dump_file, "const call %d\n", INSN_UID (insn));
 
+	  /* See the head comment of the frame_read field.  */
+	  if (reload_completed)
+	    insn_info->frame_read = true;
+
+	  /* Loop over the active stores and remove those which are
+	     killed by the const function call.  */
 	  while (i_ptr)
 	    {
-	      store_info_t store_info = i_ptr->store_rec;
+	      bool remove_store = false;
 
-	      /* Skip the clobbers.  */
-	      while (!store_info->is_set)
-		store_info = store_info->next;
+	      /* The stack pointer based stores are always killed.  */
+	      if (i_ptr->stack_pointer_based)
+	        remove_store = true;
 
-	      /* Remove the frame related stores.  */
-	      if (store_info->group_id >= 0
-		  && VEC_index (group_info_t, rtx_group_vec, store_info->group_id)->frame_related)
+	      /* If the frame is read, the frame related stores are killed.  */
+	      else if (insn_info->frame_read)
+		{
+		  store_info_t store_info = i_ptr->store_rec;
+
+		  /* Skip the clobbers.  */
+		  while (!store_info->is_set)
+		    store_info = store_info->next;
+
+		  if (store_info->group_id >= 0
+		      && VEC_index (group_info_t, rtx_group_vec,
+				    store_info->group_id)->frame_related)
+		    remove_store = true;
+		}
+
+	      if (remove_store)
 		{
 		  if (dump_file)
 		    dump_insn_info ("removing from active", i_ptr);
@@ -1987,16 +2032,15 @@ scan_insn (bb_info_t bb_info, rtx insn)
 		}
 	      else
 		last = i_ptr;
+
 	      i_ptr = i_ptr->next_local_store;
 	    }
-
-	  insn_info->stack_read = true;
-	  
-	  return;
 	}
 
-      /* Every other call, including pure functions may read memory.  */
-      add_wild_read (bb_info);
+      else
+	/* Every other call, including pure functions, may read memory.  */
+	add_wild_read (bb_info);
+
       return;
     }
 
@@ -2498,8 +2542,8 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
   int i;
   group_info_t group;
 
-  /* For const function calls kill the stack related stores.  */
-  if (insn_info->stack_read)
+  /* If this insn reads the frame, kill all the frame related stores.  */
+  if (insn_info->frame_read)
     {
       for (i = 0; VEC_iterate (group_info_t, rtx_group_vec, i, group); i++)
 	if (group->process_globally && group->frame_related)

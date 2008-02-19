@@ -2714,6 +2714,11 @@ build_jni_stub (tree method)
 
   jni_func_type = build_pointer_type (tem);
 
+  /* Use the actual function type, rather than a generic pointer type,
+     such that this decl keeps the actual pointer type from being
+     garbage-collected.  If it is, we end up using canonical types
+     with different uids for equivalent function types, and this in
+     turn causes utf8 identifiers and output order to vary.  */
   meth_var = build_decl (VAR_DECL, get_identifier ("meth"), jni_func_type);
   TREE_STATIC (meth_var) = 1;
   TREE_PUBLIC (meth_var) = 0;

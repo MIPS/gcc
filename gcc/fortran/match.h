@@ -54,6 +54,7 @@ match gfc_match_intrinsic_op (gfc_intrinsic_op *);
 match gfc_match_char (char);
 match gfc_match (const char *, ...);
 match gfc_match_iterator (gfc_iterator *, int);
+match gfc_match_parens (void);
 
 /* Statement matchers.  */
 match gfc_match_program (void);
@@ -175,7 +176,7 @@ try set_verify_bind_c_com_block (gfc_common_head *, int);
 try get_bind_c_idents (void);
 match gfc_match_bind_c_stmt (void);
 match gfc_match_suffix (gfc_symbol *, gfc_symbol **);
-match gfc_match_bind_c (gfc_symbol *);
+match gfc_match_bind_c (gfc_symbol *, bool);
 match gfc_get_type_attr_spec (symbol_attribute *);
 
 /* primary.c.  */

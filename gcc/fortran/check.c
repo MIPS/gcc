@@ -315,13 +315,6 @@ dim_check (gfc_expr *dim, int n, bool optional)
   if (dim == NULL)
     return SUCCESS;
 
-  if (dim == NULL)
-    {
-      gfc_error ("Missing DIM parameter in intrinsic '%s' at %L",
-		 gfc_current_intrinsic, gfc_current_intrinsic_where);
-      return FAILURE;
-    }
-
   if (type_check (dim, n, BT_INTEGER) == FAILURE)
     return FAILURE;
 
@@ -569,6 +562,16 @@ gfc_check_a_p (gfc_expr *a, gfc_expr *p)
 			  &p->where) == FAILURE)
        return FAILURE;
     }
+
+  return SUCCESS;
+}
+
+
+try
+gfc_check_x_yd (gfc_expr *x, gfc_expr *y)
+{
+  if (double_check (x, 0) == FAILURE || double_check (y, 1) == FAILURE)
+    return FAILURE;
 
   return SUCCESS;
 }
@@ -850,6 +853,9 @@ gfc_check_cshift (gfc_expr *array, gfc_expr *shift, gfc_expr *dim)
   if (array_check (array, 0) == FAILURE)
     return FAILURE;
 
+  if (type_check (shift, 1, BT_INTEGER) == FAILURE)
+    return FAILURE;
+
   if (array->rank == 1)
     {
       if (scalar_check (shift, 1) == FAILURE)
@@ -860,8 +866,7 @@ gfc_check_cshift (gfc_expr *array, gfc_expr *shift, gfc_expr *dim)
       /* TODO: more requirements on shift parameter.  */
     }
 
-  /* FIXME (PR33317): Allow optional DIM=.  */
-  if (dim_check (dim, 2, false) == FAILURE)
+  if (dim_check (dim, 2, true) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -880,6 +885,14 @@ gfc_check_ctime (gfc_expr *time)
   return SUCCESS;
 }
 
+
+try gfc_check_datan2 (gfc_expr *y, gfc_expr *x)
+{
+  if (double_check (y, 0) == FAILURE || double_check (x, 1) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
 
 try
 gfc_check_dcmplx (gfc_expr *x, gfc_expr *y)
@@ -968,6 +981,33 @@ gfc_check_dot_product (gfc_expr *vector_a, gfc_expr *vector_b)
 
 
 try
+gfc_check_dprod (gfc_expr *x, gfc_expr *y)
+{
+  if (type_check (x, 0, BT_REAL) == FAILURE
+      || type_check (y, 1, BT_REAL) == FAILURE)
+    return FAILURE;
+
+  if (x->ts.kind != gfc_default_real_kind)
+    {
+      gfc_error ("'%s' argument of '%s' intrinsic at %L must be default "
+		 "real", gfc_current_intrinsic_arg[0],
+		 gfc_current_intrinsic, &x->where);
+      return FAILURE;
+    }
+
+  if (y->ts.kind != gfc_default_real_kind)
+    {
+      gfc_error ("'%s' argument of '%s' intrinsic at %L must be default "
+		 "real", gfc_current_intrinsic_arg[1],
+		 gfc_current_intrinsic, &y->where);
+      return FAILURE;
+    }
+
+  return SUCCESS;
+}
+
+
+try
 gfc_check_eoshift (gfc_expr *array, gfc_expr *shift, gfc_expr *boundary,
 		   gfc_expr *dim)
 {
@@ -995,8 +1035,7 @@ gfc_check_eoshift (gfc_expr *array, gfc_expr *shift, gfc_expr *boundary,
       /* TODO: more restrictions on boundary.  */
     }
 
-  /* FIXME (PR33317): Allow optional DIM=.  */
-  if (dim_check (dim, 4, false) == FAILURE)
+  if (dim_check (dim, 4, true) == FAILURE)
     return FAILURE;
 
   return SUCCESS;
@@ -1026,6 +1065,16 @@ gfc_check_fn_r (gfc_expr *a)
   return SUCCESS;
 }
 
+/* A single double argument.  */
+
+try
+gfc_check_fn_d (gfc_expr *a)
+{
+  if (double_check (a, 0) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
 
 /* A single real or complex argument.  */
 
@@ -2345,7 +2394,7 @@ gfc_check_shape (gfc_expr *source)
 
   ar = gfc_find_array_ref (source);
 
-  if (ar->as && ar->as->type == AS_ASSUMED_SIZE)
+  if (ar->as && ar->as->type == AS_ASSUMED_SIZE && ar->type == AR_FULL)
     {
       gfc_error ("'source' argument of 'shape' intrinsic at %L must not be "
 		 "an assumed size array", &source->where);
@@ -3181,7 +3230,7 @@ gfc_check_ctime_sub (gfc_expr *time, gfc_expr *result)
 
 
 try
-gfc_check_etime (gfc_expr *x)
+gfc_check_dtime_etime (gfc_expr *x)
 {
   if (array_check (x, 0) == FAILURE)
     return FAILURE;
@@ -3203,7 +3252,7 @@ gfc_check_etime (gfc_expr *x)
 
 
 try
-gfc_check_etime_sub (gfc_expr *values, gfc_expr *time)
+gfc_check_dtime_etime_sub (gfc_expr *values, gfc_expr *time)
 {
   if (array_check (values, 0) == FAILURE)
     return FAILURE;

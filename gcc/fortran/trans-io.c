@@ -1083,6 +1083,33 @@ gfc_trans_flush (gfc_code * code)
 }
 
 
+/* Create a dummy iostat variable to catch any error due to bad unit.  */
+
+static gfc_expr *
+create_dummy_iostat (void)
+{
+  gfc_symtree *st;
+  gfc_expr *e;
+
+  gfc_get_ha_sym_tree ("@iostat", &st);
+  st->n.sym->ts.type = BT_INTEGER;
+  st->n.sym->ts.kind = gfc_default_integer_kind;
+  gfc_set_sym_referenced (st->n.sym);
+  gfc_commit_symbol (st->n.sym);
+  st->n.sym->backend_decl
+	= gfc_create_var (gfc_get_int_type (st->n.sym->ts.kind),
+			  st->n.sym->name);
+
+  e = gfc_get_expr ();
+  e->expr_type = EXPR_VARIABLE;
+  e->symtree = st;
+  e->ts.type = BT_INTEGER;
+  e->ts.kind = st->n.sym->ts.kind;
+
+  return e;
+}
+
+
 /* Translate the non-IOLENGTH form of an INQUIRE statement.  */
 
 tree
@@ -1122,8 +1149,17 @@ gfc_trans_inquire (gfc_code * code)
 			p->file);
 
   if (p->exist)
-    mask |= set_parameter_ref (&block, &post_block, var, IOPARM_inquire_exist,
-			       p->exist);
+    {
+      mask |= set_parameter_ref (&block, &post_block, var, IOPARM_inquire_exist,
+				 p->exist);
+    
+      if (p->unit && !p->iostat)
+	{
+	  p->iostat = create_dummy_iostat ();
+	  mask |= set_parameter_ref (&block, &post_block, var,
+				     IOPARM_common_iostat, p->iostat);
+	}
+    }
 
   if (p->opened)
     mask |= set_parameter_ref (&block, &post_block, var, IOPARM_inquire_opened,
@@ -1936,6 +1972,7 @@ gfc_trans_transfer (gfc_code * code)
   gfc_ss *ss;
   gfc_se se;
   tree tmp;
+  int n;
 
   gfc_start_block (&block);
   gfc_init_block (&body);
@@ -1968,9 +2005,28 @@ gfc_trans_transfer (gfc_code * code)
 	    && ref && ref->next == NULL
 	    && !is_subref_array (expr))
 	{
-	  /* Get the descriptor.  */
-	  gfc_conv_expr_descriptor (&se, expr, ss);
-	  tmp = build_fold_addr_expr (se.expr);
+	  bool seen_vector = false;
+
+	  if (ref && ref->u.ar.type == AR_SECTION)
+	    {
+	      for (n = 0; n < ref->u.ar.dimen; n++)
+		if (ref->u.ar.dimen_type[n] == DIMEN_VECTOR)
+		  seen_vector = true;
+	    }
+
+	  if (seen_vector && last_dt == READ)
+	    {
+	      /* Create a temp, read to that and copy it back.  */
+	      gfc_conv_subref_array_arg (&se, expr, 0, INTENT_OUT);
+	      tmp =  se.expr;
+	    }
+	  else
+	    {
+	      /* Get the descriptor.  */
+	      gfc_conv_expr_descriptor (&se, expr, ss);
+	      tmp = build_fold_addr_expr (se.expr);
+	    }
+
 	  transfer_array_desc (&se, &expr->ts, tmp);
 	  goto finish_block_label;
 	}

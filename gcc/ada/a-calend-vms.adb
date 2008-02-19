@@ -437,6 +437,7 @@ package body Ada.Calendar is
       M : Month_Number;
       D : Day_Number;
       S : Day_Duration;
+      pragma Unreferenced (Y, M, S);
    begin
       Split (Date, Y, M, D, S);
       return D;
@@ -474,6 +475,7 @@ package body Ada.Calendar is
       M : Month_Number;
       D : Day_Number;
       S : Day_Duration;
+      pragma Unreferenced (Y, D, S);
    begin
       Split (Date, Y, M, D, S);
       return M;
@@ -488,6 +490,7 @@ package body Ada.Calendar is
       M : Month_Number;
       D : Day_Number;
       S : Day_Duration;
+      pragma Unreferenced (Y, M, D);
    begin
       Split (Date, Y, M, D, S);
       return S;
@@ -617,6 +620,7 @@ package body Ada.Calendar is
       M : Month_Number;
       D : Day_Number;
       S : Day_Duration;
+      pragma Unreferenced (M, D, S);
    begin
       Split (Date, Y, M, D, S);
       return Y;

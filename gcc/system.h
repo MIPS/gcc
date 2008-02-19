@@ -253,7 +253,8 @@ extern int errno;
    UPPER.  However the bounds themselves can be either positive or
    negative.  */
 #define IN_RANGE(VALUE, LOWER, UPPER) \
-  ((unsigned HOST_WIDE_INT)((VALUE) - (LOWER)) <= ((UPPER) - (LOWER)))
+  ((unsigned HOST_WIDE_INT) (VALUE) - (unsigned HOST_WIDE_INT) (LOWER) \
+   <= (unsigned HOST_WIDE_INT) (UPPER) - (unsigned HOST_WIDE_INT) (LOWER))
 
 /* Infrastructure for defining missing _MAX and _MIN macros.  Note that
    macros defined with these cannot be used in #if.  */
@@ -796,6 +797,11 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 /* Activate -Wcast-qual as a warning (not an error/-Werror).  */
 #if GCC_VERSION >= 4003
 #pragma GCC diagnostic warning "-Wcast-qual"
+/* If asserts are disabled, activate -Wuninitialized as a warning (not
+   an error/-Werror).  */
+#ifndef ASSERT_CHECKING
+#pragma GCC diagnostic warning "-Wuninitialized"
+#endif
 #endif
 
 #endif /* ! GCC_SYSTEM_H */

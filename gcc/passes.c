@@ -546,6 +546,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_pure_const); 
   NEXT_PASS (pass_ipa_type_escape);
   NEXT_PASS (pass_ipa_pta);
+  NEXT_PASS (pass_ipa_struct_reorg);  
   *p = NULL;
 
   /* These passes are run after IPA passes on every function that is being
@@ -556,6 +557,10 @@ init_optimization_passes (void)
     {
       struct tree_opt_pass **p = &pass_all_optimizations.sub;
       NEXT_PASS (pass_create_structure_vars);
+      /* ??? pass_build_alias is a dummy pass that ensures that we
+	 execute TODO_rebuild_alias at this point even if
+	 pass_create_structure_vars was disabled.  */
+      NEXT_PASS (pass_build_alias);
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_rename_ssa_copies);
 
@@ -601,7 +606,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_object_sizes);
       NEXT_PASS (pass_store_ccp);
-      NEXT_PASS (pass_store_copy_prop);
+      NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_cse_sincos);
       NEXT_PASS (pass_split_crit_edges);

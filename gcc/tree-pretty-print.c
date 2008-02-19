@@ -127,7 +127,7 @@ print_generic_decl (FILE *file, tree decl, int flags)
 }
 
 /* Print tree T, and its successors, on file FILE.  FLAGS specifies details
-   to show in the dump.  See TDF_* in tree.h.  */
+   to show in the dump.  See TDF_* in tree-pass.h.  */
 
 void
 print_generic_stmt (FILE *file, tree t, int flags)
@@ -138,7 +138,7 @@ print_generic_stmt (FILE *file, tree t, int flags)
 }
 
 /* Print tree T, and its successors, on file FILE.  FLAGS specifies details
-   to show in the dump.  See TDF_* in tree.h.  The output is indented by
+   to show in the dump.  See TDF_* in tree-pass.h.  The output is indented by
    INDENT spaces.  */
 
 void
@@ -155,7 +155,7 @@ print_generic_stmt_indented (FILE *file, tree t, int flags, int indent)
 }
 
 /* Print a single expression T on file FILE.  FLAGS specifies details to show
-   in the dump.  See TDF_* in tree.h.  */
+   in the dump.  See TDF_* in tree-pass.h.  */
 
 void
 print_generic_expr (FILE *file, tree t, int flags)
@@ -1952,6 +1952,23 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_character (buffer, '=');
       pp_space (buffer);
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      break;
+
+    case OMP_ATOMIC_LOAD:
+      pp_string (buffer, "#pragma omp atomic_load");
+      newline_and_indent (buffer, spc + 2);
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_space (buffer);
+      pp_character (buffer, '=');
+      pp_space (buffer);
+      pp_character (buffer, '*');
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      break;
+
+    case OMP_ATOMIC_STORE:
+      pp_string (buffer, "#pragma omp atomic_store (");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_character (buffer, ')');
       break;
 
     case OMP_SINGLE:

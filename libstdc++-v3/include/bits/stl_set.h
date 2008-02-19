@@ -1,6 +1,6 @@
 // Set implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -83,11 +83,9 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *  @param  Compare  Comparison function object type, defaults to less<Key>.
    *  @param  Alloc  Allocator type, defaults to allocator<Key>.
    *
-   *  @if maint
    *  The private tree data is declared exactly the same way for set and
    *  multiset; the distinction is made entirely in how the tree functions are
    *  called (*_unique versus *_equal, same as the standard).
-   *  @endif
   */
   template<typename _Key, typename _Compare = std::less<_Key>,
 	   typename _Alloc = std::allocator<_Key> >
@@ -116,7 +114,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
       typedef _Rb_tree<key_type, value_type, _Identity<value_type>,
 		       key_compare, _Key_alloc_type> _Rep_type;
-      _Rep_type _M_t;  // red-black tree representing set
+      _Rep_type _M_t;  // Red-black tree representing set.
 
     public:
       //@{
@@ -204,9 +202,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  The contents of @a x are a valid, but unspecified %set.
        */
       set(set&& __x)
-      : _M_t(__x._M_t.key_comp(),
-	     __x._M_t._M_get_Node_allocator())
-      { this->swap(__x); }
+      : _M_t(std::forward<_Rep_type>(__x._M_t)) { }
 #endif
 
       /**
@@ -234,6 +230,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       set&
       operator=(set&& __x)
       {
+	// NB: DR 675.
+	this->clear();
 	this->swap(__x); 
 	return *this;
       }
@@ -255,25 +253,27 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       { return _M_t.get_allocator(); }
 
       /**
-       *  Returns a read/write iterator that points to the first element in the
-       *  %set.  Iteration is done in ascending order according to the keys.
+       *  Returns a read-only (constant) iterator that points to the first
+       *  element in the %set.  Iteration is done in ascending order according
+       *  to the keys.
        */
       iterator
       begin() const
       { return _M_t.begin(); }
 
       /**
-       *  Returns a read/write iterator that points one past the last element in
-       *  the %set.  Iteration is done in ascending order according to the keys.
+       *  Returns a read-only (constant) iterator that points one past the last
+       *  element in the %set.  Iteration is done in ascending order according
+       *  to the keys.
        */
       iterator
       end() const
       { return _M_t.end(); }
 
       /**
-       *  Returns a read/write reverse iterator that points to the last element
-       *  in the %set.  Iteration is done in descending order according to the
-       *  keys.
+       *  Returns a read-only (constant) iterator that points to the last
+       *  element in the %set.  Iteration is done in descending order according
+       *  to the keys.
        */
       reverse_iterator
       rbegin() const
@@ -281,12 +281,50 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 
       /**
        *  Returns a read-only (constant) reverse iterator that points to the
-       *  last pair in the %map.  Iteration is done in descending order
+       *  last pair in the %set.  Iteration is done in descending order
        *  according to the keys.
        */
       reverse_iterator
       rend() const
       { return _M_t.rend(); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      /**
+       *  Returns a read-only (constant) iterator that points to the first
+       *  element in the %set.  Iteration is done in ascending order according
+       *  to the keys.
+       */
+      iterator
+      cbegin() const
+      { return _M_t.begin(); }
+
+      /**
+       *  Returns a read-only (constant) iterator that points one past the last
+       *  element in the %set.  Iteration is done in ascending order according
+       *  to the keys.
+       */
+      iterator
+      cend() const
+      { return _M_t.end(); }
+
+      /**
+       *  Returns a read-only (constant) iterator that points to the last
+       *  element in the %set.  Iteration is done in descending order according
+       *  to the keys.
+       */
+      reverse_iterator
+      crbegin() const
+      { return _M_t.rbegin(); }
+
+      /**
+       *  Returns a read-only (constant) reverse iterator that points to the
+       *  last pair in the %set.  Iteration is done in descending order
+       *  according to the keys.
+       */
+      reverse_iterator
+      crend() const
+      { return _M_t.rend(); }
+#endif
 
       ///  Returns true if the %set is empty.
       bool
@@ -368,7 +406,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       { return _M_t._M_insert_unique_(__position, __x); }
 
       /**
-       *  @brief A template function that attemps to insert a range of elements.
+       *  @brief A template function that attempts to insert a range of elements.
        *  @param  first  Iterator pointing to the start of the range to be
        *                 inserted.
        *  @param  last  Iterator pointing to the end of the range.
@@ -387,7 +425,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  This function erases an element, pointed to by the given iterator,
        *  from a %set.  Note that this function only erases the element, and
        *  that if the element is itself a pointer, the pointed-to memory is not
-       *  touched in any way.  Managing the pointer is the user's responsibilty.
+       *  touched in any way.  Managing the pointer is the user's responsibility.
        */
       void
       erase(iterator __position)
@@ -402,7 +440,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  a %set.
        *  Note that this function only erases the element, and that if
        *  the element is itself a pointer, the pointed-to memory is not touched
-       *  in any way.  Managing the pointer is the user's responsibilty.
+       *  in any way.  Managing the pointer is the user's responsibility.
        */
       size_type
       erase(const key_type& __x)
@@ -417,7 +455,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  This function erases a sequence of elements from a %set.
        *  Note that this function only erases the element, and that if
        *  the element is itself a pointer, the pointed-to memory is not touched
-       *  in any way.  Managing the pointer is the user's responsibilty.
+       *  in any way.  Managing the pointer is the user's responsibility.
        */
       void
       erase(iterator __first, iterator __last)
@@ -427,7 +465,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  Erases all elements in a %set.  Note that this function only erases
        *  the elements, and that if the elements themselves are pointers, the
        *  pointed-to memory is not touched in any way.  Managing the pointer is
-       *  the user's responsibilty.
+       *  the user's responsibility.
        */
       void
       clear()

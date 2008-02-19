@@ -93,7 +93,7 @@ package body Debug is
    --  dY   Enable configurable run-time mode
    --  dZ   Generate listing showing the contents of the dispatch tables
 
-   --  d.a
+   --  d.a  Disable OpenVMS alignment optimization on types
    --  d.b
    --  d.c
    --  d.d
@@ -128,7 +128,7 @@ package body Debug is
    --  d.F
    --  d.G
    --  d.H
-   --  d.I
+   --  d.I  Inspector mode
    --  d.J
    --  d.K
    --  d.L
@@ -495,6 +495,12 @@ package body Debug is
    --         - In case of abstract subprograms the text "is abstract" is
    --           added at the end of the line.
 
+   --  d.a  Disable OpenVMS alignment optimization on types.  On OpenVMS,
+   --       record types whose size is odd "in between" (e.g. 17 bits) are
+   --       over-aligned to the next power of 2 (until 8 bytes).  This over
+   --       alignment improve generated code and is more consistent with
+   --       what Dec Ada does.
+
    --  d.f  Suppress folding of static expressions. This of course results
    --       in seriously non-conforming behavior, but is useful sometimes
    --       when tracking down handling of complex expressions.
@@ -532,6 +538,10 @@ package body Debug is
    --       handlers to be eliminated from the generated code. They are still
    --       fully compiled and analyzed, they just get eliminated from the
    --       code generation step.
+
+   --  d.I  Inspector mode. Relevant for VM_Target /= None. Try to generate
+   --       byte code, even in case of unsupported construct, for the sake
+   --       of static analysis tools.
 
    --  d1   Error messages have node numbers where possible. Normally error
    --       messages have only source locations. This option is useful when
@@ -613,14 +623,11 @@ package body Debug is
    --  dx  Force the binder to read (and then ignore) the xref information
    --      in ali files (used to check that read circuit is working OK).
 
-   ------------------------------------------------------------
-   -- Documentation for the Debug Flags used in package Make --
-   ------------------------------------------------------------
+   --------------------------------------------
+   -- Documentation for gnatmake Debug Flags --
+   --------------------------------------------
 
-   --  Please note that such flags apply to all of Make clients,
-   --  such as gnatmake.
-
-   --  dn  Do not delete temporary files creates by Make at the end
+   --  dn  Do not delete temporary files created by gnatmake at the end
    --      of execution, such as temporary config pragma files, mapping
    --      files or project path files.
 
@@ -639,6 +646,18 @@ package body Debug is
 
    --  dw  Prints the list of units withed by the unit currently explored
    --      during the main loop of Make.Compile_Sources.
+
+   ---------------------------------------------
+   -- Documentation for gprbuild Debug Flags  --
+   ---------------------------------------------
+
+   --  dn  Do not delete temporary files createed by gprbuild at the end
+   --      of execution, such as temporary config pragma files, mapping
+   --      files or project path files.
+
+   --  dt  When a time stamp mismatch has been found for an ALI file,
+   --      display the source file name, the time stamp expected and
+   --      the time stamp found.
 
    --------------------
    -- Set_Debug_Flag --

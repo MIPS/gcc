@@ -389,7 +389,7 @@ global_alloc (void)
       }
 
   allocno = XCNEWVEC (struct allocno, max_allocno);
-  partial_bitnum = XNEWVEC (int, max_allocno);
+  partial_bitnum = XNEWVEC (HOST_WIDE_INT, max_allocno);
   num_allocnos_per_blk = XCNEWVEC (int, max_blk + 1);
 
   /* ...so we can sort them in the order we want them to receive
@@ -404,6 +404,7 @@ global_alloc (void)
       allocno[i].reg = regno;
       allocno[i].size = PSEUDO_REGNO_SIZE (regno);
       allocno[i].calls_crossed += REG_N_CALLS_CROSSED (regno);
+      allocno[i].freq_calls_crossed += REG_FREQ_CALLS_CROSSED (regno);
       allocno[i].throwing_calls_crossed
 	+= REG_N_THROWING_CALLS_CROSSED (regno);
       allocno[i].n_refs += REG_N_REFS (regno);
@@ -432,12 +433,14 @@ global_alloc (void)
     }
 
 #ifdef ENABLE_CHECKING
-  gcc_assert (max_bitnum <= ((max_allocno * (max_allocno - 1)) / 2));
+  gcc_assert (max_bitnum <=
+	      (((HOST_WIDE_INT) max_allocno *
+		((HOST_WIDE_INT) max_allocno - 1)) / 2));
 #endif
 
   if (dump_file)
     {
-      int num_bits, num_bytes, actual_bytes;
+      HOST_WIDE_INT num_bits, num_bytes, actual_bytes;
 
       fprintf (dump_file, "## max_blk:     %d\n", max_blk);
       fprintf (dump_file, "## max_regno:   %d\n", max_regno);
@@ -447,21 +450,23 @@ global_alloc (void)
       num_bytes = CEIL (num_bits, 8);
       actual_bytes = num_bytes;
       fprintf (dump_file, "## Compressed triangular bitmatrix size: ");
-      fprintf (dump_file, "%d bits, %d bytes\n", num_bits, num_bytes);
+      fprintf (dump_file, HOST_WIDE_INT_PRINT_DEC " bits, ", num_bits);
+      fprintf (dump_file, HOST_WIDE_INT_PRINT_DEC " bytes\n", num_bytes);
 
-      num_bits = (max_allocno * (max_allocno - 1)) / 2;
+      num_bits = ((HOST_WIDE_INT) max_allocno *
+		  ((HOST_WIDE_INT) max_allocno - 1)) / 2;
       num_bytes = CEIL (num_bits, 8);
       fprintf (dump_file, "## Standard triangular bitmatrix size:   ");
-      fprintf (dump_file, "%d bits, %d bytes [%.2f%%]\n",
-	       num_bits, num_bytes,
-	       100.0 * ((double) actual_bytes / (double) num_bytes));
+      fprintf (dump_file, HOST_WIDE_INT_PRINT_DEC " bits, ", num_bits);
+      fprintf (dump_file, HOST_WIDE_INT_PRINT_DEC " bytes [%.2f%%]\n",
+	       num_bytes, 100.0 * ((double) actual_bytes / (double) num_bytes));
 
-      num_bits = max_allocno * max_allocno;
+      num_bits = (HOST_WIDE_INT) max_allocno * (HOST_WIDE_INT) max_allocno;
       num_bytes = CEIL (num_bits, 8);
       fprintf (dump_file, "## Square bitmatrix size:                ");
-      fprintf (dump_file, "%d bits, %d bytes [%.2f%%]\n",
-	       num_bits, num_bytes,
-	       100.0 * ((double) actual_bytes / (double) num_bytes));
+      fprintf (dump_file, HOST_WIDE_INT_PRINT_DEC " bits, ", num_bits);
+      fprintf (dump_file, HOST_WIDE_INT_PRINT_DEC " bytes [%.2f%%]\n",
+	       num_bytes, 100.0 * ((double) actual_bytes / (double) num_bytes));
     }
 
   /* Calculate amount of usage of each hard reg by pseudos
@@ -1006,6 +1011,21 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
     IOR_HARD_REG_SET (used1, losers);
 
   IOR_COMPL_HARD_REG_SET (used1, reg_class_contents[(int) class]);
+
+#ifdef EH_RETURN_DATA_REGNO
+  if (allocno[num].no_eh_reg)
+    {
+      unsigned int j;
+      for (j = 0; ; ++j)
+	{
+	  unsigned int regno = EH_RETURN_DATA_REGNO (j);
+	  if (regno == INVALID_REGNUM)
+	    break;
+	  SET_HARD_REG_BIT (used1, regno);
+	}
+    }
+#endif
+
   COPY_HARD_REG_SET (used2, used1);
 
   IOR_HARD_REG_SET (used1, allocno[num].hard_reg_conflicts);
@@ -1160,8 +1180,9 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
       if (! accept_call_clobbered
 	  && allocno[num].calls_crossed != 0
 	  && allocno[num].throwing_calls_crossed == 0
-	  && CALLER_SAVE_PROFITABLE (allocno[num].n_refs,
-				     allocno[num].calls_crossed))
+	  && CALLER_SAVE_PROFITABLE (optimize_size ? allocno[num].n_refs : allocno[num].freq,
+				     optimize_size ? allocno[num].calls_crossed
+				     : allocno[num].freq_calls_crossed))
 	{
 	  HARD_REG_SET new_losers;
 	  if (! losers)
@@ -1354,6 +1375,8 @@ mark_elimination (int from, int to)
     }
 }
 
+/* Print chain C to FILE.  */
+
 static void
 print_insn_chain (FILE *file, struct insn_chain *c)
 {
@@ -1362,6 +1385,9 @@ print_insn_chain (FILE *file, struct insn_chain *c)
   bitmap_print (file, &c->dead_or_set, "dead_or_set: ", "\n");
 }
 
+
+/* Print all reload_insn_chains to FILE.  */
+
 static void
 print_insn_chains (FILE *file)
 {
@@ -1369,8 +1395,11 @@ print_insn_chains (FILE *file)
   for (c = reload_insn_chain; c ; c = c->next)
     print_insn_chain (file, c);
 }
+
+
 /* Walk the insns of the current function and build reload_insn_chain,
    and record register life information.  */
+
 static void
 build_insn_chain (void)
 {
@@ -1446,7 +1475,7 @@ build_insn_chain (void)
 		      {
 			if (regno < FIRST_PSEUDO_REGISTER)
 			  {
-			    if (! fixed_regs[regno])
+			    if (!fixed_regs[regno])
 			      bitmap_set_bit (&c->dead_or_set, regno);
 			  }
 			else if (reg_renumber[regno] >= 0)
@@ -1457,17 +1486,32 @@ build_insn_chain (void)
 			&& (!DF_REF_FLAGS_IS_SET (def, DF_REF_CONDITIONAL)))
 		      {
 			rtx reg = DF_REF_REG (def);
+
 			/* We can model subregs, but not if they are
 			   wrapped in ZERO_EXTRACTS.  */
 			if (GET_CODE (reg) == SUBREG
 			    && !DF_REF_FLAGS_IS_SET (def, DF_REF_EXTRACT))
 			  {
 			    unsigned int start = SUBREG_BYTE (reg);
-			    unsigned int last = start + GET_MODE_SIZE (GET_MODE (reg));
+			    unsigned int last = start 
+			      + GET_MODE_SIZE (GET_MODE (reg));
 
-			    ra_init_live_subregs (bitmap_bit_p (live_relevant_regs, regno), 
-						  live_subregs, live_subregs_used,
+			    ra_init_live_subregs (bitmap_bit_p (live_relevant_regs, 
+								regno), 
+						  live_subregs, 
+						  live_subregs_used,
 						  regno, reg);
+
+			    if (!DF_REF_FLAGS_IS_SET
+				(def, DF_REF_STRICT_LOWER_PART))
+			      {
+				/* Expand the range to cover entire words.
+				   Bytes added here are "don't care".  */
+				start = start / UNITS_PER_WORD * UNITS_PER_WORD;
+				last = ((last + UNITS_PER_WORD - 1)
+					/ UNITS_PER_WORD * UNITS_PER_WORD);
+			      }
+
 			    /* Ignore the paradoxical bits.  */
 			    if ((int)last > live_subregs_used[regno])
 			      last = live_subregs_used[regno];
@@ -1531,7 +1575,7 @@ build_insn_chain (void)
 		      {
 			if (regno < FIRST_PSEUDO_REGISTER)
 			  {
-			    if (! fixed_regs[regno])
+			    if (!fixed_regs[regno])
 			      bitmap_set_bit (&c->dead_or_set, regno);
 			  }
 			else if (reg_renumber[regno] >= 0)
@@ -1544,10 +1588,13 @@ build_insn_chain (void)
 			    && !DF_REF_FLAGS_IS_SET (use, DF_REF_EXTRACT)) 
 			  {
 			    unsigned int start = SUBREG_BYTE (reg);
-			    unsigned int last = start + GET_MODE_SIZE (GET_MODE (reg));
+			    unsigned int last = start 
+			      + GET_MODE_SIZE (GET_MODE (reg));
 			    
-			    ra_init_live_subregs (bitmap_bit_p (live_relevant_regs, regno), 
-						  live_subregs, live_subregs_used,
+			    ra_init_live_subregs (bitmap_bit_p (live_relevant_regs, 
+								regno), 
+						  live_subregs, 
+						  live_subregs_used,
 						  regno, reg);
 			    
 			    /* Ignore the paradoxical bits.  */
@@ -1571,9 +1618,44 @@ build_insn_chain (void)
 		  }
 	    }
 	}
+
+      /* FIXME!! The following code is a disaster.  Reload needs to see the
+	 labels and jump tables that are just hanging out in between
+	 the basic blocks.  See pr33676.  */
+      insn = BB_HEAD (bb);
+      
+      /* Skip over the barriers and cruft.  */
+      while (insn && (BARRIER_P (insn) || NOTE_P (insn) 
+		      || BLOCK_FOR_INSN (insn) == bb))
+	insn = PREV_INSN (insn);
+      
+      /* While we add anything except barriers and notes, the focus is
+	 to get the labels and jump tables into the
+	 reload_insn_chain.  */
+      while (insn)
+	{
+	  if (!NOTE_P (insn) && !BARRIER_P (insn))
+	    {
+	      if (BLOCK_FOR_INSN (insn))
+		break;
+	      
+	      c = new_insn_chain ();
+	      c->next = next;
+	      next = c;
+	      *p = c;
+	      p = &c->prev;
+	      
+	      /* The block makes no sense here, but it is what the old
+		 code did.  */
+	      c->block = bb->index;
+	      c->insn = insn;
+	      bitmap_copy (&c->live_throughout, live_relevant_regs);
+	    }	  
+	  insn = PREV_INSN (insn);
+	}
     }
 
-  for (i = 0; i < (unsigned int)max_regno; i++)
+  for (i = 0; i < (unsigned int) max_regno; i++)
     if (live_subregs[i])
       free (live_subregs[i]);
 
@@ -1717,7 +1799,7 @@ rest_of_handle_global_alloc (void)
   reload_completed = !failure;
 
   /* The world has changed so much that at this point we might as well
-     just rescan everything.  Not that df_rescan_all_insns is not
+     just rescan everything.  Note that df_rescan_all_insns is not
      going to help here because it does not touch the artificial uses
      and defs.  */
   df_finish_pass (true);

@@ -840,6 +840,23 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
   if (this_state)
     finally = lower_try_finally_dup_block (finally, outer_state);
 
+  /* If this cleanup consists of a TRY_CATCH_EXPR with TRY_CATCH_IS_CLEANUP
+     set, the handler of the TRY_CATCH_EXPR is another cleanup which ought
+     to be in an enclosing scope, but needs to be implemented at this level
+     to avoid a nesting violation (see wrap_temporary_cleanups in
+     cp/decl.c).  Since it's logically at an outer level, we should call
+     terminate before we get to it, so strip it away before adding the
+     MUST_NOT_THROW filter.  */
+  i = tsi_start (finally);
+  x = tsi_stmt (i);
+  if (protect_cleanup_actions
+      && TREE_CODE (x) == TRY_CATCH_EXPR
+      && TRY_CATCH_IS_CLEANUP (x))
+    {
+      tsi_link_before (&i, TREE_OPERAND (x, 0), TSI_SAME_STMT);
+      tsi_delink (&i);
+    }
+
   /* Resume execution after the exception.  Adding this now lets
      lower_eh_filter not add unnecessary gotos, as it is clear that
      we never fallthru from this copy of the finally block.  */
@@ -2157,23 +2174,17 @@ optimize_double_finally (tree one, tree two)
 
   if (same_handler_p (TREE_OPERAND (oneh, 1), TREE_OPERAND (two, 1)))
     {
-      tree twoh;
-
       tree b = TREE_OPERAND (oneh, 0);
       TREE_OPERAND (one, 1) = b;
       TREE_SET_CODE (one, TRY_CATCH_EXPR);
 
-      b = tsi_stmt (tsi_start (b));
-      twoh = TREE_OPERAND (two, 0);
-      /* same_handler_p only handles single-statement handlers,
-	 so there must only be one statement.  */
-      i = tsi_start (twoh);
-      tsi_link_before (&i, unshare_expr (b), TSI_SAME_STMT);
+      i = tsi_start (TREE_OPERAND (two, 0));
+      tsi_link_before (&i, unsave_expr_now (b), TSI_SAME_STMT);
     }
 }
 
 /* Perform EH refactoring optimizations that are simpler to do when code
-   flow has been lowered but EH structurs haven't.  */
+   flow has been lowered but EH structures haven't.  */
 
 static void
 refactor_eh_r (tree t)

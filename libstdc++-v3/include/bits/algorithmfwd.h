@@ -43,6 +43,10 @@
   generate_n
   includes
   inplace_merge
+  is_heap (C++0x)
+  is_heap_until (C++0x)
+  is_sorted (C++0x)
+  is_sorted_until (C++0x)
   iter_swap
   lexicographical_compare
   lower_bound
@@ -52,10 +56,12 @@
   merge
   min
   min_element
+  minmax (C++0x)
+  minmax_element (C++0x)
   mismatch
   next_permutation
   nth_element
-  parital_sort
+  partial_sort
   partial_sort_copy
   partition
   pop_heap
@@ -76,7 +82,7 @@
   rotate_copy
   search
   search_n
-  set_differernce
+  set_difference
   set_intersection
   set_symmetric_difference
   set_union
@@ -179,17 +185,43 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     void 
     inplace_merge(_BIter, _BIter, _BIter, _Compare);
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _RAIter>
+    bool 
+    is_heap(_RAIter, _RAIter);
+
+  template<typename _RAIter, typename _Compare>
+    bool 
+    is_heap(_RAIter, _RAIter, _Compare);
+
+  template<typename _RAIter>
+    _RAIter 
+    is_heap_until(_RAIter, _RAIter);
+
+  template<typename _RAIter, typename _Compare>
+    _RAIter 
+    is_heap_until(_RAIter, _RAIter, _Compare);
+
+  template<typename _FIter>
+    bool 
+    is_sorted(_FIter, _FIter);
+
+  template<typename _FIter, typename _Compare>
+    bool 
+    is_sorted(_FIter, _FIter, _Compare);
+
+  template<typename _FIter>
+    _FIter 
+    is_sorted_until(_FIter, _FIter);
+
+  template<typename _FIter, typename _Compare>
+    _FIter 
+    is_sorted_until(_FIter, _FIter, _Compare);
+#endif
+
   template<typename _FIter1, typename _FIter2>
     void 
     iter_swap(_FIter1, _FIter2);
-
-  // Specializations for char and unsigned char.
-  inline bool
-  lexicographical_compare(const unsigned char*, const unsigned char*, 
-			  const unsigned char*, const unsigned char*);
-
-  inline bool
-  lexicographical_compare(const char*, const char*, const char*, const char*);
 
   template<typename _FIter, typename _Tp>
     _FIter 
@@ -227,6 +259,25 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     min(const _Tp&, const _Tp&, _Compare);
 
   // min_element
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _Tp>
+    pair<const _Tp&, const _Tp&> 
+    minmax(const _Tp&, const _Tp&);
+
+  template<typename _Tp, typename _Compare>
+    pair<const _Tp&, const _Tp&>
+    minmax(const _Tp&, const _Tp&, _Compare);
+
+  template<typename _FIter>
+    pair<_FIter, _FIter>
+    minmax_element(_FIter, _FIter);
+
+  template<typename _FIter, typename _Compare>
+    pair<_FIter, _FIter>
+    minmax_element(_FIter, _FIter, _Compare);
+#endif
+
   // mismatch
 
   template<typename _BIter>

@@ -44,7 +44,7 @@ with Stand;    use Stand;
 with Table;    use Table;
 with Widechar; use Widechar;
 
-with GNAT.Heap_Sort_A;
+with GNAT.Heap_Sort_G;
 
 package body Lib.Xref is
 
@@ -167,8 +167,8 @@ package body Lib.Xref is
       if Sloc (Entity (N)) /= Standard_Location then
          Generate_Reference (Entity (N), N);
 
-         --  A reference to an implicit inequality operator is a also a
-         --  reference to the user-defined equality.
+         --  A reference to an implicit inequality operator is also a reference
+         --  to the user-defined equality.
 
          if Nkind (N) = N_Op_Ne
            and then not Comes_From_Source (Entity (N))
@@ -212,18 +212,28 @@ package body Lib.Xref is
       Def  : Source_Ptr;
       Ent  : Entity_Id;
 
+      Call   : Node_Id;
+      Formal : Entity_Id;
+      --  Used for call to Find_Actual
+
+      Kind : Entity_Kind;
+      --  If Formal is non-Empty, then its Ekind, otherwise E_Void
+
       function Is_On_LHS (Node : Node_Id) return Boolean;
       --  Used to check if a node is on the left hand side of an assignment.
       --  The following cases are handled:
       --
-      --   Variable  Node is a direct descendant of an assignment statement.
+      --   Variable    Node is a direct descendant of left hand side of an
+      --               assignment statement.
       --
-      --   Prefix    Of an indexed or selected component that is present in a
-      --             subtree rooted by an assignment statement. There is no
-      --             restriction of nesting of components, thus cases such as
-      --             A.B (C).D are handled properly.
-      --             However a prefix of a dereference (either implicit or
-      --             explicit) is never considered as on a LHS.
+      --   Prefix      Of an indexed or selected component that is present in
+      --               a subtree rooted by an assignment statement. There is
+      --               no restriction of nesting of components, thus cases
+      --               such as A.B (C).D are handled properly. However a prefix
+      --               of a dereference (either implicit or explicit) is never
+      --               considered as on a LHS.
+      --
+      --   Out param   Same as above cases, but OUT parameter
 
       ---------------
       -- Is_On_LHS --
@@ -235,28 +245,41 @@ package body Lib.Xref is
       --      Sem_Util.May_Be_Lvalue
       --      Sem_Util.Known_To_Be_Assigned
       --      Exp_Ch2.Expand_Entry_Parameter.In_Assignment_Context
+      --      Exp_Smem.Is_Out_Actual
 
       function Is_On_LHS (Node : Node_Id) return Boolean is
-         N : Node_Id := Node;
+         N : Node_Id;
+         P : Node_Id;
+         K : Node_Kind;
 
       begin
          --  Only identifiers are considered, is this necessary???
 
-         if Nkind (N) /= N_Identifier then
+         if Nkind (Node) /= N_Identifier then
             return False;
          end if;
 
-         --  Reach the assignment statement subtree root. In the case of a
-         --  variable being a direct descendant of an assignment statement,
-         --  the loop is skiped.
+         --  Immediate return if appeared as OUT parameter
 
-         while Nkind (Parent (N)) /= N_Assignment_Statement loop
+         if Kind = E_Out_Parameter then
+            return True;
+         end if;
 
-            --  Check whether the parent is a component and the current node
-            --  is its prefix, but return False if the current node has an
-            --  access type, as in that case the selected or indexed component
-            --  is an implicit dereference, and the LHS is the designated
-            --  object, not the access object.
+         --  Search for assignment statement subtree root
+
+         N := Node;
+         loop
+            P := Parent (N);
+            K := Nkind (P);
+
+            if K = N_Assignment_Statement then
+               return Name (P) = N;
+
+            --  Check whether the parent is a component and the current node is
+            --  its prefix, but return False if the current node has an access
+            --  type, as in that case the selected or indexed component is an
+            --  implicit dereference, and the LHS is the designated object, not
+            --  the access object.
 
             --  ??? case of a slice assignment?
 
@@ -267,15 +290,16 @@ package body Lib.Xref is
             --  dereference. If the dereference is on an LHS, this causes a
             --  false positive.
 
-            if (Nkind (Parent (N)) = N_Selected_Component
-                  or else
-                Nkind (Parent (N)) = N_Indexed_Component)
-              and then Prefix (Parent (N)) = N
+            elsif (K = N_Selected_Component or else K = N_Indexed_Component)
+              and then Prefix (P) = N
               and then not (Present (Etype (N))
                               and then
                             Is_Access_Type (Etype (N)))
             then
-               N := Parent (N);
+               N := P;
+
+            --  All other cases, definitely not on left side
+
             else
                return False;
             end if;
@@ -290,6 +314,13 @@ package body Lib.Xref is
 
    begin
       pragma Assert (Nkind (E) in N_Entity);
+      Find_Actual (N, Formal, Call);
+
+      if Present (Formal) then
+         Kind := Ekind (Formal);
+      else
+         Kind := E_Void;
+      end if;
 
       --  Check for obsolescent reference to package ASCII. GNAT treats this
       --  element of annex J specially since in practice, programs make a lot
@@ -385,15 +416,46 @@ package body Lib.Xref is
 
       if Set_Ref then
 
-         --  For a variable that appears on the left side of an assignment
-         --  statement, we set the Referenced_As_LHS flag since this is indeed
-         --  a left hand side. We also set the Referenced_As_LHS flag of a
-         --  prefix of selected or indexed component.
+         --  Assignable object appearing on left side of assignment or as
+         --  an out parameter.
 
-         if (Ekind (E) = E_Variable or else Is_Formal (E))
+         if Is_Assignable (E)
            and then Is_On_LHS (N)
+           and then Ekind (E) /= E_In_Out_Parameter
          then
-            Set_Referenced_As_LHS (E);
+            --  For objects that are renamings, just set as simply referenced
+            --  we do not try to do assignment type tracking in this case.
+
+            if Present (Renamed_Object (E)) then
+               Set_Referenced (E);
+
+            --  Out parameter case
+
+            elsif Kind = E_Out_Parameter then
+
+               --  If warning mode for all out parameters is set, or this is
+               --  the only warning parameter, then we want to mark this for
+               --  later warning logic by setting Referenced_As_Out_Parameter
+
+               if Warn_On_Modified_As_Out_Parameter (Formal) then
+                  Set_Referenced_As_Out_Parameter (E, True);
+                  Set_Referenced_As_LHS (E, False);
+
+               --  For OUT parameter not covered by the above cases, we simply
+               --  regard it as a normal reference (in this case we do not
+               --  want any of the warning machinery for out parameters).
+
+               else
+                  Set_Referenced (E);
+               end if;
+
+            --  For the left hand of an assignment case, we do nothing here.
+            --  The processing for Analyze_Assignment_Statement will set the
+            --  Referenced_As_LHS flag.
+
+            else
+               null;
+            end if;
 
          --  Check for a reference in a pragma that should not count as a
          --  making the variable referenced for warning purposes.
@@ -433,13 +495,49 @@ package body Lib.Xref is
          then
             null;
 
-         --  Any other occurrence counts as referencing the entity
+         --  All other cases
 
          else
-            Set_Referenced (E);
+            --  Special processing for IN OUT parameters, where we have an
+            --  implicit assignment to a simple variable.
 
-            if Ekind (E) = E_Variable then
+            if Kind = E_In_Out_Parameter
+              and then Is_Assignable (E)
+            then
+               --  For sure this counts as a normal read reference
+
+               Set_Referenced (E);
                Set_Last_Assignment (E, Empty);
+
+               --  We count it as being referenced as an out parameter if the
+               --  option is set to warn on all out parameters, except that we
+               --  have a special exclusion for an intrinsic subprogram, which
+               --  is most likely an instantiation of Unchecked_Deallocation
+               --  which we do not want to consider as an assignment since it
+               --  generates false positives. We also exclude the case of an
+               --  IN OUT parameter if the name of the procedure is Free,
+               --  since we suspect similar semantics.
+
+               if Warn_On_All_Unread_Out_Parameters
+                 and then Is_Entity_Name (Name (Call))
+                 and then not Is_Intrinsic_Subprogram (Entity (Name (Call)))
+                 and then Chars (Name (Call)) /= Name_Free
+               then
+                  Set_Referenced_As_Out_Parameter (E, True);
+                  Set_Referenced_As_LHS (E, False);
+               end if;
+
+               --  Any other occurrence counts as referencing the entity
+
+            else
+               Set_Referenced (E);
+
+               --  If variable, this is an OK reference after an assignment
+               --  so we can clear the Last_Assignment indication.
+
+               if Is_Assignable (E) then
+                  Set_Last_Assignment (E, Empty);
+               end if;
             end if;
          end if;
 
@@ -480,7 +578,7 @@ package body Lib.Xref is
                   while Present (BE) loop
                      if Chars (BE) = Chars (E) then
                         Error_Msg_NE
-                          ("?pragma Unreferenced given for&", N, BE);
+                          ("?pragma Unreferenced given for&!", N, BE);
                         exit;
                      end if;
 
@@ -491,7 +589,7 @@ package body Lib.Xref is
             --  Here we issue the warning, since this is a real reference
 
             else
-               Error_Msg_NE ("?pragma Unreferenced given for&", N, E);
+               Error_Msg_NE ("?pragma Unreferenced given for&!", N, E);
             end if;
          end if;
 
@@ -594,6 +692,15 @@ package body Lib.Xref is
            and then Comes_From_Source (Original_Record_Component (E))
          then
             Ent := Original_Record_Component (E);
+
+         --  If this is an expanded reference to a discriminant, recover the
+         --  original discriminant, which gets the reference.
+
+         elsif Ekind (E) = E_In_Parameter
+           and then  Present (Discriminal_Link (E))
+         then
+            Ent := Discriminal_Link (E);
+            Set_Referenced (Ent);
 
          --  Ignore reference to any other entity that is not from source
 
@@ -954,10 +1061,13 @@ package body Lib.Xref is
       Handle_Orphan_Type_References : declare
          J    : Nat;
          Tref : Entity_Id;
-         L, R : Character;
          Indx : Nat;
          Ent  : Entity_Id;
          Loc  : Source_Ptr;
+
+         L, R : Character;
+         pragma Warnings (Off, L);
+         pragma Warnings (Off, R);
 
          procedure New_Entry (E : Entity_Id);
          --  Make an additional entry into the Xref table for a type entity
@@ -1140,6 +1250,8 @@ package body Lib.Xref is
          procedure Move (From : Natural; To : Natural);
          --  Move procedure for Sort call
 
+         package Sorting is new GNAT.Heap_Sort_G (Move, Lt);
+
          --------
          -- Lt --
          --------
@@ -1230,10 +1342,7 @@ package body Lib.Xref is
 
          --  Sort the references
 
-         GNAT.Heap_Sort_A.Sort
-           (Integer (Nrefs),
-            Move'Unrestricted_Access,
-            Lt'Unrestricted_Access);
+         Sorting.Sort (Integer (Nrefs));
 
          --  Eliminate duplicate entries
 
@@ -1272,9 +1381,12 @@ package body Lib.Xref is
          for Refno in 1 .. Nrefs loop
             Output_One_Ref : declare
                P2  : Source_Ptr;
+               Ent : Entity_Id;
+
                WC  : Char_Code;
                Err : Boolean;
-               Ent : Entity_Id;
+               pragma Warnings (Off, WC);
+               pragma Warnings (Off, Err);
 
                XE : Xref_Entry renames Xrefs.Table (Rnums (Refno));
                --  The current entry to be accessed
@@ -1350,11 +1462,13 @@ package body Lib.Xref is
                           (Int (Get_Logical_Line_Number (Sloc (Tref))));
 
                         declare
-                           Ent  : Entity_Id := Tref;
-                           Kind : constant Entity_Kind := Ekind (Ent);
-                           Ctyp : Character := Xref_Entity_Letters (Kind);
+                           Ent  : Entity_Id;
+                           Ctyp : Character;
 
                         begin
+                           Ent := Tref;
+                           Ctyp := Xref_Entity_Letters (Ekind (Ent));
+
                            if Ctyp = '+'
                              and then Present (Full_View (Ent))
                            then

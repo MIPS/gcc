@@ -1,6 +1,6 @@
 // MT-optimized allocator -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <bits/functexcept.h>
 #include <ext/atomicity.h>
+#include <bits/stl_move.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -85,7 +86,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // In order to avoid fragmenting and minimize the number of
       // new() calls we always request new memory using this
       // value. Based on previous discussions on the libstdc++
-      // mailing list we have choosen the value below.
+      // mailing list we have chosen the value below.
       // See http://gcc.gnu.org/ml/libstdc++/2001-07/msg00077.html
       // NB: At least one order of magnitude > _M_max_bytes. 
       size_t	_M_chunk_size;
@@ -593,7 +594,14 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // 402. wrong new expression in [some_] allocator::construct
       void 
       construct(pointer __p, const _Tp& __val) 
-      { ::new(__p) _Tp(__val); }
+      { ::new((void *)__p) _Tp(__val); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      template<typename... _Args>
+        void
+        construct(pointer __p, _Args&&... __args)
+	{ ::new((void *)__p) _Tp(std::forward<_Args>(__args)...); }
+#endif
 
       void 
       destroy(pointer __p) { __p->~_Tp(); }

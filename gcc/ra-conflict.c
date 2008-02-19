@@ -49,8 +49,8 @@ int max_allocno;
 struct allocno *allocno;
 HOST_WIDEST_FAST_INT *conflicts;
 int *reg_allocno;
-int *partial_bitnum;
-int max_bitnum;
+HOST_WIDE_INT *partial_bitnum;
+HOST_WIDE_INT max_bitnum;
 alloc_pool adjacency_pool;
 adjacency_t **adjacency;
 
@@ -70,7 +70,7 @@ DEF_VEC_ALLOC_P(df_ref_t,heap);
 bool
 conflict_p (int allocno1, int allocno2)
 {
-  int bitnum;
+  HOST_WIDE_INT bitnum;
   HOST_WIDEST_FAST_INT word, mask;
 
 #ifdef ENABLE_CHECKING
@@ -104,7 +104,7 @@ conflict_p (int allocno1, int allocno2)
 static void
 set_conflict (int allocno1, int allocno2)
 {
-  int bitnum, index;
+  HOST_WIDE_INT bitnum, index;
   HOST_WIDEST_FAST_INT word, mask;
 
 #ifdef ENABLE_CHECKING
@@ -146,9 +146,9 @@ static void
 set_conflicts (int allocno1, sparseset live)
 {
   int i;
-  int bitnum, index;
+  HOST_WIDE_INT bitnum, index;
   HOST_WIDEST_FAST_INT word, mask;
-  int partial_bitnum_allocno1;
+  HOST_WIDE_INT partial_bitnum_allocno1;
 
 #ifdef ENABLE_CHECKING
   gcc_assert (allocno1 >= 0 && allocno1 < max_allocno);
@@ -196,7 +196,7 @@ record_one_conflict_between_regnos (enum machine_mode mode1, int r1,
   int allocno2 = reg_allocno[r2];
 
   if (dump_file)
-    fprintf (dump_file, "  rocbr adding %d<=>%d\n", r1, r2);
+    fprintf (dump_file, "    rocbr adding %d<=>%d\n", r1, r2);
 
   if (allocno1 >= 0 && allocno2 >= 0)
     set_conflict (allocno1, allocno2);
@@ -401,9 +401,6 @@ set_conflicts_for_earlyclobber (rtx insn)
 						    recog_data.operand[use + 1]);
 		}
 	}
-
-  if (dump_file) 
-    fprintf (dump_file, "  finished early clobber conflicts.\n");
 }
 
 
@@ -444,16 +441,14 @@ ra_init_live_subregs (bool init_value,
 
 
 /* Set REG to be not live in the sets ALLOCNOS_LIVE, LIVE_SUBREGS,
-   HARD_REGS_LIVE.  If EXTRACT is false, assume that the entire reg is
-   set not live even if REG is a subreg.  */
+   HARD_REGS_LIVE.  DEF is the definition of the register.  */
 
 inline static void
 clear_reg_in_live (sparseset allocnos_live,
 		   sbitmap *live_subregs, 
 		   int *live_subregs_used,
 		   HARD_REG_SET *hard_regs_live, 
-		   rtx reg,
-		   bool extract)
+		   rtx reg, struct df_ref *def)
 {
   unsigned int regno = (GET_CODE (reg) == SUBREG) 
     ? REGNO (SUBREG_REG (reg)): REGNO (reg);
@@ -461,14 +456,23 @@ clear_reg_in_live (sparseset allocnos_live,
 
   if (allocnum >= 0)
     {
-      if ((GET_CODE (reg) == SUBREG) && !extract)
-
+      if (GET_CODE (reg) == SUBREG
+	  && !DF_REF_FLAGS_IS_SET (def, DF_REF_EXTRACT))
 	{
 	  unsigned int start = SUBREG_BYTE (reg);
 	  unsigned int last = start + GET_MODE_SIZE (GET_MODE (reg));
 
 	  ra_init_live_subregs (sparseset_bit_p (allocnos_live, allocnum), 
 				live_subregs, live_subregs_used, allocnum, reg);
+
+	  if (!DF_REF_FLAGS_IS_SET (def, DF_REF_STRICT_LOWER_PART))
+	    {
+	      /* Expand the range to cover entire words.
+		 Bytes added here are "don't care".  */
+	      start = start / UNITS_PER_WORD * UNITS_PER_WORD;
+	      last = ((last + UNITS_PER_WORD - 1)
+		      / UNITS_PER_WORD * UNITS_PER_WORD);
+	    }
 
 	  /* Ignore the paradoxical bits.  */
 	  if ((int)last > live_subregs_used[allocnum])
@@ -506,7 +510,8 @@ clear_reg_in_live (sparseset allocnos_live,
   if (! fixed_regs[regno])
     {
       unsigned int start = regno;
-      if ((GET_CODE (reg) == SUBREG) && !extract)
+      if (GET_CODE (reg) == SUBREG
+	  && !DF_REF_FLAGS_IS_SET (def, DF_REF_EXTRACT))
 	{
 	  unsigned int last;
 	  start += SUBREG_BYTE (reg);
@@ -893,8 +898,7 @@ global_conflicts (void)
 		  rtx reg = DF_REF_REG (def);
 
 		  clear_reg_in_live (allocnos_live, live_subregs, live_subregs_used,
-				     &hard_regs_live, reg,
-				     DF_REF_FLAGS_IS_SET (def, DF_REF_EXTRACT));
+				     &hard_regs_live, reg, def);
 		  if (dump_file)
 		    dump_ref (dump_file, "  clearing def", "\n", 
 			      reg, DF_REF_REGNO (def), live_subregs, live_subregs_used);
@@ -983,12 +987,12 @@ global_conflicts (void)
 			set_renumbers_live (&renumbers_live, live_subregs, live_subregs_used, 
 					    allocnum, renumber);
 		    }
-		  
-		  else if (!sparseset_bit_p (allocnos_live, allocnum))
+		  else if (live_subregs_used[allocnum] > 0
+			   || !sparseset_bit_p (allocnos_live, allocnum))
 		    {
 		      if (dump_file)
-			fprintf (dump_file, "    dying pseudo\n");
-		      
+			fprintf (dump_file, "    %sdying pseudo\n", 
+				 (live_subregs_used[allocnum] > 0) ? "partially ": "");
 		      /* Resetting the live_subregs_used is
 			 effectively saying do not use the subregs
 			 because we are reading the whole pseudo.  */
@@ -1071,6 +1075,8 @@ global_conflicts (void)
 		 FIXME: We should consider either adding a new kind of
 		 clobber, or adding a flag to the clobber distinguish
 		 these two cases.  */
+	      if (dump_file && VEC_length (df_ref_t, clobbers))
+		fprintf (dump_file, "  clobber conflicts\n");
 	      for (k = VEC_length (df_ref_t, clobbers) - 1; k >= 0; k--)
 		{
 		  struct df_ref *def = VEC_index (df_ref_t, clobbers, k);
@@ -1087,7 +1093,7 @@ global_conflicts (void)
 		}
 
 	      /* Early clobbers, by definition, need to not only
-		 clobber the registers that are live accross the insn
+		 clobber the registers that are live across the insn
 		 but need to clobber the registers that die within the
 		 insn.  The clobbering for registers live across the
 		 insn is handled above.  */ 
@@ -1132,6 +1138,8 @@ global_conflicts (void)
 	      if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
 		{ 
 		  int j;
+		  if (dump_file)
+		    fprintf (dump_file, "  multiple sets\n");
 		  for (j = VEC_length (df_ref_t, dying_regs) - 1; j >= 0; j--)
 		    {
 		      int used_in_output = 0;
@@ -1166,7 +1174,7 @@ global_conflicts (void)
 	    }
 	}
 
-	    /* Add the renumbers live to the hard_regs_live for the next few
+      /* Add the renumbers live to the hard_regs_live for the next few
 	 calls.  All of this gets recomputed at the top of the loop so
 	 there is no harm.  */
       IOR_HARD_REG_SET (hard_regs_live, renumbers_live);
@@ -1182,6 +1190,11 @@ global_conflicts (void)
 	      if (regno == INVALID_REGNUM)
 		break;
 	      record_one_conflict (allocnos_live, &hard_regs_live, regno);
+	    }
+
+	  EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
+	    {
+	      allocno[i].no_eh_reg = 1;
 	    }
 	}
 #endif

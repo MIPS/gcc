@@ -470,6 +470,26 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	  vuse_vec_p vv;
 	  tree stmt_lhs;
 
+	  if (LOADED_SYMS (use_stmt))
+	    {
+	      tree use_base
+		= get_base_address (GIMPLE_STMT_OPERAND (use_stmt, 0));
+	      /* If use_stmt is or might be a nop assignment, e.g. for
+		 struct { ... } S a, b, *p; ...
+		 b = a; b = b;
+		 or
+		 b = a; b = *p; where p might be &b, then USE_STMT
+		 acts as a use as well as definition, so store in STMT
+		 is not dead.  */
+	      if (TREE_CODE (use_base) == VAR_DECL
+		  && bitmap_bit_p (LOADED_SYMS (use_stmt),
+				   DECL_UID (use_base)))
+		{
+		  record_voperand_set (dse_gd->stores, &bd->stores, ann->uid);
+		  return;
+		}
+	    }
+
 	  if (dump_file && (dump_flags & TDF_DETAILS))
             {
               fprintf (dump_file, "  Deleted dead store '");
@@ -653,7 +673,7 @@ execute_simple_dse (void)
 	bitmap_ior_into (variables_loaded,
 			 LOADED_SYMS (bsi_stmt (bsi)));
 
-  /* Look for statements writting into the write only variables.
+  /* Look for statements writing into the write only variables.
      And try to remove them.  */
 
   FOR_EACH_BB (bb)

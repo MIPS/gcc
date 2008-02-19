@@ -3,8 +3,8 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+		 2008 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -508,7 +508,8 @@ finish_cond (tree *cond_p, tree expr)
       if (TREE_CODE (cond) == DECL_EXPR)
 	expr = cond;
 
-      check_for_bare_parameter_packs (expr);
+      if (check_for_bare_parameter_packs (expr))
+        *cond_p = error_mark_node;
     }
   *cond_p = expr;
 }
@@ -618,7 +619,8 @@ finish_expr_stmt (tree expr)
       else if (!type_dependent_expression_p (expr))
 	convert_to_void (build_non_dependent_expr (expr), "statement");
 
-      check_for_bare_parameter_packs (expr);
+      if (check_for_bare_parameter_packs (expr))
+        expr = error_mark_node;
 
       /* Simplification of inner statement expressions, compound exprs,
 	 etc can result in us already having an EXPR_STMT.  */
@@ -875,7 +877,8 @@ finish_for_expr (tree expr, tree for_stmt)
   else if (!type_dependent_expression_p (expr))
     convert_to_void (build_non_dependent_expr (expr), "3rd expression in for");
   expr = maybe_cleanup_point_expr_void (expr);
-  check_for_bare_parameter_packs (expr);
+  if (check_for_bare_parameter_packs (expr))
+    expr = error_mark_node;
   FOR_EXPR (for_stmt) = expr;
 }
 
@@ -971,12 +974,13 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	    cond = index;
 	}
     }
+  if (check_for_bare_parameter_packs (cond))
+    cond = error_mark_node;
   finish_cond (&SWITCH_STMT_COND (switch_stmt), cond);
   SWITCH_STMT_TYPE (switch_stmt) = orig_type;
   add_stmt (switch_stmt);
   push_switch (switch_stmt);
   SWITCH_STMT_BODY (switch_stmt) = push_stmt_list ();
-  check_for_bare_parameter_packs (cond);
 }
 
 /* Finish the body of a switch-statement, which may be given by
@@ -1388,8 +1392,9 @@ finish_mem_initializers (tree mem_inits)
              any parameter packs in the TREE_VALUE have already been
              bound as part of the TREE_PURPOSE.  See
              make_pack_expansion for more information.  */
-          if (TREE_CODE (TREE_PURPOSE (mem)) != TYPE_PACK_EXPANSION)
-            check_for_bare_parameter_packs (TREE_VALUE (mem));
+          if (TREE_CODE (TREE_PURPOSE (mem)) != TYPE_PACK_EXPANSION
+              && check_for_bare_parameter_packs (TREE_VALUE (mem)))
+            TREE_VALUE (mem) = error_mark_node;
         }
 
       add_stmt (build_min_nt (CTOR_INITIALIZER, mem_inits));
@@ -1615,8 +1620,12 @@ finish_qualified_id_expr (tree qualifying_class,
        transformation, as there is no "this" pointer.  */
     ;
   else if (TREE_CODE (expr) == FIELD_DECL)
-    expr = finish_non_static_data_member (expr, current_class_ref,
-					  qualifying_class);
+    {
+      push_deferring_access_checks (dk_no_check);
+      expr = finish_non_static_data_member (expr, current_class_ref,
+					    qualifying_class);
+      pop_deferring_access_checks ();
+    }
   else if (BASELINK_P (expr) && !processing_template_decl)
     {
       tree fns;
@@ -1846,6 +1855,20 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 	{
 	  result = build_nt_call_list (fn, args);
 	  KOENIG_LOOKUP_P (result) = koenig_p;
+	  if (cfun)
+	    {
+	      do
+		{
+		  tree fndecl = OVL_CURRENT (fn);
+		  if (TREE_CODE (fndecl) != FUNCTION_DECL
+		      || !TREE_THIS_VOLATILE (fndecl))
+		    break;
+		  fn = OVL_NEXT (fn);
+		}
+	      while (fn);
+	      if (!fn)
+		current_function_returns_abnormally = 1;
+	    }
 	  return result;
 	}
       if (!BASELINK_P (fn)
@@ -1998,7 +2021,7 @@ finish_this_expr (void)
 tree
 finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 {
-  if (destructor == error_mark_node)
+  if (object == error_mark_node || destructor == error_mark_node)
     return error_mark_node;
 
   gcc_assert (TYPE_P (destructor));
@@ -2177,6 +2200,10 @@ finish_template_template_parm (tree aggr, tree identifier)
 
   gcc_assert (DECL_TEMPLATE_PARMS (tmpl));
 
+  check_default_tmpl_args (decl, DECL_TEMPLATE_PARMS (tmpl), 
+			   /*is_primary=*/true, /*is_partial=*/false,
+			   /*is_friend=*/0);
+
   return finish_template_type_parm (aggr, tmpl);
 }
 
@@ -2306,9 +2333,13 @@ finish_member_declaration (tree decl)
   DECL_CONTEXT (decl) = current_class_type;
 
   /* Check for bare parameter packs in the member variable declaration.  */
-  if (TREE_CODE (decl) == FIELD_DECL
-      && !check_for_bare_parameter_packs (TREE_TYPE (decl)))
-    TREE_TYPE (decl) = error_mark_node;
+  if (TREE_CODE (decl) == FIELD_DECL)
+    {
+      if (check_for_bare_parameter_packs (TREE_TYPE (decl)))
+        TREE_TYPE (decl) = error_mark_node;
+      if (check_for_bare_parameter_packs (DECL_ATTRIBUTES (decl)))
+        DECL_ATTRIBUTES (decl) = NULL_TREE;
+    }
 
   /* [dcl.link]
 
@@ -3413,8 +3444,8 @@ finish_omp_clauses (tree clauses)
 	  t = OMP_CLAUSE_NUM_THREADS_EXPR (c);
 	  if (t == error_mark_node)
 	    remove = true;
-	  else if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
-		   && !type_dependent_expression_p (t))
+	  else if (!type_dependent_expression_p (t)
+		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
 	    {
 	      error ("num_threads expression must be integral");
 	      remove = true;
@@ -3427,8 +3458,8 @@ finish_omp_clauses (tree clauses)
 	    ;
 	  else if (t == error_mark_node)
 	    remove = true;
-	  else if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
-		   && !type_dependent_expression_p (t))
+	  else if (!type_dependent_expression_p (t)
+		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
 	    {
 	      error ("schedule chunk size expression must be integral");
 	      remove = true;
@@ -3800,7 +3831,7 @@ tree
 finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 		tree incr, tree body, tree pre_body)
 {
-  tree omp_for;
+  tree omp_for = NULL;
 
   if (decl == NULL)
     {
@@ -3880,17 +3911,20 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       pre_body = NULL;
     }
 
-  init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
+  if (!processing_template_decl)
+    init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
   init = build_modify_expr (decl, NOP_EXPR, init);
   if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
     {
       int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
       tree t = TREE_OPERAND (cond, n);
 
-      TREE_OPERAND (cond, n)
-	= fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+      if (!processing_template_decl)
+	TREE_OPERAND (cond, n)
+	  = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
     }
-  omp_for = c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
+  if (decl != error_mark_node && init != error_mark_node)
+    omp_for = c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
   if (omp_for != NULL
       && TREE_CODE (OMP_FOR_INCR (omp_for)) == MODIFY_EXPR
       && TREE_SIDE_EFFECTS (TREE_OPERAND (OMP_FOR_INCR (omp_for), 1))
@@ -3899,9 +3933,10 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       tree t = TREE_OPERAND (OMP_FOR_INCR (omp_for), 1);
       int n = TREE_SIDE_EFFECTS (TREE_OPERAND (t, 1)) != 0;
 
-      TREE_OPERAND (t, n)
-	= fold_build_cleanup_point_expr (TREE_TYPE (TREE_OPERAND (t, n)),
-					 TREE_OPERAND (t, n));
+      if (!processing_template_decl)
+	TREE_OPERAND (t, n)
+	  = fold_build_cleanup_point_expr (TREE_TYPE (TREE_OPERAND (t, n)),
+					   TREE_OPERAND (t, n));
     }
   return omp_for;
 }
@@ -3909,28 +3944,38 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 void
 finish_omp_atomic (enum tree_code code, tree lhs, tree rhs)
 {
+  tree orig_lhs;
+  tree orig_rhs;
+  bool dependent_p;
   tree stmt;
 
-  if (processing_template_decl
-      && (type_dependent_expression_p (lhs) 
-	  || type_dependent_expression_p (rhs)))
-    stmt = build2 (OMP_ATOMIC, void_type_node, integer_zero_node,
-		   build2 (code, void_type_node, lhs, rhs));
-  else
+  orig_lhs = lhs;
+  orig_rhs = rhs;
+  dependent_p = false;
+  stmt = NULL_TREE;
+
+  /* Even in a template, we can detect invalid uses of the atomic
+     pragma if neither LHS nor RHS is type-dependent.  */
+  if (processing_template_decl)
     {
-      /* Even in a template, we can detect invalid uses of the atomic
-         pragma if neither LHS nor RHS is type-dependent.  */
-      if (processing_template_decl)
+      dependent_p = (type_dependent_expression_p (lhs)
+		     || type_dependent_expression_p (rhs));
+      if (!dependent_p)
 	{
 	  lhs = build_non_dependent_expr (lhs);
 	  rhs = build_non_dependent_expr (rhs);
 	}
-
-      stmt = c_finish_omp_atomic (code, lhs, rhs);
     }
-    
-  if (stmt != error_mark_node)
-    add_stmt (stmt);
+  if (!dependent_p)
+    {
+      stmt = c_finish_omp_atomic (code, lhs, rhs);
+      if (stmt == error_mark_node)
+	return;
+    }
+  if (processing_template_decl)
+    stmt = build2 (OMP_ATOMIC, void_type_node, integer_zero_node,
+		   build2 (code, void_type_node, orig_lhs, orig_rhs));
+  add_stmt (stmt);
 }
 
 void
@@ -3984,6 +4029,9 @@ void
 finish_static_assert (tree condition, tree message, location_t location, 
                       bool member_p)
 {
+  if (check_for_bare_parameter_packs (condition))
+    condition = error_mark_node;
+
   if (type_dependent_expression_p (condition) 
       || value_dependent_expression_p (condition))
     {
@@ -4039,6 +4087,18 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
 {
   tree orig_expr = expr;
   tree type;
+
+  if (!expr || error_operand_p (expr))
+    return error_mark_node;
+
+  if (TYPE_P (expr)
+      || TREE_CODE (expr) == TYPE_DECL
+      || (TREE_CODE (expr) == BIT_NOT_EXPR
+	  && TYPE_P (TREE_OPERAND (expr, 0))))
+    {
+      error ("argument to decltype must be an expression");
+      return error_mark_node;
+    }
 
   if (type_dependent_expression_p (expr))
     {
@@ -4129,7 +4189,8 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
           break;
 
         default:
-          gcc_assert (TYPE_P (expr) || DECL_P (expr));
+	  gcc_assert (TYPE_P (expr) || DECL_P (expr)
+		      || TREE_CODE (expr) == SCOPE_REF);
           error ("argument to decltype must be an expression");
           return error_mark_node;
         }
@@ -4137,6 +4198,15 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
   else
     {
       tree fndecl;
+
+      /* Expressions of reference type are sometimes wrapped in
+         INDIRECT_REFs.  INDIRECT_REFs are just internal compiler
+         representation, not part of the language, so we have to look
+         through them.  */
+      if (TREE_CODE (expr) == INDIRECT_REF
+          && TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0)))
+  	  == REFERENCE_TYPE)
+        expr = TREE_OPERAND (expr, 0);
 
       if (TREE_CODE (expr) == CALL_EXPR
           && (fndecl = get_callee_fndecl (expr))
@@ -4167,7 +4237,9 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
                  decltype(e) is defined as T&, otherwise decltype(e) is
                  defined as T.  */
               type = TREE_TYPE (expr);
-              if (expr == current_class_ptr)
+              if (type == error_mark_node)
+                return error_mark_node;
+              else if (expr == current_class_ptr)
                 /* If the expression is just "this", we want the
                    cv-unqualified pointer for the "this" type.  */
                 type = TYPE_MAIN_VARIANT (type);

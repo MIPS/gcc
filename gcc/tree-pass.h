@@ -35,8 +35,6 @@ enum tree_dump_index
   TDI_original,			/* dump each function before optimizing it */
   TDI_generic,			/* dump each function after genericizing it */
   TDI_nested,			/* dump each function after unnesting it */
-  TDI_inlined,			/* dump each function after inlining
-				   within it.  */
   TDI_vcg,			/* create a VCG graph file for each
 				   function's flowgraph.  */
   TDI_tree_all,                 /* enable all the GENERIC/GIMPLE dumps.  */
@@ -278,6 +276,7 @@ extern struct tree_opt_pass pass_ccp;
 extern struct tree_opt_pass pass_phi_only_cprop;
 extern struct tree_opt_pass pass_build_ssa;
 extern struct tree_opt_pass pass_del_ssa;
+extern struct tree_opt_pass pass_build_alias;
 extern struct tree_opt_pass pass_dominator;
 extern struct tree_opt_pass pass_dce;
 extern struct tree_opt_pass pass_dce_loop;
@@ -321,7 +320,6 @@ extern struct tree_opt_pass pass_linear_transform;
 extern struct tree_opt_pass pass_check_data_deps;
 extern struct tree_opt_pass pass_copy_prop;
 extern struct tree_opt_pass pass_store_ccp;
-extern struct tree_opt_pass pass_store_copy_prop;
 extern struct tree_opt_pass pass_vrp;
 extern struct tree_opt_pass pass_create_structure_vars;
 extern struct tree_opt_pass pass_uncprop;
@@ -340,6 +338,7 @@ extern struct tree_opt_pass pass_ipa_reference;
 extern struct tree_opt_pass pass_ipa_pure_const;
 extern struct tree_opt_pass pass_ipa_type_escape;
 extern struct tree_opt_pass pass_ipa_pta;
+extern struct tree_opt_pass pass_ipa_struct_reorg;
 extern struct tree_opt_pass pass_early_local_passes;
 extern struct tree_opt_pass pass_ipa_increase_alignment;
 extern struct tree_opt_pass pass_ipa_function_and_variable_visibility;

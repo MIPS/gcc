@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -271,10 +271,6 @@ extern void post_error_ne_tree_2 (const char *msg, Node_Id node, Entity_Id ent,
 /* Protect EXP from multiple evaluation.  This may make a SAVE_EXPR.  */
 extern tree protect_multiple_eval (tree exp);
 
-/* Initialize the table that maps GNAT codes to GCC codes for simple
-   binary and unary operations.  */
-extern void init_code_table (void);
-
 /* Return a label to branch to for the exception type in KIND or NULL_TREE
    if none.  */
 extern tree get_exception_label (char);
@@ -455,7 +451,6 @@ extern void insert_block (tree block);
    and uses GNAT_NODE for location information.  */
 extern void gnat_pushdecl (tree decl, Node_Id gnat_node);
 
-extern void gnat_init_stmt_group (void);
 extern void gnat_init_decl_processing (void);
 extern void init_gigi_decls (tree long_long_float_type, tree exception_type);
 extern void gnat_init_gcc_eh (void);
@@ -613,7 +608,7 @@ extern tree create_field_decl (tree field_name, tree field_type,
 
 /* Returns a PARM_DECL node. PARAM_NAME is the name of the parameter,
    PARAM_TYPE is its type.  READONLY is true if the parameter is
-   readonly (either an IN parameter or an address of a pass-by-ref
+   readonly (either an In parameter or an address of a pass-by-ref
    parameter). */
 extern tree create_param_decl (tree param_name, tree param_type,
                                bool readonly);

@@ -96,7 +96,7 @@ namespace __debug
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
       map(map&& __x)
-      : _Base(__x), _Safe_base()
+      : _Base(std::forward<map>(__x)), _Safe_base()
       { this->_M_swap(__x); }
 #endif
 
@@ -114,6 +114,8 @@ namespace __debug
       map&
       operator=(map&& __x)
       {
+        // NB: DR 675.
+	clear();
 	swap(__x);
 	return *this;
       }
@@ -155,6 +157,24 @@ namespace __debug
       const_reverse_iterator
       rend() const
       { return const_reverse_iterator(begin()); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      const_iterator
+      cbegin() const
+      { return const_iterator(_Base::begin(), this); }
+
+      const_iterator
+      cend() const
+      { return const_iterator(_Base::end(), this); }
+
+      const_reverse_iterator
+      crbegin() const
+      { return const_reverse_iterator(end()); }
+
+      const_reverse_iterator
+      crend() const
+      { return const_reverse_iterator(begin()); }
+#endif
 
       // capacity:
       using _Base::empty;

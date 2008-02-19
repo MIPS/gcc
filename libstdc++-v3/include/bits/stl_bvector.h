@@ -416,6 +416,19 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       _Bvector_base(const allocator_type& __a)
       : _M_impl(__a) { }
 
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      _Bvector_base(_Bvector_base&& __x)
+      : _M_impl(__x._M_get_Bit_allocator())
+      {
+	this->_M_impl._M_start = __x._M_impl._M_start;
+	this->_M_impl._M_finish = __x._M_impl._M_finish;
+	this->_M_impl._M_end_of_storage = __x._M_impl._M_end_of_storage;
+	__x._M_impl._M_start = _Bit_iterator();
+	__x._M_impl._M_finish = _Bit_iterator();
+	__x._M_impl._M_end_of_storage = 0;
+      }
+#endif
+
       ~_Bvector_base()
       { this->_M_deallocate(); }
 
@@ -515,8 +528,7 @@ template<typename _Alloc>
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
     vector(vector&& __x)
-    : _Base(__x._M_get_Bit_allocator())
-    { this->swap(__x); }
+    : _Base(std::forward<_Base>(__x)) { }
 #endif
 
     template<typename _InputIterator>
@@ -548,7 +560,9 @@ template<typename _Alloc>
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
     vector&
     operator=(vector&& __x)
-    { 
+    {
+      // NB: DR 675.
+      this->clear();
       this->swap(__x); 
       return *this;
     }
@@ -601,6 +615,24 @@ template<typename _Alloc>
     const_reverse_iterator
     rend() const
     { return const_reverse_iterator(begin()); }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    const_iterator
+    cbegin() const
+    { return this->_M_impl._M_start; }
+
+    const_iterator
+    cend() const
+    { return this->_M_impl._M_finish; }
+
+    const_reverse_iterator
+    crbegin() const
+    { return const_reverse_iterator(end()); }
+
+    const_reverse_iterator
+    crend() const
+    { return const_reverse_iterator(begin()); }
+#endif
 
     size_type
     size() const
@@ -658,21 +690,7 @@ template<typename _Alloc>
     { _M_range_check(__n); return (*this)[__n]; }
 
     void
-    reserve(size_type __n)
-    {
-      if (__n > this->max_size())
-	__throw_length_error(__N("vector::reserve"));
-      if (this->capacity() < __n)
-	{
-	  _Bit_type* __q = this->_M_allocate(__n);
-	  this->_M_impl._M_finish = _M_copy_aligned(begin(), end(),
-						    iterator(__q, 0));
-	  this->_M_deallocate();
-	  this->_M_impl._M_start = iterator(__q, 0);
-	  this->_M_impl._M_end_of_storage = (__q + (__n + int(_S_word_bit) - 1)
-					     / int(_S_word_bit));
-	}
-    }
+    reserve(size_type __n);
 
     reference
     front()

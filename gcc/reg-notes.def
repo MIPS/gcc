@@ -52,7 +52,9 @@ REG_NOTE (EQUIV)
 
 /* Like REG_EQUIV except that the destination is only momentarily
    equal to the specified rtx.  Therefore, it cannot be used for
-   substitution; but it can be used for cse.  */
+   substitution; but it can be used for cse.  Together with a
+   REG_RETVAL note, it means that the insn sets the full contents of
+   the libcall value.  */
 REG_NOTE (EQUAL)
 
 /* This insn copies the return-value of a library call out of the hard
@@ -163,7 +165,3 @@ REG_NOTE (CROSSING_JUMP)
 /* This kind of note is generated at each to `setjmp', and similar
    functions that can return twice.  */
 REG_NOTE (SETJMP)
-
-/* This kind of note identifies what libcall id an instruction is part of.  */
-REG_NOTE (LIBCALL_ID)
-

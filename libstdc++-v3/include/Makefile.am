@@ -1,6 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+## Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
 ## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
@@ -77,6 +77,7 @@ bits_headers = \
 	${bits_srcdir}/basic_string.h \
 	${bits_srcdir}/basic_string.tcc \
 	${bits_srcdir}/boost_concept_check.h \
+	${bits_srcdir}/boost_sp_shared_count.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
@@ -119,7 +120,6 @@ bits_headers = \
 	${bits_srcdir}/stl_iterator_base_types.h \
 	${bits_srcdir}/stl_list.h \
 	${bits_srcdir}/stl_map.h \
-	${bits_srcdir}/stl_auto_ptr.h \
 	${bits_srcdir}/stl_move.h \
 	${bits_srcdir}/stl_multimap.h \
 	${bits_srcdir}/stl_multiset.h \
@@ -145,42 +145,14 @@ bits_headers = \
 backward_srcdir = ${glibcxx_srcdir}/include/backward
 backward_builddir = ./backward
 backward_headers = \
-	${backward_srcdir}/complex.h \
-	${backward_srcdir}/iomanip.h \
-	${backward_srcdir}/istream.h \
-	${backward_srcdir}/ostream.h \
-	${backward_srcdir}/stream.h \
-	${backward_srcdir}/streambuf.h \
-	${backward_srcdir}/algo.h \
-	${backward_srcdir}/algobase.h \
-	${backward_srcdir}/alloc.h \
-	${backward_srcdir}/bvector.h \
-	${backward_srcdir}/defalloc.h \
-	${backward_srcdir}/deque.h \
-	${backward_srcdir}/function.h \
-	${backward_srcdir}/hash_map.h \
-	${backward_srcdir}/hash_set.h \
+	${backward_srcdir}/auto_ptr.h \
+	${backward_srcdir}/backward_warning.h \
+	${backward_srcdir}/binders.h \
+	${backward_srcdir}/hash_map \
+	${backward_srcdir}/hash_set \
+	${backward_srcdir}/hash_fun.h \
 	${backward_srcdir}/hashtable.h \
-	${backward_srcdir}/heap.h \
-	${backward_srcdir}/iostream.h \
-	${backward_srcdir}/iterator.h \
-	${backward_srcdir}/list.h \
-	${backward_srcdir}/map.h \
-	${backward_srcdir}/multimap.h \
-	${backward_srcdir}/new.h \
-	${backward_srcdir}/multiset.h \
-	${backward_srcdir}/pair.h \
-	${backward_srcdir}/queue.h \
-	${backward_srcdir}/rope.h \
-	${backward_srcdir}/set.h \
-	${backward_srcdir}/slist.h \
-	${backward_srcdir}/stack.h \
-	${backward_srcdir}/tempbuf.h \
-	${backward_srcdir}/tree.h \
-	${backward_srcdir}/vector.h \
-	${backward_srcdir}/fstream.h \
-	${backward_srcdir}/strstream \
-	${backward_srcdir}/backward_warning.h
+	${backward_srcdir}/strstream 
 
 pb_srcdir = ${glibcxx_srcdir}/include/ext/pb_ds
 pb_builddir = ./ext/pb_ds
@@ -496,7 +468,6 @@ pb_headers7 = \
 	${pb_srcdir}/detail/unordered_iterator/point_iterator.hpp 
 
 
-
 ext_srcdir = ${glibcxx_srcdir}/include/ext
 ext_builddir = ./ext 
 ext_headers = \
@@ -511,10 +482,6 @@ ext_headers = \
 	${ext_srcdir}/stdio_filebuf.h \
 	${ext_srcdir}/stdio_sync_filebuf.h \
 	${ext_srcdir}/functional \
-	${ext_srcdir}/hash_map \
-	${ext_srcdir}/hash_set \
-	${ext_srcdir}/hash_fun.h \
-	${ext_srcdir}/hashtable.h \
 	${ext_srcdir}/iterator \
 	${ext_srcdir}/malloc_allocator.h \
 	${ext_srcdir}/memory \
@@ -536,8 +503,12 @@ ext_headers = \
 	${ext_srcdir}/vstring.h \
 	${ext_srcdir}/vstring.tcc \
 	${ext_srcdir}/vstring_fwd.h \
-	${ext_srcdir}/vstring_util.h	
+	${ext_srcdir}/vstring_util.h \
+	${ext_compat_headers}
 
+ext_compat_headers = \
+	${backward_srcdir}/hash_set \
+	${backward_srcdir}/hash_map
 
 tr1_srcdir = ${glibcxx_srcdir}/include/tr1
 tr1_builddir = ./tr1
@@ -545,6 +516,7 @@ tr1_headers = \
 	${tr1_srcdir}/array \
 	${tr1_srcdir}/bessel_function.tcc \
 	${tr1_srcdir}/beta_function.tcc \
+	${tr1_srcdir}/boost_sp_shared_count.h \
 	${tr1_srcdir}/ccomplex \
 	${tr1_srcdir}/cctype \
 	${tr1_srcdir}/cfenv \
@@ -605,6 +577,7 @@ tr1_impl_builddir = ./tr1_impl
 tr1_impl_headers = \
 	${tr1_impl_srcdir}/array \
 	${tr1_impl_srcdir}/boost_shared_ptr.h \
+	${tr1_impl_srcdir}/boost_sp_counted_base.h \
 	${tr1_impl_srcdir}/cctype \
 	${tr1_impl_srcdir}/cfenv \
 	${tr1_impl_srcdir}/cinttypes \
@@ -622,9 +595,7 @@ tr1_impl_headers = \
 	${tr1_impl_srcdir}/random \
 	${tr1_impl_srcdir}/random.tcc \
 	${tr1_impl_srcdir}/regex \
-	${tr1_impl_srcdir}/tuple \
 	${tr1_impl_srcdir}/type_traits \
-	${tr1_impl_srcdir}/type_traitsfwd.h \
 	${tr1_impl_srcdir}/unordered_map \
 	${tr1_impl_srcdir}/unordered_set \
 	${tr1_impl_srcdir}/utility
@@ -711,18 +682,13 @@ debug_headers = \
 	${debug_srcdir}/deque \
 	${debug_srcdir}/formatter.h \
 	${debug_srcdir}/functions.h \
-	${debug_srcdir}/hash_map \
-	${debug_srcdir}/hash_map.h \
-	${debug_srcdir}/hash_multimap.h \
-	${debug_srcdir}/hash_multiset.h \
-	${debug_srcdir}/hash_set \
-	${debug_srcdir}/hash_set.h \
 	${debug_srcdir}/list \
 	${debug_srcdir}/map \
 	${debug_srcdir}/macros.h \
 	${debug_srcdir}/map.h \
 	${debug_srcdir}/multimap.h \
 	${debug_srcdir}/multiset.h \
+	${debug_srcdir}/safe_association.h \
 	${debug_srcdir}/safe_base.h \
 	${debug_srcdir}/safe_iterator.h \
 	${debug_srcdir}/safe_iterator.tcc \
@@ -730,6 +696,8 @@ debug_headers = \
 	${debug_srcdir}/set \
 	${debug_srcdir}/set.h \
 	${debug_srcdir}/string \
+	${debug_srcdir}/unordered_map \
+	${debug_srcdir}/unordered_set \
 	${debug_srcdir}/vector
 
 # Parallel mode headers
@@ -777,8 +745,6 @@ parallel_headers = \
         ${parallel_srcdir}/settings.h \
         ${parallel_srcdir}/sort.h \
         ${parallel_srcdir}/tags.h \
-        ${parallel_srcdir}/timing.h \
-        ${parallel_srcdir}/tree.h \
         ${parallel_srcdir}/types.h \
         ${parallel_srcdir}/unique_copy.h \
         ${parallel_srcdir}/workstealing.h 
@@ -865,7 +831,7 @@ pch_output_dirs = \
 	${pch1_output_builddir} ${pch2_output_builddir} ${pch3_output_builddir}
 pch_output_anchors = \
 	${pch1_output_anchor} ${pch2_output_anchor} ${pch3_output_anchor}
-PCHFLAGS=-Winvalid-pch -Wno-deprecated -x c++-header $(CXXFLAGS)
+PCHFLAGS=-Winvalid-pch -x c++-header $(CXXFLAGS)
 if GLIBCXX_BUILD_PCH
 pch_build = ${pch_output}
 else

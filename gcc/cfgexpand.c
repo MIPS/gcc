@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-inline.h"
 #include "value-prof.h"
+#include "target.h"
 
 /* Verify that there is exactly single jump instruction since last and attach
    REG_BR_PROB note specifying probability.
@@ -579,8 +580,11 @@ expand_stack_vars (bool (*pred) (tree))
       /* Create rtl for each variable based on their location within the
 	 partition.  */
       for (j = i; j != EOC; j = stack_vars[j].next)
-	expand_one_stack_var_at (stack_vars[j].decl,
-				 stack_vars[j].offset + offset);
+	{
+	  gcc_assert (stack_vars[j].offset <= stack_vars[i].size);
+	  expand_one_stack_var_at (stack_vars[j].decl,
+				   stack_vars[j].offset + offset);
+	}
     }
 }
 
@@ -2608,6 +2612,8 @@ tree_expand_cfg (void)
   /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
   discover_nonconstant_array_refs ();
 
+  targetm.expand_to_rtl_hook ();
+
   /* Expand the variables recorded during gimple lowering.  */
   expand_used_vars ();
 
@@ -2615,9 +2621,11 @@ tree_expand_cfg (void)
   if (warn_stack_protect)
     {
       if (current_function_calls_alloca)
-	warning (0, "not protecting local variables: variable length buffer");
+	warning (OPT_Wstack_protector, 
+		 "not protecting local variables: variable length buffer");
       if (has_short_buffer && !cfun->stack_protect_guard)
-	warning (0, "not protecting function: no buffer at least %d bytes long",
+	warning (OPT_Wstack_protector, 
+		 "not protecting function: no buffer at least %d bytes long",
 		 (int) PARAM_VALUE (PARAM_SSP_BUFFER_SIZE));
     }
 

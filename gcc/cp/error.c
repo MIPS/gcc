@@ -1,7 +1,7 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -143,7 +143,12 @@ dump_template_argument (tree arg, int flags)
   else if (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL)
     dump_type (arg, flags & ~TFF_CLASS_KEY_OR_ENUM);
   else
-    dump_expr (arg, (flags | TFF_EXPR_IN_PARENS) & ~TFF_CLASS_KEY_OR_ENUM);
+    {
+      if (TREE_CODE (arg) == TREE_LIST)
+	arg = TREE_VALUE (arg);
+
+      dump_expr (arg, (flags | TFF_EXPR_IN_PARENS) & ~TFF_CLASS_KEY_OR_ENUM);
+    }
 }
 
 /* Dump a template-argument-list ARGS (always a TREE_VEC) under control
@@ -611,6 +616,7 @@ dump_type_prefix (tree t, int flags)
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
     case DECLTYPE_TYPE:
+    case TYPE_PACK_EXPANSION:
       dump_type (t, flags);
       pp_base (cxx_pp)->padding = pp_before;
       break;
@@ -708,6 +714,7 @@ dump_type_suffix (tree t, int flags)
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
     case DECLTYPE_TYPE:
+    case TYPE_PACK_EXPANSION:
       break;
 
     default:
@@ -747,6 +754,10 @@ dump_simple_decl (tree t, tree type, int flags)
 	  || TREE_CODE (DECL_INITIAL (t)) != TEMPLATE_PARM_INDEX))
     dump_scope (CP_DECL_CONTEXT (t), flags);
   flags &= ~TFF_UNQUALIFIED_NAME;
+  if ((flags & TFF_DECL_SPECIFIERS)
+      && DECL_TEMPLATE_PARM_P (t) 
+      && TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (t)))
+    pp_identifier (cxx_pp, "...");
   if (DECL_NAME (t))
     dump_decl (DECL_NAME (t), flags);
   else
@@ -771,8 +782,14 @@ dump_decl (tree t, int flags)
 	{
 	  if ((flags & TFF_DECL_SPECIFIERS)
 	      && TREE_CODE (TREE_TYPE (t)) == TEMPLATE_TYPE_PARM)
-	    /* Say `class T' not just `T'.  */
-	    pp_cxx_identifier (cxx_pp, "class");
+	    {
+	      /* Say `class T' not just `T'.  */
+	      pp_cxx_identifier (cxx_pp, "class");
+
+	      /* Emit the `...' for a parameter pack.  */
+	      if (TEMPLATE_TYPE_PARAMETER_PACK (TREE_TYPE (t)))
+		pp_cxx_identifier (cxx_pp, "...");
+	    }
 
 	  dump_type (TREE_TYPE (t), flags);
 	  break;
@@ -956,6 +973,7 @@ dump_decl (tree t, int flags)
 
     case UNBOUND_CLASS_TEMPLATE:
     case TYPE_PACK_EXPANSION:
+    case TREE_BINFO:
       dump_type (t, flags);
       break;
 
@@ -1007,8 +1025,14 @@ dump_template_decl (tree t, int flags)
       nreverse(orig_parms);
 
       if (DECL_TEMPLATE_TEMPLATE_PARM_P (t))
-	/* Say `template<arg> class TT' not just `template<arg> TT'.  */
-	pp_cxx_identifier (cxx_pp, "class");
+	{
+	  /* Say `template<arg> class TT' not just `template<arg> TT'.  */
+	  pp_cxx_identifier (cxx_pp, "class");
+
+	  /* If this is a parameter pack, print the ellipsis.  */
+	  if (TEMPLATE_TYPE_PARAMETER_PACK (TREE_TYPE (t)))
+	    pp_cxx_identifier (cxx_pp, "...");
+	}
     }
 
   if (TREE_CODE (DECL_TEMPLATE_RESULT (t)) == TYPE_DECL)
@@ -1437,6 +1461,12 @@ dump_expr (tree t, int flags)
   if (t == 0)
     return;
 
+  if (STATEMENT_CLASS_P (t))
+    {
+      pp_cxx_identifier (cxx_pp, "<statement>");
+      return;
+    }
+
   switch (TREE_CODE (t))
     {
     case VAR_DECL:
@@ -1755,6 +1785,7 @@ dump_expr (tree t, int flags)
 
     case NOP_EXPR:
     case CONVERT_EXPR:
+    case VIEW_CONVERT_EXPR:
       {
 	tree op = TREE_OPERAND (t, 0);
 
@@ -1871,10 +1902,6 @@ dump_expr (tree t, int flags)
 
     case TEMPLATE_PARM_INDEX:
       dump_decl (TEMPLATE_PARM_DECL (t), flags & ~TFF_DECL_SPECIFIERS);
-      break;
-
-    case SCOPE_REF:
-      pp_expression (cxx_pp, t);
       break;
 
     case CAST_EXPR:
@@ -2004,11 +2031,6 @@ dump_expr (tree t, int flags)
       dump_expr (TREE_OPERAND (t, 0), flags);
       break;
 
-    case EXPR_PACK_EXPANSION:
-      dump_expr (PACK_EXPANSION_PATTERN (t), flags);
-      pp_cxx_identifier (cxx_pp, "...");
-      break;
-
     case ARGUMENT_PACK_SELECT:
       dump_template_argument (ARGUMENT_PACK_SELECT_FROM_PACK (t), flags);
       break;
@@ -2040,17 +2062,39 @@ dump_expr (tree t, int flags)
       pp_cxx_trait_expression (cxx_pp, t);
       break;
 
-    case TYPEID_EXPR:
-      pp_cxx_typeid_expression (cxx_pp, t);
-      break;
-
     case VA_ARG_EXPR:
       pp_cxx_va_arg_expression (cxx_pp, t);
       break;
 
+    case OFFSETOF_EXPR:
+      pp_cxx_offsetof_expression (cxx_pp, t);
+      break;
+
+    case SCOPE_REF:
+    case EXPR_PACK_EXPANSION:
+    case TYPEID_EXPR:
+    case MEMBER_REF:
+    case DOTSTAR_EXPR:
     case DELETE_EXPR:
     case VEC_DELETE_EXPR:
-      pp_cxx_delete_expression (cxx_pp, t);
+    case MODOP_EXPR:
+    case ABS_EXPR:
+    case VECTOR_CST:
+      pp_expression (cxx_pp, t);
+      break;
+
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_XOR_EXPR:
+      if (flags & TFF_EXPR_IN_PARENS)
+	pp_cxx_left_paren (cxx_pp);
+      pp_expression (cxx_pp, t);
+      if (flags & TFF_EXPR_IN_PARENS)
+	pp_cxx_right_paren (cxx_pp);
+      break;
+
+    case OBJ_TYPE_REF:
+      dump_expr (resolve_virtual_fun_from_obj_type_ref (t), flags);
       break;
 
       /*  This list is incomplete, but should suffice for now.
@@ -2098,7 +2142,7 @@ reinit_cxx_pp (void)
   pp_base (cxx_pp)->padding = pp_none;
   pp_indentation (cxx_pp) = 0;
   pp_needs_newline (cxx_pp) = false;
-  cxx_pp->enclosing_scope = 0;
+  cxx_pp->enclosing_scope = current_function_decl;
 }
 
 
@@ -2391,7 +2435,9 @@ cp_print_error_function (diagnostic_context *context,
 		{
 		  ao = BLOCK_ABSTRACT_ORIGIN (block);
 
-		  while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+		  while (TREE_CODE (ao) == BLOCK
+			 && BLOCK_ABSTRACT_ORIGIN (ao)
+			 && BLOCK_ABSTRACT_ORIGIN (ao) != ao)
 		    ao = BLOCK_ABSTRACT_ORIGIN (ao);
 
 		  if (TREE_CODE (ao) == FUNCTION_DECL)

@@ -149,7 +149,11 @@ typedef struct mem_attrs GTY(())
 } mem_attrs;
 
 /* Structure used to describe the attributes of a REG in similar way as
-   mem_attrs does for MEM above.  */
+   mem_attrs does for MEM above.  Note that the OFFSET field is calculated
+   in the same way as for mem_attrs, rather than in the same way as a
+   SUBREG_BYTE.  For example, if a big-endian target stores a byte
+   object in the low part of a 4-byte register, the OFFSET field
+   will be -3 rather than 0.  */
 
 typedef struct reg_attrs GTY(())
 {
@@ -1241,8 +1245,8 @@ do {						\
    refer to part of a DECL.  */
 #define REG_EXPR(RTX) (REG_ATTRS (RTX) == 0 ? 0 : REG_ATTRS (RTX)->decl)
 
-/* For a MEM rtx, the offset from the start of MEM_DECL, if known, as a
-   RTX that is always a CONST_INT.  */
+/* For a REG rtx, the offset from the start of REG_EXPR, if known, as an
+   HOST_WIDE_INT.  */
 #define REG_OFFSET(RTX) (REG_ATTRS (RTX) == 0 ? 0 : REG_ATTRS (RTX)->offset)
 
 /* Copy the attributes that apply to memory locations from RHS to LHS.  */
@@ -1508,9 +1512,10 @@ extern rtx copy_insn_1 (rtx);
 extern rtx copy_insn (rtx);
 extern rtx gen_int_mode (HOST_WIDE_INT, enum machine_mode);
 extern rtx emit_copy_of_insn_after (rtx, rtx);
-extern void set_reg_attrs_from_mem (rtx, rtx);
+extern void set_reg_attrs_from_value (rtx, rtx);
 extern void set_mem_attrs_from_reg (rtx, rtx);
 extern void set_reg_attrs_for_parm (rtx, rtx);
+extern void adjust_reg_mode (rtx, enum machine_mode);
 extern int mem_expr_equal_p (const_tree, const_tree);
 
 /* In rtl.c */
@@ -1554,6 +1559,7 @@ extern unsigned int subreg_lowpart_offset (enum machine_mode,
 					   enum machine_mode);
 extern unsigned int subreg_highpart_offset (enum machine_mode,
 					    enum machine_mode);
+extern int byte_lowpart_offset (enum machine_mode, enum machine_mode);
 extern rtx make_safe_from (rtx, rtx);
 extern rtx convert_memory_address (enum machine_mode, rtx);
 extern rtx get_insns (void);
@@ -1781,6 +1787,7 @@ extern void remove_reg_equal_equiv_notes (rtx);
 extern int side_effects_p (const_rtx);
 extern int volatile_refs_p (const_rtx);
 extern int volatile_insn_p (const_rtx);
+extern int may_trap_p_1 (const_rtx, unsigned);
 extern int may_trap_p (const_rtx);
 extern int may_trap_after_code_motion_p (const_rtx);
 extern int may_trap_or_fault_p (const_rtx);
@@ -2134,6 +2141,7 @@ extern void emit_insn_at_entry (rtx);
 extern void delete_insn_chain (rtx, rtx, bool);
 extern rtx unlink_insn_chain (rtx, rtx);
 extern rtx delete_insn_and_edges (rtx);
+extern void delete_insn_chain_and_edges (rtx, rtx);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
 extern rtx gen_frame_mem (enum machine_mode, rtx);
@@ -2151,6 +2159,7 @@ extern void dump_combine_total_stats (FILE *);
 extern void delete_dead_jumptables (void);
 
 /* In sched-vis.c.  */
+extern void print_insn (char *, rtx, int);
 extern void print_rtl_slim_with_bb (FILE *, rtx, int);
 extern void dump_insn_slim (FILE *f, rtx x);
 extern void debug_insn_slim (rtx x);

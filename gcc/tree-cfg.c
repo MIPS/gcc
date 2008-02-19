@@ -1,5 +1,5 @@
 /* Control flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -524,6 +524,13 @@ make_edges (void)
 	      fallthru = false;
 	      break;
 
+
+            case OMP_ATOMIC_LOAD:
+            case OMP_ATOMIC_STORE:
+               fallthru = true;
+               break;
+
+
 	    case OMP_RETURN:
 	      /* In the case of an OMP_SECTION, the edge will go somewhere
 		 other than the next block.  This will be created later.  */
@@ -537,14 +544,19 @@ make_edges (void)
 	      switch (cur_region->type)
 		{
 		case OMP_FOR:
+		  /* Mark all OMP_FOR and OMP_CONTINUE succs edges as abnormal
+		     to prevent splitting them.  */
+		  single_succ_edge (cur_region->entry)->flags |= EDGE_ABNORMAL;
 		  /* Make the loopback edge.  */
-		  make_edge (bb, single_succ (cur_region->entry), 0);
-	      
+		  make_edge (bb, single_succ (cur_region->entry),
+			     EDGE_ABNORMAL);
+
 		  /* Create an edge from OMP_FOR to exit, which corresponds to
 		     the case that the body of the loop is not executed at
 		     all.  */
-		  make_edge (cur_region->entry, bb->next_bb, 0);
-		  fallthru = true;
+		  make_edge (cur_region->entry, bb->next_bb, EDGE_ABNORMAL);
+		  make_edge (bb, bb->next_bb, EDGE_FALLTHRU | EDGE_ABNORMAL);
+		  fallthru = false;
 		  break;
 
 		case OMP_SECTIONS:
@@ -1315,7 +1327,21 @@ tree_merge_blocks (basic_block a, basic_block b)
 	}
       else
         {
-          replace_uses_by (def, use);
+	  /* If we deal with a PHI for virtual operands, we can simply
+	     propagate these without fussing with folding or updating
+	     the stmt.  */
+	  if (!is_gimple_reg (def))
+	    {
+	      imm_use_iterator iter;
+	      use_operand_p use_p;
+	      tree stmt;
+
+	      FOR_EACH_IMM_USE_STMT (stmt, iter, def)
+		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+		  SET_USE (use_p, use);
+	    }
+	  else
+            replace_uses_by (def, use);
           remove_phi_node (phi, NULL, true);
         }
     }
@@ -1422,7 +1448,7 @@ remove_useless_stmts_warn_notreached (tree stmt)
       location_t loc = EXPR_LOCATION (stmt);
       if (LOCATION_LINE (loc) > 0)
 	{
-	  warning (0, "%Hwill never be executed", &loc);
+	  warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
 	  return true;
 	}
     }
@@ -3234,6 +3260,11 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    error ("address taken, but ADDRESSABLE bit not set");
 	    return x;
 	  }
+
+	/* Stop recursing and verifying invariant ADDR_EXPRs, they tend
+	   to become arbitrary complicated.  */
+	if (is_gimple_min_invariant (t))
+	  *walk_subtrees = 0;
 	break;
       }
 
@@ -3296,7 +3327,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	  t = TREE_OPERAND (t, 0);
 	}
 
-      if (!CONSTANT_CLASS_P (t) && !is_gimple_lvalue (t))
+      if (!is_gimple_min_invariant (t) && !is_gimple_lvalue (t))
 	{
 	  error ("invalid reference prefix");
 	  return t;
@@ -3561,6 +3592,24 @@ verify_gimple_reference (tree expr)
   return verify_gimple_min_lval (expr);
 }
 
+/* Returns true if there is one pointer type in TYPE_POINTER_TO (SRC_OBJ)
+   list of pointer-to types that is trivially convertible to DEST.  */
+
+static bool
+one_pointer_to_useless_type_conversion_p (tree dest, tree src_obj)
+{
+  tree src;
+
+  if (!TYPE_POINTER_TO (src_obj))
+    return true;
+
+  for (src = TYPE_POINTER_TO (src_obj); src; src = TYPE_NEXT_PTR_TO (src))
+    if (useless_type_conversion_p (dest, src))
+      return true;
+
+  return false;
+}
+
 /* Verify the GIMPLE expression EXPR.  Returns true if there is an
    error, otherwise false.  */
 
@@ -3796,14 +3845,11 @@ verify_gimple_expr (tree expr)
 	    error ("invalid operand in unary expression");
 	    return true;
 	  }
-	if (TYPE_POINTER_TO (TREE_TYPE (op))
-	    && !useless_type_conversion_p (type,
-					   TYPE_POINTER_TO (TREE_TYPE (op)))
+	if (!one_pointer_to_useless_type_conversion_p (type, TREE_TYPE (op))
 	    /* FIXME: a longstanding wart, &a == &a[0].  */
 	    && (TREE_CODE (TREE_TYPE (op)) != ARRAY_TYPE
-		|| (TYPE_POINTER_TO (TREE_TYPE (TREE_TYPE (op)))
-		    && !useless_type_conversion_p (type,
-			  TYPE_POINTER_TO (TREE_TYPE (TREE_TYPE (op)))))))
+		|| !one_pointer_to_useless_type_conversion_p (type,
+		      TREE_TYPE (TREE_TYPE (op)))))
 	  {
 	    error ("type mismatch in address expression");
 	    debug_generic_stmt (TREE_TYPE (expr));
@@ -6189,12 +6235,6 @@ debug_function (tree fn, int flags)
 }
 
 
-/* Pretty print of the loops intermediate representation.  */
-static void print_loop (FILE *, struct loop *, int);
-static void print_pred_bbs (FILE *, basic_block bb);
-static void print_succ_bbs (FILE *, basic_block bb);
-
-
 /* Print on FILE the indexes for the predecessors of basic_block BB.  */
 
 static void
@@ -6220,11 +6260,42 @@ print_succ_bbs (FILE *file, basic_block bb)
     fprintf (file, "bb_%d ", e->dest->index);
 }
 
+/* Print to FILE the basic block BB following the VERBOSITY level.  */
 
-/* Pretty print LOOP on FILE, indented INDENT spaces.  */
+void 
+print_loops_bb (FILE *file, basic_block bb, int indent, int verbosity)
+{
+  char *s_indent = (char *) alloca ((size_t) indent + 1);
+  memset ((void *) s_indent, ' ', (size_t) indent);
+  s_indent[indent] = '\0';
+
+  /* Print basic_block's header.  */
+  if (verbosity >= 2)
+    {
+      fprintf (file, "%s  bb_%d (preds = {", s_indent, bb->index);
+      print_pred_bbs (file, bb);
+      fprintf (file, "}, succs = {");
+      print_succ_bbs (file, bb);
+      fprintf (file, "})\n");
+    }
+
+  /* Print basic_block's body.  */
+  if (verbosity >= 3)
+    {
+      fprintf (file, "%s  {\n", s_indent);
+      tree_dump_bb (bb, file, indent + 4);
+      fprintf (file, "%s  }\n", s_indent);
+    }
+}
+
+static void print_loop_and_siblings (FILE *, struct loop *, int, int);
+
+/* Pretty print LOOP on FILE, indented INDENT spaces.  Following
+   VERBOSITY level this outputs the contents of the loop, or just its
+   structure.  */
 
 static void
-print_loop (FILE *file, struct loop *loop, int indent)
+print_loop (FILE *file, struct loop *loop, int indent, int verbosity)
 {
   char *s_indent;
   basic_block bb;
@@ -6236,55 +6307,90 @@ print_loop (FILE *file, struct loop *loop, int indent)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  /* Print the loop's header.  */
-  fprintf (file, "%sloop_%d\n", s_indent, loop->num);
+  /* Print loop's header.  */
+  fprintf (file, "%sloop_%d (header = %d, latch = %d", s_indent, 
+	   loop->num, loop->header->index, loop->latch->index);
+  fprintf (file, ", niter = ");
+  print_generic_expr (file, loop->nb_iterations, 0);
 
-  /* Print the loop's body.  */
-  fprintf (file, "%s{\n", s_indent);
-  FOR_EACH_BB (bb)
-    if (bb->loop_father == loop)
-      {
-	/* Print the basic_block's header.  */
-	fprintf (file, "%s  bb_%d (preds = {", s_indent, bb->index);
-	print_pred_bbs (file, bb);
-	fprintf (file, "}, succs = {");
-	print_succ_bbs (file, bb);
-	fprintf (file, "})\n");
+  if (loop->any_upper_bound)
+    {
+      fprintf (file, ", upper_bound = ");
+      dump_double_int (file, loop->nb_iterations_upper_bound, true);
+    }
 
-	/* Print the basic_block's body.  */
-	fprintf (file, "%s  {\n", s_indent);
-	tree_dump_bb (bb, file, indent + 4);
-	fprintf (file, "%s  }\n", s_indent);
-      }
+  if (loop->any_estimate)
+    {
+      fprintf (file, ", estimate = ");
+      dump_double_int (file, loop->nb_iterations_estimate, true);
+    }
+  fprintf (file, ")\n");
 
-  print_loop (file, loop->inner, indent + 2);
-  fprintf (file, "%s}\n", s_indent);
-  print_loop (file, loop->next, indent);
+  /* Print loop's body.  */
+  if (verbosity >= 1)
+    {
+      fprintf (file, "%s{\n", s_indent);
+      FOR_EACH_BB (bb)
+	if (bb->loop_father == loop)
+	  print_loops_bb (file, bb, indent, verbosity);
+
+      print_loop_and_siblings (file, loop->inner, indent + 2, verbosity);
+      fprintf (file, "%s}\n", s_indent);
+    }
 }
 
+/* Print the LOOP and its sibling loops on FILE, indented INDENT
+   spaces.  Following VERBOSITY level this outputs the contents of the
+   loop, or just its structure.  */
+
+static void
+print_loop_and_siblings (FILE *file, struct loop *loop, int indent, int verbosity)
+{
+  if (loop == NULL)
+    return;
+
+  print_loop (file, loop, indent, verbosity);
+  print_loop_and_siblings (file, loop->next, indent, verbosity);
+}
 
 /* Follow a CFG edge from the entry point of the program, and on entry
    of a loop, pretty print the loop structure on FILE.  */
 
 void
-print_loop_ir (FILE *file)
+print_loops (FILE *file, int verbosity)
 {
   basic_block bb;
 
   bb = BASIC_BLOCK (NUM_FIXED_BLOCKS);
   if (bb && bb->loop_father)
-    print_loop (file, bb->loop_father, 0);
+    print_loop_and_siblings (file, bb->loop_father, 0, verbosity);
 }
 
 
-/* Debugging loops structure at tree level.  */
+/* Debugging loops structure at tree level, at some VERBOSITY level.  */
 
 void
-debug_loop_ir (void)
+debug_loops (int verbosity)
 {
-  print_loop_ir (stderr);
+  print_loops (stderr, verbosity);
 }
 
+/* Print on stderr the code of LOOP, at some VERBOSITY level.  */
+
+void
+debug_loop (struct loop *loop, int verbosity)
+{
+  print_loop (stderr, loop, 0, verbosity);
+}
+
+/* Print on stderr the code of loop number NUM, at some VERBOSITY
+   level.  */
+
+void
+debug_loop_num (unsigned num, int verbosity)
+{
+  debug_loop (get_loop (num), verbosity);
+}
 
 /* Return true if BB ends with a call, possibly followed by some
    instructions that must stay with the call.  Return false,
@@ -6965,12 +7071,12 @@ execute_warn_function_return (void)
 	      location = EXPR_LOCATION (last);
 	      if (location == UNKNOWN_LOCATION)
 		  location = cfun->function_end_locus;
-	      warning (0, "%Hcontrol reaches end of non-void function", &location);
+	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", &location);
 #else
 	      locus = EXPR_LOCUS (last);
 	      if (!locus)
 		locus = &cfun->function_end_locus;
-	      warning (0, "%Hcontrol reaches end of non-void function", locus);
+	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", locus);
 #endif
 	      TREE_NO_WARNING (cfun->decl) = 1;
 	      break;

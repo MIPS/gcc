@@ -137,7 +137,9 @@ typedef struct micro_operation_def
   enum micro_operation_type type;
 
   union {
-    /* Location.  */
+    /* Location.  For MO_SET and MO_COPY, this is the SET that performs
+       the assignment, if known, otherwise it is the target of the
+       assignment.  */
     rtx loc;
 
     /* Stack adjustment.  */
@@ -267,6 +269,9 @@ typedef const struct variable_def *const_variable;
 
 /* Pointer to the BB's information specific to variable tracking pass.  */
 #define VTI(BB) ((variable_tracking_info) (BB)->aux)
+
+/* Macro to access MEM_OFFSET as an HOST_WIDE_INT.  Evaluates MEM twice.  */
+#define INT_MEM_OFFSET(mem) (MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0)
 
 /* Alloc pool for struct attrs_def.  */
 static alloc_pool attrs_pool;
@@ -1008,7 +1013,7 @@ var_mem_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
 	     rtx set_src)
 {
   tree decl = MEM_EXPR (loc);
-  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
+  HOST_WIDE_INT offset = INT_MEM_OFFSET (loc);
 
   var_mem_decl_set (set, loc, initialized, decl, offset, set_src);
 }
@@ -1025,7 +1030,7 @@ var_mem_delete_and_set (dataflow_set *set, rtx loc, bool modify,
 			enum var_init_status initialized, rtx set_src)
 {
   tree decl = MEM_EXPR (loc);
-  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
+  HOST_WIDE_INT offset = INT_MEM_OFFSET (loc);
 
   decl = var_debug_decl (decl);
 
@@ -1045,7 +1050,7 @@ static void
 var_mem_delete (dataflow_set *set, rtx loc, bool clobber)
 {
   tree decl = MEM_EXPR (loc);
-  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
+  HOST_WIDE_INT offset = INT_MEM_OFFSET (loc);
 
   decl = var_debug_decl (decl);
   if (clobber)
@@ -1241,9 +1246,11 @@ variable_union (void **slot, void *data)
 			 && REG_P (node->loc)
 			 && REGNO (node2->loc) == REGNO (node->loc))
 			|| rtx_equal_p (node2->loc, node->loc)))
-		    if (node2->init < node->init)
-		      node2->init = node->init;
-		    break;
+		    {
+		      if (node2->init < node->init)
+		        node2->init = node->init;
+		      break;
+		    }
 		}
 	      if (node || node2)
 		dst = unshare_variable (set, dst, VAR_INIT_STATUS_UNKNOWN);
@@ -1680,7 +1687,7 @@ same_variable_part_p (rtx loc, tree expr, HOST_WIDE_INT offset)
   else if (MEM_P (loc))
     {
       expr2 = MEM_EXPR (loc);
-      offset2 = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
+      offset2 = INT_MEM_OFFSET (loc);
     }
   else
     return false;
@@ -1694,11 +1701,98 @@ same_variable_part_p (rtx loc, tree expr, HOST_WIDE_INT offset)
   return (expr == expr2 && offset == offset2);
 }
 
+/* LOC is a REG or MEM that we would like to track if possible.
+   If EXPR is null, we don't know what expression LOC refers to,
+   otherwise it refers to EXPR + OFFSET.  STORE_REG_P is true if
+   LOC is an lvalue register.
+
+   Return true if EXPR is nonnull and if LOC, or some lowpart of it,
+   is something we can track.  When returning true, store the mode of
+   the lowpart we can track in *MODE_OUT (if nonnull) and its offset
+   from EXPR in *OFFSET_OUT (if nonnull).  */
+
+static bool
+track_loc_p (rtx loc, tree expr, HOST_WIDE_INT offset, bool store_reg_p,
+	     enum machine_mode *mode_out, HOST_WIDE_INT *offset_out)
+{
+  enum machine_mode mode;
+
+  if (expr == NULL || !track_expr_p (expr))
+    return false;
+
+  /* If REG was a paradoxical subreg, its REG_ATTRS will describe the
+     whole subreg, but only the old inner part is really relevant.  */
+  mode = GET_MODE (loc);
+  if (REG_P (loc) && !HARD_REGISTER_NUM_P (ORIGINAL_REGNO (loc)))
+    {
+      enum machine_mode pseudo_mode;
+
+      pseudo_mode = PSEUDO_REGNO_MODE (ORIGINAL_REGNO (loc));
+      if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (pseudo_mode))
+	{
+	  offset += byte_lowpart_offset (pseudo_mode, mode);
+	  mode = pseudo_mode;
+	}
+    }
+
+  /* If LOC is a paradoxical lowpart of EXPR, refer to EXPR itself.
+     Do the same if we are storing to a register and EXPR occupies
+     the whole of register LOC; in that case, the whole of EXPR is
+     being changed.  We exclude complex modes from the second case
+     because the real and imaginary parts are represented as separate
+     pseudo registers, even if the whole complex value fits into one
+     hard register.  */
+  if ((GET_MODE_SIZE (mode) > GET_MODE_SIZE (DECL_MODE (expr))
+       || (store_reg_p
+	   && !COMPLEX_MODE_P (DECL_MODE (expr))
+	   && hard_regno_nregs[REGNO (loc)][DECL_MODE (expr)] == 1))
+      && offset + byte_lowpart_offset (DECL_MODE (expr), mode) == 0)
+    {
+      mode = DECL_MODE (expr);
+      offset = 0;
+    }
+
+  if (offset < 0 || offset >= MAX_VAR_PARTS)
+    return false;
+
+  if (mode_out)
+    *mode_out = mode;
+  if (offset_out)
+    *offset_out = offset;
+  return true;
+}
+
+/* Return the MODE lowpart of LOC, or null if LOC is not something we
+   want to track.  When returning nonnull, make sure that the attributes
+   on the returned value are updated.  */
+
+static rtx
+var_lowpart (enum machine_mode mode, rtx loc)
+{
+  unsigned int offset, reg_offset, regno;
+
+  if (!REG_P (loc) && !MEM_P (loc))
+    return NULL;
+
+  if (GET_MODE (loc) == mode)
+    return loc;
+
+  offset = byte_lowpart_offset (mode, GET_MODE (loc));
+
+  if (MEM_P (loc))
+    return adjust_address_nv (loc, mode, offset);
+
+  reg_offset = subreg_lowpart_offset (mode, GET_MODE (loc));
+  regno = REGNO (loc) + subreg_regno_offset (REGNO (loc), GET_MODE (loc),
+					     reg_offset, mode);
+  return gen_rtx_REG_offset (loc, mode, regno, offset);
+}
+
 /* Determine what kind of micro operation to choose for a USE.  Return
    MO_CLOBBER if no micro operation is to be generated.  */
 
 static enum micro_operation_type
-use_type (rtx *loc, rtx insn)
+use_type (rtx *loc, rtx insn, enum machine_mode *modep)
 {
   tree expr;
 
@@ -1727,7 +1821,8 @@ use_type (rtx *loc, rtx insn)
 	return MO_USE_NO_VAR;
       else if (var_debug_value_for_decl (expr))
 	return MO_CLOBBER;
-      else if (track_expr_p (expr))
+      else if (track_loc_p (*loc, expr, REG_OFFSET (*loc),
+			    false, modep, NULL))
 	return MO_USE;
       else
 	return MO_USE_NO_VAR;
@@ -1740,7 +1835,8 @@ use_type (rtx *loc, rtx insn)
 	return MO_CLOBBER;
       else if (var_debug_value_for_decl (expr))
 	return MO_CLOBBER;
-      else if (track_expr_p (expr))
+      else if (track_loc_p (*loc, expr, INT_MEM_OFFSET (*loc),
+			    false, modep, NULL))
 	return MO_USE;
       else
 	return MO_CLOBBER;
@@ -1757,7 +1853,7 @@ count_uses (rtx *loc, void *data)
 {
   rtx insn = (rtx) data;
 
-  if (use_type (loc, insn) != MO_CLOBBER)
+  if (use_type (loc, insn, NULL) != MO_CLOBBER)
     VTI (BLOCK_FOR_INSN (insn))->n_mos++;
 
   return 0;
@@ -1786,8 +1882,9 @@ count_stores (rtx loc, const_rtx expr ATTRIBUTE_UNUSED, void *insn)
 static int
 add_uses (rtx *loc, void *data)
 {
+  enum machine_mode mode;
   rtx insn = (rtx)data;
-  enum micro_operation_type type = use_type (loc, insn);
+  enum micro_operation_type type = use_type (loc, insn, &mode);
 
   if (type != MO_CLOBBER)
     {
@@ -1795,7 +1892,7 @@ add_uses (rtx *loc, void *data)
       micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
 
       mo->type = type;
-      mo->u.loc = *loc;
+      mo->u.loc = type == MO_USE ? var_lowpart (mode, *loc) : *loc;
       mo->insn = insn;
     }
 
@@ -1817,7 +1914,9 @@ add_uses_1 (rtx *x, void *insn)
 static void
 add_stores (rtx loc, const_rtx expr, void *insn)
 {
-  if (use_type (&loc, (rtx) insn) == MO_CLOBBER)
+  enum machine_mode mode;
+
+  if (use_type (&loc, (rtx) insn, NULL) == MO_CLOBBER)
     return;
 
   if (REG_P (loc))
@@ -1826,70 +1925,88 @@ add_stores (rtx loc, const_rtx expr, void *insn)
       micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
 
       if (GET_CODE (expr) == CLOBBER
-	  || ! REG_EXPR (loc)
-	  || ! track_expr_p (REG_EXPR (loc)))
-	mo->type = MO_CLOBBER;
-      else if (GET_CODE (expr) == SET
-	       && SET_DEST (expr) == loc
-	       && same_variable_part_p (SET_SRC (expr),
-					REG_EXPR (loc),
-					REG_OFFSET (loc)))
-	mo->type = MO_COPY;
+	  || !track_loc_p (loc, REG_EXPR (loc), REG_OFFSET (loc),
+			   true, &mode, NULL))
+	{
+	  mo->type = MO_CLOBBER;
+	  mo->u.loc = loc;
+	}
       else
-	mo->type = MO_SET;
-      mo->u.loc = loc;
+	{
+	  rtx src = NULL;
+
+	  if (GET_CODE (expr) == SET && SET_DEST (expr) == loc)
+	    src = var_lowpart (mode, SET_SRC (expr));
+	  loc = var_lowpart (mode, loc);
+
+	  if (src == NULL)
+	    {
+	      mo->type = MO_SET;
+	      mo->u.loc = loc;
+	    }
+	  else
+	    {
+	      if (SET_SRC (expr) != src)
+		expr = gen_rtx_SET (VOIDmode, loc, src);
+	      if (same_variable_part_p (src, REG_EXPR (loc), REG_OFFSET (loc)))
+		mo->type = MO_COPY;
+	      else
+		mo->type = MO_SET;
+	      mo->u.loc = CONST_CAST_RTX (expr);
+	    }
+	}
       mo->insn = (rtx) insn;
     }
   else if (MEM_P (loc)
-	   && MEM_EXPR (loc)
-	   && track_expr_p (MEM_EXPR (loc)))
+	   && track_loc_p (loc, MEM_EXPR (loc), INT_MEM_OFFSET (loc),
+			   false, &mode, NULL))
     {
       basic_block bb = BLOCK_FOR_INSN ((rtx) insn);
       micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
 
       if (GET_CODE (expr) == CLOBBER)
-	mo->type = MO_CLOBBER;
-      else if (GET_CODE (expr) == SET
-	       && SET_DEST (expr) == loc
-	       && same_variable_part_p (SET_SRC (expr),
-					MEM_EXPR (loc),
-					MEM_OFFSET (loc)
-					? INTVAL (MEM_OFFSET (loc)) : 0))
-	mo->type = MO_COPY;
+	{
+	  mo->type = MO_CLOBBER;
+	  mo->u.loc = var_lowpart (mode, loc);
+	}
       else
-	mo->type = MO_SET;
-      mo->u.loc = loc;
+	{
+	  rtx src = NULL;
+
+	  if (GET_CODE (expr) == SET && SET_DEST (expr) == loc)
+	    src = var_lowpart (mode, SET_SRC (expr));
+	  loc = var_lowpart (mode, loc);
+
+	  if (src == NULL)
+	    {
+	      mo->type = MO_SET;
+	      mo->u.loc = loc;
+	    }
+	  else
+	    {
+	      if (SET_SRC (expr) != src)
+		expr = gen_rtx_SET (VOIDmode, loc, src);
+	      if (same_variable_part_p (SET_SRC (expr),
+					MEM_EXPR (loc),
+					INT_MEM_OFFSET (loc)))
+		mo->type = MO_COPY;
+	      else
+		mo->type = MO_SET;
+	      mo->u.loc = CONST_CAST_RTX (expr);
+	    }
+	}
       mo->insn = (rtx) insn;
     }
 }
 
 static enum var_init_status
-find_src_status (dataflow_set *in, rtx loc, rtx insn)
+find_src_status (dataflow_set *in, rtx src)
 {
-  rtx src = NULL_RTX;
-  rtx pattern;
   tree decl = NULL_TREE;
   enum var_init_status status = VAR_INIT_STATUS_UNINITIALIZED;
 
   if (! flag_var_tracking_uninit)
     status = VAR_INIT_STATUS_INITIALIZED;
-
-  pattern = PATTERN (insn);
-
-  if (GET_CODE (pattern) == COND_EXEC)
-    pattern = COND_EXEC_CODE (pattern);
-
-  if (GET_CODE (pattern) == SET)
-    src = SET_SRC (pattern);
-  else if (GET_CODE (pattern) == PARALLEL
-	   || GET_CODE (pattern) == SEQUENCE)
-    {
-      int i;
-      for (i = XVECLEN (pattern, 0) - 1; i >= 0; i--)
-	if (GET_CODE (XVECEXP (pattern, 0, i)) == SET
-	    && SET_DEST (XVECEXP (pattern, 0, i)) == loc)
-	  src = SET_SRC (XVECEXP (pattern, 0, i));
-    }
 
   if (src && REG_P (src))
     decl = var_debug_decl (REG_EXPR (src));
@@ -1902,38 +2019,20 @@ find_src_status (dataflow_set *in, rtx loc, rtx insn)
   return status;
 }
 
-/* LOC is the destination the variable is being copied to.  INSN 
-   contains the copy instruction.  SET is the dataflow set containing
-   the variable in LOC.  */
+/* SRC is the source of an assignment.  Use SET to try to find what
+   was ultimately assigned to SRC.  Return that value if known,
+   otherwise return SRC itself.  */
 
 static rtx
-find_src_set_src (dataflow_set *set, rtx loc, rtx insn)
+find_src_set_src (dataflow_set *set, rtx src)
 {
   tree decl = NULL_TREE;   /* The variable being copied around.          */
-  rtx src = NULL_RTX;      /* The location "decl" is being copied from.  */
   rtx set_src = NULL_RTX;  /* The value for "decl" stored in "src".      */
-  rtx pattern;
   void **slot;
   variable var;
   location_chain nextp;
   int i;
   bool found;
-
-
-  pattern = PATTERN (insn);
-  if (GET_CODE (pattern) == COND_EXEC)
-    pattern = COND_EXEC_CODE (pattern);
-
-  if (GET_CODE (pattern) == SET)
-    src = SET_SRC (pattern);
-  else if (GET_CODE (pattern) == PARALLEL
-	   || GET_CODE (pattern) == SEQUENCE)
-    {
-      for (i = XVECLEN (pattern, 0) - 1; i >= 0; i--)
-	if (GET_CODE (XVECEXP (pattern, 0, i)) == SET
-	    && SET_DEST (XVECEXP (pattern, 0, i)) == loc)
-	  src = SET_SRC (XVECEXP (pattern, 0, i));
-    }
 
   if (src && REG_P (src))
     decl = var_debug_decl (REG_EXPR (src));
@@ -2034,19 +2133,12 @@ compute_bb_dataflow (basic_block bb)
 	  case MO_SET:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
-	      rtx set_src =  NULL;
-	      rtx insn = VTI (bb)->mos[i].insn;
+	      rtx set_src = NULL;
 
-	      if (GET_CODE (PATTERN (insn)) == SET)
-		set_src = SET_SRC (PATTERN (insn));
-	      else if (GET_CODE (PATTERN (insn)) == PARALLEL
-		       || GET_CODE (PATTERN (insn)) == SEQUENCE)
+	      if (GET_CODE (loc) == SET)
 		{
-		  int j;
-		  for (j = XVECLEN (PATTERN (insn), 0) - 1; j >= 0; j--)
-		    if (GET_CODE (XVECEXP (PATTERN (insn), 0, j)) == SET
-			&& SET_DEST (XVECEXP (PATTERN (insn), 0, j)) == loc)
-		      set_src = SET_SRC (XVECEXP (PATTERN (insn), 0, j));
+		  set_src = SET_SRC (loc);
+		  loc = SET_DEST (loc);
 		}
 
 	      if (REG_P (loc))
@@ -2062,17 +2154,23 @@ compute_bb_dataflow (basic_block bb)
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
 	      enum var_init_status src_status;
-	      rtx set_src;
+	      rtx set_src = NULL;
+
+	      if (GET_CODE (loc) == SET)
+		{
+		  set_src = SET_SRC (loc);
+		  loc = SET_DEST (loc);
+		}
 
 	      if (! flag_var_tracking_uninit)
 		src_status = VAR_INIT_STATUS_INITIALIZED;
 	      else
-		src_status = find_src_status (in, loc, VTI (bb)->mos[i].insn);
+		src_status = find_src_status (in, set_src);
 
 	      if (src_status == VAR_INIT_STATUS_UNKNOWN)
-		src_status = find_src_status (out, loc, VTI (bb)->mos[i].insn);
+		src_status = find_src_status (out, set_src);
 
-	      set_src = find_src_set_src (in, loc, VTI (bb)->mos[i].insn);
+	      set_src = find_src_set_src (in, set_src);
 
 	      if (REG_P (loc))
 		var_reg_delete_and_set (out, loc, false, src_status, set_src);
@@ -2242,10 +2340,15 @@ dump_variable (void **slot, void *data ATTRIBUTE_UNUSED)
   location_chain node;
 
   if (DECL_NAME (var->decl))
-    fprintf (dump_file, "  name: %s\n",
+    fprintf (dump_file, "  name: %s",
 	     IDENTIFIER_POINTER (DECL_NAME (var->decl)));
   else
     fprintf (dump_file, "  name: D.%u", DECL_UID (var->decl));
+  if (dump_flags & TDF_UID)
+    fprintf (dump_file, " D.%u\n", DECL_UID (var->decl));
+  else
+    fprintf (dump_file, "\n");
+
   for (i = 0; i < var->n_var_parts; i++)
     {
       fprintf (dump_file, "    offset %ld\n",
@@ -2576,6 +2679,8 @@ clobber_variable_part (dataflow_set *set, rtx loc, tree decl,
 			      pool_free (attrs_pool, anode);
 			      *anextp = anext;
 			    }
+			  else
+			    anextp = &anode->next;
 			}
 		    }
 
@@ -3009,18 +3114,12 @@ emit_notes_in_bb (basic_block bb)
 	  case MO_SET:
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
-	      rtx set_src =  NULL;
+	      rtx set_src = NULL;
 
-	      if (GET_CODE (PATTERN (insn)) == SET)
-		set_src = SET_SRC (PATTERN (insn));
-	      else if (GET_CODE (PATTERN (insn)) == PARALLEL
-		       || GET_CODE (PATTERN (insn)) == SEQUENCE)
+	      if (GET_CODE (loc) == SET)
 		{
-		  int j;
-		  for (j = XVECLEN (PATTERN (insn), 0) - 1; j >= 0; j--)
-		    if (GET_CODE (XVECEXP (PATTERN (insn), 0, j)) == SET
-			&& SET_DEST (XVECEXP (PATTERN (insn), 0, j)) == loc)
-		      set_src = SET_SRC (XVECEXP (PATTERN (insn), 0, j));
+		  set_src = SET_SRC (loc);
+		  loc = SET_DEST (loc);
 		}
 
 	      if (REG_P (loc))
@@ -3038,10 +3137,16 @@ emit_notes_in_bb (basic_block bb)
 	    {
 	      rtx loc = VTI (bb)->mos[i].u.loc;
 	      enum var_init_status src_status;
-	      rtx set_src;
+	      rtx set_src = NULL;
 
-	      src_status = find_src_status (&set, loc, VTI (bb)->mos[i].insn);
-	      set_src = find_src_set_src (&set, loc, VTI (bb)->mos[i].insn);
+	      if (GET_CODE (loc) == SET)
+		{
+		  set_src = SET_SRC (loc);
+		  loc = SET_DEST (loc);
+		}
+
+	      src_status = find_src_status (&set, set_src);
+	      set_src = find_src_set_src (&set, set_src);
 
 	      if (REG_P (loc))
 		var_reg_delete_and_set (&set, loc, false, src_status, set_src);
@@ -3139,7 +3244,7 @@ vt_get_decl_and_offset (rtx rtl, tree *declp, HOST_WIDE_INT *offsetp)
       if (MEM_ATTRS (rtl))
 	{
 	  *declp = MEM_EXPR (rtl);
-	  *offsetp = MEM_OFFSET (rtl) ? INTVAL (MEM_OFFSET (rtl)) : 0;
+	  *offsetp = INT_MEM_OFFSET (rtl);
 	  return true;
 	}
     }
@@ -3159,6 +3264,7 @@ vt_add_function_parameters (void)
       rtx decl_rtl = DECL_RTL_IF_SET (parm);
       rtx incoming = DECL_INCOMING_RTL (parm);
       tree decl;
+      enum machine_mode mode;
       HOST_WIDE_INT offset;
       dataflow_set *out;
 
@@ -3175,18 +3281,26 @@ vt_add_function_parameters (void)
 	continue;
 
       if (!vt_get_decl_and_offset (incoming, &decl, &offset))
-	if (!vt_get_decl_and_offset (decl_rtl, &decl, &offset))
-	  continue;
+	{
+	  if (!vt_get_decl_and_offset (decl_rtl, &decl, &offset))
+	    continue;
+	  offset += byte_lowpart_offset (GET_MODE (incoming),
+					 GET_MODE (decl_rtl));
+	}
 
       if (!decl)
 	continue;
 
       gcc_assert (parm == decl);
 
+      if (!track_loc_p (incoming, parm, offset, false, &mode, &offset))
+	continue;
+
       out = &VTI (ENTRY_BLOCK_PTR)->out;
 
       if (REG_P (incoming))
 	{
+	  incoming = var_lowpart (mode, incoming);
 	  gcc_assert (REGNO (incoming) < FIRST_PSEUDO_REGISTER);
 	  attrs_list_insert (&out->regs[REGNO (incoming)],
 			     parm, offset, incoming);
@@ -3194,8 +3308,11 @@ vt_add_function_parameters (void)
 			     NULL);
 	}
       else if (MEM_P (incoming))
-	set_variable_part (out, incoming, parm, offset, VAR_INIT_STATUS_INITIALIZED, 
-			   NULL);
+	{
+	  incoming = var_lowpart (mode, incoming);
+	  set_variable_part (out, incoming, parm, offset,
+			     VAR_INIT_STATUS_INITIALIZED, NULL);
+	}
     }
 }
 
