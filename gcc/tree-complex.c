@@ -556,10 +556,10 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
     comp = get_component_ssa_name (ssa_name, imag_p);
   
   /* Do all the work to assign VALUE to COMP.  */
-  list = gimple_seq_alloc ();
-  value = force_gimple_operand (value, list, false, NULL);
+  list = NULL;
+  value = force_gimple_operand (value, &list, false, NULL);
   last =  gimple_build_assign (comp, value);
-  gimple_seq_add (list, last);
+  gimple_seq_add_stmt (&list, last);
 
   gcc_assert (SSA_NAME_DEF_STMT (comp) == NULL);
   SSA_NAME_DEF_STMT (comp) = last;
@@ -1125,7 +1125,7 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
       gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
 
       /* Split the original block, and create the TRUE and FALSE blocks.  */
-      e = split_block (gsi->bb, cond);
+      e = split_block (gsi_bb (*gsi), cond);
       bb_cond = e->src;
       bb_join = e->dest;
       bb_true = create_empty_bb (bb_cond);

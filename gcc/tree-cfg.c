@@ -220,7 +220,7 @@ struct tree_opt_pass pass_build_cfg =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CFG,				/* tv_id */
-  /* FIXME tuples PROP_gimple_leh */0, 			/* properties_required */
+  PROP_gimple_leh, 			/* properties_required */
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
@@ -1333,7 +1333,8 @@ gimple_merge_blocks (basic_block a, basic_block b)
       gimple phi = gsi_stmt (psi);
       tree def = gimple_phi_result (phi), use = gimple_phi_arg_def (phi, 0);
       gimple copy;
-      bool may_replace_uses = !is_gimple_reg (def) || may_propagate_copy (def, use);
+      bool may_replace_uses = !is_gimple_reg (def)
+			      || may_propagate_copy (def, use);
 
       /* In case we maintain loop closed ssa form, do not propagate arguments
 	 of loop exit phi nodes.  */
@@ -1415,7 +1416,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 
   /* Merge the sequences.  */
   last = gsi_last_bb (a);
-  gsi_link_seq_after (&last, bb_seq (b), GSI_NEW_STMT);
+  gsi_insert_seq_after (&last, bb_seq (b), GSI_NEW_STMT);
   set_bb_seq (b, NULL);
 
   if (cfgcleanup_altered_bbs)

@@ -53,9 +53,12 @@ typedef const union tree_node *const_tree;
 typedef const union gimple_statement_d *const_gimple;
 union section;
 typedef union section section;
-struct gimple_sequence;
-typedef struct gimple_sequence *gimple_seq;
-typedef const struct gimple_sequence *const_gimple_seq;
+struct gimple_seq_d;
+typedef struct gimple_seq_d *gimple_seq;
+typedef const struct gimple_seq_d *const_gimple_seq;
+struct gimple_seq_node_d;
+typedef struct gimple_seq_node_d *gimple_seq_node;
+typedef const struct gimple_seq_node_d *const_gimple_seq_node;
 
 /* The major intermediate representations of GCC.  */
 enum ir_type {

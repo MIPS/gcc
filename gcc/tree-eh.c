@@ -462,9 +462,9 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
     return;
 
   if (gimple_seq_singleton_p (new)
-      && gimple_code (gimple_seq_first (new)) == GIMPLE_GOTO)
+      && gimple_code (gimple_seq_first_stmt (new)) == GIMPLE_GOTO)
     {
-      *tp = gimple_goto_dest (gimple_seq_first (new));
+      *tp = gimple_goto_dest (gimple_seq_first_stmt (new));
       return;
     }
 
@@ -472,8 +472,8 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
   /* Set the new label for the GIMPLE_COND */
   *tp = label;
 
-  gsi_link_after (gsi, gimple_build_label (label), GSI_CONTINUE_LINKING);
-  gsi_link_seq_after (gsi, new, GSI_CONTINUE_LINKING);
+  gsi_insert_after (gsi, gimple_build_label (label), GSI_CONTINUE_LINKING);
+  gsi_insert_seq_after (gsi, new, GSI_CONTINUE_LINKING);
 }
 
 /* The real work of replace_goto_queue.  Returns with TSI updated to
@@ -493,7 +493,7 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
       seq = find_goto_replacement (tf, (treemple) stmt);
       if (seq)
 	{
-	  gsi_link_seq_before (gsi, seq, GSI_SAME_STMT);
+	  gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
 	  gsi_remove (gsi, false);
 	  return;
 	}
@@ -726,10 +726,10 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod,
     q->repl_stmt = gimple_seq_alloc ();
 
   if (mod)
-    gimple_seq_append (q->repl_stmt, mod);
+    gimple_seq_add_seq (&q->repl_stmt, mod);
 
   x = gimple_build_goto (finlab);
-  gimple_seq_add (q->repl_stmt, x);
+  gimple_seq_add_stmt (&q->repl_stmt, x);
 }
 
 /* Similar, but easier, for GIMPLE_GOTO.  */
@@ -743,10 +743,10 @@ do_goto_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod)
     q->repl_stmt = gimple_seq_alloc ();
   q->cont_stmt = q->stmt;
   if (mod)
-    gimple_seq_append (q->repl_stmt, mod);
+    gimple_seq_add_seq (&q->repl_stmt, mod);
 
   x = gimple_build_goto (finlab);
-  gimple_seq_add (q->repl_stmt, x);
+  gimple_seq_add_stmt (&q->repl_stmt, x);
 }
 
 /* We want to transform
@@ -772,21 +772,21 @@ frob_into_branch_around (gimple tp, tree lab, tree over)
       if (!over)
 	over = create_artificial_label ();
       x = gimple_build_goto (over);
-      gimple_seq_add (result, x);
+      gimple_seq_add_stmt (&result, x);
     }
 
   if (lab)
     {
       x = gimple_build_label (lab);
-      gimple_seq_add (result, x);
+      gimple_seq_add_stmt (&result, x);
     }
 
-  gimple_seq_append (result, cleanup);
+  gimple_seq_add_seq (&result, cleanup);
 
   if (over)
     {
       x = gimple_build_label (over);
-      gimple_seq_add (result, x);
+      gimple_seq_add_stmt (&result, x);
     }
   return result;
 }
@@ -911,7 +911,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
       && gimple_try_kind (x) == GIMPLE_TRY_CATCH
       && gimple_try_catch_is_cleanup (x))
     {
-      gsi_link_seq_before (&gsi, gimple_try_eval (x), GSI_SAME_STMT);
+      gsi_insert_seq_before (&gsi, gimple_try_eval (x), GSI_SAME_STMT);
       gsi_remove (&gsi, false);
     }
 
@@ -929,36 +929,36 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
       gsi = gsi_start (finally);
       tmp = build0 (EXC_PTR_EXPR, ptr_type_node);
       x = gimple_build_assign (save_eptr, tmp);
-      gsi_link_before (&gsi, x, GSI_CONTINUE_LINKING);
+      gsi_insert_before (&gsi, x, GSI_CONTINUE_LINKING);
 
       tmp = build0 (FILTER_EXPR, integer_type_node);
       x = gimple_build_assign (save_filt, tmp);
-      gsi_link_before (&gsi, x, GSI_CONTINUE_LINKING);
+      gsi_insert_before (&gsi, x, GSI_CONTINUE_LINKING);
 
       gsi = gsi_last (finally);
       tmp = build0 (EXC_PTR_EXPR, ptr_type_node);
       x = gimple_build_assign (tmp, save_eptr);
-      gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&gsi, x, GSI_CONTINUE_LINKING);
 
       tmp = build0 (FILTER_EXPR, integer_type_node);
       x = gimple_build_assign (tmp, save_filt);
-      gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&gsi, x, GSI_CONTINUE_LINKING);
 
       x = gimple_build_resx (get_eh_region_number (tf->region));
-      gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&gsi, x, GSI_CONTINUE_LINKING);
     }
 
   /* Wrap the block with protect_cleanup_actions as the action.  */
   if (protect_cleanup_actions)
     {
-      struct gimple_sequence seq;
-      memset (&seq, 0, sizeof (struct gimple_sequence));
-      x = gimple_build_eh_filter (NULL, NULL);
-      gimple_seq_add (gimple_eh_filter_failure (x), protect_cleanup_actions);
+      gimple_seq seq = NULL, failure = NULL;
 
+      gimple_seq_add_stmt (&failure, protect_cleanup_actions);
+      x = gimple_build_eh_filter (NULL, failure);
       gimple_eh_filter_set_must_not_throw (x, 1);
-      gimple_seq_add (&seq, x);
-      x = gimple_build_try (finally, &seq, GIMPLE_TRY_CATCH);
+
+      gimple_seq_add_stmt (&seq, x);
+      x = gimple_build_try (finally, seq, GIMPLE_TRY_CATCH);
       finally = lower_eh_filter (outer_state, x);
     }
   else
@@ -975,7 +975,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
       tree tmp;
       tmp = lower_try_finally_fallthru_label (tf);
       x = gimple_build_goto (tmp);
-      gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&gsi, x, GSI_CONTINUE_LINKING);
 
       if (this_state)
         maybe_record_in_goto_queue (this_state, x);
@@ -984,8 +984,8 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
     }
 
   x = gimple_build_label (tf->eh_label);
-  gsi_link_after (&gsi, x, GSI_CONTINUE_LINKING);
-  gsi_link_seq_after (&gsi, finally, GSI_CONTINUE_LINKING);
+  gsi_insert_after (&gsi, x, GSI_CONTINUE_LINKING);
+  gsi_insert_seq_after (&gsi, finally, GSI_CONTINUE_LINKING);
 
   /* Having now been handled, EH isn't to be considered with
      the rest of the outgoing edges.  */
@@ -998,7 +998,8 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
    try_finally node for this special case.  */
 
 static void
-lower_try_finally_nofallthru (struct leh_state *state, struct leh_tf_state *tf)
+lower_try_finally_nofallthru (struct leh_state *state,
+			      struct leh_tf_state *tf)
 {
   tree lab, return_val;
   gimple x;
@@ -1015,7 +1016,7 @@ lower_try_finally_nofallthru (struct leh_state *state, struct leh_tf_state *tf)
   tf->top_p_seq = gimple_try_eval (tf->top_p);
 
   x = gimple_build_label (lab);
-  gimple_seq_add (tf->top_p_seq, x);
+  gimple_seq_add_stmt (&tf->top_p_seq, x);
 
   return_val = NULL;
   q = tf->goto_queue;
@@ -1029,7 +1030,7 @@ lower_try_finally_nofallthru (struct leh_state *state, struct leh_tf_state *tf)
   replace_goto_queue (tf);
 
   lower_eh_constructs_1 (state, finally);
-  gimple_seq_append (tf->top_p_seq, finally);
+  gimple_seq_add_seq (&tf->top_p_seq, finally);
 }
 
 /* A subroutine of lower_try_finally.  We have determined that there is
@@ -1055,13 +1056,13 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
          the head of the FINALLY block.  Append a RESX at the end.  */
 
       x = gimple_build_label (tf->eh_label);
-      gimple_seq_add (tf->top_p_seq, x);
+      gimple_seq_add_stmt (&tf->top_p_seq, x);
 
-      gimple_seq_append (tf->top_p_seq, finally);
+      gimple_seq_add_seq (&tf->top_p_seq, finally);
 
       x = gimple_build_resx (get_eh_region_number (tf->region));
 
-      gimple_seq_add (tf->top_p_seq, x);
+      gimple_seq_add_stmt (&tf->top_p_seq, x);
 
       return;
     }
@@ -1070,15 +1071,15 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
     {
       /* Only reachable via the fallthru edge.  Do nothing but let
 	 the two blocks run together; we'll fall out the bottom.  */
-      gimple_seq_append (tf->top_p_seq, finally);
+      gimple_seq_add_seq (&tf->top_p_seq, finally);
       return;
     }
 
   finally_label = create_artificial_label ();
   x = gimple_build_label (finally_label);
-  gimple_seq_add (tf->top_p_seq, x);
+  gimple_seq_add_stmt (&tf->top_p_seq, x);
 
-  gimple_seq_append (tf->top_p_seq, finally);
+  gimple_seq_add_seq (&tf->top_p_seq, finally);
 
   q = tf->goto_queue;
   qe = q + tf->goto_queue_active;
@@ -1111,7 +1112,7 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
   /* Reset the locus of the goto since we're moving
      goto to a different block which might be on a different line. */
   gimple_set_locus (tf->goto_queue[0].cont_stmt.g, 0);
-  gimple_seq_add (tf->top_p_seq, tf->goto_queue[0].cont_stmt.g);
+  gimple_seq_add_stmt (&tf->top_p_seq, tf->goto_queue[0].cont_stmt.g);
   maybe_record_in_goto_queue (state, tf->goto_queue[0].cont_stmt.g);
 }
 
@@ -1130,30 +1131,30 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 
   finally = gimple_try_cleanup (tf->top_p);
   tf->top_p_seq = gimple_try_eval (tf->top_p);
-  new_stmt = gimple_seq_alloc ();
+  new_stmt = NULL;
 
   if (tf->may_fallthru)
     {
       seq = lower_try_finally_dup_block (finally, state);
       lower_eh_constructs_1 (state, seq);
-      gimple_seq_append (new_stmt, seq);
+      gimple_seq_add_seq (&new_stmt, seq);
 
       tmp = lower_try_finally_fallthru_label (tf);
       x = gimple_build_goto (tmp);
-      gimple_seq_add (new_stmt, x);
+      gimple_seq_add_stmt (&new_stmt, x);
     }
 
   if (tf->may_throw)
     {
       x = gimple_build_label (tf->eh_label);
-      gimple_seq_add (new_stmt, x);
+      gimple_seq_add_stmt (&new_stmt, x);
 
       seq = lower_try_finally_dup_block (finally, state);
       lower_eh_constructs_1 (state, seq);
-      gimple_seq_append (new_stmt, seq);
+      gimple_seq_add_seq (&new_stmt, seq);
 
       x = gimple_build_resx (get_eh_region_number (tf->region));
-      gimple_seq_add (new_stmt, x);
+      gimple_seq_add_stmt (&new_stmt, x);
     }
 
   if (tf->goto_queue)
@@ -1196,13 +1197,13 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 	    do_goto_redirection (q, lab, NULL);
 
 	  x = gimple_build_label (lab);
-          gimple_seq_add (new_stmt, x);
+          gimple_seq_add_stmt (&new_stmt, x);
 
 	  seq = lower_try_finally_dup_block (finally, state);
 	  lower_eh_constructs_1 (state, seq);
-          gimple_seq_append (new_stmt, seq);
+          gimple_seq_add_seq (&new_stmt, seq);
 
-          gimple_seq_add (new_stmt, q->cont_stmt.g);
+          gimple_seq_add_stmt (&new_stmt, q->cont_stmt.g);
 	  maybe_record_in_goto_queue (state, q->cont_stmt.g);
 	}
 
@@ -1229,7 +1230,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 
   /* Need to link new stmts after running replace_goto_queue due
      to not wanting to process the same goto stmts twice.  */
-  gimple_seq_append (tf->top_p_seq, new_stmt);
+  gimple_seq_add_seq (&tf->top_p_seq, new_stmt);
 }
 
 /* A subroutine of lower_try_finally.  There are multiple edges incoming
@@ -1284,12 +1285,12 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
     {
       x = gimple_build_assign (finally_tmp, build_int_cst (integer_type_node,
 					                   fallthru_index));
-      gimple_seq_add (tf->top_p_seq, x);
+      gimple_seq_add_stmt (&tf->top_p_seq, x);
 
       if (tf->may_throw)
 	{
 	  x = gimple_build_goto (finally_label);
-          gimple_seq_add (tf->top_p_seq, x);
+          gimple_seq_add_stmt (&tf->top_p_seq, x);
 	}
 
 
@@ -1300,21 +1301,21 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       last_case_index++;
 
       x = gimple_build_label (CASE_LABEL (last_case));
-      gimple_seq_add (switch_body, x);
+      gimple_seq_add_stmt (&switch_body, x);
 
       tmp = lower_try_finally_fallthru_label (tf);
       x = gimple_build_goto (tmp);
-      gimple_seq_add (switch_body, x);
+      gimple_seq_add_stmt (&switch_body, x);
     }
 
   if (tf->may_throw)
     {
       x = gimple_build_label (tf->eh_label);
-      gimple_seq_add (tf->top_p_seq, x);
+      gimple_seq_add_stmt (&tf->top_p_seq, x);
 
       x = gimple_build_assign (finally_tmp, build_int_cst (integer_type_node,
                                                            eh_index));
-      gimple_seq_add (tf->top_p_seq, x);
+      gimple_seq_add_stmt (&tf->top_p_seq, x);
 
       last_case = build3 (CASE_LABEL_EXPR, void_type_node,
 			  build_int_cst (NULL_TREE, eh_index), NULL,
@@ -1323,15 +1324,15 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       last_case_index++;
 
       x = gimple_build_label (CASE_LABEL (last_case));
-      gimple_seq_add (switch_body, x);
+      gimple_seq_add_stmt (&switch_body, x);
       x = gimple_build_resx (get_eh_region_number (tf->region));
-      gimple_seq_add (switch_body, x);
+      gimple_seq_add_stmt (&switch_body, x);
     }
 
   x = gimple_build_label (finally_label);
-  gimple_seq_add (tf->top_p_seq, x);
+  gimple_seq_add_stmt (&tf->top_p_seq, x);
 
-  gimple_seq_append (tf->top_p_seq, finally);
+  gimple_seq_add_seq (&tf->top_p_seq, finally);
 
   /* Redirect each incoming goto edge.  */
   q = tf->goto_queue;
@@ -1351,14 +1352,15 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 	  x = gimple_build_assign (finally_tmp,
 				   build_int_cst (integer_type_node,
 						  return_index));
-	  gimple_seq_add (mod, x);
+	  gimple_seq_add_stmt (&mod, x);
 	  do_return_redirection (q, finally_label, mod, &return_val);
 	  switch_id = return_index;
 	}
       else
 	{
 	  x = gimple_build_assign (finally_tmp,
-				   build_int_cst (integer_type_node, q->index));	  gimple_seq_add (mod, x);
+				   build_int_cst (integer_type_node, q->index));
+	  gimple_seq_add_stmt (&mod, x);
 	  do_goto_redirection (q, finally_label, mod);
 	  switch_id = q->index;
 	}
@@ -1395,8 +1397,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       CASE_LABEL (last_case) = label;
 
       x = gimple_build_label (label);
-      gimple_seq_add (switch_body, x);
-      gimple_seq_add (switch_body, cont_stmt.g);
+      gimple_seq_add_stmt (&switch_body, x);
+      gimple_seq_add_stmt (&switch_body, cont_stmt.g);
       maybe_record_in_goto_queue (state, cont_stmt.g);
     }
   replace_goto_queue (tf);
@@ -1412,8 +1414,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
   /* Need to link SWITCH_STMT after running replace_goto_queue
      due to not wanting to process the same goto stmts twice.  */
-  gimple_seq_add (tf->top_p_seq, switch_stmt);
-  gimple_seq_append (tf->top_p_seq, switch_body);
+  gimple_seq_add_stmt (&tf->top_p_seq, switch_stmt);
+  gimple_seq_add_seq (&tf->top_p_seq, switch_body);
 }
 
 /* Decide whether or not we are going to duplicate the finally block.
@@ -1533,7 +1535,7 @@ lower_try_finally (struct leh_state *state, gimple tp)
     {
       /* This must be reached only if ndests == 0. */
       gimple x = gimple_build_label (this_tf.fallthru_label);
-      gimple_seq_add (this_tf.top_p_seq, x);
+      gimple_seq_add_stmt (&this_tf.top_p_seq, x);
     }
 
   VEC_free (tree, heap, this_tf.dest_array);
@@ -1588,7 +1590,7 @@ lower_catch (struct leh_state *state, gimple tp)
       set_eh_region_tree_label (catch_region, eh_label);
 
       x = gimple_build_label (eh_label);
-      gsi_link_before (&gsi, x, GSI_SAME_STMT);
+      gsi_insert_before (&gsi, x, GSI_SAME_STMT);
 
       if (gimple_seq_may_fallthru (gimple_catch_handler (catch)))
 	{
@@ -1596,10 +1598,11 @@ lower_catch (struct leh_state *state, gimple tp)
 	    out_label = create_artificial_label ();
 
 	  x = gimple_build_label (out_label);
-	  gimple_seq_add (gimple_catch_handler (catch), x);
+	  gimple_seq_add_stmt (gimple_catch_handler_ptr (catch), x);
 	}
 
-      gsi_link_seq_before (&gsi, gimple_catch_handler (catch), GSI_SAME_STMT);
+      gsi_insert_seq_before (&gsi, gimple_catch_handler (catch),
+			     GSI_SAME_STMT);
       gsi_remove (&gsi, false);
     }
 
@@ -1618,7 +1621,7 @@ lower_eh_filter (struct leh_state *state, gimple tp)
   gimple inner;
   tree eh_label;
 
-  inner = gimple_seq_first (gimple_try_cleanup (tp));
+  inner = gimple_seq_first_stmt (gimple_try_cleanup (tp));
 
   if (gimple_eh_filter_must_not_throw (inner))
     this_region = gen_eh_region_must_not_throw (state->cur_region);
@@ -1709,7 +1712,7 @@ lower_cleanup (struct leh_state *state, gimple tp)
       if (fake_tf.fallthru_label)
 	{
 	  gimple x = gimple_build_label (fake_tf.fallthru_label);
-	  gimple_seq_add (result, x);
+	  gimple_seq_add_stmt (&result, x);
 	}
     }
   return result;
@@ -1753,7 +1756,7 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
 	replace = lower_try_finally (state, stmt);
       else
 	{
-	  x = gimple_seq_first (gimple_try_cleanup (stmt));
+	  x = gimple_seq_first_stmt (gimple_try_cleanup (stmt));
 	  switch (gimple_code (x))
 	    {
 	    case CATCH_EXPR:
@@ -1770,7 +1773,7 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
 
       /* Remove the old stmt and insert the transformed sequence
 	 instead. */
-      gsi_link_seq_before (gsi, replace, GSI_SAME_STMT);
+      gsi_insert_seq_before (gsi, replace, GSI_SAME_STMT);
       gsi_remove (gsi, true);
 
       /* Return since we don't want gsi_next () */

@@ -304,8 +304,8 @@ lhd_expr_size (const_tree exp)
 
 int
 lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED,
-		   gimple_seq pre_p ATTRIBUTE_UNUSED,
-		   gimple_seq post_p ATTRIBUTE_UNUSED)
+		   gimple_seq *pre_p ATTRIBUTE_UNUSED,
+		   gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   return GS_UNHANDLED;
 }

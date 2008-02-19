@@ -53,8 +53,7 @@ java_genericize (tree fndecl)
 /* Gimplify a Java tree.  */
 
 int
-java_gimplify_expr (tree *expr_p, gimple_seq pre_p ATTRIBUTE_UNUSED,
-		    gimple_seq post_p ATTRIBUTE_UNUSED)
+java_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   enum tree_code code = TREE_CODE (*expr_p);
 

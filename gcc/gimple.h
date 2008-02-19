@@ -88,70 +88,84 @@ enum plf_mask {
     GF_PLF_2	= 1 << 1
 };
 
-/* A sequence of gimple statements.  */
-struct gimple_sequence GTY(())
+/* A node in a gimple_seq_d.  */
+struct gimple_seq_node_d GTY((chain_next ("%h.next"), chain_prev ("%h.prev")))
 {
-  gimple first;
-  gimple last;
+  gimple stmt;
+  struct gimple_seq_node_d *prev;
+  struct gimple_seq_node_d *next;
 };
 
-/* Return the first statement in GIMPLE sequence S.  */
+/* A double-linked sequence of gimple statements.  */
+struct gimple_seq_d GTY ((chain_next ("%h.next_free")))
+{
+  /* First and last statements in the sequence.  */
+  gimple_seq_node first;
+  gimple_seq_node last;
 
-static inline gimple
+  /* Sequences are created/destroyed frequently.  To minimize
+     allocation activity, deallocated sequences are kept in a pool of
+     available sequences.  This is the pointer to the next free
+     sequence in the pool.  */
+  gimple_seq next_free;
+};
+
+
+/* Return the first node in GIMPLE sequence S.  */
+
+static inline gimple_seq_node
 gimple_seq_first (const_gimple_seq s)
 {
   return s ? s->first : NULL;
 }
 
-/* Return the last statement in GIMPLE sequence S.  */
+
+/* Return the first statement in GIMPLE sequence S.  */
 
 static inline gimple
+gimple_seq_first_stmt (const_gimple_seq s)
+{
+  gimple_seq_node n = gimple_seq_first (s);
+  return (n) ? n->stmt : NULL;
+}
+
+
+/* Return the last node in GIMPLE sequence S.  */
+
+static inline gimple_seq_node
 gimple_seq_last (const_gimple_seq s)
 {
   return s ? s->last : NULL;
 }
 
-/* Set the last statement in GIMPLE sequence S to LAST.  */
+
+/* Return the last statement in GIMPLE sequence S.  */
+
+static inline gimple
+gimple_seq_last_stmt (const_gimple_seq s)
+{
+  gimple_seq_node n = gimple_seq_last (s);
+  return (n) ? n->stmt : NULL;
+}
+
+
+/* Set the last node in GIMPLE sequence S to LAST.  */
 
 static inline void
-gimple_seq_set_last (gimple_seq s, gimple last)
+gimple_seq_set_last (gimple_seq s, gimple_seq_node last)
 {
   s->last = last;
 }
 
-/* Set the first statement in GIMPLE sequence S to FIRST.  */
+
+/* Set the first node in GIMPLE sequence S to FIRST.  */
 
 static inline void
-gimple_seq_set_first (gimple_seq s, gimple first)
+gimple_seq_set_first (gimple_seq s, gimple_seq_node first)
 {
   s->first = first;
 }
 
-/* Initialize sequence S to empty.  */
-
-static inline void
-gimple_seq_init (gimple_seq s)
-{
-  s->first = NULL;
-  s->last = NULL;
-}
-
-/* Allocate a new GIMPLE sequence in GC memory and return it.  */
-
-static inline gimple_seq
-gimple_seq_alloc (void)
-{
-  return (gimple_seq) ggc_alloc_cleared (sizeof (struct gimple_sequence));
-}
-
-/* Copy the sequence SRC into the sequence DEST.  */
-
-static inline void
-gimple_seq_copy (gimple_seq dest, const_gimple_seq src)
-{
-  gimple_seq_set_first (dest, gimple_seq_first (src));
-  gimple_seq_set_last (dest, gimple_seq_last (src));
-}
 
 /* Return true if GIMPLE sequence S is empty.  */
 
@@ -167,9 +181,9 @@ gimple_seq_empty_p (const_gimple_seq s)
 static inline gimple_seq
 bb_seq (const_basic_block bb)
 {
-  gcc_assert (!(bb->flags & BB_RTL));
-  return (bb->il.gimple) ? bb->il.gimple->seq : NULL;
+  return (!(bb->flags & BB_RTL) && bb->il.gimple) ? bb->il.gimple->seq : NULL;
 }
+
 
 /* Sets the sequence of statements in BB to SEQ.  */
 
@@ -206,10 +220,13 @@ struct gimple_statement_base GTY(())
      gimple_set_plf and gimple_plf for usage.  */
   unsigned int plf		: 2;
 
-  gimple next;
-  gimple prev;
+  /* Basic block holding this statement.  */
   struct basic_block_def *bb;
+
+  /* Locus information for debug info.  */
   location_t locus;
+
+  /* Lexical block holding this statement.  FIXME, needed?  */
   tree block;
 };
 
@@ -252,7 +269,7 @@ struct gimple_statement_with_memory_ops GTY(())
 struct gimple_statement_omp GTY(())
 {
   struct gimple_statement_base gsbase;
-  struct gimple_sequence body;
+  gimple_seq body;
 };
 
 
@@ -267,8 +284,7 @@ struct gimple_statement_bind GTY(())
      is analogous to TREE_BLOCK.  This block is the equivalent of
      BIND_EXPR_BLOCK in tree land.  See gimple-low.c.  */
   tree block;
-
-  struct gimple_sequence body;
+  gimple_seq body;
 };
 
 
@@ -278,7 +294,7 @@ struct gimple_statement_catch GTY(())
 {
   struct gimple_statement_base gsbase;
   tree types;
-  struct gimple_sequence handler;
+  gimple_seq handler;
 };
 
 
@@ -294,7 +310,7 @@ struct gimple_statement_eh_filter GTY(())
   /* Filter types.  */
   tree types;
   /* Failure actions.  */
-  struct gimple_sequence failure;
+  gimple_seq failure;
 };
 
 
@@ -328,10 +344,10 @@ struct gimple_statement_try GTY(())
   struct gimple_statement_base gsbase;
 
   /* Expression to evaluate.  */
-  struct gimple_sequence eval;
+  gimple_seq eval;
 
   /* Cleanup expression.  */
-  struct gimple_sequence cleanup;
+  gimple_seq cleanup;
 };
 
 /* Kind of GIMPLE_TRY statements.  */
@@ -356,7 +372,7 @@ struct gimple_statement_wce GTY(())
 	      in TARGET_EXPRs.  */
 
   /* Cleanup expression.  */
-  struct gimple_sequence cleanup;
+  gimple_seq cleanup;
 };
 
 
@@ -396,7 +412,7 @@ struct gimple_statement_omp_for GTY(())
   /* Increment.  */
   tree incr;
   /* Pre-body evaluated before the loop body begins.  */
-  struct gimple_sequence pre_body;
+  gimple_seq pre_body;
 };
 
 
@@ -530,17 +546,17 @@ gimple gimple_build_cdt (tree, tree);
 gimple gimple_build_omp_atomic_load (tree, tree);
 gimple gimple_build_omp_atomic_store (tree);
 enum gimple_statement_structure_enum gimple_statement_structure (gimple);
-void gimple_seq_add (gimple_seq, gimple);
+void gimple_seq_add_stmt (gimple_seq *, gimple);
 enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 void sort_case_labels (VEC(tree,heap) *);
 void gimple_set_body (tree, gimple_seq);
 gimple_seq gimple_body (tree);
-void gimple_seq_append (gimple_seq, gimple_seq);
+gimple_seq gimple_seq_alloc (void);
+void gimple_seq_free (gimple_seq);
+void gimple_seq_add_seq (gimple_seq *, gimple_seq);
 gimple_seq gimple_seq_deep_copy (gimple_seq);
 int gimple_call_flags (gimple);
 bool gimple_assign_copy_p (gimple);
-void gimple_remove (gimple, gimple_seq, bool);
-gimple_seq gimple_seq_reverse (gimple_seq);
 void gimple_set_bb (gimple, struct basic_block_def *);
 tree gimple_fold (const_gimple);
 void gimple_assign_set_rhs_from_tree (gimple, tree);
@@ -557,24 +573,6 @@ extern bool validate_arglist (const_gimple, ...);
 
 /* In tree-ssa-operands.c  */
 extern void gimple_add_to_addresses_taken (gimple, tree);
-
-/* Set PREV to be the previous statement to G.  */
-
-static inline void
-gimple_set_prev (gimple g, gimple prev)
-{
-  g->gsbase.prev = prev;
-}
-
-
-/* Set NEXT to be the next statement to G.  */
-
-static inline void
-gimple_set_next (gimple g, gimple next)
-{
-  g->gsbase.next = next;
-}
-
 
 /* Return the code for GIMPLE statement G.  */
 
@@ -603,24 +601,6 @@ static inline unsigned
 gimple_subcode (const_gimple g)
 {
   return g->gsbase.subcode;
-}
-
-
-/* Return the statement immediately after statement G.  */
-
-static inline gimple
-gimple_next (const_gimple g)
-{
-  return g->gsbase.next;
-}
-
-
-/* Return the statement immediately before statement G.  */
-
-static inline gimple
-gimple_prev (const_gimple g)
-{
-  return g->gsbase.prev;
 }
 
 
@@ -1558,7 +1538,7 @@ static inline gimple_seq
 gimple_bind_body (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_BIND);
-  return &(gs->gimple_bind.body);
+  return gs->gimple_bind.body;
 }
 
 
@@ -1566,10 +1546,10 @@ gimple_bind_body (gimple gs)
    statement GS.  */
 
 static inline void
-gimple_bind_set_body (gimple gs, const_gimple_seq seq)
+gimple_bind_set_body (gimple gs, gimple_seq seq)
 {
   GIMPLE_CHECK (gs, GIMPLE_BIND);
-  gimple_seq_copy (&(gs->gimple_bind.body), seq);
+  gs->gimple_bind.body = seq;
 }
 
 
@@ -1763,6 +1743,17 @@ static inline gimple_seq
 gimple_catch_handler (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_CATCH);
+  return gs->gimple_catch.handler;
+}
+
+
+/* Return a pointer to the GIMPLE sequence representing the body of
+   the handler of GIMPLE_CATCH statement GS.  */
+
+static inline gimple_seq *
+gimple_catch_handler_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CATCH);
   return &gs->gimple_catch.handler;
 }
 
@@ -1783,7 +1774,7 @@ static inline void
 gimple_catch_set_handler (gimple gs, gimple_seq handler)
 {
   GIMPLE_CHECK (gs, GIMPLE_CATCH);
-  gimple_seq_copy (gimple_catch_handler (gs), handler);
+  gs->gimple_catch.handler = handler;
 }
 
 
@@ -1815,7 +1806,7 @@ static inline gimple_seq
 gimple_eh_filter_failure (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
-  return &gs->gimple_eh_filter.failure;
+  return gs->gimple_eh_filter.failure;
 }
 
 
@@ -1836,7 +1827,7 @@ static inline void
 gimple_eh_filter_set_failure (gimple gs, gimple_seq failure)
 {
   GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
-  gimple_seq_copy (gimple_eh_filter_failure (gs), failure);
+  gs->gimple_eh_filter.failure = failure;
 }
 
 /* Return the EH_FILTER_MUST_NOT_THROW flag.  */
@@ -1847,7 +1838,8 @@ gimple_eh_filter_must_not_throw (gimple gs)
   return (bool) gimple_subcode (gs);
 }
 
-/* Set the EH_FILTER_MUST_NOT_THROW flag.  */
+/* Set the EH_FILTER_MUST_NOT_THROW flag to the value MNTP.  */
+
 static inline void
 gimple_eh_filter_set_must_not_throw (gimple gs, bool mntp)
 {
@@ -1885,7 +1877,7 @@ static inline gimple_seq
 gimple_try_eval (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_TRY);
-  return &gs->gimple_try.eval;
+  return gs->gimple_try.eval;
 }
 
 
@@ -1896,7 +1888,7 @@ static inline gimple_seq
 gimple_try_cleanup (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_TRY);
-  return &gs->gimple_try.cleanup;
+  return gs->gimple_try.cleanup;
 }
 
 
@@ -1917,10 +1909,10 @@ gimple_try_set_catch_is_cleanup (gimple g, bool catch_is_cleanup)
    GIMPLE_TRY GS.  */
 
 static inline void
-gimple_try_set_eval (gimple gs, const_gimple_seq eval)
+gimple_try_set_eval (gimple gs, gimple_seq eval)
 {
   GIMPLE_CHECK (gs, GIMPLE_TRY);
-  gimple_seq_copy (gimple_try_eval (gs), eval);
+  gs->gimple_try.eval = eval;
 }
 
 
@@ -1928,10 +1920,10 @@ gimple_try_set_eval (gimple gs, const_gimple_seq eval)
    body for GIMPLE_TRY GS.  */
 
 static inline void
-gimple_try_set_cleanup (gimple gs, const_gimple_seq cleanup)
+gimple_try_set_cleanup (gimple gs, gimple_seq cleanup)
 {
   GIMPLE_CHECK (gs, GIMPLE_TRY);
-  gimple_seq_copy (gimple_try_cleanup (gs), cleanup);
+  gs->gimple_try.cleanup = cleanup;
 }
 
 
@@ -1941,17 +1933,17 @@ static inline gimple_seq
 gimple_wce_cleanup (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
-  return &gs->gimple_wce.cleanup;
+  return gs->gimple_wce.cleanup;
 }
 
 
 /* Set CLEANUP to be the cleanup sequence for GS.  */
 
 static inline void
-gimple_wce_set_cleanup (gimple gs, const_gimple_seq cleanup)
+gimple_wce_set_cleanup (gimple gs, gimple_seq cleanup)
 {
   GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
-  gimple_seq_copy (gimple_wce_cleanup (gs), cleanup);
+  gs->gimple_wce.cleanup = cleanup;
 }
 
 
@@ -2152,15 +2144,15 @@ gimple_switch_set_default_label (gimple gs, tree label)
 static inline gimple_seq 
 gimple_omp_body (gimple gs)
 {
-  return &(gs->omp.body);
+  return gs->omp.body;
 }
 
 /* Set BODY to be the body for the OMP statement GS.  */
 
 static inline void
-gimple_omp_set_body (gimple gs, const_gimple_seq body)
+gimple_omp_set_body (gimple gs, gimple_seq body)
 {
-  gimple_seq_copy (&(gs->omp.body), body);
+  gs->omp.body = body;
 }
 
 
@@ -2351,7 +2343,7 @@ static inline gimple_seq
 gimple_omp_for_pre_body (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return &(gs->gimple_omp_for.pre_body);
+  return gs->gimple_omp_for.pre_body;
 }
 
 
@@ -2359,10 +2351,10 @@ gimple_omp_for_pre_body (gimple gs)
    OMP_FOR statement GS starts.  */
 
 static inline void
-gimple_omp_for_set_pre_body (gimple gs, const_gimple_seq pre_body)
+gimple_omp_for_set_pre_body (gimple gs, gimple_seq pre_body)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  gimple_seq_copy (&(gs->gimple_omp_for.pre_body),  pre_body);
+  gs->gimple_omp_for.pre_body = pre_body;
 }
 
 
@@ -2730,8 +2722,8 @@ gimple_cdt_set_location (gimple gs, tree ptr)
 
 typedef struct
 {
-  /* Current statement.  */
-  gimple stmt;
+  /* Sequence node holding the current statement.  */
+  gimple_seq_node ptr;
 
   /* Sequence and basic block holding the statement.  These fields
      are necessary to handle edge cases such as when statement is
@@ -2749,9 +2741,9 @@ gsi_start (gimple_seq seq)
 {
   gimple_stmt_iterator i;
 
-  i.stmt = gimple_seq_first (seq);
+  i.ptr = gimple_seq_first (seq);
   i.seq = seq;
-  i.bb = (i.stmt) ? gimple_bb (i.stmt) : NULL;
+  i.bb = (i.ptr && i.ptr->stmt) ? gimple_bb (i.ptr->stmt) : NULL;
 
   return i;
 }
@@ -2763,8 +2755,10 @@ static inline gimple_stmt_iterator
 gsi_start_bb (basic_block bb)
 {
   gimple_stmt_iterator i;
-  gimple_seq seq = bb_seq (bb);
-  i.stmt = gimple_seq_first (seq);
+  gimple_seq seq;
+  
+  seq = bb_seq (bb);
+  i.ptr = gimple_seq_first (seq);
   i.seq = seq;
   i.bb = bb;
 
@@ -2779,9 +2773,9 @@ gsi_last (gimple_seq seq)
 {
   gimple_stmt_iterator i;
 
-  i.stmt = gimple_seq_last (seq);
+  i.ptr = gimple_seq_last (seq);
   i.seq = seq;
-  i.bb = (i.stmt) ? gimple_bb (i.stmt) : NULL;
+  i.bb = (i.ptr && i.ptr->stmt) ? gimple_bb (i.ptr->stmt) : NULL;
 
   return i;
 }
@@ -2793,8 +2787,10 @@ static inline gimple_stmt_iterator
 gsi_last_bb (basic_block bb)
 {
   gimple_stmt_iterator i;
-  gimple_seq seq = bb_seq (bb);
-  i.stmt = gimple_seq_last (seq);
+  gimple_seq seq;
+
+  seq = bb_seq (bb);
+  i.ptr = gimple_seq_last (seq);
   i.seq = seq;
   i.bb = bb;
 
@@ -2802,21 +2798,21 @@ gsi_last_bb (basic_block bb)
 }
 
 
-/* Return TRUE if at the end of I.  */
+/* Return true if I is at the end of its sequence.  */
 
 static inline bool
 gsi_end_p (gimple_stmt_iterator i)
 {
-  return i.stmt == NULL;
+  return i.ptr == NULL;
 }
 
 
-/* Return TRUE if we're one statement before the end of I.  */
+/* Return true if I is one statement before the end of its sequence.  */
 
 static inline bool
 gsi_one_before_end_p (gimple_stmt_iterator i)
 {
-  return i.stmt == gimple_seq_last (i.seq);
+  return i.ptr != NULL && i.ptr->next == NULL;
 }
 
 
@@ -2825,14 +2821,7 @@ gsi_one_before_end_p (gimple_stmt_iterator i)
 static inline void
 gsi_next (gimple_stmt_iterator *i)
 {
-#if defined ENABLE_GIMPLE_CHECKING
-  /* The last statement of the sequence should not have anything
-     chained after it.  */
-  gimple next = gimple_next (i->stmt);
-  if (i->stmt == gimple_seq_last (i->seq))
-    gcc_assert (next == NULL);
-#endif
-  i->stmt = gimple_next (i->stmt);
+  i->ptr = i->ptr->next;
 }
 
 /* Advance the iterator to the previous gimple statement.  */
@@ -2840,14 +2829,7 @@ gsi_next (gimple_stmt_iterator *i)
 static inline void
 gsi_prev (gimple_stmt_iterator *i)
 {
-#if defined ENABLE_GIMPLE_CHECKING
-  /* The first statement of the sequence should not have anything
-     chained before it.  */
-  gimple prev = gimple_prev (i->stmt);
-  if (i->stmt == gimple_seq_first (i->seq))
-    gcc_assert (prev == NULL);
-#endif
-  i->stmt = gimple_prev (i->stmt);
+  i->ptr = i->ptr->prev;
 }
 
 /* Return the current stmt.  */
@@ -2855,7 +2837,7 @@ gsi_prev (gimple_stmt_iterator *i)
 static inline gimple
 gsi_stmt (gimple_stmt_iterator i)
 {
-  return i.stmt;
+  return i.ptr->stmt;
 }
 
 /* Return a block statement iterator that points to the first non-label
@@ -2877,7 +2859,7 @@ gsi_after_labels (basic_block bb)
 static inline gimple *
 gsi_stmt_ptr (gimple_stmt_iterator *i)
 {
-  return &i->stmt;
+  return &i->ptr->stmt;
 }
 
 
@@ -2899,25 +2881,6 @@ gsi_seq (gimple_stmt_iterator i)
 }
 
 
-/* Remove the current stmt from the sequence.  The iterator is updated to
-   point to the next statement.
-
-   When REMOVE_EH_INFO is true we remove the statement pointed to by
-   iterator I from the EH tables.  Otherwise we do not modify the EH
-   tables.
-
-   Generally, REMOVE_EH_INFO should be true when the statement is going to
-   be removed from the IL and not reinserted elsewhere.  */
-
-static inline void
-gsi_remove (gimple_stmt_iterator *i, bool remove_eh_info)
-{
-  gimple stmt = i->stmt;
-  gimple_seq seq = i->seq;
-  gsi_next (i);
-  gimple_remove (stmt, seq, remove_eh_info);
-}
-
 enum gsi_iterator_update
 {
   GSI_NEW_STMT,		/* Only valid when single statement is added, move
@@ -2928,13 +2891,7 @@ enum gsi_iterator_update
 			   direction.  */
 };
 
-void gsi_link_seq_before (gimple_stmt_iterator *, gimple_seq,
-			  enum gsi_iterator_update);
-void gsi_link_before (gimple_stmt_iterator *, gimple,
-    		      enum gsi_iterator_update);
-void gsi_link_seq_after (gimple_stmt_iterator *, gimple_seq,
-			 enum gsi_iterator_update);
-void gsi_link_after (gimple_stmt_iterator *, gimple, enum gsi_iterator_update);
+/* In gimple-iterator.c  */
 gimple_seq gsi_split_seq_after (gimple_stmt_iterator);
 gimple_seq gsi_split_seq_before (gimple_stmt_iterator *);
 void gsi_replace (gimple_stmt_iterator *, gimple, bool);
@@ -2946,6 +2903,7 @@ void gsi_insert_after (gimple_stmt_iterator *, gimple,
 		       enum gsi_iterator_update);
 void gsi_insert_seq_after (gimple_stmt_iterator *, gimple_seq,
 			   enum gsi_iterator_update);
+void gsi_remove (gimple_stmt_iterator *, bool);
 gimple_stmt_iterator gsi_for_stmt (gimple);
 void gsi_move_after (gimple_stmt_iterator *, gimple_stmt_iterator *);
 void gsi_move_before (gimple_stmt_iterator *, gimple_stmt_iterator *);

@@ -1568,7 +1568,7 @@ enum
 #undef DEBUG_JAVA_BINDING_LEVELS
 
 extern void java_genericize (tree);
-extern int java_gimplify_expr (tree *,  gimple_seq, gimple_seq);
+extern int java_gimplify_expr (tree *, gimple_seq *, gimple_seq *);
 
 extern FILE *finput;
 

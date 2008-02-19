@@ -1626,7 +1626,7 @@ omp_reduction_init (tree clause, tree type)
 
 /* FIXME tuples.  */
 static void
-lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
+lower_rec_input_clauses (tree clauses, gimple_seq *ilist, tree *dlist,
 			 omp_context *ctx)
 {
   tree_stmt_iterator diter;
@@ -1814,7 +1814,7 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	    case OMP_CLAUSE_REDUCTION:
 	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 		{
-		  gimple_seq_append (ilist,
+		  gimple_seq_add_seq (ilist,
 		      		     OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c));
 
 		  OMP_CLAUSE_REDUCTION_INIT (c) = NULL;
@@ -1919,7 +1919,8 @@ lower_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
 static void
 lower_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 {
-  tree sub_list = NULL, x, c;
+  gimple_seq sub_list = NULL;
+  tree x, c;
   int count = 0;
 
   /* First see if there is exactly one reduction clause.  Use OMP_ATOMIC
@@ -1979,7 +1980,7 @@ lower_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
 	    ref = build_fold_addr_expr (ref);
 	  SET_DECL_VALUE_EXPR (placeholder, ref);
 	  DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
-	  gimple_seq_append (&sub_list, OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c));
+	  gimple_seq_add_seq (&sub_list, OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c));
 	  OMP_CLAUSE_REDUCTION_MERGE (c) = NULL;
 	  OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = NULL;
 	}
@@ -4905,9 +4906,7 @@ static void
 lower_regimplify (tree *tp, struct walk_stmt_info *wi)
 {
   enum gimplify_status gs;
-  struct gimple_sequence pre;
-
-  gimple_seq_init (&pre);
+  gimple_seq pre;
 
   if (wi->is_lhs)
     gs = gimplify_expr (tp, &pre, NULL, is_gimple_lvalue, fb_lvalue);
@@ -4917,10 +4916,8 @@ lower_regimplify (tree *tp, struct walk_stmt_info *wi)
     gs = gimplify_expr (tp, &pre, NULL, is_gimple_formal_tmp_var, fb_rvalue);
   gcc_assert (gs == GS_ALL_DONE);
 
-  /* FIXME tuples.  Need a gimple_seq_insert_before.  WI->TSI must be
-     a GS_SEQ. */
-  if (!gimple_seq_empty_p (&pre))
-    tsi_link_before (&wi->tsi, pre, TSI_SAME_STMT);
+  if (!gimple_seq_empty_p (pre))
+    gimple_seq_insert_before (&wi->gsi, pre, GSI_SAME_STMT);
 }
 
 /* Copy EXP into a temporary.  Insert the initialization statement

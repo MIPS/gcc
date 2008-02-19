@@ -77,7 +77,7 @@ along with GCC; see the file COPYING3.  If not see
    the -2 on all the calculations below.  */
 
 #define NUM_BUCKETS 10
-static GTY ((deletable (""))) gimple free_phinodes[NUM_BUCKETS - 2];
+static GTY ((deletable (""))) VEC(gimple,gc) *free_phinodes[NUM_BUCKETS - 2];
 static unsigned long free_phinode_count;
 
 static int ideal_phi_node_len (int);
@@ -141,11 +141,11 @@ allocate_phi_node (size_t len)
 
   /* If our free list has an element, then use it.  */
   if (bucket < NUM_BUCKETS - 2
-      && gimple_phi_capacity (free_phinodes[bucket]) >= len)
+      && gimple_phi_capacity (VEC_index (gimple, free_phinodes[bucket], 0))
+	 >= len)
     {
       free_phinode_count--;
-      phi = free_phinodes[bucket];
-      free_phinodes[bucket] = gimple_next (free_phinodes[bucket]);
+      phi = VEC_pop (gimple, free_phinodes[bucket]);
 #ifdef GATHER_STATISTICS
       phi_nodes_reused++;
 #endif
@@ -255,8 +255,7 @@ release_phi_node (gimple phi)
 
   bucket = len > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : len;
   bucket -= 2;
-  gimple_set_next (phi, free_phinodes[bucket]);
-  free_phinodes[bucket] = phi;
+  VEC_safe_push (gimple, gc, free_phinodes[bucket], phi);
   free_phinode_count++;
 }
 
@@ -350,13 +349,15 @@ reserve_phi_args_for_new_edge (basic_block bb)
 gimple
 create_phi_node (tree var, basic_block bb)
 {
+  gimple_stmt_iterator gsi;
   gimple phi = make_phi_node (var, EDGE_COUNT (bb->preds));
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   if (phi_nodes (bb) == NULL)
     set_phi_nodes (bb, gimple_seq_alloc ());
 
-  gimple_seq_add (phi_nodes (bb), phi);
+  gsi = gsi_last (phi_nodes (bb));
+  gsi_insert_after (&gsi, phi, GSI_NEW_STMT);
 
   /* Associate BB to the PHI node.  */
   gimple_set_bb (phi, bb);

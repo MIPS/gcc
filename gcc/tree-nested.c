@@ -363,7 +363,7 @@ init_tmp_var_with_call (struct nesting_info *info, gimple_stmt_iterator *gsi,
                           NULL);
   gimple_call_set_lhs (call, t);
   gimple_set_locus (call, gimple_locus (gsi_stmt (*gsi)));
-  gsi_link_before (gsi, call, GSI_SAME_STMT);
+  gsi_insert_before (gsi, call, GSI_SAME_STMT);
 
   return t;
 }
@@ -381,7 +381,7 @@ init_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (t, exp);
   gimple_set_locus (stmt, gimple_locus (gsi_stmt (*gsi)));
-  gsi_link_before (gsi, stmt, GSI_SAME_STMT);
+  gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
 
   return t;
 }
@@ -411,7 +411,7 @@ save_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (exp, t);
   gimple_set_locus (stmt, gimple_locus (gsi_stmt (*gsi)));
-  gsi_link_after (gsi, stmt, GSI_SAME_STMT);
+  gsi_insert_after (gsi, stmt, GSI_SAME_STMT);
 
   return t;
 }
@@ -563,7 +563,7 @@ walk_gimple_omp_for (gimple for_stmt,
     		     struct nesting_info *info)
 {
   struct walk_stmt_info wi;
-  struct gimple_sequence seq;
+  gimple_seq seq;
   gimple empty;
 
   tree walk_gimple_seq (gimple_seq, walk_stmt_fn, walk_tree_fn,
@@ -573,7 +573,7 @@ walk_gimple_omp_for (gimple for_stmt,
 
   empty = gimple_build_nop ();
   gimple_seq_init (&seq);
-  gimple_seq_add (&seq, empty);
+  gimple_seq_add_stmt (&seq, empty);
   memset (&wi, 0, sizeof (wi));
   wi.info = info;
   wi.gsi = gsi_last (list);
@@ -1129,7 +1129,7 @@ convert_nonlocal_reference_stmt (gimple stmt, void *data)
 
       if (info->new_local_var_chain)
 	declare_vars (info->new_local_var_chain,
-	              gimple_seq_first (gimple_omp_body (stmt)),
+	              gimple_seq_first_stmt (gimple_omp_body (stmt)),
 		      false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
@@ -1474,7 +1474,7 @@ convert_local_reference_stmt (gimple stmt, void *data)
 
       if (info->new_local_var_chain)
 	declare_vars (info->new_local_var_chain,
-		      gimple_seq_first (gimple_omp_body (stmt)), false);
+		      gimple_seq_first_stmt (gimple_omp_body (stmt)), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
       break;
@@ -1616,12 +1616,12 @@ convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
   if (gsi_end_p (tmp_gsi) || gimple_stmt_may_fallthru (gsi_stmt (tmp_gsi)))
     {
       gimple stmt = gimple_build_goto (label);
-      gsi_link_before (&wi->gsi, stmt, GSI_SAME_STMT);
+      gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
     }
 
   new_label = (tree) *slot;
   stmt = gimple_build_label (new_label);
-  gsi_link_before (&wi->gsi, stmt, GSI_SAME_STMT);
+  gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
 
   return NULL_TREE;
 }
@@ -1849,7 +1849,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
   tree context = root->context;
   struct function *sf;
 
-  stmt_list = gimple_seq_alloc ();
+  stmt_list = NULL;
 
   /* If we created a non-local frame type or decl, we need to lay them
      out at this time.  */
@@ -1886,7 +1886,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	  y = build3 (COMPONENT_REF, TREE_TYPE (field),
 		      root->frame_decl, field, NULL_TREE);
 	  stmt = gimple_build_assign (y, x);
-	  gimple_seq_add (stmt_list, stmt);
+	  gimple_seq_add_stmt (&stmt_list, stmt);
 	}
     }
 
@@ -1897,7 +1897,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
       tree x = build3 (COMPONENT_REF, TREE_TYPE (root->chain_field),
 		       root->frame_decl, root->chain_field, NULL_TREE);
       stmt = gimple_build_assign (x, get_chain_decl (root));
-      gimple_seq_add (stmt_list, stmt);
+      gimple_seq_add_stmt (&stmt_list, stmt);
     }
 
   /* If trampolines were created, then we need to initialize them.  */
@@ -1925,7 +1925,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 
 	  x = implicit_built_in_decls[BUILT_IN_INIT_TRAMPOLINE];
 	  stmt = gimple_build_call (x, 3, arg1, arg2, arg3);
-	  gimple_seq_add (stmt_list, stmt);
+	  gimple_seq_add_stmt (&stmt_list, stmt);
 	}
     }
 
@@ -1934,8 +1934,8 @@ finalize_nesting_tree_1 (struct nesting_info *root)
     {
       gimple bind;
       annotate_all_with_locus (stmt_list, DECL_SOURCE_LOCATION (context));
-      bind = gimple_seq_first (gimple_body (context));
-      gimple_seq_append (stmt_list, gimple_bind_body (bind));
+      bind = gimple_seq_first_stmt (gimple_body (context));
+      gimple_seq_add_seq (&stmt_list, gimple_bind_body (bind));
       gimple_bind_set_body (bind, stmt_list);
     }
 
@@ -1957,11 +1957,11 @@ finalize_nesting_tree_1 (struct nesting_info *root)
      proper BIND_EXPR.  */
   if (root->new_local_var_chain)
     declare_vars (root->new_local_var_chain,
-		  gimple_seq_first (gimple_body (root->context)),
+		  gimple_seq_first_stmt (gimple_body (root->context)),
 		  false);
   if (root->debug_var_chain)
     declare_vars (root->debug_var_chain,
-		  gimple_seq_first (gimple_body (root->context)),
+		  gimple_seq_first_stmt (gimple_body (root->context)),
 		  true);
 
   /* Dump the translated tree function.  */

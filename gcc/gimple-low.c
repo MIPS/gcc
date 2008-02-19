@@ -101,7 +101,7 @@ lower_function_body (void)
   /* The gimplifier should've left a body of exactly one statement,
      namely a GIMPLE_BIND.  */
   gcc_assert (gimple_seq_first (body) == gimple_seq_last (body)
-	      && gimple_code (gimple_seq_first (body)) == GIMPLE_BIND);
+	      && gimple_code (gimple_seq_first_stmt (body)) == GIMPLE_BIND);
 
   memset (&data, 0, sizeof (data));
   data.block = DECL_INITIAL (current_function_decl);
@@ -110,9 +110,9 @@ lower_function_body (void)
   TREE_ASM_WRITTEN (data.block) = 1;
   data.return_statements = VEC_alloc (return_statements_t, heap, 8);
 
-  bind = gimple_seq_first (body);
-  lowered_body = gimple_seq_alloc ();
-  gimple_seq_add (lowered_body, bind);
+  bind = gimple_seq_first_stmt (body);
+  lowered_body = NULL;
+  gimple_seq_add_stmt (&lowered_body, bind);
   i = gsi_start (lowered_body);
   lower_gimple_bind (&i, &data);
 
@@ -132,7 +132,7 @@ lower_function_body (void)
     {
       x = gimple_build_return (NULL);
       gimple_set_locus (x, cfun->function_end_locus);
-      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&i, x, GSI_CONTINUE_LINKING);
     }
 
   /* If we lowered any return statements, emit the representative
@@ -150,13 +150,13 @@ lower_function_body (void)
 		      		data.return_statements) - 1);
 
       x = gimple_build_label (t.label);
-      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&i, x, GSI_CONTINUE_LINKING);
 
       /* Remove the line number from the representative return statement.
 	 It now fills in for many such returns.  Failure to remove this
 	 will result in incorrect results for coverage analysis.  */
       gimple_set_locus (t.stmt, UNKNOWN_LOCATION);
-      gsi_link_after (&i, t.stmt, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&i, t.stmt, GSI_CONTINUE_LINKING);
     }
 
   /* If the function calls __builtin_setjmp, we need to emit the computed
@@ -171,7 +171,7 @@ lower_function_body (void)
       DECL_NONLOCAL (disp_label) = 1;
       current_function_has_nonlocal_label = 1;
       x = gimple_build_label (disp_label);
-      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&i, x, GSI_CONTINUE_LINKING);
 
       /* Build 'DISP_VAR = __builtin_setjmp_dispatcher (DISP_LABEL);'
 	 and insert.  */
@@ -182,9 +182,9 @@ lower_function_body (void)
       gimple_call_set_lhs (x, disp_var);
 
       /* Build 'goto DISP_VAR;' and insert.  */
-      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&i, x, GSI_CONTINUE_LINKING);
       x = gimple_build_goto (disp_var);
-      gsi_link_after (&i, x, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&i, x, GSI_CONTINUE_LINKING);
     }
 
   gcc_assert (data.block == DECL_INITIAL (current_function_decl));
@@ -248,8 +248,8 @@ lower_omp_directive (gimple_stmt_iterator *gsi, struct lower_data *data)
   stmt = gsi_stmt (gsi);
 
   lower_sequence (OMP_BODY (stmt), data);
-  gsi_link_before (gsi, stmt, GSI_SAME_STMT);
-  gsi_link_before (gsi, OMP_BODY (stmt), GSI_SAME_STMT);
+  gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
+  gsi_insert_before (gsi, OMP_BODY (stmt), GSI_SAME_STMT);
   OMP_BODY (stmt) = NULL_TREE;
   gsi_remove (gsi, false);
 }
@@ -389,7 +389,7 @@ lower_gimple_bind (gimple_stmt_iterator *gsi, struct lower_data *data)
     }
 
   /* The GIMPLE_BIND no longer carries any useful information -- kill it.  */
-  gsi_link_seq_before (gsi, gimple_bind_body (stmt), GSI_SAME_STMT);
+  gsi_insert_seq_before (gsi, gimple_bind_body (stmt), GSI_SAME_STMT);
   gsi_remove (gsi, false);
 }
 
@@ -637,7 +637,7 @@ gimple_stmt_may_fallthru (gimple stmt)
 bool
 gimple_seq_may_fallthru (gimple_seq seq)
 {
-  return gimple_stmt_may_fallthru (gimple_seq_last (seq));
+  return gimple_stmt_may_fallthru (gimple_seq_last_stmt (seq));
 }
 
 
@@ -670,7 +670,7 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
  found:
   t = gimple_build_goto (tmp_rs.label);
   gimple_set_locus (t, gimple_locus (stmt));
-  gsi_link_before (gsi, t, GSI_SAME_STMT);
+  gsi_insert_before (gsi, t, GSI_SAME_STMT);
   gsi_remove (gsi, false);
 }
 
@@ -747,7 +747,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   t = implicit_built_in_decls[BUILT_IN_SETJMP_SETUP];
   g = gimple_build_call (t, 2, gimple_call_arg (stmt, 0), arg);
   gimple_set_locus (g, gimple_locus (stmt));
-  gsi_link_before (gsi, g, GSI_SAME_STMT);
+  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 0' and insert.  */
   if (dest)
@@ -755,23 +755,23 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
       g = gimple_build_assign (dest, fold_convert (TREE_TYPE (dest),
 						   integer_zero_node));
       gimple_set_locus (g, gimple_locus (stmt));
-      gsi_link_before (gsi, g, GSI_SAME_STMT);
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
 
   /* Build 'goto CONT_LABEL' and insert.  */
   g = gimple_build_goto (cont_label);
-  gsi_link_before (gsi, g, TSI_SAME_STMT);
+  gsi_insert_before (gsi, g, TSI_SAME_STMT);
 
   /* Build 'NEXT_LABEL:' and insert.  */
   g = gimple_build_label (next_label);
-  gsi_link_before (gsi, g, GSI_SAME_STMT);
+  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build '__builtin_setjmp_receiver (NEXT_LABEL)' and insert.  */
   arg = build_addr (next_label, current_function_decl);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_RECEIVER];
   g = gimple_build_call (t, 1, arg);
   gimple_set_locus (g, gimple_locus (stmt));
-  gsi_link_before (gsi, g, GSI_SAME_STMT);
+  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 1' and insert.  */
   if (dest)
@@ -779,12 +779,12 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
       g = gimple_build_assign (dest, fold_convert (TREE_TYPE (dest),
 						   integer_one_node));
       gimple_set_locus (g, gimple_locus (stmt));
-      gsi_link_before (gsi, g, GSI_SAME_STMT);
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
 
   /* Build 'CONT_LABEL:' and insert.  */
   g = gimple_build_label (cont_label);
-  gsi_link_before (gsi, g, GSI_SAME_STMT);
+  gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Remove the call to __builtin_setjmp.  */
   gsi_remove (gsi, false);

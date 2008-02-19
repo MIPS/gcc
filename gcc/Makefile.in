@@ -195,12 +195,12 @@ build/gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
 SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
 # FIXME tuples, do not merge.
-builtins.o-warn = -Wno-error
-expr.o-warn = -Wno-error
-dse.o-warn = -Wno-error
-ebitmap.o-warn = -Wno-error
-lower-subreg.o-warn = -Wno-error
-tree-chrec.o-warn = -Wno-error
+builtins.o-warn = -Wno-uninitialized
+expr.o-warn = -Wno-uninitialized
+dse.o-warn = -Wno-uninitialized
+ebitmap.o-warn = -Wno-uninitialized
+lower-subreg.o-warn = -Wno-uninitialized
+tree-chrec.o-warn = -Wno-uninitialized
 varasm.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then

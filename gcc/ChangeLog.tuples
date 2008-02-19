@@ -1,3 +1,113 @@
+2008-02-19  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00793.html
+
+	* tree-complex.c (expand_complex_div_wide): Call gsi_bb.
+	* tree.h (std_gimplify_va_arg_expr): Change gimple_seq
+	arguments to gimple_seq *.
+	Update all users.
+	(gimplify_parameters): Change return type to gimple_seq.
+	Update all users.
+	* target.h (struct gcc_target)<gimplify_va_arg_expr>:
+	Change gimple_seq arguments to gimple_seq *.
+	Update all users.
+	* tree-phinodes.c (free_phinodes): Convert to VEC.
+	Update all users.
+	* omp-low.c (lower_rec_input_clauses): Change gimple_seq
+	arguments to gimple_seq *.  Update all users.
+	(lower_reduction_clauses): Convert sub_list to
+	gimple_seq.
+	(lower_regimplify): Convert PRE to gimple_seq.
+	(lower_regimplify): Call gimple_seq_insert_before instead
+	of tsi_link_before.
+	* tree-gimple.h (get_initialized_tmp_var,
+	get_formal_tmp_var, gimplify_expr, gimplify_type_sizes,
+	gimplify_one_sizepos, gimplify_stmt, gimplify_and_add,
+	gimplify_va_arg_expr): Change gimple_seq arguments to
+	gimple_seq *.  Update all users.
+	* gimple-iterator.c: Include value-prof.h.
+	(gsi_link_seq_before): Remove.  Update all users.
+	(gsi_link_seq_after): Remove.  Update all users.
+	(gsi_link_after): Remove.  Update all users.
+	(gsi_link_before): Remove.  Update all users.
+	(update_bb_for_stmts): New.
+	(gsi_insert_seq_nodes_before): New.
+	(gsi_insert_seq_nodes_after): New.
+	(gsi_insert_seq_before): Re-write.  Call
+	gsi_insert_seq_nodes_before.
+	(gsi_insert_seq_after): Re-write.  Call
+	gsi_insert_seq_nodes_after.
+	(gsi_replace): Re-enable EH updating.
+	(update_modified_stmt): Move earlier in the file.
+	(gsi_insert_after): Re-write.  Call
+	gsi_insert_seq_nodes_after.
+	(gsi_insert_before): Re-write.  Call
+	gsi_insert_seq_nodes_before.
+	(gsi_remove): Move from gimple.h.  Re-write.
+	* langhooks.h (struct lang_hooks): Change gimple_seq
+	arguments for gimplify_expr to gimple_seq *.
+	Update all users.
+	* coretypes.h (struct gimple_seq_d): Rename from struct
+	gimple_sequence.  Update all users.
+	(struct gimple_seq_node_d): New.
+	(gimple_seq_node): New.
+	(const_gimple_seq_node): New.
+	* tree-flow.h (force_gimple_operand): Change gimple_seq
+	argument to gimple_seq *.  Update all users.
+	* c-common.h (c_gimplify_expr): Change gimple_seq
+	argument to gimple_seq *.  Update all users.
+	* Makefile.in (build):
+	* gimple.c (gimple_seq_cache): New.
+	(gimple_seq_alloc): Take sequences from gimple_seq_cache,
+	if possible.
+	(gimple_seq_free): New.
+	(gimple_seq_add_stmt): Rename from gimple_seq_add.
+	Change gimple_seq argument to gimple_seq *.  Update all users.
+	(gimple_seq_add_seq): Rename from gimple_seq_append.
+	Update all users.
+	(gimple_remove): Remove.  Update all users.
+	(gimple_seq_reverse): Remove unused function.
+	(gimple_set_bb): Only update block-to-labels map if
+	CFUN->CFG exists.
+	* gimple.h (struct gimple_seq_node_d): New.
+	(struct gimple_seq_d): Change fields 'first' and 'last'
+	to type gimple_seq_node.  Update all users.
+	Add field 'next_free'.
+	(gimple_seq_first): Change return type to
+	gimple_seq_node.  Update all users.
+	(gimple_seq_first_stmt): New.
+	(gimple_seq_last): Change return type to gimple_seq_node.
+	Update all users.
+	(gimple_seq_last_stmt): New.
+	(gimple_seq_set_first): Change second argument to type
+	gimple_seq_node.  Update all users.
+	(gimple_seq_set_last): Change second argument to type
+	gimple_seq_node.  Update all users.
+	(struct gimple_statement_base): Remove field 'next' and
+	'prev'.  Update all users.
+	(struct gimple_statement_omp): Change fields of type
+	struct gimple_sequence to type gimple_seq.  Update all
+	users.
+	(struct gimple_statement_bind): Likewise.
+	(struct gimple_statement_catch): Likewise.
+	(struct gimple_statement_eh_filter): Likewise.
+	(struct gimple_statement_try): Likewise.
+	(struct gimple_statement_wce): Likewise.
+	(struct gimple_statement_omp_for): Likewise.
+	(gimple_set_prev): Remove.  Update all users.
+	(gimple_set_next): Remove.  Update all users.
+	(gimple_next): Remove.  Update all users.
+	(gimple_prev): Remove.  Update all users.
+	(gimple_seq_bb): New.
+	(gimple_catch_handler_ptr): New.
+	(gimple_stmt_iterator): Remove field 'stmt'.
+	Add field 'ptr'.  Update all users.
+	(gsi_remove): Move to gimple-iterator.c
+	* tree-cfg.c (pass_build_cfg): Re-enable PROP_gimple_leh.
+	* Makefile.in (builtins.o-warn, expr.o-warn, dse.o-warn,
+	ebitmap.o-warn, lower-subreg.o-warn, tree-chrec.o-warn):
+	Change -Wno-error to -Wno-uninitialized.
+
 2008-02-19  Rafael Espindola  <espindola@google.com>
 
 	* tree-eh.c (collect_finally_tree): handle GIMPLE_SWITCH.

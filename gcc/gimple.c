@@ -47,6 +47,9 @@ const char *const gimple_code_name[] = {
 static GTY(()) VEC(gimple_seq,gc) *gimple_bodies_vec;
 static struct pointer_map_t *gimple_bodies_map;
 
+/* A cache of gimple_seq objects.  Sequences are created and destroyed
+   fairly often during gimplification.  */
+static GTY ((deletable)) struct gimple_seq_d *gimple_seq_cache;
 
 /* Gimple tuple constructors.
    Note: Any constructor taking a ``gimple_seq'' as a parameter, can
@@ -973,47 +976,82 @@ gimple_range_check_failed (const_gimple gs, const char *file, int line,
 #endif /* ENABLE_GIMPLE_CHECKING */
 
 
-/* Link a gimple statement(s) to the end of the sequence SEQ.  */
+/* Allocate a new GIMPLE sequence in GC memory and return it.  If
+   there are free sequences in GIMPLE_SEQ_CACHE return one of those
+   instead.  */
 
-void
-gimple_seq_add (gimple_seq seq, gimple gs)
+gimple_seq
+gimple_seq_alloc (void)
 {
-  if (gimple_seq_first (seq) == NULL)
+  gimple_seq seq = gimple_seq_cache;
+  if (seq)
     {
-      /* Sequence SEQ is empty.  Make GS its only member.  */
-      gimple_seq_set_first (seq, gs);
-      gimple_seq_set_last (seq, gs);
+      gimple_seq_cache = gimple_seq_cache->next_free;
+      gcc_assert (gimple_seq_cache != seq);
+      memset (seq, 0, sizeof (*seq));
     }
   else
-    {
-      /* Otherwise, link GS to the end of SEQ.  */
-      gimple_set_prev (gs, gimple_seq_last (seq));
-      gimple_set_next (gimple_seq_last (seq), gs);
-      gimple_seq_set_last (seq, gs);
-    }
+    seq = (gimple_seq) ggc_alloc_cleared (sizeof (*seq));
+
+  return seq;
+}
+
+/* Return SEQ to the free pool of GIMPLE sequences.  */
+
+void
+gimple_seq_free (gimple_seq seq)
+{
+  if (seq == NULL)
+    return;
+
+  gcc_assert (gimple_seq_first (seq) == NULL);
+  gcc_assert (gimple_seq_last (seq) == NULL);
+
+  /* If this triggers, it's a sign that the same list is being freed
+     twice.  */
+  gcc_assert (seq != gimple_seq_cache || gimple_seq_cache == NULL);
+  
+  /* Add SEQ to the pool of free sequences.  */
+  seq->next_free = gimple_seq_cache;
+  gimple_seq_cache = seq;
 }
 
 
-/* Append sequence SRC to the end of sequence DST.  */
+/* Link gimple statement GS to the end of the sequence *SEQ_P.  If
+   *SEQ_P is NULL, a new sequence is allocated.  */
 
 void
-gimple_seq_append (gimple_seq dst, gimple_seq src)
+gimple_seq_add_stmt (gimple_seq *seq_p, gimple gs)
 {
-  if (gimple_seq_empty_p (src))
+  gimple_stmt_iterator si;
+
+  if (gs == NULL)
     return;
 
-  /* Make sure SRC is not linked somewhere else.  */
-  gcc_assert (gimple_prev (src->first) == NULL
-              && gimple_next (src->last) == NULL);
+  if (*seq_p == NULL)
+    *seq_p = gimple_seq_alloc ();
 
-  if (gimple_seq_empty_p (dst))
-    gimple_seq_copy (dst, src);
-  else
-    {
-      gimple_set_next (gimple_seq_last (dst), gimple_seq_first (src));
-      gimple_set_prev (gimple_seq_first (src), gimple_seq_last (dst));
-      gimple_seq_set_last (dst, gimple_seq_last (src));
-    }
+  si = gsi_last (*seq_p);
+  gsi_insert_after (&si, gs, GSI_NEW_STMT);
+}
+
+
+/* Append sequence SRC to the end of sequence *DST_P.  If *DST_P is
+   NULL, a new sequence is allocated.  */
+
+void
+gimple_seq_add_seq (gimple_seq *dst_p, gimple_seq src)
+{
+  gimple_stmt_iterator si;
+
+  if (src == NULL)
+    return;
+
+  if (*dst_p == NULL)
+    *dst_p = gimple_seq_alloc ();
+
+  si = gsi_last (*dst_p);
+  gsi_insert_seq_after (&si, src, GSI_NEW_STMT);
 }
 
 
@@ -1029,7 +1067,7 @@ gimple_seq_deep_copy (gimple_seq src)
   for (gsi = gsi_start (src); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gimple_copy (gsi_stmt (gsi));
-      gimple_seq_add (new, stmt);
+      gimple_seq_add_stmt (&new, stmt);
     }
 
   return new;
@@ -1505,84 +1543,6 @@ gimple_assign_copy_p (gimple gs)
 }
 
 
-/* Remove statement STMT from the sequence SEQ holding it.
-
-   When REMOVE_EH_INFO is true we also remove STMT from the EH tables.
-   Otherwise we do not modify the EH tables.
-
-   Generally, REMOVE_EH_INFO should be true when the statement is going to
-   be removed from the IL and not reinserted elsewhere.  */
-
-void
-gimple_remove (gimple stmt, gimple_seq seq, bool remove_eh_info)
-{
-  gimple next, prev;
-
-  gimple_set_bb (stmt, NULL);
-  delink_stmt_imm_use (stmt);
-  free_stmt_operands (stmt);
-  gimple_set_modified (stmt, true);
-  if (remove_eh_info)
-    {
-      remove_stmt_from_eh_region (stmt);
-      gimple_remove_stmt_histograms (cfun, stmt);
-    }
-
-  next = gimple_next (stmt);
-  prev = gimple_prev (stmt);
-
-  if (prev)
-    gimple_set_next (prev, next);
-  else
-    {
-      /* If STMT has no predecessor, it must be the first statement in
-	 SEQ.  */
-      gcc_assert (gimple_seq_first (seq) == stmt);
-      gimple_seq_set_first (seq, next);
-    }
-  
-  if (next)
-    gimple_set_prev (next, prev);
-  else
-    {
-      /* If STMT has no successor, it must be the last statement in
-	 SEQ.  */
-      gcc_assert (gimple_seq_last (seq) == stmt);
-      gimple_seq_set_last (seq, prev);
-    }
-
-  /* Clear any links this statement may have, just in case someone is
-     still using it.  */
-  gimple_set_next (stmt, NULL);
-  gimple_set_prev (stmt, NULL);
-}
-
-
-/* Reverse the order of the statements in the sequence SEQ.  Return
-   SEQ.  */
-
-gimple_seq
-gimple_seq_reverse (gimple_seq seq)
-{
-  gimple g;
-  gimple first = gimple_seq_first (seq);
-  gimple last = gimple_seq_last (seq);
-
-  for (g = first; g; )
-    {
-      gimple next = gimple_next (g);
-      gimple_set_next (g, gimple_prev (g));
-      gimple_set_prev (g, next);
-      g = next;
-    }
-
-  gimple_seq_set_first (seq, last);
-  gimple_seq_set_last (seq, first);
-
-  return seq;
-}
-
-
 /* Set BB to be the basic block holding G.  */
 
 void
@@ -1592,7 +1552,7 @@ gimple_set_bb (gimple stmt, basic_block bb)
 
   /* If the statement is a label, add the label to block-to-labels map
      so that we can speed up edge creation for GIMPLE_GOTOs.  */
-  if (gimple_code (stmt) == GIMPLE_LABEL)
+  if (cfun->cfg && gimple_code (stmt) == GIMPLE_LABEL)
     {
       tree t;
       int uid;

@@ -268,9 +268,7 @@ struct rtl_bb_info GTY(())
 
 struct gimple_bb_info GTY(())
 {
-  /* FIXME tuples: Arghh, these should be struct gimple_sequence, not
-     pointers.  */
-  /* Statements in a block.  */
+  /* Sequence of statements in this block.  */
   gimple_seq seq;
 
   /* PHI nodes for this block.  */

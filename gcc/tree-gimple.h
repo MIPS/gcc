@@ -40,8 +40,8 @@ enum gimple_rhs_class
 extern tree create_tmp_var_raw (tree, const char *);
 extern tree create_tmp_var_name (const char *);
 extern tree create_tmp_var (tree, const char *);
-extern tree get_initialized_tmp_var (tree, gimple_seq, gimple_seq);
-extern tree get_formal_tmp_var (tree, gimple_seq);
+extern tree get_initialized_tmp_var (tree, gimple_seq *, gimple_seq *);
+extern tree get_formal_tmp_var (tree, gimple_seq *);
 extern void declare_vars (tree, gimple, bool);
 extern void tree_annotate_all_with_locus (tree *, location_t);
 extern void annotate_all_with_locus (gimple_seq, location_t);
@@ -131,15 +131,15 @@ enum gimplify_status {
   GS_ALL_DONE	= 1	/* The expression is fully gimplified.  */
 };
 
-extern enum gimplify_status gimplify_expr (tree *, gimple_seq, gimple_seq,
+extern enum gimplify_status gimplify_expr (tree *, gimple_seq *, gimple_seq *,
 					   bool (*) (tree), fallback_t);
-extern void gimplify_type_sizes (tree, gimple_seq);
-extern void gimplify_one_sizepos (tree *, gimple_seq);
-extern bool gimplify_stmt (tree *, gimple_seq);
+extern void gimplify_type_sizes (tree, gimple_seq *);
+extern void gimplify_one_sizepos (tree *, gimple_seq *);
+extern bool gimplify_stmt (tree *, gimple_seq *);
 extern gimple gimplify_body (tree *, tree, bool);
 extern void push_gimplify_context (void);
 extern void pop_gimplify_context (gimple);
-extern void gimplify_and_add (tree, gimple_seq);
+extern void gimplify_and_add (tree, gimple_seq *);
 
 /* Miscellaneous helpers.  */
 extern void gimple_add_tmp_var (tree);
@@ -149,7 +149,8 @@ extern tree build_and_jump (tree *);
 extern tree alloc_stmt_list (void);
 extern void free_stmt_list (tree);
 extern tree force_labels_r (tree *, int *, void *);
-extern enum gimplify_status gimplify_va_arg_expr (tree *, gimple_seq, gimple_seq);
+extern enum gimplify_status gimplify_va_arg_expr (tree *, gimple_seq *,
+						  gimple_seq *);
 struct gimplify_omp_ctx;
 extern void omp_firstprivatize_variable (struct gimplify_omp_ctx *, tree);
 extern tree gimple_boolify (tree);

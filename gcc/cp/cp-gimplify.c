@@ -390,7 +390,7 @@ gimplify_expr_stmt (tree *stmt_p)
 /* Gimplify initialization from an AGGR_INIT_EXPR.  */
 
 static void
-cp_gimplify_init_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
+cp_gimplify_init_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   tree from = TREE_OPERAND (*expr_p, 1);
   tree to = TREE_OPERAND (*expr_p, 0);
@@ -472,7 +472,7 @@ gimplify_must_not_throw_expr (tree *expr_p, gimple_seq pre_p)
 /* Do C++-specific gimplification.  Args are as for gimplify_expr.  */
 
 int
-cp_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
+cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   int saved_stmts_are_full_exprs_p = 0;
   enum tree_code code = TREE_CODE (*expr_p);
@@ -508,9 +508,9 @@ cp_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
       ret = gimplify_must_not_throw_expr (expr_p, pre_p);
       break;
 
-      /* We used to do this for GIMPLE_MODIFY_STMT as well, but that's unsafe; the
-	 LHS of an assignment might also be involved in the RHS, as in bug
-	 25979.  */
+      /* We used to do this for GIMPLE_MODIFY_STMT as well, but that's
+	 unsafe; the LHS of an assignment might also be involved in
+	 the RHS, as in bug 25979.  */
     case INIT_EXPR:
       cp_gimplify_init_expr (expr_p, pre_p, post_p);
       ret = GS_OK;

@@ -5136,8 +5136,8 @@ ix86_va_start (tree valist, rtx nextarg)
 /* Implement va_arg.  */
 
 static tree
-ix86_gimplify_va_arg (tree valist, tree type, gimple_seq pre_p,
-		      gimple_seq post_p)
+ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
+		      gimple_seq *post_p)
 {
   static const int intreg[6] = { 0, 1, 2, 3, 4, 5 };
   tree f_gpr, f_fpr, f_ovf, f_sav;
@@ -5338,9 +5338,9 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq pre_p,
 	  gimplify_and_add (t, pre_p);
 	}
 
-      gimple_seq_add (pre_p, gimple_build_goto (lab_over));
+      gimple_seq_add_stmt (pre_p, gimple_build_goto (lab_over));
 
-      gimple_seq_add (pre_p, gimple_build_label (lab_false));
+      gimple_seq_add_stmt (pre_p, gimple_build_label (lab_false));
     }
 
   /* ... otherwise out of the overflow area.  */
@@ -5370,7 +5370,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq pre_p,
   gimplify_and_add (t, pre_p);
 
   if (container)
-    gimple_seq_add (pre_p, gimple_build_label (lab_over));
+    gimple_seq_add_stmt (pre_p, gimple_build_label (lab_over));
 
   ptrtype = build_pointer_type (type);
   addr = fold_convert (ptrtype, addr);

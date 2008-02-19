@@ -182,7 +182,7 @@ c_build_bind_expr (tree block, tree body)
    decl instead.  */
 
 static enum gimplify_status
-gimplify_compound_literal_expr (tree *expr_p, gimple_seq pre_p)
+gimplify_compound_literal_expr (tree *expr_p, gimple_seq *pre_p)
 {
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_STMT (*expr_p);
   tree decl = DECL_EXPR_DECL (decl_s);
@@ -257,7 +257,8 @@ optimize_compound_literals_in_ctor (tree orig_ctor)
    gimplify_expr.  */
 
 int
-c_gimplify_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p ATTRIBUTE_UNUSED)
+c_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
+		 gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   enum tree_code code = TREE_CODE (*expr_p);
 

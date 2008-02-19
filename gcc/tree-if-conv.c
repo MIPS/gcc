@@ -1003,7 +1003,7 @@ combine_blocks (struct loop *loop)
 
       /* Update stmt list.  */
       last = gsi_last_bb (merge_target_bb);
-      gsi_link_after (last, bb_seq (bb), GSI_NEW_STMT);
+      gsi_insert_after (last, bb_seq (bb), GSI_NEW_STMT);
       set_bb_seq (bb, NULL);
 
       delete_basic_block (bb);

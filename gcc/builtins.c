@@ -4923,7 +4923,8 @@ expand_builtin_va_start (tree exp)
    current (padded) address and increment by the (padded) size.  */
 
 tree
-std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq pre_p, gimple_seq post_p)
+std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+			  gimple_seq *post_p)
 {
   tree addr, t, type_size, rounded_size, valist_tmp;
   unsigned HOST_WIDE_INT align, boundary;
@@ -5034,7 +5035,7 @@ dummy_object (tree type)
    builtin function, but a very special sort of operator.  */
 
 enum gimplify_status
-gimplify_va_arg_expr (tree *expr_p, gimple_seq pre_p, gimple_seq post_p)
+gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   tree promoted_type, want_va_type, have_va_type;
   tree valist = TREE_OPERAND (*expr_p, 0);
