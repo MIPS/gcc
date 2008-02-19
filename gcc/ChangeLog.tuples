@@ -1,3 +1,9 @@
+2008-02-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.h (gimple_cond_invert): Remove prototype.
+	(update_stmt_if_modified): Fix typo in comment.
+	* gimple.c (walk_gimple_asm): Fix typo in comment.
+
 2008-02-13  Bill Maddox  <maddox@google.com>
 
 	* tree-inline.c (estimate_operator_cost): 

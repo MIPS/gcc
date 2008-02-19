@@ -501,7 +501,6 @@ gimple gimple_build_assign_with_ops (enum tree_code, tree, tree, tree);
 gimple gimple_build_call_vec (tree, VEC(tree, gc) *);
 gimple gimple_build_call (tree, size_t, ...);
 gimple gimple_build_cond (enum tree_code, tree, tree, tree, tree);
-void gimple_cond_invert (gimple);
 gimple gimple_build_label (tree label);
 gimple gimple_build_goto (tree dest);
 gimple gimple_build_nop (void);
@@ -893,7 +892,7 @@ update_stmt (gimple s)
     }
 }
 
-/* Update statement T if it has been optimized.  */
+/* Update statement S if it has been optimized.  */
 
 static inline void
 update_stmt_if_modified (gimple s)
