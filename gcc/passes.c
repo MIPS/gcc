@@ -700,10 +700,8 @@ init_optimization_passes (void)
 #endif
       NEXT_PASS (pass_del_ssa);
       NEXT_PASS (pass_nrv);
-#if 0
       NEXT_PASS (pass_mark_used_blocks);
       NEXT_PASS (pass_cleanup_cfg_post_optimizing);
-#endif
     }
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_free_datastructures);

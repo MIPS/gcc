@@ -1,4 +1,10 @@
-2008-02-19  Rafael Espindola  <espindola@google.com>
+2008-02-20  Rafael Espindola  <espindola@google.com>
+	* passes.c (init_optimization_passes): Enable pass_mark_used_blocks
+	and pass_cleanup_cfg_post_optimizing.
+	* tree-optimize.c (execute_cleanup_cfg_post_optimizing): call cleanup_tree_cfg.
+
+2008-02-20  Rafael Espindola  <espindola@google.com>
+
 	* passes.c (init_optimization_passes):  Enable pass_nrv.
 	* tree-nrv.c (finalize_nrv_r): data is now a walk_stmt_info.
 	(tree_nrv): port to gimple.

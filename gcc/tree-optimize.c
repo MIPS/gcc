@@ -178,12 +178,7 @@ static unsigned int
 execute_cleanup_cfg_post_optimizing (void)
 {
   fold_cond_expr_cond ();
-  /* FIXME tuples  */
-#if 0
   cleanup_tree_cfg ();
-#else
-  gimple_unreachable ();
-#endif
   cleanup_dead_labels ();
   group_case_labels ();
   return 0;
