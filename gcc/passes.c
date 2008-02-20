@@ -699,8 +699,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_uncprop);
 #endif
       NEXT_PASS (pass_del_ssa);
-#if 0
       NEXT_PASS (pass_nrv);
+#if 0
       NEXT_PASS (pass_mark_used_blocks);
       NEXT_PASS (pass_cleanup_cfg_post_optimizing);
 #endif

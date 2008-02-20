@@ -58,8 +58,6 @@ struct nrv_data
   tree result;
 };
 
-/* FIXME tuples.  */
-#if 0
 static tree finalize_nrv_r (tree *, int *, void *);
 
 /* Callback for the tree walker.
@@ -76,7 +74,8 @@ static tree finalize_nrv_r (tree *, int *, void *);
 static tree
 finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
 {
-  struct nrv_data *dp = (struct nrv_data *)data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  struct nrv_data *dp = (struct nrv_data *) wi->info;
 
   /* No need to walk into types.  */
   if (TYPE_P (*tp))
@@ -89,7 +88,6 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
   /* Keep iterating.  */
   return NULL_TREE;
 }
-#endif
 
 /* Main entry point for return value optimizations.
 
@@ -106,13 +104,11 @@ finalize_nrv_r (tree *tp, int *walk_subtrees, void *data)
 static unsigned int
 tree_nrv (void)
 {
-  /* FIXME tuples.  */
-#if 0
   tree result = DECL_RESULT (current_function_decl);
   tree result_type = TREE_TYPE (result);
   tree found = NULL;
   basic_block bb;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   struct nrv_data data;
 
   /* If this function does not return an aggregate type in memory, then
@@ -123,24 +119,27 @@ tree_nrv (void)
   /* Look through each block for assignments to the RESULT_DECL.  */
   FOR_EACH_BB (bb)
     {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  tree stmt = bsi_stmt (bsi);
-	  tree ret_expr;
+	  gimple stmt = gsi_stmt (gsi);
+	  tree ret_val;
 
-	  if (TREE_CODE (stmt) == RETURN_EXPR)
+	  if (gimple_code (stmt) == GIMPLE_RETURN)
 	    {
 	      /* In a function with an aggregate return value, the
 		 gimplifier has changed all non-empty RETURN_EXPRs to
 		 return the RESULT_DECL.  */
-	      ret_expr = TREE_OPERAND (stmt, 0);
-	      if (ret_expr)
-		gcc_assert (ret_expr == result);
+	      ret_val = gimple_return_retval (stmt);
+	      if (ret_val)
+		gcc_assert (ret_val == result);
 	    }
-	  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-		   && GIMPLE_STMT_OPERAND (stmt, 0) == result)
+	  else if (gimple_code (stmt) == GIMPLE_ASSIGN
+		   && gimple_assign_lhs (stmt) == result)
 	    {
-	      ret_expr = GIMPLE_STMT_OPERAND (stmt, 1);
+	      if (!gimple_assign_copy_p (stmt))
+		return 0;
+
+	      tree rhs = gimple_assign_rhs1 (stmt);
 
 	      /* Now verify that this return statement uses the same value
 		 as any previously encountered return statement.  */
@@ -149,11 +148,11 @@ tree_nrv (void)
 		  /* If we found a return statement using a different variable
 		     than previous return statements, then we can not perform
 		     NRV optimizations.  */
-		  if (found != ret_expr)
+		  if (found != rhs)
 		    return 0;
 		}
 	      else
-		found = ret_expr;
+		found = rhs;
 
 	      /* The returned value must be a local automatic variable of the
 		 same type and alignment as the function's result.  */
@@ -167,9 +166,9 @@ tree_nrv (void)
 					        TREE_TYPE (found)))
 		return 0;
 	    }
-	  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+	  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
 	    {
-	      tree addr = get_base_address (GIMPLE_STMT_OPERAND (stmt, 0));
+	      tree addr = get_base_address (gimple_assign_lhs (stmt));
 	       /* If there's any MODIFY of component of RESULT, 
 		  then bail out.  */
 	      if (addr && addr == result)
@@ -205,18 +204,22 @@ tree_nrv (void)
   data.result = result;
   FOR_EACH_BB (bb)
     {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
-	  tree *tp = bsi_stmt_ptr (bsi);
+	  gimple *tp = gsi_stmt_ptr (&gsi);
 	  /* If this is a copy from VAR to RESULT, remove it.  */
-	  if (TREE_CODE (*tp) == GIMPLE_MODIFY_STMT
-	      && GIMPLE_STMT_OPERAND (*tp, 0) == result
-	      && GIMPLE_STMT_OPERAND (*tp, 1) == found)
-	    bsi_remove (&bsi, true);
+	  if (gimple_assign_copy_p (*tp)
+	      && gimple_assign_lhs (*tp) == result
+	      && gimple_assign_rhs1 (*tp) == found)
+	    gsi_remove (&gsi, true);
 	  else
 	    {
-	      walk_tree (tp, finalize_nrv_r, &data, 0);
-	      bsi_next (&bsi);
+	      struct walk_stmt_info wi;
+	      memset (&wi, 0, sizeof (wi));
+	      wi.info = &data;
+	      walk_gimple_stmt (*tp, NULL,
+				finalize_nrv_r, &wi);
+	      gsi_next (&gsi);
 	    }
 	}
     }
@@ -224,9 +227,6 @@ tree_nrv (void)
   /* FOUND is no longer used.  Ensure it gets removed.  */
   var_ann (found)->used = 0;
   return 0;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 struct tree_opt_pass pass_nrv = 
