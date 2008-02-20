@@ -5164,23 +5164,25 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
      additional qualification.  */
   else if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMPL))
     {
+      /* At this point, we're looking for "type-name :: ~".  The type-name
+	 must not be a class-name, since this is a pseudo-destructor.  So,
+	 it must be either an enum-name, or a typedef-name -- both of which
+	 are just identifiers.  So, we peek ahead to check that the "::"
+	 and "~" tokens are present; if they are not, then we can avoid
+	 calling type_name.  */
+      if (cp_lexer_peek_token (parser->lexer)->type != CPP_NAME
+	  || cp_lexer_peek_nth_token (parser->lexer, 2)->type != CPP_SCOPE
+	  || cp_lexer_peek_nth_token (parser->lexer, 3)->type != CPP_COMPL)
+	{
+	  cp_parser_error (parser, "non-scalar type");
+	  return;
+	}
+
       /* Look for the type-name.  */
       *scope = TREE_TYPE (cp_parser_type_name (parser));
 
       if (*scope == error_mark_node)
 	return;
-
-      /* If we don't have ::~, then something has gone wrong.  Since
-	 the only caller of this function is looking for something
-	 after `.' or `->' after a scalar type, most likely the
-	 program is trying to get a member of a non-aggregate
-	 type.  */
-      if (cp_lexer_next_token_is_not (parser->lexer, CPP_SCOPE)
-	  || cp_lexer_peek_nth_token (parser->lexer, 2)->type != CPP_COMPL)
-	{
-	  cp_parser_error (parser, "request for member of non-aggregate type");
-	  return;
-	}
 
       /* Look for the `::' token.  */
       cp_parser_require (parser, CPP_SCOPE, "`::'");
@@ -11777,7 +11779,7 @@ cp_parser_using_declaration (cp_parser* parser,
 	  /* Create the USING_DECL.  */
 	  decl = do_class_using_decl (parser->scope, identifier);
 
-	  if (check_for_bare_parameter_packs (&decl))
+	  if (check_for_bare_parameter_packs (decl))
             return false;
           else
 	    /* Add it to the list of members in this class.  */
@@ -11788,7 +11790,7 @@ cp_parser_using_declaration (cp_parser* parser,
 	  decl = cp_parser_lookup_name_simple (parser, identifier);
 	  if (decl == error_mark_node)
 	    cp_parser_name_lookup_error (parser, identifier, decl, NULL);
-	  else if (check_for_bare_parameter_packs (&decl))
+	  else if (check_for_bare_parameter_packs (decl))
 	    return false;
 	  else if (!at_namespace_scope_p ())
 	    do_local_using_decl (decl, qscope, identifier);
@@ -15328,7 +15330,7 @@ cp_parser_base_clause (cp_parser* parser)
             TREE_VALUE (base) = make_pack_expansion (TREE_VALUE (base));
           
 
-          if (!check_for_bare_parameter_packs (&TREE_VALUE (base)))
+          if (!check_for_bare_parameter_packs (TREE_VALUE (base)))
             {
               TREE_CHAIN (base) = bases;
               bases = base;
@@ -20305,8 +20307,12 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 		  cp_parser_require (parser, CPP_EQ, "`='");
 		  init = cp_parser_assignment_expression (parser, false);
 
-		  cp_finish_decl (decl, NULL_TREE, /*init_const_expr_p=*/false,
-				  asm_specification, LOOKUP_ONLYCONVERTING);
+		  if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
+		    init = error_mark_node;
+		  else
+		    cp_finish_decl (decl, NULL_TREE,
+				    /*init_const_expr_p=*/false,
+				    asm_specification, LOOKUP_ONLYCONVERTING);
 		}
 
 	      if (pushed_scope)

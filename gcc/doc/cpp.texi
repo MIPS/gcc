@@ -11,7 +11,7 @@
 @copying
 @c man begin COPYRIGHT
 Copyright @copyright{} 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
-1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -1996,7 +1996,7 @@ on the command line of the preprocessor or C compiler.
 This macro expands to a decimal integer constant that represents the
 depth of nesting in include files.  The value of this macro is
 incremented on every @samp{#include} directive and decremented at the
-end of every included file.  It starts out at 0, it's value within the
+end of every included file.  It starts out at 0, its value within the
 base file specified on the command line.
 
 @item __ELF__

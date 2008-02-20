@@ -2705,6 +2705,15 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 	    bad_proc = true;
 	}
 
+      /* (iv) Host associated and not the function symbol or the
+	      parent result.  This picks up sibling references, which
+	      cannot be entries.  */
+      if (!sym->attr.entry
+	    && sym->ns == gfc_current_ns->parent
+	    && sym != gfc_current_ns->proc_name
+	    && sym != gfc_current_ns->parent->proc_name->result)
+	bad_proc = true;
+
       if (bad_proc)
 	{
 	  gfc_error ("'%s' at %L is not a VALUE", sym->name, &lvalue->where);
@@ -2816,8 +2825,8 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
       if (lvalue->ts.type == BT_LOGICAL && rvalue->ts.type == BT_LOGICAL)
 	return SUCCESS;
 
-      gfc_error ("Incompatible types in assignment at %L, %s to %s",
-		 &rvalue->where, gfc_typename (&rvalue->ts),
+      gfc_error ("Incompatible types in assignment at %L; attempted assignment "
+		 "of %s to %s", &rvalue->where, gfc_typename (&rvalue->ts),
 		 gfc_typename (&lvalue->ts));
 
       return FAILURE;
@@ -2900,8 +2909,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 
   if (!gfc_compare_types (&lvalue->ts, &rvalue->ts))
     {
-      gfc_error ("Different types in pointer assignment at %L",
-		 &lvalue->where);
+      gfc_error ("Different types in pointer assignment at %L; attempted "
+		 "assignment of %s to %s", &lvalue->where, 
+		 gfc_typename (&rvalue->ts), gfc_typename (&lvalue->ts));
       return FAILURE;
     }
 

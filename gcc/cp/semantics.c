@@ -508,7 +508,7 @@ finish_cond (tree *cond_p, tree expr)
       if (TREE_CODE (cond) == DECL_EXPR)
 	expr = cond;
 
-      if (check_for_bare_parameter_packs (&expr))
+      if (check_for_bare_parameter_packs (expr))
         *cond_p = error_mark_node;
     }
   *cond_p = expr;
@@ -619,7 +619,7 @@ finish_expr_stmt (tree expr)
       else if (!type_dependent_expression_p (expr))
 	convert_to_void (build_non_dependent_expr (expr), "statement");
 
-      if (check_for_bare_parameter_packs (&expr))
+      if (check_for_bare_parameter_packs (expr))
         expr = error_mark_node;
 
       /* Simplification of inner statement expressions, compound exprs,
@@ -877,7 +877,7 @@ finish_for_expr (tree expr, tree for_stmt)
   else if (!type_dependent_expression_p (expr))
     convert_to_void (build_non_dependent_expr (expr), "3rd expression in for");
   expr = maybe_cleanup_point_expr_void (expr);
-  if (check_for_bare_parameter_packs (&expr))
+  if (check_for_bare_parameter_packs (expr))
     expr = error_mark_node;
   FOR_EXPR (for_stmt) = expr;
 }
@@ -974,7 +974,7 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	    cond = index;
 	}
     }
-  if (check_for_bare_parameter_packs (&cond))
+  if (check_for_bare_parameter_packs (cond))
     cond = error_mark_node;
   finish_cond (&SWITCH_STMT_COND (switch_stmt), cond);
   SWITCH_STMT_TYPE (switch_stmt) = orig_type;
@@ -1393,7 +1393,7 @@ finish_mem_initializers (tree mem_inits)
              bound as part of the TREE_PURPOSE.  See
              make_pack_expansion for more information.  */
           if (TREE_CODE (TREE_PURPOSE (mem)) != TYPE_PACK_EXPANSION
-              && check_for_bare_parameter_packs (&TREE_VALUE (mem)))
+              && check_for_bare_parameter_packs (TREE_VALUE (mem)))
             TREE_VALUE (mem) = error_mark_node;
         }
 
@@ -1620,8 +1620,12 @@ finish_qualified_id_expr (tree qualifying_class,
        transformation, as there is no "this" pointer.  */
     ;
   else if (TREE_CODE (expr) == FIELD_DECL)
-    expr = finish_non_static_data_member (expr, current_class_ref,
-					  qualifying_class);
+    {
+      push_deferring_access_checks (dk_no_check);
+      expr = finish_non_static_data_member (expr, current_class_ref,
+					    qualifying_class);
+      pop_deferring_access_checks ();
+    }
   else if (BASELINK_P (expr) && !processing_template_decl)
     {
       tree fns;
@@ -2331,9 +2335,9 @@ finish_member_declaration (tree decl)
   /* Check for bare parameter packs in the member variable declaration.  */
   if (TREE_CODE (decl) == FIELD_DECL)
     {
-      if (check_for_bare_parameter_packs (&TREE_TYPE (decl)))
+      if (check_for_bare_parameter_packs (TREE_TYPE (decl)))
         TREE_TYPE (decl) = error_mark_node;
-      if (check_for_bare_parameter_packs (&DECL_ATTRIBUTES (decl)))
+      if (check_for_bare_parameter_packs (DECL_ATTRIBUTES (decl)))
         DECL_ATTRIBUTES (decl) = NULL_TREE;
     }
 
@@ -3740,9 +3744,14 @@ finish_omp_threadprivate (tree vars)
     {
       tree v = TREE_PURPOSE (t);
 
+      if (error_operand_p (v))
+	;
+      else if (TREE_CODE (v) != VAR_DECL)
+	error ("%<threadprivate%> %qD is not file, namespace "
+	       "or block scope variable", v);
       /* If V had already been marked threadprivate, it doesn't matter
 	 whether it had been used prior to this point.  */
-      if (TREE_USED (v)
+      else if (TREE_USED (v)
 	  && (DECL_LANG_SPECIFIC (v) == NULL
 	      || !CP_DECL_THREADPRIVATE_P (v)))
 	error ("%qE declared %<threadprivate%> after first use", v);
@@ -4170,6 +4179,16 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 	}
     }
 
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
+    {
+      location_t elocus = locus;
+
+      if (EXPR_HAS_LOCATION (init))
+	elocus = EXPR_LOCATION (init);
+      error ("%Hinvalid type for iteration variable %qE", &elocus, decl);
+      return NULL;
+    }
+
   if (IS_EMPTY_STMT (pre_body))
     pre_body = NULL;
 
@@ -4308,6 +4327,9 @@ void
 finish_static_assert (tree condition, tree message, location_t location, 
                       bool member_p)
 {
+  if (check_for_bare_parameter_packs (condition))
+    condition = error_mark_node;
+
   if (type_dependent_expression_p (condition) 
       || value_dependent_expression_p (condition))
     {

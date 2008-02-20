@@ -1,3 +1,898 @@
+2008-02-20  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (split_tree): Associate floatig-point expressions
+	if flag_associative_math is set.
+
+2008-02-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (fold_real_zero_addition_p): Declare.
+	* fold-const.c (fold_real_zero_addition_p): Export.
+	* tree-ssa-reassoc.c (eliminate_using_constants): Also handle
+	floating-point operations with zero and one.
+
+2008-02-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	* doc/install.texi: Correct references to CFLAGS, replacing them
+	with BOOT_CFLAGS.  Document flags used during bootstrap for
+	target libraries.
+				
+2008-02-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (SSE_VEC_FLOAT_MODE_P): New define.
+	* config/i386/i386.md (*sse_setcc<mode>): Macroize from *sse_setccsf
+	and *sse_setccdf using MODEF mode iterator and SSE_FLOAT_MODE_P as
+	insn constraint.
+	(smin<mode>3): Ditto from similar patterns.
+	(smax<mode>3): Ditto.
+	(*ieee_smin<mode>3): Ditto.
+	(*ieee_smax<mode>3): Ditto.
+	* config/i386/sse.md (sse): New mode attribute.
+	(mov<mode>): Macroize expander from movv4sf and movv2df using
+	SSEMODEF2P mode iterator.
+	(<sse>_movnt<mode>): Ditto from similar patterns. Use
+	SSE_VEC_FLOAT_MODE_P as insn constraint.
+	(storent<mode>): Ditto.
+	(storent<mode>): Macroize expander from storentsf and storentdf using
+	MODEF mode iterator.
+	(neg<mode>2): Macroize from negv4sf2 and negv2df2 using SSEMODEF2P
+	mode iterator and SSE_VEC_FLOAT_MODE_P as insn constraint.
+	(abs<mode>2): Ditto from similar patterns.
+	(add<mode>3, *add<mode>3, <sse>_vmadd<mode>3): Ditto.
+	(sub<mode>3, *sub<mode>3, <sse>_vmsub<mode>3): Ditto.
+	(<sse>_div<mode>3, <sse>_vmdiv<mode>3): Ditto.
+	(<sse>_vmsqrt<mode>2): Ditto.
+	(smin<mode>3, *smin<mode>3_finite, *smin<mode>3)
+	(<sse>_vmsmin<mode>3, *ieee_smin<mode>3): Ditto.
+	(smax<mode>3, *smax<mode>3_finite, *smax<mode>3)
+	(<sse>_vmsmax<mode>3, *ieee_smax<mode>3): Ditto.
+	(<sse>_maskcmp<mode>3): Macroize from sse_maskcmpv4sf3,
+	sse_maskcmpsf3, sse2_maskcmpv2df3 and sse2_maskcmpdf3 using SSEMODEF4
+	mode iterator. Use SSE_FLOAT_MODE_P with SSE_VEC_FLOAT_MODE_P as
+	insn constraint.
+	(<sse>_comi): Macroize from sse_comi and sse2_comi using MODEF mode
+	iterator and SSE_FLOAT_MODE_P as insn constraint.
+	(<sse>_ucomi): Ditto from similar patterns.
+	(<sse>_vmmaskcmp<mode>3): Macroize from sse_vmmaskcmpv4sf3 and
+	sse2_vmmaskcmpv2df3 using SSEMODEF2P mode iterator and
+	SSE_VEC_FLOAT_MODE_P as insn constraint.
+	(vcond<mode>): Ditto from similar patterns.
+	(and<mode>3, *and<mode>3): Ditto.
+	(<sse>_nand<mode>3): Ditto.
+	(ior<mode>3, *ior<mode>3): Ditto.
+	(xor<mode>3, *xor<mode>3): Ditto.
+	(*and<mode>3): Macroize from *andsf3 and *anddf3 using MODEF mode
+	iterator and SSE_FLOAT_MODE_P as insn constraint.
+	(*nand<mode>3): Ditto from similar patterns.
+	(*ior<mode>3): Ditto.
+	(*xor<mode>3): Ditto.
+
+2008-02-20  Ira Rosen  <irar@il.ibm.com>
+
+	* config/spu/spu.md (vec_unpacku_hi_v8hi, vec_unpacku_lo_v8hi,
+	vec_unpacks_hi_v8hi, vec_unpacks_lo_v8hi, vec_unpacku_hi_v16qi,
+	vec_unpacku_lo_v16qi, vec_unpacks_lo_v16qi): Implement.
+
+2008-02-19  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (tree_bb_level_predictions): Remove variable next
+	mistakely introduced by previous commit.
+
+2008-02-19  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (predict_paths_leading_to): Rewrite.
+	(predict_paths_for_bb): New.
+	(tree_bb_level_predictions): Update call of predict_paths_leading_to.
+
+2008-02-19  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR bootstrap/35218
+	* Makefile.in (build_file_translate): New.
+	(gcc-vers.texi): Use it for translating $(abs_srcdir).
+	* config.build (build_file_translate): Set to `CMD //c' on MinGW.
+	* configure.ac (build_file_translate): Substitute it.
+	* configure: Regenerate.
+
+2008-02-19  Jan Hubicka  <jh@suse.cz>
+
+	PR rtl-optimization/34408
+	* see.c (see_def_extension_not_merged): Copy subreg so we don't have
+	invalid sharing.
+
+2008-02-19  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/28779
+	* tree-inline.c (estimate_num_insns_1): Fix counting of cost of
+	call_expr.
+
+2008-02-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR Ada/35186
+	* config/i386/i386-modes.def: Revert the last DI alignment
+	change until Ada people can look into it.
+
+2008-02-19  Nick Clifton  <nickc@redhat.com>
+
+	* opts.c (print_specific_help): Fix typo in --help text.
+
+2008-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/35239
+	* config/i386/cpuid.h (__cpuid, __get_cpuid_max): Use special
+	32-bit inline asm without asm alternatives for host GCC < 3.0.
+
+2008-02-19  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34989
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Re-structure.
+	Allow propagation to INDIRECT_REF if we can simplify only.
+
+2008-02-19  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* c-common.c (warn_for_collisions_1): Use appropriate option when
+	warning.
+
+2008-02-19  Nick Clifton  <nickc@redhat.com>
+
+	PR other/31349
+	* opts.c (undocumented_msg): Leave blank unless checking is enabled.
+	(handle_options): Fix indentation.
+	(print_filtered_help): If no language-specific options were
+	displayed tell the user how to list all the options supported by
+	the language's front-end.
+	(print_specific_help): Fix indentation and remove duplicate line.
+	(common_handle_option): Handle the -v option.
+	For --help enable the display of undocumented options if the -v
+	switch has been included on the command line.
+	For --help= check for overlaps in the arguments between the option
+	classes and the language names and issue a warning when they
+	cannot be disambiguated.
+	* c.opt (v): Pass on to the common option handler.
+
+2008-02-19  Revital Eres  <eres@il.ibm.com> 
+
+	* modulo-sched.c (sms_schedule): Change dump message when
+	create_ddg function fails.
+	(try_scheduling_node_in_cycle): Rename row to cycle.
+	(print_partial_schedule): Rename CYCLE to ROW.
+
+2008-02-19  Christian Bruel  <christian.bruel@st.com>
+	    Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-ssa-loop-ivopts.c (may_be_unaligned_p): Check step alignment.
+
+2008-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/33555
+	* config/i386/i386.md (*x86_movsicc_0_m1_se): New insn pattern.
+	(*x86_movdicc_0_m1_se): Ditto.
+
+2008-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sfp-machine.h (__gcc_CMPtype): New typedef.
+	(CMPtype): Define as __gcc_CMPtype.
+	* config/rs6000/sfp-machine.h (__gcc_CMPtype): New typedef.
+	(CMPtype): Define as __gcc_CMPtype.
+
+2008-02-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	Support valgrind 3.3 for --enable-checking=valgrind.
+	* system.h: Consolidate ENABLE_VALGRIND_CHECKING-dependent defines
+	here.
+	[!VALGRIND_MAKE_MEM_NOACCESS]: Define as VALGRIND_MAKE_NOACCESS.
+	[!VALGRIND_MAKE_MEM_DEFINED]: Define as VALGRIND_MAKE_READABLE.
+	[!VALGRIND_MAKE_MEM_UNDEFINED]: Define as VALGRIND_MAKE_WRITABLE.
+	* ggc-common.c: Remove ENABLE_VALGRIND_CHECKING-dependent defines.
+	Replace use of VALGRIND_MAKE_READABLE, VALGRIND_MAKE_WRITABLE, and
+	VALGRIND_MAKE_NOACCESS with VALGRIND_MAKE_MEM_DEFINED,
+	VALGRIND_MAKE_MEM_UNDEFINED, and VALGRIND_MAKE_MEM_NOACCESS
+	respectively.
+	* ggc-zone.c: Similar.
+	* ggc-page.c: Similar.
+
+2008-02-19  Paul Brook  <paul@codesourcery.com>
+
+	PR target/35071
+	* config/arm/ieee754-df.S: Fix do_it typo.
+	* config/arm/ieee754-sf.S: Fix do_it typo.
+
+2008-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35189
+	* config/i386/i386.c (OPTION_MASK_ISA_MMX_SET): New.
+	(OPTION_MASK_ISA_3DNOW_SET): Likewise.
+	(OPTION_MASK_ISA_SSE_SET): Likewise.
+	(OPTION_MASK_ISA_SSE2_SET): Likewise.
+	(OPTION_MASK_ISA_SSE3_SET): Likewise.
+	(OPTION_MASK_ISA_SSSE3_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4_1_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4_2_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4A_SET): Likewise.
+	(OPTION_MASK_ISA_SSE5_SET): Likewise.
+	(OPTION_MASK_ISA_3DNOW_A_UNSET): Likewise.
+	(OPTION_MASK_ISA_MMX_UNSET): Updated.
+	(OPTION_MASK_ISA_3DNOW_UNSET): Updated.
+	(OPTION_MASK_ISA_SSE_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE3_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSSE3_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4_1_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4_2_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4A_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE5_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4): Removed.
+	(ix86_handle_option): Turn on bits in ix86_isa_flags and
+	ix86_isa_flags_explicit with OPTION_MASK_ISA_XXX_SET for
+	-mXXX.
+	(override_options): Don't turn on implied SSE/MMX bits in
+	ix86_isa_flags.
+
+2008-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386-modes.def: Use 4 byte alignment on DI for
+	32bit host.
+
+2008-02-18  Joey Ye  <joey.ye@intel.com>
+
+	PR middle-end/34921
+	* tree-nested.c (insert_field_into_struct): Set type alignment
+	to field alignment if the former is less than the latter.
+
+2008-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.4.0.
+
+2008-02-17 Ralf Wildenhues <Ralf.Wildenhues@gmx.de>
+
+	* doc/c-tree.texi: Use @dots{} and @enddots{} where appropriate.
+	* doc/cfg.texi: Likewise.
+	* doc/extend.texi: Likewise.
+	* doc/gty.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+	* doc/loop.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* doc/passes.texi: Likewise.
+	* doc/rtl.texi: Likewise.
+	* doc/sourcebuild.texi: Likewise.
+	* doc/tm.texi: Likewise.
+	* doc/tree-ssa.texi: Likewise.
+
+2008-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35227
+	* tree-complex.c (init_parameter_lattice_values): Handle parameters
+	without default definition.
+
+2008-02-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35231
+	* tree-vrp.c (register_edge_assert_for): Do not assume A == 0
+	if A | B != 1.
+
+2008-02-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+
+	2008-02-15  Uros Bizjak  <ubizjak@gmail.com>	
+	* config/i386/sfp-machine.h (CMPtype): Define as typedef using
+	libgcc_cmp_return mode.
+
+2008-02-16  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/28368
+	* doc/invoke.texi (-std): Clarify description of -std= and -ansi.
+
+2008-02-16  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config/m68k/t-rtems (M68K_MLIB_CPU): Add 5208, 5307, 5407, 5475
+	multilibs.
+
+2008-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/c-tree.texi: Use `@.' where appropriate.
+	* doc/extend.texi: Likewise.
+	* doc/install.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+	* doc/loop.texi: Likewise.
+	* doc/makefile.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* doc/passes.texi: Likewise.
+	* doc/standards.texi: Likewise.
+	* doc/tm.texi: Likewise.
+
+2008-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35196
+	* omp-low.c (expand_omp_for_generic): Don't initialize fd->v
+	in entry_bb.
+	(expand_omp_for_static_nochunk): Initialize fd->v in seq_start_bb
+	rather than in entry_bb.
+
+2008-02-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sfp-machine.h (CMPtype): Define as typedef using
+	libgcc_cmp_return mode.
+
+2008-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35130
+	* tree-nested.c (convert_call_expr): Put FRAME.* vars into
+	OMP_CLAUSE_SHARED rather than OMP_CLAUSE_FIRSTPRIVATE clause.
+
+2008-02-15  Richard Guenther  <rguenther@suse.de>
+	    Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/35164
+	* tree-flow.h (stmt_references_abnormal_ssa_name): Declare.
+	* tree-dfa.c (stmt_references_abnormal_ssa_name): New function.
+	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_vars):
+	Only propagate addresses which do not have abnormal SSA_NAMEs
+	in their operands.
+
+2008-02-15  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/35088
+	* config/m68k/m68k.h (DWARF_CIE_DATA_ALIGNMENT): Define.
+
+2008-02-15  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/35149
+	* ipa.c (cgraph_remove_unreachable_nodes): Clear local.inlinable flag.
+
+2008-02-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/34621
+	* function.c (pad_to_arg_alignment): Remove test for STACK_BOUNDARY
+	when calculating alignment_pad.
+
+2008-02-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (CLEAR_RATIO): Use MIN macro.
+	(WIDEST_HARDWARE_FP_SIZE): Use LONG_DOUBLE_TYPE_SIZE define.
+	* config/i386/darwin.h (PREFERRED_STACK_BOUNDARY): Use MAX macro
+	and STACK_BOUNDARY define.
+
+2008-02-14  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR preprocessor/35061
+	* c-pragma.c (handle_pragma_pop_macro): Check that
+	pushed_macro_table has been allocated.
+
+2008-02-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/35136
+	* gimplify.c (force_gimple_operand_bsi): Revert 2008-02-12 change.
+	(force_gimple_operand): Likewise.
+	* tree-ssa-loop-ivopts.c (may_be_nonaddressable_p): Add new cases
+	for TARGET_MEM_REF and CONVERT_EXPR/NON_LVALUE_EXPR/NOP_EXPR.
+	Also recurse on the operand for regular VIEW_CONVERT_EXPRs.
+	(find_interesting_uses_address): Check addressability and alignment
+	of the base expression only after substituting bases of IVs into it.
+
+2008-02-14  Michael Matz  <matz@suse.de>
+
+	PR target/34930
+	* function.c (instantiate_virtual_regs_in_insn): Reload address
+	before falling back to reloading the whole operand.
+
+2008-02-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_mainpool_start): Emit the pool
+	before the first section switch note.
+
+2008-02-14 Ralf Wildenhues <Ralf.Wildenhues@gmx.de>
+
+	* doc/bugreport.texi: Update copyright years.
+	* doc/c-tree.texi: Likewise.
+	* doc/cfg.texi: Likewise.
+	* doc/cpp.texi: Likewise.
+	* doc/cppinternals.texi: Likewise.
+	* doc/fragments.texi: Likewise.
+	* doc/frontends.texi: Likewise.
+	* doc/gcc.texi: Likewise.
+	* doc/gty.texi: Likewise.
+	* doc/hostconfig.texi: Likewise.
+	* doc/implement-c.texi: Likewise.
+	* doc/libgcc.texi: Likewise.
+	* doc/loop.texi: Likewise.
+	* doc/makefile.texi: Likewise.
+	* doc/options.texi: Likewise.
+	* doc/passes.texi: Likewise.
+	* doc/rtl.texi: Likewise.
+	* doc/sourcebuild.texi: Likewise.
+	* doc/standards.texi: Likewise.
+	* doc/tree-ssa.texi: Likewise.
+	* doc/trouble.texi: Likewise.
+
+	* doc/extend.texi: Use @: or add comma where appropriate.
+	* doc/invoke.texi: Likewise.
+	* doc/tm.texi: Likewise.
+
+2008-02-14  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/34393
+	* config/rs6000/rs6000.md (restore_stack_block): Force operands[1]
+	to a reg.
+
+2008-02-14  Jesper Nilsson  <jesper.nilsson@axis.com>
+
+	* doc/md.texi (clz, ctz): Add reference.
+	* doc/rtl.texi (clz, ctz): Likewise.
+
+2008-02-13  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR other/35148
+	* Makefile.in (gcc-vers.texi): Use abs_srcdir for the value of
+	srcdir.
+
+2008-02-13  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (struct constant_pool): New field
+	emit_pool_after added.
+	(s390_mainpool_start): Set the emit_pool_after flag according
+	to the section switch notes.
+	(s390_mainpool_finish): Consider emit_pool_after when emitting
+	the literal pool at the end of the function.
+	(s390_chunkify_start): Force literal pool splits at section
+	switch notes.
+
+2008-02-13  Michael Matz  <matz@suse.de>
+
+	PR debug/35065
+	* var-tracking.c (clobber_variable_part): Correctly traverse the
+	list.
+
+2008-02-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 29673
+	* doc/invoke.texi (Debugging Options): Remove -fdump-tree-inlined.
+	Add -fdump-ipa-inline.
+	* tree-dump.c (dump_files): Remove tree-inlined dump.
+	* tree-pass.h (tree_dump_index): Remove TDI_inlined.
+	
+2008-02-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35171
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Deal with
+	default defs.
+
+2008-02-12  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35163
+	* fold-const.c (fold_widened_comparison): Use get_unwidened in
+	value-preserving mode.  Disallow final truncation.
+
+2008-02-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/35136
+	* gimplify.c (force_gimple_operand_bsi): Move SSA renaming
+	code from here to...
+	(force_gimple_operand): ...here.
+
+2008-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35144
+	* tree-sra.c (sra_build_assignment): fold_convert SRC if copying
+	non-compatible pointers.
+	(generate_element_copy): If SRC and DST are RECORD_TYPEs with
+	different FIELD_DECLs, try harder by comparing field offsets, sizes
+	and types.
+
+	PR inline-asm/35160
+	* function.c (match_asm_constraints_1): Don't replace the same input
+	multiple times.
+
+2008-02-12  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.h (AVR_HAVE_RAMPZ): Define.
+	* config/avr/avr.c (expand_prologue): Save RAMPZ register.
+	(expand_epilogue): Restore RAMPZ register.
+	* config/avr/avr.md (RAMPZ_ADDR): New constant.
+
+2008-02-11  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/cygwin.asm: (__alloca): Correct calling
+	convention and alignment.
+	(__chkstk): Force 8 byte stack alignment.
+
+2008-02-11  Uros Bizjak  <ubizjak@gmail.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/33992
+	* tree-ssa-loop-im.c (rewrite_bittest): Fixup the type of
+	the zero we compare against.
+
+2008-02-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR libfortran/35063
+	* gthr-win32.h (__gthread_mutex_destroy_function): New function
+	to CloseHandle after unlocking to prevent accumulation of handle
+	count.
+
+2008-02-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle_end/34150
+	* pa.c (legitimize_pic_address): Add REG_EQUAL note on sets with a
+	pic_label_operand source.  Similarly, add a REG_LABEL_OPERAND note
+	and update LABEL_NUSES during and after reload.
+
+2008-02-08  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	PR middle-end/34627
+	* combine.c (simplify_if_then_else): Make sure the comparison is
+	against const0_rtx when simplifying to (abs x) or (neg (abs X)).
+
+2008-02-08  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR bootstrap/35051
+	* double-int.h: Don't include gmp.h for GENERATOR_FILEs.
+	(mpz_set_double_int, mpz_get_double_int): Hide from GENERATOR_FILEs.
+	* real.h: Don't include gmp.h or mpfr.h for GENERATOR_FILEs.
+	(real_from_mpfr, mpfr_from_real): Hide from GENERATOR_FILEs.
+	* tree.h (get_type_static_bounds): Likewise.
+
+2008-02-08  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/invoke.texi (Option Summary, C++ Dialect Options)
+	(Objective-C and Objective-C++ Dialect Options, Warning Options):
+	Make -Wfoo language annotations match what the compiler outputs.
+
+2008-02-08  Sa Liu  <saliu@de.ibm.com>
+
+	* config/spu/spu-builtins.def: Fixed wrong parameter type in spu 
+	intrinsics spu_convts, spu_convtu, spu_convtf.
+	* testsuite/gcc.target/spu/intrinsics-3.c: New. Test error messages.
+
+2008-02-08  Hans-Peter Nilsson  <hp@axis.com>
+
+	* doc/extend.texi (Function Attributes) <noinline>: Mention
+	asm ("") as method to keep calls.
+
+2008-02-07  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR other/32754
+	* doc/options.texi (Options): Replace references to opts.sh with
+	optc-gen.awk.
+	* opts-common.c: Likewise.
+	* optc-gen.awk: Likewise.
+	
+2008-02-07  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.h (FUNCTION_ARG_REGNO_P): Fix fprs for 64 bit.
+
+2008-02-07  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/33410
+	* config/alpha/alpha.c (alpha_emit_xfloating_compare): Use an
+	EXPR_LIST for the REG_EQUAL instead of a comparison with a 
+	funny mode.
+
+2008-02-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/35085
+	* tree-ssa-reassoc.c (rewrite_expr_tree): Enable destructive update
+	for operand entry oe2 in addition to operand entry oe3 in order to
+	expose more opportunities for vectorizer sum reduction.
+
+2008-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR other/35107
+	* Makefile.in (LIBS): Remove $(GMPLIBS).
+	(cc1-dummy, cc1): Add $(GMPLIBS).
+
+2008-02-06  Jan Hubicka  <jh@suse.cz>
+
+	PR target/23322
+	* i386.md (moddf_integer): Do not produce partial memory stalls for
+	targets where it hurts.
+
+2008-02-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35083
+	* optabs.c (expand_float): Do not check for decimal modes when
+	expanding unsigned integer through signed conversion.
+
+2008-02-06  Nick Clifton  <nickc@redhat.com>
+
+	* config/stormy16/stormy16.md (eqbranchsi): Replace a match_dup
+	inside the clobber with a match_operand and duplicated operand
+	number in the constraint.
+	(ineqbranchsi): Delete redundant comment.
+
+2008-02-06  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config/arm/rtems-elf.h (TARGET_OS_CPP_BUILTINS): Add 
+	builtin_define ("__USE_INIT_FINI__").
+	* config/h8300/t-rtems (MULTILIB_OPTION,MULTILIB_DIRNAMES): Add
+	-msx multilibs.
+	* gthr-rtems.h: Remove __GTHREAD_MUTEX_INIT.
+
+2008-02-06  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR documentation/30330
+	* doc/invoke.texi (C++ Dialect Options)
+	(Objective-C and Objective-C++ Dialect Options, Warning Options):
+	For each warning option -Wfoo that allows -Wno-foo, ensure both
+	-Wfoo and -Wno-foo are listed in the option index.  Fix index
+	entry of -Wswitch-default, index -Wnormalized= including the
+	`=', and -Wlarger-than-@var{len} including @var{len}.
+
+2008-02-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (floatunssisf2): Use
+	ix86_expand_convert_uns_sisf_sse also for TARGET_SSE.
+	(floatunssi<mode>2): Rename from floatunssisf2 and floatunssidf2.
+	Macroize expander using MODEF mode iterator.
+
+2008-02-05  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00140.html
+
+	PR 33738
+	* tree-vrp.c (vrp_evaluate_conditional): Revert fix for PR 33738.
+
+2008-02-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR other/35070
+	* toplev.c (print_version): Honor `indent' for GMP/MPFR warnings.
+
+2008-02-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35084
+	* config/i386/i386.c (ix86_function_sseregparm): Add an arg
+	to indicate if a message should be generated.
+	(init_cumulative_args): Updated.
+	(function_value_32): Likewise.
+
+2008-02-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/include/texinfo.tex: Update to version 2008-02-04.16.
+
+2008-02-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35083
+	* config/i386/i386.md (floatunsisf2): Enable for TARGET_SSE_MATH only.
+	Call ix86_expand_convert_uns_sisf_sse for TARGET_SSE2.
+
+2008-02-04  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00110.html
+
+	PR 33738
+	* tree-vrp.c (vrp_evaluate_conditional): With
+	-Wtype-limits, emit a warning when comparing against a
+	constant outside the natural range of OP0's type.
+
+2008-02-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/33631
+	* expr.c (count_type_elements): Give for unions instead of
+	guessing.
+
+2008-02-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35043
+	* gimplify.c (gimplify_init_ctor_eval): Convert array indices
+	to TYPE_DOMAINs base type instead of using bitsizetype here.
+
+2008-02-03  Jason Merrill  <jason@redhat.com>
+
+	* print-tree.c (print_node) [CONSTRUCTOR]: Print elements.
+
+2008-02-04  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR other/29972
+	* doc/invoke.texi (C++ Dialect Options, Optimize Options)
+	(HPPA Options, i386 and x86-64 Options, IA-64 Options)
+	(RS/6000 and PowerPC Options): Fix typos and markup.
+	* doc/passes.texi (Tree-SSA passes): Likewise.
+
+2008-02-02  Michael Matz  <matz@suse.de>
+
+	PR target/35045
+	* postreload-gcse.c (record_last_reg_set_info_regno): Renamed
+	from record_last_reg_set_info.
+	(record_last_reg_set_info): Take an RTX argument, iterate over all
+	constituent hardregs.
+	(record_last_set_info, record_opr_changes): Change calls to
+	new signature or to record_last_reg_set_info_regno.
+
+2008-02-02  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/extend.texi (X86 Built-in Functions): Fix grammar.
+
+2008-02-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/34773
+	* reg-notes.def (EQUAL): Mention significance of combination of
+	REG_EQUAL and REG_RETVAL.
+	* fwprop.c (try_fwprop_subst): Don't add REG_EQUAL to an
+	insn that has a REG_RETVAL.
+
+2008-02-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR bootstrap/33781
+	* configure.ac (--enable-fixed-point): Disable unless explicitly
+	requested on IRIX.
+	* configure: Regenerate.
+
+2008-02-01  Richard Guenther  <rguenther@suse.de>
+
+	PR other/35042
+	* invoke.texi (-finline-limit): Remove no longer true parts
+	of the documentation.  Note that there is no default value.
+
+2008-02-01  Andrew Pinski  <pinskia@gmail.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	PR c/29326
+	* doc/extend.texi (Other Builtins): Document.
+
+2008-01-31  Tom Browder <tom.browder@gmail.com>
+
+	* doc/c-tree.texi (Types): Fix grammar.
+	(Expression trees): Ditto.
+	* doc/passes.texi (Tree-SSA passes): Ditto.
+	
+	* doc/configterms.texi (Configure Terms): Fix typo.
+	* doc/cpp.texi (Common Predefined Macros): Ditto.
+	* doc/md.texi (Machine Constraints): Ditto.
+	
+	* doc/makefile.texi (Makefile): Add comma.
+
+2008-01-31  Tom Browder  <tom.browder@gmail.com>
+	    Gerald Pfeifer  <gerald@pfeifer.com>
+	
+	* doc/sourcebuild.texi (Front End): Remove references to CVS
+	and CVSROOT/modules.
+	(Texinfo Manuals): Replace reference to CVS by one to SVN.
+	(Back End): Remove reference to CVS.
+
+2008-01-31  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR target/34900
+	* config/mips/mips.c (gen_load_const_gp): New function, taking a
+	comment from...
+	(mips16_gp_pseudo_reg): ...here.
+	* config/mips/mips.md (load_const_gp): Replace with...
+	(load_const_gp_<mode>): ...this :P-based insn.
+
+2008-01-31  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (-ansi): Mention explicitly corresponding -std=
+	options. Minor fixes.
+	(-std): Move reference to standards closer to where language
+	standards are first mentioned.
+	
+2008-01-31  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/34995
+	* reload.c (alternative_allows_const_pool_ref): Take an rtx
+	parameter and return a bool.  If the rtx parameter is nonnull,
+	check that it satisfies an EXTRA_MEMORY_CONSTRAINT.
+	(find_reloads): Update call accordingly.  Pass the new operand
+	if it needed no address reloads, otherwise pass null.
+
+2008-01-30  Richard Henderson  <rth@redhat.com>
+
+	PR c/34993
+	* tree.c (build_type_attribute_qual_variant): Skip TYPE_DOMAIN
+	for unbounded arrays.
+
+2008-01-30  Silvius Rus  <rus@google.com>
+
+	* config/i386/xmmintrin.h (_mm_prefetch): Add const to first arg.
+
+2008-01-30  Jan Hubicka  <jh@suse.cz>
+
+	PR target/34982
+	* i386.c (init_cumulative_args): Use real function declaration when
+	calling locally.
+
+2008-01-30  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/34998
+	* global.c (build_insn_chain): Treat non-subreg_lowpart
+	SUBREGs of pseudos as clobbering all the words covered by the
+	SUBREG, not just all the bytes.
+	* ra-conflict.c (clear_reg_in_live): Likewise.  Take the
+	original df_ref rather than an extract parameter.
+	(global_conflicts): Update call accordingly.
+
+2008-01-30  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/fixdfdi.h (__fixunstfdi, __fixtfdi): Rearrange
+	the overflow check to make it easier to read.
+	(__fixtfdi): Change the type of the ll member in union
+	long_double to UDItype_x.
+
+2008-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/34969
+	* cgraph.h (cgraph_update_edges_for_call_stmt): New prototype.
+	* cgraph.c (cgraph_update_edges_for_call_stmt): New function.
+	* tree-inline.c (fold_marked_statements): Call
+	cgraph_update_edges_for_call_stmt if folding a call statement.
+	* cgraphunit.c (verify_cgraph_node): Set cfun to this_cfun for
+	debug_generic_stmt calls, reset it back afterwards.
+
+	PR c/35017
+	* c-decl.c (start_decl): Don't pedwarn about TREE_READONLY
+	static decls.
+	* c-typeck.c (build_external_ref): Don't pedwarn about
+	static vars in current function's scope.
+
+2008-01-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* config.gcc (i[34567]86-*-nto-qnx*): Remove deprecation.
+
+2008-01-29  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	PR c/35002
+	* ipa-struct-reorg.c: Fix spelling.
+	* params.def: Ditto.
+
+2008-01-29  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35006
+	* tree-inline.h (struct copy_body_data): Add remapping_type_depth
+	field.
+	* tree-inline.c (remap_type): Increment remapping_type_depth
+	around remapping types.
+	(copy_body_r): Only add referenced variables if they are referenced
+	from code, not types.
+
+2008-01-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/34055
+	PR c++/34103
+	PR c++/34219
+	PR c++/34606
+	PR c++/34753
+	PR c++/34754
+	PR c++/34755
+	PR c++/34919
+	PR c++/34961
+	* c-pretty-print.c (pp_c_type_qualifier_list): Don't try to print
+	qualifiers for an ERROR_MARK_NODE or a NULL_TREE.
+
+2008-01-28  Andy Hutchinson   <hutchinsonandy@netscape.net>
+
+	PR target/34412
+	* config/avr/avr.c (expand_prologue): Use correct QI mode frame 
+	pointer for tiny stack.
+
+2008-01-28  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* doc/tree-ssa.texi: Add cindex PHI nodes and improve wording.
+
+2008-01-28  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* config/vx-common.h: Fix typo in comment.
+
+2008-01-28  Ian Lance Taylor  <iant@google.com>
+
+	PR c++/34862
+	PR c++/33407
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Don't
+	coalesce pointers if they have different DECL_NO_TBAA_P values.
+	* tree-ssa-copy.c (may_propagate_copy): Don't propagate copies
+	between variables with different DECL_NO_TBAA_P values.
+
+2008-01-28  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR 31535
+	* config/rs6000/rs6000.c (small_data_operand): Vectors and floats
+	are not legitimate small data references on SPE targets.
+
+2008-01-28  David Daney  <ddaney@avtrex.com>
+
+	* doc/install.texi (mips-*-*): Recommend binutils 2.18.
+
+2008-01-28  David Daney  <ddaney@avtrex.com>
+
+	* doc/install.texi (--disable-libgcj-bc):  Reword documentation.
+
 2008-01-27  Joseph Myers  <joseph@codesourcery.com>
 
 	* config.gcc (strongarm*-*, ep9312*-*, xscale*-*, parisc*-*,
@@ -673,7 +1568,7 @@
 	cold_text_section_used, *cold_text_sections): Move declarations
 	before their uses.
 
-2007-01-17  Bob Wilson  <bob.wilson@acm.org>
+2008-01-17  Bob Wilson  <bob.wilson@acm.org>
 
 	* config/xtensa/unwind-dw2-xtensa.h (_Unwind_FrameState): Remove pc
 	field and add signal_ra.
@@ -686,7 +1581,7 @@
 	* config/xtensa/linux.h (MD_UNWIND_SUPPORT): Define.
 	* config/xtensa/linux-unwind.h: New file.
 
-2007-01-18  Bernhard Fischer  <aldot@gcc.gnu.org>
+2008-01-18  Bernhard Fischer  <aldot@gcc.gnu.org>
 
 	* modulo-sched.c (get_sched_window): Fix comment typo.
 
@@ -743,7 +1638,7 @@
 	"-pthread" is specified.
 	* pa-hpux11.h (LIB_SPEC): Likewise.
 
-2007-01-16  Janis Johnson  <janis187@us.ibm.com>
+2008-01-16  Janis Johnson  <janis187@us.ibm.com>
 	    Peter Bergner  <bergner@vnet.ibm.com>
 
 	PR rtl-optimization/33796

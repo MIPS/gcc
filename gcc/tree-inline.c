@@ -409,6 +409,7 @@ tree
 remap_type (tree type, copy_body_data *id)
 {
   tree *node;
+  tree tmp;
 
   if (type == NULL)
     return type;
@@ -425,7 +426,11 @@ remap_type (tree type, copy_body_data *id)
       return type;
     }
 
-  return remap_type_1 (type, id);
+  id->remapping_type_depth++;
+  tmp = remap_type_1 (type, id);
+  id->remapping_type_depth--;
+
+  return tmp;
 }
 
 static tree
@@ -723,9 +728,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	 tweak some special cases.  */
       copy_tree_r (tp, walk_subtrees, NULL);
 
-      /* Global variables we didn't seen yet needs to go into referenced
-	 vars.  */
-      if (gimple_in_ssa_p (cfun) && TREE_CODE (*tp) == VAR_DECL)
+      /* Global variables we haven't seen yet needs to go into referenced
+	 vars.  If not referenced from types only.  */
+      if (gimple_in_ssa_p (cfun) && TREE_CODE (*tp) == VAR_DECL
+	  && id->remapping_type_depth == 0)
 	add_referenced_var (*tp);
        
       /* If EXPR has block defined, map it to newly constructed block.
@@ -2428,6 +2434,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case CALL_EXPR:
       {
 	tree decl = get_callee_fndecl (x);
+	tree addr = CALL_EXPR_FN (x);
+	tree funtype = TREE_TYPE (addr);
+
+	gcc_assert (POINTER_TYPE_P (funtype));
+	funtype = TREE_TYPE (funtype);
 
 	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
 	  cost = d->weights->target_builtin_call_cost;
@@ -2450,20 +2461,33 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	      break;
 	    }
 
+	if (decl)
+	  funtype = TREE_TYPE (decl);
+
 	/* Our cost must be kept in sync with cgraph_estimate_size_after_inlining
-	   that does use function declaration to figure out the arguments.  */
-	if (!decl)
+	   that does use function declaration to figure out the arguments. 
+
+	   When we deal with function with no body nor prototype, base estimates on
+	   actual parameters of the call expression.  Otherwise use either the actual
+	   arguments types or function declaration for more precise answer.  */
+	if (decl && DECL_ARGUMENTS (decl))
+	  {
+	    tree arg;
+	    for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
+	      d->count += estimate_move_cost (TREE_TYPE (arg));
+	  }
+	else if (funtype && prototype_p (funtype))
+	  {
+	    tree t;
+	    for (t = TYPE_ARG_TYPES (funtype); t; t = TREE_CHAIN (t))
+	      d->count += estimate_move_cost (TREE_VALUE (t));
+	  }
+	else
 	  {
 	    tree a;
 	    call_expr_arg_iterator iter;
 	    FOR_EACH_CALL_EXPR_ARG (a, iter, x)
 	      d->count += estimate_move_cost (TREE_TYPE (a));
-	  }
-	else
-	  {
-	    tree arg;
-	    for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
-	      d->count += estimate_move_cost (TREE_TYPE (arg));
 	  }
 
 	d->count += cost;
@@ -2937,11 +2961,17 @@ fold_marked_statements (int first, struct pointer_set_t *statements)
 	  if (pointer_set_contains (statements, bsi_stmt (bsi)))
 	    {
 	      tree old_stmt = bsi_stmt (bsi);
+	      tree old_call = get_call_expr_in (old_stmt);
+
 	      if (fold_stmt (bsi_stmt_ptr (bsi)))
 		{
 		  update_stmt (bsi_stmt (bsi));
-		  if (maybe_clean_or_replace_eh_stmt (old_stmt, bsi_stmt (bsi)))
-		     tree_purge_dead_eh_edges (BASIC_BLOCK (first));
+		  if (old_call)
+		    cgraph_update_edges_for_call_stmt (old_stmt, old_call,
+						       bsi_stmt (bsi));
+		  if (maybe_clean_or_replace_eh_stmt (old_stmt,
+						      bsi_stmt (bsi)))
+		    tree_purge_dead_eh_edges (BASIC_BLOCK (first));
 		}
 	    }
       }

@@ -2383,7 +2383,7 @@ from the USP register in the function prologue.
 @item l1_text
 @cindex @code{l1_text} function attribute
 This attribute specifies a function to be placed into L1 Instruction
-SRAM. The function will be put into a specific section named @code{.l1.text}.
+SRAM@. The function will be put into a specific section named @code{.l1.text}.
 With @option{-mfdpic}, function calls with a such function as the callee
 or caller will use inlined PLT.
 
@@ -2519,6 +2519,17 @@ Functions with this attribute will not be so instrumented.
 @cindex @code{noinline} function attribute
 This function attribute prevents a function from being considered for
 inlining.
+@c Don't enumerate the optimizations by name here; we try to be
+@c future-compatible with this mechanism.
+If the function does not have side-effects, there are optimizations
+other than inlining that causes function calls to be optimized away,
+although the function call is live.  To keep such calls from being
+optimized away, put
+@smallexample
+asm ("");
+@end smallexample
+(@pxref{Extended Asm}) in the called function, to serve as a special
+side-effect.
 
 @item nonnull (@var{arg-index}, @dots{})
 @cindex @code{nonnull} function attribute
@@ -5638,7 +5649,7 @@ assert (__builtin_object_size (q, 1) == sizeof (var.b));
 @end deftypefn
 
 There are built-in functions added for many common string operation
-functions, e.g. for @code{memcpy} @code{__builtin___memcpy_chk}
+functions, e.g., for @code{memcpy} @code{__builtin___memcpy_chk}
 built-in is provided.  This built-in has an additional last argument,
 which is the number of bytes remaining in object the @var{dest}
 argument points to or @code{(size_t) -1} if the size is not known.
@@ -5691,7 +5702,7 @@ int __builtin___vsnprintf_chk (char *s, size_t maxlen, int flag, size_t os,
 @end smallexample
 
 The added @var{flag} argument is passed unchanged to @code{__sprintf_chk}
-etc. functions and can contain implementation specific flags on what
+etc.@: functions and can contain implementation specific flags on what
 additional security measures the checking function might take, such as
 handling @code{%n} differently.
 
@@ -5707,7 +5718,7 @@ In addition to this, there are checking built-in functions
 @code{__builtin___fprintf_chk} and @code{__builtin___vfprintf_chk}.
 These have just one additional argument, @var{flag}, right before
 format string @var{fmt}.  If the compiler is able to optimize them to
-@code{fputc} etc. functions, it will, otherwise the checking function
+@code{fputc} etc.@: functions, it will, otherwise the checking function
 should be called and the @var{flag} argument passed to it.
 
 @node Other Builtins
@@ -6421,6 +6432,14 @@ if (__builtin_expect (ptr != NULL, 1))
 
 @noindent
 when testing pointer or floating-point values.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_trap (void)
+This function causes the program to exit abnormally.  GCC implements
+this function by using a target-dependent mechanism (such as
+intentionally executing an illegal instruction) or by calling
+@code{abort}.  The mechanism used may vary from release to release so
+you should not rely on any particular implementation.
 @end deftypefn
 
 @deftypefn {Built-in Function} void __builtin___clear_cache (char *@var{begin}, char *@var{end})
@@ -7398,12 +7417,12 @@ integers, these use @code{V4SI}.  Finally, some instructions operate on an
 entire vector register, interpreting it as a 128-bit integer, these use mode
 @code{TI}.
 
-In the 64-bit mode, x86-64 family of processors uses additional built-in
+In 64-bit mode, the x86-64 family of processors uses additional built-in
 functions for efficient use of @code{TF} (@code{__float128}) 128-bit
 floating point and @code{TC} 128-bit complex floating point values.
 
-The following floating point built-in functions are made available in the
-64-bit mode.  All of them implement the function that is part of the name.
+The following floating point built-in functions are available in 64-bit
+mode.  All of them implement the function that is part of the name.
 
 @smallexample
 __float128 __builtin_fabsq (__float128)
@@ -10942,7 +10961,7 @@ The Solaris target supports @code{#pragma redefine_extname}
 Increase the minimum alignment of each @var{variable} to @var{alignment}.
 This is the same as GCC's @code{aligned} attribute @pxref{Variable
 Attributes}).  Macro expansion occurs on the arguments to this pragma
-when compiling C and Objective-C.  It does not currently occur when
+when compiling C and Objective-C@.  It does not currently occur when
 compiling C++, but this is a bug which may be fixed in a future
 release.
 
@@ -11048,7 +11067,7 @@ multiple @code{#pragma pack(@var{n})} instances and finalized by a single
 @code{#pragma pack(pop)}.
 @end enumerate
 
-Some targets, e.g. i386 and powerpc, support the @code{ms_struct}
+Some targets, e.g.@: i386 and powerpc, support the @code{ms_struct}
 @code{#pragma} which lays out a structure as the documented
 @code{__attribute__ ((ms_struct))}.
 @enumerate
@@ -11098,7 +11117,7 @@ macros are defined.
 
 Modifies the disposition of a diagnostic.  Note that not all
 diagnostics are modifiable; at the moment only warnings (normally
-controlled by @samp{-W...}) can be controlled, and not all of them.
+controlled by @samp{-W@dots{}}) can be controlled, and not all of them.
 Use @option{-fdiagnostics-show-option} to determine which diagnostics
 are controllable and which option controls them.
 
@@ -11550,7 +11569,7 @@ causing an access.  However, there is reason to believe that it is,
 because otherwise certain simple expressions become undefined.  However,
 because it would surprise most programmers, G++ treats dereferencing a
 pointer to volatile object of complete type when the value is unused as
-GCC would do for an equivalent type in C.  When the object has incomplete
+GCC would do for an equivalent type in C@.  When the object has incomplete
 type, G++ issues a warning; if you wish to force an error, you must
 force a conversion to rvalue with, for instance, a static cast.
 

@@ -134,7 +134,6 @@ static tree extract_muldiv_1 (tree, tree, enum tree_code, tree, bool *);
 static tree fold_binary_op_with_conditional_arg (enum tree_code, tree,
 						 tree, tree,
 						 tree, tree, int);
-static bool fold_real_zero_addition_p (const_tree, const_tree, int);
 static tree fold_mathfn_compare (enum built_in_function, enum tree_code,
 				 tree, tree, tree);
 static tree fold_inf_compare (enum tree_code, tree, tree, tree);
@@ -1492,7 +1491,7 @@ split_tree (tree in, enum tree_code code, tree *conp, tree *litp,
       || TREE_CODE (in) == FIXED_CST)
     *litp = in;
   else if (TREE_CODE (in) == code
-	   || (! FLOAT_TYPE_P (TREE_TYPE (in))
+	   || ((! FLOAT_TYPE_P (TREE_TYPE (in)) || flag_associative_math)
 	       && ! SAT_FIXED_POINT_TYPE_P (TREE_TYPE (in))
 	       /* We can associate addition and subtraction together (even
 		  though the C standard doesn't say so) for integers because
@@ -6426,7 +6425,7 @@ fold_binary_op_with_conditional_arg (enum tree_code code,
    X - 0 is not the same as X because 0 - 0 is -0.  In other rounding
    modes, X + 0 is not the same as X because -0 + 0 is 0.  */
 
-static bool
+bool
 fold_real_zero_addition_p (const_tree type, const_tree addend, int negate)
 {
   if (!real_zerop (addend))
@@ -7045,12 +7044,14 @@ fold_widened_comparison (enum tree_code code, tree type, tree arg0, tree arg1)
   if (TYPE_PRECISION (TREE_TYPE (arg0)) <= TYPE_PRECISION (shorter_type))
     return NULL_TREE;
 
-  arg1_unw = get_unwidened (arg1, shorter_type);
+  arg1_unw = get_unwidened (arg1, NULL_TREE);
 
   /* If possible, express the comparison in the shorter mode.  */
   if ((code == EQ_EXPR || code == NE_EXPR
        || TYPE_UNSIGNED (TREE_TYPE (arg0)) == TYPE_UNSIGNED (shorter_type))
       && (TREE_TYPE (arg1_unw) == shorter_type
+	  || (TYPE_PRECISION (shorter_type)
+	      >= TYPE_PRECISION (TREE_TYPE (arg1_unw)))
 	  || (TREE_CODE (arg1_unw) == INTEGER_CST
 	      && (TREE_CODE (shorter_type) == INTEGER_TYPE
 		  || TREE_CODE (shorter_type) == BOOLEAN_TYPE)

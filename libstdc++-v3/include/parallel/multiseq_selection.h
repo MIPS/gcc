@@ -67,7 +67,6 @@ namespace __gnu_parallel
     public:
       lexicographic(Comparator& _comp) : comp(_comp) { }
 
-      // XXX const
       bool
       operator()(const std::pair<T1, T2>& p1,
 		 const std::pair<T1, T2>& p2) const
@@ -602,7 +601,7 @@ namespace __gnu_parallel
 
       if (!maxleftset || comp(minright, maxleft))
 	{
-	  // Good luck, everything is split unambigiously.
+	  // Good luck, everything is split unambiguously.
 	  offset = 0;
 	}
       else
