@@ -1,5 +1,5 @@
 /* RTL-based forward propagation pass for GNU compiler.
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Paolo Bonzini and Steven Bosscher.
 
 This file is part of GCC.
@@ -676,7 +676,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
   enum df_ref_type type = DF_REF_TYPE (use);
   int flags = DF_REF_FLAGS (use);
   rtx set = single_set (insn);
-  int old_cost = rtx_cost (SET_SRC (set), SET);
+  int old_cost = set ? rtx_cost (SET_SRC (set), SET) : 0;
   bool ok;
 
   if (dump_file)
@@ -697,7 +697,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       ok = false;
     }
 
-  else if (DF_REF_TYPE (use) == DF_REF_REG_USE
+  else if (DF_REF_TYPE (use) == DF_REF_REG_USE && set
 	   && rtx_cost (SET_SRC (set), SET) > old_cost)
     {
       if (dump_file)

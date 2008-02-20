@@ -1,5 +1,9 @@
 2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
 
+	* fwprop.c (try_fwprop_subst): Deal with NULL set.
+
+2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
+
 	Merge from trunk right before the 4.3 branch.
 	* doc/invoke.texi: Re-add -ftree-coalesce-inlined-vars and
 	-ftree-coalesce-vars.
