@@ -83,6 +83,7 @@
 	gimple_seq_node.  Update all users.
 	(gimple_seq_set_last): Change second argument to type
 	gimple_seq_node.  Update all users.
+	(gimple_seq_init): Remove.  Update all users.
 	(struct gimple_statement_base): Remove field 'next' and
 	'prev'.  Update all users.
 	(struct gimple_statement_omp): Change fields of type
