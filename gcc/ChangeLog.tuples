@@ -1,3 +1,26 @@
+2008-02-19  Oleg Ryjkov  <olegr@google.com>
+
+	* gimple-pretty-print.c: Introduce support for TDF_RAW
+	flag.
+	(dump_gimple_fmt): New function.
+	(dump_gimple_assign, dump_gimple_return): Update to print
+	RAW gimple.
+	(dump_gimple_call_args): New function.
+	(dump_gimple_call, dump_gimple_switch, dump_gimple_cond,
+	dump_gimple_label, dump_gimple_bind, dump_gimple_try):
+	Update to print RAW gimple.
+	(dump_gimple_catch, dump_gimple_eh_filter,
+	dump_gimple_resx): New functions.
+	(dump_gimple_omp_for, dump_gimple_asm, dump_gimple_phi):
+	Update to print RAW gimple.
+	(dump_gimple_omp_parallel, dump_gimple_omp_atomic_load,
+	dump_gimple_omp_atomic_store): New, code moved from 
+	dump_gimple_stmt, then added support to print RAW gimple.
+	(gimple_dump_stmt): Some code refactored into helper
+	subroutines.
+	* tree-cfg.c(dump_function_to_file): Print RAW gimple when
+	TDF_RAW is set.
+
 2008-02-19  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00793.html

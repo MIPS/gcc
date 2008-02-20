@@ -5732,7 +5732,8 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
 }
 
 
-/* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
+/* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree-pass.h)
+   */
 
 void
 dump_function_to_file (tree fn, FILE *file, int flags)
@@ -5759,7 +5760,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   if (dsf && (flags & TDF_DETAILS))
     dump_eh_tree (file, dsf);
 
-  if (flags & TDF_RAW)
+  if (flags & TDF_RAW && !gimple_body (fn))
     {
       dump_node (fn, TDF_SLIM | flags, file);
       return;
