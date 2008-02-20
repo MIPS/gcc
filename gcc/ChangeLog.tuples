@@ -1,3 +1,8 @@
+2008-02-20  Oleg Ryjkov  <olegr@google.com>
+
+	* gimplify.c(gimplify_expr): Save locus into the right
+	sequence.
+
 2008-02-20  Rafael Espindola  <espindola@google.com>
 	* passes.c (init_optimization_passes): Enable pass_mark_used_blocks
 	and pass_cleanup_cfg_post_optimizing.

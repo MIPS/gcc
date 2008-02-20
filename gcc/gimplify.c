@@ -6429,8 +6429,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  gimple_seq_add_seq (pre_p, internal_pre);
 	}
 
-      if (!gimple_seq_empty_p (internal_pre))
-	annotate_all_with_locus (internal_pre, input_location);
+      if (!gimple_seq_empty_p (*pre_p))
+	annotate_all_with_locus (*pre_p, input_location);
 
       goto out;
     }
