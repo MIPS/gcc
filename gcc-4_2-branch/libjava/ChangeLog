@@ -1,3 +1,26 @@
+2008-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR libgcj/33085
+	* configure: Regenerate.
+
+2008-02-15  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR testsuite/35208
+	* testsuite/libjava.jvmti/interp/natgetstacktrace.cc
+	(Java_getstacktrace_natRunner): Increase the usleep time to a value
+	which prevents OS-X to get into a deadlock.
+
+2008-02-06  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR libgcj/30071
+	* Makefile.am (install-exec-hook): Add install-binPROGRAMS.
+	* Makefile.in: Regenerate.
+
+2008-01-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* shlibpath.m4: Add AIX 6 support.
+	* configure: Regenerate.
+
 2008-01-18  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR c++/33887
