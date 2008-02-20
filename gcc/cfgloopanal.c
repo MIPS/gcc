@@ -374,6 +374,11 @@ estimate_reg_pressure_cost (unsigned n_new, unsigned n_old)
 {
   unsigned regs_needed = n_new + n_old;
 
+  if (flag_ira && (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+		   || flag_ira_algorithm == IRA_ALGORITHM_MIXED))
+    /* Let IRA itself to deal with high register pressure.  */
+    return 0;
+  
   /* If we have enough registers, we should use them and not restrict
      the transformations unnecessarily.  */
   if (regs_needed + target_res_regs <= target_avail_regs)

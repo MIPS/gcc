@@ -1,5 +1,5 @@
 /* Integrated Register Allocator entry point.
-   Copyright (C) 2006, 2007
+   Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -686,7 +686,7 @@ enum reg_class reg_class_union [N_REG_CLASSES] [N_REG_CLASSES];
 static void
 setup_reg_class_intersect_union (void)
 {
-  int i, cl1, cl2, cl3;
+  int i, j, cl1, cl2, cl3;
   HARD_REG_SET intersection_set, union_set, temp_set2;
 
   for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
@@ -727,6 +727,21 @@ setup_reg_class_intersect_union (void)
 		    reg_class_union [cl1] [cl2] = (enum reg_class) cl3;
 		}
 	    }
+	}
+    }
+  /* Fix reg_class_union for cover classes: prefer the first cover
+     class.  */
+  for (i = 0; i < reg_class_cover_size; i++)
+    {
+      cl1 = reg_class_cover [i];
+      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl1]);
+      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+      if (hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
+	continue;
+      for (j = i + 1; j < reg_class_cover_size; j++)
+	{
+	  cl2 = reg_class_cover [j];
+	  reg_class_union [cl1] [cl2] = reg_class_union [cl2] [cl1] = cl1;
 	}
     }
 }
@@ -1393,11 +1408,11 @@ print_redundant_copies (void)
 	  {
 	    next_cp = cp->next_second_allocno_copy;
 	    if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL
-		&& cp->move_insn != NULL_RTX
+		&& cp->insn != NULL_RTX
 		&& ALLOCNO_HARD_REGNO (cp->first) == hard_regno)
 	      fprintf (ira_dump_file,
-		       "        Redundant move %d(freq %d):%d\n",
-		       INSN_UID (cp->move_insn), cp->freq, hard_regno);
+		       "        Redundant move from %d(freq %d):%d\n",
+		       INSN_UID (cp->insn), cp->freq, hard_regno);
 	  }
     }
 }
@@ -1596,7 +1611,9 @@ ira (FILE *f)
 
   max_regno = max_reg_num ();
   
-  if (loops_p)
+  if (! loops_p)
+    initiate_ira_assign ();
+  else
     {
       expand_reg_info (allocated_reg_info_size);
       allocated_reg_info_size = max_regno;
@@ -1615,6 +1632,7 @@ ira (FILE *f)
 	current_loops = NULL;
       }
       setup_allocno_assignment_flags ();
+      initiate_ira_assign ();
       reassign_conflict_allocnos (max_regno, FALSE);
     }
 
@@ -1666,6 +1684,8 @@ ira (FILE *f)
 
   ira_free (spilled_reg_stack_slots);
 
+  finish_ira_assign ();
+
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL
       && overall_cost_before != overall_cost)
     fprintf (ira_dump_file, "+++Overall after reload %d\n", overall_cost);
@@ -1689,8 +1709,6 @@ ira (FILE *f)
   obstack_free (&ira_obstack, NULL);
 #endif
   
-  reload_completed = 1;
-
   /* The code after the reload has changed so much that at this point
      we might as well just rescan everything.  Not that
      df_rescan_all_insns is not going to help here because it does not

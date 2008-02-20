@@ -2802,6 +2802,9 @@ peep2_reg_dead_p (int ofs, rtx reg)
   return 1;
 }
 
+/* Offset for searching free register for peephole2.  */
+static int peep2_free_reg_search_ofs;
+
 /* Try to find a hard register of mode MODE, matching the register class in
    CLASS_STR, which is available at the beginning of insn CURRENT_INSN and
    remains available until the end of LAST_INSN.  LAST_INSN may be NULL_RTX,
@@ -2817,7 +2820,6 @@ rtx
 peep2_find_free_register (int from, int to, const char *class_str,
 			  enum machine_mode mode, HARD_REG_SET *reg_set)
 {
-  static int search_ofs;
   enum reg_class cl;
   HARD_REG_SET live;
   int i;
@@ -2854,7 +2856,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
       int raw_regno, regno, success, j;
 
       /* Distribute the free registers as much as possible.  */
-      raw_regno = search_ofs + i;
+      raw_regno = peep2_free_reg_search_ofs + i;
       if (raw_regno >= FIRST_PSEUDO_REGISTER)
 	raw_regno -= FIRST_PSEUDO_REGISTER;
 #ifdef REG_ALLOC_ORDER
@@ -2897,13 +2899,13 @@ peep2_find_free_register (int from, int to, const char *class_str,
 	  /* Start the next search with the next register.  */
 	  if (++raw_regno >= FIRST_PSEUDO_REGISTER)
 	    raw_regno = 0;
-	  search_ofs = raw_regno;
+	  peep2_free_reg_search_ofs = raw_regno;
 
 	  return gen_rtx_REG (mode, regno);
 	}
     }
 
-  search_ofs = 0;
+  peep2_free_reg_search_ofs = 0;
   return NULL_RTX;
 }
 
@@ -2919,6 +2921,7 @@ peephole2_optimize (void)
   bool do_cleanup_cfg = false;
   bool do_rebuild_jump_labels = false;
 
+  peep2_free_reg_search_ofs = 0;
   df_set_flags (DF_LR_RUN_DCE);
   df_analyze ();
 

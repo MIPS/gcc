@@ -1,5 +1,5 @@
 /* Compute cover class of the allocnos and their hard register costs.
-   Copyright (C) 2006, 2007
+   Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -1560,10 +1560,17 @@ finish_ira_costs_once (void)
 void
 ira_costs (void)
 {
+  int i;
+
   total_costs = ira_allocate (max_struct_costs_size * allocnos_num);
   allocno_pref_buffer = ira_allocate (sizeof (enum reg_class) * allocnos_num);
   find_allocno_class_costs ();
   setup_allocno_cover_class_and_costs ();
+  /* Because we could process operands only as subregs, check mode of
+     the registers themselves too.  */
+  for (i = 0; i < allocnos_num; i++)
+    if (register_move_cost [ALLOCNO_MODE (allocnos [i])] == NULL)
+      init_register_move_cost (ALLOCNO_MODE (allocnos [i]));
   ira_free (allocno_pref_buffer);
   ira_free (total_costs);
 }

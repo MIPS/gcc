@@ -1,5 +1,5 @@
 /* IRA processing allocno lives.
-   Copyright (C) 2006, 2007
+   Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -227,7 +227,6 @@ mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
     {
       allocno_t a = ira_curr_regno_allocno_map [regno];
 
-      ira_assert (a != NULL || REG_N_REFS (regno) == 0);
       if (a != NULL)
 	{
 	  if (bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)))
@@ -309,7 +308,6 @@ mark_reg_death (rtx reg)
     {
       allocno_t a = ira_curr_regno_allocno_map [regno];
 
-      ira_assert (a != NULL || REG_N_REFS (regno) == 0);
       if (a != NULL)
 	{
 	  if (! bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)))
@@ -523,6 +521,9 @@ process_single_reg_class_operands (int in_p, int freq)
 	  mode = ALLOCNO_MODE (operand_a);
 	  cover_class = ALLOCNO_MODE (operand_a);
 	  if (class_subset_p [cl] [cover_class]
+	      && class_hard_regs_num [cl] != 0
+	      && class_hard_reg_index [cover_class] [class_hard_regs
+						     [cl] [0]] >= 0
 	      && (reg_class_size [cl]
 		  <= (unsigned) CLASS_MAX_NREGS (cl, mode)))
 	    {
@@ -599,7 +600,6 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	{
 	  allocno_t a = ira_curr_regno_allocno_map [j];
 	  
-	  ira_assert (a != NULL || REG_N_REFS (j) == 0);
 	  if (a == NULL)
 	    continue;
 	  ira_assert (! bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)));

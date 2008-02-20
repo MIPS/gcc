@@ -1,6 +1,6 @@
 /* Communication between the Integrated Register Allocator and rest of
    the compiler.
-   Copyright (C) 2006, 2007
+   Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 

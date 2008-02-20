@@ -1,5 +1,5 @@
 /* Building allocnos for IRA.
-   Copyright (C) 2006, 2007
+   Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -68,6 +68,8 @@ static void finish_allocno (allocno_t);
 static void finish_allocnos (void);
 
 static void initiate_copies (void);
+static copy_t find_allocno_copy (allocno_t, allocno_t, rtx, loop_tree_node_t);
+static void print_allocno_copies (FILE *, allocno_t);
 static void finish_copy (copy_t);
 static void finish_copies (void);
 
@@ -753,11 +755,13 @@ propagate_info_to_cap (allocno_t cap)
       father_a = father->regno_allocno_map [ALLOCNO_REGNO (another_a)];
       if (father_a == NULL)
 	father_a = ALLOCNO_CAP (another_a);
-      if (father_a != NULL)
+      if (father_a != NULL
+	  && find_allocno_copy (cap, father_a,
+				cp->insn, cp->loop_tree_node) == NULL)
 	/* Upper level allocno might be not existing because it is
 	   not mentioned or lived on the border.  It is just
 	   living on bb start of the loop.  */
-	add_allocno_copy (cap, father_a, cp->freq, cp->move_insn,
+	add_allocno_copy (cap, father_a, cp->freq, cp->insn,
 			  cp->loop_tree_node);
     }
   allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
@@ -911,11 +915,40 @@ initiate_copies (void)
   copies_num = 0;
 }
 
+/* Return copy connecting A1 and A2 and originated from INSN of
+   LOOP_TREE_NODE if any.  */
+static copy_t
+find_allocno_copy (allocno_t a1, allocno_t a2, rtx insn,
+		   loop_tree_node_t loop_tree_node)
+{
+  copy_t cp, next_cp;
+  allocno_t another_a;
+
+  for (cp = ALLOCNO_COPIES (a1); cp != NULL; cp = next_cp)
+    {
+      if (cp->first == a1)
+	{
+	  next_cp = cp->next_first_allocno_copy;
+	  another_a = cp->second;
+	}
+      else if (cp->second == a1)
+	{
+	  next_cp = cp->next_second_allocno_copy;
+	  another_a = cp->first;
+	}
+      else
+	gcc_unreachable ();
+      if (another_a == a2 && cp->insn == insn
+	  && cp->loop_tree_node == loop_tree_node)
+	return cp;
+    }
+  return NULL;
+}
+
 /* The function creates and returns created in LOOP_TREE_NODE copy of
-   allocnos FIRST and SECOND with frequency FREQ, move insn
-   MOVE_INSN.  */
+   allocnos FIRST and SECOND with frequency FREQ, insn INSN.  */
 copy_t
-create_copy (allocno_t first, allocno_t second, int freq, rtx move_insn,
+create_copy (allocno_t first, allocno_t second, int freq, rtx insn,
 	     loop_tree_node_t loop_tree_node)
 {
   copy_t cp;
@@ -925,7 +958,7 @@ create_copy (allocno_t first, allocno_t second, int freq, rtx move_insn,
   cp->first = first;
   cp->second = second;
   cp->freq = freq;
-  cp->move_insn = move_insn;
+  cp->insn = insn;
   cp->loop_tree_node = loop_tree_node;
   VARRAY_PUSH_GENERIC_PTR (copy_varray, cp);
   copies = (copy_t *) &VARRAY_GENERIC_PTR (copy_varray, 0);
@@ -1027,20 +1060,59 @@ swap_allocno_copy_ends_if_necessary (copy_t cp)
   cp->next_second_allocno_copy = temp_cp;
 }
 
-/* The function creates and returns new copy of allocnos FIRST and
-   SECOND with frequency FREQ corresponding to move insn INSN (if
-   any) and originated from LOOP_TREE_NODE.  */
+/* The function creates (or updates frequency) and returns new copy of
+   allocnos FIRST and SECOND with frequency FREQ corresponding to move
+   insn INSN (if any) and originated from LOOP_TREE_NODE.  */
 copy_t
 add_allocno_copy (allocno_t first, allocno_t second, int freq, rtx insn,
 		  loop_tree_node_t loop_tree_node)
 {
   copy_t cp;
 
+  if ((cp = find_allocno_copy (first, second, insn, loop_tree_node)) != NULL)
+    {
+      cp->freq += freq;
+      return cp;
+    }
   cp = create_copy (first, second, freq, insn, loop_tree_node);
   ira_assert (first != NULL && second != NULL);
   add_allocno_copy_to_list (cp);
   swap_allocno_copy_ends_if_necessary (cp);
   return cp;
+}
+
+/* Print info about copies connecting allocno A into file F.  */
+static void
+print_allocno_copies (FILE *f, allocno_t a)
+{
+  allocno_t another_a;
+  copy_t cp, next_cp;
+
+  fprintf (f, " a%d(r%d):", ALLOCNO_NUM (a), ALLOCNO_REGNO (a));
+  for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
+    {
+      if (cp->first == a)
+	{
+	  next_cp = cp->next_first_allocno_copy;
+	  another_a = cp->second;
+	}
+      else if (cp->second == a)
+	{
+	  next_cp = cp->next_second_allocno_copy;
+	  another_a = cp->first;
+	}
+      else
+	gcc_unreachable ();
+      fprintf (f, " cp%d:a%d(r%d)@%d", cp->num,
+	       ALLOCNO_NUM (another_a), ALLOCNO_REGNO (another_a), cp->freq);
+    }
+  fprintf (f, "\n");
+}
+
+void
+debug_allocno_copies (allocno_t a)
+{
+  print_allocno_copies (stderr, a);
 }
 
 /* The function frees memory allocated for copy CP.  */

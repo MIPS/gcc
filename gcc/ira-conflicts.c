@@ -1,5 +1,5 @@
 /* IRA conflict builder.
-   Copyright (C) 2006, 2007
+   Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -633,7 +633,7 @@ propagate_allocno_info (allocno_t a)
 	  if ((another_father_a = (father->regno_allocno_map
 				   [ALLOCNO_REGNO (another_a)])) != NULL)
 	    add_allocno_copy (father_a, another_father_a, cp->freq,
-			      cp->move_insn, cp->loop_tree_node);
+			      cp->insn, cp->loop_tree_node);
 	}
     }
 }

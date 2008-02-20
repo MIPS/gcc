@@ -1,5 +1,5 @@
 /* Integrated Register Allocator intercommunication header file.
-   Copyright (C) 2006, 2007
+   Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -383,9 +383,11 @@ struct allocno_copy
   allocno_t first, second;
   /* Execution frequency of the copy.  */
   int freq;
-  /* It is a move insn if the copy represents it, potential move insn
-     is represented by NULL.  */
-  rtx move_insn;
+  /* It is an insn which is an origion of the copy.  It may be a move
+     insn or insn whose operand should be the same as the result
+     (2-operand insns).  The member value for copy created to remove
+     register shuffle is NULL.  */
+  rtx insn;
   /* Copies with the same allocno as FIRST are linked by the two
      following members.  */
   copy_t prev_first_allocno_copy, next_first_allocno_copy;
@@ -598,6 +600,8 @@ extern VEC(rtx, heap) **regno_calls;
 
 extern int add_regno_call (int, rtx);
 
+extern void debug_allocno_copies (allocno_t);
+
 extern void traverse_loop_tree (int, loop_tree_node_t,
 				void (*) (loop_tree_node_t),
 				void (*) (loop_tree_node_t));
@@ -648,6 +652,8 @@ extern void ira_build_conflicts (void);
 /* ira-color.c */
 extern int loop_edge_freq (loop_tree_node_t, int, int);
 extern void reassign_conflict_allocnos (int, int);
+extern void initiate_ira_assign (void);
+extern void finish_ira_assign (void);
 extern void ira_color (void);
 
 /* ira-emit.c */

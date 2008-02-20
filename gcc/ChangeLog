@@ -1,3 +1,71 @@
+2008-02-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira.h, ira-emit.c: Add year 2008 to the copyright.
+	
+	* ira-int.h: Ditto.
+	(struct copy): Rename move_insn to insn.
+	(initiate_ira_assign, finish_ira_assign, debug_allocno_copies):
+	New function prototypes.
+	
+	* ira-build.c: Add year 2008 to the copyright.  Rename member
+	move_insn of the copies to insn.
+	(find_allocno_copy): New function.
+	(propagate_info_to_cap, add_allocno_copy): Use it.
+	(print_allocno_copies, debug_allocno_copies): New functions.
+	
+	* ira-conflicts.c: Add year 2008 to the copyright.  Rename member
+	move_insn of the copies to insn.
+
+	* ira.c: Ditto.
+	(setup_reg_class_intersect_union): Fix reg_class_union for cover
+	classes.
+	(ira): Call initiate_ira_assign and finish_ira_assign.  Remove
+	setting reload_completed up.
+	
+	* ira-costs.c: Add year 2008 to the copyright.
+	(ira_costs): Check modes of registers.
+
+	* ira-lives.c: Add year 2008 to the copyright.
+	(mark_reg_store, mark_reg_death, process_bb_node_lives): Don't use
+	REG_N_REFS.
+	(process_single_reg_class_operands): Check that the hard reg
+	belongs to the cover class.
+
+	* ira-color.c: Add year 2008 to the copyright.  Rename member
+	move_insn of the copies to insn.
+	(initiate_cost_update, finish_cost_update, update_copy_costs_1):
+	New functions.
+	(allocno_update_cost_check, update_cost_check): New static
+	variables.
+	(update_copy_costs): Increment update_cost_check.  Call
+	update_copy_costs_1.
+	(coalesce_allocnos): Don't coalesce already assigned allocnos or
+	copies with null insn.
+	(color_pass): Check loop tree node of the subloop allocno.
+	(finish_allocno_priorities): Remove.
+	(do_coloring): Move allocation/deallocation of
+	consideration_allocno_bitmap into initiate_cost_update and
+	finish_cost_update.
+	(reassign_conflict_allocnos): Remove allocation/deallocation of
+	sorted_allocnos.  Remove call of finish_allocno_priorities.
+	(reassign_pseudos): Remove allocation/deallocation of
+	consideration_allocno_bitmap and sorted_allocnos.  Remove call of
+	finish_allocno_priorities.
+	(initiate_ira_assign, finish_ira_assign): New fucntions.
+	(ira_color): Remove allocation/deallocation of sorted_allocnos.
+	Call initiate_ira_assign and finish_ira_assign.
+	
+	* postreload.c (gate_handle_postreload): Don't do post reload
+	optimizations unless the reload is completed.
+	
+	* cfgloopanal.c (estimate_reg_pressure_cost): Return zero if we
+	use regional RA.
+
+	* recog.c (peep2_free_reg_search_ofs): New static variable.
+	(peep2_find_free_register): Remove search_ofs.  Use
+	peep2_free_reg_search_ofs instead of it.
+	(peephole2_optimize): Reset peep2_free_reg_search_ofs.
+	
 2008-01-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* reload1.c (compute_use_by_pseudos): Permits spilled registers in
