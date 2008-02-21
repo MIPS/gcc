@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "c-pretty-print.h"
 #include "cgraph.h"
+#include "opts.h"
 
 
 /*  The gimplification pass converts the language-dependent trees
@@ -232,8 +233,11 @@ c_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	 conversion should be redundant.  */
       if (C_SMASHED_P (*expr_p))
 	{
-	  gcc_assert (TREE_TYPE (*expr_p)
-		      == TREE_TYPE (TREE_OPERAND (*expr_p, 0)));
+	  gcc_assert ((TREE_TYPE (*expr_p)
+		       == TREE_TYPE (TREE_OPERAND (*expr_p, 0)))
+		      || (num_in_fnames > 1
+			  && comptypes (TREE_TYPE (*expr_p),
+					TREE_TYPE (TREE_OPERAND (*expr_p, 0)))));
 	  *expr_p = TREE_OPERAND (*expr_p, 0);
 	}
       return GS_UNHANDLED;

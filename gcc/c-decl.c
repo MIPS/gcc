@@ -166,6 +166,11 @@ bool c_override_global_bindings_to_false;
    re-initializing the front end (in server mode), these are
    re-bound.  */
 static GTY ((param_is (union tree_node))) htab_t all_c_built_ins;
+
+/* When popping the file and external scopes, we collect the resulting
+   DECLs into this vector.  */
+static GTY (()) VEC (tree, gc) *all_global_decls;
+
 
 /* Each c_binding structure describes one binding of an identifier to
    a decl.  All the decls in a scope - irrespective of namespace - are
@@ -722,10 +727,12 @@ set_type_context (tree type, tree context)
 /* Exit a scope.  Restore the state of the identifier-decl mappings
    that were in effect when this scope was entered.  Return a BLOCK
    node containing all the DECLs in this scope that are of interest
-   to debug info generation.  */
+   to debug info generation.  If RESULTS is not NULL, DECLs are not
+   put into the resulting block, but are instead pushed into the
+   supplied vector.  */
 
-tree
-pop_scope (void)
+static tree
+pop_scope_internal (VEC (tree, gc) **results)
 {
   struct c_scope *scope = current_scope;
   tree block, context, p;
@@ -794,6 +801,7 @@ pop_scope (void)
 	    warn_for_unused_label (p);
 
 	  /* Labels go in BLOCK_VARS.  */
+	  gcc_assert (!results);
 	  TREE_CHAIN (p) = BLOCK_VARS (block);
 	  BLOCK_VARS (block) = p;
 	  gcc_assert (I_LABEL_BINDING (b->id) == b);
@@ -867,8 +875,20 @@ pop_scope (void)
 	     binding in the home scope.  */
 	  if (!b->nested)
 	    {
-	      TREE_CHAIN (p) = BLOCK_VARS (block);
-	      BLOCK_VARS (block) = p;
+	      /* If RESULTS is supplied, push the decl there.  We use
+		 this rather than TREE_CHAIN because we may see a DECL
+		 in multiple translation units, and changing
+		 TREE_CHAIN destroys the list structure.  */
+	      if (results)
+		{
+		  gcc_assert (scope == external_scope || scope == file_scope);
+		  VEC_safe_push (tree, gc, *results, p);
+		}
+	      else
+		{
+		  TREE_CHAIN (p) = BLOCK_VARS (block);
+		  BLOCK_VARS (block) = p;
+		}
 	    }
 	  /* If this is the file scope, and we are processing more
 	     than one translation unit in this compilation, set
@@ -936,6 +956,14 @@ pop_scope (void)
   return block;
 }
 
+/* Like pop_scope_internal, but always supplies a NULL RESULTS
+   argument.  */
+tree
+pop_scope (void)
+{
+  return pop_scope_internal (NULL);
+}
+
 void
 push_file_scope (void)
 {
@@ -981,8 +1009,11 @@ pop_file_scope (void)
       return;
     }
 
+  if (!all_global_decls)
+    all_global_decls = VEC_alloc (tree, gc, 128);
+
   /* Pop off the file scope and close this translation unit.  */
-  pop_scope ();
+  pop_scope_internal (&all_global_decls);
   file_scope = 0;
 
   maybe_apply_pending_pragma_weaks ();
@@ -3000,6 +3031,7 @@ c_init_decl_processing (void)
 
   current_function_decl = 0;
   all_translation_units = NULL_TREE;
+  all_global_decls = NULL;
 
   if (!did_it)
     gcc_obstack_init (&parser_obstack);
@@ -8224,20 +8256,6 @@ get_smashed_type (htab_t map, tree type)
   else
     *slot = found;
 
-
-  if ((TREE_CODE (type) == UNION_TYPE || TREE_CODE (type) == RECORD_TYPE)
-      && type == TYPE_MAIN_VARIANT (type))
-    {
-      /* Canonicalize the type of each field.  We do this here, and
-	 not earlier, to avoid infinite recursion in some cases.  */
-      tree field;
-      for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	{
-	  gcc_assert (TREE_CODE (field) == FIELD_DECL);
-	  TREE_TYPE (field) = get_smashed_type (map, TREE_TYPE (field));
-	}
-    }
-
   return type;
 }
 
@@ -8245,25 +8263,26 @@ get_smashed_type (htab_t map, tree type)
    the chain.  */
 static void
 c_smash_decls (htab_t map, struct pointer_set_t *seen,
-	       VEC (tree, heap) **result, tree list)
+	       VEC (tree, gc) *globals,
+	       VEC (tree, heap) **result)
 {
   tree decl;
-  for (decl = list; decl; decl = TREE_CHAIN (decl))
+  int ix;
+  for (ix = 0; VEC_iterate (tree, globals, ix, decl); ++ix)
     {
       tree canonical;
       struct c_tree_map_entry entry;
       void **slot;
 
       if (! map)
+	continue;
+
+      /* This can happen with --combine.  */
+      if (pointer_set_contains (seen, decl))
 	{
 	  VEC_safe_push (tree, heap, *result, decl);
 	  continue;
 	}
-
-      /* This can happen with --combine.  FIXME: with combine we get
-	 the wrong result for file-scope variables.  */
-      if (pointer_set_contains (seen, decl))
-	continue;
 
       /* The first time we see a decl, we insert its canonical copy
 	 into the result list.  If we've already seen the canonical
@@ -8330,6 +8349,23 @@ c_smash_decls (htab_t map, struct pointer_set_t *seen,
       else
 	TREE_TYPE (canonical) = get_smashed_type (map, TREE_TYPE (canonical));
 
+      /* If we see a struct or union, we want to rewrite its field
+	 types now.  */
+      if (TREE_CODE (canonical) == TYPE_DECL
+	  && TREE_TYPE (canonical) == TYPE_MAIN_VARIANT (TREE_TYPE (canonical))
+	  && (TREE_CODE (TREE_TYPE (canonical)) == RECORD_TYPE
+	      || TREE_CODE (TREE_TYPE (canonical)) == UNION_TYPE))
+	{
+	  tree field;
+	  for (field = TYPE_FIELDS (TREE_TYPE (canonical));
+	       field;
+	       field = TREE_CHAIN (field))
+	    {
+	      gcc_assert (TREE_CODE (field) == FIELD_DECL);
+	      TREE_TYPE (field) = get_smashed_type (map, TREE_TYPE (field));
+	    }
+	}
+
       pointer_set_insert (seen, canonical);
       VEC_safe_push (tree, heap, *result, canonical);
     }
@@ -8384,6 +8420,8 @@ hand_off_decls (htab_t map, VEC (tree, heap) *globals)
 	    walk_tree (&DECL_INITIAL (decl), rewrite_types_and_globals,
 		       map, NULL);
 	    walk_tree (&DECL_SAVED_TREE (decl), rewrite_types_and_globals,
+		       map, NULL);
+	    walk_tree (&DECL_ARGUMENTS (decl), rewrite_types_and_globals,
 		       map, NULL);
 	    c_override_global_bindings_to_false = save;
 	    if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
@@ -8475,36 +8513,32 @@ c_write_global_declarations_2 (VEC (tree, heap) *globals)
     debug_hooks->global_decl (decl);
 }
 
-/* Preserve the external declarations scope across a garbage collect.  */
-static GTY(()) tree ext_block;
-
 void
 c_clear_binding_stack (void)
 {
-  /* Clear this in case of early exit.  */
-  ext_block = NULL;
-
   /* We don't want to do this if generating a PCH.  */
   if (pch_file)
     return;
 
   /* Close the external scope.  */
-  /* FIXME: we're keeping ext_block around too long in the server.  */
-  ext_block = pop_scope ();
+  /* FIXME: we're keeping all_global_decls around too long in the server.  */
+  gcc_assert (all_global_decls);
+  pop_scope_internal (&all_global_decls);
   external_scope = 0;
   gcc_assert (!current_scope);
 
-  if (ext_block)
-    {
-      tree tmp = BLOCK_VARS (ext_block);
-      int flags;
-      FILE * stream = dump_begin (TDI_tu, &flags);
-      if (stream && tmp)
-	{
-	  dump_node (tmp, flags & ~TDF_SLIM, stream);
-	  dump_end (TDI_tu, stream);
-	}
-    }
+  /* FIXME: re-enable this using all_global_decls.  */
+/*   if (ext_block) */
+/*     { */
+/*       tree tmp = BLOCK_VARS (ext_block); */
+/*       int flags; */
+/*       FILE * stream = dump_begin (TDI_tu, &flags); */
+/*       if (stream && tmp) */
+/* 	{ */
+/* 	  dump_node (tmp, flags & ~TDF_SLIM, stream); */
+/* 	  dump_end (TDI_tu, stream); */
+/* 	} */
+/*     } */
 }
 
 /* This maps trees to their canonical (smashed) variants.  This must
@@ -8514,12 +8548,9 @@ static GTY ((param_is (struct c_tree_map_entry))) htab_t lowering_smash_map;
 void
 c_write_global_declarations (void)
 {
-  tree t;
-  VEC (tree, heap) *all_decls = VEC_alloc (tree, heap, 128);
   struct pointer_set_t *seen_decls = NULL;
-
-  if (! really_call_malloc (52))
-    abort ();
+  VEC (tree, heap) *all_decls = VEC_alloc (tree, heap,
+					   VEC_length (tree, all_global_decls));
 
   server_assert_code_generation ();
 
@@ -8529,12 +8560,8 @@ c_write_global_declarations (void)
 
   /* Smash all the types and decls.  If we don't have a smash map,
      just fill ALL_DECLS with all the decls on the lists.  */
-  for (t = all_translation_units; t; t = TREE_CHAIN (t))
-    c_smash_decls (lowering_smash_map, seen_decls, &all_decls,
-		   BLOCK_VARS (DECL_INITIAL (t)));
-  if (ext_block)
-    c_smash_decls (lowering_smash_map, seen_decls, &all_decls,
-		   BLOCK_VARS (ext_block));
+  c_smash_decls (lowering_smash_map, seen_decls, all_global_decls,
+		 &all_decls);
 
   /* Clean up.  */
   if (seen_decls)
@@ -8549,6 +8576,7 @@ c_write_global_declarations (void)
   if (flag_syntax_only || errorcount || sorrycount || cpp_errors (parse_in)
       || pch_file)
     {
+      all_global_decls = NULL;
       VEC_free (tree, heap, all_decls);
       return;
     }
@@ -8571,8 +8599,8 @@ c_write_global_declarations (void)
       timevar_pop (TV_SYMOUT);
     }
 
+  all_global_decls = NULL;
   VEC_free (tree, heap, all_decls);
-  ext_block = NULL;
 }
 
 #include "gt-c-decl.h"

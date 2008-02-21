@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "md5.h"
 #include "server.h"
 #include "pointer-set.h"
+#include "opts.h"
 
 
 /* The reserved keyword table.  */
@@ -2099,11 +2100,37 @@ traverse_check_prereq (void **valp, void *ptd)
   return true;
 }
 
+/* A hash table iterator callback which checks to see if a
+   hunk_binding_entry declares a static decl.  */
+static int
+traverse_check_statics (void **valp, void *ptd)
+{
+  bool *result = (bool *) ptd;
+  struct hunk_binding_entry *entry = (struct hunk_binding_entry *) *valp;
+
+  if (entry->symbol_binding && entry->symbol_binding != hunk_binding_sentinel)
+    {
+      gcc_assert (TREE_CODE_CLASS (TREE_CODE (entry->symbol_binding))
+		  == tcc_declaration);
+      /* This is a bit over-eager, in that it would be ok to reuse a
+	 decl if it did not come from one of the current compilation
+	 units.  However, this is an odd case and hopefully and
+	 unimportant one.  Also, ideally we could reuse a declaration
+	 (not definition) here -- but that may mean working some magic
+	 in the smashing pass.  */
+      if (TREE_STATIC (entry->symbol_binding))
+	{
+	  *result = false;
+	  return false;
+	}
+    }
+
+  return true;
+}
+
 /* Helper state for can_reuse_hunk and check_hunk_binding.  */
 struct can_reuse_hunk_data
 {
-  /* The parser.  */
-  c_parser *parser;
   /* The hunk to check for.  */
   struct parsed_hunk *hunk;
   /* The result, or NULL if nothing reusable found.  */
@@ -2119,28 +2146,33 @@ check_hunk_binding (void **valp, void *crhd)
 {
   struct hunk_binding *binding = (struct hunk_binding *) *valp;
   struct can_reuse_hunk_data *info = (struct can_reuse_hunk_data *) crhd;
-/*   c_parser *parser = info->parser; */
   struct parsed_hunk *hunk = info->hunk;
   struct parsed_hunk *binding_iter, *self_iter;
   bool ok;
-
-  /* We can't re-use a hunk twice in one compilation unit.  FIXME:
-     this is a weird restriction and I think will go away once we have
-     anti-dependencies.  The issue here is that if we see 2 decls
-     "extern int f;" the second time we will re_bind the same decl,
-     eventually tripping over the GC since the decl's chain will point
-     to itself (as part of scope popping).  */
-  /* FIXME: need more testing before really deleting this.  */
-#if 0
-  if (htab_find (parser->used_hunks, binding))
-    return true;
-#endif
 
   /* Check prerequisites for this binding.  */
   ok = true;
   htab_traverse_noresize (binding->prereqs, traverse_check_prereq, &ok);
   if (!ok)
-    return true;
+    {
+      /* Keep looking.  */
+      return true;
+    }
+
+  /* If we're compiling with --combine, then we don't want to reuse
+     static decls across compilation units, as this would give the
+     wrong answer.  */
+  if (num_in_fnames > 1)
+    {
+      htab_traverse_noresize (binding->binding_map, traverse_check_statics,
+			      &ok);
+      if (!ok)
+	{
+	  /* Don't bother looking any more.  If one instance of the
+	     hunk had a static decl, then the rest will as well.  */
+	  return false;
+	}
+    }
 
   /* If we have a multi-hunk binding, check to make sure the
      current stream has the correct contents.  */
@@ -2194,7 +2226,6 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
 
   *out_set = *set_slot;
 
-  info.parser = parser;
   info.hunk = hunk;
   info.binding = NULL;
   info.self_iter = NULL;

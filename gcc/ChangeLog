@@ -1,3 +1,26 @@
+2008-02-21  Tom Tromey  <tromey@redhat.com>
+
+	* c-gimplify.c (c_gimplify_expr) <VIEW_CONVERT_EXPR>: Update
+	assertion.
+	* c-decl.c (all_global_decls): New global.
+	(pop_scope_internal): New function.
+	(pop_scope): Use it.
+	(pop_file_scope): Initialize all_global_decls.  Use
+	pop_scope_internal.
+	(c_clear_binding_stack): Use pop_scope_internal.
+	(ext_block): Remove.
+	(c_smash_decls): Change type of 'result'.  Remove 'list'
+	argument; add 'globals' argument.  Smash field types of records
+	and unions.
+	(get_smashed_type): Don't smash field types of records and
+	unions.
+	(hand_off_decls): Walk DECL_ARGUMENTS of function.
+	(c_write_global_declarations): Use all_global_decls.
+	(c_init_decl_processing): Initialize all_global_decls.
+	* c-parser.c (struct can_reuse_hunk_data) <parser>: Remove.
+	(traverse_check_statics): New function.
+	(can_reuse_hunk): Call traverse_check_statics.
+
 2008-02-18  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_hack_token): Pop timevar in early return.
