@@ -15,6 +15,13 @@ details.  */
 #include <java-cpool.h>
 #include <gnu/gcj/runtime/NameFinder.h>
 
+enum _Jv_FrameType
+{
+  frame_native,
+  frame_interpreter,
+  frame_proxy
+};
+
 #ifdef INTERPRETER
 
 #pragma interface
@@ -138,17 +145,27 @@ struct  _Jv_LineTableEntry
 };
 
 // This structure holds local variable information.
-// The pc value is the first pc where the variable must have a value and it
-// must continue to have a value until (start_pc + length).
-// The name is the variable name, and the descriptor contains type information.
-// The slot is the index in the local variable array of this method, long and
-// double occupy slot and slot+1.
+// Like _Jv_LineTableEntry above, it is remapped when the method is
+// compiled for direct threading.
 struct _Jv_LocalVarTableEntry
 {
-  int bytecode_start_pc;
+  // First PC value at which variable is live
+  union
+  {
+    pc_t pc;
+    int bytecode_pc;
+  };
+
+  // length of visibility of variable
   int length;
+
+  // variable name
   char *name;
+
+  // type description
   char *descriptor;
+
+  // stack slot number (long and double occupy slot and slot + 1)
   int slot;
 };
 
@@ -205,18 +222,26 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   void *ncode (jclass);
   void compile (const void * const *);
 
-  static void run_normal (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_synch_object (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_class (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_synch_class (ffi_cif*, void*, ffi_raw*, void*);
-  
-  static void run_normal_debug (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_synch_object_debug (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_class_debug (ffi_cif*, void*, ffi_raw*, void*);
-  static void run_synch_class_debug (ffi_cif*, void*, ffi_raw*, void*);
+#if FFI_NATIVE_RAW_API
+#  define INTERP_FFI_RAW_TYPE ffi_raw
+#else
+#  define INTERP_FFI_RAW_TYPE ffi_java_raw
+#endif
 
-  static void run (void *, ffi_raw *, _Jv_InterpMethod *);
-  static void run_debug (void *, ffi_raw *, _Jv_InterpMethod *);
+  static void run_normal (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_synch_object (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_class (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_synch_class (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  
+  static void run_normal_debug (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_synch_object_debug (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*,
+				      void*);
+  static void run_class_debug (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*, void*);
+  static void run_synch_class_debug (ffi_cif*, void*, INTERP_FFI_RAW_TYPE*,
+				     void*);
+
+  static void run (void *, INTERP_FFI_RAW_TYPE *, _Jv_InterpMethod *);
+  static void run_debug (void *, INTERP_FFI_RAW_TYPE *, _Jv_InterpMethod *);
   
 
   
@@ -273,6 +298,9 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   /* Writes the given instruction at the given code index. Returns
      the insn or NULL if index is invalid. */
   pc_t set_insn (jlong index, pc_t insn);
+
+  // Is the given location in this method a breakpoint?
+  bool breakpoint_at (jlong index);
 
 #ifdef DIRECT_THREADED
   friend void _Jv_CompileMethod (_Jv_InterpMethod*);
@@ -341,7 +369,7 @@ class _Jv_JNIMethod : public _Jv_MethodBase
   ffi_type **jni_arg_types;
 
   // This function is used when making a JNI call from the interpreter.
-  static void call (ffi_cif *, void *, ffi_raw *, void *);
+  static void call (ffi_cif *, void *, INTERP_FFI_RAW_TYPE *, void *);
 
   void *ncode (jclass);
 
@@ -358,13 +386,6 @@ public:
   {
     function = f;
   }
-};
-
-enum _Jv_FrameType
-{
-  frame_native,
-  frame_interpreter,
-  frame_proxy
 };
 
 //  The composite call stack as represented by a linked list of frames
@@ -422,6 +443,9 @@ public:
     pc_t pc;
     jclass proxyClass;
   };
+  
+  // Pointer to the actual pc value.
+  pc_t *pc_ptr;
 
   //Debug info for local variables.
   _Jv_word *locals;
@@ -430,7 +454,8 @@ public:
   // Object pointer for this frame ("this")
   jobject obj_ptr;
 
-  _Jv_InterpFrame (void *meth, java::lang::Thread *thr, jclass proxyCls = NULL)
+  _Jv_InterpFrame (void *meth, java::lang::Thread *thr, jclass proxyCls = NULL,
+                   pc_t *pc = NULL)
   : _Jv_Frame (reinterpret_cast<_Jv_MethodBase *> (meth), thr,
 	             frame_interpreter)
   {
@@ -438,6 +463,7 @@ public:
     proxyClass = proxyCls;
     thr->interp_frame = (gnu::gcj::RawData *) this;
     obj_ptr = NULL;
+    pc_ptr = pc;
   }
 
   ~_Jv_InterpFrame ()
@@ -448,7 +474,20 @@ public:
   jobject get_this_ptr ()
   {
     return obj_ptr;
-  } 
+  }
+  
+  pc_t get_pc ()
+  {
+    pc_t pc;
+    
+    // If the PC_PTR is NULL, we are not debugging.
+    if (pc_ptr == NULL)
+      pc = 0;
+    else
+      pc = *pc_ptr - 1;
+    
+    return pc;
+  }
 };
 
 // A native frame in the call stack really just a placeholder

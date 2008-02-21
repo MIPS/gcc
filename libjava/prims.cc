@@ -1,6 +1,6 @@
 // prims.cc - Code for core of runtime environment.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -32,8 +32,10 @@ details.  */
 #include <java/lang/ThreadGroup.h>
 #endif
 
+#ifdef INTERPRETER
 #include <jvmti.h>
 #include "jvmti-int.h"
+#endif
 
 #ifndef DISABLE_GETENV_PROPERTIES
 #include <ctype.h>
@@ -67,8 +69,12 @@ details.  */
 #include <gnu/gcj/runtime/ExtensionClassLoader.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
 #include <execution.h>
+
+#ifdef INTERPRETER
 #include <gnu/classpath/jdwp/Jdwp.h>
 #include <gnu/classpath/jdwp/VMVirtualMachine.h>
+#endif // INTERPRETER
+
 #include <gnu/java/lang/MainThread.h>
 
 #ifdef USE_LTDL
@@ -105,8 +111,20 @@ int _Jv_argc;
 
 // Debugging options
 static bool remoteDebug = false;
+#ifdef INTERPRETER
 static char defaultJdwpOptions[] = "";
 static char *jdwpOptions = defaultJdwpOptions;
+
+// Typedefs for JVMTI agent functions.
+typedef jint jvmti_agent_onload_func (JavaVM *vm, char *options,
+                                      void *reserved);
+typedef jint jvmti_agent_onunload_func (JavaVM *vm);
+
+// JVMTI agent function pointers.
+static jvmti_agent_onload_func *jvmti_agentonload = NULL;
+static jvmti_agent_onunload_func *jvmti_agentonunload = NULL;
+static char *jvmti_agent_opts;
+#endif // INTERPRETER
 
 // Argument support.
 int
@@ -1163,6 +1181,7 @@ parse_x_arg (char* option_string)
     {
       remoteDebug = true;
     }
+#ifdef INTERPRETER
   else if (! strncmp (option_string, "runjdwp:", 8))
     {
       if (strlen (option_string) > 8)
@@ -1174,6 +1193,7 @@ parse_x_arg (char* option_string)
 	  return -1;
 	}
     }
+#endif // INTERPRETER
   else if (! strncmp (option_string, "bootclasspath:", 14))
     {
       // FIXME: add a parse_bootclasspath_arg function
@@ -1252,7 +1272,11 @@ parse_x_arg (char* option_string)
     {
       // FIXME: fail if impossible to share class data
     }
-
+  else
+    {
+      // Unrecognized.
+      return -1;
+    }
   return 0;
 }
 
@@ -1358,6 +1382,64 @@ parse_verbose_args (char* option_string,
   return 0;
 }
 
+#ifdef INTERPRETER
+// This function loads the agent functions for JVMTI from the library indicated
+// by name.  It returns a negative value on failure, the value of which
+// indicates where ltdl failed, it also prints an error message.
+static jint
+load_jvmti_agent (const char *name)
+{
+#ifdef USE_LTDL
+  if (lt_dlinit ())
+    {
+      fprintf (stderr, 
+              "libgcj: Error in ltdl init while loading agent library.\n");
+      return -1;
+    }
+ 
+  lt_dlhandle lib = lt_dlopenext (name);
+  if (!lib)
+    {
+      fprintf (stderr, 
+               "libgcj: Error opening agent library.\n");
+      return -2;
+    }
+
+  if (lib)
+    {
+      jvmti_agentonload 
+        = (jvmti_agent_onload_func *) lt_dlsym (lib, "Agent_OnLoad");
+ 
+      if (!jvmti_agentonload)
+        {
+          fprintf (stderr, 
+                   "libgcj: Error finding agent function in library %s.\n",
+                   name);
+          lt_dlclose (lib);
+          lib = NULL;
+          return -4;
+        }
+      else
+        {
+          jvmti_agentonunload
+            = (jvmti_agent_onunload_func *) lt_dlsym (lib, "Agent_OnUnload");
+	   
+          return 0;
+        }
+    }
+  else
+    {
+      fprintf (stderr, "libgcj: Library %s not found in library path.\n", name);
+      return -3;
+    }
+
+#endif /* USE_LTDL */
+
+  // If LTDL cannot be used, return an error code indicating this.
+  return -99;
+}
+#endif // INTERPRETER
+
 static jint
 parse_init_args (JvVMInitArgs* vm_args)
 {
@@ -1383,6 +1465,7 @@ parse_init_args (JvVMInitArgs* vm_args)
   for (int i = 0; i < vm_args->nOptions; ++i)
     {
       char* option_string = vm_args->options[i].optionString;
+      
       if (! strcmp (option_string, "vfprintf")
 	  || ! strcmp (option_string, "exit")
 	  || ! strcmp (option_string, "abort"))
@@ -1410,21 +1493,116 @@ parse_init_args (JvVMInitArgs* vm_args)
 
 	  continue;
 	}
-      else if (vm_args->ignoreUnrecognized)
-        {
-          if (option_string[0] == '_')
-            parse_x_arg (option_string + 1);
-          else if (! strncmp (option_string, "-X", 2))
-            parse_x_arg (option_string + 2);
+#ifdef INTERPRETER
+      else if (! strncmp (option_string, "-agentlib", sizeof ("-agentlib") - 1))
+	{
+          char *strPtr;
+	                                              
+          if (strlen(option_string) > (sizeof ("-agentlib:") - 1))
+            strPtr = &option_string[sizeof ("-agentlib:") - 1];
           else
             {
-            unknown_option:
+              fprintf (stderr,
+                "libgcj: Malformed agentlib argument %s: expected lib name\n",
+                option_string);
+              return -1;
+            }
+
+          // These are optional arguments to pass to the agent library.
+          jvmti_agent_opts = strchr (strPtr, '=');
+   
+          if (! strncmp (strPtr, "jdwp", 4))
+            {    	
+              // We want to run JDWP here so set the correct variables.
+              remoteDebug = true;
+              jdwpOptions = ++jvmti_agent_opts;
+            }
+          else
+            {
+              jint nameLength;
+   
+              if (jvmti_agent_opts == NULL)
+                nameLength = strlen (strPtr);
+              else
+                {
+                  nameLength = jvmti_agent_opts - strPtr;
+                  jvmti_agent_opts++;
+                }
+               
+              char lib_name[nameLength + 3 + 1];
+              strcpy (lib_name, "lib");
+              strncat (lib_name, strPtr, nameLength);
+      
+              jint result = load_jvmti_agent (lib_name);
+      
+              if (result < 0)
+	        {
+	          return -1;
+	        }
+
+	      // Mark JVMTI active
+	      JVMTI::enabled = true;
+            }
+    
+          continue;
+	}
+      else if (! strncmp (option_string, "-agentpath:", 
+                          sizeof ("-agentpath:") - 1))
+	{
+          char *strPtr;
+	                                              
+          if (strlen(option_string) > 10)
+            strPtr = &option_string[10];
+          else
+            {
+              fprintf (stderr,
+                "libgcj: Malformed agentlib argument %s: expected lib path\n",
+                option_string);
+              return -1;
+            }
+		
+          // These are optional arguments to pass to the agent library.
+          jvmti_agent_opts = strchr (strPtr, '=');
+    
+          jint nameLength;
+   
+          if (jvmti_agent_opts == NULL)
+            nameLength = strlen (strPtr);
+          else
+            {
+              nameLength = jvmti_agent_opts - strPtr;
+              jvmti_agent_opts++;
+            }
+    
+          char lib_name[nameLength + 3 + 1];
+          strcpy (lib_name, "lib");
+          strncat (lib_name, strPtr, nameLength);
+          jint result = load_jvmti_agent (strPtr);
+
+          if (result < 0)
+            {
+              return -1;
+            }
+	
+	  // Mark JVMTI active
+	  JVMTI::enabled = true;
+          continue;
+	}
+#endif // INTERPRETER
+      else
+        {
+	  int r = -1;
+          if (option_string[0] == '_')
+	    r = parse_x_arg (option_string + 1);
+	  else if (! strncmp (option_string, "-X", 2))
+	    r = parse_x_arg (option_string + 2);
+
+	  if (r == -1 && ! vm_args->ignoreUnrecognized)
+            {
               fprintf (stderr, "libgcj: unknown option: %s\n", option_string);
               return -1;
             }
 	}
-      else
-        goto unknown_option;
     }
   return 0;
 }
@@ -1502,7 +1680,10 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   _Jv_platform_initialize ();
 
   _Jv_JNI_Init ();
+
+#ifdef INTERPRETER
   _Jv_JVMTI_Init ();
+#endif
 
   _Jv_GCInitializeFinalizers (&::gnu::gcj::runtime::FinalizerThread::finalizerReady);
 
@@ -1571,23 +1752,28 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
 				      arg_vec, is_jar);
       _Jv_AttachCurrentThread (main_thread);
 
+#ifdef INTERPRETER
+      // Start JVMTI if an agent function has been found.
+      if (jvmti_agentonload)
+        (*jvmti_agentonload) (_Jv_GetJavaVM (), jvmti_agent_opts, NULL);
+
       // Start JDWP
       if (remoteDebug)
 	{
 	  using namespace gnu::classpath::jdwp;
 	  VMVirtualMachine::initialize ();
 	  Jdwp *jdwp = new Jdwp ();
-	  jdwp->setDaemon (true);
+	  jdwp->setDaemon (true);	  
 	  jdwp->configure (JvNewStringLatin1 (jdwpOptions));
 	  jdwp->start ();
 
 	  // Wait for JDWP to initialize and start
 	  jdwp->join ();
 	}
-
       // Send VMInit
       if (JVMTI_REQUESTED_EVENT (VMInit))
 	_Jv_JVMTI_PostEvent (JVMTI_EVENT_VM_INIT, main_thread);
+#endif // INTERPRETER
     }
   catch (java::lang::Throwable *t)
     {
@@ -1602,6 +1788,7 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
 
   _Jv_ThreadRun (main_thread);
 
+#ifdef INTERPRETER
   // Send VMDeath
   if (JVMTI_REQUESTED_EVENT (VMDeath))
     {
@@ -1609,6 +1796,11 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
       JNIEnv *jni_env = _Jv_GetCurrentJNIEnv ();
       _Jv_JVMTI_PostEvent (JVMTI_EVENT_VM_DEATH, thread, jni_env);
     }
+
+  // Run JVMTI AgentOnUnload if it exists and an agent is loaded.
+  if (jvmti_agentonunload)
+    (*jvmti_agentonunload) (_Jv_GetJavaVM ());
+#endif // INTERPRETER
 
   // If we got here then something went wrong, as MainThread is not
   // supposed to terminate.

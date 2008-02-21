@@ -1,12 +1,12 @@
 /* Pragma related interfaces.
-   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+   2007  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_C_PRAGMA_H
 #define GCC_C_PRAGMA_H
@@ -111,19 +110,18 @@ extern void add_to_renaming_pragma_list (tree, tree);
 
 extern enum cpp_ttype pragma_lex (tree *);
 
+/* Flags for use with c_lex_with_flags.  The values here were picked
+   so that 0 means to translate and join strings.  */
+#define C_LEX_STRING_NO_TRANSLATE 1 /* Do not lex strings into
+				       execution character set.  */
+#define C_LEX_RAW_STRINGS         2 /* Return raw strings -- no
+				       concatenation, no
+				       translation.  */
+
 /* This is not actually available to pragma parsers.  It's merely a
    convenient location to declare this function for c-lex, after
    having enum cpp_ttype declared.  */
-extern enum cpp_ttype c_lex_with_flags (tree *, location_t *, unsigned char *);
-
-/* If 1, then lex strings into the execution character set.
-   If 0, lex strings into the host character set.
-   If -1, lex both, and chain them together, such that the former
-   is the TREE_CHAIN of the latter.  */
-extern int c_lex_string_translate;
-
-/* If true, strings should be passed to the caller of c_lex completely
-   unmolested (no concatenation, no translation).  */
-extern bool c_lex_return_raw_strings;
+extern enum cpp_ttype c_lex_with_flags (tree *, location_t *, unsigned char *,
+					int);
 
 #endif /* GCC_C_PRAGMA_H */

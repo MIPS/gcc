@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -31,6 +30,7 @@ with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Exp_Ch3;  use Exp_Ch3;
 with Exp_Util; use Exp_Util;
+with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -69,11 +69,6 @@ package body Layout is
    -----------------------
    -- Local Subprograms --
    -----------------------
-
-   procedure Adjust_Esize_Alignment (E : Entity_Id);
-   --  E is the entity for a type or object. This procedure checks that the
-   --  size and alignment are compatible, and if not either gives an error
-   --  message if they cannot be adjusted or else adjusts them appropriately.
 
    function Assoc_Add
      (Loc        : Source_Ptr;
@@ -824,6 +819,7 @@ package body Layout is
                OK  : Boolean;
                LLo : Uint;
                LHi : Uint;
+               pragma Warnings (Off, LHi);
 
             begin
                Set_Parent (Len, E);
@@ -1913,7 +1909,9 @@ package body Layout is
          First_Discr : Entity_Id;
          Last_Discr  : Entity_Id;
          Esiz        : SO_Ref;
-         RM_Siz      : SO_Ref;
+
+         RM_Siz : SO_Ref;
+         pragma Warnings (Off, SO_Ref);
 
          RM_Siz_Expr : Node_Id := Empty;
          --  Expression for the evolving RM_Siz value. This is typically a
@@ -2252,12 +2250,9 @@ package body Layout is
 
          Prev_Comp := Empty;
 
-         Comp := First_Entity (E);
+         Comp := First_Component_Or_Discriminant (E);
          while Present (Comp) loop
-            if (Ekind (Comp) = E_Component
-                 or else Ekind (Comp) = E_Discriminant)
-              and then Present (Component_Clause (Comp))
-            then
+            if Present (Component_Clause (Comp)) then
                if No (Prev_Comp)
                  or else
                    Component_Bit_Offset (Comp) >
@@ -2267,7 +2262,7 @@ package body Layout is
                end if;
             end if;
 
-            Next_Entity (Comp);
+            Next_Component_Or_Discriminant (Comp);
          end loop;
 
          --  We have two separate circuits, one for non-variant records and
@@ -2305,6 +2300,8 @@ package body Layout is
    -----------------
 
    procedure Layout_Type (E : Entity_Id) is
+      Desig_Type : Entity_Id;
+
    begin
       --  For string literal types, for now, kill the size always, this
       --  is because gigi does not like or need the size to be set ???
@@ -2326,6 +2323,18 @@ package body Layout is
 
       if Is_Access_Type (E) then
 
+         Desig_Type :=  Underlying_Type (Designated_Type (E));
+
+         --  If we only have a limited view of the type, see whether the
+         --  non-limited view is available.
+
+         if From_With_Type (Designated_Type (E))
+           and then Ekind (Designated_Type (E)) = E_Incomplete_Type
+           and then Present (Non_Limited_View (Designated_Type (E)))
+         then
+            Desig_Type := Non_Limited_View (Designated_Type (E));
+         end if;
+
          --  If Esize already set (e.g. by a size clause), then nothing
          --  further to be done here.
 
@@ -2336,7 +2345,7 @@ package body Layout is
          --  backend figure out what is needed (it may be some kind
          --  of fat pointer, including the static link for example.
 
-         elsif Ekind (E) = E_Access_Protected_Subprogram_Type then
+         elsif Is_Access_Protected_Subprogram_Type (E) then
             null;
 
          --  For access subtypes, copy the size information from base type
@@ -2349,56 +2358,73 @@ package body Layout is
          --  a fat pointer is used (pointer-to-unconstrained array case),
          --  twice the address size to accommodate a fat pointer.
 
+         elsif Present (Desig_Type)
+            and then Is_Array_Type (Desig_Type)
+            and then not Is_Constrained (Desig_Type)
+            and then not Has_Completion_In_Body (Desig_Type)
+            and then not Debug_Flag_6
+         then
+            Init_Size (E, 2 * System_Address_Size);
+
+            --  Check for bad convention set
+
+            if Warn_On_Export_Import
+              and then
+                (Convention (E) = Convention_C
+                   or else
+                 Convention (E) = Convention_CPP)
+            then
+               Error_Msg_N
+                 ("?this access type does not correspond to C pointer", E);
+            end if;
+
+         --  If the designated type is a limited view it is unanalyzed. We
+         --  can examine the declaration itself to determine whether it will
+         --  need a fat pointer.
+
+         elsif Present (Desig_Type)
+            and then Present (Parent (Desig_Type))
+            and then Nkind (Parent (Desig_Type)) = N_Full_Type_Declaration
+            and then
+              Nkind (Type_Definition (Parent (Desig_Type)))
+                 = N_Unconstrained_Array_Definition
+         then
+            Init_Size (E, 2 * System_Address_Size);
+
+         --  When the target is AAMP, access-to-subprogram types are fat
+         --  pointers consisting of the subprogram address and a static
+         --  link (with the exception of library-level access types,
+         --  where a simple subprogram address is used).
+
+         elsif AAMP_On_Target
+           and then
+             (Ekind (E) = E_Anonymous_Access_Subprogram_Type
+               or else (Ekind (E) = E_Access_Subprogram_Type
+                         and then Present (Enclosing_Subprogram (E))))
+         then
+            Init_Size (E, 2 * System_Address_Size);
+
          else
-            declare
-               Desig : Entity_Id := Designated_Type (E);
-
-            begin
-               if Is_Private_Type (Desig)
-                 and then Present (Full_View (Desig))
-               then
-                  Desig := Full_View (Desig);
-               end if;
-
-               if Is_Array_Type (Desig)
-                 and then not Is_Constrained (Desig)
-                 and then not Has_Completion_In_Body (Desig)
-                 and then not Debug_Flag_6
-               then
-                  Init_Size (E, 2 * System_Address_Size);
-
-                  --  Check for bad convention set
-
-                  if Warn_On_Export_Import
-                    and then
-                      (Convention (E) = Convention_C
-                         or else
-                       Convention (E) = Convention_CPP)
-                  then
-                     Error_Msg_N
-                       ("?this access type does not " &
-                        "correspond to C pointer", E);
-                  end if;
-
-               else
-                  Init_Size (E, System_Address_Size);
-               end if;
-            end;
+            Init_Size (E, System_Address_Size);
          end if;
 
          --  On VMS, reset size to 32 for convention C access type if no
          --  explicit size clause is given and the default size is 64. Really
          --  we do not know the size, since depending on options for the VMS
-         --  compiler, the size of a pointer type can be 32 or 64, but choosing
-         --  32 as the default improves compatibility with legacy VMS code.
+         --  compiler, the size of a pointer type can be 32 or 64, but
+         --  choosing 32 as the default improves compatibility with legacy
+         --  VMS code.
 
          --  Note: we do not use Has_Size_Clause in the test below, because we
-         --  want to catch the case of a derived type inheriting a size clause.
-         --  We want to consider this to be an explicit size clause for this
-         --  purpose, since it would be weird not to inherit the size in this
-         --  case.
+         --  want to catch the case of a derived type inheriting a size
+         --  clause.  We want to consider this to be an explicit size clause
+         --  for this purpose, since it would be weird not to inherit the size
+         --  in this case.
 
-         if OpenVMS_On_Target
+         --  We do NOT do this if we are in -gnatdm mode on a non-VMS target
+         --  since in that case we want the normal pointer representation.
+
+         if Opt.True_VMS_Target
            and then (Convention (E) = Convention_C
                       or else
                      Convention (E) = Convention_CPP)
@@ -2489,9 +2515,8 @@ package body Layout is
                declare
                   A : constant Uint   := Alignment_In_Bits (E);
                   S : constant SO_Ref := RM_Size (E);
-
                begin
-                  Set_Esize (E, (S * A + A - 1) / A);
+                  Set_Esize (E, (S + A - 1) / A * A);
                end;
             end if;
 
@@ -2608,7 +2633,7 @@ package body Layout is
             if Has_Object_Size_Clause (E) then
                Error_Msg_Uint_1 := RM_Size (E);
                Error_Msg_F
-                 ("object size is too small, minimum is ^",
+                 ("object size is too small, minimum allowed is ^",
                   Expression (Get_Attribute_Definition_Clause
                                              (E, Attribute_Object_Size)));
             end if;
@@ -2796,10 +2821,13 @@ package body Layout is
 
          --  On VMS, also reset for odd "in between" sizes, e.g. a 17-bit
          --  record is given an alignment of 4. This is more consistent with
-         --  what DEC Ada does.
+         --  what DEC Ada does (-gnatd.a turns this off which can be used to
+         --  examine the value of this special transformation).
 
-         elsif OpenVMS_On_Target and then Siz > System_Storage_Unit then
-
+         elsif OpenVMS_On_Target
+           and then not Debug_Flag_Dot_A
+           and then Siz > System_Storage_Unit
+         then
             if Siz <= 2 * System_Storage_Unit then
                Align := 2;
             elsif Siz <= 4 * System_Storage_Unit then
@@ -3092,7 +3120,7 @@ package body Layout is
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => New_List (
-                   Make_Return_Statement (Loc,
+                   Make_Simple_Return_Statement (Loc,
                      Expression => Expr))));
 
       --  The caller requests that the expression be encapsulated in
@@ -3114,7 +3142,7 @@ package body Layout is
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => New_List (
-                   Make_Return_Statement (Loc, Expression => Expr))));
+                   Make_Simple_Return_Statement (Loc, Expression => Expr))));
 
       --  No reference to V and function not requested, so create a constant
 

@@ -1,6 +1,6 @@
 // natFile.cc - Native part of File class for POSIX.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2006
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2006, 2008
    Free Software Foundation
 
    This file is part of libgcj.
@@ -43,15 +43,18 @@ java::io::File::_access (jint query)
   char *buf = (char *) __builtin_alloca (JvGetStringUTFLength (path) + 1);
   jsize total = JvGetStringUTFRegion (path, 0, path->length(), buf);
   buf[total] = '\0';
-  JvAssert (query == READ || query == WRITE || query == EXISTS);
+  JvAssert (query == READ || query == WRITE || query == EXISTS
+	    || query == EXEC);
 #ifdef HAVE_ACCESS
   int mode;
   if (query == READ)
     mode = R_OK;
   else if (query == WRITE)
     mode = W_OK;
-  else
+  else if (query == EXISTS)
     mode = F_OK;
+  else
+    mode = X_OK;
   return ::access (buf, mode) == 0;
 #else
   return false;
@@ -289,13 +292,7 @@ java::io::File::performList (java::io::FilenameFilter *filter,
 
   java::util::ArrayList *list = new java::util::ArrayList ();
   struct dirent *d;
-#if defined(HAVE_READDIR_R) && defined(_POSIX_PTHREAD_SEMANTICS)
-  int name_max = pathconf (buf, _PC_NAME_MAX);
-  char dbuf[sizeof (struct dirent) + name_max + 1];
-  while (readdir_r (dir, (struct dirent *) dbuf, &d) == 0 && d != NULL)
-#else /* HAVE_READDIR_R */
   while ((d = readdir (dir)) != NULL)
-#endif /* HAVE_READDIR_R */
     {
       // Omit "." and "..".
       if (d->d_name[0] == '.'
@@ -338,6 +335,54 @@ java::io::File::performMkdir (void)
 
 #ifdef HAVE_MKDIR
   return ::mkdir (buf, 0755) == 0;
+#else
+  return false;
+#endif
+}
+
+jboolean
+java::io::File::setFilePermissions (jboolean enable,
+				    jboolean ownerOnly,
+				    jint permissions)
+{
+  char *buf = (char *) __builtin_alloca (JvGetStringUTFLength (path) + 1);
+  jsize total = JvGetStringUTFRegion (path, 0, path->length(), buf);
+  buf[total] = '\0';
+  JvAssert (permissions == READ || permissions == WRITE || permissions == EXEC);
+#if defined (HAVE_STAT) && defined (HAVE_CHMOD)
+  mode_t mode = 0;
+
+  struct stat sb;
+  if (::stat (buf, &sb))
+    return false;
+
+  if (ownerOnly)
+    {
+      if (permissions == READ)
+        mode |= S_IRUSR;
+      else if (permissions == WRITE)
+        mode |= S_IWUSR;
+      else if (permissions == EXEC)
+        mode |= S_IXUSR;
+    }
+  else
+    {
+      if (permissions == READ)
+        mode |= (S_IRUSR | S_IRGRP | S_IROTH);
+      else if (permissions == WRITE)
+        mode |= (S_IWUSR | S_IWGRP | S_IWOTH);
+      else if (permissions == EXEC)
+        mode |= (S_IXUSR | S_IXGRP | S_IXOTH);
+    }
+  
+  if (enable)
+    mode = sb.st_mode | mode;
+  else
+    mode = sb.st_mode & ~mode;
+  
+  if (::chmod(buf, mode) < 0)
+    return false;
+  return true;
 #else
   return false;
 #endif
@@ -453,6 +498,12 @@ java::io::File::performDelete (void)
 void
 java::io::File::init_native ()
 {
+#ifdef MAXPATHLEN
   maxPathLen = MAXPATHLEN;
+#else
+  /* Some systems do not have a limit on the length of a file name,
+     the GNU system is one such example.  */
+  maxPathLen = 0;
+#endif
   caseSensitive = true;
 }

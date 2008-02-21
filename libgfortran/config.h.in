@@ -270,6 +270,12 @@
 /* Define to 1 if you have the `ctime' function. */
 #undef HAVE_CTIME
 
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Define to 1 if you have the `dup' function. */
+#undef HAVE_DUP
+
 /* Define to 1 if you have the `dup2' function. */
 #undef HAVE_DUP2
 
@@ -327,9 +333,6 @@
 /* Define to 1 if you have the <fenv.h> header file. */
 #undef HAVE_FENV_H
 
-/* libm includes finite */
-#undef HAVE_FINITE
-
 /* Define to 1 if you have the <floatingpoint.h> header file. */
 #undef HAVE_FLOATINGPOINT_H
 
@@ -378,8 +381,17 @@
 /* libm includes frexpl */
 #undef HAVE_FREXPL
 
+/* Define to 1 if you have the `fstat' function. */
+#undef HAVE_FSTAT
+
 /* Define to 1 if you have the `ftruncate' function. */
 #undef HAVE_FTRUNCATE
+
+/* Define to 1 if you have the `getcwd' function. */
+#undef HAVE_GETCWD
+
+/* libc includes geteuid */
+#undef HAVE_GETEUID
 
 /* libc includes getgid */
 #undef HAVE_GETGID
@@ -395,6 +407,9 @@
 
 /* libc includes getppid */
 #undef HAVE_GETPPID
+
+/* Define to 1 if you have the `getpwuid' function. */
+#undef HAVE_GETPWUID
 
 /* Define to 1 if you have the `getrlimit' function. */
 #undef HAVE_GETRLIMIT
@@ -468,8 +483,26 @@
 /* libm includes ldexpl */
 #undef HAVE_LDEXPL
 
+/* libm includes lgamma */
+#undef HAVE_LGAMMA
+
+/* libm includes lgammaf */
+#undef HAVE_LGAMMAF
+
+/* libm includes lgammal */
+#undef HAVE_LGAMMAL
+
 /* Define to 1 if you have the `link' function. */
 #undef HAVE_LINK
+
+/* libm includes llround */
+#undef HAVE_LLROUND
+
+/* libm includes llroundf */
+#undef HAVE_LLROUNDF
+
+/* libm includes llroundl */
+#undef HAVE_LLROUNDL
 
 /* libm includes log */
 #undef HAVE_LOG
@@ -489,11 +522,23 @@
 /* libm includes logl */
 #undef HAVE_LOGL
 
-/* Define to 1 if you have the <math.h> header file. */
-#undef HAVE_MATH_H
+/* libm includes lround */
+#undef HAVE_LROUND
+
+/* libm includes lroundf */
+#undef HAVE_LROUNDF
+
+/* libm includes lroundl */
+#undef HAVE_LROUNDL
+
+/* Define to 1 if you have the `lstat' function. */
+#undef HAVE_LSTAT
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
+
+/* Define if you have __mingw_snprintf. */
+#undef HAVE_MINGW_SNPRINTF
 
 /* Define to 1 if you have the `mkstemp' function. */
 #undef HAVE_MKSTEMP
@@ -521,6 +566,9 @@
 
 /* libm includes powl */
 #undef HAVE_POWL
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#undef HAVE_PWD_H
 
 /* libm includes round */
 #undef HAVE_ROUND
@@ -582,8 +630,11 @@
 /* libm includes sqrtl */
 #undef HAVE_SQRTL
 
-/* Define to 1 if you have the <stddef.h> header file. */
-#undef HAVE_STDDEF_H
+/* Define to 1 if you have the `stat' function. */
+#undef HAVE_STAT
+
+/* Define to 1 if you have the <stdarg.h> header file. */
+#undef HAVE_STDARG_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -627,9 +678,6 @@
 /* Define to 1 if the target supports __sync_fetch_and_add */
 #undef HAVE_SYNC_FETCH_AND_ADD
 
-/* Define to 1 if you have the <sys/params.h> header file. */
-#undef HAVE_SYS_PARAMS_H
-
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H
 
@@ -666,6 +714,15 @@
 /* libm includes tanl */
 #undef HAVE_TANL
 
+/* libm includes tgamma */
+#undef HAVE_TGAMMA
+
+/* libm includes tgammaf */
+#undef HAVE_TGAMMAF
+
+/* libm includes tgammal */
+#undef HAVE_TGAMMAL
+
 /* Define to 1 if you have the `time' function. */
 #undef HAVE_TIME
 
@@ -692,6 +749,9 @@
 
 /* Define if target can unlink open files. */
 #undef HAVE_UNLINK_OPEN_FILE
+
+/* Define to 1 if you have the `vsnprintf' function. */
+#undef HAVE_VSNPRINTF
 
 /* Define to 1 if you have the `wait' function. */
 #undef HAVE_WAIT
@@ -725,6 +785,10 @@
 
 /* libm includes ynl */
 #undef HAVE_YNL
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -761,9 +825,6 @@
 
 /* Define to 1 if the target supports #pragma weak */
 #undef SUPPORTS_WEAK
-
-/* Define to 1 if the target is ILP32. */
-#undef TARGET_ILP32
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME

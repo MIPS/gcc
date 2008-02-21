@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -165,8 +164,8 @@ typedef struct JCF GTY(()) {
 #define JCF_FINISH(JCF) { \
   CPOOL_FINISH(&(JCF)->cpool); \
   if ((JCF)->buffer) free ((JCF)->buffer); \
-  if ((JCF)->filename) free ((char *) (JCF)->filename); \
-  if ((JCF)->classname) free ((char *) (JCF)->classname); \
+  if ((JCF)->filename) free (CONST_CAST (char *, (JCF)->filename)); \
+  if ((JCF)->classname) free (CONST_CAST (char *, (JCF)->classname)); \
   (JCF)->finished = 1; }
   
 #define CPOOL_INIT(CPOOL) \

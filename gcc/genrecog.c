@@ -1,12 +1,13 @@
 /* Generate code from machine description to recognize rtl as insns.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -15,9 +16,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 
 /* This program is used to produce insn-recog.c, which contains a
@@ -171,7 +171,7 @@ static int pattern_lineno;
 /* Count of errors.  */
 static int error_count;
 
-/* Predicate handling. 
+/* Predicate handling.
 
    We construct from the machine description a table mapping each
    predicate to a list of the rtl codes it can possibly match.  The
@@ -259,7 +259,7 @@ compute_predicate_codes (rtx exp, char codes[NUM_RTX_CODE])
       break;
 
     case IF_THEN_ELSE:
-      /* a ? b : c  accepts the same codes as (a & b) | (!a & c).  */ 
+      /* a ? b : c  accepts the same codes as (a & b) | (!a & c).  */
       compute_predicate_codes (XEXP (exp, 0), op0_codes);
       compute_predicate_codes (XEXP (exp, 1), op1_codes);
       compute_predicate_codes (XEXP (exp, 2), op2_codes);
@@ -295,7 +295,7 @@ compute_predicate_codes (rtx exp, char codes[NUM_RTX_CODE])
 	  {
 	    size_t n = next_code - code;
 	    int found_it = 0;
-	    
+
 	    for (i = 0; i < NUM_RTX_CODE; i++)
 	      if (!strncmp (code, GET_RTX_NAME (i), n)
 		  && GET_RTX_NAME (i)[n] == '\0')
@@ -1088,7 +1088,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
       if (fmt[i] == 'i')
 	{
 	  gcc_assert (i < 2);
-	  
+
 	  if (!i)
 	    {
 	      test = new_decision_test (DT_elt_zero_int, &place);
@@ -2496,6 +2496,7 @@ write_header (void)
 #include \"resource.h\"\n\
 #include \"toplev.h\"\n\
 #include \"reload.h\"\n\
+#include \"regs.h\"\n\
 #include \"tm-constrs.h\"\n\
 \n");
 

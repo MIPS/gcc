@@ -1,12 +1,12 @@
 /* Pass computing data for optimizing stdarg functions.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -47,9 +46,9 @@ Boston, MA 02110-1301, USA.  */
 static bool
 reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
 {
-  edge *stack, e;
+  VEC (edge, heap) *stack = NULL;
+  edge e;
   edge_iterator ei;
-  int sp;
   sbitmap visited;
   bool ret;
 
@@ -59,22 +58,18 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
   if (! dominated_by_p (CDI_DOMINATORS, va_arg_bb, va_start_bb))
     return false;
 
-  stack = XNEWVEC (edge, n_basic_blocks + 1);
-  sp = 0;
-
   visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (visited);
   ret = true;
 
   FOR_EACH_EDGE (e, ei, va_arg_bb->preds)
-    stack[sp++] = e;
+    VEC_safe_push (edge, heap, stack, e);
 
-  while (sp)
+  while (! VEC_empty (edge, stack))
     {
       basic_block src;
 
-      --sp;
-      e = stack[sp];
+      e = VEC_pop (edge, stack);
       src = e->src;
 
       if (e->flags & EDGE_COMPLEX)
@@ -99,11 +94,11 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
 	{
 	  SET_BIT (visited, src->index);
 	  FOR_EACH_EDGE (e, ei, src->preds)
-	    stack[sp++] = e;
+	    VEC_safe_push (edge, heap, stack, e);
 	}
     }
 
-  free (stack);
+  VEC_free (edge, heap, stack);
   sbitmap_free (visited);
   return ret;
 }
@@ -171,7 +166,8 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 	  continue;
 	}
 
-      if (TREE_CODE (rhs) == PLUS_EXPR
+      if ((TREE_CODE (rhs) == POINTER_PLUS_EXPR
+	   || TREE_CODE (rhs) == PLUS_EXPR)
 	  && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
 	  && TREE_CODE (TREE_OPERAND (rhs, 1)) == INTEGER_CST
 	  && host_integerp (TREE_OPERAND (rhs, 1), 1))
@@ -229,7 +225,8 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 	  continue;
 	}
 
-      if (TREE_CODE (rhs) == PLUS_EXPR
+      if ((TREE_CODE (rhs) == POINTER_PLUS_EXPR
+	   || TREE_CODE (rhs) == PLUS_EXPR)
 	  && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
 	  && TREE_CODE (TREE_OPERAND (rhs, 1)) == INTEGER_CST
 	  && host_integerp (TREE_OPERAND (rhs, 1), 1))
@@ -447,10 +444,11 @@ check_va_list_escapes (struct stdarg_info *si, tree lhs, tree rhs)
   if (! POINTER_TYPE_P (TREE_TYPE (rhs)))
     return;
 
-  if ((TREE_CODE (rhs) == PLUS_EXPR
-       && TREE_CODE (TREE_OPERAND (rhs, 1)) == INTEGER_CST)
-      || TREE_CODE (rhs) == NOP_EXPR
-      || TREE_CODE (rhs) == CONVERT_EXPR)
+ if (((TREE_CODE (rhs) == POINTER_PLUS_EXPR
+       || TREE_CODE (rhs) == PLUS_EXPR)
+      && TREE_CODE (TREE_OPERAND (rhs, 1)) == INTEGER_CST)
+     || TREE_CODE (rhs) == NOP_EXPR
+     || TREE_CODE (rhs) == CONVERT_EXPR)
     rhs = TREE_OPERAND (rhs, 0);
 
   if (TREE_CODE (rhs) != SSA_NAME
@@ -555,7 +553,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 		     other_ap_temp = (some_type *) ap_temp;
 		     ap = ap_temp;
 		     statements.  */
-		  if ((TREE_CODE (rhs) == PLUS_EXPR
+		  if ((TREE_CODE (rhs) == POINTER_PLUS_EXPR
 		       && TREE_CODE (TREE_OPERAND (rhs, 1)) == INTEGER_CST)
 		      || TREE_CODE (rhs) == NOP_EXPR
 		      || TREE_CODE (rhs) == CONVERT_EXPR)

@@ -1,5 +1,5 @@
 /* Implementation of the STAT and FSTAT intrinsics.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Steven G. Kargl <kargls@comcast.net>.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -28,12 +28,10 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
 #include "libgfortran.h"
 
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
+#include <string.h>
+#include <errno.h>
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
@@ -43,11 +41,8 @@ Boston, MA 02110-1301, USA.  */
 #include <stdlib.h>
 #endif
 
-#ifdef HAVE_STRING_H
-#include <string.h>
-#endif
 
-#include <errno.h>
+#ifdef HAVE_STAT
 
 /* SUBROUTINE STAT(FILE, SARRAY, STATUS)
    CHARACTER(len=*), INTENT(IN) :: FILE
@@ -65,7 +60,7 @@ internal_proto(stat_i4_sub_0);*/
 
 static void
 stat_i4_sub_0 (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
-	       gfc_charlen_type name_len, int is_lstat)
+	       gfc_charlen_type name_len, int is_lstat __attribute__ ((unused)))
 {
   int val;
   char *str;
@@ -88,9 +83,12 @@ stat_i4_sub_0 (char *name, gfc_array_i4 *sarray, GFC_INTEGER_4 *status,
   memcpy (str, name, name_len);
   str[name_len] = '\0';
 
+  /* On platforms that don't provide lstat(), we use stat() instead.  */
+#ifdef HAVE_LSTAT
   if (is_lstat)
     val = lstat(str, &sb);
   else
+#endif
     val = stat(str, &sb);
 
   if (val == 0)
@@ -181,7 +179,7 @@ iexport(lstat_i4_sub);
 
 static void
 stat_i8_sub_0 (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
-	       gfc_charlen_type name_len, int is_lstat)
+	       gfc_charlen_type name_len, int is_lstat __attribute__ ((unused)))
 {
   int val;
   char *str;
@@ -204,9 +202,12 @@ stat_i8_sub_0 (char *name, gfc_array_i8 *sarray, GFC_INTEGER_8 *status,
   memcpy (str, name, name_len);
   str[name_len] = '\0';
 
+  /* On platforms that don't provide lstat(), we use stat() instead.  */
+#ifdef HAVE_LSTAT
   if (is_lstat)
     val = lstat(str, &sb);
   else
+#endif
     val = stat(str, &sb);
 
   if (val == 0)
@@ -319,13 +320,13 @@ stat_i8 (char *name, gfc_array_i8 *sarray, gfc_charlen_type name_len)
 }
 
 
-/* SUBROUTINE STAT(FILE, SARRAY, STATUS)
+/* SUBROUTINE LSTAT(FILE, SARRAY, STATUS)
    CHARACTER(len=*), INTENT(IN) :: FILE
    INTEGER, INTENT(OUT), :: SARRAY(13)
    INTEGER, INTENT(OUT), OPTIONAL :: STATUS
 
-   FUNCTION STAT(FILE, SARRAY)
-   INTEGER STAT
+   FUNCTION LSTAT(FILE, SARRAY)
+   INTEGER LSTAT
    CHARACTER(len=*), INTENT(IN) :: FILE
    INTEGER, INTENT(OUT), :: SARRAY(13)  */
 
@@ -351,7 +352,10 @@ lstat_i8 (char *name, gfc_array_i8 *sarray, gfc_charlen_type name_len)
   return val;
 }
 
+#endif
 
+
+#ifdef HAVE_FSTAT
 
 /* SUBROUTINE FSTAT(UNIT, SARRAY, STATUS)
    INTEGER, INTENT(IN) :: UNIT
@@ -546,3 +550,5 @@ fstat_i8 (GFC_INTEGER_8 *unit, gfc_array_i8 *sarray)
   fstat_i8_sub (unit, sarray, &val);
   return val;
 }
+
+#endif

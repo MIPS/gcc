@@ -1,12 +1,12 @@
 /* Functions to analyze and validate GIMPLE trees.
-   Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef _TREE_SIMPLE_H
 #define _TREE_SIMPLE_H 1
@@ -64,7 +63,7 @@ extern bool is_gimple_addressable (tree);
 extern bool is_gimple_lvalue (tree);
 
 /* Returns true iff T is a GIMPLE restricted function invariant.  */
-extern bool is_gimple_min_invariant (tree);
+extern bool is_gimple_min_invariant (const_tree);
 /* Returns true iff T is a GIMPLE rvalue.  */
 extern bool is_gimple_val (tree);
 /* Returns true iff T is a GIMPLE asm statement input.  */
@@ -134,6 +133,7 @@ extern enum gimplify_status gimplify_va_arg_expr (tree *, tree *, tree *);
 struct gimplify_omp_ctx;
 extern void omp_firstprivatize_variable (struct gimplify_omp_ctx *, tree);
 extern tree gimple_boolify (tree);
+extern tree canonicalize_cond_expr_cond (tree);
 
 /* In omp-low.c.  */
 extern void diagnose_omp_structured_block_errors (tree);

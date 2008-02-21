@@ -1,5 +1,5 @@
 /* "Bag-of-pages" zone garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
    Free Software Foundation, Inc.
 
    Contributed by Richard Henderson (rth@redhat.com) and Daniel Berlin
@@ -10,7 +10,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -19,9 +19,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -37,21 +36,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "params.h"
 #include "bitmap.h"
-
-#ifdef ENABLE_VALGRIND_CHECKING
-# ifdef HAVE_VALGRIND_MEMCHECK_H
-#  include <valgrind/memcheck.h>
-# elif defined HAVE_MEMCHECK_H
-#  include <memcheck.h>
-# else
-#  include <valgrind.h>
-# endif
-#else
-/* Avoid #ifdef:s when we can help it.  */
-#define VALGRIND_DISCARD(x)
-#define VALGRIND_MALLOCLIKE_BLOCK(w,x,y,z)
-#define VALGRIND_FREELIKE_BLOCK(x,y)
-#endif
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -788,7 +772,7 @@ alloc_anon (char *pref ATTRIBUTE_UNUSED, size_t size, struct alloc_zone *zone)
   /* Pretend we don't have access to the allocated pages.  We'll enable
      access to smaller pieces of the area in ggc_alloc.  Discard the
      handle to avoid handle leak.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (page, size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (page, size));
 
   return page;
 }
@@ -904,8 +888,8 @@ free_small_page (struct small_page_entry *entry)
 
   /* Mark the page as inaccessible.  Discard the handle to
      avoid handle leak.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (entry->common.page,
-					    SMALL_PAGE_SIZE));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (entry->common.page,
+						SMALL_PAGE_SIZE));
 
   entry->next = entry->common.zone->free_pages;
   entry->common.zone->free_pages = entry;
@@ -979,18 +963,30 @@ free_chunk (char *ptr, size_t size, struct alloc_zone *zone)
   if (bin > NUM_FREE_BINS)
     {
       bin = 0;
-      VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (chunk, sizeof (struct alloc_chunk)));
+      VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (chunk,
+						     sizeof (struct
+							     alloc_chunk)));
       chunk->size = size;
       chunk->next_free = zone->free_chunks[bin];
-      VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (ptr + sizeof (struct alloc_chunk),
-						size - sizeof (struct alloc_chunk)));
+      VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (ptr
+						    + sizeof (struct
+							      alloc_chunk),
+						    size
+						    - sizeof (struct
+							      alloc_chunk)));
     }
   else
     {
-      VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (chunk, sizeof (struct alloc_chunk *)));
+      VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (chunk,
+						     sizeof (struct
+							     alloc_chunk *)));
       chunk->next_free = zone->free_chunks[bin];
-      VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (ptr + sizeof (struct alloc_chunk *),
-						size - sizeof (struct alloc_chunk *)));
+      VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (ptr
+						    + sizeof (struct
+							      alloc_chunk *),
+						    size
+						    - sizeof (struct
+							      alloc_chunk *)));
     }
 
   zone->free_chunks[bin] = chunk;
@@ -1214,16 +1210,16 @@ ggc_alloc_zone_stat (size_t orig_size, struct alloc_zone *zone
 
 #ifdef ENABLE_GC_CHECKING
   /* `Poison' the entire allocated object.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (result, size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (result, size));
   memset (result, 0xaf, size);
-  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (result + orig_size,
-					    size - orig_size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (result + orig_size,
+						size - orig_size));
 #endif
 
   /* Tell Valgrind that the memory is there, but its content isn't
      defined.  The bytes at the end of the object are still marked
      unaccessible.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (result, orig_size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (result, orig_size));
 
   /* Keep track of how many bytes are being allocated.  This
      information is used in deciding when to collect.  */
@@ -1702,9 +1698,9 @@ sweep_pages (struct alloc_zone *zone)
 		{
 		  if (last_free)
 		    {
-		      VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (last_free,
-								object
-								- last_free));
+		      VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (last_free,
+								     object
+								     - last_free));
 		      poison_region (last_free, object - last_free);
 		      free_chunk (last_free, object - last_free, zone);
 		      last_free = NULL;
@@ -1740,7 +1736,8 @@ sweep_pages (struct alloc_zone *zone)
 	{
 	  *spp = snext;
 #ifdef ENABLE_GC_CHECKING
-	  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (sp->common.page, SMALL_PAGE_SIZE));
+	  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (sp->common.page,
+							 SMALL_PAGE_SIZE));
 	  /* Poison the page.  */
 	  memset (sp->common.page, 0xb5, SMALL_PAGE_SIZE);
 #endif
@@ -1749,8 +1746,8 @@ sweep_pages (struct alloc_zone *zone)
 	}
       else if (last_free)
 	{
-	  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (last_free,
-						    object - last_free));
+	  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (last_free,
+							 object - last_free));
 	  poison_region (last_free, object - last_free);
 	  free_chunk (last_free, object - last_free, zone);
 	}

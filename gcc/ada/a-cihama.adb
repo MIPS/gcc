@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -72,7 +72,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    pragma Inline (Next);
 
    function Read_Node
-     (Stream : access Root_Stream_Type'Class) return Node_Access;
+     (Stream : not null access Root_Stream_Type'Class) return Node_Access;
 
    procedure Set_Next (Node : Node_Access; Next : Node_Access);
    pragma Inline (Set_Next);
@@ -80,7 +80,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    function Vet (Position : Cursor) return Boolean;
 
    procedure Write_Node
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Node   : Node_Access);
 
    --------------------------
@@ -568,6 +568,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       New_Item  : Element_Type)
    is
       Position : Cursor;
+      pragma Unreferenced (Position);
+
       Inserted : Boolean;
 
    begin
@@ -772,7 +774,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    procedure Read_Nodes is new HT_Ops.Generic_Read (Read_Node);
 
    procedure Read
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : out Map)
    is
    begin
@@ -780,7 +782,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    end Read;
 
    procedure Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : out Cursor)
    is
    begin
@@ -792,7 +794,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    ---------------
 
    function Read_Node
-     (Stream : access Root_Stream_Type'Class) return Node_Access
+     (Stream : not null access Root_Stream_Type'Class) return Node_Access
    is
       Node : Node_Access := new Node_Type;
 
@@ -966,8 +968,10 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          declare
             K : Key_Type renames Position.Node.Key.all;
             E : Element_Type renames Position.Node.Element.all;
+
          begin
             Process (K, E);
+
          exception
             when others =>
                L := L - 1;
@@ -1050,7 +1054,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    procedure Write_Nodes is new HT_Ops.Generic_Write (Write_Node);
 
    procedure Write
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : Map)
    is
    begin
@@ -1058,7 +1062,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    end Write;
 
    procedure Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : Cursor)
    is
    begin
@@ -1070,7 +1074,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    ----------------
 
    procedure Write_Node
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Node   : Node_Access)
    is
    begin

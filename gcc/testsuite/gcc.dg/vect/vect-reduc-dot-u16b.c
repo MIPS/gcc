@@ -15,7 +15,7 @@ unsigned short Y[N] __attribute__ ((__aligned__(16)));
    promotes the ushorts to int, and then the product is promoted to unsigned 
    int for the addition.  Which results in an int->unsigned int cast, which 
    since no bits are modified in the cast should be trivially vectorizable.  */
-unsigned int
+__attribute__ ((noinline)) unsigned int
 foo2(int len) {
   int i;
   unsigned int result = 0;
@@ -53,6 +53,6 @@ int main (void)
    dot-product of unsigned shorts) and targets that support widening multiplication.  */
 /* The induction loop in main is vectorized.  */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { xfail *-*-* } } } */ 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */ 
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_pack_trunc } } } */ 
 
 /* { dg-final { cleanup-tree-dump "vect" } } */

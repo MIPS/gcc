@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -97,6 +96,8 @@ some_nonzerop (tree t)
 
   if (TREE_CODE (t) == REAL_CST)
     zerop = REAL_VALUES_IDENTICAL (TREE_REAL_CST (t), dconst0);
+  else if (TREE_CODE (t) == FIXED_CST)
+    zerop = fixed_zerop (t);
   else if (TREE_CODE (t) == INTEGER_CST)
     zerop = integer_zerop (t);
 
@@ -160,15 +161,14 @@ is_complex_reg (tree lhs)
 static void
 init_parameter_lattice_values (void)
 {
-  tree parm;
+  tree parm, ssa_name;
 
   for (parm = DECL_ARGUMENTS (cfun->decl); parm ; parm = TREE_CHAIN (parm))
-    if (is_complex_reg (parm) && var_ann (parm) != NULL)
-      {
-	tree ssa_name = gimple_default_def (cfun, parm);
-	VEC_replace (complex_lattice_t, complex_lattice_values,
-		     SSA_NAME_VERSION (ssa_name), VARYING);
-      }
+    if (is_complex_reg (parm)
+	&& var_ann (parm) != NULL
+	&& (ssa_name = gimple_default_def (cfun, parm)) != NULL_TREE)
+      VEC_replace (complex_lattice_t, complex_lattice_values,
+		   SSA_NAME_VERSION (ssa_name), VARYING);
 }
 
 /* Initialize DONT_SIMULATE_AGAIN for each stmt and phi.  Return false if
@@ -242,6 +242,17 @@ init_dont_simulate_again (void)
 	      case NEGATE_EXPR:
 	      case CONJ_EXPR:
 		if (TREE_CODE (TREE_TYPE (rhs)) == COMPLEX_TYPE)
+		  saw_a_complex_op = true;
+		break;
+
+	      case REALPART_EXPR:
+	      case IMAGPART_EXPR:
+		/* The total store transformation performed during
+		   gimplification creates such uninitialized loads
+		   and we need to lower the statement to be able
+		   to fix things up.  */
+		if (TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+		    && ssa_undefined_value_p (TREE_OPERAND (rhs, 0)))
 		  saw_a_complex_op = true;
 		break;
 
@@ -751,7 +762,8 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
 	  update_complex_components_on_edge (e, lhs, r, i);
 	}
-      else if (TREE_CODE (rhs) == CALL_EXPR || TREE_SIDE_EFFECTS (rhs))
+      else if (TREE_CODE (rhs) == CALL_EXPR || TREE_SIDE_EFFECTS (rhs)
+	       || TREE_CODE (rhs) == PAREN_EXPR)
 	{
 	  r = build1 (REALPART_EXPR, inner_type, lhs);
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
@@ -1059,11 +1071,6 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
       bb_join = e->dest;
       bb_true = create_empty_bb (bb_cond);
       bb_false = create_empty_bb (bb_true);
-
-      t1 = build1 (GOTO_EXPR, void_type_node, tree_block_label (bb_true));
-      t2 = build1 (GOTO_EXPR, void_type_node, tree_block_label (bb_false));
-      COND_EXPR_THEN (cond) = t1;
-      COND_EXPR_ELSE (cond) = t2;
 
       /* Wire the blocks together.  */
       e->flags = EDGE_TRUE_VALUE;
@@ -1377,8 +1384,15 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
     default:
       {
-	tree lhs = GENERIC_TREE_OPERAND (stmt, 0);
-	tree rhs = GENERIC_TREE_OPERAND (stmt, 1);
+	tree lhs, rhs;
+
+	/* COND_EXPR may also fallthru here, but we do not need to do anything
+	   with it.  */
+	if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+	  return;
+
+	lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
 	if (TREE_CODE (type) == COMPLEX_TYPE)
 	  expand_complex_move (bsi, stmt, type, lhs, rhs);

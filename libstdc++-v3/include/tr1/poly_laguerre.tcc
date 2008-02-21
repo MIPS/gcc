@@ -44,12 +44,13 @@
 //       Section 13, pp. 509-510, Section 22 pp. 773-802
 //   (2) The Gnu Scientific Library, http://www.gnu.org/software/gsl
 
-#ifndef _TR1_POLY_LAGUERRE_TCC
-#define _TR1_POLY_LAGUERRE_TCC 1
+#ifndef _GLIBCXX_TR1_POLY_LAGUERRE_TCC
+#define _GLIBCXX_TR1_POLY_LAGUERRE_TCC 1
 
 namespace std
 {
-_GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
+namespace tr1
+{
 
   // [5.2] Special functions
 
@@ -80,11 +81,11 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
      */
     template<typename _Tpa, typename _Tp>
     _Tp
-    __poly_laguerre_large_n(const unsigned __n, const _Tpa __alpha,
+    __poly_laguerre_large_n(const unsigned __n, const _Tpa __alpha1,
                             const _Tp __x)
     {
       const _Tp __a = -_Tp(__n);
-      const _Tp __b = _Tp(__alpha) + _Tp(1);
+      const _Tp __b = _Tp(__alpha1) + _Tp(1);
       const _Tp __eta = _Tp(2) * __b - _Tp(4) * __a;
       const _Tp __cos2th = __x / __eta;
       const _Tp __sin2th = _Tp(1) - __cos2th;
@@ -94,8 +95,8 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
                         * __eta * __eta * __cos2th * __sin2th;
 
 #if _GLIBCXX_USE_C99_MATH_TR1
-      const _Tp __lg_b = std::_GLIBCXX_TR1::lgamma(_Tp(__n) + __b);
-      const _Tp __lnfact = std::_GLIBCXX_TR1::lgamma(_Tp(__n + 1));
+      const _Tp __lg_b = std::tr1::lgamma(_Tp(__n) + __b);
+      const _Tp __lnfact = std::tr1::lgamma(_Tp(__n + 1));
 #else
       const _Tp __lg_b = __log_gamma(_Tp(__n) + __b);
       const _Tp __lnfact = __log_gamma(_Tp(__n + 1));
@@ -135,9 +136,10 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
      */
     template<typename _Tpa, typename _Tp>
     _Tp
-    __poly_laguerre_hyperg(const unsigned int __n, const _Tpa __alpha, const _Tp __x)
+    __poly_laguerre_hyperg(const unsigned int __n, const _Tpa __alpha1,
+			   const _Tp __x)
     {
-      const _Tp __b = _Tp(__alpha) + _Tp(1);
+      const _Tp __b = _Tp(__alpha1) + _Tp(1);
       const _Tp __mx = -__x;
       const _Tp __tc_sgn = (__x < _Tp(0) ? _Tp(1)
                          : ((__n % 2 == 1) ? -_Tp(1) : _Tp(1)));
@@ -192,7 +194,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
     template<typename _Tpa, typename _Tp>
     _Tp
     __poly_laguerre_recursion(const unsigned int __n,
-                              const _Tpa __alpha, const _Tp __x)
+                              const _Tpa __alpha1, const _Tp __x)
     {
       //   Compute l_0.
       _Tp __l_0 = _Tp(1);
@@ -200,7 +202,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
         return __l_0;
 
       //  Compute l_1^alpha.
-      _Tp __l_1 = -__x + _Tp(1) + _Tp(__alpha);
+      _Tp __l_1 = -__x + _Tp(1) + _Tp(__alpha1);
       if  (__n == 1)
         return __l_1;
 
@@ -210,9 +212,9 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
       _Tp __l_n = _Tp(0);
       for  (unsigned int __nn = 2; __nn <= __n; ++__nn)
         {
-            __l_n = (_Tp(2 * __nn - 1) + _Tp(__alpha) - __x)
+            __l_n = (_Tp(2 * __nn - 1) + _Tp(__alpha1) - __x)
                   * __l_n1 / _Tp(__nn)
-                  - (_Tp(__nn - 1) + _Tp(__alpha)) * __l_n2 / _Tp(__nn);
+                  - (_Tp(__nn - 1) + _Tp(__alpha1)) * __l_n2 / _Tp(__nn);
             __l_n2 = __l_n1;
             __l_n1 = __l_n;
         }
@@ -251,7 +253,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
      */
     template<typename _Tpa, typename _Tp>
     inline _Tp
-    __poly_laguerre(const unsigned int __n, const _Tpa __alpha,
+    __poly_laguerre(const unsigned int __n, const _Tpa __alpha1,
                     const _Tp __x)
     {
       if (__x < _Tp(0))
@@ -263,28 +265,28 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
       else if (__n == 0)
         return _Tp(1);
       else if (__n == 1)
-        return _Tp(1) + _Tp(__alpha) - __x;
+        return _Tp(1) + _Tp(__alpha1) - __x;
       else if (__x == _Tp(0))
         {
-          _Tp __prod = _Tp(__alpha) + _Tp(1);
+          _Tp __prod = _Tp(__alpha1) + _Tp(1);
           for (unsigned int __k = 2; __k <= __n; ++__k)
-            __prod *= (_Tp(__alpha) + _Tp(__k)) / _Tp(__k);
+            __prod *= (_Tp(__alpha1) + _Tp(__k)) / _Tp(__k);
           return __prod;
         }
-      else if (__n > 10000000 && _Tp(__alpha) > -_Tp(1)
-            && __x < _Tp(2) * (_Tp(__alpha) + _Tp(1)) + _Tp(4 * __n))
-        return __poly_laguerre_large_n(__n, __alpha, __x);
-      else if (_Tp(__alpha) >= _Tp(0)
-           || (__x > _Tp(0) && _Tp(__alpha) < -_Tp(__n + 1)))
-        return __poly_laguerre_recursion(__n, __alpha, __x);
+      else if (__n > 10000000 && _Tp(__alpha1) > -_Tp(1)
+            && __x < _Tp(2) * (_Tp(__alpha1) + _Tp(1)) + _Tp(4 * __n))
+        return __poly_laguerre_large_n(__n, __alpha1, __x);
+      else if (_Tp(__alpha1) >= _Tp(0)
+           || (__x > _Tp(0) && _Tp(__alpha1) < -_Tp(__n + 1)))
+        return __poly_laguerre_recursion(__n, __alpha1, __x);
       else
-        return __poly_laguerre_hyperg(__n, __alpha, __x);
+        return __poly_laguerre_hyperg(__n, __alpha1, __x);
     }
 
 
     /**
      *   @brief This routine returns the associated Laguerre polynomial
-     *          of order n, degree m: @f$ L_n^m @f$.
+     *          of order n, degree m: @f$ L_n^m(x) @f$.
      *
      *   The associated Laguerre polynomial is defined for integral
      *   @f$ \alpha = m @f$ by:
@@ -312,7 +314,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 
 
     /**
-     *   @brief This routine returns the associated Laguerre polynomial
+     *   @brief This routine returns the Laguerre polynomial
      *          of order n: @f$ L_n(x) @f$.
      *
      *   The Laguerre polynomial is defined by:
@@ -336,7 +338,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 
   /* @} */ // group tr1_math_spec_func
 
-_GLIBCXX_END_NAMESPACE
+}
 }
 
-#endif // _TR1_POLY_LAGUERRE_TCC
+#endif // _GLIBCXX_TR1_POLY_LAGUERRE_TCC

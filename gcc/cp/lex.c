@@ -1,13 +1,14 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +17,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file is the lexical analyzer for GNU C++.  */
@@ -197,8 +197,26 @@ static const struct resword reswords[] =
   { "__complex__",	RID_COMPLEX,	0 },
   { "__const",		RID_CONST,	0 },
   { "__const__",	RID_CONST,	0 },
+  { "__decltype",       RID_DECLTYPE,   0 },
   { "__extension__",	RID_EXTENSION,	0 },
   { "__func__",		RID_C99_FUNCTION_NAME,	0 },
+  { "__has_nothrow_assign", RID_HAS_NOTHROW_ASSIGN, 0 },
+  { "__has_nothrow_constructor", RID_HAS_NOTHROW_CONSTRUCTOR, 0 },
+  { "__has_nothrow_copy", RID_HAS_NOTHROW_COPY, 0 },
+  { "__has_trivial_assign", RID_HAS_TRIVIAL_ASSIGN, 0 },
+  { "__has_trivial_constructor", RID_HAS_TRIVIAL_CONSTRUCTOR, 0 },
+  { "__has_trivial_copy", RID_HAS_TRIVIAL_COPY, 0 },
+  { "__has_trivial_destructor", RID_HAS_TRIVIAL_DESTRUCTOR, 0 },
+  { "__has_virtual_destructor", RID_HAS_VIRTUAL_DESTRUCTOR, 0 },
+  { "__is_abstract",	RID_IS_ABSTRACT, 0 },
+  { "__is_base_of",	RID_IS_BASE_OF, 0 },
+  { "__is_class",	RID_IS_CLASS,	0 },
+  { "__is_convertible_to", RID_IS_CONVERTIBLE_TO, 0 },
+  { "__is_empty",	RID_IS_EMPTY,	0 },
+  { "__is_enum",	RID_IS_ENUM,	0 },
+  { "__is_pod",		RID_IS_POD,	0 },
+  { "__is_polymorphic",	RID_IS_POLYMORPHIC, 0 },
+  { "__is_union",	RID_IS_UNION,	0 },
   { "__imag",		RID_IMAGPART,	0 },
   { "__imag__",		RID_IMAGPART,	0 },
   { "__inline",		RID_INLINE,	0 },
@@ -227,6 +245,7 @@ static const struct resword reswords[] =
   { "const",		RID_CONST,	0 },
   { "const_cast",	RID_CONSTCAST,	0 },
   { "continue",		RID_CONTINUE,	0 },
+  { "decltype",         RID_DECLTYPE,   D_CXX0X },
   { "default",		RID_DEFAULT,	0 },
   { "delete",		RID_DELETE,	0 },
   { "do",		RID_DO,		0 },
@@ -317,7 +336,7 @@ init_reswords (void)
   int mask = ((flag_no_asm ? D_ASM : 0)
 	      | D_OBJC
 	      | (flag_no_gnu_keywords ? D_EXT : 0)
-              | (flag_cpp0x ? 0 : D_CXX0X));
+              | ((cxx_dialect == cxx0x) ? 0 : D_CXX0X));
 
   ridpointers = GGC_CNEWVEC (tree, (int) RID_MAX);
   for (i = 0; i < ARRAY_SIZE (reswords); i++)
@@ -553,14 +572,14 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
   else
     {
       filename = ggc_strdup (TREE_STRING_POINTER (fname));
-#if 0
+#ifdef USE_MAPPED_LOCATION
       /* We currently cannot give this diagnostic, as we reach this point
 	 only after cpplib has scanned the entire translation unit, so
 	 cpp_included always returns true.  A plausible fix is to compare
 	 the current source-location cookie with the first source-location
 	 cookie (if any) of the filename, but this requires completing the
 	 --enable-mapped-location project first.  See PR 17577.  */
-      if (cpp_included (parse_in, filename))
+      if (cpp_included_before (parse_in, filename, input_location))
 	warning (0, "#pragma implementation for %qs appears after "
 		 "file is included", filename);
 #endif
@@ -829,4 +848,19 @@ make_aggr_type (enum tree_code code)
     SET_IS_AGGR_TYPE (t, 1);
 
   return t;
+}
+
+/* Returns true if we are currently in the main source file, or in a
+   template instantiation started from the main source file.  */
+
+bool
+in_main_input_context (void)
+{
+  struct tinst_level *tl = outermost_tinst_level();
+
+  if (tl)
+    return strcmp (main_input_filename,
+                  LOCATION_FILE (tl->locus)) == 0;
+  else
+    return strcmp (main_input_filename, input_filename) == 0;
 }

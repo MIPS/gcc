@@ -1,8 +1,8 @@
-# Copyright (C) 1997, 2004 Free Software Foundation, Inc.
+# Copyright (C) 1997, 2004, 2007 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 # 
 # This program is distributed in the hope that it will be useful,
@@ -11,8 +11,8 @@
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 # GCC testsuite that uses the `dg.exp' driver.
 
@@ -24,7 +24,7 @@ load_lib target-supports.exp
 set DEFAULT_VECTCFLAGS ""
 
 # These flags are used for all targets.
-lappend DEFAULT_VECTCFLAGS "-O2" "-ftree-vectorize" \
+lappend DEFAULT_VECTCFLAGS "-O2" "-ftree-vectorize" "-fno-vect-cost-model" \
   "-ftree-vectorizer-verbose=4" "-fdump-tree-vect-stats"
 
 # If the target system supports vector instructions, the default action
@@ -90,7 +90,30 @@ proc check_effective_target_lp64_or_vect_no_align { } {
 dg-init
 
 # Main loop.
-gfortran-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.\[fF\]{,90,95,03} ]] $DEFAULT_VECTCFLAGS
+gfortran-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/vect-*.\[fF\]{,90,95,03} ]] $DEFAULT_VECTCFLAGS
+gfortran-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/pr*.\[fF\]{,90,95,03} ]] $DEFAULT_VECTCFLAGS
+
+#### Tests with special options
+global SAVED_DEFAULT_VECTCFLAGS
+set SAVED_DEFAULT_VECTCFLAGS $DEFAULT_VECTCFLAGS
+
+# -ffast-math tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-ffast-math"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/fast-math-*.\[fF\]{,90,95,03} ]]  \
+        "" $DEFAULT_VECTCFLAGS
+
+# -fvect-cost-model tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "-fvect-cost-model"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/cost-model-*.\[fF\]{,90,95,03} ]]  \
+        "" $DEFAULT_VECTCFLAGS
+
+# --param vect-max-version-for-alias-checks=0 tests
+set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
+lappend DEFAULT_VECTCFLAGS "--param" "vect-max-version-for-alias-checks=0"
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/no-vfa-*.\[fF\]{,90,95,03} ]]  \
+        "" $DEFAULT_VECTCFLAGS
 
 # Clean up.
 set dg-do-what-default ${save-dg-do-what-default}

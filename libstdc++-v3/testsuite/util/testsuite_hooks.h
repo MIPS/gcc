@@ -134,7 +134,7 @@ namespace __gnu_test
     func_callback(const func_callback&);
 
   public:
-    func_callback(): _M_size(0) { };
+    func_callback(): _M_size(0) { }
 
     int
     size() const { return _M_size; }
@@ -158,24 +158,6 @@ namespace __gnu_test
   // Run select unit tests after setting environment variables.
   void 
   run_tests_wrapped_env(const char*, const char*, const func_callback&);
-
-
-  // For containers (23.1/3).
-  struct NonDefaultConstructible
-  {
-    NonDefaultConstructible(int) { }
-  };
- 
-  inline bool
-  operator==(const NonDefaultConstructible&,
-	     const NonDefaultConstructible&)
-  { return false; }
-
-  inline bool
-  operator<(const NonDefaultConstructible&,
-	    const NonDefaultConstructible&)
-  { return false; }
-
 
   // Counting.
   struct counter

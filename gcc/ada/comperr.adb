@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by AdaCore.                         --
@@ -71,8 +70,9 @@ package body Comperr is
    --------------------
 
    procedure Compiler_Abort
-     (X    : String;
-      Code : Integer := 0)
+     (X            : String;
+      Code         : Integer := 0;
+      Fallback_Loc : String := "")
    is
       --  The procedures below output a "bug box" with information about
       --  the cause of the compiler abort and about the preferred method
@@ -96,8 +96,8 @@ package body Comperr is
          Write_Eol;
       end End_Line;
 
-      Is_GPL_Version : constant Boolean := Get_Gnat_Build_Type = GPL;
-      Is_FSF_Version : constant Boolean := Get_Gnat_Build_Type = FSF;
+      Is_GPL_Version : constant Boolean := Gnatvsn.Build_Type = GPL;
+      Is_FSF_Version : constant Boolean := Gnatvsn.Build_Type = FSF;
 
    --  Start of processing for Compiler_Abort
 
@@ -119,7 +119,8 @@ package body Comperr is
       --  Debug flag K disables this behavior (useful for debugging)
 
       if Serious_Errors_Detected /= 0 and then not Debug_Flag_K then
-         Errout.Finalize;
+         Errout.Finalize (Last_Call => True);
+         Errout.Output_Messages;
 
          Set_Standard_Error;
          Write_Str ("compilation abandoned due to previous error");
@@ -213,10 +214,14 @@ package body Comperr is
 
          --  Output source location information
 
-         if Sloc (Current_Error_Node) <= Standard_Location
-           or else Sloc (Current_Error_Node) = No_Location
-         then
-            Write_Str ("| No source file position information available");
+         if Sloc (Current_Error_Node) <= No_Location then
+            if Fallback_Loc'Length > 0 then
+               Write_Str ("| Error detected around ");
+               Write_Str (Fallback_Loc);
+            else
+               Write_Str ("| No source file position information available");
+            end if;
+
             End_Line;
          else
             Write_Str ("| Error detected at ");

@@ -1,12 +1,12 @@
 /* Linear Loop transforms
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -31,6 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "rtl.h"
 #include "basic-block.h"
 #include "diagnostic.h"
+#include "obstack.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "timevar.h"
@@ -117,7 +117,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations,
 
       for (j = 0; j < DDR_NUM_DIST_VECTS (ddr); j++)
 	{
-	  int dist = DDR_DIST_VECT (ddr, j)[loop->depth - first_loop->depth];
+	  int dist = DDR_DIST_VECT (ddr, j)[loop_depth (loop) - loop_depth (first_loop)];
 
 	  if (dist == 0)
 	    (*nb_deps_not_carried_by_loop) += 1;
@@ -200,7 +200,7 @@ try_interchange_loops (lambda_trans_matrix trans,
        loop_j; 
        loop_j = loop_j->inner)
     for (loop_i = first_loop; 
-	 loop_i->depth < loop_j->depth; 
+	 loop_depth (loop_i) < loop_depth (loop_j); 
 	 loop_i = loop_i->inner)
       {
 	gather_interchange_stats (dependence_relations, datarefs,
@@ -230,18 +230,58 @@ try_interchange_loops (lambda_trans_matrix trans,
 	    || double_int_ucmp (access_strides_i, access_strides_j) < 0)
 	  {
 	    lambda_matrix_row_exchange (LTM_MATRIX (trans),
-					loop_i->depth - first_loop->depth,
-					loop_j->depth - first_loop->depth);
+					loop_depth (loop_i) - loop_depth (first_loop),
+					loop_depth (loop_j) - loop_depth (first_loop));
 	    /* Validate the resulting matrix.  When the transformation
 	       is not valid, reverse to the previous transformation.  */
 	    if (!lambda_transform_legal_p (trans, depth, dependence_relations))
 	      lambda_matrix_row_exchange (LTM_MATRIX (trans), 
-					  loop_i->depth - first_loop->depth, 
-					  loop_j->depth - first_loop->depth);
+					  loop_depth (loop_i) - loop_depth (first_loop), 
+					  loop_depth (loop_j) - loop_depth (first_loop));
 	  }
       }
 
   return trans;
+}
+
+/* Return the number of nested loops in LOOP_NEST, or 0 if the loops
+   are not perfectly nested.  */
+
+static unsigned int
+perfect_loop_nest_depth (struct loop *loop_nest)
+{
+  struct loop *temp;
+  unsigned int depth = 1;
+
+  /* If it's not a loop nest, we don't want it.  We also don't handle
+     sibling loops properly, which are loops of the following form:
+
+     | for (i = 0; i < 50; i++)
+     |   {
+     |     for (j = 0; j < 50; j++)
+     |       {
+     |        ...
+     |       }
+     |     for (j = 0; j < 50; j++)
+     |       {
+     |        ...
+     |       }
+     |   }
+  */
+
+  if (!loop_nest->inner || !single_exit (loop_nest))
+    return 0;
+
+  for (temp = loop_nest->inner; temp; temp = temp->inner)
+    {
+      /* If we have a sibling loop or multiple exit edges, jump ship.  */
+      if (temp->next || !single_exit (temp))
+	return 0;
+
+      depth++;
+    }
+
+  return depth;
 }
 
 /* Perform a set of linear transforms on loops.  */
@@ -253,51 +293,28 @@ linear_transform_loops (void)
   loop_iterator li;
   VEC(tree,heap) *oldivs = NULL;
   VEC(tree,heap) *invariants = NULL;
+  VEC(tree,heap) *remove_ivs = VEC_alloc (tree, heap, 3);
   struct loop *loop_nest;
-  
+  tree oldiv_stmt;
+  unsigned i;
+
   FOR_EACH_LOOP (li, loop_nest, 0)
     {
       unsigned int depth = 0;
       VEC (ddr_p, heap) *dependence_relations;
       VEC (data_reference_p, heap) *datarefs;
-      struct loop *temp;
       lambda_loopnest before, after;
       lambda_trans_matrix trans;
-      bool problem = false;
-      /* If it's not a loop nest, we don't want it.
-         We also don't handle sibling loops properly, 
-         which are loops of the following form:
-         for (i = 0; i < 50; i++)
-           {
-             for (j = 0; j < 50; j++)
-               {
-	        ...
-               }
-             for (j = 0; j < 50; j++)
-               {
-                ...
-               }
-           } */
-      if (!loop_nest->inner || !single_exit (loop_nest))
-	continue;
-      VEC_truncate (tree, oldivs, 0);
-      VEC_truncate (tree, invariants, 0);
-      depth = 1;
-      for (temp = loop_nest->inner; temp; temp = temp->inner)
-	{
-	  /* If we have a sibling loop or multiple exit edges, jump ship.  */
-	  if (temp->next || !single_exit (temp))
-	    {
-	      problem = true;
-	      break;
-	    }
-	  depth ++;
-	}
-      if (problem)
+      struct obstack lambda_obstack;
+      gcc_obstack_init (&lambda_obstack);
+
+      depth = perfect_loop_nest_depth (loop_nest);
+      if (depth == 0)
 	continue;
 
-      /* Analyze data references and dependence relations using scev.  */      
- 
+      VEC_truncate (tree, oldivs, 0);
+      VEC_truncate (tree, invariants, 0);
+
       datarefs = VEC_alloc (data_reference_p, heap, 10);
       dependence_relations = VEC_alloc (ddr_p, heap, 10 * 10);
       compute_data_dependences_for_loop (loop_nest, true, &datarefs,
@@ -328,7 +345,7 @@ linear_transform_loops (void)
 	}
 
       before = gcc_loopnest_to_lambda_loopnest (loop_nest, &oldivs,
-						&invariants);
+                                                &invariants, &lambda_obstack);
 
       if (!before)
 	goto free_and_continue;
@@ -339,7 +356,7 @@ linear_transform_loops (void)
 	  print_lambda_loopnest (dump_file, before, 'i');
 	}
   
-      after = lambda_loopnest_transform (before, trans);
+      after = lambda_loopnest_transform (before, trans, &lambda_obstack);
 
       if (dump_file)
 	{
@@ -348,19 +365,25 @@ linear_transform_loops (void)
 	}
 
       lambda_loopnest_to_gcc_loopnest (loop_nest, oldivs, invariants,
-				       after, trans);
+				       &remove_ivs,
+                                       after, trans, &lambda_obstack);
       modified = true;
 
       if (dump_file)
 	fprintf (dump_file, "Successfully transformed loop.\n");
 
     free_and_continue:
+      obstack_free (&lambda_obstack, NULL);
       free_dependence_relations (dependence_relations);
       free_data_refs (datarefs);
     }
 
+  for (i = 0; VEC_iterate (tree, remove_ivs, i, oldiv_stmt); i++)
+    remove_iv (oldiv_stmt);
+
   VEC_free (tree, heap, oldivs);
   VEC_free (tree, heap, invariants);
+  VEC_free (tree, heap, remove_ivs);
   scev_reset ();
 
   if (modified)

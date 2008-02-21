@@ -1,3 +1,204 @@
+2008-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35196
+	* testsuite/libgomp.c/pr35196.c: New test.
+
+	PR middle-end/35130
+	* testsuite/libgomp.fortran/pr35130.f90: New test.
+	* testsuite/libgomp.c/pr35130.c: New test.
+
+2008-01-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/33880
+	* testsuite/libgomp.c/pr33880.c: New test.
+	* testsuite/libgomp.fortran/pr33880.f90: New test.
+
+2008-01-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure: Regenerate.
+
+2008-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac: Move futex checking into ../config/futex.m4.
+	* configure: Rebuilt.
+	* aclocal.m4: Rebuilt.
+	* Makefile.in: Rebuilt.
+
+	* configure.tgt: Rename have_tls to gcc_cv_have_tls to match
+	2007-10-15 ../config/tls.m4 change.
+
+2007-12-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34513
+	* testsuite/libgomp.c/pr34513.c: New test.
+	* testsuite/libgomp.c++/pr34513.C: New test.
+
+2007-12-17  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR target/32765
+	* testsuite/libgomp.fortran/crayptr2.f90: Move dg-options for darwin.
+
+2007-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (__GOMP_NOTHROW): Define.  Use it on omp_* prototypes.
+
+2007-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/private-1.c: New test.
+
+2007-11-29  Andris Pavenis <andris.pavenis@iki.fi>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.am: Use space as vpath separator.  Use 'vpath %'
+	instead of 'VPATH ='.
+	* Makefile.in: Regenerate.
+
+2007-11-23  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Adjust makeinfo version check.
+	* configure: Regenerate.
+
+2007-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/34020
+	* testsuite/libgomp.fortran/pr34020.f90: New test.
+
+2007-11-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/33894
+	* testsuite/libgomp.c++/atomic-1.C: New test.
+
+2007-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/33275
+	* testsuite/libgomp.fortran/omp_parse3.f90 (test_threadprivate):
+	Make x and y integers rather than (implicit) reals.  Add private (j)
+	clause to the last omp parallel.
+
+2007-10-15  Maciej W. Rozycki  <macro@linux-mips.org>
+
+	* configure: Regenerate following changes to ../config/tls.m4.
+
+2007-09-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/stack.f90: New test.
+
+2007-09-10  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/mingw32/proc.c: New file.
+
+2007-09-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/libgomp.c/atomic-1.c: Include cpuid.h for i386 targets.
+	(main): Use __get_cpuid to get i386 target fetaures.
+	* testsuite/libgomp.c/atomic-2.c: Include cpuid.h for x86_64 targets.
+	(main): Use __get_cpuid to get x86_64 target fetaures.
+
+2007-08-15  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR target/32765
+	* testsuite/libgomp.fortran/pr32550.f90: Use -static-libgcc on Darwin.
+	* testsuite/libgomp.fortran/crayptr2.f90: Likwise.
+
+2007-07-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/32550
+	* testsuite/libgomp.fortran/pr32550.f90: New test.
+	* testsuite/libgomp.fortran/crayptr2.f90: New test.
+
+2007-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* aclocal.m4: Regenerated.
+
+2007-07-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/32359
+	* testsuite/libgomp.fortran/pr32359.f90: New.
+
+2007-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/32468
+	* sections.c (GOMP_parallel_sections_start): Only decrease
+	number of threads to COUNT if dyn_var is true.
+	* testsuite/libgomp.c/pr32468.c: New test.
+
+2007-07-02  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libgomp/26308
+	* config/posix/lock.c (_XOPEN_SOURCE): Don't define on Tru64 UNIX.
+
+2007-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/32362
+	* testsuite/libgomp.c/pr32362-1.c: New test.
+	* testsuite/libgomp.c/pr32362-2.c: New test.
+	* testsuite/libgomp.c/pr32362-3.c: New test.
+
+2007-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* team.c (gomp_team_start): Fix setting up thread_attr
+	stack size.
+
+2007-06-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure: Regenerate.
+
+2007-05-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* aclocal.m4: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2007-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux/proc.c: New file.
+
+	PR libgomp/28482
+	* configure.tgt: Don't link with -Wl,-z,nodlopen even on Linux.
+
+2007-04-19  Daniel Franke  <franke.daniel@gmail.com>
+
+	* libgomp.texi (GOMP_CPU_AFFINITY): Updated.
+
+2007-04-16  Matthias Klose  <doko@debian.org>
+
+	* configure.tgt (i[456]86-*-linux*): Only add ia32 specific
+	flags if not building with -m64.
+	* testsuite/lib/libgomp-dg.exp (libgomp_init): Don't add -march
+	flag for i?86-*-* targets, if current target matches -m64.
+
+2007-04-14  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.am: Add -I .. to ACLOCAL_AMFLAGS.
+	* Makefile.in: Regenerate.
+
+2007-04-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/31369
+	* testsuite/libgomp.c++/c++.exp: Don't use concat when setting
+	ld_library_path.
+	* testsuite/libgomp.fortran/fortran.exp: Likewise.
+
+2007-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (gomp_cpu_affinity, gomp_cpu_affinity_len): New extern
+	decls.
+	(gomp_init_affinity, gomp_init_thread_affinity): New prototypes.
+	* env.c (gomp_cpu_affinity, gomp_cpu_affinity_len): New variables.
+	(parse_affinity): New function.
+	(initialize_env): Call it and gomp_init_affinity.
+	* team.c (gomp_team_start): If gomp_cpu_affinity != NULL,
+	create new pthread_attr_t and call gomp_init_thread_affinity
+	on it for each thread before passing the attribute to pthread_create.
+	* config/linux/affinity.c: New file.
+	* config/posix/affinity.c: New file.
+	* configure.ac (HAVE_PTHREAD_AFFINITY_NP): New test.
+	* configure: Rebuilt.
+	* config.h.in: Rebuilt.
+	* Makefile.am (libgomp_la_SOURCES): Add affinity.c.
+	* Makefile.in: Rebuilt.
+
 2007-03-23  Andreas Tobler  <a.tobler@schweiz.org>
 
 	* testsuite/lib/libgomp.exp (libgomp_init): Add -shared-libgcc for

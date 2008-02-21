@@ -1,23 +1,22 @@
 /* Tree based points-to analysis
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2007 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
-This file is part of GCC.
+   This file is part of GCC.
 
-GCC is free software; you can redistribute it and/or modify
-under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   GCC is free software; you can redistribute it and/or modify
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3 of the License, or
+   (at your option) any later version.
 
-GCC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GCC; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #ifndef TREE_SSA_STRUCTALIAS_H
 #define TREE_SSA_STRUCTALIAS_H
@@ -49,12 +48,6 @@ struct alias_info
   struct alias_map_d **pointers;
   size_t num_pointers;
 
-  /* Number of function calls found in the program.  */
-  size_t num_calls_found;
-
-  /* Number of const/pure function calls found in the program.  */
-  size_t num_pure_const_calls_found;
-
   /* Variables that have been written to directly (i.e., not through a
      pointer dereference).  */
   struct pointer_set_t *written_vars;
@@ -71,6 +64,7 @@ struct alias_info
 
 /* In tree-ssa-alias.c.  */
 enum escape_type is_escape_site (tree);
+void update_mem_sym_stats_from_stmt (tree, tree, long, long);
 
 /* In tree-ssa-structalias.c.  */
 extern void compute_points_to_sets (struct alias_info *);

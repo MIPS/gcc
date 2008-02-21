@@ -1,11 +1,11 @@
 /* Nested function decomposition for trees.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
+   the Free Software Foundation; either version 3, or (at your option)
    any later version.
 
    GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -184,6 +183,10 @@ insert_field_into_struct (tree type, tree field)
 
   TREE_CHAIN (field) = *p;
   *p = field;
+
+  /* Set correct alignment for frame struct type.  */
+  if (TYPE_ALIGN (type) < DECL_ALIGN (field))
+    TYPE_ALIGN (type) = DECL_ALIGN (field);
 }
 
 /* Build or return the RECORD_TYPE that describes the frame state that is
@@ -403,8 +406,8 @@ static GTY(()) tree trampoline_type;
 static tree
 get_trampoline_type (void)
 {
-  tree record, t;
   unsigned align, size;
+  tree t;
 
   if (trampoline_type)
     return trampoline_type;
@@ -426,12 +429,12 @@ get_trampoline_type (void)
   DECL_ALIGN (t) = align;
   DECL_USER_ALIGN (t) = 1;
 
-  record = make_node (RECORD_TYPE);
-  TYPE_NAME (record) = get_identifier ("__builtin_trampoline");
-  TYPE_FIELDS (record) = t;
-  layout_type (record);
+  trampoline_type = make_node (RECORD_TYPE);
+  TYPE_NAME (trampoline_type) = get_identifier ("__builtin_trampoline");
+  TYPE_FIELDS (trampoline_type) = t;
+  layout_type (trampoline_type);
 
-  return record;
+  return trampoline_type;
 }
 
 /* Given DECL, a nested function, find or create a field in the non-local
@@ -664,6 +667,59 @@ static inline void
 walk_function (walk_tree_fn callback, struct nesting_info *info)
 {
   walk_body (callback, info, &DECL_SAVED_TREE (info->context));
+}
+
+/* Invoke CALLBACK on OMP_FOR init, cond, incr and pre-body.  */
+
+static void
+walk_omp_for (walk_tree_fn callback, struct nesting_info *info, tree for_stmt)
+{
+  struct walk_stmt_info wi;
+  tree t, list = NULL, empty;
+
+  walk_body (callback, info, &OMP_FOR_PRE_BODY (for_stmt));
+
+  empty = build_empty_stmt ();
+  append_to_statement_list_force (empty, &list);
+  memset (&wi, 0, sizeof (wi));
+  wi.callback = callback;
+  wi.info = info;
+  wi.tsi = tsi_last (list);
+
+  t = OMP_FOR_INIT (for_stmt);
+  gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+  wi.val_only = false;
+  walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
+  wi.val_only = true;
+  wi.is_lhs = false;
+  walk_tree (&GIMPLE_STMT_OPERAND (t, 1), callback, &wi, NULL);
+
+  t = OMP_FOR_COND (for_stmt);
+  gcc_assert (COMPARISON_CLASS_P (t));
+  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+  wi.val_only = false;
+  walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
+  wi.val_only = true;
+  wi.is_lhs = false;
+  walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
+
+  t = OMP_FOR_INCR (for_stmt);
+  gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+  wi.val_only = false;
+  walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
+  t = GIMPLE_STMT_OPERAND (t, 1);
+  gcc_assert (BINARY_CLASS_P (t));
+  wi.val_only = false;
+  walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
+  wi.val_only = true;
+  wi.is_lhs = false;
+  walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
+
+  /* Remove empty statement added above from the end of statement list.  */
+  tsi_delink (&wi.tsi);
+  append_to_statement_list (list, &OMP_FOR_PRE_BODY (for_stmt));
 }
 
 /* Similarly for ROOT and all functions nested underneath, depth first.  */
@@ -1035,6 +1091,13 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       walk_tree (tp, convert_nonlocal_reference, wi, NULL);
       break;
 
+    case VIEW_CONVERT_EXPR:
+      /* Just request to look at the subtrees, leaving val_only and lhs
+	 untouched.  This might actually be for !val_only + lhs, in which
+	 case we don't want to force a replacement by a temporary.  */
+      *walk_subtrees = 1;
+      break;
+
     case OMP_PARALLEL:
       save_suppress = info->suppress_expansion;
       if (convert_nonlocal_omp_clauses (&OMP_PARALLEL_CLAUSES (t), wi))
@@ -1059,6 +1122,13 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_FOR:
+      save_suppress = info->suppress_expansion;
+      convert_nonlocal_omp_clauses (&OMP_FOR_CLAUSES (t), wi);
+      walk_omp_for (convert_nonlocal_reference, info, t);
+      walk_body (convert_nonlocal_reference, info, &OMP_FOR_BODY (t));
+      info->suppress_expansion = save_suppress;
+      break;
+
     case OMP_SECTIONS:
     case OMP_SINGLE:
       save_suppress = info->suppress_expansion;
@@ -1313,6 +1383,13 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       wi->val_only = save_val_only;
       break;
 
+    case VIEW_CONVERT_EXPR:
+      /* Just request to look at the subtrees, leaving val_only and lhs
+	 untouched.  This might actually be for !val_only + lhs, in which
+	 case we don't want to force a replacement by a temporary.  */
+      *walk_subtrees = 1;
+      break;
+
     case OMP_PARALLEL:
       save_suppress = info->suppress_expansion;
       if (convert_local_omp_clauses (&OMP_PARALLEL_CLAUSES (t), wi))
@@ -1337,6 +1414,13 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_FOR:
+      save_suppress = info->suppress_expansion;
+      convert_local_omp_clauses (&OMP_FOR_CLAUSES (t), wi);
+      walk_omp_for (convert_local_reference, info, t);
+      walk_body (convert_local_reference, info, &OMP_FOR_BODY (t));
+      info->suppress_expansion = save_suppress;
+      break;
+
     case OMP_SECTIONS:
     case OMP_SINGLE:
       save_suppress = info->suppress_expansion;
@@ -1659,7 +1743,8 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 	      break;
 	  if (c == NULL)
 	    {
-	      c = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
+	      c = build_omp_clause (i ? OMP_CLAUSE_FIRSTPRIVATE
+				      : OMP_CLAUSE_SHARED);
 	      OMP_CLAUSE_DECL (c) = decl;
 	      OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
 	      OMP_PARALLEL_CLAUSES (t) = c;
@@ -1669,6 +1754,8 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_FOR:
+      walk_body (convert_call_expr, info, &OMP_FOR_PRE_BODY (t));
+      /* FALLTHRU */
     case OMP_SECTIONS:
     case OMP_SECTION:
     case OMP_SINGLE:

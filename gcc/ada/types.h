@@ -6,18 +6,17 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
  * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * Public License  distributed with GNAT; see file COPYING3.  If not, go to *
+ * http://www.gnu.org/licenses for a complete copy of the license.          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -328,6 +327,10 @@ typedef Int Mechanism_Type;
 #define By_Descriptor_SB   (-8)
 #define By_Descriptor_A    (-9)
 #define By_Descriptor_NCA  (-10)
+#define By_Descriptor_Last (-10)
+
+/* Internal to Gigi.  */
+#define By_Copy_Return     (-128)
 
 /* Definitions of Reason codes for Raise_xxx_Error nodes */
 #define CE_Access_Check_Failed              0
@@ -359,7 +362,7 @@ typedef Int Mechanism_Type;
 #define PE_Potentially_Blocking_Operation  25
 #define PE_Stubbed_Subprogram_Called       26
 #define PE_Unchecked_Union_Restriction     27
-#define PE_Illegal_RACW_E_4_18             28
+#define PE_Non_Transportable_Actual        28
 
 #define SE_Empty_Storage_Pool              29
 #define SE_Explicit_Raise                  30

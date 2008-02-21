@@ -1,6 +1,0 @@
-2004-12-09 Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
-	merged in tree-profiling branch as of 2004-12-08
-
-2005-04-09 Olga Golovanevsky <olga@il.ibm.com>
-	* lib/profopt.exp: Support xfail for profile-based 
-	optimizations.

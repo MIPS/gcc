@@ -1,13 +1,13 @@
 /* Definitions of target machine for GNU compiler, for HPs running
    HPUX using the 64bit runtime model.
-   Copyright (C) 1999, 2000, 2001, 2002, 2004, 2005 Free Software Foundation,
+   Copyright (C) 1999, 2000, 2001, 2002, 2004, 2005, 2007 Free Software Foundation,
    Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* We can debug dynamically linked executables on hpux11; we also
    want dereferencing of a NULL pointer to cause a SEGV.  Do not move
@@ -65,7 +64,8 @@ Boston, MA 02110-1301, USA.  */
 	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
        -lgprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
-       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}"
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+   %{shared:%{mt|pthread:-lpthread}}"
 #else
 #define LIB_SPEC \
   "%{!shared:\
@@ -76,7 +76,8 @@ Boston, MA 02110-1301, USA.  */
 	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{pg:%{static:%{mgnu-ld:-a shared}%{!mgnu-ld:-a archive_shared}}\
        -lgprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
-       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}"
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+   %{shared:%{mt|pthread:-lpthread}}"
 #endif
 
 /* The libgcc_stub.a and milli.a libraries need to come last.  */

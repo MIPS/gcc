@@ -1,4 +1,4 @@
-! { dg-compile }
+! { dg-do compile }
 ! { dg-options "-std=f95" }
 ! { dg-shouldfail "Fortran 2003 feature with -std=f95" }
 !
@@ -11,7 +11,7 @@ program test
  integer, pointer :: p
  allocate(p)
  p = 33
- call a(p) ! { dg-error "Type/rank mismatch in argument" }
+ call a(p) ! { dg-error "Type mismatch in argument" }
 contains
   subroutine a(p)! { dg-error "has no IMPLICIT type" }
     integer, pointer,intent(in) :: p ! { dg-error "POINTER attribute with INTENT attribute" }

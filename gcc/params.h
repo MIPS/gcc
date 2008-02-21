@@ -1,12 +1,12 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,11 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.
-
-*/
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This module provides a means for setting integral parameters
    dynamically.  Instead of encoding magic numbers in various places,
@@ -106,6 +103,8 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_SRA_MAX_STRUCTURE_COUNT)
 #define SRA_FIELD_STRUCTURE_RATIO \
   PARAM_VALUE (PARAM_SRA_FIELD_STRUCTURE_RATIO)
+#define STRUCT_REORG_COLD_STRUCT_RATIO \
+  PARAM_VALUE (PARAM_STRUCT_REORG_COLD_STRUCT_RATIO)
 #define MAX_INLINE_INSNS_SINGLE \
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS_SINGLE)
 #define MAX_INLINE_INSNS \
@@ -146,20 +145,10 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD)
 #define MAX_ALIASED_VOPS \
   PARAM_VALUE (PARAM_MAX_ALIASED_VOPS)
+#define AVG_ALIASED_VOPS \
+  PARAM_VALUE (PARAM_AVG_ALIASED_VOPS)
 #define INTEGER_SHARE_LIMIT \
   PARAM_VALUE (PARAM_INTEGER_SHARE_LIMIT)
-#define COLD_FIELD_RATIO \
-  PARAM_VALUE (PARAM_COLD_FIELD_RATIO)
-#define COLD_STRUCTURE_RATIO \
-  PARAM_VALUE (PARAM_COLD_STRUCTURE_RATIO)
-#define STRUCT_REORG_CACHE_LINE_SIZE \
-  PARAM_VALUE (PARAM_STRUCT_REORG_CACHE_LINE_SIZE)
-#define STRUCT_REORG_DYNAMIC_THRESHOLD \
-  PARAM_VALUE (PARAM_STRUCT_REORG_DYNAMIC_THRESHOLD)
-#define STRUCT_REORG_DISTANCE_THRESHOLD \
-  PARAM_VALUE (PARAM_STRUCT_REORG_DISTANCE_THRESHOLD)
-#define STRUCT_REORG_CACHE_MISS_PENALTY \
-  PARAM_VALUE (PARAM_STRUCT_REORG_CACHE_MISS_PENALTY)
 #define MAX_LAST_VALUE_RTL \
   PARAM_VALUE (PARAM_MAX_LAST_VALUE_RTL)
 #define MIN_VIRTUAL_MAPPINGS \
@@ -178,6 +167,8 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_L1_CACHE_SIZE)
 #define L1_CACHE_LINE_SIZE \
   PARAM_VALUE (PARAM_L1_CACHE_LINE_SIZE)
-#define VERIFY_CANONICAL_TYPES \
-  PARAM_VALUE (PARAM_VERIFY_CANONICAL_TYPES)
+#define L2_CACHE_SIZE \
+  PARAM_VALUE (PARAM_L2_CACHE_SIZE)
+#define USE_CANONICAL_TYPES \
+  PARAM_VALUE (PARAM_USE_CANONICAL_TYPES)
 #endif /* ! GCC_PARAMS_H */

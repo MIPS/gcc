@@ -1,12 +1,12 @@
 /* Language-specific hook definitions for C front end.
    Copyright (C) 1991, 1995, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 #include "config.h"
@@ -34,7 +33,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "c-objc-common.h"
 #include "c-pragma.h"
-#include "cgraph.h"
 
 enum c_language_kind c_language = clk_c;
 
@@ -45,23 +43,6 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_NAME "GNU C"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT c_objc_common_init
-
-#undef  LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE
-#define LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE build_component_ref
-#undef  LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF
-#define LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF build_indirect_ref
-#undef  LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD 
-#define LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD lookup_field
-#undef  LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT
-#define LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT build_basic_struct
-#undef  LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF
-#define LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF build_array_ref
-#undef  LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE
-#define LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE c_sizeof_or_alignof_type
-#undef  LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES
-#define LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES decl_attributes
-#undef  LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION
-#define LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION reorg_structs
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

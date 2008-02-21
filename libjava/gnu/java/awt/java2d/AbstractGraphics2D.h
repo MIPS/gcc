@@ -20,6 +20,8 @@ extern "Java"
         namespace java2d
         {
             class AbstractGraphics2D;
+            class ScanlineConverter;
+            class ScanlineCoverage;
             class ShapeCache;
         }
       }
@@ -29,6 +31,7 @@ extern "Java"
   {
     namespace awt
     {
+        class BasicStroke;
         class Color;
         class Composite;
         class Font;
@@ -50,7 +53,6 @@ extern "Java"
       namespace geom
       {
           class AffineTransform;
-          class Rectangle2D;
       }
       namespace image
       {
@@ -175,12 +177,8 @@ public: // actually protected
   virtual void rawCopyArea(jint, jint, jint, jint, jint, jint);
 private:
   void copyAreaImpl(jint, jint, jint, jint, jint, jint);
-  void fillShapeImpl(::java::util::ArrayList *, ::java::awt::geom::Rectangle2D *, ::java::awt::geom::Rectangle2D *, ::java::awt::geom::Rectangle2D *);
-public: // actually protected
-  virtual void fillScanline(::java::awt::PaintContext *, jint, jint, jint);
-private:
-  void fillShapeAntialias(::java::util::ArrayList *, ::java::awt::geom::Rectangle2D *, ::java::awt::geom::Rectangle2D *, ::java::awt::geom::Rectangle2D *);
-  void fillScanlineAA(JArray< jint > *, jint, jint, jint, ::java::awt::PaintContext *, jint);
+public:
+  virtual void renderScanline(jint, ::gnu::java::awt::java2d::ScanlineCoverage *);
 public: // actually protected
   virtual void init();
   virtual ::java::awt::image::WritableRaster * getDestinationRaster();
@@ -189,14 +187,16 @@ private:
   void updateOptimization();
   static ::java::awt::Rectangle * computeIntersection(jint, jint, jint, jint, ::java::awt::Rectangle *);
   void updateClip(::java::awt::geom::AffineTransform *);
-  ::java::util::ArrayList * getSegments(::java::awt::Shape *, ::java::awt::geom::AffineTransform *, ::java::awt::geom::Rectangle2D *, jboolean);
   ::gnu::java::awt::java2d::ShapeCache * getShapeCache();
-  static const jint AA_SAMPLING = 8;
+  ::gnu::java::awt::java2d::ScanlineConverter * getScanlineConverter();
+  static ::java::awt::Font * FONT;
   static ::java::lang::ThreadLocal * shapeCache;
+  static ::java::lang::ThreadLocal * scanlineConverters;
 public: // actually protected
   ::java::awt::geom::AffineTransform * __attribute__((aligned(__alignof__( ::java::awt::Graphics2D)))) transform__;
 private:
   ::java::awt::Paint * paint;
+  ::java::awt::PaintContext * paintContext;
   ::java::awt::Color * background;
   ::java::awt::Font * font;
   ::java::awt::Composite * composite;
@@ -204,9 +204,9 @@ private:
   ::java::awt::Shape * clip__;
   ::java::awt::RenderingHints * renderingHints;
   ::java::awt::image::WritableRaster * destinationRaster;
-  JArray< jint > * alpha;
-  JArray< ::java::util::ArrayList * > * edgeTable;
   jboolean isOptimized;
+  static ::java::awt::BasicStroke * STANDARD_STROKE;
+  static ::java::util::HashMap * STANDARD_HINTS;
 public:
   static ::java::lang::Class class$;
 };

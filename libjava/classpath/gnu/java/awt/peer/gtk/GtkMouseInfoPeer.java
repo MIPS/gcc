@@ -53,24 +53,14 @@ public class GtkMouseInfoPeer implements MouseInfoPeer
   public int fillPointWithCoords(Point p)
   {
     int[] coords = gde.getMouseCoordinates();
-      p.x = coords[1]; 
-      p.y = coords[2];
-      return coords[0];
+    p.x = coords[1]; 
+    p.y = coords[2];
+    return coords[0];
   }
   
   public boolean isWindowUnderMouse(Window w)
   {
-    int[] coords = gde.getMouseCoordinates();
-    GraphicsDevice[] gds = gde.getScreenDevices();
-
-    // Check if the screen  of the Window and the cursor match
-    if( gds[ coords[0] ] != w.getGraphicsConfiguration().getDevice() )
-      return false;
-
-    // Return the bounds-check.
-    Point p = w.getLocationOnScreen();
-    return (coords[1] >= p.x && coords[1] < p.x + w.getWidth() &&
-	    coords[2] >= p.y && coords[2] < p.y + w.getHeight() );
-    }
+    return gde.isWindowUnderMouse((GtkWindowPeer) w.getPeer());
+  }
 }
 

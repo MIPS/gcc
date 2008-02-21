@@ -1,12 +1,12 @@
 # Top level -*- makefile -*- fragment for GNU Objective-C
-#   Copyright (C) 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005
+#   Copyright (C) 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005, 2007
 #   Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
 #GCC is free software; you can redistribute it and/or modify
 #it under the terms of the GNU General Public License as published by
-#the Free Software Foundation; either version 2, or (at your option)
+#the Free Software Foundation; either version 3, or (at your option)
 #any later version.
 
 #GCC is distributed in the hope that it will be useful,
@@ -14,10 +14,10 @@
 #MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #GNU General Public License for more details.
 
-#You should have received a copy of the GNU General Public License
-#along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-#Boston, MA 02110-1301, USA.
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
 
 # This file provides the language dependent support in the main Makefile.
 # Each language makefile fragment must provide the following targets:
@@ -52,7 +52,7 @@ OBJC_OBJS = objc/objc-lang.o objc/objc-act.o
 cc1obj-dummy$(exeext): $(OBJC_OBJS) $(C_AND_OBJC_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 	      $(OBJC_OBJS) $(C_AND_OBJC_OBJS) dummy-checksum.o \
-	      $(BACKEND) $(LIBS)
+	      $(BACKEND) $(LIBS) $(GMPLIBS)
 
 cc1obj-checksum.c : cc1obj-dummy$(exeext) build/genchecksum$(build_exeext)
 	build/genchecksum$(build_exeext) cc1obj-dummy$(exeext) > $@
@@ -62,7 +62,7 @@ cc1obj-checksum.o : cc1obj-checksum.c
 cc1obj$(exeext): $(OBJC_OBJS) $(C_AND_OBJC_OBJS) cc1obj-checksum.o $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 	      $(OBJC_OBJS) $(C_AND_OBJC_OBJS) cc1obj-checksum.o \
-	      $(BACKEND) $(LIBS)
+	      $(BACKEND) $(LIBS) $(GMPLIBS)
 
 # Objective C language specific files.
 

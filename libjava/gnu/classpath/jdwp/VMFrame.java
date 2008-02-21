@@ -40,6 +40,7 @@ exception statement from your version. */
 package gnu.classpath.jdwp;
 
 import gnu.classpath.jdwp.util.Location;
+import gnu.classpath.jdwp.value.Value;
 
 /**
  * Reference implementation of VM hooks for JDWP Frame access.
@@ -73,11 +74,13 @@ public class VMFrame
    * @param frame_id a long, the jframeID of this frame
    * @param frame_loc a Location, the location of this frame
    */
-  public VMFrame(Thread thr, long frame_id, Location frame_loc)
+  public VMFrame(Thread thr, long frame_id, Location frame_loc,
+                 Object frame_obj)
   {
     thread = thr;
     id = frame_id;
     loc = frame_loc;
+    obj = frame_obj;
   }
   
   /**
@@ -93,14 +96,14 @@ public class VMFrame
    * 
    * @param slot the slot containing the variable
    */
-  public native Object getValue(int slot);
+  public native Value getValue(int slot, byte sig);
 
   /**
    * Assigns the given variable to the given value. 
    * @param slot The slot which contains the variable
    * @param value The value to assign the variable to
    */
-  public native void setValue(int slot, Object value);
+  public native void setValue(int slot, Value value);
   
   /**
    * Get the thread this frame is in.

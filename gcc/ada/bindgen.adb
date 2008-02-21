@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -40,7 +39,9 @@ with Table;    use Table;
 with Targparm; use Targparm;
 with Types;    use Types;
 
-with GNAT.OS_Lib;      use GNAT.OS_Lib;
+with System.OS_Lib;  use System.OS_Lib;
+with System.WCh_Con; use System.WCh_Con;
+
 with GNAT.Heap_Sort_A; use GNAT.Heap_Sort_A;
 
 package body Bindgen is
@@ -62,13 +63,21 @@ package body Bindgen is
    Num_Elab_Calls : Nat := 0;
    --  Number of generated calls to elaboration routines
 
+   System_Restrictions_Used : Boolean;
+   --  Flag indicating whether the unit System.Restrictions is in the closure
+   --  of the partition. This is set by Check_System_Restrictions_Used, and
+   --  is used to determine whether or not to initialize the restrictions
+   --  information in the body of the binder generated file (we do not want
+   --  to do this unconditionally, since it drags in the System.Restrictions
+   --  unit unconditionally, which is unpleasand, especially for ZFP etc.)
+
    ----------------------------------
    -- Interface_State Pragma Table --
    ----------------------------------
 
    --  This table assembles the interface state pragma information from
    --  all the units in the partition. Note that Bcheck has already checked
-   --  that the information is consistent across partitions. The entries
+   --  that the information is consistent across units. The entries
    --  in this table are n/u/r/s for not set/user/runtime/system.
 
    package IS_Pragma_Settings is new Table.Table (
@@ -81,7 +90,7 @@ package body Bindgen is
 
    --  This table assembles the Priority_Specific_Dispatching pragma
    --  information from all the units in the partition. Note that Bcheck has
-   --  already checked that the information is consistent across partitions.
+   --  already checked that the information is consistent across units.
    --  The entries in this table are the upper case first character of the
    --  policy name, e.g. 'F' for FIFO_Within_Priorities.
 
@@ -116,6 +125,7 @@ package body Bindgen is
    --     Zero_Cost_Exceptions          : Integer;
    --     Detect_Blocking               : Integer;
    --     Default_Stack_Size            : Integer;
+   --     Leap_Seconds_Support          : Integer;
 
    --  Main_Priority is the priority value set by pragma Priority in the
    --  main program. If no such pragma is present, the value is -1.
@@ -199,12 +209,20 @@ package body Bindgen is
    --  Default_Stack_Size is the default stack size used when creating an
    --  Ada task with no explicit Storize_Size clause.
 
+   --  Leap_Seconds_Support denotes whether leap seconds have been enabled or
+   --  disabled. A value of zero indicates that leap seconds are turned "off",
+   --  while a value of one signifies "on" status.
+
    -----------------------
    -- Local Subprograms --
    -----------------------
 
    procedure WBI (Info : String) renames Osint.B.Write_Binder_Info;
    --  Convenient shorthand used throughout
+
+   procedure Check_System_Restrictions_Used;
+   --  Sets flag System_Restrictions_Used (Set to True if and only if the unit
+   --  System.Restrictions is present in the partition, otherwise False).
 
    procedure Gen_Adainit_Ada;
    --  Generates the Adainit procedure (Ada code case)
@@ -269,12 +287,21 @@ package body Bindgen is
    --  This function tries Ada_Main first, and if there is such a clash, then
    --  it tries Ada_Name_01, Ada_Name_02 ... Ada_Name_99 in sequence.
 
+   function Get_Main_Unit_Name (S : String) return String;
+   --  Return the main unit name corresponding to S by replacing '.' with '_'
+
    function Get_Main_Name return String;
    --  This function is used in the Ada main output case to compute the
    --  correct external main program. It is "main" by default, unless the
    --  flag Use_Ada_Main_Program_Name_On_Target is set, in which case it
    --  is the name of the Ada main name without the "_ada". This default
    --  can be overridden explicitly using the -Mname binder switch.
+
+   function Get_WC_Encoding return Character;
+   --  Return wide character encoding method to set as WC_Encoding in output.
+   --  If -W has been used, returns the specified encoding, otherwise returns
+   --  the encoding method used for the main program source. If there is no
+   --  main program source (-z switch used), returns brackets ('b').
 
    function Lt_Linker_Option (Op1, Op2 : Natural) return Boolean;
    --  Compare linker options, when sorting, first according to
@@ -341,6 +368,22 @@ package body Bindgen is
    --  First writes its argument (using Set_String (S)), then writes out the
    --  contents of statement buffer up to Last, and reset Last to 0
 
+   ------------------------------------
+   -- Check_System_Restrictions_Used --
+   ------------------------------------
+
+   procedure Check_System_Restrictions_Used is
+   begin
+      for J in Units.First .. Units.Last loop
+         if Get_Name_String (Units.Table (J).Sfile) = "s-restri.ads" then
+            System_Restrictions_Used := True;
+            return;
+         end if;
+      end loop;
+
+      System_Restrictions_Used := False;
+   end Check_System_Restrictions_Used;
+
    ----------------------
    -- Gen_Adafinal_Ada --
    ----------------------
@@ -354,7 +397,7 @@ package body Bindgen is
       --  If compiling for the JVM, we directly call Adafinal because
       --  we don't import it via Do_Finalize (see Gen_Output_File_Ada).
 
-      if Hostparm.Java_VM then
+      if VM_Target /= No_VM then
          WBI ("      System.Standard_Library.Adafinal;");
 
       --  If there is no finalization, there is nothing to do
@@ -416,7 +459,14 @@ package body Bindgen is
                Set_String ("      ");
                Set_String ("E");
                Set_Unit_Number (Unum);
-               Set_String (" : Boolean; pragma Import (Ada, ");
+
+               case VM_Target is
+                  when No_VM | JVM_Target =>
+                     Set_String (" : Boolean; pragma Import (Ada, ");
+                  when CLI_Target =>
+                     Set_String (" : Boolean; pragma Import (CIL, ");
+               end case;
+
                Set_String ("E");
                Set_Unit_Number (Unum);
                Set_String (", """);
@@ -426,16 +476,22 @@ package body Bindgen is
                --  that includes the class name (using '$' separators
                --  in the case of a child unit name).
 
-               if Hostparm.Java_VM then
+               if VM_Target /= No_VM then
                   for J in 1 .. Name_Len - 2 loop
-                     if Name_Buffer (J) /= '.' then
+                     if VM_Target = CLI_Target
+                       or else Name_Buffer (J) /= '.'
+                     then
                         Set_Char (Name_Buffer (J));
                      else
                         Set_String ("$");
                      end if;
                   end loop;
 
-                  Set_String (".");
+                  if VM_Target /= CLI_Target or else U.Unit_Kind = 's' then
+                     Set_String (".");
+                  else
+                     Set_String ("_pkg.");
+                  end if;
 
                   --  If the unit name is very long, then split the
                   --  Import link name across lines using "&" (occurs
@@ -534,6 +590,9 @@ package body Bindgen is
          WBI ("      Default_Stack_Size : Integer;");
          WBI ("      pragma Import (C, Default_Stack_Size, " &
               """__gl_default_stack_size"");");
+         WBI ("      Leap_Seconds_Support : Integer;");
+         WBI ("      pragma Import (C, Leap_Seconds_Support, " &
+              """__gl_leap_seconds_support"");");
 
          --  Import entry point for elaboration time signal handler
          --  installation, and indication of if it's been called previously.
@@ -546,6 +605,40 @@ package body Bindgen is
          WBI ("      Handler_Installed : Integer;");
          WBI ("      pragma Import (C, Handler_Installed, " &
               """__gnat_handler_installed"");");
+
+         --  Initialize stack limit variable of the environment task if the
+         --  stack check method is stack limit and if stack check is enabled.
+
+         if Stack_Check_Limits_On_Target
+           and then (Stack_Check_Default_On_Target or Stack_Check_Switch_Set)
+         then
+            WBI ("");
+            WBI ("      procedure Initialize_Stack_Limit;");
+            WBI ("      pragma Import (C, Initialize_Stack_Limit, " &
+                 """__gnat_initialize_stack_limit"");");
+         end if;
+
+         if VM_Target = CLI_Target
+           and then not No_Main_Subprogram
+         then
+            WBI ("");
+
+            if ALIs.Table (ALIs.First).Main_Program = Func then
+               WBI ("      Result : Integer;");
+               WBI ("");
+               WBI ("      function Ada_Main_Program return Integer;");
+
+            else
+               WBI ("      procedure Ada_Main_Program;");
+            end if;
+
+            Get_Name_String (Units.Table (First_Unit_Entry).Uname);
+            Name_Len := Name_Len - 2;
+            WBI ("      pragma Import (CIL, Ada_Main_Program, """
+                 & Name_Buffer (1 .. Name_Len) & "."
+                 & Get_Main_Unit_Name (Name_Buffer (1 .. Name_Len)) & """);");
+         end if;
+
          WBI ("   begin");
 
          Set_String ("      Main_Priority := ");
@@ -567,7 +660,8 @@ package body Bindgen is
          Write_Statement_Buffer;
 
          Set_String ("      WC_Encoding := '");
-         Set_Char   (ALIs.Table (ALIs.First).WC_Encoding);
+         Set_Char   (Get_WC_Encoding);
+
          Set_String ("';");
          Write_Statement_Buffer;
 
@@ -645,6 +739,17 @@ package body Bindgen is
          Set_String (";");
          Write_Statement_Buffer;
 
+         Set_String ("      Leap_Seconds_Support := ");
+
+         if Leap_Seconds_Support then
+            Set_Int (1);
+         else
+            Set_Int (0);
+         end if;
+
+         Set_String (";");
+         Write_Statement_Buffer;
+
          --  Generate call to Install_Handler
 
          WBI ("");
@@ -676,10 +781,30 @@ package body Bindgen is
          Write_Statement_Buffer;
       end if;
 
+      --  Initialize stack limit variable of the environment task if the
+      --  stack check method is stack limit and if stack check is enabled.
+
+      if Stack_Check_Limits_On_Target
+        and then (Stack_Check_Default_On_Target or Stack_Check_Switch_Set)
+      then
+         WBI ("");
+         WBI ("      Initialize_Stack_Limit;");
+      end if;
+
       --  Generate elaboration calls
 
       WBI ("");
       Gen_Elab_Calls_Ada;
+
+      if VM_Target = CLI_Target
+        and then not No_Main_Subprogram
+      then
+         if ALIs.Table (ALIs.First).Main_Program = Func then
+            WBI ("      Result := Ada_Main_Program;");
+         else
+            WBI ("      Ada_Main_Program;");
+         end if;
+      end if;
 
       WBI ("   end " & Ada_Init_Name.all & ";");
    end Gen_Adainit_Ada;
@@ -806,7 +931,8 @@ package body Bindgen is
 
          WBI ("   extern char __gl_wc_encoding;");
          Set_String ("   __gl_wc_encoding = '");
-         Set_Char   (ALIs.Table (ALIs.First).WC_Encoding);
+         Set_Char (Get_WC_Encoding);
+
          Set_String ("';");
          Write_Statement_Buffer;
 
@@ -827,8 +953,6 @@ package body Bindgen is
          Set_Char (Task_Dispatching_Policy_Specified);
          Set_String ("';");
          Write_Statement_Buffer;
-
-         --  Generate definition for restrictions string
 
          Gen_Restrictions_C;
 
@@ -886,6 +1010,18 @@ package body Bindgen is
          Set_String (";");
          Write_Statement_Buffer;
 
+         WBI ("   extern int __gl_leap_seconds_support;");
+         Set_String ("   __gl_leap_seconds_support = ");
+
+         if Leap_Seconds_Support then
+            Set_Int (1);
+         else
+            Set_Int (0);
+         end if;
+
+         Set_String (";");
+         Write_Statement_Buffer;
+
          WBI ("");
 
          --  Install elaboration time signal handler
@@ -894,6 +1030,16 @@ package body Bindgen is
          WBI ("     {");
          WBI ("        __gnat_install_handler ();");
          WBI ("     }");
+      end if;
+
+      --  Initialize stack limit for the environment task if the stack
+      --  check method is stack limit and if stack check is enabled.
+
+      if Stack_Check_Limits_On_Target
+        and then (Stack_Check_Default_On_Target or Stack_Check_Switch_Set)
+      then
+         WBI ("");
+         WBI ("   __gnat_initialize_stack_limit ();");
       end if;
 
       --  Generate call to set Initialize_Scalar values if needed
@@ -1007,13 +1153,29 @@ package body Bindgen is
                Set_String ("      ");
                Get_Decoded_Name_String_With_Brackets (U.Uname);
 
-               if Name_Buffer (Name_Len) = 's' then
-                  Name_Buffer (Name_Len - 1 .. Name_Len + 8) := "'elab_spec";
+               if VM_Target = CLI_Target and then U.Unit_Kind /= 's' then
+                  if Name_Buffer (Name_Len) = 's' then
+                     Name_Buffer (Name_Len - 1 .. Name_Len + 12) :=
+                       "_pkg'elab_spec";
+                  else
+                     Name_Buffer (Name_Len - 1 .. Name_Len + 12) :=
+                       "_pkg'elab_body";
+                  end if;
+
+                  Name_Len := Name_Len + 12;
+
                else
-                  Name_Buffer (Name_Len - 1 .. Name_Len + 8) := "'elab_body";
+                  if Name_Buffer (Name_Len) = 's' then
+                     Name_Buffer (Name_Len - 1 .. Name_Len + 8) :=
+                       "'elab_spec";
+                  else
+                     Name_Buffer (Name_Len - 1 .. Name_Len + 8) :=
+                       "'elab_body";
+                  end if;
+
+                  Name_Len := Name_Len + 8;
                end if;
 
-               Name_Len := Name_Len + 8;
                Set_Casing (U.Icasing);
                Set_Name_Buffer;
                Set_Char (';');
@@ -1395,7 +1557,6 @@ package body Bindgen is
       end if;
 
       if not Cumulative_Restrictions.Set (No_Finalization) then
-
          if not No_Main_Subprogram
            and then Bind_Main_Program
            and then not Suppress_Standard_Library_On_Target
@@ -1425,10 +1586,10 @@ package body Bindgen is
          --  If compiling for the JVM, we directly call Adafinal because
          --  we don't import it via Do_Finalize (see Gen_Output_File_Ada).
 
-         if Hostparm.Java_VM then
-            WBI ("      System.Standard_Library.Adafinal;");
-         else
+         if VM_Target = No_VM then
             WBI ("      Do_Finalize;");
+         else
+            WBI ("      System.Standard_Library.Adafinal;");
          end if;
       end if;
 
@@ -1535,7 +1696,6 @@ package body Bindgen is
       --  if no command line arguments on target, set dummy values
 
       else
-         WBI ("   int result;");
          WBI ("   gnat_argc = 0;");
          WBI ("   gnat_argv = 0;");
          WBI ("   gnat_envp = 0;");
@@ -1666,6 +1826,9 @@ package body Bindgen is
       --  in the Linker_Options table of where the first entry from an
       --  internal file appears.
 
+      Linker_Option_List_Started : Boolean := False;
+      --  Set to True when "LINKER OPTION LIST" is displayed
+
       procedure Write_Linker_Option;
       --  Write binder info linker option
 
@@ -1694,12 +1857,24 @@ package body Bindgen is
             --  Process section if non-null
 
             if Stop > Start then
-                  if Output_Linker_Option_List then
-                     Write_Str (Name_Buffer (Start .. Stop - 1));
-                     Write_Eol;
+               if Output_Linker_Option_List then
+                  if not Zero_Formatting then
+                     if not Linker_Option_List_Started then
+                        Linker_Option_List_Started := True;
+                        Write_Eol;
+                        Write_Str ("     LINKER OPTION LIST");
+                        Write_Eol;
+                        Write_Eol;
+                     end if;
+
+                     Write_Str ("   ");
                   end if;
-                  Write_Info_Ada_C
-                    ("   --   ", "", Name_Buffer (Start .. Stop - 1));
+
+                  Write_Str (Name_Buffer (Start .. Stop - 1));
+                  Write_Eol;
+               end if;
+               Write_Info_Ada_C
+                 ("   --   ", "", Name_Buffer (Start .. Stop - 1));
             end if;
 
             Start := Stop + 1;
@@ -1728,7 +1903,8 @@ package body Bindgen is
             --  exists, then use it.
 
             if not Hostparm.Exclude_Missing_Objects
-              or else GNAT.OS_Lib.Is_Regular_File (Name_Buffer (1 .. Name_Len))
+              or else
+                System.OS_Lib.Is_Regular_File (Name_Buffer (1 .. Name_Len))
             then
                Write_Info_Ada_C ("   --   ", "", Name_Buffer (1 .. Name_Len));
 
@@ -1887,6 +2063,10 @@ package body Bindgen is
          Write_Linker_Option;
       end loop;
 
+      if Output_Linker_Option_List and then not Zero_Formatting then
+         Write_Eol;
+      end if;
+
       if Ada_Bind_File then
          WBI ("--  END Object file/option list   ");
       else
@@ -1908,13 +2088,16 @@ package body Bindgen is
 
       Set_PSD_Pragma_Table;
 
-      --  Override Ada_Bind_File and Bind_Main_Program for Java since
+      --  Override Ada_Bind_File and Bind_Main_Program for VMs since
       --  JGNAT only supports Ada code, and the main program is already
       --  generated by the compiler.
 
-      if Hostparm.Java_VM then
+      if VM_Target /= No_VM then
          Ada_Bind_File := True;
-         Bind_Main_Program := False;
+
+         if VM_Target = JVM_Target then
+            Bind_Main_Program := False;
+         end if;
       end if;
 
       --  Override time slice value if -T switch is set
@@ -1935,12 +2118,13 @@ package body Bindgen is
 
       --  Generate output file in appropriate language
 
+      Check_System_Restrictions_Used;
+
       if Ada_Bind_File then
          Gen_Output_File_Ada (Filename);
       else
          Gen_Output_File_C (Filename);
       end if;
-
    end Gen_Output_File;
 
    -------------------------
@@ -1964,12 +2148,30 @@ package body Bindgen is
 
       Create_Binder_Output (Filename, 's', Bfiles);
 
+      --  We always compile the binder file in Ada 95 mode so that we properly
+      --  handle use of Ada 2005 keywords as identifiers in Ada 95 mode. None
+      --  of the Ada 2005 constructs are needed by the binder file.
+
+      WBI ("pragma Ada_95;");
+
       --  If we are operating in Restrictions (No_Exception_Handlers) mode,
       --  then we need to make sure that the binder program is compiled with
       --  the same restriction, so that no exception tables are generated.
 
       if Cumulative_Restrictions.Set (No_Exception_Handlers) then
          WBI ("pragma Restrictions (No_Exception_Handlers);");
+      end if;
+
+      --  Same processing for Restrictions (No_Exception_Propagation)
+
+      if Cumulative_Restrictions.Set (No_Exception_Propagation) then
+         WBI ("pragma Restrictions (No_Exception_Propagation);");
+      end if;
+
+      --  Same processing for pragma No_Run_Time
+
+      if No_Run_Time_Mode then
+         WBI ("pragma No_Run_Time;");
       end if;
 
       --  Generate with of System so we can reference System.Address
@@ -1990,12 +2192,13 @@ package body Bindgen is
 
       Resolve_Binder_Options;
 
-      if not Suppress_Standard_Library_On_Target then
-         --  Usually, adafinal is called using a pragma Import C. Since
-         --  Import C doesn't have the same semantics for JGNAT, we use
-         --  standard Ada.
+      if VM_Target /= No_VM then
+         if not Suppress_Standard_Library_On_Target then
 
-         if Hostparm.Java_VM then
+            --  Usually, adafinal is called using a pragma Import C. Since
+            --  Import C doesn't have the same semantics for JGNAT, we use
+            --  standard Ada.
+
             WBI ("with System.Standard_Library;");
          end if;
       end if;
@@ -2006,62 +2209,70 @@ package body Bindgen is
       --  Main program case
 
       if Bind_Main_Program then
+         if VM_Target = No_VM then
 
-         --  Generate argc/argv stuff unless suppressed
+            --  Generate argc/argv stuff unless suppressed
 
-         if Command_Line_Args_On_Target
-           or not Configurable_Run_Time_On_Target
-         then
-            WBI ("");
-            WBI ("   gnat_argc : Integer;");
-            WBI ("   gnat_argv : System.Address;");
-            WBI ("   gnat_envp : System.Address;");
-
-            --  If the standard library is not suppressed, these variables are
-            --  in the runtime data area for easy access from the runtime
-
-            if not Suppress_Standard_Library_On_Target then
+            if Command_Line_Args_On_Target
+              or not Configurable_Run_Time_On_Target
+            then
                WBI ("");
-               WBI ("   pragma Import (C, gnat_argc);");
-               WBI ("   pragma Import (C, gnat_argv);");
-               WBI ("   pragma Import (C, gnat_envp);");
+               WBI ("   gnat_argc : Integer;");
+               WBI ("   gnat_argv : System.Address;");
+               WBI ("   gnat_envp : System.Address;");
+
+               --  If the standard library is not suppressed, these variables
+               --  are in the runtime data area for easy access from the
+               --  runtime
+
+               if not Suppress_Standard_Library_On_Target then
+                  WBI ("");
+                  WBI ("   pragma Import (C, gnat_argc);");
+                  WBI ("   pragma Import (C, gnat_argv);");
+                  WBI ("   pragma Import (C, gnat_envp);");
+               end if;
             end if;
+
+            --  Define exit status. Again in normal mode, this is in the
+            --  run-time library, and is initialized there, but in the
+            --  configurable runtime case, the variable is declared and
+            --  initialized in this file.
+
+            WBI ("");
+
+            if Configurable_Run_Time_Mode then
+               if Exit_Status_Supported_On_Target then
+                  WBI ("   gnat_exit_status : Integer := 0;");
+               end if;
+
+            else
+               WBI ("   gnat_exit_status : Integer;");
+               WBI ("   pragma Import (C, gnat_exit_status);");
+            end if;
+
+            --  Generate the GNAT_Version and Ada_Main_Program_Name info only
+            --  for the main program. Otherwise, it can lead under some
+            --  circumstances to a symbol duplication during the link (for
+            --  instance when a C program uses 2 Ada libraries)
          end if;
 
-         --  Define exit status. Again in normal mode, this is in the
-         --  run-time library, and is initialized there, but in the
-         --  configurable runtime case, the variable is declared and
-         --  initialized in this file.
-
-         WBI ("");
-
-         if Configurable_Run_Time_Mode then
-            if Exit_Status_Supported_On_Target then
-               WBI ("   gnat_exit_status : Integer := 0;");
-            end if;
-         else
-            WBI ("   gnat_exit_status : Integer;");
-            WBI ("   pragma Import (C, gnat_exit_status);");
-         end if;
-      end if;
-
-      --  Generate the GNAT_Version and Ada_Main_Program_Name info only for
-      --  the main program. Otherwise, it can lead under some circumstances
-      --  to a symbol duplication during the link (for instance when a
-      --  C program uses 2 Ada libraries)
-
-      if Bind_Main_Program then
          WBI ("");
          WBI ("   GNAT_Version : constant String :=");
          WBI ("                    ""GNAT Version: " &
-                                   Gnat_Version_String & """;");
+                                Gnat_Version_String & """;");
          WBI ("   pragma Export (C, GNAT_Version, ""__gnat_version"");");
 
          WBI ("");
          Set_String ("   Ada_Main_Program_Name : constant String := """);
          Get_Name_String (Units.Table (First_Unit_Entry).Uname);
-         Set_Main_Program_Name;
-         Set_String (""" & Ascii.NUL;");
+
+         if VM_Target = No_VM then
+            Set_Main_Program_Name;
+            Set_String (""" & Ascii.NUL;");
+         else
+            Set_String (Name_Buffer (1 .. Name_Len - 2) & """;");
+         end if;
+
          Write_Statement_Buffer;
 
          WBI
@@ -2073,21 +2284,23 @@ package body Bindgen is
       WBI ("   procedure " & Ada_Final_Name.all & ";");
       WBI ("   pragma Export (C, " & Ada_Final_Name.all & ", """ &
            Ada_Final_Name.all & """);");
-
-      if Use_Pragma_Linker_Constructor then
-         WBI ("   pragma Linker_Destructor (" & Ada_Final_Name.all & ");");
-      end if;
-
       WBI ("");
       WBI ("   procedure " & Ada_Init_Name.all & ";");
       WBI ("   pragma Export (C, " & Ada_Init_Name.all & ", """ &
            Ada_Init_Name.all & """);");
 
+      --  If -a has been specified use pragma Linker_Constructor for the init
+      --  procedure. No need to use a similar pragma for the final procedure as
+      --  global finalization will occur when the executable finishes execution
+      --  and for plugins (shared stand-alone libraries that can be
+      --  "unloaded"), finalization should not occur automatically, otherwise
+      --  the main executable may not continue to work properly.
+
       if Use_Pragma_Linker_Constructor then
          WBI ("   pragma Linker_Constructor (" & Ada_Init_Name.all & ");");
       end if;
 
-      if Bind_Main_Program then
+      if Bind_Main_Program and then VM_Target = No_VM then
 
          --  If we have the standard library, then Break_Start is defined
          --  there, but when the standard library is suppressed, Break_Start
@@ -2153,6 +2366,12 @@ package body Bindgen is
 
       Create_Binder_Output (Filename, 'b', Bfileb);
 
+      --  We always compile the binder file in Ada 95 mode so that we properly
+      --  handle use of Ada 2005 keywords as identifiers in Ada 95 mode. None
+      --  of the Ada 2005 constructs are needed by the binder file.
+
+      WBI ("pragma Ada_95;");
+
       --  Output Source_File_Name pragmas which look like
 
       --    pragma Source_File_Name (Ada_Main, Spec_File_Name => "sss");
@@ -2179,7 +2398,9 @@ package body Bindgen is
       --  Generate with of System.Restrictions to initialize
       --  Run_Time_Restrictions.
 
-      if not Suppress_Standard_Library_On_Target then
+      if System_Restrictions_Used
+        and not Suppress_Standard_Library_On_Target
+      then
          WBI ("");
          WBI ("with System.Restrictions;");
       end if;
@@ -2195,7 +2416,7 @@ package body Bindgen is
          --  In the Java case, pragma Import C cannot be used, so the
          --  standard Ada constructs will be used instead.
 
-         if not Hostparm.Java_VM then
+         if VM_Target = No_VM then
             WBI ("");
             WBI ("   procedure Do_Finalize;");
             WBI
@@ -2236,7 +2457,7 @@ package body Bindgen is
 
       Gen_Adafinal_Ada;
 
-      if Bind_Main_Program then
+      if Bind_Main_Program and then VM_Target = No_VM then
 
          --  When suppressing the standard library then generate dummy body
          --  for Break_Start
@@ -2267,23 +2488,28 @@ package body Bindgen is
    -----------------------
 
    procedure Gen_Output_File_C (Filename : String) is
-
       Bfile : Name_Id;
-      --  Name of generated bind file
+      pragma Warnings (Off, Bfile);
+      --  Name of generated bind file (not referenced)
 
    begin
       Create_Binder_Output (Filename, 'c', Bfile);
 
       Resolve_Binder_Options;
 
+      WBI ("extern void " & Ada_Final_Name.all & " (void);");
+
+      --  If -a has been specified use __attribute__((constructor)) for the
+      --  init procedure. No need to use a similar featute for the final
+      --  procedure as global finalization will occur when the executable
+      --  finishes execution and for plugins (shared stand-alone libraries that
+      --  can be "unloaded"), finalization should not occur automatically,
+      --  otherwise the main executable may not continue to work properly.
+
       if Use_Pragma_Linker_Constructor then
-         WBI ("extern void " & Ada_Final_Name.all &
-              " (void) __attribute__((destructor));");
          WBI ("extern void " & Ada_Init_Name.all &
               " (void) __attribute__((constructor));");
-
       else
-         WBI ("extern void " & Ada_Final_Name.all & " (void);");
          WBI ("extern void " & Ada_Init_Name.all & " (void);");
       end if;
 
@@ -2337,6 +2563,16 @@ package body Bindgen is
          WBI ("");
          WBI ("extern void __gnat_stack_usage_output_results (void);");
          WBI ("extern void __gnat_stack_usage_initialize (int size);");
+      end if;
+
+      --  Initialize stack limit for the environment task if the stack
+      --  check method is stack limit and if stack check is enabled.
+
+      if Stack_Check_Limits_On_Target
+        and then (Stack_Check_Default_On_Target or Stack_Check_Switch_Set)
+      then
+         WBI ("");
+         WBI ("extern void __gnat_initialize_stack_limit (void);");
       end if;
 
       WBI ("");
@@ -2458,8 +2694,11 @@ package body Bindgen is
 
    procedure Gen_Restrictions_Ada is
       Count : Integer;
+
    begin
-      if Suppress_Standard_Library_On_Target then
+      if Suppress_Standard_Library_On_Target
+        or not System_Restrictions_Used
+      then
          return;
       end if;
 
@@ -2557,7 +2796,9 @@ package body Bindgen is
 
    procedure Gen_Restrictions_C is
    begin
-      if Suppress_Standard_Library_On_Target then
+      if Suppress_Standard_Library_On_Target
+        or not System_Restrictions_Used
+      then
          return;
       end if;
 
@@ -2801,6 +3042,23 @@ package body Bindgen is
 
    end Gen_Versions_C;
 
+   ------------------------
+   -- Get_Main_Unit_Name --
+   ------------------------
+
+   function Get_Main_Unit_Name (S : String) return String is
+      Result : String := S;
+
+   begin
+      for J in S'Range loop
+         if Result (J) = '.' then
+            Result (J) := '_';
+         end if;
+      end loop;
+
+      return Result;
+   end Get_Main_Unit_Name;
+
    -----------------------
    -- Get_Ada_Main_Name --
    -----------------------
@@ -2815,14 +3073,9 @@ package body Bindgen is
       --  The main program generated by JGNAT expects a package called
       --  ada_<main procedure>.
 
-      if Hostparm.Java_VM then
-         --  Get main program name
-
+      if VM_Target /= No_VM then
          Get_Name_String (Units.Table (First_Unit_Entry).Uname);
-
-         --  Remove the %b
-
-         return "ada_" & Name_Buffer (1 .. Name_Len - 2);
+         return "ada_" & Get_Main_Unit_Name (Name_Buffer (1 .. Name_Len - 2));
       end if;
 
       --  This loop tries the following possibilities in order
@@ -2906,6 +3159,38 @@ package body Bindgen is
          return "main";
       end if;
    end Get_Main_Name;
+
+   ---------------------
+   -- Get_WC_Encoding --
+   ---------------------
+
+   function Get_WC_Encoding return Character is
+   begin
+      --  If encoding method specified by -W switch, then return it
+
+      if Wide_Character_Encoding_Method_Specified then
+         return WC_Encoding_Letters (Wide_Character_Encoding_Method);
+
+      --  If no main program, and not specified, set brackets, we really have
+      --  no better choice. If some other encoding is required when there is
+      --  no main, it must be set explicitly using -Wx.
+
+      --  Note: if the ALI file always passed the wide character encoding
+      --  of every file, then we could use the encoding of the initial
+      --  specified file, but this information is passed only for potential
+      --  main programs. We could fix this sometime, but it is a very minor
+      --  point (wide character default encoding for [Wide_[Wide_]Text_IO
+      --  when there is no main program).
+
+      elsif No_Main_Subprogram then
+         return 'b';
+
+      --  Otherwise if there is a main program, take encoding from it
+
+      else
+         return ALIs.Table (ALIs.First).WC_Encoding;
+      end if;
+   end Get_WC_Encoding;
 
    ----------------------
    -- Lt_Linker_Option --

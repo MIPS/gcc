@@ -1,4 +1,4 @@
-// Copyright (C) 2006 Free Software Foundation, Inc.
+// Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,6 +19,7 @@
 // 23.2.5 class vector<bool> [lib.vector.bool]
 
 #include <vector>
+#include <limits>
 #include <testsuite_hooks.h>
 
 // libstdc++/29134
@@ -26,9 +27,22 @@ void test01()
 {
   bool test __attribute__((unused)) = true;
 
-  std::vector<bool> vb;
+  using std::vector;
+  using std::numeric_limits;
 
-  VERIFY( vb.max_size() == std::vector<bool>::size_type(-1) );
+#ifndef _GLIBCXX_DEBUG
+  using std::_S_word_bit;
+#else
+  using std::_GLIBCXX_STD_D::_S_word_bit;
+#endif
+
+  // Actually, vector<bool> is special, see libstdc++/31370.
+  vector<bool> vb;
+  typedef vector<bool>::difference_type difference_type;
+  typedef vector<bool>::size_type size_type;
+  VERIFY( vb.max_size()
+	  == size_type(numeric_limits<difference_type>::max()
+		       - int(_S_word_bit) + 1) );
 }
 
 int main()

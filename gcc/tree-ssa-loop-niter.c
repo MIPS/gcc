@@ -5,7 +5,7 @@ This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -44,7 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-inline.h"
 #include "gmp.h"
 
-#define SWAP(X, Y) do { void *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
+#define SWAP(X, Y) do { affine_iv *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
 
 /* The maximum number of dominator BBs we search for conditions
    of loop header copies we use for simplifying a conditional
@@ -64,92 +63,6 @@ typedef struct
   mpz_t below, up;
 } bounds;
 
-/* Sets RESULT to VAL, taken unsigned if UNS is true and as signed
-   otherwise.  */
-
-static void
-mpz_set_double_int (mpz_t result, double_int val, bool uns)
-{
-  bool negate = false;
-  unsigned HOST_WIDE_INT vp[2];
-
-  if (!uns && double_int_negative_p (val))
-    {
-      negate = true;
-      val = double_int_neg (val);
-    }
-
-  vp[0] = val.low;
-  vp[1] = (unsigned HOST_WIDE_INT) val.high;
-  mpz_import (result, 2, -1, sizeof (HOST_WIDE_INT), 0, 0, vp);
-
-  if (negate)
-    mpz_neg (result, result);
-}
-
-/* Stores bounds of TYPE to MIN and MAX.  */
-
-static void
-get_type_bounds (tree type, mpz_t min, mpz_t max)
-{
-  if (TYPE_UNSIGNED (type))
-    {
-      mpz_set_ui (min, 0);
-      mpz_set_double_int (max, double_int_mask (TYPE_PRECISION (type)), true);
-    }
-  else
-    {
-      double_int mx, mn;
-      
-      mx = double_int_mask (TYPE_PRECISION (type) - 1);
-      mn = double_int_sext (double_int_add (mx, double_int_one),
-			    TYPE_PRECISION (type));
-      mpz_set_double_int (max, mx, true);
-      mpz_set_double_int (min, mn, false);
-    }
-}
-
-/* Returns VAL converted to TYPE.  If VAL does not fit in TYPE,
-   the minimum or maximum value of the type is returned instead.  */
-
-static double_int
-mpz_to_double_int (tree type, mpz_t val)
-{
-  mpz_t min, max;
-  unsigned HOST_WIDE_INT vp[2];
-  bool negate = false;
-  size_t count;
-  double_int res;
-
-  mpz_init (min);
-  mpz_init (max);
-  get_type_bounds (type, min, max);
-
-  if (mpz_cmp (val, min) < 0)
-    mpz_set (val, min);
-  else if (mpz_cmp (val, max) > 0)
-    mpz_set (val, max);
-
-  if (mpz_sgn (val) < 0)
-    negate = true;
-
-  vp[0] = 0;
-  vp[1] = 0;
-  mpz_export (vp, &count, -1, sizeof (HOST_WIDE_INT), 0, 0, val);
-  gcc_assert (count <= 2);
-  
-  mpz_clear (min);
-  mpz_clear (max);
-
-  res.low = vp[0];
-  res.high = (HOST_WIDE_INT) vp[1];
-
-  res = double_int_ext (res, TYPE_PRECISION (type), TYPE_UNSIGNED (type));
-  if (negate)
-    res = double_int_neg (res);
-
-  return res;
-}
 
 /* Splits expression EXPR to a variable part VAR and constant OFFSET.  */
 
@@ -171,6 +84,7 @@ split_to_var_and_offset (tree expr, tree *var, mpz_t offset)
       /* Fallthru.  */
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
       op0 = TREE_OPERAND (expr, 0);
       op1 = TREE_OPERAND (expr, 1);
 
@@ -212,7 +126,7 @@ determine_value_range (tree type, tree var, mpz_t off,
 
   /* If the computation may wrap, we know nothing about the value, except for
      the range of the type.  */
-  get_type_bounds (type, min, max);
+  get_type_static_bounds (type, min, max);
   if (!nowrap_type_p (type))
     return;
 
@@ -298,7 +212,7 @@ refine_bounds_using_guard (tree type, tree varx, mpz_t offx,
       STRIP_SIGN_NOPS (c0);
       STRIP_SIGN_NOPS (c1);
       ctype = TREE_TYPE (c0);
-      if (!tree_ssa_useless_type_conversion_1 (ctype, type))
+      if (!useless_type_conversion_p (ctype, type))
 	return;
 
       break;
@@ -703,7 +617,7 @@ number_of_iterations_ne (tree type, affine_iv *iv, tree final,
 
   mpz_init (max);
   number_of_iterations_ne_max (max, iv->no_overflow, c, s, bnds);
-  niter->max = mpz_to_double_int (niter_type, max);
+  niter->max = mpz_get_double_int (niter_type, max, false);
   mpz_clear (max);
 
   /* First the trivial cases -- when the step is 1.  */
@@ -764,12 +678,15 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
   mpz_t mmod;
   tree assumption = boolean_true_node, bound, noloop;
   bool ret = false;
+  tree type1 = type;
+  if (POINTER_TYPE_P (type))
+    type1 = sizetype;
 
   if (TREE_CODE (mod) != INTEGER_CST)
     return false;
   if (integer_nonzerop (mod))
     mod = fold_build2 (MINUS_EXPR, niter_type, step, mod);
-  tmod = fold_convert (type, mod);
+  tmod = fold_convert (type1, mod);
 
   mpz_init (mmod);
   mpz_set_double_int (mmod, tree_to_double_int (mod), true);
@@ -783,7 +700,7 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
       if (!iv1->no_overflow && !integer_zerop (mod))
 	{
 	  bound = fold_build2 (MINUS_EXPR, type,
-			       TYPE_MAX_VALUE (type), tmod);
+			       TYPE_MAX_VALUE (type1), tmod);
 	  assumption = fold_build2 (LE_EXPR, boolean_type_node,
 				    iv1->base, bound);
 	  if (integer_zerop (assumption))
@@ -794,7 +711,7 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
       else
 	noloop = fold_build2 (GT_EXPR, boolean_type_node,
 			      iv0->base,
-			      fold_build2 (PLUS_EXPR, type,
+			      fold_build2 (PLUS_EXPR, type1,
 					   iv1->base, tmod));
     }
   else
@@ -804,8 +721,8 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
 	 iv0->base - MOD <= iv1->base. */
       if (!iv0->no_overflow && !integer_zerop (mod))
 	{
-	  bound = fold_build2 (PLUS_EXPR, type,
-			       TYPE_MIN_VALUE (type), tmod);
+	  bound = fold_build2 (PLUS_EXPR, type1,
+			       TYPE_MIN_VALUE (type1), tmod);
 	  assumption = fold_build2 (GE_EXPR, boolean_type_node,
 				    iv0->base, bound);
 	  if (integer_zerop (assumption))
@@ -815,7 +732,7 @@ number_of_iterations_lt_to_ne (tree type, affine_iv *iv0, affine_iv *iv1,
 	noloop = boolean_false_node;
       else
 	noloop = fold_build2 (GT_EXPR, boolean_type_node,
-			      fold_build2 (MINUS_EXPR, type,
+			      fold_build2 (MINUS_EXPR, type1,
 					   iv0->base, tmod),
 			      iv1->base);
     }
@@ -916,7 +833,7 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 		      struct tree_niter_desc *niter, bounds *bnds)
 {
   tree assumption = boolean_true_node, bound, diff;
-  tree mbz, mbzl, mbzr;
+  tree mbz, mbzl, mbzr, type1;
   bool rolls_p, no_overflow_p;
   double_int dstep;
   mpz_t mstep, max;
@@ -974,21 +891,25 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 
   if (rolls_p && no_overflow_p)
     return;
+  
+  type1 = type;
+  if (POINTER_TYPE_P (type))
+    type1 = sizetype;
 
   /* Now the hard part; we must formulate the assumption(s) as expressions, and
      we must be careful not to introduce overflow.  */
 
   if (integer_nonzerop (iv0->step))
     {
-      diff = fold_build2 (MINUS_EXPR, type,
-			  iv0->step, build_int_cst (type, 1));
+      diff = fold_build2 (MINUS_EXPR, type1,
+			  iv0->step, build_int_cst (type1, 1));
 
       /* We need to know that iv0->base >= MIN + iv0->step - 1.  Since
 	 0 address never belongs to any object, we can assume this for
 	 pointers.  */
       if (!POINTER_TYPE_P (type))
 	{
-	  bound = fold_build2 (PLUS_EXPR, type,
+	  bound = fold_build2 (PLUS_EXPR, type1,
 			       TYPE_MIN_VALUE (type), diff);
 	  assumption = fold_build2 (GE_EXPR, boolean_type_node,
 				    iv0->base, bound);
@@ -996,24 +917,26 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 
       /* And then we can compute iv0->base - diff, and compare it with
 	 iv1->base.  */      
-      mbzl = fold_build2 (MINUS_EXPR, type, iv0->base, diff);
-      mbzr = iv1->base;
+      mbzl = fold_build2 (MINUS_EXPR, type1, 
+			  fold_convert (type1, iv0->base), diff);
+      mbzr = fold_convert (type1, iv1->base);
     }
   else
     {
-      diff = fold_build2 (PLUS_EXPR, type,
-			  iv1->step, build_int_cst (type, 1));
+      diff = fold_build2 (PLUS_EXPR, type1,
+			  iv1->step, build_int_cst (type1, 1));
 
       if (!POINTER_TYPE_P (type))
 	{
-	  bound = fold_build2 (PLUS_EXPR, type,
+	  bound = fold_build2 (PLUS_EXPR, type1,
 			       TYPE_MAX_VALUE (type), diff);
 	  assumption = fold_build2 (LE_EXPR, boolean_type_node,
 				    iv1->base, bound);
 	}
 
-      mbzl = iv0->base;
-      mbzr = fold_build2 (MINUS_EXPR, type, iv1->base, diff);
+      mbzl = fold_convert (type1, iv0->base);
+      mbzr = fold_build2 (MINUS_EXPR, type1,
+			  fold_convert (type1, iv1->base), diff);
     }
 
   if (!integer_nonzerop (assumption))
@@ -1081,7 +1004,7 @@ number_of_iterations_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 	niter->may_be_zero = fold_build2 (LT_EXPR, boolean_type_node,
 					  iv1->base, iv0->base);
       niter->niter = delta;
-      niter->max = mpz_to_double_int (niter_type, bnds->up);
+      niter->max = mpz_get_double_int (niter_type, bnds->up, false);
       return true;
     }
 
@@ -1128,7 +1051,7 @@ number_of_iterations_lt (tree type, affine_iv *iv0, affine_iv *iv1,
   mpz_add (tmp, bnds->up, mstep);
   mpz_sub_ui (tmp, tmp, 1);
   mpz_fdiv_q (tmp, tmp, mstep);
-  niter->max = mpz_to_double_int (niter_type, tmp);
+  niter->max = mpz_get_double_int (niter_type, tmp, false);
   mpz_clear (mstep);
   mpz_clear (tmp);
 
@@ -1148,6 +1071,9 @@ number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
 			 bounds *bnds)
 {
   tree assumption;
+  tree type1 = type;
+  if (POINTER_TYPE_P (type))
+    type1 = sizetype;
 
   /* Say that IV0 is the control variable.  Then IV0 <= IV1 iff
      IV0 < IV1 + 1, assuming that IV1 is not equal to the greatest
@@ -1158,10 +1084,10 @@ number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
     {
       if (integer_nonzerop (iv0->step))
 	assumption = fold_build2 (NE_EXPR, boolean_type_node,
-				  iv1->base, TYPE_MAX_VALUE (type));
+				  iv1->base, TYPE_MAX_VALUE (type1));
       else
 	assumption = fold_build2 (NE_EXPR, boolean_type_node,
-				  iv0->base, TYPE_MIN_VALUE (type));
+				  iv0->base, TYPE_MIN_VALUE (type1));
 
       if (integer_zerop (assumption))
 	return false;
@@ -1171,13 +1097,13 @@ number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
     }
 
   if (integer_nonzerop (iv0->step))
-    iv1->base = fold_build2 (PLUS_EXPR, type,
-			     iv1->base, build_int_cst (type, 1));
+    iv1->base = fold_build2 (PLUS_EXPR, type1,
+			     iv1->base, build_int_cst (type1, 1));
   else
-    iv0->base = fold_build2 (MINUS_EXPR, type,
-			     iv0->base, build_int_cst (type, 1));
+    iv0->base = fold_build2 (MINUS_EXPR, type1,
+			     iv0->base, build_int_cst (type1, 1));
 
-  bounds_add (bnds, double_int_one, type);
+  bounds_add (bnds, double_int_one, type1);
 
   return number_of_iterations_lt (type, iv0, iv1, niter, never_infinite, bnds);
 }
@@ -1333,7 +1259,7 @@ number_of_iterations_cond (struct loop *loop,
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,
-	       "Analysing # of iterations of loop %d\n", loop->num);
+	       "Analyzing # of iterations of loop %d\n", loop->num);
 
       fprintf (dump_file, "  exit condition ");
       dump_affine_iv (dump_file, iv0);
@@ -1410,7 +1336,7 @@ number_of_iterations_cond (struct loop *loop,
 /* Substitute NEW for OLD in EXPR and fold the result.  */
 
 static tree
-simplify_replace_tree (tree expr, tree old, tree new)
+simplify_replace_tree (tree expr, tree old, tree new_tree)
 {
   unsigned i, n;
   tree ret = NULL_TREE, e, se;
@@ -1420,7 +1346,7 @@ simplify_replace_tree (tree expr, tree old, tree new)
 
   if (expr == old
       || operand_equal_p (expr, old, 0))
-    return unshare_expr (new);
+    return unshare_expr (new_tree);
 
   if (!EXPR_P (expr) && !GIMPLE_STMT_P (expr))
     return expr;
@@ -1429,7 +1355,7 @@ simplify_replace_tree (tree expr, tree old, tree new)
   for (i = 0; i < n; i++)
     {
       e = TREE_OPERAND (expr, i);
-      se = simplify_replace_tree (e, old, new);
+      se = simplify_replace_tree (e, old, new_tree);
       if (e == se)
 	continue;
 
@@ -1519,7 +1445,8 @@ expand_simple_operations (tree expr)
       && !is_gimple_min_invariant (e)
       /* And increments and decrements by a constant are simple.  */
       && !((TREE_CODE (e) == PLUS_EXPR
-	    || TREE_CODE (e) == MINUS_EXPR)
+	    || TREE_CODE (e) == MINUS_EXPR
+	    || TREE_CODE (e) == POINTER_PLUS_EXPR)
 	   && is_gimple_min_invariant (TREE_OPERAND (e, 1))))
     return expr;
 
@@ -1746,7 +1673,7 @@ simplify_using_outer_evolutions (struct loop *loop, tree expr)
 /* Returns true if EXIT is the only possible exit from LOOP.  */
 
 static bool
-loop_only_exit_p (struct loop *loop, edge exit)
+loop_only_exit_p (const struct loop *loop, const_edge exit)
 {
   basic_block *body;
   block_stmt_iterator bsi;
@@ -2244,7 +2171,7 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
    be nonnegative.  */
  
 static double_int
-derive_constant_upper_bound (tree val)
+derive_constant_upper_bound (const_tree val)
 {
   tree type = TREE_TYPE (val);
   tree op0, op1, subtype, maxt;
@@ -2291,6 +2218,7 @@ derive_constant_upper_bound (tree val)
       return bnd;
 
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
       op0 = TREE_OPERAND (val, 0);
       op1 = TREE_OPERAND (val, 1);
@@ -2450,7 +2378,7 @@ record_estimate (struct loop *loop, tree bound, double_int i_bound,
      list.  */
   if (upper)
     {
-      struct nb_iter_bound *elt = XNEW (struct nb_iter_bound);
+      struct nb_iter_bound *elt = GGC_NEW (struct nb_iter_bound);
 
       elt->bound = i_bound;
       elt->stmt = at_stmt;
@@ -2474,7 +2402,7 @@ record_estimate (struct loop *loop, tree bound, double_int i_bound,
     delta = double_int_two;
   i_bound = double_int_add (i_bound, delta);
 
-  /* If an overflow occured, ignore the result.  */
+  /* If an overflow occurred, ignore the result.  */
   if (double_int_ucmp (i_bound, delta) < 0)
     return;
 
@@ -2581,21 +2509,24 @@ array_at_struct_end_p (tree ref)
 }
 
 /* Determine information about number of iterations a LOOP from the index
-   IDX of a data reference accessed in STMT.  Callback for for_each_index.  */
+   IDX of a data reference accessed in STMT.  RELIABLE is true if STMT is
+   guaranteed to be executed in every iteration of LOOP.  Callback for
+   for_each_index.  */
 
 struct ilb_data
 {
   struct loop *loop;
   tree stmt;
+  bool reliable;
 };
 
 static bool
 idx_infer_loop_bounds (tree base, tree *idx, void *dta)
 {
-  struct ilb_data *data = dta;
+  struct ilb_data *data = (struct ilb_data *) dta;
   tree ev, init, step;
   tree low, high, type, next;
-  bool sign, upper = true;
+  bool sign, upper = data->reliable, at_end = false;
   struct loop *loop = data->loop;
 
   if (TREE_CODE (base) != ARRAY_REF)
@@ -2605,7 +2536,10 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
      do not really extend over their declared size.  However, for arrays of
      size greater than one, this is unlikely to be intended.  */
   if (array_at_struct_end_p (base))
-    upper = false;
+    {
+      at_end = true;
+      upper = false;
+    }
 
   ev = instantiate_parameters (loop, analyze_scalar_evolution (loop, *idx));
   init = initial_condition (ev);
@@ -2633,7 +2567,7 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
 
   /* The array of length 1 at the end of a structure most likely extends
      beyond its bounds.  */
-  if (!upper
+  if (at_end
       && operand_equal_p (low, high, 0))
     return true;
 
@@ -2665,23 +2599,27 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
 }
 
 /* Determine information about number of iterations a LOOP from the bounds
-   of arrays in the data reference REF accessed in STMT.  */
+   of arrays in the data reference REF accessed in STMT.  RELIABLE is true if
+   STMT is guaranteed to be executed in every iteration of LOOP.*/
 
 static void
-infer_loop_bounds_from_ref (struct loop *loop, tree stmt, tree ref)
+infer_loop_bounds_from_ref (struct loop *loop, tree stmt, tree ref,
+			    bool reliable)
 {
   struct ilb_data data;
 
   data.loop = loop;
   data.stmt = stmt;
+  data.reliable = reliable;
   for_each_index (&ref, idx_infer_loop_bounds, &data);
 }
 
 /* Determine information about number of iterations of a LOOP from the way
-   arrays are used in STMT.  */
+   arrays are used in STMT.  RELIABLE is true if STMT is guaranteed to be
+   executed in every iteration of LOOP.  */
 
 static void
-infer_loop_bounds_from_array (struct loop *loop, tree stmt)
+infer_loop_bounds_from_array (struct loop *loop, tree stmt, bool reliable)
 {
   tree call;
 
@@ -2693,10 +2631,10 @@ infer_loop_bounds_from_array (struct loop *loop, tree stmt)
       /* For each memory access, analyze its access function
 	 and record a bound on the loop iteration domain.  */
       if (REFERENCE_CLASS_P (op0))
-	infer_loop_bounds_from_ref (loop, stmt, op0);
+	infer_loop_bounds_from_ref (loop, stmt, op0, reliable);
 
       if (REFERENCE_CLASS_P (op1))
-	infer_loop_bounds_from_ref (loop, stmt, op1);
+	infer_loop_bounds_from_ref (loop, stmt, op1, reliable);
     }
   
   
@@ -2708,7 +2646,7 @@ infer_loop_bounds_from_array (struct loop *loop, tree stmt)
 
       FOR_EACH_CALL_EXPR_ARG (arg, iter, call)
 	if (REFERENCE_CLASS_P (arg))
-	  infer_loop_bounds_from_ref (loop, stmt, arg);
+	  infer_loop_bounds_from_ref (loop, stmt, arg, reliable);
     }
 }
 
@@ -2768,6 +2706,7 @@ infer_loop_bounds_from_undefined (struct loop *loop)
   basic_block *bbs;
   block_stmt_iterator bsi;
   basic_block bb;
+  bool reliable;
   
   bbs = get_loop_body (loop);
 
@@ -2776,21 +2715,40 @@ infer_loop_bounds_from_undefined (struct loop *loop)
       bb = bbs[i];
 
       /* If BB is not executed in each iteration of the loop, we cannot
-	 use it to infer any information about # of iterations of the loop.  */
-      if (!dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
-	continue;
+	 use the operations in it to infer reliable upper bound on the
+	 # of iterations of the loop.  However, we can use it as a guess.  */
+      reliable = dominated_by_p (CDI_DOMINATORS, loop->latch, bb);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  tree stmt = bsi_stmt (bsi);
 
-	  infer_loop_bounds_from_array (loop, stmt);
-	  infer_loop_bounds_from_signedness (loop, stmt);
+	  infer_loop_bounds_from_array (loop, stmt, reliable);
+
+	  if (reliable)
+	    infer_loop_bounds_from_signedness (loop, stmt);
   	}
 
     }
 
   free (bbs);
+}
+
+/* Converts VAL to double_int.  */
+
+static double_int
+gcov_type_to_double_int (gcov_type val)
+{
+  double_int ret;
+
+  ret.low = (unsigned HOST_WIDE_INT) val;
+  /* If HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_WIDEST_INT, avoid shifting by
+     the size of type.  */
+  val >>= HOST_BITS_PER_WIDE_INT - 1;
+  val >>= 1;
+  ret.high = (unsigned HOST_WIDE_INT) val;
+
+  return ret;
 }
 
 /* Records estimates on numbers of iterations of LOOP.  */
@@ -2836,7 +2794,8 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
      iterations.  */
   if (loop->header->count != 0)
     {
-      bound = uhwi_to_double_int (expected_loop_iterations (loop) + 1);
+      gcov_type nit = expected_loop_iterations_unbounded (loop) + 1;
+      bound = gcov_type_to_double_int (nit);
       record_niter_bound (loop, bound, true, false);
     }
 
@@ -2871,7 +2830,7 @@ estimate_numbers_of_iterations (void)
 
 /* Returns true if statement S1 dominates statement S2.  */
 
-static bool
+bool
 stmt_dominates_stmt_p (tree s1, tree s2)
 {
   basic_block bb1 = bb_for_stmt (s1), bb2 = bb_for_stmt (s2);
@@ -3010,8 +2969,7 @@ scev_probably_wraps_p (tree base, tree step,
      2032, 2040, 0, 8, ..., but the code is still legal.  */
 
   if (chrec_contains_undetermined (base)
-      || chrec_contains_undetermined (step)
-      || TREE_CODE (step) != INTEGER_CST)
+      || chrec_contains_undetermined (step))
     return true;
 
   if (integer_zerop (step))
@@ -3021,6 +2979,11 @@ scev_probably_wraps_p (tree base, tree step,
      wrap, we are done.  */
   if (use_overflow_semantics && nowrap_type_p (type))
     return false;
+
+  /* To be able to use estimates on number of iterations of the loop,
+     we must have an upper bound on the absolute value of the step.  */
+  if (TREE_CODE (step) != INTEGER_CST)
+    return true;
 
   /* Don't issue signed overflow warnings.  */
   fold_defer_overflow_warnings ();
@@ -3078,7 +3041,7 @@ free_numbers_of_iterations_estimates_loop (struct loop *loop)
   for (bound = loop->bounds; bound; bound = next)
     {
       next = bound->next;
-      free (bound);
+      ggc_free (bound);
     }
 
   loop->bounds = NULL;

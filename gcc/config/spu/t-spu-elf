@@ -1,8 +1,8 @@
-#  Copyright (C) 2006 Free Software Foundation, Inc.
+#  Copyright (C) 2006, 2007 Free Software Foundation, Inc.
 #
 #  This file is free software; you can redistribute it and/or modify it under
 #  the terms of the GNU General Public License as published by the Free
-#  Software Foundation; either version 2 of the License, or (at your option) 
+#  Software Foundation; either version 3 of the License, or (at your option) 
 #  any later version.
 #
 #  This file is distributed in the hope that it will be useful, but WITHOUT
@@ -11,9 +11,8 @@
 #  for more details.
 #
 #  You should have received a copy of the GNU General Public License
-#  along with this file; see the file COPYING.  If not, write to the Free
-#  Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-#  02110-1301, USA.
+#  along with GCC; see the file COPYING3.  If not see
+#  <http://www.gnu.org/licenses/>.
 
 
 # Suppress building libgcc1.a
@@ -22,10 +21,15 @@ CROSS_LIBGCC1 =
 
 # On SPU __word__ is TImode which is too inefficient and incomplete for
 # implementing libgcc routines.
-TARGET_LIBGCC2_CFLAGS = -fPIC -D__word__=SI -mwarn-reloc
+TARGET_LIBGCC2_CFLAGS = -fPIC -D__word__=SI -mwarn-reloc -D__IN_LIBGCC2
 
 LIB2FUNCS_STATIC_EXTRA = $(srcdir)/config/spu/float_unssidf.c \
-			 $(srcdir)/config/spu/float_unsdidf.c
+			 $(srcdir)/config/spu/float_unsdidf.c \
+			 $(srcdir)/config/spu/mfc_tag_table.c \
+			 $(srcdir)/config/spu/mfc_tag_reserve.c \
+			 $(srcdir)/config/spu/mfc_tag_release.c \
+			 $(srcdir)/config/spu/mfc_multi_tag_reserve.c \
+			 $(srcdir)/config/spu/mfc_multi_tag_release.c
 
 LIB2ADDEH = $(srcdir)/unwind-dw2.c $(srcdir)/unwind-dw2-fde.c \
    $(srcdir)/unwind-sjlj.c $(srcdir)/unwind-c.c

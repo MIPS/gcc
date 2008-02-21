@@ -10,7 +10,7 @@ unsigned short Y[N] __attribute__ ((__aligned__(16)));
 unsigned int result[N];
 
 /* short->int widening-mult */
-int
+__attribute__ ((noinline)) int
 foo1(int len) {
   int i;
 
@@ -44,6 +44,6 @@ int main (void)
 
 /*The induction loop is vectorized  */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 2 "vect" { xfail *-*-* } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target vect_pack_trunc } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

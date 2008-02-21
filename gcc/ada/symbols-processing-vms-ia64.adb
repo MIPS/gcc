@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -62,7 +61,6 @@ package body Processing is
       Success     : out Boolean)
    is
       B : Byte;
-      H : Integer;
       W : Integer;
 
       Str : String (1 .. 1000) := (others => ' ');
@@ -97,10 +95,19 @@ package body Processing is
       OK     : Boolean := True;
 
       procedure Get_Byte (B : out Byte);
+      --  Read one byte from the object file
+
       procedure Get_Half (H : out Integer);
+      --  Read one half work from the object file
+
       procedure Get_Word (W : out Integer);
+      --  Read one full word from the object file
+
       procedure Reset;
-      --  All the above require comments ???
+      --  Restart reading the object file
+
+      procedure Skip_Half;
+      --  Read and disregard one half word from the object file
 
       --------------
       -- Get_Byte --
@@ -145,6 +152,19 @@ package body Processing is
          Byte_IO.Reset (File);
       end Reset;
 
+      ---------------
+      -- Skip_Half --
+      ---------------
+
+      procedure Skip_Half is
+         B : Byte;
+         pragma Unreferenced (B);
+      begin
+         Byte_IO.Read (File, B);
+         Byte_IO.Read (File, B);
+         Offset := Offset + 2;
+      end Skip_Half;
+
    --  Start of processing for Process
 
    begin
@@ -173,11 +193,11 @@ package body Processing is
 
       --  Skip e_type
 
-      Get_Half (H);
+      Skip_Half;
 
       --  Skip e_machine
 
-      Get_Half (H);
+      Skip_Half;
 
       --  Skip e_version
 
@@ -209,15 +229,15 @@ package body Processing is
 
       --  Skip e_ehsize
 
-      Get_Half (H);
+      Skip_Half;
 
       --  Skip e_phentsize
 
-      Get_Half (H);
+      Skip_Half;
 
       --  Skip e_phnum
 
-      Get_Half (H);
+      Skip_Half;
 
       Get_Half (Shentsize);
 
@@ -362,9 +382,7 @@ package body Processing is
 
                   --  Put the new symbol in the table
 
-                  Symbol_Table.Increment_Last (Complete_Symbols);
-                  Complete_Symbols.Table
-                    (Symbol_Table.Last (Complete_Symbols)) := S_Data;
+                  Symbol_Table.Append (Complete_Symbols, S_Data);
                end;
             end if;
          end if;

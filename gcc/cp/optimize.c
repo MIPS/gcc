@@ -1,5 +1,5 @@
 /* Perform optimizations on tree structure.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful, but
@@ -16,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -99,7 +98,7 @@ maybe_clone_body (tree fn)
       tree parm;
       tree clone_parm;
       int parmno;
-      splay_tree decl_map;
+      struct pointer_map_t *decl_map;
 
       /* Update CLONE's source position information to match FN's.  */
       DECL_SOURCE_LOCATION (clone) = DECL_SOURCE_LOCATION (fn);
@@ -139,7 +138,7 @@ maybe_clone_body (tree fn)
       start_preparsed_function (clone, NULL_TREE, SF_PRE_PARSED);
 
       /* Remap the parameters.  */
-      decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+      decl_map = pointer_map_create ();
       for (parmno = 0,
 	     parm = DECL_ARGUMENTS (fn),
 	     clone_parm = DECL_ARGUMENTS (clone);
@@ -152,9 +151,7 @@ maybe_clone_body (tree fn)
 	    {
 	      tree in_charge;
 	      in_charge = in_charge_arg_for_name (DECL_NAME (clone));
-	      splay_tree_insert (decl_map,
-				 (splay_tree_key) parm,
-				 (splay_tree_value) in_charge);
+	      *pointer_map_insert (decl_map, parm) = in_charge;
 	    }
 	  else if (DECL_ARTIFICIAL (parm)
 		   && DECL_NAME (parm) == vtt_parm_identifier)
@@ -165,26 +162,18 @@ maybe_clone_body (tree fn)
 	      if (DECL_HAS_VTT_PARM_P (clone))
 		{
 		  DECL_ABSTRACT_ORIGIN (clone_parm) = parm;
-		  splay_tree_insert (decl_map,
-				     (splay_tree_key) parm,
-				     (splay_tree_value) clone_parm);
+		  *pointer_map_insert (decl_map, parm) = clone_parm;
 		  clone_parm = TREE_CHAIN (clone_parm);
 		}
 	      /* Otherwise, map the VTT parameter to `NULL'.  */
 	      else
-		{
-		  splay_tree_insert (decl_map,
-				     (splay_tree_key) parm,
-				     (splay_tree_value) null_pointer_node);
-		}
+		*pointer_map_insert (decl_map, parm) = null_pointer_node;
 	    }
 	  /* Map other parameters to their equivalents in the cloned
 	     function.  */
 	  else
 	    {
-	      splay_tree_insert (decl_map,
-				 (splay_tree_key) parm,
-				 (splay_tree_value) clone_parm);
+	      *pointer_map_insert (decl_map, parm) = clone_parm;
 	      clone_parm = TREE_CHAIN (clone_parm);
 	    }
 	}
@@ -193,14 +182,13 @@ maybe_clone_body (tree fn)
 	{
 	  parm = DECL_RESULT (fn);
 	  clone_parm = DECL_RESULT (clone);
-	  splay_tree_insert (decl_map, (splay_tree_key) parm,
-			     (splay_tree_value) clone_parm);
+	  *pointer_map_insert (decl_map, parm) = clone_parm;
 	}
       /* Clone the body.  */
       clone_body (clone, fn, decl_map);
 
       /* Clean up.  */
-      splay_tree_delete (decl_map);
+      pointer_map_destroy (decl_map);
 
       /* The clone can throw iff the original function can throw.  */
       cp_function_chain->can_throw = !TREE_NOTHROW (fn);

@@ -512,7 +512,8 @@ ARM_FUNC_ALIAS aeabi_ul2d floatundidf
 	@ we can return the result in f0 as well as in r0/r1 for backwards
 	@ compatibility.
 	adr	ip, LSYM(f0_ret)
-	do_push	{r4, r5, ip, lr}
+	@ Push pc as well so that RETLDM works correctly.
+	do_push	{r4, r5, ip, lr, pc}
 #else
 	do_push	{r4, r5, lr}
 #endif
@@ -525,7 +526,7 @@ ARM_FUNC_ALIAS aeabi_l2d floatdidf
 
 	orrs	r2, r0, r1
 #if !defined (__VFP_FP__) && !defined(__SOFTFP__)
-	do_itt	eq
+	do_it	eq, t
 	mvfeqd	f0, #0.0
 #else
 	do_it	eq
@@ -537,7 +538,8 @@ ARM_FUNC_ALIAS aeabi_l2d floatdidf
 	@ we can return the result in f0 as well as in r0/r1 for backwards
 	@ compatibility.
 	adr	ip, LSYM(f0_ret)
-	do_push	{r4, r5, ip, lr}
+	@ Push pc as well so that RETLDM works correctly.
+	do_push	{r4, r5, ip, lr, pc}
 #else
 	do_push	{r4, r5, lr}
 #endif

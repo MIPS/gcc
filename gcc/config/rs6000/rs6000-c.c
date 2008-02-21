@@ -1,5 +1,5 @@
 /* Subroutines for the C front end on the POWER and PowerPC architectures.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
    Contributed by Zack Weinberg <zack@codesourcery.com>
@@ -9,7 +9,7 @@
 
    GCC is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published
-   by the Free Software Foundation; either version 2, or (at your
+   by the Free Software Foundation; either version 3, or (at your
    option) any later version.
 
    GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -18,9 +18,8 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
-   MA 02110-1301, USA.  */
+   along with GCC; see the file COPYING3.  If not see
+   <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -124,6 +123,8 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     }
   if (TARGET_SPE)
     builtin_define ("__SPE__");
+  if (TARGET_PAIRED_FLOAT)
+    builtin_define ("__PAIRED__");
   if (TARGET_SOFT_FLOAT)
     builtin_define ("_SOFT_FLOAT");
   if (!(TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)))
@@ -139,7 +140,10 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
   RS6000_CPU_CPP_ENDIAN_BUILTINS();
 
   if (TARGET_LONG_DOUBLE_128)
-    builtin_define ("__LONG_DOUBLE_128__");
+    {
+      builtin_define ("__LONG_DOUBLE_128__");
+      builtin_define ("__LONGDOUBLE128");
+    }
 
   switch (rs6000_current_abi)
     {

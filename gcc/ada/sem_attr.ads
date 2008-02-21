@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,13 +32,11 @@
 --  This spec also documents all GNAT implementation defined pragmas
 
 with Exp_Tss; use Exp_Tss;
+with Namet;   use Namet;
 with Snames;  use Snames;
 with Types;   use Types;
 
 package Sem_Attr is
-
-   type Attribute_Class_Array is array (Attribute_Id) of Boolean;
-   --  Type used to build attribute classification flag arrays
 
    -----------------------------------------
    -- Implementation Dependent Attributes --
@@ -540,6 +538,17 @@ package Sem_Attr is
    --  parser has already checked that type returning attributes appear only
    --  in appropriate contexts (i.e. in subtype marks, or as prefixes for
    --  other attributes).
+
+   function Name_Implies_Lvalue_Prefix (Nam : Name_Id) return Boolean;
+   --  Determine whether the name of an attribute reference categorizes its
+   --  prefix as an lvalue. The following attributes fall under this bracket
+   --  by directly or indirectly modifying their prefixes.
+   --     Access
+   --     Address
+   --     Input
+   --     Read
+   --     Unchecked_Access
+   --     Unrestricted_Access
 
    procedure Resolve_Attribute (N : Node_Id; Typ : Entity_Id);
    --  Performs type resolution of attribute. If the attribute yields a

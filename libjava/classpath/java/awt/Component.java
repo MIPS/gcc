@@ -726,7 +726,23 @@ public abstract class Component
    */
   public GraphicsConfiguration getGraphicsConfiguration()
   {
-    return getGraphicsConfigurationImpl();
+    GraphicsConfiguration conf = null;
+    synchronized (getTreeLock())
+      {
+        if (graphicsConfig != null)
+          {
+            conf = graphicsConfig;
+          }
+        else
+          {
+            Component par = getParent();
+            if (par != null)
+              {
+                conf = parent.getGraphicsConfiguration();
+              }
+          }
+      }
+    return conf;
   }
 
   /**
@@ -823,7 +839,8 @@ public abstract class Component
    */
   public boolean isShowing()
   {
-    return visible && peer != null && (parent == null || parent.isShowing());
+    Component par = parent;
+    return visible && peer != null && (par == null || par.isShowing());
   }
 
   /**
@@ -1179,19 +1196,12 @@ public abstract class Component
    */
   public Font getFont()
   {
-    Font f;
-    synchronized (getTreeLock())
-      {
-        f = getFontImpl();
-      }
-    return f;
+    return getFontImpl();
   }
 
   /**
    * Implementation of getFont(). This is pulled out of getFont() to prevent
-   * client programs from overriding this. This method is executed within
-   * a tree lock, so we can assume that the hierarchy doesn't change in
-   * between.
+   * client programs from overriding this.
    *
    * @return the font of this component
    */
@@ -1204,7 +1214,12 @@ public abstract class Component
         if (p != null)
           f = p.getFontImpl();
         else
-          f = new Font("Dialog", Font.PLAIN, 12);
+          {
+            // It is important to return null here and not some kind of default
+            // font, otherwise the Swing UI would not install its fonts because
+            // it keeps non-UIResource fonts.
+            f = null;
+          }
       }
     return f;
   }
@@ -5435,27 +5450,6 @@ p   * <li>the set of backward traversal keys
   }
 
   /**
-   * Implementation method that allows classes such as Canvas and Window to
-   * override the graphics configuration without violating the published API.
-   *
-   * @return the graphics configuration
-   */
-  GraphicsConfiguration getGraphicsConfigurationImpl()
-  {
-    if (peer != null)
-      {
-        GraphicsConfiguration config = peer.getGraphicsConfiguration();
-        if (config != null)
-          return config;
-      }
-
-    if (parent != null)
-      return parent.getGraphicsConfiguration();
-
-    return null;
-  }
-
-  /**
    * Translate an AWT 1.1 event ({@link AWTEvent}) into an AWT 1.0
    * event ({@link Event}).
    *
@@ -5837,6 +5831,62 @@ p   * <li>the set of backward traversal keys
           visible = visible && comp.isVisible();
       }
     return visible;
+  }
+
+  /**
+   * Returns the mouse pointer position relative to this Component's
+   * top-left corner.
+   *
+   * @return relative mouse pointer position
+   *
+   * @throws HeadlessException if in a headless environment
+   */
+  public Point getMousePosition() throws HeadlessException
+  {
+    return getMousePositionHelper(true);
+  }
+
+  Point getMousePositionHelper(boolean allowChildren) throws HeadlessException
+  {
+    if (GraphicsEnvironment.isHeadless())
+      throw new HeadlessException("can't get mouse position"
+                                  + " in headless environment");
+    if (!isShowing())
+      return null;
+
+    Component parent = this;
+    int windowRelativeXOffset = 0;
+    int windowRelativeYOffset = 0;
+    while (parent != null && !(parent instanceof Window))
+      {
+        windowRelativeXOffset += parent.getX();
+        windowRelativeYOffset += parent.getY();
+        parent = parent.getParent();
+      }
+    if (parent == null)
+      return null;
+
+    Window window = (Window) parent;
+    if (!Toolkit.getDefaultToolkit()
+        .getMouseInfoPeer().isWindowUnderMouse(window))
+      return null;
+
+    PointerInfo info = MouseInfo.getPointerInfo();
+    Point mouseLocation = info.getLocation();
+    Point windowLocation = window.getLocationOnScreen();
+
+    int x = mouseLocation.x - windowLocation.x;
+    int y = mouseLocation.y - windowLocation.y;
+
+    if (!mouseOverComponent(window.getComponentAt(x, y), allowChildren))
+      return null;
+
+    return new Point(x - windowRelativeXOffset, y - windowRelativeYOffset);
+  }
+
+  boolean mouseOverComponent(Component component, boolean allowChildren)
+  {
+    return component == this;
   }
 
   /**

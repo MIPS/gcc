@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License as
@@ -32,7 +32,8 @@
 #include <string>
 #include <stdexcept>
 #include <deque>
-#include <ext/hash_map>
+#include <locale>
+#include <tr1/unordered_map>
 #include <cxxabi.h>
 
 // Encapsulates symbol characteristics.
@@ -74,7 +75,7 @@ struct symbol
   init(std::string& data);
 };
 
-typedef __gnu_cxx::hash_map<std::string, symbol> 	symbol_objects;
+typedef std::tr1::unordered_map<std::string, symbol> 	symbol_objects;
 
 typedef std::deque<std::string>				symbol_names;
 
@@ -109,20 +110,3 @@ create_symbols(const char* file);
 
 const char*
 demangle(const std::string& mangled);
-
-
-// Specialization.
-namespace __gnu_cxx
-{
-  using namespace std;
-
-  template<> 
-    struct hash<string>
-    {
-      size_t operator()(const string& s) const 
-      { 
-	const collate<char>& c = use_facet<collate<char> >(locale::classic());
-	return c.hash(s.c_str(), s.c_str() + s.size());
-      }
-    }; 
-}

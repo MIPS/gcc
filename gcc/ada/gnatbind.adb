@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -36,7 +35,7 @@ with Casing;   use Casing;
 with Csets;
 with Debug;    use Debug;
 with Fmap;
-with Gnatvsn;  use Gnatvsn;
+with Fname;    use Fname;
 with Namet;    use Namet;
 with Opt;      use Opt;
 with Osint;    use Osint;
@@ -50,6 +49,9 @@ with Targparm; use Targparm;
 with Types;    use Types;
 
 with System.Case_Util; use System.Case_Util;
+with System.OS_Lib;    use System.OS_Lib;
+
+with Ada.Command_Line.Response_File; use Ada.Command_Line;
 
 procedure Gnatbind is
 
@@ -61,6 +63,10 @@ procedure Gnatbind is
 
    Main_Lib_File : File_Name_Type;
    --  Current main library file
+
+   First_Main_Lib_File : File_Name_Type := No_File;
+   --  The first library file, that should be a main subprogram if neither -n
+   --  nor -z are used.
 
    Std_Lib_File : File_Name_Type;
    --  Standard library
@@ -121,12 +127,15 @@ procedure Gnatbind is
 
       --  Define those restrictions that should be output if the gnatbind
       --  -r switch is used. Not all restrictions are output for the reasons
-      --  given above in the list, and this array is used to test whether
+      --  given below in the list, and this array is used to test whether
       --  the corresponding pragma should be listed. True means that it
       --  should not be listed.
 
       No_Restriction_List : constant array (All_Restrictions) of Boolean :=
-        (No_Exceptions            => True,
+        (No_Exception_Propagation => True,
+         --  Modifies code resulting in different exception semantics
+
+         No_Exceptions            => True,
          --  Has unexpected Suppress (All_Checks) effect
 
          No_Implicit_Conditionals => True,
@@ -268,7 +277,7 @@ procedure Gnatbind is
                   "procedure names missing in -L");
             end if;
 
-         --  -Sin -Slo -Shi -Sxx
+         --  -Sin -Slo -Shi -Sxx -Sev
 
          elsif Argv'Length = 4
            and then Argv (2) = 'S'
@@ -394,6 +403,9 @@ procedure Gnatbind is
       end if;
    end Scan_Bind_Arg;
 
+   procedure Check_Version_And_Help is
+      new Check_Version_And_Help_G (Bindusg.Display);
+
 --  Start of processing for Gnatbind
 
 begin
@@ -416,6 +428,12 @@ begin
       Shared_Libgnat := (Shared_Libgnat_Default = SHARED);
    end;
 
+   --  Scan the switches and arguments
+
+   --  First, scan to detect --version and/or --help
+
+   Check_Version_And_Help ("GNATBIND", "1995");
+
    --  Use low level argument routines to avoid dragging in the secondary stack
 
    Next_Arg := 1;
@@ -424,7 +442,28 @@ begin
          Next_Argv : String (1 .. Len_Arg (Next_Arg));
       begin
          Fill_Arg (Next_Argv'Address, Next_Arg);
-         Scan_Bind_Arg (Next_Argv);
+
+         if Next_Argv'Length > 0 then
+            if Next_Argv (1) = '@' then
+               if Next_Argv'Length > 1 then
+                  declare
+                     Arguments : constant Argument_List :=
+                                   Response_File.Arguments_From
+                                     (Response_File_Name        =>
+                                        Next_Argv (2 .. Next_Argv'Last),
+                                      Recursive                 => True,
+                                      Ignore_Non_Existing_Files => True);
+                  begin
+                     for J in Arguments'Range loop
+                        Scan_Bind_Arg (Arguments (J).all);
+                     end loop;
+                  end;
+               end if;
+
+            else
+               Scan_Bind_Arg (Next_Argv);
+            end if;
+         end if;
       end;
 
       Next_Arg := Next_Arg + 1;
@@ -525,13 +564,7 @@ begin
 
    if Verbose_Mode then
       Write_Eol;
-      Write_Str ("GNATBIND ");
-      Write_Str (Gnat_Version_String);
-      Write_Eol;
-      Write_Str ("Copyright 1995-" &
-                 Current_Year &
-                 ", Free Software Foundation, Inc.");
-      Write_Eol;
+      Display_Version ("GNATBIND", "1995");
    end if;
 
    --  Output usage information if no files
@@ -566,6 +599,10 @@ begin
 
       while More_Lib_Files loop
          Main_Lib_File := Next_Main_Lib_File;
+
+         if First_Main_Lib_File = No_File then
+            First_Main_Lib_File := Main_Lib_File;
+         end if;
 
          if Verbose_Mode then
             if Check_Only then
@@ -657,14 +694,23 @@ begin
 
       Set_Source_Table;
 
+      --  If there is main program to bind, set Main_Lib_File to the first
+      --  library file, and the name from which to derive the binder generate
+      --  file to the first ALI file.
+
+      if Bind_Main_Program then
+         Main_Lib_File := First_Main_Lib_File;
+         Set_Current_File_Name_Index (To => 1);
+      end if;
+
       --  Check that main library file is a suitable main program
 
       if Bind_Main_Program
         and then ALIs.Table (ALIs.First).Main_Program = None
         and then not No_Main_Subprogram
       then
-         Error_Msg_Name_1 := Main_Lib_File;
-         Error_Msg ("% does not contain a unit that can be a main program");
+         Error_Msg_File_1 := Main_Lib_File;
+         Error_Msg ("{ does not contain a unit that can be a main program");
       end if;
 
       --  Perform consistency and correctness checks
@@ -686,25 +732,67 @@ begin
          Find_Elab_Order;
 
          if Errors_Detected = 0 then
+            --  Display elaboration order if -l was specified
+
             if Elab_Order_Output then
-               Write_Eol;
-               Write_Str ("ELABORATION ORDER");
-               Write_Eol;
+               if not Zero_Formatting then
+                  Write_Eol;
+                  Write_Str ("ELABORATION ORDER");
+                  Write_Eol;
+               end if;
 
                for J in Elab_Order.First .. Elab_Order.Last loop
                   if not Units.Table (Elab_Order.Table (J)).SAL_Interface then
-                     Write_Str ("   ");
+                     if not Zero_Formatting then
+                        Write_Str ("   ");
+                     end if;
+
                      Write_Unit_Name
                        (Units.Table (Elab_Order.Table (J)).Uname);
                      Write_Eol;
                   end if;
                end loop;
 
-               Write_Eol;
+               if not Zero_Formatting then
+                  Write_Eol;
+               end if;
             end if;
 
             if not Check_Only then
                Gen_Output_File (Output_File_Name.all);
+            end if;
+
+            --  Display list of sources in the closure (except predefined
+            --  sources) if -R was used.
+
+            if List_Closure then
+               if not Zero_Formatting then
+                  Write_Eol;
+                  Write_Str ("REFERENCED SOURCES");
+                  Write_Eol;
+               end if;
+
+               for J in reverse Elab_Order.First .. Elab_Order.Last loop
+
+                  --  Do not include the sources of the runtime
+
+                  if not Is_Internal_File_Name
+                           (Units.Table (Elab_Order.Table (J)).Sfile)
+                  then
+                     if not Zero_Formatting then
+                        Write_Str ("   ");
+                     end if;
+
+                     Write_Str
+                       (Get_Name_String
+                          (Units.Table (Elab_Order.Table (J)).Sfile));
+                     Write_Eol;
+                  end if;
+               end loop;
+
+               if not Zero_Formatting then
+                  Write_Eol;
+               end if;
             end if;
          end if;
       end if;

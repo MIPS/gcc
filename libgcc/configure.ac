@@ -1,5 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
+sinclude(../config/enable.m4)
+sinclude(../config/tls.m4)
 sinclude(../config/acx.m4)
 sinclude(../config/no-executables.m4)
 
@@ -120,7 +122,7 @@ Valid choices are 'yes', 'bid', 'dpd', and 'no'.]) ;;
   esac
 ],
 [
-  case $target in
+  case $host in
     powerpc*-*-linux* | i?86*-*-linux* | x86_64*-*-linux*)
       enable_decimal_float=yes
       ;;
@@ -132,7 +134,7 @@ Valid choices are 'yes', 'bid', 'dpd', and 'no'.]) ;;
 
 # x86's use BID format instead of DPD
 if test x$enable_decimal_float = xyes; then
-  case $target in
+  case $host in
     i?86*-*-linux* | x86_64*-*-linux*)
       enable_decimal_float=bid
       ;;
@@ -142,6 +144,13 @@ if test x$enable_decimal_float = xyes; then
   esac
 fi
 AC_SUBST(enable_decimal_float)
+
+# Check for fixed-point support.
+AC_CACHE_CHECK([whether fixed-point is supported], [libgcc_cv_fixed_point],
+	       [AC_COMPILE_IFELSE([_Sat _Fract x;], [libgcc_cv_fixed_point=yes],
+				  [libgcc_cv_fixed_point=no])])
+fixed_point=$libgcc_cv_fixed_point
+AC_SUBST(fixed_point)
 
 # Collect host-machine-specific information.
 . ${srcdir}/config.host
@@ -166,6 +175,17 @@ else
     vis_hide=
 fi
 AC_SUBST(vis_hide)
+
+# See if we have thread-local storage.  We can only test assembler
+# sicne link-time and run-time tests require the newly built
+# gcc, which can't be used to build executable due to that libgcc
+# is yet to be built here.
+GCC_CHECK_CC_TLS
+set_have_cc_tls=
+if test "$enable_tls $gcc_cv_have_cc_tls" = "yes yes"; then
+  set_have_cc_tls="-DHAVE_CC_TLS"
+fi
+AC_SUBST(set_have_cc_tls)
 
 # Conditionalize the makefile for this target machine.
 tmake_file_=
@@ -194,7 +214,6 @@ if test -n "$CONFIG_FILES"; then
 fi]],
 [[srcdir=${srcdir}
 host=${host}
-target=${target}
 with_target_subdir=${with_target_subdir}
 with_multisubdir=${with_multisubdir}
 ac_configure_args="--enable-multilib ${ac_configure_args}"

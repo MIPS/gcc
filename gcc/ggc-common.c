@@ -1,12 +1,12 @@
 /* Simple garbage collection for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* Generic garbage collection (GC) functions and data, not specific to
    any particular GC implementation.  */
@@ -46,19 +45,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifndef MAP_FAILED
 # define MAP_FAILED ((void *)-1)
-#endif
-
-#ifdef ENABLE_VALGRIND_CHECKING
-# ifdef HAVE_VALGRIND_MEMCHECK_H
-#  include <valgrind/memcheck.h>
-# elif defined HAVE_MEMCHECK_H
-#  include <memcheck.h>
-# else
-#  include <valgrind.h>
-# endif
-#else
-/* Avoid #ifdef:s when we can help it.  */
-#define VALGRIND_DISCARD(x)
 #endif
 
 /* When set, ggc_collect will do collection.  */
@@ -164,9 +150,9 @@ ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
 	 old_size as reachable, but that would lose tracking of writes
 	 after the end of the object (by small offsets).  Discard the
 	 handle to avoid handle leak.  */
-      VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS ((char *) x + size,
-						old_size - size));
-      VALGRIND_DISCARD (VALGRIND_MAKE_READABLE (x, size));
+      VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS ((char *) x + size,
+						    old_size - size));
+      VALGRIND_DISCARD (VALGRIND_MAKE_MEM_DEFINED (x, size));
       return x;
     }
 
@@ -176,7 +162,7 @@ ggc_realloc_stat (void *x, size_t size MEM_STAT_DECL)
      individually allocated object, we'd access parts of the old object
      that were marked invalid with the memcpy below.  We lose a bit of the
      initialization-tracking since some of it may be uninitialized.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_READABLE (x, old_size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_DEFINED (x, old_size));
 
   memcpy (r, x, old_size);
 
@@ -305,13 +291,13 @@ gt_pch_note_reorder (void *obj, void *note_ptr_cookie,
 static hashval_t
 saving_htab_hash (const void *p)
 {
-  return POINTER_HASH (((struct ptr_data *)p)->obj);
+  return POINTER_HASH (((const struct ptr_data *)p)->obj);
 }
 
 static int
 saving_htab_eq (const void *p1, const void *p2)
 {
-  return ((struct ptr_data *)p1)->obj == p2;
+  return ((const struct ptr_data *)p1)->obj == p2;
 }
 
 /* Handy state for the traversal functions.  */
@@ -358,8 +344,8 @@ call_alloc (void **slot, void *state_p)
 static int
 compare_ptr_data (const void *p1_p, const void *p2_p)
 {
-  struct ptr_data *p1 = *(struct ptr_data *const *)p1_p;
-  struct ptr_data *p2 = *(struct ptr_data *const *)p2_p;
+  const struct ptr_data *const p1 = *(const struct ptr_data *const *)p1_p;
+  const struct ptr_data *const p2 = *(const struct ptr_data *const *)p2_p;
   return (((size_t)p1->new_addr > (size_t)p2->new_addr)
 	  - ((size_t)p1->new_addr < (size_t)p2->new_addr));
 }
@@ -795,7 +781,7 @@ static htab_t loc_hash;
 static hashval_t
 hash_descriptor (const void *p)
 {
-  const struct loc_descriptor *d = p;
+  const struct loc_descriptor *const d = p;
 
   return htab_hash_pointer (d->function) | d->line;
 }
@@ -803,8 +789,8 @@ hash_descriptor (const void *p)
 static int
 eq_descriptor (const void *p1, const void *p2)
 {
-  const struct loc_descriptor *d = p1;
-  const struct loc_descriptor *d2 = p2;
+  const struct loc_descriptor *const d = p1;
+  const struct loc_descriptor *const d2 = p2;
 
   return (d->file == d2->file && d->line == d2->line
 	  && d->function == d2->function);
@@ -823,7 +809,7 @@ struct ptr_hash_entry
 static hashval_t
 hash_ptr (const void *p)
 {
-  const struct ptr_hash_entry *d = p;
+  const struct ptr_hash_entry *const d = p;
 
   return htab_hash_pointer (d->ptr);
 }
@@ -831,7 +817,7 @@ hash_ptr (const void *p)
 static int
 eq_ptr (const void *p1, const void *p2)
 {
-  const struct ptr_hash_entry *p = p1;
+  const struct ptr_hash_entry *const p = p1;
 
   return (p->ptr == p2);
 }
@@ -1019,5 +1005,6 @@ dump_ggc_loc_statistics (bool final ATTRIBUTE_UNUSED)
   fprintf (stderr, "%-48s %10s       %10s       %10s       %10s       %10s\n",
 	   "source location", "Garbage", "Freed", "Leak", "Overhead", "Times");
   fprintf (stderr, "-------------------------------------------------------\n");
+  ggc_force_collect = false;
 #endif
 }

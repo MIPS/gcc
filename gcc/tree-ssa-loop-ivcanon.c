@@ -1,11 +1,11 @@
 /* Induction variable canonicalization.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
 GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
    
 GCC is distributed in the hope that it will be useful, but WITHOUT
@@ -14,9 +14,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
    
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass detects the loops that iterate a constant number of times,
    adds a canonical induction variable (step -1, tested against 0) 
@@ -164,7 +163,7 @@ try_unroll_loop_completely (struct loop *loop,
 			    enum unroll_level ul)
 {
   unsigned HOST_WIDE_INT n_unroll, ninsns, max_unroll, unr_insns;
-  tree old_cond, cond, dont_exit, do_exit;
+  tree cond;
 
   if (loop->inner)
     return false;
@@ -208,50 +207,44 @@ try_unroll_loop_completely (struct loop *loop,
 	}
     }
 
-  if (exit->flags & EDGE_TRUE_VALUE)
-    {
-      dont_exit = boolean_false_node;
-      do_exit = boolean_true_node;
-    }
-  else
-    {
-      dont_exit = boolean_true_node;
-      do_exit = boolean_false_node;
-    }
-  cond = last_stmt (exit->src);
-    
   if (n_unroll)
     {
       sbitmap wont_exit;
+      edge e;
+      unsigned i;
+      VEC (edge, heap) *to_remove = NULL;
 
-      old_cond = COND_EXPR_COND (cond);
-      COND_EXPR_COND (cond) = dont_exit;
-      update_stmt (cond);
       initialize_original_copy_tables ();
-
       wont_exit = sbitmap_alloc (n_unroll + 1);
       sbitmap_ones (wont_exit);
       RESET_BIT (wont_exit, 0);
 
       if (!tree_duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					       n_unroll, wont_exit,
-					       exit, NULL,
+					       exit, &to_remove,
 					       DLTHE_FLAG_UPDATE_FREQ
 					       | DLTHE_FLAG_COMPLETTE_PEEL))
 	{
-	  COND_EXPR_COND (cond) = old_cond;
-	  update_stmt (cond);
           free_original_copy_tables ();
 	  free (wont_exit);
 	  return false;
 	}
+
+      for (i = 0; VEC_iterate (edge, to_remove, i, e); i++)
+	{
+	  bool ok = remove_path (e);
+	  gcc_assert (ok);
+	}
+
+      VEC_free (edge, heap, to_remove);
       free (wont_exit);
       free_original_copy_tables ();
     }
-  
-  COND_EXPR_COND (cond) = do_exit;
-  update_stmt (cond);
 
+  cond = last_stmt (exit->src);
+  COND_EXPR_COND (cond) = (exit->flags & EDGE_TRUE_VALUE) ? boolean_true_node
+    : boolean_false_node;
+  update_stmt (cond);
   update_ssa (TODO_update_ssa);
 
   if (dump_file && (dump_flags & TDF_DETAILS))

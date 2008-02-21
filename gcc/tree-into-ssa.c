@@ -1,12 +1,13 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007
+   Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,9 +16,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -434,8 +434,6 @@ initialize_flags_in_bb (basic_block bb)
       /* We are going to use the operand cache API, such as
 	 SET_USE, SET_DEF, and FOR_EACH_IMM_USE_FAST.  The operand
 	 cache for each statement should be up-to-date.  */
-      if (stmt_modified_p (stmt))
-	print_generic_stmt (stderr, stmt, 0);
       gcc_assert (!stmt_modified_p (stmt));
       REWRITE_THIS_STMT (stmt) = 0;
       REGISTER_DEFS_IN_THIS_STMT (stmt) = 0;
@@ -1600,24 +1598,15 @@ debug_currdefs (void)
 void
 dump_tree_ssa (FILE *file)
 {
-  basic_block bb;
   const char *funcname
     = lang_hooks.decl_printable_name (current_function_decl, 2);
 
   fprintf (file, "SSA renaming information for %s\n\n", funcname);
 
-  FOR_EACH_BB (bb)
-    {
-      dump_bb (bb, file, 0);
-      fputs ("    ", file);
-      print_generic_stmt (file, phi_nodes (bb), dump_flags);
-      fputs ("\n\n", file);
-    }
-
-  /* dump_def_blocks (file);
+  dump_def_blocks (file);
   dump_defs_stack (file, -1);
   dump_currdefs (file);
-  dump_tree_ssa_stats (file); */
+  dump_tree_ssa_stats (file);
 }
 
 
@@ -2804,9 +2793,11 @@ mark_sym_for_renaming (tree sym)
     subvar_t svars;
     if (var_can_have_subvars (sym) && (svars = get_subvars_for_var (sym)))
       {
-	subvar_t sv;
-	for (sv = svars; sv; sv = sv->next)
-	  mark_sym_for_renaming (sv->var);
+        unsigned int i;
+	tree subvar;
+
+	for (i = 0; VEC_iterate (tree, svars, i, subvar); ++i)
+	  mark_sym_for_renaming (subvar);
       }
   }
 

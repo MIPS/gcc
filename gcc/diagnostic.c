@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* This file implements the language independent aspect of diagnostic
@@ -262,10 +261,11 @@ diagnostic_action_after_output (diagnostic_context *context,
 /* Prints out, if necessary, the name of the current function
    that caused an error.  Called from all error and warning functions.  */
 void
-diagnostic_report_current_function (diagnostic_context *context)
+diagnostic_report_current_function (diagnostic_context *context,
+				    diagnostic_info *diagnostic)
 {
   diagnostic_report_current_module (context);
-  lang_hooks.print_error_function (context, input_filename);
+  lang_hooks.print_error_function (context, input_filename, diagnostic);
 }
 
 void
@@ -303,7 +303,7 @@ static void
 default_diagnostic_starter (diagnostic_context *context,
 			    diagnostic_info *diagnostic)
 {
-  diagnostic_report_current_function (context);
+  diagnostic_report_current_function (context, diagnostic);
   pp_set_prefix (context->printer, diagnostic_build_prefix (diagnostic));
 }
 
@@ -415,6 +415,8 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 		      " [", cl_options[diagnostic->option_index].opt_text, "]", NULL));
 
       diagnostic->message.locus = &diagnostic->location;
+      diagnostic->message.abstract_origin = &diagnostic->abstract_origin;
+      diagnostic->abstract_origin = NULL;
       pp_format (context->printer, &diagnostic->message);
       (*diagnostic_starter (context)) (context, diagnostic);
       pp_output_formatted_text (context->printer);
@@ -422,6 +424,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       pp_flush (context->printer);
       diagnostic_action_after_output (context, diagnostic);
       diagnostic->message.format_spec = saved_format_spec;
+      diagnostic->abstract_origin = NULL;
     }
 
   context->lock--;
@@ -473,6 +476,7 @@ verbatim (const char *gmsgid, ...)
   text.args_ptr = &ap;
   text.format_spec = _(gmsgid);
   text.locus = NULL;
+  text.abstract_origin = NULL;
   pp_format_verbatim (global_dc->printer, &text);
   pp_flush (global_dc->printer);
   va_end (ap);

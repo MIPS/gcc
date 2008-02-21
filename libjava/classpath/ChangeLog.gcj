@@ -1,3 +1,76 @@
+2008-02-20  Matthias Klose  <doko@ubuntu.com>
+
+	* tools/Makefile.am ($(TOOLS_ZIP)): Revert part of previous change,
+	Do copy resource files in JAVA_MAINTAINER_MODE only.
+	* tools/Makefile.in: Regenerate.
+
+2008-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/cp-tools.texinfo (@direntry): Prefix info name with cp-.
+	* doc/cp-hacking.texinfo (@direntry): Likewise.
+	* doc/cp-vmintegration.texinfo (@direntry): Likewise.
+
+2008-02-06  Matthias Klose  <doko@ubuntu.com>
+
+	* tools/Makefile.am ($(TOOLS_ZIP)): Copy over rmic template files.
+	Copy resource files independent of JAVA_MAINTAINER_MODE.
+	* tools/Makefile.in: Regenerate.
+
+2008-01-28  Tom Tromey  <tromey@redhat.com>
+
+	* tools/classes/gnu/classpath/tools/native2ascii/Native2ASCII$3.class:
+	Added.
+
+2007-09-04  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Append libgcj soversion to nativeexeclibdir.
+	* configure: Regenerate.
+
+2007-08-04  Matthias Klose  <doko@ubuntu.com>
+
+	* java/util/EnumMap.java (clone): Add cast.
+
+2007-07-12  Matthias Klose  <doko@ubuntu.com>
+
+	* lib/jazzlib, tools/gnu/classpath/tools/rmi: Remove empty directories.
+
+2007-06-07  Matthias Klose  <doko@ubuntu.com>
+
+	PR libgcj/32227
+	* include/config-int.h: Delete, it is a generated file.
+
+2007-06-04  Matthias Klose  <doko@ubuntu.com>
+
+	* m4/acinclude.m4: Accept GCJ and JIKES.
+	* configure: Regenerate.
+
+2007-05-31  Matthias Klose  <doko@ubuntu.com>
+
+	* javax/management/NotificationBroadcasterSupport.java
+	(getNotificationInfo): Add cast.
+	* native/jni/qt-peer/Makefile.am (AM_CXXFLAGS): Add libstdc++ include
+	directories.
+	* native/jni/qt-peer/Makefile.in: Regenerate.
+
+2007-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libjava/32098
+	* configure.ac: Add AC_CONFIG_AUX_DIR(../..).
+	* aclocal.m4: Regenerated.
+	* configure: Likewise.
+	* Makefile.in: Likewise.
+
+2007-04-25  Andrew Haley  <aph@redhat.com>
+
+	* java/io/ObjectStreamClass.java (ensureFieldsSet): New method.
+	(setFields): call ensureFieldsSet.
+	(fieldsSet): New field.
+	* java/io/ObjectOutputStream.java (writeFields): Call
+	osc.ensureFieldsSet().
+
+	* java/io/ObjectInputStream.java (parseContent): Assign the handle
+	for a PROXYCLASSDESC immediately after reading the marker.
+
 2007-03-19  Matthias Klose  <doko@ubuntu.com>
 
 	* configure.ac: New configure option

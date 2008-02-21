@@ -1,13 +1,14 @@
 /* C++-specific tree lowering bits; see also c-gimplify.c and tree-gimple.c.
 
-   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +17,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -387,35 +387,56 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
 {
   tree from = TREE_OPERAND (*expr_p, 1);
   tree to = TREE_OPERAND (*expr_p, 0);
-  tree sub;
+  tree t;
+  tree slot = NULL_TREE;
 
   /* What about code that pulls out the temp and uses it elsewhere?  I
      think that such code never uses the TARGET_EXPR as an initializer.  If
      I'm wrong, we'll abort because the temp won't have any RTL.  In that
      case, I guess we'll need to replace references somehow.  */
   if (TREE_CODE (from) == TARGET_EXPR)
-    from = TARGET_EXPR_INITIAL (from);
+    {
+      slot = TARGET_EXPR_SLOT (from);
+      from = TARGET_EXPR_INITIAL (from);
+    }
 
   /* Look through any COMPOUND_EXPRs, since build_compound_expr pushes them
      inside the TARGET_EXPR.  */
-  sub = expr_last (from);
-
-  /* If we are initializing from an AGGR_INIT_EXPR, drop the INIT_EXPR and
-     replace the slot operand with our target.
-
-     Should we add a target parm to gimplify_expr instead?  No, as in this
-     case we want to replace the INIT_EXPR.  */
-  if (TREE_CODE (sub) == AGGR_INIT_EXPR)
+  for (t = from; t; )
     {
-      gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
-      AGGR_INIT_EXPR_SLOT (sub) = to;
-      *expr_p = from;
+      tree sub = TREE_CODE (t) == COMPOUND_EXPR ? TREE_OPERAND (t, 0) : t;
 
-      /* The initialization is now a side-effect, so the container can
-	 become void.  */
-      if (from != sub)
-	TREE_TYPE (from) = void_type_node;
+      /* If we are initializing from an AGGR_INIT_EXPR, drop the INIT_EXPR and
+	 replace the slot operand with our target.
+
+	 Should we add a target parm to gimplify_expr instead?  No, as in this
+	 case we want to replace the INIT_EXPR.  */
+      if (TREE_CODE (sub) == AGGR_INIT_EXPR)
+	{
+	  gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
+	  AGGR_INIT_EXPR_SLOT (sub) = to;
+	  *expr_p = from;
+
+	  /* The initialization is now a side-effect, so the container can
+	     become void.  */
+	  if (from != sub)
+	    TREE_TYPE (from) = void_type_node;
+	}
+      else if (TREE_CODE (sub) == INIT_EXPR
+	       && TREE_OPERAND (sub, 0) == slot)
+	{
+	  /* An INIT_EXPR under TARGET_EXPR created by build_value_init,
+	     will be followed by an AGGR_INIT_EXPR.  */
+	  gimplify_expr (&to, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
+	  TREE_OPERAND (sub, 0) = to;
+	}
+
+      if (t == sub)
+	break;
+      else
+	t = TREE_OPERAND (t, 1);
     }
+
 }
 
 /* Gimplify a MUST_NOT_THROW_EXPR.  */
@@ -590,7 +611,7 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
 }
 
 static inline bool
-is_invisiref_parm (tree t)
+is_invisiref_parm (const_tree t)
 {
   return ((TREE_CODE (t) == PARM_DECL || TREE_CODE (t) == RESULT_DECL)
 	  && DECL_BY_REFERENCE (t));
@@ -746,7 +767,7 @@ cp_genericize (tree fndecl)
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */
   p_set = pointer_set_create ();
-  walk_tree (&DECL_SAVED_TREE (fndecl), cp_genericize_r, p_set, NULL);
+  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_genericize_r, p_set, NULL);
   pointer_set_destroy (p_set);
 
   /* Do everything else.  */
@@ -802,8 +823,7 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 	start2 = build_fold_addr_expr (start2);
 
       end1 = TYPE_SIZE_UNIT (TREE_TYPE (arg1));
-      end1 = fold_convert (TREE_TYPE (start1), end1);
-      end1 = build2 (PLUS_EXPR, TREE_TYPE (start1), start1, end1);
+      end1 = build2 (POINTER_PLUS_EXPR, TREE_TYPE (start1), start1, end1);
 
       p1 = create_tmp_var (TREE_TYPE (start1), NULL);
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, start1);
@@ -824,21 +844,22 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
       if (arg2)
 	argarray[i++] = p2;
       /* Handle default arguments.  */
-      for (parm = defparm; parm != void_list_node; parm = TREE_CHAIN (parm), i++)
+      for (parm = defparm; parm && parm != void_list_node;
+	   parm = TREE_CHAIN (parm), i++)
 	argarray[i] = convert_default_arg (TREE_VALUE (parm),
 					   TREE_PURPOSE (parm), fn, i);
       t = build_call_a (fn, i, argarray);
       append_to_statement_list (t, &ret);
 
-      t = fold_convert (TREE_TYPE (p1), TYPE_SIZE_UNIT (inner_type));
-      t = build2 (PLUS_EXPR, TREE_TYPE (p1), p1, t);
+      t = TYPE_SIZE_UNIT (inner_type);
+      t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (p1), p1, t);
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, t);
       append_to_statement_list (t, &ret);
 
       if (arg2)
 	{
-	  t = fold_convert (TREE_TYPE (p2), TYPE_SIZE_UNIT (inner_type));
-	  t = build2 (PLUS_EXPR, TREE_TYPE (p2), p2, t);
+	  t = TYPE_SIZE_UNIT (inner_type);
+	  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (p2), p2, t);
 	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p2, t);
 	  append_to_statement_list (t, &ret);
 	}
@@ -855,7 +876,7 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
       if (arg2)
 	argarray[i++] = build_fold_addr_expr (arg2);
       /* Handle default arguments.  */
-      for (parm = defparm; parm != void_list_node;
+      for (parm = defparm; parm && parm != void_list_node;
 	   parm = TREE_CHAIN (parm), i++)
 	argarray[i] = convert_default_arg (TREE_VALUE (parm),
 					   TREE_PURPOSE (parm),
@@ -929,7 +950,7 @@ cxx_omp_clause_dtor (tree clause, tree decl)
    than the DECL itself.  */
 
 bool
-cxx_omp_privatize_by_reference (tree decl)
+cxx_omp_privatize_by_reference (const_tree decl)
 {
   return is_invisiref_parm (decl);
 }

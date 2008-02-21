@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for m68k (including m68010) NetBSD platforms using the
    ELF object format.
-   Copyright (C) 2002, 2003, 2004, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Wasabi Systems. Inc.
 
    This file is derived from <m68k/m68kv4.h>, <m68k/m68kelf.h>,
@@ -11,7 +11,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -20,9 +20,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
@@ -224,7 +223,7 @@ while (0)
    function.  The default in m68k.h is a1.  For m68k/SVR4 it is a0. */
 
 #undef M68K_STRUCT_VALUE_REGNUM
-#define M68K_STRUCT_VALUE_REGNUM 8
+#define M68K_STRUCT_VALUE_REGNUM A0_REG
 
 
 /* Register in which static-chain is passed to a function.  The
@@ -232,7 +231,7 @@ while (0)
    regnum.  Make it a1 instead.  */
 
 #undef STATIC_CHAIN_REGNUM
-#define STATIC_CHAIN_REGNUM 9
+#define STATIC_CHAIN_REGNUM A1_REG
 #undef M68K_STATIC_CHAIN_REG_NAME
 #define M68K_STATIC_CHAIN_REG_NAME REGISTER_PREFIX "a1"
 
@@ -253,7 +252,7 @@ while (0)
 
 #undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N)					\
-  ((N) == 0 || (N) == 8 || (TARGET_68881 && (N) == 16))
+  ((N) == D0_REG || (N) == A0_REG || (TARGET_68881 && (N) == FP0_REG))
 
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for

@@ -6,7 +6,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -36,7 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    Called via walk_tree: TP is pointer to tree to be examined.  */
 
 static tree
-record_reference (tree *tp, int *walk_subtrees, void *data)
+record_reference (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
 
@@ -47,8 +46,7 @@ record_reference (tree *tp, int *walk_subtrees, void *data)
 	{
 	  varpool_mark_needed_node (varpool_node (t));
 	  if (lang_hooks.callgraph.analyze_expr)
-	    return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees,
-						      data);
+	    return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees);
 	}
       break;
 
@@ -74,7 +72,7 @@ record_reference (tree *tp, int *walk_subtrees, void *data)
 	}
 
       if ((unsigned int) TREE_CODE (t) >= LAST_AND_UNUSED_TREE_CODE)
-	return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees, data);
+	return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees);
       break;
     }
 
@@ -99,6 +97,8 @@ initialize_inline_failed (struct cgraph_node *node)
 			   "considered for inlining");
       else if (!node->local.inlinable)
 	e->inline_failed = N_("function not inlinable");
+      else if (CALL_CANNOT_INLINE_P (e->call_stmt))
+	e->inline_failed = N_("mismatched arguments");
       else
 	e->inline_failed = N_("function not considered for inlining");
     }
@@ -201,7 +201,7 @@ record_references_in_initializer (tree decl)
 /* Rebuild cgraph edges for current function node.  This needs to be run after
    passes that don't update the cgraph.  */
 
-static unsigned int
+unsigned int
 rebuild_cgraph_edges (void)
 {
   basic_block bb;

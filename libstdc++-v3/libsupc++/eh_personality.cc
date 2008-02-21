@@ -1,5 +1,5 @@
 // -*- C++ -*- The GNU C++ exception personality routine.
-// Copyright (C) 2001, 2002, 2003, 2006 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2006, 2008 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -30,6 +30,7 @@
 #include <bits/c++config.h>
 #include <cstdlib>
 #include <exception_defines.h>
+#include <cxxabi.h>
 #include "unwind-cxx.h"
 
 using namespace __cxxabiv1;
@@ -445,7 +446,7 @@ PERSONALITY_FUNCTION (int version,
   // Parse the LSDA header.
   p = parse_lsda_header (context, language_specific_data, &info);
   info.ttype_base = base_of_encoded_value (info.ttype_encoding, context);
-#ifdef HAVE_GETIPINFO
+#ifdef _GLIBCXX_HAVE_GETIPINFO
   ip = _Unwind_GetIPInfo (context, &ip_before_insn);
 #else
   ip = _Unwind_GetIP (context);
@@ -541,17 +542,26 @@ PERSONALITY_FUNCTION (int version,
       bool saw_cleanup = false;
       bool saw_handler = false;
 
-      // During forced unwinding, we only run cleanups.  With a foreign
-      // exception class, there's no exception type.
-      // ??? What to do about GNU Java and GNU Ada exceptions.
-
+#ifdef __ARM_EABI_UNWINDER__
+      throw_type = ue_header;
       if ((actions & _UA_FORCE_UNWIND)
 	  || foreign_exception)
-	throw_type = 0;
-      else
-#ifdef __ARM_EABI_UNWINDER__
-	throw_type = ue_header;
+	thrown_ptr = 0;
 #else
+      // During forced unwinding, match a magic exception type.
+      if (actions & _UA_FORCE_UNWIND)
+	{
+	  throw_type = &typeid(abi::__forced_unwind);
+	  thrown_ptr = 0;
+	}
+      // With a foreign exception class, there's no exception type.
+      // ??? What to do about GNU Java and GNU Ada exceptions?
+      else if (foreign_exception)
+	{
+	  throw_type = &typeid(abi::__foreign_exception);
+	  thrown_ptr = 0;
+	}
+      else
 	throw_type = xh->exceptionType;
 #endif
 
@@ -590,7 +600,9 @@ PERSONALITY_FUNCTION (int version,
 	      // object to stuff bits in for __cxa_call_unexpected to use.
 	      // Allow them iff the exception spec is non-empty.  I.e.
 	      // a throw() specification results in __unexpected.
-	      if (throw_type
+	      if ((throw_type
+		   && !(actions & _UA_FORCE_UNWIND)
+		   && !foreign_exception)
 		  ? ! check_exception_spec (&info, throw_type, thrown_ptr,
 					    ar_filter)
 		  : empty_exception_spec (&info, ar_filter))

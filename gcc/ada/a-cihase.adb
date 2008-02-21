@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -84,7 +84,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    function Next (Node : Node_Access) return Node_Access;
    pragma Inline (Next);
 
-   function Read_Node (Stream : access Root_Stream_Type'Class)
+   function Read_Node (Stream : not null access Root_Stream_Type'Class)
      return Node_Access;
    pragma Inline (Read_Node);
 
@@ -94,7 +94,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    function Vet (Position : Cursor) return Boolean;
 
    procedure Write_Node
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Node   : Node_Access);
    pragma Inline (Write_Node);
 
@@ -340,7 +340,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       declare
          Size : constant Hash_Type := Prime_Numbers.To_Prime (Left.Length);
       begin
-         Buckets := new Buckets_Type (0 .. Size - 1);
+         Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
 
       Length := 0;
@@ -703,6 +703,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       New_Item  : Element_Type)
    is
       Position : Cursor;
+      pragma Unreferenced (Position);
+
       Inserted : Boolean;
 
    begin
@@ -817,7 +819,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       declare
          Size : constant Hash_Type := Prime_Numbers.To_Prime (Length);
       begin
-         Buckets := new Buckets_Type (0 .. Size - 1);
+         Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
 
       Length := 0;
@@ -1094,7 +1096,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    ----------
 
    procedure Read
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : out Set)
    is
    begin
@@ -1102,7 +1104,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    end Read;
 
    procedure Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : out Cursor)
    is
    begin
@@ -1114,7 +1116,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    ---------------
 
    function Read_Node
-     (Stream : access Root_Stream_Type'Class) return Node_Access
+     (Stream : not null access Root_Stream_Type'Class) return Node_Access
    is
       X : Element_Access := new Element_Type'(Element_Type'Input (Stream));
 
@@ -1138,6 +1140,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
                Element_Keys.Find (Container.HT, New_Item);
 
       X : Element_Access;
+      pragma Warnings (Off, X);
 
    begin
       if Node = null then
@@ -1372,7 +1375,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          Size : constant Hash_Type :=
                   Prime_Numbers.To_Prime (Left.Length + Right.Length);
       begin
-         Buckets := new Buckets_Type (0 .. Size - 1);
+         Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
 
       Length := 0;
@@ -1471,9 +1474,11 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    ------------
 
    function To_Set (New_Item : Element_Type) return Set is
-      HT       : Hash_Table_Type;
+      HT : Hash_Table_Type;
+
       Node     : Node_Access;
       Inserted : Boolean;
+      pragma Unreferenced (Node, Inserted);
 
    begin
       Insert (HT, New_Item, Node, Inserted);
@@ -1523,6 +1528,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
          Tgt_Node : Node_Access;
          Success  : Boolean;
+         pragma Unreferenced (Tgt_Node, Success);
 
       --  Start of processing for Process
 
@@ -1574,7 +1580,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          Size : constant Hash_Type :=
                   Prime_Numbers.To_Prime (Left.Length + Right.Length);
       begin
-         Buckets := new Buckets_Type (0 .. Size - 1);
+         Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
 
       Iterate_Left : declare
@@ -1730,7 +1736,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    -----------
 
    procedure Write
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : Set)
    is
    begin
@@ -1738,7 +1744,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    end Write;
 
    procedure Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : Cursor)
    is
    begin
@@ -1750,7 +1756,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    ----------------
 
    procedure Write_Node
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Node   : Node_Access)
    is
    begin

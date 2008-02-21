@@ -6,18 +6,17 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -60,7 +59,7 @@ package body Bcheck is
    --  Produce an error or a warning message, depending on whether an
    --  inconsistent configuration is permitted or not.
 
-   function Same_Unit (U1 : Name_Id; U2 : Name_Id) return Boolean;
+   function Same_Unit (U1 : Unit_Name_Type; U2 : Name_Id) return Boolean;
    --  Used to compare two unit names for No_Dependence checks. U1 is in
    --  standard unit name format, and U2 is in literal form with periods.
 
@@ -102,7 +101,7 @@ package body Bcheck is
       Src : Source_Id;
       --  Source file Id for this Sdep entry
 
-      ALI_Path_Id : Name_Id;
+      ALI_Path_Id : File_Name_Type;
 
    begin
       --  First, we go through the source table to see if there are any cases
@@ -171,19 +170,19 @@ package body Bcheck is
             if Sdep.Table (D).Stamp /= Source.Table (Src).Stamp
               and then not Source.Table (Src).All_Checksums_Match
             then
-               Error_Msg_Name_1 := ALIs.Table (A).Sfile;
-               Error_Msg_Name_2 := Sdep.Table (D).Sfile;
+               Error_Msg_File_1 := ALIs.Table (A).Sfile;
+               Error_Msg_File_2 := Sdep.Table (D).Sfile;
 
                --  Two styles of message, depending on whether or not
                --  the updated file is the one that must be recompiled
 
-               if Error_Msg_Name_1 = Error_Msg_Name_2 then
+               if Error_Msg_File_1 = Error_Msg_File_2 then
                   if Tolerate_Consistency_Errors then
                      Error_Msg
-                        ("?% has been modified and should be recompiled");
+                        ("?{ has been modified and should be recompiled");
                   else
                      Error_Msg
-                       ("% has been modified and must be recompiled");
+                       ("{ has been modified and must be recompiled");
                   end if;
 
                else
@@ -191,49 +190,35 @@ package body Bcheck is
                     Osint.Find_File ((ALIs.Table (A).Afile), Osint.Library);
                   if Osint.Is_Readonly_Library (ALI_Path_Id) then
                      if Tolerate_Consistency_Errors then
-                        Error_Msg ("?% should be recompiled");
-                        Error_Msg_Name_1 := ALI_Path_Id;
-                        Error_Msg ("?(% is obsolete and read-only)");
-
+                        Error_Msg ("?{ should be recompiled");
+                        Error_Msg_File_1 := ALI_Path_Id;
+                        Error_Msg ("?({ is obsolete and read-only)");
                      else
-                        Error_Msg ("% must be compiled");
-                        Error_Msg_Name_1 := ALI_Path_Id;
-                        Error_Msg ("(% is obsolete and read-only)");
+                        Error_Msg ("{ must be compiled");
+                        Error_Msg_File_1 := ALI_Path_Id;
+                        Error_Msg ("({ is obsolete and read-only)");
                      end if;
 
                   elsif Tolerate_Consistency_Errors then
                      Error_Msg
-                       ("?% should be recompiled (% has been modified)");
+                       ("?{ should be recompiled ({ has been modified)");
 
                   else
-                     Error_Msg ("% must be recompiled (% has been modified)");
+                     Error_Msg ("{ must be recompiled ({ has been modified)");
                   end if;
                end if;
 
                if (not Tolerate_Consistency_Errors) and Verbose_Mode then
-                  declare
-                     Msg : constant String := "% time stamp ";
-                     Buf : String (1 .. Msg'Length + Time_Stamp_Length);
+                  Error_Msg_File_1 := Sdep.Table (D).Sfile;
+                  Error_Msg
+                    ("{ time stamp " & String (Source.Table (Src).Stamp));
 
-                  begin
-                     Buf (1 .. Msg'Length) := Msg;
-                     Buf (Msg'Length + 1 .. Buf'Length) :=
-                       String (Source.Table (Src).Stamp);
-                     Error_Msg_Name_1 := Sdep.Table (D).Sfile;
-                     Error_Msg (Buf);
-                  end;
+                  Error_Msg_File_1 := Sdep.Table (D).Sfile;
+                  --  Something wrong here, should be different file ???
 
-                  declare
-                     Msg : constant String := " conflicts with % timestamp ";
-                     Buf : String (1 .. Msg'Length + Time_Stamp_Length);
-
-                  begin
-                     Buf (1 .. Msg'Length) := Msg;
-                     Buf (Msg'Length + 1 .. Buf'Length) :=
-                       String (Sdep.Table (D).Stamp);
-                     Error_Msg_Name_1 := Sdep.Table (D).Sfile;
-                     Error_Msg (Buf);
-                  end;
+                  Error_Msg
+                    (" conflicts with { timestamp " &
+                     String (Sdep.Table (D).Stamp));
                end if;
 
                --  Exit from the loop through Sdep entries once we find one
@@ -299,11 +284,11 @@ package body Bcheck is
                           and then
                         ALIs.Table (A2).Task_Dispatching_Policy /= Policy
                      then
-                        Error_Msg_Name_1 := ALIs.Table (A1).Sfile;
-                        Error_Msg_Name_2 := ALIs.Table (A2).Sfile;
+                        Error_Msg_File_1 := ALIs.Table (A1).Sfile;
+                        Error_Msg_File_2 := ALIs.Table (A2).Sfile;
 
                         Consistency_Error_Msg
-                          ("% and % compiled with different task" &
+                          ("{ and { compiled with different task" &
                            " dispatching policies");
                         exit Find_Policy;
                      end if;
@@ -370,15 +355,15 @@ package body Bcheck is
                      --  same partition.
 
                      if Task_Dispatching_Policy_Specified /= ' ' then
-                        Error_Msg_Name_1 := ALIs.Table (F).Sfile;
-                        Error_Msg_Name_2 :=
+                        Error_Msg_File_1 := ALIs.Table (F).Sfile;
+                        Error_Msg_File_2 :=
                           ALIs.Table (TDP_Pragma_Afile).Sfile;
 
-                        Error_Msg_Nat_1  := DTK.PSD_Pragma_Line;
+                        Error_Msg_Nat_1 := DTK.PSD_Pragma_Line;
 
                         Consistency_Error_Msg
-                          ("Priority_Specific_Dispatching at %:#" &
-                           " incompatible with Task_Dispatching_Policy at %");
+                          ("Priority_Specific_Dispatching at {:#" &
+                           " incompatible with Task_Dispatching_Policy at {");
                      end if;
 
                      --  Ceiling_Locking must also be specified for a partition
@@ -392,14 +377,14 @@ package body Bcheck is
                            if ALIs.Table (A).Locking_Policy /= ' '
                              and then ALIs.Table (A).Locking_Policy /= 'C'
                            then
-                              Error_Msg_Name_1 := ALIs.Table (F).Sfile;
-                              Error_Msg_Name_2 := ALIs.Table (A).Sfile;
+                              Error_Msg_File_1 := ALIs.Table (F).Sfile;
+                              Error_Msg_File_2 := ALIs.Table (A).Sfile;
 
                               Error_Msg_Nat_1  := DTK.PSD_Pragma_Line;
 
                               Consistency_Error_Msg
-                                ("Priority_Specific_Dispatching at %:#" &
-                                 " incompatible with Locking_Policy at %");
+                                ("Priority_Specific_Dispatching at {:#" &
+                                 " incompatible with Locking_Policy at {");
                            end if;
                         end loop;
                      end if;
@@ -418,14 +403,14 @@ package body Bcheck is
                               DTK.Dispatching_Policy
 
                         then
-                           Error_Msg_Name_1 :=
+                           Error_Msg_File_1 :=
                              ALIs.Table (PSD_Table (Prio).Afile).Sfile;
-                           Error_Msg_Name_2 := ALIs.Table (F).Sfile;
+                           Error_Msg_File_2 := ALIs.Table (F).Sfile;
                            Error_Msg_Nat_1  := PSD_Table (Prio).Loc;
                            Error_Msg_Nat_2  := DTK.PSD_Pragma_Line;
 
                            Consistency_Error_Msg
-                             ("overlapping priority ranges at %:# and %:#");
+                             ("overlapping priority ranges at {:# and {:#");
 
                            exit Find_Overlapping;
                         end if;
@@ -494,14 +479,14 @@ package body Bcheck is
                               --  Issue warning, not one of the safe cases
 
                               else
-                                 Error_Msg_Name_1 := UR.Sfile;
+                                 Error_Msg_File_1 := UR.Sfile;
                                  Error_Msg
-                                   ("?% has dynamic elaboration checks " &
+                                   ("?{ has dynamic elaboration checks " &
                                                                  "and with's");
 
-                                 Error_Msg_Name_1 := WU.Sfile;
+                                 Error_Msg_File_1 := WU.Sfile;
                                  Error_Msg
-                                   ("?  % which has static elaboration " &
+                                   ("?  { which has static elaboration " &
                                                                      "checks");
 
                                  Warnings_Detected := Warnings_Detected - 1;
@@ -535,11 +520,11 @@ package body Bcheck is
             begin
                for A2 in A1 + 1 .. ALIs.Last loop
                   if ALIs.Table (A2).Float_Format /= Format then
-                     Error_Msg_Name_1 := ALIs.Table (A1).Sfile;
-                     Error_Msg_Name_2 := ALIs.Table (A2).Sfile;
+                     Error_Msg_File_1 := ALIs.Table (A1).Sfile;
+                     Error_Msg_File_2 := ALIs.Table (A2).Sfile;
 
                      Consistency_Error_Msg
-                       ("% and % compiled with different " &
+                       ("{ and { compiled with different " &
                         "floating-point representations");
                      exit Find_Format;
                   end if;
@@ -614,13 +599,13 @@ package body Bcheck is
                   Loc    (Inum) := Lnum;
 
                elsif Istate (Inum) /= Stat then
-                  Error_Msg_Name_1 := ALIs.Table (Afile (Inum)).Sfile;
-                  Error_Msg_Name_2 := ALIs.Table (F).Sfile;
+                  Error_Msg_File_1 := ALIs.Table (Afile (Inum)).Sfile;
+                  Error_Msg_File_2 := ALIs.Table (F).Sfile;
                   Error_Msg_Nat_1  := Loc (Inum);
                   Error_Msg_Nat_2  := Lnum;
 
                   Consistency_Error_Msg
-                    ("inconsistent interrupt states at %:# and %:#");
+                    ("inconsistent interrupt states at {:# and {:#");
                end if;
             end loop;
          end loop;
@@ -649,11 +634,11 @@ package body Bcheck is
                   if ALIs.Table (A2).Locking_Policy /= ' ' and
                      ALIs.Table (A2).Locking_Policy /= Policy
                   then
-                     Error_Msg_Name_1 := ALIs.Table (A1).Sfile;
-                     Error_Msg_Name_2 := ALIs.Table (A2).Sfile;
+                     Error_Msg_File_1 := ALIs.Table (A1).Sfile;
+                     Error_Msg_File_2 := ALIs.Table (A2).Sfile;
 
                      Consistency_Error_Msg
-                       ("% and % compiled with different locking policies");
+                       ("{ and { compiled with different locking policies");
                      exit Find_Policy;
                   end if;
                end loop;
@@ -733,11 +718,11 @@ package body Bcheck is
                        and then
                      ALIs.Table (A2).Queuing_Policy /= Policy
                   then
-                     Error_Msg_Name_1 := ALIs.Table (A1).Sfile;
-                     Error_Msg_Name_2 := ALIs.Table (A2).Sfile;
+                     Error_Msg_File_1 := ALIs.Table (A1).Sfile;
+                     Error_Msg_File_2 := ALIs.Table (A2).Sfile;
 
                      Consistency_Error_Msg
-                       ("% and % compiled with different queuing policies");
+                       ("{ and { compiled with different queuing policies");
                      exit Find_Policy;
                   end if;
                end loop;
@@ -786,7 +771,7 @@ package body Bcheck is
                   --  in the case of a parameter restriction).
 
                   declare
-                     M1 : constant String := "% has restriction ";
+                     M1 : constant String := "{ has restriction ";
                      S  : constant String := Restriction_Id'Image (R);
                      M2 : String (1 .. 200); -- big enough!
                      P  : Integer;
@@ -808,7 +793,7 @@ package body Bcheck is
                         P := P + 5;
                      end if;
 
-                     Error_Msg_Name_1 := ALIs.Table (A).Sfile;
+                     Error_Msg_File_1 := ALIs.Table (A).Sfile;
                      Consistency_Error_Msg (M2 (1 .. P - 1));
                      Consistency_Error_Msg
                        ("but the following files violate this restriction:");
@@ -858,8 +843,8 @@ package body Bcheck is
 
                         if R in All_Boolean_Restrictions then
                            Print_Restriction_File (R);
-                           Error_Msg_Name_1 := T.Sfile;
-                           Consistency_Error_Msg ("  %");
+                           Error_Msg_File_1 := T.Sfile;
+                           Consistency_Error_Msg ("  {");
 
                         --  Case of Parameter restriction where violation
                         --  count exceeds restriction value, print file
@@ -871,12 +856,12 @@ package body Bcheck is
                           Cumulative_Restrictions.Value (R)
                         then
                            Print_Restriction_File (R);
-                           Error_Msg_Name_1 := T.Sfile;
+                           Error_Msg_File_1 := T.Sfile;
                            Error_Msg_Nat_1 := Int (T.Restrictions.Count (R));
 
                            if T.Restrictions.Unknown (R) then
                               Consistency_Error_Msg
-                                ("  % (count = at least #)");
+                                ("  { (count = at least #)");
                            else
                               Consistency_Error_Msg
                                 ("  % (count = #)");
@@ -895,7 +880,8 @@ package body Bcheck is
 
       for ND in No_Deps.First .. No_Deps.Last loop
          declare
-            ND_Unit : constant Name_Id := No_Deps.Table (ND).No_Dep_Unit;
+            ND_Unit : constant Name_Id :=
+                        No_Deps.Table (ND).No_Dep_Unit;
 
          begin
             for J in ALIs.First .. ALIs.Last loop
@@ -908,11 +894,13 @@ package body Bcheck is
                         U : Unit_Record renames Units.Table (K);
                      begin
                         for L in U.First_With .. U.Last_With loop
-                           if Same_Unit (Withs.Table (L).Uname, ND_Unit) then
-                              Error_Msg_Name_1 := U.Uname;
-                              Error_Msg_Name_2 := ND_Unit;
+                           if Same_Unit
+                             (Withs.Table (L).Uname, ND_Unit)
+                           then
+                              Error_Msg_File_1 := U.Sfile;
+                              Error_Msg_Name_1 := ND_Unit;
                               Consistency_Error_Msg
-                                ("unit & violates restriction " &
+                                ("file { violates restriction " &
                                  "No_Dependence => %");
                            end if;
                         end loop;
@@ -937,10 +925,10 @@ package body Bcheck is
          if ALIs.Table (A1).Zero_Cost_Exceptions /=
             ALIs.Table (ALIs.First).Zero_Cost_Exceptions
          then
-            Error_Msg_Name_1 := ALIs.Table (A1).Sfile;
-            Error_Msg_Name_2 := ALIs.Table (ALIs.First).Sfile;
+            Error_Msg_File_1 := ALIs.Table (A1).Sfile;
+            Error_Msg_File_2 := ALIs.Table (ALIs.First).Sfile;
 
-            Consistency_Error_Msg ("% and % compiled with different "
+            Consistency_Error_Msg ("{ and { compiled with different "
                                             & "exception handling mechanisms");
          end if;
       end loop Check_Mechanism;
@@ -963,13 +951,13 @@ package body Bcheck is
             for K in Boolean loop
                if K then
                   Name_Buffer (Name_Len) := 'b';
-
                else
                   Name_Buffer (Name_Len) := 's';
                end if;
 
                declare
-                  Info : constant Int := Get_Name_Table_Info (Name_Find);
+                  Unit : constant Unit_Name_Type := Name_Find;
+                  Info : constant Int := Get_Name_Table_Info (Unit);
 
                begin
                   if Info /= 0 then
@@ -1010,11 +998,11 @@ package body Bcheck is
            or else ALIs.Table (A).Ver          (1 .. VL) /=
                    ALIs.Table (ALIs.First).Ver (1 .. VL)
          then
-            Error_Msg_Name_1 := ALIs.Table (A).Sfile;
-            Error_Msg_Name_2 := ALIs.Table (ALIs.First).Sfile;
+            Error_Msg_File_1 := ALIs.Table (A).Sfile;
+            Error_Msg_File_2 := ALIs.Table (ALIs.First).Sfile;
 
             Consistency_Error_Msg
-               ("% and % compiled with different GNAT versions");
+               ("{ and { compiled with different GNAT versions");
          end if;
       end loop;
    end Check_Versions;
@@ -1051,7 +1039,7 @@ package body Bcheck is
    -- Same_Unit --
    ---------------
 
-   function Same_Unit (U1 : Name_Id; U2 : Name_Id) return Boolean is
+   function Same_Unit (U1 : Unit_Name_Type; U2 : Name_Id) return Boolean is
    begin
       --  Note, the string U1 has a terminating %s or %b, U2 does not
 

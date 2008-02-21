@@ -45,12 +45,13 @@
 //        W. T. Vetterling, B. P. Flannery, Cambridge University Press
 //        (1992), pp. 261-269
 
-#ifndef _TR1_ELL_INTEGRAL_TCC
-#define _TR1_ELL_INTEGRAL_TCC 1
+#ifndef _GLIBCXX_TR1_ELL_INTEGRAL_TCC
+#define _GLIBCXX_TR1_ELL_INTEGRAL_TCC 1
 
 namespace std
 {
-_GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
+namespace tr1
+{
 
   // [5.2] Special functions
 
@@ -312,7 +313,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
      *   Based on Carlson's algorithms:
      *   -  B. C. Carlson Numer. Math. 33, 1 (1979)
      *   -  B. C. Carlson, Special Functions of Applied Mathematics (1977)
-     *   -  Nunerical Recipes in C, 2nd ed, pp. 261-269,
+     *   -  Numerical Recipes in C, 2nd ed, pp. 261-269,
      *      by Press, Teukolsky, Vetterling, Flannery (1992)
      *
      *   @param  __x  The first of two symmetric arguments.
@@ -493,7 +494,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
      *   Based on Carlson's algorithms:
      *   -  B. C. Carlson Numer. Math. 33, 1 (1979)
      *   -  B. C. Carlson, Special Functions of Applied Mathematics (1977)
-     *   -  Nunerical Recipes in C, 2nd ed, pp. 261-269,
+     *   -  Numerical Recipes in C, 2nd ed, pp. 261-269,
      *      by Press, Teukolsky, Vetterling, Flannery (1992)
      *
      *   @param  __x  The first argument.
@@ -562,7 +563,7 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
      *   Based on Carlson's algorithms:
      *   -  B. C. Carlson Numer. Math. 33, 1 (1979)
      *   -  B. C. Carlson, Special Functions of Applied Mathematics (1977)
-     *   -  Nunerical Recipes in C, 2nd ed, pp. 261-269,
+     *   -  Numerical Recipes in C, 2nd ed, pp. 261-269,
      *      by Press, Teukolsky, Vetterling, Flannery (1992)
      *
      *   @param  __x  The first of three symmetric arguments.
@@ -627,9 +628,9 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
               const _Tp __znroot = std::sqrt(__zn);
               const _Tp __lambda = __xnroot * (__ynroot + __znroot)
                                  + __ynroot * __znroot;
-              const _Tp __alpha = __pn * (__xnroot + __ynroot + __znroot)
+              const _Tp __alpha1 = __pn * (__xnroot + __ynroot + __znroot)
                                 + __xnroot * __ynroot * __znroot;
-              const _Tp __alpha2 = __alpha * __alpha;
+              const _Tp __alpha2 = __alpha1 * __alpha1;
               const _Tp __beta = __pn * (__pn + __lambda)
                                       * (__pn + __lambda);
               __sigma += __power4 * __ellint_rc(__alpha2, __beta);
@@ -755,8 +756,8 @@ _GLIBCXX_BEGIN_NAMESPACE(_GLIBCXX_TR1)
 
   /* @} */ // group tr1_math_spec_func
 
-_GLIBCXX_END_NAMESPACE
+}
 }
 
-#endif // _TR1_ELL_INTEGRAL_TCC
+#endif // _GLIBCXX_TR1_ELL_INTEGRAL_TCC
 

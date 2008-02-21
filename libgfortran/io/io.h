@@ -31,9 +31,9 @@ Boston, MA 02110-1301, USA.  */
 
 /* IO library include.  */
 
-#include <setjmp.h>
 #include "libgfortran.h"
 
+#include <setjmp.h>
 #include <gthr.h>
 
 /* Basic types used in data transfers.  */
@@ -54,7 +54,7 @@ typedef struct stream
   try (*sfree) (struct stream *);
   try (*close) (struct stream *);
   try (*seek) (struct stream *, gfc_offset);
-  try (*truncate) (struct stream *);
+  try (*trunc) (struct stream *);
   int (*read) (struct stream *, void *, size_t *);
   int (*write) (struct stream *, const void *, size_t *);
   try (*set) (struct stream *, int, size_t);
@@ -74,11 +74,19 @@ stream;
 #define salloc_w_at(s, len, where) ((s)->alloc_w_at)(s, len, where)
 
 #define sseek(s, pos) ((s)->seek)(s, pos)
-#define struncate(s) ((s)->truncate)(s)
+#define struncate(s) ((s)->trunc)(s)
 #define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
 
 #define sset(s, c, n) ((s)->set)(s, c, n)
+
+/* Macros for testing what kinds of I/O we are doing.  */
+
+#define is_array_io(dtp) ((dtp)->internal_unit_desc)
+
+#define is_internal_unit(dtp) ((dtp)->u.p.unit_is_internal)
+
+#define is_stream_io(dtp) ((dtp)->u.p.current_unit->flags.access == ACCESS_STREAM)
 
 /* The array_loop_spec contains the variables for the loops over index ranges
    that are encountered.  Since the variables can be negative, ssize_t
@@ -443,7 +451,8 @@ typedef struct gfc_unit
   struct gfc_unit *left, *right;
   int priority;
 
-  int read_bad, current_record, saved_pos;
+  int read_bad, current_record, saved_pos, previous_nonadvancing_write;
+
   enum
   { NO_ENDFILE, AT_ENDFILE, AFTER_ENDFILE }
   endfile;
@@ -560,7 +569,7 @@ internal_proto(compare_files);
 extern stream *open_external (st_parameter_open *, unit_flags *);
 internal_proto(open_external);
 
-extern stream *open_internal (char *, int);
+extern stream *open_internal (char *, int, gfc_offset);
 internal_proto(open_internal);
 
 extern stream *input_stream (void);
@@ -577,9 +586,6 @@ internal_proto(compare_file_filename);
 
 extern gfc_unit *find_file (const char *file, gfc_charlen_type file_len);
 internal_proto(find_file);
-
-extern void flush_all_units (void);
-internal_proto(flush_all_units);
 
 extern int stream_at_bof (stream *);
 internal_proto(stream_at_bof);
@@ -672,15 +678,6 @@ internal_proto(get_internal_unit);
 extern void free_internal_unit (st_parameter_dt *);
 internal_proto(free_internal_unit);
 
-extern int is_internal_unit (st_parameter_dt *);
-internal_proto(is_internal_unit);
-
-extern int is_array_io (st_parameter_dt *);
-internal_proto(is_array_io);
-
-extern int is_stream_io (st_parameter_dt *);
-internal_proto(is_stream_io);
-
 extern gfc_unit *find_unit (int);
 internal_proto(find_unit);
 
@@ -693,10 +690,13 @@ internal_proto(get_unit);
 extern void unlock_unit (gfc_unit *);
 internal_proto(unlock_unit);
 
-/* open.c */
+extern void update_position (gfc_unit *);
+internal_proto(update_position);
 
-extern void test_endfile (gfc_unit *);
-internal_proto(test_endfile);
+extern void finish_last_advance_record (gfc_unit *u);
+internal_proto (finish_last_advance_record);
+
+/* open.c */
 
 extern gfc_unit *new_unit (st_parameter_open *, gfc_unit *, unit_flags *);
 internal_proto(new_unit);
@@ -734,10 +734,12 @@ internal_proto(read_sf);
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);
 
-extern gfc_offset next_array_record (st_parameter_dt *, array_loop_spec *);
+extern gfc_offset next_array_record (st_parameter_dt *, array_loop_spec *,
+				     int*);
 internal_proto(next_array_record);
 
-extern gfc_offset init_loop_spec (gfc_array_char *, array_loop_spec *);
+extern gfc_offset init_loop_spec (gfc_array_char *, array_loop_spec *,
+				  gfc_offset *);
 internal_proto(init_loop_spec);
 
 extern void next_record (st_parameter_dt *, int);

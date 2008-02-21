@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2007, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -964,7 +964,10 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
 
    procedure Insert (Container : in out Set; New_Item  : Element_Type) is
       Position : Cursor;
+      pragma Unreferenced (Position);
+
       Inserted : Boolean;
+
    begin
       Insert (Container, New_Item, Position, Inserted);
 
@@ -1032,7 +1035,8 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
       Src_Node : Node_Access;
       Dst_Node : out Node_Access)
    is
-      Success  : Boolean;
+      Success : Boolean;
+      pragma Unreferenced (Success);
 
       function New_Node return Node_Access;
 
@@ -1382,11 +1386,11 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
    ----------
 
    procedure Read
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : out Set)
    is
       function Read_Node
-        (Stream : access Root_Stream_Type'Class) return Node_Access;
+        (Stream : not null access Root_Stream_Type'Class) return Node_Access;
       pragma Inline (Read_Node);
 
       procedure Read is
@@ -1397,7 +1401,7 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
       ---------------
 
       function Read_Node
-        (Stream : access Root_Stream_Type'Class) return Node_Access
+        (Stream : not null access Root_Stream_Type'Class) return Node_Access
       is
          Node : Node_Access := new Node_Type;
 
@@ -1418,7 +1422,7 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
    end Read;
 
    procedure Read
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : out Cursor)
    is
    begin
@@ -1434,6 +1438,7 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
                Element_Keys.Find (Container.Tree, New_Item);
 
       X : Element_Access;
+      pragma Warnings (Off, X);
 
    begin
       if Node = null then
@@ -1687,9 +1692,11 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
    ------------
 
    function To_Set (New_Item : Element_Type) return Set is
-      Tree     : Tree_Type;
+      Tree : Tree_Type;
+
       Node     : Node_Access;
       Inserted : Boolean;
+      pragma Unreferenced (Node, Inserted);
 
    begin
       Insert_Sans_Hint (Tree, New_Item, Node, Inserted);
@@ -1717,11 +1724,11 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
    -----------
 
    procedure Write
-     (Stream    : access Root_Stream_Type'Class;
+     (Stream    : not null access Root_Stream_Type'Class;
       Container : Set)
    is
       procedure Write_Node
-        (Stream : access Root_Stream_Type'Class;
+        (Stream : not null access Root_Stream_Type'Class;
          Node   : Node_Access);
       pragma Inline (Write_Node);
 
@@ -1733,7 +1740,7 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
       ----------------
 
       procedure Write_Node
-        (Stream : access Root_Stream_Type'Class;
+        (Stream : not null access Root_Stream_Type'Class;
          Node   : Node_Access)
       is
       begin
@@ -1747,7 +1754,7 @@ package body Ada.Containers.Indefinite_Ordered_Sets is
    end Write;
 
    procedure Write
-     (Stream : access Root_Stream_Type'Class;
+     (Stream : not null access Root_Stream_Type'Class;
       Item   : Cursor)
    is
    begin

@@ -1,12 +1,12 @@
 /* Tree inlining hooks and declarations.
-   Copyright 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -15,15 +15,14 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_TREE_INLINE_H
 #define GCC_TREE_INLINE_H
 
 #include "varray.h"
-#include "splay-tree.h"
+#include "pointer-set.h"
 
 
 /* Data required for function body duplication.  */
@@ -49,13 +48,17 @@ typedef struct copy_body_data
   tree retvar;
   /* The map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined.  */
-  splay_tree decl_map;
+  struct pointer_map_t *decl_map;
 
   /* Create a new decl to replace DECL in the destination function.  */
   tree (*copy_decl) (tree, struct copy_body_data *);
 
   /* Current BLOCK.  */
   tree block;
+
+  /* CALL_EXPR if va arg parameter packs should be expanded or NULL
+     is not.  */
+  tree call_expr;
 
   /* Exception region the inlined call lie in.  */
   int eh_region;
@@ -89,8 +92,17 @@ typedef struct copy_body_data
      duplicating BLOCK nodes.  */
   bool transform_lang_insert_block;
 
+  /* True if this statement will need to be regimplified.  */
+  bool regimplify;
+
+  /* > 0 if we are remapping a type currently.  */
+  int remapping_type_depth;
+
   /* Statements that might be possibly folded.  */
   struct pointer_set_t *statements_to_fold;
+
+  /* Entry basic block to currently copied body.  */
+  struct basic_block_def *entry_bb;
 } copy_body_data;
 
 /* Weights of constructions for estimate_num_insns.  */
@@ -100,11 +112,11 @@ typedef struct eni_weights_d
   /* Cost per call.  */
   unsigned call_cost;
 
+  /* Cost per call to a target specific builtin */
+  unsigned target_builtin_call_cost;
+
   /* Cost of "expensive" div and mod operations.  */
   unsigned div_mod_cost;
-
-  /* Cost of switch statement.  */
-  unsigned switch_cost;
 
   /* Cost for omp construct.  */
   unsigned omp_cost;
@@ -135,8 +147,6 @@ tree copy_tree_r (tree *, int *, void *);
 void clone_body (tree, tree, void *);
 void save_body (tree, tree *, tree *);
 int estimate_move_cost (tree type);
-void push_cfun (struct function *new_cfun);
-void pop_cfun (void);
 int estimate_num_insns (tree expr, eni_weights *);
 bool tree_versionable_function_p (tree);
 void tree_function_versioning (tree, tree, varray_type, bool);

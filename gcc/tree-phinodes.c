@@ -1,11 +1,11 @@
 /* Generic routines for manipulating PHIs
-   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005, 2007 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
 
 GCC is distributed in the hope that it will be useful,
@@ -14,9 +14,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -218,7 +217,6 @@ make_phi_node (tree var, int len)
   TREE_SET_CODE (phi, PHI_NODE);
   PHI_NUM_ARGS (phi) = len;
   PHI_ARG_CAPACITY (phi) = capacity;
-  TREE_TYPE (phi) = TREE_TYPE (var);
   if (TREE_CODE (var) == SSA_NAME)
     SET_PHI_RESULT (phi, var);
   else
@@ -314,7 +312,7 @@ reserve_phi_args_for_new_edge (basic_block bb)
   int len = EDGE_COUNT (bb->preds);
   int cap = ideal_phi_node_len (len + 4);
 
-  for (loc = &(bb->phi_nodes);
+  for (loc = phi_nodes_ptr (bb);
        *loc;
        loc = &PHI_CHAIN (*loc))
     {
@@ -355,7 +353,7 @@ create_phi_node (tree var, basic_block bb)
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   PHI_CHAIN (phi) = phi_nodes (bb);
-  bb->phi_nodes = phi;
+  set_phi_nodes (bb, phi);
 
   /* Associate BB to the PHI node.  */
   set_bb_for_stmt (phi, bb);
@@ -459,7 +457,7 @@ remove_phi_node (tree phi, tree prev, bool release_lhs_p)
     }
   else
     {
-      for (loc = &(bb_for_stmt (phi)->phi_nodes);
+      for (loc = phi_nodes_ptr (bb_for_stmt (phi));
 	   *loc != phi;
 	   loc = &PHI_CHAIN (*loc))
 	;

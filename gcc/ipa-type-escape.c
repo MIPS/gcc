@@ -1,12 +1,12 @@
 /* Type based alias analysis.
-   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 /* This pass determines which types in the program contain only
    instances that are completely encapsulated by the compilation unit.
@@ -140,14 +139,14 @@ static unsigned int look_for_casts (tree lhs ATTRIBUTE_UNUSED, tree);
 static bool is_cast_from_non_pointer (tree, tree, void *);
 
 /* Get the name of TYPE or return the string "<UNNAMED>".  */
-static char*
+static const char*
 get_name_of_type (tree type)
 {
   tree name = TYPE_NAME (type);
   
   if (!name)
     /* Unnamed type, do what you like here.  */
-    return (char*)"<UNNAMED>";
+    return "<UNNAMED>";
   
   /* It will be a TYPE_DECL in the case of a typedef, otherwise, an
      identifier_node */
@@ -157,20 +156,20 @@ get_name_of_type (tree type)
 	  IDENTIFIER_NODE.  (Some decls, most often labels, may have
 	  zero as the DECL_NAME).  */
       if (DECL_NAME (name))
-	return (char*)IDENTIFIER_POINTER (DECL_NAME (name));
+	return IDENTIFIER_POINTER (DECL_NAME (name));
       else
 	/* Unnamed type, do what you like here.  */
-	return (char*)"<UNNAMED>";
+	return "<UNNAMED>";
     }
   else if (TREE_CODE (name) == IDENTIFIER_NODE)
-    return (char*)IDENTIFIER_POINTER (name);
+    return IDENTIFIER_POINTER (name);
   else 
-    return (char*)"<UNNAMED>";
+    return "<UNNAMED>";
 }
 
 struct type_brand_s 
 {
-  char* name;
+  const char* name;
   int seq;
 };
 
@@ -196,8 +195,9 @@ compare_type_brand (splay_tree_key sk1, splay_tree_key sk2)
 /* This is a trivial algorithm for removing duplicate types.  This
    would not work for any language that used structural equivalence as
    the basis of its type system.  */
-/* Return either TYPE if this is first time TYPE has been seen an
-   compatible TYPE that has already been processed.  */ 
+/* Return TYPE if no type compatible with TYPE has been seen so far,
+   otherwise return a type compatible with TYPE that has already been
+   processed.  */
 
 static tree
 discover_unique_type (tree type)
@@ -218,7 +218,7 @@ discover_unique_type (tree type)
 	  /* Create an alias since this is just the same as
 	     other_type.  */
 	  tree other_type = (tree) result->value;
-	  if (lang_hooks.types_compatible_p (type, other_type) == 1)
+	  if (types_compatible_p (type, other_type))
 	    {
 	      free (brand);
 	      /* Insert this new type as an alias for other_type.  */
@@ -274,6 +274,7 @@ type_to_consider (tree type)
     case INTEGER_TYPE:
     case QUAL_UNION_TYPE:
     case REAL_TYPE:
+    case FIXED_POINT_TYPE:
     case RECORD_TYPE:
     case UNION_TYPE:
     case VECTOR_TYPE:
@@ -655,7 +656,7 @@ check_cast_type (tree to_type, tree from_type)
   return CT_SIDEWAYS;
 }     
 
-/* This function returns non-zero if VAR is result of call 
+/* This function returns nonzero if VAR is result of call 
    to malloc function.  */
 
 static bool
@@ -925,56 +926,89 @@ is_cast_from_non_pointer (tree var, tree def_stmt, void *data)
 
 */
 
-static bool
-is_array_access_through_pointer_and_index (tree op0, tree op1)
+bool
+is_array_access_through_pointer_and_index (enum tree_code code, tree op0, 
+					   tree op1, tree *base, tree *offset,
+					   tree *offset_cast_stmt)
 {
-  tree base, offset, offset_cast_stmt;
   tree before_cast, before_cast_def_stmt;
   cast_t op0_cast, op1_cast;
 
+  *base = NULL;
+  *offset = NULL;
+  *offset_cast_stmt = NULL;
+
   /* Check 1.  */
-
-  /* Init data for walk_use_def_chains function.  */
-  op0_cast.type = op1_cast.type = 0;
-  op0_cast.stmt = op1_cast.stmt = NULL;
-
-  visited_stmts = pointer_set_create ();
-  walk_use_def_chains (op0, is_cast_from_non_pointer,(void *)(&op0_cast), false);
-  pointer_set_destroy (visited_stmts);
-
-  visited_stmts = pointer_set_create ();  
-  walk_use_def_chains (op1, is_cast_from_non_pointer,(void *)(&op1_cast), false);
-  pointer_set_destroy (visited_stmts);
-
-  if (op0_cast.type == 1 && op1_cast.type == 0)
+  if (code == POINTER_PLUS_EXPR)
     {
-      base = op1;
-      offset = op0;
-      offset_cast_stmt = op0_cast.stmt;
-    }
-  else if (op0_cast.type == 0 && op1_cast.type == 1)
-    {
-      base = op0;
-      offset = op1;      
-      offset_cast_stmt = op1_cast.stmt;
+      tree op0type = TYPE_MAIN_VARIANT (TREE_TYPE (op0));
+      tree op1type = TYPE_MAIN_VARIANT (TREE_TYPE (op1));
+
+      /* One of op0 and op1 is of pointer type and the other is numerical.  */
+      if (POINTER_TYPE_P (op0type) && NUMERICAL_TYPE_CHECK (op1type))
+	{
+	  *base = op0;
+	  *offset = op1;
+	}
+      else if (POINTER_TYPE_P (op1type) && NUMERICAL_TYPE_CHECK (op0type))
+	{
+	  *base = op1;
+	  *offset = op0;
+	}
+      else
+	return false;
     }
   else
-    return false;
+    {
+      /* Init data for walk_use_def_chains function.  */
+      op0_cast.type = op1_cast.type = 0;
+      op0_cast.stmt = op1_cast.stmt = NULL;
 
+      visited_stmts = pointer_set_create ();
+      walk_use_def_chains (op0, is_cast_from_non_pointer,(void *)(&op0_cast),
+			   false);
+      pointer_set_destroy (visited_stmts);
+
+      visited_stmts = pointer_set_create ();  
+      walk_use_def_chains (op1, is_cast_from_non_pointer,(void *)(&op1_cast),
+			   false);
+      pointer_set_destroy (visited_stmts);
+
+      if (op0_cast.type == 1 && op1_cast.type == 0)
+	{
+	  *base = op1;
+	  *offset = op0;
+	  *offset_cast_stmt = op0_cast.stmt;
+	}
+      else if (op0_cast.type == 0 && op1_cast.type == 1)
+	{
+	  *base = op0;
+	  *offset = op1;      
+	  *offset_cast_stmt = op1_cast.stmt;
+	}
+      else
+	return false;
+    }
+  
   /* Check 2.  
      offset_cast_stmt is of the form: 
      D.1606_7 = (struct str_t *) D.1605_6;  */
 
-  before_cast = SINGLE_SSA_TREE_OPERAND (offset_cast_stmt, SSA_OP_USE);
-  if (!before_cast)
-    return false;
+  if (*offset_cast_stmt)
+    {
+      before_cast = SINGLE_SSA_TREE_OPERAND (*offset_cast_stmt, SSA_OP_USE);
+      if (!before_cast)
+	return false;
   
-  if (SSA_NAME_IS_DEFAULT_DEF(before_cast))
-    return false;
+      if (SSA_NAME_IS_DEFAULT_DEF (before_cast))
+	return false;
   
-  before_cast_def_stmt = SSA_NAME_DEF_STMT (before_cast);
-  if (!before_cast_def_stmt)
-    return false;
+      before_cast_def_stmt = SSA_NAME_DEF_STMT (before_cast);
+      if (!before_cast_def_stmt)
+	return false;
+    }
+  else
+    before_cast_def_stmt = SSA_NAME_DEF_STMT (*offset);
 
   /* before_cast_def_stmt should be of the form:
      D.1605_6 = i.1_5 * 16; */
@@ -1448,7 +1482,6 @@ static bool
 okay_pointer_operation (enum tree_code code, tree op0, tree op1)
 {
   tree op0type = TYPE_MAIN_VARIANT (TREE_TYPE (op0));
-  tree op1type = TYPE_MAIN_VARIANT (TREE_TYPE (op1));
 
   switch (code)
     {
@@ -1458,11 +1491,17 @@ okay_pointer_operation (enum tree_code code, tree op0, tree op1)
       break;
     case MINUS_EXPR:
     case PLUS_EXPR:
+    case POINTER_PLUS_EXPR:
       {
-	if (POINTER_TYPE_P (op1type)
+	tree base, offset, offset_cast_stmt;
+
+	if (POINTER_TYPE_P (op0type)
 	    && TREE_CODE (op0) == SSA_NAME 
 	    && TREE_CODE (op1) == SSA_NAME 
-	    && is_array_access_through_pointer_and_index (op0, op1))
+	    && is_array_access_through_pointer_and_index (code, op0, op1, 
+							  &base, 
+							  &offset, 
+							  &offset_cast_stmt))
 	  return true;
 	else
 	  {
@@ -1498,7 +1537,7 @@ okay_pointer_operation (enum tree_code code, tree op0, tree op1)
 static tree
 scan_for_refs (tree *tp, int *walk_subtrees, void *data)
 {
-  struct cgraph_node *fn = data;
+  struct cgraph_node *fn = (struct cgraph_node *) data;
   tree t = *tp;
 
   switch (TREE_CODE (t))  
@@ -1662,7 +1701,7 @@ ipa_init (void)
 
 /* Check out the rhs of a static or global initialization VNODE to see
    if any of them contain addressof operations.  Note that some of
-   these variables may  not even be referenced in the code in this
+   these variables may not even be referenced in the code in this
    compilation unit but their right hand sides may contain references
    to variables defined within this unit.  */
 

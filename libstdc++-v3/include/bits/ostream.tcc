@@ -43,6 +43,8 @@
 
 #pragma GCC system_header
 
+#include <cxxabi-forced.h>
+
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
   template<typename _CharT, typename _Traits>
@@ -75,6 +77,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		const __num_put_type& __np = __check_facet(this->_M_num_put);
 		if (__np.put(*this, *this, this->fill(), __v).failed())
 		  __err |= ios_base::badbit;
+	      }
+	    catch(__cxxabiv1::__forced_unwind&)
+	      {
+		this->_M_setstate(ios_base::badbit);		
+		__throw_exception_again;
 	      }
 	    catch(...)
 	      { this->_M_setstate(ios_base::badbit); }
@@ -126,6 +133,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (!__copy_streambufs(__sbin, this->rdbuf()))
 		__err |= ios_base::failbit;
 	    }
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);		
+	      __throw_exception_again;
+	    }
 	  catch(...)
 	    { this->_M_setstate(ios_base::failbit); }
 	}
@@ -157,7 +169,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (traits_type::eq_int_type(__put, traits_type::eof()))
 		__err |= ios_base::badbit;
 	    }
-	  catch (...)
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);		
+	      __throw_exception_again;
+	    }
+	  catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	  if (__err)
 	    this->setstate(__err);
@@ -182,7 +199,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  try
 	    { _M_write(__s, __n); }
-	  catch (...)
+	  catch(__cxxabiv1::__forced_unwind&)
+	    {
+	      this->_M_setstate(ios_base::badbit);		
+	      __throw_exception_again;
+	    }
+	  catch(...)
 	    { this->_M_setstate(ios_base::badbit); }
 	}
       return *this;
@@ -202,6 +224,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  if (this->rdbuf() && this->rdbuf()->pubsync() == -1)
 	    __err |= ios_base::badbit;
 	}
+      catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);		
+	  __throw_exception_again;
+	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
       if (__err)
@@ -219,6 +246,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  if (!this->fail())
 	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::out);
+	}
+      catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);		
+	  __throw_exception_again;
 	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
@@ -244,6 +276,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      if (__p == pos_type(off_type(-1)))
 		__err |= ios_base::failbit;
 	    }
+	}
+      catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);		
+	  __throw_exception_again;
 	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
@@ -272,42 +309,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 		__err |= ios_base::failbit;
 	    }
 	}
+      catch(__cxxabiv1::__forced_unwind&)
+	{
+	  this->_M_setstate(ios_base::badbit);		
+	  __throw_exception_again;
+	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
       if (__err)
 	this->setstate(__err);
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    _M_insert(const char_type* __s, streamsize __n)
-    {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  try
-	    {
-	      const streamsize __w = this->width();
-	      if (__w > __n)
-		{
-		  const bool __left = ((this->flags() & ios_base::adjustfield)
-				       == ios_base::left);
-		  if (!__left)
-		    _M_write(this->fill(), __w - __n);
-		  if (this->good())
-		    _M_write(__s, __n);
-		  if (__left && this->good())
-		    _M_write(this->fill(), __w - __n);
-		}
-	      else
-		_M_write(__s, __n);
-	      this->width(0);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	}
       return *this;
     }
 
@@ -321,31 +331,29 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
 	  // 167.  Improper use of traits_type::length()
-	  const size_t __clen = char_traits<char>::length(__s);      
-	  _CharT* __ws = 0;
+	  const size_t __clen = char_traits<char>::length(__s);
 	  try
-	    { 
-	      __ws = new _CharT[__clen];
+	    {
+	      struct __ptr_guard
+	      {
+		_CharT *__p;
+		__ptr_guard (_CharT *__ip): __p(__ip) { }
+		~__ptr_guard() { delete[] __p; }
+		_CharT* __get() { return __p; }
+	      } __pg (new _CharT[__clen]);
+
+	      _CharT *__ws = __pg.__get();
 	      for (size_t  __i = 0; __i < __clen; ++__i)
 		__ws[__i] = __out.widen(__s[__i]);
+	      __ostream_insert(__out, __ws, __clen);
 	    }
-	  catch(...)
+	  catch(__cxxabiv1::__forced_unwind&)
 	    {
-	      delete [] __ws;
 	      __out._M_setstate(ios_base::badbit);
-	      return __out;
-	    }
-
-	  try
-	    {
-	      __out._M_insert(__ws, __clen);
-	      delete [] __ws;
-	    }
-	  catch(...)
-	    {
-	      delete [] __ws;
 	      __throw_exception_again;
 	    }
+	  catch(...)
+	    { __out._M_setstate(ios_base::badbit); }
 	}
       return __out;
     }
