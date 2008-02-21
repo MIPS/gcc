@@ -1,5 +1,11 @@
 2008-02-21  Rafael Espindola  <espindola@google.com>
 
+	* gimple.h (gimple_cond_true_p): Define.
+	(gimple_cond_false_p): Define.
+	(gimple_cond_single_var_p): Define.
+
+2008-02-21  Rafael Espindola  <espindola@google.com>
+
 	* tree-tailcall.c (adjust_accumulator_values): Check that a phi was
 	found.
 

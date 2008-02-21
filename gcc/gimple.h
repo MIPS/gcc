@@ -1468,6 +1468,72 @@ gimple_cond_make_true (gimple gs)
   gimple_cond_set_rhs (gs, boolean_true_node);
 }
 
+/* Check if conditional statemente GS is of the form 'if (1 == 1)',
+  'if (0 == 0)', 'if (1 != 0)' or 'if (0 != 1)' */
+
+static inline bool
+gimple_cond_true_p (const_gimple gs)
+{
+  tree lhs = gimple_cond_lhs (gs);
+  tree rhs = gimple_cond_rhs (gs);
+  enum tree_code code = gimple_cond_code (gs);
+
+  if (lhs != boolean_true_node && lhs != boolean_false_node)
+    return false;
+
+  if (rhs != boolean_true_node && rhs != boolean_false_node)
+    return false;
+
+  if (code == NE_EXPR && lhs != rhs)
+    return true;
+
+  if (code == EQ_EXPR && lhs == rhs)
+      return true;
+
+  return false;
+}
+
+/* Check if conditional statement GS is of the form 'if (1 != 1)',
+   'if (0 != 0)', 'if (1 == 0)' or 'if (0 == 1)' */
+
+static inline bool
+gimple_cond_false_p (const_gimple gs)
+{
+  tree lhs = gimple_cond_lhs (gs);
+  tree rhs = gimple_cond_rhs (gs);
+  enum tree_code code = gimple_cond_code (gs);
+
+  if (lhs != boolean_true_node && lhs != boolean_false_node)
+    return false;
+
+  if (rhs != boolean_true_node && rhs != boolean_false_node)
+    return false;
+
+  if (code == NE_EXPR && lhs == rhs)
+    return true;
+
+  if (code == EQ_EXPR && lhs != rhs)
+      return true;
+
+  return false;
+}
+
+/* Check if conditional statement GS is of the form 'if (var != 0)' or
+   'if (var == 1)' */
+
+static inline bool
+gimple_cond_single_var_p (gimple gs)
+{
+  if (gimple_cond_code (gs) == NE_EXPR
+      && gimple_cond_rhs (gs) == boolean_false_node)
+    return true;
+
+  if (gimple_cond_code (gs) == EQ_EXPR
+      && gimple_cond_rhs (gs) == boolean_true_node)
+    return true;
+
+  return false;
+}
 
 /* Return the LABEL_DECL node used by GIMPLE_LABEL statement GS.  */
 
