@@ -527,7 +527,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 static void
 adjust_accumulator_values (gimple_stmt_iterator bsi, tree m, tree a, edge back)
 {
-  gimple stmt, phi;
+  gimple stmt, phi = NULL;
   tree var, tmp;
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
   tree a_acc_arg = a_acc, m_acc_arg = m_acc;

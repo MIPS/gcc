@@ -1,3 +1,7 @@
+2008-02-21  Rafael Espindola  <espindola@google.com>
+
+	* tree-tailcall.c (adjust_accumulator_values): Initialize phi.
+
 2008-02-20  Zdenek Dvorak  <ook@ucw.cz>
 
 	* tree-tailcall.c: Tuplify.
@@ -13,6 +17,7 @@
 	sequence.
 
 2008-02-20  Rafael Espindola  <espindola@google.com>
+
 	* passes.c (init_optimization_passes): Enable pass_mark_used_blocks
 	and pass_cleanup_cfg_post_optimizing.
 	* tree-optimize.c (execute_cleanup_cfg_post_optimizing): call cleanup_tree_cfg.
