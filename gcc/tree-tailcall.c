@@ -527,7 +527,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 static void
 adjust_accumulator_values (gimple_stmt_iterator bsi, tree m, tree a, edge back)
 {
-  gimple stmt, phi = NULL;
+  gimple stmt, phi;
   tree var, tmp;
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
   tree a_acc_arg = a_acc, m_acc_arg = m_acc;
@@ -577,6 +577,7 @@ adjust_accumulator_values (gimple_stmt_iterator bsi, tree m, tree a, edge back)
   if (a_acc)
     { 
       phis = phi_nodes (back->dest);
+      phi = NULL;
       for (psi = gsi_start (phis); !gsi_end_p (psi); gsi_next (&psi))
 	{
 	  phi = gsi_stmt (psi);
@@ -584,12 +585,14 @@ adjust_accumulator_values (gimple_stmt_iterator bsi, tree m, tree a, edge back)
 	    break;
 	}
 
+      gcc_assert (phi != NULL);
       add_phi_arg (phi, a_acc_arg, back);
     }
 
   if (m_acc)
     {
       phis = phi_nodes (back->dest);
+      phi = NULL;
       for (psi = gsi_start (phis); !gsi_end_p (psi); gsi_next (&psi))
 	{
 	  phi = gsi_stmt (psi);
@@ -597,6 +600,7 @@ adjust_accumulator_values (gimple_stmt_iterator bsi, tree m, tree a, edge back)
 	    break;
 	}
 
+      gcc_assert (phi != NULL);
       add_phi_arg (phi, m_acc_arg, back);
     }
 }

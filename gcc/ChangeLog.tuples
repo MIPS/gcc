@@ -1,5 +1,10 @@
 2008-02-21  Rafael Espindola  <espindola@google.com>
 
+	* tree-tailcall.c (adjust_accumulator_values): Check that a phi was
+	found.
+
+2008-02-21  Rafael Espindola  <espindola@google.com>
+
 	* tree-tailcall.c (adjust_accumulator_values): Initialize phi.
 
 2008-02-20  Zdenek Dvorak  <ook@ucw.cz>
