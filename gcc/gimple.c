@@ -1537,9 +1537,9 @@ gimple_call_flags (gimple stmt)
 bool
 gimple_assign_copy_p (gimple gs)
 {
-  return (gimple_code (gs) == GIMPLE_ASSIGN
-          && gimple_num_ops (gs) == 2
-	  && is_gimple_val (gimple_op (gs, 1)));
+  return gimple_code (gs) == GIMPLE_ASSIGN
+         && get_gimple_rhs_class (gimple_subcode (gs)) == GIMPLE_SINGLE_RHS;
+
 }
 
 
@@ -1740,6 +1740,30 @@ gimple_has_side_effects (gimple s)
     }
 
   return false;
+}
+
+/* If STMT is a copy or no-op cast statement, returns its rhs operand.
+   Otherwise returns NULL.  */
+
+tree
+copy_or_nop_cast_stmt_rhs (gimple stmt)
+{
+  tree rhs;
+
+  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+    return NULL_TREE;
+
+  rhs = gimple_assign_rhs1 (stmt);
+  if (gimple_assign_copy_p (stmt))
+    return rhs;
+  if (gimple_assign_cast_p (stmt))
+    {
+      tree lhs_type = TREE_TYPE (gimple_assign_lhs (stmt));
+      tree rhs_type = TREE_TYPE (TREE_TYPE (rhs));
+      return useless_type_conversion_p  (lhs_type, rhs_type) ? rhs : NULL_TREE;
+    }
+
+  return NULL_TREE;
 }
 
 #include "gt-gimple.h"

@@ -1,3 +1,12 @@
+2008-02-20  Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-tailcall.c: Tuplify.
+	* gimplify.c (force_gimple_operand): Remove ATTRIBUTE_UNUSED.
+	* gimple.c (gimple_assign_copy_p): Do not consider unary operations
+	to be copies.
+	(copy_or_nop_cast_stmt_rhs): New.
+	* gimple.h (copy_or_nop_cast_stmt_rhs): Declare.
+
 2008-02-20  Oleg Ryjkov  <olegr@google.com>
 
 	* gimplify.c(gimplify_expr): Save locus into the right
