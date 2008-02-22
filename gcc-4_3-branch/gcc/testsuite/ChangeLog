@@ -1,3 +1,43 @@
+2008-02-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.target/cris/asm-b-1.c: New test.
+
+2008-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/35282
+	* g++.dg/template/nontype17.C: Add.
+
+2008-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/35282
+	Revert:
+	2008-02-14  Paolo Carlini  <pcarlini@suse.de>
+
+        PR c++/28743
+	* g++.dg/template/nontype17.C: New.
+        * g++.dg/template/nontype16.C: Add error.
+
+2008-02-21  Michael Matz  <matz@suse.de>
+
+	PR target/35264
+	* gcc.dg/pr35264.c: New testcase.
+
+2008-02-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35265
+	* gcc.dg/builtins-66.c: New testcase.
+
+2008-02-20  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/35232
+	* gcc.dg/torture/fp-int-convert-float.c: Skip for MIPS16 targets.
+	* gcc.dg/torture/fp-int-convert-double.c: Likewise.
+	* gcc.dg/torture/fp-int-convert-long-double.c: Likewise.
+
+2008-02-19  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* g++.dg/other/anon5.C: Skip for MIPS ELF targets.
+
 2008-02-17  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/35227

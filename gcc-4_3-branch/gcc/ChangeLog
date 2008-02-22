@@ -1,3 +1,71 @@
+2008-02-21  Janis Johnson  <janis187@us.ibm.com>
+
+	PR target/34526
+	* config/rs6000/rs6000.c (rs6000_altivec_abi): Clarify comment.
+	(rs6000_explicit_options): Split abi into spe_abi and altivec_abi,
+	add vrsave.
+	(rs6000_override_options): Set altivec_abi as default, not override,
+	for 64-bit GNU/Linux; for 32-bit GNU/Linux default to altivec_abi for
+	TARGET_ALTIVEC; default to TARGET_ALTIVEC_VRSAVE when AltiVec ABI
+	is used; use new member spe_abi.
+	(rs6000_handle_option): Set rs6000_explicit_options.vrsave; use
+	spe_abi and altivec_abi.
+
+2008-02-21  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR bootstrap/35273
+	* config.build (build_file_translate): Set to `CMD //c' only if
+	it works.
+	* Makefile.in (build_file_translate): Improve comment.
+
+2008-02-21  Michael Matz  <matz@suse.de>
+
+	PR target/35264
+	* config/i386/i386.c (ix86_expand_branch): Add missing breaks.
+
+2008-02-20  DJ Delorie  <dj@redhat.com>
+
+	* config/h8300/h8300.md (insv): Force source operand to be a register.
+
+	* config/h8300/h8300.c (h8300_expand_epilogue): Emit return insn
+	as a jump, not as a plain insn.
+	
+2008-02-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi, doc/standards.texi: Refer to
+	gcc-4.3/c99status.html.
+
+2008-02-20  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35265
+	* builtins.c (validate_arg): If we want an INTEGER_TYPE,
+	be happy with INTEGRAL_TYPE_P.
+
+2008-02-19  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR bootstrap/35218
+	* Makefile.in (build_file_translate): New.
+	(gcc-vers.texi): Use it for translating $(abs_srcdir).
+	* config.build (build_file_translate): Set to `CMD //c' on MinGW.
+	* configure.ac (build_file_translate): Substitute it.
+	* configure: Regenerate.
+
+2008-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/35239
+	* config/i386/cpuid.h (__cpuid, __get_cpuid_max): Use special
+	32-bit inline asm without asm alternatives for host GCC < 3.0.
+
+2008-02-19  Paul Brook  <paul@codesourcery.com>
+
+	PR target/35071
+	* config/arm/ieee754-df.S: Fix do_it typo.
+	* config/arm/ieee754-sf.S: Fix do_it typo.
+
+2008-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* DEV-PHASE: Mark as prerelease.
+
 2008-02-17 Ralf Wildenhues <Ralf.Wildenhues@gmx.de>
 
 	* doc/c-tree.texi: Use @dots{} and @enddots{} where appropriate.
