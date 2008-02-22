@@ -4205,7 +4205,19 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 	  = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
     }
   if (decl != error_mark_node && init != error_mark_node)
-    omp_for = c_finish_omp_for (locus, decl, init, cond, incr, body, pre_body);
+    {
+      tree declv = make_tree_vec (1);
+      tree initv = make_tree_vec (1);
+      tree condv = make_tree_vec (1);
+      tree incrv = make_tree_vec (1);
+
+      TREE_VEC_ELT (declv, 0) = decl;
+      TREE_VEC_ELT (initv, 0) = init;
+      TREE_VEC_ELT (condv, 0) = cond;
+      TREE_VEC_ELT (incrv, 0) = incr;
+      omp_for = c_finish_omp_for (locus, declv, initv, condv, incrv,
+				  body, pre_body);
+    }
   if (omp_for != NULL
       && TREE_CODE (TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0)) == MODIFY_EXPR)
     {

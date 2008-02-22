@@ -7610,12 +7610,21 @@ static tree
 c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
 {
   tree decl, cond, incr, save_break, save_cont, body, init, stmt, cl;
+  tree declv, condv, incrv, initv;
   location_t loc;
-  int collapse = 1;
+  bool fail = false, open_brace_parsed = false;
+  int i, collapse = 1, nbraces = 0;
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
     if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
       collapse = tree_low_cst (OMP_CLAUSE_COLLAPSE_EXPR (cl), 0);
+
+  gcc_assert (collapse >= 1);
+
+  declv = make_tree_vec (collapse);
+  initv = make_tree_vec (collapse);
+  condv = make_tree_vec (collapse);
+  incrv = make_tree_vec (collapse);
 
   if (!c_parser_next_token_is_keyword (parser, RID_FOR))
     {
@@ -7625,61 +7634,130 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
   loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
 
-  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    return NULL;
-
-  /* Parse the initialization declaration or expression.  */
-  if (c_parser_next_token_starts_declspecs (parser))
+  for (i = 0; i < collapse; i++)
     {
-      c_parser_declaration_or_fndef (parser, true, true, true, true);
-      decl = check_for_loop_decls ();
-      if (decl == NULL)
-	goto error_init;
-      if (DECL_INITIAL (decl) == error_mark_node)
-	decl = error_mark_node;
-      init = decl;
-    }
-  else if (c_parser_next_token_is (parser, CPP_NAME)
-	   && c_parser_peek_2nd_token (parser)->type == CPP_EQ)
-    {
-      decl = c_parser_postfix_expression (parser).value;
+      int bracecount = 0;
 
-      c_parser_require (parser, CPP_EQ, "expected %<=%>");
+      if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+	return NULL;
 
-      init = c_parser_expr_no_commas (parser, NULL).value;
-      init = build_modify_expr (decl, NOP_EXPR, init);
-      init = c_process_expr_stmt (init);
+      /* Parse the initialization declaration or expression.  */
+      if (c_parser_next_token_starts_declspecs (parser))
+	{
+	  c_parser_declaration_or_fndef (parser, true, true, true, true);
+	  decl = check_for_loop_decls ();
+	  if (decl == NULL)
+	    goto error_init;
+	  if (DECL_INITIAL (decl) == error_mark_node)
+	    decl = error_mark_node;
+	  init = decl;
+	}
+      else if (c_parser_next_token_is (parser, CPP_NAME)
+	       && c_parser_peek_2nd_token (parser)->type == CPP_EQ)
+	{
+	  decl = c_parser_postfix_expression (parser).value;
 
+	  c_parser_require (parser, CPP_EQ, "expected %<=%>");
+
+	  init = c_parser_expr_no_commas (parser, NULL).value;
+	  init = build_modify_expr (decl, NOP_EXPR, init);
+	  init = c_process_expr_stmt (init);
+
+	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
+	}
+      else
+	{
+	error_init:
+	  c_parser_error (parser,
+			  "expected iteration declaration or initialization");
+	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
+				     "expected %<)%>");
+	  fail = true;
+	  goto parse_next;
+	}
+
+      /* Parse the loop condition.  */
+      cond = NULL_TREE;
+      if (c_parser_next_token_is_not (parser, CPP_SEMICOLON))
+	{
+	  cond = c_parser_expression_conv (parser).value;
+	  cond = c_objc_common_truthvalue_conversion (cond);
+	  if (CAN_HAVE_LOCATION_P (cond))
+	    SET_EXPR_LOCATION (cond, input_location);
+	}
       c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
+
+      /* Parse the increment expression.  */
+      incr = NULL_TREE;
+      if (c_parser_next_token_is_not (parser, CPP_CLOSE_PAREN))
+	incr = c_process_expr_stmt (c_parser_expression (parser).value);
+      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+
+      if (decl == NULL || decl == error_mark_node || init == error_mark_node)
+	fail = true;
+      else
+	{
+	  TREE_VEC_ELT (declv, i) = decl;
+	  TREE_VEC_ELT (initv, i) = init;
+	  TREE_VEC_ELT (condv, i) = cond;
+	  TREE_VEC_ELT (incrv, i) = incr;
+	}
+
+    parse_next:
+      if (i == collapse - 1)
+	break;
+
+      /* FIXME: OpenMP 3.0 draft isn't very clear on what exactly is allowed
+	 in between the collapsed for loops to be still considered perfectly
+	 nested.  Hopefully the final version clarifies this.
+	 For now handle (multiple) {'s and empty statements.  */
+      do
+	{
+	  if (c_parser_next_token_is_keyword (parser, RID_FOR))
+	    {
+	      c_parser_consume_token (parser);
+	      break;
+	    }
+	  else if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
+	    {
+	      c_parser_consume_token (parser);
+	      bracecount++;
+	    }
+	  else if (bracecount
+		   && c_parser_next_token_is (parser, CPP_SEMICOLON))
+	    c_parser_consume_token (parser);
+	  else
+	    {
+	      c_parser_error (parser, "not enough perfectly nested loops");
+	      if (bracecount)
+		{
+		  open_brace_parsed = true;
+		  bracecount--;
+		}
+	      fail = true;
+	      collapse = 0;
+	      break;
+	    }
+	}
+      while (1);
+
+      nbraces += bracecount;
     }
-  else
-    goto error_init;
 
-  /* Parse the loop condition.  */
-  cond = NULL_TREE;
-  if (c_parser_next_token_is_not (parser, CPP_SEMICOLON))
-    {
-      cond = c_parser_expression_conv (parser).value;
-      cond = c_objc_common_truthvalue_conversion (cond);
-      if (CAN_HAVE_LOCATION_P (cond))
-	SET_EXPR_LOCATION (cond, input_location);
-    }
-  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
-
-  /* Parse the increment expression.  */
-  incr = NULL_TREE;
-  if (c_parser_next_token_is_not (parser, CPP_CLOSE_PAREN))
-    incr = c_process_expr_stmt (c_parser_expression (parser).value);
-  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-
- parse_body:
   save_break = c_break_label;
   c_break_label = size_one_node;
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
   body = push_stmt_list ();
 
-  add_stmt (c_parser_c99_block_statement (parser));
+  if (open_brace_parsed)
+    {
+      stmt = c_begin_compound_stmt (true);
+      c_parser_compound_statement_nostart (parser);
+      add_stmt (c_end_compound_stmt (stmt, true));
+    }
+  else
+    add_stmt (c_parser_c99_block_statement (parser));
   if (c_cont_label)
     add_stmt (build1 (LABEL_EXPR, void_type_node, c_cont_label));
 
@@ -7687,49 +7765,75 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
   c_break_label = save_break;
   c_cont_label = save_cont;
 
+  while (nbraces)
+    {
+      if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
+	{
+	  c_parser_consume_token (parser);
+	  nbraces--;
+	}
+      else if (c_parser_next_token_is (parser, CPP_SEMICOLON))
+	c_parser_consume_token (parser);
+      else
+	{
+	  c_parser_error (parser, "collapsed loops not perfectly nested");
+	  while (nbraces)
+	    {
+	      stmt = c_begin_compound_stmt (true);
+	      add_stmt (body);
+	      c_parser_compound_statement_nostart (parser);
+	      body = c_end_compound_stmt (stmt, true);
+	      nbraces--;
+	    }
+	  return NULL;
+	}
+    }
+
   /* Only bother calling c_finish_omp_for if we haven't already generated
      an error from the initialization parsing.  */
-  if (decl != NULL && decl != error_mark_node && init != error_mark_node)
+  if (!fail)
     {
-      stmt = c_finish_omp_for (loc, decl, init, cond, incr, body, NULL);
+      stmt = c_finish_omp_for (loc, declv, initv, condv, incrv, body, NULL);
       if (stmt)
 	{
 	  if (par_clauses != NULL)
 	    {
 	      tree *c;
 	      for (c = par_clauses; *c ; )
-		if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_FIRSTPRIVATE
-		    && OMP_CLAUSE_DECL (*c) == decl)
-		  {
-		    error ("%Hiteration variable %qD should not be firstprivate",
-			   &loc, decl);
-		    *c = OMP_CLAUSE_CHAIN (*c);
-		  }
-		else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_LASTPRIVATE
-			 && OMP_CLAUSE_DECL (*c) == decl)
-		  {
-		    /* Copy lastprivate (decl) clause to OMP_FOR_CLAUSES,
-		       change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
-		    tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
-		    OMP_CLAUSE_DECL (l) = decl;
-		    OMP_CLAUSE_CHAIN (l) = clauses;
-		    clauses = l;
-		    OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
-		  }
-		else
+		if (OMP_CLAUSE_CODE (*c) != OMP_CLAUSE_FIRSTPRIVATE
+		    && OMP_CLAUSE_CODE (*c) != OMP_CLAUSE_LASTPRIVATE)
 		  c = &OMP_CLAUSE_CHAIN (*c);
+		else
+		  {
+		    for (i = 0; i < collapse; i++)
+		      if (TREE_VEC_ELT (declv, i) == OMP_CLAUSE_DECL (*c))
+			break;
+		    if (i == collapse)
+		      c = &OMP_CLAUSE_CHAIN (*c);
+		    else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_FIRSTPRIVATE)
+		      {
+			error ("%Hiteration variable %qD should not be firstprivate",
+			       &loc, OMP_CLAUSE_DECL (*c));
+			*c = OMP_CLAUSE_CHAIN (*c);
+		      }
+		    else
+		      {
+			/* Copy lastprivate (decl) clause to OMP_FOR_CLAUSES,
+			   change it to shared (decl) in
+			   OMP_PARALLEL_CLAUSES.  */
+			tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
+			OMP_CLAUSE_DECL (l) = OMP_CLAUSE_DECL (*c);
+			OMP_CLAUSE_CHAIN (l) = clauses;
+			clauses = l;
+			OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
+		      }
+		  }
 	    }
 	  OMP_FOR_CLAUSES (stmt) = clauses;
 	}
       return stmt;
     }
   return NULL;
-
- error_init:
-  c_parser_error (parser, "expected iteration declaration or initialization");
-  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-  decl = init = cond = incr = NULL_TREE;
-  goto parse_body;
 }
 
 /* OpenMP 2.5:

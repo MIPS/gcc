@@ -1,3 +1,9 @@
+2008-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_finish_omp_for): Change decl/init/cond/incr arguments
+	to TREE_VECs, check arguments for all collapsed loops.
+	* c-parser.c (c_parser_omp_for_loop): Parse collapsed loops.
+
 2008-02-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (OMP_CLAUSE_LASTPRIVATE_STMT): Define.
