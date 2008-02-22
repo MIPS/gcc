@@ -202,6 +202,8 @@ ebitmap.o-warn = -Wno-uninitialized
 lower-subreg.o-warn = -Wno-uninitialized
 tree-chrec.o-warn = -Wno-uninitialized
 varasm.o-warn = -Wno-error
+fortran/parse.o-warn = -Wno-uninitialized
+fortran/simplify.o-warn = -Wno-uninitialized
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either

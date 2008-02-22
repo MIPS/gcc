@@ -1,3 +1,23 @@
+2008-02-22  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.in (fortran/parse.o-warn,
+	fortran/simplify.o-warn): New.
+
+2008-02-22  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00961.html
+
+	Revert
+
+	2008-02-20  Zdenek Dvorak  <ook@ucw.cz>
+
+		* tree-tailcall.c: Tuplify.
+		* gimplify.c (force_gimple_operand): Remove ATTRIBUTE_UNUSED.
+		* gimple.c (gimple_assign_copy_p): Do not
+		consider unary operations to be copies.
+		(copy_or_nop_cast_stmt_rhs): New.
+		* gimple.h (copy_or_nop_cast_stmt_rhs): Declare.
+
 2008-02-21  Rafael Espindola  <espindola@google.com>
 
 	* gimple.h (gimple_cond_true_p): Define.

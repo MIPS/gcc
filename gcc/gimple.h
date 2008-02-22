@@ -567,7 +567,6 @@ void gimple_set_modified (gimple, bool);
 void gimple_cond_get_ops_from_tree (tree, enum tree_code *, tree *, tree *);
 gimple gimple_build_cond_from_tree (tree, tree, tree);
 bool gimple_has_side_effects (gimple);
-tree copy_or_nop_cast_stmt_rhs (gimple);
 
 /* In builtins.c  */
 extern bool validate_arglist (const_gimple, ...);
