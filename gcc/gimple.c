@@ -1537,9 +1537,9 @@ gimple_call_flags (gimple stmt)
 bool
 gimple_assign_copy_p (gimple gs)
 {
-  return (gimple_code (gs) == GIMPLE_ASSIGN
-          && gimple_num_ops (gs) == 2
-	  && is_gimple_val (gimple_op (gs, 1)));
+  return gimple_code (gs) == GIMPLE_ASSIGN
+         && get_gimple_rhs_class (gimple_subcode (gs)) == GIMPLE_SINGLE_RHS
+	 && is_gimple_val (gimple_op (gs, 1));
 }
 
 

@@ -1,3 +1,8 @@
+2008-02-22  Zdenek Dvorak  <ook@ucw.cz>
+
+	* gimple.c (gimple_assign_copy_p): Do not consider unary operations
+	to be copies.
+
 2008-02-22  Diego Novillo  <dnovillo@google.com>
 
 	* Makefile.in (fortran/parse.o-warn,
