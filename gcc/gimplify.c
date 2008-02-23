@@ -6653,7 +6653,7 @@ gimplify_one_sizepos (tree *expr_p, gimple_seq *stmt_p)
   type = TREE_TYPE (expr);
   *expr_p = unshare_expr (expr);
 
-  gimplify_expr (expr_p, NULL, NULL, is_gimple_val, fb_rvalue);
+  gimplify_expr (expr_p, stmt_p, NULL, is_gimple_val, fb_rvalue);
   expr = *expr_p;
 
   /* Verify that we've an exact type match with the original expression.

@@ -1,3 +1,10 @@
+2008-02-23  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg01025.html
+
+	* gimplify.c (gimplify_one_sizepos): Call gimplify_expr with
+	STMT_P.
+
 2008-02-22  Zdenek Dvorak  <ook@ucw.cz>
 
 	* gimple.c (gimple_assign_copy_p): Do not consider unary operations
@@ -49,7 +56,7 @@
 
 2008-02-20  Oleg Ryjkov  <olegr@google.com>
 
-	* gimplify.c(gimplify_expr): Save locus into the right
+	* gimplify.c (gimplify_expr): Save locus into the right
 	sequence.
 
 2008-02-20  Rafael Espindola  <espindola@google.com>
