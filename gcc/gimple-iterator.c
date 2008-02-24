@@ -255,8 +255,8 @@ gsi_split_seq_before (gimple_stmt_iterator *i)
 
   cur = i->ptr;
 
-  /* How can we possibly split after the end, or before the beginning?  */
-  gcc_assert (cur && cur->prev);
+  /* How can we possibly split after the end?  */
+  gcc_assert (cur);
   prev = cur->prev;
 
   old_seq = i->seq;
