@@ -1,3 +1,7 @@
+2008-02-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Make-lang.in (fortran-warn): Add -Wno-format.
+
 2008-02-19  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00804.html
@@ -14,3 +18,7 @@
 	* Make-lang.in (fortran-warn): Set to -Wno-format.
 	* trans.c (gfc_trans_code): Update comment to say GENERIC.
 	Call tree_annotate_all_with_locus instead of annotate_all_with_locus.
+
+Local Variables:
+mode: change-log
+End:
