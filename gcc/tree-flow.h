@@ -277,6 +277,10 @@ struct tree_ann_common_d GTY(())
 
   /* The value handle for this expression.  Used by GVN-PRE.  */
   tree GTY((skip)) value_handle;
+
+  /* FIXME tuples.  Hack to record EH region number into a statement
+     tree created during RTL expansion (see gimple_to_tree).  */
+  int rn;
 };
 
 /* It is advantageous to avoid things like life analysis for variables which
@@ -1051,6 +1055,7 @@ extern bool maybe_clean_or_replace_eh_stmt (gimple, gimple);
 extern void add_stmt_to_eh_region_fn (struct function *, gimple, int);
 extern bool remove_stmt_from_eh_region_fn (struct function *, gimple);
 extern int lookup_stmt_eh_region_fn (struct function *, gimple);
+extern int lookup_expr_eh_region (tree);
 extern int lookup_stmt_eh_region (gimple);
 extern bool verify_eh_edges (tree);
 

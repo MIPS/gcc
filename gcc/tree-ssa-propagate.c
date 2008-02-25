@@ -576,6 +576,7 @@ get_rhs (gimple stmt ATTRIBUTE_UNUSED)
     }
 #else
   gimple_unreachable ();
+  return NULL;
 #endif
 }
 
@@ -681,6 +682,7 @@ valid_gimple_expression_p (tree expr ATTRIBUTE_UNUSED)
   return true;
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 
@@ -772,6 +774,7 @@ set_rhs (gimple *stmt_p ATTRIBUTE_UNUSED, tree expr ATTRIBUTE_UNUSED)
   return true;
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 
@@ -1198,6 +1201,7 @@ fold_predicate_in (gimple stmt ATTRIBUTE_UNUSED)
   return false;
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 

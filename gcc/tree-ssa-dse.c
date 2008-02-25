@@ -775,6 +775,7 @@ execute_simple_dse (void)
   return todo;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

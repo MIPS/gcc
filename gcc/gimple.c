@@ -475,7 +475,7 @@ gimple_build_asm_1 (const char *string, size_t ninputs, size_t noutputs,
   p->gimple_asm.ni = ninputs;
   p->gimple_asm.no = noutputs;
   p->gimple_asm.nc = nclobbers;
-  p->gimple_asm.string = string;
+  p->gimple_asm.string = ggc_alloc_string (string, -1);
   
   return p;
 }

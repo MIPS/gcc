@@ -325,6 +325,7 @@ execute_return_slot_opt (void)
   return 0;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

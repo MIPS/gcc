@@ -328,12 +328,7 @@ dump_variable (FILE *file, tree var)
   if (TREE_THIS_VOLATILE (var))
     fprintf (file, ", is volatile");
 
-  /* FIXME tuples.  */
-#if 0
   dump_mem_sym_stats_for_var (file, var);
-#else
-  gimple_unreachable ();
-#endif
 
   if (is_call_clobbered (var))
     {

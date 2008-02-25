@@ -1799,7 +1799,6 @@ add_call_clobber_ops (gimple stmt, tree callee ATTRIBUTE_UNUSED)
 #else
   not_read_b = NULL;
   not_written_b = NULL;
-  gimple_unreachable ();
 #endif
 
   /* Add a VDEF operand for every call clobbered variable.  */

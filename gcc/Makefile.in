@@ -195,8 +195,8 @@ build/gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
 SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
 # FIXME tuples, do not merge.
-builtins.o-warn = -Wno-uninitialized
-expr.o-warn = -Wno-uninitialized
+builtins.o-warn = -Wno-uninitialized -Wno-format
+expr.o-warn = -Wno-uninitialized -Wno-format
 dse.o-warn = -Wno-uninitialized
 ebitmap.o-warn = -Wno-uninitialized
 lower-subreg.o-warn = -Wno-uninitialized
@@ -204,6 +204,11 @@ tree-chrec.o-warn = -Wno-uninitialized
 varasm.o-warn = -Wno-error
 fortran/parse.o-warn = -Wno-uninitialized
 fortran/simplify.o-warn = -Wno-uninitialized
+fortran/check.o-warn = -Wno-format
+fortran/interface.o-warn = -Wno-format
+fortran/resolve.o-warn = -Wno-format
+fortran/simplify.o-warn = -Wno-format
+fortran/target-memory.o-warn = -Wno-format
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -2436,7 +2441,7 @@ builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) $(EXPR_H) $(OPTABS_H) langhooks.h $(TARGET_H) \
    libfuncs.h $(REGS_H) toplev.h output.h $(FUNCTION_H) $(TIMEVAR_H) $(TM_P_H) \
-   $(CGRAPH_H) except.h sbitmap.h $(DBGCNT_H)
+   $(CGRAPH_H) except.h sbitmap.h $(DBGCNT_H) tree-flow.h
 expmed.o : expmed.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    $(FLAGS_H) insn-config.h $(EXPR_H) $(OPTABS_H) $(RECOG_H) $(REAL_H) \
    toplev.h $(TM_P_H) langhooks.h $(DF_H) $(TARGET_H)

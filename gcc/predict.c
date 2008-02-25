@@ -1493,6 +1493,7 @@ tree_estimate_probability (void)
   return 0;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

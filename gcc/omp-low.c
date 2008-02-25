@@ -4192,6 +4192,7 @@ execute_expand_omp (void)
   return 0;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 
@@ -5109,6 +5110,7 @@ execute_lower_omp (void)
   return 0;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

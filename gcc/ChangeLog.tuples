@@ -1,3 +1,101 @@
+2008-02-25  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg01217.html
+
+	* tree-ssa-alias-warnings.c: Tuplify.
+	* cgraphunit.c (cgraph_process_new_functions): Remove
+	calls to gimple_unreachable.
+	(cgraph_expand_function): Likewise.
+	* omp-low.c (execute_expand_omp): Return 0 after call to
+	gimple_unreachable.
+	* tree-scalar-evolution.c (scev_const_prop): Likewise.
+	(execute_lower_omp): Likewise.
+	* tree-ssa-dse.c (execute_simple_dse): Likewise.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Likewise.
+	(eliminate_degenerate_phis): Likewise.
+	* tree-ssa-propagate.c (get_rhs): Likewise.
+	(valid_gimple_expression_p): Likewise.
+	(set_rhs): Likewise.
+	(fold_predicate_in): Likewise.
+	* tree-nrv.c (execute_return_slot_opt): Likewise.
+	* predict.c (tree_estimate_probability): Likewise.
+	* tree-parloops.c (parallelize_loops): Likewise.
+	* tree-if-conv.c (main_tree_if_conversion): Likewise.
+	* tree-ssa-phiopt.c (tree_ssa_phiopt): Likewise.
+	(tree_ssa_cs_elim): Likewise.
+	* tree-sra.c (tree_sra): Likewise.
+	(tree_sra_early): Likewise.
+	* tree-predcom.c (tree_predictive_commoning): Likewise.
+	* tree-ssa-copy.c (execute_copy_prop): Likewise.
+	* lambda-code.c (gcc_loop_to_lambda_loop): Likewise.
+	(perfect_nest_p): Likewise.
+	(can_convert_to_perfect_nest): Likewise.
+	(perfect_nestify): Likewise.
+	* tree-optimize.c (execute_fixup_cfg): Likewise.
+	* tree-object-size.c (compute_object_sizes): Likewise.
+	* tree-cfg.c (remove_useless_stmts): Likewise.
+	(gimple_duplicate_sese_tail): Likewise.
+	(move_sese_region_to_fn): Likewise.
+	(gimple_purge_dead_abnormal_call_edges): Likewise.
+	(execute_warn_function_return): Likewise.
+	* value-prof.c (gimple_histogram_value): Remove calls to
+	gimple_unreachable.
+	(gimple_stringop_fixed_value): Likewise.
+	* tree-flow-inline.h (op_iter_next_use): Likewise.
+	* tree-dfa.c (dump_variable): Likewise.
+	* tree-ssa-copy.c (may_propagate_copy): Likewise.
+	(may_propagate_copy_into_asm): Likewise.
+	(merge_alias_info): Likewise.
+	(replace_exp_1): Likewise.
+	* tree-ssa.c (delete_tree_ssa): Likewise.
+	* tree-cfg.c (make_edges): Likewise.
+	(remove_useless_stmts): Likewise.
+	(gimple_duplicate_sese_tail): Likewise.
+	(move_sese_region_to_fn): Likewise.
+	(gimple_purge_dead_abnormal_call_edges): Likewise.
+	(execute_warn_function_return): Likewise.
+	* passes.c (finish_optimization_passes): Likewise.
+	(init_optimization_passes): Likewise.
+	* tree-ssa-operands.c (add_call_clobber_ops): Likewise.
+	* tree-eh.c (lookup_expr_eh_region): New.
+	(tree_can_throw_external): Return false after call to
+	gimple_unreachable.
+	(maybe_clean_or_replace_eh_stmt): Re-enable.
+	Call stmt_could_throw_p.
+	* expr.c (expand_expr_real): Call lookup_expr_eh_region.
+	* profile.c: Tuplify.
+	* calls.c: Include tree-flow.h.
+	(emit_call_1): Call lookup_expr_eh_region.
+	(expand_call): Likewise.
+	* cfgexpand.c (gimple_to_tree): Call SET_EXPR_LOCATION on
+	generated expression tree T.
+	Set EH region number on T's annotation.
+	* common.opt (fgimple-conversion=): Add RejectNegative
+	and Joined attributes.
+	* tree-inline.c (unsave_r): Abort if *TP is a
+	STATEMENT_LIST.
+	(unsave_expr_now): Re-enable.
+	* tree-flow.h (struct tree_ann_common_d): Add field RN.
+	* Makefile.in (builtins.o-warn): Add -Wno-format.
+	(expr.o-warn): Likewise.
+	(fortran/check.o-warn): Likewise.
+	(fortran/interface.o-warn): Likewise.
+	(fortran/resolve.o-warn): Likewise.
+	(fortran/simplify.o-warn): Likewise.
+	(fortran/target-memory.o-warn): Likewise.
+	(calls.o): Add dependency on tree-flow.h
+	* gimple.c (gimple_build_asm_1): Call ggc_alloc_string to
+	copy STRING.
+	* gimple.h (gimple_filename): New.
+	(gimple_lineno): New.
+	* passes.c (init_optimization_passes): Disable
+	pass_remove_useless_stmts pass_mudflap_1,
+	pass_warn_function_return and pass_lower_omp.
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Tuplify.
+	(rs6000_alloc_sdmode_stack_slot): Likewise.
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Fix test
+	for PHI_WANTED.
+
 2008-02-25  Rafael Espindola  <espindola@google.com>
 
 	* tree-cfgcleanup.c (tree_forwarder_block_p): fix thinko.

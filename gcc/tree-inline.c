@@ -148,7 +148,10 @@ static void remap_save_expr (tree *, void *, int *);
 static void add_lexical_block (tree current_block, tree new_block);
 static tree copy_decl_to_var (tree, copy_body_data *);
 static tree copy_result_decl_to_var (tree, copy_body_data *);
+#endif
 static tree copy_decl_no_change (tree, copy_body_data *);
+/* FIXME tuples.  */
+#if 0
 static tree copy_decl_maybe_to_var (tree, copy_body_data *);
 #endif
 
@@ -3232,8 +3235,6 @@ remap_save_expr (tree *tp, void *st_, int *walk_subtrees)
   *tp = t;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Called via walk_tree.  If *TP points to a DECL_STMT for a local label,
    copies the declaration and enters it in the splay_tree in DATA (which is
    really an `copy_body_data *').  */
@@ -3308,7 +3309,7 @@ unsave_r (tree *tp, int *walk_subtrees, void *data)
     }
 
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
-    copy_statement_list (tp);
+    gcc_unreachable ();
   else if (TREE_CODE (*tp) == BIND_EXPR)
     copy_bind_expr (tp, walk_subtrees, id);
   else if (TREE_CODE (*tp) == SAVE_EXPR)
@@ -3361,6 +3362,8 @@ unsave_expr_now (tree expr)
   return expr;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Allow someone to determine if SEARCH is a child of TOP from gdb.  */
 
 static tree

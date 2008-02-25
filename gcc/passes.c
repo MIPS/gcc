@@ -246,15 +246,10 @@ finish_optimization_passes (void)
   timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
-      /* FIXME tuples.  */
-#if 0
       dump_file = dump_begin (pass_profile.static_pass_number, NULL);
       end_branch_prob ();
       if (dump_file)
 	dump_end (pass_profile.static_pass_number, dump_file);
-#else
-      gimple_unreachable ();
-#endif
     }
 
   if (optimize > 0)
@@ -481,9 +476,12 @@ init_optimization_passes (void)
     backend might produce already lowered functions that are not processed
     by these passes.  */
   p = &all_lowering_passes;
+  /* FIXME tuples.  */
+#if 0
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
+#endif
   NEXT_PASS (pass_lower_cf);
   /* FIXME tuples.  */
 #if 0
@@ -493,7 +491,10 @@ init_optimization_passes (void)
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_lower_vector);
+  /* FIXME tuples.  */
+#if 0
   NEXT_PASS (pass_warn_function_return);
+#endif
   NEXT_PASS (pass_build_cgraph_edges);
   NEXT_PASS (pass_inline_parameters);
   *p = NULL;

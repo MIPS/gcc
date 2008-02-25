@@ -57,10 +57,8 @@ along with GCC; see the file COPYING3.  If not see
 /* Return true if we may propagate ORIG into DEST, false otherwise.  */
 
 bool
-may_propagate_copy (tree dest ATTRIBUTE_UNUSED, tree orig ATTRIBUTE_UNUSED)
+may_propagate_copy (tree dest, tree orig)
 {
-/* FIXME tuples.  */
-#if 0
   tree type_d = TREE_TYPE (dest);
   tree type_o = TREE_TYPE (orig);
 
@@ -184,9 +182,6 @@ may_propagate_copy (tree dest ATTRIBUTE_UNUSED, tree orig ATTRIBUTE_UNUSED)
 
   /* Anything else is OK.  */
   return true;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 /* Similarly, but we know that we're propagating into an ASM_EXPR.  */
@@ -206,10 +201,8 @@ may_propagate_copy_into_asm (tree dest)
    they both share the same memory tags.  */
 
 void
-merge_alias_info (tree orig_name ATTRIBUTE_UNUSED, tree new_name ATTRIBUTE_UNUSED)
+merge_alias_info (tree orig_name, tree new_name)
 {
-  /* FIXME tuples.  */
-#if 0
   tree new_sym = SSA_NAME_VAR (new_name);
   tree orig_sym = SSA_NAME_VAR (orig_name);
   var_ann_t new_ann = var_ann (new_sym);
@@ -300,9 +293,6 @@ merge_alias_info (tree orig_name ATTRIBUTE_UNUSED, tree new_name ATTRIBUTE_UNUSE
       struct ptr_info_def *new_ptr_info = get_ptr_info (new_name);
       memcpy (new_ptr_info, orig_ptr_info, sizeof (struct ptr_info_def));
     }
-#else
-  gimple_unreachable ();
-#endif
 }
 
 
@@ -312,11 +302,8 @@ merge_alias_info (tree orig_name ATTRIBUTE_UNUSED, tree new_name ATTRIBUTE_UNUSE
    replacement is done to propagate a value or not.  */
 
 static void
-replace_exp_1 (use_operand_p op_p ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED,
-	       bool for_propagation ATTRIBUTE_UNUSED)
+replace_exp_1 (use_operand_p op_p, tree val, bool for_propagation)
 {
-  /* FIXME tuples.  */
-#if 0
   tree op = USE_FROM_PTR (op_p);
 
 #if defined ENABLE_CHECKING
@@ -334,9 +321,6 @@ replace_exp_1 (use_operand_p op_p ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED,
     }
   else
     SET_USE (op_p, unsave_expr_now (val));
-#else
-  gimple_unreachable ();
-#endif
 }
 
 
@@ -1076,6 +1060,7 @@ execute_copy_prop (void)
   return 0;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

@@ -1791,6 +1791,7 @@ parallelize_loops (void)
   return changed;
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 

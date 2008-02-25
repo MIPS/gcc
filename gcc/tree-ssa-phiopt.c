@@ -148,6 +148,7 @@ tree_ssa_phiopt (void)
   return tree_ssa_phiopt_worker (false);
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 
@@ -182,6 +183,7 @@ tree_ssa_cs_elim (void)
   return tree_ssa_phiopt_worker (true);
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

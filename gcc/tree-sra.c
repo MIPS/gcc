@@ -3635,6 +3635,7 @@ tree_sra (void)
   return todoflags;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 
@@ -3652,6 +3653,7 @@ tree_sra_early (void)
   return ret & ~TODO_rebuild_alias;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

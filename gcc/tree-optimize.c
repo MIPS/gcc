@@ -313,6 +313,7 @@ execute_fixup_cfg (void)
   return todo;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

@@ -1053,8 +1053,6 @@ delete_tree_ssa (void)
   cfun->gimple_df->call_clobbered_vars = NULL;
   cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
-  /* FIXME tuples.  */
-#if 0
   if (gimple_aliases_computed_p (cfun))
     {
       delete_alias_heapvars ();
@@ -1062,9 +1060,6 @@ delete_tree_ssa (void)
     }
   cfun->gimple_df->aliases_computed_p = false;
   delete_mem_ref_stats (cfun);
-#else
-  gimple_unreachable ();
-#endif
 
   cfun->gimple_df = NULL;
 

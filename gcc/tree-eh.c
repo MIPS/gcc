@@ -199,6 +199,27 @@ lookup_stmt_eh_region (gimple t)
   return lookup_stmt_eh_region_fn (cfun, t);
 }
 
+/* Determine if expression T is inside an EH region in the current
+   function (cfun).  Return the EH region number if found, return -2
+   if IFUN does not have an EH table and -1 if T could not be found in
+   IFUN's EH region table.
+
+   FIXME tuples.  This is horrid.  It's used by gimple_to_tree to
+   record an EH region number on the generated expression statement.  */
+
+int
+lookup_expr_eh_region (tree t)
+{
+  if (EXPR_P (t))
+    {
+      tree_ann_common_t ann = get_tree_common_ann (t);
+      return (int) ann->rn;
+    }
+
+  return -1;
+}
+
+
 /* First pass of EH node decomposition.  Build up a tree of GIMPLE_TRY_FINALLY
    nodes and LABEL_DECL nodes.  We will use this during the second phase to
    determine if a goto leaves the body of a TRY_FINALLY_EXPR node.  */
@@ -2353,6 +2374,7 @@ tree_can_throw_external (tree stmt ATTRIBUTE_UNUSED)
     return can_throw_external_1 (region_nr, is_resx);
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 
@@ -2363,15 +2385,13 @@ tree_can_throw_external (tree stmt ATTRIBUTE_UNUSED)
    done that my require an EH edge purge.  */
 
 bool 
-maybe_clean_or_replace_eh_stmt (gimple old_stmt ATTRIBUTE_UNUSED, gimple new_stmt ATTRIBUTE_UNUSED) 
+maybe_clean_or_replace_eh_stmt (gimple old_stmt, gimple new_stmt) 
 {
-  /* FIXME tuples.  */
-#if 0
   int region_nr = lookup_stmt_eh_region (old_stmt);
 
   if (region_nr >= 0)
     {
-      bool new_stmt_could_throw = tree_could_throw_p (new_stmt);
+      bool new_stmt_could_throw = stmt_could_throw_p (new_stmt);
 
       if (new_stmt == old_stmt && new_stmt_could_throw)
 	return false;
@@ -2387,9 +2407,6 @@ maybe_clean_or_replace_eh_stmt (gimple old_stmt ATTRIBUTE_UNUSED, gimple new_stm
     }
 
   return false;
-#else
-  gimple_unreachable ();
-#endif
 }
 
 /* Returns TRUE if oneh and twoh are exception handlers (op 1 of

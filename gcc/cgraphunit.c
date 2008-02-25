@@ -464,9 +464,6 @@ cgraph_process_new_functions (void)
 	  node->local.self_insns = estimate_num_insns_fn (fndecl,
 						&eni_inlining_weights);
 
-	  /* FIXME tuples.  */
-	  gimple_unreachable ();
-
 	  node->local.disregard_inline_limits
 	    |= DECL_DISREGARD_INLINE_LIMITS (fndecl);
 	  /* Inlining characteristics are maintained by the
@@ -1172,12 +1169,7 @@ cgraph_expand_function (struct cgraph_node *node)
 
   /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
-  /* FIXME tuples.  */
-#if 0
   gcc_assert (TREE_ASM_WRITTEN (node->decl));
-#else
-  gimple_unreachable ();
-#endif
   current_function_decl = NULL;
   if (!cgraph_preserve_function_body_p (node->decl))
     {

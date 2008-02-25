@@ -2620,5 +2620,6 @@ tree_predictive_commoning (void)
   return ret;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }

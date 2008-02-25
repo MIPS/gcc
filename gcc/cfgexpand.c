@@ -80,27 +80,32 @@ gimple_to_tree (gimple stmt)
 	else
 	  gcc_unreachable ();
 	
-	return build_gimple_modify_stmt (gimple_assign_lhs (stmt), t);
+	t =  build_gimple_modify_stmt (gimple_assign_lhs (stmt), t);
       }
+    break;
 	                                 
     case GIMPLE_COND:
       t = build2 (gimple_cond_code (stmt), boolean_type_node,
 	          gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
-      return build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
+      t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
+      break;
 
     case GIMPLE_GOTO:
-      return build1 (GOTO_EXPR, void_type_node, gimple_goto_dest (stmt));
+      t = build1 (GOTO_EXPR, void_type_node, gimple_goto_dest (stmt));
+      break;
 
     case GIMPLE_LABEL:
-      return build1 (LABEL_EXPR, void_type_node, gimple_label_label (stmt));
+      t = build1 (LABEL_EXPR, void_type_node, gimple_label_label (stmt));
+      break;
 
     case GIMPLE_RETURN:
-      return build1 (RETURN_EXPR, void_type_node, gimple_return_retval (stmt));
+      t =  build1 (RETURN_EXPR, void_type_node, gimple_return_retval (stmt));
+      break;
 
     case GIMPLE_ASM:
       {
 	size_t i, n;
-	tree out, in, cl, t;
+	tree out, in, cl;
 	const char *s;
 
 	out = NULL_TREE;
@@ -142,13 +147,13 @@ gimple_to_tree (gimple stmt)
 	s = gimple_asm_string (stmt);
 	t = build4 (ASM_EXPR, void_type_node, build_string (strlen (s), s),
 	            out, in, cl);
-	return t;
       }
+    break;
 
     case GIMPLE_CALL:
       {
 	size_t i;
-        tree fn, t;
+        tree fn;
         
 	t = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
 
@@ -177,13 +182,12 @@ gimple_to_tree (gimple stmt)
         /* If the call has a LHS then create a MODIFY_EXPR to hold it.  */
         if (gimple_call_lhs (stmt))
           t = build_gimple_modify_stmt (gimple_call_lhs (stmt), t);
-	
-	return t;
       }
+    break;
 
     case GIMPLE_SWITCH:
       {
-	tree t, label_vec;
+	tree label_vec;
 	size_t i;
 
 	label_vec = make_tree_vec (gimple_switch_num_labels (stmt));
@@ -197,15 +201,27 @@ gimple_to_tree (gimple stmt)
 
 	t = build3 (SWITCH_EXPR, void_type_node, gimple_switch_index (stmt),
 		    NULL, label_vec);
-
-	return t;
       }
+    break;
 	
     default:
       error ("Unrecognized GIMPLE statement during RTL expansion");
       print_gimple_stmt (stderr, stmt, 4, 0);
       gcc_unreachable ();
     }
+
+  /* If STMT is inside an exception region, record it in the generated
+     expression.  */
+  {
+    int rn = lookup_stmt_eh_region (stmt);
+    tree_ann_common_t ann = get_tree_common_ann (t);
+    if (rn >= 0)
+      ann->rn = rn;
+  }
+
+  SET_EXPR_LOCATION (t, gimple_locus (stmt));
+
+  return t;
 }
 
 

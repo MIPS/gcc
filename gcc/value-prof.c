@@ -154,7 +154,8 @@ gimple_histogram_value (struct function *fun, gimple stmt)
 /* Add histogram for STMT.  */
 
 void
-gimple_add_histogram_value (struct function *fun, gimple stmt, histogram_value hist)
+gimple_add_histogram_value (struct function *fun, gimple stmt,
+			    histogram_value hist)
 {
   hist->hvalue.next = gimple_histogram_value (fun, stmt);
   set_histogram_value (fun, stmt, hist);
@@ -1118,12 +1119,7 @@ gimple_ic (gimple stmt, gimple call, struct cgraph_node *direct_call,
   region = lookup_stmt_eh_region (stmt);
   if (region >= 0 && stmt_could_throw_p (stmt1))
     {
-      /* FIXME tuples.  */
-#if 0
       add_stmt_to_eh_region (stmt1, region);
-#else
-      gimple_unreachable ();
-#endif
       make_eh_edges (stmt1);
     }
 
@@ -1283,12 +1279,7 @@ gimple_stringop_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   region = lookup_stmt_eh_region (stmt);
   if (region >= 0)
-    /* FIXME tuples.  */
-#if 0
     add_stmt_to_eh_region (stmt1, region);
-#else
-  gimple_unreachable ();
-#endif
   bb2end = stmt1;
   label2 = gimple_build_label (label_decl2);
   gsi_insert_before (&gsi, label2, GSI_SAME_STMT);

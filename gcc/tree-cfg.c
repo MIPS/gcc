@@ -475,16 +475,9 @@ make_edges (void)
 	      fallthru = false;
 	      break;
 	    case GIMPLE_RESX:
-	      /* FIXME tuples.  */
-#if 0
 	      make_eh_edges (last);
-#else
-	      gimple_unreachable ();
-#endif
 	      fallthru = false;
 	      break;
-
-	      /* FIXME tuples: fix all these cases.  */
 
 	    case GIMPLE_CALL:
 	      /* If this function receives a nonlocal goto, then we need to
@@ -1992,6 +1985,7 @@ remove_useless_stmts (void)
   return 0;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 
@@ -5100,6 +5094,7 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
   return true;
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 
@@ -5728,6 +5723,7 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
   return bb;
 #else
   gimple_unreachable ();
+  return NULL;
 #endif
 }
 
@@ -6227,6 +6223,7 @@ gimple_purge_dead_abnormal_call_edges (basic_block bb ATTRIBUTE_UNUSED)
   return changed;
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 
@@ -6730,6 +6727,7 @@ execute_warn_function_return (void)
   return 0;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

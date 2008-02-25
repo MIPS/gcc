@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "except.h"
 #include "dbgcnt.h"
+#include "tree-flow.h"
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -383,9 +384,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 					       REG_NOTES (call_insn));
   else
     {
-      /* FIXME tuples  */
-#if 0
-      int rn = lookup_stmt_eh_region (fntree);
+      int rn = lookup_expr_eh_region (fntree);
 
       /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't
 	 throw, which we already took care of.  */
@@ -393,9 +392,6 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (rn),
 						   REG_NOTES (call_insn));
       note_current_region_may_contain_throw ();
-#else
-      gimple_unreachable ();
-#endif
     }
 
   if (ecf_flags & ECF_NORETURN)
@@ -2276,17 +2272,12 @@ expand_call (tree exp, rtx target, int ignore)
      expanding a call, as that means we're an argument.  Don't try if
      there's cleanups, as we know there's code to follow the call.  */
 
-  /* FIXME tuples.  */
-#if 0
   if (currently_expanding_call++ != 0
       || !flag_optimize_sibling_calls
       || args_size.var
-      || lookup_stmt_eh_region (exp) >= 0
+      || lookup_expr_eh_region (exp) >= 0
       || dbg_cnt (tail_call) == false)
     try_tail_call = 0;
-#else
-  gimple_unreachable ();
-#endif
 
   /*  Rest of purposes for tail call optimizations to fail.  */
   if (

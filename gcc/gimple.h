@@ -661,6 +661,25 @@ gimple_locus_empty_p (const_gimple g)
 #endif
 }
 
+
+/* Return the file name of the location of STMT.  */
+
+static inline const char *
+gimple_filename (const_gimple stmt)
+{
+  return LOCATION_FILE (location_from_locus (gimple_locus (stmt)));
+}
+
+
+/* Return the line number of the location of STMT.  */
+
+static inline int
+gimple_lineno (const_gimple stmt)
+{
+  return LOCATION_LINE (location_from_locus (gimple_locus (stmt)));
+}
+
+
 /* Determine whether SEQ is a singleton. */
 
 static inline bool

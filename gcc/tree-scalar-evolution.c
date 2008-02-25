@@ -2876,6 +2876,7 @@ scev_const_prop (void)
   return 0;
 #else
   gimple_unreachable ();
+  return 0;
 #endif
 }
 

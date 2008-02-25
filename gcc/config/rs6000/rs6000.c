@@ -907,7 +907,7 @@ static void rs6000_darwin_file_start (void);
 
 static tree rs6000_build_builtin_va_list (void);
 static void rs6000_va_start (tree, rtx);
-static tree rs6000_gimplify_va_arg (tree, tree, tree *, tree *);
+static tree rs6000_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool rs6000_must_pass_in_stack (enum machine_mode, const_tree);
 static bool rs6000_scalar_mode_supported_p (enum machine_mode);
 static bool rs6000_vector_mode_supported_p (enum machine_mode);
@@ -6656,7 +6656,8 @@ rs6000_va_start (tree valist, rtx nextarg)
 /* Implement va_arg.  */
 
 tree
-rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
+rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
+			gimple_seq *post_p)
 {
   tree f_gpr, f_fpr, f_res, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, reg, t, u;
@@ -6665,6 +6666,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   int align;
   tree ptrtype = build_pointer_type (type);
   int regalign = 0;
+  gimple stmt;
 
   if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
     {
@@ -6683,14 +6685,14 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 	  if (elem_size < UNITS_PER_WORD)
 	    {
 	      tree real_part, imag_part;
-	      tree post = NULL_TREE;
+	      gimple_seq post = NULL;
 
 	      real_part = rs6000_gimplify_va_arg (valist, elem_type, pre_p,
 						  &post);
 	      /* Copy the value into a temporary, lest the formal temporary
 		 be reused out from under us.  */
 	      real_part = get_initialized_tmp_var (real_part, pre_p, &post);
-	      append_to_statement_list (post, pre_p);
+	      gimple_seq_add_seq (pre_p, post);
 
 	      imag_part = rs6000_gimplify_va_arg (valist, elem_type, pre_p,
 						  post_p);
@@ -6806,8 +6808,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       t = build1 (GOTO_EXPR, void_type_node, lab_over);
       gimplify_and_add (t, pre_p);
 
-      t = build1 (LABEL_EXPR, void_type_node, lab_false);
-      append_to_statement_list (t, pre_p);
+      stmt = gimple_build_label (lab_false);
+      gimple_seq_add_stmt (pre_p, stmt);
 
       if ((n_reg == 2 && !regalign) || n_reg > 2)
 	{
@@ -6841,8 +6843,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
   if (lab_over)
     {
-      t = build1 (LABEL_EXPR, void_type_node, lab_over);
-      append_to_statement_list (t, pre_p);
+      stmt = gimple_build_label (lab_over);
+      gimple_seq_add_stmt (pre_p, stmt);
     }
 
   if (STRICT_ALIGNMENT
@@ -11189,15 +11191,15 @@ rs6000_alloc_sdmode_stack_slot (void)
 {
   tree t;
   basic_block bb;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
 
   gcc_assert (cfun->machine->sdmode_stack_slot == NULL_RTX);
 
   FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	tree ret = walk_tree_without_duplicates (bsi_stmt_ptr (bsi),
-						 rs6000_check_sdmode, NULL);
+	tree ret = walk_gimple_stmt (gsi_stmt (gsi), NULL, rs6000_check_sdmode,
+				     NULL);
 	if (ret)
 	  {
 	    rtx stack = assign_stack_local (DDmode, GET_MODE_SIZE (DDmode), 0);

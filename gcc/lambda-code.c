@@ -1438,7 +1438,8 @@ gcc_loop_to_lambda_loop (struct loop *loop ATTRIBUTE_UNUSED, int depth ATTRIBUTE
   LL_UPPER_BOUND (lloop) = ubound;
   return lloop;
 #else
-      gimple_unreachable ();
+  gimple_unreachable ();
+  return NULL;
 #endif
 }
 
@@ -2057,6 +2058,7 @@ perfect_nest_p (struct loop *loop ATTRIBUTE_UNUSED)
   return perfect_nest_p (loop->inner);
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 
@@ -2398,6 +2400,7 @@ can_convert_to_perfect_nest (struct loop *loop ATTRIBUTE_UNUSED)
   return false;
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 
@@ -2633,6 +2636,7 @@ perfect_nestify (struct loop *loop ATTRIBUTE_UNUSED,
   return perfect_nest_p (loop);
 #else
   gimple_unreachable ();
+  return false;
 #endif
 }
 
