@@ -527,11 +527,15 @@ init_optimization_passes (void)
 /* FIXME tuples.  */
 #if 0
 	  NEXT_PASS (pass_expand_omp_ssa);
+#endif
 	  NEXT_PASS (pass_early_warn_uninitialized);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
+#if 0
 	  NEXT_PASS (pass_cleanup_cfg);
+#endif
 	  NEXT_PASS (pass_rename_ssa_copies);
+#if 0
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
 	  NEXT_PASS (pass_update_address_taken);

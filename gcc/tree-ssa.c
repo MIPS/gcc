@@ -1429,7 +1429,7 @@ warn_uninit (tree t, const char *gmsgid, void *data)
   locus = (context != NULL && !gimple_locus_empty_p (context))
 	   ? gimple_locus (context)
 	   : DECL_SOURCE_LOCATION (var);
-  warning (OPT_Wuninitialized, gmsgid, locus, var);
+  warning (OPT_Wuninitialized, gmsgid, &locus, var);
   xloc = expand_location (locus);
   floc = expand_location (DECL_SOURCE_LOCATION (cfun->decl));
   if (xloc.file != floc.file

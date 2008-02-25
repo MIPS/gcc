@@ -2085,10 +2085,10 @@ tree-ssa-live.o : tree-ssa-live.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
    $(TREE_SSA_LIVE_H) bitmap.h toplev.h
 tree-ssa-copyrename.o : tree-ssa-copyrename.c $(TREE_FLOW_H) $(CONFIG_H) \
-   $(SYSTEM_H) $(TREE_H) $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) tree-pass.h \
-   $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_SSA_LIVE_H) $(BASIC_BLOCK_H) \
-   bitmap.h $(FLAGS_H) $(HASHTAB_H) langhooks.h $(TREE_GIMPLE_H) \
-   $(TREE_INLINE_H)
+   $(SYSTEM_H) $(TREE_H) $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) \
+   tree-pass.h $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_SSA_LIVE_H) \
+   $(BASIC_BLOCK_H) bitmap.h $(FLAGS_H) $(HASHTAB_H) langhooks.h \
+   $(TREE_GIMPLE_H) $(TREE_INLINE_H) gimple.h
 tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(CFGLOOP_H) \

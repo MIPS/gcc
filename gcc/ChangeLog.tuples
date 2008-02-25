@@ -1,3 +1,19 @@
+2008-02-25  Oleg Ryjkov  <olegr@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg01236.html
+
+	* tree-ssa-copyrename.c: Include gimple.h
+	Tuplify.
+	* tree-ssa.c (warn_uninit): Pass &LOCUS to warning().
+	* passes.c (init_optimization_passes): Enable
+	pass_early_warn_uninitialized, pass_rebuild_cgraph_edges
+	and pass_early_inline.
+
+2008-02-25  Diego Novillo  <dnovillo@google.com>
+
+	* Makefile.in (tree-ssa-copyrename.o): Add dependency on
+	gimple.h.
+
 2008-02-25  Diego Novillo  <dnovillo@google.com>
 
 	* tree-cfgcleanup.c (tree_forwarder_block_p): Revert
