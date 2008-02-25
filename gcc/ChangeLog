@@ -1,3 +1,10 @@
+2008-02-25  Tom Tromey  <tromey@redhat.com>
+
+	* c-common.c (handle_alias_attribute): Handle error_mark_node as
+	function's DECL_INITIAL.
+	(handle_no_instrument_function_attribute): Likewise.
+	(handle_no_limit_stack_attribute): Likewise.
+
 2008-02-21  Tom Tromey  <tromey@redhat.com>
 
 	* c-gimplify.c (c_gimplify_expr) <VIEW_CONVERT_EXPR>: Update

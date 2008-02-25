@@ -1,6 +1,6 @@
 /* Subroutines shared by all languages that are variants of C.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5270,7 +5270,8 @@ handle_alias_attribute (tree *node, tree name, tree args,
 {
   tree decl = *node;
 
-  if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl))
+  if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl)
+       && DECL_INITIAL (decl) != error_mark_node)
       || (TREE_CODE (decl) != FUNCTION_DECL 
 	  && TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
       /* A static variable declaration is always a tentative definition,
@@ -5561,7 +5562,7 @@ handle_no_instrument_function_attribute (tree *node, tree name,
       error ("%J%qE attribute applies only to functions", decl, name);
       *no_add_attrs = true;
     }
-  else if (DECL_INITIAL (decl))
+  else if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
     {
       error ("%Jcan%'t set %qE attribute after definition", decl, name);
       *no_add_attrs = true;
@@ -5656,7 +5657,7 @@ handle_no_limit_stack_attribute (tree *node, tree name,
       error ("%J%qE attribute applies only to functions", decl, name);
       *no_add_attrs = true;
     }
-  else if (DECL_INITIAL (decl))
+  else if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
     {
       error ("%Jcan%'t set %qE attribute after definition", decl, name);
       *no_add_attrs = true;
