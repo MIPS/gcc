@@ -1,5 +1,10 @@
 2008-02-25  Diego Novillo  <dnovillo@google.com>
 
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Revert
+	previous change.
+
+2008-02-25  Diego Novillo  <dnovillo@google.com>
+
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg01217.html
 
 	* tree-ssa-alias-warnings.c: Tuplify.
