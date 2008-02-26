@@ -179,6 +179,9 @@ gimple_to_tree (gimple stmt)
 	if (!(gimple_call_flags (stmt) & (ECF_CONST | ECF_PURE)))
 	  TREE_SIDE_EFFECTS (t) = 1;
 
+	if (gimple_call_flags (stmt) & ECF_NOTHROW)
+	  TREE_NOTHROW (t) = 1;
+
         /* If the call has a LHS then create a MODIFY_EXPR to hold it.  */
         if (gimple_call_lhs (stmt))
           t = build_gimple_modify_stmt (gimple_call_lhs (stmt), t);
@@ -203,6 +206,9 @@ gimple_to_tree (gimple stmt)
 		    NULL, label_vec);
       }
     break;
+
+    case GIMPLE_NOP:
+      return build1 (NOP_EXPR, void_type_node, size_zero_node);
 	
     default:
       error ("Unrecognized GIMPLE statement during RTL expansion");

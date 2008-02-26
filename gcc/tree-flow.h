@@ -717,7 +717,7 @@ extern gimple last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern basic_block label_to_block_fn (struct function *, tree);
 #define label_to_block(t) (label_to_block_fn (cfun, t))
-extern void notice_special_calls (tree);
+extern void notice_special_calls (gimple);
 extern void clear_special_calls (void);
 extern void verify_stmts (void);
 extern void verify_gimple (void);
@@ -888,7 +888,7 @@ tree get_current_def (tree);
 void set_current_def (tree, tree);
 
 /* In tree-ssa-ccp.c  */
-bool fold_stmt (gimple *);
+bool fold_stmt (gimple_stmt_iterator *);
 bool fold_stmt_inplace (gimple);
 tree widen_bitfield (tree, tree, tree);
 

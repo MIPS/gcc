@@ -412,6 +412,20 @@ gimple_build_cond_from_tree (tree cond, tree t_label, tree f_label)
   return gimple_build_cond (code, lhs, rhs, t_label, f_label);
 }
 
+/* Set code, lhs, and rhs of a GIMPLE_COND from a suitable
+   boolean expression tree COND.  */
+
+void
+gimple_cond_set_condition_from_tree (gimple stmt, tree cond)
+{
+  enum tree_code code;
+  tree lhs, rhs;
+
+  gimple_cond_get_ops_from_tree (cond, &code, &lhs, &rhs);
+  gimple_cond_set_code (stmt, code);
+  gimple_cond_set_lhs (stmt, lhs);
+  gimple_cond_set_rhs (stmt, rhs);
+}
 
 /* Build a GIMPLE_LABEL statement for LABEL.  */
 
@@ -1738,6 +1752,20 @@ gimple_has_side_effects (gimple s)
 	    || TREE_SIDE_EFFECTS (gimple_op (s, i)))
 	  return true;
     }
+
+  return false;
+}
+
+/* Return true if any statement in STMTS has side effects.  */
+
+bool
+gimple_seq_has_side_effects (gimple_seq stmts)
+{
+  gimple_stmt_iterator gsi;
+
+  for (gsi = gsi_start (stmts); !gsi_end_p (gsi); gsi_next (&gsi))
+    if (gimple_has_side_effects (gsi_stmt (gsi)))
+      return true;
 
   return false;
 }

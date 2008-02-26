@@ -1450,6 +1450,8 @@ single_noncomplex_succ (basic_block bb)
 
      * Some unnecessary BIND_EXPRs are removed
 
+     * GOTO_EXPRs immediately preceding destination are removed.
+
    Clearly more work could be done.  The trick is doing the analysis
    and removal fast enough to be a net improvement in compile times.
 
@@ -1459,213 +1461,204 @@ single_noncomplex_succ (basic_block bb)
 
 struct rus_data
 {
-  tree *last_goto;
   bool repeat;
   bool may_throw;
   bool may_branch;
   bool has_label;
+  bool last_was_goto;
+  gimple_stmt_iterator last_goto_gsi;
 };
 
-/* FIXME tuples.  */
-#if 0
-static void remove_useless_stmts_1 (tree *, struct rus_data *);
-#endif
+
+static void remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *);
+
+/* Given a statement sequence, find the first executable statement with
+   location information, and warn that it is unreachable.  When searching,
+   descend into containers in execution order.  */
 
 static bool
-remove_useless_stmts_warn_notreached (tree stmt)
+remove_useless_stmts_warn_notreached (gimple_seq stmts)
 {
-  if (EXPR_HAS_LOCATION (stmt))
+  gimple_stmt_iterator gsi;
+
+  for (gsi = gsi_start (stmts); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      location_t loc = EXPR_LOCATION (stmt);
-      if (LOCATION_LINE (loc) > 0)
-	{
-	  warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
-	  return true;
-	}
-    }
+      gimple stmt = gsi_stmt (gsi);
 
-  switch (TREE_CODE (stmt))
-    {
-    case STATEMENT_LIST:
-      {
-	tree_stmt_iterator i;
-	for (i = tsi_start (stmt); !tsi_end_p (i); tsi_next (&i))
-	  if (remove_useless_stmts_warn_notreached (tsi_stmt (i)))
-	    return true;
-      }
-      break;
+      if (!gimple_locus_empty_p (stmt))
+        {
+          location_t loc = gimple_locus (stmt);
+          if (LOCATION_LINE (loc) > 0)
+	    {
+              warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
+              return true;
+            }
+        }
 
-    case COND_EXPR:
-      if (remove_useless_stmts_warn_notreached (COND_EXPR_COND (stmt)))
-	return true;
-      if (remove_useless_stmts_warn_notreached (COND_EXPR_THEN (stmt)))
-	return true;
-      if (remove_useless_stmts_warn_notreached (COND_EXPR_ELSE (stmt)))
-	return true;
-      break;
+      switch (gimple_code (stmt))
+        {
+        /* Unfortunately, we need the CFG now to detect unreachable
+           branches in a conditional, so conditionals are not handled here.  */
 
-    case TRY_FINALLY_EXPR:
-    case TRY_CATCH_EXPR:
-      if (remove_useless_stmts_warn_notreached (TREE_OPERAND (stmt, 0)))
-	return true;
-      if (remove_useless_stmts_warn_notreached (TREE_OPERAND (stmt, 1)))
-	return true;
-      break;
+        case GIMPLE_TRY:
+          if (remove_useless_stmts_warn_notreached (gimple_try_eval (stmt)))
+            return true;
+          if (remove_useless_stmts_warn_notreached (gimple_try_cleanup (stmt)))
+            return true;
+          break;
 
-    case CATCH_EXPR:
-      return remove_useless_stmts_warn_notreached (CATCH_BODY (stmt));
-    case EH_FILTER_EXPR:
-      return remove_useless_stmts_warn_notreached (EH_FILTER_FAILURE (stmt));
-    case BIND_EXPR:
-      return remove_useless_stmts_warn_notreached (BIND_EXPR_BLOCK (stmt));
+        case GIMPLE_CATCH:
+          return remove_useless_stmts_warn_notreached (gimple_catch_handler (stmt));
 
-    default:
-      /* Not a live container.  */
-      break;
+        case GIMPLE_EH_FILTER:
+          return remove_useless_stmts_warn_notreached (gimple_eh_filter_failure (stmt));
+
+        case GIMPLE_BIND:
+          return remove_useless_stmts_warn_notreached (gimple_bind_body (stmt));
+
+        /* FIXME tuples.  The original code pre-tuplification did not
+           descend into the OMP constructs.  */
+#if 0
+        case GIMPLE_OMP_FOR:
+          if (remove_useless_stmts_warn_notreached (gimple_omp_for_pre_body (stmt)))
+            return true;
+          /* FALLTHROUGH */
+        case GIMPLE_OMP_CRITICAL:
+        case GIMPLE_OMP_CONTINUE:
+        case GIMPLE_OMP_MASTER:
+        case GIMPLE_OMP_ORDERED:
+        case GIMPLE_OMP_SECTION:
+        case GIMPLE_OMP_PARALLEL:
+        case GIMPLE_OMP_SECTIONS:
+        case GIMPLE_OMP_SINGLE:
+          return remove_useless_stmts_warn_notreached (gimple_omp_body (stmt));
+#endif
+
+        default:
+          break;
+        }
     }
 
   return false;
 }
 
-/* FIXME tuples.  */
-#if 0
+/* Helper for remove_useless_stmts_1.  Handle GIMPLE_COND statements.  */
+
 static void
-remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
+remove_useless_stmts_cond (gimple_stmt_iterator *gsi, struct rus_data *data)
 {
-  tree then_clause, else_clause, cond;
-  bool save_has_label, then_has_label, else_has_label;
+  tree cond;
+  gimple stmt = gsi_stmt (*gsi);
 
-  save_has_label = data->has_label;
-  data->has_label = false;
-  data->last_goto = NULL;
+  /* The folded result must still be a conditional statement.  */
+  fold_stmt_inplace (stmt);
 
-  remove_useless_stmts_1 (&COND_EXPR_THEN (*stmt_p), data);
+  /* Attempt to evaluate the condition at compile-time.
+     Because we are in GIMPLE here, only the most trivial
+     comparisons of a constant to a constant can be handled.
+     Calling fold_binary is thus a bit of overkill, as it
+     creates temporary tree nodes that are discarded immediately.  */
+  cond = fold_binary (gimple_cond_code (stmt),
+                      boolean_type_node,
+                      gimple_cond_lhs (stmt),
+                      gimple_cond_rhs (stmt));
 
-  then_has_label = data->has_label;
-  data->has_label = false;
-  data->last_goto = NULL;
+  /* FIXME tuples.  The optimization being applied to GIMPLE_GOTO
+     destinations could be performed for the true and false labels
+     of a GIMPLE_COND as well.  This would require tracking a bit
+     more information.  */
 
-  remove_useless_stmts_1 (&COND_EXPR_ELSE (*stmt_p), data);
-
-  else_has_label = data->has_label;
-  data->has_label = save_has_label | then_has_label | else_has_label;
-
-  then_clause = COND_EXPR_THEN (*stmt_p);
-  else_clause = COND_EXPR_ELSE (*stmt_p);
-  cond = fold (COND_EXPR_COND (*stmt_p));
-
-  /* If neither arm does anything at all, we can remove the whole IF.  */
-  if (!TREE_SIDE_EFFECTS (then_clause) && !TREE_SIDE_EFFECTS (else_clause))
+  /* Replace trivial conditionals with gotos. */
+  if (cond && integer_nonzerop (cond))
     {
-      *stmt_p = build_empty_stmt ();
+      /* Goto THEN label.  */
+      tree then_label = gimple_cond_true_label (stmt);
+
+      gsi_replace(gsi, gimple_build_goto (then_label), false);
+      data->last_goto_gsi = *gsi;
+      data->last_was_goto = true;
       data->repeat = true;
     }
-
-  /* If there are no reachable statements in an arm, then we can
-     zap the entire conditional.  */
-  else if (integer_nonzerop (cond) && !else_has_label)
+  else if (cond && integer_zerop (cond))
     {
-      if (warn_notreached)
-	remove_useless_stmts_warn_notreached (else_clause);
-      *stmt_p = then_clause;
+      /* Goto ELSE label.  */
+      tree else_label = gimple_cond_false_label (stmt);
+
+      gsi_replace(gsi, gimple_build_goto (else_label), false);
+      data->last_goto_gsi = *gsi;
+      data->last_was_goto = true;
       data->repeat = true;
     }
-  else if (integer_zerop (cond) && !then_has_label)
-    {
-      if (warn_notreached)
-	remove_useless_stmts_warn_notreached (then_clause);
-      *stmt_p = else_clause;
-      data->repeat = true;
-    }
-
-  /* Check a couple of simple things on then/else with single stmts.  */
   else
     {
-      tree then_stmt = expr_only (then_clause);
-      tree else_stmt = expr_only (else_clause);
-
-      /* Notice branches to a common destination.  */
-      if (then_stmt && else_stmt
-	  && TREE_CODE (then_stmt) == GOTO_EXPR
-	  && TREE_CODE (else_stmt) == GOTO_EXPR
-	  && (GOTO_DESTINATION (then_stmt) == GOTO_DESTINATION (else_stmt)))
-	{
-	  *stmt_p = then_stmt;
+      tree then_label = gimple_cond_true_label (stmt);
+      tree else_label = gimple_cond_false_label (stmt);
+      
+      if (then_label == else_label)
+        {
+          /* Goto common destination.  */
+          gsi_replace (gsi, gimple_build_goto (then_label), false);
+          data->last_goto_gsi = *gsi;
+          data->last_was_goto = true;
 	  data->repeat = true;
-	}
-
-      /* If the THEN/ELSE clause merely assigns a value to a variable or
-	 parameter which is already known to contain that value, then
-	 remove the useless THEN/ELSE clause.  */
-      else if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
-	{
-	  if (else_stmt
-	      && TREE_CODE (else_stmt) == GIMPLE_MODIFY_STMT
-	      && GIMPLE_STMT_OPERAND (else_stmt, 0) == cond
-	      && integer_zerop (GIMPLE_STMT_OPERAND (else_stmt, 1)))
-	    COND_EXPR_ELSE (*stmt_p) = alloc_stmt_list ();
-	}
-      else if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
-	       && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
-		   || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
-	       && TREE_CONSTANT (TREE_OPERAND (cond, 1)))
-	{
-	  tree stmt = (TREE_CODE (cond) == EQ_EXPR
-		       ? then_stmt : else_stmt);
-	  tree *location = (TREE_CODE (cond) == EQ_EXPR
-			    ? &COND_EXPR_THEN (*stmt_p)
-			    : &COND_EXPR_ELSE (*stmt_p));
-
-	  if (stmt
-	      && TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	      && GIMPLE_STMT_OPERAND (stmt, 0) == TREE_OPERAND (cond, 0)
-	      && GIMPLE_STMT_OPERAND (stmt, 1) == TREE_OPERAND (cond, 1))
-	    *location = alloc_stmt_list ();
 	}
     }
 
-  /* Protect GOTOs in the arm of COND_EXPRs from being removed.  They
-     would be re-introduced during lowering.  */
-  data->last_goto = NULL;
+  gsi_next (gsi);
+
+  data->last_was_goto = false;
 }
 
+/* Helper for remove_useless_stmts_1. 
+   Handle the try-finally case for GIMPLE_TRY statements.  */
 
 static void
-remove_useless_stmts_tf (tree *stmt_p, struct rus_data *data)
+remove_useless_stmts_tf (gimple_stmt_iterator *gsi, struct rus_data *data)
 {
   bool save_may_branch, save_may_throw;
   bool this_may_branch, this_may_throw;
+
+  gimple_seq eval_seq, cleanup_seq;
+  gimple_stmt_iterator eval_gsi, cleanup_gsi;
+
+  gimple stmt = gsi_stmt (*gsi);
 
   /* Collect may_branch and may_throw information for the body only.  */
   save_may_branch = data->may_branch;
   save_may_throw = data->may_throw;
   data->may_branch = false;
   data->may_throw = false;
-  data->last_goto = NULL;
+  data->last_was_goto = false;
 
-  remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 0), data);
+  eval_seq = gimple_try_eval (stmt);
+  eval_gsi = gsi_start (eval_seq);
+  remove_useless_stmts_1 (&eval_gsi, data);
 
   this_may_branch = data->may_branch;
   this_may_throw = data->may_throw;
   data->may_branch |= save_may_branch;
   data->may_throw |= save_may_throw;
-  data->last_goto = NULL;
+  data->last_was_goto = false;
 
-  remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 1), data);
+  cleanup_seq = gimple_try_cleanup (stmt);
+  cleanup_gsi = gsi_start (cleanup_seq);
+  remove_useless_stmts_1 (&cleanup_gsi, data);
 
   /* If the body is empty, then we can emit the FINALLY block without
      the enclosing TRY_FINALLY_EXPR.  */
-  if (!TREE_SIDE_EFFECTS (TREE_OPERAND (*stmt_p, 0)))
+  if (!gimple_seq_has_side_effects (eval_seq))
     {
-      *stmt_p = TREE_OPERAND (*stmt_p, 1);
+      gsi_insert_seq_before (gsi, cleanup_seq, GSI_SAME_STMT);
+      gsi_remove (gsi, false);
       data->repeat = true;
     }
 
   /* If the handler is empty, then we can emit the TRY block without
      the enclosing TRY_FINALLY_EXPR.  */
-  else if (!TREE_SIDE_EFFECTS (TREE_OPERAND (*stmt_p, 1)))
+  else if (!gimple_seq_has_side_effects (cleanup_seq))
     {
-      *stmt_p = TREE_OPERAND (*stmt_p, 0);
+      gsi_insert_seq_before (gsi, eval_seq, GSI_SAME_STMT);
+      gsi_remove (gsi, false);
       data->repeat = true;
     }
 
@@ -1673,37 +1666,51 @@ remove_useless_stmts_tf (tree *stmt_p, struct rus_data *data)
      string the TRY and FINALLY blocks together.  */
   else if (!this_may_branch && !this_may_throw)
     {
-      tree stmt = *stmt_p;
-      *stmt_p = TREE_OPERAND (stmt, 0);
-      append_to_statement_list (TREE_OPERAND (stmt, 1), stmt_p);
+      gsi_insert_seq_before (gsi, eval_seq, GSI_SAME_STMT);
+      gsi_insert_seq_before (gsi, cleanup_seq, GSI_SAME_STMT);
+      gsi_remove (gsi, false);
       data->repeat = true;
     }
+  else
+    gsi_next (gsi);
 }
 
+/* Helper for remove_useless_stmts_1. 
+   Handle the try-catch case for GIMPLE_TRY statements.  */
 
 static void
-remove_useless_stmts_tc (tree *stmt_p, struct rus_data *data)
+remove_useless_stmts_tc (gimple_stmt_iterator *gsi, struct rus_data *data)
 {
   bool save_may_throw, this_may_throw;
-  tree_stmt_iterator i;
-  tree stmt;
+
+  gimple_seq eval_seq, cleanup_seq, handler_seq, failure_seq;
+  gimple_stmt_iterator eval_gsi, cleanup_gsi, handler_gsi, failure_gsi;
+
+  gimple stmt = gsi_stmt (*gsi);
 
   /* Collect may_throw information for the body only.  */
   save_may_throw = data->may_throw;
   data->may_throw = false;
-  data->last_goto = NULL;
+  data->last_was_goto = false;
 
-  remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 0), data);
+  eval_seq = gimple_try_eval (stmt);
+  eval_gsi = gsi_start (eval_seq);
+  remove_useless_stmts_1 (&eval_gsi, data);
 
   this_may_throw = data->may_throw;
   data->may_throw = save_may_throw;
+
+  cleanup_seq = gimple_try_cleanup (stmt);
 
   /* If the body cannot throw, then we can drop the entire TRY_CATCH_EXPR.  */
   if (!this_may_throw)
     {
       if (warn_notreached)
-	remove_useless_stmts_warn_notreached (TREE_OPERAND (*stmt_p, 1));
-      *stmt_p = TREE_OPERAND (*stmt_p, 0);
+        {
+          remove_useless_stmts_warn_notreached (cleanup_seq);
+        }
+      gsi_insert_seq_before (gsi, eval_seq, GSI_SAME_STMT);
+      gsi_remove (gsi, false);
       data->repeat = true;
       return;
     }
@@ -1712,141 +1719,164 @@ remove_useless_stmts_tc (tree *stmt_p, struct rus_data *data)
      no exceptions propagate past this point.  */
 
   this_may_throw = true;
-  i = tsi_start (TREE_OPERAND (*stmt_p, 1));
-  stmt = tsi_stmt (i);
-  data->last_goto = NULL;
+  cleanup_gsi = gsi_start (cleanup_seq);
+  stmt = gsi_stmt (cleanup_gsi);
+  data->last_was_goto = false;
 
-  switch (TREE_CODE (stmt))
+  switch (gimple_code (stmt))
     {
-    case CATCH_EXPR:
-      for (; !tsi_end_p (i); tsi_next (&i))
-	{
-	  stmt = tsi_stmt (i);
+    case GIMPLE_CATCH:
+      /* If the first element is a catch, they all must be.  */
+      while (!gsi_end_p (cleanup_gsi))
+        {
+	  stmt = gsi_stmt (cleanup_gsi);
 	  /* If we catch all exceptions, then the body does not
 	     propagate exceptions past this point.  */
-	  if (CATCH_TYPES (stmt) == NULL)
+	  if (gimple_catch_types (stmt) == NULL)
 	    this_may_throw = false;
-	  data->last_goto = NULL;
-	  remove_useless_stmts_1 (&CATCH_BODY (stmt), data);
+	  data->last_was_goto = false;
+          handler_seq = gimple_catch_handler (stmt);
+          handler_gsi = gsi_start (handler_seq);
+	  remove_useless_stmts_1 (&handler_gsi, data);
+          gsi_next (&cleanup_gsi);
 	}
+      gsi_next (gsi);
       break;
 
-    case EH_FILTER_EXPR:
-      if (EH_FILTER_MUST_NOT_THROW (stmt))
+    case GIMPLE_EH_FILTER:
+      /* If the first element is an eh_filter, it should stand alone.  */
+      if (gimple_eh_filter_must_not_throw (stmt))
 	this_may_throw = false;
-      else if (EH_FILTER_TYPES (stmt) == NULL)
+      else if (gimple_eh_filter_types (stmt) == NULL)
 	this_may_throw = false;
-      remove_useless_stmts_1 (&EH_FILTER_FAILURE (stmt), data);
+      failure_seq = gimple_eh_filter_failure (stmt);
+      failure_gsi = gsi_start (failure_seq);
+      remove_useless_stmts_1 (&failure_gsi, data);
+      gsi_next (gsi);
       break;
 
     default:
-      /* Otherwise this is a cleanup.  */
-      remove_useless_stmts_1 (&TREE_OPERAND (*stmt_p, 1), data);
+      /* Otherwise this is a list of cleanup statements.  */
+      remove_useless_stmts_1 (&cleanup_gsi, data);
 
       /* If the cleanup is empty, then we can emit the TRY block without
 	 the enclosing TRY_CATCH_EXPR.  */
-      if (!TREE_SIDE_EFFECTS (TREE_OPERAND (*stmt_p, 1)))
+      if (!gimple_seq_has_side_effects (cleanup_seq))
 	{
-	  *stmt_p = TREE_OPERAND (*stmt_p, 0);
+          gsi_insert_seq_before (gsi, eval_seq, GSI_SAME_STMT);
+          gsi_remove(gsi, false);
 	  data->repeat = true;
 	}
+      else
+        gsi_next (gsi);
       break;
     }
+
   data->may_throw |= this_may_throw;
 }
 
+/* Helper for remove_useless_stmts_1.  Handle GIMPLE_BIND statements.  */
 
 static void
-remove_useless_stmts_bind (tree *stmt_p, struct rus_data *data)
+remove_useless_stmts_bind (gimple_stmt_iterator *gsi, struct rus_data *data ATTRIBUTE_UNUSED)
 {
   tree block;
+  gimple_seq body_seq, fn_body_seq;
+  gimple_stmt_iterator body_gsi;
+
+  gimple stmt = gsi_stmt (*gsi);
 
   /* First remove anything underneath the BIND_EXPR.  */
-  remove_useless_stmts_1 (&BIND_EXPR_BODY (*stmt_p), data);
+  
+  body_seq = gimple_bind_body (stmt);
+  body_gsi = gsi_start (body_seq);
+  remove_useless_stmts_1 (&body_gsi, data);
 
-  /* If the BIND_EXPR has no variables, then we can pull everything
-     up one level and remove the BIND_EXPR, unless this is the toplevel
-     BIND_EXPR for the current function or an inlined function.
+  /* If the GIMPLE_BIND has no variables, then we can pull everything
+     up one level and remove the GIMPLE_BIND, unless this is the toplevel
+     GIMPLE_BIND for the current function or an inlined function.
 
      When this situation occurs we will want to apply this
      optimization again.  */
-  block = BIND_EXPR_BLOCK (*stmt_p);
-  if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
-      && *stmt_p != gimple_body (current_function_decl)
+  block = gimple_bind_block (stmt);
+  fn_body_seq = gimple_body (current_function_decl);
+  if (gimple_bind_vars (stmt) == NULL_TREE
+      && (gimple_seq_empty_p (fn_body_seq)
+          || stmt != gimple_seq_first_stmt (fn_body_seq))
       && (! block
 	  || ! BLOCK_ABSTRACT_ORIGIN (block)
 	  || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
 	      != FUNCTION_DECL)))
     {
-      *stmt_p = BIND_EXPR_BODY (*stmt_p);
+      gsi_insert_seq_before (gsi, body_seq, GSI_SAME_STMT);
+      gsi_remove (gsi, false);
       data->repeat = true;
     }
+  else
+    gsi_next (gsi);
 }
 
+/* Helper for remove_useless_stmts_1.  Handle GIMPLE_GOTO statements.  */
 
 static void
-remove_useless_stmts_goto (tree *stmt_p, struct rus_data *data)
+remove_useless_stmts_goto (gimple_stmt_iterator *gsi, struct rus_data *data)
 {
-  tree dest = GOTO_DESTINATION (*stmt_p);
+  gimple stmt = gsi_stmt (*gsi);
+
+  tree dest = gimple_goto_dest (stmt);
 
   data->may_branch = true;
-  data->last_goto = NULL;
+  data->last_was_goto = false;
 
-  /* Record the last goto expr, so that we can delete it if unnecessary.  */
+  /* Record iterator for last goto expr, so that we can delete it if unnecessary.  */
   if (TREE_CODE (dest) == LABEL_DECL)
-    data->last_goto = stmt_p;
+    {
+      data->last_goto_gsi = *gsi;
+      data->last_was_goto = true;
+    }
+
+  gsi_next(gsi);
 }
 
+/* Helper for remove_useless_stmts_1.  Handle GIMPLE_LABEL statements.  */
 
 static void
-remove_useless_stmts_label (tree *stmt_p, struct rus_data *data)
+remove_useless_stmts_label (gimple_stmt_iterator *gsi, struct rus_data *data)
 {
-  tree label = LABEL_EXPR_LABEL (*stmt_p);
+  gimple stmt = gsi_stmt (*gsi);
+
+  tree label = gimple_label_label (stmt);
 
   data->has_label = true;
 
   /* We do want to jump across non-local label receiver code.  */
   if (DECL_NONLOCAL (label))
-    data->last_goto = NULL;
+    data->last_was_goto = false;
 
-  else if (data->last_goto && GOTO_DESTINATION (*data->last_goto) == label)
+  else if (data->last_was_goto
+           && gimple_goto_dest (gsi_stmt (data->last_goto_gsi)) == label)
     {
-      *data->last_goto = build_empty_stmt ();
+      /* Replace the preceding GIMPLE_GOTO statement with
+         a GIMPLE_NOP, which will be subsequently removed.
+         In this way, we avoid invalidating other iterators
+         active on the statement sequence.  */
+      gsi_replace(&data->last_goto_gsi, gimple_build_nop(), false);
+      data->last_was_goto = false;
       data->repeat = true;
     }
 
   /* ??? Add something here to delete unused labels.  */
+
+  gsi_next (gsi);
 }
-
-
-/* If the function is "const" or "pure", then clear TREE_SIDE_EFFECTS on its
-   decl.  This allows us to eliminate redundant or useless
-   calls to "const" functions.
-
-   Gimplifier already does the same operation, but we may notice functions
-   being const and pure once their calls has been gimplified, so we need
-   to update the flag.  */
-
-static void
-update_call_expr_flags (tree call)
-{
-  tree decl = get_callee_fndecl (call);
-  if (!decl)
-    return;
-  if (call_expr_flags (call) & (ECF_CONST | ECF_PURE))
-    TREE_SIDE_EFFECTS (call) = 0;
-  if (TREE_NOTHROW (decl))
-    TREE_NOTHROW (call) = 1;
-}
-#endif
 
 
 /* T is CALL_EXPR.  Set current_function_calls_* flags.  */
 
 void
-notice_special_calls (tree t)
+notice_special_calls (gimple call)
 {
-  int flags = call_expr_flags (t);
+  int flags = gimple_call_flags (call);
 
   if (flags & ECF_MAY_BE_ALLOCA)
     current_function_calls_alloca = true;
@@ -1865,128 +1895,148 @@ clear_special_calls (void)
   current_function_calls_setjmp = false;
 }
 
+/* Remove useless statements from a statement sequence, and perform
+   some preliminary simplifications.  */
 
-/* FIXME tuples.  */
-#if 0
 static void
-remove_useless_stmts_1 (tree *tp, struct rus_data *data)
+remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
 {
-  tree t = *tp, op;
-
-  switch (TREE_CODE (t))
+  while (!gsi_end_p (*gsi))
     {
-    case COND_EXPR:
-      remove_useless_stmts_cond (tp, data);
-      break;
+      gimple stmt = gsi_stmt (*gsi);
 
-    case TRY_FINALLY_EXPR:
-      remove_useless_stmts_tf (tp, data);
-      break;
+      /* FIXME tuples.  We follow the pre-tuples code below and use
+         fold_stmt for simplification.  Note that this may change the
+         statement type, which is an invitation to trouble.  Perhaps
+         fold_stmt_inplace should be used, or folding should be done
+         prior to the switch statement.  */
 
-    case TRY_CATCH_EXPR:
-      remove_useless_stmts_tc (tp, data);
-      break;
+      switch (gimple_code (stmt))
+        {
+        case GIMPLE_COND:
+          remove_useless_stmts_cond (gsi, data);
+          break;
 
-    case BIND_EXPR:
-      remove_useless_stmts_bind (tp, data);
-      break;
+        case GIMPLE_GOTO:
+          remove_useless_stmts_goto (gsi, data);
+          break;
 
-    case GOTO_EXPR:
-      remove_useless_stmts_goto (tp, data);
-      break;
+        case GIMPLE_LABEL:
+          remove_useless_stmts_label (gsi, data);
+          break;
 
-    case LABEL_EXPR:
-      remove_useless_stmts_label (tp, data);
-      break;
+        case GIMPLE_ASSIGN:
+          fold_stmt (gsi);
+          stmt = gsi_stmt (*gsi);
+          data->last_was_goto = false;
+          if (stmt_could_throw_p (stmt))
+            data->may_throw = true;
+          gsi_next (gsi);
+          break;
 
-    case RETURN_EXPR:
-      fold_stmt (tp);
-      data->last_goto = NULL;
-      data->may_branch = true;
-      break;
+        case GIMPLE_ASM:
+          fold_stmt (gsi);
+          data->last_was_goto = false;
+          gsi_next (gsi);
+          break;
 
-    case CALL_EXPR:
-      fold_stmt (tp);
-      data->last_goto = NULL;
-      notice_special_calls (t);
-      update_call_expr_flags (t);
-      if (stmt_could_throw_p (t))
-	data->may_throw = true;
-      break;
+        case GIMPLE_CALL:
+          fold_stmt (gsi);
+          stmt = gsi_stmt (*gsi);
+          data->last_was_goto = false;
+          if (gimple_code (stmt) == GIMPLE_CALL)
+            notice_special_calls (stmt);
+          /* We used to call update_gimple_call_flags here,
+             which copied side-effects and nothrows status
+             from the function decl to the call.  In the new
+             tuplified GIMPLE, the accessors for this information
+             always consult the function decl, so this copying
+             is no longer necessary.  */
+          if (stmt_could_throw_p (stmt))
+            data->may_throw = true;
+          gsi_next (gsi);
+          break;
 
-    case MODIFY_EXPR:
-      gcc_unreachable ();
+        case GIMPLE_RETURN:
+          fold_stmt (gsi);
+          data->last_was_goto = false;
+          data->may_branch = true;
+          gsi_next (gsi);
+          break;
 
-    case GIMPLE_MODIFY_STMT:
-      data->last_goto = NULL;
-      fold_stmt (tp);
-      op = get_call_expr_in (t);
-      if (op)
-	{
-	  update_call_expr_flags (op);
-	  notice_special_calls (op);
-	}
-      if (stmt_could_throw_p (t))
-	data->may_throw = true;
-      break;
+        case GIMPLE_BIND:
+          remove_useless_stmts_bind (gsi, data);
+          break;
 
-    case STATEMENT_LIST:
-      {
-	tree_stmt_iterator i = tsi_start (t);
-	while (!tsi_end_p (i))
-	  {
-	    t = tsi_stmt (i);
-	    if (IS_EMPTY_STMT (t))
-	      {
-		tsi_delink (&i);
-		continue;
-	      }
+        case GIMPLE_CATCH:
+          remove_useless_stmts_tc (gsi, data);
+          break;
 
-	    remove_useless_stmts_1 (tsi_stmt_ptr (i), data);
+        case GIMPLE_TRY:
+          remove_useless_stmts_tf (gsi, data);
+          break;
 
-	    t = tsi_stmt (i);
-	    if (TREE_CODE (t) == STATEMENT_LIST)
-	      {
-		tsi_link_before (&i, t, TSI_SAME_STMT);
-		tsi_delink (&i);
-	      }
-	    else
-	      tsi_next (&i);
-	  }
-      }
-      break;
-    case ASM_EXPR:
-      fold_stmt (tp);
-      data->last_goto = NULL;
-      break;
+        case GIMPLE_NOP:
+          gsi_remove (gsi, false);
+          break;
 
-    default:
-      data->last_goto = NULL;
-      break;
+        /* FIXME tuples. The original pre-tuples code did not simplify OMP
+           statements, so I'd rather not enable this until we get everything
+           else working, and verify that such simplification is appropriate.  */
+#if 0
+        case GIMPLE_OMP_FOR:
+          {
+            gimple_seq pre_body_seq = gimple_omp_body (stmt);
+            gimple_stmt_iterator pre_body_gsi = gsi_start (pre_body_seq);
+
+            remove_useless_stmts_1 (&pre_body_gsi, data);
+          }
+          /* FALLTHROUGH */
+        case GIMPLE_OMP_CRITICAL:
+        case GIMPLE_OMP_CONTINUE:
+        case GIMPLE_OMP_MASTER:
+        case GIMPLE_OMP_ORDERED:
+        case GIMPLE_OMP_SECTION:
+        case GIMPLE_OMP_PARALLEL:
+        case GIMPLE_OMP_SECTIONS:
+        case GIMPLE_OMP_SINGLE:
+          {
+            gimple_seq body_seq = gimple_omp_body (stmt);
+            gimple_stmt_iterator body_gsi = gsi_start (body_seq);
+
+            remove_useless_stmts_1 (&body_gsi, data);
+          }
+          break;
+#endif
+
+        default:
+          data->last_was_goto = false;
+          gsi_next (gsi);
+          break;
+        }
     }
 }
-#endif
+
+/* Walk the function tree, removing useless statements and performing
+   some preliminary simplifications.  */
 
 static unsigned int
 remove_useless_stmts (void)
 {
-  /* FIXME tuples.  */
-#if 0
   struct rus_data data;
 
   clear_special_calls ();
 
   do
     {
+      gimple_stmt_iterator gsi;
+
+      gsi = gsi_start (gimple_body (current_function_decl));
       memset (&data, 0, sizeof (data));
-      remove_useless_stmts_1 (&gimple_body (current_function_decl), &data);
+      remove_useless_stmts_1 (&gsi, &data);
     }
   while (data.repeat);
   return 0;
-#else
-  gimple_unreachable ();
-  return 0;
-#endif
 }
 
 

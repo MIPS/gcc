@@ -1292,7 +1292,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      gimple old_stmt = stmt;
 	      tree rhs;
 
-	      fold_stmt (gsi_stmt_ptr (&i));
+	      fold_stmt (&i);
 	      stmt = gsi_stmt (i);
 
               /* If we cleaned up EH information from the statement,

@@ -477,8 +477,8 @@ init_optimization_passes (void)
     by these passes.  */
   p = &all_lowering_passes;
   /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_remove_useless_stmts);
+#if 0
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
 #endif

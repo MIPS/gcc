@@ -566,7 +566,9 @@ bool is_gimple_operand (const_tree);
 void gimple_set_modified (gimple, bool);
 void gimple_cond_get_ops_from_tree (tree, enum tree_code *, tree *, tree *);
 gimple gimple_build_cond_from_tree (tree, tree, tree);
+void gimple_cond_set_condition_from_tree (gimple, tree);
 bool gimple_has_side_effects (gimple);
+bool gimple_seq_has_side_effects (gimple_seq);
 
 /* In builtins.c  */
 extern bool validate_arglist (const_gimple, ...);
@@ -1353,6 +1355,18 @@ gimple_call_noreturn_p (gimple s)
     return false;
   return (gimple_call_flags (s) & ECF_NORETURN) != 0;
 }
+
+
+/* Return true if S is a nothrow call.  */
+
+static inline bool
+gimple_call_nothrow_p (gimple s)
+{
+  if (gimple_code (s) != GIMPLE_CALL)
+    return false;
+  return (gimple_call_flags (s) & ECF_NOTHROW) != 0;
+}
+
 
 /* Return the code of the predicate computed by conditional statement GS.  */
 
@@ -2939,7 +2953,11 @@ gsi_after_labels (basic_block bb)
   return gsi;
 }
 
-/* Return a pointer to the current stmt.  */
+/* Return a pointer to the current stmt.
+   
+  NOTE: You may want to use gsi_replace on the iterator itself,
+  as this performs additional bookkeeping that will not be done
+  if you simply assign through a pointer returned by gsi_stmt_ptr.  */
 
 static inline gimple *
 gsi_stmt_ptr (gimple_stmt_iterator *i)

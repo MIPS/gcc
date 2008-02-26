@@ -2284,7 +2284,6 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	  CALL_FROM_THUNK_P (*expr_p) = CALL_FROM_THUNK_P (call);
 	  CALL_CANNOT_INLINE_P (*expr_p)
 	    = CALL_CANNOT_INLINE_P (call);
-	  TREE_NOTHROW (*expr_p) = TREE_NOTHROW (call);
 	  SET_EXPR_LOCUS (*expr_p, EXPR_LOCUS (call));
 	  TREE_BLOCK (*expr_p) = TREE_BLOCK (call);
 	  /* Set CALL_EXPR_VA_ARG_PACK.  */

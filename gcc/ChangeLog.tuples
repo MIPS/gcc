@@ -1,3 +1,46 @@
+2008-02-26  Bill Maddox  <maddox@google.com>
+	
+	* tree-ssa-ccp.c (maybe_fold_stmt_addition):
+	Reinstated this function for tuples as-is.
+	(valid_gimple_rhs_p): New function.  Mostly lifted from
+	valid_gimple_epxression_p, which is likely obsolete.
+	(fold_stmt_r): Reinstated commented-out cases for
+	tuples. Replaced call to obsolete function set_rhs.
+	(get_maxval_strlen): Convert to tuples.
+	(ccp_fold_builtin): Partial conversion to tuples.
+	(fold_gimple_assign): New function.
+	(fold_gimple_cond): New function.
+	(fold_gimple_call): New function.
+	(fold_stmt): Convert to tuples.
+	(fold_stmt_inplace): Convert to tuples.
+	* tree-ssa-propagate.c (substitute_and_fold):
+	Update call to fold_stmt for revised argument signature.
+	* gimple-dummy.c (fold_stmt): Removed dummy definition.
+	* gimplify.c (gimplify_call_expr): Removed obsolete
+	manipulation of TREE_NOTHROW flag.
+	* cfgexpand.c (gimple_to_tree): Set nothrow flag
+	of call expression based on call statement flags.
+	Handle GIMPLE_NOP statement.
+	* tree-flow.h (notice_special_calls, fold_stmt):
+	Update prototypes for tuples.
+	* gimple.c (gimple_cond_set_condition_from_tree):
+	New function.
+	(gimple_seq_has_side_effects): New function.
+	* gimple.h (gimple_cond_set_condition_from_tree,
+	gimple_seq_has_side_effects): New prototypes.
+	(gimple_call_nothrow_p): New function.
+	(gsi_stmt_ptr): Add comment regarding usage of this
+	function vs. gsi_replace.
+	* tree-cfg.c (struct rus_data): Convert to tuples.
+	(remove_useless_stmts_1, remove_useless_stmts_warn_notreached,
+	remove_useless_stmts_cond, remove_useless_stmts_tf,
+	remove_useless_stmts_tc, remove_useless_stmts_goto,
+	remove_useless_stmts_label, notice_special_calls,
+	remove_useless_stmts): Convert to tuples.
+	(update_call_expr_flags): Removed.
+	* passes.c (init_optimization_passes): Enable
+	pass_remove_useless_stmts.
+	
 2008-02-25  Bill Maddox  <maddox@google.com>
 
 	* tree-into-ssa.c (rewrite_initialize_block):
