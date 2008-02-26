@@ -3759,9 +3759,10 @@ finish_omp_threadprivate (tree vars)
 	error ("automatic variable %qE cannot be %<threadprivate%>", v);
       else if (! COMPLETE_TYPE_P (TREE_TYPE (v)))
 	error ("%<threadprivate%> %qE has incomplete type", v);
-      else if (TREE_STATIC (v) && TYPE_P (CP_DECL_CONTEXT (v)))
-	error ("%<threadprivate%> %qE is not file, namespace "
-	       "or block scope variable", v);
+      else if (TREE_STATIC (v) && TYPE_P (CP_DECL_CONTEXT (v))
+	       && CP_DECL_CONTEXT (v) != current_class_type)
+	error ("%<threadprivate%> %qE directive not "
+	       "in %qT definition", v, CP_DECL_CONTEXT (v));
       else
 	{
 	  /* Allocate a LANG_SPECIFIC structure for V, if needed.  */

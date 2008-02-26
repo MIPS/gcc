@@ -1,5 +1,8 @@
 2008-02-26  Jakub Jelinek  <jakub@redhat.com>
 
+	* g++.dg/gomp/tls-3.C: Remove dg-error, add S::s definition.
+	* g++.dg/gomp/tls-4.C: New test.
+
 	* g++.dg/gomp/pr34607.C: Adjust dg-error location.
 
 2008-02-22  Jakub Jelinek  <jakub@redhat.com>
