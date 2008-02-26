@@ -339,8 +339,10 @@ rename_ssa_copies (void)
       for (gsi = gsi_start (phi_seq); !gsi_end_p (gsi); gsi_next (&gsi))
         {
           size_t i;
+	  tree res;
+
 	  phi = gsi_stmt (gsi);
-	  tree res = gimple_phi_result (phi);
+	  res = gimple_phi_result (phi);
 
 	  /* Do not process virtual SSA_NAMES.  */
 	  if (!is_gimple_reg (SSA_NAME_VAR (res)))

@@ -1,3 +1,11 @@
+2008-02-26  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-copyrename.c (rename_ssa_copies): Do not mix
+	declarations with code.
+	* tree-ssa-coalesce.c (create_outofssa_var_map): Likewise.
+	* tree-dfa.c (dump_dfa_stats): Use %ld for
+	dfa_stats.max_num_phi_args.
+
 2008-02-26  Bill Maddox  <maddox@google.com>
 	
 	* tree-ssa-ccp.c (maybe_fold_stmt_addition):
