@@ -1,5 +1,7 @@
 2008-02-26  Jakub Jelinek  <jakub@redhat.com>
 
+	* gfortran.dg/gomp/sharing-3.f90: New test.
+
 	* g++.dg/gomp/tls-3.C: Remove dg-error, add S::s definition.
 	* g++.dg/gomp/tls-4.C: New test.
 

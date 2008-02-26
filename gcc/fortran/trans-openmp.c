@@ -84,6 +84,17 @@ gfc_omp_predetermined_sharing (tree decl)
   if (GFC_DECL_CRAY_POINTEE (decl))
     return OMP_CLAUSE_DEFAULT_PRIVATE;
 
+  /* Assumed-size arrays are predetermined to inherit sharing
+     attributes of the associated actual argument, which is shared
+     for all we care.  */
+  if (TREE_CODE (decl) == PARM_DECL
+      && GFC_ARRAY_TYPE_P (TREE_TYPE (decl))
+      && GFC_TYPE_ARRAY_AKIND (TREE_TYPE (decl)) == GFC_ARRAY_UNKNOWN
+      && GFC_TYPE_ARRAY_UBOUND (TREE_TYPE (decl),
+				GFC_TYPE_ARRAY_RANK (TREE_TYPE (decl)) - 1)
+	 == NULL)
+    return OMP_CLAUSE_DEFAULT_SHARED;
+
   /* COMMON and EQUIVALENCE decls are shared.  They
      are only referenced through DECL_VALUE_EXPR of the variables
      contained in them.  If those are privatized, they will not be
