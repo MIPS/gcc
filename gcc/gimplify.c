@@ -1430,8 +1430,7 @@ sort_case_labels (VEC(tree,heap)* label_vec)
 static enum gimplify_status
 gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
 {
-  tree switch_expr;
-  switch_expr = *expr_p;
+  tree switch_expr = *expr_p;
   gimple_seq switch_body_seq = NULL;
   
   gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL, is_gimple_val,
@@ -1519,6 +1518,7 @@ static enum gimplify_status
 gimplify_case_label_expr (tree *expr_p, gimple_seq *pre_p)
 {
   struct gimplify_ctx *ctxp;
+  gimple gimple_label;
 
   /* Invalid OpenMP programs can play Duff's Device type games with
      #pragma omp parallel.  At least in the C front end, we don't
@@ -1527,7 +1527,7 @@ gimplify_case_label_expr (tree *expr_p, gimple_seq *pre_p)
     if (ctxp->case_labels)
       break;
 
-  gimple gimple_label = gimple_build_label (CASE_LABEL (*expr_p));
+  gimple_label = gimple_build_label (CASE_LABEL (*expr_p));
   VEC_safe_push (tree, heap, ctxp->case_labels, *expr_p);
   gimple_seq_add_stmt (pre_p, gimple_label);
 

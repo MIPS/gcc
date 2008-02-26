@@ -1,3 +1,30 @@
+2008-02-25  Bill Maddox  <maddox@google.com>
+
+	* tree-into-ssa.c (rewrite_initialize_block):
+	Avoid declaration following statement in block.
+	* tree-nrv.c (tree_nrv):
+	Avoid declaration following statement in block.
+	* tree-eh.c (collect_finally_tree): Fix typo in comment.
+	Avoid cast to union type.
+	(replace_goto_queue_cond_clause, replace_goto_queue_1,
+	maybe_record_in_goto_queue, verify_norecord_switch_expr,
+	lower_try_finally_fallthru_label): Avoid cast to union type.
+	* fortran/Make-lang.in: Add -Wno-missing-format-attribute
+	to fortran-warn options to avoid conflict with -Wno-format.
+	* gimplify.c (gimplify_switch_expr):  Change assignment
+	to initialiation.
+	(gimplify_case_label_expr): Avoid declaration following
+	statement in block.
+	* tree-ssa-coalesce.c (create_outofssa_var_map): Avoid
+	declaration following statement in block.
+	* tree-ssa.c (ssa_redirect_edge, flush_pending_stmts):
+	Avoid declaration following statements in block.
+	* Makefile.in: Add -Wno-missing-format-attribute
+	to builtins.o-warn and expr.o-warn options to avoid conflict
+	with -Wno-format.  Removed fortran/*-warn options, -Wno-format
+	and -Wno-uninitialized, which belong in fortran/Make-lang.in,
+	and are applied to all fortran files there.
+
 2008-02-25  Oleg Ryjkov  <olegr@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg01236.html

@@ -271,26 +271,31 @@ static void
 collect_finally_tree (gimple stmt, gimple region)
 {
   size_t i, n;
+  treemple temp;
+
   switch (gimple_code (stmt))
     {
-    /* FIXME tuples: Why is GIMLE_SWITCH necessary? */
+    /* FIXME tuples: Why is GIMPLE_SWITCH necessary? */
     case GIMPLE_SWITCH:
       n = gimple_switch_num_labels (stmt);
       for (i = 0; i < n; i++)
       {
         tree lab = gimple_switch_label (stmt, i);
-        record_in_finally_tree ((treemple) lab, region);
+        temp.t = lab;
+        record_in_finally_tree (temp, region);
       }
       break;
 
     case GIMPLE_LABEL:
-      record_in_finally_tree ((treemple) gimple_label_label (stmt), region);
+      temp.t = gimple_label_label (stmt);
+      record_in_finally_tree (temp, region);
       break;
 
     case GIMPLE_TRY:
       if (gimple_try_kind (stmt) == GIMPLE_TRY_FINALLY)
         {
-          record_in_finally_tree ( (treemple) stmt, region);
+          temp.g = stmt;
+          record_in_finally_tree (temp, region);
           collect_finally_tree_1 (gimple_try_eval (stmt), stmt);
           collect_finally_tree_1 (gimple_try_cleanup (stmt), stmt);
         }
@@ -477,8 +482,10 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
 {
   tree label;
   gimple_seq new;
+  treemple temp;
 
-  new = find_goto_replacement (tf, (treemple)*tp);
+  temp.t = *tp;
+  new = find_goto_replacement (tf, temp);
   if (!new)
     return;
 
@@ -507,11 +514,14 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
 		      gimple_stmt_iterator *gsi)
 {
   gimple_seq seq;
+  treemple temp;
+
   switch (gimple_code (stmt))
     {
     case GIMPLE_GOTO:
     case GIMPLE_RETURN:
-      seq = find_goto_replacement (tf, (treemple) stmt);
+      temp.g = stmt;
+      seq = find_goto_replacement (tf, temp);
       if (seq)
 	{
 	  gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
@@ -587,6 +597,7 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
     case GIMPLE_GOTO:
       {
 	tree lab = gimple_goto_dest (stmt);
+        treemple temp;
 
 	/* Computed and non-local gotos do not get processed.  Given
 	   their nature we can neither tell whether we've escaped the
@@ -595,7 +606,8 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
 	  return;
 
 	/* No need to record gotos that don't leave the try block.  */
-	if (! outside_finally_tree ( (treemple) lab, tf->try_finally_expr))
+        temp.t = lab;
+	if (! outside_finally_tree (temp, tf->try_finally_expr))
 	  return;
 
 	if (! tf->dest_array)
@@ -673,8 +685,9 @@ verify_norecord_switch_expr (struct leh_state *state, gimple switch_expr)
   for (i = 0; i < n; ++i)
     {
       tree lab = gimple_switch_label (switch_expr, i);
-      gcc_assert (!outside_finally_tree ( (treemple) lab,
-                                          tf->try_finally_expr));
+      treemple temp;
+      temp.t = lab;
+      gcc_assert (!outside_finally_tree (temp, tf->try_finally_expr));
     }
 }
 #else
@@ -838,13 +851,17 @@ static tree
 lower_try_finally_fallthru_label (struct leh_tf_state *tf)
 {
   tree label = tf->fallthru_label;
+  treemple temp;
+
   if (!label)
     {
       label = create_artificial_label ();
       tf->fallthru_label = label;
       if (tf->outer->tf)
-        record_in_finally_tree ( (treemple) label,
-                                 tf->outer->tf->try_finally_expr);
+        {
+          temp.t = label;
+          record_in_finally_tree (temp, tf->outer->tf->try_finally_expr);
+        }
     }
   return label;
 }

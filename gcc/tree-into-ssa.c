@@ -1345,8 +1345,10 @@ rewrite_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
      node introduces a new version for the associated variable.  */
   for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
+      tree result;
+
       phi = gsi_stmt (gsi);
-      tree result = gimple_phi_result (phi);
+      result = gimple_phi_result (phi);
       gcc_assert (is_gimple_reg (result));
       register_new_def (result, SSA_NAME_VAR (result));
     }

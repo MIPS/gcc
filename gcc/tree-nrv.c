@@ -136,10 +136,12 @@ tree_nrv (void)
 	  else if (gimple_code (stmt) == GIMPLE_ASSIGN
 		   && gimple_assign_lhs (stmt) == result)
 	    {
+              tree rhs;
+
 	      if (!gimple_assign_copy_p (stmt))
 		return 0;
 
-	      tree rhs = gimple_assign_rhs1 (stmt);
+	      rhs = gimple_assign_rhs1 (stmt);
 
 	      /* Now verify that this return statement uses the same value
 		 as any previously encountered return statement.  */

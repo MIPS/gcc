@@ -195,20 +195,13 @@ build/gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
 SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
 # FIXME tuples, do not merge.
-builtins.o-warn = -Wno-uninitialized -Wno-format
-expr.o-warn = -Wno-uninitialized -Wno-format
+builtins.o-warn = -Wno-uninitialized -Wno-format -Wno-missing-format-attribute
+expr.o-warn = -Wno-uninitialized -Wno-format -Wno-missing-format-attribute
 dse.o-warn = -Wno-uninitialized
 ebitmap.o-warn = -Wno-uninitialized
 lower-subreg.o-warn = -Wno-uninitialized
 tree-chrec.o-warn = -Wno-uninitialized
 varasm.o-warn = -Wno-error
-fortran/parse.o-warn = -Wno-uninitialized
-fortran/simplify.o-warn = -Wno-uninitialized
-fortran/check.o-warn = -Wno-format
-fortran/interface.o-warn = -Wno-format
-fortran/resolve.o-warn = -Wno-format
-fortran/simplify.o-warn = -Wno-format
-fortran/target-memory.o-warn = -Wno-format
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either

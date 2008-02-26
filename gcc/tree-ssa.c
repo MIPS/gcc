@@ -179,8 +179,10 @@ ssa_redirect_edge (edge e, basic_block dest)
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (gsi = gsi_start (phi_nodes (e->dest)); !gsi_end_p (gsi); gsi_next (&gsi))
     {
+      tree def;
+
       phi = gsi_stmt (gsi);
-      tree def = gimple_phi_arg_def (phi, e->dest_idx);
+      def = gimple_phi_arg_def (phi, e->dest_idx);
 
       if (def == NULL_TREE)
 	continue;
@@ -214,8 +216,10 @@ flush_pending_stmts (edge e)
        !gsi_end_p (gsi) && VEC_iterate (edge_var_map, v, i, vm);
        gsi_next (&gsi), i++)
     {
+      tree def;
+
       phi = gsi_stmt (gsi);
-      tree def = redirect_edge_var_map_def (vm);
+      def = redirect_edge_var_map_def (vm);
       add_phi_arg (phi, def, e);
     }
 

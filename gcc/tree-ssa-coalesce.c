@@ -1072,10 +1072,13 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 
 		for (i = 0; i < ninputs; ++i)
 		  {
+                    const char *constraint;
+                    tree input;
+
 		    link = gimple_asm_input_op (stmt, i);
-		    const char *constraint
+		    constraint
 		      = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
-		    tree input = TREE_VALUE (link);
+		    input = TREE_VALUE (link);
 		    char *end;
 		    unsigned long match;
 
