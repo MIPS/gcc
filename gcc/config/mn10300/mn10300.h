@@ -624,10 +624,6 @@ struct cum_arg {int nbytes; };
   ((COUNT == 0)                         \
    ? gen_rtx_MEM (Pmode, arg_pointer_rtx) \
    : (rtx) 0)
-
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  mn10300_va_start (valist, nextarg)
 
 /* 1 if X is an rtx for a constant that is a valid address.  */
 
@@ -734,7 +730,7 @@ while (0)
 	switch (XINT ((X), 1))						\
 	  {								\
 	  case UNSPEC_INT_LABEL:					\
-	    asm_fprintf ((STREAM), ".%LLIL%d",				\
+	    asm_fprintf ((STREAM), ".%LLIL" HOST_WIDE_INT_PRINT_DEC,	\
  			 INTVAL (XVECEXP ((X), 0, 0)));			\
 	    break;							\
 	  case UNSPEC_PIC:						\

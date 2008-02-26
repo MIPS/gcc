@@ -44,6 +44,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "ddg.h"
 
+#ifdef INSN_SCHEDULING
+
 /* A flag indicating that a ddg edge belongs to an SCC or not.  */
 enum edge_flag {NOT_IN_SCC = 0, IN_SCC};
 
@@ -176,12 +178,16 @@ create_ddg_dep_from_intra_loop_link (ddg_ptr g, ddg_node_ptr src_node,
       rtx set;
 
       set = single_set (dest_node->insn);
-      if (set)
+      /* TODO: Handle registers that REG_P is not true for them, i.e.
+         subregs and special registers.  */
+      if (set && REG_P (SET_DEST (set)))
         {
           int regno = REGNO (SET_DEST (set));
-          struct df_ref *first_def =
-            df_bb_regno_first_def_find (g->bb, regno);
+          struct df_ref *first_def;
           struct df_rd_bb_info *bb_info = DF_RD_BB_INFO (g->bb);
+
+          first_def = df_bb_regno_first_def_find (g->bb, regno);
+          gcc_assert (first_def);
 
           if (bitmap_bit_p (bb_info->gen, first_def->id))
             return;
@@ -1100,3 +1106,5 @@ longest_simple_path (struct ddg * g, int src, int dest, sbitmap nodes)
   sbitmap_free (tmp);
   return result;
 }
+
+#endif /* INSN_SCHEDULING */

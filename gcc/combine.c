@@ -104,6 +104,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "cgraph.h"
 
 /* Number of attempts to combine instructions in this function.  */
 
@@ -750,7 +751,7 @@ do_SUBST_MODE (rtx *into, enum machine_mode newval)
   buf->kind = UNDO_MODE;
   buf->where.r = into;
   buf->old_contents.m = oldval;
-  PUT_MODE (*into, newval);
+  adjust_reg_mode (*into, newval);
 
   buf->next = undobuf.undos, undobuf.undos = buf;
 }
@@ -1320,6 +1321,7 @@ static void
 setup_incoming_promotions (rtx first)
 {
   tree arg;
+  bool strictly_local = false;
 
   if (!targetm.calls.promote_function_args (TREE_TYPE (cfun->decl)))
     return;
@@ -1328,27 +1330,64 @@ setup_incoming_promotions (rtx first)
        arg = TREE_CHAIN (arg))
     {
       rtx reg = DECL_INCOMING_RTL (arg);
+      int uns1, uns3;
+      enum machine_mode mode1, mode2, mode3, mode4;
 
+      /* Only continue if the incoming argument is in a register.  */
       if (!REG_P (reg))
 	continue;
 
-      if (TYPE_MODE (DECL_ARG_TYPE (arg)) == TYPE_MODE (TREE_TYPE (arg)))
-	{
-	  enum machine_mode mode = TYPE_MODE (TREE_TYPE (arg));
-	  int uns = TYPE_UNSIGNED (TREE_TYPE (arg));
+      /* Determine, if possible, whether all call sites of the current
+         function lie within the current compilation unit.  (This does
+	 take into account the exporting of a function via taking its
+	 address, and so forth.)  */
+      if (flag_unit_at_a_time)
+	strictly_local = cgraph_local_info (current_function_decl)->local;
 
-	  mode = promote_mode (TREE_TYPE (arg), mode, &uns, 1);
-	  if (mode == GET_MODE (reg) && mode != DECL_MODE (arg))
-	    {
-	      rtx x;
-	      x = gen_rtx_CLOBBER (DECL_MODE (arg), const0_rtx);
-	      x = gen_rtx_fmt_e ((uns ? ZERO_EXTEND : SIGN_EXTEND), mode, x);
-	      record_value_for_reg (reg, first, x);
-	    }
+      /* The mode and signedness of the argument before any promotions happen
+         (equal to the mode of the pseudo holding it at that stage).  */
+      mode1 = TYPE_MODE (TREE_TYPE (arg));
+      uns1 = TYPE_UNSIGNED (TREE_TYPE (arg));
+
+      /* The mode and signedness of the argument after any source language and
+         TARGET_PROMOTE_PROTOTYPES-driven promotions.  */
+      mode2 = TYPE_MODE (DECL_ARG_TYPE (arg));
+      uns3 = TYPE_UNSIGNED (DECL_ARG_TYPE (arg));
+
+      /* The mode and signedness of the argument as it is actually passed, 
+         after any TARGET_PROMOTE_FUNCTION_ARGS-driven ABI promotions.  */
+      mode3 = promote_mode (DECL_ARG_TYPE (arg), mode2, &uns3, 1);
+
+      /* The mode of the register in which the argument is being passed.  */
+      mode4 = GET_MODE (reg);
+
+      /* Eliminate sign extensions in the callee when possible.  Only
+         do this when:
+	 (a) a mode promotion has occurred;
+	 (b) the mode of the register is the same as the mode of
+	     the argument as it is passed; and
+	 (c) the signedness does not change across any of the promotions; and
+	 (d) when no language-level promotions (which we cannot guarantee
+	     will have been done by an external caller) are necessary,
+	     unless we know that this function is only ever called from
+	     the current compilation unit -- all of whose call sites will
+	     do the mode1 --> mode2 promotion.  */
+      if (mode1 != mode3
+          && mode3 == mode4
+          && uns1 == uns3
+	  && (mode1 == mode2 || strictly_local))
+        {
+	  /* Record that the value was promoted from mode1 to mode3,
+	     so that any sign extension at the head of the current
+	     function may be eliminated.  */
+	  rtx x;
+	  x = gen_rtx_CLOBBER (mode1, const0_rtx);
+	  x = gen_rtx_fmt_e ((uns3 ? ZERO_EXTEND : SIGN_EXTEND), mode3, x);
+	  record_value_for_reg (reg, first, x);
 	}
     }
 }
-
+
 /* Called via note_stores.  If X is a pseudo that is narrower than
    HOST_BITS_PER_WIDE_INT and is being set, record what bits are known zero.
 
@@ -1655,7 +1694,7 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
 	 change whether the life span of some REGs crosses calls or not,
 	 and it is a pain to update that information.
 	 Exception: if source is a constant, moving it later can't hurt.
-	 Accept that special case, because it helps -fforce-addr a lot.  */
+	 Accept that as a special case.  */
       || (DF_INSN_LUID (insn) < last_call_luid && ! CONSTANT_P (src)))
     return 0;
 
@@ -2712,12 +2751,17 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
   if (i1 && GET_CODE (newpat) != CLOBBER)
     {
-      /* Before we can do this substitution, we must redo the test done
-	 above (see detailed comments there) that ensures  that I1DEST
-	 isn't mentioned in any SETs in NEWPAT that are field assignments.  */
-
-      if (! combinable_i3pat (NULL_RTX, &newpat, i1dest, NULL_RTX,
-			      0, (rtx*) 0))
+      /* Check that an autoincrement side-effect on I1 has not been lost.
+	 This happens if I1DEST is mentioned in I2 and dies there, and
+	 has disappeared from the new pattern.  */
+      if ((FIND_REG_INC_NOTE (i1, NULL_RTX) != 0
+	   && !i1_feeds_i3
+	   && dead_or_set_p (i2, i1dest)
+	   && !reg_overlap_mentioned_p (i1dest, newpat))
+	  /* Before we can do this substitution, we must redo the test done
+	     above (see detailed comments there) that ensures  that I1DEST
+	     isn't mentioned in any SETs in NEWPAT that are field assignments.  */
+          || !combinable_i3pat (NULL_RTX, &newpat, i1dest, NULL_RTX, 0, 0))
 	{
 	  undo_all ();
 	  return 0;
@@ -2945,7 +2989,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 		{
 		  struct undo *buf;
 
-		  PUT_MODE (regno_reg_rtx[REGNO (i2dest)], old_mode);
+		  adjust_reg_mode (regno_reg_rtx[REGNO (i2dest)], old_mode);
 		  buf = undobuf.undos;
 		  undobuf.undos = buf->next;
 		  buf->next = undobuf.frees;
@@ -3787,7 +3831,7 @@ undo_all (void)
 	  *undo->where.i = undo->old_contents.i;
 	  break;
 	case UNDO_MODE:
-	  PUT_MODE (*undo->where.r, undo->old_contents.m);
+	  adjust_reg_mode (*undo->where.r, undo->old_contents.m);
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -3928,6 +3972,15 @@ find_split_point (rtx *loc, rtx insn)
 			 && OBJECT_P (SUBREG_REG (XEXP (XEXP (x, 0), 0)))))
 	    return &XEXP (XEXP (x, 0), 0);
 	}
+
+      /* If we have a PLUS whose first operand is complex, try computing it
+         separately by making a split there.  */
+      if (GET_CODE (XEXP (x, 0)) == PLUS
+          && ! memory_address_p (GET_MODE (x), XEXP (x, 0))
+          && ! OBJECT_P (XEXP (XEXP (x, 0), 0))
+          && ! (GET_CODE (XEXP (XEXP (x, 0), 0)) == SUBREG
+                && OBJECT_P (SUBREG_REG (XEXP (XEXP (x, 0), 0)))))
+        return &XEXP (XEXP (x, 0), 0);
       break;
 
     case SET:
@@ -4478,6 +4531,18 @@ subst (rtx x, rtx from, rtx to, int in_dest, int unique_copy)
 	}
     }
 
+  /* Check if we are loading something from the constant pool via float
+     extension; in this case we would undo compress_float_constant
+     optimization and degenerate constant load to an immediate value.  */
+  if (GET_CODE (x) == FLOAT_EXTEND
+      && MEM_P (XEXP (x, 0))
+      && MEM_READONLY_P (XEXP (x, 0)))
+    {
+      rtx tmp = avoid_constant_pool_reference (x);
+      if (x != tmp)
+        return x;
+    }
+
   /* Try to simplify X.  If the simplification changed the code, it is likely
      that further simplification will help, so loop, but limit the number
      of repetitions that will be performed.  */
@@ -4687,7 +4752,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
        || code == AND || code == IOR || code == XOR
        || code == SMAX || code == SMIN || code == UMAX || code == UMIN)
       && ((INTEGRAL_MODE_P (mode) && code != DIV)
-	  || (flag_unsafe_math_optimizations && FLOAT_MODE_P (mode))))
+	  || (flag_associative_math && FLOAT_MODE_P (mode))))
     {
       if (GET_CODE (XEXP (x, 0)) == code)
 	{
@@ -4960,7 +5025,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 	}
 
       /* Try simplify a*(b/c) as (a*b)/c.  */
-      if (FLOAT_MODE_P (mode) && flag_unsafe_math_optimizations
+      if (FLOAT_MODE_P (mode) && flag_associative_math 
 	  && GET_CODE (XEXP (x, 0)) == DIV)
 	{
 	  rtx tem = simplify_binary_operation (MULT, mode,
@@ -5328,9 +5393,10 @@ simplify_if_then_else (rtx x)
   /* Look for cases where we have (abs x) or (neg (abs X)).  */
 
   if (GET_MODE_CLASS (mode) == MODE_INT
+      && comparison_p
+      && XEXP (cond, 1) == const0_rtx
       && GET_CODE (false_rtx) == NEG
       && rtx_equal_p (true_rtx, XEXP (false_rtx, 0))
-      && comparison_p
       && rtx_equal_p (true_rtx, XEXP (cond, 0))
       && ! side_effects_p (true_rtx))
     switch (true_code)
@@ -9292,6 +9358,9 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  break;
 
 	case NOT:
+	  if (VECTOR_MODE_P (mode))
+	    break;
+
 	  /* Make this fit the case below.  */
 	  varop = gen_rtx_XOR (mode, XEXP (varop, 0),
 			       GEN_INT (GET_MODE_MASK (mode)));
@@ -12396,7 +12465,8 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	    }
 	  break;
 
-	case REG_LABEL:
+	case REG_LABEL_TARGET:
+	case REG_LABEL_OPERAND:
 	  /* This can show up in several ways -- either directly in the
 	     pattern, or hidden off in the constant pool with (or without?)
 	     a REG_EQUAL note.  */
@@ -12419,34 +12489,33 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 		place = i2;
 	    }
 
-	  /* Don't attach REG_LABEL note to a JUMP_INSN.  Add
-	     a JUMP_LABEL instead or decrement LABEL_NUSES.  */
-	  if (place && JUMP_P (place))
+	  /* For REG_LABEL_TARGET on a JUMP_P, we prefer to put the note
+	     as a JUMP_LABEL or decrement LABEL_NUSES if it's already
+	     there.  */
+	  if (place && JUMP_P (place)
+	      && REG_NOTE_KIND (note) == REG_LABEL_TARGET
+	      && (JUMP_LABEL (place) == NULL
+		  || JUMP_LABEL (place) == XEXP (note, 0)))
 	    {
 	      rtx label = JUMP_LABEL (place);
 
 	      if (!label)
 		JUMP_LABEL (place) = XEXP (note, 0);
-	      else
-		{
-		  gcc_assert (label == XEXP (note, 0));
-		  if (LABEL_P (label))
-		    LABEL_NUSES (label)--;
-		}
-	      place = 0;
+	      else if (LABEL_P (label))
+		LABEL_NUSES (label)--;
 	    }
-	  if (place2 && JUMP_P (place2))
+
+	  if (place2 && JUMP_P (place2)
+	      && REG_NOTE_KIND (note) == REG_LABEL_TARGET
+	      && (JUMP_LABEL (place2) == NULL
+		  || JUMP_LABEL (place2) == XEXP (note, 0)))
 	    {
 	      rtx label = JUMP_LABEL (place2);
 
 	      if (!label)
 		JUMP_LABEL (place2) = XEXP (note, 0);
-	      else
-		{
-		  gcc_assert (label == XEXP (note, 0));
-		  if (LABEL_P (label))
-		    LABEL_NUSES (label)--;
-		}
+	      else if (LABEL_P (label))
+		LABEL_NUSES (label)--;
 	      place2 = 0;
 	    }
 	  break;
@@ -12458,15 +12527,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	     to simply delete it.  */
 	  break;
 
-	case REG_LIBCALL_ID:
-	  /* If the insn previously containing this note still exists,
-	     put it back where it was.  Otherwise move it to the previous
-	     insn.  */
-	  if (!NOTE_P (from_insn))
-	    place = from_insn;
-	  else
-	    place = prev_real_insn (from_insn);
-	  break;
 	case REG_RETVAL:
 	  /* If the insn previously containing this note still exists,
 	     put it back where it was.  Otherwise move it to the previous
@@ -12989,7 +13049,7 @@ struct tree_opt_pass pass_combine =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'c'                                   /* letter */
 };

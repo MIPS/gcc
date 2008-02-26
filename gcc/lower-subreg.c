@@ -897,7 +897,7 @@ resolve_simple_move (rtx set, rtx insn)
 static bool
 resolve_clobber (rtx pat, rtx insn)
 {
-  rtx reg;
+  rtx reg, note;
   enum machine_mode orig_mode;
   unsigned int words, i;
   int ret;
@@ -909,8 +909,10 @@ resolve_clobber (rtx pat, rtx insn)
   /* If this clobber has a REG_LIBCALL note, then it is the initial
      clobber added by emit_no_conflict_block.  We were able to
      decompose the register, so we no longer need the clobber.  */
-  if (find_reg_note (insn, REG_LIBCALL, NULL_RTX) != NULL_RTX)
+  note = find_reg_note (insn, REG_LIBCALL, NULL_RTX);
+  if (note != NULL_RTX)
     {
+      remove_retval_note (XEXP (note, 0));
       delete_insn (insn);
       return true;
     }
@@ -1337,7 +1339,7 @@ decompose_multiword_subregs (void)
 			  int dup_num = recog_data.dup_num[i];
 			  rtx *px = recog_data.operand_loc[dup_num];
 
-			  validate_change (insn, pl, *px, 1);
+			  validate_unshare_change (insn, pl, *px, 1);
 			}
 
 		      i = apply_change_group ();
@@ -1455,7 +1457,7 @@ struct tree_opt_pass pass_lower_subreg2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */

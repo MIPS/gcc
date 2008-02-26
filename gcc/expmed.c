@@ -1339,18 +1339,15 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		  || (offset * BITS_PER_UNIT % bitsize == 0
 		      && MEM_ALIGN (op0) % bitsize == 0)))))
     {
-      if (mode1 != GET_MODE (op0))
+      if (MEM_P (op0))
+	op0 = adjust_address (op0, mode1, offset);
+      else if (mode1 != GET_MODE (op0))
 	{
-	  if (MEM_P (op0))
-	    op0 = adjust_address (op0, mode1, offset);
-	  else
-	    {
-	      rtx sub = simplify_gen_subreg (mode1, op0, GET_MODE (op0),
-					     byte_offset);
-	      if (sub == NULL)
-		goto no_subreg_mode_swap;
-	      op0 = sub;
-	    }
+	  rtx sub = simplify_gen_subreg (mode1, op0, GET_MODE (op0),
+					 byte_offset);
+	  if (sub == NULL)
+	    goto no_subreg_mode_swap;
+	  op0 = sub;
 	}
       if (mode1 != mode)
 	return convert_to_mode (tmode, op0, unsignedp);
@@ -3886,8 +3883,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
   if (compute_mode == VOIDmode)
     for (compute_mode = mode; compute_mode != VOIDmode;
 	 compute_mode = GET_MODE_WIDER_MODE (compute_mode))
-      if (optab_handler (optab1, compute_mode)->libfunc
-	  || optab_handler (optab2, compute_mode)->libfunc)
+      if (optab_libfunc (optab1, compute_mode)
+	  || optab_libfunc (optab2, compute_mode))
 	break;
 
   /* If we still couldn't find a mode, use MODE, but expand_binop will

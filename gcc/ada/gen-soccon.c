@@ -24,11 +24,17 @@
 
 /* This program generates g-soccon.ads */
 
-/* To build using DEC C:
-  CC/DEFINE="TARGET=""OpenVMS""" gen-soccon
-  LINK gen-soccon
-  RUN gen-soccon
-*/
+/*
+ * To build using DEC C:
+ *
+ * CC/DEFINE="TARGET=""OpenVMS""" gen-soccon
+ * LINK gen-soccon
+ * RUN gen-soccon
+ *
+ * Note: OpenVMS versions older than 8.3 provide an incorrect value in
+ * the DEC C header files for MSG_WAITALL. To generate the VMS version
+ * of g-soccon.ads, gen-soccon should be run on an 8.3 or later machine.
+ */
 
 #ifndef TARGET
 # error Please define TARGET
@@ -566,6 +572,11 @@ CND(IP_ADD_MEMBERSHIP, "Join a multicast group")
 #define IP_DROP_MEMBERSHIP -1
 #endif
 CND(IP_DROP_MEMBERSHIP, "Leave a multicast group")
+
+#ifndef IP_PKTINFO
+#define IP_PKTINFO -1
+#endif
+CND(IP_PKTINFO, "Get datagram info")
 
 _NL
 TXT("   -------------------")

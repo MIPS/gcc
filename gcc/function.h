@@ -1,6 +1,7 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,16 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
+
 #include "tree.h"
 #include "hashtab.h"
-
-struct var_refs_queue GTY(())
-{
-  rtx modified;
-  enum machine_mode promoted_mode;
-  int unsignedp;
-  struct var_refs_queue *next;
-};
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -42,14 +36,6 @@ struct sequence_stack GTY(())
   rtx first;
   rtx last;
   struct sequence_stack *next;
-};
-
-/* Stack of single obstacks.  */
-
-struct simple_obstack_stack
-{
-  struct obstack *obstack;
-  struct simple_obstack_stack *next;
 };
 
 struct emit_status GTY(())
@@ -292,10 +278,6 @@ struct function GTY(())
   /* List of available temp slots.  */
   struct temp_slot *x_avail_temp_slots;
 
-  /* This slot is initialized as 0 and is added to
-     during the nested function.  */
-  struct var_refs_queue *fixup_var_refs_queue;
-
   /* Current nesting level for temporaries.  */
   int x_temp_slot_level;
 
@@ -374,20 +356,10 @@ struct function GTY(())
      function.  */
   unsigned int va_list_fpr_size : 8;
 
+
   /* How commonly executed the function is.  Initialized during branch
      probabilities pass.  */
   ENUM_BITFIELD (function_frequency) function_frequency : 2;
-
-  /* Nonzero if function being compiled needs to be given an address
-     where the value should be stored.  */
-  unsigned int returns_struct : 1;
-
-  /* Nonzero if function being compiled needs to
-     return the address of where it has put a structure value.  */
-  unsigned int returns_pcc_struct : 1;
-
-  /* Nonzero if the current function returns a pointer type.  */
-  unsigned int returns_pointer : 1;
 
   /* Nonzero if function being compiled can call setjmp.  */
   unsigned int calls_setjmp : 1;
@@ -403,13 +375,15 @@ struct function GTY(())
   /* Nonzero if the function calls __builtin_eh_return.  */
   unsigned int calls_eh_return : 1;
 
+
   /* Nonzero if function being compiled receives nonlocal gotos
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
 
-  /* Nonzero if function calls builtin_unwind_init.  */
-  unsigned int calls_unwind_init : 1;
-  
+  /* Nonzero if function saves all registers, e.g. if it has a nonlocal
+     label that can reach the exit block via non-exceptional paths. */
+  unsigned int saves_all_registers : 1;
+
   /* Nonzero if function being compiled has nonlocal gotos to parent
      function.  */
   unsigned int has_nonlocal_goto : 1;
@@ -436,6 +410,7 @@ struct function GTY(())
   /* Nonzero if stack limit checking should be enabled in the current
      function.  */
   unsigned int limit_stack : 1;
+
 
   /* Nonzero if current function uses stdarg.h or equivalent.  */
   unsigned int stdarg : 1;
@@ -466,13 +441,28 @@ struct function GTY(())
   /* Set when the call to function itself has been emit.  */
   unsigned int recursive_call_emit : 1;
 
+
   /* Set when the tail call has been produced.  */
   unsigned int tail_call_emit : 1;
 
   /* FIXME tuples: This bit is temporarily here to mark when a
      function has been gimplified, so we can make sure we're not
      creating non GIMPLE tuples after gimplification.  */
-  unsigned gimplified : 1;
+  unsigned int gimplified : 1;
+
+  /* Fields below this point are not set for abstract functions; see
+     allocate_struct_function.  */
+
+  /* Nonzero if function being compiled needs to be given an address
+     where the value should be stored.  */
+  unsigned int returns_struct : 1;
+
+  /* Nonzero if function being compiled needs to
+     return the address of where it has put a structure value.  */
+  unsigned int returns_pcc_struct : 1;
+
+  /* Nonzero if pass_tree_profile was run on this function.  */
+  unsigned int after_tree_profile : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -483,6 +473,11 @@ struct function GTY(())
 /* The function currently being compiled.  */
 extern GTY(()) struct function *cfun;
 
+/* In order to ensure that cfun is not set directly, we redefine it so
+   that it is not an lvalue.  Rather than assign to cfun, use
+   push_cfun or set_cfun.  */
+#define cfun (cfun + 0)
+
 /* Pointer to chain of `struct function' for containing functions.  */
 extern GTY(()) struct function *outer_function_chain;
 
@@ -492,11 +487,16 @@ extern int virtuals_instantiated;
 /* Nonzero if at least one trampoline has been created.  */
 extern int trampolines_created;
 
+/* cfun shouldn't be set directly; use one of these functions instead.  */
+extern void set_cfun (struct function *new_cfun);
+extern void push_cfun (struct function *new_cfun);
+extern void pop_cfun (void);
+extern void instantiate_decl_rtl (rtx x);
+
 /* For backward compatibility... eventually these should all go away.  */
 #define current_function_pops_args (cfun->pops_args)
 #define current_function_returns_struct (cfun->returns_struct)
 #define current_function_returns_pcc_struct (cfun->returns_pcc_struct)
-#define current_function_returns_pointer (cfun->returns_pointer)
 #define current_function_calls_setjmp (cfun->calls_setjmp)
 #define current_function_calls_alloca (cfun->calls_alloca)
 #define current_function_accesses_prior_frames (cfun->accesses_prior_frames)
@@ -517,7 +517,7 @@ extern int trampolines_created;
 #define current_function_uses_const_pool (cfun->uses_const_pool)
 #define current_function_epilogue_delay_list (cfun->epilogue_delay_list)
 #define current_function_has_nonlocal_label (cfun->has_nonlocal_label)
-#define current_function_calls_unwind_init (cfun->calls_unwind_init)
+#define current_function_saves_all_registers (cfun->saves_all_registers)
 #define current_function_has_nonlocal_goto (cfun->has_nonlocal_goto)
 #define current_function_has_asm_statement (cfun->has_asm_statement)
 

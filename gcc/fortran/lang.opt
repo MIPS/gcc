@@ -1,5 +1,6 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+; Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -25,11 +26,11 @@ Language
 Fortran
 
 I
-Fortran Joined
+Fortran Joined Separate
 -I<directory>	Add a directory for INCLUDE and MODULE searching
 
 J
-Fortran Joined
+Fortran Joined Separate
 -J<directory>	Put MODULE files in 'directory'
 
 Wall
@@ -196,6 +197,26 @@ fimplicit-none
 Fortran
 Specify that no implicit typing is allowed, unless overridden by explicit IMPLICIT statements
 
+finit-character=
+Fortran RejectNegative Joined UInteger
+-finit-character=<n> Initialize local character variables to ASCII value n
+
+finit-integer=
+Fortran RejectNegative Joined
+-finit-integer=<n> Initialize local integer variables to n
+
+finit-local-zero
+Fortran
+Initialize local variables to zero (from g77)
+
+finit-logical=
+Fortran RejectNegative Joined
+-finit-logical=<true|false> Initialize local logical variables
+
+finit-real=
+Fortran RejectNegative Joined
+-finit-real=<zero|nan|inf|-inf> Initialize local real variables
+
 fmax-errors=
 Fortran RejectNegative Joined UInteger
 -fmax-errors=<n>	Maximum number of errors to report
@@ -218,7 +239,7 @@ Set default accessibility of module entities to PRIVATE.
 
 fopenmp
 Fortran
-Enable OpenMP
+Enable OpenMP (also sets frecursive)
 
 fpack-derived
 Fortran
@@ -239,6 +260,10 @@ Use a 4-byte record marker for unformatted files
 frecord-marker=8
 Fortran RejectNegative
 Use an 8-byte record marker for unformatted files
+
+frecursive
+Fortran
+Allocate local variables on the stack to allow indirect recursion
 
 frepack-arrays
 Fortran

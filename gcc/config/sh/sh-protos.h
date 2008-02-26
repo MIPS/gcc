@@ -120,9 +120,6 @@ extern void sh_expand_binop_v2sf (enum rtx_code, rtx, rtx, rtx);
 extern int sh_expand_t_scc (enum rtx_code code, rtx target);
 extern rtx sh_gen_truncate (enum machine_mode, rtx, int);
 extern bool sh_vector_mode_supported_p (enum machine_mode);
-#ifdef TREE_CODE
-extern void sh_va_start (tree, rtx);
-#endif /* TREE_CODE */
 #endif /* RTX_CODE */
 
 extern const char *output_jump_label_table (void);
@@ -137,7 +134,7 @@ extern int initial_elimination_offset (int, int);
 extern int fldi_ok (void);
 extern int sh_hard_regno_rename_ok (unsigned int, unsigned int);
 extern int sh_cfun_interrupt_handler_p (void);
-extern int sh_attr_renesas_p (tree);
+extern int sh_attr_renesas_p (const_tree);
 extern int sh_cfun_attr_renesas_p (void);
 extern void sh_initialize_trampoline (rtx, rtx, rtx);
 extern bool sh_cannot_change_mode_class
@@ -161,7 +158,7 @@ extern rtx sh_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void sh_function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern int sh_pass_in_reg_p (CUMULATIVE_ARGS *, enum machine_mode, tree);
 extern void sh_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree, signed int, enum machine_mode);
-extern bool sh_promote_prototypes (tree);
+extern bool sh_promote_prototypes (const_tree);
 
 extern rtx replace_n_hard_rtx (rtx, rtx *, int , int);
 extern int shmedia_cleanup_truncate (rtx *, void *);

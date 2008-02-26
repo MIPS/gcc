@@ -476,12 +476,6 @@ typedef struct iq2000_args
 }
 
 
-/* Implementing the Varargs Macros.  */
-
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  iq2000_va_start (valist, nextarg)
-
-
 /* Trampolines for Nested Functions.  */
 
 /* A C statement to output, on the stream FILE, assembler code for a
@@ -756,7 +750,8 @@ while (0)
 
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(STREAM,SIZE)					\
-  fprintf (STREAM, "\t.space\t%u\n", (SIZE))
+  fprintf (STREAM, "\t.space\t" HOST_WIDE_INT_PRINT_UNSIGNED "\n",	\
+           (unsigned HOST_WIDE_INT)(SIZE))
 
 #define ASM_OUTPUT_ALIGN(STREAM,LOG)					\
   if ((LOG) != 0)                       				\

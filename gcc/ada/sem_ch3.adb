@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -35,6 +34,7 @@ with Exp_Ch3;  use Exp_Ch3;
 with Exp_Dist; use Exp_Dist;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
+with Fname;    use Fname;
 with Freeze;   use Freeze;
 with Itypes;   use Itypes;
 with Layout;   use Layout;
@@ -729,8 +729,8 @@ package body Sem_Ch3 is
       --  function, scope is the current one, because it is the one of the
       --  current type declaration.
 
-      if Nkind (Related_Nod) = N_Object_Declaration
-        or else Nkind (Related_Nod) = N_Access_Function_Definition
+      if Nkind_In (Related_Nod, N_Object_Declaration,
+                                N_Access_Function_Definition)
       then
          Anon_Scope := Current_Scope;
 
@@ -743,7 +743,7 @@ package body Sem_Ch3 is
       --  unit, we must traverse the the tree to retrieve the proper entity.
 
       elsif Nkind (Related_Nod) = N_Function_Specification
-         and then Nkind (Parent (N)) /= N_Parameter_Specification
+        and then Nkind (Parent (N)) /= N_Parameter_Specification
       then
          --  If the current scope is a protected type, the anonymous access
          --  is associated with one of the protected operations, and must
@@ -788,6 +788,9 @@ package body Sem_Ch3 is
             Set_Ekind
               (Anon_Type, E_Anonymous_Access_Subprogram_Type);
          end if;
+
+         Set_Can_Use_Internal_Rep
+           (Anon_Type, not Always_Compatible_Rep_On_Target);
 
          --  If the anonymous access is associated with a protected operation
          --  create a reference to it after the enclosing protected definition
@@ -914,12 +917,65 @@ package body Sem_Ch3 is
      (T_Name : Entity_Id;
       T_Def  : Node_Id)
    is
-      Formals : constant List_Id := Parameter_Specifications (T_Def);
-      Formal  : Entity_Id;
-      D_Ityp  : Node_Id;
 
+      procedure Check_For_Premature_Usage (Def : Node_Id);
+      --  Check that type T_Name is not used, directly or recursively,
+      --  as a parameter or a return type in Def. Def is either a subtype,
+      --  an access_definition, or an access_to_subprogram_definition.
+
+      -------------------------------
+      -- Check_For_Premature_Usage --
+      -------------------------------
+
+      procedure Check_For_Premature_Usage (Def : Node_Id) is
+         Param : Node_Id;
+
+      begin
+         --  Check for a subtype mark
+
+         if Nkind (Def) in N_Has_Etype then
+            if Etype (Def) = T_Name then
+               Error_Msg_N
+                 ("type& cannot be used before end of its declaration", Def);
+            end if;
+
+         --  If this is not a subtype, then this is an access_definition
+
+         elsif Nkind (Def) = N_Access_Definition then
+            if Present (Access_To_Subprogram_Definition (Def)) then
+               Check_For_Premature_Usage
+                 (Access_To_Subprogram_Definition (Def));
+            else
+               Check_For_Premature_Usage (Subtype_Mark (Def));
+            end if;
+
+         --  The only cases left are N_Access_Function_Definition and
+         --  N_Access_Procedure_Definition.
+
+         else
+            if Present (Parameter_Specifications (Def)) then
+               Param := First (Parameter_Specifications (Def));
+               while Present (Param) loop
+                  Check_For_Premature_Usage (Parameter_Type (Param));
+                  Param := Next (Param);
+               end loop;
+            end if;
+
+            if Nkind (Def) = N_Access_Function_Definition then
+               Check_For_Premature_Usage (Result_Definition (Def));
+            end if;
+         end if;
+      end Check_For_Premature_Usage;
+
+      --  Local variables
+
+      Formals    : constant List_Id := Parameter_Specifications (T_Def);
+      Formal     : Entity_Id;
+      D_Ityp     : Node_Id;
       Desig_Type : constant Entity_Id :=
                      Create_Itype (E_Subprogram_Type, Parent (T_Def));
+
+   --  Start of processing for Access_Subprogram_Declaration
 
    begin
       --  Associate the Itype node with the inner full-type declaration or
@@ -932,16 +988,17 @@ package body Sem_Ch3 is
       --                                   (Z : access T)))
 
       D_Ityp := Associated_Node_For_Itype (Desig_Type);
-      while Nkind (D_Ityp) /= N_Full_Type_Declaration
-         and then Nkind (D_Ityp) /= N_Private_Type_Declaration
-         and then Nkind (D_Ityp) /= N_Private_Extension_Declaration
-         and then Nkind (D_Ityp) /= N_Procedure_Specification
-         and then Nkind (D_Ityp) /= N_Function_Specification
-         and then Nkind (D_Ityp) /= N_Object_Declaration
-         and then Nkind (D_Ityp) /= N_Object_Renaming_Declaration
-         and then Nkind (D_Ityp) /= N_Formal_Type_Declaration
-         and then Nkind (D_Ityp) /= N_Task_Type_Declaration
-         and then Nkind (D_Ityp) /= N_Protected_Type_Declaration
+      while not (Nkind_In (D_Ityp, N_Full_Type_Declaration,
+                                   N_Private_Type_Declaration,
+                                   N_Private_Extension_Declaration,
+                                   N_Procedure_Specification,
+                                   N_Function_Specification)
+                   or else
+                 Nkind_In (D_Ityp, N_Object_Declaration,
+                                   N_Object_Renaming_Declaration,
+                                   N_Formal_Type_Declaration,
+                                   N_Task_Type_Declaration,
+                                   N_Protected_Type_Declaration))
       loop
          D_Ityp := Parent (D_Ityp);
          pragma Assert (D_Ityp /= Empty);
@@ -949,22 +1006,21 @@ package body Sem_Ch3 is
 
       Set_Associated_Node_For_Itype (Desig_Type, D_Ityp);
 
-      if Nkind (D_Ityp) = N_Procedure_Specification
-        or else Nkind (D_Ityp) = N_Function_Specification
+      if Nkind_In (D_Ityp, N_Procedure_Specification,
+                           N_Function_Specification)
       then
          Set_Scope (Desig_Type, Scope (Defining_Entity (D_Ityp)));
 
-      elsif Nkind (D_Ityp) = N_Full_Type_Declaration
-        or else Nkind (D_Ityp) = N_Object_Declaration
-        or else Nkind (D_Ityp) = N_Object_Renaming_Declaration
-        or else Nkind (D_Ityp) = N_Formal_Type_Declaration
+      elsif Nkind_In (D_Ityp, N_Full_Type_Declaration,
+                              N_Object_Declaration,
+                              N_Object_Renaming_Declaration,
+                              N_Formal_Type_Declaration)
       then
          Set_Scope (Desig_Type, Scope (Defining_Identifier (D_Ityp)));
       end if;
 
       if Nkind (T_Def) = N_Access_Function_Definition then
          if Nkind (Result_Definition (T_Def)) = N_Access_Definition then
-
             declare
                Acc : constant Node_Id := Result_Definition (T_Def);
 
@@ -1015,6 +1071,10 @@ package body Sem_Ch3 is
          Set_Parent (Desig_Type, Empty);
       end if;
 
+      --  Check for premature usage of the type being defined
+
+      Check_For_Premature_Usage (T_Def);
+
       --  The return type and/or any parameter type may be incomplete. Mark
       --  the subprogram_type as depending on the incomplete type, so that
       --  it can be updated when the full type declaration is seen. This
@@ -1056,6 +1116,8 @@ package body Sem_Ch3 is
       else
          Set_Ekind (T_Name, E_Access_Subprogram_Type);
       end if;
+
+      Set_Can_Use_Internal_Rep (T_Name, not Always_Compatible_Rep_On_Target);
 
       Set_Etype                    (T_Name, T_Name);
       Init_Size_Align              (T_Name);
@@ -1229,7 +1291,7 @@ package body Sem_Ch3 is
          Set_Ekind               (Tag, E_Component);
          Set_Is_Tag              (Tag);
          Set_Is_Aliased          (Tag);
-         Set_Related_Interface   (Tag, Iface);
+         Set_Related_Type        (Tag, Iface);
          Init_Component_Location (Tag);
 
          pragma Assert (Is_Frozen (Iface));
@@ -1271,7 +1333,7 @@ package body Sem_Ch3 is
             Set_Analyzed (Decl);
             Set_Ekind               (Offset, E_Component);
             Set_Is_Aliased          (Offset);
-            Set_Related_Interface   (Offset, Iface);
+            Set_Related_Type        (Offset, Iface);
             Init_Component_Location (Offset);
             Insert_After (Last_Tag, Decl);
             Last_Tag := Decl;
@@ -1620,7 +1682,6 @@ package body Sem_Ch3 is
          declare
             Sindic : constant Node_Id :=
                        Subtype_Indication (Component_Definition (N));
-
          begin
             if Nkind (Sindic) = N_Subtype_Indication
               and then Present (Constraint (Sindic))
@@ -1764,9 +1825,9 @@ package body Sem_Ch3 is
          --  (This is needed in any case for early instantiations ???).
 
          if No (Next_Node) then
-            if Nkind (Parent (L)) = N_Component_List
-              or else Nkind (Parent (L)) = N_Task_Definition
-              or else Nkind (Parent (L)) = N_Protected_Definition
+            if Nkind_In (Parent (L), N_Component_List,
+                                     N_Task_Definition,
+                                     N_Protected_Definition)
             then
                null;
 
@@ -1810,12 +1871,13 @@ package body Sem_Ch3 is
          --  not cause unwanted freezing at that point.
 
          elsif not Analyzed (Next_Node)
-           and then (Nkind (Next_Node) = N_Subprogram_Body
-             or else Nkind (Next_Node) = N_Entry_Body
-             or else Nkind (Next_Node) = N_Package_Body
-             or else Nkind (Next_Node) = N_Protected_Body
-             or else Nkind (Next_Node) = N_Task_Body
-             or else Nkind (Next_Node) in N_Body_Stub)
+           and then (Nkind_In (Next_Node, N_Subprogram_Body,
+                                          N_Entry_Body,
+                                          N_Package_Body,
+                                          N_Protected_Body,
+                                          N_Task_Body)
+                       or else
+                     Nkind (Next_Node) in N_Body_Stub)
          then
             Adjust_D;
             Freeze_All (Freeze_From, D);
@@ -2070,9 +2132,7 @@ package body Sem_Ch3 is
          return;
       end if;
 
-      if Nkind (E) = N_Integer_Literal
-        or else Nkind (E) = N_Real_Literal
-      then
+      if Nkind_In (E, N_Integer_Literal, N_Real_Literal) then
          Set_Etype (E, Etype (Id));
       end if;
 
@@ -2352,7 +2412,7 @@ package body Sem_Ch3 is
          Analyze (E);
 
          --  In case of errors detected in the analysis of the expression,
-         --  decorate it with the expected type to avoid cascade errors
+         --  decorate it with the expected type to avoid cascaded errors
 
          if No (Etype (E)) then
             Set_Etype (E, T);
@@ -2363,6 +2423,19 @@ package body Sem_Ch3 is
          --  and it is indeed modified.
 
          Set_Is_True_Constant (Id, True);
+
+         --  If the object is an access to variable, the initialization
+         --  expression cannot be an access to constant.
+
+         if Is_Access_Type (T)
+           and then not Is_Access_Constant (T)
+           and then Is_Access_Type (Etype (E))
+           and then Is_Access_Constant (Etype (E))
+         then
+            Error_Msg_N
+              ("object that is an access to variable cannot be initialized " &
+                "with an access-to-constant expression", E);
+         end if;
 
          --  If we are analyzing a constant declaration, set its completion
          --  flag after analyzing the expression.
@@ -3263,6 +3336,8 @@ package body Sem_Ch3 is
                Set_Is_Limited_Record  (Id, Is_Limited_Record     (T));
                Set_Has_Unknown_Discriminants
                                       (Id, Has_Unknown_Discriminants (T));
+               Set_Known_To_Have_Preelab_Init
+                                      (Id, Known_To_Have_Preelab_Init (T));
 
                if Is_Tagged_Type (T) then
                   Set_Is_Tagged_Type       (Id);
@@ -3380,8 +3455,9 @@ package body Sem_Ch3 is
 
       T := Etype (Id);
 
-      Set_Is_Immediately_Visible (Id, True);
-      Set_Depends_On_Private     (Id, Has_Private_Component (T));
+      Set_Is_Immediately_Visible   (Id, True);
+      Set_Depends_On_Private       (Id, Has_Private_Component (T));
+      Set_Is_Descendent_Of_Address (Id, Is_Descendent_Of_Address (T));
 
       if Is_Interface (T) then
          Set_Is_Interface (Id);
@@ -3783,6 +3859,15 @@ package body Sem_Ch3 is
          Generate_Definition (Def_Id);
       end if;
 
+      if Chars (Scope (Def_Id)) =  Name_System
+        and then Chars (Def_Id) = Name_Address
+        and then Is_Predefined_File_Name (Unit_File_Name (Get_Source_Unit (N)))
+      then
+         Set_Is_Descendent_Of_Address (Def_Id);
+         Set_Is_Descendent_Of_Address (Base_Type (Def_Id));
+         Set_Is_Descendent_Of_Address (Prev);
+      end if;
+
       Check_Eliminated (Def_Id);
    end Analyze_Type_Declaration;
 
@@ -3844,6 +3929,12 @@ package body Sem_Ch3 is
       Last_Choice    : Nat;
       Dont_Care      : Boolean;
       Others_Present : Boolean := False;
+
+      pragma Warnings (Off, Case_Table);
+      pragma Warnings (Off, Last_Choice);
+      pragma Warnings (Off, Dont_Care);
+      pragma Warnings (Off, Others_Present);
+      --  We don't care about the assigned values of any of these
 
    --  Start of processing for Analyze_Variant_Part
 
@@ -4277,9 +4368,7 @@ package body Sem_Ch3 is
       --  Temporarily remove the current scope from the stack to add the new
       --  declarations to the enclosing scope
 
-      if Nkind (N) = N_Object_Declaration
-        or else Nkind (N) = N_Access_Function_Definition
-      then
+      if Nkind_In (N, N_Object_Declaration, N_Access_Function_Definition) then
          Analyze (Decl);
 
       else
@@ -4290,6 +4379,7 @@ package body Sem_Ch3 is
       end if;
 
       Set_Ekind (Anon, E_Anonymous_Access_Protected_Subprogram_Type);
+      Set_Can_Use_Internal_Rep (Anon, not Always_Compatible_Rep_On_Target);
       return Anon;
    end Replace_Anonymous_Access_To_Protected_Subprogram;
 
@@ -4563,6 +4653,14 @@ package body Sem_Ch3 is
       Set_Corresponding_Record_Type
         (Derived_Type, Corresponding_Record_Type (Parent_Type));
 
+      --  Is_Constrained is set according the parent subtype, but is set to
+      --  False if the derived type is declared with new discriminants.
+
+      Set_Is_Constrained
+        (Derived_Type,
+         (Is_Constrained (Parent_Type) or else Constraint_Present)
+           and then not Present (Discriminant_Specifications (N)));
+
       if Constraint_Present then
          if not Has_Discriminants (Parent_Type) then
             Error_Msg_N ("untagged parent must have discriminants", N);
@@ -4597,7 +4695,7 @@ package body Sem_Ch3 is
 
                if Nkind (D_Constraint) = N_Identifier
                  and then Chars (D_Constraint) /=
-                   Chars (Defining_Identifier (Disc_Spec))
+                          Chars (Defining_Identifier (Disc_Spec))
                then
                   Error_Msg_N ("new discriminants must constrain old ones",
                     D_Constraint);
@@ -4926,11 +5024,15 @@ package body Sem_Ch3 is
       Set_Etype          (Implicit_Base, Parent_Base);
       Set_Ekind          (Implicit_Base, Ekind          (Parent_Base));
       Set_Size_Info      (Implicit_Base,                 Parent_Base);
-      Set_RM_Size        (Implicit_Base, RM_Size        (Parent_Base));
       Set_First_Rep_Item (Implicit_Base, First_Rep_Item (Parent_Base));
       Set_Parent         (Implicit_Base, Parent (Derived_Type));
 
-      if Is_Discrete_Or_Fixed_Point_Type (Parent_Base) then
+      --  Set RM Size for discrete type or decimal fixed-point type
+      --  Ordinary fixed-point is excluded, why???
+
+      if Is_Discrete_Type (Parent_Base)
+        or else Is_Decimal_Fixed_Point_Type (Parent_Base)
+      then
          Set_RM_Size (Implicit_Base, RM_Size (Parent_Base));
       end if;
 
@@ -4978,6 +5080,11 @@ package body Sem_Ch3 is
             Set_Includes_Infinities (Scalar_Range (Derived_Type));
          end if;
       end if;
+
+      Set_Is_Descendent_Of_Address (Derived_Type,
+        Is_Descendent_Of_Address (Parent_Type));
+      Set_Is_Descendent_Of_Address (Implicit_Base,
+        Is_Descendent_Of_Address (Parent_Type));
 
       --  Set remaining type-specific fields, depending on numeric type
 
@@ -5270,8 +5377,8 @@ package body Sem_Ch3 is
         and then  Has_Discriminants (Full_View (Parent_Type))
       then
          if Has_Unknown_Discriminants (Parent_Type)
-           and then Nkind (Subtype_Indication (Type_Definition (N)))
-             = N_Subtype_Indication
+           and then Nkind (Subtype_Indication (Type_Definition (N))) =
+                                                         N_Subtype_Indication
          then
             Error_Msg_N
               ("cannot constrain type with unknown discriminants",
@@ -5929,7 +6036,7 @@ package body Sem_Ch3 is
       Discriminant_Specs : constant Boolean :=
                              Present (Discriminant_Specifications (N));
       Private_Extension  : constant Boolean :=
-                             (Nkind (N) = N_Private_Extension_Declaration);
+                             Nkind (N) = N_Private_Extension_Declaration;
 
       Constraint_Present : Boolean;
       Inherit_Discrims   : Boolean := False;
@@ -7349,14 +7456,24 @@ package body Sem_Ch3 is
             Set_Ekind (Def_Id, E_Record_Subtype);
          end if;
 
+         --  Inherit preelaboration flag from base, for types for which it
+         --  may have been set: records, private types, protected types.
+
+         Set_Known_To_Have_Preelab_Init
+           (Def_Id, Known_To_Have_Preelab_Init (T));
+
       elsif Ekind (T) = E_Task_Type then
          Set_Ekind (Def_Id, E_Task_Subtype);
 
       elsif Ekind (T) = E_Protected_Type then
          Set_Ekind (Def_Id, E_Protected_Subtype);
+         Set_Known_To_Have_Preelab_Init
+           (Def_Id, Known_To_Have_Preelab_Init (T));
 
       elsif Is_Private_Type (T) then
          Set_Ekind (Def_Id, Subtype_Kind (Ekind (T)));
+         Set_Known_To_Have_Preelab_Init
+           (Def_Id, Known_To_Have_Preelab_Init (T));
 
       elsif Is_Class_Wide_Type (T) then
          Set_Ekind (Def_Id, E_Class_Wide_Subtype);
@@ -7485,9 +7602,7 @@ package body Sem_Ch3 is
 
       Analyze_And_Resolve (Bound, Base_Type (Par_T));
 
-      if Nkind (Bound) = N_Integer_Literal
-        or else Nkind (Bound) = N_Real_Literal
-      then
+      if Nkind_In (Bound, N_Integer_Literal, N_Real_Literal) then
          New_Bound := New_Copy (Bound);
          Set_Etype (New_Bound, Der_T);
          Set_Analyzed (New_Bound);
@@ -7782,8 +7897,6 @@ package body Sem_Ch3 is
          --  overriding in Ada2005, but wrappers need to be built for them
          --  (see exp_ch3, Build_Controlling_Function_Wrappers).
 
-         --  Use elseif here and avoid above goto???
-
          if Is_Null_Extension (T)
            and then Has_Controlling_Result (Subp)
            and then Ada_Version >= Ada_05
@@ -7791,15 +7904,15 @@ package body Sem_Ch3 is
            and then not Comes_From_Source (Subp)
            and then not Is_Abstract_Subprogram (Alias (Subp))
          then
-            goto Next_Subp;
-         end if;
+            null;
 
-         if (Is_Abstract_Subprogram (Subp)
+         elsif (Is_Abstract_Subprogram (Subp)
               or else Requires_Overriding (Subp)
-              or else (Has_Controlling_Result (Subp)
-                        and then Present (Alias_Subp)
-                        and then not Comes_From_Source (Subp)
-                        and then Sloc (Subp) = Sloc (First_Subtype (T))))
+              or else
+                (Has_Controlling_Result (Subp)
+                   and then Present (Alias_Subp)
+                   and then not Comes_From_Source (Subp)
+                   and then Sloc (Subp) = Sloc (First_Subtype (T))))
            and then not Is_TSS (Subp, TSS_Stream_Input)
            and then not Is_TSS (Subp, TSS_Stream_Output)
            and then not Is_Abstract_Type (T)
@@ -7807,6 +7920,7 @@ package body Sem_Ch3 is
            and then Chars (Subp) /= Name_uDisp_Asynchronous_Select
            and then Chars (Subp) /= Name_uDisp_Conditional_Select
            and then Chars (Subp) /= Name_uDisp_Get_Prim_Op_Kind
+           and then Chars (Subp) /= Name_uDisp_Requeue
            and then Chars (Subp) /= Name_uDisp_Timed_Select
 
             --  Ada 2005 (AI-251): Do not consider hidden entities associated
@@ -7833,6 +7947,7 @@ package body Sem_Ch3 is
                --  Exp_Ch3.Make_Controlling_Wrapper_Functions).
 
                Type_Def := Type_Definition (Parent (T));
+
                if Nkind (Type_Def) = N_Derived_Type_Definition
                  and then Present (Record_Extension_Part (Type_Def))
                  and then
@@ -7844,32 +7959,46 @@ package body Sem_Ch3 is
                       or else Requires_Overriding (Subp)
                       or else Is_Access_Type (Etype (Subp)))
                then
-                  Error_Msg_NE
-                    ("type must be declared abstract or & overridden",
-                     T, Subp);
+                  --  The body of predefined primitives of tagged types derived
+                  --  from interface types are generated later by Freeze_Type.
 
-                  --  Traverse the whole chain of aliased subprograms to
-                  --  complete the error notification. This is especially
-                  --  useful for traceability of the chain of entities when the
-                  --  subprogram corresponds with an interface subprogram
-                  --  (which might be defined in another package)
+                  if Is_Predefined_Dispatching_Operation (Subp)
+                    and then Is_Abstract_Subprogram (Alias_Subp)
+                    and then Is_Interface
+                               (Root_Type (Find_Dispatching_Type (Subp)))
+                  then
+                     null;
 
-                  if Present (Alias_Subp) then
-                     declare
-                        E : Entity_Id;
+                  else
+                     Error_Msg_NE
+                       ("type must be declared abstract or & overridden",
+                        T, Subp);
 
-                     begin
-                        E := Subp;
-                        while Present (Alias (E)) loop
+                     --  Traverse the whole chain of aliased subprograms to
+                     --  complete the error notification. This is especially
+                     --  useful for traceability of the chain of entities when
+                     --  the subprogram corresponds with an interface
+                     --  subprogram (which may be defined in another package).
+
+                     if Present (Alias_Subp) then
+                        declare
+                           E : Entity_Id;
+
+                        begin
+                           E := Subp;
+                           while Present (Alias (E)) loop
+                              Error_Msg_Sloc := Sloc (E);
+                              Error_Msg_NE
+                                ("\& has been inherited #", T, Subp);
+                              E := Alias (E);
+                           end loop;
+
                            Error_Msg_Sloc := Sloc (E);
-                           Error_Msg_NE ("\& has been inherited #", T, Subp);
-                           E := Alias (E);
-                        end loop;
-
-                        Error_Msg_Sloc := Sloc (E);
-                        Error_Msg_NE
-                          ("\& has been inherited from subprogram #", T, Subp);
-                     end;
+                           Error_Msg_NE
+                             ("\& has been inherited from subprogram #",
+                              T, Subp);
+                        end;
+                     end if;
                   end if;
 
                --  Ada 2005 (AI-345): Protected or task type implementing
@@ -7916,8 +8045,36 @@ package body Sem_Ch3 is
             end if;
          end if;
 
-         <<Next_Subp>>
-            Next_Elmt (Elmt);
+         --  Ada 2005 (AI05-0030): Inspect hidden subprograms which provide
+         --  the mapping between interface and implementing type primitives.
+         --  If the interface alias is marked as Implemented_By_Entry, the
+         --  alias must be an entry wrapper.
+
+         if Ada_Version >= Ada_05
+           and then Is_Hidden (Subp)
+           and then Present (Abstract_Interface_Alias (Subp))
+           and then Implemented_By_Entry (Abstract_Interface_Alias (Subp))
+           and then Present (Alias_Subp)
+           and then
+             (not Is_Primitive_Wrapper (Alias_Subp)
+                or else Ekind (Wrapped_Entity (Alias_Subp)) /= E_Entry)
+         then
+            declare
+               Error_Ent : Entity_Id := T;
+
+            begin
+               if Is_Concurrent_Record_Type (Error_Ent) then
+                  Error_Ent := Corresponding_Concurrent_Type (Error_Ent);
+               end if;
+
+               Error_Msg_Node_2 := Abstract_Interface_Alias (Subp);
+               Error_Msg_NE
+                 ("type & must implement abstract subprogram & with an entry",
+                  Error_Ent, Error_Ent);
+            end;
+         end if;
+
+         Next_Elmt (Elmt);
       end loop;
    end Check_Abstract_Overriding;
 
@@ -8081,8 +8238,8 @@ package body Sem_Ch3 is
                elsif Is_Overloadable (E)
                  and then Current_Entity_In_Scope (E) /= E
                then
-                  --  It may be that the completion is mistyped and appears
-                  --  as a  distinct overloading of the entity.
+                  --  It may be that the completion is mistyped and appears as
+                  --  a distinct overloading of the entity.
 
                   declare
                      Candidate : constant Entity_Id :=
@@ -8119,18 +8276,17 @@ package body Sem_Ch3 is
          if Is_Intrinsic_Subprogram (E) then
             null;
 
-         --  The following situation requires special handling: a child
-         --  unit that appears in the context clause of the body of its
-         --  parent:
+         --  The following situation requires special handling: a child unit
+         --  that appears in the context clause of the body of its parent:
 
          --    procedure Parent.Child (...);
 
          --    with Parent.Child;
          --    package body Parent is
 
-         --  Here Parent.Child appears as a local entity, but should not
-         --  be flagged as requiring completion, because it is a
-         --  compilation unit.
+         --  Here Parent.Child appears as a local entity, but should not be
+         --  flagged as requiring completion, because it is a compilation
+         --  unit.
 
          --  Ignore missing completion for a subprogram that does not come from
          --  source (including the _Call primitive operation of RAS types,
@@ -8289,16 +8445,35 @@ package body Sem_Ch3 is
         and then not In_Inlined_Body
       then
          if not OK_For_Limited_Init (Exp) then
-            --  In GNAT mode, this is just a warning, to allow it to be
-            --  evilly turned off. Otherwise it is a real error.
+
+            --  In GNAT mode, this is just a warning, to allow it to be evilly
+            --  turned off. Otherwise it is a real error.
 
             if GNAT_Mode then
                Error_Msg_N
-                 ("cannot initialize entities of limited type?", Exp);
-            else
+                 ("?cannot initialize entities of limited type!", Exp);
+
+            elsif Ada_Version < Ada_05 then
                Error_Msg_N
                  ("cannot initialize entities of limited type", Exp);
                Explain_Limited_Type (T, Exp);
+
+            else
+               --  Specialize error message according to kind of illegal
+               --  initial expression.
+
+               if Nkind (Exp) = N_Type_Conversion
+                 and then Nkind (Expression (Exp)) = N_Function_Call
+               then
+                  Error_Msg_N
+                    ("illegal context for call"
+                      & " to function with limited result", Exp);
+
+               else
+                  Error_Msg_N
+                    ("initialization of limited object requires aggregate "
+                      & "or function call",  Exp);
+               end if;
             end if;
          end if;
       end if;
@@ -8880,9 +9055,11 @@ package body Sem_Ch3 is
             return;
          end if;
 
-         if Ekind (T) = E_General_Access_Type
+         if (Ekind (T) = E_General_Access_Type
+              or else Ada_Version >= Ada_05)
            and then Has_Private_Declaration (Desig_Type)
            and then In_Open_Scopes (Scope (Desig_Type))
+           and then Has_Discriminants (Desig_Type)
          then
             --  Enforce rule that the constraint is illegal if there is
             --  an unconstrained view of the designated type. This means
@@ -8893,7 +9070,8 @@ package body Sem_Ch3 is
 
             --  Rule updated for Ada 2005: the private type is said to have
             --  a constrained partial view, given that objects of the type
-            --  can be declared.
+            --  can be declared. Furthermore, the rule applies to all access
+            --  types, unlike the rule concerning default discriminants.
 
             declare
                Pack  : constant Node_Id :=
@@ -11023,10 +11201,10 @@ package body Sem_Ch3 is
          Next_Elmt (Elmt);
       end loop;
 
-      --  Complete the derivation of the interface subprograms. Assignate to
-      --  each entity associated with abstract interfaces their aliased entity
-      --  and complete their decoration as hidden interface entities that will
-      --  be used later to build the secondary dispatch tables.
+      --  Complete the derivation of the interface subprograms. Assign to each
+      --  entity associated with abstract interfaces their aliased entity and
+      --  complete their decoration as hidden interface entities that will be
+      --  used later to build the secondary dispatch tables.
 
       if not Is_Empty_Elmt_List (Ifaces_List) then
          if Ekind (Parent_Type) = E_Record_Type_With_Private
@@ -11542,13 +11720,14 @@ package body Sem_Ch3 is
    ------------------------
 
    procedure Derive_Subprograms
-     (Parent_Type           : Entity_Id;
-      Derived_Type          : Entity_Id;
-      Generic_Actual        : Entity_Id := Empty)
+     (Parent_Type    : Entity_Id;
+      Derived_Type   : Entity_Id;
+      Generic_Actual : Entity_Id := Empty)
    is
       Op_List      : constant Elist_Id :=
                        Collect_Primitive_Operations (Parent_Type);
       Ifaces_List  : constant Elist_Id := New_Elmt_List;
+      Predef_Prims : constant Elist_Id := New_Elmt_List;
       Act_List     : Elist_Id;
       Act_Elmt     : Elmt_Id;
       Elmt         : Elmt_Id;
@@ -11566,7 +11745,9 @@ package body Sem_Ch3 is
          Parent_Base := Parent_Type;
       end if;
 
-      --  Derive primitives inherited from the parent
+      --  Derive primitives inherited from the parent. Note that if the generic
+      --  actual is present, this is not really a type derivation, it is a
+      --  completion within an instance.
 
       if Present (Generic_Actual) then
          Act_List := Collect_Primitive_Operations (Generic_Actual);
@@ -11589,32 +11770,41 @@ package body Sem_Ch3 is
             then
                null;
 
+            --  We derive predefined primitives in a later round to ensure that
+            --  they are always added to the list of primitives after user
+            --  defined primitives (because predefined primitives have to be
+            --  skipped when matching the operations of a parent interface to
+            --  those of a concrete type). However it is unclear why those
+            --  primitives would be needed in an instantiation???
+
+            elsif Is_Predefined_Dispatching_Operation (Subp) then
+               Append_Elmt (Subp, Predef_Prims);
+
             elsif No (Generic_Actual) then
                Derive_Subprogram (New_Subp, Subp, Derived_Type, Parent_Base);
 
-               --  Ada 2005 (AI-251): Add the derivation of an abstract
-               --  interface primitive to the list of entities to which
-               --  we have to associate an aliased entity.
+               --  Ada 2005 (AI-251): Add derivation of an abstract interface
+               --  primitive to the list of entities to which we have to
+               --  associate an aliased entity.
 
                if Ada_Version >= Ada_05
                  and then Is_Dispatching_Operation (Subp)
                  and then Present (Find_Dispatching_Type (Subp))
                  and then Is_Interface (Find_Dispatching_Type (Subp))
-                 and then not Is_Predefined_Dispatching_Operation (Subp)
                then
                   Append_Elmt (New_Subp, Ifaces_List);
                end if;
 
             else
-
                --  If the generic parent type is present, the derived type
                --  is an instance of a formal derived type, and within the
                --  instance its operations are those of the actual. We derive
                --  from the formal type but make the inherited operations
                --  aliases of the corresponding operations of the actual.
 
-               if Is_Interface (Parent_Type) then
-
+               if Is_Interface (Parent_Type)
+                 and then Root_Type (Derived_Type) /= Parent_Type
+               then
                   --  Find the corresponding operation in the generic actual.
                   --  Given that the actual is not a direct descendant of the
                   --  parent, as in Ada 95, the primitives are not necessarily
@@ -11622,8 +11812,12 @@ package body Sem_Ch3 is
                   --  primitive operations of the actual to find the one that
                   --  implements the interface operation.
 
-                  Act_Elmt := First_Elmt (Act_List);
+                  --  Note that if the parent type is the direct ancestor of
+                  --  the derived type, then even if it is an interface the
+                  --  operations are inherited from the primary dispatch table
+                  --  and are in the proper order.
 
+                  Act_Elmt := First_Elmt (Act_List);
                   while Present (Act_Elmt) loop
                      exit when
                        Abstract_Interface_Alias (Node (Act_Elmt)) = Subp;
@@ -11647,19 +11841,29 @@ package body Sem_Ch3 is
          Next_Elmt (Elmt);
       end loop;
 
-      --  Inherit additional operations from progenitor interfaces.
-      --  However, if the derived type is a generic actual, there
-      --  are not new primitive operations for the type, because
-      --  it has those of the actual, so nothing needs to be done.
-      --  The renamings generated above are not primitive operations,
-      --  and their purpose is simply to make the proper operations
-      --  visible within an instantiation.
+      --  Inherit additional operations from progenitor interfaces. However,
+      --  if the derived type is a generic actual, there are not new primitive
+      --  operations for the type, because it has those of the actual, so
+      --  nothing needs to be done. The renamings generated above are not
+      --  primitive operations, and their purpose is simply to make the proper
+      --  operations visible within an instantiation.
 
       if Ada_Version >= Ada_05
         and then Is_Tagged_Type (Derived_Type)
         and then No (Generic_Actual)
       then
          Derive_Interface_Subprograms (Parent_Type, Derived_Type, Ifaces_List);
+      end if;
+
+      --  Derive predefined primitives
+
+      if not Is_Empty_Elmt_List (Predef_Prims) then
+         Elmt := First_Elmt (Predef_Prims);
+         while Present (Elmt) loop
+            Derive_Subprogram
+              (New_Subp, Node (Elmt), Derived_Type, Parent_Base);
+            Next_Elmt (Elmt);
+         end loop;
       end if;
    end Derive_Subprograms;
 
@@ -11668,9 +11872,9 @@ package body Sem_Ch3 is
    --------------------------------
 
    procedure Derived_Standard_Character
-     (N             : Node_Id;
-      Parent_Type   : Entity_Id;
-      Derived_Type  : Entity_Id)
+     (N            : Node_Id;
+      Parent_Type  : Entity_Id;
+      Derived_Type : Entity_Id)
    is
       Loc           : constant Source_Ptr := Sloc (N);
       Def           : constant Node_Id    := Type_Definition (N);
@@ -11728,12 +11932,12 @@ package body Sem_Ch3 is
 
       Convert_Scalar_Bounds (N, Parent_Type, Derived_Type, Loc);
 
-      --  Because the implicit base is used in the conversion of the bounds,
-      --  we have to freeze it now. This is similar to what is done for
-      --  numeric types, and it equally suspicious, but otherwise a non-
-      --  static bound will have a reference to an unfrozen type, which is
-      --  rejected by Gigi (???). This requires specific care for definition
-      --  of stream attributes. For details, see comments at the end of
+      --  Because the implicit base is used in the conversion of the bounds, we
+      --  have to freeze it now. This is similar to what is done for numeric
+      --  types, and it equally suspicious, but otherwise a non-static bound
+      --  will have a reference to an unfrozen type, which is rejected by Gigi
+      --  (???). This requires specific care for definition of stream
+      --  attributes. For details, see comments at the end of
       --  Build_Derived_Numeric_Type.
 
       Freeze_Before (N, Implicit_Base);
@@ -12428,9 +12632,9 @@ package body Sem_Ch3 is
             Enter_Name (Id);
             New_Id := Id;
 
-         elsif Nkind (N) /= N_Full_Type_Declaration
-           and then Nkind (N) /= N_Task_Type_Declaration
-           and then Nkind (N) /= N_Protected_Type_Declaration
+         elsif not Nkind_In (N, N_Full_Type_Declaration,
+                                N_Task_Type_Declaration,
+                                N_Protected_Type_Declaration)
          then
             --  Completion must be a full type declarations (RM 7.3(4))
 
@@ -12475,17 +12679,15 @@ package body Sem_Ch3 is
                   New_Id := Id;
 
                elsif Ekind (Prev) = E_Private_Type
-                 and then
-                   (Nkind (N) = N_Task_Type_Declaration
-                     or else Nkind (N) = N_Protected_Type_Declaration)
+                 and then Nkind_In (N, N_Task_Type_Declaration,
+                                       N_Protected_Type_Declaration)
                then
                   Error_Msg_N
                    ("completion of nonlimited type cannot be limited", N);
 
                elsif Ekind (Prev) = E_Record_Type_With_Private
-                 and then
-                   (Nkind (N) = N_Task_Type_Declaration
-                     or else Nkind (N) = N_Protected_Type_Declaration)
+                 and then Nkind_In (N, N_Task_Type_Declaration,
+                                       N_Protected_Type_Declaration)
                then
                   if not Is_Limited_Record (Prev) then
                      Error_Msg_N
@@ -12502,8 +12704,8 @@ package body Sem_Ch3 is
             --  type or a protected type. This case arises when covering
             --  interface types.
 
-            elsif Nkind (N) = N_Task_Type_Declaration
-              or else Nkind (N) = N_Protected_Type_Declaration
+            elsif Nkind_In (N, N_Task_Type_Declaration,
+                               N_Protected_Type_Declaration)
             then
                null;
 
@@ -12576,8 +12778,8 @@ package body Sem_Ch3 is
          if Is_Type (Prev)
            and then (Is_Tagged_Type (Prev)
                       or else Present (Class_Wide_Type (Prev)))
-           and then (Nkind (N) /= N_Task_Type_Declaration
-                      and then Nkind (N) /= N_Protected_Type_Declaration)
+           and then not Nkind_In (N, N_Task_Type_Declaration,
+                                     N_Protected_Type_Declaration)
          then
             --  The full declaration is either a tagged record or an
             --  extension otherwise this is an error
@@ -12639,8 +12841,8 @@ package body Sem_Ch3 is
 
       --  Case of an anonymous array subtype
 
-      if Def_Kind = N_Constrained_Array_Definition
-        or else Def_Kind = N_Unconstrained_Array_Definition
+      if Nkind_In (Def_Kind, N_Constrained_Array_Definition,
+                             N_Unconstrained_Array_Definition)
       then
          T := Empty;
          Array_Type_Declaration (T, Obj_Def);
@@ -13390,7 +13592,7 @@ package body Sem_Ch3 is
          --  secondary tags of the parent.
 
          if Ekind (Component) = E_Component
-           and then Present (Related_Interface (Component))
+           and then Present (Related_Type (Component))
          then
             null;
 
@@ -13501,22 +13703,16 @@ package body Sem_Ch3 is
             return Constraint_Kind = N_Range_Constraint;
 
          when Decimal_Fixed_Point_Kind =>
-            return
-              Constraint_Kind = N_Digits_Constraint
-                or else
-              Constraint_Kind = N_Range_Constraint;
+            return Nkind_In (Constraint_Kind, N_Digits_Constraint,
+                                              N_Range_Constraint);
 
          when Ordinary_Fixed_Point_Kind =>
-            return
-              Constraint_Kind = N_Delta_Constraint
-                or else
-              Constraint_Kind = N_Range_Constraint;
+            return Nkind_In (Constraint_Kind, N_Delta_Constraint,
+                                              N_Range_Constraint);
 
          when Float_Kind =>
-            return
-              Constraint_Kind = N_Digits_Constraint
-                or else
-              Constraint_Kind = N_Range_Constraint;
+            return Nkind_In (Constraint_Kind, N_Digits_Constraint,
+                                              N_Range_Constraint);
 
          when Access_Kind       |
               Array_Kind        |
@@ -14217,14 +14413,6 @@ package body Sem_Ch3 is
 
    function OK_For_Limited_Init_In_05 (Exp : Node_Id) return Boolean is
    begin
-      --  ???Expand_N_Extended_Return_Statement generates code that would
-      --  violate the rules in some cases. Once we have build-in-place
-      --  function returns working, we can probably remove the following
-      --  check.
-
-      if not Comes_From_Source (Exp) then
-         return True;
-      end if;
 
       --  Ada 2005 (AI-287, AI-318): Relax the strictness of the front end in
       --  case of limited aggregates (including extension aggregates), and
@@ -14235,14 +14423,20 @@ package body Sem_Ch3 is
          when N_Aggregate | N_Extension_Aggregate | N_Function_Call | N_Op =>
             return True;
 
+         when N_Qualified_Expression =>
+            return
+              OK_For_Limited_Init_In_05 (Expression (Original_Node (Exp)));
+
          --  Ada 2005 (AI-251): If a class-wide interface object is initialized
          --  with a function call, the expander has rewritten the call into an
          --  N_Type_Conversion node to force displacement of the pointer to
          --  reference the component containing the secondary dispatch table.
+         --  Otherwise a type conversion is not a legal context.
 
-         when N_Qualified_Expression | N_Type_Conversion =>
-            return OK_For_Limited_Init_In_05
-                     (Expression (Original_Node (Exp)));
+         when N_Type_Conversion =>
+            return not Comes_From_Source (Exp)
+              and then
+                OK_For_Limited_Init_In_05 (Expression (Original_Node (Exp)));
 
          when N_Indexed_Component | N_Selected_Component  =>
             return Nkind (Exp) = N_Function_Call;
@@ -15455,19 +15649,14 @@ package body Sem_Ch3 is
 
                Type_Decl := Parent (R);
                while Present (Type_Decl) and then not
-                 (Nkind (Type_Decl) = N_Full_Type_Declaration
+                 (Nkind_In (Type_Decl, N_Full_Type_Declaration,
+                                       N_Subtype_Declaration,
+                                       N_Loop_Statement,
+                                       N_Task_Type_Declaration)
                     or else
-                  Nkind (Type_Decl) = N_Subtype_Declaration
-                    or else
-                  Nkind (Type_Decl) = N_Loop_Statement
-                    or else
-                  Nkind (Type_Decl) = N_Task_Type_Declaration
-                    or else
-                  Nkind (Type_Decl) = N_Single_Task_Declaration
-                    or else
-                  Nkind (Type_Decl) = N_Protected_Type_Declaration
-                    or else
-                  Nkind (Type_Decl) = N_Single_Protected_Declaration)
+                  Nkind_In (Type_Decl, N_Single_Task_Declaration,
+                                       N_Protected_Type_Declaration,
+                                       N_Single_Protected_Declaration))
                loop
                   Type_Decl := Parent (Type_Decl);
                end loop;
@@ -15485,8 +15674,8 @@ package body Sem_Ch3 is
 
                      begin
                         Indic := Parent (R);
-                        while Present (Indic) and then not
-                          (Nkind (Indic) = N_Subtype_Indication)
+                        while Present (Indic)
+                          and then Nkind (Indic) /= N_Subtype_Indication
                         loop
                            Indic := Parent (Indic);
                         end loop;
@@ -15629,7 +15818,6 @@ package body Sem_Ch3 is
       --  Case of no constraints present
 
       if Nkind (S) /= N_Subtype_Indication then
-
          Find_Type (S);
          Check_Incomplete (S);
          P := Parent (S);
@@ -15645,18 +15833,21 @@ package body Sem_Ch3 is
             Error_Msg_N ("`NOT NULL` only allowed for an access type", S);
          end if;
 
+         --  The following is ugly, can't we have a range or even a flag???
+
          May_Have_Null_Exclusion :=
-           Nkind (P) = N_Access_Definition
-           or else Nkind (P) = N_Access_Function_Definition
-           or else Nkind (P) = N_Access_Procedure_Definition
-           or else Nkind (P) = N_Access_To_Object_Definition
-           or else Nkind (P) = N_Allocator
-           or else Nkind (P) = N_Component_Definition
-           or else Nkind (P) = N_Derived_Type_Definition
-           or else Nkind (P) = N_Discriminant_Specification
-           or else Nkind (P) = N_Object_Declaration
-           or else Nkind (P) = N_Parameter_Specification
-           or else Nkind (P) = N_Subtype_Declaration;
+           Nkind_In (P, N_Access_Definition,
+                        N_Access_Function_Definition,
+                        N_Access_Procedure_Definition,
+                        N_Access_To_Object_Definition,
+                        N_Allocator,
+                        N_Component_Definition)
+             or else
+           Nkind_In (P, N_Derived_Type_Definition,
+                        N_Discriminant_Specification,
+                        N_Object_Declaration,
+                        N_Parameter_Specification,
+                        N_Subtype_Declaration);
 
          --  Create an Itype that is a duplicate of Entity (S) but with the
          --  null-exclusion attribute
@@ -15918,12 +16109,15 @@ package body Sem_Ch3 is
       --  This is done only once, and only if there is no previous partial
       --  view of the type.
 
+      function Designates_T (Subt : Node_Id) return Boolean;
+      --  Check whether a node designates the enclosing record type
+
       function Mentions_T (Acc_Def : Node_Id) return Boolean;
       --  Check whether an access definition includes a reference to
-      --  the enclosing record type. The reference can be a subtype
-      --  mark in the access definition itself, or a 'Class attribute
-      --  reference, or recursively a reference appearing in a parameter
-      --  type in an access_to_subprogram definition.
+      --  the enclosing record type. The reference can be a subtype mark
+      --  in the access definition itself, a 'Class attribute reference, or
+      --  recursively a reference appearing in a parameter specification
+      --  or result definition of an access_to_subprogram definition.
 
       --------------------------------------
       -- Build_Incomplete_Type_Declaration --
@@ -16006,12 +16200,11 @@ package body Sem_Ch3 is
          end if;
       end Build_Incomplete_Type_Declaration;
 
-      ----------------
-      -- Mentions_T --
-      ----------------
+      ------------------
+      -- Designates_T --
+      ------------------
 
-      function Mentions_T (Acc_Def : Node_Id) return Boolean is
-         Subt : Node_Id;
+      function Designates_T (Subt : Node_Id) return Boolean is
          Type_Id : constant Name_Id := Chars (Typ);
 
          function Names_T (Nam : Node_Id) return Boolean;
@@ -16040,83 +16233,103 @@ package body Sem_Ch3 is
                   else
                      return False;
                   end if;
+
                else
                   return False;
                end if;
+
             else
                return False;
             end if;
          end Names_T;
 
-      --  Start of processing for Mentions_T
+      --  Start of processing for Designates_T
 
       begin
-         if No (Access_To_Subprogram_Definition (Acc_Def)) then
-            Subt := Subtype_Mark (Acc_Def);
-
-            if Nkind (Subt) = N_Identifier then
-               return Chars (Subt) = Type_Id;
+         if Nkind (Subt) = N_Identifier then
+            return Chars (Subt) = Type_Id;
 
             --  Reference can be through an expanded name which has not been
             --  analyzed yet, and which designates enclosing scopes.
 
-            elsif Nkind (Subt) = N_Selected_Component then
-               if Names_T (Subt) then
-                  return True;
+         elsif Nkind (Subt) = N_Selected_Component then
+            if Names_T (Subt) then
+               return True;
 
-               --  Otherwise it must denote an entity that is already visible.
-               --  The access definition may name a subtype of the enclosing
-               --  type, if there is a previous incomplete declaration for it.
+            --  Otherwise it must denote an entity that is already visible.
+            --  The access definition may name a subtype of the enclosing
+            --  type, if there is a previous incomplete declaration for it.
 
-               else
-                  Find_Selected_Component (Subt);
-                  return
-                    Is_Entity_Name (Subt)
-                      and then Scope (Entity (Subt)) = Current_Scope
-                      and then (Chars (Base_Type (Entity (Subt))) = Type_Id
-                        or else
-                          (Is_Class_Wide_Type (Entity (Subt))
-                            and then
-                              Chars (Etype (Base_Type (Entity (Subt))))
-                                = Type_Id));
-               end if;
-
-            --  A reference to the current type may appear as the prefix of
-            --  a 'Class attribute.
-
-            elsif Nkind (Subt) = N_Attribute_Reference
-              and then Attribute_Name (Subt) = Name_Class
-            then
-               return Names_T (Prefix (Subt));
             else
-               return False;
+               Find_Selected_Component (Subt);
+               return
+                 Is_Entity_Name (Subt)
+                   and then Scope (Entity (Subt)) = Current_Scope
+                   and then
+                     (Chars (Base_Type (Entity (Subt))) = Type_Id
+                       or else
+                         (Is_Class_Wide_Type (Entity (Subt))
+                           and then
+                           Chars (Etype (Base_Type (Entity (Subt)))) =
+                                                                  Type_Id));
             end if;
 
+         --  A reference to the current type may appear as the prefix of
+         --  a 'Class attribute.
+
+         elsif Nkind (Subt) = N_Attribute_Reference
+           and then Attribute_Name (Subt) = Name_Class
+         then
+            return Names_T (Prefix (Subt));
+
          else
-            --  Component is an access_to_subprogram: examine its formals
-
-            declare
-               Param_Spec : Node_Id;
-
-            begin
-               Param_Spec :=
-                 First
-                   (Parameter_Specifications
-                     (Access_To_Subprogram_Definition (Acc_Def)));
-               while Present (Param_Spec) loop
-                  if Nkind (Parameter_Type (Param_Spec))
-                       = N_Access_Definition
-                    and then Mentions_T (Parameter_Type (Param_Spec))
-                  then
-                     return True;
-                  end if;
-
-                  Next (Param_Spec);
-               end loop;
-
-               return False;
-            end;
+            return False;
          end if;
+      end Designates_T;
+
+      ----------------
+      -- Mentions_T --
+      ----------------
+
+      function Mentions_T (Acc_Def : Node_Id) return Boolean is
+         Param_Spec : Node_Id;
+
+         Acc_Subprg : constant Node_Id :=
+                        Access_To_Subprogram_Definition (Acc_Def);
+
+      begin
+         if No (Acc_Subprg) then
+            return Designates_T (Subtype_Mark (Acc_Def));
+         end if;
+
+         --  Component is an access_to_subprogram: examine its formals,
+         --  and result definition in the case of an access_to_function.
+
+         Param_Spec := First (Parameter_Specifications (Acc_Subprg));
+         while Present (Param_Spec) loop
+            if Nkind (Parameter_Type (Param_Spec)) = N_Access_Definition
+              and then Mentions_T (Parameter_Type (Param_Spec))
+            then
+               return True;
+
+            elsif Designates_T (Parameter_Type (Param_Spec)) then
+               return True;
+            end if;
+
+            Next (Param_Spec);
+         end loop;
+
+         if Nkind (Acc_Subprg) = N_Access_Function_Definition then
+            if Nkind (Result_Definition (Acc_Subprg)) =
+                 N_Access_Definition
+            then
+               return Mentions_T (Result_Definition (Acc_Subprg));
+            else
+               return Designates_T (Result_Definition (Acc_Subprg));
+            end if;
+         end if;
+
+         return False;
       end Mentions_T;
 
    --  Start of processing for Check_Anonymous_Access_Components
@@ -16214,7 +16427,13 @@ package body Sem_Ch3 is
               Make_Component_Definition (Loc,
                 Subtype_Indication =>
                New_Occurrence_Of (Anon_Access, Loc)));
-            Set_Ekind (Anon_Access, E_Anonymous_Access_Type);
+
+            if Ekind (Designated_Type (Anon_Access)) = E_Subprogram_Type then
+               Set_Ekind (Anon_Access, E_Anonymous_Access_Subprogram_Type);
+            else
+               Set_Ekind (Anon_Access, E_Anonymous_Access_Type);
+            end if;
+
             Set_Is_Local_Anonymous_Access (Anon_Access);
          end if;
 
@@ -16352,9 +16571,9 @@ package body Sem_Ch3 is
             Tag_Comp := Make_Defining_Identifier (Sloc (Def), Name_uTag);
             Enter_Name (Tag_Comp);
 
+            Set_Ekind                     (Tag_Comp, E_Component);
             Set_Is_Tag                    (Tag_Comp);
             Set_Is_Aliased                (Tag_Comp);
-            Set_Ekind                     (Tag_Comp, E_Component);
             Set_Etype                     (Tag_Comp, RTE (RE_Tag));
             Set_DT_Entry_Count            (Tag_Comp, No_Uint);
             Set_Original_Record_Component (Tag_Comp, Tag_Comp);

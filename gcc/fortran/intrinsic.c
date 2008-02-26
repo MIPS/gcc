@@ -1,6 +1,6 @@
 /* Build up a list of intrinsic subroutines and functions for the
    name-resolution stage.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -96,7 +96,8 @@ gfc_type_letter (bt type)
 }
 
 
-/* Get a symbol for a resolved name.  */
+/* Get a symbol for a resolved name. Note, if needed be, the elemental
+   attribute has be added afterwards.  */
 
 gfc_symbol *
 gfc_get_intrinsic_sub_symbol (const char *name)
@@ -923,7 +924,7 @@ add_functions (void)
 	     a, BT_INTEGER, di, REQUIRED);
 
   add_sym_1 ("dabs", GFC_ISYM_ABS, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_abs, gfc_resolve_abs,
+	     gfc_check_fn_d, gfc_simplify_abs, gfc_resolve_abs,
 	     a, BT_REAL, dd, REQUIRED);
 
   add_sym_1 ("cabs", GFC_ISYM_ABS, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dr, GFC_STD_F77,
@@ -958,7 +959,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dacos", GFC_ISYM_ACOS, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_acos, gfc_resolve_acos,
+	     gfc_check_fn_d, gfc_simplify_acos, gfc_resolve_acos,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("acos", GFC_ISYM_ACOS, GFC_STD_F77);
@@ -968,7 +969,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dacosh", GFC_ISYM_ACOSH, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_GNU,
-	     NULL, gfc_simplify_acosh, gfc_resolve_acosh,
+	     gfc_check_fn_d, gfc_simplify_acosh, gfc_resolve_acosh,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("acosh", GFC_ISYM_ACOSH, GFC_STD_GNU);
@@ -1041,7 +1042,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dasin", GFC_ISYM_ASIN, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_asin, gfc_resolve_asin,
+	     gfc_check_fn_d, gfc_simplify_asin, gfc_resolve_asin,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("asin", GFC_ISYM_ASIN, GFC_STD_F77);
@@ -1051,7 +1052,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dasinh", GFC_ISYM_ASINH, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_GNU,
-	     NULL, gfc_simplify_asinh, gfc_resolve_asinh,
+	     gfc_check_fn_d, gfc_simplify_asinh, gfc_resolve_asinh,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("asinh", GFC_ISYM_ASINH, GFC_STD_GNU);
@@ -1067,7 +1068,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("datan", GFC_ISYM_ATAN, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_atan, gfc_resolve_atan,
+	     gfc_check_fn_d, gfc_simplify_atan, gfc_resolve_atan,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("atan", GFC_ISYM_ATAN, GFC_STD_F77);
@@ -1077,7 +1078,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("datanh", GFC_ISYM_ATANH, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_GNU,
-	     NULL, gfc_simplify_atanh, gfc_resolve_atanh,
+	     gfc_check_fn_d, gfc_simplify_atanh, gfc_resolve_atanh,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("atanh", GFC_ISYM_ATANH, GFC_STD_GNU);
@@ -1087,7 +1088,7 @@ add_functions (void)
 	     y, BT_REAL, dr, REQUIRED, x, BT_REAL, dr, REQUIRED);
 
   add_sym_2 ("datan2", GFC_ISYM_ATAN2, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_atan2, gfc_resolve_atan2,
+	     gfc_check_datan2, gfc_simplify_atan2, gfc_resolve_atan2,
 	     y, BT_REAL, dd, REQUIRED, x, BT_REAL, dd, REQUIRED);
 
   make_generic ("atan2", GFC_ISYM_ATAN2, GFC_STD_F77);
@@ -1098,7 +1099,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dbesj0", GFC_ISYM_J0, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dd, GFC_STD_GNU,
-	     gfc_check_fn_r, NULL, gfc_resolve_g77_math1,
+	     gfc_check_fn_d, NULL, gfc_resolve_g77_math1,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("besj0", GFC_ISYM_J0, GFC_STD_GNU);
@@ -1108,7 +1109,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dbesj1", GFC_ISYM_J1, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dd, GFC_STD_GNU,
-	     gfc_check_fn_r, NULL, gfc_resolve_g77_math1,
+	     gfc_check_fn_d, NULL, gfc_resolve_g77_math1,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("besj1", GFC_ISYM_J1, GFC_STD_GNU);
@@ -1128,7 +1129,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dbesy0", GFC_ISYM_Y0, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dd, GFC_STD_GNU,
-	     gfc_check_fn_r, NULL, gfc_resolve_g77_math1,
+	     gfc_check_fn_d, NULL, gfc_resolve_g77_math1,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("besy0", GFC_ISYM_Y0, GFC_STD_GNU);
@@ -1138,7 +1139,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dbesy1", GFC_ISYM_Y1, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dd, GFC_STD_GNU,
-	     gfc_check_fn_r, NULL, gfc_resolve_g77_math1,
+	     gfc_check_fn_d, NULL, gfc_resolve_g77_math1,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("besy1", GFC_ISYM_Y1, GFC_STD_GNU);
@@ -1232,7 +1233,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dcos", GFC_ISYM_COS, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     gfc_check_fn_rc, gfc_simplify_cos, gfc_resolve_cos,
+	     gfc_check_fn_d, gfc_simplify_cos, gfc_resolve_cos,
 	     x, BT_REAL, dd, REQUIRED);
 
   add_sym_1 ("ccos", GFC_ISYM_COS, CLASS_ELEMENTAL, ACTUAL_YES, BT_COMPLEX, dz, GFC_STD_F77,
@@ -1252,7 +1253,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dcosh", GFC_ISYM_COSH, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_cosh, gfc_resolve_cosh,
+	     gfc_check_fn_d, gfc_simplify_cosh, gfc_resolve_cosh,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("cosh", GFC_ISYM_COSH, GFC_STD_F77);
@@ -1301,7 +1302,7 @@ add_functions (void)
 	     x, BT_INTEGER, di, REQUIRED, y, BT_INTEGER, di, REQUIRED);
 
   add_sym_2 ("ddim", GFC_ISYM_DIM, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_dim, gfc_resolve_dim,
+	     gfc_check_x_yd, gfc_simplify_dim, gfc_resolve_dim,
 	     x, BT_REAL, dd, REQUIRED, y, BT_REAL, dd, REQUIRED);
 
   make_generic ("dim", GFC_ISYM_DIM, GFC_STD_F77);
@@ -1313,7 +1314,7 @@ add_functions (void)
   make_generic ("dot_product", GFC_ISYM_DOT_PRODUCT, GFC_STD_F95);
 
   add_sym_2 ("dprod", GFC_ISYM_DPROD,CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_dprod, gfc_resolve_dprod,
+	     gfc_check_dprod, gfc_simplify_dprod, gfc_resolve_dprod,
 	     x, BT_REAL, dr, REQUIRED, y, BT_REAL, dr, REQUIRED);
 
   make_generic ("dprod", GFC_ISYM_DPROD, GFC_STD_F77);
@@ -1343,7 +1344,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("derf", GFC_ISYM_ERF, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dd, GFC_STD_GNU,
-	     gfc_check_fn_r, NULL, gfc_resolve_g77_math1,
+	     gfc_check_fn_d, NULL, gfc_resolve_g77_math1,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("erf", GFC_ISYM_ERF, GFC_STD_GNU);
@@ -1353,17 +1354,21 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("derfc", GFC_ISYM_ERFC, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dd, GFC_STD_GNU,
-	     gfc_check_fn_r, NULL, gfc_resolve_g77_math1,
+	     gfc_check_fn_d, NULL, gfc_resolve_g77_math1,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("erfc", GFC_ISYM_ERFC, GFC_STD_GNU);
 
   /* G77 compatibility */
-  add_sym_1 ("etime", GFC_ISYM_ETIME, NO_CLASS, ACTUAL_NO, BT_REAL, 4,  GFC_STD_GNU,
-	     gfc_check_etime, NULL, NULL,
+  add_sym_1 ("dtime", GFC_ISYM_DTIME, NO_CLASS, ACTUAL_NO, BT_REAL, 4,  GFC_STD_GNU,
+	     gfc_check_dtime_etime, NULL, NULL,
 	     x, BT_REAL, 4, REQUIRED);
 
-  make_alias ("dtime", GFC_STD_GNU);
+  make_generic ("dtime", GFC_ISYM_DTIME, GFC_STD_GNU);
+
+  add_sym_1 ("etime", GFC_ISYM_ETIME, NO_CLASS, ACTUAL_NO, BT_REAL, 4,  GFC_STD_GNU,
+	     gfc_check_dtime_etime, NULL, NULL,
+	     x, BT_REAL, 4, REQUIRED);
 
   make_generic ("etime", GFC_ISYM_ETIME, GFC_STD_GNU);
 
@@ -1372,7 +1377,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dexp", GFC_ISYM_EXP, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_exp, gfc_resolve_exp,
+	     gfc_check_fn_d, gfc_simplify_exp, gfc_resolve_exp,
 	     x, BT_REAL, dd, REQUIRED);
 
   add_sym_1 ("cexp", GFC_ISYM_EXP, CLASS_ELEMENTAL, ACTUAL_YES, BT_COMPLEX, dz, GFC_STD_F77,
@@ -1452,6 +1457,16 @@ add_functions (void)
 	     c, BT_CHARACTER, dc, REQUIRED);
 
   make_generic ("fput", GFC_ISYM_FPUT, GFC_STD_GNU);
+
+  add_sym_1 ("gamma", GFC_ISYM_GAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_gamma, gfc_resolve_gamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("dgamma", GFC_ISYM_GAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_d, gfc_simplify_gamma, gfc_resolve_gamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  make_generic ("gamma", GFC_ISYM_GAMMA, GFC_STD_GNU);
 
   /* Unix IDs (g77 compatibility)  */
   add_sym_1 ("getcwd", GFC_ISYM_GETCWD, NO_CLASS, ACTUAL_NO, BT_INTEGER, di,  GFC_STD_GNU,
@@ -1623,6 +1638,18 @@ add_functions (void)
 
   make_generic ("isatty", GFC_ISYM_ISATTY, GFC_STD_GNU);
 
+  add_sym_1 ("is_iostat_end", GFC_ISYM_IS_IOSTAT_END,
+	     CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F2003,
+	     gfc_check_i, NULL, NULL, i, BT_INTEGER, 0, REQUIRED);
+
+  make_generic ("is_iostat_end", GFC_ISYM_IS_IOSTAT_END, GFC_STD_F2003);
+
+  add_sym_1 ("is_iostat_eor", GFC_ISYM_IS_IOSTAT_EOR,
+	     CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F2003,
+	     gfc_check_i, NULL, NULL, i, BT_INTEGER, 0, REQUIRED);
+
+  make_generic ("is_iostat_eor", GFC_ISYM_IS_IOSTAT_EOR, GFC_STD_F2003);
+
   add_sym_1 ("isnan", GFC_ISYM_ISNAN, CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL,
 	     dl, GFC_STD_GNU, gfc_check_isnan, NULL, NULL,
 	     x, BT_REAL, 0, REQUIRED);
@@ -1690,6 +1717,21 @@ add_functions (void)
 
   make_generic ("len_trim", GFC_ISYM_LEN_TRIM, GFC_STD_F95);
 
+  add_sym_1 ("lgamma", GFC_ISYM_LGAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_lgamma, gfc_resolve_lgamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("algama", GFC_ISYM_LGAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_r, gfc_simplify_lgamma, gfc_resolve_lgamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  add_sym_1 ("dlgama", GFC_ISYM_LGAMMA, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_GNU,
+	     gfc_check_fn_d, gfc_simplify_lgamma, gfc_resolve_lgamma,
+	     x, BT_REAL, dr, REQUIRED);
+
+  make_generic ("lgamma", GFC_ISYM_LGAMMA, GFC_STD_GNU);
+
+
   add_sym_2 ("lge", GFC_ISYM_LGE, CLASS_ELEMENTAL, ACTUAL_NO, BT_LOGICAL, dl, GFC_STD_F77,
 	     NULL, gfc_simplify_lge, NULL,
 	     sta, BT_CHARACTER, dc, REQUIRED, stb, BT_CHARACTER, dc, REQUIRED);
@@ -1729,7 +1771,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dlog", GFC_ISYM_LOG, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_log, gfc_resolve_log,
+	     gfc_check_fn_d, gfc_simplify_log, gfc_resolve_log,
 	     x, BT_REAL, dd, REQUIRED);
 
   add_sym_1 ("clog", GFC_ISYM_LOG, CLASS_ELEMENTAL, ACTUAL_YES, BT_COMPLEX, dz, GFC_STD_F77,
@@ -1753,7 +1795,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dlog10", GFC_ISYM_LOG10, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_log10, gfc_resolve_log10,
+	     gfc_check_fn_d, gfc_simplify_log10, gfc_resolve_log10,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("log10", GFC_ISYM_LOG10, GFC_STD_F77);
@@ -1906,7 +1948,7 @@ add_functions (void)
 	     a, BT_REAL, dr, REQUIRED, p, BT_REAL, dr, REQUIRED);
 
   add_sym_2 ("dmod", GFC_ISYM_MOD, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_mod, gfc_resolve_mod,
+	     gfc_check_x_yd, gfc_simplify_mod, gfc_resolve_mod,
 	     a, BT_REAL, dd, REQUIRED, p, BT_REAL, dd, REQUIRED);
 
   make_generic ("mod", GFC_ISYM_MOD, GFC_STD_F77);
@@ -2106,7 +2148,7 @@ add_functions (void)
 	     a, BT_INTEGER, di, REQUIRED, b, BT_INTEGER, di, REQUIRED);
 
   add_sym_2 ("dsign", GFC_ISYM_SIGN, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_sign, gfc_resolve_sign,
+	     gfc_check_x_yd, gfc_simplify_sign, gfc_resolve_sign,
 	     a, BT_REAL, dd, REQUIRED, b, BT_REAL, dd, REQUIRED);
 
   make_generic ("sign", GFC_ISYM_SIGN, GFC_STD_F77);
@@ -2122,7 +2164,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dsin", GFC_ISYM_SIN, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_sin, gfc_resolve_sin,
+	     gfc_check_fn_d, gfc_simplify_sin, gfc_resolve_sin,
 	     x, BT_REAL, dd, REQUIRED);
 
   add_sym_1 ("csin", GFC_ISYM_SIN, CLASS_ELEMENTAL, ACTUAL_YES, BT_COMPLEX, dz, GFC_STD_F77,
@@ -2142,7 +2184,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dsinh", GFC_ISYM_SINH,CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_sinh, gfc_resolve_sinh,
+	     gfc_check_fn_d, gfc_simplify_sinh, gfc_resolve_sinh,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("sinh", GFC_ISYM_SINH, GFC_STD_F77);
@@ -2179,7 +2221,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dsqrt", GFC_ISYM_SQRT, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_sqrt, gfc_resolve_sqrt,
+	     gfc_check_fn_d, gfc_simplify_sqrt, gfc_resolve_sqrt,
 	     x, BT_REAL, dd, REQUIRED);
 
   add_sym_1 ("csqrt", GFC_ISYM_SQRT, CLASS_ELEMENTAL, ACTUAL_YES, BT_COMPLEX, dz, GFC_STD_F77,
@@ -2224,7 +2266,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dtan", GFC_ISYM_TAN, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_tan, gfc_resolve_tan,
+	     gfc_check_fn_d, gfc_simplify_tan, gfc_resolve_tan,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("tan", GFC_ISYM_TAN, GFC_STD_F77);
@@ -2234,7 +2276,7 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   add_sym_1 ("dtanh", GFC_ISYM_TANH, CLASS_ELEMENTAL, ACTUAL_YES, BT_REAL, dd, GFC_STD_F77,
-	     NULL, gfc_simplify_tanh, gfc_resolve_tanh,
+	     gfc_check_fn_d, gfc_simplify_tanh, gfc_resolve_tanh,
 	     x, BT_REAL, dd, REQUIRED);
 
   make_generic ("tanh", GFC_ISYM_TANH, GFC_STD_F77);
@@ -2340,7 +2382,7 @@ add_subroutines (void)
     *val = "value", *num = "number", *name = "name",
     *trim_name = "trim_name", *ut = "unit", *han = "handler",
     *sec = "seconds", *res = "result", *of = "offset", *md = "mode",
-    *whence = "whence";
+    *whence = "whence", *pos = "pos";
 
   int di, dr, dc, dl, ii;
 
@@ -2399,11 +2441,11 @@ add_subroutines (void)
 
   /* More G77 compatibility garbage.  */
   add_sym_2s ("etime", GFC_ISYM_ETIME, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
-	      gfc_check_etime_sub, NULL, gfc_resolve_etime_sub,
+	      gfc_check_dtime_etime_sub, NULL, gfc_resolve_etime_sub,
 	      vl, BT_REAL, 4, REQUIRED, tm, BT_REAL, 4, REQUIRED);
 
   add_sym_2s ("dtime", GFC_ISYM_DTIME, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
-	      gfc_check_etime_sub, NULL, gfc_resolve_etime_sub,
+	      gfc_check_dtime_etime_sub, NULL, gfc_resolve_dtime_sub,
 	      vl, BT_REAL, 4, REQUIRED, tm, BT_REAL, 4, REQUIRED);
 
   add_sym_1s ("fdate", GFC_ISYM_FDATE, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
@@ -2424,8 +2466,8 @@ add_subroutines (void)
 	      REQUIRED);
 
   add_sym_2s ("getarg", GFC_ISYM_GETARG, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
-	      NULL, NULL, gfc_resolve_getarg,
-	      c, BT_INTEGER, di, REQUIRED, vl, BT_CHARACTER, dc, REQUIRED);
+	      gfc_check_getarg, NULL, gfc_resolve_getarg,
+	      pos, BT_INTEGER, di, REQUIRED, val, BT_CHARACTER, dc, REQUIRED);
 
   add_sym_1s ("getlog", GFC_ISYM_GETLOG, NO_CLASS, BT_UNKNOWN, 0, GFC_STD_GNU,
 	      gfc_check_getlog, NULL, gfc_resolve_getlog, c, BT_CHARACTER,
@@ -3350,6 +3392,14 @@ gfc_intrinsic_func_interface (gfc_expr *expr, int error_flag)
   if (check_intrinsic_standard (name, isym->standard, &expr->where) == FAILURE)
     return MATCH_ERROR;
 
+  if ((isym->id == GFC_ISYM_REAL || isym->id == GFC_ISYM_DBLE
+       || isym->id == GFC_ISYM_CMPLX)
+      && gfc_init_expr
+      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Function '%s' "
+			 "as initialization expression at %L", name,
+			 &expr->where) == FAILURE)
+    return MATCH_ERROR;
+
   gfc_current_intrinsic_where = &expr->where;
 
   /* Bypass the generic list for min and max.  */
@@ -3409,12 +3459,10 @@ got_specific:
      (4)   A reference to an elemental standard intrinsic function,
            where each argument is an initialization expression  */
 
-  if (gfc_init_expr 
-      && isym->elemental
-      && (expr->ts.type != BT_INTEGER || expr->ts.type != BT_CHARACTER)
-      && gfc_notify_std (GFC_STD_F2003, "Extension: Evaluation of "
-			"nonstandard initialization expression at %L",
-			&expr->where) == FAILURE)
+  if (gfc_init_expr && isym->elemental && flag
+      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Elemental function "
+			"as initialization expression with non-integer/non-"
+		        "character arguments at %L", &expr->where) == FAILURE)
     return MATCH_ERROR;
 
   return MATCH_YES;
@@ -3466,7 +3514,10 @@ gfc_intrinsic_sub_interface (gfc_code *c, int error_flag)
   if (isym->resolve.s1 != NULL)
     isym->resolve.s1 (c);
   else
-    c->resolved_sym = gfc_get_intrinsic_sub_symbol (isym->lib_name);
+    {
+      c->resolved_sym = gfc_get_intrinsic_sub_symbol (isym->lib_name);
+      c->resolved_sym->attr.elemental = isym->elemental;
+    }
 
   if (gfc_pure (NULL) && !isym->elemental)
     {

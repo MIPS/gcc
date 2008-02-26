@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -67,7 +66,6 @@ package body Prj.Ext is
    --  first for external reference in this table, before checking the
    --  environment. Htable is emptied (reset) by procedure Reset.
 
-   ---------
    package Search_Directories is new Table.Table
      (Table_Component_Type => Name_Id,
       Table_Index_Type     => Natural,
@@ -77,6 +75,7 @@ package body Prj.Ext is
       Table_Name           => "Prj.Ext.Search_Directories");
    --  The table for the directories specified with -aP switches
 
+   ---------
    -- Add --
    ---------
 
@@ -143,20 +142,18 @@ package body Prj.Ext is
       Prj_Path        : String_Access := Gpr_Prj_Path;
 
    begin
-      if Get_Mode = Ada_Only then
-         if Gpr_Prj_Path.all /= "" then
+      if Gpr_Prj_Path.all /= "" then
 
-            --  Warn if both environment variables are defined
+         --  In Ada only mode, warn if both environment variables are defined
 
-            if Ada_Prj_Path.all /= "" then
-               Write_Line
-                 ("Warning: ADA_PROJECT_PATH is not taken into account");
-               Write_Line ("         when GPR_PROJECT_PATH is defined");
-            end if;
-
-         else
-            Prj_Path := Ada_Prj_Path;
+         if Get_Mode = Ada_Only and then Ada_Prj_Path.all /= "" then
+            Write_Line
+              ("Warning: ADA_PROJECT_PATH is not taken into account");
+            Write_Line ("         when GPR_PROJECT_PATH is defined");
          end if;
+
+      else
+         Prj_Path := Ada_Prj_Path;
       end if;
 
       --  The current directory is always first
@@ -218,7 +215,7 @@ package body Prj.Ext is
             Name_Len := Name_Len - No_Project_Default_Dir'Length - 1;
 
             --  After removing the '-', go back one character to get the next
-            --  directory corectly.
+            --  directory correctly.
 
             Last := Last - 1;
 

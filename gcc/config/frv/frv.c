@@ -270,7 +270,7 @@ frv_cpu_t frv_cpu_type = CPU_TYPE;	/* value of -mcpu= */
 
 static bool frv_handle_option			(size_t, const char *, int);
 static int frv_default_flags_for_cpu		(void);
-static int frv_string_begins_with		(tree, const char *);
+static int frv_string_begins_with		(const_tree, const char *);
 static FRV_INLINE bool frv_small_data_reloc_p	(rtx, int);
 static void frv_print_operand_memory_reference_reg
 						(FILE *, rtx);
@@ -358,13 +358,14 @@ static bool frv_assemble_integer		(rtx, unsigned, int);
 static void frv_init_builtins			(void);
 static rtx frv_expand_builtin			(tree, rtx, rtx, enum machine_mode, int);
 static void frv_init_libfuncs			(void);
-static bool frv_in_small_data_p			(tree);
+static bool frv_in_small_data_p			(const_tree);
 static void frv_asm_output_mi_thunk
   (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree);
 static void frv_setup_incoming_varargs		(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int *, int);
 static rtx frv_expand_builtin_saveregs		(void);
+static void frv_expand_builtin_va_start		(tree, rtx);
 static bool frv_rtx_costs			(rtx, int, int, int*);
 static void frv_asm_out_constructor		(rtx, int);
 static void frv_asm_out_destructor		(rtx, int);
@@ -375,7 +376,7 @@ static void frv_output_const_unspec		(FILE *,
 						 const struct frv_unspec *);
 static bool frv_function_ok_for_sibcall		(tree, tree);
 static rtx frv_struct_value_rtx			(tree, int);
-static bool frv_must_pass_in_stack (enum machine_mode mode, tree type);
+static bool frv_must_pass_in_stack (enum machine_mode mode, const_tree type);
 static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
 static void frv_output_dwarf_dtprel		(FILE *, int, rtx)
@@ -452,6 +453,9 @@ static void frv_output_dwarf_dtprel		(FILE *, int, rtx)
 #define TARGET_SETUP_INCOMING_VARARGS frv_setup_incoming_varargs
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG frv_reorg
+
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START frv_expand_builtin_va_start
 
 #if HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
@@ -833,9 +837,9 @@ frv_optimization_options (int level, int size ATTRIBUTE_UNUSED)
 /* Return true if NAME (a STRING_CST node) begins with PREFIX.  */
 
 static int
-frv_string_begins_with (tree name, const char *prefix)
+frv_string_begins_with (const_tree name, const char *prefix)
 {
-  int prefix_len = strlen (prefix);
+  const int prefix_len = strlen (prefix);
 
   /* Remember: NAME's length includes the null terminator.  */
   return (TREE_STRING_LENGTH (name) > prefix_len
@@ -2186,7 +2190,7 @@ frv_expand_builtin_saveregs (void)
 
 /* Expand __builtin_va_start to do the va_start macro.  */
 
-void
+static void
 frv_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
@@ -3114,7 +3118,7 @@ frv_init_cumulative_args (CUMULATIVE_ARGS *cum,
    in registers.  */
 
 static bool
-frv_must_pass_in_stack (enum machine_mode mode, tree type)
+frv_must_pass_in_stack (enum machine_mode mode, const_tree type)
 {
   if (mode == BLKmode)
     return true;
@@ -9430,10 +9434,10 @@ frv_expand_builtin (tree exp,
 }
 
 static bool
-frv_in_small_data_p (tree decl)
+frv_in_small_data_p (const_tree decl)
 {
   HOST_WIDE_INT size;
-  tree section_name;
+  const_tree section_name;
 
   /* Don't apply the -G flag to internal compiler structures.  We
      should leave such structures in the main data section, partly

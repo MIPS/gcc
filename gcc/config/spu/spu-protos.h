@@ -52,17 +52,15 @@ extern int logical_immediate_p (rtx op, enum machine_mode mode);
 extern int iohl_immediate_p (rtx op, enum machine_mode mode);
 extern int arith_immediate_p (rtx op, enum machine_mode mode,
 			      HOST_WIDE_INT low, HOST_WIDE_INT high);
-extern int legitimate_const (rtx x, int aligned);
 extern int spu_constant_address_p (rtx x);
 extern int spu_legitimate_constant_p (rtx x);
 extern int spu_legitimate_address (enum machine_mode mode, rtx x,
 				   int reg_ok_strict);
 extern rtx spu_legitimize_address (rtx x, rtx oldx, enum machine_mode mode);
 extern int spu_initial_elimination_offset (int from, int to);
-extern rtx spu_function_value (tree type, tree func);
+extern rtx spu_function_value (const_tree type, const_tree func);
 extern rtx spu_function_arg (int cum, enum machine_mode mode, tree type,
 			     int named);
-extern void spu_va_start (tree valist, rtx nextarg);
 extern void spu_setup_incoming_varargs (int *cum, enum machine_mode mode,
 					tree type, int *pretend_size,
 					int no_rtl);

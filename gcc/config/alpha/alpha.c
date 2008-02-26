@@ -240,7 +240,7 @@ alpha_handle_option (size_t code, const char *arg, int value)
 /* Implement TARGET_MANGLE_TYPE.  */
 
 static const char *
-alpha_mangle_type (tree type)
+alpha_mangle_type (const_tree type)
 {
   if (TYPE_MAIN_VARIANT (type) == long_double_type_node
       && TARGET_LONG_DOUBLE_128)
@@ -522,6 +522,11 @@ override_options (void)
   if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
     target_flags |= MASK_LONG_DOUBLE_128;
 #endif
+
+  /* If using typedef char *va_list, signal that __builtin_va_start (&ap, 0)
+     can be optimized to ap = __builtin_next_arg (0).  */
+  if (TARGET_ABI_UNICOSMK)
+    targetm.expand_builtin_va_start = NULL;
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -717,7 +722,7 @@ tls_symbolic_operand_type (rtx symbol)
    function in the current unit of translation.  */
 
 static bool
-decl_has_samegp (tree decl)
+decl_has_samegp (const_tree decl)
 {
   /* Functions that are not local can be overridden, and thus may
      not share the same gp.  */
@@ -740,7 +745,7 @@ decl_has_samegp (tree decl)
 /* Return true if EXP should be placed in the small data section.  */
 
 static bool
-alpha_in_small_data_p (tree exp)
+alpha_in_small_data_p (const_tree exp)
 {
   /* We want to merge strings, so we never consider them small data.  */
   if (TREE_CODE (exp) == STRING_CST)
@@ -3042,7 +3047,7 @@ static rtx
 alpha_emit_xfloating_compare (enum rtx_code *pcode, rtx op0, rtx op1)
 {
   enum rtx_code cmp_code, res_code;
-  rtx func, out, operands[2];
+  rtx func, out, operands[2], note;
 
   /* X_floating library comparison functions return
 	   -1  unordered
@@ -3082,10 +3087,13 @@ alpha_emit_xfloating_compare (enum rtx_code *pcode, rtx op0, rtx op1)
   operands[1] = op1;
   out = gen_reg_rtx (DImode);
 
-  /* ??? Strange mode for equiv because what's actually returned
-     is -1,0,1, not a proper boolean value.  */
-  alpha_emit_xfloating_libcall (func, out, operands, 2,
-				gen_rtx_fmt_ee (cmp_code, CCmode, op0, op1));
+  /* What's actually returned is -1,0,1, not a proper boolean value,
+     so use an EXPR_LIST as with a generic libcall instead of a 
+     comparison type expression.  */
+  note = gen_rtx_EXPR_LIST (VOIDmode, op1, NULL_RTX);
+  note = gen_rtx_EXPR_LIST (VOIDmode, op0, note);
+  note = gen_rtx_EXPR_LIST (VOIDmode, func, note);
+  alpha_emit_xfloating_libcall (func, out, operands, 2, note);
 
   return out;
 }
@@ -4780,7 +4788,14 @@ alpha_gp_save_rtx (void)
 
       seq = get_insns ();
       end_sequence ();
-      emit_insn_at_entry (seq);
+
+      /* We used to simply emit the sequence after entry_of_function.
+	 However this breaks the CFG if the first instruction in the
+	 first block is not the NOTE_INSN_BASIC_BLOCK, for example a
+	 label.  Emit the sequence properly on the edge.  We are only
+	 invoked from dw2_build_landing_pads and finish_eh_generation
+	 will call commit_edge_insertions thanks to a kludge.  */
+      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
 
       cfun->machine->gp_save_rtx = m;
     }
@@ -5646,7 +5661,7 @@ alpha_arg_partial_bytes (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 /* Return true if TYPE must be returned in memory, instead of in registers.  */
 
 static bool
-alpha_return_in_memory (tree type, tree fndecl ATTRIBUTE_UNUSED)
+alpha_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode = VOIDmode;
   int size;
@@ -5696,7 +5711,7 @@ alpha_return_in_memory (tree type, tree fndecl ATTRIBUTE_UNUSED)
 static bool
 alpha_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
 			 enum machine_mode mode,
-			 tree type ATTRIBUTE_UNUSED,
+			 const_tree type ATTRIBUTE_UNUSED,
 			 bool named ATTRIBUTE_UNUSED)
 {
   return mode == TFmode || mode == TCmode;
@@ -5711,7 +5726,7 @@ alpha_pass_by_reference (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
    $f0 for floating-point functions.  */
 
 rtx
-function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
+function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED,
 		enum machine_mode mode)
 {
   unsigned int regnum, dummy;
@@ -5762,7 +5777,7 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
    should not split these values.  */
 
 static bool
-alpha_split_complex_arg (tree type)
+alpha_split_complex_arg (const_tree type)
 {
   return TYPE_MODE (type) != TCmode;
 }
@@ -5864,7 +5879,7 @@ va_list_skip_additions (tree lhs)
    current statement.  */
 
 static bool
-alpha_stdarg_optimize_hook (struct stdarg_info *si, tree lhs, tree rhs)
+alpha_stdarg_optimize_hook (struct stdarg_info *si, const_tree lhs, const_tree rhs)
 {
   tree base, offset, arg1, arg2;
   int offset_arg = 1;
@@ -6062,7 +6077,7 @@ alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
 #endif
 }
 
-void
+static void
 alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT offset;
@@ -9751,7 +9766,7 @@ alpha_use_linkage (rtx linkage ATTRIBUTE_UNUSED,
    registers.  */
 
 static bool
-unicosmk_must_pass_in_stack (enum machine_mode mode, tree type)
+unicosmk_must_pass_in_stack (enum machine_mode mode, const_tree type)
 {
   if (type == NULL)
     return false;
@@ -10650,7 +10665,7 @@ alpha_init_libfuncs (void)
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK alpha_output_mi_thunk_osf
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_tree_hwi_hwi_tree_true
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK hook_bool_const_tree_hwi_hwi_const_tree_true
 #undef TARGET_STDARG_OPTIMIZE_HOOK
 #define TARGET_STDARG_OPTIMIZE_HOOK alpha_stdarg_optimize_hook
 #endif
@@ -10664,11 +10679,11 @@ alpha_init_libfuncs (void)
 #define TARGET_MACHINE_DEPENDENT_REORG alpha_reorg
 
 #undef TARGET_PROMOTE_FUNCTION_ARGS
-#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_const_tree_true
 #undef TARGET_PROMOTE_FUNCTION_RETURN
-#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_true
+#define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_const_tree_true
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_tree_false
+#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_false
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY alpha_return_in_memory
 #undef TARGET_PASS_BY_REFERENCE
@@ -10696,6 +10711,9 @@ alpha_init_libfuncs (void)
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST alpha_build_builtin_va_list
+
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START alpha_va_start
 
 /* The Alpha architecture does not require sequential consistency.  See
    http://www.cs.umd.edu/~pugh/java/memoryModel/AlphaReordering.html

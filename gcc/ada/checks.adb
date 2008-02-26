@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -544,6 +543,7 @@ package body Checks is
             Error_Msg_FE
               ("\?program execution may be erroneous (RM 13.3(27))",
                Aexp, E);
+            Set_Address_Warning_Posted (AC);
          end if;
       end Compile_Time_Bad_Alignment;
 
@@ -627,6 +627,7 @@ package body Checks is
                   Error_Msg_FE
                     ("\?program execution may be erroneous", Aexp, E);
                   Size_Warning_Output := True;
+                  Set_Address_Warning_Posted (AC);
                end if;
             end if;
          end;
@@ -1314,7 +1315,10 @@ package body Checks is
       LOK : Boolean;
       Rlo : Uint;
       Rhi : Uint;
-      ROK : Boolean;
+      ROK   : Boolean;
+
+      pragma Warnings (Off, Lhi);
+      --  Don't actually use this value
 
    begin
       if Expander_Active
@@ -2356,7 +2360,6 @@ package body Checks is
          Analyze_And_Resolve (N, Typ);
          return;
       end if;
-
    end Apply_Universal_Integer_Attribute_Checks;
 
    -------------------------------
@@ -2497,19 +2500,44 @@ package body Checks is
          P := Parent (N);
          K := Nkind (P);
 
-         if K not in N_Subexpr then
+         --  Done if out of subexpression (note that we allow generated stuff
+         --  such as itype declarations in this context, to keep the loop going
+         --  since we may well have generated such stuff in complex situations.
+         --  Also done if no parent (probably an error condition, but no point
+         --  in behaving nasty if we find it!)
+
+         if No (P)
+           or else (K not in N_Subexpr and then Comes_From_Source (P))
+         then
             return True;
 
-         --  Or/Or Else case, left operand must be equality test
+         --  Or/Or Else case, where test is part of the right operand, or is
+         --  part of one of the actions associated with the right operand, and
+         --  the left operand is an equality test.
 
-         elsif K = N_Op_Or or else K = N_Or_Else then
+         elsif K = N_Op_Or then
             exit when N = Right_Opnd (P)
               and then Nkind (Left_Opnd (P)) = N_Op_Eq;
 
-         --  And/And then case, left operand must be inequality test
+         elsif K = N_Or_Else then
+            exit when (N = Right_Opnd (P)
+                        or else
+                          (Is_List_Member (N)
+                             and then List_Containing (N) = Actions (P)))
+              and then Nkind (Left_Opnd (P)) = N_Op_Eq;
 
-         elsif K = N_Op_And or else K = N_And_Then then
+         --  Similar test for the And/And then case, where the left operand
+         --  is an inequality test.
+
+         elsif K = N_Op_And then
             exit when N = Right_Opnd (P)
+              and then Nkind (Left_Opnd (P)) = N_Op_Ne;
+
+         elsif K = N_And_Then then
+            exit when (N = Right_Opnd (P)
+                        or else
+                          (Is_List_Member (N)
+                             and then List_Containing (N) = Actions (P)))
               and then Nkind (Left_Opnd (P)) = N_Op_Ne;
          end if;
 
@@ -2520,11 +2548,6 @@ package body Checks is
       --  appropriate test as its left operand. So test further.
 
       L := Left_Opnd (P);
-
-      if Nkind (L) = N_Op_Not then
-         L := Right_Opnd (L);
-      end if;
-
       R := Right_Opnd (L);
       L := Left_Opnd (L);
 
@@ -4988,8 +5011,83 @@ package body Checks is
       Loc : constant Source_Ptr := Sloc (N);
       Typ : constant Entity_Id  := Etype (N);
 
+      function In_Declarative_Region_Of_Subprogram_Body return Boolean;
+      --  Determine whether node N, a reference to an *in* parameter, is
+      --  inside the declarative region of the current subprogram body.
+
       procedure Mark_Non_Null;
-      --  After installation of check, marks node as non-null if entity
+      --  After installation of check, if the node in question is an entity
+      --  name, then mark this entity as non-null if possible.
+
+      ----------------------------------------------
+      -- In_Declarative_Region_Of_Subprogram_Body --
+      ----------------------------------------------
+
+      function In_Declarative_Region_Of_Subprogram_Body return Boolean is
+         E     : constant Entity_Id := Entity (N);
+         S     : constant Entity_Id := Current_Scope;
+         S_Par : Node_Id;
+
+      begin
+         pragma Assert (Ekind (E) = E_In_Parameter);
+
+         --  Two initial context checks. We must be inside a subprogram body
+         --  with declarations and reference must not appear in nested scopes.
+
+         if (Ekind (S) /= E_Function
+             and then Ekind (S) /= E_Procedure)
+           or else Scope (E) /= S
+         then
+            return False;
+         end if;
+
+         S_Par := Parent (Parent (S));
+
+         if Nkind (S_Par) /= N_Subprogram_Body
+           or else No (Declarations (S_Par))
+         then
+            return False;
+         end if;
+
+         declare
+            N_Decl : Node_Id;
+            P      : Node_Id;
+
+         begin
+            --  Retrieve the declaration node of N (if any). Note that N
+            --  may be a part of a complex initialization expression.
+
+            P := Parent (N);
+            N_Decl := Empty;
+            while Present (P) loop
+
+               --  While traversing the parent chain, we find that N
+               --  belongs to a statement, thus it may never appear in
+               --  a declarative region.
+
+               if Nkind (P) in N_Statement_Other_Than_Procedure_Call
+                 or else Nkind (P) = N_Procedure_Call_Statement
+               then
+                  return False;
+               end if;
+
+               if Nkind (P) in N_Declaration
+                 and then Nkind (P) not in N_Subprogram_Specification
+               then
+                  N_Decl := P;
+                  exit;
+               end if;
+
+               P := Parent (P);
+            end loop;
+
+            if No (N_Decl) then
+               return False;
+            end if;
+
+            return List_Containing (N_Decl) = Declarations (S_Par);
+         end;
+      end In_Declarative_Region_Of_Subprogram_Body;
 
       -------------------
       -- Mark_Non_Null --
@@ -4997,11 +5095,28 @@ package body Checks is
 
       procedure Mark_Non_Null is
       begin
+         --  Only case of interest is if node N is an entity name
+
          if Is_Entity_Name (N) then
+
+            --  For sure, we want to clear an indication that this is known to
+            --  be null, since if we get past this check, it definitely is not!
+
             Set_Is_Known_Null (Entity (N), False);
 
-            if Safe_To_Capture_Value (N, Entity (N)) then
-               Set_Is_Known_Non_Null (Entity (N), True);
+            --  We can mark the entity as known to be non-null if either it is
+            --  safe to capture the value, or in the case of an IN parameter,
+            --  which is a constant, if the check we just installed is in the
+            --  declarative region of the subprogram body. In this latter case,
+            --  a check is decisive for the rest of the body, since we know we
+            --  must complete all declarations before executing the body.
+
+            if Safe_To_Capture_Value (N, Entity (N))
+              or else
+                (Ekind (Entity (N)) = E_In_Parameter
+                   and then In_Declarative_Region_Of_Subprogram_Body)
+            then
+               Set_Is_Known_Non_Null (Entity (N));
             end if;
          end if;
       end Mark_Non_Null;
@@ -5108,7 +5223,10 @@ package body Checks is
 
       Num_Saved_Checks := 0;
 
-      for J in 1 .. Saved_Checks_TOS loop
+      --  Note: the Int'Min here avoids any possibility of J being out of
+      --  range when called from e.g. Conditional_Statements_Begin.
+
+      for J in 1 .. Int'Min (Saved_Checks_TOS, Saved_Checks_Stack'Last) loop
          Saved_Checks_Stack (J) := 0;
       end loop;
    end Kill_All_Checks;
@@ -5247,14 +5365,11 @@ package body Checks is
    -------------------
 
    procedure Remove_Checks (Expr : Node_Id) is
-      Discard : Traverse_Result;
-      pragma Warnings (Off, Discard);
-
       function Process (N : Node_Id) return Traverse_Result;
       --  Process a single node during the traversal
 
-      function Traverse is new Traverse_Func (Process);
-      --  The traversal function itself
+      procedure Traverse is new Traverse_Proc (Process);
+      --  The traversal procedure itself
 
       -------------
       -- Process --
@@ -5270,7 +5385,7 @@ package body Checks is
 
          case Nkind (N) is
             when N_And_Then =>
-               Discard := Traverse (Left_Opnd (N));
+               Traverse (Left_Opnd (N));
                return Skip;
 
             when N_Attribute_Reference =>
@@ -5306,7 +5421,7 @@ package body Checks is
                end case;
 
             when N_Or_Else =>
-               Discard := Traverse (Left_Opnd (N));
+               Traverse (Left_Opnd (N));
                return Skip;
 
             when N_Selected_Component =>
@@ -5327,7 +5442,7 @@ package body Checks is
    --  Start of processing for Remove_Checks
 
    begin
-      Discard := Traverse (Expr);
+      Traverse (Expr);
    end Remove_Checks;
 
    ----------------------------
@@ -6565,10 +6680,6 @@ package body Checks is
 
                   L_Index : Node_Id;
                   R_Index : Node_Id;
-                  L_Low   : Node_Id;
-                  L_High  : Node_Id;
-                  R_Low   : Node_Id;
-                  R_High  : Node_Id;
 
                begin
                   L_Index := First_Index (T_Typ);
@@ -6579,9 +6690,6 @@ package body Checks is
                                or else
                              Nkind (R_Index) = N_Raise_Constraint_Error)
                      then
-                        Get_Index_Bounds (L_Index, L_Low, L_High);
-                        Get_Index_Bounds (R_Index, R_Low, R_High);
-
                         --  Deal with compile time length check. Note that we
                         --  skip this in the access case, because the access
                         --  value may be null, so we cannot know statically.
@@ -6598,7 +6706,6 @@ package body Checks is
                               Evolve_Or_Else
                                 (Cond,
                                  Range_Equal_E_Cond (Exptyp, T_Typ, Indx));
-
                            else
                               Evolve_Or_Else
                                 (Cond, Range_E_Cond (Exptyp, T_Typ, Indx));

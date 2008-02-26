@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -425,11 +424,11 @@ package body Sem_Type is
         and then Present (Abstract_Interface_Alias (E))
       then
          --  Ada 2005 (AI-251): If this primitive operation corresponds with
-         --  an inmediate ancestor interface there is no need to add it to the
-         --  list of interpretations; the corresponding aliased primitive is
+         --  an immediate ancestor interface there is no need to add it to the
+         --  list of interpretations. The corresponding aliased primitive is
          --  also in this list of primitive operations and will be used instead
-         --  because otherwise we have a dummy between the two subprograms that
-         --  are in fact the same.
+         --  because otherwise we have a dummy ambiguity between the two
+         --  subprograms which are in fact the same.
 
          if not Is_Ancestor
                   (Find_Dispatching_Type (Abstract_Interface_Alias (E)),
@@ -495,16 +494,19 @@ package body Sem_Type is
            and then Is_Overloaded (Name (N))
          then
             declare
-               I  : Interp_Index;
                It : Interp;
+
+               Itn : Interp_Index;
+               pragma Warnings (Off, Itn);
+
             begin
-               Get_First_Interp (Name (N), I, It);
+               Get_First_Interp (Name (N), Itn, It);
                Add_Entry (It.Nam, Etype (N));
             end;
 
          else
-            --  Overloaded prefix in indexed or selected component,
-            --  or call whose name is an expression or another call.
+            --  Overloaded prefix in indexed or selected component, or call
+            --  whose name is an expression or another call.
 
             Add_Entry (Etype (N), Etype (N));
          end if;
@@ -528,6 +530,7 @@ package body Sem_Type is
             Write_Entity_Info (All_Interp.Table (J). Nam, " ");
          else
             Write_Str ("No Interp");
+            Write_Eol;
          end if;
 
          Write_Str ("=================");
@@ -639,7 +642,7 @@ package body Sem_Type is
                Add_One_Interp (N, H, Etype (H));
 
                if Debug_Flag_E then
-                  Write_Str ("Add overloaded Interpretation ");
+                  Write_Str ("Add overloaded interpretation ");
                   Write_Int (Int (H));
                   Write_Eol;
                end if;
@@ -1979,7 +1982,10 @@ package body Sem_Type is
       Form_Parm : Node_Id;
 
    begin
-      if Is_Overloaded (N) then
+      --  Why is check on E needed below ???
+      --  In any case this para needs comments ???
+
+      if Is_Overloaded (N) and then Is_Overloadable (E) then
          Act_Parm  := First_Actual (N);
          Form_Parm := First_Formal (E);
          while Present (Act_Parm)

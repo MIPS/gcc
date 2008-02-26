@@ -1,5 +1,5 @@
 /* Precompiled header implementation for the C languages.
-   Copyright (C) 2000, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "hosthooks.h"
 #include "target.h"
+#include "opts.h"
 
 /* This is a list of flag variables that must match exactly, and their
    names for the error message.  The possible values for *flag_var must
@@ -242,8 +243,9 @@ c_common_valid_pch (cpp_reader *pfile, const char *name, int fd)
     fatal_error ("can%'t read %s: %m", name);
   else if (sizeread != IDENT_LENGTH + 16)
     {
-      cpp_error (pfile, CPP_DL_WARNING, "%s: too short to be a PCH file",
-		 name);
+      if (cpp_get_options (pfile)->warn_invalid_pch)
+	cpp_error (pfile, CPP_DL_WARNING, "%s: too short to be a PCH file",
+		   name);
       return 2;
     }
 
@@ -365,6 +367,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
   FILE *f;
   struct c_pch_header h;
   struct save_macro_data *smd;
+  expanded_location saved_loc;
 
   f = fdopen (fd, "rb");
   if (f == NULL)
@@ -406,6 +409,18 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
 	cpp_errno (pfile, CPP_DL_ERROR, "seeking");
     }
 
+  /* Save the location and then restore it after reading the PCH.  */
+#ifdef USE_MAPPED_LOCATION
+  saved_loc = expand_location (line_table->highest_line);
+#else
+  {
+    const struct line_map *map = linemap_lookup (line_table,
+						 line_table->highest_line);
+    saved_loc.file = map->to_file;
+    saved_loc.line = SOURCE_LINE (map, line_table->highest_line);
+  }
+#endif
+
   cpp_prepare_state (pfile, &smd);
 
   gt_pch_restore (f);
@@ -414,6 +429,9 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
     return;
 
   fclose (f);
+
+  cpp_set_line_map (pfile, line_table);
+  linemap_add (line_table, LC_RENAME, 0, 0, saved_loc.file, saved_loc.line);
 
   /* Give the front end a chance to take action after a PCH file has
      been loaded.  */

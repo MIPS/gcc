@@ -930,7 +930,7 @@ h8300_expand_epilogue (void)
     }
 
   if (!returned_p)
-    emit_insn (gen_rtx_RETURN (VOIDmode));
+    emit_jump_insn (gen_rtx_RETURN (VOIDmode));
 }
 
 /* Return nonzero if the current function is an interrupt
@@ -5706,7 +5706,7 @@ h8300_init_libfuncs (void)
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
 
 static bool
-h8300_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+h8300_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   return (TYPE_MODE (type) == BLKmode
 	  || GET_MODE_SIZE (TYPE_MODE (type)) > (TARGET_H8300 ? 4 : 8));

@@ -32,12 +32,14 @@ prefix = @prefix@
 
 exec_prefix = @exec_prefix@
 libdir = @libdir@
+shlib_slibdir = @slibdir@
 
 SHELL = @SHELL@
 
 enable_shared = @enable_shared@
 decimal_float = @decimal_float@
 enable_decimal_float = @enable_decimal_float@
+fixed_point = @fixed_point@
 
 host_noncanonical = @host_noncanonical@
 
@@ -98,7 +100,7 @@ all: all-multi
 	# them back to the GCC directory.  Too many things (other
 	# in-tree libraries, and DejaGNU) know about the layout
 	# of the build tree, for now.
-	$(MAKE) install DESTDIR=$(gcc_objdir) \
+	$(MAKE) install-leaf DESTDIR=$(gcc_objdir) \
 	  slibdir= libsubdir= MULTIOSDIR=$(MULTIDIR)
 
 .PHONY: all-multi
@@ -477,9 +479,10 @@ endif
 dfp-filenames =
 ifneq ($(D32PBIT)$(D64PBIT)$(D128PBIT),)
 ifeq ($(enable_decimal_float),bid)
-dfp-filenames += decimal_globals decimal_data binarydecimal \
+dfp-filenames += bid_decimal_globals bid_decimal_data \
+		 bid_binarydecimal bid_convert_data \
 		 _isinfd32 _isinfd64 _isinfd128 bid64_noncomp \
-		 bid128_fma bid_round bid_from_int convert_data \
+		 bid128_noncomp bid128_fma bid_round bid_from_int \
 		 bid64_add bid128_add bid64_div bid128_div \
 		 bid64_mul bid128_mul bid64_compare bid128_compare \
 		 bid128 bid32_to_bid64 bid32_to_bid128 bid64_to_bid128 \
@@ -488,7 +491,7 @@ dfp-filenames += decimal_globals decimal_data binarydecimal \
 		 bid128_to_int32 bid128_to_int64 \
 		 bid128_to_uint32 bid128_to_uint64
 else
-dfp-filenames += decContext decNumber decExcept decRound decLibrary decUtility
+dfp-filenames += decContext decNumber decExcept decRound decLibrary decDouble decPacked decQuad decSingle
 endif
 endif
 
@@ -571,6 +574,48 @@ $(d128pbit-o): %$(objext): $(gcc_srcdir)/config/dfp-bit.c
 endif
 	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -DWIDTH=128 -c $<
 libgcc-objects += $(d128pbit-o)
+endif
+
+endif
+
+# Build fixed-point support.
+ifeq ($(fixed_point),yes)
+
+# Generate permutations of function name and mode
+fixed-labels := $(shell $(SHELL) $(srcdir)/gen-fixed.sh arith labels)
+fixed-funcs := $(shell $(SHELL) $(srcdir)/gen-fixed.sh arith funcs)
+fixed-modes := $(shell $(SHELL) $(srcdir)/gen-fixed.sh arith modes)
+
+# Generate the rules for each arithmetic function
+iter-items := $(fixed-funcs)
+iter-labels := $(fixed-labels)
+iter-from := $(fixed-modes)
+iter-to := $(fixed-modes)
+include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/fixed-obj.mk,$(iter-items))
+
+# Add arithmetic functions to list of objects to be built
+libgcc-objects += $(patsubst %,%$(objext),$(fixed-funcs))
+ifeq ($(enable_shared),yes)
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(fixed-funcs))
+endif
+
+# Convert from or to fractional
+fixed-conv-funcs := $(shell $(SHELL) $(srcdir)/gen-fixed.sh conv funcs)
+fixed-conv-labels := $(shell $(SHELL) $(srcdir)/gen-fixed.sh conv labels)
+fixed-conv-from := $(shell $(SHELL) $(srcdir)/gen-fixed.sh conv from)
+fixed-conv-to :=  $(shell $(SHELL) $(srcdir)/gen-fixed.sh conv to)
+
+# Generate the make rules for each conversion function
+iter-items := $(fixed-conv-funcs)
+iter-labels := $(fixed-conv-labels)
+iter-from := $(fixed-conv-from)
+iter-to := $(fixed-conv-to)
+include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/fixed-obj.mk,$(iter-items))
+
+# Add conversion functions to list of objects to be built
+libgcc-objects += $(patsubst %,%$(objext),$(fixed-conv-funcs))
+ifeq ($(enable_shared),yes)
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(fixed-conv-funcs))
 endif
 
 endif
@@ -695,7 +740,8 @@ libgcc_s$(SHLIB_EXT): $(libgcc-s-objects) $(extra-parts)
 		@shlib_objs@,$(objects),$(subst \
 		@shlib_base_name@,libgcc_s,$(subst \
 		@shlib_map_file@,$(mapfile),$(subst \
-		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(SHLIB_LINK)))))))
+		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(subst \
+		@shlib_slibdir@,$(shlib_slibdir),$(SHLIB_LINK))))))))
 
 libunwind$(SHLIB_EXT): $(libunwind-s-objects) $(extra-parts)
 	# @multilib_flags@ is still needed because this may use
@@ -838,7 +884,7 @@ install-shared:
 		@shlib_base_name@,libgcc_s,$(subst \
 		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(SHLIB_INSTALL))))
 
-install: $(install-shared) $(install-libunwind)
+install-leaf: $(install-shared) $(install-libunwind)
 	$(mkinstalldirs) $(DESTDIR)$(inst_libdir)
 
 	$(INSTALL_DATA) libgcc.a $(DESTDIR)$(inst_libdir)/
@@ -854,6 +900,7 @@ install: $(install-shared) $(install-libunwind)
 	  $(INSTALL_DATA) $$file $(DESTDIR)$(inst_libdir)/;	\
 	done
 
+install: install-leaf
 	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
 .PHONY: install install-shared install-libunwind

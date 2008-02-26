@@ -118,7 +118,6 @@ cp_tree_size (enum tree_code code)
 {
   switch (code)
     {
-    case TINST_LEVEL:		return sizeof (struct tinst_level_s);
     case PTRMEM_CST:		return sizeof (struct ptrmem_cst);
     case BASELINK:		return sizeof (struct tree_baselink);
     case TEMPLATE_PARM_INDEX:	return sizeof (template_parm_index);
@@ -229,7 +228,7 @@ pop_file_scope (void)
 
 /* c-pragma.c needs to query whether a decl has extern "C" linkage.  */
 bool
-has_c_linkage (tree decl)
+has_c_linkage (const_tree decl)
 {
   return DECL_EXTERN_C_P (decl);
 }

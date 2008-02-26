@@ -1534,6 +1534,7 @@ noce_get_alt_condition (struct noce_if_info *if_info, rtx target,
       /* First, look to see if we put a constant in a register.  */
       prev_insn = prev_nonnote_insn (if_info->cond_earliest);
       if (prev_insn
+	  && BLOCK_NUM (prev_insn) == BLOCK_NUM (if_info->cond_earliest)
 	  && INSN_P (prev_insn)
 	  && GET_CODE (PATTERN (prev_insn)) == SET)
 	{
@@ -1772,6 +1773,7 @@ noce_try_abs (struct noce_if_info *if_info)
     {
       rtx set, insn = prev_nonnote_insn (earliest);
       if (insn
+	  && BLOCK_NUM (insn) == BLOCK_NUM (earliest)
 	  && (set = single_set (insn))
 	  && rtx_equal_p (SET_DEST (set), c))
 	{
@@ -2137,6 +2139,46 @@ noce_mem_write_may_trap_or_fault_p (const_rtx mem)
   return false;
 }
 
+/* Return whether we can use store speculation for MEM.  TOP_BB is the
+   basic block above the conditional block where we are considering
+   doing the speculative store.  We look for whether MEM is set
+   unconditionally later in the function.  */
+
+static bool
+noce_can_store_speculate_p (basic_block top_bb, const_rtx mem)
+{
+  basic_block dominator;
+
+  for (dominator = get_immediate_dominator (CDI_POST_DOMINATORS, top_bb);
+       dominator != NULL;
+       dominator = get_immediate_dominator (CDI_POST_DOMINATORS, dominator))
+    {
+      rtx insn;
+
+      FOR_BB_INSNS (dominator, insn)
+	{
+	  /* If we see something that might be a memory barrier, we
+	     have to stop looking.  Even if the MEM is set later in
+	     the function, we still don't want to set it
+	     unconditionally before the barrier.  */
+	  if (INSN_P (insn)
+	      && (volatile_insn_p (PATTERN (insn))
+		  || (CALL_P (insn)
+		      && (!CONST_OR_PURE_CALL_P (insn)
+			  || pure_call_p (insn)))))
+	    return false;
+
+	  if (memory_modified_in_insn_p (mem, insn))
+	    return true;
+	  if (modified_in_p (XEXP (mem, 0), insn))
+	    return false;
+
+	}
+    }
+
+  return false;
+}
+
 /* Given a simple IF-THEN-JOIN or IF-THEN-ELSE-JOIN block, attempt to convert
    it without using conditional execution.  Return TRUE if we were successful
    at converting the block.  */
@@ -2198,6 +2240,7 @@ noce_process_if_block (struct noce_if_info *if_info)
 	 COND_EARLIEST to JUMP.  Make sure the relevant data is still
 	 intact.  */
       if (! insn_b
+	  || BLOCK_NUM (insn_b) != BLOCK_NUM (if_info->cond_earliest)
 	  || !NONJUMP_INSN_P (insn_b)
 	  || (set_b = single_set (insn_b)) == NULL_RTX
 	  || ! rtx_equal_p (x, SET_DEST (set_b))
@@ -2289,17 +2332,31 @@ noce_process_if_block (struct noce_if_info *if_info)
       goto success;
     }
 
-  /* Disallow the "if (...) x = a;" form (with an implicit "else x = x;")
-     for optimizations if writing to x may trap or fault, i.e. it's a memory
-     other than a static var or a stack slot, is misaligned on strict
-     aligned machines or is read-only.
-     If x is a read-only memory, then the program is valid only if we
-     avoid the store into it.  If there are stores on both the THEN and
-     ELSE arms, then we can go ahead with the conversion; either the
-     program is broken, or the condition is always false such that the
-     other memory is selected.  */
-  if (!set_b && MEM_P (orig_x) && noce_mem_write_may_trap_or_fault_p (orig_x))
-    return FALSE;
+  if (!set_b && MEM_P (orig_x))
+    {
+      /* Disallow the "if (...) x = a;" form (implicit "else x = x;")
+	 for optimizations if writing to x may trap or fault,
+	 i.e. it's a memory other than a static var or a stack slot,
+	 is misaligned on strict aligned machines or is read-only.  If
+	 x is a read-only memory, then the program is valid only if we
+	 avoid the store into it.  If there are stores on both the
+	 THEN and ELSE arms, then we can go ahead with the conversion;
+	 either the program is broken, or the condition is always
+	 false such that the other memory is selected.  */
+      if (noce_mem_write_may_trap_or_fault_p (orig_x))
+	return FALSE;
+
+      /* Avoid store speculation: given "if (...) x = a" where x is a
+	 MEM, we only want to do the store if x is always set
+	 somewhere in the function.  This avoids cases like
+	   if (pthread_mutex_trylock(mutex))
+	     ++global_variable;
+	 where we only want global_variable to be changed if the mutex
+	 is held.  FIXME: This should ideally be expressed directly in
+	 RTL somehow.  */
+      if (!noce_can_store_speculate_p (test_bb, orig_x))
+	return FALSE;
+    }
 
   if (noce_try_move (if_info))
     goto success;
@@ -2650,6 +2707,7 @@ noce_find_if_block (basic_block test_bb,
   basic_block then_bb, else_bb, join_bb;
   bool then_else_reversed = false;
   rtx jump, cond;
+  rtx cond_earliest;
   struct noce_if_info if_info;
 
   /* We only ever should get here before reload.  */
@@ -2725,7 +2783,7 @@ noce_find_if_block (basic_block test_bb,
 
   /* If this is not a standard conditional jump, we can't parse it.  */
   cond = noce_get_condition (jump,
-			     &if_info.cond_earliest,
+			     &cond_earliest,
 			     then_else_reversed);
   if (!cond)
     return FALSE;
@@ -2741,6 +2799,7 @@ noce_find_if_block (basic_block test_bb,
   if_info.else_bb = else_bb;
   if_info.join_bb = join_bb;
   if_info.cond = cond;
+  if_info.cond_earliest = cond_earliest;
   if_info.jump = jump;
   if_info.then_else_reversed = then_else_reversed;
 
@@ -3952,7 +4011,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 /* Main entry point for all if-conversion.  */
 
 static void
-if_convert (bool recompute_dominance)
+if_convert (void)
 {
   basic_block bb;
   int pass;
@@ -3972,9 +4031,8 @@ if_convert (bool recompute_dominance)
   loop_optimizer_finalize ();
   free_dominance_info (CDI_DOMINATORS);
 
-  /* Compute postdominators if we think we'll use them.  */
-  if (HAVE_conditional_execution || recompute_dominance)
-    calculate_dominance_info (CDI_POST_DOMINATORS);
+  /* Compute postdominators.  */
+  calculate_dominance_info (CDI_POST_DOMINATORS);
 
   df_set_flags (DF_LR_RUN_DCE);
 
@@ -4063,7 +4121,7 @@ rest_of_handle_if_conversion (void)
       if (dump_file)
         dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
-      if_convert (false);
+      if_convert ();
     }
 
   cleanup_cfg (0);
@@ -4083,7 +4141,7 @@ struct tree_opt_pass pass_rtl_ifcvt =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func,                       /* todo_flags_finish */
   'C'                                   /* letter */
 };
@@ -4100,7 +4158,7 @@ gate_handle_if_after_combine (void)
 static unsigned int
 rest_of_handle_if_after_combine (void)
 {
-  if_convert (true);
+  if_convert ();
   return 0;
 }
 
@@ -4117,7 +4175,7 @@ struct tree_opt_pass pass_if_after_combine =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'C'                                   /* letter */
@@ -4133,7 +4191,7 @@ gate_handle_if_after_reload (void)
 static unsigned int
 rest_of_handle_if_after_reload (void)
 {
-  if_convert (true);
+  if_convert ();
   return 0;
 }
 
@@ -4151,7 +4209,7 @@ struct tree_opt_pass pass_if_after_reload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'E'                                   /* letter */

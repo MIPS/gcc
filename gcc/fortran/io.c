@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -919,6 +919,9 @@ finished:
 static try
 check_format_string (gfc_expr *e, bool is_input)
 {
+  if (!e || e->ts.type != BT_CHARACTER || e->expr_type != EXPR_CONSTANT)
+    return SUCCESS;
+
   mode = MODE_STRING;
   format_string = e->value.character.string;
   return check_format (is_input);
@@ -1091,6 +1094,75 @@ match_ltag (const io_tag *tag, gfc_st_label ** label)
 }
 
 
+/* Resolution of the FORMAT tag, to be called from resolve_tag.  */
+
+static try
+resolve_tag_format (const gfc_expr *e)
+{
+  if (e->expr_type == EXPR_CONSTANT
+      && (e->ts.type != BT_CHARACTER
+	  || e->ts.kind != gfc_default_character_kind))
+    {
+      gfc_error ("Constant expression in FORMAT tag at %L must be "
+		 "of type default CHARACTER", &e->where);
+      return FAILURE;
+    }
+
+  /* If e's rank is zero and e is not an element of an array, it should be
+     of integer or character type.  The integer variable should be
+     ASSIGNED.  */
+  if (e->symtree == NULL || e->symtree->n.sym->as == NULL
+      || e->symtree->n.sym->as->rank == 0)
+    {
+      if (e->ts.type != BT_CHARACTER && e->ts.type != BT_INTEGER)
+	{
+	  gfc_error ("FORMAT tag at %L must be of type CHARACTER or INTEGER",
+		     &e->where);
+	  return FAILURE;
+	}
+      else if (e->ts.type == BT_INTEGER && e->expr_type == EXPR_VARIABLE)
+	{
+	  if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGNED "
+			      "variable in FORMAT tag at %L", &e->where)
+	      == FAILURE)
+	    return FAILURE;
+	  if (e->symtree->n.sym->attr.assign != 1)
+	    {
+	      gfc_error ("Variable '%s' at %L has not been assigned a "
+			 "format label", e->symtree->n.sym->name, &e->where);
+	      return FAILURE;
+	    }
+	}
+      else if (e->ts.type == BT_INTEGER)
+	{
+	  gfc_error ("Scalar '%s' in FORMAT tag at %L is not an ASSIGNED "
+		     "variable", gfc_basic_typename (e->ts.type), &e->where);
+	  return FAILURE;
+	}
+
+      return SUCCESS;
+    }
+
+  /* If rank is nonzero, we allow the type to be character under GFC_STD_GNU
+     and other type under GFC_STD_LEGACY. It may be assigned an Hollerith
+     constant.  */
+  if (e->ts.type == BT_CHARACTER)
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Character array "
+			  "in FORMAT tag at %L", &e->where) == FAILURE)
+	return FAILURE;
+    }
+  else
+    {
+      if (gfc_notify_std (GFC_STD_LEGACY, "Extension: Non-character "
+			  "in FORMAT tag at %L", &e->where) == FAILURE)
+	return FAILURE;
+    }
+
+  return SUCCESS;
+}
+
+
 /* Do expression resolution and type-checking on an expression tag.  */
 
 static try
@@ -1102,130 +1174,45 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
   if (gfc_resolve_expr (e) == FAILURE)
     return FAILURE;
 
-  if (e->ts.type != tag->type && tag != &tag_format)
+  if (tag == &tag_format)
+    return resolve_tag_format (e);
+
+  if (e->ts.type != tag->type)
     {
       gfc_error ("%s tag at %L must be of type %s", tag->name,
 		 &e->where, gfc_basic_typename (tag->type));
       return FAILURE;
     }
 
-  if (tag == &tag_format)
+  if (e->rank != 0)
     {
-      if (e->expr_type == EXPR_CONSTANT
-	  && (e->ts.type != BT_CHARACTER
-	      || e->ts.kind != gfc_default_character_kind))
-	{
-	  gfc_error ("Constant expression in FORMAT tag at %L must be "
-		     "of type default CHARACTER", &e->where);
-	  return FAILURE;
-	}
-
-      /* If e's rank is zero and e is not an element of an array, it should be
-	 of integer or character type.  The integer variable should be
-	 ASSIGNED.  */
-      if (e->symtree == NULL || e->symtree->n.sym->as == NULL
-	  || e->symtree->n.sym->as->rank == 0)
-	{
-	  if (e->ts.type != BT_CHARACTER && e->ts.type != BT_INTEGER)
-	    {
-	      gfc_error ("%s tag at %L must be of type %s or %s", tag->name,
-			 &e->where, gfc_basic_typename (BT_CHARACTER),
-			 gfc_basic_typename (BT_INTEGER));
-	      return FAILURE;
-	    }
-	  else if (e->ts.type == BT_INTEGER && e->expr_type == EXPR_VARIABLE)
-	    {
-	      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGNED "
-				  "variable in FORMAT tag at %L", &e->where)
-		  == FAILURE)
-		return FAILURE;
-	      if (e->symtree->n.sym->attr.assign != 1)
-		{
-		  gfc_error ("Variable '%s' at %L has not been assigned a "
-			     "format label", e->symtree->n.sym->name,
-			     &e->where);
-		  return FAILURE;
-		}
-	    }
-	  else if (e->ts.type == BT_INTEGER)
-	    {
-	      gfc_error ("scalar '%s' FORMAT tag at %L is not an ASSIGNED "
-			 "variable", gfc_basic_typename (e->ts.type),
-			 &e->where);
-	      return FAILURE;
-	    }
-
-	  return SUCCESS;
-	}
-      else
-	{
-	  /* if rank is nonzero, we allow the type to be character under
-	     GFC_STD_GNU and other type under GFC_STD_LEGACY. It may be
-	     assigned an Hollerith constant.  */
-	  if (e->ts.type == BT_CHARACTER)
-	    {
-	      if (gfc_notify_std (GFC_STD_GNU, "Extension: Character array "
-				  "in FORMAT tag at %L", &e->where)
-		  == FAILURE)
-		return FAILURE;
-	    }
-	  else
-	    {
-	      if (gfc_notify_std (GFC_STD_LEGACY, "Extension: Non-character "
-				  "in FORMAT tag at %L", &e->where)
-		  == FAILURE)
-		return FAILURE;
-	    }
-	  return SUCCESS;
-	}
-    }
-  else
-    {
-      if (e->rank != 0)
-	{
-	  gfc_error ("%s tag at %L must be scalar", tag->name, &e->where);
-	  return FAILURE;
-	}
-
-      if (tag == &tag_iomsg)
-	{
-	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: IOMSG tag at %L",
-			      &e->where) == FAILURE)
-	    return FAILURE;
-	}
-
-      if (tag == &tag_iostat && e->ts.kind != gfc_default_integer_kind)
-	{
-	  if (gfc_notify_std (GFC_STD_GNU, "Fortran 95 requires default "
-			      "INTEGER in IOSTAT tag at %L", &e->where)
-	      == FAILURE)
-	    return FAILURE;
-	}
-
-      if (tag == &tag_size && e->ts.kind != gfc_default_integer_kind)
-	{
-	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 95 requires default "
-			      "INTEGER in SIZE tag at %L", &e->where)
-	      == FAILURE)
-	    return FAILURE;
-	}
-
-      if (tag == &tag_convert)
-	{
-	  if (gfc_notify_std (GFC_STD_GNU, "Extension: CONVERT tag at %L",
-			      &e->where) == FAILURE)
-	    return FAILURE;
-	}
-    
-      if (tag == &tag_iolength && e->ts.kind != gfc_default_integer_kind)
-	{
-	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 95 requires default "
-			      "INTEGER in IOLENGTH tag at %L", &e->where)
-	      == FAILURE)
-	    return FAILURE;
-	}
+      gfc_error ("%s tag at %L must be scalar", tag->name, &e->where);
+      return FAILURE;
     }
 
+  if (tag == &tag_iomsg)
+    {
+      if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: IOMSG tag at %L",
+			  &e->where) == FAILURE)
+	return FAILURE;
+    }
+
+  if ((tag == &tag_iostat || tag == &tag_size || tag == &tag_iolength)
+      && e->ts.kind != gfc_default_integer_kind)
+    {
+      if (gfc_notify_std (GFC_STD_F2003, "Fortran 95 requires default "
+			  "INTEGER in %s tag at %L", tag->name, &e->where)
+	  == FAILURE)
+	return FAILURE;
+    }
+
+  if (tag == &tag_convert)
+    {
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: CONVERT tag at %L",
+			  &e->where) == FAILURE)
+	return FAILURE;
+    }
+  
   return SUCCESS;
 }
 
@@ -2095,6 +2082,7 @@ match_dt_format (gfc_dt *dt)
   locus where;
   gfc_expr *e;
   gfc_st_label *label;
+  match m;
 
   where = gfc_current_locus;
 
@@ -2107,7 +2095,7 @@ match_dt_format (gfc_dt *dt)
       return MATCH_YES;
     }
 
-  if (gfc_match_st_label (&label) == MATCH_YES)
+  if ((m = gfc_match_st_label (&label)) == MATCH_YES)
     {
       if (dt->format_expr != NULL || dt->format_label != NULL)
 	{
@@ -2121,6 +2109,9 @@ match_dt_format (gfc_dt *dt)
       dt->format_label = label;
       return MATCH_YES;
     }
+  else if (m == MATCH_ERROR)
+    /* The label was zero or too large.  Emit the correct diagnosis.  */
+    return MATCH_ERROR;
 
   if (gfc_match_expr (&e) == MATCH_YES)
     {
@@ -2678,6 +2669,11 @@ if (condition) \
 		     "REC tag at %L is incompatible with internal file",
 		     &dt->rec->where);
 
+      io_constraint (dt->format_expr == NULL && dt->format_label == NULL
+		     && dt->namelist == NULL,
+		     "Unformatted I/O not allowed with internal unit at %L",
+		     &dt->io_unit->where);
+
       if (dt->namelist != NULL)
 	{
 	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Internal file "
@@ -2802,8 +2798,8 @@ if (condition) \
     }
 
   expr = dt->format_expr;
-  if (expr != NULL && expr->expr_type == EXPR_CONSTANT
-      && check_format_string (expr, k == M_READ) == FAILURE)
+  if (gfc_simplify_expr (expr, 0) == FAILURE
+      || check_format_string (expr, k == M_READ) == FAILURE)
     return MATCH_ERROR;
 
   return m;
@@ -2975,9 +2971,8 @@ get_io_list:
   /* Optional leading comma (non-standard).  */
   if (!comma_flag
       && gfc_match_char (',') == MATCH_YES
-      && k == M_WRITE
-      && gfc_notify_std (GFC_STD_GNU, "Extension: Comma before output "
-			 "item list at %C is an extension") == FAILURE)
+      && gfc_notify_std (GFC_STD_GNU, "Extension: Comma before i/o "
+			 "item list at %C") == FAILURE)
     return MATCH_ERROR;
 
   io_code = NULL;

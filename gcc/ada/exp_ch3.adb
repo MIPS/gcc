@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -238,8 +237,11 @@ package body Exp_Ch3 is
    procedure Make_Predefined_Primitive_Specs
      (Tag_Typ     : Entity_Id;
       Predef_List : out List_Id;
-      Renamed_Eq  : out Node_Id);
+      Renamed_Eq  : out Entity_Id);
    --  Create a list with the specs of the predefined primitive operations.
+   --  For tagged types that are interfaces all these primitives are defined
+   --  abstract.
+   --
    --  The following entries are present for all tagged types, and provide
    --  the results of the corresponding attribute applied to the object.
    --  Dispatching is required in general, since the result of the attribute
@@ -329,7 +331,7 @@ package body Exp_Ch3 is
 
    function Predefined_Primitive_Bodies
      (Tag_Typ    : Entity_Id;
-      Renamed_Eq : Node_Id) return List_Id;
+      Renamed_Eq : Entity_Id) return List_Id;
    --  Create the bodies of the predefined primitives that are described in
    --  Predefined_Primitive_Specs. When not empty, Renamed_Eq must denote
    --  the defining unit name of the type's predefined equality as returned
@@ -632,7 +634,16 @@ package body Exp_Ch3 is
    --  Start of processing for Build_Array_Init_Proc
 
    begin
-      if Suppress_Init_Proc (A_Type) or else Is_Value_Type (Comp_Type) then
+      --  Nothing to generate in the following cases:
+
+      --    1. Initialization is suppressed for the type
+      --    2. The type is a value type, in the CIL sense.
+      --    3. An initialization already exists for the base type
+
+      if Suppress_Init_Proc (A_Type)
+        or else Is_Value_Type (Comp_Type)
+        or else Present (Base_Init_Proc (A_Type))
+      then
          return;
       end if;
 
@@ -789,9 +800,8 @@ package body Exp_Ch3 is
             --  If we fall off the top, we are at the outer level, and the
             --  environment task is our effective master, so nothing to mark.
 
-            if Nkind (Par) = N_Task_Body
-              or else Nkind (Par) = N_Block_Statement
-              or else Nkind (Par) = N_Subprogram_Body
+            if Nkind_In
+                (Par, N_Task_Body, N_Block_Statement, N_Subprogram_Body)
             then
                Set_Is_Task_Master (Par, True);
                exit;
@@ -2105,21 +2115,26 @@ package body Exp_Ch3 is
          Iface_Elmt       : Elmt_Id;
          Comp_Elmt        : Elmt_Id;
 
+         pragma Warnings (Off, Ifaces_Tag_List);
+
       --  Start of processing for Build_Offset_To_Top_Functions
 
       begin
          --  Offset_To_Top_Functions are built only for derivations of types
          --  with discriminants that cover interface types.
+         --  Nothing is needed either in case of virtual machines, since
+         --  interfaces are handled directly by the VM.
 
          if not Is_Tagged_Type (Rec_Type)
            or else Etype (Rec_Type) = Rec_Type
            or else not Has_Discriminants (Etype (Rec_Type))
+           or else VM_Target /= No_VM
          then
             return;
          end if;
 
-         Collect_Interfaces_Info (Rec_Type,
-           Ifaces_List, Ifaces_Comp_List, Ifaces_Tag_List);
+         Collect_Interfaces_Info
+           (Rec_Type, Ifaces_List, Ifaces_Comp_List, Ifaces_Tag_List);
 
          --  For each interface type with secondary dispatch table we generate
          --  the Offset_To_Top_Functions (required to displace the pointer in
@@ -2296,15 +2311,15 @@ package body Exp_Ch3 is
             --  the parent. In that case we insert the tag initialization
             --  after the calls to initialize the parent.
 
-            if not Is_CPP_Class (Etype (Rec_Type)) then
+            if not Is_CPP_Class (Root_Type (Rec_Type)) then
                Prepend_To (Body_Stmts,
                  Make_If_Statement (Loc,
                    Condition => New_Occurrence_Of (Set_Tag, Loc),
                    Then_Statements => Init_Tags_List));
 
-            --  CPP_Class: In this case the dispatch table of the parent was
-            --  built in the C++ side and we copy the table of the parent to
-            --  initialize the new dispatch table.
+            --  CPP_Class derivation: In this case the dispatch table of the
+            --  parent was built in the C++ side and we copy the table of the
+            --  parent to initialize the new dispatch table.
 
             else
                declare
@@ -3091,8 +3106,70 @@ package body Exp_Ch3 is
             Set_Debug_Info_Off (Proc_Id);
          end if;
 
-         Set_Static_Initialization
-           (Proc_Id, Build_Equivalent_Record_Aggregate (Rec_Type));
+         declare
+            Agg : constant Node_Id :=
+                    Build_Equivalent_Record_Aggregate (Rec_Type);
+
+            procedure Collect_Itypes (Comp : Node_Id);
+            --  Generate references to itypes in the aggregate, because
+            --  the first use of the aggregate may be in a nested scope.
+
+            --------------------
+            -- Collect_Itypes --
+            --------------------
+
+            procedure Collect_Itypes (Comp : Node_Id) is
+               Ref      : Node_Id;
+               Sub_Aggr : Node_Id;
+               Typ      : Entity_Id;
+
+            begin
+               if Is_Array_Type (Etype (Comp))
+                 and then Is_Itype (Etype (Comp))
+               then
+                  Typ := Etype (Comp);
+                  Ref := Make_Itype_Reference (Loc);
+                  Set_Itype (Ref, Typ);
+                  Append_Freeze_Action (Rec_Type, Ref);
+
+                  Ref := Make_Itype_Reference (Loc);
+                  Set_Itype (Ref, Etype (First_Index (Typ)));
+                  Append_Freeze_Action (Rec_Type, Ref);
+
+                  Sub_Aggr := First (Expressions (Comp));
+
+                  --  Recurse on nested arrays
+
+                  while Present (Sub_Aggr) loop
+                     Collect_Itypes (Sub_Aggr);
+                     Next (Sub_Aggr);
+                  end loop;
+               end if;
+            end Collect_Itypes;
+
+         begin
+            --  If there is a static initialization aggregate for the type,
+            --  generate itype references for the types of its (sub)components,
+            --  to prevent out-of-scope errors in the resulting tree.
+            --  The aggregate may have been rewritten as a Raise node, in which
+            --  case there are no relevant itypes.
+
+            if Present (Agg)
+              and then Nkind (Agg) = N_Aggregate
+            then
+               Set_Static_Initialization (Proc_Id, Agg);
+
+               declare
+                  Comp  : Node_Id;
+               begin
+                  Comp := First (Component_Associations (Agg));
+                  while Present (Comp) loop
+                     Collect_Itypes (Expression (Comp));
+                     Next (Comp);
+                  end loop;
+               end;
+            end if;
+         end;
       end if;
    end Build_Record_Init_Proc;
 
@@ -3974,10 +4051,17 @@ package body Exp_Ch3 is
       Expr     : constant Node_Id    := Expression (N);
       Loc      : constant Source_Ptr := Sloc (N);
       Typ      : constant Entity_Id  := Etype (Def_Id);
+      Base_Typ : constant Entity_Id  := Base_Type (Typ);
       Expr_Q   : Node_Id;
       Id_Ref   : Node_Id;
       New_Ref  : Node_Id;
       BIP_Call : Boolean := False;
+
+      Init_After : Node_Id := N;
+      --  Node after which the init proc call is to be inserted. This is
+      --  normally N, except for the case of a shared passive variable, in
+      --  which case the init proc call must be inserted only after the bodies
+      --  of the shared variable procedures have been seen.
 
    begin
       --  Don't do anything for deferred constants. All proper actions will
@@ -3992,20 +4076,20 @@ package body Exp_Ch3 is
       if VM_Target = No_VM
         and then Static_Dispatch_Tables
         and then Is_Library_Level_Entity (Def_Id)
-        and then Is_Library_Level_Tagged_Type (Typ)
-        and then (Ekind (Typ) = E_Record_Type
-                    or else Ekind (Typ) = E_Protected_Type
-                    or else Ekind (Typ) = E_Task_Type)
-        and then not Has_Dispatch_Table (Typ)
+        and then Is_Library_Level_Tagged_Type (Base_Typ)
+        and then (Ekind (Base_Typ) = E_Record_Type
+                    or else Ekind (Base_Typ) = E_Protected_Type
+                    or else Ekind (Base_Typ) = E_Task_Type)
+        and then not Has_Dispatch_Table (Base_Typ)
       then
          declare
             New_Nodes : List_Id := No_List;
 
          begin
-            if Is_Concurrent_Type (Typ) then
-               New_Nodes := Make_DT (Corresponding_Record_Type (Typ), N);
+            if Is_Concurrent_Type (Base_Typ) then
+               New_Nodes := Make_DT (Corresponding_Record_Type (Base_Typ), N);
             else
-               New_Nodes := Make_DT (Typ, N);
+               New_Nodes := Make_DT (Base_Typ, N);
             end if;
 
             if not Is_Empty_List (New_Nodes) then
@@ -4017,7 +4101,7 @@ package body Exp_Ch3 is
       --  Make shared memory routines for shared passive variable
 
       if Is_Shared_Passive (Def_Id) then
-         Make_Shared_Var_Procs (N);
+         Init_After := Make_Shared_Var_Procs (N);
       end if;
 
       --  If tasks being declared, make sure we have an activation chain
@@ -4065,7 +4149,7 @@ package body Exp_Ch3 is
          elsif not Abort_Allowed
            or else not Comes_From_Source (N)
          then
-            Insert_Actions_After (N,
+            Insert_Actions_After (Init_After,
               Make_Init_Call (
                 Ref         => New_Occurrence_Of (Def_Id, Loc),
                 Typ         => Base_Type (Typ),
@@ -4106,7 +4190,7 @@ package body Exp_Ch3 is
                Prepend_To (L, Build_Runtime_Call (Loc, RE_Abort_Defer));
                Set_At_End_Proc (Handled_Statement_Sequence (Blk),
                  New_Occurrence_Of (RTE (RE_Abort_Undefer_Direct), Loc));
-               Insert_Actions_After (N, New_List (Blk));
+               Insert_Actions_After (Init_After, New_List (Blk));
                Expand_At_End_Handler
                  (Handled_Statement_Sequence (Blk), Entity (Identifier (Blk)));
             end;
@@ -4158,7 +4242,7 @@ package body Exp_Ch3 is
                else
                   Initialization_Warning (Id_Ref);
 
-                  Insert_Actions_After (N,
+                  Insert_Actions_After (Init_After,
                     Build_Initialization_Call (Loc, Id_Ref, Typ));
                end if;
             end;
@@ -4265,7 +4349,9 @@ package body Exp_Ch3 is
             end if;
 
             --  Ada 2005 (AI-251): Rewrite the expression that initializes a
-            --  class-wide object to ensure that we copy the full object.
+            --  class-wide object to ensure that we copy the full object,
+            --  unless we're targetting a VM where interfaces are handled by
+            --  VM itself.
 
             --  Replace
             --      CW : I'Class := Obj;
@@ -4276,6 +4362,7 @@ package body Exp_Ch3 is
             if Is_Interface (Typ)
               and then Is_Class_Wide_Type (Etype (Expr))
               and then Comes_From_Source (Def_Id)
+              and then VM_Target = No_VM
             then
                declare
                   Decl_1 : Node_Id;
@@ -4379,7 +4466,7 @@ package body Exp_Ch3 is
               and then not Is_Limited_Type (Typ)
               and then not BIP_Call
             then
-               Insert_Actions_After (N,
+               Insert_Actions_After (Init_After,
                  Make_Adjust_Call (
                    Ref          => New_Reference_To (Def_Id, Loc),
                    Typ          => Base_Type (Typ),
@@ -4413,7 +4500,7 @@ package body Exp_Ch3 is
 
                Set_Assignment_OK (New_Ref);
 
-               Insert_After (N,
+               Insert_After (Init_After,
                  Make_Assignment_Statement (Loc,
                    Name => New_Ref,
                    Expression =>
@@ -4445,10 +4532,15 @@ package body Exp_Ch3 is
                end if;
             end if;
 
-            --  If validity checking on copies, validate initial expression
+            --  If validity checking on copies, validate initial expression.
+            --  But skip this if declaration is for a generic type, since it
+            --  makes no sense to validate generic types. Not clear if this
+            --  can happen for legal programs, but it definitely can arise
+            --  from previous instantiation errors.
 
             if Validity_Checks_On
-               and then Validity_Check_Copies
+              and then Validity_Check_Copies
+              and then not Is_Generic_Type (Etype (Def_Id))
             then
                Ensure_Valid (Expr);
                Set_Is_Known_Valid (Def_Id);
@@ -4482,8 +4574,7 @@ package body Exp_Ch3 is
                Set_No_Initialization (N);
                Set_Assignment_OK (Name (Stat));
                Set_No_Ctrl_Actions (Stat);
-               Insert_After (N, Stat);
-               Analyze (Stat);
+               Insert_After_And_Analyze (Init_After, Stat);
             end;
          end if;
       end if;
@@ -4511,10 +4602,7 @@ package body Exp_Ch3 is
          Validity_Check_Range (Range_Expression (Constraint (N)));
       end if;
 
-      if Nkind (Parent (N)) = N_Constrained_Array_Definition
-           or else
-         Nkind (Parent (N)) = N_Slice
-      then
+      if Nkind_In (Parent (N), N_Constrained_Array_Definition, N_Slice) then
          Apply_Range_Check (Ran, Typ);
       end if;
    end Expand_N_Subtype_Indication;
@@ -4551,11 +4639,13 @@ package body Exp_Ch3 is
 
    begin
       --  Find all access types declared in the current scope, whose
-      --  designated type is Def_Id.
+      --  designated type is Def_Id. If it does not have a Master_Id,
+      --  create one now.
 
       while Present (T) loop
          if Is_Access_Type (T)
            and then Designated_Type (T) = Def_Id
+           and then No (Master_Id (T))
          then
             Build_Master_Entity (Def_Id);
             Build_Master_Renaming (Parent (Def_Id), T);
@@ -4650,7 +4740,7 @@ package body Exp_Ch3 is
                --  between the secondary tag and its adjacent component.
 
                    or else Present
-                             (Related_Interface
+                             (Related_Type
                                (Defining_Identifier (First_Comp))))
             loop
                Next (First_Comp);
@@ -4855,11 +4945,14 @@ package body Exp_Ch3 is
 
       --  For packed case, default initialization, except if the component type
       --  is itself a packed structure with an initialization procedure, or
-      --  initialize/normalize scalars active, and we have a base type.
+      --  initialize/normalize scalars active, and we have a base type, or the
+      --  type is public, because in that case a client might specify
+      --  Normalize_Scalars and there better be a public Init_Proc for it.
 
       elsif (Present (Init_Proc (Component_Type (Base)))
                and then No (Base_Init_Proc (Base)))
         or else (Init_Or_Norm_Scalars and then Base = Typ)
+        or else Is_Public (Typ)
       then
          Build_Array_Init_Proc (Base, N);
       end if;
@@ -5178,7 +5271,11 @@ package body Exp_Ch3 is
       --  access components whose designated type is potentially controlled.
 
       Renamed_Eq : Node_Id := Empty;
-      --  Could use some comments ???
+      --  Defining unit name for the predefined equality function in the case
+      --  where the type has a primitive operation that is a renaming of
+      --  predefined equality (but only if there is also an overriding
+      --  user-defined equality function). Used to pass this entity from
+      --  Make_Predefined_Primitive_Specs to Predefined_Primitive_Bodies.
 
       Wrapper_Decl_List   : List_Id := No_List;
       Wrapper_Body_List   : List_Id := No_List;
@@ -5507,11 +5604,16 @@ package body Exp_Ch3 is
          Build_Record_Init_Proc (Type_Decl, Def_Id);
       end if;
 
-      --  For tagged type, build bodies of primitive operations. Note that we
-      --  do this after building the record initialization experiment, since
-      --  the primitive operations may need the initialization routine
+      --  For tagged type that are not interfaces, build bodies of primitive
+      --  operations. Note that we do this after building the record
+      --  initialization procedure, since the primitive operations may need
+      --  the initialization routine. There is no need to add predefined
+      --  primitives of interfaces because all their predefined primitives
+      --  are abstract.
 
-      if Is_Tagged_Type (Def_Id) then
+      if Is_Tagged_Type (Def_Id)
+        and then not Is_Interface (Def_Id)
+      then
 
          --  Do not add the body of the predefined primitives if we are
          --  compiling under restriction No_Dispatching_Calls
@@ -6038,9 +6140,7 @@ package body Exp_Ch3 is
          --  Similarly, if it is an aggregate it must be qualified, because an
          --  unchecked conversion does not provide a context for it.
 
-         if Nkind (Val) = N_Null
-           or else Nkind (Val) = N_Aggregate
-         then
+         if Nkind_In (Val, N_Null, N_Aggregate) then
             Val :=
               Make_Qualified_Expression (Loc,
                 Subtype_Mark =>
@@ -6741,12 +6841,14 @@ package body Exp_Ch3 is
             while Present (Idx) loop
                if Nkind (Idx) = N_Range then
                   if (Nkind (Low_Bound (Idx)) = N_Identifier
-                      and then Present (Entity (Low_Bound (Idx)))
-                      and then Ekind (Entity (Low_Bound (Idx))) /= E_Constant)
+                       and then Present (Entity (Low_Bound (Idx)))
+                       and then
+                         Ekind (Entity (Low_Bound (Idx))) /= E_Constant)
                     or else
                      (Nkind (High_Bound (Idx)) = N_Identifier
-                      and then Present (Entity (High_Bound (Idx)))
-                      and then Ekind (Entity (High_Bound (Idx))) /= E_Constant)
+                       and then Present (Entity (High_Bound (Idx)))
+                       and then
+                         Ekind (Entity (High_Bound (Idx))) /= E_Constant)
                   then
                      return True;
                   end if;
@@ -6779,9 +6881,9 @@ package body Exp_Ch3 is
       Formal      : Entity_Id;
       Par_Formal  : Entity_Id;
       Formal_Node : Node_Id;
-      Func_Spec   : Node_Id;
-      Func_Decl   : Node_Id;
       Func_Body   : Node_Id;
+      Func_Decl   : Node_Id;
+      Func_Spec   : Node_Id;
       Return_Stmt : Node_Id;
 
    begin
@@ -7187,7 +7289,7 @@ package body Exp_Ch3 is
    procedure Make_Predefined_Primitive_Specs
      (Tag_Typ     : Entity_Id;
       Predef_List : out List_Id;
-      Renamed_Eq  : out Node_Id)
+      Renamed_Eq  : out Entity_Id)
    is
       Loc       : constant Source_Ptr := Sloc (Tag_Typ);
       Res       : constant List_Id    := New_List;
@@ -7251,23 +7353,23 @@ package body Exp_Ch3 is
               TSS_Stream_Write,
               TSS_Stream_Input,
               TSS_Stream_Output);
+
       begin
          for Op in Stream_Op_TSS_Names'Range loop
             if Stream_Operation_OK (Tag_Typ, Stream_Op_TSS_Names (Op)) then
                Append_To (Res,
-                  Predef_Stream_Attr_Spec (Loc, Tag_Typ,
-                    Stream_Op_TSS_Names (Op)));
+                 Predef_Stream_Attr_Spec (Loc, Tag_Typ,
+                  Stream_Op_TSS_Names (Op)));
             end if;
          end loop;
       end;
 
-      --  Spec of "=" if expanded if the type is not limited and if a
+      --  Spec of "=" is expanded if the type is not limited and if a
       --  user defined "=" was not already declared for the non-full
       --  view of a private extension
 
       if not Is_Limited_Type (Tag_Typ) then
          Eq_Needed := True;
-
          Prim := First_Elmt (Primitive_Operations (Tag_Typ));
          while Present (Prim) loop
 
@@ -7283,6 +7385,8 @@ package body Exp_Ch3 is
             if Is_Predefined_Eq_Renaming (Node (Prim)) then
                Eq_Name := New_External_Name (Chars (Node (Prim)), 'E');
 
+            --  User-defined equality
+
             elsif Chars (Node (Prim)) = Name_Op_Eq
               and then (No (Alias (Node (Prim)))
                          or else Nkind (Unit_Declaration_Node (Node (Prim))) =
@@ -7290,15 +7394,16 @@ package body Exp_Ch3 is
               and then Etype (First_Formal (Node (Prim))) =
                          Etype (Next_Formal (First_Formal (Node (Prim))))
               and then Base_Type (Etype (Node (Prim))) = Standard_Boolean
-
             then
                Eq_Needed := False;
                exit;
 
-            --  If the parent equality is abstract, the inherited equality is
-            --  abstract as well, and no body can be created for for it.
+            --  If the parent is not an interface type and has an abstract
+            --  equality function, the inherited equality is abstract as well,
+            --  and no body can be created for it.
 
             elsif Chars (Node (Prim)) = Name_Op_Eq
+              and then not Is_Interface (Etype (Tag_Typ))
               and then Present (Alias (Node (Prim)))
               and then Is_Abstract_Subprogram (Alias (Node (Prim)))
             then
@@ -7388,11 +7493,12 @@ package body Exp_Ch3 is
       --  operations for limited interfaces and synchronized types that
       --  implement a limited interface.
 
-      --    disp_asynchronous_select
-      --    disp_conditional_select
-      --    disp_get_prim_op_kind
-      --    disp_get_task_id
-      --    disp_timed_select
+      --    Disp_Asynchronous_Select
+      --    Disp_Conditional_Select
+      --    Disp_Get_Prim_Op_Kind
+      --    Disp_Get_Task_Id
+      --    Disp_Requeue
+      --    Disp_Timed_Select
 
       --  These operations cannot be implemented on VM targets, so we simply
       --  disable their generation in this case. We also disable generation
@@ -7400,35 +7506,83 @@ package body Exp_Ch3 is
 
       if Ada_Version >= Ada_05
         and then VM_Target = No_VM
-        and then
-          ((Is_Interface (Tag_Typ) and then Is_Limited_Record (Tag_Typ))
-              or else (Is_Concurrent_Record_Type (Tag_Typ)
-                         and then Has_Abstract_Interfaces (Tag_Typ)))
       then
-         Append_To (Res,
-           Make_Subprogram_Declaration (Loc,
-             Specification =>
-               Make_Disp_Asynchronous_Select_Spec (Tag_Typ)));
+         --  These primitives are defined abstract in interface types
 
-         Append_To (Res,
-           Make_Subprogram_Declaration (Loc,
-             Specification =>
-               Make_Disp_Conditional_Select_Spec (Tag_Typ)));
+         if Is_Interface (Tag_Typ)
+           and then Is_Limited_Record (Tag_Typ)
+         then
+            Append_To (Res,
+              Make_Abstract_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Asynchronous_Select_Spec (Tag_Typ)));
 
-         Append_To (Res,
-           Make_Subprogram_Declaration (Loc,
-             Specification =>
-               Make_Disp_Get_Prim_Op_Kind_Spec (Tag_Typ)));
+            Append_To (Res,
+              Make_Abstract_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Conditional_Select_Spec (Tag_Typ)));
 
-         Append_To (Res,
-           Make_Subprogram_Declaration (Loc,
-             Specification =>
-               Make_Disp_Get_Task_Id_Spec (Tag_Typ)));
+            Append_To (Res,
+              Make_Abstract_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Get_Prim_Op_Kind_Spec (Tag_Typ)));
 
-         Append_To (Res,
-           Make_Subprogram_Declaration (Loc,
-             Specification =>
-               Make_Disp_Timed_Select_Spec (Tag_Typ)));
+            Append_To (Res,
+              Make_Abstract_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Get_Task_Id_Spec (Tag_Typ)));
+
+            Append_To (Res,
+              Make_Abstract_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Requeue_Spec (Tag_Typ)));
+
+            Append_To (Res,
+              Make_Abstract_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Timed_Select_Spec (Tag_Typ)));
+
+         --  If the ancestor is an interface type we declare non-abstract
+         --  primitives to override the abstract primitives of the interface
+         --  type.
+
+         elsif (not Is_Interface (Tag_Typ)
+                  and then Is_Interface (Etype (Tag_Typ))
+                  and then Is_Limited_Record (Etype (Tag_Typ)))
+             or else
+               (Is_Concurrent_Record_Type (Tag_Typ)
+                  and then Has_Abstract_Interfaces (Tag_Typ))
+         then
+            Append_To (Res,
+              Make_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Asynchronous_Select_Spec (Tag_Typ)));
+
+            Append_To (Res,
+              Make_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Conditional_Select_Spec (Tag_Typ)));
+
+            Append_To (Res,
+              Make_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Get_Prim_Op_Kind_Spec (Tag_Typ)));
+
+            Append_To (Res,
+              Make_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Get_Task_Id_Spec (Tag_Typ)));
+
+            Append_To (Res,
+              Make_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Requeue_Spec (Tag_Typ)));
+
+            Append_To (Res,
+              Make_Subprogram_Declaration (Loc,
+                Specification =>
+                  Make_Disp_Timed_Select_Spec (Tag_Typ)));
+         end if;
       end if;
 
       --  Specs for finalization actions that may be required in case a future
@@ -7615,22 +7769,23 @@ package body Exp_Ch3 is
                New_Reference_To (Ret_Type, Loc));
       end if;
 
+      if Is_Interface (Tag_Typ) then
+         return Make_Abstract_Subprogram_Declaration (Loc, Spec);
+
       --  If body case, return empty subprogram body. Note that this is ill-
       --  formed, because there is not even a null statement, and certainly not
       --  a return in the function case. The caller is expected to do surgery
       --  on the body to add the appropriate stuff.
 
-      if For_Body then
+      elsif For_Body then
          return Make_Subprogram_Body (Loc, Spec, Empty_List, Empty);
 
-      --  For the case of Input/Output attributes applied to an abstract type,
-      --  generate abstract specifications. These will never be called, but we
-      --  need the slots allocated in the dispatching table so that attributes
+      --  For the case of an Input attribute predefined for an abstract type,
+      --  generate an abstract specification. This will never be called, but we
+      --  need the slot allocated in the dispatching table so that attributes
       --  typ'Class'Input and typ'Class'Output will work properly.
 
-      elsif (Is_TSS (Name, TSS_Stream_Input)
-              or else
-             Is_TSS (Name, TSS_Stream_Output))
+      elsif Is_TSS (Name, TSS_Stream_Input)
         and then Is_Abstract_Type (Tag_Typ)
       then
          return Make_Abstract_Subprogram_Declaration (Loc, Spec);
@@ -7675,7 +7830,7 @@ package body Exp_Ch3 is
 
    function Predefined_Primitive_Bodies
      (Tag_Typ    : Entity_Id;
-      Renamed_Eq : Node_Id) return List_Id
+      Renamed_Eq : Entity_Id) return List_Id
    is
       Loc       : constant Source_Ptr := Sloc (Tag_Typ);
       Res       : constant List_Id    := New_List;
@@ -7685,12 +7840,37 @@ package body Exp_Ch3 is
       Eq_Name   : Name_Id;
       Ent       : Entity_Id;
 
+      pragma Warnings (Off, Ent);
+
    begin
+      pragma Assert (not Is_Interface (Tag_Typ));
+
       --  See if we have a predefined "=" operator
 
       if Present (Renamed_Eq) then
          Eq_Needed := True;
          Eq_Name   := Chars (Renamed_Eq);
+
+      --  If the parent is an interface type then it has defined all the
+      --  predefined primitives abstract and we need to check if the type
+      --  has some user defined "=" function to avoid generating it.
+
+      elsif Is_Interface (Etype (Tag_Typ)) then
+         Eq_Needed := True;
+         Eq_Name := Name_Op_Eq;
+
+         Prim := First_Elmt (Primitive_Operations (Tag_Typ));
+         while Present (Prim) loop
+            if Chars (Node (Prim)) = Name_Op_Eq
+              and then not Is_Internal (Node (Prim))
+            then
+               Eq_Needed := False;
+               Eq_Name := No_Name;
+               exit;
+            end if;
+
+            Next_Elmt (Prim);
+         end loop;
 
       else
          Eq_Needed := False;
@@ -7703,6 +7883,7 @@ package body Exp_Ch3 is
             then
                Eq_Needed := True;
                Eq_Name := Name_Op_Eq;
+               exit;
             end if;
 
             Next_Elmt (Prim);
@@ -7773,25 +7954,24 @@ package body Exp_Ch3 is
          Append_To (Res, Decl);
       end if;
 
-      --  Skip bodies of _Input and _Output for the abstract case, since the
-      --  corresponding specs are abstract (see Predef_Spec_Or_Body).
+      --  Skip body of _Input for the abstract case, since the corresponding
+      --  spec is abstract (see Predef_Spec_Or_Body).
 
-      if not Is_Abstract_Type (Tag_Typ) then
-         if Stream_Operation_OK (Tag_Typ, TSS_Stream_Input)
-           and then No (TSS (Tag_Typ, TSS_Stream_Input))
-         then
-            Build_Record_Or_Elementary_Input_Function
-              (Loc, Tag_Typ, Decl, Ent);
-            Append_To (Res, Decl);
-         end if;
+      if not Is_Abstract_Type (Tag_Typ)
+        and then Stream_Operation_OK (Tag_Typ, TSS_Stream_Input)
+        and then No (TSS (Tag_Typ, TSS_Stream_Input))
+      then
+         Build_Record_Or_Elementary_Input_Function
+           (Loc, Tag_Typ, Decl, Ent);
+         Append_To (Res, Decl);
+      end if;
 
-         if Stream_Operation_OK (Tag_Typ, TSS_Stream_Output)
-           and then No (TSS (Tag_Typ, TSS_Stream_Output))
-         then
-            Build_Record_Or_Elementary_Output_Procedure
-              (Loc, Tag_Typ, Decl, Ent);
-            Append_To (Res, Decl);
-         end if;
+      if Stream_Operation_OK (Tag_Typ, TSS_Stream_Output)
+        and then No (TSS (Tag_Typ, TSS_Stream_Output))
+      then
+         Build_Record_Or_Elementary_Output_Procedure
+           (Loc, Tag_Typ, Decl, Ent);
+         Append_To (Res, Decl);
       end if;
 
       --  Ada 2005: Generate bodies for the following primitive operations for
@@ -7813,20 +7993,24 @@ package body Exp_Ch3 is
       if Ada_Version >= Ada_05
         and then VM_Target = No_VM
         and then not Restriction_Active (No_Dispatching_Calls)
+        and then not Is_Interface (Tag_Typ)
         and then
-          ((Is_Interface (Tag_Typ) and then Is_Limited_Record (Tag_Typ))
-              or else (Is_Concurrent_Record_Type (Tag_Typ)
-                        and then Has_Abstract_Interfaces (Tag_Typ)))
+          ((Is_Interface (Etype (Tag_Typ))
+              and then Is_Limited_Record (Etype (Tag_Typ)))
+           or else (Is_Concurrent_Record_Type (Tag_Typ)
+                     and then Has_Abstract_Interfaces (Tag_Typ)))
       then
          Append_To (Res, Make_Disp_Asynchronous_Select_Body (Tag_Typ));
          Append_To (Res, Make_Disp_Conditional_Select_Body  (Tag_Typ));
          Append_To (Res, Make_Disp_Get_Prim_Op_Kind_Body    (Tag_Typ));
          Append_To (Res, Make_Disp_Get_Task_Id_Body         (Tag_Typ));
+         Append_To (Res, Make_Disp_Requeue_Body             (Tag_Typ));
          Append_To (Res, Make_Disp_Timed_Select_Body        (Tag_Typ));
       end if;
 
-      if not Is_Limited_Type (Tag_Typ) then
-
+      if not Is_Limited_Type (Tag_Typ)
+        and then not Is_Interface (Tag_Typ)
+      then
          --  Body for equality
 
          if Eq_Needed then
@@ -8075,8 +8259,27 @@ package body Exp_Ch3 is
          end if;
       end if;
 
+      --  If the type is not limited, or else is limited but the attribute is
+      --  explicitly specified or is predefined for the type, then return True,
+      --  unless other conditions prevail, such as restrictions prohibiting
+      --  streams or dispatching operations.
+
+      --  We exclude the Input operation from being a predefined subprogram in
+      --  the case where the associated type is an abstract extension, because
+      --  the attribute is not callable in that case, per 13.13.2(49/2). Also,
+      --  we don't want an abstract version created because types derived from
+      --  the abstract type may not even have Input available (for example if
+      --  derived from a private view of the abstract type that doesn't have
+      --  a visible Input), but a VM such as .NET or the Java VM can treat the
+      --  operation as inherited anyway, and we don't want an abstract function
+      --  to be (implicitly) inherited in that case because it can lead to a VM
+      --  exception.
+
       return (not Is_Limited_Type (Typ)
                or else Has_Predefined_Or_Specified_Stream_Attribute)
+        and then (Operation /= TSS_Stream_Input
+                   or else not Is_Abstract_Type (Typ)
+                   or else not Is_Derived_Type (Typ))
         and then not Has_Unknown_Discriminants (Typ)
         and then not (Is_Interface (Typ)
                        and then (Is_Task_Interface (Typ)

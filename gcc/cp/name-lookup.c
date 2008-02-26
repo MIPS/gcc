@@ -44,7 +44,6 @@ struct scope_binding {
 
 static cxx_scope *innermost_nonclass_level (void);
 static cxx_binding *binding_for_name (cxx_scope *, tree);
-static tree lookup_name_innermost_nonclass_level (tree);
 static tree push_overloaded_decl (tree, int, bool);
 static bool lookup_using_namespace (tree, struct scope_binding *, tree,
 				    tree, int);
@@ -537,16 +536,15 @@ supplement_binding (cxx_binding *binding, tree decl)
 static void
 add_decl_to_level (tree decl, cxx_scope *b)
 {
+  /* We used to record virtual tables as if they were ordinary
+     variables, but no longer do so.  */
+  gcc_assert (!(TREE_CODE (decl) == VAR_DECL && DECL_VIRTUAL_P (decl)));
+
   if (TREE_CODE (decl) == NAMESPACE_DECL
       && !DECL_NAMESPACE_ALIAS (decl))
     {
       TREE_CHAIN (decl) = b->namespaces;
       b->namespaces = decl;
-    }
-  else if (TREE_CODE (decl) == VAR_DECL && DECL_VIRTUAL_P (decl))
-    {
-      TREE_CHAIN (decl) = b->vtables;
-      b->vtables = decl;
     }
   else
     {
@@ -1366,11 +1364,6 @@ leave_scope (void)
       is_class_level = 0;
     }
 
-#ifdef HANDLE_PRAGMA_VISIBILITY
-  if (scope->has_visibility)
-    pop_visibility ();
-#endif
-
   /* Move one nesting level up.  */
   current_binding_level = scope->level_chain;
 
@@ -1737,12 +1730,15 @@ constructor_name (tree type)
   return name;
 }
 
-/* Returns TRUE if NAME is the name for the constructor for TYPE.  */
+/* Returns TRUE if NAME is the name for the constructor for TYPE,
+   which must be a class type.  */
 
 bool
 constructor_name_p (tree name, tree type)
 {
   tree ctor_name;
+
+  gcc_assert (IS_AGGR_TYPE (type));
 
   if (!name)
     return false;
@@ -1924,7 +1920,7 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
 	  if (IS_AGGR_TYPE (t) && warn_shadow
 	      && (! DECL_IN_SYSTEM_HEADER (decl)
 		  || ! DECL_IN_SYSTEM_HEADER (old)))
-	    warning (0, "%q#D hides constructor for %q#T", decl, t);
+	    warning (OPT_Wshadow, "%q#D hides constructor for %q#T", decl, t);
 	  old = NULL_TREE;
 	}
       else if (is_overloaded_fn (old))
@@ -2831,7 +2827,7 @@ do_class_using_decl (tree scope, tree name)
       error ("%<%T::%D%> names destructor", scope, name);
       return NULL_TREE;
     }
-  if (constructor_name_p (name, scope))
+  if (IS_AGGR_TYPE (scope) && constructor_name_p (name, scope))
     {
       error ("%<%T::%D%> names constructor", scope, name);
       return NULL_TREE;
@@ -2971,7 +2967,7 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
 
   /* See whether this has been declared in the namespace.  */
   old = lookup_qualified_name (scope, DECL_NAME (decl), false, true);
-  if (!old)
+  if (old == error_mark_node)
     /* No old declaration at all.  */
     goto complain;
   if (!is_overloaded_fn (decl))
@@ -3029,20 +3025,59 @@ current_decl_namespace (void)
   return result;
 }
 
+/* Process any ATTRIBUTES on a namespace definition.  Currently only
+   attribute visibility is meaningful, which is a property of the syntactic
+   block rather than the namespace as a whole, so we don't touch the
+   NAMESPACE_DECL at all.  Returns true if attribute visibility is seen.  */
+
+bool
+handle_namespace_attrs (tree ns, tree attributes)
+{
+  tree d;
+  bool saw_vis = false;
+
+  for (d = attributes; d; d = TREE_CHAIN (d))
+    {
+      tree name = TREE_PURPOSE (d);
+      tree args = TREE_VALUE (d);
+
+#ifdef HANDLE_PRAGMA_VISIBILITY
+      if (is_attribute_p ("visibility", name))
+	{
+	  tree x = args ? TREE_VALUE (args) : NULL_TREE;
+	  if (x == NULL_TREE || TREE_CODE (x) != STRING_CST || TREE_CHAIN (args))
+	    {
+	      warning (OPT_Wattributes,
+		       "%qD attribute requires a single NTBS argument",
+		       name);
+	      continue;
+	    }
+
+	  if (!TREE_PUBLIC (ns))
+	    warning (OPT_Wattributes,
+		     "%qD attribute is meaningless since members of the "
+		     "anonymous namespace get local symbols", name);
+
+	  push_visibility (TREE_STRING_POINTER (x));
+	  saw_vis = true;
+	}
+      else
+#endif
+	{
+	  warning (OPT_Wattributes, "%qD attribute directive ignored",
+		   name);
+	  continue;
+	}
+    }
+
+  return saw_vis;
+}
+  
 /* Push into the scope of the NAME namespace.  If NAME is NULL_TREE, then we
    select a name that is unique to this compilation unit.  */
 
 void
 push_namespace (tree name)
-{
-  push_namespace_with_attribs (name, NULL_TREE);
-}
-
-/* Same, but specify attributes to apply to the namespace.  The attributes
-   only apply to the current namespace-body, not to any later extensions. */
-
-void
-push_namespace_with_attribs (tree name, tree attributes)
 {
   tree d = NULL_TREE;
   int need_new = 1;
@@ -3108,38 +3143,6 @@ push_namespace_with_attribs (tree name, tree attributes)
     do_using_directive (d);
   /* Enter the name space.  */
   current_namespace = d;
-
-#ifdef HANDLE_PRAGMA_VISIBILITY
-  /* Clear has_visibility in case a previous namespace-definition had a
-     visibility attribute and this one doesn't.  */
-  current_binding_level->has_visibility = 0;
-  for (d = attributes; d; d = TREE_CHAIN (d))
-    {
-      tree name = TREE_PURPOSE (d);
-      tree args = TREE_VALUE (d);
-      tree x;
-
-      if (! is_attribute_p ("visibility", name))
-	{
-	  warning (OPT_Wattributes, "%qs attribute directive ignored",
-		   IDENTIFIER_POINTER (name));
-	  continue;
-	}
-
-      x = args ? TREE_VALUE (args) : NULL_TREE;
-      if (x == NULL_TREE || TREE_CODE (x) != STRING_CST || TREE_CHAIN (args))
-	{
-	  warning (OPT_Wattributes, "%qs attribute requires a single NTBS argument",
-		   IDENTIFIER_POINTER (name));
-	  continue;
-	}
-
-      current_binding_level->has_visibility = 1;
-      push_visibility (TREE_STRING_POINTER (x));
-      goto found;
-    }
- found:
-#endif
 
   timevar_pop (TV_NAME_LOOKUP);
 }
@@ -4199,7 +4202,7 @@ lookup_type_scope (tree name, tag_scope scope)
 /* Similar to `lookup_name' but look only in the innermost non-class
    binding level.  */
 
-static tree
+tree
 lookup_name_innermost_nonclass_level (tree name)
 {
   struct cp_binding_level *b;
@@ -4417,6 +4420,13 @@ arg_assoc_namespace (struct arg_lookup *k, tree scope)
     if (arg_assoc_namespace (k, TREE_PURPOSE (value)))
       return true;
 
+  /* Also look down into inline namespaces.  */
+  for (value = DECL_NAMESPACE_USING (scope); value;
+       value = TREE_CHAIN (value))
+    if (is_associated_namespace (scope, TREE_PURPOSE (value)))
+      if (arg_assoc_namespace (k, TREE_PURPOSE (value)))
+	return true;
+
   value = namespace_binding (k->name, scope);
   if (!value)
     return false;
@@ -4476,6 +4486,17 @@ arg_assoc_template_arg (struct arg_lookup *k, tree arg)
       /* Otherwise, it must be member template.  */
       else
 	return arg_assoc_class (k, ctx);
+    }
+  /* It's an argument pack; handle it recursively.  */
+  else if (ARGUMENT_PACK_P (arg))
+    {
+      tree args = ARGUMENT_PACK_ARGS (arg);
+      int i, len = TREE_VEC_LENGTH (args);
+      for (i = 0; i < len; ++i) 
+	if (arg_assoc_template_arg (k, TREE_VEC_ELT (args, i)))
+	  return true;
+
+      return false;
     }
   /* It's not a template template argument, but it is a type template
      argument.  */
@@ -4612,15 +4633,6 @@ arg_assoc_type (struct arg_lookup *k, tree type)
       return false;
     case TYPE_PACK_EXPANSION:
       return arg_assoc_type (k, PACK_EXPANSION_PATTERN (type));
-    case TYPE_ARGUMENT_PACK:
-      {
-        tree args = ARGUMENT_PACK_ARGS (type);
-        int i, len = TREE_VEC_LENGTH (args);
-        for (i = 0; i < len; i++)
-          if (arg_assoc_type (k, TREE_VEC_ELT (args, i)))
-            return true;
-      }
-      break;
 
     default:
       gcc_unreachable ();
@@ -4946,9 +4958,6 @@ pushtag (tree name, tree type, tag_scope scope)
       if (decl == error_mark_node)
 	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
 
-      if (! in_class)
-	set_identifier_type_value_with_scope (name, tdef, b);
-
       if (b->kind == sk_class)
 	{
 	  if (!PROCESSING_REAL_TEMPLATE_DECL_P ())
@@ -4966,6 +4975,9 @@ pushtag (tree name, tree type, tag_scope scope)
 	  if (decl == error_mark_node)
 	    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, decl);
 	}
+
+      if (! in_class)
+	set_identifier_type_value_with_scope (name, tdef, b);
 
       TYPE_CONTEXT (type) = DECL_CONTEXT (decl);
 

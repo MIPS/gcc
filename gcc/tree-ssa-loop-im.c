@@ -205,6 +205,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case INTEGER_CST:
 	case REAL_CST:
 	case FIXED_CST:
+	case CONSTRUCTOR:
 	  return true;
 
 	case TARGET_MEM_REF:
@@ -260,7 +261,8 @@ movement_possibility (tree stmt)
 
   rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
-  if (TREE_SIDE_EFFECTS (rhs))
+  if (TREE_SIDE_EFFECTS (rhs)
+      || tree_could_throw_p (rhs))
     return MOVE_IMPOSSIBLE;
 
   if (TREE_CODE (lhs) != SSA_NAME
@@ -683,7 +685,12 @@ rewrite_bittest (block_stmt_iterator *bsi)
       stmt2 = build_gimple_modify_stmt (var, t);
       name = make_ssa_name (var, stmt2);
       GIMPLE_STMT_OPERAND (stmt2, 0) = name;
+
+      /* Replace the SSA_NAME we compare against zero.  Adjust
+	 the type of zero accordingly.  */
       SET_USE (use, name);
+      TREE_OPERAND (COND_EXPR_COND (use_stmt), 1)
+	= build_int_cst_type (TREE_TYPE (name), 0);
 
       bsi_insert_before (bsi, stmt1, BSI_SAME_STMT);
       bsi_replace (bsi, stmt2, true);

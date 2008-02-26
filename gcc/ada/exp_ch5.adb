@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -388,7 +387,7 @@ package body Exp_Ch5 is
          --       File.Storage := Contents;
          --    end Write_All;
 
-         --  We expand to a loop in either of these two cases.
+         --  We expand to a loop in either of these two cases
 
          --  Question for future thought. Another potentially more efficient
          --  approach would be to create the actual subtype, and then do an
@@ -637,11 +636,18 @@ package body Exp_Ch5 is
          --  gigi handle it.
 
          if not Loop_Required then
+
+            --  Assume gigi can handle it if Forwards_OK is set
+
             if Forwards_OK (N) then
                return;
-            else
-               null;
-               --  Here is where a memmove would be appropriate ???
+
+            --  If Forwards_OK is not set, the back end will need something
+            --  like memmove to handle the move. For now, this processing is
+            --  activated using the .s debug flag (-gnatd.s).
+
+            elsif Debug_Flag_Dot_S then
+               return;
             end if;
          end if;
 
@@ -1517,9 +1523,7 @@ package body Exp_Ch5 is
       --  Since P is going to be evaluated more than once, any subscripts
       --  in P must have their evaluation forced.
 
-      if (Nkind (Lhs) = N_Indexed_Component
-           or else
-          Nkind (Lhs) = N_Selected_Component)
+      if Nkind_In (Lhs, N_Indexed_Component, N_Selected_Component)
         and then Is_Ref_To_Bit_Packed_Array (Prefix (Lhs))
       then
          declare
@@ -1556,9 +1560,8 @@ package body Exp_Ch5 is
             loop
                Set_Analyzed (Exp, False);
 
-               if Nkind (Exp) = N_Selected_Component
-                    or else
-                  Nkind (Exp) = N_Indexed_Component
+               if Nkind_In
+                   (Exp, N_Selected_Component, N_Indexed_Component)
                then
                   Exp := Prefix (Exp);
                else
@@ -1952,9 +1955,8 @@ package body Exp_Ch5 is
             Actual_Rhs : Node_Id := Rhs;
 
          begin
-            while Nkind (Actual_Rhs) = N_Type_Conversion
-              or else
-                  Nkind (Actual_Rhs) = N_Qualified_Expression
+            while Nkind_In (Actual_Rhs, N_Type_Conversion,
+                                        N_Qualified_Expression)
             loop
                Actual_Rhs := Expression (Actual_Rhs);
             end loop;
@@ -2011,9 +2013,7 @@ package body Exp_Ch5 is
                --  Skip this if left hand side is an array or record component
                --  and elementary component validity checks are suppressed.
 
-               if (Nkind (Lhs) = N_Selected_Component
-                    or else
-                   Nkind (Lhs) = N_Indexed_Component)
+               if Nkind_In (Lhs, N_Selected_Component, N_Indexed_Component)
                  and then not Validity_Check_Components
                then
                   null;
@@ -2792,24 +2792,29 @@ package body Exp_Ch5 is
                         SS_Allocator := New_Copy_Tree (Heap_Allocator);
                      end if;
 
-                     Set_Storage_Pool
-                       (SS_Allocator, RTE (RE_SS_Pool));
-                     Set_Procedure_To_Call
-                       (SS_Allocator, RTE (RE_SS_Allocate));
+                     --  The allocator is returned on the secondary stack. We
+                     --  don't do this on VM targets, since the SS is not used.
 
-                     --  The allocator is returned on the secondary stack,
-                     --  so indicate that the function return, as well as
-                     --  the block that encloses the allocator, must not
-                     --  release it. The flags must be set now because the
-                     --  decision to use the secondary stack is done very
-                     --  late in the course of expanding the return statement,
-                     --  past the point where these flags are normally set.
+                     if VM_Target = No_VM then
+                        Set_Storage_Pool (SS_Allocator, RTE (RE_SS_Pool));
+                        Set_Procedure_To_Call
+                          (SS_Allocator, RTE (RE_SS_Allocate));
 
-                     Set_Sec_Stack_Needed_For_Return (Parent_Function);
-                     Set_Sec_Stack_Needed_For_Return
-                       (Return_Statement_Entity (N));
-                     Set_Uses_Sec_Stack (Parent_Function);
-                     Set_Uses_Sec_Stack (Return_Statement_Entity (N));
+                        --  The allocator is returned on the secondary stack,
+                        --  so indicate that the function return, as well as
+                        --  the block that encloses the allocator, must not
+                        --  release it. The flags must be set now because the
+                        --  decision to use the secondary stack is done very
+                        --  late in the course of expanding the return
+                        --  statement, past the point where these flags are
+                        --  normally set.
+
+                        Set_Sec_Stack_Needed_For_Return (Parent_Function);
+                        Set_Sec_Stack_Needed_For_Return
+                          (Return_Statement_Entity (N));
+                        Set_Uses_Sec_Stack (Parent_Function);
+                        Set_Uses_Sec_Stack (Return_Statement_Entity (N));
+                     end if;
 
                      --  Create an if statement to test the BIP_Alloc_Form
                      --  formal and initialize the access object to either the
@@ -3836,8 +3841,8 @@ package body Exp_Ch5 is
 
       if Is_Tagged_Type (Utyp)
         and then not Is_Class_Wide_Type (Utyp)
-        and then (Nkind (Exp) = N_Type_Conversion
-                    or else Nkind (Exp) = N_Unchecked_Type_Conversion
+        and then (Nkind_In (Exp, N_Type_Conversion,
+                                 N_Unchecked_Type_Conversion)
                     or else (Is_Entity_Name (Exp)
                                and then Ekind (Entity (Exp)) in Formal_Kind))
       then
@@ -3912,8 +3917,8 @@ package body Exp_Ch5 is
         and then not Scope_Suppress (Accessibility_Check)
         and then
           (Is_Class_Wide_Type (Etype (Exp))
-            or else Nkind (Exp) = N_Type_Conversion
-            or else Nkind (Exp) = N_Unchecked_Type_Conversion
+            or else Nkind_In (Exp, N_Type_Conversion,
+                                   N_Unchecked_Type_Conversion)
             or else (Is_Entity_Name (Exp)
                        and then Ekind (Entity (Exp)) in Formal_Kind)
             or else Scope_Depth (Enclosing_Dynamic_Scope (Etype (Exp))) >

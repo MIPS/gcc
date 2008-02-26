@@ -1,5 +1,6 @@
 /* Specific flags and argument handling of the Fortran front-end.
-   Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+   2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -302,7 +303,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   g77_xargc = argc;
   g77_xargv = argv;
   g77_newargc = 0;
-  g77_newargv = (const char **) CONST_CAST (argv);
+  g77_newargv = CONST_CAST2 (const char **, const char *const *, argv);
 
   /* First pass through arglist.
 
@@ -375,7 +376,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 	  break;
 
 	case OPTION_version:
-	  printf ("GNU Fortran (GCC) %s\n", version_string);
+	  printf ("GNU Fortran %s%s\n", pkgversion_string, version_string);
 	  printf ("Copyright %s 2007 Free Software Foundation, Inc.\n\n",
 		  _("(C)"));
 	  printf (_("GNU Fortran comes with NO WARRANTY, to the extent permitted by law.\n\

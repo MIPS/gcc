@@ -211,7 +211,8 @@ enum c_storage_class {
 };
 
 /* A type specifier keyword "void", "_Bool", "char", "int", "float",
-   "double", or none of these.  */
+   "double", "_Decimal32", "_Decimal64", "_Decimal128", "_Fract", "_Accum",
+   or none of these.  */
 enum c_typespec_keyword {
   cts_none,
   cts_void,
@@ -222,7 +223,9 @@ enum c_typespec_keyword {
   cts_double,
   cts_dfloat32,
   cts_dfloat64,
-  cts_dfloat128
+  cts_dfloat128,
+  cts_fract,
+  cts_accum
 };
 
 /* A sequence of declaration specifiers in C.  */
@@ -290,6 +293,8 @@ struct c_declspecs {
   BOOL_BITFIELD volatile_p : 1;
   /* Whether "restrict" was specified.  */
   BOOL_BITFIELD restrict_p : 1;
+  /* Whether "_Sat" was specified.  */
+  BOOL_BITFIELD saturating_p : 1;
 };
 
 /* The various kinds of declarators in C.  */
@@ -521,7 +526,8 @@ extern tree finish_enum (tree, tree, tree);
 extern void finish_function (void);
 extern tree finish_struct (tree, tree, tree);
 extern struct c_arg_info *get_parm_info (bool);
-extern tree grokfield (struct c_declarator *, struct c_declspecs *, tree);
+extern tree grokfield (struct c_declarator *, struct c_declspecs *,
+		       tree, tree *);
 extern tree groktypename (struct c_type_name *);
 extern tree grokparm (const struct c_parm *);
 extern tree implicitly_declare (tree);
@@ -531,8 +537,7 @@ extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);
 extern void push_parm_decl (const struct c_parm *);
 extern struct c_declarator *set_array_declarator_inner (struct c_declarator *,
-							struct c_declarator *,
-							bool);
+							struct c_declarator *);
 extern tree c_builtin_function (tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
@@ -567,8 +572,6 @@ extern tree lookup_name_no_callback (tree);
 extern tree lookup_tag_no_callback (enum tree_code, tree);
 
 /* in c-objc-common.c */
-extern int c_disregard_inline_limits (const_tree);
-extern int c_cannot_inline_tree_fn (tree *);
 extern bool c_objc_common_init (void);
 extern bool c_missing_noreturn_ok_p (tree);
 extern tree c_objc_common_truthvalue_conversion (tree expr);
@@ -590,7 +593,7 @@ extern struct c_switch *c_switch_stack;
 extern struct c_label_context_se *label_context_stack_se;
 extern struct c_label_context_vm *label_context_stack_vm;
 
-extern int same_translation_unit_p (tree, tree);
+extern int same_translation_unit_p (const_tree, const_tree);
 extern int comptypes (tree, tree);
 extern bool c_vla_type_p (const_tree);
 extern bool c_mark_addressable (tree);

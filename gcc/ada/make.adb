@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -77,15 +76,43 @@ package body Make is
    --  Every program depends on this package, that must then be checked,
    --  especially when -f and -a are used.
 
+   procedure Kill (Pid : Process_Id; Sig_Num : Integer; Close : Integer);
+   pragma Import (C, Kill, "__gnat_kill");
+   --  Called by Sigint_Intercepted to kill all spawned compilation processes
+
    type Sigint_Handler is access procedure;
+   pragma Convention (C, Sigint_Handler);
 
    procedure Install_Int_Handler (Handler : Sigint_Handler);
    pragma Import (C, Install_Int_Handler, "__gnat_install_int_handler");
    --  Called by Gnatmake to install the SIGINT handler below
 
    procedure Sigint_Intercepted;
+   pragma Convention (C, Sigint_Intercepted);
    --  Called when the program is interrupted by Ctrl-C to delete the
    --  temporary mapping files and configuration pragmas files.
+
+   No_Mapping_File : constant Natural := 0;
+
+   type Compilation_Data is record
+      Pid              : Process_Id;
+      Full_Source_File : File_Name_Type;
+      Lib_File         : File_Name_Type;
+      Source_Unit      : Unit_Name_Type;
+      Mapping_File     : Natural := No_Mapping_File;
+      Project          : Project_Id := No_Project;
+      Syntax_Only      : Boolean := False;
+      Output_Is_Object : Boolean := True;
+   end record;
+   --  Data recorded for each compilation process spawned
+
+   type Comp_Data_Arr is array (Positive range <>) of Compilation_Data;
+   type Comp_Data_Ptr is access Comp_Data_Arr;
+   Running_Compile : Comp_Data_Ptr;
+   --  Used to save information about outstanding compilations
+
+   Outstanding_Compiles : Natural := 0;
+   --  Current number of outstanding compiles
 
    -------------------------
    -- Note on terminology --
@@ -392,8 +419,6 @@ package body Make is
 
    Shared_String           : aliased String := "-shared";
    Force_Elab_Flags_String : aliased String := "-F";
-   Version_Switch          : constant String := "--version";
-   Help_Switch             : constant String := "--help";
 
    No_Shared_Switch : aliased Argument_List := (1 .. 0 => null);
    Shared_Switch    : aliased Argument_List := (1 => Shared_String'Access);
@@ -508,9 +533,6 @@ package body Make is
    -------------------
    -- Misc Routines --
    -------------------
-
-   procedure Display_Version;
-   --  Display version when switch --version is used
 
    procedure List_Depend;
    --  Prints to standard output the list of object dependencies. This list
@@ -724,14 +746,15 @@ package body Make is
    --  added at the beginning of the command line.
 
    procedure Check
-     (Source_File  : File_Name_Type;
-      Source_Index : Int;
-      The_Args     : Argument_List;
-      Lib_File     : File_Name_Type;
-      Read_Only    : Boolean;
-      ALI          : out ALI_Id;
-      O_File       : out File_Name_Type;
-      O_Stamp      : out Time_Stamp_Type);
+     (Source_File    : File_Name_Type;
+      Source_Index   : Int;
+      Is_Main_Source : Boolean;
+      The_Args       : Argument_List;
+      Lib_File       : File_Name_Type;
+      Read_Only      : Boolean;
+      ALI            : out ALI_Id;
+      O_File         : out File_Name_Type;
+      O_Stamp        : out Time_Stamp_Type);
    --  Determines whether the library file Lib_File is up-to-date or not. The
    --  full name (with path information) of the object file corresponding to
    --  Lib_File is returned in O_File. Its time stamp is saved in O_Stamp.
@@ -752,9 +775,10 @@ package body Make is
    --  Otherwise O_File is No_File.
 
    procedure Collect_Arguments
-     (Source_File  : File_Name_Type;
-      Source_Index : Int;
-      Args         : Argument_List);
+     (Source_File    : File_Name_Type;
+      Source_Index   : Int;
+      Is_Main_Source : Boolean;
+      Args           : Argument_List);
    --  Collect all arguments for a source to be compiled, including those
    --  that come from a project file.
 
@@ -1403,14 +1427,15 @@ package body Make is
    -----------
 
    procedure Check
-     (Source_File  : File_Name_Type;
-      Source_Index : Int;
-      The_Args     : Argument_List;
-      Lib_File     : File_Name_Type;
-      Read_Only    : Boolean;
-      ALI          : out ALI_Id;
-      O_File       : out File_Name_Type;
-      O_Stamp      : out Time_Stamp_Type)
+     (Source_File    : File_Name_Type;
+      Source_Index   : Int;
+      Is_Main_Source : Boolean;
+      The_Args       : Argument_List;
+      Lib_File       : File_Name_Type;
+      Read_Only      : Boolean;
+      ALI            : out ALI_Id;
+      O_File         : out File_Name_Type;
+      O_Stamp        : out Time_Stamp_Type)
    is
       function First_New_Spec (A : ALI_Id) return File_Name_Type;
       --  Looks in the with table entries of A and returns the spec file name
@@ -1654,7 +1679,8 @@ package body Make is
 
             --  First, collect all the switches
 
-            Collect_Arguments (Source_File, Source_Index, The_Args);
+            Collect_Arguments
+              (Source_File, Source_Index, Is_Main_Source, The_Args);
 
             Prev_Switch := Dummy_Switch;
 
@@ -2238,9 +2264,10 @@ package body Make is
    -----------------------
 
    procedure Collect_Arguments
-     (Source_File  : File_Name_Type;
-      Source_Index : Int;
-      Args         : Argument_List)
+     (Source_File    : File_Name_Type;
+      Source_Index   : Int;
+      Is_Main_Source : Boolean;
+      Args           : Argument_List)
    is
    begin
       Arguments_Collected := True;
@@ -2420,6 +2447,29 @@ package body Make is
          end;
       end if;
 
+      --  For VMS, when compiling the main source, add switch
+      --  -mdebug-main=_ada_ so that the executable can be debugged
+      --  by the standard VMS debugger.
+
+      if not No_Main_Subprogram
+        and then Targparm.OpenVMS_On_Target
+        and then Is_Main_Source
+      then
+         --  First, check if compilation will be invoked with -g
+
+         for J in 1 .. Last_Argument loop
+            if Arguments (J)'Length >= 2
+              and then Arguments (J) (1 .. 2) = "-g"
+              and then (Arguments (J)'Length < 5
+                        or else Arguments (J) (1 .. 5) /= "-gnat")
+            then
+               Add_Arguments
+                 ((1 => new String'("-mdebug-main=_ada_")));
+               exit;
+            end if;
+         end loop;
+      end if;
+
       --  Set Output_Is_Object, depending if there is a -S switch.
       --  If the bind step is not performed, and there is a -S switch,
       --  then we will not check for a valid object file.
@@ -2448,25 +2498,6 @@ package body Make is
       Initialize_ALI_Data   : Boolean  := True;
       Max_Process           : Positive := 1)
    is
-      No_Mapping_File : constant Natural := 0;
-
-      type Compilation_Data is record
-         Pid              : Process_Id;
-         Full_Source_File : File_Name_Type;
-         Lib_File         : File_Name_Type;
-         Source_Unit      : Unit_Name_Type;
-         Mapping_File     : Natural := No_Mapping_File;
-         Project          : Project_Id := No_Project;
-         Syntax_Only      : Boolean := False;
-         Output_Is_Object : Boolean := True;
-      end record;
-
-      Running_Compile : array (1 .. Max_Process) of Compilation_Data;
-      --  Used to save information about outstanding compilations
-
-      Outstanding_Compiles : Natural := 0;
-      --  Current number of outstanding compiles
-
       Source_Unit : Unit_Name_Type;
       --  Current source unit
 
@@ -2770,30 +2801,8 @@ package body Make is
          --  If arguments not yet collected (in Check), collect them now
 
          if not Arguments_Collected then
-            Collect_Arguments (Source_File, Source_Index, Args);
-         end if;
-
-         --  For VMS, when compiling the main source, add switch
-         --  -mdebug-main=_ada_ so that the executable can be debugged
-         --  by the standard VMS debugger.
-
-         if not No_Main_Subprogram
-           and then Targparm.OpenVMS_On_Target
-           and then Source_File = Main_Source
-         then
-            --  First, check if compilation will be invoked with -g
-
-            for J in 1 .. Last_Argument loop
-               if Arguments (J)'Length >= 2
-                 and then Arguments (J) (1 .. 2) = "-g"
-                 and then (Arguments (J)'Length < 5
-                             or else Arguments (J) (1 .. 5) /= "-gnat")
-               then
-                  Add_Arguments
-                    ((1 => new String'("-mdebug-main=_ada_")));
-                  exit;
-               end if;
-            end loop;
+            Collect_Arguments
+              (Source_File, Source_Index, Source_File = Main_Source, Args);
          end if;
 
          --  If we use mapping file (-P or -C switches), then get one
@@ -3156,6 +3165,9 @@ package body Make is
    begin
       pragma Assert (Args'First = 1);
 
+      Outstanding_Compiles := 0;
+      Running_Compile := new Comp_Data_Arr (1 .. Max_Process);
+
       --  Package and Queue initializations
 
       Good_ALI.Init;
@@ -3295,9 +3307,10 @@ package body Make is
                else
                   Arguments_Collected := False;
 
-                  --  Do nothing if project of source is externally built
+                  Collect_Arguments (Source_File, Source_Index,
+                                     Source_File = Main_Source, Args);
 
-                  Collect_Arguments (Source_File, Source_Index, Args);
+                  --  Do nothing if project of source is externally built
 
                   if Arguments_Project = No_Project
                     or else not Project_Tree.Projects.Table
@@ -3313,7 +3326,8 @@ package body Make is
                           Full_Lib_File /= No_File
                           and then not Check_Readonly_Files
                           and then Is_Readonly_Library (Full_Lib_File);
-                        Check (Source_File, Source_Index, Args, Lib_File,
+                        Check (Source_File, Source_Index,
+                               Source_File = Main_Source, Args, Lib_File,
                                Read_Only, ALI, Obj_File, Obj_Stamp);
                         Need_To_Compile := (ALI = No_ALI_Id);
                      end if;
@@ -3562,15 +3576,22 @@ package body Make is
                               if Uid /= Prj.No_Unit_Index then
                                  Udata := Project_Tree.Units.Table (Uid);
 
-                                 if Udata.File_Names (Body_Part).Name /=
-                                                                     No_File
+                                 if
+                                    Udata.File_Names (Body_Part).Name /=
+                                                                       No_File
+                                   and then
+                                     Udata.File_Names (Body_Part).Path /= Slash
                                  then
                                     Sfile := Udata.File_Names (Body_Part).Name;
                                     Source_Index :=
                                       Udata.File_Names (Body_Part).Index;
 
-                                 elsif Udata.File_Names (Specification).Name /=
-                                                                     No_File
+                                 elsif
+                                    Udata.File_Names (Specification).Name /=
+                                                                        No_File
+                                   and then
+                                    Udata.File_Names (Specification).Path /=
+                                                                          Slash
                                  then
                                     Sfile :=
                                       Udata.File_Names (Specification).Name;
@@ -3936,6 +3957,7 @@ package body Make is
 
    procedure Delete_Mapping_Files is
       Success : Boolean;
+      pragma Warnings (Off, Success);
    begin
       if not Debug.Debug_Flag_N then
          if The_Mapping_File_Names /= null then
@@ -3957,6 +3979,8 @@ package body Make is
 
    procedure Delete_Temp_Config_Files is
       Success : Boolean;
+      pragma Warnings (Off, Success);
+
    begin
       if (not Debug.Debug_Flag_N) and Main_Project /= No_Project then
          for Project in Project_Table.First ..
@@ -4062,26 +4086,6 @@ package body Make is
    begin
       Display_Executed_Programs := Display;
    end Display_Commands;
-
-   ---------------------
-   -- Display_Version --
-   ---------------------
-
-   procedure Display_Version is
-   begin
-      Write_Str ("GNATMAKE ");
-      Write_Str (Gnatvsn.Gnat_Version_String);
-      Write_Eol;
-
-      Write_Str ("Copyright (C) 1995-");
-      Write_Str (Gnatvsn.Current_Year);
-      Write_Str (", Free Software Foundation, Inc.");
-      Write_Eol;
-
-      Write_Str (Gnatvsn.Gnat_Free_Software);
-      Write_Eol;
-      Write_Eol;
-   end Display_Version;
 
    -------------
    -- Empty_Q --
@@ -4212,6 +4216,7 @@ package body Make is
       --  The path name of the mapping file
 
       Discard : Boolean;
+      pragma Warnings (Off, Discard);
 
       procedure Check_Mains;
       --  Check that the main subprograms do exist and that they all
@@ -4821,14 +4826,7 @@ package body Make is
 
       if Verbose_Mode then
          Write_Eol;
-         Write_Str ("GNATMAKE ");
-         Write_Str (Gnatvsn.Gnat_Version_String);
-         Write_Eol;
-         Write_Str
-           ("Copyright 1995-" &
-            Current_Year &
-            ", Free Software Foundation, Inc.");
-         Write_Eol;
+         Display_Version ("GNATMAKE ", "1995");
       end if;
 
       if Main_Project /= No_Project
@@ -4901,7 +4899,6 @@ package body Make is
          Main_Index := Current_File_Index;
       end if;
 
-      Add_Switch ("-I-", Binder, And_Save => True);
       Add_Switch ("-I-", Compiler, And_Save => True);
 
       if Main_Project = No_Project then
@@ -4914,10 +4911,6 @@ package body Make is
                Compiler, Append_Switch => False,
                And_Save => False);
 
-            Add_Switch ("-aO" & Normalized_CWD,
-                        Binder,
-                        Append_Switch => False,
-                        And_Save => False);
          end if;
 
       else
@@ -4930,6 +4923,7 @@ package body Make is
          --  projects.
 
          Look_In_Primary_Dir := False;
+         Add_Switch ("-I-", Binder, And_Save => True);
       end if;
 
       --  If the user wants a program without a main subprogram, add the
@@ -5159,7 +5153,6 @@ package body Make is
 
       begin
          Targparm.Get_Target_Parameters;
-
       exception
          when Unrecoverable_Error =>
             Make_Failed ("*** make failed.");
@@ -5169,15 +5162,16 @@ package body Make is
 
       if Targparm.VM_Target /= No_VM then
 
-         --  Do not check for an object file (".o") when compiling to VM
-         --  machine since ".class" files are generated instead.
-
-         Check_Object_Consistency := False;
-
          --  Set proper processing commands
 
          case Targparm.VM_Target is
             when Targparm.JVM_Target =>
+
+               --  Do not check for an object file (".o") when compiling to
+               --  JVM machine since ".class" files are generated instead.
+
+               Check_Object_Consistency := False;
+
                Gcc := new String'("jgnat");
                Gnatbind := new String'("jgnatbind");
                Gnatlink := new String'("jgnatlink");
@@ -5196,9 +5190,9 @@ package body Make is
 
       if Main_Project /= No_Project then
 
-         --  For all library project, if the library file does not exist
-         --  put all the project sources in the queue, and flag the project
-         --  so that the library is generated.
+         --  For all library project, if the library file does not exist, put
+         --  all the project sources in the queue, and flag the project so that
+         --  the library is generated.
 
          if not Unique_Compile
            and then MLib.Tgt.Support_For_Libraries /= Prj.None
@@ -5363,8 +5357,8 @@ package body Make is
          end loop;
 
       else
-         --  And we put the command line gcc switches in the variable
-         --  The_Saved_Gcc_Switches. They are going to be used later
+         --  If there is a project, put the command line gcc switches in the
+         --  variable The_Saved_Gcc_Switches. They are going to be used later
          --  in procedure Compile_Sources.
 
          The_Saved_Gcc_Switches :=
@@ -5378,7 +5372,6 @@ package body Make is
 
          The_Saved_Gcc_Switches (The_Saved_Gcc_Switches'Last) :=
            No_gnat_adc;
-
       end if;
 
       --  If there was a --GCC, --GNATBIND or --GNATLINK switch on
@@ -5431,6 +5424,15 @@ package body Make is
 
       Bad_Compilation.Init;
 
+      --  If project files are used, create the mapping of all the sources,
+      --  so that the correct paths will be found. Otherwise, if there is
+      --  a file which is not a source with the same name in a source directory
+      --  this file may be incorrectly found.
+
+      if Main_Project /= No_Project then
+         Prj.Env.Create_Mapping (Project_Tree);
+      end if;
+
       Current_Main_Index := Main_Index;
 
       --  Here is where the make process is started
@@ -5446,8 +5448,8 @@ package body Make is
          Non_Std_Executable  :=
            Targparm.Executable_Extension_On_Target /= No_Name;
 
-         --  Look inside the linker switches to see if the name
-         --  of the final executable program was specified.
+         --  Look inside the linker switches to see if the name of the final
+         --  executable program was specified.
 
          for
            J in reverse Linker_Switches.First .. Linker_Switches.Last
@@ -5473,8 +5475,8 @@ package body Make is
             end if;
          end loop;
 
-         --  If the name of the final executable program was not
-         --  specified then construct it from the main input file.
+         --  If the name of the final executable program was not specified
+         --  then construct it from the main input file.
 
          if Executable = No_File then
             if Main_Project = No_Project then
@@ -5482,11 +5484,10 @@ package body Make is
                  Executable_Name (Strip_Suffix (Main_Source_File));
 
             else
-               --  If we are using a project file, we attempt to
-               --  remove the body (or spec) termination of the main
-               --  subprogram. We find it the the naming scheme of the
-               --  project file. This will avoid to generate an
-               --  executable "main.2" for a main subprogram
+               --  If we are using a project file, we attempt to remove the
+               --  body (or spec) termination of the main subprogram. We find
+               --  it the the naming scheme of the project file. This avoids
+               --  generating an executable "main.2" for a main subprogram
                --  "main.2.ada", when the body termination is ".2.ada".
 
                Executable :=
@@ -5502,13 +5503,10 @@ package body Make is
 
             begin
                if not Is_Absolute_Path (Exec_File_Name) then
-
                   Get_Name_String (Project_Tree.Projects.Table
                                      (Main_Project).Display_Exec_Dir);
 
-                  if
-                    Name_Buffer (Name_Len) /= Directory_Separator
-                  then
+                  if Name_Buffer (Name_Len) /= Directory_Separator then
                      Name_Len := Name_Len + 1;
                      Name_Buffer (Name_Len) := Directory_Separator;
                   end if;
@@ -5533,10 +5531,10 @@ package body Make is
                Youngest_Obj_File   : File_Name_Type;
                Youngest_Obj_Stamp  : Time_Stamp_Type;
 
-               Executable_Stamp    : Time_Stamp_Type;
+               Executable_Stamp : Time_Stamp_Type;
                --  Executable is the final executable program
 
-               Library_Rebuilt     : Boolean := False;
+               Library_Rebuilt : Boolean := False;
 
             begin
                for J in 1 .. Gcc_Switches.Last loop
@@ -5583,7 +5581,7 @@ package body Make is
                   end if;
                end if;
 
-               --  Regenerate libraries, if any, and if object files
+               --  Regenerate libraries, if there are any and if object files
                --  have been regenerated.
 
                if Main_Project /= No_Project
@@ -5600,8 +5598,8 @@ package body Make is
                      Current : Natural;
 
                      procedure Add_To_Library_Projs (Proj : Project_Id);
-                     --  Add project Project to table Library_Projs
-                     --  in decreasing depth order.
+                     --  Add project Project to table Library_Projs in
+                     --  decreasing depth order.
 
                      --------------------------
                      -- Add_To_Library_Projs --
@@ -5614,9 +5612,8 @@ package body Make is
                         Library_Projs.Increment_Last;
                         Depth := Project_Tree.Projects.Table (Proj).Depth;
 
-                        --  Put the projects in decreasing depth order,
-                        --  so that if libA depends on libB, libB is first
-                        --  in order.
+                        --  Put the projects in decreasing depth order, so that
+                        --  if libA depends on libB, libB is first in order.
 
                         Current := Library_Projs.Last;
                         while Current > 1 loop
@@ -5631,7 +5628,7 @@ package body Make is
                      end Add_To_Library_Projs;
 
                   --  Start of processing for ??? (should name declare block
-                  --  or probably better, break this out as a nested proc.
+                  --  or probably better, break this out as a nested proc).
 
                   begin
                      --  Put in Library_Projs table all library project
@@ -5804,7 +5801,7 @@ package body Make is
                --  since there is currently no simple way to check the
                --  up-to-date status of objects
 
-               if Targparm.VM_Target = No_VM
+               if Targparm.VM_Target /= JVM_Target
                  and then First_Compiled_File = No_File
                then
                   Executable_Stamp := File_Stamp (Executable);
@@ -5904,8 +5901,8 @@ package body Make is
 
             --  When In_Place_Mode, the library file can be located in the
             --  Main_Source_File directory which may not be present in the
-            --  library path. In this case, use the corresponding library file
-            --  name.
+            --  library path. If it is not present then use the corresponding
+            --  library file name.
 
             if Main_ALI_File = No_File and then In_Place_Mode then
                Get_Name_String (Get_Directory (Full_Source_Name (Src_File)));
@@ -5966,7 +5963,7 @@ package body Make is
                   end loop;
                end if;
 
-               --  If there are shared libraries, invoke gnatlink with
+               --  If shared libraries present, invoke gnatlink with
                --  -shared-libgcc.
 
                if Shared_Libs then
@@ -5987,7 +5984,7 @@ package body Make is
                if Main_Project /= No_Project then
 
                   --  Put all the source directories in ADA_INCLUDE_PATH,
-                  --  and all the object directories in ADA_OBJECTS_PATH
+                  --  and all the object directories in ADA_OBJECTS_PATH.
 
                   Prj.Env.Set_Ada_Paths (Main_Project, Project_Tree, False);
 
@@ -6051,6 +6048,7 @@ package body Make is
                   Library_Projs.Init;
 
                   if MLib.Tgt.Support_For_Libraries /= Prj.None then
+
                      --  Check for library projects
 
                      for Proj1 in Project_Table.First ..
@@ -6098,6 +6096,7 @@ package body Make is
                      end loop;
 
                      for Index in 1 .. Library_Projs.Last loop
+
                         --  Add the -L switch
 
                         Linker_Switches.Increment_Last;
@@ -6594,13 +6593,19 @@ package body Make is
    ----------------
 
    procedure Initialize is
+
+      procedure Check_Version_And_Help is
+         new Check_Version_And_Help_G (Makeusg);
+
+      --  Start of processing for Initialize
+
    begin
       Prj.Set_Mode (Ada_Only);
 
-      --  Override default initialization of Check_Object_Consistency
-      --  since this is normally False for GNATBIND, but is True for
-      --  GNATMAKE since we do not need to check source consistency
-      --  again once GNATMAKE has looked at the sources to check.
+      --  Override default initialization of Check_Object_Consistency since
+      --  this is normally False for GNATBIND, but is True for GNATMAKE since
+      --  we do not need to check source consistency again once GNATMAKE has
+      --  looked at the sources to check.
 
       Check_Object_Consistency := True;
 
@@ -6670,49 +6675,16 @@ package body Make is
 
       --  Scan the switches and arguments
 
-      declare
-         Args                   : Argument_List (1 .. Argument_Count);
-         Version_Switch_Present : Boolean := False;
-         Help_Switch_Present    : Boolean := False;
+      --  First, scan to detect --version and/or --help
 
-      begin
-         --  First, scan to detect --version and/or --help
+      Check_Version_And_Help ("GNATMAKE", "1995");
 
-         for Next_Arg in 1 .. Argument_Count loop
-            Args (Next_Arg) := new String'(Argument (Next_Arg));
+      --  Scan again the switch and arguments, now that we are sure that they
+      --  do not include --version or --help.
 
-            if Args (Next_Arg).all = Version_Switch then
-               Version_Switch_Present := True;
-            elsif Args (Next_Arg).all = Help_Switch then
-               Help_Switch_Present := True;
-            end if;
-         end loop;
-
-         --  If --version was used, display version and exit
-
-         if Version_Switch_Present then
-            Set_Standard_Output;
-            Display_Version;
-            Exit_Program (E_Success);
-         end if;
-
-         --  If --help was used, display help and exit
-
-         if Help_Switch_Present then
-            Set_Standard_Output;
-            Makeusg;
-            Write_Eol;
-            Write_Line ("Report bugs to report@adacore.com");
-            Exit_Program (E_Success);
-         end if;
-
-         --  Scan again the switch and arguments, now that we are sure that
-         --  they do not include --version or --help.
-
-         Scan_Args : for Next_Arg in Args'Range loop
-            Scan_Make_Arg (Args (Next_Arg).all, And_Save => True);
-         end loop Scan_Args;
-      end;
+      Scan_Args : for Next_Arg in 1 .. Argument_Count loop
+         Scan_Make_Arg (Argument (Next_Arg), And_Save => True);
+      end loop Scan_Args;
 
       if Commands_To_Stdout then
          Set_Standard_Output;
@@ -6750,6 +6722,7 @@ package body Make is
       --  Deal with -C= switch
 
       if Gnatmake_Mapping_File /= null then
+
          --  First, check compatibility with other switches
 
          if Project_File_Name /= null then
@@ -7121,8 +7094,10 @@ package body Make is
                                  Get_Name_String (Source_File);
             Saved_Verbosity  : constant Verbosity := Current_Verbosity;
             Project          : Project_Id         := No_Project;
-            Path_Name        : Path_Name_Type     := No_Path;
             Data             : Project_Data;
+
+            Path_Name : Path_Name_Type := No_Path;
+            pragma Warnings (Off, Path_Name);
 
          begin
             --  Call Get_Reference to know the ultimate extending project of
@@ -7441,10 +7416,18 @@ package body Make is
    ------------------------
 
    procedure Sigint_Intercepted is
+      SIGINT  : constant := 2;
    begin
       Set_Standard_Error;
       Write_Line ("*** Interrupted ***");
       Delete_All_Temp_Files;
+
+      --  Send SIGINT to all oustanding compilation processes spawned
+
+      for J in 1 .. Outstanding_Compiles loop
+         Kill (Running_Compile (J).Pid, SIGINT, 1);
+      end loop;
+
       OS_Exit (1);
    end Sigint_Intercepted;
 
@@ -7716,7 +7699,6 @@ package body Make is
       --  If we have seen a regular switch process it
 
       elsif Argv (1) = '-' then
-
          if Argv'Length = 1 then
             Make_Failed ("switch character cannot be followed by a blank");
 
@@ -7772,6 +7754,18 @@ package body Make is
             Add_Switch ("-aO" & Argv (4 .. Argv'Last),
                         Binder,
                         And_Save => And_Save);
+
+         --  -aamp_target=...
+
+         elsif Argv'Length >= 13 and then Argv (2 .. 13) = "aamp_target=" then
+            Add_Switch (Argv, Compiler, And_Save => And_Save);
+
+            --  Set the aamp_target environment variable so that the binder and
+            --  linker will use the proper target library. This is consistent
+            --  with how things work when -aamp_target is passed on the command
+            --  line to gnaampmake.
+
+            Setenv ("aamp_target", Argv (14 .. Argv'Last));
 
          --  -Adir (to gnatbind this is like a -aO switch, to gcc like a -I)
 
@@ -7843,7 +7837,6 @@ package body Make is
             if Project_File_Name /= null then
                Make_Failed ("-i cannot be used in conjunction with a " &
                             "project file");
-
             else
                Scan_Make_Switches (Argv, Success);
             end if;

@@ -1,4 +1,5 @@
 /* Implementation of the SIGNAL and ALARM g77 intrinsics
+   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
    Contributed by François-Xavier Coudert <coudert@clipper.ens.fr>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -27,7 +28,6 @@ License along with libgfortran; see the file COPYING.  If not,
 write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
-#include "config.h"
 #include "libgfortran.h"
 
 #ifdef HAVE_UNISTD_H
@@ -136,7 +136,9 @@ extern void alarm_sub_i4 (int *, void (*)(int), GFC_INTEGER_4 *);
 iexport_proto(alarm_sub_i4);
 
 void
-alarm_sub_i4 (int *seconds, void (*handler)(int), GFC_INTEGER_4 *status)
+alarm_sub_i4 (int * seconds __attribute__ ((unused)),
+	      void (*handler)(int) __attribute__ ((unused)),
+	      GFC_INTEGER_4 *status)
 {
 #if defined (SIGALRM) && defined (HAVE_ALARM) && defined (HAVE_SIGNAL)
   if (status != NULL)
@@ -164,7 +166,9 @@ extern void alarm_sub_i8 (int *, void (*)(int), GFC_INTEGER_8 *);
 iexport_proto(alarm_sub_i8);
 
 void
-alarm_sub_i8 (int *seconds, void (*handler)(int), GFC_INTEGER_8 *status)
+alarm_sub_i8 (int *seconds __attribute__ ((unused)),
+	      void (*handler)(int) __attribute__ ((unused)),
+	      GFC_INTEGER_8 *status)
 {
 #if defined (SIGALRM) && defined (HAVE_ALARM) && defined (HAVE_SIGNAL)
   if (status != NULL)
@@ -193,19 +197,21 @@ extern void alarm_sub_int_i4 (int *, int *, GFC_INTEGER_4 *);
 iexport_proto(alarm_sub_int_i4);
 
 void
-alarm_sub_int_i4 (int *seconds, int *handler, GFC_INTEGER_4 *status)
+alarm_sub_int_i4 (int *seconds __attribute__ ((unused)),
+		  int *handler __attribute__ ((unused)),
+		  GFC_INTEGER_4 *status)
 {
 #if defined (SIGALRM) && defined (HAVE_ALARM) && defined (HAVE_SIGNAL)
   if (status != NULL)
     {
-      if (signal (SIGALRM, (void (*)(int)) *handler) == SIG_ERR)
+      if (signal (SIGALRM, (void (*)(int)) (INTPTR_T) *handler) == SIG_ERR)
 	*status = -1;
       else
 	*status = alarm (*seconds);
     }
   else
     {
-      signal (SIGALRM, (void (*)(int)) *handler);
+      signal (SIGALRM, (void (*)(int)) (INTPTR_T) *handler);
       alarm (*seconds);
     }
 #else
@@ -221,19 +227,21 @@ extern void alarm_sub_int_i8 (int *, int *, GFC_INTEGER_8 *);
 iexport_proto(alarm_sub_int_i8);
 
 void
-alarm_sub_int_i8 (int *seconds, int *handler, GFC_INTEGER_8 *status)
+alarm_sub_int_i8 (int *seconds __attribute__ ((unused)),
+		  int *handler __attribute__ ((unused)),
+		  GFC_INTEGER_8 *status)
 {
 #if defined (SIGALRM) && defined (HAVE_ALARM) && defined (HAVE_SIGNAL)
   if (status != NULL)
     {
-      if (signal (SIGALRM, (void (*)(int)) *handler) == SIG_ERR)
+      if (signal (SIGALRM, (void (*)(int)) (INTPTR_T) *handler) == SIG_ERR)
 	*status = -1;
       else
 	*status = alarm (*seconds);
     }
   else
     {
-      signal (SIGALRM, (void (*)(int)) *handler);
+      signal (SIGALRM, (void (*)(int)) (INTPTR_T) *handler);
       alarm (*seconds);
     }
 #else

@@ -242,6 +242,29 @@ get_mem_sym_stats_for (tree var)
 }
 
 
+/* Return memory reference statistics for variable VAR in function FN.
+   This is computed by alias analysis, but it is not kept
+   incrementally up-to-date.  So, these stats are only accurate if
+   pass_may_alias has been run recently.  If no alias information
+   exists, this function returns NULL.  */
+
+static mem_sym_stats_t
+mem_sym_stats (struct function *fn, tree var)
+{
+  void **slot;
+  struct pointer_map_t *stats_map = gimple_mem_ref_stats (fn)->mem_sym_stats;
+
+  if (stats_map == NULL)
+    return NULL;
+
+  slot = pointer_map_contains (stats_map, var);
+  if (slot == NULL)
+    return NULL;
+
+  return (mem_sym_stats_t) *slot;
+}
+
+
 /* Set MPT to be the memory partition associated with symbol SYM.  */
 
 static inline void
@@ -364,7 +387,7 @@ add_to_worklist (tree alias, VEC (tree, heap) **worklist,
 static void
 mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist,
 			     VEC (int, heap) **worklist2,
-			     bitmap on_worklist)
+			     bitmap on_worklist, bitmap queued)
 {
   bitmap aliases;
   bitmap_iterator bi;
@@ -387,19 +410,27 @@ mark_aliases_call_clobbered (tree tag, VEC (tree, heap) **worklist,
 	 in order to allow C/C++ tricks that involve
 	 pointer arithmetic to work.  */
       if (TREE_CODE (entry) == STRUCT_FIELD_TAG)
-	{
-	  subvar_t svars;
-	  svars = get_subvars_for_var (SFT_PARENT_VAR (entry));
-	  for (; svars; svars = svars->next)
-	    if (!unmodifiable_var_p (entry))
-	      mark_call_clobbered (svars->var, ta->escape_mask);
-	}
+	bitmap_set_bit (queued, DECL_UID (SFT_PARENT_VAR (entry)));
       else if (!unmodifiable_var_p (entry))
 	{
 	  add_to_worklist (entry, worklist, worklist2, ta->escape_mask,
 			   on_worklist);
 	  mark_call_clobbered (entry, ta->escape_mask);
 	}
+    }
+  if (!bitmap_empty_p (queued))
+    {
+      EXECUTE_IF_SET_IN_BITMAP (queued, 0, i, bi)
+	{
+	  subvar_t svars = get_subvars_for_var (referenced_var (i));
+	  unsigned int i;
+	  tree subvar;
+
+	  for (i = 0; VEC_iterate (tree, svars, i, subvar); ++i)
+	    if (!unmodifiable_var_p (subvar))
+	       mark_call_clobbered (subvar, ta->escape_mask);
+	}
+      bitmap_clear (queued);
     }
 }
 
@@ -508,6 +539,11 @@ set_initial_properties (struct alias_info *ai)
   referenced_var_iterator rvi;
   tree var;
   tree ptr;
+  bitmap queued;
+
+  /* Temporary bitmap to avoid quadratic behavior in marking
+     call clobbers.  */
+  queued = BITMAP_ALLOC (&alias_bitmap_obstack);
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
@@ -557,15 +593,24 @@ set_initial_properties (struct alias_info *ai)
 		     in order to allow C/C++ tricks that involve
 		     pointer arithmetic to work.  */
 		  if (TREE_CODE (alias) == STRUCT_FIELD_TAG)
-		    {
-		      subvar_t svars;
-		      svars = get_subvars_for_var (SFT_PARENT_VAR (alias));
-		      for (; svars; svars = svars->next)
-			if (!unmodifiable_var_p (alias))
-			  mark_call_clobbered (svars->var, pi->escape_mask);
-		    }
+		    bitmap_set_bit (queued, DECL_UID (SFT_PARENT_VAR (alias)));
 		  else if (!unmodifiable_var_p (alias))
 		    mark_call_clobbered (alias, pi->escape_mask);
+		}
+	      /* Process variables we need to clobber all parts of.  */
+	      if (!bitmap_empty_p (queued))
+		{
+		  EXECUTE_IF_SET_IN_BITMAP (queued, 0, j, bi)
+		    {
+		      subvar_t svars = get_subvars_for_var (referenced_var (j));
+		      unsigned int i;
+		      tree subvar;
+
+		      for (i = 0; VEC_iterate (tree, svars, i, subvar); ++i)
+			if (!unmodifiable_var_p (subvar))
+			  mark_call_clobbered (subvar, pi->escape_mask);
+		    }
+		  bitmap_clear (queued);
 		}
 	    }
 	}
@@ -600,6 +645,8 @@ set_initial_properties (struct alias_info *ai)
 	  MTAG_GLOBAL (tag) = true;
 	}
     }
+
+  BITMAP_FREE (queued);
 }
 
 /* Compute which variables need to be marked call clobbered because
@@ -611,10 +658,11 @@ compute_call_clobbered (struct alias_info *ai)
 {
   VEC (tree, heap) *worklist = NULL;
   VEC (int,heap) *worklist2 = NULL;
-  bitmap on_worklist;
+  bitmap on_worklist, queued;
 
   timevar_push (TV_CALL_CLOBBER);
   on_worklist = BITMAP_ALLOC (NULL);
+  queued = BITMAP_ALLOC (NULL);
     
   set_initial_properties (ai);
   init_transitive_clobber_worklist (&worklist, &worklist2, on_worklist);
@@ -626,11 +674,12 @@ compute_call_clobbered (struct alias_info *ai)
       bitmap_clear_bit (on_worklist, DECL_UID (curr));
       mark_call_clobbered (curr, reason);
       mark_aliases_call_clobbered (curr, &worklist, &worklist2,
-				   on_worklist);
+				   on_worklist, queued);
     }
   VEC_free (tree, heap, worklist);
   VEC_free (int, heap, worklist2);
   BITMAP_FREE (on_worklist);
+  BITMAP_FREE (queued);
   compute_tag_properties ();
   timevar_pop (TV_CALL_CLOBBER);
 }
@@ -752,6 +801,47 @@ count_mem_refs (long *num_vuses_p, long *num_vdefs_p,
 }
 
 
+/* The list is sorted by increasing partitioning score (PSCORE).
+   This score is computed such that symbols with high scores are
+   those that are least likely to be partitioned.  Given a symbol
+   MP->VAR, PSCORE(S) is the result of the following weighted sum
+
+   PSCORE(S) =   FW * 64 + FR * 32
+   	       + DW * 16 + DR *  8 
+   	       + IW *  4 + IR *  2
+               + NO_ALIAS
+
+   where
+
+   FW		Execution frequency of writes to S
+   FR		Execution frequency of reads from S
+   DW		Number of direct writes to S
+   DR		Number of direct reads from S
+   IW		Number of indirect writes to S
+   IR		Number of indirect reads from S
+   NO_ALIAS	State of the NO_ALIAS* flags
+
+   The basic idea here is that symbols that are frequently
+   written-to in hot paths of the code are the last to be considered
+   for partitioning.  */
+
+static inline long
+mem_sym_score (mem_sym_stats_t mp)
+{
+  /* Unpartitionable SFTs are automatically thrown to the bottom of
+     the list.  They are not stored in partitions, but they are used
+     for computing overall statistics.  */
+  if (TREE_CODE (mp->var) == STRUCT_FIELD_TAG
+      && SFT_UNPARTITIONABLE_P (mp->var))
+    return LONG_MAX;
+
+  return mp->frequency_writes * 64 + mp->frequency_reads * 32
+         + mp->num_direct_writes * 16 + mp->num_direct_reads * 8
+	 + mp->num_indirect_writes * 4 + mp->num_indirect_reads * 2
+	 + var_ann (mp->var)->noalias_state;
+}
+
+
 /* Dump memory reference stats for function CFUN to FILE.  */
 
 void
@@ -852,6 +942,23 @@ debug_mem_sym_stats (tree var)
   dump_mem_sym_stats (stderr, var);
 }
 
+/* Dump memory reference stats for variable VAR to FILE.  For use
+   of tree-dfa.c:dump_variable.  */
+
+void
+dump_mem_sym_stats_for_var (FILE *file, tree var)
+{
+  mem_sym_stats_t stats = mem_sym_stats (cfun, var);
+
+  if (stats == NULL)
+    return;
+
+  fprintf (file, ", score: %ld", mem_sym_score (stats));
+  fprintf (file, ", direct reads: %ld", stats->num_direct_reads);
+  fprintf (file, ", direct writes: %ld", stats->num_direct_writes);
+  fprintf (file, ", indirect reads: %ld", stats->num_indirect_reads);
+  fprintf (file, ", indirect writes: %ld", stats->num_indirect_writes);
+}
 
 /* Dump memory reference stats for all memory symbols to FILE.  */
 
@@ -928,40 +1035,6 @@ update_mem_sym_stats_from_stmt (tree var, tree stmt, long num_direct_reads,
 }
 
 
-/* The list is sorted by increasing partitioning score (PSCORE).
-   This score is computed such that symbols with high scores are
-   those that are least likely to be partitioned.  Given a symbol
-   MP->VAR, PSCORE(S) is the result of the following weighted sum
-
-   PSCORE(S) =   FW * 64 + FR * 32
-   	       + DW * 16 + DR *  8 
-   	       + IW *  4 + IR *  2
-               + NO_ALIAS
-
-   where
-
-   FW		Execution frequency of writes to S
-   FR		Execution frequency of reads from S
-   DW		Number of direct writes to S
-   DR		Number of direct reads from S
-   IW		Number of indirect writes to S
-   IR		Number of indirect reads from S
-   NO_ALIAS	State of the NO_ALIAS* flags
-
-   The basic idea here is that symbols that are frequently
-   written-to in hot paths of the code are the last to be considered
-   for partitioning.  */
-
-static inline long
-pscore (mem_sym_stats_t mp)
-{
-  return mp->frequency_writes * 64 + mp->frequency_reads * 32
-         + mp->num_direct_writes * 16 + mp->num_direct_reads * 8
-	 + mp->num_indirect_writes * 4 + mp->num_indirect_reads * 2
-	 + var_ann (mp->var)->noalias_state;
-}
-
-
 /* Given two MP_INFO entries MP1 and MP2, return -1 if MP1->VAR should
    be partitioned before MP2->VAR, 0 if they are the same or 1 if
    MP1->VAR should be partitioned after MP2->VAR.  */
@@ -969,15 +1042,15 @@ pscore (mem_sym_stats_t mp)
 static inline int
 compare_mp_info_entries (mem_sym_stats_t mp1, mem_sym_stats_t mp2)
 {
-  long pscore1 = pscore (mp1);
-  long pscore2 = pscore (mp2);
+  long pscore1 = mem_sym_score (mp1);
+  long pscore2 = mem_sym_score (mp2);
 
   if (pscore1 < pscore2)
     return -1;
   else if (pscore1 > pscore2)
     return 1;
   else
-    return 0;
+    return DECL_UID (mp1->var) - DECL_UID (mp2->var);
 }
 
 
@@ -1326,8 +1399,8 @@ update_reference_counts (struct mem_ref_stats_d *mem_ref_stats)
 
 static void
 build_mp_info (struct mem_ref_stats_d *mem_ref_stats,
-                 VEC(mem_sym_stats_t,heap) **mp_info_p,
-		 VEC(tree,heap) **tags_p)
+               VEC(mem_sym_stats_t,heap) **mp_info_p,
+	       VEC(tree,heap) **tags_p)
 {
   tree var;
   referenced_var_iterator rvi;
@@ -1524,6 +1597,15 @@ compute_memory_partitions (void)
       /* If we are below the threshold, stop.  */
       if (!need_to_partition_p (mem_ref_stats))
 	break;
+
+      /* SFTs that are marked unpartitionable should not be added to
+	 partitions.  These SFTs are special because they mark the
+	 first SFT into a structure where a pointer is pointing to.
+	 This is needed by the operand scanner to find adjacent
+	 fields.  See add_vars_for_offset for details.  */
+      if (TREE_CODE (mp_p->var) == STRUCT_FIELD_TAG
+	  && SFT_UNPARTITIONABLE_P (mp_p->var))
+	continue;
 
       mpt = find_partition_for (mp_p);
       estimate_vop_reduction (mem_ref_stats, mp_p, mpt);
@@ -2216,7 +2298,7 @@ create_name_tags (void)
 
       /* Inherit volatility from the pointed-to type.  */
       TREE_THIS_VOLATILE (pi->name_mem_tag)
-	|= TREE_THIS_VOLATILE (TREE_TYPE (TREE_TYPE (ptr)));
+	|= TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (ptr)));
       
       /* Mark the new name tag for renaming.  */
       mark_sym_for_renaming (pi->name_mem_tag);
@@ -2582,14 +2664,15 @@ setup_pointers_and_addressables (struct alias_info *ai)
 	      if (var_can_have_subvars (var)
 		  && (svars = get_subvars_for_var (var)))
 		{
-		  subvar_t sv;
+		  unsigned int i;
+		  tree subvar;
 
-		  for (sv = svars; sv; sv = sv->next)
+		  for (i = 0; VEC_iterate (tree, svars, i, subvar); ++i)
 		    {	      
 		      if (bitmap_bit_p (gimple_addressable_vars (cfun),
-					DECL_UID (sv->var)))
+					DECL_UID (subvar)))
 			okay_to_mark = false;
-		      mark_sym_for_renaming (sv->var);
+		      mark_sym_for_renaming (subvar);
 		    }
 		}
 
@@ -2713,7 +2796,7 @@ maybe_create_global_var (void)
 	 So, if we have some pure/const and some regular calls in the
 	 program we create .GLOBAL_VAR to avoid missing these
 	 relations.  */
-      if (bitmap_count_bits (gimple_call_clobbered_vars (cfun)) == 0
+      if (bitmap_empty_p (gimple_call_clobbered_vars (cfun))
 	  && stats->num_call_sites > 0
 	  && stats->num_pure_const_call_sites > 0
 	  && stats->num_call_sites > stats->num_pure_const_call_sites)
@@ -3477,7 +3560,8 @@ add_may_alias_for_new_tag (tree tag, tree var)
     aliases = may_aliases (var);
 
   /* Case 1: |aliases| == 1  */
-  if (aliases && bitmap_count_bits (aliases) == 1)
+  if (aliases
+      && bitmap_single_bit_set_p (aliases))
     {
       tree ali = referenced_var (bitmap_first_set_bit (aliases));
       if (TREE_CODE (ali) == SYMBOL_MEMORY_TAG)
@@ -3512,8 +3596,9 @@ new_type_alias (tree ptr, tree var, tree expr)
   HOST_WIDE_INT offset, size, maxsize;
   tree ref;
   VEC (tree, heap) *overlaps = NULL;
-  subvar_t sv;
-  unsigned int len;
+  unsigned int len, i;
+  tree subvar;
+
 
   gcc_assert (symbol_mem_tag (ptr) == NULL_TREE);
   gcc_assert (!MTAG_P (var));
@@ -3529,12 +3614,12 @@ new_type_alias (tree ptr, tree var, tree expr)
   if (var_can_have_subvars (ref)
       && (svars = get_subvars_for_var (ref)))
     {
-      for (sv = svars; sv; sv = sv->next)
+      for (i = 0; VEC_iterate (tree, svars, i, subvar); ++i)
 	{
           bool exact;
 
-          if (overlap_subvar (offset, maxsize, sv->var, &exact))
-            VEC_safe_push (tree, heap, overlaps, sv->var);
+          if (overlap_subvar (offset, maxsize, subvar, &exact))
+            VEC_safe_push (tree, heap, overlaps, subvar);
         }
       gcc_assert (overlaps != NULL);
     }
@@ -3548,8 +3633,8 @@ new_type_alias (tree ptr, tree var, tree expr)
 	 On mem-ssa branch, the scanning for virtual operands have been
 	 split from the rest of tree-ssa-operands, so it should be much
 	 easier to fix this problem correctly once mem-ssa is merged.  */
-      for (sv = svars; sv; sv = sv->next)
-	VEC_safe_push (tree, heap, overlaps, sv->var);
+      for (i = 0; VEC_iterate (tree, svars, i, subvar); ++i)
+	VEC_safe_push (tree, heap, overlaps, subvar);
 
       gcc_assert (overlaps != NULL);
     }
@@ -3705,7 +3790,8 @@ get_or_create_used_part_for (size_t uid)
 
 static tree
 create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
-	    unsigned HOST_WIDE_INT size, alias_set_type alias_set)
+	    unsigned HOST_WIDE_INT size, alias_set_type alias_set,
+	    bool base_for_components)
 {
   tree subvar = create_tag_raw (STRUCT_FIELD_TAG, field, "SFT");
 
@@ -3725,6 +3811,9 @@ create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
   SFT_OFFSET (subvar) = offset;
   SFT_SIZE (subvar) = size;
   SFT_ALIAS_SET (subvar) = alias_set;
+  SFT_BASE_FOR_COMPONENTS_P (subvar) = base_for_components;
+  SFT_UNPARTITIONABLE_P (subvar) = false;
+
   return subvar;
 }
 
@@ -3746,7 +3835,10 @@ create_overlap_variables_for (tree var)
 
   push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0, NULL,
 			       TREE_TYPE (var));
-  if (VEC_length (fieldoff_s, fieldstack) != 0)
+  /* Make sure to not create SFTs for structs we won't generate variable
+     infos for.  See tree-ssa-structalias.c:create_variable_info_for ().  */
+  if (VEC_length (fieldoff_s, fieldstack) > 1
+      && VEC_length (fieldoff_s, fieldstack) <= MAX_FIELDS_FOR_FIELD_SENSITIVE)
     {
       subvar_t *subvars;
       fieldoff_s *fo;
@@ -3811,15 +3903,14 @@ create_overlap_variables_for (tree var)
       
       /* Otherwise, create the variables.  */
       subvars = lookup_subvars_for_var (var);
-      
+      *subvars = VEC_alloc (tree, gc, VEC_length (fieldoff_s, fieldstack));
+ 
       sort_fieldstack (fieldstack);
 
-      for (i = VEC_length (fieldoff_s, fieldstack);
-	   VEC_iterate (fieldoff_s, fieldstack, --i, fo);)
+      for (i = 0; VEC_iterate (fieldoff_s, fieldstack, i, fo); ++i)
 	{
-	  subvar_t sv;
 	  HOST_WIDE_INT fosize;
-	  tree currfotype;
+	  tree currfotype, subvar;
 
 	  fosize = TREE_INT_CST_LOW (fo->size);
 	  currfotype = fo->type;
@@ -3838,26 +3929,24 @@ create_overlap_variables_for (tree var)
 		  && fosize == lastfosize
 		  && currfotype == lastfotype))
 	    continue;
-	  sv = GGC_NEW (struct subvar);
-	  sv->next = *subvars;
-	  sv->var =
-	    create_sft (var, fo->type, fo->offset, fosize, fo->alias_set);
+	  subvar = create_sft (var, fo->type, fo->offset,
+			       fosize, fo->alias_set, fo->base_for_components);
+	  VEC_quick_push (tree, *subvars, subvar);
 
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "structure field tag %s created for var %s",
-		       get_name (sv->var), get_name (var));
+		       get_name (subvar), get_name (var));
 	      fprintf (dump_file, " offset " HOST_WIDE_INT_PRINT_DEC,
-		       SFT_OFFSET (sv->var));
+		       SFT_OFFSET (subvar));
 	      fprintf (dump_file, " size " HOST_WIDE_INT_PRINT_DEC,
-		       SFT_SIZE (sv->var));
+		       SFT_SIZE (subvar));
 	      fprintf (dump_file, "\n");
 	    }
 	  
 	  lastfotype = currfotype;
 	  lastfooffset = fo->offset;
 	  lastfosize = fosize;
-	  *subvars = sv;
 	}
 
       /* Once we have created subvars, the original is no longer call
@@ -3967,7 +4056,7 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
 	for (i = 0; i < nargs; i++)
 	  {
 	    tree *arg = &CALL_EXPR_ARG (*tp, i);
-	    if (TREE_CODE (*arg) != ADDR_EXPR)
+	    if (TREE_CODE (*arg) == ADDR_EXPR)
               find_used_portions (arg, walk_subtrees, NULL);
 	  }
 	*walk_subtrees = 0;
@@ -4162,4 +4251,28 @@ struct tree_opt_pass pass_reset_cc_flags =
   0,			 /* todo_flags_start */
   0,         	         /* todo_flags_finish */
   0			 /* letter */
+};
+
+static bool
+gate_build_alias (void)
+{
+  return !gate_structure_vars();
+}
+
+
+struct tree_opt_pass pass_build_alias =
+{
+  "build_alias",            /* name */
+  gate_build_alias,         /* gate */
+  NULL,                     /* execute */
+  NULL,                     /* sub */
+  NULL,                     /* next */
+  0,                        /* static_pass_number */
+  0,                        /* tv_id */
+  PROP_cfg | PROP_ssa,      /* properties_required */
+  PROP_alias,               /* properties_provided */
+  0,                        /* properties_destroyed */
+  0,                        /* todo_flags_start */
+  TODO_rebuild_alias,        /* todo_flags_finish */
+  0                         /* letter */
 };

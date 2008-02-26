@@ -5,7 +5,7 @@
 
 #define N 40
 
-int
+__attribute__ ((noinline)) int
 foo (int * __restrict__ b, int k){
   int i,j;
   int sum,x;
@@ -51,6 +51,6 @@ int main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED." 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "OUTER LOOP VECTORIZED." 1 "vect" { xfail { unaligned_stack || vect_no_align } } } } */
 /* { dg-final { scan-tree-dump-times "vect_recog_widen_mult_pattern: detected" 1 "vect" { xfail *-*-* } } } */
 /* { dg-final { cleanup-tree-dump "vect" } } */

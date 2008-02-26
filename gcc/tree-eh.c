@@ -148,14 +148,16 @@ remove_stmt_from_eh_region (tree t)
 }
 
 int
-lookup_stmt_eh_region_fn (struct function *ifun, tree t)
+lookup_stmt_eh_region_fn (struct function *ifun, const_tree t)
 {
   struct throw_stmt_node *p, n;
 
   if (!get_eh_throw_stmt_table (ifun))
     return -2;
 
-  n.stmt = t;
+  /* The CONST_CAST is okay because we don't modify n.stmt throughout
+     its scope, or the scope of p.  */
+  n.stmt = CONST_CAST_TREE (t);
   p = (struct throw_stmt_node *) htab_find (get_eh_throw_stmt_table (ifun),
                                             &n);
 
@@ -163,7 +165,7 @@ lookup_stmt_eh_region_fn (struct function *ifun, tree t)
 }
 
 int
-lookup_stmt_eh_region (tree t)
+lookup_stmt_eh_region (const_tree t)
 {
   /* We can get called from initialized data when -fnon-call-exceptions
      is on; prevent crash.  */
@@ -837,6 +839,23 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
      and not for cleanups.  */
   if (this_state)
     finally = lower_try_finally_dup_block (finally, outer_state);
+
+  /* If this cleanup consists of a TRY_CATCH_EXPR with TRY_CATCH_IS_CLEANUP
+     set, the handler of the TRY_CATCH_EXPR is another cleanup which ought
+     to be in an enclosing scope, but needs to be implemented at this level
+     to avoid a nesting violation (see wrap_temporary_cleanups in
+     cp/decl.c).  Since it's logically at an outer level, we should call
+     terminate before we get to it, so strip it away before adding the
+     MUST_NOT_THROW filter.  */
+  i = tsi_start (finally);
+  x = tsi_stmt (i);
+  if (protect_cleanup_actions
+      && TREE_CODE (x) == TRY_CATCH_EXPR
+      && TRY_CATCH_IS_CLEANUP (x))
+    {
+      tsi_link_before (&i, TREE_OPERAND (x, 0), TSI_SAME_STMT);
+      tsi_delink (&i);
+    }
 
   /* Resume execution after the exception.  Adding this now lets
      lower_eh_filter not add unnecessary gotos, as it is clear that
@@ -2032,7 +2051,7 @@ tree_could_throw_p (tree t)
 }
 
 bool
-tree_can_throw_internal (tree stmt)
+tree_can_throw_internal (const_tree stmt)
 {
   int region_nr;
   bool is_resx = false;
@@ -2091,3 +2110,153 @@ maybe_clean_or_replace_eh_stmt (tree old_stmt, tree new_stmt)
 
   return false;
 }
+
+/* Returns TRUE if oneh and twoh are exception handlers (op 1 of
+   TRY_CATCH_EXPR or TRY_FINALLY_EXPR that are similar enough to be
+   considered the same.  Currently this only handles handlers consisting of
+   a single call, as that's the important case for C++: a destructor call
+   for a particular object showing up in multiple handlers.  */
+
+static bool
+same_handler_p (tree oneh, tree twoh)
+{
+  tree_stmt_iterator i;
+  tree ones, twos;
+  int ai;
+
+  i = tsi_start (oneh);
+  if (!tsi_one_before_end_p (i))
+    return false;
+  ones = tsi_stmt (i);
+
+  i = tsi_start (twoh);
+  if (!tsi_one_before_end_p (i))
+    return false;
+  twos = tsi_stmt (i);
+
+  if (TREE_CODE (ones) != CALL_EXPR
+      || TREE_CODE (twos) != CALL_EXPR
+      || !operand_equal_p (CALL_EXPR_FN (ones), CALL_EXPR_FN (twos), 0)
+      || call_expr_nargs (ones) != call_expr_nargs (twos))
+    return false;
+
+  for (ai = 0; ai < call_expr_nargs (ones); ++ai)
+    if (!operand_equal_p (CALL_EXPR_ARG (ones, ai),
+			  CALL_EXPR_ARG (twos, ai), 0))
+      return false;
+
+  return true;
+}
+
+/* Optimize
+    try { A() } finally { try { ~B() } catch { ~A() } }
+    try { ... } finally { ~A() }
+   into
+    try { A() } catch { ~B() }
+    try { ~B() ... } finally { ~A() }
+
+   This occurs frequently in C++, where A is a local variable and B is a
+   temporary used in the initializer for A.  */
+
+static void
+optimize_double_finally (tree one, tree two)
+{
+  tree oneh;
+  tree_stmt_iterator i;
+
+  i = tsi_start (TREE_OPERAND (one, 1));
+  if (!tsi_one_before_end_p (i))
+    return;
+
+  oneh = tsi_stmt (i);
+  if (TREE_CODE (oneh) != TRY_CATCH_EXPR)
+    return;
+
+  if (same_handler_p (TREE_OPERAND (oneh, 1), TREE_OPERAND (two, 1)))
+    {
+      tree b = TREE_OPERAND (oneh, 0);
+      TREE_OPERAND (one, 1) = b;
+      TREE_SET_CODE (one, TRY_CATCH_EXPR);
+
+      i = tsi_start (TREE_OPERAND (two, 0));
+      tsi_link_before (&i, unsave_expr_now (b), TSI_SAME_STMT);
+    }
+}
+
+/* Perform EH refactoring optimizations that are simpler to do when code
+   flow has been lowered but EH structures haven't.  */
+
+static void
+refactor_eh_r (tree t)
+{
+ tailrecurse:
+  switch (TREE_CODE (t))
+    {
+    case TRY_FINALLY_EXPR:
+    case TRY_CATCH_EXPR:
+      refactor_eh_r (TREE_OPERAND (t, 0));
+      t = TREE_OPERAND (t, 1);
+      goto tailrecurse;
+
+    case CATCH_EXPR:
+      t = CATCH_BODY (t);
+      goto tailrecurse;
+
+    case EH_FILTER_EXPR:
+      t = EH_FILTER_FAILURE (t);
+      goto tailrecurse;
+
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator i;
+	tree one = NULL_TREE, two = NULL_TREE;
+	/* Try to refactor double try/finally.  */
+	for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
+	  {
+	    one = two;
+	    two = tsi_stmt (i);
+	    if (one && two
+		&& TREE_CODE (one) == TRY_FINALLY_EXPR
+		&& TREE_CODE (two) == TRY_FINALLY_EXPR)
+	      optimize_double_finally (one, two);
+	    if (one)
+	      refactor_eh_r (one);
+	  }
+	if (two)
+	  {
+	    t = two;
+	    goto tailrecurse;
+	  }
+      }
+      break;
+
+    default:
+      /* A type, a decl, or some kind of statement that we're not
+	 interested in.  Don't walk them.  */
+      break;
+    }
+}
+
+static unsigned
+refactor_eh (void)
+{
+  refactor_eh_r (DECL_SAVED_TREE (current_function_decl));
+  return 0;
+}
+
+struct tree_opt_pass pass_refactor_eh =
+{
+  "ehopt",				/* name */
+  NULL,					/* gate */
+  refactor_eh,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_EH,				/* tv_id */
+  PROP_gimple_lcf,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};

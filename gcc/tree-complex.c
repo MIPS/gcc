@@ -162,15 +162,14 @@ is_complex_reg (tree lhs)
 static void
 init_parameter_lattice_values (void)
 {
-  tree parm;
+  tree parm, ssa_name;
 
   for (parm = DECL_ARGUMENTS (cfun->decl); parm ; parm = TREE_CHAIN (parm))
-    if (is_complex_reg (parm) && var_ann (parm) != NULL)
-      {
-	tree ssa_name = gimple_default_def (cfun, parm);
-	VEC_replace (complex_lattice_t, complex_lattice_values,
-		     SSA_NAME_VERSION (ssa_name), VARYING);
-      }
+    if (is_complex_reg (parm)
+	&& var_ann (parm) != NULL
+	&& (ssa_name = gimple_default_def (cfun, parm)) != NULL_TREE)
+      VEC_replace (complex_lattice_t, complex_lattice_values,
+		   SSA_NAME_VERSION (ssa_name), VARYING);
 }
 
 /* Initialize DONT_SIMULATE_AGAIN for each stmt and phi.  Return false if
@@ -244,6 +243,17 @@ init_dont_simulate_again (void)
 	      case NEGATE_EXPR:
 	      case CONJ_EXPR:
 		if (TREE_CODE (TREE_TYPE (rhs)) == COMPLEX_TYPE)
+		  saw_a_complex_op = true;
+		break;
+
+	      case REALPART_EXPR:
+	      case IMAGPART_EXPR:
+		/* The total store transformation performed during
+		   gimplification creates such uninitialized loads
+		   and we need to lower the statement to be able
+		   to fix things up.  */
+		if (TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+		    && ssa_undefined_value_p (TREE_OPERAND (rhs, 0)))
 		  saw_a_complex_op = true;
 		break;
 
@@ -753,7 +763,8 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
 	  update_complex_components_on_edge (e, lhs, r, i);
 	}
-      else if (TREE_CODE (rhs) == CALL_EXPR || TREE_SIDE_EFFECTS (rhs))
+      else if (TREE_CODE (rhs) == CALL_EXPR || TREE_SIDE_EFFECTS (rhs)
+	       || TREE_CODE (rhs) == PAREN_EXPR)
 	{
 	  r = build1 (REALPART_EXPR, inner_type, lhs);
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);

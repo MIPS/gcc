@@ -305,14 +305,17 @@ repo_emit_p (tree decl)
 	  && (!TYPE_LANG_SPECIFIC (type)
 	      || !CLASSTYPE_TEMPLATE_INSTANTIATION (type)))
 	return 2;
-      /* Static data members initialized by constant expressions must
+      /* Const static data members initialized by constant expressions must
 	 be processed where needed so that their definitions are
 	 available.  */
-      if (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+      if (DECL_INTEGRAL_CONSTANT_VAR_P (decl)
 	  && DECL_CLASS_SCOPE_P (decl))
 	return 2;
     }
   else if (!DECL_TEMPLATE_INSTANTIATION (decl))
+    return 2;
+
+  if (DECL_EXPLICIT_INSTANTIATION (decl))
     return 2;
 
   /* For constructors and destructors, the repository contains
@@ -348,7 +351,7 @@ repo_emit_p (tree decl)
    export from this translation unit.  */
 
 bool
-repo_export_class_p (tree class_type)
+repo_export_class_p (const_tree class_type)
 {
   if (!flag_use_repository)
     return false;

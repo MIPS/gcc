@@ -6,18 +6,17 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
- * ware  Foundation;  either version 2,  or (at your option) any later ver- *
+ * ware  Foundation;  either version 3,  or (at your option) any later ver- *
  * sion.  GNAT is distributed in the hope that it will be useful, but WITH- *
  * OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY *
  * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License *
- * for  more details.  You should have  received  a copy of the GNU General *
- * Public License  distributed with GNAT;  see file COPYING.  If not, write *
- * to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, *
- * Boston, MA 02110-1301, USA.                                              *
+ * for  more details.  You should have received a copy of the GNU General   *
+ * Public License along with GCC; see the file COPYING3.  If not see        *
+ * <http://www.gnu.org/licenses/>.                                          *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
  * Extensive contributions were provided by Ada Core Technologies Inc.      *
@@ -1080,6 +1079,25 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	     GCC wants pointer types for function addresses.  */
 	  if (!result_type)
 	    result_type = build_pointer_type (type);
+
+	  /* If the underlying object can alias everything, propagate the
+	     property since we are effectively retrieving the object.  */
+	  if (POINTER_TYPE_P (TREE_TYPE (result))
+	      && TYPE_REF_CAN_ALIAS_ALL (TREE_TYPE (result)))
+	    {
+	      if (TREE_CODE (result_type) == POINTER_TYPE
+		  && !TYPE_REF_CAN_ALIAS_ALL (result_type))
+		result_type
+		  = build_pointer_type_for_mode (TREE_TYPE (result_type),
+						 TYPE_MODE (result_type),
+						 true);
+	      else if (TREE_CODE (result_type) == REFERENCE_TYPE
+		       && !TYPE_REF_CAN_ALIAS_ALL (result_type))
+	        result_type
+		  = build_reference_type_for_mode (TREE_TYPE (result_type),
+						   TYPE_MODE (result_type),
+						   true);
+	    }
 	  break;
 
 	case NULL_EXPR:
@@ -1856,39 +1874,7 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
     }
 
   else if (gnu_obj)
-    {
-      /* If the required alignement was greater than what the default
-	 allocator guarantees, what we have in gnu_obj here is an address
-	 dynamically adjusted to match the requirement (see build_allocator).
-	 What we need to pass to free is the initial underlying allocator's
-	 return value, which has been stored just in front of the block we
-	 have.  */
-
-      unsigned int default_allocator_alignment
-	= get_target_default_allocator_alignment () * BITS_PER_UNIT;
-
-      if (align > default_allocator_alignment)
-	{
-	  /* We set GNU_OBJ
-	     as * (void **)((void *)GNU_OBJ - (void *)sizeof(void *))
-	     in two steps: */
-
-	  /* GNU_OBJ (void *) = (void *)GNU_OBJ - (void *)sizeof (void *))  */
-	  gnu_obj
-	    = build_binary_op (MINUS_EXPR, ptr_void_type_node,
-			       convert (ptr_void_type_node, gnu_obj),
-			       convert (ptr_void_type_node,
-					TYPE_SIZE_UNIT (ptr_void_type_node)));
-
-	  /* GNU_OBJ (void *) = *(void **)GNU_OBJ  */
-	  gnu_obj
-	    = build_unary_op (INDIRECT_REF, NULL_TREE,
-			      convert (build_pointer_type (ptr_void_type_node),
-				       gnu_obj));
-	}
-
-      return build_call_1_expr (free_decl, gnu_obj);
-    }
+    return build_call_1_expr (free_decl, gnu_obj);
 
   /* ??? For now, disable variable-sized allocators in the stack since
      we can't yet gimplify an ALLOCATE_EXPR.  */
@@ -2081,10 +2067,9 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 	 front.  */
       {
 	tree ptr_addr
-	  = build_binary_op (MINUS_EXPR, ptr_void_type_node,
+	  = build_binary_op (POINTER_PLUS_EXPR, ptr_void_type_node,
 			     convert (ptr_void_type_node, result),
-			     convert (ptr_void_type_node,
-				      TYPE_SIZE_UNIT (ptr_void_type_node)));
+			     size_int (-POINTER_SIZE/BITS_PER_UNIT));
 
 	tree ptr_ref
 	  = convert (build_pointer_type (ptr_void_type_node), ptr_addr);

@@ -1,5 +1,5 @@
 /* Declarations of various C99 functions 
-   Copyright (C) 2004, 2006 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -499,6 +499,28 @@ extern double complex ctan (double complex);
 #if !defined(HAVE_CTANL) && defined(HAVE_TANL) && defined(HAVE_TANHL)
 #define HAVE_CTANL 1
 extern long double complex ctanl (long double complex);
+#endif
+
+
+/* Gamma-related prototypes.  */
+#if !defined(HAVE_TGAMMA)
+#define HAVE_TGAMMA 1
+extern double tgamma (double);
+#endif
+
+#if !defined(HAVE_LGAMMA)
+#define HAVE_LGAMMA 1
+extern double lgamma (double);
+#endif
+
+#if defined(HAVE_TGAMMA) && !defined(HAVE_TGAMMAF)
+#define HAVE_TGAMMAF 1
+extern float tgammaf (float);
+#endif
+
+#if defined(HAVE_LGAMMA) && !defined(HAVE_LGAMMAF)
+#define HAVE_LGAMMAF 1
+extern float lgammaf (float);
 #endif
 
 

@@ -132,14 +132,14 @@ struct edge_def GTY(())
   /* Location of any goto implicit in the edge, during tree-ssa.  */
   source_locus goto_locus;
 
+  /* The index number corresponding to this edge in the edge vector
+     dest->preds.  */
+  unsigned int dest_idx;
+
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
-
-  /* The index number corresponding to this edge in the edge vector
-     dest->preds.  */
-  unsigned int dest_idx;
 };
 
 typedef struct edge_def *edge;
@@ -830,8 +830,8 @@ extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 extern bool maybe_hot_bb_p (const_basic_block);
 extern bool probably_cold_bb_p (const_basic_block);
 extern bool probably_never_executed_bb_p (const_basic_block);
-extern bool tree_predicted_by_p (basic_block, enum br_predictor);
-extern bool rtl_predicted_by_p (basic_block, enum br_predictor);
+extern bool tree_predicted_by_p (const_basic_block, enum br_predictor);
+extern bool rtl_predicted_by_p (const_basic_block, enum br_predictor);
 extern void tree_predict_edge (edge, enum br_predictor, int);
 extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
@@ -1117,7 +1117,7 @@ extern int struct_equiv_block_eq (int, struct equiv_info *);
 extern bool struct_equiv_init (int, struct equiv_info *);
 extern bool rtx_equiv_p (rtx *, rtx, int, struct equiv_info *);
 
-/* In cfgrtl.c */
+/* In cfgcleanup.c */
 extern bool condjump_equiv_p (struct equiv_info *, bool);
 
 /* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
@@ -1130,6 +1130,21 @@ bb_has_eh_pred (basic_block bb)
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       if (e->flags & EDGE_EH)
+	return true;
+    }
+  return false;
+}
+
+/* Return true when one of the predecessor edges of BB is marked with EDGE_ABNORMAL.  */
+static inline bool
+bb_has_abnormal_pred (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      if (e->flags & EDGE_ABNORMAL)
 	return true;
     }
   return false;

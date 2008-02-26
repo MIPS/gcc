@@ -11,7 +11,7 @@
 @copying
 @c man begin COPYRIGHT
 Copyright @copyright{} 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
-1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -1912,8 +1912,8 @@ language.
 
 The common predefined macros are GNU C extensions.  They are available
 with the same meanings regardless of the machine or operating system on
-which you are using GNU C@.  Their names all start with double
-underscores.
+which you are using GNU C or GNU Fortran.  Their names all start with
+double underscores.
 
 @table @code
 
@@ -1924,11 +1924,14 @@ generate unique identifiers.  Care must be taken to ensure that
 @code{__COUNTER__} is not expanded prior to inclusion of precompiled headers
 which use it.  Otherwise, the precompiled headers will not be used.
 
+@item __GFORTRAN__
+The GNU Fortran compiler defines this. 
+
 @item __GNUC__
 @itemx __GNUC_MINOR__
 @itemx __GNUC_PATCHLEVEL__
 These macros are defined by all GNU compilers that use the C
-preprocessor: C, C++, and Objective-C@.  Their values are the major
+preprocessor: C, C++, Objective-C and Fortran.  Their values are the major
 version, minor version, and patch level of the compiler, as integer
 constants.  For example, GCC 3.2.1 will define @code{__GNUC__} to 3,
 @code{__GNUC_MINOR__} to 2, and @code{__GNUC_PATCHLEVEL__} to 1.  These
@@ -1993,7 +1996,7 @@ on the command line of the preprocessor or C compiler.
 This macro expands to a decimal integer constant that represents the
 depth of nesting in include files.  The value of this macro is
 incremented on every @samp{#include} directive and decremented at the
-end of every included file.  It starts out at 0, it's value within the
+end of every included file.  It starts out at 0, its value within the
 base file specified on the command line.
 
 @item __ELF__
@@ -2130,8 +2133,13 @@ enabled by default, but can be disabled with @option{-Wno-deprecated}.
 
 @item __EXCEPTIONS
 This macro is defined, with value 1, when compiling a C++ source file
-with exceptions enabled.  If @option{-fno-exceptions} was used when
-compiling the file, then this macro will not be defined.
+with exceptions enabled.  If @option{-fno-exceptions} is used when
+compiling the file, then this macro is not defined.
+
+@item __GXX_RTTI
+This macro is defined, with value 1, when compiling a C++ source file
+with runtime type identification enabled.  If @option{-fno-rtti} is
+used when compiling the file, then this macro is not defined.
 
 @item __USING_SJLJ_EXCEPTIONS__
 This macro is defined, with value 1, if the compiler uses the old

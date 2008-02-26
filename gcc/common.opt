@@ -1,6 +1,7 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+; Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -18,7 +19,7 @@
 ; along with GCC; see the file COPYING3.  If not see
 ; <http://www.gnu.org/licenses/>.
 
-; See the GCC internals manual for a description of this file's format.
+; See the GCC internals manual (options.texi) for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -109,6 +110,17 @@ Wfatal-errors
 Common Var(flag_fatal_errors)
 Exit on the first error occurred
 
+Wframe-larger-than=
+Common RejectNegative Joined UInteger
+-Wframe-larger-than=@var{len} Warn whenever a function's stack frame requires
+more than @var{len} bytes.  The computation done to determine
+the stack frame size is approximate and not conservative.
+The actual requirements may be somewhat greater than @var{len}
+even if you do not get a warning.  In addition, any space allocated
+via @code{alloca}, variable-length arrays, or related constructs
+is not included by the compiler when determining
+whether or not to issue a warning.
+
 Winline
 Common Var(warn_inline) Warning
 Warn when an inlined function cannot be inlined
@@ -154,7 +166,7 @@ Common Warning
 Warn about code which might break strict aliasing rules
 
 Wstrict-aliasing=
-Common Joined UInteger Warning
+Common Joined UInteger Var(warn_strict_aliasing) Init(-1) Warning
 Warn about code which might break strict aliasing rules
 
 Wstrict-overflow
@@ -162,7 +174,7 @@ Common Warning
 Warn about optimizations that assume that signed overflow is undefined
 
 Wstrict-overflow=
-Common Joined UInteger Warning
+Common Joined UInteger Var(warn_strict_overflow) Init(-1) Warning
 Warn about optimizations that assume that signed overflow is undefined
 
 Wswitch
@@ -180,6 +192,10 @@ Warn about all enumerated switches missing a specific case
 Wsystem-headers
 Common Var(warn_system_headers) Warning
 Do not suppress warnings from system headers
+
+Wtype-limits
+Common Var(warn_type_limits) Init(-1) Warning
+Warn if a comparison is always true or always false due to the limited range of the data type
 
 Wuninitialized
 Common Var(warn_uninitialized) Warning
@@ -250,6 +266,8 @@ Common Separate
 ;    versions of G++.
 ;
 ; 1: The version of the ABI first used in G++ 3.2.
+;
+; 2: The version of the ABI first used in G++ 3.4.
 ;
 ; Additional positive integers will be assigned as new versions of
 ; the ABI become the default version of the ABI.
@@ -387,6 +405,10 @@ fcx-limited-range
 Common Report Var(flag_cx_limited_range) Optimization
 Omit range reduction step when performing complex division
 
+fcx-fortran-rules
+Common Report Var(flag_cx_fortran_rules) Optimization
+Complex multiplication and division follow Fortran rules
+
 fdata-sections
 Common Report Var(flag_data_sections) Optimization
 Place data items into their own section
@@ -454,7 +476,7 @@ Common Report Var(flag_eliminate_unused_debug_types) Init(1)
 Perform unused type elimination in debug info
 
 femit-class-debug-always
-Common Report Var(flag_emit_class_debug_always) Init(1)
+Common Report Var(flag_emit_class_debug_always) Init(0)
 Do not suppress C++ class debug information.
 
 fexceptions
@@ -480,11 +502,9 @@ ffloat-store
 Common Report Var(flag_float_store) Optimization
 Don't allocate floats and doubles in extended-precision registers
 
-; Nonzero for -fforce-addr: load memory address into a register before
-; reference to memory.  This makes better cse but slower compilation.
 fforce-addr
-Common Report Var(flag_force_addr) Optimization
-Copy memory address constants into registers before use
+Common
+Does nothing.  Preserved for backward compatibility.
 
 fforward-propagate
 Common Report Var(flag_forward_propagate) Optimization
@@ -560,6 +580,10 @@ finline
 Common Report Var(flag_no_inline,0) Init(2)
 Pay attention to the \"inline\" keyword
 
+finline-small-functions
+Common Report Var(flag_inline_small_functions) Optimization
+Integrate simple functions into their callers when code size is known to not growth
+
 finline-functions
 Common Report Var(flag_inline_functions) Optimization
 Integrate simple functions into their callers
@@ -612,6 +636,11 @@ Common Report Var(flag_ipa_matrix_reorg) Optimization
 Perform matrix layout flattening and transposing based
 on profiling information.
 
+fipa-struct-reorg
+Common Report Var(flag_ipa_struct_reorg)
+Perform structure layout optimizations based
+on profiling information.
+
 fivopts
 Common Report Var(flag_ivopts) Init(1) Optimization
 Optimize induction variables on trees
@@ -654,6 +683,10 @@ Attempt to merge identical constants and constant variables
 fmerge-constants
 Common Report Var(flag_merge_constants,1) VarExists Optimization
 Attempt to merge identical constants across compilation units
+
+fmerge-debug-strings
+Common Report Var(flag_merge_debug_strings) Init(1)
+Attempt to merge identical debug strings across compilation units
 
 fmessage-length=
 Common RejectNegative Joined UInteger
@@ -702,6 +735,10 @@ Support synchronous non-call exceptions
 fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames
+
+fopenmp-ssa
+Common Report Var(flag_openmp_ssa)
+Expand OpenMP operations on SSA form
 
 foptimize-register-move
 Common Report Var(flag_regmove) Optimization
@@ -911,8 +948,8 @@ Common Report Var(flag_see) Init(0)
 Eliminate redundant sign extensions using LCM.
 
 fshow-column
-Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
-Show column numbers in diagnostics, when available.  Default on
+Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(0)
+Show column numbers in diagnostics, when available.  Default off
 
 fsignaling-nans
 Common Report Var(flag_signaling_nans) Optimization
@@ -1039,8 +1076,12 @@ Common Report Var(flag_tree_copy_prop) Optimization
 Enable copy propagation on trees
 
 ftree-store-copy-prop
-Common Report Var(flag_tree_store_copy_prop) Optimization
-Enable copy propagation for stores and loads
+Common
+Does nothing.  Preserved for backward compatibility.
+
+ftree-cselim
+Common Report Var(flag_tree_cselim) Init(2) Optimization
+Transform condition stores into unconditional ones
 
 ftree-dce
 Common Report Var(flag_tree_dce) Optimization
@@ -1073,6 +1114,10 @@ Create canonical induction variables in loops
 ftree-loop-optimize
 Common Report Var(flag_tree_loop_optimize) Init(1) Optimization
 Enable loop optimizations on tree level
+
+ftree-parallelize-loops=
+Common Report Joined UInteger Var(flag_tree_parallelize_loops) Init(1)
+Enable automatic parallelization of loops
 
 ftree-pre
 Common Report Var(flag_tree_pre) Optimization
@@ -1124,6 +1169,15 @@ Perform loop unrolling for all loops
 funsafe-loop-optimizations
 Common Report Var(flag_unsafe_loop_optimizations) Optimization
 Allow loop optimizations to assume that the loops behave in normal way
+
+fassociative-math
+Common Report Var(flag_associative_math)
+Allow optimization for floating-point arithmetic which may change the
+result of the operation due to rounding.
+
+freciprocal-math
+Common Report Var(flag_reciprocal_math)
+Same as -fassociative-math for expressions which include division.
 
 ; Nonzero means that unsafe floating-point math optimizations are allowed
 ; for the sake of speed.  IEEE compliance is not guaranteed, and operations
@@ -1267,5 +1321,13 @@ Display the compiler's version
 w
 Common Var(inhibit_warnings)
 Suppress warnings
+
+shared
+Common RejectNegative Negative(pie)
+Create a shared library
+
+pie
+Common RejectNegative Negative(shared)
+Create a position independent executable
 
 ; This comment is to ensure we retain the blank line above.

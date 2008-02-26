@@ -10,14 +10,13 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1059,7 +1058,9 @@ package body Makegpr is
       Time_Stamp          : Time_Stamp_Type;
       Saved_Last_Argument : Natural;
       First_Object        : Natural;
-      Discard             : Boolean;
+
+      Discard : Boolean;
+      pragma Warnings (Off, Discard);
 
    begin
       Check_Archive_Builder;
@@ -1821,7 +1822,11 @@ package body Makegpr is
       Object_Name   : constant String := Get_Name_String (Source.Object_Name);
       C_Object_Name : String := Object_Name;
       Dep_Name      : constant String := Get_Name_String (Source.Dep_Name);
-      C_Source_Path : String := Source_Path;
+      C_Source_Path : constant String :=
+                        Normalize_Pathname
+                          (Name           => Source_Path,
+                           Resolve_Links  => False,
+                           Case_Sensitive => False);
 
       Source_In_Dependencies : Boolean := False;
       --  Set True if source was found in dependency file of its object file
@@ -1834,7 +1839,6 @@ package body Makegpr is
       --  Set to True at the end of the first Big_Loop
 
    begin
-      Canonical_Case_File_Name (C_Source_Path);
       Canonical_Case_File_Name (C_Object_Name);
 
       --  Assume the worst, so that statement "return;" may be used if there
@@ -2240,7 +2244,9 @@ package body Makegpr is
             declare
                Dep_File : Ada.Text_IO.File_Type;
                Result   : Expect_Match;
-               Status   : Integer;
+
+               Status : Integer;
+               pragma Warnings (Off, Status);
 
             begin
                --  Create the dependency file
@@ -3805,8 +3811,9 @@ package body Makegpr is
 
          --  Only Ada sources in the main project, and even maybe not
 
-         if not Data.Langs (Ada_Language_Index) then
-
+         if Data.Extends = No_Project and then
+           not Data.Langs (Ada_Language_Index)
+         then
             --  Fail if the main project has no source of any language
 
             Osint.Fail

@@ -326,7 +326,6 @@ static void dbxout_type_name (tree);
 static void dbxout_class_name_qualifiers (tree);
 static int dbxout_symbol_location (tree, tree, const char *, rtx);
 static void dbxout_symbol_name (tree, const char *, int);
-static void dbxout_block (tree, int, tree);
 static void dbxout_global_decl (tree);
 static void dbxout_type_decl (tree, int);
 static void dbxout_handle_pch (unsigned);
@@ -354,7 +353,7 @@ const struct gcc_debug_hooks dbx_debug_hooks =
   dbxout_end_source_file,
   dbxout_begin_block,
   dbxout_end_block,
-  debug_true_tree,		         /* ignore_block */
+  debug_true_const_tree,	         /* ignore_block */
   dbxout_source_line,		         /* source_line */
   dbxout_begin_prologue,	         /* begin_prologue */
   debug_nothing_int_charstar,	         /* end_prologue */
@@ -390,7 +389,7 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
   dbxout_end_source_file,
   xcoffout_begin_block,
   xcoffout_end_block,
-  debug_true_tree,		         /* ignore_block */
+  debug_true_const_tree,	         /* ignore_block */
   xcoffout_source_line,
   xcoffout_begin_prologue,	         /* begin_prologue */
   debug_nothing_int_charstar,	         /* end_prologue */
@@ -1216,6 +1215,9 @@ dbxout_handle_pch (unsigned at_end)
 }
 
 #if defined (DBX_DEBUGGING_INFO)
+
+static void dbxout_block (tree, int, tree);
+
 /* Output debugging info to FILE to switch to sourcefile FILENAME.  */
 
 static void
@@ -2028,7 +2030,11 @@ dbxout_type (tree type, int full)
 	       another type's definition; instead, output an xref
 	       and let the definition come when the name is defined.  */
 	    stabstr_S ((TREE_CODE (type) == RECORD_TYPE) ? "xs" : "xu");
-	    if (TYPE_NAME (type) != 0)
+	    if (TYPE_NAME (type) != 0
+		/* The C frontend creates for anonymous variable length
+		   records/unions TYPE_NAME with DECL_NAME NULL.  */
+		&& (TREE_CODE (TYPE_NAME (type)) != TYPE_DECL
+		    || DECL_NAME (TYPE_NAME (type))))
 	      dbxout_type_name (type);
 	    else
 	      {
@@ -3344,6 +3350,8 @@ dbxout_args (tree args)
     }
 }
 
+#if defined (DBX_DEBUGGING_INFO)
+
 /* Subroutine of dbxout_block.  Emit an N_LBRAC stab referencing LABEL.
    BEGIN_LABEL is the name of the beginning of the function, which may
    be required.  */
@@ -3474,7 +3482,6 @@ dbxout_block (tree block, int depth, tree args)
    Usually this follows the function's code,
    but on some systems, it comes before.  */
 
-#if defined (DBX_DEBUGGING_INFO)
 static void
 dbxout_begin_function (tree decl)
 {

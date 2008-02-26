@@ -27,26 +27,6 @@ AC_DEFUN([AC_LIBTOOL_DLOPEN])
 AC_DEFUN([AC_PROG_LD])
 ])
 
-dnl Check whether the target is ILP32.
-AC_DEFUN([LIBGFOR_TARGET_ILP32], [
-  AC_CACHE_CHECK([whether the target is ILP32], target_ilp32, [
-  save_CFLAGS="$CFLAGS"
-  CFLAGS="-O2"
-  AC_TRY_LINK(,[
-if (sizeof(int) == 4 && sizeof(long) == 4 && sizeof(void *) == 4)
-  ;
-else
-  undefined_function ();
-               ],
-               target_ilp32=yes,
-               target_ilp32=no)
-  CFLAGS="$save_CFLAGS"])
-  if test $target_ilp32 = yes; then
-    AC_DEFINE(TARGET_ILP32, 1,
-      [Define to 1 if the target is ILP32.])
-  fi
-  ])
-
 dnl Check whether the target supports hidden visibility.
 AC_DEFUN([LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY], [
   AC_CACHE_CHECK([whether the target supports hidden visibility],
@@ -224,9 +204,7 @@ AC_DEFUN([LIBGFOR_CHECK_FOR_BROKEN_ISFINITE], [
   libgfor_check_for_broken_isfinite_save_LIBS=$LIBS
   LIBS="$LIBS -lm"
   AC_TRY_RUN([
-#ifdef HAVE_MATH_H
 #include <math.h>
-#endif
 #include <float.h>
 int main ()
 {
@@ -257,9 +235,7 @@ AC_DEFUN([LIBGFOR_CHECK_FOR_BROKEN_ISNAN], [
   libgfor_check_for_broken_isnan_save_LIBS=$LIBS
   LIBS="$LIBS -lm"
   AC_TRY_RUN([
-#ifdef HAVE_MATH_H
 #include <math.h>
-#endif
 #include <float.h>
 int main ()
 {
@@ -308,9 +284,7 @@ AC_DEFUN([LIBGFOR_CHECK_FOR_BROKEN_FPCLASSIFY], [
   libgfor_check_for_broken_fpclassify_save_LIBS=$LIBS
   LIBS="$LIBS -lm"
   AC_TRY_RUN([
-#ifdef HAVE_MATH_H
 #include <math.h>
-#endif
 #include <float.h>
 int main ()
 {
@@ -384,5 +358,21 @@ AC_DEFUN([LIBGFOR_CHECK_FPSETMASK], [
   ])
   if test x"$have_fpsetmask" = xyes; then
     AC_DEFINE(HAVE_FPSETMASK, 1, [Define if you have fpsetmask.])
+  fi
+])
+
+dnl Check whether we have a mingw that provides a __mingw_snprintf function
+AC_DEFUN([LIBGFOR_CHECK_MINGW_SNPRINTF], [
+  AC_CACHE_CHECK([whether __mingw_snprintf is present], have_mingw_snprintf, [
+    AC_TRY_LINK([
+#include <stdio.h>
+extern int __mingw_snprintf (char *, size_t, const char *, ...);
+],[
+__mingw_snprintf (NULL, 0, "%d\n", 1);
+],
+    eval "have_mingw_snprintf=yes", eval "have_mingw_snprintf=no")
+  ])
+  if test x"$have_mingw_snprintf" = xyes; then
+    AC_DEFINE(HAVE_MINGW_SNPRINTF, 1, [Define if you have __mingw_snprintf.])
   fi
 ])

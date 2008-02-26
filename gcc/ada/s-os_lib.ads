@@ -50,6 +50,10 @@
 --  be used by other predefined packages. User access to this package is via
 --  a renaming of this package in GNAT.OS_Lib (file g-os_lib.ads).
 
+pragma Warnings (Off);
+pragma Compiler_Unit;
+pragma Warnings (On);
+
 with System;
 with System.Strings;
 
@@ -503,6 +507,7 @@ package System.OS_Lib is
    --  directories listed in the environment Path. If the Exec_Name doesn't
    --  have the executable suffix, it will be appended before the search.
    --  Otherwise works like Locate_Regular_File below.
+   --  If the executable is not found, null is returned.
    --
    --  Note that this function allocates some memory for the returned value.
    --  This memory needs to be deallocated after use.
@@ -650,9 +655,9 @@ package System.OS_Lib is
    --  (notably Unix systems) a simple file name may also work (if the
    --  executable can be located in the path).
    --
-   --  "Spawn" should not be used in tasking applications. Why not??? More
-   --  documentation would be helpful here ??? Is it really tasking programs,
-   --  or tasking activity that cause trouble ???
+   --  "Spawn" should be avoided in tasking applications, since there are
+   --  subtle interactions between creating a process and signals/locks
+   --  that can cause troubles.
    --
    --  Note: Arguments in Args that contain spaces and/or quotes such as
    --  "--GCC=gcc -v" or "--GCC=""gcc -v""" are not portable across all

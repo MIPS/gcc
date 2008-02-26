@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include "tree-vect.h"
 
+__attribute__ ((noinline))
 void with_restrict(int * __restrict p)
 {
   int i;
@@ -13,6 +14,7 @@ void with_restrict(int * __restrict p)
   }
 }
 
+__attribute__ ((noinline))
 void without_restrict(int * p)
 {
   int i;
@@ -28,6 +30,8 @@ int main(void)
   int i;
   int a[1002];
   int b[1002];
+
+  check_vect ();
 
   for (i = 0; i < 1002; ++i) {
     a[i] = b[i] = i;

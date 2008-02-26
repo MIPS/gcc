@@ -13,7 +13,7 @@ signed short Y[N] __attribute__ ((__aligned__(16)));
 /* short->short->int dot product.  Should be vectorized on architectures
    supporting vectorized multiplication of two short args with short result,
    e.g "mulv4hi3" and widenning sum */
-int
+__attribute__ ((noinline)) int
 foo (int len)
 {
   int i;
@@ -48,9 +48,9 @@ main (void)
   return 0;
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_short_mult && vect_widen_sum_hi_to_si } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { target { vect_short_mult && { vect_widen_sum_hi_to_si || vect_unpack } } } } } */
 /* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { target { ! vect_short_mult } } } } */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { target { ! vect_widen_sum_hi_to_si } } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 0 "vect" { target { { ! vect_widen_sum_hi_to_si } && { ! vect_unpack } } } } } */
 
 /* { dg-final { cleanup-tree-dump "vect" } } */
 

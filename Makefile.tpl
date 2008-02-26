@@ -207,10 +207,10 @@ BASE_TARGET_EXPORTS = \
 	AR="$(AR_FOR_TARGET)"; export AR; \
 	AS="$(COMPILER_AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
-	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CFLAGS="$(CFLAGS_FOR_TARGET) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
 	CPPFLAGS="$(CPPFLAGS_FOR_TARGET)"; export CPPFLAGS; \
-	CXXFLAGS="$(CXXFLAGS_FOR_TARGET)"; export CXXFLAGS; \
+	CXXFLAGS="$(CXXFLAGS_FOR_TARGET) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS; \
 	GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
 	GFORTRAN="$(GFORTRAN_FOR_TARGET)"; export GFORTRAN; \
 	DLLTOOL="$(DLLTOOL_FOR_TARGET)"; export DLLTOOL; \
@@ -254,10 +254,21 @@ PWD_COMMAND = $${PWDCMD-pwd}
 
 # compilers to use to create programs which must be run in the build
 # environment.
+AR_FOR_BUILD = @AR_FOR_BUILD@
+AS_FOR_BUILD = @AS_FOR_BUILD@
 CC_FOR_BUILD = @CC_FOR_BUILD@
 CFLAGS_FOR_BUILD = @CFLAGS_FOR_BUILD@
-
-CXX_FOR_BUILD = $(CXX)
+CXXFLAGS_FOR_BUILD = @CXXFLAGS_FOR_BUILD@
+CXX_FOR_BUILD = @CXX_FOR_BUILD@
+DLLTOOL_FOR_BUILD = @DLLTOOL_FOR_BUILD@
+GCJ_FOR_BUILD = @GCJ_FOR_BUILD@
+GFORTRAN_FOR_BUILD = @GFORTRAN_FOR_BUILD@
+LDFLAGS_FOR_BUILD = @LDFLAGS_FOR_BUILD@
+LD_FOR_BUILD = @LD_FOR_BUILD@
+NM_FOR_BUILD = @NM_FOR_BUILD@
+RANLIB_FOR_BUILD = @RANLIB_FOR_BUILD@
+WINDMC_FOR_BUILD = @WINDMC_FOR_BUILD@
+WINDRES_FOR_BUILD = @WINDRES_FOR_BUILD@
 
 # Special variables passed down in EXTRA_GCC_FLAGS.  They are defined
 # here so that they can be overridden by Makefile fragments.
@@ -319,13 +330,18 @@ PICFLAG =
 # MAKEINFO and MAKEINFOFLAGS are explicitly passed here to make them
 # overrideable (for a bootstrap build stage1 also builds gcc.info).
 
-STAGE1_CFLAGS=@stage1_cflags@
 STAGE1_CHECKING=@stage1_checking@
 STAGE1_LANGUAGES=@stage1_languages@
 
+STAGE1_CFLAGS=@stage1_cflags@
 STAGE2_CFLAGS=$(BOOT_CFLAGS)
 STAGE3_CFLAGS=$(BOOT_CFLAGS)
 STAGE4_CFLAGS=$(BOOT_CFLAGS)
+
+STAGE1_LIBCFLAGS=$(CFLAGS_FOR_TARGET)
+STAGE2_LIBCFLAGS=$(CFLAGS_FOR_TARGET)
+STAGE3_LIBCFLAGS=$(CFLAGS_FOR_TARGET)
+STAGE4_LIBCFLAGS=$(CFLAGS_FOR_TARGET)
 
 do-compare = @do_compare@
 do-compare3 = $(do-compare)
@@ -365,16 +381,11 @@ COMPILER_AS_FOR_TARGET=@COMPILER_AS_FOR_TARGET@
 COMPILER_LD_FOR_TARGET=@COMPILER_LD_FOR_TARGET@
 COMPILER_NM_FOR_TARGET=@COMPILER_NM_FOR_TARGET@
 
-# During gcc bootstrap, if we use some random cc for stage1 then
-# CFLAGS will be just -g.  We want to ensure that TARGET libraries
-# (which we know are built with gcc) are built with optimizations so
-# prepend -O2 when setting CFLAGS_FOR_TARGET.
-CFLAGS_FOR_TARGET = -O2 $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \
-	$(DEBUG_PREFIX_CFLAGS_FOR_TARGET)
+CFLAGS_FOR_TARGET = @CFLAGS_FOR_TARGET@
+CXXFLAGS_FOR_TARGET = @CXXFLAGS_FOR_TARGET@
 SYSROOT_CFLAGS_FOR_TARGET = @SYSROOT_CFLAGS_FOR_TARGET@
 DEBUG_PREFIX_CFLAGS_FOR_TARGET = @DEBUG_PREFIX_CFLAGS_FOR_TARGET@
-CXXFLAGS_FOR_TARGET = $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET) \
-	$(DEBUG_PREFIX_CFLAGS_FOR_TARGET)
+
 LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
 LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
 LDFLAGS_FOR_TARGET = 
@@ -478,19 +489,20 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 # Flags to pass down to makes which are built with the target environment.
 # The double $ decreases the length of the command line; those variables
 # are set in BASE_FLAGS_TO_PASS, and the sub-make will expand them.  The
-# COMPILER_ prefixed variables are not passed down so we expand them here.
+# *_CFLAGS_FOR_TARGET variables are not passed down and most often empty,
+# so we expand them here.
 EXTRA_TARGET_FLAGS = \
 	'AR=$$(AR_FOR_TARGET)' \
 	'AS=$(COMPILER_AS_FOR_TARGET)' \
 	'CC=$$(CC_FOR_TARGET)' \
-	'CFLAGS=$$(CFLAGS_FOR_TARGET)' \
+	'CFLAGS=$$(CFLAGS_FOR_TARGET) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)' \
 	'CXX=$$(CXX_FOR_TARGET)' \
-	'CXXFLAGS=$$(CXXFLAGS_FOR_TARGET)' \
+	'CXXFLAGS=$$(CXXFLAGS_FOR_TARGET) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)' \
 	'DLLTOOL=$$(DLLTOOL_FOR_TARGET)' \
 	'LD=$(COMPILER_LD_FOR_TARGET)' \
 	'LDFLAGS=$$(LDFLAGS_FOR_TARGET)' \
-	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET)' \
-	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET)' \
+	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)' \
+	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET) $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)' \
 	'NM=$(COMPILER_NM_FOR_TARGET)' \
 	'OBJDUMP=$$(OBJDUMP_FOR_TARGET)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)' \
@@ -838,9 +850,11 @@ configure-stage[+id+]-[+prefix+][+module+]:
 	fi; \
 	[+ ENDIF check_multilibs +]test ! -f [+subdir+]/[+module+]/Makefile || exit 0; \
 	[+exports+][+ IF prev +] \
-	[+poststage1_exports+][+ ENDIF prev +] \
+	[+poststage1_exports+][+ ENDIF prev +] [+ IF prefix +] \
+	CFLAGS="[+stage_libcflags+] $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="[+stage_libcflags+] $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS; [+ ELSE +] \
 	CFLAGS="[+stage_cflags+]"; export CFLAGS; \
-	LIBCFLAGS="[+stage_cflags+]"; export LIBCFLAGS; \
+	CXXFLAGS="[+stage_cflags+]"; export CXXFLAGS; [+ ENDIF +] \
 	echo Configuring stage [+id+] in [+subdir+]/[+module+] ; \
 	$(SHELL) $(srcdir)/mkinstalldirs [+subdir+]/[+module+] ; \
 	cd [+subdir+]/[+module+] || exit 1; \
@@ -877,7 +891,8 @@ all-[+prefix+][+module+]: configure-[+prefix+][+module+][+ IF bootstrap +][+ ELS
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	[+exports+] \
 	(cd [+subdir+]/[+module+] && \
-	  $(MAKE) [+args+] [+extra_make_flags+] $(TARGET-[+prefix+][+module+]))
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) [+args+] [+extra_make_flags+] \
+		$(TARGET-[+prefix+][+module+]))
 @endif [+prefix+][+module+]
 
 [+ IF bootstrap +]
@@ -897,8 +912,11 @@ all-stage[+id+]-[+prefix+][+module+]: configure-stage[+id+]-[+prefix+][+module+]
 	[+exports+][+ IF prev +] \
 	[+poststage1_exports+][+ ENDIF prev +] \
 	cd [+subdir+]/[+module+] && \
-	$(MAKE) [+args+] \
-		CFLAGS="[+stage_cflags+]" LIBCFLAGS="[+stage_cflags+]" [+
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="[+stage_cflags+]" CXXFLAGS="[+stage_cflags+]" \
+		LIBCFLAGS="[+stage_libcflags+]" \
+		CFLAGS_FOR_TARGET="[+stage_libcflags+]" \
+		CXXFLAGS_FOR_TARGET="[+stage_libcflags+]" [+args+] [+
 		IF prev +][+poststage1_args+][+ ENDIF prev
 		+] [+extra_make_flags+] \
 		$(TARGET-stage[+id+]-[+prefix+][+module+])
@@ -948,7 +966,7 @@ clean-stage[+id+]-[+prefix+][+module+]:
 [+ all prefix="" subdir="$(HOST_SUBDIR)"
        exports="$(HOST_EXPORTS)"
        poststage1_exports="$(POSTSTAGE1_HOST_EXPORTS)"
-       args="$(FLAGS_TO_PASS)"
+       args="$(EXTRA_HOST_FLAGS)"
        poststage1_args="$(POSTSTAGE1_FLAGS_TO_PASS)" +]
 
 .PHONY: check-[+module+] maybe-check-[+module+]
@@ -1046,7 +1064,7 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 
 [+ all prefix="target-" subdir="$(TARGET_SUBDIR)"
        exports="$(RAW_CXX_TARGET_EXPORTS)"
-       args="$(TARGET_FLAGS_TO_PASS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'" +]
+       args="$(EXTRA_TARGET_FLAGS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'" +]
 [+ ELSE +]
 [+ configure prefix="target-" subdir="$(TARGET_SUBDIR)"
 	     check_multilibs=true
@@ -1057,7 +1075,7 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 
 [+ all prefix="target-" subdir="$(TARGET_SUBDIR)"
        exports="$(NORMAL_TARGET_EXPORTS)"
-       args="$(TARGET_FLAGS_TO_PASS)" +]
+       args="$(EXTRA_TARGET_FLAGS)" +]
 [+ ENDIF +]
 
 .PHONY: check-target-[+module+] maybe-check-target-[+module+]

@@ -1,5 +1,5 @@
 /* All matcher functions.
-   Copyright (C) 2003, 2005, 2007
+   Copyright (C) 2003, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
@@ -46,7 +46,6 @@ match gfc_match_st_label (gfc_st_label **);
 match gfc_match_label (void);
 match gfc_match_small_int (int *);
 match gfc_match_small_int_expr (int *, gfc_expr **);
-int gfc_match_strings (mstring *);
 match gfc_match_name (char *);
 match gfc_match_name_C (char *buffer);
 match gfc_match_symbol (gfc_symbol **, int);
@@ -55,6 +54,7 @@ match gfc_match_intrinsic_op (gfc_intrinsic_op *);
 match gfc_match_char (char);
 match gfc_match (const char *, ...);
 match gfc_match_iterator (gfc_iterator *, int);
+match gfc_match_parens (void);
 
 /* Statement matchers.  */
 match gfc_match_program (void);
@@ -128,12 +128,14 @@ match gfc_match_omp_end_single (void);
 
 match gfc_match_data (void);
 match gfc_match_null (gfc_expr **);
-match gfc_match_kind_spec (gfc_typespec *);
+match gfc_match_kind_spec (gfc_typespec *, bool);
 match gfc_match_old_kind_spec (gfc_typespec *);
+match gfc_match_type_spec (gfc_typespec *, int);
 
 match gfc_match_end (gfc_statement *);
 match gfc_match_data_decl (void);
 match gfc_match_formal_arglist (gfc_symbol *, int, int);
+match gfc_match_procedure (void);
 match gfc_match_function_decl (void);
 match gfc_match_entry (void);
 match gfc_match_subroutine (void);
@@ -174,7 +176,7 @@ try set_verify_bind_c_com_block (gfc_common_head *, int);
 try get_bind_c_idents (void);
 match gfc_match_bind_c_stmt (void);
 match gfc_match_suffix (gfc_symbol *, gfc_symbol **);
-match gfc_match_bind_c (gfc_symbol *);
+match gfc_match_bind_c (gfc_symbol *, bool);
 match gfc_get_type_attr_spec (symbol_attribute *);
 
 /* primary.c.  */

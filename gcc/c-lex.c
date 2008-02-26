@@ -1,6 +1,6 @@
 /* Mainly the interface between cpplib and the C front ends.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -49,6 +49,7 @@ static splay_tree file_info_tree;
 
 static tree interpret_integer (const cpp_token *, unsigned int);
 static tree interpret_float (const cpp_token *, unsigned int);
+static tree interpret_fixed (const cpp_token *, unsigned int);
 static enum integer_type_kind narrowest_unsigned_type
 	(unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT, unsigned int);
 static enum integer_type_kind narrowest_signed_type
@@ -191,7 +192,7 @@ cb_ident (cpp_reader * ARG_UNUSED (pfile),
       if (cpp_interpret_string (pfile, str, 1, &cstr, false))
 	{
 	  ASM_OUTPUT_IDENT (asm_out_file, (const char *) cstr.text);
-	  free (CONST_CAST (cstr.text));
+	  free (CONST_CAST (unsigned char *, cstr.text));
 	}
     }
 #endif
@@ -209,7 +210,7 @@ cb_line_change (cpp_reader * ARG_UNUSED (pfile), const cpp_token *token,
 #else
     {
       source_location loc = token->src_loc;
-      const struct line_map *map = linemap_lookup (&line_table, loc);
+      const struct line_map *map = linemap_lookup (line_table, loc);
       input_line = SOURCE_LINE (map, loc);
     }
 #endif
@@ -290,7 +291,7 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
       const cpp_token *s;
 #ifndef USE_MAPPED_LOCATION
       location_t fe_loc;
-      const struct line_map *map = linemap_lookup (&line_table, loc);
+      const struct line_map *map = linemap_lookup (line_table, loc);
       fe_loc.file = map->to_file;
       fe_loc.line = SOURCE_LINE (map, loc);
 #else
@@ -316,7 +317,7 @@ cb_def_pragma (cpp_reader *pfile, source_location loc)
 static void
 cb_define (cpp_reader *pfile, source_location loc, cpp_hashnode *node)
 {
-  const struct line_map *map = linemap_lookup (&line_table, loc);
+  const struct line_map *map = linemap_lookup (line_table, loc);
   (*debug_hooks->define) (SOURCE_LINE (map, loc),
 			  (const char *) cpp_macro_definition (pfile, node));
 }
@@ -326,7 +327,7 @@ static void
 cb_undef (cpp_reader * ARG_UNUSED (pfile), source_location loc,
 	  cpp_hashnode *node)
 {
-  const struct line_map *map = linemap_lookup (&line_table, loc);
+  const struct line_map *map = linemap_lookup (line_table, loc);
   (*debug_hooks->undef) (SOURCE_LINE (map, loc),
 			 (const char *) NODE_NAME (node));
 }
@@ -346,15 +347,15 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 
   timevar_push (TV_CPP);
  retry:
+#ifdef USE_MAPPED_LOCATION
+  tok = cpp_get_token_with_location (parse_in, loc);
+#else
   tok = cpp_get_token (parse_in);
+  *loc = input_location;
+#endif
   type = tok->type;
 
  retry_after_at:
-#ifdef USE_MAPPED_LOCATION
-  *loc = tok->src_loc;
-#else
-  *loc = input_location;
-#endif
   switch (type)
     {
     case CPP_PADDING:
@@ -398,10 +399,19 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
       /* An @ may give the next token special significance in Objective-C.  */
       if (c_dialect_objc ())
 	{
+#ifdef USE_MAPPED_LOCATION
+	  location_t atloc = *loc;
+	  location_t newloc;
+#else
 	  location_t atloc = input_location;
+#endif
 
 	retry_at:
+#ifdef USE_MAPPED_LOCATION
+	  tok = cpp_get_token_with_location (parse_in, &newloc);
+#else
 	  tok = cpp_get_token (parse_in);
+#endif
 	  type = tok->type;
 	  switch (type)
 	    {
@@ -425,6 +435,9 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 	    default:
 	      /* ... or not.  */
 	      error ("%Hstray %<@%> in program", &atloc);
+#ifdef USE_MAPPED_LOCATION
+	      *loc = newloc;
+#endif
 	      goto retry_after_at;
 	    }
 	  break;
@@ -650,6 +663,10 @@ interpret_float (const cpp_token *token, unsigned int flags)
   char *copy;
   size_t copylen;
 
+  /* Decode _Fract and _Accum.  */
+  if (flags & CPP_N_FRACT || flags & CPP_N_ACCUM)
+    return interpret_fixed (token, flags);
+
   /* Decode type based on width and properties. */
   if (flags & CPP_N_DFLOAT)
     if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
@@ -741,6 +758,131 @@ interpret_float (const cpp_token *token, unsigned int flags)
   return value;
 }
 
+/* Interpret TOKEN, a fixed-point number with FLAGS as classified
+   by cpplib.  */
+
+static tree
+interpret_fixed (const cpp_token *token, unsigned int flags)
+{
+  tree type;
+  tree value;
+  FIXED_VALUE_TYPE fixed;
+  char *copy;
+  size_t copylen;
+
+  copylen = token->val.str.len;
+
+  if (flags & CPP_N_FRACT) /* _Fract.  */
+    {
+      if (flags & CPP_N_UNSIGNED) /* Unsigned _Fract.  */
+	{
+	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+	    {
+	      type = unsigned_long_long_fract_type_node;
+	      copylen -= 4;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+	    {
+	      type = unsigned_long_fract_type_node;
+	      copylen -= 3;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+	    {
+	      type = unsigned_short_fract_type_node;
+	      copylen -= 3;
+	    }
+          else
+	    {
+	      type = unsigned_fract_type_node;
+	      copylen -= 2;
+	    }
+	}
+      else /* Signed _Fract.  */
+	{
+	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+	    {
+	      type = long_long_fract_type_node;
+	      copylen -= 3;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+	    {
+	      type = long_fract_type_node;
+	      copylen -= 2;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+	    {
+	      type = short_fract_type_node;
+	      copylen -= 2;
+	    }
+          else
+	    {
+	      type = fract_type_node;
+	      copylen --;
+	    }
+	  }
+    }
+  else /* _Accum.  */
+    {
+      if (flags & CPP_N_UNSIGNED) /* Unsigned _Accum.  */
+	{
+	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+	    {
+	      type = unsigned_long_long_accum_type_node;
+	      copylen -= 4;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+	    {
+	      type = unsigned_long_accum_type_node;
+	      copylen -= 3;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+	    {
+	      type = unsigned_short_accum_type_node;
+	      copylen -= 3;
+	     }
+	  else
+	    {
+	      type = unsigned_accum_type_node;
+	      copylen -= 2;
+	    }
+	}
+      else /* Signed _Accum.  */
+        {
+	  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+	    {
+	      type = long_long_accum_type_node;
+	      copylen -= 3;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+	    {
+	      type = long_accum_type_node;
+	      copylen -= 2;
+	    }
+	  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+	    {
+	      type = short_accum_type_node;
+	      copylen -= 2;
+	    }
+	  else
+	    {
+	      type = accum_type_node;
+	      copylen --;
+	    }
+	}
+    }
+
+  copy = (char *) alloca (copylen + 1);
+  memcpy (copy, token->val.str.text, copylen);
+  copy[copylen] = '\0';
+
+  fixed_from_string (&fixed, copy, TYPE_MODE (type));
+
+  /* Create a node with determined type and value.  */
+  value = build_fixed (type, fixed);
+
+  return value;
+}
+
 /* Convert a series of STRING and/or WSTRING tokens into a tree,
    performing string constant concatenation.  TOK is the first of
    these.  VALP is the location to write the string into.  OBJC_STRING
@@ -758,8 +900,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
    we must arrange to provide.  */
 
 static enum cpp_ttype
-lex_string (const cpp_token *tok, tree *valp, bool objc_string,
-	    bool translate)
+lex_string (const cpp_token *tok, tree *valp, bool objc_string, bool translate)
 {
   tree value;
   bool wide = false;
@@ -822,7 +963,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string,
       (parse_in, strs, concats + 1, &istr, wide))
     {
       value = build_string (istr.len, (const char *) istr.text);
-      free (CONST_CAST (istr.text));
+      free (CONST_CAST (unsigned char *, istr.text));
     }
   else
     {

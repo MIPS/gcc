@@ -53,6 +53,7 @@
 #include "tree-gimple.h"
 #include "tm-constrs.h"
 #include "spu-builtins.h"
+#include "ddg.h"
 
 /* Builtin types, data and prototypes. */
 struct spu_builtin_range
@@ -113,9 +114,10 @@ static tree spu_handle_vector_attribute (tree * node, tree name, tree args,
 					 int flags,
 					 unsigned char *no_add_attrs);
 static int spu_naked_function_p (tree func);
-static unsigned char spu_pass_by_reference (int *cum, enum machine_mode mode,
-					    tree type, unsigned char named);
+static unsigned char spu_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+					    const_tree type, unsigned char named);
 static tree spu_build_builtin_va_list (void);
+static void spu_va_start (tree, rtx);
 static tree spu_gimplify_va_arg_expr (tree valist, tree type, tree * pre_p,
 				      tree * post_p);
 static int regno_aligned_for_load (int regno);
@@ -128,14 +130,15 @@ static unsigned char spu_rtx_costs (rtx x, int code, int outer_code,
 				    int *total);
 static unsigned char spu_function_ok_for_sibcall (tree decl, tree exp);
 static void spu_init_libfuncs (void);
-static bool spu_return_in_memory (tree type, tree fntype);
+static bool spu_return_in_memory (const_tree type, const_tree fntype);
 static void fix_range (const char *);
 static void spu_encode_section_info (tree, rtx, int);
 static tree spu_builtin_mul_widen_even (tree);
 static tree spu_builtin_mul_widen_odd (tree);
 static tree spu_builtin_mask_for_load (void);
 static int spu_builtin_vectorization_cost (bool);
-static bool spu_vector_alignment_reachable (tree, bool);
+static bool spu_vector_alignment_reachable (const_tree, bool);
+static int spu_sms_res_mii (struct ddg *g);
 
 extern const char *reg_names[];
 rtx spu_compare_op0, spu_compare_op1;
@@ -173,6 +176,12 @@ static enum spu_immediate which_logical_immediate (HOST_WIDE_INT val);
 static int cpat_info(unsigned char *arr, int size, int *prun, int *pstart);
 static enum immediate_class classify_immediate (rtx op,
 						enum machine_mode mode);
+
+static enum machine_mode
+spu_libgcc_cmp_return_mode (void);
+
+static enum machine_mode
+spu_libgcc_shift_count_mode (void);
 
 /* Built in types.  */
 tree spu_builtin_types[SPU_BTI_MAX];
@@ -239,6 +248,9 @@ const struct attribute_spec spu_attribute_table[];
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST spu_build_builtin_va_list
 
+#undef TARGET_EXPAND_BUILTIN_VA_START
+#define TARGET_EXPAND_BUILTIN_VA_START spu_va_start
+
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS spu_setup_incoming_varargs
 
@@ -274,6 +286,15 @@ const struct attribute_spec spu_attribute_table[];
 
 #undef TARGET_VECTOR_ALIGNMENT_REACHABLE
 #define TARGET_VECTOR_ALIGNMENT_REACHABLE spu_vector_alignment_reachable
+
+#undef TARGET_LIBGCC_CMP_RETURN_MODE
+#define TARGET_LIBGCC_CMP_RETURN_MODE spu_libgcc_cmp_return_mode
+
+#undef TARGET_LIBGCC_SHIFT_COUNT_MODE
+#define TARGET_LIBGCC_SHIFT_COUNT_MODE spu_libgcc_shift_count_mode
+
+#undef TARGET_SCHED_SMS_RES_MII
+#define TARGET_SCHED_SMS_RES_MII spu_sms_res_mii
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -620,7 +641,7 @@ spu_expand_insv (rtx ops[])
 	}
     }
   else
-    emit_insn (gen_selb (dst, dst, shift_reg, mask));
+    emit_insn (gen_selb (dst, copy_rtx (dst), shift_reg, mask));
 }
 
 
@@ -703,13 +724,14 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 {
   int reverse_compare = 0;
   int reverse_test = 0;
-  rtx compare_result;
-  rtx comp_rtx;
+  rtx compare_result, eq_result;
+  rtx comp_rtx, eq_rtx;
   rtx target = operands[0];
   enum machine_mode comp_mode;
   enum machine_mode op_mode;
-  enum spu_comp_code scode;
+  enum spu_comp_code scode, eq_code, ior_code;
   int index;
+  int eq_test = 0;
 
   /* When spu_compare_op1 is a CONST_INT change (X >= C) to (X > C-1),
      and so on, to keep the constant in operand 1. */
@@ -740,17 +762,40 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 	  }
     }
 
+  comp_mode = SImode;
+  op_mode = GET_MODE (spu_compare_op0);
+
   switch (code)
     {
     case GE:
-      reverse_compare = 1;
-      reverse_test = 1;
       scode = SPU_GT;
+      if (HONOR_NANS (op_mode))
+	{
+	  reverse_compare = 0;
+	  reverse_test = 0;
+	  eq_test = 1;
+	  eq_code = SPU_EQ;
+	}
+      else
+	{
+	  reverse_compare = 1;
+	  reverse_test = 1;
+	}
       break;
     case LE:
-      reverse_compare = 0;
-      reverse_test = 1;
       scode = SPU_GT;
+      if (HONOR_NANS (op_mode))
+	{
+	  reverse_compare = 1;
+	  reverse_test = 0;
+	  eq_test = 1;
+	  eq_code = SPU_EQ;
+	}
+      else
+	{
+	  reverse_compare = 0;
+	  reverse_test = 1;
+	}
       break;
     case LT:
       reverse_compare = 1;
@@ -791,9 +836,6 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
       scode = SPU_EQ;
       break;
     }
-
-  comp_mode = SImode;
-  op_mode = GET_MODE (spu_compare_op0);
 
   switch (op_mode)
     {
@@ -845,23 +887,9 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
       abort ();
     }
 
-  if (GET_MODE (spu_compare_op1) == DFmode)
-    {
-      rtx reg = gen_reg_rtx (DFmode);
-      if ((!flag_unsafe_math_optimizations && spu_arch == PROCESSOR_CELL)
-	  || (scode != SPU_GT && scode != SPU_EQ))
-	abort ();
-      if (spu_arch == PROCESSOR_CELL)
-      {
-        if (reverse_compare)
-	  emit_insn (gen_subdf3 (reg, spu_compare_op1, spu_compare_op0));
-        else
-	  emit_insn (gen_subdf3 (reg, spu_compare_op0, spu_compare_op1));
-        reverse_compare = 0;
-        spu_compare_op0 = reg;
-        spu_compare_op1 = CONST0_RTX (DFmode);
-      }
-    }
+  if (GET_MODE (spu_compare_op1) == DFmode
+      && (scode != SPU_GT && scode != SPU_EQ))
+    abort ();
 
   if (is_set == 0 && spu_compare_op1 == const0_rtx
       && (GET_MODE (spu_compare_op0) == SImode
@@ -899,6 +927,20 @@ spu_emit_branch_or_set (int is_set, enum rtx_code code, rtx operands[])
 	abort ();
       emit_insn (comp_rtx);
 
+      if (eq_test)
+        {
+          eq_result = gen_reg_rtx (comp_mode);
+          eq_rtx = GEN_FCN (spu_comp_icode[index][eq_code]) (eq_result,
+							     spu_compare_op0,
+							     spu_compare_op1);
+          if (eq_rtx == 0)
+	    abort ();
+          emit_insn (eq_rtx);
+          ior_code = ior_optab->handlers[(int)comp_mode].insn_code;
+          gcc_assert (ior_code != CODE_FOR_nothing);
+          emit_insn (GEN_FCN (ior_code)
+		     (compare_result, compare_result, eq_result));
+        }
     }
 
   if (is_set == 0)
@@ -2437,29 +2479,6 @@ spu_float_const (const char *string, enum machine_mode mode)
   return CONST_DOUBLE_FROM_REAL_VALUE (value, mode);
 }
 
-/* Given a (CONST (PLUS (SYMBOL_REF) (CONST_INT))) return TRUE when the
-   CONST_INT fits constraint 'K', i.e., is small. */
-int
-legitimate_const (rtx x, int aligned)
-{
-  /* We can never know if the resulting address fits in 18 bits and can be
-     loaded with ila.  Instead we should use the HI and LO relocations to
-     load a 32-bit address.  */
-  rtx sym, cst;
-
-  gcc_assert (GET_CODE (x) == CONST);
-
-  if (GET_CODE (XEXP (x, 0)) != PLUS)
-    return 0;
-  sym = XEXP (XEXP (x, 0), 0);
-  cst = XEXP (XEXP (x, 0), 1);
-  if (GET_CODE (sym) != SYMBOL_REF || GET_CODE (cst) != CONST_INT)
-    return 0;
-  if (aligned && ((INTVAL (cst) & 15) != 0 || !ALIGNED_SYMBOL_REF_P (sym)))
-    return 0;
-  return satisfies_constraint_K (cst);
-}
-
 int
 spu_constant_address_p (rtx x)
 {
@@ -2580,8 +2599,20 @@ classify_immediate (rtx op, enum machine_mode mode)
       return TARGET_LARGE_MEM ? IC_IL2s : IC_IL1s;
 
     case CONST:
-      return TARGET_LARGE_MEM
-	|| !legitimate_const (op, 0) ? IC_IL2s : IC_IL1s;
+      /* We can never know if the resulting address fits in 18 bits and can be
+	 loaded with ila.  For now, assume the address will not overflow if
+	 the displacement is "small" (fits 'K' constraint).  */
+      if (!TARGET_LARGE_MEM && GET_CODE (XEXP (op, 0)) == PLUS)
+	{
+	  rtx sym = XEXP (XEXP (op, 0), 0);
+	  rtx cst = XEXP (XEXP (op, 0), 1);
+
+	  if (GET_CODE (sym) == SYMBOL_REF
+	      && GET_CODE (cst) == CONST_INT
+	      && satisfies_constraint_K (cst))
+	    return IC_IL1s;
+	}
+      return IC_IL2s;
 
     case HIGH:
       return IC_IL1s;
@@ -2832,7 +2863,17 @@ spu_legitimate_address (enum machine_mode mode ATTRIBUTE_UNUSED,
       return !TARGET_LARGE_MEM;
 
     case CONST:
-      return !TARGET_LARGE_MEM && legitimate_const (x, 0);
+      if (!TARGET_LARGE_MEM && GET_CODE (XEXP (x, 0)) == PLUS)
+	{
+	  rtx sym = XEXP (XEXP (x, 0), 0);
+	  rtx cst = XEXP (XEXP (x, 0), 1);
+
+	  /* Accept any symbol_ref + constant, assuming it does not
+	     wrap around the local store addressability limit.  */
+	  if (GET_CODE (sym) == SYMBOL_REF && GET_CODE (cst) == CONST_INT)
+	    return 1;
+	}
+      return 0;
 
     case CONST_INT:
       return INTVAL (x) >= 0 && INTVAL (x) <= 0x3ffff;
@@ -3020,7 +3061,7 @@ spu_initial_elimination_offset (int from, int to)
 }
 
 rtx
-spu_function_value (tree type, tree func ATTRIBUTE_UNUSED)
+spu_function_value (const_tree type, const_tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode mode = TYPE_MODE (type);
   int byte_size = ((mode == BLKmode)
@@ -3102,7 +3143,7 @@ spu_function_arg (CUMULATIVE_ARGS cum,
 static bool
 spu_pass_by_reference (CUMULATIVE_ARGS * cum ATTRIBUTE_UNUSED,
 		       enum machine_mode mode ATTRIBUTE_UNUSED,
-		       tree type, bool named ATTRIBUTE_UNUSED)
+		       const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   return type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST;
 }
@@ -3177,7 +3218,7 @@ spu_build_builtin_va_list (void)
        holds the offset of the first anonymous stack argument
        (relative to the virtual arg pointer).  */
 
-void
+static void
 spu_va_start (tree valist, rtx nextarg)
 {
   tree f_args, f_skip;
@@ -4396,7 +4437,7 @@ spu_gen_subreg (enum machine_mode mode, rtx x)
 }
 
 static bool
-spu_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
+spu_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
   return (TYPE_MODE (type) == BLKmode
 	  && ((type) == 0
@@ -5472,7 +5513,7 @@ spu_builtin_vectorization_cost (bool runtime_test)
   /* If the branch of the runtime test is taken - i.e. - the vectorized
      version is skipped - this incurs a misprediction cost (because the
      vectorized version is expected to be the fall-through).  So we subtract
-     the latency of a mispredicted branch from the costs that are incured
+     the latency of a mispredicted branch from the costs that are incurred
      when the vectorized version is executed.  */
   if (runtime_test)
     return -19;
@@ -5485,7 +5526,7 @@ spu_builtin_vectorization_cost (bool runtime_test)
    how may iterations are required to reach desired alignment.  */
 
 static bool
-spu_vector_alignment_reachable (tree type ATTRIBUTE_UNUSED, bool is_packed)
+spu_vector_alignment_reachable (const_tree type ATTRIBUTE_UNUSED, bool is_packed)
 {
   if (is_packed)
     return false;
@@ -5493,6 +5534,38 @@ spu_vector_alignment_reachable (tree type ATTRIBUTE_UNUSED, bool is_packed)
   /* All other types are naturally aligned.  */
   return true;
 }
+
+/* Count the total number of instructions in each pipe and return the
+   maximum, which is used as the Minimum Iteration Interval (MII)
+   in the modulo scheduler.  get_pipe() will return -2, -1, 0, or 1.
+   -2 are instructions that can go in pipe0 or pipe1.  */
+static int
+spu_sms_res_mii (struct ddg *g)
+{
+  int i;
+  unsigned t[4] = {0, 0, 0, 0};
+
+  for (i = 0; i < g->num_nodes; i++)
+    {
+      rtx insn = g->nodes[i].insn;
+      int p = get_pipe (insn) + 2;
+
+      assert (p >= 0);
+      assert (p < 4);
+
+      t[p]++;
+      if (dump_file && INSN_P (insn))
+            fprintf (dump_file, "i%d %s %d %d\n",
+                     INSN_UID (insn),
+                     insn_data[INSN_CODE(insn)].name,
+                     p, t[p]);
+    }
+  if (dump_file)
+    fprintf (dump_file, "%d %d %d %d\n", t[0], t[1], t[2], t[3]);
+
+  return MAX ((t[0] + t[2] + t[3] + 1) / 2, MAX (t[2], t[3]));
+}
+
 
 void
 spu_init_expanders (void)
@@ -5502,4 +5575,21 @@ spu_init_expanders (void)
    * expanding the prologue. */
   if (cfun)
     REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = 8;
-}       
+}
+
+static enum machine_mode
+spu_libgcc_cmp_return_mode (void)
+{
+
+/* For SPU word mode is TI mode so it is better to use SImode
+   for compare returns.  */
+  return SImode;
+}
+
+static enum machine_mode
+spu_libgcc_shift_count_mode (void)
+{
+/* For SPU word mode is TI mode so it is better to use SImode
+   for shift counts.  */
+  return SImode;
+}

@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SCHED_INT_H
 #define GCC_SCHED_INT_H
 
+#ifdef INSN_SCHEDULING
+
 /* For state_t.  */
 #include "insn-attr.h"
 /* For regset_head.  */
@@ -807,11 +809,8 @@ enum INSN_TRAP_CLASS
 #define HAIFA_INLINE __inline
 #endif
 
-/* Functions in sched-vis.c.  */
-extern void print_insn (char *, rtx, int);
-
 /* Functions in sched-deps.c.  */
-extern bool sched_insns_conditions_mutex_p (rtx, rtx);
+extern bool sched_insns_conditions_mutex_p (const_rtx, const_rtx);
 extern void add_dependence (rtx, rtx, enum reg_note);
 extern void sched_analyze (struct deps *, rtx, rtx);
 extern bool deps_pools_are_empty_p (void);
@@ -829,9 +828,9 @@ extern ds_t ds_merge (ds_t, ds_t);
 extern void debug_ds (ds_t);
 
 /* Functions in haifa-sched.c.  */
-extern int haifa_classify_insn (rtx);
+extern int haifa_classify_insn (const_rtx);
 extern void get_ebb_head_tail (basic_block, basic_block, rtx *, rtx *);
-extern int no_real_insns_p (rtx, rtx);
+extern int no_real_insns_p (const_rtx, const_rtx);
 
 extern void rm_other_notes (rtx, rtx);
 
@@ -845,7 +844,7 @@ extern void sched_finish (void);
 
 extern int try_ready (rtx);
 extern void * xrecalloc (void *, size_t, size_t, size_t);
-extern bool sched_insn_is_legitimate_for_speculation_p (rtx, ds_t);
+extern bool sched_insn_is_legitimate_for_speculation_p (const_rtx, ds_t);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern rtx bb_note (basic_block);
@@ -882,7 +881,7 @@ extern void debug_dependencies (rtx, rtx);
 /* A type to hold above flags.  */
 typedef int sd_list_types_def;
 
-extern void sd_next_list (rtx, sd_list_types_def *, deps_list_t *, bool *);
+extern void sd_next_list (const_rtx, sd_list_types_def *, deps_list_t *, bool *);
 
 /* Iterator to walk through, resolve and delete dependencies.  */
 struct _sd_iterator
@@ -897,7 +896,7 @@ struct _sd_iterator
      simply a pointer to the next element to allow easy deletion from the
      list.  When a dep is being removed from the list the iterator
      will automatically advance because the value in *linkp will start
-     reffering to the next element.  */
+     referring to the next element.  */
   dep_link_t *linkp;
 
   /* True if the current list is a resolved one.  */
@@ -980,8 +979,8 @@ sd_iterator_next (sd_iterator_def *it_ptr)
        sd_iterator_cond (&(ITER), &(DEP));			\
        sd_iterator_next (&(ITER)))
 
-extern int sd_lists_size (rtx, sd_list_types_def);
-extern bool sd_lists_empty_p (rtx, sd_list_types_def);
+extern int sd_lists_size (const_rtx, sd_list_types_def);
+extern bool sd_lists_empty_p (const_rtx, sd_list_types_def);
 extern void sd_init_insn (rtx);
 extern void sd_finish_insn (rtx);
 extern dep_t sd_find_dep_between (rtx, rtx, bool);
@@ -991,5 +990,7 @@ extern void sd_resolve_dep (sd_iterator_def);
 extern void sd_copy_back_deps (rtx, rtx, bool);
 extern void sd_delete_dep (sd_iterator_def);
 extern void sd_debug_lists (rtx, sd_list_types_def);
+
+#endif /* INSN_SCHEDULING */
 
 #endif /* GCC_SCHED_INT_H */

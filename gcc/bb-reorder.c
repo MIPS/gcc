@@ -176,7 +176,7 @@ static basic_block copy_bb (basic_block, edge, basic_block, int);
 static fibheapkey_t bb_to_key (basic_block);
 static bool better_edge_p (const_basic_block, const_edge, int, int, int, int, const_edge);
 static void connect_traces (int, struct trace *);
-static bool copy_bb_p (basic_block, int);
+static bool copy_bb_p (const_basic_block, int);
 static int get_uncond_jump_length (void);
 static bool push_to_next_round_p (const_basic_block, int, int, int, gcov_type);
 static void find_rarely_executed_basic_blocks_and_crossing_edges (edge **,
@@ -1156,7 +1156,7 @@ connect_traces (int n_traces, struct trace *traces)
    when code size is allowed to grow by duplication.  */
 
 static bool
-copy_bb_p (basic_block bb, int code_may_grow)
+copy_bb_p (const_basic_block bb, int code_may_grow)
 {
   int size = 0;
   int max_size = uncond_jump_length;
@@ -1223,7 +1223,6 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge **crossing_edges,
 						      int *max_idx)
 {
   basic_block bb;
-  bool has_hot_blocks = false;
   edge e;
   int i;
   edge_iterator ei;
@@ -1235,10 +1234,7 @@ find_rarely_executed_basic_blocks_and_crossing_edges (edge **crossing_edges,
       if (probably_never_executed_bb_p (bb))
 	BB_SET_PARTITION (bb, BB_COLD_PARTITION);
       else
-	{
-	  BB_SET_PARTITION (bb, BB_HOT_PARTITION);
-	  has_hot_blocks = true;
-	}
+	BB_SET_PARTITION (bb, BB_HOT_PARTITION);
     }
 
   /* Mark every edge that crosses between sections.  */
@@ -1524,7 +1520,6 @@ fix_crossing_conditional_branches (void)
   basic_block new_bb;
   basic_block last_bb;
   basic_block dest;
-  basic_block prev_bb;
   edge succ1;
   edge succ2;
   edge crossing_edge;
@@ -1605,7 +1600,6 @@ fix_crossing_conditional_branches (void)
 		  new_bb = create_basic_block (NULL, NULL, last_bb);
 		  new_bb->aux = last_bb->aux;
 		  last_bb->aux = new_bb;
-		  prev_bb = last_bb;
 		  last_bb = new_bb;
 		  /* Put appropriate instructions in new bb.  */
 
@@ -1947,6 +1941,9 @@ insert_section_boundary_note (void)
 	{
 	  new_note = emit_note_before (NOTE_INSN_SWITCH_TEXT_SECTIONS,
 				       BB_HEAD (bb));
+	  /* ??? This kind of note always lives between basic blocks,
+	     but add_insn_before will set BLOCK_FOR_INSN anyway.  */
+	  BLOCK_FOR_INSN (new_note) = NULL;
 	  break;
 	}
     }
@@ -2084,7 +2081,7 @@ struct tree_opt_pass pass_duplicate_computed_gotos =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
   0                                     /* letter */
 };
 
@@ -2198,18 +2195,11 @@ rest_of_handle_reorder_blocks (void)
      splitting possibly introduced more crossjumping opportunities.  */
   cfg_layout_initialize (CLEANUP_EXPENSIVE);
 
-  if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
-    {
-      timevar_push (TV_TRACER);
-      tracer ();
-      timevar_pop (TV_TRACER);
-    }
-
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
-    reorder_basic_blocks ();
-  if (flag_reorder_blocks || flag_reorder_blocks_and_partition
-      || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    cleanup_cfg (CLEANUP_EXPENSIVE);
+    {
+      reorder_basic_blocks ();
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+    }
 
   FOR_EACH_BB (bb)
     if (bb->next_bb != EXIT_BLOCK_PTR)
@@ -2234,7 +2224,7 @@ struct tree_opt_pass pass_reorder_blocks =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
   'B'                                   /* letter */
 };
 
@@ -2272,7 +2262,7 @@ struct tree_opt_pass pass_partition_blocks =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_dump_func | TODO_verify_rtl_sharing,/* todo_flags_finish */
   0                                     /* letter */
 };
 

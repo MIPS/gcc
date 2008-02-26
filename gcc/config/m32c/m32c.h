@@ -458,6 +458,12 @@ enum reg_class
 #define DWARF_FRAME_REGNUM(N) m32c_dwarf_frame_regnum (N)
 #define DBX_REGISTER_NUMBER(N) m32c_dwarf_frame_regnum (N)
 
+#undef ASM_PREFERRED_EH_DATA_FORMAT
+/* This is the same as the default in practice, except that by making
+   it explicit we tell binutils what size pointers to use.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL) \
+  (TARGET_A16 ? DW_EH_PE_udata2 : DW_EH_PE_udata4)
+
 /* Eliminating Frame Pointer and Arg Pointer */
 
 /* If the frame pointer isn't used, we detect it manually.  But the
@@ -561,11 +567,11 @@ typedef struct m32c_cumulative_args
 
 #define LEGITIMIZE_ADDRESS(X,OLDX,MODE,WIN) \
 	if (m32c_legitimize_address(&(X),OLDX,MODE)) \
-	  goto win;
+	  goto WIN;
 
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN) \
 	if (m32c_legitimize_reload_address(&(X),MODE,OPNUM,TYPE,IND_LEVELS)) \
-	  goto win;
+	  goto WIN;
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)
 

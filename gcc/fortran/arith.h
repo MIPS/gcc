@@ -1,5 +1,5 @@
 /* Compiler arithmetic header.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
@@ -38,7 +38,7 @@ gfc_expr *gfc_constant_result (bt, int, locus *);
    for overflow and underflow.  */
 arith gfc_range_check (gfc_expr *);
 
-int gfc_compare_expr (gfc_expr *, gfc_expr *);
+int gfc_compare_expr (gfc_expr *, gfc_expr *, gfc_intrinsic_op);
 int gfc_compare_string (gfc_expr *, gfc_expr *);
 
 /* Constant folding for gfc_expr trees.  */

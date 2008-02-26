@@ -315,24 +315,44 @@ is_cfg_nonregular (void)
   if (current_function_has_exception_handlers ())
     return 1;
 
-  /* If we have non-jumping insns which refer to labels, then we consider
-     the cfg not well structured.  */
+  /* If we have insns which refer to labels as non-jumped-to operands,
+     then we consider the cfg not well structured.  */
   FOR_EACH_BB (b)
     FOR_BB_INSNS (b, insn)
       {
-	/* Check for labels referred by non-jump insns.  */
-	if (NONJUMP_INSN_P (insn) || CALL_P (insn))
-	  {
-	    rtx note = find_reg_note (insn, REG_LABEL, NULL_RTX);
-	    if (note
-		&& ! (JUMP_P (NEXT_INSN (insn))
-		      && find_reg_note (NEXT_INSN (insn), REG_LABEL,
-					XEXP (note, 0))))
-	      return 1;
-	  }
+	rtx note, next, set, dest;
+
 	/* If this function has a computed jump, then we consider the cfg
 	   not well structured.  */
-	else if (JUMP_P (insn) && computed_jump_p (insn))
+	if (JUMP_P (insn) && computed_jump_p (insn))
+	  return 1;
+
+	if (!INSN_P (insn))
+	  continue;
+
+	note = find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX);
+	if (note == NULL_RTX)
+	  continue;
+
+	/* For that label not to be seen as a referred-to label, this
+	   must be a single-set which is feeding a jump *only*.  This
+	   could be a conditional jump with the label split off for
+	   machine-specific reasons or a casesi/tablejump.  */
+	next = next_nonnote_insn (insn);
+	if (next == NULL_RTX
+	    || !JUMP_P (next)
+	    || (JUMP_LABEL (next) != XEXP (note, 0)
+		&& find_reg_note (next, REG_LABEL_TARGET,
+				  XEXP (note, 0)) == NULL_RTX)
+	    || BLOCK_FOR_INSN (insn) != BLOCK_FOR_INSN (next))
+	  return 1;
+
+	set = single_set (insn);
+	if (set == NULL_RTX)
+	  return 1;
+
+	dest = SET_DEST (set);
+	if (!REG_P (dest) || !dead_or_set_p (next, dest))
 	  return 1;
       }
 
@@ -1345,7 +1365,7 @@ static void
 compute_trg_info (int trg)
 {
   candidate *sp;
-  edgelst el;
+  edgelst el = { NULL, 0 };
   int i, j, k, update_idx;
   basic_block block;
   sbitmap visited;
@@ -3185,7 +3205,7 @@ struct tree_opt_pass pass_sched =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */
@@ -3205,7 +3225,7 @@ struct tree_opt_pass pass_sched2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish |
+  TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
   TODO_ggc_collect,                     /* todo_flags_finish */

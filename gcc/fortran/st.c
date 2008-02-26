@@ -1,5 +1,5 @@
 /* Build executable statement trees.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -173,7 +173,7 @@ gfc_free_statement (gfc_code *p)
       break;
 
     case EXEC_OMP_CRITICAL:
-      gfc_free (CONST_CAST (p->ext.omp_name));
+      gfc_free (CONST_CAST (char *, p->ext.omp_name));
       break;
 
     case EXEC_OMP_FLUSH:

@@ -10,20 +10,20 @@
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- Public License  distributed with GNAT; see file COPYING3.  If not, go to --
+-- http://www.gnu.org/licenses for a complete copy of the license.          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Fmap;
 with Opt;
 with Osint;    use Osint;
 with Output;   use Output;
@@ -983,6 +983,56 @@ package body Prj.Env is
       end if;
    end Create_Config_Pragmas_File;
 
+   --------------------
+   -- Create_Mapping --
+   --------------------
+
+   procedure Create_Mapping (In_Tree : Project_Tree_Ref) is
+      The_Unit_Data : Unit_Data;
+      Data          : File_Name_Data;
+
+   begin
+      Fmap.Reset_Tables;
+
+      for Unit in 1 .. Unit_Table.Last (In_Tree.Units) loop
+         The_Unit_Data := In_Tree.Units.Table (Unit);
+
+         --  Process only if the unit has a valid name
+
+         if The_Unit_Data.Name /= No_Name then
+            Data := The_Unit_Data.File_Names (Specification);
+
+            --  If there is a spec, put it in the mapping
+
+            if Data.Name /= No_File then
+               if Data.Path = Slash then
+                  Fmap.Add_Forbidden_File_Name (Data.Name);
+               else
+                  Fmap.Add_To_File_Map
+                    (Unit_Name => Unit_Name_Type (The_Unit_Data.Name),
+                     File_Name => Data.Name,
+                     Path_Name => File_Name_Type (Data.Path));
+               end if;
+            end if;
+
+            Data := The_Unit_Data.File_Names (Body_Part);
+
+            --  If there is a body (or subunit) put it in the mapping
+
+            if Data.Name /= No_File then
+               if Data.Path = Slash then
+                  Fmap.Add_Forbidden_File_Name (Data.Name);
+               else
+                  Fmap.Add_To_File_Map
+                    (Unit_Name => Unit_Name_Type (The_Unit_Data.Name),
+                     File_Name => Data.Name,
+                     Path_Name => File_Name_Type (Data.Path));
+               end if;
+            end if;
+         end if;
+      end loop;
+   end Create_Mapping;
+
    -------------------------
    -- Create_Mapping_File --
    -------------------------
@@ -1169,7 +1219,6 @@ package body Prj.Env is
    procedure Create_Mapping_File
      (Project  : Project_Id;
       Language : Name_Id;
-      Runtime  : Project_Id;
       In_Tree  : Project_Tree_Ref;
       Name     : out Path_Name_Type)
    is
@@ -1221,10 +1270,10 @@ package body Prj.Env is
          Proj     : Project_Id;
 
       begin
-         --  Nothing to do for non existent or runtime project or project
-         --  that has already been flagged.
+         --  Nothing to do for non existent project or project that has already
+         --  been flagged.
 
-         if Prj = No_Project or else Prj = Runtime or else Present (Prj) then
+         if Prj = No_Project or else Present (Prj) then
             return;
          end if;
 
@@ -1282,20 +1331,22 @@ package body Prj.Env is
             while Source /= No_Source loop
                Src_Data := In_Tree.Sources.Table (Source);
 
-               if Src_Data.Language_Name = Language and then
-                 (not Src_Data.Locally_Removed) and then
-                 Src_Data.Replaced_By = No_Source
+               if Src_Data.Language_Name = Language
+                 and then not Src_Data.Locally_Removed
+                 and then Src_Data.Replaced_By = No_Source
+                 and then Src_Data.Path /= No_Path
                then
                   if Src_Data.Unit /= No_Name then
                      Get_Name_String (Src_Data.Unit);
 
                      if Src_Data.Kind = Spec then
-                        Suffix := In_Tree.Languages_Data.Table
-                          (Src_Data.Language).Config.Mapping_Spec_Suffix;
-
+                        Suffix :=
+                          In_Tree.Languages_Data.Table
+                            (Src_Data.Language).Config.Mapping_Spec_Suffix;
                      else
-                        Suffix := In_Tree.Languages_Data.Table
-                          (Src_Data.Language).Config.Mapping_Body_Suffix;
+                        Suffix :=
+                          In_Tree.Languages_Data.Table
+                            (Src_Data.Language).Config.Mapping_Body_Suffix;
                      end if;
 
                      if Suffix /= No_File then
@@ -1355,6 +1406,7 @@ package body Prj.Env is
 
    procedure Delete_All_Path_Files (In_Tree : Project_Tree_Ref) is
       Disregard : Boolean := True;
+      pragma Warnings (Off, Disregard);
 
    begin
       for Index in Path_File_Table.First ..
@@ -1905,6 +1957,8 @@ package body Prj.Env is
    procedure Initialize is
    begin
       Fill_Mapping_File := True;
+      Current_Source_Path_File := No_Path;
+      Current_Object_Path_File := No_Path;
    end Initialize;
 
    ------------------------------------
@@ -2272,10 +2326,10 @@ package body Prj.Env is
                      --  except if we don't include library project and this
                      --  is a library project.
 
-                     if (Data.Library and then Including_Libraries)
+                     if (Data.Library and Including_Libraries)
                        or else
                          (Data.Object_Directory /= No_Path
-                          and then
+                           and then
                             (not Including_Libraries or else not Data.Library))
                      then
                         --  For a library project, add the library ALI

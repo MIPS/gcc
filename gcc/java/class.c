@@ -315,10 +315,63 @@ identifier_subst (const tree old_id,
 tree
 mangled_classname (const char *prefix, tree type)
 {
+  tree result;
   tree ident = TYPE_NAME (type);
   if (TREE_CODE (ident) != IDENTIFIER_NODE)
     ident = DECL_NAME (ident);
-  return identifier_subst (ident, prefix, '.', '_', "");
+  result = identifier_subst (ident, prefix, '.', '_', "");
+
+  /* Replace any characters that aren't in the set [0-9a-zA-Z_$] with
+     "_0xXX".  Class names containing such chracters are uncommon, but
+     they do sometimes occur in class files.  Without this check,
+     these names cause assembly errors.
+
+     There is a possibility that a real class name could conflict with
+     the identifier we generate, but it is unlikely and will
+     immediately be detected as an assembler error.  At some point we
+     should do something more elaborate (perhaps using the full
+     unicode mangling scheme) in order to prevent such a conflict.  */
+  {
+    int i;
+    const int len = IDENTIFIER_LENGTH (result);
+    const char *p = IDENTIFIER_POINTER (result);
+    int illegal_chars = 0;
+
+    /* Make two passes over the identifier.  The first pass is merely
+       to count illegal characters; we need to do this in order to
+       allocate a buffer.  */
+    for (i = 0; i < len; i++)
+      {
+	char c = p[i];
+	illegal_chars += (! ISALNUM (c) && c != '_' && c != '$');
+      }
+
+    /* And the second pass, which is rarely executed, does the
+       rewriting.  */
+    if (illegal_chars != 0)
+      {
+	char *buffer = alloca (illegal_chars * 4 + len + 1);
+	int j;
+
+	for (i = 0, j = 0; i < len; i++)
+	  {
+	    char c = p[i];
+	    if (! ISALNUM (c) && c != '_' && c != '$')
+	      {
+		buffer[j++] = '_';
+		sprintf (&buffer[j], "0x%02x", c);
+		j += 4;
+	      }
+	    else
+	      buffer[j++] = c;
+	  }
+
+	buffer[j] = 0;
+	result = get_identifier (buffer);
+      }
+  }
+
+  return result;
 }
 
 tree
@@ -390,7 +443,7 @@ while (0)
 void
 gen_indirect_dispatch_tables (tree type)
 {
-  const char *typename = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
+  const char *typename = IDENTIFIER_POINTER (mangled_classname ("", type));
   {  
     tree field = NULL;
     char *buf = alloca (strlen (typename) + strlen ("_catch_classes_") + 1);
@@ -690,8 +743,8 @@ build_java_method_type (tree fntype, tree this_class, int access_flags)
   return fntype;
 }
 
-static void
-hide (tree decl ATTRIBUTE_UNUSED)
+void
+java_hide_decl (tree decl ATTRIBUTE_UNUSED)
 {
 #ifdef HAVE_GAS_HIDDEN
   DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
@@ -820,7 +873,7 @@ add_field (tree class, tree name, tree field_type, int flags)
       /* Hide everything that shouldn't be visible outside a DSO.  */
       if (flag_indirect_classes
 	  || (FIELD_PRIVATE (field)))
-	hide (field);
+	java_hide_decl (field);
       /* Considered external unless we are compiling it into this
 	 object file.  */
       DECL_EXTERNAL (field) = (is_compiled_class (class) != 2);
@@ -979,7 +1032,7 @@ build_static_class_ref (tree type)
 	{
 	  TREE_PUBLIC (decl) = 1;
 	  if (CLASS_PRIVATE (TYPE_NAME (type)))
-	    hide (decl);
+	    java_hide_decl (decl);
 	}
       DECL_IGNORED_P (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
@@ -1019,7 +1072,7 @@ build_classdollar_field (tree type)
       TREE_CONSTANT (decl) = 1;
       TREE_READONLY (decl) = 1;
       TREE_PUBLIC (decl) = 1;
-      hide (decl);
+      java_hide_decl (decl);
       DECL_IGNORED_P (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
       MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);
@@ -1708,7 +1761,7 @@ make_class_data (tree type)
       /* The only dispatch table exported from a DSO is the dispatch
 	 table for java.lang.Class.  */
       if (DECL_NAME (type_decl) != id_class)
-	hide (dtable_decl);
+	java_hide_decl (dtable_decl);
       if (! flag_indirect_classes)
 	rest_of_decl_compilation (dtable_decl, 1, 0);
       /* Maybe we're compiling Class as the first class.  If so, set
@@ -2561,7 +2614,7 @@ layout_class_method (tree this_class, tree super_class,
       || (METHOD_PRIVATE (method_decl) && METHOD_STATIC (method_decl)
 	  && ! METHOD_NATIVE (method_decl)
 	  && ! special_method_p (method_decl)))
-    hide (method_decl);
+    java_hide_decl (method_decl);
 
   /* Considered external unless it is being compiled into this object
      file, or it was already flagged as external.  */
@@ -3018,7 +3071,7 @@ static int java_treetreehash_compare (const void *, const void *);
 
 /* A hash table mapping trees to trees.  Used generally.  */
 
-#define JAVA_TREEHASHHASH_H(t) (htab_hash_pointer (t))
+#define JAVA_TREEHASHHASH_H(t) ((hashval_t)TYPE_UID (t))
 
 static hashval_t
 java_treetreehash_hash (const void *k_p)

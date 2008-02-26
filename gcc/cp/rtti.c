@@ -79,7 +79,7 @@ DEF_VEC_ALLOC_O(tinfo_s,gc);
 
 typedef enum tinfo_kind
 {
-  TK_TYPE_INFO_TYPE,    /* std::type_info */
+  TK_TYPE_INFO_TYPE,    /* abi::__type_info_pseudo */
   TK_BASE_TYPE,		/* abi::__base_class_type_info */
   TK_BUILTIN_TYPE,	/* abi::__fundamental_type_info */
   TK_ARRAY_TYPE,	/* abi::__array_type_info */
@@ -101,7 +101,6 @@ VEC(tree,gc) *unemitted_tinfo_decls;
    and are generated as needed. */
 static GTY (()) VEC(tinfo_s,gc) *tinfo_descs;
 
-static tree build_headof (tree);
 static tree ifnonnull (tree, tree);
 static tree tinfo_name (tree);
 static tree build_dynamic_cast_1 (tree, tree);
@@ -155,7 +154,7 @@ init_rtti_processing (void)
    virtual functions (TYPE_POLYMORPHIC_P), else just return the
    expression.  */
 
-static tree
+tree
 build_headof (tree exp)
 {
   tree type = TREE_TYPE (exp);
@@ -265,6 +264,8 @@ get_tinfo_decl_dynamic (tree exp)
 static bool
 typeid_ok_p (void)
 {
+  tree pseudo_type_info, type_info_type;
+
   if (! flag_rtti)
     {
       error ("cannot use typeid with -fno-rtti");
@@ -276,6 +277,18 @@ typeid_ok_p (void)
       error ("must #include <typeinfo> before using typeid");
       return false;
     }
+
+  pseudo_type_info
+    = VEC_index (tinfo_s, tinfo_descs, TK_TYPE_INFO_TYPE)->type;
+  type_info_type = TYPE_MAIN_VARIANT (const_type_info_type_node);
+
+  /* Make sure abi::__type_info_pseudo has the same alias set
+     as std::type_info.  */
+  if (! TYPE_ALIAS_SET_KNOWN_P (pseudo_type_info))
+    TYPE_ALIAS_SET (pseudo_type_info) = get_alias_set (type_info_type);
+  else
+    gcc_assert (TYPE_ALIAS_SET (pseudo_type_info)
+		== get_alias_set (type_info_type));
 
   return true;
 }
@@ -715,8 +728,7 @@ build_dynamic_cast (tree type, tree expr)
     {
       expr = build_min (DYNAMIC_CAST_EXPR, type, expr);
       TREE_SIDE_EFFECTS (expr) = 1;
-
-      return expr;
+      return convert_from_reference (expr);
     }
 
   return convert_from_reference (build_dynamic_cast_1 (type, expr));
@@ -1306,7 +1318,6 @@ create_tinfo_types (void)
     ti->name = NULL_TREE;
     finish_builtin_struct (ti->type, "__type_info_pseudo",
 			   fields, NULL_TREE);
-    TYPE_HAS_CONSTRUCTOR (ti->type) = 1;
   }
 
   /* Fundamental type_info */
@@ -1345,7 +1356,6 @@ create_tinfo_types (void)
     ti->name = NULL_TREE;
     finish_builtin_struct (ti->type, "__base_class_type_info_pseudo",
 			   fields, NULL_TREE);
-    TYPE_HAS_CONSTRUCTOR (ti->type) = 1;
   }
 
   /* Pointer type_info. Adds two fields, qualification mask
