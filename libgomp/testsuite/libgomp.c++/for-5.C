@@ -41,7 +41,7 @@ private:
   T *p;
 };
 template <typename T> I<T>::I () : p (0) {}
-template <typename T> I<T>::~I () {}
+template <typename T> I<T>::~I () { p = (T *) 0; }
 template <typename T> I<T>::I (T *x) : p (x) {}
 template <typename T> I<T>::I (const I &x) : p (x.p) {}
 template <typename T> T &I<T>::operator * () { return *p; }

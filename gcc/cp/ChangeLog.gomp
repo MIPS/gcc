@@ -1,3 +1,19 @@
+2008-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (dependent_omp_for_p): New prototype.
+	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_COLLAPSE and
+	OMP_CLAUSE_UNTIED.
+	(tsubst_omp_for_iterator): New function.
+	(tsubst_expr) <case OMP_FOR>: Use it.  Handle collapsed OMP_FOR
+	loops.
+	(dependent_omp_for_p): New function.
+	* semantics.c (handle_omp_for_class_iterator): New function.
+	(finish_omp_for): Use handle_omp_for_class_iterator and
+	dependent_omp_for_p.  Handle collapsed for loops.
+	* parser.c (cp_parser_omp_clause_collapse): Call
+	fold_non_dependent_expr on collapse clause argument.
+	(cp_parser_omp_for_loop): Parse collapsed for loops.
+
 2008-02-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_for): Adjust c_finish_omp_for caller,

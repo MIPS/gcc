@@ -1,3 +1,8 @@
+2008-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Set OMP_CLAUSE_LASTPRIVATE_STMT
+	also if collapse > 1.
+
 2008-02-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_finish_omp_for): Change decl/init/cond/incr arguments

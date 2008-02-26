@@ -19469,6 +19469,7 @@ cp_parser_omp_clause_collapse (cp_parser *parser, tree list)
 
   if (num == error_mark_node)
     return list;
+  num = fold_non_dependent_expr (num);
   if (!INTEGRAL_TYPE_P (TREE_TYPE (num))
       || !host_integerp (num, 0)
       || (n = tree_low_cst (num, 0)) <= 0
@@ -20233,232 +20234,315 @@ cp_parser_omp_for_incr (cp_parser *parser, tree decl)
 static tree
 cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 {
-  tree init, cond, incr, body, decl, pre_body, ret, for_block = NULL_TREE;
-  tree real_decl;
-  location_t loc;
-  bool add_private_clause = false;
+  tree init, cond, incr, body, decl, pre_body = NULL_TREE, ret;
+  tree for_block = NULL_TREE, real_decl, initv, condv, incrv, declv;
+  tree this_pre_body, cl;
+  location_t loc_first;
+  bool collapse_err = false;
+  int i, collapse = 1, nbraces = 0;
 
-  if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
+  for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
+    if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
+      collapse = tree_low_cst (OMP_CLAUSE_COLLAPSE_EXPR (cl), 0);
+
+  gcc_assert (collapse >= 1);
+
+  declv = make_tree_vec (collapse);
+  initv = make_tree_vec (collapse);
+  condv = make_tree_vec (collapse);
+  incrv = make_tree_vec (collapse);
+
+  for (i = 0; i < collapse; i++)
     {
-      cp_parser_error (parser, "for statement expected");
-      return NULL;
-    }
-  loc = cp_lexer_consume_token (parser->lexer)->location;
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
-    return NULL;
+      int bracecount = 0;
+      bool add_private_clause = false;
+      location_t loc;
 
-  init = decl = real_decl = NULL;
-  pre_body = push_stmt_list ();
-  if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
-    {
-      cp_decl_specifier_seq type_specifiers;
-
-      /* First, try to parse as an initialized declaration.  See
-	 cp_parser_condition, from whence the bulk of this is copied.  */
-
-      cp_parser_parse_tentatively (parser);
-      cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
-				    &type_specifiers);
-      if (!cp_parser_error_occurred (parser))
+      if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
 	{
-	  tree asm_specification, attributes;
-	  cp_declarator *declarator;
+	  cp_parser_error (parser, "for statement expected");
+	  return NULL;
+	}
+      loc = cp_lexer_consume_token (parser->lexer)->location;
+      if (i == 0)
+	loc_first = loc;
 
-	  declarator = cp_parser_declarator (parser,
-					     CP_PARSER_DECLARATOR_NAMED,
-					     /*ctor_dtor_or_conv_p=*/NULL,
-					     /*parenthesized_p=*/NULL,
-					     /*member_p=*/false);
-	  attributes = cp_parser_attributes_opt (parser);
-	  asm_specification = cp_parser_asm_specification_opt (parser);
+      if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+	return NULL;
 
-	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_EQ))
-	    cp_parser_require (parser, CPP_EQ, "`='");
-	  if (cp_parser_parse_definitely (parser))
+      init = decl = real_decl = NULL;
+      this_pre_body = push_stmt_list ();
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
+	{
+	  cp_decl_specifier_seq type_specifiers;
+
+	  /* First, try to parse as an initialized declaration.  See
+	     cp_parser_condition, from whence the bulk of this is copied.  */
+
+	  cp_parser_parse_tentatively (parser);
+	  cp_parser_type_specifier_seq (parser, /*is_condition=*/false,
+					&type_specifiers);
+	  if (!cp_parser_error_occurred (parser))
 	    {
-	      tree pushed_scope;
+	      tree asm_specification, attributes;
+	      cp_declarator *declarator;
 
-	      decl = start_decl (declarator, &type_specifiers,
-				 /*initialized_p=*/false, attributes,
-				 /*prefix_attributes=*/NULL_TREE,
-				 &pushed_scope);
+	      declarator = cp_parser_declarator (parser,
+						 CP_PARSER_DECLARATOR_NAMED,
+						 /*ctor_dtor_or_conv_p=*/NULL,
+						 /*parenthesized_p=*/NULL,
+						 /*member_p=*/false);
+	      attributes = cp_parser_attributes_opt (parser);
+	      asm_specification = cp_parser_asm_specification_opt (parser);
 
-	      if (CLASS_TYPE_P (TREE_TYPE (decl))
-		  || type_dependent_expression_p (decl))
+	      if (cp_lexer_next_token_is_not (parser->lexer, CPP_EQ))
+		cp_parser_require (parser, CPP_EQ, "`='");
+	      if (cp_parser_parse_definitely (parser))
 		{
-		  bool is_parenthesized_init, is_non_constant_init;
+		  tree pushed_scope;
 
-		  init = cp_parser_initializer (parser, &is_parenthesized_init,
-						&is_non_constant_init);
+		  decl = start_decl (declarator, &type_specifiers,
+				     /*initialized_p=*/false, attributes,
+				     /*prefix_attributes=*/NULL_TREE,
+				     &pushed_scope);
 
-		  cp_finish_decl (decl, init, !is_non_constant_init,
-				  asm_specification, LOOKUP_ONLYCONVERTING);
-		  if (CLASS_TYPE_P (TREE_TYPE (decl)))
+		  if (CLASS_TYPE_P (TREE_TYPE (decl))
+		      || type_dependent_expression_p (decl))
 		    {
-		      for_block = pre_body;
-		      init = NULL_TREE;
+		      bool is_parenthesized_init, is_non_constant_init;
+
+		      init = cp_parser_initializer (parser,
+						    &is_parenthesized_init,
+						    &is_non_constant_init);
+
+		      cp_finish_decl (decl, init, !is_non_constant_init,
+				      asm_specification,
+				      LOOKUP_ONLYCONVERTING);
+		      if (CLASS_TYPE_P (TREE_TYPE (decl)))
+			{
+			  for_block
+			    = tree_cons (NULL, this_pre_body, for_block);
+			  init = NULL_TREE;
+			}
+		      else
+			init = pop_stmt_list (this_pre_body);
+		      this_pre_body = NULL_TREE;
 		    }
 		  else
-		    init = pop_stmt_list (pre_body);
-		  pre_body = NULL_TREE;
+		    {
+		      cp_parser_require (parser, CPP_EQ, "`='");
+		      init = cp_parser_assignment_expression (parser, false);
+
+		      if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
+			init = error_mark_node;
+		      else
+			cp_finish_decl (decl, NULL_TREE,
+					/*init_const_expr_p=*/false,
+					asm_specification,
+					LOOKUP_ONLYCONVERTING);
+		    }
+
+		  if (pushed_scope)
+		    pop_scope (pushed_scope);
+		}
+	    }
+	  else
+	    cp_parser_abort_tentative_parse (parser);
+
+	  /* If parsing as an initialized declaration failed, try again as
+	     a simple expression.  */
+	  if (decl == NULL)
+	    {
+	      cp_id_kind idk;
+	      cp_parser_parse_tentatively (parser);
+	      decl = cp_parser_primary_expression (parser, false, false,
+						   false, &idk);
+	      if (!cp_parser_error_occurred (parser)
+		  && decl
+		  && DECL_P (decl)
+		  && CLASS_TYPE_P (TREE_TYPE (decl)))
+		{
+		  tree rhs;
+
+		  cp_parser_parse_definitely (parser);
+		  cp_parser_require (parser, CPP_EQ, "`='");
+		  rhs = cp_parser_assignment_expression (parser, false);
+		  finish_expr_stmt (build_x_modify_expr (decl, NOP_EXPR,
+							 rhs));
+		  add_private_clause = true;
 		}
 	      else
 		{
-		  cp_parser_require (parser, CPP_EQ, "`='");
-		  init = cp_parser_assignment_expression (parser, false);
-
-		  if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
-		    init = error_mark_node;
-		  else
-		    cp_finish_decl (decl, NULL_TREE,
-				    /*init_const_expr_p=*/false,
-				    asm_specification, LOOKUP_ONLYCONVERTING);
+		  decl = NULL;
+		  cp_parser_abort_tentative_parse (parser);
+		  init = cp_parser_expression (parser, false);
+		  if (init)
+		    {
+		      if (TREE_CODE (init) == MODIFY_EXPR
+			  || TREE_CODE (init) == MODOP_EXPR)
+			real_decl = TREE_OPERAND (init, 0);
+		    }
 		}
-
-	      if (pushed_scope)
-		pop_scope (pushed_scope);
 	    }
 	}
-      else
-	cp_parser_abort_tentative_parse (parser);
-
-      /* If parsing as an initialized declaration failed, try again as
-	 a simple expression.  */
-      if (decl == NULL)
+      cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+      if (this_pre_body)
 	{
-	  cp_id_kind idk;
-	  cp_parser_parse_tentatively (parser);
-	  decl = cp_parser_primary_expression (parser, false, false,
-					       false, &idk);
-	  if (!cp_parser_error_occurred (parser)
-	      && decl
-	      && DECL_P (decl)
-	      && CLASS_TYPE_P (TREE_TYPE (decl)))
+	  this_pre_body = pop_stmt_list (this_pre_body);
+	  if (pre_body)
 	    {
-	      tree rhs;
-
-	      cp_parser_parse_definitely (parser);
-	      cp_parser_require (parser, CPP_EQ, "`='");
-	      rhs = cp_parser_assignment_expression (parser, false);
-	      finish_expr_stmt (build_x_modify_expr (decl, NOP_EXPR, rhs));
-	      add_private_clause = true;
+	      tree t = pre_body;
+	      pre_body = push_stmt_list ();
+	      add_stmt (t);
+	      add_stmt (this_pre_body);
+	      pre_body = pop_stmt_list (pre_body);
 	    }
 	  else
+	    pre_body = this_pre_body;
+	}
+
+      if (decl)
+	real_decl = decl;
+      if (par_clauses != NULL && real_decl != NULL_TREE)
+	{
+	  tree *c;
+	  for (c = par_clauses; *c ; )
+	    if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_FIRSTPRIVATE
+		&& OMP_CLAUSE_DECL (*c) == real_decl)
+	      {
+		error ("%Hiteration variable %qD should not be firstprivate",
+		       &loc, real_decl);
+		*c = OMP_CLAUSE_CHAIN (*c);
+	      }
+	    else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_LASTPRIVATE
+		     && OMP_CLAUSE_DECL (*c) == real_decl)
+	      {
+		/* Add lastprivate (decl) clause to OMP_FOR_CLAUSES,
+		   change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
+		tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
+		OMP_CLAUSE_DECL (l) = real_decl;
+		OMP_CLAUSE_CHAIN (l) = clauses;
+		CP_OMP_CLAUSE_INFO (l) = CP_OMP_CLAUSE_INFO (*c);
+		clauses = l;
+		OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
+		CP_OMP_CLAUSE_INFO (*c) = NULL;
+		add_private_clause = false;
+	      }
+	    else
+	      {
+		if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_PRIVATE
+		    && OMP_CLAUSE_DECL (*c) == real_decl)
+		  add_private_clause = false;
+		c = &OMP_CLAUSE_CHAIN (*c);
+	      }
+	}
+
+      if (add_private_clause)
+	{
+	  tree c;
+	  for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
 	    {
-	      decl = NULL;
-	      cp_parser_abort_tentative_parse (parser);
-	      init = cp_parser_expression (parser, false);
-	      if (init)
+	      if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+		   || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
+		  && OMP_CLAUSE_DECL (c) == decl)
+		break;
+	      else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		       && OMP_CLAUSE_DECL (c) == decl)
+		error ("%Hiteration variable %qD should not be firstprivate",
+		       &loc, decl);
+	      else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+		       && OMP_CLAUSE_DECL (c) == decl)
+		error ("%Hiteration variable %qD should not be reduction",
+		       &loc, decl);
+	    }
+	  if (c == NULL)
+	    {
+	      c = build_omp_clause (OMP_CLAUSE_PRIVATE);
+	      OMP_CLAUSE_DECL (c) = decl;
+	      c = finish_omp_clauses (c);
+	      if (c)
 		{
-		  if (TREE_CODE (init) == MODIFY_EXPR
-		      || TREE_CODE (init) == MODOP_EXPR)
-		    real_decl = TREE_OPERAND (init, 0);
+		  OMP_CLAUSE_CHAIN (c) = clauses;
+		  clauses = c;
 		}
 	    }
 	}
-    }
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
-  if (pre_body)
-    pre_body = pop_stmt_list (pre_body);
 
-  if (decl)
-    real_decl = decl;
-  if (par_clauses != NULL && real_decl != NULL_TREE)
-    {
-      tree *c;
-      for (c = par_clauses; *c ; )
-	if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_FIRSTPRIVATE
-	    && OMP_CLAUSE_DECL (*c) == real_decl)
-	  {
-	    error ("%Hiteration variable %qD should not be firstprivate",
-		   &loc, real_decl);
-	    *c = OMP_CLAUSE_CHAIN (*c);
-	  }
-	else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_LASTPRIVATE
-		 && OMP_CLAUSE_DECL (*c) == real_decl)
-	  {
-	    /* Add lastprivate (decl) clause to OMP_FOR_CLAUSES,
-	       change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
-	    tree l = build_omp_clause (OMP_CLAUSE_LASTPRIVATE);
-	    OMP_CLAUSE_DECL (l) = real_decl;
-	    OMP_CLAUSE_CHAIN (l) = clauses;
-	    CP_OMP_CLAUSE_INFO (l) = CP_OMP_CLAUSE_INFO (*c);
-	    clauses = l;
-	    OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
-	    CP_OMP_CLAUSE_INFO (*c) = NULL;
-	    add_private_clause = false;
-	  }
-	else
-	  {
-	    if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_PRIVATE
-		&& OMP_CLAUSE_DECL (*c) == real_decl)
-	      add_private_clause = false;
-	    c = &OMP_CLAUSE_CHAIN (*c);
-	  }
-    }
-
-  if (add_private_clause)
-    {
-      tree c;
-      for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+      cond = NULL;
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
 	{
-	  if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
-	       || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
-	      && OMP_CLAUSE_DECL (c) == decl)
-	    break;
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
-		   && OMP_CLAUSE_DECL (c) == decl)
-	    error ("%Hiteration variable %qD should not be firstprivate",
-		   &loc, decl);
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
-		   && OMP_CLAUSE_DECL (c) == decl)
-	    error ("%Hiteration variable %qD should not be reduction",
-		   &loc, decl);
+	  /* If decl is an iterator, preserve LHS and RHS of the relational
+	     expr until finish_omp_for.  */
+	  if (decl
+	      && (type_dependent_expression_p (decl)
+		  || CLASS_TYPE_P (TREE_TYPE (decl))))
+	    cond = cp_parser_omp_for_cond (parser, decl);
+	  else
+	    cond = cp_parser_condition (parser);
 	}
-      if (c == NULL)
+      cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+
+      incr = NULL;
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
 	{
-	  c = build_omp_clause (OMP_CLAUSE_PRIVATE);
-	  OMP_CLAUSE_DECL (c) = decl;
-	  c = finish_omp_clauses (c);
-	  if (c)
+	  /* If decl is an iterator, preserve the operator on decl
+	     until finish_omp_for.  */
+	  if (decl
+	      && (type_dependent_expression_p (decl)
+		  || CLASS_TYPE_P (TREE_TYPE (decl))))
+	    incr = cp_parser_omp_for_incr (parser, decl);
+	  else
+	    incr = cp_parser_expression (parser, false);
+	}
+
+      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+	cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
+					       /*or_comma=*/false,
+					       /*consume_paren=*/true);
+
+      TREE_VEC_ELT (declv, i) = decl;
+      TREE_VEC_ELT (initv, i) = init;
+      TREE_VEC_ELT (condv, i) = cond;
+      TREE_VEC_ELT (incrv, i) = incr;
+
+      if (i == collapse - 1)
+	break;
+
+      /* FIXME: OpenMP 3.0 draft isn't very clear on what exactly is allowed
+	 in between the collapsed for loops to be still considered perfectly
+	 nested.  Hopefully the final version clarifies this.
+	 For now handle (multiple) {'s and empty statements.  */
+      cp_parser_parse_tentatively (parser);
+      do
+	{
+	  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_FOR))
+	    break;
+	  else if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
 	    {
-	      OMP_CLAUSE_CHAIN (c) = clauses;
-	      clauses = c;
+	      cp_lexer_consume_token (parser->lexer);
+	      bracecount++;
+	    }
+	  else if (bracecount
+		   && cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+	    cp_lexer_consume_token (parser->lexer);
+	  else
+	    {
+	      loc = cp_lexer_peek_token (parser->lexer)->location;
+	      error ("%Hnot enough collapsed for loops", &loc);
+	      collapse_err = true;
+	      cp_parser_abort_tentative_parse (parser);
+	      declv = NULL_TREE;
+	      break;
 	    }
 	}
-    }
+      while (1);
 
-  cond = NULL;
-  if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
-    {
-      /* If decl is an iterator, preserve LHS and RHS of the relational
-	 expr until finish_omp_for.  */
-      if (decl
-	  && (type_dependent_expression_p (decl)
-	      || CLASS_TYPE_P (TREE_TYPE (decl))))
-	cond = cp_parser_omp_for_cond (parser, decl);
-      else
-	cond = cp_parser_condition (parser);
+      if (declv)
+	{
+	  cp_parser_parse_definitely (parser);
+	  nbraces += bracecount;
+	}
     }
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
-
-  incr = NULL;
-  if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
-    {
-      /* If decl is an iterator, preserve the operator on decl
-	 until finish_omp_for.  */
-      if (decl
-	  && (type_dependent_expression_p (decl)
-	      || CLASS_TYPE_P (TREE_TYPE (decl))))
-	incr = cp_parser_omp_for_incr (parser, decl);
-      else
-	incr = cp_parser_expression (parser, false);
-    }
-
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
-    cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
-					   /*or_comma=*/false,
-					   /*consume_paren=*/true);
 
   /* Note that we saved the original contents of this flag when we entered
      the structured block, and so we don't need to re-save it here.  */
@@ -20470,10 +20554,36 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
   cp_parser_statement (parser, NULL_TREE, false, NULL);
   body = pop_stmt_list (body);
 
-  ret = finish_omp_for (loc, decl, init, cond, incr, body, pre_body, clauses);
+  if (declv == NULL_TREE)
+    ret = NULL_TREE;
+  else
+    ret = finish_omp_for (loc_first, declv, initv, condv, incrv, body,
+			  pre_body, clauses);
 
-  if (for_block)
-    add_stmt (pop_stmt_list (for_block));
+  while (nbraces)
+    {
+      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  nbraces--;
+	}
+      else if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+	cp_lexer_consume_token (parser->lexer);
+      else
+	{
+	  if (!collapse_err)
+	    error ("collapsed loops not perfectly nested");
+	  collapse_err = true;
+	  cp_parser_statement_seq_opt (parser, NULL);
+	  cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+	}
+    }
+
+  while (for_block)
+    {
+      add_stmt (pop_stmt_list (TREE_VALUE (for_block)));
+      for_block = TREE_CHAIN (for_block);
+    }
 
   return ret;
 }

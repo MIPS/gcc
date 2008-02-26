@@ -3849,6 +3849,219 @@ finish_omp_task (tree clauses, tree body)
   return add_stmt (stmt);
 }
 
+/* Helper function for finish_omp_for.  Convert Ith random access iterator
+   into integral iterator.  Return FALSE if successful.  */
+
+static bool
+handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
+			       tree condv, tree incrv, tree *body,
+			       tree *pre_body, tree clauses)
+{
+  tree diff, iter_init, iter_incr = NULL, last;
+  tree incr_var = NULL, orig_pre_body, orig_body, c;
+  tree decl = TREE_VEC_ELT (declv, i);
+  tree init = TREE_VEC_ELT (initv, i);
+  tree cond = TREE_VEC_ELT (condv, i);
+  tree incr = TREE_VEC_ELT (incrv, i);
+  tree iter = decl;
+  location_t elocus = locus;
+
+  if (init && EXPR_HAS_LOCATION (init))
+    elocus = EXPR_LOCATION (init);
+
+  switch (TREE_CODE (cond))
+    {
+    case GT_EXPR:
+    case GE_EXPR:
+    case LT_EXPR:
+    case LE_EXPR:
+      if (TREE_OPERAND (cond, 0) != iter)
+	cond = error_mark_node;
+      else
+	{
+	  tree tem = build_x_binary_op (TREE_CODE (cond), iter, ERROR_MARK,
+					TREE_OPERAND (cond, 1), ERROR_MARK,
+					NULL);
+	  if (error_operand_p (tem))
+	    return true;
+	}
+      break;
+    default:
+      cond = error_mark_node;
+      break;
+    }
+  if (cond == error_mark_node)
+    {
+      error ("%Hinvalid controlling predicate", &elocus);
+      return true;
+    }
+  diff = build_x_binary_op (MINUS_EXPR, TREE_OPERAND (cond, 1),
+			    ERROR_MARK, iter, ERROR_MARK, NULL);
+  if (error_operand_p (diff))
+    return true;
+  if (TREE_CODE (TREE_TYPE (diff)) != INTEGER_TYPE)
+    {
+      error ("%Hdifference between %qE and %qD does not have integer type",
+	     &elocus, TREE_OPERAND (cond, 1), iter);
+      return true;
+    }
+
+  switch (TREE_CODE (incr))
+    {
+    case PREINCREMENT_EXPR:
+    case PREDECREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+      if (TREE_OPERAND (incr, 0) != iter)
+	{
+	  incr = error_mark_node;
+	  break;
+	}
+      iter_incr = build_x_unary_op (TREE_CODE (incr), iter);
+      if (error_operand_p (iter_incr))
+	return true;
+      else if (TREE_CODE (incr) == PREINCREMENT_EXPR
+	       || TREE_CODE (incr) == POSTINCREMENT_EXPR)
+	incr = integer_one_node;
+      else
+	incr = integer_minus_one_node;
+      break;
+    case MODIFY_EXPR:
+      if (TREE_OPERAND (incr, 0) != iter)
+	incr = error_mark_node;
+      else if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
+	       || TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR)
+	{
+	  tree rhs = TREE_OPERAND (incr, 1);
+	  if (TREE_OPERAND (rhs, 0) == iter)
+	    {
+	      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (rhs, 1)))
+		  != INTEGER_TYPE)
+		incr = error_mark_node;
+	      else
+		{
+		  iter_incr = build_x_modify_expr (iter, TREE_CODE (rhs),
+						   TREE_OPERAND (rhs, 1));
+		  if (error_operand_p (iter_incr))
+		    return true;
+		  incr = TREE_OPERAND (rhs, 1);
+		  incr = cp_convert (TREE_TYPE (diff), incr);
+		  if (TREE_CODE (rhs) == MINUS_EXPR)
+		    {
+		      incr = build1 (NEGATE_EXPR, TREE_TYPE (diff), incr);
+		      incr = fold_if_not_in_template (incr);
+		    }
+		  if (TREE_CODE (incr) != INTEGER_CST
+		      && (TREE_CODE (incr) != NOP_EXPR
+			  || (TREE_CODE (TREE_OPERAND (incr, 0))
+			      != INTEGER_CST)))
+		    iter_incr = NULL;
+		}
+	    }
+	  else if (TREE_OPERAND (rhs, 1) == iter)
+	    {
+	      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (rhs, 0))) != INTEGER_TYPE
+		  || TREE_CODE (rhs) != PLUS_EXPR)
+		incr = error_mark_node;
+	      else
+		{
+		  iter_incr = build_x_binary_op (PLUS_EXPR,
+						 TREE_OPERAND (rhs, 0),
+						 ERROR_MARK, iter,
+						 ERROR_MARK, NULL);
+		  if (error_operand_p (iter_incr))
+		    return true;
+		  iter_incr = build_x_modify_expr (iter, NOP_EXPR,
+						   iter_incr);
+		  if (error_operand_p (iter_incr))
+		    return true;
+		  incr = TREE_OPERAND (rhs, 0);
+		  iter_incr = NULL;
+		}
+	    }
+	  else
+	    incr = error_mark_node;
+	}
+      else
+	incr = error_mark_node;
+      break;
+    default:
+      incr = error_mark_node;
+      break;
+    }
+
+  if (incr == error_mark_node)
+    {
+      error ("%Hinvalid increment expression", &elocus);
+      return true;
+    }
+
+  incr = cp_convert (TREE_TYPE (diff), incr);
+  for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+	&& OMP_CLAUSE_DECL (c) == iter)
+      break;
+
+  decl = create_temporary_var (TREE_TYPE (diff));
+  pushdecl (decl);
+  add_decl_expr (decl);
+  last = create_temporary_var (TREE_TYPE (diff));
+  pushdecl (last);
+  add_decl_expr (last);
+  if (c && iter_incr == NULL)
+    {
+      incr_var = create_temporary_var (TREE_TYPE (diff));
+      pushdecl (incr_var);
+      add_decl_expr (incr_var);
+    }
+  gcc_assert (stmts_are_full_exprs_p ());
+
+  orig_pre_body = *pre_body;
+  *pre_body = push_stmt_list ();
+  if (orig_pre_body)
+    add_stmt (orig_pre_body);
+  if (init != NULL)
+    finish_expr_stmt (build_x_modify_expr (iter, NOP_EXPR, init));
+  init = build_int_cst (TREE_TYPE (diff), 0);
+  if (c && iter_incr == NULL)
+    {
+      finish_expr_stmt (build_x_modify_expr (incr_var, NOP_EXPR,
+					     incr));
+      incr = incr_var;
+      iter_incr = build_x_modify_expr (iter, PLUS_EXPR, incr);
+    }
+  finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, init));
+  *pre_body = pop_stmt_list (*pre_body);
+
+  cond = cp_build_binary_op (TREE_CODE (cond), decl, diff);
+  incr = build_modify_expr (decl, PLUS_EXPR, incr);
+
+  orig_body = *body;
+  *body = push_stmt_list ();
+  iter_init = build2 (MINUS_EXPR, TREE_TYPE (diff), decl, last);
+  iter_init = build_x_modify_expr (iter, PLUS_EXPR, iter_init);
+  iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
+  finish_expr_stmt (iter_init);
+  finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, decl));
+  add_stmt (orig_body);
+  *body = pop_stmt_list (*body);
+
+  if (c)
+    {
+      OMP_CLAUSE_LASTPRIVATE_STMT (c) = push_stmt_list ();
+      finish_expr_stmt (iter_incr);
+      OMP_CLAUSE_LASTPRIVATE_STMT (c)
+	= pop_stmt_list (OMP_CLAUSE_LASTPRIVATE_STMT (c));
+    }
+
+  TREE_VEC_ELT (declv, i) = decl;
+  TREE_VEC_ELT (initv, i) = init;
+  TREE_VEC_ELT (condv, i) = cond;
+  TREE_VEC_ELT (incrv, i) = incr;
+
+  return false;
+}
+
 /* Build and validate an OMP_FOR statement.  CLAUSES, BODY, COND, INCR
    are directly for their associated operands in the statement.  DECL
    and INIT are a combo; if DECL is NULL then INIT ought to be a
@@ -3857,104 +4070,92 @@ finish_omp_task (tree clauses, tree body)
    sk_omp scope.  */
 
 tree
-finish_omp_for (location_t locus, tree decl, tree init, tree cond,
-		tree incr, tree body, tree pre_body, tree clauses)
+finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
+		tree incrv, tree body, tree pre_body, tree clauses)
 {
-  tree omp_for = NULL, orig_incr = incr;
-  bool type_dep = false;
+  tree omp_for = NULL, orig_incr = NULL;
+  tree decl, init, cond, incr;
+  location_t elocus;
+  int i;
 
-  if (decl == NULL)
+  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (initv));
+  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (condv));
+  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (incrv));
+  for (i = 0; i < TREE_VEC_LENGTH (declv); i++)
     {
-      if (init != NULL)
-	switch (TREE_CODE (init))
-	  {
-	  case MODIFY_EXPR:
-	    decl = TREE_OPERAND (init, 0);
-	    init = TREE_OPERAND (init, 1);
-	    break;
-	  case MODOP_EXPR:
-	    if (TREE_CODE (TREE_OPERAND (init, 1)) == NOP_EXPR)
-	      {
-		decl = TREE_OPERAND (init, 0);
-		init = TREE_OPERAND (init, 2);
-	      }
-	    break;
-	  default:
-	    break;
-	  }
+      decl = TREE_VEC_ELT (declv, i);
+      init = TREE_VEC_ELT (initv, i);
+      cond = TREE_VEC_ELT (condv, i);
+      incr = TREE_VEC_ELT (incrv, i);
+      elocus = locus;
 
       if (decl == NULL)
 	{
-	  error ("expected iteration declaration or initialization");
-	  return NULL;
-	}
-    }
+	  if (init != NULL)
+	    switch (TREE_CODE (init))
+	      {
+	      case MODIFY_EXPR:
+		decl = TREE_OPERAND (init, 0);
+		init = TREE_OPERAND (init, 1);
+		break;
+	      case MODOP_EXPR:
+		if (TREE_CODE (TREE_OPERAND (init, 1)) == NOP_EXPR)
+		  {
+		    decl = TREE_OPERAND (init, 0);
+		    init = TREE_OPERAND (init, 2);
+		  }
+		break;
+	      default:
+		break;
+	      }
 
-  if (!processing_template_decl)
-    ;
-  else if (type_dependent_expression_p (decl))
-    type_dep = true;
-  else if (init && type_dependent_expression_p (init))
-    type_dep = true;
-  else if (cond)
-    {
-      if (type_dependent_expression_p (cond))
-	type_dep = true;
-      else if (COMPARISON_CLASS_P (cond))
-	type_dep = (type_dependent_expression_p (TREE_OPERAND (cond, 0))
-		    || type_dependent_expression_p (TREE_OPERAND (cond, 1)));
-    }
-  if (!type_dep && incr && processing_template_decl)
-    {
-      if (TREE_CODE (incr) == MODOP_EXPR)
-	type_dep = (type_dependent_expression_p (TREE_OPERAND (incr, 0))
-		    || type_dependent_expression_p (TREE_OPERAND (incr, 2)));
-      else if (type_dependent_expression_p (incr))
-	type_dep = true;
-      else if (TREE_CODE (incr) == MODIFY_EXPR)
-	{
-	  if (type_dependent_expression_p (TREE_OPERAND (incr, 0)))
-	    type_dep = true;
-	  else if (BINARY_CLASS_P (TREE_OPERAND (incr, 1)))
+	  if (decl == NULL)
 	    {
-	      tree t = TREE_OPERAND (incr, 1);
-	      type_dep = (type_dependent_expression_p (TREE_OPERAND (t, 0))
-			  || type_dependent_expression_p (TREE_OPERAND (t,
-									1)));
+	      error ("%Hexpected iteration declaration or initialization",
+		     &locus);
+	      return NULL;
 	    }
 	}
-    }
 
-  if (type_dep)
-    {
-      tree stmt;
+      if (init && EXPR_HAS_LOCATION (init))
+	elocus = EXPR_LOCATION (init);
 
       if (cond == NULL)
 	{
-	  error ("%Hmissing controlling predicate", &locus);
+	  error ("%Hmissing controlling predicate", &elocus);
 	  return NULL;
 	}
 
       if (incr == NULL)
 	{
-	  error ("%Hmissing increment expression", &locus);
+	  error ("%Hmissing increment expression", &elocus);
 	  return NULL;
 	}
 
+      TREE_VEC_ELT (declv, i) = decl;
+      TREE_VEC_ELT (initv, i) = init;
+    }
+
+  if (dependent_omp_for_p (declv, initv, condv, incrv))
+    {
+      tree stmt;
+
       stmt = make_node (OMP_FOR);
 
-      /* This is really just a place-holder.  We'll be decomposing this
-	 again and going through the build_modify_expr path below when
-	 we instantiate the thing.  */
-      init = build2 (MODIFY_EXPR, void_type_node, decl, init);
+      for (i = 0; i < TREE_VEC_LENGTH (declv); i++)
+	{
+	  /* This is really just a place-holder.  We'll be decomposing this
+	     again and going through the build_modify_expr path below when
+	     we instantiate the thing.  */
+	  TREE_VEC_ELT (initv, i)
+	    = build2 (MODIFY_EXPR, void_type_node, TREE_VEC_ELT (declv, i),
+		      TREE_VEC_ELT (initv, i));
+	}
 
       TREE_TYPE (stmt) = void_type_node;
-      OMP_FOR_INIT (stmt) = make_tree_vec (1);
-      TREE_VEC_ELT (OMP_FOR_INIT (stmt), 0) = init;
-      OMP_FOR_COND (stmt) = make_tree_vec (1);
-      TREE_VEC_ELT (OMP_FOR_COND (stmt), 0) = cond;
-      OMP_FOR_INCR (stmt) = make_tree_vec (1);
-      TREE_VEC_ELT (OMP_FOR_INCR (stmt), 0) = incr;
+      OMP_FOR_INIT (stmt) = initv;
+      OMP_FOR_COND (stmt) = condv;
+      OMP_FOR_INCR (stmt) = incrv;
       OMP_FOR_BODY (stmt) = body;
       OMP_FOR_PRE_BODY (stmt) = pre_body;
       OMP_FOR_CLAUSES (stmt) = clauses;
@@ -3963,265 +4164,89 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
       return add_stmt (stmt);
     }
 
-  if (!DECL_P (decl))
+  if (processing_template_decl)
+    orig_incr = make_tree_vec (TREE_VEC_LENGTH (incrv));
+
+  for (i = 0; i < TREE_VEC_LENGTH (declv); )
     {
-      error ("expected iteration declaration or initialization");
-      return NULL;
-    }
+      decl = TREE_VEC_ELT (declv, i);
+      init = TREE_VEC_ELT (initv, i);
+      cond = TREE_VEC_ELT (condv, i);
+      incr = TREE_VEC_ELT (incrv, i);
+      if (orig_incr)
+	TREE_VEC_ELT (orig_incr, i) = incr;
+      elocus = locus;
 
-  if (incr && TREE_CODE (incr) == MODOP_EXPR)
-    {
-      orig_incr = incr;
-      incr = build_modify_expr (TREE_OPERAND (incr, 0),
-				TREE_CODE (TREE_OPERAND (incr, 1)),
-				TREE_OPERAND (incr, 2));
-    }
-
-  if (CLASS_TYPE_P (TREE_TYPE (decl)))
-    {
-      tree diff, iter = decl, iter_init, iter_incr = NULL, last;
-      tree incr_var = NULL, orig_pre_body, orig_body, c;
-
-      if (cond == NULL)
-	{
-	  error ("missing controlling predicate");
-	  return NULL;
-	}
-      switch (TREE_CODE (cond))
-	{
-	case GT_EXPR:
-	case GE_EXPR:
-	case LT_EXPR:
-	case LE_EXPR:
-	  if (TREE_OPERAND (cond, 0) != iter)
-	    cond = error_mark_node;
-	  else
-	    {
-	      tree tem = build_x_binary_op (TREE_CODE (cond), iter, ERROR_MARK,
-					    TREE_OPERAND (cond, 1), ERROR_MARK,
-					    NULL);
-	      if (error_operand_p (tem))
-		return NULL;
-	    }
-	  break;
-	default:
-	  cond = error_mark_node;
-	  break;
-	}
-      if (cond == error_mark_node)
-	{
-	  error ("invalid controlling predicate");
-	  return NULL;
-	}
-      diff = build_x_binary_op (MINUS_EXPR, TREE_OPERAND (cond, 1),
-				ERROR_MARK, iter, ERROR_MARK, NULL);
-      if (error_operand_p (diff))
-	return NULL;
-      if (TREE_CODE (TREE_TYPE (diff)) != INTEGER_TYPE)
-	{
-	  error ("difference between %qE and %qD does not have integer type",
-		 TREE_OPERAND (cond, 1), iter);
-	  return NULL;
-	}
-
-      if (incr == NULL)
-	{
-	  error ("missing increment expression");
-	  return NULL;
-	}
-      switch (TREE_CODE (incr))
-	{
-	case PREINCREMENT_EXPR:
-	case PREDECREMENT_EXPR:
-	case POSTINCREMENT_EXPR:
-	case POSTDECREMENT_EXPR:
-	  if (TREE_OPERAND (incr, 0) != iter)
-	    {
-	      incr = error_mark_node;
-	      break;
-	    }
-	  iter_incr = build_x_unary_op (TREE_CODE (incr), iter);
-	  if (error_operand_p (iter_incr))
-	    return NULL;
-	  else if (TREE_CODE (incr) == PREINCREMENT_EXPR
-		   || TREE_CODE (incr) == POSTINCREMENT_EXPR)
-	    incr = integer_one_node;
-	  else
-	    incr = integer_minus_one_node;
-	  break;
-	case MODIFY_EXPR:
-	  if (TREE_OPERAND (incr, 0) != iter)
-	    incr = error_mark_node;
-	  else if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
-		   || TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR)
-	    {
-	      tree rhs = TREE_OPERAND (incr, 1);
-	      if (TREE_OPERAND (rhs, 0) == iter)
-		{
-		  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (rhs, 1)))
-		      != INTEGER_TYPE)
-		    incr = error_mark_node;
-		  else
-		    {
-		      iter_incr = build_x_modify_expr (iter, TREE_CODE (rhs),
-						       TREE_OPERAND (rhs, 1));
-		      if (error_operand_p (iter_incr))
-			return NULL;
-		      incr = TREE_OPERAND (rhs, 1);
-		      incr = cp_convert (TREE_TYPE (diff), incr);
-		      if (TREE_CODE (rhs) == MINUS_EXPR)
-			{
-			  incr = build1 (NEGATE_EXPR, TREE_TYPE (diff), incr);
-			  incr = fold_if_not_in_template (incr);
-			}
-		      if (TREE_CODE (incr) != INTEGER_CST
-			  && (TREE_CODE (incr) != NOP_EXPR
-			      || (TREE_CODE (TREE_OPERAND (incr, 0))
-				  != INTEGER_CST)))
-			iter_incr = NULL;
-		    }
-		}
-	      else if (TREE_OPERAND (rhs, 1) == iter)
-		{
-		  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (rhs, 0)))
-		      != INTEGER_TYPE
-		      || TREE_CODE (rhs) != PLUS_EXPR)
-		    incr = error_mark_node;
-		  else
-		    {
-		      iter_incr
-			= build_x_binary_op (PLUS_EXPR, TREE_OPERAND (rhs, 0),
-					     ERROR_MARK, iter, ERROR_MARK,
-					     NULL);
-		      if (error_operand_p (iter_incr))
-			return NULL;
-		      iter_incr = build_x_modify_expr (iter, NOP_EXPR,
-						       iter_incr);
-		      if (error_operand_p (iter_incr))
-			return NULL;
-		      incr = TREE_OPERAND (rhs, 0);
-		      iter_incr = NULL;
-		    }
-		}
-	      else
-		incr = error_mark_node;
-	    }
-	  else
-	    incr = error_mark_node;
-	  break;
-	default:
-	  incr = error_mark_node;
-	  break;
-	}
-
-      if (incr == error_mark_node)
-	{
-	  error ("invalid increment expression");
-	  return NULL;
-	}
-
-      incr = cp_convert (TREE_TYPE (diff), incr);
-      for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
-	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
-	    && OMP_CLAUSE_DECL (c) == iter)
-	  break;
-
-      decl = create_temporary_var (TREE_TYPE (diff));
-      pushdecl (decl);
-      add_decl_expr (decl);
-      last = create_temporary_var (TREE_TYPE (diff));
-      pushdecl (last);
-      add_decl_expr (last);
-      if (c && iter_incr == NULL)
-	{
-	  incr_var = create_temporary_var (TREE_TYPE (diff));
-	  pushdecl (incr_var);
-	  add_decl_expr (incr_var);
-	}
-      gcc_assert (stmts_are_full_exprs_p ());
-
-      orig_pre_body = pre_body;
-      pre_body = push_stmt_list ();
-      if (orig_pre_body)
-	add_stmt (orig_pre_body);
-      if (init != NULL)
-	finish_expr_stmt (build_x_modify_expr (iter, NOP_EXPR, init));
-      init = build_int_cst (TREE_TYPE (diff), 0);
-      if (c && iter_incr == NULL)
-	{
-	  finish_expr_stmt (build_x_modify_expr (incr_var, NOP_EXPR, incr));
-	  incr = incr_var;
-	  iter_incr = build_x_modify_expr (iter, PLUS_EXPR, incr);
-	}
-      finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, init));
-      pre_body = pop_stmt_list (pre_body);
-
-      cond = cp_build_binary_op (TREE_CODE (cond), decl, diff);
-      incr = build_modify_expr (decl, PLUS_EXPR, incr);
-      orig_incr = incr;
-
-      orig_body = body;
-      body = push_stmt_list ();
-      iter_init = build2 (MINUS_EXPR, TREE_TYPE (diff), decl, last);
-      iter_init = build_x_modify_expr (iter, PLUS_EXPR, iter_init);
-      iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
-      finish_expr_stmt (iter_init);
-      finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, decl));
-      add_stmt (orig_body);
-      body = pop_stmt_list (body);
-
-      if (c)
-	{
-	  OMP_CLAUSE_LASTPRIVATE_STMT (c) = push_stmt_list ();
-	  finish_expr_stmt (iter_incr);
-	  OMP_CLAUSE_LASTPRIVATE_STMT (c)
-	    = pop_stmt_list (OMP_CLAUSE_LASTPRIVATE_STMT (c));
-	}
-    }
-
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
-    {
-      location_t elocus = locus;
-
-      if (EXPR_HAS_LOCATION (init))
+      if (init && EXPR_HAS_LOCATION (init))
 	elocus = EXPR_LOCATION (init);
-      error ("%Hinvalid type for iteration variable %qE", &elocus, decl);
-      return NULL;
+
+      if (!DECL_P (decl))
+	{
+	  error ("%Hexpected iteration declaration or initialization",
+		 &elocus);
+	  return NULL;
+	}
+
+      if (incr && TREE_CODE (incr) == MODOP_EXPR)
+	{
+	  if (orig_incr)
+	    TREE_VEC_ELT (orig_incr, i) = incr;
+	  incr = build_modify_expr (TREE_OPERAND (incr, 0),
+				    TREE_CODE (TREE_OPERAND (incr, 1)),
+				    TREE_OPERAND (incr, 2));
+	}
+
+      if (CLASS_TYPE_P (TREE_TYPE (decl)))
+	{
+	  if (handle_omp_for_class_iterator (i, locus, declv, initv, condv,
+					     incrv, &body, &pre_body, clauses))
+	    return NULL;
+	  continue;
+	}
+
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
+	{
+	  error ("%Hinvalid type for iteration variable %qE", &elocus, decl);
+	  return NULL;
+	}
+
+      if (!processing_template_decl)
+	init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
+      init = build_modify_expr (decl, NOP_EXPR, init);
+      if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
+	{
+	  int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
+	  tree t = TREE_OPERAND (cond, n);
+
+	  if (!processing_template_decl)
+	    TREE_OPERAND (cond, n)
+	      = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	}
+      if (decl == error_mark_node || init == error_mark_node)
+	return NULL;
+
+      TREE_VEC_ELT (declv, i) = decl;
+      TREE_VEC_ELT (initv, i) = init;
+      TREE_VEC_ELT (condv, i) = cond;
+      TREE_VEC_ELT (incrv, i) = incr;
+      i++;
     }
 
   if (IS_EMPTY_STMT (pre_body))
     pre_body = NULL;
 
-  if (!processing_template_decl)
-    init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
-  init = build_modify_expr (decl, NOP_EXPR, init);
-  if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
-    {
-      int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
-      tree t = TREE_OPERAND (cond, n);
+  omp_for = c_finish_omp_for (locus, declv, initv, condv, incrv,
+			      body, pre_body);
 
-      if (!processing_template_decl)
-	TREE_OPERAND (cond, n)
-	  = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-    }
-  if (decl != error_mark_node && init != error_mark_node)
-    {
-      tree declv = make_tree_vec (1);
-      tree initv = make_tree_vec (1);
-      tree condv = make_tree_vec (1);
-      tree incrv = make_tree_vec (1);
+  if (omp_for == NULL)
+    return NULL;
 
-      TREE_VEC_ELT (declv, 0) = decl;
-      TREE_VEC_ELT (initv, 0) = init;
-      TREE_VEC_ELT (condv, 0) = cond;
-      TREE_VEC_ELT (incrv, 0) = incr;
-      omp_for = c_finish_omp_for (locus, declv, initv, condv, incrv,
-				  body, pre_body);
-    }
-  if (omp_for != NULL
-      && TREE_CODE (TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0)) == MODIFY_EXPR)
+  for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INCR (omp_for)); i++)
     {
-      tree incr = TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0);
+      tree incr = TREE_VEC_ELT (OMP_FOR_INCR (omp_for), i);
+
+      if (TREE_CODE (incr) != MODIFY_EXPR)
+	continue;
 
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (incr, 1))
 	  && BINARY_CLASS_P (TREE_OPERAND (incr, 1)))
@@ -4235,8 +4260,8 @@ finish_omp_for (location_t locus, tree decl, tree init, tree cond,
 					       TREE_OPERAND (t, n));
 	}
 
-      if (processing_template_decl)
-	TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0) = orig_incr;
+      if (orig_incr)
+	TREE_VEC_ELT (OMP_FOR_INCR (omp_for), i) = TREE_VEC_ELT (orig_incr, i);
     }
   if (omp_for != NULL)
     OMP_FOR_CLAUSES (omp_for) = clauses;
