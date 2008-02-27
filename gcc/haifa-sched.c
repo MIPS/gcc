@@ -3877,10 +3877,7 @@ sched_create_recovery_edges (basic_block first_bb, basic_block rec,
     edge_flags = 0;
       
   e = make_edge (first_bb, rec, edge_flags);
-
-  gcc_assert (NOTE_INSN_BASIC_BLOCK_P (BB_HEAD (second_bb)));
   label = block_label (second_bb);
-
   jump = emit_jump_insn_after (gen_jump (label), BB_END (rec));
   JUMP_LABEL (jump) = label;
   LABEL_NUSES (label)++;

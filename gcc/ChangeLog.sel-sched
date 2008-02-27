@@ -1,5 +1,30 @@
 2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
 
+	Avoid computing register liveness below original insns.
+	* haifa-sched.c (sched_create_recovery_edges): Tidy.
+	* sel-sched-ir.c (init_lv_set, free_lv_sets, 
+	init_invalid_data_sets): Support creating liveness sets for empty blocks.
+	(delete_and_free_basic_block): New function, factored from ... 
+	(sel_add_or_remove_bb): ... here.  Use it.
+	(sel_create_recovery_block): Do not create unneeded empty basic block.
+	(sel_remove_loop_preheader): Use delete_and_free_basic_block instead of 
+	plain delete_basic_block.
+	* sel-sched-ir.h (get_all_loop_exits, _eligible_successor_edge_p): Assert
+	that empty blocks are not met inside current scheduling region.
+	* sel-sched.c (propagate_lv_set): Use df_simulate_one_insn_backwards.
+	(compute_live_after_bb): Recurse through empty blocks.
+	(compute_live_below_insn): Kill.
+	(find_used_regs_1): New parameter live_way.  Also check INSN_REG_CLOBBERS
+	along a code motion path.  Do not call 	compute_live_below_insn, instead
+	find registers whose live ranges we crossed from the saved liveness sets 
+	on our way ... 
+	(find_used_regs): ... and from registers set in the already scheduled 
+	insns of the current group.
+	(sel_sched_region_1): Make gcc_assert allow valid liveness sets on 
+	empty blocks.
+
+2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
+
 	* sched-int.h (struct deps): New field last_reg_pending_barrier.
 	(enum reg_pending_barrier_mode): Move from ...
 	* sched-deps.c: ... here.  

@@ -3841,19 +3841,14 @@ vinsn_dfa_cost (vinsn_t vinsn, fence_t fence)
 
 /* Functions to init/finish work with lv sets.  */
 
-/* Init BB_LV_SET of BB from a global_live_at_start set of BB.
-   NOTE: We do need to detach register live info from bb because we
-   use those regsets as BB_LV_SETs.  */
+/* Init BB_LV_SET of BB from DF_LR_IN set of BB.  */
 static void
 init_lv_set (basic_block bb)
 {
   gcc_assert (!BB_LV_SET_VALID_P (bb));
 
-  if (sel_bb_empty_p (bb))
-    return;
-
   BB_LV_SET (bb) = get_regset_from_pool ();
-  COPY_REG_SET (BB_LV_SET (bb), df_get_live_in (bb));
+  COPY_REG_SET (BB_LV_SET (bb), DF_LR_IN (bb)); 
   BB_LV_SET_VALID_P (bb) = true;
 }
 
@@ -3902,10 +3897,8 @@ free_lv_sets (void)
 
   /* Free LV sets.  */
   FOR_EACH_BB (bb)
-    if (!sel_bb_empty_p (bb))
+    if (BB_LV_SET (bb))
       free_lv_set (bb);
-    else
-      gcc_assert (BB_LV_SET (bb) == NULL);
 }
 
 /* Initialize an invalid LV_SET for BB.
@@ -3935,7 +3928,10 @@ init_invalid_av_set (basic_block bb)
 static void
 init_invalid_data_sets (basic_block bb)
 {
-  init_invalid_lv_set (bb);
+  if (BB_LV_SET (bb))
+    BB_LV_SET_VALID_P (bb) = false;
+  else
+    init_invalid_lv_set (bb);
   init_invalid_av_set (bb);
 }
 
@@ -4641,6 +4637,27 @@ find_place_to_insert_bb (basic_block bb, int rgn)
   return (i + 1) - 1;
 }
 
+/* Deletes an empty basic block freeing its data.  */
+static void
+delete_and_free_basic_block (basic_block bb)
+{
+  gcc_assert (sel_bb_empty_p (bb));
+
+  if (BB_LV_SET (bb))
+    free_lv_set (bb);
+
+      /* Can't assert av_set properties when (add == 0) because
+     we use sel_add_or_remove_bb (bb, 0) when removing loop
+     preheader from the region.  At the point of removing the
+     preheader we already have deallocated sel_region_bb_info.  */
+  gcc_assert (BB_LV_SET (bb) == NULL
+              && !BB_LV_SET_VALID_P (bb)
+              && BB_AV_LEVEL (bb) == 0
+              && BB_AV_SET (bb) == NULL);
+  
+  delete_basic_block (bb);
+}
+
 /* Add (or remove depending on ADD) BB to (from) the current region 
    and update sched-rgn.c data.  */
 static void
@@ -4813,19 +4830,8 @@ sel_add_or_remove_bb (basic_block bb, int add)
 	  return_bb_to_pool (bb);
 
 	  if (add < 0)
+            delete_and_free_basic_block (bb);
 	    {
-	      gcc_assert (sel_bb_empty_p (bb));
-
-	      /* Can't assert av_set properties when (add == 0) because
-		 we use sel_add_or_remove_bb (bb, 0) when removing loop
-		 preheader from the region.  At the point of removing the
-		 preheader we already have deallocated sel_region_bb_info.  */
-	      gcc_assert (BB_LV_SET (bb) == NULL
-			  && !BB_LV_SET_VALID_P (bb)
-			  && BB_AV_LEVEL (bb) == 0
-			  && BB_AV_SET (bb) == NULL);
-
-	      delete_basic_block (bb);
 	    }
 	}
     }
@@ -5215,7 +5221,14 @@ sel_create_recovery_block (insn_t orig_insn)
   basic_block before_recovery = NULL;
 
   first_bb = BLOCK_FOR_INSN (orig_insn);
-  second_bb = sched_split_block (first_bb, orig_insn);
+  if (sel_bb_end_p (orig_insn))
+    {
+      /* Avoid introducing an empty block while splitting.  */
+      gcc_assert (single_succ_p (first_bb));
+      second_bb = single_succ (first_bb);
+    }
+  else
+    second_bb = sched_split_block (first_bb, orig_insn);
 
   can_add_real_insns_p = false;
   recovery_block = sched_create_recovery_block (&before_recovery);
@@ -5226,7 +5239,7 @@ sel_create_recovery_block (insn_t orig_insn)
   gcc_assert (sel_bb_empty_p (recovery_block));
 
   insn_init.what = INSN_INIT_WHAT_INSN;
-
+  
   sched_create_recovery_edges (first_bb, recovery_block, second_bb);
 
   if (current_loops != NULL)
@@ -6049,7 +6062,7 @@ sel_remove_loop_preheader (void)
                     redirect_edge_succ (e, bb->next_bb);
                 }
               gcc_assert (BB_NOTE_LIST (bb) == NULL);
-              delete_basic_block (bb);
+              delete_and_free_basic_block (bb);
 
               /* Check if after deleting preheader there is a nonconditional 
                  jump in PREV_BB that leads to the next basic block NEXT_BB.  

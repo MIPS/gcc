@@ -1051,7 +1051,12 @@ get_all_loop_exits (basic_block bb)
      consider bb as a possible gate to the inner loop now.  */
   while (sel_bb_empty_p (bb) 
 	 && in_current_region_p (bb))
-    bb = single_succ (bb);
+    {
+      bb = single_succ (bb);
+
+      /* This empty block could only lead outside the region.  */
+      gcc_assert (! in_current_region_p (bb));
+    }
 
   /* And now check whether we should skip over inner loop.  */
   if (inner_loop_header_p (bb))
@@ -1313,6 +1318,9 @@ _eligible_successor_edge_p (edge e1, succ_iterator *ip)
 
       e2 = EDGE_SUCC (bb, 0);
       bb = e2->dest;
+      
+      /* This couldn't happen inside a region.  */
+      gcc_assert (! in_current_region_p (bb));
     }
   
   /* Save the second edge for later checks.  */

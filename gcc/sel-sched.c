@@ -968,6 +968,7 @@ mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
 
   AND_COMPL_HARD_REG_SET (reg_rename_p->available_for_renaming, 
                           reg_rename_p->unavailable_hard_regs);
+
   /* Regno is always ok from the renaming part of view, but it really
      could be in *unavailable_hard_regs already, so set it here instead
      of there.  */
@@ -1253,7 +1254,7 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
 	}
 
       /* Compute used regs and OR it into the USED_REGS.  */
-      res = find_used_regs (BND_TO (bnd), orig_ops, used_regs, 
+      res = find_used_regs (BND_TO (bnd), orig_ops, used_regs,
                             &reg_rename_data, &original_insns);
 
       /* FIXME: the assert is true until we'd have several boundaries.  */
@@ -2326,35 +2327,32 @@ propagate_lv_set (regset lv, insn_t insn)
   if (INSN_NOP_P (insn))
     return;
 
-  /* LV1 = LV1 \ { DEST (insn) }  */
-  if (GET_CODE (PATTERN (insn)) != COND_EXEC) 
-    {
-      /* May-defs should not kill other sets.  */
-      AND_COMPL_REG_SET (lv, INSN_REG_SETS (insn));
-      AND_COMPL_REG_SET (lv, INSN_REG_CLOBBERS (insn));
-    }
-
-  /* LV1 = LV1 U { SOURCES (insn) } */
-  /* FIXME: Should we consider the whole register clobbered in the cases of
-     STRICT_LOW_PART or SUBREG?  */
-  /* Yes, and that's what sched-deps do: if there's subreg or 
-     strict_low_part, then the whole register (as it appear in that expr)
-     will be included in REG_PUSES counting all it's relevant subregs
-     in the used mode.  */
-  IOR_REG_SET (lv, INSN_REG_USES (insn));
+  df_simulate_one_insn_backwards (BLOCK_FOR_INSN (insn), insn, lv);
 }
 
 static regset
 compute_live_after_bb (basic_block bb)
 {
-  insn_t succ;
-  succ_iterator si;
+  edge e;
+  edge_iterator ei;
   regset lv = get_clear_regset_from_pool ();
 
   gcc_assert (!ignore_first);
 
-  FOR_EACH_SUCC_1 (succ, si, BB_END (bb), SUCCS_ALL)
-    IOR_REG_SET (lv, compute_live (succ));
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (sel_bb_empty_p (e->dest))
+      {
+        if (! BB_LV_SET_VALID_P (e->dest))
+          {
+            gcc_unreachable ();
+            gcc_assert (BB_LV_SET (e->dest) == NULL);
+            BB_LV_SET (e->dest) = compute_live_after_bb (e->dest);
+            BB_LV_SET_VALID_P (e->dest) = true;
+          }
+        IOR_REG_SET (lv, BB_LV_SET (e->dest));
+      }
+    else
+      IOR_REG_SET (lv, compute_live (sel_bb_head (e->dest)));
 
   return lv;
 }
@@ -2417,18 +2415,6 @@ compute_live (insn_t insn)
 
     return lv;
   }
-}
-
-/* Compute the set of live registers right below the INSN and save it to 
-   REGS.  */
-static void
-compute_live_below_insn (insn_t insn, regset regs)
-{
-  insn_t succ;
-  succ_iterator succ_i;
-
-  FOR_EACH_SUCC_1 (succ, succ_i, insn, SUCCS_ALL)
-    IOR_REG_SET (regs, compute_live (succ));
 }
 
 /* Update the data gathered in av and lv sets starting from INSN.  */
@@ -2517,7 +2503,7 @@ get_spec_check_type_for_insn (insn_t insn, expr_t expr)
 
 static int
 find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path, 
-		  regset used_regs, struct reg_rename *reg_rename_p,
+		  regset used_regs, regset live_way,
 		  bool crosses_call, def_list_t *original_insns)
 {
   rhs_t rhs;
@@ -2526,6 +2512,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
   int res;
   int bb_num = BLOCK_FOR_INSN (insn)->index;
   bool av_set_valid_p = AV_SET_VALID_P (insn);
+  def_list_t old_original_insns;
 
   line_start ();
   print ("find_used_regs_1(");
@@ -2569,6 +2556,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
     }
 
   orig_ops = av_set_copy (orig_ops);
+  old_original_insns = *original_insns;
 
   /* If we've found valid av set, then filter the orig_ops set.  */
   if (av_set_valid_p)
@@ -2627,7 +2615,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 	    for the original target register of the operation.  */
 
       print ("found original operation!");
-
+      
       {
 	bool needs_spec_check_p;
 
@@ -2638,16 +2626,6 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 
       res = 1;
       is_orig_op = true;
-
-      tmp = get_clear_regset_from_pool ();
-
-      compute_live_below_insn (insn, tmp);
-
-      AND_COMPL_REG_SET (tmp, INSN_REG_SETS (insn));
-      AND_COMPL_REG_SET (tmp, INSN_REG_CLOBBERS (insn));
-      IOR_REG_SET (used_regs, tmp);
-
-      return_regset_to_pool (tmp);
 
       /* (*1) We need to add to USED_REGS registers that are read by 
 	 INSN's lhs. This may lead to choosing wrong src register. 
@@ -2696,16 +2674,8 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
         {
 	  int b;
 
-	  if (succ_i.e1)
-	    {
-	      gcc_assert (succ_i.e2);
-
-	      gcc_assert (succ_i.e1->src == BLOCK_FOR_INSN (insn)
-			  && succ_i.e2->dest == BLOCK_FOR_INSN (succ));
-	    }
-
 	  b = find_used_regs_1 (succ, orig_ops, path,
-			      used_regs, reg_rename_p, crosses_call,
+			      used_regs, live_way, crosses_call,
 			      original_insns);
 
 	  if (b == 0)
@@ -2793,6 +2763,7 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 	    {
 	      IOR_REG_SET (used_regs, INSN_REG_SETS (insn));
 	      IOR_REG_SET (used_regs, INSN_REG_USES (insn));
+              IOR_REG_SET (used_regs, INSN_REG_CLOBBERS (insn));
 	    }	  
 	}
 
@@ -2801,6 +2772,38 @@ find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path,
 
   av_set_clear (&orig_ops);
 
+  /* Calculate the registers whose live range we crossed.  This part includes
+     the ones that are live on our way except the registers that are set 
+     by the original insn(s) below.  */
+  if (sel_bb_head_p (insn))
+    {
+      gcc_assert (res);
+
+      /* New original insns were found.  */
+      if (old_original_insns != *original_insns)
+        {
+          def_list_iterator i;
+          def_t def;
+          
+          tmp = get_clear_regset_from_pool ();
+          IOR_REG_SET (tmp, BB_LV_SET (BLOCK_FOR_INSN (insn)));
+          
+          FOR_EACH_DEF (def, i, *original_insns)
+            {
+              insn_t insn = def->orig_insn;
+            
+              if (*i.lp == old_original_insns)
+                break;
+              
+              AND_COMPL_REG_SET (tmp, INSN_REG_SETS (insn));
+              AND_COMPL_REG_SET (tmp, INSN_REG_CLOBBERS (insn));
+            }
+          
+          IOR_REG_SET (live_way, tmp);
+          return_regset_to_pool (tmp);
+        }
+    }
+  
   gcc_assert (!sel_bb_head_p (insn) || AV_SET_VALID_P (insn)
 	      || AV_LEVEL (insn) == -1);
 
@@ -2837,14 +2840,19 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
   def_t def;
   int res;
   bool needs_spec_check_p = false;
+  bool crosses_call = false;
+  insn_t temp;
+  regset tmp;
   expr_t expr;
   av_set_iterator expr_iter;
+  regset live_way;
 
   /* We haven't visited any blocks yet.  */
   bitmap_clear (fur_visited_blocks);
+  live_way = get_clear_regset_from_pool ();
 
   res = find_used_regs_1 (insn, orig_ops, NULL, used_regs,
-			  reg_rename_p, false, original_insns);
+			  live_way, false, original_insns);
   if (res == -1)
     return false;
   gcc_assert (res == 1);
@@ -2872,7 +2880,39 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
          original operations need a check.  */
       if (needs_spec_check_p)
 	IOR_REG_SET (used_regs, VINSN_REG_USES (vinsn));
+
+      crosses_call |= def->crosses_call;
     }
+
+  /* Take into account the registers that are set in the current instruction
+     group and the live set at the beginning of this group.  */
+  temp = insn;
+  while (INSN_P (temp))
+    {
+      if (INSN_SCHED_TIMES (temp) > 0)
+        {
+          IOR_REG_SET (live_way, INSN_REG_SETS (temp));
+          IOR_REG_SET (live_way, INSN_REG_CLOBBERS (temp));
+        }
+
+      temp = PREV_INSN (temp);
+    }
+
+  tmp = get_clear_regset_from_pool ();
+  IOR_REG_SET (tmp, BB_LV_SET (BLOCK_FOR_INSN (NEXT_INSN (temp))));
+  FOR_EACH_DEF (def, i, *original_insns)
+    {
+      insn_t insn = def->orig_insn;
+      
+      AND_COMPL_REG_SET (tmp, INSN_REG_SETS (insn));
+      AND_COMPL_REG_SET (tmp, INSN_REG_CLOBBERS (insn));
+    }
+            
+  IOR_REG_SET (live_way, tmp);
+  return_regset_to_pool (tmp);
+
+  IOR_REG_SET (used_regs, live_way);
+  return_regset_to_pool (live_way);
 
   return true;
 }
@@ -6152,8 +6192,7 @@ sel_sched_region_1 (void)
                   /* Empty basic blocks should not have av and lv sets.  */
                   free_data_sets (prev_bb);
 
-                  gcc_assert (BB_LV_SET (loop_preheader) == NULL
-                              && BB_AV_SET (loop_preheader) == NULL);
+                  gcc_assert (BB_AV_SET (loop_preheader) == NULL);
                   gcc_assert (sel_bb_empty_p (loop_preheader)
                               && sel_bb_empty_p (prev_bb));
 
