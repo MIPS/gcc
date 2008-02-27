@@ -396,17 +396,6 @@ clear_deps_list (deps_list_t l)
 static regset reg_pending_sets;
 static regset reg_pending_clobbers;
 static regset reg_pending_uses;
-
-/* The following enumeration values tell us what dependencies we
-   should use to implement the barrier.  We use true-dependencies for
-   TRUE_BARRIER and anti-dependencies for MOVE_BARRIER.  */
-enum reg_pending_barrier_mode
-{
-  NOT_A_BARRIER = 0,
-  MOVE_BARRIER,
-  TRUE_BARRIER
-};
-
 static enum reg_pending_barrier_mode reg_pending_barrier;
 
 /* To speed up the test for duplicate dependency links we keep a
@@ -2419,6 +2408,9 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
       IOR_REG_SET (&deps->reg_last_in_use, reg_pending_uses);
       IOR_REG_SET (&deps->reg_last_in_use, reg_pending_clobbers);
       IOR_REG_SET (&deps->reg_last_in_use, reg_pending_sets);
+
+      /* Set up the pending barrier found.  */
+      deps->last_reg_pending_barrier = reg_pending_barrier;
     }
 
   CLEAR_REG_SET (reg_pending_uses);
@@ -2876,6 +2868,7 @@ init_deps (struct deps *deps)
   deps->sched_before_next_call = 0;
   deps->in_post_call_group_p = not_post_call;
   deps->libcall_block_tail_insn = 0;
+  deps->last_reg_pending_barrier = NOT_A_BARRIER;
   deps->readonly = 0;
 }
 

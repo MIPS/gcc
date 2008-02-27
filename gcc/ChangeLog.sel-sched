@@ -1,5 +1,15 @@
 2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
 
+	* sched-int.h (struct deps): New field last_reg_pending_barrier.
+	(enum reg_pending_barrier_mode): Move from ...
+	* sched-deps.c: ... here.  
+	(sched_analyze_insn): Set last_reg_pending_barrier of the context.
+	(init_deps): Init last_reg_pending_barrier.
+	* sel-sched-ir.c (has_dependence_p): When last_reg_pending_barrier
+	is set, mark insn->expr pair as having DEPS_IN_INSN dependency.
+
+2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
+
 	* haifa-sched.c (haifa_init_insn): Extend dependency caches for a new insn.
 
 2008-01-11  Dmitry Melnik  <dm@ispras.ru>

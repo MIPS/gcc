@@ -3100,10 +3100,12 @@ has_dependence_p (rhs_t rhs, insn_t pred, ds_t **has_dep_pp)
   deps_analyze_insn (dc, RHS_INSN (rhs));
   has_dependence_data.dc = NULL;
 
+  /* When a barrier was found, set DEPS_IN_INSN bits.  */
+  if (dc->last_reg_pending_barrier == TRUE_BARRIER)
+    has_dependence_data.has_dep_p[DEPS_IN_INSN] = DEP_TRUE;
+  
   *has_dep_pp = has_dependence_data.has_dep_p;
-
   ds = 0;
-
   for (i = 0; i < DEPS_IN_NOWHERE; i++)
     ds = ds_full_merge (ds, has_dependence_data.has_dep_p[i],
 			NULL_RTX, NULL_RTX);

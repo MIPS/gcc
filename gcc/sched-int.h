@@ -423,6 +423,16 @@ struct _dep_node
 #define DEP_NODE_DEP(N) (&(N)->dep)
 #define DEP_NODE_FORW(N) (&(N)->forw)
 
+/* The following enumeration values tell us what dependencies we
+   should use to implement the barrier.  We use true-dependencies for
+   TRUE_BARRIER and anti-dependencies for MOVE_BARRIER.  */
+enum reg_pending_barrier_mode
+{
+  NOT_A_BARRIER = 0,
+  MOVE_BARRIER,
+  TRUE_BARRIER
+};
+
 /* Describe state of dependencies used during sched_analyze phase.  */
 struct deps
 {
@@ -517,6 +527,9 @@ struct deps
 
   /* Element N is set for each register that is conditionally set.  */
   regset_head reg_conditional_sets;
+
+  /* Shows the last value of reg_pending_barrier associated with the insn.  */
+  enum reg_pending_barrier_mode last_reg_pending_barrier;
 
   /* True when this context should be treated as a readonly by 
      the analysis.  */
