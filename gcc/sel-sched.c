@@ -257,6 +257,7 @@ static bool find_used_regs (insn_t, av_set_t, regset, struct reg_rename *,
 static bool move_op (insn_t, av_set_t, ilist_t, edge, edge, rtx, expr_t);
 static void sel_sched_region_1 (void);
 static void sel_sched_region_2 (sel_sched_region_2_data_t);
+static av_set_t compute_av_set_inside_bb (insn_t, ilist_t, int, bool);
 
 
 /* Functions that work with fences.  */
@@ -2077,78 +2078,18 @@ is_ineligible_successor (insn_t insn, ilist_t p)
     return false;
 }
 
-/* Compute av set before INSN.
-   INSN - the current operation (actual rtx INSN)
-   P - the current path, which is list of insns visited so far
-   WS - software lookahead window size.
-   UNIQUE_P - TRUE, if returned av_set will be changed, hence
-   if we want to save computed av_set in s_i_d, we should make a copy of it.
-
-   In the resulting set we will have only expressions that don't have delay
-   stalls and nonsubstitutable dependences.  */
+/* Computes the av_set below the last bb insn, doing all the 'dirty work' of
+   handling multiple successors and properly merging its av_sets.  */
 static av_set_t
-compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
+compute_av_set_at_bb_end (insn_t insn, ilist_t p, int ws)
 {
-  av_set_t av1 = NULL;
-  av_set_t rhs_in_all_succ_branches = NULL;
   struct succs_info *sinfo;
+  av_set_t rhs_in_all_succ_branches = NULL;
   int is;
   insn_t succ, zero_succ = NULL;
+  av_set_t av1 = NULL;
 
-  line_start ();
-  print ("compute_av_set");
-  dump_insn (insn);
-  line_finish ();
-  block_start ();
-
-  /* Return NULL if insn is not on the legitimate downward path.  */
-  if (is_ineligible_successor (insn, p))
-    {
-      print ("ineligible_successor (%d)", INSN_UID (insn));
-      block_finish ();
-      return NULL;
-    }
-
-  /* If insn already has valid av(insn) computed, just return it.  */ 
-  if (AV_SET_VALID_P (insn))
-    {
-      av_set_t av_set;
-
-      if (sel_bb_head_p (insn))
-	av_set = BB_AV_SET (BLOCK_FOR_INSN (insn));
-      else
-	av_set = NULL;
-
-      line_start ();
-      print ("found valid av (%d): ", INSN_UID (insn));
-      dump_av_set (av_set);
-      line_finish ();
-      block_finish ();
-
-      return unique_p ? av_set_copy (av_set) : av_set;
-    }
-
-  /* If the window size exceeds at insn during the first computation of 
-     av(group), leave a window boundary mark at insn, so further 
-     update_data_sets calls do not compute past insn.  */
-  if (ws > MAX_WS)
-    {
-      print ("Max software lookahead window size reached");
-
-      if (!sel_bb_head_p (insn))      
-        {
-          /* We can reach max lookahead size at bb_header, so clean av_set
-             first.  */
-          INSN_WS_LEVEL (insn) = global_level;
-          block_finish ();
-          return NULL;
-        }
-          
-      /* Otherwise, it seems like we can't have empty av sets in basic 
-         blocks, so include this insn in this set, but do not try to 
-         continue the search.  */
-      goto skip_successors;
-    }
+  gcc_assert (sel_bb_end_p(insn));
 
   /* Find different kind of successors needed for correct computing of 
      SPEC and TARGET_AVAILABLE attributes.  */
@@ -2156,7 +2097,7 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
 
   /* Debug output.  */
   line_start ();
-  print ("successors (%d): ", INSN_UID (insn));
+  print ("successors of bb end (%d): ", INSN_UID (insn));
   dump_insn_vector (sinfo->succs_ok);
   line_finish ();
   if (sinfo->succs_ok_n != sinfo->all_succs_n)
@@ -2168,12 +2109,13 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
 
   /* Add insn to to the tail of current path.  */
   ilist_add (&p, insn);
+
   for (is = 0; VEC_iterate (rtx, sinfo->succs_ok, is, succ); is++)
     {
       av_set_t succ_set;
 
       /* We will edit SUCC_SET and RHS_SPEC field of its elements.  */
-      succ_set = compute_av_set (succ, p, ws + 1, true);
+      succ_set = compute_av_set_inside_bb (succ, p, ws, true);
 
       av_set_split_usefulness (succ_set, 
                                VEC_index (int, sinfo->probs_ok, is), 
@@ -2265,57 +2207,204 @@ compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
   dump_av_set (av1);
   line_finish ();
 
- skip_successors:
-  
-  /* Then, compute av1 above insn.  */
-  if (!INSN_NOP_P (insn))
+  return av1;
+}
+
+/* This function computes av_set for the FIRST_INSN by dragging valid 
+   av_set through all basic block insns either from the end of basic block 
+   (computed using compute_av_set_at_bb_end) or from the insn on which 
+   MAX_WS was exceeded.  It uses compute_av_set_at_bb_end to compute av_set
+   below the basic block and handling conditional branches.
+   FIRST_INSN - the basic block head, P - path consisting of the insns
+   traversed on the way to the FIRST_INSN (the path is sparse, only bb heads
+   and bb ends are added to the path), WS - current window size,
+   NEED_COPY_P - true if we'll make a copy of av_set before returning it.  */
+static av_set_t
+compute_av_set_inside_bb (insn_t first_insn, ilist_t p, int ws, 
+			  bool need_copy_p)
+{
+  insn_t cur_insn;
+  int end_ws = ws;
+  insn_t bb_head = sel_bb_head (BLOCK_FOR_INSN (first_insn));
+  insn_t bb_end = sel_bb_end (BLOCK_FOR_INSN (first_insn));
+  insn_t after_bb_end = NEXT_INSN (bb_end);
+  insn_t last_insn;
+  av_set_t av = NULL;
+  basic_block cur_bb = BLOCK_FOR_INSN (first_insn);
+
+  line_start ();
+  print ("compute_av_set_inside_bb");
+  dump_insn (first_insn);
+  line_finish ();
+  block_start ();
+
+  gcc_assert (sel_bb_head_p (first_insn));
+
+  /* Return NULL if insn is not on the legitimate downward path.  */
+  if (is_ineligible_successor (first_insn, p))
     {
-      expr_t expr;
+      print ("ineligible_successor (%d)", INSN_UID (first_insn));
+      block_finish ();
 
-      moveup_set_rhs (&av1, insn, false);
-      
-      expr = av_set_lookup (av1, INSN_VINSN (insn));
-
-      if (expr != NULL)
-	/* ??? It is not clear if we should replace or merge exprs in this
-	   case.  But it looks reasonable to me that if we unify (merge) all
-	   operations beyond current point then we should find them all during
-	   move_op () - which is not the case yet.  On the other hand if during
-	   move_op () we find only the first operation, then we should replace
-	   the expression here - which is the case.  */
-	{
-	  clear_expr (expr);
-	  copy_expr (expr, INSN_EXPR (insn));
-	}
-      else
-	av_set_add (&av1, INSN_EXPR (insn));
+      return NULL;
     }
 
-  /* If insn is a bb_header, leave a copy of av1 here.  */
-  if (sel_bb_head_p (insn))
+  /* If insn already has valid av(insn) computed, just return it.  */ 
+  if (AV_SET_VALID_P (first_insn))
     {
-      basic_block bb = BLOCK_FOR_INSN (insn);
+      av_set_t av_set;
 
-      /* Clear stale bb_av_set.  */
-      av_set_clear (&BB_AV_SET (bb));
+      if (sel_bb_head_p (first_insn))
+	av_set = BB_AV_SET (BLOCK_FOR_INSN (first_insn));
+      else
+	av_set = NULL;
 
-      print ("Save av(%d) in bb header", INSN_UID (insn));
-      BB_AV_SET (bb) = unique_p ? av_set_copy (av1) : av1;
-      BB_AV_LEVEL (bb) = global_level;
+      line_start ();
+      print ("found valid av (%d): ", INSN_UID (first_insn));
+      dump_av_set (av_set);
+      line_finish ();
+      block_finish ();
+
+      return need_copy_p ? av_set_copy (av_set) : av_set;
+    }
+
+  ilist_add (&p, first_insn);
+
+  /* As the result after this loop have completed, in LAST_INSN we'll
+     have the insn which has valid av_set to start backward computation 
+     from: it either will be NULL because on it the window size was exceeded 
+     or other valid av_set as returned by compute_av_set for the last insn 
+     of the basic block.  */
+  for (last_insn = first_insn; last_insn != after_bb_end;
+       last_insn = NEXT_INSN (last_insn))
+    {
+      if (end_ws > MAX_WS)
+	{
+	  print ("Max software lookahead window size reached:");
+	  dump_insn (last_insn);
+
+	  /* We can reach max lookahead size at bb_header, so clean av_set 
+	     first.  */
+	  INSN_WS_LEVEL (last_insn) = global_level;
+	  break;
+	}
+
+
+      /* We may encounter valid av_set not only on bb_head, but also on
+	 those insns on which previously MAX_WS was exceeded.  */
+      if (AV_SET_VALID_P (last_insn))
+	{
+	  line_start ();
+	  print ("found valid av (%d): ", INSN_UID (last_insn));
+	  dump_av_set (NULL);
+	  line_finish ();
+	  break;
+	}
+
+      /* The special case: the last insn of the BB may be an
+         ineligible_successor due to its SEQ_NO that was set on
+	 it as a bookkeeping.  */
+      if (last_insn == bb_end && last_insn != bb_head 
+	       && is_ineligible_successor (last_insn, p))
+	{
+	  line_start ();
+	  print ("ineligible_successor (%d)", INSN_UID (last_insn));
+	  line_finish ();
+	  break;	  
+	}
+
+      end_ws++;
+    }
+
+  /* Get the valid av_set into AV above the LAST_INSN to start backward
+     computation from.  It either will be empty av_set or av_set computed from
+     the successors on the last insn of the current bb.  */
+  if (last_insn != after_bb_end)
+    {
+      av = NULL;
+
+      /* This is needed only to obtain av_sets that are identical to 
+         those computed by the old compute_av_set version.  */
+      if (last_insn == bb_head && !INSN_NOP_P (last_insn))
+        av_set_add (&av, INSN_EXPR (last_insn));
+    }
+  else
+    /* END_WS is always already increased by 1 if LAST_INSN == AFTER_BB_END.  */
+    av = compute_av_set_at_bb_end (bb_end, p, end_ws);
+
+  line_start ();
+  print ("Moving av_set backwards through insns:");
+  line_finish ();
+
+  /* Compute av_set in AV starting from below the LAST_INSN up to
+     location above the FIRST_INSN.  */
+  for (cur_insn = PREV_INSN (last_insn); cur_insn != PREV_INSN (first_insn);
+       cur_insn = PREV_INSN (cur_insn))    
+    {
+      line_start ();
+      print ("insn:");
+      dump_insn (cur_insn);
+      line_finish ();
+
+      /* Move up AV through all basic block's insns.  */
+      if (!INSN_NOP_P (cur_insn))
+	{
+	  expr_t expr;
+  
+	  moveup_set_rhs (&av, cur_insn, false);
+  
+	  /* If the expression for CUR_INSN is already in the set, 
+	     replace it by the new one.  */
+	  expr = av_set_lookup (av, INSN_VINSN (cur_insn)); 
+	  if (expr != NULL)
+	    {
+	      clear_expr (expr);
+	      copy_expr (expr, INSN_EXPR (cur_insn));
+	    }
+	  else
+	    av_set_add (&av, INSN_EXPR (cur_insn));
+	}
     }
 
   line_start ();
   print ("insn: ");
-  dump_insn_1 (insn, 1);
+  dump_insn_1 (first_insn, 1);
   line_finish ();
 
   line_start ();
-  print ("av (%d): ", INSN_UID (insn));
-  dump_av_set (av1);
+  print ("av (%d): ", INSN_UID (first_insn));
+  dump_av_set (av);
   line_finish ();
-  
+
+  /* Clear stale bb_av_set.  */
+  av_set_clear (&BB_AV_SET (cur_bb));
+
+  line_start ();
+  print ("Save av(%d) in bb header", INSN_UID (first_insn));
+  line_finish ();
+  BB_AV_SET (cur_bb) = need_copy_p ? av_set_copy (av) : av;
+  BB_AV_LEVEL (cur_bb) = global_level;
+
+  ilist_remove (&p);
+
   block_finish ();
-  return av1;
+
+  return av;
+}
+
+/* Compute av set before INSN.
+   INSN - the current operation (actual rtx INSN)
+   P - the current path, which is list of insns visited so far
+   WS - software lookahead window size.
+   UNIQUE_P - TRUE, if returned av_set will be changed, hence
+   if we want to save computed av_set in s_i_d, we should make a copy of it.
+
+   In the resulting set we will have only expressions that don't have delay
+   stalls and nonsubstitutable dependences.  */
+static av_set_t
+compute_av_set (insn_t insn, ilist_t p, int ws, bool unique_p)
+{
+  return compute_av_set_inside_bb (insn, p, ws, unique_p);
 }
 
 /* Propagate a liveness set LV through INSN.  */

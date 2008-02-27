@@ -1,3 +1,13 @@
+2008-02-26  Dmitry Melnik  <dm@ispras.ru>
+
+	* sel-sched.c (compute_av_set_inside_bb, compute_av_set_at_bb_end): New 
+	functions.
+	(compute_av_set): Reimplement using them.
+
+	* sel-sched-dump.c (sel_stat_file, sel_stat_output_buf): New 
+	static variables.
+	(sel_get_stat_filename, sel_get_stat_file): New functions.
+
 2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
 
 	Avoid computing register liveness below original insns.

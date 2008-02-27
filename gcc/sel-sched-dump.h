@@ -236,5 +236,6 @@ extern void mem_test (int);
 extern bool in_range_p (int, const char *, bool *);
 extern bool av_set_contains_insn_with_uid (av_set_t av, int insn_uid);
 extern av_set_t av_set_for_bb_n (int n);
+extern FILE *sel_get_stat_file (void);
 
 #endif

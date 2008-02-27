@@ -38,6 +38,9 @@
 #include "sel-sched-ir.h"
 #include "sel-sched-dump.h"
 
+#include "pwd.h"
+#include <fcntl.h>
+#include <unistd.h>
 
 /* These variables hold parameters for pretty printing from recursive 
    functions.  */
@@ -57,6 +60,11 @@ static FILE *sched_dump1;
 static int indent1 = 0;
 static bool new_line1 = true;
 static bool print_block1 = true;
+
+/* File for dumping statistics into the one directory for
+   the whole make run.  */
+static FILE *sel_stat_file = NULL;
+
 
 
 /* These variables control high-level pretty printing.  */
@@ -90,6 +98,7 @@ static int dump_flist_insn_flags = (DUMP_INSN_UID | DUMP_INSN_BBN
    using all features of the selective scheduling or the corresponding 
    code motion will be skipped.  */
 const char *flag_insn_range = NULL;
+static char sel_stat_output_buf[16384];
 
 
 /* Core functions for pretty printing.  */
@@ -1496,5 +1505,55 @@ av_set_t
 av_set_for_bb_n (int n)
 {
   return BB_AV_SET (BASIC_BLOCK (n));
+}
+
+/* The file name is either copied from the SEL_STAT_FILE variable, or generated
+   from the current time.  If the environment variable is set, then
+   all the statistics will be written to the single file, otherwise
+   statistics will be stored in separate files in the ~/sel-stat directory.  */
+static void
+sel_get_stat_filename (char *buf)
+{
+  struct passwd *rpw = getpwuid (getuid());
+  char buf2[1024];
+  char *stat_file_name = getenv ("SEL_STAT_FILE");
+
+  strcpy (buf, rpw->pw_dir);
+  strcat (buf, "/sel-stat");
+  mkdir (buf, 0775);
+
+  if (stat_file_name)
+    sprintf (buf2, "/%s", stat_file_name);
+  else
+    sprintf (buf2, "/stat-%d.txt", (int) time (NULL));
+
+  strcat (buf, buf2);
+}
+
+/* Get a pointer to a FILE where various per-build statistics could be stored.
+   See sel_get_stat_filename for how this file name is determined.
+   It's guaranteed that every line of output (unless its greater than 1024 
+   chars) will not be intermixed with output from any other process that
+   may also be writing to the same file.  */
+FILE *
+sel_get_stat_file (void)
+{
+  if (!sel_stat_file)
+    {
+      char stat_filename[1024];
+
+      sel_get_stat_filename (stat_filename);
+      sel_stat_file = fopen (stat_filename, "at");
+    }
+
+  if (sel_stat_file)
+    {
+      setvbuf (sel_stat_file, sel_stat_output_buf, _IOLBF,
+              sizeof sel_stat_output_buf);
+
+      return sel_stat_file;
+    }
+  else
+    return stderr;
 }
 
