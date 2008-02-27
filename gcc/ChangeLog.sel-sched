@@ -1,5 +1,10 @@
 2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
 
+	* sel-sched.c (sel_region_init): Iterate through region blocks removing 
+	unneeded empty ones.
+
+2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
+
 	Implement an iterator over hard register sets.
 	* hard-reg-set.h (struct hard_reg_set_iterator): New.
 	(hard_reg_set_iter_init, hard_reg_set_iter_set, 
@@ -20,8 +25,9 @@
 
 2008-02-26  Dmitry Melnik  <dm@ispras.ru>
 
+	Rewrite computing availability sets without recursion.
 	* sel-sched.c (compute_av_set_inside_bb, compute_av_set_at_bb_end): New 
-	functions.
+	functions that avoid recursion when computing av sets.
 	(compute_av_set): Reimplement using them.
 
 	* sel-sched-dump.c (sel_stat_file, sel_stat_output_buf): New 
