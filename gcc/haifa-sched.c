@@ -1,6 +1,7 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -1901,8 +1902,18 @@ move_insn (rtx insn)
 	  gcc_assert (BB_END (bb) == last);
 	}
 
-      set_block_for_insn (insn, bb);    
-      df_insn_change_bb (insn);
+      /* This test is particularly important for debug insns that
+	 don't reference any registers.  If the insn before a debug
+	 insn is moved within the same BB and the debug insn follows
+	 it, then df_insn_change_bb() will mark the block as dirty
+	 because there aren't any defs or uses in the insn.  It's
+	 pointless to go through df_insn_change_bb if we're not
+	 changing anything, anyway.  */
+      if (BLOCK_FOR_INSN (insn) != bb)
+	{
+	  set_block_for_insn (insn, bb);
+	  df_insn_change_bb (insn);
+	}
   
       /* Update BB_END, if needed.  */
       if (BB_END (bb) == last)

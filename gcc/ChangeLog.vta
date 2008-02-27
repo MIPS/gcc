@@ -1,3 +1,8 @@
+2008-02-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	* haifa-sched.c (move_insn): Don't mark block as DF-dirty when
+	moving insns in it.
+
 2008-02-19  Alexandre Oliva  <aoliva@redhat.com>
 
 	* fwprop.c (try_fwprop_subst): Deal with NULL set.
