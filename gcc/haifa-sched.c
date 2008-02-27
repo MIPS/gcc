@@ -5039,7 +5039,12 @@ haifa_init_insn (rtx insn)
   haifa_init_h_i_d (NULL, NULL, NULL, insn);
 
   if (adding_bb_to_current_region_p)
-    sd_init_insn (insn);
+    {
+      sd_init_insn (insn);
+
+      /* Extend dependency caches by one element.  */
+      extend_dependency_caches (1, false);
+    }
 }
 
 void (* sched_init_only_bb) (basic_block, basic_block);

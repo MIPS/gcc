@@ -1,3 +1,7 @@
+2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
+
+	* haifa-sched.c (haifa_init_insn): Extend dependency caches for a new insn.
+
 2008-01-11  Dmitry Melnik  <dm@ispras.ru>
 
 	Speedup find_used_regs by restricting it from visiting same blocks
