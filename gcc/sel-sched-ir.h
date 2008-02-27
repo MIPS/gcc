@@ -1320,7 +1320,8 @@ _eligible_successor_edge_p (edge e1, succ_iterator *ip)
       bb = e2->dest;
       
       /* This couldn't happen inside a region.  */
-      gcc_assert (! in_current_region_p (bb));
+      gcc_assert (! in_current_region_p (bb)
+                  || (flags & SUCCS_OUT));
     }
   
   /* Save the second edge for later checks.  */
@@ -1456,8 +1457,8 @@ extern void vinsn_detach (vinsn_t);
 extern bool vinsns_correlate_as_rhses_p (vinsn_t, vinsn_t);
 extern void copy_expr (expr_t, expr_t);
 extern void copy_expr_onside (expr_t, expr_t);
-extern void merge_expr_data (expr_t, expr_t, bool);
-extern void merge_expr (expr_t, expr_t, bool);
+extern void merge_expr_data (expr_t, expr_t, insn_t);
+extern void merge_expr (expr_t, expr_t, insn_t);
 extern void clear_expr (expr_t);
 extern unsigned expr_dest_regno (expr_t);
 extern rtx expr_dest_reg (expr_t); 
@@ -1476,8 +1477,8 @@ extern rhs_t av_set_lookup (av_set_t, vinsn_t);
 extern expr_t merge_with_other_exprs (av_set_t *, av_set_iterator *, expr_t);
 extern bool av_set_is_in_p (av_set_t, vinsn_t);
 extern av_set_t av_set_copy (av_set_t);
-extern void av_set_union_and_clear (av_set_t *, av_set_t *);
-extern void av_set_union_and_live (av_set_t *, av_set_t *, regset, regset);
+extern void av_set_union_and_clear (av_set_t *, av_set_t *, insn_t);
+extern void av_set_union_and_live (av_set_t *, av_set_t *, regset, regset, insn_t);
 extern void av_set_clear (av_set_t *);
 extern void av_set_leave_one_nonspec (av_set_t *);
 extern rhs_t av_set_element (av_set_t, int);

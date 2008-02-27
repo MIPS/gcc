@@ -1780,10 +1780,10 @@ copy_expr_onside (expr_t to, expr_t from)
 	     EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from));
 }
 
-/* Merge bits of FROM rhs to TO rhs.  When JOIN_POINT_P is true,
+/* Merge bits of FROM rhs to TO rhs.  When SPLIT_POINT is not NULL,
    this is done along different paths.  */
 void
-merge_expr_data (expr_t to, expr_t from, bool join_point_p)
+merge_expr_data (expr_t to, expr_t from, insn_t split_point)
 {
   int i;
   expr_history_def *phist;
@@ -1809,7 +1809,7 @@ merge_expr_data (expr_t to, expr_t from, bool join_point_p)
       /* We try to detect the case when one of the expressions
          can only be reached through another one.  In this case,
          we can do better.  */
-      if (!join_point_p)
+      if (split_point == NULL)
         {
           int toind, fromind;
 
@@ -1858,18 +1858,39 @@ merge_expr_data (expr_t to, expr_t from, bool join_point_p)
 
     /* When merging e.g. control & data speculative exprs, or a control
        speculative with a control&data speculative one, we really have 
-       to change vinsn too.  */
-    if ((old_to_ds & SPECULATIVE) && (old_from_ds & SPECULATIVE))
+       to change vinsn too.  Also, when speculative status is changed,
+       we also need to record this as a transformation in expr's history.  */
+    if ((old_to_ds & SPECULATIVE) || (old_from_ds & SPECULATIVE))
       {
         old_to_ds = ds_get_speculation_types (old_to_ds);
         old_from_ds = ds_get_speculation_types (old_from_ds);
         
         if (old_to_ds != old_from_ds)
           {
-            int res;
+            ds_t record_ds;
+            
+            /* When both expressions are speculative, we need to change 
+               the vinsn first.  */
+            if ((old_to_ds & SPECULATIVE) && (old_from_ds & SPECULATIVE))
+              {
+                int res;
+                
+                res = speculate_expr (to, EXPR_SPEC_DONE_DS (to));
+                gcc_assert (res >= 0);
+              }
 
-            res = speculate_expr (to, EXPR_SPEC_DONE_DS (to));
-            gcc_assert (res >= 0);
+            if (split_point != NULL)
+              {
+                /* Record the change with proper status.  */
+                record_ds = EXPR_SPEC_DONE_DS (to) & SPECULATIVE;
+                record_ds &= ~(old_to_ds & SPECULATIVE);
+                record_ds &= ~(old_from_ds & SPECULATIVE);
+                
+                insert_in_history_vect (&EXPR_HISTORY_OF_CHANGES (to), 
+                                        INSN_UID (split_point), TRANS_SPECULATION, 
+                                        EXPR_VINSN (from), EXPR_VINSN (to),
+                                        record_ds);
+              }
           }
       }
   }
@@ -1877,7 +1898,7 @@ merge_expr_data (expr_t to, expr_t from, bool join_point_p)
 
 /* Merge bits of FROM rhs to TO rhs.  Vinsns in the rhses should correlate.  */
 void
-merge_expr (expr_t to, expr_t from, bool join_point_p)
+merge_expr (expr_t to, expr_t from, insn_t split_point)
 {
   vinsn_t to_vi = EXPR_VINSN (to);
   vinsn_t from_vi = EXPR_VINSN (from);
@@ -1892,7 +1913,7 @@ merge_expr (expr_t to, expr_t from, bool join_point_p)
       && EXPR_SPEC_DONE_DS (from) != 0)
     change_vinsn_in_expr (to, EXPR_VINSN (from));
 
-  merge_expr_data (to, from, join_point_p);
+  merge_expr_data (to, from, split_point);
   gcc_assert (EXPR_USEFULNESS (to) <= REG_BR_PROB_BASE);
 }
 
@@ -2163,7 +2184,7 @@ merge_with_other_exprs (av_set_t *avp, av_set_iterator *ip, expr_t expr)
       EXPR_TARGET_AVAILABLE (expr2) = -1;
       EXPR_USEFULNESS (expr2) = 0;
 
-      merge_expr (expr2, expr, false);
+      merge_expr (expr2, expr, NULL);
       
       /* Fix usefulness as it should be now REG_BR_PROB_BASE.  */
       EXPR_USEFULNESS (expr2) = REG_BR_PROB_BASE;
@@ -2201,7 +2222,7 @@ av_set_copy (av_set_t set)
 /* Makes set pointed to by TO to be the union of TO and FROM.  Clear av_set
    pointed to by FROMP afterwards.  */
 void
-av_set_union_and_clear (av_set_t *top, av_set_t *fromp)
+av_set_union_and_clear (av_set_t *top, av_set_t *fromp, insn_t insn)
 {
   rhs_t rhs1;
   av_set_iterator i;
@@ -2213,7 +2234,7 @@ av_set_union_and_clear (av_set_t *top, av_set_t *fromp)
 
       if (rhs2)
 	{
-          merge_expr (rhs2, rhs1, true);
+          merge_expr (rhs2, rhs1, insn);
 	  av_set_iter_remove (&i);
 	}
     }
@@ -2227,7 +2248,7 @@ av_set_union_and_clear (av_set_t *top, av_set_t *fromp)
    TOP judging by TO_LV_SET and FROM_LV_SET.  */
 void
 av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
-                       regset from_lv_set)
+                       regset from_lv_set, insn_t insn)
 {
   rhs_t rhs1;
   av_set_iterator i;
@@ -2259,7 +2280,7 @@ av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
           else if (EXPR_INSN_RTX (rhs1) != EXPR_INSN_RTX (rhs2))
             EXPR_TARGET_AVAILABLE (rhs2) = -1;
 
-          merge_expr (rhs2, rhs1, true);
+          merge_expr (rhs2, rhs1, insn);
           av_set_add_nocopy (&in_both_set, rhs2);
 	  av_set_iter_remove (&i);
 	}

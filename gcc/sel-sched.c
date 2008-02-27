@@ -843,7 +843,8 @@ mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
   enum machine_mode mode;
   enum reg_class cl = NO_REGS;
   rtx orig_dest;
-  int cur_reg, regno;
+  unsigned cur_reg, regno;
+  hard_reg_set_iterator hrsi;
 
   gcc_assert (GET_CODE (PATTERN (def->orig_insn)) == SET);
   gcc_assert (reg_rename_p);
@@ -946,15 +947,12 @@ mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
                             sel_hrd.regs_for_call_clobbered[mode]);
 
   /* Leave only those that are ok to rename.  */
-  for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
+  EXECUTE_IF_SET_IN_HARD_REG_SET (reg_rename_p->available_for_renaming,
+                                  0, cur_reg, hrsi)
     {
       int nregs;
       int i;
 
-      if (!TEST_HARD_REG_BIT (reg_rename_p->available_for_renaming, 
-                              cur_reg))
-        continue;
-      
       nregs = hard_regno_nregs[cur_reg][mode];
       gcc_assert (nregs > 0);
 
@@ -1013,9 +1011,10 @@ choose_best_reg_1 (HARD_REG_SET hard_regs_used,
                    def_list_t original_insns, bool *is_orig_reg_p_ptr)
 {
   int best_new_reg;
-  int cur_reg;
+  unsigned cur_reg;
   enum machine_mode mode = VOIDmode;
   unsigned regno, i, n;
+  hard_reg_set_iterator hrsi;
   def_list_iterator di;
   def_t def;
 
@@ -1057,15 +1056,20 @@ choose_best_reg_1 (HARD_REG_SET hard_regs_used,
   
   /* Among all available regs choose the register that was 
      allocated earliest.  */
-  for (cur_reg = 0; cur_reg < FIRST_PSEUDO_REGISTER; cur_reg++)
-    if (TEST_HARD_REG_BIT (reg_rename_p->available_for_renaming, 
-                           cur_reg)
-        && !TEST_HARD_REG_BIT (hard_regs_used, cur_reg))
+  EXECUTE_IF_SET_IN_HARD_REG_SET (reg_rename_p->available_for_renaming,
+                                  0, cur_reg, hrsi)
+    if (! TEST_HARD_REG_BIT (hard_regs_used, cur_reg))
       {
         /* All hard registers are available.  */
         if (best_new_reg < 0
             || reg_rename_tick[cur_reg] < reg_rename_tick[best_new_reg])
-	  best_new_reg = cur_reg;
+          {
+            best_new_reg = cur_reg;
+            
+            /* Return immediately when we know there's no better reg.  */
+            if (! reg_rename_tick[best_new_reg])
+              break;
+          }
       }
 
   if (best_new_reg >= 0)
@@ -1600,7 +1604,7 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
           
     }
 
-  av_set_union_and_clear (av_ptr, &new_set);
+  av_set_union_and_clear (av_ptr, &new_set, NULL);
 }
 
 
@@ -2089,7 +2093,7 @@ compute_av_set_at_bb_end (insn_t insn, ilist_t p, int ws)
   insn_t succ, zero_succ = NULL;
   av_set_t av1 = NULL;
 
-  gcc_assert (sel_bb_end_p(insn));
+  gcc_assert (sel_bb_end_p (insn));
 
   /* Find different kind of successors needed for correct computing of 
      SPEC and TARGET_AVAILABLE attributes.  */
@@ -2155,10 +2159,11 @@ compute_av_set_at_bb_end (insn_t insn, ilist_t p, int ws)
           gcc_assert (BB_LV_SET_VALID_P (bb0) && BB_LV_SET_VALID_P (bb1));
           av_set_union_and_live (&av1, &succ_set, 
                                  BB_LV_SET (bb0),
-                                 BB_LV_SET (bb1));
+                                 BB_LV_SET (bb1),
+                                 insn);
         }
       else
-        av_set_union_and_clear (&av1, &succ_set);
+        av_set_union_and_clear (&av1, &succ_set, insn);
     }
 
   /* Check liveness restrictions via hard way when there are more than 
@@ -2288,7 +2293,6 @@ compute_av_set_inside_bb (insn_t first_insn, ilist_t p, int ws,
 	  INSN_WS_LEVEL (last_insn) = global_level;
 	  break;
 	}
-
 
       /* We may encounter valid av_set not only on bb_head, but also on
 	 those insns on which previously MAX_WS was exceeded.  */
@@ -4438,7 +4442,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
             moveup_set_path (&BND_AV1 (bnd), BND_PTR (bnd));
 
 	  av1_copy = av_set_copy (BND_AV1 (bnd));
-          av_set_union_and_clear (&av_vliw, &av1_copy);
+          av_set_union_and_clear (&av_vliw, &av1_copy, NULL);
         }
       while ((bnds1 = BLIST_NEXT (bnds1)));
 
@@ -5277,7 +5281,7 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
                   int use = MAX (EXPR_USEFULNESS (c_rhs), EXPR_USEFULNESS (x));
 
                   gcc_assert (EXPR_USEFULNESS (c_rhs) == EXPR_USEFULNESS (x));
-                  merge_expr_data (c_rhs, x, true);
+                  merge_expr_data (c_rhs, x, insn);
 
                   EXPR_USEFULNESS (c_rhs) = use;
                   if (EXPR_SCHED_TIMES (x) == 0)
