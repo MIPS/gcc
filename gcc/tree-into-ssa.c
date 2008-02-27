@@ -1254,6 +1254,7 @@ adjust_debug_stmts_for_move (tree def, basic_block tobb,
 struct check_debug_predicate
 {
   bool (*available_p)(tree);
+  tree stmt;
 };
 
 /* Look for an SSA_NAME in the expression *TP whose definition was
@@ -1279,14 +1280,34 @@ check_and_update_debug_stmt_1 (tree *tp, int *walk_subtrees,
 	return t;
 
       if (!SSA_NAME_DEF_STMT (t))
-	return t;
+	{
+	  /* Default definitions are never removed.  */
+	  if (SSA_NAME_IS_DEFAULT_DEF (t))
+	    return NULL_TREE;
+	  else
+	    return t;
+	}
 
-      if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (t))
-	  && TREE_CODE (SSA_NAME_VAR (t)) != PARM_DECL)
-	return t;
+      if (IS_EMPTY_STMT (SSA_NAME_DEF_STMT (t)))
+	{
+	  if (SSA_NAME_IS_DEFAULT_DEF (t))
+	    return NULL_TREE;
+	  else
+	    return t;
+	}
 
       if (p->available_p && !p->available_p (t))
 	return t;
+
+      if (dom_info_available_p (CDI_DOMINATORS))
+	{
+	  basic_block bbuse = bb_for_stmt (p->stmt);
+	  basic_block bbdef = bb_for_stmt (SSA_NAME_DEF_STMT (t));
+
+	  if (bbuse != bbdef
+	      && !dominated_by_p (CDI_DOMINATORS, bbuse, bbdef))
+	    return t;
+	}
     }
 
   return NULL_TREE;
@@ -1308,6 +1329,7 @@ check_and_update_debug_stmt (tree t, bool (*available_p)(tree))
     return;
 
   p.available_p = available_p;
+  p.stmt = t;
   if (walk_tree (&VAR_DEBUG_VALUE_VALUE (t), check_and_update_debug_stmt_1,
 		 &p, NULL))
     {
@@ -2124,7 +2146,11 @@ maybe_replace_use_in_debug_insn (use_operand_p use_p)
   if (symbol_marked_for_renaming (sym))
     rdef = get_current_def (sym);
   else if (is_old_name (use))
-    rdef = get_current_def (use);
+    {
+      rdef = get_current_def (use);
+      if (!rdef && SSA_NAME_DEF_STMT (use))
+	return true;
+    }
   else
     return true;
 
