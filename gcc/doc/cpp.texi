@@ -1996,7 +1996,7 @@ on the command line of the preprocessor or C compiler.
 This macro expands to a decimal integer constant that represents the
 depth of nesting in include files.  The value of this macro is
 incremented on every @samp{#include} directive and decremented at the
-end of every included file.  It starts out at 0, it's value within the
+end of every included file.  It starts out at 0, its value within the
 base file specified on the command line.
 
 @item __ELF__
@@ -2133,8 +2133,13 @@ enabled by default, but can be disabled with @option{-Wno-deprecated}.
 
 @item __EXCEPTIONS
 This macro is defined, with value 1, when compiling a C++ source file
-with exceptions enabled.  If @option{-fno-exceptions} was used when
-compiling the file, then this macro will not be defined.
+with exceptions enabled.  If @option{-fno-exceptions} is used when
+compiling the file, then this macro is not defined.
+
+@item __GXX_RTTI
+This macro is defined, with value 1, when compiling a C++ source file
+with runtime type identification enabled.  If @option{-fno-rtti} is
+used when compiling the file, then this macro is not defined.
 
 @item __USING_SJLJ_EXCEPTIONS__
 This macro is defined, with value 1, if the compiler uses the old

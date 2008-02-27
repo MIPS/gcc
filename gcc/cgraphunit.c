@@ -1,5 +1,6 @@
 /* Callgraph based interprocedural optimizations.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -573,8 +574,9 @@ cgraph_reset_node (struct cgraph_node *node)
   cgraph_node_remove_callees (node);
 
   /* We may need to re-queue the node for assembling in case
-     we already proceeded it and ignored as not needed.  */
-  if (node->reachable && !flag_unit_at_a_time)
+     we already proceeded it and ignored as not needed or got
+     a re-declaration in IMA mode.  */
+  if (node->reachable)
     {
       struct cgraph_node *n;
 
@@ -656,6 +658,7 @@ verify_cgraph_node (struct cgraph_node *node)
   struct cgraph_edge *e;
   struct cgraph_node *main_clone;
   struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
+  struct function *saved_cfun = cfun;
   basic_block this_block;
   block_stmt_iterator bsi;
   bool error_found = false;
@@ -664,6 +667,8 @@ verify_cgraph_node (struct cgraph_node *node)
     return;
 
   timevar_push (TV_CGRAPH_VERIFY);
+  /* debug_generic_stmt needs correct cfun */
+  set_cfun (this_cfun);
   for (e = node->callees; e; e = e->next_callee)
     if (e->aux)
       {
@@ -806,6 +811,7 @@ verify_cgraph_node (struct cgraph_node *node)
       dump_cgraph_node (stderr, node);
       internal_error ("verify_cgraph_node failed");
     }
+  set_cfun (saved_cfun);
   timevar_pop (TV_CGRAPH_VERIFY);
 }
 
@@ -1481,7 +1487,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   DECL_ARTIFICIAL (resdecl) = 1;
   DECL_RESULT (decl) = resdecl;
 
-  allocate_struct_function (decl);
+  allocate_struct_function (decl, false);
 
   TREE_STATIC (decl) = 1;
   TREE_USED (decl) = 1;
@@ -1515,6 +1521,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
 
   cgraph_add_new_function (decl, false);
   cgraph_mark_needed_node (cgraph_node (decl));
+  set_cfun (NULL);
 }
 
 void

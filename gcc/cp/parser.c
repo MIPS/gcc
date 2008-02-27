@@ -1,6 +1,6 @@
 /* C++ Parser.
    Copyright (C) 2000, 2001, 2002, 2003, 2004,
-   2005, 2007  Free Software Foundation, Inc.
+   2005, 2007, 2008  Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
    This file is part of GCC.
@@ -1071,12 +1071,13 @@ declarator_can_be_parameter_pack (cp_declarator *declarator)
       switch ((int)declarator->kind)
 	{
 	case cdk_id:
-	case cdk_error:
 	case cdk_array:
-	case cdk_ptrmem:
 	  found = true;
 	  break;
-	  
+
+	case cdk_error:
+	  return true;
+
 	default:
 	  declarator = declarator->declarator;
 	  break;
@@ -1734,6 +1735,8 @@ static cp_parameter_declarator *cp_parser_parameter_declaration_list
   (cp_parser *, bool *);
 static cp_parameter_declarator *cp_parser_parameter_declaration
   (cp_parser *, bool, bool *);
+static tree cp_parser_default_argument 
+  (cp_parser *, bool);
 static void cp_parser_function_body
   (cp_parser *);
 static tree cp_parser_initializer
@@ -2147,8 +2150,9 @@ cp_parser_check_decl_spec (cp_decl_specifier_seq *decl_specs)
 	{
 	  if (count > 2)
 	    error ("%<long long long%> is too long for GCC");
-	  else if (pedantic && !in_system_header && warn_long_long)
-	    pedwarn ("ISO C++ does not support %<long long%>");
+	  else if (pedantic && !in_system_header && warn_long_long
+                   && cxx_dialect == cxx98)
+	    pedwarn ("ISO C++ 1998 does not support %<long long%>");
 	}
       else if (count > 1)
 	{
@@ -8512,10 +8516,12 @@ cp_parser_decltype (cp_parser *parser)
 				      /*check_dependency=*/true,
 				      /*ambiguous_decls=*/NULL);
 
-      if (expr 
+      if (expr
           && expr != error_mark_node
           && TREE_CODE (expr) != TEMPLATE_ID_EXPR
           && TREE_CODE (expr) != TYPE_DECL
+	  && (TREE_CODE (expr) != BIT_NOT_EXPR
+	      || !TYPE_P (TREE_OPERAND (expr, 0)))
           && cp_lexer_peek_token (parser->lexer)->type == CPP_CLOSE_PAREN)
         {
           /* Complete lookup of the id-expression.  */
@@ -8600,8 +8606,11 @@ cp_parser_decltype (cp_parser *parser)
   
   /* Parse to the closing `)'.  */
   if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
-    cp_parser_skip_to_closing_parenthesis (parser, true, false,
-					   /*consume_paren=*/true);
+    {
+      cp_parser_skip_to_closing_parenthesis (parser, true, false,
+					     /*consume_paren=*/true);
+      return error_mark_node;
+    }
 
   return finish_decltype_type (expr, id_expression_or_member_access_p);
 }
@@ -9309,6 +9318,7 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
 {
   cp_token *token;
   cp_parameter_declarator *parameter_declarator;
+  cp_declarator *id_declarator;
   tree parm;
 
   /* Assume it is a type parameter or a template parameter.  */
@@ -9379,16 +9389,39 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
 
   /* If the next token is an ellipsis, and we don't already have it
      marked as a parameter pack, then we have a parameter pack (that
-     has no declarator); */
+     has no declarator).  */
   if (!*is_parameter_pack
       && cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS)
       && declarator_can_be_parameter_pack (parameter_declarator->declarator))
     {
-      /* Consume the `...'. */
+      /* Consume the `...'.  */
       cp_lexer_consume_token (parser->lexer);
       maybe_warn_variadic_templates ();
       
       *is_parameter_pack = true;
+
+      /* Parameter packs cannot have default arguments.  However, a
+	 user may try to do so, so we'll parse them and give an
+	 appropriate diagnostic here.  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
+	{
+	  /* Consume the `='.  */
+	  cp_lexer_consume_token (parser->lexer);
+
+	  /* Find the name of the parameter pack.  */     
+	  id_declarator = parameter_declarator->declarator;
+	  while (id_declarator && id_declarator->kind != cdk_id)
+	    id_declarator = id_declarator->declarator;
+	  
+	  if (id_declarator && id_declarator->kind == cdk_id)
+	    error ("template parameter pack %qD cannot have a default argument",
+		   id_declarator->u.id.unqualified_name);
+	  else
+	    error ("template parameter pack cannot have a default argument");
+
+          /* Parse the default argument, but throw away the result.  */
+          cp_parser_default_argument (parser, /*template_parm_p=*/true);
+	}
     }
 
   parm = grokdeclarator (parameter_declarator->declarator,
@@ -11742,14 +11775,20 @@ cp_parser_using_declaration (cp_parser* parser,
 	{
 	  /* Create the USING_DECL.  */
 	  decl = do_class_using_decl (parser->scope, identifier);
-	  /* Add it to the list of members in this class.  */
-	  finish_member_declaration (decl);
+
+	  if (check_for_bare_parameter_packs (decl))
+            return false;
+          else
+	    /* Add it to the list of members in this class.  */
+	    finish_member_declaration (decl);
 	}
       else
 	{
 	  decl = cp_parser_lookup_name_simple (parser, identifier);
 	  if (decl == error_mark_node)
 	    cp_parser_name_lookup_error (parser, identifier, decl, NULL);
+	  else if (check_for_bare_parameter_packs (decl))
+	    return false;
 	  else if (!at_namespace_scope_p ())
 	    do_local_using_decl (decl, qscope, identifier);
 	  else
@@ -13528,7 +13567,6 @@ cp_parser_parameter_declaration (cp_parser *parser,
   /* If the next token is `=', then process a default argument.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
     {
-      bool saved_greater_than_is_operator_p;
       /* Consume the `='.  */
       cp_lexer_consume_token (parser->lexer);
 
@@ -13634,39 +13672,9 @@ cp_parser_parameter_declaration (cp_parser *parser,
       /* Outside of a class definition, we can just parse the
 	 assignment-expression.  */
       else
-	{
-	  bool saved_local_variables_forbidden_p;
+        default_argument 
+          = cp_parser_default_argument (parser, template_parm_p);
 
-	  /* Make sure that PARSER->GREATER_THAN_IS_OPERATOR_P is
-	     set correctly.  */
-	  saved_greater_than_is_operator_p
-	    = parser->greater_than_is_operator_p;
-	  parser->greater_than_is_operator_p = greater_than_is_operator_p;
-	  /* Local variable names (and the `this' keyword) may not
-	     appear in a default argument.  */
-	  saved_local_variables_forbidden_p
-	    = parser->local_variables_forbidden_p;
-	  parser->local_variables_forbidden_p = true;
-	  /* The default argument expression may cause implicitly
-	     defined member functions to be synthesized, which will
-	     result in garbage collection.  We must treat this
-	     situation as if we were within the body of function so as
-	     to avoid collecting live data on the stack.  */
-	  ++function_depth;
-	  /* Parse the assignment-expression.  */
-	  if (template_parm_p)
-	    push_deferring_access_checks (dk_no_deferred);
-	  default_argument
-	    = cp_parser_assignment_expression (parser, /*cast_p=*/false);
-	  if (template_parm_p)
-	    pop_deferring_access_checks ();
-	  /* Restore saved state.  */
-	  --function_depth;
-	  parser->greater_than_is_operator_p
-	    = saved_greater_than_is_operator_p;
-	  parser->local_variables_forbidden_p
-	    = saved_local_variables_forbidden_p;
-	}
       if (!parser->default_arg_ok_p)
 	{
 	  if (!flag_pedantic_errors)
@@ -13677,6 +13685,26 @@ cp_parser_parameter_declaration (cp_parser *parser,
 	      default_argument = NULL_TREE;
 	    }
 	}
+      else if ((declarator && declarator->parameter_pack_p)
+	       || (decl_specifiers.type
+		   && PACK_EXPANSION_P (decl_specifiers.type)))
+	{
+	  const char* kind = template_parm_p? "template " : "";
+	  
+	  /* Find the name of the parameter pack.  */     
+	  cp_declarator *id_declarator = declarator;
+	  while (id_declarator && id_declarator->kind != cdk_id)
+	    id_declarator = id_declarator->declarator;
+	  
+	  if (id_declarator && id_declarator->kind == cdk_id)
+	    error ("%sparameter pack %qD cannot have a default argument",
+		   kind, id_declarator->u.id.unqualified_name);
+	  else
+	    error ("%sparameter pack cannot have a default argument",
+		   kind);
+	  
+	  default_argument = NULL_TREE;
+	}
     }
   else
     default_argument = NULL_TREE;
@@ -13684,6 +13712,46 @@ cp_parser_parameter_declaration (cp_parser *parser,
   return make_parameter_declarator (&decl_specifiers,
 				    declarator,
 				    default_argument);
+}
+
+/* Parse a default argument and return it.
+
+   TEMPLATE_PARM_P is true if this is a default argument for a
+   non-type template parameter.  */
+static tree
+cp_parser_default_argument (cp_parser *parser, bool template_parm_p)
+{
+  tree default_argument = NULL_TREE;
+  bool saved_greater_than_is_operator_p;
+  bool saved_local_variables_forbidden_p;
+
+  /* Make sure that PARSER->GREATER_THAN_IS_OPERATOR_P is
+     set correctly.  */
+  saved_greater_than_is_operator_p = parser->greater_than_is_operator_p;
+  parser->greater_than_is_operator_p = !template_parm_p;
+  /* Local variable names (and the `this' keyword) may not
+     appear in a default argument.  */
+  saved_local_variables_forbidden_p = parser->local_variables_forbidden_p;
+  parser->local_variables_forbidden_p = true;
+  /* The default argument expression may cause implicitly
+     defined member functions to be synthesized, which will
+     result in garbage collection.  We must treat this
+     situation as if we were within the body of function so as
+     to avoid collecting live data on the stack.  */
+  ++function_depth;
+  /* Parse the assignment-expression.  */
+  if (template_parm_p)
+    push_deferring_access_checks (dk_no_deferred);
+  default_argument
+    = cp_parser_assignment_expression (parser, /*cast_p=*/false);
+  if (template_parm_p)
+    pop_deferring_access_checks ();
+  /* Restore saved state.  */
+  --function_depth;
+  parser->greater_than_is_operator_p = saved_greater_than_is_operator_p;
+  parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;
+
+  return default_argument;
 }
 
 /* Parse a function-body.
@@ -14536,8 +14604,18 @@ cp_parser_class_head (cp_parser* parser,
   /* Look up the type.  */
   if (template_id_p)
     {
-      type = TREE_TYPE (id);
-      type = maybe_process_partial_specialization (type);
+      if (TREE_CODE (id) == TEMPLATE_ID_EXPR
+	  && (DECL_FUNCTION_TEMPLATE_P (TREE_OPERAND (id, 0))
+	      || TREE_CODE (TREE_OPERAND (id, 0)) == OVERLOAD))
+	{
+	  error ("function template %qD redeclared as a class template", id);
+	  type = error_mark_node;
+	}
+      else
+	{
+	  type = TREE_TYPE (id);
+	  type = maybe_process_partial_specialization (type);
+	}
       if (nested_name_specifier)
 	pushed_scope = push_scope (nested_name_specifier);
     }
@@ -15247,11 +15325,13 @@ cp_parser_base_clause (cp_parser* parser)
           if (pack_expansion_p)
             /* Make this a pack expansion type. */
             TREE_VALUE (base) = make_pack_expansion (TREE_VALUE (base));
-          else
-            check_for_bare_parameter_packs (&TREE_VALUE (base));
+          
 
-	  TREE_CHAIN (base) = bases;
-	  bases = base;
+          if (!check_for_bare_parameter_packs (TREE_VALUE (base)))
+            {
+              TREE_CHAIN (base) = bases;
+              bases = base;
+            }
 	}
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
@@ -19656,12 +19736,19 @@ cp_parser_omp_all_clauses (cp_parser *parser, unsigned int mask,
 			   const char *where, cp_token *pragma_tok)
 {
   tree clauses = NULL;
+  bool first = true;
 
   while (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL))
     {
-      pragma_omp_clause c_kind = cp_parser_omp_clause_name (parser);
+      pragma_omp_clause c_kind;
       const char *c_name;
       tree prev = clauses;
+
+      if (!first && cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	cp_lexer_consume_token (parser->lexer);
+
+      c_kind = cp_parser_omp_clause_name (parser);
+      first = false;
 
       switch (c_kind)
 	{
@@ -20249,7 +20336,7 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok)
   switch (p_kind)
     {
     case PRAGMA_OMP_PARALLEL:
-      cp_parser_already_scoped_statement (parser);
+      cp_parser_statement (parser, NULL_TREE, false, NULL);
       par_clause = clauses;
       break;
 

@@ -18,9 +18,9 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#include "libiberty.h"
+#include "config.h"
+#include "system.h"
 #include "sparseset.h"
-
 
 /* Allocate and clear a n_elms SparseSet.  */
 
@@ -30,7 +30,12 @@ sparseset_alloc (SPARSESET_ELT_TYPE n_elms)
   unsigned int n_bytes = sizeof (struct sparseset_def)
 			 + ((n_elms - 1) * 2 * sizeof (SPARSESET_ELT_TYPE));
 
-  sparseset set = (sparseset) xmalloc (n_bytes);
+  /* We use xcalloc rather than xmalloc to silence some valgrind uninitialized
+     read errors when accessing set->sparse[n] when "n" is not, and never has
+     been, in the set.  These uninitialized reads are expected, by design and
+     harmless.  If this turns into a performance problem due to some future
+     additional users of sparseset, we can revisit this decision.  */
+  sparseset set = (sparseset) xcalloc (1, n_bytes);
   set->dense = &(set->elms[0]);
   set->sparse = &(set->elms[n_elms]);
   set->size = n_elms;

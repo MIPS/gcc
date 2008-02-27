@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "target.h"
 #include "convert.h"
+#include "tree-flow.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -160,7 +161,9 @@ lvalue_p_1 (const_tree ref,
       break;
 
     case COND_EXPR:
-      op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1),
+      op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1)
+				    ? TREE_OPERAND (ref, 1)
+				    : TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues);
       op2_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 2),
 				    treat_class_rvalues_as_lvalues);
@@ -256,6 +259,13 @@ static tree
 build_target_expr (tree decl, tree value)
 {
   tree t;
+
+#ifdef ENABLE_CHECKING
+  gcc_assert (VOID_TYPE_P (TREE_TYPE (value))
+	      || TREE_TYPE (decl) == TREE_TYPE (value)
+	      || useless_type_conversion_p (TREE_TYPE (decl),
+					    TREE_TYPE (value)));
+#endif
 
   t = build4 (TARGET_EXPR, TREE_TYPE (decl), decl, value,
 	      cxx_maybe_build_cleanup (decl), NULL_TREE);
@@ -529,9 +539,9 @@ build_cplus_array_type_1 (tree elt_type, tree index_type)
   if (elt_type == error_mark_node || index_type == error_mark_node)
     return error_mark_node;
 
-  if (dependent_type_p (elt_type)
-      || (index_type
-	  && value_dependent_expression_p (TYPE_MAX_VALUE (index_type))))
+  if (processing_template_decl
+      && (dependent_type_p (elt_type)
+	  || (index_type && !TREE_CONSTANT (TYPE_MAX_VALUE (index_type)))))
     {
       void **e;
       cplus_array_info cai;
@@ -570,7 +580,7 @@ build_cplus_array_type_1 (tree elt_type, tree index_type)
 	    TYPE_CANONICAL (t)
 		= build_cplus_array_type 
 		   (TYPE_CANONICAL (elt_type),
-		    index_type? TYPE_CANONICAL (index_type) : index_type);
+		    index_type ? TYPE_CANONICAL (index_type) : index_type);
 	  else
 	    TYPE_CANONICAL (t) = t;
 	}
@@ -2349,6 +2359,13 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
       *walk_subtrees_p = 0;
       break;
 
+    case USING_DECL:
+      WALK_SUBTREE (DECL_NAME (*tp));
+      WALK_SUBTREE (USING_DECL_SCOPE (*tp));
+      WALK_SUBTREE (USING_DECL_DECLS (*tp));
+      *walk_subtrees_p = 0;
+      break;
+
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (*tp))
 	WALK_SUBTREE (TYPE_PTRMEMFUNC_FN_TYPE (*tp));
@@ -2526,10 +2543,18 @@ decl_linkage (tree decl)
   /* Members of the anonymous namespace also have TREE_PUBLIC unset, but
      are considered to have external linkage for language purposes.  DECLs
      really meant to have internal linkage have DECL_THIS_STATIC set.  */
-  if (TREE_CODE (decl) == TYPE_DECL
-      || ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
-	  && !DECL_THIS_STATIC (decl)))
+  if (TREE_CODE (decl) == TYPE_DECL)
     return lk_external;
+  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      if (!DECL_THIS_STATIC (decl))
+	return lk_external;
+
+      /* Static data members and static member functions from classes
+	 in anonymous namespace also don't have TREE_PUBLIC set.  */
+      if (DECL_CLASS_CONTEXT (decl))
+	return lk_external;
+    }
 
   /* Everything else has internal linkage.  */
   return lk_internal;
@@ -2592,8 +2617,11 @@ stabilize_call (tree call, tree *initp)
   int i;
   int nargs = call_expr_nargs (call);
 
-  if (call == error_mark_node)
-    return;
+  if (call == error_mark_node || processing_template_decl)
+    {
+      *initp = NULL_TREE;
+      return;
+    }
 
   gcc_assert (TREE_CODE (call) == CALL_EXPR);
 
@@ -2652,7 +2680,7 @@ stabilize_init (tree init, tree *initp)
 
   *initp = NULL_TREE;
 
-  if (t == error_mark_node)
+  if (t == error_mark_node || processing_template_decl)
     return true;
 
   if (TREE_CODE (t) == INIT_EXPR

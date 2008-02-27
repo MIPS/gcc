@@ -223,7 +223,7 @@ typedef enum
   ST_OMP_PARALLEL, ST_OMP_PARALLEL_DO, ST_OMP_PARALLEL_SECTIONS,
   ST_OMP_PARALLEL_WORKSHARE, ST_OMP_SECTIONS, ST_OMP_SECTION, ST_OMP_SINGLE,
   ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE, ST_PROCEDURE,
-  ST_NONE
+  ST_GET_FCN_CHARACTERISTICS, ST_NONE
 }
 gfc_statement;
 
@@ -618,6 +618,7 @@ typedef struct
     protected:1,		/* Symbol has been marked as protected.  */
     use_assoc:1,		/* Symbol has been use-associated.  */
     use_only:1,			/* Symbol has been use-associated, with ONLY.  */
+    use_rename:1,		/* Symbol has been use-associated and renamed.  */
     imported:1;			/* Symbol has been associated by IMPORT.  */
 
   unsigned in_namelist:1, in_common:1, in_equivalence:1;
@@ -705,7 +706,7 @@ symbol_attribute;
 
 typedef struct gfc_file
 {
-  struct gfc_file *included_by, *next, *up;
+  struct gfc_file *next, *up;
   int inclusion_line, line;
   char *filename;
 } gfc_file;
@@ -1429,7 +1430,7 @@ typedef struct gfc_expr
 
   /* True if the expression is a call to a function that returns an array,
      and if we have decided not to allocate temporary data for that array.  */
-  unsigned int inline_noncopying_intrinsic : 1;
+  unsigned int inline_noncopying_intrinsic : 1, is_boz : 1;
 
   /* Used to quickly find a given constructor by its offset.  */
   splay_tree con_by_offset;
@@ -1937,6 +1938,9 @@ extern gfc_source_form gfc_current_form;
 extern const char *gfc_source_file;
 extern locus gfc_current_locus;
 
+void gfc_start_source_files (void);
+void gfc_end_source_files (void);
+
 /* misc.c */
 void *gfc_getmem (size_t) ATTRIBUTE_MALLOC;
 void gfc_free (void *);
@@ -2109,6 +2113,7 @@ gfc_expr * gfc_lval_expr_from_sym (gfc_symbol *);
 gfc_namespace *gfc_get_namespace (gfc_namespace *, int);
 gfc_symtree *gfc_new_symtree (gfc_symtree **, const char *);
 gfc_symtree *gfc_find_symtree (gfc_symtree *, const char *);
+void gfc_delete_symtree (gfc_symtree **, const char *);
 gfc_symtree *gfc_get_unique_symtree (gfc_namespace *);
 gfc_user_op *gfc_get_uop (const char *);
 gfc_user_op *gfc_find_uop (const char *, gfc_namespace *);
@@ -2308,6 +2313,8 @@ try gfc_extend_expr (gfc_expr *);
 void gfc_free_formal_arglist (gfc_formal_arglist *);
 try gfc_extend_assign (gfc_code *, gfc_namespace *);
 try gfc_add_interface (gfc_symbol *);
+gfc_interface *gfc_current_interface_head (void);
+void gfc_set_current_interface_head (gfc_interface *);
 
 /* io.c */
 extern gfc_st_label format_asterisk;
@@ -2353,10 +2360,12 @@ void gfc_show_components (gfc_symbol *);
 void gfc_show_constructor (gfc_constructor *);
 void gfc_show_equiv (gfc_equiv *);
 void gfc_show_expr (gfc_expr *);
+void gfc_show_expr_n (const char *, gfc_expr *);
 void gfc_show_namelist (gfc_namelist *);
 void gfc_show_namespace (gfc_namespace *);
 void gfc_show_ref (gfc_ref *);
 void gfc_show_symbol (gfc_symbol *);
+void gfc_show_symbol_n (const char *, gfc_symbol *);
 void gfc_show_typespec (gfc_typespec *);
 
 /* parse.c */

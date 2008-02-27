@@ -246,8 +246,9 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
       fsym = formal ? formal->sym : NULL;
       if (e->expr_type == EXPR_VARIABLE
 	    && e->rank && fsym
-	    && fsym->attr.intent == INTENT_OUT
-	    && gfc_check_fncall_dependency (e, INTENT_OUT, sym, arg0))
+	    && fsym->attr.intent != INTENT_IN
+	    && gfc_check_fncall_dependency (e, fsym->attr.intent,
+					    sym, arg0))
 	{
 	  /* Make a local loopinfo for the temporary creation, so that
 	     none of the other ss->info's have to be renormalized.  */
@@ -380,14 +381,11 @@ gfc_trans_call (gfc_code * code, bool dependency_check)
       gfc_copy_loopinfo_to_se (&loopse, &loop);
       loopse.ss = ss;
 
-      /* For operator assignment, we need to do dependency checking.  
-	 We also check the intent of the parameters.  */
+      /* For operator assignment, do dependency checking.  */
       if (dependency_check)
 	{
 	  gfc_symbol *sym;
 	  sym = code->resolved_sym;
-	  gcc_assert (sym->formal->sym->attr.intent == INTENT_OUT);
-	  gcc_assert (sym->formal->next->sym->attr.intent == INTENT_IN);
 	  gfc_conv_elemental_dependencies (&se, &loopse, sym,
 					   code->ext.actual);
 	}
@@ -1525,7 +1523,8 @@ static gfc_symtree *old_symtree;
 static bool
 forall_replace (gfc_expr *expr, gfc_symbol *sym, int *f)
 {
-  gcc_assert (expr->expr_type == EXPR_VARIABLE);
+  if (expr->expr_type != EXPR_VARIABLE)
+    return false;
 
   if (*f == 2)
     *f = 1;
@@ -1546,7 +1545,8 @@ forall_restore (gfc_expr *expr,
 		gfc_symbol *sym ATTRIBUTE_UNUSED,
 		int *f ATTRIBUTE_UNUSED)
 {
-  gcc_assert (expr->expr_type == EXPR_VARIABLE);
+  if (expr->expr_type != EXPR_VARIABLE)
+    return false;
 
   if (expr->symtree == new_symtree)
     expr->symtree = old_symtree;
@@ -2525,7 +2525,8 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
       /* Make a new descriptor.  */
       parmtype = gfc_get_element_type (TREE_TYPE (desc));
       parmtype = gfc_get_array_type_bounds (parmtype, loop.dimen,
-                                            loop.from, loop.to, 1);
+                                            loop.from, loop.to, 1,
+					    GFC_ARRAY_UNKNOWN);
 
       /* Allocate temporary for nested forall construct.  */
       tmp1 = allocate_temp_for_forall_nest (nested_forall_info, parmtype,

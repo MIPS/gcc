@@ -1,6 +1,6 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
@@ -745,19 +745,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 		  that necessitates this conversion is ill-formed.
 		  Therefore, we use DERIVED_FROM_P, and do not check
 		  access or uniqueness.  */
-	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from))
-	       /* If FROM is not yet complete, then we must be parsing
-		  the body of a class.  We know what's derived from
-		  what, but we can't actually perform a
-		  derived-to-base conversion.  For example, in:
-
-		     struct D : public B { 
-                       static const int i = sizeof((B*)(D*)0);
-                     };
-
-                  the D*-to-B* conversion is a reinterpret_cast, not a
-		  static_cast.  */
-	       && COMPLETE_TYPE_P (TREE_TYPE (from)))
+	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
 	{
 	  from =
 	    cp_build_qualified_type (TREE_TYPE (to),
@@ -846,8 +834,8 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
     }
   /* We don't check for ENUMERAL_TYPE here because there are no standard
      conversions to enum type.  */
-  else if (tcode == INTEGER_TYPE || tcode == BOOLEAN_TYPE
-	   || tcode == REAL_TYPE)
+  /* As an extension, allow conversion to complex type.  */
+  else if (ARITHMETIC_TYPE_P (to))
     {
       if (! (INTEGRAL_CODE_P (fcode) || fcode == REAL_TYPE))
 	return NULL;
@@ -861,14 +849,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
   else if (fcode == VECTOR_TYPE && tcode == VECTOR_TYPE
 	   && vector_types_convertible_p (from, to, false))
     return build_conv (ck_std, to, conv);
-  /* A derived-to-base conversion sequence is a user-defined conversion
-     because it involves a constructor call, even though it has the rank of
-     a standard conversion, so we don't consider it if we aren't allowing
-     user-defined conversions.  But if we're binding directly to a
-     reference, it's only a pointer conversion.  */
-  else if ((!(flags & LOOKUP_NO_CONVERSION)
-	    || (flags & LOOKUP_NO_TEMP_BIND))
-	   && IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
+  else if (IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
 	   && is_properly_derived_from (from, to))
     {
       if (conv->kind == ck_rvalue)
@@ -1121,6 +1102,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
   conversion *conv = NULL;
   tree to = TREE_TYPE (rto);
   tree from = rfrom;
+  tree tfrom;
   bool related_p;
   bool compatible_p;
   cp_lvalue_kind lvalue_p = clk_none;
@@ -1142,16 +1124,20 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
   else if (expr)
     lvalue_p = real_lvalue_p (expr);
 
+  tfrom = from;
+  if ((lvalue_p & clk_bitfield) != 0)
+    tfrom = unlowered_expr_type (expr);
+
   /* Figure out whether or not the types are reference-related and
      reference compatible.  We have do do this after stripping
      references from FROM.  */
-  related_p = reference_related_p (to, from);
+  related_p = reference_related_p (to, tfrom);
   /* If this is a C cast, first convert to an appropriately qualified
      type, so that we can later do a const_cast to the desired type.  */
   if (related_p && c_cast_p
-      && !at_least_as_qualified_p (to, from))
-    to = build_qualified_type (to, cp_type_quals (from));
-  compatible_p = reference_compatible_p (to, from);
+      && !at_least_as_qualified_p (to, tfrom))
+    to = build_qualified_type (to, cp_type_quals (tfrom));
+  compatible_p = reference_compatible_p (to, tfrom);
 
   /* Directly bind reference when target expression's type is compatible with
      the reference and expression is an lvalue. In DR391, the wording in
@@ -1178,7 +1164,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
 	 is bound to the object represented by the rvalue or to a sub-object
 	 within that object.  */
 
-      conv = build_identity_conv (from, expr);
+      conv = build_identity_conv (tfrom, expr);
       conv = direct_reference_binding (rto, conv);
 
       if (flags & LOOKUP_PREFER_RVALUE)
@@ -2091,7 +2077,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
   for (i = 0; i < 3; ++i)
     {
       if (args[i])
-	argtypes[i]  = lvalue_type (args[i]);
+	argtypes[i] = unlowered_expr_type (args[i]);
       else
 	argtypes[i] = NULL_TREE;
     }
@@ -3918,7 +3904,10 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	  if (overloaded_p)
 	    *overloaded_p = true;
 
-	  result = build_over_call (cand, LOOKUP_NORMAL);
+	  if (resolve_args (arglist) == error_mark_node)
+	    result = error_mark_node;
+	  else
+	    result = build_over_call (cand, LOOKUP_NORMAL);
 	}
       else
 	{
@@ -4417,7 +4406,14 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	 about to bind it to a reference, in which case we need to
 	 leave it as an lvalue.  */
       if (inner >= 0)
-	expr = decl_constant_value (expr);
+        {   
+          expr = decl_constant_value (expr);
+          if (expr == null_node && INTEGRAL_TYPE_P (totype))
+            /* If __null has been converted to an integer type, we do not
+               want to warn about uses of EXPR as an integer, rather than
+               as a pointer.  */
+            expr = build_int_cst (totype, 0);
+        }
       return expr;
     case ck_ambig:
       /* Call build_user_type_conversion again for the error.  */
@@ -4511,6 +4507,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 		       expr, ref_type);
 		return error_mark_node;
 	      }
+	    if (lvalue & clk_bitfield)
+	      expr = convert_bitfield_to_declared_type (expr);
 	    expr = build_target_expr_with_type (expr, type);
 	  }
 
@@ -5929,6 +5927,10 @@ compare_ics (conversion *ics1, conversion *ics2)
       from_type2 = t2->type;
     }
 
+  /* One sequence can only be a subsequence of the other if they start with
+     the same type.  They can start with different types when comparing the
+     second standard conversion sequence in two user-defined conversion
+     sequences.  */
   if (same_type_p (from_type1, from_type2))
     {
       if (is_subseq (ics1, ics2))
@@ -5936,10 +5938,6 @@ compare_ics (conversion *ics1, conversion *ics2)
       if (is_subseq (ics2, ics1))
 	return -1;
     }
-  /* Otherwise, one sequence cannot be a subsequence of the other; they
-     don't start with the same type.  This can happen when comparing the
-     second standard conversion sequence in two user-defined conversion
-     sequences.  */
 
   /* [over.ics.rank]
 
@@ -5968,6 +5966,21 @@ compare_ics (conversion *ics1, conversion *ics2)
 
   to_type1 = ics1->type;
   to_type2 = ics2->type;
+
+  /* A conversion from scalar arithmetic type to complex is worse than a
+     conversion between scalar arithmetic types.  */
+  if (same_type_p (from_type1, from_type2)
+      && ARITHMETIC_TYPE_P (from_type1)
+      && ARITHMETIC_TYPE_P (to_type1)
+      && ARITHMETIC_TYPE_P (to_type2)
+      && ((TREE_CODE (to_type1) == COMPLEX_TYPE)
+	  != (TREE_CODE (to_type2) == COMPLEX_TYPE)))
+    {
+      if (TREE_CODE (to_type1) == COMPLEX_TYPE)
+	return -1;
+      else
+	return 1;
+    }
 
   if (TYPE_PTR_P (from_type1)
       && TYPE_PTR_P (from_type2)

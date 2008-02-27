@@ -1,3 +1,6 @@
+2008-02-27  Andrey Belevantsev  <abel@ispras.ru>
+        Merge from trunk rev. 132164.
+
 2008-02-26  Andrey Belevantsev  <abel@ispras.ru>
 
 	* sel-sched.c (sel_region_init): Iterate through region blocks removing 

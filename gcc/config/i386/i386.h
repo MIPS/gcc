@@ -479,9 +479,9 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* Support for configure-time defaults of some command line options.
    The order here is important so that -march doesn't squash the
    tune or cpu values.  */
-#define OPTION_DEFAULT_SPECS \
+#define OPTION_DEFAULT_SPECS					   \
   {"tune", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
-  {"cpu", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
+  {"cpu", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" },  \
   {"arch", "%{!march=*:-march=%(VALUE)}"}
 
 /* Specs for the compiler proper */
@@ -531,21 +531,90 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	  builtin_define_std ("i386");				\
 	}							\
 								\
-      /* Built-ins based on -mtune= (or -march= if no		\
-	 -mtune= given).  */					\
-      if (TARGET_386)						\
-	builtin_define ("__tune_i386__");			\
-      else if (TARGET_486)					\
-	builtin_define ("__tune_i486__");			\
-      else if (TARGET_PENTIUM)					\
+      /* Built-ins based on -march=.  */			\
+      switch (ix86_arch)					\
 	{							\
+	case PROCESSOR_I386:					\
+	  break;						\
+	case PROCESSOR_I486:					\
+	  builtin_define ("__i486");				\
+	  builtin_define ("__i486__");				\
+	  break;						\
+	case PROCESSOR_PENTIUM:					\
+	  builtin_define ("__i586");				\
+	  builtin_define ("__i586__");				\
+	  builtin_define ("__pentium");				\
+	  builtin_define ("__pentium__");			\
+	  if (last_arch_char == 'x')				\
+	    builtin_define ("__pentium_mmx__");			\
+	  break;						\
+	case PROCESSOR_PENTIUMPRO:				\
+	  builtin_define ("__i686");				\
+	  builtin_define ("__i686__");				\
+	  builtin_define ("__pentiumpro");			\
+	  builtin_define ("__pentiumpro__");			\
+	  break;						\
+	case PROCESSOR_GEODE:					\
+	  builtin_define ("__geode");				\
+	  builtin_define ("__geode__");				\
+	  break;						\
+	case PROCESSOR_K6:					\
+	  builtin_define ("__k6");				\
+	  builtin_define ("__k6__");				\
+	  if (last_arch_char == '2')				\
+	    builtin_define ("__k6_2__");			\
+	  else if (last_arch_char == '3')			\
+	    builtin_define ("__k6_3__");			\
+	  break;						\
+	case PROCESSOR_ATHLON:					\
+	  builtin_define ("__athlon");				\
+	  builtin_define ("__athlon__");			\
+	  /* Only plain "athlon" lacks SSE.  */			\
+	  if (last_arch_char != 'n')				\
+	    builtin_define ("__athlon_sse__");			\
+	  break;						\
+	case PROCESSOR_K8:					\
+	  builtin_define ("__k8");				\
+	  builtin_define ("__k8__");				\
+	  break;						\
+	case PROCESSOR_AMDFAM10:				\
+	  builtin_define ("__amdfam10");			\
+	  builtin_define ("__amdfam10__");			\
+	  break;						\
+	case PROCESSOR_PENTIUM4:				\
+	  builtin_define ("__pentium4");			\
+	  builtin_define ("__pentium4__");			\
+	  break;						\
+	case PROCESSOR_NOCONA:					\
+	  builtin_define ("__nocona");				\
+	  builtin_define ("__nocona__");			\
+	  break;						\
+	case PROCESSOR_CORE2:					\
+	  builtin_define ("__core2");				\
+	  builtin_define ("__core2__");				\
+	  break;						\
+	case PROCESSOR_GENERIC32:				\
+	case PROCESSOR_GENERIC64:				\
+	case PROCESSOR_max:					\
+	  gcc_unreachable ();					\
+	}							\
+								\
+      /* Built-ins based on -mtune=.  */			\
+      switch (ix86_tune)					\
+	{							\
+	case PROCESSOR_I386:					\
+	  builtin_define ("__tune_i386__");			\
+	  break;						\
+	case PROCESSOR_I486:					\
+	  builtin_define ("__tune_i486__");			\
+	  break;						\
+	case PROCESSOR_PENTIUM:					\
 	  builtin_define ("__tune_i586__");			\
 	  builtin_define ("__tune_pentium__");			\
 	  if (last_tune_char == 'x')				\
 	    builtin_define ("__tune_pentium_mmx__");		\
-	}							\
-      else if (TARGET_PENTIUMPRO)				\
-	{							\
+	  break;						\
+	case PROCESSOR_PENTIUMPRO:				\
 	  builtin_define ("__tune_i686__");			\
 	  builtin_define ("__tune_pentiumpro__");		\
 	  switch (last_tune_char)				\
@@ -557,36 +626,44 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	      builtin_define ("__tune_pentium2__");		\
 	      break;						\
 	    }							\
-	}							\
-      else if (TARGET_GEODE)					\
-	{							\
+	  break;						\
+	case PROCESSOR_GEODE:					\
 	  builtin_define ("__tune_geode__");			\
-	}							\
-      else if (TARGET_K6)					\
-	{							\
+	  break;						\
+	case PROCESSOR_K6:					\
 	  builtin_define ("__tune_k6__");			\
 	  if (last_tune_char == '2')				\
 	    builtin_define ("__tune_k6_2__");			\
 	  else if (last_tune_char == '3')			\
 	    builtin_define ("__tune_k6_3__");			\
-	}							\
-      else if (TARGET_ATHLON)					\
-	{							\
+	  break;						\
+	case PROCESSOR_ATHLON:					\
 	  builtin_define ("__tune_athlon__");			\
 	  /* Only plain "athlon" lacks SSE.  */			\
 	  if (last_tune_char != 'n')				\
 	    builtin_define ("__tune_athlon_sse__");		\
+	  break;						\
+	case PROCESSOR_K8:					\
+	  builtin_define ("__tune_k8__");			\
+	  break;						\
+	case PROCESSOR_AMDFAM10:				\
+	  builtin_define ("__tune_amdfam10__");			\
+	  break;						\
+	case PROCESSOR_PENTIUM4:				\
+	  builtin_define ("__tune_pentium4__");			\
+	  break;						\
+        case PROCESSOR_NOCONA:					\
+	  builtin_define ("__tune_nocona__");			\
+	  break;						\
+	case PROCESSOR_CORE2:					\
+	  builtin_define ("__tune_core2__");			\
+	  break;						\
+	case PROCESSOR_GENERIC32:				\
+	case PROCESSOR_GENERIC64:				\
+	  break;						\
+	case PROCESSOR_max:					\
+	  gcc_unreachable ();					\
 	}							\
-      else if (TARGET_K8)					\
-	builtin_define ("__tune_k8__");				\
-      else if (TARGET_AMDFAM10)					\
-	builtin_define ("__tune_amdfam10__");			\
-      else if (TARGET_PENTIUM4)					\
-	builtin_define ("__tune_pentium4__");			\
-      else if (TARGET_NOCONA)					\
-	builtin_define ("__tune_nocona__");			\
-      else if (TARGET_CORE2)					\
-	builtin_define ("__tune_core2__");			\
 								\
       if (TARGET_MMX)						\
 	builtin_define ("__MMX__");				\
@@ -614,108 +691,37 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
 	builtin_define ("__SSE2_MATH__");			\
-								\
-      /* Built-ins based on -march=.  */			\
-      if (ix86_arch == PROCESSOR_I486)				\
-	{							\
-	  builtin_define ("__i486");				\
-	  builtin_define ("__i486__");				\
-	}							\
-      else if (ix86_arch == PROCESSOR_PENTIUM)			\
-	{							\
-	  builtin_define ("__i586");				\
-	  builtin_define ("__i586__");				\
-	  builtin_define ("__pentium");				\
-	  builtin_define ("__pentium__");			\
-	  if (last_arch_char == 'x')				\
-	    builtin_define ("__pentium_mmx__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_PENTIUMPRO)		\
-	{							\
-	  builtin_define ("__i686");				\
-	  builtin_define ("__i686__");				\
-	  builtin_define ("__pentiumpro");			\
-	  builtin_define ("__pentiumpro__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_GEODE)			\
-	{							\
-	  builtin_define ("__geode");				\
-	  builtin_define ("__geode__");				\
-	}							\
-      else if (ix86_arch == PROCESSOR_K6)			\
-	{							\
-								\
-	  builtin_define ("__k6");				\
-	  builtin_define ("__k6__");				\
-	  if (last_arch_char == '2')				\
-	    builtin_define ("__k6_2__");			\
-	  else if (last_arch_char == '3')			\
-	    builtin_define ("__k6_3__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_ATHLON)			\
-	{							\
-	  builtin_define ("__athlon");				\
-	  builtin_define ("__athlon__");			\
-	  /* Only plain "athlon" lacks SSE.  */			\
-	  if (last_arch_char != 'n')				\
-	    builtin_define ("__athlon_sse__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_K8)			\
-	{							\
-	  builtin_define ("__k8");				\
-	  builtin_define ("__k8__");				\
-	}							\
-      else if (ix86_arch == PROCESSOR_AMDFAM10)			\
-	{							\
-	  builtin_define ("__amdfam10");			\
-	  builtin_define ("__amdfam10__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_PENTIUM4)			\
-	{							\
-	  builtin_define ("__pentium4");			\
-	  builtin_define ("__pentium4__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_NOCONA)			\
-	{							\
-	  builtin_define ("__nocona");				\
-	  builtin_define ("__nocona__");			\
-	}							\
-      else if (ix86_arch == PROCESSOR_CORE2)			\
-	{							\
-	  builtin_define ("__core2");				\
-	  builtin_define ("__core2__");				\
-	}							\
     }								\
   while (0)
 
-#define TARGET_CPU_DEFAULT_i386 0
-#define TARGET_CPU_DEFAULT_i486 1
-#define TARGET_CPU_DEFAULT_pentium 2
-#define TARGET_CPU_DEFAULT_pentium_mmx 3
-#define TARGET_CPU_DEFAULT_pentiumpro 4
-#define TARGET_CPU_DEFAULT_pentium2 5
-#define TARGET_CPU_DEFAULT_pentium3 6
-#define TARGET_CPU_DEFAULT_pentium4 7
-#define TARGET_CPU_DEFAULT_geode 8
-#define TARGET_CPU_DEFAULT_k6 9
-#define TARGET_CPU_DEFAULT_k6_2 10
-#define TARGET_CPU_DEFAULT_k6_3 11
-#define TARGET_CPU_DEFAULT_athlon 12
-#define TARGET_CPU_DEFAULT_athlon_sse 13
-#define TARGET_CPU_DEFAULT_k8 14
-#define TARGET_CPU_DEFAULT_pentium_m 15
-#define TARGET_CPU_DEFAULT_prescott 16
-#define TARGET_CPU_DEFAULT_nocona 17
-#define TARGET_CPU_DEFAULT_core2 18
-#define TARGET_CPU_DEFAULT_generic 19
-#define TARGET_CPU_DEFAULT_amdfam10 20
+enum target_cpu_default
+{
+  TARGET_CPU_DEFAULT_generic = 0,
 
-#define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
-				  "pentiumpro", "pentium2", "pentium3", \
-                                  "pentium4", "geode", "k6", "k6-2", "k6-3", \
-				  "athlon", "athlon-4", "k8", \
-				  "pentium-m", "prescott", "nocona", \
-				  "core2", "generic", "amdfam10"}
+  TARGET_CPU_DEFAULT_i386,
+  TARGET_CPU_DEFAULT_i486,
+  TARGET_CPU_DEFAULT_pentium,
+  TARGET_CPU_DEFAULT_pentium_mmx,
+  TARGET_CPU_DEFAULT_pentiumpro,
+  TARGET_CPU_DEFAULT_pentium2,
+  TARGET_CPU_DEFAULT_pentium3,
+  TARGET_CPU_DEFAULT_pentium4,
+  TARGET_CPU_DEFAULT_pentium_m,
+  TARGET_CPU_DEFAULT_prescott,
+  TARGET_CPU_DEFAULT_nocona,
+  TARGET_CPU_DEFAULT_core2,
+
+  TARGET_CPU_DEFAULT_geode,
+  TARGET_CPU_DEFAULT_k6,
+  TARGET_CPU_DEFAULT_k6_2,
+  TARGET_CPU_DEFAULT_k6_3,
+  TARGET_CPU_DEFAULT_athlon,
+  TARGET_CPU_DEFAULT_athlon_sse,
+  TARGET_CPU_DEFAULT_k8,
+  TARGET_CPU_DEFAULT_amdfam10,
+
+  TARGET_CPU_DEFAULT_max
+};
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -742,6 +748,8 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* target machine storage layout */
 
 #define LONG_DOUBLE_TYPE_SIZE 80
+
+#define WIDEST_HARDWARE_FP_SIZE 80
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using only the
    FPU, assume that the fpcw is set to extended precision; when using
@@ -912,6 +920,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    for details.  */
 
 #define STACK_REGS
+
 #define IS_STACK_MODE(MODE)					\
   (((MODE) == SFmode && (!TARGET_SSE || !TARGET_SSE_MATH))	\
    || ((MODE) == DFmode && (!TARGET_SSE2 || !TARGET_SSE_MATH))  \
@@ -962,7 +971,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
      2,   2,   2,   2,   2,   2,   2,   2,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-     2,   2,    2,    2,    2,    2,    2,    2}
+     2,   2,    2,    2,    2,    2,    2,    2 }
 
 
 /* 1 for registers not available across function calls.
@@ -990,7 +999,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
      1,   1,   1,   1,   2,   2,   2,   2,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-     1,   1,    1,    1,    1,    1,    1,    1}		\
+     1,   1,    1,    1,    1,    1,    1,    1 }
 
 /* Order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.  List frame pointer
@@ -1081,7 +1090,7 @@ do {									\
    applied to them.
    */
 
-#define HARD_REGNO_NREGS(REGNO, MODE)   \
+#define HARD_REGNO_NREGS(REGNO, MODE)					\
   (FP_REGNO_P (REGNO) || SSE_REGNO_P (REGNO) || MMX_REGNO_P (REGNO)	\
    ? (COMPLEX_MODE_P (MODE) ? 2 : 1)					\
    : ((MODE) == XFmode							\
@@ -1099,16 +1108,16 @@ do {									\
 
 #define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
-#define VALID_SSE2_REG_MODE(MODE) \
-    ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode    \
-     || (MODE) == V2DImode || (MODE) == DFmode)
+#define VALID_SSE2_REG_MODE(MODE)					\
+  ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode	\
+   || (MODE) == V2DImode || (MODE) == DFmode)
 
 #define VALID_SSE_REG_MODE(MODE)					\
-    ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
-     || (MODE) == SFmode || (MODE) == TFmode)
+  ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode		\
+   || (MODE) == SFmode || (MODE) == TFmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
-    ((MODE) == V2SFmode || (MODE) == SFmode)
+  ((MODE) == V2SFmode || (MODE) == SFmode)
 
 #define VALID_MMX_REG_MODE(MODE)					\
     ((MODE) == DImode || (MODE) == V8QImode || (MODE) == V4HImode	\
@@ -1118,24 +1127,24 @@ do {									\
    place emms and femms instructions.  */
 #define UNITS_PER_SIMD_WORD (TARGET_SSE ? 16 : UNITS_PER_WORD)
 
-#define VALID_DFP_MODE_P(MODE)						\
-    ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)
+#define VALID_DFP_MODE_P(MODE) \
+  ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)
 
 #define VALID_FP_MODE_P(MODE)						\
-    ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
-     || (MODE) == SCmode || (MODE) == DCmode || (MODE) == XCmode)	\
+  ((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode		\
+   || (MODE) == SCmode || (MODE) == DCmode || (MODE) == XCmode)		\
 
 #define VALID_INT_MODE_P(MODE)						\
-    ((MODE) == QImode || (MODE) == HImode || (MODE) == SImode		\
-     || (MODE) == DImode						\
-     || (MODE) == CQImode || (MODE) == CHImode || (MODE) == CSImode	\
-     || (MODE) == CDImode						\
-     || (TARGET_64BIT && ((MODE) == TImode || (MODE) == CTImode		\
-         || (MODE) == TFmode || (MODE) == TCmode)))
+  ((MODE) == QImode || (MODE) == HImode || (MODE) == SImode		\
+   || (MODE) == DImode							\
+   || (MODE) == CQImode || (MODE) == CHImode || (MODE) == CSImode	\
+   || (MODE) == CDImode							\
+   || (TARGET_64BIT && ((MODE) == TImode || (MODE) == CTImode		\
+			|| (MODE) == TFmode || (MODE) == TCmode)))
 
 /* Return true for modes passed in SSE registers.  */
-#define SSE_REG_MODE_P(MODE) \
- ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
+#define SSE_REG_MODE_P(MODE)						\
+  ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
 
@@ -1163,10 +1172,11 @@ do {									\
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
   (CC_REGNO_P (REGNO) ? VOIDmode					\
    : (MODE) == VOIDmode && (NREGS) != 1 ? VOIDmode			\
-   : (MODE) == VOIDmode ? choose_hard_reg_mode ((REGNO), (NREGS), false)\
+   : (MODE) == VOIDmode ? choose_hard_reg_mode ((REGNO), (NREGS), false) \
    : (MODE) == HImode && !TARGET_PARTIAL_REG_STALL ? SImode		\
    : (MODE) == QImode && (REGNO) >= 4 && !TARGET_64BIT ? SImode 	\
    : (MODE))
+
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
 
@@ -1703,10 +1713,6 @@ typedef struct ix86_args {
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&(CUM), (MODE), (TYPE), (NAMED))
-
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
-  ix86_va_start (VALIST, NEXTARG)
 
 #define TARGET_ASM_FILE_END ix86_file_end
 #define NEED_INDICATE_EXEC_STACK 0
@@ -2271,7 +2277,7 @@ do {						\
 
 enum processor_type
 {
-  PROCESSOR_I386,			/* 80386 */
+  PROCESSOR_I386 = 0,			/* 80386 */
   PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
   PROCESSOR_PENTIUM,
   PROCESSOR_PENTIUMPRO,

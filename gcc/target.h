@@ -724,6 +724,9 @@ struct gcc_target
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
 
+  /* Expand the __builtin_va_start builtin.  */
+  void (* expand_builtin_va_start) (tree valist, rtx nextarg);
+
   /* Gimplifies a VA_ARG_EXPR.  */
   tree (* gimplify_va_arg_expr) (tree valist, tree type, tree *pre_p,
 				 tree *post_p);
@@ -875,6 +878,15 @@ struct gcc_target
   enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
 				      enum machine_mode,
 				      struct secondary_reload_info *);
+
+  /* This target hook allows the backend to perform additional
+     processing while initializing for variable expansion.  */
+  void (* expand_to_rtl_hook) (void);
+
+  /* This target hook allows the backend to perform additional
+     instantiations on rtx that are not actually in insns yet,
+     but will be later.  */
+  void (* instantiate_decls) (void);
 
   /* Functions specific to the C family of frontends.  */
   struct c {

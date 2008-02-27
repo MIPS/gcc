@@ -2530,8 +2530,8 @@ substitute_in_expr (tree exp, tree f, tree r)
 	{
 	  tree copy = NULL_TREE;
 	  int i;
-	  int n = TREE_OPERAND_LENGTH (exp);
-	  for (i = 1; i < n; i++)
+
+	  for (i = 1; i < TREE_OPERAND_LENGTH (exp); i++)
 	    {
 	      tree op = TREE_OPERAND (exp, i);
 	      tree newop = SUBSTITUTE_IN_EXPR (op, f, r);
@@ -2546,6 +2546,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 	  else
 	    return exp;
 	}
+	break;
 
       default:
 	gcc_unreachable ();
@@ -3666,15 +3667,26 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
       tree ntype;
       enum tree_code code = TREE_CODE (ttype);
 
-      ntype = copy_node (ttype);
+      /* Building a distinct copy of a tagged type is inappropriate; it
+	 causes breakage in code that expects there to be a one-to-one
+	 relationship between a struct and its fields.
+	 build_duplicate_type is another solution (as used in
+	 handle_transparent_union_attribute), but that doesn't play well
+	 with the stronger C++ type identity model.  */
+      if (TREE_CODE (ttype) == RECORD_TYPE
+	  || TREE_CODE (ttype) == UNION_TYPE
+	  || TREE_CODE (ttype) == QUAL_UNION_TYPE
+	  || TREE_CODE (ttype) == ENUMERAL_TYPE)
+	{
+	  warning (OPT_Wattributes,
+		   "ignoring attributes applied to %qT after definition",
+		   TYPE_MAIN_VARIANT (ttype));
+	  return build_qualified_type (ttype, quals);
+	}
 
-      TYPE_POINTER_TO (ntype) = 0;
-      TYPE_REFERENCE_TO (ntype) = 0;
+      ntype = build_distinct_type_copy (ttype);
+
       TYPE_ATTRIBUTES (ntype) = attribute;
-
-      /* Create a new main variant of TYPE.  */
-      TYPE_MAIN_VARIANT (ntype) = ntype;
-      TYPE_NEXT_VARIANT (ntype) = 0;
       set_type_quals (ntype, TYPE_UNQUALIFIED);
 
       hashcode = iterative_hash_object (code, hashcode);
@@ -3689,8 +3701,9 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	  hashcode = type_hash_list (TYPE_ARG_TYPES (ntype), hashcode);
 	  break;
 	case ARRAY_TYPE:
-	  hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
-					    hashcode);
+	  if (TYPE_DOMAIN (ntype))
+	    hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
+					      hashcode);
 	  break;
 	case INTEGER_TYPE:
 	  hashcode = iterative_hash_object
@@ -3723,6 +3736,8 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 
       ttype = build_qualified_type (ntype, quals);
     }
+  else if (TYPE_QUALS (ttype) != quals)
+    ttype = build_qualified_type (ttype, quals);
 
   return ttype;
 }
@@ -4139,7 +4154,7 @@ set_type_quals (tree type, int type_quals)
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
 }
 
-/* Returns true iff cand is equivalent to base with type_quals.  */
+/* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
 
 bool
 check_qualified_type (const_tree cand, const_tree base, int type_quals)
@@ -4666,7 +4681,7 @@ type_hash_add (hashval_t hashcode, tree type)
   h->hash = hashcode;
   h->type = type;
   loc = htab_find_slot_with_hash (type_hash_table, h, hashcode, INSERT);
-  *(struct type_hash **) loc = h;
+  *loc = (void *)h;
 }
 
 /* Given TYPE, and HASHCODE its hash code, return the canonical
@@ -4935,7 +4950,8 @@ host_integerp (const_tree t, int pos)
 	      || (! pos && TREE_INT_CST_HIGH (t) == -1
 		  && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0
 		  && (!TYPE_UNSIGNED (TREE_TYPE (t))
-		      || TYPE_IS_SIZETYPE (TREE_TYPE (t))))
+		      || (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE
+			  && TYPE_IS_SIZETYPE (TREE_TYPE (t)))))
 	      || (pos && TREE_INT_CST_HIGH (t) == 0)));
 }
 
@@ -7616,6 +7632,11 @@ reconstruct_complex_type (tree type, tree bottom)
 	     inner,
 	     TREE_CHAIN (TYPE_ARG_TYPES (type)));
     }
+  else if (TREE_CODE (type) == OFFSET_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
+    }
   else
     return bottom;
 
@@ -8024,21 +8045,26 @@ find_compatible_field (tree record, tree orig_field)
   return orig_field;
 }
 
-/* Return value of a constant X.  */
+/* Return value of a constant X and sign-extend it.  */
 
 HOST_WIDE_INT
 int_cst_value (const_tree x)
 {
   unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
   unsigned HOST_WIDE_INT val = TREE_INT_CST_LOW (x);
-  bool negative = ((val >> (bits - 1)) & 1) != 0;
 
-  gcc_assert (bits <= HOST_BITS_PER_WIDE_INT);
+  /* Make sure the sign-extended value will fit in a HOST_WIDE_INT.  */
+  gcc_assert (TREE_INT_CST_HIGH (x) == 0
+	      || TREE_INT_CST_HIGH (x) == -1);
 
-  if (negative)
-    val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
-  else
-    val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
+  if (bits < HOST_BITS_PER_WIDE_INT)
+    {
+      bool negative = ((val >> (bits - 1)) & 1) != 0;
+      if (negative)
+	val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
+      else
+	val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
+    }
 
   return val;
 }

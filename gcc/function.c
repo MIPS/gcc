@@ -66,6 +66,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "vecprim.h"
 
+/* So we can assign to cfun in this file.  */
+#undef cfun
+
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
 #endif
@@ -244,7 +247,7 @@ push_function_context_to (tree context ATTRIBUTE_UNUSED)
   struct function *p;
 
   if (cfun == 0)
-    allocate_struct_function (NULL);
+    allocate_struct_function (NULL, false);
   p = cfun;
 
   p->outer = outer_function_chain;
@@ -1565,8 +1568,8 @@ instantiate_virtual_regs_in_insn (rtx insn)
 /* Subroutine of instantiate_decls.  Given RTL representing a decl,
    do any instantiation required.  */
 
-static void
-instantiate_decl (rtx x)
+void
+instantiate_decl_rtl (rtx x)
 {
   rtx addr;
 
@@ -1576,8 +1579,8 @@ instantiate_decl (rtx x)
   /* If this is a CONCAT, recurse for the pieces.  */
   if (GET_CODE (x) == CONCAT)
     {
-      instantiate_decl (XEXP (x, 0));
-      instantiate_decl (XEXP (x, 1));
+      instantiate_decl_rtl (XEXP (x, 0));
+      instantiate_decl_rtl (XEXP (x, 1));
       return;
     }
 
@@ -1607,7 +1610,7 @@ instantiate_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     {
       *walk_subtrees = 0;
       if (DECL_P (t) && DECL_RTL_SET_P (t))
-	instantiate_decl (DECL_RTL (t));
+	instantiate_decl_rtl (DECL_RTL (t));
     }
   return NULL;
 }
@@ -1623,7 +1626,7 @@ instantiate_decls_1 (tree let)
   for (t = BLOCK_VARS (let); t; t = TREE_CHAIN (t))
     {
       if (DECL_RTL_SET_P (t))
-	instantiate_decl (DECL_RTL (t));
+	instantiate_decl_rtl (DECL_RTL (t));
       if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t))
 	{
 	  tree v = DECL_VALUE_EXPR (t);
@@ -1632,7 +1635,7 @@ instantiate_decls_1 (tree let)
     }
 
   /* Process all subblocks.  */
-  for (t = BLOCK_SUBBLOCKS (let); t; t = TREE_CHAIN (t))
+  for (t = BLOCK_SUBBLOCKS (let); t; t = BLOCK_CHAIN (t))
     instantiate_decls_1 (t);
 }
 
@@ -1647,8 +1650,8 @@ instantiate_decls (tree fndecl)
   /* Process all parameters of the function.  */
   for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
     {
-      instantiate_decl (DECL_RTL (decl));
-      instantiate_decl (DECL_INCOMING_RTL (decl));
+      instantiate_decl_rtl (DECL_RTL (decl));
+      instantiate_decl_rtl (DECL_INCOMING_RTL (decl));
       if (DECL_HAS_VALUE_EXPR_P (decl))
 	{
 	  tree v = DECL_VALUE_EXPR (decl);
@@ -1711,6 +1714,8 @@ instantiate_virtual_regs (void)
 
   /* Instantiate the virtual registers in the DECLs for debugging purposes.  */
   instantiate_decls (current_function_decl);
+
+  targetm.instantiate_decls ();
 
   /* Indicate that, from now on, assign_stack_local should use
      frame_pointer_rtx.  */
@@ -2970,13 +2975,13 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all, tree fnargs)
 	      imag = gen_lowpart_SUBREG (inner, imag);
 	    }
 	  tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
-	  set_decl_incoming_rtl (parm, tmp);
+	  set_decl_incoming_rtl (parm, tmp, false);
 	  fnargs = TREE_CHAIN (fnargs);
 	}
       else
 	{
 	  SET_DECL_RTL (parm, DECL_RTL (fnargs));
-	  set_decl_incoming_rtl (parm, DECL_INCOMING_RTL (fnargs));
+	  set_decl_incoming_rtl (parm, DECL_INCOMING_RTL (fnargs), false);
 
 	  /* Set MEM_EXPR to the original decl, i.e. to PARM,
 	     instead of the copy of decl, i.e. FNARGS.  */
@@ -3032,7 +3037,7 @@ assign_parms (tree fndecl)
 	}
 
       /* Record permanently how this parm was passed.  */
-      set_decl_incoming_rtl (parm, data.entry_parm);
+      set_decl_incoming_rtl (parm, data.entry_parm, data.passed_pointer);
 
       /* Update info on where next arg arrives in registers.  */
       FUNCTION_ARG_ADVANCE (all.args_so_far, data.promoted_mode,
@@ -3539,7 +3544,7 @@ setjmp_vars_warning (bitmap setjmp_crosses, tree block)
                  " %<longjmp%> or %<vfork%>", decl);
     }
 
-  for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
+  for (sub = BLOCK_SUBBLOCKS (block); sub; sub = BLOCK_CHAIN (sub))
     setjmp_vars_warning (setjmp_crosses, sub);
 }
 
@@ -3878,10 +3883,14 @@ get_next_funcdef_no (void)
    directly into cfun and invoke the back end hook explicitly at the
    very end, rather than initializing a temporary and calling set_cfun
    on it.
-*/
+
+   ABSTRACT_P is true if this is a function that will never be seen by
+   the middle-end.  Such functions are front-end concepts (like C++
+   function templates) that do not correspond directly to functions
+   placed in object files.  */
 
 void
-allocate_struct_function (tree fndecl)
+allocate_struct_function (tree fndecl, bool abstract_p)
 {
   tree result;
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
@@ -3907,7 +3916,7 @@ allocate_struct_function (tree fndecl)
       cfun->decl = fndecl;
 
       result = DECL_RESULT (fndecl);
-      if (aggregate_value_p (result, fndecl))
+      if (!abstract_p && aggregate_value_p (result, fndecl))
 	{
 #ifdef PCC_STATIC_STRUCT_RETURN
 	  current_function_returns_pcc_struct = 1;
@@ -3940,7 +3949,7 @@ push_struct_function (tree fndecl)
   VEC_safe_push (function_p, heap, cfun_stack, cfun);
   if (fndecl)
     in_system_header = DECL_IN_SYSTEM_HEADER (fndecl);
-  allocate_struct_function (fndecl);
+  allocate_struct_function (fndecl, false);
 }
 
 /* Reset cfun, and other non-struct-function variables to defaults as
@@ -3995,7 +4004,7 @@ init_function_start (tree subr)
   if (subr && DECL_STRUCT_FUNCTION (subr))
     set_cfun (DECL_STRUCT_FUNCTION (subr));
   else
-    allocate_struct_function (subr);
+    allocate_struct_function (subr, false);
   prepare_function_start ();
 
   /* Warn if this value is an aggregate type,
@@ -4252,7 +4261,7 @@ expand_function_start (tree subr)
       tree parm = cfun->static_chain_decl;
       rtx local = gen_reg_rtx (Pmode);
 
-      set_decl_incoming_rtl (parm, static_chain_incoming_rtx);
+      set_decl_incoming_rtl (parm, static_chain_incoming_rtx, false);
       SET_DECL_RTL (parm, local);
       mark_reg_pointer (local, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm))));
 

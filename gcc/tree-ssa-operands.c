@@ -210,7 +210,7 @@ get_name_decl (const_tree t)
 
 /* Comparison function for qsort used in operand_build_sort_virtual.  */
 
-static int
+int
 operand_build_cmp (const void *p, const void *q)
 {
   const_tree const e1 = *((const_tree const *)p);
@@ -477,11 +477,10 @@ ssa_operand_alloc (unsigned size)
         gimple_ssa_operands (cfun)->ssa_operand_mem_size
 	  = OP_SIZE_3 * sizeof (struct voptype_d);
 
-      /* Fail if there is not enough space.  If there are this many operands
-	 required, first make sure there isn't a different problem causing this
-	 many operands.  If the decision is that this is OK, then we can 
-	 specially allocate a buffer just for this request.  */
-      gcc_assert (size <= gimple_ssa_operands (cfun)->ssa_operand_mem_size);
+      /* We can reliably trigger the case that we need arbitrary many
+	 operands (see PR34093), so allocate a buffer just for this request.  */
+      if (size > gimple_ssa_operands (cfun)->ssa_operand_mem_size)
+	gimple_ssa_operands (cfun)->ssa_operand_mem_size = size;
 
       ptr = (struct ssa_operand_memory_d *) 
 	      ggc_alloc (sizeof (struct ssa_operand_memory_d) 
@@ -1367,11 +1366,10 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
   return true;
 }
 
-/* Add the actual variables FULL_REF can access, given a member of
-   full_ref's points-to set VAR, where FULL_REF is an access of SIZE at
-   OFFSET from var. IS_CALL_SITE is true if this is a call, and IS_DEF
-   is true if this is supposed to be a vdef, and false if this should
-   be a VUSE.
+/* Add the actual variables accessed, given a member of a points-to set
+   that is the SFT VAR, where the access is of SIZE at OFFSET from VAR.
+   IS_CALL_SITE is true if this is a call, and IS_DEF is true if this is
+   supposed to be a vdef, and false if this should be a VUSE.
 
    The real purpose of this function is to take a points-to set for a
    pointer to a structure, say
@@ -1397,48 +1395,8 @@ add_vars_for_offset (tree var, unsigned HOST_WIDE_INT offset,
   subvar_t sv;
   unsigned int i;
 
-  if (SFT_IN_NESTED_STRUCT (var))
-    {
-      /* Since VAR is an SFT inside a nested structure, the OFFSET
-	 computed by get_ref_base_and_extent is the offset from the
-	 start of the immediately containing structure.  However, to
-	 find out what other SFTs are affected by this reference, we
-	 need to know the offsets starting at the root structure in
-	 the nesting hierarchy.
-
-	 For instance, given the following structure:
-
-	 	struct X {
-		  int a;
-		  struct Y {
-		    int b;
-		    struct Z {
-		      int c[3];
-		    } d;
-		  } e;
-		} m;
-
-	 and the following address expression:
-
-		p_1 = &m.e.d;
-
-	 This structure will receive 5 SFTs, namely 2 for fields 'a'
-	 and 'b' and 3 for the array 'c' in struct Z.  So, the
-	 reference p_1->c[2] and m.e.d.c[2] access the exact same
-	 memory location (ie, SFT.5).
-
-	 Now, alias analysis computed the points-to set for pointer
-	 p_1 as  { SFT.3 } because that is the first field that p_1
-	 actually points to.  When the expression p_1->c[2] is
-	 analyzed, get_ref_base_and_extent will return an offset of 96
-	 because we are accessing the third element of the array.  But
-	 the SFT we are looking for is actually at offset 160,
-	 counting from the top of struct X.
-
-	 Therefore, we adjust OFFSET by the offset of VAR so that we
-	 can get at all the fields starting at VAR.  */
-      offset += SFT_OFFSET (var);
-    }
+  /* Adjust offset by the pointed-to location.  */
+  offset += SFT_OFFSET (var);
 
   /* Add all subvars of var that overlap with the access.
      Binary search for the first relevant SFT.  */
@@ -1541,8 +1499,25 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 	     if it is a potential points-to location.  */
 	  if (TREE_CODE (al) == STRUCT_FIELD_TAG
 	      && TREE_CODE (var) == NAME_MEMORY_TAG)
-	    none_added &= !add_vars_for_offset (al, offset, size,
-					        flags & opf_def);
+	    {
+	      if (SFT_BASE_FOR_COMPONENTS_P (al))
+		{
+		  /* If AL is the first SFT of a component, it can be used
+		     to find other SFTs at [offset, size] adjacent to it.  */
+		  none_added &= !add_vars_for_offset (al, offset, size,
+						      flags & opf_def);
+		}
+	      else if ((unsigned HOST_WIDE_INT)offset < SFT_SIZE (al))
+		{
+		  /* Otherwise, we only need to consider it if
+		     [offset, size] overlaps with AL.  */
+		  if (flags & opf_def)
+		    append_vdef (al);
+		  else
+		    append_vuse (al);
+		  none_added = false;
+		}
+	    }
 	  else
 	    {
 	      /* Call-clobbered tags may have non-call-clobbered
@@ -1555,7 +1530,6 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 		 unspecified [0, -1], we cannot prune it.  Otherwise try doing
 		 so using access_can_touch_variable.  */
 	      if (full_ref
-		  && !(offset == 0 && size == -1)
 		  && !access_can_touch_variable (full_ref, al, offset, size))
 		continue;
 
@@ -1668,16 +1642,18 @@ get_addr_dereference_operands (tree stmt, tree *addr, int flags, tree full_ref,
 	  /* If we are emitting debugging dumps, display a warning if
 	     PTR is an SSA_NAME with no flow-sensitive alias
 	     information.  That means that we may need to compute
-	     aliasing again.  */
+	     aliasing again or that a propagation pass forgot to
+	     update the alias information on the pointers.  */
 	  if (dump_file
 	      && TREE_CODE (ptr) == SSA_NAME
-	      && pi == NULL)
+	      && (pi == NULL
+		  || pi->name_mem_tag == NULL_TREE))
 	    {
 	      fprintf (dump_file,
 		  "NOTE: no flow-sensitive alias info for ");
 	      print_generic_expr (dump_file, ptr, dump_flags);
 	      fprintf (dump_file, " in ");
-	      print_generic_stmt (dump_file, stmt, dump_flags);
+	      print_generic_stmt (dump_file, stmt, 0);
 	    }
 
 	  if (TREE_CODE (ptr) == SSA_NAME)
@@ -1688,8 +1664,18 @@ get_addr_dereference_operands (tree stmt, tree *addr, int flags, tree full_ref,
 	     to make sure to not prune virtual operands based on offset
 	     and size.  */
 	  if (v_ann->symbol_mem_tag)
-	    add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
-				 full_ref, 0, -1, false);
+	    {
+	      add_virtual_operand (v_ann->symbol_mem_tag, s_ann, flags,
+				   full_ref, 0, -1, false);
+	      /* Make sure we add the SMT itself.  */
+	      if (!(flags & opf_no_vops))
+		{
+		  if (flags & opf_def)
+		    append_vdef (v_ann->symbol_mem_tag);
+		  else
+		    append_vuse (v_ann->symbol_mem_tag);
+		}
+	    }
 
 	  /* Aliasing information is missing; mark statement as
 	     volatile so we won't optimize it out too actively.  */
@@ -2660,17 +2646,23 @@ copy_virtual_operands (tree dest, tree src)
    create an artificial stmt which looks like a load from the store, this can
    be used to eliminate redundant loads.  OLD_OPS are the operands from the 
    store stmt, and NEW_STMT is the new load which represents a load of the
-   values stored.  */
+   values stored.  If DELINK_IMM_USES_P is specified, the immediate
+   uses of this stmt will be de-linked.  */
 
 void
-create_ssa_artificial_load_stmt (tree new_stmt, tree old_stmt)
+create_ssa_artificial_load_stmt (tree new_stmt, tree old_stmt,
+				 bool delink_imm_uses_p)
 {
   tree op;
   ssa_op_iter iter;
   use_operand_p use_p;
   unsigned i;
+  stmt_ann_t ann;
 
-  get_stmt_ann (new_stmt);
+  /* Create the stmt annotation but make sure to not mark the stmt
+     as modified as we will build operands ourselves.  */
+  ann = get_stmt_ann (new_stmt);
+  ann->modified = 0;
 
   /* Process NEW_STMT looking for operands.  */
   start_ssa_stmt_operands ();
@@ -2680,13 +2672,17 @@ create_ssa_artificial_load_stmt (tree new_stmt, tree old_stmt)
     if (TREE_CODE (op) != SSA_NAME)
       var_ann (op)->in_vuse_list = false;
    
-  for (i = 0; VEC_iterate (tree, build_vuses, i, op); i++)
+  for (i = 0; VEC_iterate (tree, build_vdefs, i, op); i++)
     if (TREE_CODE (op) != SSA_NAME)
       var_ann (op)->in_vdef_list = false;
 
   /* Remove any virtual operands that were found.  */
   VEC_truncate (tree, build_vdefs, 0);
   VEC_truncate (tree, build_vuses, 0);
+
+  /* Clear the loads and stores bitmaps.  */
+  bitmap_clear (build_loads);
+  bitmap_clear (build_stores);
 
   /* For each VDEF on the original statement, we want to create a
      VUSE of the VDEF result operand on the new statement.  */
@@ -2696,8 +2692,9 @@ create_ssa_artificial_load_stmt (tree new_stmt, tree old_stmt)
   finalize_ssa_stmt_operands (new_stmt);
 
   /* All uses in this fake stmt must not be in the immediate use lists.  */
-  FOR_EACH_SSA_USE_OPERAND (use_p, new_stmt, iter, SSA_OP_ALL_USES)
-    delink_imm_use (use_p);
+  if (delink_imm_uses_p)
+    FOR_EACH_SSA_USE_OPERAND (use_p, new_stmt, iter, SSA_OP_ALL_USES)
+      delink_imm_use (use_p);
 }
 
 

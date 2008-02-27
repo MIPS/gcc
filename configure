@@ -713,6 +713,8 @@ ac_env_target_alias_set=${target_alias+set}
 ac_env_target_alias_value=$target_alias
 ac_cv_env_target_alias_set=${target_alias+set}
 ac_cv_env_target_alias_value=$target_alias
+ac_subdirs_all=`cd $srcdir && echo */configure | sed 's,/configure,,g'`
+
 ac_env_CC_set=${CC+set}
 ac_env_CC_value=$CC
 ac_cv_env_CC_set=${CC+set}
@@ -1895,6 +1897,8 @@ configdirs=`echo ${host_libs} ${host_tools}`
 target_configdirs=`echo ${target_libraries} ${target_tools}`
 build_configdirs=`echo ${build_libs} ${build_tools}`
 
+
+
 ################################################################################
 
 srcname="gnu development package"
@@ -2129,7 +2133,7 @@ case "${target}" in
   *-*-chorusos)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
-  powerpc-*-darwin* | i[3456789]86-*-darwin*)
+  powerpc-*-darwin* | i[3456789]86-*-darwin* | x86_64-*-darwin9*)
     noconfigdirs="$noconfigdirs bfd binutils ld gas opcodes gdb gprof"
     noconfigdirs="$noconfigdirs sim target-rda"
     ;;
@@ -2294,7 +2298,6 @@ case "${target}" in
 	unsupported_languages="$unsupported_languages fortran"
 	noconfigdirs="$noconfigdirs target-libffi target-boehm-gc";;
       *-*-elf)
-	unsupported_languages="$unsupported_languages fortran"
 	noconfigdirs="$noconfigdirs target-boehm-gc";;
       *-*-linux*)
 	noconfigdirs="$noconfigdirs target-newlib target-libgloss";;
@@ -2594,7 +2597,7 @@ case "${target}" in
   vax-*-*)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
-  xtensa-*-*)
+  xtensa*-*-*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   ip2k-*-*)
@@ -4550,7 +4553,7 @@ int
 main ()
 {
 
-    #if MPFR_VERSION < MPFR_VERSION_NUM(2,2,0)
+    #if MPFR_VERSION < MPFR_VERSION_NUM(2,2,1)
     choke me
     #endif
     mpfr_t n;
@@ -4600,7 +4603,7 @@ int
 main ()
 {
 
-    #if MPFR_VERSION < MPFR_VERSION_NUM(2,2,1)
+    #if MPFR_VERSION < MPFR_VERSION_NUM(2,3,0)
     choke me
     #endif
     mpfr_t n; mpfr_init(n);
@@ -4656,7 +4659,7 @@ rm -f conftest.err conftest.$ac_objext \
   CFLAGS="$saved_CFLAGS"
 
   if test x$have_gmp != xyes; then
-    { { echo "$as_me:$LINENO: error: Building GCC requires GMP 4.1+ and MPFR 2.2.1+.
+    { { echo "$as_me:$LINENO: error: Building GCC requires GMP 4.1+ and MPFR 2.3.0+.
 Try the --with-gmp and/or --with-mpfr options to specify their locations.
 Copies of these libraries' source code can be found at their respective
 hosting sites as well as at ftp://gcc.gnu.org/pub/gcc/infrastructure/.
@@ -4664,7 +4667,7 @@ See also http://gcc.gnu.org/install/prerequisites.html for additional info.
 If you obtained GMP and/or MPFR from a vendor distribution package, make
 sure that you have installed both the libraries and the header files.
 They may be located in separate packages." >&5
-echo "$as_me: error: Building GCC requires GMP 4.1+ and MPFR 2.2.1+.
+echo "$as_me: error: Building GCC requires GMP 4.1+ and MPFR 2.3.0+.
 Try the --with-gmp and/or --with-mpfr options to specify their locations.
 Copies of these libraries' source code can be found at their respective
 hosting sites as well as at ftp://gcc.gnu.org/pub/gcc/infrastructure/.
@@ -4906,7 +4909,8 @@ fi
 # Handle --disable-<component> generically.
 for dir in $configdirs $build_configdirs $target_configdirs ; do
   dirname=`echo $dir | sed -e s/target-//g -e s/build-//g -e s/-/_/g`
-  if eval test x\${enable_${dirname}} "=" xno ; then
+  varname=`echo $dirname | sed -e s/+/_/g`
+  if eval test x\${enable_${varname}} "=" xno ; then
     noconfigdirs="$noconfigdirs $dir"
   fi
 done
@@ -5270,7 +5274,7 @@ case "${target}" in
   v850*-*-*)
     md_exec_prefix=/usr/ccs/bin
     ;;
-  xtensa-*-elf*)
+  xtensa*-*-elf*)
     ;;
 
   *-*-beos* | \
