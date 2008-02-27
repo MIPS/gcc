@@ -787,27 +787,30 @@ static int n_format_types = ARRAY_SIZE (format_types_orig);
 
 /* An ad-hoc structure holding any global state needed by functions in
    this module.  */
-struct format_state
+struct format_state GTY (())
 {
   /* Memory can be allocated on this obstack by functions in this
      module.  The obstack is deleted at module cleanup time.  */
-  struct obstack obstack;
+  struct obstack GTY ((skip)) obstack;
 
   /* State needed for init_dynamic_asm_fprintf_info.  */
   tree fprintf_hwi;
 
   /* State needed for init_dynamic_gfc_info.  */
   tree locus;
-  format_char_info *gfc_fci;
+  format_char_info * GTY ((skip)) gfc_fci;
 
   /* State needed for init_dynamic_diag_info.  */
   tree diag_t, diag_loc, diag_hwi;
-  format_char_info *diag_fci, *tdiag_fci, *cdiag_fci, *cxxdiag_fci;
-  format_length_info *diag_ls;
+  format_char_info * GTY ((skip)) diag_fci;
+  format_char_info * GTY ((skip)) tdiag_fci;
+  format_char_info * GTY ((skip)) cdiag_fci;
+  format_char_info * GTY ((skip)) cxxdiag_fci;
+  format_length_info * GTY ((skip)) diag_ls;
 };
 
 /* The global format_state object.  */
-static struct format_state *global_format_state;
+static GTY (()) struct format_state *global_format_state;
 
 /* Structure detailing the results of checking a format function call
    where the format expression may be a conditional expression with
@@ -892,7 +895,7 @@ construct_format_state (void)
 {
   gcc_assert (!global_format_state);
   /* For the time being this is a singleton module.  */
-  global_format_state = XCNEW (struct format_state);
+  global_format_state = GGC_CNEW (struct format_state);
   gcc_obstack_init (&global_format_state->obstack);
 }
 
@@ -903,7 +906,6 @@ c_format_finalize (void)
   if (global_format_state)
     {
       obstack_free (&global_format_state->obstack, NULL);
-      free (global_format_state);
       global_format_state = NULL;
       /* dynamic_format_types was allocated on the obstack.  */
       dynamic_format_types = NULL;
@@ -2726,7 +2728,8 @@ init_dynamic_diag_info (void)
 	  global_format_state->diag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (global_format_state->diag_fci,
 					      'K');
-	  global_format_state->diag_fci[i].types[0].type = &t;
+	  global_format_state->diag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
 	  global_format_state->diag_fci[i].pointer_count = 1;
 	}
 
@@ -2759,7 +2762,8 @@ init_dynamic_diag_info (void)
 	  global_format_state->tdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (global_format_state->tdiag_fci,
 					      'K');
-	  global_format_state->tdiag_fci[i].types[0].type = &t;
+	  global_format_state->tdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
 	  global_format_state->tdiag_fci[i].pointer_count = 1;
 	}
 
@@ -2792,7 +2796,8 @@ init_dynamic_diag_info (void)
 	  global_format_state->cdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (global_format_state->cdiag_fci,
 					      'K');
-	  global_format_state->cdiag_fci[i].types[0].type = &t;
+	  global_format_state->cdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
 	  global_format_state->cdiag_fci[i].pointer_count = 1;
 	}
 
@@ -2825,7 +2830,8 @@ init_dynamic_diag_info (void)
 	  global_format_state->cxxdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (global_format_state->cxxdiag_fci,
 					      'K');
-	  global_format_state->cxxdiag_fci[i].types[0].type = &t;
+	  global_format_state->cxxdiag_fci[i].types[0].type
+	    = &global_format_state->diag_t;
 	  global_format_state->cxxdiag_fci[i].pointer_count = 1;
 	}
     }
@@ -2942,3 +2948,5 @@ handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 
   return NULL_TREE;
 }
+
+#include "gt-c-format.h"

@@ -1,3 +1,14 @@
+2008-02-27  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in (c-format.o): Depend on gt-c-format.h.
+	* c-format.c (struct format_state): Mark with GTY.
+	(global_format_state): Likewise.
+	(construct_format_state): Allocate global_format_state via GC.
+	(c_format_finalize): Don't free global_format_state.
+	Include gt-c-format.h.
+	(init_dynamic_diag_info): Use global diag_t, not '&t'.
+	* c-config-lang.in (gtfiles): Add c-format.h, c-format.c.
+
 2008-02-25  Tom Tromey  <tromey@redhat.com>
 
 	* c-common.c (handle_alias_attribute): Handle error_mark_node as
