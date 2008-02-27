@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -663,6 +663,23 @@ print_insn (char *buf, rtx x, int verbose)
 #endif
 	sprintf (buf, " %4d %s", INSN_UID (x), t);
       break;
+
+    case DEBUG_INSN:
+      {
+	const char *name = "?";
+
+	if (DECL_P (INSN_VAR_LOCATION_DECL (insn)))
+	  name = IDENTIFIER_POINTER (DECL_NAME (INSN_VAR_LOCATION_DECL (insn)));
+	if (VAR_LOC_UNKNOWN_P (INSN_VAR_LOCATION_LOC (insn)))
+	  sprintf (buf, " %4d: debug %s optimized away", INSN_UID (insn), name);
+	else
+	  {
+	    print_pattern (t, INSN_VAR_LOCATION_LOC (insn), verbose);
+	    sprintf (buf, " %4d: debug %s => %s", INSN_UID (insn), name, t);
+	  }
+      }
+      break;
+
     case JUMP_INSN:
       print_pattern (t, PATTERN (x), verbose);
 #ifdef INSN_SCHEDULING
