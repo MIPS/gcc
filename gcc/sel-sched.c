@@ -5535,24 +5535,6 @@ sel_region_init (int rgn)
   if (i == current_nr_blocks)
     return true;
 
-  /* Purge meaningless empty blocks in the middle of a region.  */
-  for (i = 1; i < current_nr_blocks; )
-    {
-      basic_block b = BASIC_BLOCK (BB_TO_BLOCK (i));
-      
-      if (single_pred_p (b)
-          && (single_pred_edge (b)->flags & EDGE_FALLTHRU)
-          && !LABEL_P (BB_HEAD (b))
-          && sel_bb_empty_p (b)
-          && (single_succ_edge (b)->flags & EDGE_FALLTHRU)
-          && in_current_region_p (single_succ (b)))
-        {
-          sel_remove_empty_bb (b);
-          continue;
-        }
-      i++;
-    }
-  
   /* If this loop has any saved loop preheaders from nested loops,
      add these basic blocks to the current region.  */
   if (flag_sel_sched_pipelining_outer_loops)
@@ -5635,6 +5617,24 @@ sel_region_init (int rgn)
 
   VEC_free (basic_block, heap, bbs);
 
+  /* Purge meaningless empty blocks in the middle of a region.  */
+  for (i = 1; i < current_nr_blocks; )
+    {
+      basic_block b = BASIC_BLOCK (BB_TO_BLOCK (i));
+      
+      if (single_pred_p (b)
+          && (single_pred_edge (b)->flags & EDGE_FALLTHRU)
+          && !LABEL_P (BB_HEAD (b))
+          && sel_bb_empty_p (b)
+          && (single_succ_edge (b)->flags & EDGE_FALLTHRU)
+          && in_current_region_p (single_succ (b)))
+        {
+          sel_remove_empty_bb (b, false, true);
+          continue;
+        }
+      i++;
+    }
+  
   /* Set hooks so that no newly generated insn will go out unnoticed.  */
   sel_register_rtl_hooks ();
   sel_register_cfg_hooks ();

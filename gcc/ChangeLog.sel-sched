@@ -1,3 +1,8 @@
+2008-02-28  Andrey Belevantsev  <abel@ispras.ru>
+
+	* sel-sched.c (sel_region_init): Move the removing empty blocks loop 
+        to a proper place.  Fix the call to sel_remove_empty_bb.
+
 2008-02-27  Andrey Belevantsev  <abel@ispras.ru>
         Merge from trunk rev. 132164.
 
