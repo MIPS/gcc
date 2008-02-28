@@ -1240,10 +1240,10 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	    {
 	      tree old_context
 		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
-	      walk_body (convert_nonlocal_reference, info,
-			 &OMP_CLAUSE_REDUCTION_INIT (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= info->context;
+	      walk_body (convert_nonlocal_reference, info,
+			 &OMP_CLAUSE_REDUCTION_INIT (clause));
 	      walk_body (convert_nonlocal_reference, info,
 			 &OMP_CLAUSE_REDUCTION_MERGE (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
@@ -1581,10 +1581,10 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	    {
 	      tree old_context
 		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
-	      walk_body (convert_local_reference, info,
-			 &OMP_CLAUSE_REDUCTION_INIT (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= info->context;
+	      walk_body (convert_local_reference, info,
+			 &OMP_CLAUSE_REDUCTION_INIT (clause));
 	      walk_body (convert_local_reference, info,
 			 &OMP_CLAUSE_REDUCTION_MERGE (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))

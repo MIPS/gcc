@@ -1061,7 +1061,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	{
 	case OMP_CLAUSE_PRIVATE:
 	  decl = OMP_CLAUSE_DECL (c);
-	  if (!is_variable_sized (decl))
+	  if (OMP_CLAUSE_PRIVATE_OUTER_REF (c))
+	    goto do_private;
+	  else if (!is_variable_sized (decl))
 	    install_var_local (decl, ctx);
 	  break;
 
@@ -1933,7 +1935,12 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      /* FALLTHRU */
 
 	    case OMP_CLAUSE_PRIVATE:
-	      x = lang_hooks.decls.omp_clause_default_ctor (c, new_var);
+	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_PRIVATE
+		  || OMP_CLAUSE_PRIVATE_OUTER_REF (c))
+		x = build_outer_var_ref (var, ctx);
+	      else
+		x = NULL;
+	      x = lang_hooks.decls.omp_clause_default_ctor (c, new_var, x);
 	      if (x)
 		gimplify_and_add (x, ilist);
 	      /* FALLTHRU */
@@ -1966,8 +1973,16 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	    case OMP_CLAUSE_REDUCTION:
 	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 		{
+		  tree placeholder = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
+		  x = build_outer_var_ref (var, ctx);
+
+		  if (is_reference (var))
+		    x = build_fold_addr_expr (x);
+		  SET_DECL_VALUE_EXPR (placeholder, x);
+		  DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
 		  gimplify_and_add (OMP_CLAUSE_REDUCTION_INIT (c), ilist);
 		  OMP_CLAUSE_REDUCTION_INIT (c) = NULL;
+		  DECL_HAS_VALUE_EXPR_P (placeholder) = 0;
 		}
 	      else
 		{
@@ -2227,6 +2242,10 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 
       switch (OMP_CLAUSE_CODE (c))
 	{
+	case OMP_CLAUSE_PRIVATE:
+	  if (OMP_CLAUSE_PRIVATE_OUTER_REF (c))
+	    break;
+	  continue;
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -2248,6 +2267,7 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 
       switch (OMP_CLAUSE_CODE (c))
 	{
+	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	  do_in = true;
@@ -2261,7 +2281,11 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 	      do_in = true;
 	    }
 	  else
-	    do_out = true;
+	    {
+	      do_out = true;
+	      if (lang_hooks.decls.omp_private_outer_ref (val))
+		do_in = true;
+	    }
 	  break;
 
 	case OMP_CLAUSE_REDUCTION:

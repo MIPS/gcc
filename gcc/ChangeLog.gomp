@@ -1,3 +1,32 @@
+2008-02-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* langhooks.h (lang_hooks_for_decls): Add omp_private_outer_ref
+	hook, add another argument to omp_clause_default_ctor hook.
+	* langhooks-def.h (LANG_HOOKS_OMP_PRIVATE_OUTER_REF): Define.
+	(LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR): Change to
+	hook_tree_tree_tree_tree_null.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_OMP_PRIVATE_OUTER_REF.
+	* hooks.c (hook_tree_tree_tree_tree_null): New function.
+	* hooks.h (hook_tree_tree_tree_tree_null): New prototype.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_PRIVATE_OUTER_REF.
+	(omp_notice_variable): Set GOVD_PRIVATE_OUTER_REF if needed,
+	if it is set, lookup var in outer contexts too.
+	(gimplify_scan_omp_clauses): Likewise, set
+	OMP_CLAUSE_PRIVATE_OUTER_REF if GOVD_PRIVATE_OUTER_REF is set.
+	(gimplify_adjust_omp_clauses_1): Set OMP_CLAUSE_PRIVATE_OUTER_REF if
+	GOVD_PRIVATE_OUTER_REF is set.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Set placeholder context before walking
+	OMP_CLAUSE_REDUCTION_INIT.
+	* tree.h (OMP_CLAUSE_PRIVATE_OUTER_REF): Define.
+	* omp-low.c (scan_sharing_clauses): Handle
+	OMP_CLAUSE_PRIVATE_OUTER_REF.
+	(lower_rec_input_clauses): Pass outer var ref to
+	omp_clause_default_ctor hook if OMP_CLAUSE_PRIVATE_OUTER_REF
+	or OMP_CLAUSE_LASTPRIVATE.  Replace OMP_CLAUSE_REDUCTION_PLACEHOLDER
+	decls in OMP_CLAUSE_REDUCTION_INIT.
+	(lower_send_clauses): Handle OMP_CLAUSE_PRIVATE_OUTER_REF.
+
 2008-02-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_omp_for): Set OMP_CLAUSE_LASTPRIVATE_STMT

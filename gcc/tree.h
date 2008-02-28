@@ -317,7 +317,7 @@ enum omp_clause_code
      Operand 2: OMP_CLAUSE_REDUCTION_MERGE: Stmt-list to merge private var
                 into the shared one.
      Operand 3: OMP_CLAUSE_REDUCTION_PLACEHOLDER: A dummy VAR_DECL
-                placeholder used in OMP_CLAUSE_REDUCTION_MERGE.  */
+                placeholder used in OMP_CLAUSE_REDUCTION_{INIT,MERGE}.  */
   OMP_CLAUSE_REDUCTION,
 
   /* OpenMP clause: copyin (variable_list).  */
@@ -501,6 +501,8 @@ struct gimple_stmt GTY(())
 	   OMP_SECTION
        OMP_PARALLEL_COMBINED in
 	   OMP_PARALLEL
+       OMP_CLAUSE_PRIVATE_OUTER_REF in
+	   OMP_CLAUSE_PRIVATE
 
    protected_flag:
 
@@ -1812,6 +1814,11 @@ struct tree_constructor GTY(())
    to what it has been remapped to.  */
 #define OMP_CLAUSE_PRIVATE_DEBUG(NODE) \
   TREE_PUBLIC (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE))
+
+/* True on a PRIVATE clause if ctor needs access to outer region's
+   variable.  */
+#define OMP_CLAUSE_PRIVATE_OUTER_REF(NODE) \
+  TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE))
 
 /* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
    decl is present in the chain.  */

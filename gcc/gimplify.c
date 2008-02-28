@@ -62,6 +62,7 @@ enum gimplify_omp_var_data
   GOVD_REDUCTION = 64,
   GOVD_LOCAL = 128,
   GOVD_DEBUG_PRIVATE = 256,
+  GOVD_PRIVATE_OUTER_REF = 512,
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LOCAL)
 };
@@ -4952,6 +4953,10 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	  gcc_unreachable ();
 	}
 
+      if ((flags & GOVD_PRIVATE)
+	  && lang_hooks.decls.omp_private_outer_ref (decl))
+	flags |= GOVD_PRIVATE_OUTER_REF;
+
       omp_add_variable (ctx, decl, flags);
 
       shared = (flags & GOVD_SHARED) != 0;
@@ -4971,7 +4976,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
  do_outer:
   /* If the variable is private in the current context, then we don't
      need to propagate anything to an outer context.  */
-  if (flags & GOVD_PRIVATE)
+  if ((flags & GOVD_PRIVATE) && !(flags & GOVD_PRIVATE_OUTER_REF))
     return ret;
   if (ctx->outer_context
       && omp_notice_variable (ctx->outer_context, decl, in_code))
@@ -5076,7 +5081,13 @@ gimplify_scan_omp_clauses (tree *list_p, tree *pre_p,
 	{
 	case OMP_CLAUSE_PRIVATE:
 	  flags = GOVD_PRIVATE | GOVD_EXPLICIT;
-	  notice_outer = false;
+	  if (lang_hooks.decls.omp_private_outer_ref (OMP_CLAUSE_DECL (c)))
+	    {
+	      flags |= GOVD_PRIVATE_OUTER_REF;
+	      OMP_CLAUSE_PRIVATE_OUTER_REF (c) = 1;
+	    }
+	  else
+	    notice_outer = false;
 	  goto do_add;
 	case OMP_CLAUSE_SHARED:
 	  flags = GOVD_SHARED | GOVD_EXPLICIT;
@@ -5253,6 +5264,8 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   OMP_CLAUSE_CHAIN (clause) = *list_p;
   if (private_debug)
     OMP_CLAUSE_PRIVATE_DEBUG (clause) = 1;
+  else if (code == OMP_CLAUSE_PRIVATE && (flags & GOVD_PRIVATE_OUTER_REF))
+    OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
   *list_p = clause;
 
   return 0;

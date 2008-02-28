@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -216,9 +216,14 @@ struct lang_hooks_for_decls
      be put into OMP_CLAUSE_PRIVATE_DEBUG.  */
   bool (*omp_private_debug_clause) (tree, bool);
 
+  /* Return true if DECL in private clause needs
+     OMP_CLAUSE_PRIVATE_OUTER_REF on the private clause.  */
+  bool (*omp_private_outer_ref) (tree);
+
   /* Build and return code for a default constructor for DECL in
-     response to CLAUSE.  Return NULL if nothing to be done.  */
-  tree (*omp_clause_default_ctor) (tree clause, tree decl);
+     response to CLAUSE.  OUTER is corresponding outer region's
+     variable if needed.  Return NULL if nothing to be done.  */
+  tree (*omp_clause_default_ctor) (tree clause, tree decl, tree outer);
 
   /* Build and return code for a copy constructor from SRC to DST.  */
   tree (*omp_clause_copy_ctor) (tree clause, tree dst, tree src);
