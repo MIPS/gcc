@@ -1,3 +1,73 @@
+2008-02-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-02-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24685
+	* gfortran.dg/large_real_kind_form_io_2.f90: XFAIL on
+	powerpc*-apple-darwin*.
+	* gfortran.dg/large_real_kind_2.F90: Split testing of ERF and
+	ERFC into gfortran.dg/large_real_kind_3.F90.
+	* gfortran.dg/large_real_kind_3.F90: New test.
+
+2008-02-27  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-02-27  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35390
+	* gcc.c-torture/execute/pr35390.c: New testcase.
+
+	PR middle-end/34971
+	* gcc.c-torture/execute/pr34971.c: New testcase.
+
+2008-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35368
+	* g++.dg/ext/visibility/typeinfo2.C: New test.
+	* g++.dg/ext/visibility/typeinfo3.C: New test.
+
+2008-02-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/bf-ms-attrib.c (main): Return 0.
+
+2008-02-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.target/i386/mmx-4.c (dump64_64): Use printf %I64 on MinGW.
+	* gcc.target/i386/sse-6.c (dump128_64): Likewise.
+
+2008-02-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.target/i386/pr25993.c: Skip on *-*-mingw*.
+
+2008-02-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/debug/dwarf2/aranges-fnsec-1.c: Add -w to dg-options.
+
+2008-02-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/builtins-config.h: Disable C99 runtime testing for
+	Windows.
+
+2008-02-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp (check_profiling_available): Report -p
+	unavailable on *-*-mingw*.
+
+2008-02-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp (check_effective_target_pthread_h): New.
+	* gcc.dg/pthread-init-1.c, gcc.dg/pthread-init-2.c: Use
+	dg-require-effective-target pthread_h.
+
+2008-02-22  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/34715
+	* g++.dg/ext/always_inline-1.C: New test.
+	* g++.dg/ext/always_inline-2.C: New test.
+	* g++.dg/ext/always_inline-3.C: New test.
+	* g++.dg/ext/always_inline-4.C: New test.
+
 2008-02-22  Hans-Peter Nilsson  <hp@axis.com>
 
 	* gcc.target/cris/asm-b-1.c: New test.
