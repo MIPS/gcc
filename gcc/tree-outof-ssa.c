@@ -1417,8 +1417,8 @@ insert_backedge_copies (void)
 
 		  /* Create a new instance of the underlying variable of the 
 		     PHI result.  */
-		  stmt = gimple_build_assign (NULL, gimple_phi_arg_def (phi,
-                                                                        i));
+		  stmt = gimple_build_assign (result_var,
+					      gimple_phi_arg_def (phi, i));
 		  name = make_ssa_name (result_var, stmt);
 		  gimple_assign_set_lhs (stmt, name);
 

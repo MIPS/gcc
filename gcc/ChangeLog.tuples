@@ -1,5 +1,10 @@
 2008-02-28  Rafael Espindola  <espindola@google.com>
 
+	* tree-outof-ssa.c (insert_backedge_copies): Don't build
+	uninitialized assignment.
+
+2008-02-28  Rafael Espindola  <espindola@google.com>
+
 	* tree-dfa.c (dump_dfa_stats): cast dfa_stats.max_num_phi_args to long.
 
 2008-02-26  Diego Novillo  <dnovillo@google.com>
