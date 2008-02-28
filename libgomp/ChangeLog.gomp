@@ -2,6 +2,7 @@
 
 	* testsuite/libgomp.fortran/allocatable1.f90: New test.
 	* testsuite/libgomp.fortran/allocatable2.f90: New test.
+	* testsuite/libgomp.fortran/allocatable3.f90: New test.
 
 2008-02-26  Jakub Jelinek  <jakub@redhat.com>
 
