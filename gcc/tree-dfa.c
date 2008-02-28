@@ -495,7 +495,7 @@ dump_dfa_stats (FILE *file)
   if (dfa_stats.num_phis)
     fprintf (file, "Average number of arguments per PHI node: %.1f (max: %ld)\n",
 	     (float) dfa_stats.num_phi_args / (float) dfa_stats.num_phis,
-	     dfa_stats.max_num_phi_args);
+	     (long) dfa_stats.max_num_phi_args);
 
   fprintf (file, "\n");
 }
