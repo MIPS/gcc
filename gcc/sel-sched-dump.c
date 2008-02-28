@@ -413,8 +413,8 @@ dump_expr_1 (expr_t expr, int flags)
 	print ("orig_bb:%d;", orig_bb);
     }
   
-  if (!EXPR_TARGET_AVAILABLE (expr))
-    print ("targ_un;");
+  if (EXPR_TARGET_AVAILABLE (expr) < 1)
+    print ("target:%d;", EXPR_TARGET_AVAILABLE (expr));
   print ("]");
   line_finish ();
 }

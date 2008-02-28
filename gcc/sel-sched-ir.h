@@ -604,6 +604,9 @@ struct vinsn_def
      hash_rtx.  It is not placed in ID for faster compares.  */
   unsigned hash;
 
+  /* Hash of the insn_rtx pattern.  */
+  unsigned hash_rtx;
+
   /* Smart pointer counter.  */
   int count;
 
@@ -621,6 +624,7 @@ struct vinsn_def
 
 #define VINSN_ID(VI) ((VI)->id)
 #define VINSN_HASH(VI) ((VI)->hash)
+#define VINSN_HASH_RTX(VI) ((VI)->hash_rtx)
 #define VINSN_TYPE(VI) (IDATA_TYPE (VINSN_ID (VI)))
 #define VINSN_SEPARABLE_P(VI) (VINSN_TYPE (VI) == SET)
 #define VINSN_CLONABLE_P(VI) (VINSN_SEPARABLE_P (VI) || VINSN_TYPE (VI) == USE)
@@ -630,12 +634,27 @@ struct vinsn_def
 #define VINSN_REG_SETS(VI) (IDATA_REG_SETS (VINSN_ID (VI)))
 #define VINSN_REG_USES(VI) (IDATA_REG_USES (VINSN_ID (VI)))
 #define VINSN_REG_CLOBBERS(VI) (IDATA_REG_CLOBBERS (VINSN_ID (VI)))
-
 #define VINSN_COUNT(VI) ((VI)->count)
-
 #define VINSN_MAY_TRAP_P(VI) ((VI)->may_trap_p)
-
 
+
+/* An entry of the hashtable describing transformations happened when 
+   moving up through an insn.  */
+struct transformed_insns
+{
+  /* Previous vinsn.  Used to find the proper element.  */
+  vinsn_t vinsn_old;
+  /* A new vinsn.  */
+  vinsn_t vinsn_new;
+  /* Speculative status.  */
+  ds_t ds;
+  /* Type of transformation happened.  */
+  enum local_trans_type type;
+  /* Whether a conflict on the target register happened.  */
+  BOOL_BITFIELD was_target_conflict : 1;
+  /* Whether a check was needed.  */
+  BOOL_BITFIELD needs_check : 1;
+};
 
 /* Indexed by INSN_LUID, the collection of all data associated with
    a single instruction that is in the stream.  */
@@ -666,6 +685,9 @@ struct _sel_insn_data
   /* An INSN_UID bit is set when this is a bookkeeping insn generated from 
      a parent with this uid.  */
   bitmap originators;
+
+  /* A hashtable caching the result of insn transformations through this one.  */
+  htab_t transformed_insns;
   
   /* A context incapsulating this insn.  */
   struct deps deps_context;
@@ -713,7 +735,7 @@ extern sel_insn_data_def insn_sid (insn_t);
 #define INSN_DEPS_CONTEXT(INSN) (SID (INSN)->deps_context) 
 #define INSN_ORIGINATORS(INSN) (SID (INSN)->originators)
 #define INSN_ORIGINATORS_BY_UID(UID) (SID_BY_UID (UID)->originators)
-
+#define INSN_TRANSFORMED_INSNS(INSN) (SID (INSN)->transformed_insns)
 
 #define INSN_EXPR(INSN) (&SID (INSN)->_expr)
 #define INSN_VINSN(INSN) (RHS_VINSN (INSN_EXPR (INSN)))

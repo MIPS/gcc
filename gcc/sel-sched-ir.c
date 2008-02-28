@@ -1373,9 +1373,13 @@ vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
       rtx rhs = VINSN_RHS (vi);
 
       VINSN_HASH (vi) = sel_hash_rtx (rhs, GET_MODE (rhs));
+      VINSN_HASH_RTX (vi) = sel_hash_rtx (VINSN_PATTERN (vi), VOIDmode);
     }
   else
-    VINSN_HASH (vi) = sel_hash_rtx (VINSN_PATTERN (vi), VOIDmode);
+    {
+      VINSN_HASH (vi) = sel_hash_rtx (VINSN_PATTERN (vi), VOIDmode); 
+      VINSN_HASH_RTX (vi) = VINSN_HASH (vi);
+    }
     
   VINSN_COUNT (vi) = 0;
 
@@ -1425,10 +1429,6 @@ vinsn_delete (vinsn_t vi)
   return_regset_to_pool (VINSN_REG_CLOBBERS (vi));
 
   free (VINSN_ID (vi));
-
-  /* This insn should not be deleted as it may have shared parts.  */
-  /*  if (!INSN_IN_STREAM_P (insn))  expr_clear (&insn); */
-
   free (vi);
 }
 
@@ -1978,8 +1978,9 @@ set_unavailable_target_for_expr (expr_t expr, regset lv_set)
     }
 }
 
-/* Try to make EXPR speculative.  Return true when EXPR's pattern 
-   had to be changed. */
+/* Try to make EXPR speculative.  Return 1 when EXPR's pattern 
+   or dependence status have changed, 2 when also the target register
+   became unavailable, 0 if nothing had to be changed. */
 int
 speculate_expr (expr_t expr, ds_t ds)
 {
@@ -2001,7 +2002,7 @@ speculate_expr (expr_t expr, ds_t ds)
     {
     case 0:
       EXPR_SPEC_DONE_DS (expr) = ds;
-      return 0;
+      return current_ds != ds ? 1 : 0;
       
     case 1:
       {
@@ -2016,7 +2017,10 @@ speculate_expr (expr_t expr, ds_t ds)
            insns.  */
         if (bitmap_bit_p (VINSN_REG_USES (EXPR_VINSN (expr)), 
                           expr_dest_regno (expr)))
-          EXPR_TARGET_AVAILABLE (expr) = false;
+          {
+            EXPR_TARGET_AVAILABLE (expr) = false;
+            return 2;
+          }
 
 	return 1;
       }
@@ -2638,6 +2642,36 @@ first_time_insn_init (insn_t insn)
   return INSN_ANALYZED_DEPS (insn) == NULL;
 }
 
+/* Hash an entry in a transformed_insns hashtable.  */
+static hashval_t
+hash_transformed_insns (const void *p)
+{
+  return VINSN_HASH_RTX (((struct transformed_insns *) p)->vinsn_old);
+}
+
+/* Compare the entries in a transformed_insns hashtable.  */
+static int
+eq_transformed_insns (const void *p, const void *q)
+{
+  rtx i1 = VINSN_INSN_RTX (((struct transformed_insns *) p)->vinsn_old);
+  rtx i2 = VINSN_INSN_RTX (((struct transformed_insns *) q)->vinsn_old);
+
+  if (INSN_UID (i1) == INSN_UID (i2))
+    return 1;
+  return rtx_equal_p (PATTERN (i1), PATTERN (i2));
+}
+
+/* Free an entry in a transformed_insns hashtable.  */
+static void
+free_transformed_insns (void *p)
+{
+  struct transformed_insns *pti = (struct transformed_insns *) p;
+
+  vinsn_detach (pti->vinsn_old);
+  vinsn_detach (pti->vinsn_new);
+  free (pti);
+}
+
 /* Init the s_i_d data for INSN which should be inited just once, when 
    we first see the insn.  */
 static void
@@ -2651,6 +2685,9 @@ init_first_time_insn_data (insn_t insn)
     {
       INSN_ANALYZED_DEPS (insn) = BITMAP_ALLOC (NULL);
       INSN_FOUND_DEPS (insn) = BITMAP_ALLOC (NULL);
+      INSN_TRANSFORMED_INSNS (insn) 
+        = htab_create (16, hash_transformed_insns,
+                       eq_transformed_insns, free_transformed_insns);
       init_deps (&INSN_DEPS_CONTEXT (insn));
     }
 }
@@ -2663,6 +2700,7 @@ free_first_time_insn_data (insn_t insn)
 
   BITMAP_FREE (INSN_ANALYZED_DEPS (insn));
   BITMAP_FREE (INSN_FOUND_DEPS (insn));
+  htab_delete (INSN_TRANSFORMED_INSNS (insn));
 
   /* This is allocated only for bookkeeping insns.  */
   if (INSN_ORIGINATORS (insn))
@@ -2794,11 +2832,12 @@ finish_global_and_expr_insn (insn_t insn)
   if (INSN_LUID (insn) > 0)
     {
       free_first_time_insn_data (insn);
-
       INSN_WS_LEVEL (insn) = 0;
-
-      gcc_assert (VINSN_COUNT (INSN_VINSN (insn)) == 1);
-
+      
+      /* We can no longer assert this, as vinsns of this insn could be 
+         easily live in other insn's caches.  This should be changed to 
+         a counter-like approach among all vinsns.  */
+      gcc_assert (true || VINSN_COUNT (INSN_VINSN (insn)) == 1);
       clear_expr (INSN_EXPR (insn));
     }
 }
@@ -3619,6 +3658,7 @@ finish_insns (void)
 	{
 	  BITMAP_FREE (sid_entry->analyzed_deps);
 	  BITMAP_FREE (sid_entry->found_deps);
+          htab_delete (sid_entry->transformed_insns);
 	  free_deps (&sid_entry->deps_context);
 	}
     }

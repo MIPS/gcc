@@ -1563,15 +1563,17 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
               {
                 ds_t old_ds, new_ds;
                 
+                /* Compute the difference between old and new speculative
+                   statuses: that's what we need to check.  
+                   Earlier we used to assert that the status will really
+                   change.  This no longer works because only the probability
+                   bits in the status may have changed during compute_av_set,
+                   and in the case of merging different probabilities of the 
+                   same speculative status along different paths we do not 
+                   record this in the history vector.  */
                 old_ds = phist->spec_ds;
                 new_ds = EXPR_SPEC_DONE_DS (rhs);
-                gcc_assert (spec_info && sel_speculation_p
-                            && new_ds 
-                            && ((old_ds & SPECULATIVE) 
-                                != (new_ds & SPECULATIVE)));
 
-                /* Compute the difference between old and new speculative
-                   statuses: that's what we need to check.  */
                 old_ds &= SPECULATIVE;
                 new_ds &= SPECULATIVE;
                 new_ds &= ~old_ds;
@@ -1666,6 +1668,9 @@ moveup_rhs_inside_insn_group (rhs_t insn_to_move_up, insn_t through_insn)
    && !sel_insn_has_single_succ_p ((through_insn), SUCCS_ALL) \
    && !sel_insn_is_speculation_check (through_insn))
 
+/* True when a conflict on a target register was found during moveup_rhs.  */
+static bool was_target_conflict = false;
+
 /* Modifies INSN_TO_MOVE_UP so it can be moved through the THROUGH_INSN,
    performing necessary transformations.  Record the type of transformation 
    made in PTRANS_TYPE, when it is not NULL.  When INSIDE_INSN_GROUP, 
@@ -1737,6 +1742,7 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group,
   else
     gcc_assert (!control_flow_insn_p (insn));
 
+  was_target_conflict = false;
   full_ds = has_dependence_p (insn_to_move_up, through_insn, &has_dep_p);
 
   if (full_ds == 0)
@@ -1761,7 +1767,9 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group,
 	{
           /* Speculation was successful.  */
           full_ds = 0;
-          was_changed = (res == 1);
+          was_changed = (res > 0);
+          if (res == 2)
+            was_target_conflict = true;
           if (ptrans_type)
             *ptrans_type = TRANS_SPECULATION;
 	  sel_clear_has_dependence ();
@@ -1781,6 +1789,7 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group,
         return MOVEUP_RHS_NULL;
 
       EXPR_TARGET_AVAILABLE (insn_to_move_up) = false;
+      was_target_conflict = true;
       as_rhs = true;
     }
 
@@ -1815,7 +1824,9 @@ moveup_rhs (rhs_t insn_to_move_up, insn_t through_insn, bool inside_insn_group,
             {
               /* Speculation was successful.  */
               *rhs_dsp = 0;
-              was_changed = (res == 1);
+              was_changed = (res > 0);
+              if (res == 2)
+                was_target_conflict = true;
               if (ptrans_type)
                 *ptrans_type = TRANS_SPECULATION;
             }
@@ -1899,10 +1910,46 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
           line_finish ();
           continue;
         }
+      else
+        {
+          struct transformed_insns *pti 
+            = htab_find_with_hash (INSN_TRANSFORMED_INSNS (insn),
+                                   &expr_old_vinsn, 
+                                   VINSN_HASH_RTX (expr_old_vinsn));
+          if (pti)
+            {
+              /* This RHS was already moved through this insn and was 
+                 changed as a result.  Fetch the proper data from 
+                 the hashtable.  */
+              insert_in_history_vect (&EXPR_HISTORY_OF_CHANGES (rhs), 
+                                      INSN_UID (insn), pti->type, 
+                                      pti->vinsn_old, pti->vinsn_new, 
+                                      EXPR_SPEC_DONE_DS (rhs));
+              change_vinsn_in_expr (rhs, pti->vinsn_new);
+              if (pti->was_target_conflict)
+                EXPR_TARGET_AVAILABLE (rhs) = false;
+              if (pti->type == TRANS_SPECULATION)
+                {
+                  ds_t ds;
+
+                  ds = EXPR_SPEC_DONE_DS (rhs);
+                  
+                  EXPR_SPEC_DONE_DS (rhs) = pti->ds;
+                  EXPR_NEEDS_SPEC_CHECK_P (rhs) |= pti->needs_check;
+                }
+              rhs = merge_with_other_exprs (avp, &i, rhs);
+
+              print (" - changed (cached): ");
+              dump_rhs (rhs);
+              line_finish ();
+              continue;
+            }
+        }
 
       /* ??? Invent something better than this.  We can't allow old_vinsn 
          to go, we need it for the history vector.  */
       vinsn_attach (expr_old_vinsn);
+
       switch (moveup_rhs (rhs, insn, inside_insn_group, &trans_type))
 	{
 	case MOVEUP_RHS_NULL:
@@ -1914,20 +1961,41 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 
 	  print (" - removed");
 	  break;
+
 	case MOVEUP_RHS_CHANGED:
 	  print (" - changed");
-          gcc_assert (INSN_UID (EXPR_INSN_RTX (rhs)) != rhs_uid);
+          gcc_assert (INSN_UID (EXPR_INSN_RTX (rhs)) != rhs_uid
+                      || EXPR_SPEC_DONE_DS (rhs) != expr_old_spec_ds);
 
           /* Mark that this insn changed this expr.  */
           insert_in_history_vect (&EXPR_HISTORY_OF_CHANGES (rhs), 
                                   INSN_UID (insn), trans_type, 
                                   expr_old_vinsn, EXPR_VINSN (rhs), 
                                   expr_old_spec_ds);
+          {
+            /* Save the result of transformation to the hashtable.  */
+            struct transformed_insns *pti = XNEW (struct transformed_insns);
+
+            pti->vinsn_old = expr_old_vinsn;
+            pti->vinsn_new = EXPR_VINSN (rhs);
+            pti->type = trans_type;
+            pti->was_target_conflict = was_target_conflict;
+            pti->ds = EXPR_SPEC_DONE_DS (rhs);
+            pti->needs_check = EXPR_NEEDS_SPEC_CHECK_P (rhs);
+            vinsn_attach (pti->vinsn_old);
+            vinsn_attach (pti->vinsn_new);
+            *((struct transformed_insns **) 
+              htab_find_slot_with_hash (INSN_TRANSFORMED_INSNS (insn),
+                                        pti, VINSN_HASH_RTX (expr_old_vinsn),
+                                        INSERT)) = pti;
+          }
+          
           rhs = merge_with_other_exprs (avp, &i, rhs);
 
           print (" result: ");
           dump_rhs (rhs);
 	  break;
+
 	case MOVEUP_RHS_SAME:
           /* Cache that there is a no dependence.  */
           bitmap_set_bit (INSN_ANALYZED_DEPS (insn), rhs_uid);
@@ -1935,6 +2003,7 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 
 	  print (" - unchanged");
 	  break;
+
         case MOVEUP_RHS_AS_RHS:
           /* Only an LHS dependence was found.  Cache that there is 
              no dependence, but the target register is not available.  */
@@ -1944,6 +2013,7 @@ moveup_set_rhs (av_set_t *avp, insn_t insn, bool inside_insn_group)
 
 	  print (" - unchanged (as RHS)");
 	  break;
+
 	default:
 	  gcc_unreachable ();
 	}

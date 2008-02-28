@@ -1,4 +1,33 @@
 2008-02-28  Andrey Belevantsev  <abel@ispras.ru>
+	
+	* sel-sched-dump.c (dump_expr_1): Print correct value of 
+	EXPR_TARGET_AVAILABLE.
+	* sel-sched-ir.h (struct vinsn_def): New field hash_rtx.
+	(VINSN_HASH_RTX): New accessor.
+	(struct transformed_insns): New.
+	(struct _sel_insn_data): New field transformed_insns.
+	(INSN_TRANSFORMED_INSNS): New accessor.
+	* sel-sched-ir.c (vinsn_init): Initialize VINSN_HASH_RTX.
+	(vinsn_delete): Kill outdated comment.
+	(speculate_expr): Return 2 when we think that the target
+	register is unavailable for speculation.
+	(hash_transformed_insns, eq_transformed_insns,
+	free_transformed_insns): New.
+	(init_first_time_insn_data): Init INSN_TRANSFORMED_INSNS.
+	(free_first_time_insn_data): Free INSN_TRANSFORMED_INSNS.
+	(finish_insns): Likewise.
+	(finish_global_and_expr_insn): Do not assert that the vinsn
+	is connected only to one insn.
+	* sel-sched.c (undo_transformations): Also undo when only
+	a dependence status has changed, not insn's pattern.
+	Update comment.
+	(was_target_conflict): New static variable.
+	(moveup_rhs): Set it when a target conflict is encountered.
+	(moveup_set_rhs): When an expression is changed, record this
+	in INSN_TRANSFORMED_INSNS.  Lookup this hashtable before calling
+	moveup_rhs.  Use was_target_conflict when recording.
+
+2008-02-28  Andrey Belevantsev  <abel@ispras.ru>
 
 	* sel-sched.c (sel_region_init): Move the removing empty blocks loop 
         to a proper place.  Fix the call to sel_remove_empty_bb.
