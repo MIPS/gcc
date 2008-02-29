@@ -1,3 +1,8 @@
+2008-02-29  Tom Tromey  <tromey@redhat.com>
+
+	* diagnostic.c (diagnostic_action_after_output) <DK_ICE>: Print
+	stack trace.
+
 2008-02-27  Tom Tromey  <tromey@redhat.com>
 
 	* Makefile.in (c-format.o): Depend on gt-c-format.h.

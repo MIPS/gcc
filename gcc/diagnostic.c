@@ -1,5 +1,5 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler Collection
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
@@ -238,6 +238,12 @@ diagnostic_action_after_output (diagnostic_context *context,
       break;
 
     case DK_ICE:
+      {
+	char cmdline[50];
+	sprintf (cmdline, "pstack %d\n", (int) getpid ());
+	system (cmdline);
+      }
+
       if (context->abort_on_error)
 	real_abort ();
 
