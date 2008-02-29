@@ -1,5 +1,9 @@
 2008-02-29  Tom Tromey  <tromey@redhat.com>
 
+	* cgraphunit.c (cgraph_unit_reset): Use NULL, not NULL_TREE.
+
+2008-02-29  Tom Tromey  <tromey@redhat.com>
+
 	* diagnostic.c (diagnostic_action_after_output) <DK_ICE>: Print
 	stack trace.
 

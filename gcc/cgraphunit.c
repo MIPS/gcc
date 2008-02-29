@@ -175,8 +175,8 @@ static int counter = 0;
 void
 cgraph_unit_reset (void)
 {
-  static_ctors = NULL_TREE;
-  static_dtors = NULL_TREE;
+  static_ctors = NULL;
+  static_dtors = NULL;
   first_analyzed = NULL;
   first_analyzed_var = NULL;
   counter = 0;
