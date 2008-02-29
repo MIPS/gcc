@@ -1,3 +1,8 @@
+2008-02-28  Tom Tromey  <tromey@redhat.com>
+
+	* tree1.c (treelang_init): Fix merge error.
+	(treelang_parse_file): Likewise.
+
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
 	* treetree.c (tree_code_create_function_wrapup): Don't call

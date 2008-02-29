@@ -1,3 +1,7 @@
+2008-02-28  Tom Tromey  <tromey@redhat.com>
+
+	* scanner.c (load_file): Fix merge error.
+
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
 	* trans-decl.c (gfc_gimplify_function): Remove.

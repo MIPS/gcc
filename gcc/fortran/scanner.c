@@ -1675,11 +1675,7 @@ load_file (const char *filename, bool initial)
     add_file_change (NULL, current_file->inclusion_line + 1);
   current_file = current_file->up;
 #ifdef USE_MAPPED_LOCATION
-<<<<<<< .working
-  linemap_add (&line_table, LC_LEAVE, 0, 0, NULL, 0);
-=======
-  linemap_add (line_table, LC_LEAVE, 0, NULL, 0);
->>>>>>> .merge-right.r132665
+  linemap_add (line_table, LC_LEAVE, 0, 0, NULL, 0);
 #endif
   return SUCCESS;
 }

@@ -166,13 +166,8 @@ treelang_init (void)
     }
 
 #ifdef USE_MAPPED_LOCATION
-<<<<<<< .working
-  linemap_add (&line_table, LC_RENAME, false, false, "<built-in>", 1);
-  linemap_line_start (&line_table, 0, 1);
-=======
-  linemap_add (line_table, LC_RENAME, false, "<built-in>", 1);
+  linemap_add (line_table, LC_RENAME, false, false, "<built-in>", 1);
   linemap_line_start (line_table, 0, 1);
->>>>>>> .merge-right.r132665
 #endif
 
   /* Init decls, etc.  */
@@ -196,13 +191,8 @@ treelang_parse_file (int debug_flag ATTRIBUTE_UNUSED)
 {
 #ifdef USE_MAPPED_LOCATION
   source_location s;
-<<<<<<< .working
-  linemap_add (&line_table, LC_RENAME, false, false, main_input_filename, 1);
-  s = linemap_line_start (&line_table, 1, 80);
-=======
-  linemap_add (line_table, LC_RENAME, false, main_input_filename, 1);
+  linemap_add (line_table, LC_RENAME, false, false, main_input_filename, 1);
   s = linemap_line_start (line_table, 1, 80);
->>>>>>> .merge-right.r132665
   input_location = s;
 #else
   input_line = 1;
@@ -211,11 +201,7 @@ treelang_parse_file (int debug_flag ATTRIBUTE_UNUSED)
   treelang_debug ();
   yyparse ();
 #ifdef USE_MAPPED_LOCATION
-<<<<<<< .working
-  linemap_add (&line_table, LC_LEAVE, false, false, NULL, 0);
-=======
-  linemap_add (line_table, LC_LEAVE, false, NULL, 0);
->>>>>>> .merge-right.r132665
+  linemap_add (line_table, LC_LEAVE, false, false, NULL, 0);
 #endif
 }
 
