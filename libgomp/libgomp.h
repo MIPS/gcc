@@ -1,4 +1,4 @@
-/* Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -146,6 +146,9 @@ struct gomp_team_state
   /* Nesting level.  */
   unsigned level;
 
+  /* Active nesting level.  Only active parallel regions are counted.  */
+  unsigned active_level;
+
   /* The work share "generation" is a number that increases by one for
      each work share construct encountered in the dynamic flow of the
      program.  It is used to find the control data for the work share
@@ -221,6 +224,10 @@ struct gomp_task_icv
 
 extern struct gomp_task_icv gomp_global_icv;
 extern unsigned long gomp_thread_limit_var;
+extern unsigned long gomp_remaining_threads_count;
+#ifndef HAVE_SYNC_BUILTINS
+extern gomp_mutex_t gomp_remaining_threads_lock;
+#endif
 extern unsigned long gomp_max_active_levels_var;
 extern bool gomp_active_wait_policy;
 
@@ -335,7 +342,7 @@ extern void gomp_ordered_sync (void);
 
 /* parallel.c */
 
-extern unsigned gomp_resolve_num_threads (unsigned);
+extern unsigned gomp_resolve_num_threads (unsigned, unsigned);
 
 /* proc.c (in config/) */
 

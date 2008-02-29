@@ -1,4 +1,4 @@
-/* Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -119,6 +119,7 @@ gomp_thread_start (void *xdata)
 	  thr->ts.work_share = NULL;
 	  thr->ts.team_id = 0;
 	  thr->ts.level = 0;
+	  thr->ts.active_level = 0;
 	  thr->ts.work_share_generation = 0;
 	  thr->ts.static_trip = 0;
 
@@ -207,6 +208,8 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   thr->ts.work_share = work_share;
   thr->ts.team_id = 0;
   ++thr->ts.level;
+  if (nthreads > 1)
+    ++thr->ts.active_level;
   thr->ts.work_share_generation = 0;
   thr->ts.static_trip = 0;
   thr->task = gomp_new_task (task, icv);
@@ -254,6 +257,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	  nthr->ts.work_share = work_share;
 	  nthr->ts.team_id = i;
 	  nthr->ts.level = team->prev_ts.level + 1;
+	  nthr->ts.active_level = thr->ts.active_level;
 	  nthr->ts.work_share_generation = 0;
 	  nthr->ts.static_trip = 0;
 	  nthr->task = gomp_new_task (task, icv);
@@ -304,6 +308,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       start_data->ts.work_share = work_share;
       start_data->ts.team_id = i;
       start_data->ts.level = team->prev_ts.level + 1;
+      start_data->ts.active_level = thr->ts.active_level;
       start_data->ts.work_share_generation = 0;
       start_data->ts.static_trip = 0;
       start_data->task = gomp_new_task (task, icv);

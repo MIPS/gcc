@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -379,7 +379,7 @@ gomp_parallel_loop_start (void (*fn) (void *), void *data,
 {
   struct gomp_work_share *ws;
 
-  num_threads = gomp_resolve_num_threads (num_threads);
+  num_threads = gomp_resolve_num_threads (num_threads, 0);
   ws = gomp_new_work_share (false, num_threads);
   gomp_loop_init (ws, start, end, incr, sched, chunk_size);
   gomp_team_start (fn, data, num_threads, ws);

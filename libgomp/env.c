@@ -1,4 +1,4 @@
-/* Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -49,7 +49,11 @@ unsigned short *gomp_cpu_affinity;
 bool gomp_active_wait_policy = false;
 size_t gomp_cpu_affinity_len;
 unsigned long gomp_max_active_levels_var = INT_MAX;
-unsigned long gomp_thread_limit_var = INT_MAX;
+unsigned long gomp_thread_limit_var = ULONG_MAX;
+unsigned long gomp_remaining_threads_count;
+#ifndef HAVE_SYNC_BUILTINS
+gomp_mutex_t gomp_remaining_threads_lock;
+#endif
 
 /* Parse the OMP_SCHEDULE environment variable.  */
 
@@ -125,7 +129,7 @@ parse_schedule (void)
   return;
 }
 
-/* Parse an unsigned long environment varible.  Return true if one was
+/* Parse an unsigned long environment variable.  Return true if one was
    present and it was successfully parsed.  */
 
 static bool
@@ -391,6 +395,13 @@ initialize_env (void)
   parse_wait_policy ();
   parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var);
   parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var);
+  if (gomp_thread_limit_var != ULONG_MAX)
+    {
+      gomp_remaining_threads_count = gomp_thread_limit_var - 1;
+#ifndef HAVE_SYNC_BUILTINS
+      gomp_mutex_init (&gomp_remaining_threads_lock);
+#endif
+    }
   if (!parse_unsigned_long ("OMP_NUM_THREADS", &gomp_global_icv.nthreads_var))
     gomp_init_num_threads ();
   if (parse_affinity ())
@@ -503,7 +514,7 @@ omp_get_max_threads (void)
 int
 omp_get_thread_limit (void)
 {
-  return gomp_thread_limit_var;
+  return gomp_thread_limit_var > INT_MAX ? INT_MAX : gomp_thread_limit_var;
 }
 
 void

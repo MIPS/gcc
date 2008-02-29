@@ -1,4 +1,4 @@
-/* Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -28,6 +28,7 @@
 /* This file handles the (bare) PARALLEL construct.  */
 
 #include "libgomp.h"
+#include <limits.h>
 
 
 /* Determine the number of threads to be launched for a PARALLEL construct.
@@ -37,20 +38,20 @@
    is not present, SPECIFIED is 0.  */
 
 unsigned
-gomp_resolve_num_threads (unsigned specified)
+gomp_resolve_num_threads (unsigned specified, unsigned count)
 {
   struct gomp_thread *thread = gomp_thread();
   struct gomp_task_icv *icv;
-  unsigned threads_requested, max_num_threads;
-  unsigned threads_busy, max_threads_remaining;
-  
-  icv = gomp_icv();
+  unsigned threads_requested, max_num_threads, num_threads;
+  unsigned long remaining;
+
+  icv = gomp_icv ();
 
   if (specified == 1)
     return 1;
-  else if (thread->ts.level >= 1 && !icv->nest_var)
+  else if (thread->ts.active_level >= 1 && !icv->nest_var)
     return 1;
-  else if (thread->ts.level >= gomp_max_active_levels_var)
+  else if (thread->ts.active_level >= gomp_max_active_levels_var)
     return 1;
 
   /* If NUM_THREADS not specified, use nthreads_var.  */
@@ -59,15 +60,7 @@ gomp_resolve_num_threads (unsigned specified)
   else
     threads_requested = specified;
 
-  /* ??? FIXME: We probably need a global variable that contains this
-     value; walking the entire team tree doesn't sound like a Good Idea.  */
-  threads_busy = 1;
-
-  max_threads_remaining = gomp_thread_limit_var - threads_busy + 1;
-  if (threads_requested <= max_threads_remaining)
-    max_num_threads = threads_requested;
-  else
-    max_num_threads = max_threads_remaining;
+  max_num_threads = threads_requested;
 
   /* If dynamic threads are enabled, bound the number of threads
      that we launch.  */
@@ -75,22 +68,65 @@ gomp_resolve_num_threads (unsigned specified)
     {
       unsigned dyn = gomp_dynamic_max_threads ();
       if (dyn < max_num_threads)
-	return dyn;
+	max_num_threads = dyn;
+
+      /* Optimization for parallel sections.  */
+      if (count && count < max_num_threads)
+	max_num_threads = count;
     }
 
-  return max_num_threads;
+  /* ULONG_MAX stands for infinity.  */
+  if (gomp_thread_limit_var == ULONG_MAX || max_num_threads == 1)
+    return max_num_threads;
+
+#ifdef HAVE_SYNC_BUILTINS
+  do
+    {
+      remaining = gomp_remaining_threads_count;
+      num_threads = max_num_threads;
+      if (num_threads > remaining)
+	num_threads = remaining + 1;
+    }
+  while (__sync_val_compare_and_swap (&gomp_remaining_threads_count,
+				      remaining, remaining - num_threads + 1)
+	 != remaining);
+#else
+  gomp_mutex_lock (&gomp_remaining_threads_lock);
+  num_threads = max_num_threads;
+  if (num_threads > gomp_remaining_threads_count)
+    num_threads = gomp_remaining_threads_count + 1;
+  gomp_remaining_threads_count -= num_threads - 1;
+  gomp_mutex_unlock (&gomp_remaining_threads_unlock);
+#endif
+
+  return num_threads;
 }
 
 void
 GOMP_parallel_start (void (*fn) (void *), void *data, unsigned num_threads)
 {
-  num_threads = gomp_resolve_num_threads (num_threads);
+  num_threads = gomp_resolve_num_threads (num_threads, 0);
   gomp_team_start (fn, data, num_threads, NULL);
 }
 
 void
 GOMP_parallel_end (void)
 {
+  if (gomp_thread_limit_var != ULONG_MAX)
+    {
+      struct gomp_thread *thr = gomp_thread ();
+      struct gomp_team *team = thr->ts.team;
+      if (team && team->nthreads > 1)
+	{
+#ifdef HAVE_SYNC_BUILTINS
+	  __sync_fetch_and_add (&gomp_remaining_threads_count,
+				1UL - team->nthreads);
+#else
+	  gomp_mutex_lock (&gomp_remaining_threads_lock);
+	  gomp_remaining_threads_count -= team->nthreads - 1;
+#endif
+	}
+    }
   gomp_team_end ();
 }
 
@@ -117,16 +153,7 @@ omp_get_thread_num (void)
 int
 omp_in_parallel (void)
 {
-  struct gomp_team *team = gomp_thread ()->ts.team;
-
-  while (team)
-    {
-      if (team->nthreads > 1)
-	return true;
-      team = team->prev_ts.team;
-    }
-
-  return false;
+  return gomp_thread ()->ts.active_level > 0;
 }
 
 int
@@ -163,17 +190,7 @@ omp_get_team_size (int level)
 int
 omp_get_active_level (void)
 {
-  struct gomp_team *team = gomp_thread ()->ts.team;
-  int active = 0;
-
-  while (team)
-    {
-      if (team->nthreads > 1)
-	++active;
-      team = team->prev_ts.team;
-    }
-
-  return active;
+  return gomp_thread ()->ts.active_level;
 }
 
 ialias (omp_get_num_threads)

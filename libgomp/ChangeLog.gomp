@@ -1,3 +1,34 @@
+2008-02-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* team.c (gomp_thread_start): Initialize ts.active_level.
+	* sections.c (GOMP_parallel_sections_start): Pass count
+	as second argument to gomp_resolve_num_threads, don't adjust
+	num_threads after the call.
+	* env.c (gomp_thread_limit_var): Initialize to ULONG_MAX.
+	(gomp_remaining_threads_count, gomp_remaining_threads_lock): New
+	variables.
+	(initialize_env): Initialize gomp_remaining_threads_count and
+	gomp_remaining_threads_lock if needed.
+	(omp_get_thread_limit): Return INT_MAX if gomp_thread_limit_var
+	is larger than INT_MAX.
+	* libgomp.h (struct gomp_team_state): Add active_level field.
+	(gomp_remaining_threads_count, gomp_remaining_threads_lock): New
+	decls.
+	* loop.c (gomp_parallel_loop_start): Pass 0 as second argument
+	to gomp_resolve_num_threads.
+	* parallel.c: Include limits.h.
+	(gomp_resolve_num_threads): Add count argument.  Use current thread's
+	active_level rather than level when checking nest-var or
+	max-active-levels-var.  Implement OMP_THREAD_LIMIT limitation of
+	total number of OpenMP threads.  If second argument is non-zero,
+	don't return more than that number if dyn-var is true.
+	(GOMP_parallel_start): Pass 0 as second argument to
+	gomp_resolve_num_threads.
+	(GOMP_parallel_end): Decrease gomp_remaining_threads_count
+	if gomp_thread_limit_var != ULONG_MAX.
+	(omp_in_parallel, omp_get_active_level): Implement using
+	ts.active_level.
+
 2008-02-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/allocatable1.f90: New test.
