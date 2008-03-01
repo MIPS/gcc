@@ -1,3 +1,7 @@
+2008-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* haifa-sched.c (move_insn): Revert previous change.
+
 2008-02-27  Alexandre Oliva  <aoliva@redhat.com>
 
 	* tree-into-ssa.c (struct check_debug_predicate): Add stmt.
