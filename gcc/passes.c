@@ -642,13 +642,17 @@ init_optimization_passes (void)
       NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_pre);
       NEXT_PASS (pass_sink_code);
+#endif
       NEXT_PASS (pass_tree_loop);
 	{
 	  struct tree_opt_pass **p = &pass_tree_loop.sub;
 	  NEXT_PASS (pass_tree_loop_init);
+#if 0
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_dce_loop);
+#endif
 	  NEXT_PASS (pass_lim);
+#if 0
 	  NEXT_PASS (pass_predcom);
 	  NEXT_PASS (pass_tree_unswitch);
 	  NEXT_PASS (pass_scev_cprop);
@@ -668,8 +672,10 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_parallelize_loops);
 	  NEXT_PASS (pass_loop_prefetch);
 	  NEXT_PASS (pass_iv_optimize);
+#endif
 	  NEXT_PASS (pass_tree_loop_done);
 	}
+#if 0
       NEXT_PASS (pass_cse_reciprocals);
       NEXT_PASS (pass_convert_to_rsqrt);
       NEXT_PASS (pass_reassoc);

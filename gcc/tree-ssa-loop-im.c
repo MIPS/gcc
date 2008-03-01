@@ -38,9 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "real.h"
 #include "hashtab.h"
+#include "pointer-set.h"
 
-/* FIXME tuples.  */
-#if 0
 /* TODO:  Support for predicated code motion.  I.e.
 
    while (1)
@@ -68,7 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 
 struct depend
 {
-  tree stmt;
+  gimple stmt;
   struct depend *next;
 };
 
@@ -101,16 +100,16 @@ struct lim_aux_data
 				   MAX_LOOP loop.  */
 };
 
-#define LIM_DATA(STMT) (TREE_CODE (STMT) == PHI_NODE \
-			? NULL \
-			: (struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
+/* Maps statements to their lim_aux_data.  */
+
+static struct pointer_map_t *lim_aux_data_map;
 
 /* Description of a memory reference location for store motion.  */
 
 struct mem_ref_loc
 {
   tree *ref;			/* The reference itself.  */
-  tree stmt;			/* The statement in that it occurs.  */
+  gimple stmt;			/* The statement in that it occurs.  */
   struct mem_ref_loc *next;	/* Next use in the chain.  */
 };
 
@@ -140,6 +139,51 @@ struct mem_ref
 /* The outermost loop for that execution of the header guarantees that the
    block will be executed.  */
 #define ALWAYS_EXECUTED_IN(BB) ((struct loop *) (BB)->aux)
+
+static struct lim_aux_data *
+init_lim_data (gimple stmt)
+{
+  void **p = pointer_map_insert (lim_aux_data_map, stmt);
+
+  *p = XCNEW (struct lim_aux_data);
+  return *p;
+}
+
+static struct lim_aux_data *
+get_lim_data (gimple stmt)
+{
+  void **p = pointer_map_contains (lim_aux_data_map, stmt);
+  if (!p)
+    return NULL;
+
+  return *p;
+}
+
+/* Releases the memory occupied by DATA.  */
+
+static void
+free_lim_aux_data (struct lim_aux_data *data)
+{
+  struct depend *dep, *next;
+
+  for (dep = data->depends; dep; dep = next)
+    {
+      next = dep->next;
+      free (dep);
+    }
+  free (data);
+}
+
+static void
+clear_lim_data (gimple stmt)
+{
+  void **p = pointer_map_contains (lim_aux_data_map, stmt);
+  if (!p)
+    return;
+
+  free_lim_aux_data (*p);
+  *p = NULL;
+}
 
 /* Calls CBCK for each index in memory reference ADDR_P.  There are two
    kinds situations handled; in each of these cases, the memory reference
@@ -235,43 +279,26 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
    Otherwise return MOVE_IMPOSSIBLE.  */
 
 enum move_pos
-movement_possibility (tree stmt)
+movement_possibility (gimple stmt)
 {
-  tree lhs, rhs;
+  tree lhs;
+  enum move_pos ret = MOVE_POSSIBLE;
 
   if (flag_unswitch_loops
-      && TREE_CODE (stmt) == COND_EXPR)
+      && gimple_code (stmt) == GIMPLE_COND)
     {
       /* If we perform unswitching, force the operands of the invariant
 	 condition to be moved out of the loop.  */
       return MOVE_POSSIBLE;
     }
 
-  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+  if (stmt_ends_bb_p (stmt)
+      || gimple_has_volatile_ops (stmt)
+      || gimple_has_side_effects (stmt)
+      || stmt_could_throw_p (stmt))
     return MOVE_IMPOSSIBLE;
 
-  if (stmt_ends_bb_p (stmt))
-    return MOVE_IMPOSSIBLE;
-
-  if (stmt_ann (stmt)->has_volatile_ops)
-    return MOVE_IMPOSSIBLE;
-
-  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-  if (TREE_CODE (lhs) == SSA_NAME
-      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
-    return MOVE_IMPOSSIBLE;
-
-  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-
-  if (TREE_SIDE_EFFECTS (rhs)
-      || tree_could_throw_p (rhs))
-    return MOVE_IMPOSSIBLE;
-
-  if (TREE_CODE (lhs) != SSA_NAME
-      || tree_could_trap_p (rhs))
-    return MOVE_PRESERVE_EXECUTION;
-
-  if (get_call_expr_in (stmt))
+  if (gimple_code (stmt) == GIMPLE_CALL)
     {
       /* While pure or const call is guaranteed to have no side effects, we
 	 cannot move it arbitrarily.  Consider code like
@@ -291,9 +318,23 @@ movement_possibility (tree stmt)
 	 invalid arguments, moving out a function call that is not executed
 	 may cause performance regressions in case the call is costly and
 	 not executed at all.  */
-      return MOVE_PRESERVE_EXECUTION;
+      ret = MOVE_PRESERVE_EXECUTION;
+      lhs = gimple_call_lhs (stmt);
     }
-  return MOVE_POSSIBLE;
+  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
+    lhs = gimple_assign_lhs (stmt);
+  else
+    return MOVE_IMPOSSIBLE;
+
+  if (TREE_CODE (lhs) == SSA_NAME
+      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
+    return MOVE_IMPOSSIBLE;
+
+  if (TREE_CODE (lhs) != SSA_NAME
+      || gimple_could_trap_p (stmt))
+    return MOVE_PRESERVE_EXECUTION;
+
+  return ret;
 }
 
 /* Suppose that operand DEF is used inside the LOOP.  Returns the outermost
@@ -304,12 +345,19 @@ movement_possibility (tree stmt)
 static struct loop *
 outermost_invariant_loop (tree def, struct loop *loop)
 {
-  tree def_stmt;
+  gimple def_stmt;
   basic_block def_bb;
   struct loop *max_loop;
+  struct lim_aux_data *lim_data;
+
+  if (!def)
+    return superloop_at_depth (loop, 1);
 
   if (TREE_CODE (def) != SSA_NAME)
-    return superloop_at_depth (loop, 1);
+    {
+      gcc_assert (is_gimple_min_invariant (def));
+      return superloop_at_depth (loop, 1);
+    }
 
   def_stmt = SSA_NAME_DEF_STMT (def);
   def_bb = gimple_bb (def_stmt);
@@ -318,48 +366,13 @@ outermost_invariant_loop (tree def, struct loop *loop)
 
   max_loop = find_common_loop (loop, def_bb->loop_father);
 
-  if (LIM_DATA (def_stmt) && LIM_DATA (def_stmt)->max_loop)
+  lim_data = get_lim_data (def_stmt);
+  if (lim_data != NULL && lim_data->max_loop != NULL)
     max_loop = find_common_loop (max_loop,
-				 loop_outer (LIM_DATA (def_stmt)->max_loop));
+				 loop_outer (lim_data->max_loop));
   if (max_loop == loop)
     return NULL;
   max_loop = superloop_at_depth (loop, loop_depth (max_loop) + 1);
-
-  return max_loop;
-}
-
-/* Returns the outermost superloop of LOOP in that the expression EXPR is
-   invariant.  */
-
-static struct loop *
-outermost_invariant_loop_expr (tree expr, struct loop *loop)
-{
-  enum tree_code_class codeclass = TREE_CODE_CLASS (TREE_CODE (expr));
-  unsigned i, nops;
-  struct loop *max_loop = superloop_at_depth (loop, 1), *aloop;
-
-  if (TREE_CODE (expr) == SSA_NAME
-      || TREE_CODE (expr) == INTEGER_CST
-      || is_gimple_min_invariant (expr))
-    return outermost_invariant_loop (expr, loop);
-
-  if (codeclass != tcc_unary
-      && codeclass != tcc_binary
-      && codeclass != tcc_expression
-      && codeclass != tcc_vl_exp
-      && codeclass != tcc_comparison)
-    return NULL;
-
-  nops = TREE_OPERAND_LENGTH (expr);
-  for (i = 0; i < nops; i++)
-    {
-      aloop = outermost_invariant_loop_expr (TREE_OPERAND (expr, i), loop);
-      if (!aloop)
-	return NULL;
-
-      if (flow_loop_nested_p (max_loop, aloop))
-	max_loop = aloop;
-    }
 
   return max_loop;
 }
@@ -380,10 +393,11 @@ static bool
 add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
 		bool add_cost)
 {
-  tree def_stmt = SSA_NAME_DEF_STMT (def);
+  gimple def_stmt = SSA_NAME_DEF_STMT (def);
   basic_block def_bb = gimple_bb (def_stmt);
   struct loop *max_loop;
   struct depend *dep;
+  struct lim_aux_data *def_data;
 
   if (!def_bb)
     return true;
@@ -395,7 +409,8 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
   if (flow_loop_nested_p (data->max_loop, max_loop))
     data->max_loop = max_loop;
 
-  if (!LIM_DATA (def_stmt))
+  def_data = get_lim_data (def_stmt);
+  if (!def_data)
     return true;
 
   if (add_cost
@@ -404,7 +419,7 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
 	 on it, we will be able to avoid creating a new register for
 	 it (since it will be only used in these dependent invariants).  */
       && def_bb->loop_father == loop)
-    data->cost += LIM_DATA (def_stmt)->cost;
+    data->cost += def_data->cost;
 
   dep = XNEW (struct depend);
   dep->stmt = def_stmt;
@@ -419,36 +434,39 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
    values.  */
 
 static unsigned
-stmt_cost (tree stmt)
+stmt_cost (gimple stmt)
 {
-  tree rhs;
+  tree fndecl;
   unsigned cost = 1;
 
   /* Always try to create possibilities for unswitching.  */
-  if (TREE_CODE (stmt) == COND_EXPR)
+  if (gimple_code (stmt) == GIMPLE_COND)
     return LIM_EXPENSIVE;
-
-  rhs = GENERIC_TREE_OPERAND (stmt, 1);
 
   /* Hoisting memory references out should almost surely be a win.  */
   if (stmt_references_memory_p (stmt))
     cost += 20;
 
-  switch (TREE_CODE (rhs))
+  if (gimple_code (stmt) == GIMPLE_CALL)
     {
-    case CALL_EXPR:
       /* We should be hoisting calls if possible.  */
 
       /* Unless the call is a builtin_constant_p; this always folds to a
 	 constant, so moving it is useless.  */
-      rhs = get_callee_fndecl (rhs);
-      if (DECL_BUILT_IN_CLASS (rhs) == BUILT_IN_NORMAL
-	  && DECL_FUNCTION_CODE (rhs) == BUILT_IN_CONSTANT_P)
+      fndecl = gimple_call_fndecl (stmt);
+      if (fndecl
+	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	  && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CONSTANT_P)
 	return 0;
 
-      cost += 20;
-      break;
+      return cost + 20;
+    }
 
+  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+    return cost;
+
+  switch (gimple_assign_subcode (stmt))
+    {
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:
@@ -487,12 +505,12 @@ stmt_cost (tree stmt)
    is defined in, and true otherwise.  */
 
 static bool
-determine_max_movement (tree stmt, bool must_preserve_exec)
+determine_max_movement (gimple stmt, bool must_preserve_exec)
 {
   basic_block bb = gimple_bb (stmt);
   struct loop *loop = bb->loop_father;
   struct loop *level;
-  struct lim_aux_data *lim_data = LIM_DATA (stmt);
+  struct lim_aux_data *lim_data = get_lim_data (stmt);
   tree val;
   ssa_op_iter iter;
   
@@ -521,24 +539,25 @@ determine_max_movement (tree stmt, bool must_preserve_exec)
    operands) is hoisted at least out of the loop LEVEL.  */
 
 static void
-set_level (tree stmt, struct loop *orig_loop, struct loop *level)
+set_level (gimple stmt, struct loop *orig_loop, struct loop *level)
 {
   struct loop *stmt_loop = gimple_bb (stmt)->loop_father;
   struct depend *dep;
+  struct lim_aux_data *lim_data;
 
   stmt_loop = find_common_loop (orig_loop, stmt_loop);
-  if (LIM_DATA (stmt) && LIM_DATA (stmt)->tgt_loop)
+  lim_data = get_lim_data (stmt);
+  if (lim_data != NULL && lim_data->tgt_loop != NULL)
     stmt_loop = find_common_loop (stmt_loop,
-				  loop_outer (LIM_DATA (stmt)->tgt_loop));
+				  loop_outer (lim_data->tgt_loop));
   if (flow_loop_nested_p (stmt_loop, level))
     return;
 
-  gcc_assert (LIM_DATA (stmt));
-  gcc_assert (level == LIM_DATA (stmt)->max_loop
-	      || flow_loop_nested_p (LIM_DATA (stmt)->max_loop, level));
+  gcc_assert (level == lim_data->max_loop
+	      || flow_loop_nested_p (lim_data->max_loop, level));
 
-  LIM_DATA (stmt)->tgt_loop = level;
-  for (dep = LIM_DATA (stmt)->depends; dep; dep = dep->next)
+  lim_data->tgt_loop = level;
+  for (dep = lim_data->depends; dep; dep = dep->next)
     set_level (dep->stmt, orig_loop, level);
 }
 
@@ -547,69 +566,50 @@ set_level (tree stmt, struct loop *orig_loop, struct loop *level)
    information to set it more sanely.  */
 
 static void
-set_profitable_level (tree stmt)
+set_profitable_level (gimple stmt)
 {
-  set_level (stmt, gimple_bb (stmt)->loop_father, LIM_DATA (stmt)->max_loop);
+  set_level (stmt, gimple_bb (stmt)->loop_father, get_lim_data (stmt)->max_loop);
 }
 
-/* Returns true if STMT is not a pure call.  */
+/* Returns true if STMT is a call that has side effects.  */
 
 static bool
-nonpure_call_p (tree stmt)
+nonpure_call_p (gimple stmt)
 {
-  tree call = get_call_expr_in (stmt);
-
-  if (!call)
+  if (gimple_code (stmt) != GIMPLE_CALL)
     return false;
 
-  return TREE_SIDE_EFFECTS (call) != 0;
-}
-
-/* Releases the memory occupied by DATA.  */
-
-static void
-free_lim_aux_data (struct lim_aux_data *data)
-{
-  struct depend *dep, *next;
-
-  for (dep = data->depends; dep; dep = next)
-    {
-      next = dep->next;
-      free (dep);
-    }
-  free (data);
+  return gimple_has_side_effects (stmt);
 }
 
 /* Rewrite a/b to a*(1/b).  Return the invariant stmt to process.  */
 
-static tree
-rewrite_reciprocal (block_stmt_iterator *bsi)
+static gimple
+rewrite_reciprocal (gimple_stmt_iterator *bsi)
 {
-  tree stmt, lhs, rhs, stmt1, stmt2, var, name, tmp;
+  gimple stmt, stmt1, stmt2;
+  tree var, name, lhs, type;
 
-  stmt = bsi_stmt (*bsi);
-  lhs = GENERIC_TREE_OPERAND (stmt, 0);
-  rhs = GENERIC_TREE_OPERAND (stmt, 1);
+  stmt = gsi_stmt (*bsi);
+  lhs = gimple_assign_lhs (stmt);
+  type = TREE_TYPE (lhs);
 
-  /* stmt must be GIMPLE_MODIFY_STMT.  */
-  var = create_tmp_var (TREE_TYPE (rhs), "reciptmp");
+  var = create_tmp_var (type, "reciptmp");
   add_referenced_var (var);
 
-  tmp = build2 (RDIV_EXPR, TREE_TYPE (rhs),
-		build_real (TREE_TYPE (rhs), dconst1),
-		TREE_OPERAND (rhs, 1));
-  stmt1 = build_gimple_modify_stmt (var, tmp);
+  stmt1 = gimple_build_assign_with_ops (RDIV_EXPR,
+		var, build_real (type, dconst1), gimple_assign_rhs2 (stmt));
   name = make_ssa_name (var, stmt1);
-  GIMPLE_STMT_OPERAND (stmt1, 0) = name;
-  tmp = build2 (MULT_EXPR, TREE_TYPE (rhs),
-		name, TREE_OPERAND (rhs, 0));
-  stmt2 = build_gimple_modify_stmt (lhs, tmp);
+  gimple_assign_set_lhs (stmt1, name);
+
+  stmt2 = gimple_build_assign_with_ops (MULT_EXPR, lhs, name,
+					gimple_assign_rhs1 (stmt));
 
   /* Replace division stmt with reciprocal and multiply stmts.
      The multiply stmt is not invariant, so update iterator
      and avoid rescanning.  */
-  bsi_replace (bsi, stmt1, true);
-  bsi_insert_after (bsi, stmt2, BSI_NEW_STMT);
+  gsi_replace (bsi, stmt1, true);
+  gsi_insert_after (bsi, stmt2, GSI_NEW_STMT);
   SSA_NAME_DEF_STMT (lhs) = stmt2;
 
   /* Continue processing with invariant reciprocal statement.  */
@@ -619,78 +619,75 @@ rewrite_reciprocal (block_stmt_iterator *bsi)
 /* Check if the pattern at *BSI is a bittest of the form
    (A >> B) & 1 != 0 and in this case rewrite it to A & (1 << B) != 0.  */
 
-static tree
-rewrite_bittest (block_stmt_iterator *bsi)
+static gimple
+rewrite_bittest (gimple_stmt_iterator *bsi)
 {
-  tree stmt, lhs, rhs, var, name, use_stmt, stmt1, stmt2, t;
+  gimple stmt, use_stmt, stmt1, stmt2;
+  tree lhs, var, name, t, a, b;
   use_operand_p use;
 
-  stmt = bsi_stmt (*bsi);
-  lhs = GENERIC_TREE_OPERAND (stmt, 0);
-  rhs = GENERIC_TREE_OPERAND (stmt, 1);
+  stmt = gsi_stmt (*bsi);
+  lhs = gimple_assign_lhs (stmt);
 
   /* Verify that the single use of lhs is a comparison against zero.  */
   if (TREE_CODE (lhs) != SSA_NAME
       || !single_imm_use (lhs, &use, &use_stmt)
-      || TREE_CODE (use_stmt) != COND_EXPR)
+      || gimple_code (use_stmt) != GIMPLE_COND)
     return stmt;
-  t = COND_EXPR_COND (use_stmt);
-  if (TREE_OPERAND (t, 0) != lhs
-      || (TREE_CODE (t) != NE_EXPR
-	  && TREE_CODE (t) != EQ_EXPR)
-      || !integer_zerop (TREE_OPERAND (t, 1)))
+  if (gimple_cond_lhs (use_stmt) != lhs
+      || (gimple_cond_code (use_stmt) != NE_EXPR
+	  && gimple_cond_code (use_stmt) != EQ_EXPR)
+      || !integer_zerop (gimple_cond_rhs (use_stmt)))
     return stmt;
 
   /* Get at the operands of the shift.  The rhs is TMP1 & 1.  */
-  stmt1 = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-  if (TREE_CODE (stmt1) != GIMPLE_MODIFY_STMT)
+  stmt1 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
+  if (gimple_code (stmt1) != GIMPLE_ASSIGN)
     return stmt;
 
   /* There is a conversion in between possibly inserted by fold.  */
-  t = GIMPLE_STMT_OPERAND (stmt1, 1);
-  if (TREE_CODE (t) == NOP_EXPR
-      || TREE_CODE (t) == CONVERT_EXPR)
+  if (gimple_assign_subcode (stmt1) == NOP_EXPR
+      || gimple_assign_subcode (stmt1) == CONVERT_EXPR)
     {
-      t = TREE_OPERAND (t, 0);
+      t = gimple_assign_rhs1 (stmt1);
       if (TREE_CODE (t) != SSA_NAME
 	  || !has_single_use (t))
 	return stmt;
       stmt1 = SSA_NAME_DEF_STMT (t);
-      if (TREE_CODE (stmt1) != GIMPLE_MODIFY_STMT)
+      if (gimple_code (stmt1) != GIMPLE_ASSIGN)
 	return stmt;
-      t = GIMPLE_STMT_OPERAND (stmt1, 1);
     }
 
   /* Verify that B is loop invariant but A is not.  Verify that with
      all the stmt walking we are still in the same loop.  */
-  if (TREE_CODE (t) == RSHIFT_EXPR
-      && loop_containing_stmt (stmt1) == loop_containing_stmt (stmt)
-      && outermost_invariant_loop_expr (TREE_OPERAND (t, 1),
-                                        loop_containing_stmt (stmt1)) != NULL
-      && outermost_invariant_loop_expr (TREE_OPERAND (t, 0),
-                                        loop_containing_stmt (stmt1)) == NULL)
-    {
-      tree a = TREE_OPERAND (t, 0);
-      tree b = TREE_OPERAND (t, 1);
+  if (gimple_assign_subcode (stmt1) != RSHIFT_EXPR
+      || loop_containing_stmt (stmt1) != loop_containing_stmt (stmt))
+    return stmt;
 
+  a = gimple_assign_rhs1 (stmt1);
+  b = gimple_assign_rhs2 (stmt1);
+
+  if (outermost_invariant_loop (b, loop_containing_stmt (stmt1)) != NULL
+      && outermost_invariant_loop (a, loop_containing_stmt (stmt1)) == NULL)
+    {
       /* 1 << B */
       var = create_tmp_var (TREE_TYPE (a), "shifttmp");
       add_referenced_var (var);
       t = fold_build2 (LSHIFT_EXPR, TREE_TYPE (a),
 		       build_int_cst (TREE_TYPE (a), 1), b);
-      stmt1 = build_gimple_modify_stmt (var, t);
+      stmt1 = gimple_build_assign (var, t);
       name = make_ssa_name (var, stmt1);
-      GIMPLE_STMT_OPERAND (stmt1, 0) = name;
+      gimple_assign_set_lhs (stmt1, name);
 
       /* A & (1 << B) */
       t = fold_build2 (BIT_AND_EXPR, TREE_TYPE (a), a, name);
-      stmt2 = build_gimple_modify_stmt (var, t);
+      stmt2 = gimple_build_assign (var, t);
       name = make_ssa_name (var, stmt2);
-      GIMPLE_STMT_OPERAND (stmt2, 0) = name;
+      gimple_assign_set_lhs (stmt2, name);
       SET_USE (use, name);
 
-      bsi_insert_before (bsi, stmt1, BSI_SAME_STMT);
-      bsi_replace (bsi, stmt2, true);
+      gsi_insert_before (bsi, stmt1, GSI_SAME_STMT);
+      gsi_replace (bsi, stmt2, true);
 
       return stmt1;
     }
@@ -708,10 +705,11 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 			      basic_block bb)
 {
   enum move_pos pos;
-  block_stmt_iterator bsi;
-  tree stmt, rhs;
+  gimple_stmt_iterator bsi;
+  gimple stmt;
   bool maybe_never = ALWAYS_EXECUTED_IN (bb) == NULL;
   struct loop *outermost = ALWAYS_EXECUTED_IN (bb);
+  struct lim_aux_data *lim_data;
 
   if (!loop_outer (bb->loop_father))
     return;
@@ -720,9 +718,9 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
     fprintf (dump_file, "Basic block %d (loop %d -- depth %d):\n\n",
 	     bb->index, bb->loop_father->num, loop_depth (bb->loop_father));
 
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
     {
-      stmt = bsi_stmt (bsi);
+      stmt = gsi_stmt (bsi);
 
       pos = movement_possibility (stmt);
       if (pos == MOVE_IMPOSSIBLE)
@@ -735,54 +733,57 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  continue;
 	}
 
-      if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+      if (gimple_code (stmt) == GIMPLE_ASSIGN
+	  && (get_gimple_rhs_class (gimple_assign_subcode (stmt))
+	      == GIMPLE_BINARY_RHS))
 	{
-	  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+	  tree op0 = gimple_assign_rhs1 (stmt);
+	  tree op1 = gimple_assign_rhs2 (stmt);
+	  struct loop *ol1 = outermost_invariant_loop (op1,
+					loop_containing_stmt (stmt));
 
 	  /* If divisor is invariant, convert a/b to a*(1/b), allowing reciprocal
 	     to be hoisted out of loop, saving expensive divide.  */
 	  if (pos == MOVE_POSSIBLE
-	      && TREE_CODE (rhs) == RDIV_EXPR
+	      && gimple_assign_subcode (stmt) == RDIV_EXPR
 	      && flag_unsafe_math_optimizations
 	      && !flag_trapping_math
-	      && outermost_invariant_loop_expr (TREE_OPERAND (rhs, 1),
-						loop_containing_stmt (stmt)) != NULL
-	      && outermost_invariant_loop_expr (rhs,
-						loop_containing_stmt (stmt)) == NULL)
+	      && ol1 != NULL
+	      && outermost_invariant_loop (op0, ol1) == NULL)
 	    stmt = rewrite_reciprocal (&bsi);
 
 	  /* If the shift count is invariant, convert (A >> B) & 1 to
 	     A & (1 << B) allowing the bit mask to be hoisted out of the loop
 	     saving an expensive shift.  */
 	  if (pos == MOVE_POSSIBLE
-	      && TREE_CODE (rhs) == BIT_AND_EXPR
-	      && integer_onep (TREE_OPERAND (rhs, 1))
-	      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-	      && has_single_use (TREE_OPERAND (rhs, 0)))
+	      && gimple_assign_subcode (stmt) == BIT_AND_EXPR
+	      && integer_onep (op1)
+	      && TREE_CODE (op0) == SSA_NAME
+	      && has_single_use (op0))
 	    stmt = rewrite_bittest (&bsi);
 	}
 
-      stmt_ann (stmt)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
-      LIM_DATA (stmt)->always_executed_in = outermost;
+      lim_data = init_lim_data (stmt);
+      lim_data->always_executed_in = outermost;
 
       if (maybe_never && pos == MOVE_PRESERVE_EXECUTION)
 	continue;
 
       if (!determine_max_movement (stmt, pos == MOVE_PRESERVE_EXECUTION))
 	{
-	  LIM_DATA (stmt)->max_loop = NULL;
+	  lim_data->max_loop = NULL;
 	  continue;
 	}
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  print_generic_stmt_indented (dump_file, stmt, 0, 2);
+	  print_gimple_stmt (dump_file, stmt, 2, 0);
 	  fprintf (dump_file, "  invariant up to level %d, cost %d.\n\n",
-		   loop_depth (LIM_DATA (stmt)->max_loop),
-		   LIM_DATA (stmt)->cost);
+		   loop_depth (lim_data->max_loop),
+		   lim_data->cost);
 	}
 
-      if (LIM_DATA (stmt)->cost >= LIM_EXPENSIVE)
+      if (lim_data->cost >= LIM_EXPENSIVE)
 	set_profitable_level (stmt);
     }
 }
@@ -815,48 +816,49 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 			basic_block bb)
 {
   struct loop *level;
-  block_stmt_iterator bsi;
-  tree stmt;
+  gimple_stmt_iterator bsi;
+  gimple stmt;
   unsigned cost = 0;
+  struct lim_aux_data *lim_data;
 
   if (!loop_outer (bb->loop_father))
     return;
 
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); )
     {
-      stmt = bsi_stmt (bsi);
+      stmt = gsi_stmt (bsi);
 
-      if (!LIM_DATA (stmt))
+      lim_data = get_lim_data (stmt);
+      if (lim_data == NULL)
 	{
-	  bsi_next (&bsi);
+	  gsi_next (&bsi);
 	  continue;
 	}
 
-      cost = LIM_DATA (stmt)->cost;
-      level = LIM_DATA (stmt)->tgt_loop;
-      free_lim_aux_data (LIM_DATA (stmt));
-      stmt_ann (stmt)->common.aux = NULL;
+      cost = lim_data->cost;
+      level = lim_data->tgt_loop;
+      clear_lim_data (stmt);
 
       if (!level)
 	{
-	  bsi_next (&bsi);
+	  gsi_next (&bsi);
 	  continue;
 	}
 
       /* We do not really want to move conditionals out of the loop; we just
 	 placed it here to force its operands to be moved if necessary.  */
-      if (TREE_CODE (stmt) == COND_EXPR)
+      if (gimple_code (stmt) == GIMPLE_COND)
 	continue;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Moving statement\n");
-	  print_generic_stmt (dump_file, stmt, 0);
+	  print_gimple_stmt (dump_file, stmt, 0, 0);
 	  fprintf (dump_file, "(cost %u) out of loop %d.\n\n",
 		   cost, level->num);
 	}
-      bsi_insert_on_edge (loop_preheader_edge (level), stmt);
-      bsi_remove (&bsi, false);
+      gsi_remove (&bsi, false);
+      gsi_insert_on_edge (loop_preheader_edge (level), stmt);
     }
 }
 
@@ -876,7 +878,7 @@ move_computations (void)
   walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
   fini_walk_dominator_tree (&walk_data);
 
-  bsi_commit_edge_inserts ();
+  gsi_commit_edge_inserts ();
   if (need_ssa_update_p ())
     rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
 }
@@ -887,20 +889,20 @@ move_computations (void)
 static bool
 may_move_till (tree ref, tree *index, void *data)
 {
-  struct loop *loop = (struct loop*) data, *max_loop;
+  struct loop *loop = (struct loop *) data, *max_loop;
 
   /* If REF is an array reference, check also that the step and the lower
      bound is invariant in LOOP.  */
   if (TREE_CODE (ref) == ARRAY_REF)
     {
-      tree step = array_ref_element_size (ref);
-      tree lbound = array_ref_low_bound (ref);
+      tree step = TREE_OPERAND (ref, 3);
+      tree lbound = TREE_OPERAND (ref, 2);
 
-      max_loop = outermost_invariant_loop_expr (step, loop);
+      max_loop = outermost_invariant_loop (step, loop);
       if (!max_loop)
 	return false;
 
-      max_loop = outermost_invariant_loop_expr (lbound, loop);
+      max_loop = outermost_invariant_loop (lbound, loop);
       if (!max_loop)
 	return false;
     }
@@ -912,35 +914,25 @@ may_move_till (tree ref, tree *index, void *data)
   return true;
 }
 
-/* Forces statements defining (invariant) SSA names in expression EXPR to be
+/* If OP is SSA NAME, force the statement that defines it to be
    moved out of the LOOP.  ORIG_LOOP is the loop in that EXPR is used.  */
 
 static void
-force_move_till_expr (tree expr, struct loop *orig_loop, struct loop *loop)
+force_move_till_op (tree op, struct loop *orig_loop, struct loop *loop)
 {
-  enum tree_code_class codeclass = TREE_CODE_CLASS (TREE_CODE (expr));
-  unsigned i, nops;
+  gimple stmt;
 
-  if (TREE_CODE (expr) == SSA_NAME)
-    {
-      tree stmt = SSA_NAME_DEF_STMT (expr);
-      if (IS_EMPTY_STMT (stmt))
-	return;
-
-      set_level (stmt, orig_loop, loop);
-      return;
-    }
-
-  if (codeclass != tcc_unary
-      && codeclass != tcc_binary
-      && codeclass != tcc_expression
-      && codeclass != tcc_vl_exp
-      && codeclass != tcc_comparison)
+  if (!op
+      || is_gimple_min_invariant (op))
     return;
 
-  nops = TREE_OPERAND_LENGTH (expr);
-  for (i = 0; i < nops; i++)
-    force_move_till_expr (TREE_OPERAND (expr, i), orig_loop, loop);
+  gcc_assert (TREE_CODE (op) == SSA_NAME);
+      
+  stmt = SSA_NAME_DEF_STMT (op);
+  if (gimple_nop_p (stmt))
+    return;
+
+  set_level (stmt, orig_loop, loop);
 }
 
 /* Forces statement defining invariants in REF (and *INDEX) to be moved out of
@@ -956,26 +948,18 @@ struct fmt_data
 static bool
 force_move_till (tree ref, tree *index, void *data)
 {
-  tree stmt;
   struct fmt_data *fmt_data = (struct fmt_data *) data;
 
   if (TREE_CODE (ref) == ARRAY_REF)
     {
-      tree step = array_ref_element_size (ref);
-      tree lbound = array_ref_low_bound (ref);
+      tree step = TREE_OPERAND (ref, 3);
+      tree lbound = TREE_OPERAND (ref, 2);
 
-      force_move_till_expr (step, fmt_data->orig_loop, fmt_data->loop);
-      force_move_till_expr (lbound, fmt_data->orig_loop, fmt_data->loop);
+      force_move_till_op (step, fmt_data->orig_loop, fmt_data->loop);
+      force_move_till_op (lbound, fmt_data->orig_loop, fmt_data->loop);
     }
 
-  if (TREE_CODE (*index) != SSA_NAME)
-    return true;
-
-  stmt = SSA_NAME_DEF_STMT (*index);
-  if (IS_EMPTY_STMT (stmt))
-    return true;
-
-  set_level (stmt, fmt_data->orig_loop, fmt_data->loop);
+  force_move_till_op (*index, fmt_data->orig_loop, fmt_data->loop);
 
   return true;
 }
@@ -984,7 +968,7 @@ force_move_till (tree ref, tree *index, void *data)
    occurs in statement STMT.  */
 
 static void
-record_mem_ref_loc (struct mem_ref_loc **mem_refs, tree stmt, tree *ref)
+record_mem_ref_loc (struct mem_ref_loc **mem_refs, gimple stmt, tree *ref)
 {
   struct mem_ref_loc *aref = XNEW (struct mem_ref_loc);
 
@@ -1154,9 +1138,10 @@ schedule_sm (struct loop *loop, VEC (edge, heap) *exits, tree ref,
   struct mem_ref_loc *aref;
   tree tmp_var;
   unsigned i;
-  tree load, store;
+  gimple load, store;
   struct fmt_data fmt_data;
   edge ex;
+  struct lim_aux_data *lim_data;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1174,23 +1159,26 @@ schedule_sm (struct loop *loop, VEC (edge, heap) *exits, tree ref,
 
   rewrite_mem_refs (tmp_var, mem_refs);
   for (aref = mem_refs; aref; aref = aref->next)
-    if (LIM_DATA (aref->stmt))
-      LIM_DATA (aref->stmt)->sm_done = true;
+    {
+      lim_data = get_lim_data (aref->stmt);
+      if (lim_data != NULL)
+	lim_data->sm_done = true;
+    }
 
   /* Emit the load & stores.  */
-  load = build_gimple_modify_stmt (tmp_var, ref);
-  get_stmt_ann (load)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
-  LIM_DATA (load)->max_loop = loop;
-  LIM_DATA (load)->tgt_loop = loop;
+  load = gimple_build_assign (tmp_var, ref);
+  lim_data = init_lim_data (load);
+  lim_data->max_loop = loop;
+  lim_data->tgt_loop = loop;
 
   /* Put this into the latch, so that we are sure it will be processed after
      all dependencies.  */
-  bsi_insert_on_edge (loop_latch_edge (loop), load);
+  gsi_insert_on_edge (loop_latch_edge (loop), load);
 
   for (i = 0; VEC_iterate (edge, exits, i, ex); i++)
     {
-      store = build_gimple_modify_stmt (unshare_expr (ref), tmp_var);
-      bsi_insert_on_edge (ex, store);
+      store = gimple_build_assign (unshare_expr (ref), tmp_var);
+      gsi_insert_on_edge (ex, store);
     }
 }
 
@@ -1208,6 +1196,7 @@ determine_lsm_ref (struct loop *loop, VEC (edge, heap) *exits,
 {
   struct mem_ref_loc *aref;
   struct loop *must_exec;
+  struct lim_aux_data *lim_data;
 
   /* In case the memory is not stored to, there is nothing for SM to do.  */
   if (!ref->is_stored)
@@ -1233,10 +1222,11 @@ determine_lsm_ref (struct loop *loop, VEC (edge, heap) *exits,
 
       for (aref = ref->locs; aref; aref = aref->next)
 	{
-	  if (!LIM_DATA (aref->stmt))
+	  lim_data = get_lim_data (aref->stmt);
+	  if (lim_data == NULL)
 	    continue;
 
-	  must_exec = LIM_DATA (aref->stmt)->always_executed_in;
+	  must_exec = lim_data->always_executed_in;
 	  if (!must_exec)
 	    continue;
 
@@ -1310,7 +1300,7 @@ memref_eq (const void *obj1, const void *obj2)
 
 static void
 gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
-		      bitmap clobbered_vops, tree stmt,
+		      bitmap clobbered_vops, gimple stmt,
 		      struct mem_ref **mem_ref_list)
 {
   tree *lhs, *rhs, *mem = NULL;
@@ -1320,27 +1310,33 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
   ssa_op_iter oi;
   tree vname;
   bool is_stored;
+  enum tree_code rhs_code;
 
   if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return;
 
   /* Recognize MEM = (SSA_NAME | invariant) and SSA_NAME = MEM patterns.  */
-  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+  if (gimple_code (stmt) != GIMPLE_ASSIGN)
     goto fail;
 
-  lhs = &GIMPLE_STMT_OPERAND (stmt, 0);
-  rhs = &GIMPLE_STMT_OPERAND (stmt, 1);
+  lhs = gimple_assign_lhs_ptr (stmt);
+  rhs_code = gimple_assign_subcode (stmt);
+  if (get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS)
+    rhs = gimple_assign_rhs1_ptr (stmt);
+  else
+    rhs = NULL;
 
   if (TREE_CODE (*lhs) == SSA_NAME)
     {
-      if (!is_gimple_addressable (*rhs))
+      if (rhs == NULL || !is_gimple_addressable (*rhs))
 	goto fail;
 
       mem = rhs;
       is_stored = false;
     }
-  else if (TREE_CODE (*rhs) == SSA_NAME
-	   || is_gimple_min_invariant (*rhs))
+  else if (rhs
+	   && (TREE_CODE (*rhs) == SSA_NAME
+	       || is_gimple_min_invariant (*rhs)))
     {
       mem = lhs;
       is_stored = true;
@@ -1394,15 +1390,15 @@ static struct mem_ref *
 gather_mem_refs (struct loop *loop, bitmap clobbered_vops)
 {
   basic_block *body = get_loop_body (loop);
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
   unsigned i;
   struct mem_ref *mem_ref_list = NULL;
   htab_t mem_refs = htab_create (100, memref_hash, memref_eq, NULL);
 
   for (i = 0; i < loop->num_nodes; i++)
     {
-      for (bsi = bsi_start (body[i]); !bsi_end_p (bsi); bsi_next (&bsi))
-	gather_mem_refs_stmt (loop, mem_refs, clobbered_vops, bsi_stmt (bsi),
+      for (bsi = gsi_start_bb (body[i]); !gsi_end_p (bsi); gsi_next (&bsi))
+	gather_mem_refs_stmt (loop, mem_refs, clobbered_vops, gsi_stmt (bsi),
 			      &mem_ref_list);
     }
 
@@ -1510,7 +1506,7 @@ determine_lsm (void)
       determine_lsm_loop (loop);
     }
 
-  bsi_commit_edge_inserts ();
+  gsi_commit_edge_inserts ();
 }
 
 /* Fills ALWAYS_EXECUTED_IN information for basic blocks of LOOP, i.e.
@@ -1587,20 +1583,20 @@ static void
 tree_ssa_lim_initialize (void)
 {
   sbitmap contains_call = sbitmap_alloc (last_basic_block);
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
   struct loop *loop;
   basic_block bb;
 
   sbitmap_zero (contains_call);
   FOR_EACH_BB (bb)
     {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  if (nonpure_call_p (bsi_stmt (bsi)))
+	  if (nonpure_call_p (gsi_stmt (bsi)))
 	    break;
 	}
 
-      if (!bsi_end_p (bsi))
+      if (!gsi_end_p (bsi))
 	SET_BIT (contains_call, bb->index);
     }
 
@@ -1608,6 +1604,8 @@ tree_ssa_lim_initialize (void)
     fill_always_executed_in (loop, contains_call);
 
   sbitmap_free (contains_call);
+
+  lim_aux_data_map = pointer_map_create ();
 }
 
 /* Cleans up after the invariant motion pass.  */
@@ -1621,6 +1619,8 @@ tree_ssa_lim_finalize (void)
     {
       bb->aux = NULL;
     }
+
+  pointer_map_destroy (lim_aux_data_map);
 }
 
 /* Moves invariants from loops.  Only "expensive" invariants are moved out --
@@ -1645,4 +1645,3 @@ tree_ssa_lim (void)
 
   tree_ssa_lim_finalize ();
 }
-#endif

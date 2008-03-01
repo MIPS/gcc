@@ -2973,7 +2973,7 @@ is_escape_site (gimple stmt)
 {
   if (gimple_code (stmt) == GIMPLE_CALL)
     {
-      if (!(gimple_call_flags (stmt) & (ECF_PURE | ECF_CONST)))
+      if (gimple_call_flags (stmt) & (ECF_PURE | ECF_CONST))
 	return ESCAPE_TO_PURE_CONST;
 
       return ESCAPE_TO_CALL;

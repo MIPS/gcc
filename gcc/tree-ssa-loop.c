@@ -81,7 +81,10 @@ tree_ssa_loop_init (void)
   if (number_of_loops () <= 1)
     return 0;
 
+/* FIXME tuples.  */
+#if 0
   scev_initialize ();
+#endif
   return 0;
 }
   
@@ -580,8 +583,11 @@ struct tree_opt_pass pass_iv_optimize =
 static unsigned int
 tree_ssa_loop_done (void)
 {
+/* FIXME tuples.  */
+#if 0
   free_numbers_of_iterations_estimates ();
   scev_finalize ();
+#endif
   loop_optimizer_finalize ();
   return 0;
 }

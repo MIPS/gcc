@@ -34,6 +34,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "tree-flow.h"
 #include "value-prof.h"
+#include "flags.h"
 
 #define DEFGSCODE(SYM, NAME)	NAME,
 const char *const gimple_code_name[] = {
@@ -1768,6 +1769,50 @@ gimple_seq_has_side_effects (gimple_seq stmts)
       return true;
 
   return false;
+}
+
+/* Return true if statement S can trap.  */
+
+bool
+gimple_could_trap_p (gimple s)
+{
+  size_t i;
+  tree t, div = NULL_TREE;
+  enum tree_code op;
+
+  for (i = 0; i < gimple_num_ops (s); i++)
+    if (tree_could_trap_p (gimple_op (s, i)))
+      return true;
+
+  switch (gimple_code (s))
+    {
+    case GIMPLE_ASM:
+      return gimple_asm_volatile_p (s);
+
+    case GIMPLE_CALL:
+      t = gimple_call_fndecl (s);
+      /* Assume that calls to weak functions may trap.  */
+      if (!t || !DECL_P (t) || DECL_WEAK (t))
+	return true;
+      return false;
+
+    case GIMPLE_ASSIGN:
+      t = gimple_expr_type (s);
+      op = gimple_subcode (s);
+      if (get_gimple_rhs_class (op) == GIMPLE_BINARY_RHS)
+	div = gimple_assign_rhs2 (s);
+      if (operation_could_trap_p (op,
+				  FLOAT_TYPE_P (t),
+				  (INTEGRAL_TYPE_P (t)
+				   && TYPE_OVERFLOW_TRAPS (t)),
+				  div))
+	return true;
+      return false;
+
+    default:
+      return false;
+    }
+
 }
 
 #include "gt-gimple.h"

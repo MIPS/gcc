@@ -336,6 +336,17 @@ propagate_value (use_operand_p op_p, tree val)
   replace_exp_1 (op_p, val, true);
 }
 
+/* Replace *OP_P with value VAL (assumed to be a constant or another SSA_NAME).
+
+   Use this version when not const/copy propagating values.  For example,
+   PRE uses this version when building expressions as they would appear
+   in specific blocks taking into account actions of PHI nodes.  */
+
+void
+replace_exp (use_operand_p op_p, tree val)
+{
+  replace_exp_1 (op_p, val, false);
+}
 
 /* FIXME tuples.  */
 #if 0
@@ -364,19 +375,6 @@ propagate_tree_value (tree *op_p, tree val)
     }
   else
     *op_p = unsave_expr_now (val);
-}
-
-
-/* Replace *OP_P with value VAL (assumed to be a constant or another SSA_NAME).
-
-   Use this version when not const/copy propagating values.  For example,
-   PRE uses this version when building expressions as they would appear
-   in specific blocks taking into account actions of PHI nodes.  */
-
-void
-replace_exp (use_operand_p op_p, tree val)
-{
-  replace_exp_1 (op_p, val, false);
 }
 
 

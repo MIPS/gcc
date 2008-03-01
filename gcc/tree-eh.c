@@ -2011,6 +2011,95 @@ verify_eh_edges (tree stmt)
 #endif
 
 
+/* Return true if operation OP may trap.  FP_OPERATION is true if OP is applied
+   on floating-point values.  HONOR_TRAPV is true if OP is applied on integer
+   type operands that may trap.  If OP is a division operator, DIVISOR contains
+   the value of the divisor.  */
+
+bool
+operation_could_trap_p (enum tree_code op, bool fp_operation, bool honor_trapv,
+			tree divisor)
+{
+  bool honor_nans = (fp_operation && flag_trapping_math
+		     && !flag_finite_math_only);
+  bool honor_snans = fp_operation && flag_signaling_nans != 0;
+
+  if (TREE_CODE_CLASS (op) != tcc_comparison
+      || TREE_CODE_CLASS (op) != tcc_unary
+      || TREE_CODE_CLASS (op) != tcc_binary)
+    return false;
+
+  switch (op)
+    {
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case TRUNC_MOD_EXPR:
+    case RDIV_EXPR:
+      if (honor_snans || honor_trapv)
+	return true;
+      if (fp_operation)
+	return flag_trapping_math;
+      if (!TREE_CONSTANT (divisor) || integer_zerop (divisor))
+        return true;
+      return false;
+
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case LTGT_EXPR:
+      /* Some floating point comparisons may trap.  */
+      return honor_nans;
+
+    case EQ_EXPR:
+    case NE_EXPR:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+      return honor_snans;
+
+    case CONVERT_EXPR:
+    case FIX_TRUNC_EXPR:
+      /* Conversion of floating point might trap.  */
+      return honor_nans;
+
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+    case CONJ_EXPR:
+      /* These operations don't trap with floating point.  */
+      if (honor_trapv)
+	return true;
+      return false;
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+      /* Any floating arithmetic may trap.  */
+      if (fp_operation && flag_trapping_math)
+	return true;
+      if (honor_trapv)
+	return true;
+      return false;
+
+    default:
+      /* Any floating arithmetic may trap.  */
+      if (fp_operation && flag_trapping_math)
+	return true;
+
+      return false;
+    }
+}
+
 /* Return true if EXPR can trap, as in dereferencing an invalid pointer
    location or floating point arithmetic.  C.f. the rtl version, may_trap_p.
    This routine expects only GIMPLE lhs or rhs input.  */
@@ -2018,27 +2107,27 @@ verify_eh_edges (tree stmt)
 bool
 tree_could_trap_p (tree expr)
 {
-  enum tree_code code = TREE_CODE (expr);
-  bool honor_nans = false;
-  bool honor_snans = false;
+  enum tree_code code;
   bool fp_operation = false;
   bool honor_trapv = false;
-  tree t, base;
+  tree t, base, div = NULL_TREE;
 
-  if (TREE_CODE_CLASS (code) == tcc_comparison
-      || TREE_CODE_CLASS (code) == tcc_unary
-      || TREE_CODE_CLASS (code) == tcc_binary)
+  if (!expr)
+    return false;
+ 
+  code = TREE_CODE (expr);
+  t = TREE_TYPE (expr);
+
+  if (t)
     {
-      t = TREE_TYPE (expr);
       fp_operation = FLOAT_TYPE_P (t);
-      if (fp_operation)
-	{
-	  honor_nans = flag_trapping_math && !flag_finite_math_only;
-	  honor_snans = flag_signaling_nans != 0;
-	}
-      else if (INTEGRAL_TYPE_P (t) && TYPE_OVERFLOW_TRAPS (t))
-	honor_trapv = true;
+      honor_trapv = INTEGRAL_TYPE_P (t) && TYPE_OVERFLOW_TRAPS (t);
     }
+
+  if (TREE_CODE_CLASS (code) == tcc_binary)
+    div = TREE_OPERAND (expr, 1);
+  if (operation_could_trap_p (code, fp_operation, honor_trapv, div))
+    return true;
 
  restart:
   switch (code)
@@ -2088,66 +2177,6 @@ tree_could_trap_p (tree expr)
     case ASM_EXPR:
       return TREE_THIS_VOLATILE (expr);
 
-    case TRUNC_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
-    case EXACT_DIV_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
-    case TRUNC_MOD_EXPR:
-    case RDIV_EXPR:
-      if (honor_snans || honor_trapv)
-	return true;
-      if (fp_operation)
-	return flag_trapping_math;
-      t = TREE_OPERAND (expr, 1);
-      if (!TREE_CONSTANT (t) || integer_zerop (t))
-        return true;
-      return false;
-
-    case LT_EXPR:
-    case LE_EXPR:
-    case GT_EXPR:
-    case GE_EXPR:
-    case LTGT_EXPR:
-      /* Some floating point comparisons may trap.  */
-      return honor_nans;
-
-    case EQ_EXPR:
-    case NE_EXPR:
-    case UNORDERED_EXPR:
-    case ORDERED_EXPR:
-    case UNLT_EXPR:
-    case UNLE_EXPR:
-    case UNGT_EXPR:
-    case UNGE_EXPR:
-    case UNEQ_EXPR:
-      return honor_snans;
-
-    case CONVERT_EXPR:
-    case FIX_TRUNC_EXPR:
-      /* Conversion of floating point might trap.  */
-      return honor_nans;
-
-    case NEGATE_EXPR:
-    case ABS_EXPR:
-    case CONJ_EXPR:
-      /* These operations don't trap with floating point.  */
-      if (honor_trapv)
-	return true;
-      return false;
-
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case MULT_EXPR:
-      /* Any floating arithmetic may trap.  */
-      if (fp_operation && flag_trapping_math)
-	return true;
-      if (honor_trapv)
-	return true;
-      return false;
 
     case CALL_EXPR:
       t = get_callee_fndecl (expr);
@@ -2157,9 +2186,6 @@ tree_could_trap_p (tree expr)
       return false;
 
     default:
-      /* Any floating arithmetic may trap.  */
-      if (fp_operation && flag_trapping_math)
-	return true;
       return false;
     }
 }

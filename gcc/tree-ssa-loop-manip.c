@@ -128,13 +128,14 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   add_phi_arg (stmt, initial, loop_preheader_edge (loop));
   add_phi_arg (stmt, va, loop_latch_edge (loop));
 }
+#endif
 
 /* Add exit phis for the USE on EXIT.  */
 
 static void
 add_exit_phis_edge (basic_block exit, tree use)
 {
-  tree phi, def_stmt = SSA_NAME_DEF_STMT (use);
+  gimple phi, def_stmt = SSA_NAME_DEF_STMT (use);
   basic_block def_bb = gimple_bb (def_stmt);
   struct loop *def_loop;
   edge e;
@@ -153,7 +154,8 @@ add_exit_phis_edge (basic_block exit, tree use)
     return;
 
   phi = create_phi_node (use, exit);
-  create_new_def_for (PHI_RESULT (phi), phi, PHI_RESULT_PTR (phi));
+  create_new_def_for (gimple_phi_result (phi), phi,
+		      gimple_phi_result_ptr (phi));
   FOR_EACH_EDGE (e, ei, exit->preds)
     add_phi_arg (phi, use, e);
 }
@@ -267,7 +269,7 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks,
    NEED_PHIS.  */
 
 static void
-find_uses_to_rename_stmt (tree stmt, bitmap *use_blocks, bitmap need_phis)
+find_uses_to_rename_stmt (gimple stmt, bitmap *use_blocks, bitmap need_phis)
 {
   ssa_op_iter iter;
   tree var;
@@ -285,18 +287,19 @@ find_uses_to_rename_stmt (tree stmt, bitmap *use_blocks, bitmap need_phis)
 static void
 find_uses_to_rename_bb (basic_block bb, bitmap *use_blocks, bitmap need_phis)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
   edge e;
   edge_iterator ei;
-  tree phi;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
-      find_uses_to_rename_use (bb, PHI_ARG_DEF_FROM_EDGE (phi, e),
+    for (bsi = gsi_start (phi_nodes (e->dest)); 
+	 !gsi_end_p (bsi);
+	 gsi_next (&bsi))
+      find_uses_to_rename_use (bb, PHI_ARG_DEF_FROM_EDGE (gsi_stmt (bsi), e),
 			       use_blocks, need_phis);
  
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-    find_uses_to_rename_stmt (bsi_stmt (bsi), use_blocks, need_phis);
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+    find_uses_to_rename_stmt (gsi_stmt (bsi), use_blocks, need_phis);
 }
      
 /* Marks names that are used outside of the loop they are defined in
@@ -404,7 +407,7 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
 static void
 check_loop_closed_ssa_use (basic_block bb, tree use)
 {
-  tree def;
+  gimple def;
   basic_block def_bb;
   
   if (TREE_CODE (use) != SSA_NAME || !is_gimple_reg (use))
@@ -419,7 +422,7 @@ check_loop_closed_ssa_use (basic_block bb, tree use)
 /* Checks invariants of loop closed ssa form in statement STMT in BB.  */
 
 static void
-check_loop_closed_ssa_stmt (basic_block bb, tree stmt)
+check_loop_closed_ssa_stmt (basic_block bb, gimple stmt)
 {
   ssa_op_iter iter;
   tree var;
@@ -434,9 +437,10 @@ void
 verify_loop_closed_ssa (void)
 {
   basic_block bb;
-  block_stmt_iterator bsi;
-  tree phi;
-  unsigned i;
+  gimple_stmt_iterator bsi;
+  gimple phi;
+  edge e;
+  edge_iterator ei;
 
   if (number_of_loops () <= 1)
     return;
@@ -445,16 +449,21 @@ verify_loop_closed_ssa (void)
 
   FOR_EACH_BB (bb)
     {
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
-	  check_loop_closed_ssa_use (PHI_ARG_EDGE (phi, i)->src,
-				     PHI_ARG_DEF (phi, i));
+      for (bsi = gsi_start (phi_nodes (bb)); !gsi_end_p (bsi); gsi_next (&bsi))
+	{
+	  phi = gsi_stmt (bsi);
+	  FOR_EACH_EDGE (e, ei, bb->preds)
+	    check_loop_closed_ssa_use (e->src,
+				       PHI_ARG_DEF_FROM_EDGE (phi, e));
+	}
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	check_loop_closed_ssa_stmt (bb, bsi_stmt (bsi));
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+	check_loop_closed_ssa_stmt (bb, gsi_stmt (bsi));
     }
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Split loop exit edge EXIT.  The things are a bit complicated by a need to
    preserve the loop closed ssa form.  The newly created block is returned.  */
 

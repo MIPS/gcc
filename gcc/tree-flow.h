@@ -1033,7 +1033,7 @@ enum move_pos
 				   become executed -- memory accesses, ... */
     MOVE_POSSIBLE		/* Unlimited movement.  */
   };
-extern enum move_pos movement_possibility (tree);
+extern enum move_pos movement_possibility (gimple);
 char *get_lsm_tmp_name (tree, unsigned);
 
 /* In tree-flow-inline.h  */
@@ -1045,6 +1045,7 @@ static inline bool unmodifiable_var_p (const_tree);
 /* In tree-eh.c  */
 extern void make_eh_edges (gimple);
 extern bool tree_could_trap_p (tree);
+extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
 extern bool stmt_could_throw_p (gimple);
 extern bool tree_could_throw_p (tree);
 extern bool stmt_can_throw_internal (gimple);

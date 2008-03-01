@@ -1282,7 +1282,7 @@ replace_uses_by (tree name, tree val)
 	  for (i = 0; i < gimple_num_ops (stmt); i++)
 	    {
 	      tree op = gimple_op (stmt, i);
-	      if (TREE_CODE (op) == ADDR_EXPR)
+	      if (op && TREE_CODE (op) == ADDR_EXPR)
 		recompute_tree_invariant_for_addr_expr (op);
 	    }
 

@@ -370,15 +370,13 @@ gsi_insert_after (gimple_stmt_iterator *i, gimple stmt,
 /* Remove the current stmt from the sequence.  The iterator is updated
    to point to the next statement.
 
-   When REMOVE_EH_INFO is true we remove the statement pointed to by
-   iterator I from the EH tables.  Otherwise we do not modify the EH
-   tables.
-
-   Generally, REMOVE_EH_INFO should be true when the statement is
-   going to be removed from the IL and not reinserted elsewhere.  */
+   REMOVE_PERMANENTLY is true when the statement is going to be removed
+   from the IL and not reinserted elsewhere.  In that case we remove the
+   statement pointed to by iterator I from the EH tables, and free its
+   operand caches.  Otherwise we do not modify this information.  */
 
 void
-gsi_remove (gimple_stmt_iterator *i, bool remove_eh_info)
+gsi_remove (gimple_stmt_iterator *i, bool remove_permanently)
 {
   gimple_seq_node cur, next, prev;
   gimple stmt = gsi_stmt (*i);
@@ -386,11 +384,11 @@ gsi_remove (gimple_stmt_iterator *i, bool remove_eh_info)
   /* Free all the data flow information for STMT.  */
   gimple_set_bb (stmt, NULL);
   delink_stmt_imm_use (stmt);
-  free_stmt_operands (stmt);
   gimple_set_modified (stmt, true);
 
-  if (remove_eh_info)
+  if (remove_permanently)
     {
+      free_stmt_operands (stmt);
       remove_stmt_from_eh_region (stmt);
       gimple_remove_stmt_histograms (cfun, stmt);
     }
@@ -541,7 +539,7 @@ restart:
 
       if (gsi_end_p (*gsi))
 	{
-	  *gsi = gsi_last (bb_seq (dest));
+	  *gsi = gsi_last_bb (dest);
 	  return true;
 	}
       else
@@ -556,7 +554,7 @@ restart:
       && single_succ_p (src)
       && src != ENTRY_BLOCK_PTR)
     {
-      *gsi = gsi_last (bb_seq (src));
+      *gsi = gsi_last_bb (src);
       if (gsi_end_p (*gsi))
 	return true;
 

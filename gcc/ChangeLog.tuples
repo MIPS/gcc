@@ -1,3 +1,35 @@
+2008-02-29  Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-ssa-alias.c (is_escape_site): Detect pure/const functions
+	correctly.
+
+2008-02-28  Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-ssa-loop-im.c: Tuplify.
+	* tree-ssa-loop-manip.c (add_exit_phis_edge, find_uses_to_rename_stmt,
+	find_uses_to_rename_bb, check_loop_closed_ssa_use,
+	check_loop_closed_ssa_stmt, verify_loop_closed_ssa): Ditto.
+	* gimple-dummy.c (rewrite_into_loop_closed_ssa, tree_ssa_lim,
+	verify_loop_closed_ssa, replace_exp): Removed.
+	* tree-ssa-loop.c (tree_ssa_loop_init, tree_ssa_loop_done): Comment
+	out scev initialization and finalization.
+	* gimple-iterator.c (gsi_remove): Rename remove_eh_info to
+	remove_permanently.  Do not free operands if remove_permanently
+	is false.
+	(gimple_find_edge_insert_loc): Use gsi_last_bb.
+	* tree-eh.c (operation_could_trap_p): Factored out of ...
+	(tree_could_trap_p): ... here.
+	* tree-ssa-copy.c (replace_exp): Enable.
+	* tree-flow.h (movement_possibility): Declaration changed.
+	(operation_could_trap_p): Declare.
+	* Makefile.in (tree-ssa-loop-im.o): Add pointer-set.h dependency.
+	(gimple.o): Add FLAGS_H dependency.
+	* gimple.c: Include flags.h.
+	(gimple_could_trap_p): New function.
+	* gimple.h (gimple_could_trap_p): Declare.
+	* tree-cfg.c (replace_uses_by): Check that op is not null.
+	* passes.c (init_optimization_passes): Enable pass_lim.
+
 2008-02-28  Rafael Espindola  <espindola@google.com>
 
 	* tree-outof-ssa.c (insert_backedge_copies): Don't build
