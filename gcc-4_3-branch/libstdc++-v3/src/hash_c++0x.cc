@@ -1,6 +1,6 @@
 // std::hash definitions -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,15 +28,3 @@
 // the GNU General Public License.
 
 #include "hash.cc"
-#include <system_error>
-
-namespace std
-{
-  template<>
-    size_t
-    hash<error_code>::operator()(error_code __e) const
-    { 
-      const char* __p = reinterpret_cast<const char*>(&__e);
-      return _Fnv_hash<>::hash(__p, sizeof(__e));
-    }
-}
