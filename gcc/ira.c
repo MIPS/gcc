@@ -686,7 +686,7 @@ enum reg_class reg_class_union [N_REG_CLASSES] [N_REG_CLASSES];
 static void
 setup_reg_class_intersect_union (void)
 {
-  int i, j, cl1, cl2, cl3;
+  int i, cl1, cl2, cl3;
   HARD_REG_SET intersection_set, union_set, temp_set2;
 
   for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
@@ -723,25 +723,10 @@ setup_reg_class_intersect_union (void)
 		     reg_class_contents
 		     [(int) reg_class_union [cl1] [cl2]]);
 		  AND_COMPL_HARD_REG_SET (temp_set2, no_unit_alloc_regs);
-	 	  if (! hard_reg_set_subset_p (temp_hard_regset, temp_set2))
+	 	  if (hard_reg_set_subset_p (temp_set2, temp_hard_regset))
 		    reg_class_union [cl1] [cl2] = (enum reg_class) cl3;
 		}
 	    }
-	}
-    }
-  /* Fix reg_class_union for cover classes: prefer the first cover
-     class.  */
-  for (i = 0; i < reg_class_cover_size; i++)
-    {
-      cl1 = reg_class_cover [i];
-      COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents [cl1]);
-      AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
-      if (hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set))
-	continue;
-      for (j = i + 1; j < reg_class_cover_size; j++)
-	{
-	  cl2 = reg_class_cover [j];
-	  reg_class_union [cl1] [cl2] = reg_class_union [cl2] [cl1] = cl1;
 	}
     }
 }
@@ -1269,7 +1254,7 @@ calculate_allocation_cost (void)
 			reg_class_contents [ALLOCNO_COVER_CLASS (a)])); 
       if (hard_regno < 0)
 	{
-	  cost = ALLOCNO_UPDATED_MEMORY_COST (a);
+	  cost = ALLOCNO_MEMORY_COST (a);
 	  mem_cost += cost;
 	}
       else if (ALLOCNO_HARD_REG_COSTS (a) != NULL)
@@ -1530,6 +1515,8 @@ sort_insn_chain (int freq_p)
 
 
 
+/* All natural loops.  */
+struct loops ira_loops;
 
 /* This is the main entry of IRA.  */
 void
@@ -1537,7 +1524,8 @@ ira (FILE *f)
 {
   int overall_cost_before, loops_p, allocated_reg_info_size;
   int max_regno_before_ira, max_point_before_emit;
-  int rebuild_p;
+  int rebuild_p, saved_flag_ira_algorithm;
+  basic_block bb;
 
   if (flag_ira_verbose < 10)
     {
@@ -1599,6 +1587,14 @@ ira (FILE *f)
   overall_cost = reg_cost = mem_cost = 0;
   load_cost = store_cost = shuffle_cost = 0;
   move_loops_num = additional_jumps_num = 0;
+
+  ira_assert (current_loops == NULL);
+  flow_loops_find (&ira_loops);
+  current_loops = &ira_loops;
+  saved_flag_ira_algorithm = flag_ira_algorithm;
+  if (number_of_loops () > (unsigned) IRA_MAX_LOOPS_NUM)
+    flag_ira_algorithm = IRA_ALGORITHM_CB;
+
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "Building IRA IR\n");
   loops_p = ira_build (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
@@ -1691,6 +1687,17 @@ ira (FILE *f)
     fprintf (ira_dump_file, "+++Overall after reload %d\n", overall_cost);
 
   ira_destroy ();
+
+#if 0
+  ira_assert  (current_loops == &ira_loops);
+#endif
+  flow_loops_free (&ira_loops);
+  free_dominance_info (CDI_DOMINATORS);
+  FOR_ALL_BB (bb)
+    bb->loop_father = NULL;
+  current_loops = NULL;
+
+  flag_ira_algorithm = saved_flag_ira_algorithm;
 
   cleanup_cfg (CLEANUP_EXPENSIVE);
 

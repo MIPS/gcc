@@ -59,6 +59,7 @@ static void set_allocno_reg (allocno_t, rtx);
 static int not_modified_p (allocno_t, allocno_t);
 static void generate_edge_moves (edge);
 static void change_loop (loop_tree_node_t);
+static void set_allocno_somewhere_renamed_p (void);
 static int eq_edge_move_lists_p (VEC(edge,gc) *);
 static void unify_moves (basic_block, int);
 static void traverse_moves (struct move *);
@@ -340,6 +341,10 @@ static bitmap local_allocno_bitmap;
    regno.  */
 static bitmap used_regno_bitmap;
 
+/* This bitmap contains regnos of allocnos which were renamed locally
+   because the allocnos correspond to disjoint live ranges.  */
+static bitmap renamed_regno_bitmap;
+
 /* The following function changes (if necessary) pseudo-registers
    inside loop given by loop tree node NODE.  */
 static void
@@ -350,7 +355,9 @@ change_loop (loop_tree_node_t node)
   int regno, used_p;
   allocno_t allocno, father_allocno, *map;
   rtx insn, original_reg;
-  
+  enum reg_class cover_class;
+  loop_tree_node_t father;
+
   if (node != ira_loop_tree_root)
     {
       
@@ -370,12 +377,14 @@ change_loop (loop_tree_node_t node)
 		 "      Changing RTL for loop %d (header bb%d)\n",
 		 node->loop->num, node->loop->header->index);
       
-      map = ira_curr_loop_tree_node->father->regno_allocno_map;
+      father = ira_curr_loop_tree_node->father;
+      map = father->regno_allocno_map;
       EXECUTE_IF_SET_IN_REG_SET (ira_curr_loop_tree_node->border_allocnos,
 				 0, i, bi)
 	{
 	  allocno = allocnos [i];
 	  regno = ALLOCNO_REGNO (allocno);
+	  cover_class = ALLOCNO_COVER_CLASS (allocno);
 	  father_allocno = map [regno];
 	  /* We generate the same register move because the reload can
 	     put a allocno into memory in this case we will have live
@@ -387,12 +396,14 @@ change_loop (loop_tree_node_t node)
 	      && (ALLOCNO_HARD_REGNO (allocno)
 		  == ALLOCNO_HARD_REGNO (father_allocno))
 	      && (ALLOCNO_HARD_REGNO (allocno) < 0
+		  || (father->reg_pressure [cover_class] + 1
+		      <= available_class_regs [cover_class])
 		  || TEST_HARD_REG_BIT (prohibited_mode_move_regs
 					[ALLOCNO_MODE (allocno)],
 					ALLOCNO_HARD_REGNO (allocno))
-		  /* don't create copies because reload can spill a
-		     allocno set by copy although allocno will not get
-		     memory slot.  */
+		  /* don't create copies because reload can spill an
+		     allocno set by copy although the allocno will not
+		     get memory slot.  */
 		  || reg_equiv_invariant_p [regno]
 		  || reg_equiv_const [regno] != NULL_RTX))
 	    continue;
@@ -422,9 +433,29 @@ change_loop (loop_tree_node_t node)
 	continue;
       used_p = bitmap_bit_p (used_regno_bitmap, regno);
       bitmap_set_bit (used_regno_bitmap, regno);
+      ALLOCNO_SOMEWHERE_RENAMED_P (allocno) = TRUE;
       if (! used_p)
 	continue;
+      bitmap_set_bit (renamed_regno_bitmap, regno);
       set_allocno_reg (allocno, create_new_reg (ALLOCNO_REG (allocno)));
+    }
+}
+
+/* The function sets up flag somewhere_renamed_p.  */
+static void
+set_allocno_somewhere_renamed_p (void)
+{
+  int i;
+  unsigned int regno;
+  allocno_t allocno;
+
+  for (i = 0; i < allocnos_num; i++)
+    {
+      allocno = allocnos [i];
+      regno = ALLOCNO_REGNO (allocno);
+      if (bitmap_bit_p (renamed_regno_bitmap, regno)
+	  && REGNO (ALLOCNO_REG (allocno)) == regno)
+	ALLOCNO_SOMEWHERE_RENAMED_P (allocno) = TRUE;
     }
 }
 
@@ -927,9 +958,12 @@ ira_emit (int loops_p)
   memset (at_bb_end, 0, sizeof (struct move *) * last_basic_block);
   local_allocno_bitmap = ira_allocate_bitmap ();
   used_regno_bitmap = ira_allocate_bitmap ();
+  renamed_regno_bitmap = ira_allocate_bitmap ();
   max_regno_before_changing = max_reg_num ();
   traverse_loop_tree (FALSE, ira_loop_tree_root, change_loop, NULL);
+  set_allocno_somewhere_renamed_p ();
   ira_free_bitmap (used_regno_bitmap);
+  ira_free_bitmap (renamed_regno_bitmap);
   ira_free_bitmap (local_allocno_bitmap);
   FOR_EACH_BB (bb)
     {

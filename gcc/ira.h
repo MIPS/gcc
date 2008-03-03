@@ -60,10 +60,13 @@ extern rtx ira_eliminate_regs (rtx, enum machine_mode);
 extern void sort_insn_chain (int);
 
 extern void ira (FILE *);
+extern void sort_regnos_for_alter_reg (int *, int);
 extern void mark_allocation_change (int);
 extern void mark_memory_move_deletion (int, int);
 extern int reassign_pseudos (int *, int, HARD_REG_SET, HARD_REG_SET *,
 			     HARD_REG_SET *, bitmap);
 extern rtx reuse_stack_slot (int, unsigned int, unsigned int);
 extern void mark_new_stack_slot (rtx, int, unsigned int);
+extern int better_spill_reload_regno_p (int *, int *, rtx, rtx, rtx);
 extern void collect_pseudo_call_clobbered_regs (int, HARD_REG_SET *);
+

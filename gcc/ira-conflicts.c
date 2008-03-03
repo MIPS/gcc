@@ -653,10 +653,11 @@ propagate_info (void)
       propagate_allocno_info (a);
 }
 
-/* The function returns TRUE if allocnos A1 and A2 conflict.  It
-   checks intersection of the corresponding live ranges for this.  */
+/* The function returns TRUE if live ranges of allocnos A1 and A2
+   intersect.  It checks intersection of the corresponding live ranges
+   for this.  */
 int
-allocno_conflict_p (allocno_t a1, allocno_t a2)
+allocno_live_ranges_intersect_p (allocno_t a1, allocno_t a2)
 {
   allocno_live_range_t r1, r2;
 
@@ -679,10 +680,11 @@ allocno_conflict_p (allocno_t a1, allocno_t a2)
   return FALSE;
 }
 
-/* The function returns TRUE if pseudo-registers REGNO1 and REGNO2
-   conflict.  It should be used when there is only one region.  */
+/* The function returns TRUE if live ranges of pseudo-registers REGNO1
+   and REGNO2 intersect.  It should be used when there is only one
+   region.  */
 int
-allocno_reg_conflict_p (int regno1, int regno2)
+pseudo_live_ranges_intersect_p (int regno1, int regno2)
 {
   allocno_t a1, a2;
 
@@ -693,7 +695,7 @@ allocno_reg_conflict_p (int regno1, int regno2)
   if ((a1 = ira_loop_tree_root->regno_allocno_map [regno1]) == NULL
       || (a2 = ira_loop_tree_root->regno_allocno_map [regno2]) == NULL)
     return FALSE;
-  return allocno_conflict_p (a1, a2);
+  return allocno_live_ranges_intersect_p (a1, a2);
 }
 
 /* Remove copies involving conflicting allocnos.  */

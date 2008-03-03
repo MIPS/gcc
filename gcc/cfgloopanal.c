@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "output.h"
 #include "graphds.h"
+#include "params.h"
 
 /* Checks whether BB is executed exactly once in each LOOP iteration.  */
 
@@ -375,7 +376,8 @@ estimate_reg_pressure_cost (unsigned n_new, unsigned n_old)
   unsigned regs_needed = n_new + n_old;
 
   if (flag_ira && (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-		   || flag_ira_algorithm == IRA_ALGORITHM_MIXED))
+		   || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+      && number_of_loops () <= (unsigned) IRA_MAX_LOOPS_NUM)
     /* Let IRA itself to deal with high register pressure.  */
     return 0;
   

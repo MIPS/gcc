@@ -217,6 +217,9 @@ struct allocno
   /* Minimal accumulated, and updated costs of memory for the
      allocno.  */
   int memory_cost, updated_memory_cost;
+  /* Accumulated number of points where the allocno lives and there is
+     excess pressure for its class.  */
+  int excess_pressure_points_num;
   /* Copies to other non-conflicting allocnos.  The copies can
      represent move insn or potential move insn usually because of two
      operand constraints.  */
@@ -265,6 +268,9 @@ struct allocno
   /* TRUE if the allocno was a destination of removed move at the end
      of loop because the value is not changed in loop.  */
   unsigned int mem_optimized_dest_p : 1;
+  /* TRUE if the correspdonding pseudo-register has disjoint live
+     ranges and the other allocnos except this one changed regno.  */
+  unsigned int somewhere_renamed_p : 1;
   /* In the reload, we should not reassign a hard register to the
      allocno got memory if the flag value is TRUE.  */
   unsigned int dont_reassign_p : 1;
@@ -331,6 +337,7 @@ struct allocno
 #define ALLOCNO_CALLS_CROSSED_NUM(A) ((A)->calls_crossed_num)
 #define ALLOCNO_MEM_OPTIMIZED_DEST(A) ((A)->mem_optimized_dest)
 #define ALLOCNO_MEM_OPTIMIZED_DEST_P(A) ((A)->mem_optimized_dest_p)
+#define ALLOCNO_SOMEWHERE_RENAMED_P(A) ((A)->somewhere_renamed_p)
 #define ALLOCNO_DONT_REASSIGN_P(A) ((A)->dont_reassign_p)
 #ifdef STACK_REGS
 #define ALLOCNO_NO_STACK_REG_P(A) ((A)->no_stack_reg_p)
@@ -353,6 +360,7 @@ struct allocno
 #define ALLOCNO_COVER_CLASS_COST(A) ((A)->cover_class_cost)
 #define ALLOCNO_MEMORY_COST(A) ((A)->memory_cost)
 #define ALLOCNO_UPDATED_MEMORY_COST(A) ((A)->updated_memory_cost)
+#define ALLOCNO_EXCESS_PRESSURE_POINTS_NUM(A) ((A)->excess_pressure_points_num)
 #define ALLOCNO_AVAILABLE_REGS_NUM(A) ((A)->available_regs_num)
 #define ALLOCNO_NEXT_BUCKET_ALLOCNO(A) ((A)->next_bucket_allocno)
 #define ALLOCNO_PREV_BUCKET_ALLOCNO(A) ((A)->prev_bucket_allocno)
@@ -644,8 +652,8 @@ extern void create_allocno_live_ranges (void);
 extern void finish_allocno_live_ranges (void);
 
 /* ira-conflicts.c */
-extern int allocno_conflict_p (allocno_t, allocno_t);
-extern int allocno_reg_conflict_p (int, int);
+extern int allocno_live_ranges_intersect_p (allocno_t, allocno_t);
+extern int pseudo_live_ranges_intersect_p (int, int);
 extern void debug_conflicts (int);
 extern void ira_build_conflicts (void);
 

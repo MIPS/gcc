@@ -689,20 +689,6 @@ static int failure;
 /* Temporary array of pseudo-register number.  */
 static int *temp_pseudo_reg_arr;
 
-/* The function is used to sort pseudos according their usage
-   frequencies (putting most frequently ones first).  */
-static int
-pseudo_reg_compare (const void *v1p, const void *v2p)
-{
-  int regno1 = *(int *) v1p;
-  int regno2 = *(int *) v2p;
-  int diff;
-
-  if ((diff = REG_FREQ (regno2) - REG_FREQ (regno1)) != 0)
-    return diff;
-  return regno1 - regno2;
-}
-
 /* Main entry point for the reload pass.
 
    FIRST is the first insn of the function being compiled.
@@ -911,13 +897,10 @@ reload (rtx first, int global)
     temp_pseudo_reg_arr [n++] = i;
   
   if (flag_ira)
-    qsort (temp_pseudo_reg_arr, n, sizeof (int), pseudo_reg_compare);
-  if (frame_pointer_needed || ! flag_ira)
-    for (i = 0; i < n; i++)
-      alter_reg (temp_pseudo_reg_arr [i], -1, false);
-  else
-    for (i = n - 1; i >= 0; i--)
-      alter_reg (temp_pseudo_reg_arr [i], -1, false);
+    sort_regnos_for_alter_reg (temp_pseudo_reg_arr, n);
+
+  for (i = 0; i < n; i++)
+    alter_reg (temp_pseudo_reg_arr [i], -1, false);
 
   /* If we have some registers we think can be eliminated, scan all insns to
      see if there is an insn that sets one of these registers to something
@@ -1723,6 +1706,10 @@ static int spill_cost[FIRST_PSEUDO_REGISTER];
    only the first hard reg for a multi-reg pseudo.  */
 static int spill_add_cost[FIRST_PSEUDO_REGISTER];
 
+/* Map of hard regno to pseudo regno currently occupying the hard
+   reg.  */
+static int hard_regno_to_pseudo_regno [FIRST_PSEUDO_REGISTER];
+
 /* Update the spill cost arrays, considering that pseudo REG is live.  */
 
 static void
@@ -1742,10 +1729,12 @@ count_pseudo (int reg)
   gcc_assert (r >= 0);
 
   spill_add_cost[r] += freq;
-
   nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (reg)];
   while (nregs-- > 0)
-    spill_cost[r + nregs] += freq;
+    {
+      hard_regno_to_pseudo_regno [r + nregs] = reg;
+      spill_cost[r + nregs] += freq;
+    }
 }
 
 /* Calculate the SPILL_COST and SPILL_ADD_COST arrays and determine the
@@ -1763,6 +1752,8 @@ order_regs_for_reload (struct insn_chain *chain)
 
   memset (spill_cost, 0, sizeof spill_cost);
   memset (spill_add_cost, 0, sizeof spill_add_cost);
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    hard_regno_to_pseudo_regno [i] = -1;
 
   /* Count number of uses of each hard reg by pseudo regs allocated to it
      and then order them by decreasing use.  First exclude hard registers
@@ -1818,7 +1809,10 @@ count_spilled_pseudo (int spilled, int spilled_nregs, int reg)
 
   spill_add_cost[r] -= freq;
   while (nregs-- > 0)
-    spill_cost[r + nregs] -= freq;
+    {
+      hard_regno_to_pseudo_regno [r + nregs] = -1;
+      spill_cost[r + nregs] -= freq;
+    }
 }
 
 /* Find reload register to use for reload number ORDER.  */
@@ -1830,11 +1824,13 @@ find_reg (struct insn_chain *chain, int order)
   struct reload *rl = rld + rnum;
   int best_cost = INT_MAX;
   int best_reg = -1;
-  unsigned int i, j;
+  unsigned int i, j, n;
   int k;
   HARD_REG_SET not_usable;
   HARD_REG_SET used_by_other_reload;
   reg_set_iterator rsi;
+  static int regno_pseudo_regs [FIRST_PSEUDO_REGISTER];
+  static int best_regno_pseudo_regs [FIRST_PSEUDO_REGISTER];
 
   COPY_HARD_REG_SET (not_usable, bad_spill_regs);
   IOR_HARD_REG_SET (not_usable, bad_spill_regs_global);
@@ -1871,6 +1867,35 @@ find_reg (struct insn_chain *chain, int order)
 	    }
 	  if (! ok)
 	    continue;
+
+	  if (flag_ira)
+	    {
+	      for (n = j = 0; j < this_nregs; j++)
+		{
+		  int r = hard_regno_to_pseudo_regno [regno + j];
+
+		  if (r < 0)
+		    continue;
+		  if (n == 0 || regno_pseudo_regs [n - 1] != r)
+		    regno_pseudo_regs [n++] = r;
+		}
+	      regno_pseudo_regs [n++] = -1;
+	      if (best_reg < 0
+		  || better_spill_reload_regno_p (regno_pseudo_regs,
+						  best_regno_pseudo_regs,
+						  rl->in, rl->out, chain->insn))
+		{
+		  best_reg = regno;
+		  for (j = 0;; j++)
+		    {
+		      best_regno_pseudo_regs [j] = regno_pseudo_regs [j];
+		      if (regno_pseudo_regs [j] < 0)
+			break;
+		    }
+		}
+	      continue;
+	    }
+
 	  if (rl->in && REG_P (rl->in) && REGNO (rl->in) == regno)
 	    this_cost--;
 	  if (rl->out && REG_P (rl->out) && REGNO (rl->out) == regno)
@@ -1918,6 +1943,7 @@ find_reg (struct insn_chain *chain, int order)
     {
       gcc_assert (spill_cost[best_reg + i] == 0);
       gcc_assert (spill_add_cost[best_reg + i] == 0);
+      gcc_assert (hard_regno_to_pseudo_regno [best_reg + i] == -1);
       SET_HARD_REG_BIT (used_spill_regs_local, best_reg + i);
     }
   return 1;

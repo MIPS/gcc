@@ -1,3 +1,98 @@
+2008-03-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-conflicts.c (allocno_conflict_p): Rename to
+	allocno_live_ranges_intersect_p.
+	(allocno_reg_conflict_p): Rename to
+	pseudo_live_ranges_intersect_p.
+
+	* ira-lives.c (high_pressure_start_point): New variable.
+	(update_allocno_pressure_excess_length): New function.
+	(make_regno_dead): Call it.
+	(set_allocno_live): Udpate high_pressure_start_point.
+	(clear_allocno_live, mark_reg_store, mark_reg_death): Ditto.
+	(process_bb_node_lives): Initialize high_pressure_start_point.
+	Consider only allocatable hard regs for liveness.
+	
+	* ira-costs.c (record_reg_classes): Multiply cost by frequency.
+	Use half frequency when memory is allowed.  Remove check for
+	prefferred small register classes of pseudo-registers.
+	(scan_one_insn): Continue processing operands for moves of
+	pseudo-registers with equivalence.  Don't multiply cost by
+	frequency.
+	(init_ira_costs): Use bigger initial cost value.
+	
+	* ira-int.h: Ditto.
+	(allocno): New members somewhere_renamed_p and
+	excess_pressure_points_num.
+	(ALLOCNO_SOMEWHERE_RENAMED_P, ALLOCNO_EXCESS_PRESSURE_POINTS_NUM):
+	New macros.
+	(allocno_reg_conflict_p): Rename to
+	pseudo_live_ranges_intersect_p.
+	(allocno_conflict_p): Rename to allocno_live_ranges_intersect_p.
+
+	* ira.h (sort_regnos_for_alter_reg, better_spill_reload_regno_p):
+	New function prototypes.
+	
+	* ira-color.c (merge_allocnos): Remove mode check.
+	(coalesce_allocnos): Add parameter and modify to use it for
+	coalescing spilled allocnos.
+	(color_allocnos): Pass parameter to coalesce_allocnos.
+	(regno_coalesced_allocno_freq, regno_coalesced_allocno_num): New
+	variables.
+	(coalesced_pseudo_reg_compare, calculate_spill_cost,
+	sort_regnos_for_alter_reg, better_spill_reload_regno_p): New
+	functions.
+	(mark_allocation_change, allocno_reload_assign, reassign_pseudos
+	): Use ALLOCNO_MEMORY_COST instead of ALLOCNO_UPDATED_MEMORY_COST.
+	(reuse_stack_slot): Use pseudo_live_ranges_intersect_p instead of
+	allocno_reg_conflict_p.
+	
+	* ira-emit.c (set_allocno_somewhere_renamed_p): New function.
+	(renamed_regno_bitmap): New static variable.
+	(change_loop): Check register pressure for creating new pseudo.
+	Set up ALLOCNO_SOMEWHERE_RENAMED_P and renamed_regno_bitmap.
+	(ira_emit): Allocate/deallocate renamed_regno_bitmap.
+	Call set_allocno_somewhere_renamed_p.
+
+	* ira-build.c (ira_loops): Move to ira.c.
+	(create_allocno): Initialize ALLOCNO_SOMEWHERE_RENAMED_P and
+	ALLOCNO_MEMORY_COST.
+	(create_cap_allocno): Set up ALLOCNO_MEMORY_COST.
+	(check_and_add_conflicts): Use allocno_live_ranges_intersect_p
+	instead of allocno_conflict_p.
+	(ira_flattening): Check conflicts of allocno renamed somewhere
+	locally.  Update ALLOCNO_EXCESS_PRESSURE_POINTS_NUM.
+	(ira_build): Move code for finding loops to ira.c.
+	(ira_destroy): Move code for freeing loops to ira.c.
+
+	* ira.c (setup_reg_class_intersect_union): Fix calculation of
+	reg_class_union.
+	(calculate_allocation_cost): Use ALLOCNO_MEMORY_COST instead of
+	ALLOCNO_UPDATED_MEMORY_COST.
+	(ira_loops): Move from ira-build.c.
+	(ira): Move code for finding and freeing loops from ira-build.c.
+	Don't use regional RA when there are too many loops.
+
+	* reload1.c (pseudo_reg_compare): Remove.
+	(reload): Use sort_regnos_for_alter_reg.
+	(hard_regno_to_pseudo_regno): New variable.
+	(count_pseudo): Set up hard_regno_to_pseudo_regno.
+	(order_regs_for_reload): Initialize hard_regno_to_pseudo_regno.
+	(count_spilled_pseudo): Update hard_regno_to_pseudo_regno.
+	(find_reg): Use better_spill_reload_regno_p.  Check
+	hard_regno_to_pseudo_regno.
+
+	* cfgloopanal.c: Include params.h.
+	(estimate_reg_pressure_cost): Check number of loops.
+
+	* params.def (PARAM_IRA_MAX_LOOPS_NUM): New parameter.
+
+	* params.h (IRA_MAX_LOOPS_NUM): New macro.
+
+	* Makefile.in (cfgloopanal.o): Add PARAMS_H.
+	
+	* doc/invoke.texi (ira-max-loops-num): Describe.
+	
 2008-02-20  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira.h, ira-emit.c: Add year 2008 to the copyright.

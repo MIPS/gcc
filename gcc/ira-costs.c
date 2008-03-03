@@ -209,7 +209,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
       int allows_mem [MAX_RECOG_OPERANDS];
       int class;
       int alt_fail = 0;
-      int alt_cost = 0;
+      int alt_cost = 0, op_cost_add;
 
       for (i = 0; i < n_ops; i++)
 	{
@@ -301,10 +301,10 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		      pp->cost [k]
 			= ((recog_data.operand_type [i] != OP_OUT
 			    ? register_may_move_in_cost [mode]
-			      [class] [classes [i]] : 0)
+			      [class] [classes [i]] * frequency : 0)
 			   + (recog_data.operand_type [i] != OP_IN
 			      ? register_may_move_out_cost [mode]
-			        [classes [i]] [class] : 0));
+			        [classes [i]] [class] * frequency : 0));
 		    }
 
 		  /* If the alternative actually allows memory, make
@@ -312,11 +312,11 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     insn to load it.  */
 		  pp->mem_cost
 		    = ((recog_data.operand_type [i] != OP_IN
-		        ? memory_move_cost [mode] [classes [i]] [0]
-			: 0)
+			? memory_move_cost [mode] [classes [i]] [0]
+			: 0) * frequency
 		       + (recog_data.operand_type [i] != OP_OUT
 			  ? memory_move_cost [mode] [classes [i]] [1]
-			  : 0) - allows_mem [i]);
+			  : 0) * frequency - allows_mem [i] * frequency / 2);
 
 		  /* If we have assigned a class to this allocno in our
 		     first pass, add a cost to this alternative
@@ -549,10 +549,10 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		      pp->cost [k]
 			= ((recog_data.operand_type [i] != OP_OUT
 			    ? register_may_move_in_cost [mode]
-			      [class] [classes [i]] : 0)
+			      [class] [classes [i]] * frequency : 0)
 			   + (recog_data.operand_type [i] != OP_IN
 			      ? register_may_move_out_cost [mode]
-			        [classes [i]] [class] : 0));
+			        [classes [i]] [class] * frequency : 0));
 		    }
 
 		  /* If the alternative actually allows memory, make
@@ -561,10 +561,10 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		  pp->mem_cost
 		    = ((recog_data.operand_type [i] != OP_IN
 		        ? memory_move_cost [mode] [classes [i]] [0]
-			: 0)
+			: 0) * frequency
 		       + (recog_data.operand_type [i] != OP_OUT
 			  ? memory_move_cost [mode] [classes [i]] [1]
-			  : 0) - allows_mem [i]);
+			  : 0) * frequency - allows_mem [i] * frequency / 2);
 
 		  /* If we have assigned a class to this allocno in our
 		     first pass, add a cost to this alternative
@@ -627,6 +627,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
       if (alt_fail)
 	continue;
 
+      op_cost_add = alt_cost * frequency;
       /* Finally, update the costs with the information we've
 	 calculated about this alternative.  */
       for (i = 0; i < n_ops; i++)
@@ -637,11 +638,12 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	    int scale = 1 + (recog_data.operand_type [i] == OP_INOUT);
 
 	    pp->mem_cost = MIN (pp->mem_cost,
-				(qq->mem_cost + alt_cost) * scale);
+				(qq->mem_cost + op_cost_add) * scale);
 
 	    for (k = 0; k < cost_classes_num; k++)
-	      pp->cost [k] = MIN (pp->cost [k],
-				  (qq->cost [k] + alt_cost) * scale);
+	      pp->cost [k]
+		= MIN (pp->cost [k],
+		       (qq->cost [k] + op_cost_add) * scale);
 	  }
     }
 
@@ -671,23 +673,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	  int class;
 	  unsigned int nr;
 
-	  if (regno >= FIRST_PSEUDO_REGISTER && allocno_pref != 0)
-	    {
-	      enum reg_class pref;
-
-	      /* We could use cover class here but it is less accurate
-		 approximation. */
-	      pref
-		= allocno_pref [ALLOCNO_NUM (ira_curr_regno_allocno_map
-					     [regno])];
-
-	      if (pref != NO_REGS
-		  && (reg_class_size [pref]
-		      == (unsigned) CLASS_MAX_NREGS (pref, mode))
-		  && register_move_cost [mode] [pref] [pref] < 10 * 2)
-		op_costs [i]->cost [cost_class_nums [pref]] = -1;
-	    }
-	  else if (regno < FIRST_PSEUDO_REGISTER)
+	  if (regno < FIRST_PSEUDO_REGISTER)
 	    for (k = 0; k < cost_classes_num; k++)
 	      {
 		class = cost_classes [k];
@@ -696,7 +682,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 			== (unsigned) CLASS_MAX_NREGS (class, mode)))
 		  {
 		    if (reg_class_size [class] == 1)
-		      op_costs [i]->cost [k] = -1;
+		      op_costs [i]->cost [k] = -frequency;
 		    else
 		      {
 			for (nr = 0;
@@ -707,7 +693,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 			    break;
 			
 			if (nr == (unsigned) hard_regno_nregs [regno] [mode])
-			  op_costs [i]->cost [k] = -1;
+			  op_costs [i]->cost [k] = -frequency;
 		      }
 		  }
 	      }
@@ -1032,7 +1018,6 @@ scan_one_insn (rtx insn)
 	    * frequency);
       record_address_regs (GET_MODE (SET_SRC (set)), XEXP (SET_SRC (set), 0),
 			   0, MEM, SCRATCH, frequency * 2);
-      return insn;
     }
 
   record_operand_costs (insn, op_costs, allocno_pref);
@@ -1050,9 +1035,9 @@ scan_one_insn (rtx insn)
 					   [regno]));
 	struct costs *q = op_costs [i];
 
-	p->mem_cost += q->mem_cost * frequency;
+	p->mem_cost += q->mem_cost;
 	for (k = 0; k < cost_classes_num; k++)
-	  p->cost [k] += q->cost [k] * frequency;
+	  p->cost [k] += q->cost [k];
       }
 
   return insn;
@@ -1534,9 +1519,9 @@ init_ira_costs (void)
     = sizeof (struct costs) + sizeof (int) * (important_classes_num - 1);
   /* Don't use ira_allocate because vectors live through several IRA calls.  */
   init_cost = xmalloc (max_struct_costs_size);
-  init_cost->mem_cost = 10000;
+  init_cost->mem_cost = 1000000;
   for (i = 0; i < important_classes_num; i++)
-    init_cost->cost [i] = 10000;
+    init_cost->cost [i] = 1000000;
   for (i = 0; i < MAX_RECOG_OPERANDS; i++)
     {
       op_costs [i] = xmalloc (max_struct_costs_size);
@@ -1635,7 +1620,8 @@ tune_allocno_costs_and_cover_classes (void)
 		      get_call_invalidated_used_regs (call, &clobbered_regs,
 						      FALSE);
 		      /* ??? If only part is call clobbered.  */
-		      if (! hard_reg_not_in_set_p (regno, mode, clobbered_regs))
+		      if (! hard_reg_not_in_set_p (regno, mode,
+						   clobbered_regs))
 			cost
 			  += freq * (memory_move_cost [mode] [class] [0]
 				     + memory_move_cost [mode] [class] [1]);

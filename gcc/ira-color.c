@@ -65,7 +65,7 @@ static void put_allocno_into_bucket (allocno_t);
 static int copy_freq_compare_func (const void *, const void *);
 static void merge_allocnos (allocno_t, allocno_t);
 static int coalesced_allocno_conflict_p (allocno_t, allocno_t);
-static void coalesce_allocnos (void);
+static void coalesce_allocnos (int);
 static void color_allocnos (void);
 
 static void print_loop_title (loop_tree_node_t);
@@ -75,6 +75,14 @@ static void start_allocno_priorities (allocno_t *, int);
 static void do_coloring (void);
 
 static void move_spill_restore (void);
+
+static int coalesced_pseudo_reg_compare (const void *, const void *);
+
+static void setup_curr_costs (allocno_t);
+static int pseudo_reg_compare (const void *, const void *);
+
+static int calculate_spill_cost (int *, rtx, rtx, rtx,
+				 int *, int *, int *, int*);
 
 /* Bitmap of allocnos which should be colored.  */
 static bitmap coloring_allocno_bitmap;
@@ -931,7 +939,7 @@ pop_allocnos_from_stack (void)
     }
 }
 
-/* Set up number of avaliable hard registers for ALLOCNO.  */
+/* Set up number of available hard registers for ALLOCNO.  */
 static void
 setup_allocno_available_regs_num (allocno_t allocno)
 {
@@ -1096,7 +1104,6 @@ merge_allocnos (allocno_t a1, allocno_t a2)
 {
   allocno_t a, first, last, next;
 
-  ira_assert (ALLOCNO_MODE (a1) == ALLOCNO_MODE (a2));
   first = ALLOCNO_FIRST_COALESCED_ALLOCNO (a1);
   if (first == ALLOCNO_FIRST_COALESCED_ALLOCNO (a2))
     return;
@@ -1151,7 +1158,7 @@ coalesced_allocno_conflict_p (allocno_t a1, allocno_t a2)
 
 /* The major function for aggressive coalescing.  */
 static void
-coalesce_allocnos (void)
+coalesce_allocnos (int reload_p)
 {
   allocno_t a;
   copy_t cp, next_cp, *sorted_copies;
@@ -1168,7 +1175,9 @@ coalesce_allocnos (void)
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, j, bi)
     {
       a = allocnos [j];
-      if (ALLOCNO_ASSIGNED_P (a))
+      if ((! reload_p && ALLOCNO_ASSIGNED_P (a))
+	  || (reload_p
+	      && (! ALLOCNO_ASSIGNED_P (a) || ALLOCNO_HARD_REGNO (a) >= 0)))
 	continue;
       cover_class = ALLOCNO_COVER_CLASS (a);
       mode = ALLOCNO_MODE (a);
@@ -1177,9 +1186,14 @@ coalesce_allocnos (void)
 	  if (cp->first == a)
 	    {
 	      next_cp = cp->next_first_allocno_copy;
-	      if (ALLOCNO_COVER_CLASS (cp->second) == cover_class
-		  && ALLOCNO_MODE (cp->second) == mode
-		  && cp->insn != NULL && ! ALLOCNO_ASSIGNED_P (cp->second))
+	      if ((reload_p
+		   || (ALLOCNO_COVER_CLASS (cp->second) == cover_class
+		       && ALLOCNO_MODE (cp->second) == mode))
+		  && (reload_p || cp->insn != NULL)
+		  && ((! reload_p && ! ALLOCNO_ASSIGNED_P (cp->second))
+		      || (reload_p
+			  && ALLOCNO_ASSIGNED_P (cp->second)
+			  && ALLOCNO_HARD_REGNO (cp->second) < 0)))
 		sorted_copies [cp_num++] = cp;
 	    }
 	  else if (cp->second == a)
@@ -1233,7 +1247,7 @@ color_allocnos (void)
   allocno_coalesced_p = FALSE;
   processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
   if (flag_ira_coalesce)
-    coalesce_allocnos ();
+    coalesce_allocnos (FALSE);
   /* Put the allocnos into the corresponding buckets.  */
   colorable_allocno_bucket = NULL;
   uncolorable_allocno_bucket = NULL;
@@ -1364,8 +1378,8 @@ color_pass (loop_tree_node_t loop_tree_node)
 	      if (subloop_allocno == NULL)
 		continue;
 	      if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
-		   && loop_tree_node->reg_pressure [class]
-		   <= available_class_regs [class])
+		   && (loop_tree_node->reg_pressure [class]
+		       <= available_class_regs [class]))
 		  || (hard_regno < 0
 		      && ! bitmap_bit_p (subloop_node->mentioned_allocnos,
 					 ALLOCNO_NUM (subloop_allocno))))
@@ -1643,6 +1657,94 @@ move_spill_restore (void)
 
 
 
+/* Usage frequency and order number of coalesced allocno set to which
+   given pseudo register belongs to.  */
+static int *regno_coalesced_allocno_freq;
+static int *regno_coalesced_allocno_num;
+
+/* The function is used to sort pseudos according frequencies of
+   coalesced allocnos they belong to (putting most frequently ones
+   first when the frame pointer is needed or the last otherwise), and
+   according to coalesced allocno numbers.  */
+static int
+coalesced_pseudo_reg_compare (const void *v1p, const void *v2p)
+{
+  int regno1 = *(int *) v1p;
+  int regno2 = *(int *) v2p;
+  int diff;
+
+  if ((diff = (regno_coalesced_allocno_freq [regno2]
+	       - regno_coalesced_allocno_freq [regno1])) != 0)
+    return frame_pointer_needed ? diff : -diff;
+  if ((diff = (regno_coalesced_allocno_num [regno1]
+	       - regno_coalesced_allocno_num [regno2])) != 0)
+    return frame_pointer_needed ? diff : -diff;
+  return frame_pointer_needed ? regno1 - regno2 : regno2 - regno1;
+}
+
+/* The function sorts pseudo-register numbers in array PSEUDO_REGNOS
+   of length N for subsequent assigning stack slots to them in the
+   reload.  */
+void
+sort_regnos_for_alter_reg (int *pseudo_regnos, int n)
+{
+  int max_regno = max_reg_num ();
+  int i, regno, num, assign_p, freq;
+  allocno_t allocno, a;
+
+  coloring_allocno_bitmap = ira_allocate_bitmap ();
+  for (i = 0; i < n; i++)
+    {
+      regno = pseudo_regnos [i];
+      allocno = regno_allocno_map [regno];
+      if (allocno != NULL)
+	bitmap_set_bit (coloring_allocno_bitmap,
+			ALLOCNO_NUM (allocno));
+    }
+  allocno_coalesced_p = FALSE;
+  processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
+  coalesce_allocnos (TRUE);
+  ira_free_bitmap (processed_coalesced_allocno_bitmap);
+  ira_free_bitmap (coloring_allocno_bitmap);
+  allocno_coalesced_p = FALSE;
+  regno_coalesced_allocno_freq = ira_allocate (max_regno * sizeof (int));
+  regno_coalesced_allocno_num = ira_allocate (max_regno * sizeof (int));
+  memset (regno_coalesced_allocno_num, 0, max_regno * sizeof (int));
+  for (num = i = 0; i < n; i++)
+    {
+      regno = pseudo_regnos [i];
+      allocno = regno_allocno_map [regno];
+      if (allocno == NULL)
+	{
+	  regno_coalesced_allocno_freq [regno] = 0;
+	  regno_coalesced_allocno_num [regno] = ++num;
+	  continue;
+	}
+      assign_p = regno_coalesced_allocno_num [regno] == 0;
+      if (assign_p)
+	num++;
+      for (freq = 0, a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
+	   a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
+	{
+	  if (assign_p)
+	    regno_coalesced_allocno_num [ALLOCNO_REGNO (a)] = num;
+	  freq += ALLOCNO_FREQ (a);
+	  if (a == allocno)
+	    break;
+	}
+      regno_coalesced_allocno_freq [regno] = freq;
+    }
+  /* Uncoalesce allocnos which is necessary for (re)assigning during
+     the reload.  */
+  for (i = 0; i < allocnos_num; i++)
+    ALLOCNO_NEXT_COALESCED_ALLOCNO (allocnos [i]) = allocnos [i];
+  qsort (pseudo_regnos, n, sizeof (int), coalesced_pseudo_reg_compare);
+  ira_free (regno_coalesced_allocno_num);
+  ira_free (regno_coalesced_allocno_freq);
+}
+
+
+
 /* Set up current hard reg costs and current conflict hard reg costs
    for allocno A.  */
 static void
@@ -1785,7 +1887,7 @@ mark_allocation_change (int regno)
   if ((old_hard_regno = ALLOCNO_HARD_REGNO (a)) == hard_regno)
     return;
   if (old_hard_regno < 0)
-    cost = -ALLOCNO_UPDATED_MEMORY_COST (a);
+    cost = -ALLOCNO_MEMORY_COST (a);
   else
     {
       ira_assert (class_hard_reg_index [cover_class] [old_hard_regno] >= 0);
@@ -1798,7 +1900,7 @@ mark_allocation_change (int regno)
   overall_cost -= cost;
   ALLOCNO_HARD_REGNO (a) = hard_regno;
   if (hard_regno < 0)
-    cost += ALLOCNO_UPDATED_MEMORY_COST (a);
+    cost += ALLOCNO_MEMORY_COST (a);
   else if (class_hard_reg_index [cover_class] [hard_regno] >= 0)
     {
       cost += (ALLOCNO_HARD_REG_COSTS (a) == NULL
@@ -1849,7 +1951,7 @@ allocno_reload_assign (allocno_t a, HARD_REG_SET forbidden_regs)
   if (hard_regno >= 0)
     {
       ira_assert (class_hard_reg_index [cover_class] [hard_regno] >= 0);
-      overall_cost -= (ALLOCNO_UPDATED_MEMORY_COST (a)
+      overall_cost -= (ALLOCNO_MEMORY_COST (a)
 		       - (ALLOCNO_HARD_REG_COSTS (a) == NULL
 			  ? ALLOCNO_COVER_CLASS_COST (a)
 			  : ALLOCNO_HARD_REG_COSTS (a)
@@ -1926,7 +2028,7 @@ reassign_pseudos (int *spilled_pseudo_regs, int num,
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	fprintf (ira_dump_file,
 		 "      Spill %d(a%d), cost=%d", regno, ALLOCNO_NUM (a),
-		 ALLOCNO_UPDATED_MEMORY_COST (a)
+		 ALLOCNO_MEMORY_COST (a)
 		 - ALLOCNO_COVER_CLASS_COST (a));
       allocno_reload_assign (a, forbidden_regs);
       if (reg_renumber [regno] >= 0)
@@ -1978,7 +2080,7 @@ reassign_pseudos (int *spilled_pseudo_regs, int num,
 	    fprintf (ira_dump_file,
 		     "        Try assign %d(a%d), cost=%d",
 		     regno, ALLOCNO_NUM (a),
-		     ALLOCNO_UPDATED_MEMORY_COST (a)
+		     ALLOCNO_MEMORY_COST (a)
 		     - ALLOCNO_COVER_CLASS_COST (a));
 	  if (allocno_reload_assign (a, forbidden_regs))
 	    {
@@ -2039,7 +2141,7 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 	  EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
 				    FIRST_PSEUDO_REGISTER, i, bi)
 	    {
-	      if (allocno_reg_conflict_p (regno, i))
+	      if (pseudo_live_ranges_intersect_p (regno, i))
 		goto cont;
 	    }
 	  for (freq = 0, cp = ALLOCNO_COPIES (allocno);
@@ -2108,6 +2210,104 @@ mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
   slot->width = total_size;
   if (internal_flag_ira_verbose > 3 && ira_dump_file)
     fprintf (ira_dump_file, "      Assigning %d a new slot\n", regno);
+}
+
+
+/* Return spill cost for pseudo-registers whose numbers are in array
+   regnos (end marker is a negative number) for reload with given IN
+   and OUT for INSN.  Return also number points (through
+   EXCESS_PRESSURE_LIVE_LENGTH) where the pseudo-register lives and
+   the register pressure is high, number of references of the
+   pesudo-registers (through NREFS), number of call used
+   hard-registers occupied by the pseudo-registers (through
+   CALL_USED_COUNT), and the first hard regno occupied by the
+   pseudo-registers (through FIRST_HARD_REGNO).  */
+static int
+calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
+		      int *excess_pressure_live_length,
+		      int *nrefs, int *call_used_count, int *first_hard_regno)
+{
+  int i, cost, regno, hard_regno, j, count, saved_cost, nregs, in_p, out_p;
+  int length;
+  allocno_t a;
+
+  *nrefs = 0;
+  for (length = count = cost = i = 0;; i++)
+    {
+      regno = regnos [i];
+      *nrefs += REG_N_REFS (regno);
+      if (regno < 0)
+	break;
+      hard_regno = reg_renumber [regno];
+      ira_assert (hard_regno >= 0);
+      a = regno_allocno_map [regno];
+      length += ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
+      cost += ALLOCNO_MEMORY_COST (a) - ALLOCNO_COVER_CLASS_COST (a);
+      nregs = hard_regno_nregs [hard_regno] [ALLOCNO_MODE (a)];
+      for (j = 0; j < nregs; j++)
+	if (! TEST_HARD_REG_BIT (call_used_reg_set, hard_regno + j))
+	  break;
+      if (j == nregs)
+	count++;
+      in_p = in && REG_P (in) && (int) REGNO (in) == hard_regno;
+      out_p = out && REG_P (out) && (int) REGNO (out) == hard_regno;
+      if ((in_p || out_p)
+	  && find_regno_note (insn, REG_DEAD, hard_regno) != NULL_RTX)
+	{
+	  saved_cost = 0;
+	  if (in_p)
+	    saved_cost += memory_move_cost
+	                  [ALLOCNO_MODE (a)] [ALLOCNO_COVER_CLASS (a)] [1];
+	  if (out_p)
+	    saved_cost
+	      += memory_move_cost
+                 [ALLOCNO_MODE (a)] [ALLOCNO_COVER_CLASS (a)] [0];
+	  cost -= REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn)) * saved_cost;
+	}
+    }
+  *excess_pressure_live_length = length;
+  *call_used_count = count;
+  hard_regno = -1;
+  if (regnos [0] >= 0)
+    {
+      hard_regno = reg_renumber [regnos [0]];
+    }
+  *first_hard_regno = hard_regno;
+  return cost;
+}
+
+/* Return TRUE if spilling pseudo-registers whose numbers are in array
+   REGNOS is better spilling pseudo-registers with numbers in
+   OTHER_REGNOS for reload with given IN and OUT for INSN. */
+int
+better_spill_reload_regno_p (int *regnos, int *other_regnos,
+			     rtx in, rtx out, rtx insn)
+{
+  int cost, other_cost;
+  int length, other_length;
+  int nrefs, other_nrefs;
+  int call_used_count, other_call_used_count;
+  int hard_regno, other_hard_regno;
+
+  cost = calculate_spill_cost (regnos, in, out, insn, 
+			       &length, &nrefs, &call_used_count, &hard_regno);
+  other_cost = calculate_spill_cost (other_regnos, in, out, insn,
+				     &other_length, &other_nrefs,
+				     &other_call_used_count,
+				     &other_hard_regno);
+  if (cost != other_cost)
+    return cost < other_cost;
+  if (length != other_length)
+    return length > other_length;
+#ifdef REG_ALLOC_ORDER
+  if (hard_regno >= 0 && other_hard_regno >= 0)
+    return (inv_reg_alloc_order [hard_regno]
+	    < inv_reg_alloc_order [other_hard_regno]);
+#else
+  if (call_used_count != other_call_used_count)
+    return call_used_count > other_call_used_count;
+#endif
+  return FALSE;
 }
 
 

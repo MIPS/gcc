@@ -89,9 +89,6 @@ static void check_and_add_conflicts (allocno_t, allocno_t *);
 static void add_conflict_with_underlying_allocnos (allocno_t,
 						   loop_tree_node_t, int);
 
-/* All natural loops.  */
-struct loops ira_loops;
-
 /* The root of the loop tree corresponding to the all function.  */
 loop_tree_node_t ira_loop_tree_root;
 
@@ -514,6 +511,7 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
 #endif
   ALLOCNO_MEM_OPTIMIZED_DEST (a) = NULL;
   ALLOCNO_MEM_OPTIMIZED_DEST_P (a) = FALSE;
+  ALLOCNO_SOMEWHERE_RENAMED_P (a) = FALSE;
   ALLOCNO_DONT_REASSIGN_P (a) = FALSE;
   ALLOCNO_IN_GRAPH_P (a) = FALSE;
   ALLOCNO_ASSIGNED_P (a) = FALSE;
@@ -528,7 +526,9 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   ALLOCNO_COVER_CLASS (a) = NO_REGS;
   ALLOCNO_BEST_CLASS (a) = NO_REGS;
   ALLOCNO_COVER_CLASS_COST (a) = 0;
+  ALLOCNO_MEMORY_COST (a) = 0;
   ALLOCNO_UPDATED_MEMORY_COST (a) = 0;
+  ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a) = 0;
   ALLOCNO_NEXT_BUCKET_ALLOCNO (a) = NULL;
   ALLOCNO_PREV_BUCKET_ALLOCNO (a) = NULL;
   ALLOCNO_FIRST_COALESCED_ALLOCNO (a) = a;
@@ -689,6 +689,7 @@ create_cap_allocno (allocno_t a)
   ALLOCNO_CAP (a) = cap;
   ALLOCNO_COVER_CLASS_COST (cap) = ALLOCNO_COVER_CLASS_COST (a);
   /* ??? memory_cost */
+  ALLOCNO_MEMORY_COST (cap) = ALLOCNO_MEMORY_COST (a);
   ALLOCNO_UPDATED_MEMORY_COST (cap) = ALLOCNO_UPDATED_MEMORY_COST (a);
   if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
     {
@@ -1519,7 +1520,7 @@ check_and_add_conflicts (allocno_t a, allocno_t *conflict_vec)
     {
       conflict_a
 	= regno_top_level_allocno_map [REGNO (ALLOCNO_REG (conflict_a))];
-      if (allocno_conflict_p (conflict_a, a))
+      if (allocno_live_ranges_intersect_p (conflict_a, a))
 	{
 	  add_to_allocno_conflict_vec (conflict_a, a);
 	  add_to_allocno_conflict_vec (a, conflict_a);
@@ -1571,7 +1572,8 @@ add_conflict_with_underlying_allocnos (allocno_t a,
 void
 ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 {
-  int i, j, k, free, propagate_p, stop_p, keep_p, hard_regs_num, new_allocnos_p;
+  int i, j, k, free, propagate_p, stop_p, keep_p;
+  int hard_regs_num, new_allocnos_p, renamed_p, start;
   unsigned int n;
   enum reg_class cover_class;
   rtx call, *allocno_calls;
@@ -1587,7 +1589,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
     = ira_allocate (max_reg_num () * sizeof (allocno_t));
   memset (regno_top_level_allocno_map, 0, max_reg_num () * sizeof (allocno_t));
   expand_calls ();
-  new_allocnos_p = FALSE;
+  new_allocnos_p = renamed_p = FALSE;
   /* Updating accumulated attributes.  */
   for (i = max_regno_before_emit - 1; i >= FIRST_PSEUDO_REGISTER; i--)
     {
@@ -1598,6 +1600,8 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	{
 	  if (ALLOCNO_CAP_MEMBER (a) != NULL)
 	    continue;
+	  if (ALLOCNO_SOMEWHERE_RENAMED_P (a))
+	    renamed_p = TRUE;
 	  if ((unsigned int) ALLOCNO_REGNO (a) != REGNO (ALLOCNO_REG (a))
 	      && ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
 	    {
@@ -1681,6 +1685,8 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	      ALLOCNO_COVER_CLASS_COST (father_a)
 		-= ALLOCNO_COVER_CLASS_COST (a);
 	      ALLOCNO_MEMORY_COST (father_a) -= ALLOCNO_MEMORY_COST (a);
+	      ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (father_a)
+		-= ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
 	      if ((father = ALLOCNO_LOOP_TREE_NODE (father_a)->father) == NULL
 		  || (father_a = (father->regno_allocno_map
 				  [ALLOCNO_REGNO (father_a)])) == NULL)
@@ -1728,7 +1734,8 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	  regno_top_level_allocno_map [REGNO (ALLOCNO_REG (a))] = a;
 	}
     }
-  ira_assert (new_allocnos_p || max_point_before_emit == max_point);
+  ira_assert (new_allocnos_p || renamed_p
+	      || max_point_before_emit == max_point);
   if (new_allocnos_p)
     {
       /* Fix final allocnos attributes concerning calls.  */
@@ -1858,15 +1865,17 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	  continue;
 	}
       ALLOCNO_CAP (a) = NULL;
-      if (new_allocnos_p)
+      if (new_allocnos_p || ALLOCNO_SOMEWHERE_RENAMED_P (a))
 	{
 	  /* Remove conflicts.  */
 	  allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-	  for (k = j = ALLOCNO_CONFLICT_ALLOCNOS_NUM (a);
+	  start = (ALLOCNO_SOMEWHERE_RENAMED_P (a)
+		   ? 0 : ALLOCNO_CONFLICT_ALLOCNOS_NUM (a));
+	  for (k = j = start;
 	       (conflict_a = allocno_vec [j]) != NULL;
 	       j++)
 	    {
-	      if (allocno_conflict_p (a, conflict_a))
+	      if (allocno_live_ranges_intersect_p (a, conflict_a))
 		allocno_vec [k++] = conflict_a;
 	      else
 		{
@@ -1997,9 +2006,6 @@ ira_build (int loops_p)
   initiate_calls ();
   initiate_allocnos ();
   initiate_copies ();
-  ira_assert (current_loops == NULL);
-  flow_loops_find (&ira_loops);
-  current_loops = &ira_loops;
   create_loop_tree_nodes (loops_p);
   form_loop_tree ();
   create_allocnos ();
@@ -2051,17 +2057,7 @@ ira_build (int loops_p)
 void
 ira_destroy (void)
 {
-  basic_block bb;
-
   finish_loop_tree_nodes ();
-#if 0
-  ira_assert  (current_loops == &ira_loops);
-#endif
-  flow_loops_free (&ira_loops);
-  free_dominance_info (CDI_DOMINATORS);
-  FOR_ALL_BB (bb)
-    bb->loop_father = NULL;
-  current_loops = NULL;
   finish_copies ();
   finish_allocnos ();
   finish_calls ();
