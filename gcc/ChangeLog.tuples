@@ -1,3 +1,8 @@
+2008-03-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.c (walk_gimple_op): Update comment.
+	(walk_gimple_stmt): Same.
+
 2008-03-03  Aldy Hernandez  <aldyh@redhat.com>
 
 	* cgraphbuild.c (build_cgraph_edges): Use walk_gimple_op instead of
