@@ -40,7 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static pretty_printer buffer;
 static bool initialized = false;
 
-#define GIMPLE_NIY do_niy(buffer,gs)
+#define GIMPLE_NIY do_niy (buffer,gs)
 
 /* Try to print on BUFFER a default message for the unrecognized
    gimple statement GS.  */
@@ -632,8 +632,7 @@ dump_gimple_resx (pretty_printer *buffer, gimple gs, int spc, int flags)
     dump_gimple_fmt (buffer, spc, flags, "%G <%d>", gs,
                      gimple_resx_region (gs));
   else
-    dump_gimple_fmt (buffer, spc, flags, "resx %T", gimple_resx_region (gs));
-    GIMPLE_NIY;
+    dump_gimple_fmt (buffer, spc, flags, "resx %d", gimple_resx_region (gs));
 }
 
 /* Dump a GIMPLE_OMP_FOR tuple on the pretty_printer BUFFER.  */

@@ -208,7 +208,12 @@ gimple_to_tree (gimple stmt)
     break;
 
     case GIMPLE_NOP:
-      return build1 (NOP_EXPR, void_type_node, size_zero_node);
+      t = build1 (NOP_EXPR, void_type_node, size_zero_node);
+      break;
+
+    case GIMPLE_RESX:
+      t = build_resx (gimple_resx_region (stmt));
+      break;
 	
     default:
       error ("Unrecognized GIMPLE statement during RTL expansion");
@@ -221,8 +226,7 @@ gimple_to_tree (gimple stmt)
   {
     int rn = lookup_stmt_eh_region (stmt);
     tree_ann_common_t ann = get_tree_common_ann (t);
-    if (rn >= 0)
-      ann->rn = rn;
+    ann->rn = rn;
   }
 
   SET_EXPR_LOCATION (t, gimple_locus (stmt));

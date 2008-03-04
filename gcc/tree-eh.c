@@ -185,8 +185,8 @@ lookup_stmt_eh_region_fn (struct function *ifun, gimple t)
 
 /* Determine if statement T is inside an EH region in the current
    function (cfun).  Return the EH region number if found, return -2
-   if IFUN does not have an EH table and -1 if T could not be found in
-   IFUN's EH region table.  */
+   if cfun does not have an EH table and -1 if T could not be found in
+   cfun's EH region table.  */
 
 int
 lookup_stmt_eh_region (gimple t)
@@ -199,6 +199,7 @@ lookup_stmt_eh_region (gimple t)
   return lookup_stmt_eh_region_fn (cfun, t);
 }
 
+
 /* Determine if expression T is inside an EH region in the current
    function (cfun).  Return the EH region number if found, return -2
    if IFUN does not have an EH table and -1 if T could not be found in
@@ -210,7 +211,15 @@ lookup_stmt_eh_region (gimple t)
 int
 lookup_expr_eh_region (tree t)
 {
-  if (EXPR_P (t))
+  /* We can get called from initialized data when -fnon-call-exceptions
+     is on; prevent crash.  */
+  if (!cfun)
+    return -1;
+
+  if (!get_eh_throw_stmt_table (cfun))
+    return -2;
+
+  if (t && EXPR_P (t))
     {
       tree_ann_common_t ann = get_tree_common_ann (t);
       return (int) ann->rn;
@@ -255,7 +264,7 @@ record_in_finally_tree (treemple child, gimple parent)
 static void
 collect_finally_tree (gimple stmt, gimple region);
 
-/* Go through the gimple sequence. Works with collect_finally_tree() to 
+/* Go through the gimple sequence.  Works with collect_finally_tree to 
    record all GIMPLE_LABEL and GIMPLE_TRY statements. */
 
 static void
@@ -270,22 +279,10 @@ collect_finally_tree_1 (gimple_seq seq, gimple region)
 static void
 collect_finally_tree (gimple stmt, gimple region)
 {
-  size_t i, n;
   treemple temp;
 
   switch (gimple_code (stmt))
     {
-    /* FIXME tuples: Why is GIMPLE_SWITCH necessary? */
-    case GIMPLE_SWITCH:
-      n = gimple_switch_num_labels (stmt);
-      for (i = 0; i < n; i++)
-      {
-        tree lab = gimple_switch_label (stmt, i);
-        temp.t = lab;
-        record_in_finally_tree (temp, region);
-      }
-      break;
-
     case GIMPLE_LABEL:
       temp.t = gimple_label_label (stmt);
       record_in_finally_tree (temp, region);
@@ -585,7 +582,6 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
   struct leh_tf_state *tf = state->tf;
   struct goto_queue_node *q;
   treemple new_stmt;
-  int new_is_label;
   size_t active, size;
   int index;
 
@@ -629,8 +625,7 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
         /* In the case of a GOTO we want to record the destination label,
 	   since with a GIMPLE_COND we have an easy access to the then/else
 	   labels. */
-        new_stmt.t = lab;
-        new_is_label = 1;
+        new_stmt.g = stmt;
       }
       break;
 
@@ -638,7 +633,6 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
       tf->may_return = true;
       index = -1;
       new_stmt.g = stmt;
-      new_is_label = 0;
       break;
 
     default:
@@ -662,7 +656,6 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
 
   memset (q, 0, sizeof (*q));
   q->stmt = new_stmt;
-  q->is_label = new_is_label;
   q->index = index;
 }
 
@@ -684,8 +677,8 @@ verify_norecord_switch_expr (struct leh_state *state, gimple switch_expr)
 
   for (i = 0; i < n; ++i)
     {
-      tree lab = gimple_switch_label (switch_expr, i);
       treemple temp;
+      tree lab = CASE_LABEL (gimple_switch_label (switch_expr, i));
       temp.t = lab;
       gcc_assert (!outside_finally_tree (temp, tf->try_finally_expr));
     }
@@ -707,7 +700,7 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod,
   gimple x;
 
   /* In the case of a return, the queue node must be a gimple statement. */
-  gcc_assert (q->is_label);
+  gcc_assert (!q->is_label);
 
   ret_expr = gimple_return_retval (q->stmt.g);
 
@@ -1149,6 +1142,7 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
 
   /* Reset the locus of the goto since we're moving
      goto to a different block which might be on a different line. */
+  gcc_assert (!tf->goto_queue[0].is_label);
   gimple_set_locus (tf->goto_queue[0].cont_stmt.g, 0);
   gimple_seq_add_stmt (&tf->top_p_seq, tf->goto_queue[0].cont_stmt.g);
   maybe_record_in_goto_queue (state, tf->goto_queue[0].cont_stmt.g);
@@ -1241,6 +1235,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 	  lower_eh_constructs_1 (state, seq);
           gimple_seq_add_seq (&new_stmt, seq);
 
+	  gcc_assert (!q->is_label);
           gimple_seq_add_stmt (&new_stmt, q->cont_stmt.g);
 	  maybe_record_in_goto_queue (state, q->cont_stmt.g);
 	}
@@ -1429,7 +1424,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
       /* As the comment above suggests, CASE_LABEL (last_case) was just a
          placeholder, it does not store an actual label, yet. */
-      cont_stmt.t = CASE_LABEL (last_case);
+      cont_stmt.g = gimple_build_label (CASE_LABEL (last_case));
 
       label = create_artificial_label ();
       CASE_LABEL (last_case) = label;
@@ -1914,20 +1909,20 @@ make_eh_edges (gimple stmt)
   foreach_reachable_handler (region_nr, is_resx, make_eh_edge, stmt);
 }
 
-/* FIXME tuples.  */
-#if 0
 static bool mark_eh_edge_found_error;
 
 /* Mark edge make_eh_edge would create for given region by setting it aux
    field, output error if something goes wrong.  */
+
 static void
 mark_eh_edge (struct eh_region *region, void *data)
 {
-  tree stmt, lab;
+  gimple stmt;
+  tree lab;
   basic_block src, dst;
   edge e;
 
-  stmt = (tree) data;
+  stmt = (gimple) data;
   lab = get_eh_region_tree_label (region);
 
   src = gimple_bb (stmt);
@@ -1954,10 +1949,11 @@ mark_eh_edge (struct eh_region *region, void *data)
     e->aux = (void *)1;
 }
 
-/* Verify that BB containing stmt as last stmt has precisely the edges
-   make_eh_edges would create.  */
+/* Verify that BB containing STMT as the last statement, has precisely the
+   edges that make_eh_edges would create.  */
+
 bool
-verify_eh_edges (tree stmt)
+verify_eh_edges (gimple stmt)
 {
   int region_nr;
   bool is_resx;
@@ -1968,9 +1964,9 @@ verify_eh_edges (tree stmt)
   FOR_EACH_EDGE (e, ei, bb->succs)
     gcc_assert (!e->aux);
   mark_eh_edge_found_error = false;
-  if (TREE_CODE (stmt) == RESX_EXPR)
+  if (gimple_code (stmt) == GIMPLE_RESX)
     {
-      region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0));
+      region_nr = gimple_resx_region (stmt);
       is_resx = true;
     }
   else
@@ -1986,7 +1982,7 @@ verify_eh_edges (tree stmt)
 	      }
 	   return false;
 	}
-      if (!tree_could_throw_p (stmt))
+      if (!stmt_could_throw_p (stmt))
 	{
 	  error ("BB %i last statement has incorrectly set region", bb->index);
 	  return true;
@@ -2008,7 +2004,6 @@ verify_eh_edges (tree stmt)
 
   return mark_eh_edge_found_error;
 }
-#endif
 
 
 /* Return true if operation OP may trap.  FP_OPERATION is true if OP is applied
@@ -2396,32 +2391,6 @@ stmt_can_throw_internal (gimple stmt)
 }
 
 
-/* Return true if STMT can throw an exception that is visible outside
-   the current function (CFUN).  */
-
-bool
-tree_can_throw_external (tree stmt ATTRIBUTE_UNUSED)
-{
-  /* FIXME tuples.  */
-#if 0
-  int region_nr;
-  bool is_resx = false;
-
-  if (TREE_CODE (stmt) == RESX_EXPR)
-    region_nr = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0)), is_resx = true;
-  else
-    region_nr = lookup_stmt_eh_region (stmt);
-  if (region_nr < 0)
-    return tree_could_throw_p (stmt);
-  else
-    return can_throw_external_1 (region_nr, is_resx);
-#else
-  gimple_unreachable ();
-  return false;
-#endif
-}
-
-
 /* Given a statement OLD_STMT and a new statement NEW_STMT that has replaced
    OLD_STMT in the function, remove OLD_STMT from the EH table and put NEW_STMT
    in the table if it should be in there.  Return TRUE if a replacement was
@@ -2520,12 +2489,7 @@ optimize_double_finally (tree one, tree two)
       TREE_SET_CODE (one, TRY_CATCH_EXPR);
 
       i = tsi_start (TREE_OPERAND (two, 0));
-      /* FIXME tuples.  */
-#if 0
       tsi_link_before (&i, unsave_expr_now (b), TSI_SAME_STMT);
-#else
-      gimple_unreachable ();
-#endif
     }
 }
 

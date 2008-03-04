@@ -4500,7 +4500,7 @@ static enum gimplify_status
 gimplify_cleanup_point_expr (tree *expr_p, gimple_seq *pre_p)
 {
   gimple_stmt_iterator iter;
-  gimple_seq body_sequence;
+  gimple_seq body_sequence = NULL;
 
   tree temp = voidify_wrapper_expr (*expr_p, NULL);
 

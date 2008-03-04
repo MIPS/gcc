@@ -1049,7 +1049,6 @@ extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
 extern bool stmt_could_throw_p (gimple);
 extern bool tree_could_throw_p (tree);
 extern bool stmt_can_throw_internal (gimple);
-extern bool tree_can_throw_external (tree);
 extern void add_stmt_to_eh_region (gimple, int);
 extern bool remove_stmt_from_eh_region (gimple);
 extern bool maybe_clean_or_replace_eh_stmt (gimple, gimple);
@@ -1058,7 +1057,7 @@ extern bool remove_stmt_from_eh_region_fn (struct function *, gimple);
 extern int lookup_stmt_eh_region_fn (struct function *, gimple);
 extern int lookup_expr_eh_region (tree);
 extern int lookup_stmt_eh_region (gimple);
-extern bool verify_eh_edges (tree);
+extern bool verify_eh_edges (gimple);
 
 
 /* In tree-ssa-pre.c  */

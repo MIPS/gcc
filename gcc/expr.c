@@ -7061,11 +7061,7 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 
   if (flag_non_call_exceptions)
     {
-#if 0
-      rn = lookup_stmt_eh_region (exp);
-#else
       rn = lookup_expr_eh_region (exp);
-#endif
 
       /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't throw.  */
       if (rn >= 0)

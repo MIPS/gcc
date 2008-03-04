@@ -1,3 +1,53 @@
+2008-03-04  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00219.html
+
+	* expr.c (expand_expr_real): Call lookup_expr_eh_region.
+	* tree-eh.c (lookup_stmt_eh_region_fn):
+	(lookup_stmt_eh_region): Fix comment.
+	(lookup_expr_eh_region): Handle missing cfun and missing
+	EH table.
+	(record_in_finally_tree): Fix comment.
+	(collect_finally_tree_1): Remove handler for
+	GIMPLE_SWITCH.
+	(maybe_record_in_goto_queue): Remove local variable
+	NEW_IS_LABEL.
+	Record GIMPLE_GOTOs instead of their label.
+	(verify_norecord_switch_expr): Retrieve the CASE_LABEL
+	from the case label expression.
+	(do_return_redirection): Change sign of assertion.
+	(lower_try_finally_onedest): Assert that
+	TF->GOTO_QUEUE[0] contains a GIMPLE statement.
+	(lower_try_finally_copy): Assert that Q contains a GIMPLE
+	statement.
+	(lower_try_finally_switch): Build a new GIMPLE label for
+	CONT_STMT.
+	(mark_eh_edge): Tuplify.
+	(verify_eh_edges): Tuplify.
+	(tree_can_throw_external): Remove unused function.
+	(optimize_double_finally): Remove #if 0.
+	* gimple-pretty-print.c (GIMPLE_NIY): Tidy.
+	(dump_gimple_resx): Fix format string for
+	dump_gimple_fmt.
+	* gimplify.c (gimplify_cleanup_point_expr): Initialize
+	BODY_SEQUENCE.
+	* calls.c (emit_call_1): Remove ATTRIBUTE_UNUSED markers.
+	* cfgexpand.c (gimple_to_tree) <GIMPLE_NOP>: Assign new
+	expression to T.
+	<GIMPLE_RESX>: Handle.
+	Always assign the value from lookup_stmt_eh_region to
+	ANN->RN.
+	* tree-cfg.c (start_recording_case_labels):
+	(recording_case_labels_p): Re-enable.
+	(get_cases_for_edge): Likewise.
+	(gimple_verify_flow_info): Re-enable call to
+	verify_eh_edges.
+	(gimple_redirect_edge_and_branch): Re-enable handling of
+	GIMPLE_SWITCH.
+	(gimple_block_ends_with_call_p): Tuplify.
+	(struct gimple_cfg_hooks): Enable block_ends_with_call_p
+	callback.
+
 2008-03-04  Rafael Espindola  <espindola@google.com>
 
 	* fold-const.c (tree_unary_nonzero_warnv_p): New.

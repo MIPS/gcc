@@ -700,8 +700,6 @@ start_recording_case_labels (void)
   edge_to_cases = pointer_map_create ();
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Return nonzero if we are recording information for case labels.  */
 
 static bool
@@ -709,7 +707,6 @@ recording_case_labels_p (void)
 {
   return (edge_to_cases != NULL);
 }
-#endif
 
 /* Stop recording information mapping edges to case labels and
    remove any information we have recorded.  */
@@ -721,8 +718,6 @@ end_recording_case_labels (void)
   edge_to_cases = NULL;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* If we are inside a {start,end}_recording_cases block, then return
    a chain of CASE_LABEL_EXPRs from T which reference E.
 
@@ -764,7 +759,6 @@ get_cases_for_edge (edge e, gimple t)
 
   return (tree) *pointer_map_contains (edge_to_cases, e);
 }
-#endif
 
 /* Create the edges for a GIMPLE_SWITCH starting at block BB.  */
 
@@ -4161,10 +4155,7 @@ gimple_verify_flow_info (void)
 
       stmt = gsi_stmt (gsi);
 
-      /* FIXME tuples.  */
-#if 0
       err |= verify_eh_edges (stmt);
-#endif
 
       if (is_ctrl_stmt (stmt))
 	{
@@ -4500,8 +4491,6 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
     case GIMPLE_SWITCH:
       {
 	tree label = gimple_block_label (dest);
-/* FIXME tuples.  */
-#if 0
         tree cases = get_cases_for_edge (e, stmt);
 
 	/* If we have a list of cases associated with E, then use it
@@ -4530,7 +4519,6 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 	      }
 	  }
 	else
-#endif
 	  {
 	    size_t i, n = gimple_switch_num_labels (stmt);
 
@@ -6067,15 +6055,12 @@ debug_loop_num (unsigned num, int verbosity)
    instructions that must stay with the call.  Return false,
    otherwise.  */
 
-/* FIXME tuples.  */
-#if 0
 static bool
 gimple_block_ends_with_call_p (basic_block bb)
 {
-  gimple_stmt_iterator gsi = gsi_last (bb);
-  return get_call_expr_in (gsi_stmt (gsi)) != NULL;
+  gimple_stmt_iterator gsi = gsi_last_bb (bb);
+  return gimple_code (gsi_stmt (gsi)) == GIMPLE_CALL;
 }
-#endif
 
 
 /* Return true if BB ends with a conditional branch.  Return false,
@@ -6565,7 +6550,7 @@ struct cfg_hooks gimple_cfg_hooks = {
   gimple_split_edge,		/* split_edge  */
   gimple_make_forwarder_block,	/* make_forward_block  */
   NULL,				/* tidy_fallthru_edge  */
-  0 /* FIXME tuples gimple_block_ends_with_call_p */,	/* block_ends_with_call_p */
+  gimple_block_ends_with_call_p,/* block_ends_with_call_p */
   0 /* FIXME tuples gimple_block_ends_with_condjump_p */, /* block_ends_with_condjump_p */
   0 /* FIXME tuples gimple_flow_call_edges_add */,     /* flow_call_edges_add */
   gimple_execute_on_growing_pred,	/* execute_on_growing_pred */
