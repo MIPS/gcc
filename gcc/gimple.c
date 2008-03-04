@@ -1103,8 +1103,6 @@ walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
   for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       tree ret;
-      if (wi)
-	wi->gsi = gsi;
       ret = walk_gimple_stmt (&gsi, callback_stmt, callback_op, wi);
       if (ret)
 	return ret;
@@ -1187,7 +1185,8 @@ walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
    not scanned.
         
    The return value is that returned by the last call to walk_tree, or
-   NULL_TREE if no CALLBACK_OP is specified.  */
+   NULL_TREE if no CALLBACK_OP is specified.
+*/
 
 inline tree
 walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
@@ -1392,6 +1391,9 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
 {
   tree ret;
   gimple stmt = gsi_stmt (*gsi);
+
+  if (wi)
+    wi->gsi = *gsi;
 
   if (wi && wi->want_locations && !gimple_locus_empty_p (stmt))
     input_location = gimple_locus (stmt);

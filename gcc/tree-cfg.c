@@ -3821,7 +3821,7 @@ verify_stmt (gimple_stmt_iterator *gsi)
     }
 
   memset (&wi, 0, sizeof (wi));
-  addr = walk_gimple_stmt (gsi, NULL, verify_expr, &wi);
+  addr = walk_gimple_op (gsi_stmt (*gsi), verify_expr, &wi);
   if (addr)
     {
       debug_generic_expr (addr);
@@ -4019,7 +4019,7 @@ verify_stmts (void)
 	    }
 
 	  err |= verify_stmt (&gsi);
-	  addr = walk_gimple_stmt (&gsi, NULL, verify_node_sharing, &wi);
+	  addr = walk_gimple_op (gsi_stmt (gsi), verify_node_sharing, &wi);
 	  if (addr)
 	    {
 	      error ("incorrect sharing of tree nodes");

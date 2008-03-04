@@ -1,3 +1,11 @@
+2008-03-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.c (walk_gimple_seq): Do not set wi->gsi.
+	(walk_gimple_stmt): Set wi->gsi.
+	* tree-cfg.c (verify_stmt): Use walk_gimple_op instead of
+	walk_gimple_stmt.
+	(verify_stmts): Same.
+
 2008-03-04  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00219.html
