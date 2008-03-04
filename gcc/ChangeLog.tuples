@@ -1,3 +1,32 @@
+2008-03-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cgraphbuild.c (build_cgraph_edges): Use walk_gimple_op instead of
+	walk_gimple_stmt.
+	* tree-ssa-alias-warnings.c (find_references_in_function): Same.
+	* tree-ssa-ccp.c (fold_stmt): Change walk_gimple_stmt call to
+	walk_gimple_op.
+	* tree-nrv.c (tree_nrv): Same.
+	* tree-ssa-alias.c (count_uses_and_derefs): Same.
+	* cfgexpand.c (discover_nonconstant_array_refs_r): Same.
+	* tree-nested.c (convert_nonlocal_reference_stmt): Make first
+	argument a GSI.
+	(convert_local_reference_op): Same.
+	(convert_nl_goto_reference): Same.
+	(convert_tramp_reference_stmt): Same.
+	(convert_gimple_call): Same.
+	* tree-inline.c (inline_forbidden_p_stmt): Same.
+	* tree-ssa.c (execute_early_warn_uninitialized): Change
+	walk_gimple_stmt call to walk_gimple_op.
+	* gimple.c (walk_gimple_seq): Pass GSI to walk_gimple_stmt.
+	(walk_gimple_stmt): Move operand walking code to...
+	(walk_gimple_op): ...here.
+	(walk_gimple_stmt): First argument is now a GSI.
+	* gimple.h: Change walk_stmt_fn argument to a GSI.
+	(walk_gimple_stmt): Make first argument is a GSI.
+	(walk_gimple_op): New prototype.
+	* tree-cfg.c (verify_stmt): Change argument to a GSI.  Adjust
+	accordingly.
+
 2008-02-29  Zdenek Dvorak  <ook@ucw.cz>
 
 	* tree-ssa-alias.c (is_escape_site): Detect pure/const functions

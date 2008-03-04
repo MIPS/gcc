@@ -1935,11 +1935,12 @@ inline_forbidden_p_op (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
    function can not be inlined. Also sets the reason why. */
 
 static bool
-inline_forbidden_p_stmt (gimple stmt, void *wip)
+inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, void *wip)
 {
   struct walk_stmt_info wi = *(struct walk_stmt_info *) wip;
   tree fn = (tree) wi.info;
   tree t;
+  gimple stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
     {

@@ -564,8 +564,7 @@ find_references_in_function (void)
 	struct walk_stmt_info wi;
 	memset (&wi, 0, sizeof (wi));
 	wi.info = (void *) gsi_stmt (i);
-	walk_gimple_stmt (gsi_stmt (i), NULL, find_references_in_tree_helper,
-	                  &wi);
+	walk_gimple_op (gsi_stmt (i), find_references_in_tree_helper, &wi);
       }
 }
 

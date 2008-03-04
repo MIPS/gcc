@@ -153,7 +153,7 @@ build_cgraph_edges (void)
 	    memset (&wi, 0, sizeof (wi));
 	    wi.info = node;
 	    wi.pset = visited_nodes;
-	    walk_gimple_stmt (stmt, NULL, record_reference, &wi);
+	    walk_gimple_op (stmt, record_reference, &wi);
 	  }
       }
 

@@ -3021,7 +3021,7 @@ void gsi_commit_edge_inserts (void);
 
 /* Callback for walk_gimple_stmt.  Called for every statement found
    during traversal.  */
-typedef bool (*walk_stmt_fn) (gimple, void *);
+typedef bool (*walk_stmt_fn) (gimple_stmt_iterator *, void *);
 
 /* Convenience routines to walk all statements of a gimple function.
    Note that this is useful exclusively before the code is converted
@@ -3068,7 +3068,8 @@ struct walk_stmt_info
 
 tree walk_gimple_seq (gimple_seq, walk_stmt_fn, walk_tree_fn,
 		      struct walk_stmt_info *);
-tree walk_gimple_stmt (gimple, walk_stmt_fn, walk_tree_fn,
+tree walk_gimple_stmt (gimple_stmt_iterator *, walk_stmt_fn, walk_tree_fn,
 		       struct walk_stmt_info *);
+tree walk_gimple_op (gimple, walk_tree_fn, struct walk_stmt_info *);
 
 #endif  /* GCC_GIMPLE_H */

@@ -208,19 +208,18 @@ tree_nrv (void)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
-	  gimple *tp = gsi_stmt_ptr (&gsi);
+	  gimple stmt = gsi_stmt (gsi);
 	  /* If this is a copy from VAR to RESULT, remove it.  */
-	  if (gimple_assign_copy_p (*tp)
-	      && gimple_assign_lhs (*tp) == result
-	      && gimple_assign_rhs1 (*tp) == found)
+	  if (gimple_assign_copy_p (stmt)
+	      && gimple_assign_lhs (stmt) == result
+	      && gimple_assign_rhs1 (stmt) == found)
 	    gsi_remove (&gsi, true);
 	  else
 	    {
 	      struct walk_stmt_info wi;
 	      memset (&wi, 0, sizeof (wi));
 	      wi.info = &data;
-	      walk_gimple_stmt (*tp, NULL,
-				finalize_nrv_r, &wi);
+	      walk_gimple_op (stmt, finalize_nrv_r, &wi);
 	      gsi_next (&gsi);
 	    }
 	}

@@ -3808,10 +3808,12 @@ verify_types_in_gimple_seq (gimple_seq stmts)
    TODO: Implement type checking.  */
 
 static bool
-verify_stmt (gimple stmt, bool last_in_block)
+verify_stmt (gimple_stmt_iterator *gsi)
 {
   tree addr;
   struct walk_stmt_info wi;
+  bool last_in_block = gsi_one_before_end_p (*gsi);
+  gimple stmt = gsi_stmt (*gsi);
 
   if (is_gimple_omp (stmt))
     {
@@ -3825,7 +3827,7 @@ verify_stmt (gimple stmt, bool last_in_block)
     }
 
   memset (&wi, 0, sizeof (wi));
-  addr = walk_gimple_stmt (stmt, NULL, verify_expr, &wi);
+  addr = walk_gimple_stmt (gsi, NULL, verify_expr, &wi);
   if (addr)
     {
       debug_generic_expr (addr);
@@ -4022,9 +4024,8 @@ verify_stmts (void)
 	      err |= true;
 	    }
 
-	  gsi_next (&gsi);
-	  err |= verify_stmt (stmt, gsi_end_p (gsi));
-	  addr = walk_gimple_stmt (stmt, NULL, verify_node_sharing, &wi);
+	  err |= verify_stmt (&gsi);
+	  addr = walk_gimple_stmt (&gsi, NULL, verify_node_sharing, &wi);
 	  if (addr)
 	    {
 	      error ("incorrect sharing of tree nodes");
@@ -4032,6 +4033,7 @@ verify_stmts (void)
 	      debug_generic_expr (addr);
 	      err |= true;
 	    }
+	  gsi_next (&gsi);
 	}
     }
 

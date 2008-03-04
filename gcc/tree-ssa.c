@@ -1515,8 +1515,7 @@ execute_early_warn_uninitialized (void)
 	struct walk_stmt_info wi;
 	memset (&wi, 0, sizeof (wi));
 	wi.info = context;
-	walk_gimple_stmt (gsi_stmt (gsi), NULL, warn_uninitialized_var,
-			  &wi);
+	walk_gimple_op (gsi_stmt (gsi), warn_uninitialized_var, &wi);
       }
   return 0;
 }

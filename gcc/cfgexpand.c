@@ -2019,8 +2019,10 @@ discover_nonconstant_array_refs (void)
 
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-      walk_gimple_stmt (gsi_stmt (gsi), NULL, discover_nonconstant_array_refs_r,
-                        NULL);
+      {
+	gimple stmt = gsi_stmt (gsi);
+	walk_gimple_op (stmt, discover_nonconstant_array_refs_r, NULL);
+      }
 }
 
 /* Translate the intermediate representation contained in the CFG

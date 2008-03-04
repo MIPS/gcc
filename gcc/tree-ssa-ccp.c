@@ -2853,7 +2853,7 @@ fold_stmt (gimple_stmt_iterator *gsi)
 
   /* Fold the individual operands.
      For example, fold instances of *&VAR into VAR, etc.  */
-  gcc_assert (!walk_gimple_stmt (stmt, NULL, fold_stmt_r, &wi));
+  gcc_assert (!walk_gimple_op (stmt, fold_stmt_r, &wi));
 
   /* Fold the main computation performed by the statement.  */
   switch (gimple_code (stmt))
@@ -2920,8 +2920,7 @@ fold_stmt_inplace (gimple stmt)
      signal that the entire statement should be replaced with
      a call to _builtin_trap.  This functionality is currently
      disabled, as noted in a FIXME, and cannot be supported here.  */
-
-  gcc_assert (!walk_gimple_stmt (stmt, NULL, fold_stmt_r, &wi));
+  walk_gimple_op (stmt, fold_stmt_r, &wi);
 
   /* Fold the main computation performed by the statement.  */
   switch (gimple_code (stmt))

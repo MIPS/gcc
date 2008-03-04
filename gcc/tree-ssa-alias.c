@@ -1949,7 +1949,7 @@ count_uses_and_derefs (tree ptr, gimple stmt, unsigned *num_uses_p,
 
       memset (&wi, 0, sizeof (wi));
       wi.info = &count;
-      walk_gimple_stmt (stmt, NULL, count_ptr_derefs, &wi);
+      walk_gimple_op (stmt, count_ptr_derefs, &wi);
 
       *num_stores_p = count.num_stores;
       *num_loads_p = count.num_loads;
