@@ -1,3 +1,10 @@
+2008-03-04  Rafael Espindola  <espindola@google.com>
+
+	* fold-const.c (tree_unary_nonzero_warnv_p): New.
+	(tree_binary_nonzero_warnv_p): New.
+	(tree_single_nonzero_warnv_p): New.
+	(tree_expr_nonzero_warnv_p): Redefine using the new functions.
+
 2008-03-04  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple.c (walk_gimple_op): Update comment.
