@@ -1,3 +1,29 @@
+2008-03-05  Bill Maddox  <maddox@google.com>
+
+	* tree-ssa-ccp.c (dump_lattice_value, debug_lattice_value):
+	Re-enable functions #if'd out.
+	(test_default_value, likely_value, surely_varying_stmt_p,
+	ccp_initialize, ccp_visit_phi_node, ccp_fold, evaluate_stmt,
+	visit_assignment, visit_cond_stmt, ccp_visit_stmt):
+	Convert to tuples.
+	(fold_gimple_call):  Don't trip over call that simplifies to
+	another call, not a constant.
+	* tree-ssa-propagate.c (ssa_prop_init): Initialize in-worklist
+	flag for phi nodes as well as statements.
+	(valid_gimple_expression_p): Add fixme comment to remove this.
+	function.  It currently has static uses, but asserts when called.
+	(stmt_makes_single_load, stmt_makes_single_store):
+	Convert to tuples
+	(replace_phi_args_in): Convert to tuples.  Fix typo in comment.
+	* gimple.c (gimple_copy_no_def_use, gimple_get_lhs,
+	gimple_set_lhs): New function.
+	* gimple.h (gimple_copy_no_def_use, gimple_get_lhs,
+	gimple_set_lhs): Declare new function.
+	* tree-cfg.c (replace_uses_by): Add comment regarding empty
+	operands.
+	* passes.c (init_optimization_passes): Enable pass_ccp and
+	pass_store_ccp.
+	
 2008-03-05  David Daney  <ddaney@avtrex.com>
 
 	* tree-phinodes.c (allocate_phi_node): Fix syntax errors from

@@ -476,8 +476,8 @@ init_optimization_passes (void)
     backend might produce already lowered functions that are not processed
     by these passes.  */
   p = &all_lowering_passes;
-  /* FIXME tuples.  */
   NEXT_PASS (pass_remove_useless_stmts);
+  /* FIXME tuples.  */
 #if 0
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
@@ -521,19 +521,21 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_referenced_vars);
 	  NEXT_PASS (pass_reset_cc_flags);
 	  NEXT_PASS (pass_build_ssa);
-/* FIXME tuples.  */
+          /* FIXME tuples.  */
 #if 0
 	  NEXT_PASS (pass_expand_omp_ssa);
 #endif
 	  NEXT_PASS (pass_early_warn_uninitialized);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
+          /* FIXME tuples.  */
 #if 0
 	  NEXT_PASS (pass_cleanup_cfg);
 #endif
 	  NEXT_PASS (pass_rename_ssa_copies);
-#if 0
 	  NEXT_PASS (pass_ccp);
+          /* FIXME tuples.  */
+#if 0
 	  NEXT_PASS (pass_forwprop);
 #endif
 	  NEXT_PASS (pass_update_address_taken);
@@ -593,9 +595,11 @@ init_optimization_passes (void)
 #if 0
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_rename_ssa_copies);
-
+#endif
       /* Initial scalar cleanups.  */
       NEXT_PASS (pass_ccp);
+      /* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_fre);
       NEXT_PASS (pass_dce);
@@ -640,7 +644,10 @@ init_optimization_passes (void)
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_object_sizes);
+#endif
       NEXT_PASS (pass_store_ccp);
+      /* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_cse_sincos);

@@ -209,8 +209,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 
 
-     /* FIXME tuples.  */
-#if 0
 /* Possible lattice values.  */
 typedef enum
 {
@@ -267,7 +265,6 @@ debug_lattice_value (prop_value_t val)
   dump_lattice_value (stderr, "", val);
   fprintf (stderr, "\n");
 }
-#endif
 
 
 /* The regular is_gimple_min_invariant does a shallow test of the object.
@@ -296,8 +293,6 @@ ccp_decl_initial_min_invariant (tree t)
 }
 
 
-/* FIXME tuples.  */
-#if 0
 /* If SYM is a constant variable with known value, return the value.
    NULL_TREE is returned otherwise.  */
 
@@ -367,9 +362,9 @@ get_default_value (tree var)
     }
   else
     {
-      tree stmt = SSA_NAME_DEF_STMT (var);
+      gimple stmt = SSA_NAME_DEF_STMT (var);
 
-      if (IS_EMPTY_STMT (stmt))
+      if (gimple_nop_p (stmt))
 	{
 	  /* Variables defined by an empty statement are those used
 	     before being initialized.  If VAR is a local variable, we
@@ -380,9 +375,13 @@ get_default_value (tree var)
 	  else
 	    val.lattice_val = VARYING;
 	}
-      else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	       || TREE_CODE (stmt) == PHI_NODE)
-	{
+      else if (gimple_code (stmt) == GIMPLE_ASSIGN
+               /* Value-returning GIMPLE_CALL statements assign to
+                  a variable, and are treated similarly to GIMPLE_ASSIGN.  */
+               || (gimple_code (stmt) == GIMPLE_CALL
+                   && gimple_call_lhs (stmt) != NULL_TREE)
+	       || gimple_code (stmt) == GIMPLE_PHI)
+        {
 	  /* Any other variable defined by an assignment or a PHI node
 	     is considered UNDEFINED.  */
 	  val.lattice_val = UNDEFINED;
@@ -521,18 +520,24 @@ set_lattice_value (tree var, prop_value_t new_val)
    Else return VARYING.  */
 
 static ccp_lattice_t
-likely_value (tree stmt)
+likely_value (gimple stmt)
 {
   bool has_constant_operand, has_undefined_operand, all_undefined_operands;
-  stmt_ann_t ann;
   tree use;
   ssa_op_iter iter;
 
-  ann = stmt_ann (stmt);
+  enum tree_code code = gimple_code (stmt);
+
+  /* This function appears to be called only for assignments, calls,
+     conditionals, and switches, due to the logic in visit_stmt.  */
+  gcc_assert (code == GIMPLE_ASSIGN
+              || code == GIMPLE_CALL
+              || code == GIMPLE_COND
+              || code == GIMPLE_SWITCH);
 
   /* If the statement has volatile operands, it won't fold to a
      constant value.  */
-  if (ann->has_volatile_ops)
+  if (gimple_has_volatile_ops (stmt))
     return VARYING;
 
   /* If we are not doing store-ccp, statements with loads
@@ -541,22 +546,21 @@ likely_value (tree stmt)
       && !ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return VARYING;
 
-
-  /* A CALL_EXPR is assumed to be varying.  NOTE: This may be overly
+  /* A GIMPLE_CALL is assumed to be varying.  NOTE: This may be overly
      conservative, in the presence of const and pure calls.  */
-  if (get_call_expr_in (stmt) != NULL_TREE)
+  if (code == GIMPLE_CALL)
     return VARYING;
 
-  /* Anything other than assignments and conditional jumps are not
-     interesting for CCP.  */
-  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
-      && !(TREE_CODE (stmt) == RETURN_EXPR && get_rhs (stmt) != NULL_TREE)
-      && TREE_CODE (stmt) != COND_EXPR
-      && TREE_CODE (stmt) != SWITCH_EXPR)
-    return VARYING;
-
-  if (is_gimple_min_invariant (get_rhs (stmt)))
+  /* Note that only a GIMPLE_SINGLE_RHS assignment can satisfy
+     is_gimple_min_invariant, so we do not consider calls or
+     other forms of assignment.  */
+  if (code == GIMPLE_ASSIGN
+      && (get_gimple_rhs_class (gimple_assign_subcode (stmt))
+          == GIMPLE_SINGLE_RHS)
+      && is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
     return CONSTANT;
+
+  /* Arrive here for more complex cases.  */
 
   has_constant_operand = false;
   has_undefined_operand = false;
@@ -577,13 +581,11 @@ likely_value (tree stmt)
   /* If the operation combines operands like COMPLEX_EXPR make sure to
      not mark the result UNDEFINED if only one part of the result is
      undefined.  */
-  if (has_undefined_operand
-      && all_undefined_operands)
+  if (has_undefined_operand && all_undefined_operands)
     return UNDEFINED;
-  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	   && has_undefined_operand)
+  else if (code == GIMPLE_ASSIGN && has_undefined_operand)
     {
-      switch (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)))
+      switch (gimple_assign_subcode (stmt))
 	{
 	/* Unary operators are handled with all_undefined_operands.  */
 	case PLUS_EXPR:
@@ -619,11 +621,11 @@ likely_value (tree stmt)
 /* Returns true if STMT cannot be constant.  */
 
 static bool
-surely_varying_stmt_p (tree stmt)
+surely_varying_stmt_p (gimple stmt)
 {
   /* If the statement has operands that we cannot handle, it cannot be
      constant.  */
-  if (stmt_ann (stmt)->has_volatile_ops)
+  if (gimple_has_volatile_ops (stmt))
     return true;
 
   if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
@@ -638,15 +640,16 @@ surely_varying_stmt_p (tree stmt)
     }
 
   /* If it contains a call, it is varying.  */
-  if (get_call_expr_in (stmt) != NULL_TREE)
+  if (gimple_code (stmt) == GIMPLE_CALL)
     return true;
 
   /* Anything other than assignments and conditional jumps are not
      interesting for CCP.  */
-  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
-      && !(TREE_CODE (stmt) == RETURN_EXPR && get_rhs (stmt) != NULL_TREE)
-      && TREE_CODE (stmt) != COND_EXPR
-      && TREE_CODE (stmt) != SWITCH_EXPR)
+  if (gimple_code (stmt) != GIMPLE_ASSIGN
+      && !(gimple_code (stmt) == GIMPLE_RETURN
+           && gimple_return_retval (stmt) != NULL_TREE)
+      && (gimple_code (stmt) != GIMPLE_COND)
+      && (gimple_code (stmt) != GIMPLE_SWITCH))
     return true;
 
   return false;
@@ -664,11 +667,11 @@ ccp_initialize (void)
   /* Initialize simulation flags for PHI nodes and statements.  */
   FOR_EACH_BB (bb)
     {
-      block_stmt_iterator i;
+      gimple_stmt_iterator i;
 
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
         {
-	  tree stmt = bsi_stmt (i);
+	  gimple stmt = gsi_stmt (i);
 	  bool is_varying = surely_varying_stmt_p (stmt);
 
 	  if (is_varying)
@@ -684,24 +687,25 @@ ccp_initialize (void)
 		    set_value_varying (def);
 		}
 	    }
-
-	  DONT_SIMULATE_AGAIN (stmt) = is_varying;
+          prop_set_simulate_again (stmt, !is_varying);
 	}
     }
 
-  /* Now process PHI nodes.  We never set DONT_SIMULATE_AGAIN on phi node,
-     since we do not know which edges are executable yet, except for
-     phi nodes for virtual operands when we do not do store ccp.  */
+  /* Now process PHI nodes.  We never clear the simulate_again flag on
+     phi nodes, since we do not know which edges are executable yet,
+     except for phi nodes for virtual operands when we do not do store ccp.  */
   FOR_EACH_BB (bb)
     {
-      tree phi;
+      gimple_stmt_iterator i;
 
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  if (!do_store_ccp && !is_gimple_reg (PHI_RESULT (phi)))
-	    DONT_SIMULATE_AGAIN (phi) = true;
+      for (i = gsi_start (phi_nodes (bb)); !gsi_end_p (i); gsi_next (&i))
+        {
+          gimple phi = gsi_stmt (i);
+
+	  if (!do_store_ccp && !is_gimple_reg (gimple_phi_result (phi)))
+            prop_set_simulate_again (phi, false);
 	  else
-	    DONT_SIMULATE_AGAIN (phi) = false;
+            prop_set_simulate_again (phi, true);
 	}
     }
 }
@@ -786,18 +790,18 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
    of the PHI node that are incoming via executable edges.  */
 
 static enum ssa_prop_result
-ccp_visit_phi_node (tree phi)
+ccp_visit_phi_node (gimple phi)
 {
-  int i;
+  unsigned i;
   prop_value_t *old_val, new_val;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting PHI node: ");
-      print_generic_expr (dump_file, phi, dump_flags);
+      print_gimple_stmt (dump_file, phi, 0, dump_flags);
     }
 
-  old_val = get_value (PHI_RESULT (phi));
+  old_val = get_value (gimple_phi_result (phi));
   switch (old_val->lattice_val)
     {
     case VARYING:
@@ -817,11 +821,11 @@ ccp_visit_phi_node (tree phi)
       gcc_unreachable ();
     }
 
-  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+  for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
       /* Compute the meet operator over all the PHI arguments flowing
 	 through executable edges.  */
-      edge e = PHI_ARG_EDGE (phi, i);
+      edge e = gimple_phi_arg_edge (phi, i);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -835,7 +839,7 @@ ccp_visit_phi_node (tree phi)
 	 the existing value of the PHI node and the current PHI argument.  */
       if (e->flags & EDGE_EXECUTABLE)
 	{
-	  tree arg = PHI_ARG_DEF (phi, i);
+	  tree arg = gimple_phi_arg (phi, i)->def;
 	  prop_value_t arg_val;
 
 	  if (is_gimple_min_invariant (arg))
@@ -869,7 +873,7 @@ ccp_visit_phi_node (tree phi)
     }
 
   /* Make the transition to the new value.  */
-  if (set_lattice_value (PHI_RESULT (phi), new_val))
+  if (set_lattice_value (gimple_phi_result (phi), new_val))
     {
       if (new_val.lattice_val == VARYING)
 	return SSA_PROP_VARYING;
@@ -888,134 +892,153 @@ ccp_visit_phi_node (tree phi)
    operands are constants.
 
    If simplification is possible, return the simplified RHS,
-   otherwise return the original RHS.  */
+   otherwise return the original RHS or NULL_TREE.  */
 
 static tree
-ccp_fold (tree stmt)
+ccp_fold (gimple stmt)
 {
-  tree rhs = get_rhs (stmt);
-  enum tree_code code = TREE_CODE (rhs);
-  enum tree_code_class kind = TREE_CODE_CLASS (code);
-  tree retval = NULL_TREE;
-
-  if (TREE_CODE (rhs) == SSA_NAME)
+  switch (gimple_code (stmt))
     {
-      /* If the RHS is an SSA_NAME, return its known constant value,
-	 if any.  */
-      return get_value (rhs)->value;
+    case GIMPLE_ASSIGN:
+      {
+        enum tree_code subcode = gimple_assign_subcode (stmt);
+
+        switch (get_gimple_rhs_class (subcode))
+          {
+          case GIMPLE_SINGLE_RHS:
+            {
+              tree rhs = gimple_assign_rhs1 (stmt);
+              if (TREE_CODE (rhs) == SSA_NAME)
+                {
+                  /* If the RHS is an SSA_NAME, return its known constant value,
+                     if any.  */
+                  return get_value (rhs)->value;
+                }
+              else if (do_store_ccp && stmt_makes_single_load (stmt))
+                {
+                  /* If the RHS is a memory load, see if the VUSEs associated with
+                     it are a valid constant for that memory load.  */
+                  prop_value_t *val = get_value_loaded_by (stmt, const_val);
+                  if (val && val->mem_ref)
+                    {
+                      if (operand_equal_p (val->mem_ref, rhs, 0))
+                        return val->value;
+
+                      /* If RHS is extracting REALPART_EXPR or IMAGPART_EXPR of a
+                         complex type with a known constant value, return it.  */
+                      if ((TREE_CODE (rhs) == REALPART_EXPR
+                           || TREE_CODE (rhs) == IMAGPART_EXPR)
+                          && operand_equal_p (val->mem_ref, TREE_OPERAND (rhs, 0), 0))
+                        return fold_build1 (TREE_CODE (rhs), TREE_TYPE (rhs), val->value);
+                    }
+                  return NULL_TREE;
+                }
+              return rhs;
+            }
+            
+          case GIMPLE_UNARY_RHS:
+            {
+              /* Handle unary operators that can appear in GIMPLE form.
+                 Note that we know the single operand must be a constant,
+                 so this should almost always return a simplified RHS.  */
+              tree lhs = gimple_assign_lhs (stmt);
+              tree op0 = gimple_assign_rhs1 (stmt);
+
+              /* Simplify the operand down to a constant.  */
+              if (TREE_CODE (op0) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op0);
+                  if (val->lattice_val == CONSTANT)
+                    op0 = get_value (op0)->value;
+                }
+
+              if ((subcode == NOP_EXPR || subcode == CONVERT_EXPR)
+                  && useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (op0)))
+                return op0;
+
+              return fold_unary (subcode, TREE_TYPE (lhs), op0);
+            }  
+
+          case GIMPLE_BINARY_RHS:
+            {
+              /* Handle binary operators that can appear in GIMPLE form.  */
+              tree lhs = gimple_assign_lhs (stmt);
+              tree op0 = gimple_assign_rhs1 (stmt);
+              tree op1 = gimple_assign_rhs2 (stmt);
+
+              /* Simplify the operands down to constants when appropriate.  */
+              if (TREE_CODE (op0) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op0);
+                  if (val->lattice_val == CONSTANT)
+                    op0 = val->value;
+                }
+
+              if (TREE_CODE (op1) == SSA_NAME)
+                {
+                  prop_value_t *val = get_value (op1);
+                  if (val->lattice_val == CONSTANT)
+                    op1 = val->value;
+                }
+
+              return fold_binary (subcode, TREE_TYPE (lhs), op0, op1);
+            }
+
+          default:
+            gcc_unreachable();
+          }
+      }
+      break;
+
+    case GIMPLE_CALL:
+      /* It may be possible to fold away calls to builtin functions if
+         their arguments are constants.  At present, such folding will not
+         be attempted, as likely_value classifies all calls as VARYING.  */
+      gcc_unreachable();
+      break;
+
+    case GIMPLE_COND:
+      {
+        /* Handle comparison operators that can appear in GIMPLE form.  */
+        tree op0 = gimple_cond_lhs (stmt);
+        tree op1 = gimple_cond_rhs (stmt);
+        enum tree_code code = gimple_cond_code (stmt);
+
+        /* Simplify the operands down to constants when appropriate.  */
+        if (TREE_CODE (op0) == SSA_NAME)
+          {
+            prop_value_t *val = get_value (op0);
+            if (val->lattice_val == CONSTANT)
+              op0 = val->value;
+          }
+
+        if (TREE_CODE (op1) == SSA_NAME)
+          {
+            prop_value_t *val = get_value (op1);
+            if (val->lattice_val == CONSTANT)
+              op1 = val->value;
+          }
+
+        return fold_binary (code, boolean_type_node, op0, op1);
+      }
+
+    case GIMPLE_SWITCH:
+      {
+        tree rhs = gimple_switch_index (stmt);
+
+        if (TREE_CODE (rhs) == SSA_NAME)
+          {
+            /* If the RHS is an SSA_NAME, return its known constant value,
+               if any.  */
+            return get_value (rhs)->value;
+          }
+
+        return rhs;
+      }
+
+    default:
+      gcc_unreachable();
     }
-  else if (do_store_ccp && stmt_makes_single_load (stmt))
-    {
-      /* If the RHS is a memory load, see if the VUSEs associated with
-	 it are a valid constant for that memory load.  */
-      prop_value_t *val = get_value_loaded_by (stmt, const_val);
-      if (val && val->mem_ref)
-	{
-	  if (operand_equal_p (val->mem_ref, rhs, 0))
-	    return val->value;
-
-	  /* If RHS is extracting REALPART_EXPR or IMAGPART_EXPR of a
-	     complex type with a known constant value, return it.  */
-	  if ((TREE_CODE (rhs) == REALPART_EXPR
-	       || TREE_CODE (rhs) == IMAGPART_EXPR)
-	      && operand_equal_p (val->mem_ref, TREE_OPERAND (rhs, 0), 0))
-	    return fold_build1 (TREE_CODE (rhs), TREE_TYPE (rhs), val->value);
-	}
-      return NULL_TREE;
-    }
-
-  /* Unary operators.  Note that we know the single operand must
-     be a constant.  So this should almost always return a
-     simplified RHS.  */
-  if (kind == tcc_unary)
-    {
-      /* Handle unary operators which can appear in GIMPLE form.  */
-      tree op0 = TREE_OPERAND (rhs, 0);
-
-      /* Simplify the operand down to a constant.  */
-      if (TREE_CODE (op0) == SSA_NAME)
-	{
-	  prop_value_t *val = get_value (op0);
-	  if (val->lattice_val == CONSTANT)
-	    op0 = get_value (op0)->value;
-	}
-
-      if ((code == NOP_EXPR || code == CONVERT_EXPR)
-	  && useless_type_conversion_p (TREE_TYPE (rhs), TREE_TYPE (op0)))
-	return op0;
-      return fold_unary (code, TREE_TYPE (rhs), op0);
-    }
-
-  /* Binary and comparison operators.  We know one or both of the
-     operands are constants.  */
-  else if (kind == tcc_binary
-           || kind == tcc_comparison
-           || code == TRUTH_AND_EXPR
-           || code == TRUTH_OR_EXPR
-           || code == TRUTH_XOR_EXPR)
-    {
-      /* Handle binary and comparison operators that can appear in
-         GIMPLE form.  */
-      tree op0 = TREE_OPERAND (rhs, 0);
-      tree op1 = TREE_OPERAND (rhs, 1);
-
-      /* Simplify the operands down to constants when appropriate.  */
-      if (TREE_CODE (op0) == SSA_NAME)
-	{
-	  prop_value_t *val = get_value (op0);
-	  if (val->lattice_val == CONSTANT)
-	    op0 = val->value;
-	}
-
-      if (TREE_CODE (op1) == SSA_NAME)
-	{
-	  prop_value_t *val = get_value (op1);
-	  if (val->lattice_val == CONSTANT)
-	    op1 = val->value;
-	}
-
-      return fold_binary (code, TREE_TYPE (rhs), op0, op1);
-    }
-
-  /* We may be able to fold away calls to builtin functions if their
-     arguments are constants.  */
-  else if (code == CALL_EXPR
-	   && TREE_CODE (CALL_EXPR_FN (rhs)) == ADDR_EXPR
- 	   && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)) == FUNCTION_DECL
- 	   && DECL_BUILT_IN (TREE_OPERAND (CALL_EXPR_FN (rhs), 0)))
-    {
-      if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_USE))
-	{
-	  tree *orig, var;
-	  size_t i = 0;
-	  ssa_op_iter iter;
-	  use_operand_p var_p;
-
-	  /* Preserve the original values of every operand.  */
-	  orig = XNEWVEC (tree,  NUM_SSA_OPERANDS (stmt, SSA_OP_USE));
-	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
-	    orig[i++] = var;
-
-	  /* Substitute operands with their values and try to fold.  */
-	  replace_uses_in (stmt, NULL, const_val);
-	  retval = fold_call_expr (rhs, false);
-
-	  /* Restore operands to their original form.  */
-	  i = 0;
-	  FOR_EACH_SSA_USE_OPERAND (var_p, stmt, iter, SSA_OP_USE)
-	    SET_USE (var_p, orig[i++]);
-	  free (orig);
-	}
-    }
-  else
-    return rhs;
-
-  /* If we got a simplified form, see if we need to convert its type.  */
-  if (retval)
-    return fold_convert (TREE_TYPE (rhs), retval);
-
-  /* No simplification was possible.  */
-  return rhs;
 }
 
 
@@ -1162,11 +1185,12 @@ fold_const_aggregate_ref (tree t)
 
   return NULL_TREE;
 }
-  
-/* Evaluate statement STMT.  */
+
+/* Evaluate statement STMT.
+   Valid only for assignments, calls, conditionals, and switches. */
 
 static prop_value_t
-evaluate_stmt (tree stmt)
+evaluate_stmt (gimple stmt)
 {
   prop_value_t val;
   tree simplified = NULL_TREE;
@@ -1179,19 +1203,45 @@ evaluate_stmt (tree stmt)
 
   /* If the statement is likely to have a CONSTANT result, then try
      to fold the statement to determine the constant value.  */
+  /* FIXME.  This is the only place that we call ccp_fold.
+     Since likely_value never returns CONSTANT for calls, we will
+     not attempt to fold them, including builtins that may profit.  */
   if (likelyvalue == CONSTANT)
     simplified = ccp_fold (stmt);
   /* If the statement is likely to have a VARYING result, then do not
      bother folding the statement.  */
   if (likelyvalue == VARYING)
-    simplified = get_rhs (stmt);
+    {
+      enum tree_code code = gimple_code (stmt);
+      if (code == GIMPLE_ASSIGN)
+        {
+          enum tree_code subcode = gimple_assign_subcode (stmt);
+          
+          /* Other cases cannot satisfy is_gimple_min_invariant
+             without folding.  */
+          /* FIXME tuples.  This penalizes conditionals on a boolean
+             variable, which did not require a comparison operator
+             to be folded in the pre-tuples code.  */
+          if (get_gimple_rhs_class (subcode) == GIMPLE_SINGLE_RHS)
+            simplified = gimple_assign_rhs1 (stmt);
+        }
+      else if (code == GIMPLE_SWITCH)
+        simplified = gimple_switch_index (stmt);
+      else
+        /* These cannot satisfy is_gimple_min_invariant without folding.  */
+        gcc_assert (code == GIMPLE_CALL || code == GIMPLE_COND);
+    }
   /* If the statement is an ARRAY_REF or COMPONENT_REF into constant
      aggregates, extract the referenced constant.  Otherwise the
      statement is likely to have an UNDEFINED value, and there will be
      nothing to do.  Note that fold_const_aggregate_ref returns
-     NULL_TREE if the first case does not match.  */
+     NULL_TREE if the first case does not match.  Note that an ARRAY_REF
+     or COMPONENT_REF may not occur as a switch index.  */
   else if (!simplified)
-    simplified = fold_const_aggregate_ref (get_rhs (stmt));
+    if (gimple_code (stmt) == GIMPLE_ASSIGN
+        && get_gimple_rhs_class (gimple_assign_subcode (stmt))
+        == GIMPLE_SINGLE_RHS)
+      simplified = fold_const_aggregate_ref (gimple_assign_rhs1 (stmt));
 
   is_constant = simplified && is_gimple_min_invariant (simplified);
 
@@ -1219,46 +1269,56 @@ evaluate_stmt (tree stmt)
   return val;
 }
 
-
 /* Visit the assignment statement STMT.  Set the value of its LHS to the
    value computed by the RHS and store LHS in *OUTPUT_P.  If STMT
    creates virtual definitions, set the value of each new name to that
-   of the RHS (if we can derive a constant out of the RHS).  */
+   of the RHS (if we can derive a constant out of the RHS).
+   Value-returning call statements also perform an assignment, and
+   are handled here.  */
 
 static enum ssa_prop_result
-visit_assignment (tree stmt, tree *output_p)
+visit_assignment (gimple stmt, tree *output_p)
 {
   prop_value_t val;
-  tree lhs, rhs;
   enum ssa_prop_result retval;
 
-  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+  tree lhs = gimple_get_lhs (stmt);
 
-  if (TREE_CODE (rhs) == SSA_NAME)
-    {
-      /* For a simple copy operation, we copy the lattice values.  */
-      prop_value_t *nval = get_value (rhs);
-      val = *nval;
-    }
-  else if (do_store_ccp && stmt_makes_single_load (stmt))
-    {
-      /* Same as above, but the RHS is not a gimple register and yet
-	 has a known VUSE.  If STMT is loading from the same memory
-	 location that created the SSA_NAMEs for the virtual operands,
-	 we can propagate the value on the RHS.  */
-      prop_value_t *nval = get_value_loaded_by (stmt, const_val);
+  gcc_assert (gimple_code (stmt) != GIMPLE_CALL
+              || gimple_call_lhs (stmt) != NULL_TREE);
 
-      if (nval
-	  && nval->mem_ref
-	  && operand_equal_p (nval->mem_ref, rhs, 0))
-	val = *nval;
+  if (gimple_assign_copy_p (stmt))
+    {
+      tree rhs = gimple_assign_rhs1 (stmt);
+
+      if  (TREE_CODE (rhs) == SSA_NAME)
+        {
+          /* For a simple copy operation, we copy the lattice values.  */
+          prop_value_t *nval = get_value (rhs);
+          val = *nval;
+        }
+      else if (do_store_ccp && stmt_makes_single_load (stmt))
+        {
+          /* Same as above, but the RHS is not a gimple register and yet
+             has a known VUSE.  If STMT is loading from the same memory
+             location that created the SSA_NAMEs for the virtual operands,
+             we can propagate the value on the RHS.  */
+          prop_value_t *nval = get_value_loaded_by (stmt, const_val);
+
+          if (nval
+              && nval->mem_ref
+              && operand_equal_p (nval->mem_ref, rhs, 0))
+            val = *nval;
+          else
+            val = evaluate_stmt (stmt);
+        }
       else
-	val = evaluate_stmt (stmt);
+        val = evaluate_stmt (stmt);
     }
   else
-    /* Evaluate the statement.  */
-      val = evaluate_stmt (stmt);
+    /* Evaluate the statement, which could be
+       either a GIMPLE_ASSIGN or a GIMPLE_CALL.  */
+    val = evaluate_stmt (stmt);
 
   /* If the original LHS was a VIEW_CONVERT_EXPR, modify the constant
      value to be a VIEW_CONVERT_EXPR of the old constant value.
@@ -1267,7 +1327,7 @@ visit_assignment (tree stmt, tree *output_p)
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
   {
-    tree orig_lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+    tree orig_lhs = gimple_get_lhs (stmt);
 
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
@@ -1370,7 +1430,7 @@ visit_assignment (tree stmt, tree *output_p)
    SSA_PROP_VARYING.  */
 
 static enum ssa_prop_result
-visit_cond_stmt (tree stmt, edge *taken_edge_p)
+visit_cond_stmt (gimple stmt, edge *taken_edge_p)
 {
   prop_value_t val;
   basic_block block;
@@ -1400,7 +1460,7 @@ visit_cond_stmt (tree stmt, edge *taken_edge_p)
    value, return SSA_PROP_VARYING.  */
 
 static enum ssa_prop_result
-ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
+ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
 {
   tree def;
   ssa_op_iter iter;
@@ -1408,22 +1468,34 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nVisiting statement:\n");
-      print_generic_stmt (dump_file, stmt, dump_flags);
+      print_gimple_stmt (dump_file, stmt, 0, dump_flags);
       fprintf (dump_file, "\n");
     }
 
-  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+  switch (gimple_code (stmt))
     {
-      /* If the statement is an assignment that produces a single
-	 output value, evaluate its RHS to see if the lattice value of
-	 its output has changed.  */
-      return visit_assignment (stmt, output_p);
-    }
-  else if (TREE_CODE (stmt) == COND_EXPR || TREE_CODE (stmt) == SWITCH_EXPR)
-    {
-      /* If STMT is a conditional branch, see if we can determine
-	 which branch will be taken.  */
-      return visit_cond_stmt (stmt, taken_edge_p);
+      case GIMPLE_ASSIGN:
+        /* If the statement is an assignment that produces a single
+           output value, evaluate its RHS to see if the lattice value of
+           its output has changed.  */
+        return visit_assignment (stmt, output_p);
+
+      case GIMPLE_CALL:
+        /* A value-returning call also performs an assignment.  */
+        if (gimple_call_lhs (stmt) != NULL_TREE)
+          return visit_assignment (stmt, output_p);
+        break;
+
+      case GIMPLE_COND:
+      case GIMPLE_SWITCH:
+        /* If STMT is a conditional branch, see if we can determine
+           which branch will be taken.   */
+        /* FIXME.  It appears that we should be able to optimize
+           computed GOTOs here as well.  */
+        return visit_cond_stmt (stmt, taken_edge_p);
+
+      default:
+        break;
     }
 
   /* Any other kind of statement is not interesting for constant
@@ -1583,7 +1655,6 @@ widen_bitfield (tree val, tree field, tree var)
 
   return wide_val;
 }
-#endif
 
 
 /* A subroutine of fold_stmt_r.  Attempts to fold *(A+O) to A[X].
@@ -2414,7 +2485,6 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
           if (gimple_num_ops (def_stmt) == 2)
             {
               rhs = gimple_assign_rhs1 (def_stmt);
-              STRIP_NOPS (rhs);
               return get_maxval_strlen (rhs, length, visited, type);
             }
         }
@@ -2451,8 +2521,12 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 }
 
 
-/* Fold builtin call in statement STMT.  If it cannot be folded into a
-   constant, return NULL_TREE.  Otherwise, return its constant value.  */
+/* Fold builtin call in statement STMT.  Returns a simplified tree.
+   We may return a non-constant expression, including another call
+   to a different function and with different arguments, e.g.,
+   substituting memcpy for strcpy when the string length is known.
+   Note that some builtins expand into inline code that may not
+   be valid in GIMPLE.  Callers must take care.  */
 
 static tree
 ccp_fold_builtin (gimple stmt)
@@ -2777,20 +2851,34 @@ fold_gimple_call (gimple_stmt_iterator *gsi)
   if (callee && DECL_BUILT_IN (callee))
     {
       tree result = ccp_fold_builtin (stmt);
-      if (result)
-        {
-          /* The call has simplified to a constant value, so
-             we can no longer represent it with a GIMPLE_CALL.
-             Introduce a new GIMPLE_ASSIGN statement.  */
-          gimple new_stmt;
-          tree lhs = gimple_call_lhs (stmt);
 
-          STRIP_USELESS_TYPE_CONVERSION (result);
-          new_stmt = gimple_build_assign (lhs, result);
-          gimple_set_locus (new_stmt, gimple_locus (stmt));
-          gsi_replace (gsi, new_stmt, false);
-          return true;
+      if (result) {
+        if (TREE_CODE (result) == CALL_EXPR)
+          {
+            /* FIXME tuples.  Replace statement with the new call.  */
+            return false;
+          }
+        else if (valid_gimple_rhs_p (result))
+          {
+            /* The call has simplified to an expression
+               that cannot be represented as a GIMPLE_CALL.
+               Introduce a new GIMPLE_ASSIGN statement.  */
+            gimple new_stmt;
+            tree lhs = gimple_call_lhs (stmt);
+
+            STRIP_USELESS_TYPE_CONVERSION (result);
+            new_stmt = gimple_build_assign (lhs, result);
+            gimple_set_locus (new_stmt, gimple_locus (stmt));
+            gsi_replace (gsi, new_stmt, false);
+            return true;
+          }
+        else
+          /* The call simplified to an expression that is
+             not a valid GIMPLE RHS.  */
+          return false;
         }
+      else
+        return false;
     }
   else
     {

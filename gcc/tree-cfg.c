@@ -1276,6 +1276,9 @@ replace_uses_by (tree name, tree val)
 	  for (i = 0; i < gimple_num_ops (stmt); i++)
 	    {
 	      tree op = gimple_op (stmt, i);
+              /* Operands may be empty here.  For example, the labels
+                 of a GIMPLE_COND are nulled out following the creation
+                 of the corresponding CFG edges.  */
 	      if (op && TREE_CODE (op) == ADDR_EXPR)
 		recompute_tree_invariant_for_addr_expr (op);
 	    }

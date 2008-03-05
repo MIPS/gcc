@@ -512,6 +512,9 @@ ssa_prop_init (void)
 
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	gimple_set_plf (gsi_stmt (si), STMT_IN_SSA_EDGE_WORKLIST, false);
+    
+      for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (&si))
+	gimple_set_plf (gsi_stmt (si), STMT_IN_SSA_EDGE_WORKLIST, false);
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	e->flags &= ~EDGE_EXECUTABLE;
@@ -581,109 +584,14 @@ get_rhs (gimple stmt ATTRIBUTE_UNUSED)
 }
 
 
+/* FIXME tuples.  Remove this.  */
 /* Return true if EXPR is a valid GIMPLE expression.  */
 
 bool
 valid_gimple_expression_p (tree expr ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples.  */
-#if 0
-  enum tree_code code = TREE_CODE (expr);
-
-  switch (TREE_CODE_CLASS (code))
-    {
-    case tcc_declaration:
-      if (!is_gimple_variable (expr))
-	return false;
-      break;
-
-    case tcc_constant:
-      break;
-
-    case tcc_binary:
-    case tcc_comparison:
-      if (!is_gimple_val (TREE_OPERAND (expr, 0))
-	  || !is_gimple_val (TREE_OPERAND (expr, 1)))
-	return false;
-      break;
-
-    case tcc_unary:
-      if (!is_gimple_val (TREE_OPERAND (expr, 0)))
-	return false;
-      break;
-
-    case tcc_expression:
-      switch (code)
-	{
-	case ADDR_EXPR:
-         {
-           tree t = TREE_OPERAND (expr, 0);
-           while (handled_component_p (t))
-             {
-               /* ??? More checks needed, see the GIMPLE verifier.  */
-               if ((TREE_CODE (t) == ARRAY_REF
-                    || TREE_CODE (t) == ARRAY_RANGE_REF)
-                   && !is_gimple_val (TREE_OPERAND (t, 1)))
-                 return false;
-               t = TREE_OPERAND (t, 0);
-             }
-           if (!is_gimple_id (t))
-             return false;
-           break;
-         }
-
-	case TRUTH_NOT_EXPR:
-	  if (!is_gimple_val (TREE_OPERAND (expr, 0)))
-	    return false;
-	  break;
-
-	case TRUTH_AND_EXPR:
-	case TRUTH_XOR_EXPR:
-	case TRUTH_OR_EXPR:
-	  if (!is_gimple_val (TREE_OPERAND (expr, 0))
-	      || !is_gimple_val (TREE_OPERAND (expr, 1)))
-	    return false;
-	  break;
-
-	case EXC_PTR_EXPR:
-	case FILTER_EXPR:
-	  break;
-
-	default:
-	  return false;
-	}
-      break;
-
-    case tcc_vl_exp:
-      switch (code)
-	{
-	case CALL_EXPR:
-	  break;
-	default:
-	  return false;
-	}
-      break;
-
-    case tcc_exceptional:
-      switch (code)
-	{
-	case SSA_NAME:
-	  break;
-
-	default:
-	  return false;
-	}
-      break;
-
-    default:
-      return false;
-    }
-
-  return true;
-#else
   gimple_unreachable ();
   return false;
-#endif
 }
 
 
@@ -846,12 +754,14 @@ stmt_makes_single_load (gimple stmt)
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF|SSA_OP_VUSE))
+  /* Only a GIMPLE_SINGLE_RHS assignment may have a
+     declaration or reference as its RHS.  */
+  if (get_gimple_rhs_class (gimple_assign_subcode (stmt))
+      != GIMPLE_SINGLE_RHS)
     return false;
 
-  /* A memory load can only exist as the only RHS of an assignment.
-     Therefore, STMT may only have 2 operands.  */
-  gcc_assert (gimple_num_ops (stmt) == 2);
+  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF|SSA_OP_VUSE))
+    return false;
 
   rhs = gimple_assign_rhs1 (stmt);
 
@@ -871,17 +781,18 @@ stmt_makes_single_store (gimple stmt)
 {
   tree lhs;
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  if (gimple_code (stmt) != GIMPLE_ASSIGN
+      && gimple_code (stmt) != GIMPLE_CALL)
     return false;
 
   if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
     return false;
 
-  /* A memory store can only exist as the only LHS of an assignment.
-     Therefore, STMT may only have 2 operands.  */
-  gcc_assert (gimple_num_ops (stmt) == 2);
+  lhs = gimple_get_lhs (stmt);
 
-  lhs = gimple_assign_lhs (stmt);
+  /* A call statement may have a null LHS.  */
+  if (!lhs)
+    return false;
 
   return (!TREE_THIS_VOLATILE (lhs)
           && (DECL_P (lhs)
@@ -1113,7 +1024,7 @@ replace_phi_args_in (gimple phi, prop_value_t *prop_value)
   gimple prev_phi = NULL;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    prev_phi = gimple_copy (phi);
+    prev_phi = gimple_copy_no_def_use (phi);
 
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
@@ -1230,7 +1141,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
     return false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "\nSubstituing values and folding statements\n\n");
+    fprintf (dump_file, "\nSubstituting values and folding statements\n\n");
 
   memset (&prop_stats, 0, sizeof (prop_stats));
 
@@ -1265,7 +1176,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	  did_replace = false;
 	  replaced_address = false;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    prev_stmt = gimple_copy (stmt);
+ 	    prev_stmt = gimple_copy_no_def_use (stmt);
 
 	  /* If we have range information, see if we can fold
 	     predicate expressions.  */
@@ -1290,7 +1201,6 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	  if (did_replace)
 	    {
 	      gimple old_stmt = stmt;
-	      tree rhs;
 
 	      fold_stmt (&i);
 	      stmt = gsi_stmt (i);
@@ -1300,9 +1210,17 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 		gimple_purge_dead_eh_edges (bb);
 
-	      rhs = gimple_assign_rhs1 (stmt);
-	      if (TREE_CODE (rhs) == ADDR_EXPR)
-		recompute_tree_invariant_for_addr_expr (rhs);
+              /* FIXME tuples.  Do we need to handle GIMPLE_GOTO
+                 destination here?  Function in GIMPLE_CALL?  */
+              if (gimple_code (stmt) == GIMPLE_ASSIGN
+                  && (get_gimple_rhs_class (gimple_assign_subcode (stmt))
+                      == GIMPLE_SINGLE_RHS))
+              {
+                tree rhs = gimple_assign_rhs1 (stmt);
+                
+                if (TREE_CODE (rhs) == ADDR_EXPR)
+                  recompute_tree_invariant_for_addr_expr (rhs);
+              }
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{

@@ -1721,6 +1721,42 @@ gimple_assign_set_rhs_with_ops (gimple stmt, enum tree_code code, tree op1,
 }
 
 
+/* Return the LHS of a statement that performs an assignment,
+   either a GIMPLE_ASSIGN or a GIMPLE_CALL.  Returns NULL_TREE
+   for a call to a function that returns no value, or for a
+   statement other than an assignment or a call.  */
+
+tree
+gimple_get_lhs (gimple stmt)
+{
+  enum tree_code code = gimple_code (stmt);
+
+  if (code == GIMPLE_ASSIGN)
+    return gimple_assign_lhs (stmt);
+  else if (code == GIMPLE_CALL)
+    return gimple_call_lhs (stmt);
+  else
+    return NULL_TREE;
+}
+
+
+/* Set the LHS of a statement that performs an assignment,
+   either a GIMPLE_ASSIGN or a GIMPLE_CALL.  */
+
+void
+gimple_set_lhs (gimple stmt, tree lhs)
+{
+  enum tree_code code = gimple_code (stmt);
+
+  if (code == GIMPLE_ASSIGN)
+    return gimple_assign_set_lhs (stmt, lhs);
+  else if (code == GIMPLE_CALL)
+    return gimple_call_set_lhs (stmt, lhs);
+  else
+    gcc_unreachable();
+}
+
+
 /* Return a copy of statement STMT.  */
 
 gimple
@@ -1756,6 +1792,68 @@ gimple_copy (gimple stmt)
   update_stmt (copy);
 
   return copy;
+}
+
+
+/* Return a copy of statement STMT.  The copy should not retain any use
+   information for the variables that appear within it.  */
+/* FIXME tuples.  The charter of this function is unclear.  It was
+   introduced to replace occurrences of unshare_expr in cases where
+   a statement is copied temporarily in order to present a "before
+   and after" diagnostic, e.g., showing folding in substitute_and_fold.
+   In that case, uses occuring in the saved statement were linked from
+   definitions elsewhere, confusing code that expected no such uses to
+   exist.  It might be preferable to rewrite such diagnostics to simply
+   dump the "before" diagnostic to a string, rather than retaining a
+   statement for later processing.  */
+
+gimple
+gimple_copy_no_def_use (gimple stmt)
+{
+  enum gimple_code code = gimple_code (stmt);
+
+  if (code == GIMPLE_PHI)
+    {
+      unsigned i;
+      size_t size = (sizeof (struct gimple_statement_phi)
+                     + (sizeof (struct phi_arg_d) * (stmt->gimple_phi.capacity - 1)));
+      gimple copy = ggc_alloc_cleared (size);
+
+      memcpy (copy, stmt, size);
+      gimple_phi_set_result (copy, unshare_expr (gimple_phi_result (stmt)));
+      for (i = 0; i < gimple_phi_num_args(stmt); i++)
+      {
+        struct phi_arg_d * arg_ptr = gimple_phi_arg (copy, i);
+        arg_ptr->def = unshare_expr (gimple_phi_arg_def (stmt, i));
+        /*
+        arg_ptr->imm_use.prev = &arg_ptr->imm_use;
+        arg_ptr->imm_use.next = &arg_ptr->imm_use;
+        arg_ptr->imm_use.loc.ssa_name = NULL;
+        arg_ptr->imm_use.use = NULL;
+        */
+      }
+
+      return copy;
+    }
+  else
+    {
+      size_t num_ops = gimple_num_ops (stmt);
+      gimple copy = gimple_alloc (code);
+      unsigned i;
+
+      memcpy (copy, stmt, gimple_size (code));
+      if (num_ops > 0)
+      {
+        gimple_alloc_ops (copy, num_ops);
+        for (i = 0; i < num_ops; i++)
+          gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+
+        gimple_set_def_ops (copy, NULL);
+        gimple_set_use_ops (copy, NULL);
+      }
+
+      return copy;
+    }
 }
 
 
