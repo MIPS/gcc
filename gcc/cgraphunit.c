@@ -328,10 +328,12 @@ cgraph_build_cdtor_fns (void)
    configury, or (if not doing unit-at-a-time) to something we havn't
    seen yet.  */
 
-static bool
-decide_is_function_needed (struct cgraph_node *node, tree decl)
+bool
+cgraph_decide_is_function_needed (struct cgraph_node *node)
 {
   tree origin;
+  tree decl = node->decl;
+
   if (MAIN_NAME_P (DECL_NAME (decl))
       && TREE_PUBLIC (decl))
     {
@@ -635,7 +637,7 @@ cgraph_finalize_function (tree decl, bool nested)
   if (!flag_unit_at_a_time)
     cgraph_analyze_function (node);
 
-  if (decide_is_function_needed (node, decl))
+  if (cgraph_decide_is_function_needed (node))
     cgraph_mark_needed_node (node);
 
   /* Since we reclaim unreachable nodes at the end of every language
@@ -1005,10 +1007,11 @@ cgraph_analyze_functions (void)
 	  continue;
 	}
 
-      gcc_assert (!node->analyzed && node->reachable);
-      gcc_assert (DECL_SAVED_TREE (decl));
+      gcc_assert (node->reachable);
+      gcc_assert (node->analyzed || DECL_SAVED_TREE (decl));
 
-      cgraph_analyze_function (node);
+      if (!node->analyzed)
+        cgraph_analyze_function (node);
 
       for (edge = node->callees; edge; edge = edge->next_callee)
 	if (!edge->callee->reachable)

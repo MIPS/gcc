@@ -34,6 +34,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tree.h"
 #include "tree-ssa-operands.h"  /* For init_ssa_operands.  */
 #include "langhooks.h"
+#include "lto-section-in.h"
 
 /* References 
 
@@ -197,7 +198,6 @@ lto_info_fd_init (lto_info_fd *fd, const char *name, lto_file *file)
   fd->num_units = 0;
   fd->units = NULL;
   fd->die_cache = htab_create_ggc (37, lto_cache_hash, lto_cache_eq, NULL);
-  fd->unmaterialized_fndecls = VEC_alloc (tree, gc, 32);
 }
 
 /* Initialize FD, a newly allocated file descriptor for a DWARF2
@@ -220,10 +220,6 @@ lto_info_fd_close (lto_info_fd *fd)
   for (i = 0; i < fd->num_units; ++i)
     XDELETE (fd->units[i]);
   XDELETEVEC (fd->units);
-
-  /* Other people are holding references to the trees contained in this,
-     so just free the vector.  */
-  VEC_free (tree, gc, fd->unmaterialized_fndecls);
 }
 
 /* Close FD.  */
@@ -624,6 +620,15 @@ find_cu_for_offset (const lto_info_fd *fd,
   
   return fd->units[first - 1];
 }
+
+
+/* Get the file name associated with INFO_FD.  */
+const char *
+lto_get_file_name (lto_info_fd *info_fd)
+{
+  return info_fd->base.file->filename;
+}
+
 
 /* Resolve a reference to the DIE at offset OFFSET.  Returns a pointer
    to the DIE, as mapped into memory.  Sets *NEW_CONTEXT to CONTEXT,
@@ -2394,7 +2399,14 @@ lto_read_abbrev (lto_info_fd *fd)
   return abbrev;
 }
 
-/* Return a pointer to the data for DECL if possible, NULL otherwise.  */
+
+/* Return a pointer to the data for DECL if possible, NULL otherwise.
+   FIXME!!! This function will go away when we stop using dwarf for
+   the globals and types.  The big difference between this and
+   lto_read_section_data is that this function interpretes uses calls
+   to libelf that cause the data to be interpreted (copied and
+   otherwise manipulated) in a manner that is not necessary for the
+   stream protocols that are used for the rest of lto.  */
 
 static const void *
 lto_get_body (lto_info_fd *fd,
@@ -2411,48 +2423,65 @@ lto_get_body (lto_info_fd *fd,
 /* Read the constructors and initsof  FD if possible.  */
 
 static void
-lto_materialize_constructors_and_inits (lto_info_fd *fd,
-					lto_context *context,
-					struct lto_file_decl_data * file_data)
+lto_materialize_constructors_and_inits (struct lto_file_decl_data * file_data)
 {
-  lto_file *file = fd->base.file;
-  const void *body = lto_get_body (fd, context, LTO_section_static_initializer, NULL);
-
-  lto_input_constructors_and_inits (file_data, body);
-  file->vtable->unmap_section (file, NULL, body);
+  const char *data = lto_get_section_data (file_data, LTO_section_static_initializer, NULL);
+  lto_input_constructors_and_inits (file_data, data);
+  free ((char *)data);
 }
 
 /* Read the function body for DECL out of FD if possible.  */
 
 static void
-lto_materialize_function (lto_info_fd *fd,
-                          lto_context *context,
-			  struct lto_file_decl_data * file_data,
-                          tree decl)
+lto_materialize_function (struct cgraph_node *node)
 {
-  lto_file *file = fd->base.file;
-  const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
-  const void *body = lto_get_body (fd, context, LTO_section_function_body, name);
+  tree decl = node->decl;
+  struct lto_file_decl_data *file_data = node->local.lto_file_data;
+  const char *data = lto_get_section_data (file_data, 
+					   LTO_section_function_body, 
+					   IDENTIFIER_POINTER (DECL_NAME (decl)));
+  tree step;
 
-  if (body)
+  if (data)
     {
       /* This function has a definition.  */
       TREE_STATIC (decl) = 1;
       DECL_EXTERNAL (decl) = 0;
 
       allocate_struct_function (decl);
-      lto_input_function_body (file_data, decl, body);
-      file->vtable->unmap_section (file, name, body);
+      lto_input_function_body (file_data, decl, data);
+      free ((char *)data);
     }
   else
     DECL_EXTERNAL (decl) = 1;
 
+  /* Look for initializers of constant variables and private statics.  */
+  for (step = cfun->unexpanded_var_list;
+       step;
+       step = TREE_CHAIN (step))
+    {
+      tree decl = TREE_VALUE (step);
+      if (TREE_CODE (decl) == VAR_DECL
+	  && (TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
+	  && flag_unit_at_a_time)
+	varpool_finalize_decl (decl);
+    }
   /* Let the middle end know about the function.  */
   rest_of_decl_compilation (decl,
                             /*top_level=*/1,
                             /*at_end=*/0);
-  if (body)
-    cgraph_finalize_function (decl, /*nested=*/false);
+  if (cgraph_node (decl)->needed)
+    cgraph_mark_reachable_node (cgraph_node (decl));
+}
+
+/* Read the function body for DECL out of FD if possible.  */
+
+static void
+lto_materialize_cgraph (struct lto_file_decl_data * file_data)
+{
+  const char *data = lto_get_section_data (file_data, LTO_section_cgraph, NULL);
+  lto_input_cgraph (file_data, data);
+  free ((char *)data);
 }
 
 /* Read the indirection tables for the global decls and types.  */
@@ -2719,12 +2748,6 @@ lto_read_subroutine_type_subprogram_DIE (lto_info_fd *fd,
           /* Record this function in the DIE cache so that it can be
              resolved from the bodies of functions.  */
           lto_cache_store_DIE (fd, die, result);
-
-	  /* We want to read in its body from the LTO data only if we
-	     haven't already done so.  FIXME: we will need to handle
-	     multiple conflicting definitions one day... */
-	  if (!DECL_STRUCT_FUNCTION (result))
-	    VEC_safe_push (tree, gc, fd->unmaterialized_fndecls, result);
         }
     }
 
@@ -3503,14 +3526,23 @@ lto_set_cu_context (lto_context *context, lto_info_fd *fd,
   context->cu = unit;
 }
 
-bool
+
+/* Generate a TREE representation for all types and external decls
+   entities in FILE.  If an entity in FILE has already been read (from
+   another object file), merge the two entities.  Returns TRUE iff
+   FILE was successfully processed.
+
+   Read all of the lto dwarf out of the file.  Then read the cgraph
+   and process the .o index into the cgraph nodes so that it can open
+   the .o file to load the functions and ipa information.   */
+
+static bool
 lto_file_read (lto_file *file)
 {
   struct lto_file_decl_data* file_data;
   size_t i;
   /* The descriptor for the .debug_info section.  */
   lto_fd *fd;
-
   /* Read the abbreviation entries.  */
   lto_abbrev_read (&file->debug_abbrev);
   /* Read the compilation units.  */
@@ -3524,9 +3556,8 @@ lto_file_read (lto_file *file)
       DWARF2_CompUnit *unit = file->debug_info.units[i];
       /* The context information for this compilation unit.  */
       lto_context context;
-      size_t j;
-      tree decl;
-
+      htab_t section_hash_table;
+      
       /* Set up the context.  */
       lto_set_cu_context (&context, &file->debug_info, unit);
       fd->cur = context.cu_start + unit->cu_header_length;
@@ -3563,17 +3594,13 @@ lto_file_read (lto_file *file)
 	  lto_read_DIE (&file->debug_info, &context, NULL);
 	}
 
+      section_hash_table = lto_elf_build_section_table (file);
       file_data = lto_materialize_file_data (&file->debug_info, &context);
+      file_data->section_hash_table = section_hash_table;
 
-      lto_materialize_constructors_and_inits (&file->debug_info, &context, file_data);
+      lto_materialize_constructors_and_inits (file_data);
 
-      /* Read in function bodies now that we have the full DWARF tree
-         available.  */
-      for (j = 0;
-           VEC_iterate (tree, file->debug_info.unmaterialized_fndecls,
-                        j, decl);
-           j++)
-        lto_materialize_function (&file->debug_info, &context, file_data, decl);
+      lto_materialize_cgraph (file_data);
     }
 
   return true;
@@ -3723,6 +3750,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
   unsigned i;
   tree decl;
+  struct cgraph_node *node; 
 
   /* Read all of the object files specified on the command line.  */
   for (i = 0; i < num_in_fnames; ++i)
@@ -3736,6 +3764,33 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       current_lto_file = NULL;
     }
 
+  /* Now that we have input the cgraph, we need to clear all of the aux
+     nodes and read the functions.  
+
+     FIXME!!!!! This loop obviously leaves a lot to be desired:
+     1) it loads all of the functions at once.  
+     2) it closes and reopens the files over and over again. 
+
+     It would obviously be better for the cgraph code to look to load
+     a batch of functions and sort those functions by the file they
+     come from and then load all of the functions from a give .o file
+     at one time.  This of course will require that the open and close
+     code be pulled out of lto_materialize_function, but that is a
+     small part of what will be a complex set of management
+     issues.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      node->aux = NULL;
+      /* FIXME!!!  There really needs to be some check to see if the
+	 function is really not external here.  Currently the only
+	 check is to see if the section was defined in the file_data
+	 index.  There is of course the value in the node->aux field
+	 that is nulled out in the previous line, but we should really
+	 be able to look at the cgraph info at the is point and make
+	 the proper determination.   Honza will fix this.  */
+      lto_materialize_function (node);
+    }
+
   /* Inform the middle end about the global variables we have seen.  */
   for (i = 0; VEC_iterate (tree, lto_global_var_decls, i, decl); i++)
     rest_of_decl_compilation (decl,
@@ -3744,7 +3799,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
 
   /* Let the middle end know that we have read and merged all of the
      input files.  */ 
-  cgraph_finalize_compilation_unit ();
+  /*cgraph_finalize_compilation_unit ();*/
   cgraph_optimize ();
 }
 

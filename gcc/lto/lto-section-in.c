@@ -50,6 +50,7 @@ Boston, MA 02110-1301, USA.  */
 #include "output.h"
 #include "lto.h"
 #include "lto-section.h"
+#include "lto-section-in.h"
 #include <ctype.h>
 #include "cpplib.h"
 
@@ -184,6 +185,71 @@ lto_input_integer (struct lto_input_block *ib, tree type)
 	}
     }
 }
+
+/*****************************************************************************/
+/* Input routines for reading sections from .o files.                        */
+/*****************************************************************************/
+
+/* Get the section data of length LEN from FILENAME starting at
+   OFFSET.  The data segment must be freed by the caller when the
+   caller is finished.  Returns NULL if all was not well.  */
+
+static char *
+lto_read_section_data (const char *file_name, size_t offset, size_t len)
+{
+  FILE * ofile = fopen (file_name, "r");
+  char * data;
+  int result;
+
+  if (!ofile)
+    return NULL;
+  data = xmalloc (len);
+  
+  result = fseek (ofile, offset, SEEK_SET);
+  if (result)
+    {
+      free (data);
+      fclose (ofile);
+      return NULL;
+    }
+  result = fread (data, len, 1, ofile);
+  if (result == 0)
+    {
+      free (data);
+      fclose (ofile);
+      return NULL;
+    }
+    
+  fclose (ofile);
+  return data;
+}    
+
+
+/* Get the section data from FILE_DATA of SECTION_TYPE with NAME.
+   NAME will be null unless the section type is for a function
+   body.  */
+
+char *
+lto_get_section_data (struct lto_file_decl_data *file_data, 
+		      enum lto_section_type section_type,
+		      const char *name)
+{
+  htab_t section_hash_table = file_data->section_hash_table; 
+  struct lto_section_slot *f_slot;
+  struct lto_section_slot s_slot;
+  const char *section_name = lto_get_section_name (section_type, name);
+  char * data = NULL;
+
+  s_slot.name = section_name;
+  f_slot = (struct lto_section_slot *)htab_find (section_hash_table, &s_slot);
+  if (f_slot)
+    data = lto_read_section_data (file_data->file_name, f_slot->start, f_slot->len);
+
+  free ((char *)section_name);
+  return data;
+}
+
+
 /*****************************************************************************/
 /*  This part is used to recover all of the global decls and types that are  */
 /*  serialized out so that a table for this file can be built.               */
@@ -249,6 +315,8 @@ lto_read_decls (lto_info_fd *fd,
   for (i=0; i<header->num_types; i++)
     data_in->types[i] = lto_resolve_type_ref (fd, context, &in_types[i]);
   data_in->num_types = header->num_types;
+
+  data_in->file_name = lto_get_file_name (fd);
 
   return data_in;
 }

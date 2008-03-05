@@ -461,7 +461,7 @@ enum LTO_tags {
    These next two tags must have their last hex digit be 0. */
   LTO_local_var_decl_body0 = 0x0C0,
   LTO_parm_decl_body0      = 0x0D0,
-  LTO_last_tag             = 0x0E0
+  LTO_tree_last_tag        = 0x0E0
 };
 
 /* This bitmap is indexed by gimple type codes and contains a 1 if the 
@@ -501,7 +501,7 @@ typedef unsigned HOST_WIDEST_INT 	lto_flags_type;
 #endif
 
 #ifdef LTO_STREAM_DEBUGGING
-extern const char * LTO_tag_names[LTO_last_tag];
+extern const char * LTO_tree_tag_names[LTO_tree_last_tag];
 extern void lto_debug_tree_flags (struct lto_debug_context *, enum tree_code, lto_flags_type);
 #endif
 

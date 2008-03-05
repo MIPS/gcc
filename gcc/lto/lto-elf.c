@@ -33,7 +33,6 @@ Boston, MA 02110-1301, USA.  */
 #  error "libelf.h not available"
 # endif
 #endif
-#include "lto-tags.h"
 #include "tm.h"
 #include "libiberty.h"
 #include "ggc.h"
@@ -49,12 +48,8 @@ struct lto_elf_file
   Elf *elf;
   /* 32 or 64 bits? */
   size_t bits;
-  /* Section number of section table.  */
-  size_t strtab;
   /* Section number of string table used for section names.  */
   size_t sec_strtab;
-  /* The ELF symbol table.  */
-  Elf_Data *symtab;
 };
 typedef struct lto_elf_file lto_elf_file;
 
@@ -186,29 +181,101 @@ lto_elf_find_section_data (lto_elf_file *elf_file, const char *section_name)
   return data;
 }
 
-/* Read the ELF symbol table from ELF_FILE.  */
-static void
-lto_elf_read_symtab (lto_elf_file *elf_file)
-{
-  Elf_Scn *section;
-  Elf64_Shdr *shdr;
 
-  /* Iterate over the section table until we find one with type
-     SHT_SYMTAB.  */
+/* Returns a hash code for P.  */
+
+static hashval_t
+hash_name (const void *p)
+{
+  const struct lto_section_slot *ds = (const struct lto_section_slot *) p;
+  return (hashval_t) htab_hash_string (ds->name);
+}
+
+
+/* Returns nonzero if P1 and P2 are equal.  */
+
+static int
+eq_name (const void *p1, const void *p2)
+{
+  const struct lto_section_slot *s1 =
+    (const struct lto_section_slot *) p1;
+  const struct lto_section_slot *s2 =
+    (const struct lto_section_slot *) p2;
+
+  return strcmp (s1->name, s2->name) == 0;
+}
+
+
+/* Build a hash table whose key is the section names and whose data is
+   the start and size of each section in the .o file.  
+
+   FIXME!  This code will most likely require an upgrade when it comes
+   time to try to read archive files.  This means that when we start
+   randomly reading functions out of archives, we will need to load
+   the member of the archive manually rather than just opening the
+   archive as a file and lseeking to the start of the function.  */
+
+htab_t
+lto_elf_build_section_table (lto_file *lto_file) 
+{
+  lto_elf_file *elf_file = (lto_elf_file *)lto_file;
+  htab_t section_hash_table;
+  Elf_Scn *section;
+
+  section_hash_table
+    = htab_create (37, hash_name, eq_name, free);
+
   for (section = elf_getscn (elf_file->elf, 0);
        section;
-       section = elf_nextscn (elf_file->elf, section))
+       section = elf_nextscn (elf_file->elf, section)) 
     {
+      Elf64_Shdr *shdr;
+      const char *name;
+      size_t offset;
+      char *new_name;
+      void **slot;
+      struct lto_section_slot s_slot;
+
+      /* Get the name of this section.  */
       shdr = lto_elf_get_shdr (elf_file, section);
-      if (shdr->sh_type == SHT_SYMTAB)
+      offset = shdr->sh_name;
+      name = elf_strptr (elf_file->elf, 
+			 elf_file->sec_strtab,
+			 offset);
+
+      /* Only put lto stuff into the symtab.  */
+      if (strncmp (name, LTO_SECTION_NAME_PREFIX, 
+		   strlen (LTO_SECTION_NAME_PREFIX)) != 0)
 	{
-	  /* We have found the symbol table.  */
-	  elf_file->symtab = elf_getdata (section, NULL);
-	  elf_file->strtab = shdr->sh_link;
+	  lto_elf_free_shdr (elf_file, shdr);
+	  continue;
+	}
+
+      new_name = xmalloc (strlen (name) + 1);
+      strcpy (new_name, name);
+      s_slot.name = new_name;
+      slot = htab_find_slot (section_hash_table, &s_slot, INSERT);
+      if (*slot == NULL)
+	{
+	  struct lto_section_slot *new_slot
+	    = xmalloc (sizeof (struct lto_section_slot));
+
+	  new_slot->name = new_name;
+	  /* The offset into the file for this section.  */
+	  new_slot->start = shdr->sh_offset;
+	  new_slot->len = shdr->sh_size;
+	  *slot = new_slot;
+	}
+      else
+	{
+	  error ("two or more sections for %s:", new_name);
+	  return NULL;
 	}
       lto_elf_free_shdr (elf_file, shdr);
     }
+  return section_hash_table;
 }
+
 
 lto_file *
 lto_elf_file_open (const char *filename)
@@ -335,9 +402,6 @@ lto_elf_file_open (const char *filename)
   fd = (lto_fd *) &result->debug_abbrev;
   fd->start = (const char *) data->d_buf;
   fd->end = fd->start + data->d_size;
-
-  /* Read the ELF symbol table.  */
-  lto_elf_read_symtab (elf_file);
 
   return result;
 

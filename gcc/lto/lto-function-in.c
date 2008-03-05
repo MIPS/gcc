@@ -54,7 +54,7 @@ Boston, MA 02110-1301, USA.  */
 #include <ctype.h>
 #include "cpplib.h"
 
-static enum tree_code tag_to_expr[LTO_last_tag];
+static enum tree_code tag_to_expr[LTO_tree_last_tag];
 
 /* The number of flags that are defined for each tree code.  */
 static int flags_length_for_code[NUM_TREE_CODES];
@@ -657,6 +657,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 
 	      lto_debug_context.indent = 0;
 	      lto_debug_context.current_data = &debug;
+	      lto_debug_context.tag_names = LTO_tree_tag_names;
 #endif
 	      lib.data = ib->data;
 	      lib.len = ib->len;
@@ -668,6 +669,7 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 #ifdef LTO_STREAM_DEBUGGING
 	      lto_debug_context.indent = current_indent;
 	      lto_debug_context.current_data = current;
+	      lto_debug_context.tag_names = LTO_tree_tag_names;
 #endif
 
 	    }
@@ -1061,7 +1063,7 @@ input_labels (struct lto_input_block *ib, struct data_in *data_in,
      code, the unnamed labels have a negative index.  Their position
      in the array can be found by subtracting that index from the
      number of named labels.  */
-  data_in->labels = xcalloc (named_count + unnamed_count, sizeof (tree*));
+  data_in->labels = xcalloc (named_count + unnamed_count, sizeof (tree));
   for (i = 0; i < named_count; i++)
     {
       unsigned int name_index = lto_input_uleb128 (ib);
@@ -1169,11 +1171,9 @@ input_local_var (struct lto_input_block *ib, struct data_in *data_in,
 	TREE_CHAIN (result) = NULL_TREE;
     }
 
-
   flags = input_tree_flags (ib, 0, true);
   if (input_line_info (ib, data_in, flags))
     set_line_info (data_in, result);
-
 
   LTO_DEBUG_TOKEN ("context");
   context = input_expr_operand (ib, data_in, fn, input_record_start (ib));
@@ -1516,6 +1516,9 @@ input_function (tree fn_decl, struct data_in *data_in,
 {
   struct function *fn = DECL_STRUCT_FUNCTION (fn_decl);
   enum LTO_tags tag = input_record_start (ib);
+  tree *stmts;
+  struct cgraph_edge *cedge; 
+  basic_block bb;
 
   DECL_INITIAL (fn_decl) = DECL_SAVED_TREE (fn_decl) = make_node (BLOCK);
   BLOCK_ABSTRACT_ORIGIN (DECL_SAVED_TREE (fn_decl)) = fn_decl;
@@ -1543,7 +1546,41 @@ input_function (tree fn_decl, struct data_in *data_in,
       tag = input_record_start (ib);
     }
 
+  /* Fix up the call stmts that are mentioned in the cgraph_edges.  */
   renumber_gimple_stmt_uids ();
+  stmts = xcalloc (gimple_stmt_max_uid(fn), sizeof (tree));
+  FOR_ALL_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  stmts [gimple_stmt_uid (stmt)] = stmt;
+#ifdef LOCAL_TRACE
+	  fprintf (stderr, "%d = ", gimple_stmt_uid (stmt));
+	  print_generic_stmt (stderr, stmt, 0);
+#endif
+	}
+    }
+
+#ifdef LOCAL_TRACE
+  fprintf (stderr, "%s\n", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn_decl)));
+#endif
+
+  cedge = cgraph_node (fn_decl)->callees;
+  while (cedge)
+    {
+      cedge->call_stmt = stmts [cedge->lto_stmt_uid];
+#ifdef LOCAL_TRACE
+      fprintf (stderr, "fixing up call %d\n", cedge->lto_stmt_uid);
+#endif
+      cedge = cedge->next_callee;
+    }
+#ifdef LOCAL_TRACE
+  fprintf (stderr, "\n");
+#endif
+  
+  free (stmts);
 
   LTO_DEBUG_UNDENT();
 }
@@ -1685,6 +1722,7 @@ lto_static_init_local (void)
    LTO_section_function_body or LTO_section_static_initializer.  IF
    section type is LTO_section_function_body, FN must be the decl for
    that function.  */
+
 static void 
 lto_read_body (struct lto_file_decl_data* file_data,
 	       tree fn_decl,
@@ -1743,6 +1781,7 @@ lto_read_body (struct lto_file_decl_data* file_data,
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.out = lto_debug_in_fun;
   lto_debug_context.indent = 0;
+  lto_debug_context.tag_names = LTO_tree_tag_names;
 #endif
   memset (&data_in, 0, sizeof (struct data_in));
   data_in.file_data          = file_data;
@@ -1809,7 +1848,7 @@ lto_read_body (struct lto_file_decl_data* file_data,
       /* We should now be in SSA.  */
       cfun->gimple_df->in_ssa_p = true;
       /* Fill in properties we know hold for the rebuilt CFG.  */
-      cfun->curr_properties = PROP_ssa;
+      cfun->curr_properties = PROP_ssa | PROP_cfg | PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_referenced_vars;
 
       pop_cfun ();
     }

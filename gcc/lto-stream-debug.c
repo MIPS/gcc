@@ -29,11 +29,10 @@ Boston, MA 02110-1301, USA.  */
 #include "input.h"
 #include "debug.h"
 #include "lto-header.h"
-#include "lto-tags.h"
+#include "tree.h"
 #include <ctype.h>
 
 #ifdef LTO_STREAM_DEBUGGING
-
 
 /* Print VALUE to CONTEXT.  */
 
@@ -66,7 +65,7 @@ lto_debug_indent (struct lto_debug_context *context,
 		  int tag)
 {
   int i;
-  const char *tag_name = LTO_tag_names[tag];
+  const char *tag_name = context->tag_names[tag];
   context->out (context, '\n');
   for (i=0; i<context->indent; i++)
     context->out (context, ' ');
@@ -124,6 +123,30 @@ lto_debug_token (struct lto_debug_context *context,
 		 const char *value)
 {
   lto_debug_string_internal (context, value, strlen (value));
+}
+
+
+/* Write a function name for FN to CONTEXT.  */
+
+void
+lto_debug_fn_name (struct lto_debug_context *context, 
+		  const tree fn)
+{
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn));
+  char *dot = index (name, '.');
+  int len;
+
+  /* The dwarf reader sometimes adds .nnn to the end of function
+     names.  This will mess up the verification protocol since the
+     input will not exactly the output.  */
+  if (dot)
+    len = dot - name;
+  else
+    len = strlen (name);
+
+  lto_debug_string_internal (context, " ", 1);
+  lto_debug_string_internal (context, name, len);
+  lto_debug_string_internal (context, " ", 1);
 }
 
 

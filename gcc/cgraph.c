@@ -326,14 +326,20 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
 		    tree call_stmt, gcov_type count, int freq, int nest)
 {
   struct cgraph_edge *edge = GGC_NEW (struct cgraph_edge);
+
+  /* LTO does not actually have access to the call_stmt since these
+     have not been loaded yet.  */
+  if (call_stmt)
+    {
 #ifdef ENABLE_CHECKING
-  struct cgraph_edge *e;
-
-  for (e = caller->callees; e; e = e->next_callee)
-    gcc_assert (e->call_stmt != call_stmt);
+      struct cgraph_edge *e;
+      
+      for (e = caller->callees; e; e = e->next_callee)
+	gcc_assert (e->call_stmt != call_stmt);
 #endif
-
-  gcc_assert (get_call_expr_in (call_stmt));
+      
+      gcc_assert (get_call_expr_in (call_stmt));
+    }
 
   if (!DECL_SAVED_TREE (callee->decl))
     edge->inline_failed = N_("function body not available");
@@ -366,7 +372,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   gcc_assert (freq >= 0);
   gcc_assert (freq <= CGRAPH_FREQ_MAX);
   edge->loop_nest = nest;
-  if (caller->call_site_hash)
+  if (call_stmt && caller->call_site_hash)
     {
       void **slot;
       slot = htab_find_slot_with_hash (caller->call_site_hash,

@@ -59,7 +59,7 @@ sbitmap lto_flags_needed_for;
 sbitmap lto_types_needed_for;
 
 #ifdef LTO_STREAM_DEBUGGING
-const char *LTO_tag_names[LTO_last_tag];
+const char *LTO_tree_tag_names[LTO_tree_last_tag];
 #endif
 
 
@@ -203,10 +203,6 @@ struct output_block
      if we are serializing something else.  */
   struct cgraph_node *cgraph_node;
 
-  /* The current stmt_uid of the statement we are serializing.  -1 if
-     we are not serializing a statement.  */
-  int current_stmt_uid;
-
   /* These are the last file and line that were seen in the stream.
      If the current node differs from these, it needs to insert
      something into the stream and fix these up.  */
@@ -244,9 +240,9 @@ create_output_block (enum lto_section_type section_type)
   struct output_block *ob = xcalloc (1, sizeof (struct output_block));
 
   ob->section_type = section_type;
+  ob->decl_state = lto_get_out_decl_state ();
   ob->main_stream = xcalloc (1, sizeof (struct lto_output_stream));
   ob->string_stream = xcalloc (1, sizeof (struct lto_output_stream));
-  ob->decl_state = lto_get_out_decl_state ();
 
   if (section_type == LTO_section_function_body)
     {
@@ -259,6 +255,7 @@ create_output_block (enum lto_section_type section_type)
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.out = lto_debug_out_fun;
   lto_debug_context.indent = 0;
+  lto_debug_context.tag_names = LTO_tree_tag_names;
 #endif
 
   clear_line_info (ob);
@@ -1153,17 +1150,6 @@ output_expr_operand (struct output_block *ob, tree expr)
       {
 	unsigned int count = TREE_INT_CST_LOW (TREE_OPERAND (expr, 0));
 	unsigned int i;
-        struct cgraph_edge *e = ob->cgraph_node->callees;
-
-
-	gcc_assert (ob->cgraph_node);
-	gcc_assert (ob->current_stmt_uid != -1);
-
-	while (e) 
-	  {
-	    e->lto_stmt_uid = ob->current_stmt_uid;
-	    e = e->next_callee;
-	  }
 
 	/* Operand 2 is the call chain.  */
 	if (TREE_OPERAND (expr, 2))
@@ -1520,13 +1506,9 @@ output_local_vars (struct output_block *ob, struct function *fn)
 	      bitmap_set_bit (local_statics, DECL_UID (lv));
 	      output_expr_operand (ob, lv);
 	      if (DECL_CONTEXT (lv) == fn->decl)
-		{
-		  output_uleb128 (ob, 1); /* Restore context.  */
-		}
+		output_uleb128 (ob, 1); /* Restore context.  */
 	      else
-		{
-		  output_zero (ob); /* Restore context. */
-		}
+		output_zero (ob); /* Restore context. */
 	      if (DECL_INITIAL (lv))
 		output_expr_operand (ob, DECL_INITIAL (lv));
 	      else 
@@ -1732,8 +1714,6 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 	{
 	  tree stmt = bsi_stmt (bsi);
 
-	  ob->current_stmt_uid = gimple_stmt_uid (stmt);
-
 	  LTO_DEBUG_INDENT_TOKEN ("stmt");
 	  output_expr_operand (ob, stmt);
 	
@@ -1757,8 +1737,6 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 
       LTO_DEBUG_INDENT_TOKEN ("stmt");
       output_zero (ob);
-
-      ob->current_stmt_uid = -1;
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
@@ -1935,7 +1913,7 @@ lto_static_init (void)
 
 #ifdef LTO_STREAM_DEBUGGING
 #define LTO_STREAM_DEBUGGING_INIT_NAMES
-#define SET_NAME(index,value) LTO_tag_names[index] = value;
+#define SET_NAME(index,value) LTO_tree_tag_names[index] = value;
 #include "lto-tree-tags.def"
 #undef SET_NAME
 #undef LTO_STREAM_DEBUGGING_INIT_NAMES
@@ -1995,7 +1973,6 @@ output_function (struct cgraph_node* node)
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
   ob->cgraph_node = node;
-  ob->current_stmt_uid = -1;
 
   gcc_assert (!current_function_decl && !cfun);
 
@@ -2035,6 +2012,20 @@ output_function (struct cgraph_node* node)
      statement numbers.  */
   renumber_gimple_stmt_uids ();
 
+#ifdef LOCAL_TRACE
+  fprintf (stderr, "%s\n", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function)));
+  FOR_ALL_BB_FN (bb, fn)
+    {
+      block_stmt_iterator bsi;
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+	  fprintf (stderr, "%d = ", gimple_stmt_uid (stmt));
+	  print_generic_stmt (stderr, stmt, 0);
+	}
+    }
+#endif
+
   /* Output the code for the function.  */
   FOR_ALL_BB_FN (bb, fn)
     output_bb (ob, bb, fn);
@@ -2058,8 +2049,7 @@ output_function (struct cgraph_node* node)
   LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data);
   output_named_labels (ob);
 
-  /* Create a file to hold the pickled output of this function.  This
-     is a temp standin until we start writing sections.  */
+  /* Create a section to hold the pickled output of this function.   */
   produce_asm (ob, function);
 
   destroy_output_block (ob);
@@ -2079,7 +2069,6 @@ output_constructors_and_inits (void)
   struct varpool_node *vnode;
 
   ob->cgraph_node = NULL;
-  ob->current_stmt_uid = -1;
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);

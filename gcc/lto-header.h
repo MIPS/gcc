@@ -63,6 +63,9 @@ section *lto_get_section (enum lto_section_type, const char *);
 #define LTO_STREAM_DEBUGGING
 
 #ifdef LTO_STREAM_DEBUGGING
+
+struct lto_debug_context;
+
 #define LTO_DEBUG_INDENT(tag) \
   lto_debug_indent (&lto_debug_context, tag)
 #define LTO_DEBUG_INDENT_TOKEN(value) \
@@ -73,15 +76,14 @@ section *lto_get_section (enum lto_section_type, const char *);
   lto_debug_string (&lto_debug_context, value, len)
 #define LTO_DEBUG_TOKEN(value) \
   lto_debug_token (&lto_debug_context, value)
+#define LTO_DEBUG_FN_NAME(value) \
+  lto_debug_fn_name (&lto_debug_context, value)
 #define LTO_DEBUG_TREE_FLAGS(code,value) \
   lto_debug_tree_flags (&lto_debug_context, code, flags)
 #define LTO_DEBUG_UNDENT() \
   lto_debug_undent (&lto_debug_context)
 #define LTO_DEBUG_WIDE(tag,value) \
   lto_debug_wide (&lto_debug_context, tag, value)
-
-
-struct lto_debug_context;
 
 typedef void (*lto_debug_out) (struct lto_debug_context *context, char c);
 
@@ -96,6 +98,7 @@ struct lto_debug_context
   void * ssa_names_data;
   void * cfg_data;
   void * main_data;
+  const char ** tag_names;
 };
 
 extern struct lto_debug_context lto_debug_context;
@@ -105,6 +108,7 @@ extern void lto_debug_indent_token (struct lto_debug_context *, const char *);
 extern void lto_debug_integer (struct lto_debug_context *, const char *, HOST_WIDE_INT, HOST_WIDE_INT);
 extern void lto_debug_string (struct lto_debug_context *, const char *, int);
 extern void lto_debug_token (struct lto_debug_context *, const char *);
+extern void lto_debug_fn_name (struct lto_debug_context *, const tree);
 extern void lto_debug_undent (struct lto_debug_context *);
 extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_INT);
 
@@ -114,6 +118,7 @@ extern void lto_debug_wide (struct lto_debug_context *, const char *, HOST_WIDE_
 #define LTO_DEBUG_INTEGER(tag,high,low) (void)0
 #define LTO_DEBUG_STRING(value,len) (void)0
 #define LTO_DEBUG_TOKEN(value) (void)0
+#define LTO_DEBUG_FN_NAME(value) (void)0
 #define LTO_DEBUG_TREE_FLAGS(code, value) (void)0
 #define LTO_DEBUG_UNDENT() (void)0
 #define LTO_DEBUG_WIDE(tag,value) (void)0

@@ -1,3 +1,40 @@
+2008-03-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	* lto.c (lto_info_fd_init, lto_info_fd_close): Get rid of
+	fd->unmaterialized_fndecls.
+	(lto_get_file_name, lto_materialize_cgraph): New function.
+	(lto_materialize_constructors_and_inits,
+	lto_materialize_function): Read info directly from elf file.
+	(lto_file_read): Made local and initialize dictionary so that
+	other lto sections can be read without reprocessing the elf file.
+	(lto_main): Read all functions after all files have been processed
+	for their types, globals and cgraph.  
+	* Make-lang.in (lto.o, lto-cgraph-in.c, lto-section-in): Changed
+	dependencies.
+	* lto-elf.c (lto_elf_file): Removed strtab, symtab fields.
+	(hash_name, eq_name, lto_elf_build_section_table): New functions.
+	(lto_elf_read_symtab): Removed function.
+	(lto_elf_file_open): Removed call to lto_elf_read_symtab.
+	* lto.h (lto_info_fd_struct): Removed unmaterialized_fndecls.
+	(lto_file_read): Made local.
+	(lto_get_file_name, lto_elf_build_section_table,
+	lto_input_cgraph): 
+	New function.
+	* lto-section-in.c (lto_read_section_data, lto_get_section_data):
+	New functions.
+	(lto_read_decls): Get the file name.
+	* lto-cgraph-in.c: New file.
+	* lto-function-in.c (tag_to_expr): Stops at LTO_tree_last_tag.
+	(input_expr_operand, lto_read_body): Set lto_debug_context.tag_names.
+	(input_labels): Fixed latent sizeof issue.
+	(input_function): Build stmt array to set call sites into cgraph
+	edges.
+	(lto_read_body): Reset cfun->curr_properties.
+	* lto_section_in.h (lto_section_slot): New structure.
+	(section_hash_table.lto_file_decl_data): New field.
+
+	
 2008-02-09  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto.c (lto_read_variable_formal_parameter_const): Remove code to

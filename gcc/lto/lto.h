@@ -129,8 +129,6 @@ typedef struct lto_info_fd_struct GTY(())
   /* A map from DIEs to trees.  The keys are offsets into the DWARF
      information section; the values are trees.  */
   htab_t GTY((param_is (lto_die_cache_entry))) die_cache;
-  /* A vector of FUNCTION_DECLs whose bodies have not yet been read in.  */
-  VEC (tree, gc) *unmaterialized_fndecls;
 }
 lto_info_fd;
 
@@ -201,12 +199,6 @@ extern void lto_file_init (lto_file *file,
    deallocated by this function.  */
 extern void lto_file_close (lto_file *file);
 
-/* Generate a TREE representation for all entities in FILE.  If an
-   entity in FILE has already been read (from another object file),
-   merge the two entities.  Returns TRUE iff FILE was successfully
-   processed.  */
-extern bool lto_file_read (lto_file *file);
-
 /* Return the TYPE referred to by REF.  */
 extern tree lto_resolve_type_ref (lto_info_fd *info_fd,
 				  lto_context *context,
@@ -232,6 +224,9 @@ extern tree lto_resolve_typedecl_ref (lto_info_fd *info_fd,
                                       lto_context *context,
                                       const lto_ref *ref);
 
+/* Get the file name associated with INFO_FD.  */
+extern const char *lto_get_file_name (lto_info_fd *info_fd);
+
 /* lto-elf.c */
 
 /* Open the ELF input file indicated by FILENAME.  Return */
@@ -239,6 +234,9 @@ extern lto_file *lto_elf_file_open (const char *filename);
 
 /* Close an ELF input file.  */
 extern void lto_elf_file_close (lto_file *file);
+
+/* Build and index of all lto sections in an elf file.  */
+extern htab_t lto_elf_build_section_table (lto_file *file);
 
 /* lto-function-in.c */
 
@@ -260,10 +258,20 @@ lto_input_function_body (struct lto_file_decl_data* file_data,
 /* DATA is the LTO data written out during ordinary compilation,
    encoding the initializers for the static and external vars.
    FILE_DATA are the tables holding all of the global types and decls
-   used by FN.  */
+   used in that file.  */
 extern void
 lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
 				  const void *data);
+
+/* DATA is the LTO data written out during ordinary compilation,
+   encoding the initializers for the static and external vars.
+   FILE_DATA are the tables holding all of the global types and decls
+   used un that file.   */
+extern void
+lto_input_cgraph (struct lto_file_decl_data* file_data,
+		  const void *data);
+
+
 /* lto-symtab.c */
 
 /* The NEW_VAR (a VAR_DECL) has just been read.  If there is an

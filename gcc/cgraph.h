@@ -23,6 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "basic-block.h"
 
+struct lto_file_decl_data;
+
 enum availability
 {
   /* Not yet set by cgraph_function_body_availability.  */
@@ -45,6 +47,10 @@ enum availability
   AVAIL_LOCAL
 };
 
+/* This is the information that is put into the cgraph local structure
+   to recover a function.  */
+struct lto_file_decl_data;
+
 extern const char * const cgraph_availability_names[];
 
 /* Information about the function collected locally.
@@ -52,6 +58,22 @@ extern const char * const cgraph_availability_names[];
 
 struct cgraph_local_info GTY(())
 {
+  /* FIXME: It is quite likely that we really want to do better than
+  just having the file name here.  The current api just opens the .o
+  and finds the section index, it then computes the name of the
+  section from the file name sets the file pointer to where the
+  section starts.  We could of course do better than this by putting a
+  start and length field for the section into the
+  lto_function_recovery_info.  However we need to be careful to do
+  this in a way that is .o format independent.  .o files with hundreds
+  of small function are unlikely to do well by this.  
+
+  Also, when this structure is put into the cgraph, the actual section
+  for the function has not been searched for.  So we would want to have
+  offset and length fields for finding the function kept separate from
+  the info about where the file is.  */ 
+  struct lto_file_decl_data * GTY ((skip)) lto_file_data;
+
   /* Estimated stack frame consumption by the function.  */
   HOST_WIDE_INT estimated_self_stack_size;
 
@@ -348,6 +370,8 @@ void cgraph_analyze_function (struct cgraph_node *);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 void record_references_in_initializer (tree);
 bool cgraph_process_new_functions (void);
+
+bool cgraph_decide_is_function_needed (struct cgraph_node *);
 
 /* In cgraphbuild.c  */
 unsigned int rebuild_cgraph_edges (void);

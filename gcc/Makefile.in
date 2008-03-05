@@ -1087,6 +1087,7 @@ OBJS-common = \
 	loop-unroll.o \
 	loop-unswitch.o \
 	lower-subreg.o \
+	lto-cgraph-out.o \
 	lto-function-out.o \
 	lto-section-out.o \
 	lto-stream-debug.o \
@@ -1962,8 +1963,14 @@ convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 double-int.o: double-int.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 
 lto-stream-debug.o : lto-stream-debug.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   toplev.h $(FLAGS_H) $(PARAMS_H) input.h debug.h $(LTO_TAGS_H) \
-   lto-header.h lto-tree-flags.def lto-tree-tags.def $(TREE_H)
+   toplev.h $(FLAGS_H) $(PARAMS_H) input.h debug.h  $(TREE_H) \
+   lto-header.h 
+lto-cgraph-out.o : lto-cgraph-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
+   $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
+   tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
+   except.h debug.h $(TIMEVAR_H) \
+   lto-cgraph.h lto-header.h lto-section-out.h output.h dwarf2asm.h dwarf2out.h 
 lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
@@ -2504,7 +2511,7 @@ varpool.o : varpool.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(CGRAPH_H) intl.h pointer-set.h $(FUNCTION_H) $(TREE_GIMPLE_H) \
    $(TREE_FLOW_H) tree-pass.h $(C_COMMON_H) debug.h $(DIAGNOSTIC_H) \
    $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(TIMEVAR_H) ipa-prop.h \
-   gt-varpool.h
+   gt-varpool.h $(FLAGS_H)
 ipa.o : ipa.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(CGRAPH_H) $(FLAGS_H) 
 ipa-prop.o : ipa-prop.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    langhooks.h $(GGC_H) $(TARGET_H) $(CGRAPH_H) ipa-prop.h \

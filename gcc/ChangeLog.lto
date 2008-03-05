@@ -1,3 +1,34 @@
+2008-03-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_local_info): Added lto_file_data.
+	(cgraph_decide_is_function_needed): Made public.
+	* tree-pass.h (pass_ipa_lto_cgraph_out): New lto pass.	
+	* lto-function-out.c (LTO_tag_names): Renamed to LTO_tree_tag_names.
+	(current_stmt_uid): Removed.
+	(create_output_block): Moved call to lto_get_output_decl_state and set
+	lto_debug_context.tag_names.
+	(output_expr_operand, output_bb, output_constructors_and_inits): 
+	Removed current_stmt_id.
+	(lto_static_init): Renamed LTO_tag_names to LTO_tree_tag_names
+	(output_function): Added debugging code.
+	* cgraphunit.c (decide_is_function_needed): Renamed to
+	cgraph_decide_is_function_needed and made public.
+	(cgraph_analyze_functions): Only analyze unanalyzed functions.
+	* lto-cgraph.h: New file.
+	* lto-header.h (LTO_DEBUG_FN_NAME): New macro.
+	(struct lto_debug_context.tag_names): New field.
+	(lto_debug_fn_name): New function.
+	* lto-tags.h (LTO_last_tag): Renamed to LTO_tree_last_tag.
+	* lto-stream-debug.c (lto_debug_indent): Get tag from context.
+	(lto_debug_fn_name): New function.
+	* Makefile.in (lto-stream-debug.o, lto-cgraph-out.o, varpool.o):
+	Fixed dependencies.
+	* passes.c (init_optimization_passes): New
+	pass_ipa_lto_cgraph_out.
+	* lto-cgraph-out.c: New file.
+	* varpool.c (decide_is_variable_needed): Check for in_lto_p.
+		
 2008-02-09  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h: (pass_ipa_lto_out): Renamed to pass_ipa_lto_gimple_out.
