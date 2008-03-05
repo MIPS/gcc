@@ -1,3 +1,13 @@
+2008-03-05  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc/2008-03/msg00256.html
+
+	* fold-const.c (tree_binary_nonnegative_warnv_p): Fix
+	invalid C90 declaration.
+	(tree_single_nonnegative_warnv_p): Likewise.
+	* gimplify.c (gimplify_bind_expr): Likewise.
+	(gimplify_return_expr): Likewise.
+
 2008-03-04  Zdenek Dvorak  <ook@ucw.cz>
 
 	* tree-ssa-loop-niter.c, tree-scalar-evolution.c: Tuplified.

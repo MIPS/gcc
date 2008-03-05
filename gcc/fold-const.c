@@ -14197,10 +14197,11 @@ tree_binary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
 static bool
 tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 {
+  enum tree_code code = TREE_CODE (t);
+
   if (TYPE_UNSIGNED (TREE_TYPE (t)))
     return true;
 
-  enum tree_code code = TREE_CODE (t);
   switch (code)
     {
     case SSA_NAME:
@@ -14238,10 +14239,11 @@ tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 static bool
 tree_invalid_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 {
+  enum tree_code code = TREE_CODE (t);
+
   if (TYPE_UNSIGNED (TREE_TYPE (t)))
     return true;
 
-  enum tree_code code = TREE_CODE (t);
   switch (code)
     {
     case TARGET_EXPR:
