@@ -4856,7 +4856,8 @@ mips_va_start (tree valist, rtx nextarg)
 /* Implement TARGET_GIMPLIFY_VA_ARG_EXPR.  */
 
 static tree
-mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
+mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+			   gimple_seq *post_p)
 {
   tree addr;
   bool indirect_p;

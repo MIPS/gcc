@@ -1,3 +1,9 @@
+2008-03-05  David Daney  <ddaney@avtrex.com>
+
+	* builtins.c (expand_builtin___clear_cache): Disable call to
+	validate_arglist.
+	* config/mips/mips.c (mips_gimplify_va_arg_expr): Tuplify.
+
 2008-03-05  Bill Maddox  <maddox@google.com>
 
 	* tree-ssa-ccp.c (dump_lattice_value, debug_lattice_value):

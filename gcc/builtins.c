@@ -5806,11 +5806,16 @@ expand_builtin___clear_cache (tree exp ATTRIBUTE_UNUSED)
   /* We must not expand to a library call.  If we did, any
      fallback library function in libgcc that might contain a call to
      __builtin___clear_cache() would recurse infinitely.  */
+      /* FIXME tuples.  */
+#if 0
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     {
       error ("both arguments to %<__builtin___clear_cache%> must be pointers");
       return const0_rtx;
     }
+#else
+      gimple_unreachable ();
+#endif
 
   if (HAVE_clear_cache)
     {
