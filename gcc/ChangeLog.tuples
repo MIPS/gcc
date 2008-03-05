@@ -1,3 +1,8 @@
+2008-03-05  Rafael Espindola  <espindola@google.com>
+
+	* tree-phinodes.c (allocate_phi_node): free free_phinodes[bucket]
+	if empty.
+
 2008-03-05  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc/2008-03/msg00256.html

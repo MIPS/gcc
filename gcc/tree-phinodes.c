@@ -146,6 +146,8 @@ allocate_phi_node (size_t len)
     {
       free_phinode_count--;
       phi = VEC_pop (gimple, free_phinodes[bucket]);
+      if (VEC_empty (free_phinodes[bucket]))
+	VEC_free (free_phinodes[bucket]);
 #ifdef GATHER_STATISTICS
       phi_nodes_reused++;
 #endif
