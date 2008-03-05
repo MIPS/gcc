@@ -537,9 +537,9 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_forwprop);
 #endif
 	  NEXT_PASS (pass_update_address_taken);
-	  NEXT_PASS (pass_simple_dse);
 /* FIXME tuples.  */
 #if 0
+	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);

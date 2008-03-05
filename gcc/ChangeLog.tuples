@@ -1,3 +1,8 @@
+2008-03-04  Oleg Ryjkov  <olegr@google.com>
+
+	* tree-ssa-dse.c (execute_simple_dse): Commented out.
+	* passes.c (init_optimization_passes): Disabling pass_simple_dse.
+
 2008-03-04  Bill Maddox  <maddox@google.com>
 
 	* tree-cfg.c (remove_useless_stmts_1):

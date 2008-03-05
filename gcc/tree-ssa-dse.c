@@ -663,6 +663,7 @@ struct tree_opt_pass pass_dse = {
 static unsigned int
 execute_simple_dse (void)
 {
+#if 0
   gimple_stmt_iterator gsi;
   basic_block bb;
   bitmap variables_loaded = BITMAP_ALLOC (NULL);
@@ -672,6 +673,7 @@ execute_simple_dse (void)
      body.  */
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+
       if (gimple_loaded_syms (gsi_stmt (gsi)))
 	bitmap_ior_into (variables_loaded,
 			 gimple_loaded_syms (gsi_stmt (gsi)));
@@ -687,8 +689,10 @@ execute_simple_dse (void)
 	bool removed = false;
         ssa_op_iter iter;
 
-	if (gimple_stored_syms (stmt) && (gimple_code (stmt) == GIMPLE_ASSIGN
-	    || gimple_code (stmt) != GIMPLE_RETURN)
+	if (gimple_stored_syms (stmt)
+            && (gimple_code (stmt) == GIMPLE_ASSIGN
+	        || (gimple_code (stmt) == GIMPLE_CALL
+                    && gimple_call_lhs (stmt)))
 	    && !bitmap_intersect_p (gimple_stored_syms (stmt), variables_loaded))
 	  {
 	    unsigned int i;
@@ -730,11 +734,12 @@ execute_simple_dse (void)
 	        && TREE_THIS_VOLATILE (gimple_assign_rhs1 (stmt)))
 	      dead = false;
 
-	    if (dead && gimple_code (stmt) == GIMPLE_CALL)
+	    if (dead)
 	      {
 		/* When LHS of var = call (); is dead, simplify it into
 		   call (); saving one operand.  */
-                if (gimple_has_side_effects (stmt))
+                if (gimple_code (stmt) == GIMPLE_CALL
+                    && gimple_has_side_effects (stmt))
 		  {
 		    if (dump_file && (dump_flags & TDF_DETAILS))
 		      {
@@ -766,6 +771,7 @@ execute_simple_dse (void)
       }
   BITMAP_FREE (variables_loaded);
   return todo;
+#endif
 }
 
 struct tree_opt_pass pass_simple_dse =
