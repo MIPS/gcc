@@ -5,7 +5,7 @@
    you are in the right place.
 
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
    This code is based on toy.c written by Richard Kenner.
@@ -165,6 +165,8 @@ static void tree_push_type_decl (tree id, tree type_node);
 */
 /* Hook routines and data unique to treelang.  */
 
+#undef LANG_HOOKS_POST_OPTIONS
+#define LANG_HOOKS_POST_OPTIONS treelang_post_options
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT treelang_init
 #undef LANG_HOOKS_NAME

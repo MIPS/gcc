@@ -1,3 +1,8 @@
+2008-03-05  Tom Tromey  <tromey@redhat.com>
+
+	* internal.h (struct cpp_reader) <entered_main_file>: New field.
+	* files.c (_cpp_stack_file): Treat main file specially.
+
 2007-11-30  Tom Tromey  <tromey@redhat.com>
 
 	* include/line-map.h (linemap_add): Update.

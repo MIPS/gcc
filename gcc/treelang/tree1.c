@@ -134,20 +134,31 @@ treelang_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED,
   return 1;
 }
 
+bool
+treelang_post_options (const char **pfilename ATTRIBUTE_UNUSED)
+{
+  /* Init decls, etc.  */
+  treelang_init_decl_processing ();
+
+#ifndef USE_MAPPED_LOCATION
+  input_filename = main_input_filename;
+#else
+  linemap_add (line_table, LC_RENAME, false, false, main_input_filename, 1);
+#endif
+
+  return false;
+}
+
 /* Language dependent parser setup.  */
 
 bool
 treelang_init (void)
 {
-#ifndef USE_MAPPED_LOCATION
-  input_filename = main_input_filename;
-#else
-  linemap_add (line_table, LC_ENTER, false, false, main_input_filename, 1);
-#endif
-
   /* This error will not happen from GCC as it will always create a
      fake input file.  */
-  if (!input_filename || input_filename[0] == ' ' || !input_filename[0]) 
+  if (!main_input_filename
+      || main_input_filename[0] == ' '
+      || !main_input_filename[0]) 
     {
       if (!version_done)
         {
@@ -158,20 +169,12 @@ treelang_init (void)
       return false;
     }
 
-  yyin = fopen (input_filename, "r");
+  yyin = fopen (main_input_filename, "r");
   if (!yyin)
     {
-      fprintf (stderr, "Unable to open input file %s\n", input_filename);
+      fprintf (stderr, "Unable to open input file %s\n", main_input_filename);
       exit (1);
     }
-
-#ifdef USE_MAPPED_LOCATION
-  linemap_add (line_table, LC_RENAME, false, false, "<built-in>", 1);
-  linemap_line_start (line_table, 0, 1);
-#endif
-
-  /* Init decls, etc.  */
-  treelang_init_decl_processing ();
 
   return true;
 }

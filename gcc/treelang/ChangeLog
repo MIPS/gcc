@@ -1,3 +1,10 @@
+2008-03-05  Tom Tromey  <tromey@redhat.com>
+
+	* treetree.h (treelang_post_options): Declare.
+	* treetree.c (LANG_HOOKS_POST_OPTIONS): New define.
+	* tree1.c (treelang_post_options): New function.
+	(treelang_init): Don't initialize builtins location.
+
 2008-02-28  Tom Tromey  <tromey@redhat.com>
 
 	* tree1.c (treelang_init): Fix merge error.

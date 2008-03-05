@@ -1538,6 +1538,10 @@ finish_options (void)
       cb_file_change (parse_in,
 		      linemap_add (line_table, LC_RENAME, 0, 0,
 				   _("<built-in>"), 0));
+      /* This is odd, but the above is historical spaghetti which
+	 looks a bit hard to change, and we really want things to end
+	 up with the proper builtins location.  */
+      input_location = BUILTINS_LOCATION;
 
       cpp_init_builtins (parse_in, flag_hosted);
       c_cpp_builtins (parse_in);

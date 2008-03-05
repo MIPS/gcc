@@ -1,3 +1,8 @@
+2008-03-05  Tom Tromey  <tromey@redhat.com>
+
+	* lang.c (java_post_options): Don't initialize builtins location.
+	Rename to main file.
+
 2007-12-04  Tom Tromey  <tromey@redhat.com>
 
 	* java-gimplify.c (java_genericize): Don't call

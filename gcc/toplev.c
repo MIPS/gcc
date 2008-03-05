@@ -1725,6 +1725,7 @@ static void
 general_init (const char *argv0)
 {
   const char *p;
+  location_t loc;
 
   p = argv0 + strlen (argv0);
   while (p != argv0 && !IS_DIR_SEPARATOR (p[-1]))
@@ -1778,6 +1779,10 @@ general_init (const char *argv0)
   line_table = GGC_NEW (struct line_maps);
   linemap_init (line_table);
   line_table->reallocator = realloc_for_line_map;
+  linemap_add (line_table, LC_RENAME, 0, 0, _("<built-in>"), 0);
+  loc = linemap_line_start (line_table, 0, 1);
+  gcc_assert (loc == BUILTINS_LOCATION);
+
   init_ttree ();
 
   /* Initialize register usage now so switches may override.  */

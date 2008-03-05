@@ -1,6 +1,6 @@
 /* Declarations for variables relating to reading the source file.
    Used by parsers, lexical analyzers, and error message routines.
-   Copyright (C) 1993, 1997, 1998, 2000, 2003, 2004, 2007
+   Copyright (C) 1993, 1997, 1998, 2000, 2003, 2004, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 extern GTY(()) struct line_maps *line_table;
 
 /* The location for declarations in "<built-in>" */
-#define BUILTINS_LOCATION ((source_location) 2)
+#define BUILTINS_LOCATION ((source_location) 1)
 
 /* Note: if any of the types defined inside this #ifdef are changed,
    gengtype.c:define_location_structures must be updated to match.  */

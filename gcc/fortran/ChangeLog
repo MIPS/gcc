@@ -1,3 +1,8 @@
+2008-03-05  Tom Tromey  <tromey@redhat.com>
+
+	* f95-lang.c (gfc_init): Don't set up builtins location.  Rename
+	to main file.
+
 2008-02-28  Tom Tromey  <tromey@redhat.com>
 
 	* scanner.c (load_file): Fix merge error.

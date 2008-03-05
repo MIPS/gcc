@@ -277,8 +277,7 @@ static bool
 gfc_init (void)
 {
 #ifdef USE_MAPPED_LOCATION
-  linemap_add (line_table, LC_ENTER, false, false, gfc_source_file, 1);
-  linemap_add (line_table, LC_RENAME, false, false, "<built-in>", 0);
+  linemap_add (line_table, LC_RENAME, false, false, gfc_source_file, 1);
 #endif
 
   /* First initialize the backend.  */

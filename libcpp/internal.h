@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -373,6 +373,9 @@ struct cpp_reader
   /* Nonzero if any file has contained #pragma once or #import has
      been used.  */
   bool seen_once_only;
+
+  /* Nonzero if we have entered the main file into the line table.  */
+  bool entered_main_file;
 
   /* Multiple include optimization.  */
   const cpp_hashnode *mi_cmacro;

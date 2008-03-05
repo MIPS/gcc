@@ -1,3 +1,9 @@
+2008-03-05  Tom Tromey  <tromey@redhat.com>
+
+	* c-opts.c (finish_options): Set input_location.
+	* toplev.c (general_init): Create builtins location.
+	* input.h (BUILTINS_LOCATION): Change value.
+
 2008-02-29  Tom Tromey  <tromey@redhat.com>
 
 	* cgraphunit.c (cgraph_unit_reset): Use NULL, not NULL_TREE.

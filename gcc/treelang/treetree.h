@@ -2,7 +2,7 @@
    (compiler back end interface).
    
    Copyright (C) 1986, 87, 89, 92-96, 1997, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2007 Free Software Foundation, Inc.
+   2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -58,6 +58,7 @@ tree tree_code_get_type (int type_num);
 void treelang_init_decl_processing (void);
 void treelang_finish (void);
 bool treelang_init (void);
+bool treelang_post_options (const char **);
 unsigned int treelang_init_options (unsigned int, const char **);
 int treelang_handle_option (size_t scode, const char *arg, int value);
 void treelang_parse_file (int debug_flag);

@@ -1,6 +1,6 @@
 /* Part of CPP library.  File handling.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
@@ -788,6 +788,7 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
 {
   cpp_buffer *buffer;
   int sysp;
+  bool entered_main;
 
   if (!should_stack_file (pfile, file, import))
       return false;
@@ -820,8 +821,12 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   pfile->mi_cmacro = 0;
 
   /* Generate the call back.  */
-  _cpp_do_file_change (pfile, LC_ENTER, file->path, 1, sysp,
-		       file->st.st_uid == getuid ());
+  entered_main = pfile->entered_main_file;
+  pfile->entered_main_file = true;
+  if (! entered_main && ! pfile->line_table->maps)
+    entered_main = true;
+  _cpp_do_file_change (pfile, entered_main ? LC_ENTER : LC_RENAME,
+		       file->path, 1, sysp, file->st.st_uid == getuid ());
 
   return true;
 }
