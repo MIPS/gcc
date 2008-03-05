@@ -280,7 +280,7 @@ gimple_build_call (tree fn, size_t nargs, ...)
 /* Extract the operands and code for expression EXPR into *SUBCODE_P,
    *OP1_P and *OP2_P respectively.  */
 
-static void
+void
 extract_ops_from_tree (tree expr, enum tree_code *subcode_p, tree *op1_p,
 		       tree *op2_p)
 {
@@ -1737,11 +1737,23 @@ gimple_copy (gimple stmt)
       gimple_alloc_ops (copy, num_ops);
       for (i = 0; i < num_ops; i++)
 	gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+    }
 
+  if (gimple_has_ops (stmt))
+    {
       gimple_set_def_ops (copy, NULL);
       gimple_set_use_ops (copy, NULL);
-      update_stmt (copy);
+      copy->with_ops.addresses_taken = NULL;
     }
+
+  if (gimple_has_mem_ops (stmt))
+    {
+      gimple_set_vdef_ops (copy, NULL);
+      gimple_set_vuse_ops (copy, NULL);
+      stmt->with_mem_ops.stores = NULL;
+      stmt->with_mem_ops.loads = NULL;
+    }
+  update_stmt (copy);
 
   return copy;
 }

@@ -462,8 +462,6 @@ verify_loop_closed_ssa (void)
     }
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Split loop exit edge EXIT.  The things are a bit complicated by a need to
    preserve the loop closed ssa form.  The newly created block is returned.  */
 
@@ -472,11 +470,14 @@ split_loop_exit_edge (edge exit)
 {
   basic_block dest = exit->dest;
   basic_block bb = split_edge (exit);
-  tree phi, new_phi, new_name, name;
+  gimple phi, new_phi;
+  tree new_name, name;
   use_operand_p op_p;
+  gimple_stmt_iterator psi;
 
-  for (phi = phi_nodes (dest); phi; phi = PHI_CHAIN (phi))
+  for (psi = gsi_start (phi_nodes (dest)); !gsi_end_p (psi); gsi_next (&psi))
     {
+      phi = gsi_stmt (psi);
       op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (bb));
 
       name = USE_FROM_PTR (op_p);
@@ -498,6 +499,8 @@ split_loop_exit_edge (edge exit)
   return bb;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Returns the basic block in that statements should be emitted for induction
    variables incremented at the end of the LOOP.  */
 

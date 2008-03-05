@@ -615,7 +615,9 @@ init_optimization_passes (void)
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_recursion);
+#endif
       NEXT_PASS (pass_ch);
+#if 0
       NEXT_PASS (pass_stdarg);
 #endif
       NEXT_PASS (pass_lower_complex);
@@ -658,7 +660,9 @@ init_optimization_passes (void)
 #if 0
 	  NEXT_PASS (pass_predcom);
 	  NEXT_PASS (pass_tree_unswitch);
+#endif
 	  NEXT_PASS (pass_scev_cprop);
+#if 0
 	  NEXT_PASS (pass_empty_loop);
 	  NEXT_PASS (pass_record_bounds);
 	  NEXT_PASS (pass_check_data_deps);

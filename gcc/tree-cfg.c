@@ -4727,16 +4727,16 @@ gimple_duplicate_bb (basic_block bb)
 /* Adds phi node arguments for edge E_COPY after basic block duplication.  */
 
 static void
-add_phi_args_after_copy_edge (edge e_copy ATTRIBUTE_UNUSED)
+add_phi_args_after_copy_edge (edge e_copy)
 {
-/* FIXME tuples.  */
-#if 0
   basic_block bb, bb_copy = e_copy->src, dest;
   edge e;
   edge_iterator ei;
-  tree phi, phi_copy, phi_next, def;
+  gimple phi, phi_copy;
+  tree def;
+  gimple_stmt_iterator psi, psi_copy;
 
-  if (!phi_nodes (e_copy->dest))
+  if (gimple_seq_empty_p (phi_nodes (e_copy->dest)))
     return;
 
   bb = bb_copy->flags & BB_DUPLICATED ? get_bb_original (bb_copy) : bb_copy;
@@ -4762,17 +4762,16 @@ add_phi_args_after_copy_edge (edge e_copy ATTRIBUTE_UNUSED)
       gcc_assert (e != NULL);
     }
 
-  for (phi = phi_nodes (e->dest), phi_copy = phi_nodes (e_copy->dest);
-       phi;
-       phi = phi_next, phi_copy = PHI_CHAIN (phi_copy))
+  for (psi = gsi_start (phi_nodes (e->dest)),
+       psi_copy = gsi_start (phi_nodes (e_copy->dest));
+       !gsi_end_p (psi);
+       gsi_next (&psi), gsi_next (&psi_copy))
     {
-      phi_next = PHI_CHAIN (phi);
+      phi = gsi_stmt (psi);
+      phi_copy = gsi_stmt (psi_copy);
       def = PHI_ARG_DEF_FROM_EDGE (phi, e);
       add_phi_arg (phi_copy, def, e_copy);
     }
-#else
-  gimple_unreachable ();
-#endif
 }
 
 
@@ -4781,20 +4780,15 @@ add_phi_args_after_copy_edge (edge e_copy ATTRIBUTE_UNUSED)
    duplicated have BB_DUPLICATED set.  */
 
 void
-add_phi_args_after_copy_bb (basic_block bb_copy ATTRIBUTE_UNUSED)
+add_phi_args_after_copy_bb (basic_block bb_copy)
 {
-  /* FIXME tuples.  */
-#if 0
-  basic_block bb, dest;
-  edge e, e_copy;
-  edge_iterator ei;
   edge e_copy;
+  edge_iterator ei;
 
   FOR_EACH_EDGE (e_copy, ei, bb_copy->succs)
     {
       add_phi_args_after_copy_edge (e_copy);
     }
-#endif
 }
 
 /* Blocks in REGION_COPY array of length N_REGION were created by

@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 
 extern tree number_of_latch_executions (struct loop *);
 extern tree number_of_exit_cond_executions (struct loop *);
-extern tree get_loop_exit_condition (const struct loop *);
+extern gimple get_loop_exit_condition (const struct loop *);
 
 extern void scev_initialize (void);
 extern void scev_reset (void);
@@ -36,7 +36,7 @@ extern void gather_stats_on_scev_database (void);
 extern void scev_analysis (void);
 unsigned int scev_const_prop (void);
 
-extern bool simple_iv (struct loop *, tree, tree, affine_iv *, bool);
+extern bool simple_iv (struct loop *, gimple, tree, affine_iv *, bool);
 
 /* Returns the loop of the polynomial chrec CHREC.  */
 

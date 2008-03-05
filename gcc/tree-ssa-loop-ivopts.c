@@ -608,6 +608,7 @@ stmt_after_increment (struct loop *loop, struct iv_cand *cand, tree stmt)
       gcc_unreachable ();
     }
 }
+#endif
 
 /* Returns true if EXP is a ssa name that occurs in an abnormal phi node.  */
 
@@ -689,6 +690,8 @@ contains_abnormal_ssa_name_p (tree expr)
   return false;
 }
 
+/* FIXME tuples.  */
+#if 0
 /*  Returns tree describing number of iterations determined from
     EXIT of DATA->current_loop, or NULL if something goes wrong.  */
 
@@ -1255,6 +1258,8 @@ find_interesting_uses_cond (struct ivopts_data *data, tree stmt, tree *cond_p)
   record_use (data, cond_p, civ, stmt, USE_COMPARE);
 }
 
+#endif
+
 /* Returns true if expression EXPR is obviously invariant in LOOP,
    i.e. if all its operands are defined outside of the LOOP.  */
 
@@ -1277,7 +1282,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
       return true;
     }
 
-  if (!EXPR_P (expr) && !GIMPLE_STMT_P (expr))
+  if (!EXPR_P (expr))
     return false;
 
   len = TREE_OPERAND_LENGTH (expr);
@@ -1287,6 +1292,9 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
 
   return true;
 }
+
+/* FIXME tuples.  */
+#if 0
 
 /* Cumulates the steps of indices into DATA and replaces their values with the
    initial ones.  Returns false when the value of the index cannot be determined.
@@ -2551,6 +2559,8 @@ var_at_stmt (struct loop *loop, struct iv_cand *cand, tree stmt)
     return cand->var_before;
 }
 
+#endif
+
 /* Return the most significant (sign) bit of T.  Similar to tree_int_cst_msb,
    but the bit is determined from TYPE_PRECISION, not MODE_BITSIZE.  */
 
@@ -2571,6 +2581,8 @@ tree_int_cst_sign_bit (const_tree t)
   return (w >> bitno) & 1;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* If we can prove that TOP = cst * BOT for some constant cst,
    store cst to MUL and return true.  Otherwise return false.
    The returned value is always sign-extended, regardless of the

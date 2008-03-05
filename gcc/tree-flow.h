@@ -978,8 +978,8 @@ tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (void);
-bool scev_probably_wraps_p (tree, tree, tree, struct loop *, bool);
-bool convert_affine_scev (struct loop *, tree, tree *, tree *, tree, bool);
+bool scev_probably_wraps_p (tree, tree, gimple, struct loop *, bool);
+bool convert_affine_scev (struct loop *, tree, tree *, tree *, gimple, bool);
 
 bool nowrap_type_p (tree);
 enum ev_direction {EV_DIR_GROWS, EV_DIR_DECREASES, EV_DIR_UNKNOWN};
@@ -1015,7 +1015,7 @@ void tree_transform_and_unroll_loop (struct loop *, unsigned,
 				     edge, struct tree_niter_desc *,
 				     transform_callback, void *);
 bool contains_abnormal_ssa_name_p (tree);
-bool stmt_dominates_stmt_p (tree, tree);
+bool stmt_dominates_stmt_p (gimple, gimple);
 void mark_virtual_ops_for_renaming (tree);
 
 /* In tree-ssa-threadedge.c */

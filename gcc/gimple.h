@@ -513,6 +513,7 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
 /* In gimple.c.  */
 gimple gimple_build_return (tree);
 gimple gimple_build_assign (tree, tree);
+void extract_ops_from_tree (tree, enum tree_code *, tree *, tree *);
 gimple gimple_build_assign_with_ops (enum tree_code, tree, tree, tree);
 gimple gimple_build_call_vec (tree, VEC(tree, gc) *);
 gimple gimple_build_call (tree, size_t, ...);
@@ -1181,7 +1182,7 @@ static inline void
 gimple_call_set_lhs (gimple gs, tree lhs)
 {
   GIMPLE_CHECK (gs, GIMPLE_CALL);
-  gcc_assert (is_gimple_operand (lhs));
+  gcc_assert (!lhs || is_gimple_operand (lhs));
   gimple_set_op (gs, 0, lhs);
 }
 

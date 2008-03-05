@@ -76,8 +76,18 @@ gsi_insert_seq_nodes_before (gimple_stmt_iterator *i,
     }
   else
     {
-      gcc_assert (!gimple_seq_first (i->seq));
-      gimple_seq_set_first (i->seq, first);
+      gimple_seq_node itlast = gimple_seq_last (i->seq);
+
+      /* If CUR is NULL, we link at the end of the sequence (this case happens
+	 when gsi_after_labels is called for a basic block that contains only
+	 labels, so it returns an iterator after the end of the block, and
+	 we need to insert before it; it might be cleaner to add a flag to the
+	 iterator saying whether we are at the start or end of the list).  */
+      first->prev = itlast;
+      if (itlast)
+	itlast->next = first;
+      else
+	gimple_seq_set_first (i->seq, first);
       gimple_seq_set_last (i->seq, last);
     }
 
@@ -418,8 +428,14 @@ gimple_stmt_iterator
 gsi_for_stmt (gimple stmt)
 {
   gimple_stmt_iterator i;
+  basic_block bb = gimple_bb (stmt);
 
-  for (i = gsi_start_bb (gimple_bb (stmt)); !gsi_end_p (i); gsi_next (&i))
+  if (gimple_code (stmt) == GIMPLE_PHI)
+    i = gsi_start (phi_nodes (bb));
+  else
+    i = gsi_start_bb (bb);
+
+  for (; !gsi_end_p (i); gsi_next (&i))
     if (gsi_stmt (i) == stmt)
       return i;
 

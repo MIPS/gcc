@@ -1,3 +1,43 @@
+2008-03-04  Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-ssa-loop-niter.c, tree-scalar-evolution.c: Tuplified.
+	* tree-ssa-loop-manip.c (split_loop_exit_edge): Ditto.
+	* tree-chrec.c (chrec_fold_plus, chrec_apply, chrec_convert_1,
+	convert_affine_scev, chrec_convert_rhs, chrec_convert,
+	chrec_convert_aggressive): Pass statements as gimple.
+	* tree-scalar-evolution.h (get_loop_exit_condition, simple_iv):
+	Type changed.
+	* tree-chrec.h (chrec_convert, chrec_convert_rhs): Ditto.
+	* tree-ssa-loop-ivopts.c (abnormal_ssa_name_p,
+	idx_contains_abnormal_ssa_name_p, contains_abnormal_ssa_name_p,
+	expr_invariant_in_loop_p, tree_int_cst_sign_bit): Enabled.
+	* gimple-dummy.c (chrec_dont_know, chrec_known, chrec_not_analyzed_yet,
+	analyze_scalar_evolution, chrec_contains_symbols_defined_in_loop,
+	estimate_numbers_of_iterations, expr_invariant_in_loop_p,
+	free_numbers_of_iterations_estimates,
+	free_numbers_of_iterations_estimates_loop, get_loop_exit_condition,
+	instantiate_parameters, nowrap_type_p. scev_const_prop. scev_finalize,
+	scev_initialize, scev_probably_wraps_p, scev_reset,
+	tree_int_cst_sign_bit, number_of_iterations_exit, loop_niter_by_eval,
+	substitute_in_loop_info): Removed.
+	* tree-ssa-loop.c (tree_loop_optimizer_init): Merged into...
+	(tree_ssa_loop_init): ... here.  Enable scev_initialize call.
+	(tree_ssa_loop_done): Enable scev finalization.
+	* gimple-iterator.c (gsi_insert_seq_nodes_before): Allow inserting
+	at the end of basic block.
+	(gsi_for_stmt): Handle phi nodes.
+	* cfgloop.h (struct nb_iter_bound): Change type of stmt field to gimple.
+	* tree-flow.h (scev_probably_wraps_p, convert_affine_scev,
+	stmt_dominates_stmt_p): Types changed.
+	* Makefile.in (gt-tree-scalar-evolution.h): Enable.
+	* gimple.c (extract_ops_from_tree): Export.
+	(gimple_copy): Do not share bitmaps.
+	* gimple.h (extract_ops_from_tree): Declare.
+	(gimple_call_set_lhs): Allow lhs to be NULL.
+	* tree-cfg.c (add_phi_args_after_copy_edge,
+	add_phi_args_after_copy_bb): Tuplify.
+	* passes.c (init_optimization_passes): Enable pass_ch, pass_scev_cprop.
+
 2008-03-04  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-ssa-dse.c (execute_simple_dse): Commented out.
