@@ -6689,14 +6689,12 @@ gimplify_build1 (gimple_stmt_iterator *gsi, enum tree_code code, tree type,
 static unsigned int
 execute_warn_function_return (void)
 {
-/* FIXME tuples  */
-#if 0
 #ifdef USE_MAPPED_LOCATION
   source_location location;
 #else
   location_t *locus;
 #endif
-  tree last;
+  gimple last;
   edge e;
   edge_iterator ei;
 
@@ -6712,9 +6710,9 @@ execute_warn_function_return (void)
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  last = last_stmt (e->src);
-	  if (TREE_CODE (last) == RETURN_EXPR
+	  if (gimple_code (last) == GIMPLE_RETURN
 #ifdef USE_MAPPED_LOCATION
-	      && (location = EXPR_LOCATION (last)) != UNKNOWN_LOCATION)
+	      && (location = gimple_locus (last)) != UNKNOWN_LOCATION)
 #else
 	      && (locus = EXPR_LOCUS (last)) != NULL)
 #endif
@@ -6740,13 +6738,13 @@ execute_warn_function_return (void)
     {
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
-	  tree last = last_stmt (e->src);
-	  if (TREE_CODE (last) == RETURN_EXPR
-	      && TREE_OPERAND (last, 0) == NULL
-	      && !TREE_NO_WARNING (last))
+	  gimple last = last_stmt (e->src);
+	  if (gimple_code (last) == GIMPLE_RETURN
+	      && gimple_return_retval (last) == NULL
+	      && !gimple_no_warning_p (last))
 	    {
 #ifdef USE_MAPPED_LOCATION
-	      location = EXPR_LOCATION (last);
+	      location = gimple_locus (last);
 	      if (location == UNKNOWN_LOCATION)
 		  location = cfun->function_end_locus;
 	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", &location);
@@ -6762,10 +6760,6 @@ execute_warn_function_return (void)
 	}
     }
   return 0;
-#else
-  gimple_unreachable ();
-  return 0;
-#endif
 }
 
 

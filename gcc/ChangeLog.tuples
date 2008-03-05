@@ -1,3 +1,13 @@
+2008-03-04  Oleg Ryjkov  <olegr@google.com>
+
+	* tree-ssa-dse.c (execute_simple_dse): Tuplified.
+	* gimplify.c (gimplify_return_expr): Copy the NO_WARNING flag
+	to the newly created expr from the tree.
+	* tree-cfg.c (gimplify_build1): Tuplified.
+	* passes.c (init_optimization_passes): Enabled
+	pass_warn_function_return, pass_update_address_taken,
+	pass_simple_dse and pass_build_alias passes.
+
 2008-03-04  Rafael Espindola  <espindola@google.com>
 
 	* fold-const.c (tree_simple_nonnegative_warnv_p): New.

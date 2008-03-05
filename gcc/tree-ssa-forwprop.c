@@ -965,10 +965,10 @@ tree_ssa_forward_propagate_single_use_vars (void)
 		      && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
 		      && POINTER_TYPE_P (TREE_TYPE (rhs))
 		      /* But do not propagate changes in volatileness.  */
-		      && (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (rhs)))
-			  == TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (rhs, 0)))))
-		      && types_compatible_p (TREE_TYPE (TREE_TYPE (TREE_OPERAND (rhs, 0))),
-					     TREE_TYPE (TREE_TYPE (rhs)))))
+		      && (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (gimple_assign_lhs (stmt))))
+			  == TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (rhs))))
+		      && types_compatible_p (TREE_TYPE (TREE_TYPE (rhs)),
+					     TREE_TYPE (TREE_TYPE (gimple_assign_lhs (stmt))))))
 		{
 		  if (forward_propagate_addr_expr (lhs, rhs))
 		    {

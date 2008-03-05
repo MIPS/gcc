@@ -663,9 +663,7 @@ struct tree_opt_pass pass_dse = {
 static unsigned int
 execute_simple_dse (void)
 {
-  /* FIXME tuples.  */
-#if 0
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   basic_block bb;
   bitmap variables_loaded = BITMAP_ALLOC (NULL);
   unsigned int todo = 0;
@@ -673,24 +671,25 @@ execute_simple_dse (void)
   /* Collect into VARIABLES LOADED all variables that are read in function
      body.  */
   FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      if (LOADED_SYMS (bsi_stmt (bsi)))
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      if (gimple_loaded_syms (gsi_stmt (gsi)))
 	bitmap_ior_into (variables_loaded,
-			 LOADED_SYMS (bsi_stmt (bsi)));
+			 gimple_loaded_syms (gsi_stmt (gsi)));
 
   /* Look for statements writing into the write only variables.
      And try to remove them.  */
 
   FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi);)
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
       {
-	tree stmt = bsi_stmt (bsi), op;
+	gimple stmt = gsi_stmt (gsi);
+        tree op;
 	bool removed = false;
         ssa_op_iter iter;
 
-	if (STORED_SYMS (stmt) && TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	    && TREE_CODE (stmt) != RETURN_EXPR
-	    && !bitmap_intersect_p (STORED_SYMS (stmt), variables_loaded))
+	if (gimple_stored_syms (stmt) && (gimple_code (stmt) == GIMPLE_ASSIGN
+	    || gimple_code (stmt) != GIMPLE_RETURN)
+	    && !bitmap_intersect_p (gimple_stored_syms (stmt), variables_loaded))
 	  {
 	    unsigned int i;
 	    bitmap_iterator bi;
@@ -705,7 +704,7 @@ execute_simple_dse (void)
 	       from removing them as dead.  The flag thus has no use for us
 	       and we need to look into all operands.  */
 	      
-	    EXECUTE_IF_SET_IN_BITMAP (STORED_SYMS (stmt), 0, i, bi)
+	    EXECUTE_IF_SET_IN_BITMAP (gimple_stored_syms (stmt), 0, i, bi)
 	      {
 		tree var = referenced_var_lookup (i);
 		if (TREE_ADDRESSABLE (var)
@@ -714,8 +713,8 @@ execute_simple_dse (void)
 		  dead = false;
 	      }
 
-	    if (dead && LOADED_SYMS (stmt))
-	      EXECUTE_IF_SET_IN_BITMAP (LOADED_SYMS (stmt), 0, i, bi)
+	    if (dead && gimple_loaded_syms (stmt))
+	      EXECUTE_IF_SET_IN_BITMAP (gimple_loaded_syms (stmt), 0, i, bi)
 		if (TREE_THIS_VOLATILE (referenced_var_lookup (i)))
 		  dead = false;
 
@@ -727,56 +726,46 @@ execute_simple_dse (void)
 	    /* Look for possible occurence var = indirect_ref (...) where
 	       indirect_ref itself is volatile.  */
 
-	    if (dead && TREE_THIS_VOLATILE (GIMPLE_STMT_OPERAND (stmt, 1)))
+	    if (dead && gimple_code (stmt) == GIMPLE_ASSIGN
+	        && TREE_THIS_VOLATILE (gimple_assign_rhs1 (stmt)))
 	      dead = false;
 
-	    if (dead)
+	    if (dead && gimple_code (stmt) == GIMPLE_CALL)
 	      {
-		tree call = get_call_expr_in (stmt);
-
 		/* When LHS of var = call (); is dead, simplify it into
 		   call (); saving one operand.  */
-		if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-		    && call
-		    && TREE_SIDE_EFFECTS (call))
+                if (gimple_has_side_effects (stmt))
 		  {
 		    if (dump_file && (dump_flags & TDF_DETAILS))
 		      {
 			fprintf (dump_file, "Deleted LHS of call: ");
-			print_generic_stmt (dump_file, stmt, TDF_SLIM);
+			print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 			fprintf (dump_file, "\n");
 		      }
-		    push_stmt_changes (bsi_stmt_ptr (bsi));
-		    TREE_BLOCK (call) = TREE_BLOCK (stmt);
-		    bsi_replace (&bsi, call, false);
-		    maybe_clean_or_replace_eh_stmt (stmt, call);
-		    mark_symbols_for_renaming (call);
-		    pop_stmt_changes (bsi_stmt_ptr (bsi));
+		    push_stmt_changes (gsi_stmt_ptr (&gsi));
+                    gimple_call_set_lhs (stmt, NULL);
+		    pop_stmt_changes (gsi_stmt_ptr (&gsi));
 		  }
 		else
 		  {
 		    if (dump_file && (dump_flags & TDF_DETAILS))
 		      {
 			fprintf (dump_file, "  Deleted dead store '");
-			print_generic_expr (dump_file, stmt, dump_flags);
+			print_gimple_stmt (dump_file, stmt, 0, dump_flags);
 			fprintf (dump_file, "'\n");
 		      }
 		    removed = true;
-		    bsi_remove (&bsi, true);
+		    gsi_remove (&gsi, true);
 		    todo |= TODO_cleanup_cfg;
 		  }
 		todo |= TODO_remove_unused_locals | TODO_ggc_collect;
 	      }
 	  }
 	if (!removed)
-	  bsi_next (&bsi);
+	  gsi_next (&gsi);
       }
   BITMAP_FREE (variables_loaded);
   return todo;
-#else
-  gimple_unreachable ();
-  return 0;
-#endif
 }
 
 struct tree_opt_pass pass_simple_dse =

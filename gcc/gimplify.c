@@ -1192,6 +1192,7 @@ gimplify_return_expr (tree stmt, gimple_seq *pre_p)
       || ret_expr == error_mark_node)
     {
       gimple ret = gimple_build_return (ret_expr);
+      gimple_set_no_warning (ret, TREE_NO_WARNING (stmt));
       gimple_seq_add_stmt (pre_p, ret);
       return GS_ALL_DONE;
     }
@@ -1248,7 +1249,9 @@ gimplify_return_expr (tree stmt, gimple_seq *pre_p)
 
   gimplify_and_add (TREE_OPERAND (stmt, 0), pre_p);
 
-  gimple_seq_add_stmt (pre_p, gimple_build_return (result));
+  gimple ret = gimple_build_return (result);
+  gimple_set_no_warning (ret, TREE_NO_WARNING (stmt));
+  gimple_seq_add_stmt (pre_p, ret);
 
   return GS_ALL_DONE;
 }

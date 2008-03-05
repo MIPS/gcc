@@ -491,10 +491,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_lower_vector);
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_warn_function_return);
-#endif
   NEXT_PASS (pass_build_cgraph_edges);
   NEXT_PASS (pass_inline_parameters);
   *p = NULL;
@@ -538,13 +535,19 @@ init_optimization_passes (void)
 #if 0
 	  NEXT_PASS (pass_ccp);
 	  NEXT_PASS (pass_forwprop);
+#endif
 	  NEXT_PASS (pass_update_address_taken);
 	  NEXT_PASS (pass_simple_dse);
+/* FIXME tuples.  */
+#if 0
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_dce);
+#endif
 	  NEXT_PASS (pass_update_address_taken);
+/* FIXME tuples.  */
+#if 0
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_tail_recursion);
           NEXT_PASS (pass_profile);
@@ -582,12 +585,12 @@ init_optimization_passes (void)
     {
       struct tree_opt_pass **p = &pass_all_optimizations.sub;
       NEXT_PASS (pass_create_structure_vars);
-      /* FIXME tuples.  */
-#if 0
       /* ??? pass_build_alias is a dummy pass that ensures that we
 	 execute TODO_rebuild_alias at this point even if
 	 pass_create_structure_vars was disabled.  */
       NEXT_PASS (pass_build_alias);
+      /* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_rename_ssa_copies);
 
