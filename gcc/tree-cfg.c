@@ -1962,12 +1962,17 @@ remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
           remove_useless_stmts_bind (gsi, data);
           break;
 
-        case GIMPLE_CATCH:
-          remove_useless_stmts_tc (gsi, data);
+        case GIMPLE_TRY:
+          if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
+            remove_useless_stmts_tc (gsi, data);
+          else if (gimple_try_kind (stmt) == GIMPLE_TRY_FINALLY)
+            remove_useless_stmts_tf (gsi, data);
+          else
+            gcc_unreachable ();
           break;
 
-        case GIMPLE_TRY:
-          remove_useless_stmts_tf (gsi, data);
+        case GIMPLE_CATCH:
+          gcc_unreachable ();
           break;
 
         case GIMPLE_NOP:

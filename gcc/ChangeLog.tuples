@@ -1,3 +1,8 @@
+2008-03-04  Bill Maddox  <maddox@google.com>
+
+	* tree-cfg.c (remove_useless_stmts_1):
+	Correctly distinguish try-catch and try-finally.
+	
 2008-03-04  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-ssa-dse.c (execute_simple_dse): Tuplified.
