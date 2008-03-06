@@ -1015,9 +1015,9 @@ decls_match (tree newdecl, tree olddecl)
       else if (TREE_TYPE (newdecl) == NULL_TREE)
 	types_match = 0;
       else
-	types_match = comptypes (TREE_TYPE (newdecl),
-				 TREE_TYPE (olddecl),
-				 COMPARE_REDECLARATION);
+	types_match = cp_comptypes (TREE_TYPE (newdecl),
+                                    TREE_TYPE (olddecl),
+                                    COMPARE_REDECLARATION);
     }
 
   return types_match;
@@ -1675,6 +1675,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		= DECL_INTERFACE_KNOWN (new_result);
 	      DECL_DECLARED_INLINE_P (old_result)
 		= DECL_DECLARED_INLINE_P (new_result);
+	      DECL_DISREGARD_INLINE_LIMITS (old_result)
+	        |= DECL_DISREGARD_INLINE_LIMITS (new_result);
+
 	    }
 	  else
 	    {
@@ -1682,6 +1685,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		|= DECL_INLINE (new_result);
 	      DECL_DECLARED_INLINE_P (old_result)
 		|= DECL_DECLARED_INLINE_P (new_result);
+	      DECL_DISREGARD_INLINE_LIMITS (old_result)
+	        |= DECL_DISREGARD_INLINE_LIMITS (new_result);
 	      check_redeclaration_exception_specification (newdecl, olddecl);
 	    }
 	}
@@ -3161,7 +3166,13 @@ record_builtin_java_type (const char* name, int size)
     type = make_signed_type (size);
   else if (size == -1)
     { /* "__java_boolean".  */
-      type = build_variant_type_copy (boolean_type_node);
+      if ((TYPE_MODE (boolean_type_node)
+	   == smallest_mode_for_size (1, MODE_INT)))
+        type = build_variant_type_copy (boolean_type_node);
+      else
+	/* ppc-darwin has SImode bool, make jboolean a 1-bit
+	   integer type without boolean semantics there.  */
+	type = make_unsigned_type (1);
     }
   else if (size > -32)
     { /* "__java_char".  */
@@ -3689,7 +3700,7 @@ fixup_anonymous_aggr (tree t)
   tree *q;
 
   /* Wipe out memory of synthesized methods.  */
-  TYPE_HAS_CONSTRUCTOR (t) = 0;
+  TYPE_HAS_USER_CONSTRUCTOR (t) = 0;
   TYPE_HAS_DEFAULT_CONSTRUCTOR (t) = 0;
   TYPE_HAS_INIT_REF (t) = 0;
   TYPE_HAS_CONST_INIT_REF (t) = 0;
@@ -3908,7 +3919,7 @@ groktypename (cp_decl_specifier_seq *type_specifiers,
   attrs = type_specifiers->attributes;
   type_specifiers->attributes = NULL_TREE;
   type = grokdeclarator (declarator, type_specifiers, TYPENAME, 0, &attrs);
-  if (attrs)
+  if (attrs && type != error_mark_node)
     {
       if (CLASS_TYPE_P (type))
 	warning (OPT_Wattributes, "ignoring attributes applied to class type %qT "
@@ -4993,11 +5004,11 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
       if (type == error_mark_node)
 	return NULL_TREE;
 
-      if (TYPE_HAS_CONSTRUCTOR (type) || TYPE_NEEDS_CONSTRUCTING (type))
+      if (TREE_CODE (type) == ARRAY_TYPE && TYPE_NEEDS_CONSTRUCTING (type))
+	goto initialize_aggr;
+      else if (CLASS_TYPE_P (type))
 	{
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    goto initialize_aggr;
-	  else if (TREE_CODE (init) == CONSTRUCTOR)
+	  if (TREE_CODE (init) == CONSTRUCTOR)
 	    {
 	      if (TYPE_NON_AGGREGATE_CLASS (type))
 		{
@@ -9582,7 +9593,8 @@ move_fn_p (const_tree d)
 
 /* Remember any special properties of member function DECL.  */
 
-void grok_special_member_properties (tree decl)
+void
+grok_special_member_properties (tree decl)
 {
   tree class_type;
 
@@ -9594,7 +9606,8 @@ void grok_special_member_properties (tree decl)
     {
       int ctor = copy_fn_p (decl);
 
-      TYPE_HAS_CONSTRUCTOR (class_type) = 1;
+      if (!DECL_ARTIFICIAL (decl))
+	TYPE_HAS_USER_CONSTRUCTOR (class_type) = 1;
 
       if (ctor > 0)
 	{

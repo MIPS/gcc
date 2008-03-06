@@ -607,10 +607,10 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
      We must convert it to a compare to 0 (e.g. EQ_EXPR (op1, 0)).
      All other unary operators have an equivalent GIMPLE unary operator.  */
   if (code == TRUTH_NOT_EXPR)
-    se->expr = build2 (EQ_EXPR, type, operand.expr,
-		       build_int_cst (type, 0));
+    se->expr = fold_build2 (EQ_EXPR, type, operand.expr,
+			    build_int_cst (type, 0));
   else
-    se->expr = build1 (code, type, operand.expr);
+    se->expr = fold_build1 (code, type, operand.expr);
 
 }
 
@@ -935,16 +935,14 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
       switch (kind)
 	{
 	case 4:
-	  fndecl = gfor_fndecl_math_cpowf;
+	  fndecl = built_in_decls[BUILT_IN_CPOWF];
 	  break;
 	case 8:
-	  fndecl = gfor_fndecl_math_cpow;
+	  fndecl = built_in_decls[BUILT_IN_CPOW];
 	  break;
 	case 10:
-	  fndecl = gfor_fndecl_math_cpowl10;
-	  break;
 	case 16:
-	  fndecl = gfor_fndecl_math_cpowl16;
+	  fndecl = built_in_decls[BUILT_IN_CPOWL];
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -1071,8 +1069,17 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   lop = 0;
   switch (expr->value.op.operator)
     {
-    case INTRINSIC_UPLUS:
     case INTRINSIC_PARENTHESES:
+      if (expr->ts.type == BT_REAL
+	  || expr->ts.type == BT_COMPLEX)
+	{
+	  gfc_conv_unary_op (PAREN_EXPR, se, expr);
+	  gcc_assert (FLOAT_TYPE_P (TREE_TYPE (se->expr)));
+	  return;
+	}
+
+      /* Fallthrough.  */
+    case INTRINSIC_UPLUS:
       gfc_conv_expr (se, expr->value.op.op1);
       return;
 
@@ -2263,6 +2270,13 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      argss = gfc_walk_expr (arg->expr);
 	      gfc_conv_array_parameter (se, arg->expr, argss, f);
 	    }
+
+	  /* TODO -- the following two lines shouldn't be necessary, but
+	    they're removed a bug is exposed later in the codepath.
+	    This is workaround was thus introduced, but will have to be
+	    removed; please see PR 35150 for details about the issue.  */
+	  se->expr = convert (pvoid_type_node, se->expr);
+	  se->expr = gfc_evaluate_now (se->expr, &se->pre);
 
 	  return 0;
 	}

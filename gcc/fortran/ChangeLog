@@ -1,3 +1,141 @@
+2008-02-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR target/25477
+	* trans-expr.c (gfc_conv_power_op): Use BUILT_IN_CPOW{F,,L}.
+	* f95-lang.c (gfc_init_builtin_functions): Define BUILT_IN_CPOW{F,,L}.
+	* trans.h (gfor_fndecl_math_cpow, gfor_fndecl_math_cpowf,
+	gfor_fndecl_math_cpowl10, gfor_fndecl_math_cpowl16): Remove.
+	* trans-decl.c: Likewise.
+
+2008-02-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34907
+	* iresolve.c (resolve_mask_arg): Add gfc_clear_ts to initialize
+	structure.
+	(gfc_resolve_aint): Likewise.
+	(gfc_resolve_anint): Likewise.
+	(gfc_resolve_besn): Likewise.
+	(gfc_resolve_cshift): Likewise.
+	(gfc_resolve_ctime): Likewise.
+	(gfc_resolve_eoshift): Likewise.
+	(gfc_resolve_index_func): Likewise.
+	(gfc_resolve_isatty): Likewise.
+	(gfc_resolve_malloc): Likewise.
+	(gfc_resolve_rrspacing): Likewise.
+	(gfc_resolve_scale): Likewise.
+	(gfc_resolve_set_exponent): Likewise.
+	(gfc_resolve_spacing): Likewise.
+	(gfc_resolve_spacing): Likewise.
+	(gfc_resolve_fgetc): Likewise.
+	(gfc_resolve_fputc): Likewise.
+	(gfc_resolve_ftell): Likewise.
+	(gfc_resolve_ttynam): Likewise.
+	(gfc_resolve_alarm_sub): Likewise.
+	(gfc_resolve_mvbits): Likewise.
+	(gfc_resolve_getarg): Likewise.
+	(gfc_resolve_signal_sub): Likewise.
+	(gfc_resolve_exit): Likewise.
+	(gfc_resolve_flush): Likewise.
+	(gfc_resolve_free): Likewise.
+	(gfc_resolve_ctime_sub): Likewise.
+	(gfc_resolve_fgetc_sub): Likewise.
+	(gfc_resolve_fputc_sub): Likewise.
+	(gfc_resolve_fseek_sub): Likewise.
+	(gfc_resolve_ftell_sub): Likewise.
+	(gfc_resolve_ttynam_sub): Likewise.
+
+2008-02-22  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* gfc-internals.texi: Fix typos and markup nits.
+	* gfortran.texi: Likewise.
+	* intrinsic.texi: Likewise.
+
+2008-02-21  Richard Guenther  <rguenther@suse.de>
+
+	* trans-expr.c (gfc_conv_expr_op): Expand INTRINSIC_PARENTHESES
+	as unary PAREN_EXPR for real and complex typed expressions.
+	(gfc_conv_unary_op): Fold the built tree.
+
+2008-02-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/34997
+	* match.c (gfc_match_name): Improve error message for '$'.
+
+2008-02-19  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/35030
+	* expr.c (gfc_check_pointer_assign): Add type and kind information
+	to type-mismatch message.
+	(gfc_check_assign): Unify error messages.
+
+2008-02-16  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/34952
+	* gfortran.texi: Create new section for unimplemented extensions.
+	Add "STRUCTURE and RECORD" and "ENCODE and DECODE statements".
+	Remove "smaller projects" list. Fix a few typos.
+
+2008-02-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* intrinsic.texi: Rename INDEX node to avoid clashing with
+	index.html on case-insensitive systems.
+
+2008-02-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35150
+	* trans-expr.c (gfc_conv_function_call): Force evaluation of
+	se->expr.
+
+2008-02-10  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/35019
+	* lang.opt: Allow '-J<dir>' next to '-J <dir>', 
+	likewise '-I <dir>' and '-I<dir>'.
+
+2008-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR other/35107
+	* Make-lang.in (f951): Add $(GMPLIBS).
+
+2008-02-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35037
+	* trans-common.c (build_field): Mark fields as volatile when needed.
+
+2008-02-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/35093
+	* data.c (gfc_assign_data_value): Only free "size" if
+	it has not already been freed.
+
+2008-02-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34945
+	* array.c (match_array_element_spec): Remove check for negative
+	array size.
+	(gfc_resolve_array_spec): Add check for negative size.
+
+2008-02-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32315
+	* data.c (gfc_assign_data_value): Add bounds check for array
+	references.
+
+2008-02-04  Daniel Franke  <franke.daniel@gmail.com>
+
+	* resolve.c (resolve_where): Fix typo.
+	(gfc_resolve_where_code_in_forall): Likewise.
+
+2008-02-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/32760
+	* resolve.c (resolve_allocate_deallocate): New function.
+	(resolve_code): Call it for allocate and deallocate.
+	* match.c (gfc_match_allocate, gfc_match_deallocate) : Remove
+	the checking of the STAT tag and put in above new function.
+	* primary,c (match_variable): Do not fix flavor of host
+	associated symbols yet if the type is not known.
+
 2008-01-31  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/34910
